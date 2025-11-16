@@ -55,6 +55,8 @@ jobs:
               run: pnpm run electron:package:mac
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  CSC_IDENTITY_AUTO_DISCOVERY: false
+                  DEBUG: electron-builder
 
             - name: List generated files
               run: |
