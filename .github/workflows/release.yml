@@ -51,12 +51,17 @@ jobs:
             - name: Build Electron TypeScript
               run: pnpm exec tsc -p electron
 
-            - name: Package for macOS
-              run: pnpm run electron:package:mac
+            - name: Package for macOS (x64)
+              run: electron-builder --mac --x64
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   CSC_IDENTITY_AUTO_DISCOVERY: false
-                  DEBUG: electron-builder
+
+            - name: Package for macOS (arm64)
+              run: electron-builder --mac --arm64
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  CSC_IDENTITY_AUTO_DISCOVERY: false
 
             - name: List generated files
               run: |

@@ -8,25 +8,13 @@
     "output": "dist/"
   },
   "mac": {
-    "target": [
-      {
-        "target": "dmg",
-        "arch": ["x64", "arm64"]
-      },
-      {
-        "target": "zip",
-        "arch": ["x64", "arm64"]
-      }
-    ],
+    "target": "zip",
     "icon": "public/icon.icns",
     "category": "public.app-category.sports",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "identity": null,
     "notarize": false,
     "hardenedRuntime": false
-  },
-  "dmg": {
-    "artifactName": "${productName}-${version}.${ext}"
   },
   "win": {
     "target": "nsis",
