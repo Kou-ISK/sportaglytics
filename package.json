@@ -1,7 +1,7 @@
 {
-  "name": "tag-my-video",
+  "name": "sportaglytics",
   "version": "0.1.0",
-  "description": "Video tagging application for sports analysis",
+  "description": "Sports video tagging and analytics application",
   "private": true,
   "packageManager": "pnpm@9.1.0",
   "engines": {
@@ -88,6 +88,6 @@
     "electron": "^31.6.0",
     "electron-builder": "^25.0.5"
   },
-  "repository": "https://github.com/Kou-ISK/tag-my-video.git",
+  "repository": "https://github.com/Kou-ISK/sportaglytics.git",
   "license": "MIT"
 }

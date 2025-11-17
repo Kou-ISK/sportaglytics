@@ -216,7 +216,7 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
                   backgroundClip: 'text',
                 }}
               >
-                Tag My Video
+                SporTagLytics
               </Typography>
               <Typography variant="h6" color="text.secondary" gutterBottom>
                 映像分析を効率化する、プロフェッショナルなタグ付けツール

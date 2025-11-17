@@ -1,7 +1,7 @@
 {
   "extends": null,
-  "appId": "com.kouisk.tagmyvideo",
-  "productName": "Tag My Video",
+  "appId": "com.kouisk.sportaglytics",
+  "productName": "SporTagLytics",
   "files": ["build/**/*"],
   "directories": {
     "buildResources": "public",

@@ -1,4 +1,4 @@
-# Technical Instructions - Tag My Video
+# Technical Instructions - SporTagLytics
 
 ## アーキテクチャ概要
 
@@ -17,7 +17,7 @@
 ## プロジェクト構造
 
 ```
-tag-my-video/
+sportaglytics/
 ├── electron/                # Electronメインプロセス
 │   ├── src/
 │   │   ├── main.ts         # メインプロセスのエントリーポイント

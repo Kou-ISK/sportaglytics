@@ -9,7 +9,7 @@ export interface RecentPackage {
   videoCount: number;
 }
 
-const STORAGE_KEY = 'tag-my-video-recent-packages';
+const STORAGE_KEY = 'sportaglytics-recent-packages';
 const MAX_RECENT_PACKAGES = 6;
 
 export const useRecentPackages = () => {

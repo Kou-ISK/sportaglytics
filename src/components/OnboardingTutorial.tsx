@@ -24,11 +24,11 @@ interface TutorialStep {
   tips?: string[];
 }
 
-export const ONBOARDING_STORAGE_KEY = 'tag-my-video-onboarding-completed';
+export const ONBOARDING_STORAGE_KEY = 'sportaglytics-onboarding-completed';
 
 const tutorialSteps: TutorialStep[] = [
   {
-    title: 'Tag My Videoへようこそ',
+    title: 'SporTagLyticsへようこそ',
     description:
       '映像分析を効率化するための強力なツールです。このチュートリアルでは、主要な機能を簡単にご紹介します。',
     icon: <TimelineIcon sx={{ fontSize: 80, color: 'primary.main' }} />,

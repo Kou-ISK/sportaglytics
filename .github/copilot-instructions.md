@@ -1,4 +1,4 @@
-# Copilot への基本指示（Tag My Video）
+# Copilot への基本指示（SporTagLytics）
 
 このリポジトリでコード提案を行う際は、以下の方針を常に優先してください。
 
