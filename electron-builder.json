@@ -8,7 +8,10 @@
     "output": "dist/"
   },
   "mac": {
-    "target": "zip",
+    "target": {
+      "target": "zip",
+      "arch": ["x64", "arm64"]
+    },
     "icon": "public/icon.icns",
     "category": "public.app-category.sports",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
