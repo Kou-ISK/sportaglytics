@@ -59,6 +59,7 @@
     "eject": "react-scripts eject",
     "electron:start": "pnpm run build && pnpm exec tsc -p electron && electron .",
     "electron:build": "pnpm run build && pnpm exec tsc -p electron && electron-builder",
+    "electron:package:mac": "pnpm run build && pnpm exec tsc -p electron && electron-builder --mac --x64 --arm64",
     "electron:dev": "concurrently \"pnpm start\" \"wait-on http://localhost:3000 && pnpm run electron:start\""
   },
   "eslintConfig": {

@@ -32,16 +32,22 @@ Tag My Videoは、スポーツ（特にラグビー）の映像分析を効率�
 ### macOS (Homebrew) - 推奨
 
 ```bash
-# Coming soon - Homebrew Caskからインストール予定
+# Homebrew Tapを追加（初回のみ）
+brew tap Kou-ISK/tap
+
+# Tag My Videoをインストール
 brew install --cask tag-my-video
+
+# アップデート
+brew upgrade --cask tag-my-video
 ```
 
 ### 手動インストール
 
 1. [Releases](https://github.com/Kou-ISK/tag-my-video/releases)から最新版をダウンロード
-2. macOS: `Tag-My-Video-x.x.x.dmg` をダウンロードしてインストール
-3. Windows: `Tag-My-Video-Setup-x.x.x.exe` をダウンロードして実行
-4. Linux: `Tag-My-Video-x.x.x.AppImage` をダウンロードして実行権限を付与
+2. macOS: `Tag My Video-0.1.0-arm64.zip` (Apple Silicon) または `Tag My Video-0.1.0-x64.zip` (Intel) をダウンロードして展開
+3. Windows: `Tag-My-Video-Setup-0.1.0.exe` をダウンロードして実行
+4. Linux: `Tag-My-Video-0.1.0.AppImage` をダウンロードして実行権限を付与
 
 ---
 
