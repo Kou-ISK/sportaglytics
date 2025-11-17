@@ -53,17 +53,15 @@ jobs:
 
             - name: Package for macOS (x64)
               timeout-minutes: 10
-              run: pnpm exec electron-builder --mac --x64 -c.compression=store --config.generateUpdatesFilesForAllChannels=false -c.electronUpdaterCompatibility='>=0.0.0'
+              run: pnpm exec electron-builder --mac --x64 -c.compression=store
               env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   CSC_IDENTITY_AUTO_DISCOVERY: false
                   DEBUG: electron-builder
 
             - name: Package for macOS (arm64)
               timeout-minutes: 10
-              run: pnpm exec electron-builder --mac --arm64 -c.compression=store --config.generateUpdatesFilesForAllChannels=false -c.electronUpdaterCompatibility='>=0.0.0'
+              run: pnpm exec electron-builder --mac --arm64 -c.compression=store
               env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   CSC_IDENTITY_AUTO_DISCOVERY: false
                   DEBUG: electron-builder
 
