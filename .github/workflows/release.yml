@@ -91,9 +91,9 @@ jobs:
             - name: Calculate SHA256 for arm64
               id: sha256_arm64
               run: |
-                  echo "Looking for: ./dist/Tag My Video-${{ steps.get_version.outputs.VERSION }}-arm64.zip"
-                  if [ -f "./dist/Tag My Video-${{ steps.get_version.outputs.VERSION }}-arm64.zip" ]; then
-                      SHA256=$(shasum -a 256 "./dist/Tag My Video-${{ steps.get_version.outputs.VERSION }}-arm64.zip" | awk '{print $1}')
+                  echo "Looking for: ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.zip"
+                  if [ -f "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.zip" ]; then
+                      SHA256=$(shasum -a 256 "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.zip" | awk '{print $1}')
                       echo "SHA256_ARM64=$SHA256" >> $GITHUB_OUTPUT
                       echo "arm64 SHA256: $SHA256"
                   else
@@ -104,9 +104,9 @@ jobs:
             - name: Calculate SHA256 for x64
               id: sha256_x64
               run: |
-                  echo "Looking for: ./dist/Tag My Video-${{ steps.get_version.outputs.VERSION }}-x64.zip"
-                  if [ -f "./dist/Tag My Video-${{ steps.get_version.outputs.VERSION }}-x64.zip" ]; then
-                      SHA256=$(shasum -a 256 "./dist/Tag My Video-${{ steps.get_version.outputs.VERSION }}-x64.zip" | awk '{print $1}')
+                  echo "Looking for: ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.zip"
+                  if [ -f "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.zip" ]; then
+                      SHA256=$(shasum -a 256 "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.zip" | awk '{print $1}')
                       echo "SHA256_X64=$SHA256" >> $GITHUB_OUTPUT
                       echo "x64 SHA256: $SHA256"
                   else
@@ -127,8 +127,8 @@ jobs:
               with:
                   tag_name: v${{ steps.get_version.outputs.VERSION }}
                   files: |
-                      ./dist/Tag My Video-${{ steps.get_version.outputs.VERSION }}-arm64.zip
-                      ./dist/Tag My Video-${{ steps.get_version.outputs.VERSION }}-x64.zip
+                      ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.zip
+                      ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.zip
                   generate_release_notes: true
                   draft: false
                   prerelease: false
@@ -145,29 +145,29 @@ jobs:
                   mkdir -p Casks
 
                   # Cask formulaを生成
-                  cat > Casks/tag-my-video.rb << 'EOF'
-                  cask "tag-my-video" do
+                  cat > Casks/sportaglytics.rb << 'EOF'
+                  cask "sportaglytics" do
                     version "${{ steps.get_version.outputs.VERSION }}"
                     sha256 arm:   "${{ steps.sha256_arm64.outputs.SHA256_ARM64 }}",
                            intel: "${{ steps.sha256_x64.outputs.SHA256_X64 }}"
 
-                    url "https://github.com/Kou-ISK/tag-my-video/releases/download/v#{version}/Tag My Video-#{version}-#{Hardware::CPU.arch}.zip",
-                        verified: "github.com/Kou-ISK/tag-my-video/"
-                    name "Tag My Video"
+                    url "https://github.com/Kou-ISK/sportaglytics/releases/download/v#{version}/SporTagLytics-#{version}-#{Hardware::CPU.arch}.zip",
+                        verified: "github.com/Kou-ISK/sportaglytics/"
+                    name "SporTagLytics"
                     desc "Video tagging application for sports analysis"
-                    homepage "https://github.com/Kou-ISK/tag-my-video"
+                    homepage "https://github.com/Kou-ISK/sportaglytics"
 
                     livecheck do
                       url :url
                       strategy :github_latest
                     end
 
-                    app "Tag My Video.app"
+                    app "SporTagLytics.app"
 
                     zap trash: [
-                      "~/Library/Application Support/tag-my-video",
-                      "~/Library/Preferences/com.kouisk.tagmyvideo.plist",
-                      "~/Library/Saved Application State/com.kouisk.tagmyvideo.savedState",
+                      "~/Library/Application Support/sportaglytics",
+                      "~/Library/Preferences/com.kouisk.sportaglytics.plist",
+                      "~/Library/Saved Application State/com.kouisk.sportaglytics.savedState",
                     ]
                   end
                   EOF
@@ -175,8 +175,8 @@ jobs:
                   # Git設定とコミット
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
-                  git add Casks/tag-my-video.rb
-                  git diff --staged --quiet || git commit -m "Update tag-my-video to v${{ steps.get_version.outputs.VERSION }}"
+                  git add Casks/sportaglytics.rb
+                  git diff --staged --quiet || git commit -m "Update sportaglytics to v${{ steps.get_version.outputs.VERSION }}"
                   git push
               env:
                   HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

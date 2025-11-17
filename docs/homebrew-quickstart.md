@@ -1,11 +1,11 @@
 # Homebrew配布 クイックスタートガイド
 
-このガイドでは、Tag My VideoをHomebrewで**完全自動配布**する最小限の手順を説明します。
+このガイドでは、SporTagLyticsをHomebrewで**完全自動配布**する最小限の手順を説明します。
 
 ## 📋 必要なもの
 
 - [ ] GitHubアカウント
-- [ ] tag-my-videoリポジトリへの管理者権限
+- [ ] sportaglyticsリポジトリへの管理者権限
 - [ ] 5分程度の作業時間（初回のみ）
 
 ## 🚀 初回セットアップ（3ステップ）
@@ -33,7 +33,7 @@
 
 ### ステップ3: GitHub Secretsに登録
 
-1. https://github.com/Kou-ISK/tag-my-video/settings/secrets/actions にアクセス
+1. https://github.com/Kou-ISK/sportaglytics/settings/secrets/actions にアクセス
 2. "New repository secret" をクリック
 3. 以下を入力:
    - Name: `HOMEBREW_TAP_TOKEN`
@@ -70,13 +70,13 @@ git push origin v0.2.0
 ```bash
 # ユーザーのインストール方法
 brew tap Kou-ISK/tap
-brew install --cask tag-my-video
+brew install --cask sportaglytics
 
 # 起動確認
-open -a "Tag My Video"
+open -a "SporTagLytics"
 ```
 
-# homebrew/tag-my-video.rb を更新
+# homebrew/sportaglytics.rb を更新
 
 ## 📚 詳細情報
 
@@ -86,7 +86,7 @@ open -a "Tag My Video"
 
 ### GitHub Actionsが失敗する
 
-1. https://github.com/Kou-ISK/tag-my-video/actions で失敗したワークフローをクリック
+1. https://github.com/Kou-ISK/sportaglytics/actions で失敗したワークフローをクリック
 2. エラーメッセージを確認
 3. よくある原因:
    - `HOMEBREW_TAP_TOKEN`が設定されていない
@@ -102,7 +102,7 @@ brew update
 # Tapを再取得
 brew untap Kou-ISK/tap
 brew tap Kou-ISK/tap
-brew install --cask tag-my-video
+brew install --cask sportaglytics
 ```
 
 ### ビルドが失敗する

@@ -1,10 +1,10 @@
-# Tag My Video
+# SporTagLytics
 
 スポーツビデオ分析のための映像タグ付けElectronアプリケーション
 
 ## 概要
 
-Tag My Videoは、スポーツ（特にラグビー）の映像分析を効率化するためのデスクトップアプリケーションです。複数の映像を同期再生しながら、プレーイベントをリアルタイムでタグ付けし、統計分析やグラフ化を行えます。
+SporTagLyticsは、スポーツ（特にラグビー）の映像分析を効率化するためのデスクトップアプリケーションです。複数の映像を同期再生しながら、プレーイベントをリアルタイムでタグ付けし、統計分析やグラフ化を行えます。
 
 ### 主な機能
 
@@ -35,19 +35,19 @@ Tag My Videoは、スポーツ（特にラグビー）の映像分析を効率�
 # Homebrew Tapを追加（初回のみ）
 brew tap Kou-ISK/tap
 
-# Tag My Videoをインストール
-brew install --cask tag-my-video
+# SporTagLyticsをインストール
+brew install --cask sportaglytics
 
 # アップデート
-brew upgrade --cask tag-my-video
+brew upgrade --cask sportaglytics
 ```
 
 ### 手動インストール
 
-1. [Releases](https://github.com/Kou-ISK/tag-my-video/releases)から最新版をダウンロード
-2. macOS: `Tag My Video-0.1.0-arm64.zip` (Apple Silicon) または `Tag My Video-0.1.0-x64.zip` (Intel) をダウンロードして展開
-3. Windows: `Tag-My-Video-Setup-0.1.0.exe` をダウンロードして実行
-4. Linux: `Tag-My-Video-0.1.0.AppImage` をダウンロードして実行権限を付与
+1. [Releases](https://github.com/Kou-ISK/sportaglytics/releases)から最新版をダウンロード
+2. macOS: `SporTagLytics-0.1.0-arm64.zip` (Apple Silicon) または `SporTagLytics-0.1.0-x64.zip` (Intel) をダウンロードして展開
+3. Windows: `SporTagLytics-Setup-0.1.0.exe` をダウンロードして実行
+4. Linux: `SporTagLytics-0.1.0.AppImage` をダウンロードして実行権限を付与
 
 ---
 
@@ -408,4 +408,4 @@ MIT
 
 ## リポジトリ
 
-https://github.com/Kou-ISK/tag-my-video
+https://github.com/Kou-ISK/sportaglytics

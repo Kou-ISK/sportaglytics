@@ -1,6 +1,6 @@
 # Homebrew配布ガイド（完全自動化版）
 
-このドキュメントでは、Tag My VideoをHomebrew Caskで**完全自動配布**するための手順を説明します。
+このドキュメントでは、SporTagLyticsをHomebrew Caskで**完全自動配布**するための手順を説明します。
 
 ## 配布方式
 
@@ -19,7 +19,7 @@
 ```bash
 # ユーザーのインストール方法（シンプル！）
 brew tap Kou-ISK/tap
-brew install --cask tag-my-video
+brew install --cask sportaglytics
 ```
 
 ## 初回セットアップ手順
@@ -47,7 +47,7 @@ brew install --cask tag-my-video
 
 ### 3. GitHub Secretsに登録
 
-1. https://github.com/Kou-ISK/tag-my-video/settings/secrets/actions にアクセス
+1. https://github.com/Kou-ISK/sportaglytics/settings/secrets/actions にアクセス
 2. "New repository secret" をクリック
 3. 以下を入力:
    - Name: `HOMEBREW_TAP_TOKEN`
@@ -109,13 +109,13 @@ GitHub Actionsが以下を自動実行します:
 
 ### 4. 完了確認
 
-- Releaseページを確認: https://github.com/Kou-ISK/tag-my-video/releases
+- Releaseページを確認: https://github.com/Kou-ISK/sportaglytics/releases
 - Homebrew Tapが自動更新されたことを確認: https://github.com/Kou-ISK/homebrew-tap
 
 ### 5. ユーザーが更新可能に
 
 ```bash
-brew upgrade --cask tag-my-video
+brew upgrade --cask sportaglytics
 ```
 
 **これだけ！手動作業は一切不要です。**
@@ -127,13 +127,13 @@ brew upgrade --cask tag-my-video
 brew tap Kou-ISK/tap
 
 # インストール
-brew install --cask tag-my-video
+brew install --cask sportaglytics
 
 # アップデート
-brew upgrade --cask tag-my-video
+brew upgrade --cask sportaglytics
 
 # アンインストール
-brew uninstall --cask tag-my-video
+brew uninstall --cask sportaglytics
 ```
 
 ## トラブルシューティング
@@ -163,7 +163,7 @@ brew cleanup
 # Tapを再取得
 brew untap Kou-ISK/tap
 brew tap Kou-ISK/tap
-brew install --cask tag-my-video
+brew install --cask sportaglytics
 ```
 
 ### macOS Gatekeeperエラー

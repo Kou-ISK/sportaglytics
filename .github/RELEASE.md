@@ -1,6 +1,6 @@
 # リリース手順
 
-このドキュメントでは、Tag My Videoの新バージョンをリリースする手順を説明します。
+このドキュメントでは、SporTagLyticsの新バージョンをリリースする手順を説明します。
 
 ## 自動ビルドとリリース
 
@@ -38,18 +38,18 @@ git push origin v0.2.0
 
 タグをプッシュすると、GitHub Actionsが自動的に以下を実行します：
 
-1. **macOS**: `Tag-My-Video-0.2.0.dmg` をビルド
-2. **Windows**: `Tag-My-Video-Setup-0.2.0.exe` をビルド
-3. **Linux**: `Tag-My-Video-0.2.0.AppImage` をビルド
+1. **macOS**: `SporTagLytics-0.2.0.dmg` をビルド
+2. **Windows**: `SporTagLytics-Setup-0.2.0.exe` をビルド
+3. **Linux**: `SporTagLytics-0.2.0.AppImage` をビルド
 4. **GitHub Release**: 上記ファイルを含むリリースを自動作成
 
-ビルドの進行状況は[Actions](https://github.com/Kou-ISK/tag-my-video/actions)タブで確認できます。
+ビルドの進行状況は[Actions](https://github.com/Kou-ISK/sportaglytics/actions)タブで確認できます。
 
 ### 5. リリースノートの編集（任意）
 
 GitHub上で自動生成されたリリースノートを編集できます：
 
-1. [Releases](https://github.com/Kou-ISK/tag-my-video/releases)ページに移動
+1. [Releases](https://github.com/Kou-ISK/sportaglytics/releases)ページに移動
 2. 最新リリースの「Edit release」をクリック
 3. リリースノートを編集して「Update release」
 
@@ -77,7 +77,7 @@ pnpm exec electron-builder --linux
 
 GitHubのActionsタブから手動でビルドをトリガーできます：
 
-1. [Actions](https://github.com/Kou-ISK/tag-my-video/actions)タブに移動
+1. [Actions](https://github.com/Kou-ISK/sportaglytics/actions)タブに移動
 2. 「Build and Release」ワークフローを選択
 3. 「Run workflow」ボタンをクリック
 4. バージョン（任意）を入力して「Run workflow」
@@ -89,7 +89,7 @@ GitHubのActionsタブから手動でビルドをトリガーできます：
 1. リリース後、DMGファイルのSHA256を取得：
 
    ```bash
-   curl -L https://github.com/Kou-ISK/tag-my-video/releases/download/v0.2.0/Tag-My-Video-0.2.0.dmg | shasum -a 256
+   curl -L https://github.com/Kou-ISK/sportaglytics/releases/download/v0.2.0/SporTagLytics-0.2.0.dmg | shasum -a 256
    ```
 
 2. [homebrew-cask](https://github.com/Homebrew/homebrew-cask)にPRを送信
@@ -98,26 +98,26 @@ GitHubのActionsタブから手動でビルドをトリガーできます：
 ### オプション2: 独自Tapの作成
 
 1. `homebrew-tap`という名前のリポジトリを作成
-2. `Casks/tag-my-video.rb`を追加：
+2. `Casks/sportaglytics.rb`を追加：
 
    ```ruby
-   cask "tag-my-video" do
+   cask "sportaglytics" do
      version "0.2.0"
      sha256 "YOUR_SHA256_HERE"
 
-     url "https://github.com/Kou-ISK/tag-my-video/releases/download/v#{version}/Tag-My-Video-#{version}.dmg"
-     name "Tag My Video"
+     url "https://github.com/Kou-ISK/sportaglytics/releases/download/v#{version}/SporTagLytics-#{version}.dmg"
+     name "SporTagLytics"
      desc "Video tagging application for sports analysis"
-     homepage "https://github.com/Kou-ISK/tag-my-video"
+     homepage "https://github.com/Kou-ISK/sportaglytics"
 
-     app "Tag My Video.app"
+     app "SporTagLytics.app"
    end
    ```
 
 3. ユーザーは以下でインストール可能：
    ```bash
    brew tap Kou-ISK/tap
-   brew install --cask tag-my-video
+   brew install --cask sportaglytics
    ```
 
 ## トラブルシューティング

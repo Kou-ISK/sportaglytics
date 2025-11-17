@@ -3,7 +3,8 @@ const path = require('path');
 const fs = require('fs');
 
 // Electronアプリの初期化なしで実行
-const userDataPath = process.env.HOME + '/Library/Application Support/tag-my-video';
+const userDataPath =
+  process.env.HOME + '/Library/Application Support/sportaglytics';
 const settingsPath = path.join(userDataPath, 'settings.json');
 
 console.log('設定ファイルパス:', settingsPath);

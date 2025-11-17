@@ -1,4 +1,4 @@
-# Tag My Video - 技術仕様書
+# SporTagLytics - 技術仕様書
 
 ---
 
@@ -496,7 +496,7 @@ MIT
 
 ## 13. 参考資料
 
-- [プロジェクトリポジトリ](https://github.com/Kou-ISK/tag-my-video)
+- [プロジェクトリポジトリ](https://github.com/Kou-ISK/sportaglytics)
 - [Copilot基本指示](.github/copilot-instructions.md)
 - [TypeScript指示](.github/instructions/typescript.instructions.md)
 - [TSX指示](.github/instructions/tsx.instructions.md)

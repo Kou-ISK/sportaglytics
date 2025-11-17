@@ -1,13 +1,13 @@
-# Homebrew Cask for Tag My Video
+# Homebrew Cask for SporTagLytics
 
-This directory contains the Homebrew Cask formula for installing Tag My Video on macOS.
+This directory contains the Homebrew Cask formula for installing SporTagLytics on macOS.
 
 ## For Users
 
-To install Tag My Video via Homebrew:
+To install SporTagLytics via Homebrew:
 
 ```bash
-brew install --cask tag-my-video
+brew install --cask sportaglytics
 ```
 
 ## For Maintainers
@@ -28,26 +28,26 @@ brew install --cask tag-my-video
 After a release is created, submit to homebrew-cask or maintain in your own tap:
 
 ```ruby
-cask "tag-my-video" do
+cask "sportaglytics" do
   version "0.1.0"
   sha256 "YOUR_SHA256_HERE"
 
-  url "https://github.com/Kou-ISK/tag-my-video/releases/download/v#{version}/Tag-My-Video-#{version}.dmg"
-  name "Tag My Video"
+  url "https://github.com/Kou-ISK/sportaglytics/releases/download/v#{version}/SporTagLytics-#{version}.dmg"
+  name "SporTagLytics"
   desc "Video tagging application for sports analysis"
-  homepage "https://github.com/Kou-ISK/tag-my-video"
+  homepage "https://github.com/Kou-ISK/sportaglytics"
 
   livecheck do
     url :url
     strategy :github_latest
   end
 
-  app "Tag My Video.app"
+  app "SporTagLytics.app"
 
   zap trash: [
-    "~/Library/Application Support/tag-my-video",
-    "~/Library/Preferences/com.kouisk.tagmyvideo.plist",
-    "~/Library/Saved Application State/com.kouisk.tagmyvideo.savedState",
+    "~/Library/Application Support/sportaglytics",
+    "~/Library/Preferences/com.kouisk.sportaglytics.plist",
+    "~/Library/Saved Application State/com.kouisk.sportaglytics.savedState",
   ]
 end
 ```
@@ -57,13 +57,13 @@ end
 After GitHub Actions builds and releases the DMG:
 
 ```bash
-curl -L https://github.com/Kou-ISK/tag-my-video/releases/download/v0.1.0/Tag-My-Video-0.1.0.dmg | shasum -a 256
+curl -L https://github.com/Kou-ISK/sportaglytics/releases/download/v0.1.0/SporTagLytics-0.1.0.dmg | shasum -a 256
 ```
 
 Or download the DMG and run:
 
 ```bash
-shasum -a 256 Tag-My-Video-0.1.0.dmg
+shasum -a 256 SporTagLytics-0.1.0.dmg
 ```
 
 ### Creating Your Own Tap (Optional)
@@ -71,11 +71,11 @@ shasum -a 256 Tag-My-Video-0.1.0.dmg
 If you want to maintain your own Homebrew tap:
 
 1. Create a repository named `homebrew-tap`
-2. Add the cask formula to `Casks/tag-my-video.rb`
+2. Add the cask formula to `Casks/sportaglytics.rb`
 3. Users can then install with:
    ```bash
    brew tap Kou-ISK/tap
-   brew install --cask tag-my-video
+   brew install --cask sportaglytics
    ```
 
 ## Automated Updates
