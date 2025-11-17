@@ -53,7 +53,7 @@ jobs:
 
             - name: Package for macOS (x64)
               timeout-minutes: 10
-              run: pnpm exec electron-builder --mac --x64 -c.compression=store
+              run: pnpm exec electron-builder --mac --x64 -c.compression=store --config.generateUpdatesFilesForAllChannels=false -c.electronUpdaterCompatibility='>=0.0.0'
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -61,7 +61,7 @@ jobs:
 
             - name: Package for macOS (arm64)
               timeout-minutes: 10
-              run: pnpm exec electron-builder --mac --arm64 -c.compression=store
+              run: pnpm exec electron-builder --mac --arm64 -c.compression=store --config.generateUpdatesFilesForAllChannels=false -c.electronUpdaterCompatibility='>=0.0.0'
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -73,6 +73,13 @@ jobs:
                   ls -lah ./dist/
                   echo "=== Looking for zip files ==="
                   find ./dist -name "*.zip" -type f
+
+            - name: Clean up blockmap files
+              run: |
+                  echo "Removing .blockmap files..."
+                  rm -f ./dist/*.blockmap
+                  echo "Remaining files:"
+                  ls -lah ./dist/
 
             - name: Get version from package.json
               id: get_version
