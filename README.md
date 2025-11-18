@@ -42,6 +42,21 @@ brew install --cask sportaglytics
 brew upgrade --cask sportaglytics
 ```
 
+#### 初回起動時の注意 ⚠️
+
+macOS Gatekeeper により「"SporTagLytics" は壊れているため開けません」という警告が表示される場合があります。
+これは Apple による署名がないためで、アプリ自体に問題はありません。
+
+**解決方法:**
+
+ターミナルで以下を実行してください：
+
+```bash
+sudo xattr -cr /Applications/SporTagLytics.app
+```
+
+その後、アプリケーションフォルダから通常通り起動できます。
+
 ### 手動インストール
 
 1. [Releases](https://github.com/Kou-ISK/sportaglytics/releases)から最新版をダウンロード

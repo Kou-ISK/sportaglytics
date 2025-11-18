@@ -25,7 +25,8 @@
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "identity": null,
     "notarize": false,
-    "hardenedRuntime": false
+    "hardenedRuntime": false,
+    "signIgnore": ".*"
   },
   "win": {
     "target": "nsis",
