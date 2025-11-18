@@ -2,14 +2,22 @@
   "extends": null,
   "appId": "com.kouisk.sportaglytics",
   "productName": "SporTagLytics",
-  "files": ["build/**/*"],
+  "files": [
+    "build/**/*",
+    "!build/**/*.map",
+    "!build/**/*.LICENSE.txt",
+    "!node_modules/**/*",
+    "node_modules/electron-is-dev/**/*",
+    "node_modules/js-yaml/**/*"
+  ],
+  "compression": "maximum",
   "directories": {
     "buildResources": "public",
     "output": "dist/"
   },
   "mac": {
     "target": {
-      "target": "zip",
+      "target": "dmg",
       "arch": ["x64", "arm64"]
     },
     "icon": "public/icon.icns",

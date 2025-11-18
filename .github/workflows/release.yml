@@ -1,182 +1,182 @@
 name: Release
 
 on:
-    push:
-        tags:
-            - "v*"
-    workflow_dispatch:
-        inputs:
-            version:
-                description: "Version to release (e.g., 0.1.0)"
-                required: true
-                default: "0.1.0"
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 0.1.0)"
+        required: true
+        default: "0.1.0"
 
 jobs:
-    release:
-        runs-on: macos-latest
+  release:
+    runs-on: macos-latest
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "20"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v2
-              with:
-                  version: 9
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
 
-            - name: Get pnpm store directory
-              shell: bash
-              run: |
-                  echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-            - name: Setup pnpm cache
-              uses: actions/cache@v4
-              with:
-                  path: ${{ env.STORE_PATH }}
-                  key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-                  restore-keys: |
-                      ${{ runner.os }}-pnpm-store-
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
-            - name: Install dependencies
-              run: pnpm install
+      - name: Install dependencies
+        run: pnpm install
 
-            - name: Build React app
-              run: pnpm run build
+      - name: Build React app
+        run: pnpm run build
 
-            - name: Build Electron TypeScript
-              run: pnpm exec tsc -p electron
+      - name: Build Electron TypeScript
+        run: pnpm exec tsc -p electron
 
-            - name: Package for macOS (x64)
-              timeout-minutes: 10
-              run: pnpm exec electron-builder --mac --x64 -c.compression=store --publish never
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  CSC_IDENTITY_AUTO_DISCOVERY: false
-                  DEBUG: electron-builder
+      - name: Package for macOS (x64)
+        timeout-minutes: 10
+        run: pnpm exec electron-builder --mac --x64 --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          DEBUG: electron-builder
 
-            - name: Package for macOS (arm64)
-              timeout-minutes: 10
-              run: pnpm exec electron-builder --mac --arm64 -c.compression=store --publish never
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  CSC_IDENTITY_AUTO_DISCOVERY: false
-                  DEBUG: electron-builder
+      - name: Package for macOS (arm64)
+        timeout-minutes: 10
+        run: pnpm exec electron-builder --mac --arm64 --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          DEBUG: electron-builder
 
-            - name: List generated files
-              run: |
-                  echo "=== Contents of dist directory ==="
-                  ls -lah ./dist/
-                  echo "=== Looking for zip files ==="
-                  find ./dist -name "*.zip" -type f
+      - name: List generated files
+        run: |
+          echo "=== Contents of dist directory ==="
+          ls -lah ./dist/
+          echo "=== Looking for dmg files ==="
+          find ./dist -name "*.dmg" -type f
 
-            - name: Clean up blockmap files
-              run: |
-                  echo "Removing .blockmap files..."
-                  rm -f ./dist/*.blockmap
-                  echo "Remaining files:"
-                  ls -lah ./dist/
+      - name: Clean up blockmap files
+        run: |
+          echo "Removing .blockmap files..."
+          rm -f ./dist/*.blockmap
+          echo "Remaining files:"
+          ls -lah ./dist/
 
-            - name: Get version from package.json
-              id: get_version
-              run: |
-                  VERSION=$(node -p "require('./package.json').version")
-                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-                  echo "Detected version: $VERSION"
+      - name: Get version from package.json
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
 
-            - name: Calculate SHA256 for arm64
-              id: sha256_arm64
-              run: |
-                  echo "Looking for: ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.zip"
-                  if [ -f "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.zip" ]; then
-                      SHA256=$(shasum -a 256 "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.zip" | awk '{print $1}')
-                      echo "SHA256_ARM64=$SHA256" >> $GITHUB_OUTPUT
-                      echo "arm64 SHA256: $SHA256"
-                  else
-                      echo "ERROR: arm64 zip file not found!"
-                      exit 1
-                  fi
+      - name: Calculate SHA256 for arm64
+        id: sha256_arm64
+        run: |
+          echo "Looking for: ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.dmg"
+          if [ -f "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.dmg" ]; then
+              SHA256=$(shasum -a 256 "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.dmg" | awk '{print $1}')
+              echo "SHA256_ARM64=$SHA256" >> $GITHUB_OUTPUT
+              echo "arm64 SHA256: $SHA256"
+          else
+              echo "ERROR: arm64 dmg file not found!"
+              exit 1
+          fi
 
-            - name: Calculate SHA256 for x64
-              id: sha256_x64
-              run: |
-                  echo "Looking for: ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.zip"
-                  if [ -f "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.zip" ]; then
-                      SHA256=$(shasum -a 256 "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.zip" | awk '{print $1}')
-                      echo "SHA256_X64=$SHA256" >> $GITHUB_OUTPUT
-                      echo "x64 SHA256: $SHA256"
-                  else
-                      echo "ERROR: x64 zip file not found!"
-                      exit 1
-                  fi
+      - name: Calculate SHA256 for x64
+        id: sha256_x64
+        run: |
+          echo "Looking for: ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.dmg"
+          if [ -f "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.dmg" ]; then
+              SHA256=$(shasum -a 256 "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.dmg" | awk '{print $1}')
+              echo "SHA256_X64=$SHA256" >> $GITHUB_OUTPUT
+              echo "x64 SHA256: $SHA256"
+          else
+              echo "ERROR: x64 dmg file not found!"
+              exit 1
+          fi
 
-            - name: Delete existing release (if exists)
-              continue-on-error: true
-              run: |
-                  gh release delete v${{ steps.get_version.outputs.VERSION }} --yes --cleanup-tag
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Delete existing release (if exists)
+        continue-on-error: true
+        run: |
+          gh release delete v${{ steps.get_version.outputs.VERSION }} --yes --cleanup-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Create Release
-              id: create_release
-              uses: softprops/action-gh-release@v1
-              with:
-                  tag_name: v${{ steps.get_version.outputs.VERSION }}
-                  files: |
-                      ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.zip
-                      ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.zip
-                  generate_release_notes: true
-                  draft: false
-                  prerelease: false
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
+          files: |
+            ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.dmg
+            ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.dmg
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Update Homebrew Tap
-              run: |
-                  # homebrew-tapリポジトリをクローン
-                  git clone https://${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/Kou-ISK/homebrew-tap.git
-                  cd homebrew-tap
+      - name: Update Homebrew Tap
+        run: |
+          # homebrew-tapリポジトリをクローン
+          git clone https://${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/Kou-ISK/homebrew-tap.git
+          cd homebrew-tap
 
-                  # Casksディレクトリを作成（初回のみ）
-                  mkdir -p Casks
+          # Casksディレクトリを作成（初回のみ）
+          mkdir -p Casks
 
-                  # Cask formulaを生成
-                  cat > Casks/sportaglytics.rb << 'EOF'
-                  cask "sportaglytics" do
-                    version "${{ steps.get_version.outputs.VERSION }}"
-                    sha256 arm:   "${{ steps.sha256_arm64.outputs.SHA256_ARM64 }}",
-                           intel: "${{ steps.sha256_x64.outputs.SHA256_X64 }}"
+          # Cask formulaを生成
+          cat > Casks/sportaglytics.rb << 'EOF'
+          cask "sportaglytics" do
+            version "${{ steps.get_version.outputs.VERSION }}"
+            sha256 arm:   "${{ steps.sha256_arm64.outputs.SHA256_ARM64 }}",
+                   intel: "${{ steps.sha256_x64.outputs.SHA256_X64 }}"
 
-                    url "https://github.com/Kou-ISK/sportaglytics/releases/download/v#{version}/SporTagLytics-#{version}-#{Hardware::CPU.arch}.zip",
-                        verified: "github.com/Kou-ISK/sportaglytics/"
-                    name "SporTagLytics"
-                    desc "Video tagging application for sports analysis"
-                    homepage "https://github.com/Kou-ISK/sportaglytics"
+            url "https://github.com/Kou-ISK/sportaglytics/releases/download/v#{version}/SporTagLytics-#{version}-#{Hardware::CPU.arch}.dmg",
+                verified: "github.com/Kou-ISK/sportaglytics/"
+            name "SporTagLytics"
+            desc "Video tagging application for sports analysis"
+            homepage "https://github.com/Kou-ISK/sportaglytics"
 
-                    livecheck do
-                      url :url
-                      strategy :github_latest
-                    end
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
 
-                    app "SporTagLytics.app"
+            app "SporTagLytics.app"
 
-                    zap trash: [
-                      "~/Library/Application Support/sportaglytics",
-                      "~/Library/Preferences/com.kouisk.sportaglytics.plist",
-                      "~/Library/Saved Application State/com.kouisk.sportaglytics.savedState",
-                    ]
-                  end
-                  EOF
+            zap trash: [
+              "~/Library/Application Support/sportaglytics",
+              "~/Library/Preferences/com.kouisk.sportaglytics.plist",
+              "~/Library/Saved Application State/com.kouisk.sportaglytics.savedState",
+            ]
+          end
+          EOF
 
-                  # Git設定とコミット
-                  git config user.name "github-actions[bot]"
-                  git config user.email "github-actions[bot]@users.noreply.github.com"
-                  git add Casks/sportaglytics.rb
-                  git diff --staged --quiet || git commit -m "Update sportaglytics to v${{ steps.get_version.outputs.VERSION }}"
-                  git push
-              env:
-                  HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Git設定とコミット
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/sportaglytics.rb
+          git diff --staged --quiet || git commit -m "Update sportaglytics to v${{ steps.get_version.outputs.VERSION }}"
+          git push
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
