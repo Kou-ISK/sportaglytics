@@ -257,6 +257,38 @@ export const useVideoPlayerApp = () => {
     })();
   }, [syncData, metaDataConfigFilePath]);
 
+  // メタデータファイルパスが変更されたらウィンドウタイトルを更新
+  useEffect(() => {
+    if (!metaDataConfigFilePath) {
+      // ファイルが選択されていない場合はデフォルトタイトル
+      if (globalThis.window.electronAPI?.setWindowTitle) {
+        globalThis.window.electronAPI.setWindowTitle('SporTagLytics');
+      }
+      return;
+    }
+
+    // メタデータファイルからパッケージ名を読み込んでタイトルに設定
+    (async () => {
+      try {
+        if (!globalThis.window.electronAPI?.readJsonFile) return;
+
+        const config = await globalThis.window.electronAPI.readJsonFile(
+          metaDataConfigFilePath,
+        );
+        if (config && typeof config === 'object' && 'packageName' in config) {
+          const packageName = (config as { packageName: string }).packageName;
+          if (packageName && globalThis.window.electronAPI.setWindowTitle) {
+            globalThis.window.electronAPI.setWindowTitle(
+              `${packageName} - SporTagLytics`,
+            );
+          }
+        }
+      } catch (e) {
+        console.error('[useVideoPlayerApp] Failed to update window title:', e);
+      }
+    })();
+  }, [metaDataConfigFilePath]);
+
   // Undo/Redoイベントハンドラー
   useEffect(() => {
     const handleUndo = () => {

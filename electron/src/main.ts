@@ -40,6 +40,13 @@ const createWindow = async () => {
       registerShortcuts(mainWindow, updatedSettings.hotkeys);
     });
   });
+
+  // ウィンドウタイトル更新用のIPCハンドラ
+  ipcMain.on('set-window-title', (_event, title: string) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitle(title);
+    }
+  });
 };
 Utils();
 registerSettingsHandlers();

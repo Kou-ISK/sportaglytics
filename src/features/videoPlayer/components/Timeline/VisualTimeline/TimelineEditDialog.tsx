@@ -133,14 +133,12 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
             type="text"
             fullWidth
             variant="outlined"
+            multiline
+            minRows={2}
+            maxRows={6}
             value={draft.qualifier}
             onChange={(event) => onChange({ qualifier: event.target.value })}
-            placeholder="任意のメモを入力してください"
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                onSave();
-              }
-            }}
+            placeholder="任意のメモを入力してください（改行可）"
           />
         </Stack>
       </DialogContent>

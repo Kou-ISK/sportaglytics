@@ -53,7 +53,10 @@ export const registerShortcuts = (
 
     try {
       const success = globalShortcut.register(hotkey.key, () => {
-        handler(mainWindow);
+        // アプリにフォーカスがある時のみホットキーを発動
+        if (mainWindow.isFocused()) {
+          handler(mainWindow);
+        }
       });
 
       if (!success) {

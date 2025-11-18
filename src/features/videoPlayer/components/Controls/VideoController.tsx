@@ -318,7 +318,20 @@ export const VideoController = ({
         typeof maxSec === 'number' && maxSec > minAllowed
           ? maxSec
           : Number.POSITIVE_INFINITY;
-      const base = Number.isFinite(videoTime) ? videoTime : 0;
+
+      // videoTime状態ではなく、プレイヤーの実際のcurrentTime()から起点を取得
+      let base = 0;
+      try {
+        const player = getExistingPlayer('video_0');
+        if (player?.currentTime) {
+          base = player.currentTime() ?? 0;
+        } else {
+          base = Number.isFinite(videoTime) ? videoTime : 0;
+        }
+      } catch {
+        base = Number.isFinite(videoTime) ? videoTime : 0;
+      }
+
       const target = base + deltaSeconds;
       const clamped = Math.min(maxAllowed, Math.max(minAllowed, target));
       lastManualSeekTimestamp.current = Date.now();
@@ -329,7 +342,7 @@ export const VideoController = ({
         handleCurrentTime({} as React.SyntheticEvent, clamped);
       }
     },
-    [videoTime, syncData, maxSec, handleCurrentTime],
+    [videoTime, syncData, maxSec, handleCurrentTime, getExistingPlayer],
   );
 
   const togglePlayback = useCallback(() => {

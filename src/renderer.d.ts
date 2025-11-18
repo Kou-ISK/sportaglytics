@@ -48,6 +48,7 @@ export interface IElectronAPI {
   resetSettings: () => Promise<unknown>;
   onOpenSettings: (callback: () => void) => void;
   offOpenSettings: (callback: () => void) => void;
+  setWindowTitle: (title: string) => void;
 }
 
 export interface PackageDatas {

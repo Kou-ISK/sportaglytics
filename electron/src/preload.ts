@@ -289,4 +289,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       /* noop */
     }
   },
+  // ウィンドウタイトル更新API
+  setWindowTitle: (title: string) => {
+    ipcRenderer.send('set-window-title', title);
+  },
 });

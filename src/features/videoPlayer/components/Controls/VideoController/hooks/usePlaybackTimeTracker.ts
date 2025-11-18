@@ -108,11 +108,9 @@ export const usePlaybackTimeTracker = ({
           newVideoTime = 0;
         }
 
+        // 手動シーク直後でも時刻を読み取るが、setVideoTimeの更新は控えめに
         const timeSinceManualSeek =
           Date.now() - lastManualSeekTimestamp.current;
-        if (timeSinceManualSeek < 500) {
-          return;
-        }
 
         const negOffset = !!(
           syncData?.isAnalyzed && (syncData?.syncOffset ?? 0) < 0
@@ -126,7 +124,9 @@ export const usePlaybackTimeTracker = ({
           !isNaN(newVideoTime) &&
           newVideoTime >= 0
         ) {
-          if (Math.abs(newVideoTime - videoTime) > 0.1) {
+          // シーク直後(100ms以内)は0.05秒以上の変化のみ反映、それ以外は0.1秒以上
+          const threshold = timeSinceManualSeek < 100 ? 0.05 : 0.1;
+          if (Math.abs(newVideoTime - videoTime) > threshold) {
             setVideoTime(newVideoTime);
           }
         }
@@ -136,10 +136,8 @@ export const usePlaybackTimeTracker = ({
     };
 
     const animationUpdateHandler = (ts?: number) => {
-      if (isSeekingRef.current) {
-        animationFrameId = requestAnimationFrame(animationUpdateHandler);
-        return;
-      }
+      // シーク中でも時刻を読み取ってUIに反映するため、ブロックしない
+      // （useSyncPlaybackでプレイヤー自体への書き込みだけブロックされる）
 
       const offset = Number(syncData?.syncOffset || 0);
       const negOffset = !!(syncData?.isAnalyzed && offset < 0);
