@@ -167,56 +167,45 @@ export const usePlaybackTimeTracker = ({
               primaryDuration = 0;
             }
 
+            // 再生速度に関係なくプレイヤーの実際の時刻を使用
+            let actualTime = primaryTime;
+
             if (negOffset) {
-              if (videoTime < Math.abs(offset) && secondaryTime > 0) {
-                const next = Math.min(Math.abs(offset), videoTime + dt);
-                if (next !== videoTime && next > -600) {
-                  setVideoTime(next);
-                  safeSetCurrentTime(next, 'RAF-negativeOffset-preStart');
-                }
-              } else if (
-                videoTime >= Math.abs(offset) &&
-                (primaryTime > 0 || secondaryTime > 0)
-              ) {
-                const next = videoTime + dt;
-                if (next < maxSec && next < 3600) {
-                  setVideoTime(next);
-                  safeSetCurrentTime(next, 'RAF-negativeOffset-both');
-                }
+              if (primaryTime > 0) {
+                // 負のオフセット: primaryの時刻を基準に
+                actualTime = primaryTime;
+              } else if (secondaryTime > 0 && videoTime < Math.abs(offset)) {
+                // プレロール期間中: dt加算で進める
+                actualTime = Math.min(Math.abs(offset), videoTime + dt);
               }
             } else if (posOffset) {
-              if (videoTime < offset && primaryTime > 0) {
-                const next = Math.min(offset, videoTime + dt);
-                if (next !== videoTime) {
-                  setVideoTime(next);
-                  safeSetCurrentTime(next, 'RAF-positiveOffset-preStart');
-                }
+              if (secondaryTime > 0 && videoTime >= offset) {
+                // 正のオフセット: secondaryが再生中ならそれを基準に
+                actualTime = secondaryTime + offset;
+              } else if (primaryTime > 0 && videoTime < offset) {
+                // プレロール期間中: dt加算で進める
+                actualTime = Math.min(offset, videoTime + dt);
               } else if (
-                videoTime >= offset &&
-                (primaryTime > 0 || secondaryTime > 0)
-              ) {
-                const next = videoTime + dt;
-                if (next < maxSec && next < 3600) {
-                  setVideoTime(next);
-                  safeSetCurrentTime(next, 'RAF-positiveOffset-both');
-                }
-              } else if (
-                primaryDuration > 0 &&
                 primaryTime >= primaryDuration - 0.01 &&
                 secondaryTime > 0
               ) {
-                const maxAllowed = Math.max(0, maxSec);
-                const next = Math.min(maxAllowed, videoTime + dt);
-                if (next !== videoTime && next < 3600) {
-                  setVideoTime(next);
-                  safeSetCurrentTime(next, 'RAF-positiveOffset-continue');
-                }
+                // Primary終了後もsecondaryが続く場合
+                actualTime = secondaryTime + offset;
               }
-            } else if (primaryTime > 0 || secondaryTime > 0) {
-              const next = videoTime + dt;
-              if (next < maxSec && next < 3600) {
-                setVideoTime(next);
-                safeSetCurrentTime(next, 'RAF-noOffset');
+            } else {
+              // オフセットなし: primaryの時刻をそのまま使用
+              actualTime = primaryTime;
+            }
+
+            // 時刻の更新（再生速度に追従）
+            if (
+              actualTime > 0 &&
+              actualTime < 3600 &&
+              actualTime <= maxSec + 10
+            ) {
+              if (Math.abs(actualTime - videoTime) > 0.05) {
+                setVideoTime(actualTime);
+                safeSetCurrentTime(actualTime, 'RAF-actualTime');
               }
             }
           } catch {
