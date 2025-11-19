@@ -198,12 +198,15 @@ export const usePlaybackTimeTracker = ({
             }
 
             // 時刻の更新（再生速度に追従）
+            // 早送り時は差分が大きくなるため、閾値を緩和
             if (
               actualTime > 0 &&
               actualTime < 3600 &&
               actualTime <= maxSec + 10
             ) {
-              if (Math.abs(actualTime - videoTime) > 0.05) {
+              const timeDiff = Math.abs(actualTime - videoTime);
+              // 0.01秒以上の差があれば更新（早送り時の追従性を向上）
+              if (timeDiff > 0.01) {
                 setVideoTime(actualTime);
                 safeSetCurrentTime(actualTime, 'RAF-actualTime');
               }
