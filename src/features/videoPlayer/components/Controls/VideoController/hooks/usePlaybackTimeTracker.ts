@@ -128,6 +128,8 @@ export const usePlaybackTimeTracker = ({
           const threshold = timeSinceManualSeek < 100 ? 0.05 : 0.1;
           if (Math.abs(newVideoTime - videoTime) > threshold) {
             setVideoTime(newVideoTime);
+            // シークバー（currentTime）も更新する
+            safeSetCurrentTime(newVideoTime, 'updateTimeHandler');
           }
         }
       } catch (error) {
