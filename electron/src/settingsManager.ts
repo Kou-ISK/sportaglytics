@@ -89,8 +89,19 @@ export const loadSettings = async (): Promise<AppSettings> => {
 
     return merged;
   } catch (error) {
-    // ファイルが存在しない、またはパースエラーの場合はデフォルト設定を返す
-    console.warn('Settings file not found or invalid, using defaults:', error);
+    // ファイルが存在しない場合はデフォルト設定を保存して返す
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      console.info(
+        'Settings file not found (first launch), creating with defaults',
+      );
+      // デフォルト設定を保存（非同期だが待たない）
+      saveSettings(DEFAULT_SETTINGS).catch((saveError) => {
+        console.error('Failed to save default settings:', saveError);
+      });
+    } else {
+      // その他のエラー（パースエラー等）
+      console.warn('Settings file invalid, using defaults:', error);
+    }
     return DEFAULT_SETTINGS;
   }
 };
@@ -101,6 +112,10 @@ export const loadSettings = async (): Promise<AppSettings> => {
 export const saveSettings = async (settings: AppSettings): Promise<boolean> => {
   const settingsPath = getSettingsPath();
   try {
+    // ディレクトリが存在しない場合は作成
+    const dir = path.dirname(settingsPath);
+    await fs.mkdir(dir, { recursive: true });
+
     const data = JSON.stringify(settings, null, 2);
     await fs.writeFile(settingsPath, data, 'utf-8');
     return true;
