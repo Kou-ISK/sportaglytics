@@ -293,4 +293,61 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setWindowTitle: (title: string) => {
     ipcRenderer.send('set-window-title', title);
   },
+  // タイムラインエクスポート/インポート用API
+  saveFileDialog: async (
+    defaultPath: string,
+    filters: { name: string; extensions: string[] }[],
+  ) => {
+    try {
+      return await ipcRenderer.invoke('save-file-dialog', defaultPath, filters);
+    } catch (error) {
+      console.error('Error in saveFileDialog:', error);
+      return null;
+    }
+  },
+  openFileDialog: async (filters: { name: string; extensions: string[] }[]) => {
+    try {
+      return await ipcRenderer.invoke('open-file-dialog', filters);
+    } catch (error) {
+      console.error('Error in openFileDialog:', error);
+      return null;
+    }
+  },
+  writeTextFile: async (filePath: string, content: string) => {
+    try {
+      return await ipcRenderer.invoke('write-text-file', filePath, content);
+    } catch (error) {
+      console.error('Error in writeTextFile:', error);
+      return false;
+    }
+  },
+  readTextFile: async (filePath: string) => {
+    try {
+      return await ipcRenderer.invoke('read-text-file', filePath);
+    } catch (error) {
+      console.error('Error in readTextFile:', error);
+      return null;
+    }
+  },
+  onExportTimeline: (callback: (format: string) => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-export-timeline');
+    } catch (e) {
+      // ignore
+    }
+    ipcRenderer.on('menu-export-timeline', (_event, format: string) => {
+      callback(format);
+    });
+  },
+  onImportTimeline: (callback: () => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-import-timeline');
+    } catch (e) {
+      // ignore
+    }
+    ipcRenderer.on(
+      'menu-import-timeline',
+      callback as unknown as (event: IpcRendererEvent) => void,
+    );
+  },
 });

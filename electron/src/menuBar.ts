@@ -111,6 +111,48 @@ export const menuBar = Menu.buildFromTemplate([
     ],
   },
   {
+    label: 'タイムライン',
+    submenu: [
+      {
+        label: 'エクスポート',
+        submenu: [
+          {
+            label: 'JSON形式',
+            click: (_menuItem, browserWindow) => {
+              if (browserWindow && 'webContents' in browserWindow) {
+                (browserWindow as BrowserWindow).webContents.send(
+                  'menu-export-timeline',
+                  'json',
+                );
+              }
+            },
+          },
+          {
+            label: 'CSV形式',
+            click: (_menuItem, browserWindow) => {
+              if (browserWindow && 'webContents' in browserWindow) {
+                (browserWindow as BrowserWindow).webContents.send(
+                  'menu-export-timeline',
+                  'csv',
+                );
+              }
+            },
+          },
+        ],
+      },
+      {
+        label: 'インポート',
+        click: (_menuItem, browserWindow) => {
+          if (browserWindow && 'webContents' in browserWindow) {
+            (browserWindow as BrowserWindow).webContents.send(
+              'menu-import-timeline',
+            );
+          }
+        },
+      },
+    ],
+  },
+  {
     label: '分析',
     submenu: [
       {

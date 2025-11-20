@@ -13,6 +13,7 @@ import { ErrorSnackbar } from './videoPlayer/components/ErrorSnackbar';
 import { SyncAnalysisBackdrop } from './videoPlayer/components/SyncAnalysisBackdrop';
 import { useSyncMenuHandlers } from './videoPlayer/hooks/useSyncMenuHandlers';
 import { useStatsMenuHandlers } from './videoPlayer/hooks/useStatsMenuHandlers';
+import { useTimelineExportImport } from './videoPlayer/hooks/useTimelineExportImport';
 import { OnboardingTutorial } from '../components/OnboardingTutorial';
 
 export const VideoPlayerApp = () => {
@@ -72,6 +73,8 @@ export const VideoPlayerApp = () => {
   });
 
   useStatsMenuHandlers({ setStatsOpen, setStatsView });
+
+  useTimelineExportImport({ timeline, setTimeline });
 
   const handleJumpToSegment = (segment: TimelineData) => {
     const targetTime = Math.max(0, segment.startTime);

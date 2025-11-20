@@ -1,5 +1,6 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
 import * as path from 'path';
+import * as fs from 'node:fs/promises';
 import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { menuBar } from './menuBar';
@@ -45,6 +46,59 @@ const createWindow = async () => {
   ipcMain.on('set-window-title', (_event, title: string) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.setTitle(title);
+    }
+  });
+
+  // ファイル保存ダイアログ
+  ipcMain.handle(
+    'save-file-dialog',
+    async (
+      _event,
+      defaultPath: string,
+      filters: { name: string; extensions: string[] }[],
+    ) => {
+      const result = await dialog.showSaveDialog(mainWindow, {
+        defaultPath,
+        filters,
+      });
+      return result.canceled ? null : result.filePath;
+    },
+  );
+
+  // ファイル選択ダイアログ
+  ipcMain.handle(
+    'open-file-dialog',
+    async (_event, filters: { name: string; extensions: string[] }[]) => {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+        filters,
+      });
+      return result.canceled ? null : result.filePaths[0];
+    },
+  );
+
+  // テキストファイル書き込み
+  ipcMain.handle(
+    'write-text-file',
+    async (_event, filePath: string, content: string) => {
+      try {
+        await fs.writeFile(filePath, content, 'utf-8');
+        return true;
+      } catch (error) {
+        console.error('Failed to write file:', error);
+        return false;
+      }
+    },
+  );
+
+  // テキストファイル読み込み
+  ipcMain.handle('read-text-file', async (_event, filePath: string) => {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      return content;
+    } catch (error) {
+      console.error('Failed to read file:', error);
+      return null;
     }
   });
 };
