@@ -54,15 +54,18 @@ export const exportToCSV = (timeline: TimelineData[]): string => {
 
 /**
  * JSONからタイムラインをインポート
+ * 後方互換性: labels配列が存在しない古い形式も読み込み可能
  */
 export const importFromJSON = (jsonString: string): TimelineData[] => {
   const parsed = JSON.parse(jsonString);
 
   if (!Array.isArray(parsed)) {
-    throw new Error('Invalid JSON format: Expected an array');
+    throw new TypeError('Invalid JSON format: Expected an array');
   }
 
   // 型チェックとバリデーション
+  const result: TimelineData[] = [];
+
   for (const item of parsed) {
     if (
       typeof item.id !== 'string' ||
@@ -73,9 +76,20 @@ export const importFromJSON = (jsonString: string): TimelineData[] => {
       typeof item.actionType !== 'string' ||
       typeof item.qualifier !== 'string'
     ) {
-      throw new Error('Invalid timeline item format');
+      throw new TypeError('Invalid timeline item format');
     }
+
+    // labels配列が存在しない場合は、actionType/actionResultから生成
+    const timelineItem: TimelineData = {
+      ...item,
+      labels: item.labels || [
+        { name: item.actionType, group: 'actionType' },
+        { name: item.actionResult, group: 'actionResult' },
+      ],
+    };
+
+    result.push(timelineItem);
   }
 
-  return parsed as TimelineData[];
+  return result;
 };

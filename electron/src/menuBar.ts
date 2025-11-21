@@ -138,6 +138,17 @@ export const menuBar = Menu.buildFromTemplate([
               }
             },
           },
+          {
+            label: 'SCTimeline形式',
+            click: (_menuItem, browserWindow) => {
+              if (browserWindow && 'webContents' in browserWindow) {
+                (browserWindow as BrowserWindow).webContents.send(
+                  'menu-export-timeline',
+                  'sctimeline',
+                );
+              }
+            },
+          },
         ],
       },
       {
