@@ -1,68 +1,30 @@
 import React, { useMemo, useState } from 'react';
-import { Stack } from '@mui/material';
+import { Stack, Paper, Typography, Divider, Box, Button } from '@mui/material';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { TimelineData } from '../../../../../../types/TimelineData';
+import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
 import { MatrixSection } from './MatrixSection';
+import { MatrixAxisSelector } from './MatrixAxisSelector';
 import { DrilldownDialog } from './DrilldownDialog';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
+import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
+import {
+  buildGenericMatrix,
+  buildMatrixForTeam,
+} from '../../../../../../utils/matrixBuilder';
 
 interface MatrixTabProps {
   hasData: boolean;
   timeline: TimelineData[];
   teamNames: string[];
-  uniqueActionTypes: string[];
-  uniqueActionResults: string[];
   onJumpToSegment?: (segment: TimelineData) => void;
   emptyMessage: string;
 }
-
-type MatrixCell = { count: number; entries: TimelineData[] };
-
-const buildMatrix = (
-  entries: TimelineData[],
-  rowKeys: string[],
-  columnKeys: string[],
-  rowAccessor: (item: TimelineData) => string,
-  colAccessor: (item: TimelineData) => string,
-): MatrixCell[][] => {
-  if (rowKeys.length === 0 || columnKeys.length === 0) {
-    return [];
-  }
-
-  const rowMap = new Map<string, number>();
-  rowKeys.forEach((key, index) => rowMap.set(key, index));
-
-  const colMap = new Map<string, number>();
-  columnKeys.forEach((key, index) => colMap.set(key, index));
-
-  const cells: MatrixCell[][] = rowKeys.map(() =>
-    columnKeys.map(() => ({ count: 0, entries: [] })),
-  );
-
-  entries.forEach((item) => {
-    const rowKey = rowAccessor(item);
-    const colKey = colAccessor(item);
-    const rowIndex = rowMap.get(rowKey);
-    const colIndex = colMap.get(colKey);
-    if (rowIndex === undefined || colIndex === undefined) {
-      return;
-    }
-    const cell = cells[rowIndex]?.[colIndex];
-    if (!cell) {
-      return;
-    }
-    cell.count += 1;
-    cell.entries.push(item);
-  });
-
-  return cells;
-};
 
 export const MatrixTab = ({
   hasData,
   timeline,
   teamNames,
-  uniqueActionTypes,
-  uniqueActionResults,
   onJumpToSegment,
   emptyMessage,
 }: MatrixTabProps) => {
@@ -71,66 +33,71 @@ export const MatrixTab = ({
     entries: TimelineData[];
   } | null>(null);
 
-  const actionTypeVsResult = useMemo(
-    () =>
-      buildMatrix(
-        timeline,
-        uniqueActionTypes,
-        uniqueActionResults,
-        (item) => item.actionType || '未設定',
-        (item) => item.actionResult || '未設定',
-      ),
-    [timeline, uniqueActionTypes, uniqueActionResults],
+  // 利用可能なグループを抽出
+  const availableGroups = useMemo(
+    () => extractUniqueGroups(timeline),
+    [timeline],
   );
 
-  const actionsByTeam = useMemo(() => {
-    const map = new Map<
+  // カスタム軸設定の状態
+  const [showCustomConfig, setShowCustomConfig] = useState(false);
+  const [customRowAxis, setCustomRowAxis] = useState<MatrixAxisConfig>({
+    type: 'group',
+    value: 'actionType',
+  });
+  const [customColumnAxis, setCustomColumnAxis] = useState<MatrixAxisConfig>({
+    type: 'group',
+    value: 'actionResult',
+  });
+
+  // デフォルトのマトリクス（actionType × actionResult）
+  const defaultMatrix = useMemo(() => {
+    const rowAxis: MatrixAxisConfig = { type: 'group', value: 'actionType' };
+    const columnAxis: MatrixAxisConfig = {
+      type: 'group',
+      value: 'actionResult',
+    };
+    return buildGenericMatrix(timeline, rowAxis, columnAxis);
+  }, [timeline]);
+
+  // カスタムマトリクス
+  const customMatrix = useMemo(() => {
+    if (!showCustomConfig) return null;
+    return buildGenericMatrix(timeline, customRowAxis, customColumnAxis);
+  }, [timeline, customRowAxis, customColumnAxis, showCustomConfig]);
+
+  // チーム別のマトリクス
+  const teamMatrices = useMemo(() => {
+    const matrices = new Map<
       string,
       {
-        actions: string[];
-        byType: MatrixCell[][];
-        byResult: MatrixCell[][];
+        byType: ReturnType<typeof buildMatrixForTeam>;
+        byResult: ReturnType<typeof buildMatrixForTeam>;
       }
     >();
 
-    teamNames.forEach((team) => {
-      const entries = timeline.filter((item) =>
-        item.actionName.startsWith(`${team} `),
-      );
-      const actionSet = new Set<string>();
-      entries.forEach((item) => {
-        const parts = item.actionName.split(' ');
-        const baseAction = parts.slice(1).join(' ') || parts[0] || '未設定';
-        actionSet.add(baseAction);
-      });
-      const actions = Array.from(actionSet).sort();
-
-      const actionAccessor = (item: TimelineData) => {
-        const parts = item.actionName.split(' ');
-        return parts.slice(1).join(' ') || parts[0] || '未設定';
-      };
-
-      const byType = buildMatrix(
-        entries,
-        actions,
-        uniqueActionTypes,
-        actionAccessor,
-        (item) => item.actionType || '未設定',
+    for (const team of teamNames) {
+      const byType = buildMatrixForTeam(
+        timeline,
+        team,
+        { type: 'action' },
+        { type: 'group', value: 'actionType' },
       );
 
-      const byResult = buildMatrix(
-        entries,
-        actions,
-        uniqueActionResults,
-        actionAccessor,
-        (item) => item.actionResult || '未設定',
+      const byResult = buildMatrixForTeam(
+        timeline,
+        team,
+        { type: 'action' },
+        { type: 'group', value: 'actionResult' },
       );
 
-      map.set(team, { actions, byType, byResult });
-    });
+      if (byType.rowKeys.length > 0 || byResult.rowKeys.length > 0) {
+        matrices.set(team, { byType, byResult });
+      }
+    }
 
-    return map;
-  }, [teamNames, timeline, uniqueActionTypes, uniqueActionResults]);
+    return matrices;
+  }, [teamNames, timeline]);
 
   if (!hasData) {
     return <NoDataPlaceholder message={emptyMessage} />;
@@ -139,36 +106,92 @@ export const MatrixTab = ({
   return (
     <>
       <Stack spacing={4}>
+        {/* デフォルトマトリクス */}
         <MatrixSection
           title="アクション種別 × アクション結果"
-          rowKeys={uniqueActionTypes}
-          columnKeys={uniqueActionResults}
-          matrix={actionTypeVsResult}
+          rowKeys={defaultMatrix.rowKeys}
+          columnKeys={defaultMatrix.columnKeys}
+          matrix={defaultMatrix.matrix}
           onDrilldown={(title, entries) => setDetail({ title, entries })}
         />
-        {Array.from(actionsByTeam.entries()).map(([team, matrices]) => {
-          if (matrices.actions.length === 0) {
-            return null;
-          }
-          return (
-            <Stack key={team} spacing={3}>
+
+        {/* カスタムマトリクス設定 */}
+        <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
+          <Stack spacing={2}>
+            <Box display="flex" alignItems="center" gap={1}>
+              <SettingsIcon fontSize="small" />
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                カスタム分析
+              </Typography>
+              <Button
+                size="small"
+                onClick={() => setShowCustomConfig(!showCustomConfig)}
+                sx={{ ml: 'auto' }}
+              >
+                {showCustomConfig ? '非表示' : '表示'}
+              </Button>
+            </Box>
+
+            {showCustomConfig && (
+              <>
+                <Divider />
+                <Box display="grid" gridTemplateColumns="1fr 1fr" gap={3}>
+                  <MatrixAxisSelector
+                    label="行軸"
+                    value={customRowAxis}
+                    onChange={setCustomRowAxis}
+                    availableGroups={availableGroups}
+                  />
+                  <MatrixAxisSelector
+                    label="列軸"
+                    value={customColumnAxis}
+                    onChange={setCustomColumnAxis}
+                    availableGroups={availableGroups}
+                  />
+                </Box>
+
+                {customMatrix && (
+                  <>
+                    <Divider />
+                    <MatrixSection
+                      title={`${getAxisLabel(customRowAxis)} × ${getAxisLabel(customColumnAxis)}`}
+                      rowKeys={customMatrix.rowKeys}
+                      columnKeys={customMatrix.columnKeys}
+                      matrix={customMatrix.matrix}
+                      onDrilldown={(title, entries) =>
+                        setDetail({ title, entries })
+                      }
+                    />
+                  </>
+                )}
+              </>
+            )}
+          </Stack>
+        </Paper>
+
+        {/* チーム別マトリクス */}
+        {Array.from(teamMatrices.entries()).map(([team, matrices]) => (
+          <Stack key={team} spacing={3}>
+            {matrices.byType.rowKeys.length > 0 && (
               <MatrixSection
                 title={`${team} - アクション × アクション種別`}
-                rowKeys={matrices.actions}
-                columnKeys={uniqueActionTypes}
-                matrix={matrices.byType}
+                rowKeys={matrices.byType.rowKeys}
+                columnKeys={matrices.byType.columnKeys}
+                matrix={matrices.byType.matrix}
                 onDrilldown={(title, entries) => setDetail({ title, entries })}
               />
+            )}
+            {matrices.byResult.rowKeys.length > 0 && (
               <MatrixSection
                 title={`${team} - アクション × アクション結果`}
-                rowKeys={matrices.actions}
-                columnKeys={uniqueActionResults}
-                matrix={matrices.byResult}
+                rowKeys={matrices.byResult.rowKeys}
+                columnKeys={matrices.byResult.columnKeys}
+                matrix={matrices.byResult.matrix}
                 onDrilldown={(title, entries) => setDetail({ title, entries })}
               />
-            </Stack>
-          );
-        })}
+            )}
+          </Stack>
+        ))}
       </Stack>
 
       <DrilldownDialog
@@ -181,4 +204,20 @@ export const MatrixTab = ({
       />
     </>
   );
+};
+
+/**
+ * 軸設定から表示用のラベルを生成
+ */
+const getAxisLabel = (axis: MatrixAxisConfig): string => {
+  switch (axis.type) {
+    case 'group':
+      return axis.value || 'グループ';
+    case 'team':
+      return 'チーム';
+    case 'action':
+      return 'アクション';
+    default:
+      return '不明';
+  }
 };

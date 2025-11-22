@@ -37,8 +37,6 @@ export const StatsModalView = ({
   possessionData,
   hasTimelineData,
   resolvedTeamNames,
-  uniqueActionTypes,
-  uniqueActionResults,
   countActionResultByTeamName,
   countActionTypeByTeamName,
   createMomentumData,
@@ -132,8 +130,6 @@ export const StatsModalView = ({
             hasData={hasTimelineData}
             timeline={timeline}
             teamNames={resolvedTeamNames}
-            uniqueActionTypes={uniqueActionTypes}
-            uniqueActionResults={uniqueActionResults}
             onJumpToSegment={onJumpToSegment}
             emptyMessage="クロス集計を表示するにはタイムラインを作成してください。"
           />
