@@ -8,10 +8,7 @@ import { MatrixAxisSelector } from './MatrixAxisSelector';
 import { DrilldownDialog } from './DrilldownDialog';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
 import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
-import {
-  buildGenericMatrix,
-  buildMatrixForTeam,
-} from '../../../../../../utils/matrixBuilder';
+import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
 
 interface MatrixTabProps {
   hasData: boolean;
@@ -57,41 +54,39 @@ export const MatrixTab = ({
       type: 'group',
       value: 'actionResult',
     };
-    return buildGenericMatrix(timeline, rowAxis, columnAxis);
+    return buildHierarchicalMatrix(timeline, rowAxis, columnAxis);
   }, [timeline]);
 
   // カスタムマトリクス
   const customMatrix = useMemo(() => {
     if (!showCustomConfig) return null;
-    return buildGenericMatrix(timeline, customRowAxis, customColumnAxis);
+    return buildHierarchicalMatrix(timeline, customRowAxis, customColumnAxis);
   }, [timeline, customRowAxis, customColumnAxis, showCustomConfig]);
 
-  // チーム別のマトリクス
+  // チーム別のマトリクス（action × group）
   const teamMatrices = useMemo(() => {
     const matrices = new Map<
       string,
       {
-        byType: ReturnType<typeof buildMatrixForTeam>;
-        byResult: ReturnType<typeof buildMatrixForTeam>;
+        byType: ReturnType<typeof buildHierarchicalMatrix>;
+        byResult: ReturnType<typeof buildHierarchicalMatrix>;
       }
     >();
 
     for (const team of teamNames) {
-      const byType = buildMatrixForTeam(
+      const byType = buildHierarchicalMatrix(
         timeline,
-        team,
         { type: 'action' },
         { type: 'group', value: 'actionType' },
       );
 
-      const byResult = buildMatrixForTeam(
+      const byResult = buildHierarchicalMatrix(
         timeline,
-        team,
         { type: 'action' },
         { type: 'group', value: 'actionResult' },
       );
 
-      if (byType.rowKeys.length > 0 || byResult.rowKeys.length > 0) {
+      if (byType.rowHeaders.length > 0 || byResult.rowHeaders.length > 0) {
         matrices.set(team, { byType, byResult });
       }
     }
@@ -109,8 +104,10 @@ export const MatrixTab = ({
         {/* デフォルトマトリクス */}
         <MatrixSection
           title="アクション種別 × アクション結果"
-          rowKeys={defaultMatrix.rowKeys}
-          columnKeys={defaultMatrix.columnKeys}
+          rowHeaders={defaultMatrix.rowHeaders}
+          columnHeaders={defaultMatrix.columnHeaders}
+          rowParentSpans={defaultMatrix.rowParentSpans}
+          colParentSpans={defaultMatrix.colParentSpans}
           matrix={defaultMatrix.matrix}
           onDrilldown={(title, entries) => setDetail({ title, entries })}
         />
@@ -155,8 +152,10 @@ export const MatrixTab = ({
                     <Divider />
                     <MatrixSection
                       title={`${getAxisLabel(customRowAxis)} × ${getAxisLabel(customColumnAxis)}`}
-                      rowKeys={customMatrix.rowKeys}
-                      columnKeys={customMatrix.columnKeys}
+                      rowHeaders={customMatrix.rowHeaders}
+                      columnHeaders={customMatrix.columnHeaders}
+                      rowParentSpans={customMatrix.rowParentSpans}
+                      colParentSpans={customMatrix.colParentSpans}
                       matrix={customMatrix.matrix}
                       onDrilldown={(title, entries) =>
                         setDetail({ title, entries })
@@ -172,20 +171,24 @@ export const MatrixTab = ({
         {/* チーム別マトリクス */}
         {Array.from(teamMatrices.entries()).map(([team, matrices]) => (
           <Stack key={team} spacing={3}>
-            {matrices.byType.rowKeys.length > 0 && (
+            {matrices.byType.rowHeaders.length > 0 && (
               <MatrixSection
                 title={`${team} - アクション × アクション種別`}
-                rowKeys={matrices.byType.rowKeys}
-                columnKeys={matrices.byType.columnKeys}
+                rowHeaders={matrices.byType.rowHeaders}
+                columnHeaders={matrices.byType.columnHeaders}
+                rowParentSpans={matrices.byType.rowParentSpans}
+                colParentSpans={matrices.byType.colParentSpans}
                 matrix={matrices.byType.matrix}
                 onDrilldown={(title, entries) => setDetail({ title, entries })}
               />
             )}
-            {matrices.byResult.rowKeys.length > 0 && (
+            {matrices.byResult.rowHeaders.length > 0 && (
               <MatrixSection
                 title={`${team} - アクション × アクション結果`}
-                rowKeys={matrices.byResult.rowKeys}
-                columnKeys={matrices.byResult.columnKeys}
+                rowHeaders={matrices.byResult.rowHeaders}
+                columnHeaders={matrices.byResult.columnHeaders}
+                rowParentSpans={matrices.byResult.rowParentSpans}
+                colParentSpans={matrices.byResult.colParentSpans}
                 matrix={matrices.byResult.matrix}
                 onDrilldown={(title, entries) => setDetail({ title, entries })}
               />

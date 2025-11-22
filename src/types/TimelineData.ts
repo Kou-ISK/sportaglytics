@@ -1,13 +1,4 @@
-/**
- * ラベル情報（SCTimeline形式互換）
- */
-export interface TimelineLabel {
-  /** ラベル名（例: "Won", "Lineout"） */
-  name: string;
-  /** グループ名（例: "actionResult", "actionType"）
-   * オプショナル: 存在しない場合もある */
-  group?: string;
-}
+import type { SCLabel } from './SCTimeline';
 
 export type TimelineData = {
   id: string;
@@ -22,5 +13,5 @@ export type TimelineData = {
    * 存在する場合、actionType/actionResultよりも優先される
    * 後方互換性のため、存在しない場合はactionType/actionResultから自動生成される
    */
-  labels?: TimelineLabel[];
+  labels?: SCLabel[];
 };

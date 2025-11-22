@@ -31,6 +31,38 @@ export interface MatrixCell {
 }
 
 /**
+ * 階層構造を持つ行ヘッダー
+ */
+export interface HierarchicalRowHeader {
+  /** 親要素（チームやグループなど）。存在しない場合はnull */
+  parent: string | null;
+  /** 子要素（アクションやラベルなど） */
+  child: string;
+  /** この行のデータが何番目から何番目までのセルか */
+  rowIndex: number;
+  /** 親要素のrowspan（結合する行数）。親がない場合は1 */
+  parentRowSpan?: number;
+  /** この親要素の最初の行かどうか */
+  isFirstOfParent?: boolean;
+}
+
+/**
+ * 階層構造を持つ列ヘッダー
+ */
+export interface HierarchicalColumnHeader {
+  /** 親要素（グループなど）。存在しない場合はnull */
+  parent: string | null;
+  /** 子要素（ラベルなど） */
+  child: string;
+  /** 列のインデックス */
+  colIndex: number;
+  /** 親要素のcolspan（結合する列数）。親がない場合は1 */
+  parentColSpan?: number;
+  /** この親要素の最初の列かどうか */
+  isFirstOfParent?: boolean;
+}
+
+/**
  * マトリクス設定のプリセット
  */
 export interface MatrixPreset {

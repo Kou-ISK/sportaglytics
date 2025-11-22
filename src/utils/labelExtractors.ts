@@ -1,18 +1,17 @@
-import type { TimelineData, TimelineLabel } from '../types/TimelineData';
+import type { TimelineData } from '../types/TimelineData';
+import type { SCLabel } from '../types/SCTimeline';
 
 /**
  * TimelineDataからlabels配列を取得し、group別に分類
  * labels配列が存在しない場合は、actionType/actionResultから生成
  */
-export const getLabelsFromTimelineData = (
-  item: TimelineData,
-): TimelineLabel[] => {
+export const getLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
   if (item.labels && item.labels.length > 0) {
     return item.labels;
   }
 
   // 後方互換性: labels配列が存在しない場合はactionType/actionResultから生成
-  const labels: TimelineLabel[] = [];
+  const labels: SCLabel[] = [];
   if (item.actionType) {
     labels.push({ name: item.actionType, group: 'actionType' });
   }

@@ -1,9 +1,10 @@
-import type { TimelineData, TimelineLabel } from '../types/TimelineData';
+import type { TimelineData } from '../types/TimelineData';
 import type {
   SCTimelineFile,
   SCTimelineContent,
   SCRow,
   SCInstance,
+  SCLabel,
 } from '../types/SCTimeline';
 
 /**
@@ -28,7 +29,7 @@ const generateUUID = (): string => {
  * TimelineDataのlabels配列から特定のgroupに属するラベルを取得
  */
 const getLabelByGroup = (
-  labels: TimelineLabel[] | undefined,
+  labels: SCLabel[] | undefined,
   group: string,
 ): string | undefined => {
   if (!labels || labels.length === 0) return undefined;
@@ -41,7 +42,7 @@ const getLabelByGroup = (
  */
 const extractLabelsFromTimelineData = (
   item: TimelineData,
-): { actionType: string; actionResult: string; labels: TimelineLabel[] } => {
+): { actionType: string; actionResult: string; labels: SCLabel[] } => {
   // labels配列が存在する場合はそこから抽出
   if (item.labels && item.labels.length > 0) {
     const actionType =
@@ -52,7 +53,7 @@ const extractLabelsFromTimelineData = (
   }
 
   // labels配列が存在しない場合は従来のフィールドから生成
-  const labels: TimelineLabel[] = [];
+  const labels: SCLabel[] = [];
   if (item.actionType) {
     labels.push({ name: item.actionType, group: 'actionType' });
   }
@@ -197,7 +198,7 @@ export const normalizeTimelineData = (data: TimelineData): TimelineData => {
     return data; // すでにlabels配列が存在する場合はそのまま返す
   }
 
-  const labels: TimelineLabel[] = [];
+  const labels: SCLabel[] = [];
   if (data.actionType) {
     labels.push({ name: data.actionType, group: 'actionType' });
   }

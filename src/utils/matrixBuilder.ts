@@ -158,3 +158,191 @@ export const buildMatrixForTeam = (
     return itemTeam === team;
   });
 };
+
+/**
+ * グループ軸の階層構造を構築するヘルパー
+ */
+const buildGroupAxisHeaders = (
+  timeline: TimelineData[],
+  groupName: string,
+): {
+  headers: Array<{ parent: string | null; child: string }>;
+  parentSpans: Map<string, number>;
+} => {
+  const headers: Array<{ parent: string | null; child: string }> = [];
+  const parentSpans = new Map<string, number>();
+  const labels = extractUniqueLabelsForGroup(timeline, groupName);
+
+  // labelsからgroupを抽出してグループ化
+  const labelsByGroup = new Map<string, string[]>();
+
+  for (const item of timeline) {
+    const labelObj = item.labels?.find((l) => l.group === groupName);
+    const labelName = labelObj?.name;
+    const group = labelObj?.group;
+
+    if (labelName && group) {
+      if (!labelsByGroup.has(group)) {
+        labelsByGroup.set(group, []);
+      }
+      const groupLabels = labelsByGroup.get(group);
+      if (groupLabels && !groupLabels.includes(labelName)) {
+        groupLabels.push(labelName);
+      }
+    }
+  }
+
+  // グループごとにラベルを配置
+  if (labelsByGroup.size > 0) {
+    const sortedGroups = Array.from(labelsByGroup.entries()).sort(([a], [b]) =>
+      a.localeCompare(b),
+    );
+    for (const [group, groupLabels] of sortedGroups) {
+      const sortedLabels = [...groupLabels].sort((a, b) => a.localeCompare(b));
+      parentSpans.set(group, sortedLabels.length);
+      for (const label of sortedLabels) {
+        headers.push({ parent: group, child: label });
+      }
+    }
+  } else {
+    // グループ情報がない場合は、ラベルのみ
+    for (const label of labels) {
+      headers.push({ parent: null, child: label });
+    }
+  }
+
+  return { headers, parentSpans };
+};
+
+/**
+ * アクション軸の階層構造を構築するヘルパー
+ */
+const buildActionAxisHeaders = (
+  timeline: TimelineData[],
+): {
+  headers: Array<{ parent: string | null; child: string }>;
+  parentSpans: Map<string, number>;
+} => {
+  const headers: Array<{ parent: string | null; child: string }> = [];
+  const parentSpans = new Map<string, number>();
+  const teams = extractUniqueTeams(timeline);
+
+  for (const team of teams) {
+    const actions = extractUniqueActionsForTeam(timeline, team);
+    if (actions.length > 0) {
+      parentSpans.set(team, actions.length);
+      for (const action of actions) {
+        headers.push({ parent: team, child: action });
+      }
+    }
+  }
+
+  return { headers, parentSpans };
+};
+
+/**
+ * 階層構造を持つマトリクスを構築
+ *
+ * チーム→アクション、グループ→ラベルのような親子関係を持つマトリクスを構築します。
+ *
+ * @param timeline TimelineData配列
+ * @param rowAxis 行軸の設定
+ * @param columnAxis 列軸の設定
+ * @returns 階層構造を持つマトリクスデータ
+ */
+export const buildHierarchicalMatrix = (
+  timeline: TimelineData[],
+  rowAxis: MatrixAxisConfig,
+  columnAxis: MatrixAxisConfig,
+): {
+  matrix: MatrixCell[][];
+  rowHeaders: Array<{ parent: string | null; child: string }>;
+  columnHeaders: Array<{ parent: string | null; child: string }>;
+  rowParentSpans: Map<string, number>;
+  colParentSpans: Map<string, number>;
+} => {
+  // 行の階層構造を構築
+  let rowHeaders: Array<{ parent: string | null; child: string }> = [];
+  let rowParentSpans = new Map<string, number>();
+
+  if (rowAxis.type === 'action') {
+    const result = buildActionAxisHeaders(timeline);
+    rowHeaders = result.headers;
+    rowParentSpans = result.parentSpans;
+  } else if (rowAxis.type === 'group' && rowAxis.value) {
+    const result = buildGroupAxisHeaders(timeline, rowAxis.value);
+    rowHeaders = result.headers;
+    rowParentSpans = result.parentSpans;
+  } else {
+    const keys = extractKeysForAxis(timeline, rowAxis);
+    for (const key of keys) {
+      rowHeaders.push({ parent: null, child: key });
+    }
+  }
+
+  // 列の階層構造を構築
+  let columnHeaders: Array<{ parent: string | null; child: string }> = [];
+  let colParentSpans = new Map<string, number>();
+
+  if (columnAxis.type === 'action') {
+    const result = buildActionAxisHeaders(timeline);
+    columnHeaders = result.headers;
+    colParentSpans = result.parentSpans;
+  } else if (columnAxis.type === 'group' && columnAxis.value) {
+    const result = buildGroupAxisHeaders(timeline, columnAxis.value);
+    columnHeaders = result.headers;
+    colParentSpans = result.parentSpans;
+  } else {
+    const keys = extractKeysForAxis(timeline, columnAxis);
+    for (const key of keys) {
+      columnHeaders.push({ parent: null, child: key });
+    }
+  }
+
+  // マトリクスセルを初期化
+  const matrix: MatrixCell[][] = rowHeaders.map(() =>
+    columnHeaders.map(() => ({ count: 0, entries: [] })),
+  );
+
+  // データを集計
+  for (const item of timeline) {
+    const rowIndex = findHeaderIndex(item, rowAxis, rowHeaders);
+    const colIndex = findHeaderIndex(item, columnAxis, columnHeaders);
+
+    if (rowIndex >= 0 && colIndex >= 0) {
+      const cell = matrix[rowIndex]?.[colIndex];
+      if (cell) {
+        cell.count += 1;
+        cell.entries.push(item);
+      }
+    }
+  }
+
+  return { matrix, rowHeaders, columnHeaders, rowParentSpans, colParentSpans };
+};
+
+/**
+ * ヘッダー配列から該当するインデックスを検索
+ */
+const findHeaderIndex = (
+  item: TimelineData,
+  axis: MatrixAxisConfig,
+  headers: Array<{ parent: string | null; child: string }>,
+): number => {
+  if (axis.type === 'action') {
+    const team = extractTeamFromActionName(item.actionName);
+    const action = extractActionFromActionName(item.actionName);
+    return headers.findIndex((h) => h.parent === team && h.child === action);
+  }
+
+  if (axis.type === 'group' && axis.value) {
+    const label = getLabelByGroupWithFallback(item, axis.value, '');
+    if (label) {
+      return headers.findIndex((h) => h.child === label);
+    }
+    return -1;
+  }
+
+  const key = extractValueFromAxis(item, axis);
+  return headers.findIndex((h) => h.child === key);
+};
