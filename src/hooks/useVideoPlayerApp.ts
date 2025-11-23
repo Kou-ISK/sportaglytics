@@ -190,7 +190,16 @@ export const useVideoPlayerApp = () => {
                 // 2番目以降の動画には同期オフセットを適用
                 if (index > 0 && syncData?.isAnalyzed) {
                   const offset = syncData.syncOffset || 0;
-                  targetTime = Math.max(0, timeClamped - offset);
+                  // offset > 0: video2が早い → video1を遅らせる（+offset）
+                  // offset < 0: video1が早い → video1を進める（+offset、負の値を加算）
+                  targetTime = Math.max(0, timeClamped + offset);
+
+                  // オフセット適用のデバッグログ
+                  console.log(
+                    `[OFFSET DEBUG] video_${index}: global=${timeClamped.toFixed(3)}s, ` +
+                      `offset=${offset.toFixed(3)}s, target=${targetTime.toFixed(3)}s ` +
+                      `(計算: ${timeClamped.toFixed(3)} + ${offset.toFixed(3)} = ${targetTime.toFixed(3)})`,
+                  );
                 }
 
                 if (isDev) {

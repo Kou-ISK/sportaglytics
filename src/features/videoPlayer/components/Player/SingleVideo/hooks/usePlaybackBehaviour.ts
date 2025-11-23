@@ -73,8 +73,10 @@ export const usePlaybackBehaviour = ({
       ) {
         (playAttempt as Promise<unknown>)
           .then(() => {
+            // 音声同期: video_0のみ音声再生、video_1以降は常にミュート
+            // これにより音の重複（エコー）を防ぐ
             if (id !== 'video_0') {
-              targetPlayer.muted(false);
+              targetPlayer.muted(true);
             }
           })
           .catch(() => {

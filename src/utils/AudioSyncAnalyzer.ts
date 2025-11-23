@@ -180,6 +180,7 @@ export class AudioSyncAnalyzer {
 
   /**
    * 実際の音声波形による高精度同期分析
+   * シンプルなクロスコリレーション分析で音声波形が一致する点を見つける
    */
   async quickSyncAnalysis(
     videoPath1: string,
@@ -212,8 +213,8 @@ export class AudioSyncAnalyzer {
       // ステップ2: 相関分析 (40-100%)
       onProgress?.('同期点を計算中...', 50);
 
-      // より精密な同期分析（複数の時間窓で分析）
-      const result = await this.analyzeSyncOffsetMultiWindow(
+      // シンプルなクロスコリレーション分析
+      const result = await this.simpleCorrelationAnalysis(
         waveform1,
         waveform2,
         (progress) => {
@@ -238,9 +239,10 @@ export class AudioSyncAnalyzer {
   }
 
   /**
-   * マルチウィンドウ方式での同期分析（精度向上版）
+   * シンプルなクロスコリレーション分析
+   * 冒頭の音声波形を使って最も相関が高いオフセットを見つける
    */
-  private async analyzeSyncOffsetMultiWindow(
+  private async simpleCorrelationAnalysis(
     waveform1: WaveformData,
     waveform2: WaveformData,
     onProgress?: (progress: number) => void,
@@ -249,304 +251,265 @@ export class AudioSyncAnalyzer {
     const data2 = waveform2.audioBuffer.getChannelData(0);
     const sampleRate = waveform1.sampleRate;
 
-    // 分析パラメータの最適化
-    const maxOffsetSeconds = 30; // 最大30秒のズレを検出
+    // 分析パラメータ
+    const maxOffsetSeconds = 30; // 最大±30秒のズレを検出
     const maxOffsetSamples = Math.floor(maxOffsetSeconds * sampleRate);
 
-    // より細かいサンプリング間隔で精度向上（50→25サンプル）
-    const stepSize = 25;
-
-    // エネルギーが高い部分を選択的に分析（音のある部分）
-    const windowSize = Math.floor(sampleRate * 15); // 15秒のウィンドウ（より長く）
-    const analysisWindows = this.selectHighEnergyWindows(
-      data1,
-      data2,
-      windowSize,
-      5, // 5つの時間窓を使用（増加）
+    // 分析に使用する音声の長さ（冒頭20秒 - より長い区間で精度向上）
+    const analysisLengthSeconds = 20;
+    const analysisLengthSamples = Math.floor(
+      analysisLengthSeconds * sampleRate,
     );
 
-    console.log('分析パラメータ:', {
+    console.log('クロスコリレーション分析開始:', {
       maxOffsetSeconds,
-      stepSize,
-      windowSize: windowSize / sampleRate,
-      numWindows: analysisWindows.length,
+      analysisLengthSeconds,
+      sampleRate,
+      data1Length: data1.length,
+      data2Length: data2.length,
     });
 
     let bestOffset = 0;
-    let bestCorrelation = -1;
+    let bestCorrelation = -Infinity;
 
-    // 粗探索: 大きなステップで候補を絞る
-    onProgress?.(0.1);
-    const coarseStepSize = stepSize * 8; // 8倍のステップで高速探索
+    // 粗探索: 0.02秒（約0.6フレーム）単位で探索 - より細かく
+    const coarseStep = Math.floor(sampleRate * 0.02); // 0.02秒
+    console.log(
+      '粗探索開始: step =',
+      coarseStep,
+      'samples (',
+      ((coarseStep / sampleRate) * 1000).toFixed(1),
+      'ms)',
+    );
+    onProgress?.(0);
+
+    let searchCount = 0;
+    const totalSearches = Math.floor((maxOffsetSamples * 2) / coarseStep);
+
     for (
       let offset = -maxOffsetSamples;
       offset <= maxOffsetSamples;
-      offset += coarseStepSize
+      offset += coarseStep
     ) {
-      const correlation = this.calculateCorrelationForWindows(
+      const correlation = this.calculateSimpleCorrelation(
         data1,
         data2,
         offset,
-        analysisWindows,
+        analysisLengthSamples,
       );
 
       if (correlation > bestCorrelation) {
         bestCorrelation = correlation;
         bestOffset = offset;
+        console.log('新しい最良オフセット:', {
+          offsetSamples: bestOffset,
+          offsetSeconds: (bestOffset / sampleRate).toFixed(3),
+          correlation: bestCorrelation.toFixed(4),
+        });
+      }
+
+      searchCount++;
+      if (searchCount % 100 === 0) {
+        onProgress?.((searchCount / totalSearches) * 0.4);
       }
     }
 
-    console.log('粗探索結果:', {
-      bestOffsetSamples: bestOffset,
-      bestOffsetSeconds: bestOffset / sampleRate,
-      bestCorrelation,
+    console.log('粗探索完了:', {
+      offsetSamples: bestOffset,
+      offsetSeconds: (bestOffset / sampleRate).toFixed(3),
+      correlation: bestCorrelation.toFixed(4),
+      searchCount,
     });
 
     onProgress?.(0.5);
 
-    // 精密探索: 最良候補の周辺を細かく探索
-    const searchRange = coarseStepSize * 2; // 粗探索ステップの2倍の範囲
-    let refinedBestOffset = bestOffset;
-    let refinedBestCorrelation = bestCorrelation;
+    // 精密探索: ±2秒の範囲を1フレーム（1/30秒）単位で探索 - より広い範囲で
+    const fineStep = Math.floor(sampleRate / 30); // 1フレーム
+    const fineRange = Math.floor(sampleRate * 2); // ±2秒
+    let refinedOffset = bestOffset;
+    let refinedCorrelation = bestCorrelation;
+
+    console.log('精密探索開始:', {
+      centerOffset: bestOffset,
+      fineStep,
+      fineRange,
+      searchRange: `${((bestOffset - fineRange) / sampleRate).toFixed(2)}s to ${((bestOffset + fineRange) / sampleRate).toFixed(2)}s`,
+    });
 
     for (
-      let offset = bestOffset - searchRange;
-      offset <= bestOffset + searchRange;
-      offset += stepSize
+      let offset = bestOffset - fineRange;
+      offset <= bestOffset + fineRange;
+      offset += fineStep
     ) {
-      const correlation = this.calculateCorrelationForWindows(
+      const correlation = this.calculateSimpleCorrelation(
         data1,
         data2,
         offset,
-        analysisWindows,
+        analysisLengthSamples,
       );
 
-      if (correlation > refinedBestCorrelation) {
-        refinedBestCorrelation = correlation;
-        refinedBestOffset = offset;
+      if (correlation > refinedCorrelation) {
+        refinedCorrelation = correlation;
+        refinedOffset = offset;
+        console.log('精密探索で改善:', {
+          offsetSamples: refinedOffset,
+          offsetSeconds: (refinedOffset / sampleRate).toFixed(3),
+          correlation: refinedCorrelation.toFixed(4),
+        });
       }
     }
 
-    console.log('精密探索結果:', {
-      refinedBestOffsetSamples: refinedBestOffset,
-      refinedBestOffsetSeconds: refinedBestOffset / sampleRate,
-      refinedBestCorrelation,
+    console.log('精密探索完了:', {
+      offsetSamples: refinedOffset,
+      offsetSeconds: (refinedOffset / sampleRate).toFixed(3),
+      offsetFrames:
+        ((refinedOffset / sampleRate) * 30).toFixed(2) + ' frames @ 30fps',
+      offsetMs: Math.round((refinedOffset / sampleRate) * 1000) + 'ms',
+      correlation: refinedCorrelation.toFixed(4),
+      improvement: (refinedCorrelation - bestCorrelation).toFixed(4),
     });
 
-    onProgress?.(0.9);
+    onProgress?.(0.8);
 
-    // サブサンプル精度での最終調整
-    const finalBestOffset = this.refineOffsetSubsample(
-      data1,
-      data2,
-      refinedBestOffset,
-      analysisWindows,
-      stepSize,
-    );
+    // 超精密探索: ±0.2秒の範囲をサンプル単位で探索（約0.02ms精度） - より広範囲で最適点を探す
+    const ultraFineRange = Math.floor(sampleRate * 0.2); // ±0.2秒
+    let finalOffset = refinedOffset;
+    let finalCorrelation = refinedCorrelation;
 
-    const offsetSeconds = finalBestOffset / sampleRate;
-    const confidence = Math.min(refinedBestCorrelation * 2, 1);
+    console.log('超精密探索開始:', {
+      centerOffset: refinedOffset,
+      ultraFineRange,
+      searchRange: `${((refinedOffset - ultraFineRange) / sampleRate).toFixed(4)}s to ${((refinedOffset + ultraFineRange) / sampleRate).toFixed(4)}s`,
+      stepSize: '1 sample',
+    });
+
+    for (
+      let offset = refinedOffset - ultraFineRange;
+      offset <= refinedOffset + ultraFineRange;
+      offset++ // サンプル単位
+    ) {
+      const correlation = this.calculateSimpleCorrelation(
+        data1,
+        data2,
+        offset,
+        analysisLengthSamples,
+      );
+
+      if (correlation > finalCorrelation) {
+        finalCorrelation = correlation;
+        finalOffset = offset;
+      }
+    }
+
+    console.log('超精密探索完了:', {
+      offsetSamples: finalOffset,
+      offsetSeconds: (finalOffset / sampleRate).toFixed(6),
+      offsetFrames:
+        ((finalOffset / sampleRate) * 30).toFixed(4) + ' frames @ 30fps',
+      offsetMs: ((finalOffset / sampleRate) * 1000).toFixed(3) + 'ms',
+      correlation: finalCorrelation.toFixed(6),
+      improvement: (finalCorrelation - refinedCorrelation).toFixed(6),
+      totalImprovement: (finalCorrelation - bestCorrelation).toFixed(6),
+    });
 
     onProgress?.(1);
 
-    console.log('音声同期分析結果:', {
-      offsetSeconds,
-      offsetSamples: finalBestOffset,
-      confidence,
-      correlationPeak: refinedBestCorrelation,
-    });
+    const offsetSeconds = finalOffset / sampleRate;
+    // 相関係数は-1から1の範囲なので、0から1にマッピング
+    const confidence = Math.max(0, Math.min(1, (finalCorrelation + 1) / 2));
 
     return {
       offsetSeconds,
       confidence,
-      correlationPeak: refinedBestCorrelation,
+      correlationPeak: finalCorrelation,
     };
   }
 
   /**
-   * エネルギーが高い（音がある）時間窓を選択
+   * シンプルな相関係数計算
+   * 指定されたオフセットでの2つの音声データの相関を計算
+   *
+   * オフセットの定義（シンプルに）:
+   * offset > 0: video1をoffsetサンプル分「遅らせる」必要がある
+   *            = video2が先に始まっている
+   *            = video1[0]とvideo2[offset]を比較
+   * offset < 0: video1を|offset|サンプル分「進める」必要がある
+   *            = video1が先に始まっている
+   *            = video1[|offset|]とvideo2[0]を比較
+   *
+   * 返されるoffsetSecondsの意味:
+   * offsetSeconds > 0: video2がvideo1より早く始まっている → video1に+offsetSecondsを加える
+   * offsetSeconds < 0: video1がvideo2より早く始まっている → video1に-|offsetSeconds|を加える
    */
-  private selectHighEnergyWindows(
-    data1: Float32Array,
-    data2: Float32Array,
-    windowSize: number,
-    numWindows: number,
-  ): Array<{ start: number; end: number }> {
-    const minLength = Math.min(data1.length, data2.length);
-    const energies: Array<{ start: number; energy: number }> = [];
-
-    // 各ウィンドウのエネルギーを計算（RMS値を使用）
-    const overlap = windowSize / 4; // オーバーラップを増やして精度向上
-    for (
-      let start = 0;
-      start < minLength - windowSize;
-      start += windowSize - overlap
-    ) {
-      let sumSquares = 0;
-      let count = 0;
-      for (let i = start; i < start + windowSize && i < minLength; i++) {
-        // 両方の音声のRMS（二乗平均平方根）を使用
-        sumSquares += data1[i] * data1[i] + data2[i] * data2[i];
-        count++;
-      }
-      const rmsEnergy = count > 0 ? Math.sqrt(sumSquares / count) : 0;
-      energies.push({ start, energy: rmsEnergy });
-    }
-
-    // エネルギーが高い順にソート
-    energies.sort((a, b) => b.energy - a.energy);
-
-    // 上位のウィンドウを選択（重複を避けるため時間順にソート）
-    const selectedWindows = energies
-      .slice(0, numWindows)
-      .map((e) => ({
-        start: e.start,
-        end: Math.min(e.start + windowSize, minLength),
-      }))
-      .sort((a, b) => a.start - b.start);
-
-    console.log('選択された分析ウィンドウ:', {
-      windows: selectedWindows.map((w, i) => ({
-        index: i,
-        startSec: w.start / 44100,
-        endSec: w.end / 44100,
-        energy: energies.find((e) => e.start === w.start)?.energy,
-      })),
-      totalWindows: energies.length,
-    });
-    return selectedWindows;
-  }
-
-  /**
-   * 複数の時間窓での相関を平均計算
-   */
-  private calculateCorrelationForWindows(
+  private calculateSimpleCorrelation(
     data1: Float32Array,
     data2: Float32Array,
     offset: number,
-    windows: Array<{ start: number; end: number }>,
+    analysisLength: number,
   ): number {
-    let totalCorrelation = 0;
-    let validWindowCount = 0;
-
-    for (const window of windows) {
-      const correlation = this.calculateCorrelationInWindow(
-        data1,
-        data2,
-        offset,
-        window.start,
-        window.end,
-      );
-
-      if (!Number.isNaN(correlation) && Number.isFinite(correlation)) {
-        totalCorrelation += correlation;
-        validWindowCount++;
-      }
-    }
-
-    return validWindowCount > 0 ? totalCorrelation / validWindowCount : 0;
-  }
-
-  /**
-   * 特定の時間窓内での相関計算
-   */
-  private calculateCorrelationInWindow(
-    data1: Float32Array,
-    data2: Float32Array,
-    offset: number,
-    windowStart: number,
-    windowEnd: number,
-  ): number {
-    const length = windowEnd - windowStart;
-    let sum1 = 0,
-      sum2 = 0,
-      sum1Sq = 0,
-      sum2Sq = 0,
-      pSum = 0;
+    let sum1 = 0;
+    let sum2 = 0;
+    let sum1Sq = 0;
+    let sum2Sq = 0;
+    let productSum = 0;
     let validSamples = 0;
 
-    for (let i = 0; i < length; i++) {
-      const idx1 = windowStart + i;
-      const idx2 = idx1 + offset;
+    // 比較範囲を計算
+    const start1 = Math.max(0, -offset);
+    const start2 = Math.max(0, offset);
+    const maxLength = Math.min(
+      analysisLength,
+      data1.length - start1,
+      data2.length - start2,
+    );
 
-      if (
-        idx1 < 0 ||
-        idx1 >= data1.length ||
-        idx2 < 0 ||
-        idx2 >= data2.length
-      ) {
-        continue;
+    if (maxLength <= 0) {
+      // デバッグ: 範囲エラーの詳細
+      if (offset === 0 || Math.abs(offset) < 100) {
+        console.warn('相関計算: 範囲不正', {
+          offset,
+          start1,
+          start2,
+          maxLength,
+          data1Length: data1.length,
+          data2Length: data2.length,
+        });
+      }
+      return -1;
+    }
+
+    for (let i = 0; i < maxLength; i++) {
+      const idx1 = start1 + i;
+      const idx2 = start2 + i;
+
+      if (idx1 >= data1.length || idx2 >= data2.length) {
+        break;
       }
 
       const val1 = data1[idx1];
       const val2 = data2[idx2];
-
       sum1 += val1;
       sum2 += val2;
       sum1Sq += val1 * val1;
       sum2Sq += val2 * val2;
-      pSum += val1 * val2;
+      productSum += val1 * val2;
       validSamples++;
     }
 
-    if (validSamples === 0) return 0;
+    if (validSamples === 0) return -1;
 
-    const num = pSum - (sum1 * sum2) / validSamples;
-    const den = Math.sqrt(
-      (sum1Sq - (sum1 * sum1) / validSamples) *
-        (sum2Sq - (sum2 * sum2) / validSamples),
-    );
+    // ピアソン相関係数を計算
+    const mean1 = sum1 / validSamples;
+    const mean2 = sum2 / validSamples;
+    const variance1 = sum1Sq / validSamples - mean1 * mean1;
+    const variance2 = sum2Sq / validSamples - mean2 * mean2;
 
-    return den === 0 ? 0 : num / den;
-  }
+    if (variance1 <= 0 || variance2 <= 0) return -1;
 
-  /**
-   * サブサンプル精度での最終調整（補間を使用）
-   */
-  private refineOffsetSubsample(
-    data1: Float32Array,
-    data2: Float32Array,
-    coarseOffset: number,
-    windows: Array<{ start: number; end: number }>,
-    stepSize: number,
-  ): number {
-    const subSteps = 10; // サブサンプルステップ数
-    let bestOffset = coarseOffset;
-    let bestCorrelation = this.calculateCorrelationForWindows(
-      data1,
-      data2,
-      coarseOffset,
-      windows,
-    );
+    const covariance = productSum / validSamples - mean1 * mean2;
+    const correlation = covariance / Math.sqrt(variance1 * variance2);
 
-    // 前後のstepSizeの範囲をサブサンプル精度で探索
-    for (let i = -subSteps; i <= subSteps; i++) {
-      const offset = coarseOffset + (i * stepSize) / subSteps;
-      const intOffset = Math.floor(offset);
-      const frac = offset - intOffset;
-
-      // 線形補間を使った相関計算（近似）
-      const corr1 = this.calculateCorrelationForWindows(
-        data1,
-        data2,
-        intOffset,
-        windows,
-      );
-      const corr2 = this.calculateCorrelationForWindows(
-        data1,
-        data2,
-        intOffset + 1,
-        windows,
-      );
-      const interpolatedCorr = corr1 * (1 - frac) + corr2 * frac;
-
-      if (interpolatedCorr > bestCorrelation) {
-        bestCorrelation = interpolatedCorr;
-        bestOffset = offset;
-      }
-    }
-
-    return bestOffset;
+    return correlation;
   }
 
   /**
