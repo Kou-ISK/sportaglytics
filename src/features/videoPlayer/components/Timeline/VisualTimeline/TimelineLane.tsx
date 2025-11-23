@@ -158,6 +158,7 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
           flexShrink: 0,
           textAlign: 'right',
           pr: 1,
+          userSelect: 'none',
         }}
       >
         {actionName}
@@ -173,6 +174,7 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
           borderRadius: 1,
           border: 1,
           borderColor: 'divider',
+          userSelect: 'none',
         }}
       >
         {items.map((item) => {

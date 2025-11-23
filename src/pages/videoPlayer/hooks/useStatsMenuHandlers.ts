@@ -11,16 +11,6 @@ export const useStatsMenuHandlers = ({
   setStatsOpen,
 }: UseStatsMenuHandlersParams) => {
   // useCallbackで安定した関数参照を作成
-  const handleShortcut = useCallback(
-    (_event: unknown, args: unknown) => {
-      if (args === 'analyze') {
-        setStatsView('possession');
-        setStatsOpen((prev) => !prev);
-      }
-    },
-    [setStatsView, setStatsOpen],
-  );
-
   const handleMenuStats = useCallback(
     (_event: unknown, requested?: unknown) => {
       const statsViewOptions: StatsView[] = [
@@ -45,20 +35,17 @@ export const useStatsMenuHandlers = ({
 
     const api = globalThis.window.electronAPI;
 
-    api.on('general-shortcut-event', handleShortcut);
+    // Note: 'general-shortcut-event'はuseGlobalHotkeysで処理されるため、ここでは登録しない
     api.on('menu-show-stats', handleMenuStats);
-    console.log(
-      '[STATS] general-shortcut-event, menu-show-stats リスナー登録完了',
-    );
+    console.log('[STATS] menu-show-stats リスナー登録完了');
 
     return () => {
       try {
-        api.off?.('general-shortcut-event', handleShortcut);
         api.off?.('menu-show-stats', handleMenuStats);
         console.log('[STATS] リスナー解除完了');
       } catch (error) {
         console.debug('stats event cleanup error', error);
       }
     };
-  }, [handleShortcut, handleMenuStats]); // useCallbackで安定した参照を依存配列に指定
+  }, [handleMenuStats]); // useCallbackで安定した参照を依存配列に指定
 };

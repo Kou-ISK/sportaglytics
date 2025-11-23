@@ -1,9 +1,9 @@
 import { useEffect, useCallback } from 'react';
 
 interface UseSyncMenuHandlersParams {
-  onResyncAudio: () => void;
-  onResetSync: () => void;
-  onManualSync: () => void;
+  onResyncAudio: () => void | Promise<void>;
+  onResetSync: () => void | Promise<void>;
+  onManualSync: () => void | Promise<void>;
   onSetSyncMode: (mode: 'auto' | 'manual') => void;
 }
 

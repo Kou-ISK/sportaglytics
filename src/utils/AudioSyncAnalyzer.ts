@@ -253,27 +253,35 @@ export class AudioSyncAnalyzer {
     const maxOffsetSeconds = 30; // 最大30秒のズレを検出
     const maxOffsetSamples = Math.floor(maxOffsetSeconds * sampleRate);
 
-    // より細かいサンプリング間隔で精度向上（100→50サンプル）
-    const stepSize = 50;
+    // より細かいサンプリング間隔で精度向上（50→25サンプル）
+    const stepSize = 25;
 
     // エネルギーが高い部分を選択的に分析（音のある部分）
-    const windowSize = Math.floor(sampleRate * 10); // 10秒のウィンドウ
+    const windowSize = Math.floor(sampleRate * 15); // 15秒のウィンドウ（より長く）
     const analysisWindows = this.selectHighEnergyWindows(
       data1,
       data2,
       windowSize,
-      3, // 3つの時間窓を使用
+      5, // 5つの時間窓を使用（増加）
     );
+
+    console.log('分析パラメータ:', {
+      maxOffsetSeconds,
+      stepSize,
+      windowSize: windowSize / sampleRate,
+      numWindows: analysisWindows.length,
+    });
 
     let bestOffset = 0;
     let bestCorrelation = -1;
 
     // 粗探索: 大きなステップで候補を絞る
     onProgress?.(0.1);
+    const coarseStepSize = stepSize * 8; // 8倍のステップで高速探索
     for (
       let offset = -maxOffsetSamples;
       offset <= maxOffsetSamples;
-      offset += stepSize * 10
+      offset += coarseStepSize
     ) {
       const correlation = this.calculateCorrelationForWindows(
         data1,
@@ -288,10 +296,16 @@ export class AudioSyncAnalyzer {
       }
     }
 
+    console.log('粗探索結果:', {
+      bestOffsetSamples: bestOffset,
+      bestOffsetSeconds: bestOffset / sampleRate,
+      bestCorrelation,
+    });
+
     onProgress?.(0.5);
 
     // 精密探索: 最良候補の周辺を細かく探索
-    const searchRange = stepSize * 20; // 粗探索ステップの2倍の範囲
+    const searchRange = coarseStepSize * 2; // 粗探索ステップの2倍の範囲
     let refinedBestOffset = bestOffset;
     let refinedBestCorrelation = bestCorrelation;
 
@@ -313,6 +327,12 @@ export class AudioSyncAnalyzer {
       }
     }
 
+    console.log('精密探索結果:', {
+      refinedBestOffsetSamples: refinedBestOffset,
+      refinedBestOffsetSeconds: refinedBestOffset / sampleRate,
+      refinedBestCorrelation,
+    });
+
     onProgress?.(0.9);
 
     // サブサンプル精度での最終調整
@@ -327,7 +347,14 @@ export class AudioSyncAnalyzer {
     const offsetSeconds = finalBestOffset / sampleRate;
     const confidence = Math.min(refinedBestCorrelation * 2, 1);
 
-    onProgress?.(1.0);
+    onProgress?.(1);
+
+    console.log('音声同期分析結果:', {
+      offsetSeconds,
+      offsetSamples: finalBestOffset,
+      confidence,
+      correlationPeak: refinedBestCorrelation,
+    });
 
     return {
       offsetSeconds,
@@ -348,17 +375,22 @@ export class AudioSyncAnalyzer {
     const minLength = Math.min(data1.length, data2.length);
     const energies: Array<{ start: number; energy: number }> = [];
 
-    // 各ウィンドウのエネルギーを計算
+    // 各ウィンドウのエネルギーを計算（RMS値を使用）
+    const overlap = windowSize / 4; // オーバーラップを増やして精度向上
     for (
       let start = 0;
       start < minLength - windowSize;
-      start += windowSize / 2
+      start += windowSize - overlap
     ) {
-      let energy = 0;
+      let sumSquares = 0;
+      let count = 0;
       for (let i = start; i < start + windowSize && i < minLength; i++) {
-        energy += Math.abs(data1[i]) + Math.abs(data2[i]);
+        // 両方の音声のRMS（二乗平均平方根）を使用
+        sumSquares += data1[i] * data1[i] + data2[i] * data2[i];
+        count++;
       }
-      energies.push({ start, energy });
+      const rmsEnergy = count > 0 ? Math.sqrt(sumSquares / count) : 0;
+      energies.push({ start, energy: rmsEnergy });
     }
 
     // エネルギーが高い順にソート
@@ -373,7 +405,15 @@ export class AudioSyncAnalyzer {
       }))
       .sort((a, b) => a.start - b.start);
 
-    console.log('選択された分析ウィンドウ:', selectedWindows);
+    console.log('選択された分析ウィンドウ:', {
+      windows: selectedWindows.map((w, i) => ({
+        index: i,
+        startSec: w.start / 44100,
+        endSec: w.end / 44100,
+        energy: energies.find((e) => e.start === w.start)?.energy,
+      })),
+      totalWindows: energies.length,
+    });
     return selectedWindows;
   }
 

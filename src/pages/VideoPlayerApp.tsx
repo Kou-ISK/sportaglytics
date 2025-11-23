@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box } from '@mui/material';
 import {
   StatsModal,
   StatsView,
 } from '../features/videoPlayer/components/Analytics/StatsModal/StatsModal';
 import { useVideoPlayerApp } from '../hooks/useVideoPlayerApp';
+import { useSettings } from '../hooks/useSettings';
+import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { TimelineData } from '../types/TimelineData';
 import { PlayerSurface } from './videoPlayer/components/PlayerSurface';
 import { TimelineActionSection } from './videoPlayer/components/TimelineActionSection';
@@ -60,10 +62,58 @@ export const VideoPlayerApp = () => {
     isAnalyzing,
     syncProgress,
     syncStage,
+    performUndo,
+    performRedo,
   } = useVideoPlayerApp();
 
   const [statsOpen, setStatsOpen] = useState(false);
   const [statsView, setStatsView] = useState<StatsView>('possession');
+
+  // ホットキー設定を読み込み
+  const { settings } = useSettings();
+
+  // ホットキーハンドラーを定義
+  const hotkeyHandlers = useMemo(
+    () => ({
+      'skip-forward-small': () =>
+        handleCurrentTime(new Event('hotkey'), currentTime + 0.5),
+      'skip-forward-medium': () =>
+        handleCurrentTime(new Event('hotkey'), currentTime + 2),
+      'skip-forward-large': () =>
+        handleCurrentTime(new Event('hotkey'), currentTime + 4),
+      'skip-forward-xlarge': () =>
+        handleCurrentTime(new Event('hotkey'), currentTime + 6),
+      'play-pause': () => setisVideoPlaying(!isVideoPlaying),
+      'skip-backward-medium': () =>
+        handleCurrentTime(new Event('hotkey'), currentTime - 5),
+      'skip-backward-large': () =>
+        handleCurrentTime(new Event('hotkey'), currentTime - 10),
+      analyze: () => setStatsOpen(true),
+      undo: performUndo,
+      redo: performRedo,
+      'resync-audio': () => void resyncAudio(),
+      'reset-sync': resetSync,
+      'manual-sync': () => void manualSyncFromPlayers(),
+      'toggle-manual-mode': () =>
+        setSyncMode((prev) => (prev === 'auto' ? 'manual' : 'auto')),
+    }),
+    [
+      currentTime,
+      handleCurrentTime,
+      isVideoPlaying,
+      setisVideoPlaying,
+      setStatsOpen,
+      performUndo,
+      performRedo,
+      resyncAudio,
+      resetSync,
+      manualSyncFromPlayers,
+      setSyncMode,
+    ],
+  );
+
+  // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）
+  useGlobalHotkeys(settings.hotkeys, hotkeyHandlers);
 
   useSyncMenuHandlers({
     onResyncAudio: resyncAudio,

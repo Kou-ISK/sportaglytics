@@ -167,29 +167,12 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
         throw new Error('Failed to create package');
       }
 
-      let syncData: VideoSyncData | undefined;
+      // 新規パッケージ作成時は自動音声同期を実行しない
+      // ユーザーが必要に応じてメニューから「音声同期を再実行」を選択できる
+      const syncData: VideoSyncData | undefined = undefined;
       const videoList = packageDatas.wideViewPath
         ? [packageDatas.tightViewPath, packageDatas.wideViewPath]
         : [packageDatas.tightViewPath];
-
-      if (packageDatas.wideViewPath) {
-        syncData = await performAudioSync(
-          packageDatas.tightViewPath,
-          packageDatas.wideViewPath,
-        );
-        if (syncData && globalThis.window.electronAPI?.saveSyncData) {
-          try {
-            await globalThis.window.electronAPI.saveSyncData(
-              packageDatas.metaDataConfigFilePath,
-              syncData,
-            );
-          } catch (error) {
-            console.error('同期データの保存に失敗:', error);
-          }
-        }
-      } else {
-        syncData = undefined;
-      }
 
       onPackageCreated({
         videoList,

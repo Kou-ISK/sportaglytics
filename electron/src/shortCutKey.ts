@@ -1,71 +1,21 @@
-import { BrowserWindow, globalShortcut } from 'electron';
+import { BrowserWindow } from 'electron';
 import type { HotkeyConfig } from '../../src/types/Settings';
 
 /**
- * ホットキーIDとイベントハンドラーのマッピング
- */
-const hotkeyHandlers: Record<string, (mainWindow: BrowserWindow) => void> = {
-  'skip-forward-small': (mainWindow) =>
-    mainWindow.webContents.send('video-shortcut-event', 0.5),
-  'skip-forward-medium': (mainWindow) =>
-    mainWindow.webContents.send('video-shortcut-event', 2),
-  'skip-forward-large': (mainWindow) =>
-    mainWindow.webContents.send('video-shortcut-event', 4),
-  'skip-forward-xlarge': (mainWindow) =>
-    mainWindow.webContents.send('video-shortcut-event', 6),
-  'play-pause': (mainWindow) =>
-    mainWindow.webContents.send('video-shortcut-event', 1),
-  'skip-backward-medium': (mainWindow) =>
-    mainWindow.webContents.send('video-shortcut-event', -5),
-  'skip-backward-large': (mainWindow) =>
-    mainWindow.webContents.send('video-shortcut-event', -10),
-  analyze: (mainWindow) =>
-    mainWindow.webContents.send('general-shortcut-event', 'analyze'),
-  undo: (mainWindow) => mainWindow.webContents.send('timeline-undo'),
-  redo: (mainWindow) => mainWindow.webContents.send('timeline-redo'),
-  'resync-audio': (mainWindow) =>
-    mainWindow.webContents.send('sync-shortcut-event', 'resync'),
-  'reset-sync': (mainWindow) =>
-    mainWindow.webContents.send('sync-shortcut-event', 'reset'),
-  'manual-sync': (mainWindow) =>
-    mainWindow.webContents.send('sync-shortcut-event', 'manual'),
-  'toggle-manual-mode': (mainWindow) =>
-    mainWindow.webContents.send('sync-shortcut-event', 'toggle-manual'),
-};
-
-/**
  * ホットキーを登録
+ * Note: Electron 31では、ウィンドウフォーカス時のみ有効なローカルショートカットを
+ * 実装するため、renderer側でkeydownイベントをリッスンする方式に変更しました。
+ * このファイルは後方互換性のために残していますが、実際の処理はrenderer側で行われます。
  */
 export const registerShortcuts = (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   mainWindow: BrowserWindow,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   hotkeys: HotkeyConfig[],
 ) => {
-  // 既存のショートカットをすべて解除
-  globalShortcut.unregisterAll();
-
-  // 各ホットキーを登録
-  for (const hotkey of hotkeys) {
-    const handler = hotkeyHandlers[hotkey.id];
-    if (!handler) {
-      console.warn(`Unknown hotkey ID: ${hotkey.id}`);
-      continue;
-    }
-
-    try {
-      const success = globalShortcut.register(hotkey.key, () => {
-        // アプリにフォーカスがある時のみホットキーを発動
-        if (mainWindow.isFocused()) {
-          handler(mainWindow);
-        }
-      });
-
-      if (!success) {
-        console.error(`Failed to register shortcut: ${hotkey.key}`);
-      }
-    } catch (error) {
-      console.error(`Error registering shortcut ${hotkey.key}:`, error);
-    }
-  }
+  // globalShortcutは使用しない（他のアプリを妨害するため）
+  // 代わりにrenderer側でkeydownイベントをリッスンする
+  console.log('Shortcuts are handled by renderer process');
 };
 
 /**

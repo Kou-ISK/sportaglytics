@@ -101,6 +101,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
             theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
           borderRadius: 1,
           cursor: 'pointer',
+          userSelect: 'none',
           '&:hover': {
             backgroundColor:
               theme.palette.mode === 'dark' ? 'grey.800' : 'grey.200',
@@ -128,6 +129,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
                 fontSize: '0.65rem',
                 transform: 'translateX(-50%)',
                 color: 'text.secondary',
+                userSelect: 'none',
               }}
             >
               {formatTime(time)}

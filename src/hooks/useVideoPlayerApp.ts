@@ -289,24 +289,25 @@ export const useVideoPlayerApp = () => {
     })();
   }, [metaDataConfigFilePath]);
 
-  // Undo/Redoイベントハンドラー
+  // Undo/Redo関数（Electron IPCとローカルホットキー両方で使用）
+  const handleUndo = () => {
+    const previousTimeline = performUndo();
+    if (previousTimeline) {
+      setPersistedTimeline(previousTimeline);
+      info('元に戻しました');
+    }
+  };
+
+  const handleRedo = () => {
+    const nextTimeline = performRedo();
+    if (nextTimeline) {
+      setPersistedTimeline(nextTimeline);
+      info('やり直しました');
+    }
+  };
+
+  // Undo/RedoイベントハンドラーをElectron IPCに登録（後方互換性のため残す）
   useEffect(() => {
-    const handleUndo = () => {
-      const previousTimeline = performUndo();
-      if (previousTimeline) {
-        setPersistedTimeline(previousTimeline);
-        info('元に戻しました');
-      }
-    };
-
-    const handleRedo = () => {
-      const nextTimeline = performRedo();
-      if (nextTimeline) {
-        setPersistedTimeline(nextTimeline);
-        info('やり直しました');
-      }
-    };
-
     if (globalThis.window.electronAPI) {
       globalThis.window.electronAPI.on('timeline-undo', handleUndo);
       globalThis.window.electronAPI.on('timeline-redo', handleRedo);
@@ -318,7 +319,7 @@ export const useVideoPlayerApp = () => {
         }
       };
     }
-  }, [performUndo, performRedo, setPersistedTimeline, info]);
+  }, []);
 
   return {
     timeline,
@@ -372,5 +373,7 @@ export const useVideoPlayerApp = () => {
     isAnalyzing,
     syncProgress,
     syncStage,
+    performUndo: handleUndo,
+    performRedo: handleRedo,
   };
 };
