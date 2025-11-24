@@ -33,8 +33,6 @@ interface TimelineActionSectionProps {
   ) => void;
   deleteTimelineDatas: (ids: string[]) => void;
   updateQualifier: (id: string, qualifier: string) => void;
-  updateActionType: (id: string, actionType: string) => void;
-  updateActionResult: (id: string, actionResult: string) => void;
   updateTimelineRange: (id: string, startTime: number, endTime: number) => void;
   updateTimelineItem: (
     id: string,
@@ -63,8 +61,6 @@ export const TimelineActionSection = forwardRef<
       addTimelineData,
       deleteTimelineDatas,
       updateQualifier,
-      updateActionType,
-      updateActionResult,
       updateTimelineRange,
       updateTimelineItem,
       handleCurrentTime,
@@ -149,8 +145,6 @@ export const TimelineActionSection = forwardRef<
               setTimeline(updated);
             }}
             onUpdateQualifier={updateQualifier}
-            onUpdateActionType={updateActionType}
-            onUpdateActionResult={updateActionResult}
             onUpdateTimeRange={updateTimelineRange}
             onUpdateTimelineItem={updateTimelineItem}
           />

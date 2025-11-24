@@ -38,12 +38,18 @@ export const exportToCSV = (timeline: TimelineData[]): string => {
 
   // データ行
   for (const item of timeline) {
+    // labels配列からactionType/actionResultを取得
+    const actionTypeLabel = item.labels?.find((l) => l.group === 'actionType');
+    const actionResultLabel = item.labels?.find(
+      (l) => l.group === 'actionResult',
+    );
+
     const row = [
       formatTimeForExport(item.startTime),
       formatTimeForExport(item.endTime),
       `"${item.actionName.replace(/"/g, '""')}"`, // CSVエスケープ
-      `"${(item.actionType || '').replace(/"/g, '""')}"`,
-      `"${(item.actionResult || '').replace(/"/g, '""')}"`,
+      `"${(actionTypeLabel?.name || '').replace(/"/g, '""')}"`,
+      `"${(actionResultLabel?.name || '').replace(/"/g, '""')}"`,
       `"${(item.qualifier || '').replace(/"/g, '""')}"`,
     ];
     csvRows.push(row.join(','));
@@ -72,20 +78,30 @@ export const importFromJSON = (jsonString: string): TimelineData[] => {
       typeof item.actionName !== 'string' ||
       typeof item.startTime !== 'number' ||
       typeof item.endTime !== 'number' ||
-      typeof item.actionResult !== 'string' ||
-      typeof item.actionType !== 'string' ||
       typeof item.qualifier !== 'string'
     ) {
       throw new TypeError('Invalid timeline item format');
     }
 
-    // labels配列が存在しない場合は、actionType/actionResultから生成
+    // labels配列が存在しない場合は、actionType/actionResultから生成（後方互換性）
+    let labels = item.labels;
+    if (!labels || labels.length === 0) {
+      labels = [];
+      if (item.actionType) {
+        labels.push({ name: item.actionType, group: 'actionType' });
+      }
+      if (item.actionResult) {
+        labels.push({ name: item.actionResult, group: 'actionResult' });
+      }
+    }
+
     const timelineItem: TimelineData = {
-      ...item,
-      labels: item.labels || [
-        { name: item.actionType, group: 'actionType' },
-        { name: item.actionResult, group: 'actionResult' },
-      ],
+      id: item.id,
+      actionName: item.actionName,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      qualifier: item.qualifier,
+      labels: labels.length > 0 ? labels : undefined,
     };
 
     result.push(timelineItem);

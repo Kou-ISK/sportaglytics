@@ -54,8 +54,6 @@ export const VideoPlayerApp = () => {
     addTimelineData,
     deleteTimelineDatas,
     updateQualifier,
-    updateActionResult,
-    updateActionType,
     updateTimelineRange,
     updateTimelineItem,
     resyncAudio,
@@ -309,8 +307,6 @@ export const VideoPlayerApp = () => {
             addTimelineData={addTimelineData}
             deleteTimelineDatas={deleteTimelineDatas}
             updateQualifier={updateQualifier}
-            updateActionType={updateActionType}
-            updateActionResult={updateActionResult}
             updateTimelineRange={updateTimelineRange}
             updateTimelineItem={updateTimelineItem}
             handleCurrentTime={handleCurrentTime}

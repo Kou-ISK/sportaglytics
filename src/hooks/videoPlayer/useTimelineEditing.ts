@@ -14,7 +14,13 @@ export interface TimelineEditingHandlers {
   ) => void;
   deleteTimelineDatas: (idList: string[]) => void;
   updateQualifier: (id: string, qualifier: string) => void;
+  /**
+   * @deprecated Use updateTimelineItem with labels array instead
+   */
   updateActionResult: (id: string, actionResult: string) => void;
+  /**
+   * @deprecated Use updateTimelineItem with labels array instead
+   */
   updateActionType: (id: string, actionType: string) => void;
   updateTimelineRange: (id: string, startTime: number, endTime: number) => void;
   updateTimelineItem: (

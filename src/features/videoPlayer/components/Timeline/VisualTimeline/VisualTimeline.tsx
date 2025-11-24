@@ -21,8 +21,6 @@ interface VisualTimelineProps {
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
   onUpdateQualifier?: (id: string, qualifier: string) => void;
-  onUpdateActionType?: (id: string, actionType: string) => void;
-  onUpdateActionResult?: (id: string, actionResult: string) => void;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
   onUpdateTimelineItem?: (
     id: string,
@@ -39,8 +37,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   selectedIds,
   onSelectionChange,
   onUpdateQualifier,
-  onUpdateActionType,
-  onUpdateActionResult,
   onUpdateTimeRange,
   onUpdateTimelineItem,
 }) => {
@@ -358,8 +354,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   }, [
     editingDraft,
     onUpdateQualifier,
-    onUpdateActionType,
-    onUpdateActionResult,
     onUpdateTimeRange,
     onUpdateTimelineItem,
   ]);

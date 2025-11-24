@@ -67,16 +67,22 @@ export const DrilldownDialog = ({
                     <Typography variant="body2" color="text.secondary">
                       アクション: {action}
                     </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip
-                        size="small"
-                        label={`種別: ${entry.actionType || '未設定'}`}
-                      />
-                      <Chip
-                        size="small"
-                        label={`結果: ${entry.actionResult || '未設定'}`}
-                      />
-                    </Stack>
+                    {entry.labels && entry.labels.length > 0 && (
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        flexWrap="wrap"
+                      >
+                        {entry.labels.map((label) => (
+                          <Chip
+                            key={`${label.group}-${label.name}`}
+                            size="small"
+                            label={`${label.group}: ${label.name}`}
+                          />
+                        ))}
+                      </Stack>
+                    )}
                     <Typography variant="body2" color="text.secondary">
                       {entry.startTime.toFixed(1)}s - {entry.endTime.toFixed(1)}
                       s
