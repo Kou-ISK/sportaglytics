@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { HotkeyConfig } from '../types/Settings';
 
 /**
@@ -60,18 +60,23 @@ const parseElectronKey = (electronKey: string): KeyboardModifiers => {
 
 /**
  * KeyboardEventが指定されたmodifiersと一致するかチェック
+ * 全ての修飾キーとキー自体が完全に一致する必要がある
  */
 const matchesModifiers = (
   event: KeyboardEvent,
   modifiers: KeyboardModifiers,
 ): boolean => {
-  return (
+  // 全ての修飾キーが完全一致する必要がある
+  const modifiersMatch =
     event.ctrlKey === modifiers.ctrlKey &&
     event.shiftKey === modifiers.shiftKey &&
     event.altKey === modifiers.altKey &&
-    event.metaKey === modifiers.metaKey &&
-    event.key.toLowerCase() === modifiers.key
-  );
+    event.metaKey === modifiers.metaKey;
+
+  // キー自体も一致する必要がある
+  const keyMatch = event.key.toLowerCase() === modifiers.key;
+
+  return modifiersMatch && keyMatch;
 };
 
 /**
@@ -82,8 +87,23 @@ export const useGlobalHotkeys = (
   hotkeys: HotkeyConfig[],
   handlers: Record<string, () => void>,
 ) => {
+  // ハンドラーをuseRefで保持し、再レンダリング時にイベントリスナーが再登録されないようにする
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
+
   useEffect(() => {
     console.log('[useGlobalHotkeys] Registering hotkeys:', hotkeys.length);
+
+    // 修飾キーが多い順にソート（Shift+Right が Right より先にマッチするように）
+    const sortedHotkeys = [...hotkeys]
+      .filter((h) => !h.disabled)
+      .sort((a, b) => {
+        const countModifiers = (key: string) => {
+          const parts = key.split('+');
+          return parts.length - 1; // キー自体を除いた修飾キーの数
+        };
+        return countModifiers(b.key) - countModifiers(a.key);
+      });
 
     const handleKeyDown = (event: KeyboardEvent) => {
       // input/textarea等のフォーカス時はホットキーを無効化
@@ -96,35 +116,38 @@ export const useGlobalHotkeys = (
         return;
       }
 
-      console.log('[useGlobalHotkeys] Key pressed:', {
-        key: event.key,
-        ctrlKey: event.ctrlKey,
-        shiftKey: event.shiftKey,
-        altKey: event.altKey,
-        metaKey: event.metaKey,
-      });
-
-      // 各ホットキーをチェック
-      for (const hotkey of hotkeys) {
+      // 各ホットキーをチェック（修飾キーが多い順）
+      for (const hotkey of sortedHotkeys) {
         const modifiers = parseElectronKey(hotkey.key);
-        console.log(
-          '[useGlobalHotkeys] Checking hotkey:',
-          hotkey.key,
-          'parsed:',
-          modifiers,
-        );
+        const matches = matchesModifiers(event, modifiers);
 
-        if (matchesModifiers(event, modifiers)) {
-          console.log('[useGlobalHotkeys] Hotkey matched:', hotkey.id);
-          const handler = handlers[hotkey.id];
+        if (matches) {
+          console.log(
+            '[useGlobalHotkeys] ✓ Hotkey matched:',
+            hotkey.id,
+            'key:',
+            hotkey.key,
+            'event:',
+            {
+              key: event.key,
+              ctrl: event.ctrlKey,
+              shift: event.shiftKey,
+              alt: event.altKey,
+              meta: event.metaKey,
+            },
+          );
+
+          // 最新のhandlersを使用
+          const handler = handlersRef.current[hotkey.id];
           if (handler) {
+            // イベントの伝播を確実に止める
             event.preventDefault();
             event.stopPropagation();
             handler();
+            return; // 最初にマッチしたホットキーのみ実行
           } else {
             console.warn('[useGlobalHotkeys] No handler found for:', hotkey.id);
           }
-          break;
         }
       }
     };
@@ -137,5 +160,5 @@ export const useGlobalHotkeys = (
       globalThis.window.removeEventListener('keydown', handleKeyDown);
       console.log('[useGlobalHotkeys] Event listener removed');
     };
-  }, [hotkeys, handlers]);
+  }, [hotkeys]); // handlersを依存配列から除外
 };

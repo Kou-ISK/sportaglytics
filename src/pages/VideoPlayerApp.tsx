@@ -75,19 +75,38 @@ export const VideoPlayerApp = () => {
   // ホットキーハンドラーを定義
   const hotkeyHandlers = useMemo(
     () => ({
-      'skip-forward-small': () =>
-        handleCurrentTime(new Event('hotkey'), currentTime + 0.5),
-      'skip-forward-medium': () =>
-        handleCurrentTime(new Event('hotkey'), currentTime + 2),
-      'skip-forward-large': () =>
-        handleCurrentTime(new Event('hotkey'), currentTime + 4),
-      'skip-forward-xlarge': () =>
-        handleCurrentTime(new Event('hotkey'), currentTime + 6),
-      'play-pause': () => setisVideoPlaying(!isVideoPlaying),
-      'skip-backward-medium': () =>
-        handleCurrentTime(new Event('hotkey'), currentTime - 5),
-      'skip-backward-large': () =>
-        handleCurrentTime(new Event('hotkey'), currentTime - 10),
+      'skip-forward-small': () => {
+        console.log('[HOTKEY] 0.5倍速再生');
+        setVideoPlayBackRate(0.5);
+        setisVideoPlaying(true);
+      },
+      'skip-forward-medium': () => {
+        console.log('[HOTKEY] 2倍速再生');
+        setVideoPlayBackRate(2);
+        setisVideoPlaying(true);
+      },
+      'skip-forward-large': () => {
+        console.log('[HOTKEY] 4倍速再生');
+        setVideoPlayBackRate(4);
+        setisVideoPlaying(true);
+      },
+      'skip-forward-xlarge': () => {
+        console.log('[HOTKEY] 6倍速再生');
+        setVideoPlayBackRate(6);
+        setisVideoPlaying(true);
+      },
+      'play-pause': () => {
+        console.log('[HOTKEY] 再生/停止');
+        setisVideoPlaying(!isVideoPlaying);
+      },
+      'skip-backward-medium': () => {
+        console.log('[HOTKEY] 5秒戻し');
+        handleCurrentTime(new Event('hotkey'), currentTime - 5);
+      },
+      'skip-backward-large': () => {
+        console.log('[HOTKEY] 10秒戻し');
+        handleCurrentTime(new Event('hotkey'), currentTime - 10);
+      },
       analyze: () => setStatsOpen(true),
       undo: performUndo,
       redo: performRedo,
@@ -102,6 +121,7 @@ export const VideoPlayerApp = () => {
       handleCurrentTime,
       isVideoPlaying,
       setisVideoPlaying,
+      setVideoPlayBackRate,
       setStatsOpen,
       performUndo,
       performRedo,
