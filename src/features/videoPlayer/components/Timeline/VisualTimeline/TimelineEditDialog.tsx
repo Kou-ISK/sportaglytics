@@ -11,15 +11,16 @@ import {
   Select,
   Stack,
   TextField,
+  Typography,
 } from '@mui/material';
 import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
+import type { SCLabel } from '../../../../../types/SCTimeline';
 
 export interface TimelineEditDraft {
   id: string;
   actionName: string;
   qualifier: string;
-  actionType: string;
-  actionResult: string;
+  labels: SCLabel[];
   startTime: string;
   endTime: string;
   originalStartTime: number;
@@ -49,11 +50,64 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
     const baseAction = actionName.split(' ').slice(1).join(' ');
     return activeActions.find((act) => act.action === baseAction);
   };
+
+  const actionDefinition = draft
+    ? findActionDefinition(draft.actionName)
+    : undefined;
+
+  // アクション定義からラベルグループを取得
+  // 新しいgroups構造を優先し、なければ旧来のtypes/resultsから生成
+  const labelGroups = React.useMemo(() => {
+    if (actionDefinition?.groups && actionDefinition.groups.length > 0) {
+      return actionDefinition.groups;
+    }
+    // 後方互換性: types/resultsから生成
+    const legacyGroups = [];
+    if (actionDefinition?.types && actionDefinition.types.length > 0) {
+      legacyGroups.push({
+        groupName: 'actionType',
+        options: actionDefinition.types,
+      });
+    }
+    if (actionDefinition?.results && actionDefinition.results.length > 0) {
+      legacyGroups.push({
+        groupName: 'actionResult',
+        options: actionDefinition.results,
+      });
+    }
+    return legacyGroups;
+  }, [actionDefinition]);
+
   if (!draft) {
     return null;
   }
 
-  const actionDefinition = findActionDefinition(draft.actionName);
+  // 特定のグループのラベル値を取得
+  const getLabelValue = (groupName: string): string => {
+    const label = draft.labels.find((l) => l.group === groupName);
+    return label?.name || '';
+  };
+
+  // ラベル値を更新
+  const handleLabelChange = (groupName: string, value: string) => {
+    const updatedLabels = [...draft.labels];
+    const existingIndex = updatedLabels.findIndex((l) => l.group === groupName);
+
+    if (value === '') {
+      // 空文字の場合はラベルを削除
+      if (existingIndex >= 0) {
+        updatedLabels.splice(existingIndex, 1);
+      }
+    } else if (existingIndex >= 0) {
+      // 既存のラベルを更新
+      updatedLabels[existingIndex] = { name: value, group: groupName };
+    } else {
+      // 新しいラベルを追加
+      updatedLabels.push({ name: value, group: groupName });
+    }
+
+    onChange({ labels: updatedLabels });
+  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -83,48 +137,37 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
             />
           </Stack>
 
-          {actionDefinition?.types && (
-            <FormControl fullWidth>
-              <InputLabel>アクションタイプ</InputLabel>
-              <Select
-                value={draft.actionType}
-                label="アクションタイプ"
-                onChange={(event) =>
-                  onChange({ actionType: event.target.value })
-                }
-              >
-                <MenuItem value="">
-                  <em>なし</em>
-                </MenuItem>
-                {actionDefinition.types.map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {type}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-
-          {actionDefinition?.results && (
-            <FormControl fullWidth>
-              <InputLabel>結果</InputLabel>
-              <Select
-                value={draft.actionResult}
-                label="結果"
-                onChange={(event) =>
-                  onChange({ actionResult: event.target.value })
-                }
-              >
-                <MenuItem value="">
-                  <em>なし</em>
-                </MenuItem>
-                {actionDefinition.results.map((result) => (
-                  <MenuItem key={result} value={result}>
-                    {result}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          {labelGroups.length > 0 ? (
+            <>
+              <Typography variant="subtitle2" color="text.secondary">
+                ラベル
+              </Typography>
+              {labelGroups.map((group) => (
+                <FormControl key={group.groupName} fullWidth>
+                  <InputLabel>{group.groupName}</InputLabel>
+                  <Select
+                    value={getLabelValue(group.groupName)}
+                    label={group.groupName}
+                    onChange={(event) =>
+                      handleLabelChange(group.groupName, event.target.value)
+                    }
+                  >
+                    <MenuItem value="">
+                      <em>なし</em>
+                    </MenuItem>
+                    {group.options.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ))}
+            </>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              このアクションには追加のラベルがありません
+            </Typography>
           )}
 
           <TextField

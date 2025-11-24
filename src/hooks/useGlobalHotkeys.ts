@@ -143,51 +143,12 @@ export const useGlobalHotkeys = (
         return;
       }
 
-      // デバッグ: キーイベントの詳細をログ
-      if (event.key === ' ' || event.key === 'ArrowUp') {
-        console.log('[useGlobalHotkeys] Key pressed:', {
-          key: event.key,
-          code: event.code,
-          ctrl: event.ctrlKey,
-          shift: event.shiftKey,
-          alt: event.altKey,
-          meta: event.metaKey,
-        });
-      }
-
       // 各ホットキーをチェック（修飾キーが多い順）
       for (const hotkey of sortedHotkeys) {
         const modifiers = parseElectronKey(hotkey.key);
         const matches = matchesModifiers(event, modifiers);
 
-        // スペースキーの詳細ログ
-        if (event.key === ' ') {
-          console.log(
-            '[useGlobalHotkeys] Checking hotkey:',
-            hotkey.id,
-            'key:',
-            hotkey.key,
-          );
-          console.log('[useGlobalHotkeys] Parsed modifiers:', modifiers);
-          console.log('[useGlobalHotkeys] Matches:', matches);
-        }
-
         if (matches) {
-          console.log(
-            '[useGlobalHotkeys] ✓ Hotkey matched:',
-            hotkey.id,
-            'key:',
-            hotkey.key,
-            'event:',
-            {
-              key: event.key,
-              ctrl: event.ctrlKey,
-              shift: event.shiftKey,
-              alt: event.altKey,
-              meta: event.metaKey,
-            },
-          );
-
           // 最新のhandlersを使用
           const handler = handlersRef.current[hotkey.id];
           if (handler) {

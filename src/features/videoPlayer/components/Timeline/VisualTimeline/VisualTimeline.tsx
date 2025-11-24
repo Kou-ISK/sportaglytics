@@ -200,8 +200,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       id: item.id,
       actionName: item.actionName,
       qualifier: item.qualifier || '',
-      actionType: item.actionType || '',
-      actionResult: item.actionResult || '',
+      labels: item.labels || [],
       startTime: item.startTime.toString(),
       endTime: item.endTime.toString(),
       originalStartTime: item.startTime,
@@ -260,8 +259,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
             id: item.id,
             actionName: item.actionName,
             qualifier: item.qualifier || '',
-            actionType: item.actionType || '',
-            actionResult: item.actionResult || '',
+            labels: item.labels || [],
             startTime: item.startTime.toString(),
             endTime: item.endTime.toString(),
             originalStartTime: item.startTime,
@@ -326,8 +324,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     console.debug('[VisualTimeline] Saving timeline edit:', {
       id: editingDraft.id,
       qualifier: editingDraft.qualifier,
-      actionType: editingDraft.actionType,
-      actionResult: editingDraft.actionResult,
+      labels: editingDraft.labels,
       startTime: safeStart,
       endTime: safeEnd,
     });
@@ -339,8 +336,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       );
       onUpdateTimelineItem(editingDraft.id, {
         qualifier: editingDraft.qualifier,
-        actionType: editingDraft.actionType,
-        actionResult: editingDraft.actionResult,
+        labels: editingDraft.labels,
         startTime: safeStart,
         endTime: safeEnd,
       });
@@ -349,23 +345,13 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       if (onUpdateQualifier) {
         onUpdateQualifier(editingDraft.id, editingDraft.qualifier);
       }
-      if (onUpdateActionType) {
-        console.debug(
-          '[VisualTimeline] Calling onUpdateActionType:',
-          editingDraft.actionType,
-        );
-        onUpdateActionType(editingDraft.id, editingDraft.actionType);
-      }
-      if (onUpdateActionResult) {
-        console.debug(
-          '[VisualTimeline] Calling onUpdateActionResult:',
-          editingDraft.actionResult,
-        );
-        onUpdateActionResult(editingDraft.id, editingDraft.actionResult);
-      }
       if (onUpdateTimeRange) {
         onUpdateTimeRange(editingDraft.id, safeStart, safeEnd);
       }
+      // labels配列の更新は onUpdateTimelineItem 経由でのみ可能
+      console.warn(
+        '[VisualTimeline] labels update requires onUpdateTimelineItem',
+      );
     }
 
     setEditingDraft(null);

@@ -7,7 +7,7 @@ import React, {
   useCallback,
 } from 'react';
 import { ActionList } from '../ActionList';
-import type { ActionPreset } from '../types/Settings';
+import type { ActionPreset, ActionDefinition } from '../types/Settings';
 
 // デフォルトプリセットの定義（ActionList.tsから生成）
 // 全ActionList項目を1つのプリセットにまとめる
@@ -27,12 +27,7 @@ interface ActionPresetContextValue {
   /** 現在アクティブなプリセット */
   activePreset: ActionPreset | undefined;
   /** すべてのアクション（activePresetのactionsを展開したもの） */
-  activeActions: Array<{
-    action: string;
-    results: string[];
-    types: string[];
-    hotkey?: string;
-  }>;
+  activeActions: ActionDefinition[];
   /** 現在アクティブなプリセットID */
   activePresetId: string;
   /** 利用可能なプリセットリスト（デフォルト + カスタム） */

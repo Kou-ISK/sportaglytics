@@ -218,15 +218,17 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
                   <Typography variant="caption">
                     {formatTime(item.startTime)} - {formatTime(item.endTime)}
                   </Typography>
-                  {item.actionType && (
-                    <Typography variant="caption">
-                      種別: {item.actionType}
-                    </Typography>
-                  )}
-                  {item.actionResult && (
-                    <Typography variant="caption">
-                      結果: {item.actionResult}
-                    </Typography>
+                  {item.labels && item.labels.length > 0 && (
+                    <>
+                      {item.labels.map((label) => (
+                        <Typography
+                          key={`${label.group}-${label.name}`}
+                          variant="caption"
+                        >
+                          {label.group}: {label.name}
+                        </Typography>
+                      ))}
+                    </>
                   )}
                   {item.qualifier && (
                     <Typography variant="caption">
