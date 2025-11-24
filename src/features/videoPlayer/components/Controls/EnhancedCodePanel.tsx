@@ -136,6 +136,12 @@ export const EnhancedCodePanel = forwardRef<
       return;
     }
 
+    // 別のアクションをクリックした場合、記録中なら先に完了させる
+    if (isRecording && !isSameAction) {
+      completeRecording();
+      // 記録完了後に新しいアクションの選択処理を継続
+    }
+
     const labelGroups = getActionLabels(action);
     const hasLabels = labelGroups.length > 0;
 
@@ -170,7 +176,7 @@ export const EnhancedCodePanel = forwardRef<
         }
       }
     } else {
-      // 初回選択時はインライン展開して即座に記録開始
+      // 別のアクションに切り替え時はインライン展開して即座に記録開始
       const time = getCurrentTime();
       if (time !== null) {
         setSelectedTeam(teamName);

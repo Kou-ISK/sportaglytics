@@ -231,16 +231,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
-      // フォーカスされているアイテムがない場合は最初のアイテムをフォーカス
-      if (!focusedItemId && timeline.length > 0) {
-        if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
-          event.preventDefault();
-          setFocusedItemId(timeline[0].id);
-          onSelectionChange([timeline[0].id]);
-          return;
-        }
-      }
-
+      // フォーカスされているアイテムがない場合はキーイベントを無視
       if (!focusedItemId) return;
       const currentIndex = timeline.findIndex(
         (item) => item.id === focusedItemId,
@@ -400,7 +391,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         position: 'relative',
       }}
       onKeyDown={handleKeyDown}
-      tabIndex={0}
     >
       {/* ズームインジケーター */}
       {zoomScale !== 1 && (

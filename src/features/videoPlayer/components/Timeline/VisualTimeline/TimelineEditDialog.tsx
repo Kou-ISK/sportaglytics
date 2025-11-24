@@ -110,10 +110,23 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>アクション詳細を編集</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{
+        sx: {
+          position: 'fixed',
+          bottom: 80,
+          top: 'auto',
+          m: 2,
+        },
+      }}
+    >
+      <DialogTitle sx={{ pb: 1 }}>アクション編集</DialogTitle>
+      <DialogContent sx={{ py: 1.5 }}>
+        <Stack spacing={1.5} sx={{ mt: 0.5 }}>
           <Stack direction="row" spacing={1}>
             <TextField
               label="開始秒"
@@ -123,6 +136,7 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
                 onChange({ startTime: event.target.value || '' })
               }
               fullWidth
+              size="small"
               inputProps={{ min: 0, step: 0.1 }}
             />
             <TextField
@@ -133,17 +147,15 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
                 onChange({ endTime: event.target.value || '' })
               }
               fullWidth
+              size="small"
               inputProps={{ min: 0, step: 0.1 }}
             />
           </Stack>
 
           {labelGroups.length > 0 ? (
             <>
-              <Typography variant="subtitle2" color="text.secondary">
-                ラベル
-              </Typography>
               {labelGroups.map((group) => (
-                <FormControl key={group.groupName} fullWidth>
+                <FormControl key={group.groupName} fullWidth size="small">
                   <InputLabel>{group.groupName}</InputLabel>
                   <Select
                     value={getLabelValue(group.groupName)}
@@ -171,17 +183,16 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
           )}
 
           <TextField
-            margin="dense"
-            label="メモ・備考"
+            label="メモ"
             type="text"
             fullWidth
+            size="small"
             variant="outlined"
             multiline
-            minRows={2}
-            maxRows={6}
+            rows={2}
             value={draft.qualifier}
             onChange={(event) => onChange({ qualifier: event.target.value })}
-            placeholder="任意のメモを入力してください（改行可）"
+            placeholder="任意のメモ"
           />
         </Stack>
       </DialogContent>
