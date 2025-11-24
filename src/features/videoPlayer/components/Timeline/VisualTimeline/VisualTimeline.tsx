@@ -238,11 +238,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     (event: React.KeyboardEvent) => {
       // フォーカスされているアイテムがない場合は最初のアイテムをフォーカス
       if (!focusedItemId && timeline.length > 0) {
-        if (
-          ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(
-            event.key,
-          )
-        ) {
+        if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
           event.preventDefault();
           setFocusedItemId(timeline[0].id);
           onSelectionChange([timeline[0].id]);
@@ -257,24 +253,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       if (currentIndex === -1) return;
 
       switch (event.key) {
-        case 'ArrowUp': {
-          event.preventDefault();
-          if (currentIndex > 0) {
-            const nextId = timeline[currentIndex - 1].id;
-            setFocusedItemId(nextId);
-            onSelectionChange([nextId]);
-          }
-          break;
-        }
-        case 'ArrowDown': {
-          event.preventDefault();
-          if (currentIndex < timeline.length - 1) {
-            const nextId = timeline[currentIndex + 1].id;
-            setFocusedItemId(nextId);
-            onSelectionChange([nextId]);
-          }
-          break;
-        }
         case 'Enter': {
           event.preventDefault();
           const item = timeline[currentIndex];

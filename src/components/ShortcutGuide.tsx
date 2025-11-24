@@ -26,7 +26,7 @@ const shortcuts: ShortcutItem[] = [
   {
     category: '再生制御',
     items: [
-      { key: '↑', action: '再生/停止' },
+      { key: 'Space', action: '再生/停止' },
       { key: '←', action: '5秒戻し' },
       { key: '→', action: '0.5倍速' },
       { key: 'Shift + →', action: '2倍速' },

@@ -27,7 +27,7 @@ export const shortCutKeys = (mainWindow: BrowserWindow) => {
     { id: 'skip-forward-medium', label: '2倍速再生', key: 'Shift+Right' },
     { id: 'skip-forward-large', label: '4倍速再生', key: 'Command+Right' },
     { id: 'skip-forward-xlarge', label: '6倍速再生', key: 'Option+Right' },
-    { id: 'play-pause', label: '再生/停止', key: 'Up' },
+    { id: 'play-pause', label: '再生/停止', key: 'Space' },
     { id: 'skip-backward-medium', label: '5秒戻し', key: 'Left' },
     { id: 'skip-backward-large', label: '10秒戻し', key: 'Shift+Left' },
     { id: 'analyze', label: '分析開始', key: 'Command+Shift+A' },

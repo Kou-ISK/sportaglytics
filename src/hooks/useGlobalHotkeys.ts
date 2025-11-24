@@ -49,6 +49,8 @@ const parseElectronKey = (electronKey: string): KeyboardModifiers => {
       modifiers.key = 'arrowup';
     } else if (normalized === 'down') {
       modifiers.key = 'arrowdown';
+    } else if (normalized === 'space') {
+      modifiers.key = ' ';
     } else {
       // アルファベットや数字はそのまま小文字で保存
       modifiers.key = trimmed.toLowerCase();
@@ -74,8 +76,15 @@ const matchesModifiers = (
     event.metaKey === modifiers.metaKey;
 
   // キー自体も一致する必要がある
-  // Shiftキー押下時は event.key が大文字や記号になるため、toLowerCase() で比較
-  const eventKey = event.key.toLowerCase();
+  // Spaceキーの特殊処理: event.keyは' 'だが、比較用に変換しない
+  let eventKey: string;
+  if (event.key === ' ') {
+    eventKey = ' '; // スペースキーはそのまま
+  } else {
+    // Shiftキー押下時は event.key が大文字や記号になるため、toLowerCase() で比較
+    eventKey = event.key.toLowerCase();
+  }
+
   let keyMatch = eventKey === modifiers.key;
 
   // 数字キーの場合、Shift押下時は記号になるため event.code でも照合
@@ -106,6 +115,11 @@ export const useGlobalHotkeys = (
 
   useEffect(() => {
     console.log('[useGlobalHotkeys] Registering hotkeys:', hotkeys.length);
+    console.log(
+      '[useGlobalHotkeys] Hotkeys list:',
+      hotkeys.map((h) => ({ id: h.id, key: h.key, disabled: h.disabled })),
+    );
+    console.log('[useGlobalHotkeys] Handlers:', Object.keys(handlers));
 
     // 修飾キーが多い順にソート（Shift+Right が Right より先にマッチするように）
     const sortedHotkeys = [...hotkeys]
@@ -129,10 +143,34 @@ export const useGlobalHotkeys = (
         return;
       }
 
+      // デバッグ: キーイベントの詳細をログ
+      if (event.key === ' ' || event.key === 'ArrowUp') {
+        console.log('[useGlobalHotkeys] Key pressed:', {
+          key: event.key,
+          code: event.code,
+          ctrl: event.ctrlKey,
+          shift: event.shiftKey,
+          alt: event.altKey,
+          meta: event.metaKey,
+        });
+      }
+
       // 各ホットキーをチェック（修飾キーが多い順）
       for (const hotkey of sortedHotkeys) {
         const modifiers = parseElectronKey(hotkey.key);
         const matches = matchesModifiers(event, modifiers);
+
+        // スペースキーの詳細ログ
+        if (event.key === ' ') {
+          console.log(
+            '[useGlobalHotkeys] Checking hotkey:',
+            hotkey.id,
+            'key:',
+            hotkey.key,
+          );
+          console.log('[useGlobalHotkeys] Parsed modifiers:', modifiers);
+          console.log('[useGlobalHotkeys] Matches:', matches);
+        }
 
         if (matches) {
           console.log(

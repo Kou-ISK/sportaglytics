@@ -36,7 +36,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: 'skip-forward-xlarge', label: '6倍速再生', key: 'Option+Right' },
     { id: 'skip-backward-medium', label: '5秒戻し', key: 'Left' },
     { id: 'skip-backward-large', label: '10秒戻し', key: 'Shift+Left' },
-    { id: 'play-pause', label: '再生/停止', key: 'Up' },
+    { id: 'play-pause', label: '再生/停止', key: 'Space' },
   ],
   language: 'ja',
 };
