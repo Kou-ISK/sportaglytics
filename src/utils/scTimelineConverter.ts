@@ -46,9 +46,9 @@ const extractLabelsFromTimelineData = (
   // labels配列が存在する場合はそこから抽出
   if (item.labels && item.labels.length > 0) {
     const actionType =
-      getLabelByGroup(item.labels, 'actionType') || item.actionType;
+      getLabelByGroup(item.labels, 'actionType') || item.actionType || '';
     const actionResult =
-      getLabelByGroup(item.labels, 'actionResult') || item.actionResult;
+      getLabelByGroup(item.labels, 'actionResult') || item.actionResult || '';
     return { actionType, actionResult, labels: item.labels };
   }
 
@@ -62,8 +62,8 @@ const extractLabelsFromTimelineData = (
   }
 
   return {
-    actionType: item.actionType,
-    actionResult: item.actionResult,
+    actionType: item.actionType || '',
+    actionResult: item.actionResult || '',
     labels,
   };
 };
@@ -195,7 +195,10 @@ export const convertFromSCTimeline = (
  */
 export const normalizeTimelineData = (data: TimelineData): TimelineData => {
   if (data.labels && data.labels.length > 0) {
-    return data; // すでにlabels配列が存在する場合はそのまま返す
+    // labels配列が存在する場合、actionType/actionResultフィールドを削除
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { actionType, actionResult, ...rest } = data;
+    return rest;
   }
 
   const labels: SCLabel[] = [];
@@ -206,8 +209,11 @@ export const normalizeTimelineData = (data: TimelineData): TimelineData => {
     labels.push({ name: data.actionResult, group: 'actionResult' });
   }
 
+  // actionType/actionResultフィールドを除外し、labels配列を追加
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { actionType, actionResult, ...rest } = data;
   return {
-    ...data,
+    ...rest,
     labels,
   };
 };

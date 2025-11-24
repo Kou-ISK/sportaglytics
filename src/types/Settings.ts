@@ -10,6 +10,18 @@ export interface ActionPreset {
   actions: ActionDefinition[];
   /** 並び順 */
   order: number;
+  /** デフォルトプリセットフラグ（削除不可、IDは固定） */
+  isDefault?: boolean;
+}
+
+/**
+ * アクショングループ定義（group > name構造）
+ */
+export interface ActionGroup {
+  /** グループ名（例: "Result", "Type", "Category"など自由に設定可能） */
+  groupName: string;
+  /** グループ内の選択肢リスト */
+  options: string[];
 }
 
 /**
@@ -18,10 +30,14 @@ export interface ActionPreset {
 export interface ActionDefinition {
   /** アクション名 */
   action: string;
-  /** 結果の選択肢リスト */
+  /** 結果の選択肢リスト（後方互換性のため残す） */
   results: string[];
-  /** タイプの選択肢リスト */
+  /** タイプの選択肢リスト（後方互換性のため残す） */
   types: string[];
+  /** グループ構造（新しい柔軟な構造） */
+  groups?: ActionGroup[];
+  /** ホットキー（オプション）例: "a", "Shift+B", "1" */
+  hotkey?: string;
 }
 
 /**

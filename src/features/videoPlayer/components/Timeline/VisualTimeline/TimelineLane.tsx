@@ -179,7 +179,8 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
       >
         {items.map((item) => {
           const left = timeToPosition(item.startTime);
-          const width = Math.max(2, timeToPosition(item.endTime) - left);
+          const right = timeToPosition(item.endTime);
+          const width = Math.max(2, right - left);
           const isSelected = selectedIds.includes(item.id);
           const isHovered = hoveredItemId === item.id;
           const isFocused = focusedItemId === item.id;

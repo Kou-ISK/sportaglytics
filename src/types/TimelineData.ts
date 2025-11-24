@@ -5,13 +5,18 @@ export type TimelineData = {
   actionName: string;
   startTime: number;
   endTime: number;
-  actionResult: string;
-  actionType: string;
+  /**
+   * @deprecated labels配列を使用してください。後方互換性のために残されています。
+   */
+  actionResult?: string;
+  /**
+   * @deprecated labels配列を使用してください。後方互換性のために残されています。
+   */
+  actionType?: string;
   qualifier: string;
   /**
-   * SCTimeline形式のラベル配列（オプショナル）
+   * SCTimeline形式のラベル配列
    * 存在する場合、actionType/actionResultよりも優先される
-   * 後方互換性のため、存在しない場合はactionType/actionResultから自動生成される
    */
   labels?: SCLabel[];
 };

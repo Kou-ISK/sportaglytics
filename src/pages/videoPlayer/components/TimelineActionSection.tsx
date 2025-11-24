@@ -1,8 +1,20 @@
-import React, { useEffect } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import { Box, Paper } from '@mui/material';
 import { VisualTimeline } from '../../../features/videoPlayer/components/Timeline/VisualTimeline/VisualTimeline';
-import { EnhancedCodePanel } from '../../../features/videoPlayer/components/Controls/EnhancedCodePanel';
+import {
+  EnhancedCodePanel,
+  type EnhancedCodePanelHandle,
+} from '../../../features/videoPlayer/components/Controls/EnhancedCodePanel';
 import { TimelineData } from '../../../types/TimelineData';
+
+export interface TimelineActionSectionHandle {
+  triggerAction: (teamName: string, actionName: string) => void;
+}
 
 interface TimelineActionSectionProps {
   timeline: TimelineData[];
@@ -34,118 +46,136 @@ interface TimelineActionSectionProps {
   ) => void;
 }
 
-export const TimelineActionSection: React.FC<TimelineActionSectionProps> = ({
-  timeline,
-  maxSec,
-  currentTime,
-  selectedTimelineIdList,
-  metaDataConfigFilePath,
-  teamNames,
-  setTimeline,
-  setTeamNames,
-  addTimelineData,
-  deleteTimelineDatas,
-  updateQualifier,
-  updateActionType,
-  updateActionResult,
-  updateTimelineRange,
-  updateTimelineItem,
-  handleCurrentTime,
-}) => {
-  // metaDataConfigFilePathからチーム名を読み込む
-  useEffect(() => {
-    if (!metaDataConfigFilePath) return;
+export const TimelineActionSection = forwardRef<
+  TimelineActionSectionHandle,
+  TimelineActionSectionProps
+>(
+  (
+    {
+      timeline,
+      maxSec,
+      currentTime,
+      selectedTimelineIdList,
+      metaDataConfigFilePath,
+      teamNames,
+      setTimeline,
+      setTeamNames,
+      addTimelineData,
+      deleteTimelineDatas,
+      updateQualifier,
+      updateActionType,
+      updateActionResult,
+      updateTimelineRange,
+      updateTimelineItem,
+      handleCurrentTime,
+    },
+    ref,
+  ) => {
+    const codePanelRef = useRef<EnhancedCodePanelHandle>(null);
 
-    let isActive = true;
+    useImperativeHandle(ref, () => ({
+      triggerAction: (teamName: string, actionName: string) => {
+        codePanelRef.current?.triggerAction(teamName, actionName);
+      },
+    }));
+    // metaDataConfigFilePathからチーム名を読み込む
+    useEffect(() => {
+      if (!metaDataConfigFilePath) return;
 
-    fetch(metaDataConfigFilePath)
-      .then((response) => response.json())
-      .then((data) => {
-        if (!isActive || !data) return;
+      let isActive = true;
 
-        if (data.team1Name && data.team2Name) {
-          setTeamNames([data.team1Name, data.team2Name]);
-        }
-      })
-      .catch((error) => console.error('Error loading JSON:', error));
+      fetch(metaDataConfigFilePath)
+        .then((response) => response.json())
+        .then((data) => {
+          if (!isActive || !data) return;
 
-    return () => {
-      isActive = false;
-    };
-  }, [metaDataConfigFilePath, setTeamNames]);
+          if (data.team1Name && data.team2Name) {
+            setTeamNames([data.team1Name, data.team2Name]);
+          }
+        })
+        .catch((error) => console.error('Error loading JSON:', error));
 
-  // タイムラインから最初のチーム名を計算（タイムラインの色と一致させるため）
-  const firstTeamName = React.useMemo(() => {
-    if (timeline.length === 0) return teamNames[0];
-    // タイムラインのアクション名をソートして最初のチーム名を取得
-    const sortedActionNames = [
-      ...new Set(timeline.map((t) => t.actionName)),
-    ].sort((a, b) => a.localeCompare(b));
-    return sortedActionNames[0]?.split(' ')[0] || teamNames[0];
-  }, [timeline, teamNames]);
+      return () => {
+        isActive = false;
+      };
+    }, [metaDataConfigFilePath, setTeamNames]);
 
-  return (
-    <Box
-      sx={{
-        gridColumn: '1',
-        gridRow: '2',
-        display: 'grid',
-        gridTemplateColumns: '1fr 440px',
-        minHeight: 0,
-        gap: 1.5,
-        p: 1.5,
-      }}
-    >
-      <Paper
-        variant="outlined"
+    // タイムラインから最初のチーム名を計算（タイムラインの色と一致させるため）
+    const firstTeamName = React.useMemo(() => {
+      if (timeline.length === 0) return teamNames[0];
+      // タイムラインのアクション名をソートして最初のチーム名を取得
+      const sortedActionNames = [
+        ...new Set(timeline.map((t) => t.actionName)),
+      ].sort((a, b) => a.localeCompare(b));
+      return sortedActionNames[0]?.split(' ')[0] || teamNames[0];
+    }, [timeline, teamNames]);
+
+    return (
+      <Box
         sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          height: '100%',
-        }}
-      >
-        <VisualTimeline
-          timeline={timeline}
-          maxSec={maxSec}
-          currentTime={currentTime}
-          onSeek={(time: number) => {
-            const event = new Event('visual-timeline-seek');
-            handleCurrentTime(event, time);
-          }}
-          onDelete={deleteTimelineDatas}
-          selectedIds={selectedTimelineIdList}
-          onSelectionChange={(ids: string[]) => {
-            const updated = timeline.map((item) => ({
-              ...item,
-              isSelected: ids.includes(item.id),
-            }));
-            setTimeline(updated);
-          }}
-          onUpdateQualifier={updateQualifier}
-          onUpdateActionType={updateActionType}
-          onUpdateActionResult={updateActionResult}
-          onUpdateTimeRange={updateTimelineRange}
-          onUpdateTimelineItem={updateTimelineItem}
-        />
-      </Paper>
-
-      <Paper
-        variant="outlined"
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          height: '100%',
+          gridColumn: '1',
+          gridRow: '2',
+          display: 'grid',
+          gridTemplateColumns: '1fr 440px',
+          minHeight: 0,
+          gap: 1.5,
           p: 1.5,
         }}
       >
-        <EnhancedCodePanel
-          addTimelineData={addTimelineData}
-          teamNames={teamNames}
-          firstTeamName={firstTeamName}
-        />
-      </Paper>
-    </Box>
-  );
-};
+        <Paper
+          variant="outlined"
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            height: '100%',
+          }}
+        >
+          <VisualTimeline
+            timeline={timeline}
+            maxSec={maxSec}
+            currentTime={currentTime}
+            onSeek={(time: number) => {
+              const event = new Event('visual-timeline-seek');
+              handleCurrentTime(event, time);
+            }}
+            onDelete={deleteTimelineDatas}
+            selectedIds={selectedTimelineIdList}
+            onSelectionChange={(ids: string[]) => {
+              const updated = timeline.map((item) => ({
+                ...item,
+                isSelected: ids.includes(item.id),
+              }));
+              setTimeline(updated);
+            }}
+            onUpdateQualifier={updateQualifier}
+            onUpdateActionType={updateActionType}
+            onUpdateActionResult={updateActionResult}
+            onUpdateTimeRange={updateTimelineRange}
+            onUpdateTimelineItem={updateTimelineItem}
+          />
+        </Paper>
+
+        <Paper
+          variant="outlined"
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            height: '100%',
+            p: 1.5,
+          }}
+        >
+          <EnhancedCodePanel
+            ref={codePanelRef}
+            addTimelineData={addTimelineData}
+            teamNames={teamNames}
+            firstTeamName={firstTeamName}
+          />
+        </Paper>
+      </Box>
+    );
+  },
+);
+
+TimelineActionSection.displayName = 'TimelineActionSection';

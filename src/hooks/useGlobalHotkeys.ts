@@ -74,7 +74,16 @@ const matchesModifiers = (
     event.metaKey === modifiers.metaKey;
 
   // キー自体も一致する必要がある
-  const keyMatch = event.key.toLowerCase() === modifiers.key;
+  // Shiftキー押下時は event.key が大文字や記号になるため、toLowerCase() で比較
+  const eventKey = event.key.toLowerCase();
+  let keyMatch = eventKey === modifiers.key;
+
+  // 数字キーの場合、Shift押下時は記号になるため event.code でも照合
+  // 例: Shift+1 → event.key="!", event.code="Digit1"
+  if (!keyMatch && modifiers.shiftKey && /^\d$/.test(modifiers.key)) {
+    const expectedCode = `Digit${modifiers.key}`;
+    keyMatch = event.code === expectedCode;
+  }
 
   return modifiersMatch && keyMatch;
 };

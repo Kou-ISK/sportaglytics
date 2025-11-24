@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Box } from '@mui/material';
 import {
   StatsModal,
@@ -7,9 +7,14 @@ import {
 import { useVideoPlayerApp } from '../hooks/useVideoPlayerApp';
 import { useSettings } from '../hooks/useSettings';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
+import { useActionPreset } from '../contexts/ActionPresetContext';
 import { TimelineData } from '../types/TimelineData';
+import type { HotkeyConfig } from '../types/Settings';
 import { PlayerSurface } from './videoPlayer/components/PlayerSurface';
-import { TimelineActionSection } from './videoPlayer/components/TimelineActionSection';
+import {
+  TimelineActionSection,
+  type TimelineActionSectionHandle,
+} from './videoPlayer/components/TimelineActionSection';
 import { NoSelectionPlaceholder } from './videoPlayer/components/NoSelectionPlaceholder';
 import { ErrorSnackbar } from './videoPlayer/components/ErrorSnackbar';
 import { SyncAnalysisBackdrop } from './videoPlayer/components/SyncAnalysisBackdrop';
@@ -71,6 +76,10 @@ export const VideoPlayerApp = () => {
 
   // ホットキー設定を読み込み
   const { settings } = useSettings();
+  const { activeActions } = useActionPreset();
+
+  // TimelineActionSectionへのrefを作成
+  const timelineActionRef = useRef<TimelineActionSectionHandle>(null);
 
   // ホットキーハンドラーを定義（keydown時）
   const hotkeyHandlers = useMemo(
@@ -155,8 +164,83 @@ export const VideoPlayerApp = () => {
     [setVideoPlayBackRate],
   );
 
+  // アクションボタン用ホットキーを生成
+  // 修飾キーなし → 最初のチーム、Shift → 2番目のチーム
+  const actionHotkeys = useMemo(() => {
+    const hotkeys: HotkeyConfig[] = [];
+
+    for (const action of activeActions) {
+      if (action.hotkey) {
+        // 最初のチーム用（修飾キーなし）
+        if (teamNames[0]) {
+          hotkeys.push({
+            id: `action-${teamNames[0]}-${action.action}`,
+            label: `${teamNames[0]} - ${action.action}`,
+            key: action.hotkey,
+          });
+        }
+
+        // 2番目のチーム用（Shift修飾キー）
+        if (teamNames[1]) {
+          hotkeys.push({
+            id: `action-${teamNames[1]}-${action.action}`,
+            label: `${teamNames[1]} - ${action.action}`,
+            key: `Shift+${action.hotkey}`,
+          });
+        }
+      }
+    }
+
+    return hotkeys;
+  }, [teamNames, activeActions]);
+
+  // アクションボタン用ハンドラー
+  // 修飾キーなし → 最初のチーム、Shift → 2番目のチーム
+  const actionHandlers = useMemo(() => {
+    const handlers: Record<string, () => void> = {};
+
+    for (const action of activeActions) {
+      if (action.hotkey) {
+        const actionName = action.action; // クロージャ用に変数を保存
+
+        // 最初のチーム用（修飾キーなし）
+        if (teamNames[0]) {
+          const id = `action-${teamNames[0]}-${actionName}`;
+          const teamName = teamNames[0];
+          handlers[id] = () => {
+            console.log(`[HOTKEY] Action: ${teamName} - ${actionName}`);
+            timelineActionRef.current?.triggerAction(teamName, actionName);
+          };
+        }
+
+        // 2番目のチーム用（Shift修飾キー）
+        if (teamNames[1]) {
+          const id = `action-${teamNames[1]}-${actionName}`;
+          const teamName = teamNames[1];
+          handlers[id] = () => {
+            console.log(`[HOTKEY] Action: ${teamName} - ${actionName}`);
+            timelineActionRef.current?.triggerAction(teamName, actionName);
+          };
+        }
+      }
+    }
+
+    return handlers;
+  }, [teamNames, activeActions]);
+
+  // システムホットキーとアクションホットキーを統合
+  const combinedHotkeys = useMemo(
+    () => [...settings.hotkeys, ...actionHotkeys],
+    [settings.hotkeys, actionHotkeys],
+  );
+
+  const combinedHandlers = useMemo(
+    () => ({ ...hotkeyHandlers, ...actionHandlers }),
+    [hotkeyHandlers, actionHandlers],
+  );
+
   // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）
-  useGlobalHotkeys(settings.hotkeys, hotkeyHandlers, keyUpHandlers);
+  useGlobalHotkeys(combinedHotkeys, combinedHandlers, keyUpHandlers);
 
   useSyncMenuHandlers({
     onResyncAudio: resyncAudio,
@@ -213,6 +297,7 @@ export const VideoPlayerApp = () => {
           />
 
           <TimelineActionSection
+            ref={timelineActionRef}
             timeline={timeline}
             maxSec={maxSec}
             currentTime={currentTime}

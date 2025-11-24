@@ -42,8 +42,8 @@ export const exportToCSV = (timeline: TimelineData[]): string => {
       formatTimeForExport(item.startTime),
       formatTimeForExport(item.endTime),
       `"${item.actionName.replace(/"/g, '""')}"`, // CSVエスケープ
-      `"${item.actionType.replace(/"/g, '""')}"`,
-      `"${item.actionResult.replace(/"/g, '""')}"`,
+      `"${(item.actionType || '').replace(/"/g, '""')}"`,
+      `"${(item.actionResult || '').replace(/"/g, '""')}"`,
       `"${(item.qualifier || '').replace(/"/g, '""')}"`,
     ];
     csvRows.push(row.join(','));

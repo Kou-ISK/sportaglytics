@@ -10,6 +10,7 @@ export interface TimelineEditingHandlers {
     qualifier: string,
     actionType?: string,
     actionResult?: string,
+    labels?: Array<{ name: string; group: string }>,
   ) => void;
   deleteTimelineDatas: (idList: string[]) => void;
   updateQualifier: (id: string, qualifier: string) => void;
@@ -34,15 +35,28 @@ export const useTimelineEditing = (
       qualifier: string,
       actionType?: string,
       actionResult?: string,
+      labels?: Array<{ name: string; group: string }>,
     ) => {
+      // labels配列が渡された場合はそれを使用、なければactionType/actionResultから生成
+      const finalLabels: Array<{ name: string; group: string }> = [];
+      if (labels && labels.length > 0) {
+        finalLabels.push(...labels);
+      } else {
+        if (actionType) {
+          finalLabels.push({ name: actionType, group: 'actionType' });
+        }
+        if (actionResult) {
+          finalLabels.push({ name: actionResult, group: 'actionResult' });
+        }
+      }
+
       const newTimelineInstance: TimelineData = {
         id: ulid(),
         actionName,
         startTime,
         endTime,
-        actionResult: actionResult || '',
-        actionType: actionType || '',
         qualifier,
+        labels: finalLabels.length > 0 ? finalLabels : undefined,
       };
       setTimeline((prev) => [...prev, newTimelineInstance]);
     },
@@ -72,9 +86,31 @@ export const useTimelineEditing = (
         actionResult,
       });
       setTimeline((prev) => {
-        const updated = prev.map((item) =>
-          item.id === id ? { ...item, actionResult } : item,
-        );
+        const updated = prev.map((item) => {
+          if (item.id !== id) return item;
+
+          // labels配列を更新（actionResultグループを更新）
+          const updatedLabels = item.labels ? [...item.labels] : [];
+          const resultIndex = updatedLabels.findIndex(
+            (l) => l.group === 'actionResult',
+          );
+
+          if (resultIndex >= 0) {
+            // 既存のactionResultラベルを更新
+            updatedLabels[resultIndex] = {
+              name: actionResult,
+              group: 'actionResult',
+            };
+          } else {
+            // actionResultラベルが存在しない場合は追加
+            updatedLabels.push({ name: actionResult, group: 'actionResult' });
+          }
+
+          // actionResultフィールドを除外し、labels配列のみを更新
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { actionResult: _removedActionResult, ...rest } = item;
+          return { ...rest, labels: updatedLabels };
+        });
         console.debug(
           '[useTimelineEditing] Timeline after updateActionResult:',
           updated.find((item) => item.id === id),
@@ -92,9 +128,31 @@ export const useTimelineEditing = (
         actionType,
       });
       setTimeline((prev) => {
-        const updated = prev.map((item) =>
-          item.id === id ? { ...item, actionType } : item,
-        );
+        const updated = prev.map((item) => {
+          if (item.id !== id) return item;
+
+          // labels配列を更新（actionTypeグループを更新）
+          const updatedLabels = item.labels ? [...item.labels] : [];
+          const typeIndex = updatedLabels.findIndex(
+            (l) => l.group === 'actionType',
+          );
+
+          if (typeIndex >= 0) {
+            // 既存のactionTypeラベルを更新
+            updatedLabels[typeIndex] = {
+              name: actionType,
+              group: 'actionType',
+            };
+          } else {
+            // actionTypeラベルが存在しない場合は追加
+            updatedLabels.push({ name: actionType, group: 'actionType' });
+          }
+
+          // actionTypeフィールドを除外し、labels配列のみを更新
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { actionType: _removedActionType, ...rest } = item;
+          return { ...rest, labels: updatedLabels };
+        });
         console.debug(
           '[useTimelineEditing] Timeline after updateActionType:',
           updated.find((item) => item.id === id),
