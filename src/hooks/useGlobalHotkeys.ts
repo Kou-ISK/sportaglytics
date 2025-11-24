@@ -86,10 +86,14 @@ const matchesModifiers = (
 export const useGlobalHotkeys = (
   hotkeys: HotkeyConfig[],
   handlers: Record<string, () => void>,
+  keyUpHandlers?: Record<string, () => void>,
 ) => {
   // ハンドラーをuseRefで保持し、再レンダリング時にイベントリスナーが再登録されないようにする
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
+
+  const keyUpHandlersRef = useRef(keyUpHandlers);
+  keyUpHandlersRef.current = keyUpHandlers;
 
   useEffect(() => {
     console.log('[useGlobalHotkeys] Registering hotkeys:', hotkeys.length);
@@ -152,13 +156,57 @@ export const useGlobalHotkeys = (
       }
     };
 
+    const handleKeyUp = (event: KeyboardEvent) => {
+      // keyUpハンドラーが登録されていない場合はスキップ
+      if (!keyUpHandlersRef.current) {
+        return;
+      }
+
+      // input/textarea等のフォーカス時はホットキーを無効化
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // 各ホットキーをチェック（修飾キーが多い順）
+      for (const hotkey of sortedHotkeys) {
+        const modifiers = parseElectronKey(hotkey.key);
+        const matches = matchesModifiers(event, modifiers);
+
+        if (matches) {
+          console.log(
+            '[useGlobalHotkeys] ✓ KeyUp matched:',
+            hotkey.id,
+            'key:',
+            hotkey.key,
+          );
+
+          // 最新のkeyUpハンドラーを使用
+          const keyUpHandler = keyUpHandlersRef.current[hotkey.id];
+          if (keyUpHandler) {
+            // イベントの伝播を確実に止める
+            event.preventDefault();
+            event.stopPropagation();
+            keyUpHandler();
+            return; // 最初にマッチしたホットキーのみ実行
+          }
+        }
+      }
+    };
+
     // グローバルにkeydownイベントをリッスン
     globalThis.window.addEventListener('keydown', handleKeyDown);
-    console.log('[useGlobalHotkeys] Event listener registered');
+    globalThis.window.addEventListener('keyup', handleKeyUp);
+    console.log('[useGlobalHotkeys] Event listeners registered');
 
     return () => {
       globalThis.window.removeEventListener('keydown', handleKeyDown);
-      console.log('[useGlobalHotkeys] Event listener removed');
+      globalThis.window.removeEventListener('keyup', handleKeyUp);
+      console.log('[useGlobalHotkeys] Event listeners removed');
     };
   }, [hotkeys]); // handlersを依存配列から除外
 };

@@ -72,26 +72,26 @@ export const VideoPlayerApp = () => {
   // ホットキー設定を読み込み
   const { settings } = useSettings();
 
-  // ホットキーハンドラーを定義
+  // ホットキーハンドラーを定義（keydown時）
   const hotkeyHandlers = useMemo(
     () => ({
       'skip-forward-small': () => {
-        console.log('[HOTKEY] 0.5倍速再生');
+        console.log('[HOTKEY] 0.5倍速再生開始');
         setVideoPlayBackRate(0.5);
         setisVideoPlaying(true);
       },
       'skip-forward-medium': () => {
-        console.log('[HOTKEY] 2倍速再生');
+        console.log('[HOTKEY] 2倍速再生開始');
         setVideoPlayBackRate(2);
         setisVideoPlaying(true);
       },
       'skip-forward-large': () => {
-        console.log('[HOTKEY] 4倍速再生');
+        console.log('[HOTKEY] 4倍速再生開始');
         setVideoPlayBackRate(4);
         setisVideoPlaying(true);
       },
       'skip-forward-xlarge': () => {
-        console.log('[HOTKEY] 6倍速再生');
+        console.log('[HOTKEY] 6倍速再生開始');
         setVideoPlayBackRate(6);
         setisVideoPlaying(true);
       },
@@ -132,8 +132,31 @@ export const VideoPlayerApp = () => {
     ],
   );
 
+  // keyupハンドラーを定義（キーを放した時に1倍速に戻す）
+  const keyUpHandlers = useMemo(
+    () => ({
+      'skip-forward-small': () => {
+        console.log('[HOTKEY] 0.5倍速再生終了 → 1倍速に戻す');
+        setVideoPlayBackRate(1);
+      },
+      'skip-forward-medium': () => {
+        console.log('[HOTKEY] 2倍速再生終了 → 1倍速に戻す');
+        setVideoPlayBackRate(1);
+      },
+      'skip-forward-large': () => {
+        console.log('[HOTKEY] 4倍速再生終了 → 1倍速に戻す');
+        setVideoPlayBackRate(1);
+      },
+      'skip-forward-xlarge': () => {
+        console.log('[HOTKEY] 6倍速再生終了 → 1倍速に戻す');
+        setVideoPlayBackRate(1);
+      },
+    }),
+    [setVideoPlayBackRate],
+  );
+
   // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）
-  useGlobalHotkeys(settings.hotkeys, hotkeyHandlers);
+  useGlobalHotkeys(settings.hotkeys, hotkeyHandlers, keyUpHandlers);
 
   useSyncMenuHandlers({
     onResyncAudio: resyncAudio,
