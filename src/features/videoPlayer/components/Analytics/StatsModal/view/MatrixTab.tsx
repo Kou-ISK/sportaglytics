@@ -1,16 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Stack,
-  Paper,
-  Typography,
-  Divider,
-  Box,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Chip,
-} from '@mui/material';
+import { Stack, Paper, Typography, Divider, Box } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
@@ -20,11 +9,10 @@ import { DrilldownDialog } from './DrilldownDialog';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
 import {
   extractUniqueGroups,
-  extractUniqueTeams,
-  extractActionFromActionName,
-  extractTeamFromActionName,
 } from '../../../../../../utils/labelExtractors';
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
+import { MatrixFilters } from './MatrixFilters';
+import { useMatrixFilters } from './hooks/useMatrixFilters';
 
 interface MatrixTabProps {
   hasData: boolean;
@@ -93,77 +81,19 @@ export const MatrixTab = ({
   }, [initialRowValue, initialColValue, availableGroups.length]);
 
   // フィルタ設定の状態
-  const [filterTeam, setFilterTeam] = useState<string>('all');
-  const [filterAction, setFilterAction] = useState<string>('all');
-  const [filterLabelGroup, setFilterLabelGroup] = useState<string>('all');
-  const [filterLabelValue, setFilterLabelValue] = useState<string>('all');
-
-  // 利用可能なチーム、アクション、ラベル値を抽出
-  const { availableTeams, availableActions, availableLabelValues } =
-    useMemo(() => {
-      const teams = extractUniqueTeams(timeline);
-
-      // チームフィルタが適用されている場合はそのチームのアクションのみ
-      const actions = new Set<string>();
-      const filteredByTeam =
-        filterTeam === 'all'
-          ? timeline
-          : timeline.filter(
-              (item) =>
-                extractTeamFromActionName(item.actionName) === filterTeam,
-            );
-
-      for (const item of filteredByTeam) {
-        const action = extractActionFromActionName(item.actionName);
-        actions.add(action);
-      }
-
-      // ラベルグループが選択されている場合、そのグループの値を抽出
-      const labelValues = new Set<string>();
-      if (filterLabelGroup !== 'all') {
-        for (const item of timeline) {
-          const label = item.labels?.find((l) => l.group === filterLabelGroup);
-          if (label) {
-            labelValues.add(label.name);
-          }
-        }
-      }
-
-      return {
-        availableTeams: teams,
-        availableActions: Array.from(actions).sort((a, b) =>
-          a.localeCompare(b),
-        ),
-        availableLabelValues: Array.from(labelValues).sort((a, b) =>
-          a.localeCompare(b),
-        ),
-      };
-    }, [timeline, filterTeam, filterLabelGroup]);
-
-  // フィルタリングされたタイムライン
-  const filteredTimeline = useMemo(() => {
-    return timeline.filter((item) => {
-      // チームフィルタ
-      if (filterTeam !== 'all') {
-        const team = extractTeamFromActionName(item.actionName);
-        if (team !== filterTeam) return false;
-      }
-
-      // アクションフィルタ
-      if (filterAction !== 'all') {
-        const action = extractActionFromActionName(item.actionName);
-        if (action !== filterAction) return false;
-      }
-
-      // ラベルフィルタ
-      if (filterLabelGroup !== 'all' && filterLabelValue !== 'all') {
-        const label = item.labels?.find((l) => l.group === filterLabelGroup);
-        if (label?.name !== filterLabelValue) return false;
-      }
-
-      return true;
-    });
-  }, [timeline, filterTeam, filterAction, filterLabelGroup, filterLabelValue]);
+  const {
+    filters,
+    availableTeams,
+    availableActions,
+    availableLabelValues,
+    filteredTimeline,
+    hasActiveFilters,
+    setFilterTeam,
+    setFilterAction,
+    setFilterLabelGroup,
+    setFilterLabelValue,
+    clearLabelFilters,
+  } = useMatrixFilters(timeline);
 
   // カスタムマトリクス
   const customMatrix = useMemo(() => {
@@ -173,11 +103,6 @@ export const MatrixTab = ({
       customColumnAxis,
     );
   }, [filteredTimeline, customRowAxis, customColumnAxis]);
-
-  // ラベルグループが変更されたらラベル値をリセット
-  React.useEffect(() => {
-    setFilterLabelValue('all');
-  }, [filterLabelGroup]);
 
   if (!hasData) {
     return <NoDataPlaceholder message={emptyMessage} />;
@@ -235,114 +160,19 @@ export const MatrixTab = ({
 
             {/* フィルタ設定 */}
             <Divider />
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              フィルタ
-            </Typography>
-            <Box display="grid" gridTemplateColumns="1fr 1fr 1fr 1fr" gap={2}>
-              <FormControl size="small" fullWidth>
-                <InputLabel>チーム</InputLabel>
-                <Select
-                  value={filterTeam}
-                  label="チーム"
-                  onChange={(e) => setFilterTeam(e.target.value)}
-                >
-                  <MenuItem value="all">全て</MenuItem>
-                  {availableTeams.map((team) => (
-                    <MenuItem key={team} value={team}>
-                      {team}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" fullWidth>
-                <InputLabel>アクション</InputLabel>
-                <Select
-                  value={filterAction}
-                  label="アクション"
-                  onChange={(e) => setFilterAction(e.target.value)}
-                  disabled={availableActions.length === 0}
-                >
-                  <MenuItem value="all">全て</MenuItem>
-                  {availableActions.map((action) => (
-                    <MenuItem key={action} value={action}>
-                      {action}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" fullWidth>
-                <InputLabel>ラベルグループ</InputLabel>
-                <Select
-                  value={filterLabelGroup}
-                  label="ラベルグループ"
-                  onChange={(e) => setFilterLabelGroup(e.target.value)}
-                >
-                  <MenuItem value="all">全て</MenuItem>
-                  {availableGroups.map((group) => (
-                    <MenuItem key={group} value={group}>
-                      {group}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" fullWidth>
-                <InputLabel>ラベル値</InputLabel>
-                <Select
-                  value={filterLabelValue}
-                  label="ラベル値"
-                  onChange={(e) => setFilterLabelValue(e.target.value)}
-                  disabled={
-                    filterLabelGroup === 'all' ||
-                    availableLabelValues.length === 0
-                  }
-                >
-                  <MenuItem value="all">全て</MenuItem>
-                  {availableLabelValues.map((value) => (
-                    <MenuItem key={value} value={value}>
-                      {value}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-
-            {/* フィルタ適用状況 */}
-            {(filterTeam !== 'all' ||
-              filterAction !== 'all' ||
-              (filterLabelGroup !== 'all' && filterLabelValue !== 'all')) && (
-              <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
-                <Typography variant="caption" color="text.secondary">
-                  適用中:
-                </Typography>
-                {filterTeam !== 'all' && (
-                  <Chip
-                    label={`チーム: ${filterTeam}`}
-                    size="small"
-                    onDelete={() => setFilterTeam('all')}
-                  />
-                )}
-                {filterAction !== 'all' && (
-                  <Chip
-                    label={`アクション: ${filterAction}`}
-                    size="small"
-                    onDelete={() => setFilterAction('all')}
-                  />
-                )}
-                {filterLabelGroup !== 'all' && filterLabelValue !== 'all' && (
-                  <Chip
-                    label={`${filterLabelGroup}: ${filterLabelValue}`}
-                    size="small"
-                    onDelete={() => {
-                      setFilterLabelGroup('all');
-                      setFilterLabelValue('all');
-                    }}
-                  />
-                )}
-              </Box>
-            )}
+            <MatrixFilters
+              filters={filters}
+              availableTeams={availableTeams}
+              availableActions={availableActions}
+              availableLabelValues={availableLabelValues}
+              availableGroups={availableGroups}
+              onTeamChange={setFilterTeam}
+              onActionChange={setFilterAction}
+              onLabelGroupChange={setFilterLabelGroup}
+              onLabelValueChange={setFilterLabelValue}
+              onClearLabelFilters={clearLabelFilters}
+              hasActiveFilters={hasActiveFilters}
+            />
 
             {/* マトリクス表示 */}
             {customMatrix && customMatrix.rowHeaders.length > 0 && (

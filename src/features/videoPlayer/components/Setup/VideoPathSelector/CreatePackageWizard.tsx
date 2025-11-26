@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  AlertTitle,
   Box,
   Button,
-  Chip,
   CircularProgress,
   LinearProgress,
   Paper,
@@ -12,10 +10,8 @@ import {
   Step,
   StepLabel,
   Stepper,
-  TextField,
   Typography,
 } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
 import { PackageDatas } from '../../../../../renderer';
 import { MetaData } from '../../../../../types/MetaData';
@@ -28,6 +24,10 @@ import {
   WizardFormState,
   WizardSelectionState,
 } from './types';
+import { BasicInfoStep } from './steps/BasicInfoStep';
+import { DirectoryStep } from './steps/DirectoryStep';
+import { VideoSelectionStep } from './steps/VideoSelectionStep';
+import { SummaryStep } from './steps/SummaryStep';
 
 interface CreatePackageWizardProps {
   open: boolean;
@@ -230,9 +230,37 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
         label: 'チーム',
         value: (
           <Stack direction="row" spacing={1}>
-            <Chip label={form.team1Name} color="error" size="small" />
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                px: 1,
+                py: 0.5,
+                borderRadius: 1,
+                bgcolor: 'error.light',
+                color: 'error.contrastText',
+                fontSize: '0.75rem',
+              }}
+            >
+              {form.team1Name}
+            </Box>
             <Typography variant="body2">vs</Typography>
-            <Chip label={form.team2Name} color="primary" size="small" />
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                px: 1,
+                py: 0.5,
+                borderRadius: 1,
+                bgcolor: 'primary.light',
+                color: 'primary.contrastText',
+                fontSize: '0.75rem',
+              }}
+            >
+              {form.team2Name}
+            </Box>
           </Stack>
         ),
       },
@@ -291,167 +319,30 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
         </Stepper>
 
         {activeStep === 0 && (
-          <Stack spacing={3}>
-            <Alert severity="info">
-              <AlertTitle>パッケージの基本情報を入力してください</AlertTitle>
-              パッケージ名と対戦する2チームの名前を入力します
-            </Alert>
-
-            <TextField
-              fullWidth
-              label="パッケージ名"
-              value={form.packageName}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  packageName: event.target.value,
-                }))
-              }
-              error={!!errors.packageName}
-              helperText={errors.packageName || '例: 2024_春季大会_決勝'}
-              required
-            />
-
-            <TextField
-              fullWidth
-              label="チーム名 (1)"
-              value={form.team1Name}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, team1Name: event.target.value }))
-              }
-              error={!!errors.team1Name}
-              helperText={errors.team1Name || '赤色で表示されます'}
-              required
-            />
-
-            <TextField
-              fullWidth
-              label="チーム名 (2)"
-              value={form.team2Name}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, team2Name: event.target.value }))
-              }
-              error={!!errors.team2Name}
-              helperText={errors.team2Name || '青色で表示されます'}
-              required
-            />
-          </Stack>
+          <BasicInfoStep
+            form={form}
+            errors={errors}
+            onChange={(updates) => setForm((prev) => ({ ...prev, ...updates }))}
+          />
         )}
 
         {activeStep === 1 && (
-          <Stack spacing={3}>
-            <Alert severity="info">
-              <AlertTitle>パッケージの保存先を選択してください</AlertTitle>
-              選択したフォルダ内に「{form.packageName || 'パッケージ'}
-              」フォルダが作成されます
-            </Alert>
-            {selection.selectedDirectory ? (
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'success.light' }}>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <CheckCircleIcon color="success" />
-                  <Typography variant="body2" noWrap>
-                    {selection.selectedDirectory}
-                  </Typography>
-                </Stack>
-              </Paper>
-            ) : (
-              <Typography color="text.secondary">
-                「次へ」をクリックして保存先を選択してください
-              </Typography>
-            )}
-          </Stack>
+          <DirectoryStep
+            packageName={form.packageName}
+            selectedDirectory={selection.selectedDirectory}
+          />
         )}
 
         {activeStep === 2 && (
-          <Stack spacing={3}>
-            <Alert severity="info">
-              <AlertTitle>映像ファイルを選択してください</AlertTitle>
-              寄り映像は必須、引き映像は任意です
-            </Alert>
-
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                寄り映像 (必須)
-              </Typography>
-              <Button
-                variant="outlined"
-                onClick={() => handleSelectVideo('tight')}
-                fullWidth
-                sx={{ mb: 1 }}
-                disabled={isAnalyzing}
-              >
-                {selection.selectedTightVideo ? '再選択' : '選択'}
-              </Button>
-              {selection.selectedTightVideo && (
-                <Paper
-                  variant="outlined"
-                  sx={{ p: 1, bgcolor: 'success.light' }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <CheckCircleIcon color="success" fontSize="small" />
-                    <Typography variant="caption" noWrap>
-                      {selection.selectedTightVideo.split('/').pop()}
-                    </Typography>
-                  </Stack>
-                </Paper>
-              )}
-            </Box>
-
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                引き映像 (任意)
-              </Typography>
-              <Button
-                variant="outlined"
-                onClick={() => handleSelectVideo('wide')}
-                fullWidth
-                sx={{ mb: 1 }}
-                disabled={isAnalyzing}
-              >
-                {selection.selectedWideVideo ? '再選択' : '選択'}
-              </Button>
-              {selection.selectedWideVideo && (
-                <Paper
-                  variant="outlined"
-                  sx={{ p: 1, bgcolor: 'success.light' }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <CheckCircleIcon color="success" fontSize="small" />
-                    <Typography variant="caption" noWrap>
-                      {selection.selectedWideVideo.split('/').pop()}
-                    </Typography>
-                  </Stack>
-                </Paper>
-              )}
-            </Box>
-          </Stack>
+          <VideoSelectionStep
+            isAnalyzing={isAnalyzing}
+            selectedTightVideo={selection.selectedTightVideo}
+            selectedWideVideo={selection.selectedWideVideo}
+            onSelectVideo={handleSelectVideo}
+          />
         )}
 
-        {activeStep === 3 && (
-          <Stack spacing={2}>
-            <Alert severity="success">
-              <AlertTitle>作成内容の確認</AlertTitle>
-              以下の内容でパッケージを作成します
-            </Alert>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Stack spacing={1.5}>
-                {summaryItems.map((item) => (
-                  <Box key={item.label}>
-                    <Typography variant="caption" color="text.secondary">
-                      {item.label}
-                    </Typography>
-                    {typeof item.value === 'string' ||
-                    typeof item.value === 'number' ? (
-                      <Typography variant="body1">{item.value}</Typography>
-                    ) : (
-                      item.value
-                    )}
-                  </Box>
-                ))}
-              </Stack>
-            </Paper>
-          </Stack>
-        )}
+        {activeStep === 3 && <SummaryStep items={summaryItems} />}
 
         {syncStatus.isAnalyzing && (
           <Alert severity="info" sx={{ mt: 3 }}>

@@ -19,8 +19,6 @@ interface MatrixAxisSelectorProps {
   value: MatrixAxisConfig;
   onChange: (config: MatrixAxisConfig) => void;
   availableGroups: string[];
-  availableTeams?: string[];
-  availableActions?: string[];
 }
 
 export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = (
@@ -31,39 +29,21 @@ export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = (
     value,
     onChange,
     availableGroups,
-    availableTeams = [],
-    availableActions = [],
   } = props;
-  const getDisplayValue = () => {
-    if (value.type === 'group') {
-      if (!value.value) return '';
-      if (value.value === 'all_labels') return '全てのラベル';
-      return value.value;
-    }
-    if (value.type === 'team') return 'チーム';
-    if (value.type === 'action') return 'アクション';
-    return '';
-  };
 
   const handleTypeChange = (event: SelectChangeEvent<MatrixAxisType>) => {
     const newType = event.target.value as MatrixAxisType;
-    onChange({ ...value, type: newType });
+    onChange({
+      ...value,
+      type: newType,
+      value: newType === 'group' ? value.value : '',
+    });
   };
 
   const handleValueChange = (event: SelectChangeEvent<string>) => {
     const newValue = event.target.value;
     onChange({ ...value, value: newValue });
   };
-
-  const displayValue = getDisplayValue();
-
-  console.log(`${label} DEBUG:`, {
-    'value.value': value.value,
-    'value.type': value.type,
-    displayValue,
-    availableGroups,
-    'displayValue || ""': displayValue || '',
-  });
 
   return (
     <Stack spacing={2}>
@@ -104,52 +84,6 @@ export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = (
             {availableGroups.map((group) => (
               <MenuItem key={group} value={group}>
                 {group}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      )}
-
-      {value.type === 'team' && (
-        <FormControl fullWidth size="small">
-          <InputLabel id={`${label}-team-label`}>チーム</InputLabel>
-          <Select
-            labelId={`${label}-team-label`}
-            id={`${label}-team-select`}
-            value={
-              value.value ||
-              (availableTeams.length > 0 ? availableTeams[0] : '')
-            }
-            onChange={handleValueChange}
-            label="チーム"
-            disabled={availableTeams.length === 0}
-          >
-            {availableTeams.map((team) => (
-              <MenuItem key={team} value={team}>
-                {team}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      )}
-
-      {value.type === 'action' && (
-        <FormControl fullWidth size="small">
-          <InputLabel id={`${label}-action-label`}>アクション</InputLabel>
-          <Select
-            labelId={`${label}-action-label`}
-            id={`${label}-action-select`}
-            value={
-              value.value ||
-              (availableActions.length > 0 ? availableActions[0] : '')
-            }
-            onChange={handleValueChange}
-            label="アクション"
-            disabled={availableActions.length === 0}
-          >
-            {availableActions.map((action) => (
-              <MenuItem key={action} value={action}>
-                {action}
               </MenuItem>
             ))}
           </Select>

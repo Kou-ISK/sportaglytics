@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Box } from '@mui/material';
 import {
   StatsModal,
@@ -9,7 +9,6 @@ import { useSettings } from '../hooks/useSettings';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useActionPreset } from '../contexts/ActionPresetContext';
 import { TimelineData } from '../types/TimelineData';
-import type { HotkeyConfig } from '../types/Settings';
 import { PlayerSurface } from './videoPlayer/components/PlayerSurface';
 import {
   TimelineActionSection,
@@ -22,6 +21,7 @@ import { useSyncMenuHandlers } from './videoPlayer/hooks/useSyncMenuHandlers';
 import { useStatsMenuHandlers } from './videoPlayer/hooks/useStatsMenuHandlers';
 import { useTimelineExportImport } from './videoPlayer/hooks/useTimelineExportImport';
 import { OnboardingTutorial } from '../components/OnboardingTutorial';
+import { useHotkeyBindings } from './videoPlayer/hooks/useHotkeyBindings';
 
 export const VideoPlayerApp = () => {
   const {
@@ -79,163 +79,24 @@ export const VideoPlayerApp = () => {
   // TimelineActionSectionへのrefを作成
   const timelineActionRef = useRef<TimelineActionSectionHandle>(null);
 
-  // ホットキーハンドラーを定義（keydown時）
-  const hotkeyHandlers = useMemo(
-    () => ({
-      'skip-forward-small': () => {
-        console.log('[HOTKEY] 0.5倍速再生開始');
-        setVideoPlayBackRate(0.5);
-        setisVideoPlaying(true);
-      },
-      'skip-forward-medium': () => {
-        console.log('[HOTKEY] 2倍速再生開始');
-        setVideoPlayBackRate(2);
-        setisVideoPlaying(true);
-      },
-      'skip-forward-large': () => {
-        console.log('[HOTKEY] 4倍速再生開始');
-        setVideoPlayBackRate(4);
-        setisVideoPlaying(true);
-      },
-      'skip-forward-xlarge': () => {
-        console.log('[HOTKEY] 6倍速再生開始');
-        setVideoPlayBackRate(6);
-        setisVideoPlaying(true);
-      },
-      'play-pause': () => {
-        console.log('[HOTKEY] 再生/停止');
-        setisVideoPlaying(!isVideoPlaying);
-      },
-      'skip-backward-medium': () => {
-        console.log('[HOTKEY] 5秒戻し');
-        handleCurrentTime(new Event('hotkey'), currentTime - 5);
-      },
-      'skip-backward-large': () => {
-        console.log('[HOTKEY] 10秒戻し');
-        handleCurrentTime(new Event('hotkey'), currentTime - 10);
-      },
-      analyze: () => setStatsOpen(true),
-      undo: performUndo,
-      redo: performRedo,
-      'resync-audio': () => void resyncAudio(),
-      'reset-sync': resetSync,
-      'manual-sync': () => void manualSyncFromPlayers(),
-      'toggle-manual-mode': () =>
-        setSyncMode((prev) => (prev === 'auto' ? 'manual' : 'auto')),
-    }),
-    [
+  const { combinedHotkeys, combinedHandlers, keyUpHandlers } =
+    useHotkeyBindings({
       currentTime,
-      handleCurrentTime,
       isVideoPlaying,
-      setisVideoPlaying,
+      teamNames,
+      settingsHotkeys: settings.hotkeys,
+      activeActions,
+      timelineActionRef,
       setVideoPlayBackRate,
-      setStatsOpen,
+      setIsVideoPlaying: setisVideoPlaying,
+      handleCurrentTime,
       performUndo,
       performRedo,
       resyncAudio,
       resetSync,
       manualSyncFromPlayers,
       setSyncMode,
-    ],
-  );
-
-  // keyupハンドラーを定義（キーを放した時に1倍速に戻す）
-  const keyUpHandlers = useMemo(
-    () => ({
-      'skip-forward-small': () => {
-        console.log('[HOTKEY] 0.5倍速再生終了 → 1倍速に戻す');
-        setVideoPlayBackRate(1);
-      },
-      'skip-forward-medium': () => {
-        console.log('[HOTKEY] 2倍速再生終了 → 1倍速に戻す');
-        setVideoPlayBackRate(1);
-      },
-      'skip-forward-large': () => {
-        console.log('[HOTKEY] 4倍速再生終了 → 1倍速に戻す');
-        setVideoPlayBackRate(1);
-      },
-      'skip-forward-xlarge': () => {
-        console.log('[HOTKEY] 6倍速再生終了 → 1倍速に戻す');
-        setVideoPlayBackRate(1);
-      },
-    }),
-    [setVideoPlayBackRate],
-  );
-
-  // アクションボタン用ホットキーを生成
-  // 修飾キーなし → 最初のチーム、Shift → 2番目のチーム
-  const actionHotkeys = useMemo(() => {
-    const hotkeys: HotkeyConfig[] = [];
-
-    for (const action of activeActions) {
-      if (action.hotkey) {
-        // 最初のチーム用（修飾キーなし）
-        if (teamNames[0]) {
-          hotkeys.push({
-            id: `action-${teamNames[0]}-${action.action}`,
-            label: `${teamNames[0]} - ${action.action}`,
-            key: action.hotkey,
-          });
-        }
-
-        // 2番目のチーム用（Shift修飾キー）
-        if (teamNames[1]) {
-          hotkeys.push({
-            id: `action-${teamNames[1]}-${action.action}`,
-            label: `${teamNames[1]} - ${action.action}`,
-            key: `Shift+${action.hotkey}`,
-          });
-        }
-      }
-    }
-
-    return hotkeys;
-  }, [teamNames, activeActions]);
-
-  // アクションボタン用ハンドラー
-  // 修飾キーなし → 最初のチーム、Shift → 2番目のチーム
-  const actionHandlers = useMemo(() => {
-    const handlers: Record<string, () => void> = {};
-
-    for (const action of activeActions) {
-      if (action.hotkey) {
-        const actionName = action.action; // クロージャ用に変数を保存
-
-        // 最初のチーム用（修飾キーなし）
-        if (teamNames[0]) {
-          const id = `action-${teamNames[0]}-${actionName}`;
-          const teamName = teamNames[0];
-          handlers[id] = () => {
-            console.log(`[HOTKEY] Action: ${teamName} - ${actionName}`);
-            timelineActionRef.current?.triggerAction(teamName, actionName);
-          };
-        }
-
-        // 2番目のチーム用（Shift修飾キー）
-        if (teamNames[1]) {
-          const id = `action-${teamNames[1]}-${actionName}`;
-          const teamName = teamNames[1];
-          handlers[id] = () => {
-            console.log(`[HOTKEY] Action: ${teamName} - ${actionName}`);
-            timelineActionRef.current?.triggerAction(teamName, actionName);
-          };
-        }
-      }
-    }
-
-    return handlers;
-  }, [teamNames, activeActions]);
-
-  // システムホットキーとアクションホットキーを統合
-  const combinedHotkeys = useMemo(
-    () => [...settings.hotkeys, ...actionHotkeys],
-    [settings.hotkeys, actionHotkeys],
-  );
-
-  const combinedHandlers = useMemo(
-    () => ({ ...hotkeyHandlers, ...actionHandlers }),
-    [hotkeyHandlers, actionHandlers],
-  );
+    });
 
   // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）
   useGlobalHotkeys(combinedHotkeys, combinedHandlers, keyUpHandlers);
