@@ -1,5 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { Stack, Paper, Typography, Divider, Box, Button } from '@mui/material';
+import {
+  Stack,
+  Paper,
+  Typography,
+  Divider,
+  Box,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+} from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
@@ -7,7 +18,12 @@ import { MatrixSection } from './MatrixSection';
 import { MatrixAxisSelector } from './MatrixAxisSelector';
 import { DrilldownDialog } from './DrilldownDialog';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
-import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
+import {
+  extractUniqueGroups,
+  extractUniqueTeams,
+  extractActionFromActionName,
+  extractTeamFromActionName,
+} from '../../../../../../utils/labelExtractors';
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
 
 interface MatrixTabProps {
@@ -21,10 +37,9 @@ interface MatrixTabProps {
 export const MatrixTab = ({
   hasData,
   timeline,
-  teamNames,
   onJumpToSegment,
   emptyMessage,
-}: MatrixTabProps) => {
+}: Omit<MatrixTabProps, 'teamNames'>) => {
   const [detail, setDetail] = useState<{
     title: string;
     entries: TimelineData[];
@@ -36,63 +51,133 @@ export const MatrixTab = ({
     [timeline],
   );
 
+  // カスタム軸設定の初期値を計算
+  const initialRowValue = React.useMemo(() => {
+    if (availableGroups.length === 0) return '';
+    return availableGroups.includes('actionType')
+      ? 'actionType'
+      : availableGroups[0];
+  }, [availableGroups]);
+
+  const initialColValue = React.useMemo(() => {
+    if (availableGroups.length === 0) return '';
+    return availableGroups.includes('actionResult')
+      ? 'actionResult'
+      : availableGroups.length > 1
+        ? availableGroups[1]
+        : availableGroups[0];
+  }, [availableGroups]);
+
   // カスタム軸設定の状態
-  const [showCustomConfig, setShowCustomConfig] = useState(false);
   const [customRowAxis, setCustomRowAxis] = useState<MatrixAxisConfig>({
     type: 'group',
-    value: 'actionType',
+    value: initialRowValue,
   });
   const [customColumnAxis, setCustomColumnAxis] = useState<MatrixAxisConfig>({
     type: 'group',
-    value: 'actionResult',
+    value: initialColValue,
   });
 
-  // デフォルトのマトリクス（actionType × actionResult）
-  const defaultMatrix = useMemo(() => {
-    const rowAxis: MatrixAxisConfig = { type: 'group', value: 'actionType' };
-    const columnAxis: MatrixAxisConfig = {
-      type: 'group',
-      value: 'actionResult',
-    };
-    return buildHierarchicalMatrix(timeline, rowAxis, columnAxis);
-  }, [timeline]);
+  // availableGroupsが変更されたら、軸の値を更新
+  React.useEffect(() => {
+    if (availableGroups.length > 0) {
+      setCustomRowAxis((prev) => ({
+        ...prev,
+        value: initialRowValue,
+      }));
+      setCustomColumnAxis((prev) => ({
+        ...prev,
+        value: initialColValue,
+      }));
+    }
+  }, [initialRowValue, initialColValue, availableGroups.length]);
+
+  // フィルタ設定の状態
+  const [filterTeam, setFilterTeam] = useState<string>('all');
+  const [filterAction, setFilterAction] = useState<string>('all');
+  const [filterLabelGroup, setFilterLabelGroup] = useState<string>('all');
+  const [filterLabelValue, setFilterLabelValue] = useState<string>('all');
+
+  // 利用可能なチーム、アクション、ラベル値を抽出
+  const { availableTeams, availableActions, availableLabelValues } =
+    useMemo(() => {
+      const teams = extractUniqueTeams(timeline);
+
+      // チームフィルタが適用されている場合はそのチームのアクションのみ
+      const actions = new Set<string>();
+      const filteredByTeam =
+        filterTeam === 'all'
+          ? timeline
+          : timeline.filter(
+              (item) =>
+                extractTeamFromActionName(item.actionName) === filterTeam,
+            );
+
+      for (const item of filteredByTeam) {
+        const action = extractActionFromActionName(item.actionName);
+        actions.add(action);
+      }
+
+      // ラベルグループが選択されている場合、そのグループの値を抽出
+      const labelValues = new Set<string>();
+      if (filterLabelGroup !== 'all') {
+        for (const item of timeline) {
+          const label = item.labels?.find((l) => l.group === filterLabelGroup);
+          if (label) {
+            labelValues.add(label.name);
+          }
+        }
+      }
+
+      return {
+        availableTeams: teams,
+        availableActions: Array.from(actions).sort((a, b) =>
+          a.localeCompare(b),
+        ),
+        availableLabelValues: Array.from(labelValues).sort((a, b) =>
+          a.localeCompare(b),
+        ),
+      };
+    }, [timeline, filterTeam, filterLabelGroup]);
+
+  // フィルタリングされたタイムライン
+  const filteredTimeline = useMemo(() => {
+    return timeline.filter((item) => {
+      // チームフィルタ
+      if (filterTeam !== 'all') {
+        const team = extractTeamFromActionName(item.actionName);
+        if (team !== filterTeam) return false;
+      }
+
+      // アクションフィルタ
+      if (filterAction !== 'all') {
+        const action = extractActionFromActionName(item.actionName);
+        if (action !== filterAction) return false;
+      }
+
+      // ラベルフィルタ
+      if (filterLabelGroup !== 'all' && filterLabelValue !== 'all') {
+        const label = item.labels?.find((l) => l.group === filterLabelGroup);
+        if (label?.name !== filterLabelValue) return false;
+      }
+
+      return true;
+    });
+  }, [timeline, filterTeam, filterAction, filterLabelGroup, filterLabelValue]);
 
   // カスタムマトリクス
   const customMatrix = useMemo(() => {
-    if (!showCustomConfig) return null;
-    return buildHierarchicalMatrix(timeline, customRowAxis, customColumnAxis);
-  }, [timeline, customRowAxis, customColumnAxis, showCustomConfig]);
+    return buildHierarchicalMatrix(
+      filteredTimeline,
+      customRowAxis,
+      customColumnAxis,
+    );
+  }, [filteredTimeline, customRowAxis, customColumnAxis]);
 
-  // チーム別のマトリクス（action × group）
-  const teamMatrices = useMemo(() => {
-    const matrices = new Map<
-      string,
-      {
-        byType: ReturnType<typeof buildHierarchicalMatrix>;
-        byResult: ReturnType<typeof buildHierarchicalMatrix>;
-      }
-    >();
-
-    for (const team of teamNames) {
-      const byType = buildHierarchicalMatrix(
-        timeline,
-        { type: 'action' },
-        { type: 'group', value: 'actionType' },
-      );
-
-      const byResult = buildHierarchicalMatrix(
-        timeline,
-        { type: 'action' },
-        { type: 'group', value: 'actionResult' },
-      );
-
-      if (byType.rowHeaders.length > 0 || byResult.rowHeaders.length > 0) {
-        matrices.set(team, { byType, byResult });
-      }
-    }
-
-    return matrices;
-  }, [teamNames, timeline]);
+  // ラベルグループが変更されたらラベル値をリセット
+  React.useEffect(() => {
+    setFilterLabelValue('all');
+  }, [filterLabelGroup]);
 
   if (!hasData) {
     return <NoDataPlaceholder message={emptyMessage} />;
@@ -100,101 +185,195 @@ export const MatrixTab = ({
 
   return (
     <>
-      <Stack spacing={4}>
-        {/* デフォルトマトリクス */}
-        <MatrixSection
-          title="アクション種別 × アクション結果"
-          rowHeaders={defaultMatrix.rowHeaders}
-          columnHeaders={defaultMatrix.columnHeaders}
-          rowParentSpans={defaultMatrix.rowParentSpans}
-          colParentSpans={defaultMatrix.colParentSpans}
-          matrix={defaultMatrix.matrix}
-          onDrilldown={(title, entries) => setDetail({ title, entries })}
-        />
-
-        {/* カスタムマトリクス設定 */}
+      <Stack spacing={3}>
+        {/* カスタム分析 */}
         <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
           <Stack spacing={2}>
+            {/* ヘッダー */}
             <Box display="flex" alignItems="center" gap={1}>
               <SettingsIcon fontSize="small" />
               <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                 カスタム分析
               </Typography>
-              <Button
-                size="small"
-                onClick={() => setShowCustomConfig(!showCustomConfig)}
-                sx={{ ml: 'auto' }}
-              >
-                {showCustomConfig ? '非表示' : '表示'}
-              </Button>
             </Box>
 
-            {showCustomConfig && (
+            <Divider />
+
+            {/* 軸設定 */}
+            <Box display="grid" gridTemplateColumns="1fr 1fr" gap={3}>
+              <Box>
+                <MatrixAxisSelector
+                  key="row-axis"
+                  label="行軸"
+                  value={customRowAxis}
+                  onChange={(newConfig) => {
+                    console.log('行軸 - MatrixTab onChange:', {
+                      old: customRowAxis,
+                      new: newConfig,
+                    });
+                    setCustomRowAxis(newConfig);
+                  }}
+                  availableGroups={availableGroups}
+                />
+              </Box>
+              <Box>
+                <MatrixAxisSelector
+                  key="column-axis"
+                  label="列軸"
+                  value={customColumnAxis}
+                  onChange={(newConfig) => {
+                    console.log('列軸 - MatrixTab onChange:', {
+                      old: customColumnAxis,
+                      new: newConfig,
+                    });
+                    setCustomColumnAxis(newConfig);
+                  }}
+                  availableGroups={availableGroups}
+                />
+              </Box>
+            </Box>
+
+            {/* フィルタ設定 */}
+            <Divider />
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              フィルタ
+            </Typography>
+            <Box display="grid" gridTemplateColumns="1fr 1fr 1fr 1fr" gap={2}>
+              <FormControl size="small" fullWidth>
+                <InputLabel>チーム</InputLabel>
+                <Select
+                  value={filterTeam}
+                  label="チーム"
+                  onChange={(e) => setFilterTeam(e.target.value)}
+                >
+                  <MenuItem value="all">全て</MenuItem>
+                  {availableTeams.map((team) => (
+                    <MenuItem key={team} value={team}>
+                      {team}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" fullWidth>
+                <InputLabel>アクション</InputLabel>
+                <Select
+                  value={filterAction}
+                  label="アクション"
+                  onChange={(e) => setFilterAction(e.target.value)}
+                  disabled={availableActions.length === 0}
+                >
+                  <MenuItem value="all">全て</MenuItem>
+                  {availableActions.map((action) => (
+                    <MenuItem key={action} value={action}>
+                      {action}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" fullWidth>
+                <InputLabel>ラベルグループ</InputLabel>
+                <Select
+                  value={filterLabelGroup}
+                  label="ラベルグループ"
+                  onChange={(e) => setFilterLabelGroup(e.target.value)}
+                >
+                  <MenuItem value="all">全て</MenuItem>
+                  {availableGroups.map((group) => (
+                    <MenuItem key={group} value={group}>
+                      {group}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" fullWidth>
+                <InputLabel>ラベル値</InputLabel>
+                <Select
+                  value={filterLabelValue}
+                  label="ラベル値"
+                  onChange={(e) => setFilterLabelValue(e.target.value)}
+                  disabled={
+                    filterLabelGroup === 'all' ||
+                    availableLabelValues.length === 0
+                  }
+                >
+                  <MenuItem value="all">全て</MenuItem>
+                  {availableLabelValues.map((value) => (
+                    <MenuItem key={value} value={value}>
+                      {value}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* フィルタ適用状況 */}
+            {(filterTeam !== 'all' ||
+              filterAction !== 'all' ||
+              (filterLabelGroup !== 'all' && filterLabelValue !== 'all')) && (
+              <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+                <Typography variant="caption" color="text.secondary">
+                  適用中:
+                </Typography>
+                {filterTeam !== 'all' && (
+                  <Chip
+                    label={`チーム: ${filterTeam}`}
+                    size="small"
+                    onDelete={() => setFilterTeam('all')}
+                  />
+                )}
+                {filterAction !== 'all' && (
+                  <Chip
+                    label={`アクション: ${filterAction}`}
+                    size="small"
+                    onDelete={() => setFilterAction('all')}
+                  />
+                )}
+                {filterLabelGroup !== 'all' && filterLabelValue !== 'all' && (
+                  <Chip
+                    label={`${filterLabelGroup}: ${filterLabelValue}`}
+                    size="small"
+                    onDelete={() => {
+                      setFilterLabelGroup('all');
+                      setFilterLabelValue('all');
+                    }}
+                  />
+                )}
+              </Box>
+            )}
+
+            {/* マトリクス表示 */}
+            {customMatrix && customMatrix.rowHeaders.length > 0 && (
               <>
                 <Divider />
-                <Box display="grid" gridTemplateColumns="1fr 1fr" gap={3}>
-                  <MatrixAxisSelector
-                    label="行軸"
-                    value={customRowAxis}
-                    onChange={setCustomRowAxis}
-                    availableGroups={availableGroups}
-                  />
-                  <MatrixAxisSelector
-                    label="列軸"
-                    value={customColumnAxis}
-                    onChange={setCustomColumnAxis}
-                    availableGroups={availableGroups}
-                  />
-                </Box>
-
-                {customMatrix && (
-                  <>
-                    <Divider />
-                    <MatrixSection
-                      title={`${getAxisLabel(customRowAxis)} × ${getAxisLabel(customColumnAxis)}`}
-                      rowHeaders={customMatrix.rowHeaders}
-                      columnHeaders={customMatrix.columnHeaders}
-                      rowParentSpans={customMatrix.rowParentSpans}
-                      colParentSpans={customMatrix.colParentSpans}
-                      matrix={customMatrix.matrix}
-                      onDrilldown={(title, entries) =>
-                        setDetail({ title, entries })
-                      }
-                    />
-                  </>
-                )}
+                <MatrixSection
+                  title={`${getAxisLabel(customRowAxis)} × ${getAxisLabel(customColumnAxis)}`}
+                  rowHeaders={customMatrix.rowHeaders}
+                  columnHeaders={customMatrix.columnHeaders}
+                  rowParentSpans={customMatrix.rowParentSpans}
+                  colParentSpans={customMatrix.colParentSpans}
+                  matrix={customMatrix.matrix}
+                  onDrilldown={(title, entries) =>
+                    setDetail({ title, entries })
+                  }
+                />
+                <Typography variant="caption" color="text.secondary">
+                  対象データ数: {filteredTimeline.length} / {timeline.length}
+                </Typography>
               </>
+            )}
+
+            {customMatrix?.rowHeaders.length === 0 && (
+              <Box sx={{ py: 4, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  フィルタ条件に一致するデータがありません
+                </Typography>
+              </Box>
             )}
           </Stack>
         </Paper>
-
-        {/* チーム別マトリクス */}
-        {Array.from(teamMatrices.entries()).map(([team, matrices]) => (
-          <Stack key={team} spacing={3}>
-            {matrices.byType.rowHeaders.length > 0 && (
-              <MatrixSection
-                title={`${team} - アクション × アクション種別`}
-                rowHeaders={matrices.byType.rowHeaders}
-                columnHeaders={matrices.byType.columnHeaders}
-                rowParentSpans={matrices.byType.rowParentSpans}
-                colParentSpans={matrices.byType.colParentSpans}
-                matrix={matrices.byType.matrix}
-                onDrilldown={(title, entries) => setDetail({ title, entries })}
-              />
-            )}
-            {matrices.byResult.rowHeaders.length > 0 && (
-              <MatrixSection
-                title={`${team} - アクション × アクション結果`}
-                rowHeaders={matrices.byResult.rowHeaders}
-                columnHeaders={matrices.byResult.columnHeaders}
-                rowParentSpans={matrices.byResult.rowParentSpans}
-                colParentSpans={matrices.byResult.colParentSpans}
-                matrix={matrices.byResult.matrix}
-                onDrilldown={(title, entries) => setDetail({ title, entries })}
-              />
-            )}
-          </Stack>
-        ))}
       </Stack>
 
       <DrilldownDialog

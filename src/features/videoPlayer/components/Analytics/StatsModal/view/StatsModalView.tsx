@@ -50,6 +50,8 @@ export const StatsModalView = ({
       fullWidth
       maxWidth="lg"
       aria-labelledby="stats-dialog-title"
+      disableEnforceFocus
+      disableRestoreFocus
     >
       <DialogTitle id="stats-dialog-title" sx={{ pb: 1 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -121,7 +123,7 @@ export const StatsModalView = ({
             hasData={hasTimelineData}
             createMomentumData={createMomentumData}
             teamNames={resolvedTeamNames}
-            emptyMessage="モーメンタムを表示するにはタイムラインを作成してください。"
+            emptyMessage="モメンタムを表示するにはタイムラインを作成してください。"
           />
         )}
 
@@ -129,7 +131,6 @@ export const StatsModalView = ({
           <MatrixTab
             hasData={hasTimelineData}
             timeline={timeline}
-            teamNames={resolvedTeamNames}
             onJumpToSegment={onJumpToSegment}
             emptyMessage="クロス集計を表示するにはタイムラインを作成してください。"
           />

@@ -41,61 +41,121 @@ export const MatrixSection = ({
 
   return (
     <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+      <Typography
+        variant="subtitle2"
+        sx={{ fontWeight: 600, mb: 2, fontSize: '0.8rem' }}
+      >
         {title}
       </Typography>
       <Divider sx={{ mb: 2 }} />
       <TableContainer
         component={Paper}
         variant="outlined"
-        sx={{ borderRadius: 2, overflowX: 'auto' }}
+        sx={{
+          borderRadius: 2,
+          maxHeight: '70vh',
+          overflow: 'auto',
+          position: 'relative',
+        }}
       >
-        <Table size="small" sx={{ minWidth: 650 }}>
+        <Table
+          size="small"
+          sx={{
+            minWidth: 650,
+            '& thead th': {
+              position: 'sticky',
+              top: 0,
+              backgroundColor: 'background.paper',
+              zIndex: 2,
+            },
+            '& tbody th': {
+              position: 'sticky',
+              left: 0,
+              backgroundColor: 'background.paper',
+              zIndex: 1,
+            },
+          }}
+        >
           <TableHead>
             {hasColumnParent && (
               <TableRow>
-                <TableCell
-                  rowSpan={2}
-                  sx={{
-                    fontWeight: 600,
-                    verticalAlign: 'middle',
-                    borderRight: '2px solid',
-                    borderColor: 'divider',
-                  }}
-                >
-                  行/列
-                </TableCell>
+                {/* 行ヘッダー領域: 行にも親がある場合は2列分の空白 */}
+                {(() => {
+                  const hasRowParent = rowHeaders.some(
+                    (h) => h.parent !== null,
+                  );
+                  if (hasRowParent) {
+                    return (
+                      <>
+                        <TableCell
+                          sx={{
+                            borderRight: '1px solid',
+                            borderColor: 'divider',
+                            position: 'sticky',
+                            left: 0,
+                            zIndex: 3,
+                            backgroundColor: 'background.paper',
+                          }}
+                        />
+                        <TableCell
+                          sx={{
+                            borderRight: '2px solid',
+                            borderColor: 'divider',
+                            position: 'sticky',
+                            left: 0,
+                            zIndex: 3,
+                            backgroundColor: 'background.paper',
+                          }}
+                        />
+                      </>
+                    );
+                  } else {
+                    return (
+                      <TableCell
+                        sx={{
+                          borderRight: '2px solid',
+                          borderColor: 'divider',
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 3,
+                          backgroundColor: 'background.paper',
+                        }}
+                      />
+                    );
+                  }
+                })()}
                 {/* 親要素のヘッダー */}
                 {(() => {
-                  const renderedParents = new Set<string>();
-                  return columnHeaders.map((header) => {
-                    const { parent } = header;
-                    if (parent && !renderedParents.has(parent)) {
-                      renderedParents.add(parent);
-                      const colspan = colParentSpans.get(parent) || 1;
-                      return (
-                        <TableCell
-                          key={`parent-${parent}`}
-                          colSpan={colspan}
-                          align="center"
-                          sx={{
-                            fontWeight: 600,
-                            borderBottom: '1px solid',
-                            borderColor: 'divider',
-                            writingMode: 'vertical-rl',
-                            textOrientation: 'upright',
-                            minWidth: 40,
-                            padding: '8px 4px',
-                            fontSize: '0.875rem',
-                            letterSpacing: '0.05em',
-                          }}
-                        >
-                          {parent}
-                        </TableCell>
-                      );
+                  const parents: Array<{ name: string; colspan: number }> = [];
+                  const seen = new Set<string>();
+                  for (const header of columnHeaders) {
+                    if (header.parent && !seen.has(header.parent)) {
+                      seen.add(header.parent);
+                      parents.push({
+                        name: header.parent,
+                        colspan: colParentSpans.get(header.parent) || 1,
+                      });
                     }
-                    return null;
-                  });
+                  }
+                  return parents.map(({ name, colspan }) => (
+                    <TableCell
+                      key={`parent-${name}`}
+                      colSpan={colspan}
+                      align="center"
+                      sx={{
+                        fontWeight: 600,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        writingMode: 'vertical-rl',
+                        minWidth: 32,
+                        padding: '6px 2px',
+                        fontSize: '0.7rem',
+                        letterSpacing: '0.02em',
+                      }}
+                    >
+                      {name}
+                    </TableCell>
+                  ));
                 })()}
                 <TableCell
                   rowSpan={2}
@@ -105,10 +165,15 @@ export const MatrixSection = ({
                     verticalAlign: 'middle',
                     borderLeft: '2px solid',
                     borderColor: 'divider',
-                    writingMode: 'vertical-rl',
-                    textOrientation: 'upright',
-                    minWidth: 40,
-                    padding: '8px 4px',
+                    width: 48,
+                    minWidth: 48,
+                    maxWidth: 48,
+                    p: 0.5,
+                    fontSize: '0.7rem',
+                    position: 'sticky',
+                    right: 0,
+                    zIndex: 3,
+                    backgroundColor: 'background.paper',
                   }}
                 >
                   合計
@@ -116,17 +181,57 @@ export const MatrixSection = ({
               </TableRow>
             )}
             <TableRow>
-              {!hasColumnParent && (
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    borderRight: '2px solid',
-                    borderColor: 'divider',
-                  }}
-                >
-                  行/列
-                </TableCell>
-              )}
+              {/* 行ヘッダー領域: 空白 */}
+              {(() => {
+                const hasRowParent = rowHeaders.some((h) => h.parent !== null);
+                if (hasRowParent) {
+                  return (
+                    <>
+                      <TableCell
+                        sx={{
+                          fontWeight: 600,
+                          verticalAlign: 'middle',
+                          borderRight: '1px solid',
+                          borderColor: 'divider',
+                          fontSize: '0.7rem',
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 3,
+                          backgroundColor: 'background.paper',
+                        }}
+                      />
+                      <TableCell
+                        sx={{
+                          fontWeight: 600,
+                          verticalAlign: 'middle',
+                          borderRight: '2px solid',
+                          borderColor: 'divider',
+                          fontSize: '0.7rem',
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 3,
+                          backgroundColor: 'background.paper',
+                        }}
+                      />
+                    </>
+                  );
+                } else {
+                  return (
+                    <TableCell
+                      sx={{
+                        fontWeight: 600,
+                        borderRight: '2px solid',
+                        borderColor: 'divider',
+                        fontSize: '0.7rem',
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 3,
+                        backgroundColor: 'background.paper',
+                      }}
+                    />
+                  );
+                }
+              })()}
               {/* 子要素のヘッダー（縦書き） */}
               {columnHeaders.map((header) => {
                 const key = header.parent
@@ -139,11 +244,10 @@ export const MatrixSection = ({
                     sx={{
                       fontWeight: 600,
                       writingMode: 'vertical-rl',
-                      textOrientation: 'upright',
-                      minWidth: 40,
-                      padding: '8px 4px',
-                      fontSize: '0.875rem',
-                      letterSpacing: '0.05em',
+                      minWidth: 32,
+                      padding: '6px 2px',
+                      fontSize: '0.7rem',
+                      letterSpacing: '0.02em',
                     }}
                   >
                     {header.child || '未設定'}
@@ -157,10 +261,15 @@ export const MatrixSection = ({
                     fontWeight: 600,
                     borderLeft: '2px solid',
                     borderColor: 'divider',
-                    writingMode: 'vertical-rl',
-                    textOrientation: 'upright',
-                    minWidth: 40,
-                    padding: '8px 4px',
+                    width: 48,
+                    minWidth: 48,
+                    maxWidth: 48,
+                    p: 0.5,
+                    fontSize: '0.7rem',
+                    position: 'sticky',
+                    right: 0,
+                    zIndex: 3,
+                    backgroundColor: 'background.paper',
                   }}
                 >
                   合計
@@ -200,6 +309,10 @@ export const MatrixSection = ({
                         borderRight: '1px solid',
                         borderColor: 'divider',
                         backgroundColor: 'action.hover',
+                        fontSize: '0.7rem',
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 1,
                       }}
                     >
                       {rowHeader.parent}
@@ -212,6 +325,11 @@ export const MatrixSection = ({
                         fontWeight: 600,
                         borderRight: '2px solid',
                         borderColor: 'divider',
+                        fontSize: '0.7rem',
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 1,
+                        backgroundColor: 'background.paper',
                       }}
                     >
                       {rowHeader.child || '未設定'}
@@ -225,6 +343,11 @@ export const MatrixSection = ({
                         pl: 2,
                         borderRight: '2px solid',
                         borderColor: 'divider',
+                        fontSize: '0.7rem',
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 1,
+                        backgroundColor: 'background.paper',
                       }}
                     >
                       {rowHeader.child || '未設定'}
@@ -246,18 +369,23 @@ export const MatrixSection = ({
                     const cellKey = `cell-${rowKey}-${columnHeader.parent || ''}-${columnHeader.child}`;
 
                     return (
-                      <TableCell key={cellKey} align="center">
+                      <TableCell key={cellKey} align="center" sx={{ p: 0.5 }}>
                         {cell.count > 0 ? (
                           <Button
                             size="small"
                             onClick={() =>
                               onDrilldown(titleLabel, cell.entries)
                             }
+                            sx={{ fontSize: '0.7rem', minWidth: 32, p: 0.5 }}
                           >
                             {cell.count}
                           </Button>
                         ) : (
-                          <Typography variant="caption" color="text.disabled">
+                          <Typography
+                            variant="caption"
+                            color="text.disabled"
+                            sx={{ fontSize: '0.65rem' }}
+                          >
                             -
                           </Typography>
                         )}
@@ -271,9 +399,20 @@ export const MatrixSection = ({
                       borderLeft: '2px solid',
                       borderColor: 'divider',
                       backgroundColor: 'action.hover',
+                      width: 48,
+                      minWidth: 48,
+                      maxWidth: 48,
+                      p: 0.5,
+                      position: 'sticky',
+                      right: 0,
+                      zIndex: 1,
                     }}
                   >
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontSize: '0.7rem' }}
+                    >
                       {rowTotal}
                     </Typography>
                   </TableCell>

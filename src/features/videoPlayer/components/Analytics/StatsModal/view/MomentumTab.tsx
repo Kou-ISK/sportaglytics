@@ -24,7 +24,7 @@ export const MomentumTab = ({
   return (
     <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
       <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-        モーメンタムチャート
+        モメンタムチャート
       </Typography>
       <Divider sx={{ mb: 2 }} />
       <MomentumChart

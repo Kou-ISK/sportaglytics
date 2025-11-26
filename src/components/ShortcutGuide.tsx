@@ -50,7 +50,7 @@ const shortcuts: ShortcutItem[] = [
       { key: 'Command + Option + 1', action: 'ポゼッションを表示' },
       { key: 'Command + Option + 2', action: 'アクション結果を表示' },
       { key: 'Command + Option + 3', action: 'アクション種別を表示' },
-      { key: 'Command + Option + 4', action: 'モーメンタムを表示' },
+      { key: 'Command + Option + 4', action: 'モメンタムを表示' },
       { key: 'Command + Option + 5', action: 'クロス集計を表示' },
       { key: 'Command + /', action: 'ショートカット一覧を表示' },
     ],

@@ -9,7 +9,7 @@ interface PossessionTabProps {
   emptyMessage: string;
 }
 
-const PIE_COLORS = ['#1e88e5', '#43a047', '#fb8c00', '#8e24aa'];
+const PIE_COLORS = ['#1976d2', '#388e3c', '#f57c00', '#7b1fa2'];
 
 export const PossessionTab = ({
   hasData,
@@ -20,13 +20,18 @@ export const PossessionTab = ({
     return <NoDataPlaceholder message={emptyMessage} />;
   }
 
+  const total = data.reduce((sum, entry) => sum + entry.value, 0);
+
   return (
     <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+      <Typography
+        variant="subtitle2"
+        sx={{ fontWeight: 600, mb: 2, fontSize: '0.9rem' }}
+      >
         ポゼッション比較
       </Typography>
       <Divider sx={{ mb: 2 }} />
-      <Box sx={{ height: 280 }}>
+      <Box sx={{ height: 300, display: 'flex', justifyContent: 'center' }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -34,21 +39,31 @@ export const PossessionTab = ({
               dataKey="value"
               nameKey="name"
               cx="50%"
-              cy="50%"
-              outerRadius="80%"
-              innerRadius="55%"
-              label={({ name, value }) =>
-                `${name.replace(' ポゼッション', '')}: ${value.toFixed(0)} sec`
-              }
+              cy="100%"
+              startAngle={180}
+              endAngle={0}
+              outerRadius="90%"
+              innerRadius="60%"
+              label={({ name, value }) => {
+                const percentage = ((value / total) * 100).toFixed(1);
+                const teamName = name.replace(' ポゼッション', '');
+                return `${teamName}: ${value.toFixed(0)}秒 (${percentage}%)`;
+              }}
+              labelLine={{ stroke: '#666', strokeWidth: 1 }}
             >
-              {data.map((_, index) => (
+              {data.map((entry, index) => (
                 <Cell
-                  key={index}
+                  key={`cell-${entry.name}-${index}`}
                   fill={PIE_COLORS[index % PIE_COLORS.length]}
                 />
               ))}
             </Pie>
-            <Legend verticalAlign="bottom" iconType="circle" height={36} />
+            <Legend
+              verticalAlign="bottom"
+              iconType="circle"
+              height={36}
+              wrapperStyle={{ fontSize: '0.85rem' }}
+            />
           </PieChart>
         </ResponsiveContainer>
       </Box>

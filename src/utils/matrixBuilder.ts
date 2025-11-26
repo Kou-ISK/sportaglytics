@@ -171,6 +171,42 @@ const buildGroupAxisHeaders = (
 } => {
   const headers: Array<{ parent: string | null; child: string }> = [];
   const parentSpans = new Map<string, number>();
+
+  // 'all_labels'の場合は全グループのラベルを表示
+  if (groupName === 'all_labels') {
+    const labelsByGroup = new Map<string, Set<string>>();
+
+    for (const item of timeline) {
+      if (item.labels) {
+        for (const label of item.labels) {
+          if (label.group && label.name) {
+            if (!labelsByGroup.has(label.group)) {
+              labelsByGroup.set(label.group, new Set());
+            }
+            labelsByGroup.get(label.group)?.add(label.name);
+          }
+        }
+      }
+    }
+
+    // グループごとにラベルを配置
+    const sortedGroups = Array.from(labelsByGroup.entries()).sort(([a], [b]) =>
+      a.localeCompare(b),
+    );
+    for (const [group, labelSet] of sortedGroups) {
+      const sortedLabels = Array.from(labelSet).sort((a, b) =>
+        a.localeCompare(b),
+      );
+      parentSpans.set(group, sortedLabels.length);
+      for (const labelName of sortedLabels) {
+        headers.push({ parent: group, child: labelName });
+      }
+    }
+
+    return { headers, parentSpans };
+  }
+
+  // 特定のグループの場合
   const labels = extractUniqueLabelsForGroup(timeline, groupName);
 
   // labelsからgroupを抽出してグループ化
@@ -306,14 +342,19 @@ export const buildHierarchicalMatrix = (
 
   // データを集計
   for (const item of timeline) {
-    const rowIndex = findHeaderIndex(item, rowAxis, rowHeaders);
-    const colIndex = findHeaderIndex(item, columnAxis, columnHeaders);
+    // all_labelsの場合は、全てのラベルの組み合わせでセルに追加
+    const rowIndices = findAllHeaderIndices(item, rowAxis, rowHeaders);
+    const colIndices = findAllHeaderIndices(item, columnAxis, columnHeaders);
 
-    if (rowIndex >= 0 && colIndex >= 0) {
-      const cell = matrix[rowIndex]?.[colIndex];
-      if (cell) {
-        cell.count += 1;
-        cell.entries.push(item);
+    for (const rowIndex of rowIndices) {
+      for (const colIndex of colIndices) {
+        if (rowIndex >= 0 && colIndex >= 0) {
+          const cell = matrix[rowIndex]?.[colIndex];
+          if (cell) {
+            cell.count += 1;
+            cell.entries.push(item);
+          }
+        }
       }
     }
   }
@@ -322,27 +363,49 @@ export const buildHierarchicalMatrix = (
 };
 
 /**
- * ヘッダー配列から該当するインデックスを検索
+ * ヘッダー配列から該当する全てのインデックスを検索（all_labels対応）
  */
-const findHeaderIndex = (
+const findAllHeaderIndices = (
   item: TimelineData,
   axis: MatrixAxisConfig,
   headers: Array<{ parent: string | null; child: string }>,
-): number => {
+): number[] => {
   if (axis.type === 'action') {
     const team = extractTeamFromActionName(item.actionName);
     const action = extractActionFromActionName(item.actionName);
-    return headers.findIndex((h) => h.parent === team && h.child === action);
+    const index = headers.findIndex(
+      (h) => h.parent === team && h.child === action,
+    );
+    return index >= 0 ? [index] : [];
   }
 
   if (axis.type === 'group' && axis.value) {
+    // 'all_labels'の場合は、item内の全ラベルから一致するものを全て取得
+    if (axis.value === 'all_labels') {
+      const indices: number[] = [];
+      if (item.labels) {
+        for (const label of item.labels) {
+          const index = headers.findIndex(
+            (h) => h.parent === label.group && h.child === label.name,
+          );
+          if (index >= 0 && !indices.includes(index)) {
+            indices.push(index);
+          }
+        }
+      }
+      return indices;
+    }
+
+    // 特定のグループの場合
     const label = getLabelByGroupWithFallback(item, axis.value, '');
     if (label) {
-      return headers.findIndex((h) => h.child === label);
+      const index = headers.findIndex((h) => h.child === label);
+      return index >= 0 ? [index] : [];
     }
-    return -1;
+    return [];
   }
 
   const key = extractValueFromAxis(item, axis);
-  return headers.findIndex((h) => h.child === key);
+  const index = headers.findIndex((h) => h.child === key);
+  return index >= 0 ? [index] : [];
 };

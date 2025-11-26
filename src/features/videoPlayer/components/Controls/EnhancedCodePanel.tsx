@@ -130,53 +130,56 @@ export const EnhancedCodePanel = forwardRef<
     const isSameAction =
       selectedTeam === teamName && selectedAction === action.action;
 
+    const labelGroups = getActionLabels(action);
+    const hasLabels = labelGroups.length > 0;
+
     // 記録中の同じアクションをクリックした場合は記録終了
     if (isRecording && isSameAction) {
       completeRecording();
       return;
     }
 
-    // 別のアクションをクリックした場合、記録中なら先に完了させる
+    // 記録中に別のアクションをクリックした場合
     if (isRecording && !isSameAction) {
+      // 先に現在の記録を完了
       completeRecording();
-      // 記録完了後に新しいアクションの選択処理を継続
+
+      // 新しいアクションを選択して記録開始
+      const time = getCurrentTime();
+      if (time !== null) {
+        setSelectedTeam(teamName);
+        setSelectedAction(action.action);
+        setLabelSelections({});
+        setRecordingStartTime(time);
+        setIsRecording(true);
+      }
+      return;
     }
 
-    const labelGroups = getActionLabels(action);
-    const hasLabels = labelGroups.length > 0;
-
-    // ラベルがない場合は即座に記録開始/終了
+    // 記録中でない場合の処理
+    // ラベルがない場合は即座に記録開始
     if (!hasLabels) {
-      if (isSameAction && isRecording) {
-        completeRecording();
-      } else {
-        // 新しい記録を開始
-        const time = getCurrentTime();
-        if (time !== null) {
-          setSelectedTeam(teamName);
-          setSelectedAction(action.action);
-          setLabelSelections({});
-          setRecordingStartTime(time);
-          setIsRecording(true);
-        }
+      const time = getCurrentTime();
+      if (time !== null) {
+        setSelectedTeam(teamName);
+        setSelectedAction(action.action);
+        setLabelSelections({});
+        setRecordingStartTime(time);
+        setIsRecording(true);
       }
       return;
     }
 
     // ラベルがある場合
     if (isSameAction) {
-      // 既に選択済みで記録中でない場合は記録開始
-      if (isRecording) {
-        completeRecording();
-      } else {
-        const time = getCurrentTime();
-        if (time !== null) {
-          setRecordingStartTime(time);
-          setIsRecording(true);
-        }
+      // 既に選択済みのアクションを再度クリック -> 記録開始
+      const time = getCurrentTime();
+      if (time !== null) {
+        setRecordingStartTime(time);
+        setIsRecording(true);
       }
     } else {
-      // 別のアクションに切り替え時はインライン展開して即座に記録開始
+      // 別のアクションを初めて選択 -> アクションを選択して記録開始
       const time = getCurrentTime();
       if (time !== null) {
         setSelectedTeam(teamName);
@@ -203,13 +206,13 @@ export const EnhancedCodePanel = forwardRef<
       return action.groups;
     }
 
-    // 後方互換性: results/typesから変換
+    // 後方互換性: results/typesから変換（Optaのデータ構造に合わせる）
     const legacyGroups = [];
     if (action.types.length > 0) {
-      legacyGroups.push({ groupName: 'Type', options: action.types });
+      legacyGroups.push({ groupName: 'actionType', options: action.types });
     }
     if (action.results.length > 0) {
-      legacyGroups.push({ groupName: 'Result', options: action.results });
+      legacyGroups.push({ groupName: 'actionResult', options: action.results });
     }
     return legacyGroups;
   };

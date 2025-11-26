@@ -7,6 +7,7 @@ export const ActionList = [
       'Kick Out of Play',
       'Kick Error',
       'Kick in Play',
+      'Kick in Goal',
       'Pen Won',
       'Scrum',
       'Pen Con',
@@ -87,6 +88,11 @@ export const ActionList = [
       'Box',
       'Touch Kick',
     ],
+  },
+  {
+    action: 'FK',
+    results: ['Scrum', 'Lineout'],
+    types: ['Offence', 'Defence'],
   },
   {
     action: 'PK',

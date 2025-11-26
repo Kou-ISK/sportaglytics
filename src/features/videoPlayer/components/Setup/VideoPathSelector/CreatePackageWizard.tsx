@@ -21,6 +21,7 @@ import { PackageDatas } from '../../../../../renderer';
 import { MetaData } from '../../../../../types/MetaData';
 import { VideoSyncData } from '../../../../../types/VideoSync';
 import { useNotification } from '../../../../../contexts/NotificationContext';
+import { ActionList } from '../../../../../ActionList';
 import {
   PackageLoadResult,
   SyncStatus,
@@ -138,19 +139,7 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
       wideViewPath: selection.selectedWideVideo || null,
       team1Name: form.team1Name,
       team2Name: form.team2Name,
-      actionList: [
-        'ポゼッション',
-        'スクラム',
-        'ラインアウト',
-        'キック',
-        'タックル',
-        'PK',
-        'FK',
-        'Check',
-        'キックオフ',
-        'トライ',
-        'ショット',
-      ],
+      actionList: ActionList.map((item) => item.action),
     };
 
     try {
