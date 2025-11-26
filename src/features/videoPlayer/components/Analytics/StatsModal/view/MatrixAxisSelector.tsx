@@ -19,14 +19,21 @@ interface MatrixAxisSelectorProps {
   value: MatrixAxisConfig;
   onChange: (config: MatrixAxisConfig) => void;
   availableGroups: string[];
+  availableTeams?: string[];
+  availableActions?: string[];
 }
 
-export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = ({
-  label,
-  value,
-  onChange,
-  availableGroups,
-}) => {
+export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = (
+  props,
+) => {
+  const {
+    label,
+    value,
+    onChange,
+    availableGroups,
+    availableTeams = [],
+    availableActions = [],
+  } = props;
   const getDisplayValue = () => {
     if (value.type === 'group') {
       if (!value.value) return '';
@@ -43,7 +50,7 @@ export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = ({
     onChange({ ...value, type: newType });
   };
 
-  const handleGroupChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleValueChange = (event: SelectChangeEvent<string>) => {
     const newValue = event.target.value;
     onChange({ ...value, value: newValue });
   };
@@ -83,23 +90,67 @@ export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = ({
         <FormControl fullWidth size="small">
           <InputLabel id={`${label}-group-label`}>グループ</InputLabel>
           <Select
-            native
             labelId={`${label}-group-label`}
             id={`${label}-group-select`}
             value={
               value.value ||
               (availableGroups.length > 0 ? availableGroups[0] : '')
             }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onChange={handleGroupChange as any}
+            onChange={handleValueChange}
             label="グループ"
             disabled={availableGroups.length === 0}
           >
-            <option value="all_labels">全てのラベル</option>
+            <MenuItem value="all_labels">全てのラベル</MenuItem>
             {availableGroups.map((group) => (
-              <option key={group} value={group}>
+              <MenuItem key={group} value={group}>
                 {group}
-              </option>
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+
+      {value.type === 'team' && (
+        <FormControl fullWidth size="small">
+          <InputLabel id={`${label}-team-label`}>チーム</InputLabel>
+          <Select
+            labelId={`${label}-team-label`}
+            id={`${label}-team-select`}
+            value={
+              value.value ||
+              (availableTeams.length > 0 ? availableTeams[0] : '')
+            }
+            onChange={handleValueChange}
+            label="チーム"
+            disabled={availableTeams.length === 0}
+          >
+            {availableTeams.map((team) => (
+              <MenuItem key={team} value={team}>
+                {team}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+
+      {value.type === 'action' && (
+        <FormControl fullWidth size="small">
+          <InputLabel id={`${label}-action-label`}>アクション</InputLabel>
+          <Select
+            labelId={`${label}-action-label`}
+            id={`${label}-action-select`}
+            value={
+              value.value ||
+              (availableActions.length > 0 ? availableActions[0] : '')
+            }
+            onChange={handleValueChange}
+            label="アクション"
+            disabled={availableActions.length === 0}
+          >
+            {availableActions.map((action) => (
+              <MenuItem key={action} value={action}>
+                {action}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
