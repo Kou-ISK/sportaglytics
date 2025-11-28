@@ -1,9 +1,10 @@
 import React, { useRef } from 'react';
-import { Box, Container, Typography, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
+import { Box, Container, Typography } from '@mui/material';
 import { useSettings } from '../hooks/useSettings';
 import { SettingsTabs } from './settings/components/SettingsTabs';
 import { SettingsHeader } from './settings/components/SettingsHeader';
 import { useUnsavedTabSwitch } from './settings/hooks/useUnsavedTabSwitch';
+import { UnsavedChangesDialog } from './settings/components/UnsavedChangesDialog';
 
 export interface SettingsTabHandle {
   hasUnsavedChanges: () => boolean;
@@ -73,20 +74,11 @@ export const SettingsPage: React.FC = () => {
       </Container>
 
       {/* 未保存の変更警告ダイアログ */}
-      <Dialog open={confirmDialogOpen} onClose={cancelSwitch}>
-        <DialogTitle>保存されていません</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            保存されていない変更があります。タブを切り替えると変更が破棄されますが、よろしいですか?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={cancelSwitch}>キャンセル</Button>
-          <Button onClick={confirmSwitch} color="error" autoFocus>
-            破棄して移動
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <UnsavedChangesDialog
+        open={confirmDialogOpen}
+        onCancel={cancelSwitch}
+        onConfirm={confirmSwitch}
+      />
     </Box>
   );
 };

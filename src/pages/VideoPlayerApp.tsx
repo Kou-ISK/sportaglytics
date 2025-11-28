@@ -96,6 +96,7 @@ export const VideoPlayerApp = () => {
       resetSync,
       manualSyncFromPlayers,
       setSyncMode,
+      onAnalyze: () => setStatsOpen(true),
     });
 
   // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）

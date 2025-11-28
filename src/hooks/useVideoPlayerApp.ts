@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import videojs from 'video.js';
 import { TimelineData } from '../types/TimelineData';
 import { VideoSyncData } from '../types/VideoSync';
@@ -102,7 +102,7 @@ export const useVideoPlayerApp = () => {
     setIsVideoPlaying: setisVideoPlaying,
     metaDataConfigFilePath,
     setSyncMode,
-    setError,
+    onSyncError: setError,
   });
 
   // 異常なcurrentTime値の監視(警告のみ、リセットしない)
@@ -307,21 +307,21 @@ export const useVideoPlayerApp = () => {
   }, [metaDataConfigFilePath]);
 
   // Undo/Redo関数（Electron IPCとローカルホットキー両方で使用）
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     const previousTimeline = performUndo();
     if (previousTimeline) {
       setPersistedTimeline(previousTimeline);
       info('元に戻しました');
     }
-  };
+  }, [info, performUndo, setPersistedTimeline]);
 
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     const nextTimeline = performRedo();
     if (nextTimeline) {
       setPersistedTimeline(nextTimeline);
       info('やり直しました');
     }
-  };
+  }, [info, performRedo, setPersistedTimeline]);
 
   // Undo/RedoイベントハンドラーをElectron IPCに登録（後方互換性のため残す）
   useEffect(() => {
@@ -336,7 +336,7 @@ export const useVideoPlayerApp = () => {
         }
       };
     }
-  }, []);
+  }, [handleUndo, handleRedo]);
 
   return {
     timeline,

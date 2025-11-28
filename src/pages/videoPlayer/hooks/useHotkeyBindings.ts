@@ -19,6 +19,7 @@ interface UseHotkeyBindingsParams {
   resetSync: () => void;
   manualSyncFromPlayers: () => void;
   setSyncMode: (update: (prev: 'auto' | 'manual') => 'auto' | 'manual') => void;
+  onAnalyze: () => void;
 }
 
 export const useHotkeyBindings = ({
@@ -37,6 +38,7 @@ export const useHotkeyBindings = ({
   resetSync,
   manualSyncFromPlayers,
   setSyncMode,
+  onAnalyze,
 }: UseHotkeyBindingsParams) => {
   const hotkeyHandlers = useMemo(
     () => ({
@@ -65,7 +67,7 @@ export const useHotkeyBindings = ({
       'skip-backward-large': () => {
         handleCurrentTime(new Event('hotkey'), currentTime - 10);
       },
-      analyze: () => undefined,
+      analyze: onAnalyze,
       undo: performUndo,
       redo: performRedo,
       'resync-audio': () => void resyncAudio(),
@@ -86,6 +88,7 @@ export const useHotkeyBindings = ({
       setIsVideoPlaying,
       setSyncMode,
       setVideoPlayBackRate,
+      onAnalyze,
     ],
   );
 

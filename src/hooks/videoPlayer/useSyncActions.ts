@@ -10,7 +10,7 @@ interface UseSyncActionsParams {
   setIsVideoPlaying: (value: boolean | ((prev: boolean) => boolean)) => void;
   metaDataConfigFilePath: string;
   setSyncMode: React.Dispatch<React.SetStateAction<'auto' | 'manual'>>;
-  setError: (value: VideoPlayerError | null) => void;
+  onSyncError?: (value: VideoPlayerError) => void;
 }
 
 export const useSyncActions = ({
@@ -20,7 +20,7 @@ export const useSyncActions = ({
   setIsVideoPlaying,
   metaDataConfigFilePath,
   setSyncMode,
-  setError,
+  onSyncError,
 }: UseSyncActionsParams) => {
   const [playerForceUpdateKey, setPlayerForceUpdateKey] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -137,7 +137,7 @@ export const useSyncActions = ({
       console.log('[resyncAudio] forceUpdateVideoPlayers completed');
     } catch (error) {
       console.error('音声同期エラー:', error);
-      setError({
+      onSyncError?.({
         type: 'sync',
         message:
           '音声同期に失敗しました。映像ファイルに音声が含まれているか確認してください。',
@@ -147,7 +147,7 @@ export const useSyncActions = ({
       setSyncProgress(0);
       setSyncStage('');
     }
-  }, [videoList, forceUpdateVideoPlayers, setSyncData, setError]);
+  }, [videoList, forceUpdateVideoPlayers, setSyncData, onSyncError]);
 
   const resetSync = useCallback(() => {
     const resetSyncData: VideoSyncData = {

@@ -13,6 +13,7 @@ import {
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
 import { MatrixFilters } from './MatrixFilters';
 import { useMatrixFilters } from './hooks/useMatrixFilters';
+import { useMatrixAxes } from './hooks/useMatrixAxes';
 
 interface MatrixTabProps {
   hasData: boolean;
@@ -39,46 +40,13 @@ export const MatrixTab = ({
     [timeline],
   );
 
-  // カスタム軸設定の初期値を計算
-  const initialRowValue = React.useMemo(() => {
-    if (availableGroups.length === 0) return '';
-    return availableGroups.includes('actionType')
-      ? 'actionType'
-      : availableGroups[0];
-  }, [availableGroups]);
-
-  const initialColValue = React.useMemo(() => {
-    if (availableGroups.length === 0) return '';
-    return availableGroups.includes('actionResult')
-      ? 'actionResult'
-      : availableGroups.length > 1
-        ? availableGroups[1]
-        : availableGroups[0];
-  }, [availableGroups]);
-
   // カスタム軸設定の状態
-  const [customRowAxis, setCustomRowAxis] = useState<MatrixAxisConfig>({
-    type: 'group',
-    value: initialRowValue,
-  });
-  const [customColumnAxis, setCustomColumnAxis] = useState<MatrixAxisConfig>({
-    type: 'group',
-    value: initialColValue,
-  });
-
-  // availableGroupsが変更されたら、軸の値を更新
-  React.useEffect(() => {
-    if (availableGroups.length > 0) {
-      setCustomRowAxis((prev) => ({
-        ...prev,
-        value: initialRowValue,
-      }));
-      setCustomColumnAxis((prev) => ({
-        ...prev,
-        value: initialColValue,
-      }));
-    }
-  }, [initialRowValue, initialColValue, availableGroups.length]);
+  const {
+    customRowAxis,
+    customColumnAxis,
+    setCustomRowAxis,
+    setCustomColumnAxis,
+  } = useMatrixAxes(availableGroups);
 
   // フィルタ設定の状態
   const {

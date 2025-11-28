@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
 import type { SCLabel } from '../../../../../types/SCTimeline';
+import { useTimelineEditDraft } from './hooks/useTimelineEditDraft';
 
 export interface TimelineEditDraft {
   id: string;
@@ -45,6 +46,9 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
   onSave,
 }) => {
   const { activeActions } = useActionPreset();
+
+  const { safeStartTime, safeEndTime, qualifier, setStartTime, setEndTime, setQualifier } =
+    useTimelineEditDraft({ draft, onChange });
 
   const findActionDefinition = (actionName: string) => {
     const baseAction = actionName.split(' ').slice(1).join(' ');
@@ -131,10 +135,8 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
             <TextField
               label="開始秒"
               type="number"
-              value={draft.startTime}
-              onChange={(event) =>
-                onChange({ startTime: event.target.value || '' })
-              }
+              value={safeStartTime}
+              onChange={(event) => setStartTime(event.target.value)}
               fullWidth
               size="small"
               inputProps={{ min: 0, step: 0.1 }}
@@ -142,10 +144,8 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
             <TextField
               label="終了秒"
               type="number"
-              value={draft.endTime}
-              onChange={(event) =>
-                onChange({ endTime: event.target.value || '' })
-              }
+              value={safeEndTime}
+              onChange={(event) => setEndTime(event.target.value)}
               fullWidth
               size="small"
               inputProps={{ min: 0, step: 0.1 }}
@@ -190,8 +190,8 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
             variant="outlined"
             multiline
             rows={2}
-            value={draft.qualifier}
-            onChange={(event) => onChange({ qualifier: event.target.value })}
+            value={qualifier}
+            onChange={(event) => setQualifier(event.target.value)}
             placeholder="任意のメモ"
           />
         </Stack>
