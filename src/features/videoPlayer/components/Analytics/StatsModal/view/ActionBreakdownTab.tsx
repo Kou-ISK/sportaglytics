@@ -1,9 +1,10 @@
 import React from 'react';
-import { Grid, Paper, Stack, Typography, Divider } from '@mui/material';
+import { Grid, Stack, Divider } from '@mui/material';
 import { ActionPieChart } from '../../ActionPieChart';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
 import { useActionBreakdown } from './hooks/useActionBreakdown';
 import { rechartsData } from '../../../../../../types/RechartsData';
+import { StatsCard } from './StatsCard';
 
 interface ActionBreakdownTabProps {
   hasData: boolean;
@@ -39,10 +40,7 @@ export const ActionBreakdownTab = ({
   return (
     <Stack spacing={3}>
       {breakdown.map(({ actionName, teams }) => (
-        <Paper key={actionName} elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-            {titleFormatter(actionName)}
-          </Typography>
+        <StatsCard key={actionName} title={titleFormatter(actionName)}>
           <Divider sx={{ mb: 2 }} />
           <Grid container spacing={2}>
             {teams.map(({ team }) => (
@@ -55,7 +53,7 @@ export const ActionBreakdownTab = ({
               </Grid>
             ))}
           </Grid>
-        </Paper>
+        </StatsCard>
       ))}
     </Stack>
   );

@@ -16,6 +16,7 @@ import {
 import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
 import type { SCLabel } from '../../../../../types/SCTimeline';
 import { useTimelineEditDraft } from './hooks/useTimelineEditDraft';
+import { useTimelineValidation } from './hooks/useTimelineValidation';
 
 export interface TimelineEditDraft {
   id: string;
@@ -49,6 +50,7 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
 
   const { safeStartTime, safeEndTime, qualifier, setStartTime, setEndTime, setQualifier } =
     useTimelineEditDraft({ draft, onChange });
+  const { startError, endError, isValid } = useTimelineValidation(draft);
 
   const findActionDefinition = (actionName: string) => {
     const baseAction = actionName.split(' ').slice(1).join(' ');
@@ -140,6 +142,8 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
               fullWidth
               size="small"
               inputProps={{ min: 0, step: 0.1 }}
+              error={Boolean(startError)}
+              helperText={startError}
             />
             <TextField
               label="終了秒"
@@ -149,6 +153,8 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
               fullWidth
               size="small"
               inputProps={{ min: 0, step: 0.1 }}
+              error={Boolean(endError)}
+              helperText={endError}
             />
           </Stack>
 
@@ -201,7 +207,7 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
           削除
         </Button>
         <Button onClick={onClose}>キャンセル</Button>
-        <Button onClick={onSave} variant="contained">
+        <Button onClick={onSave} variant="contained" disabled={!isValid}>
           保存
         </Button>
       </DialogActions>
