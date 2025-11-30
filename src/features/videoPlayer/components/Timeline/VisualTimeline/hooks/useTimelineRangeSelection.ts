@@ -9,6 +9,7 @@ interface UseTimelineRangeSelectionParams {
     scrollLeft: number;
     scrollTop: number;
     laneOffset?: number;
+    containerHeight?: number;
   };
   onSelectionChange: (ids: string[]) => void;
 }
@@ -30,12 +31,24 @@ export const useTimelineRangeSelection = ({
 
   const selectionBox = useMemo(() => {
     if (!dragStartDisplay || !dragEndDisplay) return null;
-    const left = Math.min(dragStartDisplay.x, dragEndDisplay.x);
-    const top = Math.min(dragStartDisplay.y, dragEndDisplay.y);
-    const width = Math.abs(dragStartDisplay.x - dragEndDisplay.x);
-    const height = Math.abs(dragStartDisplay.y - dragEndDisplay.y);
+    const { containerHeight = Infinity } = getSelectionMetrics();
+
+    const rawLeft = Math.min(dragStartDisplay.x, dragEndDisplay.x);
+    const rawTop = Math.min(dragStartDisplay.y, dragEndDisplay.y);
+    const rawWidth = Math.abs(dragStartDisplay.x - dragEndDisplay.x);
+    const rawHeight = Math.abs(dragStartDisplay.y - dragEndDisplay.y);
+
+    // ドラッグがほぼゼロの場合は表示しない（直線表示のちらつきを抑止）
+    if (rawWidth < 3 && rawHeight < 3) return null;
+
+    const top = Math.max(0, rawTop);
+    const bottom = Math.min(containerHeight, rawTop + rawHeight);
+    const height = Math.max(0, bottom - top);
+    const left = rawLeft;
+    const width = rawWidth;
+
     return { left, top, width, height };
-  }, [dragStartDisplay, dragEndDisplay]);
+  }, [dragStartDisplay, dragEndDisplay, getSelectionMetrics]);
 
   const clearSelectionBox = useCallback(() => {
     setDragStartDisplay(null);

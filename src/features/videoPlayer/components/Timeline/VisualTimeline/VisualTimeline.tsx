@@ -124,6 +124,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       laneOffset:
         (containerRef.current?.getBoundingClientRect().left ?? 0) -
         (scrollContainerRef.current?.getBoundingClientRect().left ?? 0),
+      containerHeight: scrollContainerRef.current?.clientHeight ?? undefined,
     }),
     onSelectionChange,
   });
