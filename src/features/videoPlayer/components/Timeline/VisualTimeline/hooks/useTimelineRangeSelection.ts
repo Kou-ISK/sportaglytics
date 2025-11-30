@@ -85,8 +85,7 @@ export const useTimelineRangeSelection = ({
       setDragEndDisplay(endDisplay);
 
       // コンテンツ座標に変換（スクロール補正を加味）
-      const startContentX =
-        dragStartDisplay.x + startScroll.left - laneOffset;
+      const startContentX = dragStartDisplay.x + startScroll.left - laneOffset;
       const endContentX = endDisplay.x + scrollLeft - laneOffset;
 
       const leftX = Math.max(0, Math.min(startContentX, endContentX));

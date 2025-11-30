@@ -116,7 +116,8 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   } = useTimelineRangeSelection({
     timeline,
     getSelectionMetrics: () => ({
-      rectLeft: scrollContainerRef.current?.getBoundingClientRect().left ?? 0,
+      rectLeft:
+        scrollContainerRef.current?.getBoundingClientRect().left ?? 0,
       rectTop: scrollContainerRef.current?.getBoundingClientRect().top ?? 0,
       scrollLeft: scrollContainerRef.current?.scrollLeft ?? 0,
       scrollTop: scrollContainerRef.current?.scrollTop ?? 0,
