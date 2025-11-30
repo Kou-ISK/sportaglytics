@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Button } from '@mui/material';
 import { TimelineData } from '../../../../../types/TimelineData';
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineLane } from './TimelineLane';
@@ -8,7 +8,10 @@ import { TimelineContextMenu } from './TimelineContextMenu';
 import { useTimelineViewport } from './hooks/useTimelineViewport';
 import { ZoomIndicator } from './ZoomIndicator';
 import { useTimelineInteractions } from './hooks/useTimelineInteractions';
-
+import { useTimelineRangeSelection } from './hooks/useTimelineRangeSelection';
+import { BulkMoveDialog } from './BulkMoveDialog';
+import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
+import { useNotification } from '../../../../../contexts/NotificationContext';
 interface VisualTimelineProps {
   timeline: TimelineData[];
   maxSec: number;
@@ -23,6 +26,13 @@ interface VisualTimelineProps {
     id: string,
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  bulkUpdateTimelineItems?: (
+    ids: string[],
+    updates: Partial<Omit<TimelineData, 'id'>>,
+  ) => void;
+  teamNames: string[];
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 export const VisualTimeline: React.FC<VisualTimelineProps> = ({
@@ -36,6 +46,10 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   onUpdateQualifier,
   onUpdateTimeRange,
   onUpdateTimelineItem,
+  bulkUpdateTimelineItems,
+  teamNames,
+  onUndo,
+  onRedo,
 }) => {
   const {
     containerRef,
@@ -75,6 +89,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     onUpdateTimeRange,
   });
 
+
   const groupedByAction = useMemo(() => {
     const groups: Record<string, TimelineData[]> = {};
     for (const item of timeline) {
@@ -90,6 +105,53 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   const actionNames = useMemo(
     () => Object.keys(groupedByAction).sort((a, b) => a.localeCompare(b)),
     [groupedByAction],
+  );
+
+  const {
+    isSelecting,
+    selectionBox,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+  } = useTimelineRangeSelection({
+    timeline,
+    getSelectionMetrics: () => ({
+      rectLeft: scrollContainerRef.current?.getBoundingClientRect().left ?? 0,
+      rectTop: scrollContainerRef.current?.getBoundingClientRect().top ?? 0,
+      scrollLeft: scrollContainerRef.current?.scrollLeft ?? 0,
+      scrollTop: scrollContainerRef.current?.scrollTop ?? 0,
+      laneOffset:
+        (containerRef.current?.getBoundingClientRect().left ?? 0) -
+        (scrollContainerRef.current?.getBoundingClientRect().left ?? 0),
+    }),
+    onSelectionChange,
+  });
+
+  const { activeActions } = useActionPreset();
+  const { info } = useNotification();
+  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
+
+  const handleBulkMove = (team: string, action: string) => {
+    if (!bulkUpdateTimelineItems || selectedIds.length === 0) return;
+    const actionName = `${team} ${action}`;
+    bulkUpdateTimelineItems(selectedIds, { actionName });
+    info(`${selectedIds.length}件を ${actionName} に移動しました`);
+    setMoveDialogOpen(false);
+  };
+
+  const handleMoveItems = useCallback(
+    (ids: string[], targetActionName: string) => {
+      if (ids.length === 0) return;
+      if (bulkUpdateTimelineItems) {
+        bulkUpdateTimelineItems(ids, { actionName: targetActionName });
+      } else if (onUpdateTimelineItem) {
+        ids.forEach((id) =>
+          onUpdateTimelineItem(id, { actionName: targetActionName }),
+        );
+      }
+      info(`${ids.length}件を ${targetActionName} に移動しました`);
+    },
+    [bulkUpdateTimelineItems, info, onUpdateTimelineItem],
   );
 
   const formatTime = useCallback((seconds: number) => {
@@ -124,6 +186,24 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
 
   const firstTeamName = actionNames[0]?.split(' ')[0];
 
+  const selectionActionsVisible = selectedIds.length > 0;
+
+  const handleKeyDownWithUndo = useCallback(
+    (event: React.KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+        if (event.shiftKey) {
+          onRedo?.();
+        } else {
+          onUndo?.();
+        }
+        event.preventDefault();
+        return;
+      }
+      handleKeyDown(event);
+    },
+    [handleKeyDown, onRedo, onUndo],
+  );
+
   return (
     <Box
       sx={{
@@ -133,72 +213,137 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         overflow: 'hidden',
         position: 'relative',
       }}
-      onKeyDown={handleKeyDown}
+      onKeyDown={handleKeyDownWithUndo}
     >
       <ZoomIndicator zoomScale={zoomScale} />
 
-      <Box
-        ref={scrollContainerRef}
-        sx={{
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: zoomScale > 1 ? 'auto' : 'hidden',
-          px: 2,
-          pt: 2,
-          pb: 2,
-        }}
-      >
+      {selectionActionsVisible && (
         <Box
           sx={{
-            minWidth:
-              containerWidth > 0 ? `${containerWidth * zoomScale}px` : '100%',
+            position: 'absolute',
+            top: 8,
+            right: 16,
+            zIndex: 20,
+            display: 'flex',
+            gap: 1,
+            alignItems: 'center',
+            bgcolor: 'background.paper',
+            px: 1.5,
+            py: 0.5,
+            borderRadius: 1,
+            boxShadow: 1,
           }}
         >
-          <TimelineAxis
-            containerRef={containerRef}
-            maxSec={maxSec}
-            currentTimePosition={currentTimePosition}
-            timeMarkers={timeMarkers}
-            timeToPosition={timeToPosition}
-            onSeek={onSeek}
-            formatTime={formatTime}
-          />
+          <Typography variant="caption" sx={{ mr: 1 }}>
+            選択中: {selectedIds.length}件
+          </Typography>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => setMoveDialogOpen(true)}
+          >
+            アクション変更
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={() => onDelete(selectedIds)}
+          >
+            削除
+          </Button>
+        </Box>
+      )}
 
-          {actionNames.map((actionName) => (
-            <TimelineLane
-              key={actionName}
-              actionName={actionName}
-              items={groupedByAction[actionName]}
-              selectedIds={selectedIds}
-              hoveredItemId={hoveredItemId}
-              focusedItemId={focusedItemId}
-              onHoverChange={setHoveredItemId}
-              onItemClick={handleItemClick}
-              onItemContextMenu={handleItemContextMenu}
-              timeToPosition={timeToPosition}
-              positionToTime={positionToTime}
-              currentTimePosition={currentTimePosition}
-              formatTime={formatTime}
-              firstTeamName={firstTeamName}
-              onSeek={onSeek}
+      <Box
+        sx={{ position: 'relative', flex: 1 }}
+      >
+        <Box
+          ref={scrollContainerRef}
+          sx={{
+            position: 'relative',
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: zoomScale > 1 ? 'auto' : 'hidden',
+            px: 2,
+            pt: 2,
+            pb: 2,
+            height: '100%',
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={(e) => handleMouseUp(e, positionToTime)}
+        >
+          <Box
+            sx={{
+              minWidth:
+                containerWidth > 0 ? `${containerWidth * zoomScale}px` : '100%',
+            }}
+          >
+            <TimelineAxis
+              containerRef={containerRef}
               maxSec={maxSec}
-              onUpdateTimeRange={onUpdateTimeRange}
+              currentTimePosition={currentTimePosition}
+              timeMarkers={timeMarkers}
+              timeToPosition={timeToPosition}
+              onSeek={onSeek}
+              formatTime={formatTime}
             />
-          ))}
 
-          {timeline.length === 0 && (
+            {actionNames.map((actionName) => (
+              <TimelineLane
+                key={actionName}
+                actionName={actionName}
+                items={groupedByAction[actionName]}
+                selectedIds={selectedIds}
+                hoveredItemId={hoveredItemId}
+                focusedItemId={focusedItemId}
+                onHoverChange={setHoveredItemId}
+                onItemClick={handleItemClick}
+                onItemContextMenu={handleItemContextMenu}
+                timeToPosition={timeToPosition}
+                positionToTime={positionToTime}
+                currentTimePosition={currentTimePosition}
+                formatTime={formatTime}
+                firstTeamName={firstTeamName}
+                onSeek={onSeek}
+                maxSec={maxSec}
+                onUpdateTimeRange={onUpdateTimeRange}
+                onMoveItem={handleMoveItems}
+              />
+            ))}
+
+            {timeline.length === 0 && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: 200,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  タイムラインが空です。アクションボタンでタグ付けを開始してください。
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          {isSelecting && selectionBox && (
             <Box
               sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 200,
+                position: 'absolute',
+                top: selectionBox.top,
+                left: selectionBox.left,
+                width: selectionBox.width,
+                height: selectionBox.height,
+                border: '1px dashed',
+                borderColor: 'primary.main',
+                bgcolor: 'primary.main',
+                opacity: 0.1,
+                pointerEvents: 'none',
               }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                タイムラインが空です。アクションボタンでタグ付けを開始してください。
-              </Typography>
-            </Box>
+            />
           )}
         </Box>
       </Box>
@@ -219,6 +364,15 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         onDelete={handleContextMenuDelete}
         onJumpTo={handleContextMenuJumpTo}
         onDuplicate={handleContextMenuDuplicate}
+      />
+
+      <BulkMoveDialog
+        open={moveDialogOpen}
+        onClose={() => setMoveDialogOpen(false)}
+        onSubmit={handleBulkMove}
+        teamNames={teamNames}
+        actions={activeActions}
+        selectedCount={selectedIds.length}
       />
     </Box>
   );

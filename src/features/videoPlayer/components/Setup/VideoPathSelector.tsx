@@ -192,7 +192,6 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
 
         <ActionButtonsRow
           onPackageLoaded={handlePackageLoaded}
-          performAudioSync={performAudioSync}
           onOpenWizard={() => setWizardOpen(true)}
         />
 

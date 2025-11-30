@@ -7,17 +7,12 @@ import { useNotification } from '../../../../../contexts/NotificationContext';
 
 interface ExistingPackageLoaderProps {
   onPackageLoaded: (result: PackageLoadResult) => void;
-  performAudioSync: (
-    tightPath: string,
-    widePath: string,
-  ) => Promise<VideoSyncData>;
 }
 
 export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
   onPackageLoaded,
-  performAudioSync,
 }) => {
-  const { error: showError } = useNotification();
+  const { error: showError, info } = useNotification();
 
   const handleSelectPackage = async () => {
     if (!globalThis.window.electronAPI) {
@@ -91,23 +86,9 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
                 : undefined,
           } as VideoSyncData;
         } else {
-          resultingSyncData = await performAudioSync(
-            tightAbsolute,
-            wideAbsolute,
-          );
-          if (
-            resultingSyncData &&
-            globalThis.window.electronAPI?.saveSyncData
-          ) {
-            try {
-              await globalThis.window.electronAPI.saveSyncData(
-                configFilePath,
-                resultingSyncData,
-              );
-            } catch (error) {
-              console.error('同期データの保存に失敗:', error);
-            }
-          }
+          // 自動音声同期は行わない。ユーザー操作に委ねる。
+          resultingSyncData = undefined;
+          info('音声同期データがありません。必要に応じてメニューから同期を実行してください。');
         }
       } else {
         resultingSyncData = undefined;

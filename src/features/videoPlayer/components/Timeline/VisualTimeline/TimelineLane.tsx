@@ -12,6 +12,7 @@ interface TimelineLaneProps {
   onHoverChange: (id: string | null) => void;
   onItemClick: (event: React.MouseEvent, id: string) => void;
   onItemContextMenu: (event: React.MouseEvent, id: string) => void;
+  onMoveItem?: (ids: string[], targetActionName: string) => void;
   timeToPosition: (time: number) => number;
   positionToTime: (positionPx: number) => number;
   currentTimePosition: number;
@@ -31,6 +32,7 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
   onHoverChange,
   onItemClick,
   onItemContextMenu,
+  onMoveItem,
   timeToPosition,
   positionToTime: positionToTimeFromParent,
   currentTimePosition,
@@ -176,6 +178,21 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
           borderColor: 'divider',
           userSelect: 'none',
         }}
+        onDragOver={(event) => {
+          if (onMoveItem) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+          }
+        }}
+        onDrop={(event) => {
+          if (!onMoveItem) return;
+          event.preventDefault();
+          const rawIds = event.dataTransfer.getData('text/timeline-ids');
+          const ids: string[] = rawIds ? JSON.parse(rawIds) : [];
+          if (ids.length > 0) {
+            onMoveItem(ids, actionName);
+          }
+        }}
       >
         {items.map((item) => {
           const left = timeToPosition(item.startTime);
@@ -240,7 +257,34 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
             >
               <Box
                 onClick={(event) => onItemClick(event, item.id)}
-                onContextMenu={(event) => onItemContextMenu(event, item.id)}
+              onContextMenu={(event) => onItemContextMenu(event, item.id)}
+        draggable={Boolean(onMoveItem)}
+        onDragStart={(event) => {
+          if (!onMoveItem) return;
+          const dragIds = selectedIds.includes(item.id)
+            ? selectedIds
+            : [item.id];
+          event.dataTransfer.setData(
+            'text/timeline-ids',
+            JSON.stringify(dragIds),
+          );
+          event.dataTransfer.effectAllowed = 'move';
+        }}
+        onDragOver={(event) => {
+          if (onMoveItem) {
+            event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                }
+              }}
+        onDrop={(event) => {
+          if (!onMoveItem) return;
+          event.preventDefault();
+          const data = event.dataTransfer.getData('text/timeline-ids');
+          const ids: string[] = data ? JSON.parse(data) : [];
+          if (ids.length > 0) {
+            onMoveItem(ids, actionName);
+          }
+        }}
                 onMouseEnter={() => onHoverChange(item.id)}
                 onMouseLeave={() => onHoverChange(null)}
                 sx={{

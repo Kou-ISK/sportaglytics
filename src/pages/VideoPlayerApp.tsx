@@ -28,6 +28,7 @@ export const VideoPlayerApp = () => {
     timeline,
     setTimeline,
     selectedTimelineIdList,
+    setSelectedTimelineIdList,
     videoList,
     setVideoList,
     currentTime,
@@ -56,6 +57,7 @@ export const VideoPlayerApp = () => {
     updateQualifier,
     updateTimelineRange,
     updateTimelineItem,
+    bulkUpdateTimelineItems,
     resyncAudio,
     resetSync,
     manualSyncFromPlayers,
@@ -164,14 +166,17 @@ export const VideoPlayerApp = () => {
             selectedTimelineIdList={selectedTimelineIdList}
             metaDataConfigFilePath={metaDataConfigFilePath}
             teamNames={teamNames}
-            setTimeline={setTimeline}
+            setSelectedTimelineIdList={setSelectedTimelineIdList}
             setTeamNames={setTeamNames}
             addTimelineData={addTimelineData}
             deleteTimelineDatas={deleteTimelineDatas}
             updateQualifier={updateQualifier}
             updateTimelineRange={updateTimelineRange}
             updateTimelineItem={updateTimelineItem}
+            bulkUpdateTimelineItems={bulkUpdateTimelineItems}
             handleCurrentTime={handleCurrentTime}
+            performUndo={performUndo}
+            performRedo={performRedo}
           />
         </Box>
       ) : (

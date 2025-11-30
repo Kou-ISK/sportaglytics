@@ -27,6 +27,10 @@ export interface TimelineEditingHandlers {
     id: string,
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  bulkUpdateTimelineItems: (
+    ids: string[],
+    updates: Partial<Omit<TimelineData, 'id'>>,
+  ) => void;
   sortTimelineDatas: (column: string, sortDesc: boolean) => void;
 }
 
@@ -213,6 +217,15 @@ export const useTimelineEditing = (
     [setTimeline],
   );
 
+  const bulkUpdateTimelineItems = useCallback(
+    (ids: string[], updates: Partial<Omit<TimelineData, 'id'>>) => {
+      setTimeline((prev) =>
+        prev.map((item) => (ids.includes(item.id) ? { ...item, ...updates } : item)),
+      );
+    },
+    [setTimeline],
+  );
+
   const sortTimelineDatas = useCallback(
     (column: string, sortDesc: boolean) => {
       setTimeline((prev) => {
@@ -255,6 +268,7 @@ export const useTimelineEditing = (
     updateActionType,
     updateTimelineRange,
     updateTimelineItem,
+    bulkUpdateTimelineItems,
     sortTimelineDatas,
   };
 };

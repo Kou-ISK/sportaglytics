@@ -21,9 +21,9 @@ interface TimelineActionSectionProps {
   maxSec: number;
   currentTime: number;
   selectedTimelineIdList: string[];
+  setSelectedTimelineIdList: (ids: string[]) => void;
   metaDataConfigFilePath: string;
   teamNames: string[];
-  setTimeline: React.Dispatch<React.SetStateAction<TimelineData[]>>;
   setTeamNames: React.Dispatch<React.SetStateAction<string[]>>;
   addTimelineData: (
     actionName: string,
@@ -38,6 +38,12 @@ interface TimelineActionSectionProps {
     id: string,
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  bulkUpdateTimelineItems: (
+    ids: string[],
+    updates: Partial<Omit<TimelineData, 'id'>>,
+  ) => void;
+  performUndo: () => void;
+  performRedo: () => void;
   handleCurrentTime: (
     event: React.SyntheticEvent | Event,
     newValue: number | number[],
@@ -54,15 +60,18 @@ export const TimelineActionSection = forwardRef<
       maxSec,
       currentTime,
       selectedTimelineIdList,
+      setSelectedTimelineIdList,
       metaDataConfigFilePath,
       teamNames,
-      setTimeline,
       setTeamNames,
       addTimelineData,
       deleteTimelineDatas,
       updateQualifier,
       updateTimelineRange,
       updateTimelineItem,
+      bulkUpdateTimelineItems,
+      performUndo,
+      performRedo,
       handleCurrentTime,
     },
     ref,
@@ -138,15 +147,15 @@ export const TimelineActionSection = forwardRef<
             onDelete={deleteTimelineDatas}
             selectedIds={selectedTimelineIdList}
             onSelectionChange={(ids: string[]) => {
-              const updated = timeline.map((item) => ({
-                ...item,
-                isSelected: ids.includes(item.id),
-              }));
-              setTimeline(updated);
+              setSelectedTimelineIdList(ids);
             }}
             onUpdateQualifier={updateQualifier}
             onUpdateTimeRange={updateTimelineRange}
             onUpdateTimelineItem={updateTimelineItem}
+            bulkUpdateTimelineItems={bulkUpdateTimelineItems}
+            teamNames={teamNames}
+            onUndo={performUndo}
+            onRedo={performRedo}
           />
         </Paper>
 
