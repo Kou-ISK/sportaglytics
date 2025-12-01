@@ -21,6 +21,7 @@ interface TimelineLaneProps {
   onSeek: (time: number) => void;
   maxSec: number;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
+  laneRef?: (el: HTMLDivElement | null) => void;
 }
 
 export const TimelineLane: React.FC<TimelineLaneProps> = ({
@@ -41,6 +42,7 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
   onSeek,
   maxSec,
   onUpdateTimeRange,
+  laneRef,
 }) => {
   const theme = useTheme();
   const teamName = actionName.split(' ')[0];
@@ -48,6 +50,10 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
   const [isAltKeyPressed, setIsAltKeyPressed] = useState(false);
+
+  useEffect(() => {
+    laneRef?.(containerRef.current);
+  }, [laneRef]);
 
   // Alt/Optionキーの状態を監視
   useEffect(() => {
@@ -202,15 +208,10 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
           const isHovered = hoveredItemId === item.id;
           const isFocused = focusedItemId === item.id;
 
-          // バー背景色の決定
-          let barBgColor: string;
-          if (isSelected) {
-            barBgColor = theme.palette.secondary.main;
-          } else if (isTeam1) {
-            barBgColor = theme.custom.bars.team1;
-          } else {
-            barBgColor = theme.custom.bars.team2;
-          }
+          // バー背景色の決定（選択時も元の色を維持し、枠で強調）
+          const barBgColor = isTeam1
+            ? theme.custom.bars.team1
+            : theme.custom.bars.team2;
 
           let barOpacity = 0.7;
           if (isHovered) {
@@ -219,12 +220,11 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
             barOpacity = 0.9;
           }
 
-          let borderColor = 'transparent';
-          if (isFocused) {
-            borderColor = theme.palette.primary.main;
-          } else if (isSelected) {
-            borderColor = theme.custom.bars.selectedBorder;
-          }
+          const borderColor = isFocused
+            ? theme.palette.primary.main
+            : isSelected
+              ? theme.custom.bars.selectedBorder
+              : 'transparent';
 
           return (
             <Tooltip
@@ -257,34 +257,34 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
             >
               <Box
                 onClick={(event) => onItemClick(event, item.id)}
-              onContextMenu={(event) => onItemContextMenu(event, item.id)}
-        draggable={Boolean(onMoveItem)}
-        onDragStart={(event) => {
-          if (!onMoveItem) return;
-          const dragIds = selectedIds.includes(item.id)
-            ? selectedIds
-            : [item.id];
-          event.dataTransfer.setData(
-            'text/timeline-ids',
-            JSON.stringify(dragIds),
-          );
-          event.dataTransfer.effectAllowed = 'move';
-        }}
-        onDragOver={(event) => {
-          if (onMoveItem) {
-            event.preventDefault();
-                  event.dataTransfer.dropEffect = 'move';
-                }
-              }}
-        onDrop={(event) => {
-          if (!onMoveItem) return;
-          event.preventDefault();
-          const data = event.dataTransfer.getData('text/timeline-ids');
-          const ids: string[] = data ? JSON.parse(data) : [];
-          if (ids.length > 0) {
-            onMoveItem(ids, actionName);
-          }
-        }}
+                onContextMenu={(event) => onItemContextMenu(event, item.id)}
+                draggable={Boolean(onMoveItem)}
+                onDragStart={(event) => {
+                  if (!onMoveItem) return;
+                  const dragIds = selectedIds.includes(item.id)
+                    ? selectedIds
+                    : [item.id];
+                  event.dataTransfer.setData(
+                    'text/timeline-ids',
+                    JSON.stringify(dragIds),
+                  );
+                  event.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(event) => {
+                  if (onMoveItem) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                  }
+                }}
+                onDrop={(event) => {
+                  if (!onMoveItem) return;
+                  event.preventDefault();
+                  const data = event.dataTransfer.getData('text/timeline-ids');
+                  const ids: string[] = data ? JSON.parse(data) : [];
+                  if (ids.length > 0) {
+                    onMoveItem(ids, actionName);
+                  }
+                }}
                 onMouseEnter={() => onHoverChange(item.id)}
                 onMouseLeave={() => onHoverChange(null)}
                 sx={{
@@ -295,21 +295,25 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
                   bottom: 4,
                   backgroundColor: barBgColor,
                   opacity: barOpacity,
+                  filter: isSelected ? 'brightness(0.86)' : 'none',
                   borderRadius: 1,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   px: 0.5,
-                  border: isSelected || isFocused ? 2 : 0,
+                  border: isSelected || isFocused ? 3 : 1,
                   borderColor,
+                  boxShadow: isSelected
+                    ? `0 0 0 3px ${theme.palette.secondary.main}33, 0 4px 12px ${theme.palette.secondary.main}55`
+                    : 'none',
                   outline: isFocused
                     ? `2px solid ${theme.palette.primary.main}`
                     : 'none',
                   outlineOffset: 2,
                   transition: 'all 0.2s',
                   '&:hover': {
-                    transform: 'scaleY(1.2)',
+                    transform: 'scaleY(1.1)',
                     zIndex: 5,
                   },
                 }}

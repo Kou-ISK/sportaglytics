@@ -1,5 +1,14 @@
-import React, { useMemo, useCallback } from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import React, { useMemo, useCallback, useState } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+} from '@mui/material';
 import { TimelineData } from '../../../../../types/TimelineData';
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineLane } from './TimelineLane';
@@ -9,8 +18,6 @@ import { useTimelineViewport } from './hooks/useTimelineViewport';
 import { ZoomIndicator } from './ZoomIndicator';
 import { useTimelineInteractions } from './hooks/useTimelineInteractions';
 import { useTimelineRangeSelection } from './hooks/useTimelineRangeSelection';
-import { BulkMoveDialog } from './BulkMoveDialog';
-import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 interface VisualTimelineProps {
   timeline: TimelineData[];
@@ -47,7 +54,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   onUpdateTimeRange,
   onUpdateTimelineItem,
   bulkUpdateTimelineItems,
-  teamNames,
   onUndo,
   onRedo,
 }) => {
@@ -107,6 +113,21 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     [groupedByAction],
   );
 
+  const laneRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+  const getLaneBounds = useCallback(
+    (actionName: string) => {
+      const el = laneRefs.current[actionName];
+      const scrollRect = scrollContainerRef.current?.getBoundingClientRect();
+      if (!el || !scrollRect) return { top: 0, bottom: 0 };
+      const rect = el.getBoundingClientRect();
+      const scrollTop = scrollContainerRef.current?.scrollTop ?? 0;
+      const top = rect.top - scrollRect.top + scrollTop;
+      const bottom = rect.bottom - scrollRect.top + scrollTop;
+      return { top, bottom };
+    },
+    [scrollContainerRef],
+  );
+
   const {
     isSelecting,
     selectionBox,
@@ -115,6 +136,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     handleMouseUp,
   } = useTimelineRangeSelection({
     timeline,
+    selectedIds,
     getSelectionMetrics: () => ({
       rectLeft:
         scrollContainerRef.current?.getBoundingClientRect().left ?? 0,
@@ -126,20 +148,18 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         (scrollContainerRef.current?.getBoundingClientRect().left ?? 0),
       containerHeight: scrollContainerRef.current?.clientHeight ?? undefined,
     }),
+    getLaneBounds,
     onSelectionChange,
   });
 
-  const { activeActions } = useActionPreset();
   const { info } = useNotification();
-  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
-
-  const handleBulkMove = (team: string, action: string) => {
-    if (!bulkUpdateTimelineItems || selectedIds.length === 0) return;
-    const actionName = `${team} ${action}`;
-    bulkUpdateTimelineItems(selectedIds, { actionName });
-    info(`${selectedIds.length}件を ${actionName} に移動しました`);
-    setMoveDialogOpen(false);
-  };
+  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
+  const [labelGroup, setLabelGroup] = useState('');
+  const [labelName, setLabelName] = useState('');
+  const timelineRef = React.useRef(timeline);
+  React.useEffect(() => {
+    timelineRef.current = timeline;
+  }, [timeline]);
 
   const handleMoveItems = useCallback(
     (ids: string[], targetActionName: string) => {
@@ -189,6 +209,47 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   const firstTeamName = actionNames[0]?.split(' ')[0];
 
   const selectionActionsVisible = selectedIds.length > 0;
+  const earliestSelected = useMemo(() => {
+    const items = timeline.filter((item) => selectedIds.includes(item.id));
+    if (items.length === 0) return null;
+    return items.reduce(
+      (acc, cur) => (cur.startTime < acc.startTime ? cur : acc),
+      items[0],
+    );
+  }, [selectedIds, timeline]);
+
+  const handleApplyLabel = useCallback(() => {
+    if (!onUpdateTimelineItem) return;
+    const group = labelGroup.trim();
+    const name = labelName.trim();
+    if (!group || !name) return;
+
+    let applied = 0;
+    const uniqueIds = Array.from(new Set(selectedIds));
+    const current = timelineRef.current;
+
+    // 事前に全アイテムのラベル配列を計算してから一括適用
+    uniqueIds.forEach((id) => {
+      const item = current.find((t) => t.id === id);
+      if (!item) return;
+      const existing = item.labels ? [...item.labels] : [];
+      const exists = existing.some(
+        (l) => l.group === group && l.name === name,
+      );
+      const updatedLabels = exists
+        ? existing
+        : [...existing, { group, name }];
+      onUpdateTimelineItem(id, { labels: updatedLabels });
+      applied += 1;
+    });
+
+    if (applied > 0) {
+      info(`${applied}件にラベル '${group}: ${name}' を付与しました`);
+    }
+    setLabelGroup(group);
+    setLabelName(name);
+    setLabelDialogOpen(false);
+  }, [info, labelGroup, labelName, onUpdateTimelineItem, selectedIds, timeline]);
 
   const handleKeyDownWithUndo = useCallback(
     (event: React.KeyboardEvent) => {
@@ -224,27 +285,41 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           sx={{
             position: 'absolute',
             top: 8,
-            right: 16,
-            zIndex: 20,
-            display: 'flex',
-            gap: 1,
-            alignItems: 'center',
+      right: 16,
+      zIndex: 20,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 1,
             bgcolor: 'background.paper',
-            px: 1.5,
-            py: 0.5,
-            borderRadius: 1,
-            boxShadow: 1,
+            px: 1.25,
+            py: 0.75,
+            borderRadius: 2,
+            boxShadow: 3,
+            border: 1,
+            borderColor: 'divider',
           }}
         >
-          <Typography variant="caption" sx={{ mr: 1 }}>
-            選択中: {selectedIds.length}件
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {selectedIds.length} 件選択
           </Typography>
           <Button
             size="small"
-            variant="contained"
-            onClick={() => setMoveDialogOpen(true)}
+            variant="outlined"
+            onClick={() => {
+              if (earliestSelected) {
+                onSeek(earliestSelected.startTime);
+              }
+            }}
+            disabled={!earliestSelected}
           >
-            アクション変更
+            先頭へシーク
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => setLabelDialogOpen(true)}
+          >
+            ラベル付与
           </Button>
           <Button
             size="small"
@@ -310,10 +385,13 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
                 firstTeamName={firstTeamName}
                 onSeek={onSeek}
                 maxSec={maxSec}
-                onUpdateTimeRange={onUpdateTimeRange}
-                onMoveItem={handleMoveItems}
-              />
-            ))}
+            onUpdateTimeRange={onUpdateTimeRange}
+            onMoveItem={handleMoveItems}
+            laneRef={(el) => {
+              laneRefs.current[actionName] = el;
+            }}
+          />
+        ))}
 
             {timeline.length === 0 && (
               <Box
@@ -368,14 +446,58 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         onDuplicate={handleContextMenuDuplicate}
       />
 
-      <BulkMoveDialog
-        open={moveDialogOpen}
-        onClose={() => setMoveDialogOpen(false)}
-        onSubmit={handleBulkMove}
-        teamNames={teamNames}
-        actions={activeActions}
-        selectedCount={selectedIds.length}
-      />
+      <Dialog
+        open={labelDialogOpen}
+        onClose={() => setLabelDialogOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>ラベルを付与</DialogTitle>
+        <DialogContent
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            選択中 {selectedIds.length} 件に同じラベルを付与します。入力は次回も保持されるので連続付与が素早く行えます。
+          </Typography>
+          <TextField
+            label="グループ"
+            value={labelGroup}
+            onChange={(e) => setLabelGroup(e.target.value)}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && labelGroup.trim() && labelName.trim()) {
+                e.preventDefault();
+                handleApplyLabel();
+              }
+            }}
+          />
+          <TextField
+            label="ラベル名"
+            value={labelName}
+            onChange={(e) => setLabelName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && labelGroup.trim() && labelName.trim()) {
+                e.preventDefault();
+                handleApplyLabel();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLabelDialogOpen(false)}>キャンセル</Button>
+          <Button
+            variant="contained"
+            onClick={handleApplyLabel}
+            disabled={!labelGroup.trim() || !labelName.trim()}
+          >
+            付与
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

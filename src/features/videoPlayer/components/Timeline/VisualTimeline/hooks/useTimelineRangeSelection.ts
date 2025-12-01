@@ -3,6 +3,7 @@ import type { TimelineData } from '../../../../../../types/TimelineData';
 
 interface UseTimelineRangeSelectionParams {
   timeline: TimelineData[];
+  selectedIds: string[];
   getSelectionMetrics: () => {
     rectLeft: number;
     rectTop: number;
@@ -11,6 +12,7 @@ interface UseTimelineRangeSelectionParams {
     laneOffset?: number;
     containerHeight?: number;
   };
+  getLaneBounds: (actionName: string) => { top: number; bottom: number };
   onSelectionChange: (ids: string[]) => void;
 }
 
@@ -18,7 +20,9 @@ type Point = { x: number; y: number };
 
 export const useTimelineRangeSelection = ({
   timeline,
+  selectedIds,
   getSelectionMetrics,
+  getLaneBounds,
   onSelectionChange,
 }: UseTimelineRangeSelectionParams) => {
   const [dragStartDisplay, setDragStartDisplay] = useState<Point | null>(null);
@@ -26,6 +30,8 @@ export const useTimelineRangeSelection = ({
   const [startScroll, setStartScroll] = useState<{ left: number; top: number }>(
     { left: 0, top: 0 },
   );
+  const [baseSelection, setBaseSelection] = useState<string[]>([]);
+  const [isAdditive, setIsAdditive] = useState(false);
 
   const isSelecting = dragStartDisplay !== null && dragEndDisplay !== null;
 
@@ -53,6 +59,7 @@ export const useTimelineRangeSelection = ({
   const clearSelectionBox = useCallback(() => {
     setDragStartDisplay(null);
     setDragEndDisplay(null);
+    setIsAdditive(false);
   }, []);
 
   const handleMouseDown = useCallback(
@@ -64,11 +71,13 @@ export const useTimelineRangeSelection = ({
         x: event.clientX - rectLeft,
         y: event.clientY - rectTop,
       };
+      setBaseSelection(selectedIds);
+      setIsAdditive(event.metaKey || event.ctrlKey || event.shiftKey);
       setStartScroll({ left: scrollLeft, top: scrollTop });
       setDragStartDisplay(point);
       setDragEndDisplay(point);
     },
-    [getSelectionMetrics],
+    [getSelectionMetrics, selectedIds],
   );
 
   const handleMouseMove = useCallback(
@@ -89,7 +98,7 @@ export const useTimelineRangeSelection = ({
       positionToTime: (positionPx: number) => number,
     ) => {
       if (!dragStartDisplay || !dragEndDisplay) return;
-      const { rectLeft, rectTop, scrollLeft, laneOffset = 0 } =
+      const { rectLeft, rectTop, scrollLeft, scrollTop, laneOffset = 0 } =
         getSelectionMetrics();
       const endDisplay: Point = {
         x: event.clientX - rectLeft,
@@ -104,6 +113,11 @@ export const useTimelineRangeSelection = ({
       const leftX = Math.max(0, Math.min(startContentX, endContentX));
       const rightX = Math.max(startContentX, endContentX);
 
+      const startContentY = dragStartDisplay.y + startScroll.top;
+      const endContentY = endDisplay.y + scrollTop;
+      const topY = Math.max(0, Math.min(startContentY, endContentY));
+      const bottomY = Math.max(startContentY, endContentY);
+
       const startTime = positionToTime(leftX);
       const endTime = positionToTime(rightX);
       const leftTime = Math.min(startTime, endTime);
@@ -111,12 +125,18 @@ export const useTimelineRangeSelection = ({
 
       const selectedIds = timeline
         .map((item) => {
-          const overlap = Math.max(leftTime, item.startTime) <= Math.min(rightTime, item.endTime);
-          return overlap ? item.id : null;
+          const { top, bottom } = getLaneBounds(item.actionName);
+          const overlapX = Math.max(leftTime, item.startTime) <= Math.min(rightTime, item.endTime);
+          const overlapY = Math.max(topY, top) <= Math.min(bottomY, bottom);
+          return overlapX && overlapY ? item.id : null;
         })
         .filter((id): id is string => Boolean(id));
 
-      onSelectionChange(selectedIds);
+      const finalIds = isAdditive
+        ? Array.from(new Set([...baseSelection, ...selectedIds]))
+        : selectedIds;
+
+      onSelectionChange(finalIds);
 
       clearSelectionBox();
     },
@@ -124,10 +144,14 @@ export const useTimelineRangeSelection = ({
       dragEndDisplay,
       dragStartDisplay,
       onSelectionChange,
+      isAdditive,
+      baseSelection,
+      startScroll.top,
       startScroll.left,
       getSelectionMetrics,
       clearSelectionBox,
       timeline,
+      getLaneBounds,
     ],
   );
 

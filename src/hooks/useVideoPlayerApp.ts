@@ -30,6 +30,10 @@ export const useVideoPlayerApp = () => {
   } = useTimelineHistory(persistedTimeline);
 
   const { info } = useNotification();
+  const timelineRef = useRef<TimelineData[]>(timeline);
+  useEffect(() => {
+    timelineRef.current = timeline;
+  }, [timeline]);
 
   const {
     selectedTimelineIdList,
@@ -37,11 +41,17 @@ export const useVideoPlayerApp = () => {
     getSelectedTimelineId,
   } = useTimelineSelection();
 
-  // setTimelineWrapper: useTimelineEditingに渡すラッパー
+  // setTimelineWrapper: useTimelineEditingに渡すラッパー（functional updateを正しく扱う）
   const setTimeline = (value: React.SetStateAction<TimelineData[]>) => {
-    const newTimeline = typeof value === 'function' ? value(timeline) : value;
-    setTimelineWithHistory(newTimeline);
-    setPersistedTimeline(newTimeline);
+    const next =
+      typeof value === 'function'
+        ? (value as (prevState: TimelineData[]) => TimelineData[])(
+            timelineRef.current,
+          )
+        : value;
+    timelineRef.current = next;
+    setTimelineWithHistory(next);
+    setPersistedTimeline(next);
   };
 
   const {
