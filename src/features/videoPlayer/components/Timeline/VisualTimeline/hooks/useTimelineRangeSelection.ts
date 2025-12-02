@@ -106,6 +106,14 @@ export const useTimelineRangeSelection = ({
       };
       setDragEndDisplay(endDisplay);
 
+      // クリック程度の微小移動なら範囲選択は行わない（単独クリックの選択を邪魔しない）
+      const deltaX = Math.abs(dragStartDisplay.x - endDisplay.x);
+      const deltaY = Math.abs(dragStartDisplay.y - endDisplay.y);
+      if (deltaX < 3 && deltaY < 3) {
+        clearSelectionBox();
+        return;
+      }
+
       // コンテンツ座標に変換（スクロール補正を加味）
       const startContentX = dragStartDisplay.x + startScroll.left - laneOffset;
       const endContentX = endDisplay.x + scrollLeft - laneOffset;

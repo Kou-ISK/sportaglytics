@@ -80,7 +80,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     handleContextMenuDelete,
     handleContextMenuJumpTo,
     handleContextMenuDuplicate,
-    handleKeyDown,
     handleDialogChange,
     handleCloseDialog,
     handleDeleteSingle,
@@ -269,21 +268,63 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     [info, labelGroup, labelName, onUpdateTimelineItem, selectedIds],
   );
 
-  const handleKeyDownWithUndo = useCallback(
-    (event: React.KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
-        if (event.shiftKey) {
+  // グローバルKeyDownでTabジャンプ・Undo/Redoを処理（選択があるときのみ）
+  React.useEffect(() => {
+    const handleKeyDownGlobal = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isFormElement =
+        tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'button';
+      const isInsideTimeline =
+        !!scrollContainerRef.current &&
+        !!target &&
+        scrollContainerRef.current.contains(target);
+
+      // Tab: 選択がある場合はタイムラインのジャンプを優先。それ以外は抑止のみ。
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (selectedIds.length > 0) {
+          const items = [...timeline].sort((a, b) => a.startTime - b.startTime);
+          const current = items.find((t) => selectedIds.includes(t.id));
+          if (current) {
+            const same = items.filter((t) => t.actionName === current.actionName);
+            const idx = same.findIndex((t) => t.id === current.id);
+            if (idx !== -1) {
+              const direction: 1 | -1 = e.shiftKey ? -1 : 1;
+              const nextIdx =
+                (idx + direction + same.length) % Math.max(same.length, 1);
+              const targetItem = same[nextIdx];
+              if (targetItem) {
+                onSelectionChange([targetItem.id]);
+                onSeek(targetItem.startTime);
+              }
+            }
+          }
+        }
+        return;
+      }
+
+      // Undo/Redo（フォーム要素以外）
+      if (
+        isInsideTimeline &&
+        !isFormElement &&
+        (e.metaKey || e.ctrlKey) &&
+        e.key.toLowerCase() === 'z'
+      ) {
+        e.preventDefault();
+        if (e.shiftKey) {
           onRedo?.();
         } else {
           onUndo?.();
         }
-        event.preventDefault();
-        return;
       }
-      handleKeyDown(event);
-    },
-    [handleKeyDown, onRedo, onUndo],
-  );
+    };
+
+    window.addEventListener('keydown', handleKeyDownGlobal, true);
+    return () => window.removeEventListener('keydown', handleKeyDownGlobal, true);
+  }, [selectedIds, timeline, onSelectionChange, onSeek, onRedo, onUndo]);
 
   return (
     <Box
@@ -294,7 +335,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         overflow: 'hidden',
         position: 'relative',
       }}
-      onKeyDown={handleKeyDownWithUndo}
     >
       <ZoomIndicator zoomScale={zoomScale} />
 
