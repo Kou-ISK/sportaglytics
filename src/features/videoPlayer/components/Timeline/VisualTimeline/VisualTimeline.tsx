@@ -3,6 +3,7 @@ import {
   Box,
   Typography,
   Button,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -156,6 +157,10 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [labelGroup, setLabelGroup] = useState('');
   const [labelName, setLabelName] = useState('');
+  const [recentLabels, setRecentLabels] = useState<
+    { group: string; name: string }[]
+  >([]);
+  const [isLabelQuickPanelOpen, setIsLabelQuickPanelOpen] = useState(false);
   const timelineRef = React.useRef(timeline);
   React.useEffect(() => {
     timelineRef.current = timeline;
@@ -218,10 +223,11 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     );
   }, [selectedIds, timeline]);
 
-  const handleApplyLabel = useCallback(() => {
-    if (!onUpdateTimelineItem) return;
-    const group = labelGroup.trim();
-    const name = labelName.trim();
+  const handleApplyLabel = useCallback(
+    (override?: { group: string; name: string }) => {
+      if (!onUpdateTimelineItem) return;
+    const group = (override?.group ?? labelGroup).trim();
+    const name = (override?.name ?? labelName).trim();
     if (!group || !name) return;
 
     let applied = 0;
@@ -243,13 +249,25 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       applied += 1;
     });
 
+    if (group && name) {
+      setRecentLabels((prev) => {
+        const next = [
+          { group, name },
+          ...prev.filter((l) => !(l.group === group && l.name === name)),
+        ];
+        return next.slice(0, 5);
+      });
+    }
+
     if (applied > 0) {
       info(`${applied}件にラベル '${group}: ${name}' を付与しました`);
     }
     setLabelGroup(group);
     setLabelName(name);
     setLabelDialogOpen(false);
-  }, [info, labelGroup, labelName, onUpdateTimelineItem, selectedIds, timeline]);
+  },
+    [info, labelGroup, labelName, onUpdateTimelineItem, selectedIds],
+  );
 
   const handleKeyDownWithUndo = useCallback(
     (event: React.KeyboardEvent) => {
@@ -317,9 +335,12 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           <Button
             size="small"
             variant="contained"
-            onClick={() => setLabelDialogOpen(true)}
+            onClick={() => {
+              setIsLabelQuickPanelOpen((prev) => !prev);
+              setLabelDialogOpen(false);
+            }}
           >
-            ラベル付与
+            ラベルモード
           </Button>
           <Button
             size="small"
@@ -329,6 +350,79 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           >
             削除
           </Button>
+        </Box>
+      )}
+
+      {selectionActionsVisible && isLabelQuickPanelOpen && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 50,
+            right: 16,
+            zIndex: 19,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            boxShadow: 3,
+            p: 1.5,
+            minWidth: 240,
+            border: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            選択中 {selectedIds.length} 件に付与
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              size="small"
+              label="グループ"
+              value={labelGroup}
+              onChange={(e) => setLabelGroup(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              size="small"
+              label="ラベル名"
+              value={labelName}
+              onChange={(e) => setLabelName(e.target.value)}
+              fullWidth
+            />
+          </Box>
+          {recentLabels.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+              {recentLabels.map((l) => (
+                <Chip
+                  key={`${l.group}-${l.name}`}
+                  label={`${l.group}: ${l.name}`}
+                  size="small"
+                  onClick={() => handleApplyLabel(l)}
+                  sx={{ bgcolor: 'action.hover' }}
+                />
+              ))}
+            </Box>
+          )}
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setIsLabelQuickPanelOpen(false);
+              }}
+            >
+              閉じる
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              onClick={() => handleApplyLabel()}
+              disabled={!labelGroup.trim() || !labelName.trim()}
+            >
+              適用
+            </Button>
+          </Box>
         </Box>
       )}
 
@@ -491,7 +585,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           <Button onClick={() => setLabelDialogOpen(false)}>キャンセル</Button>
           <Button
             variant="contained"
-            onClick={handleApplyLabel}
+            onClick={() => handleApplyLabel()}
             disabled={!labelGroup.trim() || !labelName.trim()}
           >
             付与
