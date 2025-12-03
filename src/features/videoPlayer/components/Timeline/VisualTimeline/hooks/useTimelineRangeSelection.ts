@@ -14,6 +14,7 @@ interface UseTimelineRangeSelectionParams {
   };
   getLaneBounds: (actionName: string) => { top: number; bottom: number };
   onSelectionChange: (ids: string[]) => void;
+  onSelectionApplied?: () => void;
 }
 
 type Point = { x: number; y: number };
@@ -24,6 +25,7 @@ export const useTimelineRangeSelection = ({
   getSelectionMetrics,
   getLaneBounds,
   onSelectionChange,
+  onSelectionApplied,
 }: UseTimelineRangeSelectionParams) => {
   const [dragStartDisplay, setDragStartDisplay] = useState<Point | null>(null);
   const [dragEndDisplay, setDragEndDisplay] = useState<Point | null>(null);
@@ -145,6 +147,7 @@ export const useTimelineRangeSelection = ({
         : selectedIds;
 
       onSelectionChange(finalIds);
+      onSelectionApplied?.();
 
       clearSelectionBox();
     },

@@ -113,6 +113,16 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     [groupedByAction],
   );
 
+  // 範囲選択後のclickによる選択クリアを抑止するフラグ
+  const suppressClearRef = React.useRef(false);
+  const handleSelectionApplied = useCallback(() => {
+    suppressClearRef.current = true;
+    // 次のtickで解除
+    setTimeout(() => {
+      suppressClearRef.current = false;
+    }, 0);
+  }, []);
+
   const laneRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
   const getLaneBounds = useCallback(
     (actionName: string) => {
@@ -150,6 +160,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     }),
     getLaneBounds,
     onSelectionChange,
+    onSelectionApplied: handleSelectionApplied,
   });
 
   const { info } = useNotification();
@@ -213,6 +224,16 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   const firstTeamName = actionNames[0]?.split(' ')[0];
 
   const selectionActionsVisible = selectedIds.length > 0;
+  const selectedStats = useMemo(() => {
+    if (selectedIds.length === 0) return null;
+    const selectedItems = timeline.filter((item) => selectedIds.includes(item.id));
+    const total = selectedItems.reduce(
+      (sum, item) => sum + Math.max(0, item.endTime - item.startTime),
+      0,
+    );
+    const avg = selectedItems.length > 0 ? total / selectedItems.length : 0;
+    return { total, avg };
+  }, [selectedIds, timeline]);
   const earliestSelected = useMemo(() => {
     const items = timeline.filter((item) => selectedIds.includes(item.id));
     if (items.length === 0) return null;
@@ -326,6 +347,17 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDownGlobal, true);
   }, [selectedIds, timeline, onSelectionChange, onSeek, onRedo, onUndo]);
 
+  const handleBackgroundClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0) return;
+      // ドラッグ選択中はクリアしない（mouseup後のclickバブリングを無視）
+      if (isSelecting || selectionBox) return;
+      if (suppressClearRef.current) return;
+      onSelectionChange([]);
+    },
+    [isSelecting, selectionBox, onSelectionChange],
+  );
+
   return (
     <Box
       sx={{
@@ -343,8 +375,8 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           sx={{
             position: 'absolute',
             top: 8,
-      right: 16,
-      zIndex: 20,
+            right: 16,
+            zIndex: 20,
       display: 'flex',
       alignItems: 'center',
       gap: 1,
@@ -360,6 +392,11 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
             {selectedIds.length} 件選択
           </Typography>
+          {selectedStats && (
+            <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+              合計 {formatTime(selectedStats.total)} / 平均 {formatTime(selectedStats.avg)}
+            </Typography>
+          )}
           <Button
             size="small"
             variant="outlined"
@@ -484,6 +521,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={(e) => handleMouseUp(e, positionToTime)}
+          onClick={handleBackgroundClick}
         >
           <Box
             sx={{
