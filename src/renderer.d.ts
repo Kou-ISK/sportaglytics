@@ -49,6 +49,29 @@ export interface IElectronAPI {
   onOpenSettings: (callback: () => void) => void;
   offOpenSettings: (callback: () => void) => void;
   setWindowTitle: (title: string) => void;
+  exportClipsWithOverlay?: (payload: {
+    sourcePath: string;
+    sourcePath2?: string;
+    mode?: 'single' | 'dual';
+    outputDir?: string;
+    clips: Array<{
+      id: string;
+      actionName: string;
+      startTime: number;
+      endTime: number;
+      labels?: { group: string; name: string }[];
+      qualifier?: string;
+      actionIndex?: number;
+    }>;
+    overlay: {
+      enabled: boolean;
+      showActionName: boolean;
+      showActionIndex: boolean;
+      showLabels: boolean;
+      showQualifier: boolean;
+      textTemplate: string;
+    };
+  }) => Promise<{ success: boolean; error?: string }>;
   saveFileDialog: (
     defaultPath: string,
     filters: { name: string; extensions: string[] }[],

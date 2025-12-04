@@ -73,6 +73,15 @@ export interface AppSettings {
   hotkeys: HotkeyConfig[];
   /** 言語設定（将来の拡張用） */
   language: string;
+  /** クリップ書き出し時のオーバーレイ設定 */
+  overlayClip: {
+    enabled: boolean;
+    showActionName: boolean;
+    showActionIndex: boolean;
+    showLabels: boolean;
+    showQualifier: boolean;
+    textTemplate: string; // e.g. "{actionName} #{index} | {labels} | {qualifier}"
+  };
 }
 
 /**
@@ -103,4 +112,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     { id: 'play-pause', label: '再生/停止', key: 'Space' },
   ],
   language: 'ja',
+  overlayClip: {
+    enabled: true,
+    showActionName: true,
+    showActionIndex: true,
+    showLabels: true,
+    showQualifier: true,
+    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
+  },
 };

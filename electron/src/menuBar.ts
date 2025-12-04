@@ -42,6 +42,21 @@ export const menuBar = Menu.buildFromTemplate([
     ],
   },
   {
+    label: '書き出し',
+    submenu: [
+      {
+        label: 'クリップ書き出し（オーバーレイ）',
+        click: (_menuItem, browserWindow) => {
+          if (browserWindow && 'webContents' in browserWindow) {
+            (browserWindow as BrowserWindow).webContents.send(
+              'menu-export-clips',
+            );
+          }
+        },
+      },
+    ],
+  },
+  {
     label: '表示',
     submenu: [
       { role: 'reload', label: '再読み込み' },

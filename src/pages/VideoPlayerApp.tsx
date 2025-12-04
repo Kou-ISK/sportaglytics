@@ -174,6 +174,7 @@ export const VideoPlayerApp = () => {
             updateTimelineRange={updateTimelineRange}
             updateTimelineItem={updateTimelineItem}
             bulkUpdateTimelineItems={bulkUpdateTimelineItems}
+            videoList={videoList}
             handleCurrentTime={handleCurrentTime}
             performUndo={performUndo}
             performRedo={performRedo}

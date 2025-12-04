@@ -42,6 +42,7 @@ interface TimelineActionSectionProps {
     ids: string[],
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  videoList: string[];
   performUndo: () => void;
   performRedo: () => void;
   handleCurrentTime: (
@@ -70,6 +71,7 @@ export const TimelineActionSection = forwardRef<
       updateTimelineRange,
       updateTimelineItem,
       bulkUpdateTimelineItems,
+      videoList,
       performUndo,
       performRedo,
       handleCurrentTime,
@@ -154,6 +156,7 @@ export const TimelineActionSection = forwardRef<
             onUpdateTimelineItem={updateTimelineItem}
             bulkUpdateTimelineItems={bulkUpdateTimelineItems}
             teamNames={teamNames}
+            videoSources={videoList}
             onUndo={performUndo}
             onRedo={performRedo}
           />

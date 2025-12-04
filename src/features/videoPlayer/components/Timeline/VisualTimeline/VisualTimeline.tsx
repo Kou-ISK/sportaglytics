@@ -9,6 +9,9 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  FormControlLabel,
+  Switch,
+  LinearProgress,
 } from '@mui/material';
 import { TimelineData } from '../../../../../types/TimelineData';
 import { TimelineAxis } from './TimelineAxis';
@@ -39,6 +42,7 @@ interface VisualTimelineProps {
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
   teamNames: string[];
+  videoSources?: string[];
   onUndo?: () => void;
   onRedo?: () => void;
 }
@@ -55,6 +59,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   onUpdateTimeRange,
   onUpdateTimelineItem,
   bulkUpdateTimelineItems,
+  videoSources,
   onUndo,
   onRedo,
 }) => {
@@ -171,10 +176,27 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     { group: string; name: string }[]
   >([]);
   const [isLabelQuickPanelOpen, setIsLabelQuickPanelOpen] = useState(false);
+  const [clipDialogOpen, setClipDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [overlaySettings, setOverlaySettings] = useState({
+    enabled: true,
+    showActionName: true,
+    showActionIndex: true,
+    showLabels: true,
+    showQualifier: true,
+    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
+  });
   const timelineRef = React.useRef(timeline);
   React.useEffect(() => {
     timelineRef.current = timeline;
   }, [timeline]);
+  const [clipMode, setClipMode] = useState<'single' | 'dual'>('single');
+  const [primarySource, setPrimarySource] = useState<string | undefined>(
+    videoSources?.[0],
+  );
+  const [secondarySource, setSecondarySource] = useState<string | undefined>(
+    videoSources?.[1],
+  );
 
   const handleMoveItems = useCallback(
     (ids: string[], targetActionName: string) => {
@@ -357,6 +379,97 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     },
     [isSelecting, selectionBox, onSelectionChange],
   );
+
+  const handleOpenClipDialog = useCallback(async () => {
+    // 設定からオーバーレイのデフォルトを読み込む
+    try {
+      const settings =
+        (await globalThis.window.electronAPI?.loadSettings?.()) as
+          | { overlayClip?: typeof overlaySettings }
+          | undefined;
+      if (settings?.overlayClip) {
+        setOverlaySettings((prev) => ({
+          ...prev,
+          ...settings.overlayClip,
+        }));
+      }
+    } catch {
+      // ignore, fallback to current state
+    }
+    setClipDialogOpen(true);
+  }, []);
+
+  const handleExportClips = useCallback(async () => {
+    const sourcePath = primarySource || videoSources?.[0];
+    const sourcePath2 = secondarySource || videoSources?.[1];
+    if (!sourcePath) {
+      info('書き出し元の映像ファイルが取得できません');
+      setClipDialogOpen(false);
+      return;
+    }
+    if (clipMode === 'dual' && !sourcePath2) {
+      info('2画面結合には2つの映像ソースが必要です');
+      return;
+    }
+    if (!globalThis.window.electronAPI?.exportClipsWithOverlay) {
+      info('クリップ書き出しAPIが利用できません');
+      setClipDialogOpen(false);
+      return;
+    }
+    const selectedItems = timeline.filter((t) => selectedIds.includes(t.id));
+    if (selectedItems.length === 0) {
+      info('書き出すインスタンスがありません');
+      setClipDialogOpen(false);
+      return;
+    }
+    // 同一アクション内での番号を付与
+    const actionCounters: Record<string, number> = {};
+    const clips = selectedItems
+      .sort((a, b) => a.startTime - b.startTime)
+      .map((item) => {
+        const count = (actionCounters[item.actionName] || 0) + 1;
+        actionCounters[item.actionName] = count;
+        return {
+          id: item.id,
+          actionName: item.actionName,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          labels:
+            item.labels?.map((l) => ({
+              group: l.group || '',
+              name: l.name,
+            })) || undefined,
+          qualifier: item.qualifier || undefined,
+          actionIndex: count,
+        };
+      });
+
+    setIsExporting(true);
+    const result = await globalThis.window.electronAPI.exportClipsWithOverlay({
+      sourcePath,
+      sourcePath2: clipMode === 'dual' ? sourcePath2 : undefined,
+      mode: clipMode,
+      clips,
+      overlay: overlaySettings,
+    });
+    setIsExporting(false);
+    if (result?.success) {
+      info('クリップを書き出しました');
+      setClipDialogOpen(false);
+    } else {
+      info(result?.error || 'クリップ書き出しに失敗しました');
+    }
+  }, [clipMode, info, overlaySettings, primarySource, secondarySource, selectedIds, timeline, videoSources]);
+
+  React.useEffect(() => {
+    const handler = () => {
+      handleOpenClipDialog();
+    };
+    globalThis.window.electronAPI?.on?.('menu-export-clips', handler);
+    return () => {
+      globalThis.window.electronAPI?.off?.('menu-export-clips', handler);
+    };
+  }, [handleOpenClipDialog]);
 
   return (
     <Box
@@ -670,6 +783,170 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={clipDialogOpen}
+        onClose={() => setClipDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>クリップ書き出し</DialogTitle>
+        <DialogContent
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            選択中 {selectedIds.length} 件を書き出します。オーバーレイは左寄せ3行（行1: #番号 アクション名、行2: ラベル（カンマ区切り）、行3: メモ）で描画され、設定画面のオーバーレイ設定を反映します。
+          </Typography>
+          {videoSources && videoSources.length > 1 && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={clipMode === 'dual'}
+                  onChange={(e) =>
+                    setClipMode(e.target.checked ? 'dual' : 'single')
+                  }
+                />
+              }
+              label="2アングル横並びで出力する"
+            />
+          )}
+          <TextField
+            select
+            SelectProps={{ native: true }}
+            label="メイン映像"
+            value={primarySource || ''}
+            onChange={(e) => setPrimarySource(e.target.value)}
+            size="small"
+          >
+            {(videoSources || []).map((src) => (
+              <option key={src} value={src}>
+                {src}
+              </option>
+            ))}
+          </TextField>
+          {clipMode === 'dual' && (
+            <TextField
+              select
+              SelectProps={{ native: true }}
+              label="サブ映像（横並び）"
+              value={secondarySource || ''}
+              onChange={(e) => setSecondarySource(e.target.value)}
+              size="small"
+            >
+              {(videoSources || []).map((src) => (
+                <option key={src} value={src}>
+                  {src}
+                </option>
+              ))}
+            </TextField>
+          )}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={overlaySettings.enabled}
+                onChange={(e) =>
+                  setOverlaySettings((prev) => ({
+                    ...prev,
+                    enabled: e.target.checked,
+                  }))
+                }
+              />
+            }
+            label="オーバーレイを有効にする"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={overlaySettings.showActionName}
+                onChange={(e) =>
+                  setOverlaySettings((prev) => ({
+                    ...prev,
+                    showActionName: e.target.checked,
+                  }))
+                }
+              />
+            }
+            label="アクション名"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={overlaySettings.showActionIndex}
+                onChange={(e) =>
+                  setOverlaySettings((prev) => ({
+                    ...prev,
+                    showActionIndex: e.target.checked,
+                  }))
+                }
+              />
+            }
+            label="同一行内の番号"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={overlaySettings.showLabels}
+                onChange={(e) =>
+                  setOverlaySettings((prev) => ({
+                    ...prev,
+                    showLabels: e.target.checked,
+                  }))
+                }
+              />
+            }
+            label="ラベル"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={overlaySettings.showQualifier}
+                onChange={(e) =>
+                  setOverlaySettings((prev) => ({
+                    ...prev,
+                    showQualifier: e.target.checked,
+                  }))
+                }
+              />
+            }
+            label="メモ (qualifier)"
+          />
+          <TextField
+            label="テキストテンプレート"
+            value={overlaySettings.textTemplate}
+            onChange={(e) =>
+              setOverlaySettings((prev) => ({
+                ...prev,
+                textTemplate: e.target.value,
+              }))
+            }
+            fullWidth
+            size="small"
+            helperText="{actionName} {index} {labels} {qualifier} を組み合わせて表示"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClipDialogOpen(false)}>キャンセル</Button>
+          <Button variant="contained" onClick={handleExportClips}>
+            書き出し
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {isExporting && (
+        <Dialog open keepMounted fullWidth maxWidth="xs">
+          <DialogTitle>書き出し中...</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              FFmpegでクリップを書き出しています。完了までお待ちください。
+            </Typography>
+            <LinearProgress />
+          </DialogContent>
+        </Dialog>
+      )}
     </Box>
   );
 };

@@ -20,7 +20,16 @@ export const useSettings = () => {
         throw new Error('Electron API is not available');
       }
       const loaded = (await api.loadSettings()) as AppSettings;
-      setSettings(loaded);
+      // 新フィールドがない場合の後方互換
+      const merged: AppSettings = {
+        ...DEFAULT_SETTINGS,
+        ...loaded,
+        overlayClip: {
+          ...DEFAULT_SETTINGS.overlayClip,
+          ...(loaded as Partial<AppSettings>).overlayClip,
+        },
+      };
+      setSettings(merged);
     } catch (err) {
       console.error('Failed to load settings:', err);
       setError('設定の読み込みに失敗しました');
@@ -62,7 +71,15 @@ export const useSettings = () => {
         throw new Error('Electron API is not available');
       }
       const defaultSettings = (await api.resetSettings()) as AppSettings;
-      setSettings(defaultSettings);
+      const merged: AppSettings = {
+        ...DEFAULT_SETTINGS,
+        ...defaultSettings,
+        overlayClip: {
+          ...DEFAULT_SETTINGS.overlayClip,
+          ...(defaultSettings as Partial<AppSettings>).overlayClip,
+        },
+      };
+      setSettings(merged);
       return true;
     } catch (err) {
       console.error('Failed to reset settings:', err);

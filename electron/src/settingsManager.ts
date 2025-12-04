@@ -39,6 +39,14 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: 'play-pause', label: '再生/停止', key: 'Space' },
   ],
   language: 'ja',
+  overlayClip: {
+    enabled: true,
+    showActionName: true,
+    showActionIndex: true,
+    showLabels: true,
+    showQualifier: true,
+    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
+  },
 };
 
 /**
@@ -71,7 +79,14 @@ export const loadSettings = async (): Promise<AppSettings> => {
     const parsed = JSON.parse(data) as Partial<AppSettings>;
 
     // デフォルト設定とマージして不足項目を補完
-    const merged = { ...DEFAULT_SETTINGS, ...parsed };
+    const merged: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      overlayClip: {
+        ...DEFAULT_SETTINGS.overlayClip,
+        ...(parsed.overlayClip ?? {}),
+      },
+    };
 
     // 古い/無効なホットキーをフィルタリング
     if (merged.hotkeys && merged.hotkeys.length > 0) {

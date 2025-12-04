@@ -293,6 +293,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setWindowTitle: (title: string) => {
     ipcRenderer.send('set-window-title', title);
   },
+  exportClipsWithOverlay: async (payload: unknown) => {
+    try {
+      return await ipcRenderer.invoke('export-clips-with-overlay', payload);
+    } catch (error) {
+      console.error('Error exportClipsWithOverlay:', error);
+      return { success: false, error: String(error) };
+    }
+  },
   // タイムラインエクスポート/インポート用API
   saveFileDialog: async (
     defaultPath: string,
