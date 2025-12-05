@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'node:fs/promises';
 import { spawn } from 'child_process';
+import * as os from 'os';
 import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { menuBar } from './menuBar';
@@ -112,7 +113,10 @@ const createWindow = async () => {
         sourcePath: string;
         sourcePath2?: string;
         mode?: 'single' | 'dual';
+        exportMode?: 'single' | 'perInstance' | 'perRow';
+        angleOption?: 'all' | 'angle1' | 'angle2';
         outputDir?: string;
+        outputFileName?: string;
         clips: {
           id: string;
           actionName: string;
@@ -133,11 +137,26 @@ const createWindow = async () => {
       },
     ) => {
       try {
-        const { sourcePath, sourcePath2, mode = 'single', outputDir, clips, overlay } =
-          payload;
+        const {
+          sourcePath,
+          sourcePath2,
+          mode = 'single',
+          exportMode = 'single',
+          angleOption = 'all',
+          outputDir,
+          clips,
+          overlay,
+          outputFileName,
+        } = payload;
         if (!sourcePath || clips.length === 0) {
           return { success: false, error: 'ソースまたはクリップがありません' };
         }
+
+        const mainSource =
+          angleOption === 'angle2' ? sourcePath2 || sourcePath : sourcePath;
+        const secondarySource =
+          angleOption === 'all' ? sourcePath2 || null : null;
+        const useDual = mode === 'dual' || Boolean(secondarySource);
 
         let targetDir = outputDir;
         if (!targetDir) {
@@ -166,32 +185,33 @@ const createWindow = async () => {
           new Promise<void>((resolve, reject) => {
             const vf: string[] = [];
             if (overlay.enabled) {
-              // 左寄せ、3行、下部帯。薄く小さくしてSportscode風に。
+              // 左寄せ、3行、下部帯。Sportscode風のシンプルなオーバーレイ。
               const box =
                 'drawbox=x=0:y=ih-120:w=iw:h=120:color=black@0.7:t=fill';
               vf.push(box);
 
               const linesConfig = [
-                { color: 'white', size: 34, y: 'h-95', weight: 2 },
-                { color: '#dcdcdc', size: 28, y: 'h-60', weight: 1.5 },
-                { color: '#bbbbbb', size: 24, y: 'h-30', weight: 1 },
+                { color: 'white', size: 34, y: 'h-95' },
+                { color: '#dcdcdc', size: 28, y: 'h-60' },
+                { color: '#bbbbbb', size: 24, y: 'h-30' },
               ];
 
               overlayLines.forEach((line, idx) => {
                 const safeText = escapeDrawtext(line);
                 const cfg = linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
-                const text = `drawtext=text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=${cfg.weight}:bordercolor=black@0.85:x=20:y=${cfg.y}`;
+                const text = `drawtext=text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:shadowcolor=black@0.55:shadowx=2:shadowy=2:x=20:y=${cfg.y}`;
                 vf.push(text);
               });
             }
+            const duration = Math.max(0.5, clip.endTime - clip.startTime);
             const args = [
               '-y',
               '-ss',
               `${Math.max(0, clip.startTime)}`,
               '-t',
-              `${Math.max(0.1, clip.endTime - clip.startTime)}`,
+              `${duration}`,
               '-i',
-              sourcePath,
+              mainSource,
               ...(vf.length ? ['-vf', vf.join(',')] : []),
               '-c:v',
               'libx264',
@@ -217,7 +237,7 @@ const createWindow = async () => {
           overlayLines: string[],
         ) =>
           new Promise<void>((resolve, reject) => {
-            if (!sourcePath2) {
+            if (!secondarySource) {
               reject(new Error('2画面結合に必要な第2ソースがありません'));
               return;
             }
@@ -242,31 +262,29 @@ const createWindow = async () => {
                 overlayFilters.push(text);
               });
             }
-            const filterComplex = [
-              '[0:v][1:v]hstack=inputs=2[vbase]',
-              overlayFilters.length
-                ? `[vbase]${overlayFilters.join(',')}[vout]`
-                : '[vbase][vout]',
-            ].join(';');
+            const filterComplex = overlayFilters.length
+              ? `[0:v][1:v]hstack=inputs=2[vbase];[vbase]${overlayFilters.join(',')}[vout]`
+              : '[0:v][1:v]hstack=inputs=2[vout]';
 
+            const duration = Math.max(0.5, clip.endTime - clip.startTime);
             const args = [
               '-y',
               '-ss',
               `${Math.max(0, clip.startTime)}`,
               '-t',
-              `${Math.max(0.1, clip.endTime - clip.startTime)}`,
+              `${duration}`,
               '-i',
-              sourcePath,
+              mainSource,
               '-ss',
               `${Math.max(0, clip.startTime)}`,
               '-t',
-              `${Math.max(0.1, clip.endTime - clip.startTime)}`,
+              `${duration}`,
               '-i',
-              sourcePath2,
+              secondarySource,
               '-filter_complex',
               filterComplex,
               '-map',
-              overlay.enabled ? '[vout]' : '[vbase]',
+              '[vout]',
               '-map',
               '0:a?',
               '-c:v',
@@ -295,16 +313,109 @@ const createWindow = async () => {
           return [line1, line2, line3].filter((l) => l.length > 0);
         };
 
-        for (const clip of clips) {
-          const safeAction = clip.actionName.replace(/\s+/g, '_');
-          const outName = `${safeAction}_${clip.actionIndex ?? 1}_${Math.round(clip.startTime)}-${Math.round(clip.endTime)}${mode === 'dual' ? '_dual' : ''}.mp4`;
-          const outPath = path.join(targetDir, outName);
+        const renderClip = async (
+          clip: (typeof clips)[number],
+          outputPath?: string,
+        ) => {
           const overlayLines = formatLines(clip);
-          if (mode === 'dual') {
-            await runFfmpegDual(clip, outPath, overlayLines);
+          const target =
+            outputPath ||
+            path.join(
+              os.tmpdir(),
+              `clip_${clip.id}_${Date.now()}_${Math.random()}.mp4`,
+            );
+          if (useDual) {
+            await runFfmpegDual(clip, target, overlayLines);
           } else {
-            await runFfmpegSingle(clip, outPath, overlayLines);
+            await runFfmpegSingle(clip, target, overlayLines);
           }
+          return target;
+        };
+
+        const concatFiles = async (files: string[], outputPath: string) => {
+          const listPath = path.join(
+            os.tmpdir(),
+            `concat_${Date.now()}_${Math.random()}.txt`,
+          );
+          const content = files
+            .map((f) => `file '${f.replace(/'/g, "'\\''")}'`)
+            .join('\n');
+          await fs.writeFile(listPath, content, 'utf-8');
+          return new Promise<void>((resolve, reject) => {
+            const ff = spawn('ffmpeg', [
+              '-y',
+              '-f',
+              'concat',
+              '-safe',
+              '0',
+              '-i',
+              listPath,
+              '-fflags',
+              '+genpts',
+              '-c:v',
+              'libx264',
+              '-preset',
+              'veryfast',
+              '-c:a',
+              'aac',
+              outputPath,
+            ]);
+            ff.stderr.on('data', (data) => console.log('[ffmpeg]', data.toString()));
+            ff.on('close', async (code) => {
+              await fs.unlink(listPath).catch(() => undefined);
+              if (code === 0) resolve();
+              else reject(new Error(`ffmpeg exited with code ${code}`));
+            });
+          });
+        };
+
+        const ensureMp4 = (name: string) =>
+          name.toLowerCase().endsWith('.mp4') ? name : `${name}.mp4`;
+        const baseName = outputFileName
+          ? outputFileName.replace(/\.mp4$/i, '')
+          : '';
+        const prefix = baseName ? `${baseName}_` : '';
+
+        if (exportMode === 'perInstance') {
+          for (const clip of clips) {
+            const safeAction = clip.actionName.replace(/\s+/g, '_');
+            const baseName = `${safeAction}_${clip.actionIndex ?? 1}_${Math.round(clip.startTime)}-${Math.round(clip.endTime)}${useDual ? '_dual' : ''}`;
+            const outName = ensureMp4(`${prefix}${baseName}`);
+            const outPath = path.join(targetDir, outName);
+            await renderClip(clip, outPath);
+          }
+        } else if (exportMode === 'perRow') {
+          const byAction = new Map<string, (typeof clips)[number][]>();
+          clips.forEach((c) => {
+            const arr = byAction.get(c.actionName) || [];
+            arr.push(c);
+            byAction.set(c.actionName, arr);
+          });
+          for (const [actionName, group] of byAction.entries()) {
+            const temps: string[] = [];
+            for (const clip of group) {
+              temps.push(await renderClip(clip));
+            }
+            const safeAction = actionName.replace(/\s+/g, '_');
+            const baseName = `${safeAction}_row${useDual ? '_dual' : ''}`;
+            const outName = ensureMp4(`${prefix}${baseName}`);
+            const outPath = path.join(targetDir, outName);
+            await concatFiles(temps, outPath);
+            await Promise.all(temps.map((t) => fs.unlink(t).catch(() => undefined)));
+          }
+        } else {
+          // single連結
+          const temps: string[] = [];
+          for (const clip of clips) {
+            temps.push(await renderClip(clip));
+          }
+          const defaultName = `combined_${clips.length}${useDual ? '_dual' : ''}.mp4`;
+          const outName = outputFileName
+            ? ensureMp4(baseName)
+            : defaultName;
+          const outPath = path.join(targetDir, outName);
+          await concatFiles(temps, outPath);
+          await Promise.all(temps.map((t) => fs.unlink(t).catch(() => undefined)));
         }
 
         return { success: true };

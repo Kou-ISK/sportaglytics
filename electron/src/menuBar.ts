@@ -17,7 +17,82 @@ export const menuBar = Menu.buildFromTemplate([
   },
   {
     label: 'ファイル',
-    submenu: [{ role: 'close', label: 'ウィンドウを閉じる' }],
+    submenu: [
+      { role: 'close', label: 'ウィンドウを閉じる' },
+      {
+        label: 'インポート',
+        submenu: [
+          {
+            label: 'タイムライン（JSON）',
+            click: (_menuItem, browserWindow) => {
+              if (browserWindow && 'webContents' in browserWindow) {
+                (browserWindow as BrowserWindow).webContents.send(
+                  'menu-import-timeline',
+                );
+              }
+            },
+          },
+          {
+            label: 'Sportscode XML（SCTimeline）',
+            click: (_menuItem, browserWindow) => {
+              if (browserWindow && 'webContents' in browserWindow) {
+                (browserWindow as BrowserWindow).webContents.send(
+                  'menu-import-timeline',
+                );
+              }
+            },
+          },
+        ],
+      },
+      {
+        label: 'エクスポート',
+        submenu: [
+          {
+            label: '映像クリップ（オーバーレイ）',
+            click: (_menuItem, browserWindow) => {
+              if (browserWindow && 'webContents' in browserWindow) {
+                (browserWindow as BrowserWindow).webContents.send(
+                  'menu-export-clips',
+                );
+              }
+            },
+          },
+          {
+            label: 'タイムライン（JSON）',
+            click: (_menuItem, browserWindow) => {
+              if (browserWindow && 'webContents' in browserWindow) {
+                (browserWindow as BrowserWindow).webContents.send(
+                  'menu-export-timeline',
+                  'json',
+                );
+              }
+            },
+          },
+          {
+            label: 'タイムライン（CSV）',
+            click: (_menuItem, browserWindow) => {
+              if (browserWindow && 'webContents' in browserWindow) {
+                (browserWindow as BrowserWindow).webContents.send(
+                  'menu-export-timeline',
+                  'csv',
+                );
+              }
+            },
+          },
+          {
+            label: 'Sportscode XML（SCTimeline）',
+            click: (_menuItem, browserWindow) => {
+              if (browserWindow && 'webContents' in browserWindow) {
+                (browserWindow as BrowserWindow).webContents.send(
+                  'menu-export-timeline',
+                  'sctimeline',
+                );
+              }
+            },
+          },
+        ],
+      },
+    ],
   },
   {
     label: '編集',
@@ -38,21 +113,6 @@ export const menuBar = Menu.buildFromTemplate([
           { role: 'startSpeaking', label: '読み上げを開始' },
           { role: 'stopSpeaking', label: '読み上げを停止' },
         ],
-      },
-    ],
-  },
-  {
-    label: '書き出し',
-    submenu: [
-      {
-        label: 'クリップ書き出し（オーバーレイ）',
-        click: (_menuItem, browserWindow) => {
-          if (browserWindow && 'webContents' in browserWindow) {
-            (browserWindow as BrowserWindow).webContents.send(
-              'menu-export-clips',
-            );
-          }
-        },
       },
     ],
   },
@@ -119,59 +179,6 @@ export const menuBar = Menu.buildFromTemplate([
             (browserWindow as BrowserWindow).webContents.send(
               'menu-set-sync-mode',
               mode,
-            );
-          }
-        },
-      },
-    ],
-  },
-  {
-    label: 'タイムライン',
-    submenu: [
-      {
-        label: 'エクスポート',
-        submenu: [
-          {
-            label: 'JSON形式',
-            click: (_menuItem, browserWindow) => {
-              if (browserWindow && 'webContents' in browserWindow) {
-                (browserWindow as BrowserWindow).webContents.send(
-                  'menu-export-timeline',
-                  'json',
-                );
-              }
-            },
-          },
-          {
-            label: 'CSV形式',
-            click: (_menuItem, browserWindow) => {
-              if (browserWindow && 'webContents' in browserWindow) {
-                (browserWindow as BrowserWindow).webContents.send(
-                  'menu-export-timeline',
-                  'csv',
-                );
-              }
-            },
-          },
-          {
-            label: 'SCTimeline形式',
-            click: (_menuItem, browserWindow) => {
-              if (browserWindow && 'webContents' in browserWindow) {
-                (browserWindow as BrowserWindow).webContents.send(
-                  'menu-export-timeline',
-                  'sctimeline',
-                );
-              }
-            },
-          },
-        ],
-      },
-      {
-        label: 'インポート',
-        click: (_menuItem, browserWindow) => {
-          if (browserWindow && 'webContents' in browserWindow) {
-            (browserWindow as BrowserWindow).webContents.send(
-              'menu-import-timeline',
             );
           }
         },

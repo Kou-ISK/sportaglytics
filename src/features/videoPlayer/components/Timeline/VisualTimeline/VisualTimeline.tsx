@@ -10,7 +10,10 @@ import {
   DialogActions,
   TextField,
   FormControlLabel,
-  Switch,
+  RadioGroup,
+  Radio,
+  Select,
+  MenuItem,
   LinearProgress,
 } from '@mui/material';
 import { TimelineData } from '../../../../../types/TimelineData';
@@ -23,6 +26,13 @@ import { ZoomIndicator } from './ZoomIndicator';
 import { useTimelineInteractions } from './hooks/useTimelineInteractions';
 import { useTimelineRangeSelection } from './hooks/useTimelineRangeSelection';
 import { useNotification } from '../../../../../contexts/NotificationContext';
+
+const renderSourceLabel = (src: string) => {
+  const parts = src.split(/[/\\]/);
+  const name = parts.pop() || src;
+  const parent = parts.pop();
+  return parent ? `${parent}/${name}` : name;
+};
 interface VisualTimelineProps {
   timeline: TimelineData[];
   maxSec: number;
@@ -190,13 +200,22 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   React.useEffect(() => {
     timelineRef.current = timeline;
   }, [timeline]);
-  const [clipMode, setClipMode] = useState<'single' | 'dual'>('single');
   const [primarySource, setPrimarySource] = useState<string | undefined>(
     videoSources?.[0],
   );
   const [secondarySource, setSecondarySource] = useState<string | undefined>(
     videoSources?.[1],
   );
+  const [exportScope, setExportScope] = useState<'selected' | 'all'>(
+    selectedIds.length > 0 ? 'selected' : 'all',
+  );
+  const [exportMode, setExportMode] = useState<
+    'single' | 'perInstance' | 'perRow'
+  >('single');
+  const [angleOption, setAngleOption] = useState<'all' | 'angle1' | 'angle2'>(
+    'all',
+  );
+  const [exportFileName, setExportFileName] = useState('');
 
   const handleMoveItems = useCallback(
     (ids: string[], targetActionName: string) => {
@@ -407,8 +426,10 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       setClipDialogOpen(false);
       return;
     }
-    if (clipMode === 'dual' && !sourcePath2) {
-      info('2画面結合には2つの映像ソースが必要です');
+    const useDual =
+      angleOption === 'all' && sourcePath2 ? true : angleOption === 'angle2';
+    if (useDual && !sourcePath2) {
+      info('2アングル結合には2つの映像ソースが必要です');
       return;
     }
     if (!globalThis.window.electronAPI?.exportClipsWithOverlay) {
@@ -416,19 +437,29 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       setClipDialogOpen(false);
       return;
     }
-    const selectedItems = timeline.filter((t) => selectedIds.includes(t.id));
-    if (selectedItems.length === 0) {
+    const ordered = [...timeline].sort((a, b) => a.startTime - b.startTime);
+    const actionIndexLookup = new Map<string, number>();
+    const counters: Record<string, number> = {};
+    ordered.forEach((item) => {
+      const c = (counters[item.actionName] || 0) + 1;
+      counters[item.actionName] = c;
+      actionIndexLookup.set(item.id, c);
+    });
+
+    const sourceItems =
+      exportScope === 'selected'
+        ? timeline.filter((t) => selectedIds.includes(t.id))
+        : timeline;
+    if (sourceItems.length === 0) {
       info('書き出すインスタンスがありません');
       setClipDialogOpen(false);
       return;
     }
     // 同一アクション内での番号を付与
-    const actionCounters: Record<string, number> = {};
-    const clips = selectedItems
+    const clips = sourceItems
       .sort((a, b) => a.startTime - b.startTime)
       .map((item) => {
-        const count = (actionCounters[item.actionName] || 0) + 1;
-        actionCounters[item.actionName] = count;
+        const count = actionIndexLookup.get(item.id) ?? 1;
         return {
           id: item.id,
           actionName: item.actionName,
@@ -447,10 +478,13 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     setIsExporting(true);
     const result = await globalThis.window.electronAPI.exportClipsWithOverlay({
       sourcePath,
-      sourcePath2: clipMode === 'dual' ? sourcePath2 : undefined,
-      mode: clipMode,
+      sourcePath2: useDual ? sourcePath2 : undefined,
+      mode: useDual ? 'dual' : 'single',
+      exportMode,
+      angleOption,
       clips,
       overlay: overlaySettings,
+      outputFileName: exportFileName.trim() || undefined,
     });
     setIsExporting(false);
     if (result?.success) {
@@ -459,7 +493,18 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     } else {
       info(result?.error || 'クリップ書き出しに失敗しました');
     }
-  }, [clipMode, info, overlaySettings, primarySource, secondarySource, selectedIds, timeline, videoSources]);
+  }, [
+    exportScope,
+    exportMode,
+    info,
+    overlaySettings,
+    primarySource,
+    secondarySource,
+    selectedIds,
+    timeline,
+    videoSources,
+    exportFileName,
+  ]);
 
   React.useEffect(() => {
     const handler = () => {
@@ -799,21 +844,58 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            選択中 {selectedIds.length} 件を書き出します。オーバーレイは左寄せ3行（行1: #番号 アクション名、行2: ラベル（カンマ区切り）、行3: メモ）で描画され、設定画面のオーバーレイ設定を反映します。
+            書き出し対象と出力モードを選択してください。オーバーレイは設定画面の値を使用します。
           </Typography>
-          {videoSources && videoSources.length > 1 && (
+          <Typography variant="subtitle2">Exporting:</Typography>
+          <RadioGroup
+            value={exportScope}
+            onChange={(e) =>
+              setExportScope(e.target.value === 'selected' ? 'selected' : 'all')
+            }
+          >
+            <FormControlLabel value="all" control={<Radio />} label="全体" />
             <FormControlLabel
-              control={
-                <Switch
-                  checked={clipMode === 'dual'}
-                  onChange={(e) =>
-                    setClipMode(e.target.checked ? 'dual' : 'single')
-                  }
-                />
-              }
-              label="2アングル横並びで出力する"
+              value="selected"
+              control={<Radio />}
+              label={`選択インスタンス (${selectedIds.length} 件)`}
             />
-          )}
+          </RadioGroup>
+
+          <Typography variant="subtitle2">Export As:</Typography>
+          <Select
+            size="small"
+            value={exportMode}
+            onChange={(e) =>
+              setExportMode(
+                e.target.value as 'single' | 'perInstance' | 'perRow',
+              )
+            }
+          >
+            <MenuItem value="single">単一映像ファイル（連結）</MenuItem>
+            <MenuItem value="perInstance">インスタンスごとに出力</MenuItem>
+            <MenuItem value="perRow">行ごとに出力</MenuItem>
+          </Select>
+          <TextField
+            label="ファイル名（連結時）/ プレフィックス"
+            size="small"
+            placeholder="例: combined_export"
+            value={exportFileName}
+            onChange={(e) => setExportFileName(e.target.value)}
+            helperText="単一出力ではこの名前で保存。行/インスタンス出力では先頭に付与します（拡張子は自動で .mp4）。"
+          />
+
+          <Typography variant="subtitle2">Video Angles:</Typography>
+          <RadioGroup
+            row
+            value={angleOption}
+            onChange={(e) =>
+              setAngleOption(e.target.value as 'all' | 'angle1' | 'angle2')
+            }
+          >
+            <FormControlLabel value="all" control={<Radio />} label="全て" />
+            <FormControlLabel value="angle1" control={<Radio />} label="アングル1" />
+            <FormControlLabel value="angle2" control={<Radio />} label="アングル2" />
+          </RadioGroup>
           <TextField
             select
             SelectProps={{ native: true }}
@@ -824,11 +906,11 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           >
             {(videoSources || []).map((src) => (
               <option key={src} value={src}>
-                {src}
+                {renderSourceLabel(src)}
               </option>
             ))}
           </TextField>
-          {clipMode === 'dual' && (
+          {angleOption === 'all' && (
             <TextField
               select
               SelectProps={{ native: true }}
@@ -839,94 +921,11 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
             >
               {(videoSources || []).map((src) => (
                 <option key={src} value={src}>
-                  {src}
+                  {renderSourceLabel(src)}
                 </option>
               ))}
             </TextField>
           )}
-          <FormControlLabel
-            control={
-              <Switch
-                checked={overlaySettings.enabled}
-                onChange={(e) =>
-                  setOverlaySettings((prev) => ({
-                    ...prev,
-                    enabled: e.target.checked,
-                  }))
-                }
-              />
-            }
-            label="オーバーレイを有効にする"
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={overlaySettings.showActionName}
-                onChange={(e) =>
-                  setOverlaySettings((prev) => ({
-                    ...prev,
-                    showActionName: e.target.checked,
-                  }))
-                }
-              />
-            }
-            label="アクション名"
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={overlaySettings.showActionIndex}
-                onChange={(e) =>
-                  setOverlaySettings((prev) => ({
-                    ...prev,
-                    showActionIndex: e.target.checked,
-                  }))
-                }
-              />
-            }
-            label="同一行内の番号"
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={overlaySettings.showLabels}
-                onChange={(e) =>
-                  setOverlaySettings((prev) => ({
-                    ...prev,
-                    showLabels: e.target.checked,
-                  }))
-                }
-              />
-            }
-            label="ラベル"
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={overlaySettings.showQualifier}
-                onChange={(e) =>
-                  setOverlaySettings((prev) => ({
-                    ...prev,
-                    showQualifier: e.target.checked,
-                  }))
-                }
-              />
-            }
-            label="メモ (qualifier)"
-          />
-          <TextField
-            label="テキストテンプレート"
-            value={overlaySettings.textTemplate}
-            onChange={(e) =>
-              setOverlaySettings((prev) => ({
-                ...prev,
-                textTemplate: e.target.value,
-              }))
-            }
-            fullWidth
-            size="small"
-            helperText="{actionName} {index} {labels} {qualifier} を組み合わせて表示"
-          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setClipDialogOpen(false)}>キャンセル</Button>
