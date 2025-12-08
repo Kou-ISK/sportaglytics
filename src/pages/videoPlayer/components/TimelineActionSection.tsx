@@ -49,6 +49,10 @@ interface TimelineActionSectionProps {
     event: React.SyntheticEvent | Event,
     newValue: number | number[],
   ) => void;
+  applyLabelsToTimeline: (
+    ids: string[],
+    labels: { name: string; group: string }[],
+  ) => void;
 }
 
 export const TimelineActionSection = forwardRef<
@@ -75,6 +79,7 @@ export const TimelineActionSection = forwardRef<
       performUndo,
       performRedo,
       handleCurrentTime,
+      applyLabelsToTimeline,
     },
     ref,
   ) => {
@@ -124,6 +129,7 @@ export const TimelineActionSection = forwardRef<
           gridRow: '2',
           display: 'grid',
           gridTemplateColumns: '1fr 440px',
+          height: '100%',
           minHeight: 0,
           gap: 1.5,
           p: 1.5,
@@ -134,8 +140,9 @@ export const TimelineActionSection = forwardRef<
           sx={{
             display: 'flex',
             flexDirection: 'column',
-            overflow: 'hidden',
+            overflow: 'auto',
             height: '100%',
+            minHeight: 0,
           }}
         >
           <VisualTimeline
@@ -177,6 +184,8 @@ export const TimelineActionSection = forwardRef<
             addTimelineData={addTimelineData}
             teamNames={teamNames}
             firstTeamName={firstTeamName}
+            selectedIds={selectedTimelineIdList}
+            onApplyLabels={applyLabelsToTimeline}
           />
         </Paper>
       </Box>

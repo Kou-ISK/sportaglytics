@@ -82,6 +82,22 @@ export interface AppSettings {
     showQualifier: boolean;
     textTemplate: string; // e.g. "{actionName} #{index} | {labels} | {qualifier}"
   };
+  /** コーディングパネルのモード/ツールバー設定 */
+  codingPanel?: {
+    defaultMode: 'code' | 'label';
+    toolbars: Array<{
+      id: string;
+      label: string;
+      mode: 'code' | 'label';
+      enabled: boolean;
+      plugin?: 'matrix' | 'script' | 'organizer';
+    }>;
+    actionLinks?: Array<{
+      from: string;
+      to: string;
+      type: 'exclusive' | 'deactivate' | 'activate';
+    }>;
+  };
 }
 
 /**
@@ -119,5 +135,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showLabels: true,
     showQualifier: true,
     textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
+  },
+  codingPanel: {
+    defaultMode: 'code',
+    toolbars: [
+      { id: 'organizer', label: 'オーガナイザー', mode: 'label', enabled: true, plugin: 'organizer' },
+    ],
+    actionLinks: [],
   },
 };

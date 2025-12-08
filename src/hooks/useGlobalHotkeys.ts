@@ -180,27 +180,67 @@ export const useGlobalHotkeys = (
         return;
       }
 
+      let matched = false;
       // 各ホットキーをチェック（修飾キーが多い順）
       for (const hotkey of sortedHotkeys) {
         const modifiers = parseElectronKey(hotkey.key);
         const matches = matchesModifiers(event, modifiers);
 
         if (matches) {
-          console.log(
-            '[useGlobalHotkeys] ✓ KeyUp matched:',
-            hotkey.id,
-            'key:',
-            hotkey.key,
-          );
-
-          // 最新のkeyUpハンドラーを使用
+          matched = true;
           const keyUpHandler = keyUpHandlersRef.current[hotkey.id];
           if (keyUpHandler) {
-            // イベントの伝播を確実に止める
             event.preventDefault();
             event.stopPropagation();
             keyUpHandler();
-            return; // 最初にマッチしたホットキーのみ実行
+            return;
+          }
+        }
+      }
+
+      // 予備: 修飾キーを無視して key のみ一致を許可（Command押下の解除順による取りこぼし対策）
+      const plainKey = event.key.toLowerCase();
+      // 修飾キーの有無に関わらず、キー本体でフォールバック（特にCommand+Rightの解除順対策）
+      if (!matched) {
+        for (const hotkey of sortedHotkeys) {
+          const modifiers = parseElectronKey(hotkey.key);
+          const expectKey = modifiers.key;
+          if (plainKey === expectKey) {
+            const keyUpHandler = keyUpHandlersRef.current[hotkey.id];
+            if (keyUpHandler) {
+              event.preventDefault();
+              event.stopPropagation();
+              keyUpHandler();
+              return;
+            }
+          }
+        }
+      }
+
+      // 速度系の最終フォールバック: Right系またはMeta/Commandキーアップで必ずリセット
+      // macOSではCmdを離すとmetaKey=falseになった状態でkeyupが発火するため
+      // Rightキーだけでなく、Metaキーが離された場合も速度をリセットする
+      const resetIds = [
+        'skip-forward-small',
+        'skip-forward-medium',
+        'skip-forward-large',
+        'skip-forward-xlarge',
+      ];
+      const shouldReset =
+        plainKey === 'arrowright' ||
+        plainKey === 'right' ||
+        plainKey === 'meta' ||
+        event.key === 'Meta' ||
+        event.code === 'MetaLeft' ||
+        event.code === 'MetaRight';
+      if (shouldReset) {
+        for (const id of resetIds) {
+          const h = keyUpHandlersRef.current[id];
+          if (h) {
+            event.preventDefault();
+            event.stopPropagation();
+            h();
+            break;
           }
         }
       }

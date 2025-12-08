@@ -9,24 +9,44 @@ export const useTimelineViewport = ({
   maxSec,
   currentTime,
 }: UseTimelineViewportParams) => {
+  // バー描画領域（実際にバーを置く要素）
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null); // スクロール領域全体（ラベル含む）
+  const [baseWidth, setBaseWidth] = useState(0); // バー描画領域幅のみ
 
   // ズームスケール（1 = 等倍、2 = 2倍拡大）
   const [zoomScale, setZoomScale] = useState(1);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const LABEL_WIDTH = 120;
 
   useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
+    const target = scrollContainerRef.current;
+    if (!target) return;
+    const computeWidth = () => {
+      const style = getComputedStyle(target);
+      const paddingLeft = parseFloat(style.paddingLeft) || 0;
+      const paddingRight = parseFloat(style.paddingRight) || 0;
+      // パネル内に収まるように余白を考慮した幅を計算
+      // ズーム100%時に映像全体が表示される
+      // タイムライン軸の右端 = 映像の終端位置
+      const raw = target.clientWidth - LABEL_WIDTH - paddingLeft - paddingRight;
+      if (raw > 0) {
+        setBaseWidth(raw);
       }
     };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    computeWidth();
+    const resizeObserver = new ResizeObserver(() => computeWidth());
+    resizeObserver.observe(target);
+    return () => resizeObserver.disconnect();
   }, []);
+
+  useEffect(() => {
+    const target = scrollContainerRef.current;
+    if (!target) return;
+    const handleScroll = () => setScrollLeft(target.scrollLeft);
+    target.addEventListener('scroll', handleScroll);
+    return () => target.removeEventListener('scroll', handleScroll);
+  }, [scrollContainerRef]);
 
   // ホイールイベントでズーム
   useEffect(() => {
@@ -54,18 +74,18 @@ export const useTimelineViewport = ({
 
   const timeToPosition = useCallback(
     (time: number) => {
-      if (maxSec <= 0) return 0;
-      return (time / maxSec) * containerWidth * zoomScale;
+      if (maxSec <= 0 || baseWidth <= 0) return 0;
+      return (time / maxSec) * baseWidth * zoomScale;
     },
-    [containerWidth, maxSec, zoomScale],
+    [baseWidth, maxSec, zoomScale],
   );
 
   const positionToTime = useCallback(
     (positionPx: number) => {
-      if (maxSec <= 0 || containerWidth <= 0 || zoomScale <= 0) return 0;
-      return (positionPx / (containerWidth * zoomScale)) * maxSec;
+      if (maxSec <= 0 || baseWidth <= 0 || zoomScale <= 0) return 0;
+      return (positionPx / (baseWidth * zoomScale)) * maxSec;
     },
-    [containerWidth, maxSec, zoomScale],
+    [baseWidth, maxSec, zoomScale],
   );
 
   const currentTimePosition = useMemo(() => {
@@ -77,9 +97,10 @@ export const useTimelineViewport = ({
     containerRef,
     scrollContainerRef,
     zoomScale,
-    containerWidth,
+    containerWidth: baseWidth,
     timeToPosition,
     positionToTime,
     currentTimePosition,
+    scrollLeft,
   };
 };

@@ -178,6 +178,24 @@ export const VideoPlayerApp = () => {
             handleCurrentTime={handleCurrentTime}
             performUndo={performUndo}
             performRedo={performRedo}
+            applyLabelsToTimeline={(ids, labels) => {
+              if (!ids || ids.length === 0) return;
+              ids.forEach((id) => {
+                const target = timeline.find((t) => t.id === id);
+                const current = target?.labels || [];
+                const merged = [...current];
+                labels.forEach((l) => {
+                  if (!merged.find((m) => m.group === l.group && m.name === l.name)) {
+                    merged.push(l);
+                  }
+                });
+                if (bulkUpdateTimelineItems) {
+                  bulkUpdateTimelineItems([id], { labels: merged });
+                } else {
+                  updateTimelineItem(id, { labels: merged });
+                }
+              });
+            }}
           />
         </Box>
       ) : (

@@ -1,10 +1,16 @@
 import React, { forwardRef, useImperativeHandle } from 'react';
-import { Box, Typography, Grid, Button } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Grid,
+  Button,
+} from '@mui/material';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import videojs from 'video.js';
 import { EnhancedCodeButton } from './EnhancedCodeButton';
 import { useActionPreset } from '../../../../contexts/ActionPresetContext';
 import type { ActionDefinition } from '../../../../types/Settings';
+import { useSettings } from '../../../../hooks/useSettings';
 
 interface EnhancedCodePanelProps {
   addTimelineData: (
@@ -18,6 +24,11 @@ interface EnhancedCodePanelProps {
   ) => void;
   teamNames: string[];
   firstTeamName?: string; // タイムラインと色を一致させるための基準チーム名
+  selectedIds?: string[];
+  onApplyLabels?: (
+    ids: string[],
+    labels: { name: string; group: string }[],
+  ) => void;
 }
 
 /**
@@ -35,8 +46,9 @@ export interface EnhancedCodePanelHandle {
 export const EnhancedCodePanel = forwardRef<
   EnhancedCodePanelHandle,
   EnhancedCodePanelProps
->(({ addTimelineData, teamNames, firstTeamName }, ref) => {
+>(({ addTimelineData, teamNames, firstTeamName, selectedIds = [], onApplyLabels }, ref) => {
   const { activeActions } = useActionPreset();
+  const { settings } = useSettings();
 
   // 選択状態
   const [selectedTeam, setSelectedTeam] = React.useState<string | null>(null);
@@ -64,6 +76,44 @@ export const EnhancedCodePanel = forwardRef<
   const [labelSelections, setLabelSelections] = React.useState<
     Record<string, string>
   >({});
+  const [activeMode, setActiveMode] = React.useState<'code' | 'label'>(
+    settings.codingPanel?.defaultMode ?? 'code',
+  );
+  // （ツールバー機能は未使用）
+  const [actionLinks, setActionLinks] = React.useState<
+    {
+      from: string;
+      to: string;
+      type: 'exclusive' | 'deactivate' | 'activate';
+    }[]
+  >(settings.codingPanel?.actionLinks ?? []);
+  const [warning, setWarning] = React.useState<string | null>(null);
+  const recentActionsRef = React.useRef<string[]>([]);
+
+  React.useEffect(() => {
+    if (settings.codingPanel?.actionLinks) {
+      setActionLinks(
+        settings.codingPanel.actionLinks.map((l) => ({
+          from: l.from || l.to || '',
+          to: l.to || '',
+          type: l.type || 'exclusive',
+        })),
+      );
+    }
+    if (settings.codingPanel?.defaultMode) {
+      setActiveMode(settings.codingPanel.defaultMode as 'code' | 'label');
+    }
+  }, [settings.codingPanel]);
+
+  // メニューからのモード切替
+  React.useEffect(() => {
+    if (!globalThis.window.electronAPI?.onCodingModeChange) return;
+    const handler = (mode: 'code' | 'label') => setActiveMode(mode);
+    globalThis.window.electronAPI.onCodingModeChange(handler);
+    return () => {
+      // removeListenerは未実装だが、preloadでremoveAllListenersしているためOK
+    };
+  }, []);
 
   // 現在のビデオ時間を取得
   const getCurrentTime = React.useCallback((): number | null => {
@@ -116,6 +166,11 @@ export const EnhancedCodePanel = forwardRef<
     setSelectedAction(null);
     setLabelSelections({});
     setIsRecording(false);
+
+    // Exclusive/Deactivateリンクの後処理: 完了したアクションとリンクされた相手を履歴から落とす
+    recentActionsRef.current = recentActionsRef.current.filter(
+      (a) => a !== selectedAction,
+    );
   }, [
     selectedTeam,
     selectedAction,
@@ -127,6 +182,39 @@ export const EnhancedCodePanel = forwardRef<
 
   // アクションボタンクリック時の処理
   const handleActionClick = (teamName: string, action: ActionDefinition) => {
+    const relatedLinks = actionLinks.filter(
+      (r) => r.from === action.action || r.to === action.action,
+    );
+    if (relatedLinks.length > 0) {
+      const historySet = new Set(recentActionsRef.current);
+      relatedLinks.forEach((linkRule) => {
+        if (linkRule.type === 'exclusive') {
+          const counterpart =
+            linkRule.from === action.action ? linkRule.to : linkRule.from;
+          if (historySet.has(counterpart)) {
+            setWarning('排他リンク: もう一方を終了します');
+            // 履歴から除外（実際の記録終了処理はcompleteRecordingに任せる）
+            recentActionsRef.current = recentActionsRef.current.filter(
+              (a) => a !== counterpart,
+            );
+          }
+        }
+        if (linkRule.type === 'deactivate' && linkRule.from === action.action) {
+          setWarning(`Deactivate: ${linkRule.to} を終了します`);
+          recentActionsRef.current = recentActionsRef.current.filter(
+            (a) => a !== linkRule.to,
+          );
+        }
+        if (linkRule.type === 'activate' && linkRule.from === action.action) {
+          setWarning(`Activate: ${linkRule.to} も開始します`);
+          recentActionsRef.current = [
+            ...recentActionsRef.current.slice(-10),
+            linkRule.to,
+          ];
+        }
+      });
+    }
+
     const isSameAction =
       selectedTeam === teamName && selectedAction === action.action;
 
@@ -166,6 +254,10 @@ export const EnhancedCodePanel = forwardRef<
         setLabelSelections({});
         setRecordingStartTime(time);
         setIsRecording(true);
+        recentActionsRef.current = [
+          ...recentActionsRef.current.slice(-10),
+          action.action,
+        ];
       }
       return;
     }
@@ -177,6 +269,10 @@ export const EnhancedCodePanel = forwardRef<
       if (time !== null) {
         setRecordingStartTime(time);
         setIsRecording(true);
+        recentActionsRef.current = [
+          ...recentActionsRef.current.slice(-10),
+          action.action,
+        ];
       }
     } else {
       // 別のアクションを初めて選択 -> アクションを選択して記録開始
@@ -187,6 +283,10 @@ export const EnhancedCodePanel = forwardRef<
         setLabelSelections({});
         setRecordingStartTime(time);
         setIsRecording(true);
+        recentActionsRef.current = [
+          ...recentActionsRef.current.slice(-10),
+          action.action,
+        ];
       }
     }
   };
@@ -244,7 +344,11 @@ export const EnhancedCodePanel = forwardRef<
               key={option}
               label={option}
               isSelected={labelSelections[groupName] === option}
-              onClick={() => handleLabelSelect(groupName, option)}
+              onClick={() =>
+                activeMode === 'label'
+                  ? handleApplyLabel(groupName, option)
+                  : handleLabelSelect(groupName, option)
+              }
               size="small"
               color="secondary"
             />
@@ -347,6 +451,31 @@ export const EnhancedCodePanel = forwardRef<
     );
   };
 
+  // ラベルモード用のユニークラベル一覧
+  const allLabelGroups = React.useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    activeActions.forEach((action) => {
+      getActionLabels(action).forEach((group) => {
+        const set = map.get(group.groupName) || new Set<string>();
+        group.options.forEach((opt) => set.add(opt));
+        map.set(group.groupName, set);
+      });
+    });
+    return Array.from(map.entries()).map(([groupName, set]) => ({
+      groupName,
+      options: Array.from(set),
+    }));
+  }, [activeActions, getActionLabels]);
+
+  const handleApplyLabel = (groupName: string, option: string) => {
+    if (!onApplyLabels || selectedIds.length === 0) {
+      setWarning('タイムラインのアクションを選択してください');
+      return;
+    }
+    onApplyLabels(selectedIds, [{ group: groupName, name: option }]);
+    setWarning(null);
+  };
+
   return (
     <Box
       sx={{
@@ -357,14 +486,42 @@ export const EnhancedCodePanel = forwardRef<
         overflowX: 'hidden',
       }}
     >
-      <Grid container spacing={2}>
-        <Grid item xs={6}>
-          {teamNames[0] && renderTeamActions(teamNames[0])}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          mb: 1,
+          flexWrap: 'wrap',
+        }}
+      >
+      </Box>
+
+      {warning && (
+        <Typography color="warning.main" variant="body2" sx={{ mb: 1 }}>
+          {warning}
+        </Typography>
+      )}
+
+      {activeMode === 'label' && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 1 }}>
+          {allLabelGroups.map((group, idx) =>
+            renderLabelGroup(group.groupName, group.options, idx === allLabelGroups.length - 1),
+          )}
+        </Box>
+      )}
+
+      {activeMode === 'code' && (
+        <Grid container spacing={2}>
+          <Grid item xs={6}>
+            {teamNames[0] && renderTeamActions(teamNames[0])}
+          </Grid>
+          <Grid item xs={6}>
+            {teamNames[1] && renderTeamActions(teamNames[1])}
+          </Grid>
         </Grid>
-        <Grid item xs={6}>
-          {teamNames[1] && renderTeamActions(teamNames[1])}
-        </Grid>
-      </Grid>
+      )}
+
     </Box>
   );
 });

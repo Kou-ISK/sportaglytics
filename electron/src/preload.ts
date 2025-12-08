@@ -358,4 +358,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
       callback as unknown as (event: IpcRendererEvent) => void,
     );
   },
+  onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-coding-mode');
+    } catch {
+      // ignore
+    }
+    ipcRenderer.on(
+      'menu-coding-mode',
+      (_event, mode: 'code' | 'label') => callback(mode),
+    );
+  },
 });

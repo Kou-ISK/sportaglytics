@@ -82,6 +82,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     positionToTime,
     currentTimePosition,
   } = useTimelineViewport({ maxSec, currentTime });
+  const axisRef = React.useRef<HTMLDivElement>(null);
   const {
     hoveredItemId,
     focusedItemId,
@@ -109,7 +110,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     onUpdateQualifier,
     onUpdateTimeRange,
   });
-
 
   const groupedByAction = useMemo(() => {
     const groups: Record<string, TimelineData[]> = {};
@@ -163,8 +163,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     timeline,
     selectedIds,
     getSelectionMetrics: () => ({
-      rectLeft:
-        scrollContainerRef.current?.getBoundingClientRect().left ?? 0,
+      rectLeft: scrollContainerRef.current?.getBoundingClientRect().left ?? 0,
       rectTop: scrollContainerRef.current?.getBoundingClientRect().top ?? 0,
       scrollLeft: scrollContainerRef.current?.scrollLeft ?? 0,
       scrollTop: scrollContainerRef.current?.scrollTop ?? 0,
@@ -242,32 +241,46 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     const markers: number[] = [];
     if (maxSec <= 0) return markers;
 
-    // 目盛りの間隔: 動画の長さに応じて調整（より広めに）
-    let interval: number;
-    if (maxSec <= 120) {
-      interval = 15;
-    } else if (maxSec <= 300) {
-      interval = 30;
-    } else if (maxSec <= 600) {
-      interval = 60;
-    } else if (maxSec <= 1800) {
-      interval = 120;
-    } else {
-      interval = 300;
-    }
+    // 映像の総時間に基づいた基本の目盛り間隔を決定
+    // きりの良い5の倍数の秒数を使用（10秒、30秒、1分、5分、10分など）
+    // ズーム100%で画面に収まる適切な数（約8〜15個程度）の目盛りを表示
+    const getBaseInterval = (duration: number): number => {
+      if (duration <= 60) return 10; // 〜1分: 10秒単位
+      if (duration <= 300) return 30; // 〜5分: 30秒単位
+      if (duration <= 600) return 60; // 〜10分: 1分単位
+      if (duration <= 1800) return 300; // 〜30分: 5分単位
+      if (duration <= 3600) return 600; // 〜1時間: 10分単位
+      return 600; // それ以上: 10分単位
+    };
+
+    // ズーム時も5の倍数の間隔を維持
+    // 利用可能な間隔: 5秒, 10秒, 30秒, 1分, 5分, 10分
+    const ALLOWED_INTERVALS = [5, 10, 30, 60, 300, 600];
+
+    const baseInterval = getBaseInterval(maxSec);
+    const targetInterval = baseInterval / zoomScale;
+
+    // targetIntervalに最も近い許可された間隔を選択
+    const interval = ALLOWED_INTERVALS.reduce((prev, curr) =>
+      Math.abs(curr - targetInterval) < Math.abs(prev - targetInterval)
+        ? curr
+        : prev,
+    );
 
     for (let i = 0; i <= maxSec; i += interval) {
       markers.push(i);
     }
     return markers;
-  }, [maxSec]);
+  }, [maxSec, zoomScale]);
 
   const firstTeamName = actionNames[0]?.split(' ')[0];
 
   const selectionActionsVisible = selectedIds.length > 0;
   const selectedStats = useMemo(() => {
     if (selectedIds.length === 0) return null;
-    const selectedItems = timeline.filter((item) => selectedIds.includes(item.id));
+    const selectedItems = timeline.filter((item) =>
+      selectedIds.includes(item.id),
+    );
     const total = selectedItems.reduce(
       (sum, item) => sum + Math.max(0, item.endTime - item.startTime),
       0,
@@ -287,46 +300,46 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   const handleApplyLabel = useCallback(
     (override?: { group: string; name: string }) => {
       if (!onUpdateTimelineItem) return;
-    const group = (override?.group ?? labelGroup).trim();
-    const name = (override?.name ?? labelName).trim();
-    if (!group || !name) return;
+      const group = (override?.group ?? labelGroup).trim();
+      const name = (override?.name ?? labelName).trim();
+      if (!group || !name) return;
 
-    let applied = 0;
-    const uniqueIds = Array.from(new Set(selectedIds));
-    const current = timelineRef.current;
+      let applied = 0;
+      const uniqueIds = Array.from(new Set(selectedIds));
+      const current = timelineRef.current;
 
-    // 事前に全アイテムのラベル配列を計算してから一括適用
-    uniqueIds.forEach((id) => {
-      const item = current.find((t) => t.id === id);
-      if (!item) return;
-      const existing = item.labels ? [...item.labels] : [];
-      const exists = existing.some(
-        (l) => l.group === group && l.name === name,
-      );
-      const updatedLabels = exists
-        ? existing
-        : [...existing, { group, name }];
-      onUpdateTimelineItem(id, { labels: updatedLabels });
-      applied += 1;
-    });
-
-    if (group && name) {
-      setRecentLabels((prev) => {
-        const next = [
-          { group, name },
-          ...prev.filter((l) => !(l.group === group && l.name === name)),
-        ];
-        return next.slice(0, 5);
+      // 事前に全アイテムのラベル配列を計算してから一括適用
+      uniqueIds.forEach((id) => {
+        const item = current.find((t) => t.id === id);
+        if (!item) return;
+        const existing = item.labels ? [...item.labels] : [];
+        const exists = existing.some(
+          (l) => l.group === group && l.name === name,
+        );
+        const updatedLabels = exists
+          ? existing
+          : [...existing, { group, name }];
+        onUpdateTimelineItem(id, { labels: updatedLabels });
+        applied += 1;
       });
-    }
 
-    if (applied > 0) {
-      info(`${applied}件にラベル '${group}: ${name}' を付与しました`);
-    }
-    setLabelGroup(group);
-    setLabelName(name);
-    setLabelDialogOpen(false);
-  },
+      if (group && name) {
+        setRecentLabels((prev) => {
+          const next = [
+            { group, name },
+            ...prev.filter((l) => !(l.group === group && l.name === name)),
+          ];
+          return next.slice(0, 5);
+        });
+      }
+
+      if (applied > 0) {
+        info(`${applied}件にラベル '${group}: ${name}' を付与しました`);
+      }
+      setLabelGroup(group);
+      setLabelName(name);
+      setLabelDialogOpen(false);
+    },
     [info, labelGroup, labelName, onUpdateTimelineItem, selectedIds],
   );
 
@@ -336,7 +349,10 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       const isFormElement =
-        tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'button';
+        tag === 'input' ||
+        tag === 'textarea' ||
+        tag === 'select' ||
+        tag === 'button';
       const isInsideTimeline =
         !!scrollContainerRef.current &&
         !!target &&
@@ -351,7 +367,9 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           const items = [...timeline].sort((a, b) => a.startTime - b.startTime);
           const current = items.find((t) => selectedIds.includes(t.id));
           if (current) {
-            const same = items.filter((t) => t.actionName === current.actionName);
+            const same = items.filter(
+              (t) => t.actionName === current.actionName,
+            );
             const idx = same.findIndex((t) => t.id === current.id);
             if (idx !== -1) {
               const direction: 1 | -1 = e.shiftKey ? -1 : 1;
@@ -385,7 +403,8 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     };
 
     window.addEventListener('keydown', handleKeyDownGlobal, true);
-    return () => window.removeEventListener('keydown', handleKeyDownGlobal, true);
+    return () =>
+      window.removeEventListener('keydown', handleKeyDownGlobal, true);
   }, [selectedIds, timeline, onSelectionChange, onSeek, onRedo, onUndo]);
 
   const handleBackgroundClick = useCallback(
@@ -522,6 +541,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
+        minHeight: 0,
         overflow: 'hidden',
         position: 'relative',
       }}
@@ -535,9 +555,9 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
             top: 8,
             right: 16,
             zIndex: 20,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
             bgcolor: 'background.paper',
             px: 1.25,
             py: 0.75,
@@ -552,7 +572,8 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           </Typography>
           {selectedStats && (
             <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-              合計 {formatTime(selectedStats.total)} / 平均 {formatTime(selectedStats.avg)}
+              合計 {formatTime(selectedStats.total)} / 平均{' '}
+              {formatTime(selectedStats.avg)}
             </Typography>
           )}
           <Button
@@ -661,20 +682,49 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         </Box>
       )}
 
-      <Box
-        sx={{ position: 'relative', flex: 1 }}
-      >
+      <Box sx={{ position: 'relative', flex: 1, minHeight: 0 }}>
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 5,
+            backgroundColor: 'background.paper',
+            px: 1.5,
+            pt: 0,
+            pb: 0,
+            mb: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <TimelineAxis
+            axisRef={axisRef}
+            maxSec={maxSec}
+            currentTimePosition={currentTimePosition}
+            contentWidth={containerWidth}
+            zoomScale={zoomScale}
+            timeMarkers={timeMarkers}
+            timeToPosition={timeToPosition}
+            positionToTime={positionToTime}
+            onSeek={onSeek}
+            formatTime={formatTime}
+          />
+        </Box>
+
         <Box
           ref={scrollContainerRef}
           sx={{
             position: 'relative',
             flex: 1,
+            minHeight: 0,
+            maxHeight: '100%',
             overflowY: 'auto',
-            overflowX: zoomScale > 1 ? 'auto' : 'hidden',
-            px: 2,
-            pt: 2,
-            pb: 2,
+            overflowX: 'auto',
+            px: 1.5,
+            pt: 0,
+            pb: 3.5,
             height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -683,20 +733,14 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         >
           <Box
             sx={{
+              width:
+                containerWidth > 0 ? `${containerWidth * zoomScale}px` : '100%',
               minWidth:
                 containerWidth > 0 ? `${containerWidth * zoomScale}px` : '100%',
+              flexShrink: 0,
             }}
+            ref={containerRef}
           >
-            <TimelineAxis
-              containerRef={containerRef}
-              maxSec={maxSec}
-              currentTimePosition={currentTimePosition}
-              timeMarkers={timeMarkers}
-              timeToPosition={timeToPosition}
-              onSeek={onSeek}
-              formatTime={formatTime}
-            />
-
             {actionNames.map((actionName) => (
               <TimelineLane
                 key={actionName}
@@ -715,13 +759,15 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
                 firstTeamName={firstTeamName}
                 onSeek={onSeek}
                 maxSec={maxSec}
-            onUpdateTimeRange={onUpdateTimeRange}
-            onMoveItem={handleMoveItems}
-            laneRef={(el) => {
-              laneRefs.current[actionName] = el;
-            }}
-          />
-        ))}
+                onUpdateTimeRange={onUpdateTimeRange}
+                onMoveItem={handleMoveItems}
+                laneRef={(el) => {
+                  laneRefs.current[actionName] = el;
+                }}
+                contentWidth={containerWidth}
+                zoomScale={zoomScale}
+              />
+            ))}
 
             {timeline.length === 0 && (
               <Box
@@ -791,7 +837,8 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            選択中 {selectedIds.length} 件に同じラベルを付与します。入力は次回も保持されるので連続付与が素早く行えます。
+            選択中 {selectedIds.length}{' '}
+            件に同じラベルを付与します。入力は次回も保持されるので連続付与が素早く行えます。
           </Typography>
           <TextField
             label="グループ"
@@ -893,8 +940,16 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
             }
           >
             <FormControlLabel value="all" control={<Radio />} label="全て" />
-            <FormControlLabel value="angle1" control={<Radio />} label="アングル1" />
-            <FormControlLabel value="angle2" control={<Radio />} label="アングル2" />
+            <FormControlLabel
+              value="angle1"
+              control={<Radio />}
+              label="アングル1"
+            />
+            <FormControlLabel
+              value="angle2"
+              control={<Radio />}
+              label="アングル2"
+            />
           </RadioGroup>
           <TextField
             select

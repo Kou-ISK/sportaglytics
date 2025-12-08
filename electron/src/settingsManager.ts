@@ -47,6 +47,15 @@ const DEFAULT_SETTINGS: AppSettings = {
     showQualifier: true,
     textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
   },
+  codingPanel: {
+    defaultMode: 'code',
+    toolbars: [
+      { id: 'matrix', label: 'マトリクス', mode: 'code', enabled: true, plugin: 'matrix' },
+      { id: 'script', label: 'スクリプト実行', mode: 'code', enabled: true, plugin: 'script' },
+      { id: 'organizer', label: 'オーガナイザー', mode: 'label', enabled: true, plugin: 'organizer' },
+    ],
+    actionLinks: [],
+  },
 };
 
 /**
@@ -85,6 +94,24 @@ export const loadSettings = async (): Promise<AppSettings> => {
       overlayClip: {
         ...DEFAULT_SETTINGS.overlayClip,
         ...(parsed.overlayClip ?? {}),
+      },
+      codingPanel: {
+        ...DEFAULT_SETTINGS.codingPanel,
+        ...(parsed.codingPanel ?? {}),
+        defaultMode:
+          parsed.codingPanel?.defaultMode ??
+          DEFAULT_SETTINGS.codingPanel?.defaultMode ??
+          'code',
+        toolbars:
+          parsed.codingPanel?.toolbars?.filter(
+            (t) => t.mode === 'code' || t.mode === 'label',
+          ) ??
+          DEFAULT_SETTINGS.codingPanel?.toolbars ??
+          [],
+        actionLinks:
+          parsed.codingPanel?.actionLinks ??
+          DEFAULT_SETTINGS.codingPanel?.actionLinks ??
+          [],
       },
     };
 

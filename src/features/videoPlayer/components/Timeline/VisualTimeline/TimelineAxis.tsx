@@ -3,38 +3,51 @@ import { Box, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 interface TimelineAxisProps {
-  containerRef: React.RefObject<HTMLDivElement>;
+  axisRef: React.RefObject<HTMLDivElement>;
   maxSec: number;
   currentTimePosition: number;
+  contentWidth: number;
+  zoomScale: number;
   timeMarkers: number[];
   timeToPosition: (time: number) => number;
-  onSeek: (time: number) => void; // マウスイベントではなく時間を直接受け取る
+  positionToTime: (px: number) => number;
+  onSeek: (time: number) => void;
   formatTime: (seconds: number) => string;
 }
 
 export const TimelineAxis: React.FC<TimelineAxisProps> = ({
-  containerRef,
+  axisRef,
   maxSec,
   currentTimePosition,
+  contentWidth,
+  zoomScale,
   timeMarkers,
   timeToPosition,
+  positionToTime,
   onSeek,
   formatTime,
 }) => {
   const theme = useTheme();
+  const LABEL_WIDTH = 120;
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
   const rafIdRef = useRef<number | null>(null);
 
-  // マウスイベントから時間を計算してonSeekを呼び出す
+  // 軸の幅（TimelineLaneと同じ計算）
+  const axisWidth = contentWidth * zoomScale;
+
   const handleSeekFromMouseEvent = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const clickX = event.clientX - rect.left;
-      const time = (clickX / rect.width) * maxSec;
+      const container = axisRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const clickX = Math.max(
+        0,
+        Math.min(event.clientX - rect.left, axisWidth),
+      );
+      const time = positionToTime(clickX);
       onSeek(Math.max(0, Math.min(time, maxSec)));
     },
-    [containerRef, maxSec, onSeek],
+    [axisRef, axisWidth, positionToTime, maxSec, onSeek],
   );
 
   const handlePlayheadMouseDown = useCallback(
@@ -43,28 +56,23 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       setIsDraggingPlayhead(true);
 
       const handleMouseMove = (e: MouseEvent) => {
-        // requestAnimationFrameでスロットリング
-        if (rafIdRef.current !== null) {
-          return; // すでにフレーム処理がスケジュールされている
-        }
+        if (rafIdRef.current !== null) return;
 
         rafIdRef.current = requestAnimationFrame(() => {
           rafIdRef.current = null;
-
-          if (!containerRef.current) return;
-          const rect = containerRef.current.getBoundingClientRect();
+          if (!axisRef.current) return;
+          const rect = axisRef.current.getBoundingClientRect();
           const clickX = Math.max(
             0,
-            Math.min(e.clientX - rect.left, rect.width),
+            Math.min(e.clientX - rect.left, axisWidth),
           );
-          const time = (clickX / rect.width) * maxSec;
+          const time = positionToTime(clickX);
           onSeek(Math.max(0, Math.min(time, maxSec)));
         });
       };
 
       const handleMouseUp = () => {
         setIsDraggingPlayhead(false);
-        // クリーンアップ: 未完了のrequestAnimationFrameをキャンセル
         if (rafIdRef.current !== null) {
           cancelAnimationFrame(rafIdRef.current);
           rafIdRef.current = null;
@@ -76,7 +84,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     },
-    [containerRef, maxSec, onSeek],
+    [axisRef, axisWidth, positionToTime, maxSec, onSeek],
   );
 
   return (
@@ -84,24 +92,28 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1,
-        mb: 2,
+        gap: 0,
+        mb: 0,
+        pt: 0.25,
+        position: 'relative',
       }}
     >
-      <Box sx={{ width: 120, flexShrink: 0 }} />
-
+      <Box sx={{ width: LABEL_WIDTH, flexShrink: 0 }} />
       <Box
-        ref={containerRef}
+        ref={axisRef}
         onClick={handleSeekFromMouseEvent}
         sx={{
           position: 'relative',
-          flex: 1,
-          height: 40,
+          width: `${axisWidth}px`,
+          minWidth: `${axisWidth}px`,
+          boxSizing: 'border-box',
+          height: 16,
           backgroundColor:
             theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
           borderRadius: 1,
           cursor: 'pointer',
           userSelect: 'none',
+          overflow: 'hidden',
           '&:hover': {
             backgroundColor:
               theme.palette.mode === 'dark' ? 'grey.800' : 'grey.200',
@@ -120,13 +132,13 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
               borderColor: 'divider',
               display: 'flex',
               alignItems: 'flex-end',
-              pb: 0.5,
+              pb: 0.25,
             }}
           >
             <Typography
               variant="caption"
               sx={{
-                fontSize: '0.65rem',
+                fontSize: '0.6rem',
                 transform: 'translateX(-50%)',
                 color: 'text.secondary',
                 userSelect: 'none',
@@ -141,7 +153,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
           onMouseDown={handlePlayheadMouseDown}
           sx={{
             position: 'absolute',
-            left: `${currentTimePosition}px`,
+            left: `${Math.min(currentTimePosition, axisWidth - 2)}px`,
             top: 0,
             bottom: 0,
             width: 2,

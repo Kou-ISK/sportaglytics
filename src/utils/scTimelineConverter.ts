@@ -196,8 +196,9 @@ export const convertFromSCTimeline = (
 export const normalizeTimelineData = (data: TimelineData): TimelineData => {
   if (data.labels && data.labels.length > 0) {
     // labels配列が存在する場合、actionType/actionResultフィールドを削除
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { actionType, actionResult, ...rest } = data;
+    const rest: TimelineData = { ...data };
+    delete (rest as Partial<TimelineData>).actionType;
+    delete (rest as Partial<TimelineData>).actionResult;
     return rest;
   }
 
@@ -210,8 +211,9 @@ export const normalizeTimelineData = (data: TimelineData): TimelineData => {
   }
 
   // actionType/actionResultフィールドを除外し、labels配列を追加
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { actionType, actionResult, ...rest } = data;
+  const rest: TimelineData = { ...data };
+  delete (rest as Partial<TimelineData>).actionType;
+  delete (rest as Partial<TimelineData>).actionResult;
   return {
     ...rest,
     labels,

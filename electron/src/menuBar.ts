@@ -128,6 +128,34 @@ export const menuBar = Menu.buildFromTemplate([
       { role: 'zoomOut', label: '縮小' },
       { type: 'separator' },
       { role: 'togglefullscreen', label: 'フルスクリーン' },
+      { type: 'separator' },
+      {
+        label: 'コーディングモード',
+        submenu: [
+          {
+            label: 'コード',
+            type: 'radio',
+            checked: true,
+            click: (_item, browserWindow) => {
+              (browserWindow as BrowserWindow)?.webContents.send(
+                'menu-coding-mode',
+                'code',
+              );
+            },
+          },
+          {
+            label: 'ラベル',
+            type: 'radio',
+            checked: false,
+            click: (_item, browserWindow) => {
+              (browserWindow as BrowserWindow)?.webContents.send(
+                'menu-coding-mode',
+                'label',
+              );
+            },
+          },
+        ],
+      },
     ],
   },
   {

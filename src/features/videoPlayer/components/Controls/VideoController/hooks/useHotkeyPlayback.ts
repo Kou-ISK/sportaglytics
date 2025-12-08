@@ -28,12 +28,12 @@ interface UseHotkeyPlaybackOptions {
  * ホットキー処理は VideoPlayerApp.tsx の useGlobalHotkeys で行われます。
  */
 export const useHotkeyPlayback = (
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _options: UseHotkeyPlaybackOptions,
+  options: UseHotkeyPlaybackOptions,
 ) => {
   useEffect(() => {
     console.log(
       '[HOTKEY] useHotkeyPlayback is deprecated. Hotkeys are handled by useGlobalHotkeys.',
+      options,
     );
   }, []);
 };

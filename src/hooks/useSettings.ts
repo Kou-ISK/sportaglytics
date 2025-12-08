@@ -28,6 +28,22 @@ export const useSettings = () => {
           ...DEFAULT_SETTINGS.overlayClip,
           ...(loaded as Partial<AppSettings>).overlayClip,
         },
+        codingPanel: {
+          ...DEFAULT_SETTINGS.codingPanel,
+          ...(loaded as Partial<AppSettings>).codingPanel,
+          defaultMode:
+            (loaded as Partial<AppSettings>).codingPanel?.defaultMode ??
+            DEFAULT_SETTINGS.codingPanel?.defaultMode ??
+            'code',
+          toolbars:
+            (loaded as Partial<AppSettings>).codingPanel?.toolbars?.filter(
+              (t) => t.mode === 'code' || t.mode === 'label',
+            ) ?? DEFAULT_SETTINGS.codingPanel?.toolbars ?? [],
+          actionLinks:
+            (loaded as Partial<AppSettings>).codingPanel?.actionLinks ??
+            DEFAULT_SETTINGS.codingPanel?.actionLinks ??
+            [],
+        },
       };
       setSettings(merged);
     } catch (err) {
@@ -77,6 +93,22 @@ export const useSettings = () => {
         overlayClip: {
           ...DEFAULT_SETTINGS.overlayClip,
           ...(defaultSettings as Partial<AppSettings>).overlayClip,
+        },
+        codingPanel: {
+          ...DEFAULT_SETTINGS.codingPanel,
+          ...(defaultSettings as Partial<AppSettings>).codingPanel,
+          defaultMode:
+            (defaultSettings as Partial<AppSettings>).codingPanel?.defaultMode ??
+            DEFAULT_SETTINGS.codingPanel?.defaultMode ??
+            'code',
+          toolbars:
+            (defaultSettings as Partial<AppSettings>).codingPanel?.toolbars?.filter(
+              (t) => t.mode === 'code' || t.mode === 'label',
+            ) ?? DEFAULT_SETTINGS.codingPanel?.toolbars ?? [],
+          actionLinks:
+            (defaultSettings as Partial<AppSettings>).codingPanel?.actionLinks ??
+            DEFAULT_SETTINGS.codingPanel?.actionLinks ??
+            [],
         },
       };
       setSettings(merged);

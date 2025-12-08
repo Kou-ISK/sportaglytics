@@ -22,6 +22,8 @@ interface TimelineLaneProps {
   maxSec: number;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
   laneRef?: (el: HTMLDivElement | null) => void;
+  contentWidth?: number;
+  zoomScale: number;
 }
 
 export const TimelineLane: React.FC<TimelineLaneProps> = ({
@@ -43,6 +45,8 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
   maxSec,
   onUpdateTimeRange,
   laneRef,
+  contentWidth,
+  zoomScale,
 }) => {
   const theme = useTheme();
   const teamName = actionName.split(' ')[0];
@@ -152,8 +156,10 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1,
+        gap: 0,
         position: 'relative',
+        minHeight: 32,
+        width: '100%',
       }}
     >
       <Typography
@@ -165,8 +171,8 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
           width: 120,
           flexShrink: 0,
           textAlign: 'right',
-          pr: 1,
           userSelect: 'none',
+          lineHeight: 1.1,
         }}
       >
         {actionName}
@@ -176,13 +182,24 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
         ref={containerRef}
         sx={{
           position: 'relative',
-          height: 32,
+          height: 26,
           flex: 1,
+          flexShrink: 0,
           backgroundColor: theme.custom.rails.laneBg,
           borderRadius: 1,
           border: 1,
           borderColor: 'divider',
           userSelect: 'none',
+          mb: 0,
+          width:
+            contentWidth !== undefined
+              ? `${contentWidth * zoomScale}px`
+              : '100%',
+          minWidth:
+            contentWidth !== undefined
+              ? `${contentWidth * zoomScale}px`
+              : '100%',
+          overflow: 'hidden',
         }}
         onDragOver={(event) => {
           if (onMoveItem) {
@@ -201,9 +218,13 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
         }}
       >
         {items.map((item) => {
-          const left = timeToPosition(item.startTime);
-          const right = timeToPosition(item.endTime);
-          const width = Math.max(2, right - left);
+          const totalWidth =
+            contentWidth !== undefined
+              ? contentWidth * zoomScale
+              : Math.max(timeToPosition(maxSec), 0);
+          const left = Math.max(0, Math.min(timeToPosition(item.startTime), totalWidth));
+          const right = Math.max(0, Math.min(timeToPosition(item.endTime), totalWidth));
+          const width = Math.max(4, right - left);
           const isSelected = selectedIds.includes(item.id);
           const isHovered = hoveredItemId === item.id;
           const isFocused = focusedItemId === item.id;
@@ -291,8 +312,8 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
                   position: 'absolute',
                   left: `${left}px`,
                   width: `${width}px`,
-                  top: 4,
-                  bottom: 4,
+                  top: 1,
+                  bottom: 1,
                   backgroundColor: barBgColor,
                   opacity: barOpacity,
                   filter: isSelected ? 'brightness(0.86)' : 'none',

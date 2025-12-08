@@ -116,10 +116,9 @@ export const useTimelineEditing = (
             updatedLabels.push({ name: actionResult, group: 'actionResult' });
           }
 
-          // actionResultフィールドを除外し、labels配列のみを更新
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { actionResult: _removedActionResult, ...rest } = item;
-          return { ...rest, labels: updatedLabels };
+          const next = { ...item, labels: updatedLabels };
+          delete (next as Partial<typeof item>).actionResult;
+          return next;
         });
         console.debug(
           '[useTimelineEditing] Timeline after updateActionResult:',
@@ -158,10 +157,9 @@ export const useTimelineEditing = (
             updatedLabels.push({ name: actionType, group: 'actionType' });
           }
 
-          // actionTypeフィールドを除外し、labels配列のみを更新
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { actionType: _removedActionType, ...rest } = item;
-          return { ...rest, labels: updatedLabels };
+          const next = { ...item, labels: updatedLabels };
+          delete (next as Partial<typeof item>).actionType;
+          return next;
         });
         console.debug(
           '[useTimelineEditing] Timeline after updateActionType:',

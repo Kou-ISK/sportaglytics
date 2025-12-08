@@ -86,6 +86,7 @@ export interface IElectronAPI {
   readTextFile: (filePath: string) => Promise<string | null>;
   onExportTimeline: (callback: (format: string) => void) => void;
   onImportTimeline: (callback: () => void) => void;
+  onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => void;
 }
 
 export interface PackageDatas {
