@@ -8,6 +8,7 @@ import { UnsavedChangesDialog } from './settings/components/UnsavedChangesDialog
 
 export interface SettingsTabHandle {
   hasUnsavedChanges: () => boolean;
+  save?: () => Promise<boolean>;
 }
 
 export const SettingsPage: React.FC = () => {
@@ -17,6 +18,7 @@ export const SettingsPage: React.FC = () => {
   const generalRef = useRef<SettingsTabHandle>(null);
   const presetRef = useRef<SettingsTabHandle>(null);
   const hotkeyRef = useRef<SettingsTabHandle>(null);
+  const codeWindowRef = useRef<SettingsTabHandle>(null);
 
   const checkUnsavedChanges = (tabIndex: number): boolean => {
     switch (tabIndex) {
@@ -26,12 +28,20 @@ export const SettingsPage: React.FC = () => {
         return presetRef.current?.hasUnsavedChanges() || false;
       case 2:
         return hotkeyRef.current?.hasUnsavedChanges() || false;
+      case 3:
+        return codeWindowRef.current?.hasUnsavedChanges() || false;
       default:
         return false;
     }
   };
 
-  const { currentTab, requestTabChange, confirmDialogOpen, confirmSwitch, cancelSwitch } = useUnsavedTabSwitch({
+  const {
+    currentTab,
+    requestTabChange,
+    confirmDialogOpen,
+    confirmSwitch,
+    cancelSwitch,
+  } = useUnsavedTabSwitch({
     hasUnsavedChanges: checkUnsavedChanges,
   });
 
@@ -70,6 +80,7 @@ export const SettingsPage: React.FC = () => {
           generalRef={generalRef}
           presetRef={presetRef}
           hotkeyRef={hotkeyRef}
+          codeWindowRef={codeWindowRef}
         />
       </Container>
 

@@ -55,6 +55,110 @@ export interface HotkeyConfig {
 }
 
 /**
+ * コードウィンドウのボタン配置設定
+ */
+export interface CodeWindowButton {
+  /** ボタンの一意なID */
+  id: string;
+  /** ボタンの種類 */
+  type: 'action' | 'label';
+  /** アクション名またはラベルグループ名 */
+  name: string;
+  /** ラベルボタンの場合のラベル値 */
+  labelValue?: string;
+  /** X座標（ピクセル） */
+  x: number;
+  /** Y座標（ピクセル） */
+  y: number;
+  /** 幅（ピクセル） */
+  width: number;
+  /** 高さ（ピクセル） */
+  height: number;
+  /** ボタンの背景色 */
+  color?: string;
+  /** ボタンのテキスト色 */
+  textColor?: string;
+  /** テキスト配置 */
+  textAlign?: 'left' | 'center' | 'right';
+  /** 角丸（ピクセル） */
+  borderRadius?: number;
+  /** ホットキー（例: "a", "1", "Shift+B"） */
+  hotkey?: string;
+  /** このボタンが属するチーム（'team1', 'team2', 'shared'） */
+  team?: 'team1' | 'team2' | 'shared';
+  /** グループID（同じIDのボタンをグループ化） */
+  groupId?: string;
+}
+
+/**
+ * ボタン間のリンク設定
+ */
+export interface ButtonLink {
+  /** リンクの一意なID */
+  id: string;
+  /** リンク元のボタンID */
+  fromButtonId: string;
+  /** リンク先のボタンID */
+  toButtonId: string;
+  /** リンクの種類 */
+  type: 'exclusive' | 'deactivate' | 'activate' | 'sequence';
+}
+
+/**
+ * アクションリンク設定（後方互換性のため残す）
+ */
+export interface ActionLink {
+  /** リンクの一意なID */
+  id: string;
+  /** リンク元のアクション/ラベル */
+  from: string;
+  /** リンク先のアクション/ラベル */
+  to: string;
+  /** リンクの種類 */
+  type: 'exclusive' | 'deactivate' | 'activate';
+  /** リンクの説明 */
+  description?: string;
+}
+
+/**
+ * コードウィンドウレイアウト設定
+ */
+export interface CodeWindowLayout {
+  /** レイアウトの一意なID */
+  id: string;
+  /** レイアウト名 */
+  name: string;
+  /** キャンバス幅（ピクセル） */
+  canvasWidth: number;
+  /** キャンバス高さ（ピクセル） */
+  canvasHeight: number;
+  /** ボタン配置 */
+  buttons: CodeWindowButton[];
+  /** ボタン間のリンク */
+  buttonLinks?: ButtonLink[];
+  /** チーム別に分離表示するか */
+  splitByTeam?: boolean;
+  /** チーム1の表示領域 */
+  team1Area?: TeamArea;
+  /** チーム2の表示領域 */
+  team2Area?: TeamArea;
+}
+
+/**
+ * チームエリアの定義
+ */
+export interface TeamArea {
+  /** X座標（ピクセル） */
+  x: number;
+  /** Y座標（ピクセル） */
+  y: number;
+  /** 幅（ピクセル） */
+  width: number;
+  /** 高さ（ピクセル） */
+  height: number;
+}
+
+/**
  * テーマモード
  */
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -92,11 +196,11 @@ export interface AppSettings {
       enabled: boolean;
       plugin?: 'matrix' | 'script' | 'organizer';
     }>;
-    actionLinks?: Array<{
-      from: string;
-      to: string;
-      type: 'exclusive' | 'deactivate' | 'activate';
-    }>;
+    actionLinks?: ActionLink[];
+    /** コードウィンドウのレイアウト設定 */
+    layouts?: CodeWindowLayout[];
+    /** アクティブなレイアウトID */
+    activeLayoutId?: string;
   };
 }
 
@@ -139,7 +243,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   codingPanel: {
     defaultMode: 'code',
     toolbars: [
-      { id: 'organizer', label: 'オーガナイザー', mode: 'label', enabled: true, plugin: 'organizer' },
+      {
+        id: 'organizer',
+        label: 'オーガナイザー',
+        mode: 'label',
+        enabled: true,
+        plugin: 'organizer',
+      },
     ],
     actionLinks: [],
   },
