@@ -30,6 +30,10 @@ interface TimelineActionSectionProps {
     startTime: number,
     endTime: number,
     qualifier: string,
+    actionType?: string,
+    actionResult?: string,
+    labels?: Array<{ name: string; group: string }>,
+    color?: string,
   ) => void;
   deleteTimelineDatas: (ids: string[]) => void;
   updateQualifier: (id: string, qualifier: string) => void;

@@ -230,8 +230,8 @@ export const ButtonPropertiesEditor: React.FC<ButtonPropertiesEditorProps> = ({
               label="ボタン名（自由入力）"
               value={button.name}
               onChange={(e) => handleChange('name', e.target.value)}
-              placeholder="例: Team A ポゼッション, Attack"
-              helperText="チーム名を含めたカスタム名を入力可能"
+              placeholder="例: ${Team1} タックル, ${Team2} ポゼッション"
+              helperText="プレースホルダー ${Team1}, ${Team2} を使うと、パッケージのチーム名に自動置換されます"
               sx={{ mb: 2 }}
             />
           </>

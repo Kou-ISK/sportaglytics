@@ -19,4 +19,9 @@ export type TimelineData = {
    * 存在する場合、actionType/actionResultよりも優先される
    */
   labels?: SCLabel[];
+  /**
+   * タイムライン行の表示色（アクションボタンの色）
+   * 指定がない場合はチーム色が使用される
+   */
+  color?: string;
 };

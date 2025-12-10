@@ -10,6 +10,10 @@ interface CodePanelProps {
     startTime: number,
     endTime: number,
     qualifier: string,
+    actionType?: string,
+    actionResult?: string,
+    labels?: Array<{ name: string; group: string }>,
+    color?: string,
   ) => void;
   teamNames: string[];
   setTeamNames: Dispatch<SetStateAction<string[]>>;

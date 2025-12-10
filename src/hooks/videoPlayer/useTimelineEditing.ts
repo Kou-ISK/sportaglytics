@@ -11,6 +11,7 @@ export interface TimelineEditingHandlers {
     actionType?: string,
     actionResult?: string,
     labels?: Array<{ name: string; group: string }>,
+    color?: string,
   ) => void;
   deleteTimelineDatas: (idList: string[]) => void;
   updateQualifier: (id: string, qualifier: string) => void;
@@ -46,6 +47,7 @@ export const useTimelineEditing = (
       actionType?: string,
       actionResult?: string,
       labels?: Array<{ name: string; group: string }>,
+      color?: string,
     ) => {
       // labels配列が渡された場合はそれを使用、なければactionType/actionResultから生成
       const finalLabels: Array<{ name: string; group: string }> = [];
@@ -60,15 +62,24 @@ export const useTimelineEditing = (
         }
       }
 
-      const newTimelineInstance: TimelineData = {
-        id: ulid(),
-        actionName,
-        startTime,
-        endTime,
-        qualifier,
-        labels: finalLabels.length > 0 ? finalLabels : undefined,
-      };
-      setTimeline((prev) => [...prev, newTimelineInstance]);
+      setTimeline((prev) => {
+        // 同じアクション名の既存アイテムがあれば、その色を引き継ぐ（行単位の色管理）
+        const existingItem = prev.find(
+          (item) => item.actionName === actionName,
+        );
+        const finalColor = existingItem?.color ?? color;
+
+        const newTimelineInstance: TimelineData = {
+          id: ulid(),
+          actionName,
+          startTime,
+          endTime,
+          qualifier,
+          labels: finalLabels.length > 0 ? finalLabels : undefined,
+          color: finalColor,
+        };
+        return [...prev, newTimelineInstance];
+      });
     },
     [setTimeline],
   );
@@ -218,7 +229,9 @@ export const useTimelineEditing = (
   const bulkUpdateTimelineItems = useCallback(
     (ids: string[], updates: Partial<Omit<TimelineData, 'id'>>) => {
       setTimeline((prev) =>
-        prev.map((item) => (ids.includes(item.id) ? { ...item, ...updates } : item)),
+        prev.map((item) =>
+          ids.includes(item.id) ? { ...item, ...updates } : item,
+        ),
       );
     },
     [setTimeline],

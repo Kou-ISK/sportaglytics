@@ -10,6 +10,10 @@ import type {
   CodeWindowButton,
 } from '../../../../types/Settings';
 import { useSettings } from '../../../../hooks/useSettings';
+import {
+  replaceTeamPlaceholders,
+  type TeamContext,
+} from '../../../../utils/teamPlaceholder';
 
 interface EnhancedCodePanelProps {
   addTimelineData: (
@@ -20,6 +24,7 @@ interface EnhancedCodePanelProps {
     actionType?: string,
     actionResult?: string,
     labels?: Array<{ name: string; group: string }>,
+    color?: string,
   ) => void;
   teamNames: string[];
   firstTeamName?: string; // タイムラインと色を一致させるための基準チーム名
@@ -59,6 +64,15 @@ export const EnhancedCodePanel = forwardRef<
     const { activeActions } = useActionPreset();
     const { settings } = useSettings();
 
+    // チーム名コンテキスト（プレースホルダー置換用）
+    const teamContext: TeamContext = useMemo(
+      () => ({
+        team1Name: teamNames[0] || 'Team1',
+        team2Name: teamNames[1] || 'Team2',
+      }),
+      [teamNames],
+    );
+
     // カスタムレイアウトを取得
     const customLayout = useMemo((): CodeWindowLayout | null => {
       if (
@@ -79,11 +93,19 @@ export const EnhancedCodePanel = forwardRef<
     const [selectedAction, setSelectedAction] = React.useState<string | null>(
       null,
     );
+    // 選択中のアクションの色（タイムラインに反映）
+    const [selectedActionColor, setSelectedActionColor] = React.useState<
+      string | undefined
+    >(undefined);
     const [isRecording, setIsRecording] = React.useState(false);
     const [recordingStartTime, setRecordingStartTime] =
       React.useState<number>(0);
     // Activateリンクで同時に記録するターゲット
     const [activateTargets, setActivateTargets] = React.useState<string[]>([]);
+    // Activateリンクターゲットの色
+    const [activateTargetColors, setActivateTargetColors] = React.useState<
+      Record<string, string | undefined>
+    >({});
 
     // 外部から呼び出せるメソッドを公開
     useImperativeHandle(ref, () => ({
@@ -163,7 +185,7 @@ export const EnhancedCodePanel = forwardRef<
 
     // 記録完了してタイムラインに追加
     const completeRecording = React.useCallback(() => {
-      if (!selectedAction || !selectedTeam) return;
+      if (!selectedAction) return;
 
       const endTime = getCurrentTime();
       if (endTime === null) return;
@@ -173,7 +195,8 @@ export const EnhancedCodePanel = forwardRef<
           ? [recordingStartTime, endTime]
           : [endTime, recordingStartTime];
 
-      const fullActionName = `${selectedTeam} ${selectedAction}`;
+      // selectedActionにはボタン名全体が入っているのでそのまま使用
+      const fullActionName = selectedAction;
 
       // labelSelectionsからlabels配列を生成
       const labels = Object.entries(labelSelections).map(([group, name]) => ({
@@ -181,7 +204,7 @@ export const EnhancedCodePanel = forwardRef<
         group,
       }));
 
-      // メインアクションをタイムラインに追加
+      // メインアクションをタイムラインに追加（色付き）
       addTimelineData(
         fullActionName,
         begin,
@@ -190,31 +213,32 @@ export const EnhancedCodePanel = forwardRef<
         undefined,
         undefined,
         labels.length > 0 ? labels : undefined,
+        selectedActionColor,
       );
 
-      // Activateリンクのターゲットも同じ時間範囲で追加
+      // Activateリンクのターゲットも同じ時間範囲で追加（ターゲットの色付き）
+      // ターゲット名（ボタン名）をそのまま使用
       activateTargets.forEach((targetName) => {
-        // ターゲット名にチーム名が含まれていない場合は選択中のチームを付与
-        const targetFullName = targetName.includes(' ')
-          ? targetName
-          : `${selectedTeam} ${targetName}`;
         addTimelineData(
-          targetFullName,
+          targetName,
           begin,
           end,
           '',
           undefined,
           undefined,
           undefined,
+          activateTargetColors[targetName],
         );
       });
 
       // 選択状態をリセット
       setSelectedTeam(null);
       setSelectedAction(null);
+      setSelectedActionColor(undefined);
       setLabelSelections({});
       setIsRecording(false);
       setActivateTargets([]);
+      setActivateTargetColors({});
 
       // Exclusive/Deactivateリンクの後処理: 完了したアクションとリンクされた相手を履歴から落とす
       recentActionsRef.current = recentActionsRef.current.filter(
@@ -223,11 +247,13 @@ export const EnhancedCodePanel = forwardRef<
     }, [
       selectedTeam,
       selectedAction,
+      selectedActionColor,
       labelSelections,
       recordingStartTime,
       getCurrentTime,
       addTimelineData,
       activateTargets,
+      activateTargetColors,
     ]);
 
     // ボタンIDからボタン名を取得するヘルパー
@@ -240,7 +266,21 @@ export const EnhancedCodePanel = forwardRef<
       [customLayout],
     );
 
+    // ボタン名から色を取得するヘルパー（プレースホルダー置換後の名前で検索）
+    const getButtonColorByName = React.useCallback(
+      (buttonName: string): string | undefined => {
+        if (!customLayout) return undefined;
+        const button = customLayout.buttons.find(
+          (b) => replaceTeamPlaceholders(b.name, teamContext) === buttonName,
+        );
+        return button?.color;
+      },
+      [customLayout, teamContext],
+    );
+
     // カスタムレイアウトのbuttonLinksをアクション名ベースに変換
+    // カスタムレイアウトのbuttonLinksをアクション名ベースに変換
+    // プレースホルダーも置換して実際のチーム名で比較できるようにする
     const effectiveLinks = React.useMemo(() => {
       const links: {
         from: string;
@@ -248,24 +288,24 @@ export const EnhancedCodePanel = forwardRef<
         type: 'exclusive' | 'deactivate' | 'activate';
       }[] = [];
 
-      // 旧式のactionLinksを追加
+      // 旧式のactionLinksを追加（プレースホルダー置換）
       actionLinks.forEach((l) => {
         links.push({
-          from: l.from,
-          to: l.to,
+          from: replaceTeamPlaceholders(l.from, teamContext),
+          to: replaceTeamPlaceholders(l.to, teamContext),
           type: l.type,
         });
       });
 
-      // カスタムレイアウトのbuttonLinksを変換して追加
+      // カスタムレイアウトのbuttonLinksを変換して追加（プレースホルダー置換）
       if (customLayout?.buttonLinks) {
         customLayout.buttonLinks.forEach((bl) => {
           const fromName = getButtonNameById(bl.fromButtonId);
           const toName = getButtonNameById(bl.toButtonId);
           if (fromName && toName && bl.type !== 'sequence') {
             links.push({
-              from: fromName,
-              to: toName,
+              from: replaceTeamPlaceholders(fromName, teamContext),
+              to: replaceTeamPlaceholders(toName, teamContext),
               type: bl.type as 'exclusive' | 'deactivate' | 'activate',
             });
           }
@@ -273,14 +313,16 @@ export const EnhancedCodePanel = forwardRef<
       }
 
       return links;
-    }, [actionLinks, customLayout, getButtonNameById]);
+    }, [actionLinks, customLayout, getButtonNameById, teamContext]);
 
     // アクションボタンクリック時の処理
     // originalButtonName: カスタムレイアウトからの呼び出し時に元のボタン名を渡す
+    // buttonColor: ボタンの色（タイムラインに反映）
     const handleActionClick = (
       teamName: string,
       action: ActionDefinition,
       originalButtonName?: string,
+      buttonColor?: string,
     ) => {
       // リンク比較用のボタン名（カスタムレイアウトの場合はボタン名、それ以外はアクション名）
       const clickedButtonName = originalButtonName || action.action;
@@ -333,8 +375,8 @@ export const EnhancedCodePanel = forwardRef<
         }
       }
 
-      const isSameAction =
-        selectedTeam === teamName && selectedAction === action.action;
+      // selectedActionにはボタン名全体が入っているので、clickedButtonNameと比較
+      const isSameAction = selectedAction === clickedButtonName;
 
       const labelGroups = getActionLabels(action);
       const hasLabels = labelGroups.length > 0;
@@ -354,11 +396,18 @@ export const EnhancedCodePanel = forwardRef<
         const time = getCurrentTime();
         if (time !== null) {
           setSelectedTeam(teamName);
-          setSelectedAction(action.action);
+          setSelectedAction(clickedButtonName);
+          setSelectedActionColor(buttonColor);
           setLabelSelections({});
           setRecordingStartTime(time);
           setIsRecording(true);
           setActivateTargets(newActivateTargets);
+          // Activateターゲットの色を設定
+          const targetColors: Record<string, string | undefined> = {};
+          newActivateTargets.forEach((target) => {
+            targetColors[target] = getButtonColorByName(target);
+          });
+          setActivateTargetColors(targetColors);
           if (newActivateTargets.length > 0) {
             setWarning(
               `活性化リンク: ${newActivateTargets.join(', ')} も記録します`,
@@ -374,11 +423,18 @@ export const EnhancedCodePanel = forwardRef<
         const time = getCurrentTime();
         if (time !== null) {
           setSelectedTeam(teamName);
-          setSelectedAction(action.action);
+          setSelectedAction(clickedButtonName);
+          setSelectedActionColor(buttonColor);
           setLabelSelections({});
           setRecordingStartTime(time);
           setIsRecording(true);
           setActivateTargets(newActivateTargets);
+          // Activateターゲットの色を設定
+          const targetColors: Record<string, string | undefined> = {};
+          newActivateTargets.forEach((target) => {
+            targetColors[target] = getButtonColorByName(target);
+          });
+          setActivateTargetColors(targetColors);
           if (newActivateTargets.length > 0) {
             setWarning(
               `活性化リンク: ${newActivateTargets.join(', ')} も記録します`,
@@ -400,6 +456,12 @@ export const EnhancedCodePanel = forwardRef<
           setRecordingStartTime(time);
           setIsRecording(true);
           setActivateTargets(newActivateTargets);
+          // Activateターゲットの色を設定
+          const targetColors: Record<string, string | undefined> = {};
+          newActivateTargets.forEach((target) => {
+            targetColors[target] = getButtonColorByName(target);
+          });
+          setActivateTargetColors(targetColors);
           if (newActivateTargets.length > 0) {
             setWarning(
               `活性化リンク: ${newActivateTargets.join(', ')} も記録します`,
@@ -415,11 +477,18 @@ export const EnhancedCodePanel = forwardRef<
         const time = getCurrentTime();
         if (time !== null) {
           setSelectedTeam(teamName);
-          setSelectedAction(action.action);
+          setSelectedAction(clickedButtonName);
+          setSelectedActionColor(buttonColor);
           setLabelSelections({});
           setRecordingStartTime(time);
           setIsRecording(true);
           setActivateTargets(newActivateTargets);
+          // Activateターゲットの色を設定
+          const targetColors: Record<string, string | undefined> = {};
+          newActivateTargets.forEach((target) => {
+            targetColors[target] = getButtonColorByName(target);
+          });
+          setActivateTargetColors(targetColors);
           if (newActivateTargets.length > 0) {
             setWarning(
               `活性化リンク: ${newActivateTargets.join(', ')} も記録します`,
@@ -622,14 +691,13 @@ export const EnhancedCodePanel = forwardRef<
     };
 
     // カスタムレイアウトのボタンをクリックした時の処理
-    // Sportscode方式: ボタン名自体が「チーム名 アクション名」形式
+    // Sportscode方式: ボタン名にプレースホルダー ${Team1}, ${Team2} を使用可能
     const handleCustomButtonClick = (button: CodeWindowButton) => {
       if (button.type === 'action') {
-        // ボタン名からチーム名とアクション名を抽出する試み
-        // 形式: "チーム名 アクション名" または単純なアクション名
-        const buttonName = button.name;
+        // プレースホルダーを実際のチーム名に置換
+        const buttonName = replaceTeamPlaceholders(button.name, teamContext);
 
-        // チーム名が含まれているかチェック
+        // チーム名が含まれているかチェック（置換後）
         const matchedTeam = teamNames.find((t) =>
           buttonName.startsWith(`${t} `),
         );
@@ -646,11 +714,14 @@ export const EnhancedCodePanel = forwardRef<
           actionName = buttonName;
         }
 
+        // ボタンの色を取得
+        const buttonColor = button.color;
+
         // アクション定義を探す（ラベルグループ取得のため）
         const action = activeActions.find((a) => a.action === actionName);
         if (action) {
-          // originalButtonNameを渡してリンク比較に使用
-          handleActionClick(teamName, action, buttonName);
+          // 置換後のボタン名と色を渡してリンク比較・記録に使用
+          handleActionClick(teamName, action, buttonName, buttonColor);
         } else {
           // アクション定義がない場合は仮の定義を使って直接記録
           const fakeAction: ActionDefinition = {
@@ -659,14 +730,18 @@ export const EnhancedCodePanel = forwardRef<
             results: [],
             groups: [],
           };
-          // originalButtonNameを渡してリンク比較に使用
-          handleActionClick(teamName, fakeAction, buttonName);
+          // 置換後のボタン名と色を渡してリンク比較・記録に使用
+          handleActionClick(teamName, fakeAction, buttonName, buttonColor);
         }
       } else if (button.type === 'label' && button.labelValue) {
         // ラベルボタンからのリンク処理
         // ラベルボタンは押下した瞬間のみ機能（startTime/endTime を記録しない）
         // 1回のクリックでDeactivateとActivateの両方を同時に実行
-        const labelButtonName = button.name;
+        // プレースホルダーを実際のチーム名に置換
+        const labelButtonName = replaceTeamPlaceholders(
+          button.name,
+          teamContext,
+        );
 
         // ラベルボタンを1秒間アクティブ表示
         setActiveLabelButtons((prev) => ({ ...prev, [button.id]: true }));
@@ -751,20 +826,15 @@ export const EnhancedCodePanel = forwardRef<
             }}
           >
             {allButtons.map((button) => {
-              // ボタン名から選択状態を判定
-              const buttonName = button.name;
-              const matchedTeam = teamNames.find((t) =>
-                buttonName.startsWith(`${t} `),
+              // プレースホルダーを置換したボタン名
+              const resolvedButtonName = replaceTeamPlaceholders(
+                button.name,
+                teamContext,
               );
-              const teamForCheck = matchedTeam || teamNames[0] || 'Team';
-              const actionForCheck = matchedTeam
-                ? buttonName.slice(matchedTeam.length + 1)
-                : buttonName;
-
+              // selectedActionには置換後のボタン名が入っているので、置換後で比較
               const isSelected =
                 button.type === 'action' &&
-                selectedAction === actionForCheck &&
-                selectedTeam === teamForCheck;
+                selectedAction === resolvedButtonName;
               // ラベルボタンは一時的なアクティブ状態（1秒間）のみ表示
               const isLabelSelected =
                 button.type === 'label' && activeLabelButtons[button.id];
@@ -772,10 +842,11 @@ export const EnhancedCodePanel = forwardRef<
               const buttonColor =
                 button.color ||
                 (button.type === 'action' ? '#1976d2' : '#9c27b0');
+              // 表示テキストもプレースホルダーを置換
               const displayText =
                 button.type === 'label' && button.labelValue
                   ? button.labelValue
-                  : button.name;
+                  : resolvedButtonName;
 
               return (
                 <Box

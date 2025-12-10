@@ -165,7 +165,12 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
       <Typography
         variant="caption"
         sx={{
-          color: isTeam1 ? 'team1.main' : 'team2.main',
+          // 行ラベルの色: 最初のアイテムに色があればそれを使用、なければチーム色
+          color: items[0]?.color
+            ? items[0].color
+            : isTeam1
+              ? 'team1.main'
+              : 'team2.main',
           fontWeight: 'bold',
           fontSize: '0.7rem',
           width: 120,
@@ -222,17 +227,25 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
             contentWidth !== undefined
               ? contentWidth * zoomScale
               : Math.max(timeToPosition(maxSec), 0);
-          const left = Math.max(0, Math.min(timeToPosition(item.startTime), totalWidth));
-          const right = Math.max(0, Math.min(timeToPosition(item.endTime), totalWidth));
+          const left = Math.max(
+            0,
+            Math.min(timeToPosition(item.startTime), totalWidth),
+          );
+          const right = Math.max(
+            0,
+            Math.min(timeToPosition(item.endTime), totalWidth),
+          );
           const width = Math.max(4, right - left);
           const isSelected = selectedIds.includes(item.id);
           const isHovered = hoveredItemId === item.id;
           const isFocused = focusedItemId === item.id;
 
-          // バー背景色の決定（選択時も元の色を維持し、枠で強調）
-          const barBgColor = isTeam1
-            ? theme.custom.bars.team1
-            : theme.custom.bars.team2;
+          // バー背景色の決定（item.colorがあればそれを使用、なければチーム色）
+          const barBgColor = item.color
+            ? item.color
+            : isTeam1
+              ? theme.custom.bars.team1
+              : theme.custom.bars.team2;
 
           let barOpacity = 0.7;
           if (isHovered) {

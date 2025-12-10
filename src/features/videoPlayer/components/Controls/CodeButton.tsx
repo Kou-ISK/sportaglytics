@@ -11,6 +11,10 @@ interface CodeButtonProps {
     startTime: number,
     endTime: number,
     qualifier: string,
+    actionType?: string,
+    actionResult?: string,
+    labels?: Array<{ name: string; group: string }>,
+    color?: string,
   ) => void;
   color: 'team1' | 'team2';
 }

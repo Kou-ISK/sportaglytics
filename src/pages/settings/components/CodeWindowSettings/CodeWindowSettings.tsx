@@ -358,6 +358,31 @@ export const CodeWindowSettings = forwardRef<
         </Alert>
       )}
 
+      {/* プレースホルダーの説明 */}
+      <Alert severity="info" sx={{ mb: 2 }}>
+        <Typography variant="body2" fontWeight="bold" gutterBottom>
+          チーム名プレースホルダー
+        </Typography>
+        <Typography variant="body2">
+          ボタン名に{' '}
+          <code>
+            ${'{'}Team1{'}'}
+          </code>{' '}
+          や{' '}
+          <code>
+            ${'{'}Team2{'}'}
+          </code>{' '}
+          を使うと、パッケージ設定のチーム名に自動置換されます。
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          例:{' '}
+          <code>
+            ${'{'}Team1{'}'} タックル
+          </code>{' '}
+          → <code>Japan タックル</code>（Team1が&quot;Japan&quot;の場合）
+        </Typography>
+      </Alert>
+
       {/* レイアウト選択 */}
       <Paper
         elevation={0}
