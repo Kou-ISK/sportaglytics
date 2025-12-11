@@ -87,8 +87,122 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   const [customLabelValue, setCustomLabelValue] = useState('');
   const [customActionDialogOpen, setCustomActionDialogOpen] = useState(false);
   const [customActionName, setCustomActionName] = useState('');
+  // 選択中のリンクID
+  const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
+  // Undo/Redo履歴
+  const [history, setHistory] = useState<CodeWindowLayout[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isUndoRedoRef = useRef(false);
 
   const gridSize = 10; // スナップグリッドサイズ
+
+  // 履歴管理: layoutが変更されたら履歴に追加
+  const updateLayoutWithHistory = useCallback(
+    (newLayout: CodeWindowLayout) => {
+      if (isUndoRedoRef.current) {
+        isUndoRedoRef.current = false;
+        onLayoutChange(newLayout);
+        return;
+      }
+      // 現在位置より先の履歴を削除して新しい状態を追加
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(newLayout);
+      // 履歴は最大50件まで
+      if (newHistory.length > 50) {
+        newHistory.shift();
+      }
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      onLayoutChange(newLayout);
+    },
+    [history, historyIndex, onLayoutChange],
+  );
+
+  // Undo
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      isUndoRedoRef.current = true;
+      const prevIndex = historyIndex - 1;
+      setHistoryIndex(prevIndex);
+      onLayoutChange(history[prevIndex]);
+    }
+  }, [history, historyIndex, onLayoutChange]);
+
+  // Redo
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      isUndoRedoRef.current = true;
+      const nextIndex = historyIndex + 1;
+      setHistoryIndex(nextIndex);
+      onLayoutChange(history[nextIndex]);
+    }
+  }, [history, historyIndex, onLayoutChange]);
+
+  // 初期状態を履歴に追加（マウント時のみ）
+  const initialLayoutRef = useRef(layout);
+  useEffect(() => {
+    if (history.length === 0) {
+      setHistory([initialLayoutRef.current]);
+      setHistoryIndex(0);
+    }
+  }, [history.length]);
+
+  // キーボードイベント
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Deleteキー: 選択中のボタンまたはリンクを削除
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedLinkId) {
+          e.preventDefault();
+          const newLayout = {
+            ...layout,
+            buttonLinks: layout.buttonLinks?.filter(
+              (l) => l.id !== selectedLinkId,
+            ),
+          };
+          updateLayoutWithHistory(newLayout);
+          setSelectedLinkId(null);
+        } else if (selectedButtonId) {
+          e.preventDefault();
+          const newLayout = {
+            ...layout,
+            buttons: layout.buttons.filter((b) => b.id !== selectedButtonId),
+            buttonLinks: layout.buttonLinks?.filter(
+              (l) =>
+                l.fromButtonId !== selectedButtonId &&
+                l.toButtonId !== selectedButtonId,
+            ),
+          };
+          updateLayoutWithHistory(newLayout);
+          onSelectButton(null);
+        }
+      }
+      // Cmd/Ctrl + Z: Undo
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      // Cmd/Ctrl + Shift + Z または Cmd/Ctrl + Y: Redo
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        (e.key === 'y' || (e.key === 'z' && e.shiftKey))
+      ) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    selectedButtonId,
+    selectedLinkId,
+    layout,
+    updateLayoutWithHistory,
+    onSelectButton,
+    handleUndo,
+    handleRedo,
+  ]);
 
   // キャンバス座標を取得
   const getCanvasPosition = useCallback(
@@ -158,6 +272,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
         }
       }
       onSelectButton(button.id);
+      setSelectedLinkId(null); // リンクの選択を解除
     },
     [getCanvasPosition, onSelectButton],
   );
@@ -248,12 +363,18 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
               targetButton.id,
               buttonLinkType,
             );
-            onLayoutChange({
+            updateLayoutWithHistory({
               ...layout,
               buttonLinks: [...(layout.buttonLinks || []), newLink],
             });
           }
         }
+      } else if (
+        (dragMode === 'move' || dragMode === 'resize') &&
+        draggedButton
+      ) {
+        // ドラッグ完了時に履歴に追加
+        updateLayoutWithHistory(layout);
       }
 
       setDragMode(null);
@@ -265,10 +386,11 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     },
     [
       dragMode,
+      draggedButton,
       linkStartButton,
       linkType,
       layout,
-      onLayoutChange,
+      updateLayoutWithHistory,
       getCanvasPosition,
     ],
   );
@@ -278,6 +400,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     (e: React.MouseEvent) => {
       if (e.target === canvasRef.current) {
         onSelectButton(null);
+        setSelectedLinkId(null);
       }
     },
     [onSelectButton],
@@ -330,7 +453,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
           layout.canvasHeight,
         )
       ) {
-        onLayoutChange({
+        updateLayoutWithHistory({
           ...layout,
           buttons: [...layout.buttons, newButton],
         });
@@ -341,7 +464,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     [
       contextMenu,
       layout,
-      onLayoutChange,
+      updateLayoutWithHistory,
       onSelectButton,
       handleCloseContextMenu,
     ],
@@ -350,7 +473,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   // ボタン削除
   const handleDeleteButton = useCallback(
     (buttonId: string) => {
-      onLayoutChange({
+      updateLayoutWithHistory({
         ...layout,
         buttons: layout.buttons.filter((b) => b.id !== buttonId),
         buttonLinks: layout.buttonLinks?.filter(
@@ -361,18 +484,16 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
         onSelectButton(null);
       }
     },
-    [layout, onLayoutChange, selectedButtonId, onSelectButton],
+    [layout, updateLayoutWithHistory, selectedButtonId, onSelectButton],
   );
 
-  // リンク削除
-  const handleDeleteLink = useCallback(
+  // リンク選択
+  const handleSelectLink = useCallback(
     (linkId: string) => {
-      onLayoutChange({
-        ...layout,
-        buttonLinks: layout.buttonLinks?.filter((l) => l.id !== linkId),
-      });
+      setSelectedLinkId(linkId);
+      onSelectButton(null); // ボタンの選択を解除
     },
-    [layout, onLayoutChange],
+    [onSelectButton],
   );
 
   // マウスがキャンバス外に出たらドラッグ終了
@@ -412,6 +533,23 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
       }
     };
 
+    // リンクタイプ別の矢印マーカーID
+    const getMarkerEnd = (type: string, isSelected: boolean) => {
+      if (isSelected) return 'url(#arrowhead-selected)';
+      switch (type) {
+        case 'exclusive':
+          return 'url(#arrowhead-exclusive)';
+        case 'deactivate':
+          return 'url(#arrowhead-deactivate)';
+        case 'activate':
+          return 'url(#arrowhead-activate)';
+        case 'sequence':
+          return 'url(#arrowhead-sequence)';
+        default:
+          return 'url(#arrowhead-exclusive)';
+      }
+    };
+
     return layout.buttonLinks.map((link) => {
       const fromButton = layout.buttons.find((b) => b.id === link.fromButtonId);
       const toButton = layout.buttons.find((b) => b.id === link.toButtonId);
@@ -421,27 +559,51 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
       const from = getButtonCenter(fromButton);
       const to = getButtonCenter(toButton);
 
-      const isSelected =
+      // リンク自体が選択されているか、接続先ボタンが選択されている場合はハイライト
+      const isLinkSelected = selectedLinkId === link.id;
+      const isRelatedToSelectedButton =
         selectedButtonId === fromButton.id || selectedButtonId === toButton.id;
+      const isHighlighted = isLinkSelected || isRelatedToSelectedButton;
 
-      const linkColor = getLinkColor(link.type, isSelected);
+      const linkColor = getLinkColor(link.type, isHighlighted);
+      const markerEnd = getMarkerEnd(link.type, isHighlighted);
       // 排他リンクは実線、その他は破線
       const strokeDash = link.type === 'exclusive' ? 'none' : '5,5';
 
       return (
         <g key={link.id}>
+          {/* クリック領域を広げるための透明な太い線 */}
+          <line
+            x1={from.x}
+            y1={from.y}
+            x2={to.x}
+            y2={to.y}
+            stroke="transparent"
+            strokeWidth={12}
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSelectLink(link.id);
+            }}
+          />
           <line
             x1={from.x}
             y1={from.y}
             x2={to.x}
             y2={to.y}
             stroke={linkColor}
-            strokeWidth={isSelected ? 3 : 2}
+            strokeWidth={isHighlighted ? 3 : 2}
             strokeDasharray={strokeDash}
-            markerEnd="url(#arrowhead)"
-            style={{ cursor: 'pointer' }}
-            onClick={() => handleDeleteLink(link.id)}
+            markerEnd={markerEnd}
+            style={{ cursor: 'pointer', pointerEvents: 'none' }}
           />
+          {/* 選択されたリンクのハイライト表示 */}
+          {isLinkSelected && (
+            <>
+              <circle cx={from.x} cy={from.y} r={6} fill="#1976d2" />
+              <circle cx={to.x} cy={to.y} r={6} fill="#1976d2" />
+            </>
+          )}
         </g>
       );
     });
@@ -468,6 +630,14 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     // リンクタイプに応じた線種
     const strokeDash = linkType === 'exclusive' ? 'none' : '5,5';
 
+    // リンクタイプに応じた矢印マーカー
+    const markerEnd =
+      linkType === 'lead'
+        ? 'url(#arrowhead-dragging-lead)'
+        : linkType === 'deactivate'
+          ? 'url(#arrowhead-dragging-deactivate)'
+          : 'url(#arrowhead-dragging-exclusive)';
+
     return (
       <line
         x1={from.x}
@@ -477,6 +647,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
         stroke={linkColor}
         strokeWidth={2}
         strokeDasharray={strokeDash}
+        markerEnd={markerEnd}
         pointerEvents="none"
       />
     );
@@ -660,15 +831,87 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
           }}
         >
           <defs>
+            {/* リンクタイプ別の矢印マーカー */}
             <marker
-              id="arrowhead"
-              markerWidth="10"
-              markerHeight="7"
-              refX="9"
-              refY="3.5"
+              id="arrowhead-exclusive"
+              markerWidth="12"
+              markerHeight="9"
+              refX="10"
+              refY="4.5"
               orient="auto"
             >
-              <polygon points="0 0, 10 3.5, 0 7" fill="#888" />
+              <polygon points="0 0, 12 4.5, 0 9" fill="#d32f2f" />
+            </marker>
+            <marker
+              id="arrowhead-activate"
+              markerWidth="12"
+              markerHeight="9"
+              refX="10"
+              refY="4.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 12 4.5, 0 9" fill="#388e3c" />
+            </marker>
+            <marker
+              id="arrowhead-deactivate"
+              markerWidth="12"
+              markerHeight="9"
+              refX="10"
+              refY="4.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 12 4.5, 0 9" fill="#f57c00" />
+            </marker>
+            <marker
+              id="arrowhead-sequence"
+              markerWidth="12"
+              markerHeight="9"
+              refX="10"
+              refY="4.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 12 4.5, 0 9" fill="#1976d2" />
+            </marker>
+            <marker
+              id="arrowhead-selected"
+              markerWidth="12"
+              markerHeight="9"
+              refX="10"
+              refY="4.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 12 4.5, 0 9" fill="#1976d2" />
+            </marker>
+            {/* ドラッグ中のリンク用 */}
+            <marker
+              id="arrowhead-dragging-exclusive"
+              markerWidth="12"
+              markerHeight="9"
+              refX="10"
+              refY="4.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 12 4.5, 0 9" fill="#d32f2f" />
+            </marker>
+            <marker
+              id="arrowhead-dragging-lead"
+              markerWidth="12"
+              markerHeight="9"
+              refX="10"
+              refY="4.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 12 4.5, 0 9" fill="#388e3c" />
+            </marker>
+            <marker
+              id="arrowhead-dragging-deactivate"
+              markerWidth="12"
+              markerHeight="9"
+              refX="10"
+              refY="4.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 12 4.5, 0 9" fill="#f57c00" />
             </marker>
           </defs>
           <g style={{ pointerEvents: 'auto' }}>{renderLinks()}</g>
@@ -846,7 +1089,7 @@ Shift + 右クリックドラッグ → 非活性化（橙）`}
                     layout.canvasHeight,
                   )
                 ) {
-                  onLayoutChange({
+                  updateLayoutWithHistory({
                     ...layout,
                     buttons: [...layout.buttons, newButton],
                   });
@@ -915,7 +1158,7 @@ Shift + 右クリックドラッグ → 非活性化（橙）`}
                     layout.canvasHeight,
                   )
                 ) {
-                  onLayoutChange({
+                  updateLayoutWithHistory({
                     ...layout,
                     buttons: [...layout.buttons, newButton],
                   });
