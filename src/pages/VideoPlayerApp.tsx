@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Box } from '@mui/material';
 import {
   StatsModal,
@@ -99,10 +99,71 @@ export const VideoPlayerApp = () => {
       manualSyncFromPlayers,
       setSyncMode,
       onAnalyze: () => setStatsOpen(true),
+      selectedTimelineIdList,
+      deleteTimelineDatas,
+      clearSelection: () => setSelectedTimelineIdList([]),
     });
 
   // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）
   useGlobalHotkeys(combinedHotkeys, combinedHandlers, keyUpHandlers);
+
+  // Delete/Backspace、Undo/Redoのキーボードイベント処理
+  const handleKeydown = useCallback(
+    (e: KeyboardEvent) => {
+      // 入力フィールドにフォーカスがある場合は何もしない
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Delete/Backspace: 選択中のタイムラインを削除
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedTimelineIdList.length > 0) {
+          e.preventDefault();
+          deleteTimelineDatas(selectedTimelineIdList);
+          setSelectedTimelineIdList([]);
+        }
+        return;
+      }
+
+      // Cmd+Z: Undo
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        performUndo();
+        return;
+      }
+
+      // Cmd+Shift+Z: Redo
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        performRedo();
+        return;
+      }
+
+      // Cmd+Y: Redo（Windows用）
+      if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+        e.preventDefault();
+        performRedo();
+        return;
+      }
+    },
+    [
+      selectedTimelineIdList,
+      deleteTimelineDatas,
+      setSelectedTimelineIdList,
+      performUndo,
+      performRedo,
+    ],
+  );
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [handleKeydown]);
 
   useSyncMenuHandlers({
     onResyncAudio: resyncAudio,
@@ -185,7 +246,11 @@ export const VideoPlayerApp = () => {
                 const current = target?.labels || [];
                 const merged = [...current];
                 labels.forEach((l) => {
-                  if (!merged.find((m) => m.group === l.group && m.name === l.name)) {
+                  if (
+                    !merged.find(
+                      (m) => m.group === l.group && m.name === l.name,
+                    )
+                  ) {
                     merged.push(l);
                   }
                 });

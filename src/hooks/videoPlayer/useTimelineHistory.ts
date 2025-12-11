@@ -28,39 +28,36 @@ export function useTimelineHistory(
     future: [],
   });
 
-  // スナップショットのスキップフラグ（外部からのsetで履歴を残さない場合用）
-  const skipSnapshot = useRef(false);
+  // 初回マウントフラグ（ファイル読み込み時のみ履歴をリセット）
+  const isInitialMount = useRef(true);
   // 前回のinitialTimelineを保持（無限ループを防ぐため）
   const prevInitialTimelineJSON = useRef<string>(
     JSON.stringify(initialTimeline),
   );
 
   // 外部からのタイムライン更新を検知（ファイル読み込み時など）
+  // 注意: 内部でsetTimelineを呼んだ結果の変更では履歴をクリアしない
   useEffect(() => {
-    // initialTimelineが変更された場合、履歴をクリアして新しいタイムラインを設定
     const newJSON = JSON.stringify(initialTimeline);
 
+    // initialTimelineが変更された場合
     if (prevInitialTimelineJSON.current !== newJSON) {
-      setState({
-        past: [],
-        present: initialTimeline,
-        future: [],
-      });
+      // 初回マウント時、または現在のpresentと異なる場合のみ履歴をリセット
+      // （内部でsetTimelineした結果の同期では履歴をクリアしない）
+      const currentPresentJSON = JSON.stringify(state.present);
+      if (isInitialMount.current || newJSON !== currentPresentJSON) {
+        setState({
+          past: [],
+          present: initialTimeline,
+          future: [],
+        });
+      }
       prevInitialTimelineJSON.current = newJSON;
+      isInitialMount.current = false;
     }
-  }, [initialTimeline]);
+  }, [initialTimeline, state.present]);
 
   const setTimeline = useCallback((newTimeline: TimelineData[]) => {
-    if (skipSnapshot.current) {
-      // スキップフラグがある場合は履歴に記録しない
-      skipSnapshot.current = false;
-      setState((prev) => ({
-        ...prev,
-        present: newTimeline,
-      }));
-      return;
-    }
-
     setState((prev) => {
       const newPast = [...prev.past, prev.present].slice(-MAX_HISTORY_SIZE);
       return {

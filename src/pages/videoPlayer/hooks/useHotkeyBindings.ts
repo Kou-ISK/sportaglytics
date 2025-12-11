@@ -20,6 +20,10 @@ interface UseHotkeyBindingsParams {
   manualSyncFromPlayers: () => void;
   setSyncMode: (update: (prev: 'auto' | 'manual') => 'auto' | 'manual') => void;
   onAnalyze: () => void;
+  // タイムライン削除用
+  selectedTimelineIdList?: string[];
+  deleteTimelineDatas?: (idList: string[]) => void;
+  clearSelection?: () => void;
 }
 
 export const useHotkeyBindings = ({
@@ -39,6 +43,9 @@ export const useHotkeyBindings = ({
   manualSyncFromPlayers,
   setSyncMode,
   onAnalyze,
+  selectedTimelineIdList,
+  deleteTimelineDatas,
+  clearSelection,
 }: UseHotkeyBindingsParams) => {
   const hotkeyHandlers = useMemo(
     () => ({
@@ -75,6 +82,17 @@ export const useHotkeyBindings = ({
       'manual-sync': () => void manualSyncFromPlayers(),
       'toggle-manual-mode': () =>
         setSyncMode((prev) => (prev === 'auto' ? 'manual' : 'auto')),
+      // タイムライン削除
+      'delete-selected': () => {
+        if (
+          selectedTimelineIdList &&
+          selectedTimelineIdList.length > 0 &&
+          deleteTimelineDatas
+        ) {
+          deleteTimelineDatas(selectedTimelineIdList);
+          clearSelection?.();
+        }
+      },
     }),
     [
       currentTime,
@@ -89,6 +107,9 @@ export const useHotkeyBindings = ({
       setSyncMode,
       setVideoPlayBackRate,
       onAnalyze,
+      selectedTimelineIdList,
+      deleteTimelineDatas,
+      clearSelection,
     ],
   );
 
