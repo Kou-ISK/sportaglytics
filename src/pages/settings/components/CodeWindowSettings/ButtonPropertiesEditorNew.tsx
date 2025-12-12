@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -72,6 +72,7 @@ export const ButtonPropertiesEditor: React.FC<ButtonPropertiesEditorProps> = ({
 }) => {
   const [localColor, setLocalColor] = useState(button?.color || '');
   const [tabIndex, setTabIndex] = useState(0);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   // ボタンが変更されたらローカル状態をリセット
   useEffect(() => {
@@ -91,6 +92,31 @@ export const ButtonPropertiesEditor: React.FC<ButtonPropertiesEditorProps> = ({
       setLocalColor(color);
       if (button) {
         onUpdate({ ...button, color });
+      }
+    },
+    [button, onUpdate],
+  );
+
+  // プレースホルダを挿入
+  const insertPlaceholder = useCallback(
+    (placeholder: string) => {
+      if (!button) return;
+      const input = nameInputRef.current;
+      if (input) {
+        const start = input.selectionStart ?? button.name.length;
+        const end = input.selectionEnd ?? button.name.length;
+        const newValue =
+          button.name.slice(0, start) + placeholder + button.name.slice(end);
+        onUpdate({ ...button, name: newValue });
+        // カーソル位置を更新
+        setTimeout(() => {
+          input.focus();
+          const newPos = start + placeholder.length;
+          input.setSelectionRange(newPos, newPos);
+        }, 0);
+      } else {
+        // inputがなければ末尾に追加
+        onUpdate({ ...button, name: button.name + placeholder });
       }
     },
     [button, onUpdate],
@@ -230,10 +256,44 @@ export const ButtonPropertiesEditor: React.FC<ButtonPropertiesEditorProps> = ({
               label="ボタン名（自由入力）"
               value={button.name}
               onChange={(e) => handleChange('name', e.target.value)}
-              placeholder="例: ${Team1} タックル, ${Team2} ポゼッション"
-              helperText="プレースホルダー ${Team1}, ${Team2} を使うと、パッケージのチーム名に自動置換されます"
-              sx={{ mb: 2 }}
+              placeholder="例: ${Team1} タックル"
+              inputRef={nameInputRef}
+              sx={{ mb: 1 }}
             />
+            {/* プレースホルダ挿入ボタン */}
+            <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ width: '100%', mb: 0.5 }}
+              >
+                クリックで挿入:
+              </Typography>
+              <Chip
+                label="${Team1}"
+                size="small"
+                variant="outlined"
+                color="error"
+                onClick={() => insertPlaceholder('${Team1}')}
+                sx={{ cursor: 'pointer', fontFamily: 'monospace' }}
+              />
+              <Chip
+                label="${Team2}"
+                size="small"
+                variant="outlined"
+                color="primary"
+                onClick={() => insertPlaceholder('${Team2}')}
+                sx={{ cursor: 'pointer', fontFamily: 'monospace' }}
+              />
+              <Chip
+                label=" "
+                size="small"
+                variant="outlined"
+                onClick={() => insertPlaceholder(' ')}
+                sx={{ cursor: 'pointer', minWidth: 40 }}
+                title="スペースを挿入"
+              />
+            </Box>
           </>
         ) : (
           <>
@@ -269,8 +329,43 @@ export const ButtonPropertiesEditor: React.FC<ButtonPropertiesEditorProps> = ({
               value={button.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="例: Zone, Technique, Body Part"
-              sx={{ mb: 2 }}
+              inputRef={nameInputRef}
+              sx={{ mb: 1 }}
             />
+            {/* プレースホルダ挿入ボタン */}
+            <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ width: '100%', mb: 0.5 }}
+              >
+                クリックで挿入:
+              </Typography>
+              <Chip
+                label="${Team1}"
+                size="small"
+                variant="outlined"
+                color="error"
+                onClick={() => insertPlaceholder('${Team1}')}
+                sx={{ cursor: 'pointer', fontFamily: 'monospace' }}
+              />
+              <Chip
+                label="${Team2}"
+                size="small"
+                variant="outlined"
+                color="primary"
+                onClick={() => insertPlaceholder('${Team2}')}
+                sx={{ cursor: 'pointer', fontFamily: 'monospace' }}
+              />
+              <Chip
+                label=" "
+                size="small"
+                variant="outlined"
+                onClick={() => insertPlaceholder(' ')}
+                sx={{ cursor: 'pointer', minWidth: 40 }}
+                title="スペースを挿入"
+              />
+            </Box>
 
             {/* ラベル値 - 選択または自由入力 */}
             {currentLabelGroup ? (

@@ -279,3 +279,48 @@ export const getButtonCenter = (
   x: button.x + button.width / 2,
   y: button.y + button.height / 2,
 });
+
+/**
+ * ボタンの端（境界線上）の座標を取得
+ * 矢印がボタンに重ならないよう、中心からの方向に基づいてボタンの端を計算する
+ * @param button ボタン
+ * @param fromPoint 始点（矢印の出発点）
+ * @param padding ボタン端からの余白（矢印の先端分）
+ */
+export const getButtonEdge = (
+  button: CodeWindowButton,
+  fromPoint: { x: number; y: number },
+  padding: number = 8,
+): { x: number; y: number } => {
+  const center = getButtonCenter(button);
+  const dx = center.x - fromPoint.x;
+  const dy = center.y - fromPoint.y;
+
+  // 線の長さ
+  const length = Math.sqrt(dx * dx + dy * dy);
+  if (length === 0) return center;
+
+  // 正規化された方向ベクトル
+  const dirX = dx / length;
+  const dirY = dy / length;
+
+  // ボタンの半幅と半高さ（パディング込み）
+  const halfWidth = button.width / 2 + padding;
+  const halfHeight = button.height / 2 + padding;
+
+  // 水平方向と垂直方向の交点を計算
+  // 水平方向の境界との交点
+  const tHorizontal =
+    Math.abs(dirX) > 0.001 ? halfWidth / Math.abs(dirX) : Infinity;
+  // 垂直方向の境界との交点
+  const tVertical =
+    Math.abs(dirY) > 0.001 ? halfHeight / Math.abs(dirY) : Infinity;
+
+  // より近い交点を選択
+  const t = Math.min(tHorizontal, tVertical);
+
+  return {
+    x: center.x - dirX * t,
+    y: center.y - dirY * t,
+  };
+};

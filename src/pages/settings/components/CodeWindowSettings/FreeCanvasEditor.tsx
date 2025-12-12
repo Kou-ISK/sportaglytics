@@ -29,6 +29,7 @@ import {
   canPlaceButton,
   snapToGrid,
   getButtonCenter,
+  getButtonEdge,
   DEFAULT_BUTTON_WIDTH,
   DEFAULT_BUTTON_HEIGHT,
 } from './utils';
@@ -533,12 +534,12 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
       }
     };
 
-    // リンクタイプ別の矢印マーカーID
+    // リンクタイプ別の矢印マーカーID（排他リンクは双方向なので矢印なし）
     const getMarkerEnd = (type: string, isSelected: boolean) => {
+      // 排他リンクは双方向なので矢印なし
+      if (type === 'exclusive') return undefined;
       if (isSelected) return 'url(#arrowhead-selected)';
       switch (type) {
-        case 'exclusive':
-          return 'url(#arrowhead-exclusive)';
         case 'deactivate':
           return 'url(#arrowhead-deactivate)';
         case 'activate':
@@ -546,7 +547,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
         case 'sequence':
           return 'url(#arrowhead-sequence)';
         default:
-          return 'url(#arrowhead-exclusive)';
+          return undefined;
       }
     };
 
@@ -556,8 +557,13 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
 
       if (!fromButton || !toButton) return null;
 
-      const from = getButtonCenter(fromButton);
-      const to = getButtonCenter(toButton);
+      // ボタンの中心を取得
+      const fromCenter = getButtonCenter(fromButton);
+      const toCenter = getButtonCenter(toButton);
+
+      // ボタンの端（境界線上）の座標を計算（矢印がボタンに重ならないよう）
+      const from = getButtonEdge(fromButton, toCenter, 2);
+      const to = getButtonEdge(toButton, fromCenter, 2);
 
       // リンク自体が選択されているか、接続先ボタンが選択されている場合はハイライト
       const isLinkSelected = selectedLinkId === link.id;
