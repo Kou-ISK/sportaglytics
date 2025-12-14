@@ -57,6 +57,11 @@ interface TimelineActionSectionProps {
     ids: string[],
     labels: { name: string; group: string }[],
   ) => void;
+  /** プレイリストに追加（位置情報付き） */
+  onAddToPlaylist?: (
+    items: TimelineData[],
+    anchorPosition: { top: number; left: number },
+  ) => void;
 }
 
 export const TimelineActionSection = forwardRef<
@@ -84,6 +89,7 @@ export const TimelineActionSection = forwardRef<
       performRedo,
       handleCurrentTime,
       applyLabelsToTimeline,
+      onAddToPlaylist,
     },
     ref,
   ) => {
@@ -170,6 +176,7 @@ export const TimelineActionSection = forwardRef<
             videoSources={videoList}
             onUndo={performUndo}
             onRedo={performRedo}
+            onAddToPlaylist={onAddToPlaylist}
           />
         </Paper>
 

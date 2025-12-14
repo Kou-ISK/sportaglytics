@@ -55,6 +55,11 @@ interface VisualTimelineProps {
   videoSources?: string[];
   onUndo?: () => void;
   onRedo?: () => void;
+  /** プレイリストに追加（位置情報付き） */
+  onAddToPlaylist?: (
+    items: TimelineData[],
+    anchorPosition: { top: number; left: number },
+  ) => void;
 }
 
 export const VisualTimeline: React.FC<VisualTimelineProps> = ({
@@ -72,6 +77,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   videoSources,
   onUndo,
   onRedo,
+  onAddToPlaylist,
 }) => {
   const {
     containerRef,
@@ -358,12 +364,26 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         !!target &&
         scrollContainerRef.current.contains(target);
 
-      // Tab: 選択がある場合はタイムラインのジャンプを優先。それ以外は抑止のみ。
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        e.stopPropagation();
+      // 選択中アクションの次/前インスタンスへジャンプ
+      // Tab / Shift+Tab または Option+↓ / Option+↑
+      const isJumpNext = e.key === 'Tab' || (e.altKey && e.key === 'ArrowDown');
+      const isJumpPrev =
+        (e.key === 'Tab' && e.shiftKey) || (e.altKey && e.key === 'ArrowUp');
+
+      if (isJumpNext || isJumpPrev) {
+        // Tabはデフォルト動作を抑止
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          e.stopPropagation();
+        }
 
         if (selectedIds.length > 0) {
+          // Option+矢印の場合もデフォルト動作を抑止
+          if (e.altKey) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+
           const items = [...timeline].sort((a, b) => a.startTime - b.startTime);
           const current = items.find((t) => selectedIds.includes(t.id));
           if (current) {
@@ -372,7 +392,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
             );
             const idx = same.findIndex((t) => t.id === current.id);
             if (idx !== -1) {
-              const direction: 1 | -1 = e.shiftKey ? -1 : 1;
+              const direction: 1 | -1 = isJumpPrev ? -1 : 1;
               const nextIdx =
                 (idx + direction + same.length) % Math.max(same.length, 1);
               const targetItem = same[nextIdx];
@@ -820,6 +840,19 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         onDelete={handleContextMenuDelete}
         onJumpTo={handleContextMenuJumpTo}
         onDuplicate={handleContextMenuDuplicate}
+        onAddToPlaylist={
+          onAddToPlaylist && contextMenu?.position
+            ? () => {
+                const items = timeline.filter((t) =>
+                  selectedIds.includes(t.id),
+                );
+                if (items.length > 0) {
+                  onAddToPlaylist(items, contextMenu.position);
+                }
+              }
+            : undefined
+        }
+        selectedCount={selectedIds.length}
       />
 
       <Dialog

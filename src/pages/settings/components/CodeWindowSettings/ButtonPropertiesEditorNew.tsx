@@ -22,6 +22,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
 import type { CodeWindowButton } from '../../../../types/Settings';
 import { DEFAULT_BUTTON_COLORS } from './types';
 import { DEFAULT_BUTTON_WIDTH, DEFAULT_BUTTON_HEIGHT } from './utils';
@@ -61,6 +62,27 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
   </Box>
 );
 
+/**
+ * キーボードイベントから表示用のキー文字列を生成
+ */
+const formatKeyCombo = (event: KeyboardEvent): string => {
+  const keys: string[] = [];
+
+  if (event.metaKey) keys.push('Command');
+  if (event.ctrlKey) keys.push('Control');
+  if (event.altKey) keys.push('Option');
+  if (event.shiftKey) keys.push('Shift');
+
+  // 修飾キー以外のキー
+  if (event.key && !['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) {
+    const keyName =
+      event.key.length === 1 ? event.key.toUpperCase() : event.key;
+    keys.push(keyName);
+  }
+
+  return keys.join('+');
+};
+
 export const ButtonPropertiesEditor: React.FC<ButtonPropertiesEditorProps> = ({
   button,
   onUpdate,
@@ -73,11 +95,51 @@ export const ButtonPropertiesEditor: React.FC<ButtonPropertiesEditorProps> = ({
   const [localColor, setLocalColor] = useState(button?.color || '');
   const [tabIndex, setTabIndex] = useState(0);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const [isCapturingHotkey, setIsCapturingHotkey] = useState(false);
+  const [capturedHotkey, setCapturedHotkey] = useState('');
 
   // ボタンが変更されたらローカル状態をリセット
   useEffect(() => {
     setLocalColor(button?.color || '');
-  }, [button?.id, button?.color]);
+    setCapturedHotkey(button?.hotkey || '');
+    setIsCapturingHotkey(false);
+  }, [button?.id, button?.color, button?.hotkey]);
+
+  // ホットキーキャプチャ
+  useEffect(() => {
+    if (!isCapturingHotkey) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Escapeキーでキャンセル
+      if (event.key === 'Escape') {
+        setIsCapturingHotkey(false);
+        setCapturedHotkey(button?.hotkey || '');
+        return;
+      }
+
+      // 修飾キーのみの場合は無視
+      if (['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) {
+        return;
+      }
+
+      const keyCombo = formatKeyCombo(event);
+      setCapturedHotkey(keyCombo);
+      setIsCapturingHotkey(false);
+
+      // ボタンに反映
+      if (button) {
+        onUpdate({ ...button, hotkey: keyCombo });
+      }
+    };
+
+    globalThis.addEventListener('keydown', handleKeyDown);
+    return () => {
+      globalThis.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCapturingHotkey, button, onUpdate]);
 
   const handleChange = useCallback(
     (field: keyof CodeWindowButton, value: unknown) => {
@@ -438,6 +500,84 @@ export const ButtonPropertiesEditor: React.FC<ButtonPropertiesEditorProps> = ({
           placeholder="例: possession, scrum"
           sx={{ mb: 2 }}
         />
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* ホットキー設定 */}
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          ホットキー
+        </Typography>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', mb: 1 }}
+        >
+          ボタンを起動するショートカットキー（Shift+キーで2チーム目）
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box
+            onClick={() => setIsCapturingHotkey(true)}
+            sx={{
+              flex: 1,
+              p: 1.5,
+              border: '1px solid',
+              borderColor: isCapturingHotkey ? 'primary.main' : 'divider',
+              borderRadius: 1,
+              backgroundColor: isCapturingHotkey
+                ? 'action.selected'
+                : 'background.paper',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              '&:hover': {
+                borderColor: 'primary.main',
+              },
+            }}
+          >
+            <KeyboardIcon
+              fontSize="small"
+              color={isCapturingHotkey ? 'primary' : 'action'}
+            />
+            <Typography
+              variant="body2"
+              color={
+                isCapturingHotkey
+                  ? 'primary'
+                  : capturedHotkey
+                    ? 'text.primary'
+                    : 'text.secondary'
+              }
+              sx={{ fontFamily: 'monospace' }}
+            >
+              {isCapturingHotkey
+                ? 'キーを押してください...'
+                : capturedHotkey || '未設定'}
+            </Typography>
+          </Box>
+          {capturedHotkey && (
+            <Tooltip title="ホットキーをクリア">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setCapturedHotkey('');
+                  handleChange('hotkey', undefined);
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+        {isCapturingHotkey && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ mt: 0.5, display: 'block' }}
+          >
+            Escでキャンセル
+          </Typography>
+        )}
       </TabPanel>
 
       {/* 配置タブ */}

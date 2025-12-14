@@ -7,6 +7,7 @@ import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { menuBar } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
+import { registerPlaylistHandlers, setMainWindowRef } from './playlistWindow';
 
 // ローカル動画の自動再生を許可
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -29,6 +30,7 @@ const createWindow = async () => {
     },
   });
   setMainWindow(mainWindow);
+  setMainWindowRef(mainWindow);
   mainWindow.loadURL(mainURL);
 
   // 設定を読み込んでホットキーを登録
@@ -198,7 +200,8 @@ const createWindow = async () => {
 
               overlayLines.forEach((line, idx) => {
                 const safeText = escapeDrawtext(line);
-                const cfg = linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
+                const cfg =
+                  linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
                 const text = `drawtext=text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:shadowcolor=black@0.55:shadowx=2:shadowy=2:x=20:y=${cfg.y}`;
                 vf.push(text);
               });
@@ -257,7 +260,8 @@ const createWindow = async () => {
 
               overlayLines.forEach((line, idx) => {
                 const safeText = escapeDrawtext(line);
-                const cfg = linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
+                const cfg =
+                  linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
                 const text = `drawtext=text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:bordercolor=black@0.0:x=20:y=${cfg.y}`;
                 overlayFilters.push(text);
               });
@@ -296,7 +300,9 @@ const createWindow = async () => {
               outputPath,
             ];
             const ff = spawn('ffmpeg', args);
-            ff.stderr.on('data', (data) => console.log('[ffmpeg]', data.toString()));
+            ff.stderr.on('data', (data) =>
+              console.log('[ffmpeg]', data.toString()),
+            );
             ff.on('close', (code) => {
               if (code === 0) resolve();
               else reject(new Error(`ffmpeg exited with code ${code}`));
@@ -360,7 +366,9 @@ const createWindow = async () => {
               'aac',
               outputPath,
             ]);
-            ff.stderr.on('data', (data) => console.log('[ffmpeg]', data.toString()));
+            ff.stderr.on('data', (data) =>
+              console.log('[ffmpeg]', data.toString()),
+            );
             ff.on('close', async (code) => {
               await fs.unlink(listPath).catch(() => undefined);
               if (code === 0) resolve();
@@ -401,7 +409,9 @@ const createWindow = async () => {
             const outName = ensureMp4(`${prefix}${baseName}`);
             const outPath = path.join(targetDir, outName);
             await concatFiles(temps, outPath);
-            await Promise.all(temps.map((t) => fs.unlink(t).catch(() => undefined)));
+            await Promise.all(
+              temps.map((t) => fs.unlink(t).catch(() => undefined)),
+            );
           }
         } else {
           // single連結
@@ -410,12 +420,12 @@ const createWindow = async () => {
             temps.push(await renderClip(clip));
           }
           const defaultName = `combined_${clips.length}${useDual ? '_dual' : ''}.mp4`;
-          const outName = outputFileName
-            ? ensureMp4(baseName)
-            : defaultName;
+          const outName = outputFileName ? ensureMp4(baseName) : defaultName;
           const outPath = path.join(targetDir, outName);
           await concatFiles(temps, outPath);
-          await Promise.all(temps.map((t) => fs.unlink(t).catch(() => undefined)));
+          await Promise.all(
+            temps.map((t) => fs.unlink(t).catch(() => undefined)),
+          );
         }
 
         return { success: true };
@@ -428,6 +438,7 @@ const createWindow = async () => {
 };
 Utils();
 registerSettingsHandlers();
+registerPlaylistHandlers();
 
 app.whenReady().then(() => {
   createWindow();

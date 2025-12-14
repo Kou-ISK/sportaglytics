@@ -364,9 +364,123 @@ contextBridge.exposeInMainWorld('electronAPI', {
     } catch {
       // ignore
     }
-    ipcRenderer.on(
-      'menu-coding-mode',
-      (_event, mode: 'code' | 'label') => callback(mode),
+    ipcRenderer.on('menu-coding-mode', (_event, mode: 'code' | 'label') =>
+      callback(mode),
     );
+  },
+
+  // プレイリストAPI
+  playlist: {
+    /** プレイリストウィンドウを開く */
+    openWindow: async () => {
+      await ipcRenderer.invoke('playlist:open-window');
+    },
+    /** プレイリストウィンドウを閉じる */
+    closeWindow: async () => {
+      await ipcRenderer.invoke('playlist:close-window');
+    },
+    /** プレイリストウィンドウが開いているか確認 */
+    isWindowOpen: async (): Promise<boolean> => {
+      return await ipcRenderer.invoke('playlist:is-window-open');
+    },
+    /** プレイリストウィンドウへ状態を同期 */
+    syncToWindow: (data: unknown) => {
+      ipcRenderer.send('playlist:sync-to-window', data);
+    },
+    /** プレイリストウィンドウからのコマンドを受信 */
+    onCommand: (callback: (command: unknown) => void) => {
+      const wrapped = (_event: IpcRendererEvent, command: unknown) => {
+        callback(command);
+      };
+      let map = __listenerStore.get('playlist:command');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('playlist:command', map);
+      }
+      map.set(
+        callback as unknown as Function,
+        wrapped as unknown as (...args: unknown[]) => void,
+      );
+      ipcRenderer.on('playlist:command', wrapped);
+    },
+    /** プレイリストウィンドウからのコマンド受信解除 */
+    offCommand: (callback: (command: unknown) => void) => {
+      const map = __listenerStore.get('playlist:command');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener(
+          'playlist:command',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
+        map?.delete(callback as unknown as Function);
+      }
+    },
+    /** プレイリストウィンドウ閉じられた通知を受信 */
+    onWindowClosed: (callback: () => void) => {
+      const wrapped = () => callback();
+      let map = __listenerStore.get('playlist:window-closed');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('playlist:window-closed', map);
+      }
+      map.set(callback as unknown as Function, wrapped);
+      ipcRenderer.on('playlist:window-closed', wrapped);
+    },
+    /** プレイリストウィンドウ閉じられた通知受信解除 */
+    offWindowClosed: (callback: () => void) => {
+      const map = __listenerStore.get('playlist:window-closed');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener(
+          'playlist:window-closed',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
+        map?.delete(callback as unknown as Function);
+      }
+    },
+
+    // プレイリストウィンドウ側専用API
+    /** 状態同期を受信（プレイリストウィンドウ側） */
+    onSync: (callback: (data: unknown) => void) => {
+      const wrapped = (_event: IpcRendererEvent, data: unknown) => {
+        callback(data);
+      };
+      let map = __listenerStore.get('playlist:sync');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('playlist:sync', map);
+      }
+      map.set(
+        callback as unknown as Function,
+        wrapped as unknown as (...args: unknown[]) => void,
+      );
+      ipcRenderer.on('playlist:sync', wrapped);
+    },
+    /** 状態同期受信解除 */
+    offSync: (callback: (data: unknown) => void) => {
+      const map = __listenerStore.get('playlist:sync');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener(
+          'playlist:sync',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
+        map?.delete(callback as unknown as Function);
+      }
+    },
+    /** コマンドを送信（プレイリストウィンドウ側からメインへ） */
+    sendCommand: (command: unknown) => {
+      ipcRenderer.send('playlist:command', command);
+    },
+
+    // ファイル操作API
+    /** プレイリストをファイルに保存（スタンドアロン形式） */
+    savePlaylistFile: async (playlist: unknown): Promise<string | null> => {
+      return await ipcRenderer.invoke('playlist:save-file', playlist);
+    },
+    /** プレイリストファイルを読み込み */
+    loadPlaylistFile: async (): Promise<unknown> => {
+      return await ipcRenderer.invoke('playlist:load-file');
+    },
   },
 });

@@ -1,0 +1,1457 @@
+/**
+ * プレイリストウィンドウ専用アプリケーション
+ * Sportscode準拠: ウィンドウ内でビデオ再生、連続再生、ループ再生対応
+ * メモ編集、描画オーバーレイ、参照/スタンドアロン保存対応
+ */
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+} from 'react';
+import {
+  Box,
+  Paper,
+  List,
+  ListItemButton,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Typography,
+  Divider,
+  Slider,
+  Stack,
+  Tooltip,
+  Menu,
+  MenuItem,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  ToggleButton,
+  ToggleButtonGroup,
+  ListItemIcon,
+  alpha,
+  Badge,
+} from '@mui/material';
+import {
+  Delete,
+  DragIndicator,
+  PlayArrow,
+  Pause,
+  SkipNext,
+  SkipPrevious,
+  VolumeUp,
+  VolumeOff,
+  Fullscreen,
+  FullscreenExit,
+  MoreVert,
+  Loop,
+  PlaylistPlay,
+  Save,
+  FolderOpen,
+  Edit,
+  Brush,
+  Clear,
+  Link,
+  LinkOff,
+  Comment,
+  Notes,
+  ContentCopy,
+} from '@mui/icons-material';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import type {
+  PlaylistItem,
+  PlaylistSyncData,
+  PlaylistType,
+} from '../../types/Playlist';
+
+// ===== Drawing Canvas Component =====
+interface DrawingCanvasProps {
+  width: number;
+  height: number;
+  color: string;
+  brushSize: number;
+  isDrawing: boolean;
+  onDrawingChange?: (dataUrl: string | null) => void;
+  initialDrawing?: string | null;
+  clearTrigger?: number; // Increment to trigger clear
+}
+
+function DrawingCanvas({
+  width,
+  height,
+  color,
+  brushSize,
+  isDrawing,
+  onDrawingChange,
+  initialDrawing,
+  clearTrigger,
+}: DrawingCanvasProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const lastPosRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Load initial drawing if provided
+    if (initialDrawing) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0);
+      };
+      img.src = initialDrawing;
+    }
+  }, [initialDrawing]);
+
+  const startDrawing = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      if (!isDrawing) return;
+      isDrawingRef.current = true;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      let clientX: number, clientY: number;
+      if ('touches' in e) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      lastPosRef.current = {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY,
+      };
+    },
+    [isDrawing],
+  );
+
+  const draw = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      if (!isDrawingRef.current || !isDrawing) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      let clientX: number, clientY: number;
+      if ('touches' in e) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+        e.preventDefault();
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      const x = (clientX - rect.left) * scaleX;
+      const y = (clientY - rect.top) * scaleY;
+
+      ctx.beginPath();
+      ctx.moveTo(lastPosRef.current.x, lastPosRef.current.y);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = brushSize;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      lastPosRef.current = { x, y };
+    },
+    [isDrawing, color, brushSize],
+  );
+
+  const stopDrawing = useCallback(() => {
+    if (isDrawingRef.current) {
+      isDrawingRef.current = false;
+      const canvas = canvasRef.current;
+      if (canvas && onDrawingChange) {
+        onDrawingChange(canvas.toDataURL());
+      }
+    }
+  }, [onDrawingChange]);
+
+  // Clear canvas when clearTrigger changes
+  useEffect(() => {
+    if (clearTrigger === undefined || clearTrigger === 0) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    onDrawingChange?.(null);
+  }, [clearTrigger, onDrawingChange]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={width}
+      height={height}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: isDrawing ? 'auto' : 'none',
+        cursor: isDrawing ? 'crosshair' : 'default',
+        touchAction: 'none',
+      }}
+      onMouseDown={startDrawing}
+      onMouseMove={draw}
+      onMouseUp={stopDrawing}
+      onMouseLeave={stopDrawing}
+      onTouchStart={startDrawing}
+      onTouchMove={draw}
+      onTouchEnd={stopDrawing}
+    />
+  );
+}
+
+// ===== Sortable Item Component =====
+interface SortableItemProps {
+  item: PlaylistItem;
+  index: number;
+  isActive: boolean;
+  onRemove: (id: string) => void;
+  onPlay: (id: string) => void;
+  onEditNote: (id: string) => void;
+}
+
+function SortableItem({
+  item,
+  index,
+  isActive,
+  onRemove,
+  onPlay,
+  onEditNote,
+}: SortableItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const duration = item.endTime - item.startTime;
+
+  return (
+    <ListItemButton
+      ref={setNodeRef}
+      style={style}
+      selected={isActive}
+      onClick={() => onPlay(item.id)}
+      sx={{
+        py: 0.5,
+        px: 1,
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        bgcolor: isActive ? alpha('#1976d2', 0.15) : 'transparent',
+        '&:hover': {
+          bgcolor: isActive ? alpha('#1976d2', 0.2) : alpha('#fff', 0.05),
+        },
+        '&.Mui-selected': {
+          bgcolor: alpha('#1976d2', 0.15),
+        },
+      }}
+    >
+      {/* Index number */}
+      <Typography
+        variant="caption"
+        sx={{
+          width: 24,
+          textAlign: 'center',
+          fontWeight: isActive ? 'bold' : 'normal',
+          color: isActive ? 'primary.main' : 'text.secondary',
+        }}
+      >
+        {index + 1}
+      </Typography>
+
+      {/* Drag handle */}
+      <Box
+        {...attributes}
+        {...listeners}
+        sx={{
+          mx: 0.5,
+          cursor: 'grab',
+          display: 'flex',
+          alignItems: 'center',
+          color: 'text.disabled',
+          '&:hover': { color: 'text.secondary' },
+        }}
+      >
+        <DragIndicator fontSize="small" />
+      </Box>
+
+      {/* Content */}
+      <ListItemText
+        primary={
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Typography
+              variant="body2"
+              noWrap
+              sx={{
+                fontWeight: isActive ? 600 : 400,
+                color: isActive ? 'primary.main' : 'text.primary',
+                maxWidth: 150,
+              }}
+            >
+              {item.actionName}
+            </Typography>
+            {item.note && (
+              <Tooltip title={item.note}>
+                <Comment
+                  fontSize="small"
+                  sx={{ fontSize: 14, color: 'warning.main' }}
+                />
+              </Tooltip>
+            )}
+          </Stack>
+        }
+        secondary={
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography
+              variant="caption"
+              sx={{ color: 'text.secondary', fontFamily: 'monospace' }}
+            >
+              {formatTime(item.startTime)}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+              ({formatTime(duration)})
+            </Typography>
+          </Stack>
+        }
+        sx={{ my: 0 }}
+      />
+
+      {/* Actions */}
+      <ListItemSecondaryAction>
+        <Stack direction="row" spacing={0}>
+          <Tooltip title="メモを編集">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditNote(item.id);
+              }}
+            >
+              <Edit fontSize="small" sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="削除">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(item.id);
+              }}
+            >
+              <Delete fontSize="small" sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </ListItemSecondaryAction>
+    </ListItemButton>
+  );
+}
+
+// ===== Save Dialog Component =====
+interface SaveDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (type: PlaylistType, name: string) => void;
+  defaultName: string;
+}
+
+function SaveDialog({ open, onClose, onSave, defaultName }: SaveDialogProps) {
+  const [name, setName] = useState(defaultName);
+  const [saveType, setSaveType] = useState<PlaylistType>('embedded');
+
+  useEffect(() => {
+    setName(defaultName);
+  }, [defaultName, open]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>プレイリストを保存</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <TextField
+            label="プレイリスト名"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            fullWidth
+            size="small"
+          />
+          <Box>
+            <Typography variant="caption" color="text.secondary" gutterBottom>
+              保存形式
+            </Typography>
+            <ToggleButtonGroup
+              value={saveType}
+              exclusive
+              onChange={(_, value) => value && setSaveType(value)}
+              fullWidth
+              size="small"
+            >
+              <ToggleButton value="embedded">
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <LinkOff fontSize="small" />
+                  <Box textAlign="left">
+                    <Typography variant="caption" display="block">
+                      スタンドアロン
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ fontSize: '0.65rem' }}
+                    >
+                      独立したファイル
+                    </Typography>
+                  </Box>
+                </Stack>
+              </ToggleButton>
+              <ToggleButton value="reference">
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Link fontSize="small" />
+                  <Box textAlign="left">
+                    <Typography variant="caption" display="block">
+                      参照
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ fontSize: '0.65rem' }}
+                    >
+                      元データにリンク
+                    </Typography>
+                  </Box>
+                </Stack>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            {saveType === 'embedded'
+              ? 'スタンドアロン: 動画パスを含めて保存。他のPCでも再生可能（動画ファイルが同じ場所にある場合）'
+              : '参照: 元のタイムラインへのリンクを維持。元データが変更されると反映されます'}
+          </Typography>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>キャンセル</Button>
+        <Button
+          onClick={() => onSave(saveType, name)}
+          variant="contained"
+          disabled={!name.trim()}
+        >
+          保存
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ===== Note Edit Dialog =====
+interface NoteDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (note: string) => void;
+  initialNote: string;
+  itemName: string;
+}
+
+function NoteDialog({
+  open,
+  onClose,
+  onSave,
+  initialNote,
+  itemName,
+}: NoteDialogProps) {
+  const [note, setNote] = useState(initialNote);
+
+  useEffect(() => {
+    setNote(initialNote);
+  }, [initialNote, open]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Notes />
+          <Typography>メモを編集: {itemName}</Typography>
+        </Stack>
+      </DialogTitle>
+      <DialogContent>
+        <TextField
+          multiline
+          rows={4}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          fullWidth
+          placeholder="アイテムに関するメモを入力..."
+          sx={{ mt: 1 }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>キャンセル</Button>
+        <Button onClick={() => onSave(note)} variant="contained">
+          保存
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ===== Main Component =====
+export default function PlaylistWindowApp() {
+  // State
+  const [items, setItems] = useState<PlaylistItem[]>([]);
+  const [currentIndex, setCurrentIndex] = useState<number>(-1);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [loopPlaylist, setLoopPlaylist] = useState(false);
+  const [autoAdvance, setAutoAdvance] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [videoSources, setVideoSources] = useState<string[]>([]);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [isDualView, setIsDualView] = useState(false);
+  const [playlistName, setPlaylistName] = useState('プレイリスト');
+  const [packagePath, setPackagePath] = useState<string | null>(null);
+
+  // Drawing state
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [brushColor, setBrushColor] = useState('#ff0000');
+  const [brushSize, setBrushSize] = useState(3);
+  const [itemDrawings, setItemDrawings] = useState<
+    Record<string, string | null>
+  >({});
+  const [clearTrigger, setClearTrigger] = useState(0);
+
+  // Dialog states
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+
+  // Refs
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef2 = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  // Current item
+  const currentItem = useMemo(() => {
+    return currentIndex >= 0 && currentIndex < items.length
+      ? items[currentIndex]
+      : null;
+  }, [items, currentIndex]);
+
+  // Get video source for current item (primary)
+  const currentVideoSource = useMemo(() => {
+    if (!currentItem) return null;
+    return videoSources[0] || null;
+  }, [currentItem, videoSources]);
+
+  // Get video source for current item (secondary - for dual view)
+  const currentVideoSource2 = useMemo(() => {
+    if (!currentItem || !isDualView) return null;
+    return videoSources[1] || null;
+  }, [currentItem, isDualView, videoSources]);
+
+  // Handle IPC messages from main process
+  useEffect(() => {
+    const playlistAPI = window.electronAPI?.playlist;
+
+    const handlePlaylistSync = (data: PlaylistSyncData) => {
+      console.log('[PlaylistWindow] Received sync data:', data);
+      const activePlaylist = data.state.playlists.find(
+        (p) => p.id === data.state.activePlaylistId,
+      );
+      if (activePlaylist) {
+        setItems(activePlaylist.items);
+        setPlaylistName(activePlaylist.name);
+      }
+      setVideoSources(data.videoSources || []);
+      setPackagePath(data.packagePath || null);
+      if (data.videoSources && data.videoSources.length >= 2) {
+        setIsDualView(true);
+      }
+    };
+
+    if (playlistAPI) {
+      playlistAPI.onSync(handlePlaylistSync);
+      playlistAPI.sendCommand({ type: 'request-sync' });
+    }
+
+    return () => {
+      if (playlistAPI) {
+        playlistAPI.offSync(handlePlaylistSync);
+      }
+    };
+  }, []);
+
+  // Video event handlers
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(video.currentTime);
+      if (currentItem && video.currentTime >= currentItem.endTime) {
+        handleItemEnd();
+      }
+    };
+
+    const handleLoadedMetadata = () => {
+      setDuration(video.duration);
+      if (currentItem) {
+        video.currentTime = currentItem.startTime;
+      }
+    };
+
+    const handleEnded = () => {
+      handleItemEnd();
+    };
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('ended', handleEnded);
+
+    return () => {
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('ended', handleEnded);
+    };
+  }, [currentItem]);
+
+  const handleItemEnd = useCallback(() => {
+    if (!autoAdvance) {
+      setIsPlaying(false);
+      return;
+    }
+    if (currentIndex < items.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else if (loopPlaylist && items.length > 0) {
+      setCurrentIndex(0);
+    } else {
+      setIsPlaying(false);
+    }
+  }, [autoAdvance, currentIndex, items.length, loopPlaylist]);
+
+  // Play/pause handling for both videos
+  useEffect(() => {
+    const video = videoRef.current;
+    const video2 = videoRef2.current;
+    if (!video || !currentVideoSource) return;
+
+    if (isPlaying) {
+      video.play().catch(console.error);
+      if (video2 && currentVideoSource2) {
+        video2.play().catch(console.error);
+      }
+    } else {
+      video.pause();
+      if (video2) {
+        video2.pause();
+      }
+    }
+  }, [isPlaying, currentVideoSource, currentVideoSource2]);
+
+  // Volume handling
+  useEffect(() => {
+    const video = videoRef.current;
+    const video2 = videoRef2.current;
+    if (!video) return;
+    video.volume = isMuted ? 0 : volume;
+    if (video2) {
+      video2.volume = 0;
+    }
+  }, [volume, isMuted]);
+
+  // Set video source when item changes (primary)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !currentVideoSource || !currentItem) return;
+
+    video.src = currentVideoSource;
+    video.load();
+    video.currentTime = currentItem.startTime;
+
+    if (isPlaying) {
+      video.play().catch(console.error);
+    }
+  }, [currentVideoSource, currentItem?.id]);
+
+  // Set video source when item changes (secondary)
+  useEffect(() => {
+    const video2 = videoRef2.current;
+    if (!video2 || !currentVideoSource2 || !currentItem) return;
+
+    video2.src = currentVideoSource2;
+    video2.load();
+    video2.currentTime = currentItem.startTime;
+    video2.volume = 0;
+
+    if (isPlaying) {
+      video2.play().catch(console.error);
+    }
+  }, [currentVideoSource2, currentItem?.id, isPlaying]);
+
+  // Handlers
+  const handlePlayItem = useCallback(
+    (id?: string) => {
+      if (id) {
+        const index = items.findIndex((item) => item.id === id);
+        if (index !== -1) {
+          setCurrentIndex(index);
+          setIsPlaying(true);
+        }
+      } else if (currentIndex >= 0) {
+        setIsPlaying(true);
+      } else if (items.length > 0) {
+        setCurrentIndex(0);
+        setIsPlaying(true);
+      }
+    },
+    [items, currentIndex],
+  );
+
+  const handleTogglePlay = useCallback(() => {
+    if (currentIndex < 0 && items.length > 0) {
+      setCurrentIndex(0);
+      setIsPlaying(true);
+    } else {
+      setIsPlaying(!isPlaying);
+    }
+  }, [currentIndex, items.length, isPlaying]);
+
+  const handlePrevious = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    } else if (loopPlaylist && items.length > 0) {
+      setCurrentIndex(items.length - 1);
+    }
+  }, [currentIndex, loopPlaylist, items.length]);
+
+  const handleNext = useCallback(() => {
+    if (currentIndex < items.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else if (loopPlaylist && items.length > 0) {
+      setCurrentIndex(0);
+    }
+  }, [currentIndex, items.length, loopPlaylist]);
+
+  const handleRemoveItem = useCallback(
+    (id: string) => {
+      setItems((prev) => {
+        const newItems = prev.filter((item) => item.id !== id);
+        const removedIndex = prev.findIndex((item) => item.id === id);
+        if (removedIndex <= currentIndex && currentIndex > 0) {
+          setCurrentIndex(currentIndex - 1);
+        } else if (removedIndex === currentIndex) {
+          setIsPlaying(false);
+          if (newItems.length === 0) {
+            setCurrentIndex(-1);
+          }
+        }
+        return newItems;
+      });
+    },
+    [currentIndex],
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      setItems((prev) => {
+        const oldIndex = prev.findIndex((item) => item.id === active.id);
+        const newIndex = prev.findIndex((item) => item.id === over.id);
+        const newItems = arrayMove(prev, oldIndex, newIndex);
+
+        if (oldIndex === currentIndex) {
+          setCurrentIndex(newIndex);
+        } else if (oldIndex < currentIndex && newIndex >= currentIndex) {
+          setCurrentIndex(currentIndex - 1);
+        } else if (oldIndex > currentIndex && newIndex <= currentIndex) {
+          setCurrentIndex(currentIndex + 1);
+        }
+
+        return newItems;
+      });
+    },
+    [currentIndex],
+  );
+
+  const handleSeek = useCallback(
+    (_: Event, value: number | number[]) => {
+      const time = Array.isArray(value) ? value[0] : value;
+      if (videoRef.current) {
+        videoRef.current.currentTime = time;
+      }
+      if (videoRef2.current && isDualView) {
+        videoRef2.current.currentTime = time;
+      }
+    },
+    [isDualView],
+  );
+
+  const handleVolumeChange = useCallback(
+    (_: Event, value: number | number[]) => {
+      setVolume(Array.isArray(value) ? value[0] : value);
+    },
+    [],
+  );
+
+  const handleToggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (!isFullscreen) {
+      containerRef.current.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+    setIsFullscreen(!isFullscreen);
+  }, [isFullscreen]);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  // Save playlist
+  const handleSavePlaylist = useCallback(
+    async (type: PlaylistType, name: string) => {
+      setSaveDialogOpen(false);
+      const playlistAPI = window.electronAPI?.playlist;
+      if (!playlistAPI) return;
+
+      const playlist = {
+        id: crypto.randomUUID(),
+        name,
+        type,
+        items:
+          type === 'embedded'
+            ? items.map((item) => ({
+                ...item,
+                videoSource: videoSources[0] || undefined,
+                videoSource2: videoSources[1] || undefined,
+              }))
+            : items,
+        sourcePackagePath: packagePath || undefined,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      const savedPath = await playlistAPI.savePlaylistFile(playlist);
+      if (savedPath) {
+        console.log('[PlaylistWindow] Playlist saved to:', savedPath);
+        setPlaylistName(name);
+      }
+    },
+    [items, videoSources, packagePath],
+  );
+
+  // Load playlist
+  const handleLoadPlaylist = useCallback(async () => {
+    handleMenuClose();
+    const playlistAPI = window.electronAPI?.playlist;
+    if (!playlistAPI) return;
+
+    const loaded = await playlistAPI.loadPlaylistFile();
+    if (loaded) {
+      setItems(loaded.items);
+      setPlaylistName(loaded.name);
+      const sources: string[] = [];
+      if (loaded.items[0]?.videoSource) {
+        sources.push(loaded.items[0].videoSource);
+      }
+      if (loaded.items[0]?.videoSource2) {
+        sources.push(loaded.items[0].videoSource2);
+      }
+      if (sources.length > 0) {
+        setVideoSources(sources);
+      }
+      if (sources.length >= 2) {
+        setIsDualView(true);
+      }
+    }
+  }, []);
+
+  // Edit note
+  const handleEditNote = useCallback((itemId: string) => {
+    setEditingItemId(itemId);
+    setNoteDialogOpen(true);
+  }, []);
+
+  const handleSaveNote = useCallback(
+    (note: string) => {
+      if (!editingItemId) return;
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === editingItemId ? { ...item, note } : item,
+        ),
+      );
+      setNoteDialogOpen(false);
+      setEditingItemId(null);
+    },
+    [editingItemId],
+  );
+
+  // Drawing
+  const handleDrawingChange = useCallback(
+    (dataUrl: string | null) => {
+      if (!currentItem) return;
+      setItemDrawings((prev) => ({
+        ...prev,
+        [currentItem.id]: dataUrl,
+      }));
+    },
+    [currentItem],
+  );
+
+  const handleClearDrawing = useCallback(() => {
+    if (!currentItem) return;
+    setItemDrawings((prev) => ({
+      ...prev,
+      [currentItem.id]: null,
+    }));
+    setClearTrigger((prev) => prev + 1);
+  }, [currentItem]);
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const sliderMin = currentItem?.startTime ?? 0;
+  const sliderMax = currentItem?.endTime ?? duration;
+  const editingItem = editingItemId
+    ? items.find((i) => i.id === editingItemId)
+    : null;
+
+  const brushColors = [
+    '#ff0000',
+    '#ffff00',
+    '#00ff00',
+    '#00ffff',
+    '#0000ff',
+    '#ff00ff',
+    '#ffffff',
+    '#000000',
+  ];
+
+  return (
+    <Box
+      ref={containerRef}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        bgcolor: '#1a1a2e',
+        color: '#fff',
+      }}
+    >
+      {/* Header */}
+      <Paper
+        elevation={0}
+        sx={{
+          bgcolor: '#16213e',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          px: 1.5,
+          py: 0.5,
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <PlaylistPlay sx={{ color: 'primary.main' }} />
+          <Typography variant="subtitle2" sx={{ flex: 1 }}>
+            {playlistName}
+          </Typography>
+          <Badge badgeContent={items.length} color="primary" max={99}>
+            <Typography variant="caption" color="text.secondary">
+              アイテム
+            </Typography>
+          </Badge>
+          <IconButton size="small" onClick={handleMenuOpen}>
+            <MoreVert fontSize="small" />
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleMenuClose}
+          >
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                setSaveDialogOpen(true);
+              }}
+            >
+              <ListItemIcon>
+                <Save fontSize="small" />
+              </ListItemIcon>
+              プレイリストを保存
+            </MenuItem>
+            <MenuItem onClick={handleLoadPlaylist}>
+              <ListItemIcon>
+                <FolderOpen fontSize="small" />
+              </ListItemIcon>
+              プレイリストを開く
+            </MenuItem>
+            <Divider />
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                setIsDualView(!isDualView);
+              }}
+              disabled={videoSources.length < 2}
+            >
+              <ListItemIcon>
+                <ContentCopy fontSize="small" />
+              </ListItemIcon>
+              {isDualView ? 'シングルビュー' : 'デュアルビュー'}
+            </MenuItem>
+          </Menu>
+        </Stack>
+      </Paper>
+
+      {/* Video Player Area */}
+      <Box
+        ref={videoContainerRef}
+        sx={{
+          flex: '0 0 auto',
+          height: '50%',
+          minHeight: 250,
+          bgcolor: '#000',
+          position: 'relative',
+          display: 'flex',
+        }}
+      >
+        {currentVideoSource ? (
+          <>
+            {/* Primary Video */}
+            <Box
+              sx={{
+                flex: isDualView && currentVideoSource2 ? '0 0 50%' : '1',
+                height: '100%',
+                position: 'relative',
+              }}
+            >
+              <video
+                ref={videoRef}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                }}
+              />
+              {/* Drawing Canvas Overlay */}
+              <DrawingCanvas
+                width={1920}
+                height={1080}
+                color={brushColor}
+                brushSize={brushSize}
+                isDrawing={isDrawingMode}
+                onDrawingChange={handleDrawingChange}
+                initialDrawing={
+                  currentItem ? itemDrawings[currentItem.id] : null
+                }
+                clearTrigger={clearTrigger}
+              />
+            </Box>
+            {/* Secondary Video (Dual View) */}
+            {isDualView && currentVideoSource2 && (
+              <Box
+                sx={{
+                  flex: '0 0 50%',
+                  height: '100%',
+                  position: 'relative',
+                  borderLeft: '1px solid rgba(255,255,255,0.2)',
+                }}
+              >
+                <video
+                  ref={videoRef2}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                  }}
+                />
+              </Box>
+            )}
+          </>
+        ) : (
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'column',
+              gap: 1,
+            }}
+          >
+            <PlaylistPlay sx={{ fontSize: 48, color: 'text.disabled' }} />
+            <Typography color="text.secondary">
+              {items.length === 0
+                ? 'プレイリストが空です'
+                : 'ビデオソースが設定されていません'}
+            </Typography>
+          </Box>
+        )}
+
+        {/* Drawing Toolbar */}
+        {isDrawingMode && (
+          <Paper
+            sx={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              p: 0.5,
+              bgcolor: 'rgba(0,0,0,0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+            }}
+          >
+            {brushColors.map((color) => (
+              <IconButton
+                key={color}
+                size="small"
+                onClick={() => setBrushColor(color)}
+                sx={{
+                  width: 24,
+                  height: 24,
+                  bgcolor: color,
+                  border:
+                    brushColor === color ? '2px solid white' : '1px solid #666',
+                  '&:hover': { bgcolor: color },
+                }}
+              />
+            ))}
+            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+            <Slider
+              size="small"
+              value={brushSize}
+              min={1}
+              max={10}
+              onChange={(_, v) => setBrushSize(v as number)}
+              sx={{ width: 60 }}
+            />
+            <Tooltip title="クリア">
+              <IconButton size="small" onClick={handleClearDrawing}>
+                <Clear fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Paper>
+        )}
+
+        {/* Video Controls Overlay */}
+        {currentItem && (
+          <Paper
+            sx={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              p: 1,
+              bgcolor: 'rgba(0,0,0,0.85)',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            <Slider
+              size="small"
+              value={currentTime}
+              min={sliderMin}
+              max={sliderMax}
+              onChange={handleSeek}
+              sx={{
+                mb: 0.5,
+                '& .MuiSlider-thumb': { width: 12, height: 12 },
+                '& .MuiSlider-track': { bgcolor: 'primary.main' },
+              }}
+            />
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Typography
+                variant="caption"
+                sx={{ minWidth: 80, fontFamily: 'monospace' }}
+              >
+                {formatTime(currentTime - sliderMin)} /{' '}
+                {formatTime(sliderMax - sliderMin)}
+              </Typography>
+
+              <IconButton size="small" onClick={handlePrevious}>
+                <SkipPrevious fontSize="small" />
+              </IconButton>
+              <IconButton onClick={handleTogglePlay} color="primary">
+                {isPlaying ? <Pause /> : <PlayArrow />}
+              </IconButton>
+              <IconButton size="small" onClick={handleNext}>
+                <SkipNext fontSize="small" />
+              </IconButton>
+
+              <Divider
+                orientation="vertical"
+                flexItem
+                sx={{ mx: 0.5, bgcolor: 'grey.700' }}
+              />
+
+              <Tooltip title={autoAdvance ? '連続再生: ON' : '連続再生: OFF'}>
+                <IconButton
+                  size="small"
+                  onClick={() => setAutoAdvance(!autoAdvance)}
+                  color={autoAdvance ? 'primary' : 'default'}
+                >
+                  <PlaylistPlay fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={loopPlaylist ? 'ループ: ON' : 'ループ: OFF'}>
+                <IconButton
+                  size="small"
+                  onClick={() => setLoopPlaylist(!loopPlaylist)}
+                  color={loopPlaylist ? 'primary' : 'default'}
+                >
+                  <Loop fontSize="small" />
+                </IconButton>
+              </Tooltip>
+
+              <Divider
+                orientation="vertical"
+                flexItem
+                sx={{ mx: 0.5, bgcolor: 'grey.700' }}
+              />
+
+              <Tooltip title={isDrawingMode ? '描画モード: ON' : '描画モード'}>
+                <IconButton
+                  size="small"
+                  onClick={() => setIsDrawingMode(!isDrawingMode)}
+                  color={isDrawingMode ? 'warning' : 'default'}
+                >
+                  <Brush fontSize="small" />
+                </IconButton>
+              </Tooltip>
+
+              <Box sx={{ flex: 1 }} />
+
+              <IconButton size="small" onClick={() => setIsMuted(!isMuted)}>
+                {isMuted ? (
+                  <VolumeOff fontSize="small" />
+                ) : (
+                  <VolumeUp fontSize="small" />
+                )}
+              </IconButton>
+              <Slider
+                size="small"
+                value={volume}
+                min={0}
+                max={1}
+                step={0.1}
+                onChange={handleVolumeChange}
+                sx={{ width: 60 }}
+              />
+              <IconButton size="small" onClick={handleToggleFullscreen}>
+                {isFullscreen ? (
+                  <FullscreenExit fontSize="small" />
+                ) : (
+                  <Fullscreen fontSize="small" />
+                )}
+              </IconButton>
+            </Stack>
+          </Paper>
+        )}
+      </Box>
+
+      {/* Playlist Header */}
+      <Paper
+        elevation={0}
+        sx={{
+          bgcolor: '#16213e',
+          px: 1,
+          py: 0.5,
+          borderTop: '1px solid',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Stack direction="row" alignItems="center">
+          <Typography
+            variant="caption"
+            sx={{ width: 24, textAlign: 'center', color: 'text.secondary' }}
+          >
+            #
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{ flex: 1, ml: 3, color: 'text.secondary' }}
+          >
+            アクション
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            時間
+          </Typography>
+        </Stack>
+      </Paper>
+
+      {/* Playlist Items */}
+      <Box sx={{ flex: 1, overflow: 'auto', bgcolor: '#0f0f1a' }}>
+        {items.length === 0 ? (
+          <Box
+            sx={{
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: 3,
+            }}
+          >
+            <Typography color="text.secondary" textAlign="center">
+              プレイリストが空です。
+              <br />
+              タイムライン上でアクションを右クリックして
+              <br />
+              「プレイリストに追加」を選択してください。
+            </Typography>
+          </Box>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={items.map((i) => i.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <List disablePadding>
+                {items.map((item, index) => (
+                  <SortableItem
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    isActive={index === currentIndex}
+                    onRemove={handleRemoveItem}
+                    onPlay={(id) => handlePlayItem(id)}
+                    onEditNote={handleEditNote}
+                  />
+                ))}
+              </List>
+            </SortableContext>
+          </DndContext>
+        )}
+      </Box>
+
+      {/* Now Playing Info */}
+      {currentItem && (
+        <Paper
+          elevation={0}
+          sx={{
+            bgcolor: '#16213e',
+            px: 1.5,
+            py: 0.75,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Stack direction="row" spacing={1} alignItems="center">
+            <PlayArrow fontSize="small" color="primary" />
+            <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+              {currentItem.actionName}
+              {currentItem.note && (
+                <Typography
+                  component="span"
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ ml: 1 }}
+                >
+                  - {currentItem.note}
+                </Typography>
+              )}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {currentIndex + 1} / {items.length}
+            </Typography>
+          </Stack>
+        </Paper>
+      )}
+
+      {/* Dialogs */}
+      <SaveDialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        onSave={handleSavePlaylist}
+        defaultName={playlistName}
+      />
+      <NoteDialog
+        open={noteDialogOpen}
+        onClose={() => {
+          setNoteDialogOpen(false);
+          setEditingItemId(null);
+        }}
+        onSave={handleSaveNote}
+        initialNote={editingItem?.note || ''}
+        itemName={editingItem?.actionName || ''}
+      />
+    </Box>
+  );
+}

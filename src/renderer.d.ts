@@ -1,3 +1,5 @@
+import type { IPlaylistAPI } from './types/Playlist';
+
 export interface IElectronAPI {
   openFile: () => Promise<string>;
   openDirectory: () => Promise<string>;
@@ -87,6 +89,8 @@ export interface IElectronAPI {
   onExportTimeline: (callback: (format: string) => void) => void;
   onImportTimeline: (callback: () => void) => void;
   onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => void;
+  // プレイリストAPI
+  playlist: IPlaylistAPI;
 }
 
 export interface PackageDatas {

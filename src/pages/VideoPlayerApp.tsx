@@ -8,7 +8,9 @@ import { useVideoPlayerApp } from '../hooks/useVideoPlayerApp';
 import { useSettings } from '../hooks/useSettings';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useActionPreset } from '../contexts/ActionPresetContext';
+import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext';
 import { TimelineData } from '../types/TimelineData';
+import type { PlaylistItem } from '../types/Playlist';
 import { PlayerSurface } from './videoPlayer/components/PlayerSurface';
 import {
   TimelineActionSection,
@@ -22,8 +24,9 @@ import { useStatsMenuHandlers } from './videoPlayer/hooks/useStatsMenuHandlers';
 import { useTimelineExportImport } from './videoPlayer/hooks/useTimelineExportImport';
 import { OnboardingTutorial } from '../components/OnboardingTutorial';
 import { useHotkeyBindings } from './videoPlayer/hooks/useHotkeyBindings';
+import { AddToPlaylistMenu } from '../features/playlist/components/PlaylistButton';
 
-export const VideoPlayerApp = () => {
+const VideoPlayerAppContent = () => {
   const {
     timeline,
     setTimeline,
@@ -183,6 +186,90 @@ export const VideoPlayerApp = () => {
     setStatsOpen(false);
   };
 
+  // プレイリストからのコマンド処理用コールバックを登録
+  const {
+    registerSeekCallback,
+    registerPlayItemCallback,
+    syncToWindow,
+    isWindowOpen,
+    state: playlistState,
+  } = usePlaylist();
+
+  // シークコールバック
+  const handlePlaylistSeek = useCallback(
+    (time: number) => {
+      handleCurrentTime(new Event('playlist-seek'), time);
+    },
+    [handleCurrentTime],
+  );
+
+  // アイテム再生コールバック
+  const handlePlaylistPlayItem = useCallback(
+    (item: PlaylistItem) => {
+      // アイテムの開始時間へジャンプして再生開始
+      handleCurrentTime(new Event('playlist-play'), item.startTime);
+      setisVideoPlaying(true);
+    },
+    [handleCurrentTime, setisVideoPlaying],
+  );
+
+  // コールバックを登録
+  useEffect(() => {
+    registerSeekCallback(handlePlaylistSeek);
+    registerPlayItemCallback(handlePlaylistPlayItem);
+  }, [
+    registerSeekCallback,
+    registerPlayItemCallback,
+    handlePlaylistSeek,
+    handlePlaylistPlayItem,
+  ]);
+
+  // プレイリストウィンドウが開いている場合、状態を同期
+  useEffect(() => {
+    if (!isWindowOpen) return;
+
+    // 状態が変更されたら同期（即座に）
+    const videoPath = videoList.length > 0 ? videoList[0] : null;
+    const videoPath2 = videoList.length > 1 ? videoList[1] : null;
+    // packagePathはvideoPathの親ディレクトリから推測
+    const packagePath = videoPath
+      ? videoPath.substring(0, videoPath.lastIndexOf('/'))
+      : undefined;
+    syncToWindow(currentTime, videoPath, videoPath2, packagePath);
+  }, [isWindowOpen, playlistState, currentTime, videoList, syncToWindow]);
+
+  // プレイリストメニュー用の状態
+  const [playlistMenuAnchor, setPlaylistMenuAnchor] =
+    useState<HTMLElement | null>(null);
+  const [playlistMenuItems, setPlaylistMenuItems] = useState<TimelineData[]>(
+    [],
+  );
+
+  // プレイリストに追加（右クリックメニューから呼ばれる）
+  const handleAddToPlaylist = useCallback(
+    (items: TimelineData[], anchorPosition: { top: number; left: number }) => {
+      // 右クリック位置を使ってダミーアンカーを作成
+      const dummyAnchor = document.createElement('div');
+      dummyAnchor.style.position = 'fixed';
+      dummyAnchor.style.top = `${anchorPosition.top}px`;
+      dummyAnchor.style.left = `${anchorPosition.left}px`;
+      dummyAnchor.style.width = '0';
+      dummyAnchor.style.height = '0';
+      document.body.appendChild(dummyAnchor);
+      setPlaylistMenuItems(items);
+      setPlaylistMenuAnchor(dummyAnchor);
+    },
+    [],
+  );
+
+  const handleClosePlaylistMenu = useCallback(() => {
+    if (playlistMenuAnchor && playlistMenuAnchor.parentNode) {
+      playlistMenuAnchor.parentNode.removeChild(playlistMenuAnchor);
+    }
+    setPlaylistMenuAnchor(null);
+    setPlaylistMenuItems([]);
+  }, [playlistMenuAnchor]);
+
   return (
     <Box
       sx={{
@@ -261,6 +348,7 @@ export const VideoPlayerApp = () => {
                 }
               });
             }}
+            onAddToPlaylist={handleAddToPlaylist}
           />
         </Box>
       ) : (
@@ -290,6 +378,24 @@ export const VideoPlayerApp = () => {
         stage={syncStage}
       />
       <OnboardingTutorial />
+
+      {/* プレイリスト追加メニュー */}
+      <AddToPlaylistMenu
+        anchorEl={playlistMenuAnchor}
+        onClose={handleClosePlaylistMenu}
+        items={playlistMenuItems}
+      />
     </Box>
+  );
+};
+
+/**
+ * VideoPlayerApp - PlaylistProviderでラップされたメインコンポーネント
+ */
+export const VideoPlayerApp = () => {
+  return (
+    <PlaylistProvider>
+      <VideoPlayerAppContent />
+    </PlaylistProvider>
   );
 };

@@ -1,4 +1,5 @@
-import { Menu, app, BrowserWindow } from 'electron';
+import { Menu, app, BrowserWindow, ipcMain } from 'electron';
+import { createPlaylistWindow } from './playlistWindow';
 
 export const menuBar = Menu.buildFromTemplate([
   {
@@ -261,6 +262,14 @@ export const menuBar = Menu.buildFromTemplate([
   {
     label: 'ウィンドウ',
     submenu: [
+      {
+        label: 'プレイリスト',
+        accelerator: 'CmdOrCtrl+Shift+P',
+        click: () => {
+          createPlaylistWindow();
+        },
+      },
+      { type: 'separator' },
       { role: 'minimize', label: '最小化' },
       { role: 'zoom', label: 'ズーム' },
       { type: 'separator' },
