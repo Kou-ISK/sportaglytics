@@ -1,7 +1,7 @@
 /**
  * プレイリストウィンドウ専用アプリケーション
  * Sportscode準拠: ウィンドウ内でビデオ再生、連続再生、ループ再生対応
- * メモ編集、描画オーバーレイ、参照/スタンドアロン保存対応
+ * 図形・テキスト描画、フリーズフレーム、メモ編集対応
  */
 import React, {
   useState,
@@ -55,12 +55,12 @@ import {
   FolderOpen,
   Edit,
   Brush,
-  Clear,
   Link,
   LinkOff,
   Comment,
   Notes,
   ContentCopy,
+  PauseCircle,
 } from '@mui/icons-material';
 import {
   DndContext,
@@ -83,161 +83,18 @@ import type {
   PlaylistItem,
   PlaylistSyncData,
   PlaylistType,
+  DrawingObject,
+  ItemAnnotation,
+  AnnotationTarget,
 } from '../../types/Playlist';
+import AnnotationCanvas, {
+  AnnotationCanvasRef,
+} from './components/AnnotationCanvas';
 
-// ===== Drawing Canvas Component =====
-interface DrawingCanvasProps {
-  width: number;
-  height: number;
-  color: string;
-  brushSize: number;
-  isDrawing: boolean;
-  onDrawingChange?: (dataUrl: string | null) => void;
-  initialDrawing?: string | null;
-  clearTrigger?: number; // Increment to trigger clear
-}
-
-function DrawingCanvas({
-  width,
-  height,
-  color,
-  brushSize,
-  isDrawing,
-  onDrawingChange,
-  initialDrawing,
-  clearTrigger,
-}: DrawingCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const isDrawingRef = useRef(false);
-  const lastPosRef = useRef({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Load initial drawing if provided
-    if (initialDrawing) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0);
-      };
-      img.src = initialDrawing;
-    }
-  }, [initialDrawing]);
-
-  const startDrawing = useCallback(
-    (e: React.MouseEvent | React.TouchEvent) => {
-      if (!isDrawing) return;
-      isDrawingRef.current = true;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-
-      let clientX: number, clientY: number;
-      if ('touches' in e) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      }
-
-      lastPosRef.current = {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top) * scaleY,
-      };
-    },
-    [isDrawing],
-  );
-
-  const draw = useCallback(
-    (e: React.MouseEvent | React.TouchEvent) => {
-      if (!isDrawingRef.current || !isDrawing) return;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-
-      let clientX: number, clientY: number;
-      if ('touches' in e) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-        e.preventDefault();
-      } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      }
-
-      const x = (clientX - rect.left) * scaleX;
-      const y = (clientY - rect.top) * scaleY;
-
-      ctx.beginPath();
-      ctx.moveTo(lastPosRef.current.x, lastPosRef.current.y);
-      ctx.lineTo(x, y);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = brushSize;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-
-      lastPosRef.current = { x, y };
-    },
-    [isDrawing, color, brushSize],
-  );
-
-  const stopDrawing = useCallback(() => {
-    if (isDrawingRef.current) {
-      isDrawingRef.current = false;
-      const canvas = canvasRef.current;
-      if (canvas && onDrawingChange) {
-        onDrawingChange(canvas.toDataURL());
-      }
-    }
-  }, [onDrawingChange]);
-
-  // Clear canvas when clearTrigger changes
-  useEffect(() => {
-    if (clearTrigger === undefined || clearTrigger === 0) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    onDrawingChange?.(null);
-  }, [clearTrigger, onDrawingChange]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: isDrawing ? 'auto' : 'none',
-        cursor: isDrawing ? 'crosshair' : 'default',
-        touchAction: 'none',
-      }}
-      onMouseDown={startDrawing}
-      onMouseMove={draw}
-      onMouseUp={stopDrawing}
-      onMouseLeave={stopDrawing}
-      onTouchStart={startDrawing}
-      onTouchMove={draw}
-      onTouchEnd={stopDrawing}
-    />
-  );
-}
+const DEFAULT_FREEZE_DURATION = 2; // seconds - Sportscode風の自動停止既定値
+const MIN_FREEZE_DURATION = 1; // seconds - ユーザー要求の最低停止秒数
+const ANNOTATION_TIME_TOLERANCE = 0.12; // 秒: 描画タイミング判定のゆらぎ
+const FREEZE_RETRIGGER_GUARD = 0.3; // 秒: 同じタイミングでの連続フリーズ防止
 
 // ===== Sortable Item Component =====
 interface SortableItemProps {
@@ -279,6 +136,9 @@ function SortableItem({
   };
 
   const duration = item.endTime - item.startTime;
+  const hasAnnotation =
+    item.annotation &&
+    (item.annotation.objects.length > 0 || item.annotation.freezeDuration > 0);
 
   return (
     <ListItemButton
@@ -352,6 +212,16 @@ function SortableItem({
                 />
               </Tooltip>
             )}
+            {hasAnnotation && (
+              <Tooltip
+                title={`描画あり${item.annotation?.freezeDuration ? ` (${item.annotation.freezeDuration}秒停止)` : ''}`}
+              >
+                <Brush
+                  fontSize="small"
+                  sx={{ fontSize: 14, color: 'info.main' }}
+                />
+              </Tooltip>
+            )}
           </Stack>
         }
         secondary={
@@ -365,6 +235,11 @@ function SortableItem({
             <Typography variant="caption" sx={{ color: 'text.disabled' }}>
               ({formatTime(duration)})
             </Typography>
+            {item.annotation?.freezeDuration ? (
+              <PauseCircle
+                sx={{ fontSize: 12, color: 'warning.main', ml: 0.5 }}
+              />
+            ) : null}
           </Stack>
         }
         sx={{ my: 0 }}
@@ -478,8 +353,8 @@ function SaveDialog({ open, onClose, onSave, defaultName }: SaveDialogProps) {
           </Box>
           <Typography variant="caption" color="text.secondary">
             {saveType === 'embedded'
-              ? 'スタンドアロン: 動画パスを含めて保存。他のPCでも再生可能（動画ファイルが同じ場所にある場合）'
-              : '参照: 元のタイムラインへのリンクを維持。元データが変更されると反映されます'}
+              ? 'スタンドアロン: 動画パスと描画データを含めて保存'
+              : '参照: 元のタイムラインへのリンクを維持'}
           </Typography>
         </Stack>
       </DialogContent>
@@ -567,14 +442,19 @@ export default function PlaylistWindowApp() {
   const [playlistName, setPlaylistName] = useState('プレイリスト');
   const [packagePath, setPackagePath] = useState<string | null>(null);
 
-  // Drawing state
+  // Drawing/Annotation state
   const [isDrawingMode, setIsDrawingMode] = useState(false);
-  const [brushColor, setBrushColor] = useState('#ff0000');
-  const [brushSize, setBrushSize] = useState(3);
-  const [itemDrawings, setItemDrawings] = useState<
-    Record<string, string | null>
+  const [itemAnnotations, setItemAnnotations] = useState<
+    Record<string, ItemAnnotation>
   >({});
-  const [clearTrigger, setClearTrigger] = useState(0);
+  const [drawingTarget, setDrawingTarget] =
+    useState<AnnotationTarget>('primary');
+
+  // Freeze frame state
+  const [isFrozen, setIsFrozen] = useState(false);
+  const [freezeTimeoutId, setFreezeTimeoutId] = useState<NodeJS.Timeout | null>(
+    null,
+  );
 
   // Dialog states
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -585,7 +465,9 @@ export default function PlaylistWindowApp() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoRef2 = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const annotationCanvasRefPrimary = useRef<AnnotationCanvasRef>(null);
+  const annotationCanvasRefSecondary = useRef<AnnotationCanvasRef>(null);
+  const lastFreezeTimestampRef = useRef<number | null>(null);
 
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -614,6 +496,51 @@ export default function PlaylistWindowApp() {
     return videoSources[1] || null;
   }, [currentItem, isDualView, videoSources]);
 
+  useEffect(() => {
+    if (!isDualView || !currentVideoSource2) {
+      setDrawingTarget('primary');
+    }
+  }, [isDualView, currentVideoSource2]);
+
+  useEffect(() => {
+    lastFreezeTimestampRef.current = null;
+  }, [currentItem?.id]);
+
+  // Current annotation
+  const currentAnnotation = useMemo(() => {
+    if (!currentItem) return null;
+    const base =
+      itemAnnotations[currentItem.id] || currentItem.annotation || null;
+    if (base) {
+      return {
+        ...base,
+        objects: base.objects || [],
+        freezeAt: base.freezeAt ?? 0,
+        freezeDuration:
+          base.freezeDuration === undefined || base.freezeDuration === 0
+            ? DEFAULT_FREEZE_DURATION
+            : base.freezeDuration,
+      };
+    }
+    return { objects: [], freezeDuration: DEFAULT_FREEZE_DURATION, freezeAt: 0 };
+  }, [currentItem, itemAnnotations]);
+
+  const annotationObjects = currentAnnotation?.objects || [];
+  const primaryAnnotationObjects = useMemo(
+    () =>
+      annotationObjects.filter(
+        (obj) => (obj.target || 'primary') === 'primary',
+      ),
+    [annotationObjects],
+  );
+  const secondaryAnnotationObjects = useMemo(
+    () =>
+      annotationObjects.filter(
+        (obj) => (obj.target || 'primary') === 'secondary',
+      ),
+    [annotationObjects],
+  );
+
   // Handle IPC messages from main process
   useEffect(() => {
     const playlistAPI = window.electronAPI?.playlist;
@@ -626,6 +553,14 @@ export default function PlaylistWindowApp() {
       if (activePlaylist) {
         setItems(activePlaylist.items);
         setPlaylistName(activePlaylist.name);
+        // Load annotations from items
+        const annotations: Record<string, ItemAnnotation> = {};
+        for (const item of activePlaylist.items) {
+          if (item.annotation) {
+            annotations[item.id] = item.annotation;
+          }
+        }
+        setItemAnnotations(annotations);
       }
       setVideoSources(data.videoSources || []);
       setPackagePath(data.packagePath || null);
@@ -646,13 +581,77 @@ export default function PlaylistWindowApp() {
     };
   }, []);
 
+  // Trigger freeze frame
+  const triggerFreezeFrame = useCallback(
+    (freezeDuration: number) => {
+      const duration = Math.max(MIN_FREEZE_DURATION, freezeDuration);
+      if (isFrozen || duration <= 0) return;
+
+      const video = videoRef.current;
+      const video2 = videoRef2.current;
+
+      if (video) {
+        video.pause();
+      }
+      if (video2) {
+        video2.pause();
+      }
+
+      setIsFrozen(true);
+
+      // Resume after freeze duration
+      const timeoutId = setTimeout(() => {
+        setIsFrozen(false);
+        if (isPlaying) {
+          video?.play().catch(console.error);
+          video2?.play().catch(console.error);
+        }
+      }, duration * 1000);
+
+      setFreezeTimeoutId(timeoutId);
+    },
+    [isFrozen, isPlaying],
+  );
+
   // Video event handlers
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     const handleTimeUpdate = () => {
-      setCurrentTime(video.currentTime);
+      if (isFrozen) return;
+      const playbackTime = video.currentTime;
+      setCurrentTime(playbackTime);
+
+      // Check for freeze frame trigger (annotation timestamp)
+      if (currentItem && currentAnnotation) {
+        const referenceTime = playbackTime;
+        const effectiveFreezeDuration =
+          currentAnnotation.freezeDuration &&
+          currentAnnotation.freezeDuration > 0
+            ? Math.max(MIN_FREEZE_DURATION, currentAnnotation.freezeDuration)
+            : DEFAULT_FREEZE_DURATION;
+        // アノテーションのtimestampに到達したらフリーズ
+        const shouldFreeze = currentAnnotation.objects.some(
+          (obj) =>
+            Math.abs(referenceTime - obj.timestamp) < ANNOTATION_TIME_TOLERANCE,
+        );
+        const lastFreezeAt = lastFreezeTimestampRef.current;
+        const recentlyFrozen =
+          lastFreezeAt !== null &&
+          Math.abs(referenceTime - lastFreezeAt) < FREEZE_RETRIGGER_GUARD;
+        if (
+          currentAnnotation.objects.length > 0 &&
+          shouldFreeze &&
+          !isFrozen &&
+          !recentlyFrozen
+        ) {
+          lastFreezeTimestampRef.current = referenceTime;
+          triggerFreezeFrame(effectiveFreezeDuration);
+        }
+      }
+
+      // Check for item end
       if (currentItem && video.currentTime >= currentItem.endTime) {
         handleItemEnd();
       }
@@ -678,9 +677,26 @@ export default function PlaylistWindowApp() {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('ended', handleEnded);
     };
-  }, [currentItem]);
+  }, [currentItem, currentAnnotation, isFrozen, triggerFreezeFrame]);
+
+  // Cleanup freeze timeout
+  useEffect(() => {
+    return () => {
+      if (freezeTimeoutId) {
+        clearTimeout(freezeTimeoutId);
+      }
+    };
+  }, [freezeTimeoutId]);
 
   const handleItemEnd = useCallback(() => {
+    // Clear any freeze state
+    if (freezeTimeoutId) {
+      clearTimeout(freezeTimeoutId);
+      setFreezeTimeoutId(null);
+    }
+    lastFreezeTimestampRef.current = null;
+    setIsFrozen(false);
+
     if (!autoAdvance) {
       setIsPlaying(false);
       return;
@@ -692,7 +708,7 @@ export default function PlaylistWindowApp() {
     } else {
       setIsPlaying(false);
     }
-  }, [autoAdvance, currentIndex, items.length, loopPlaylist]);
+  }, [autoAdvance, currentIndex, items.length, loopPlaylist, freezeTimeoutId]);
 
   // Play/pause handling for both videos
   useEffect(() => {
@@ -700,7 +716,7 @@ export default function PlaylistWindowApp() {
     const video2 = videoRef2.current;
     if (!video || !currentVideoSource) return;
 
-    if (isPlaying) {
+    if (isPlaying && !isFrozen) {
       video.play().catch(console.error);
       if (video2 && currentVideoSource2) {
         video2.play().catch(console.error);
@@ -711,7 +727,7 @@ export default function PlaylistWindowApp() {
         video2.pause();
       }
     }
-  }, [isPlaying, currentVideoSource, currentVideoSource2]);
+  }, [isPlaying, isFrozen, currentVideoSource, currentVideoSource2]);
 
   // Volume handling
   useEffect(() => {
@@ -728,6 +744,14 @@ export default function PlaylistWindowApp() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !currentVideoSource || !currentItem) return;
+
+    // Reset freeze state
+    if (freezeTimeoutId) {
+      clearTimeout(freezeTimeoutId);
+      setFreezeTimeoutId(null);
+    }
+    lastFreezeTimestampRef.current = null;
+    setIsFrozen(false);
 
     video.src = currentVideoSource;
     video.load();
@@ -748,10 +772,10 @@ export default function PlaylistWindowApp() {
     video2.currentTime = currentItem.startTime;
     video2.volume = 0;
 
-    if (isPlaying) {
+    if (isPlaying && !isFrozen) {
       video2.play().catch(console.error);
     }
-  }, [currentVideoSource2, currentItem?.id, isPlaying]);
+  }, [currentVideoSource2, currentItem?.id, isPlaying, isFrozen]);
 
   // Handlers
   const handlePlayItem = useCallback(
@@ -761,6 +785,7 @@ export default function PlaylistWindowApp() {
         if (index !== -1) {
           setCurrentIndex(index);
           setIsPlaying(true);
+          setIsDrawingMode(false); // Exit drawing mode when changing item
         }
       } else if (currentIndex >= 0) {
         setIsPlaying(true);
@@ -773,13 +798,24 @@ export default function PlaylistWindowApp() {
   );
 
   const handleTogglePlay = useCallback(() => {
+    if (isFrozen) {
+      // Skip freeze and continue
+      if (freezeTimeoutId) {
+        clearTimeout(freezeTimeoutId);
+        setFreezeTimeoutId(null);
+      }
+      setIsFrozen(false);
+      setIsPlaying(true);
+      return;
+    }
+
     if (currentIndex < 0 && items.length > 0) {
       setCurrentIndex(0);
       setIsPlaying(true);
     } else {
       setIsPlaying(!isPlaying);
     }
-  }, [currentIndex, items.length, isPlaying]);
+  }, [currentIndex, items.length, isPlaying, isFrozen, freezeTimeoutId]);
 
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) {
@@ -811,6 +847,12 @@ export default function PlaylistWindowApp() {
           }
         }
         return newItems;
+      });
+      // Remove annotation
+      setItemAnnotations((prev) => {
+        const newAnnotations = { ...prev };
+        delete newAnnotations[id];
+        return newAnnotations;
       });
     },
     [currentIndex],
@@ -878,6 +920,130 @@ export default function PlaylistWindowApp() {
     setAnchorEl(null);
   };
 
+  // Toggle drawing mode
+  const handleToggleDrawingMode = useCallback(() => {
+    if (isDrawingMode) {
+      // Save current annotation when exiting drawing mode (both views)
+      const persistCanvasObjects = (
+        ref: React.RefObject<AnnotationCanvasRef>,
+        target: AnnotationTarget,
+      ) => {
+        if (!currentItem || !ref.current) return;
+        const objects = ref.current.getObjects();
+        const currentAnn = itemAnnotations[currentItem.id] || {
+          objects: [],
+          freezeDuration: DEFAULT_FREEZE_DURATION,
+          freezeAt: 0,
+        };
+        const normalized = objects.map((obj) => ({
+          ...obj,
+          target: obj.target || target,
+        }));
+        const otherObjects = currentAnn.objects.filter(
+          (obj) => (obj.target || 'primary') !== target,
+        );
+        const mergedObjects = [...normalized, ...otherObjects];
+        const newAnnotation = {
+          ...currentAnn,
+          objects: mergedObjects,
+          freezeDuration:
+            currentAnn.freezeDuration ?? DEFAULT_FREEZE_DURATION,
+        };
+        setItemAnnotations((prev) => ({
+          ...prev,
+          [currentItem.id]: newAnnotation,
+        }));
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === currentItem.id
+              ? { ...item, annotation: newAnnotation }
+              : item,
+          ),
+        );
+      };
+
+      persistCanvasObjects(annotationCanvasRefPrimary, 'primary');
+      persistCanvasObjects(annotationCanvasRefSecondary, 'secondary');
+    }
+    setIsDrawingMode(!isDrawingMode);
+    // Pause video when entering drawing mode
+    if (!isDrawingMode) {
+      setIsPlaying(false);
+    }
+  }, [isDrawingMode, currentItem, itemAnnotations]);
+
+  // Handle annotation changes
+  const handleAnnotationObjectsChange = useCallback(
+    (objects: DrawingObject[], target: AnnotationTarget = 'primary') => {
+      if (!currentItem) return;
+      const currentAnn = itemAnnotations[currentItem.id] || {
+        objects: [],
+        freezeDuration: DEFAULT_FREEZE_DURATION,
+        freezeAt: 0,
+      };
+      const normalizedObjects = objects.map((obj) => ({
+        ...obj,
+        target: obj.target || target,
+      }));
+      const otherObjects = currentAnn.objects.filter(
+        (obj) => (obj.target || 'primary') !== target,
+      );
+      const mergedObjects = [...normalizedObjects, ...otherObjects];
+      const newAnnotation: ItemAnnotation = {
+        ...currentAnn,
+        objects: mergedObjects,
+        freezeDuration: Math.max(
+          MIN_FREEZE_DURATION,
+          currentAnn.freezeDuration ?? DEFAULT_FREEZE_DURATION,
+        ),
+      };
+      setItemAnnotations((prev) => ({
+        ...prev,
+        [currentItem.id]: newAnnotation,
+      }));
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === currentItem.id
+            ? { ...item, annotation: newAnnotation }
+            : item,
+        ),
+      );
+    },
+    [currentItem, itemAnnotations],
+  );
+
+  const handleFreezeDurationChange = useCallback(
+    (freezeDuration: number) => {
+      if (!currentItem) return;
+      const currentAnn = itemAnnotations[currentItem.id] || {
+        objects: [],
+        freezeDuration: DEFAULT_FREEZE_DURATION,
+        freezeAt: 0,
+      };
+      const effectiveDuration =
+        freezeDuration > 0
+          ? Math.max(MIN_FREEZE_DURATION, freezeDuration)
+          : DEFAULT_FREEZE_DURATION;
+      const newAnnotation = {
+        ...currentAnn,
+        freezeDuration: effectiveDuration,
+      };
+      setItemAnnotations((prev) => ({
+        ...prev,
+        [currentItem.id]: newAnnotation,
+      }));
+      // Also update item
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === currentItem.id
+            ? { ...item, annotation: newAnnotation }
+            : item,
+        ),
+      );
+    },
+    [currentItem, itemAnnotations],
+  );
+
   // Save playlist
   const handleSavePlaylist = useCallback(
     async (type: PlaylistType, name: string) => {
@@ -885,18 +1051,19 @@ export default function PlaylistWindowApp() {
       const playlistAPI = window.electronAPI?.playlist;
       if (!playlistAPI) return;
 
+      // Merge annotations into items
+      const itemsWithAnnotations = items.map((item) => ({
+        ...item,
+        videoSource: type === 'embedded' ? videoSources[0] : undefined,
+        videoSource2: type === 'embedded' ? videoSources[1] : undefined,
+        annotation: itemAnnotations[item.id] || item.annotation,
+      }));
+
       const playlist = {
         id: crypto.randomUUID(),
         name,
         type,
-        items:
-          type === 'embedded'
-            ? items.map((item) => ({
-                ...item,
-                videoSource: videoSources[0] || undefined,
-                videoSource2: videoSources[1] || undefined,
-              }))
-            : items,
+        items: itemsWithAnnotations,
         sourcePackagePath: packagePath || undefined,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -908,7 +1075,7 @@ export default function PlaylistWindowApp() {
         setPlaylistName(name);
       }
     },
-    [items, videoSources, packagePath],
+    [items, videoSources, packagePath, itemAnnotations],
   );
 
   // Load playlist
@@ -921,6 +1088,15 @@ export default function PlaylistWindowApp() {
     if (loaded) {
       setItems(loaded.items);
       setPlaylistName(loaded.name);
+      // Load annotations
+      const annotations: Record<string, ItemAnnotation> = {};
+      for (const item of loaded.items) {
+        if (item.annotation) {
+          annotations[item.id] = item.annotation;
+        }
+      }
+      setItemAnnotations(annotations);
+
       const sources: string[] = [];
       if (loaded.items[0]?.videoSource) {
         sources.push(loaded.items[0].videoSource);
@@ -957,27 +1133,6 @@ export default function PlaylistWindowApp() {
     [editingItemId],
   );
 
-  // Drawing
-  const handleDrawingChange = useCallback(
-    (dataUrl: string | null) => {
-      if (!currentItem) return;
-      setItemDrawings((prev) => ({
-        ...prev,
-        [currentItem.id]: dataUrl,
-      }));
-    },
-    [currentItem],
-  );
-
-  const handleClearDrawing = useCallback(() => {
-    if (!currentItem) return;
-    setItemDrawings((prev) => ({
-      ...prev,
-      [currentItem.id]: null,
-    }));
-    setClearTrigger((prev) => prev + 1);
-  }, [currentItem]);
-
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -989,17 +1144,6 @@ export default function PlaylistWindowApp() {
   const editingItem = editingItemId
     ? items.find((i) => i.id === editingItemId)
     : null;
-
-  const brushColors = [
-    '#ff0000',
-    '#ffff00',
-    '#00ff00',
-    '#00ffff',
-    '#0000ff',
-    '#ff00ff',
-    '#ffffff',
-    '#000000',
-  ];
 
   return (
     <Box
@@ -1077,7 +1221,6 @@ export default function PlaylistWindowApp() {
 
       {/* Video Player Area */}
       <Box
-        ref={videoContainerRef}
         sx={{
           flex: '0 0 auto',
           height: '50%',
@@ -1089,6 +1232,50 @@ export default function PlaylistWindowApp() {
       >
         {currentVideoSource ? (
           <>
+            {isDualView && currentVideoSource2 && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 6,
+                }}
+              >
+                <Paper
+                  sx={{
+                    px: 1,
+                    py: 0.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    bgcolor: 'rgba(0,0,0,0.7)',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                  elevation={3}
+                >
+                  <Typography variant="caption" sx={{ color: 'grey.200' }}>
+                    描画対象
+                  </Typography>
+                  <ToggleButtonGroup
+                    size="small"
+                    exclusive
+                    value={drawingTarget}
+                    onChange={(_, value) =>
+                      value && setDrawingTarget(value as AnnotationTarget)
+                    }
+                  >
+                    <ToggleButton value="primary">メイン</ToggleButton>
+                    <ToggleButton
+                      value="secondary"
+                      disabled={!currentVideoSource2}
+                    >
+                      サブ
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Paper>
+              </Box>
+            )}
             {/* Primary Video */}
             <Box
               sx={{
@@ -1105,19 +1292,44 @@ export default function PlaylistWindowApp() {
                   objectFit: 'contain',
                 }}
               />
-              {/* Drawing Canvas Overlay */}
-              <DrawingCanvas
+              {/* Annotation Canvas Overlay */}
+              <AnnotationCanvas
+                ref={annotationCanvasRefPrimary}
                 width={1920}
                 height={1080}
-                color={brushColor}
-                brushSize={brushSize}
-                isDrawing={isDrawingMode}
-                onDrawingChange={handleDrawingChange}
-                initialDrawing={
-                  currentItem ? itemDrawings[currentItem.id] : null
+                isActive={isDrawingMode && drawingTarget === 'primary'}
+                target="primary"
+                initialObjects={primaryAnnotationObjects}
+                freezeDuration={
+                  currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
                 }
-                clearTrigger={clearTrigger}
+                onObjectsChange={(objs) =>
+                  handleAnnotationObjectsChange(objs, 'primary')
+                }
+                onFreezeDurationChange={handleFreezeDurationChange}
+                currentTime={currentTime}
               />
+              {/* Freeze Indicator */}
+              {isFrozen && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    bgcolor: 'warning.main',
+                    color: 'warning.contrastText',
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                  }}
+                >
+                  <PauseCircle fontSize="small" />
+                  <Typography variant="caption">停止中</Typography>
+                </Box>
+              )}
             </Box>
             {/* Secondary Video (Dual View) */}
             {isDualView && currentVideoSource2 && (
@@ -1129,14 +1341,32 @@ export default function PlaylistWindowApp() {
                   borderLeft: '1px solid rgba(255,255,255,0.2)',
                 }}
               >
-                <video
-                  ref={videoRef2}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                  }}
-                />
+                  <video
+                    ref={videoRef2}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                  <AnnotationCanvas
+                    ref={annotationCanvasRefSecondary}
+                    width={1920}
+                    height={1080}
+                    isActive={
+                      isDrawingMode && drawingTarget === 'secondary'
+                    }
+                    target="secondary"
+                    initialObjects={secondaryAnnotationObjects}
+                    freezeDuration={
+                      currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
+                    }
+                    onObjectsChange={(objs) =>
+                      handleAnnotationObjectsChange(objs, 'secondary')
+                    }
+                    onFreezeDurationChange={handleFreezeDurationChange}
+                    currentTime={currentTime}
+                  />
               </Box>
             )}
           </>
@@ -1161,54 +1391,8 @@ export default function PlaylistWindowApp() {
           </Box>
         )}
 
-        {/* Drawing Toolbar */}
-        {isDrawingMode && (
-          <Paper
-            sx={{
-              position: 'absolute',
-              top: 8,
-              left: 8,
-              p: 0.5,
-              bgcolor: 'rgba(0,0,0,0.8)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-            }}
-          >
-            {brushColors.map((color) => (
-              <IconButton
-                key={color}
-                size="small"
-                onClick={() => setBrushColor(color)}
-                sx={{
-                  width: 24,
-                  height: 24,
-                  bgcolor: color,
-                  border:
-                    brushColor === color ? '2px solid white' : '1px solid #666',
-                  '&:hover': { bgcolor: color },
-                }}
-              />
-            ))}
-            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-            <Slider
-              size="small"
-              value={brushSize}
-              min={1}
-              max={10}
-              onChange={(_, v) => setBrushSize(v as number)}
-              sx={{ width: 60 }}
-            />
-            <Tooltip title="クリア">
-              <IconButton size="small" onClick={handleClearDrawing}>
-                <Clear fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Paper>
-        )}
-
         {/* Video Controls Overlay */}
-        {currentItem && (
+        {currentItem && !isDrawingMode && (
           <Paper
             sx={{
               position: 'absolute',
@@ -1231,6 +1415,14 @@ export default function PlaylistWindowApp() {
                 '& .MuiSlider-thumb': { width: 12, height: 12 },
                 '& .MuiSlider-track': { bgcolor: 'primary.main' },
               }}
+              marks={
+                currentAnnotation?.objects?.length
+                  ? currentAnnotation.objects.map((obj) => ({
+                      value: obj.timestamp,
+                      label: '',
+                    }))
+                  : []
+              }
             />
             <Stack direction="row" spacing={0.5} alignItems="center">
               <Typography
@@ -1245,7 +1437,7 @@ export default function PlaylistWindowApp() {
                 <SkipPrevious fontSize="small" />
               </IconButton>
               <IconButton onClick={handleTogglePlay} color="primary">
-                {isPlaying ? <Pause /> : <PlayArrow />}
+                {isPlaying && !isFrozen ? <Pause /> : <PlayArrow />}
               </IconButton>
               <IconButton size="small" onClick={handleNext}>
                 <SkipNext fontSize="small" />
@@ -1282,10 +1474,14 @@ export default function PlaylistWindowApp() {
                 sx={{ mx: 0.5, bgcolor: 'grey.700' }}
               />
 
-              <Tooltip title={isDrawingMode ? '描画モード: ON' : '描画モード'}>
+              <Tooltip
+                title={
+                  isDrawingMode ? '描画モード: ON' : '描画（図形・テキスト）'
+                }
+              >
                 <IconButton
                   size="small"
-                  onClick={() => setIsDrawingMode(!isDrawingMode)}
+                  onClick={handleToggleDrawingMode}
                   color={isDrawingMode ? 'warning' : 'default'}
                 >
                   <Brush fontSize="small" />
@@ -1318,6 +1514,29 @@ export default function PlaylistWindowApp() {
                 )}
               </IconButton>
             </Stack>
+          </Paper>
+        )}
+
+        {/* Drawing mode controls (exit button) */}
+        {isDrawingMode && (
+          <Paper
+            sx={{
+              position: 'absolute',
+              bottom: 8,
+              right: 8,
+              p: 1,
+              bgcolor: 'rgba(0,0,0,0.9)',
+            }}
+          >
+            <Button
+              variant="contained"
+              color="warning"
+              size="small"
+              onClick={handleToggleDrawingMode}
+              startIcon={<Brush />}
+            >
+              描画を終了
+            </Button>
           </Paper>
         )}
       </Box>
@@ -1414,7 +1633,11 @@ export default function PlaylistWindowApp() {
           }}
         >
           <Stack direction="row" spacing={1} alignItems="center">
-            <PlayArrow fontSize="small" color="primary" />
+            {isFrozen ? (
+              <PauseCircle fontSize="small" color="warning" />
+            ) : (
+              <PlayArrow fontSize="small" color="primary" />
+            )}
             <Typography variant="body2" noWrap sx={{ flex: 1 }}>
               {currentItem.actionName}
               {currentItem.note && (
@@ -1428,6 +1651,11 @@ export default function PlaylistWindowApp() {
                 </Typography>
               )}
             </Typography>
+            {currentAnnotation?.objects.length ? (
+              <Tooltip title={`描画 ${currentAnnotation.objects.length}個`}>
+                <Brush fontSize="small" sx={{ color: 'info.main' }} />
+              </Tooltip>
+            ) : null}
             <Typography variant="caption" color="text.secondary">
               {currentIndex + 1} / {items.length}
             </Typography>

@@ -8,6 +8,66 @@ import type { SCLabel } from './SCTimeline';
 export type PlaylistType = 'reference' | 'embedded';
 
 /**
+ * 描画ツールの種類
+ */
+export type DrawingToolType =
+  | 'pen'
+  | 'line'
+  | 'arrow'
+  | 'rectangle'
+ | 'circle'
+  | 'text';
+
+/**
+ * アノテーションの描画対象（メイン映像 or サブ映像）
+ */
+export type AnnotationTarget = 'primary' | 'secondary';
+
+/**
+ * 描画オブジェクト（図形・テキスト）
+ */
+export interface DrawingObject {
+  /** ユニークID */
+  id: string;
+  /** ツールの種類 */
+  type: DrawingToolType;
+  /** 色 */
+  color: string;
+  /** 線の太さ */
+  strokeWidth: number;
+  /** 塗りつぶし（図形用） */
+  fill?: boolean;
+  /** 開始座標 */
+  startX: number;
+  startY: number;
+  /** 終了座標（図形用） */
+  endX?: number;
+  endY?: number;
+  /** パス（ペン用） */
+  path?: Array<{ x: number; y: number }>;
+  /** テキスト内容 */
+  text?: string;
+  /** フォントサイズ */
+  fontSize?: number;
+ /** この描画を表示するタイムスタンプ（動画の絶対秒 or アイテム内の相対秒） */
+  timestamp: number;
+  /** どの映像に対する描画か（未指定はメイン映像） */
+  target?: AnnotationTarget;
+}
+
+/**
+ * アイテムの描画データ（フリーズフレーム設定含む）
+ */
+export interface ItemAnnotation {
+  /** 描画オブジェクトの配列 */
+  objects: DrawingObject[];
+  /** フリーズフレームの停止秒数（描画表示中に映像を停止） */
+  freezeDuration: number;
+  /** フリーズする時点（アイテム内の相対秒数、0=開始時） */
+  freezeAt: number;
+}
+
+/**
  * プレイリスト内の個別アイテム
  * TimelineDataを参照しつつ、独自のstart/end時間を持てる
  */
@@ -34,6 +94,8 @@ export interface PlaylistItem {
   videoSource?: string;
   /** 動画ソースパス2（埋め込み時に保持、2アングル用）*/
   videoSource2?: string;
+  /** 描画アノテーション（図形、テキスト、フリーズ設定） */
+  annotation?: ItemAnnotation;
 }
 
 /**
