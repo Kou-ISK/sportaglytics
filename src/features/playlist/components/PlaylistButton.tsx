@@ -7,11 +7,6 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   Tooltip,
   Chip,
 } from '@mui/material';
@@ -40,8 +35,19 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({
 }) => {
   const { state, createPlaylist, addItemsFromTimeline, openPlaylistWindow } =
     usePlaylist();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [newPlaylistName, setNewPlaylistName] = useState('');
+
+  const generateDefaultName = () => {
+    const base = 'プレイリスト';
+    const names = new Set(state.playlists.map((p) => p.name));
+    if (!names.has(base)) return base;
+    let suffix = state.playlists.length + 1;
+    let candidate = `${base} ${suffix}`;
+    while (names.has(candidate)) {
+      suffix += 1;
+      candidate = `${base} ${suffix}`;
+    }
+    return candidate;
+  };
 
   const handleAddToExisting = (playlistId: string) => {
     addItemsFromTimeline(playlistId, items);
@@ -49,15 +55,9 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({
   };
 
   const handleCreateNew = () => {
-    setCreateDialogOpen(true);
-  };
-
-  const handleConfirmCreate = () => {
-    if (!newPlaylistName.trim()) return;
-    const playlist = createPlaylist(newPlaylistName.trim());
+    const defaultName = generateDefaultName();
+    const playlist = createPlaylist(defaultName);
     addItemsFromTimeline(playlist.id, items);
-    setCreateDialogOpen(false);
-    setNewPlaylistName('');
     onClose();
   };
 
@@ -115,37 +115,7 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({
       </Menu>
 
       {/* 新規作成ダイアログ */}
-      <Dialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>新しいプレイリストを作成</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            label="プレイリスト名"
-            value={newPlaylistName}
-            onChange={(e) => setNewPlaylistName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleConfirmCreate();
-            }}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>キャンセル</Button>
-          <Button
-            onClick={handleConfirmCreate}
-            variant="contained"
-            disabled={!newPlaylistName.trim()}
-          >
-            作成して追加
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* 名前入力は保存時に行うため、ここではダイアログを表示しない */}
     </>
   );
 };

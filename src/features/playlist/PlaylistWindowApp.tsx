@@ -9,6 +9,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useLayoutEffect,
 } from 'react';
 import {
   Box,
@@ -449,12 +450,10 @@ export default function PlaylistWindowApp() {
   >({});
   const [drawingTarget, setDrawingTarget] =
     useState<AnnotationTarget>('primary');
+  const [controlsVisible, setControlsVisible] = useState(true);
 
   // Freeze frame state
   const [isFrozen, setIsFrozen] = useState(false);
-  const [freezeTimeoutId, setFreezeTimeoutId] = useState<NodeJS.Timeout | null>(
-    null,
-  );
 
   // Dialog states
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -468,6 +467,14 @@ export default function PlaylistWindowApp() {
   const annotationCanvasRefPrimary = useRef<AnnotationCanvasRef>(null);
   const annotationCanvasRefSecondary = useRef<AnnotationCanvasRef>(null);
   const lastFreezeTimestampRef = useRef<number | null>(null);
+  const [primaryCanvasSize, setPrimaryCanvasSize] = useState({
+    width: 1920,
+    height: 1080,
+  });
+  const [secondaryCanvasSize, setSecondaryCanvasSize] = useState({
+    width: 1920,
+    height: 1080,
+  });
 
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -505,6 +512,65 @@ export default function PlaylistWindowApp() {
   useEffect(() => {
     lastFreezeTimestampRef.current = null;
   }, [currentItem?.id]);
+
+  // Sync canvas size to rendered video size (avoid aspect ratio drift)
+  useLayoutEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const update = () => {
+      setPrimaryCanvasSize({
+        width: video.clientWidth || 1920,
+        height: video.clientHeight || 1080,
+      });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(video);
+    return () => ro.disconnect();
+  }, [currentVideoSource]);
+
+  useLayoutEffect(() => {
+    const video = videoRef2.current;
+    if (!video) return;
+    const update = () => {
+      setSecondaryCanvasSize({
+        width: video.clientWidth || 1920,
+        height: video.clientHeight || 1080,
+      });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(video);
+    return () => ro.disconnect();
+  }, [currentVideoSource2, isDualView]);
+
+  // Auto-hide controls overlay like main player
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let hideTimer: NodeJS.Timeout | null = null;
+    const show = () => {
+      setControlsVisible(true);
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        if (!isDrawingMode && isPlaying) {
+          setControlsVisible(false);
+        }
+      }, 1800);
+    };
+
+    show();
+    const handleMove = () => show();
+    container.addEventListener('mousemove', handleMove);
+    container.addEventListener('mouseleave', () => setControlsVisible(false));
+
+    return () => {
+      container.removeEventListener('mousemove', handleMove);
+      container.removeEventListener('mouseleave', () => setControlsVisible(false));
+      if (hideTimer) clearTimeout(hideTimer);
+    };
+  }, [isPlaying, isDrawingMode]);
 
   // Current annotation
   const currentAnnotation = useMemo(() => {
@@ -598,19 +664,9 @@ export default function PlaylistWindowApp() {
       }
 
       setIsFrozen(true);
-
-      // Resume after freeze duration
-      const timeoutId = setTimeout(() => {
-        setIsFrozen(false);
-        if (isPlaying) {
-          video?.play().catch(console.error);
-          video2?.play().catch(console.error);
-        }
-      }, duration * 1000);
-
-      setFreezeTimeoutId(timeoutId);
+      setIsPlaying(false);
     },
-    [isFrozen, isPlaying],
+    [isFrozen],
   );
 
   // Video event handlers
@@ -679,21 +735,8 @@ export default function PlaylistWindowApp() {
     };
   }, [currentItem, currentAnnotation, isFrozen, triggerFreezeFrame]);
 
-  // Cleanup freeze timeout
-  useEffect(() => {
-    return () => {
-      if (freezeTimeoutId) {
-        clearTimeout(freezeTimeoutId);
-      }
-    };
-  }, [freezeTimeoutId]);
-
   const handleItemEnd = useCallback(() => {
     // Clear any freeze state
-    if (freezeTimeoutId) {
-      clearTimeout(freezeTimeoutId);
-      setFreezeTimeoutId(null);
-    }
     lastFreezeTimestampRef.current = null;
     setIsFrozen(false);
 
@@ -708,7 +751,7 @@ export default function PlaylistWindowApp() {
     } else {
       setIsPlaying(false);
     }
-  }, [autoAdvance, currentIndex, items.length, loopPlaylist, freezeTimeoutId]);
+  }, [autoAdvance, currentIndex, items.length, loopPlaylist]);
 
   // Play/pause handling for both videos
   useEffect(() => {
@@ -746,10 +789,6 @@ export default function PlaylistWindowApp() {
     if (!video || !currentVideoSource || !currentItem) return;
 
     // Reset freeze state
-    if (freezeTimeoutId) {
-      clearTimeout(freezeTimeoutId);
-      setFreezeTimeoutId(null);
-    }
     lastFreezeTimestampRef.current = null;
     setIsFrozen(false);
 
@@ -800,10 +839,6 @@ export default function PlaylistWindowApp() {
   const handleTogglePlay = useCallback(() => {
     if (isFrozen) {
       // Skip freeze and continue
-      if (freezeTimeoutId) {
-        clearTimeout(freezeTimeoutId);
-        setFreezeTimeoutId(null);
-      }
       setIsFrozen(false);
       setIsPlaying(true);
       return;
@@ -815,7 +850,7 @@ export default function PlaylistWindowApp() {
     } else {
       setIsPlaying(!isPlaying);
     }
-  }, [currentIndex, items.length, isPlaying, isFrozen, freezeTimeoutId]);
+  }, [currentIndex, items.length, isPlaying, isFrozen]);
 
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) {
@@ -891,6 +926,8 @@ export default function PlaylistWindowApp() {
       if (videoRef2.current && isDualView) {
         videoRef2.current.currentTime = time;
       }
+      lastFreezeTimestampRef.current = null;
+      setIsFrozen(false);
     },
     [isDualView],
   );
@@ -1232,7 +1269,7 @@ export default function PlaylistWindowApp() {
       >
         {currentVideoSource ? (
           <>
-            {isDualView && currentVideoSource2 && (
+            {isDrawingMode && isDualView && currentVideoSource2 && (
               <Box
                 sx={{
                   position: 'absolute',
@@ -1295,8 +1332,8 @@ export default function PlaylistWindowApp() {
               {/* Annotation Canvas Overlay */}
               <AnnotationCanvas
                 ref={annotationCanvasRefPrimary}
-                width={1920}
-                height={1080}
+                width={primaryCanvasSize.width}
+                height={primaryCanvasSize.height}
                 isActive={isDrawingMode && drawingTarget === 'primary'}
                 target="primary"
                 initialObjects={primaryAnnotationObjects}
@@ -1351,8 +1388,8 @@ export default function PlaylistWindowApp() {
                   />
                   <AnnotationCanvas
                     ref={annotationCanvasRefSecondary}
-                    width={1920}
-                    height={1080}
+                    width={secondaryCanvasSize.width}
+                    height={secondaryCanvasSize.height}
                     isActive={
                       isDrawingMode && drawingTarget === 'secondary'
                     }
@@ -1400,8 +1437,11 @@ export default function PlaylistWindowApp() {
               left: 0,
               right: 0,
               p: 1,
-              bgcolor: 'rgba(0,0,0,0.85)',
+              bgcolor: 'rgba(0,0,0,0.75)',
               backdropFilter: 'blur(4px)',
+              opacity: controlsVisible ? 1 : 0,
+              transition: 'opacity 0.35s ease',
+              pointerEvents: controlsVisible ? 'auto' : 'none',
             }}
           >
             <Slider

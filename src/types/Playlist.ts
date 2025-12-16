@@ -15,8 +15,9 @@ export type DrawingToolType =
   | 'line'
   | 'arrow'
   | 'rectangle'
- | 'circle'
-  | 'text';
+  | 'circle'
+  | 'text'
+  | 'select';
 
 /**
  * アノテーションの描画対象（メイン映像 or サブ映像）
