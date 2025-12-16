@@ -14,6 +14,7 @@ import {
   Box,
   Divider,
   IconButton,
+  Portal,
   Paper,
   Slider,
   Stack,
@@ -61,6 +62,7 @@ interface AnnotationCanvasProps {
   height: number;
   isActive: boolean;
   target?: AnnotationTarget;
+  contentRect?: { width: number; height: number; offsetX: number; offsetY: number };
   initialObjects?: DrawingObject[];
   freezeDuration?: number;
   onObjectsChange?: (
@@ -176,6 +178,46 @@ function renderObject(ctx: CanvasRenderingContext2D, obj: DrawingObject) {
   }
 }
 
+function scaleObjectForDisplay(
+  obj: DrawingObject,
+  target: { width: number; height: number; offsetX: number; offsetY: number },
+) {
+  const scaleX = target.width / (obj.baseWidth ?? target.width);
+  const scaleY = target.height / (obj.baseHeight ?? target.height);
+  const transformPoint = (p: { x: number; y: number }) => ({
+    x: p.x * scaleX + target.offsetX,
+    y: p.y * scaleY + target.offsetY,
+  });
+  switch (obj.type) {
+    case 'pen':
+      return {
+        ...obj,
+        path: obj.path?.map(transformPoint),
+      };
+    case 'line':
+    case 'arrow':
+    case 'rectangle':
+    case 'circle':
+      return {
+        ...obj,
+        startX: obj.startX * scaleX + target.offsetX,
+        startY: obj.startY * scaleY + target.offsetY,
+        endX: obj.endX !== undefined ? obj.endX * scaleX + target.offsetX : obj.endX,
+        endY: obj.endY !== undefined ? obj.endY * scaleY + target.offsetY : obj.endY,
+        strokeWidth: obj.strokeWidth * ((scaleX + scaleY) / 2),
+      };
+    case 'text':
+      return {
+        ...obj,
+        startX: obj.startX * scaleX + target.offsetX,
+        startY: obj.startY * scaleY + target.offsetY,
+        fontSize: (obj.fontSize || 24) * ((scaleX + scaleY) / 2),
+      };
+    default:
+      return obj;
+  }
+}
+
 function getObjectBounds(obj: DrawingObject) {
   switch (obj.type) {
     case 'pen':
@@ -282,6 +324,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       height,
       isActive,
       target = 'primary',
+      contentRect,
       initialObjects = [],
       freezeDuration = 0,
       onObjectsChange,
@@ -338,33 +381,29 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       );
     }, [freezeDuration]);
 
-    // Keep toolbar inside container bounds on resize
+    // Clamp toolbar inside viewport on resize
     useEffect(() => {
-      const container = containerRef.current;
-      const toolbar = toolbarRef.current;
-      if (!container || !toolbar) return;
-
-      const containerRect = container.getBoundingClientRect();
-      const toolbarRect = toolbar.getBoundingClientRect();
-      setToolbarPosition((pos) => ({
-        x: Math.min(
-          Math.max(0, pos.x),
-          Math.max(0, containerRect.width - toolbarRect.width),
-        ),
-        y: Math.min(
-          Math.max(0, pos.y),
-          Math.max(0, containerRect.height - toolbarRect.height),
-        ),
-      }));
-    }, [width, height]);
+      const clamp = () => {
+        const toolbar = toolbarRef.current;
+        if (!toolbar) return;
+        const tw = toolbar.offsetWidth || 0;
+        const th = toolbar.offsetHeight || 0;
+        setToolbarPosition((pos) => ({
+          x: Math.min(Math.max(0, pos.x), Math.max(0, window.innerWidth - tw - 8)),
+          y: Math.min(Math.max(0, pos.y), Math.max(0, window.innerHeight - th - 8)),
+        }));
+      };
+      clamp();
+      window.addEventListener('resize', clamp);
+      return () => window.removeEventListener('resize', clamp);
+    }, []);
 
     // Drag handlers for toolbar
     const handleToolbarDragStart = useCallback((e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       const toolbar = toolbarRef.current;
-      const container = containerRef.current;
-      if (!toolbar || !container) return;
+      if (!toolbar) return;
       const toolbarRect = toolbar.getBoundingClientRect();
       dragOffsetRef.current = {
         x: e.clientX - toolbarRect.left,
@@ -377,24 +416,15 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       if (!isDraggingToolbar) return;
 
       const handleMove = (e: MouseEvent) => {
-        const container = containerRef.current;
-        const toolbar = toolbarRef.current;
         const offset = dragOffsetRef.current;
-        if (!container || !toolbar || !offset) return;
+        const toolbar = toolbarRef.current;
+        if (!toolbar || !offset) return;
 
-        const containerRect = container.getBoundingClientRect();
-        const toolbarRect = toolbar.getBoundingClientRect();
-        const newX = e.clientX - containerRect.left - offset.x;
-        const newY = e.clientY - containerRect.top - offset.y;
+        const newX = e.clientX - offset.x;
+        const newY = e.clientY - offset.y;
         setToolbarPosition({
-          x: Math.min(
-            Math.max(0, newX),
-            Math.max(0, containerRect.width - toolbarRect.width),
-          ),
-          y: Math.min(
-            Math.max(0, newY),
-            Math.max(0, containerRect.height - toolbarRect.height),
-          ),
+          x: Math.min(Math.max(0, newX), Math.max(0, window.innerWidth - (toolbar.offsetWidth || 0) - 8)),
+          y: Math.min(Math.max(0, newY), Math.max(0, window.innerHeight - (toolbar.offsetHeight || 0) - 8)),
         });
       };
 
@@ -420,6 +450,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      const displayTarget = contentRect || { width, height, offsetX: 0, offsetY: 0 };
       const filteredObjects =
         typeof currentTime === 'number'
           ? objects.filter(
@@ -427,13 +458,20 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
             )
           : objects;
 
-      filteredObjects.forEach((obj) => renderObject(ctx, obj));
-      if (currentObject) {
-        renderObject(ctx, currentObject);
+      const displayObjects = filteredObjects.map((obj) =>
+        scaleObjectForDisplay(obj, displayTarget),
+      );
+      const displayCurrent = currentObject
+        ? scaleObjectForDisplay(currentObject, displayTarget)
+        : null;
+
+      displayObjects.forEach((obj) => renderObject(ctx, obj));
+      if (displayCurrent) {
+        renderObject(ctx, displayCurrent);
       }
       // highlight selection
       if (selectedObjectId) {
-        const selected = filteredObjects.find((o) => o.id === selectedObjectId);
+        const selected = displayObjects.find((o) => o.id === selectedObjectId);
         if (selected) {
           ctx.save();
           ctx.strokeStyle = '#00bcd4';
@@ -484,6 +522,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
+        const content = contentRect || { width, height, offsetX: 0, offsetY: 0 };
 
         let clientX: number;
         let clientY: number;
@@ -495,12 +534,18 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           clientY = e.clientY;
         }
 
+        const canvasX = (clientX - rect.left) * scaleX;
+        const canvasY = (clientY - rect.top) * scaleY;
+        let x = canvasX - content.offsetX;
+        let y = canvasY - content.offsetY;
+        x = Math.max(0, Math.min(content.width, x));
+        y = Math.max(0, Math.min(content.height, y));
         return {
-          x: (clientX - rect.left) * scaleX,
-          y: (clientY - rect.top) * scaleY,
+          x,
+          y,
         };
       },
-      [],
+      [contentRect, width, height],
     );
 
     // Mouse/Touch handlers
@@ -511,7 +556,11 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         const coords = getCanvasCoords(e);
 
         if (tool === 'select') {
-          const hit = findObjectAtPoint(objects, coords);
+          const displayTarget = contentRect || { width, height, offsetX: 0, offsetY: 0 };
+          const displayObjects = objects.map((obj) =>
+            scaleObjectForDisplay(obj, displayTarget),
+          );
+          const hit = findObjectAtPoint(displayObjects, coords);
           if (hit) {
             setSelectedObjectId(hit.id);
             setDraggingObjectId(hit.id);
@@ -543,6 +592,8 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           path: tool === 'pen' ? [{ x: coords.x, y: coords.y }] : undefined,
           timestamp,
           target,
+          baseWidth: contentRect?.width ?? width,
+          baseHeight: contentRect?.height ?? height,
         };
 
         setCurrentObject(newObject);
@@ -629,6 +680,8 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         fontSize: 24,
         timestamp,
         target,
+        baseWidth: contentRect?.width ?? width,
+        baseHeight: contentRect?.height ?? height,
       };
 
       const newObjects = [...objects, textObject];
@@ -666,15 +719,38 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         const dy = coords.y - start.y;
         dragObjectStartRef.current = coords;
 
+        const selected = objects.find((o) => o.id === draggingObjectId);
+        const scaleX =
+          selected && selected.baseWidth
+            ? (contentRect?.width ?? width) / selected.baseWidth
+            : 1;
+        const scaleY =
+          selected && selected.baseHeight
+            ? (contentRect?.height ?? height) / selected.baseHeight
+            : 1;
+        const baseDx = dx / scaleX;
+        const baseDy = dy / scaleY;
+
         setObjects((prev) => {
           const updated = prev.map((obj) =>
-            obj.id === draggingObjectId ? shiftObject(obj, dx, dy) : obj,
+            obj.id === draggingObjectId ? shiftObject(obj, baseDx, baseDy) : obj,
           );
           onObjectsChange?.(updated, target);
           return updated;
         });
       },
-      [draggingObjectId, getCanvasCoords, isActive, tool, onObjectsChange, target],
+      [
+        draggingObjectId,
+        getCanvasCoords,
+        isActive,
+        tool,
+        onObjectsChange,
+        target,
+        objects,
+        contentRect,
+        width,
+        height,
+      ],
     );
 
     // Delete selected with Delete/Backspace
@@ -781,32 +857,33 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         )}
 
         {isActive && (
-          <Paper
-            ref={toolbarRef}
-            sx={{
-              position: 'absolute',
-            top: toolbarPosition.y,
-            left: toolbarPosition.x,
-            p: 0.75,
-            bgcolor: 'rgba(0,0,0,0.82)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 0.5,
-            boxShadow: 6,
-            borderRadius: 2,
-            zIndex: 12,
-            cursor: isDraggingToolbar ? 'grabbing' : 'default',
-            userSelect: 'none',
-            width: 70,
-            overflow: 'hidden',
-          }}
-        >
-          <Stack
-            direction="row"
-            spacing={0.5}
-            alignItems="center"
-            onMouseDown={handleToolbarDragStart}
+          <Portal>
+            <Paper
+              ref={toolbarRef}
+              sx={{
+                position: 'fixed',
+                top: toolbarPosition.y,
+                left: toolbarPosition.x,
+                p: 0.5,
+                bgcolor: 'rgba(0,0,0,0.82)',
+                backdropFilter: 'blur(6px)',
+                display: 'grid',
+                gridTemplateColumns: '1fr',
+                gap: 0.4,
+                boxShadow: 6,
+                borderRadius: 2,
+                zIndex: 2000,
+                cursor: isDraggingToolbar ? 'grabbing' : 'default',
+                userSelect: 'none',
+                width: 'fit-content',
+                overflow: 'hidden',
+              }}
+            >
+              <Stack
+                direction="row"
+                spacing={0.5}
+                alignItems="center"
+                onMouseDown={handleToolbarDragStart}
             sx={{
               cursor: 'grab',
               color: 'grey.300',
@@ -816,11 +893,11 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           >
             <DragIndicator fontSize="small" />
             <Typography variant="caption">移動</Typography>
-          </Stack>
+              </Stack>
 
-            {tool === 'select' && (
-              <Typography
-                variant="caption"
+              {tool === 'select' && (
+                <Typography
+                  variant="caption"
                 sx={{
                   fontSize: 9.5,
                   color: 'grey.400',
@@ -842,9 +919,11 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
               exclusive
               onChange={(_, value) => value && setTool(value)}
               size="small"
-              orientation="vertical"
               sx={{
-                '& .MuiToggleButton-root': { width: '100%', height: 28, p: 0 },
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, 1fr)',
+                gap: 0.25,
+                '& .MuiToggleButton-root': { minWidth: 28, height: 28, p: 0 },
               }}
             >
               <ToggleButton value="pen">
@@ -890,7 +969,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
+                gridTemplateColumns: 'repeat(8, 1fr)',
                 gap: 0.25,
               }}
             >
@@ -949,11 +1028,11 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
 
             <Divider sx={{ borderColor: 'grey.700' }} />
 
-            {/* Freeze Duration */}
-            <Stack spacing={0.25} sx={{ px: 0.5 }}>
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              <PauseCircle fontSize="small" sx={{ color: 'warning.main' }} />
-              <Typography variant="caption" sx={{ fontSize: 10 }}>
+              {/* Freeze Duration */}
+              <Stack spacing={0.25} sx={{ px: 0.5 }}>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <PauseCircle fontSize="small" sx={{ color: 'warning.main' }} />
+                  <Typography variant="caption" sx={{ fontSize: 10 }}>
                 停止 {localFreezeDuration}秒
               </Typography>
             </Stack>
@@ -966,11 +1045,12 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
             onChange={(_, v) => handleFreezeDurationChange(v as number)}
             sx={{ width: '100%' }}
           />
-        </Stack>
-      </Paper>
-    )}
-  </Box>
-);
+              </Stack>
+            </Paper>
+          </Portal>
+        )}
+      </Box>
+    );
   },
 );
 

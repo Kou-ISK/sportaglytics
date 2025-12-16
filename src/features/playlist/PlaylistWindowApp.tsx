@@ -475,6 +475,18 @@ export default function PlaylistWindowApp() {
     width: 1920,
     height: 1080,
   });
+  const [primaryContentRect, setPrimaryContentRect] = useState({
+    width: 1920,
+    height: 1080,
+    offsetX: 0,
+    offsetY: 0,
+  });
+  const [secondaryContentRect, setSecondaryContentRect] = useState({
+    width: 1920,
+    height: 1080,
+    offsetX: 0,
+    offsetY: 0,
+  });
 
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -518,9 +530,22 @@ export default function PlaylistWindowApp() {
     const video = videoRef.current;
     if (!video) return;
     const update = () => {
+      const containerWidth = video.clientWidth || 1920;
+      const containerHeight = video.clientHeight || 1080;
       setPrimaryCanvasSize({
-        width: video.clientWidth || 1920,
-        height: video.clientHeight || 1080,
+        width: containerWidth,
+        height: containerHeight,
+      });
+      const naturalWidth = video.videoWidth || containerWidth;
+      const naturalHeight = video.videoHeight || containerHeight;
+      const scale = Math.min(containerWidth / naturalWidth, containerHeight / naturalHeight);
+      const displayWidth = naturalWidth * scale;
+      const displayHeight = naturalHeight * scale;
+      setPrimaryContentRect({
+        width: displayWidth,
+        height: displayHeight,
+        offsetX: (containerWidth - displayWidth) / 2,
+        offsetY: (containerHeight - displayHeight) / 2,
       });
     };
     update();
@@ -533,9 +558,22 @@ export default function PlaylistWindowApp() {
     const video = videoRef2.current;
     if (!video) return;
     const update = () => {
+      const containerWidth = video.clientWidth || 1920;
+      const containerHeight = video.clientHeight || 1080;
       setSecondaryCanvasSize({
-        width: video.clientWidth || 1920,
-        height: video.clientHeight || 1080,
+        width: containerWidth,
+        height: containerHeight,
+      });
+      const naturalWidth = video.videoWidth || containerWidth;
+      const naturalHeight = video.videoHeight || containerHeight;
+      const scale = Math.min(containerWidth / naturalWidth, containerHeight / naturalHeight);
+      const displayWidth = naturalWidth * scale;
+      const displayHeight = naturalHeight * scale;
+      setSecondaryContentRect({
+        width: displayWidth,
+        height: displayHeight,
+        offsetX: (containerWidth - displayWidth) / 2,
+        offsetY: (containerHeight - displayHeight) / 2,
       });
     };
     update();
@@ -1340,6 +1378,7 @@ export default function PlaylistWindowApp() {
                 freezeDuration={
                   currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
                 }
+                contentRect={primaryContentRect}
                 onObjectsChange={(objs) =>
                   handleAnnotationObjectsChange(objs, 'primary')
                 }
@@ -1398,6 +1437,7 @@ export default function PlaylistWindowApp() {
                     freezeDuration={
                       currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
                     }
+                    contentRect={secondaryContentRect}
                     onObjectsChange={(objs) =>
                       handleAnnotationObjectsChange(objs, 'secondary')
                     }

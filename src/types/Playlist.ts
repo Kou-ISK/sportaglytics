@@ -50,10 +50,14 @@ export interface DrawingObject {
   text?: string;
   /** フォントサイズ */
   fontSize?: number;
- /** この描画を表示するタイムスタンプ（動画の絶対秒 or アイテム内の相対秒） */
+  /** この描画を表示するタイムスタンプ（動画の絶対秒 or アイテム内の相対秒） */
   timestamp: number;
   /** どの映像に対する描画か（未指定はメイン映像） */
   target?: AnnotationTarget;
+  /** 作成時の表示領域幅 */
+  baseWidth?: number;
+  /** 作成時の表示領域高さ */
+  baseHeight?: number;
 }
 
 /**
