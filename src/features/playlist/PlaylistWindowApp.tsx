@@ -487,6 +487,31 @@ export default function PlaylistWindowApp() {
     offsetX: 0,
     offsetY: 0,
   });
+  const [primarySourceSize, setPrimarySourceSize] = useState({
+    width: 1920,
+    height: 1080,
+  });
+  const [secondarySourceSize, setSecondarySourceSize] = useState({
+    width: 1920,
+    height: 1080,
+  });
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [overlaySettings, setOverlaySettings] = useState({
+    enabled: true,
+    showActionName: true,
+    showActionIndex: true,
+    showLabels: true,
+    showQualifier: true,
+    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
+  });
+  const [exportMode, setExportMode] = useState<
+    'single' | 'perInstance' | 'perRow'
+  >('single');
+  const [angleOption, setAngleOption] = useState<'all' | 'angle1' | 'angle2'>(
+    'all',
+  );
+  const [exportFileName, setExportFileName] = useState('');
 
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -538,6 +563,9 @@ export default function PlaylistWindowApp() {
       });
       const naturalWidth = video.videoWidth || containerWidth;
       const naturalHeight = video.videoHeight || containerHeight;
+      if (naturalWidth && naturalHeight) {
+        setPrimarySourceSize({ width: naturalWidth, height: naturalHeight });
+      }
       const scale = Math.min(containerWidth / naturalWidth, containerHeight / naturalHeight);
       const displayWidth = naturalWidth * scale;
       const displayHeight = naturalHeight * scale;
@@ -566,6 +594,9 @@ export default function PlaylistWindowApp() {
       });
       const naturalWidth = video.videoWidth || containerWidth;
       const naturalHeight = video.videoHeight || containerHeight;
+      if (naturalWidth && naturalHeight) {
+        setSecondarySourceSize({ width: naturalWidth, height: naturalHeight });
+      }
       const scale = Math.min(containerWidth / naturalWidth, containerHeight / naturalHeight);
       const displayWidth = naturalWidth * scale;
       const displayHeight = naturalHeight * scale;
@@ -1214,6 +1245,200 @@ export default function PlaylistWindowApp() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const renderAnnotationPng = useCallback(
+    (
+      objects: DrawingObject[] | undefined,
+      target: AnnotationTarget,
+      fallbackSize: { width: number; height: number },
+      targetSize?: { width: number; height: number },
+    ) => {
+      const filtered =
+        objects?.filter((o) => (o.target || 'primary') === target) || [];
+      if (filtered.length === 0) return null;
+      const baseWidth =
+        filtered.find((o) => o.baseWidth)?.baseWidth || fallbackSize.width || 1920;
+      const baseHeight =
+        filtered.find((o) => o.baseHeight)?.baseHeight || fallbackSize.height || 1080;
+      const targetW = targetSize?.width || baseWidth;
+      const targetH = targetSize?.height || baseHeight;
+      const scaleX = targetW / baseWidth;
+      const scaleY = targetH / baseHeight;
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const draw = (obj: DrawingObject) => {
+        ctx.strokeStyle = obj.color;
+        ctx.fillStyle = obj.color;
+        ctx.lineWidth = obj.strokeWidth * ((scaleX + scaleY) / 2);
+        switch (obj.type) {
+          case 'pen':
+            if (obj.path && obj.path.length > 1) {
+              ctx.beginPath();
+              ctx.moveTo(obj.path[0].x * scaleX, obj.path[0].y * scaleY);
+              for (let i = 1; i < obj.path.length; i++) {
+                ctx.lineTo(obj.path[i].x * scaleX, obj.path[i].y * scaleY);
+              }
+              ctx.stroke();
+            }
+            break;
+          case 'line':
+            if (obj.endX !== undefined && obj.endY !== undefined) {
+              ctx.beginPath();
+              ctx.moveTo(obj.startX * scaleX, obj.startY * scaleY);
+              ctx.lineTo(obj.endX * scaleX, obj.endY * scaleY);
+              ctx.stroke();
+            }
+            break;
+          case 'arrow':
+            if (obj.endX !== undefined && obj.endY !== undefined) {
+              ctx.beginPath();
+              ctx.moveTo(obj.startX * scaleX, obj.startY * scaleY);
+              ctx.lineTo(obj.endX * scaleX, obj.endY * scaleY);
+              ctx.stroke();
+            }
+            break;
+          case 'rectangle':
+            if (obj.endX !== undefined && obj.endY !== undefined) {
+              ctx.strokeRect(
+                obj.startX * scaleX,
+                obj.startY * scaleY,
+                (obj.endX - obj.startX) * scaleX,
+                (obj.endY - obj.startY) * scaleY,
+              );
+            }
+            break;
+          case 'circle':
+            if (obj.endX !== undefined && obj.endY !== undefined) {
+              const radiusX = (Math.abs(obj.endX - obj.startX) / 2) * scaleX;
+              const radiusY = (Math.abs(obj.endY - obj.startY) / 2) * scaleY;
+              const centerX = ((obj.startX + obj.endX) / 2) * scaleX;
+              const centerY = ((obj.startY + obj.endY) / 2) * scaleY;
+              ctx.beginPath();
+              ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+            break;
+          case 'text':
+            if (obj.text) {
+              ctx.font = `${(obj.fontSize || 24) * ((scaleX + scaleY) / 2)}px sans-serif`;
+              ctx.fillText(obj.text, obj.startX * scaleX, obj.startY * scaleY);
+            }
+            break;
+          default:
+            break;
+        }
+      };
+      filtered.forEach(draw);
+      return canvas.toDataURL('image/png');
+    },
+    [],
+  );
+
+  const handleExportPlaylist = useCallback(async () => {
+    const api = window.electronAPI?.exportClipsWithOverlay;
+    if (!api) {
+      alert('書き出しAPIが利用できません');
+      return;
+    }
+    const sourcePath = videoSources[0];
+    if (!sourcePath) {
+      alert('メイン映像が取得できません');
+      return;
+    }
+    const sourcePath2 = videoSources[1];
+    const useDual = angleOption === 'all' && sourcePath2 ? true : angleOption === 'angle2';
+    if (useDual && !sourcePath2) {
+      alert('2アングルの書き出しには2つの映像ソースが必要です');
+      return;
+    }
+
+    const ordered = [...items];
+    const actionIndexLookup = new Map<string, number>();
+    const counters: Record<string, number> = {};
+    ordered.forEach((item) => {
+      const c = (counters[item.actionName] || 0) + 1;
+      counters[item.actionName] = c;
+      actionIndexLookup.set(item.id, c);
+    });
+
+    const clips = ordered.map((item) => {
+      const annotation = itemAnnotations[item.id] || item.annotation;
+      const allTimestamps =
+        annotation?.objects?.map((o) => o.timestamp).filter((t) => t !== undefined) || [];
+      const freezeAtAbsolute =
+        allTimestamps.length > 0 ? Math.min(...allTimestamps) : null;
+      const freezeAt =
+        freezeAtAbsolute !== null
+          ? Math.max(0, freezeAtAbsolute - item.startTime)
+          : null;
+      const freezeDuration =
+        annotation?.freezeDuration && annotation.freezeDuration > 0
+          ? Math.max(MIN_FREEZE_DURATION, annotation.freezeDuration)
+          : MIN_FREEZE_DURATION;
+      const annPrimary = renderAnnotationPng(
+        annotation?.objects,
+        'primary',
+        primaryContentRect,
+        primarySourceSize,
+      );
+      const annSecondary = renderAnnotationPng(
+        annotation?.objects,
+        'secondary',
+        secondaryContentRect,
+        secondarySourceSize,
+      );
+      return {
+        id: item.id,
+        actionName: item.actionName,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        freezeAt,
+        freezeDuration,
+        labels:
+          item.labels?.map((l) => ({ group: l.group || '', name: l.name })) ||
+          undefined,
+        qualifier: item.qualifier || undefined,
+        actionIndex: actionIndexLookup.get(item.id) ?? 1,
+        annotationPngPrimary: annPrimary,
+        annotationPngSecondary: annSecondary,
+      };
+    });
+
+    setIsExporting(true);
+    const result = await api({
+      sourcePath,
+      sourcePath2: useDual ? sourcePath2 : undefined,
+      mode: useDual ? 'dual' : 'single',
+      exportMode,
+      angleOption: useDual ? angleOption : 'angle1',
+      outputFileName: exportFileName.trim() || undefined,
+      clips,
+      overlay: overlaySettings,
+    });
+    setIsExporting(false);
+    if (result?.success) {
+      alert('プレイリストを書き出しました');
+      setExportDialogOpen(false);
+    } else {
+      alert(result?.error || '書き出しに失敗しました');
+    }
+  }, [
+    angleOption,
+    exportFileName,
+    exportMode,
+    items,
+    itemAnnotations,
+    overlaySettings,
+    primaryContentRect,
+    renderAnnotationPng,
+    secondaryContentRect,
+    videoSources,
+  ]);
+
   const sliderMin = currentItem?.startTime ?? 0;
   const sliderMax = currentItem?.endTime ?? duration;
   const editingItem = editingItemId
@@ -1247,6 +1472,15 @@ export default function PlaylistWindowApp() {
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
             {playlistName}
           </Typography>
+          <Button
+            size="small"
+            variant="contained"
+            color="primary"
+            onClick={() => setExportDialogOpen(true)}
+            disabled={isExporting}
+          >
+            書き出し
+          </Button>
           <Badge badgeContent={items.length} color="primary" max={99}>
             <Typography variant="caption" color="text.secondary">
               アイテム
@@ -1750,6 +1984,138 @@ export default function PlaylistWindowApp() {
         onSave={handleSavePlaylist}
         defaultName={playlistName}
       />
+      <Dialog
+        open={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>プレイリストを書き出し</DialogTitle>
+        <DialogContent sx={{ display: 'grid', gap: 1.5, pt: 1 }}>
+          <TextField
+            label="ファイル名 (拡張子不要)"
+            fullWidth
+            size="small"
+            value={exportFileName}
+            onChange={(e) => setExportFileName(e.target.value)}
+          />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="body2">出力モード</Typography>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={exportMode}
+              onChange={(_, v) => v && setExportMode(v)}
+            >
+              <ToggleButton value="single">1ファイル</ToggleButton>
+              <ToggleButton value="perInstance">インスタンスごと</ToggleButton>
+              <ToggleButton value="perRow">アクションごと</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="body2">映像</Typography>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={angleOption}
+              onChange={(_, v) => v && setAngleOption(v)}
+            >
+              <ToggleButton value="angle1">メインのみ</ToggleButton>
+              <ToggleButton value="angle2" disabled={!videoSources[0]}>
+                メイン切替
+              </ToggleButton>
+              <ToggleButton value="all" disabled={!videoSources[1]}>
+                デュアル結合
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
+          <Divider />
+          <Stack spacing={1}>
+            <Typography variant="body2">オーバーレイ</Typography>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={overlaySettings.enabled ? 'on' : 'off'}
+              onChange={(_, v) =>
+                setOverlaySettings((prev) => ({ ...prev, enabled: v === 'on' }))
+              }
+            >
+              <ToggleButton value="on">表示</ToggleButton>
+              <ToggleButton value="off">非表示</ToggleButton>
+            </ToggleButtonGroup>
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Button
+                size="small"
+                variant={overlaySettings.showActionName ? 'contained' : 'outlined'}
+                onClick={() =>
+                  setOverlaySettings((p) => ({
+                    ...p,
+                    showActionName: !p.showActionName,
+                  }))
+                }
+              >
+                アクション名
+              </Button>
+              <Button
+                size="small"
+                variant={overlaySettings.showActionIndex ? 'contained' : 'outlined'}
+                onClick={() =>
+                  setOverlaySettings((p) => ({
+                    ...p,
+                    showActionIndex: !p.showActionIndex,
+                  }))
+                }
+              >
+                通番
+              </Button>
+              <Button
+                size="small"
+                variant={overlaySettings.showLabels ? 'contained' : 'outlined'}
+                onClick={() =>
+                  setOverlaySettings((p) => ({
+                    ...p,
+                    showLabels: !p.showLabels,
+                  }))
+                }
+              >
+                ラベル
+              </Button>
+              <Button
+                size="small"
+                variant={overlaySettings.showQualifier ? 'contained' : 'outlined'}
+                onClick={() =>
+                  setOverlaySettings((p) => ({
+                    ...p,
+                    showQualifier: !p.showQualifier,
+                  }))
+                }
+              >
+                Qualifier
+              </Button>
+            </Stack>
+            <TextField
+              label="テキストテンプレート"
+              fullWidth
+              size="small"
+              value={overlaySettings.textTemplate}
+              onChange={(e) =>
+                setOverlaySettings((p) => ({ ...p, textTemplate: e.target.value }))
+              }
+              helperText="{actionName} {index} {labels} {qualifier} が使えます"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportDialogOpen(false)}>キャンセル</Button>
+          <Button
+            onClick={handleExportPlaylist}
+            variant="contained"
+            disabled={isExporting}
+          >
+            {isExporting ? '書き出し中...' : '書き出す'}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <NoteDialog
         open={noteDialogOpen}
         onClose={() => {

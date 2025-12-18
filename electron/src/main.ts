@@ -9,8 +9,10 @@ import { menuBar } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
 import { registerPlaylistHandlers, setMainWindowRef } from './playlistWindow';
 
-// ローカル動画の自動再生を許可
-app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+// ローカル動画の自動再生を許可（appが未定義の環境ではスキップ）
+if (app?.commandLine) {
+  app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+}
 
 const mainURL = `file:${__dirname}/../../index.html`;
 
@@ -37,7 +39,9 @@ const createWindow = async () => {
   const settings = await loadSettings();
   registerShortcuts(mainWindow, settings.hotkeys);
 
-  Menu.setApplicationMenu(menuBar);
+  if (menuBar) {
+    Menu.setApplicationMenu(menuBar);
+  }
 
   // ホットキー設定が更新されたら再登録
   ipcMain.on('hotkeys-updated', () => {
@@ -85,6 +89,8 @@ const createWindow = async () => {
   ipcMain.handle(
     'write-text-file',
     async (_event, filePath: string, content: string) => {
+      const tempFiles: string[] = [];
+
       try {
         await fs.writeFile(filePath, content, 'utf-8');
         return true;
@@ -124,9 +130,13 @@ const createWindow = async () => {
           actionName: string;
           startTime: number;
           endTime: number;
+          freezeAt?: number | null;
+          freezeDuration?: number;
           labels?: { group: string; name: string }[];
           qualifier?: string;
           actionIndex?: number;
+          annotationPngPrimary?: string | null;
+          annotationPngSecondary?: string | null;
         }[];
         overlay: {
           enabled: boolean;
@@ -138,6 +148,7 @@ const createWindow = async () => {
         };
       },
     ) => {
+      const tempFiles: string[] = [];
       try {
         const {
           sourcePath,
@@ -153,6 +164,57 @@ const createWindow = async () => {
         if (!sourcePath || clips.length === 0) {
           return { success: false, error: 'ソースまたはクリップがありません' };
         }
+
+        const getVideoResolution = async (
+          filePath: string,
+        ): Promise<{ width: number; height: number }> => {
+          return new Promise((resolve) => {
+            const ff = spawn('ffprobe', [
+              '-v',
+              'error',
+              '-select_streams',
+              'v:0',
+              '-show_entries',
+              'stream=width,height',
+              '-of',
+              'json',
+              filePath,
+            ]);
+            let data = '';
+            ff.stdout.on('data', (d) => {
+              data += d.toString();
+            });
+            ff.on('close', () => {
+              try {
+                const parsed = JSON.parse(data);
+                const w = parsed?.streams?.[0]?.width;
+                const h = parsed?.streams?.[0]?.height;
+                if (w && h) return resolve({ width: w, height: h });
+              } catch {
+                /* ignore */
+              }
+              resolve({ width: 1920, height: 1080 });
+            });
+            ff.on('error', () => resolve({ width: 1920, height: 1080 }));
+          });
+        };
+
+        const dataUrlToTempFile = async (
+          dataUrl: string,
+          prefix: string,
+        ): Promise<string> => {
+          const match = dataUrl.match(/^data:(.+);base64,(.*)$/);
+          if (!match) {
+            throw new Error('Invalid data URL for annotation overlay');
+          }
+          const buffer = Buffer.from(match[2], 'base64');
+          const tempPath = path.join(
+            os.tmpdir(),
+            `${prefix}_${Date.now()}_${Math.random()}.png`,
+          );
+          await fs.writeFile(tempPath, buffer);
+          return tempPath;
+        };
 
         const mainSource =
           angleOption === 'angle2' ? sourcePath2 || sourcePath : sourcePath;
@@ -180,17 +242,21 @@ const createWindow = async () => {
             .replace(/,/g, '\\,');
 
         const runFfmpegSingle = (
-          clip: (typeof clips)[number],
+          clip: (typeof clips)[number] & {
+            annotationPngPrimary?: string | null;
+            freezeAt?: number | null;
+            freezeDuration?: number;
+          },
           outputPath: string,
           overlayLines: string[],
+          annotationPath?: string | null,
         ) =>
           new Promise<void>((resolve, reject) => {
-            const vf: string[] = [];
+            const vfTexts: string[] = [];
             if (overlay.enabled) {
-              // 左寄せ、3行、下部帯。Sportscode風のシンプルなオーバーレイ。
               const box =
                 'drawbox=x=0:y=ih-120:w=iw:h=120:color=black@0.7:t=fill';
-              vf.push(box);
+              vfTexts.push(box);
 
               const linesConfig = [
                 { color: 'white', size: 34, y: 'h-95' },
@@ -203,27 +269,96 @@ const createWindow = async () => {
                 const cfg =
                   linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
                 const text = `drawtext=text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:shadowcolor=black@0.55:shadowx=2:shadowy=2:x=20:y=${cfg.y}`;
-                vf.push(text);
+                vfTexts.push(text);
               });
             }
-            const duration = Math.max(0.5, clip.endTime - clip.startTime);
-            const args = [
+
+            const filterSteps: string[] = [];
+            let baseLabel = '[0:v]';
+            let mapLabel = '0:v';
+            let audioMap = '0:a?';
+            const inputArgs = [
               '-y',
               '-ss',
               `${Math.max(0, clip.startTime)}`,
               '-t',
-              `${duration}`,
+              `${Math.max(0.5, clip.endTime - clip.startTime)}`,
               '-i',
               mainSource,
-              ...(vf.length ? ['-vf', vf.join(',')] : []),
+            ];
+
+            // freeze clone
+            const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
+            const freezeAt =
+              clip.freezeAt !== null && clip.freezeAt !== undefined
+                ? Math.max(0, Math.min(clip.freezeAt, clipDuration))
+                : null;
+            const freezeDuration = clip.freezeDuration ?? 0;
+            if (freezeAt !== null && freezeDuration > 0) {
+              filterSteps.push(
+                `[0:v]trim=end=${freezeAt},setpts=PTS-STARTPTS[vpre]`,
+              );
+              filterSteps.push(
+                `[0:v]trim=start=${freezeAt},setpts=PTS-STARTPTS[vpost]`,
+              );
+              filterSteps.push(
+                `[vpre]tpad=stop_mode=clone:stop_duration=${freezeDuration}[vprepad]`,
+              );
+              filterSteps.push(
+                `[vprepad][vpost]concat=n=2:v=1:a=0[vfreeze]`,
+              );
+              baseLabel = '[vfreeze]';
+              mapLabel = baseLabel;
+              filterSteps.push(
+                `[0:a]atrim=end=${freezeAt},asetpts=PTS-STARTPTS[apre]`,
+              );
+              filterSteps.push(
+                `[0:a]atrim=start=${freezeAt},asetpts=PTS-STARTPTS[apost]`,
+              );
+              filterSteps.push(
+                `[apre]apad=pad_dur=${freezeDuration}[aprepad]`,
+              );
+              filterSteps.push(
+                `[aprepad][apost]concat=n=2:v=0:a=1[afreeze]`,
+              );
+              audioMap = '[afreeze]';
+            }
+
+            if (annotationPath) {
+              inputArgs.push('-i', annotationPath);
+              filterSteps.push(`${baseLabel}[1:v]overlay=0:0[vanno]`);
+              baseLabel = '[vanno]';
+              mapLabel = baseLabel;
+            }
+            if (vfTexts.length) {
+              filterSteps.push(
+                `${baseLabel}${vfTexts.length ? `,${vfTexts.join(',')}` : ''}[vout]`,
+              );
+              mapLabel = '[vout]';
+            }
+
+            const args = [...inputArgs];
+            if (filterSteps.length) {
+              args.push(
+                '-filter_complex',
+                filterSteps.join(';'),
+                '-map',
+                mapLabel,
+              );
+            } else {
+              args.push('-map', '0:v');
+            }
+            args.push(
               '-c:v',
               'libx264',
               '-preset',
               'veryfast',
               '-c:a',
               'aac',
+              '-map',
+              audioMap,
               outputPath,
-            ];
+            );
             const ff = spawn('ffmpeg', args);
             ff.stderr.on('data', (data) => {
               console.log('[ffmpeg]', data.toString());
@@ -235,19 +370,113 @@ const createWindow = async () => {
           });
 
         const runFfmpegDual = (
-          clip: (typeof clips)[number],
+          clip: (typeof clips)[number] & {
+            freezeAt?: number | null;
+            freezeDuration?: number;
+          },
           outputPath: string,
           overlayLines: string[],
+          annotationPrimary?: string | null,
+          annotationSecondary?: string | null,
+          freezeAt?: number | null,
+          freezeDuration?: number,
         ) =>
           new Promise<void>((resolve, reject) => {
             if (!secondarySource) {
               reject(new Error('2画面結合に必要な第2ソースがありません'));
               return;
             }
-            const vf: string[] = [];
+            const filterSteps: string[] = [];
+            let mainLabel = '[0:v]';
+            let subLabel = '[1:v]';
+            let audioMap = '0:a?';
+            const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
+            const freezePos =
+              freezeAt !== null && freezeAt !== undefined
+                ? Math.max(0, Math.min(freezeAt, clipDuration))
+                : null;
+            const freezeDur = freezeDuration ?? 0;
+            const inputs = [
+              '-y',
+              '-ss',
+              `${Math.max(0, clip.startTime)}`,
+              '-t',
+              `${Math.max(0.5, clip.endTime - clip.startTime)}`,
+              '-i',
+              mainSource,
+              '-ss',
+              `${Math.max(0, clip.startTime)}`,
+              '-t',
+              `${Math.max(0.5, clip.endTime - clip.startTime)}`,
+              '-i',
+              secondarySource,
+            ];
+            let currentInputIndex = 2;
+
+            // freeze main
+            if (freezePos !== null && freezeDur > 0) {
+              filterSteps.push(
+                `[0:v]trim=end=${freezePos},setpts=PTS-STARTPTS[mvpre]`,
+              );
+              filterSteps.push(
+                `[0:v]trim=start=${freezePos},setpts=PTS-STARTPTS[mvpost]`,
+              );
+              filterSteps.push(
+                `[mvpre]tpad=stop_mode=clone:stop_duration=${freezeDur}[mvprepad]`,
+              );
+              filterSteps.push(
+                `[mvprepad][mvpost]concat=n=2:v=1:a=0[mvfreeze]`,
+              );
+              mainLabel = '[mvfreeze]';
+              filterSteps.push(
+                `[0:a]atrim=end=${freezePos},asetpts=PTS-STARTPTS[apre]`,
+              );
+              filterSteps.push(
+                `[0:a]atrim=start=${freezePos},asetpts=PTS-STARTPTS[apost]`,
+              );
+              filterSteps.push(
+                `[apre]apad=pad_dur=${freezeDur}[aprepad]`,
+              );
+              filterSteps.push(
+                `[aprepad][apost]concat=n=2:v=0:a=1[afreeze]`,
+              );
+              audioMap = '[afreeze]';
+            }
+            // freeze sub
+            if (freezePos !== null && freezeDur > 0) {
+              filterSteps.push(
+                `[1:v]trim=end=${freezePos},setpts=PTS-STARTPTS[svpre]`,
+              );
+              filterSteps.push(
+                `[1:v]trim=start=${freezePos},setpts=PTS-STARTPTS[svpost]`,
+              );
+              filterSteps.push(
+                `[svpre]tpad=stop_mode=clone:stop_duration=${freezeDur}[svprepad]`,
+              );
+              filterSteps.push(
+                `[svprepad][svpost]concat=n=2:v=1:a=0[svfreeze]`,
+              );
+              subLabel = '[svfreeze]';
+            }
+
+            if (annotationPrimary) {
+              inputs.push('-i', annotationPrimary);
+              filterSteps.push(`${mainLabel}[${currentInputIndex}:v]overlay=0:0[vp]`);
+              mainLabel = '[vp]';
+              currentInputIndex += 1;
+            }
+            if (annotationSecondary) {
+              inputs.push('-i', annotationSecondary);
+              filterSteps.push(`${subLabel}[${currentInputIndex}:v]overlay=0:0[vs]`);
+              subLabel = '[vs]';
+              currentInputIndex += 1;
+            }
+
             // 2入力を横並び
-            const overlayFilters: string[] = [];
+            filterSteps.push(`${mainLabel}${subLabel}hstack=inputs=2[vbase]`);
+
             if (overlay.enabled) {
+              const overlayFilters: string[] = [];
               const box =
                 'drawbox=x=0:y=ih-120:w=iw:h=120:color=black@0.7:t=fill';
               overlayFilters.push(box);
@@ -265,32 +494,21 @@ const createWindow = async () => {
                 const text = `drawtext=text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:bordercolor=black@0.0:x=20:y=${cfg.y}`;
                 overlayFilters.push(text);
               });
+
+              filterSteps.push(`[vbase]${overlayFilters.join(',')}[vout]`);
+            } else {
+              filterSteps.push('[vbase]null[vout]');
             }
-            const filterComplex = overlayFilters.length
-              ? `[0:v][1:v]hstack=inputs=2[vbase];[vbase]${overlayFilters.join(',')}[vout]`
-              : '[0:v][1:v]hstack=inputs=2[vout]';
 
             const duration = Math.max(0.5, clip.endTime - clip.startTime);
             const args = [
-              '-y',
-              '-ss',
-              `${Math.max(0, clip.startTime)}`,
-              '-t',
-              `${duration}`,
-              '-i',
-              mainSource,
-              '-ss',
-              `${Math.max(0, clip.startTime)}`,
-              '-t',
-              `${duration}`,
-              '-i',
-              secondarySource,
+              ...inputs,
               '-filter_complex',
-              filterComplex,
+              filterSteps.join(';'),
               '-map',
               '[vout]',
               '-map',
-              '0:a?',
+              audioMap,
               '-c:v',
               'libx264',
               '-preset',
@@ -310,17 +528,36 @@ const createWindow = async () => {
           });
 
         const formatLines = (clip: (typeof clips)[number]) => {
-          const labelText = clip.labels
+          const labels = clip.labels
             ?.map((l) => `${l.group ? `${l.group}: ` : ''}${l.name}`)
             .join(', ');
-          const line1 = `#${clip.actionIndex ?? 1} ${clip.actionName}`;
-          const line2 = labelText || '';
-          const line3 = clip.qualifier || '';
-          return [line1, line2, line3].filter((l) => l.length > 0);
+          const index = clip.actionIndex ?? 1;
+          const qualifier = clip.qualifier || '';
+          const template = overlay.textTemplate || '{actionName} #{index}';
+          const tokens: Record<string, string | number> = {
+            actionName: clip.actionName,
+            index,
+            labels: labels || '',
+            qualifier,
+          };
+          const line = template.replace(
+            /\{(actionName|index|labels|qualifier)\}/g,
+            (_, key) => String(tokens[key] ?? ''),
+          );
+          const lines: string[] = [];
+          if (overlay.showActionName) lines.push(line);
+          if (overlay.showLabels && labels) lines.push(labels);
+          if (overlay.showQualifier && qualifier) lines.push(qualifier);
+          return lines.filter((l) => l.trim().length > 0);
         };
 
         const renderClip = async (
-          clip: (typeof clips)[number],
+          clip: (typeof clips)[number] & {
+            annotationPngPrimary?: string | null;
+            annotationPngSecondary?: string | null;
+            freezeAt?: number | null;
+            freezeDuration?: number;
+          },
           outputPath?: string,
         ) => {
           const overlayLines = formatLines(clip);
@@ -330,10 +567,34 @@ const createWindow = async () => {
               os.tmpdir(),
               `clip_${clip.id}_${Date.now()}_${Math.random()}.mp4`,
             );
+
+          let annPrimaryPath: string | null = null;
+          let annSecondaryPath: string | null = null;
+          if (clip.annotationPngPrimary) {
+            annPrimaryPath = await dataUrlToTempFile(
+              clip.annotationPngPrimary,
+              `anno_p_${clip.id}`,
+            );
+            tempFiles.push(annPrimaryPath);
+          }
+          if (clip.annotationPngSecondary) {
+            annSecondaryPath = await dataUrlToTempFile(
+              clip.annotationPngSecondary,
+              `anno_s_${clip.id}`,
+            );
+            tempFiles.push(annSecondaryPath);
+          }
+
           if (useDual) {
-            await runFfmpegDual(clip, target, overlayLines);
+            await runFfmpegDual(
+              clip,
+              target,
+              overlayLines,
+              annPrimaryPath,
+              annSecondaryPath,
+            );
           } else {
-            await runFfmpegSingle(clip, target, overlayLines);
+            await runFfmpegSingle(clip, target, overlayLines, annPrimaryPath);
           }
           return target;
         };
@@ -428,9 +689,11 @@ const createWindow = async () => {
           );
         }
 
+        await Promise.all(tempFiles.map((f: string) => fs.unlink(f).catch(() => undefined)));
         return { success: true };
       } catch (err) {
         console.error('export-clips-with-overlay error', err);
+        await Promise.all(tempFiles.map((f: string) => fs.unlink(f).catch(() => undefined)));
         return { success: false, error: String(err) };
       }
     },

@@ -64,9 +64,13 @@ export interface IElectronAPI {
       actionName: string;
       startTime: number;
       endTime: number;
+      freezeAt?: number | null;
+      freezeDuration?: number;
       labels?: { group: string; name: string }[];
       qualifier?: string;
       actionIndex?: number;
+      annotationPngPrimary?: string | null;
+      annotationPngSecondary?: string | null;
     }>;
     overlay: {
       enabled: boolean;
