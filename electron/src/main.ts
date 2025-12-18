@@ -288,7 +288,7 @@ const createWindow = async () => {
             ];
 
             // freeze clone
-            const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
+        const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
             const freezeAt =
               clip.freezeAt !== null && clip.freezeAt !== undefined
                 ? Math.max(0, Math.min(clip.freezeAt, clipDuration))

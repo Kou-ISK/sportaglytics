@@ -1,5 +1,6 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, globalShortcut } from 'electron';
 import type { HotkeyConfig } from '../../src/types/Settings';
+import { createPlaylistWindow } from './playlistWindow';
 
 /**
  * ホットキーを登録
@@ -8,14 +9,20 @@ import type { HotkeyConfig } from '../../src/types/Settings';
  * このファイルは後方互換性のために残していますが、実際の処理はrenderer側で行われます。
  */
 export const registerShortcuts = (
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   mainWindow: BrowserWindow,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   hotkeys: HotkeyConfig[],
 ) => {
-  // globalShortcutは使用しない（他のアプリを妨害するため）
-  // 代わりにrenderer側でkeydownイベントをリッスンする
-  console.log('Shortcuts are handled by renderer process');
+  // 従来の挙動を残しつつ、プレイリスト用ホットキーだけグローバル登録
+  if (!hotkeys || hotkeys.length === 0) return;
+  const playlistKey =
+    hotkeys.find((h) => h.id === 'openPlaylist')?.key || 'CmdOrCtrl+Shift+P';
+  try {
+    globalShortcut.register(playlistKey, () => {
+      createPlaylistWindow();
+    });
+  } catch (e) {
+    console.warn('Failed to register playlist hotkey', e);
+  }
 };
 
 /**
@@ -33,6 +40,7 @@ export const shortCutKeys = (mainWindow: BrowserWindow) => {
     { id: 'analyze', label: '分析開始', key: 'Command+Shift+A' },
     { id: 'undo', label: '元に戻す', key: 'Command+Z' },
     { id: 'redo', label: 'やり直す', key: 'Command+Shift+Z' },
+    { id: 'openPlaylist', label: 'プレイリストを開く', key: 'Command+Shift+P' },
   ];
 
   registerShortcuts(mainWindow, defaultHotkeys);
