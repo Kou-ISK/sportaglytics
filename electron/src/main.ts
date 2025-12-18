@@ -326,7 +326,17 @@ const createWindow = async () => {
 
             if (annotationPath) {
               inputArgs.push('-i', annotationPath);
-              filterSteps.push(`${baseLabel}[1:v]overlay=0:0[vanno]`);
+              const enableExpr =
+                freezeAt !== null && freezeDuration > 0
+                  ? `:enable='between(t,${freezeAt},${freezeAt + freezeDuration})'`
+                  : '';
+              filterSteps.push(`[1:v]format=rgba[ovrraw]`);
+              filterSteps.push(
+                `[ovrraw]${baseLabel}scale2ref[ovr][bbase]`,
+              );
+              filterSteps.push(
+                `[bbase][ovr]overlay=0:0${enableExpr}[vanno]`,
+              );
               baseLabel = '[vanno]';
               mapLabel = baseLabel;
             }
@@ -378,8 +388,6 @@ const createWindow = async () => {
           overlayLines: string[],
           annotationPrimary?: string | null,
           annotationSecondary?: string | null,
-          freezeAt?: number | null,
-          freezeDuration?: number,
         ) =>
           new Promise<void>((resolve, reject) => {
             if (!secondarySource) {
@@ -392,10 +400,10 @@ const createWindow = async () => {
             let audioMap = '0:a?';
             const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
             const freezePos =
-              freezeAt !== null && freezeAt !== undefined
-                ? Math.max(0, Math.min(freezeAt, clipDuration))
+              clip.freezeAt !== null && clip.freezeAt !== undefined
+                ? Math.max(0, Math.min(clip.freezeAt, clipDuration))
                 : null;
-            const freezeDur = freezeDuration ?? 0;
+            const freezeDur = clip.freezeDuration ?? 0;
             const inputs = [
               '-y',
               '-ss',
@@ -461,13 +469,37 @@ const createWindow = async () => {
 
             if (annotationPrimary) {
               inputs.push('-i', annotationPrimary);
-              filterSteps.push(`${mainLabel}[${currentInputIndex}:v]overlay=0:0[vp]`);
+              const enableExpr =
+                freezePos !== null && freezeDur > 0
+                  ? `:enable='between(t,${freezePos},${freezePos + freezeDur})'`
+                  : '';
+              filterSteps.push(
+                `[${currentInputIndex}:v]format=rgba[ovpraw]`,
+              );
+              filterSteps.push(
+                `[ovpraw]${mainLabel}scale2ref[ovp][mbase]`,
+              );
+              filterSteps.push(
+                `[mbase][ovp]overlay=0:0${enableExpr}[vp]`,
+              );
               mainLabel = '[vp]';
               currentInputIndex += 1;
             }
             if (annotationSecondary) {
               inputs.push('-i', annotationSecondary);
-              filterSteps.push(`${subLabel}[${currentInputIndex}:v]overlay=0:0[vs]`);
+              const enableExpr =
+                freezePos !== null && freezeDur > 0
+                  ? `:enable='between(t,${freezePos},${freezePos + freezeDur})'`
+                  : '';
+              filterSteps.push(
+                `[${currentInputIndex}:v]format=rgba[ovsraw]`,
+              );
+              filterSteps.push(
+                `[ovsraw]${subLabel}scale2ref[ovs][sbase]`,
+              );
+              filterSteps.push(
+                `[sbase][ovs]overlay=0:0${enableExpr}[vs]`,
+              );
               subLabel = '[vs]';
               currentInputIndex += 1;
             }
@@ -585,17 +617,17 @@ const createWindow = async () => {
             tempFiles.push(annSecondaryPath);
           }
 
-          if (useDual) {
-            await runFfmpegDual(
-              clip,
-              target,
-              overlayLines,
-              annPrimaryPath,
-              annSecondaryPath,
-            );
-          } else {
-            await runFfmpegSingle(clip, target, overlayLines, annPrimaryPath);
-          }
+            if (useDual) {
+              await runFfmpegDual(
+                clip,
+                target,
+                overlayLines,
+                annPrimaryPath,
+                annSecondaryPath,
+              );
+            } else {
+              await runFfmpegSingle(clip, target, overlayLines, annPrimaryPath);
+            }
           return target;
         };
 

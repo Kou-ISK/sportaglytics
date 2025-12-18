@@ -92,7 +92,7 @@ import AnnotationCanvas, {
   AnnotationCanvasRef,
 } from './components/AnnotationCanvas';
 
-const DEFAULT_FREEZE_DURATION = 2; // seconds - Sportscode風の自動停止既定値
+const DEFAULT_FREEZE_DURATION = 3; // seconds - Sportscode風の自動停止既定値を少し延長
 const MIN_FREEZE_DURATION = 1; // seconds - ユーザー要求の最低停止秒数
 const ANNOTATION_TIME_TOLERANCE = 0.12; // 秒: 描画タイミング判定のゆらぎ
 const FREEZE_RETRIGGER_GUARD = 0.3; // 秒: 同じタイミングでの連続フリーズ防止
