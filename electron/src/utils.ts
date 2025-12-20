@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, Menu } from 'electron';
+import { BrowserWindow, dialog, ipcMain, Menu, app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PackageDatas } from '../../src/renderer';
@@ -27,7 +27,15 @@ export const Utils = () => {
       })
       .then((result) => {
         if (result.canceled) return;
-        return result.filePaths[0];
+        const selected = result.filePaths[0];
+        if (selected) {
+          try {
+            app.addRecentDocument(selected);
+          } catch (e) {
+            console.warn('addRecentDocument failed', e);
+          }
+        }
+        return selected;
       })
       .catch((err) => console.log(`Error: ${err}`));
   });

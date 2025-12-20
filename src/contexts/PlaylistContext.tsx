@@ -36,7 +36,12 @@ interface PlaylistContextValue {
   /** アクティブなプレイリストを設定 */
   setActivePlaylist: (playlistId: string | null) => void;
   /** タイムラインアイテムをプレイリストに追加 */
-  addItemsFromTimeline: (playlistId: string, items: TimelineData[]) => void;
+  addItemsFromTimeline: (
+    playlistId: string,
+    items: TimelineData[],
+    videoPath?: string | null,
+    videoPath2?: string | null,
+  ) => void;
   /** プレイリストアイテムを削除 */
   removeItem: (playlistId: string, itemId: string) => void;
   /** プレイリストアイテムの順序を変更 */
@@ -154,7 +159,12 @@ export const PlaylistProvider: React.FC<PlaylistProviderProps> = ({
 
   // タイムラインアイテムをプレイリストに追加
   const addItemsFromTimeline = useCallback(
-    (playlistId: string, items: TimelineData[]) => {
+    (
+      playlistId: string,
+      items: TimelineData[],
+      videoPath?: string | null,
+      videoPath2?: string | null,
+    ) => {
       const now = Date.now();
       const newItems: PlaylistItem[] = items.map((item) => ({
         id: uuidv4(),
@@ -165,6 +175,8 @@ export const PlaylistProvider: React.FC<PlaylistProviderProps> = ({
         labels: item.labels,
         qualifier: item.qualifier,
         addedAt: now,
+        videoSource: videoPath || undefined,
+        videoSource2: videoPath2 || undefined,
       }));
 
       setState((prev) => ({

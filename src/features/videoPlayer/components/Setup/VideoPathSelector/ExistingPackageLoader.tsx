@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import { VideoSyncData } from '../../../../../types/VideoSync';
@@ -106,6 +106,12 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
       showError('パッケージの読み込み中にエラーが発生しました。');
     }
   };
+
+  useEffect(() => {
+    const api = globalThis.window.electronAPI;
+    if (!api?.onOpenPackage) return;
+    api.onOpenPackage(handleSelectPackage);
+  }, []);
 
   return (
     <Button

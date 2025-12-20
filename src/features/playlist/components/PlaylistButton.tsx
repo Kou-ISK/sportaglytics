@@ -23,6 +23,8 @@ interface AddToPlaylistMenuProps {
   onClose: () => void;
   /** 追加対象のタイムラインアイテム */
   items: TimelineData[];
+  /** 現在の映像ソース（メイン/サブ） */
+  videoList?: string[];
 }
 
 /**
@@ -32,9 +34,11 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({
   anchorEl,
   onClose,
   items,
+  videoList,
 }) => {
   const { state, createPlaylist, addItemsFromTimeline, openPlaylistWindow } =
     usePlaylist();
+  const list = videoList || [];
 
   const generateDefaultName = () => {
     const base = 'プレイリスト';
@@ -50,14 +54,24 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({
   };
 
   const handleAddToExisting = (playlistId: string) => {
-    addItemsFromTimeline(playlistId, items);
+    addItemsFromTimeline(
+      playlistId,
+      items,
+      list[0] || null,
+      list[1] || null,
+    );
     onClose();
   };
 
   const handleCreateNew = () => {
     const defaultName = generateDefaultName();
     const playlist = createPlaylist(defaultName);
-    addItemsFromTimeline(playlist.id, items);
+    addItemsFromTimeline(
+      playlist.id,
+      items,
+      list[0] || null,
+      list[1] || null,
+    );
     onClose();
   };
 

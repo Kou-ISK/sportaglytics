@@ -368,6 +368,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
       callback(mode),
     );
   },
+  onOpenPackage: (callback: () => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-open-package');
+    } catch {
+      // ignore
+    }
+    ipcRenderer.on('menu-open-package', callback as unknown as () => void);
+  },
 
   // プレイリストAPI
   playlist: {

@@ -384,6 +384,7 @@ const VideoPlayerAppContent = () => {
         anchorEl={playlistMenuAnchor}
         onClose={handleClosePlaylistMenu}
         items={playlistMenuItems}
+        videoList={videoList}
       />
     </Box>
   );

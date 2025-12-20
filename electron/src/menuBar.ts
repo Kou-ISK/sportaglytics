@@ -93,6 +93,23 @@ export const menuBar = Menu.buildFromTemplate([
           },
         ],
       },
+      { type: 'separator' },
+      {
+        label: '開く...',
+        accelerator: 'CmdOrCtrl+O',
+        click: (_menuItem, browserWindow) => {
+          if (browserWindow && 'webContents' in browserWindow) {
+            (browserWindow as BrowserWindow).webContents.send(
+              'menu-open-package',
+            );
+          }
+        },
+      },
+      {
+        label: '最近使用した項目',
+        role: 'recentDocuments',
+        submenu: [{ role: 'clearRecentDocuments', label: '履歴をクリア' }],
+      },
     ],
   },
   {

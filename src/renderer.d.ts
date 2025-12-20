@@ -93,6 +93,7 @@ export interface IElectronAPI {
   onExportTimeline: (callback: (format: string) => void) => void;
   onImportTimeline: (callback: () => void) => void;
   onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => void;
+  onOpenPackage: (callback: () => void) => void;
   // プレイリストAPI
   playlist: IPlaylistAPI;
 }

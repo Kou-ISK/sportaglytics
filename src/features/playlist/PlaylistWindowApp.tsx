@@ -531,14 +531,32 @@ export default function PlaylistWindowApp() {
   // Get video source for current item (primary)
   const currentVideoSource = useMemo(() => {
     if (!currentItem) return null;
-    return videoSources[0] || null;
+    return currentItem.videoSource || videoSources[0] || null;
   }, [currentItem, videoSources]);
 
   // Get video source for current item (secondary - for dual view)
   const currentVideoSource2 = useMemo(() => {
     if (!currentItem || !isDualView) return null;
-    return videoSources[1] || null;
+    return currentItem.videoSource2 || videoSources[1] || null;
   }, [currentItem, isDualView, videoSources]);
+
+  // Keep videoSources in sync with the currently selected item (supports mixed packages)
+  useEffect(() => {
+    if (!currentItem) return;
+    const merged: string[] = [];
+    if (currentItem.videoSource) merged.push(currentItem.videoSource);
+    if (currentItem.videoSource2) merged.push(currentItem.videoSource2);
+    // Fallback to previously known sources when item lacks one of them
+    if (!currentItem.videoSource && videoSources[0]) merged.unshift(videoSources[0]);
+    if (!currentItem.videoSource2 && videoSources[1]) {
+      if (merged.length === 0) merged.push('');
+      merged[1] = videoSources[1];
+    }
+    const cleaned = merged.filter(Boolean);
+    if (cleaned.length && JSON.stringify(cleaned) !== JSON.stringify(videoSources)) {
+      setVideoSources(cleaned);
+    }
+  }, [currentItem, videoSources]);
 
   useEffect(() => {
     if (!isDualView || !currentVideoSource2) {
