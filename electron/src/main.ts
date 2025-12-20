@@ -7,7 +7,11 @@ import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { menuBar } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
-import { registerPlaylistHandlers, setMainWindowRef } from './playlistWindow';
+import {
+  registerPlaylistHandlers,
+  setMainWindowRef,
+  sendPlaylistFileToWindow,
+} from './playlistWindow';
 
 // ローカル動画の自動再生を許可（appが未定義の環境ではスキップ）
 if (app?.commandLine) {
@@ -15,6 +19,12 @@ if (app?.commandLine) {
 }
 
 const mainURL = `file:${__dirname}/../../index.html`;
+const pickPlaylistArg = (argv: string[]) =>
+  argv.find((a) => {
+    const ext = path.extname(a).toLowerCase();
+    return ext === '.stpl' || ext === '.json';
+  }) || null;
+let pendingPlaylistFile: string | null = pickPlaylistArg(process.argv.slice(1));
 
 const createWindow = async () => {
   const mainWindow = new BrowserWindow({
@@ -735,8 +745,20 @@ Utils();
 registerSettingsHandlers();
 registerPlaylistHandlers();
 
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  pendingPlaylistFile = filePath;
+  if (app.isReady()) {
+    sendPlaylistFileToWindow(filePath);
+  }
+});
+
 app.whenReady().then(() => {
   createWindow();
+  if (pendingPlaylistFile) {
+    sendPlaylistFileToWindow(pendingPlaylistFile);
+    pendingPlaylistFile = null;
+  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

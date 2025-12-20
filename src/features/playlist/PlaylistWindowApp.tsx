@@ -716,6 +716,7 @@ export default function PlaylistWindowApp() {
     };
   }, []);
 
+
   // Trigger freeze frame
   const triggerFreezeFrame = useCallback(
     (freezeDuration: number) => {
@@ -1184,19 +1185,19 @@ export default function PlaylistWindowApp() {
     [items, videoSources, packagePath, itemAnnotations],
   );
 
-  // Load playlist
-  const handleLoadPlaylist = useCallback(async () => {
-    handleMenuClose();
+  const loadPlaylistFromPath = useCallback(async (filePath?: string) => {
     const playlistAPI = window.electronAPI?.playlist;
     if (!playlistAPI) return;
 
-    const loaded = await playlistAPI.loadPlaylistFile();
+    const loaded = await playlistAPI.loadPlaylistFile(filePath);
     if (loaded) {
-      setItems(loaded.items);
-      setPlaylistName(loaded.name);
+      const { playlist } = loaded;
+      setItems(playlist.items);
+      setPlaylistName(playlist.name);
+      setPackagePath(playlist.sourcePackagePath || null);
       // Load annotations
       const annotations: Record<string, ItemAnnotation> = {};
-      for (const item of loaded.items) {
+      for (const item of playlist.items) {
         if (item.annotation) {
           annotations[item.id] = item.annotation;
         }
@@ -1204,20 +1205,35 @@ export default function PlaylistWindowApp() {
       setItemAnnotations(annotations);
 
       const sources: string[] = [];
-      if (loaded.items[0]?.videoSource) {
-        sources.push(loaded.items[0].videoSource);
+      if (playlist.items[0]?.videoSource) {
+        sources.push(playlist.items[0].videoSource as string);
       }
-      if (loaded.items[0]?.videoSource2) {
-        sources.push(loaded.items[0].videoSource2);
+      if (playlist.items[0]?.videoSource2) {
+        sources.push(playlist.items[0].videoSource2 as string);
       }
       if (sources.length > 0) {
         setVideoSources(sources);
       }
-      if (sources.length >= 2) {
-        setIsDualView(true);
-      }
+      setIsDualView(sources.length >= 2);
     }
   }, []);
+
+  // Load playlist
+  const handleLoadPlaylist = useCallback(async () => {
+    handleMenuClose();
+    await loadPlaylistFromPath();
+  }, [loadPlaylistFromPath]);
+
+  useEffect(() => {
+    const playlistAPI = window.electronAPI?.playlist;
+    if (!playlistAPI?.onExternalOpen) return;
+    const unsub = playlistAPI.onExternalOpen((filePath: string) => {
+      loadPlaylistFromPath(filePath);
+    });
+    return () => {
+      unsub?.();
+    };
+  }, [loadPlaylistFromPath]);
 
   // Edit note
   const handleEditNote = useCallback((itemId: string) => {

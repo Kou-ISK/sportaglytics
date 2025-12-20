@@ -205,7 +205,11 @@ export interface IPlaylistAPI {
     filePath?: string,
   ) => Promise<string | null>;
   /** プレイリストを読み込み */
-  loadPlaylistFile: (filePath?: string) => Promise<Playlist | null>;
+  loadPlaylistFile: (
+    filePath?: string,
+  ) => Promise<{ playlist: Playlist; filePath: string } | null>;
+  /** システムから関連付けで開かれたプレイリストファイル通知 */
+  onExternalOpen: (callback: (filePath: string) => void) => () => void;
 }
 
 /**

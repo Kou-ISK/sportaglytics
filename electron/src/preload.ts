@@ -479,8 +479,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return await ipcRenderer.invoke('playlist:save-file', playlist);
     },
     /** プレイリストファイルを読み込み */
-    loadPlaylistFile: async (): Promise<unknown> => {
-      return await ipcRenderer.invoke('playlist:load-file');
+    loadPlaylistFile: async (
+      filePath?: string,
+    ): Promise<{ playlist: unknown; filePath: string } | null> => {
+      return await ipcRenderer.invoke('playlist:load-file', filePath);
+    },
+    /** システム関連付けから開かれたプレイリスト通知 */
+    onExternalOpen: (callback: (filePath: string) => void) => {
+      const wrapped = (_: unknown, path: string) => callback(path);
+      ipcRenderer.on('playlist:external-open', wrapped);
+      return () => ipcRenderer.removeListener('playlist:external-open', wrapped);
     },
   },
 });
