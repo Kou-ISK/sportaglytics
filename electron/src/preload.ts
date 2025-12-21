@@ -376,6 +376,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
     ipcRenderer.on('menu-open-package', callback as unknown as () => void);
   },
+  onOpenRecentPackage: (callback: (path: string) => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-open-recent-package');
+    } catch {
+      // ignore
+    }
+    ipcRenderer.on('menu-open-recent-package', (_e, path: string) =>
+      callback(path),
+    );
+  },
 
   // プレイリストAPI
   playlist: {

@@ -5,7 +5,7 @@ import { spawn } from 'child_process';
 import * as os from 'os';
 import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
-import { menuBar } from './menuBar';
+import { refreshAppMenu } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
 import {
   registerPlaylistHandlers,
@@ -49,9 +49,7 @@ const createWindow = async () => {
   const settings = await loadSettings();
   registerShortcuts(mainWindow, settings.hotkeys);
 
-  if (menuBar) {
-    Menu.setApplicationMenu(menuBar);
-  }
+  refreshAppMenu();
 
   // ホットキー設定が更新されたら再登録
   ipcMain.on('hotkeys-updated', () => {

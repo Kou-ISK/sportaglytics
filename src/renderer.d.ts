@@ -94,6 +94,7 @@ export interface IElectronAPI {
   onImportTimeline: (callback: () => void) => void;
   onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => void;
   onOpenPackage: (callback: () => void) => void;
+  onOpenRecentPackage: (callback: (path: string) => void) => void;
   // プレイリストAPI
   playlist: IPlaylistAPI;
 }

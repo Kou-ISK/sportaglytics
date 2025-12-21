@@ -34,6 +34,15 @@ export const Utils = () => {
           } catch (e) {
             console.warn('addRecentDocument failed', e);
           }
+          try {
+            // メニューを再構築して「最近開いたパッケージ」に反映
+            const { refreshAppMenu } = require('./menuBar') as {
+              refreshAppMenu: () => void;
+            };
+            refreshAppMenu();
+          } catch (e) {
+            console.warn('refreshAppMenu failed', e);
+          }
         }
         return selected;
       })

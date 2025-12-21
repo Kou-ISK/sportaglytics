@@ -715,10 +715,29 @@ export default function PlaylistWindowApp() {
         }
         setItemAnnotations(annotations);
       }
-      setVideoSources(data.videoSources || []);
       setPackagePath(data.packagePath || null);
-      if (data.videoSources && data.videoSources.length >= 2) {
-        setIsDualView(true);
+
+      // アイテム側にソースが付いている場合はそれを優先し、グローバルなvideoSourcesで上書きしない
+      const hasItemSources =
+        activePlaylist?.items?.some(
+          (it) => !!it.videoSource || !!it.videoSource2,
+        ) ?? false;
+      if (!hasItemSources) {
+        setVideoSources(data.videoSources || []);
+        if (data.videoSources && data.videoSources.length >= 2) {
+          setIsDualView(true);
+        }
+      } else {
+        // アイテム別ソースがある場合は、現在のアイテムの有無でデュアル判定
+        const current = activePlaylist?.items.find(
+          (it) => it.id === data.state.playingItemId,
+        );
+        setIsDualView(
+          !!(
+            current?.videoSource2 ||
+            activePlaylist?.items.some((it) => !!it.videoSource2)
+          ),
+        );
       }
     };
 
@@ -1179,8 +1198,9 @@ export default function PlaylistWindowApp() {
       // Merge annotations into items
       const itemsWithAnnotations = items.map((item) => ({
         ...item,
-        videoSource: type === 'embedded' ? videoSources[0] : undefined,
-        videoSource2: type === 'embedded' ? videoSources[1] : undefined,
+        // 参照プレイリストでも追加時のソースを保持しておく（複数パッケージ混在を許容）
+        videoSource: item.videoSource ?? videoSources[0] ?? undefined,
+        videoSource2: item.videoSource2 ?? videoSources[1] ?? undefined,
         annotation: itemAnnotations[item.id] || item.annotation,
       }));
 

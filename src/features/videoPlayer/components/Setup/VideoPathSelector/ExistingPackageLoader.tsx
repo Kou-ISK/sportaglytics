@@ -9,18 +9,35 @@ interface ExistingPackageLoaderProps {
   onPackageLoaded: (result: PackageLoadResult) => void;
 }
 
+const normalizePathValue = (value: unknown): string | undefined => {
+  if (typeof value === 'string') return value;
+  if (
+    value &&
+    typeof value === 'object' &&
+    'path' in value &&
+    typeof (value as { path?: unknown }).path === 'string'
+  ) {
+    return (value as { path: string }).path;
+  }
+  return undefined;
+};
+
 export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
   onPackageLoaded,
 }) => {
   const { error: showError, info } = useNotification();
 
-  const handleSelectPackage = async () => {
+  const handleSelectPackage = async (preselectedPath?: unknown) => {
     if (!globalThis.window.electronAPI) {
       showError('この機能はElectronアプリケーション内でのみ利用できます。');
       return;
     }
 
-    const packagePath = await globalThis.window.electronAPI?.openDirectory();
+    const normalized = normalizePathValue(preselectedPath);
+
+    const packagePath =
+      normalized ||
+      (await globalThis.window.electronAPI?.openDirectory());
     if (!packagePath) {
       return;
     }
@@ -113,10 +130,18 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
     api.onOpenPackage(handleSelectPackage);
   }, []);
 
+  useEffect(() => {
+    const api = globalThis.window.electronAPI;
+    if (!api?.onOpenRecentPackage) return;
+    api.onOpenRecentPackage((path) => handleSelectPackage(path));
+  }, []);
+
   return (
     <Button
       sx={{ height: '60px', fontSize: '16px', flex: 1 }}
-      onClick={handleSelectPackage}
+      onClick={() => {
+        void handleSelectPackage();
+      }}
       variant="contained"
       size="large"
       startIcon={<FolderOpenIcon />}
