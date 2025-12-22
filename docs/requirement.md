@@ -603,11 +603,9 @@ electron/
 - リアルタイム入力バリデーション
 - 視覚的フィードバック（進捗インジケーター）
 
-### 6.2 デザインシステム導入（2025年10月）
+### 6.2 デザインシステム（NEON, Dark-first, 2025年12月）
 
-- 統一カラーパレット（team1: #d32f2f、team2: #1976d2）
-- タイポグラフィ統一（Hiragino、Yu Gothic）
-- スペーシング統一（8px基準）
+最新のデザインシステム仕様は `docs/design-system.md` を参照してください。テーマ実装は `src/theme.ts` をソースオブトゥルースとし、画面は MUI テーマ経由で色/タイポ/余白を取得する方針です。
 
 ### 6.3 キーボードショートカット可視化（2025年10月）
 
@@ -791,4 +789,3 @@ MIT
 - [Copilot基本指示](.github/copilot-instructions.md)
 - [TypeScript指示](.github/instructions/typescript.instructions.md)
 - [TSX指示](.github/instructions/tsx.instructions.md)
-

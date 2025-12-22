@@ -91,11 +91,13 @@ import type {
 import AnnotationCanvas, {
   AnnotationCanvasRef,
 } from './components/AnnotationCanvas';
+import { useTheme } from '@mui/material/styles';
 
 const DEFAULT_FREEZE_DURATION = 3; // seconds - Sportscode風の自動停止既定値を少し延長
 const MIN_FREEZE_DURATION = 1; // seconds - ユーザー要求の最低停止秒数
 const ANNOTATION_TIME_TOLERANCE = 0.12; // 秒: 描画タイミング判定のゆらぎ
 const FREEZE_RETRIGGER_GUARD = 0.3; // 秒: 同じタイミングでの連続フリーズ防止
+
 
 // ===== Sortable Item Component =====
 interface SortableItemProps {
@@ -426,6 +428,7 @@ function NoteDialog({
 
 // ===== Main Component =====
 export default function PlaylistWindowApp() {
+  const theme = useTheme();
   // State
   const [items, setItems] = useState<PlaylistItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
@@ -1506,23 +1509,25 @@ export default function PlaylistWindowApp() {
         display: 'flex',
         flexDirection: 'column',
         height: '100vh',
-        bgcolor: '#1a1a2e',
-        color: '#fff',
+        bgcolor: theme.palette.background.default,
+        color: theme.palette.text.primary,
+        fontFamily: theme.typography.fontFamily,
       }}
     >
       {/* Header */}
       <Paper
         elevation={0}
         sx={{
-          bgcolor: '#16213e',
+          bgcolor: theme.palette.background.paper,
+          backdropFilter: 'blur(8px)',
           borderBottom: '1px solid',
-          borderColor: 'divider',
+          borderColor: theme.palette.divider,
           px: 1.5,
-          py: 0.5,
+          py: 0.75,
         }}
       >
         <Stack direction="row" alignItems="center" spacing={1}>
-          <PlaylistPlay sx={{ color: 'primary.main' }} />
+          <PlaylistPlay sx={{ color: theme.palette.primary.main }} />
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
             {playlistName}
           </Typography>
@@ -1530,12 +1535,17 @@ export default function PlaylistWindowApp() {
             size="small"
             variant="contained"
             color="primary"
+            sx={{ textTransform: 'none' }}
             onClick={() => setExportDialogOpen(true)}
             disabled={isExporting}
           >
             書き出し
           </Button>
-          <Badge badgeContent={items.length} color="primary" max={99}>
+          <Badge
+            badgeContent={items.length}
+            color="secondary"
+            max={99}
+          >
             <Typography variant="caption" color="text.secondary">
               アイテム
             </Typography>
@@ -1913,12 +1923,12 @@ export default function PlaylistWindowApp() {
       <Paper
         elevation={0}
         sx={{
-          bgcolor: '#16213e',
+          bgcolor: theme.palette.background.paper,
           px: 1,
           py: 0.5,
           borderTop: '1px solid',
           borderBottom: '1px solid',
-          borderColor: 'divider',
+          borderColor: theme.palette.divider,
         }}
       >
         <Stack direction="row" alignItems="center">
@@ -1941,7 +1951,14 @@ export default function PlaylistWindowApp() {
       </Paper>
 
       {/* Playlist Items */}
-      <Box sx={{ flex: 1, overflow: 'auto', bgcolor: '#0f0f1a' }}>
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          bgcolor: theme.palette.background.paper,
+          borderTop: `1px solid ${theme.palette.divider}`,
+        }}
+      >
         {items.length === 0 ? (
           <Box
             sx={{
@@ -1993,11 +2010,11 @@ export default function PlaylistWindowApp() {
         <Paper
           elevation={0}
           sx={{
-            bgcolor: '#16213e',
+            bgcolor: theme.palette.background.paper,
             px: 1.5,
             py: 0.75,
             borderTop: '1px solid',
-            borderColor: 'divider',
+            borderColor: theme.palette.divider,
           }}
         >
           <Stack direction="row" spacing={1} alignItems="center">

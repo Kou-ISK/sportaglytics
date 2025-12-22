@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Box, Stack } from '@mui/material';
+import { Box, Stack, useTheme } from '@mui/material';
 import type { VideoSyncData } from '../../../../types/VideoSync';
 import { CreatePackageWizard } from './VideoPathSelector/CreatePackageWizard';
 import { AudioSyncBackdrop } from './VideoPathSelector/AudioSyncBackdrop';
@@ -174,6 +174,7 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
   );
 
   const { dragState, handlers } = useDragAndDrop(handlePackageDrop);
+  const theme = useTheme();
 
   // 最近のパッケージから開く
   const handleRecentPackageOpen = useCallback(
@@ -184,7 +185,23 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
   );
 
   return (
-    <Box sx={{ width: '100%', mx: 'auto', mt: 2, px: 2 }} {...handlers}>
+    <Box
+      sx={{
+        width: '100%',
+        mx: 'auto',
+        mt: 2,
+        px: { xs: 2, md: 3 },
+        pb: 4,
+        maxWidth: 1180,
+        bgcolor: theme.palette.background.paper,
+        borderRadius: 2,
+        border: `1px solid ${theme.palette.divider}`,
+        boxShadow: '0 10px 32px rgba(0,0,0,0.35)',
+        color: theme.palette.text.primary,
+        fontFamily: theme.typography.fontFamily,
+      }}
+      {...handlers}
+    >
       <Stack spacing={4}>
         <WelcomeHeader show={showWelcome} />
 
