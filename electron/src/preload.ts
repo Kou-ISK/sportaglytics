@@ -386,6 +386,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
       callback(path),
     );
   },
+  updateRecentPackages: (paths: string[]) => {
+    ipcRenderer.send('recent-packages:update', paths);
+  },
 
   // プレイリストAPI
   playlist: {

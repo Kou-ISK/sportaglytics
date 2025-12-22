@@ -5,7 +5,7 @@ import { spawn } from 'child_process';
 import * as os from 'os';
 import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
-import { refreshAppMenu } from './menuBar';
+import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
 import {
   registerPlaylistHandlers,
@@ -56,6 +56,13 @@ const createWindow = async () => {
     loadSettings().then((updatedSettings) => {
       registerShortcuts(mainWindow, updatedSettings.hotkeys);
     });
+  });
+
+  ipcMain.on('recent-packages:update', (_event, paths: string[]) => {
+    if (Array.isArray(paths)) {
+      setRecentPackagePaths(paths);
+      refreshAppMenu();
+    }
   });
 
   // ウィンドウタイトル更新用のIPCハンドラ

@@ -1,7 +1,14 @@
 import { Menu, app, BrowserWindow } from 'electron';
 import { createPlaylistWindow } from './playlistWindow';
 
+let recentPackagePaths: string[] = [];
+
+export const setRecentPackagePaths = (paths: string[]) => {
+  recentPackagePaths = paths;
+};
+
 const getRecentDocs = (): string[] => {
+  if (recentPackagePaths.length) return recentPackagePaths;
   const fn = (app as unknown as { getRecentDocuments?: () => string[] })
     .getRecentDocuments;
   if (typeof fn === 'function') return fn();
