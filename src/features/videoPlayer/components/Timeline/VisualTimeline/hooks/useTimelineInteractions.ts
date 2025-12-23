@@ -64,6 +64,11 @@ export const useTimelineInteractions = ({
       event.preventDefault();
       event.stopPropagation();
 
+      // 右クリック以外（左クリックやキーボード操作）ではコンテキストメニューを出さない
+      if (event.button !== 2) {
+        return;
+      }
+
       setContextMenu({
         position: { top: event.clientY, left: event.clientX },
         itemId: id,
