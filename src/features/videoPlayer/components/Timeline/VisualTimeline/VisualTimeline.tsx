@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   Button,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -187,10 +186,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [labelGroup, setLabelGroup] = useState('');
   const [labelName, setLabelName] = useState('');
-  const [recentLabels, setRecentLabels] = useState<
-    { group: string; name: string }[]
-  >([]);
-  const [isLabelQuickPanelOpen, setIsLabelQuickPanelOpen] = useState(false);
   const [clipDialogOpen, setClipDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [overlaySettings, setOverlaySettings] = useState({
@@ -281,28 +276,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
 
   const firstTeamName = actionNames[0]?.split(' ')[0];
 
-  const selectionActionsVisible = selectedIds.length > 0;
-  const selectedStats = useMemo(() => {
-    if (selectedIds.length === 0) return null;
-    const selectedItems = timeline.filter((item) =>
-      selectedIds.includes(item.id),
-    );
-    const total = selectedItems.reduce(
-      (sum, item) => sum + Math.max(0, item.endTime - item.startTime),
-      0,
-    );
-    const avg = selectedItems.length > 0 ? total / selectedItems.length : 0;
-    return { total, avg };
-  }, [selectedIds, timeline]);
-  const earliestSelected = useMemo(() => {
-    const items = timeline.filter((item) => selectedIds.includes(item.id));
-    if (items.length === 0) return null;
-    return items.reduce(
-      (acc, cur) => (cur.startTime < acc.startTime ? cur : acc),
-      items[0],
-    );
-  }, [selectedIds, timeline]);
-
+  // 選択時のオーバーレイメニュー（先頭へシーク/ラベルモード/削除）は廃止
   const handleApplyLabel = useCallback(
     (override?: { group: string; name: string }) => {
       if (!onUpdateTimelineItem) return;
@@ -328,16 +302,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         onUpdateTimelineItem(id, { labels: updatedLabels });
         applied += 1;
       });
-
-      if (group && name) {
-        setRecentLabels((prev) => {
-          const next = [
-            { group, name },
-            ...prev.filter((l) => !(l.group === group && l.name === name)),
-          ];
-          return next.slice(0, 5);
-        });
-      }
 
       if (applied > 0) {
         info(`${applied}件にラベル '${group}: ${name}' を付与しました`);
@@ -567,141 +531,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       }}
     >
       <ZoomIndicator zoomScale={zoomScale} />
-
-      {selectionActionsVisible && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            right: 16,
-            zIndex: 20,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            bgcolor: 'background.paper',
-            px: 1.25,
-            py: 0.75,
-            borderRadius: 2,
-            boxShadow: 3,
-            border: 1,
-            borderColor: 'divider',
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {selectedIds.length} 件選択
-          </Typography>
-          {selectedStats && (
-            <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-              合計 {formatTime(selectedStats.total)} / 平均{' '}
-              {formatTime(selectedStats.avg)}
-            </Typography>
-          )}
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => {
-              if (earliestSelected) {
-                onSeek(earliestSelected.startTime);
-              }
-            }}
-            disabled={!earliestSelected}
-          >
-            先頭へシーク
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            onClick={() => {
-              setIsLabelQuickPanelOpen((prev) => !prev);
-              setLabelDialogOpen(false);
-            }}
-          >
-            ラベルモード
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            onClick={() => onDelete(selectedIds)}
-          >
-            削除
-          </Button>
-        </Box>
-      )}
-
-      {selectionActionsVisible && isLabelQuickPanelOpen && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 50,
-            right: 16,
-            zIndex: 19,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1,
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            boxShadow: 3,
-            p: 1.5,
-            minWidth: 240,
-            border: 1,
-            borderColor: 'divider',
-          }}
-        >
-          <Typography variant="caption" color="text.secondary">
-            選択中 {selectedIds.length} 件に付与
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              size="small"
-              label="グループ"
-              value={labelGroup}
-              onChange={(e) => setLabelGroup(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              size="small"
-              label="ラベル名"
-              value={labelName}
-              onChange={(e) => setLabelName(e.target.value)}
-              fullWidth
-            />
-          </Box>
-          {recentLabels.length > 0 && (
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-              {recentLabels.map((l) => (
-                <Chip
-                  key={`${l.group}-${l.name}`}
-                  label={`${l.group}: ${l.name}`}
-                  size="small"
-                  onClick={() => handleApplyLabel(l)}
-                  sx={{ bgcolor: 'action.hover' }}
-                />
-              ))}
-            </Box>
-          )}
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => {
-                setIsLabelQuickPanelOpen(false);
-              }}
-            >
-              閉じる
-            </Button>
-            <Button
-              size="small"
-              variant="contained"
-              onClick={() => handleApplyLabel()}
-              disabled={!labelGroup.trim() || !labelName.trim()}
-            >
-              適用
-            </Button>
-          </Box>
-        </Box>
-      )}
-
       <Box sx={{ position: 'relative', flex: 1, minHeight: 0 }}>
         <Box
           sx={{
