@@ -7,8 +7,12 @@ export interface IElectronAPI {
   createPackage: (
     directoryName: string,
     packageName: string,
-    tightViewPath: string,
-    wideViewPath: string | null,
+    angles: Array<{
+      id: string;
+      name: string;
+      sourcePath: string;
+      role?: 'primary' | 'secondary';
+    }>,
     metaDataConfig: unknown,
   ) => Promise<PackageDatas>;
   on: (
@@ -104,6 +108,13 @@ export interface PackageDatas {
   timelinePath: string;
   tightViewPath: string;
   wideViewPath: string | null;
+  angles: Array<{
+    id: string;
+    name: string;
+    role?: 'primary' | 'secondary';
+    absolutePath: string;
+    relativePath: string;
+  }>;
   metaDataConfigFilePath: string;
 }
 

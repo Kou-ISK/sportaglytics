@@ -12,6 +12,7 @@ import { useDragAndDrop } from './VideoPathSelector/hooks/useDragAndDrop';
 import { useRecentPackages } from './VideoPathSelector/hooks/useRecentPackages';
 import { useNotification } from '../../../../contexts/NotificationContext';
 import { ONBOARDING_STORAGE_KEY } from '../../../../components/OnboardingTutorial';
+import { buildVideoListFromConfig } from './VideoPathSelector/utils/angleUtils';
 import { WelcomeHeader } from './VideoPathSelector/components/WelcomeHeader';
 import { DropZoneCard } from './VideoPathSelector/components/DropZoneCard';
 import { ActionButtonsRow } from './VideoPathSelector/components/ActionButtonsRow';
@@ -133,22 +134,16 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
         const config =
           await globalThis.window.electronAPI.readJsonFile(configFilePath);
 
+        const { videoList } = buildVideoListFromConfig(config, packagePath);
+
+        if (!videoList.length) {
+          throw new Error('アングルに映像が割り当てられていません。');
+        }
+
         const typedConfig = config as {
-          tightViewPath: string;
-          wideViewPath?: string;
           syncData?: VideoSyncData;
+          angles?: unknown;
         };
-
-        const tightRelative = typedConfig.tightViewPath;
-        const wideRelative = typedConfig.wideViewPath || undefined;
-        const tightAbsolute = `${packagePath}/${tightRelative}`;
-        const wideAbsolute = wideRelative
-          ? `${packagePath}/${wideRelative}`
-          : undefined;
-
-        const videoList = wideAbsolute
-          ? [tightAbsolute, wideAbsolute]
-          : [tightAbsolute];
 
         handlePackageLoaded({
           videoList,

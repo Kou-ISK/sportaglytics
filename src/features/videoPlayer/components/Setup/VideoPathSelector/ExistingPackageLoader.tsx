@@ -4,6 +4,7 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import { VideoSyncData } from '../../../../../types/VideoSync';
 import { PackageLoadResult } from './types';
 import { useNotification } from '../../../../../contexts/NotificationContext';
+import { buildVideoListFromConfig } from './utils/angleUtils';
 
 interface ExistingPackageLoaderProps {
   onPackageLoaded: (result: PackageLoadResult) => void;
@@ -70,29 +71,22 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
       }
       const config = await response.json();
 
-      const tightRelative = config.tightViewPath as string;
-      const wideRelative = (config.wideViewPath || undefined) as
-        | string
-        | undefined;
-      const tightAbsolute = `${packagePath}/${tightRelative}`;
-      const wideAbsolute = wideRelative
-        ? `${packagePath}/${wideRelative}`
-        : undefined;
+      const { videoList } = buildVideoListFromConfig(config, packagePath);
+
+      if (!videoList.length) {
+        throw new Error('アングルに映像が割り当てられていません。');
+      }
 
       let resultingSyncData: VideoSyncData | undefined;
-      const videoList = wideAbsolute
-        ? [tightAbsolute, wideAbsolute]
-        : [tightAbsolute];
+      const storedSync = config.syncData as
+        | {
+            syncOffset?: unknown;
+            isAnalyzed?: unknown;
+            confidenceScore?: unknown;
+          }
+        | undefined;
 
-      if (wideAbsolute) {
-        const storedSync = config.syncData as
-          | {
-              syncOffset?: unknown;
-              isAnalyzed?: unknown;
-              confidenceScore?: unknown;
-            }
-          | undefined;
-
+      if (videoList.length >= 2) {
         if (storedSync && typeof storedSync.syncOffset === 'number') {
           resultingSyncData = {
             syncOffset: storedSync.syncOffset,
@@ -103,7 +97,6 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
                 : undefined,
           } as VideoSyncData;
         } else {
-          // 自動音声同期は行わない。ユーザー操作に委ねる。
           resultingSyncData = undefined;
           info('音声同期データがありません。必要に応じてメニューから同期を実行してください。');
         }

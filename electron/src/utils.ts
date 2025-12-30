@@ -82,8 +82,7 @@ export const Utils = () => {
       _,
       directoryName,
       packageName,
-      tightViewPath,
-      wideViewPath,
+      angles,
       metaDataConfig,
     ) => {
       // 引数で取ったpackageNameをもとに新規パッケージを作成
@@ -92,18 +91,64 @@ export const Utils = () => {
         newPackagePath.lastIndexOf('/') + 1,
       );
       fs.mkdirSync(newPackagePath);
-      fs.mkdirSync(newPackagePath + '/videos');
-      // 新しいビデオファイルパスを変数に格納
-      const newTightViewPath =
-        newPackagePath + '/videos/' + newFilePath + ' 寄り.mp4';
-      fs.renameSync(tightViewPath, newTightViewPath);
-      // wideViewPathが存在する場合のみ書き出し
-      let newWideViewPath = null;
-      if (wideViewPath) {
-        newWideViewPath =
-          newPackagePath + '/videos/' + newFilePath + ' 引き.mp4';
-        fs.renameSync(wideViewPath, newWideViewPath);
+      const videosDir = newPackagePath + '/videos';
+      fs.mkdirSync(videosDir);
+
+      const ensureSafeName = (raw: string, index: number) => {
+        const fallback = `Angle ${index + 1}`;
+        if (!raw || typeof raw !== 'string') return fallback;
+        const trimmed = raw.trim();
+        const sanitized = trimmed.replace(/[\\/:*?"<>|]/g, '_');
+        return sanitized || fallback;
+      };
+
+      const normalizedAngles = (Array.isArray(angles) ? angles : []).map(
+        (angle, index) => {
+          const name = ensureSafeName(angle?.name, index);
+          const sourcePath =
+            typeof angle?.sourcePath === 'string' ? angle.sourcePath : '';
+          if (!sourcePath) {
+            throw new Error(`Invalid source path for angle "${name}"`);
+          }
+          const ext = path.extname(sourcePath) || '.mp4';
+          const fileName = `${newFilePath} ${name}${ext}`;
+          const relativePath = `videos/${fileName}`;
+          const absolutePath = path.join(videosDir, fileName);
+          fs.renameSync(sourcePath, absolutePath);
+          return {
+            id: String(angle?.id ?? `angle-${index + 1}`),
+            name,
+            role: angle?.role,
+            relativePath,
+            absolutePath,
+          };
+        },
+      );
+
+      if (normalizedAngles.length === 0) {
+        throw new Error('No angles were provided for package creation.');
       }
+
+      const primaryAngle =
+        normalizedAngles.find(
+          (angle) => angle.id === metaDataConfig?.primaryAngleId,
+        ) ||
+        normalizedAngles.find((angle) => angle.role === 'primary') ||
+        normalizedAngles[0];
+      const secondaryAngle =
+        normalizedAngles.find(
+          (angle) =>
+            angle.id === metaDataConfig?.secondaryAngleId &&
+            primaryAngle &&
+            angle.id !== primaryAngle.id,
+        ) ||
+        normalizedAngles.find(
+          (angle) =>
+            angle.role === 'secondary' &&
+            primaryAngle &&
+            angle.id !== primaryAngle.id,
+        );
+
       // タイムラインファイルを作成
       fs.writeFile(newPackagePath + '/timeline.json', '[]', (err) => {
         if (err) console.log(err);
@@ -111,10 +156,18 @@ export const Utils = () => {
       // .metadataファイルを作成
       fs.mkdirSync(newPackagePath + '/.metadata');
       // パッケージ内の相対パスとして保存（移動しても動作するように）
-      metaDataConfig.tightViewPath = 'videos/' + newFilePath + ' 寄り.mp4';
-      metaDataConfig.wideViewPath = newWideViewPath
-        ? 'videos/' + newFilePath + ' 引き.mp4'
+      metaDataConfig.tightViewPath =
+        primaryAngle?.relativePath || 'videos/' + newFilePath + ' 寄り.mp4';
+      metaDataConfig.wideViewPath = secondaryAngle
+        ? secondaryAngle.relativePath
         : null;
+      metaDataConfig.angles = normalizedAngles.map(
+        ({ absolutePath, ...rest }) => rest,
+      );
+      metaDataConfig.primaryAngleId =
+        metaDataConfig.primaryAngleId || primaryAngle?.id;
+      metaDataConfig.secondaryAngleId =
+        metaDataConfig.secondaryAngleId || secondaryAngle?.id;
       const metaDataText = JSON.stringify(metaDataConfig);
       console.log(metaDataConfig);
       fs.writeFile(
@@ -135,8 +188,11 @@ export const Utils = () => {
         */
       const packageDatas: PackageDatas = {
         timelinePath: newPackagePath + '/timeline.json',
-        tightViewPath: newTightViewPath,
-        wideViewPath: newWideViewPath,
+        tightViewPath:
+          primaryAngle?.absolutePath ||
+          path.join(videosDir, `${newFilePath} 寄り.mp4`),
+        wideViewPath: secondaryAngle ? secondaryAngle.absolutePath : null,
+        angles: normalizedAngles,
         metaDataConfigFilePath: newPackagePath + '/.metadata/config.json',
       };
       console.log(packageDatas);

@@ -58,8 +58,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createPackage: async (
     directoryName: string,
     packageName: string,
-    tightViewPath: string,
-    wideViewPath: string | null,
+    angles: Array<{
+      id: string;
+      name: string;
+      sourcePath: string;
+      role?: 'primary' | 'secondary';
+    }>,
     metaData: any,
   ) => {
     try {
@@ -67,8 +71,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         'create-package',
         directoryName,
         packageName,
-        tightViewPath,
-        wideViewPath,
+        angles,
         metaData,
       );
       return packageDatas;
