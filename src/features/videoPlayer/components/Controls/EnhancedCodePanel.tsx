@@ -88,24 +88,23 @@ export const EnhancedCodePanel = forwardRef<
       );
     }, [settings.codingPanel?.layouts, settings.codingPanel?.activeLayoutId]);
 
-    // 選択状態
-    const [selectedTeam, setSelectedTeam] = React.useState<string | null>(null);
-    const [selectedAction, setSelectedAction] = React.useState<string | null>(
+    // 複数同時録画に対応するため、アクションごとにセッションを保持
+    const [activeRecordings, setActiveRecordings] = React.useState<
+      Record<
+        string,
+        {
+          teamName: string;
+          startTime: number;
+          color?: string;
+          activateTargets: string[];
+          activateTargetColors: Record<string, string | undefined>;
+        }
+      >
+    >({});
+    // ラベル入力の対象となるアクション（最後に操作したもの）
+    const [primaryAction, setPrimaryAction] = React.useState<string | null>(
       null,
     );
-    // 選択中のアクションの色（タイムラインに反映）
-    const [selectedActionColor, setSelectedActionColor] = React.useState<
-      string | undefined
-    >(undefined);
-    const [isRecording, setIsRecording] = React.useState(false);
-    const [recordingStartTime, setRecordingStartTime] =
-      React.useState<number>(0);
-    // Activateリンクで同時に記録するターゲット
-    const [activateTargets, setActivateTargets] = React.useState<string[]>([]);
-    // Activateリンクターゲットの色
-    const [activateTargetColors, setActivateTargetColors] = React.useState<
-      Record<string, string | undefined>
-    >({});
 
     // 外部から呼び出せるメソッドを公開
     useImperativeHandle(ref, () => ({
@@ -123,8 +122,12 @@ export const EnhancedCodePanel = forwardRef<
 
     // ラベルグループの選択状態を管理（groupName -> selected option）
     const [labelSelections, setLabelSelections] = React.useState<
-      Record<string, string>
+      Record<string, Record<string, string>>
     >({});
+    const isRecording = React.useMemo(
+      () => Object.keys(activeRecordings).length > 0,
+      [activeRecordings],
+    );
     const [activeMode, setActiveMode] = React.useState<'code' | 'label'>(
       settings.codingPanel?.defaultMode ?? 'code',
     );
@@ -183,78 +186,72 @@ export const EnhancedCodePanel = forwardRef<
         : null;
     }, []);
 
-    // 記録完了してタイムラインに追加
-    const completeRecording = React.useCallback(() => {
-      if (!selectedAction) return;
+    // 記録完了してタイムラインに追加（アクションごと）
+    const completeRecording = React.useCallback(
+      (actionName: string) => {
+        setActiveRecordings((prev) => {
+          const session = prev[actionName];
+          if (!session) return prev;
 
-      const endTime = getCurrentTime();
-      if (endTime === null) return;
+          const endTime = getCurrentTime();
+          if (endTime === null) return prev;
 
-      const [begin, end] =
-        endTime >= recordingStartTime
-          ? [recordingStartTime, endTime]
-          : [endTime, recordingStartTime];
+          const [begin, end] =
+            endTime >= session.startTime
+              ? [session.startTime, endTime]
+              : [endTime, session.startTime];
 
-      // selectedActionにはボタン名全体が入っているのでそのまま使用
-      const fullActionName = selectedAction;
+          const labelsMap = labelSelections[actionName] ?? {};
+          const labels = Object.entries(labelsMap).map(([group, name]) => ({
+            name,
+            group,
+          }));
 
-      // labelSelectionsからlabels配列を生成
-      const labels = Object.entries(labelSelections).map(([group, name]) => ({
-        name,
-        group,
-      }));
+          // メインアクションをタイムラインに追加（色付き）
+          addTimelineData(
+            actionName,
+            begin,
+            end,
+            '',
+            undefined,
+            undefined,
+            labels.length > 0 ? labels : undefined,
+            session.color,
+          );
 
-      // メインアクションをタイムラインに追加（色付き）
-      addTimelineData(
-        fullActionName,
-        begin,
-        end,
-        '',
-        undefined,
-        undefined,
-        labels.length > 0 ? labels : undefined,
-        selectedActionColor,
-      );
+          // Activateリンクのターゲットも同じ時間範囲で追加（ターゲットの色付き）
+          session.activateTargets.forEach((targetName) => {
+            addTimelineData(
+              targetName,
+              begin,
+              end,
+              '',
+              undefined,
+              undefined,
+              undefined,
+              session.activateTargetColors[targetName],
+            );
+          });
 
-      // Activateリンクのターゲットも同じ時間範囲で追加（ターゲットの色付き）
-      // ターゲット名（ボタン名）をそのまま使用
-      activateTargets.forEach((targetName) => {
-        addTimelineData(
-          targetName,
-          begin,
-          end,
-          '',
-          undefined,
-          undefined,
-          undefined,
-          activateTargetColors[targetName],
-        );
-      });
+          setLabelSelections((prevLabels) => {
+            const nextLabels = { ...prevLabels };
+            delete nextLabels[actionName];
+            return nextLabels;
+          });
+          if (primaryAction === actionName) {
+            setPrimaryAction(null);
+          }
+          recentActionsRef.current = recentActionsRef.current.filter(
+            (a) => a !== actionName,
+          );
 
-      // 選択状態をリセット
-      setSelectedTeam(null);
-      setSelectedAction(null);
-      setSelectedActionColor(undefined);
-      setLabelSelections({});
-      setIsRecording(false);
-      setActivateTargets([]);
-      setActivateTargetColors({});
-
-      // Exclusive/Deactivateリンクの後処理: 完了したアクションとリンクされた相手を履歴から落とす
-      recentActionsRef.current = recentActionsRef.current.filter(
-        (a) => a !== selectedAction,
-      );
-    }, [
-      selectedTeam,
-      selectedAction,
-      selectedActionColor,
-      labelSelections,
-      recordingStartTime,
-      getCurrentTime,
-      addTimelineData,
-      activateTargets,
-      activateTargetColors,
-    ]);
+          const next = { ...prev };
+          delete next[actionName];
+          return next;
+        });
+      },
+      [addTimelineData, getCurrentTime, labelSelections, primaryAction],
+    );
 
     // ボタンIDからボタン名を取得するヘルパー
     const getButtonNameById = React.useCallback(
@@ -326,6 +323,7 @@ export const EnhancedCodePanel = forwardRef<
     ) => {
       // リンク比較用のボタン名（カスタムレイアウトの場合はボタン名、それ以外はアクション名）
       const clickedButtonName = originalButtonName || action.action;
+      setPrimaryAction(clickedButtonName);
 
       // リンク処理
       const relatedLinks = effectiveLinks.filter(
@@ -346,168 +344,89 @@ export const EnhancedCodePanel = forwardRef<
         }
       }
 
-      // 現在記録中のアクションがリンクで影響を受けるかチェック
-      if (relatedLinks.length > 0 && isRecording && selectedAction) {
+      // 既存の録画に対してリンクで終了させるべきものを処理
+      if (relatedLinks.length > 0) {
         for (const linkRule of relatedLinks) {
-          // Exclusive: 相手方が記録中なら自動終了
           if (linkRule.type === 'exclusive') {
             const counterpart =
               linkRule.from === clickedButtonName ? linkRule.to : linkRule.from;
-            if (selectedAction === counterpart) {
+            if (activeRecordings[counterpart]) {
               setWarning(`排他リンク: ${counterpart} を終了します`);
-              // 現在の記録を終了
-              completeRecording();
-              break;
+              completeRecording(counterpart);
             }
           }
-
-          // Deactivate: クリックしたボタンがfromで、toが記録中なら終了
           if (
             linkRule.type === 'deactivate' &&
             linkRule.from === clickedButtonName &&
-            selectedAction === linkRule.to
+            activeRecordings[linkRule.to]
           ) {
             setWarning(`非活性化: ${linkRule.to} を終了します`);
-            // リンク先の記録を終了
-            completeRecording();
-            break;
+            completeRecording(linkRule.to);
           }
         }
       }
 
-      // selectedActionにはボタン名全体が入っているので、clickedButtonNameと比較
-      const isSameAction = selectedAction === clickedButtonName;
-
-      const labelGroups = getActionLabels(action);
-      const hasLabels = labelGroups.length > 0;
-
-      // 記録中の同じアクションをクリックした場合は記録終了
-      if (isRecording && isSameAction) {
-        completeRecording();
-        return;
-      }
-
-      // 記録中に別のアクションをクリックした場合
-      if (isRecording && !isSameAction) {
-        // 先に現在の記録を完了
-        completeRecording();
-
-        // 新しいアクションを選択して記録開始
-        const time = getCurrentTime();
-        if (time !== null) {
-          setSelectedTeam(teamName);
-          setSelectedAction(clickedButtonName);
-          setSelectedActionColor(buttonColor);
-          setLabelSelections({});
-          setRecordingStartTime(time);
-          setIsRecording(true);
-          setActivateTargets(newActivateTargets);
-          // Activateターゲットの色を設定
-          const targetColors: Record<string, string | undefined> = {};
-          newActivateTargets.forEach((target) => {
-            targetColors[target] = getButtonColorByName(target);
-          });
-          setActivateTargetColors(targetColors);
-          if (newActivateTargets.length > 0) {
-            setWarning(
-              `活性化リンク: ${newActivateTargets.join(', ')} も記録します`,
-            );
-          }
-        }
-        return;
-      }
+      const isActive = Boolean(activeRecordings[clickedButtonName]);
 
       // 記録中でない場合の処理
-      // ラベルがない場合は即座に記録開始
-      if (!hasLabels) {
-        const time = getCurrentTime();
-        if (time !== null) {
-          setSelectedTeam(teamName);
-          setSelectedAction(clickedButtonName);
-          setSelectedActionColor(buttonColor);
-          setLabelSelections({});
-          setRecordingStartTime(time);
-          setIsRecording(true);
-          setActivateTargets(newActivateTargets);
-          // Activateターゲットの色を設定
-          const targetColors: Record<string, string | undefined> = {};
-          newActivateTargets.forEach((target) => {
-            targetColors[target] = getButtonColorByName(target);
-          });
-          setActivateTargetColors(targetColors);
-          if (newActivateTargets.length > 0) {
-            setWarning(
-              `活性化リンク: ${newActivateTargets.join(', ')} も記録します`,
-            );
-          }
-          recentActionsRef.current = [
-            ...recentActionsRef.current.slice(-10),
-            action.action,
-          ];
-        }
+      // 記録中の同じアクションをクリックした場合は記録終了
+      if (isActive) {
+        completeRecording(clickedButtonName);
         return;
       }
 
-      // ラベルがある場合
-      if (isSameAction) {
-        // 既に選択済みのアクションを再度クリック -> 記録開始
-        const time = getCurrentTime();
-        if (time !== null) {
-          setRecordingStartTime(time);
-          setIsRecording(true);
-          setActivateTargets(newActivateTargets);
-          // Activateターゲットの色を設定
-          const targetColors: Record<string, string | undefined> = {};
-          newActivateTargets.forEach((target) => {
-            targetColors[target] = getButtonColorByName(target);
-          });
-          setActivateTargetColors(targetColors);
-          if (newActivateTargets.length > 0) {
-            setWarning(
-              `活性化リンク: ${newActivateTargets.join(', ')} も記録します`,
-            );
-          }
-          recentActionsRef.current = [
-            ...recentActionsRef.current.slice(-10),
-            action.action,
-          ];
+      // 新しいアクションの録画を開始（他の録画は継続）
+      const time = getCurrentTime();
+      if (time !== null) {
+        const targetColors: Record<string, string | undefined> = {};
+        newActivateTargets.forEach((target) => {
+          targetColors[target] = getButtonColorByName(target);
+        });
+        setActiveRecordings((prev) => ({
+          ...prev,
+          [clickedButtonName]: {
+            teamName,
+            startTime: time,
+            color: buttonColor,
+            activateTargets: newActivateTargets,
+            activateTargetColors: targetColors,
+          },
+        }));
+        setLabelSelections((prev) => ({
+          ...prev,
+          [clickedButtonName]: prev[clickedButtonName] ?? {},
+        }));
+        if (newActivateTargets.length > 0) {
+          setWarning(
+            `活性化リンク: ${newActivateTargets.join(', ')} も記録します`,
+          );
+        } else {
+          setWarning(null);
         }
-      } else {
-        // 別のアクションを初めて選択 -> アクションを選択して記録開始
-        const time = getCurrentTime();
-        if (time !== null) {
-          setSelectedTeam(teamName);
-          setSelectedAction(clickedButtonName);
-          setSelectedActionColor(buttonColor);
-          setLabelSelections({});
-          setRecordingStartTime(time);
-          setIsRecording(true);
-          setActivateTargets(newActivateTargets);
-          // Activateターゲットの色を設定
-          const targetColors: Record<string, string | undefined> = {};
-          newActivateTargets.forEach((target) => {
-            targetColors[target] = getButtonColorByName(target);
-          });
-          setActivateTargetColors(targetColors);
-          if (newActivateTargets.length > 0) {
-            setWarning(
-              `活性化リンク: ${newActivateTargets.join(', ')} も記録します`,
-            );
-          }
-          recentActionsRef.current = [
-            ...recentActionsRef.current.slice(-10),
-            action.action,
-          ];
-        }
+        recentActionsRef.current = [
+          ...recentActionsRef.current.slice(-10),
+          action.action,
+        ];
       }
     };
 
-    // ラベル選択ハンドラ
-    const handleLabelSelect = (groupName: string, option: string) => {
-      setLabelSelections((prev) => ({
-        ...prev,
-        [groupName]: option,
-      }));
+    // ラベル選択ハンドラ（アクション単位で保持）
+    const handleLabelSelect = (
+      actionName: string,
+      groupName: string,
+      option: string,
+    ) => {
+      setLabelSelections((prev) => {
+        const current = prev[actionName] ?? {};
+        return {
+          ...prev,
+          [actionName]: {
+            ...current,
+            [groupName]: option,
+          },
+        };
+      });
+      setPrimaryAction(actionName);
     };
 
     // アクションごとに表示するラベルグループを決定
@@ -533,10 +452,12 @@ export const EnhancedCodePanel = forwardRef<
 
     // ラベルグループのレンダリング（ネスト削減のため分離）
     const renderLabelGroup = (
+      actionName: string,
       groupName: string,
       options: string[],
       isLastGroup: boolean,
     ) => {
+      const selectionForAction = labelSelections[actionName] ?? {};
       return (
         <Box key={groupName} sx={{ mb: isLastGroup ? 0 : 1 }}>
           <Typography
@@ -557,11 +478,11 @@ export const EnhancedCodePanel = forwardRef<
               <EnhancedCodeButton
                 key={option}
                 label={option}
-                isSelected={labelSelections[groupName] === option}
+                isSelected={selectionForAction[groupName] === option}
                 onClick={() =>
                   activeMode === 'label'
                     ? handleApplyLabel(groupName, option)
-                    : handleLabelSelect(groupName, option)
+                    : handleLabelSelect(actionName, groupName, option)
                 }
                 size="small"
                 color="secondary"
@@ -595,24 +516,23 @@ export const EnhancedCodePanel = forwardRef<
             sx={{
               display: 'flex',
               flexDirection: 'column',
-              gap: 0.5,
-            }}
-          >
-            {activeActions.map((action) => {
-              const isSelected =
-                selectedAction === action.action && selectedTeam === teamName;
-              const labelGroups = getActionLabels(action);
-              const hasLabels = labelGroups.length > 0;
-
-              return (
-                <Box key={action.action}>
-                  {/* アクションボタン */}
-                  <Button
-                    variant={isSelected ? 'contained' : 'outlined'}
+            gap: 0.5,
+          }}
+        >
+          {activeActions.map((action) => {
+            const isActive = Boolean(activeRecordings[action.action]);
+            const isSelected = isActive || primaryAction === action.action;
+            const labelGroups = getActionLabels(action);
+            const hasLabels = labelGroups.length > 0;
+            return (
+              <Box key={action.action}>
+                {/* アクションボタン */}
+                <Button
+                  variant={isSelected ? 'contained' : 'outlined'}
                     color={color}
                     onClick={() => handleActionClick(teamName, action)}
                     startIcon={
-                      isRecording && isSelected ? (
+                      isActive ? (
                         <FiberManualRecordIcon
                           sx={{ animation: 'pulse 1.5s ease-in-out infinite' }}
                         />
@@ -650,6 +570,7 @@ export const EnhancedCodePanel = forwardRef<
                     >
                       {labelGroups.map((group, groupIndex) =>
                         renderLabelGroup(
+                          action.action,
                           group.groupName,
                           group.options,
                           groupIndex === labelGroups.length - 1,
@@ -742,6 +663,7 @@ export const EnhancedCodePanel = forwardRef<
           button.name,
           teamContext,
         );
+        const labelValue = button.labelValue!;
 
         // ラベルボタンを1秒間アクティブ表示
         setActiveLabelButtons((prev) => ({ ...prev, [button.id]: true }));
@@ -754,15 +676,15 @@ export const EnhancedCodePanel = forwardRef<
         );
 
         // Deactivate: ラベルボタンがfromで、toが記録中なら終了
-        if (relatedLinks.length > 0 && isRecording && selectedAction) {
+        if (relatedLinks.length > 0 && isRecording) {
           for (const linkRule of relatedLinks) {
             if (
               linkRule.type === 'deactivate' &&
               linkRule.from === labelButtonName &&
-              selectedAction === linkRule.to
+              activeRecordings[linkRule.to]
             ) {
               setWarning(`非活性化: ${linkRule.to} を終了します`);
-              completeRecording();
+              completeRecording(linkRule.to);
               break;
             }
           }
@@ -779,13 +701,22 @@ export const EnhancedCodePanel = forwardRef<
             const targetActionName = linkRule.to;
             const time = getCurrentTime();
             if (time !== null) {
-              // リンク先アクションの記録を開始
-              setSelectedTeam(teamNames[0] || 'Team');
-              setSelectedAction(targetActionName);
-              setLabelSelections({});
-              setRecordingStartTime(time);
-              setIsRecording(true);
-              setActivateTargets([]);
+              const targetColors: Record<string, string | undefined> = {};
+              setActiveRecordings((prev) => ({
+                ...prev,
+                [targetActionName]: {
+                  teamName: teamNames[0] || 'Team',
+                  startTime: time,
+                  color: button.color,
+                  activateTargets: [],
+                  activateTargetColors: targetColors,
+                },
+              }));
+              setLabelSelections((prev) => ({
+                ...prev,
+                [targetActionName]: prev[targetActionName] ?? {},
+              }));
+              setPrimaryAction(targetActionName);
               setWarning(
                 `活性化リンク: ${targetActionName} の記録を開始しました`,
               );
@@ -796,8 +727,19 @@ export const EnhancedCodePanel = forwardRef<
 
         // ラベル適用処理（ラベルモードの場合のみ）
         // ラベルボタンは一時的なハイライトのみ（labelSelectionsへの登録は不要）
+        // 記録中に押下された場合は現在の記録にラベルを紐づける
+        if (isRecording) {
+          setLabelSelections((prev) => {
+            const next = { ...prev };
+            Object.keys(activeRecordings).forEach((actionName) => {
+              const current = next[actionName] ?? {};
+              next[actionName] = { ...current, [labelButtonName]: labelValue };
+            });
+            return next;
+          });
+        }
         if (activeMode === 'label') {
-          handleApplyLabel(button.name, button.labelValue);
+          handleApplyLabel(button.name, labelValue);
         }
       }
     };
@@ -831,10 +773,11 @@ export const EnhancedCodePanel = forwardRef<
                 button.name,
                 teamContext,
               );
-              // selectedActionには置換後のボタン名が入っているので、置換後で比較
-              const isSelected =
+              const isActive =
                 button.type === 'action' &&
-                selectedAction === resolvedButtonName;
+                Boolean(activeRecordings[resolvedButtonName]);
+              const isSelected =
+                isActive || primaryAction === resolvedButtonName;
               // ラベルボタンは一時的なアクティブ状態（1秒間）のみ表示
               const isLabelSelected =
                 button.type === 'label' && activeLabelButtons[button.id];
@@ -953,19 +896,20 @@ export const EnhancedCodePanel = forwardRef<
           </Typography>
         )}
 
-        {activeMode === 'label' && (
-          <Box
-            sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 1 }}
-          >
-            {allLabelGroups.map((group, idx) =>
-              renderLabelGroup(
-                group.groupName,
-                group.options,
-                idx === allLabelGroups.length - 1,
-              ),
-            )}
-          </Box>
-        )}
+      {activeMode === 'label' && (
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 1 }}
+        >
+          {allLabelGroups.map((group, idx) =>
+            renderLabelGroup(
+              '__label-mode__',
+              group.groupName,
+              group.options,
+              idx === allLabelGroups.length - 1,
+            ),
+          )}
+        </Box>
+      )}
 
         {activeMode === 'code' && customLayout ? (
           // カスタムレイアウトモード（Sportscode方式: 1回だけレンダリング）
