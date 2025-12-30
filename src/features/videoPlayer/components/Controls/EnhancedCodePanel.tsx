@@ -111,6 +111,43 @@ export const EnhancedCodePanel = forwardRef<
     React.useEffect(() => {
       activeRecordingsRef.current = activeRecordings;
     }, [activeRecordings]);
+    const isSameActionName = React.useCallback(
+      (a: string, b: string): boolean => {
+        if (a === b) return true;
+        for (const team of teamNames) {
+          const prefix = `${team} `;
+          const aStripped = a.startsWith(prefix) ? a.slice(prefix.length) : a;
+          const bStripped = b.startsWith(prefix) ? b.slice(prefix.length) : b;
+          if (
+            aStripped === b ||
+            bStripped === a ||
+            aStripped === bStripped ||
+            `${prefix}${b}` === a ||
+            `${prefix}${a}` === b
+          ) {
+            return true;
+          }
+        }
+        return false;
+      },
+      [teamNames],
+    );
+    const resolveRecordingKey = React.useCallback(
+      (name: string): string | undefined => {
+        if (activeRecordingsRef.current[name]) return name;
+        for (const team of teamNames) {
+          const teamPrefix = `${team} `;
+          if (name.startsWith(teamPrefix)) {
+            const stripped = name.slice(teamPrefix.length);
+            if (activeRecordingsRef.current[stripped]) return stripped;
+          }
+          const prefixed = `${teamPrefix}${name}`;
+          if (activeRecordingsRef.current[prefixed]) return prefixed;
+        }
+        return undefined;
+      },
+      [teamNames],
+    );
 
     // 外部から呼び出せるメソッドを公開
     useImperativeHandle(ref, () => ({
@@ -212,7 +249,7 @@ export const EnhancedCodePanel = forwardRef<
 
     // 記録完了してタイムラインに追加（アクションごと）
     const completeRecording = React.useCallback(
-      (actionName: string) => {
+      (actionName: string, labelsPatch?: Record<string, string>) => {
         setActiveRecordings((prev) => {
           const session = prev[actionName];
           if (!session) return prev;
@@ -225,7 +262,10 @@ export const EnhancedCodePanel = forwardRef<
               ? [session.startTime, endTime]
               : [endTime, session.startTime];
 
-          const labelsMap = labelSelectionsRef.current[actionName] ?? {};
+          const labelsMap = {
+            ...(labelSelectionsRef.current[actionName] ?? {}),
+            ...(labelsPatch ?? {}),
+          };
           const labels = Object.entries(labelsMap).map(([group, name]) => ({
             name,
             group,
@@ -347,11 +387,14 @@ export const EnhancedCodePanel = forwardRef<
     ) => {
       // リンク比較用のボタン名（カスタムレイアウトの場合はボタン名、それ以外はアクション名）
       const clickedButtonName = originalButtonName || action.action;
+      const activeKey = resolveRecordingKey(clickedButtonName);
       setPrimaryAction(clickedButtonName);
 
       // リンク処理
       const relatedLinks = effectiveLinks.filter(
-        (r) => r.from === clickedButtonName || r.to === clickedButtonName,
+        (r) =>
+          isSameActionName(r.from, clickedButtonName) ||
+          isSameActionName(r.to, clickedButtonName),
       );
 
       // Activateリンクの処理（記録開始前に処理）
@@ -361,7 +404,7 @@ export const EnhancedCodePanel = forwardRef<
         for (const linkRule of relatedLinks) {
           if (
             linkRule.type === 'activate' &&
-            linkRule.from === clickedButtonName
+            isSameActionName(linkRule.from, clickedButtonName)
           ) {
             newActivateTargets.push(linkRule.to);
           }
@@ -373,29 +416,34 @@ export const EnhancedCodePanel = forwardRef<
         for (const linkRule of relatedLinks) {
           if (linkRule.type === 'exclusive') {
             const counterpart =
-              linkRule.from === clickedButtonName ? linkRule.to : linkRule.from;
-            if (activeRecordings[counterpart]) {
+              isSameActionName(linkRule.from, clickedButtonName)
+                ? linkRule.to
+                : linkRule.from;
+            const counterpartKey = resolveRecordingKey(counterpart);
+            if (counterpartKey) {
               setWarning(`排他リンク: ${counterpart} を終了します`);
-              completeRecording(counterpart);
+              completeRecording(counterpartKey);
             }
           }
           if (
             linkRule.type === 'deactivate' &&
-            linkRule.from === clickedButtonName &&
-            activeRecordings[linkRule.to]
+            isSameActionName(linkRule.from, clickedButtonName)
           ) {
-            setWarning(`非活性化: ${linkRule.to} を終了します`);
-            completeRecording(linkRule.to);
+            const targetKey = resolveRecordingKey(linkRule.to);
+            if (targetKey) {
+              setWarning(`非活性化: ${linkRule.to} を終了します`);
+              completeRecording(targetKey);
+            }
           }
         }
       }
 
-      const isActive = Boolean(activeRecordings[clickedButtonName]);
+      const isActive = Boolean(activeKey);
 
       // 記録中でない場合の処理
       // 記録中の同じアクションをクリックした場合は記録終了
-      if (isActive) {
-        completeRecording(clickedButtonName);
+      if (isActive && activeKey) {
+        completeRecording(activeKey);
         return;
       }
 
@@ -696,21 +744,25 @@ export const EnhancedCodePanel = forwardRef<
         }, 1000);
 
         const relatedLinks = effectiveLinks.filter(
-          (r) => r.from === labelButtonName || r.to === labelButtonName,
+          (r) =>
+            isSameActionName(r.from, labelButtonName) ||
+            isSameActionName(r.to, labelButtonName),
         );
 
         // Deactivate: ラベルボタンがfromで、toが記録中なら終了候補として控える
         const toDeactivate: string[] = [];
-        if (relatedLinks.length > 0 && isRecording) {
+        if (relatedLinks.length > 0) {
           for (const linkRule of relatedLinks) {
             if (
               linkRule.type === 'deactivate' &&
-              linkRule.from === labelButtonName &&
-              activeRecordingsRef.current[linkRule.to]
+              isSameActionName(linkRule.from, labelButtonName)
             ) {
-              setWarning(`非活性化: ${linkRule.to} を終了します`);
-              toDeactivate.push(linkRule.to);
-              break;
+              const targetKey = resolveRecordingKey(linkRule.to);
+              if (targetKey) {
+                setWarning(`非活性化: ${linkRule.to} を終了します`);
+                toDeactivate.push(targetKey);
+                break;
+              }
             }
           }
         }
@@ -722,7 +774,7 @@ export const EnhancedCodePanel = forwardRef<
         for (const linkRule of relatedLinks) {
           if (
             linkRule.type === 'activate' &&
-            linkRule.from === labelButtonName
+            isSameActionName(linkRule.from, labelButtonName)
           ) {
             const targetActionName = linkRule.to;
             const time = getCurrentTime();
@@ -757,7 +809,6 @@ export const EnhancedCodePanel = forwardRef<
         // 記録中に押下された場合は現在の記録にラベルを紐づける
         const targetActions = new Set<string>([
           ...Object.keys(activeRecordingsRef.current),
-          ...newlyStarted,
           ...toDeactivate,
         ]);
         if (targetActions.size > 0) {
@@ -771,7 +822,9 @@ export const EnhancedCodePanel = forwardRef<
           });
         }
         // ラベル付与を確定させた後で、Deactivate対象を終了する
-        toDeactivate.forEach((actionName) => completeRecording(actionName));
+        toDeactivate.forEach((actionName) =>
+          completeRecording(actionName, { [labelButtonName]: labelValue }),
+        );
         if (activeMode === 'label') {
           handleApplyLabel(button.name, labelValue);
         }
