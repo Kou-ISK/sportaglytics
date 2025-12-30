@@ -15,6 +15,8 @@ import {
   type TeamContext,
 } from '../../../../utils/teamPlaceholder';
 
+type LabelSelectionsMap = Record<string, Record<string, string>>;
+
 interface EnhancedCodePanelProps {
   addTimelineData: (
     actionName: string,
@@ -105,6 +107,10 @@ export const EnhancedCodePanel = forwardRef<
     const [primaryAction, setPrimaryAction] = React.useState<string | null>(
       null,
     );
+    const activeRecordingsRef = React.useRef<typeof activeRecordings>({});
+    React.useEffect(() => {
+      activeRecordingsRef.current = activeRecordings;
+    }, [activeRecordings]);
 
     // 外部から呼び出せるメソッドを公開
     useImperativeHandle(ref, () => ({
@@ -121,9 +127,27 @@ export const EnhancedCodePanel = forwardRef<
     }));
 
     // ラベルグループの選択状態を管理（groupName -> selected option）
-    const [labelSelections, setLabelSelections] = React.useState<
-      Record<string, Record<string, string>>
-    >({});
+    const [labelSelections, setLabelSelections] =
+      React.useState<LabelSelectionsMap>({});
+    const labelSelectionsRef = React.useRef<LabelSelectionsMap>({});
+    React.useEffect(() => {
+      labelSelectionsRef.current = labelSelections;
+    }, [labelSelections]);
+    const updateLabelSelections = React.useCallback(
+      (
+        updater: LabelSelectionsMap | ((prev: LabelSelectionsMap) => LabelSelectionsMap),
+      ) => {
+        setLabelSelections((prev) => {
+          const next =
+            typeof updater === 'function'
+              ? (updater as (p: LabelSelectionsMap) => LabelSelectionsMap)(prev)
+              : updater;
+          labelSelectionsRef.current = next;
+          return next;
+        });
+      },
+      [],
+    );
     const isRecording = React.useMemo(
       () => Object.keys(activeRecordings).length > 0,
       [activeRecordings],
@@ -201,7 +225,7 @@ export const EnhancedCodePanel = forwardRef<
               ? [session.startTime, endTime]
               : [endTime, session.startTime];
 
-          const labelsMap = labelSelections[actionName] ?? {};
+          const labelsMap = labelSelectionsRef.current[actionName] ?? {};
           const labels = Object.entries(labelsMap).map(([group, name]) => ({
             name,
             group,
@@ -233,14 +257,14 @@ export const EnhancedCodePanel = forwardRef<
             );
           });
 
-          setLabelSelections((prevLabels) => {
+          updateLabelSelections((prevLabels) => {
             const nextLabels = { ...prevLabels };
             delete nextLabels[actionName];
             return nextLabels;
           });
-          if (primaryAction === actionName) {
-            setPrimaryAction(null);
-          }
+          setPrimaryAction((prev) =>
+            prev === actionName ? null : prev,
+          );
           recentActionsRef.current = recentActionsRef.current.filter(
             (a) => a !== actionName,
           );
@@ -250,7 +274,7 @@ export const EnhancedCodePanel = forwardRef<
           return next;
         });
       },
-      [addTimelineData, getCurrentTime, labelSelections, primaryAction],
+      [addTimelineData, getCurrentTime, updateLabelSelections],
     );
 
     // ボタンIDからボタン名を取得するヘルパー
@@ -392,7 +416,7 @@ export const EnhancedCodePanel = forwardRef<
             activateTargetColors: targetColors,
           },
         }));
-        setLabelSelections((prev) => ({
+        updateLabelSelections((prev) => ({
           ...prev,
           [clickedButtonName]: prev[clickedButtonName] ?? {},
         }));
@@ -416,7 +440,7 @@ export const EnhancedCodePanel = forwardRef<
       groupName: string,
       option: string,
     ) => {
-      setLabelSelections((prev) => {
+      updateLabelSelections((prev) => {
         const current = prev[actionName] ?? {};
         return {
           ...prev,
@@ -675,16 +699,17 @@ export const EnhancedCodePanel = forwardRef<
           (r) => r.from === labelButtonName || r.to === labelButtonName,
         );
 
-        // Deactivate: ラベルボタンがfromで、toが記録中なら終了
+        // Deactivate: ラベルボタンがfromで、toが記録中なら終了候補として控える
+        const toDeactivate: string[] = [];
         if (relatedLinks.length > 0 && isRecording) {
           for (const linkRule of relatedLinks) {
             if (
               linkRule.type === 'deactivate' &&
               linkRule.from === labelButtonName &&
-              activeRecordings[linkRule.to]
+              activeRecordingsRef.current[linkRule.to]
             ) {
               setWarning(`非活性化: ${linkRule.to} を終了します`);
-              completeRecording(linkRule.to);
+              toDeactivate.push(linkRule.to);
               break;
             }
           }
@@ -693,6 +718,7 @@ export const EnhancedCodePanel = forwardRef<
         // Activate: ラベルボタンがfromの場合、toのアクションの記録を開始
         // ラベルボタンは1回のクリックでDeactivate→Activateを連続実行
         // isRecordingの状態に関係なく、Activateリンクがあれば記録を開始
+        const newlyStarted: string[] = [];
         for (const linkRule of relatedLinks) {
           if (
             linkRule.type === 'activate' &&
@@ -707,12 +733,12 @@ export const EnhancedCodePanel = forwardRef<
                 [targetActionName]: {
                   teamName: teamNames[0] || 'Team',
                   startTime: time,
-                  color: button.color,
+                  color: getButtonColorByName(targetActionName) ?? button.color,
                   activateTargets: [],
                   activateTargetColors: targetColors,
                 },
               }));
-              setLabelSelections((prev) => ({
+              updateLabelSelections((prev) => ({
                 ...prev,
                 [targetActionName]: prev[targetActionName] ?? {},
               }));
@@ -720,6 +746,7 @@ export const EnhancedCodePanel = forwardRef<
               setWarning(
                 `活性化リンク: ${targetActionName} の記録を開始しました`,
               );
+              newlyStarted.push(targetActionName);
               break; // 最初のActivateリンクのみ処理
             }
           }
@@ -728,16 +755,23 @@ export const EnhancedCodePanel = forwardRef<
         // ラベル適用処理（ラベルモードの場合のみ）
         // ラベルボタンは一時的なハイライトのみ（labelSelectionsへの登録は不要）
         // 記録中に押下された場合は現在の記録にラベルを紐づける
-        if (isRecording) {
-          setLabelSelections((prev) => {
+        const targetActions = new Set<string>([
+          ...Object.keys(activeRecordingsRef.current),
+          ...newlyStarted,
+          ...toDeactivate,
+        ]);
+        if (targetActions.size > 0) {
+          updateLabelSelections((prev) => {
             const next = { ...prev };
-            Object.keys(activeRecordings).forEach((actionName) => {
+            targetActions.forEach((actionName) => {
               const current = next[actionName] ?? {};
               next[actionName] = { ...current, [labelButtonName]: labelValue };
             });
             return next;
           });
         }
+        // ラベル付与を確定させた後で、Deactivate対象を終了する
+        toDeactivate.forEach((actionName) => completeRecording(actionName));
         if (activeMode === 'label') {
           handleApplyLabel(button.name, labelValue);
         }

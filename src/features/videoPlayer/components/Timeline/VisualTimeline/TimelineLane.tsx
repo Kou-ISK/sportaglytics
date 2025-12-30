@@ -260,6 +260,11 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
               ? theme.custom.bars.selectedBorder
               : 'transparent';
 
+          const labelText =
+            item.labels && item.labels.length > 0
+              ? item.labels.map((l) => l.name).join(', ')
+              : '';
+
           return (
             <Tooltip
               key={item.id}
@@ -371,7 +376,7 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
                   }}
                 />
 
-                {/* 中央テキスト */}
+                {/* 中央テキスト: ラベル優先で表示、なければ時間 */}
                 <Typography
                   variant="caption"
                   sx={{
@@ -383,7 +388,7 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {formatTime(item.startTime)}
+                  {labelText || `${formatTime(item.startTime)} - ${formatTime(item.endTime)}`}
                 </Typography>
 
                 {/* 右エッジ（終了時刻調整） */}
