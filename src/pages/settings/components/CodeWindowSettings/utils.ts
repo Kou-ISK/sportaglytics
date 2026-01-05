@@ -11,8 +11,10 @@ import type {
 export const DEFAULT_BUTTON_WIDTH = 100;
 export const DEFAULT_BUTTON_HEIGHT = 40;
 
-/** デフォルトのキャンバスサイズ（ピクセル） */
-export const DEFAULT_CANVAS_WIDTH = 800;
+/** デフォルトのキャンバスサイズ（ピクセル）
+ * SporTagLyticsのデフォルトコーディングパネルの幅に合わせて横幅を設定
+ */
+export const DEFAULT_CANVAS_WIDTH = 440;
 export const DEFAULT_CANVAS_HEIGHT = 600;
 
 /** デフォルトのチームエリア */

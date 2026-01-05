@@ -118,7 +118,7 @@ export const CodeWindowSettings = forwardRef<
     }));
   }, [activePreset]);
 
-  // レイアウト管理
+  // コードウィンドウ管理
   const [layouts, setLayouts] = useState<CodeWindowLayout[]>(
     settings.codingPanel?.layouts || [],
   );
@@ -175,7 +175,7 @@ export const CodeWindowSettings = forwardRef<
     },
   }));
 
-  // レイアウト作成
+  // コードウィンドウ作成
   const handleCreateLayout = useCallback(() => {
     if (!newLayoutName.trim()) return;
     const newLayout = createLayout(
@@ -190,7 +190,7 @@ export const CodeWindowSettings = forwardRef<
     setNewLayoutName('');
   }, [newLayoutName, newCanvasWidth, newCanvasHeight]);
 
-  // レイアウト削除
+  // コードウィンドウ削除
   const handleDeleteLayout = useCallback(
     (layoutId: string) => {
       setLayouts((prev) => prev.filter((l) => l.id !== layoutId));
@@ -202,7 +202,7 @@ export const CodeWindowSettings = forwardRef<
     [activeLayoutId],
   );
 
-  // レイアウト複製
+  // コードウィンドウ複製
   const handleDuplicateLayout = useCallback((layout: CodeWindowLayout) => {
     const duplicated = createLayout(
       `${layout.name} (コピー)`,
@@ -219,7 +219,7 @@ export const CodeWindowSettings = forwardRef<
     setHasChanges(true);
   }, []);
 
-  // レイアウト更新
+  // コードウィンドウ更新
   const handleLayoutUpdate = useCallback(
     (updates: Partial<CodeWindowLayout>) => {
       if (!activeLayoutId) return;
@@ -257,9 +257,11 @@ export const CodeWindowSettings = forwardRef<
     setHasChanges(true);
   }, []);
 
-  // レイアウトエクスポート
+  // コードウィンドウエクスポート
   const handleExportLayout = useCallback(() => {
     if (!currentLayout) return;
+    const safeName = currentLayout.name.replace(/\s+/g, '_');
+    const fileName = `${safeName}.codewindow`;
     const data = {
       version: 1,
       layout: currentLayout,
@@ -272,18 +274,18 @@ export const CodeWindowSettings = forwardRef<
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${currentLayout.name.replace(/\s+/g, '_')}_layout.json`;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, [currentLayout, links]);
 
-  // レイアウトインポート
+  // コードウィンドウインポート
   const handleImportLayout = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json';
+    input.accept = '.codewindow,.json';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
@@ -383,7 +385,7 @@ export const CodeWindowSettings = forwardRef<
         </Typography>
       </Alert>
 
-      {/* レイアウト選択 */}
+      {/* コードウィンドウ選択 */}
       <Paper
         elevation={0}
         sx={{
@@ -395,10 +397,10 @@ export const CodeWindowSettings = forwardRef<
       >
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end' }}>
           <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>レイアウト</InputLabel>
+            <InputLabel>コードウィンドウ</InputLabel>
             <Select
               value={activeLayoutId || ''}
-              label="レイアウト"
+              label="コードウィンドウ"
               onChange={(e) => {
                 setActiveLayoutId(e.target.value || null);
                 setSelectedButtonId(null);
@@ -419,7 +421,7 @@ export const CodeWindowSettings = forwardRef<
             variant="outlined"
             onClick={() => setCreateDialogOpen(true)}
           >
-            新規作成
+            コードウィンドウを新規作成
           </Button>
           {currentLayout && (
             <>
@@ -445,7 +447,7 @@ export const CodeWindowSettings = forwardRef<
               </Tooltip>
             </>
           )}
-          <Tooltip title="レイアウトをインポート">
+          <Tooltip title="コードウィンドウをインポート">
             <IconButton onClick={handleImportLayout}>
               <FileUploadIcon />
             </IconButton>
@@ -471,7 +473,7 @@ export const CodeWindowSettings = forwardRef<
             >
               <Tab label="ボタン配置" />
               <Tab label="リンク設定" />
-              <Tab label="レイアウト設定" />
+              <Tab label="コードウィンドウ設定" />
             </Tabs>
 
             <TabPanel value={tabIndex} index={0}>
@@ -543,7 +545,7 @@ export const CodeWindowSettings = forwardRef<
                 sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 3 }}
               >
                 <TextField
-                  label="レイアウト名"
+                  label="コードウィンドウ名"
                   value={currentLayout.name}
                   onChange={(e) => handleLayoutUpdate({ name: e.target.value })}
                   fullWidth
@@ -584,6 +586,7 @@ export const CodeWindowSettings = forwardRef<
                   ヒント: キャンバス上で右クリックしてボタンを追加できます。
                   ボタンを選択してドラッグで移動、リンクアイコンからドラッグして
                   別のボタンにドロップするとリンクを作成できます。
+                  選択中のボタンは Cmd/Ctrl+C でコピー、Cmd/Ctrl+V でペーストできます。
                 </Typography>
               </Box>
             </TabPanel>
@@ -601,7 +604,7 @@ export const CodeWindowSettings = forwardRef<
           }}
         >
           <Typography color="text.secondary" gutterBottom>
-            レイアウトが選択されていません
+            コードウィンドウが選択されていません
           </Typography>
           <Button
             startIcon={<AddIcon />}
@@ -609,7 +612,7 @@ export const CodeWindowSettings = forwardRef<
             onClick={() => setCreateDialogOpen(true)}
             sx={{ mt: 2 }}
           >
-            新しいレイアウトを作成
+            新しいコードウィンドウを作成
           </Button>
         </Paper>
       )}
@@ -621,11 +624,11 @@ export const CodeWindowSettings = forwardRef<
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>新しいレイアウトを作成</DialogTitle>
+        <DialogTitle>新しいコードウィンドウを作成</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
             <TextField
-              label="レイアウト名"
+              label="コードウィンドウ名"
               value={newLayoutName}
               onChange={(e) => setNewLayoutName(e.target.value)}
               fullWidth

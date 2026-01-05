@@ -206,6 +206,10 @@ export const EnhancedCodePanel = forwardRef<
     const [activeLabelButtons, setActiveLabelButtons] = React.useState<
       Record<string, boolean>
     >({});
+    const layoutContainerRef = React.useRef<HTMLDivElement | null>(null);
+    const [layoutContainerWidth, setLayoutContainerWidth] = React.useState<number>(
+      customLayout?.canvasWidth || 0,
+    );
 
     React.useEffect(() => {
       if (settings.codingPanel?.actionLinks) {
@@ -231,6 +235,24 @@ export const EnhancedCodePanel = forwardRef<
         // removeListenerは未実装だが、preloadでremoveAllListenersしているためOK
       };
     }, []);
+
+    // コードウィンドウ表示領域の幅を測定してスケールを合わせる
+    React.useEffect(() => {
+      const updateWidth = () => {
+        if (layoutContainerRef.current) {
+          const width = layoutContainerRef.current.clientWidth;
+          if (width) {
+            setLayoutContainerWidth(width);
+          }
+        }
+      };
+      updateWidth();
+      const observer = new ResizeObserver(updateWidth);
+      if (layoutContainerRef.current) {
+        observer.observe(layoutContainerRef.current);
+      }
+      return () => observer.disconnect();
+    }, [customLayout?.id]);
 
     // 現在のビデオ時間を取得
     const getCurrentTime = React.useCallback((): number | null => {
@@ -837,16 +859,18 @@ export const EnhancedCodePanel = forwardRef<
       const allButtons = layout.buttons;
 
       // スケール係数を計算（コンテナに収める）
-      const containerWidth = 700; // コンテナの幅（全幅表示）
+      const containerWidth =
+        layoutContainerWidth ||
+        Math.max(1, layout.canvasWidth);
       const scale = containerWidth / layout.canvasWidth;
       const containerHeight = layout.canvasHeight * scale;
 
       return (
-        <Box sx={{ mb: 2 }}>
+        <Box sx={{ mb: 2 }} ref={layoutContainerRef}>
           <Box
             sx={{
               position: 'relative',
-              width: containerWidth,
+              width: '100%',
               height: containerHeight,
               backgroundColor: 'background.paper',
               borderRadius: 1,

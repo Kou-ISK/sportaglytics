@@ -32,6 +32,7 @@ import {
   getButtonEdge,
   DEFAULT_BUTTON_WIDTH,
   DEFAULT_BUTTON_HEIGHT,
+  findEmptySpace,
 } from './utils';
 
 interface FreeCanvasEditorProps {
@@ -94,6 +95,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   const [history, setHistory] = useState<CodeWindowLayout[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isUndoRedoRef = useRef(false);
+  const copiedButtonRef = useRef<CodeWindowButton | null>(null);
 
   const gridSize = 10; // スナップグリッドサイズ
 
@@ -151,6 +153,16 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   // キーボードイベント
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTextInput =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.getAttribute('contenteditable') === 'true' ||
+        target?.closest('[contenteditable="true"]') ||
+        target?.getAttribute('role') === 'textbox' ||
+        target?.closest('[role="textbox"]');
+      if (isTextInput) return;
+
       // Deleteキー: 選択中のボタンまたはリンクを削除
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedLinkId) {
@@ -190,6 +202,51 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
       ) {
         e.preventDefault();
         handleRedo();
+      }
+      // Cmd/Ctrl + C: 選択中のボタンをコピー
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
+        const buttonToCopy = layout.buttons.find(
+          (b) => b.id === selectedButtonId,
+        );
+        if (buttonToCopy) {
+          e.preventDefault();
+          copiedButtonRef.current = { ...buttonToCopy };
+        }
+      }
+      // Cmd/Ctrl + V: ボタンをペースト
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'v') {
+        const source = copiedButtonRef.current;
+        if (source) {
+          e.preventDefault();
+          const newId = createButton(
+            source.type,
+            source.name,
+            source.x,
+            source.y,
+          ).id;
+          const offset = 12;
+          const newX = Math.min(
+            Math.max(0, source.x + offset),
+            layout.canvasWidth - source.width,
+          );
+          const newY = Math.min(
+            Math.max(0, source.y + offset),
+            layout.canvasHeight - source.height,
+          );
+          const newButton: CodeWindowButton = {
+            ...source,
+            id: newId,
+            x: newX,
+            y: newY,
+          };
+          const updatedLayout = {
+            ...layout,
+            buttons: [...layout.buttons, newButton],
+          };
+          updateLayoutWithHistory(updatedLayout);
+          onSelectButton(newId);
+          setSelectedLinkId(null);
+        }
       }
     };
 
@@ -433,7 +490,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     (type: 'action' | 'label', name: string, labelValue?: string) => {
       if (!contextMenu) return;
 
-      const newButton = createButton(
+      let newButton = createButton(
         type,
         name,
         contextMenu.position.x,
@@ -443,23 +500,36 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
         },
       );
 
-      // 重なりチェック
-      if (
-        canPlaceButton(
+      const canPlaceAtContext = canPlaceButton(
+        layout.buttons,
+        newButton,
+        newButton.x,
+        newButton.y,
+        layout.canvasWidth,
+        layout.canvasHeight,
+      );
+
+      if (!canPlaceAtContext) {
+        const fallback = findEmptySpace(
           layout.buttons,
-          newButton,
-          newButton.x,
-          newButton.y,
+          newButton.width,
+          newButton.height,
           layout.canvasWidth,
           layout.canvasHeight,
-        )
-      ) {
-        updateLayoutWithHistory({
-          ...layout,
-          buttons: [...layout.buttons, newButton],
-        });
-        onSelectButton(newButton.id);
+        );
+        if (fallback) {
+          newButton = { ...newButton, x: fallback.x, y: fallback.y };
+        } else {
+          handleCloseContextMenu();
+          return;
+        }
       }
+
+      updateLayoutWithHistory({
+        ...layout,
+        buttons: [...layout.buttons, newButton],
+      });
+      onSelectButton(newButton.id);
       handleCloseContextMenu();
     },
     [
@@ -1055,7 +1125,8 @@ Shift + 右クリックドラッグ → 非活性化（橙）`}
         open={customActionDialogOpen}
         onClose={() => setCustomActionDialogOpen(false)}
         maxWidth="xs"
-        fullWidth
+        fullWidth={false}
+        PaperProps={{ sx: { width: 420, maxWidth: '90vw' } }}
       >
         <DialogTitle>カスタムアクションを追加</DialogTitle>
         <DialogContent>
@@ -1078,29 +1149,41 @@ Shift + 右クリックドラッグ → 非活性化（橙）`}
             disabled={!customActionName.trim()}
             onClick={() => {
               if (customActionName.trim()) {
-                const newButton = createButton(
+                let newButton = createButton(
                   'action',
                   customActionName.trim(),
                   dialogPosition.x,
                   dialogPosition.y,
                 );
                 // 配置可能かチェック
-                if (
-                  canPlaceButton(
+                const canPlaceAtDialog = canPlaceButton(
+                  layout.buttons,
+                  newButton,
+                  newButton.x,
+                  newButton.y,
+                  layout.canvasWidth,
+                  layout.canvasHeight,
+                );
+                if (!canPlaceAtDialog) {
+                  const fallback = findEmptySpace(
                     layout.buttons,
-                    newButton,
-                    newButton.x,
-                    newButton.y,
+                    newButton.width,
+                    newButton.height,
                     layout.canvasWidth,
                     layout.canvasHeight,
-                  )
-                ) {
-                  updateLayoutWithHistory({
-                    ...layout,
-                    buttons: [...layout.buttons, newButton],
-                  });
-                  onSelectButton(newButton.id);
+                  );
+                  if (fallback) {
+                    newButton = { ...newButton, x: fallback.x, y: fallback.y };
+                  } else {
+                    return;
+                  }
                 }
+
+                updateLayoutWithHistory({
+                  ...layout,
+                  buttons: [...layout.buttons, newButton],
+                });
+                onSelectButton(newButton.id);
               }
               setCustomActionName('');
               setCustomActionDialogOpen(false);
@@ -1116,7 +1199,8 @@ Shift + 右クリックドラッグ → 非活性化（橙）`}
         open={customLabelDialogOpen}
         onClose={() => setCustomLabelDialogOpen(false)}
         maxWidth="xs"
-        fullWidth
+        fullWidth={false}
+        PaperProps={{ sx: { width: 420, maxWidth: '90vw' } }}
       >
         <DialogTitle>カスタムラベルを追加</DialogTitle>
         <DialogContent>
@@ -1146,7 +1230,7 @@ Shift + 右クリックドラッグ → 非活性化（橙）`}
             disabled={!customLabelGroup.trim() || !customLabelValue.trim()}
             onClick={() => {
               if (customLabelGroup.trim() && customLabelValue.trim()) {
-                const newButton = createButton(
+                let newButton = createButton(
                   'label',
                   customLabelGroup.trim(),
                   dialogPosition.x,
@@ -1154,22 +1238,34 @@ Shift + 右クリックドラッグ → 非活性化（橙）`}
                   { labelValue: customLabelValue.trim() },
                 );
                 // 配置可能かチェック
-                if (
-                  canPlaceButton(
+                const canPlaceAtDialog = canPlaceButton(
+                  layout.buttons,
+                  newButton,
+                  newButton.x,
+                  newButton.y,
+                  layout.canvasWidth,
+                  layout.canvasHeight,
+                );
+                if (!canPlaceAtDialog) {
+                  const fallback = findEmptySpace(
                     layout.buttons,
-                    newButton,
-                    newButton.x,
-                    newButton.y,
+                    newButton.width,
+                    newButton.height,
                     layout.canvasWidth,
                     layout.canvasHeight,
-                  )
-                ) {
-                  updateLayoutWithHistory({
-                    ...layout,
-                    buttons: [...layout.buttons, newButton],
-                  });
-                  onSelectButton(newButton.id);
+                  );
+                  if (fallback) {
+                    newButton = { ...newButton, x: fallback.x, y: fallback.y };
+                  } else {
+                    return;
+                  }
                 }
+
+                updateLayoutWithHistory({
+                  ...layout,
+                  buttons: [...layout.buttons, newButton],
+                });
+                onSelectButton(newButton.id);
               }
               setCustomLabelGroup('');
               setCustomLabelValue('');

@@ -3,6 +3,35 @@ import { createPlaylistWindow } from './playlistWindow';
 
 let recentPackagePaths: string[] = [];
 
+const resolveMainWindow = (
+  browserWindow?: BrowserWindow | Electron.BaseWindow | null,
+): BrowserWindow | null => {
+  const normalizedWindow =
+    browserWindow instanceof BrowserWindow ? browserWindow : null;
+  const windows = BrowserWindow.getAllWindows().filter((win) => !win.isDestroyed());
+  const primary =
+    windows.find((win) => {
+      try {
+        const url = win.webContents.getURL();
+        return url.includes('index.html') && !url.includes('#/playlist');
+      } catch {
+        return false;
+      }
+    }) || null;
+  if (primary) return primary;
+
+  const fallback =
+    windows.find((win) => {
+      try {
+        return !win.webContents.getURL().includes('#/playlist');
+      } catch {
+        return false;
+      }
+    }) || null;
+
+  return fallback || normalizedWindow || windows[0] || null;
+};
+
 export const setRecentPackagePaths = (paths: string[]) => {
   recentPackagePaths = paths;
 };
@@ -59,6 +88,15 @@ const buildMenu = () =>
       label: app.name,
       submenu: [
         { role: 'about', label: `${app.name}について` },
+        { type: 'separator' },
+        {
+          label: '設定...',
+          accelerator: 'CmdOrCtrl+,',
+          click: (_menuItem, browserWindow) => {
+            const target = resolveMainWindow(browserWindow);
+            target?.webContents.send('menu-open-settings');
+          },
+        },
         { type: 'separator' },
         { role: 'services', label: 'サービス' },
         { type: 'separator' },
