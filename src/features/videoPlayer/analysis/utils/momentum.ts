@@ -4,32 +4,33 @@ import {
   MomentumOutcome,
   MomentumSegment,
 } from '../../../../types/Analysis';
+import { getLabelByGroupWithFallback } from '../../../../utils/labelExtractors';
 
 const POSSESSION_KEYWORD = 'ポゼッション';
 
-const NEGATIVE_RESULTS: readonly string[] = [
+const NEGATIVE_RESULTS = new Set([
   'Kick Error',
   'Pen Con',
   'Turnover',
   'Turnover (Scrum)',
-];
+]);
 
-const POSITIVE_RESULTS: readonly string[] = [
+const POSITIVE_RESULTS = new Set([
   'Try',
   'Drop Goal',
   'Pen Won',
   'Scrum',
   'Own Lineout',
-];
+]);
 
 const resolveOutcome = (result?: string | null): MomentumOutcome => {
   if (result === 'Try') {
     return 'Try';
   }
-  if (result && NEGATIVE_RESULTS.includes(result)) {
+  if (result && NEGATIVE_RESULTS.has(result)) {
     return 'Negative';
   }
-  if (result && POSITIVE_RESULTS.includes(result)) {
+  if (result && POSITIVE_RESULTS.has(result)) {
     return 'Positive';
   }
   return 'Neutral';
@@ -48,13 +49,26 @@ const buildSegment = (
 ): MomentumSegment => {
   const duration = Math.max(0, entry.endTime - entry.startTime);
   const value = teamName === team1 ? -duration : duration;
+
+  // SCTimeline形式のlabels配列から取得、なければ従来のフィールドから取得
+  const actionType = getLabelByGroupWithFallback(
+    entry,
+    'actionType',
+    entry.actionType || '開始情報なし',
+  );
+  const actionResult = getLabelByGroupWithFallback(
+    entry,
+    'actionResult',
+    entry.actionResult || '結果なし',
+  );
+
   return {
     teamName,
     value,
     absoluteValue: duration,
-    possessionStart: entry.actionType || '開始情報なし',
-    possessionResult: entry.actionResult || '結果なし',
-    outcome: resolveOutcome(entry.actionResult),
+    possessionStart: actionType,
+    possessionResult: actionResult,
+    outcome: resolveOutcome(actionResult),
   };
 };
 

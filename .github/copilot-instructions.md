@@ -40,6 +40,7 @@
 - 動画プレイヤー制御や同期ロジックは専用 Hook に切り出し、副作用を閉じ込めます。
 - Electron 依存処理は必ず `window.electronAPI` 経由で呼び出します。
 - 新しいチャートやタイムライン表示でも、既存のプレースホルダーや UI パターンを踏襲します。
+- 既存の共通フック/コンポーネントを優先して再利用します（例: `useTimelineViewport`/`useTimelineInteractions`/`useTimelineEditDraft`/`useTimelineValidation`, `useMatrixAxes`/`useMatrixFilters`/`useActionBreakdown`, `StatsCard`/`StatsModalHeader`, `useUnsavedTabSwitch`, `useHotkeyBindings`, `useSyncActions` の `onSync*` コールバックなど）。
 
 ## Electron 31 対応
 

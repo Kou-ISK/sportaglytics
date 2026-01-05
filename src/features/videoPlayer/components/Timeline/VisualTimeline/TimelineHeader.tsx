@@ -13,7 +13,16 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
   selectedCount,
   onDeleteSelected,
 }) => (
-  <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+  <Box
+    sx={{
+      p: 2,
+      pb: 1,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 1,
+      userSelect: 'none',
+    }}
+  >
     <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
       タイムライン
     </Typography>

@@ -1,5 +1,5 @@
-import { Box } from '@mui/material';
-import { Cell, Legend, Pie, PieChart } from 'recharts';
+import { Box, Typography } from '@mui/material';
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer } from 'recharts';
 import React from 'react';
 import { rechartsData } from '../../../../types/RechartsData';
 
@@ -8,17 +8,18 @@ interface ActionPieChartProps {
   teamName: string;
   actionName: string;
 }
+
 const CUSTOM_COLORS = [
-  '#0088FE',
-  '#00C49F',
-  '#FFBB28',
-  '#FF8042',
-  '#AF19FF',
-  '#FF6600',
-  '#33CC33',
-  '#FF3399',
-  '#66CCCC',
-  '#FF6666',
+  '#1976d2',
+  '#388e3c',
+  '#f57c00',
+  '#7b1fa2',
+  '#0288d1',
+  '#e64a19',
+  '#689f38',
+  '#c2185b',
+  '#0097a7',
+  '#d32f2f',
 ];
 
 export const ActionPieChart = ({
@@ -27,35 +28,65 @@ export const ActionPieChart = ({
   actionName,
 }: ActionPieChartProps) => {
   const data = countActionFunction(teamName, actionName);
-  // 全体の合計値を計算
   const total = data.reduce((sum, entry) => sum + entry.value, 0);
-  return (
-    <>
-      <Box
-        sx={{ flexDirection: 'column', margin: '5px', justifyContent: 'left' }}
-      >
-        <PieChart width={400} height={180}>
-          <Legend />
-          <Pie
-            nameKey="name"
-            dataKey="value"
-            startAngle={180}
-            endAngle={0}
-            data={data}
-            cx="50%"
-            cy="100%"
-            innerRadius={50}
-            outerRadius={80}
-            label={({ value }) =>
-              `${((value / total) * 100).toFixed(1)}% - ` + value
-            }
-          >
-            {data.map((_, index: number) => (
-              <Cell key={`cell-${index}`} fill={CUSTOM_COLORS[index]} />
-            ))}
-          </Pie>
-        </PieChart>
+
+  if (total === 0) {
+    return (
+      <Box sx={{ p: 2, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          {teamName}: データなし
+        </Typography>
       </Box>
-    </>
+    );
+  }
+
+  return (
+    <Box sx={{ width: '100%' }}>
+      <Typography
+        variant="subtitle2"
+        sx={{
+          fontWeight: 600,
+          mb: 1,
+          fontSize: '0.85rem',
+          textAlign: 'center',
+        }}
+      >
+        {teamName}
+      </Typography>
+      <Box sx={{ height: 220 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              nameKey="name"
+              dataKey="value"
+              startAngle={180}
+              endAngle={0}
+              data={data}
+              cx="50%"
+              cy="100%"
+              innerRadius="50%"
+              outerRadius="80%"
+              label={({ value }) => {
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `${percentage}% (${value})`;
+              }}
+              labelLine={{ stroke: '#666', strokeWidth: 1 }}
+            >
+              {data.map((_, index: number) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={CUSTOM_COLORS[index % CUSTOM_COLORS.length]}
+                />
+              ))}
+            </Pie>
+            <Legend
+              verticalAlign="bottom"
+              height={36}
+              wrapperStyle={{ fontSize: '0.8rem' }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </Box>
+    </Box>
   );
 };

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import videojs from 'video.js';
 import { TimelineData } from '../types/TimelineData';
 import { VideoSyncData } from '../types/VideoSync';
@@ -30,6 +30,10 @@ export const useVideoPlayerApp = () => {
   } = useTimelineHistory(persistedTimeline);
 
   const { info } = useNotification();
+  const timelineRef = useRef<TimelineData[]>(timeline);
+  useEffect(() => {
+    timelineRef.current = timeline;
+  }, [timeline]);
 
   const {
     selectedTimelineIdList,
@@ -37,11 +41,17 @@ export const useVideoPlayerApp = () => {
     getSelectedTimelineId,
   } = useTimelineSelection();
 
-  // setTimelineWrapper: useTimelineEditingに渡すラッパー
+  // setTimelineWrapper: useTimelineEditingに渡すラッパー（functional updateを正しく扱う）
   const setTimeline = (value: React.SetStateAction<TimelineData[]>) => {
-    const newTimeline = typeof value === 'function' ? value(timeline) : value;
-    setTimelineWithHistory(newTimeline);
-    setPersistedTimeline(newTimeline);
+    const next =
+      typeof value === 'function'
+        ? (value as (prevState: TimelineData[]) => TimelineData[])(
+            timelineRef.current,
+          )
+        : value;
+    timelineRef.current = next;
+    setTimelineWithHistory(next);
+    setPersistedTimeline(next);
   };
 
   const {
@@ -52,6 +62,7 @@ export const useVideoPlayerApp = () => {
     updateActionType,
     updateTimelineRange,
     updateTimelineItem,
+    bulkUpdateTimelineItems,
     sortTimelineDatas,
   } = useTimelineEditing(setTimeline);
   const [videoList, setVideoList] = useState<string[]>([]); // 空の配列に修正
@@ -102,7 +113,7 @@ export const useVideoPlayerApp = () => {
     setIsVideoPlaying: setisVideoPlaying,
     metaDataConfigFilePath,
     setSyncMode,
-    setError,
+    onSyncError: setError,
   });
 
   // 異常なcurrentTime値の監視(警告のみ、リセットしない)
@@ -182,15 +193,32 @@ export const useVideoPlayerApp = () => {
               ) {
                 let targetTime = timeClamped;
 
-                // 0番プレイヤーは負の時間にシークしない
+                // video_0（基準動画）: グローバル時間をそのまま使用（負の時間も許可）
                 if (index === 0) {
-                  targetTime = Math.max(0, timeClamped);
+                  // 負のオフセットがある場合のみ負の時間を許可
+                  const minTime =
+                    syncData?.isAnalyzed &&
+                    typeof syncData.syncOffset === 'number' &&
+                    syncData.syncOffset < 0
+                      ? syncData.syncOffset
+                      : 0;
+                  targetTime = Math.max(minTime, timeClamped);
                 }
 
                 // 2番目以降の動画には同期オフセットを適用
+                // グローバル時間 = video_0の時間なので、video_1 = グローバル時間 - offset
                 if (index > 0 && syncData?.isAnalyzed) {
                   const offset = syncData.syncOffset || 0;
+                  // offset > 0: video_1が早い → video_1を遅らせる（-offset）
+                  // offset < 0: video_0が早い → video_1を進める（-offset、正の値を加算）
                   targetTime = Math.max(0, timeClamped - offset);
+
+                  // オフセット適用のデバッグログ
+                  console.log(
+                    `[OFFSET DEBUG] video_${index}: global=${timeClamped.toFixed(3)}s, ` +
+                      `offset=${offset.toFixed(3)}s, target=${targetTime.toFixed(3)}s ` +
+                      `(計算: ${timeClamped.toFixed(3)} - ${offset.toFixed(3)} = ${targetTime.toFixed(3)})`,
+                  );
                 }
 
                 if (isDev) {
@@ -257,24 +285,57 @@ export const useVideoPlayerApp = () => {
     })();
   }, [syncData, metaDataConfigFilePath]);
 
-  // Undo/Redoイベントハンドラー
+  // メタデータファイルパスが変更されたらウィンドウタイトルを更新
   useEffect(() => {
-    const handleUndo = () => {
-      const previousTimeline = performUndo();
-      if (previousTimeline) {
-        setPersistedTimeline(previousTimeline);
-        info('元に戻しました');
+    if (!metaDataConfigFilePath) {
+      // ファイルが選択されていない場合はデフォルトタイトル
+      if (globalThis.window.electronAPI?.setWindowTitle) {
+        globalThis.window.electronAPI.setWindowTitle('SporTagLytics');
       }
-    };
+      return;
+    }
 
-    const handleRedo = () => {
-      const nextTimeline = performRedo();
-      if (nextTimeline) {
-        setPersistedTimeline(nextTimeline);
-        info('やり直しました');
+    // メタデータファイルからパッケージ名を読み込んでタイトルに設定
+    (async () => {
+      try {
+        if (!globalThis.window.electronAPI?.readJsonFile) return;
+
+        const config = await globalThis.window.electronAPI.readJsonFile(
+          metaDataConfigFilePath,
+        );
+        if (config && typeof config === 'object' && 'packageName' in config) {
+          const packageName = (config as { packageName: string }).packageName;
+          if (packageName && globalThis.window.electronAPI.setWindowTitle) {
+            globalThis.window.electronAPI.setWindowTitle(
+              `${packageName} - SporTagLytics`,
+            );
+          }
+        }
+      } catch (e) {
+        console.error('[useVideoPlayerApp] Failed to update window title:', e);
       }
-    };
+    })();
+  }, [metaDataConfigFilePath]);
 
+  // Undo/Redo関数（Electron IPCとローカルホットキー両方で使用）
+  const handleUndo = useCallback(() => {
+    const previousTimeline = performUndo();
+    if (previousTimeline) {
+      setPersistedTimeline(previousTimeline);
+      info('元に戻しました');
+    }
+  }, [info, performUndo, setPersistedTimeline]);
+
+  const handleRedo = useCallback(() => {
+    const nextTimeline = performRedo();
+    if (nextTimeline) {
+      setPersistedTimeline(nextTimeline);
+      info('やり直しました');
+    }
+  }, [info, performRedo, setPersistedTimeline]);
+
+  // Undo/RedoイベントハンドラーをElectron IPCに登録（後方互換性のため残す）
+  useEffect(() => {
     if (globalThis.window.electronAPI) {
       globalThis.window.electronAPI.on('timeline-undo', handleUndo);
       globalThis.window.electronAPI.on('timeline-redo', handleRedo);
@@ -286,7 +347,7 @@ export const useVideoPlayerApp = () => {
         }
       };
     }
-  }, [performUndo, performRedo, setPersistedTimeline, info]);
+  }, [handleUndo, handleRedo]);
 
   return {
     timeline,
@@ -327,6 +388,7 @@ export const useVideoPlayerApp = () => {
     updateActionType,
     updateTimelineRange,
     updateTimelineItem,
+    bulkUpdateTimelineItems,
     getSelectedTimelineId,
     sortTimelineDatas,
     resyncAudio,
@@ -340,5 +402,7 @@ export const useVideoPlayerApp = () => {
     isAnalyzing,
     syncProgress,
     syncStage,
+    performUndo: handleUndo,
+    performRedo: handleRedo,
   };
 };

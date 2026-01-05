@@ -1,24 +1,8 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Box,
-  Stack,
-  Button,
-  Typography,
-  Grid,
-  Paper,
-  alpha,
-  Divider,
-} from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import AddIcon from '@mui/icons-material/Add';
-import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import BarChartIcon from '@mui/icons-material/BarChart';
+import { Box, Stack, useTheme } from '@mui/material';
 import type { VideoSyncData } from '../../../../types/VideoSync';
-import { ExistingPackageLoader } from './VideoPathSelector/ExistingPackageLoader';
 import { CreatePackageWizard } from './VideoPathSelector/CreatePackageWizard';
 import { AudioSyncBackdrop } from './VideoPathSelector/AudioSyncBackdrop';
-import { RecentPackageCard } from './VideoPathSelector/RecentPackageCard';
 import {
   PackageLoadResult,
   VideoPathSelectorProps,
@@ -28,6 +12,11 @@ import { useDragAndDrop } from './VideoPathSelector/hooks/useDragAndDrop';
 import { useRecentPackages } from './VideoPathSelector/hooks/useRecentPackages';
 import { useNotification } from '../../../../contexts/NotificationContext';
 import { ONBOARDING_STORAGE_KEY } from '../../../../components/OnboardingTutorial';
+import { buildVideoListFromConfig } from './VideoPathSelector/utils/angleUtils';
+import { WelcomeHeader } from './VideoPathSelector/components/WelcomeHeader';
+import { DropZoneCard } from './VideoPathSelector/components/DropZoneCard';
+import { ActionButtonsRow } from './VideoPathSelector/components/ActionButtonsRow';
+import { RecentPackagesSection } from './VideoPathSelector/components/RecentPackagesSection';
 
 export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
   setVideoList,
@@ -145,22 +134,16 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
         const config =
           await globalThis.window.electronAPI.readJsonFile(configFilePath);
 
+        const { videoList } = buildVideoListFromConfig(config, packagePath);
+
+        if (!videoList.length) {
+          throw new Error('アングルに映像が割り当てられていません。');
+        }
+
         const typedConfig = config as {
-          tightViewPath: string;
-          wideViewPath?: string;
           syncData?: VideoSyncData;
+          angles?: unknown;
         };
-
-        const tightRelative = typedConfig.tightViewPath;
-        const wideRelative = typedConfig.wideViewPath || undefined;
-        const tightAbsolute = `${packagePath}/${tightRelative}`;
-        const wideAbsolute = wideRelative
-          ? `${packagePath}/${wideRelative}`
-          : undefined;
-
-        const videoList = wideAbsolute
-          ? [tightAbsolute, wideAbsolute]
-          : [tightAbsolute];
 
         handlePackageLoaded({
           videoList,
@@ -186,6 +169,7 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
   );
 
   const { dragState, handlers } = useDragAndDrop(handlePackageDrop);
+  const theme = useTheme();
 
   // 最近のパッケージから開く
   const handleRecentPackageOpen = useCallback(
@@ -196,193 +180,38 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
   );
 
   return (
-    <Box sx={{ width: '100%', mx: 'auto', mt: 2, px: 2 }} {...handlers}>
+    <Box
+      sx={{
+        width: '100%',
+        mx: 'auto',
+        mt: 2,
+        px: { xs: 2, md: 3 },
+        pb: 4,
+        maxWidth: 1180,
+        bgcolor: theme.palette.background.paper,
+        borderRadius: 2,
+        border: `1px solid ${theme.palette.divider}`,
+        boxShadow: '0 10px 32px rgba(0,0,0,0.35)',
+        color: theme.palette.text.primary,
+        fontFamily: theme.typography.fontFamily,
+      }}
+      {...handlers}
+    >
       <Stack spacing={4}>
-        {/* ウェルカムヘッダー（初回のみ表示） */}
-        {showWelcome && (
-          <>
-            <Box sx={{ textAlign: 'center', py: 3 }}>
-              <Typography
-                variant="h3"
-                fontWeight="bold"
-                gutterBottom
-                sx={{
-                  background: (theme) =>
-                    theme.palette.mode === 'dark'
-                      ? 'linear-gradient(45deg, #1E90FF 30%, #00FF85 90%)'
-                      : 'linear-gradient(45deg, #1E90FF 30%, #00CED1 90%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                }}
-              >
-                SporTagLytics
-              </Typography>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                映像分析を効率化する、プロフェッショナルなタグ付けツール
-              </Typography>
+        <WelcomeHeader show={showWelcome} />
 
-              {/* クイックスタートガイド */}
-              <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                spacing={3}
-                justifyContent="center"
-                sx={{ mt: 4, mb: 2 }}
-              >
-                <Box sx={{ textAlign: 'center', flex: 1, maxWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: 'inline-flex',
-                      p: 2,
-                      borderRadius: '50%',
-                      bgcolor: (theme) =>
-                        alpha(theme.palette.primary.main, 0.1),
-                      mb: 1,
-                    }}
-                  >
-                    <PlayCircleOutlineIcon
-                      sx={{ fontSize: 40, color: 'primary.main' }}
-                    />
-                  </Box>
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    1. 映像を開く
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    パッケージを選択
-                  </Typography>
-                </Box>
+        <DropZoneCard dragState={dragState} />
 
-                <Box sx={{ textAlign: 'center', flex: 1, maxWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: 'inline-flex',
-                      p: 2,
-                      borderRadius: '50%',
-                      bgcolor: (theme) =>
-                        alpha(theme.palette.secondary.main, 0.1),
-                      mb: 1,
-                    }}
-                  >
-                    <TimelineIcon
-                      sx={{ fontSize: 40, color: 'secondary.main' }}
-                    />
-                  </Box>
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    2. タグ付け
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    プレーを記録
-                  </Typography>
-                </Box>
+        <ActionButtonsRow
+          onPackageLoaded={handlePackageLoaded}
+          onOpenWizard={() => setWizardOpen(true)}
+        />
 
-                <Box sx={{ textAlign: 'center', flex: 1, maxWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: 'inline-flex',
-                      p: 2,
-                      borderRadius: '50%',
-                      bgcolor: (theme) =>
-                        alpha(theme.palette.primary.main, 0.1),
-                      mb: 1,
-                    }}
-                  >
-                    <BarChartIcon
-                      sx={{ fontSize: 40, color: 'primary.main' }}
-                    />
-                  </Box>
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    3. 分析
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    統計を確認
-                  </Typography>
-                </Box>
-              </Stack>
-            </Box>
-
-            <Divider />
-          </>
-        )}
-
-        {/* ドラッグ&ドロップゾーン */}
-        <Paper
-          elevation={dragState.isDragging ? 8 : 2}
-          sx={{
-            p: 4,
-            textAlign: 'center',
-            border: '2px dashed',
-            borderColor: (() => {
-              if (!dragState.isDragging) return 'divider';
-              return dragState.isValidDrop ? 'primary.main' : 'error.main';
-            })(),
-            bgcolor: (theme) => {
-              if (!dragState.isDragging) return 'background.paper';
-              const baseColor = dragState.isValidDrop
-                ? theme.palette.primary.main
-                : theme.palette.error.main;
-              return alpha(baseColor, 0.08);
-            },
-            transition: 'all 0.2s ease-in-out',
-            cursor: 'pointer',
-          }}
-        >
-          <CloudUploadIcon
-            sx={{
-              fontSize: 64,
-              color: dragState.isDragging ? 'primary.main' : 'text.secondary',
-              mb: 2,
-            }}
-          />
-          <Typography variant="h6" gutterBottom>
-            {dragState.isDragging
-              ? 'ここにドロップ'
-              : 'パッケージフォルダをドラッグ&ドロップ'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            または下のボタンから選択
-          </Typography>
-        </Paper>
-
-        {/* 既存のボタン */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <ExistingPackageLoader
-            onPackageLoaded={handlePackageLoaded}
-            performAudioSync={performAudioSync}
-          />
-
-          <Button
-            sx={{ height: '60px', fontSize: '16px', flex: 1 }}
-            onClick={() => setWizardOpen(true)}
-            variant="outlined"
-            size="large"
-            startIcon={<AddIcon />}
-          >
-            新規パッケージを作成
-          </Button>
-        </Stack>
-
-        {/* 最近使ったパッケージ */}
-        {recentPackages.length > 0 && (
-          <>
-            <Divider sx={{ my: 2 }}>
-              <Typography variant="overline" color="text.secondary">
-                最近使ったパッケージ
-              </Typography>
-            </Divider>
-
-            <Grid container spacing={3}>
-              {recentPackages.map((pkg) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={pkg.path}>
-                  <RecentPackageCard
-                    package={pkg}
-                    onOpen={handleRecentPackageOpen}
-                    onRemove={removeRecentPackage}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-          </>
-        )}
+        <RecentPackagesSection
+          packages={recentPackages}
+          onOpen={handleRecentPackageOpen}
+          onRemove={removeRecentPackage}
+        />
       </Stack>
 
       <CreatePackageWizard

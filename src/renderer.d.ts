@@ -1,3 +1,5 @@
+import type { IPlaylistAPI } from './types/Playlist';
+
 export interface IElectronAPI {
   openFile: () => Promise<string>;
   openDirectory: () => Promise<string>;
@@ -5,8 +7,12 @@ export interface IElectronAPI {
   createPackage: (
     directoryName: string,
     packageName: string,
-    tightViewPath: string,
-    wideViewPath: string | null,
+    angles: Array<{
+      id: string;
+      name: string;
+      sourcePath: string;
+      role?: 'primary' | 'secondary';
+    }>,
     metaDataConfig: unknown,
   ) => Promise<PackageDatas>;
   on: (
@@ -48,12 +54,67 @@ export interface IElectronAPI {
   resetSettings: () => Promise<unknown>;
   onOpenSettings: (callback: () => void) => void;
   offOpenSettings: (callback: () => void) => void;
+  setWindowTitle: (title: string) => void;
+  exportClipsWithOverlay?: (payload: {
+    sourcePath: string;
+    sourcePath2?: string;
+    mode?: 'single' | 'dual';
+    exportMode?: 'single' | 'perInstance' | 'perRow';
+    angleOption?: 'all' | 'angle1' | 'angle2';
+    outputDir?: string;
+    outputFileName?: string;
+    clips: Array<{
+      id: string;
+      actionName: string;
+      startTime: number;
+      endTime: number;
+      freezeAt?: number | null;
+      freezeDuration?: number;
+      labels?: { group: string; name: string }[];
+      qualifier?: string;
+      actionIndex?: number;
+      annotationPngPrimary?: string | null;
+      annotationPngSecondary?: string | null;
+    }>;
+    overlay: {
+      enabled: boolean;
+      showActionName: boolean;
+      showActionIndex: boolean;
+      showLabels: boolean;
+      showQualifier: boolean;
+      textTemplate: string;
+    };
+  }) => Promise<{ success: boolean; error?: string }>;
+  saveFileDialog: (
+    defaultPath: string,
+    filters: { name: string; extensions: string[] }[],
+  ) => Promise<string | null>;
+  openFileDialog: (
+    filters: { name: string; extensions: string[] }[],
+  ) => Promise<string | null>;
+  writeTextFile: (filePath: string, content: string) => Promise<boolean>;
+  readTextFile: (filePath: string) => Promise<string | null>;
+  onExportTimeline: (callback: (format: string) => void) => void;
+  onImportTimeline: (callback: () => void) => void;
+  onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => void;
+  onOpenPackage: (callback: () => void) => void;
+  onOpenRecentPackage: (callback: (path: string) => void) => void;
+  updateRecentPackages: (paths: string[]) => void;
+  // プレイリストAPI
+  playlist: IPlaylistAPI;
 }
 
 export interface PackageDatas {
   timelinePath: string;
   tightViewPath: string;
   wideViewPath: string | null;
+  angles: Array<{
+    id: string;
+    name: string;
+    role?: 'primary' | 'secondary';
+    absolutePath: string;
+    relativePath: string;
+  }>;
   metaDataConfigFilePath: string;
 }
 

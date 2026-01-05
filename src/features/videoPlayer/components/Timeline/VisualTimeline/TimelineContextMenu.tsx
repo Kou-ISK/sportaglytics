@@ -10,6 +10,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 
 interface TimelineContextMenuProps {
   anchorPosition: { top: number; left: number } | null;
@@ -18,6 +19,8 @@ interface TimelineContextMenuProps {
   onDelete: () => void;
   onJumpTo: () => void;
   onDuplicate: () => void;
+  onAddToPlaylist?: () => void;
+  selectedCount?: number;
 }
 
 export const TimelineContextMenu: React.FC<TimelineContextMenuProps> = ({
@@ -27,6 +30,8 @@ export const TimelineContextMenu: React.FC<TimelineContextMenuProps> = ({
   onDelete,
   onJumpTo,
   onDuplicate,
+  onAddToPlaylist,
+  selectedCount = 1,
 }) => {
   const handleEdit = () => {
     onEdit();
@@ -45,6 +50,11 @@ export const TimelineContextMenu: React.FC<TimelineContextMenuProps> = ({
 
   const handleDuplicate = () => {
     onDuplicate();
+    onClose();
+  };
+
+  const handleAddToPlaylist = () => {
+    onAddToPlaylist?.();
     onClose();
   };
 
@@ -82,6 +92,21 @@ export const TimelineContextMenu: React.FC<TimelineContextMenuProps> = ({
         </ListItemIcon>
         <ListItemText primary="複製" />
       </MenuItem>
+
+      {onAddToPlaylist && (
+        <MenuItem onClick={handleAddToPlaylist}>
+          <ListItemIcon>
+            <PlaylistAddIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary={
+              selectedCount > 1
+                ? `プレイリストに追加 (${selectedCount}件)`
+                : 'プレイリストに追加'
+            }
+          />
+        </MenuItem>
+      )}
 
       <Divider />
 

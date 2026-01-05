@@ -1,31 +1,43 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import { VideoSyncData } from '../../../../../types/VideoSync';
 import { PackageLoadResult } from './types';
 import { useNotification } from '../../../../../contexts/NotificationContext';
+import { buildVideoListFromConfig } from './utils/angleUtils';
 
 interface ExistingPackageLoaderProps {
   onPackageLoaded: (result: PackageLoadResult) => void;
-  performAudioSync: (
-    tightPath: string,
-    widePath: string,
-  ) => Promise<VideoSyncData>;
 }
+
+const normalizePathValue = (value: unknown): string | undefined => {
+  if (typeof value === 'string') return value;
+  if (
+    value &&
+    typeof value === 'object' &&
+    'path' in value &&
+    typeof (value as { path?: unknown }).path === 'string'
+  ) {
+    return (value as { path: string }).path;
+  }
+  return undefined;
+};
 
 export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
   onPackageLoaded,
-  performAudioSync,
 }) => {
-  const { error: showError } = useNotification();
+  const { error: showError, info } = useNotification();
 
-  const handleSelectPackage = async () => {
+  const handleSelectPackage = async (preselectedPath?: unknown) => {
     if (!globalThis.window.electronAPI) {
       showError('この機能はElectronアプリケーション内でのみ利用できます。');
       return;
     }
 
-    const packagePath = await globalThis.window.electronAPI?.openDirectory();
+    const normalized = normalizePathValue(preselectedPath);
+
+    const packagePath =
+      normalized || (await globalThis.window.electronAPI?.openDirectory());
     if (!packagePath) {
       return;
     }
@@ -58,29 +70,22 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
       }
       const config = await response.json();
 
-      const tightRelative = config.tightViewPath as string;
-      const wideRelative = (config.wideViewPath || undefined) as
-        | string
-        | undefined;
-      const tightAbsolute = `${packagePath}/${tightRelative}`;
-      const wideAbsolute = wideRelative
-        ? `${packagePath}/${wideRelative}`
-        : undefined;
+      const { videoList } = buildVideoListFromConfig(config, packagePath);
+
+      if (!videoList.length) {
+        throw new Error('アングルに映像が割り当てられていません。');
+      }
 
       let resultingSyncData: VideoSyncData | undefined;
-      const videoList = wideAbsolute
-        ? [tightAbsolute, wideAbsolute]
-        : [tightAbsolute];
+      const storedSync = config.syncData as
+        | {
+            syncOffset?: unknown;
+            isAnalyzed?: unknown;
+            confidenceScore?: unknown;
+          }
+        | undefined;
 
-      if (wideAbsolute) {
-        const storedSync = config.syncData as
-          | {
-              syncOffset?: unknown;
-              isAnalyzed?: unknown;
-              confidenceScore?: unknown;
-            }
-          | undefined;
-
+      if (videoList.length >= 2) {
         if (storedSync && typeof storedSync.syncOffset === 'number') {
           resultingSyncData = {
             syncOffset: storedSync.syncOffset,
@@ -91,23 +96,10 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
                 : undefined,
           } as VideoSyncData;
         } else {
-          resultingSyncData = await performAudioSync(
-            tightAbsolute,
-            wideAbsolute,
+          resultingSyncData = undefined;
+          info(
+            '音声同期データがありません。必要に応じてメニューから同期を実行してください。',
           );
-          if (
-            resultingSyncData &&
-            globalThis.window.electronAPI?.saveSyncData
-          ) {
-            try {
-              await globalThis.window.electronAPI.saveSyncData(
-                configFilePath,
-                resultingSyncData,
-              );
-            } catch (error) {
-              console.error('同期データの保存に失敗:', error);
-            }
-          }
         }
       } else {
         resultingSyncData = undefined;
@@ -126,10 +118,24 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
     }
   };
 
+  useEffect(() => {
+    const api = globalThis.window.electronAPI;
+    if (!api?.onOpenPackage) return;
+    api.onOpenPackage(handleSelectPackage);
+  }, []);
+
+  useEffect(() => {
+    const api = globalThis.window.electronAPI;
+    if (!api?.onOpenRecentPackage) return;
+    api.onOpenRecentPackage((path) => handleSelectPackage(path));
+  }, []);
+
   return (
     <Button
       sx={{ height: '60px', fontSize: '16px', flex: 1 }}
-      onClick={handleSelectPackage}
+      onClick={() => {
+        void handleSelectPackage();
+      }}
       variant="contained"
       size="large"
       startIcon={<FolderOpenIcon />}

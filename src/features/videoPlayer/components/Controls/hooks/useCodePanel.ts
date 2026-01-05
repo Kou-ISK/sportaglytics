@@ -14,6 +14,8 @@ export const useCodePanel = (
     qualifier: string,
     actionType?: string,
     actionResult?: string,
+    labels?: Array<{ name: string; group: string }>,
+    color?: string,
   ) => void,
 ) => {
   // 選択状態（チーム情報も含む）

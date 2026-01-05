@@ -7,7 +7,7 @@ import React, {
   useCallback,
 } from 'react';
 import { ActionList } from '../ActionList';
-import type { ActionPreset } from '../types/Settings';
+import type { ActionPreset, ActionDefinition } from '../types/Settings';
 
 // デフォルトプリセットの定義（ActionList.tsから生成）
 // 全ActionList項目を1つのプリセットにまとめる
@@ -20,13 +20,14 @@ const DEFAULT_PRESET: ActionPreset = {
     types: item.types,
   })),
   order: 0,
+  isDefault: true, // デフォルトプリセットフラグ
 };
 
 interface ActionPresetContextValue {
   /** 現在アクティブなプリセット */
   activePreset: ActionPreset | undefined;
   /** すべてのアクション（activePresetのactionsを展開したもの） */
-  activeActions: Array<{ action: string; results: string[]; types: string[] }>;
+  activeActions: ActionDefinition[];
   /** 現在アクティブなプリセットID */
   activePresetId: string;
   /** 利用可能なプリセットリスト（デフォルト + カスタム） */
@@ -89,7 +90,13 @@ export const ActionPresetProvider: React.FC<ActionPresetProviderProps> = ({
 
   // 利用可能なプリセットリストを構築
   const availablePresets = useMemo(() => {
-    const presets: ActionPreset[] = [DEFAULT_PRESET];
+    // カスタムプリセット内にデフォルトプリセットの編集済みバージョンがあるかチェック
+    const hasCustomizedDefault = customPresets.some((p) => p.id === 'default');
+
+    // 編集済みデフォルトがあればハードコードされたDEFAULT_PRESETは使わない
+    const presets: ActionPreset[] = hasCustomizedDefault
+      ? []
+      : [DEFAULT_PRESET];
 
     // カスタムプリセットを追加
     if (customPresets.length > 0) {

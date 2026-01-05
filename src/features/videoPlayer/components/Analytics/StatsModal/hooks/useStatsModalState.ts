@@ -13,8 +13,6 @@ export interface StatsModalDerivedState {
   possessionData: rechartsData[];
   hasTimelineData: boolean;
   resolvedTeamNames: string[];
-  uniqueActionTypes: string[];
-  uniqueActionResults: string[];
   countActionResultByTeamName: (
     teamName: string,
     actionName: string,
@@ -62,30 +60,10 @@ export const useStatsModalState = ({
     return Array.from(set);
   }, [teamNames, timeline]);
 
-  const uniqueActionTypes = useMemo(() => {
-    const set = new Set<string>();
-    timeline.forEach((item) => {
-      const value = item.actionType || '未設定';
-      set.add(value);
-    });
-    return Array.from(set).sort();
-  }, [timeline]);
-
-  const uniqueActionResults = useMemo(() => {
-    const set = new Set<string>();
-    timeline.forEach((item) => {
-      const value = item.actionResult || '未設定';
-      set.add(value);
-    });
-    return Array.from(set).sort();
-  }, [timeline]);
-
   return {
     possessionData,
     hasTimelineData,
     resolvedTeamNames,
-    uniqueActionTypes,
-    uniqueActionResults,
     countActionResultByTeamName,
     countActionTypeByTeamName,
     createMomentumData,

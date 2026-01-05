@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { TimelineData } from '../../types/TimelineData';
+import { normalizeTimelineData } from '../../utils/scTimelineConverter';
 
 interface UseTimelinePersistenceResult {
   timeline: TimelineData[];
@@ -36,8 +37,12 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
         }
         const raw = await response.json();
         if (cancelled) return;
-        const normalized = Array.isArray(raw) ? raw : [];
-        timelinePersistedSnapshotRef.current = JSON.stringify(normalized);
+        // 読み込んだデータを正規化してlabels配列を確実に持たせる
+        const rawArray = Array.isArray(raw) ? raw : [];
+        const normalized = rawArray.map((item) => normalizeTimelineData(item));
+        // 読み込んだ元のデータ（正規化前）をスナップショットとして保存
+        // これにより、正規化後のデータが変更として検知され、自動保存される
+        timelinePersistedSnapshotRef.current = JSON.stringify(rawArray);
         timelineLoadedRef.current = true;
         setTimeline(normalized);
       } catch (error) {

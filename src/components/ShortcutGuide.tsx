@@ -26,7 +26,7 @@ const shortcuts: ShortcutItem[] = [
   {
     category: '再生制御',
     items: [
-      { key: '↑', action: '再生/停止' },
+      { key: 'Space', action: '再生/停止' },
       { key: '←', action: '5秒戻し' },
       { key: '→', action: '0.5倍速' },
       { key: 'Shift + →', action: '2倍速' },
@@ -50,7 +50,7 @@ const shortcuts: ShortcutItem[] = [
       { key: 'Command + Option + 1', action: 'ポゼッションを表示' },
       { key: 'Command + Option + 2', action: 'アクション結果を表示' },
       { key: 'Command + Option + 3', action: 'アクション種別を表示' },
-      { key: 'Command + Option + 4', action: 'モーメンタムを表示' },
+      { key: 'Command + Option + 4', action: 'モメンタムを表示' },
       { key: 'Command + Option + 5', action: 'クロス集計を表示' },
       { key: 'Command + /', action: 'ショートカット一覧を表示' },
     ],
@@ -59,6 +59,11 @@ const shortcuts: ShortcutItem[] = [
     category: 'タイムライン編集',
     items: [
       { key: '↑/↓', action: 'タイムラインアイテムを移動' },
+      { key: 'Tab / Option + ↓', action: '同じアクションの次へジャンプ' },
+      {
+        key: 'Shift + Tab / Option + ↑',
+        action: '同じアクションの前へジャンプ',
+      },
       { key: 'Enter', action: '選択したアイテムを編集' },
       { key: 'Delete/Backspace', action: '選択したアイテムを削除' },
       { key: 'Command + Z', action: '元に戻す' },

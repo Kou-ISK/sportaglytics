@@ -10,7 +10,9 @@ interface UseSyncActionsParams {
   setIsVideoPlaying: (value: boolean | ((prev: boolean) => boolean)) => void;
   metaDataConfigFilePath: string;
   setSyncMode: React.Dispatch<React.SetStateAction<'auto' | 'manual'>>;
-  setError: (value: VideoPlayerError | null) => void;
+  onSyncError?: (value: VideoPlayerError) => void;
+  onSyncInfo?: (message: string) => void;
+  onSyncWarning?: (message: string) => void;
 }
 
 export const useSyncActions = ({
@@ -20,12 +22,36 @@ export const useSyncActions = ({
   setIsVideoPlaying,
   metaDataConfigFilePath,
   setSyncMode,
-  setError,
+  onSyncError,
+  onSyncInfo,
+  onSyncWarning,
 }: UseSyncActionsParams) => {
   const [playerForceUpdateKey, setPlayerForceUpdateKey] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStage, setSyncStage] = useState('');
+
+  const logInfo = useCallback(
+    (message: string) => {
+      if (onSyncInfo) {
+        onSyncInfo(message);
+      } else {
+        console.log(message);
+      }
+    },
+    [onSyncInfo],
+  );
+
+  const logWarn = useCallback(
+    (message: string) => {
+      if (onSyncWarning) {
+        onSyncWarning(message);
+      } else {
+        console.warn(message);
+      }
+    },
+    [onSyncWarning],
+  );
 
   const forceUpdateVideoPlayers = useCallback(
     (newSyncData: VideoSyncData) => {
@@ -45,7 +71,7 @@ export const useSyncActions = ({
             const currentGlobalTime =
               (primaryPlayer?.currentTime?.() as number) || 0;
 
-            console.log(
+            logInfo(
               `[forceUpdate] 現在のグローバル時刻: ${currentGlobalTime}秒`,
             );
 
@@ -64,7 +90,7 @@ export const useSyncActions = ({
 
                   player.pause?.();
                   player.currentTime?.(targetTime);
-                  console.log(
+                  logInfo(
                     `[forceUpdate] video_${index} synced to ${targetTime}秒 (global=${currentGlobalTime}, offset=${offset})`,
                   );
                 }
@@ -78,26 +104,24 @@ export const useSyncActions = ({
 
           setPlayerForceUpdateKey((prev) => {
             const newKey = prev + 1;
-            console.log(
-              `[forceUpdate] playerForceUpdateKey updated to ${newKey}`,
-            );
+            logInfo(`[forceUpdate] playerForceUpdateKey updated to ${newKey}`);
             return newKey;
           });
 
           setTimeout(() => {
-            console.log('[forceUpdate] resuming playback');
+            logInfo('[forceUpdate] resuming playback');
             setIsVideoPlaying(true);
             resolve();
           }, 300);
         });
       });
     },
-    [setIsVideoPlaying, videoList],
+    [logInfo, setIsVideoPlaying, videoList],
   );
 
   const resyncAudio = useCallback(async () => {
     if (videoList.length < 2) {
-      console.warn('2つの映像が必要です');
+      logWarn('2つの映像が必要です');
       return;
     }
 
@@ -111,7 +135,7 @@ export const useSyncActions = ({
       );
       const analyzer = new AudioSyncAnalyzer();
 
-      console.log('音声同期を再実行中...');
+      logInfo('音声同期を再実行中...');
       const result = await analyzer.quickSyncAnalysis(
         videoList[0],
         videoList[1],
@@ -127,17 +151,17 @@ export const useSyncActions = ({
         confidenceScore: result.confidence,
       };
 
-      console.log('[resyncAudio] Setting new syncData:', newSyncData);
+      logInfo('[resyncAudio] 新しい同期データを適用しました');
       setSyncData(newSyncData);
       setSyncProgress(100);
-      console.log('音声同期完了:', result);
+      logInfo('音声同期完了');
 
-      console.log('[resyncAudio] Calling forceUpdateVideoPlayers...');
+      logInfo('[resyncAudio] 映像プレイヤーへ同期結果を反映します');
       await forceUpdateVideoPlayers(newSyncData);
-      console.log('[resyncAudio] forceUpdateVideoPlayers completed');
+      logInfo('[resyncAudio] プレイヤー反映が完了しました');
     } catch (error) {
       console.error('音声同期エラー:', error);
-      setError({
+      onSyncError?.({
         type: 'sync',
         message:
           '音声同期に失敗しました。映像ファイルに音声が含まれているか確認してください。',
@@ -147,7 +171,7 @@ export const useSyncActions = ({
       setSyncProgress(0);
       setSyncStage('');
     }
-  }, [videoList, forceUpdateVideoPlayers, setSyncData, setError]);
+  }, [videoList, forceUpdateVideoPlayers, setSyncData, onSyncError]);
 
   const resetSync = useCallback(() => {
     const resetSyncData: VideoSyncData = {
@@ -156,9 +180,9 @@ export const useSyncActions = ({
       confidenceScore: 0,
     };
     setSyncData(resetSyncData);
-    console.log('同期をリセットしました');
+    logInfo('同期をリセットしました');
     forceUpdateVideoPlayers(resetSyncData);
-  }, [forceUpdateVideoPlayers, setSyncData]);
+  }, [forceUpdateVideoPlayers, logInfo, setSyncData]);
 
   const adjustSyncOffset = useCallback(async () => {
     if (!syncData) return;
@@ -174,11 +198,11 @@ export const useSyncActions = ({
         isAnalyzed: true,
       };
       setSyncData(adjustedSyncData);
-      console.log('同期オフセットを調整しました:', Number(newOffset));
+      logInfo(`同期オフセットを調整しました: ${Number(newOffset)} 秒`);
 
       await forceUpdateVideoPlayers(adjustedSyncData);
     }
-  }, [syncData, setSyncData, forceUpdateVideoPlayers]);
+  }, [syncData, setSyncData, forceUpdateVideoPlayers, logInfo]);
 
   const manualSyncFromPlayers = useCallback(async () => {
     try {
@@ -215,7 +239,7 @@ export const useSyncActions = ({
       };
 
       setSyncData(newSyncData);
-      console.log('manualSync: オフセット更新', { t0, t1, newOffset });
+      logInfo(`手動同期を適用しました (差分: ${newOffset.toFixed(3)} 秒)`);
 
       if (metaDataConfigFilePath && window.electronAPI?.saveSyncData) {
         try {

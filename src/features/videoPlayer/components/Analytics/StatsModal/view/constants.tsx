@@ -27,7 +27,7 @@ export const TAB_DEFINITIONS: ReadonlyArray<{
   },
   {
     value: 'momentum',
-    label: 'モーメンタム',
+    label: 'モメンタム',
     icon: <TimelineIcon fontSize="small" />,
   },
   {
@@ -41,5 +41,6 @@ export const ACTIONS_TO_SUMMARISE: ReadonlyArray<string> = [
   'スクラム',
   'ラインアウト',
   'キック',
+  'FK',
   'PK',
 ];

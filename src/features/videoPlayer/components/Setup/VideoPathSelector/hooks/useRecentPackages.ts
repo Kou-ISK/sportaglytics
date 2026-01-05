@@ -56,6 +56,14 @@ export const useRecentPackages = () => {
         ].slice(0, MAX_RECENT_PACKAGES);
 
         saveToStorage(updated);
+        // メニューバー用にElectronへ同期
+        try {
+          globalThis.window.electronAPI?.updateRecentPackages?.(
+            updated.map((p) => p.path),
+          );
+        } catch (error) {
+          console.warn('Failed to sync recent packages to menu:', error);
+        }
         return updated;
       });
     },
@@ -68,6 +76,13 @@ export const useRecentPackages = () => {
       setRecentPackages((prev) => {
         const updated = prev.filter((p) => p.path !== path);
         saveToStorage(updated);
+        try {
+          globalThis.window.electronAPI?.updateRecentPackages?.(
+            updated.map((p) => p.path),
+          );
+        } catch (error) {
+          console.warn('Failed to sync recent packages to menu:', error);
+        }
         return updated;
       });
     },
@@ -78,6 +93,11 @@ export const useRecentPackages = () => {
   const clearRecentPackages = useCallback(() => {
     setRecentPackages([]);
     localStorage.removeItem(STORAGE_KEY);
+    try {
+      globalThis.window.electronAPI?.updateRecentPackages?.([]);
+    } catch (error) {
+      console.warn('Failed to clear recent packages in menu:', error);
+    }
   }, []);
 
   return {

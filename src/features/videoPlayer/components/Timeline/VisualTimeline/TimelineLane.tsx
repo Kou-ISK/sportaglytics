@@ -12,6 +12,7 @@ interface TimelineLaneProps {
   onHoverChange: (id: string | null) => void;
   onItemClick: (event: React.MouseEvent, id: string) => void;
   onItemContextMenu: (event: React.MouseEvent, id: string) => void;
+  onMoveItem?: (ids: string[], targetActionName: string) => void;
   timeToPosition: (time: number) => number;
   positionToTime: (positionPx: number) => number;
   currentTimePosition: number;
@@ -20,6 +21,9 @@ interface TimelineLaneProps {
   onSeek: (time: number) => void;
   maxSec: number;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
+  laneRef?: (el: HTMLDivElement | null) => void;
+  contentWidth?: number;
+  zoomScale: number;
 }
 
 export const TimelineLane: React.FC<TimelineLaneProps> = ({
@@ -31,6 +35,7 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
   onHoverChange,
   onItemClick,
   onItemContextMenu,
+  onMoveItem,
   timeToPosition,
   positionToTime: positionToTimeFromParent,
   currentTimePosition,
@@ -39,6 +44,9 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
   onSeek,
   maxSec,
   onUpdateTimeRange,
+  laneRef,
+  contentWidth,
+  zoomScale,
 }) => {
   const theme = useTheme();
   const teamName = actionName.split(' ')[0];
@@ -46,6 +54,10 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
   const [isAltKeyPressed, setIsAltKeyPressed] = useState(false);
+
+  useEffect(() => {
+    laneRef?.(containerRef.current);
+  }, [laneRef]);
 
   // Alt/Optionキーの状態を監視
   useEffect(() => {
@@ -144,20 +156,28 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1,
+        gap: 0,
         position: 'relative',
+        minHeight: 32,
+        width: '100%',
       }}
     >
       <Typography
         variant="caption"
         sx={{
-          color: isTeam1 ? 'team1.main' : 'team2.main',
+          // 行ラベルの色: 最初のアイテムに色があればそれを使用、なければチーム色
+          color: items[0]?.color
+            ? items[0].color
+            : isTeam1
+              ? 'team1.main'
+              : 'team2.main',
           fontWeight: 'bold',
           fontSize: '0.7rem',
           width: 120,
           flexShrink: 0,
           textAlign: 'right',
-          pr: 1,
+          userSelect: 'none',
+          lineHeight: 1.1,
         }}
       >
         {actionName}
@@ -167,30 +187,65 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
         ref={containerRef}
         sx={{
           position: 'relative',
-          height: 32,
+          height: 26,
           flex: 1,
+          flexShrink: 0,
           backgroundColor: theme.custom.rails.laneBg,
           borderRadius: 1,
           border: 1,
           borderColor: 'divider',
+          userSelect: 'none',
+          mb: 0,
+          width:
+            contentWidth !== undefined
+              ? `${contentWidth * zoomScale}px`
+              : '100%',
+          minWidth:
+            contentWidth !== undefined
+              ? `${contentWidth * zoomScale}px`
+              : '100%',
+          overflow: 'hidden',
+        }}
+        onDragOver={(event) => {
+          if (onMoveItem) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+          }
+        }}
+        onDrop={(event) => {
+          if (!onMoveItem) return;
+          event.preventDefault();
+          const rawIds = event.dataTransfer.getData('text/timeline-ids');
+          const ids: string[] = rawIds ? JSON.parse(rawIds) : [];
+          if (ids.length > 0) {
+            onMoveItem(ids, actionName);
+          }
         }}
       >
         {items.map((item) => {
-          const left = timeToPosition(item.startTime);
-          const width = Math.max(2, timeToPosition(item.endTime) - left);
+          const totalWidth =
+            contentWidth !== undefined
+              ? contentWidth * zoomScale
+              : Math.max(timeToPosition(maxSec), 0);
+          const left = Math.max(
+            0,
+            Math.min(timeToPosition(item.startTime), totalWidth),
+          );
+          const right = Math.max(
+            0,
+            Math.min(timeToPosition(item.endTime), totalWidth),
+          );
+          const width = Math.max(4, right - left);
           const isSelected = selectedIds.includes(item.id);
           const isHovered = hoveredItemId === item.id;
           const isFocused = focusedItemId === item.id;
 
-          // バー背景色の決定
-          let barBgColor: string;
-          if (isSelected) {
-            barBgColor = theme.palette.secondary.main;
-          } else if (isTeam1) {
-            barBgColor = theme.custom.bars.team1;
-          } else {
-            barBgColor = theme.custom.bars.team2;
-          }
+          // バー背景色の決定（item.colorがあればそれを使用、なければチーム色）
+          const barBgColor = item.color
+            ? item.color
+            : isTeam1
+              ? theme.custom.bars.team1
+              : theme.custom.bars.team2;
 
           let barOpacity = 0.7;
           if (isHovered) {
@@ -199,12 +254,16 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
             barOpacity = 0.9;
           }
 
-          let borderColor = 'transparent';
-          if (isFocused) {
-            borderColor = theme.palette.primary.main;
-          } else if (isSelected) {
-            borderColor = theme.custom.bars.selectedBorder;
-          }
+          const borderColor = isFocused
+            ? theme.palette.primary.main
+            : isSelected
+              ? theme.custom.bars.selectedBorder
+              : 'transparent';
+
+          const labelText =
+            item.labels && item.labels.length > 0
+              ? item.labels.map((l) => l.name).join(', ')
+              : '';
 
           return (
             <Tooltip
@@ -215,15 +274,17 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
                   <Typography variant="caption">
                     {formatTime(item.startTime)} - {formatTime(item.endTime)}
                   </Typography>
-                  {item.actionType && (
-                    <Typography variant="caption">
-                      種別: {item.actionType}
-                    </Typography>
-                  )}
-                  {item.actionResult && (
-                    <Typography variant="caption">
-                      結果: {item.actionResult}
-                    </Typography>
+                  {item.labels && item.labels.length > 0 && (
+                    <>
+                      {item.labels.map((label) => (
+                        <Typography
+                          key={`${label.group}-${label.name}`}
+                          variant="caption"
+                        >
+                          {label.group}: {label.name}
+                        </Typography>
+                      ))}
+                    </>
                   )}
                   {item.qualifier && (
                     <Typography variant="caption">
@@ -236,31 +297,62 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
               <Box
                 onClick={(event) => onItemClick(event, item.id)}
                 onContextMenu={(event) => onItemContextMenu(event, item.id)}
+                draggable={Boolean(onMoveItem)}
+                onDragStart={(event) => {
+                  if (!onMoveItem) return;
+                  const dragIds = selectedIds.includes(item.id)
+                    ? selectedIds
+                    : [item.id];
+                  event.dataTransfer.setData(
+                    'text/timeline-ids',
+                    JSON.stringify(dragIds),
+                  );
+                  event.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(event) => {
+                  if (onMoveItem) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                  }
+                }}
+                onDrop={(event) => {
+                  if (!onMoveItem) return;
+                  event.preventDefault();
+                  const data = event.dataTransfer.getData('text/timeline-ids');
+                  const ids: string[] = data ? JSON.parse(data) : [];
+                  if (ids.length > 0) {
+                    onMoveItem(ids, actionName);
+                  }
+                }}
                 onMouseEnter={() => onHoverChange(item.id)}
                 onMouseLeave={() => onHoverChange(null)}
                 sx={{
                   position: 'absolute',
                   left: `${left}px`,
                   width: `${width}px`,
-                  top: 4,
-                  bottom: 4,
+                  top: 1,
+                  bottom: 1,
                   backgroundColor: barBgColor,
                   opacity: barOpacity,
+                  filter: isSelected ? 'brightness(0.86)' : 'none',
                   borderRadius: 1,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   px: 0.5,
-                  border: isSelected || isFocused ? 2 : 0,
+                  border: isSelected || isFocused ? 3 : 1,
                   borderColor,
+                  boxShadow: isSelected
+                    ? `0 0 0 3px ${theme.palette.secondary.main}33, 0 4px 12px ${theme.palette.secondary.main}55`
+                    : 'none',
                   outline: isFocused
                     ? `2px solid ${theme.palette.primary.main}`
                     : 'none',
                   outlineOffset: 2,
                   transition: 'all 0.2s',
                   '&:hover': {
-                    transform: 'scaleY(1.2)',
+                    transform: 'scaleY(1.1)',
                     zIndex: 5,
                   },
                 }}
@@ -284,7 +376,7 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
                   }}
                 />
 
-                {/* 中央テキスト */}
+                {/* 中央テキスト: ラベル優先で表示、なければ時間 */}
                 <Typography
                   variant="caption"
                   sx={{
@@ -296,7 +388,8 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {formatTime(item.startTime)}
+                  {labelText ||
+                    `${formatTime(item.startTime)} - ${formatTime(item.endTime)}`}
                 </Typography>
 
                 {/* 右エッジ（終了時刻調整） */}

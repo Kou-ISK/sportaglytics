@@ -16,10 +16,17 @@ export interface WizardFormState {
   team2Name: string;
 }
 
+export type AngleRole = 'primary' | 'secondary';
+
+export interface AngleSelection {
+  id: string;
+  name: string;
+  filePath: string;
+}
+
 export interface WizardSelectionState {
   selectedDirectory: string;
-  selectedTightVideo: string;
-  selectedWideVideo: string;
+  angles: AngleSelection[];
 }
 
 export interface WizardStepContext

@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  AlertTitle,
   Box,
   Button,
-  Chip,
   CircularProgress,
   LinearProgress,
   Paper,
@@ -12,21 +10,24 @@ import {
   Step,
   StepLabel,
   Stepper,
-  TextField,
   Typography,
 } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
 import { PackageDatas } from '../../../../../renderer';
 import { MetaData } from '../../../../../types/MetaData';
 import { VideoSyncData } from '../../../../../types/VideoSync';
 import { useNotification } from '../../../../../contexts/NotificationContext';
+import { ActionList } from '../../../../../ActionList';
 import {
   PackageLoadResult,
   SyncStatus,
   WizardFormState,
   WizardSelectionState,
 } from './types';
+import { BasicInfoStep } from './steps/BasicInfoStep';
+import { DirectoryStep } from './steps/DirectoryStep';
+import { VideoSelectionStep } from './steps/VideoSelectionStep';
+import { SummaryStep } from './steps/SummaryStep';
 
 interface CreatePackageWizardProps {
   open: boolean;
@@ -47,10 +48,23 @@ const INITIAL_FORM: WizardFormState = {
   team2Name: '',
 };
 
-const INITIAL_SELECTION: WizardSelectionState = {
-  selectedDirectory: '',
-  selectedTightVideo: '',
-  selectedWideVideo: '',
+const createAngleId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `angle-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const createInitialSelection = (): WizardSelectionState => {
+  const firstAngleId = createAngleId();
+  return {
+    selectedDirectory: '',
+    angles: [
+      {
+        id: firstAngleId,
+        name: 'Angle 1',
+        filePath: '',
+      },
+    ],
+  };
 };
 
 export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
@@ -61,18 +75,21 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
   syncStatus,
 }) => {
   const [form, setForm] = useState<WizardFormState>(INITIAL_FORM);
-  const [selection, setSelection] =
-    useState<WizardSelectionState>(INITIAL_SELECTION);
+  const [selection, setSelection] = useState<WizardSelectionState>(
+    createInitialSelection(),
+  );
   const [activeStep, setActiveStep] = useState(0);
   const [errors, setErrors] = useState<Partial<WizardFormState>>({});
   const { error: showError } = useNotification();
+  const [hasPromptedDirectory, setHasPromptedDirectory] = useState(false);
 
   useEffect(() => {
     if (open) {
       setForm(INITIAL_FORM);
-      setSelection(INITIAL_SELECTION);
+      setSelection(createInitialSelection());
       setActiveStep(0);
       setErrors({});
+      setHasPromptedDirectory(false);
     }
   }, [open]);
 
@@ -109,23 +126,77 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     }
   }, [showError]);
 
+  useEffect(() => {
+    if (
+      activeStep === 1 &&
+      !selection.selectedDirectory &&
+      !hasPromptedDirectory
+    ) {
+      setHasPromptedDirectory(true);
+      void handleSelectDirectory();
+    }
+  }, [
+    activeStep,
+    handleSelectDirectory,
+    hasPromptedDirectory,
+    selection.selectedDirectory,
+  ]);
+
   const handleSelectVideo = useCallback(
-    async (type: 'tight' | 'wide') => {
+    async (angleId: string) => {
       if (!globalThis.window.electronAPI) {
         showError('この機能はElectronアプリケーション内でのみ利用できます。');
         return;
       }
       const path = await globalThis.window.electronAPI?.openFile();
       if (path) {
-        setSelection((prev) =>
-          type === 'tight'
-            ? { ...prev, selectedTightVideo: path }
-            : { ...prev, selectedWideVideo: path },
-        );
+        setSelection((prev) => ({
+          ...prev,
+          angles: prev.angles.map((angle) =>
+            angle.id === angleId ? { ...angle, filePath: path } : angle,
+          ),
+        }));
       }
     },
     [showError],
   );
+
+  const handleAddAngle = useCallback(() => {
+    setSelection((prev) => {
+      const newAngleId = createAngleId();
+      const nextIndex = prev.angles.length + 1;
+      return {
+        ...prev,
+        angles: [
+          ...prev.angles,
+          {
+            id: newAngleId,
+            name: `Angle ${nextIndex}`,
+            filePath: '',
+          },
+        ],
+      };
+    });
+  }, []);
+
+  const handleRemoveAngle = useCallback((angleId: string) => {
+    setSelection((prev) => {
+      if (prev.angles.length === 1) return prev;
+      const filtered = prev.angles.filter((angle) => angle.id !== angleId);
+      return {
+        ...prev,
+        angles: filtered,
+      };
+    });
+  }, []);
+  const handleUpdateAngleName = useCallback((angleId: string, name: string) => {
+    setSelection((prev) => ({
+      ...prev,
+      angles: prev.angles.map((angle) =>
+        angle.id === angleId ? { ...angle, name } : angle,
+      ),
+    }));
+  }, []);
 
   const executeCreatePackage = useCallback(async () => {
     if (!globalThis.window.electronAPI) {
@@ -133,24 +204,38 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
       return;
     }
 
+    const anglePayloads: Array<{
+      id: string;
+      name: string;
+      sourcePath: string;
+      role?: 'primary' | 'secondary';
+    }> = selection.angles
+      .filter((angle) => angle.filePath)
+      .map((angle, index) => {
+        const role: 'primary' | 'secondary' | undefined =
+          index === 0 ? 'primary' : index === 1 ? 'secondary' : undefined;
+        return {
+          id: angle.id,
+          name: angle.name.trim() || 'Angle',
+          sourcePath: angle.filePath,
+          role,
+        };
+      });
+
+    if (!anglePayloads.length) {
+      showError('少なくとも1つのアングルに映像を割り当ててください。');
+      return;
+    }
+
     const metaDataConfig: MetaData = {
-      tightViewPath: selection.selectedTightVideo,
-      wideViewPath: selection.selectedWideVideo || null,
+      tightViewPath: '',
+      wideViewPath: null,
       team1Name: form.team1Name,
       team2Name: form.team2Name,
-      actionList: [
-        'ポゼッション',
-        'スクラム',
-        'ラインアウト',
-        'キック',
-        'タックル',
-        'PK',
-        'FK',
-        'Check',
-        'キックオフ',
-        'トライ',
-        'ショット',
-      ],
+      actionList: ActionList.map((item) => item.action),
+      primaryAngleId: anglePayloads[0]?.id || undefined,
+      secondaryAngleId: anglePayloads[1]?.id || undefined,
+      angles: undefined,
     };
 
     try {
@@ -158,8 +243,7 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
         await globalThis.window.electronAPI?.createPackage(
           selection.selectedDirectory,
           form.packageName,
-          selection.selectedTightVideo,
-          selection.selectedWideVideo || null,
+          anglePayloads,
           metaDataConfig,
         );
 
@@ -167,29 +251,16 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
         throw new Error('Failed to create package');
       }
 
-      let syncData: VideoSyncData | undefined;
-      const videoList = packageDatas.wideViewPath
-        ? [packageDatas.tightViewPath, packageDatas.wideViewPath]
-        : [packageDatas.tightViewPath];
-
-      if (packageDatas.wideViewPath) {
-        syncData = await performAudioSync(
-          packageDatas.tightViewPath,
-          packageDatas.wideViewPath,
-        );
-        if (syncData && globalThis.window.electronAPI?.saveSyncData) {
-          try {
-            await globalThis.window.electronAPI.saveSyncData(
-              packageDatas.metaDataConfigFilePath,
-              syncData,
-            );
-          } catch (error) {
-            console.error('同期データの保存に失敗:', error);
-          }
-        }
-      } else {
-        syncData = undefined;
-      }
+      // 新規パッケージ作成時は自動音声同期を実行しない
+      // ユーザーが必要に応じてメニューから「音声同期を再実行」を選択できる
+      const syncData: VideoSyncData | undefined = undefined;
+      const primaryAngle = packageDatas.angles[0];
+      const secondaryAngle =
+        packageDatas.angles.length > 1 ? packageDatas.angles[1] : undefined;
+      const videoList = [
+        primaryAngle?.absolutePath,
+        secondaryAngle?.absolutePath,
+      ].filter(Boolean) as string[];
 
       onPackageCreated({
         videoList,
@@ -227,8 +298,14 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     }
 
     if (activeStep === 2) {
-      if (!selection.selectedTightVideo) {
-        showError('寄り映像を選択してください');
+      const primaryAngle = selection.angles[0];
+      if (!primaryAngle?.filePath) {
+        showError('メインアングルに映像を割り当ててください。');
+        return;
+      }
+
+      if (!selection.angles.some((angle) => angle.filePath)) {
+        showError('少なくとも1つのアングルに映像を割り当ててください。');
         return;
       }
     }
@@ -258,25 +335,83 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
         label: 'チーム',
         value: (
           <Stack direction="row" spacing={1}>
-            <Chip label={form.team1Name} color="error" size="small" />
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                px: 1,
+                py: 0.5,
+                borderRadius: 1,
+                bgcolor: 'error.light',
+                color: 'error.contrastText',
+                fontSize: '0.75rem',
+              }}
+            >
+              {form.team1Name}
+            </Box>
             <Typography variant="body2">vs</Typography>
-            <Chip label={form.team2Name} color="primary" size="small" />
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                px: 1,
+                py: 0.5,
+                borderRadius: 1,
+                bgcolor: 'primary.light',
+                color: 'primary.contrastText',
+                fontSize: '0.75rem',
+              }}
+            >
+              {form.team2Name}
+            </Box>
           </Stack>
         ),
       },
       { label: '保存先', value: selection.selectedDirectory },
       {
-        label: '映像ファイル',
+        label: 'アングル設定',
         value: (
-          <Stack spacing={0.5}>
-            <Typography variant="body2">
-              寄り: {selection.selectedTightVideo?.split('/').pop()}
-            </Typography>
-            {selection.selectedWideVideo && (
-              <Typography variant="body2">
-                引き: {selection.selectedWideVideo.split('/').pop()}
-              </Typography>
-            )}
+          <Stack spacing={1}>
+            {selection.angles.map((angle, index) => {
+              const fileName = angle.filePath
+                ? angle.filePath.split('/').pop()
+                : '未選択';
+              const roleLabel =
+                index === 0
+                  ? 'メイン (自動)'
+                  : index === 1
+                    ? 'セカンダリ (自動)'
+                    : '';
+              return (
+                <Stack key={angle.id} direction="row" spacing={1}>
+                  <Typography variant="body2" sx={{ minWidth: 110 }}>
+                    {angle.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {fileName}
+                  </Typography>
+                  {roleLabel && (
+                    <Box
+                      component="span"
+                      sx={{
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: 1,
+                        bgcolor: roleLabel.includes('メイン')
+                          ? 'primary.main'
+                          : 'info.main',
+                        color: 'primary.contrastText',
+                        fontSize: '0.75rem',
+                      }}
+                    >
+                      {roleLabel}
+                    </Box>
+                  )}
+                </Stack>
+              );
+            })}
           </Stack>
         ),
       },
@@ -319,167 +454,33 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
         </Stepper>
 
         {activeStep === 0 && (
-          <Stack spacing={3}>
-            <Alert severity="info">
-              <AlertTitle>パッケージの基本情報を入力してください</AlertTitle>
-              パッケージ名と対戦する2チームの名前を入力します
-            </Alert>
-
-            <TextField
-              fullWidth
-              label="パッケージ名"
-              value={form.packageName}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  packageName: event.target.value,
-                }))
-              }
-              error={!!errors.packageName}
-              helperText={errors.packageName || '例: 2024_春季大会_決勝'}
-              required
-            />
-
-            <TextField
-              fullWidth
-              label="チーム名 (1)"
-              value={form.team1Name}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, team1Name: event.target.value }))
-              }
-              error={!!errors.team1Name}
-              helperText={errors.team1Name || '赤色で表示されます'}
-              required
-            />
-
-            <TextField
-              fullWidth
-              label="チーム名 (2)"
-              value={form.team2Name}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, team2Name: event.target.value }))
-              }
-              error={!!errors.team2Name}
-              helperText={errors.team2Name || '青色で表示されます'}
-              required
-            />
-          </Stack>
+          <BasicInfoStep
+            form={form}
+            errors={errors}
+            onChange={(updates) => setForm((prev) => ({ ...prev, ...updates }))}
+          />
         )}
 
         {activeStep === 1 && (
-          <Stack spacing={3}>
-            <Alert severity="info">
-              <AlertTitle>パッケージの保存先を選択してください</AlertTitle>
-              選択したフォルダ内に「{form.packageName || 'パッケージ'}
-              」フォルダが作成されます
-            </Alert>
-            {selection.selectedDirectory ? (
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'success.light' }}>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <CheckCircleIcon color="success" />
-                  <Typography variant="body2" noWrap>
-                    {selection.selectedDirectory}
-                  </Typography>
-                </Stack>
-              </Paper>
-            ) : (
-              <Typography color="text.secondary">
-                「次へ」をクリックして保存先を選択してください
-              </Typography>
-            )}
-          </Stack>
+          <DirectoryStep
+            packageName={form.packageName}
+            selectedDirectory={selection.selectedDirectory}
+            onSelectDirectory={handleSelectDirectory}
+          />
         )}
 
         {activeStep === 2 && (
-          <Stack spacing={3}>
-            <Alert severity="info">
-              <AlertTitle>映像ファイルを選択してください</AlertTitle>
-              寄り映像は必須、引き映像は任意です
-            </Alert>
-
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                寄り映像 (必須)
-              </Typography>
-              <Button
-                variant="outlined"
-                onClick={() => handleSelectVideo('tight')}
-                fullWidth
-                sx={{ mb: 1 }}
-                disabled={isAnalyzing}
-              >
-                {selection.selectedTightVideo ? '再選択' : '選択'}
-              </Button>
-              {selection.selectedTightVideo && (
-                <Paper
-                  variant="outlined"
-                  sx={{ p: 1, bgcolor: 'success.light' }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <CheckCircleIcon color="success" fontSize="small" />
-                    <Typography variant="caption" noWrap>
-                      {selection.selectedTightVideo.split('/').pop()}
-                    </Typography>
-                  </Stack>
-                </Paper>
-              )}
-            </Box>
-
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                引き映像 (任意)
-              </Typography>
-              <Button
-                variant="outlined"
-                onClick={() => handleSelectVideo('wide')}
-                fullWidth
-                sx={{ mb: 1 }}
-                disabled={isAnalyzing}
-              >
-                {selection.selectedWideVideo ? '再選択' : '選択'}
-              </Button>
-              {selection.selectedWideVideo && (
-                <Paper
-                  variant="outlined"
-                  sx={{ p: 1, bgcolor: 'success.light' }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <CheckCircleIcon color="success" fontSize="small" />
-                    <Typography variant="caption" noWrap>
-                      {selection.selectedWideVideo.split('/').pop()}
-                    </Typography>
-                  </Stack>
-                </Paper>
-              )}
-            </Box>
-          </Stack>
+          <VideoSelectionStep
+            isAnalyzing={isAnalyzing}
+            angles={selection.angles}
+            onSelectVideo={handleSelectVideo}
+            onAddAngle={handleAddAngle}
+            onRemoveAngle={handleRemoveAngle}
+            onUpdateAngleName={handleUpdateAngleName}
+          />
         )}
 
-        {activeStep === 3 && (
-          <Stack spacing={2}>
-            <Alert severity="success">
-              <AlertTitle>作成内容の確認</AlertTitle>
-              以下の内容でパッケージを作成します
-            </Alert>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Stack spacing={1.5}>
-                {summaryItems.map((item) => (
-                  <Box key={item.label}>
-                    <Typography variant="caption" color="text.secondary">
-                      {item.label}
-                    </Typography>
-                    {typeof item.value === 'string' ||
-                    typeof item.value === 'number' ? (
-                      <Typography variant="body1">{item.value}</Typography>
-                    ) : (
-                      item.value
-                    )}
-                  </Box>
-                ))}
-              </Stack>
-            </Paper>
-          </Stack>
-        )}
+        {activeStep === 3 && <SummaryStep items={summaryItems} />}
 
         {syncStatus.isAnalyzing && (
           <Alert severity="info" sx={{ mt: 3 }}>

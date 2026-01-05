@@ -58,8 +58,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createPackage: async (
     directoryName: string,
     packageName: string,
-    tightViewPath: string,
-    wideViewPath: string | null,
+    angles: Array<{
+      id: string;
+      name: string;
+      sourcePath: string;
+      role?: 'primary' | 'secondary';
+    }>,
     metaData: any,
   ) => {
     try {
@@ -67,8 +71,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         'create-package',
         directoryName,
         packageName,
-        tightViewPath,
-        wideViewPath,
+        angles,
         metaData,
       );
       return packageDatas;
@@ -288,5 +291,229 @@ contextBridge.exposeInMainWorld('electronAPI', {
     } catch {
       /* noop */
     }
+  },
+  // ウィンドウタイトル更新API
+  setWindowTitle: (title: string) => {
+    ipcRenderer.send('set-window-title', title);
+  },
+  exportClipsWithOverlay: async (payload: unknown) => {
+    try {
+      return await ipcRenderer.invoke('export-clips-with-overlay', payload);
+    } catch (error) {
+      console.error('Error exportClipsWithOverlay:', error);
+      return { success: false, error: String(error) };
+    }
+  },
+  // タイムラインエクスポート/インポート用API
+  saveFileDialog: async (
+    defaultPath: string,
+    filters: { name: string; extensions: string[] }[],
+  ) => {
+    try {
+      return await ipcRenderer.invoke('save-file-dialog', defaultPath, filters);
+    } catch (error) {
+      console.error('Error in saveFileDialog:', error);
+      return null;
+    }
+  },
+  openFileDialog: async (filters: { name: string; extensions: string[] }[]) => {
+    try {
+      return await ipcRenderer.invoke('open-file-dialog', filters);
+    } catch (error) {
+      console.error('Error in openFileDialog:', error);
+      return null;
+    }
+  },
+  writeTextFile: async (filePath: string, content: string) => {
+    try {
+      return await ipcRenderer.invoke('write-text-file', filePath, content);
+    } catch (error) {
+      console.error('Error in writeTextFile:', error);
+      return false;
+    }
+  },
+  readTextFile: async (filePath: string) => {
+    try {
+      return await ipcRenderer.invoke('read-text-file', filePath);
+    } catch (error) {
+      console.error('Error in readTextFile:', error);
+      return null;
+    }
+  },
+  onExportTimeline: (callback: (format: string) => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-export-timeline');
+    } catch (e) {
+      // ignore
+    }
+    ipcRenderer.on('menu-export-timeline', (_event, format: string) => {
+      callback(format);
+    });
+  },
+  onImportTimeline: (callback: () => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-import-timeline');
+    } catch (e) {
+      // ignore
+    }
+    ipcRenderer.on(
+      'menu-import-timeline',
+      callback as unknown as (event: IpcRendererEvent) => void,
+    );
+  },
+  onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-coding-mode');
+    } catch {
+      // ignore
+    }
+    ipcRenderer.on('menu-coding-mode', (_event, mode: 'code' | 'label') =>
+      callback(mode),
+    );
+  },
+  onOpenPackage: (callback: () => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-open-package');
+    } catch {
+      // ignore
+    }
+    ipcRenderer.on('menu-open-package', callback as unknown as () => void);
+  },
+  onOpenRecentPackage: (callback: (path: string) => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-open-recent-package');
+    } catch {
+      // ignore
+    }
+    ipcRenderer.on('menu-open-recent-package', (_e, path: string) =>
+      callback(path),
+    );
+  },
+  updateRecentPackages: (paths: string[]) => {
+    ipcRenderer.send('recent-packages:update', paths);
+  },
+
+  // プレイリストAPI
+  playlist: {
+    /** プレイリストウィンドウを開く */
+    openWindow: async () => {
+      await ipcRenderer.invoke('playlist:open-window');
+    },
+    /** プレイリストウィンドウを閉じる */
+    closeWindow: async () => {
+      await ipcRenderer.invoke('playlist:close-window');
+    },
+    /** プレイリストウィンドウが開いているか確認 */
+    isWindowOpen: async (): Promise<boolean> => {
+      return await ipcRenderer.invoke('playlist:is-window-open');
+    },
+    /** プレイリストウィンドウへ状態を同期 */
+    syncToWindow: (data: unknown) => {
+      ipcRenderer.send('playlist:sync-to-window', data);
+    },
+    /** プレイリストウィンドウからのコマンドを受信 */
+    onCommand: (callback: (command: unknown) => void) => {
+      const wrapped = (_event: IpcRendererEvent, command: unknown) => {
+        callback(command);
+      };
+      let map = __listenerStore.get('playlist:command');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('playlist:command', map);
+      }
+      map.set(
+        callback as unknown as Function,
+        wrapped as unknown as (...args: unknown[]) => void,
+      );
+      ipcRenderer.on('playlist:command', wrapped);
+    },
+    /** プレイリストウィンドウからのコマンド受信解除 */
+    offCommand: (callback: (command: unknown) => void) => {
+      const map = __listenerStore.get('playlist:command');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener(
+          'playlist:command',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
+        map?.delete(callback as unknown as Function);
+      }
+    },
+    /** プレイリストウィンドウ閉じられた通知を受信 */
+    onWindowClosed: (callback: () => void) => {
+      const wrapped = () => callback();
+      let map = __listenerStore.get('playlist:window-closed');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('playlist:window-closed', map);
+      }
+      map.set(callback as unknown as Function, wrapped);
+      ipcRenderer.on('playlist:window-closed', wrapped);
+    },
+    /** プレイリストウィンドウ閉じられた通知受信解除 */
+    offWindowClosed: (callback: () => void) => {
+      const map = __listenerStore.get('playlist:window-closed');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener(
+          'playlist:window-closed',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
+        map?.delete(callback as unknown as Function);
+      }
+    },
+
+    // プレイリストウィンドウ側専用API
+    /** 状態同期を受信（プレイリストウィンドウ側） */
+    onSync: (callback: (data: unknown) => void) => {
+      const wrapped = (_event: IpcRendererEvent, data: unknown) => {
+        callback(data);
+      };
+      let map = __listenerStore.get('playlist:sync');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('playlist:sync', map);
+      }
+      map.set(
+        callback as unknown as Function,
+        wrapped as unknown as (...args: unknown[]) => void,
+      );
+      ipcRenderer.on('playlist:sync', wrapped);
+    },
+    /** 状態同期受信解除 */
+    offSync: (callback: (data: unknown) => void) => {
+      const map = __listenerStore.get('playlist:sync');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener(
+          'playlist:sync',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
+        map?.delete(callback as unknown as Function);
+      }
+    },
+    /** コマンドを送信（プレイリストウィンドウ側からメインへ） */
+    sendCommand: (command: unknown) => {
+      ipcRenderer.send('playlist:command', command);
+    },
+
+    // ファイル操作API
+    /** プレイリストをファイルに保存（スタンドアロン形式） */
+    savePlaylistFile: async (playlist: unknown): Promise<string | null> => {
+      return await ipcRenderer.invoke('playlist:save-file', playlist);
+    },
+    /** プレイリストファイルを読み込み */
+    loadPlaylistFile: async (
+      filePath?: string,
+    ): Promise<{ playlist: unknown; filePath: string } | null> => {
+      return await ipcRenderer.invoke('playlist:load-file', filePath);
+    },
+    /** システム関連付けから開かれたプレイリスト通知 */
+    onExternalOpen: (callback: (filePath: string) => void) => {
+      const wrapped = (_: unknown, path: string) => callback(path);
+      ipcRenderer.on('playlist:external-open', wrapped);
+      return () =>
+        ipcRenderer.removeListener('playlist:external-open', wrapped);
+    },
   },
 });

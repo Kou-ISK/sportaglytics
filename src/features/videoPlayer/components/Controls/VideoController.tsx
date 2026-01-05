@@ -83,14 +83,16 @@ export const VideoController = ({
       return;
     }
 
-    // 頻度制限: 0.05秒以上の変化がある場合のみ実行（シーク操作以外）
-    // タイムラインの赤い棒をスムーズに動かすため、閾値を下げる
+    // 頻度制限: RAFからの呼び出しは常に通す（早送り時の追従性向上）
     const now = Date.now();
     const timeDiff = Math.abs(time - lastSetCurrentTimeValueRef.current);
-    const hasSignificantChange = timeDiff > 0.05; // 0.2秒 → 0.05秒に緩和
     const isSyncTick = source.startsWith('RAF');
 
-    if (hasSignificantChange || source === 'updateTimeHandler' || isSyncTick) {
+    // RAF更新は閾値チェックなしで通す、それ以外は0.05秒以上の変化で更新
+    const shouldUpdate =
+      isSyncTick || source === 'updateTimeHandler' || timeDiff > 0.05;
+
+    if (shouldUpdate) {
       // console.log(`[INFO] safeSetCurrentTime from ${source}: ${time}秒を設定`);
       lastSetCurrentTimeValueRef.current = time;
       lastSetCurrentTimeTimestampRef.current = now;
@@ -318,7 +320,20 @@ export const VideoController = ({
         typeof maxSec === 'number' && maxSec > minAllowed
           ? maxSec
           : Number.POSITIVE_INFINITY;
-      const base = Number.isFinite(videoTime) ? videoTime : 0;
+
+      // videoTime状態ではなく、プレイヤーの実際のcurrentTime()から起点を取得
+      let base = 0;
+      try {
+        const player = getExistingPlayer('video_0');
+        if (player?.currentTime) {
+          base = player.currentTime() ?? 0;
+        } else {
+          base = Number.isFinite(videoTime) ? videoTime : 0;
+        }
+      } catch {
+        base = Number.isFinite(videoTime) ? videoTime : 0;
+      }
+
       const target = base + deltaSeconds;
       const clamped = Math.min(maxAllowed, Math.max(minAllowed, target));
       lastManualSeekTimestamp.current = Date.now();
@@ -329,7 +344,7 @@ export const VideoController = ({
         handleCurrentTime({} as React.SyntheticEvent, clamped);
       }
     },
-    [videoTime, syncData, maxSec, handleCurrentTime],
+    [videoTime, syncData, maxSec, handleCurrentTime, getExistingPlayer],
   );
 
   const togglePlayback = useCallback(() => {

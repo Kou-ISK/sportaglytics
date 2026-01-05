@@ -1,4 +1,9 @@
-import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import React, {
+  useState,
+  forwardRef,
+  useImperativeHandle,
+  useEffect,
+} from 'react';
 import {
   Box,
   Button,
@@ -21,6 +26,7 @@ import {
   Radio,
   Paper,
   Stack,
+  Chip,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -33,12 +39,34 @@ import type {
   ActionDefinition,
 } from '../../../types/Settings';
 import { useActionPreset } from '../../../contexts/ActionPresetContext';
+import { validateActionHotkey } from '../../../utils/hotkeyValidation';
 import type { SettingsTabHandle } from '../../SettingsPage';
 import {
   downloadPresetsAsFile,
   importPresetsFromFile,
   resolvePresetIdConflicts,
 } from '../../../utils/presetImportExport';
+
+/**
+ * キーボードイベントから表示用のキー文字列を生成
+ */
+const formatKeyCombo = (event: KeyboardEvent): string => {
+  const keys: string[] = [];
+
+  if (event.metaKey) keys.push('Command');
+  if (event.ctrlKey) keys.push('Control');
+  if (event.altKey) keys.push('Option');
+  if (event.shiftKey) keys.push('Shift');
+
+  // 修飾キー以外のキー
+  if (event.key && !['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) {
+    const keyName =
+      event.key.length === 1 ? event.key.toUpperCase() : event.key;
+    keys.push(keyName);
+  }
+
+  return keys.join('+');
+};
 
 interface ActionPresetSettingsProps {
   settings: AppSettings;
@@ -75,8 +103,18 @@ export const ActionPresetSettings = forwardRef<
     null,
   );
   const [actionFormName, setActionFormName] = useState('');
-  const [actionFormResults, setActionFormResults] = useState('');
-  const [actionFormTypes, setActionFormTypes] = useState('');
+  const [actionFormGroups, setActionFormGroups] = useState<
+    Array<{ groupName: string; options: string }>
+  >([]);
+
+  // ホットキー編集用の状態（HotkeySettingsと同様のパターン）
+  const [editingHotkeyForAction, setEditingHotkeyForAction] = useState<
+    number | null
+  >(null);
+  const [capturedKey, setCapturedKey] = useState('');
+  const [hotkeyConflictWarning, setHotkeyConflictWarning] = useState<
+    string | null
+  >(null);
 
   // 未保存の変更を検出
   useImperativeHandle(ref, () => ({
@@ -87,6 +125,48 @@ export const ActionPresetSettings = forwardRef<
       return hasPresetsChanged || hasActiveIdChanged;
     },
   }));
+
+  // ホットキーキャプチャ用のイベントリスナー（HotkeySettingsと同様）
+  useEffect(() => {
+    if (editingHotkeyForAction === null) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Escapeキーでキャンセル
+      if (event.key === 'Escape') {
+        handleCancelHotkeyEdit();
+        return;
+      }
+
+      // 修飾キーのみの場合は無視
+      if (['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) {
+        return;
+      }
+
+      const keyCombo = formatKeyCombo(event);
+      setCapturedKey(keyCombo);
+
+      // 衝突チェック
+      const existingHotkeys = formActions
+        .map((a, idx) => (idx === editingHotkeyForAction ? null : a.hotkey))
+        .filter((h): h is string => h !== undefined && h !== '');
+
+      const validationError = validateActionHotkey(
+        keyCombo,
+        settings.hotkeys,
+        existingHotkeys,
+      );
+
+      setHotkeyConflictWarning(validationError);
+    };
+
+    globalThis.addEventListener('keydown', handleKeyDown);
+    return () => {
+      globalThis.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [editingHotkeyForAction, formActions, settings.hotkeys]);
 
   const handleOpenDialog = (preset?: ActionPreset) => {
     if (preset) {
@@ -111,15 +191,83 @@ export const ActionPresetSettings = forwardRef<
       setEditingActionIndex(index);
       const act = formActions[index];
       setActionFormName(act.action);
-      setActionFormResults(act.results.join(', '));
-      setActionFormTypes(act.types.join(', '));
+      setCapturedKey(act.hotkey || '');
+
+      // グループ構造をロード（優先）
+      if (act.groups && act.groups.length > 0) {
+        setActionFormGroups(
+          act.groups.map((g) => ({
+            groupName: g.groupName,
+            options: g.options.join(', '),
+          })),
+        );
+      } else if (act.results.length > 0 || act.types.length > 0) {
+        // 旧形式の場合は自動変換
+        const groups: Array<{ groupName: string; options: string }> = [];
+        if (act.results.length > 0) {
+          groups.push({ groupName: 'Result', options: act.results.join(', ') });
+        }
+        if (act.types.length > 0) {
+          groups.push({ groupName: 'Type', options: act.types.join(', ') });
+        }
+        setActionFormGroups(groups);
+      } else {
+        setActionFormGroups([]);
+      }
     } else {
       setEditingActionIndex(null);
       setActionFormName('');
-      setActionFormResults('');
-      setActionFormTypes('');
+      setCapturedKey('');
+      setActionFormGroups([]);
     }
+    setEditingHotkeyForAction(null);
+    setHotkeyConflictWarning(null);
     setActionDialogOpen(true);
+  };
+
+  const handleStartHotkeyEdit = (actionIndex: number) => {
+    setEditingHotkeyForAction(actionIndex);
+    const currentHotkey = formActions[actionIndex]?.hotkey || '';
+    setCapturedKey(currentHotkey);
+    setHotkeyConflictWarning(null);
+  };
+
+  const handleSaveHotkeyEdit = () => {
+    if (
+      editingHotkeyForAction === null ||
+      !capturedKey ||
+      hotkeyConflictWarning
+    )
+      return;
+
+    const updated = [...formActions];
+    updated[editingHotkeyForAction] = {
+      ...updated[editingHotkeyForAction],
+      hotkey: capturedKey,
+    };
+    setFormActions(updated);
+    setEditingHotkeyForAction(null);
+    setCapturedKey('');
+    setHotkeyConflictWarning(null);
+  };
+
+  const handleCancelHotkeyEdit = () => {
+    const originalHotkey =
+      editingHotkeyForAction === null
+        ? ''
+        : formActions[editingHotkeyForAction]?.hotkey || '';
+    setCapturedKey(originalHotkey);
+    setEditingHotkeyForAction(null);
+    setHotkeyConflictWarning(null);
+  };
+
+  const handleClearHotkey = (actionIndex: number) => {
+    const updated = [...formActions];
+    updated[actionIndex] = {
+      ...updated[actionIndex],
+      hotkey: undefined,
+    };
+    setFormActions(updated);
   };
 
   const handleCloseActionDialog = () => {
@@ -128,16 +276,21 @@ export const ActionPresetSettings = forwardRef<
   };
 
   const handleSaveAction = () => {
+    // グループ構造を必須とする
+    const groups = actionFormGroups.map((g) => ({
+      groupName: g.groupName,
+      options: g.options
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    }));
+
     const newAction: ActionDefinition = {
       action: actionFormName,
-      results: actionFormResults
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      types: actionFormTypes
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
+      results: [], // 後方互換性のため空配列で保持
+      types: [], // 後方互換性のため空配列で保持
+      groups: groups.length > 0 ? groups : undefined,
+      hotkey: capturedKey.trim() || undefined,
     };
 
     if (editingActionIndex === null) {
@@ -161,14 +314,31 @@ export const ActionPresetSettings = forwardRef<
       name: formName,
       actions: formActions,
       order: editingPreset?.order || presets.length,
+      isDefault: editingPreset?.isDefault || false, // デフォルトフラグを維持
     };
 
     let updatedPresets: ActionPreset[];
     if (editingPreset) {
-      updatedPresets = presets.map((p) =>
-        p.id === editingPreset.id ? newPreset : p,
-      );
+      if (editingPreset.isDefault) {
+        // デフォルトプリセットの場合
+        // presetsに既に存在する場合は更新、存在しない場合は追加
+        const existsInPresets = presets.some((p) => p.id === editingPreset.id);
+        if (existsInPresets) {
+          updatedPresets = presets.map((p) =>
+            p.id === editingPreset.id ? newPreset : p,
+          );
+        } else {
+          // デフォルトプリセットを初めて編集する場合は追加
+          updatedPresets = [...presets, newPreset];
+        }
+      } else {
+        // カスタムプリセットの場合は通常更新
+        updatedPresets = presets.map((p) =>
+          p.id === editingPreset.id ? newPreset : p,
+        );
+      }
     } else {
+      // 新規プリセット追加
       updatedPresets = [...presets, newPreset];
     }
 
@@ -177,12 +347,17 @@ export const ActionPresetSettings = forwardRef<
   };
 
   const handleDeletePreset = (id: string) => {
+    // デフォルトプリセットは削除不可
+    const preset = presets.find((p) => p.id === id);
+    if (preset?.isDefault) return;
+
     setPresets(presets.filter((p) => p.id !== id));
   };
 
   const handleExport = () => {
     try {
-      downloadPresetsAsFile(presets);
+      // すべてのプリセット（デフォルト含む）をエクスポート
+      downloadPresetsAsFile(availablePresets);
       setSaveSuccess(true);
       setErrorMessage(null);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -208,8 +383,45 @@ export const ActionPresetSettings = forwardRef<
         return;
       }
 
+      // 旧形式を新形式（グループ構造）に変換
+      const convertedPresets = result.presets.map((preset) => ({
+        ...preset,
+        actions: preset.actions.map((action) => {
+          // 既にグループ構造がある場合はそのまま
+          if (action.groups && action.groups.length > 0) {
+            return action;
+          }
+
+          // 旧形式（results/types）を新形式（groups）に変換
+          const groups = [];
+          if (action.results && action.results.length > 0) {
+            groups.push({
+              groupName: 'Result',
+              options: action.results,
+            });
+          }
+          if (action.types && action.types.length > 0) {
+            groups.push({
+              groupName: 'Type',
+              options: action.types,
+            });
+          }
+
+          return {
+            ...action,
+            groups: groups.length > 0 ? groups : undefined,
+            // 後方互換性のため保持
+            results: action.results || [],
+            types: action.types || [],
+          };
+        }),
+      }));
+
       // ID衝突を解決
-      const resolvedPresets = resolvePresetIdConflicts(presets, result.presets);
+      const resolvedPresets = resolvePresetIdConflicts(
+        presets,
+        convertedPresets,
+      );
       setPresets([...presets, ...resolvedPresets]);
       setErrorMessage(null);
       setSaveSuccess(true);
@@ -279,7 +491,7 @@ export const ActionPresetSettings = forwardRef<
       <Divider sx={{ mb: 3 }} />
 
       <Typography variant="subtitle1" gutterBottom>
-        カスタムプリセット管理
+        プリセット管理
       </Typography>
 
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
@@ -294,7 +506,7 @@ export const ActionPresetSettings = forwardRef<
           variant="outlined"
           startIcon={<DownloadIcon />}
           onClick={handleExport}
-          disabled={presets.length === 0}
+          disabled={availablePresets.length === 0}
         >
           エクスポート
         </Button>
@@ -306,7 +518,7 @@ export const ActionPresetSettings = forwardRef<
       </Stack>
 
       <List>
-        {presets.map((preset) => (
+        {availablePresets.map((preset) => (
           <ListItem
             key={preset.id}
             secondaryAction={
@@ -319,18 +531,28 @@ export const ActionPresetSettings = forwardRef<
                 >
                   <EditIcon />
                 </IconButton>
-                <IconButton
-                  edge="end"
-                  aria-label="削除"
-                  onClick={() => handleDeletePreset(preset.id)}
-                >
-                  <DeleteIcon />
-                </IconButton>
+                {/* デフォルトプリセットは削除不可 */}
+                {!preset.isDefault && (
+                  <IconButton
+                    edge="end"
+                    aria-label="削除"
+                    onClick={() => handleDeletePreset(preset.id)}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                )}
               </Box>
             }
           >
             <ListItemText
-              primary={preset.name}
+              primary={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {preset.name}
+                  {preset.isDefault && (
+                    <Chip label="デフォルト" size="small" color="default" />
+                  )}
+                </Box>
+              }
               secondary={`${
                 preset.actions.length
               }件のアクション: ${preset.actions
@@ -341,7 +563,7 @@ export const ActionPresetSettings = forwardRef<
         ))}
       </List>
 
-      {presets.length === 0 && (
+      {availablePresets.length === 0 && (
         <Typography
           variant="body2"
           color="text.secondary"
@@ -409,9 +631,17 @@ export const ActionPresetSettings = forwardRef<
             )}
 
             {formActions.map((act, index) => (
-              <Paper key={`action-${act.action}-${index}`} sx={{ p: 2, mb: 1 }}>
+              <Paper
+                key={`action-${act.action}-${index}`}
+                sx={{
+                  p: 2,
+                  mb: 1,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                }}
+              >
                 <Stack direction="row" justifyContent="space-between">
-                  <Box>
+                  <Box sx={{ flex: 1 }}>
                     <Typography variant="body1" fontWeight="bold">
                       {act.action}
                     </Typography>
@@ -419,6 +649,115 @@ export const ActionPresetSettings = forwardRef<
                       結果: {act.results.length}件 | タイプ: {act.types.length}
                       件
                     </Typography>
+
+                    {/* ホットキー設定部分（HotkeySettingsと同様のUI） */}
+                    {editingHotkeyForAction === index ? (
+                      <Box sx={{ mt: 1 }}>
+                        <Paper
+                          sx={{
+                            p: 2,
+                            mb: 1,
+                            bgcolor: 'action.hover',
+                            border: '2px dashed',
+                            borderColor: hotkeyConflictWarning
+                              ? 'error.main'
+                              : 'primary.main',
+                            textAlign: 'center',
+                          }}
+                        >
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            キーを押してください（Escでキャンセル）
+                          </Typography>
+                          <Chip
+                            label={capturedKey || 'キー入力待ち...'}
+                            color={hotkeyConflictWarning ? 'error' : 'primary'}
+                            sx={{ fontWeight: 'bold', fontSize: '1rem' }}
+                          />
+                        </Paper>
+                        {hotkeyConflictWarning && (
+                          <Alert severity="error" sx={{ mb: 1 }}>
+                            {hotkeyConflictWarning}
+                          </Alert>
+                        )}
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={handleSaveHotkeyEdit}
+                            disabled={!capturedKey || !!hotkeyConflictWarning}
+                            fullWidth
+                          >
+                            保存
+                          </Button>
+                          <Button
+                            size="small"
+                            onClick={handleCancelHotkeyEdit}
+                            fullWidth
+                          >
+                            キャンセル
+                          </Button>
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          mt: 1,
+                        }}
+                      >
+                        {act.hotkey ? (
+                          <>
+                            <Chip
+                              label={act.hotkey}
+                              size="small"
+                              color="primary"
+                            />
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Team1
+                            </Typography>
+                            <Chip
+                              label={`Shift+${act.hotkey}`}
+                              size="small"
+                              color="secondary"
+                            />
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Team2
+                            </Typography>
+                            <Button
+                              size="small"
+                              onClick={() => handleStartHotkeyEdit(index)}
+                            >
+                              変更
+                            </Button>
+                            <Button
+                              size="small"
+                              onClick={() => handleClearHotkey(index)}
+                            >
+                              クリア
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="small"
+                            onClick={() => handleStartHotkeyEdit(index)}
+                          >
+                            ホットキーを設定
+                          </Button>
+                        )}
+                      </Box>
+                    )}
                   </Box>
                   <Box>
                     <IconButton
@@ -473,27 +812,78 @@ export const ActionPresetSettings = forwardRef<
             onChange={(e) => setActionFormName(e.target.value)}
             sx={{ mb: 2 }}
           />
-          <TextField
-            margin="dense"
-            label="結果の選択肢（カンマ区切り）"
-            fullWidth
-            multiline
-            rows={3}
-            value={actionFormResults}
-            onChange={(e) => setActionFormResults(e.target.value)}
-            placeholder="例: Try, Drop Goal, Kick Out"
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" gutterBottom>
+            ラベル設定
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            ラベルグループとラベルの階層構造を定義できます
+          </Typography>
+
+          {actionFormGroups.map((group, idx) => (
+            <Paper
+              key={`group-${idx}-${group.groupName}`}
+              sx={{ p: 2, mb: 1, bgcolor: 'action.hover' }}
+            >
+              <Stack direction="row" spacing={1} alignItems="flex-start">
+                <TextField
+                  size="small"
+                  label="ラベルグループ"
+                  value={group.groupName}
+                  onChange={(e) => {
+                    const updated = [...actionFormGroups];
+                    updated[idx].groupName = e.target.value;
+                    setActionFormGroups(updated);
+                  }}
+                  placeholder="例: Result, Type, Position"
+                  sx={{ flex: 1 }}
+                />
+                <TextField
+                  size="small"
+                  label="ラベル（カンマ区切り）"
+                  value={group.options}
+                  onChange={(e) => {
+                    const updated = [...actionFormGroups];
+                    updated[idx].options = e.target.value;
+                    setActionFormGroups(updated);
+                  }}
+                  placeholder="例: Try, Drop Goal, Kick Out"
+                  sx={{ flex: 2 }}
+                  multiline
+                />
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setActionFormGroups(
+                      actionFormGroups.filter((_, i) => i !== idx),
+                    );
+                  }}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Stack>
+            </Paper>
+          ))}
+
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setActionFormGroups([
+                ...actionFormGroups,
+                { groupName: '', options: '' },
+              ]);
+            }}
             sx={{ mb: 2 }}
-          />
-          <TextField
-            margin="dense"
-            label="タイプの選択肢（カンマ区切り）"
-            fullWidth
-            multiline
-            rows={2}
-            value={actionFormTypes}
-            onChange={(e) => setActionFormTypes(e.target.value)}
-            placeholder="例: BK, FW"
-          />
+          >
+            ラベルグループを追加
+          </Button>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            ※
+            ホットキーは保存後、各アクションの「ホットキーを設定」ボタンから設定できます
+            <br />※ 修飾キーなし = 最初のチーム、Shift = 2番目のチーム
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseActionDialog}>キャンセル</Button>

@@ -1,16 +1,5 @@
 import React from 'react';
-import {
-  Box,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Stack,
-  Tab,
-  Tabs,
-  Typography,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Dialog, DialogContent, DialogTitle, Tab, Tabs } from '@mui/material';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { StatsView } from '../StatsModal';
 import type { StatsModalDerivedState } from '../hooks/useStatsModalState';
@@ -19,6 +8,7 @@ import { PossessionTab } from './PossessionTab';
 import { ActionBreakdownTab } from './ActionBreakdownTab';
 import { MomentumTab } from './MomentumTab';
 import { MatrixTab } from './MatrixTab';
+import { StatsModalHeader } from './Header';
 
 interface StatsModalViewProps extends StatsModalDerivedState {
   open: boolean;
@@ -37,8 +27,6 @@ export const StatsModalView = ({
   possessionData,
   hasTimelineData,
   resolvedTeamNames,
-  uniqueActionTypes,
-  uniqueActionResults,
   countActionResultByTeamName,
   countActionTypeByTeamName,
   createMomentumData,
@@ -52,21 +40,11 @@ export const StatsModalView = ({
       fullWidth
       maxWidth="lg"
       aria-labelledby="stats-dialog-title"
+      disableEnforceFocus
+      disableRestoreFocus
     >
       <DialogTitle id="stats-dialog-title" sx={{ pb: 1 }}>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Typography variant="h6" component="span">
-              分析ダッシュボード
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              タイムラインから自動集計された指標を確認できます
-            </Typography>
-          </Stack>
-          <IconButton onClick={onClose} size="small">
-            <CloseIcon />
-          </IconButton>
-        </Box>
+        <StatsModalHeader onClose={onClose} />
       </DialogTitle>
 
       <DialogContent dividers sx={{ pt: 0 }}>
@@ -123,7 +101,7 @@ export const StatsModalView = ({
             hasData={hasTimelineData}
             createMomentumData={createMomentumData}
             teamNames={resolvedTeamNames}
-            emptyMessage="モーメンタムを表示するにはタイムラインを作成してください。"
+            emptyMessage="モメンタムを表示するにはタイムラインを作成してください。"
           />
         )}
 
@@ -131,9 +109,6 @@ export const StatsModalView = ({
           <MatrixTab
             hasData={hasTimelineData}
             timeline={timeline}
-            teamNames={resolvedTeamNames}
-            uniqueActionTypes={uniqueActionTypes}
-            uniqueActionResults={uniqueActionResults}
             onJumpToSegment={onJumpToSegment}
             emptyMessage="クロス集計を表示するにはタイムラインを作成してください。"
           />

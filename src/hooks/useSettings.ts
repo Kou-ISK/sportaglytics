@@ -20,7 +20,43 @@ export const useSettings = () => {
         throw new Error('Electron API is not available');
       }
       const loaded = (await api.loadSettings()) as AppSettings;
-      setSettings(loaded);
+      // 新フィールドがない場合の後方互換
+      // hotkeysのマージ: 保存された設定に存在しないホットキーをデフォルトから補完
+      const loadedHotkeys = (loaded as Partial<AppSettings>).hotkeys ?? [];
+      const loadedHotkeyIds = new Set(loadedHotkeys.map((h) => h.id));
+      const mergedHotkeys = [
+        ...loadedHotkeys,
+        ...DEFAULT_SETTINGS.hotkeys.filter((h) => !loadedHotkeyIds.has(h.id)),
+      ];
+
+      const merged: AppSettings = {
+        ...DEFAULT_SETTINGS,
+        ...loaded,
+        hotkeys: mergedHotkeys,
+        overlayClip: {
+          ...DEFAULT_SETTINGS.overlayClip,
+          ...(loaded as Partial<AppSettings>).overlayClip,
+        },
+        codingPanel: {
+          ...DEFAULT_SETTINGS.codingPanel,
+          ...(loaded as Partial<AppSettings>).codingPanel,
+          defaultMode:
+            (loaded as Partial<AppSettings>).codingPanel?.defaultMode ??
+            DEFAULT_SETTINGS.codingPanel?.defaultMode ??
+            'code',
+          toolbars:
+            (loaded as Partial<AppSettings>).codingPanel?.toolbars?.filter(
+              (t) => t.mode === 'code' || t.mode === 'label',
+            ) ??
+            DEFAULT_SETTINGS.codingPanel?.toolbars ??
+            [],
+          actionLinks:
+            (loaded as Partial<AppSettings>).codingPanel?.actionLinks ??
+            DEFAULT_SETTINGS.codingPanel?.actionLinks ??
+            [],
+        },
+      };
+      setSettings(merged);
     } catch (err) {
       console.error('Failed to load settings:', err);
       setError('設定の読み込みに失敗しました');
@@ -62,7 +98,47 @@ export const useSettings = () => {
         throw new Error('Electron API is not available');
       }
       const defaultSettings = (await api.resetSettings()) as AppSettings;
-      setSettings(defaultSettings);
+      // hotkeysのマージ
+      const loadedHotkeys =
+        (defaultSettings as Partial<AppSettings>).hotkeys ?? [];
+      const loadedHotkeyIds = new Set(loadedHotkeys.map((h) => h.id));
+      const mergedHotkeys = [
+        ...loadedHotkeys,
+        ...DEFAULT_SETTINGS.hotkeys.filter((h) => !loadedHotkeyIds.has(h.id)),
+      ];
+
+      const merged: AppSettings = {
+        ...DEFAULT_SETTINGS,
+        ...defaultSettings,
+        hotkeys: mergedHotkeys,
+        overlayClip: {
+          ...DEFAULT_SETTINGS.overlayClip,
+          ...(defaultSettings as Partial<AppSettings>).overlayClip,
+        },
+        codingPanel: {
+          ...DEFAULT_SETTINGS.codingPanel,
+          ...(defaultSettings as Partial<AppSettings>).codingPanel,
+          defaultMode:
+            (defaultSettings as Partial<AppSettings>).codingPanel
+              ?.defaultMode ??
+            DEFAULT_SETTINGS.codingPanel?.defaultMode ??
+            'code',
+          toolbars:
+            (
+              defaultSettings as Partial<AppSettings>
+            ).codingPanel?.toolbars?.filter(
+              (t) => t.mode === 'code' || t.mode === 'label',
+            ) ??
+            DEFAULT_SETTINGS.codingPanel?.toolbars ??
+            [],
+          actionLinks:
+            (defaultSettings as Partial<AppSettings>).codingPanel
+              ?.actionLinks ??
+            DEFAULT_SETTINGS.codingPanel?.actionLinks ??
+            [],
+        },
+      };
+      setSettings(merged);
       return true;
     } catch (err) {
       console.error('Failed to reset settings:', err);

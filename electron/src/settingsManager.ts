@@ -30,15 +30,50 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: 'analyze', label: '分析開始', key: 'Command+Shift+A' },
     { id: 'undo', label: '元に戻す', key: 'Command+Z' },
     { id: 'redo', label: 'やり直す', key: 'Command+Shift+Z' },
-    { id: 'skip-forward-small', label: '0.5秒進む', key: 'Right' },
-    { id: 'skip-forward-medium', label: '2秒進む', key: 'Shift+Right' },
-    { id: 'skip-forward-large', label: '4秒進む', key: 'Command+Right' },
-    { id: 'skip-forward-xlarge', label: '6秒進む', key: 'Option+Right' },
-    { id: 'skip-backward-medium', label: '5秒戻る', key: 'Left' },
-    { id: 'skip-backward-large', label: '10秒戻る', key: 'Shift+Left' },
-    { id: 'play-pause', label: '再生/一時停止', key: 'Up' },
+    { id: 'skip-forward-small', label: '0.5倍速再生', key: 'Right' },
+    { id: 'skip-forward-medium', label: '2倍速再生', key: 'Shift+Right' },
+    { id: 'skip-forward-large', label: '4倍速再生', key: 'Command+Right' },
+    { id: 'skip-forward-xlarge', label: '6倍速再生', key: 'Option+Right' },
+    { id: 'skip-backward-medium', label: '5秒戻し', key: 'Left' },
+    { id: 'skip-backward-large', label: '10秒戻し', key: 'Shift+Left' },
+    { id: 'play-pause', label: '再生/停止', key: 'Space' },
   ],
   language: 'ja',
+  overlayClip: {
+    enabled: true,
+    showActionName: true,
+    showActionIndex: true,
+    showLabels: true,
+    showQualifier: true,
+    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
+  },
+  codingPanel: {
+    defaultMode: 'code',
+    toolbars: [
+      {
+        id: 'matrix',
+        label: 'マトリクス',
+        mode: 'code',
+        enabled: true,
+        plugin: 'matrix',
+      },
+      {
+        id: 'script',
+        label: 'スクリプト実行',
+        mode: 'code',
+        enabled: true,
+        plugin: 'script',
+      },
+      {
+        id: 'organizer',
+        label: 'オーガナイザー',
+        mode: 'label',
+        enabled: true,
+        plugin: 'organizer',
+      },
+    ],
+    actionLinks: [],
+  },
 };
 
 /**
@@ -71,7 +106,32 @@ export const loadSettings = async (): Promise<AppSettings> => {
     const parsed = JSON.parse(data) as Partial<AppSettings>;
 
     // デフォルト設定とマージして不足項目を補完
-    const merged = { ...DEFAULT_SETTINGS, ...parsed };
+    const merged: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      overlayClip: {
+        ...DEFAULT_SETTINGS.overlayClip,
+        ...(parsed.overlayClip ?? {}),
+      },
+      codingPanel: {
+        ...DEFAULT_SETTINGS.codingPanel,
+        ...(parsed.codingPanel ?? {}),
+        defaultMode:
+          parsed.codingPanel?.defaultMode ??
+          DEFAULT_SETTINGS.codingPanel?.defaultMode ??
+          'code',
+        toolbars:
+          parsed.codingPanel?.toolbars?.filter(
+            (t) => t.mode === 'code' || t.mode === 'label',
+          ) ??
+          DEFAULT_SETTINGS.codingPanel?.toolbars ??
+          [],
+        actionLinks:
+          parsed.codingPanel?.actionLinks ??
+          DEFAULT_SETTINGS.codingPanel?.actionLinks ??
+          [],
+      },
+    };
 
     // 古い/無効なホットキーをフィルタリング
     if (merged.hotkeys && merged.hotkeys.length > 0) {
@@ -89,8 +149,19 @@ export const loadSettings = async (): Promise<AppSettings> => {
 
     return merged;
   } catch (error) {
-    // ファイルが存在しない、またはパースエラーの場合はデフォルト設定を返す
-    console.warn('Settings file not found or invalid, using defaults:', error);
+    // ファイルが存在しない場合はデフォルト設定を保存して返す
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      console.info(
+        'Settings file not found (first launch), creating with defaults',
+      );
+      // デフォルト設定を保存（非同期だが待たない）
+      saveSettings(DEFAULT_SETTINGS).catch((saveError) => {
+        console.error('Failed to save default settings:', saveError);
+      });
+    } else {
+      // その他のエラー（パースエラー等）
+      console.warn('Settings file invalid, using defaults:', error);
+    }
     return DEFAULT_SETTINGS;
   }
 };
@@ -101,6 +172,10 @@ export const loadSettings = async (): Promise<AppSettings> => {
 export const saveSettings = async (settings: AppSettings): Promise<boolean> => {
   const settingsPath = getSettingsPath();
   try {
+    // ディレクトリが存在しない場合は作成
+    const dir = path.dirname(settingsPath);
+    await fs.mkdir(dir, { recursive: true });
+
     const data = JSON.stringify(settings, null, 2);
     await fs.writeFile(settingsPath, data, 'utf-8');
     return true;

@@ -56,7 +56,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     title: '統計を可視化',
     description:
-      'タグ付けしたデータから、ポゼッション、アクション結果、モーメンタムなどの統計を自動生成します。',
+      'タグ付けしたデータから、ポゼッション、アクション結果、モメンタムなどの統計を自動生成します。',
     icon: <BarChartIcon sx={{ fontSize: 80, color: 'secondary.main' }} />,
     tips: ['チャートをクリックして詳細を確認', '統計は自動保存されます'],
   },
