@@ -1,6 +1,6 @@
 {
   "name": "sportaglytics",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sports video tagging and analytics application",
   "private": true,
   "packageManager": "pnpm@9.1.0",
