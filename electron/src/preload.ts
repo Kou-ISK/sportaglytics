@@ -512,7 +512,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onExternalOpen: (callback: (filePath: string) => void) => {
       const wrapped = (_: unknown, path: string) => callback(path);
       ipcRenderer.on('playlist:external-open', wrapped);
-      return () => ipcRenderer.removeListener('playlist:external-open', wrapped);
+      return () =>
+        ipcRenderer.removeListener('playlist:external-open', wrapped);
     },
   },
 });

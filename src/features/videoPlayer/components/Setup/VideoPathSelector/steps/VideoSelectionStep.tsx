@@ -75,7 +75,9 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
                     size="small"
                     label="アングル名"
                     value={angle.name}
-                    onChange={(e) => onUpdateAngleName(angle.id, e.target.value)}
+                    onChange={(e) =>
+                      onUpdateAngleName(angle.id, e.target.value)
+                    }
                     sx={{ minWidth: 180 }}
                   />
                   {roleLabel && (
@@ -111,7 +113,13 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
                   {angle.filePath ? (
                     <Chip
                       label={fileName}
-                      color={index === 0 ? 'primary' : index === 1 ? 'info' : 'default'}
+                      color={
+                        index === 0
+                          ? 'primary'
+                          : index === 1
+                            ? 'info'
+                            : 'default'
+                      }
                       variant="outlined"
                       sx={{ maxWidth: 260 }}
                     />

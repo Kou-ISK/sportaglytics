@@ -100,8 +100,13 @@ export const useTimelineRangeSelection = ({
       positionToTime: (positionPx: number) => number,
     ) => {
       if (!dragStartDisplay || !dragEndDisplay) return;
-      const { rectLeft, rectTop, scrollLeft, scrollTop, laneOffset = 0 } =
-        getSelectionMetrics();
+      const {
+        rectLeft,
+        rectTop,
+        scrollLeft,
+        scrollTop,
+        laneOffset = 0,
+      } = getSelectionMetrics();
       const endDisplay: Point = {
         x: event.clientX - rectLeft,
         y: event.clientY - rectTop,
@@ -136,7 +141,9 @@ export const useTimelineRangeSelection = ({
       const selectedIds = timeline
         .map((item) => {
           const { top, bottom } = getLaneBounds(item.actionName);
-          const overlapX = Math.max(leftTime, item.startTime) <= Math.min(rightTime, item.endTime);
+          const overlapX =
+            Math.max(leftTime, item.startTime) <=
+            Math.min(rightTime, item.endTime);
           const overlapY = Math.max(topY, top) <= Math.min(bottomY, bottom);
           return overlapX && overlapY ? item.id : null;
         })

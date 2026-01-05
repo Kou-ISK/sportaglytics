@@ -78,13 +78,7 @@ export const Utils = () => {
 
   ipcMain.handle(
     'create-package',
-    async (
-      _,
-      directoryName,
-      packageName,
-      angles,
-      metaDataConfig,
-    ) => {
+    async (_, directoryName, packageName, angles, metaDataConfig) => {
       // 引数で取ったpackageNameをもとに新規パッケージを作成
       const newPackagePath = directoryName + '/' + packageName;
       const newFilePath = newPackagePath.substring(

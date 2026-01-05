@@ -54,24 +54,14 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({
   };
 
   const handleAddToExisting = (playlistId: string) => {
-    addItemsFromTimeline(
-      playlistId,
-      items,
-      list[0] || null,
-      list[1] || null,
-    );
+    addItemsFromTimeline(playlistId, items, list[0] || null, list[1] || null);
     onClose();
   };
 
   const handleCreateNew = () => {
     const defaultName = generateDefaultName();
     const playlist = createPlaylist(defaultName);
-    addItemsFromTimeline(
-      playlist.id,
-      items,
-      list[0] || null,
-      list[1] || null,
-    );
+    addItemsFromTimeline(playlist.id, items, list[0] || null, list[1] || null);
     onClose();
   };
 

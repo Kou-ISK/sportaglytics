@@ -1,5 +1,12 @@
 import React from 'react';
-import { Alert, AlertTitle, Box, Paper, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  AlertTitle,
+  Box,
+  Paper,
+  Stack,
+  Typography,
+} from '@mui/material';
 
 interface SummaryItem {
   label: string;
@@ -27,7 +34,8 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({ items }) => {
               <Typography variant="caption" color="text.secondary">
                 {item.label}
               </Typography>
-              {typeof item.value === 'string' || typeof item.value === 'number' ? (
+              {typeof item.value === 'string' ||
+              typeof item.value === 'number' ? (
                 <Typography variant="body1">{item.value}</Typography>
               ) : (
                 item.value

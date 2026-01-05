@@ -35,9 +35,9 @@ export const GeneralSettings = forwardRef<
   const [savedThemeMode, setSavedThemeMode] = useState<ThemeMode>(
     settings.themeMode,
   );
-  const [savedOverlayClip, setSavedOverlayClip] = useState<AppSettings['overlayClip']>(
-    settings.overlayClip,
-  );
+  const [savedOverlayClip, setSavedOverlayClip] = useState<
+    AppSettings['overlayClip']
+  >(settings.overlayClip);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useImperativeHandle(ref, () => ({
@@ -108,7 +108,10 @@ export const GeneralSettings = forwardRef<
             <Switch
               checked={overlayClip.enabled}
               onChange={(e) =>
-                setOverlayClip((prev) => ({ ...prev, enabled: e.target.checked }))
+                setOverlayClip((prev) => ({
+                  ...prev,
+                  enabled: e.target.checked,
+                }))
               }
             />
           }
@@ -179,7 +182,10 @@ export const GeneralSettings = forwardRef<
           helperText="{actionName} {index} {labels} {qualifier} を組み合わせて表示します"
           value={overlayClip.textTemplate}
           onChange={(e) =>
-            setOverlayClip((prev) => ({ ...prev, textTemplate: e.target.value }))
+            setOverlayClip((prev) => ({
+              ...prev,
+              textTemplate: e.target.value,
+            }))
           }
           fullWidth
           size="small"

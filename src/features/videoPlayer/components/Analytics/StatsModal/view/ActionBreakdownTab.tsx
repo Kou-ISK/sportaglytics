@@ -10,10 +10,7 @@ interface ActionBreakdownTabProps {
   hasData: boolean;
   actions: ReadonlyArray<string>;
   teamNames: ReadonlyArray<string>;
-  countActionFunction: (
-    teamName: string,
-    actionName: string,
-  ) => rechartsData[];
+  countActionFunction: (teamName: string, actionName: string) => rechartsData[];
   titleFormatter: (actionName: string) => string;
   emptyMessage: string;
 }

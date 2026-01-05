@@ -48,8 +48,14 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
 }) => {
   const { activeActions } = useActionPreset();
 
-  const { safeStartTime, safeEndTime, qualifier, setStartTime, setEndTime, setQualifier } =
-    useTimelineEditDraft({ draft, onChange });
+  const {
+    safeStartTime,
+    safeEndTime,
+    qualifier,
+    setStartTime,
+    setEndTime,
+    setQualifier,
+  } = useTimelineEditDraft({ draft, onChange });
   const { startError, endError, isValid } = useTimelineValidation(draft);
 
   const findActionDefinition = (actionName: string) => {

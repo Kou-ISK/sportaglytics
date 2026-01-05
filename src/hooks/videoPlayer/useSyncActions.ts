@@ -71,7 +71,9 @@ export const useSyncActions = ({
             const currentGlobalTime =
               (primaryPlayer?.currentTime?.() as number) || 0;
 
-            logInfo(`[forceUpdate] 現在のグローバル時刻: ${currentGlobalTime}秒`);
+            logInfo(
+              `[forceUpdate] 現在のグローバル時刻: ${currentGlobalTime}秒`,
+            );
 
             videoList.forEach((_, index) => {
               try {

@@ -38,7 +38,14 @@ export const useTimelineEditDraft = ({
   const setEndTime = (value: string) => onChange({ endTime: value });
   const setQualifier = (value: string) => onChange({ qualifier: value });
 
-  return { safeStartTime, safeEndTime, qualifier, setStartTime, setEndTime, setQualifier };
+  return {
+    safeStartTime,
+    safeEndTime,
+    qualifier,
+    setStartTime,
+    setEndTime,
+    setQualifier,
+  };
 };
 
 export const useTimelineEditActions = ({

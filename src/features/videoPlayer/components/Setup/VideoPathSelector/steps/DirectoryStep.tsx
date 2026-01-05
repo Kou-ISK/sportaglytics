@@ -29,7 +29,8 @@ export const DirectoryStep: React.FC<DirectoryStepProps> = ({
     <Stack spacing={3}>
       <Alert severity="info">
         <AlertTitle>パッケージの保存先を選択してください</AlertTitle>
-        選択したフォルダ内に「{packageName || 'パッケージ'}」フォルダが作成されます
+        選択したフォルダ内に「{packageName || 'パッケージ'}
+        」フォルダが作成されます
       </Alert>
       <Box>
         <Button

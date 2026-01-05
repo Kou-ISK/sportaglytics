@@ -15,9 +15,7 @@ export const ActionButtonsRow: React.FC<ActionButtonsRowProps> = ({
 }) => {
   return (
     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-      <ExistingPackageLoader
-        onPackageLoaded={onPackageLoaded}
-      />
+      <ExistingPackageLoader onPackageLoaded={onPackageLoaded} />
 
       <Button
         sx={{ height: '60px', fontSize: '16px', flex: 1 }}

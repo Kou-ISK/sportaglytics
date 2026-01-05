@@ -98,7 +98,6 @@ const MIN_FREEZE_DURATION = 1; // seconds - ユーザー要求の最低停止秒
 const ANNOTATION_TIME_TOLERANCE = 0.12; // 秒: 描画タイミング判定のゆらぎ
 const FREEZE_RETRIGGER_GUARD = 0.3; // 秒: 同じタイミングでの連続フリーズ防止
 
-
 // ===== Sortable Item Component =====
 interface SortableItemProps {
   item: PlaylistItem;
@@ -550,13 +549,17 @@ export default function PlaylistWindowApp() {
     if (currentItem.videoSource) merged.push(currentItem.videoSource);
     if (currentItem.videoSource2) merged.push(currentItem.videoSource2);
     // Fallback to previously known sources when item lacks one of them
-    if (!currentItem.videoSource && videoSources[0]) merged.unshift(videoSources[0]);
+    if (!currentItem.videoSource && videoSources[0])
+      merged.unshift(videoSources[0]);
     if (!currentItem.videoSource2 && videoSources[1]) {
       if (merged.length === 0) merged.push('');
       merged[1] = videoSources[1];
     }
     const cleaned = merged.filter(Boolean);
-    if (cleaned.length && JSON.stringify(cleaned) !== JSON.stringify(videoSources)) {
+    if (
+      cleaned.length &&
+      JSON.stringify(cleaned) !== JSON.stringify(videoSources)
+    ) {
       setVideoSources(cleaned);
     }
   }, [currentItem, videoSources]);
@@ -587,7 +590,10 @@ export default function PlaylistWindowApp() {
       if (naturalWidth && naturalHeight) {
         setPrimarySourceSize({ width: naturalWidth, height: naturalHeight });
       }
-      const scale = Math.min(containerWidth / naturalWidth, containerHeight / naturalHeight);
+      const scale = Math.min(
+        containerWidth / naturalWidth,
+        containerHeight / naturalHeight,
+      );
       const displayWidth = naturalWidth * scale;
       const displayHeight = naturalHeight * scale;
       setPrimaryContentRect({
@@ -618,7 +624,10 @@ export default function PlaylistWindowApp() {
       if (naturalWidth && naturalHeight) {
         setSecondarySourceSize({ width: naturalWidth, height: naturalHeight });
       }
-      const scale = Math.min(containerWidth / naturalWidth, containerHeight / naturalHeight);
+      const scale = Math.min(
+        containerWidth / naturalWidth,
+        containerHeight / naturalHeight,
+      );
       const displayWidth = naturalWidth * scale;
       const displayHeight = naturalHeight * scale;
       setSecondaryContentRect({
@@ -657,7 +666,9 @@ export default function PlaylistWindowApp() {
 
     return () => {
       container.removeEventListener('mousemove', handleMove);
-      container.removeEventListener('mouseleave', () => setControlsVisible(false));
+      container.removeEventListener('mouseleave', () =>
+        setControlsVisible(false),
+      );
       if (hideTimer) clearTimeout(hideTimer);
     };
   }, [isPlaying, isDrawingMode]);
@@ -678,7 +689,11 @@ export default function PlaylistWindowApp() {
             : base.freezeDuration,
       };
     }
-    return { objects: [], freezeDuration: DEFAULT_FREEZE_DURATION, freezeAt: 0 };
+    return {
+      objects: [],
+      freezeDuration: DEFAULT_FREEZE_DURATION,
+      freezeAt: 0,
+    };
   }, [currentItem, itemAnnotations]);
 
   const annotationObjects = currentAnnotation?.objects || [];
@@ -755,7 +770,6 @@ export default function PlaylistWindowApp() {
       }
     };
   }, []);
-
 
   // Trigger freeze frame
   const triggerFreezeFrame = useCallback(
@@ -1093,8 +1107,7 @@ export default function PlaylistWindowApp() {
         const newAnnotation = {
           ...currentAnn,
           objects: mergedObjects,
-          freezeDuration:
-            currentAnn.freezeDuration ?? DEFAULT_FREEZE_DURATION,
+          freezeDuration: currentAnn.freezeDuration ?? DEFAULT_FREEZE_DURATION,
         };
         setItemAnnotations((prev) => ({
           ...prev,
@@ -1313,9 +1326,13 @@ export default function PlaylistWindowApp() {
         objects?.filter((o) => (o.target || 'primary') === target) || [];
       if (filtered.length === 0) return null;
       const baseWidth =
-        filtered.find((o) => o.baseWidth)?.baseWidth || fallbackSize.width || 1920;
+        filtered.find((o) => o.baseWidth)?.baseWidth ||
+        fallbackSize.width ||
+        1920;
       const baseHeight =
-        filtered.find((o) => o.baseHeight)?.baseHeight || fallbackSize.height || 1080;
+        filtered.find((o) => o.baseHeight)?.baseHeight ||
+        fallbackSize.height ||
+        1080;
       const targetW = targetSize?.width || baseWidth;
       const targetH = targetSize?.height || baseHeight;
       const scaleX = targetW / baseWidth;
@@ -1375,7 +1392,15 @@ export default function PlaylistWindowApp() {
               const centerX = ((obj.startX + obj.endX) / 2) * scaleX;
               const centerY = ((obj.startY + obj.endY) / 2) * scaleY;
               ctx.beginPath();
-              ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+              ctx.ellipse(
+                centerX,
+                centerY,
+                radiusX,
+                radiusY,
+                0,
+                0,
+                Math.PI * 2,
+              );
               ctx.stroke();
             }
             break;
@@ -1407,7 +1432,8 @@ export default function PlaylistWindowApp() {
       return;
     }
     const sourcePath2 = videoSources[1];
-    const useDual = angleOption === 'all' && sourcePath2 ? true : angleOption === 'angle2';
+    const useDual =
+      angleOption === 'all' && sourcePath2 ? true : angleOption === 'angle2';
     if (useDual && !sourcePath2) {
       alert('2アングルの書き出しには2つの映像ソースが必要です');
       return;
@@ -1425,7 +1451,9 @@ export default function PlaylistWindowApp() {
     const clips = ordered.map((item) => {
       const annotation = itemAnnotations[item.id] || item.annotation;
       const allTimestamps =
-        annotation?.objects?.map((o) => o.timestamp).filter((t) => t !== undefined) || [];
+        annotation?.objects
+          ?.map((o) => o.timestamp)
+          .filter((t) => t !== undefined) || [];
       const freezeAtAbsolute =
         allTimestamps.length > 0 ? Math.min(...allTimestamps) : null;
       const freezeAt =
@@ -1541,11 +1569,7 @@ export default function PlaylistWindowApp() {
           >
             書き出し
           </Button>
-          <Badge
-            badgeContent={items.length}
-            color="secondary"
-            max={99}
-          >
+          <Badge badgeContent={items.length} color="secondary" max={99}>
             <Typography variant="caption" color="text.secondary">
               アイテム
             </Typography>
@@ -1715,33 +1739,31 @@ export default function PlaylistWindowApp() {
                   borderLeft: '1px solid rgba(255,255,255,0.2)',
                 }}
               >
-                  <video
-                    ref={videoRef2}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                    }}
-                  />
-                  <AnnotationCanvas
-                    ref={annotationCanvasRefSecondary}
-                    width={secondaryCanvasSize.width}
-                    height={secondaryCanvasSize.height}
-                    isActive={
-                      isDrawingMode && drawingTarget === 'secondary'
-                    }
-                    target="secondary"
-                    initialObjects={secondaryAnnotationObjects}
-                    freezeDuration={
-                      currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
-                    }
-                    contentRect={secondaryContentRect}
-                    onObjectsChange={(objs) =>
-                      handleAnnotationObjectsChange(objs, 'secondary')
-                    }
-                    onFreezeDurationChange={handleFreezeDurationChange}
-                    currentTime={currentTime}
-                  />
+                <video
+                  ref={videoRef2}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                  }}
+                />
+                <AnnotationCanvas
+                  ref={annotationCanvasRefSecondary}
+                  width={secondaryCanvasSize.width}
+                  height={secondaryCanvasSize.height}
+                  isActive={isDrawingMode && drawingTarget === 'secondary'}
+                  target="secondary"
+                  initialObjects={secondaryAnnotationObjects}
+                  freezeDuration={
+                    currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
+                  }
+                  contentRect={secondaryContentRect}
+                  onObjectsChange={(objs) =>
+                    handleAnnotationObjectsChange(objs, 'secondary')
+                  }
+                  onFreezeDurationChange={handleFreezeDurationChange}
+                  currentTime={currentTime}
+                />
               </Box>
             )}
           </>
@@ -2117,7 +2139,9 @@ export default function PlaylistWindowApp() {
             <Stack direction="row" spacing={1} flexWrap="wrap">
               <Button
                 size="small"
-                variant={overlaySettings.showActionName ? 'contained' : 'outlined'}
+                variant={
+                  overlaySettings.showActionName ? 'contained' : 'outlined'
+                }
                 onClick={() =>
                   setOverlaySettings((p) => ({
                     ...p,
@@ -2129,7 +2153,9 @@ export default function PlaylistWindowApp() {
               </Button>
               <Button
                 size="small"
-                variant={overlaySettings.showActionIndex ? 'contained' : 'outlined'}
+                variant={
+                  overlaySettings.showActionIndex ? 'contained' : 'outlined'
+                }
                 onClick={() =>
                   setOverlaySettings((p) => ({
                     ...p,
@@ -2153,7 +2179,9 @@ export default function PlaylistWindowApp() {
               </Button>
               <Button
                 size="small"
-                variant={overlaySettings.showQualifier ? 'contained' : 'outlined'}
+                variant={
+                  overlaySettings.showQualifier ? 'contained' : 'outlined'
+                }
                 onClick={() =>
                   setOverlaySettings((p) => ({
                     ...p,
@@ -2170,7 +2198,10 @@ export default function PlaylistWindowApp() {
               size="small"
               value={overlaySettings.textTemplate}
               onChange={(e) =>
-                setOverlaySettings((p) => ({ ...p, textTemplate: e.target.value }))
+                setOverlaySettings((p) => ({
+                  ...p,
+                  textTemplate: e.target.value,
+                }))
               }
               helperText="{actionName} {index} {labels} {qualifier} が使えます"
             />

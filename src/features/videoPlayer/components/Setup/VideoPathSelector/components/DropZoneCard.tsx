@@ -38,7 +38,9 @@ export const DropZoneCard: React.FC<DropZoneCardProps> = ({ dragState }) => {
         }}
       />
       <Typography variant="h6" gutterBottom>
-        {dragState.isDragging ? 'ここにドロップ' : 'パッケージフォルダをドラッグ&ドロップ'}
+        {dragState.isDragging
+          ? 'ここにドロップ'
+          : 'パッケージフォルダをドラッグ&ドロップ'}
       </Typography>
       <Typography variant="body2" color="text.secondary">
         または下のボタンから選択

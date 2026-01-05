@@ -49,9 +49,9 @@ const INITIAL_FORM: WizardFormState = {
 };
 
 const createAngleId = () =>
-  (typeof crypto !== 'undefined' && crypto.randomUUID
+  typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
-    : `angle-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    : `angle-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 const createInitialSelection = (): WizardSelectionState => {
   const firstAngleId = createAngleId();
@@ -127,11 +127,20 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
   }, [showError]);
 
   useEffect(() => {
-    if (activeStep === 1 && !selection.selectedDirectory && !hasPromptedDirectory) {
+    if (
+      activeStep === 1 &&
+      !selection.selectedDirectory &&
+      !hasPromptedDirectory
+    ) {
       setHasPromptedDirectory(true);
       void handleSelectDirectory();
     }
-  }, [activeStep, handleSelectDirectory, hasPromptedDirectory, selection.selectedDirectory]);
+  }, [
+    activeStep,
+    handleSelectDirectory,
+    hasPromptedDirectory,
+    selection.selectedDirectory,
+  ]);
 
   const handleSelectVideo = useCallback(
     async (angleId: string) => {
@@ -390,10 +399,9 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
                         px: 1,
                         py: 0.25,
                         borderRadius: 1,
-                        bgcolor:
-                          roleLabel.includes('メイン')
-                            ? 'primary.main'
-                            : 'info.main',
+                        bgcolor: roleLabel.includes('メイン')
+                          ? 'primary.main'
+                          : 'info.main',
                         color: 'primary.contrastText',
                         fontSize: '0.75rem',
                       }}

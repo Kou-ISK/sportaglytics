@@ -4,7 +4,9 @@ export interface UnsavedTabConfig {
   hasUnsavedChanges: (tabIndex: number) => boolean;
 }
 
-export const useUnsavedTabSwitch = ({ hasUnsavedChanges }: UnsavedTabConfig) => {
+export const useUnsavedTabSwitch = ({
+  hasUnsavedChanges,
+}: UnsavedTabConfig) => {
   const [currentTab, setCurrentTab] = useState(0);
   const [nextTab, setNextTab] = useState<number | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);

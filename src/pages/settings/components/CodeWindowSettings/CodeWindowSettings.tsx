@@ -586,7 +586,8 @@ export const CodeWindowSettings = forwardRef<
                   ヒント: キャンバス上で右クリックしてボタンを追加できます。
                   ボタンを選択してドラッグで移動、リンクアイコンからドラッグして
                   別のボタンにドロップするとリンクを作成できます。
-                  選択中のボタンは Cmd/Ctrl+C でコピー、Cmd/Ctrl+V でペーストできます。
+                  選択中のボタンは Cmd/Ctrl+C でコピー、Cmd/Ctrl+V
+                  でペーストできます。
                 </Typography>
               </Box>
             </TabPanel>

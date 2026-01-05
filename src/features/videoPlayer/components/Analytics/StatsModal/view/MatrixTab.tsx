@@ -7,9 +7,7 @@ import { MatrixSection } from './MatrixSection';
 import { MatrixAxisSelector } from './MatrixAxisSelector';
 import { DrilldownDialog } from './DrilldownDialog';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
-import {
-  extractUniqueGroups,
-} from '../../../../../../utils/labelExtractors';
+import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
 import { MatrixFilters } from './MatrixFilters';
 import { useMatrixFilters } from './hooks/useMatrixFilters';

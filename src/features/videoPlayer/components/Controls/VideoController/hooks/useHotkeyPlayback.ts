@@ -27,9 +27,7 @@ interface UseHotkeyPlaybackOptions {
  * このhookは後方互換性のために残していますが、実際の処理は無効化されています。
  * ホットキー処理は VideoPlayerApp.tsx の useGlobalHotkeys で行われます。
  */
-export const useHotkeyPlayback = (
-  options: UseHotkeyPlaybackOptions,
-) => {
+export const useHotkeyPlayback = (options: UseHotkeyPlaybackOptions) => {
   useEffect(() => {
     console.log(
       '[HOTKEY] useHotkeyPlayback is deprecated. Hotkeys are handled by useGlobalHotkeys.',

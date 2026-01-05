@@ -172,7 +172,9 @@ export const EnhancedCodePanel = forwardRef<
     }, [labelSelections]);
     const updateLabelSelections = React.useCallback(
       (
-        updater: LabelSelectionsMap | ((prev: LabelSelectionsMap) => LabelSelectionsMap),
+        updater:
+          | LabelSelectionsMap
+          | ((prev: LabelSelectionsMap) => LabelSelectionsMap),
       ) => {
         setLabelSelections((prev) => {
           const next =
@@ -207,9 +209,8 @@ export const EnhancedCodePanel = forwardRef<
       Record<string, boolean>
     >({});
     const layoutContainerRef = React.useRef<HTMLDivElement | null>(null);
-    const [layoutContainerWidth, setLayoutContainerWidth] = React.useState<number>(
-      customLayout?.canvasWidth || 0,
-    );
+    const [layoutContainerWidth, setLayoutContainerWidth] =
+      React.useState<number>(customLayout?.canvasWidth || 0);
 
     React.useEffect(() => {
       if (settings.codingPanel?.actionLinks) {
@@ -324,9 +325,7 @@ export const EnhancedCodePanel = forwardRef<
             delete nextLabels[actionName];
             return nextLabels;
           });
-          setPrimaryAction((prev) =>
-            prev === actionName ? null : prev,
-          );
+          setPrimaryAction((prev) => (prev === actionName ? null : prev));
           recentActionsRef.current = recentActionsRef.current.filter(
             (a) => a !== actionName,
           );
@@ -437,10 +436,12 @@ export const EnhancedCodePanel = forwardRef<
       if (relatedLinks.length > 0) {
         for (const linkRule of relatedLinks) {
           if (linkRule.type === 'exclusive') {
-            const counterpart =
-              isSameActionName(linkRule.from, clickedButtonName)
-                ? linkRule.to
-                : linkRule.from;
+            const counterpart = isSameActionName(
+              linkRule.from,
+              clickedButtonName,
+            )
+              ? linkRule.to
+              : linkRule.from;
             const counterpartKey = resolveRecordingKey(counterpart);
             if (counterpartKey) {
               setWarning(`排他リンク: ${counterpart} を終了します`);
@@ -610,19 +611,19 @@ export const EnhancedCodePanel = forwardRef<
             sx={{
               display: 'flex',
               flexDirection: 'column',
-            gap: 0.5,
-          }}
-        >
-          {activeActions.map((action) => {
-            const isActive = Boolean(activeRecordings[action.action]);
-            const isSelected = isActive || primaryAction === action.action;
-            const labelGroups = getActionLabels(action);
-            const hasLabels = labelGroups.length > 0;
-            return (
-              <Box key={action.action}>
-                {/* アクションボタン */}
-                <Button
-                  variant={isSelected ? 'contained' : 'outlined'}
+              gap: 0.5,
+            }}
+          >
+            {activeActions.map((action) => {
+              const isActive = Boolean(activeRecordings[action.action]);
+              const isSelected = isActive || primaryAction === action.action;
+              const labelGroups = getActionLabels(action);
+              const hasLabels = labelGroups.length > 0;
+              return (
+                <Box key={action.action}>
+                  {/* アクションボタン */}
+                  <Button
+                    variant={isSelected ? 'contained' : 'outlined'}
                     color={color}
                     onClick={() => handleActionClick(teamName, action)}
                     startIcon={
@@ -860,8 +861,7 @@ export const EnhancedCodePanel = forwardRef<
 
       // スケール係数を計算（コンテナに収める）
       const containerWidth =
-        layoutContainerWidth ||
-        Math.max(1, layout.canvasWidth);
+        layoutContainerWidth || Math.max(1, layout.canvasWidth);
       const scale = containerWidth / layout.canvasWidth;
       const containerHeight = layout.canvasHeight * scale;
 
@@ -1007,20 +1007,20 @@ export const EnhancedCodePanel = forwardRef<
           </Typography>
         )}
 
-      {activeMode === 'label' && (
-        <Box
-          sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 1 }}
-        >
-          {allLabelGroups.map((group, idx) =>
-            renderLabelGroup(
-              '__label-mode__',
-              group.groupName,
-              group.options,
-              idx === allLabelGroups.length - 1,
-            ),
-          )}
-        </Box>
-      )}
+        {activeMode === 'label' && (
+          <Box
+            sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 1 }}
+          >
+            {allLabelGroups.map((group, idx) =>
+              renderLabelGroup(
+                '__label-mode__',
+                group.groupName,
+                group.options,
+                idx === allLabelGroups.length - 1,
+              ),
+            )}
+          </Box>
+        )}
 
         {activeMode === 'code' && customLayout ? (
           // カスタムレイアウトモード（Sportscode方式: 1回だけレンダリング）

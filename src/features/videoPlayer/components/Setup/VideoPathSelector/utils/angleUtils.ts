@@ -1,4 +1,7 @@
-import type { MetaData, VideoAngleConfig } from '../../../../../../types/MetaData';
+import type {
+  MetaData,
+  VideoAngleConfig,
+} from '../../../../../../types/MetaData';
 
 type LoadedAngle = {
   id: string;
@@ -13,7 +16,9 @@ const normalizeAngleName = (value: unknown, index: number) => {
   return `Angle ${index + 1}`;
 };
 
-const asConfigObject = (config: unknown): Partial<MetaData> & Record<string, unknown> => {
+const asConfigObject = (
+  config: unknown,
+): Partial<MetaData> & Record<string, unknown> => {
   if (config && typeof config === 'object') {
     return config as Partial<MetaData> & Record<string, unknown>;
   }
@@ -153,7 +158,8 @@ export const buildVideoListFromConfig = (
     angles.length > 0
       ? secondaryAngle ||
         angles.find(
-          (angle) => angle.id !== effectivePrimary?.id && angle.role === 'secondary',
+          (angle) =>
+            angle.id !== effectivePrimary?.id && angle.role === 'secondary',
         ) ||
         angles.find((angle) => angle.id !== effectivePrimary?.id)
       : fallbackAngles[1];

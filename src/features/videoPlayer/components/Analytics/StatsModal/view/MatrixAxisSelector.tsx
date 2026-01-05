@@ -24,12 +24,7 @@ interface MatrixAxisSelectorProps {
 export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = (
   props,
 ) => {
-  const {
-    label,
-    value,
-    onChange,
-    availableGroups,
-  } = props;
+  const { label, value, onChange, availableGroups } = props;
 
   const handleTypeChange = (event: SelectChangeEvent<MatrixAxisType>) => {
     const newType = event.target.value as MatrixAxisType;

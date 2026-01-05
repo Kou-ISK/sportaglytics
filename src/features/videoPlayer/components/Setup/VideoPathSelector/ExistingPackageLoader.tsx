@@ -37,8 +37,7 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
     const normalized = normalizePathValue(preselectedPath);
 
     const packagePath =
-      normalized ||
-      (await globalThis.window.electronAPI?.openDirectory());
+      normalized || (await globalThis.window.electronAPI?.openDirectory());
     if (!packagePath) {
       return;
     }
@@ -98,7 +97,9 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
           } as VideoSyncData;
         } else {
           resultingSyncData = undefined;
-          info('音声同期データがありません。必要に応じてメニューから同期を実行してください。');
+          info(
+            '音声同期データがありません。必要に応じてメニューから同期を実行してください。',
+          );
         }
       } else {
         resultingSyncData = undefined;

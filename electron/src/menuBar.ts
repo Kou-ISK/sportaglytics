@@ -8,7 +8,9 @@ const resolveMainWindow = (
 ): BrowserWindow | null => {
   const normalizedWindow =
     browserWindow instanceof BrowserWindow ? browserWindow : null;
-  const windows = BrowserWindow.getAllWindows().filter((win) => !win.isDestroyed());
+  const windows = BrowserWindow.getAllWindows().filter(
+    (win) => !win.isDestroyed(),
+  );
   const primary =
     windows.find((win) => {
       try {

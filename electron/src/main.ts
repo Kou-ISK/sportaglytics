@@ -303,7 +303,7 @@ const createWindow = async () => {
             ];
 
             // freeze clone
-        const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
+            const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
             const freezeAt =
               clip.freezeAt !== null && clip.freezeAt !== undefined
                 ? Math.max(0, Math.min(clip.freezeAt, clipDuration))
@@ -319,9 +319,7 @@ const createWindow = async () => {
               filterSteps.push(
                 `[vpre]tpad=stop_mode=clone:stop_duration=${freezeDuration}[vprepad]`,
               );
-              filterSteps.push(
-                `[vprepad][vpost]concat=n=2:v=1:a=0[vfreeze]`,
-              );
+              filterSteps.push(`[vprepad][vpost]concat=n=2:v=1:a=0[vfreeze]`);
               baseLabel = '[vfreeze]';
               mapLabel = baseLabel;
               filterSteps.push(
@@ -330,12 +328,8 @@ const createWindow = async () => {
               filterSteps.push(
                 `[0:a]atrim=start=${freezeAt},asetpts=PTS-STARTPTS[apost]`,
               );
-              filterSteps.push(
-                `[apre]apad=pad_dur=${freezeDuration}[aprepad]`,
-              );
-              filterSteps.push(
-                `[aprepad][apost]concat=n=2:v=0:a=1[afreeze]`,
-              );
+              filterSteps.push(`[apre]apad=pad_dur=${freezeDuration}[aprepad]`);
+              filterSteps.push(`[aprepad][apost]concat=n=2:v=0:a=1[afreeze]`);
               audioMap = '[afreeze]';
             }
 
@@ -346,12 +340,8 @@ const createWindow = async () => {
                   ? `:enable='between(t,${freezeAt},${freezeAt + freezeDuration})'`
                   : '';
               filterSteps.push(`[1:v]format=rgba[ovrraw]`);
-              filterSteps.push(
-                `[ovrraw]${baseLabel}scale2ref[ovr][bbase]`,
-              );
-              filterSteps.push(
-                `[bbase][ovr]overlay=0:0${enableExpr}[vanno]`,
-              );
+              filterSteps.push(`[ovrraw]${baseLabel}scale2ref[ovr][bbase]`);
+              filterSteps.push(`[bbase][ovr]overlay=0:0${enableExpr}[vanno]`);
               baseLabel = '[vanno]';
               mapLabel = baseLabel;
             }
@@ -457,12 +447,8 @@ const createWindow = async () => {
               filterSteps.push(
                 `[0:a]atrim=start=${freezePos},asetpts=PTS-STARTPTS[apost]`,
               );
-              filterSteps.push(
-                `[apre]apad=pad_dur=${freezeDur}[aprepad]`,
-              );
-              filterSteps.push(
-                `[aprepad][apost]concat=n=2:v=0:a=1[afreeze]`,
-              );
+              filterSteps.push(`[apre]apad=pad_dur=${freezeDur}[aprepad]`);
+              filterSteps.push(`[aprepad][apost]concat=n=2:v=0:a=1[afreeze]`);
               audioMap = '[afreeze]';
             }
             // freeze sub
@@ -488,15 +474,9 @@ const createWindow = async () => {
                 freezePos !== null && freezeDur > 0
                   ? `:enable='between(t,${freezePos},${freezePos + freezeDur})'`
                   : '';
-              filterSteps.push(
-                `[${currentInputIndex}:v]format=rgba[ovpraw]`,
-              );
-              filterSteps.push(
-                `[ovpraw]${mainLabel}scale2ref[ovp][mbase]`,
-              );
-              filterSteps.push(
-                `[mbase][ovp]overlay=0:0${enableExpr}[vp]`,
-              );
+              filterSteps.push(`[${currentInputIndex}:v]format=rgba[ovpraw]`);
+              filterSteps.push(`[ovpraw]${mainLabel}scale2ref[ovp][mbase]`);
+              filterSteps.push(`[mbase][ovp]overlay=0:0${enableExpr}[vp]`);
               mainLabel = '[vp]';
               currentInputIndex += 1;
             }
@@ -506,15 +486,9 @@ const createWindow = async () => {
                 freezePos !== null && freezeDur > 0
                   ? `:enable='between(t,${freezePos},${freezePos + freezeDur})'`
                   : '';
-              filterSteps.push(
-                `[${currentInputIndex}:v]format=rgba[ovsraw]`,
-              );
-              filterSteps.push(
-                `[ovsraw]${subLabel}scale2ref[ovs][sbase]`,
-              );
-              filterSteps.push(
-                `[sbase][ovs]overlay=0:0${enableExpr}[vs]`,
-              );
+              filterSteps.push(`[${currentInputIndex}:v]format=rgba[ovsraw]`);
+              filterSteps.push(`[ovsraw]${subLabel}scale2ref[ovs][sbase]`);
+              filterSteps.push(`[sbase][ovs]overlay=0:0${enableExpr}[vs]`);
               subLabel = '[vs]';
               currentInputIndex += 1;
             }
@@ -632,17 +606,17 @@ const createWindow = async () => {
             tempFiles.push(annSecondaryPath);
           }
 
-            if (useDual) {
-              await runFfmpegDual(
-                clip,
-                target,
-                overlayLines,
-                annPrimaryPath,
-                annSecondaryPath,
-              );
-            } else {
-              await runFfmpegSingle(clip, target, overlayLines, annPrimaryPath);
-            }
+          if (useDual) {
+            await runFfmpegDual(
+              clip,
+              target,
+              overlayLines,
+              annPrimaryPath,
+              annSecondaryPath,
+            );
+          } else {
+            await runFfmpegSingle(clip, target, overlayLines, annPrimaryPath);
+          }
           return target;
         };
 
@@ -736,11 +710,15 @@ const createWindow = async () => {
           );
         }
 
-        await Promise.all(tempFiles.map((f: string) => fs.unlink(f).catch(() => undefined)));
+        await Promise.all(
+          tempFiles.map((f: string) => fs.unlink(f).catch(() => undefined)),
+        );
         return { success: true };
       } catch (err) {
         console.error('export-clips-with-overlay error', err);
-        await Promise.all(tempFiles.map((f: string) => fs.unlink(f).catch(() => undefined)));
+        await Promise.all(
+          tempFiles.map((f: string) => fs.unlink(f).catch(() => undefined)),
+        );
         return { success: false, error: String(err) };
       }
     },

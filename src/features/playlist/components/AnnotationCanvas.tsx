@@ -62,7 +62,12 @@ interface AnnotationCanvasProps {
   height: number;
   isActive: boolean;
   target?: AnnotationTarget;
-  contentRect?: { width: number; height: number; offsetX: number; offsetY: number };
+  contentRect?: {
+    width: number;
+    height: number;
+    offsetX: number;
+    offsetY: number;
+  };
   initialObjects?: DrawingObject[];
   freezeDuration?: number;
   onObjectsChange?: (
@@ -202,8 +207,14 @@ function scaleObjectForDisplay(
         ...obj,
         startX: obj.startX * scaleX + target.offsetX,
         startY: obj.startY * scaleY + target.offsetY,
-        endX: obj.endX !== undefined ? obj.endX * scaleX + target.offsetX : obj.endX,
-        endY: obj.endY !== undefined ? obj.endY * scaleY + target.offsetY : obj.endY,
+        endX:
+          obj.endX !== undefined
+            ? obj.endX * scaleX + target.offsetX
+            : obj.endX,
+        endY:
+          obj.endY !== undefined
+            ? obj.endY * scaleY + target.offsetY
+            : obj.endY,
         strokeWidth: obj.strokeWidth * ((scaleX + scaleY) / 2),
       };
     case 'text':
@@ -266,7 +277,11 @@ function getObjectBounds(obj: DrawingObject) {
   }
 }
 
-function pointInBounds(bounds: { minX: number; minY: number; maxX: number; maxY: number }, x: number, y: number) {
+function pointInBounds(
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  x: number,
+  y: number,
+) {
   return (
     x >= bounds.minX - HIT_TOLERANCE &&
     x <= bounds.maxX + HIT_TOLERANCE &&
@@ -275,7 +290,10 @@ function pointInBounds(bounds: { minX: number; minY: number; maxX: number; maxY:
   );
 }
 
-function findObjectAtPoint(objects: DrawingObject[], point: { x: number; y: number }) {
+function findObjectAtPoint(
+  objects: DrawingObject[],
+  point: { x: number; y: number },
+) {
   for (let i = objects.length - 1; i >= 0; i--) {
     const obj = objects[i];
     const bounds = getObjectBounds(obj);
@@ -287,7 +305,11 @@ function findObjectAtPoint(objects: DrawingObject[], point: { x: number; y: numb
   return null;
 }
 
-function shiftObject(obj: DrawingObject, dx: number, dy: number): DrawingObject {
+function shiftObject(
+  obj: DrawingObject,
+  dx: number,
+  dy: number,
+): DrawingObject {
   switch (obj.type) {
     case 'pen':
       return {
@@ -337,23 +359,36 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
     const containerRef = useRef<HTMLDivElement | null>(null);
     const toolbarRef = useRef<HTMLDivElement | null>(null);
     const dragOffsetRef = useRef<{ x: number; y: number } | null>(null);
-    const [toolbarPosition, setToolbarPosition] = useState<{ x: number; y: number }>({
+    const [toolbarPosition, setToolbarPosition] = useState<{
+      x: number;
+      y: number;
+    }>({
       x: DEFAULT_TOOLBAR_X,
       y: DEFAULT_TOOLBAR_Y,
     });
     const [isDraggingToolbar, setIsDraggingToolbar] = useState(false);
-    const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
-    const [draggingObjectId, setDraggingObjectId] = useState<string | null>(null);
+    const [selectedObjectId, setSelectedObjectId] = useState<string | null>(
+      null,
+    );
+    const [draggingObjectId, setDraggingObjectId] = useState<string | null>(
+      null,
+    );
     const dragObjectStartRef = useRef<{ x: number; y: number } | null>(null);
 
     const [tool, setTool] = useState<DrawingToolType>('pen');
     const [color, setColor] = useState<string>('#ff0000');
     const [strokeWidth, setStrokeWidth] = useState<number>(3);
     const [objects, setObjects] = useState<DrawingObject[]>(initialObjects);
-    const [currentObject, setCurrentObject] = useState<DrawingObject | null>(null);
+    const [currentObject, setCurrentObject] = useState<DrawingObject | null>(
+      null,
+    );
     const [textInput, setTextInput] = useState('');
-    const [textPosition, setTextPosition] = useState<{ x: number; y: number } | null>(null);
-    const [localFreezeDuration, setLocalFreezeDuration] = useState<number>(freezeDuration);
+    const [textPosition, setTextPosition] = useState<{
+      x: number;
+      y: number;
+    } | null>(null);
+    const [localFreezeDuration, setLocalFreezeDuration] =
+      useState<number>(freezeDuration);
 
     const colors = [
       '#ff0000',
@@ -389,8 +424,14 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         const tw = toolbar.offsetWidth || 0;
         const th = toolbar.offsetHeight || 0;
         setToolbarPosition((pos) => ({
-          x: Math.min(Math.max(0, pos.x), Math.max(0, window.innerWidth - tw - 8)),
-          y: Math.min(Math.max(0, pos.y), Math.max(0, window.innerHeight - th - 8)),
+          x: Math.min(
+            Math.max(0, pos.x),
+            Math.max(0, window.innerWidth - tw - 8),
+          ),
+          y: Math.min(
+            Math.max(0, pos.y),
+            Math.max(0, window.innerHeight - th - 8),
+          ),
         }));
       };
       clamp();
@@ -423,8 +464,14 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         const newX = e.clientX - offset.x;
         const newY = e.clientY - offset.y;
         setToolbarPosition({
-          x: Math.min(Math.max(0, newX), Math.max(0, window.innerWidth - (toolbar.offsetWidth || 0) - 8)),
-          y: Math.min(Math.max(0, newY), Math.max(0, window.innerHeight - (toolbar.offsetHeight || 0) - 8)),
+          x: Math.min(
+            Math.max(0, newX),
+            Math.max(0, window.innerWidth - (toolbar.offsetWidth || 0) - 8),
+          ),
+          y: Math.min(
+            Math.max(0, newY),
+            Math.max(0, window.innerHeight - (toolbar.offsetHeight || 0) - 8),
+          ),
         });
       };
 
@@ -450,11 +497,17 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const displayTarget = contentRect || { width, height, offsetX: 0, offsetY: 0 };
+      const displayTarget = contentRect || {
+        width,
+        height,
+        offsetX: 0,
+        offsetY: 0,
+      };
       const filteredObjects =
         typeof currentTime === 'number'
           ? objects.filter(
-              (obj) => Math.abs(obj.timestamp - currentTime) <= TIMESTAMP_TOLERANCE,
+              (obj) =>
+                Math.abs(obj.timestamp - currentTime) <= TIMESTAMP_TOLERANCE,
             )
           : objects;
 
@@ -522,7 +575,12 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
-        const content = contentRect || { width, height, offsetX: 0, offsetY: 0 };
+        const content = contentRect || {
+          width,
+          height,
+          offsetX: 0,
+          offsetY: 0,
+        };
 
         let clientX: number;
         let clientY: number;
@@ -556,7 +614,12 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         const coords = getCanvasCoords(e);
 
         if (tool === 'select') {
-          const displayTarget = contentRect || { width, height, offsetX: 0, offsetY: 0 };
+          const displayTarget = contentRect || {
+            width,
+            height,
+            offsetX: 0,
+            offsetY: 0,
+          };
           const displayObjects = objects.map((obj) =>
             scaleObjectForDisplay(obj, displayTarget),
           );
@@ -598,7 +661,15 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
 
         setCurrentObject(newObject);
       },
-      [isActive, tool, color, strokeWidth, getCanvasCoords, currentTime, target],
+      [
+        isActive,
+        tool,
+        color,
+        strokeWidth,
+        getCanvasCoords,
+        currentTime,
+        target,
+      ],
     );
 
     const handleMove = useCallback(
@@ -630,35 +701,40 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
     );
 
     const handleEnd = useCallback(() => {
-        if (tool === 'select' && draggingObjectId) {
-          setDraggingObjectId(null);
-          dragObjectStartRef.current = null;
-          return;
-        }
+      if (tool === 'select' && draggingObjectId) {
+        setDraggingObjectId(null);
+        dragObjectStartRef.current = null;
+        return;
+      }
 
-        if (!isDrawingRef.current || !currentObject) return;
+      if (!isDrawingRef.current || !currentObject) return;
 
-        isDrawingRef.current = false;
+      isDrawingRef.current = false;
 
-        // Only add if the object has meaningful content
-        const isValid =
-          tool === 'pen'
-            ? currentObject.path && currentObject.path.length > 1
-            : currentObject.endX !== undefined &&
-              currentObject.endY !== undefined &&
-              (Math.abs(currentObject.endX - currentObject.startX) > 5 ||
-                Math.abs(currentObject.endY - currentObject.startY) > 5);
+      // Only add if the object has meaningful content
+      const isValid =
+        tool === 'pen'
+          ? currentObject.path && currentObject.path.length > 1
+          : currentObject.endX !== undefined &&
+            currentObject.endY !== undefined &&
+            (Math.abs(currentObject.endX - currentObject.startX) > 5 ||
+              Math.abs(currentObject.endY - currentObject.startY) > 5);
 
-        if (isValid) {
-          const newObjects = [...objects, currentObject];
-          setObjects(newObjects);
-          onObjectsChange?.(newObjects, target);
-        }
+      if (isValid) {
+        const newObjects = [...objects, currentObject];
+        setObjects(newObjects);
+        onObjectsChange?.(newObjects, target);
+      }
 
-        setCurrentObject(null);
-      },
-      [currentObject, objects, tool, onObjectsChange, target, draggingObjectId],
-    );
+      setCurrentObject(null);
+    }, [
+      currentObject,
+      objects,
+      tool,
+      onObjectsChange,
+      target,
+      draggingObjectId,
+    ]);
 
     // Text submission
     const handleTextSubmit = useCallback(() => {
@@ -690,7 +766,16 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
 
       setTextPosition(null);
       setTextInput('');
-    }, [textPosition, textInput, color, strokeWidth, objects, onObjectsChange, currentTime, target]);
+    }, [
+      textPosition,
+      textInput,
+      color,
+      strokeWidth,
+      objects,
+      onObjectsChange,
+      currentTime,
+      target,
+    ]);
 
     // Undo last object
     const handleUndo = useCallback(() => {
@@ -733,7 +818,9 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
 
         setObjects((prev) => {
           const updated = prev.map((obj) =>
-            obj.id === draggingObjectId ? shiftObject(obj, baseDx, baseDy) : obj,
+            obj.id === draggingObjectId
+              ? shiftObject(obj, baseDx, baseDy)
+              : obj,
           );
           onObjectsChange?.(updated, target);
           return updated;
@@ -884,167 +971,171 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
                 spacing={0.5}
                 alignItems="center"
                 onMouseDown={handleToolbarDragStart}
-            sx={{
-              cursor: 'grab',
-              color: 'grey.300',
-              fontSize: 10,
-              pb: 0.25,
-            }}
-          >
-            <DragIndicator fontSize="small" />
-            <Typography variant="caption">移動</Typography>
+                sx={{
+                  cursor: 'grab',
+                  color: 'grey.300',
+                  fontSize: 10,
+                  pb: 0.25,
+                }}
+              >
+                <DragIndicator fontSize="small" />
+                <Typography variant="caption">移動</Typography>
               </Stack>
 
               {tool === 'select' && (
                 <Typography
                   variant="caption"
+                  sx={{
+                    fontSize: 9.5,
+                    color: 'grey.400',
+                    lineHeight: 1.1,
+                    px: 0.25,
+                  }}
+                >
+                  クリック:選択
+                  <br />
+                  ドラッグ:移動
+                  <br />
+                  Delete:削除
+                </Typography>
+              )}
+
+              {/* Tool Selection */}
+              <ToggleButtonGroup
+                value={tool}
+                exclusive
+                onChange={(_, value) => value && setTool(value)}
+                size="small"
                 sx={{
-                  fontSize: 9.5,
-                  color: 'grey.400',
-                  lineHeight: 1.1,
-                  px: 0.25,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(7, 1fr)',
+                  gap: 0.25,
+                  '& .MuiToggleButton-root': { minWidth: 28, height: 28, p: 0 },
                 }}
               >
-                クリック:選択
-                <br />
-                ドラッグ:移動
-                <br />
-                Delete:削除
-              </Typography>
-            )}
+                <ToggleButton value="pen">
+                  <Tooltip title="ペン">
+                    <Brush fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="select">
+                  <Tooltip title="選択/ドラッグで移動・Deleteで削除">
+                    <OpenWith fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="line">
+                  <Tooltip title="直線">
+                    <Timeline fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="arrow">
+                  <Tooltip title="矢印">
+                    <ArrowRightAlt fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="rectangle">
+                  <Tooltip title="四角形">
+                    <CropSquare fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="circle">
+                  <Tooltip title="円/楕円">
+                    <RadioButtonUnchecked fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="text">
+                  <Tooltip title="テキスト">
+                    <TextFields fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+              </ToggleButtonGroup>
 
-            {/* Tool Selection */}
-            <ToggleButtonGroup
-              value={tool}
-              exclusive
-              onChange={(_, value) => value && setTool(value)}
-              size="small"
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(7, 1fr)',
-                gap: 0.25,
-                '& .MuiToggleButton-root': { minWidth: 28, height: 28, p: 0 },
-              }}
-            >
-              <ToggleButton value="pen">
-                <Tooltip title="ペン">
-                  <Brush fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="select">
-              <Tooltip title="選択/ドラッグで移動・Deleteで削除">
-                <OpenWith fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="line">
-              <Tooltip title="直線">
-                <Timeline fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-              <ToggleButton value="arrow">
-                <Tooltip title="矢印">
-                  <ArrowRightAlt fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="rectangle">
-                <Tooltip title="四角形">
-                  <CropSquare fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="circle">
-                <Tooltip title="円/楕円">
-                  <RadioButtonUnchecked fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="text">
-                <Tooltip title="テキスト">
-                  <TextFields fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-            </ToggleButtonGroup>
+              <Divider sx={{ borderColor: 'grey.700' }} />
 
-            <Divider sx={{ borderColor: 'grey.700' }} />
+              {/* Color Palette */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(8, 1fr)',
+                  gap: 0.25,
+                }}
+              >
+                {colors.map((c) => (
+                  <IconButton
+                    key={c}
+                    size="small"
+                    onClick={() => setColor(c)}
+                    sx={{
+                      width: 16,
+                      height: 16,
+                      bgcolor: c,
+                      border:
+                        color === c ? '2px solid white' : '1px solid #666',
+                      '&:hover': { bgcolor: c },
+                    }}
+                  />
+                ))}
+              </Box>
 
-          {/* Color Palette */}
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(8, 1fr)',
-                gap: 0.25,
-              }}
-            >
-              {colors.map((c) => (
-                <IconButton
-                  key={c}
+              <Divider sx={{ borderColor: 'grey.700' }} />
+
+              {/* Stroke Width */}
+              <Stack spacing={0.25} sx={{ px: 0.5 }}>
+                <Typography variant="caption" sx={{ fontSize: 10 }}>
+                  太さ
+                </Typography>
+                <Slider
                   size="small"
-                  onClick={() => setColor(c)}
-                  sx={{
-                    width: 16,
-                    height: 16,
-                    bgcolor: c,
-                    border: color === c ? '2px solid white' : '1px solid #666',
-                    '&:hover': { bgcolor: c },
-                  }}
+                  value={strokeWidth}
+                  min={1}
+                  max={10}
+                  onChange={(_, v) => setStrokeWidth(v as number)}
+                  sx={{ width: '100%', mt: -0.5 }}
                 />
-              ))}
-            </Box>
+              </Stack>
 
-            <Divider sx={{ borderColor: 'grey.700' }} />
+              <Divider sx={{ borderColor: 'grey.700' }} />
 
-            {/* Stroke Width */}
-            <Stack spacing={0.25} sx={{ px: 0.5 }}>
-              <Typography variant="caption" sx={{ fontSize: 10 }}>
-                太さ
-              </Typography>
-              <Slider
-                size="small"
-                value={strokeWidth}
-                min={1}
-                max={10}
-                onChange={(_, v) => setStrokeWidth(v as number)}
-                sx={{ width: '100%', mt: -0.5 }}
-              />
-            </Stack>
+              {/* Actions */}
+              <Stack direction="row" spacing={0.25}>
+                <Tooltip title="元に戻す">
+                  <IconButton
+                    size="small"
+                    onClick={handleUndo}
+                    disabled={objects.length === 0}
+                  >
+                    <Undo fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="全てクリア">
+                  <IconButton size="small" onClick={handleClear}>
+                    <Clear fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
 
-            <Divider sx={{ borderColor: 'grey.700' }} />
-
-            {/* Actions */}
-            <Stack direction="row" spacing={0.25}>
-              <Tooltip title="元に戻す">
-                <IconButton
-                  size="small"
-                  onClick={handleUndo}
-                  disabled={objects.length === 0}
-                >
-                  <Undo fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="全てクリア">
-                <IconButton size="small" onClick={handleClear}>
-                  <Clear fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-
-            <Divider sx={{ borderColor: 'grey.700' }} />
+              <Divider sx={{ borderColor: 'grey.700' }} />
 
               {/* Freeze Duration */}
               <Stack spacing={0.25} sx={{ px: 0.5 }}>
                 <Stack direction="row" spacing={0.5} alignItems="center">
-                  <PauseCircle fontSize="small" sx={{ color: 'warning.main' }} />
+                  <PauseCircle
+                    fontSize="small"
+                    sx={{ color: 'warning.main' }}
+                  />
                   <Typography variant="caption" sx={{ fontSize: 10 }}>
-                停止 {localFreezeDuration}秒
-              </Typography>
-            </Stack>
-          <Slider
-            size="small"
-            value={localFreezeDuration}
-            min={MIN_FREEZE_UI_SECONDS}
-            max={10}
-            step={0.5}
-            onChange={(_, v) => handleFreezeDurationChange(v as number)}
-            sx={{ width: '100%' }}
-          />
+                    停止 {localFreezeDuration}秒
+                  </Typography>
+                </Stack>
+                <Slider
+                  size="small"
+                  value={localFreezeDuration}
+                  min={MIN_FREEZE_UI_SECONDS}
+                  max={10}
+                  step={0.5}
+                  onChange={(_, v) => handleFreezeDurationChange(v as number)}
+                  sx={{ width: '100%' }}
+                />
               </Stack>
             </Paper>
           </Portal>

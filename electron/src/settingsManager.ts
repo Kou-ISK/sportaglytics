@@ -50,9 +50,27 @@ const DEFAULT_SETTINGS: AppSettings = {
   codingPanel: {
     defaultMode: 'code',
     toolbars: [
-      { id: 'matrix', label: 'マトリクス', mode: 'code', enabled: true, plugin: 'matrix' },
-      { id: 'script', label: 'スクリプト実行', mode: 'code', enabled: true, plugin: 'script' },
-      { id: 'organizer', label: 'オーガナイザー', mode: 'label', enabled: true, plugin: 'organizer' },
+      {
+        id: 'matrix',
+        label: 'マトリクス',
+        mode: 'code',
+        enabled: true,
+        plugin: 'matrix',
+      },
+      {
+        id: 'script',
+        label: 'スクリプト実行',
+        mode: 'code',
+        enabled: true,
+        plugin: 'script',
+      },
+      {
+        id: 'organizer',
+        label: 'オーガナイザー',
+        mode: 'label',
+        enabled: true,
+        plugin: 'organizer',
+      },
     ],
     actionLinks: [],
   },

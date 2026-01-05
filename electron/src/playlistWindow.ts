@@ -215,7 +215,10 @@ export function registerPlaylistHandlers(): void {
 
   ipcMain.handle(
     'playlist:load-file',
-    async (_event, givenPath?: string): Promise<{ playlist: Playlist; filePath: string } | null> => {
+    async (
+      _event,
+      givenPath?: string,
+    ): Promise<{ playlist: Playlist; filePath: string } | null> => {
       try {
         let targetPath = givenPath;
         if (!targetPath) {

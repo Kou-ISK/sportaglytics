@@ -13,7 +13,12 @@ export const SettingsHeader: React.FC<SettingsHeaderProps> = ({ onClose }) => {
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           設定
         </Typography>
-        <IconButton edge="end" color="inherit" onClick={onClose} aria-label="閉じる">
+        <IconButton
+          edge="end"
+          color="inherit"
+          onClick={onClose}
+          aria-label="閉じる"
+        >
           <CloseIcon />
         </IconButton>
       </Toolbar>

@@ -388,7 +388,8 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {labelText || `${formatTime(item.startTime)} - ${formatTime(item.endTime)}`}
+                  {labelText ||
+                    `${formatTime(item.startTime)} - ${formatTime(item.endTime)}`}
                 </Typography>
 
                 {/* 右エッジ（終了時刻調整） */}
