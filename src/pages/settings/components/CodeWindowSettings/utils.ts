@@ -8,28 +8,28 @@ import type {
 } from '../../../../types/Settings';
 
 /** デフォルトのボタンサイズ（ピクセル） */
-export const DEFAULT_BUTTON_WIDTH = 100;
-export const DEFAULT_BUTTON_HEIGHT = 40;
+export const DEFAULT_BUTTON_WIDTH = 160;
+export const DEFAULT_BUTTON_HEIGHT = 44;
 
 /** デフォルトのキャンバスサイズ（ピクセル）
  * SporTagLyticsのデフォルトコーディングパネルの幅に合わせて横幅を設定
  */
-export const DEFAULT_CANVAS_WIDTH = 440;
-export const DEFAULT_CANVAS_HEIGHT = 600;
+export const DEFAULT_CANVAS_WIDTH = 360;
+export const DEFAULT_CANVAS_HEIGHT = 400;
 
 /** デフォルトのチームエリア */
 export const DEFAULT_TEAM1_AREA: TeamArea = {
   x: 0,
   y: 0,
-  width: 400,
-  height: 600,
+  width: DEFAULT_CANVAS_WIDTH / 2,
+  height: DEFAULT_CANVAS_HEIGHT,
 };
 
 export const DEFAULT_TEAM2_AREA: TeamArea = {
-  x: 400,
+  x: DEFAULT_CANVAS_WIDTH / 2,
   y: 0,
-  width: 400,
-  height: 600,
+  width: DEFAULT_CANVAS_WIDTH / 2,
+  height: DEFAULT_CANVAS_HEIGHT,
 };
 
 /**
@@ -46,6 +46,7 @@ export const createButton = (
     height?: number;
     team?: 'team1' | 'team2' | 'shared';
     color?: string;
+    fontSize?: number;
   },
 ): CodeWindowButton => ({
   id: ulid(),
@@ -58,6 +59,7 @@ export const createButton = (
   height: options?.height ?? DEFAULT_BUTTON_HEIGHT,
   team: options?.team ?? 'shared',
   color: options?.color,
+  fontSize: options?.fontSize,
 });
 
 /**
@@ -91,46 +93,27 @@ export const createLayout = (
 /**
  * デフォルトレイアウトを作成（アクションリストから自動生成）
  */
-export const createDefaultLayout = (actions: string[]): CodeWindowLayout => {
-  const buttons: CodeWindowButton[] = [];
-  const columns = 3;
-  const buttonWidth = DEFAULT_BUTTON_WIDTH;
-  const buttonHeight = DEFAULT_BUTTON_HEIGHT;
-  const gap = 10;
-
-  actions.forEach((action, index) => {
-    const row = Math.floor(index / columns);
-    const col = index % columns;
-    const x = col * (buttonWidth + gap) + gap;
-    const y = row * (buttonHeight + gap) + gap;
-    buttons.push(createButton('action', action, x, y));
-  });
-
-  const rowCount = Math.ceil(actions.length / columns);
-  const canvasHeight = Math.max(
-    DEFAULT_CANVAS_HEIGHT,
-    rowCount * (buttonHeight + gap) + gap * 2,
-  );
-
+export const createDefaultLayout = (): CodeWindowLayout => {
+  // デフォルトレイアウトはタイプ/チームごとに均等配置済みのため、ここではボタンなしで返す
   return {
     id: 'default',
     name: 'デフォルト',
     canvasWidth: DEFAULT_CANVAS_WIDTH,
-    canvasHeight,
-    buttons,
+    canvasHeight: DEFAULT_CANVAS_HEIGHT,
+    buttons: [],
     buttonLinks: [],
     splitByTeam: true,
     team1Area: {
       x: 0,
       y: 0,
       width: DEFAULT_CANVAS_WIDTH / 2,
-      height: canvasHeight,
+      height: DEFAULT_CANVAS_HEIGHT,
     },
     team2Area: {
       x: DEFAULT_CANVAS_WIDTH / 2,
       y: 0,
       width: DEFAULT_CANVAS_WIDTH / 2,
-      height: canvasHeight,
+      height: DEFAULT_CANVAS_HEIGHT,
     },
   };
 };

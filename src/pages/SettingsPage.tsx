@@ -16,7 +16,6 @@ export const SettingsPage: React.FC = () => {
 
   // 各タブのRefを保持
   const generalRef = useRef<SettingsTabHandle>(null);
-  const presetRef = useRef<SettingsTabHandle>(null);
   const hotkeyRef = useRef<SettingsTabHandle>(null);
   const codeWindowRef = useRef<SettingsTabHandle>(null);
 
@@ -25,10 +24,8 @@ export const SettingsPage: React.FC = () => {
       case 0:
         return generalRef.current?.hasUnsavedChanges() || false;
       case 1:
-        return presetRef.current?.hasUnsavedChanges() || false;
-      case 2:
         return hotkeyRef.current?.hasUnsavedChanges() || false;
-      case 3:
+      case 2:
         return codeWindowRef.current?.hasUnsavedChanges() || false;
       default:
         return false;
@@ -45,8 +42,17 @@ export const SettingsPage: React.FC = () => {
     hasUnsavedChanges: checkUnsavedChanges,
   });
 
-  const handleClose = () => {
-    // 設定画面を閉じて VideoPlayerApp に戻る
+  const handleClose = async () => {
+    // 専用ウィンドウなら閉じる、従来の単一ウィンドウ動作ではメインへ戻す
+    const api = globalThis.window.electronAPI;
+    if (api?.isSettingsWindowOpen) {
+      const isDetached = await api.isSettingsWindowOpen();
+      if (isDetached && api.closeSettingsWindow) {
+        await api.closeSettingsWindow();
+        return;
+      }
+    }
+
     const event = new CustomEvent('back-to-main');
     globalThis.dispatchEvent(event);
   };
@@ -78,7 +84,6 @@ export const SettingsPage: React.FC = () => {
           settings={settings}
           saveSettings={saveSettings}
           generalRef={generalRef}
-          presetRef={presetRef}
           hotkeyRef={hotkeyRef}
           codeWindowRef={codeWindowRef}
         />

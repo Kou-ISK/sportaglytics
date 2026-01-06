@@ -1,7 +1,52 @@
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, BrowserWindow } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import type { AppSettings } from '../../src/types/Settings';
+import {
+  DEFAULT_SETTINGS,
+  type AppSettings,
+  // normalizeはデフォルトレイアウトを最新にするために利用
+} from '../../src/types/Settings';
+import { normalizeCodingPanelLayouts } from '../../src/types/Settings';
+
+const buildCodingPanel = (
+  loadedPanel?: AppSettings['codingPanel'] | null,
+): NonNullable<AppSettings['codingPanel']> => {
+  const defaultCodingPanel =
+    DEFAULT_SETTINGS.codingPanel ?? ({
+      defaultMode: 'code',
+      toolbars: [],
+      actionLinks: [],
+      codeWindows: [],
+    } as NonNullable<AppSettings['codingPanel']>);
+
+  const panel: Partial<NonNullable<AppSettings['codingPanel']>> =
+    loadedPanel ?? {};
+
+  const codeWindows =
+    (panel as any).codeWindows && (panel as any).codeWindows.length > 0
+      ? (panel as any).codeWindows
+      : (panel as any).layouts && (panel as any).layouts.length > 0
+        ? (panel as any).layouts
+        : defaultCodingPanel.codeWindows ?? [];
+  const activeCodeWindowId =
+    (panel as any).activeCodeWindowId ??
+    (panel as any).activeLayoutId ??
+    defaultCodingPanel.activeCodeWindowId ??
+    codeWindows[0]?.id;
+
+  return {
+    ...defaultCodingPanel,
+    ...panel,
+    defaultMode: panel.defaultMode ?? defaultCodingPanel.defaultMode ?? 'code',
+    toolbars:
+      panel.toolbars?.filter((t) => t.mode === 'code' || t.mode === 'label') ??
+      defaultCodingPanel.toolbars ??
+      [],
+    actionLinks: panel.actionLinks ?? defaultCodingPanel.actionLinks ?? [],
+    codeWindows,
+    activeCodeWindowId,
+  };
+};
 
 /**
  * 設定ファイルのパスを取得
@@ -9,71 +54,6 @@ import type { AppSettings } from '../../src/types/Settings';
 const getSettingsPath = (): string => {
   const userDataPath = app.getPath('userData');
   return path.join(userDataPath, 'settings.json');
-};
-
-/**
- * デフォルト設定値（型情報は src/types/Settings.ts と同期が必要）
- */
-const DEFAULT_SETTINGS: AppSettings = {
-  themeMode: 'system',
-  activePresetId: 'default',
-  actionPresets: [],
-  hotkeys: [
-    { id: 'resync-audio', label: '音声同期を再実行', key: 'Command+Shift+S' },
-    { id: 'reset-sync', label: '同期をリセット', key: 'Command+Shift+R' },
-    { id: 'manual-sync', label: '今の位置で同期', key: 'Command+Shift+M' },
-    {
-      id: 'toggle-manual-mode',
-      label: '手動モード切替',
-      key: 'Command+Shift+T',
-    },
-    { id: 'analyze', label: '分析開始', key: 'Command+Shift+A' },
-    { id: 'undo', label: '元に戻す', key: 'Command+Z' },
-    { id: 'redo', label: 'やり直す', key: 'Command+Shift+Z' },
-    { id: 'skip-forward-small', label: '0.5倍速再生', key: 'Right' },
-    { id: 'skip-forward-medium', label: '2倍速再生', key: 'Shift+Right' },
-    { id: 'skip-forward-large', label: '4倍速再生', key: 'Command+Right' },
-    { id: 'skip-forward-xlarge', label: '6倍速再生', key: 'Option+Right' },
-    { id: 'skip-backward-medium', label: '5秒戻し', key: 'Left' },
-    { id: 'skip-backward-large', label: '10秒戻し', key: 'Shift+Left' },
-    { id: 'play-pause', label: '再生/停止', key: 'Space' },
-  ],
-  language: 'ja',
-  overlayClip: {
-    enabled: true,
-    showActionName: true,
-    showActionIndex: true,
-    showLabels: true,
-    showQualifier: true,
-    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
-  },
-  codingPanel: {
-    defaultMode: 'code',
-    toolbars: [
-      {
-        id: 'matrix',
-        label: 'マトリクス',
-        mode: 'code',
-        enabled: true,
-        plugin: 'matrix',
-      },
-      {
-        id: 'script',
-        label: 'スクリプト実行',
-        mode: 'code',
-        enabled: true,
-        plugin: 'script',
-      },
-      {
-        id: 'organizer',
-        label: 'オーガナイザー',
-        mode: 'label',
-        enabled: true,
-        plugin: 'organizer',
-      },
-    ],
-    actionLinks: [],
-  },
 };
 
 /**
@@ -106,32 +86,17 @@ export const loadSettings = async (): Promise<AppSettings> => {
     const parsed = JSON.parse(data) as Partial<AppSettings>;
 
     // デフォルト設定とマージして不足項目を補完
-    const merged: AppSettings = {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
-      overlayClip: {
-        ...DEFAULT_SETTINGS.overlayClip,
-        ...(parsed.overlayClip ?? {}),
-      },
-      codingPanel: {
-        ...DEFAULT_SETTINGS.codingPanel,
-        ...(parsed.codingPanel ?? {}),
-        defaultMode:
-          parsed.codingPanel?.defaultMode ??
-          DEFAULT_SETTINGS.codingPanel?.defaultMode ??
-          'code',
-        toolbars:
-          parsed.codingPanel?.toolbars?.filter(
-            (t) => t.mode === 'code' || t.mode === 'label',
-          ) ??
-          DEFAULT_SETTINGS.codingPanel?.toolbars ??
-          [],
-        actionLinks:
-          parsed.codingPanel?.actionLinks ??
-          DEFAULT_SETTINGS.codingPanel?.actionLinks ??
-          [],
-      },
-    };
+  const merged: AppSettings = {
+    ...DEFAULT_SETTINGS,
+    ...parsed,
+    overlayClip: {
+      ...DEFAULT_SETTINGS.overlayClip,
+      ...(parsed.overlayClip ?? {}),
+    },
+    codingPanel: normalizeCodingPanelLayouts(
+      buildCodingPanel(parsed.codingPanel),
+    ),
+  };
 
     // 古い/無効なホットキーをフィルタリング
     if (merged.hotkeys && merged.hotkeys.length > 0) {
@@ -194,7 +159,16 @@ export const registerSettingsHandlers = () => {
   });
 
   ipcMain.handle('settings:save', async (_event, settings: AppSettings) => {
-    return await saveSettings(settings);
+    const ok = await saveSettings(settings);
+    if (ok) {
+      // 設定変更を他ウィンドウへ通知（コードウィンドウ切替など）
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send('settings:updated', settings);
+        }
+      });
+    }
+    return ok;
   });
 
   ipcMain.handle('settings:reset', async () => {

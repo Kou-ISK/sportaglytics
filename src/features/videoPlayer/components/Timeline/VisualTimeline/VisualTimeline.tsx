@@ -172,9 +172,21 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       rectTop: scrollContainerRef.current?.getBoundingClientRect().top ?? 0,
       scrollLeft: scrollContainerRef.current?.scrollLeft ?? 0,
       scrollTop: scrollContainerRef.current?.scrollTop ?? 0,
-      laneOffset:
-        (containerRef.current?.getBoundingClientRect().left ?? 0) -
-        (scrollContainerRef.current?.getBoundingClientRect().left ?? 0),
+      // タイムライン本体（ラベルを除いたレーン領域）の左端オフセット
+      laneOffset: (() => {
+        const scrollRect = scrollContainerRef.current?.getBoundingClientRect();
+        if (!scrollRect) return 0;
+
+        // 実際のレーンコンテナの左端を優先的に使用
+        const firstLane = Object.values(laneRefs.current).find(Boolean);
+        if (firstLane) {
+          return firstLane.getBoundingClientRect().left - scrollRect.left;
+        }
+
+        // フォールバック: 全体コンテナから算出
+        const containerRect = containerRef.current?.getBoundingClientRect();
+        return containerRect ? containerRect.left - scrollRect.left : 0;
+      })(),
       containerHeight: scrollContainerRef.current?.clientHeight ?? undefined,
     }),
     getLaneBounds,

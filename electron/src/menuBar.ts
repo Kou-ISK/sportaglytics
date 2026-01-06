@@ -1,37 +1,25 @@
 import { Menu, app, BrowserWindow } from 'electron';
 import { createPlaylistWindow } from './playlistWindow';
+import { openSettingsWindow } from './settingsWindow';
+import { openHelpWindow } from './helpWindow';
 
 let recentPackagePaths: string[] = [];
 
-const resolveMainWindow = (
-  browserWindow?: BrowserWindow | Electron.BaseWindow | null,
-): BrowserWindow | null => {
-  const normalizedWindow =
-    browserWindow instanceof BrowserWindow ? browserWindow : null;
-  const windows = BrowserWindow.getAllWindows().filter(
-    (win) => !win.isDestroyed(),
+const isMac = process.platform === 'darwin';
+const isDevEnv = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+const openVersionInfoWindow = () => {
+  const versionWindow = new BrowserWindow({
+    width: 400,
+    height: 200,
+    webPreferences: { nodeIntegration: true },
+  });
+  versionWindow.loadURL(
+    `data:text/html;charset=utf-8,${encodeURIComponent(`
+    <h1>SportagLytics</h1>
+    <p>バージョン: ${app.getVersion()}</p>
+  `)}`,
   );
-  const primary =
-    windows.find((win) => {
-      try {
-        const url = win.webContents.getURL();
-        return url.includes('index.html') && !url.includes('#/playlist');
-      } catch {
-        return false;
-      }
-    }) || null;
-  if (primary) return primary;
-
-  const fallback =
-    windows.find((win) => {
-      try {
-        return !win.webContents.getURL().includes('#/playlist');
-      } catch {
-        return false;
-      }
-    }) || null;
-
-  return fallback || normalizedWindow || windows[0] || null;
 };
 
 export const setRecentPackagePaths = (paths: string[]) => {
@@ -84,172 +72,165 @@ const buildRecentPackageItems = () => {
   return items;
 };
 
-const buildMenu = () =>
-  Menu.buildFromTemplate([
+const buildMenu = () => {
+  const appMenuItems: Electron.MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [{ role: 'about' as const, label: `${app.name}について` }]
+      : [{ label: 'バージョン情報', click: openVersionInfoWindow }]),
+    { type: 'separator' },
     {
-      label: app.name,
-      submenu: [
-        { role: 'about', label: `${app.name}について` },
-        { type: 'separator' },
-        {
-          label: '設定...',
-          accelerator: 'CmdOrCtrl+,',
-          click: (_menuItem, browserWindow) => {
-            const target = resolveMainWindow(browserWindow);
-            target?.webContents.send('menu-open-settings');
-          },
-        },
-        { type: 'separator' },
-        { role: 'services', label: 'サービス' },
-        { type: 'separator' },
-        { role: 'hide', label: `${app.name}を隠す` },
-        { role: 'hideOthers', label: 'ほかを隠す' },
-        { role: 'unhide', label: 'すべて表示' },
-        { type: 'separator' },
-        { role: 'quit', label: `${app.name}を終了` },
-      ],
+      label: '設定...',
+      accelerator: 'CmdOrCtrl+,',
+      click: (_menuItem, browserWindow) => {
+        openSettingsWindow();
+      },
     },
+    { type: 'separator' },
+    { role: 'services' as const, label: 'サービス' },
+    { type: 'separator' },
+    { role: 'hide' as const, label: `${app.name}を隠す` },
+    { role: 'hideOthers' as const, label: 'ほかを隠す' },
+    { role: 'unhide' as const, label: 'すべて表示' },
+    { type: 'separator' },
+    { role: 'quit' as const, label: `${app.name}を終了` },
+  ];
+
+  const fileMenuItems: Electron.MenuItemConstructorOptions[] = [
+    { role: 'close' as const, label: 'ウィンドウを閉じる' },
     {
-      label: 'ファイル',
+      label: 'インポート',
       submenu: [
-        { role: 'close', label: 'ウィンドウを閉じる' },
         {
-          label: 'インポート',
-          submenu: [
-            {
-              label: 'タイムライン（JSON）',
-              click: (_menuItem, browserWindow) => {
-                if (browserWindow && 'webContents' in browserWindow) {
-                  (browserWindow as BrowserWindow).webContents.send(
-                    'menu-import-timeline',
-                  );
-                }
-              },
-            },
-            {
-              label: 'Sportscode XML（SCTimeline）',
-              click: (_menuItem, browserWindow) => {
-                if (browserWindow && 'webContents' in browserWindow) {
-                  (browserWindow as BrowserWindow).webContents.send(
-                    'menu-import-timeline',
-                  );
-                }
-              },
-            },
-          ],
-        },
-        {
-          label: 'エクスポート',
-          submenu: [
-            {
-              label: '映像クリップ（オーバーレイ）',
-              click: (_menuItem, browserWindow) => {
-                if (browserWindow && 'webContents' in browserWindow) {
-                  (browserWindow as BrowserWindow).webContents.send(
-                    'menu-export-clips',
-                  );
-                }
-              },
-            },
-            {
-              label: 'タイムライン（JSON）',
-              click: (_menuItem, browserWindow) => {
-                if (browserWindow && 'webContents' in browserWindow) {
-                  (browserWindow as BrowserWindow).webContents.send(
-                    'menu-export-timeline',
-                    'json',
-                  );
-                }
-              },
-            },
-            {
-              label: 'タイムライン（CSV）',
-              click: (_menuItem, browserWindow) => {
-                if (browserWindow && 'webContents' in browserWindow) {
-                  (browserWindow as BrowserWindow).webContents.send(
-                    'menu-export-timeline',
-                    'csv',
-                  );
-                }
-              },
-            },
-            {
-              label: 'Sportscode XML（SCTimeline）',
-              click: (_menuItem, browserWindow) => {
-                if (browserWindow && 'webContents' in browserWindow) {
-                  (browserWindow as BrowserWindow).webContents.send(
-                    'menu-export-timeline',
-                    'sctimeline',
-                  );
-                }
-              },
-            },
-          ],
-        },
-        { type: 'separator' },
-        {
-          label: '開く...',
-          accelerator: 'CmdOrCtrl+O',
+          label: 'タイムライン（JSON）',
           click: (_menuItem, browserWindow) => {
             if (browserWindow && 'webContents' in browserWindow) {
               (browserWindow as BrowserWindow).webContents.send(
-                'menu-open-package',
+                'menu-import-timeline',
               );
             }
           },
         },
         {
-          label: '最近開いたパッケージ',
-          submenu: buildRecentPackageItems(),
-        },
-      ],
-    },
-    {
-      label: 'ウィンドウ',
-      submenu: [
-        { role: 'minimize', label: '最小化' },
-        { role: 'zoom', label: '拡大/縮小' },
-        { type: 'separator' },
-        { role: 'front', label: '全てを前面に出す' },
-      ],
-    },
-    {
-      label: 'ヘルプ',
-      submenu: [
-        {
-          label: 'バージョン情報',
-          click: () => {
-            const versionWindow = new BrowserWindow({
-              width: 400,
-              height: 200,
-              webPreferences: { nodeIntegration: true },
-            });
-            versionWindow.loadURL(
-              `data:text/html;charset=utf-8,${encodeURIComponent(`
-              <h1>SportagLytics</h1>
-              <p>バージョン: ${app.getVersion()}</p>
-            `)}`,
-            );
-          },
-        },
-        {
-          label: 'プレイリストウィンドウを開く',
-          click: () => {
-            createPlaylistWindow();
-          },
-        },
-        {
-          label: '開発者ツール',
-          click: () => {
-            const focusedWindow = BrowserWindow.getFocusedWindow();
-            if (focusedWindow) {
-              focusedWindow.webContents.toggleDevTools();
+          label: 'Sportscode XML（SCTimeline）',
+          click: (_menuItem, browserWindow) => {
+            if (browserWindow && 'webContents' in browserWindow) {
+              (browserWindow as BrowserWindow).webContents.send(
+                'menu-import-timeline',
+              );
             }
           },
         },
       ],
     },
-  ]);
+    {
+      label: 'エクスポート',
+      submenu: [
+        {
+          label: '映像クリップ（オーバーレイ）',
+          click: (_menuItem, browserWindow) => {
+            if (browserWindow && 'webContents' in browserWindow) {
+              (browserWindow as BrowserWindow).webContents.send(
+                'menu-export-clips',
+              );
+            }
+          },
+        },
+        {
+          label: 'タイムライン（JSON）',
+          click: (_menuItem, browserWindow) => {
+            if (browserWindow && 'webContents' in browserWindow) {
+              (browserWindow as BrowserWindow).webContents.send(
+                'menu-export-timeline',
+                'json',
+              );
+            }
+          },
+        },
+        {
+          label: 'タイムライン（CSV）',
+          click: (_menuItem, browserWindow) => {
+            if (browserWindow && 'webContents' in browserWindow) {
+              (browserWindow as BrowserWindow).webContents.send(
+                'menu-export-timeline',
+                'csv',
+              );
+            }
+          },
+        },
+        {
+          label: 'Sportscode XML（SCTimeline）',
+          click: (_menuItem, browserWindow) => {
+            if (browserWindow && 'webContents' in browserWindow) {
+              (browserWindow as BrowserWindow).webContents.send(
+                'menu-export-timeline',
+                'sctimeline',
+              );
+            }
+          },
+        },
+      ],
+    },
+    { type: 'separator' },
+    {
+      label: '開く...',
+      accelerator: 'CmdOrCtrl+O',
+      click: (_menuItem, browserWindow) => {
+        if (browserWindow && 'webContents' in browserWindow) {
+          (browserWindow as BrowserWindow).webContents.send(
+            'menu-open-package',
+          );
+        }
+      },
+    },
+    {
+      label: '最近開いたパッケージ',
+      submenu: buildRecentPackageItems(),
+    },
+  ];
+
+  const windowMenuItems: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: 'プレイリストウィンドウを開く',
+      click: () => {
+        createPlaylistWindow();
+      },
+    },
+    { type: 'separator' },
+    { role: 'minimize' as const, label: '最小化' },
+    { role: 'zoom' as const, label: '拡大/縮小' },
+    { type: 'separator' },
+    { role: 'front' as const, label: '全てを前面に出す' },
+  ];
+
+  const helpMenuItems: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: 'ヘルプ / 機能一覧を開く',
+      click: () => openHelpWindow(),
+    },
+  ];
+  if (isDevEnv) {
+    helpMenuItems.push({
+      label: '開発者ツール',
+      click: () => {
+        const focusedWindow = BrowserWindow.getFocusedWindow();
+        if (focusedWindow) {
+          focusedWindow.webContents.toggleDevTools();
+        }
+      },
+    });
+  }
+
+  const template: Electron.MenuItemConstructorOptions[] = [
+    { label: app.name, submenu: appMenuItems },
+    { label: 'ファイル', submenu: fileMenuItems },
+    { label: 'ウィンドウ', submenu: windowMenuItems },
+    ...(helpMenuItems.length
+      ? [{ label: 'ヘルプ', submenu: helpMenuItems }]
+      : []),
+  ];
+
+  return Menu.buildFromTemplate(template);
+};
 
 export const getMenu = () => buildMenu();
 export const refreshAppMenu = () => Menu.setApplicationMenu(buildMenu());

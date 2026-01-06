@@ -80,6 +80,10 @@ const VideoPlayerAppContent = () => {
   // ホットキー設定を読み込み
   const { settings } = useSettings();
   const { activeActions } = useActionPreset();
+  const activeCodeWindow =
+    settings.codingPanel?.codeWindows?.find(
+      (l) => l.id === settings.codingPanel?.activeCodeWindowId,
+    ) || settings.codingPanel?.codeWindows?.[0];
 
   // TimelineActionSectionへのrefを作成
   const timelineActionRef = useRef<TimelineActionSectionHandle>(null);
@@ -91,6 +95,7 @@ const VideoPlayerAppContent = () => {
       teamNames,
       settingsHotkeys: settings.hotkeys,
       activeActions,
+      codeWindowButtons: activeCodeWindow?.buttons,
       timelineActionRef,
       setVideoPlayBackRate,
       setIsVideoPlaying: setisVideoPlaying,

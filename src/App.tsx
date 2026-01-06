@@ -31,7 +31,12 @@ function App() {
   useEffect(() => {
     // メニューから設定を開くイベントをリッスン
     const handleOpenSettings = () => {
-      setCurrentView('settings');
+      // 可能なら別ウィンドウで開く（フォールバックで従来動作）
+      if (globalThis.window.electronAPI?.openSettingsWindow) {
+        globalThis.window.electronAPI.openSettingsWindow();
+      } else {
+        setCurrentView('settings');
+      }
     };
 
     globalThis.window.electronAPI?.onOpenSettings(handleOpenSettings);

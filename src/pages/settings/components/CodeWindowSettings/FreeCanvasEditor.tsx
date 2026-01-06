@@ -38,8 +38,8 @@ import {
 interface FreeCanvasEditorProps {
   layout: CodeWindowLayout;
   onLayoutChange: (layout: CodeWindowLayout) => void;
-  selectedButtonId: string | null;
-  onSelectButton: (id: string | null) => void;
+  selectedButtonIds: string[];
+  onSelectButtons: (ids: string[]) => void;
   availableActions: string[];
   availableLabelGroups: Array<{ groupName: string; options: string[] }>;
   showLinks?: boolean;
@@ -54,8 +54,8 @@ type LinkType = 'exclusive' | 'lead' | 'deactivate';
 export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   layout,
   onLayoutChange,
-  selectedButtonId,
-  onSelectButton,
+  selectedButtonIds,
+  onSelectButtons,
   availableActions,
   availableLabelGroups,
   showLinks = true,
@@ -96,6 +96,26 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isUndoRedoRef = useRef(false);
   const copiedButtonRef = useRef<CodeWindowButton | null>(null);
+  const selectedPrimaryId = selectedButtonIds[0] ?? null;
+  const dragSelectionSnapshot = useRef<Record<string, { x: number; y: number }>>({});
+  const applySelection = useCallback(
+    (id: string | null, additive: boolean) => {
+      if (!id) {
+        onSelectButtons([]);
+        return;
+      }
+      if (additive) {
+        const exists = selectedButtonIds.includes(id);
+        const next = exists
+          ? selectedButtonIds.filter((v) => v !== id)
+          : [...selectedButtonIds, id];
+        onSelectButtons(next);
+      } else {
+        onSelectButtons([id]);
+      }
+    },
+    [onSelectButtons, selectedButtonIds],
+  );
 
   const gridSize = 10; // スナップグリッドサイズ
 
@@ -175,19 +195,21 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
           };
           updateLayoutWithHistory(newLayout);
           setSelectedLinkId(null);
-        } else if (selectedButtonId) {
+        } else if (selectedButtonIds.length > 0) {
           e.preventDefault();
           const newLayout = {
             ...layout,
-            buttons: layout.buttons.filter((b) => b.id !== selectedButtonId),
+            buttons: layout.buttons.filter(
+              (b) => !selectedButtonIds.includes(b.id),
+            ),
             buttonLinks: layout.buttonLinks?.filter(
               (l) =>
-                l.fromButtonId !== selectedButtonId &&
-                l.toButtonId !== selectedButtonId,
+                !selectedButtonIds.includes(l.fromButtonId) &&
+                !selectedButtonIds.includes(l.toButtonId),
             ),
           };
           updateLayoutWithHistory(newLayout);
-          onSelectButton(null);
+          onSelectButtons([]);
         }
       }
       // Cmd/Ctrl + Z: Undo
@@ -206,7 +228,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
       // Cmd/Ctrl + C: 選択中のボタンをコピー
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
         const buttonToCopy = layout.buttons.find(
-          (b) => b.id === selectedButtonId,
+          (b) => b.id === selectedPrimaryId,
         );
         if (buttonToCopy) {
           e.preventDefault();
@@ -244,7 +266,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
             buttons: [...layout.buttons, newButton],
           };
           updateLayoutWithHistory(updatedLayout);
-          onSelectButton(newId);
+          onSelectButtons([newId]);
           setSelectedLinkId(null);
         }
       }
@@ -253,11 +275,11 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    selectedButtonId,
+    selectedButtonIds,
     selectedLinkId,
     layout,
     updateLayoutWithHistory,
-    onSelectButton,
+    onSelectButtons,
     handleUndo,
     handleRedo,
   ]);
@@ -300,9 +322,9 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
       setDragMode('link');
       const pos = getCanvasPosition(e);
       setLinkEndPos(pos);
-      onSelectButton(button.id);
+      applySelection(button.id, e.metaKey || e.ctrlKey || e.shiftKey);
     },
-    [getCanvasPosition, onSelectButton],
+    [getCanvasPosition, applySelection],
   );
 
   // ボタンドラッグ開始
@@ -329,10 +351,28 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
           setResizeHandle('se');
         }
       }
-      onSelectButton(button.id);
+
+      // 選択更新（マルチセレクト対応）
+      const additive = e.metaKey || e.ctrlKey || e.shiftKey;
+      let nextSelection: string[];
+      if (additive) {
+        const exists = selectedButtonIds.includes(button.id);
+        nextSelection = exists
+          ? selectedButtonIds.filter((v) => v !== button.id)
+          : [...selectedButtonIds, button.id];
+      } else {
+        nextSelection = [button.id];
+      }
+      dragSelectionSnapshot.current = {};
+      layout.buttons.forEach((b) => {
+        if (nextSelection.includes(b.id)) {
+          dragSelectionSnapshot.current[b.id] = { x: b.x, y: b.y };
+        }
+      });
+      onSelectButtons(nextSelection);
       setSelectedLinkId(null); // リンクの選択を解除
     },
-    [getCanvasPosition, onSelectButton],
+    [getCanvasPosition, layout.buttons, onSelectButtons, selectedButtonIds],
   );
 
   // マウス移動
@@ -341,13 +381,28 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
       const pos = getCanvasPosition(e);
 
       if (dragMode === 'move' && draggedButton) {
-        const newX = snapToGrid(pos.x - dragOffset.x, gridSize);
-        const newY = snapToGrid(pos.y - dragOffset.y, gridSize);
+        const primaryStart = dragSelectionSnapshot.current[draggedButton.id] ?? {
+          x: draggedButton.x,
+          y: draggedButton.y,
+        };
+        const targetX = snapToGrid(pos.x - dragOffset.x, gridSize);
+        const targetY = snapToGrid(pos.y - dragOffset.y, gridSize);
+        const deltaX = targetX - primaryStart.x;
+        const deltaY = targetY - primaryStart.y;
 
-        // 一時的な更新（プレビュー用）
-        const updatedButtons = layout.buttons.map((b) =>
-          b.id === draggedButton.id ? { ...b, x: newX, y: newY } : b,
-        );
+        const updatedButtons = layout.buttons.map((b) => {
+          if (!dragSelectionSnapshot.current[b.id]) return b;
+          const startPos = dragSelectionSnapshot.current[b.id];
+          const nextX = Math.max(
+            0,
+            Math.min(layout.canvasWidth - b.width, startPos.x + deltaX),
+          );
+          const nextY = Math.max(
+            0,
+            Math.min(layout.canvasHeight - b.height, startPos.y + deltaY),
+          );
+          return { ...b, x: nextX, y: nextY };
+        });
         onLayoutChange({ ...layout, buttons: updatedButtons });
       } else if (dragMode === 'resize' && draggedButton && resizeHandle) {
         const newWidth = snapToGrid(
@@ -457,11 +512,11 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === canvasRef.current) {
-        onSelectButton(null);
+        onSelectButtons([]);
         setSelectedLinkId(null);
       }
     },
-    [onSelectButton],
+    [onSelectButtons],
   );
 
   // コンテキストメニュー
@@ -529,14 +584,14 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
         ...layout,
         buttons: [...layout.buttons, newButton],
       });
-      onSelectButton(newButton.id);
+      onSelectButtons([newButton.id]);
       handleCloseContextMenu();
     },
     [
       contextMenu,
       layout,
       updateLayoutWithHistory,
-      onSelectButton,
+      onSelectButtons,
       handleCloseContextMenu,
     ],
   );
@@ -551,20 +606,22 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
           (l) => l.fromButtonId !== buttonId && l.toButtonId !== buttonId,
         ),
       });
-      if (selectedButtonId === buttonId) {
-        onSelectButton(null);
+      if (selectedButtonIds.includes(buttonId)) {
+        onSelectButtons(
+          selectedButtonIds.filter((id) => id !== buttonId),
+        );
       }
     },
-    [layout, updateLayoutWithHistory, selectedButtonId, onSelectButton],
+    [layout, updateLayoutWithHistory, selectedButtonIds, onSelectButtons],
   );
 
   // リンク選択
   const handleSelectLink = useCallback(
     (linkId: string) => {
       setSelectedLinkId(linkId);
-      onSelectButton(null); // ボタンの選択を解除
+      onSelectButtons([]); // ボタンの選択を解除
     },
-    [onSelectButton],
+    [onSelectButtons],
   );
 
   // マウスがキャンバス外に出たらドラッグ終了
@@ -638,7 +695,8 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
       // リンク自体が選択されているか、接続先ボタンが選択されている場合はハイライト
       const isLinkSelected = selectedLinkId === link.id;
       const isRelatedToSelectedButton =
-        selectedButtonId === fromButton.id || selectedButtonId === toButton.id;
+        selectedPrimaryId === fromButton.id ||
+        selectedPrimaryId === toButton.id;
       const isHighlighted = isLinkSelected || isRelatedToSelectedButton;
 
       const linkColor = getLinkColor(link.type, isHighlighted);
@@ -731,7 +789,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
 
   // ボタンを描画
   const renderButton = (button: CodeWindowButton) => {
-    const isSelected = button.id === selectedButtonId;
+    const isSelected = selectedButtonIds.includes(button.id);
     const isDragging = draggedButton?.id === button.id && dragMode === 'move';
     const isLinkSource = linkStartButton?.id === button.id;
     const buttonColor =
@@ -1183,7 +1241,7 @@ Shift + 右クリックドラッグ → 非活性化（橙）`}
                   ...layout,
                   buttons: [...layout.buttons, newButton],
                 });
-                onSelectButton(newButton.id);
+                onSelectButtons([newButton.id]);
               }
               setCustomActionName('');
               setCustomActionDialogOpen(false);
@@ -1265,7 +1323,7 @@ Shift + 右クリックドラッグ → 非活性化（橙）`}
                   ...layout,
                   buttons: [...layout.buttons, newButton],
                 });
-                onSelectButton(newButton.id);
+                onSelectButtons([newButton.id]);
               }
               setCustomLabelGroup('');
               setCustomLabelValue('');

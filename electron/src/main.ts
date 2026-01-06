@@ -12,6 +12,7 @@ import {
   setMainWindowRef,
   sendPlaylistFileToWindow,
 } from './playlistWindow';
+import { registerSettingsWindowHandlers } from './settingsWindow';
 
 // ローカル動画の自動再生を許可（appが未定義の環境ではスキップ）
 if (app?.commandLine) {
@@ -727,6 +728,7 @@ const createWindow = async () => {
 Utils();
 registerSettingsHandlers();
 registerPlaylistHandlers();
+registerSettingsWindowHandlers();
 
 app.on('open-file', (event, filePath) => {
   event.preventDefault();

@@ -1,18 +1,108 @@
-/**
- * アクションプリセット定義
- */
-export interface ActionPreset {
-  /** プリセットの一意なID */
-  id: string;
-  /** プリセット名 */
-  name: string;
-  /** このプリセットに含まれるアクション */
-  actions: ActionDefinition[];
-  /** 並び順 */
-  order: number;
-  /** デフォルトプリセットフラグ（削除不可、IDは固定） */
-  isDefault?: boolean;
-}
+import { TEAM_PLACEHOLDERS } from '../utils/teamPlaceholder';
+
+/** デフォルトコードウィンドウのレイアウトを生成 */
+const createDefaultCodeWindowLayout = (): CodeWindowLayout => {
+  // 横2列・8行で均等幅/余白、右パネル内で縮小されないサイズ
+  const canvasWidth = 360;
+  const canvasHeight = 420;
+  const columnWidth = 160;
+  const rowHeight = 40;
+  const leftX = 10;
+  const gapX = 20;
+  const rightX = leftX + columnWidth + gapX; // 10 + 160 + 20 = 190
+  const rows = [
+    { key: 'ポゼッション', y: 10 },
+    { key: 'スクラム', y: 55 },
+    { key: 'ラインアウト', y: 100 },
+    { key: 'キックオフ', y: 145 },
+    { key: 'PK', y: 190 },
+    { key: 'FK', y: 235 },
+    { key: 'キック', y: 280 },
+    { key: 'ショット', y: 325 },
+    { key: 'トライ', y: 370 },
+  ];
+
+  const makeButtons = (placeholder: string, x: number, color: string) =>
+    rows.map((row, idx) => ({
+      id: `${placeholder}-${idx}`,
+      type: 'action' as const,
+      name: `${placeholder} ${row.key}`,
+      x,
+      y: row.y,
+      width: columnWidth,
+      height: rowHeight,
+      team: placeholder === TEAM_PLACEHOLDERS.TEAM1 ? ('team1' as const) : ('team2' as const),
+      color,
+      textColor: '#ffffff',
+      borderRadius: 8,
+      fontSize: 14,
+    }));
+
+  const team1Buttons = makeButtons(TEAM_PLACEHOLDERS.TEAM1, leftX, '#4B7BEC');
+  const team2Buttons = makeButtons(TEAM_PLACEHOLDERS.TEAM2, rightX, '#E74C3C');
+
+  return {
+    id: 'default',
+    name: 'デフォルト',
+    canvasWidth,
+    canvasHeight,
+    buttons: [...team1Buttons, ...team2Buttons],
+    buttonLinks: [],
+    splitByTeam: true,
+    team1Area: {
+      x: 0,
+      y: 0,
+      width: canvasWidth / 2,
+      height: canvasHeight,
+    },
+    team2Area: {
+      x: canvasWidth / 2,
+      y: 0,
+      width: canvasWidth / 2,
+      height: canvasHeight,
+    },
+  };
+};
+
+export const normalizeCodingPanelLayouts = (
+  panel: NonNullable<AppSettings['codingPanel']>,
+): NonNullable<AppSettings['codingPanel']> => {
+  const defaultLayout = createDefaultCodeWindowLayout();
+  const existing = panel as Partial<
+    NonNullable<AppSettings['codingPanel']> & {
+      layouts?: CodeWindowLayout[];
+      activeLayoutId?: string;
+    }
+  >;
+  const codeWindows = Array.isArray(existing.codeWindows)
+    ? [...existing.codeWindows]
+    : Array.isArray(existing.layouts)
+      ? [...existing.layouts]
+      : [];
+  const idx = codeWindows.findIndex((l) => l.id === defaultLayout.id);
+  const shouldReplace =
+    idx === -1 ||
+    codeWindows[idx].canvasWidth !== defaultLayout.canvasWidth ||
+    codeWindows[idx].canvasHeight !== defaultLayout.canvasHeight ||
+    (codeWindows[idx].buttons?.length ?? 0) !== defaultLayout.buttons.length;
+
+  if (idx === -1) {
+    codeWindows.unshift(defaultLayout);
+  } else if (shouldReplace) {
+    codeWindows[idx] = defaultLayout;
+  }
+
+  const activeCodeWindowId =
+    existing.activeCodeWindowId ??
+    existing.activeLayoutId ??
+    defaultLayout.id;
+
+  return {
+    ...panel,
+    codeWindows,
+    activeCodeWindowId,
+  };
+};
 
 /**
  * アクショングループ定義（group > name構造）
@@ -88,6 +178,8 @@ export interface CodeWindowButton {
   team?: 'team1' | 'team2' | 'shared';
   /** グループID（同じIDのボタンをグループ化） */
   groupId?: string;
+  /** テキストサイズ(px) */
+  fontSize?: number;
 }
 
 /**
@@ -169,10 +261,6 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 export interface AppSettings {
   /** テーマモード */
   themeMode: ThemeMode;
-  /** 現在アクティブなプリセットID */
-  activePresetId: string;
-  /** カスタムアクションプリセット */
-  actionPresets: ActionPreset[];
   /** ホットキー設定 */
   hotkeys: HotkeyConfig[];
   /** 言語設定（将来の拡張用） */
@@ -197,10 +285,10 @@ export interface AppSettings {
       plugin?: 'matrix' | 'script' | 'organizer';
     }>;
     actionLinks?: ActionLink[];
-    /** コードウィンドウのレイアウト設定 */
-    layouts?: CodeWindowLayout[];
-    /** アクティブなレイアウトID */
-    activeLayoutId?: string;
+    /** コードウィンドウ設定 */
+    codeWindows?: CodeWindowLayout[];
+    /** アクティブなコードウィンドウID */
+    activeCodeWindowId?: string;
   };
 }
 
@@ -209,8 +297,6 @@ export interface AppSettings {
  */
 export const DEFAULT_SETTINGS: AppSettings = {
   themeMode: 'system',
-  activePresetId: 'default',
-  actionPresets: [],
   hotkeys: [
     { id: 'resync-audio', label: '音声同期を再実行', key: 'Command+Shift+S' },
     { id: 'reset-sync', label: '同期をリセット', key: 'Command+Shift+R' },
@@ -244,6 +330,20 @@ export const DEFAULT_SETTINGS: AppSettings = {
     defaultMode: 'code',
     toolbars: [
       {
+        id: 'matrix',
+        label: 'マトリクス',
+        mode: 'code',
+        enabled: true,
+        plugin: 'matrix',
+      },
+      {
+        id: 'script',
+        label: 'スクリプト実行',
+        mode: 'code',
+        enabled: true,
+        plugin: 'script',
+      },
+      {
         id: 'organizer',
         label: 'オーガナイザー',
         mode: 'label',
@@ -252,5 +352,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
       },
     ],
     actionLinks: [],
+    codeWindows: [createDefaultCodeWindowLayout()],
+    activeCodeWindowId: 'default',
   },
 };

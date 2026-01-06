@@ -1,7 +1,6 @@
 import React from 'react';
 import { Tabs, Tab, Paper, Box } from '@mui/material';
 import { GeneralSettings } from './GeneralSettings';
-import { ActionPresetSettings } from './ActionPresetSettings';
 import { HotkeySettings } from './HotkeySettings';
 import { CodeWindowSettings } from './CodeWindowSettings';
 import type { SettingsTabHandle } from '../../SettingsPage';
@@ -13,7 +12,6 @@ interface SettingsTabsProps {
   settings: AppSettings;
   saveSettings: (settings: AppSettings) => Promise<boolean>;
   generalRef: React.RefObject<SettingsTabHandle>;
-  presetRef: React.RefObject<SettingsTabHandle>;
   hotkeyRef: React.RefObject<SettingsTabHandle>;
   codeWindowRef: React.RefObject<SettingsTabHandle>;
 }
@@ -43,7 +41,6 @@ export const SettingsTabs: React.FC<SettingsTabsProps> = ({
   settings,
   saveSettings,
   generalRef,
-  presetRef,
   hotkeyRef,
   codeWindowRef,
 }) => {
@@ -56,9 +53,8 @@ export const SettingsTabs: React.FC<SettingsTabsProps> = ({
         variant="fullWidth"
       >
         <Tab label="一般" id="settings-tab-0" />
-        <Tab label="アクションプリセット" id="settings-tab-1" />
-        <Tab label="ホットキー" id="settings-tab-2" />
-        <Tab label="コードウィンドウ" id="settings-tab-3" />
+        <Tab label="ホットキー" id="settings-tab-1" />
+        <Tab label="コードウィンドウ" id="settings-tab-2" />
       </Tabs>
 
       <TabPanel value={currentTab} index={0}>
@@ -69,20 +65,13 @@ export const SettingsTabs: React.FC<SettingsTabsProps> = ({
         />
       </TabPanel>
       <TabPanel value={currentTab} index={1}>
-        <ActionPresetSettings
-          ref={presetRef}
-          settings={settings}
-          onSave={saveSettings}
-        />
-      </TabPanel>
-      <TabPanel value={currentTab} index={2}>
         <HotkeySettings
           ref={hotkeyRef}
           settings={settings}
           onSave={saveSettings}
         />
       </TabPanel>
-      <TabPanel value={currentTab} index={3}>
+      <TabPanel value={currentTab} index={2}>
         <CodeWindowSettings
           ref={codeWindowRef}
           settings={settings}

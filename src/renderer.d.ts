@@ -54,6 +54,12 @@ export interface IElectronAPI {
   resetSettings: () => Promise<unknown>;
   onOpenSettings: (callback: () => void) => void;
   offOpenSettings: (callback: () => void) => void;
+  onSettingsUpdated: (
+    callback: (settings: import('./types/Settings').AppSettings) => void,
+  ) => (() => void) | void;
+  openSettingsWindow: () => Promise<void>;
+  closeSettingsWindow: () => Promise<void>;
+  isSettingsWindowOpen: () => Promise<boolean>;
   setWindowTitle: (title: string) => void;
   exportClipsWithOverlay?: (payload: {
     sourcePath: string;

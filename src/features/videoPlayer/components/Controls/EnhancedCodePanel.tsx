@@ -16,6 +16,13 @@ import {
 } from '../../../../utils/teamPlaceholder';
 
 type LabelSelectionsMap = Record<string, Record<string, string>>;
+type EffectiveLink = {
+  from: string;
+  to: string;
+  type: 'exclusive' | 'deactivate' | 'activate';
+  fromId?: string;
+  toId?: string;
+};
 
 interface EnhancedCodePanelProps {
   addTimelineData: (
@@ -78,17 +85,17 @@ export const EnhancedCodePanel = forwardRef<
     // カスタムレイアウトを取得
     const customLayout = useMemo((): CodeWindowLayout | null => {
       if (
-        !settings.codingPanel?.layouts ||
-        !settings.codingPanel?.activeLayoutId
+        !settings.codingPanel?.codeWindows ||
+        !settings.codingPanel?.activeCodeWindowId
       ) {
         return null;
       }
       return (
-        settings.codingPanel.layouts.find(
-          (l) => l.id === settings.codingPanel?.activeLayoutId,
+        settings.codingPanel.codeWindows.find(
+          (l) => l.id === settings.codingPanel?.activeCodeWindowId,
         ) || null
       );
-    }, [settings.codingPanel?.layouts, settings.codingPanel?.activeLayoutId]);
+    }, [settings.codingPanel?.codeWindows, settings.codingPanel?.activeCodeWindowId]);
 
     // 複数同時録画に対応するため、アクションごとにセッションを保持
     const [activeRecordings, setActiveRecordings] = React.useState<
@@ -150,18 +157,36 @@ export const EnhancedCodePanel = forwardRef<
     );
 
     // 外部から呼び出せるメソッドを公開
-    useImperativeHandle(ref, () => ({
-      triggerAction: (teamName: string, actionName: string) => {
-        const action = activeActions.find((a) => a.action === actionName);
-        if (!action) {
-          console.warn(
-            `[EnhancedCodePanel] Action "${actionName}" not found in active actions`,
-          );
-          return;
-        }
-        handleActionClick(teamName, action);
-      },
-    }));
+  useImperativeHandle(ref, () => ({
+    triggerAction: (teamName: string, actionName: string) => {
+      // ホットキー経由の場合は「チーム名 アクション名」形式で飛んでくるのでプレフィックスを剥がす
+      const matchingTeam = teamNames.find((t) =>
+        actionName.startsWith(`${t} `),
+      );
+      const baseActionName =
+        matchingTeam && actionName.startsWith(`${matchingTeam} `)
+          ? actionName.slice(matchingTeam.length + 1)
+          : actionName;
+
+      const buttonColor = getButtonColorByName(actionName);
+      const action =
+        activeActions.find((a) => a.action === baseActionName) ??
+        // 未定義のアクションでも記録できるようにフェイク定義を作る
+        ({
+          action: baseActionName,
+          types: [],
+          results: [],
+          groups: [],
+        } as ActionDefinition);
+
+      handleActionClick(
+        matchingTeam ?? teamName,
+        action,
+        actionName,
+        buttonColor,
+      );
+    },
+  }));
 
     // ラベルグループの選択状態を管理（groupName -> selected option）
     const [labelSelections, setLabelSelections] =
@@ -202,7 +227,10 @@ export const EnhancedCodePanel = forwardRef<
         type: 'exclusive' | 'deactivate' | 'activate';
       }[]
     >(settings.codingPanel?.actionLinks ?? []);
-    const [warning, setWarning] = React.useState<string | null>(null);
+    const setWarning = React.useCallback((message: string | null) => {
+      // Warning表示は未実装だが、将来の拡張に備えて引数を吸収
+      void message;
+    }, []);
     const recentActionsRef = React.useRef<string[]>([]);
     // ラベルボタンの一時的なアクティブ状態（ボタンID -> true）
     const [activeLabelButtons, setActiveLabelButtons] = React.useState<
@@ -363,12 +391,8 @@ export const EnhancedCodePanel = forwardRef<
     // カスタムレイアウトのbuttonLinksをアクション名ベースに変換
     // カスタムレイアウトのbuttonLinksをアクション名ベースに変換
     // プレースホルダーも置換して実際のチーム名で比較できるようにする
-    const effectiveLinks = React.useMemo(() => {
-      const links: {
-        from: string;
-        to: string;
-        type: 'exclusive' | 'deactivate' | 'activate';
-      }[] = [];
+    const effectiveLinks = React.useMemo<EffectiveLink[]>(() => {
+      const links: EffectiveLink[] = [];
 
       // 旧式のactionLinksを追加（プレースホルダー置換）
       actionLinks.forEach((l) => {
@@ -389,6 +413,8 @@ export const EnhancedCodePanel = forwardRef<
               from: replaceTeamPlaceholders(fromName, teamContext),
               to: replaceTeamPlaceholders(toName, teamContext),
               type: bl.type as 'exclusive' | 'deactivate' | 'activate',
+              fromId: bl.fromButtonId,
+              toId: bl.toButtonId,
             });
           }
         });
@@ -396,6 +422,19 @@ export const EnhancedCodePanel = forwardRef<
 
       return links;
     }, [actionLinks, customLayout, getButtonNameById, teamContext]);
+
+    const matchesLinkTarget = React.useCallback(
+      (link: EffectiveLink, targetName: string, targetId?: string) => {
+        if (targetId && (link.fromId || link.toId)) {
+          return link.fromId === targetId || link.toId === targetId;
+        }
+        return (
+          isSameActionName(link.from, targetName) ||
+          isSameActionName(link.to, targetName)
+        );
+      },
+      [isSameActionName],
+    );
 
     // アクションボタンクリック時の処理
     // originalButtonName: カスタムレイアウトからの呼び出し時に元のボタン名を渡す
@@ -405,6 +444,7 @@ export const EnhancedCodePanel = forwardRef<
       action: ActionDefinition,
       originalButtonName?: string,
       buttonColor?: string,
+      buttonId?: string,
     ) => {
       // リンク比較用のボタン名（カスタムレイアウトの場合はボタン名、それ以外はアクション名）
       const clickedButtonName = originalButtonName || action.action;
@@ -412,10 +452,8 @@ export const EnhancedCodePanel = forwardRef<
       setPrimaryAction(clickedButtonName);
 
       // リンク処理
-      const relatedLinks = effectiveLinks.filter(
-        (r) =>
-          isSameActionName(r.from, clickedButtonName) ||
-          isSameActionName(r.to, clickedButtonName),
+      const relatedLinks = effectiveLinks.filter((r) =>
+        matchesLinkTarget(r, clickedButtonName, buttonId),
       );
 
       // Activateリンクの処理（記録開始前に処理）
@@ -737,7 +775,13 @@ export const EnhancedCodePanel = forwardRef<
         const action = activeActions.find((a) => a.action === actionName);
         if (action) {
           // 置換後のボタン名と色を渡してリンク比較・記録に使用
-          handleActionClick(teamName, action, buttonName, buttonColor);
+          handleActionClick(
+            teamName,
+            action,
+            buttonName,
+            buttonColor,
+            button.id,
+          );
         } else {
           // アクション定義がない場合は仮の定義を使って直接記録
           const fakeAction: ActionDefinition = {
@@ -747,7 +791,13 @@ export const EnhancedCodePanel = forwardRef<
             groups: [],
           };
           // 置換後のボタン名と色を渡してリンク比較・記録に使用
-          handleActionClick(teamName, fakeAction, buttonName, buttonColor);
+          handleActionClick(
+            teamName,
+            fakeAction,
+            buttonName,
+            buttonColor,
+            button.id,
+          );
         }
       } else if (button.type === 'label' && button.labelValue) {
         // ラベルボタンからのリンク処理
@@ -766,10 +816,8 @@ export const EnhancedCodePanel = forwardRef<
           setActiveLabelButtons((prev) => ({ ...prev, [button.id]: false }));
         }, 1000);
 
-        const relatedLinks = effectiveLinks.filter(
-          (r) =>
-            isSameActionName(r.from, labelButtonName) ||
-            isSameActionName(r.to, labelButtonName),
+        const relatedLinks = effectiveLinks.filter((r) =>
+          matchesLinkTarget(r, labelButtonName, button.id),
         );
 
         // Deactivate: ラベルボタンがfromで、toが記録中なら終了候補として控える
@@ -866,117 +914,117 @@ export const EnhancedCodePanel = forwardRef<
       const containerHeight = layout.canvasHeight * scale;
 
       return (
-        <Box sx={{ mb: 2 }} ref={layoutContainerRef}>
-          <Box
-            sx={{
-              position: 'relative',
-              width: '100%',
-              height: containerHeight,
-              backgroundColor: 'background.paper',
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            {allButtons.map((button) => {
-              // プレースホルダーを置換したボタン名
-              const resolvedButtonName = replaceTeamPlaceholders(
-                button.name,
-                teamContext,
-              );
-              const isActive =
-                button.type === 'action' &&
-                Boolean(activeRecordings[resolvedButtonName]);
-              const isSelected =
-                isActive || primaryAction === resolvedButtonName;
-              // ラベルボタンは一時的なアクティブ状態（1秒間）のみ表示
-              const isLabelSelected =
-                button.type === 'label' && activeLabelButtons[button.id];
+        <Box
+          ref={layoutContainerRef}
+          sx={{
+            mb: 2,
+            position: 'relative',
+            width: '100%',
+            height: containerHeight,
+            backgroundColor: 'transparent',
+            borderRadius: 0,
+            border: 'none',
+          }}
+        >
+          {allButtons.map((button) => {
+            // プレースホルダーを置換したボタン名
+            const resolvedButtonName = replaceTeamPlaceholders(
+              button.name,
+              teamContext,
+            );
+            const isActive =
+              button.type === 'action' &&
+              Boolean(activeRecordings[resolvedButtonName]);
+            const isSelected =
+              isActive || primaryAction === resolvedButtonName;
+            // ラベルボタンは一時的なアクティブ状態（1秒間）のみ表示
+            const isLabelSelected =
+              button.type === 'label' && activeLabelButtons[button.id];
 
-              const buttonColor =
-                button.color ||
-                (button.type === 'action' ? '#1976d2' : '#9c27b0');
-              // 表示テキストもプレースホルダーを置換
-              const displayText =
-                button.type === 'label' && button.labelValue
-                  ? button.labelValue
-                  : resolvedButtonName;
+            const buttonColor =
+              button.color || (button.type === 'action' ? '#1976d2' : '#9c27b0');
+            const baseFontPx = button.fontSize ?? 14;
+            const fontPx = Math.max(10, baseFontPx * scale);
+            // 表示テキストもプレースホルダーを置換
+            const displayText =
+              button.type === 'label' && button.labelValue
+                ? button.labelValue
+                : resolvedButtonName;
 
-              return (
-                <Box
-                  key={button.id}
-                  onClick={() => handleCustomButtonClick(button)}
-                  sx={{
-                    position: 'absolute',
-                    left: button.x * scale,
-                    top: button.y * scale,
-                    width: button.width * scale,
-                    height: button.height * scale,
-                    minWidth: 0,
-                    px: 0.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent:
-                      button.textAlign === 'left'
-                        ? 'flex-start'
-                        : button.textAlign === 'right'
-                          ? 'flex-end'
-                          : 'center',
-                    fontSize: `${Math.max(0.6, 0.75 * scale)}rem`,
-                    fontWeight: 500,
+            return (
+              <Box
+                key={button.id}
+                onClick={() => handleCustomButtonClick(button)}
+                sx={{
+                  position: 'absolute',
+                  left: button.x * scale,
+                  top: button.y * scale,
+                  width: button.width * scale,
+                  height: button.height * scale,
+                  minWidth: 0,
+                  px: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent:
+                    button.textAlign === 'left'
+                      ? 'flex-start'
+                      : button.textAlign === 'right'
+                        ? 'flex-end'
+                        : 'center',
+                  fontSize: `${fontPx}px`,
+                  fontWeight: 500,
+                  backgroundColor:
+                    isSelected || isLabelSelected
+                      ? buttonColor
+                      : 'transparent',
+                  color:
+                    isSelected || isLabelSelected
+                      ? button.textColor || '#fff'
+                      : buttonColor,
+                  border: `1px solid ${buttonColor}`,
+                  borderRadius: `${(button.borderRadius ?? 4) * scale}px`,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  overflow: 'hidden',
+                  '&:hover': {
                     backgroundColor:
                       isSelected || isLabelSelected
                         ? buttonColor
-                        : 'transparent',
-                    color:
-                      isSelected || isLabelSelected
-                        ? button.textColor || '#fff'
-                        : buttonColor,
-                    border: `1px solid ${buttonColor}`,
-                    borderRadius: `${(button.borderRadius ?? 4) * scale}px`,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
+                        : `${buttonColor}22`,
+                  },
+                  '&:active': {
+                    transform: 'scale(0.98)',
+                  },
+                  '@keyframes pulse': {
+                    '0%, 100%': { opacity: 1 },
+                    '50%': { opacity: 0.5 },
+                  },
+                }}
+              >
+                {/* 録画アイコン */}
+                {isRecording && isSelected && (
+                  <FiberManualRecordIcon
+                    sx={{
+                      fontSize: '0.75rem',
+                      animation: 'pulse 1.5s ease-in-out infinite',
+                      color: 'error.main',
+                      mr: 0.25,
+                    }}
+                  />
+                )}
+                {/* テキスト */}
+                <span
+                  style={{
                     overflow: 'hidden',
-                    '&:hover': {
-                      backgroundColor:
-                        isSelected || isLabelSelected
-                          ? buttonColor
-                          : `${buttonColor}22`,
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    },
-                    '@keyframes pulse': {
-                      '0%, 100%': { opacity: 1 },
-                      '50%': { opacity: 0.5 },
-                    },
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {/* 録画アイコン */}
-                  {isRecording && isSelected && (
-                    <FiberManualRecordIcon
-                      sx={{
-                        fontSize: '0.75rem',
-                        animation: 'pulse 1.5s ease-in-out infinite',
-                        color: 'error.main',
-                        mr: 0.25,
-                      }}
-                    />
-                  )}
-                  {/* テキスト */}
-                  <span
-                    style={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {displayText}
-                  </span>
-                </Box>
-              );
-            })}
-          </Box>
+                  {displayText}
+                </span>
+              </Box>
+            );
+          })}
         </Box>
       );
     };
@@ -1000,12 +1048,6 @@ export const EnhancedCodePanel = forwardRef<
             flexWrap: 'wrap',
           }}
         ></Box>
-
-        {warning && (
-          <Typography color="warning.main" variant="body2" sx={{ mb: 1 }}>
-            {warning}
-          </Typography>
-        )}
 
         {activeMode === 'label' && (
           <Box

@@ -9,6 +9,7 @@ interface UseHotkeyBindingsParams {
   teamNames: string[];
   settingsHotkeys: HotkeyConfig[];
   activeActions: ActionDefinition[];
+  codeWindowButtons?: { id: string; name: string; hotkey?: string }[];
   timelineActionRef: RefObject<TimelineActionSectionHandle>;
   setVideoPlayBackRate: (rate: number) => void;
   setIsVideoPlaying: (value: boolean) => void;
@@ -32,6 +33,7 @@ export const useHotkeyBindings = ({
   teamNames,
   settingsHotkeys,
   activeActions,
+  codeWindowButtons = [],
   timelineActionRef,
   setVideoPlayBackRate,
   setIsVideoPlaying,
@@ -157,6 +159,20 @@ export const useHotkeyBindings = ({
     return hotkeys;
   }, [teamNames, activeActions]);
 
+  // コードウィンドウボタンのホットキー（アクティブレイアウトのみ）
+  const codeWindowHotkeys = useMemo(() => {
+    const hotkeys: HotkeyConfig[] = [];
+    for (const btn of codeWindowButtons) {
+      if (!btn.hotkey) continue;
+      hotkeys.push({
+        id: `codewindow-${btn.id}`,
+        label: btn.name,
+        key: btn.hotkey,
+      });
+    }
+    return hotkeys;
+  }, [codeWindowButtons]);
+
   const actionHandlers = useMemo(() => {
     const handlers: Record<string, () => void> = {};
 
@@ -185,14 +201,40 @@ export const useHotkeyBindings = ({
     return handlers;
   }, [teamNames, activeActions, timelineActionRef]);
 
+  // コードウィンドウボタンのハンドラ
+  const codeWindowHandlers = useMemo(() => {
+    const handlers: Record<string, () => void> = {};
+    const teamContext =
+      teamNames.length >= 2
+        ? { team1Name: teamNames[0], team2Name: teamNames[1] }
+        : { team1Name: teamNames[0] || 'Team1', team2Name: teamNames[1] || 'Team2' };
+
+    const replacePlaceholder = (name: string) =>
+      name
+        .replace(/\$\{Team1\}/g, teamContext.team1Name)
+        .replace(/\$\{Team2\}/g, teamContext.team2Name);
+
+    for (const btn of codeWindowButtons) {
+      if (!btn.hotkey) continue;
+      const actionName = replacePlaceholder(btn.name);
+      handlers[`codewindow-${btn.id}`] = () => {
+        // ボタン名がチーム名プレフィックスを含むためそのままトリガー
+        const team = teamNames.find((t) => actionName.startsWith(`${t} `));
+        const resolvedTeam = team || teamNames[0] || '';
+        timelineActionRef.current?.triggerAction(resolvedTeam, actionName);
+      };
+    }
+    return handlers;
+  }, [codeWindowButtons, teamNames, timelineActionRef]);
+
   const combinedHotkeys = useMemo(
-    () => [...settingsHotkeys, ...actionHotkeys],
-    [settingsHotkeys, actionHotkeys],
+    () => [...settingsHotkeys, ...actionHotkeys, ...codeWindowHotkeys],
+    [settingsHotkeys, actionHotkeys, codeWindowHotkeys],
   );
 
   const combinedHandlers = useMemo(
-    () => ({ ...hotkeyHandlers, ...actionHandlers }),
-    [hotkeyHandlers, actionHandlers],
+    () => ({ ...hotkeyHandlers, ...actionHandlers, ...codeWindowHandlers }),
+    [hotkeyHandlers, actionHandlers, codeWindowHandlers],
   );
 
   return { combinedHotkeys, combinedHandlers, keyUpHandlers };

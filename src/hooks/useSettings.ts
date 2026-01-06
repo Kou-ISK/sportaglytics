@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { AppSettings } from '../types/Settings';
-import { DEFAULT_SETTINGS } from '../types/Settings';
+import { DEFAULT_SETTINGS, normalizeCodingPanelLayouts } from '../types/Settings';
 
 /**
  * アプリ設定を管理するカスタムフック
@@ -9,6 +9,44 @@ export const useSettings = () => {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const buildCodingPanel = (
+    loadedPanel?: AppSettings['codingPanel'] | null,
+  ): NonNullable<AppSettings['codingPanel']> => {
+      const defaultCodingPanel: NonNullable<AppSettings['codingPanel']> =
+        DEFAULT_SETTINGS.codingPanel ?? {
+          defaultMode: 'code',
+          toolbars: [],
+          actionLinks: [],
+          codeWindows: [],
+          activeCodeWindowId: 'default',
+        };
+      const panel: Partial<NonNullable<AppSettings['codingPanel']>> =
+        loadedPanel ?? {};
+      const codeWindows =
+        panel.codeWindows && panel.codeWindows.length > 0
+          ? panel.codeWindows
+          : defaultCodingPanel.codeWindows ?? [];
+      const activeCodeWindowId =
+        panel.activeCodeWindowId ??
+        (panel as { activeLayoutId?: string }).activeLayoutId ??
+        defaultCodingPanel.activeCodeWindowId ??
+        codeWindows[0]?.id;
+
+      return normalizeCodingPanelLayouts({
+        ...defaultCodingPanel,
+        ...panel,
+        defaultMode: panel.defaultMode ?? defaultCodingPanel.defaultMode ?? 'code',
+        toolbars:
+          panel.toolbars?.filter((t) => t.mode === 'code' || t.mode === 'label') ??
+          defaultCodingPanel.toolbars ??
+          [],
+        actionLinks:
+          panel.actionLinks ?? defaultCodingPanel.actionLinks ?? [],
+        codeWindows,
+        activeCodeWindowId,
+      });
+  };
 
   // 設定を読み込む
   const loadSettings = useCallback(async () => {
@@ -37,24 +75,9 @@ export const useSettings = () => {
           ...DEFAULT_SETTINGS.overlayClip,
           ...(loaded as Partial<AppSettings>).overlayClip,
         },
-        codingPanel: {
-          ...DEFAULT_SETTINGS.codingPanel,
-          ...(loaded as Partial<AppSettings>).codingPanel,
-          defaultMode:
-            (loaded as Partial<AppSettings>).codingPanel?.defaultMode ??
-            DEFAULT_SETTINGS.codingPanel?.defaultMode ??
-            'code',
-          toolbars:
-            (loaded as Partial<AppSettings>).codingPanel?.toolbars?.filter(
-              (t) => t.mode === 'code' || t.mode === 'label',
-            ) ??
-            DEFAULT_SETTINGS.codingPanel?.toolbars ??
-            [],
-          actionLinks:
-            (loaded as Partial<AppSettings>).codingPanel?.actionLinks ??
-            DEFAULT_SETTINGS.codingPanel?.actionLinks ??
-            [],
-        },
+        codingPanel: buildCodingPanel(
+          (loaded as Partial<AppSettings>).codingPanel,
+        ),
       };
       setSettings(merged);
     } catch (err) {
@@ -115,28 +138,9 @@ export const useSettings = () => {
           ...DEFAULT_SETTINGS.overlayClip,
           ...(defaultSettings as Partial<AppSettings>).overlayClip,
         },
-        codingPanel: {
-          ...DEFAULT_SETTINGS.codingPanel,
-          ...(defaultSettings as Partial<AppSettings>).codingPanel,
-          defaultMode:
-            (defaultSettings as Partial<AppSettings>).codingPanel
-              ?.defaultMode ??
-            DEFAULT_SETTINGS.codingPanel?.defaultMode ??
-            'code',
-          toolbars:
-            (
-              defaultSettings as Partial<AppSettings>
-            ).codingPanel?.toolbars?.filter(
-              (t) => t.mode === 'code' || t.mode === 'label',
-            ) ??
-            DEFAULT_SETTINGS.codingPanel?.toolbars ??
-            [],
-          actionLinks:
-            (defaultSettings as Partial<AppSettings>).codingPanel
-              ?.actionLinks ??
-            DEFAULT_SETTINGS.codingPanel?.actionLinks ??
-            [],
-        },
+        codingPanel: buildCodingPanel(
+          (defaultSettings as Partial<AppSettings>).codingPanel,
+        ),
       };
       setSettings(merged);
       return true;
@@ -150,6 +154,17 @@ export const useSettings = () => {
   // 初回マウント時に設定を読み込む
   useEffect(() => {
     loadSettings();
+  }, [loadSettings]);
+
+  // 設定更新イベントを購読（別ウィンドウで保存されたら再読み込み）
+  useEffect(() => {
+    const unsubscribe =
+      globalThis.window.electronAPI?.onSettingsUpdated?.(() => {
+        loadSettings();
+      });
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, [loadSettings]);
 
   return {
