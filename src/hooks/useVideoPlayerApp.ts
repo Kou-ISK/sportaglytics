@@ -134,6 +134,7 @@ export const useVideoPlayerApp = () => {
     newValue: number | number[],
   ) => {
     const time = newValue as number;
+    const isManualMode = syncMode === 'manual';
 
     // シーク開始を通知（SyncedVideoPlayerがtimeupdateを一時無視）
     const seekStartEvent = new CustomEvent('video-seek-start', {
@@ -205,19 +206,19 @@ export const useVideoPlayerApp = () => {
                   targetTime = Math.max(minTime, timeClamped);
                 }
 
-                // 2番目以降の動画には同期オフセットを適用
-                // グローバル時間 = video_0の時間なので、video_1 = グローバル時間 - offset
-                if (index > 0 && syncData?.isAnalyzed) {
+                // 2番目以降の動画には同期オフセットを適用（手動モードでは適用しない）
+                // グローバル時間 = video_0の時間なので、video_1 = グローバル時間 + offset
+                if (index > 0 && syncData?.isAnalyzed && !isManualMode) {
                   const offset = syncData.syncOffset || 0;
-                  // offset > 0: video_1が早い → video_1を遅らせる（-offset）
-                  // offset < 0: video_0が早い → video_1を進める（-offset、正の値を加算）
-                  targetTime = Math.max(0, timeClamped - offset);
+                  // offset > 0: video_1が早い → video_1を遅らせる（+offset）
+                  // offset < 0: video_0が早い → video_1を進める（+offset、負の値を加算）
+                  targetTime = Math.max(0, timeClamped + offset);
 
                   // オフセット適用のデバッグログ
                   console.log(
                     `[OFFSET DEBUG] video_${index}: global=${timeClamped.toFixed(3)}s, ` +
                       `offset=${offset.toFixed(3)}s, target=${targetTime.toFixed(3)}s ` +
-                      `(計算: ${timeClamped.toFixed(3)} - ${offset.toFixed(3)} = ${targetTime.toFixed(3)})`,
+                      `(計算: ${timeClamped.toFixed(3)} + ${offset.toFixed(3)} = ${targetTime.toFixed(3)})`,
                   );
                 }
 

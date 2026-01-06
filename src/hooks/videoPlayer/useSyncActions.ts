@@ -85,7 +85,7 @@ export const useSyncActions = ({
                       : 0;
                   const targetTime = Math.max(
                     0,
-                    currentGlobalTime - (index > 0 ? offset : 0),
+                    currentGlobalTime + (index > 0 ? offset : 0),
                   );
 
                   player.pause?.();

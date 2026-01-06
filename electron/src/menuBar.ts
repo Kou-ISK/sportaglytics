@@ -72,6 +72,14 @@ const buildRecentPackageItems = () => {
   return items;
 };
 
+const sendToFocusedWindow = (channel: string, ...args: unknown[]) => {
+  const target =
+    BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+  if (target && !target.isDestroyed()) {
+    target.webContents.send(channel, ...args);
+  }
+};
+
 const buildMenu = () => {
   const appMenuItems: Electron.MenuItemConstructorOptions[] = [
     ...(isMac
@@ -202,6 +210,41 @@ const buildMenu = () => {
     { role: 'front' as const, label: '全てを前面に出す' },
   ];
 
+  // 同期メニュー（MECE構造）
+  const syncMenuItems: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: '自動同期（音声解析）',
+      accelerator: 'CmdOrCtrl+Shift+S',
+      click: () => sendToFocusedWindow('menu-resync-audio'),
+    },
+    {
+      label: '同期オフセットをリセット',
+      accelerator: 'CmdOrCtrl+Shift+R',
+      click: () => sendToFocusedWindow('menu-reset-sync'),
+    },
+    { type: 'separator' },
+    {
+      label: '手動同期',
+      submenu: [
+        {
+          label: '現在の位置で同期をセット',
+          accelerator: 'CmdOrCtrl+Shift+M',
+          click: () => sendToFocusedWindow('menu-manual-sync'),
+        },
+        { type: 'separator' },
+        {
+          label: '自動再生モード（同期再生）',
+          click: () => sendToFocusedWindow('menu-set-sync-mode', 'auto'),
+        },
+        {
+          label: '手動再生モード（個別操作）',
+          accelerator: 'CmdOrCtrl+Shift+T',
+          click: () => sendToFocusedWindow('menu-set-sync-mode', 'manual'),
+        },
+      ],
+    },
+  ];
+
   const helpMenuItems: Electron.MenuItemConstructorOptions[] = [
     {
       label: 'ヘルプ / 機能一覧を開く',
@@ -223,6 +266,7 @@ const buildMenu = () => {
   const template: Electron.MenuItemConstructorOptions[] = [
     { label: app.name, submenu: appMenuItems },
     { label: 'ファイル', submenu: fileMenuItems },
+    { label: '同期', submenu: syncMenuItems },
     { label: 'ウィンドウ', submenu: windowMenuItems },
     ...(helpMenuItems.length
       ? [{ label: 'ヘルプ', submenu: helpMenuItems }]

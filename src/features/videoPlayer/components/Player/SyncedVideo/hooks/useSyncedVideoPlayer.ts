@@ -8,6 +8,7 @@ export const useSyncedVideoPlayer = ({
   syncData,
   isVideoPlaying,
   forceUpdateKey = 0,
+  syncMode,
 }: SyncedVideoPlayerProps) => {
   const {
     primaryClock,
@@ -21,6 +22,7 @@ export const useSyncedVideoPlayer = ({
     syncData,
     isVideoPlaying,
     forceUpdateKey,
+    syncMode,
   });
 
   const { aspectRatios, handleAspectRatioChange } =
