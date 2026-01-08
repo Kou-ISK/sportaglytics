@@ -12,7 +12,8 @@ const buildCodingPanel = (
   loadedPanel?: AppSettings['codingPanel'] | null,
 ): NonNullable<AppSettings['codingPanel']> => {
   const defaultCodingPanel =
-    DEFAULT_SETTINGS.codingPanel ?? ({
+    DEFAULT_SETTINGS.codingPanel ??
+    ({
       defaultMode: 'code',
       toolbars: [],
       actionLinks: [],
@@ -27,7 +28,7 @@ const buildCodingPanel = (
       ? (panel as any).codeWindows
       : (panel as any).layouts && (panel as any).layouts.length > 0
         ? (panel as any).layouts
-        : defaultCodingPanel.codeWindows ?? [];
+        : (defaultCodingPanel.codeWindows ?? []);
   const activeCodeWindowId =
     (panel as any).activeCodeWindowId ??
     (panel as any).activeLayoutId ??
@@ -86,17 +87,17 @@ export const loadSettings = async (): Promise<AppSettings> => {
     const parsed = JSON.parse(data) as Partial<AppSettings>;
 
     // デフォルト設定とマージして不足項目を補完
-  const merged: AppSettings = {
-    ...DEFAULT_SETTINGS,
-    ...parsed,
-    overlayClip: {
-      ...DEFAULT_SETTINGS.overlayClip,
-      ...(parsed.overlayClip ?? {}),
-    },
-    codingPanel: normalizeCodingPanelLayouts(
-      buildCodingPanel(parsed.codingPanel),
-    ),
-  };
+    const merged: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      overlayClip: {
+        ...DEFAULT_SETTINGS.overlayClip,
+        ...(parsed.overlayClip ?? {}),
+      },
+      codingPanel: normalizeCodingPanelLayouts(
+        buildCodingPanel(parsed.codingPanel),
+      ),
+    };
 
     // 古い/無効なホットキーをフィルタリング
     if (merged.hotkeys && merged.hotkeys.length > 0) {

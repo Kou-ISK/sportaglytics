@@ -83,7 +83,9 @@ export const CodeWindowSettings = forwardRef<
     const groupMap = new Map<string, Set<string>>();
 
     ActionList.forEach((action) => {
-      const groups = (action as { groups?: { groupName: string; options: string[] }[] }).groups;
+      const groups = (
+        action as { groups?: { groupName: string; options: string[] }[] }
+      ).groups;
       if (Array.isArray(groups)) {
         groups.forEach((g) => {
           const existing = groupMap.get(g.groupName) || new Set<string>();
@@ -534,15 +536,22 @@ export const CodeWindowSettings = forwardRef<
                           keys.forEach((key) => {
                             const nextValue = updatedButton[key];
                             const prevValue = selectedButton[key];
-                            if (nextValue === undefined || nextValue === prevValue)
+                            if (
+                              nextValue === undefined ||
+                              nextValue === prevValue
+                            )
                               return;
-                            (updates as Record<string, unknown>)[key] = nextValue;
+                            (updates as Record<string, unknown>)[key] =
+                              nextValue;
                           });
                           if (Object.keys(updates).length > 0) {
                             applyUpdatesToSelection(updates);
                           }
                         } else if (selectedButtonIds[0]) {
-                          handleButtonUpdate(selectedButtonIds[0], updatedButton);
+                          handleButtonUpdate(
+                            selectedButtonIds[0],
+                            updatedButton,
+                          );
                         }
                       }}
                       onDelete={() => {

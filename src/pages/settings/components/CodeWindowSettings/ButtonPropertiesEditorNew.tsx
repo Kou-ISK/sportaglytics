@@ -772,7 +772,9 @@ export const ButtonPropertiesEditor: React.FC<ButtonPropertiesEditorProps> = ({
           type="number"
           fullWidth
           value={button.fontSize ?? 14}
-          onChange={(e) => handleNumberChange('fontSize', e.target.value, 8, 48)}
+          onChange={(e) =>
+            handleNumberChange('fontSize', e.target.value, 8, 48)
+          }
           inputProps={{ min: 8, max: 48, step: 1 }}
           sx={{ mb: 2 }}
         />
@@ -840,27 +842,27 @@ export const ButtonPropertiesEditor: React.FC<ButtonPropertiesEditorProps> = ({
               color: button.textColor || '#fff',
               borderRadius: `${button.borderRadius ?? 4}px`,
               display: 'flex',
-           alignItems: 'center',
-            justifyContent:
-              button.textAlign === 'left'
-                ? 'flex-start'
-                : button.textAlign === 'right'
-                  ? 'flex-end'
-                  : 'center',
-            px: 1,
-            boxShadow: 2,
-          }}
-        >
-         <Typography
-           variant="caption"
-           sx={{
-             fontWeight: 500,
-             overflow: 'hidden',
-             textOverflow: 'ellipsis',
-             whiteSpace: 'nowrap',
-             fontSize: `${button.fontSize ?? 14}px`,
-           }}
-         >
+              alignItems: 'center',
+              justifyContent:
+                button.textAlign === 'left'
+                  ? 'flex-start'
+                  : button.textAlign === 'right'
+                    ? 'flex-end'
+                    : 'center',
+              px: 1,
+              boxShadow: 2,
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 500,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: `${button.fontSize ?? 14}px`,
+              }}
+            >
               {button.type === 'label' && button.labelValue
                 ? button.labelValue
                 : button.name}
