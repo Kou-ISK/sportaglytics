@@ -164,9 +164,9 @@ export const useVideoJsPlayer = ({
         preload: 'auto',
         autoplay: false,
         playsinline: true,
-        fill: true,
-        fluid: true,
-        responsive: true,
+        fill: false, // fillを無効化してレイアウトの干渉を防ぐ
+        fluid: false, // fluidを無効化してレイアウトの干渉を防ぐ
+        responsive: false, // responsiveも無効化
         inactivityTimeout: 0,
         html5: {
           vhs: { enableLowInitialPlaylist: true },
