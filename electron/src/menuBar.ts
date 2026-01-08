@@ -218,30 +218,15 @@ const buildMenu = () => {
       click: () => sendToFocusedWindow('menu-resync-audio'),
     },
     {
-      label: '同期オフセットをリセット',
-      accelerator: 'CmdOrCtrl+Shift+R',
-      click: () => sendToFocusedWindow('menu-reset-sync'),
+      label: '手動同期モード',
+      accelerator: 'CmdOrCtrl+Shift+T',
+      click: () => sendToFocusedWindow('menu-set-sync-mode', 'manual'),
     },
     { type: 'separator' },
     {
-      label: '手動同期',
-      submenu: [
-        {
-          label: '現在の位置で同期をセット',
-          accelerator: 'CmdOrCtrl+Shift+M',
-          click: () => sendToFocusedWindow('menu-manual-sync'),
-        },
-        { type: 'separator' },
-        {
-          label: '自動再生モード（同期再生）',
-          click: () => sendToFocusedWindow('menu-set-sync-mode', 'auto'),
-        },
-        {
-          label: '手動再生モード（個別操作）',
-          accelerator: 'CmdOrCtrl+Shift+T',
-          click: () => sendToFocusedWindow('menu-set-sync-mode', 'manual'),
-        },
-      ],
+      label: '同期オフセットをリセット',
+      accelerator: 'CmdOrCtrl+Shift+R',
+      click: () => sendToFocusedWindow('menu-reset-sync'),
     },
   ];
 

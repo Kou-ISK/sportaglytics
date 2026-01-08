@@ -15,6 +15,15 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
   allowSeek = true,
   onAspectRatioChange,
 }) => {
+  // [DEBUG] SingleVideoPlayer のレンダリングを確認
+  console.log(`[SingleVideoPlayer ${id}] Render:`, {
+    videoSrc,
+    hasVideoSrc: !!videoSrc,
+    videoSrcLength: videoSrc?.length,
+    forceUpdate,
+    allowSeek,
+  });
+
   const { containerRef, videoRef, playerRef, isReady, durationSec } =
     useVideoJsPlayer({
       id,
@@ -35,6 +44,7 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
     videoPlayBackRate,
     durationSec,
     setShowEndMask,
+    allowSeek,
   });
 
   void forceUpdate;
@@ -43,11 +53,11 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
     if (blockPlay) {
       return '同期オフセットを待機中…';
     }
-    if (showEndMask) {
+    if (showEndMask && !allowSeek) {
       return '再生終了';
     }
     return null;
-  }, [blockPlay, showEndMask]);
+  }, [blockPlay, showEndMask, allowSeek]);
 
   return (
     <Box
@@ -69,9 +79,9 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
         ref={videoRef}
         className="video-js vjs-big-play-centered"
         id={id}
-        controls={allowSeek}
         preload="auto"
         playsInline
+        onContextMenu={(e) => e.preventDefault()}
       />
       {overlayMessage && (
         <Box
@@ -84,6 +94,7 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            pointerEvents: 'none',
           }}
         >
           <Typography variant="caption" color="common.white">

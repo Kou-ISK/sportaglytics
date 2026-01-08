@@ -15,20 +15,10 @@ export const calculateAdjustedCurrentTimes = (
     if (index === 0) {
       return clampToZero(primaryClock);
     }
-    const shifted = primaryClock - offset;
+    const shifted = primaryClock + offset;
     return clampToZero(shifted);
   });
 };
-
-const shouldBlockPrimaryForNegativeOffset = (
-  primaryClock: number,
-  offset: number,
-) => primaryClock < Math.abs(offset) - OFFSET_EPSILON;
-
-const shouldBlockSecondaryForPositiveOffset = (
-  primaryClock: number,
-  offset: number,
-) => primaryClock < offset - OFFSET_EPSILON;
 
 interface BlockStateParams {
   videoList: string[];
@@ -47,22 +37,12 @@ export const calculateBlockStates = ({
     return videoList.map(() => false);
   }
 
+  // offset < 0 の場合、セカンダリは基準より遅れるため、基準が|offset|に到達するまで再生をブロック
   if (isNegativeOffset(offset)) {
-    return videoList.map((_, index) => {
-      if (index === 0) {
-        return shouldBlockPrimaryForNegativeOffset(primaryClock, offset);
-      }
-      return false;
-    });
-  }
-
-  if (isPositiveOffset(offset)) {
-    return videoList.map((_, index) => {
-      if (index === 0) {
-        return false;
-      }
-      return shouldBlockSecondaryForPositiveOffset(primaryClock, offset);
-    });
+    const threshold = Math.abs(offset) - OFFSET_EPSILON;
+    return videoList.map((_, index) =>
+      index === 0 ? false : primaryClock < threshold,
+    );
   }
 
   return videoList.map(() => false);

@@ -66,6 +66,16 @@ export const useVideoPlayerApp = () => {
     sortTimelineDatas,
   } = useTimelineEditing(setTimeline);
   const [videoList, setVideoList] = useState<string[]>([]); // 空の配列に修正
+
+  // [DEBUG] videoList の変更を追跡
+  useEffect(() => {
+    console.log('[useVideoPlayerApp] videoList changed:', {
+      videoList,
+      length: videoList.length,
+      timestamp: new Date().toISOString(),
+    });
+  }, [videoList]);
+
   const [currentTime, setCurrentTime] = useState(0);
   const [metaDataConfigFilePath, setMetaDataConfigFilePath] =
     useState<string>('');
