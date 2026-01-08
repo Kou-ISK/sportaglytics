@@ -220,8 +220,9 @@ export const VideoController = ({
               const rs = player.readyState?.() ?? 0;
 
               // 2本目以降は再生前に同期位置へシーク
+              // targetTime = baseTime + offset (offset = video_1に加算すべき秒数)
               if (index > 0) {
-                const targetTime = Math.max(0, baseTime - localOffset);
+                const targetTime = Math.max(0, baseTime + localOffset);
                 try {
                   (
                     player as unknown as {

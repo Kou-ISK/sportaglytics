@@ -50,6 +50,13 @@ export const useVideoJsPlayer = ({
   setMaxSec,
   onAspectRatioChange,
 }: UseVideoJsPlayerParams) => {
+  // [DEBUG] useVideoJsPlayer の初期化
+  console.log(`[useVideoJsPlayer ${id}] Hook called:`, {
+    videoSrc,
+    hasVideoSrc: !!videoSrc,
+    allowSeek,
+  });
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<Player | null>(null);
@@ -67,7 +74,13 @@ export const useVideoJsPlayer = ({
   }, [onAspectRatioChange]);
 
   useEffect(() => {
+    console.log(`[useVideoJsPlayer ${id}] 初期化 useEffect 実行:`, {
+      hasPlayer: !!playerRef.current,
+      videoSrc,
+    });
+
     if (playerRef.current) {
+      console.log(`[useVideoJsPlayer ${id}] プレイヤーは既に初期化済み`);
       return;
     }
 
@@ -117,39 +130,54 @@ export const useVideoJsPlayer = ({
     };
 
     const initializePlayer = () => {
+      console.log(`[useVideoJsPlayer ${id}] initializePlayer 呼び出し:`, {
+        cancelled,
+        hasPlayer: !!playerRef.current,
+      });
+
       const videoEl = resolveVideoElement();
+      console.log(`[useVideoJsPlayer ${id}] resolveVideoElement 結果:`, {
+        hasVideoEl: !!videoEl,
+        isConnected: videoEl?.isConnected,
+      });
+
       if (cancelled || playerRef.current) {
+        console.log(
+          `[useVideoJsPlayer ${id}] 初期化スキップ: cancelled=${cancelled}, hasPlayer=${!!playerRef.current}`,
+        );
         return;
       }
       if (!videoEl || !videoEl.isConnected) {
+        console.log(
+          `[useVideoJsPlayer ${id}] video要素が見つからない、再試行をスケジュール`,
+        );
         if (!cancelled) {
           rafId = requestAnimationFrame(initializePlayer);
         }
         return;
       }
 
+      console.log(`[useVideoJsPlayer ${id}] Video.js プレイヤーを初期化中...`);
+
       const playerInstance = videojs(videoEl, {
-        controls: allowSeek,
+        controls: allowSeek, // 手動モード時はネイティブHTML5コントロールを表示
         preload: 'auto',
         autoplay: false,
         playsinline: true,
-        fill: true,
-        fluid: true,
-        responsive: true,
+        fill: false, // fillを無効化してレイアウトの干渉を防ぐ
+        fluid: false, // fluidを無効化してレイアウトの干渉を防ぐ
+        responsive: false, // responsiveも無効化
         inactivityTimeout: 0,
         html5: {
           vhs: { enableLowInitialPlaylist: true },
           nativeVideoTracks: false,
           nativeAudioTracks: false,
         },
+        controlBar: false, // Video.jsのカスタムコントロールバーは常に非表示
       });
 
       playerRef.current = playerInstance;
-      try {
-        playerInstance.controls(allowSeek);
-      } catch {
-        /* noop */
-      }
+      console.log(`[useVideoJsPlayer ${id}] Video.js プレイヤー初期化完了`);
 
       const handleReady = () => {
         if (!initialMuteApplied.current && id !== 'video_0') {
@@ -192,6 +220,16 @@ export const useVideoJsPlayer = ({
       playerInstance.on('loadeddata', handleMetadata);
       playerInstance.on('error', handleTechError);
       playerInstance.on('resize', handleResize);
+
+      // 初期化直後にソースを設定（videoSrc が存在する場合）
+      if (videoSrc && videoSrc.trim()) {
+        const source = formatSource(videoSrc);
+        console.log(`[useVideoJsPlayer ${id}] 初期化時にソースを設定:`, {
+          videoSrc,
+          formattedSource: source,
+        });
+        playerInstance.src({ src: source, type: 'video/mp4' });
+      }
     };
 
     initializePlayer();
@@ -238,10 +276,18 @@ export const useVideoJsPlayer = ({
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !videoSrc) {
+      console.log(`[useVideoJsPlayer ${id}] Skipping source set:`, {
+        hasPlayer: !!player,
+        videoSrc,
+      });
       return;
     }
 
     const source = formatSource(videoSrc);
+    console.log(`[useVideoJsPlayer ${id}] Setting source:`, {
+      videoSrc,
+      formattedSource: source,
+    });
     let currentSource = '';
     try {
       const value = player.currentSource?.();

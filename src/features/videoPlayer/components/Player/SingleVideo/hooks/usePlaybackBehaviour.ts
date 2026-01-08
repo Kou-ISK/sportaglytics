@@ -10,6 +10,7 @@ interface UsePlaybackBehaviourParams {
   videoPlayBackRate: number;
   durationSec: number;
   setShowEndMask: (value: boolean) => void;
+  allowSeek: boolean;
 }
 
 const getVideoElement = (player: Player | null): HTMLVideoElement | null => {
@@ -27,6 +28,7 @@ export const usePlaybackBehaviour = ({
   videoPlayBackRate,
   durationSec,
   setShowEndMask,
+  allowSeek,
 }: UsePlaybackBehaviourParams) => {
   useEffect(() => {
     const player = playerRef.current;
@@ -122,6 +124,11 @@ export const usePlaybackBehaviour = ({
       return;
     }
 
+    if (allowSeek) {
+      setShowEndMask(false);
+      return;
+    }
+
     const handleTimeUpdate = () => {
       const t = player.currentTime?.() ?? 0;
       setShowEndMask(t >= durationSec - 0.08);
@@ -131,5 +138,5 @@ export const usePlaybackBehaviour = ({
     return () => {
       player.off?.('timeupdate', handleTimeUpdate);
     };
-  }, [playerRef, isReady, durationSec, setShowEndMask]);
+  }, [playerRef, isReady, durationSec, setShowEndMask, allowSeek]);
 };

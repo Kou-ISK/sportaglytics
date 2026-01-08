@@ -68,31 +68,34 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
         />
       </Box>
 
-      <Box
-        className="video-controls-overlay"
-        sx={{
-          position: 'absolute',
-          bottom: 16,
-          left: 16,
-          right: 16,
-          opacity: 0,
-          transition: 'opacity 0.3s',
-          zIndex: 1000,
-        }}
-      >
-        <VideoController
-          setIsVideoPlaying={setIsVideoPlaying}
-          isVideoPlaying={isVideoPlaying}
-          setVideoPlayBackRate={setVideoPlayBackRate}
-          videoPlayBackRate={videoPlayBackRate}
-          setCurrentTime={setCurrentTime}
-          currentTime={currentTime}
-          handleCurrentTime={handleCurrentTime}
-          maxSec={maxSec}
-          videoList={videoList}
-          syncData={syncData}
-        />
-      </Box>
+      {/* 自動モードでは共通コントローラーを表示 */}
+      {syncMode === 'auto' && (
+        <Box
+          className="video-controls-overlay"
+          sx={{
+            position: 'absolute',
+            bottom: 16,
+            left: 16,
+            right: 16,
+            opacity: 0,
+            transition: 'opacity 0.3s',
+            zIndex: 1000,
+          }}
+        >
+          <VideoController
+            setIsVideoPlaying={setIsVideoPlaying}
+            isVideoPlaying={isVideoPlaying}
+            setVideoPlayBackRate={setVideoPlayBackRate}
+            videoPlayBackRate={videoPlayBackRate}
+            setCurrentTime={setCurrentTime}
+            currentTime={currentTime}
+            handleCurrentTime={handleCurrentTime}
+            maxSec={maxSec}
+            videoList={videoList}
+            syncData={syncData}
+          />
+        </Box>
+      )}
     </Box>
   );
 };

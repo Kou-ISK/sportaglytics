@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Box } from '@mui/material';
+import videojs from 'video.js';
 import {
   StatsModal,
   StatsView,
@@ -12,6 +13,7 @@ import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext';
 import { TimelineData } from '../types/TimelineData';
 import type { PlaylistItem } from '../types/Playlist';
 import { PlayerSurface } from './videoPlayer/components/PlayerSurface';
+import { ManualSyncControls } from './videoPlayer/components/ManualSyncControls';
 import {
   TimelineActionSection,
   type TimelineActionSectionHandle,
@@ -77,6 +79,42 @@ const VideoPlayerAppContent = () => {
   const [statsOpen, setStatsOpen] = useState(false);
   const [statsView, setStatsView] = useState<StatsView>('possession');
 
+  // 手動モード開始時にoffsetを考慮した位置へシーク
+  useEffect(() => {
+    if (
+      syncMode === 'manual' &&
+      syncData?.isAnalyzed &&
+      videoList.length >= 2
+    ) {
+      const offset = syncData.syncOffset || 0;
+
+      try {
+        const vjs = videojs as unknown as {
+          getPlayer?: (
+            id: string,
+          ) => { currentTime?: (time?: number) => number } | undefined;
+        };
+
+        const p0 = vjs.getPlayer?.('video_0');
+        const p1 = vjs.getPlayer?.('video_1');
+
+        if (p0 && p1) {
+          const t0 = p0.currentTime?.() ?? 0;
+          // video_1はoffsetを考慮した位置にシーク
+          // t1 = t0 + offset (offset = video_0の時刻に加算してvideo_1の時刻を得る値)
+          const t1 = Math.max(0, t0 + offset);
+          p1.currentTime?.(t1);
+
+          console.log(
+            `[手動モード] offsetを考慮したシーク: video_0=${t0.toFixed(3)}s, video_1=${t1.toFixed(3)}s (offset=${offset.toFixed(3)}s)`,
+          );
+        }
+      } catch (error) {
+        console.error('手動モード開始時のシークエラー:', error);
+      }
+    }
+  }, [syncMode, syncData, videoList]);
+
   // ホットキー設定を読み込み
   const { settings } = useSettings();
   const { activeActions } = useActionPreset();
@@ -87,6 +125,19 @@ const VideoPlayerAppContent = () => {
 
   // TimelineActionSectionへのrefを作成
   const timelineActionRef = useRef<TimelineActionSectionHandle>(null);
+
+  // 手動同期適用ハンドラ
+  const handleApplyManualSync = useCallback(async () => {
+    await manualSyncFromPlayers();
+  }, [manualSyncFromPlayers]);
+
+  // 手動同期キャンセルハンドラ
+  const handleCancelManualSync = useCallback(() => {
+    setSyncMode('auto');
+    if (window.electronAPI?.setManualModeChecked) {
+      window.electronAPI.setManualModeChecked(false).catch(() => {});
+    }
+  }, [setSyncMode]);
 
   const { combinedHotkeys, combinedHandlers, keyUpHandlers } =
     useHotkeyBindings({
@@ -310,6 +361,31 @@ const VideoPlayerAppContent = () => {
             syncMode={syncMode}
             playerForceUpdateKey={playerForceUpdateKey}
           />
+
+          {/* 手動モードでは手動同期コントロールをタイムライン領域に表示 */}
+          {syncMode === 'manual' && (
+            <Box
+              sx={{
+                gridColumn: '1',
+                gridRow: '2',
+                position: 'relative',
+                zIndex: 1100,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                pt: 2,
+                pointerEvents: 'none',
+                '& > *': {
+                  pointerEvents: 'auto',
+                },
+              }}
+            >
+              <ManualSyncControls
+                onApplySync={handleApplyManualSync}
+                onCancel={handleCancelManualSync}
+              />
+            </Box>
+          )}
 
           <TimelineActionSection
             ref={timelineActionRef}

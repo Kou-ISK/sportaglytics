@@ -85,7 +85,7 @@ export const useSyncActions = ({
                       : 0;
                   const targetTime = Math.max(
                     0,
-                    currentGlobalTime - (index > 0 ? offset : 0),
+                    currentGlobalTime + (index > 0 ? offset : 0),
                   );
 
                   player.pause?.();
@@ -231,7 +231,9 @@ export const useSyncActions = ({
         return;
       }
 
-      const newOffset = t0 - t1;
+      // offset = video_1の時刻 - video_0の時刻
+      // 正の値: video_1がvideo_0より先行している (video_1_time = video_0_time + offset)
+      const newOffset = t1 - t0;
       const newSyncData: VideoSyncData = {
         syncOffset: newOffset,
         isAnalyzed: true,

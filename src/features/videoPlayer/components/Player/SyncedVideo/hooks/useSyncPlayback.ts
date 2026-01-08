@@ -13,6 +13,7 @@ interface UseSyncPlaybackParams {
   isVideoPlaying: boolean;
   forceUpdateKey: number;
   debugLogging?: boolean;
+  syncMode?: 'auto' | 'manual';
 }
 
 interface UseSyncPlaybackReturn {
@@ -42,6 +43,7 @@ export const useSyncPlayback = ({
   syncData,
   isVideoPlaying,
   forceUpdateKey,
+  syncMode = 'auto',
   debugLogging = false,
 }: UseSyncPlaybackParams): UseSyncPlaybackReturn => {
   const [primaryClock, setPrimaryClock] = useState(0);
@@ -49,6 +51,7 @@ export const useSyncPlayback = ({
   const isSeekingRef = useRef(false);
   const offset = syncData?.syncOffset ?? 0;
   const analyzed = syncData?.isAnalyzed ?? false;
+  const isManualMode = syncMode === 'manual';
   const activePlayerCount = useMemo(
     () => videoList.filter((src) => src && src.trim() !== '').length,
     [videoList],
@@ -150,13 +153,16 @@ export const useSyncPlayback = ({
   }, [videoList, primaryClock, offset]);
 
   const blockPlayStates = useMemo(() => {
+    if (isManualMode) {
+      return videoList.map(() => false);
+    }
     return calculateBlockStates({
       videoList,
       analyzed,
       offset,
       primaryClock,
     });
-  }, [videoList, analyzed, offset, primaryClock]);
+  }, [videoList, analyzed, offset, primaryClock, isManualMode]);
 
   useSyncDebugLogging({
     enabled: debugLogging,

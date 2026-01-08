@@ -8,7 +8,9 @@ export const useSyncedVideoPlayer = ({
   syncData,
   isVideoPlaying,
   forceUpdateKey = 0,
+  syncMode,
 }: SyncedVideoPlayerProps) => {
+  const safeVideoList = Array.isArray(videoList) ? videoList : [];
   const {
     primaryClock,
     adjustedCurrentTimes,
@@ -17,19 +19,21 @@ export const useSyncedVideoPlayer = ({
     setPrimaryClock,
     lastReportedTimeRef,
   } = useSyncPlayback({
-    videoList,
+    videoList: safeVideoList,
     syncData,
     isVideoPlaying,
     forceUpdateKey,
+    syncMode,
   });
 
   const { aspectRatios, handleAspectRatioChange } =
-    useVideoAspectRatios(videoList);
+    useVideoAspectRatios(safeVideoList);
 
   const activeVideoCount = useMemo(
     () =>
-      videoList.filter((filePath) => filePath && filePath.trim() !== '').length,
-    [videoList],
+      safeVideoList.filter((filePath) => filePath && filePath.trim() !== '')
+        .length,
+    [safeVideoList],
   );
 
   return {

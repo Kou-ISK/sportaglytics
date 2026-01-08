@@ -72,6 +72,14 @@ const buildRecentPackageItems = () => {
   return items;
 };
 
+const sendToFocusedWindow = (channel: string, ...args: unknown[]) => {
+  const target =
+    BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+  if (target && !target.isDestroyed()) {
+    target.webContents.send(channel, ...args);
+  }
+};
+
 const buildMenu = () => {
   const appMenuItems: Electron.MenuItemConstructorOptions[] = [
     ...(isMac
@@ -202,6 +210,26 @@ const buildMenu = () => {
     { role: 'front' as const, label: '全てを前面に出す' },
   ];
 
+  // 同期メニュー（MECE構造）
+  const syncMenuItems: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: '自動同期（音声解析）',
+      accelerator: 'CmdOrCtrl+Shift+S',
+      click: () => sendToFocusedWindow('menu-resync-audio'),
+    },
+    {
+      label: '手動同期モード',
+      accelerator: 'CmdOrCtrl+Shift+T',
+      click: () => sendToFocusedWindow('menu-set-sync-mode', 'manual'),
+    },
+    { type: 'separator' },
+    {
+      label: '同期オフセットをリセット',
+      accelerator: 'CmdOrCtrl+Shift+R',
+      click: () => sendToFocusedWindow('menu-reset-sync'),
+    },
+  ];
+
   const helpMenuItems: Electron.MenuItemConstructorOptions[] = [
     {
       label: 'ヘルプ / 機能一覧を開く',
@@ -223,6 +251,7 @@ const buildMenu = () => {
   const template: Electron.MenuItemConstructorOptions[] = [
     { label: app.name, submenu: appMenuItems },
     { label: 'ファイル', submenu: fileMenuItems },
+    { label: '同期', submenu: syncMenuItems },
     { label: 'ウィンドウ', submenu: windowMenuItems },
     ...(helpMenuItems.length
       ? [{ label: 'ヘルプ', submenu: helpMenuItems }]

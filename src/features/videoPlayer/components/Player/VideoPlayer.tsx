@@ -26,6 +26,13 @@ export const VideoPlayer = ({
   // currentTimeはシークバー表示用にのみ使用（Video.js自身が時刻管理）
   void currentTime;
 
+  // [DEBUG] VideoPlayer での props を確認
+  console.log('[VideoPlayer] Render:', {
+    videoListLength: videoList?.length,
+    syncMode,
+    forceUpdateKey,
+  });
+
   return (
     <SyncedVideoPlayer
       videoList={videoList}

@@ -2,12 +2,20 @@ import { useCallback, useEffect, useState } from 'react';
 
 const DEFAULT_ASPECT_RATIO = 16 / 9;
 
-export const useVideoAspectRatios = (videoList: string[]) => {
+export const useVideoAspectRatios = (videoList: string[] | undefined | null) => {
   const [aspectRatios, setAspectRatios] = useState<number[]>([]);
 
+  // videoListがundefined/nullの場合でも安全に空配列で処理する
+  const listKey =
+    Array.isArray(videoList) && videoList.length > 0
+      ? videoList.join('|')
+      : '';
+  const listLength = Array.isArray(videoList) ? videoList.length : 0;
+
   useEffect(() => {
+    const safeList = Array.isArray(videoList) ? videoList : [];
     setAspectRatios((prev) => {
-      const next = videoList.map((_, index) => {
+      const next = safeList.map((_, index) => {
         const candidate = prev[index];
         return Number.isFinite(candidate) && candidate > 0
           ? candidate
@@ -21,7 +29,7 @@ export const useVideoAspectRatios = (videoList: string[]) => {
       }
       return next;
     });
-  }, [videoList]);
+  }, [listKey, listLength, videoList]);
 
   const handleAspectRatioChange = useCallback(
     (index: number, ratio: number) => {
