@@ -32,7 +32,8 @@
 - 各コンポーネント配下では `view/`（純粋な JSX・スタイル）と `hooks/`（状態・副作用）、`types/`（型）を分け、ビューはロジックを直接持たない構成にします。
 - ページ固有のレイアウトは `src/pages/<PageName>/components` / `hooks` へ配置し、feature への依存方向が一方向になるよう保ちます。
 - Electron 依存処理は `src/services/electron/` にまとめ、React 側はそのサービス層を介して IPC を呼び出します。
-- 共通 UI（ボタン、モーダル等）は `src/components/common/` へ集約し、重複実装を防ぎます。
+- アプリ全体で使うコンポーネント（チュートリアル、ヘルプ等）は `src/components/` に配置します。
+- 機能内の共通 UI（`StatsCard`, `NoDataPlaceholder` 等）は各 feature 内の `view/` または `components/` で管理し、必要に応じて機能横断で再利用可能な形にリファクタリングします。
 
 ## 実装時の留意点
 
@@ -57,5 +58,22 @@
 
 ## ドキュメント
 
-- ユーザー体験に影響する変更を加えた場合は、関連ドキュメント（`docs/` 等）を更新します。
-- 複雑なビジネスルールがある箇所には短く意図を説明するコメントを付与します。
+### ドキュメント構成
+
+- **ユーザー向け**: README.md（概要・インストール・基本操作）, FAQ.md（よくある質問）
+- **開発者向け**: DEVELOPMENT.md（環境構築・開発手順）, ARCHITECTURE.md（設計思想・技術選定）, TESTING.md（テスト戦略）, TROUBLESHOOTING.md（問題解決）
+- **コミュニティ向け**: CONTRIBUTING.md（貢献ガイド）, CODE_OF_CONDUCT.md（行動規範）, SECURITY.md（脆弱性報告）
+- **技術仕様書**: docs/ 配下（audio-sync-offset-specification.md, sctimeline-implementation.md, design-system.md 等）
+- **変更履歴**: CHANGELOG.md（Keep a Changelog 形式）, ROADMAP.md（開発計画）
+
+### ドキュメント更新ルール
+
+- **ユーザー体験に影響する変更**（新機能、UI変更、挙動変更）を加えた場合:
+  - README.md の該当セクションを更新（必要に応じて FAQ.md にも Q&A 追加）
+  - CHANGELOG.md の `[Unreleased]` セクションに変更内容を記載（`feat:`, `fix:`, `chore:` 等のプレフィックスを使用）
+- **アーキテクチャ変更**（新しいディレクトリ構造、設計パターン導入、技術スタック更新）:
+  - ARCHITECTURE.md の該当セクションを更新
+  - DEVELOPMENT.md の開発環境セットアップ手順も必要に応じて更新
+- **技術仕様の追加・変更**（音声同期アルゴリズム、ファイルフォーマット等）:
+  - docs/ 配下の該当ファイルを更新または新規作成
+- **コード内コメント**: 複雑なビジネスルール、アルゴリズム、回避策（workaround）には短く意図を説明するコメントを付与します。

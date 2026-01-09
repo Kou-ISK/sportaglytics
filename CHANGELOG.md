@@ -5,213 +5,153 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
+## バージョニング方針
+
+- **MAJOR**: 破壊的変更（データフォーマット変更、主要機能の大幅変更）
+- **MINOR**: 新機能追加（後方互換性あり）
+- **PATCH**: バグ修正、パフォーマンス改善
+
+詳細は[ROADMAP.md](ROADMAP.md#バージョニング方針)を参照してください。
+
+---
+
 ## [Unreleased]
 
-### 🚀 Added
+### 計画中
 
-#### CI/CDとリリース自動化
+- テスト基盤の構築（ユニットテスト・E2Eテスト）
+- パフォーマンス最適化（大量データ対応）
+- ラベルプリセット + 数字キー即付与機能
+- Storybook導入
+- Windows/Linux対応
 
-- GitHub Actionsによる自動ビルドワークフローを追加
-  - macOS (DMG)、Windows (EXE)、Linux (AppImage) の自動ビルド
-  - タグプッシュ時の自動リリース作成
-  - 手動ビルドトリガーのサポート
-- Homebrew Cask対応のための設定を追加
-  - 予測可能なアーティファクト名の設定
-  - Caskテンプレートとドキュメント (`.github/HOMEBREW.md`)
-- リリース手順のドキュメント追加 (`.github/RELEASE.md`)
+詳細は[ROADMAP.md](ROADMAP.md)を参照してください。
 
-#### 設定画面の機能強化
+---
 
-- 未保存変更の検出と確認ダイアログを実装
-  - テーマ設定変更時の保存確認
-  - ホットキー設定変更時の保存確認
-  - タブ切り替え時・ダイアログ閉じる時の警告表示
+## [0.2.2] - 2025-11-06 (現行バージョン)
 
-### 🔧 Changed
+### 🚀 主要機能
 
-- `electron-builder.json`にアーティファクト名の設定を追加
-- READMEにインストール方法のセクションを追加
+#### 映像再生・同期
 
-## [3.0.0] - 2025-11-06
+- デュアル映像同期再生（プライマリ/セカンダリ）
+- 音声波形解析による自動同期（FFT相互相関分析）
+- 手動同期機能（オフセット調整ダイアログ、現在位置で同期）
+- 手動モード（個別シークバー操作）
+- 共通シークバーによる統一制御
+- 可変速度再生（0.5x / 1x / 2x / 4x / 6x）
 
-### 🚀 Major Updates
+#### タグ付け
 
-#### パッケージマネージャーの移行
+- リアルタイムタグ付け（チーム別アクション記録）
+- ラベルグループ構造対応（`groups`, `labels`配列）
+- カスタムコードウィンドウ（自由配置レイアウト、ボタンリンク機能）
+- ホットキーカスタマイズ（1チーム目: キー単体、2チーム目: Shift+キー）
+- 同時複数アクション記録
 
-- **BREAKING**: `yarn` から `pnpm` に移行
-- より高速で効率的な依存関係管理
-- 厳密な依存関係の解決によるバグの予防
+#### タイムライン編集
 
-#### 主要な依存関係のアップデート
+- ビジュアルタイムライン（色分け、ズーム、範囲選択）
+- インライン編集（時刻・メモ・ラベル）
+- コンテキストメニュー（編集/削除/ジャンプ/重複/プレイリスト追加）
+- Undo/Redo（最大50件）
+- バリデーション（時間範囲チェック、重複検出）
+- 検索・フィルタリング
 
-- **React**: 18.2.0 → 18.3.1
-- **TypeScript**: 4.9.5 → 5.9.3
-- **Electron**: 25.4.0 → 31.7.7
-- **Material-UI**: 5.14.3 → 5.18.0
-- **Video.js**: 8.3.0 → 8.23.4
+#### 統計分析
 
-### ✨ Added
+- ポゼッション分析（円グラフ）
+- アクション結果/種別分析（円グラフ）
+- モメンタムチャート（棒グラフ、色分け）
+- クロス集計（ヒートマップ、任意軸、ドリルダウン）
+- 映像ジャンプ機能
 
-- `.npmrc` 設定ファイルの追加（pnpm互換性設定）
-- `package.json` に `packageManager` と `engines` フィールドを追加
-- TypeScript 5.9対応の型定義改善
-- Electron 31対応のグローバルショートカット実装
+#### プレイリスト
 
-### 🔧 Changed
+- 複数プレイリスト管理
+- 専用ウィンドウ（連続/ループ再生）
+- フリーズフレーム
+- 簡易描画機能（矢印/円/矩形/テキスト）
+- メモ編集
 
-#### Electron関連
+#### エクスポート/インポート
 
-- `electron-localshortcut` を削除し、Electronネイティブの `globalShortcut` に移行
-- `BrowserWindow` の型アサーションを追加（Electron 31対応）
-- メインプロセスとプリロードスクリプトの型安全性を向上
+- JSON形式（完全情報保持）
+- CSV形式（Excel互換）
+- SCTimeline形式（Sportscode互換）
+- クリップ書き出し（FFmpeg、オーバーレイ対応）
 
-#### TypeScript設定
+#### パッケージ管理
 
-- `tsconfig.json`: `moduleResolution` を `"bundler"` に変更（React 18.3最適化）
-- `electron/tsconfig.json`: Node.js型定義を明示的に追加
-- `target` を `ES2020` に更新
+- 4ステップウィザード（基本情報→保存先→映像選択→確認）
+- 映像ファイルコピー＆リネーム
+- `.metadata/config.json`（チーム名、アングル情報、syncData）
+- 相対パス自動変換
+- 最近開いたパッケージ履歴
 
-#### コード品質
+#### 設定
 
-- 未使用のインポートと変数を削除
-- ESLint警告の解消
-- 型安全性の向上
+- テーマ切替（Light/Dark/System）
+- ホットキーカスタマイズ（衝突検出、デフォルトリセット）
+- コードウィンドウ設定（レイアウト、ボタン配置、リンク、エクスポート/インポート）
+- クリップオーバーレイ設定
+- 未保存変更検出
 
-#### ビルドシステム
+#### UX機能
 
-- すべてのスクリプトを `yarn` から `pnpm` に変更
-- ビルドプロセスの最適化
+- オンボーディングチュートリアル
+- ショートカットガイド
+- クイックヘルプFAB
+- 統一エラーハンドリング（Snackbar通知）
 
-### 🐛 Fixed
+### 🛠 技術スタック
 
-- `web-vitals` v4 API変更に対応（`getCLS` → `onCLS` など）
-- Electron 31での `webContents` アクセスの型エラー修正
-- TypeScript 5.9でのコンパイルエラー解消
-- プリロードスクリプトの型安全性向上
+- **React**: 18.3.1
+- **TypeScript**: 5.9.3（strict mode）
+- **Electron**: 31.7.7
+- **Material-UI**: 5.18.0
+- **Video.js**: 8.23.4
+- **pnpm**: 9.1.0+
 
-### 🔒 Breaking Changes
+### 🔒 Breaking Changes（pnpm移行）
 
-1. **コマンドの変更**:
-
-   ```bash
-   # 旧コマンド
-   yarn electron:dev
-   yarn electron:start
-   yarn electron:build
-
-   # 新コマンド
-   pnpm run electron:dev
-   pnpm run electron:start
-   pnpm run electron:build
-   ```
-
-2. **必須要件**:
-   - Node.js 18.0.0 以上が必須
-   - pnpm 9.0.0 以上が必須
-   - グローバルに pnpm のインストールが必要: `npm install -g pnpm`
-
-3. **ファイル構造**:
-   - `yarn.lock` → `pnpm-lock.yaml`
-   - `.npmrc` ファイルが新規追加
-
-### 📚 Documentation
-
-- README.md を全面的に更新
-  - セットアップ手順を pnpm ベースに変更
-  - 技術スタック情報を明記
-  - バージョン履歴セクションを追加
-- `.github/copilot-instructions.md` を更新
-  - 技術スタック情報を追加
-  - Electron 31 対応の注意事項を追加
-  - コマンドを pnpm に更新
-- CHANGELOG.md を新規作成
-
-### 🔄 Migration Guide
-
-既存プロジェクトからの移行手順:
+**コマンド変更**:
 
 ```bash
-# 1. pnpm のインストール
-npm install -g pnpm
-
-# 2. 既存の依存関係を削除
-rm -rf node_modules yarn.lock package-lock.json
-
-# 3. pnpm で依存関係をインストール
-pnpm install
-
-# 4. 型チェック
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron --noEmit
-
-# 5. アプリケーションを起動
-pnpm run electron:dev
+# 旧: yarn electron:dev
+# 新: pnpm run electron:dev
 ```
 
----
+**必須要件**:
 
-## [2.2.0] - 2025年
+- Node.js 18.0.0以上
+- pnpm 9.0.0以上（グローバルインストール: `npm install -g pnpm`）
 
-### 🐛 Fixed - 2つ目の映像が表示されなくなる問題
+**ファイル構造**:
 
-#### 問題
+- `yarn.lock` → `pnpm-lock.yaml`
+- `.npmrc`追加
 
-シーク操作中に2つ目の映像が表示されなくなる、または完全に消失する問題が発生していました。
+### 📚 ドキュメント
 
-#### 原因
+- README.md全面更新（pnpm対応、詳細な使い方）
+- CONTRIBUTING.md追加（開発ガイドライン）
+- CHANGELOG.md追加（本ファイル）
+- `.github/copilot-instructions.md`更新（Electron 31対応）
 
-- プレイヤーの頻繁な再初期化による不安定化
-- 不適切なVideo.js状態管理
-- 過度なシーク処理
-- エラーハンドリング不足
+### 🐛 主要バグ修正
 
-#### 修正内容
-
-**SyncedVideoPlayer.tsx**:
-
-- 強制更新の最小化（初回同期時のみ）
-- プレイヤー健全性チェック強化
-- シーク閾値を2.0秒に調整
-- 詳細ログ追加
-- 非同期シーク処理の実装
-- 待機時間を500msに延長
-
-**SingleVideoPlayer.tsx**:
-
-- プレイヤー初期化の改善
-- 破棄処理の強化（`isDisposed()` チェック）
-- メタデータ処理の改善
-- 状態確認の厳密化
-- シーク処理の最適化（1.5秒閾値）
-- ソース変更の安全性向上
-- Promiseベースの再生制御
-
----
-
-## [2.1.0] - 2025年
-
-### 🐛 Fixed - 共通シークバーのNaN表示問題
-
-#### 問題
-
-共通シークバーで「NaN」が表示され、操作ができない問題が発生していました。
-
-#### 原因
-
-- Video.js プレイヤーの初期化前の値取得
-- メタデータ読み込み前での処理
-- NaN値に対する不十分なチェック
-
-#### 修正内容
-
-- Video.js の `ready()` と `loadedmetadata` イベントの適切な活用
-- 厳密な型チェック（`typeof`, `!isNaN`, 範囲検証）の実装
-- フォールバック機能の追加
-- 多層防護（入力→表示→操作）
-- デバッグログの強化
+- 2つ目の映像が表示されなくなる問題（プレイヤー健全性チェック強化）
+- 共通シークバーのNaN表示問題（多層防護、フォールバック機能）
+- `web-vitals` v4 API変更対応
+- Electron 31での型エラー修正
+- TypeScript 5.9コンパイルエラー解消
 
 ---
 
 ## Earlier Versions
 
-詳細な履歴は Git コミットログを参照してください。
+詳細な履歴はGitコミットログを参照してください。
