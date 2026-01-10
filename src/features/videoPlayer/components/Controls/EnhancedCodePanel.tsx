@@ -95,7 +95,10 @@ export const EnhancedCodePanel = forwardRef<
           (l) => l.id === settings.codingPanel?.activeCodeWindowId,
         ) || null
       );
-    }, [settings.codingPanel?.codeWindows, settings.codingPanel?.activeCodeWindowId]);
+    }, [
+      settings.codingPanel?.codeWindows,
+      settings.codingPanel?.activeCodeWindowId,
+    ]);
 
     // 複数同時録画に対応するため、アクションごとにセッションを保持
     const [activeRecordings, setActiveRecordings] = React.useState<
@@ -157,36 +160,36 @@ export const EnhancedCodePanel = forwardRef<
     );
 
     // 外部から呼び出せるメソッドを公開
-  useImperativeHandle(ref, () => ({
-    triggerAction: (teamName: string, actionName: string) => {
-      // ホットキー経由の場合は「チーム名 アクション名」形式で飛んでくるのでプレフィックスを剥がす
-      const matchingTeam = teamNames.find((t) =>
-        actionName.startsWith(`${t} `),
-      );
-      const baseActionName =
-        matchingTeam && actionName.startsWith(`${matchingTeam} `)
-          ? actionName.slice(matchingTeam.length + 1)
-          : actionName;
+    useImperativeHandle(ref, () => ({
+      triggerAction: (teamName: string, actionName: string) => {
+        // ホットキー経由の場合は「チーム名 アクション名」形式で飛んでくるのでプレフィックスを剥がす
+        const matchingTeam = teamNames.find((t) =>
+          actionName.startsWith(`${t} `),
+        );
+        const baseActionName =
+          matchingTeam && actionName.startsWith(`${matchingTeam} `)
+            ? actionName.slice(matchingTeam.length + 1)
+            : actionName;
 
-      const buttonColor = getButtonColorByName(actionName);
-      const action =
-        activeActions.find((a) => a.action === baseActionName) ??
-        // 未定義のアクションでも記録できるようにフェイク定義を作る
-        ({
-          action: baseActionName,
-          types: [],
-          results: [],
-          groups: [],
-        } as ActionDefinition);
+        const buttonColor = getButtonColorByName(actionName);
+        const action =
+          activeActions.find((a) => a.action === baseActionName) ??
+          // 未定義のアクションでも記録できるようにフェイク定義を作る
+          ({
+            action: baseActionName,
+            types: [],
+            results: [],
+            groups: [],
+          } as ActionDefinition);
 
-      handleActionClick(
-        matchingTeam ?? teamName,
-        action,
-        actionName,
-        buttonColor,
-      );
-    },
-  }));
+        handleActionClick(
+          matchingTeam ?? teamName,
+          action,
+          actionName,
+          buttonColor,
+        );
+      },
+    }));
 
     // ラベルグループの選択状態を管理（groupName -> selected option）
     const [labelSelections, setLabelSelections] =
@@ -935,14 +938,14 @@ export const EnhancedCodePanel = forwardRef<
             const isActive =
               button.type === 'action' &&
               Boolean(activeRecordings[resolvedButtonName]);
-            const isSelected =
-              isActive || primaryAction === resolvedButtonName;
+            const isSelected = isActive || primaryAction === resolvedButtonName;
             // ラベルボタンは一時的なアクティブ状態（1秒間）のみ表示
             const isLabelSelected =
               button.type === 'label' && activeLabelButtons[button.id];
 
             const buttonColor =
-              button.color || (button.type === 'action' ? '#1976d2' : '#9c27b0');
+              button.color ||
+              (button.type === 'action' ? '#1976d2' : '#9c27b0');
             const baseFontPx = button.fontSize ?? 14;
             const fontPx = Math.max(10, baseFontPx * scale);
             // 表示テキストもプレースホルダーを置換
@@ -974,9 +977,7 @@ export const EnhancedCodePanel = forwardRef<
                   fontSize: `${fontPx}px`,
                   fontWeight: 500,
                   backgroundColor:
-                    isSelected || isLabelSelected
-                      ? buttonColor
-                      : 'transparent',
+                    isSelected || isLabelSelected ? buttonColor : 'transparent',
                   color:
                     isSelected || isLabelSelected
                       ? button.textColor || '#fff'

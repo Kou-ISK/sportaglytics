@@ -97,7 +97,9 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   const isUndoRedoRef = useRef(false);
   const copiedButtonRef = useRef<CodeWindowButton | null>(null);
   const selectedPrimaryId = selectedButtonIds[0] ?? null;
-  const dragSelectionSnapshot = useRef<Record<string, { x: number; y: number }>>({});
+  const dragSelectionSnapshot = useRef<
+    Record<string, { x: number; y: number }>
+  >({});
   const applySelection = useCallback(
     (id: string | null, additive: boolean) => {
       if (!id) {
@@ -381,7 +383,9 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
       const pos = getCanvasPosition(e);
 
       if (dragMode === 'move' && draggedButton) {
-        const primaryStart = dragSelectionSnapshot.current[draggedButton.id] ?? {
+        const primaryStart = dragSelectionSnapshot.current[
+          draggedButton.id
+        ] ?? {
           x: draggedButton.x,
           y: draggedButton.y,
         };
@@ -607,9 +611,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
         ),
       });
       if (selectedButtonIds.includes(buttonId)) {
-        onSelectButtons(
-          selectedButtonIds.filter((id) => id !== buttonId),
-        );
+        onSelectButtons(selectedButtonIds.filter((id) => id !== buttonId));
       }
     },
     [layout, updateLayoutWithHistory, selectedButtonIds, onSelectButtons],
