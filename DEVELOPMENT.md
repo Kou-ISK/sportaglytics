@@ -169,34 +169,47 @@ sportaglytics/
 
 ## 開発ワークフロー
 
-### 新機能開発
+このプロジェクトは **Git Flow** を採用しています。詳細は [CONTRIBUTING.md](CONTRIBUTING.md#ブランチ戦略git-flow) を参照してください。
 
-1. **ブランチ作成**
+### 開発の基本フロー
+
+1. **リポジトリのクローンとセットアップ**
 
    ```bash
+   git clone https://github.com/Kou-ISK/sportaglytics.git
+   cd sportaglytics
+   git checkout develop  # 開発ブランチに切り替え
+   pnpm install
+   ```
+
+2. **作業ブランチの作成**
+
+   ```bash
+   git checkout develop
+   git pull origin develop  # 最新化
    git checkout -b feature/your-feature-name
    ```
 
-2. **コード実装**
-   - [.github/copilot-instructions.md](.github/copilot-instructions.md)のコーディング規約に従う
-   - TypeScript strict modeを遵守（`any`は避ける）
-   - React関数コンポーネントのみ使用
+3. **コード実装**
+   - [.github/copilot-instructions.md](.github/copilot-instructions.md) のコーディング規約に従う
+   - TypeScript strict mode を遵守（`any` は避ける）
+   - React 関数コンポーネントのみ使用
    - カスタムフックで副作用を分離
 
-3. **型チェック**
+4. **型チェック**
 
    ```bash
    pnpm exec tsc --noEmit              # React側
    pnpm exec tsc -p electron --noEmit  # Electron側
    ```
 
-4. **動作確認**
+5. **動作確認**
 
    ```bash
    pnpm run electron:dev
    ```
 
-5. **コミット**
+6. **コミット**
 
    ```bash
    git add .
@@ -211,18 +224,66 @@ sportaglytics/
    - `test:` テスト追加
    - `chore:` その他雑務
 
-6. **Pull Request作成**
-   - GitHubでPRを作成
+7. **Pull Request 作成**
+   - **ベースブランチ: `develop`** を設定
+   - GitHub で PR を作成
    - テンプレートに従ってチェックリストを確認
+   - レビュー後に `develop` にマージ
+
+### リリースフロー（メンテナのみ）
+
+1. `develop` の内容をテスト・検証
+2. `package.json` のバージョンを更新
+3. `develop` → `main` へのプルリクエスト
+4. マージ後、タグを作成してプッシュ
+5. GitHub Actions が自動ビルド・リリース作成
+
+### 新機能開発
+
+**注意**: 上記の「開発の基本フロー」に従って `develop` ブランチから作業を開始してください。
+
+以下は個別の手順詳細です：
+
+1. **ブランチ作成**
+
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **コード実装**
+   - コーディング規約は上記参照
+
+3. **型チェック**
+
+   ```bash
+   pnpm exec tsc --noEmit              # React側
+   pnpm exec tsc -p electron --noEmit  # Electron側
+   ```
+
+4. **動作確認**
+
+   ```bash
+   pnpm run electron:dev
+   ```
+
+5. **コミット・Push・PR作成**
+   - 上記の基本フロー参照
+   - **必ず `develop` へのPRを作成**
 
 ### バグ修正
 
-1. **Issue作成** (未作成の場合)
+1. **Issue 作成**（未作成の場合）
 2. **修正ブランチ作成**
+
    ```bash
+   git checkout develop
+   git pull origin develop
    git checkout -b fix/issue-123-bug-description
    ```
-3. **修正・テスト・PR作成** (上記と同様)
+
+3. **修正・テスト・PR作成**（上記と同様）
 
 ---
 

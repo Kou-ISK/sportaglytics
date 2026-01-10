@@ -46,23 +46,68 @@ SporTagLytics へのコントリビューションに興味を持っていただ
 
 ## 開発ワークフロー
 
-### ブランチの作成
+### ブランチ戦略（Git Flow）
 
-作業用の新しいブランチを作成：
+このプロジェクトは **Git Flow** ブランチモデルを採用しています。
 
-```bash
-git checkout -b feature/your-feature-name
-# または
-git checkout -b fix/your-bug-fix
-```
+#### メインブランチ
+
+- **`main`**: 本番環境用の安定版ブランチ
+  - リリースタグが付けられた状態のコードのみ
+  - 直接コミット禁止
+  - `develop` からのマージのみ許可
+
+- **`develop`**: 開発用の統合ブランチ
+  - 次期リリース向けの開発内容を統合
+  - すべての作業ブランチのマージ先
+  - CI/CD で自動テスト実行
+
+#### 作業ブランチ
+
+すべての作業ブランチは `develop` から派生させ、完了後は `develop` にマージします。
 
 ブランチ命名規則：
 
-- `feature/` - 新機能
+- `feature/` - 新機能開発
 - `fix/` - バグ修正
 - `docs/` - ドキュメント変更
 - `refactor/` - コードリファクタリング
 - `test/` - テスト追加または変更
+
+#### 基本ワークフロー
+
+1. **develop ブランチを最新化**
+
+   ```bash
+   git checkout develop
+   git pull origin develop
+   ```
+
+2. **作業ブランチを作成**
+
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+3. **開発・コミット**
+
+   ```bash
+   git add .
+   git commit -m "feat: 機能の説明"
+   ```
+
+4. **develop にプルリクエスト作成**
+   - ベースブランチ: `develop`
+   - レビュー承認後にマージ
+
+5. **リリース時**（メンテナのみ）
+   - `develop` → `main` へのマージ
+   - バージョンタグの作成
+   - 自動ビルド・デプロイ実行
+
+詳細な Git Flow ガイドは [.github/GIT_FLOW.md](.github/GIT_FLOW.md) を参照してください。
+
+### ブランチの作成
 
 ### 変更の実施
 

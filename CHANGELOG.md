@@ -111,7 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **React**: 18.3.1
 - **TypeScript**: 5.9.3（strict mode）
-- **Electron**: 31.7.7
+- **Electron**: 31.6.0
 - **Material-UI**: 5.18.0
 - **Video.js**: 8.23.4
 - **pnpm**: 9.1.0+

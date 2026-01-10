@@ -6,7 +6,7 @@
 
 - **React**: 18.3.1（関数コンポーネントのみ）
 - **TypeScript**: 5.9.3（strict mode有効）
-- **Electron**: 31.7.7
+- **Electron**: 31.6.0
 - **Material-UI**: 5.18.0
 - **Video.js**: 8.23.4
 - **パッケージマネージャー**: pnpm 9.1.0+
