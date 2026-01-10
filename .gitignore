@@ -30,7 +30,3 @@ yarn-error.log*
 *.p12
 *.cer
 *.certSigningRequest
-
-# Allow entitlements files for code signing
-!build/entitlements.mac.plist
-!build/entitlements.mac.inherit.plist
