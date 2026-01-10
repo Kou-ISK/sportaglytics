@@ -31,7 +31,10 @@ const createDefaultCodeWindowLayout = (): CodeWindowLayout => {
       y: row.y,
       width: columnWidth,
       height: rowHeight,
-      team: placeholder === TEAM_PLACEHOLDERS.TEAM1 ? ('team1' as const) : ('team2' as const),
+      team:
+        placeholder === TEAM_PLACEHOLDERS.TEAM1
+          ? ('team1' as const)
+          : ('team2' as const),
       color,
       textColor: '#ffffff',
       borderRadius: 8,
@@ -93,9 +96,7 @@ export const normalizeCodingPanelLayouts = (
   }
 
   const activeCodeWindowId =
-    existing.activeCodeWindowId ??
-    existing.activeLayoutId ??
-    defaultLayout.id;
+    existing.activeCodeWindowId ?? existing.activeLayoutId ?? defaultLayout.id;
 
   return {
     ...panel,

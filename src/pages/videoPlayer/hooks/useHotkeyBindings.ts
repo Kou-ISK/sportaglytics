@@ -207,7 +207,10 @@ export const useHotkeyBindings = ({
     const teamContext =
       teamNames.length >= 2
         ? { team1Name: teamNames[0], team2Name: teamNames[1] }
-        : { team1Name: teamNames[0] || 'Team1', team2Name: teamNames[1] || 'Team2' };
+        : {
+            team1Name: teamNames[0] || 'Team1',
+            team2Name: teamNames[1] || 'Team2',
+          };
 
     const replacePlaceholder = (name: string) =>
       name

@@ -25,3 +25,12 @@ yarn-debug.log*
 yarn-error.log*
 
 .specstory
+
+# Apple certificates (never commit these!)
+*.p12
+*.cer
+*.certSigningRequest
+
+# Allow entitlements files for code signing
+!build/entitlements.mac.plist
+!build/entitlements.mac.inherit.plist
