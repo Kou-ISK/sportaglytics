@@ -2,14 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 
 const DEFAULT_ASPECT_RATIO = 16 / 9;
 
-export const useVideoAspectRatios = (videoList: string[] | undefined | null) => {
+export const useVideoAspectRatios = (
+  videoList: string[] | undefined | null,
+) => {
   const [aspectRatios, setAspectRatios] = useState<number[]>([]);
 
   // videoListがundefined/nullの場合でも安全に空配列で処理する
   const listKey =
-    Array.isArray(videoList) && videoList.length > 0
-      ? videoList.join('|')
-      : '';
+    Array.isArray(videoList) && videoList.length > 0 ? videoList.join('|') : '';
   const listLength = Array.isArray(videoList) ? videoList.length : 0;
 
   useEffect(() => {

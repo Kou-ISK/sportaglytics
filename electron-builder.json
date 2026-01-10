@@ -23,10 +23,13 @@
     "icon": "public/icon.icns",
     "category": "public.app-category.sports",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
-    "identity": null,
-    "notarize": false,
-    "hardenedRuntime": false,
-    "signIgnore": ".*"
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+    "notarize": {
+      "teamId": "${APPLE_TEAM_ID}"
+    }
   },
   "win": {
     "target": "nsis",
