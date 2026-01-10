@@ -25,8 +25,8 @@
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
-    "entitlements": "resources/entitlements.mac.plist",
-    "entitlementsInherit": "resources/entitlements.mac.inherit.plist",
+    "entitlements": "public/entitlements.mac.plist",
+    "entitlementsInherit": "public/entitlements.mac.inherit.plist",
     "notarize": {
       "teamId": "${APPLE_TEAM_ID}"
     }

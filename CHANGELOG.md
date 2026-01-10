@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### � Fixed
 
 - macOSコード署名時のentitlementsファイル読み込みエラーを修正
-  - entitlementsファイルを`resources/`ディレクトリに移動
+  - entitlementsファイルを`public/`ディレクトリに配置（electron-builderのbuildResourcesと一致）
   - `.gitignore`の無効な除外ルールを削除
 
 ### �🚀 Added
