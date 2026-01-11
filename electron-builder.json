@@ -26,10 +26,7 @@
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
     "entitlements": "public/entitlements.mac.plist",
-    "entitlementsInherit": "public/entitlements.mac.inherit.plist",
-    "notarize": {
-      "teamId": "${APPLE_TEAM_ID}"
-    }
+    "entitlementsInherit": "public/entitlements.mac.inherit.plist"
   },
   "win": {
     "target": "nsis",
