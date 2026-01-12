@@ -10,6 +10,7 @@
 - **タイムライン編集**: `VisualTimeline` が描画。ズーム/幅計算は `useTimelineViewport`、選択やコンテキストメニュー/編集ハンドラは `useTimelineInteractions`。編集ダイアログの入力管理は `useTimelineEditDraft`、バリデーションは `useTimelineValidation`。
 - **分析ダッシュボード**: `StatsModalView`。共通カードレイアウトは `StatsCard`、ヘッダーは `StatsModalHeader`。Breakdown は `useActionBreakdown`、Matrix 軸設定は `useMatrixAxes`、フィルタは `useMatrixFilters`。
 - **設定**: `SettingsPage` は `SettingsTabs`/`SettingsHeader`/`UnsavedChangesDialog` に分離。未保存チェックは `useUnsavedTabSwitch`。
+- **プレイリスト**: `PlaylistContext` でプレイリスト管理、専用ウィンドウ（`PlaylistWindowApp`）で連続/ループ再生、フリーズフレーム、簡易描画、メモ編集に対応。Electron の IPC 経由でメイン↔プレイリストウィンドウ間で双方向通信。
 
 ## データ構造
 
@@ -31,7 +32,7 @@
 - **選択中アクションジャンプ (次/前)**: 選択中アクションインスタンスの次/前インスタンスへショートカットで移動
   （例: ⌥Tab/⌥⇧Tab）。
 - **選択HUD（合計/平均時間）**: 選択中インスタンスの合計時間・平均時間・件数をツールバーに表示。`VisualTimeline` で選択集合から計算して表示。
-- **クリップ書き出し（オーバーレイ対応）**: Matrix/選択インスタンスをまとめて映像クリップ出力し、オプションで画面下部にアクション名・ラベル・メモをオーバーレイ表示。`TimelineExport`/Electron 側でFFmpegラッパを追加し、フロントではエクスポートダイアログに対象選択・オーバーレイON/OFF・フォーマット指定を追加。オーバーレイはシンプルな帯＋白字/黒アウトラインを想定。
+- **クリップ書き出し高度化**: プレイリスト統合のクリップ書き出し機能をメインタイムラインにも展開。Matrix/選択インスタンスをまとめて映像クリップ出力し、オプションで画面下部にアクション名・ラベル・メモをオーバーレイ表示。
 
 ## 既存コンポーネント/フックの再利用指針
 

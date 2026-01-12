@@ -7,208 +7,184 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### � Fixed
+## [0.2.5] - 2026-01-12
 
-- macOSコード署名時のentitlementsファイル読み込みエラーを修正
-  - entitlementsファイルを`public/`ディレクトリに配置（electron-builderのbuildResourcesと一致）
-  - `.gitignore`の無効な除外ルールを削除
+### Fixed
 
-### �🚀 Added
+- 映像出力時のフォントを修正
 
-#### CI/CDとリリース自動化
+## [0.2.4] - 2026-01-12
 
-- GitHub Actionsによる自動ビルドワークフローを追加
-  - macOS (DMG)、Windows (EXE)、Linux (AppImage) の自動ビルド
-  - タグプッシュ時の自動リリース作成
-  - 手動ビルドトリガーのサポート
-- Homebrew Cask対応のための設定を追加
-  - 予測可能なアーティファクト名の設定
-  - Caskテンプレートとドキュメント (`.github/HOMEBREW.md`)
-- リリース手順のドキュメント追加 (`.github/RELEASE.md`)
+### Added
 
-#### 設定画面の機能強化
+- ラベルモードを追加
 
-- 未保存変更の検出と確認ダイアログを実装
-  - テーマ設定変更時の保存確認
-  - ホットキー設定変更時の保存確認
-  - タブ切り替え時・ダイアログ閉じる時の警告表示
+### Changed
 
-### 🔧 Changed
+- 変数名qualifierをmemoに置換
 
-- `electron-builder.json`にアーティファクト名の設定を追加
-- READMEにインストール方法のセクションを追加
+### Fixed
 
-## [3.0.0] - 2025-11-06
+- 日本語の文字化けを解消
 
-### 🚀 Major Updates
+## [0.2.3] - 2026-01-11
 
-#### パッケージマネージャーの移行
+### Added
 
-- **BREAKING**: `yarn` から `pnpm` に移行
-- より高速で効率的な依存関係管理
-- 厳密な依存関係の解決によるバグの予防
+- entitlementsファイルをresource配下に移動
+- Apple Developer署名・公証を実装
 
-#### 主要な依存関係のアップデート
+### Fixed
 
-- **React**: 18.2.0 → 18.3.1
-- **TypeScript**: 4.9.5 → 5.9.3
-- **Electron**: 25.4.0 → 31.7.7
-- **Material-UI**: 5.14.3 → 5.18.0
-- **Video.js**: 8.3.0 → 8.23.4
+- entitlementsファイルをpublic/ディレクトリに移動（ベストプラクティス）
+- 非推奨のnotarize.teamId設定を削除（electron-builder 25.x対応）
 
-### ✨ Added
+### Changed
 
-- `.npmrc` 設定ファイルの追加（pnpm互換性設定）
-- `package.json` に `packageManager` と `engines` フィールドを追加
-- TypeScript 5.9対応の型定義改善
-- Electron 31対応のグローバルショートカット実装
+- 古いresources/ディレクトリを削除
 
-### 🔧 Changed
+## [0.2.2] - 2026-01-08
 
-#### Electron関連
+### Added
 
-- `electron-localshortcut` を削除し、Electronネイティブの `globalShortcut` に移行
-- `BrowserWindow` の型アサーションを追加（Electron 31対応）
-- メインプロセスとプリロードスクリプトの型安全性を向上
+- 個別映像全画面表示機能を追加
 
-#### TypeScript設定
+### Fixed
 
-- `tsconfig.json`: `moduleResolution` を `"bundler"` に変更（React 18.3最適化）
-- `electron/tsconfig.json`: Node.js型定義を明示的に追加
-- `target` を `ES2020` に更新
+- 手動同期モードの動作を修正
+- sync modeの修正
 
-#### コード品質
+## [0.2.1] - 2026-01-06
 
-- 未使用のインポートと変数を削除
-- ESLint警告の解消
-- 型安全性の向上
+### Added
 
-#### ビルドシステム
+- コードウィンドウのホットキー対応と設定スキーマ移行
 
-- すべてのスクリプトを `yarn` から `pnpm` に変更
-- ビルドプロセスの最適化
+### Changed
 
-### 🐛 Fixed
+- helpとREADMEを最新の仕様に合わせて更新
 
-- `web-vitals` v4 API変更に対応（`getCLS` → `onCLS` など）
-- Electron 31での `webContents` アクセスの型エラー修正
-- TypeScript 5.9でのコンパイルエラー解消
-- プリロードスクリプトの型安全性向上
+## [0.2.0] - 2026-01-05
 
-### 🔒 Breaking Changes
+### Added
 
-1. **コマンドの変更**:
+#### プレイリスト機能
 
-   ```bash
-   # 旧コマンド
-   yarn electron:dev
-   yarn electron:start
-   yarn electron:build
+- プレイリスト専用ウィンドウの実装
+  - 連続/ループ再生機能
+  - フリーズフレーム機能
+  - 簡易描画機能（矩形/円/線/矢印/テキスト）
+  - デュアルビュー切替
+  - メモ編集
+- クリップ書き出し機能（1ファイル/インスタンスごと/アクションごと）
+- PlaylistContext によるプレイリスト管理
+- メイン↔プレイリストウィンドウ間の双方向IPC通信
 
-   # 新コマンド
-   pnpm run electron:dev
-   pnpm run electron:start
-   pnpm run electron:build
-   ```
+#### コーディングパネルの大幅改修
 
-2. **必須要件**:
-   - Node.js 18.0.0 以上が必須
-   - pnpm 9.0.0 以上が必須
-   - グローバルに pnpm のインストールが必要: `npm install -g pnpm`
+- 自由配置エディタ（FreeCanvasEditor）の実装
+  - ドラッグ&ドロップによるボタン配置
+  - 複数ボタンの同時選択（Shift/Cmd+クリック）
+  - グリッドスナップ
+  - ボタンリンク機能（exclusive/activate/deactivate/sequence）
+  - Undo/Redo機能
+- コーディングパネルのモード切替と設定管理
+- ホットキー対応（Delete, Cmd+X, Cmd+Shift+D）
 
-3. **ファイル構造**:
-   - `yarn.lock` → `pnpm-lock.yaml`
-   - `.npmrc` ファイルが新規追加
+#### タイムライン機能強化
 
-### 📚 Documentation
+- 範囲選択機能
+- ドラッグ&ドロップによるアクションインスタンス移動
+- 右クリックでタイムラインメニュー表示
+- タイムラインパネルでのホットキー対応（Delete, Undo/Redo）
+- タイムライン行のアクション色付け
+- ラベル配列構造への対応
 
-- README.md を全面的に更新
-  - セットアップ手順を pnpm ベースに変更
-  - 技術スタック情報を明記
-  - バージョン履歴セクションを追加
-- `.github/copilot-instructions.md` を更新
-  - 技術スタック情報を追加
-  - Electron 31 対応の注意事項を追加
-  - コマンドを pnpm に更新
-- CHANGELOG.md を新規作成
+#### 統計・分析機能
 
-### 🔄 Migration Guide
+- 分析メニューの大幅改修
+- マトリクスの軸選択UI変更
+- 選択中インスタンスの合計/平均時間表示
 
-既存プロジェクトからの移行手順:
+#### UX改善
 
-```bash
-# 1. pnpm のインストール
-npm install -g pnpm
+- パッケージ新規作成フローの改善
+- 最近開いた項目をメニューバーから開けるように変更
+- アクション選択切り替えをTabで実行可能に
+- スペースキーによる映像の再生停止
+- UIの統一
 
-# 2. 既存の依存関係を削除
-rm -rf node_modules yarn.lock package-lock.json
+#### その他
 
-# 3. pnpm で依存関係をインストール
-pnpm install
+- 映像出力機能の追加・改善
+- 複数アクションを並行で記録できるように変更
+- activateされたアクションを正常に終了できない問題を解消
+- ラベル付与時のdeactivateしたアクションへの対応
 
-# 4. 型チェック
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron --noEmit
+### Changed
 
-# 5. アプリケーションを起動
-pnpm run electron:dev
-```
+- actionType, actionResultを廃止しlabels配列を使用
+- 不要なメニューをタイムラインから削除
+- アクション編集ダイアログのサイズ変更
+- componentを小さい単位に切り出し
+
+### Fixed
+
+- 各種バグ修正
 
 ---
 
-## [2.2.0] - 2025年
+## [2.2.0] - 2025-01-01
 
-### 🐛 Fixed - 2つ目の映像が表示されなくなる問題
+### Fixed
 
-#### 問題
+#### 2つ目の映像が表示されなくなる問題
 
-シーク操作中に2つ目の映像が表示されなくなる、または完全に消失する問題が発生していました。
+**問題**: シーク操作中に2つ目の映像が表示されなくなる、または完全に消失する問題が発生していました。
 
-#### 原因
+**原因**:
 
 - プレイヤーの頻繁な再初期化による不安定化
 - 不適切なVideo.js状態管理
 - 過度なシーク処理
 - エラーハンドリング不足
 
-#### 修正内容
+**修正内容**:
 
-**SyncedVideoPlayer.tsx**:
+- **SyncedVideoPlayer.tsx**:
+  - 強制更新の最小化（初回同期時のみ）
+  - プレイヤー健全性チェック強化
+  - シーク閾値を2.0秒に調整
+  - 詳細ログ追加
+  - 非同期シーク処理の実装
+  - 待機時間を500msに延長
 
-- 強制更新の最小化（初回同期時のみ）
-- プレイヤー健全性チェック強化
-- シーク閾値を2.0秒に調整
-- 詳細ログ追加
-- 非同期シーク処理の実装
-- 待機時間を500msに延長
-
-**SingleVideoPlayer.tsx**:
-
-- プレイヤー初期化の改善
-- 破棄処理の強化（`isDisposed()` チェック）
-- メタデータ処理の改善
-- 状態確認の厳密化
-- シーク処理の最適化（1.5秒閾値）
-- ソース変更の安全性向上
-- Promiseベースの再生制御
+- **SingleVideoPlayer.tsx**:
+  - プレイヤー初期化の改善
+  - 破棄処理の強化（`isDisposed()` チェック）
+  - メタデータ処理の改善
+  - 状態確認の厳密化
+  - シーク処理の最適化（1.5秒閾値）
+  - ソース変更の安全性向上
+  - Promiseベースの再生制御
 
 ---
 
-## [2.1.0] - 2025年
+## [2.1.0] - 2024-12-01
 
-### 🐛 Fixed - 共通シークバーのNaN表示問題
+### Fixed
 
-#### 問題
+#### 共通シークバーのNaN表示問題
 
-共通シークバーで「NaN」が表示され、操作ができない問題が発生していました。
+**問題**: 共通シークバーで「NaN」が表示され、操作ができない問題が発生していました。
 
-#### 原因
+**原因**:
 
 - Video.js プレイヤーの初期化前の値取得
 - メタデータ読み込み前での処理
 - NaN値に対する不十分なチェック
 
-#### 修正内容
+**修正内容**:
 
 - Video.js の `ready()` と `loadedmetadata` イベントの適切な活用
 - 厳密な型チェック（`typeof`, `!isNaN`, 範囲検証）の実装
