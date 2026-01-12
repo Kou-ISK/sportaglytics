@@ -268,6 +268,21 @@ export const Utils = () => {
     }
   });
 
+  ipcMain.handle('set-label-mode-checked', async (_, checked: boolean) => {
+    try {
+      const menu = Menu.getApplicationMenu();
+      const item = menu?.getMenuItemById('toggle-label-mode');
+      if (item) {
+        item.checked = checked;
+      }
+      console.log(`ラベルモードが${checked ? 'オン' : 'オフ'}になりました`);
+      return true;
+    } catch (error) {
+      console.error('set-label-mode-checked error:', error);
+      return false;
+    }
+  });
+
   // 既存のconfig.jsonを相対パスに変換
   ipcMain.handle(
     'convert-config-to-relative-path',

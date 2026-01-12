@@ -1,6 +1,7 @@
 import React, { forwardRef, useImperativeHandle, useMemo } from 'react';
-import { Box, Typography, Grid, Button } from '@mui/material';
+import { Box, Typography, Grid, Button, Chip } from '@mui/material';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import LabelIcon from '@mui/icons-material/Label';
 import videojs from 'video.js';
 import { EnhancedCodeButton } from './EnhancedCodeButton';
 import { useActionPreset } from '../../../../contexts/ActionPresetContext';
@@ -260,13 +261,24 @@ export const EnhancedCodePanel = forwardRef<
 
     // メニューからのモード切替
     React.useEffect(() => {
-      if (!globalThis.window.electronAPI?.onCodingModeChange) return;
-      const handler = (mode: 'code' | 'label') => setActiveMode(mode);
-      globalThis.window.electronAPI.onCodingModeChange(handler);
+      if (!globalThis.window.electronAPI?.onToggleLabelMode) return;
+      const handler = (checked: boolean) => {
+        setActiveMode(checked ? 'label' : 'code');
+      };
+      globalThis.window.electronAPI.onToggleLabelMode(handler);
       return () => {
         // removeListenerは未実装だが、preloadでremoveAllListenersしているためOK
       };
     }, []);
+
+    // メニューのチェック状態を同期
+    React.useEffect(() => {
+      if (globalThis.window.electronAPI?.setLabelModeChecked) {
+        void globalThis.window.electronAPI.setLabelModeChecked(
+          activeMode === 'label',
+        );
+      }
+    }, [activeMode]);
 
     // コードウィンドウ表示領域の幅を測定してスケールを合わせる
     React.useEffect(() => {
@@ -449,6 +461,11 @@ export const EnhancedCodePanel = forwardRef<
       buttonColor?: string,
       buttonId?: string,
     ) => {
+      // ラベルモード時はアクションボタンを無効化
+      if (activeMode === 'label') {
+        return;
+      }
+
       // リンク比較用のボタン名（カスタムレイアウトの場合はボタン名、それ以外はアクション名）
       const clickedButtonName = originalButtonName || action.action;
       const activeKey = resolveRecordingKey(clickedButtonName);
@@ -552,6 +569,13 @@ export const EnhancedCodePanel = forwardRef<
       groupName: string,
       option: string,
     ) => {
+      // ラベルモード時は選択中のアクションインスタンスにラベルを適用
+      if (activeMode === 'label') {
+        handleApplyLabel(groupName, option);
+        return;
+      }
+
+      // コードモード時は録画中のアクションにラベルを紐付け
       updateLabelSelections((prev) => {
         const current = prev[actionName] ?? {};
         return {
@@ -615,11 +639,7 @@ export const EnhancedCodePanel = forwardRef<
                 key={option}
                 label={option}
                 isSelected={selectionForAction[groupName] === option}
-                onClick={() =>
-                  activeMode === 'label'
-                    ? handleApplyLabel(groupName, option)
-                    : handleLabelSelect(actionName, groupName, option)
-                }
+                onClick={() => handleLabelSelect(actionName, groupName, option)}
                 size="small"
                 color="secondary"
               />
@@ -721,22 +741,6 @@ export const EnhancedCodePanel = forwardRef<
         </Box>
       );
     };
-
-    // ラベルモード用のユニークラベル一覧
-    const allLabelGroups = React.useMemo(() => {
-      const map = new Map<string, Set<string>>();
-      activeActions.forEach((action) => {
-        getActionLabels(action).forEach((group) => {
-          const set = map.get(group.groupName) || new Set<string>();
-          group.options.forEach((opt) => set.add(opt));
-          map.set(group.groupName, set);
-        });
-      });
-      return Array.from(map.entries()).map(([groupName, set]) => ({
-        groupName,
-        options: Array.from(set),
-      }));
-    }, [activeActions, getActionLabels]);
 
     const handleApplyLabel = (groupName: string, option: string) => {
       if (!onApplyLabels || selectedIds.length === 0) {
@@ -1048,38 +1052,31 @@ export const EnhancedCodePanel = forwardRef<
             mb: 1,
             flexWrap: 'wrap',
           }}
-        ></Box>
+        >
+          {activeMode === 'label' && (
+            <Chip
+              icon={<LabelIcon />}
+              label="ラベルモード"
+              size="small"
+              color="secondary"
+              variant="outlined"
+            />
+          )}
+        </Box>
 
-        {activeMode === 'label' && (
-          <Box
-            sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 1 }}
-          >
-            {allLabelGroups.map((group, idx) =>
-              renderLabelGroup(
-                '__label-mode__',
-                group.groupName,
-                group.options,
-                idx === allLabelGroups.length - 1,
-              ),
-            )}
-          </Box>
-        )}
-
-        {activeMode === 'code' && customLayout ? (
+        {customLayout ? (
           // カスタムレイアウトモード（Sportscode方式: 1回だけレンダリング）
           <Box>{renderCustomLayout(customLayout)}</Box>
         ) : (
-          activeMode === 'code' && (
-            // デフォルトモード
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                {teamNames[0] && renderTeamActions(teamNames[0])}
-              </Grid>
-              <Grid item xs={6}>
-                {teamNames[1] && renderTeamActions(teamNames[1])}
-              </Grid>
+          // デフォルトモード
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              {teamNames[0] && renderTeamActions(teamNames[0])}
             </Grid>
-          )
+            <Grid item xs={6}>
+              {teamNames[1] && renderTeamActions(teamNames[1])}
+            </Grid>
+          </Grid>
         )}
       </Box>
     );

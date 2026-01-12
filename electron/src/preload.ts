@@ -231,6 +231,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return false;
     }
   },
+  setLabelModeChecked: async (checked: boolean) => {
+    try {
+      return await ipcRenderer.invoke('set-label-mode-checked', checked);
+    } catch (e) {
+      console.error('setLabelModeChecked error:', e);
+      return false;
+    }
+  },
+  onToggleLabelMode: (callback: (checked: boolean) => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-toggle-label-mode');
+    } catch (e) {
+      // ignore
+    }
+    ipcRenderer.on('menu-toggle-label-mode', (_event, checked: boolean) =>
+      callback(checked),
+    );
+  },
   // 既存のconfig.jsonを相対パスに変換
   convertConfigToRelativePath: async (packagePath: string) => {
     try {
