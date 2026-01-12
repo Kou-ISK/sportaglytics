@@ -29,7 +29,7 @@ interface EnhancedCodePanelProps {
     actionName: string,
     startTime: number,
     endTime: number,
-    qualifier: string,
+    memo: string,
     actionType?: string,
     actionResult?: string,
     labels?: Array<{ name: string; group: string }>,

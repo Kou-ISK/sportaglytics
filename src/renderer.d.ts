@@ -77,7 +77,7 @@ export interface IElectronAPI {
       freezeAt?: number | null;
       freezeDuration?: number;
       labels?: { group: string; name: string }[];
-      qualifier?: string;
+      memo?: string;
       actionIndex?: number;
       annotationPngPrimary?: string | null;
       annotationPngSecondary?: string | null;
@@ -87,7 +87,7 @@ export interface IElectronAPI {
       showActionName: boolean;
       showActionIndex: boolean;
       showLabels: boolean;
-      showQualifier: boolean;
+      showMemo: boolean;
     };
   }) => Promise<{ success: boolean; error?: string }>;
   saveFileDialog: (

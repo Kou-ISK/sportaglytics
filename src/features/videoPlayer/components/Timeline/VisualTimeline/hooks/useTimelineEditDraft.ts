@@ -10,7 +10,7 @@ interface UseTimelineEditDraftParams {
     id: string,
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
-  onUpdateQualifier?: (id: string, qualifier: string) => void;
+  onUpdateMemo?: (id: string, memo: string) => void;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
 }
 
@@ -32,19 +32,19 @@ export const useTimelineEditDraft = ({
     (draft?.originalEndTime !== undefined
       ? draft.originalEndTime.toString()
       : '');
-  const qualifier = draft?.qualifier ?? '';
+  const memo = draft?.memo ?? '';
 
   const setStartTime = (value: string) => onChange({ startTime: value });
   const setEndTime = (value: string) => onChange({ endTime: value });
-  const setQualifier = (value: string) => onChange({ qualifier: value });
+  const setMemo = (value: string) => onChange({ memo: value });
 
   return {
     safeStartTime,
     safeEndTime,
-    qualifier,
+    memo,
     setStartTime,
     setEndTime,
-    setQualifier,
+    setMemo,
   };
 };
 
@@ -53,7 +53,7 @@ export const useTimelineEditActions = ({
   onDelete,
   onSeek,
   onUpdateTimelineItem,
-  onUpdateQualifier,
+  onUpdateMemo,
   onUpdateTimeRange,
 }: UseTimelineEditDraftParams) => {
   const [editingDraft, setEditingDraft] = useState<TimelineEditDraft | null>(
@@ -67,7 +67,7 @@ export const useTimelineEditActions = ({
       setEditingDraft({
         id: item.id,
         actionName: item.actionName,
-        qualifier: item.qualifier || '',
+        memo: item.memo || '',
         labels: item.labels || [],
         startTime: item.startTime.toString(),
         endTime: item.endTime.toString(),
@@ -111,14 +111,14 @@ export const useTimelineEditActions = ({
 
     if (onUpdateTimelineItem) {
       onUpdateTimelineItem(editingDraft.id, {
-        qualifier: editingDraft.qualifier,
+        memo: editingDraft.memo,
         labels: editingDraft.labels,
         startTime: safeStart,
         endTime: safeEnd,
       });
     } else {
-      if (onUpdateQualifier) {
-        onUpdateQualifier(editingDraft.id, editingDraft.qualifier);
+      if (onUpdateMemo) {
+        onUpdateMemo(editingDraft.id, editingDraft.memo);
       }
       if (onUpdateTimeRange) {
         onUpdateTimeRange(editingDraft.id, safeStart, safeEnd);
@@ -126,12 +126,7 @@ export const useTimelineEditActions = ({
     }
 
     setEditingDraft(null);
-  }, [
-    editingDraft,
-    onUpdateQualifier,
-    onUpdateTimeRange,
-    onUpdateTimelineItem,
-  ]);
+  }, [editingDraft, onUpdateMemo, onUpdateTimeRange, onUpdateTimelineItem]);
 
   const handleContextMenuJumpTo = useCallback(
     (itemId: string) => {

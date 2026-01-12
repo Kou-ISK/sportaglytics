@@ -13,7 +13,7 @@
 
 ## データ構造
 
-- **TimelineData** (`src/types/TimelineData.ts`): `id`, `actionName`, `startTime`, `endTime`, `qualifier`, `labels`(SCLabel[])、後方互換フィールド `actionType/actionResult`。
+- **TimelineData** (`src/types/TimelineData.ts`): `id`, `actionName`, `startTime`, `endTime`, `memo`, `labels`(SCLabel[])、後方互換フィールド `actionType/actionResult`。
 - **パッケージ構成**: `.metadata/config.json`（チーム名・映像パス・syncData）、`timeline.json`（イベント）、`videos/` 配下に映像。
 - **SyncData** (`src/types/VideoSync.ts`): `syncOffset`, `isAnalyzed`, `confidenceScore`。手動同期でも `isAnalyzed:true` で保存。
 

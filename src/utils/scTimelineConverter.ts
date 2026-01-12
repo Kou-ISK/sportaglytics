@@ -104,7 +104,7 @@ export const convertToSCTimeline = (
         modifyCount: 1,
         startTime: item.startTime,
         endTime: item.endTime,
-        notes: item.qualifier || '',
+        notes: item.memo || '',
         sharing: true,
         labels: labels.map((l) => ({
           name: l.name,
@@ -169,7 +169,7 @@ export const convertFromSCTimeline = (
         endTime: instance.endTime,
         actionType: actionTypeLabel?.name || '',
         actionResult: actionResultLabel?.name || '',
-        qualifier: instance.notes,
+        memo: instance.notes,
         // labels配列をそのまま保持（SCTimeline形式互換）
         labels: instance.labels.map((l) => ({
           name: l.name,

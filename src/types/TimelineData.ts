@@ -13,7 +13,7 @@ export type TimelineData = {
    * @deprecated labels配列を使用してください。後方互換性のために残されています。
    */
   actionType?: string;
-  qualifier: string;
+  memo: string;
   /**
    * SCTimeline形式のラベル配列
    * 存在する場合、actionType/actionResultよりも優先される

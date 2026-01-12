@@ -164,16 +164,16 @@ export const GeneralSettings = forwardRef<
           <FormControlLabel
             control={
               <Switch
-                checked={overlayClip.showQualifier}
+                checked={overlayClip.showMemo}
                 onChange={(e) =>
                   setOverlayClip((prev) => ({
                     ...prev,
-                    showQualifier: e.target.checked,
+                    showMemo: e.target.checked,
                   }))
                 }
               />
             }
-            label="メモ (qualifier) を表示"
+            label="メモを表示"
           />
         </Stack>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>

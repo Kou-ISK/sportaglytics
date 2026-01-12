@@ -173,7 +173,7 @@ export const PlaylistProvider: React.FC<PlaylistProviderProps> = ({
         startTime: item.startTime,
         endTime: item.endTime,
         labels: item.labels,
-        qualifier: item.qualifier,
+        memo: item.memo,
         addedAt: now,
         videoSource: videoPath || undefined,
         videoSource2: videoPath2 || undefined,

@@ -7,14 +7,14 @@ export interface TimelineEditingHandlers {
     actionName: string,
     startTime: number,
     endTime: number,
-    qualifier: string,
+    memo: string,
     actionType?: string,
     actionResult?: string,
     labels?: Array<{ name: string; group: string }>,
     color?: string,
   ) => void;
   deleteTimelineDatas: (idList: string[]) => void;
-  updateQualifier: (id: string, qualifier: string) => void;
+  updateMemo: (id: string, memo: string) => void;
   /**
    * @deprecated Use updateTimelineItem with labels array instead
    */
@@ -43,7 +43,7 @@ export const useTimelineEditing = (
       actionName: string,
       startTime: number,
       endTime: number,
-      qualifier: string,
+      memo: string,
       actionType?: string,
       actionResult?: string,
       labels?: Array<{ name: string; group: string }>,
@@ -74,7 +74,7 @@ export const useTimelineEditing = (
           actionName,
           startTime,
           endTime,
-          qualifier,
+          memo,
           labels: finalLabels.length > 0 ? finalLabels : undefined,
           color: finalColor,
         };
@@ -91,10 +91,10 @@ export const useTimelineEditing = (
     [setTimeline],
   );
 
-  const updateQualifier = useCallback(
-    (id: string, qualifier: string) => {
+  const updateMemo = useCallback(
+    (id: string, memo: string) => {
       setTimeline((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, qualifier } : item)),
+        prev.map((item) => (item.id === id ? { ...item, memo } : item)),
       );
     },
     [setTimeline],
@@ -274,7 +274,7 @@ export const useTimelineEditing = (
   return {
     addTimelineData,
     deleteTimelineDatas,
-    updateQualifier,
+    updateMemo,
     updateActionResult,
     updateActionType,
     updateTimelineRange,

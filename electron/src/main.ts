@@ -147,7 +147,7 @@ const createWindow = async () => {
           freezeAt?: number | null;
           freezeDuration?: number;
           labels?: { group: string; name: string }[];
-          qualifier?: string;
+          memo?: string;
           actionIndex?: number;
           annotationPngPrimary?: string | null;
           annotationPngSecondary?: string | null;
@@ -157,7 +157,7 @@ const createWindow = async () => {
           showActionName: boolean;
           showActionIndex: boolean;
           showLabels: boolean;
-          showQualifier: boolean;
+          showMemo: boolean;
           textTemplate: string;
         };
       },
@@ -663,9 +663,9 @@ const createWindow = async () => {
             lines.push({ text: labelText, isBold: false });
           }
 
-          // 3行目: メモ（qualifier）
-          if (overlay.showQualifier && clip.qualifier) {
-            lines.push({ text: clip.qualifier, isBold: false });
+          // 3行目: メモ
+          if (overlay.showMemo && clip.memo) {
+            lines.push({ text: clip.memo, isBold: false });
           }
 
           return lines;

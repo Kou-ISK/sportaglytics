@@ -50,7 +50,7 @@ export const exportToCSV = (timeline: TimelineData[]): string => {
       `"${item.actionName.replace(/"/g, '""')}"`, // CSVエスケープ
       `"${(actionTypeLabel?.name || '').replace(/"/g, '""')}"`,
       `"${(actionResultLabel?.name || '').replace(/"/g, '""')}"`,
-      `"${(item.qualifier || '').replace(/"/g, '""')}"`,
+      `"${(item.memo || '').replace(/"/g, '""')}"`,
     ];
     csvRows.push(row.join(','));
   }
@@ -78,7 +78,7 @@ export const importFromJSON = (jsonString: string): TimelineData[] => {
       typeof item.actionName !== 'string' ||
       typeof item.startTime !== 'number' ||
       typeof item.endTime !== 'number' ||
-      typeof item.qualifier !== 'string'
+      typeof item.memo !== 'string'
     ) {
       throw new TypeError('Invalid timeline item format');
     }
@@ -100,7 +100,7 @@ export const importFromJSON = (jsonString: string): TimelineData[] => {
       actionName: item.actionName,
       startTime: item.startTime,
       endTime: item.endTime,
-      qualifier: item.qualifier,
+      memo: item.memo,
       labels: labels.length > 0 ? labels : undefined,
     };
 

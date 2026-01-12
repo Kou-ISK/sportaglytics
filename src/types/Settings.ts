@@ -272,7 +272,7 @@ export interface AppSettings {
     showActionName: boolean;
     showActionIndex: boolean;
     showLabels: boolean;
-    showQualifier: boolean;
+    showMemo: boolean;
   };
   /** コーディングパネルのモード/ツールバー設定 */
   codingPanel?: {
@@ -323,7 +323,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showActionName: true,
     showActionIndex: true,
     showLabels: true,
-    showQualifier: true,
+    showMemo: true,
   },
   codingPanel: {
     defaultMode: 'code',

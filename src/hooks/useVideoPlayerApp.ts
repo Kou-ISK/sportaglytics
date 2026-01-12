@@ -57,7 +57,7 @@ export const useVideoPlayerApp = () => {
   const {
     addTimelineData,
     deleteTimelineDatas,
-    updateQualifier,
+    updateMemo,
     updateActionResult,
     updateActionType,
     updateTimelineRange,
@@ -394,7 +394,7 @@ export const useVideoPlayerApp = () => {
     setPackagePath,
     addTimelineData,
     deleteTimelineDatas,
-    updateQualifier,
+    updateMemo,
     updateActionResult,
     updateActionType,
     updateTimelineRange,
