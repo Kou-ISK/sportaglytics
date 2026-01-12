@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'node:fs/promises';
 import { spawn } from 'child_process';
 import * as os from 'os';
+import ffmpegPath from 'ffmpeg-static';
 import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
@@ -18,6 +19,27 @@ import { registerSettingsWindowHandlers } from './settingsWindow';
 if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 }
+
+/**
+ * バンドルされたffmpegバイナリのパスを取得
+ * @returns ffmpegの実行可能パス
+ * @throws ffmpegバイナリが見つからない場合
+ */
+const getFfmpegPath = (): string => {
+  if (!ffmpegPath) {
+    throw new Error(
+      'ffmpeg binary not found. Please ensure ffmpeg-static is properly installed.',
+    );
+  }
+
+  // パッケージ版の場合、asar.unpackedパスに変換
+  if (app.isPackaged) {
+    return ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+  }
+
+  // 開発環境ではそのまま使用
+  return ffmpegPath;
+};
 
 const mainURL = `file:${__dirname}/../../index.html`;
 const pickPlaylistArg = (argv: string[]) =>
@@ -217,8 +239,11 @@ const createWindow = async () => {
         const getJapaneseFontPath = (isBold = false): string => {
           const platform = os.platform();
           if (platform === 'darwin') {
-            // macOS - Use Hiragino Kaku Gothic ProN (commonly available)
-            return '/Library/Fonts/ヒラギノ角ゴシック W4.ttc';
+            // macOS - Use Hiragino Kaku Gothic with appropriate weight
+            // W6 (Semi-Bold) for normal text, W8 (Extra-Bold) for bold
+            return isBold
+              ? '/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc'
+              : '/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc';
           } else if (platform === 'win32') {
             // Windows
             return isBold
@@ -331,15 +356,20 @@ const createWindow = async () => {
                 let fontParam = '';
                 try {
                   const fontPath = getJapaneseFontPath(line.isBold);
+                  console.log(
+                    `[Font Debug] Line ${idx}, isBold: ${line.isBold}, fontPath: ${fontPath}`,
+                  );
                   // Note: We don't check file existence here as it would be async
                   // If font doesn't exist, ffmpeg will fall back to default
                   fontParam = `fontfile='${fontPath}':`;
                 } catch (e) {
                   // Use default font if error occurs
+                  console.log('[Font Debug] Error getting font path:', e);
                   fontParam = '';
                 }
 
                 const text = `drawtext=${fontParam}text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:shadowcolor=black@0.55:shadowx=2:shadowy=2:x=20:y=${cfg.y}`;
+                console.log(`[Font Debug] drawtext filter: ${text}`);
                 vfTexts.push(text);
               });
             }
@@ -430,7 +460,7 @@ const createWindow = async () => {
               audioMap,
               outputPath,
             );
-            const ff = spawn('ffmpeg', args);
+            const ff = spawn(getFfmpegPath(), args);
             ff.stderr.on('data', (data) => {
               console.log('[ffmpeg]', data.toString());
             });
@@ -604,12 +634,17 @@ const createWindow = async () => {
                 let fontParam = '';
                 try {
                   const fontPath = getJapaneseFontPath(line.isBold);
+                  console.log(
+                    `[Font Debug Dual] Line ${idx}, isBold: ${line.isBold}, fontPath: ${fontPath}`,
+                  );
                   fontParam = `fontfile='${fontPath}':`;
                 } catch (e) {
+                  console.log('[Font Debug Dual] Error getting font path:', e);
                   fontParam = '';
                 }
 
                 const text = `drawtext=${fontParam}text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:bordercolor=black@0.0:x=20:y=${cfg.y}`;
+                console.log(`[Font Debug Dual] drawtext filter: ${text}`);
                 overlayFilters.push(text);
               });
 
@@ -634,7 +669,7 @@ const createWindow = async () => {
               'aac',
               outputPath,
             ];
-            const ff = spawn('ffmpeg', args);
+            const ff = spawn(getFfmpegPath(), args);
             ff.stderr.on('data', (data) =>
               console.log('[ffmpeg]', data.toString()),
             );
@@ -729,7 +764,7 @@ const createWindow = async () => {
             .join('\n');
           await fs.writeFile(listPath, content, 'utf-8');
           return new Promise<void>((resolve, reject) => {
-            const ff = spawn('ffmpeg', [
+            const ff = spawn(getFfmpegPath(), [
               '-y',
               '-f',
               'concat',

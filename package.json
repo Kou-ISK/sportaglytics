@@ -1,6 +1,6 @@
 {
   "name": "sportaglytics",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Sports video tagging and analytics application",
   "private": true,
   "packageManager": "pnpm@9.1.0",
@@ -20,6 +20,7 @@
     "@mui/x-charts": "^7.18.0",
     "@types/video.js": "^7.3.58",
     "electron-is-dev": "^3.0.1",
+    "ffmpeg-static": "^5.2.0",
     "js-yaml": "^4.1.0",
     "lodash": "^4.17.21",
     "path-browserify": "^1.0.1",
@@ -70,6 +71,7 @@
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
     "@testing-library/user-event": "^14.5.2",
+    "@types/ffmpeg-static": "^3.0.3",
     "@types/jest": "^29.5.13",
     "@types/node": "^20.16.10",
     "@types/react": "^18.3.11",
