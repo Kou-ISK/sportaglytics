@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'node:fs/promises';
 import { spawn } from 'child_process';
@@ -105,8 +105,6 @@ const createWindow = async () => {
   ipcMain.handle(
     'write-text-file',
     async (_event, filePath: string, content: string) => {
-      const tempFiles: string[] = [];
-
       try {
         await fs.writeFile(filePath, content, 'utf-8');
         return true;
@@ -181,40 +179,6 @@ const createWindow = async () => {
           return { success: false, error: 'ソースまたはクリップがありません' };
         }
 
-        const getVideoResolution = async (
-          filePath: string,
-        ): Promise<{ width: number; height: number }> => {
-          return new Promise((resolve) => {
-            const ff = spawn('ffprobe', [
-              '-v',
-              'error',
-              '-select_streams',
-              'v:0',
-              '-show_entries',
-              'stream=width,height',
-              '-of',
-              'json',
-              filePath,
-            ]);
-            let data = '';
-            ff.stdout.on('data', (d) => {
-              data += d.toString();
-            });
-            ff.on('close', () => {
-              try {
-                const parsed = JSON.parse(data);
-                const w = parsed?.streams?.[0]?.width;
-                const h = parsed?.streams?.[0]?.height;
-                if (w && h) return resolve({ width: w, height: h });
-              } catch {
-                /* ignore */
-              }
-              resolve({ width: 1920, height: 1080 });
-            });
-            ff.on('error', () => resolve({ width: 1920, height: 1080 }));
-          });
-        };
-
         const dataUrlToTempFile = async (
           dataUrl: string,
           prefix: string,
@@ -249,13 +213,53 @@ const createWindow = async () => {
           targetDir = res.filePaths[0];
         }
 
-        const escapeDrawtext = (text: string) =>
-          text
+        // OS判定で日本語フォントパスを取得
+        const getJapaneseFontPath = (isBold = false): string => {
+          const platform = os.platform();
+          if (platform === 'darwin') {
+            // macOS - Use Hiragino Kaku Gothic ProN (commonly available)
+            return '/Library/Fonts/ヒラギノ角ゴシック W4.ttc';
+          } else if (platform === 'win32') {
+            // Windows
+            return isBold
+              ? 'C:\\\\Windows\\\\Fonts\\\\meiryob.ttc'
+              : 'C:\\\\Windows\\\\Fonts\\\\meiryo.ttc';
+          } else {
+            // Linux
+            return isBold
+              ? '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'
+              : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc';
+          }
+        };
+
+        // テキストを60文字ごとに自動改行（英語は空白で区切る）
+        const wrapText = (text: string, maxChars = 60): string => {
+          if (text.length <= maxChars) return text;
+          const lines: string[] = [];
+          let currentLine = '';
+          const words = text.split(' ');
+
+          for (const word of words) {
+            if (currentLine.length + word.length + 1 > maxChars) {
+              if (currentLine) lines.push(currentLine);
+              currentLine = word;
+            } else {
+              currentLine = currentLine ? `${currentLine} ${word}` : word;
+            }
+          }
+          if (currentLine) lines.push(currentLine);
+          return lines.join('\n');
+        };
+
+        const escapeDrawtext = (text: string) => {
+          const wrapped = wrapText(text, 60);
+          return wrapped
+            .replace(/\\/g, '\\\\')
             .replace(/:/g, '\\:')
-            .replace(/'/g, "\\'")
+            .replace(/'/g, "'\\''")
             .replace(/%/g, '\\%')
-            .replace(/\n/g, ' ')
             .replace(/,/g, '\\,');
+        };
 
         const runFfmpegSingle = (
           clip: (typeof clips)[number] & {
@@ -264,27 +268,78 @@ const createWindow = async () => {
             freezeDuration?: number;
           },
           outputPath: string,
-          overlayLines: string[],
+          overlayLines: Array<{ text: string; isBold: boolean }>,
           annotationPath?: string | null,
         ) =>
           new Promise<void>((resolve, reject) => {
             const vfTexts: string[] = [];
             if (overlay.enabled) {
-              const box =
-                'drawbox=x=0:y=ih-120:w=iw:h=120:color=black@0.7:t=fill';
+              // 実際の表示行数を計算（\nを含む行も考慮）
+              const totalDisplayLines = overlayLines.reduce((acc, line) => {
+                const lineCount = (line.text.match(/\n/g) || []).length + 1;
+                return acc + lineCount;
+              }, 0);
+
+              console.log(
+                '[Overlay Debug] overlayLines:',
+                overlayLines.length,
+                'totalDisplayLines:',
+                totalDisplayLines,
+              );
+              overlayLines.forEach((line, idx) => {
+                console.log(
+                  `[Overlay Debug] Line ${idx}:`,
+                  line.text,
+                  'isBold:',
+                  line.isBold,
+                );
+              });
+
+              // 行数に応じて動的にボックス高さを計算
+              const boxHeight = Math.max(60, 60 + (totalDisplayLines - 1) * 35);
+              console.log('[Overlay Debug] boxHeight:', boxHeight);
+              const box = `drawbox=x=0:y=ih-${boxHeight}:w=iw:h=${boxHeight}:color=black@0.7:t=fill`;
               vfTexts.push(box);
 
               const linesConfig = [
-                { color: 'white', size: 34, y: 'h-95' },
-                { color: '#dcdcdc', size: 28, y: 'h-60' },
-                { color: '#bbbbbb', size: 24, y: 'h-30' },
+                {
+                  color: 'white',
+                  size: 34,
+                  y: `h-${boxHeight - 25}`,
+                  isBold: true,
+                },
+                {
+                  color: '#dcdcdc',
+                  size: 28,
+                  y: `h-${Math.max(30, boxHeight - 60)}`,
+                  isBold: false,
+                },
+                {
+                  color: '#bbbbbb',
+                  size: 24,
+                  y: `h-${Math.max(30, boxHeight - 90)}`,
+                  isBold: false,
+                },
               ];
 
               overlayLines.forEach((line, idx) => {
-                const safeText = escapeDrawtext(line);
+                const safeText = escapeDrawtext(line.text);
                 const cfg =
                   linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
-                const text = `drawtext=text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:shadowcolor=black@0.55:shadowx=2:shadowy=2:x=20:y=${cfg.y}`;
+
+                // Try to use Japanese font, but don't fail if not available
+                let fontParam = '';
+                try {
+                  const fontPath = getJapaneseFontPath(line.isBold);
+                  // Note: We don't check file existence here as it would be async
+                  // If font doesn't exist, ffmpeg will fall back to default
+                  fontParam = `fontfile='${fontPath}':`;
+                } catch (e) {
+                  // Use default font if error occurs
+                  fontParam = '';
+                }
+
+                const text = `drawtext=${fontParam}text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:shadowcolor=black@0.55:shadowx=2:shadowy=2:x=20:y=${cfg.y}`;
                 vfTexts.push(text);
               });
             }
@@ -391,7 +446,7 @@ const createWindow = async () => {
             freezeDuration?: number;
           },
           outputPath: string,
-          overlayLines: string[],
+          overlayLines: Array<{ text: string; isBold: boolean }>,
           annotationPrimary?: string | null,
           annotationSecondary?: string | null,
         ) =>
@@ -499,21 +554,62 @@ const createWindow = async () => {
 
             if (overlay.enabled) {
               const overlayFilters: string[] = [];
-              const box =
-                'drawbox=x=0:y=ih-120:w=iw:h=120:color=black@0.7:t=fill';
+
+              // 実際の表示行数を計算（\nを含む行も考慮）
+              const totalDisplayLines = overlayLines.reduce((acc, line) => {
+                const lineCount = (line.text.match(/\n/g) || []).length + 1;
+                return acc + lineCount;
+              }, 0);
+
+              console.log(
+                '[Overlay Debug Dual] overlayLines:',
+                overlayLines.length,
+                'totalDisplayLines:',
+                totalDisplayLines,
+              );
+
+              // 行数に応じて動的にボックス高さを計算
+              const boxHeight = Math.max(60, 60 + (totalDisplayLines - 1) * 35);
+              console.log('[Overlay Debug Dual] boxHeight:', boxHeight);
+              const box = `drawbox=x=0:y=ih-${boxHeight}:w=iw:h=${boxHeight}:color=black@0.7:t=fill`;
               overlayFilters.push(box);
 
               const linesConfig = [
-                { color: 'white', size: 34, y: 'h-95' },
-                { color: '#dcdcdc', size: 28, y: 'h-60' },
-                { color: '#bbbbbb', size: 24, y: 'h-30' },
+                {
+                  color: 'white',
+                  size: 34,
+                  y: `h-${boxHeight - 25}`,
+                  isBold: true,
+                },
+                {
+                  color: '#dcdcdc',
+                  size: 28,
+                  y: `h-${Math.max(30, boxHeight - 60)}`,
+                  isBold: false,
+                },
+                {
+                  color: '#bbbbbb',
+                  size: 24,
+                  y: `h-${Math.max(30, boxHeight - 90)}`,
+                  isBold: false,
+                },
               ];
 
               overlayLines.forEach((line, idx) => {
-                const safeText = escapeDrawtext(line);
+                const safeText = escapeDrawtext(line.text);
                 const cfg =
                   linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
-                const text = `drawtext=text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:bordercolor=black@0.0:x=20:y=${cfg.y}`;
+
+                // Try to use Japanese font, but don't fail if not available
+                let fontParam = '';
+                try {
+                  const fontPath = getJapaneseFontPath(line.isBold);
+                  fontParam = `fontfile='${fontPath}':`;
+                } catch (e) {
+                  fontParam = '';
+                }
+
+                const text = `drawtext=${fontParam}text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:bordercolor=black@0.0:x=20:y=${cfg.y}`;
                 overlayFilters.push(text);
               });
 
@@ -522,7 +618,6 @@ const createWindow = async () => {
               filterSteps.push('[vbase]null[vout]');
             }
 
-            const duration = Math.max(0.5, clip.endTime - clip.startTime);
             const args = [
               ...inputs,
               '-filter_complex',
@@ -549,28 +644,31 @@ const createWindow = async () => {
             });
           });
 
-        const formatLines = (clip: (typeof clips)[number]) => {
-          const labels = clip.labels
-            ?.map((l) => `${l.group ? `${l.group}: ` : ''}${l.name}`)
-            .join(', ');
-          const index = clip.actionIndex ?? 1;
-          const qualifier = clip.qualifier || '';
-          const template = overlay.textTemplate || '{actionName} #{index}';
-          const tokens: Record<string, string | number> = {
-            actionName: clip.actionName,
-            index,
-            labels: labels || '',
-            qualifier,
-          };
-          const line = template.replace(
-            /\{(actionName|index|labels|qualifier)\}/g,
-            (_, key) => String(tokens[key] ?? ''),
-          );
-          const lines: string[] = [];
-          if (overlay.showActionName) lines.push(line);
-          if (overlay.showLabels && labels) lines.push(labels);
-          if (overlay.showQualifier && qualifier) lines.push(qualifier);
-          return lines.filter((l) => l.trim().length > 0);
+        const formatLines = (
+          clip: (typeof clips)[number],
+        ): Array<{ text: string; isBold: boolean }> => {
+          const lines: Array<{ text: string; isBold: boolean }> = [];
+
+          // 1行目: #通番 アクション名（太字）
+          if (overlay.showActionName) {
+            const index = clip.actionIndex ?? 1;
+            lines.push({ text: `#${index} ${clip.actionName}`, isBold: true });
+          }
+
+          // 2行目: ラベル（グループ名がある場合は「グループ名: ラベル名」形式）
+          if (overlay.showLabels && clip.labels && clip.labels.length > 0) {
+            const labelText = clip.labels
+              .map((l) => (l.group ? `${l.group}: ${l.name}` : l.name))
+              .join(', ');
+            lines.push({ text: labelText, isBold: false });
+          }
+
+          // 3行目: メモ（qualifier）
+          if (overlay.showQualifier && clip.qualifier) {
+            lines.push({ text: clip.qualifier, isBold: false });
+          }
+
+          return lines;
         };
 
         const renderClip = async (

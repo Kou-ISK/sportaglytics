@@ -273,7 +273,6 @@ export interface AppSettings {
     showActionIndex: boolean;
     showLabels: boolean;
     showQualifier: boolean;
-    textTemplate: string; // e.g. "{actionName} #{index} | {labels} | {qualifier}"
   };
   /** コーディングパネルのモード/ツールバー設定 */
   codingPanel?: {
@@ -325,7 +324,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showActionIndex: true,
     showLabels: true,
     showQualifier: true,
-    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
   },
   codingPanel: {
     defaultMode: 'code',

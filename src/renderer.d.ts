@@ -88,7 +88,6 @@ export interface IElectronAPI {
       showActionIndex: boolean;
       showLabels: boolean;
       showQualifier: boolean;
-      textTemplate: string;
     };
   }) => Promise<{ success: boolean; error?: string }>;
   saveFileDialog: (

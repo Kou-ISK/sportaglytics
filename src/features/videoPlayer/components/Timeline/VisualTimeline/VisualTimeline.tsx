@@ -206,7 +206,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     showActionIndex: true,
     showLabels: true,
     showQualifier: true,
-    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
   });
   const timelineRef = React.useRef(timeline);
   React.useEffect(() => {

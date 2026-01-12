@@ -505,7 +505,6 @@ export default function PlaylistWindowApp() {
     showActionIndex: true,
     showLabels: true,
     showQualifier: true,
-    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
   });
   const [exportMode, setExportMode] = useState<
     'single' | 'perInstance' | 'perRow'
@@ -2192,19 +2191,9 @@ export default function PlaylistWindowApp() {
                 Qualifier
               </Button>
             </Stack>
-            <TextField
-              label="テキストテンプレート"
-              fullWidth
-              size="small"
-              value={overlaySettings.textTemplate}
-              onChange={(e) =>
-                setOverlaySettings((p) => ({
-                  ...p,
-                  textTemplate: e.target.value,
-                }))
-              }
-              helperText="{actionName} {index} {labels} {qualifier} が使えます"
-            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              形式: 1行目=通番+アクション名（太字）、2行目=ラベル、3行目=メモ
+            </Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
