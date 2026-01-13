@@ -957,18 +957,12 @@ const createWindow = async (): Promise<BrowserWindow> => {
 
         if (exportMode === 'perInstance') {
           // インスタンスごとの書き出し：各クリップを個別ファイルとして出力
-          // アクション名ごとにインスタンス番号をカウント
-          const actionCounters: Record<string, number> = {};
           for (let i = 0; i < clips.length; i++) {
             const clip = clips[i];
             const safeAction = clip.actionName.replace(/[\s/\\:*?"<>|]/g, '_');
 
-            // アクション名ごとのインスタンス番号を取得・更新
-            actionCounters[clip.actionName] =
-              (actionCounters[clip.actionName] || 0) + 1;
-            const instanceNum = String(
-              actionCounters[clip.actionName],
-            ).padStart(3, '0');
+            // プレイリスト全体での並び順に基づいた番号
+            const instanceNum = String(i + 1).padStart(3, '0');
 
             // 映像オプションに応じたサフィックスを付与（全アングルに明示的に付与）
             let suffix = '';
@@ -981,8 +975,8 @@ const createWindow = async (): Promise<BrowserWindow> => {
             }
 
             const outName = baseName
-              ? ensureMp4(`${baseName}_${safeAction}_${instanceNum}${suffix}`)
-              : ensureMp4(`${safeAction}_${instanceNum}${suffix}`);
+              ? ensureMp4(`${baseName}_${instanceNum}_${safeAction}${suffix}`)
+              : ensureMp4(`${instanceNum}_${safeAction}${suffix}`);
             const outPath = path.join(targetDir, outName);
             await renderClip(clip, outPath);
           }
