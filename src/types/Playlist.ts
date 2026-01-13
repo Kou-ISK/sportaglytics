@@ -210,6 +210,10 @@ export interface IPlaylistAPI {
   ) => Promise<{ playlist: Playlist; filePath: string } | null>;
   /** システムから関連付けで開かれたプレイリストファイル通知 */
   onExternalOpen: (callback: (filePath: string) => void) => () => void;
+  /** 保存進行状況の通知を受け取る */
+  onSaveProgress: (
+    callback: (data: { current: number; total: number }) => void,
+  ) => () => void;
 }
 
 /**

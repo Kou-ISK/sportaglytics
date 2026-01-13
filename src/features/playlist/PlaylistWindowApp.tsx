@@ -37,6 +37,7 @@ import {
   ListItemIcon,
   alpha,
   Badge,
+  LinearProgress,
 } from '@mui/material';
 import {
   Delete,
@@ -524,6 +525,12 @@ export default function PlaylistWindowApp() {
   );
   const [exportFileName, setExportFileName] = useState('');
 
+  // 保存進行状況
+  const [saveProgress, setSaveProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+
   // Sensors for drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -768,8 +775,13 @@ export default function PlaylistWindowApp() {
       }
     };
 
+    const handleSaveProgress = (data: { current: number; total: number }) => {
+      setSaveProgress(data);
+    };
+
     if (playlistAPI) {
       playlistAPI.onSync(handlePlaylistSync);
+      playlistAPI.onSaveProgress(handleSaveProgress);
       playlistAPI.sendCommand({ type: 'request-sync' });
     }
 
@@ -1217,6 +1229,7 @@ export default function PlaylistWindowApp() {
   const handleSavePlaylist = useCallback(
     async (type: PlaylistType, name: string) => {
       setSaveDialogOpen(false);
+      setSaveProgress(null); // 保存開始時に進行状況をリセット
       const playlistAPI = window.electronAPI?.playlist;
       if (!playlistAPI) return;
 
@@ -1240,6 +1253,7 @@ export default function PlaylistWindowApp() {
       };
 
       const savedPath = await playlistAPI.savePlaylistFile(playlist);
+      setSaveProgress(null); // 保存完了後に進行状況をクリア
       if (savedPath) {
         console.log('[PlaylistWindow] Playlist saved to:', savedPath);
         setPlaylistName(name);
@@ -2225,6 +2239,29 @@ export default function PlaylistWindowApp() {
         initialNote={editingItem?.memo || ''}
         itemName={editingItem?.actionName || ''}
       />
+
+      {/* 保存進行状況ダイアログ */}
+      <Dialog open={saveProgress !== null} disableEscapeKeyDown>
+        <DialogTitle>プレイリストを保存中</DialogTitle>
+        <DialogContent sx={{ minWidth: 300 }}>
+          <Stack spacing={2}>
+            <Typography variant="body2">
+              動画クリップを生成しています...
+            </Typography>
+            {saveProgress && (
+              <>
+                <Typography variant="caption" color="text.secondary">
+                  {saveProgress.current} / {saveProgress.total} アイテム
+                </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={(saveProgress.current / saveProgress.total) * 100}
+                />
+              </>
+            )}
+          </Stack>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

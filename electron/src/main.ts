@@ -11,6 +11,7 @@ import { registerSettingsHandlers, loadSettings } from './settingsManager';
 import {
   registerPlaylistHandlers,
   setMainWindowRef,
+  setFfmpegPath,
   sendPlaylistFileToWindow,
 } from './playlistWindow';
 import { registerSettingsWindowHandlers } from './settingsWindow';
@@ -248,7 +249,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
   ipcMain.handle(
     'export-clips-with-overlay',
     async (
-      _event,
+      event,
       payload: {
         sourcePath: string;
         sourcePath2?: string;
@@ -322,7 +323,9 @@ const createWindow = async (): Promise<BrowserWindow> => {
 
         let targetDir = outputDir;
         if (!targetDir) {
-          const res = await dialog.showOpenDialog(window, {
+          // 呼び出し元のウィンドウを特定（プレイリストウィンドウ or メインウィンドウ）
+          const senderWindow = BrowserWindow.fromWebContents(event.sender);
+          const res = await dialog.showOpenDialog(senderWindow || window, {
             properties: ['openDirectory', 'createDirectory'],
           });
           if (res.canceled || res.filePaths.length === 0) {
@@ -960,6 +963,13 @@ Utils();
 registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();
+
+// FFmpegパスをプレイリストウィンドウに設定
+try {
+  setFfmpegPath(getFfmpegPath());
+} catch (error) {
+  console.error('Failed to set FFmpeg path:', error);
+}
 
 /**
  * ファイル拡張子に応じて適切な処理を実行

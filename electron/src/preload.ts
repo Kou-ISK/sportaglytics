@@ -563,6 +563,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () =>
         ipcRenderer.removeListener('playlist:external-open', wrapped);
     },
+    /** 保存進行状況の通知を受け取る */
+    onSaveProgress: (
+      callback: (data: { current: number; total: number }) => void,
+    ) => {
+      const wrapped = (_: unknown, data: { current: number; total: number }) =>
+        callback(data);
+      ipcRenderer.on('playlist:save-progress', wrapped);
+      return () =>
+        ipcRenderer.removeListener('playlist:save-progress', wrapped);
+    },
   },
 
   /** コードウィンドウファイル操作 */
