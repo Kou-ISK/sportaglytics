@@ -42,15 +42,33 @@ const getFfmpegPath = (): string => {
 };
 
 const mainURL = `file:${__dirname}/../../index.html`;
-const pickPlaylistArg = (argv: string[]) =>
-  argv.find((a) => {
-    const ext = path.extname(a).toLowerCase();
-    return ext === '.stpl' || ext === '.json';
-  }) || null;
-let pendingPlaylistFile: string | null = pickPlaylistArg(process.argv.slice(1));
 
-const createWindow = async () => {
-  const mainWindow = new BrowserWindow({
+/**
+ * コマンドライン引数からファイルパスを検出
+ * .stpl, .stcw, .stpkg, .json を認識
+ */
+const pickFileArg = (argv: string[]): string | null => {
+  return (
+    argv.find((a) => {
+      const ext = path.extname(a).toLowerCase();
+      return (
+        ext === '.stpl' ||
+        ext === '.stcw' ||
+        ext === '.stpkg' ||
+        ext === '.json'
+      );
+    }) || null
+  );
+};
+
+let pendingFile: string | null = pickFileArg(process.argv.slice(1));
+let pendingCodeWindowExternalOpen: string | null = null;
+
+// メインウィンドウの参照を保持
+let mainWindow: BrowserWindow | null = null;
+
+const createWindow = async (): Promise<BrowserWindow> => {
+  const window = new BrowserWindow({
     width: 1400,
     height: 1000,
     icon: path.join(__dirname, '../../public/icon.icns'),
@@ -64,20 +82,28 @@ const createWindow = async () => {
       sandbox: false,
     },
   });
-  setMainWindow(mainWindow);
-  setMainWindowRef(mainWindow);
-  mainWindow.loadURL(mainURL);
+  mainWindow = window; // グローバル変数に保存
+  setMainWindow(window);
+  setMainWindowRef(window);
+  window.loadURL(mainURL);
+
+  // ウィンドウの読み込み完了を待つ
+  await new Promise<void>((resolve) => {
+    window.webContents.once('did-finish-load', () => {
+      resolve();
+    });
+  });
 
   // 設定を読み込んでホットキーを登録
   const settings = await loadSettings();
-  registerShortcuts(mainWindow, settings.hotkeys);
+  registerShortcuts(window, settings.hotkeys);
 
   refreshAppMenu();
 
   // ホットキー設定が更新されたら再登録
   ipcMain.on('hotkeys-updated', () => {
     loadSettings().then((updatedSettings) => {
-      registerShortcuts(mainWindow, updatedSettings.hotkeys);
+      registerShortcuts(window, updatedSettings.hotkeys);
     });
   });
 
@@ -90,8 +116,8 @@ const createWindow = async () => {
 
   // ウィンドウタイトル更新用のIPCハンドラ
   ipcMain.on('set-window-title', (_event, title: string) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.setTitle(title);
+    if (window && !window.isDestroyed()) {
+      window.setTitle(title);
     }
   });
 
@@ -103,7 +129,7 @@ const createWindow = async () => {
       defaultPath: string,
       filters: { name: string; extensions: string[] }[],
     ) => {
-      const result = await dialog.showSaveDialog(mainWindow, {
+      const result = await dialog.showSaveDialog(window, {
         defaultPath,
         filters,
       });
@@ -115,7 +141,7 @@ const createWindow = async () => {
   ipcMain.handle(
     'open-file-dialog',
     async (_event, filters: { name: string; extensions: string[] }[]) => {
-      const result = await dialog.showOpenDialog(mainWindow, {
+      const result = await dialog.showOpenDialog(window, {
         properties: ['openFile'],
         filters,
       });
@@ -147,6 +173,79 @@ const createWindow = async () => {
       return null;
     }
   });
+
+  // コードウィンドウファイル保存
+  ipcMain.handle(
+    'code-window:save-file',
+    async (_event, codeWindow: unknown, filePath?: string) => {
+      try {
+        let targetPath = filePath;
+        if (!targetPath) {
+          const result = await dialog.showSaveDialog(window, {
+            defaultPath: 'CodeWindow.stcw',
+            filters: [
+              { name: 'コードウィンドウファイル', extensions: ['stcw'] },
+              { name: 'すべてのファイル', extensions: ['*'] },
+            ],
+          });
+          if (result.canceled || !result.filePath) return null;
+          targetPath = result.filePath;
+        }
+
+        const content = JSON.stringify(codeWindow, null, 2);
+        await fs.writeFile(targetPath, content, 'utf-8');
+        return targetPath;
+      } catch (error) {
+        console.error('Failed to save code window file:', error);
+        return null;
+      }
+    },
+  );
+
+  // コードウィンドウファイル読み込み
+  ipcMain.handle('code-window:load-file', async (_event, filePath?: string) => {
+    try {
+      let targetPath = filePath;
+      if (!targetPath) {
+        const result = await dialog.showOpenDialog(window, {
+          properties: ['openFile'],
+          filters: [
+            { name: 'コードウィンドウファイル', extensions: ['stcw'] },
+            { name: 'すべてのファイル', extensions: ['*'] },
+          ],
+        });
+        if (result.canceled || result.filePaths.length === 0) return null;
+        targetPath = result.filePaths[0];
+      }
+
+      const content = await fs.readFile(targetPath, 'utf-8');
+      const codeWindow = JSON.parse(content);
+      return { codeWindow, filePath: targetPath };
+    } catch (error) {
+      console.error('Failed to load code window file:', error);
+      return null;
+    }
+  });
+
+  ipcMain.handle('code-window:peek-external-open', async () => {
+    return pendingCodeWindowExternalOpen;
+  });
+
+  ipcMain.handle(
+    'code-window:consume-external-open',
+    async (_event, expectedPath?: string) => {
+      if (!pendingCodeWindowExternalOpen) return null;
+      if (
+        expectedPath &&
+        pendingCodeWindowExternalOpen !== expectedPath
+      ) {
+        return null;
+      }
+      const nextPath = pendingCodeWindowExternalOpen;
+      pendingCodeWindowExternalOpen = null;
+      return nextPath;
+    },
+  );
 
   // クリップ書き出し（FFmpeg利用想定）
   ipcMain.handle(
@@ -226,7 +325,7 @@ const createWindow = async () => {
 
         let targetDir = outputDir;
         if (!targetDir) {
-          const res = await dialog.showOpenDialog(mainWindow, {
+          const res = await dialog.showOpenDialog(window, {
             properties: ['openDirectory', 'createDirectory'],
           });
           if (res.canceled || res.filePaths.length === 0) {
@@ -857,28 +956,57 @@ const createWindow = async () => {
       }
     },
   );
+
+  return window;
 };
 Utils();
 registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();
 
+/**
+ * ファイル拡張子に応じて適切な処理を実行
+ */
+const handleFileOpen = (filePath: string) => {
+  // ウィンドウが準備できていない場合は待機
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    console.warn('Main window not ready, queueing file open:', filePath);
+    return;
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (ext === '.stpl' || ext === '.json') {
+    // プレイリストファイル
+    sendPlaylistFileToWindow(filePath);
+  } else if (ext === '.stcw') {
+    // コードウィンドウファイル - 設定画面のコードウィンドウタブを開く
+    pendingCodeWindowExternalOpen = filePath;
+    mainWindow.webContents.send('open-code-window-file', filePath);
+  } else if (ext === '.stpkg' || !ext) {
+    // パッケージディレクトリ（拡張子なしまたは.stpkg）
+    mainWindow.webContents.send('open-package-directory', filePath);
+  }
+};
+
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
-  pendingPlaylistFile = filePath;
-  if (app.isReady()) {
-    sendPlaylistFileToWindow(filePath);
+  pendingFile = filePath;
+  if (app.isReady() && mainWindow && !mainWindow.isDestroyed()) {
+    handleFileOpen(filePath);
   }
 });
 
-app.whenReady().then(() => {
-  createWindow();
-  if (pendingPlaylistFile) {
-    sendPlaylistFileToWindow(pendingPlaylistFile);
-    pendingPlaylistFile = null;
+app.whenReady().then(async () => {
+  await createWindow();
+  if (pendingFile) {
+    handleFileOpen(pendingFile);
+    pendingFile = null;
   }
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
   });
 });
 

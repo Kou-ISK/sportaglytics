@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Box, Container, Typography } from '@mui/material';
 import { useSettings } from '../hooks/useSettings';
 import { SettingsTabs } from './settings/components/SettingsTabs';
@@ -41,6 +41,29 @@ export const SettingsPage: React.FC = () => {
   } = useUnsavedTabSwitch({
     hasUnsavedChanges: checkUnsavedChanges,
   });
+
+  useEffect(() => {
+    const api = globalThis.window.electronAPI;
+    if (!api?.codeWindow?.onExternalOpen) return;
+
+    const handleExternalOpen = () => {
+      requestTabChange(2);
+    };
+
+    const cleanup = api.codeWindow.onExternalOpen(handleExternalOpen);
+
+    const checkPending = async () => {
+      if (!api.codeWindow.peekExternalOpen) return;
+      const pendingPath = await api.codeWindow.peekExternalOpen();
+      if (pendingPath) {
+        requestTabChange(2);
+      }
+    };
+
+    void checkPending();
+
+    return cleanup;
+  }, [requestTabChange]);
 
   const handleClose = async () => {
     // 専用ウィンドウなら閉じる、従来の単一ウィンドウ動作ではメインへ戻す

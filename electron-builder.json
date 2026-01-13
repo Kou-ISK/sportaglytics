@@ -17,23 +17,85 @@
     "buildResources": "public",
     "output": "dist/"
   },
+  "fileAssociations": [
+    {
+      "ext": "stpkg",
+      "name": "SporTagLytics Package",
+      "description": "SporTagLytics パッケージファイル",
+      "role": "Editor",
+      "icon": "public/icons/stpkg.icns",
+      "isPackage": true
+    },
+    {
+      "ext": "stpl",
+      "name": "SporTagLytics Playlist",
+      "description": "SporTagLytics プレイリスト",
+      "role": "Viewer",
+      "icon": "public/icons/stpl.icns"
+    },
+    {
+      "ext": "stcw",
+      "name": "SporTagLytics Code Window",
+      "description": "SporTagLytics コードウィンドウ",
+      "role": "Viewer",
+      "icon": "public/icons/stcw.icns"
+    }
+  ],
   "mac": {
     "target": {
       "target": "dmg",
       "arch": ["x64", "arm64"]
     },
+    "extraResources": [
+      {
+        "from": "public/icons",
+        "to": ".",
+        "filter": ["*.icns"]
+      }
+    ],
     "icon": "public/icon.icns",
     "category": "public.app-category.sports",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
     "entitlements": "public/entitlements.mac.plist",
-    "entitlementsInherit": "public/entitlements.mac.inherit.plist"
+    "entitlementsInherit": "public/entitlements.mac.inherit.plist",
+    "extendInfo": {
+      "UTExportedTypeDeclarations": [
+        {
+          "UTTypeIdentifier": "com.kouisk.sportaglytics.stpkg",
+          "UTTypeDescription": "SporTagLytics Package",
+          "UTTypeConformsTo": ["public.data", "com.apple.package"],
+          "UTTypeTagSpecification": {
+            "public.filename-extension": ["stpkg"]
+          }
+        },
+        {
+          "UTTypeIdentifier": "com.kouisk.sportaglytics.stpl",
+          "UTTypeDescription": "SporTagLytics Playlist",
+          "UTTypeConformsTo": ["public.data"],
+          "UTTypeTagSpecification": {
+            "public.filename-extension": ["stpl"]
+          }
+        },
+        {
+          "UTTypeIdentifier": "com.kouisk.sportaglytics.stcw",
+          "UTTypeDescription": "SporTagLytics Code Window",
+          "UTTypeConformsTo": ["public.data"],
+          "UTTypeTagSpecification": {
+            "public.filename-extension": ["stcw"]
+          }
+        }
+      ]
+    }
   },
   "win": {
     "target": "nsis",
     "icon": "public/icon.ico",
     "artifactName": "${productName}-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "include": "build/installer.nsh"
   },
   "linux": {
     "target": "AppImage",

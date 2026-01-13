@@ -109,6 +109,21 @@ export interface IElectronAPI {
   updateRecentPackages: (paths: string[]) => void;
   // プレイリストAPI
   playlist: IPlaylistAPI;
+  // コードウィンドウファイルAPI
+  codeWindow: {
+    saveFile: (
+      codeWindow: unknown,
+      filePath?: string,
+    ) => Promise<string | null>;
+    loadFile: (
+      filePath?: string,
+    ) => Promise<{ codeWindow: unknown; filePath: string } | null>;
+    onExternalOpen: (callback: (filePath: string) => void) => () => void;
+    peekExternalOpen: () => Promise<string | null>;
+    consumeExternalOpen: (expectedPath?: string) => Promise<string | null>;
+  };
+  // パッケージディレクトリが外部から開かれたときの通知
+  onPackageDirectoryOpen: (callback: (dirPath: string) => void) => () => void;
 }
 
 export interface PackageDatas {

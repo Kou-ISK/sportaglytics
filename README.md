@@ -13,6 +13,7 @@
 - 🎬 **プレイリスト機能** - フリーズフレーム、簡易描画、クリップ書き出し
 - 📈 **ビジュアルタイムライン** - ズーム、範囲選択、ドラッグ編集対応
 - 💾 **多形式エクスポート** - JSON/CSV/SCTimeline形式に対応
+- 📦 **独自ファイル形式** - `.stpkg`パッケージ、`.stpl`プレイリスト、`.stcw`コードウィンドウ
 
 ## スクリーンショット
 
@@ -53,6 +54,7 @@ brew install --cask sportaglytics
 - 👨‍💻 [開発者ガイド](docs/development.md) - 開発環境のセットアップと貢献方法
 - 📋 [技術仕様書](docs/requirement.md) - 詳細な機能要件
 - 🏗️ [アーキテクチャ](docs/system-overview.md) - システム設計と主要コンポーネント
+- 🎨 [カスタムファイルアイコン](docs/custom-file-icons.md) - 独自ファイル形式とアイコン実装
 - 📝 [CHANGELOG](CHANGELOG.md) - 変更履歴
 
 ## 技術スタック
