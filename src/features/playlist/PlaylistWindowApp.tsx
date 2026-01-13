@@ -38,6 +38,10 @@ import {
   alpha,
   Badge,
   LinearProgress,
+  Checkbox,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Delete,
@@ -104,18 +108,22 @@ interface SortableItemProps {
   item: PlaylistItem;
   index: number;
   isActive: boolean;
+  selected: boolean;
   onRemove: (id: string) => void;
   onPlay: (id: string) => void;
   onEditNote: (id: string) => void;
+  onToggleSelect: (id: string) => void;
 }
 
 function SortableItem({
   item,
   index,
   isActive,
+  selected,
   onRemove,
   onPlay,
   onEditNote,
+  onToggleSelect,
 }: SortableItemProps) {
   const {
     attributes,
@@ -163,6 +171,17 @@ function SortableItem({
         },
       }}
     >
+      {/* Checkbox */}
+      <Checkbox
+        size="small"
+        checked={selected}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleSelect(item.id);
+        }}
+        sx={{ py: 0, px: 0.5 }}
+      />
+
       {/* Index number */}
       <Typography
         variant="caption"
@@ -524,6 +543,10 @@ export default function PlaylistWindowApp() {
     'all',
   );
   const [exportFileName, setExportFileName] = useState('');
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [exportScope, setExportScope] = useState<'all' | 'selected'>('all');
 
   // 保存進行状況
   const [saveProgress, setSaveProgress] = useState<{
@@ -1455,14 +1478,24 @@ export default function PlaylistWindowApp() {
       return;
     }
     const sourcePath2 = videoSources[1];
-    const useDual =
-      angleOption === 'all' && sourcePath2 ? true : angleOption === 'angle2';
+    const useDual = angleOption === 'all' && Boolean(sourcePath2);
     if (useDual && !sourcePath2) {
       alert('2アングルの書き出しには2つの映像ソースが必要です');
       return;
     }
 
-    const ordered = [...items];
+    const sourceItems =
+      exportScope === 'selected'
+        ? items.filter((item) => selectedItemIds.has(item.id))
+        : items;
+
+    if (sourceItems.length === 0) {
+      alert('書き出すアイテムがありません');
+      return;
+    }
+
+    // 選択されたアイテムのみを使用してactionIndexを計算
+    const ordered = [...sourceItems];
     const actionIndexLookup = new Map<string, number>();
     const counters: Record<string, number> = {};
     ordered.forEach((item) => {
@@ -1471,7 +1504,7 @@ export default function PlaylistWindowApp() {
       actionIndexLookup.set(item.id, c);
     });
 
-    const clips = ordered.map((item) => {
+    const clips = sourceItems.map((item) => {
       const annotation = itemAnnotations[item.id] || item.annotation;
       const allTimestamps =
         annotation?.objects
@@ -1513,16 +1546,23 @@ export default function PlaylistWindowApp() {
         actionIndex: actionIndexLookup.get(item.id) ?? 1,
         annotationPngPrimary: annPrimary,
         annotationPngSecondary: annSecondary,
+        videoSource: item.videoSource || undefined,
+        videoSource2: item.videoSource2 || undefined,
       };
     });
 
     setIsExporting(true);
     const result = await api({
       sourcePath,
-      sourcePath2: useDual ? sourcePath2 : undefined,
-      mode: useDual ? 'dual' : 'single',
+      sourcePath2:
+        angleOption === 'all'
+          ? sourcePath2
+          : angleOption === 'angle2'
+            ? sourcePath2
+            : undefined,
+      mode: angleOption === 'all' ? 'dual' : 'single',
       exportMode,
-      angleOption: useDual ? angleOption : 'angle1',
+      angleOption,
       outputFileName: exportFileName.trim() || undefined,
       clips,
       overlay: overlaySettings,
@@ -2039,9 +2079,21 @@ export default function PlaylistWindowApp() {
                     item={item}
                     index={index}
                     isActive={index === currentIndex}
+                    selected={selectedItemIds.has(item.id)}
                     onRemove={handleRemoveItem}
                     onPlay={(id) => handlePlayItem(id)}
                     onEditNote={handleEditNote}
+                    onToggleSelect={(id) => {
+                      setSelectedItemIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(id)) {
+                          next.delete(id);
+                        } else {
+                          next.add(id);
+                        }
+                        return next;
+                      });
+                    }}
                   />
                 ))}
               </List>
@@ -2115,6 +2167,27 @@ export default function PlaylistWindowApp() {
             value={exportFileName}
             onChange={(e) => setExportFileName(e.target.value)}
           />
+          <Stack spacing={1}>
+            <Typography variant="body2">書き出し範囲</Typography>
+            <RadioGroup
+              value={exportScope}
+              onChange={(e) =>
+                setExportScope(e.target.value as 'all' | 'selected')
+              }
+            >
+              <FormControlLabel
+                value="all"
+                control={<Radio size="small" />}
+                label="全体"
+              />
+              <FormControlLabel
+                value="selected"
+                control={<Radio size="small" />}
+                label={`選択中のアイテム (${selectedItemIds.size} 件)`}
+              />
+            </RadioGroup>
+          </Stack>
+          <Divider />
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="body2">出力モード</Typography>
             <ToggleButtonGroup
