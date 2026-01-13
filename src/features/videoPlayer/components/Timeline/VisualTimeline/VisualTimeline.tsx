@@ -40,7 +40,7 @@ interface VisualTimelineProps {
   onDelete: (ids: string[]) => void;
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
-  onUpdateQualifier?: (id: string, qualifier: string) => void;
+  onUpdateMemo?: (id: string, memo: string) => void;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
   onUpdateTimelineItem?: (
     id: string,
@@ -69,7 +69,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   onDelete,
   selectedIds,
   onSelectionChange,
-  onUpdateQualifier,
+  onUpdateMemo,
   onUpdateTimeRange,
   onUpdateTimelineItem,
   bulkUpdateTimelineItems,
@@ -112,7 +112,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     onSeek,
     onDelete,
     onUpdateTimelineItem,
-    onUpdateQualifier,
+    onUpdateMemo,
     onUpdateTimeRange,
   });
 
@@ -205,8 +205,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     showActionName: true,
     showActionIndex: true,
     showLabels: true,
-    showQualifier: true,
-    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
+    showMemo: true,
   });
   const timelineRef = React.useRef(timeline);
   React.useEffect(() => {
@@ -485,7 +484,7 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
               group: l.group || '',
               name: l.name,
             })) || undefined,
-          qualifier: item.qualifier || undefined,
+          memo: item.memo || undefined,
           actionIndex: count,
         };
       });

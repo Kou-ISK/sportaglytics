@@ -12,7 +12,6 @@ import {
   Alert,
   Switch,
   Stack,
-  TextField,
 } from '@mui/material';
 import type { AppSettings, ThemeMode } from '../../../types/Settings';
 import { useThemeMode } from '../../../contexts/ThemeModeContext';
@@ -165,31 +164,21 @@ export const GeneralSettings = forwardRef<
           <FormControlLabel
             control={
               <Switch
-                checked={overlayClip.showQualifier}
+                checked={overlayClip.showMemo}
                 onChange={(e) =>
                   setOverlayClip((prev) => ({
                     ...prev,
-                    showQualifier: e.target.checked,
+                    showMemo: e.target.checked,
                   }))
                 }
               />
             }
-            label="メモ (qualifier) を表示"
+            label="メモを表示"
           />
         </Stack>
-        <TextField
-          label="テキストテンプレート"
-          helperText="{actionName} {index} {labels} {qualifier} を組み合わせて表示します"
-          value={overlayClip.textTemplate}
-          onChange={(e) =>
-            setOverlayClip((prev) => ({
-              ...prev,
-              textTemplate: e.target.value,
-            }))
-          }
-          fullWidth
-          size="small"
-        />
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+          形式: 1行目=通番+アクション名（太字）、2行目=ラベル、3行目=メモ
+        </Typography>
       </Stack>
 
       {saveSuccess && (

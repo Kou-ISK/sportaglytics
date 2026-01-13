@@ -179,6 +179,19 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
     [handlePackageDrop],
   );
 
+  // 外部からパッケージディレクトリが開かれたときの処理
+  React.useEffect(() => {
+    const api = globalThis.window.electronAPI;
+    if (!api?.onPackageDirectoryOpen) return;
+
+    const cleanup = api.onPackageDirectoryOpen((dirPath: string) => {
+      console.log(`外部からパッケージディレクトリを開きます: ${dirPath}`);
+      handlePackageDrop(dirPath);
+    });
+
+    return cleanup;
+  }, [handlePackageDrop]);
+
   return (
     <Box
       sx={{

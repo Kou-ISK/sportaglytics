@@ -59,7 +59,7 @@ const VideoPlayerAppContent = () => {
     setPackagePath,
     addTimelineData,
     deleteTimelineDatas,
-    updateQualifier,
+    updateMemo,
     updateTimelineRange,
     updateTimelineItem,
     bulkUpdateTimelineItems,
@@ -399,7 +399,7 @@ const VideoPlayerAppContent = () => {
             setTeamNames={setTeamNames}
             addTimelineData={addTimelineData}
             deleteTimelineDatas={deleteTimelineDatas}
-            updateQualifier={updateQualifier}
+            updateMemo={updateMemo}
             updateTimelineRange={updateTimelineRange}
             updateTimelineItem={updateTimelineItem}
             bulkUpdateTimelineItems={bulkUpdateTimelineItems}

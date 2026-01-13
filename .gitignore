@@ -25,3 +25,8 @@ yarn-debug.log*
 yarn-error.log*
 
 .specstory
+
+# Apple certificates (never commit these!)
+*.p12
+*.cer
+*.certSigningRequest

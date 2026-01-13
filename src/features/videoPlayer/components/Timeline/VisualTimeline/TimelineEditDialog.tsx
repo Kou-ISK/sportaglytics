@@ -21,7 +21,7 @@ import { useTimelineValidation } from './hooks/useTimelineValidation';
 export interface TimelineEditDraft {
   id: string;
   actionName: string;
-  qualifier: string;
+  memo: string;
   labels: SCLabel[];
   startTime: string;
   endTime: string;
@@ -51,10 +51,10 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
   const {
     safeStartTime,
     safeEndTime,
-    qualifier,
+    memo,
     setStartTime,
     setEndTime,
-    setQualifier,
+    setMemo,
   } = useTimelineEditDraft({ draft, onChange });
   const { startError, endError, isValid } = useTimelineValidation(draft);
 
@@ -202,8 +202,8 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
             variant="outlined"
             multiline
             rows={2}
-            value={qualifier}
-            onChange={(event) => setQualifier(event.target.value)}
+            value={memo}
+            onChange={(event) => setMemo(event.target.value)}
             placeholder="任意のメモ"
           />
         </Stack>

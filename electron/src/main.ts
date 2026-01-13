@@ -1,8 +1,9 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'node:fs/promises';
 import { spawn } from 'child_process';
 import * as os from 'os';
+import ffmpegPath from 'ffmpeg-static';
 import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
@@ -19,16 +20,55 @@ if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 }
 
-const mainURL = `file:${__dirname}/../../index.html`;
-const pickPlaylistArg = (argv: string[]) =>
-  argv.find((a) => {
-    const ext = path.extname(a).toLowerCase();
-    return ext === '.stpl' || ext === '.json';
-  }) || null;
-let pendingPlaylistFile: string | null = pickPlaylistArg(process.argv.slice(1));
+/**
+ * バンドルされたffmpegバイナリのパスを取得
+ * @returns ffmpegの実行可能パス
+ * @throws ffmpegバイナリが見つからない場合
+ */
+const getFfmpegPath = (): string => {
+  if (!ffmpegPath) {
+    throw new Error(
+      'ffmpeg binary not found. Please ensure ffmpeg-static is properly installed.',
+    );
+  }
 
-const createWindow = async () => {
-  const mainWindow = new BrowserWindow({
+  // パッケージ版の場合、asar.unpackedパスに変換
+  if (app.isPackaged) {
+    return ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+  }
+
+  // 開発環境ではそのまま使用
+  return ffmpegPath;
+};
+
+const mainURL = `file:${__dirname}/../../index.html`;
+
+/**
+ * コマンドライン引数からファイルパスを検出
+ * .stpl, .stcw, .stpkg, .json を認識
+ */
+const pickFileArg = (argv: string[]): string | null => {
+  return (
+    argv.find((a) => {
+      const ext = path.extname(a).toLowerCase();
+      return (
+        ext === '.stpl' ||
+        ext === '.stcw' ||
+        ext === '.stpkg' ||
+        ext === '.json'
+      );
+    }) || null
+  );
+};
+
+let pendingFile: string | null = pickFileArg(process.argv.slice(1));
+let pendingCodeWindowExternalOpen: string | null = null;
+
+// メインウィンドウの参照を保持
+let mainWindow: BrowserWindow | null = null;
+
+const createWindow = async (): Promise<BrowserWindow> => {
+  const window = new BrowserWindow({
     width: 1400,
     height: 1000,
     icon: path.join(__dirname, '../../public/icon.icns'),
@@ -42,20 +82,28 @@ const createWindow = async () => {
       sandbox: false,
     },
   });
-  setMainWindow(mainWindow);
-  setMainWindowRef(mainWindow);
-  mainWindow.loadURL(mainURL);
+  mainWindow = window; // グローバル変数に保存
+  setMainWindow(window);
+  setMainWindowRef(window);
+  window.loadURL(mainURL);
+
+  // ウィンドウの読み込み完了を待つ
+  await new Promise<void>((resolve) => {
+    window.webContents.once('did-finish-load', () => {
+      resolve();
+    });
+  });
 
   // 設定を読み込んでホットキーを登録
   const settings = await loadSettings();
-  registerShortcuts(mainWindow, settings.hotkeys);
+  registerShortcuts(window, settings.hotkeys);
 
   refreshAppMenu();
 
   // ホットキー設定が更新されたら再登録
   ipcMain.on('hotkeys-updated', () => {
     loadSettings().then((updatedSettings) => {
-      registerShortcuts(mainWindow, updatedSettings.hotkeys);
+      registerShortcuts(window, updatedSettings.hotkeys);
     });
   });
 
@@ -68,8 +116,8 @@ const createWindow = async () => {
 
   // ウィンドウタイトル更新用のIPCハンドラ
   ipcMain.on('set-window-title', (_event, title: string) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.setTitle(title);
+    if (window && !window.isDestroyed()) {
+      window.setTitle(title);
     }
   });
 
@@ -81,7 +129,7 @@ const createWindow = async () => {
       defaultPath: string,
       filters: { name: string; extensions: string[] }[],
     ) => {
-      const result = await dialog.showSaveDialog(mainWindow, {
+      const result = await dialog.showSaveDialog(window, {
         defaultPath,
         filters,
       });
@@ -93,7 +141,7 @@ const createWindow = async () => {
   ipcMain.handle(
     'open-file-dialog',
     async (_event, filters: { name: string; extensions: string[] }[]) => {
-      const result = await dialog.showOpenDialog(mainWindow, {
+      const result = await dialog.showOpenDialog(window, {
         properties: ['openFile'],
         filters,
       });
@@ -105,8 +153,6 @@ const createWindow = async () => {
   ipcMain.handle(
     'write-text-file',
     async (_event, filePath: string, content: string) => {
-      const tempFiles: string[] = [];
-
       try {
         await fs.writeFile(filePath, content, 'utf-8');
         return true;
@@ -127,6 +173,76 @@ const createWindow = async () => {
       return null;
     }
   });
+
+  // コードウィンドウファイル保存
+  ipcMain.handle(
+    'code-window:save-file',
+    async (_event, codeWindow: unknown, filePath?: string) => {
+      try {
+        let targetPath = filePath;
+        if (!targetPath) {
+          const result = await dialog.showSaveDialog(window, {
+            defaultPath: 'CodeWindow.stcw',
+            filters: [
+              { name: 'コードウィンドウファイル', extensions: ['stcw'] },
+              { name: 'すべてのファイル', extensions: ['*'] },
+            ],
+          });
+          if (result.canceled || !result.filePath) return null;
+          targetPath = result.filePath;
+        }
+
+        const content = JSON.stringify(codeWindow, null, 2);
+        await fs.writeFile(targetPath, content, 'utf-8');
+        return targetPath;
+      } catch (error) {
+        console.error('Failed to save code window file:', error);
+        return null;
+      }
+    },
+  );
+
+  // コードウィンドウファイル読み込み
+  ipcMain.handle('code-window:load-file', async (_event, filePath?: string) => {
+    try {
+      let targetPath = filePath;
+      if (!targetPath) {
+        const result = await dialog.showOpenDialog(window, {
+          properties: ['openFile'],
+          filters: [
+            { name: 'コードウィンドウファイル', extensions: ['stcw'] },
+            { name: 'すべてのファイル', extensions: ['*'] },
+          ],
+        });
+        if (result.canceled || result.filePaths.length === 0) return null;
+        targetPath = result.filePaths[0];
+      }
+
+      const content = await fs.readFile(targetPath, 'utf-8');
+      const codeWindow = JSON.parse(content);
+      return { codeWindow, filePath: targetPath };
+    } catch (error) {
+      console.error('Failed to load code window file:', error);
+      return null;
+    }
+  });
+
+  ipcMain.handle('code-window:peek-external-open', async () => {
+    return pendingCodeWindowExternalOpen;
+  });
+
+  ipcMain.handle(
+    'code-window:consume-external-open',
+    async (_event, expectedPath?: string) => {
+      if (!pendingCodeWindowExternalOpen) return null;
+      if (expectedPath && pendingCodeWindowExternalOpen !== expectedPath) {
+        return null;
+      }
+      const nextPath = pendingCodeWindowExternalOpen;
+      pendingCodeWindowExternalOpen = null;
+      return nextPath;
+    },
+  );
 
   // クリップ書き出し（FFmpeg利用想定）
   ipcMain.handle(
@@ -149,7 +265,7 @@ const createWindow = async () => {
           freezeAt?: number | null;
           freezeDuration?: number;
           labels?: { group: string; name: string }[];
-          qualifier?: string;
+          memo?: string;
           actionIndex?: number;
           annotationPngPrimary?: string | null;
           annotationPngSecondary?: string | null;
@@ -159,7 +275,7 @@ const createWindow = async () => {
           showActionName: boolean;
           showActionIndex: boolean;
           showLabels: boolean;
-          showQualifier: boolean;
+          showMemo: boolean;
           textTemplate: string;
         };
       },
@@ -180,40 +296,6 @@ const createWindow = async () => {
         if (!sourcePath || clips.length === 0) {
           return { success: false, error: 'ソースまたはクリップがありません' };
         }
-
-        const getVideoResolution = async (
-          filePath: string,
-        ): Promise<{ width: number; height: number }> => {
-          return new Promise((resolve) => {
-            const ff = spawn('ffprobe', [
-              '-v',
-              'error',
-              '-select_streams',
-              'v:0',
-              '-show_entries',
-              'stream=width,height',
-              '-of',
-              'json',
-              filePath,
-            ]);
-            let data = '';
-            ff.stdout.on('data', (d) => {
-              data += d.toString();
-            });
-            ff.on('close', () => {
-              try {
-                const parsed = JSON.parse(data);
-                const w = parsed?.streams?.[0]?.width;
-                const h = parsed?.streams?.[0]?.height;
-                if (w && h) return resolve({ width: w, height: h });
-              } catch {
-                /* ignore */
-              }
-              resolve({ width: 1920, height: 1080 });
-            });
-            ff.on('error', () => resolve({ width: 1920, height: 1080 }));
-          });
-        };
 
         const dataUrlToTempFile = async (
           dataUrl: string,
@@ -240,7 +322,7 @@ const createWindow = async () => {
 
         let targetDir = outputDir;
         if (!targetDir) {
-          const res = await dialog.showOpenDialog(mainWindow, {
+          const res = await dialog.showOpenDialog(window, {
             properties: ['openDirectory', 'createDirectory'],
           });
           if (res.canceled || res.filePaths.length === 0) {
@@ -249,13 +331,56 @@ const createWindow = async () => {
           targetDir = res.filePaths[0];
         }
 
-        const escapeDrawtext = (text: string) =>
-          text
+        // OS判定で日本語フォントパスを取得
+        const getJapaneseFontPath = (isBold = false): string => {
+          const platform = os.platform();
+          if (platform === 'darwin') {
+            // macOS - Use Hiragino Kaku Gothic with appropriate weight
+            // W6 (Semi-Bold) for normal text, W8 (Extra-Bold) for bold
+            return isBold
+              ? '/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc'
+              : '/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc';
+          } else if (platform === 'win32') {
+            // Windows
+            return isBold
+              ? 'C:\\\\Windows\\\\Fonts\\\\meiryob.ttc'
+              : 'C:\\\\Windows\\\\Fonts\\\\meiryo.ttc';
+          } else {
+            // Linux
+            return isBold
+              ? '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'
+              : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc';
+          }
+        };
+
+        // テキストを60文字ごとに自動改行（英語は空白で区切る）
+        const wrapText = (text: string, maxChars = 60): string => {
+          if (text.length <= maxChars) return text;
+          const lines: string[] = [];
+          let currentLine = '';
+          const words = text.split(' ');
+
+          for (const word of words) {
+            if (currentLine.length + word.length + 1 > maxChars) {
+              if (currentLine) lines.push(currentLine);
+              currentLine = word;
+            } else {
+              currentLine = currentLine ? `${currentLine} ${word}` : word;
+            }
+          }
+          if (currentLine) lines.push(currentLine);
+          return lines.join('\n');
+        };
+
+        const escapeDrawtext = (text: string) => {
+          const wrapped = wrapText(text, 60);
+          return wrapped
+            .replace(/\\/g, '\\\\')
             .replace(/:/g, '\\:')
-            .replace(/'/g, "\\'")
+            .replace(/'/g, "'\\''")
             .replace(/%/g, '\\%')
-            .replace(/\n/g, ' ')
             .replace(/,/g, '\\,');
+        };
 
         const runFfmpegSingle = (
           clip: (typeof clips)[number] & {
@@ -264,27 +389,83 @@ const createWindow = async () => {
             freezeDuration?: number;
           },
           outputPath: string,
-          overlayLines: string[],
+          overlayLines: Array<{ text: string; isBold: boolean }>,
           annotationPath?: string | null,
         ) =>
           new Promise<void>((resolve, reject) => {
             const vfTexts: string[] = [];
             if (overlay.enabled) {
-              const box =
-                'drawbox=x=0:y=ih-120:w=iw:h=120:color=black@0.7:t=fill';
+              // 実際の表示行数を計算（\nを含む行も考慮）
+              const totalDisplayLines = overlayLines.reduce((acc, line) => {
+                const lineCount = (line.text.match(/\n/g) || []).length + 1;
+                return acc + lineCount;
+              }, 0);
+
+              console.log(
+                '[Overlay Debug] overlayLines:',
+                overlayLines.length,
+                'totalDisplayLines:',
+                totalDisplayLines,
+              );
+              overlayLines.forEach((line, idx) => {
+                console.log(
+                  `[Overlay Debug] Line ${idx}:`,
+                  line.text,
+                  'isBold:',
+                  line.isBold,
+                );
+              });
+
+              // 行数に応じて動的にボックス高さを計算
+              const boxHeight = Math.max(60, 60 + (totalDisplayLines - 1) * 35);
+              console.log('[Overlay Debug] boxHeight:', boxHeight);
+              const box = `drawbox=x=0:y=ih-${boxHeight}:w=iw:h=${boxHeight}:color=black@0.7:t=fill`;
               vfTexts.push(box);
 
               const linesConfig = [
-                { color: 'white', size: 34, y: 'h-95' },
-                { color: '#dcdcdc', size: 28, y: 'h-60' },
-                { color: '#bbbbbb', size: 24, y: 'h-30' },
+                {
+                  color: 'white',
+                  size: 34,
+                  y: `h-${boxHeight - 25}`,
+                  isBold: true,
+                },
+                {
+                  color: '#dcdcdc',
+                  size: 28,
+                  y: `h-${Math.max(30, boxHeight - 60)}`,
+                  isBold: false,
+                },
+                {
+                  color: '#bbbbbb',
+                  size: 24,
+                  y: `h-${Math.max(30, boxHeight - 90)}`,
+                  isBold: false,
+                },
               ];
 
               overlayLines.forEach((line, idx) => {
-                const safeText = escapeDrawtext(line);
+                const safeText = escapeDrawtext(line.text);
                 const cfg =
                   linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
-                const text = `drawtext=text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:shadowcolor=black@0.55:shadowx=2:shadowy=2:x=20:y=${cfg.y}`;
+
+                // Try to use Japanese font, but don't fail if not available
+                let fontParam = '';
+                try {
+                  const fontPath = getJapaneseFontPath(line.isBold);
+                  console.log(
+                    `[Font Debug] Line ${idx}, isBold: ${line.isBold}, fontPath: ${fontPath}`,
+                  );
+                  // Note: We don't check file existence here as it would be async
+                  // If font doesn't exist, ffmpeg will fall back to default
+                  fontParam = `fontfile='${fontPath}':`;
+                } catch (e) {
+                  // Use default font if error occurs
+                  console.log('[Font Debug] Error getting font path:', e);
+                  fontParam = '';
+                }
+
+                const text = `drawtext=${fontParam}text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:shadowcolor=black@0.55:shadowx=2:shadowy=2:x=20:y=${cfg.y}`;
+                console.log(`[Font Debug] drawtext filter: ${text}`);
                 vfTexts.push(text);
               });
             }
@@ -375,7 +556,7 @@ const createWindow = async () => {
               audioMap,
               outputPath,
             );
-            const ff = spawn('ffmpeg', args);
+            const ff = spawn(getFfmpegPath(), args);
             ff.stderr.on('data', (data) => {
               console.log('[ffmpeg]', data.toString());
             });
@@ -391,7 +572,7 @@ const createWindow = async () => {
             freezeDuration?: number;
           },
           outputPath: string,
-          overlayLines: string[],
+          overlayLines: Array<{ text: string; isBold: boolean }>,
           annotationPrimary?: string | null,
           annotationSecondary?: string | null,
         ) =>
@@ -499,21 +680,67 @@ const createWindow = async () => {
 
             if (overlay.enabled) {
               const overlayFilters: string[] = [];
-              const box =
-                'drawbox=x=0:y=ih-120:w=iw:h=120:color=black@0.7:t=fill';
+
+              // 実際の表示行数を計算（\nを含む行も考慮）
+              const totalDisplayLines = overlayLines.reduce((acc, line) => {
+                const lineCount = (line.text.match(/\n/g) || []).length + 1;
+                return acc + lineCount;
+              }, 0);
+
+              console.log(
+                '[Overlay Debug Dual] overlayLines:',
+                overlayLines.length,
+                'totalDisplayLines:',
+                totalDisplayLines,
+              );
+
+              // 行数に応じて動的にボックス高さを計算
+              const boxHeight = Math.max(60, 60 + (totalDisplayLines - 1) * 35);
+              console.log('[Overlay Debug Dual] boxHeight:', boxHeight);
+              const box = `drawbox=x=0:y=ih-${boxHeight}:w=iw:h=${boxHeight}:color=black@0.7:t=fill`;
               overlayFilters.push(box);
 
               const linesConfig = [
-                { color: 'white', size: 34, y: 'h-95' },
-                { color: '#dcdcdc', size: 28, y: 'h-60' },
-                { color: '#bbbbbb', size: 24, y: 'h-30' },
+                {
+                  color: 'white',
+                  size: 34,
+                  y: `h-${boxHeight - 25}`,
+                  isBold: true,
+                },
+                {
+                  color: '#dcdcdc',
+                  size: 28,
+                  y: `h-${Math.max(30, boxHeight - 60)}`,
+                  isBold: false,
+                },
+                {
+                  color: '#bbbbbb',
+                  size: 24,
+                  y: `h-${Math.max(30, boxHeight - 90)}`,
+                  isBold: false,
+                },
               ];
 
               overlayLines.forEach((line, idx) => {
-                const safeText = escapeDrawtext(line);
+                const safeText = escapeDrawtext(line.text);
                 const cfg =
                   linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
-                const text = `drawtext=text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:bordercolor=black@0.0:x=20:y=${cfg.y}`;
+
+                // Try to use Japanese font, but don't fail if not available
+                let fontParam = '';
+                try {
+                  const fontPath = getJapaneseFontPath(line.isBold);
+                  console.log(
+                    `[Font Debug Dual] Line ${idx}, isBold: ${line.isBold}, fontPath: ${fontPath}`,
+                  );
+                  fontParam = `fontfile='${fontPath}':`;
+                } catch (e) {
+                  console.log('[Font Debug Dual] Error getting font path:', e);
+                  fontParam = '';
+                }
+
+                const text = `drawtext=${fontParam}text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:bordercolor=black@0.0:x=20:y=${cfg.y}`;
+                console.log(`[Font Debug Dual] drawtext filter: ${text}`);
                 overlayFilters.push(text);
               });
 
@@ -522,7 +749,6 @@ const createWindow = async () => {
               filterSteps.push('[vbase]null[vout]');
             }
 
-            const duration = Math.max(0.5, clip.endTime - clip.startTime);
             const args = [
               ...inputs,
               '-filter_complex',
@@ -539,7 +765,7 @@ const createWindow = async () => {
               'aac',
               outputPath,
             ];
-            const ff = spawn('ffmpeg', args);
+            const ff = spawn(getFfmpegPath(), args);
             ff.stderr.on('data', (data) =>
               console.log('[ffmpeg]', data.toString()),
             );
@@ -549,28 +775,31 @@ const createWindow = async () => {
             });
           });
 
-        const formatLines = (clip: (typeof clips)[number]) => {
-          const labels = clip.labels
-            ?.map((l) => `${l.group ? `${l.group}: ` : ''}${l.name}`)
-            .join(', ');
-          const index = clip.actionIndex ?? 1;
-          const qualifier = clip.qualifier || '';
-          const template = overlay.textTemplate || '{actionName} #{index}';
-          const tokens: Record<string, string | number> = {
-            actionName: clip.actionName,
-            index,
-            labels: labels || '',
-            qualifier,
-          };
-          const line = template.replace(
-            /\{(actionName|index|labels|qualifier)\}/g,
-            (_, key) => String(tokens[key] ?? ''),
-          );
-          const lines: string[] = [];
-          if (overlay.showActionName) lines.push(line);
-          if (overlay.showLabels && labels) lines.push(labels);
-          if (overlay.showQualifier && qualifier) lines.push(qualifier);
-          return lines.filter((l) => l.trim().length > 0);
+        const formatLines = (
+          clip: (typeof clips)[number],
+        ): Array<{ text: string; isBold: boolean }> => {
+          const lines: Array<{ text: string; isBold: boolean }> = [];
+
+          // 1行目: #通番 アクション名（太字）
+          if (overlay.showActionName) {
+            const index = clip.actionIndex ?? 1;
+            lines.push({ text: `#${index} ${clip.actionName}`, isBold: true });
+          }
+
+          // 2行目: ラベル（グループ名がある場合は「グループ名: ラベル名」形式）
+          if (overlay.showLabels && clip.labels && clip.labels.length > 0) {
+            const labelText = clip.labels
+              .map((l) => (l.group ? `${l.group}: ${l.name}` : l.name))
+              .join(', ');
+            lines.push({ text: labelText, isBold: false });
+          }
+
+          // 3行目: メモ
+          if (overlay.showMemo && clip.memo) {
+            lines.push({ text: clip.memo, isBold: false });
+          }
+
+          return lines;
         };
 
         const renderClip = async (
@@ -631,7 +860,7 @@ const createWindow = async () => {
             .join('\n');
           await fs.writeFile(listPath, content, 'utf-8');
           return new Promise<void>((resolve, reject) => {
-            const ff = spawn('ffmpeg', [
+            const ff = spawn(getFfmpegPath(), [
               '-y',
               '-f',
               'concat',
@@ -724,28 +953,57 @@ const createWindow = async () => {
       }
     },
   );
+
+  return window;
 };
 Utils();
 registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();
 
+/**
+ * ファイル拡張子に応じて適切な処理を実行
+ */
+const handleFileOpen = (filePath: string) => {
+  // ウィンドウが準備できていない場合は待機
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    console.warn('Main window not ready, queueing file open:', filePath);
+    return;
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (ext === '.stpl' || ext === '.json') {
+    // プレイリストファイル
+    sendPlaylistFileToWindow(filePath);
+  } else if (ext === '.stcw') {
+    // コードウィンドウファイル - 設定画面のコードウィンドウタブを開く
+    pendingCodeWindowExternalOpen = filePath;
+    mainWindow.webContents.send('open-code-window-file', filePath);
+  } else if (ext === '.stpkg' || !ext) {
+    // パッケージディレクトリ（拡張子なしまたは.stpkg）
+    mainWindow.webContents.send('open-package-directory', filePath);
+  }
+};
+
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
-  pendingPlaylistFile = filePath;
-  if (app.isReady()) {
-    sendPlaylistFileToWindow(filePath);
+  pendingFile = filePath;
+  if (app.isReady() && mainWindow && !mainWindow.isDestroyed()) {
+    handleFileOpen(filePath);
   }
 });
 
-app.whenReady().then(() => {
-  createWindow();
-  if (pendingPlaylistFile) {
-    sendPlaylistFileToWindow(pendingPlaylistFile);
-    pendingPlaylistFile = null;
+app.whenReady().then(async () => {
+  await createWindow();
+  if (pendingFile) {
+    handleFileOpen(pendingFile);
+    pendingFile = null;
   }
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
   });
 });
 

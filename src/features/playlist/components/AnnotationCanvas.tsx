@@ -403,10 +403,11 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       '#000000',
     ];
 
-    // Initialize from props
+    // Initialize from props - only on mount to avoid overwriting during drawing
+    // Intentionally empty deps array: initialObjects changes should not reset local state
     useEffect(() => {
       setObjects(initialObjects);
-    }, [initialObjects]);
+    }, []); // Only run on mount, not when initialObjects changes
 
     useEffect(() => {
       setLocalFreezeDuration(
@@ -504,7 +505,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         offsetY: 0,
       };
       const filteredObjects =
-        typeof currentTime === 'number'
+        typeof currentTime === 'number' && !isActive
           ? objects.filter(
               (obj) =>
                 Math.abs(obj.timestamp - currentTime) <= TIMESTAMP_TOLERANCE,

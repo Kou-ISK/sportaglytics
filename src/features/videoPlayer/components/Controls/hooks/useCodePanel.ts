@@ -11,7 +11,7 @@ export const useCodePanel = (
     actionName: string,
     startTime: number,
     endTime: number,
-    qualifier: string,
+    memo: string,
     actionType?: string,
     actionResult?: string,
     labels?: Array<{ name: string; group: string }>,
@@ -112,14 +112,14 @@ export const useCodePanel = (
     // actionNameにチーム名を含める
     const fullActionName = `${selectedTeam} ${selectedAction}`;
 
-    // qualifierは空文字列（actionType/actionResultを個別に渡す）
-    const qualifier = '';
+    // memoは空文字列（actionType/actionResultを個別に渡す）
+    const memo = '';
 
     addTimelineData(
       fullActionName,
       begin,
       end,
-      qualifier,
+      memo,
       selectedType || undefined,
       selectedResult || undefined,
     );

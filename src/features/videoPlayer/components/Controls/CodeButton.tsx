@@ -10,7 +10,7 @@ interface CodeButtonProps {
     actionName: string,
     startTime: number,
     endTime: number,
-    qualifier: string,
+    memo: string,
     actionType?: string,
     actionResult?: string,
     labels?: Array<{ name: string; group: string }>,
@@ -29,7 +29,7 @@ export const CodeButton = ({
   const [startTime, setStartTime] = useState(0);
   const [pendingLabel, setPendingLabel] = useState<string | null>(null);
 
-  const addTimeline = (qualifier: string) => {
+  const addTimeline = (memo: string) => {
     type VjsNamespace = {
       getPlayer?: (id: string) =>
         | {
@@ -56,7 +56,7 @@ export const CodeButton = ({
             ? [startTime, newEndTime]
             : [newEndTime, startTime];
 
-        addTimelineData(actionName, begin, end, qualifier);
+        addTimelineData(actionName, begin, end, memo);
         setPendingLabel(null);
         setIsActionButtonPushed(false);
       }

@@ -57,5 +57,12 @@
 
 ## ドキュメント
 
+- **コードとドキュメントは常にセットで更新**します。機能追加・変更・削除を行う際は、関連するドキュメントファイルも同時に更新します。
+- 影響範囲の目安：
+  - 新機能追加 → `docs/user-guide.md`、`docs/requirement.md`、該当する実装ドキュメント
+  - UI/UX変更 → `docs/user-guide.md`、スクリーンショット（該当する場合）
+  - API/型定義変更 → `docs/development.md`、`docs/system-overview.md`
+  - ビルド/環境変更 → `docs/development.md`、`README.md`
+  - 設定項目追加 → `docs/user-guide.md`（設定セクション）
 - ユーザー体験に影響する変更を加えた場合は、関連ドキュメント（`docs/` 等）を更新します。
 - 複雑なビジネスルールがある箇所には短く意図を説明するコメントを付与します。

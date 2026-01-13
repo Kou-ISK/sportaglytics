@@ -2,6 +2,7 @@ import { BrowserWindow, dialog, ipcMain, Menu, app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PackageDatas } from '../../src/renderer';
+import { generateInfoPlist } from './templates/InfoPlist';
 
 // メインプロセスで使用するメソッドを切り出し
 
@@ -79,13 +80,16 @@ export const Utils = () => {
   ipcMain.handle(
     'create-package',
     async (_, directoryName, packageName, angles, metaDataConfig) => {
-      // 引数で取ったpackageNameをもとに新規パッケージを作成
-      const newPackagePath = directoryName + '/' + packageName;
-      const newFilePath = newPackagePath.substring(
-        newPackagePath.lastIndexOf('/') + 1,
-      );
+      // .stpkg 拡張子を追加
+      const packageBaseName = packageName.endsWith('.stpkg')
+        ? packageName
+        : `${packageName}.stpkg`;
+
+      const newPackagePath = path.join(directoryName, packageBaseName);
+      const newFilePath = packageBaseName.replace(/\.stpkg$/i, '');
+
       fs.mkdirSync(newPackagePath);
-      const videosDir = newPackagePath + '/videos';
+      const videosDir = path.join(newPackagePath, 'videos');
       fs.mkdirSync(videosDir);
 
       const ensureSafeName = (raw: string, index: number) => {
@@ -144,14 +148,15 @@ export const Utils = () => {
         );
 
       // タイムラインファイルを作成
-      fs.writeFile(newPackagePath + '/timeline.json', '[]', (err) => {
+      fs.writeFile(path.join(newPackagePath, 'timeline.json'), '[]', (err) => {
         if (err) console.log(err);
       });
+
       // .metadataファイルを作成
-      fs.mkdirSync(newPackagePath + '/.metadata');
+      fs.mkdirSync(path.join(newPackagePath, '.metadata'));
       // パッケージ内の相対パスとして保存（移動しても動作するように）
       metaDataConfig.tightViewPath =
-        primaryAngle?.relativePath || 'videos/' + newFilePath + ' 寄り.mp4';
+        primaryAngle?.relativePath || `videos/${newFilePath} 寄り.mp4`;
       metaDataConfig.wideViewPath = secondaryAngle
         ? secondaryAngle.relativePath
         : null;
@@ -165,29 +170,67 @@ export const Utils = () => {
       const metaDataText = JSON.stringify(metaDataConfig);
       console.log(metaDataConfig);
       fs.writeFile(
-        newPackagePath + '/.metadata/config.json',
+        path.join(newPackagePath, '.metadata', 'config.json'),
         metaDataText,
         (err) => {
           if (err) console.log(err);
         },
       );
+
+      // Info.plist を生成（macOS 用バンドルメタデータ）
+      if (process.platform === 'darwin') {
+        const infoPlist = generateInfoPlist({
+          packageName: newFilePath,
+          team1Name: metaDataConfig.team1Name,
+          team2Name: metaDataConfig.team2Name,
+          createdAt: new Date().toISOString(),
+          version: '1.0',
+        });
+
+        fs.writeFileSync(
+          path.join(newPackagePath, 'Info.plist'),
+          infoPlist,
+          'utf-8',
+        );
+      }
+
+      // README.txt を作成（パッケージ説明）
+      const readme = `SporTagLytics Package
+Package Name: ${newFilePath}
+Created: ${new Date().toLocaleString()}
+
+このパッケージを開くには SporTagLytics をご利用ください。
+https://github.com/Kou-ISK/sportaglytics
+`;
+      fs.writeFileSync(
+        path.join(newPackagePath, 'README.txt'),
+        readme,
+        'utf-8',
+      );
+
       /* 
-        PackageName.pkg
-        ┗ .metadata
-            ┗ config.json (チーム名、シンク機能実装後は各ビデオアングルの開始秒数など)
-        ┗ timeline.json
-        ┗ videos
-            ┗ tightView.mp4
+        PackageName.stpkg/
+        ┣ Info.plist (macOS バンドル用)
+        ┣ README.txt
+        ┣ .metadata/
+        ┃  ┗ config.json (チーム名、シンク機能実装後は各ビデオアングルの開始秒数など)
+        ┣ timeline.json
+        ┗ videos/
+            ┣ tightView.mp4
             ┗ wideView.mp4
         */
       const packageDatas: PackageDatas = {
-        timelinePath: newPackagePath + '/timeline.json',
+        timelinePath: path.join(newPackagePath, 'timeline.json'),
         tightViewPath:
           primaryAngle?.absolutePath ||
           path.join(videosDir, `${newFilePath} 寄り.mp4`),
         wideViewPath: secondaryAngle ? secondaryAngle.absolutePath : null,
         angles: normalizedAngles,
-        metaDataConfigFilePath: newPackagePath + '/.metadata/config.json',
+        metaDataConfigFilePath: path.join(
+          newPackagePath,
+          '.metadata',
+          'config.json',
+        ),
       };
       console.log(packageDatas);
       return packageDatas;
@@ -264,6 +307,21 @@ export const Utils = () => {
       return true;
     } catch (error) {
       console.error('set-manual-mode-checked error:', error);
+      return false;
+    }
+  });
+
+  ipcMain.handle('set-label-mode-checked', async (_, checked: boolean) => {
+    try {
+      const menu = Menu.getApplicationMenu();
+      const item = menu?.getMenuItemById('toggle-label-mode');
+      if (item) {
+        item.checked = checked;
+      }
+      console.log(`ラベルモードが${checked ? 'オン' : 'オフ'}になりました`);
+      return true;
+    } catch (error) {
+      console.error('set-label-mode-checked error:', error);
       return false;
     }
   });

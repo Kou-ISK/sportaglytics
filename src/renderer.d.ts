@@ -42,6 +42,8 @@ export interface IElectronAPI {
     },
   ) => Promise<boolean>;
   setManualModeChecked: (checked: boolean) => Promise<boolean>;
+  setLabelModeChecked: (checked: boolean) => Promise<boolean>;
+  onToggleLabelMode: (callback: (checked: boolean) => void) => void;
   convertConfigToRelativePath: (packagePath: string) => Promise<{
     success: boolean;
     config?: Record<string, unknown>;
@@ -77,7 +79,7 @@ export interface IElectronAPI {
       freezeAt?: number | null;
       freezeDuration?: number;
       labels?: { group: string; name: string }[];
-      qualifier?: string;
+      memo?: string;
       actionIndex?: number;
       annotationPngPrimary?: string | null;
       annotationPngSecondary?: string | null;
@@ -87,8 +89,7 @@ export interface IElectronAPI {
       showActionName: boolean;
       showActionIndex: boolean;
       showLabels: boolean;
-      showQualifier: boolean;
-      textTemplate: string;
+      showMemo: boolean;
     };
   }) => Promise<{ success: boolean; error?: string }>;
   saveFileDialog: (
@@ -108,6 +109,21 @@ export interface IElectronAPI {
   updateRecentPackages: (paths: string[]) => void;
   // プレイリストAPI
   playlist: IPlaylistAPI;
+  // コードウィンドウファイルAPI
+  codeWindow: {
+    saveFile: (
+      codeWindow: unknown,
+      filePath?: string,
+    ) => Promise<string | null>;
+    loadFile: (
+      filePath?: string,
+    ) => Promise<{ codeWindow: unknown; filePath: string } | null>;
+    onExternalOpen: (callback: (filePath: string) => void) => () => void;
+    peekExternalOpen: () => Promise<string | null>;
+    consumeExternalOpen: (expectedPath?: string) => Promise<string | null>;
+  };
+  // パッケージディレクトリが外部から開かれたときの通知
+  onPackageDirectoryOpen: (callback: (dirPath: string) => void) => () => void;
 }
 
 export interface PackageDatas {

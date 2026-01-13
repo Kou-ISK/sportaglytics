@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { AppSettings } from '../types/Settings';
-import { DEFAULT_SETTINGS, normalizeCodingPanelLayouts } from '../types/Settings';
+import {
+  DEFAULT_SETTINGS,
+  normalizeCodingPanelLayouts,
+} from '../types/Settings';
 
 /**
  * アプリ設定を管理するカスタムフック
@@ -13,39 +16,41 @@ export const useSettings = () => {
   const buildCodingPanel = (
     loadedPanel?: AppSettings['codingPanel'] | null,
   ): NonNullable<AppSettings['codingPanel']> => {
-      const defaultCodingPanel: NonNullable<AppSettings['codingPanel']> =
-        DEFAULT_SETTINGS.codingPanel ?? {
-          defaultMode: 'code',
-          toolbars: [],
-          actionLinks: [],
-          codeWindows: [],
-          activeCodeWindowId: 'default',
-        };
-      const panel: Partial<NonNullable<AppSettings['codingPanel']>> =
-        loadedPanel ?? {};
-      const codeWindows =
-        panel.codeWindows && panel.codeWindows.length > 0
-          ? panel.codeWindows
-          : defaultCodingPanel.codeWindows ?? [];
-      const activeCodeWindowId =
-        panel.activeCodeWindowId ??
-        (panel as { activeLayoutId?: string }).activeLayoutId ??
-        defaultCodingPanel.activeCodeWindowId ??
-        codeWindows[0]?.id;
+    const defaultCodingPanel: NonNullable<AppSettings['codingPanel']> =
+      DEFAULT_SETTINGS.codingPanel ?? {
+        defaultMode: 'code',
+        toolbars: [],
+        actionLinks: [],
+        codeWindows: [],
+        activeCodeWindowId: 'default',
+      };
+    const panel: Partial<NonNullable<AppSettings['codingPanel']>> =
+      loadedPanel ?? {};
+    const codeWindows =
+      panel.codeWindows && panel.codeWindows.length > 0
+        ? panel.codeWindows
+        : (defaultCodingPanel.codeWindows ?? []);
+    const activeCodeWindowId =
+      panel.activeCodeWindowId ??
+      (panel as { activeLayoutId?: string }).activeLayoutId ??
+      defaultCodingPanel.activeCodeWindowId ??
+      codeWindows[0]?.id;
 
-      return normalizeCodingPanelLayouts({
-        ...defaultCodingPanel,
-        ...panel,
-        defaultMode: panel.defaultMode ?? defaultCodingPanel.defaultMode ?? 'code',
-        toolbars:
-          panel.toolbars?.filter((t) => t.mode === 'code' || t.mode === 'label') ??
-          defaultCodingPanel.toolbars ??
-          [],
-        actionLinks:
-          panel.actionLinks ?? defaultCodingPanel.actionLinks ?? [],
-        codeWindows,
-        activeCodeWindowId,
-      });
+    return normalizeCodingPanelLayouts({
+      ...defaultCodingPanel,
+      ...panel,
+      defaultMode:
+        panel.defaultMode ?? defaultCodingPanel.defaultMode ?? 'code',
+      toolbars:
+        panel.toolbars?.filter(
+          (t) => t.mode === 'code' || t.mode === 'label',
+        ) ??
+        defaultCodingPanel.toolbars ??
+        [],
+      actionLinks: panel.actionLinks ?? defaultCodingPanel.actionLinks ?? [],
+      codeWindows,
+      activeCodeWindowId,
+    });
   };
 
   // 設定を読み込む
@@ -158,10 +163,11 @@ export const useSettings = () => {
 
   // 設定更新イベントを購読（別ウィンドウで保存されたら再読み込み）
   useEffect(() => {
-    const unsubscribe =
-      globalThis.window.electronAPI?.onSettingsUpdated?.(() => {
+    const unsubscribe = globalThis.window.electronAPI?.onSettingsUpdated?.(
+      () => {
         loadSettings();
-      });
+      },
+    );
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };

@@ -29,14 +29,14 @@ interface TimelineActionSectionProps {
     actionName: string,
     startTime: number,
     endTime: number,
-    qualifier: string,
+    memo: string,
     actionType?: string,
     actionResult?: string,
     labels?: Array<{ name: string; group: string }>,
     color?: string,
   ) => void;
   deleteTimelineDatas: (ids: string[]) => void;
-  updateQualifier: (id: string, qualifier: string) => void;
+  updateMemo: (id: string, memo: string) => void;
   updateTimelineRange: (id: string, startTime: number, endTime: number) => void;
   updateTimelineItem: (
     id: string,
@@ -80,7 +80,7 @@ export const TimelineActionSection = forwardRef<
       setTeamNames,
       addTimelineData,
       deleteTimelineDatas,
-      updateQualifier,
+      updateMemo,
       updateTimelineRange,
       updateTimelineItem,
       bulkUpdateTimelineItems,
@@ -168,7 +168,7 @@ export const TimelineActionSection = forwardRef<
             onSelectionChange={(ids: string[]) => {
               setSelectedTimelineIdList(ids);
             }}
-            onUpdateQualifier={updateQualifier}
+            onUpdateMemo={updateMemo}
             onUpdateTimeRange={updateTimelineRange}
             onUpdateTimelineItem={updateTimelineItem}
             bulkUpdateTimelineItems={bulkUpdateTimelineItems}

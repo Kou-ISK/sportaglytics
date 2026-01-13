@@ -286,10 +286,8 @@ export const TimelineLane: React.FC<TimelineLaneProps> = ({
                       ))}
                     </>
                   )}
-                  {item.qualifier && (
-                    <Typography variant="caption">
-                      備考: {item.qualifier}
-                    </Typography>
+                  {item.memo && (
+                    <Typography variant="caption">備考: {item.memo}</Typography>
                   )}
                 </Stack>
               }

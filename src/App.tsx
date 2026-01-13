@@ -59,6 +59,23 @@ function App() {
     };
   }, []);
 
+  // .stcwファイルが外部から開かれたときに設定画面を開く
+  useEffect(() => {
+    const api = globalThis.window.electronAPI;
+    if (!api?.codeWindow?.onExternalOpen) return;
+
+    const cleanup = api.codeWindow.onExternalOpen(() => {
+      // 設定画面を開く（コードウィンドウタブに切り替えはCodeWindowSettings内で処理）
+      if (api.openSettingsWindow) {
+        api.openSettingsWindow();
+      } else {
+        setCurrentView('settings');
+      }
+    });
+
+    return cleanup;
+  }, []);
+
   // プレイリストウィンドウ（別ウィンドウで開かれた場合）
   if (currentView === 'playlist') {
     return <PlaylistWindowApp />;

@@ -89,8 +89,8 @@ export interface PlaylistItem {
   endTime: number;
   /** ラベル（参照元から複製） */
   labels?: SCLabel[];
-  /** Qualifier（参照元から複製） */
-  qualifier?: string;
+  /** メモ（参照元から複製） */
+  memo?: string;
   /** メモ・コメント */
   note?: string;
   /** 追加日時 (timestamp) */

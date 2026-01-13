@@ -210,6 +210,19 @@ const buildMenu = () => {
     { role: 'front' as const, label: '全てを前面に出す' },
   ];
 
+  // コーディングメニュー
+  const codingMenuItems: Electron.MenuItemConstructorOptions[] = [
+    {
+      id: 'toggle-label-mode',
+      label: 'ラベルモード',
+      type: 'checkbox',
+      checked: false,
+      click: (menuItem) => {
+        sendToFocusedWindow('menu-toggle-label-mode', menuItem.checked);
+      },
+    },
+  ];
+
   // 同期メニュー（MECE構造）
   const syncMenuItems: Electron.MenuItemConstructorOptions[] = [
     {
@@ -251,6 +264,7 @@ const buildMenu = () => {
   const template: Electron.MenuItemConstructorOptions[] = [
     { label: app.name, submenu: appMenuItems },
     { label: 'ファイル', submenu: fileMenuItems },
+    { label: 'コーディング', submenu: codingMenuItems },
     { label: '同期', submenu: syncMenuItems },
     { label: 'ウィンドウ', submenu: windowMenuItems },
     ...(helpMenuItems.length

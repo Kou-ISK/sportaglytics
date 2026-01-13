@@ -375,6 +375,8 @@ function SaveDialog({ open, onClose, onSave, defaultName }: SaveDialogProps) {
 }
 
 // ===== Note Edit Dialog =====
+// プレイリスト内のメモを編集するダイアログ
+// 注: この変更はタイムラインには反映されません
 interface NoteDialogProps {
   open: boolean;
   onClose: () => void;
@@ -411,9 +413,17 @@ function NoteDialog({
           value={note}
           onChange={(e) => setNote(e.target.value)}
           fullWidth
-          placeholder="アイテムに関するメモを入力..."
+          placeholder="映像出力時に表示されるメモを入力..."
           sx={{ mt: 1 }}
         />
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ mt: 1, display: 'block' }}
+        >
+          ※
+          このメモはプレイリスト内でのみ有効で、タイムラインには反映されません。
+        </Typography>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>キャンセル</Button>
@@ -504,8 +514,7 @@ export default function PlaylistWindowApp() {
     showActionName: true,
     showActionIndex: true,
     showLabels: true,
-    showQualifier: true,
-    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
+    showMemo: true,
   });
   const [exportMode, setExportMode] = useState<
     'single' | 'perInstance' | 'perRow'
@@ -1296,11 +1305,11 @@ export default function PlaylistWindowApp() {
   }, []);
 
   const handleSaveNote = useCallback(
-    (note: string) => {
+    (memo: string) => {
       if (!editingItemId) return;
       setItems((prev) =>
         prev.map((item) =>
-          item.id === editingItemId ? { ...item, note } : item,
+          item.id === editingItemId ? { ...item, memo } : item,
         ),
       );
       setNoteDialogOpen(false);
@@ -1486,7 +1495,7 @@ export default function PlaylistWindowApp() {
         labels:
           item.labels?.map((l) => ({ group: l.group || '', name: l.name })) ||
           undefined,
-        qualifier: item.qualifier || undefined,
+        memo: item.memo || undefined,
         actionIndex: actionIndexLookup.get(item.id) ?? 1,
         annotationPngPrimary: annPrimary,
         annotationPngSecondary: annSecondary,
@@ -2179,32 +2188,20 @@ export default function PlaylistWindowApp() {
               </Button>
               <Button
                 size="small"
-                variant={
-                  overlaySettings.showQualifier ? 'contained' : 'outlined'
-                }
+                variant={overlaySettings.showMemo ? 'contained' : 'outlined'}
                 onClick={() =>
                   setOverlaySettings((p) => ({
                     ...p,
-                    showQualifier: !p.showQualifier,
+                    showMemo: !p.showMemo,
                   }))
                 }
               >
-                Qualifier
+                メモ
               </Button>
             </Stack>
-            <TextField
-              label="テキストテンプレート"
-              fullWidth
-              size="small"
-              value={overlaySettings.textTemplate}
-              onChange={(e) =>
-                setOverlaySettings((p) => ({
-                  ...p,
-                  textTemplate: e.target.value,
-                }))
-              }
-              helperText="{actionName} {index} {labels} {qualifier} が使えます"
-            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              形式: 1行目=通番+アクション名（太字）、2行目=ラベル、3行目=メモ
+            </Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -2225,7 +2222,7 @@ export default function PlaylistWindowApp() {
           setEditingItemId(null);
         }}
         onSave={handleSaveNote}
-        initialNote={editingItem?.note || ''}
+        initialNote={editingItem?.memo || ''}
         itemName={editingItem?.actionName || ''}
       />
     </Box>

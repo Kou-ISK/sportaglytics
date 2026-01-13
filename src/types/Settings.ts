@@ -31,7 +31,10 @@ const createDefaultCodeWindowLayout = (): CodeWindowLayout => {
       y: row.y,
       width: columnWidth,
       height: rowHeight,
-      team: placeholder === TEAM_PLACEHOLDERS.TEAM1 ? ('team1' as const) : ('team2' as const),
+      team:
+        placeholder === TEAM_PLACEHOLDERS.TEAM1
+          ? ('team1' as const)
+          : ('team2' as const),
       color,
       textColor: '#ffffff',
       borderRadius: 8,
@@ -93,9 +96,7 @@ export const normalizeCodingPanelLayouts = (
   }
 
   const activeCodeWindowId =
-    existing.activeCodeWindowId ??
-    existing.activeLayoutId ??
-    defaultLayout.id;
+    existing.activeCodeWindowId ?? existing.activeLayoutId ?? defaultLayout.id;
 
   return {
     ...panel,
@@ -271,8 +272,7 @@ export interface AppSettings {
     showActionName: boolean;
     showActionIndex: boolean;
     showLabels: boolean;
-    showQualifier: boolean;
-    textTemplate: string; // e.g. "{actionName} #{index} | {labels} | {qualifier}"
+    showMemo: boolean;
   };
   /** コーディングパネルのモード/ツールバー設定 */
   codingPanel?: {
@@ -323,8 +323,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showActionName: true,
     showActionIndex: true,
     showLabels: true,
-    showQualifier: true,
-    textTemplate: '{actionName} #{index} | {labels} | {qualifier}',
+    showMemo: true,
   },
   codingPanel: {
     defaultMode: 'code',

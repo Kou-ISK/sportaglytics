@@ -231,6 +231,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return false;
     }
   },
+  setLabelModeChecked: async (checked: boolean) => {
+    try {
+      return await ipcRenderer.invoke('set-label-mode-checked', checked);
+    } catch (e) {
+      console.error('setLabelModeChecked error:', e);
+      return false;
+    }
+  },
+  onToggleLabelMode: (callback: (checked: boolean) => void) => {
+    try {
+      ipcRenderer.removeAllListeners('menu-toggle-label-mode');
+    } catch (e) {
+      // ignore
+    }
+    ipcRenderer.on('menu-toggle-label-mode', (_event, checked: boolean) =>
+      callback(checked),
+    );
+  },
   // 既存のconfig.jsonを相対パスに変換
   convertConfigToRelativePath: async (packagePath: string) => {
     try {
@@ -545,5 +563,52 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () =>
         ipcRenderer.removeListener('playlist:external-open', wrapped);
     },
+  },
+
+  /** コードウィンドウファイル操作 */
+  codeWindow: {
+    /** .stcw ファイルに保存 */
+    saveFile: async (
+      codeWindow: unknown,
+      filePath?: string,
+    ): Promise<string | null> => {
+      return await ipcRenderer.invoke(
+        'code-window:save-file',
+        codeWindow,
+        filePath,
+      );
+    },
+    /** .stcw ファイルから読み込み */
+    loadFile: async (
+      filePath?: string,
+    ): Promise<{ codeWindow: unknown; filePath: string } | null> => {
+      return await ipcRenderer.invoke('code-window:load-file', filePath);
+    },
+    /** システム関連付けから開かれたコードウィンドウファイル通知 */
+    onExternalOpen: (callback: (filePath: string) => void) => {
+      const wrapped = (_: unknown, path: string) => callback(path);
+      ipcRenderer.on('open-code-window-file', wrapped);
+      return () => ipcRenderer.removeListener('open-code-window-file', wrapped);
+    },
+    /** 外部オープンの待機状態を参照（クリアしない） */
+    peekExternalOpen: async (): Promise<string | null> => {
+      return await ipcRenderer.invoke('code-window:peek-external-open');
+    },
+    /** 外部オープンの待機状態を消費（必要なら一致確認） */
+    consumeExternalOpen: async (
+      expectedPath?: string,
+    ): Promise<string | null> => {
+      return await ipcRenderer.invoke(
+        'code-window:consume-external-open',
+        expectedPath,
+      );
+    },
+  },
+
+  /** パッケージディレクトリが外部から開かれたときの通知 */
+  onPackageDirectoryOpen: (callback: (dirPath: string) => void) => {
+    const wrapped = (_: unknown, path: string) => callback(path);
+    ipcRenderer.on('open-package-directory', wrapped);
+    return () => ipcRenderer.removeListener('open-package-directory', wrapped);
   },
 });

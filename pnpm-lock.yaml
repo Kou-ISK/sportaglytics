@@ -41,6 +41,9 @@ importers:
       electron-is-dev:
         specifier: ^3.0.1
         version: 3.0.1
+      ffmpeg-static:
+        specifier: ^5.2.0
+        version: 5.3.0
       js-yaml:
         specifier: ^4.1.0
         version: 4.1.0
@@ -84,6 +87,9 @@ importers:
       '@testing-library/user-event':
         specifier: ^14.5.2
         version: 14.6.1(@testing-library/dom@10.4.1)
+      '@types/ffmpeg-static':
+        specifier: ^3.0.3
+        version: 3.0.3
       '@types/jest':
         specifier: ^29.5.13
         version: 29.5.14
@@ -969,6 +975,10 @@ packages:
     peerDependencies:
       postcss-selector-parser: ^6.0.10
 
+  '@derhuerst/http-basic@8.2.4':
+    resolution: {integrity: sha512-F9rL9k9Xjf5blCz8HsJRO4diy111cayL2vkY2XE4r4t3n0yPXVYy3KD3nJ1qbrSn9743UWSXH4IwuCa/HWlGFw==}
+    engines: {node: '>=6.0.0'}
+
   '@develar/schema-utils@2.6.5':
     resolution: {integrity: sha512-0cp4PsWQ/9avqTVMCtZ+GirikIA36ikvjtHweU4/j8yLtgObI0+JUPhYFScgwlteveGB1rt3Cm8UhN04XayDig==}
     engines: {node: '>= 8.9.0'}
@@ -1734,6 +1744,9 @@ packages:
   '@types/express@4.17.25':
     resolution: {integrity: sha512-dVd04UKsfpINUnK0yBoYHDF3xu7xVH4BuDotC/xGuycx4CgbP48X/KF/586bcObxT0HENHXEU8Nqtu6NR+eKhw==}
 
+  '@types/ffmpeg-static@3.0.3':
+    resolution: {integrity: sha512-wmjANN0CiYs5clQESK+xE6plet0y9ndqaNBdQx4IIw7ZbPBMQw+14Lq4ky2WqMqGlpFJ9ZUxU0O43TvVZziyyA==}
+
   '@types/fs-extra@9.0.13':
     resolution: {integrity: sha512-nEnwB++1u5lVDM2UI4c1+5R+FYaKfaAzS4OococimjVm3nQw3TuzH5UNsocrcTBbhnerblyHj4A49qXbIiZdpA==}
 
@@ -1781,6 +1794,9 @@ packages:
 
   '@types/node-forge@1.3.14':
     resolution: {integrity: sha512-mhVF2BnD4BO+jtOp7z1CdzaK4mbuK0LLQYAvdOLqHTavxFNq4zA1EmYkpnFjP8HOUzedfQkRnp0E2ulSAYSzAw==}
+
+  '@types/node@10.17.60':
+    resolution: {integrity: sha512-F0KIgDJfy2nA3zMLmWGKxcH2ZVEtCZXHHdOQs2gSaQ27+lNeEfGxzkIw90aXswATX7AZ33tahPbzy6KAfUreVw==}
 
   '@types/node@20.19.24':
     resolution: {integrity: sha512-FE5u0ezmi6y9OZEzlJfg37mqqf6ZDSF2V/NLjUyGrR9uTZ7Sb9F7bLNZ03S4XVUNRWGA7Ck4c1kK+YnuWjl+DA==}
@@ -2562,6 +2578,9 @@ packages:
     resolution: {integrity: sha512-roIFONhcxog0JSSWbvVAh3OocukmSgpqOH6YpMkCvav/ySIV3JKg4Dc8vYtQjYi/UxpNE36r/9v+VqTQqgkYmw==}
     engines: {node: '>=4'}
 
+  caseless@0.12.0:
+    resolution: {integrity: sha512-4tYFyifaFfGacoiObjJegolkwSU4xQNGbVgUiNYVUxbQ2x2lUsFvY4hVgVzGiIe6WLOPqycWXA40l+PWsxthUw==}
+
   chalk@2.4.2:
     resolution: {integrity: sha512-Mti+f9lpJNcwF4tWV8/OrTTtF1gZi+f8FqlyAdouralcFWFQWF2+NgCHShjkCb+IFBLq9buZwE1xckQU4peSuQ==}
     engines: {node: '>=4'}
@@ -2723,6 +2742,10 @@ packages:
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
+
+  concat-stream@2.0.0:
+    resolution: {integrity: sha512-MWufYdFw53ccGjCA+Ol7XJYpAlW6/prSMzuPOTRnJGcGzuhLn4Scrz7qf6o8bROZ514ltazcIFJZevcfbo0x7A==}
+    engines: {'0': node >= 6.0}
 
   concurrently@9.2.1:
     resolution: {integrity: sha512-fsfrO0MxV64Znoy8/l1vVIjjHa29SZyyqPgQBwhiDcaW8wJc2W3XWVOGx4M3oJBnv/zdUZIIp1gDeS98GzP8Ng==}
@@ -3617,6 +3640,10 @@ packages:
   fd-slicer@1.1.0:
     resolution: {integrity: sha512-cE1qsB/VwyQozZ+q1dGxR8LBYNZeofhEdUNGSMbQD3Gw2lAzX9Zb3uIU6Ebc/Fmyjo9AWWfnn0AUCHqtevs/8g==}
 
+  ffmpeg-static@5.3.0:
+    resolution: {integrity: sha512-H+K6sW6TiIX6VGend0KQwthe+kaceeH/luE8dIZyOP35ik7ahYojDuqlTV1bOrtEwl01sy2HFNGQfi5IDJvotg==}
+    engines: {node: '>=16'}
+
   file-entry-cache@6.0.1:
     resolution: {integrity: sha512-7Gps/XWymbLk2QLYK4NzpMOrYjMhdIxXuIvy2QBsLE6ljuodKvdkWs/cpyJJ3CVIVpH0Oi1Hvg1ovbMzLdFBBg==}
     engines: {node: ^10.12.0 || >=12.0.0}
@@ -4004,6 +4031,9 @@ packages:
   http-proxy@1.18.1:
     resolution: {integrity: sha512-7mz/721AbnJwIVbnaSv1Cz3Am0ZLT/UBwkC92VlxhXv/k/BBQfM2fXElQNC27BVGr0uwUpplYPQM9LnaBMR5NQ==}
     engines: {node: '>=8.0.0'}
+
+  http-response-object@3.0.2:
+    resolution: {integrity: sha512-bqX0XTF6fnXSQcEJ2Iuyr75yVakyjIDCqroJQ/aHfSdlM743Cwqoi2nDYMzLGWUcuTWGWy8AAvOKXTfiv6q9RA==}
 
   http2-wrapper@1.0.3:
     resolution: {integrity: sha512-V+23sDMr12Wnz7iTcDeJr3O6AIxlnvT/bmaAAAP/Xda35C90p9599p0F1eHR/N1KILWSoWVAiOMFjBBXaXSMxg==}
@@ -5154,6 +5184,9 @@ packages:
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
     engines: {node: '>=6'}
+
+  parse-cache-control@1.0.1:
+    resolution: {integrity: sha512-60zvsJReQPX5/QP0Kzfd/VrpjScIQ7SHBW6bFCYfEP+fp0Eppr1SHhIO5nd1PjZtvclzSzES9D/p5nFJurwfWg==}
 
   parse-json@5.2.0:
     resolution: {integrity: sha512-ayCKvm/phCGxOkYRSCM82iDwct8/EonSEgCSxWxD7ve6jHggsFl4fZVQBPRNgQoKiuV/odhFrGzQXZwbifC8Rg==}
@@ -6705,6 +6738,9 @@ packages:
   typedarray-to-buffer@3.1.5:
     resolution: {integrity: sha512-zdu8XMNEDepKKR+XYOXAVPtWui0ly0NtohUscw+UmaHiAWT8hrV1rr//H6V+0DvJ3OQ19S979M0laLfX8rm82Q==}
 
+  typedarray@0.0.6:
+    resolution: {integrity: sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==}
+
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
@@ -8116,6 +8152,13 @@ snapshots:
     dependencies:
       postcss-selector-parser: 6.1.2
 
+  '@derhuerst/http-basic@8.2.4':
+    dependencies:
+      caseless: 0.12.0
+      concat-stream: 2.0.0
+      http-response-object: 3.0.2
+      parse-cache-control: 1.0.1
+
   '@develar/schema-utils@2.6.5':
     dependencies:
       ajv: 6.12.6
@@ -9142,6 +9185,8 @@ snapshots:
       '@types/qs': 6.14.0
       '@types/serve-static': 1.15.10
 
+  '@types/ffmpeg-static@3.0.3': {}
+
   '@types/fs-extra@9.0.13':
     dependencies:
       '@types/node': 20.19.24
@@ -9190,6 +9235,8 @@ snapshots:
   '@types/node-forge@1.3.14':
     dependencies:
       '@types/node': 20.19.24
+
+  '@types/node@10.17.60': {}
 
   '@types/node@20.19.24':
     dependencies:
@@ -10254,6 +10301,8 @@ snapshots:
 
   case-sensitive-paths-webpack-plugin@2.4.0: {}
 
+  caseless@0.12.0: {}
+
   chalk@2.4.2:
     dependencies:
       ansi-styles: 3.2.1
@@ -10403,6 +10452,13 @@ snapshots:
       - supports-color
 
   concat-map@0.0.1: {}
+
+  concat-stream@2.0.0:
+    dependencies:
+      buffer-from: 1.1.2
+      inherits: 2.0.4
+      readable-stream: 3.6.2
+      typedarray: 0.0.6
 
   concurrently@9.2.1:
     dependencies:
@@ -11500,6 +11556,15 @@ snapshots:
     dependencies:
       pend: 1.2.0
 
+  ffmpeg-static@5.3.0:
+    dependencies:
+      '@derhuerst/http-basic': 8.2.4
+      env-paths: 2.2.1
+      https-proxy-agent: 5.0.1
+      progress: 2.0.3
+    transitivePeerDependencies:
+      - supports-color
+
   file-entry-cache@6.0.1:
     dependencies:
       flat-cache: 3.2.0
@@ -11967,6 +12032,10 @@ snapshots:
       requires-port: 1.0.0
     transitivePeerDependencies:
       - debug
+
+  http-response-object@3.0.2:
+    dependencies:
+      '@types/node': 10.17.60
 
   http2-wrapper@1.0.3:
     dependencies:
@@ -13386,6 +13455,8 @@ snapshots:
   parent-module@1.0.1:
     dependencies:
       callsites: 3.1.0
+
+  parse-cache-control@1.0.1: {}
 
   parse-json@5.2.0:
     dependencies:
@@ -15138,6 +15209,8 @@ snapshots:
   typedarray-to-buffer@3.1.5:
     dependencies:
       is-typedarray: 1.0.0
+
+  typedarray@0.0.6: {}
 
   typescript@5.9.3: {}
 

@@ -14,7 +14,7 @@ interface UseTimelineInteractionsParams {
     id: string,
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
-  onUpdateQualifier?: (id: string, qualifier: string) => void;
+  onUpdateMemo?: (id: string, memo: string) => void;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
 }
 
@@ -25,7 +25,7 @@ export const useTimelineInteractions = ({
   onSeek,
   onDelete,
   onUpdateTimelineItem,
-  onUpdateQualifier,
+  onUpdateMemo,
   onUpdateTimeRange,
 }: UseTimelineInteractionsParams) => {
   // Selection / hover / focus
@@ -68,7 +68,7 @@ export const useTimelineInteractions = ({
     onDelete,
     onSeek,
     onUpdateTimelineItem,
-    onUpdateQualifier,
+    onUpdateMemo,
     onUpdateTimeRange,
   });
 
