@@ -235,10 +235,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
     'code-window:consume-external-open',
     async (_event, expectedPath?: string) => {
       if (!pendingCodeWindowExternalOpen) return null;
-      if (
-        expectedPath &&
-        pendingCodeWindowExternalOpen !== expectedPath
-      ) {
+      if (expectedPath && pendingCodeWindowExternalOpen !== expectedPath) {
         return null;
       }
       const nextPath = pendingCodeWindowExternalOpen;
