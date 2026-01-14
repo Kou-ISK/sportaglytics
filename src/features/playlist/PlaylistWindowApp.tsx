@@ -302,11 +302,22 @@ function SortableItem({
 interface SaveDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (type: PlaylistType, name: string) => void;
+  onSave: (
+    type: PlaylistType,
+    name: string,
+    shouldCloseAfterSave?: boolean,
+  ) => void;
   defaultName: string;
+  closeAfterSave?: boolean;
 }
 
-function SaveDialog({ open, onClose, onSave, defaultName }: SaveDialogProps) {
+function SaveDialog({
+  open,
+  onClose,
+  onSave,
+  defaultName,
+  closeAfterSave = false,
+}: SaveDialogProps) {
   const [name, setName] = useState(defaultName);
   const [saveType, setSaveType] = useState<PlaylistType>('embedded');
 
@@ -383,7 +394,7 @@ function SaveDialog({ open, onClose, onSave, defaultName }: SaveDialogProps) {
       <DialogActions>
         <Button onClick={onClose}>キャンセル</Button>
         <Button
-          onClick={() => onSave(saveType, name)}
+          onClick={() => onSave(saveType, name, closeAfterSave)}
           variant="contained"
           disabled={!name.trim()}
         >
@@ -489,6 +500,7 @@ export default function PlaylistWindowApp() {
 
   // Dialog states
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [closeAfterSave, setCloseAfterSave] = useState(false);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
@@ -553,6 +565,10 @@ export default function PlaylistWindowApp() {
     current: number;
     total: number;
   } | null>(null);
+
+  // 変更検知フラグ
+  const [isDirty, setIsDirty] = useState(false);
+  const [loadedFilePath, setLoadedFilePath] = useState<string | null>(null);
 
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -682,12 +698,10 @@ export default function PlaylistWindowApp() {
     return () => ro.disconnect();
   }, [currentVideoSource2, isDualView]);
 
-  // Auto-hide controls overlay like main player
+  // Auto-hide controls overlay - ビデオエリアホバー時のみ表示
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
     let hideTimer: NodeJS.Timeout | null = null;
+
     const show = () => {
       setControlsVisible(true);
       if (hideTimer) clearTimeout(hideTimer);
@@ -698,16 +712,12 @@ export default function PlaylistWindowApp() {
       }, 1800);
     };
 
-    show();
-    const handleMove = () => show();
-    container.addEventListener('mousemove', handleMove);
-    container.addEventListener('mouseleave', () => setControlsVisible(false));
+    // 初期表示
+    if (isPlaying && !isDrawingMode) {
+      show();
+    }
 
     return () => {
-      container.removeEventListener('mousemove', handleMove);
-      container.removeEventListener('mouseleave', () =>
-        setControlsVisible(false),
-      );
       if (hideTimer) clearTimeout(hideTimer);
     };
   }, [isPlaying, isDrawingMode]);
@@ -984,6 +994,38 @@ export default function PlaylistWindowApp() {
     }
   }, [currentVideoSource2, currentItem?.id, isPlaying, isFrozen]);
 
+  // 外部からのアイテム追加を受信
+  useEffect(() => {
+    const handleAddItem = (item: PlaylistItem) => {
+      setItems((prev) => [...prev, item]);
+      setIsDirty(true);
+    };
+
+    window.electronAPI?.playlist.onAddItem(handleAddItem);
+
+    return () => {
+      window.electronAPI?.playlist.offAddItem(handleAddItem);
+    };
+  }, []);
+
+  // ウィンドウタイトルを更新
+  useEffect(() => {
+    const title = isDirty
+      ? `${playlistName} *`
+      : loadedFilePath
+        ? playlistName
+        : playlistName;
+    window.electronAPI?.playlist.setWindowTitle(title);
+  }, [isDirty, playlistName, loadedFilePath]);
+
+  // isDirtyフラグをElectron側に同期
+  useEffect(() => {
+    window.electronAPI?.playlist.sendCommand({
+      type: 'set-dirty',
+      isDirty,
+    });
+  }, [isDirty]);
+
   // Handlers
   const handlePlayItem = useCallback(
     (id?: string) => {
@@ -1057,6 +1099,7 @@ export default function PlaylistWindowApp() {
         delete newAnnotations[id];
         return newAnnotations;
       });
+      setIsDirty(true); // 変更あり
     },
     [currentIndex],
   );
@@ -1081,6 +1124,7 @@ export default function PlaylistWindowApp() {
 
         return newItems;
       });
+      setIsDirty(true); // 並び替えで変更あり
     },
     [currentIndex],
   );
@@ -1164,6 +1208,7 @@ export default function PlaylistWindowApp() {
               : item,
           ),
         );
+        setIsDirty(true); // 描画変更で変更あり
       };
 
       persistCanvasObjects(annotationCanvasRefPrimary, 'primary');
@@ -1244,13 +1289,14 @@ export default function PlaylistWindowApp() {
             : item,
         ),
       );
+      setIsDirty(true); // フリーズ時間変更で変更あり
     },
     [currentItem, itemAnnotations],
   );
 
   // Save playlist
   const handleSavePlaylist = useCallback(
-    async (type: PlaylistType, name: string) => {
+    async (type: PlaylistType, name: string, shouldCloseAfterSave = false) => {
       setSaveDialogOpen(false);
       setSaveProgress(null); // 保存開始時に進行状況をリセット
       const playlistAPI = window.electronAPI?.playlist;
@@ -1279,7 +1325,19 @@ export default function PlaylistWindowApp() {
       setSaveProgress(null); // 保存完了後に進行状況をクリア
       if (savedPath) {
         console.log('[PlaylistWindow] Playlist saved to:', savedPath);
-        setPlaylistName(name);
+
+        // 保存後にウィンドウを閉じる場合
+        if (shouldCloseAfterSave) {
+          // Electron側に保存完了を通知し、Electron側からウィンドウを閉じる
+          // （状態更新はせず、即座にウィンドウを閉じる）
+          window.electronAPI?.send?.('playlist:saved-and-close');
+        } else {
+          // 通常の保存時はReact状態を更新してElectron側と同期
+          setPlaylistName(name);
+          setLoadedFilePath(savedPath);
+          setIsDirty(false);
+          playlistAPI.sendCommand({ type: 'set-dirty', isDirty: false });
+        }
       }
     },
     [items, videoSources, packagePath, itemAnnotations],
@@ -1291,10 +1349,12 @@ export default function PlaylistWindowApp() {
 
     const loaded = await playlistAPI.loadPlaylistFile(filePath);
     if (loaded) {
-      const { playlist } = loaded;
+      const { playlist, filePath: loadedPath } = loaded;
       setItems(playlist.items);
       setPlaylistName(playlist.name);
       setPackagePath(playlist.sourcePackagePath || null);
+      setLoadedFilePath(loadedPath);
+      setIsDirty(false); // 読み込み直後はクリーン状態
       // Load annotations
       const annotations: Record<string, ItemAnnotation> = {};
       for (const item of playlist.items) {
@@ -1335,6 +1395,20 @@ export default function PlaylistWindowApp() {
     };
   }, [loadPlaylistFromPath]);
 
+  // ウィンドウクローズ時の保存要求を処理
+  useEffect(() => {
+    const handleRequestSave = () => {
+      setCloseAfterSave(true);
+      setSaveDialogOpen(true);
+    };
+
+    window.electronAPI?.on?.('playlist:request-save', handleRequestSave);
+
+    return () => {
+      window.electronAPI?.off?.('playlist:request-save', handleRequestSave);
+    };
+  }, []);
+
   // Edit note
   const handleEditNote = useCallback((itemId: string) => {
     setEditingItemId(itemId);
@@ -1351,6 +1425,7 @@ export default function PlaylistWindowApp() {
       );
       setNoteDialogOpen(false);
       setEditingItemId(null);
+      setIsDirty(true); // メモ編集で変更あり
     },
     [editingItemId],
   );
@@ -1681,6 +1756,9 @@ export default function PlaylistWindowApp() {
 
       {/* Video Player Area */}
       <Box
+        onMouseEnter={() => setControlsVisible(true)}
+        onMouseLeave={() => setControlsVisible(false)}
+        onMouseMove={() => setControlsVisible(true)}
         sx={{
           flex: '0 0 auto',
           height: '50%',
@@ -1875,7 +1953,8 @@ export default function PlaylistWindowApp() {
               onChange={handleSeek}
               sx={{
                 mb: 0.5,
-                '& .MuiSlider-thumb': { width: 12, height: 12 },
+                height: 4,
+                '& .MuiSlider-thumb': { width: 10, height: 10 },
                 '& .MuiSlider-track': { bgcolor: 'primary.main' },
               }}
               marks={
@@ -1887,23 +1966,35 @@ export default function PlaylistWindowApp() {
                   : []
               }
             />
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack direction="row" spacing={0.4} alignItems="center">
               <Typography
                 variant="caption"
-                sx={{ minWidth: 80, fontFamily: 'monospace' }}
+                sx={{
+                  minWidth: 75,
+                  fontFamily: 'monospace',
+                  fontSize: '0.7rem',
+                }}
               >
                 {formatTime(currentTime - sliderMin)} /{' '}
                 {formatTime(sliderMax - sliderMin)}
               </Typography>
 
               <IconButton size="small" onClick={handlePrevious}>
-                <SkipPrevious fontSize="small" />
+                <SkipPrevious sx={{ fontSize: 18 }} />
               </IconButton>
-              <IconButton onClick={handleTogglePlay} color="primary">
-                {isPlaying && !isFrozen ? <Pause /> : <PlayArrow />}
+              <IconButton
+                size="small"
+                onClick={handleTogglePlay}
+                color="primary"
+              >
+                {isPlaying && !isFrozen ? (
+                  <Pause sx={{ fontSize: 20 }} />
+                ) : (
+                  <PlayArrow sx={{ fontSize: 20 }} />
+                )}
               </IconButton>
               <IconButton size="small" onClick={handleNext}>
-                <SkipNext fontSize="small" />
+                <SkipNext sx={{ fontSize: 18 }} />
               </IconButton>
 
               <Divider
@@ -1918,7 +2009,7 @@ export default function PlaylistWindowApp() {
                   onClick={() => setAutoAdvance(!autoAdvance)}
                   color={autoAdvance ? 'primary' : 'default'}
                 >
-                  <PlaylistPlay fontSize="small" />
+                  <PlaylistPlay sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
               <Tooltip title={loopPlaylist ? 'ループ: ON' : 'ループ: OFF'}>
@@ -1927,7 +2018,7 @@ export default function PlaylistWindowApp() {
                   onClick={() => setLoopPlaylist(!loopPlaylist)}
                   color={loopPlaylist ? 'primary' : 'default'}
                 >
-                  <Loop fontSize="small" />
+                  <Loop sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
 
@@ -1947,7 +2038,7 @@ export default function PlaylistWindowApp() {
                   onClick={handleToggleDrawingMode}
                   color={isDrawingMode ? 'warning' : 'default'}
                 >
-                  <Brush fontSize="small" />
+                  <Brush sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
 
@@ -1955,9 +2046,9 @@ export default function PlaylistWindowApp() {
 
               <IconButton size="small" onClick={() => setIsMuted(!isMuted)}>
                 {isMuted ? (
-                  <VolumeOff fontSize="small" />
+                  <VolumeOff sx={{ fontSize: 18 }} />
                 ) : (
-                  <VolumeUp fontSize="small" />
+                  <VolumeUp sx={{ fontSize: 18 }} />
                 )}
               </IconButton>
               <Slider
@@ -1967,11 +2058,11 @@ export default function PlaylistWindowApp() {
                 max={1}
                 step={0.1}
                 onChange={handleVolumeChange}
-                sx={{ width: 60 }}
+                sx={{ width: 50, height: 3 }}
               />
               <IconButton size="small" onClick={handleToggleFullscreen}>
                 {isFullscreen ? (
-                  <FullscreenExit fontSize="small" />
+                  <FullscreenExit sx={{ fontSize: 18 }} />
                 ) : (
                   <Fullscreen fontSize="small" />
                 )}
@@ -2148,9 +2239,13 @@ export default function PlaylistWindowApp() {
       {/* Dialogs */}
       <SaveDialog
         open={saveDialogOpen}
-        onClose={() => setSaveDialogOpen(false)}
+        onClose={() => {
+          setSaveDialogOpen(false);
+          setCloseAfterSave(false);
+        }}
         onSave={handleSavePlaylist}
         defaultName={playlistName}
+        closeAfterSave={closeAfterSave}
       />
       <Dialog
         open={exportDialogOpen}

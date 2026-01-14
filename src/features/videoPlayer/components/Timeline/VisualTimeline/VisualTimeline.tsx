@@ -55,10 +55,7 @@ interface VisualTimelineProps {
   onUndo?: () => void;
   onRedo?: () => void;
   /** プレイリストに追加（位置情報付き） */
-  onAddToPlaylist?: (
-    items: TimelineData[],
-    anchorPosition: { top: number; left: number },
-  ) => void;
+  onAddToPlaylist?: (items: TimelineData[]) => void;
 }
 
 export const VisualTimeline: React.FC<VisualTimelineProps> = ({
@@ -681,13 +678,13 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         onJumpTo={handleContextMenuJumpTo}
         onDuplicate={handleContextMenuDuplicate}
         onAddToPlaylist={
-          onAddToPlaylist && contextMenu?.position
+          onAddToPlaylist
             ? () => {
                 const items = timeline.filter((t) =>
                   selectedIds.includes(t.id),
                 );
                 if (items.length > 0) {
-                  onAddToPlaylist(items, contextMenu.position);
+                  onAddToPlaylist(items);
                 }
               }
             : undefined

@@ -58,10 +58,7 @@ interface TimelineActionSectionProps {
     labels: { name: string; group: string }[],
   ) => void;
   /** プレイリストに追加（位置情報付き） */
-  onAddToPlaylist?: (
-    items: TimelineData[],
-    anchorPosition: { top: number; left: number },
-  ) => void;
+  onAddToPlaylist?: (items: TimelineData[]) => void;
 }
 
 export const TimelineActionSection = forwardRef<

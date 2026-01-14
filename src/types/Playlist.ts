@@ -167,7 +167,9 @@ export type PlaylistCommand =
   | { type: 'add-items'; items: PlaylistItem[] }
   | { type: 'request-sync' }
   | { type: 'save-playlist'; playlist: Playlist; filePath?: string }
-  | { type: 'load-playlist'; filePath: string };
+  | { type: 'load-playlist'; filePath: string }
+  | { type: 'set-dirty'; isDirty: boolean }
+  | { type: 'get-dirty' };
 
 /**
  * プレイリストAPI（IElectronAPIに統合）
@@ -214,6 +216,17 @@ export interface IPlaylistAPI {
   onSaveProgress: (
     callback: (data: { current: number; total: number }) => void,
   ) => () => void;
+  /** 複数ウィンドウ管理 */
+  /** 開いているプレイリストウィンドウの数を取得 */
+  getOpenWindowCount: () => Promise<number>;
+  /** 全てのプレイリストウィンドウにアイテムを追加 */
+  addItemToAllWindows: (item: PlaylistItem) => Promise<void>;
+  /** アイテム追加の通知を受信（プレイリストウィンドウ側） */
+  onAddItem: (callback: (item: PlaylistItem) => void) => void;
+  /** アイテム追加の通知受信解除 */
+  offAddItem: (callback: (item: PlaylistItem) => void) => void;
+  /** ウィンドウタイトルを設定（プレイリストウィンドウ側） */
+  setWindowTitle: (title: string) => void;
 }
 
 /**
