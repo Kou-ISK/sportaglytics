@@ -47,13 +47,6 @@
       "target": "dmg",
       "arch": ["x64", "arm64"]
     },
-    "extraResources": [
-      {
-        "from": "public/icons",
-        "to": ".",
-        "filter": ["*.icns"]
-      }
-    ],
     "icon": "public/icon.icns",
     "category": "public.app-category.sports",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
