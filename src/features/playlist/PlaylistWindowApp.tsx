@@ -598,9 +598,10 @@ export default function PlaylistWindowApp() {
   const [exportMode, setExportMode] = useState<
     'single' | 'perInstance' | 'perRow'
   >('single');
-  const [angleOption, setAngleOption] = useState<'all' | 'angle1' | 'angle2'>(
-    'all',
-  );
+  const [angleOption, setAngleOption] = useState<
+    'allAngles' | 'single' | 'multi'
+  >('single');
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
     new Set(),
@@ -1892,15 +1893,18 @@ export default function PlaylistWindowApp() {
       alert('書き出しAPIが利用できません');
       return;
     }
-    const sourcePath = videoSources[0];
-    if (!sourcePath) {
-      alert('メイン映像が取得できません');
+
+    // アングルオプションに応じた検証
+    if (angleOption === 'allAngles' && videoSources.length < 2) {
+      alert('全アングル書き出しには2つ以上の映像ソースが必要です');
       return;
     }
-    const sourcePath2 = videoSources[1];
-    const useDual = angleOption === 'all' && Boolean(sourcePath2);
-    if (useDual && !sourcePath2) {
-      alert('2アングルの書き出しには2つの映像ソースが必要です');
+    if (angleOption === 'multi' && videoSources.length < 2) {
+      alert('マルチアングル書き出しには2つ以上の映像ソースが必要です');
+      return;
+    }
+    if (angleOption === 'single' && !videoSources[selectedAngleIndex]) {
+      alert('選択されたアングルの映像が取得できません');
       return;
     }
 
@@ -1972,38 +1976,72 @@ export default function PlaylistWindowApp() {
     });
 
     setIsExporting(true);
-    const result = await api({
-      sourcePath,
-      sourcePath2:
-        angleOption === 'all'
-          ? sourcePath2
-          : angleOption === 'angle2'
-            ? sourcePath2
+
+    // 全アングルの場合は各アングルごとに書き出し
+    if (angleOption === 'allAngles') {
+      let allSuccess = true;
+      for (let i = 0; i < videoSources.length; i++) {
+        const result = await api({
+          sourcePath: videoSources[i],
+          sourcePath2: undefined,
+          mode: 'single',
+          exportMode,
+          angleOption: 'single',
+          outputFileName: exportFileName.trim()
+            ? `${exportFileName.trim()}_angle${i + 1}`
             : undefined,
-      mode: angleOption === 'all' ? 'dual' : 'single',
-      exportMode,
-      angleOption,
-      outputFileName: exportFileName.trim() || undefined,
-      clips,
-      overlay: overlaySettings,
-    });
-    setIsExporting(false);
-    if (result?.success) {
-      alert('プレイリストを書き出しました');
-      setExportDialogOpen(false);
+          clips,
+          overlay: overlaySettings,
+        });
+        if (!result?.success) {
+          allSuccess = false;
+          alert(result?.error || `アングル${i + 1}の書き出しに失敗しました`);
+          break;
+        }
+      }
+      setIsExporting(false);
+      if (allSuccess) {
+        alert(`全${videoSources.length}アングルの書き出しが完了しました`);
+        setExportDialogOpen(false);
+      }
     } else {
-      alert(result?.error || '書き出しに失敗しました');
+      // 単一アングルまたはマルチアングルの場合
+      const result = await api({
+        sourcePath:
+          angleOption === 'single'
+            ? videoSources[selectedAngleIndex]
+            : videoSources[0],
+        sourcePath2: angleOption === 'multi' ? videoSources[1] : undefined,
+        mode: angleOption === 'multi' ? 'dual' : 'single',
+        exportMode,
+        angleOption,
+        outputFileName: exportFileName.trim() || undefined,
+        clips,
+        overlay: overlaySettings,
+      });
+      setIsExporting(false);
+      if (result?.success) {
+        alert('プレイリストを書き出しました');
+        setExportDialogOpen(false);
+      } else {
+        alert(result?.error || '書き出しに失敗しました');
+      }
     }
   }, [
     angleOption,
+    selectedAngleIndex,
     exportFileName,
     exportMode,
+    exportScope,
     items,
+    selectedItemIds,
     itemAnnotations,
     overlaySettings,
     primaryContentRect,
+    primarySourceSize,
     renderAnnotationPng,
     secondaryContentRect,
+    secondarySourceSize,
     videoSources,
   ]);
 
@@ -2668,22 +2706,48 @@ export default function PlaylistWindowApp() {
               <ToggleButton value="perRow">アクションごと</ToggleButton>
             </ToggleButtonGroup>
           </Stack>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2">映像</Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={angleOption}
-              onChange={(_, v) => v && setAngleOption(v)}
-            >
-              <ToggleButton value="angle1">メインのみ</ToggleButton>
-              <ToggleButton value="angle2" disabled={!videoSources[0]}>
-                メイン切替
-              </ToggleButton>
-              <ToggleButton value="all" disabled={!videoSources[1]}>
-                デュアル結合
-              </ToggleButton>
-            </ToggleButtonGroup>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="body2">アングル</Typography>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={angleOption}
+                onChange={(_, v) =>
+                  v && setAngleOption(v as 'allAngles' | 'single' | 'multi')
+                }
+              >
+                <ToggleButton
+                  value="allAngles"
+                  disabled={videoSources.length < 2}
+                >
+                  全アングル
+                </ToggleButton>
+                <ToggleButton value="single">単一アングル</ToggleButton>
+                <ToggleButton value="multi" disabled={videoSources.length < 2}>
+                  マルチ
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+            {angleOption === 'single' && (
+              <Stack direction="row" spacing={1} alignItems="center" pl={2}>
+                <Typography variant="body2" sx={{ minWidth: 80 }}>
+                  選択アングル
+                </Typography>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={selectedAngleIndex}
+                  onChange={(_, v) => v !== null && setSelectedAngleIndex(v)}
+                >
+                  {videoSources.map((_, index) => (
+                    <ToggleButton key={index} value={index}>
+                      アングル{index + 1}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Stack>
+            )}
           </Stack>
           <Divider />
           <Stack spacing={1}>
