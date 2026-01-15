@@ -36,12 +36,12 @@ import {
   ToggleButtonGroup,
   ListItemIcon,
   alpha,
-  Badge,
   LinearProgress,
   Checkbox,
   Radio,
   RadioGroup,
   FormControlLabel,
+  Chip as MuiChip,
 } from '@mui/material';
 import {
   Delete,
@@ -63,10 +63,9 @@ import {
   Brush,
   Link,
   LinkOff,
-  Comment,
   Notes,
-  ContentCopy,
   PauseCircle,
+  FileDownload,
 } from '@mui/icons-material';
 import {
   DndContext,
@@ -97,6 +96,9 @@ import AnnotationCanvas, {
   AnnotationCanvasRef,
 } from './components/AnnotationCanvas';
 import { useTheme } from '@mui/material/styles';
+import { usePlaylistHistory } from './hooks/usePlaylistHistory';
+import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
+import type { HotkeyConfig } from '../../types/Settings';
 
 const DEFAULT_FREEZE_DURATION = 3; // seconds - Sportscode風の自動停止既定値を少し延長
 const MIN_FREEZE_DURATION = 1; // seconds - ユーザー要求の最低停止秒数
@@ -151,23 +153,34 @@ function SortableItem({
     item.annotation &&
     (item.annotation.objects.length > 0 || item.annotation.freezeDuration > 0);
 
+  const theme = useTheme();
+  const [isHovering, setIsHovering] = useState(false);
+
   return (
     <ListItemButton
       ref={setNodeRef}
       style={style}
       selected={isActive}
       onClick={() => onPlay(item.id)}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
       sx={{
         py: 0.5,
         px: 1,
         borderBottom: '1px solid',
         borderColor: 'divider',
-        bgcolor: isActive ? alpha('#1976d2', 0.15) : 'transparent',
+        borderLeft: isActive ? '3px solid #00FF85' : '3px solid transparent',
+        bgcolor: isActive
+          ? alpha(theme.palette.primary.main, 0.15)
+          : 'transparent',
+        transition: 'all 0.2s ease',
         '&:hover': {
-          bgcolor: isActive ? alpha('#1976d2', 0.2) : alpha('#fff', 0.05),
+          bgcolor: isActive
+            ? alpha(theme.palette.primary.main, 0.2)
+            : alpha('#fff', 0.05),
         },
         '&.Mui-selected': {
-          bgcolor: alpha('#1976d2', 0.15),
+          bgcolor: alpha(theme.palette.primary.main, 0.15),
         },
       }}
     >
@@ -227,12 +240,27 @@ function SortableItem({
               {item.actionName}
             </Typography>
             {item.note && (
-              <Tooltip title={item.note}>
-                <Comment
-                  fontSize="small"
-                  sx={{ fontSize: 14, color: 'warning.main' }}
-                />
-              </Tooltip>
+              <MuiChip
+                label={item.note}
+                size="small"
+                color="warning"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  onEditNote(item.id);
+                }}
+                sx={{
+                  maxWidth: 150,
+                  fontSize: '0.65rem',
+                  height: 18,
+                  ml: 0.5,
+                  cursor: 'pointer',
+                  '& .MuiChip-label': {
+                    px: 0.75,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  },
+                }}
+              />
             )}
             {hasAnnotation && (
               <Tooltip
@@ -268,7 +296,12 @@ function SortableItem({
       />
 
       {/* Actions */}
-      <ListItemSecondaryAction>
+      <ListItemSecondaryAction
+        sx={{
+          opacity: isHovering ? 1 : 0,
+          transition: 'opacity 0.2s ease',
+        }}
+      >
         <Stack direction="row" spacing={0}>
           <Tooltip title="メモを編集">
             <IconButton
@@ -469,8 +502,19 @@ function NoteDialog({
 // ===== Main Component =====
 export default function PlaylistWindowApp() {
   const theme = useTheme();
+
+  // 履歴管理を統合したアイテム状態（Undo/Redo対応）
+  const {
+    items,
+    setItems: setItemsWithHistory,
+    undo,
+    redo,
+  } = usePlaylistHistory([]);
+
+  // 未保存フラグ
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
   // State
-  const [items, setItems] = useState<PlaylistItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -482,7 +526,10 @@ export default function PlaylistWindowApp() {
   const [duration, setDuration] = useState(0);
   const [videoSources, setVideoSources] = useState<string[]>([]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isDualView, setIsDualView] = useState(false);
+  const [viewMode, setViewMode] = useState<'dual' | 'angle1' | 'angle2'>(
+    'dual',
+  );
+  const isDualView = viewMode === 'dual'; // 互換性のため
   const [playlistName, setPlaylistName] = useState('プレイリスト');
   const [packagePath, setPackagePath] = useState<string | null>(null);
 
@@ -591,11 +638,12 @@ export default function PlaylistWindowApp() {
     return currentItem.videoSource || videoSources[0] || null;
   }, [currentItem, videoSources]);
 
-  // Get video source for current item (secondary - for dual view)
+  // Get video source for current item (secondary)
+  // viewModeに関係なく常にソースを取得（表示制御はUI側で行う）
   const currentVideoSource2 = useMemo(() => {
-    if (!currentItem || !isDualView) return null;
+    if (!currentItem) return null;
     return currentItem.videoSource2 || videoSources[1] || null;
-  }, [currentItem, isDualView, videoSources]);
+  }, [currentItem, videoSources]);
 
   // Keep videoSources in sync with the currently selected item (supports mixed packages)
   useEffect(() => {
@@ -620,10 +668,15 @@ export default function PlaylistWindowApp() {
   }, [currentItem, videoSources]);
 
   useEffect(() => {
-    if (!isDualView || !currentVideoSource2) {
+    // angle1のみの場合はprimary、angle2のみの場合はsecondaryに固定
+    if (viewMode === 'angle1') {
+      setDrawingTarget('primary');
+    } else if (viewMode === 'angle2') {
+      setDrawingTarget('secondary');
+    } else if (!currentVideoSource2) {
       setDrawingTarget('primary');
     }
-  }, [isDualView, currentVideoSource2]);
+  }, [viewMode, currentVideoSource2]);
 
   useEffect(() => {
     lastFreezeTimestampRef.current = null;
@@ -696,7 +749,7 @@ export default function PlaylistWindowApp() {
     const ro = new ResizeObserver(update);
     ro.observe(video);
     return () => ro.disconnect();
-  }, [currentVideoSource2, isDualView]);
+  }, [currentVideoSource2, viewMode]);
 
   // Auto-hide controls overlay - ビデオエリアホバー時のみ表示
   useEffect(() => {
@@ -771,8 +824,10 @@ export default function PlaylistWindowApp() {
         (p) => p.id === data.state.activePlaylistId,
       );
       if (activePlaylist) {
-        setItems(activePlaylist.items);
+        // ファイル読み込み時は履歴に追加しない（usePlaylistHistoryが自動処理）
+        setItemsWithHistory(activePlaylist.items);
         setPlaylistName(activePlaylist.name);
+        setHasUnsavedChanges(false);
         // Load annotations from items
         const annotations: Record<string, ItemAnnotation> = {};
         for (const item of activePlaylist.items) {
@@ -792,19 +847,18 @@ export default function PlaylistWindowApp() {
       if (!hasItemSources) {
         setVideoSources(data.videoSources || []);
         if (data.videoSources && data.videoSources.length >= 2) {
-          setIsDualView(true);
+          setViewMode('dual');
         }
       } else {
         // アイテム別ソースがある場合は、現在のアイテムの有無でデュアル判定
         const current = activePlaylist?.items.find(
           (it) => it.id === data.state.playingItemId,
         );
-        setIsDualView(
-          !!(
-            current?.videoSource2 ||
-            activePlaylist?.items.some((it) => !!it.videoSource2)
-          ),
+        const hasDual = !!(
+          current?.videoSource2 ||
+          activePlaylist?.items.some((it) => !!it.videoSource2)
         );
+        setViewMode(hasDual ? 'dual' : 'angle1');
       }
     };
 
@@ -938,8 +992,12 @@ export default function PlaylistWindowApp() {
     if (!video || !currentVideoSource) return;
 
     if (isPlaying && !isFrozen) {
-      video.play().catch(console.error);
-      if (video2 && currentVideoSource2) {
+      // viewModeに応じてvideoを再生
+      if (viewMode !== 'angle2') {
+        video.play().catch(console.error);
+      }
+      // viewModeに応じてvideo2を再生
+      if (video2 && currentVideoSource2 && viewMode !== 'angle1') {
         video2.play().catch(console.error);
       }
     } else {
@@ -948,7 +1006,7 @@ export default function PlaylistWindowApp() {
         video2.pause();
       }
     }
-  }, [isPlaying, isFrozen, currentVideoSource, currentVideoSource2]);
+  }, [isPlaying, isFrozen, currentVideoSource, currentVideoSource2, viewMode]);
 
   // Volume handling
   useEffect(() => {
@@ -977,7 +1035,7 @@ export default function PlaylistWindowApp() {
     if (isPlaying) {
       video.play().catch(console.error);
     }
-  }, [currentVideoSource, currentItem?.id]);
+  }, [currentVideoSource, currentItem?.id, isPlaying]);
 
   // Set video source when item changes (secondary)
   useEffect(() => {
@@ -994,10 +1052,33 @@ export default function PlaylistWindowApp() {
     }
   }, [currentVideoSource2, currentItem?.id, isPlaying, isFrozen]);
 
+  // viewMode切り替え時に再生位置を同期
+  useEffect(() => {
+    const video = videoRef.current;
+    const video2 = videoRef2.current;
+    if (!video || !video2) return;
+    if (!currentVideoSource || !currentVideoSource2) return;
+
+    if (viewMode === 'angle2') {
+      // angle2表示中: videoのcurrentTimeをvideo2に合わせる
+      video.currentTime = video2.currentTime;
+    } else if (viewMode === 'angle1') {
+      // angle1表示中: video2のcurrentTimeをvideoに合わせる
+      video2.currentTime = video.currentTime;
+    } else if (viewMode === 'dual') {
+      // dual表示中: 再生位置がズレている場合は同期
+      const timeDiff = Math.abs(video.currentTime - video2.currentTime);
+      if (timeDiff > 0.1) {
+        video2.currentTime = video.currentTime;
+      }
+    }
+  }, [viewMode, currentVideoSource, currentVideoSource2]);
+
   // 外部からのアイテム追加を受信
   useEffect(() => {
     const handleAddItem = (item: PlaylistItem) => {
-      setItems((prev) => [...prev, item]);
+      setItemsWithHistory((prev: PlaylistItem[]) => [...prev, item]);
+      setHasUnsavedChanges(true);
       setIsDirty(true);
     };
 
@@ -1065,22 +1146,26 @@ export default function PlaylistWindowApp() {
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
+      setIsPlaying(true);
     } else if (loopPlaylist && items.length > 0) {
       setCurrentIndex(items.length - 1);
+      setIsPlaying(true);
     }
   }, [currentIndex, loopPlaylist, items.length]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < items.length - 1) {
       setCurrentIndex(currentIndex + 1);
+      setIsPlaying(true);
     } else if (loopPlaylist && items.length > 0) {
       setCurrentIndex(0);
+      setIsPlaying(true);
     }
   }, [currentIndex, items.length, loopPlaylist]);
 
   const handleRemoveItem = useCallback(
     (id: string) => {
-      setItems((prev) => {
+      setItemsWithHistory((prev) => {
         const newItems = prev.filter((item) => item.id !== id);
         const removedIndex = prev.findIndex((item) => item.id === id);
         if (removedIndex <= currentIndex && currentIndex > 0) {
@@ -1099,9 +1184,9 @@ export default function PlaylistWindowApp() {
         delete newAnnotations[id];
         return newAnnotations;
       });
-      setIsDirty(true); // 変更あり
+      setHasUnsavedChanges(true);
     },
-    [currentIndex],
+    [currentIndex, setItemsWithHistory],
   );
 
   const handleDragEnd = useCallback(
@@ -1109,7 +1194,7 @@ export default function PlaylistWindowApp() {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      setItems((prev) => {
+      setItemsWithHistory((prev) => {
         const oldIndex = prev.findIndex((item) => item.id === active.id);
         const newIndex = prev.findIndex((item) => item.id === over.id);
         const newItems = arrayMove(prev, oldIndex, newIndex);
@@ -1124,24 +1209,30 @@ export default function PlaylistWindowApp() {
 
         return newItems;
       });
-      setIsDirty(true); // 並び替えで変更あり
+      setHasUnsavedChanges(true);
     },
-    [currentIndex],
+    [currentIndex, setItemsWithHistory],
   );
 
   const handleSeek = useCallback(
-    (_: Event, value: number | number[]) => {
+    (event: Event, value: number | number[]) => {
       const time = Array.isArray(value) ? value[0] : value;
       if (videoRef.current) {
         videoRef.current.currentTime = time;
       }
-      if (videoRef2.current && isDualView) {
+      // videoSource2が存在する場合は常に同期（表示されていなくても）
+      if (videoRef2.current && currentVideoSource2) {
         videoRef2.current.currentTime = time;
       }
       lastFreezeTimestampRef.current = null;
       setIsFrozen(false);
+
+      // フォーカスを外してホットキーを有効にする
+      if (event.target && 'blur' in event.target) {
+        (event.target as HTMLElement).blur();
+      }
     },
-    [isDualView],
+    [currentVideoSource2],
   );
 
   const handleVolumeChange = useCallback(
@@ -1201,14 +1292,14 @@ export default function PlaylistWindowApp() {
           ...prev,
           [currentItem.id]: newAnnotation,
         }));
-        setItems((prev) =>
-          prev.map((item) =>
+        setItemsWithHistory((prev: PlaylistItem[]) =>
+          prev.map((item: PlaylistItem) =>
             item.id === currentItem.id
               ? { ...item, annotation: newAnnotation }
               : item,
           ),
         );
-        setIsDirty(true); // 描画変更で変更あり
+        setHasUnsavedChanges(true);
       };
 
       persistCanvasObjects(annotationCanvasRefPrimary, 'primary');
@@ -1250,15 +1341,16 @@ export default function PlaylistWindowApp() {
         ...prev,
         [currentItem.id]: newAnnotation,
       }));
-      setItems((prev) =>
+      setItemsWithHistory((prev) =>
         prev.map((item) =>
           item.id === currentItem.id
             ? { ...item, annotation: newAnnotation }
             : item,
         ),
       );
+      setHasUnsavedChanges(true);
     },
-    [currentItem, itemAnnotations],
+    [currentItem, itemAnnotations, setItemsWithHistory],
   );
 
   const handleFreezeDurationChange = useCallback(
@@ -1282,16 +1374,270 @@ export default function PlaylistWindowApp() {
         [currentItem.id]: newAnnotation,
       }));
       // Also update item
-      setItems((prev) =>
+      setItemsWithHistory((prev) =>
         prev.map((item) =>
           item.id === currentItem.id
             ? { ...item, annotation: newAnnotation }
             : item,
         ),
       );
-      setIsDirty(true); // フリーズ時間変更で変更あり
+      setHasUnsavedChanges(true);
     },
-    [currentItem, itemAnnotations],
+    [currentItem, itemAnnotations, setItemsWithHistory],
+  );
+
+  // Hotkey handlers - タイムラインと完全に同じ操作感
+  const playlistHotkeys: HotkeyConfig[] = useMemo(() => {
+    const hotkeys: HotkeyConfig[] = [];
+
+    // 基本操作
+    hotkeys.push({
+      id: 'play-pause',
+      label: '再生/停止',
+      key: 'Space',
+      disabled: false,
+    });
+
+    // 巻き戻し
+    hotkeys.push({
+      id: 'skip-backward-medium',
+      label: '5秒戻し',
+      key: 'Left',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'skip-backward-large',
+      label: '10秒戻し',
+      key: 'Shift+Left',
+      disabled: false,
+    });
+
+    // 倍速再生（押下中のみ）
+    hotkeys.push({
+      id: 'skip-forward-small',
+      label: '0.5倍速再生',
+      key: 'Right',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'skip-forward-medium',
+      label: '2倍速再生',
+      key: 'Shift+Right',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'skip-forward-large',
+      label: '4倍速再生',
+      key: 'Command+Right',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'skip-forward-xlarge',
+      label: '6倍速再生',
+      key: 'Option+Right',
+      disabled: false,
+    });
+
+    // アイテム移動
+    hotkeys.push({
+      id: 'previous-item',
+      label: '前のアイテム',
+      key: 'Command+Left',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'next-item',
+      label: '次のアイテム',
+      key: 'Command+Option+Right',
+      disabled: false,
+    });
+
+    // 編集操作
+    hotkeys.push({
+      id: 'delete-item',
+      label: 'アイテム削除',
+      key: 'Backspace',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'undo',
+      label: '元に戻す',
+      key: 'Command+Z',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'redo',
+      label: 'やり直す',
+      key: 'Command+Shift+Z',
+      disabled: false,
+    });
+
+    // ファイル操作
+    hotkeys.push({
+      id: 'save',
+      label: '保存',
+      key: 'Command+S',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'export',
+      label: '書き出し',
+      key: 'Command+E',
+      disabled: false,
+    });
+
+    // ビュー切替
+    hotkeys.push({
+      id: 'toggle-angle1',
+      label: 'アングル1切替',
+      key: 'Shift+1',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'toggle-angle2',
+      label: 'アングル2切替',
+      key: 'Shift+2',
+      disabled: false,
+    });
+
+    return hotkeys;
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedItemIds.size === 0) return;
+    setItemsWithHistory((prev: PlaylistItem[]) =>
+      prev.filter((item: PlaylistItem) => !selectedItemIds.has(item.id)),
+    );
+    setSelectedItemIds(new Set());
+    setHasUnsavedChanges(true);
+  }, [selectedItemIds, setItemsWithHistory]);
+
+  const handleUndo = useCallback(() => {
+    const prevItems = undo();
+    if (prevItems) {
+      // Annotationsも再構築
+      const annotations: Record<string, ItemAnnotation> = {};
+      for (const item of prevItems) {
+        if (item.annotation) {
+          annotations[item.id] = item.annotation;
+        }
+      }
+      setItemAnnotations(annotations);
+    }
+  }, [undo]);
+
+  const handleRedo = useCallback(() => {
+    const nextItems = redo();
+    if (nextItems) {
+      // Annotationsも再構築
+      const annotations: Record<string, ItemAnnotation> = {};
+      for (const item of nextItems) {
+        if (item.annotation) {
+          annotations[item.id] = item.annotation;
+        }
+      }
+      setItemAnnotations(annotations);
+    }
+  }, [redo]);
+
+  const playlistHotkeyHandlers = useMemo(
+    () => ({
+      'play-pause': handleTogglePlay,
+      'skip-backward-medium': () => {
+        const newTime = currentTime - 5;
+        handleSeek(new Event('hotkey'), newTime);
+      },
+      'skip-backward-large': () => {
+        const newTime = currentTime - 10;
+        handleSeek(new Event('hotkey'), newTime);
+      },
+      // 倍速再生（タイムラインと同じ実装パターン）
+      'skip-forward-small': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 0.5;
+        if (videoRef2.current) videoRef2.current.playbackRate = 0.5;
+        setIsPlaying(true);
+      },
+      'skip-forward-medium': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 2;
+        if (videoRef2.current) videoRef2.current.playbackRate = 2;
+        setIsPlaying(true);
+      },
+      'skip-forward-large': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 4;
+        if (videoRef2.current) videoRef2.current.playbackRate = 4;
+        setIsPlaying(true);
+      },
+      'skip-forward-xlarge': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 6;
+        if (videoRef2.current) videoRef2.current.playbackRate = 6;
+        setIsPlaying(true);
+      },
+      'previous-item': handlePrevious,
+      'next-item': handleNext,
+      'delete-item': handleDeleteSelected,
+      undo: handleUndo,
+      redo: handleRedo,
+      save: () => setSaveDialogOpen(true),
+      export: () => setExportDialogOpen(true),
+      'toggle-angle1': () => {
+        setViewMode((prev) => {
+          // dual→angle1, angle1→dual, angle2→angle1
+          if (prev === 'dual') return 'angle1';
+          if (prev === 'angle1') return 'dual';
+          if (prev === 'angle2') return 'angle1';
+          return 'angle1';
+        });
+      },
+      'toggle-angle2': () => {
+        setViewMode((prev) => {
+          // dual→angle2, angle2→dual, angle1→angle2
+          if (prev === 'dual') return 'angle2';
+          if (prev === 'angle2') return 'dual';
+          if (prev === 'angle1') return 'angle2';
+          return 'angle2';
+        });
+      },
+    }),
+    [
+      handleTogglePlay,
+      currentTime,
+      handleSeek,
+      handlePrevious,
+      handleNext,
+      handleDeleteSelected,
+      handleUndo,
+      handleRedo,
+    ],
+  );
+
+  // keyUp時に再生速度を戻す（タイムラインと同じ）
+  const playlistKeyUpHandlers = useMemo(
+    () => ({
+      'skip-forward-small': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 1;
+        if (videoRef2.current) videoRef2.current.playbackRate = 1;
+      },
+      'skip-forward-medium': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 1;
+        if (videoRef2.current) videoRef2.current.playbackRate = 1;
+      },
+      'skip-forward-large': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 1;
+        if (videoRef2.current) videoRef2.current.playbackRate = 1;
+      },
+      'skip-forward-xlarge': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 1;
+        if (videoRef2.current) videoRef2.current.playbackRate = 1;
+      },
+    }),
+    [],
+  );
+
+  // Register hotkeys
+  useGlobalHotkeys(
+    playlistHotkeys,
+    playlistHotkeyHandlers,
+    playlistKeyUpHandlers,
   );
 
   // Save playlist
@@ -1350,7 +1696,8 @@ export default function PlaylistWindowApp() {
     const loaded = await playlistAPI.loadPlaylistFile(filePath);
     if (loaded) {
       const { playlist, filePath: loadedPath } = loaded;
-      setItems(playlist.items);
+      setItemsWithHistory(playlist.items);
+      setHasUnsavedChanges(false);
       setPlaylistName(playlist.name);
       setPackagePath(playlist.sourcePackagePath || null);
       setLoadedFilePath(loadedPath);
@@ -1374,7 +1721,7 @@ export default function PlaylistWindowApp() {
       if (sources.length > 0) {
         setVideoSources(sources);
       }
-      setIsDualView(sources.length >= 2);
+      setViewMode(sources.length >= 2 ? 'dual' : 'angle1');
     }
   }, []);
 
@@ -1416,18 +1763,18 @@ export default function PlaylistWindowApp() {
   }, []);
 
   const handleSaveNote = useCallback(
-    (memo: string) => {
+    (note: string) => {
       if (!editingItemId) return;
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === editingItemId ? { ...item, memo } : item,
+      setItemsWithHistory((prev: PlaylistItem[]) =>
+        prev.map((item: PlaylistItem) =>
+          item.id === editingItemId ? { ...item, note } : item,
         ),
       );
       setNoteDialogOpen(false);
       setEditingItemId(null);
-      setIsDirty(true); // メモ編集で変更あり
+      setHasUnsavedChanges(true);
     },
-    [editingItemId],
+    [editingItemId, setItemsWithHistory],
   );
 
   const formatTime = (seconds: number): string => {
@@ -1680,7 +2027,7 @@ export default function PlaylistWindowApp() {
         fontFamily: theme.typography.fontFamily,
       }}
     >
-      {/* Header */}
+      {/* Header Toolbar */}
       <Paper
         elevation={0}
         sx={{
@@ -1696,22 +2043,49 @@ export default function PlaylistWindowApp() {
           <PlaylistPlay sx={{ color: theme.palette.primary.main }} />
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
             {playlistName}
+            {hasUnsavedChanges ? ' *' : ''}
           </Typography>
-          <Button
-            size="small"
-            variant="contained"
-            color="primary"
-            sx={{ textTransform: 'none' }}
-            onClick={() => setExportDialogOpen(true)}
-            disabled={isExporting}
+
+          {/* Save Button with Neon Glow when unsaved */}
+          <Tooltip
+            title={`保存 (Cmd+S)${hasUnsavedChanges ? ' - 未保存の変更あり' : ''}`}
           >
-            書き出し
-          </Button>
-          <Badge badgeContent={items.length} color="secondary" max={99}>
-            <Typography variant="caption" color="text.secondary">
-              アイテム
-            </Typography>
-          </Badge>
+            <IconButton
+              size="small"
+              onClick={() => setSaveDialogOpen(true)}
+              sx={{
+                color: hasUnsavedChanges ? 'warning.main' : 'text.secondary',
+                boxShadow: hasUnsavedChanges
+                  ? '0 0 8px rgba(255, 111, 97, 0.6)'
+                  : 'none',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  bgcolor: hasUnsavedChanges
+                    ? alpha(theme.palette.warning.main, 0.1)
+                    : alpha(theme.palette.action.hover, 0.08),
+                },
+              }}
+            >
+              <Save fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          {/* Export Button */}
+          <Tooltip title="書き出し (Cmd+E)">
+            <IconButton
+              size="small"
+              onClick={() => setExportDialogOpen(true)}
+              disabled={isExporting}
+              sx={{
+                color: 'text.secondary',
+                '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.08) },
+              }}
+            >
+              <FileDownload fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          {/* Menu */}
           <IconButton size="small" onClick={handleMenuOpen}>
             <MoreVert fontSize="small" />
           </IconButton>
@@ -1720,17 +2094,6 @@ export default function PlaylistWindowApp() {
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
           >
-            <MenuItem
-              onClick={() => {
-                handleMenuClose();
-                setSaveDialogOpen(true);
-              }}
-            >
-              <ListItemIcon>
-                <Save fontSize="small" />
-              </ListItemIcon>
-              プレイリストを保存
-            </MenuItem>
             <MenuItem onClick={handleLoadPlaylist}>
               <ListItemIcon>
                 <FolderOpen fontSize="small" />
@@ -1741,14 +2104,38 @@ export default function PlaylistWindowApp() {
             <MenuItem
               onClick={() => {
                 handleMenuClose();
-                setIsDualView(!isDualView);
+                setViewMode('angle1');
               }}
               disabled={videoSources.length < 2}
             >
               <ListItemIcon>
-                <ContentCopy fontSize="small" />
+                <Typography variant="caption">⇧1</Typography>
               </ListItemIcon>
-              {isDualView ? 'シングルビュー' : 'デュアルビュー'}
+              アングル1のみ
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                setViewMode('angle2');
+              }}
+              disabled={videoSources.length < 2}
+            >
+              <ListItemIcon>
+                <Typography variant="caption">⇧2</Typography>
+              </ListItemIcon>
+              アングル2のみ
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                setViewMode('dual');
+              }}
+              disabled={videoSources.length < 2}
+            >
+              <ListItemIcon>
+                <Typography variant="caption"> </Typography>
+              </ListItemIcon>
+              デュアルビュー
             </MenuItem>
           </Menu>
         </Stack>
@@ -1817,7 +2204,9 @@ export default function PlaylistWindowApp() {
             {/* Primary Video */}
             <Box
               sx={{
-                flex: isDualView && currentVideoSource2 ? '0 0 50%' : '1',
+                display: viewMode === 'angle2' ? 'none' : 'flex',
+                flex:
+                  viewMode === 'dual' && currentVideoSource2 ? '0 0 50%' : '1',
                 height: '100%',
                 position: 'relative',
               }}
@@ -1871,42 +2260,47 @@ export default function PlaylistWindowApp() {
               )}
             </Box>
             {/* Secondary Video (Dual View) */}
-            {isDualView && currentVideoSource2 && (
-              <Box
-                sx={{
-                  flex: '0 0 50%',
+            <Box
+              sx={{
+                display:
+                  viewMode === 'angle1' || !currentVideoSource2
+                    ? 'none'
+                    : 'flex',
+                flex: viewMode === 'dual' ? '0 0 50%' : '1',
+                height: '100%',
+                position: 'relative',
+                borderLeft:
+                  viewMode === 'dual'
+                    ? '1px solid rgba(255,255,255,0.2)'
+                    : 'none',
+              }}
+            >
+              <video
+                ref={videoRef2}
+                style={{
+                  width: '100%',
                   height: '100%',
-                  position: 'relative',
-                  borderLeft: '1px solid rgba(255,255,255,0.2)',
+                  objectFit: 'contain',
                 }}
-              >
-                <video
-                  ref={videoRef2}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                  }}
-                />
-                <AnnotationCanvas
-                  ref={annotationCanvasRefSecondary}
-                  width={secondaryCanvasSize.width}
-                  height={secondaryCanvasSize.height}
-                  isActive={isDrawingMode && drawingTarget === 'secondary'}
-                  target="secondary"
-                  initialObjects={secondaryAnnotationObjects}
-                  freezeDuration={
-                    currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
-                  }
-                  contentRect={secondaryContentRect}
-                  onObjectsChange={(objs) =>
-                    handleAnnotationObjectsChange(objs, 'secondary')
-                  }
-                  onFreezeDurationChange={handleFreezeDurationChange}
-                  currentTime={currentTime}
-                />
-              </Box>
-            )}
+              />
+              <AnnotationCanvas
+                ref={annotationCanvasRefSecondary}
+                width={secondaryCanvasSize.width}
+                height={secondaryCanvasSize.height}
+                isActive={isDrawingMode && drawingTarget === 'secondary'}
+                target="secondary"
+                initialObjects={secondaryAnnotationObjects}
+                freezeDuration={
+                  currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
+                }
+                contentRect={secondaryContentRect}
+                onObjectsChange={(objs) =>
+                  handleAnnotationObjectsChange(objs, 'secondary')
+                }
+                onFreezeDurationChange={handleFreezeDurationChange}
+                currentTime={currentTime}
+              />
+            </Box>
           </>
         ) : (
           <Box
