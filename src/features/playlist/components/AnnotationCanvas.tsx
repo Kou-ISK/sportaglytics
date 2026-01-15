@@ -543,7 +543,16 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           ctx.restore();
         }
       }
-    }, [objects, currentObject, currentTime]);
+    }, [
+      objects,
+      currentObject,
+      currentTime,
+      contentRect,
+      width,
+      height,
+      isActive,
+      selectedObjectId,
+    ]);
 
     useEffect(() => {
       renderAllObjects();

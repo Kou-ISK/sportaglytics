@@ -715,7 +715,7 @@ export default function PlaylistWindowApp() {
     const ro = new ResizeObserver(update);
     ro.observe(video);
     return () => ro.disconnect();
-  }, [currentVideoSource]);
+  }, [currentVideoSource, viewMode]);
 
   useLayoutEffect(() => {
     const video = videoRef2.current;
@@ -2152,7 +2152,6 @@ export default function PlaylistWindowApp() {
           minHeight: 250,
           bgcolor: '#000',
           position: 'relative',
-          display: 'flex',
         }}
       >
         {currentVideoSource ? (
@@ -2204,11 +2203,14 @@ export default function PlaylistWindowApp() {
             {/* Primary Video */}
             <Box
               sx={{
-                display: viewMode === 'angle2' ? 'none' : 'flex',
-                flex:
-                  viewMode === 'dual' && currentVideoSource2 ? '0 0 50%' : '1',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width:
+                  viewMode === 'dual' && currentVideoSource2 ? '50%' : '100%',
                 height: '100%',
-                position: 'relative',
+                zIndex: viewMode === 'angle2' ? -1 : 0,
+                pointerEvents: viewMode === 'angle2' ? 'none' : 'auto',
               }}
             >
               <video
@@ -2217,6 +2219,7 @@ export default function PlaylistWindowApp() {
                   width: '100%',
                   height: '100%',
                   objectFit: 'contain',
+                  opacity: viewMode === 'angle2' ? 0 : 1,
                 }}
               />
               {/* Annotation Canvas Overlay */}
@@ -2237,70 +2240,52 @@ export default function PlaylistWindowApp() {
                 onFreezeDurationChange={handleFreezeDurationChange}
                 currentTime={currentTime}
               />
-              {/* Freeze Indicator */}
-              {isFrozen && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    bgcolor: 'warning.main',
-                    color: 'warning.contrastText',
-                    px: 1.5,
-                    py: 0.5,
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                  }}
-                >
-                  <PauseCircle fontSize="small" />
-                  <Typography variant="caption">停止中</Typography>
-                </Box>
-              )}
             </Box>
             {/* Secondary Video (Dual View) */}
-            <Box
-              sx={{
-                display:
-                  viewMode === 'angle1' || !currentVideoSource2
-                    ? 'none'
-                    : 'flex',
-                flex: viewMode === 'dual' ? '0 0 50%' : '1',
-                height: '100%',
-                position: 'relative',
-                borderLeft:
-                  viewMode === 'dual'
-                    ? '1px solid rgba(255,255,255,0.2)'
-                    : 'none',
-              }}
-            >
-              <video
-                ref={videoRef2}
-                style={{
-                  width: '100%',
+            {currentVideoSource2 && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: viewMode === 'dual' ? '50%' : 0,
+                  width: viewMode === 'dual' ? '50%' : '100%',
                   height: '100%',
-                  objectFit: 'contain',
+                  borderLeft:
+                    viewMode === 'dual'
+                      ? '1px solid rgba(255,255,255,0.2)'
+                      : 'none',
+                  zIndex: viewMode === 'angle1' ? -1 : 0,
+                  pointerEvents: viewMode === 'angle1' ? 'none' : 'auto',
                 }}
-              />
-              <AnnotationCanvas
-                ref={annotationCanvasRefSecondary}
-                width={secondaryCanvasSize.width}
-                height={secondaryCanvasSize.height}
-                isActive={isDrawingMode && drawingTarget === 'secondary'}
-                target="secondary"
-                initialObjects={secondaryAnnotationObjects}
-                freezeDuration={
-                  currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
-                }
-                contentRect={secondaryContentRect}
-                onObjectsChange={(objs) =>
-                  handleAnnotationObjectsChange(objs, 'secondary')
-                }
-                onFreezeDurationChange={handleFreezeDurationChange}
-                currentTime={currentTime}
-              />
-            </Box>
+              >
+                <video
+                  ref={videoRef2}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    opacity: viewMode === 'angle1' ? 0 : 1,
+                  }}
+                />
+                <AnnotationCanvas
+                  ref={annotationCanvasRefSecondary}
+                  width={secondaryCanvasSize.width}
+                  height={secondaryCanvasSize.height}
+                  isActive={isDrawingMode && drawingTarget === 'secondary'}
+                  target="secondary"
+                  initialObjects={secondaryAnnotationObjects}
+                  freezeDuration={
+                    currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
+                  }
+                  contentRect={secondaryContentRect}
+                  onObjectsChange={(objs) =>
+                    handleAnnotationObjectsChange(objs, 'secondary')
+                  }
+                  onFreezeDurationChange={handleFreezeDurationChange}
+                  currentTime={currentTime}
+                />
+              </Box>
+            )}
           </>
         ) : (
           <Box
@@ -2337,6 +2322,7 @@ export default function PlaylistWindowApp() {
               opacity: controlsVisible ? 1 : 0,
               transition: 'opacity 0.35s ease',
               pointerEvents: controlsVisible ? 'auto' : 'none',
+              zIndex: 10,
             }}
           >
             <Slider
