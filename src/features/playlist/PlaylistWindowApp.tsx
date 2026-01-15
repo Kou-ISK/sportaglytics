@@ -1231,6 +1231,10 @@ export default function PlaylistWindowApp() {
       if (event.target && 'blur' in event.target) {
         (event.target as HTMLElement).blur();
       }
+      // 確実にフォーカスを外す
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
     },
     [currentVideoSource2],
   );
@@ -1776,12 +1780,6 @@ export default function PlaylistWindowApp() {
     },
     [editingItemId, setItemsWithHistory],
   );
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const renderAnnotationPng = useCallback(
     (
@@ -2331,6 +2329,12 @@ export default function PlaylistWindowApp() {
               min={sliderMin}
               max={sliderMax}
               onChange={handleSeek}
+              onChangeCommitted={() => {
+                // Slider操作完了時にフォーカスを外す
+                if (document.activeElement instanceof HTMLElement) {
+                  document.activeElement.blur();
+                }
+              }}
               sx={{
                 mb: 0.5,
                 height: 4,
@@ -2347,18 +2351,6 @@ export default function PlaylistWindowApp() {
               }
             />
             <Stack direction="row" spacing={0.4} alignItems="center">
-              <Typography
-                variant="caption"
-                sx={{
-                  minWidth: 75,
-                  fontFamily: 'monospace',
-                  fontSize: '0.7rem',
-                }}
-              >
-                {formatTime(currentTime - sliderMin)} /{' '}
-                {formatTime(sliderMax - sliderMin)}
-              </Typography>
-
               <IconButton size="small" onClick={handlePrevious}>
                 <SkipPrevious sx={{ fontSize: 18 }} />
               </IconButton>
