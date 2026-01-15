@@ -1035,7 +1035,7 @@ export default function PlaylistWindowApp() {
     if (isPlaying) {
       video.play().catch(console.error);
     }
-  }, [currentVideoSource, currentItem?.id, isPlaying]);
+  }, [currentVideoSource, currentItem?.id]);
 
   // Set video source when item changes (secondary)
   useEffect(() => {
@@ -1050,7 +1050,7 @@ export default function PlaylistWindowApp() {
     if (isPlaying && !isFrozen) {
       video2.play().catch(console.error);
     }
-  }, [currentVideoSource2, currentItem?.id, isPlaying, isFrozen]);
+  }, [currentVideoSource2, currentItem?.id]);
 
   // viewMode切り替え時に再生位置を同期
   useEffect(() => {
