@@ -67,6 +67,8 @@ import {
   PauseCircle,
   FileDownload,
 } from '@mui/icons-material';
+import { useNotification } from '../../contexts/NotificationContext';
+import { ExportProgressSnackbar } from '../../components/ExportProgressSnackbar';
 import {
   DndContext,
   closestCenter,
@@ -502,6 +504,7 @@ function NoteDialog({
 // ===== Main Component =====
 export default function PlaylistWindowApp() {
   const theme = useTheme();
+  const { success, error: showError } = useNotification();
 
   // 履歴管理を統合したアイテム状態（Undo/Redo対応）
   const {
@@ -587,7 +590,11 @@ export default function PlaylistWindowApp() {
     height: 1080,
   });
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{
+    current: number;
+    total: number;
+    message: string;
+  } | null>(null);
   const [overlaySettings, setOverlaySettings] = useState({
     enabled: true,
     showActionName: true,
@@ -1890,21 +1897,21 @@ export default function PlaylistWindowApp() {
   const handleExportPlaylist = useCallback(async () => {
     const api = window.electronAPI?.exportClipsWithOverlay;
     if (!api) {
-      alert('書き出しAPIが利用できません');
+      showError('書き出しAPIが利用できません');
       return;
     }
 
     // アングルオプションに応じた検証
     if (angleOption === 'allAngles' && videoSources.length < 2) {
-      alert('全アングル書き出しには2つ以上の映像ソースが必要です');
+      showError('全アングル書き出しには2つ以上の映像ソースが必要です');
       return;
     }
     if (angleOption === 'multi' && videoSources.length < 2) {
-      alert('マルチアングル書き出しには2つ以上の映像ソースが必要です');
+      showError('マルチアングル書き出しには2つ以上の映像ソースが必要です');
       return;
     }
     if (angleOption === 'single' && !videoSources[selectedAngleIndex]) {
-      alert('選択されたアングルの映像が取得できません');
+      showError('選択されたアングルの映像が取得できません');
       return;
     }
 
@@ -1914,9 +1921,12 @@ export default function PlaylistWindowApp() {
         : items;
 
     if (sourceItems.length === 0) {
-      alert('書き出すアイテムがありません');
+      showError('書き出すアイテムがありません');
       return;
     }
+
+    // ダイアログを閉じてバックグラウンドで処理開始
+    setExportDialogOpen(false);
 
     // 選択されたアイテムのみを使用してactionIndexを計算
     const ordered = [...sourceItems];
@@ -1975,12 +1985,16 @@ export default function PlaylistWindowApp() {
       };
     });
 
-    setIsExporting(true);
-
     // 全アングルの場合は各アングルごとに書き出し
     if (angleOption === 'allAngles') {
       let allSuccess = true;
       for (let i = 0; i < videoSources.length; i++) {
+        setExportProgress({
+          current: i,
+          total: videoSources.length,
+          message: `アングル${i + 1} / ${videoSources.length} を書き出し中...`,
+        });
+
         const result = await api({
           sourcePath: videoSources[i],
           sourcePath2: undefined,
@@ -1993,19 +2007,29 @@ export default function PlaylistWindowApp() {
           clips,
           overlay: overlaySettings,
         });
+
         if (!result?.success) {
           allSuccess = false;
-          alert(result?.error || `アングル${i + 1}の書き出しに失敗しました`);
+          setExportProgress(null);
+          showError(
+            result?.error || `アングル${i + 1}の書き出しに失敗しました`,
+          );
           break;
         }
       }
-      setIsExporting(false);
+
+      setExportProgress(null);
       if (allSuccess) {
-        alert(`全${videoSources.length}アングルの書き出しが完了しました`);
-        setExportDialogOpen(false);
+        success(`全${videoSources.length}アングルの書き出しが完了しました`);
       }
     } else {
       // 単一アングルまたはマルチアングルの場合
+      setExportProgress({
+        current: 0,
+        total: 1,
+        message: '書き出し中...',
+      });
+
       const result = await api({
         sourcePath:
           angleOption === 'single'
@@ -2019,12 +2043,12 @@ export default function PlaylistWindowApp() {
         clips,
         overlay: overlaySettings,
       });
-      setIsExporting(false);
+
+      setExportProgress(null);
       if (result?.success) {
-        alert('プレイリストを書き出しました');
-        setExportDialogOpen(false);
+        success('プレイリストを書き出しました');
       } else {
-        alert(result?.error || '書き出しに失敗しました');
+        showError(result?.error || '書き出しに失敗しました');
       }
     }
   }, [
@@ -2043,6 +2067,8 @@ export default function PlaylistWindowApp() {
     secondaryContentRect,
     secondarySourceSize,
     videoSources,
+    success,
+    showError,
   ]);
 
   const sliderMin = currentItem?.startTime ?? 0;
@@ -2111,7 +2137,7 @@ export default function PlaylistWindowApp() {
             <IconButton
               size="small"
               onClick={() => setExportDialogOpen(true)}
-              disabled={isExporting}
+              disabled={!!exportProgress}
               sx={{
                 color: 'text.secondary',
                 '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.08) },
@@ -2827,9 +2853,9 @@ export default function PlaylistWindowApp() {
           <Button
             onClick={handleExportPlaylist}
             variant="contained"
-            disabled={isExporting}
+            disabled={!!exportProgress}
           >
-            {isExporting ? '書き出し中...' : '書き出す'}
+            書き出す
           </Button>
         </DialogActions>
       </Dialog>
@@ -2866,6 +2892,17 @@ export default function PlaylistWindowApp() {
           </Stack>
         </DialogContent>
       </Dialog>
+
+      {/* 書き出し進行状況 Snackbar */}
+      {exportProgress && (
+        <ExportProgressSnackbar
+          open={!!exportProgress}
+          current={exportProgress.current}
+          total={exportProgress.total}
+          message={exportProgress.message}
+          onClose={() => setExportProgress(null)}
+        />
+      )}
     </Box>
   );
 }
