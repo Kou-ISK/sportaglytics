@@ -1129,6 +1129,11 @@ export default function PlaylistWindowApp() {
     window.electronAPI?.playlist.setWindowTitle(title);
   }, [isDirty, playlistName, loadedFilePath]);
 
+  // hasUnsavedChanges と isDirty を同期（hasUnsavedChanges を単一の変更検知ソースに統一）
+  useEffect(() => {
+    setIsDirty(hasUnsavedChanges);
+  }, [hasUnsavedChanges]);
+
   // isDirtyフラグをElectron側に同期
   useEffect(() => {
     window.electronAPI?.playlist.sendCommand({
