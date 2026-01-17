@@ -934,11 +934,12 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
               position: 'absolute',
               left: `${(textPosition.x / width) * 100}%`,
               top: `${(textPosition.y / height) * 100}%`,
-              transform: 'translate(-50%, -100%)',
+              // place box so its top-center aligns with the clicked canvas point
+              transform: 'translate(-50%, 0)',
               zIndex: 10,
             }}
           >
-            <Paper sx={{ p: 1, bgcolor: 'rgba(0,0,0,0.9)' }}>
+            <Paper sx={{ p: 1, bgcolor: 'transparent' }}>
               <TextField
                 size="small"
                 autoFocus
@@ -952,7 +953,25 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
                   }
                 }}
                 placeholder="テキストを入力..."
-                sx={{ minWidth: 150 }}
+                sx={{
+                  minWidth: 150,
+                  backgroundColor: 'transparent',
+                  '& .MuiInputBase-input': {
+                    color: color,
+                    caretColor: color,
+                    fontSize: '24px',
+                    lineHeight: 1,
+                  },
+                  // remove outline for outlined variant to keep transparent look
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    border: 'none',
+                  },
+                  // subtle focus ring for accessibility
+                  '& .MuiInputBase-input:focus': {
+                    outline: 'none',
+                    boxShadow: '0 0 0 3px rgba(255,255,255,0.08)',
+                  },
+                }}
               />
             </Paper>
           </Box>
