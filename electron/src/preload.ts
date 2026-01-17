@@ -546,9 +546,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
 
     // ファイル操作API
-    /** プレイリストをファイルに保存（スタンドアロン形式） */
+    /** プレイリストをファイルに保存（上書き保存） */
     savePlaylistFile: async (playlist: unknown): Promise<string | null> => {
       return await ipcRenderer.invoke('playlist:save-file', playlist);
+    },
+    /** プレイリストを名前を付けて保存 */
+    savePlaylistFileAs: async (playlist: unknown): Promise<string | null> => {
+      return await ipcRenderer.invoke('playlist:save-file-as', playlist);
     },
     /** プレイリストファイルを読み込み */
     loadPlaylistFile: async (

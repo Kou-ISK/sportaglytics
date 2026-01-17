@@ -107,14 +107,20 @@ export function createPlaylistWindow(filePath?: string): BrowserWindow {
     if (info.isDirty) {
       e.preventDefault();
 
+      // 上書き保存か新規保存かで文言を分岐
+      const isOverwrite = !!info.filePath;
       const choice = await dialog.showMessageBox(window, {
         type: 'question',
         buttons: ['保存', '保存しない', 'キャンセル'],
         defaultId: 0,
         cancelId: 2,
         title: '未保存の変更',
-        message: 'プレイリストに未保存の変更があります',
-        detail: '変更を保存しますか？',
+        message: isOverwrite
+          ? 'プレイリストの変更内容を上書き保存して閉じますか？'
+          : 'プレイリストに未保存の変更があります',
+        detail: isOverwrite
+          ? '既存のファイルを上書き保存してウィンドウを閉じます。よろしいですか？\n（「保存しない」を選ぶと変更は破棄されます）'
+          : '変更を保存しますか？',
       });
 
       if (choice.response === 0) {
@@ -299,6 +305,154 @@ const extractVideoSegment = async (
 };
 
 /**
+ * 送信元ウィンドウの情報を取得するヘルパー関数
+ */
+function getWindowInfoBySender(
+  sender: Electron.WebContents,
+): PlaylistWindowInfo | null {
+  const senderWindow = BrowserWindow.fromWebContents(sender);
+  if (!senderWindow) return null;
+
+  for (const [, info] of playlistWindows) {
+    if (info.window === senderWindow) {
+      return info;
+    }
+  }
+  return null;
+}
+
+/**
+ * プレイリスト保存の共通ロジック
+ */
+async function savePlaylistToPath(
+  targetPath: string,
+  playlist: Playlist,
+  event: Electron.IpcMainInvokeEvent,
+): Promise<void> {
+  // 既存のプレイリストへの上書き保存かどうかを判定
+  const isOverwrite = existsSync(path.join(targetPath, 'playlist.json'));
+
+  // .stplパッケージディレクトリを作成
+  await fs.mkdir(targetPath, { recursive: true });
+
+  // スタンドアロン形式の場合は動画ファイルをコピー
+  if (playlist.type === 'embedded') {
+    const videosDir = path.join(targetPath, 'videos');
+    await fs.mkdir(videosDir, { recursive: true });
+
+    // 動画ファイルのコピーとパス書き換え
+    const copiedVideos = new Map<string, string>(); // キャッシュキー → 新パス
+    const totalItems = playlist.items.length;
+    let processedCount = 0;
+
+    // 進行状況をウィンドウに通知
+    const sendProgress = (current: number, total: number) => {
+      const sender = event.sender;
+      if (sender && !sender.isDestroyed()) {
+        sender.send('playlist:save-progress', {
+          current,
+          total,
+        });
+      }
+    };
+
+    // アクション名をファイルシステム安全な文字列にサニタイズ
+    const sanitizeForFilename = (name: string): string => {
+      return name.replace(/[/\\:*?"<>|]/g, '_').trim() || 'item';
+    };
+
+    const processedItems = await Promise.all(
+      playlist.items.map(async (item) => {
+        const processVideo = async (
+          sourcePath: string | undefined,
+          isSecondary: boolean = false,
+        ): Promise<string | undefined> => {
+          if (!sourcePath || !existsSync(sourcePath)) return sourcePath;
+
+          // ディレクトリ名: <アクション名>_<itemId>
+          const sanitizedActionName = sanitizeForFilename(item.actionName);
+          const dirName = `${sanitizedActionName}_${item.id}`;
+          const angleNumber = isSecondary ? 2 : 1;
+          const instanceDir = path.join(videosDir, dirName);
+          const extname = path.extname(sourcePath);
+          const newFileName = `angle${angleNumber}${extname}`;
+          const destPath = path.join(instanceDir, newFileName);
+          const relativePath = `./videos/${dirName}/${newFileName}`;
+
+          // 上書き保存時：既存の動画ファイルがあればスキップ
+          if (isOverwrite && existsSync(destPath)) {
+            // 既存ファイルが相対パスで記録されている場合はそのまま使用
+            if (sourcePath.startsWith('./videos/')) {
+              return sourcePath;
+            }
+            // 既存ファイルの相対パスを返す
+            return relativePath;
+          }
+
+          // キャッシュキー: パス + タイムスタンプで一意に識別
+          const cacheKey = `${sourcePath}_${item.startTime}_${item.endTime}`;
+          if (copiedVideos.has(cacheKey)) {
+            return copiedVideos.get(cacheKey);
+          }
+
+          // 新規保存または動画ファイルが存在しない場合のみFFmpegで処理
+          await fs.mkdir(instanceDir, { recursive: true });
+
+          // 相対パスの場合は絶対パスに変換（既存プレイリストからの読み込み時）
+          let absoluteSourcePath = sourcePath;
+          if (sourcePath.startsWith('./')) {
+            absoluteSourcePath = path.join(targetPath, sourcePath);
+          }
+
+          // FFmpegで区間を切り出し
+          await extractVideoSegment(
+            absoluteSourcePath,
+            destPath,
+            item.startTime,
+            item.endTime,
+          );
+
+          copiedVideos.set(cacheKey, relativePath);
+          return relativePath;
+        };
+
+        const newVideoSource = await processVideo(item.videoSource, false);
+        const newVideoSource2 = await processVideo(item.videoSource2, true);
+
+        // 進行状況を更新
+        processedCount++;
+        sendProgress(processedCount, totalItems);
+
+        // 切り出した動画は0秒から始まるので、startTimeとendTimeを調整
+        // ただし、既に相対パスになっている（既存ファイル）場合は調整済みなのでそのまま
+        const isAlreadyProcessed = item.videoSource?.startsWith('./videos/');
+        const duration = isAlreadyProcessed
+          ? item.endTime
+          : item.endTime - item.startTime;
+        const startTime = isAlreadyProcessed ? item.startTime : 0;
+
+        return {
+          ...item,
+          videoSource: newVideoSource,
+          videoSource2: newVideoSource2,
+          startTime,
+          endTime: isAlreadyProcessed ? item.endTime : duration,
+        };
+      }),
+    );
+
+    playlist = { ...playlist, items: processedItems };
+  }
+
+  // playlist.jsonを保存
+  const playlistJsonPath = path.join(targetPath, 'playlist.json');
+  const content = JSON.stringify(playlist, null, 2);
+  await fs.writeFile(playlistJsonPath, content, 'utf-8');
+
+  console.log('[Playlist] Saved package to:', targetPath);
+}
+
+/**
  * IPCハンドラーを登録
  */
 export function registerPlaylistHandlers(): void {
@@ -335,23 +489,22 @@ export function registerPlaylistHandlers(): void {
     syncToPlaylistWindow(data);
   });
 
-  // プレイリストウィンドウからメインウィンドウへのコマンド
-  ipcMain.on('playlist:command', (_event, command: PlaylistCommand) => {
+  // プレイリストウィンドウからメインウィンドウへのコマンド & isDirty同期
+  ipcMain.on('playlist:command', (event, command: PlaylistCommand) => {
+    if (command?.type === 'set-dirty') {
+      for (const [windowId, info] of playlistWindows) {
+        if (info.window.webContents === event.sender) {
+          info.isDirty = !!command.isDirty;
+          console.log(
+            `[Playlist] Window ${windowId} isDirty set to:`,
+            command.isDirty,
+          );
+          break;
+        }
+      }
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('playlist:command', command);
-    }
-  });
-
-  // isDirtyフラグを設定
-  ipcMain.on('playlist:set-dirty', (event, isDirty: boolean) => {
-    // 送信元のウィンドウを特定
-    const sender = event.sender;
-    for (const [windowId, info] of playlistWindows) {
-      if (info.window.webContents === sender) {
-        info.isDirty = isDirty;
-        console.log(`[Playlist] Window ${windowId} isDirty set to:`, isDirty);
-        break;
-      }
     }
   });
 
@@ -370,132 +523,37 @@ export function registerPlaylistHandlers(): void {
     }
   });
 
-  // プレイリストファイルを保存（パッケージ形式）
+  // プレイリストファイルを保存（上書き保存）
   ipcMain.handle(
     'playlist:save-file',
     async (event, playlist: Playlist): Promise<string | null> => {
       try {
-        const { filePath } = await dialog.showSaveDialog({
-          title: 'プレイリストを保存',
-          defaultPath: `${playlist.name || 'playlist'}.stpl`,
-          filters: [{ name: 'SporTagLytics Playlist', extensions: ['stpl'] }],
-        });
+        // 送信元ウィンドウの情報を取得
+        const windowInfo = getWindowInfoBySender(event.sender);
+        let targetPath = windowInfo?.filePath;
 
-        if (!filePath) return null;
+        // 既存のファイルパスがない場合は新規保存として扱う
+        if (!targetPath) {
+          const { filePath } = await dialog.showSaveDialog({
+            title: 'プレイリストを保存',
+            defaultPath: `${playlist.name || 'playlist'}.stpl`,
+            filters: [{ name: 'SporTagLytics Playlist', extensions: ['stpl'] }],
+          });
 
-        // .stplパッケージディレクトリを作成
-        await fs.mkdir(filePath, { recursive: true });
-
-        // スタンドアロン形式の場合は動画ファイルをコピー
-        if (playlist.type === 'embedded') {
-          const videosDir = path.join(filePath, 'videos');
-          await fs.mkdir(videosDir, { recursive: true });
-
-          // 動画ファイルのコピーとパス書き換え
-          const copiedVideos = new Map<string, string>(); // キャッシュキー → 新パス
-          const totalItems = playlist.items.length;
-          let processedCount = 0;
-
-          // 進行状況をウィンドウに通知
-          const sendProgress = (current: number, total: number) => {
-            const sender = event.sender;
-            if (sender && !sender.isDestroyed()) {
-              sender.send('playlist:save-progress', {
-                current,
-                total,
-              });
-            }
-          };
-
-          // アクション名をファイルシステム安全な文字列にサニタイズ
-          const sanitizeForFilename = (name: string): string => {
-            return name.replace(/[\/\\:*?"<>|]/g, '_').trim() || 'item';
-          };
-
-          const processedItems = await Promise.all(
-            playlist.items.map(async (item) => {
-              const processVideo = async (
-                sourcePath: string | undefined,
-                isSecondary: boolean = false,
-              ): Promise<string | undefined> => {
-                if (!sourcePath || !existsSync(sourcePath)) return sourcePath;
-
-                // キャッシュキー: パス + タイムスタンプで一意に識別
-                const cacheKey = `${sourcePath}_${item.startTime}_${item.endTime}`;
-                if (copiedVideos.has(cacheKey)) {
-                  return copiedVideos.get(cacheKey);
-                }
-
-                // ディレクトリ名: <アクション名>_<itemId>
-                const sanitizedActionName = sanitizeForFilename(
-                  item.actionName,
-                );
-                const dirName = `${sanitizedActionName}_${item.id}`;
-                const angleNumber = isSecondary ? 2 : 1;
-                const instanceDir = path.join(videosDir, dirName);
-                await fs.mkdir(instanceDir, { recursive: true });
-                const extname = path.extname(sourcePath);
-                const newFileName = `angle${angleNumber}${extname}`;
-                const destPath = path.join(instanceDir, newFileName);
-                const relativePath = `./videos/${dirName}/${newFileName}`;
-
-                // FFmpegで区間を切り出し
-                await extractVideoSegment(
-                  sourcePath,
-                  destPath,
-                  item.startTime,
-                  item.endTime,
-                );
-
-                copiedVideos.set(cacheKey, relativePath);
-                return relativePath;
-              };
-
-              const newVideoSource = await processVideo(
-                item.videoSource,
-                false,
-              );
-              const newVideoSource2 = await processVideo(
-                item.videoSource2,
-                true,
-              );
-
-              // 進行状況を更新
-              processedCount++;
-              sendProgress(processedCount, totalItems);
-
-              // 切り出した動画は0秒から始まるので、startTimeとendTimeを調整
-              const duration = item.endTime - item.startTime;
-              return {
-                ...item,
-                videoSource: newVideoSource,
-                videoSource2: newVideoSource2,
-                startTime: 0,
-                endTime: duration,
-              };
-            }),
-          );
-
-          playlist = { ...playlist, items: processedItems };
+          if (!filePath) return null;
+          targetPath = filePath;
         }
 
-        // playlist.jsonを保存
-        const playlistJsonPath = path.join(filePath, 'playlist.json');
-        const content = JSON.stringify(playlist, null, 2);
-        await fs.writeFile(playlistJsonPath, content, 'utf-8');
+        // プレイリストを保存
+        await savePlaylistToPath(targetPath, playlist, event);
 
-        console.log('[Playlist] Saved package to:', filePath);
+        // ウィンドウ情報を更新
+        if (windowInfo) {
+          windowInfo.filePath = targetPath;
+          windowInfo.isDirty = false;
+        }
 
-        // 完了ダイアログを表示
-        await dialog.showMessageBox({
-          type: 'info',
-          title: '保存完了',
-          message: 'プレイリストを保存しました',
-          detail: `保存先: ${filePath}`,
-          buttons: ['OK'],
-        });
-
-        return filePath;
+        return targetPath;
       } catch (error) {
         console.error('[Playlist] Save error:', error);
 
@@ -508,17 +566,62 @@ export function registerPlaylistHandlers(): void {
           buttons: ['OK'],
         });
 
-        // エラー時は作成途中のパッケージを削除
-        try {
-          if (error && typeof error === 'object' && 'code' in error) {
-            const filePath = (error as { filePath?: string }).filePath;
-            if (filePath && existsSync(filePath)) {
-              await fs.rm(filePath, { recursive: true, force: true });
-            }
-          }
-        } catch (cleanupError) {
-          console.error('[Playlist] Cleanup error:', cleanupError);
+        return null;
+      }
+    },
+  );
+
+  // プレイリストファイルを名前を付けて保存
+  ipcMain.handle(
+    'playlist:save-file-as',
+    async (event, playlist: Playlist): Promise<string | null> => {
+      try {
+        // 送信元ウィンドウの現在のファイルパスを取得（デフォルト値として使用）
+        const windowInfo = getWindowInfoBySender(event.sender);
+        const currentPath = windowInfo?.filePath;
+        const defaultName = currentPath
+          ? path.basename(currentPath, '.stpl')
+          : playlist.name || 'playlist';
+
+        const { filePath } = await dialog.showSaveDialog({
+          title: '名前を付けて保存',
+          defaultPath: `${defaultName}.stpl`,
+          filters: [{ name: 'SporTagLytics Playlist', extensions: ['stpl'] }],
+        });
+
+        if (!filePath) return null;
+
+        // プレイリストを保存
+        await savePlaylistToPath(filePath, playlist, event);
+
+        // ウィンドウ情報を更新
+        if (windowInfo) {
+          windowInfo.filePath = filePath;
+          windowInfo.isDirty = false;
         }
+
+        // 完了ダイアログを表示
+        await dialog.showMessageBox({
+          type: 'info',
+          title: '保存完了',
+          message: 'プレイリストを保存しました',
+          detail: `保存先: ${filePath}`,
+          buttons: ['OK'],
+        });
+
+        return filePath;
+      } catch (error) {
+        console.error('[Playlist] Save-as error:', error);
+
+        // エラーダイアログを表示
+        await dialog.showMessageBox({
+          type: 'error',
+          title: '保存エラー',
+          message: 'プレイリストの保存に失敗しました',
+          detail: error instanceof Error ? error.message : String(error),
+          buttons: ['OK'],
+        });
+
         return null;
       }
     },
@@ -643,6 +746,17 @@ export function registerPlaylistHandlers(): void {
         if (!isFromPlaylistWindow) {
           // プレイリストウィンドウ以外から呼ばれた場合は新しいウィンドウを作成
           createPlaylistWindow(targetPath);
+        } else {
+          // 既存のプレイリストウィンドウから呼ばれた場合、そのウィンドウ情報を更新
+          const windowInfo = getWindowInfoBySender(event.sender);
+          if (windowInfo) {
+            windowInfo.filePath = targetPath;
+            windowInfo.isDirty = false;
+            console.log(
+              '[Playlist] Updated window info with filePath:',
+              targetPath,
+            );
+          }
         }
 
         return { playlist: resolvedPlaylist, filePath: targetPath };

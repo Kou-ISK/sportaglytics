@@ -201,11 +201,13 @@ export interface IPlaylistAPI {
   sendCommand: (command: PlaylistCommand) => void;
 
   // ファイル操作
-  /** プレイリストを保存（独立ファイル） */
+  /** プレイリストを保存（上書き保存） */
   savePlaylistFile: (
     playlist: Playlist,
     filePath?: string,
   ) => Promise<string | null>;
+  /** プレイリストを名前を付けて保存 */
+  savePlaylistFileAs: (playlist: Playlist) => Promise<string | null>;
   /** プレイリストを読み込み */
   loadPlaylistFile: (
     filePath?: string,

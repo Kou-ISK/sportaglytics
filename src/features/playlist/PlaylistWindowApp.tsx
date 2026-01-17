@@ -343,6 +343,7 @@ interface SaveDialogProps {
     shouldCloseAfterSave?: boolean,
   ) => void;
   defaultName: string;
+  defaultType?: PlaylistType;
   closeAfterSave?: boolean;
 }
 
@@ -351,14 +352,16 @@ function SaveDialog({
   onClose,
   onSave,
   defaultName,
+  defaultType = 'embedded',
   closeAfterSave = false,
 }: SaveDialogProps) {
   const [name, setName] = useState(defaultName);
-  const [saveType, setSaveType] = useState<PlaylistType>('embedded');
+  const [saveType, setSaveType] = useState<PlaylistType>(defaultType);
 
   useEffect(() => {
     setName(defaultName);
-  }, [defaultName, open]);
+    setSaveType(defaultType);
+  }, [defaultName, defaultType, open]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
@@ -534,6 +537,7 @@ export default function PlaylistWindowApp() {
   );
   const isDualView = viewMode === 'dual'; // 互換性のため
   const [playlistName, setPlaylistName] = useState('プレイリスト');
+  const [playlistType, setPlaylistType] = useState<PlaylistType>('embedded');
   const [packagePath, setPackagePath] = useState<string | null>(null);
 
   // Drawing/Annotation state
@@ -1590,6 +1594,113 @@ export default function PlaylistWindowApp() {
     }
   }, [redo]);
 
+  // Save playlist (上書き保存)
+  const handleSavePlaylist = useCallback(
+    async (shouldCloseAfterSave = false) => {
+      const playlistAPI = window.electronAPI?.playlist;
+      if (!playlistAPI) return;
+
+      // Merge annotations into items
+      const itemsWithAnnotations = items.map((item) => ({
+        ...item,
+        // 参照プレイリストでも追加時のソースを保持しておく（複数パッケージ混在を許容）
+        videoSource: item.videoSource ?? videoSources[0] ?? undefined,
+        videoSource2: item.videoSource2 ?? videoSources[1] ?? undefined,
+        annotation: itemAnnotations[item.id] || item.annotation,
+      }));
+
+      const playlist = {
+        id: crypto.randomUUID(),
+        name: playlistName,
+        type: playlistType,
+        items: itemsWithAnnotations,
+        sourcePackagePath: packagePath || undefined,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      setSaveProgress(null); // 保存開始時に進行状況をリセット
+      const savedPath = await playlistAPI.savePlaylistFile(playlist);
+      setSaveProgress(null); // 保存完了後に進行状況をクリア
+
+      if (savedPath) {
+        console.log('[PlaylistWindow] Playlist saved to:', savedPath);
+
+        // 保存後にウィンドウを閉じる場合
+        if (shouldCloseAfterSave) {
+          // Electron側に保存完了を通知し、Electron側からウィンドウを閉じる
+          // （状態更新はせず、即座にウィンドウを閉じる）
+          window.electronAPI?.send?.('playlist:saved-and-close');
+        } else {
+          // 通常の保存時はReact状態を更新してElectron側と同期
+          setLoadedFilePath(savedPath);
+          setIsDirty(false);
+          setHasUnsavedChanges(false); // ← 追加
+          playlistAPI.sendCommand({ type: 'set-dirty', isDirty: false });
+        }
+      }
+    },
+    [
+      items,
+      videoSources,
+      packagePath,
+      itemAnnotations,
+      playlistName,
+      playlistType,
+    ],
+  );
+
+  // Save playlist as (名前を付けて保存)
+  const handleSavePlaylistAs = useCallback(
+    async (type: PlaylistType, name: string, shouldCloseAfterSave = false) => {
+      setSaveDialogOpen(false);
+      const playlistAPI = window.electronAPI?.playlist;
+      if (!playlistAPI) return;
+
+      // Merge annotations into items
+      const itemsWithAnnotations = items.map((item) => ({
+        ...item,
+        // 参照プレイリストでも追加時のソースを保持しておく（複数パッケージ混在を許容）
+        videoSource: item.videoSource ?? videoSources[0] ?? undefined,
+        videoSource2: item.videoSource2 ?? videoSources[1] ?? undefined,
+        annotation: itemAnnotations[item.id] || item.annotation,
+      }));
+
+      const playlist = {
+        id: crypto.randomUUID(),
+        name,
+        type,
+        items: itemsWithAnnotations,
+        sourcePackagePath: packagePath || undefined,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      setSaveProgress(null); // 保存開始時に進行状況をリセット
+      const savedPath = await playlistAPI.savePlaylistFileAs(playlist);
+      setSaveProgress(null); // 保存完了後に進行状況をクリア
+
+      if (savedPath) {
+        console.log('[PlaylistWindow] Playlist saved to:', savedPath);
+
+        // 保存後にウィンドウを閉じる場合
+        if (shouldCloseAfterSave) {
+          // Electron側に保存完了を通知し、Electron側からウィンドウを閉じる
+          // （状態更新はせず、即座にウィンドウを閉じる）
+          window.electronAPI?.send?.('playlist:saved-and-close');
+        } else {
+          // 通常の保存時はReact状態を更新してElectron側と同期
+          setPlaylistName(name);
+          setPlaylistType(type);
+          setLoadedFilePath(savedPath);
+          setIsDirty(false);
+          playlistAPI.sendCommand({ type: 'set-dirty', isDirty: false });
+        }
+      }
+    },
+    [items, videoSources, packagePath, itemAnnotations],
+  );
+
   const playlistHotkeyHandlers = useMemo(
     () => ({
       'play-pause': handleTogglePlay,
@@ -1627,7 +1738,22 @@ export default function PlaylistWindowApp() {
       'delete-item': handleDeleteSelected,
       undo: handleUndo,
       redo: handleRedo,
-      save: () => setSaveDialogOpen(true),
+      save: () => {
+        console.log(
+          '[PlaylistWindow] Hotkey Save pressed. loadedFilePath:',
+          loadedFilePath,
+        );
+        // 既存ファイルがあれば即座に上書き保存、なければダイアログ表示
+        if (loadedFilePath) {
+          console.log('[PlaylistWindow] Saving via hotkey to:', loadedFilePath);
+          handleSavePlaylist(false);
+        } else {
+          console.log(
+            '[PlaylistWindow] No loadedFilePath, showing dialog via hotkey',
+          );
+          setSaveDialogOpen(true);
+        }
+      },
       export: () => setExportDialogOpen(true),
       'toggle-angle1': () => {
         setViewMode((prev) => {
@@ -1657,6 +1783,8 @@ export default function PlaylistWindowApp() {
       handleDeleteSelected,
       handleUndo,
       handleRedo,
+      handleSavePlaylist,
+      loadedFilePath,
     ],
   );
 
@@ -1690,55 +1818,6 @@ export default function PlaylistWindowApp() {
     playlistKeyUpHandlers,
   );
 
-  // Save playlist
-  const handleSavePlaylist = useCallback(
-    async (type: PlaylistType, name: string, shouldCloseAfterSave = false) => {
-      setSaveDialogOpen(false);
-      setSaveProgress(null); // 保存開始時に進行状況をリセット
-      const playlistAPI = window.electronAPI?.playlist;
-      if (!playlistAPI) return;
-
-      // Merge annotations into items
-      const itemsWithAnnotations = items.map((item) => ({
-        ...item,
-        // 参照プレイリストでも追加時のソースを保持しておく（複数パッケージ混在を許容）
-        videoSource: item.videoSource ?? videoSources[0] ?? undefined,
-        videoSource2: item.videoSource2 ?? videoSources[1] ?? undefined,
-        annotation: itemAnnotations[item.id] || item.annotation,
-      }));
-
-      const playlist = {
-        id: crypto.randomUUID(),
-        name,
-        type,
-        items: itemsWithAnnotations,
-        sourcePackagePath: packagePath || undefined,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-
-      const savedPath = await playlistAPI.savePlaylistFile(playlist);
-      setSaveProgress(null); // 保存完了後に進行状況をクリア
-      if (savedPath) {
-        console.log('[PlaylistWindow] Playlist saved to:', savedPath);
-
-        // 保存後にウィンドウを閉じる場合
-        if (shouldCloseAfterSave) {
-          // Electron側に保存完了を通知し、Electron側からウィンドウを閉じる
-          // （状態更新はせず、即座にウィンドウを閉じる）
-          window.electronAPI?.send?.('playlist:saved-and-close');
-        } else {
-          // 通常の保存時はReact状態を更新してElectron側と同期
-          setPlaylistName(name);
-          setLoadedFilePath(savedPath);
-          setIsDirty(false);
-          playlistAPI.sendCommand({ type: 'set-dirty', isDirty: false });
-        }
-      }
-    },
-    [items, videoSources, packagePath, itemAnnotations],
-  );
-
   const loadPlaylistFromPath = useCallback(async (filePath?: string) => {
     const playlistAPI = window.electronAPI?.playlist;
     if (!playlistAPI) return;
@@ -1746,11 +1825,14 @@ export default function PlaylistWindowApp() {
     const loaded = await playlistAPI.loadPlaylistFile(filePath);
     if (loaded) {
       const { playlist, filePath: loadedPath } = loaded;
+      console.log('[PlaylistWindow] Playlist loaded from:', loadedPath);
       setItemsWithHistory(playlist.items);
       setHasUnsavedChanges(false);
       setPlaylistName(playlist.name);
+      setPlaylistType(playlist.type || 'embedded');
       setPackagePath(playlist.sourcePackagePath || null);
       setLoadedFilePath(loadedPath);
+      console.log('[PlaylistWindow] loadedFilePath set to:', loadedPath);
       setIsDirty(false); // 読み込み直後はクリーン状態
       // Load annotations
       const annotations: Record<string, ItemAnnotation> = {};
@@ -1800,8 +1882,14 @@ export default function PlaylistWindowApp() {
   // ウィンドウクローズ時の保存要求を処理
   useEffect(() => {
     const handleRequestSave = () => {
-      setCloseAfterSave(true);
-      setSaveDialogOpen(true);
+      if (loadedFilePath) {
+        // 既存ファイルがあれば即上書き保存し、保存後に閉じる
+        handleSavePlaylist(true);
+      } else {
+        // 新規ファイルの場合は保存ダイアログを表示
+        setCloseAfterSave(true);
+        setSaveDialogOpen(true);
+      }
     };
 
     window.electronAPI?.on?.('playlist:request-save', handleRequestSave);
@@ -1809,7 +1897,7 @@ export default function PlaylistWindowApp() {
     return () => {
       window.electronAPI?.off?.('playlist:request-save', handleRequestSave);
     };
-  }, []);
+  }, [loadedFilePath, handleSavePlaylist]);
 
   // Edit note
   const handleEditNote = useCallback((itemId: string) => {
@@ -2157,7 +2245,25 @@ export default function PlaylistWindowApp() {
           >
             <IconButton
               size="small"
-              onClick={() => setSaveDialogOpen(true)}
+              onClick={() => {
+                console.log(
+                  '[PlaylistWindow] Save button clicked. loadedFilePath:',
+                  loadedFilePath,
+                );
+                // 既存ファイルがあれば即座に上書き保存、なければダイアログ表示
+                if (loadedFilePath) {
+                  console.log(
+                    '[PlaylistWindow] Saving to existing file:',
+                    loadedFilePath,
+                  );
+                  handleSavePlaylist(false);
+                } else {
+                  console.log(
+                    '[PlaylistWindow] No loadedFilePath, showing dialog',
+                  );
+                  setSaveDialogOpen(true);
+                }
+              }}
               sx={{
                 color: hasUnsavedChanges ? 'warning.main' : 'text.secondary',
                 boxShadow: hasUnsavedChanges
@@ -2199,6 +2305,17 @@ export default function PlaylistWindowApp() {
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
           >
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                setSaveDialogOpen(true);
+              }}
+            >
+              <ListItemIcon>
+                <Save fontSize="small" />
+              </ListItemIcon>
+              名前を付けて保存...
+            </MenuItem>
             <MenuItem onClick={handleLoadPlaylist}>
               <ListItemIcon>
                 <FolderOpen fontSize="small" />
@@ -2722,8 +2839,9 @@ export default function PlaylistWindowApp() {
           setSaveDialogOpen(false);
           setCloseAfterSave(false);
         }}
-        onSave={handleSavePlaylist}
+        onSave={handleSavePlaylistAs}
         defaultName={playlistName}
+        defaultType={playlistType}
         closeAfterSave={closeAfterSave}
       />
       <Dialog
