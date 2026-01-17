@@ -403,11 +403,13 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       '#000000',
     ];
 
-    // Initialize from props - only on mount to avoid overwriting during drawing
-    // Intentionally empty deps array: initialObjects changes should not reset local state
+    // Initialize from props when not actively drawing
+    // Update objects when initialObjects change, but only when not in drawing mode
     useEffect(() => {
-      setObjects(initialObjects);
-    }, []); // Only run on mount, not when initialObjects changes
+      if (!isActive) {
+        setObjects(initialObjects);
+      }
+    }, [initialObjects, isActive, target]);
 
     useEffect(() => {
       setLocalFreezeDuration(
@@ -504,12 +506,15 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         offsetX: 0,
         offsetY: 0,
       };
+
+      // タイムスタンプに基づいてオブジェクトをフィルタリング
+      // 描画モード・再生モードに関わらず、現在のタイムスタンプに合致するもののみ表示
       const filteredObjects =
-        typeof currentTime === 'number' && !isActive
-          ? objects.filter(
-              (obj) =>
-                Math.abs(obj.timestamp - currentTime) <= TIMESTAMP_TOLERANCE,
-            )
+        typeof currentTime === 'number'
+          ? objects.filter((obj) => {
+              const timeDiff = Math.abs(obj.timestamp - currentTime);
+              return timeDiff <= TIMESTAMP_TOLERANCE;
+            })
           : objects;
 
       const displayObjects = filteredObjects.map((obj) =>

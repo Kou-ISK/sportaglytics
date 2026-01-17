@@ -807,19 +807,36 @@ export default function PlaylistWindowApp() {
   }, [currentItem, itemAnnotations]);
 
   const annotationObjects = currentAnnotation?.objects || [];
+
+  // embedded型プレイリストの場合、保存されている相対時刻を絶対時刻に変換して表示
+  const adjustedAnnotationObjects = useMemo(() => {
+    if (!currentItem) return annotationObjects;
+
+    const isEmbedded = currentItem.videoSource?.startsWith('./videos/');
+    if (!isEmbedded || currentItem.startTime === undefined) {
+      return annotationObjects;
+    }
+
+    // 相対時刻を絶対時刻に変換
+    return annotationObjects.map((obj) => ({
+      ...obj,
+      timestamp: obj.timestamp + currentItem.startTime,
+    }));
+  }, [annotationObjects, currentItem]);
+
   const primaryAnnotationObjects = useMemo(
     () =>
-      annotationObjects.filter(
+      adjustedAnnotationObjects.filter(
         (obj) => (obj.target || 'primary') === 'primary',
       ),
-    [annotationObjects],
+    [adjustedAnnotationObjects],
   );
   const secondaryAnnotationObjects = useMemo(
     () =>
-      annotationObjects.filter(
+      adjustedAnnotationObjects.filter(
         (obj) => (obj.target || 'primary') === 'secondary',
       ),
-    [annotationObjects],
+    [adjustedAnnotationObjects],
   );
 
   // Handle IPC messages from main process
@@ -1039,6 +1056,7 @@ export default function PlaylistWindowApp() {
     video.src = currentVideoSource;
     video.load();
     video.currentTime = currentItem.startTime;
+    setCurrentTime(currentItem.startTime); // 即座にステートも更新
 
     if (isPlaying) {
       video.play().catch(console.error);
@@ -1333,10 +1351,30 @@ export default function PlaylistWindowApp() {
         freezeDuration: DEFAULT_FREEZE_DURATION,
         freezeAt: 0,
       };
-      const normalizedObjects = objects.map((obj) => ({
-        ...obj,
-        target: obj.target || target,
-      }));
+
+      // プレイリストタイプに応じてタイムスタンプを調整
+      // embedded型: アイテム内相対時刻に変換（切り出し動画用）
+      // reference型: 元動画の絶対時刻のまま保持
+      const normalizedObjects = objects.map((obj) => {
+        let adjustedTimestamp = obj.timestamp;
+
+        // embedded型プレイリストの場合、タイムスタンプを相対時刻に変換
+        // （将来的に保存時のタイプを参照するため、現在のsaveTypeは使わない）
+        // 現在のcurrentTimeは元動画の絶対時刻なので、startTimeを引いて相対時刻にする
+        // ただし、reference型プレイリストの場合は絶対時刻のまま保持
+        // 判定: currentItem.videoSourceが相対パス（./videos/始まり）ならembedded
+        const isEmbedded = currentItem.videoSource?.startsWith('./videos/');
+        if (isEmbedded && currentItem.startTime !== undefined) {
+          adjustedTimestamp = obj.timestamp - currentItem.startTime;
+        }
+
+        return {
+          ...obj,
+          timestamp: adjustedTimestamp,
+          target: obj.target || target,
+        };
+      });
+
       const otherObjects = currentAnn.objects.filter(
         (obj) => (obj.target || 'primary') !== target,
       );
@@ -1734,6 +1772,11 @@ export default function PlaylistWindowApp() {
         setVideoSources(sources);
       }
       setViewMode(sources.length >= 2 ? 'dual' : 'angle1');
+
+      // プレイリストに要素がある場合は最初のアイテムを選択
+      if (playlist.items.length > 0) {
+        setCurrentIndex(0);
+      }
     }
   }, []);
 

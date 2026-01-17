@@ -528,7 +528,7 @@ export function registerPlaylistHandlers(): void {
   ipcMain.handle(
     'playlist:load-file',
     async (
-      _event,
+      event,
       givenPath?: string,
     ): Promise<{ playlist: Playlist; filePath: string } | null> => {
       try {
@@ -631,8 +631,19 @@ export function registerPlaylistHandlers(): void {
 
         console.log('[Playlist] Loaded from:', targetPath);
 
-        // 同じファイルパスのウィンドウを開く
-        createPlaylistWindow(targetPath);
+        // 既存のプレイリストウィンドウから呼ばれた場合は新しいウィンドウを作らない
+        // メインウィンドウや他の場所から呼ばれた場合のみ新しいウィンドウを作成
+        const senderWindow = BrowserWindow.fromWebContents(event.sender);
+        const isFromPlaylistWindow =
+          senderWindow &&
+          Array.from(playlistWindows.values()).some(
+            (info) => info.window === senderWindow,
+          );
+
+        if (!isFromPlaylistWindow) {
+          // プレイリストウィンドウ以外から呼ばれた場合は新しいウィンドウを作成
+          createPlaylistWindow(targetPath);
+        }
 
         return { playlist: resolvedPlaylist, filePath: targetPath };
       } catch (error) {
