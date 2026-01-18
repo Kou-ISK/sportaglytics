@@ -1,17 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  LinearProgress,
-  Paper,
-  Stack,
-  Step,
-  StepLabel,
-  Stepper,
-  Typography,
-} from '@mui/material';
+import { Box, Paper, Stack, Step, StepLabel, Stepper, Typography } from '@mui/material';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
 import { PackageDatas } from '../../../../../renderer';
 import { MetaData } from '../../../../../types/MetaData';
@@ -28,6 +16,8 @@ import { BasicInfoStep } from './steps/BasicInfoStep';
 import { DirectoryStep } from './steps/DirectoryStep';
 import { VideoSelectionStep } from './steps/VideoSelectionStep';
 import { SummaryStep } from './steps/SummaryStep';
+import { WizardFooter } from './WizardFooter';
+import { WizardSyncAlert } from './WizardSyncAlert';
 
 interface CreatePackageWizardProps {
   open: boolean;
@@ -482,45 +472,16 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
 
         {activeStep === 3 && <SummaryStep items={summaryItems} />}
 
-        {syncStatus.isAnalyzing && (
-          <Alert severity="info" sx={{ mt: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <CircularProgress size={20} />
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body2" fontWeight="medium">
-                  音声同期分析中...
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {syncStatus.syncStage}
-                </Typography>
-              </Box>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={syncStatus.syncProgress}
-              sx={{ mt: 1 }}
-            />
-          </Alert>
-        )}
+        <WizardSyncAlert syncStatus={syncStatus} />
 
-        <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
-          <Button onClick={onClose} disabled={isAnalyzing}>
-            キャンセル
-          </Button>
-          <Box sx={{ flex: 1 }} />
-          {activeStep > 0 && (
-            <Button onClick={handleBack} disabled={isAnalyzing}>
-              戻る
-            </Button>
-          )}
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            disabled={isAnalyzing}
-          >
-            {activeStep === STEPS.length - 1 ? '作成' : '次へ'}
-          </Button>
-        </Stack>
+        <WizardFooter
+          activeStep={activeStep}
+          totalSteps={STEPS.length}
+          isAnalyzing={isAnalyzing}
+          onCancel={onClose}
+          onBack={handleBack}
+          onNext={handleNext}
+        />
       </Paper>
 
       <Box
