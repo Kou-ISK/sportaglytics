@@ -386,6 +386,8 @@ const handleExportClips = useCallback(async () => {
 ]);
 ```
 
+- 書き出し中は進捗がSnackbarで表示されます
+
 ### 5. デュアルビュー
 
 ```typescript
@@ -644,6 +646,8 @@ export type PlaylistCommand =
 2. 図形/テキストツールで注釈を追加
 3. 描画を終了して再生を再開
 4. 再生中、描画した時刻に到達すると自動でフリーズ
+
+- 保存した描画・フリーズ設定はプレイリスト読み込み時に復元されます
 
 ### クリップ書き出し
 

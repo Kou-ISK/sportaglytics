@@ -1,7 +1,7 @@
 # SporTagLytics
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.2.6-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
+[![Version](https://img.shields.io/badge/version-0.2.7-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
 
 スポーツ映像（特にラグビー）のタグ付け・統計可視化を行うElectronデスクトップアプリケーション。
 
