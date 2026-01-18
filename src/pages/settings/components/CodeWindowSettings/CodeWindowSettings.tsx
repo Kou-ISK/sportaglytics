@@ -18,10 +18,6 @@ import {
   FormControl,
   InputLabel,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Alert,
   Divider,
   Tabs,
@@ -43,6 +39,7 @@ import { ActionList } from '../../../../ActionList';
 import { TEAM_PLACEHOLDERS } from '../../../../utils/teamPlaceholder';
 import { FreeCanvasEditor } from './FreeCanvasEditor';
 import { ButtonPropertiesEditor } from './ButtonPropertiesEditorNew';
+import { CodeWindowCreateDialog } from './CodeWindowCreateDialog';
 import {
   createLayout,
   createButton,
@@ -774,62 +771,21 @@ export const CodeWindowSettings = forwardRef<
         </Paper>
       )}
 
-      {/* 新規作成ダイアログ */}
-      <Dialog
+      <CodeWindowCreateDialog
         open={createDialogOpen}
+        layoutName={newLayoutName}
+        canvasWidth={newCanvasWidth}
+        canvasHeight={newCanvasHeight}
+        onLayoutNameChange={setNewLayoutName}
+        onCanvasWidthChange={(value) =>
+          setNewCanvasWidth(Math.max(400, Math.min(2000, value)))
+        }
+        onCanvasHeightChange={(value) =>
+          setNewCanvasHeight(Math.max(300, Math.min(1500, value)))
+        }
         onClose={() => setCreateDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>新しいコードウィンドウを作成</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-            <TextField
-              label="コードウィンドウ名"
-              value={newLayoutName}
-              onChange={(e) => setNewLayoutName(e.target.value)}
-              fullWidth
-              autoFocus
-            />
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label="キャンバス幅 (px)"
-                type="number"
-                value={newCanvasWidth}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value, 10);
-                  if (!isNaN(value))
-                    setNewCanvasWidth(Math.max(400, Math.min(2000, value)));
-                }}
-                inputProps={{ min: 400, max: 2000, step: 50 }}
-                sx={{ flex: 1 }}
-              />
-              <TextField
-                label="キャンバス高さ (px)"
-                type="number"
-                value={newCanvasHeight}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value, 10);
-                  if (!isNaN(value))
-                    setNewCanvasHeight(Math.max(300, Math.min(1500, value)));
-                }}
-                inputProps={{ min: 300, max: 1500, step: 50 }}
-                sx={{ flex: 1 }}
-              />
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>キャンセル</Button>
-          <Button
-            onClick={handleCreateLayout}
-            variant="contained"
-            disabled={!newLayoutName.trim()}
-          >
-            作成
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onCreate={handleCreateLayout}
+      />
     </Box>
   );
 });
