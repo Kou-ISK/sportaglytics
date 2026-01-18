@@ -16,11 +16,8 @@ import {
   Paper,
   Typography,
   Button,
-  ToggleButton,
-  ToggleButtonGroup,
   Checkbox,
 } from '@mui/material';
-import { PlaylistPlay } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
 import { ExportProgressSnackbar } from '../../components/ExportProgressSnackbar';
 import {
@@ -55,6 +52,8 @@ import { PlaylistVideoControlsOverlay } from './components/PlaylistVideoControls
 import { PlaylistDrawingExitButton } from './components/PlaylistDrawingExitButton';
 import { PlaylistHeaderToolbar } from './components/PlaylistHeaderToolbar';
 import { PlaylistNowPlayingInfo } from './components/PlaylistNowPlayingInfo';
+import { PlaylistVideoPlaceholder } from './components/PlaylistVideoPlaceholder';
+import { PlaylistDrawingTargetToggle } from './components/PlaylistDrawingTargetToggle';
 
 const DEFAULT_FREEZE_DURATION = 3; // seconds - Sportscode風の自動停止既定値を少し延長
 const MIN_FREEZE_DURATION = 1; // seconds - ユーザー要求の最低停止秒数
@@ -1836,48 +1835,11 @@ export default function PlaylistWindowApp() {
         {currentVideoSource ? (
           <>
             {isDrawingMode && isDualView && currentVideoSource2 && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 8,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  zIndex: 6,
-                }}
-              >
-                <Paper
-                  sx={{
-                    px: 1,
-                    py: 0.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    bgcolor: 'rgba(0,0,0,0.7)',
-                    backdropFilter: 'blur(4px)',
-                  }}
-                  elevation={3}
-                >
-                  <Typography variant="caption" sx={{ color: 'grey.200' }}>
-                    描画対象
-                  </Typography>
-                  <ToggleButtonGroup
-                    size="small"
-                    exclusive
-                    value={drawingTarget}
-                    onChange={(_, value) =>
-                      value && setDrawingTarget(value as AnnotationTarget)
-                    }
-                  >
-                    <ToggleButton value="primary">メイン</ToggleButton>
-                    <ToggleButton
-                      value="secondary"
-                      disabled={!currentVideoSource2}
-                    >
-                      サブ
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-                </Paper>
-              </Box>
+              <PlaylistDrawingTargetToggle
+                drawingTarget={drawingTarget}
+                hasSecondary={Boolean(currentVideoSource2)}
+                onChange={setDrawingTarget}
+              />
             )}
             {/* Primary Video */}
             <Box
@@ -1967,24 +1929,7 @@ export default function PlaylistWindowApp() {
             )}
           </>
         ) : (
-          <Box
-            sx={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'column',
-              gap: 1,
-            }}
-          >
-            <PlaylistPlay sx={{ fontSize: 48, color: 'text.disabled' }} />
-            <Typography color="text.secondary">
-              {items.length === 0
-                ? 'プレイリストが空です'
-                : 'ビデオソースが設定されていません'}
-            </Typography>
-          </Box>
+          <PlaylistVideoPlaceholder isEmpty={items.length === 0} />
         )}
 
         {currentItem && !isDrawingMode && (
