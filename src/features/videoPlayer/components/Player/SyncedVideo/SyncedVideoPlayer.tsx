@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Grid } from '@mui/material';
+import { Box } from '@mui/material';
+import Grid from '@mui/material/GridLegacy';
 import { MemoizedSingleVideoPlayer } from '../SingleVideoPlayer';
 import { useSyncedVideoPlayer } from './hooks/useSyncedVideoPlayer';
 import type { SyncedVideoPlayerProps } from './types';

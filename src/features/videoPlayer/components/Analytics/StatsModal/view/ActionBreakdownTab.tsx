@@ -1,5 +1,6 @@
 import React from 'react';
-import { Grid, Stack, Divider } from '@mui/material';
+import Grid from '@mui/material/GridLegacy';
+import { Stack, Divider } from '@mui/material';
 import { ActionPieChart } from '../../ActionPieChart';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
 import { useActionBreakdown } from './hooks/useActionBreakdown';

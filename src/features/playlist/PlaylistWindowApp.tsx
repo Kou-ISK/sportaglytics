@@ -657,7 +657,7 @@ export default function PlaylistWindowApp() {
     const container = containerRef.current;
     if (!container) return;
 
-    let hideTimer: NodeJS.Timeout | null = null;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
     const show = () => {
       setControlsVisible(true);
       if (hideTimer) clearTimeout(hideTimer);
@@ -1095,7 +1095,7 @@ export default function PlaylistWindowApp() {
     if (isDrawingMode) {
       // Save current annotation when exiting drawing mode (both views)
       const persistCanvasObjects = (
-        ref: React.RefObject<AnnotationCanvasRef>,
+        ref: React.RefObject<AnnotationCanvasRef | null>,
         target: AnnotationTarget,
       ) => {
         if (!currentItem || !ref.current) return;
