@@ -10,38 +10,13 @@ import React, {
   useState,
   forwardRef,
 } from 'react';
-import {
-  Box,
-  Divider,
-  IconButton,
-  Portal,
-  Paper,
-  Slider,
-  Stack,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import {
-  ArrowRightAlt,
-  Brush,
-  Clear,
-  CropSquare,
-  PauseCircle,
-  RadioButtonUnchecked,
-  TextFields,
-  Timeline,
-  Undo,
-  DragIndicator,
-  OpenWith,
-} from '@mui/icons-material';
+import { Box, Paper, TextField } from '@mui/material';
 import type {
   AnnotationTarget,
   DrawingObject,
   DrawingToolType,
 } from '../../../types/Playlist';
+import { AnnotationToolbar } from './AnnotationToolbar';
 
 const TIMESTAMP_TOLERANCE = 0.12;
 const MIN_FREEZE_UI_SECONDS = 1;
@@ -977,203 +952,26 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           </Box>
         )}
 
-        {isActive && (
-          <Portal>
-            <Paper
-              ref={toolbarRef}
-              sx={{
-                position: 'fixed',
-                top: toolbarPosition.y,
-                left: toolbarPosition.x,
-                p: 0.5,
-                bgcolor: 'rgba(0,0,0,0.82)',
-                backdropFilter: 'blur(6px)',
-                display: 'grid',
-                gridTemplateColumns: '1fr',
-                gap: 0.4,
-                boxShadow: 6,
-                borderRadius: 2,
-                zIndex: 2000,
-                cursor: isDraggingToolbar ? 'grabbing' : 'default',
-                userSelect: 'none',
-                width: 'fit-content',
-                overflow: 'hidden',
-              }}
-            >
-              <Stack
-                direction="row"
-                spacing={0.5}
-                alignItems="center"
-                onMouseDown={handleToolbarDragStart}
-                sx={{
-                  cursor: 'grab',
-                  color: 'grey.300',
-                  fontSize: 10,
-                  pb: 0.25,
-                }}
-              >
-                <DragIndicator fontSize="small" />
-                <Typography variant="caption">移動</Typography>
-              </Stack>
-
-              {tool === 'select' && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontSize: 9.5,
-                    color: 'grey.400',
-                    lineHeight: 1.1,
-                    px: 0.25,
-                  }}
-                >
-                  クリック:選択
-                  <br />
-                  ドラッグ:移動
-                  <br />
-                  Delete:削除
-                </Typography>
-              )}
-
-              {/* Tool Selection */}
-              <ToggleButtonGroup
-                value={tool}
-                exclusive
-                onChange={(_, value) => value && setTool(value)}
-                size="small"
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(7, 1fr)',
-                  gap: 0.25,
-                  '& .MuiToggleButton-root': { minWidth: 28, height: 28, p: 0 },
-                }}
-              >
-                <ToggleButton value="pen">
-                  <Tooltip title="ペン">
-                    <Brush fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="select">
-                  <Tooltip title="選択/ドラッグで移動・Deleteで削除">
-                    <OpenWith fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="line">
-                  <Tooltip title="直線">
-                    <Timeline fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="arrow">
-                  <Tooltip title="矢印">
-                    <ArrowRightAlt fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="rectangle">
-                  <Tooltip title="四角形">
-                    <CropSquare fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="circle">
-                  <Tooltip title="円/楕円">
-                    <RadioButtonUnchecked fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="text">
-                  <Tooltip title="テキスト">
-                    <TextFields fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-              </ToggleButtonGroup>
-
-              <Divider sx={{ borderColor: 'grey.700' }} />
-
-              {/* Color Palette */}
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(8, 1fr)',
-                  gap: 0.25,
-                }}
-              >
-                {colors.map((c) => (
-                  <IconButton
-                    key={c}
-                    size="small"
-                    onClick={() => setColor(c)}
-                    sx={{
-                      width: 16,
-                      height: 16,
-                      bgcolor: c,
-                      border:
-                        color === c ? '2px solid white' : '1px solid #666',
-                      '&:hover': { bgcolor: c },
-                    }}
-                  />
-                ))}
-              </Box>
-
-              <Divider sx={{ borderColor: 'grey.700' }} />
-
-              {/* Stroke Width */}
-              <Stack spacing={0.25} sx={{ px: 0.5 }}>
-                <Typography variant="caption" sx={{ fontSize: 10 }}>
-                  太さ
-                </Typography>
-                <Slider
-                  size="small"
-                  value={strokeWidth}
-                  min={1}
-                  max={10}
-                  onChange={(_, v) => setStrokeWidth(v as number)}
-                  sx={{ width: '100%', mt: -0.5 }}
-                />
-              </Stack>
-
-              <Divider sx={{ borderColor: 'grey.700' }} />
-
-              {/* Actions */}
-              <Stack direction="row" spacing={0.25}>
-                <Tooltip title="元に戻す">
-                  <IconButton
-                    size="small"
-                    onClick={handleUndo}
-                    disabled={objects.length === 0}
-                  >
-                    <Undo fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="全てクリア">
-                  <IconButton size="small" onClick={handleClear}>
-                    <Clear fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Stack>
-
-              <Divider sx={{ borderColor: 'grey.700' }} />
-
-              {/* Freeze Duration */}
-              <Stack spacing={0.25} sx={{ px: 0.5 }}>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <PauseCircle
-                    fontSize="small"
-                    sx={{ color: 'warning.main' }}
-                  />
-                  <Typography variant="caption" sx={{ fontSize: 10 }}>
-                    停止 {localFreezeDuration}秒
-                  </Typography>
-                </Stack>
-                <Slider
-                  size="small"
-                  value={localFreezeDuration}
-                  min={MIN_FREEZE_UI_SECONDS}
-                  max={10}
-                  step={0.5}
-                  onChange={(_, v) => handleFreezeDurationChange(v as number)}
-                  sx={{ width: '100%' }}
-                />
-              </Stack>
-            </Paper>
-          </Portal>
-        )}
+        <AnnotationToolbar
+          isActive={isActive}
+          toolbarRef={toolbarRef}
+          position={toolbarPosition}
+          isDragging={isDraggingToolbar}
+          onDragStart={handleToolbarDragStart}
+          tool={tool}
+          onToolChange={setTool}
+          colors={colors}
+          color={color}
+          onColorChange={setColor}
+          strokeWidth={strokeWidth}
+          onStrokeWidthChange={setStrokeWidth}
+          canUndo={objects.length > 0}
+          onUndo={handleUndo}
+          onClear={handleClear}
+          freezeDuration={localFreezeDuration}
+          minFreezeDuration={MIN_FREEZE_UI_SECONDS}
+          onFreezeDurationChange={handleFreezeDurationChange}
+        />
       </Box>
     );
   },

@@ -1,10 +1,7 @@
 import React, { forwardRef, useImperativeHandle, useMemo } from 'react';
-import { Box, Typography, Button, Chip } from '@mui/material';
-import Grid from '@mui/material/GridLegacy';
-import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import { Box, Chip } from '@mui/material';
 import LabelIcon from '@mui/icons-material/Label';
 import videojs from 'video.js';
-import { EnhancedCodeButton } from './EnhancedCodeButton';
 import { useActionPreset } from '../../../../contexts/ActionPresetContext';
 import type {
   ActionDefinition,
@@ -16,6 +13,9 @@ import {
   replaceTeamPlaceholders,
   type TeamContext,
 } from '../../../../utils/teamPlaceholder';
+import { CustomCodeLayout } from './CustomCodeLayout';
+import { ActionLabelGroup } from './ActionLabelGroup';
+import { DefaultCodeLayout } from './DefaultCodeLayout';
 
 type LabelSelectionsMap = Record<string, Record<string, string>>;
 type EffectiveLink = {
@@ -620,128 +620,17 @@ export const EnhancedCodePanel = forwardRef<
     ) => {
       const selectionForAction = labelSelections[actionName] ?? {};
       return (
-        <Box key={groupName} sx={{ mb: isLastGroup ? 0 : 1 }}>
-          <Typography
-            variant="caption"
-            sx={{ fontWeight: 'bold', mb: 0.5, display: 'block' }}
-          >
-            {groupName}
-          </Typography>
-          <Box
-            sx={{
-              display: 'grid',
-              gap: 0.5,
-              gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
-              width: '100%',
-            }}
-          >
-            {options.map((option) => (
-              <EnhancedCodeButton
-                key={option}
-                label={option}
-                isSelected={selectionForAction[groupName] === option}
-                onClick={() => handleLabelSelect(actionName, groupName, option)}
-                size="small"
-                color="secondary"
-              />
-            ))}
-          </Box>
-        </Box>
+        <ActionLabelGroup
+          groupName={groupName}
+          options={options}
+          selectedOption={selectionForAction[groupName]}
+          isLastGroup={isLastGroup}
+          onSelect={(option) => handleLabelSelect(actionName, groupName, option)}
+        />
       );
     };
 
-    // チームごとのアクションボタンをレンダリング
-    const renderTeamActions = (teamName: string) => {
-      // タイムラインと同じロジックでチーム色を決定
-      const referenceTeamName = firstTeamName || teamNames[0];
-      const isFirstTeam = teamName === referenceTeamName;
-      const color = isFirstTeam ? 'team1' : 'team2';
-
-      return (
-        <Box>
-          <Typography
-            variant="subtitle2"
-            sx={{
-              mb: 1,
-              fontWeight: 'bold',
-              color: `${color}.main`,
-            }}
-          >
-            {teamName}
-          </Typography>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 0.5,
-            }}
-          >
-            {activeActions.map((action) => {
-              const isActive = Boolean(activeRecordings[action.action]);
-              const isSelected = isActive || primaryAction === action.action;
-              const labelGroups = getActionLabels(action);
-              const hasLabels = labelGroups.length > 0;
-              return (
-                <Box key={action.action}>
-                  {/* アクションボタン */}
-                  <Button
-                    variant={isSelected ? 'contained' : 'outlined'}
-                    color={color}
-                    onClick={() => handleActionClick(teamName, action)}
-                    startIcon={
-                      isActive ? (
-                        <FiberManualRecordIcon
-                          sx={{ animation: 'pulse 1.5s ease-in-out infinite' }}
-                        />
-                      ) : undefined
-                    }
-                    sx={{
-                      width: '100%',
-                      justifyContent: 'flex-start',
-                      textAlign: 'left',
-                      minHeight: 36,
-                      fontSize: '0.8rem',
-                      px: 1.5,
-                      fontWeight: isSelected ? 'bold' : 'normal',
-                      '@keyframes pulse': {
-                        '0%, 100%': { opacity: 1 },
-                        '50%': { opacity: 0.5 },
-                      },
-                    }}
-                  >
-                    {action.action}
-                  </Button>
-
-                  {/* 選択中のアクションの場合、ラベルグループ/ラベルを直下に表示 */}
-                  {isSelected && hasLabels && (
-                    <Box
-                      sx={{
-                        mt: 0.5,
-                        ml: 1,
-                        p: 1,
-                        backgroundColor: 'action.hover',
-                        borderRadius: 1,
-                        borderLeft: 3,
-                        borderColor: `${color}.main`,
-                      }}
-                    >
-                      {labelGroups.map((group, groupIndex) =>
-                        renderLabelGroup(
-                          action.action,
-                          group.groupName,
-                          group.options,
-                          groupIndex === labelGroups.length - 1,
-                        ),
-                      )}
-                    </Box>
-                  )}
-                </Box>
-              );
-            })}
-          </Box>
-        </Box>
-      );
-    };
+    const referenceTeamName = firstTeamName || teamNames[0];
 
     const handleApplyLabel = (groupName: string, option: string) => {
       if (!onApplyLabels || selectedIds.length === 0) {
@@ -910,131 +799,6 @@ export const EnhancedCodePanel = forwardRef<
       }
     };
 
-    // カスタムレイアウトをレンダリング（自由配置対応、Sportscode方式）
-    const renderCustomLayout = (layout: CodeWindowLayout) => {
-      // 全ボタンを表示（チームフィルターなし）
-      const allButtons = layout.buttons;
-
-      // スケール係数を計算（コンテナに収める）
-      const containerWidth =
-        layoutContainerWidth || Math.max(1, layout.canvasWidth);
-      const scale = containerWidth / layout.canvasWidth;
-      const containerHeight = layout.canvasHeight * scale;
-
-      return (
-        <Box
-          ref={layoutContainerRef}
-          sx={{
-            mb: 2,
-            position: 'relative',
-            width: '100%',
-            height: containerHeight,
-            backgroundColor: 'transparent',
-            borderRadius: 0,
-            border: 'none',
-          }}
-        >
-          {allButtons.map((button) => {
-            // プレースホルダーを置換したボタン名
-            const resolvedButtonName = replaceTeamPlaceholders(
-              button.name,
-              teamContext,
-            );
-            const isActive =
-              button.type === 'action' &&
-              Boolean(activeRecordings[resolvedButtonName]);
-            const isSelected = isActive || primaryAction === resolvedButtonName;
-            // ラベルボタンは一時的なアクティブ状態（1秒間）のみ表示
-            const isLabelSelected =
-              button.type === 'label' && activeLabelButtons[button.id];
-
-            const buttonColor =
-              button.color ||
-              (button.type === 'action' ? '#1976d2' : '#9c27b0');
-            const baseFontPx = button.fontSize ?? 14;
-            const fontPx = Math.max(10, baseFontPx * scale);
-            // 表示テキストもプレースホルダーを置換
-            const displayText =
-              button.type === 'label' && button.labelValue
-                ? button.labelValue
-                : resolvedButtonName;
-
-            return (
-              <Box
-                key={button.id}
-                onClick={() => handleCustomButtonClick(button)}
-                sx={{
-                  position: 'absolute',
-                  left: button.x * scale,
-                  top: button.y * scale,
-                  width: button.width * scale,
-                  height: button.height * scale,
-                  minWidth: 0,
-                  px: 0.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent:
-                    button.textAlign === 'left'
-                      ? 'flex-start'
-                      : button.textAlign === 'right'
-                        ? 'flex-end'
-                        : 'center',
-                  fontSize: `${fontPx}px`,
-                  fontWeight: 500,
-                  backgroundColor:
-                    isSelected || isLabelSelected ? buttonColor : 'transparent',
-                  color:
-                    isSelected || isLabelSelected
-                      ? button.textColor || '#fff'
-                      : buttonColor,
-                  border: `1px solid ${buttonColor}`,
-                  borderRadius: `${(button.borderRadius ?? 4) * scale}px`,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  overflow: 'hidden',
-                  '&:hover': {
-                    backgroundColor:
-                      isSelected || isLabelSelected
-                        ? buttonColor
-                        : `${buttonColor}22`,
-                  },
-                  '&:active': {
-                    transform: 'scale(0.98)',
-                  },
-                  '@keyframes pulse': {
-                    '0%, 100%': { opacity: 1 },
-                    '50%': { opacity: 0.5 },
-                  },
-                }}
-              >
-                {/* 録画アイコン */}
-                {isRecording && isSelected && (
-                  <FiberManualRecordIcon
-                    sx={{
-                      fontSize: '0.75rem',
-                      animation: 'pulse 1.5s ease-in-out infinite',
-                      color: 'error.main',
-                      mr: 0.25,
-                    }}
-                  />
-                )}
-                {/* テキスト */}
-                <span
-                  style={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {displayText}
-                </span>
-              </Box>
-            );
-          })}
-        </Box>
-      );
-    };
-
     return (
       <Box
         sx={{
@@ -1066,18 +830,29 @@ export const EnhancedCodePanel = forwardRef<
         </Box>
 
         {customLayout ? (
-          // カスタムレイアウトモード（Sportscode方式: 1回だけレンダリング）
-          <Box>{renderCustomLayout(customLayout)}</Box>
+          <CustomCodeLayout
+            layout={customLayout}
+            teamContext={teamContext}
+            activeRecordings={activeRecordings}
+            primaryAction={primaryAction}
+            activeLabelButtons={activeLabelButtons}
+            isRecording={isRecording}
+            layoutContainerRef={layoutContainerRef}
+            layoutContainerWidth={layoutContainerWidth}
+            onButtonClick={handleCustomButtonClick}
+          />
         ) : (
           // デフォルトモード
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
-              {teamNames[0] && renderTeamActions(teamNames[0])}
-            </Grid>
-            <Grid item xs={6}>
-              {teamNames[1] && renderTeamActions(teamNames[1])}
-            </Grid>
-          </Grid>
+          <DefaultCodeLayout
+            teamNames={teamNames}
+            referenceTeamName={referenceTeamName}
+            actions={activeActions}
+            primaryAction={primaryAction}
+            activeRecordings={activeRecordings}
+            getActionLabels={getActionLabels}
+            onActionClick={handleActionClick}
+            renderLabelGroup={renderLabelGroup}
+          />
         )}
       </Box>
     );

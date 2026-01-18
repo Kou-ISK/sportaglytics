@@ -5,15 +5,8 @@ import {
   Typography,
   IconButton,
   Tooltip,
-  Menu,
-  MenuItem,
   Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
-  TextField,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -34,6 +27,9 @@ import {
   DEFAULT_BUTTON_HEIGHT,
   findEmptySpace,
 } from './utils';
+import { FreeCanvasContextMenu } from './FreeCanvasContextMenu';
+import { FreeCanvasCustomActionDialog } from './FreeCanvasCustomActionDialog';
+import { FreeCanvasCustomLabelDialog } from './FreeCanvasCustomLabelDialog';
 
 interface FreeCanvasEditorProps {
   layout: CodeWindowLayout;
@@ -600,6 +596,124 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     ],
   );
 
+  const handleOpenCustomActionDialog = useCallback(
+    (position: { x: number; y: number }) => {
+      setDialogPosition(position);
+      setCustomActionDialogOpen(true);
+    },
+    [],
+  );
+
+  const handleOpenCustomLabelDialog = useCallback(
+    (position: { x: number; y: number }) => {
+      setDialogPosition(position);
+      setCustomLabelDialogOpen(true);
+    },
+    [],
+  );
+
+  const handleConfirmCustomAction = useCallback(() => {
+    if (!customActionName.trim()) return;
+
+    let newButton = createButton(
+      'action',
+      customActionName.trim(),
+      dialogPosition.x,
+      dialogPosition.y,
+    );
+
+    const canPlaceAtDialog = canPlaceButton(
+      layout.buttons,
+      newButton,
+      newButton.x,
+      newButton.y,
+      layout.canvasWidth,
+      layout.canvasHeight,
+    );
+
+    if (!canPlaceAtDialog) {
+      const fallback = findEmptySpace(
+        layout.buttons,
+        newButton.width,
+        newButton.height,
+        layout.canvasWidth,
+        layout.canvasHeight,
+      );
+      if (fallback) {
+        newButton = { ...newButton, x: fallback.x, y: fallback.y };
+      } else {
+        return;
+      }
+    }
+
+    updateLayoutWithHistory({
+      ...layout,
+      buttons: [...layout.buttons, newButton],
+    });
+    onSelectButtons([newButton.id]);
+    setCustomActionName('');
+    setCustomActionDialogOpen(false);
+  }, [
+    customActionName,
+    dialogPosition.x,
+    dialogPosition.y,
+    layout,
+    onSelectButtons,
+    updateLayoutWithHistory,
+  ]);
+
+  const handleConfirmCustomLabel = useCallback(() => {
+    if (!customLabelGroup.trim() || !customLabelValue.trim()) return;
+
+    let newButton = createButton(
+      'label',
+      customLabelGroup.trim(),
+      dialogPosition.x,
+      dialogPosition.y,
+      { labelValue: customLabelValue.trim() },
+    );
+
+    const canPlaceAtDialog = canPlaceButton(
+      layout.buttons,
+      newButton,
+      newButton.x,
+      newButton.y,
+      layout.canvasWidth,
+      layout.canvasHeight,
+    );
+    if (!canPlaceAtDialog) {
+      const fallback = findEmptySpace(
+        layout.buttons,
+        newButton.width,
+        newButton.height,
+        layout.canvasWidth,
+        layout.canvasHeight,
+      );
+      if (fallback) {
+        newButton = { ...newButton, x: fallback.x, y: fallback.y };
+      } else {
+        return;
+      }
+    }
+
+    updateLayoutWithHistory({
+      ...layout,
+      buttons: [...layout.buttons, newButton],
+    });
+    onSelectButtons([newButton.id]);
+    setCustomLabelGroup('');
+    setCustomLabelValue('');
+    setCustomLabelDialogOpen(false);
+  }, [
+    customLabelGroup,
+    customLabelValue,
+    dialogPosition.x,
+    dialogPosition.y,
+    layout,
+    onSelectButtons,
+    updateLayoutWithHistory,
+  ]);
+
   // ボタン削除
   const handleDeleteButton = useCallback(
     (buttonId: string) => {
@@ -1087,255 +1201,36 @@ Shift + 右クリックドラッグ → 非活性化（橙）`}
         )}
       </Box>
 
-      {/* コンテキストメニュー */}
-      <Menu
-        open={contextMenu !== null}
+      <FreeCanvasContextMenu
+        contextMenu={contextMenu}
+        availableActions={availableActions}
+        availableLabelGroups={availableLabelGroups}
         onClose={handleCloseContextMenu}
-        anchorReference="anchorPosition"
-        anchorPosition={
-          contextMenu !== null
-            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
-            : undefined
+        onAddAction={(action) => handleAddButton('action', action)}
+        onAddLabel={(groupName, option) =>
+          handleAddButton('label', groupName, option)
         }
-      >
-        <MenuItem disabled>
-          <Typography variant="caption" color="text.secondary">
-            アクションボタン
-          </Typography>
-        </MenuItem>
-        {availableActions.map((action) => (
-          <MenuItem
-            key={action}
-            onClick={() => handleAddButton('action', action)}
-            sx={{ pl: 3 }}
-          >
-            {action}
-          </MenuItem>
-        ))}
-        <MenuItem
-          onClick={() => {
-            if (contextMenu) {
-              setDialogPosition(contextMenu.position);
-            }
-            setCustomActionDialogOpen(true);
-            handleCloseContextMenu();
-          }}
-          sx={{ pl: 3, fontStyle: 'italic', color: 'primary.main' }}
-        >
-          + カスタムアクション...
-        </MenuItem>
-        <Divider />
-        <MenuItem disabled>
-          <Typography variant="caption" color="text.secondary">
-            ラベルボタン
-          </Typography>
-        </MenuItem>
-        {availableLabelGroups.map((group) => (
-          <MenuItem key={group.groupName} sx={{ pl: 2 }}>
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {group.groupName}
-              </Typography>
-              <Box
-                sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}
-              >
-                {group.options.map((option) => (
-                  <Typography
-                    key={option}
-                    variant="caption"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddButton('label', group.groupName, option);
-                    }}
-                    sx={{
-                      cursor: 'pointer',
-                      backgroundColor: 'action.hover',
-                      px: 1,
-                      py: 0.25,
-                      borderRadius: 1,
-                      '&:hover': {
-                        backgroundColor: 'primary.light',
-                        color: 'primary.contrastText',
-                      },
-                    }}
-                  >
-                    {option}
-                  </Typography>
-                ))}
-              </Box>
-            </Box>
-          </MenuItem>
-        ))}
-        <MenuItem
-          onClick={() => {
-            if (contextMenu) {
-              setDialogPosition(contextMenu.position);
-            }
-            setCustomLabelDialogOpen(true);
-            handleCloseContextMenu();
-          }}
-          sx={{ pl: 2, fontStyle: 'italic', color: 'secondary.main' }}
-        >
-          + カスタムラベル...
-        </MenuItem>
-      </Menu>
+        onOpenCustomAction={handleOpenCustomActionDialog}
+        onOpenCustomLabel={handleOpenCustomLabelDialog}
+      />
 
-      {/* カスタムアクション追加ダイアログ */}
-      <Dialog
+      <FreeCanvasCustomActionDialog
         open={customActionDialogOpen}
         onClose={() => setCustomActionDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth={false}
-        PaperProps={{ sx: { width: 420, maxWidth: '90vw' } }}
-      >
-        <DialogTitle>カスタムアクションを追加</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            label="アクション名"
-            value={customActionName}
-            onChange={(e) => setCustomActionName(e.target.value)}
-            placeholder="例: Cross, Tackle, Header"
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCustomActionDialogOpen(false)}>
-            キャンセル
-          </Button>
-          <Button
-            variant="contained"
-            disabled={!customActionName.trim()}
-            onClick={() => {
-              if (customActionName.trim()) {
-                let newButton = createButton(
-                  'action',
-                  customActionName.trim(),
-                  dialogPosition.x,
-                  dialogPosition.y,
-                );
-                // 配置可能かチェック
-                const canPlaceAtDialog = canPlaceButton(
-                  layout.buttons,
-                  newButton,
-                  newButton.x,
-                  newButton.y,
-                  layout.canvasWidth,
-                  layout.canvasHeight,
-                );
-                if (!canPlaceAtDialog) {
-                  const fallback = findEmptySpace(
-                    layout.buttons,
-                    newButton.width,
-                    newButton.height,
-                    layout.canvasWidth,
-                    layout.canvasHeight,
-                  );
-                  if (fallback) {
-                    newButton = { ...newButton, x: fallback.x, y: fallback.y };
-                  } else {
-                    return;
-                  }
-                }
+        actionName={customActionName}
+        onActionNameChange={setCustomActionName}
+        onConfirm={handleConfirmCustomAction}
+      />
 
-                updateLayoutWithHistory({
-                  ...layout,
-                  buttons: [...layout.buttons, newButton],
-                });
-                onSelectButtons([newButton.id]);
-              }
-              setCustomActionName('');
-              setCustomActionDialogOpen(false);
-            }}
-          >
-            追加
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* カスタムラベル追加ダイアログ */}
-      <Dialog
+      <FreeCanvasCustomLabelDialog
         open={customLabelDialogOpen}
         onClose={() => setCustomLabelDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth={false}
-        PaperProps={{ sx: { width: 420, maxWidth: '90vw' } }}
-      >
-        <DialogTitle>カスタムラベルを追加</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            label="グループ名"
-            value={customLabelGroup}
-            onChange={(e) => setCustomLabelGroup(e.target.value)}
-            placeholder="例: Zone, Technique, Body Part"
-            sx={{ mt: 1, mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="ラベル値"
-            value={customLabelValue}
-            onChange={(e) => setCustomLabelValue(e.target.value)}
-            placeholder="例: Left, Right, Center"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCustomLabelDialogOpen(false)}>
-            キャンセル
-          </Button>
-          <Button
-            variant="contained"
-            disabled={!customLabelGroup.trim() || !customLabelValue.trim()}
-            onClick={() => {
-              if (customLabelGroup.trim() && customLabelValue.trim()) {
-                let newButton = createButton(
-                  'label',
-                  customLabelGroup.trim(),
-                  dialogPosition.x,
-                  dialogPosition.y,
-                  { labelValue: customLabelValue.trim() },
-                );
-                // 配置可能かチェック
-                const canPlaceAtDialog = canPlaceButton(
-                  layout.buttons,
-                  newButton,
-                  newButton.x,
-                  newButton.y,
-                  layout.canvasWidth,
-                  layout.canvasHeight,
-                );
-                if (!canPlaceAtDialog) {
-                  const fallback = findEmptySpace(
-                    layout.buttons,
-                    newButton.width,
-                    newButton.height,
-                    layout.canvasWidth,
-                    layout.canvasHeight,
-                  );
-                  if (fallback) {
-                    newButton = { ...newButton, x: fallback.x, y: fallback.y };
-                  } else {
-                    return;
-                  }
-                }
-
-                updateLayoutWithHistory({
-                  ...layout,
-                  buttons: [...layout.buttons, newButton],
-                });
-                onSelectButtons([newButton.id]);
-              }
-              setCustomLabelGroup('');
-              setCustomLabelValue('');
-              setCustomLabelDialogOpen(false);
-            }}
-          >
-            追加
-          </Button>
-        </DialogActions>
-      </Dialog>
+        labelGroup={customLabelGroup}
+        labelValue={customLabelValue}
+        onLabelGroupChange={setCustomLabelGroup}
+        onLabelValueChange={setCustomLabelValue}
+        onConfirm={handleConfirmCustomLabel}
+      />
     </Box>
   );
 };

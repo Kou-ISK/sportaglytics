@@ -14,78 +14,22 @@ import React, {
 import {
   Box,
   Paper,
-  List,
-  ListItemButton,
-  ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
   Typography,
-  Divider,
-  Slider,
-  Stack,
-  Tooltip,
-  Menu,
-  MenuItem,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   ToggleButton,
   ToggleButtonGroup,
-  ListItemIcon,
-  alpha,
-  LinearProgress,
   Checkbox,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-  Chip as MuiChip,
 } from '@mui/material';
-import {
-  Delete,
-  DragIndicator,
-  PlayArrow,
-  Pause,
-  SkipNext,
-  SkipPrevious,
-  VolumeUp,
-  VolumeOff,
-  Fullscreen,
-  FullscreenExit,
-  MoreVert,
-  Loop,
-  PlaylistPlay,
-  Save,
-  FolderOpen,
-  Edit,
-  Brush,
-  Link,
-  LinkOff,
-  Notes,
-  PauseCircle,
-  FileDownload,
-} from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
 import { ExportProgressSnackbar } from '../../components/ExportProgressSnackbar';
 import {
-  DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragEndEvent,
 } from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import type {
   PlaylistItem,
   PlaylistSyncData,
@@ -101,410 +45,21 @@ import { useTheme } from '@mui/material/styles';
 import { usePlaylistHistory } from './hooks/usePlaylistHistory';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import type { HotkeyConfig } from '../../types/Settings';
+import { PlaylistSaveDialog } from './components/PlaylistSaveDialog';
+import { PlaylistNoteDialog } from './components/PlaylistNoteDialog';
+import { PlaylistItemSection } from './components/PlaylistItemSection';
+import { PlaylistExportDialog } from './components/PlaylistExportDialog';
+import { PlaylistSaveProgressDialog } from './components/PlaylistSaveProgressDialog';
+import { PlaylistVideoControlsOverlay } from './components/PlaylistVideoControlsOverlay';
+import { PlaylistDrawingExitButton } from './components/PlaylistDrawingExitButton';
+import { PlaylistHeaderToolbar } from './components/PlaylistHeaderToolbar';
+import { PlaylistNowPlayingInfo } from './components/PlaylistNowPlayingInfo';
 
 const DEFAULT_FREEZE_DURATION = 3; // seconds - Sportscode風の自動停止既定値を少し延長
 const MIN_FREEZE_DURATION = 1; // seconds - ユーザー要求の最低停止秒数
 const ANNOTATION_TIME_TOLERANCE = 0.12; // 秒: 描画タイミング判定のゆらぎ
 const FREEZE_RETRIGGER_GUARD = 0.3; // 秒: 同じタイミングでの連続フリーズ防止
 
-// ===== Sortable Item Component =====
-interface SortableItemProps {
-  item: PlaylistItem;
-  index: number;
-  isActive: boolean;
-  selected: boolean;
-  onRemove: (id: string) => void;
-  onPlay: (id: string) => void;
-  onEditNote: (id: string) => void;
-  onToggleSelect: (id: string) => void;
-}
-
-function SortableItem({
-  item,
-  index,
-  isActive,
-  selected,
-  onRemove,
-  onPlay,
-  onEditNote,
-  onToggleSelect,
-}: SortableItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const duration = item.endTime - item.startTime;
-  const hasAnnotation =
-    item.annotation &&
-    (item.annotation.objects.length > 0 || item.annotation.freezeDuration > 0);
-
-  const theme = useTheme();
-  const [isHovering, setIsHovering] = useState(false);
-
-  return (
-    <ListItemButton
-      ref={setNodeRef}
-      style={style}
-      selected={isActive}
-      onClick={() => onPlay(item.id)}
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
-      sx={{
-        py: 0.5,
-        px: 1,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        borderLeft: isActive ? '3px solid #00FF85' : '3px solid transparent',
-        bgcolor: isActive
-          ? alpha(theme.palette.primary.main, 0.15)
-          : 'transparent',
-        transition: 'all 0.2s ease',
-        '&:hover': {
-          bgcolor: isActive
-            ? alpha(theme.palette.primary.main, 0.2)
-            : alpha('#fff', 0.05),
-        },
-        '&.Mui-selected': {
-          bgcolor: alpha(theme.palette.primary.main, 0.15),
-        },
-      }}
-    >
-      {/* Checkbox */}
-      <Checkbox
-        size="small"
-        checked={selected}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleSelect(item.id);
-        }}
-        sx={{ py: 0, px: 0.5 }}
-      />
-
-      {/* Index number */}
-      <Typography
-        variant="caption"
-        sx={{
-          width: 24,
-          textAlign: 'center',
-          fontWeight: isActive ? 'bold' : 'normal',
-          color: isActive ? 'primary.main' : 'text.secondary',
-        }}
-      >
-        {index + 1}
-      </Typography>
-
-      {/* Drag handle */}
-      <Box
-        {...attributes}
-        {...listeners}
-        sx={{
-          mx: 0.5,
-          cursor: 'grab',
-          display: 'flex',
-          alignItems: 'center',
-          color: 'text.disabled',
-          '&:hover': { color: 'text.secondary' },
-        }}
-      >
-        <DragIndicator fontSize="small" />
-      </Box>
-
-      {/* Content */}
-      <ListItemText
-        primary={
-          <Stack direction="row" spacing={0.5} alignItems="center">
-            <Typography
-              variant="body2"
-              noWrap
-              sx={{
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? 'primary.main' : 'text.primary',
-                maxWidth: 150,
-              }}
-            >
-              {item.actionName}
-            </Typography>
-            {item.note && (
-              <MuiChip
-                label={item.note}
-                size="small"
-                color="warning"
-                onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  onEditNote(item.id);
-                }}
-                sx={{
-                  maxWidth: 150,
-                  fontSize: '0.65rem',
-                  height: 18,
-                  ml: 0.5,
-                  cursor: 'pointer',
-                  '& .MuiChip-label': {
-                    px: 0.75,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  },
-                }}
-              />
-            )}
-            {hasAnnotation && (
-              <Tooltip
-                title={`描画あり${item.annotation?.freezeDuration ? ` (${item.annotation.freezeDuration}秒停止)` : ''}`}
-              >
-                <Brush
-                  fontSize="small"
-                  sx={{ fontSize: 14, color: 'info.main' }}
-                />
-              </Tooltip>
-            )}
-          </Stack>
-        }
-        secondary={
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontFamily: 'monospace' }}
-            >
-              {formatTime(item.startTime)}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-              ({formatTime(duration)})
-            </Typography>
-            {item.annotation?.freezeDuration ? (
-              <PauseCircle
-                sx={{ fontSize: 12, color: 'warning.main', ml: 0.5 }}
-              />
-            ) : null}
-          </Stack>
-        }
-        sx={{ my: 0 }}
-      />
-
-      {/* Actions */}
-      <ListItemSecondaryAction
-        sx={{
-          opacity: isHovering ? 1 : 0,
-          transition: 'opacity 0.2s ease',
-        }}
-      >
-        <Stack direction="row" spacing={0}>
-          <Tooltip title="メモを編集">
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEditNote(item.id);
-              }}
-            >
-              <Edit fontSize="small" sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="削除">
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(item.id);
-              }}
-            >
-              <Delete fontSize="small" sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      </ListItemSecondaryAction>
-    </ListItemButton>
-  );
-}
-
-// ===== Save Dialog Component =====
-interface SaveDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onSave: (
-    type: PlaylistType,
-    name: string,
-    shouldCloseAfterSave?: boolean,
-  ) => void;
-  defaultName: string;
-  defaultType?: PlaylistType;
-  closeAfterSave?: boolean;
-}
-
-function SaveDialog({
-  open,
-  onClose,
-  onSave,
-  defaultName,
-  defaultType = 'embedded',
-  closeAfterSave = false,
-}: SaveDialogProps) {
-  const [name, setName] = useState(defaultName);
-  const [saveType, setSaveType] = useState<PlaylistType>(defaultType);
-
-  useEffect(() => {
-    setName(defaultName);
-    setSaveType(defaultType);
-  }, [defaultName, defaultType, open]);
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>プレイリストを保存</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            label="プレイリスト名"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            fullWidth
-            size="small"
-          />
-          <Box>
-            <Typography variant="caption" color="text.secondary" gutterBottom>
-              保存形式
-            </Typography>
-            <ToggleButtonGroup
-              value={saveType}
-              exclusive
-              onChange={(_, value) => value && setSaveType(value)}
-              fullWidth
-              size="small"
-            >
-              <ToggleButton value="embedded">
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <LinkOff fontSize="small" />
-                  <Box textAlign="left">
-                    <Typography variant="caption" display="block">
-                      スタンドアロン
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ fontSize: '0.65rem' }}
-                    >
-                      独立したファイル
-                    </Typography>
-                  </Box>
-                </Stack>
-              </ToggleButton>
-              <ToggleButton value="reference">
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Link fontSize="small" />
-                  <Box textAlign="left">
-                    <Typography variant="caption" display="block">
-                      参照
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ fontSize: '0.65rem' }}
-                    >
-                      元データにリンク
-                    </Typography>
-                  </Box>
-                </Stack>
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
-          <Typography variant="caption" color="text.secondary">
-            {saveType === 'embedded'
-              ? 'スタンドアロン: 動画パスと描画データを含めて保存'
-              : '参照: 元のタイムラインへのリンクを維持'}
-          </Typography>
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>キャンセル</Button>
-        <Button
-          onClick={() => onSave(saveType, name, closeAfterSave)}
-          variant="contained"
-          disabled={!name.trim()}
-        >
-          保存
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-// ===== Note Edit Dialog =====
-// プレイリスト内のメモを編集するダイアログ
-// 注: この変更はタイムラインには反映されません
-interface NoteDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onSave: (note: string) => void;
-  initialNote: string;
-  itemName: string;
-}
-
-function NoteDialog({
-  open,
-  onClose,
-  onSave,
-  initialNote,
-  itemName,
-}: NoteDialogProps) {
-  const [note, setNote] = useState(initialNote);
-
-  useEffect(() => {
-    setNote(initialNote);
-  }, [initialNote, open]);
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Notes />
-          <Typography>メモを編集: {itemName}</Typography>
-        </Stack>
-      </DialogTitle>
-      <DialogContent>
-        <TextField
-          multiline
-          rows={4}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          fullWidth
-          placeholder="映像出力時に表示されるメモを入力..."
-          sx={{ mt: 1 }}
-        />
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ mt: 1, display: 'block' }}
-        >
-          ※
-          このメモはプレイリスト内でのみ有効で、タイムラインには反映されません。
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>キャンセル</Button>
-        <Button onClick={() => onSave(note)} variant="contained">
-          保存
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-// ===== Main Component =====
 export default function PlaylistWindowApp() {
   const theme = useTheme();
   const { success, error: showError } = useNotification();
@@ -2234,148 +1789,35 @@ export default function PlaylistWindowApp() {
         fontFamily: theme.typography.fontFamily,
       }}
     >
-      {/* Header Toolbar */}
-      <Paper
-        elevation={0}
-        sx={{
-          bgcolor: theme.palette.background.paper,
-          backdropFilter: 'blur(8px)',
-          borderBottom: '1px solid',
-          borderColor: theme.palette.divider,
-          px: 1.5,
-          py: 0.75,
+      <PlaylistHeaderToolbar
+        playlistName={playlistName}
+        hasUnsavedChanges={hasUnsavedChanges}
+        exportDisabled={!!exportProgress}
+        hasDualSources={videoSources.length >= 2}
+        anchorEl={anchorEl}
+        onMenuOpen={handleMenuOpen}
+        onMenuClose={handleMenuClose}
+        onSaveClick={() => {
+          console.log(
+            '[PlaylistWindow] Save button clicked. loadedFilePath:',
+            loadedFilePath,
+          );
+          if (loadedFilePath) {
+            console.log(
+              '[PlaylistWindow] Saving to existing file:',
+              loadedFilePath,
+            );
+            handleSavePlaylist(false);
+          } else {
+            console.log('[PlaylistWindow] No loadedFilePath, showing dialog');
+            setSaveDialogOpen(true);
+          }
         }}
-      >
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <PlaylistPlay sx={{ color: theme.palette.primary.main }} />
-          <Typography variant="subtitle2" sx={{ flex: 1 }}>
-            {playlistName}
-            {hasUnsavedChanges ? ' *' : ''}
-          </Typography>
-
-          {/* Save Button with Neon Glow when unsaved */}
-          <Tooltip
-            title={`保存 (Cmd+S)${hasUnsavedChanges ? ' - 未保存の変更あり' : ''}`}
-          >
-            <IconButton
-              size="small"
-              onClick={() => {
-                console.log(
-                  '[PlaylistWindow] Save button clicked. loadedFilePath:',
-                  loadedFilePath,
-                );
-                // 既存ファイルがあれば即座に上書き保存、なければダイアログ表示
-                if (loadedFilePath) {
-                  console.log(
-                    '[PlaylistWindow] Saving to existing file:',
-                    loadedFilePath,
-                  );
-                  handleSavePlaylist(false);
-                } else {
-                  console.log(
-                    '[PlaylistWindow] No loadedFilePath, showing dialog',
-                  );
-                  setSaveDialogOpen(true);
-                }
-              }}
-              sx={{
-                color: hasUnsavedChanges ? 'warning.main' : 'text.secondary',
-                boxShadow: hasUnsavedChanges
-                  ? '0 0 8px rgba(255, 111, 97, 0.6)'
-                  : 'none',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  bgcolor: hasUnsavedChanges
-                    ? alpha(theme.palette.warning.main, 0.1)
-                    : alpha(theme.palette.action.hover, 0.08),
-                },
-              }}
-            >
-              <Save fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
-          {/* Export Button */}
-          <Tooltip title="書き出し (Cmd+E)">
-            <IconButton
-              size="small"
-              onClick={() => setExportDialogOpen(true)}
-              disabled={!!exportProgress}
-              sx={{
-                color: 'text.secondary',
-                '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.08) },
-              }}
-            >
-              <FileDownload fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
-          {/* Menu */}
-          <IconButton size="small" onClick={handleMenuOpen}>
-            <MoreVert fontSize="small" />
-          </IconButton>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-          >
-            <MenuItem
-              onClick={() => {
-                handleMenuClose();
-                setSaveDialogOpen(true);
-              }}
-            >
-              <ListItemIcon>
-                <Save fontSize="small" />
-              </ListItemIcon>
-              名前を付けて保存...
-            </MenuItem>
-            <MenuItem onClick={handleLoadPlaylist}>
-              <ListItemIcon>
-                <FolderOpen fontSize="small" />
-              </ListItemIcon>
-              プレイリストを開く
-            </MenuItem>
-            <Divider />
-            <MenuItem
-              onClick={() => {
-                handleMenuClose();
-                setViewMode('angle1');
-              }}
-              disabled={videoSources.length < 2}
-            >
-              <ListItemIcon>
-                <Typography variant="caption">⇧1</Typography>
-              </ListItemIcon>
-              アングル1のみ
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                handleMenuClose();
-                setViewMode('angle2');
-              }}
-              disabled={videoSources.length < 2}
-            >
-              <ListItemIcon>
-                <Typography variant="caption">⇧2</Typography>
-              </ListItemIcon>
-              アングル2のみ
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                handleMenuClose();
-                setViewMode('dual');
-              }}
-              disabled={videoSources.length < 2}
-            >
-              <ListItemIcon>
-                <Typography variant="caption"> </Typography>
-              </ListItemIcon>
-              デュアルビュー
-            </MenuItem>
-          </Menu>
-        </Stack>
-      </Paper>
+        onSaveAsClick={() => setSaveDialogOpen(true)}
+        onLoadClick={handleLoadPlaylist}
+        onExportClick={() => setExportDialogOpen(true)}
+        onViewModeChange={setViewMode}
+      />
 
       {/* Video Player Area */}
       <Box
@@ -2544,310 +1986,85 @@ export default function PlaylistWindowApp() {
           </Box>
         )}
 
-        {/* Video Controls Overlay */}
         {currentItem && !isDrawingMode && (
-          <Paper
-            sx={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              p: 1,
-              bgcolor: 'rgba(0,0,0,0.75)',
-              backdropFilter: 'blur(4px)',
-              opacity: controlsVisible ? 1 : 0,
-              transition: 'opacity 0.35s ease',
-              pointerEvents: controlsVisible ? 'auto' : 'none',
-              zIndex: 10,
-            }}
-          >
-            <Slider
-              size="small"
-              value={currentTime}
-              min={sliderMin}
-              max={sliderMax}
-              onChange={handleSeek}
-              onChangeCommitted={() => {
-                // Slider操作完了時にフォーカスを外す
-                if (document.activeElement instanceof HTMLElement) {
-                  document.activeElement.blur();
-                }
-              }}
-              sx={{
-                mb: 0.5,
-                height: 4,
-                '& .MuiSlider-thumb': { width: 10, height: 10 },
-                '& .MuiSlider-track': { bgcolor: 'primary.main' },
-              }}
-              marks={
-                currentAnnotation?.objects?.length
-                  ? currentAnnotation.objects.map((obj) => ({
-                      value: obj.timestamp,
-                      label: '',
-                    }))
-                  : []
+          <PlaylistVideoControlsOverlay
+            visible={controlsVisible}
+            currentTime={currentTime}
+            sliderMin={sliderMin}
+            sliderMax={sliderMax}
+            marks={
+              currentAnnotation?.objects?.length
+                ? currentAnnotation.objects.map((obj) => ({
+                    value: obj.timestamp,
+                    label: '',
+                  }))
+                : []
+            }
+            isPlaying={isPlaying}
+            isFrozen={isFrozen}
+            autoAdvance={autoAdvance}
+            loopPlaylist={loopPlaylist}
+            isDrawingMode={isDrawingMode}
+            isMuted={isMuted}
+            volume={volume}
+            isFullscreen={isFullscreen}
+            onSeek={handleSeek}
+            onSeekCommitted={() => {
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
               }
-            />
-            <Stack direction="row" spacing={0.4} alignItems="center">
-              <IconButton size="small" onClick={handlePrevious}>
-                <SkipPrevious sx={{ fontSize: 18 }} />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={handleTogglePlay}
-                color="primary"
-              >
-                {isPlaying && !isFrozen ? (
-                  <Pause sx={{ fontSize: 20 }} />
-                ) : (
-                  <PlayArrow sx={{ fontSize: 20 }} />
-                )}
-              </IconButton>
-              <IconButton size="small" onClick={handleNext}>
-                <SkipNext sx={{ fontSize: 18 }} />
-              </IconButton>
-
-              <Divider
-                orientation="vertical"
-                flexItem
-                sx={{ mx: 0.5, bgcolor: 'grey.700' }}
-              />
-
-              <Tooltip title={autoAdvance ? '連続再生: ON' : '連続再生: OFF'}>
-                <IconButton
-                  size="small"
-                  onClick={() => setAutoAdvance(!autoAdvance)}
-                  color={autoAdvance ? 'primary' : 'default'}
-                >
-                  <PlaylistPlay sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={loopPlaylist ? 'ループ: ON' : 'ループ: OFF'}>
-                <IconButton
-                  size="small"
-                  onClick={() => setLoopPlaylist(!loopPlaylist)}
-                  color={loopPlaylist ? 'primary' : 'default'}
-                >
-                  <Loop sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-
-              <Divider
-                orientation="vertical"
-                flexItem
-                sx={{ mx: 0.5, bgcolor: 'grey.700' }}
-              />
-
-              <Tooltip
-                title={
-                  isDrawingMode ? '描画モード: ON' : '描画（図形・テキスト）'
-                }
-              >
-                <IconButton
-                  size="small"
-                  onClick={handleToggleDrawingMode}
-                  color={isDrawingMode ? 'warning' : 'default'}
-                >
-                  <Brush sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-
-              <Box sx={{ flex: 1 }} />
-
-              <IconButton size="small" onClick={() => setIsMuted(!isMuted)}>
-                {isMuted ? (
-                  <VolumeOff sx={{ fontSize: 18 }} />
-                ) : (
-                  <VolumeUp sx={{ fontSize: 18 }} />
-                )}
-              </IconButton>
-              <Slider
-                size="small"
-                value={volume}
-                min={0}
-                max={1}
-                step={0.1}
-                onChange={handleVolumeChange}
-                sx={{ width: 50, height: 3 }}
-              />
-              <IconButton size="small" onClick={handleToggleFullscreen}>
-                {isFullscreen ? (
-                  <FullscreenExit sx={{ fontSize: 18 }} />
-                ) : (
-                  <Fullscreen fontSize="small" />
-                )}
-              </IconButton>
-            </Stack>
-          </Paper>
+            }}
+            onPrevious={handlePrevious}
+            onTogglePlay={handleTogglePlay}
+            onNext={handleNext}
+            onToggleAutoAdvance={() => setAutoAdvance(!autoAdvance)}
+            onToggleLoop={() => setLoopPlaylist(!loopPlaylist)}
+            onToggleDrawingMode={handleToggleDrawingMode}
+            onToggleMute={() => setIsMuted(!isMuted)}
+            onVolumeChange={handleVolumeChange}
+            onToggleFullscreen={handleToggleFullscreen}
+          />
         )}
 
-        {/* Drawing mode controls (exit button) */}
         {isDrawingMode && (
-          <Paper
-            sx={{
-              position: 'absolute',
-              bottom: 8,
-              right: 8,
-              p: 1,
-              bgcolor: 'rgba(0,0,0,0.9)',
-            }}
-          >
-            <Button
-              variant="contained"
-              color="warning"
-              size="small"
-              onClick={handleToggleDrawingMode}
-              startIcon={<Brush />}
-            >
-              描画を終了
-            </Button>
-          </Paper>
+          <PlaylistDrawingExitButton onExit={handleToggleDrawingMode} />
         )}
       </Box>
 
-      {/* Playlist Header */}
-      <Paper
-        elevation={0}
-        sx={{
-          bgcolor: theme.palette.background.paper,
-          px: 1,
-          py: 0.5,
-          borderTop: '1px solid',
-          borderBottom: '1px solid',
-          borderColor: theme.palette.divider,
+      <PlaylistItemSection
+        items={items}
+        currentIndex={currentIndex}
+        selectedItemIds={selectedItemIds}
+        sensors={sensors}
+        onDragEnd={handleDragEnd}
+        onRemove={handleRemoveItem}
+        onPlay={handlePlayItem}
+        onEditNote={handleEditNote}
+        onToggleSelect={(id) => {
+          setSelectedItemIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+              next.delete(id);
+            } else {
+              next.add(id);
+            }
+            return next;
+          });
         }}
-      >
-        <Stack direction="row" alignItems="center">
-          <Typography
-            variant="caption"
-            sx={{ width: 24, textAlign: 'center', color: 'text.secondary' }}
-          >
-            #
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{ flex: 1, ml: 3, color: 'text.secondary' }}
-          >
-            アクション
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            時間
-          </Typography>
-        </Stack>
-      </Paper>
+      />
 
-      {/* Playlist Items */}
-      <Box
-        sx={{
-          flex: 1,
-          overflow: 'auto',
-          bgcolor: theme.palette.background.paper,
-          borderTop: `1px solid ${theme.palette.divider}`,
-        }}
-      >
-        {items.length === 0 ? (
-          <Box
-            sx={{
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              p: 3,
-            }}
-          >
-            <Typography color="text.secondary" textAlign="center">
-              プレイリストが空です。
-              <br />
-              タイムライン上でアクションを右クリックして
-              <br />
-              「プレイリストに追加」を選択してください。
-            </Typography>
-          </Box>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={items.map((i) => i.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <List disablePadding>
-                {items.map((item, index) => (
-                  <SortableItem
-                    key={item.id}
-                    item={item}
-                    index={index}
-                    isActive={index === currentIndex}
-                    selected={selectedItemIds.has(item.id)}
-                    onRemove={handleRemoveItem}
-                    onPlay={(id) => handlePlayItem(id)}
-                    onEditNote={handleEditNote}
-                    onToggleSelect={(id) => {
-                      setSelectedItemIds((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(id)) {
-                          next.delete(id);
-                        } else {
-                          next.add(id);
-                        }
-                        return next;
-                      });
-                    }}
-                  />
-                ))}
-              </List>
-            </SortableContext>
-          </DndContext>
-        )}
-      </Box>
-
-      {/* Now Playing Info */}
       {currentItem && (
-        <Paper
-          elevation={0}
-          sx={{
-            bgcolor: theme.palette.background.paper,
-            px: 1.5,
-            py: 0.75,
-            borderTop: '1px solid',
-            borderColor: theme.palette.divider,
-          }}
-        >
-          <Stack direction="row" spacing={1} alignItems="center">
-            {isFrozen ? (
-              <PauseCircle fontSize="small" color="warning" />
-            ) : (
-              <PlayArrow fontSize="small" color="primary" />
-            )}
-            <Typography variant="body2" noWrap sx={{ flex: 1 }}>
-              {currentItem.actionName}
-              {currentItem.note && (
-                <Typography
-                  component="span"
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
-                >
-                  - {currentItem.note}
-                </Typography>
-              )}
-            </Typography>
-            {currentAnnotation?.objects.length ? (
-              <Tooltip title={`描画 ${currentAnnotation.objects.length}個`}>
-                <Brush fontSize="small" sx={{ color: 'info.main' }} />
-              </Tooltip>
-            ) : null}
-            <Typography variant="caption" color="text.secondary">
-              {currentIndex + 1} / {items.length}
-            </Typography>
-          </Stack>
-        </Paper>
+        <PlaylistNowPlayingInfo
+          currentItem={currentItem}
+          isFrozen={isFrozen}
+          currentIndex={currentIndex}
+          totalCount={items.length}
+          annotation={currentAnnotation}
+        />
       )}
 
       {/* Dialogs */}
-      <SaveDialog
+      <PlaylistSaveDialog
         open={saveDialogOpen}
         onClose={() => {
           setSaveDialogOpen(false);
@@ -2858,183 +2075,27 @@ export default function PlaylistWindowApp() {
         defaultType={playlistType}
         closeAfterSave={closeAfterSave}
       />
-      <Dialog
+      <PlaylistExportDialog
         open={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>プレイリストを書き出し</DialogTitle>
-        <DialogContent sx={{ display: 'grid', gap: 1.5, pt: 1 }}>
-          <TextField
-            label="ファイル名 (拡張子不要)"
-            fullWidth
-            size="small"
-            value={exportFileName}
-            onChange={(e) => setExportFileName(e.target.value)}
-          />
-          <Stack spacing={1}>
-            <Typography variant="body2">書き出し範囲</Typography>
-            <RadioGroup
-              value={exportScope}
-              onChange={(e) =>
-                setExportScope(e.target.value as 'all' | 'selected')
-              }
-            >
-              <FormControlLabel
-                value="all"
-                control={<Radio size="small" />}
-                label="全体"
-              />
-              <FormControlLabel
-                value="selected"
-                control={<Radio size="small" />}
-                label={`選択中のアイテム (${selectedItemIds.size} 件)`}
-              />
-            </RadioGroup>
-          </Stack>
-          <Divider />
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2">出力モード</Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={exportMode}
-              onChange={(_, v) => v && setExportMode(v)}
-            >
-              <ToggleButton value="single">1ファイル</ToggleButton>
-              <ToggleButton value="perInstance">インスタンスごと</ToggleButton>
-              <ToggleButton value="perRow">アクションごと</ToggleButton>
-            </ToggleButtonGroup>
-          </Stack>
-          <Stack spacing={2}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="body2">アングル</Typography>
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={angleOption}
-                onChange={(_, v) =>
-                  v && setAngleOption(v as 'allAngles' | 'single' | 'multi')
-                }
-              >
-                <ToggleButton
-                  value="allAngles"
-                  disabled={videoSources.length < 2}
-                >
-                  全アングル
-                </ToggleButton>
-                <ToggleButton value="single">単一アングル</ToggleButton>
-                <ToggleButton value="multi" disabled={videoSources.length < 2}>
-                  マルチ
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </Stack>
-            {angleOption === 'single' && (
-              <Stack direction="row" spacing={1} alignItems="center" pl={2}>
-                <Typography variant="body2" sx={{ minWidth: 80 }}>
-                  選択アングル
-                </Typography>
-                <ToggleButtonGroup
-                  exclusive
-                  size="small"
-                  value={selectedAngleIndex}
-                  onChange={(_, v) => v !== null && setSelectedAngleIndex(v)}
-                >
-                  {videoSources.map((_, index) => (
-                    <ToggleButton key={index} value={index}>
-                      アングル{index + 1}
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
-              </Stack>
-            )}
-          </Stack>
-          <Divider />
-          <Stack spacing={1}>
-            <Typography variant="body2">オーバーレイ</Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={overlaySettings.enabled ? 'on' : 'off'}
-              onChange={(_, v) =>
-                setOverlaySettings((prev) => ({ ...prev, enabled: v === 'on' }))
-              }
-            >
-              <ToggleButton value="on">表示</ToggleButton>
-              <ToggleButton value="off">非表示</ToggleButton>
-            </ToggleButtonGroup>
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              <Button
-                size="small"
-                variant={
-                  overlaySettings.showActionName ? 'contained' : 'outlined'
-                }
-                onClick={() =>
-                  setOverlaySettings((p) => ({
-                    ...p,
-                    showActionName: !p.showActionName,
-                  }))
-                }
-              >
-                アクション名
-              </Button>
-              <Button
-                size="small"
-                variant={
-                  overlaySettings.showActionIndex ? 'contained' : 'outlined'
-                }
-                onClick={() =>
-                  setOverlaySettings((p) => ({
-                    ...p,
-                    showActionIndex: !p.showActionIndex,
-                  }))
-                }
-              >
-                通番
-              </Button>
-              <Button
-                size="small"
-                variant={overlaySettings.showLabels ? 'contained' : 'outlined'}
-                onClick={() =>
-                  setOverlaySettings((p) => ({
-                    ...p,
-                    showLabels: !p.showLabels,
-                  }))
-                }
-              >
-                ラベル
-              </Button>
-              <Button
-                size="small"
-                variant={overlaySettings.showMemo ? 'contained' : 'outlined'}
-                onClick={() =>
-                  setOverlaySettings((p) => ({
-                    ...p,
-                    showMemo: !p.showMemo,
-                  }))
-                }
-              >
-                メモ
-              </Button>
-            </Stack>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-              形式: 1行目=通番+アクション名（太字）、2行目=ラベル、3行目=メモ
-            </Typography>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setExportDialogOpen(false)}>キャンセル</Button>
-          <Button
-            onClick={handleExportPlaylist}
-            variant="contained"
-            disabled={!!exportProgress}
-          >
-            書き出す
-          </Button>
-        </DialogActions>
-      </Dialog>
-      <NoteDialog
+        onExport={handleExportPlaylist}
+        exportFileName={exportFileName}
+        setExportFileName={setExportFileName}
+        exportScope={exportScope}
+        setExportScope={setExportScope}
+        selectedItemCount={selectedItemIds.size}
+        exportMode={exportMode}
+        setExportMode={setExportMode}
+        angleOption={angleOption}
+        setAngleOption={setAngleOption}
+        videoSources={videoSources}
+        selectedAngleIndex={selectedAngleIndex}
+        setSelectedAngleIndex={setSelectedAngleIndex}
+        overlaySettings={overlaySettings}
+        setOverlaySettings={setOverlaySettings}
+        disableExport={!!exportProgress}
+      />
+      <PlaylistNoteDialog
         open={noteDialogOpen}
         onClose={() => {
           setNoteDialogOpen(false);
@@ -3046,27 +2107,10 @@ export default function PlaylistWindowApp() {
       />
 
       {/* 保存進行状況ダイアログ */}
-      <Dialog open={saveProgress !== null} disableEscapeKeyDown>
-        <DialogTitle>プレイリストを保存中</DialogTitle>
-        <DialogContent sx={{ minWidth: 300 }}>
-          <Stack spacing={2}>
-            <Typography variant="body2">
-              動画クリップを生成しています...
-            </Typography>
-            {saveProgress && (
-              <>
-                <Typography variant="caption" color="text.secondary">
-                  {saveProgress.current} / {saveProgress.total} アイテム
-                </Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={(saveProgress.current / saveProgress.total) * 100}
-                />
-              </>
-            )}
-          </Stack>
-        </DialogContent>
-      </Dialog>
+      <PlaylistSaveProgressDialog
+        open={saveProgress !== null}
+        progress={saveProgress}
+      />
 
       {/* 書き出し進行状況 Snackbar */}
       {exportProgress && (

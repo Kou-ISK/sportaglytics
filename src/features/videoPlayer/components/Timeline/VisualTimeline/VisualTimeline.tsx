@@ -1,37 +1,19 @@
 import React, { useMemo, useCallback, useState } from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  FormControlLabel,
-  RadioGroup,
-  Radio,
-  Select,
-  MenuItem,
-  LinearProgress,
-} from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { TimelineData } from '../../../../../types/TimelineData';
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineLane } from './TimelineLane';
 import { TimelineEditDialog } from './TimelineEditDialog';
 import { TimelineContextMenu } from './TimelineContextMenu';
+import { TimelineLabelDialog } from './TimelineLabelDialog';
+import { TimelineClipExportDialog } from './TimelineClipExportDialog';
+import { TimelineExportProgressDialog } from './TimelineExportProgressDialog';
 import { useTimelineViewport } from './hooks/useTimelineViewport';
 import { ZoomIndicator } from './ZoomIndicator';
 import { useTimelineInteractions } from './hooks/useTimelineInteractions';
 import { useTimelineRangeSelection } from './hooks/useTimelineRangeSelection';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 
-const renderSourceLabel = (src: string) => {
-  const parts = src.split(/[/\\]/);
-  const name = parts.pop() || src;
-  const parent = parts.pop();
-  return parent ? `${parent}/${name}` : name;
-};
 interface VisualTimelineProps {
   timeline: TimelineData[];
   maxSec: number;
@@ -739,209 +721,40 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         selectedCount={selectedIds.length}
       />
 
-      <Dialog
+      <TimelineLabelDialog
         open={labelDialogOpen}
+        selectedCount={selectedIds.length}
+        labelGroup={labelGroup}
+        labelName={labelName}
+        onLabelGroupChange={setLabelGroup}
+        onLabelNameChange={setLabelName}
         onClose={() => setLabelDialogOpen(false)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>ラベルを付与</DialogTitle>
-        <DialogContent
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            選択中 {selectedIds.length}{' '}
-            件に同じラベルを付与します。入力は次回も保持されるので連続付与が素早く行えます。
-          </Typography>
-          <TextField
-            label="グループ"
-            value={labelGroup}
-            onChange={(e) => setLabelGroup(e.target.value)}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && labelGroup.trim() && labelName.trim()) {
-                e.preventDefault();
-                handleApplyLabel();
-              }
-            }}
-          />
-          <TextField
-            label="ラベル名"
-            value={labelName}
-            onChange={(e) => setLabelName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && labelGroup.trim() && labelName.trim()) {
-                e.preventDefault();
-                handleApplyLabel();
-              }
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLabelDialogOpen(false)}>キャンセル</Button>
-          <Button
-            variant="contained"
-            onClick={() => handleApplyLabel()}
-            disabled={!labelGroup.trim() || !labelName.trim()}
-          >
-            付与
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onApply={handleApplyLabel}
+      />
 
-      <Dialog
+      <TimelineClipExportDialog
         open={clipDialogOpen}
         onClose={() => setClipDialogOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>クリップ書き出し</DialogTitle>
-        <DialogContent
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            書き出し対象と出力モードを選択してください。オーバーレイは設定画面の値を使用します。
-          </Typography>
-          <Typography variant="subtitle2">Exporting:</Typography>
-          <RadioGroup
-            value={exportScope}
-            onChange={(e) =>
-              setExportScope(e.target.value === 'selected' ? 'selected' : 'all')
-            }
-          >
-            <FormControlLabel value="all" control={<Radio />} label="全体" />
-            <FormControlLabel
-              value="selected"
-              control={<Radio />}
-              label={`選択インスタンス (${selectedIds.length} 件)`}
-            />
-          </RadioGroup>
+        onExport={handleExportClips}
+        exportScope={exportScope}
+        setExportScope={setExportScope}
+        selectedCount={selectedIds.length}
+        exportMode={exportMode}
+        setExportMode={setExportMode}
+        exportFileName={exportFileName}
+        setExportFileName={setExportFileName}
+        angleOption={angleOption}
+        setAngleOption={setAngleOption}
+        selectedAngleIndex={selectedAngleIndex}
+        setSelectedAngleIndex={setSelectedAngleIndex}
+        videoSources={videoSources}
+        primarySource={primarySource}
+        secondarySource={secondarySource}
+        setPrimarySource={setPrimarySource}
+        setSecondarySource={setSecondarySource}
+      />
 
-          <Typography variant="subtitle2">Export As:</Typography>
-          <Select
-            size="small"
-            value={exportMode}
-            onChange={(e) =>
-              setExportMode(
-                e.target.value as 'single' | 'perInstance' | 'perRow',
-              )
-            }
-          >
-            <MenuItem value="single">単一映像ファイル（連結）</MenuItem>
-            <MenuItem value="perInstance">インスタンスごとに出力</MenuItem>
-            <MenuItem value="perRow">行ごとに出力</MenuItem>
-          </Select>
-          <TextField
-            label="ファイル名（連結時）/ プレフィックス"
-            size="small"
-            placeholder="例: combined_export"
-            value={exportFileName}
-            onChange={(e) => setExportFileName(e.target.value)}
-            helperText="単一出力ではこの名前で保存。行/インスタンス出力では先頭に付与します（拡張子は自動で .mp4）。"
-          />
-
-          <Typography variant="subtitle2">Video Angles:</Typography>
-          <RadioGroup
-            row
-            value={angleOption}
-            onChange={(e) =>
-              setAngleOption(e.target.value as 'allAngles' | 'single' | 'multi')
-            }
-          >
-            <FormControlLabel
-              value="allAngles"
-              control={<Radio />}
-              label="全アングル"
-              disabled={!videoSources || videoSources.length < 2}
-            />
-            <FormControlLabel
-              value="single"
-              control={<Radio />}
-              label="単一アングル"
-            />
-            <FormControlLabel
-              value="multi"
-              control={<Radio />}
-              label="マルチ"
-              disabled={!videoSources || videoSources.length < 2}
-            />
-          </RadioGroup>
-          {angleOption === 'single' && (
-            <RadioGroup
-              row
-              value={selectedAngleIndex}
-              onChange={(e) => setSelectedAngleIndex(Number(e.target.value))}
-            >
-              {(videoSources || []).map((_, index) => (
-                <FormControlLabel
-                  key={index}
-                  value={index}
-                  control={<Radio />}
-                  label={`アングル${index + 1}`}
-                />
-              ))}
-            </RadioGroup>
-          )}
-          {angleOption === 'multi' && (
-            <>
-              <TextField
-                select
-                SelectProps={{ native: true }}
-                label="メイン映像"
-                value={primarySource || ''}
-                onChange={(e) => setPrimarySource(e.target.value)}
-                size="small"
-              >
-                {(videoSources || []).map((src) => (
-                  <option key={src} value={src}>
-                    {renderSourceLabel(src)}
-                  </option>
-                ))}
-              </TextField>
-              <TextField
-                select
-                SelectProps={{ native: true }}
-                label="サブ映像（横並び）"
-                value={secondarySource || ''}
-                onChange={(e) => setSecondarySource(e.target.value)}
-                size="small"
-              >
-                {(videoSources || []).map((src) => (
-                  <option key={src} value={src}>
-                    {renderSourceLabel(src)}
-                  </option>
-                ))}
-              </TextField>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setClipDialogOpen(false)}>キャンセル</Button>
-          <Button variant="contained" onClick={handleExportClips}>
-            書き出し
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {isExporting && (
-        <Dialog open keepMounted fullWidth maxWidth="xs">
-          <DialogTitle>書き出し中...</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              FFmpegでクリップを書き出しています。完了までお待ちください。
-            </Typography>
-            <LinearProgress />
-          </DialogContent>
-        </Dialog>
-      )}
+      <TimelineExportProgressDialog open={isExporting} />
     </Box>
   );
 };
