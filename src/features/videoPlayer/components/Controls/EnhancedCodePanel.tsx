@@ -1,6 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useMemo } from 'react';
-import { Box, Chip } from '@mui/material';
-import LabelIcon from '@mui/icons-material/Label';
+import { Box } from '@mui/material';
 import videojs from 'video.js';
 import { useActionPreset } from '../../../../contexts/ActionPresetContext';
 import type {
@@ -16,6 +15,7 @@ import {
 import { CustomCodeLayout } from './CustomCodeLayout';
 import { ActionLabelGroup } from './ActionLabelGroup';
 import { DefaultCodeLayout } from './DefaultCodeLayout';
+import { CodePanelModeIndicator } from './CodePanelModeIndicator';
 
 type LabelSelectionsMap = Record<string, Record<string, string>>;
 type EffectiveLink = {
@@ -818,15 +818,7 @@ export const EnhancedCodePanel = forwardRef<
             flexWrap: 'wrap',
           }}
         >
-          {activeMode === 'label' && (
-            <Chip
-              icon={<LabelIcon />}
-              label="ラベルモード"
-              size="small"
-              color="secondary"
-              variant="outlined"
-            />
-          )}
+          <CodePanelModeIndicator activeMode={activeMode} />
         </Box>
 
         {customLayout ? (
