@@ -36,9 +36,7 @@ import type {
   ItemAnnotation,
   AnnotationTarget,
 } from '../../types/Playlist';
-import AnnotationCanvas, {
-  AnnotationCanvasRef,
-} from './components/AnnotationCanvas';
+import { AnnotationCanvasRef } from './components/AnnotationCanvas';
 import { useTheme } from '@mui/material/styles';
 import { usePlaylistHistory } from './hooks/usePlaylistHistory';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
@@ -53,7 +51,7 @@ import { PlaylistDrawingExitButton } from './components/PlaylistDrawingExitButto
 import { PlaylistHeaderToolbar } from './components/PlaylistHeaderToolbar';
 import { PlaylistNowPlayingInfo } from './components/PlaylistNowPlayingInfo';
 import { PlaylistVideoPlaceholder } from './components/PlaylistVideoPlaceholder';
-import { PlaylistDrawingTargetToggle } from './components/PlaylistDrawingTargetToggle';
+import { PlaylistVideoCanvas } from './components/PlaylistVideoCanvas';
 
 const DEFAULT_FREEZE_DURATION = 3; // seconds - Sportscode風の自動停止既定値を少し延長
 const MIN_FREEZE_DURATION = 1; // seconds - ユーザー要求の最低停止秒数
@@ -1834,99 +1832,28 @@ export default function PlaylistWindowApp() {
       >
         {currentVideoSource ? (
           <>
-            {isDrawingMode && isDualView && currentVideoSource2 && (
-              <PlaylistDrawingTargetToggle
-                drawingTarget={drawingTarget}
-                hasSecondary={Boolean(currentVideoSource2)}
-                onChange={setDrawingTarget}
-              />
-            )}
-            {/* Primary Video */}
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width:
-                  viewMode === 'dual' && currentVideoSource2 ? '50%' : '100%',
-                height: '100%',
-                zIndex: viewMode === 'angle2' ? -1 : 0,
-                pointerEvents: viewMode === 'angle2' ? 'none' : 'auto',
-              }}
-            >
-              <video
-                ref={videoRef}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                  opacity: viewMode === 'angle2' ? 0 : 1,
-                }}
-              />
-              {/* Annotation Canvas Overlay */}
-              <AnnotationCanvas
-                ref={annotationCanvasRefPrimary}
-                width={primaryCanvasSize.width}
-                height={primaryCanvasSize.height}
-                isActive={isDrawingMode && drawingTarget === 'primary'}
-                target="primary"
-                initialObjects={primaryAnnotationObjects}
-                freezeDuration={
-                  currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
-                }
-                contentRect={primaryContentRect}
-                onObjectsChange={(objs) =>
-                  handleAnnotationObjectsChange(objs, 'primary')
-                }
-                onFreezeDurationChange={handleFreezeDurationChange}
-                currentTime={currentTime}
-              />
-            </Box>
-            {/* Secondary Video (Dual View) */}
-            {currentVideoSource2 && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  left: viewMode === 'dual' ? '50%' : 0,
-                  width: viewMode === 'dual' ? '50%' : '100%',
-                  height: '100%',
-                  borderLeft:
-                    viewMode === 'dual'
-                      ? '1px solid rgba(255,255,255,0.2)'
-                      : 'none',
-                  zIndex: viewMode === 'angle1' ? -1 : 0,
-                  pointerEvents: viewMode === 'angle1' ? 'none' : 'auto',
-                }}
-              >
-                <video
-                  ref={videoRef2}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    opacity: viewMode === 'angle1' ? 0 : 1,
-                  }}
-                />
-                <AnnotationCanvas
-                  ref={annotationCanvasRefSecondary}
-                  width={secondaryCanvasSize.width}
-                  height={secondaryCanvasSize.height}
-                  isActive={isDrawingMode && drawingTarget === 'secondary'}
-                  target="secondary"
-                  initialObjects={secondaryAnnotationObjects}
-                  freezeDuration={
-                    currentAnnotation?.freezeDuration ?? DEFAULT_FREEZE_DURATION
-                  }
-                  contentRect={secondaryContentRect}
-                  onObjectsChange={(objs) =>
-                    handleAnnotationObjectsChange(objs, 'secondary')
-                  }
-                  onFreezeDurationChange={handleFreezeDurationChange}
-                  currentTime={currentTime}
-                />
-              </Box>
-            )}
+                   objectFit: 'contain',
+            <PlaylistVideoCanvas
+              currentVideoSource={currentVideoSource}
+              currentVideoSource2={currentVideoSource2}
+              viewMode={viewMode}
+              isDrawingMode={isDrawingMode}
+              drawingTarget={drawingTarget}
+              onDrawingTargetChange={setDrawingTarget}
+              annotationCanvasRefPrimary={annotationCanvasRefPrimary}
+              annotationCanvasRefSecondary={annotationCanvasRefSecondary}
+              primaryCanvasSize={primaryCanvasSize}
+              secondaryCanvasSize={secondaryCanvasSize}
+              primaryContentRect={primaryContentRect}
+              secondaryContentRect={secondaryContentRect}
+              currentAnnotation={currentAnnotation}
+              defaultFreezeDuration={DEFAULT_FREEZE_DURATION}
+              onObjectsChange={handleAnnotationObjectsChange}
+              onFreezeDurationChange={handleFreezeDurationChange}
+              currentTime={currentTime}
+              videoRef={videoRef}
+              videoRef2={videoRef2}
+            />
           </>
         ) : (
           <PlaylistVideoPlaceholder isEmpty={items.length === 0} />
