@@ -60,7 +60,7 @@ brew install --cask sportaglytics
 ## 技術スタック
 
 - **フロントエンド**: React 18.3 + TypeScript 5.9
-- **デスクトップ**: Electron 31
+- **デスクトップ**: Electron 40
 - **UI**: Material-UI 5
 - **映像**: Video.js 8
 - **パッケージ管理**: pnpm 9
