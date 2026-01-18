@@ -8,6 +8,8 @@ import { TimelineContextMenu } from './TimelineContextMenu';
 import { TimelineLabelDialog } from './TimelineLabelDialog';
 import { TimelineClipExportDialog } from './TimelineClipExportDialog';
 import { TimelineExportProgressDialog } from './TimelineExportProgressDialog';
+import { TimelineEmptyState } from './TimelineEmptyState';
+import { TimelineSelectionOverlay } from './TimelineSelectionOverlay';
 import { useTimelineViewport } from './hooks/useTimelineViewport';
 import { ZoomIndicator } from './ZoomIndicator';
 import { useTimelineInteractions } from './hooks/useTimelineInteractions';
@@ -656,36 +658,12 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
             ))}
 
             {timeline.length === 0 && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: 200,
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  タイムラインが空です。アクションボタンでタグ付けを開始してください。
-                </Typography>
-              </Box>
+              <TimelineEmptyState message="タイムラインが空です。アクションボタンでタグ付けを開始してください。" />
             )}
           </Box>
 
           {isSelecting && selectionBox && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: selectionBox.top,
-                left: selectionBox.left,
-                width: selectionBox.width,
-                height: selectionBox.height,
-                border: '1px dashed',
-                borderColor: 'primary.main',
-                bgcolor: 'primary.main',
-                opacity: 0.1,
-                pointerEvents: 'none',
-              }}
-            />
+            <TimelineSelectionOverlay selectionBox={selectionBox} />
           )}
         </Box>
       </Box>
