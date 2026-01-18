@@ -13,22 +13,12 @@ import {
   Paper,
   TextField,
   Button,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  IconButton,
   Alert,
   Divider,
   Tabs,
   Tab,
-  Tooltip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
 import type {
   AppSettings,
   CodeWindowLayout,
@@ -41,6 +31,7 @@ import { ButtonPropertiesEditor } from './ButtonPropertiesEditorNew';
 import { CodeWindowCreateDialog } from './CodeWindowCreateDialog';
 import { CodeWindowSettingsHeader } from './CodeWindowSettingsHeader';
 import { CodeWindowPlaceholderAlert } from './CodeWindowPlaceholderAlert';
+import { CodeWindowSelectorBar } from './CodeWindowSelectorBar';
 import {
   createLayout,
   createButton,
@@ -465,75 +456,18 @@ export const CodeWindowSettings = forwardRef<
         team2Placeholder={TEAM_PLACEHOLDERS.TEAM2}
       />
 
-      {/* コードウィンドウ選択 */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end' }}>
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>コードウィンドウ</InputLabel>
-            <Select
-              value={activeCodeWindowId || ''}
-              label="コードウィンドウ"
-              onChange={(e) => {
-                setActiveCodeWindowId(e.target.value || null);
-                setSelectedButtonIds([]);
-              }}
-            >
-              <MenuItem value="">
-                <em>なし</em>
-              </MenuItem>
-              {codeWindows.map((cw) => (
-                <MenuItem key={cw.id} value={cw.id}>
-                  {cw.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button
-            startIcon={<AddIcon />}
-            variant="outlined"
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            コードウィンドウを新規作成
-          </Button>
-          {currentLayout && (
-            <>
-              <Tooltip title="複製">
-                <IconButton
-                  onClick={() => handleDuplicateLayout(currentLayout)}
-                >
-                  <ContentCopyIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="エクスポート">
-                <IconButton onClick={handleExportLayout}>
-                  <FileDownloadIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="削除">
-                <IconButton
-                  color="error"
-                  onClick={() => handleDeleteLayout(currentLayout.id)}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Tooltip>
-            </>
-          )}
-          <Tooltip title="コードウィンドウをインポート">
-            <IconButton onClick={handleImportLayout}>
-              <FileUploadIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </Paper>
+      <CodeWindowSelectorBar
+        codeWindows={codeWindows}
+        activeCodeWindowId={activeCodeWindowId}
+        onSelect={setActiveCodeWindowId}
+        onCreate={() => setCreateDialogOpen(true)}
+        onDuplicate={handleDuplicateLayout}
+        onExport={handleExportLayout}
+        onDelete={handleDeleteLayout}
+        onImport={handleImportLayout}
+        currentLayout={currentLayout}
+        onClearSelection={() => setSelectedButtonIds([])}
+      />
 
       {currentLayout ? (
         <>
