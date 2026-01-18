@@ -11,7 +11,7 @@ import { useSyncActions } from './videoPlayer/useSyncActions';
 import { useNotification } from '../contexts/NotificationContext';
 
 export const useVideoPlayerApp = () => {
-  const isDev = process.env.NODE_ENV === 'development';
+  const isDev = import.meta.env.DEV;
   const {
     timeline: persistedTimeline,
     setTimeline: setPersistedTimeline,
