@@ -6,13 +6,13 @@
 
 ### 主要な技術スタック
 
-- **フロントエンド**: React 18.2.0 + TypeScript 4.9.5
-- **デスクトップフレームワーク**: Electron 25.4.0
-- **UIライブラリ**: Material-UI v5
-- **映像再生**: Video.js 8.3.0
-- **チャート表示**: Recharts 2.8.0
-- **ビルドツール**: React Scripts + Electron Builder
-- **パッケージ管理**: Yarn
+- **フロントエンド**: React 19.2 + TypeScript 5.4
+- **デスクトップフレームワーク**: Electron 40
+- **UIライブラリ**: Material-UI 7
+- **映像再生**: Video.js 8.23
+- **チャート表示**: Recharts 3.6
+- **ビルドツール**: Vite + Electron Builder
+- **パッケージ管理**: pnpm 9
 
 ## プロジェクト構造
 
@@ -49,9 +49,9 @@ sportaglytics/
 
 #### ESLint・Prettier設定
 
-- **自動フォーマット**: コミット前に`npm run fix`を実行
+- **自動フォーマット**: コミット前に`pnpm run fix`を実行
 - **CI/CD**: Pull Request時に自動フォーマット実行
-- **設定ファイル**: `.eslintrc`, `.prettierrc`で統一
+- **設定ファイル**: `eslint.config.js`, `.prettierrc`で統一
 
 ### 2. コンポーネント設計
 
@@ -136,10 +136,10 @@ sportaglytics/
 
 ```bash
 # 開発サーバー起動
-yarn electron:dev
+pnpm run electron:dev
 
 # 本番ビルド
-yarn electron:build
+pnpm run electron:build
 ```
 
 #### パッケージング

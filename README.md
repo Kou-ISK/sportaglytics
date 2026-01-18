@@ -1,7 +1,7 @@
 # SporTagLytics
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.2.7-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
 
 スポーツ映像（特にラグビー）のタグ付け・統計可視化を行うElectronデスクトップアプリケーション。
 
@@ -59,7 +59,7 @@ brew install --cask sportaglytics
 
 ## 技術スタック
 
-- **フロントエンド**: React 19.2 + TypeScript 5.9
+- **フロントエンド**: React 19.2 + TypeScript 5.4
 - **デスクトップ**: Electron 40
 - **UI**: Material-UI 7
 - **映像**: Video.js 8
