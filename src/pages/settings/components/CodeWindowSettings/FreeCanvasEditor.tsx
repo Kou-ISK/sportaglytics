@@ -1,16 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  IconButton,
-  Tooltip,
-  Divider,
-  Button,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
-import LinkIcon from '@mui/icons-material/Link';
+import { Box } from '@mui/material';
 import type {
   CodeWindowButton,
   CodeWindowLayout,
@@ -30,6 +19,9 @@ import {
 import { FreeCanvasContextMenu } from './FreeCanvasContextMenu';
 import { FreeCanvasCustomActionDialog } from './FreeCanvasCustomActionDialog';
 import { FreeCanvasCustomLabelDialog } from './FreeCanvasCustomLabelDialog';
+import { FreeCanvasButton } from './FreeCanvasButton';
+import { FreeCanvasEmptyState } from './FreeCanvasEmptyState';
+import { FreeCanvasLinkLayer } from './FreeCanvasLinkLayer';
 
 interface FreeCanvasEditorProps {
   layout: CodeWindowLayout;
@@ -903,152 +895,6 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     );
   };
 
-  // ボタンを描画
-  const renderButton = (button: CodeWindowButton) => {
-    const isSelected = selectedButtonIds.includes(button.id);
-    const isDragging = draggedButton?.id === button.id && dragMode === 'move';
-    const isLinkSource = linkStartButton?.id === button.id;
-    const buttonColor =
-      button.color ||
-      (button.type === 'action'
-        ? DEFAULT_BUTTON_COLORS.action
-        : DEFAULT_BUTTON_COLORS.label);
-
-    return (
-      <Paper
-        key={button.id}
-        elevation={isSelected ? 4 : 1}
-        onMouseDown={(e) => {
-          // 左クリックのみ移動処理
-          if (e.button === 0) {
-            handleButtonMouseDown(e, button, 'move');
-          } else if (e.button === 2) {
-            // 右クリックでリンク作成開始
-            handleButtonRightMouseDown(e, button);
-          }
-        }}
-        onContextMenu={(e) => {
-          // 右クリックメニューを無効化（ドラッグでリンク作成）
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        sx={{
-          position: 'absolute',
-          left: button.x,
-          top: button.y,
-          width: button.width,
-          height: button.height,
-          backgroundColor: buttonColor,
-          color: button.textColor || '#fff',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: isLinkSource ? 'crosshair' : isDragging ? 'grabbing' : 'grab',
-          border: isSelected ? '2px solid #fff' : 'none',
-          boxShadow: isSelected ? '0 0 0 2px #1976d2' : undefined,
-          borderRadius: `${button.borderRadius ?? 4}px`,
-          transition: isDragging ? 'none' : 'box-shadow 0.2s',
-          opacity: isDragging ? 0.8 : 1,
-          p: 0.5,
-          overflow: 'hidden',
-          userSelect: 'none',
-          zIndex: isSelected ? 10 : 1,
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{
-            fontWeight: 600,
-            textAlign: 'center',
-            fontSize: '0.7rem',
-            lineHeight: 1.2,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            width: '100%',
-          }}
-        >
-          {button.name}
-        </Typography>
-        {button.labelValue && (
-          <Typography
-            variant="caption"
-            sx={{ fontSize: '0.6rem', opacity: 0.8, textAlign: 'center' }}
-          >
-            {button.labelValue}
-          </Typography>
-        )}
-        {/* コントロール（選択時） */}
-        {isSelected && (
-          <>
-            {/* 削除ボタン */}
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteButton(button.id);
-              }}
-              sx={{
-                position: 'absolute',
-                top: 2,
-                right: 2,
-                p: 0.25,
-                color: 'inherit',
-                opacity: 0.7,
-                '&:hover': { opacity: 1 },
-              }}
-            >
-              <DeleteIcon sx={{ fontSize: 14 }} />
-            </IconButton>
-            {/* リンクインジケータ（右クリックドラッグでリンク作成） */}
-            <Tooltip
-              title="右クリックドラッグで排他リンクを作成"
-              placement="top"
-            >
-              <Box
-                sx={{
-                  position: 'absolute',
-                  bottom: 2,
-                  left: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  opacity: 0.7,
-                }}
-              >
-                <LinkIcon sx={{ fontSize: 12 }} />
-              </Box>
-            </Tooltip>
-            {/* リサイズハンドル */}
-            <Box
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleButtonMouseDown(e, button, 'resize');
-              }}
-              sx={{
-                position: 'absolute',
-                bottom: 0,
-                right: 0,
-                width: 12,
-                height: 12,
-                cursor: 'se-resize',
-                '&::after': {
-                  content: '""',
-                  position: 'absolute',
-                  right: 2,
-                  bottom: 2,
-                  width: 6,
-                  height: 6,
-                  borderRight: '2px solid rgba(255,255,255,0.5)',
-                  borderBottom: '2px solid rgba(255,255,255,0.5)',
-                },
-              }}
-            />
-          </>
-        )}
-      </Paper>
-    );
-  };
-
   return (
     <Box>
       <Box
@@ -1070,135 +916,45 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
         }}
       >
         {/* リンク線（SVG） */}
-        <svg
+        <FreeCanvasLinkLayer
           width={layout.canvasWidth}
           height={layout.canvasHeight}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            pointerEvents: 'none',
-          }}
-        >
-          <defs>
-            {/* リンクタイプ別の矢印マーカー */}
-            <marker
-              id="arrowhead-exclusive"
-              markerWidth="12"
-              markerHeight="9"
-              refX="10"
-              refY="4.5"
-              orient="auto"
-            >
-              <polygon points="0 0, 12 4.5, 0 9" fill="#d32f2f" />
-            </marker>
-            <marker
-              id="arrowhead-activate"
-              markerWidth="12"
-              markerHeight="9"
-              refX="10"
-              refY="4.5"
-              orient="auto"
-            >
-              <polygon points="0 0, 12 4.5, 0 9" fill="#388e3c" />
-            </marker>
-            <marker
-              id="arrowhead-deactivate"
-              markerWidth="12"
-              markerHeight="9"
-              refX="10"
-              refY="4.5"
-              orient="auto"
-            >
-              <polygon points="0 0, 12 4.5, 0 9" fill="#f57c00" />
-            </marker>
-            <marker
-              id="arrowhead-sequence"
-              markerWidth="12"
-              markerHeight="9"
-              refX="10"
-              refY="4.5"
-              orient="auto"
-            >
-              <polygon points="0 0, 12 4.5, 0 9" fill="#1976d2" />
-            </marker>
-            <marker
-              id="arrowhead-selected"
-              markerWidth="12"
-              markerHeight="9"
-              refX="10"
-              refY="4.5"
-              orient="auto"
-            >
-              <polygon points="0 0, 12 4.5, 0 9" fill="#1976d2" />
-            </marker>
-            {/* ドラッグ中のリンク用 */}
-            <marker
-              id="arrowhead-dragging-exclusive"
-              markerWidth="12"
-              markerHeight="9"
-              refX="10"
-              refY="4.5"
-              orient="auto"
-            >
-              <polygon points="0 0, 12 4.5, 0 9" fill="#d32f2f" />
-            </marker>
-            <marker
-              id="arrowhead-dragging-lead"
-              markerWidth="12"
-              markerHeight="9"
-              refX="10"
-              refY="4.5"
-              orient="auto"
-            >
-              <polygon points="0 0, 12 4.5, 0 9" fill="#388e3c" />
-            </marker>
-            <marker
-              id="arrowhead-dragging-deactivate"
-              markerWidth="12"
-              markerHeight="9"
-              refX="10"
-              refY="4.5"
-              orient="auto"
-            >
-              <polygon points="0 0, 12 4.5, 0 9" fill="#f57c00" />
-            </marker>
-          </defs>
-          <g style={{ pointerEvents: 'auto' }}>{renderLinks()}</g>
-          {renderDraggingLink()}
-        </svg>
+          links={renderLinks()}
+          draggingLink={renderDraggingLink()}
+        />
 
         {/* ボタン */}
-        {layout.buttons.map(renderButton)}
+        {layout.buttons.map((button) => {
+          const isSelected = selectedButtonIds.includes(button.id);
+          const isDragging =
+            draggedButton?.id === button.id && dragMode === 'move';
+          const isLinkSource = linkStartButton?.id === button.id;
+          const buttonColor =
+            button.color ||
+            (button.type === 'action'
+              ? DEFAULT_BUTTON_COLORS.action
+              : DEFAULT_BUTTON_COLORS.label);
+
+          return (
+            <FreeCanvasButton
+              key={button.id}
+              button={button}
+              isSelected={isSelected}
+              isDragging={isDragging}
+              isLinkSource={isLinkSource}
+              buttonColor={buttonColor}
+              onMouseDown={(event) => handleButtonMouseDown(event, button, 'move')}
+              onRightMouseDown={(event) => handleButtonRightMouseDown(event, button)}
+              onDelete={() => handleDeleteButton(button.id)}
+              onResizeMouseDown={(event) =>
+                handleButtonMouseDown(event, button, 'resize')
+              }
+            />
+          );
+        })}
 
         {/* 空のキャンバス用のプレースホルダー */}
-        {layout.buttons.length === 0 && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              textAlign: 'center',
-              color: 'text.disabled',
-            }}
-          >
-            <AddIcon sx={{ fontSize: 48, opacity: 0.5 }} />
-            <Typography variant="body2">
-              空白を右クリック → ボタンを追加
-            </Typography>
-            <Typography
-              variant="caption"
-              display="block"
-              sx={{ mt: 1, whiteSpace: 'pre-line' }}
-            >
-              {`リンク作成（Sportscode準拠）:
-右クリックドラッグ → 排他リンク（赤）
-Option + 右クリックドラッグ → 活性化（緑）
-Shift + 右クリックドラッグ → 非活性化（橙）`}
-            </Typography>
-          </Box>
-        )}
+        {layout.buttons.length === 0 && <FreeCanvasEmptyState />}
       </Box>
 
       <FreeCanvasContextMenu
