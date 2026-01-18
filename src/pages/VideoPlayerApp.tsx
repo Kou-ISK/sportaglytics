@@ -26,7 +26,6 @@ import { useStatsMenuHandlers } from './videoPlayer/hooks/useStatsMenuHandlers';
 import { useTimelineExportImport } from './videoPlayer/hooks/useTimelineExportImport';
 import { OnboardingTutorial } from '../components/OnboardingTutorial';
 import { useHotkeyBindings } from './videoPlayer/hooks/useHotkeyBindings';
-import { AddToPlaylistMenu } from '../features/playlist/components/PlaylistButton';
 
 const VideoPlayerAppContent = () => {
   const {
@@ -294,37 +293,40 @@ const VideoPlayerAppContent = () => {
     syncToWindow(currentTime, videoPath, videoPath2, packagePath);
   }, [isWindowOpen, playlistState, currentTime, videoList, syncToWindow]);
 
-  // プレイリストメニュー用の状態
-  const [playlistMenuAnchor, setPlaylistMenuAnchor] =
-    useState<HTMLElement | null>(null);
-  const [playlistMenuItems, setPlaylistMenuItems] = useState<TimelineData[]>(
-    [],
-  );
-
   // プレイリストに追加（右クリックメニューから呼ばれる）
   const handleAddToPlaylist = useCallback(
-    (items: TimelineData[], anchorPosition: { top: number; left: number }) => {
-      // 右クリック位置を使ってダミーアンカーを作成
-      const dummyAnchor = document.createElement('div');
-      dummyAnchor.style.position = 'fixed';
-      dummyAnchor.style.top = `${anchorPosition.top}px`;
-      dummyAnchor.style.left = `${anchorPosition.left}px`;
-      dummyAnchor.style.width = '0';
-      dummyAnchor.style.height = '0';
-      document.body.appendChild(dummyAnchor);
-      setPlaylistMenuItems(items);
-      setPlaylistMenuAnchor(dummyAnchor);
-    },
-    [],
-  );
+    async (items: TimelineData[]) => {
+      const list = videoList || [];
 
-  const handleClosePlaylistMenu = useCallback(() => {
-    if (playlistMenuAnchor && playlistMenuAnchor.parentNode) {
-      playlistMenuAnchor.parentNode.removeChild(playlistMenuAnchor);
-    }
-    setPlaylistMenuAnchor(null);
-    setPlaylistMenuItems([]);
-  }, [playlistMenuAnchor]);
+      // 開いているプレイリストウィンドウ数を取得
+      const count = await window.electronAPI?.playlist.getOpenWindowCount();
+
+      if (count === 0) {
+        // ウィンドウが開いていない場合は新規ウィンドウを作成
+        await window.electronAPI?.playlist.openWindow();
+        // ウィンドウが完全に準備されるまで待機
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      // 全てのウィンドウにアイテムを追加
+      for (const item of items) {
+        const playlistItem = {
+          id: crypto.randomUUID(),
+          timelineItemId: item.id,
+          actionName: item.actionName,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          labels: item.labels,
+          memo: item.memo,
+          addedAt: Date.now(),
+          videoSource: list[0] || undefined,
+          videoSource2: list[1] || undefined,
+        };
+        await window.electronAPI?.playlist.addItemToAllWindows(playlistItem);
+      }
+    },
+    [videoList],
+  );
 
   return (
     <Box
@@ -459,14 +461,6 @@ const VideoPlayerAppContent = () => {
         stage={syncStage}
       />
       <OnboardingTutorial />
-
-      {/* プレイリスト追加メニュー */}
-      <AddToPlaylistMenu
-        anchorEl={playlistMenuAnchor}
-        onClose={handleClosePlaylistMenu}
-        items={playlistMenuItems}
-        videoList={videoList}
-      />
     </Box>
   );
 };

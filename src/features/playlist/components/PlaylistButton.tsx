@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Box,
   Button,
-  Typography,
   Menu,
   MenuItem,
   ListItemIcon,
@@ -12,7 +10,6 @@ import {
 } from '@mui/material';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import AddIcon from '@mui/icons-material/Add';
 import { usePlaylist } from '../../../contexts/PlaylistContext';
 import type { TimelineData } from '../../../types/TimelineData';
 
@@ -36,97 +33,61 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({
   items,
   videoList,
 }) => {
-  const { state, createPlaylist, addItemsFromTimeline, openPlaylistWindow } =
-    usePlaylist();
   const list = videoList || [];
 
-  const generateDefaultName = () => {
-    const base = 'プレイリスト';
-    const names = new Set(state.playlists.map((p) => p.name));
-    if (!names.has(base)) return base;
-    let suffix = state.playlists.length + 1;
-    let candidate = `${base} ${suffix}`;
-    while (names.has(candidate)) {
-      suffix += 1;
-      candidate = `${base} ${suffix}`;
+  const handleAddToPlaylist = async () => {
+    // 開いているプレイリストウィンドウ数を取得
+    const count = await window.electronAPI?.playlist.getOpenWindowCount();
+
+    if (count === 0) {
+      // ウィンドウが開いていない場合は新規ウィンドウを作成
+      await window.electronAPI?.playlist.openWindow();
     }
-    return candidate;
-  };
 
-  const handleAddToExisting = (playlistId: string) => {
-    addItemsFromTimeline(playlistId, items, list[0] || null, list[1] || null);
-    onClose();
-  };
-
-  const handleCreateNew = () => {
-    const defaultName = generateDefaultName();
-    const playlist = createPlaylist(defaultName);
-    addItemsFromTimeline(playlist.id, items, list[0] || null, list[1] || null);
-    onClose();
-  };
-
-  const handleOpenWindow = async () => {
-    await openPlaylistWindow();
+    // 全てのウィンドウにアイテムを追加
+    for (const item of items) {
+      const playlistItem = {
+        id: crypto.randomUUID(),
+        timelineItemId: item.id,
+        actionName: item.actionName,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        labels: item.labels,
+        memo: item.memo,
+        addedAt: Date.now(),
+        videoSource: list[0] || undefined,
+        videoSource2: list[1] || undefined,
+      };
+      await window.electronAPI?.playlist.addItemToAllWindows(playlistItem);
+    }
     onClose();
   };
 
   return (
-    <>
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={onClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      >
-        <MenuItem disabled sx={{ opacity: 1 }}>
-          <Typography variant="caption" color="text.secondary">
-            {items.length}件のアイテムを追加
-          </Typography>
-        </MenuItem>
-
-        {state.playlists.length > 0 && (
-          <Box>
-            {state.playlists.map((playlist) => (
-              <MenuItem
-                key={playlist.id}
-                onClick={() => handleAddToExisting(playlist.id)}
-              >
-                <ListItemIcon>
-                  <PlaylistAddIcon fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={playlist.name}
-                  secondary={`${playlist.items.length}件`}
-                />
-              </MenuItem>
-            ))}
-          </Box>
-        )}
-
-        <MenuItem onClick={handleCreateNew}>
-          <ListItemIcon>
-            <AddIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="新しいプレイリストを作成" />
-        </MenuItem>
-
-        <MenuItem onClick={handleOpenWindow}>
-          <ListItemIcon>
-            <OpenInNewIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="プレイリストウィンドウを開く" />
-        </MenuItem>
-      </Menu>
-
-      {/* 新規作成ダイアログ */}
-      {/* 名前入力は保存時に行うため、ここではダイアログを表示しない */}
-    </>
+    <Menu
+      anchorEl={anchorEl}
+      open={Boolean(anchorEl)}
+      onClose={onClose}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+    >
+      <MenuItem onClick={handleAddToPlaylist}>
+        <ListItemIcon>
+          <PlaylistAddIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText
+          primary="プレイリストに追加"
+          secondary={`${items.length}件のアイテム`}
+        />
+      </MenuItem>
+    </Menu>
   );
 };
 
 interface PlaylistButtonProps {
   /** 現在選択中のタイムラインアイテム */
   selectedItems: TimelineData[];
+  /** 現在の映像ソース（メイン/サブ） */
+  videoList?: string[];
 }
 
 /**
@@ -134,6 +95,7 @@ interface PlaylistButtonProps {
  */
 export const PlaylistButton: React.FC<PlaylistButtonProps> = ({
   selectedItems,
+  videoList,
 }) => {
   const { openPlaylistWindow, isWindowOpen } = usePlaylist();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -178,6 +140,7 @@ export const PlaylistButton: React.FC<PlaylistButtonProps> = ({
         anchorEl={menuAnchor}
         onClose={() => setMenuAnchor(null)}
         items={selectedItems}
+        videoList={videoList}
       />
     </>
   );

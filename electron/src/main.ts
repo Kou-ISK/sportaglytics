@@ -11,6 +11,7 @@ import { registerSettingsHandlers, loadSettings } from './settingsManager';
 import {
   registerPlaylistHandlers,
   setMainWindowRef,
+  setFfmpegPath,
   sendPlaylistFileToWindow,
 } from './playlistWindow';
 import { registerSettingsWindowHandlers } from './settingsWindow';
@@ -248,7 +249,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
   ipcMain.handle(
     'export-clips-with-overlay',
     async (
-      _event,
+      event,
       payload: {
         sourcePath: string;
         sourcePath2?: string;
@@ -269,6 +270,8 @@ const createWindow = async (): Promise<BrowserWindow> => {
           actionIndex?: number;
           annotationPngPrimary?: string | null;
           annotationPngSecondary?: string | null;
+          videoSource?: string;
+          videoSource2?: string;
         }[];
         overlay: {
           enabled: boolean;
@@ -322,7 +325,9 @@ const createWindow = async (): Promise<BrowserWindow> => {
 
         let targetDir = outputDir;
         if (!targetDir) {
-          const res = await dialog.showOpenDialog(window, {
+          // 呼び出し元のウィンドウを特定（プレイリストウィンドウ or メインウィンドウ）
+          const senderWindow = BrowserWindow.fromWebContents(event.sender);
+          const res = await dialog.showOpenDialog(senderWindow || window, {
             properties: ['openDirectory', 'createDirectory'],
           });
           if (res.canceled || res.filePaths.length === 0) {
@@ -387,6 +392,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
             annotationPngPrimary?: string | null;
             freezeAt?: number | null;
             freezeDuration?: number;
+            sourceOverride?: string;
           },
           outputPath: string,
           overlayLines: Array<{ text: string; isBold: boolean }>,
@@ -474,44 +480,53 @@ const createWindow = async (): Promise<BrowserWindow> => {
             let baseLabel = '[0:v]';
             let mapLabel = '0:v';
             let audioMap = '0:a?';
-            const inputArgs = [
-              '-y',
-              '-ss',
-              `${Math.max(0, clip.startTime)}`,
-              '-t',
-              `${Math.max(0.5, clip.endTime - clip.startTime)}`,
-              '-i',
-              mainSource,
-            ];
+            const actualSource = clip.sourceOverride || mainSource;
+            const inputArgs = ['-y', '-i', actualSource];
 
-            // freeze clone
             const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
+
+            // 動画全体から必要な区間をtrimで切り出し（正確な切り出し）
+            filterSteps.push(
+              `[0:v]trim=start=${clip.startTime}:end=${clip.endTime},setpts=PTS-STARTPTS[vtrim]`,
+            );
+            filterSteps.push(
+              `[0:a]atrim=start=${clip.startTime}:end=${clip.endTime},asetpts=PTS-STARTPTS[atrim]`,
+            );
+            baseLabel = '[vtrim]';
+            mapLabel = '[vtrim]';
+            audioMap = '[atrim]';
+
+            // freeze clone（trimされた動画に対して適用、0秒始まり）
             const freezeAt =
               clip.freezeAt !== null && clip.freezeAt !== undefined
                 ? Math.max(0, Math.min(clip.freezeAt, clipDuration))
                 : null;
             const freezeDuration = clip.freezeDuration ?? 0;
             if (freezeAt !== null && freezeDuration > 0) {
+              // splitで分岐してからfreeze処理
+              filterSteps.push(`${baseLabel}split[vpre][vpost]`);
               filterSteps.push(
-                `[0:v]trim=end=${freezeAt},setpts=PTS-STARTPTS[vpre]`,
+                `[vpre]trim=end=${freezeAt},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=${freezeDuration}[vprepad]`,
               );
               filterSteps.push(
-                `[0:v]trim=start=${freezeAt},setpts=PTS-STARTPTS[vpost]`,
+                `[vpost]trim=start=${freezeAt},setpts=PTS-STARTPTS[vpostshift]`,
               );
               filterSteps.push(
-                `[vpre]tpad=stop_mode=clone:stop_duration=${freezeDuration}[vprepad]`,
+                `[vprepad][vpostshift]concat=n=2:v=1:a=0[vfreeze]`,
               );
-              filterSteps.push(`[vprepad][vpost]concat=n=2:v=1:a=0[vfreeze]`);
               baseLabel = '[vfreeze]';
               mapLabel = baseLabel;
+              // 音声も同様に処理
+              filterSteps.push(`${audioMap}asplit[apre][apost]`);
               filterSteps.push(
-                `[0:a]atrim=end=${freezeAt},asetpts=PTS-STARTPTS[apre]`,
+                `[apre]atrim=end=${freezeAt},asetpts=PTS-STARTPTS,apad=pad_dur=${freezeDuration}[aprepad]`,
               );
               filterSteps.push(
-                `[0:a]atrim=start=${freezeAt},asetpts=PTS-STARTPTS[apost]`,
+                `[apost]atrim=start=${freezeAt},asetpts=PTS-STARTPTS[apostshift]`,
               );
-              filterSteps.push(`[apre]apad=pad_dur=${freezeDuration}[aprepad]`);
-              filterSteps.push(`[aprepad][apost]concat=n=2:v=0:a=1[afreeze]`);
+              filterSteps.push(
+                `[aprepad][apostshift]concat=n=2:v=0:a=1[afreeze]`,
+              );
               audioMap = '[afreeze]';
             }
 
@@ -528,9 +543,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
               mapLabel = baseLabel;
             }
             if (vfTexts.length) {
-              filterSteps.push(
-                `${baseLabel}${vfTexts.length ? `,${vfTexts.join(',')}` : ''}[vout]`,
-              );
+              filterSteps.push(`${baseLabel}${vfTexts.join(',')}[vout]`);
               mapLabel = '[vout]';
             }
 
@@ -570,6 +583,8 @@ const createWindow = async (): Promise<BrowserWindow> => {
           clip: (typeof clips)[number] & {
             freezeAt?: number | null;
             freezeDuration?: number;
+            sourceOverride?: string;
+            secondarySourceOverride?: string;
           },
           outputPath: string,
           overlayLines: Array<{ text: string; isBold: boolean }>,
@@ -577,7 +592,10 @@ const createWindow = async (): Promise<BrowserWindow> => {
           annotationSecondary?: string | null,
         ) =>
           new Promise<void>((resolve, reject) => {
-            if (!secondarySource) {
+            const actualMainSource = clip.sourceOverride || mainSource;
+            const actualSecondarySource =
+              clip.secondarySourceOverride || secondarySource;
+            if (!actualSecondarySource) {
               reject(new Error('2画面結合に必要な第2ソースがありません'));
               return;
             }
@@ -593,59 +611,66 @@ const createWindow = async (): Promise<BrowserWindow> => {
             const freezeDur = clip.freezeDuration ?? 0;
             const inputs = [
               '-y',
-              '-ss',
-              `${Math.max(0, clip.startTime)}`,
-              '-t',
-              `${Math.max(0.5, clip.endTime - clip.startTime)}`,
               '-i',
-              mainSource,
-              '-ss',
-              `${Math.max(0, clip.startTime)}`,
-              '-t',
-              `${Math.max(0.5, clip.endTime - clip.startTime)}`,
+              actualMainSource,
               '-i',
-              secondarySource,
+              actualSecondarySource,
             ];
             let currentInputIndex = 2;
 
-            // freeze main
+            // 両方の動画から必要な区間をtrimで切り出し
+            filterSteps.push(
+              `[0:v]trim=start=${clip.startTime}:end=${clip.endTime},setpts=PTS-STARTPTS[mtrim]`,
+            );
+            filterSteps.push(
+              `[0:a]atrim=start=${clip.startTime}:end=${clip.endTime},asetpts=PTS-STARTPTS[atrim]`,
+            );
+            filterSteps.push(
+              `[1:v]trim=start=${clip.startTime}:end=${clip.endTime},setpts=PTS-STARTPTS[strim]`,
+            );
+            mainLabel = '[mtrim]';
+            subLabel = '[strim]';
+            audioMap = '[atrim]';
+
+            // freeze main（trimされた動画に対して適用、0秒始まり）
             if (freezePos !== null && freezeDur > 0) {
+              // splitで分岐してからfreeze処理
+              filterSteps.push(`${mainLabel}split[mvpre][mvpost]`);
               filterSteps.push(
-                `[0:v]trim=end=${freezePos},setpts=PTS-STARTPTS[mvpre]`,
+                `[mvpre]trim=end=${freezePos},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=${freezeDur}[mvprepad]`,
               );
               filterSteps.push(
-                `[0:v]trim=start=${freezePos},setpts=PTS-STARTPTS[mvpost]`,
+                `[mvpost]trim=start=${freezePos},setpts=PTS-STARTPTS[mvpostshift]`,
               );
               filterSteps.push(
-                `[mvpre]tpad=stop_mode=clone:stop_duration=${freezeDur}[mvprepad]`,
-              );
-              filterSteps.push(
-                `[mvprepad][mvpost]concat=n=2:v=1:a=0[mvfreeze]`,
+                `[mvprepad][mvpostshift]concat=n=2:v=1:a=0[mvfreeze]`,
               );
               mainLabel = '[mvfreeze]';
+              // 音声も同様に処理
+              filterSteps.push(`${audioMap}asplit[apre][apost]`);
               filterSteps.push(
-                `[0:a]atrim=end=${freezePos},asetpts=PTS-STARTPTS[apre]`,
+                `[apre]atrim=end=${freezePos},asetpts=PTS-STARTPTS,apad=pad_dur=${freezeDur}[aprepad]`,
               );
               filterSteps.push(
-                `[0:a]atrim=start=${freezePos},asetpts=PTS-STARTPTS[apost]`,
+                `[apost]atrim=start=${freezePos},asetpts=PTS-STARTPTS[apostshift]`,
               );
-              filterSteps.push(`[apre]apad=pad_dur=${freezeDur}[aprepad]`);
-              filterSteps.push(`[aprepad][apost]concat=n=2:v=0:a=1[afreeze]`);
+              filterSteps.push(
+                `[aprepad][apostshift]concat=n=2:v=0:a=1[afreeze]`,
+              );
               audioMap = '[afreeze]';
             }
-            // freeze sub
+            // freeze sub（trimされた動画に対して適用、0秒始まり）
             if (freezePos !== null && freezeDur > 0) {
+              // splitで分岐してからfreeze処理
+              filterSteps.push(`${subLabel}split[svpre][svpost]`);
               filterSteps.push(
-                `[1:v]trim=end=${freezePos},setpts=PTS-STARTPTS[svpre]`,
+                `[svpre]trim=end=${freezePos},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=${freezeDur}[svprepad]`,
               );
               filterSteps.push(
-                `[1:v]trim=start=${freezePos},setpts=PTS-STARTPTS[svpost]`,
+                `[svpost]trim=start=${freezePos},setpts=PTS-STARTPTS[svpostshift]`,
               );
               filterSteps.push(
-                `[svpre]tpad=stop_mode=clone:stop_duration=${freezeDur}[svprepad]`,
-              );
-              filterSteps.push(
-                `[svprepad][svpost]concat=n=2:v=1:a=0[svfreeze]`,
+                `[svprepad][svpostshift]concat=n=2:v=1:a=0[svfreeze]`,
               );
               subLabel = '[svfreeze]';
             }
@@ -808,6 +833,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
             annotationPngSecondary?: string | null;
             freezeAt?: number | null;
             freezeDuration?: number;
+            angleType?: 'angle1' | 'angle2';
           },
           outputPath?: string,
         ) => {
@@ -836,16 +862,49 @@ const createWindow = async (): Promise<BrowserWindow> => {
             tempFiles.push(annSecondaryPath);
           }
 
-          if (useDual) {
+          // clipが独自のvideoSourceを持っている場合はそれを使用（スタンドアロンプレイリスト対応）
+          const clipMainSource = clip.videoSource || mainSource;
+          const clipSecondarySource = clip.videoSource2 || secondarySource;
+
+          // angleType指定時はそのアングルのみを書き出し
+          if (clip.angleType === 'angle2') {
+            // セカンダリのみ書き出し
+            const secondaryOnly = clipSecondarySource || clipMainSource;
+            await runFfmpegSingle(
+              { ...clip, sourceOverride: secondaryOnly },
+              target,
+              overlayLines,
+              annSecondaryPath,
+            );
+          } else if (clip.angleType === 'angle1') {
+            // プライマリのみ書き出し
+            await runFfmpegSingle(
+              { ...clip, sourceOverride: clipMainSource },
+              target,
+              overlayLines,
+              annPrimaryPath,
+            );
+          } else if (useDual) {
+            // デュアルビュー
             await runFfmpegDual(
-              clip,
+              {
+                ...clip,
+                sourceOverride: clipMainSource,
+                secondarySourceOverride: clipSecondarySource || undefined,
+              },
               target,
               overlayLines,
               annPrimaryPath,
               annSecondaryPath,
             );
           } else {
-            await runFfmpegSingle(clip, target, overlayLines, annPrimaryPath);
+            // 通常のシングルビュー
+            await runFfmpegSingle(
+              { ...clip, sourceOverride: clipMainSource },
+              target,
+              overlayLines,
+              annPrimaryPath,
+            );
           }
           return target;
         };
@@ -897,10 +956,27 @@ const createWindow = async (): Promise<BrowserWindow> => {
         const prefix = baseName ? `${baseName}_` : '';
 
         if (exportMode === 'perInstance') {
-          for (const clip of clips) {
-            const safeAction = clip.actionName.replace(/\s+/g, '_');
-            const baseName = `${safeAction}_${clip.actionIndex ?? 1}_${Math.round(clip.startTime)}-${Math.round(clip.endTime)}${useDual ? '_dual' : ''}`;
-            const outName = ensureMp4(`${prefix}${baseName}`);
+          // インスタンスごとの書き出し：各クリップを個別ファイルとして出力
+          for (let i = 0; i < clips.length; i++) {
+            const clip = clips[i];
+            const safeAction = clip.actionName.replace(/[\s/\\:*?"<>|]/g, '_');
+
+            // プレイリスト全体での並び順に基づいた番号
+            const instanceNum = String(i + 1).padStart(3, '0');
+
+            // 映像オプションに応じたサフィックスを付与（全アングルに明示的に付与）
+            let suffix = '';
+            if (useDual) {
+              suffix = '_multi'; // angleOption === 'all': マルチアングル結合
+            } else if (angleOption === 'angle2') {
+              suffix = '_angle2'; // セカンダリのみ
+            } else {
+              suffix = '_angle1'; // プライマリのみ
+            }
+
+            const outName = baseName
+              ? ensureMp4(`${baseName}_${instanceNum}_${safeAction}${suffix}`)
+              : ensureMp4(`${instanceNum}_${safeAction}${suffix}`);
             const outPath = path.join(targetDir, outName);
             await renderClip(clip, outPath);
           }
@@ -917,8 +993,19 @@ const createWindow = async (): Promise<BrowserWindow> => {
               temps.push(await renderClip(clip));
             }
             const safeAction = actionName.replace(/\s+/g, '_');
-            const baseName = `${safeAction}_row${useDual ? '_dual' : ''}`;
-            const outName = ensureMp4(`${prefix}${baseName}`);
+            // アングルサフィックスを付与
+            let angleSuffix = '';
+            if (useDual) {
+              angleSuffix = '_multi';
+            } else if (angleOption === 'angle2') {
+              angleSuffix = '_angle2';
+            } else {
+              angleSuffix = '_angle1';
+            }
+            const fileName = `${safeAction}${angleSuffix}`;
+            const outName = baseName
+              ? ensureMp4(`${baseName}_${fileName}`)
+              : ensureMp4(fileName);
             const outPath = path.join(targetDir, outName);
             await concatFiles(temps, outPath);
             await Promise.all(
@@ -931,8 +1018,19 @@ const createWindow = async (): Promise<BrowserWindow> => {
           for (const clip of clips) {
             temps.push(await renderClip(clip));
           }
-          const defaultName = `combined_${clips.length}${useDual ? '_dual' : ''}.mp4`;
-          const outName = outputFileName ? ensureMp4(baseName) : defaultName;
+          // アングルサフィックスを付与
+          let angleSuffix = '';
+          if (useDual) {
+            angleSuffix = '_multi';
+          } else if (angleOption === 'angle2') {
+            angleSuffix = '_angle2';
+          } else {
+            angleSuffix = '_angle1';
+          }
+          const defaultName = `combined_${clips.length}${angleSuffix}.mp4`;
+          const outName = outputFileName
+            ? ensureMp4(`${baseName}${angleSuffix}`)
+            : defaultName;
           const outPath = path.join(targetDir, outName);
           await concatFiles(temps, outPath);
           await Promise.all(
@@ -960,6 +1058,13 @@ Utils();
 registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();
+
+// FFmpegパスをプレイリストウィンドウに設定
+try {
+  setFfmpegPath(getFfmpegPath());
+} catch (error) {
+  console.error('Failed to set FFmpeg path:', error);
+}
 
 /**
  * ファイル拡張子に応じて適切な処理を実行

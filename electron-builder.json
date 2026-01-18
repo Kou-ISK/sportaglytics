@@ -31,7 +31,8 @@
       "name": "SporTagLytics Playlist",
       "description": "SporTagLytics プレイリスト",
       "role": "Viewer",
-      "icon": "public/icons/stpl.icns"
+      "icon": "public/icons/stpl.icns",
+      "isPackage": true
     },
     {
       "ext": "stcw",
@@ -46,13 +47,6 @@
       "target": "dmg",
       "arch": ["x64", "arm64"]
     },
-    "extraResources": [
-      {
-        "from": "public/icons",
-        "to": ".",
-        "filter": ["*.icns"]
-      }
-    ],
     "icon": "public/icon.icns",
     "category": "public.app-category.sports",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
@@ -73,7 +67,7 @@
         {
           "UTTypeIdentifier": "com.kouisk.sportaglytics.stpl",
           "UTTypeDescription": "SporTagLytics Playlist",
-          "UTTypeConformsTo": ["public.data"],
+          "UTTypeConformsTo": ["public.data", "com.apple.package"],
           "UTTypeTagSpecification": {
             "public.filename-extension": ["stpl"]
           }
@@ -85,6 +79,34 @@
           "UTTypeTagSpecification": {
             "public.filename-extension": ["stcw"]
           }
+        }
+      ],
+      "CFBundleDocumentTypes": [
+        {
+          "CFBundleTypeName": "SporTagLytics Package",
+          "CFBundleTypeRole": "Editor",
+          "CFBundleTypeIconFile": "stpkg.icns",
+          "CFBundleTypeExtensions": ["stpkg"],
+          "LSHandlerRank": "Owner",
+          "LSItemContentTypes": ["com.kouisk.sportaglytics.stpkg"],
+          "LSTypeIsPackage": true
+        },
+        {
+          "CFBundleTypeName": "SporTagLytics Playlist",
+          "CFBundleTypeRole": "Viewer",
+          "CFBundleTypeIconFile": "stpl.icns",
+          "CFBundleTypeExtensions": ["stpl"],
+          "LSHandlerRank": "Owner",
+          "LSItemContentTypes": ["com.kouisk.sportaglytics.stpl"],
+          "LSTypeIsPackage": true
+        },
+        {
+          "CFBundleTypeName": "SporTagLytics Code Window",
+          "CFBundleTypeRole": "Viewer",
+          "CFBundleTypeIconFile": "stcw.icns",
+          "CFBundleTypeExtensions": ["stcw"],
+          "LSHandlerRank": "Owner",
+          "LSItemContentTypes": ["com.kouisk.sportaglytics.stcw"]
         }
       ]
     }

@@ -546,9 +546,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
 
     // ファイル操作API
-    /** プレイリストをファイルに保存（スタンドアロン形式） */
+    /** プレイリストをファイルに保存（上書き保存） */
     savePlaylistFile: async (playlist: unknown): Promise<string | null> => {
       return await ipcRenderer.invoke('playlist:save-file', playlist);
+    },
+    /** プレイリストを名前を付けて保存 */
+    savePlaylistFileAs: async (playlist: unknown): Promise<string | null> => {
+      return await ipcRenderer.invoke('playlist:save-file-as', playlist);
     },
     /** プレイリストファイルを読み込み */
     loadPlaylistFile: async (
@@ -562,6 +566,58 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('playlist:external-open', wrapped);
       return () =>
         ipcRenderer.removeListener('playlist:external-open', wrapped);
+    },
+    /** 保存進行状況の通知を受け取る */
+    onSaveProgress: (
+      callback: (data: { current: number; total: number }) => void,
+    ) => {
+      const wrapped = (_: unknown, data: { current: number; total: number }) =>
+        callback(data);
+      ipcRenderer.on('playlist:save-progress', wrapped);
+      return () =>
+        ipcRenderer.removeListener('playlist:save-progress', wrapped);
+    },
+
+    /** 複数ウィンドウ管理 */
+    /** 開いているプレイリストウィンドウの数を取得 */
+    getOpenWindowCount: async (): Promise<number> => {
+      return await ipcRenderer.invoke('playlist:get-open-count');
+    },
+    /** 全てのプレイリストウィンドウにアイテムを追加 */
+    addItemToAllWindows: async (item: unknown): Promise<void> => {
+      await ipcRenderer.invoke('playlist:add-item-to-all-windows', item);
+    },
+    /** アイテム追加の通知を受信（プレイリストウィンドウ側） */
+    onAddItem: (callback: (item: unknown) => void) => {
+      const wrapped = (_event: IpcRendererEvent, item: unknown) => {
+        callback(item);
+      };
+      let map = __listenerStore.get('playlist:add-item');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('playlist:add-item', map);
+      }
+      map.set(
+        callback as unknown as Function,
+        wrapped as unknown as (...args: unknown[]) => void,
+      );
+      ipcRenderer.on('playlist:add-item', wrapped);
+    },
+    /** アイテム追加の通知受信解除 */
+    offAddItem: (callback: (item: unknown) => void) => {
+      const map = __listenerStore.get('playlist:add-item');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener(
+          'playlist:add-item',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
+        map?.delete(callback as unknown as Function);
+      }
+    },
+    /** ウィンドウタイトルを設定（プレイリストウィンドウ側） */
+    setWindowTitle: (title: string) => {
+      ipcRenderer.send('playlist:set-window-title', title);
     },
   },
 

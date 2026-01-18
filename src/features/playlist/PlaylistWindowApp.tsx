@@ -36,7 +36,12 @@ import {
   ToggleButtonGroup,
   ListItemIcon,
   alpha,
-  Badge,
+  LinearProgress,
+  Checkbox,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  Chip as MuiChip,
 } from '@mui/material';
 import {
   Delete,
@@ -58,11 +63,12 @@ import {
   Brush,
   Link,
   LinkOff,
-  Comment,
   Notes,
-  ContentCopy,
   PauseCircle,
+  FileDownload,
 } from '@mui/icons-material';
+import { useNotification } from '../../contexts/NotificationContext';
+import { ExportProgressSnackbar } from '../../components/ExportProgressSnackbar';
 import {
   DndContext,
   closestCenter,
@@ -92,6 +98,9 @@ import AnnotationCanvas, {
   AnnotationCanvasRef,
 } from './components/AnnotationCanvas';
 import { useTheme } from '@mui/material/styles';
+import { usePlaylistHistory } from './hooks/usePlaylistHistory';
+import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
+import type { HotkeyConfig } from '../../types/Settings';
 
 const DEFAULT_FREEZE_DURATION = 3; // seconds - Sportscode風の自動停止既定値を少し延長
 const MIN_FREEZE_DURATION = 1; // seconds - ユーザー要求の最低停止秒数
@@ -103,18 +112,22 @@ interface SortableItemProps {
   item: PlaylistItem;
   index: number;
   isActive: boolean;
+  selected: boolean;
   onRemove: (id: string) => void;
   onPlay: (id: string) => void;
   onEditNote: (id: string) => void;
+  onToggleSelect: (id: string) => void;
 }
 
 function SortableItem({
   item,
   index,
   isActive,
+  selected,
   onRemove,
   onPlay,
   onEditNote,
+  onToggleSelect,
 }: SortableItemProps) {
   const {
     attributes,
@@ -142,26 +155,48 @@ function SortableItem({
     item.annotation &&
     (item.annotation.objects.length > 0 || item.annotation.freezeDuration > 0);
 
+  const theme = useTheme();
+  const [isHovering, setIsHovering] = useState(false);
+
   return (
     <ListItemButton
       ref={setNodeRef}
       style={style}
       selected={isActive}
       onClick={() => onPlay(item.id)}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
       sx={{
         py: 0.5,
         px: 1,
         borderBottom: '1px solid',
         borderColor: 'divider',
-        bgcolor: isActive ? alpha('#1976d2', 0.15) : 'transparent',
+        borderLeft: isActive ? '3px solid #00FF85' : '3px solid transparent',
+        bgcolor: isActive
+          ? alpha(theme.palette.primary.main, 0.15)
+          : 'transparent',
+        transition: 'all 0.2s ease',
         '&:hover': {
-          bgcolor: isActive ? alpha('#1976d2', 0.2) : alpha('#fff', 0.05),
+          bgcolor: isActive
+            ? alpha(theme.palette.primary.main, 0.2)
+            : alpha('#fff', 0.05),
         },
         '&.Mui-selected': {
-          bgcolor: alpha('#1976d2', 0.15),
+          bgcolor: alpha(theme.palette.primary.main, 0.15),
         },
       }}
     >
+      {/* Checkbox */}
+      <Checkbox
+        size="small"
+        checked={selected}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleSelect(item.id);
+        }}
+        sx={{ py: 0, px: 0.5 }}
+      />
+
       {/* Index number */}
       <Typography
         variant="caption"
@@ -207,12 +242,27 @@ function SortableItem({
               {item.actionName}
             </Typography>
             {item.note && (
-              <Tooltip title={item.note}>
-                <Comment
-                  fontSize="small"
-                  sx={{ fontSize: 14, color: 'warning.main' }}
-                />
-              </Tooltip>
+              <MuiChip
+                label={item.note}
+                size="small"
+                color="warning"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  onEditNote(item.id);
+                }}
+                sx={{
+                  maxWidth: 150,
+                  fontSize: '0.65rem',
+                  height: 18,
+                  ml: 0.5,
+                  cursor: 'pointer',
+                  '& .MuiChip-label': {
+                    px: 0.75,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  },
+                }}
+              />
             )}
             {hasAnnotation && (
               <Tooltip
@@ -248,7 +298,12 @@ function SortableItem({
       />
 
       {/* Actions */}
-      <ListItemSecondaryAction>
+      <ListItemSecondaryAction
+        sx={{
+          opacity: isHovering ? 1 : 0,
+          transition: 'opacity 0.2s ease',
+        }}
+      >
         <Stack direction="row" spacing={0}>
           <Tooltip title="メモを編集">
             <IconButton
@@ -282,17 +337,31 @@ function SortableItem({
 interface SaveDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (type: PlaylistType, name: string) => void;
+  onSave: (
+    type: PlaylistType,
+    name: string,
+    shouldCloseAfterSave?: boolean,
+  ) => void;
   defaultName: string;
+  defaultType?: PlaylistType;
+  closeAfterSave?: boolean;
 }
 
-function SaveDialog({ open, onClose, onSave, defaultName }: SaveDialogProps) {
+function SaveDialog({
+  open,
+  onClose,
+  onSave,
+  defaultName,
+  defaultType = 'embedded',
+  closeAfterSave = false,
+}: SaveDialogProps) {
   const [name, setName] = useState(defaultName);
-  const [saveType, setSaveType] = useState<PlaylistType>('embedded');
+  const [saveType, setSaveType] = useState<PlaylistType>(defaultType);
 
   useEffect(() => {
     setName(defaultName);
-  }, [defaultName, open]);
+    setSaveType(defaultType);
+  }, [defaultName, defaultType, open]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
@@ -363,7 +432,7 @@ function SaveDialog({ open, onClose, onSave, defaultName }: SaveDialogProps) {
       <DialogActions>
         <Button onClick={onClose}>キャンセル</Button>
         <Button
-          onClick={() => onSave(saveType, name)}
+          onClick={() => onSave(saveType, name, closeAfterSave)}
           variant="contained"
           disabled={!name.trim()}
         >
@@ -438,8 +507,20 @@ function NoteDialog({
 // ===== Main Component =====
 export default function PlaylistWindowApp() {
   const theme = useTheme();
+  const { success, error: showError } = useNotification();
+
+  // 履歴管理を統合したアイテム状態（Undo/Redo対応）
+  const {
+    items,
+    setItems: setItemsWithHistory,
+    undo,
+    redo,
+  } = usePlaylistHistory([]);
+
+  // 未保存フラグ
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
   // State
-  const [items, setItems] = useState<PlaylistItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -451,8 +532,12 @@ export default function PlaylistWindowApp() {
   const [duration, setDuration] = useState(0);
   const [videoSources, setVideoSources] = useState<string[]>([]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isDualView, setIsDualView] = useState(false);
+  const [viewMode, setViewMode] = useState<'dual' | 'angle1' | 'angle2'>(
+    'dual',
+  );
+  const isDualView = viewMode === 'dual'; // 互換性のため
   const [playlistName, setPlaylistName] = useState('プレイリスト');
+  const [playlistType, setPlaylistType] = useState<PlaylistType>('embedded');
   const [packagePath, setPackagePath] = useState<string | null>(null);
 
   // Drawing/Annotation state
@@ -469,6 +554,7 @@ export default function PlaylistWindowApp() {
 
   // Dialog states
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [closeAfterSave, setCloseAfterSave] = useState(false);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
@@ -508,7 +594,11 @@ export default function PlaylistWindowApp() {
     height: 1080,
   });
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{
+    current: number;
+    total: number;
+    message: string;
+  } | null>(null);
   const [overlaySettings, setOverlaySettings] = useState({
     enabled: true,
     showActionName: true,
@@ -519,10 +609,25 @@ export default function PlaylistWindowApp() {
   const [exportMode, setExportMode] = useState<
     'single' | 'perInstance' | 'perRow'
   >('single');
-  const [angleOption, setAngleOption] = useState<'all' | 'angle1' | 'angle2'>(
-    'all',
-  );
+  const [angleOption, setAngleOption] = useState<
+    'allAngles' | 'single' | 'multi'
+  >('single');
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [exportScope, setExportScope] = useState<'all' | 'selected'>('all');
+
+  // 保存進行状況
+  const [saveProgress, setSaveProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+
+  // 変更検知フラグ
+  const [isDirty, setIsDirty] = useState(false);
+  const [loadedFilePath, setLoadedFilePath] = useState<string | null>(null);
 
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -545,11 +650,12 @@ export default function PlaylistWindowApp() {
     return currentItem.videoSource || videoSources[0] || null;
   }, [currentItem, videoSources]);
 
-  // Get video source for current item (secondary - for dual view)
+  // Get video source for current item (secondary)
+  // viewModeに関係なく常にソースを取得（表示制御はUI側で行う）
   const currentVideoSource2 = useMemo(() => {
-    if (!currentItem || !isDualView) return null;
+    if (!currentItem) return null;
     return currentItem.videoSource2 || videoSources[1] || null;
-  }, [currentItem, isDualView, videoSources]);
+  }, [currentItem, videoSources]);
 
   // Keep videoSources in sync with the currently selected item (supports mixed packages)
   useEffect(() => {
@@ -574,10 +680,15 @@ export default function PlaylistWindowApp() {
   }, [currentItem, videoSources]);
 
   useEffect(() => {
-    if (!isDualView || !currentVideoSource2) {
+    // angle1のみの場合はprimary、angle2のみの場合はsecondaryに固定
+    if (viewMode === 'angle1') {
+      setDrawingTarget('primary');
+    } else if (viewMode === 'angle2') {
+      setDrawingTarget('secondary');
+    } else if (!currentVideoSource2) {
       setDrawingTarget('primary');
     }
-  }, [isDualView, currentVideoSource2]);
+  }, [viewMode, currentVideoSource2]);
 
   useEffect(() => {
     lastFreezeTimestampRef.current = null;
@@ -616,7 +727,7 @@ export default function PlaylistWindowApp() {
     const ro = new ResizeObserver(update);
     ro.observe(video);
     return () => ro.disconnect();
-  }, [currentVideoSource]);
+  }, [currentVideoSource, viewMode]);
 
   useLayoutEffect(() => {
     const video = videoRef2.current;
@@ -650,9 +761,9 @@ export default function PlaylistWindowApp() {
     const ro = new ResizeObserver(update);
     ro.observe(video);
     return () => ro.disconnect();
-  }, [currentVideoSource2, isDualView]);
+  }, [currentVideoSource2, viewMode]);
 
-  // Auto-hide controls overlay like main player
+  // Auto-hide controls overlay - ビデオエリアホバー時のみ表示
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -668,7 +779,10 @@ export default function PlaylistWindowApp() {
       }, 1800);
     };
 
-    show();
+    // 初期表示
+    if (isPlaying && !isDrawingMode) {
+      show();
+    }
     const handleMove = () => show();
     container.addEventListener('mousemove', handleMove);
     container.addEventListener('mouseleave', () => setControlsVisible(false));
@@ -706,19 +820,36 @@ export default function PlaylistWindowApp() {
   }, [currentItem, itemAnnotations]);
 
   const annotationObjects = currentAnnotation?.objects || [];
+
+  // embedded型プレイリストの場合、保存されている相対時刻を絶対時刻に変換して表示
+  const adjustedAnnotationObjects = useMemo(() => {
+    if (!currentItem) return annotationObjects;
+
+    const isEmbedded = currentItem.videoSource?.startsWith('./videos/');
+    if (!isEmbedded || currentItem.startTime === undefined) {
+      return annotationObjects;
+    }
+
+    // 相対時刻を絶対時刻に変換
+    return annotationObjects.map((obj) => ({
+      ...obj,
+      timestamp: obj.timestamp + currentItem.startTime,
+    }));
+  }, [annotationObjects, currentItem]);
+
   const primaryAnnotationObjects = useMemo(
     () =>
-      annotationObjects.filter(
+      adjustedAnnotationObjects.filter(
         (obj) => (obj.target || 'primary') === 'primary',
       ),
-    [annotationObjects],
+    [adjustedAnnotationObjects],
   );
   const secondaryAnnotationObjects = useMemo(
     () =>
-      annotationObjects.filter(
+      adjustedAnnotationObjects.filter(
         (obj) => (obj.target || 'primary') === 'secondary',
       ),
-    [annotationObjects],
+    [adjustedAnnotationObjects],
   );
 
   // Handle IPC messages from main process
@@ -731,8 +862,10 @@ export default function PlaylistWindowApp() {
         (p) => p.id === data.state.activePlaylistId,
       );
       if (activePlaylist) {
-        setItems(activePlaylist.items);
+        // ファイル読み込み時は履歴に追加しない（usePlaylistHistoryが自動処理）
+        setItemsWithHistory(activePlaylist.items);
         setPlaylistName(activePlaylist.name);
+        setHasUnsavedChanges(false);
         // Load annotations from items
         const annotations: Record<string, ItemAnnotation> = {};
         for (const item of activePlaylist.items) {
@@ -752,24 +885,28 @@ export default function PlaylistWindowApp() {
       if (!hasItemSources) {
         setVideoSources(data.videoSources || []);
         if (data.videoSources && data.videoSources.length >= 2) {
-          setIsDualView(true);
+          setViewMode('dual');
         }
       } else {
         // アイテム別ソースがある場合は、現在のアイテムの有無でデュアル判定
         const current = activePlaylist?.items.find(
           (it) => it.id === data.state.playingItemId,
         );
-        setIsDualView(
-          !!(
-            current?.videoSource2 ||
-            activePlaylist?.items.some((it) => !!it.videoSource2)
-          ),
+        const hasDual = !!(
+          current?.videoSource2 ||
+          activePlaylist?.items.some((it) => !!it.videoSource2)
         );
+        setViewMode(hasDual ? 'dual' : 'angle1');
       }
+    };
+
+    const handleSaveProgress = (data: { current: number; total: number }) => {
+      setSaveProgress(data);
     };
 
     if (playlistAPI) {
       playlistAPI.onSync(handlePlaylistSync);
+      playlistAPI.onSaveProgress(handleSaveProgress);
       playlistAPI.sendCommand({ type: 'request-sync' });
     }
 
@@ -893,8 +1030,12 @@ export default function PlaylistWindowApp() {
     if (!video || !currentVideoSource) return;
 
     if (isPlaying && !isFrozen) {
-      video.play().catch(console.error);
-      if (video2 && currentVideoSource2) {
+      // viewModeに応じてvideoを再生
+      if (viewMode !== 'angle2') {
+        video.play().catch(console.error);
+      }
+      // viewModeに応じてvideo2を再生
+      if (video2 && currentVideoSource2 && viewMode !== 'angle1') {
         video2.play().catch(console.error);
       }
     } else {
@@ -903,7 +1044,7 @@ export default function PlaylistWindowApp() {
         video2.pause();
       }
     }
-  }, [isPlaying, isFrozen, currentVideoSource, currentVideoSource2]);
+  }, [isPlaying, isFrozen, currentVideoSource, currentVideoSource2, viewMode]);
 
   // Volume handling
   useEffect(() => {
@@ -928,6 +1069,7 @@ export default function PlaylistWindowApp() {
     video.src = currentVideoSource;
     video.load();
     video.currentTime = currentItem.startTime;
+    setCurrentTime(currentItem.startTime); // 即座にステートも更新
 
     if (isPlaying) {
       video.play().catch(console.error);
@@ -947,7 +1089,67 @@ export default function PlaylistWindowApp() {
     if (isPlaying && !isFrozen) {
       video2.play().catch(console.error);
     }
-  }, [currentVideoSource2, currentItem?.id, isPlaying, isFrozen]);
+  }, [currentVideoSource2, currentItem?.id]);
+
+  // viewMode切り替え時に再生位置を同期
+  useEffect(() => {
+    const video = videoRef.current;
+    const video2 = videoRef2.current;
+    if (!video || !video2) return;
+    if (!currentVideoSource || !currentVideoSource2) return;
+
+    if (viewMode === 'angle2') {
+      // angle2表示中: videoのcurrentTimeをvideo2に合わせる
+      video.currentTime = video2.currentTime;
+    } else if (viewMode === 'angle1') {
+      // angle1表示中: video2のcurrentTimeをvideoに合わせる
+      video2.currentTime = video.currentTime;
+    } else if (viewMode === 'dual') {
+      // dual表示中: 再生位置がズレている場合は同期
+      const timeDiff = Math.abs(video.currentTime - video2.currentTime);
+      if (timeDiff > 0.1) {
+        video2.currentTime = video.currentTime;
+      }
+    }
+  }, [viewMode, currentVideoSource, currentVideoSource2]);
+
+  // 外部からのアイテム追加を受信
+  useEffect(() => {
+    const handleAddItem = (item: PlaylistItem) => {
+      setItemsWithHistory((prev: PlaylistItem[]) => [...prev, item]);
+      setHasUnsavedChanges(true);
+      setIsDirty(true);
+    };
+
+    window.electronAPI?.playlist.onAddItem(handleAddItem);
+
+    return () => {
+      window.electronAPI?.playlist.offAddItem(handleAddItem);
+    };
+  }, []);
+
+  // ウィンドウタイトルを更新
+  useEffect(() => {
+    const title = isDirty
+      ? `${playlistName} *`
+      : loadedFilePath
+        ? playlistName
+        : playlistName;
+    window.electronAPI?.playlist.setWindowTitle(title);
+  }, [isDirty, playlistName, loadedFilePath]);
+
+  // hasUnsavedChanges と isDirty を同期（hasUnsavedChanges を単一の変更検知ソースに統一）
+  useEffect(() => {
+    setIsDirty(hasUnsavedChanges);
+  }, [hasUnsavedChanges]);
+
+  // isDirtyフラグをElectron側に同期
+  useEffect(() => {
+    window.electronAPI?.playlist.sendCommand({
+      type: 'set-dirty',
+      isDirty,
+    });
+  }, [isDirty]);
 
   // Handlers
   const handlePlayItem = useCallback(
@@ -988,22 +1190,26 @@ export default function PlaylistWindowApp() {
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
+      setIsPlaying(true);
     } else if (loopPlaylist && items.length > 0) {
       setCurrentIndex(items.length - 1);
+      setIsPlaying(true);
     }
   }, [currentIndex, loopPlaylist, items.length]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < items.length - 1) {
       setCurrentIndex(currentIndex + 1);
+      setIsPlaying(true);
     } else if (loopPlaylist && items.length > 0) {
       setCurrentIndex(0);
+      setIsPlaying(true);
     }
   }, [currentIndex, items.length, loopPlaylist]);
 
   const handleRemoveItem = useCallback(
     (id: string) => {
-      setItems((prev) => {
+      setItemsWithHistory((prev) => {
         const newItems = prev.filter((item) => item.id !== id);
         const removedIndex = prev.findIndex((item) => item.id === id);
         if (removedIndex <= currentIndex && currentIndex > 0) {
@@ -1022,8 +1228,9 @@ export default function PlaylistWindowApp() {
         delete newAnnotations[id];
         return newAnnotations;
       });
+      setHasUnsavedChanges(true);
     },
-    [currentIndex],
+    [currentIndex, setItemsWithHistory],
   );
 
   const handleDragEnd = useCallback(
@@ -1031,7 +1238,7 @@ export default function PlaylistWindowApp() {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      setItems((prev) => {
+      setItemsWithHistory((prev) => {
         const oldIndex = prev.findIndex((item) => item.id === active.id);
         const newIndex = prev.findIndex((item) => item.id === over.id);
         const newItems = arrayMove(prev, oldIndex, newIndex);
@@ -1046,23 +1253,34 @@ export default function PlaylistWindowApp() {
 
         return newItems;
       });
+      setHasUnsavedChanges(true);
     },
-    [currentIndex],
+    [currentIndex, setItemsWithHistory],
   );
 
   const handleSeek = useCallback(
-    (_: Event, value: number | number[]) => {
+    (event: Event, value: number | number[]) => {
       const time = Array.isArray(value) ? value[0] : value;
       if (videoRef.current) {
         videoRef.current.currentTime = time;
       }
-      if (videoRef2.current && isDualView) {
+      // videoSource2が存在する場合は常に同期（表示されていなくても）
+      if (videoRef2.current && currentVideoSource2) {
         videoRef2.current.currentTime = time;
       }
       lastFreezeTimestampRef.current = null;
       setIsFrozen(false);
+
+      // フォーカスを外してホットキーを有効にする
+      if (event.target && 'blur' in event.target) {
+        (event.target as HTMLElement).blur();
+      }
+      // 確実にフォーカスを外す
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
     },
-    [isDualView],
+    [currentVideoSource2],
   );
 
   const handleVolumeChange = useCallback(
@@ -1122,13 +1340,14 @@ export default function PlaylistWindowApp() {
           ...prev,
           [currentItem.id]: newAnnotation,
         }));
-        setItems((prev) =>
-          prev.map((item) =>
+        setItemsWithHistory((prev: PlaylistItem[]) =>
+          prev.map((item: PlaylistItem) =>
             item.id === currentItem.id
               ? { ...item, annotation: newAnnotation }
               : item,
           ),
         );
+        setHasUnsavedChanges(true);
       };
 
       persistCanvasObjects(annotationCanvasRefPrimary, 'primary');
@@ -1150,10 +1369,30 @@ export default function PlaylistWindowApp() {
         freezeDuration: DEFAULT_FREEZE_DURATION,
         freezeAt: 0,
       };
-      const normalizedObjects = objects.map((obj) => ({
-        ...obj,
-        target: obj.target || target,
-      }));
+
+      // プレイリストタイプに応じてタイムスタンプを調整
+      // embedded型: アイテム内相対時刻に変換（切り出し動画用）
+      // reference型: 元動画の絶対時刻のまま保持
+      const normalizedObjects = objects.map((obj) => {
+        let adjustedTimestamp = obj.timestamp;
+
+        // embedded型プレイリストの場合、タイムスタンプを相対時刻に変換
+        // （将来的に保存時のタイプを参照するため、現在のsaveTypeは使わない）
+        // 現在のcurrentTimeは元動画の絶対時刻なので、startTimeを引いて相対時刻にする
+        // ただし、reference型プレイリストの場合は絶対時刻のまま保持
+        // 判定: currentItem.videoSourceが相対パス（./videos/始まり）ならembedded
+        const isEmbedded = currentItem.videoSource?.startsWith('./videos/');
+        if (isEmbedded && currentItem.startTime !== undefined) {
+          adjustedTimestamp = obj.timestamp - currentItem.startTime;
+        }
+
+        return {
+          ...obj,
+          timestamp: adjustedTimestamp,
+          target: obj.target || target,
+        };
+      });
+
       const otherObjects = currentAnn.objects.filter(
         (obj) => (obj.target || 'primary') !== target,
       );
@@ -1170,15 +1409,16 @@ export default function PlaylistWindowApp() {
         ...prev,
         [currentItem.id]: newAnnotation,
       }));
-      setItems((prev) =>
+      setItemsWithHistory((prev) =>
         prev.map((item) =>
           item.id === currentItem.id
             ? { ...item, annotation: newAnnotation }
             : item,
         ),
       );
+      setHasUnsavedChanges(true);
     },
-    [currentItem, itemAnnotations],
+    [currentItem, itemAnnotations, setItemsWithHistory],
   );
 
   const handleFreezeDurationChange = useCallback(
@@ -1202,20 +1442,231 @@ export default function PlaylistWindowApp() {
         [currentItem.id]: newAnnotation,
       }));
       // Also update item
-      setItems((prev) =>
+      setItemsWithHistory((prev) =>
         prev.map((item) =>
           item.id === currentItem.id
             ? { ...item, annotation: newAnnotation }
             : item,
         ),
       );
+      setHasUnsavedChanges(true);
     },
-    [currentItem, itemAnnotations],
+    [currentItem, itemAnnotations, setItemsWithHistory],
   );
 
-  // Save playlist
+  // Hotkey handlers - タイムラインと完全に同じ操作感
+  const playlistHotkeys: HotkeyConfig[] = useMemo(() => {
+    const hotkeys: HotkeyConfig[] = [];
+
+    // 基本操作
+    hotkeys.push({
+      id: 'play-pause',
+      label: '再生/停止',
+      key: 'Space',
+      disabled: false,
+    });
+
+    // 巻き戻し
+    hotkeys.push({
+      id: 'skip-backward-medium',
+      label: '5秒戻し',
+      key: 'Left',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'skip-backward-large',
+      label: '10秒戻し',
+      key: 'Shift+Left',
+      disabled: false,
+    });
+
+    // 倍速再生（押下中のみ）
+    hotkeys.push({
+      id: 'skip-forward-small',
+      label: '0.5倍速再生',
+      key: 'Right',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'skip-forward-medium',
+      label: '2倍速再生',
+      key: 'Shift+Right',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'skip-forward-large',
+      label: '4倍速再生',
+      key: 'Command+Right',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'skip-forward-xlarge',
+      label: '6倍速再生',
+      key: 'Option+Right',
+      disabled: false,
+    });
+
+    // アイテム移動
+    hotkeys.push({
+      id: 'previous-item',
+      label: '前のアイテム',
+      key: 'Command+Left',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'next-item',
+      label: '次のアイテム',
+      key: 'Command+Option+Right',
+      disabled: false,
+    });
+
+    // 編集操作
+    hotkeys.push({
+      id: 'delete-item',
+      label: 'アイテム削除',
+      key: 'Backspace',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'undo',
+      label: '元に戻す',
+      key: 'Command+Z',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'redo',
+      label: 'やり直す',
+      key: 'Command+Shift+Z',
+      disabled: false,
+    });
+
+    // ファイル操作
+    hotkeys.push({
+      id: 'save',
+      label: '保存',
+      key: 'Command+S',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'export',
+      label: '書き出し',
+      key: 'Command+E',
+      disabled: false,
+    });
+
+    // ビュー切替
+    hotkeys.push({
+      id: 'toggle-angle1',
+      label: 'アングル1切替',
+      key: 'Shift+1',
+      disabled: false,
+    });
+    hotkeys.push({
+      id: 'toggle-angle2',
+      label: 'アングル2切替',
+      key: 'Shift+2',
+      disabled: false,
+    });
+
+    return hotkeys;
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedItemIds.size === 0) return;
+    setItemsWithHistory((prev: PlaylistItem[]) =>
+      prev.filter((item: PlaylistItem) => !selectedItemIds.has(item.id)),
+    );
+    setSelectedItemIds(new Set());
+    setHasUnsavedChanges(true);
+  }, [selectedItemIds, setItemsWithHistory]);
+
+  const handleUndo = useCallback(() => {
+    const prevItems = undo();
+    if (prevItems) {
+      // Annotationsも再構築
+      const annotations: Record<string, ItemAnnotation> = {};
+      for (const item of prevItems) {
+        if (item.annotation) {
+          annotations[item.id] = item.annotation;
+        }
+      }
+      setItemAnnotations(annotations);
+    }
+  }, [undo]);
+
+  const handleRedo = useCallback(() => {
+    const nextItems = redo();
+    if (nextItems) {
+      // Annotationsも再構築
+      const annotations: Record<string, ItemAnnotation> = {};
+      for (const item of nextItems) {
+        if (item.annotation) {
+          annotations[item.id] = item.annotation;
+        }
+      }
+      setItemAnnotations(annotations);
+    }
+  }, [redo]);
+
+  // Save playlist (上書き保存)
   const handleSavePlaylist = useCallback(
-    async (type: PlaylistType, name: string) => {
+    async (shouldCloseAfterSave = false) => {
+      const playlistAPI = window.electronAPI?.playlist;
+      if (!playlistAPI) return;
+
+      // Merge annotations into items
+      const itemsWithAnnotations = items.map((item) => ({
+        ...item,
+        // 参照プレイリストでも追加時のソースを保持しておく（複数パッケージ混在を許容）
+        videoSource: item.videoSource ?? videoSources[0] ?? undefined,
+        videoSource2: item.videoSource2 ?? videoSources[1] ?? undefined,
+        annotation: itemAnnotations[item.id] || item.annotation,
+      }));
+
+      const playlist = {
+        id: crypto.randomUUID(),
+        name: playlistName,
+        type: playlistType,
+        items: itemsWithAnnotations,
+        sourcePackagePath: packagePath || undefined,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      setSaveProgress(null); // 保存開始時に進行状況をリセット
+      const savedPath = await playlistAPI.savePlaylistFile(playlist);
+      setSaveProgress(null); // 保存完了後に進行状況をクリア
+
+      if (savedPath) {
+        console.log('[PlaylistWindow] Playlist saved to:', savedPath);
+
+        // 保存後にウィンドウを閉じる場合
+        if (shouldCloseAfterSave) {
+          // Electron側に保存完了を通知し、Electron側からウィンドウを閉じる
+          // （状態更新はせず、即座にウィンドウを閉じる）
+          window.electronAPI?.send?.('playlist:saved-and-close');
+        } else {
+          // 通常の保存時はReact状態を更新してElectron側と同期
+          setLoadedFilePath(savedPath);
+          setIsDirty(false);
+          setHasUnsavedChanges(false); // ← 追加
+          playlistAPI.sendCommand({ type: 'set-dirty', isDirty: false });
+        }
+      }
+    },
+    [
+      items,
+      videoSources,
+      packagePath,
+      itemAnnotations,
+      playlistName,
+      playlistType,
+    ],
+  );
+
+  // Save playlist as (名前を付けて保存)
+  const handleSavePlaylistAs = useCallback(
+    async (type: PlaylistType, name: string, shouldCloseAfterSave = false) => {
       setSaveDialogOpen(false);
       const playlistAPI = window.electronAPI?.playlist;
       if (!playlistAPI) return;
@@ -1239,13 +1690,146 @@ export default function PlaylistWindowApp() {
         updatedAt: Date.now(),
       };
 
-      const savedPath = await playlistAPI.savePlaylistFile(playlist);
+      setSaveProgress(null); // 保存開始時に進行状況をリセット
+      const savedPath = await playlistAPI.savePlaylistFileAs(playlist);
+      setSaveProgress(null); // 保存完了後に進行状況をクリア
+
       if (savedPath) {
         console.log('[PlaylistWindow] Playlist saved to:', savedPath);
-        setPlaylistName(name);
+
+        // 保存後にウィンドウを閉じる場合
+        if (shouldCloseAfterSave) {
+          // Electron側に保存完了を通知し、Electron側からウィンドウを閉じる
+          // （状態更新はせず、即座にウィンドウを閉じる）
+          window.electronAPI?.send?.('playlist:saved-and-close');
+        } else {
+          // 通常の保存時はReact状態を更新してElectron側と同期
+          setPlaylistName(name);
+          setPlaylistType(type);
+          setLoadedFilePath(savedPath);
+          setIsDirty(false);
+          playlistAPI.sendCommand({ type: 'set-dirty', isDirty: false });
+        }
       }
     },
     [items, videoSources, packagePath, itemAnnotations],
+  );
+
+  const playlistHotkeyHandlers = useMemo(
+    () => ({
+      'play-pause': handleTogglePlay,
+      'skip-backward-medium': () => {
+        const newTime = currentTime - 5;
+        handleSeek(new Event('hotkey'), newTime);
+      },
+      'skip-backward-large': () => {
+        const newTime = currentTime - 10;
+        handleSeek(new Event('hotkey'), newTime);
+      },
+      // 倍速再生（タイムラインと同じ実装パターン）
+      'skip-forward-small': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 0.5;
+        if (videoRef2.current) videoRef2.current.playbackRate = 0.5;
+        setIsPlaying(true);
+      },
+      'skip-forward-medium': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 2;
+        if (videoRef2.current) videoRef2.current.playbackRate = 2;
+        setIsPlaying(true);
+      },
+      'skip-forward-large': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 4;
+        if (videoRef2.current) videoRef2.current.playbackRate = 4;
+        setIsPlaying(true);
+      },
+      'skip-forward-xlarge': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 6;
+        if (videoRef2.current) videoRef2.current.playbackRate = 6;
+        setIsPlaying(true);
+      },
+      'previous-item': handlePrevious,
+      'next-item': handleNext,
+      'delete-item': handleDeleteSelected,
+      undo: handleUndo,
+      redo: handleRedo,
+      save: () => {
+        console.log(
+          '[PlaylistWindow] Hotkey Save pressed. loadedFilePath:',
+          loadedFilePath,
+        );
+        // 既存ファイルがあれば即座に上書き保存、なければダイアログ表示
+        if (loadedFilePath) {
+          console.log('[PlaylistWindow] Saving via hotkey to:', loadedFilePath);
+          handleSavePlaylist(false);
+        } else {
+          console.log(
+            '[PlaylistWindow] No loadedFilePath, showing dialog via hotkey',
+          );
+          setSaveDialogOpen(true);
+        }
+      },
+      export: () => setExportDialogOpen(true),
+      'toggle-angle1': () => {
+        setViewMode((prev) => {
+          // dual→angle1, angle1→dual, angle2→angle1
+          if (prev === 'dual') return 'angle1';
+          if (prev === 'angle1') return 'dual';
+          if (prev === 'angle2') return 'angle1';
+          return 'angle1';
+        });
+      },
+      'toggle-angle2': () => {
+        setViewMode((prev) => {
+          // dual→angle2, angle2→dual, angle1→angle2
+          if (prev === 'dual') return 'angle2';
+          if (prev === 'angle2') return 'dual';
+          if (prev === 'angle1') return 'angle2';
+          return 'angle2';
+        });
+      },
+    }),
+    [
+      handleTogglePlay,
+      currentTime,
+      handleSeek,
+      handlePrevious,
+      handleNext,
+      handleDeleteSelected,
+      handleUndo,
+      handleRedo,
+      handleSavePlaylist,
+      loadedFilePath,
+    ],
+  );
+
+  // keyUp時に再生速度を戻す（タイムラインと同じ）
+  const playlistKeyUpHandlers = useMemo(
+    () => ({
+      'skip-forward-small': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 1;
+        if (videoRef2.current) videoRef2.current.playbackRate = 1;
+      },
+      'skip-forward-medium': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 1;
+        if (videoRef2.current) videoRef2.current.playbackRate = 1;
+      },
+      'skip-forward-large': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 1;
+        if (videoRef2.current) videoRef2.current.playbackRate = 1;
+      },
+      'skip-forward-xlarge': () => {
+        if (videoRef.current) videoRef.current.playbackRate = 1;
+        if (videoRef2.current) videoRef2.current.playbackRate = 1;
+      },
+    }),
+    [],
+  );
+
+  // Register hotkeys
+  useGlobalHotkeys(
+    playlistHotkeys,
+    playlistHotkeyHandlers,
+    playlistKeyUpHandlers,
   );
 
   const loadPlaylistFromPath = useCallback(async (filePath?: string) => {
@@ -1254,10 +1838,16 @@ export default function PlaylistWindowApp() {
 
     const loaded = await playlistAPI.loadPlaylistFile(filePath);
     if (loaded) {
-      const { playlist } = loaded;
-      setItems(playlist.items);
+      const { playlist, filePath: loadedPath } = loaded;
+      console.log('[PlaylistWindow] Playlist loaded from:', loadedPath);
+      setItemsWithHistory(playlist.items);
+      setHasUnsavedChanges(false);
       setPlaylistName(playlist.name);
+      setPlaylistType(playlist.type || 'embedded');
       setPackagePath(playlist.sourcePackagePath || null);
+      setLoadedFilePath(loadedPath);
+      console.log('[PlaylistWindow] loadedFilePath set to:', loadedPath);
+      setIsDirty(false); // 読み込み直後はクリーン状態
       // Load annotations
       const annotations: Record<string, ItemAnnotation> = {};
       for (const item of playlist.items) {
@@ -1277,7 +1867,12 @@ export default function PlaylistWindowApp() {
       if (sources.length > 0) {
         setVideoSources(sources);
       }
-      setIsDualView(sources.length >= 2);
+      setViewMode(sources.length >= 2 ? 'dual' : 'angle1');
+
+      // プレイリストに要素がある場合は最初のアイテムを選択
+      if (playlist.items.length > 0) {
+        setCurrentIndex(0);
+      }
     }
   }, []);
 
@@ -1298,6 +1893,26 @@ export default function PlaylistWindowApp() {
     };
   }, [loadPlaylistFromPath]);
 
+  // ウィンドウクローズ時の保存要求を処理
+  useEffect(() => {
+    const handleRequestSave = () => {
+      if (loadedFilePath) {
+        // 既存ファイルがあれば即上書き保存し、保存後に閉じる
+        handleSavePlaylist(true);
+      } else {
+        // 新規ファイルの場合は保存ダイアログを表示
+        setCloseAfterSave(true);
+        setSaveDialogOpen(true);
+      }
+    };
+
+    window.electronAPI?.on?.('playlist:request-save', handleRequestSave);
+
+    return () => {
+      window.electronAPI?.off?.('playlist:request-save', handleRequestSave);
+    };
+  }, [loadedFilePath, handleSavePlaylist]);
+
   // Edit note
   const handleEditNote = useCallback((itemId: string) => {
     setEditingItemId(itemId);
@@ -1305,24 +1920,19 @@ export default function PlaylistWindowApp() {
   }, []);
 
   const handleSaveNote = useCallback(
-    (memo: string) => {
+    (note: string) => {
       if (!editingItemId) return;
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === editingItemId ? { ...item, memo } : item,
+      setItemsWithHistory((prev: PlaylistItem[]) =>
+        prev.map((item: PlaylistItem) =>
+          item.id === editingItemId ? { ...item, note } : item,
         ),
       );
       setNoteDialogOpen(false);
       setEditingItemId(null);
+      setHasUnsavedChanges(true);
     },
-    [editingItemId],
+    [editingItemId, setItemsWithHistory],
   );
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const renderAnnotationPng = useCallback(
     (
@@ -1432,23 +2042,39 @@ export default function PlaylistWindowApp() {
   const handleExportPlaylist = useCallback(async () => {
     const api = window.electronAPI?.exportClipsWithOverlay;
     if (!api) {
-      alert('書き出しAPIが利用できません');
-      return;
-    }
-    const sourcePath = videoSources[0];
-    if (!sourcePath) {
-      alert('メイン映像が取得できません');
-      return;
-    }
-    const sourcePath2 = videoSources[1];
-    const useDual =
-      angleOption === 'all' && sourcePath2 ? true : angleOption === 'angle2';
-    if (useDual && !sourcePath2) {
-      alert('2アングルの書き出しには2つの映像ソースが必要です');
+      showError('書き出しAPIが利用できません');
       return;
     }
 
-    const ordered = [...items];
+    // アングルオプションに応じた検証
+    if (angleOption === 'allAngles' && videoSources.length < 2) {
+      showError('全アングル書き出しには2つ以上の映像ソースが必要です');
+      return;
+    }
+    if (angleOption === 'multi' && videoSources.length < 2) {
+      showError('マルチアングル書き出しには2つ以上の映像ソースが必要です');
+      return;
+    }
+    if (angleOption === 'single' && !videoSources[selectedAngleIndex]) {
+      showError('選択されたアングルの映像が取得できません');
+      return;
+    }
+
+    const sourceItems =
+      exportScope === 'selected'
+        ? items.filter((item) => selectedItemIds.has(item.id))
+        : items;
+
+    if (sourceItems.length === 0) {
+      showError('書き出すアイテムがありません');
+      return;
+    }
+
+    // ダイアログを閉じてバックグラウンドで処理開始
+    setExportDialogOpen(false);
+
+    // 選択されたアイテムのみを使用してactionIndexを計算
+    const ordered = [...sourceItems];
     const actionIndexLookup = new Map<string, number>();
     const counters: Record<string, number> = {};
     ordered.forEach((item) => {
@@ -1457,7 +2083,7 @@ export default function PlaylistWindowApp() {
       actionIndexLookup.set(item.id, c);
     });
 
-    const clips = ordered.map((item) => {
+    const clips = sourceItems.map((item) => {
       const annotation = itemAnnotations[item.id] || item.annotation;
       const allTimestamps =
         annotation?.objects
@@ -1499,38 +2125,95 @@ export default function PlaylistWindowApp() {
         actionIndex: actionIndexLookup.get(item.id) ?? 1,
         annotationPngPrimary: annPrimary,
         annotationPngSecondary: annSecondary,
+        videoSource: item.videoSource || undefined,
+        videoSource2: item.videoSource2 || undefined,
       };
     });
 
-    setIsExporting(true);
-    const result = await api({
-      sourcePath,
-      sourcePath2: useDual ? sourcePath2 : undefined,
-      mode: useDual ? 'dual' : 'single',
-      exportMode,
-      angleOption: useDual ? angleOption : 'angle1',
-      outputFileName: exportFileName.trim() || undefined,
-      clips,
-      overlay: overlaySettings,
-    });
-    setIsExporting(false);
-    if (result?.success) {
-      alert('プレイリストを書き出しました');
-      setExportDialogOpen(false);
+    // 全アングルの場合は各アングルごとに書き出し
+    if (angleOption === 'allAngles') {
+      let allSuccess = true;
+      for (let i = 0; i < videoSources.length; i++) {
+        setExportProgress({
+          current: i,
+          total: videoSources.length,
+          message: `アングル${i + 1} / ${videoSources.length} を書き出し中...`,
+        });
+
+        const result = await api({
+          sourcePath: videoSources[i],
+          sourcePath2: undefined,
+          mode: 'single',
+          exportMode,
+          angleOption: 'single',
+          outputFileName: exportFileName.trim()
+            ? `${exportFileName.trim()}_angle${i + 1}`
+            : undefined,
+          clips,
+          overlay: overlaySettings,
+        });
+
+        if (!result?.success) {
+          allSuccess = false;
+          setExportProgress(null);
+          showError(
+            result?.error || `アングル${i + 1}の書き出しに失敗しました`,
+          );
+          break;
+        }
+      }
+
+      setExportProgress(null);
+      if (allSuccess) {
+        success(`全${videoSources.length}アングルの書き出しが完了しました`);
+      }
     } else {
-      alert(result?.error || '書き出しに失敗しました');
+      // 単一アングルまたはマルチアングルの場合
+      setExportProgress({
+        current: 0,
+        total: 1,
+        message: '書き出し中...',
+      });
+
+      const result = await api({
+        sourcePath:
+          angleOption === 'single'
+            ? videoSources[selectedAngleIndex]
+            : videoSources[0],
+        sourcePath2: angleOption === 'multi' ? videoSources[1] : undefined,
+        mode: angleOption === 'multi' ? 'dual' : 'single',
+        exportMode,
+        angleOption,
+        outputFileName: exportFileName.trim() || undefined,
+        clips,
+        overlay: overlaySettings,
+      });
+
+      setExportProgress(null);
+      if (result?.success) {
+        success('プレイリストを書き出しました');
+      } else {
+        showError(result?.error || '書き出しに失敗しました');
+      }
     }
   }, [
     angleOption,
+    selectedAngleIndex,
     exportFileName,
     exportMode,
+    exportScope,
     items,
+    selectedItemIds,
     itemAnnotations,
     overlaySettings,
     primaryContentRect,
+    primarySourceSize,
     renderAnnotationPng,
     secondaryContentRect,
+    secondarySourceSize,
     videoSources,
+    success,
+    showError,
   ]);
 
   const sliderMin = currentItem?.startTime ?? 0;
@@ -1551,7 +2234,7 @@ export default function PlaylistWindowApp() {
         fontFamily: theme.typography.fontFamily,
       }}
     >
-      {/* Header */}
+      {/* Header Toolbar */}
       <Paper
         elevation={0}
         sx={{
@@ -1567,22 +2250,67 @@ export default function PlaylistWindowApp() {
           <PlaylistPlay sx={{ color: theme.palette.primary.main }} />
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
             {playlistName}
+            {hasUnsavedChanges ? ' *' : ''}
           </Typography>
-          <Button
-            size="small"
-            variant="contained"
-            color="primary"
-            sx={{ textTransform: 'none' }}
-            onClick={() => setExportDialogOpen(true)}
-            disabled={isExporting}
+
+          {/* Save Button with Neon Glow when unsaved */}
+          <Tooltip
+            title={`保存 (Cmd+S)${hasUnsavedChanges ? ' - 未保存の変更あり' : ''}`}
           >
-            書き出し
-          </Button>
-          <Badge badgeContent={items.length} color="secondary" max={99}>
-            <Typography variant="caption" color="text.secondary">
-              アイテム
-            </Typography>
-          </Badge>
+            <IconButton
+              size="small"
+              onClick={() => {
+                console.log(
+                  '[PlaylistWindow] Save button clicked. loadedFilePath:',
+                  loadedFilePath,
+                );
+                // 既存ファイルがあれば即座に上書き保存、なければダイアログ表示
+                if (loadedFilePath) {
+                  console.log(
+                    '[PlaylistWindow] Saving to existing file:',
+                    loadedFilePath,
+                  );
+                  handleSavePlaylist(false);
+                } else {
+                  console.log(
+                    '[PlaylistWindow] No loadedFilePath, showing dialog',
+                  );
+                  setSaveDialogOpen(true);
+                }
+              }}
+              sx={{
+                color: hasUnsavedChanges ? 'warning.main' : 'text.secondary',
+                boxShadow: hasUnsavedChanges
+                  ? '0 0 8px rgba(255, 111, 97, 0.6)'
+                  : 'none',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  bgcolor: hasUnsavedChanges
+                    ? alpha(theme.palette.warning.main, 0.1)
+                    : alpha(theme.palette.action.hover, 0.08),
+                },
+              }}
+            >
+              <Save fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          {/* Export Button */}
+          <Tooltip title="書き出し (Cmd+E)">
+            <IconButton
+              size="small"
+              onClick={() => setExportDialogOpen(true)}
+              disabled={!!exportProgress}
+              sx={{
+                color: 'text.secondary',
+                '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.08) },
+              }}
+            >
+              <FileDownload fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          {/* Menu */}
           <IconButton size="small" onClick={handleMenuOpen}>
             <MoreVert fontSize="small" />
           </IconButton>
@@ -1600,7 +2328,7 @@ export default function PlaylistWindowApp() {
               <ListItemIcon>
                 <Save fontSize="small" />
               </ListItemIcon>
-              プレイリストを保存
+              名前を付けて保存...
             </MenuItem>
             <MenuItem onClick={handleLoadPlaylist}>
               <ListItemIcon>
@@ -1612,14 +2340,38 @@ export default function PlaylistWindowApp() {
             <MenuItem
               onClick={() => {
                 handleMenuClose();
-                setIsDualView(!isDualView);
+                setViewMode('angle1');
               }}
               disabled={videoSources.length < 2}
             >
               <ListItemIcon>
-                <ContentCopy fontSize="small" />
+                <Typography variant="caption">⇧1</Typography>
               </ListItemIcon>
-              {isDualView ? 'シングルビュー' : 'デュアルビュー'}
+              アングル1のみ
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                setViewMode('angle2');
+              }}
+              disabled={videoSources.length < 2}
+            >
+              <ListItemIcon>
+                <Typography variant="caption">⇧2</Typography>
+              </ListItemIcon>
+              アングル2のみ
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                setViewMode('dual');
+              }}
+              disabled={videoSources.length < 2}
+            >
+              <ListItemIcon>
+                <Typography variant="caption"> </Typography>
+              </ListItemIcon>
+              デュアルビュー
             </MenuItem>
           </Menu>
         </Stack>
@@ -1627,13 +2379,15 @@ export default function PlaylistWindowApp() {
 
       {/* Video Player Area */}
       <Box
+        onMouseEnter={() => setControlsVisible(true)}
+        onMouseLeave={() => setControlsVisible(false)}
+        onMouseMove={() => setControlsVisible(true)}
         sx={{
           flex: '0 0 auto',
           height: '50%',
           minHeight: 250,
           bgcolor: '#000',
           position: 'relative',
-          display: 'flex',
         }}
       >
         {currentVideoSource ? (
@@ -1685,9 +2439,14 @@ export default function PlaylistWindowApp() {
             {/* Primary Video */}
             <Box
               sx={{
-                flex: isDualView && currentVideoSource2 ? '0 0 50%' : '1',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width:
+                  viewMode === 'dual' && currentVideoSource2 ? '50%' : '100%',
                 height: '100%',
-                position: 'relative',
+                zIndex: viewMode === 'angle2' ? -1 : 0,
+                pointerEvents: viewMode === 'angle2' ? 'none' : 'auto',
               }}
             >
               <video
@@ -1696,6 +2455,7 @@ export default function PlaylistWindowApp() {
                   width: '100%',
                   height: '100%',
                   objectFit: 'contain',
+                  opacity: viewMode === 'angle2' ? 0 : 1,
                 }}
               />
               {/* Annotation Canvas Overlay */}
@@ -1716,36 +2476,22 @@ export default function PlaylistWindowApp() {
                 onFreezeDurationChange={handleFreezeDurationChange}
                 currentTime={currentTime}
               />
-              {/* Freeze Indicator */}
-              {isFrozen && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    bgcolor: 'warning.main',
-                    color: 'warning.contrastText',
-                    px: 1.5,
-                    py: 0.5,
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                  }}
-                >
-                  <PauseCircle fontSize="small" />
-                  <Typography variant="caption">停止中</Typography>
-                </Box>
-              )}
             </Box>
             {/* Secondary Video (Dual View) */}
-            {isDualView && currentVideoSource2 && (
+            {currentVideoSource2 && (
               <Box
                 sx={{
-                  flex: '0 0 50%',
+                  position: 'absolute',
+                  top: 0,
+                  left: viewMode === 'dual' ? '50%' : 0,
+                  width: viewMode === 'dual' ? '50%' : '100%',
                   height: '100%',
-                  position: 'relative',
-                  borderLeft: '1px solid rgba(255,255,255,0.2)',
+                  borderLeft:
+                    viewMode === 'dual'
+                      ? '1px solid rgba(255,255,255,0.2)'
+                      : 'none',
+                  zIndex: viewMode === 'angle1' ? -1 : 0,
+                  pointerEvents: viewMode === 'angle1' ? 'none' : 'auto',
                 }}
               >
                 <video
@@ -1754,6 +2500,7 @@ export default function PlaylistWindowApp() {
                     width: '100%',
                     height: '100%',
                     objectFit: 'contain',
+                    opacity: viewMode === 'angle1' ? 0 : 1,
                   }}
                 />
                 <AnnotationCanvas
@@ -1811,6 +2558,7 @@ export default function PlaylistWindowApp() {
               opacity: controlsVisible ? 1 : 0,
               transition: 'opacity 0.35s ease',
               pointerEvents: controlsVisible ? 'auto' : 'none',
+              zIndex: 10,
             }}
           >
             <Slider
@@ -1819,9 +2567,16 @@ export default function PlaylistWindowApp() {
               min={sliderMin}
               max={sliderMax}
               onChange={handleSeek}
+              onChangeCommitted={() => {
+                // Slider操作完了時にフォーカスを外す
+                if (document.activeElement instanceof HTMLElement) {
+                  document.activeElement.blur();
+                }
+              }}
               sx={{
                 mb: 0.5,
-                '& .MuiSlider-thumb': { width: 12, height: 12 },
+                height: 4,
+                '& .MuiSlider-thumb': { width: 10, height: 10 },
                 '& .MuiSlider-track': { bgcolor: 'primary.main' },
               }}
               marks={
@@ -1833,23 +2588,23 @@ export default function PlaylistWindowApp() {
                   : []
               }
             />
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              <Typography
-                variant="caption"
-                sx={{ minWidth: 80, fontFamily: 'monospace' }}
-              >
-                {formatTime(currentTime - sliderMin)} /{' '}
-                {formatTime(sliderMax - sliderMin)}
-              </Typography>
-
+            <Stack direction="row" spacing={0.4} alignItems="center">
               <IconButton size="small" onClick={handlePrevious}>
-                <SkipPrevious fontSize="small" />
+                <SkipPrevious sx={{ fontSize: 18 }} />
               </IconButton>
-              <IconButton onClick={handleTogglePlay} color="primary">
-                {isPlaying && !isFrozen ? <Pause /> : <PlayArrow />}
+              <IconButton
+                size="small"
+                onClick={handleTogglePlay}
+                color="primary"
+              >
+                {isPlaying && !isFrozen ? (
+                  <Pause sx={{ fontSize: 20 }} />
+                ) : (
+                  <PlayArrow sx={{ fontSize: 20 }} />
+                )}
               </IconButton>
               <IconButton size="small" onClick={handleNext}>
-                <SkipNext fontSize="small" />
+                <SkipNext sx={{ fontSize: 18 }} />
               </IconButton>
 
               <Divider
@@ -1864,7 +2619,7 @@ export default function PlaylistWindowApp() {
                   onClick={() => setAutoAdvance(!autoAdvance)}
                   color={autoAdvance ? 'primary' : 'default'}
                 >
-                  <PlaylistPlay fontSize="small" />
+                  <PlaylistPlay sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
               <Tooltip title={loopPlaylist ? 'ループ: ON' : 'ループ: OFF'}>
@@ -1873,7 +2628,7 @@ export default function PlaylistWindowApp() {
                   onClick={() => setLoopPlaylist(!loopPlaylist)}
                   color={loopPlaylist ? 'primary' : 'default'}
                 >
-                  <Loop fontSize="small" />
+                  <Loop sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
 
@@ -1893,7 +2648,7 @@ export default function PlaylistWindowApp() {
                   onClick={handleToggleDrawingMode}
                   color={isDrawingMode ? 'warning' : 'default'}
                 >
-                  <Brush fontSize="small" />
+                  <Brush sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
 
@@ -1901,9 +2656,9 @@ export default function PlaylistWindowApp() {
 
               <IconButton size="small" onClick={() => setIsMuted(!isMuted)}>
                 {isMuted ? (
-                  <VolumeOff fontSize="small" />
+                  <VolumeOff sx={{ fontSize: 18 }} />
                 ) : (
-                  <VolumeUp fontSize="small" />
+                  <VolumeUp sx={{ fontSize: 18 }} />
                 )}
               </IconButton>
               <Slider
@@ -1913,11 +2668,11 @@ export default function PlaylistWindowApp() {
                 max={1}
                 step={0.1}
                 onChange={handleVolumeChange}
-                sx={{ width: 60 }}
+                sx={{ width: 50, height: 3 }}
               />
               <IconButton size="small" onClick={handleToggleFullscreen}>
                 {isFullscreen ? (
-                  <FullscreenExit fontSize="small" />
+                  <FullscreenExit sx={{ fontSize: 18 }} />
                 ) : (
                   <Fullscreen fontSize="small" />
                 )}
@@ -2025,9 +2780,21 @@ export default function PlaylistWindowApp() {
                     item={item}
                     index={index}
                     isActive={index === currentIndex}
+                    selected={selectedItemIds.has(item.id)}
                     onRemove={handleRemoveItem}
                     onPlay={(id) => handlePlayItem(id)}
                     onEditNote={handleEditNote}
+                    onToggleSelect={(id) => {
+                      setSelectedItemIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(id)) {
+                          next.delete(id);
+                        } else {
+                          next.add(id);
+                        }
+                        return next;
+                      });
+                    }}
                   />
                 ))}
               </List>
@@ -2082,9 +2849,14 @@ export default function PlaylistWindowApp() {
       {/* Dialogs */}
       <SaveDialog
         open={saveDialogOpen}
-        onClose={() => setSaveDialogOpen(false)}
-        onSave={handleSavePlaylist}
+        onClose={() => {
+          setSaveDialogOpen(false);
+          setCloseAfterSave(false);
+        }}
+        onSave={handleSavePlaylistAs}
         defaultName={playlistName}
+        defaultType={playlistType}
+        closeAfterSave={closeAfterSave}
       />
       <Dialog
         open={exportDialogOpen}
@@ -2101,6 +2873,27 @@ export default function PlaylistWindowApp() {
             value={exportFileName}
             onChange={(e) => setExportFileName(e.target.value)}
           />
+          <Stack spacing={1}>
+            <Typography variant="body2">書き出し範囲</Typography>
+            <RadioGroup
+              value={exportScope}
+              onChange={(e) =>
+                setExportScope(e.target.value as 'all' | 'selected')
+              }
+            >
+              <FormControlLabel
+                value="all"
+                control={<Radio size="small" />}
+                label="全体"
+              />
+              <FormControlLabel
+                value="selected"
+                control={<Radio size="small" />}
+                label={`選択中のアイテム (${selectedItemIds.size} 件)`}
+              />
+            </RadioGroup>
+          </Stack>
+          <Divider />
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="body2">出力モード</Typography>
             <ToggleButtonGroup
@@ -2114,22 +2907,48 @@ export default function PlaylistWindowApp() {
               <ToggleButton value="perRow">アクションごと</ToggleButton>
             </ToggleButtonGroup>
           </Stack>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2">映像</Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={angleOption}
-              onChange={(_, v) => v && setAngleOption(v)}
-            >
-              <ToggleButton value="angle1">メインのみ</ToggleButton>
-              <ToggleButton value="angle2" disabled={!videoSources[0]}>
-                メイン切替
-              </ToggleButton>
-              <ToggleButton value="all" disabled={!videoSources[1]}>
-                デュアル結合
-              </ToggleButton>
-            </ToggleButtonGroup>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="body2">アングル</Typography>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={angleOption}
+                onChange={(_, v) =>
+                  v && setAngleOption(v as 'allAngles' | 'single' | 'multi')
+                }
+              >
+                <ToggleButton
+                  value="allAngles"
+                  disabled={videoSources.length < 2}
+                >
+                  全アングル
+                </ToggleButton>
+                <ToggleButton value="single">単一アングル</ToggleButton>
+                <ToggleButton value="multi" disabled={videoSources.length < 2}>
+                  マルチ
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+            {angleOption === 'single' && (
+              <Stack direction="row" spacing={1} alignItems="center" pl={2}>
+                <Typography variant="body2" sx={{ minWidth: 80 }}>
+                  選択アングル
+                </Typography>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={selectedAngleIndex}
+                  onChange={(_, v) => v !== null && setSelectedAngleIndex(v)}
+                >
+                  {videoSources.map((_, index) => (
+                    <ToggleButton key={index} value={index}>
+                      アングル{index + 1}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Stack>
+            )}
           </Stack>
           <Divider />
           <Stack spacing={1}>
@@ -2209,9 +3028,9 @@ export default function PlaylistWindowApp() {
           <Button
             onClick={handleExportPlaylist}
             variant="contained"
-            disabled={isExporting}
+            disabled={!!exportProgress}
           >
-            {isExporting ? '書き出し中...' : '書き出す'}
+            書き出す
           </Button>
         </DialogActions>
       </Dialog>
@@ -2225,6 +3044,40 @@ export default function PlaylistWindowApp() {
         initialNote={editingItem?.memo || ''}
         itemName={editingItem?.actionName || ''}
       />
+
+      {/* 保存進行状況ダイアログ */}
+      <Dialog open={saveProgress !== null} disableEscapeKeyDown>
+        <DialogTitle>プレイリストを保存中</DialogTitle>
+        <DialogContent sx={{ minWidth: 300 }}>
+          <Stack spacing={2}>
+            <Typography variant="body2">
+              動画クリップを生成しています...
+            </Typography>
+            {saveProgress && (
+              <>
+                <Typography variant="caption" color="text.secondary">
+                  {saveProgress.current} / {saveProgress.total} アイテム
+                </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={(saveProgress.current / saveProgress.total) * 100}
+                />
+              </>
+            )}
+          </Stack>
+        </DialogContent>
+      </Dialog>
+
+      {/* 書き出し進行状況 Snackbar */}
+      {exportProgress && (
+        <ExportProgressSnackbar
+          open={!!exportProgress}
+          current={exportProgress.current}
+          total={exportProgress.total}
+          message={exportProgress.message}
+          onClose={() => setExportProgress(null)}
+        />
+      )}
     </Box>
   );
 }
