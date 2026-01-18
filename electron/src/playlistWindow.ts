@@ -5,14 +5,35 @@ import { BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
+import { spawn } from 'child_process';
 import type {
   PlaylistSyncData,
   PlaylistCommand,
   Playlist,
+  PlaylistItem,
 } from '../../src/types/Playlist';
 
-let playlistWindow: BrowserWindow | null = null;
+/**
+ * プレイリストウィンドウ情報
+ */
+interface PlaylistWindowInfo {
+  window: BrowserWindow;
+  filePath: string | null; // 関連付けられている .stpl ファイルパス
+  isDirty: boolean; // 未保存の変更があるか
+}
+
+// 複数ウィンドウを管理するMap（filePath -> WindowInfo）
+const playlistWindows = new Map<string, PlaylistWindowInfo>();
+
 let mainWindow: BrowserWindow | null = null;
+let ffmpegPath: string | null = null;
+
+/**
+ * ユニークなウィンドウIDを生成（新規ウィンドウ用）
+ */
+function generateWindowId(): string {
+  return `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
 
 /**
  * メインウィンドウの参照を設定
@@ -22,50 +43,121 @@ export function setMainWindowRef(win: BrowserWindow): void {
 }
 
 /**
- * プレイリストウィンドウを作成・表示
+ * FFmpegパスを設定
  */
-export function createPlaylistWindow(): BrowserWindow {
-  if (playlistWindow && !playlistWindow.isDestroyed()) {
-    playlistWindow.focus();
-    return playlistWindow;
+export function setFfmpegPath(path: string): void {
+  ffmpegPath = path;
+}
+
+/**
+ * プレイリストウィンドウを作成・表示
+ * @param filePath 開く.stplファイルパス（未指定の場合は新規）
+ */
+export function createPlaylistWindow(filePath?: string): BrowserWindow {
+  const windowId = filePath || generateWindowId();
+
+  // 同じファイルパスのウィンドウが既に開いている場合はフォーカス
+  if (playlistWindows.has(windowId)) {
+    const info = playlistWindows.get(windowId)!;
+    if (!info.window.isDestroyed()) {
+      info.window.focus();
+      return info.window;
+    }
+    // ウィンドウが破棄されていたら削除
+    playlistWindows.delete(windowId);
   }
 
-  playlistWindow = new BrowserWindow({
+  // カスケード表示用のオフセット計算
+  const offset = playlistWindows.size * 50;
+
+  const window = new BrowserWindow({
     width: 450,
     height: 700,
+    x: 100 + offset,
+    y: 100 + offset,
     minWidth: 350,
     minHeight: 400,
-    title: 'プレイリスト',
+    title: filePath ? path.basename(filePath, '.stpl') : 'プレイリスト',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       sandbox: false,
     },
-    // メインウィンドウの子ウィンドウとして設定（任意）
-    // parent: mainWindow ?? undefined,
   });
 
   // プレイリスト専用ルートをロード（Hash routing使用）
   const mainURL = `file:${path.join(__dirname, '../../index.html')}#/playlist`;
-  playlistWindow.loadURL(mainURL);
+  window.loadURL(mainURL);
 
-  // メニューバーを非表示（シンプルなウィンドウ）
-  playlistWindow.setMenuBarVisibility(false);
+  // メニューバーを非表示
+  window.setMenuBarVisibility(false);
 
-  // ウィンドウが閉じられたときの処理
-  playlistWindow.on('closed', () => {
-    playlistWindow = null;
-    // メインウィンドウに通知
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('playlist:window-closed');
+  // ウィンドウ情報を保存
+  playlistWindows.set(windowId, {
+    window,
+    filePath: filePath || null,
+    isDirty: false,
+  });
+
+  // ウィンドウを閉じる際の確認処理
+  window.on('close', async (e) => {
+    const info = playlistWindows.get(windowId);
+    if (!info) return;
+
+    if (info.isDirty) {
+      e.preventDefault();
+
+      // 上書き保存か新規保存かで文言を分岐
+      const isOverwrite = !!info.filePath;
+      const choice = await dialog.showMessageBox(window, {
+        type: 'question',
+        buttons: ['保存', '保存しない', 'キャンセル'],
+        defaultId: 0,
+        cancelId: 2,
+        title: '未保存の変更',
+        message: isOverwrite
+          ? 'プレイリストの変更内容を上書き保存して閉じますか？'
+          : 'プレイリストに未保存の変更があります',
+        detail: isOverwrite
+          ? '既存のファイルを上書き保存してウィンドウを閉じます。よろしいですか？\n（「保存しない」を選ぶと変更は破棄されます）'
+          : '変更を保存しますか？',
+      });
+
+      if (choice.response === 0) {
+        // 保存
+        window.webContents.send('playlist:request-save');
+        // 保存完了後にウィンドウを閉じる処理は、保存完了イベントで行う
+        return;
+      } else if (choice.response === 1) {
+        // 保存しない - 強制的に閉じる
+        info.isDirty = false;
+        window.destroy();
+      }
+      // キャンセル - 何もしない
     }
   });
 
-  return playlistWindow;
+  // ウィンドウが閉じられたときの処理
+  window.on('closed', () => {
+    playlistWindows.delete(windowId);
+    // メインウィンドウに通知
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('playlist:window-closed', windowId);
+    }
+  });
+
+  // ウィンドウタイトル更新のハンドラー
+  window.webContents.on('ipc-message', (_event, channel, title: string) => {
+    if (channel === 'playlist:set-window-title') {
+      window.setTitle(title);
+    }
+  });
+
+  return window;
 }
 
 export function sendPlaylistFileToWindow(filePath: string): void {
-  const win = createPlaylistWindow();
+  const win = createPlaylistWindow(filePath);
   const send = () => win.webContents.send('playlist:external-open', filePath);
   if (win.webContents.isLoading()) {
     win.webContents.once('did-finish-load', send);
@@ -75,12 +167,25 @@ export function sendPlaylistFileToWindow(filePath: string): void {
 }
 
 /**
- * プレイリストウィンドウを閉じる
+ * 全てのプレイリストウィンドウを閉じる
+ */
+export function closeAllPlaylistWindows(): void {
+  for (const [, info] of playlistWindows) {
+    if (!info.window.isDestroyed()) {
+      info.window.close();
+    }
+  }
+  playlistWindows.clear();
+}
+
+/**
+ * プレイリストウィンドウを閉じる（後方互換性のため残す）
  */
 export function closePlaylistWindow(): void {
-  if (playlistWindow && !playlistWindow.isDestroyed()) {
-    playlistWindow.close();
-    playlistWindow = null;
+  // 最初のウィンドウを閉じる（レガシー互換性）
+  const firstWindow = playlistWindows.values().next().value;
+  if (firstWindow && !firstWindow.window.isDestroyed()) {
+    firstWindow.window.close();
   }
 }
 
@@ -88,16 +193,263 @@ export function closePlaylistWindow(): void {
  * プレイリストウィンドウが開いているか確認
  */
 export function isPlaylistWindowOpen(): boolean {
-  return playlistWindow !== null && !playlistWindow.isDestroyed();
+  for (const [, info] of playlistWindows) {
+    if (!info.window.isDestroyed()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
- * プレイリストウィンドウへデータを送信
+ * 開いているプレイリストウィンドウの数を取得
+ */
+export function getOpenWindowCount(): number {
+  let count = 0;
+  for (const [, info] of playlistWindows) {
+    if (!info.window.isDestroyed()) {
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * 全てのプレイリストウィンドウにアイテムを追加
+ */
+export function addItemToAllWindows(item: PlaylistItem): void {
+  for (const [, info] of playlistWindows) {
+    if (!info.window.isDestroyed()) {
+      info.window.webContents.send('playlist:add-item', item);
+      info.isDirty = true; // 追加があったため変更フラグを立てる
+    }
+  }
+}
+
+/**
+ * 特定のウィンドウのdirtyフラグを設定
+ */
+export function setWindowDirty(windowId: string, isDirty: boolean): void {
+  const info = playlistWindows.get(windowId);
+  if (info) {
+    info.isDirty = isDirty;
+  }
+}
+
+/**
+ * プレイリストウィンドウへデータを送信（後方互換性のため残す）
  */
 export function syncToPlaylistWindow(data: PlaylistSyncData): void {
-  if (playlistWindow && !playlistWindow.isDestroyed()) {
-    playlistWindow.webContents.send('playlist:sync', data);
+  // 最初のウィンドウに送信（レガシー互換性）
+  const firstWindow = playlistWindows.values().next().value;
+  if (firstWindow && !firstWindow.window.isDestroyed()) {
+    firstWindow.window.webContents.send('playlist:sync', data);
   }
+}
+
+/**
+ * FFmpegで動画の指定区間を切り出す
+ * @param sourcePath 元動画ファイルパス
+ * @param destPath 出力先ファイルパス
+ * @param startTime 開始時間（秒）
+ * @param endTime 終了時間（秒）
+ */
+const extractVideoSegment = async (
+  sourcePath: string,
+  destPath: string,
+  startTime: number,
+  endTime: number,
+): Promise<void> => {
+  if (!ffmpegPath) {
+    throw new Error('FFmpeg path not set');
+  }
+
+  const duration = endTime - startTime;
+
+  const args = [
+    '-i',
+    sourcePath,
+    '-ss',
+    startTime.toString(),
+    '-t',
+    duration.toString(),
+    '-c',
+    'copy', // 再エンコードなし（高速）
+    '-avoid_negative_ts',
+    'make_zero',
+    '-y', // 上書き許可
+    destPath,
+  ];
+
+  return new Promise((resolve, reject) => {
+    const process = spawn(ffmpegPath!, args);
+
+    let stderrData = '';
+    process.stderr.on('data', (data) => {
+      stderrData += data.toString();
+    });
+
+    process.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        console.error('[FFmpeg] Error output:', stderrData);
+        reject(new Error(`FFmpeg exited with code ${code}`));
+      }
+    });
+
+    process.on('error', (err) => {
+      reject(err);
+    });
+  });
+};
+
+/**
+ * 送信元ウィンドウの情報を取得するヘルパー関数
+ */
+function getWindowInfoBySender(
+  sender: Electron.WebContents,
+): PlaylistWindowInfo | null {
+  const senderWindow = BrowserWindow.fromWebContents(sender);
+  if (!senderWindow) return null;
+
+  for (const [, info] of playlistWindows) {
+    if (info.window === senderWindow) {
+      return info;
+    }
+  }
+  return null;
+}
+
+/**
+ * プレイリスト保存の共通ロジック
+ */
+async function savePlaylistToPath(
+  targetPath: string,
+  playlist: Playlist,
+  event: Electron.IpcMainInvokeEvent,
+): Promise<void> {
+  // 既存のプレイリストへの上書き保存かどうかを判定
+  const isOverwrite = existsSync(path.join(targetPath, 'playlist.json'));
+
+  // .stplパッケージディレクトリを作成
+  await fs.mkdir(targetPath, { recursive: true });
+
+  // スタンドアロン形式の場合は動画ファイルをコピー
+  if (playlist.type === 'embedded') {
+    const videosDir = path.join(targetPath, 'videos');
+    await fs.mkdir(videosDir, { recursive: true });
+
+    // 動画ファイルのコピーとパス書き換え
+    const copiedVideos = new Map<string, string>(); // キャッシュキー → 新パス
+    const totalItems = playlist.items.length;
+    let processedCount = 0;
+
+    // 進行状況をウィンドウに通知
+    const sendProgress = (current: number, total: number) => {
+      const sender = event.sender;
+      if (sender && !sender.isDestroyed()) {
+        sender.send('playlist:save-progress', {
+          current,
+          total,
+        });
+      }
+    };
+
+    // アクション名をファイルシステム安全な文字列にサニタイズ
+    const sanitizeForFilename = (name: string): string => {
+      return name.replace(/[/\\:*?"<>|]/g, '_').trim() || 'item';
+    };
+
+    const processedItems = await Promise.all(
+      playlist.items.map(async (item) => {
+        const processVideo = async (
+          sourcePath: string | undefined,
+          isSecondary: boolean = false,
+        ): Promise<string | undefined> => {
+          if (!sourcePath || !existsSync(sourcePath)) return sourcePath;
+
+          // ディレクトリ名: <アクション名>_<itemId>
+          const sanitizedActionName = sanitizeForFilename(item.actionName);
+          const dirName = `${sanitizedActionName}_${item.id}`;
+          const angleNumber = isSecondary ? 2 : 1;
+          const instanceDir = path.join(videosDir, dirName);
+          const extname = path.extname(sourcePath);
+          const newFileName = `angle${angleNumber}${extname}`;
+          const destPath = path.join(instanceDir, newFileName);
+          const relativePath = `./videos/${dirName}/${newFileName}`;
+
+          // 上書き保存時：既存の動画ファイルがあればスキップ
+          if (isOverwrite && existsSync(destPath)) {
+            // 既存ファイルが相対パスで記録されている場合はそのまま使用
+            if (sourcePath.startsWith('./videos/')) {
+              return sourcePath;
+            }
+            // 既存ファイルの相対パスを返す
+            return relativePath;
+          }
+
+          // キャッシュキー: パス + タイムスタンプで一意に識別
+          const cacheKey = `${sourcePath}_${item.startTime}_${item.endTime}`;
+          if (copiedVideos.has(cacheKey)) {
+            return copiedVideos.get(cacheKey);
+          }
+
+          // 新規保存または動画ファイルが存在しない場合のみFFmpegで処理
+          await fs.mkdir(instanceDir, { recursive: true });
+
+          // 相対パスの場合は絶対パスに変換（既存プレイリストからの読み込み時）
+          let absoluteSourcePath = sourcePath;
+          if (sourcePath.startsWith('./')) {
+            absoluteSourcePath = path.join(targetPath, sourcePath);
+          }
+
+          // FFmpegで区間を切り出し
+          await extractVideoSegment(
+            absoluteSourcePath,
+            destPath,
+            item.startTime,
+            item.endTime,
+          );
+
+          copiedVideos.set(cacheKey, relativePath);
+          return relativePath;
+        };
+
+        const newVideoSource = await processVideo(item.videoSource, false);
+        const newVideoSource2 = await processVideo(item.videoSource2, true);
+
+        // 進行状況を更新
+        processedCount++;
+        sendProgress(processedCount, totalItems);
+
+        // 切り出した動画は0秒から始まるので、startTimeとendTimeを調整
+        // ただし、既に相対パスになっている（既存ファイル）場合は調整済みなのでそのまま
+        const isAlreadyProcessed = item.videoSource?.startsWith('./videos/');
+        const duration = isAlreadyProcessed
+          ? item.endTime
+          : item.endTime - item.startTime;
+        const startTime = isAlreadyProcessed ? item.startTime : 0;
+
+        return {
+          ...item,
+          videoSource: newVideoSource,
+          videoSource2: newVideoSource2,
+          startTime,
+          endTime: isAlreadyProcessed ? item.endTime : duration,
+        };
+      }),
+    );
+
+    playlist = { ...playlist, items: processedItems };
+  }
+
+  // playlist.jsonを保存
+  const playlistJsonPath = path.join(targetPath, 'playlist.json');
+  const content = JSON.stringify(playlist, null, 2);
+  await fs.writeFile(playlistJsonPath, content, 'utf-8');
+
+  console.log('[Playlist] Saved package to:', targetPath);
 }
 
 /**
@@ -105,8 +457,8 @@ export function syncToPlaylistWindow(data: PlaylistSyncData): void {
  */
 export function registerPlaylistHandlers(): void {
   // プレイリストウィンドウを開く
-  ipcMain.handle('playlist:open-window', () => {
-    createPlaylistWindow();
+  ipcMain.handle('playlist:open-window', (_event, filePath?: string) => {
+    createPlaylistWindow(filePath);
   });
 
   // プレイリストウィンドウを閉じる
@@ -119,104 +471,167 @@ export function registerPlaylistHandlers(): void {
     return isPlaylistWindowOpen();
   });
 
+  // 開いているウィンドウ数を取得
+  ipcMain.handle('playlist:get-open-count', () => {
+    return getOpenWindowCount();
+  });
+
+  // 全てのウィンドウにアイテムを追加
+  ipcMain.handle(
+    'playlist:add-item-to-all-windows',
+    (_event, item: PlaylistItem) => {
+      addItemToAllWindows(item);
+    },
+  );
+
   // メインウィンドウからプレイリストウィンドウへの同期
   ipcMain.on('playlist:sync-to-window', (_event, data: PlaylistSyncData) => {
     syncToPlaylistWindow(data);
   });
 
-  // プレイリストウィンドウからメインウィンドウへのコマンド
-  ipcMain.on('playlist:command', (_event, command: PlaylistCommand) => {
+  // プレイリストウィンドウからメインウィンドウへのコマンド & isDirty同期
+  ipcMain.on('playlist:command', (event, command: PlaylistCommand) => {
+    if (command?.type === 'set-dirty') {
+      for (const [windowId, info] of playlistWindows) {
+        if (info.window.webContents === event.sender) {
+          info.isDirty = !!command.isDirty;
+          console.log(
+            `[Playlist] Window ${windowId} isDirty set to:`,
+            command.isDirty,
+          );
+          break;
+        }
+      }
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('playlist:command', command);
     }
   });
 
-  // プレイリストファイルを保存（スタンドアロン形式）
+  // 保存完了後にウィンドウを閉じる
+  ipcMain.on('playlist:saved-and-close', (event) => {
+    const sender = event.sender;
+    for (const [windowId, info] of playlistWindows) {
+      if (info.window.webContents === sender) {
+        console.log(`[Playlist] Closing window ${windowId} after save`);
+        info.isDirty = false;
+        if (!info.window.isDestroyed()) {
+          info.window.destroy();
+        }
+        break;
+      }
+    }
+  });
+
+  // プレイリストファイルを保存（上書き保存）
   ipcMain.handle(
     'playlist:save-file',
-    async (_event, playlist: Playlist): Promise<string | null> => {
+    async (event, playlist: Playlist): Promise<string | null> => {
       try {
+        // 送信元ウィンドウの情報を取得
+        const windowInfo = getWindowInfoBySender(event.sender);
+        let targetPath = windowInfo?.filePath;
+
+        // 既存のファイルパスがない場合は新規保存として扱う
+        if (!targetPath) {
+          const { filePath } = await dialog.showSaveDialog({
+            title: 'プレイリストを保存',
+            defaultPath: `${playlist.name || 'playlist'}.stpl`,
+            filters: [{ name: 'SporTagLytics Playlist', extensions: ['stpl'] }],
+          });
+
+          if (!filePath) return null;
+          targetPath = filePath;
+        }
+
+        // プレイリストを保存
+        await savePlaylistToPath(targetPath, playlist, event);
+
+        // ウィンドウ情報を更新
+        if (windowInfo) {
+          windowInfo.filePath = targetPath;
+          windowInfo.isDirty = false;
+        }
+
+        return targetPath;
+      } catch (error) {
+        console.error('[Playlist] Save error:', error);
+
+        // エラーダイアログを表示
+        await dialog.showMessageBox({
+          type: 'error',
+          title: '保存エラー',
+          message: 'プレイリストの保存に失敗しました',
+          detail: error instanceof Error ? error.message : String(error),
+          buttons: ['OK'],
+        });
+
+        return null;
+      }
+    },
+  );
+
+  // プレイリストファイルを名前を付けて保存
+  ipcMain.handle(
+    'playlist:save-file-as',
+    async (event, playlist: Playlist): Promise<string | null> => {
+      try {
+        // 送信元ウィンドウの現在のファイルパスを取得（デフォルト値として使用）
+        const windowInfo = getWindowInfoBySender(event.sender);
+        const currentPath = windowInfo?.filePath;
+        const defaultName = currentPath
+          ? path.basename(currentPath, '.stpl')
+          : playlist.name || 'playlist';
+
         const { filePath } = await dialog.showSaveDialog({
-          title: 'プレイリストを保存',
-          defaultPath: `${playlist.name || 'playlist'}.stpl`,
-          filters: [
-            { name: 'SporTagLytics Playlist', extensions: ['stpl'] },
-            { name: 'JSON', extensions: ['json'] },
-          ],
+          title: '名前を付けて保存',
+          defaultPath: `${defaultName}.stpl`,
+          filters: [{ name: 'SporTagLytics Playlist', extensions: ['stpl'] }],
         });
 
         if (!filePath) return null;
 
-        // JSONとして保存
-        const content = JSON.stringify(playlist, null, 2);
-        await fs.writeFile(filePath, content, 'utf-8');
-        console.log('[Playlist] Saved to:', filePath);
+        // プレイリストを保存
+        await savePlaylistToPath(filePath, playlist, event);
+
+        // ウィンドウ情報を更新
+        if (windowInfo) {
+          windowInfo.filePath = filePath;
+          windowInfo.isDirty = false;
+        }
+
+        // 完了ダイアログを表示
+        await dialog.showMessageBox({
+          type: 'info',
+          title: '保存完了',
+          message: 'プレイリストを保存しました',
+          detail: `保存先: ${filePath}`,
+          buttons: ['OK'],
+        });
+
         return filePath;
       } catch (error) {
-        console.error('[Playlist] Save error:', error);
+        console.error('[Playlist] Save-as error:', error);
+
+        // エラーダイアログを表示
+        await dialog.showMessageBox({
+          type: 'error',
+          title: '保存エラー',
+          message: 'プレイリストの保存に失敗しました',
+          detail: error instanceof Error ? error.message : String(error),
+          buttons: ['OK'],
+        });
+
         return null;
       }
     },
   );
 
   // プレイリストファイルを読み込み
-  const findPackageRoot = (startDir: string): string | null => {
-    let current = startDir;
-    while (true) {
-      const meta = path.join(current, '.metadata', 'config.json');
-      if (existsSync(meta)) return current;
-      const parent = path.dirname(current);
-      if (parent === current) break;
-      current = parent;
-    }
-    return null;
-  };
-
-  const resolveVideoPath = (
-    original: string | undefined,
-    playlistPath?: string,
-    sourcePackagePath?: string,
-  ): string | undefined => {
-    if (!original) return undefined;
-    if (existsSync(original)) return original;
-
-    const baseDir = playlistPath ? path.dirname(playlistPath) : null;
-    let candidatePkg: string | null = null;
-    if (sourcePackagePath && existsSync(sourcePackagePath)) {
-      candidatePkg = sourcePackagePath;
-    } else if (sourcePackagePath && baseDir) {
-      const sibling = path.join(baseDir, path.basename(sourcePackagePath));
-      if (existsSync(sibling)) candidatePkg = sibling;
-    }
-    if (!candidatePkg && baseDir) {
-      candidatePkg = findPackageRoot(baseDir);
-    }
-
-    if (candidatePkg && sourcePackagePath) {
-      const rel = path.relative(sourcePackagePath, original);
-      if (rel && !rel.startsWith('..')) {
-        const joined = path.join(candidatePkg, rel);
-        if (existsSync(joined)) return joined;
-      }
-    }
-
-    if (candidatePkg) {
-      const byName = path.join(candidatePkg, path.basename(original));
-      if (existsSync(byName)) return byName;
-    }
-
-    if (baseDir) {
-      const baseName = path.join(baseDir, path.basename(original));
-      if (existsSync(baseName)) return baseName;
-    }
-
-    return original;
-  };
-
   ipcMain.handle(
     'playlist:load-file',
     async (
-      _event,
+      event,
       givenPath?: string,
     ): Promise<{ playlist: Playlist; filePath: string } | null> => {
       try {
@@ -224,50 +639,133 @@ export function registerPlaylistHandlers(): void {
         if (!targetPath) {
           const { filePaths } = await dialog.showOpenDialog({
             title: 'プレイリストを開く',
-            filters: [
-              { name: 'SporTagLytics Playlist', extensions: ['stpl'] },
-              { name: 'JSON', extensions: ['json'] },
-            ],
-            properties: ['openFile'],
+            filters: [{ name: 'SporTagLytics Playlist', extensions: ['stpl'] }],
+            properties: ['openFile', 'openDirectory'],
           });
           if (filePaths.length === 0) return null;
           targetPath = filePaths[0];
         }
         if (!targetPath) return null;
 
-        const content = await fs.readFile(targetPath, 'utf-8');
-        const playlist = JSON.parse(content) as Playlist;
+        // パッケージ形式: playlist.jsonを読み込み
+        const playlistJsonPath = path.join(targetPath, 'playlist.json');
 
-        const resolvedPkg =
-          (playlist.sourcePackagePath && existsSync(playlist.sourcePackagePath)
-            ? playlist.sourcePackagePath
-            : null) ||
-          (targetPath ? findPackageRoot(path.dirname(targetPath)) : null);
+        // ファイル存在チェック
+        if (!existsSync(playlistJsonPath)) {
+          await dialog.showErrorBox(
+            '読み込みエラー',
+            `プレイリストファイルが見つかりません: ${playlistJsonPath}`,
+          );
+          return null;
+        }
 
+        const content = await fs.readFile(playlistJsonPath, 'utf-8');
+        let playlist: Playlist;
+
+        try {
+          playlist = JSON.parse(content) as Playlist;
+        } catch (parseError) {
+          await dialog.showErrorBox(
+            '読み込みエラー',
+            'プレイリストファイルが破損しています。JSONの解析に失敗しました。',
+          );
+          return null;
+        }
+
+        // 必須フィールドの検証
+        if (
+          !playlist.id ||
+          !playlist.name ||
+          !playlist.type ||
+          !Array.isArray(playlist.items)
+        ) {
+          await dialog.showErrorBox(
+            '読み込みエラー',
+            'プレイリストファイルの形式が不正です。必須フィールドが欠落しています。',
+          );
+          return null;
+        }
+
+        // パス解決処理
         const resolvedItems = playlist.items.map((item) => {
-          const videoSource = resolveVideoPath(
-            item.videoSource,
-            targetPath,
-            playlist.sourcePackagePath,
-          );
-          const videoSource2 = resolveVideoPath(
-            item.videoSource2,
-            targetPath,
-            playlist.sourcePackagePath,
-          );
-          return { ...item, videoSource, videoSource2 };
+          const resolvePackageVideoPath = (
+            videoPath: string | undefined,
+          ): string | undefined => {
+            if (!videoPath) return undefined;
+
+            // 相対パス（./videos/ または videos/）の場合はパッケージ内を参照
+            if (
+              videoPath.startsWith('./videos/') ||
+              videoPath.startsWith('videos/')
+            ) {
+              const relativePath = videoPath.replace(/^\.?\//, '');
+              const resolved = path.join(targetPath, relativePath);
+              if (!existsSync(resolved)) {
+                console.warn(`[Playlist] Video file not found: ${resolved}`);
+                return undefined;
+              }
+              return resolved;
+            }
+
+            // 絶対パスの場合はそのまま（参照形式）
+            if (path.isAbsolute(videoPath)) {
+              if (!existsSync(videoPath)) {
+                console.warn(
+                  `[Playlist] Referenced video not found: ${videoPath}`,
+                );
+                return undefined;
+              }
+              return videoPath;
+            }
+
+            // その他の相対パスはパッケージ基準で解決
+            const resolved = path.join(targetPath, videoPath);
+            return existsSync(resolved) ? resolved : undefined;
+          };
+
+          return {
+            ...item,
+            videoSource: resolvePackageVideoPath(item.videoSource),
+            videoSource2: resolvePackageVideoPath(item.videoSource2),
+          };
         });
 
-        const resolvedPlaylist: Playlist = {
-          ...playlist,
-          items: resolvedItems,
-          sourcePackagePath: resolvedPkg ?? playlist.sourcePackagePath,
-        };
+        const resolvedPlaylist = { ...playlist, items: resolvedItems };
 
         console.log('[Playlist] Loaded from:', targetPath);
+
+        // 既存のプレイリストウィンドウから呼ばれた場合は新しいウィンドウを作らない
+        // メインウィンドウや他の場所から呼ばれた場合のみ新しいウィンドウを作成
+        const senderWindow = BrowserWindow.fromWebContents(event.sender);
+        const isFromPlaylistWindow =
+          senderWindow &&
+          Array.from(playlistWindows.values()).some(
+            (info) => info.window === senderWindow,
+          );
+
+        if (!isFromPlaylistWindow) {
+          // プレイリストウィンドウ以外から呼ばれた場合は新しいウィンドウを作成
+          createPlaylistWindow(targetPath);
+        } else {
+          // 既存のプレイリストウィンドウから呼ばれた場合、そのウィンドウ情報を更新
+          const windowInfo = getWindowInfoBySender(event.sender);
+          if (windowInfo) {
+            windowInfo.filePath = targetPath;
+            windowInfo.isDirty = false;
+            console.log(
+              '[Playlist] Updated window info with filePath:',
+              targetPath,
+            );
+          }
+        }
+
         return { playlist: resolvedPlaylist, filePath: targetPath };
       } catch (error) {
         console.error('[Playlist] Load error:', error);
+        await dialog.showErrorBox(
+          '読み込みエラー',
+          `プレイリストの読み込みに失敗しました: ${error instanceof Error ? error.message : String(error)}`,
+        );
         return null;
       }
     },

@@ -68,7 +68,7 @@ export interface IElectronAPI {
     sourcePath2?: string;
     mode?: 'single' | 'dual';
     exportMode?: 'single' | 'perInstance' | 'perRow';
-    angleOption?: 'all' | 'angle1' | 'angle2';
+    angleOption?: 'allAngles' | 'single' | 'multi';
     outputDir?: string;
     outputFileName?: string;
     clips: Array<{
