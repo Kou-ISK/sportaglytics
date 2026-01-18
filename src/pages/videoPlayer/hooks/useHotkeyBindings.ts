@@ -10,7 +10,7 @@ interface UseHotkeyBindingsParams {
   settingsHotkeys: HotkeyConfig[];
   activeActions: ActionDefinition[];
   codeWindowButtons?: { id: string; name: string; hotkey?: string }[];
-  timelineActionRef: RefObject<TimelineActionSectionHandle>;
+  timelineActionRef: RefObject<TimelineActionSectionHandle | null>;
   setVideoPlayBackRate: (rate: number) => void;
   setIsVideoPlaying: (value: boolean) => void;
   handleCurrentTime: (event: Event, time: number) => void;

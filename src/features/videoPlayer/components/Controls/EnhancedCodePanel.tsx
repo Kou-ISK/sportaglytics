@@ -1,5 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useMemo } from 'react';
-import { Box, Typography, Grid, Button, Chip } from '@mui/material';
+import { Box, Typography, Button, Chip } from '@mui/material';
+import Grid from '@mui/material/GridLegacy';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import LabelIcon from '@mui/icons-material/Label';
 import videojs from 'video.js';

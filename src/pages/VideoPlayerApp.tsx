@@ -123,7 +123,7 @@ const VideoPlayerAppContent = () => {
     ) || settings.codingPanel?.codeWindows?.[0];
 
   // TimelineActionSectionへのrefを作成
-  const timelineActionRef = useRef<TimelineActionSectionHandle>(null);
+  const timelineActionRef = useRef<TimelineActionSectionHandle | null>(null);
 
   // 手動同期適用ハンドラ
   const handleApplyManualSync = useCallback(async () => {

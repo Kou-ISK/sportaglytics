@@ -116,10 +116,11 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
     return momentum.neutral;
   };
 
-  const CustomTooltip: React.FC<TooltipProps<number, string>> = ({
-    active,
-    payload,
-  }) => {
+  const CustomTooltip: React.FC<
+    TooltipProps<number, string> & {
+      payload?: Array<{ payload?: MomentumChartDatum }>;
+    }
+  > = ({ active, payload }) => {
     if (!active || !payload?.length) return null;
     const datum = payload[0]?.payload as MomentumChartDatum | undefined;
     if (!datum) return null;

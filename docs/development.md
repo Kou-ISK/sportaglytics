@@ -64,7 +64,7 @@ SporTagLytics/
 │       └── ...
 ├── public/                   # 静的ファイル
 ├── src/                      # Reactアプリケーション
-│   ├── index.tsx            # エントリーポイント
+│   ├── main.tsx             # エントリーポイント
 │   ├── App.tsx              # ルートコンポーネント
 │   ├── components/          # 共通コンポーネント
 │   ├── contexts/            # Reactコンテキスト
@@ -75,9 +75,10 @@ SporTagLytics/
 │   ├── pages/               # ページコンポーネント
 │   ├── types/               # 型定義
 │   └── utils/               # ユーティリティ関数
+├── index.html
 ├── package.json
 ├── tsconfig.json
-└── webpack.config.ts
+└── vite.config.ts
 ```
 
 ### ディレクトリ責務
@@ -101,11 +102,11 @@ SporTagLytics/
 
 | 技術         | バージョン | 用途             |
 | ------------ | ---------- | ---------------- |
-| React        | 18.3.1     | UIライブラリ     |
+| React        | 19.2.3     | UIライブラリ     |
 | TypeScript   | 5.9.3      | 型安全な開発     |
-| Material-UI  | 5.18.0     | UIコンポーネント |
-| Recharts     | 2.15.0     | グラフ・チャート |
-| React Router | 6.26.2     | ルーティング     |
+| Material-UI  | 7.3.7      | UIコンポーネント |
+| Recharts     | 3.6.0      | グラフ・チャート |
+| React Router | 7.12.0     | ルーティング     |
 
 ### 映像処理
 
@@ -119,17 +120,17 @@ SporTagLytics/
 
 | 技術             | バージョン | 用途                 |
 | ---------------- | ---------- | -------------------- |
-| Electron         | 31.7.7     | デスクトップアプリ化 |
-| electron-builder | 25.1.8     | アプリパッケージング |
+| Electron         | 40.0.0     | デスクトップアプリ化 |
+| electron-builder | 26.4.0     | アプリパッケージング |
 
 ### 開発ツール
 
 | 技術    | バージョン | 用途                   |
 | ------- | ---------- | ---------------------- |
 | pnpm    | 9.1.0+     | パッケージマネージャー |
-| Webpack | 5.96.1     | バンドラー             |
+| Vite    | 7.x        | バンドラー             |
 | ESLint  | 8.57.1     | 静的解析               |
-| Jest    | 29.7.0     | テスト                 |
+| Vitest  | 4.x        | テスト                 |
 
 ---
 
@@ -143,7 +144,7 @@ pnpm start
 
 内部的に以下が実行されます:
 
-1. `webpack serve` でReactアプリをホット起動
+1. `vite` でReactアプリをホット起動
 2. `tsc` でElectronメインプロセスをトランスパイル
 3. `electron .` でアプリを起動
 

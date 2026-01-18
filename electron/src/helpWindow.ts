@@ -251,6 +251,8 @@ export const openHelpWindow = () => {
   });
 };
 
-app.on('window-all-closed', () => {
-  helpWindow = null;
-});
+if (app?.on) {
+  app.on('window-all-closed', () => {
+    helpWindow = null;
+  });
+}
