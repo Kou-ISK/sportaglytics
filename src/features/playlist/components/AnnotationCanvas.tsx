@@ -10,13 +10,14 @@ import React, {
   useState,
   forwardRef,
 } from 'react';
-import { Box, Paper, TextField } from '@mui/material';
+import { Box } from '@mui/material';
 import type {
   AnnotationTarget,
   DrawingObject,
   DrawingToolType,
 } from '../../../types/Playlist';
 import { AnnotationToolbar } from './AnnotationToolbar';
+import { AnnotationTextInputOverlay } from './AnnotationTextInputOverlay';
 
 const TIMESTAMP_TOLERANCE = 0.12;
 const MIN_FREEZE_UI_SECONDS = 1;
@@ -902,54 +903,20 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           onTouchEnd={handleEnd}
         />
 
-        {/* Text Input Dialog */}
         {textPosition && (
-          <Box
-            sx={{
-              position: 'absolute',
-              left: `${(textPosition.x / width) * 100}%`,
-              top: `${(textPosition.y / height) * 100}%`,
-              // place box so its top-center aligns with the clicked canvas point
-              transform: 'translate(-50%, 0)',
-              zIndex: 10,
+          <AnnotationTextInputOverlay
+            width={width}
+            height={height}
+            textPosition={textPosition}
+            textInput={textInput}
+            color={color}
+            onChange={setTextInput}
+            onSubmit={handleTextSubmit}
+            onCancel={() => {
+              setTextPosition(null);
+              setTextInput('');
             }}
-          >
-            <Paper sx={{ p: 1, bgcolor: 'transparent' }}>
-              <TextField
-                size="small"
-                autoFocus
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleTextSubmit();
-                  if (e.key === 'Escape') {
-                    setTextPosition(null);
-                    setTextInput('');
-                  }
-                }}
-                placeholder="テキストを入力..."
-                sx={{
-                  minWidth: 150,
-                  backgroundColor: 'transparent',
-                  '& .MuiInputBase-input': {
-                    color: color,
-                    caretColor: color,
-                    fontSize: '24px',
-                    lineHeight: 1,
-                  },
-                  // remove outline for outlined variant to keep transparent look
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    border: 'none',
-                  },
-                  // subtle focus ring for accessibility
-                  '& .MuiInputBase-input:focus': {
-                    outline: 'none',
-                    boxShadow: '0 0 0 3px rgba(255,255,255,0.08)',
-                  },
-                }}
-              />
-            </Paper>
-          </Box>
+          />
         )}
 
         <AnnotationToolbar
