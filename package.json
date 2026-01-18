@@ -1,6 +1,6 @@
 {
   "name": "sportaglytics",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "description": "Sports video tagging and analytics application",
   "private": true,
   "packageManager": "pnpm@9.1.0",
@@ -19,11 +19,9 @@
     "@mui/utils": "^7.3.7",
     "@mui/x-charts": "^8.25.0",
     "@types/video.js": "^7.3.58",
-    "electron-is-dev": "^3.0.1",
     "ffmpeg-static": "^5.2.0",
     "js-yaml": "^4.1.1",
     "lodash": "^4.17.21",
-    "path-browserify": "^1.0.1",
     "react": "^19.2.3",
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.3",
@@ -37,7 +35,7 @@
   "homepage": "./",
   "author": "Kou-ISK",
   "scripts": {
-    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --fix",
+    "lint": "eslint src --fix",
     "fix": "pnpm run lint && pnpm run format",
     "format": "prettier --write '**/*.ts' '**/*.tsx'",
     "start": "vite",
@@ -48,12 +46,6 @@
     "electron:build": "pnpm run build && pnpm exec tsc -p electron && electron-builder",
     "electron:package:mac": "pnpm run build && pnpm exec tsc -p electron && electron-builder --mac --x64 --arm64",
     "electron:dev": "concurrently \"pnpm start\" \"wait-on http://localhost:3000 && pnpm run electron:start\""
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
   },
   "browserslist": {
     "production": [
@@ -82,18 +74,15 @@
     "concurrently": "^9.2.1",
     "electron": "^40.0.0",
     "electron-builder": "^26.4.0",
-    "electron-builder-squirrel-windows": "26.4.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "jsdom": "^27.4.0",
     "minimatch": "^10.1.1",
     "prettier": "^3.8.0",
-    "redux": "^5.0.1",
     "typescript": "^5.4.5",
     "vite": "^7.3.1",
     "vitest": "^4.0.17",
-    "wait-on": "^9.0.3",
-    "web-vitals": "^5.1.0"
+    "wait-on": "^9.0.3"
   },
   "repository": "https://github.com/Kou-ISK/sportaglytics.git",
   "license": "MIT",
