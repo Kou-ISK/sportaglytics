@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-01-18
+
+### Changed
+
+- Electron/React/MUIなど主要依存関係を更新
+- CRA由来の構成整理（web-vitals、未使用設定、webpack設定の削除）
+- ESLintフラット設定に移行
+- GitHub ActionsのNode/pnpmを現行に合わせて統一
+
 ## [0.2.7] - 2026-01-18
 
 ### Added
