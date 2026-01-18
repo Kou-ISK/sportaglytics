@@ -27,7 +27,6 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import SaveIcon from '@mui/icons-material/Save';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import type {
@@ -40,6 +39,8 @@ import { TEAM_PLACEHOLDERS } from '../../../../utils/teamPlaceholder';
 import { FreeCanvasEditor } from './FreeCanvasEditor';
 import { ButtonPropertiesEditor } from './ButtonPropertiesEditorNew';
 import { CodeWindowCreateDialog } from './CodeWindowCreateDialog';
+import { CodeWindowSettingsHeader } from './CodeWindowSettingsHeader';
+import { CodeWindowPlaceholderAlert } from './CodeWindowPlaceholderAlert';
 import {
   createLayout,
   createButton,
@@ -450,24 +451,7 @@ export const CodeWindowSettings = forwardRef<
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {/* ヘッダー */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Typography variant="h6">コードウィンドウ設定</Typography>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={!hasChanges}
-        >
-          保存
-        </Button>
-      </Box>
+      <CodeWindowSettingsHeader hasChanges={hasChanges} onSave={handleSave} />
 
       {saveSuccess && (
         <Alert severity="success" sx={{ mb: 2 }}>
@@ -476,29 +460,10 @@ export const CodeWindowSettings = forwardRef<
       )}
 
       {/* プレースホルダーの説明 */}
-      <Alert severity="info" sx={{ mb: 2 }}>
-        <Typography variant="body2" fontWeight="bold" gutterBottom>
-          チーム名プレースホルダー
-        </Typography>
-        <Typography variant="body2">
-          ボタン名に{' '}
-          <code>
-            ${'{'}Team1{'}'}
-          </code>{' '}
-          や{' '}
-          <code>
-            ${'{'}Team2{'}'}
-          </code>{' '}
-          を使うと、パッケージ設定のチーム名に自動置換されます。
-        </Typography>
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          例:{' '}
-          <code>
-            ${'{'}Team1{'}'} タックル
-          </code>{' '}
-          → <code>Japan タックル</code>（Team1が&quot;Japan&quot;の場合）
-        </Typography>
-      </Alert>
+      <CodeWindowPlaceholderAlert
+        team1Placeholder={TEAM_PLACEHOLDERS.TEAM1}
+        team2Placeholder={TEAM_PLACEHOLDERS.TEAM2}
+      />
 
       {/* コードウィンドウ選択 */}
       <Paper
