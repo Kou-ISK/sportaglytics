@@ -61,20 +61,20 @@ brew install --cask sportaglytics
 ### 1. バージョン番号を更新
 
 ```bash
-# package.jsonのversionを更新
-vim package.json  # "version": "0.2.0" に変更
+# package.jsonのversionを更新（例: 0.2.6）
+vim package.json  # "version": "<version>" に変更
 ```
 
 ### 2. コミット&タグプッシュ
 
 ```bash
 git add package.json
-git commit -m "chore: bump version to 0.2.0"
+git commit -m "chore: bump version to <version>"
 git push origin main
 
 # タグをプッシュ（これで自動化開始！）
-git tag v0.2.0
-git push origin v0.2.0
+git tag v<version>
+git push origin v<version>
 ```
 
 ### 3. 自動実行される処理（5-10分）

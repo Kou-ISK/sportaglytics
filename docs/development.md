@@ -464,9 +464,9 @@ pnpm exec tsc --noEmit
 
 ```bash
 git add .
-git commit -m "chore: release v0.2.5"
-git tag v0.2.5
-git push origin develop --tags
+git commit -m "chore: release v<version>"
+git tag v<version>
+git push origin <default-branch> --tags
 ```
 
 5. **GitHub Release**:

@@ -55,10 +55,7 @@ interface VisualTimelineProps {
   onUndo?: () => void;
   onRedo?: () => void;
   /** プレイリストに追加（位置情報付き） */
-  onAddToPlaylist?: (
-    items: TimelineData[],
-    anchorPosition: { top: number; left: number },
-  ) => void;
+  onAddToPlaylist?: (items: TimelineData[]) => void;
 }
 
 export const VisualTimeline: React.FC<VisualTimelineProps> = ({
@@ -223,9 +220,10 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   const [exportMode, setExportMode] = useState<
     'single' | 'perInstance' | 'perRow'
   >('single');
-  const [angleOption, setAngleOption] = useState<'all' | 'angle1' | 'angle2'>(
-    'all',
-  );
+  const [angleOption, setAngleOption] = useState<
+    'allAngles' | 'single' | 'multi'
+  >('single');
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
 
   const handleMoveItems = useCallback(
@@ -433,22 +431,29 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   }, []);
 
   const handleExportClips = useCallback(async () => {
-    const sourcePath = primarySource || videoSources?.[0];
-    const sourcePath2 = secondarySource || videoSources?.[1];
-    if (!sourcePath) {
-      info('書き出し元の映像ファイルが取得できません');
-      setClipDialogOpen(false);
-      return;
-    }
-    const useDual =
-      angleOption === 'all' && sourcePath2 ? true : angleOption === 'angle2';
-    if (useDual && !sourcePath2) {
-      info('2アングル結合には2つの映像ソースが必要です');
-      return;
-    }
     if (!globalThis.window.electronAPI?.exportClipsWithOverlay) {
       info('クリップ書き出しAPIが利用できません');
       setClipDialogOpen(false);
+      return;
+    }
+
+    // アングルオプションに応じた検証
+    if (
+      angleOption === 'allAngles' &&
+      (!videoSources || videoSources.length < 2)
+    ) {
+      info('全アングル書き出しには2つ以上の映像ソースが必要です');
+      return;
+    }
+    if (angleOption === 'multi' && (!videoSources || videoSources.length < 2)) {
+      info('マルチアングル書き出しには2つ以上の映像ソースが必要です');
+      return;
+    }
+    if (
+      angleOption === 'single' &&
+      (!videoSources || !videoSources[selectedAngleIndex])
+    ) {
+      info('選択されたアングルの映像が取得できません');
       return;
     }
     const ordered = [...timeline].sort((a, b) => a.startTime - b.startTime);
@@ -490,24 +495,63 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
       });
 
     setIsExporting(true);
-    const result = await globalThis.window.electronAPI.exportClipsWithOverlay({
-      sourcePath,
-      sourcePath2: useDual ? sourcePath2 : undefined,
-      mode: useDual ? 'dual' : 'single',
-      exportMode,
-      angleOption,
-      clips,
-      overlay: overlaySettings,
-      outputFileName: exportFileName.trim() || undefined,
-    });
-    setIsExporting(false);
-    if (result?.success) {
-      info('クリップを書き出しました');
-      setClipDialogOpen(false);
+
+    // 全アングルの場合は各アングルごとに書き出し
+    if (angleOption === 'allAngles') {
+      let allSuccess = true;
+      for (let i = 0; i < videoSources!.length; i++) {
+        const result =
+          await globalThis.window.electronAPI.exportClipsWithOverlay({
+            sourcePath: videoSources![i],
+            sourcePath2: undefined,
+            mode: 'single',
+            exportMode,
+            angleOption: 'single',
+            clips,
+            overlay: overlaySettings,
+            outputFileName: exportFileName.trim()
+              ? `${exportFileName.trim()}_angle${i + 1}`
+              : undefined,
+          });
+        if (!result?.success) {
+          allSuccess = false;
+          info(result?.error || `アングル${i + 1}の書き出しに失敗しました`);
+          break;
+        }
+      }
+      setIsExporting(false);
+      if (allSuccess) {
+        info(`全${videoSources!.length}アングルの書き出しが完了しました`);
+        setClipDialogOpen(false);
+      }
     } else {
-      info(result?.error || 'クリップ書き出しに失敗しました');
+      // 単一アングルまたはマルチアングルの場合
+      const result = await globalThis.window.electronAPI.exportClipsWithOverlay(
+        {
+          sourcePath:
+            angleOption === 'single'
+              ? videoSources![selectedAngleIndex]
+              : videoSources![0],
+          sourcePath2: angleOption === 'multi' ? videoSources![1] : undefined,
+          mode: angleOption === 'multi' ? 'dual' : 'single',
+          exportMode,
+          angleOption,
+          clips,
+          overlay: overlaySettings,
+          outputFileName: exportFileName.trim() || undefined,
+        },
+      );
+      setIsExporting(false);
+      if (result?.success) {
+        info('クリップを書き出しました');
+        setClipDialogOpen(false);
+      } else {
+        info(result?.error || 'クリップ書き出しに失敗しました');
+      }
     }
   }, [
+    angleOption,
+    selectedAngleIndex,
     exportScope,
     exportMode,
     info,
@@ -681,13 +725,13 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         onJumpTo={handleContextMenuJumpTo}
         onDuplicate={handleContextMenuDuplicate}
         onAddToPlaylist={
-          onAddToPlaylist && contextMenu?.position
+          onAddToPlaylist
             ? () => {
                 const items = timeline.filter((t) =>
                   selectedIds.includes(t.id),
                 );
                 if (items.length > 0) {
-                  onAddToPlaylist(items, contextMenu.position);
+                  onAddToPlaylist(items);
                 }
               }
             : undefined
@@ -809,50 +853,74 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
             row
             value={angleOption}
             onChange={(e) =>
-              setAngleOption(e.target.value as 'all' | 'angle1' | 'angle2')
+              setAngleOption(e.target.value as 'allAngles' | 'single' | 'multi')
             }
           >
-            <FormControlLabel value="all" control={<Radio />} label="全て" />
             <FormControlLabel
-              value="angle1"
+              value="allAngles"
               control={<Radio />}
-              label="アングル1"
+              label="全アングル"
+              disabled={!videoSources || videoSources.length < 2}
             />
             <FormControlLabel
-              value="angle2"
+              value="single"
               control={<Radio />}
-              label="アングル2"
+              label="単一アングル"
+            />
+            <FormControlLabel
+              value="multi"
+              control={<Radio />}
+              label="マルチ"
+              disabled={!videoSources || videoSources.length < 2}
             />
           </RadioGroup>
-          <TextField
-            select
-            SelectProps={{ native: true }}
-            label="メイン映像"
-            value={primarySource || ''}
-            onChange={(e) => setPrimarySource(e.target.value)}
-            size="small"
-          >
-            {(videoSources || []).map((src) => (
-              <option key={src} value={src}>
-                {renderSourceLabel(src)}
-              </option>
-            ))}
-          </TextField>
-          {angleOption === 'all' && (
-            <TextField
-              select
-              SelectProps={{ native: true }}
-              label="サブ映像（横並び）"
-              value={secondarySource || ''}
-              onChange={(e) => setSecondarySource(e.target.value)}
-              size="small"
+          {angleOption === 'single' && (
+            <RadioGroup
+              row
+              value={selectedAngleIndex}
+              onChange={(e) => setSelectedAngleIndex(Number(e.target.value))}
             >
-              {(videoSources || []).map((src) => (
-                <option key={src} value={src}>
-                  {renderSourceLabel(src)}
-                </option>
+              {(videoSources || []).map((_, index) => (
+                <FormControlLabel
+                  key={index}
+                  value={index}
+                  control={<Radio />}
+                  label={`アングル${index + 1}`}
+                />
               ))}
-            </TextField>
+            </RadioGroup>
+          )}
+          {angleOption === 'multi' && (
+            <>
+              <TextField
+                select
+                SelectProps={{ native: true }}
+                label="メイン映像"
+                value={primarySource || ''}
+                onChange={(e) => setPrimarySource(e.target.value)}
+                size="small"
+              >
+                {(videoSources || []).map((src) => (
+                  <option key={src} value={src}>
+                    {renderSourceLabel(src)}
+                  </option>
+                ))}
+              </TextField>
+              <TextField
+                select
+                SelectProps={{ native: true }}
+                label="サブ映像（横並び）"
+                value={secondarySource || ''}
+                onChange={(e) => setSecondarySource(e.target.value)}
+                size="small"
+              >
+                {(videoSources || []).map((src) => (
+                  <option key={src} value={src}>
+                    {renderSourceLabel(src)}
+                  </option>
+                ))}
+              </TextField>
+            </>
           )}
         </DialogContent>
         <DialogActions>

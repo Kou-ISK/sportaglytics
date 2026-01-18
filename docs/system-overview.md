@@ -10,7 +10,7 @@
 - **タイムライン編集**: `VisualTimeline` が描画。ズーム/幅計算は `useTimelineViewport`、選択やコンテキストメニュー/編集ハンドラは `useTimelineInteractions`。編集ダイアログの入力管理は `useTimelineEditDraft`、バリデーションは `useTimelineValidation`。
 - **分析ダッシュボード**: `StatsModalView`。共通カードレイアウトは `StatsCard`、ヘッダーは `StatsModalHeader`。Breakdown は `useActionBreakdown`、Matrix 軸設定は `useMatrixAxes`、フィルタは `useMatrixFilters`。
 - **設定**: `SettingsPage` は `SettingsTabs`/`SettingsHeader`/`UnsavedChangesDialog` に分離。未保存チェックは `useUnsavedTabSwitch`。
-- **プレイリスト**: `PlaylistContext` でプレイリスト管理、専用ウィンドウ（`PlaylistWindowApp`）で連続/ループ再生、フリーズフレーム、簡易描画、メモ編集に対応。Electron の IPC 経由でメイン↔プレイリストウィンドウ間で双方向通信。
+- **プレイリスト**: `PlaylistContext` でプレイリスト管理、専用ウィンドウ（`PlaylistWindowApp`）で連続/ループ再生、フリーズフレーム、簡易描画、メモ編集に対応。複数ウィンドウに対応し、IPC 経由でメイン↔プレイリスト間で双方向通信。
 
 ## データ構造
 

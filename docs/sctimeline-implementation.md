@@ -63,7 +63,7 @@ SporTagLyticsに、Sportscode の SCTimeline 形式のインポート/エクス�
 **エクスポート:**
 
 - `'sctimeline'` 形式を追加
-- メニューから「SCTimeline形式」を選択可能
+- メニューから「SCTimeline形式」を選択可能（ファイル > エクスポート）
 
 **インポート:**
 
@@ -75,7 +75,7 @@ SporTagLyticsに、Sportscode の SCTimeline 形式のインポート/エクス�
 
 #### `electron/src/menuBar.ts` (更新)
 
-- タイムライン > エクスポート に「SCTimeline形式」を追加
+- ファイル > エクスポート に「SCTimeline形式」を追加
 - クリック時に `'menu-export-timeline'` イベントを `'sctimeline'` パラメータで送信
 
 ## データ構造の対応関係
@@ -152,13 +152,13 @@ SporTagLyticsに、Sportscode の SCTimeline 形式のインポート/エクス�
 
 ### エクスポート
 
-1. メニューバー: **タイムライン > エクスポート > SCTimeline形式**
+1. メニューバー: **ファイル > エクスポート > SCTimeline形式**
 2. 保存先を選択
 3. `.json` 拡張子で保存（SCTimeline形式のJSON）
 
 ### インポート
 
-1. メニューバー: **タイムライン > インポート**
+1. メニューバー: **ファイル > インポート**
 2. JSONファイルを選択
 3. 形式を自動判別:
    - SporTagLytics形式 → そのまま読み込み

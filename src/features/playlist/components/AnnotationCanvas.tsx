@@ -403,11 +403,13 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       '#000000',
     ];
 
-    // Initialize from props - only on mount to avoid overwriting during drawing
-    // Intentionally empty deps array: initialObjects changes should not reset local state
+    // Initialize from props when not actively drawing
+    // Update objects when initialObjects change, but only when not in drawing mode
     useEffect(() => {
-      setObjects(initialObjects);
-    }, []); // Only run on mount, not when initialObjects changes
+      if (!isActive) {
+        setObjects(initialObjects);
+      }
+    }, [initialObjects, isActive, target]);
 
     useEffect(() => {
       setLocalFreezeDuration(
@@ -504,12 +506,15 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         offsetX: 0,
         offsetY: 0,
       };
+
+      // タイムスタンプに基づいてオブジェクトをフィルタリング
+      // 描画モード・再生モードに関わらず、現在のタイムスタンプに合致するもののみ表示
       const filteredObjects =
-        typeof currentTime === 'number' && !isActive
-          ? objects.filter(
-              (obj) =>
-                Math.abs(obj.timestamp - currentTime) <= TIMESTAMP_TOLERANCE,
-            )
+        typeof currentTime === 'number'
+          ? objects.filter((obj) => {
+              const timeDiff = Math.abs(obj.timestamp - currentTime);
+              return timeDiff <= TIMESTAMP_TOLERANCE;
+            })
           : objects;
 
       const displayObjects = filteredObjects.map((obj) =>
@@ -543,7 +548,16 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           ctx.restore();
         }
       }
-    }, [objects, currentObject, currentTime]);
+    }, [
+      objects,
+      currentObject,
+      currentTime,
+      contentRect,
+      width,
+      height,
+      isActive,
+      selectedObjectId,
+    ]);
 
     useEffect(() => {
       renderAllObjects();
@@ -920,11 +934,12 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
               position: 'absolute',
               left: `${(textPosition.x / width) * 100}%`,
               top: `${(textPosition.y / height) * 100}%`,
-              transform: 'translate(-50%, -100%)',
+              // place box so its top-center aligns with the clicked canvas point
+              transform: 'translate(-50%, 0)',
               zIndex: 10,
             }}
           >
-            <Paper sx={{ p: 1, bgcolor: 'rgba(0,0,0,0.9)' }}>
+            <Paper sx={{ p: 1, bgcolor: 'transparent' }}>
               <TextField
                 size="small"
                 autoFocus
@@ -938,7 +953,25 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
                   }
                 }}
                 placeholder="テキストを入力..."
-                sx={{ minWidth: 150 }}
+                sx={{
+                  minWidth: 150,
+                  backgroundColor: 'transparent',
+                  '& .MuiInputBase-input': {
+                    color: color,
+                    caretColor: color,
+                    fontSize: '24px',
+                    lineHeight: 1,
+                  },
+                  // remove outline for outlined variant to keep transparent look
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    border: 'none',
+                  },
+                  // subtle focus ring for accessibility
+                  '& .MuiInputBase-input:focus': {
+                    outline: 'none',
+                    boxShadow: '0 0 0 3px rgba(255,255,255,0.08)',
+                  },
+                }}
               />
             </Paper>
           </Box>
