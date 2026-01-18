@@ -47,15 +47,15 @@
 ## 📦 リリース手順（超シンプル）
 
 ```bash
-# 1. バージョンを更新
-vim package.json  # "version": "0.2.0" に変更
+# 1. バージョンを更新（例: 0.2.6）
+vim package.json  # "version": "<version>" に変更
 
 # 2. コミット&タグプッシュ
 git add package.json
-git commit -m "chore: bump version to 0.2.0"
+git commit -m "chore: bump version to <version>"
 git push origin main
-git tag v0.2.0
-git push origin v0.2.0
+git tag v<version>
+git push origin v<version>
 ```
 
 **これだけで完了！** 5-10分後、以下が自動実行されます:

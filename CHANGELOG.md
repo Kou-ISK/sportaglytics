@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- ユーザーガイド/プレイリスト実装/要件/システム概要/SCTimeline/リリース手順を最新仕様に合わせて更新
+
+## [0.2.6] - 2026-01-15
+
+### Added
+
+- ファイルアイコンを適用
+- プレイリストで表示するアングル切替を追加
+
+### Changed
+
+- タイムラインからプレイリストに映像を追加する仕様を変更
+- プレイリストのパッケージ形式を変更
+- 映像出力時の通し番号設定を変更
+- プレイリストの映像時間表示を削除
+
+### Fixed
+
+- アングル切替時に描画内容が反映されない問題を修正
+- プレイリスト描画時の冒頭フレーム戻り問題を修正
+- 複数選択時のプレイリストからの映像出力を修正
+- electron-builderから不要なアイコン参照の記載を除去
+
+### Documentation
+
+- プロジェクトドキュメントをOSS標準に整備
+
 ## [0.2.5] - 2026-01-12
 
 ### Fixed
@@ -195,5 +224,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## Earlier Versions
+
+## [0.1.0] - 2025-11-18
+
+### Changed
+
+- build後のファイルサイズを小さくするように変更
+
+## [0.0.1] - 2023-09-15
+
+### Added
+
+- 初期のCIワークフローを追加
 
 詳細な履歴は Git コミットログを参照してください。
