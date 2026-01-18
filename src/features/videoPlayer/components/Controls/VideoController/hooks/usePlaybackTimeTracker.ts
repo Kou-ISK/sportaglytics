@@ -60,7 +60,7 @@ export const usePlaybackTimeTracker = ({
       return;
     }
 
-    let intervalId: ReturnType<typeof setInterval> | undefined;
+    let intervalId: NodeJS.Timeout | undefined;
     let animationFrameId: number | undefined;
 
     const updateTimeHandler = () => {

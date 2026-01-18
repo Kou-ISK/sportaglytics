@@ -15,9 +15,9 @@ export const SettingsPage: React.FC = () => {
   const { settings, isLoading, error, saveSettings } = useSettings();
 
   // 各タブのRefを保持
-  const generalRef = useRef<SettingsTabHandle | null>(null);
-  const hotkeyRef = useRef<SettingsTabHandle | null>(null);
-  const codeWindowRef = useRef<SettingsTabHandle | null>(null);
+  const generalRef = useRef<SettingsTabHandle>(null);
+  const hotkeyRef = useRef<SettingsTabHandle>(null);
+  const codeWindowRef = useRef<SettingsTabHandle>(null);
 
   const checkUnsavedChanges = (tabIndex: number): boolean => {
     switch (tabIndex) {

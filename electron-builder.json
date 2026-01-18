@@ -7,6 +7,7 @@
     "!build/**/*.map",
     "!build/**/*.LICENSE.txt",
     "!node_modules/**/*",
+    "node_modules/electron-is-dev/**/*",
     "node_modules/js-yaml/**/*",
     "node_modules/ffmpeg-static/**/*"
   ],

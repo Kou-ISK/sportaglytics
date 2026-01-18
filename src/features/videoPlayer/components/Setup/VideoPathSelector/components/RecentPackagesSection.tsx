@@ -1,6 +1,5 @@
 import React from 'react';
-import { Divider, Typography } from '@mui/material';
-import Grid from '@mui/material/GridLegacy';
+import { Divider, Grid, Typography } from '@mui/material';
 import { RecentPackageCard } from '../RecentPackageCard';
 import type { RecentPackage } from '../hooks/useRecentPackages';
 

@@ -765,10 +765,8 @@ export default function PlaylistWindowApp() {
 
   // Auto-hide controls overlay - ビデオエリアホバー時のみ表示
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    let hideTimer: NodeJS.Timeout | null = null;
 
-    let hideTimer: ReturnType<typeof setTimeout> | null = null;
     const show = () => {
       setControlsVisible(true);
       if (hideTimer) clearTimeout(hideTimer);
@@ -783,15 +781,8 @@ export default function PlaylistWindowApp() {
     if (isPlaying && !isDrawingMode) {
       show();
     }
-    const handleMove = () => show();
-    container.addEventListener('mousemove', handleMove);
-    container.addEventListener('mouseleave', () => setControlsVisible(false));
 
     return () => {
-      container.removeEventListener('mousemove', handleMove);
-      container.removeEventListener('mouseleave', () =>
-        setControlsVisible(false),
-      );
       if (hideTimer) clearTimeout(hideTimer);
     };
   }, [isPlaying, isDrawingMode]);
@@ -1313,7 +1304,7 @@ export default function PlaylistWindowApp() {
     if (isDrawingMode) {
       // Save current annotation when exiting drawing mode (both views)
       const persistCanvasObjects = (
-        ref: React.RefObject<AnnotationCanvasRef | null>,
+        ref: React.RefObject<AnnotationCanvasRef>,
         target: AnnotationTarget,
       ) => {
         if (!currentItem || !ref.current) return;

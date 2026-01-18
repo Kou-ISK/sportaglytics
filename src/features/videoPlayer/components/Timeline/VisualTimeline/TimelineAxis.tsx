@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 interface TimelineAxisProps {
-  axisRef: React.RefObject<HTMLDivElement | null>;
+  axisRef: React.RefObject<HTMLDivElement>;
   maxSec: number;
   currentTimePosition: number;
   contentWidth: number;

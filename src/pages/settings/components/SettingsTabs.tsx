@@ -11,9 +11,9 @@ interface SettingsTabsProps {
   onTabChange: (newTab: number) => void;
   settings: AppSettings;
   saveSettings: (settings: AppSettings) => Promise<boolean>;
-  generalRef: React.RefObject<SettingsTabHandle | null>;
-  hotkeyRef: React.RefObject<SettingsTabHandle | null>;
-  codeWindowRef: React.RefObject<SettingsTabHandle | null>;
+  generalRef: React.RefObject<SettingsTabHandle>;
+  hotkeyRef: React.RefObject<SettingsTabHandle>;
+  codeWindowRef: React.RefObject<SettingsTabHandle>;
 }
 
 interface TabPanelProps {

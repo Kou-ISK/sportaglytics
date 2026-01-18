@@ -46,8 +46,7 @@ export const PossessionTab = ({
               innerRadius="60%"
               label={({ name, value }) => {
                 const percentage = ((value / total) * 100).toFixed(1);
-                const safeName = name ?? '';
-                const teamName = safeName.replace(' ポゼッション', '');
+                const teamName = name.replace(' ポゼッション', '');
                 return `${teamName}: ${value.toFixed(0)}秒 (${percentage}%)`;
               }}
               labelLine={{ stroke: '#666', strokeWidth: 1 }}
