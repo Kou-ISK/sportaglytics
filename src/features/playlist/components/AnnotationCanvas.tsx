@@ -18,6 +18,13 @@ import type {
 } from '../../../types/Playlist';
 import { AnnotationToolbar } from './AnnotationToolbar';
 import { AnnotationTextInputOverlay } from './AnnotationTextInputOverlay';
+import {
+  findObjectAtPoint,
+  generateAnnotationId,
+  renderObject,
+  scaleObjectForDisplay,
+  shiftObject,
+} from './annotationCanvasUtils';
 
 const TIMESTAMP_TOLERANCE = 0.12;
 const MIN_FREEZE_UI_SECONDS = 1;
@@ -52,266 +59,6 @@ interface AnnotationCanvasProps {
   ) => void;
   onFreezeDurationChange?: (duration: number) => void;
   currentTime?: number; // 現在の再生位置（絶対秒 or アイテム内相対秒）
-}
-
-// ===== Helper Functions =====
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 11);
-}
-
-function drawArrowHead(
-  ctx: CanvasRenderingContext2D,
-  fromX: number,
-  fromY: number,
-  toX: number,
-  toY: number,
-  headLength: number = 15,
-) {
-  const angle = Math.atan2(toY - fromY, toX - fromX);
-  ctx.beginPath();
-  ctx.moveTo(toX, toY);
-  ctx.lineTo(
-    toX - headLength * Math.cos(angle - Math.PI / 6),
-    toY - headLength * Math.sin(angle - Math.PI / 6),
-  );
-  ctx.moveTo(toX, toY);
-  ctx.lineTo(
-    toX - headLength * Math.cos(angle + Math.PI / 6),
-    toY - headLength * Math.sin(angle + Math.PI / 6),
-  );
-  ctx.stroke();
-}
-
-function renderObject(ctx: CanvasRenderingContext2D, obj: DrawingObject) {
-  ctx.strokeStyle = obj.color;
-  ctx.fillStyle = obj.color;
-  ctx.lineWidth = obj.strokeWidth;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  switch (obj.type) {
-    case 'pen':
-      if (obj.path && obj.path.length > 1) {
-        ctx.beginPath();
-        ctx.moveTo(obj.path[0].x, obj.path[0].y);
-        for (let i = 1; i < obj.path.length; i++) {
-          ctx.lineTo(obj.path[i].x, obj.path[i].y);
-        }
-        ctx.stroke();
-      }
-      break;
-
-    case 'line':
-      if (obj.endX !== undefined && obj.endY !== undefined) {
-        ctx.beginPath();
-        ctx.moveTo(obj.startX, obj.startY);
-        ctx.lineTo(obj.endX, obj.endY);
-        ctx.stroke();
-      }
-      break;
-
-    case 'arrow':
-      if (obj.endX !== undefined && obj.endY !== undefined) {
-        ctx.beginPath();
-        ctx.moveTo(obj.startX, obj.startY);
-        ctx.lineTo(obj.endX, obj.endY);
-        ctx.stroke();
-        drawArrowHead(ctx, obj.startX, obj.startY, obj.endX, obj.endY);
-      }
-      break;
-
-    case 'rectangle':
-      if (obj.endX !== undefined && obj.endY !== undefined) {
-        const width = obj.endX - obj.startX;
-        const height = obj.endY - obj.startY;
-        if (obj.fill) {
-          ctx.globalAlpha = 0.3;
-          ctx.fillRect(obj.startX, obj.startY, width, height);
-          ctx.globalAlpha = 1;
-        }
-        ctx.strokeRect(obj.startX, obj.startY, width, height);
-      }
-      break;
-
-    case 'circle':
-      if (obj.endX !== undefined && obj.endY !== undefined) {
-        const radiusX = Math.abs(obj.endX - obj.startX) / 2;
-        const radiusY = Math.abs(obj.endY - obj.startY) / 2;
-        const centerX = (obj.startX + obj.endX) / 2;
-        const centerY = (obj.startY + obj.endY) / 2;
-        ctx.beginPath();
-        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
-        if (obj.fill) {
-          ctx.globalAlpha = 0.3;
-          ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-        ctx.stroke();
-      }
-      break;
-
-    case 'text':
-      if (obj.text) {
-        ctx.font = `${obj.fontSize || 24}px sans-serif`;
-        ctx.fillText(obj.text, obj.startX, obj.startY);
-      }
-      break;
-  }
-}
-
-function scaleObjectForDisplay(
-  obj: DrawingObject,
-  target: { width: number; height: number; offsetX: number; offsetY: number },
-) {
-  const scaleX = target.width / (obj.baseWidth ?? target.width);
-  const scaleY = target.height / (obj.baseHeight ?? target.height);
-  const transformPoint = (p: { x: number; y: number }) => ({
-    x: p.x * scaleX + target.offsetX,
-    y: p.y * scaleY + target.offsetY,
-  });
-  switch (obj.type) {
-    case 'pen':
-      return {
-        ...obj,
-        path: obj.path?.map(transformPoint),
-      };
-    case 'line':
-    case 'arrow':
-    case 'rectangle':
-    case 'circle':
-      return {
-        ...obj,
-        startX: obj.startX * scaleX + target.offsetX,
-        startY: obj.startY * scaleY + target.offsetY,
-        endX:
-          obj.endX !== undefined
-            ? obj.endX * scaleX + target.offsetX
-            : obj.endX,
-        endY:
-          obj.endY !== undefined
-            ? obj.endY * scaleY + target.offsetY
-            : obj.endY,
-        strokeWidth: obj.strokeWidth * ((scaleX + scaleY) / 2),
-      };
-    case 'text':
-      return {
-        ...obj,
-        startX: obj.startX * scaleX + target.offsetX,
-        startY: obj.startY * scaleY + target.offsetY,
-        fontSize: (obj.fontSize || 24) * ((scaleX + scaleY) / 2),
-      };
-    default:
-      return obj;
-  }
-}
-
-function getObjectBounds(obj: DrawingObject) {
-  switch (obj.type) {
-    case 'pen':
-      if (!obj.path || obj.path.length === 0) return null;
-      return obj.path.reduce(
-        (acc, p) => ({
-          minX: Math.min(acc.minX, p.x),
-          minY: Math.min(acc.minY, p.y),
-          maxX: Math.max(acc.maxX, p.x),
-          maxY: Math.max(acc.maxY, p.y),
-        }),
-        { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
-      );
-    case 'line':
-    case 'arrow': {
-      const endX = obj.endX ?? obj.startX;
-      const endY = obj.endY ?? obj.startY;
-      return {
-        minX: Math.min(obj.startX, endX),
-        minY: Math.min(obj.startY, endY),
-        maxX: Math.max(obj.startX, endX),
-        maxY: Math.max(obj.startY, endY),
-      };
-    }
-    case 'rectangle':
-    case 'circle': {
-      const endX = obj.endX ?? obj.startX;
-      const endY = obj.endY ?? obj.startY;
-      return {
-        minX: Math.min(obj.startX, endX),
-        minY: Math.min(obj.startY, endY),
-        maxX: Math.max(obj.startX, endX),
-        maxY: Math.max(obj.startY, endY),
-      };
-    }
-    case 'text': {
-      return {
-        minX: obj.startX - 4,
-        minY: obj.startY - (obj.fontSize || 24),
-        maxX: obj.startX + 60,
-        maxY: obj.startY + 8,
-      };
-    }
-    default:
-      return null;
-  }
-}
-
-function pointInBounds(
-  bounds: { minX: number; minY: number; maxX: number; maxY: number },
-  x: number,
-  y: number,
-) {
-  return (
-    x >= bounds.minX - HIT_TOLERANCE &&
-    x <= bounds.maxX + HIT_TOLERANCE &&
-    y >= bounds.minY - HIT_TOLERANCE &&
-    y <= bounds.maxY + HIT_TOLERANCE
-  );
-}
-
-function findObjectAtPoint(
-  objects: DrawingObject[],
-  point: { x: number; y: number },
-) {
-  for (let i = objects.length - 1; i >= 0; i--) {
-    const obj = objects[i];
-    const bounds = getObjectBounds(obj);
-    if (!bounds) continue;
-    if (pointInBounds(bounds, point.x, point.y)) {
-      return obj;
-    }
-  }
-  return null;
-}
-
-function shiftObject(
-  obj: DrawingObject,
-  dx: number,
-  dy: number,
-): DrawingObject {
-  switch (obj.type) {
-    case 'pen':
-      return {
-        ...obj,
-        path: obj.path?.map((p) => ({ x: p.x + dx, y: p.y + dy })),
-      };
-    case 'line':
-    case 'arrow':
-    case 'rectangle':
-    case 'circle':
-      return {
-        ...obj,
-        startX: obj.startX + dx,
-        startY: obj.startY + dy,
-        endX: obj.endX !== undefined ? obj.endX + dx : obj.endX,
-        endY: obj.endY !== undefined ? obj.endY + dy : obj.endY,
-      };
-    case 'text':
-      return {
-        ...obj,
-        startX: obj.startX + dx,
-        startY: obj.startY + dy,
-      };
-    default:
-      return obj;
-  }
 }
 
 // ===== Main Component =====
@@ -637,7 +384,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         const timestamp = typeof currentTime === 'number' ? currentTime : 0;
 
         const newObject: DrawingObject = {
-          id: generateId(),
+          id: generateAnnotationId(),
           type: tool,
           color,
           strokeWidth,
@@ -737,7 +484,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
 
       const timestamp = typeof currentTime === 'number' ? currentTime : 0;
       const textObject: DrawingObject = {
-        id: generateId(),
+        id: generateAnnotationId(),
         type: 'text',
         color,
         strokeWidth,
