@@ -19,13 +19,13 @@ import type {
 import { AnnotationToolbar } from './AnnotationToolbar';
 import { AnnotationTextInputOverlay } from './AnnotationTextInputOverlay';
 import {
-  generateAnnotationId,
   getObjectBounds,
   renderObject,
   scaleObjectForDisplay,
 } from './annotationCanvasUtils';
 import { useDraggableToolbar } from '../hooks/useDraggableToolbar';
 import { useAnnotationPointerHandlers } from '../hooks/useAnnotationPointerHandlers';
+import { useAnnotationActions } from '../hooks/useAnnotationActions';
 
 const TIMESTAMP_TOLERANCE = 0.12;
 const MIN_FREEZE_UI_SECONDS = 1;
@@ -260,80 +260,27 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       onObjectsChange,
     });
 
-// Text submission
-    const handleTextSubmit = useCallback(() => {
-      if (!textPosition || !textInput.trim()) {
-        setTextPosition(null);
-        setTextInput('');
-        return;
-      }
-
-      const timestamp = typeof currentTime === 'number' ? currentTime : 0;
-      const textObject: DrawingObject = {
-        id: generateAnnotationId(),
-        type: 'text',
+    const { handleTextSubmit, handleUndo, handleClear } =
+      useAnnotationActions({
+        isActive,
+        textPosition,
+        textInput,
+        setTextPosition,
+        setTextInput,
         color,
         strokeWidth,
-        startX: textPosition.x,
-        startY: textPosition.y,
-        text: textInput,
-        fontSize: 24,
-        timestamp,
+        objects,
+        setObjects,
+        setCurrentObject,
+        onObjectsChange,
+        currentTime,
         target,
-        baseWidth: contentRect?.width ?? width,
-        baseHeight: contentRect?.height ?? height,
-      };
-
-      const newObjects = [...objects, textObject];
-      setObjects(newObjects);
-      onObjectsChange?.(newObjects, target);
-
-      setTextPosition(null);
-      setTextInput('');
-    }, [
-      textPosition,
-      textInput,
-      color,
-      strokeWidth,
-      objects,
-      onObjectsChange,
-      currentTime,
-      target,
-    ]);
-
-    // Undo last object
-    const handleUndo = useCallback(() => {
-      if (objects.length === 0) return;
-      const newObjects = objects.slice(0, -1);
-      setObjects(newObjects);
-      onObjectsChange?.(newObjects, target);
-    }, [objects, onObjectsChange, target]);
-
-    // Clear all
-    const handleClear = useCallback(() => {
-      setObjects([]);
-      setCurrentObject(null);
-      onObjectsChange?.([], target);
-      setSelectedObjectId(null);
-    }, [onObjectsChange, target]);
-
-    // Delete selected with Delete/Backspace
-    useEffect(() => {
-      if (!isActive) return;
-      const handler = (e: KeyboardEvent) => {
-        if (!selectedObjectId) return;
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-          setObjects((prev) => {
-            const filtered = prev.filter((o) => o.id !== selectedObjectId);
-            onObjectsChange?.(filtered, target);
-            return filtered;
-          });
-          setSelectedObjectId(null);
-        }
-      };
-      window.addEventListener('keydown', handler);
-      return () => window.removeEventListener('keydown', handler);
-    }, [selectedObjectId, onObjectsChange, target, isActive]);
+        selectedObjectId,
+        setSelectedObjectId,
+        width,
+        height,
+        contentRect,
+      });
 
     // Freeze duration change
     const handleFreezeDurationChange = useCallback(
