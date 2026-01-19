@@ -19,13 +19,13 @@ import type {
 import { AnnotationToolbar } from './AnnotationToolbar';
 import { AnnotationTextInputOverlay } from './AnnotationTextInputOverlay';
 import {
-  findObjectAtPoint,
   generateAnnotationId,
+  getObjectBounds,
   renderObject,
   scaleObjectForDisplay,
-  shiftObject,
 } from './annotationCanvasUtils';
 import { useDraggableToolbar } from '../hooks/useDraggableToolbar';
+import { useAnnotationPointerHandlers } from '../hooks/useAnnotationPointerHandlers';
 
 const TIMESTAMP_TOLERANCE = 0.12;
 const MIN_FREEZE_UI_SECONDS = 1;
@@ -231,177 +231,36 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       },
     }));
 
-    // Get canvas coordinates from event
-    const getCanvasCoords = useCallback(
-      (e: React.MouseEvent | React.TouchEvent) => {
-        const canvas = canvasRef.current;
-        if (!canvas) return { x: 0, y: 0 };
-
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const content = contentRect || {
-          width,
-          height,
-          offsetX: 0,
-          offsetY: 0,
-        };
-
-        let clientX: number;
-        let clientY: number;
-        if ('touches' in e) {
-          clientX = e.touches[0].clientX;
-          clientY = e.touches[0].clientY;
-        } else {
-          clientX = e.clientX;
-          clientY = e.clientY;
-        }
-
-        const canvasX = (clientX - rect.left) * scaleX;
-        const canvasY = (clientY - rect.top) * scaleY;
-        let x = canvasX - content.offsetX;
-        let y = canvasY - content.offsetY;
-        x = Math.max(0, Math.min(content.width, x));
-        y = Math.max(0, Math.min(content.height, y));
-        return {
-          x,
-          y,
-        };
-      },
-      [contentRect, width, height],
-    );
-
-    // Mouse/Touch handlers
-    const handleStart = useCallback(
-      (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isActive) return;
-
-        const coords = getCanvasCoords(e);
-
-        if (tool === 'select') {
-          const displayTarget = contentRect || {
-            width,
-            height,
-            offsetX: 0,
-            offsetY: 0,
-          };
-          const displayObjects = objects.map((obj) =>
-            scaleObjectForDisplay(obj, displayTarget),
-          );
-          const hit = findObjectAtPoint(displayObjects, coords);
-          if (hit) {
-            setSelectedObjectId(hit.id);
-            setDraggingObjectId(hit.id);
-            dragObjectStartRef.current = coords;
-          } else {
-            setSelectedObjectId(null);
-            setDraggingObjectId(null);
-          }
-          return;
-        }
-
-        if (tool === 'text') {
-          setTextPosition(coords);
-          return;
-        }
-
-        isDrawingRef.current = true;
-
-        // 現在の再生位置をタイムスタンプとして記録
-        const timestamp = typeof currentTime === 'number' ? currentTime : 0;
-
-        const newObject: DrawingObject = {
-          id: generateAnnotationId(),
-          type: tool,
-          color,
-          strokeWidth,
-          startX: coords.x,
-          startY: coords.y,
-          path: tool === 'pen' ? [{ x: coords.x, y: coords.y }] : undefined,
-          timestamp,
-          target,
-          baseWidth: contentRect?.width ?? width,
-          baseHeight: contentRect?.height ?? height,
-        };
-
-        setCurrentObject(newObject);
-      },
-      [
-        isActive,
-        tool,
-        color,
-        strokeWidth,
-        getCanvasCoords,
-        currentTime,
-        target,
-      ],
-    );
-
-    const handleMove = useCallback(
-      (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDrawingRef.current || !currentObject || !isActive) return;
-
-        const coords = getCanvasCoords(e);
-
-        if (tool === 'pen') {
-          setCurrentObject((prev) => {
-            if (!prev || !prev.path) return prev;
-            return {
-              ...prev,
-              path: [...prev.path, { x: coords.x, y: coords.y }],
-            };
-          });
-        } else {
-          setCurrentObject((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              endX: coords.x,
-              endY: coords.y,
-            };
-          });
-        }
-      },
-      [isActive, tool, currentObject, getCanvasCoords],
-    );
-
-    const handleEnd = useCallback(() => {
-      if (tool === 'select' && draggingObjectId) {
-        setDraggingObjectId(null);
-        dragObjectStartRef.current = null;
-        return;
-      }
-
-      if (!isDrawingRef.current || !currentObject) return;
-
-      isDrawingRef.current = false;
-
-      // Only add if the object has meaningful content
-      const isValid =
-        tool === 'pen'
-          ? currentObject.path && currentObject.path.length > 1
-          : currentObject.endX !== undefined &&
-            currentObject.endY !== undefined &&
-            (Math.abs(currentObject.endX - currentObject.startX) > 5 ||
-              Math.abs(currentObject.endY - currentObject.startY) > 5);
-
-      if (isValid) {
-        const newObjects = [...objects, currentObject];
-        setObjects(newObjects);
-        onObjectsChange?.(newObjects, target);
-      }
-
-      setCurrentObject(null);
-    }, [
-      currentObject,
-      objects,
+    const {
+      handleStart,
+      handleMove,
+      handleEnd,
+      handleDragExisting,
+    } = useAnnotationPointerHandlers({
+      canvasRef,
+      isActive,
       tool,
-      onObjectsChange,
+      color,
+      strokeWidth,
+      currentTime,
       target,
+      width,
+      height,
+      contentRect,
+      objects,
+      setObjects,
+      currentObject,
+      setCurrentObject,
+      setSelectedObjectId,
+      setTextPosition,
       draggingObjectId,
-    ]);
+      setDraggingObjectId,
+      dragObjectStartRef,
+      isDrawingRef,
+      onObjectsChange,
+    });
 
-    // Text submission
+// Text submission
     const handleTextSubmit = useCallback(() => {
       if (!textPosition || !textInput.trim()) {
         setTextPosition(null);
@@ -457,53 +316,6 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       onObjectsChange?.([], target);
       setSelectedObjectId(null);
     }, [onObjectsChange, target]);
-
-    // Move existing object
-    const handleDragExisting = useCallback(
-      (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isActive || tool !== 'select' || !draggingObjectId) return;
-        const start = dragObjectStartRef.current;
-        if (!start) return;
-        const coords = getCanvasCoords(e);
-        const dx = coords.x - start.x;
-        const dy = coords.y - start.y;
-        dragObjectStartRef.current = coords;
-
-        const selected = objects.find((o) => o.id === draggingObjectId);
-        const scaleX =
-          selected && selected.baseWidth
-            ? (contentRect?.width ?? width) / selected.baseWidth
-            : 1;
-        const scaleY =
-          selected && selected.baseHeight
-            ? (contentRect?.height ?? height) / selected.baseHeight
-            : 1;
-        const baseDx = dx / scaleX;
-        const baseDy = dy / scaleY;
-
-        setObjects((prev) => {
-          const updated = prev.map((obj) =>
-            obj.id === draggingObjectId
-              ? shiftObject(obj, baseDx, baseDy)
-              : obj,
-          );
-          onObjectsChange?.(updated, target);
-          return updated;
-        });
-      },
-      [
-        draggingObjectId,
-        getCanvasCoords,
-        isActive,
-        tool,
-        onObjectsChange,
-        target,
-        objects,
-        contentRect,
-        width,
-        height,
-      ],
-    );
 
     // Delete selected with Delete/Backspace
     useEffect(() => {
