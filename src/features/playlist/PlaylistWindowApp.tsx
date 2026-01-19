@@ -8,7 +8,6 @@ import React, {
   useRef,
   useCallback,
   useEffect,
-  useMemo,
   useLayoutEffect,
 } from 'react';
 import { Box } from '@mui/material';
@@ -34,8 +33,8 @@ import { useTheme } from '@mui/material/styles';
 import { usePlaylistHistory } from './hooks/usePlaylistHistory';
 import { usePlaylistSelection } from './hooks/usePlaylistSelection';
 import { usePlaylistExport } from './hooks/usePlaylistExport';
+import { usePlaylistHotkeys } from './hooks/usePlaylistHotkeys';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
-import type { HotkeyConfig } from '../../types/Settings';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
 import { PlaylistVideoArea } from './components/PlaylistVideoArea';
 import { PlaylistHeaderToolbar } from './components/PlaylistHeaderToolbar';
@@ -1000,121 +999,7 @@ export default function PlaylistWindowApp() {
   );
 
   // Hotkey handlers - タイムラインと完全に同じ操作感
-  const playlistHotkeys: HotkeyConfig[] = useMemo(() => {
-    const hotkeys: HotkeyConfig[] = [];
-
-    // 基本操作
-    hotkeys.push({
-      id: 'play-pause',
-      label: '再生/停止',
-      key: 'Space',
-      disabled: false,
-    });
-
-    // 巻き戻し
-    hotkeys.push({
-      id: 'skip-backward-medium',
-      label: '5秒戻し',
-      key: 'Left',
-      disabled: false,
-    });
-    hotkeys.push({
-      id: 'skip-backward-large',
-      label: '10秒戻し',
-      key: 'Shift+Left',
-      disabled: false,
-    });
-
-    // 倍速再生（押下中のみ）
-    hotkeys.push({
-      id: 'skip-forward-small',
-      label: '0.5倍速再生',
-      key: 'Right',
-      disabled: false,
-    });
-    hotkeys.push({
-      id: 'skip-forward-medium',
-      label: '2倍速再生',
-      key: 'Shift+Right',
-      disabled: false,
-    });
-    hotkeys.push({
-      id: 'skip-forward-large',
-      label: '4倍速再生',
-      key: 'Command+Right',
-      disabled: false,
-    });
-    hotkeys.push({
-      id: 'skip-forward-xlarge',
-      label: '6倍速再生',
-      key: 'Option+Right',
-      disabled: false,
-    });
-
-    // アイテム移動
-    hotkeys.push({
-      id: 'previous-item',
-      label: '前のアイテム',
-      key: 'Command+Left',
-      disabled: false,
-    });
-    hotkeys.push({
-      id: 'next-item',
-      label: '次のアイテム',
-      key: 'Command+Option+Right',
-      disabled: false,
-    });
-
-    // 編集操作
-    hotkeys.push({
-      id: 'delete-item',
-      label: 'アイテム削除',
-      key: 'Backspace',
-      disabled: false,
-    });
-    hotkeys.push({
-      id: 'undo',
-      label: '元に戻す',
-      key: 'Command+Z',
-      disabled: false,
-    });
-    hotkeys.push({
-      id: 'redo',
-      label: 'やり直す',
-      key: 'Command+Shift+Z',
-      disabled: false,
-    });
-
-    // ファイル操作
-    hotkeys.push({
-      id: 'save',
-      label: '保存',
-      key: 'Command+S',
-      disabled: false,
-    });
-    hotkeys.push({
-      id: 'export',
-      label: '書き出し',
-      key: 'Command+E',
-      disabled: false,
-    });
-
-    // ビュー切替
-    hotkeys.push({
-      id: 'toggle-angle1',
-      label: 'アングル1切替',
-      key: 'Shift+1',
-      disabled: false,
-    });
-    hotkeys.push({
-      id: 'toggle-angle2',
-      label: 'アングル2切替',
-      key: 'Shift+2',
-      disabled: false,
-    });
-
-    return hotkeys;
-  }, []);
+  const playlistHotkeys = usePlaylistHotkeys();
 
   const handleDeleteSelected = useCallback(() => {
     deleteSelected();
