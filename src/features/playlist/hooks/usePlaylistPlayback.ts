@@ -57,6 +57,7 @@ export const usePlaylistPlayback = ({
   setDuration,
   volume,
   isMuted,
+  setVolume,
   containerRef,
   isFullscreen,
   setIsFullscreen,
