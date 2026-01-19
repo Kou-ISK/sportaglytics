@@ -19,6 +19,7 @@ import { CodePanelModeIndicator } from './CodePanelModeIndicator';
 import { buildEffectiveLinks, type EffectiveLink } from './effectiveLinks';
 import { useLabelSelections } from './hooks/useLabelSelections';
 import { useActiveRecordings } from './hooks/useActiveRecordings';
+import { useRecordingCompletion } from './hooks/useRecordingCompletion';
 
 interface EnhancedCodePanelProps {
   addTimelineData: (
@@ -236,72 +237,15 @@ export const EnhancedCodePanel = forwardRef<
     }, []);
 
     // 記録完了してタイムラインに追加（アクションごと）
-    const completeRecording = React.useCallback(
-      (actionName: string, labelsPatch?: Record<string, string>) => {
-        setActiveRecordings((prev) => {
-          const session = prev[actionName];
-          if (!session) return prev;
-
-          const endTime = getCurrentTime();
-          if (endTime === null) return prev;
-
-          const [begin, end] =
-            endTime >= session.startTime
-              ? [session.startTime, endTime]
-              : [endTime, session.startTime];
-
-          const labelsMap = {
-            ...(labelSelectionsRef.current[actionName] ?? {}),
-            ...(labelsPatch ?? {}),
-          };
-          const labels = Object.entries(labelsMap).map(([group, name]) => ({
-            name,
-            group,
-          }));
-
-          // メインアクションをタイムラインに追加（色付き）
-          addTimelineData(
-            actionName,
-            begin,
-            end,
-            '',
-            undefined,
-            undefined,
-            labels.length > 0 ? labels : undefined,
-            session.color,
-          );
-
-          // Activateリンクのターゲットも同じ時間範囲で追加（ターゲットの色付き）
-          session.activateTargets.forEach((targetName) => {
-            addTimelineData(
-              targetName,
-              begin,
-              end,
-              '',
-              undefined,
-              undefined,
-              undefined,
-              session.activateTargetColors[targetName],
-            );
-          });
-
-          updateLabelSelections((prevLabels) => {
-            const nextLabels = { ...prevLabels };
-            delete nextLabels[actionName];
-            return nextLabels;
-          });
-          setPrimaryAction((prev) => (prev === actionName ? null : prev));
-          recentActionsRef.current = recentActionsRef.current.filter(
-            (a) => a !== actionName,
-          );
-
-          const next = { ...prev };
-          delete next[actionName];
-          return next;
-        });
-      },
-      [addTimelineData, getCurrentTime, updateLabelSelections],
-    );
+    const completeRecording = useRecordingCompletion({
+      addTimelineData,
+      getCurrentTime,
+      labelSelectionsRef,
+      updateLabelSelections,
+      setPrimaryAction,
+      recentActionsRef,
+      setActiveRecordings,
+    });
 
     // ボタン名から色を取得するヘルパー（プレースホルダー置換後の名前で検索）
     const getButtonColorByName = React.useCallback(
