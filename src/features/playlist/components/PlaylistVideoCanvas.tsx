@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box } from '@mui/material';
 import type { AnnotationTarget, ItemAnnotation } from '../../../types/Playlist';
 import AnnotationCanvas, { AnnotationCanvasRef } from './AnnotationCanvas';
@@ -57,6 +57,20 @@ export const PlaylistVideoCanvas = ({
   videoRef2,
 }: PlaylistVideoCanvasProps) => {
   const isDualView = viewMode === 'dual';
+  const primaryObjects = useMemo(
+    () =>
+      currentAnnotation?.objects.filter(
+        (obj) => (obj.target || 'primary') === 'primary',
+      ) ?? [],
+    [currentAnnotation],
+  );
+  const secondaryObjects = useMemo(
+    () =>
+      currentAnnotation?.objects.filter(
+        (obj) => (obj.target || 'primary') === 'secondary',
+      ) ?? [],
+    [currentAnnotation],
+  );
 
   return (
     <>
@@ -93,7 +107,7 @@ export const PlaylistVideoCanvas = ({
           height={primaryCanvasSize.height}
           isActive={isDrawingMode && drawingTarget === 'primary'}
           target="primary"
-          initialObjects={currentAnnotation?.objects}
+          initialObjects={primaryObjects}
           freezeDuration={currentAnnotation?.freezeDuration ?? defaultFreezeDuration}
           contentRect={primaryContentRect}
           onObjectsChange={(objects) => onObjectsChange(objects, 'primary')}
@@ -131,7 +145,7 @@ export const PlaylistVideoCanvas = ({
             height={secondaryCanvasSize.height}
             isActive={isDrawingMode && drawingTarget === 'secondary'}
             target="secondary"
-            initialObjects={currentAnnotation?.objects}
+            initialObjects={secondaryObjects}
             freezeDuration={currentAnnotation?.freezeDuration ?? defaultFreezeDuration}
             contentRect={secondaryContentRect}
             onObjectsChange={(objects) => onObjectsChange(objects, 'secondary')}
