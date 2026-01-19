@@ -16,16 +16,9 @@ import { CustomCodeLayout } from './CustomCodeLayout';
 import { ActionLabelGroup } from './ActionLabelGroup';
 import { DefaultCodeLayout } from './DefaultCodeLayout';
 import { CodePanelModeIndicator } from './CodePanelModeIndicator';
+import { buildEffectiveLinks, type EffectiveLink } from './effectiveLinks';
 
 type LabelSelectionsMap = Record<string, Record<string, string>>;
-type EffectiveLink = {
-  from: string;
-  to: string;
-  type: 'exclusive' | 'deactivate' | 'activate';
-  fromId?: string;
-  toId?: string;
-};
-
 interface EnhancedCodePanelProps {
   addTimelineData: (
     actionName: string,
@@ -382,16 +375,6 @@ export const EnhancedCodePanel = forwardRef<
       [addTimelineData, getCurrentTime, updateLabelSelections],
     );
 
-    // ボタンIDからボタン名を取得するヘルパー
-    const getButtonNameById = React.useCallback(
-      (buttonId: string): string | null => {
-        if (!customLayout) return null;
-        const button = customLayout.buttons.find((b) => b.id === buttonId);
-        return button?.name || null;
-      },
-      [customLayout],
-    );
-
     // ボタン名から色を取得するヘルパー（プレースホルダー置換後の名前で検索）
     const getButtonColorByName = React.useCallback(
       (buttonName: string): string | undefined => {
@@ -404,40 +387,9 @@ export const EnhancedCodePanel = forwardRef<
       [customLayout, teamContext],
     );
 
-    // カスタムレイアウトのbuttonLinksをアクション名ベースに変換
-    // カスタムレイアウトのbuttonLinksをアクション名ベースに変換
-    // プレースホルダーも置換して実際のチーム名で比較できるようにする
     const effectiveLinks = React.useMemo<EffectiveLink[]>(() => {
-      const links: EffectiveLink[] = [];
-
-      // 旧式のactionLinksを追加（プレースホルダー置換）
-      actionLinks.forEach((l) => {
-        links.push({
-          from: replaceTeamPlaceholders(l.from, teamContext),
-          to: replaceTeamPlaceholders(l.to, teamContext),
-          type: l.type,
-        });
-      });
-
-      // カスタムレイアウトのbuttonLinksを変換して追加（プレースホルダー置換）
-      if (customLayout?.buttonLinks) {
-        customLayout.buttonLinks.forEach((bl) => {
-          const fromName = getButtonNameById(bl.fromButtonId);
-          const toName = getButtonNameById(bl.toButtonId);
-          if (fromName && toName && bl.type !== 'sequence') {
-            links.push({
-              from: replaceTeamPlaceholders(fromName, teamContext),
-              to: replaceTeamPlaceholders(toName, teamContext),
-              type: bl.type as 'exclusive' | 'deactivate' | 'activate',
-              fromId: bl.fromButtonId,
-              toId: bl.toButtonId,
-            });
-          }
-        });
-      }
-
-      return links;
-    }, [actionLinks, customLayout, getButtonNameById, teamContext]);
+      return buildEffectiveLinks(actionLinks, customLayout, teamContext);
+    }, [actionLinks, customLayout, teamContext]);
 
     const matchesLinkTarget = React.useCallback(
       (link: EffectiveLink, targetName: string, targetId?: string) => {
