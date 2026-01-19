@@ -66,6 +66,9 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
   syncStatus,
 }) => {
   const [form, setForm] = useState<WizardFormState>(INITIAL_FORM);
+  const [activeStep, setActiveStep] = useState(0);
+  const [errors, setErrors] = useState<Partial<WizardFormState>>({});
+  const { error: showError } = useNotification();
   const {
     selection,
     resetSelection,
@@ -79,9 +82,6 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     createInitialSelection,
     showError,
   });
-  const [activeStep, setActiveStep] = useState(0);
-  const [errors, setErrors] = useState<Partial<WizardFormState>>({});
-  const { error: showError } = useNotification();
   const [hasPromptedDirectory, setHasPromptedDirectory] = useState(false);
 
   useEffect(() => {
