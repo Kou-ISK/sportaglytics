@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { TimelineData } from '../../../../../types/TimelineData';
 import { TimelineAxis } from './TimelineAxis';
@@ -11,6 +11,7 @@ import { useTimelineInteractions } from './hooks/useTimelineInteractions';
 import { useTimelineRangeSelection } from './hooks/useTimelineRangeSelection';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 import { TimelineDialogs } from './TimelineDialogs';
+import { useTimelineExportDialogs } from './hooks/useTimelineExportDialogs';
 
 interface VisualTimelineProps {
   timeline: TimelineData[];
@@ -172,39 +173,41 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   });
 
   const { info } = useNotification();
-  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
-  const [labelGroup, setLabelGroup] = useState('');
-  const [labelName, setLabelName] = useState('');
-  const [clipDialogOpen, setClipDialogOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [overlaySettings, setOverlaySettings] = useState({
-    enabled: true,
-    showActionName: true,
-    showActionIndex: true,
-    showLabels: true,
-    showMemo: true,
+  const {
+    labelDialogOpen,
+    setLabelDialogOpen,
+    labelGroup,
+    setLabelGroup,
+    labelName,
+    setLabelName,
+    handleApplyLabel,
+    clipDialogOpen,
+    setClipDialogOpen,
+    isExporting,
+    overlaySettings,
+    setOverlaySettings,
+    primarySource,
+    setPrimarySource,
+    secondarySource,
+    setSecondarySource,
+    exportScope,
+    setExportScope,
+    exportMode,
+    setExportMode,
+    angleOption,
+    setAngleOption,
+    selectedAngleIndex,
+    setSelectedAngleIndex,
+    exportFileName,
+    setExportFileName,
+    handleExportClips,
+  } = useTimelineExportDialogs({
+    timeline,
+    selectedIds,
+    videoSources,
+    onUpdateTimelineItem,
+    info,
   });
-  const timelineRef = React.useRef(timeline);
-  React.useEffect(() => {
-    timelineRef.current = timeline;
-  }, [timeline]);
-  const [primarySource, setPrimarySource] = useState<string | undefined>(
-    videoSources?.[0],
-  );
-  const [secondarySource, setSecondarySource] = useState<string | undefined>(
-    videoSources?.[1],
-  );
-  const [exportScope, setExportScope] = useState<'selected' | 'all'>(
-    selectedIds.length > 0 ? 'selected' : 'all',
-  );
-  const [exportMode, setExportMode] = useState<
-    'single' | 'perInstance' | 'perRow'
-  >('single');
-  const [angleOption, setAngleOption] = useState<
-    'allAngles' | 'single' | 'multi'
-  >('single');
-  const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
-  const [exportFileName, setExportFileName] = useState('');
 
   const handleMoveItems = useCallback(
     (ids: string[], targetActionName: string) => {
@@ -265,42 +268,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
 
   const firstTeamName = actionNames[0]?.split(' ')[0];
 
-  // 選択時のオーバーレイメニュー（先頭へシーク/ラベルモード/削除）は廃止
-  const handleApplyLabel = useCallback(
-    (override?: { group: string; name: string }) => {
-      if (!onUpdateTimelineItem) return;
-      const group = (override?.group ?? labelGroup).trim();
-      const name = (override?.name ?? labelName).trim();
-      if (!group || !name) return;
-
-      let applied = 0;
-      const uniqueIds = Array.from(new Set(selectedIds));
-      const current = timelineRef.current;
-
-      // 事前に全アイテムのラベル配列を計算してから一括適用
-      uniqueIds.forEach((id) => {
-        const item = current.find((t) => t.id === id);
-        if (!item) return;
-        const existing = item.labels ? [...item.labels] : [];
-        const exists = existing.some(
-          (l) => l.group === group && l.name === name,
-        );
-        const updatedLabels = exists
-          ? existing
-          : [...existing, { group, name }];
-        onUpdateTimelineItem(id, { labels: updatedLabels });
-        applied += 1;
-      });
-
-      if (applied > 0) {
-        info(`${applied}件にラベル '${group}: ${name}' を付与しました`);
-      }
-      setLabelGroup(group);
-      setLabelName(name);
-      setLabelDialogOpen(false);
-    },
-    [info, labelGroup, labelName, onUpdateTimelineItem, selectedIds],
-  );
 
   // グローバルKeyDownでTabジャンプ・Undo/Redoを処理（選択があるときのみ）
   React.useEffect(() => {
@@ -391,168 +358,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     [isSelecting, selectionBox, onSelectionChange],
   );
 
-  const handleOpenClipDialog = useCallback(async () => {
-    // 設定からオーバーレイのデフォルトを読み込む
-    try {
-      const settings =
-        (await globalThis.window.electronAPI?.loadSettings?.()) as
-          | { overlayClip?: typeof overlaySettings }
-          | undefined;
-      if (settings?.overlayClip) {
-        setOverlaySettings((prev) => ({
-          ...prev,
-          ...settings.overlayClip,
-        }));
-      }
-    } catch {
-      // ignore, fallback to current state
-    }
-    setClipDialogOpen(true);
-  }, []);
-
-  const handleExportClips = useCallback(async () => {
-    if (!globalThis.window.electronAPI?.exportClipsWithOverlay) {
-      info('クリップ書き出しAPIが利用できません');
-      setClipDialogOpen(false);
-      return;
-    }
-
-    // アングルオプションに応じた検証
-    if (
-      angleOption === 'allAngles' &&
-      (!videoSources || videoSources.length < 2)
-    ) {
-      info('全アングル書き出しには2つ以上の映像ソースが必要です');
-      return;
-    }
-    if (angleOption === 'multi' && (!videoSources || videoSources.length < 2)) {
-      info('マルチアングル書き出しには2つ以上の映像ソースが必要です');
-      return;
-    }
-    if (
-      angleOption === 'single' &&
-      (!videoSources || !videoSources[selectedAngleIndex])
-    ) {
-      info('選択されたアングルの映像が取得できません');
-      return;
-    }
-    const ordered = [...timeline].sort((a, b) => a.startTime - b.startTime);
-    const actionIndexLookup = new Map<string, number>();
-    const counters: Record<string, number> = {};
-    ordered.forEach((item) => {
-      const c = (counters[item.actionName] || 0) + 1;
-      counters[item.actionName] = c;
-      actionIndexLookup.set(item.id, c);
-    });
-
-    const sourceItems =
-      exportScope === 'selected'
-        ? timeline.filter((t) => selectedIds.includes(t.id))
-        : timeline;
-    if (sourceItems.length === 0) {
-      info('書き出すインスタンスがありません');
-      setClipDialogOpen(false);
-      return;
-    }
-    // 同一アクション内での番号を付与
-    const clips = sourceItems
-      .sort((a, b) => a.startTime - b.startTime)
-      .map((item) => {
-        const count = actionIndexLookup.get(item.id) ?? 1;
-        return {
-          id: item.id,
-          actionName: item.actionName,
-          startTime: item.startTime,
-          endTime: item.endTime,
-          labels:
-            item.labels?.map((l) => ({
-              group: l.group || '',
-              name: l.name,
-            })) || undefined,
-          memo: item.memo || undefined,
-          actionIndex: count,
-        };
-      });
-
-    setIsExporting(true);
-
-    // 全アングルの場合は各アングルごとに書き出し
-    if (angleOption === 'allAngles') {
-      let allSuccess = true;
-      for (let i = 0; i < videoSources!.length; i++) {
-        const result =
-          await globalThis.window.electronAPI.exportClipsWithOverlay({
-            sourcePath: videoSources![i],
-            sourcePath2: undefined,
-            mode: 'single',
-            exportMode,
-            angleOption: 'single',
-            clips,
-            overlay: overlaySettings,
-            outputFileName: exportFileName.trim()
-              ? `${exportFileName.trim()}_angle${i + 1}`
-              : undefined,
-          });
-        if (!result?.success) {
-          allSuccess = false;
-          info(result?.error || `アングル${i + 1}の書き出しに失敗しました`);
-          break;
-        }
-      }
-      setIsExporting(false);
-      if (allSuccess) {
-        info(`全${videoSources!.length}アングルの書き出しが完了しました`);
-        setClipDialogOpen(false);
-      }
-    } else {
-      // 単一アングルまたはマルチアングルの場合
-      const result = await globalThis.window.electronAPI.exportClipsWithOverlay(
-        {
-          sourcePath:
-            angleOption === 'single'
-              ? videoSources![selectedAngleIndex]
-              : videoSources![0],
-          sourcePath2: angleOption === 'multi' ? videoSources![1] : undefined,
-          mode: angleOption === 'multi' ? 'dual' : 'single',
-          exportMode,
-          angleOption,
-          clips,
-          overlay: overlaySettings,
-          outputFileName: exportFileName.trim() || undefined,
-        },
-      );
-      setIsExporting(false);
-      if (result?.success) {
-        info('クリップを書き出しました');
-        setClipDialogOpen(false);
-      } else {
-        info(result?.error || 'クリップ書き出しに失敗しました');
-      }
-    }
-  }, [
-    angleOption,
-    selectedAngleIndex,
-    exportScope,
-    exportMode,
-    info,
-    overlaySettings,
-    primarySource,
-    secondarySource,
-    selectedIds,
-    timeline,
-    videoSources,
-    exportFileName,
-  ]);
-
-  React.useEffect(() => {
-    const handler = () => {
-      handleOpenClipDialog();
-    };
-    globalThis.window.electronAPI?.on?.('menu-export-clips', handler);
-    return () => {
-      globalThis.window.electronAPI?.off?.('menu-export-clips', handler);
-    };
-  }, [handleOpenClipDialog]);
 
   return (
     <Box
