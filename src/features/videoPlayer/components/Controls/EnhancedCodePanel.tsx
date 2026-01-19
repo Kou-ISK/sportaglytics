@@ -17,8 +17,8 @@ import { ActionLabelGroup } from './ActionLabelGroup';
 import { DefaultCodeLayout } from './DefaultCodeLayout';
 import { CodePanelModeIndicator } from './CodePanelModeIndicator';
 import { buildEffectiveLinks, type EffectiveLink } from './effectiveLinks';
+import { useLabelSelections } from './hooks/useLabelSelections';
 
-type LabelSelectionsMap = Record<string, Record<string, string>>;
 interface EnhancedCodePanelProps {
   addTimelineData: (
     actionName: string,
@@ -187,29 +187,8 @@ export const EnhancedCodePanel = forwardRef<
     }));
 
     // ラベルグループの選択状態を管理（groupName -> selected option）
-    const [labelSelections, setLabelSelections] =
-      React.useState<LabelSelectionsMap>({});
-    const labelSelectionsRef = React.useRef<LabelSelectionsMap>({});
-    React.useEffect(() => {
-      labelSelectionsRef.current = labelSelections;
-    }, [labelSelections]);
-    const updateLabelSelections = React.useCallback(
-      (
-        updater:
-          | LabelSelectionsMap
-          | ((prev: LabelSelectionsMap) => LabelSelectionsMap),
-      ) => {
-        setLabelSelections((prev) => {
-          const next =
-            typeof updater === 'function'
-              ? (updater as (p: LabelSelectionsMap) => LabelSelectionsMap)(prev)
-              : updater;
-          labelSelectionsRef.current = next;
-          return next;
-        });
-      },
-      [],
-    );
+    const { labelSelections, labelSelectionsRef, updateLabelSelections } =
+      useLabelSelections();
     const isRecording = React.useMemo(
       () => Object.keys(activeRecordings).length > 0,
       [activeRecordings],
