@@ -11,13 +11,7 @@ import React, {
   useMemo,
   useLayoutEffect,
 } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Checkbox,
-} from '@mui/material';
+import { Box } from '@mui/material';
 import { useNotification } from '../../contexts/NotificationContext';
 import {
   KeyboardSensor,
@@ -41,12 +35,9 @@ import { usePlaylistHistory } from './hooks/usePlaylistHistory';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import type { HotkeyConfig } from '../../types/Settings';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
-import { PlaylistVideoControlsOverlay } from './components/PlaylistVideoControlsOverlay';
-import { PlaylistDrawingExitButton } from './components/PlaylistDrawingExitButton';
+import { PlaylistVideoArea } from './components/PlaylistVideoArea';
 import { PlaylistHeaderToolbar } from './components/PlaylistHeaderToolbar';
 import { PlaylistNowPlayingInfo } from './components/PlaylistNowPlayingInfo';
-import { PlaylistVideoPlaceholder } from './components/PlaylistVideoPlaceholder';
-import { PlaylistVideoCanvas } from './components/PlaylistVideoCanvas';
 import { PlaylistWindowDialogs } from './components/PlaylistWindowDialogs';
 
 const DEFAULT_FREEZE_DURATION = 3; // seconds - Sportscode風の自動停止既定値を少し延長
@@ -1813,92 +1804,63 @@ export default function PlaylistWindowApp() {
         onViewModeChange={setViewMode}
       />
 
-      {/* Video Player Area */}
-      <Box
-        onMouseEnter={() => setControlsVisible(true)}
-        onMouseLeave={() => setControlsVisible(false)}
-        onMouseMove={() => setControlsVisible(true)}
-        sx={{
-          flex: '0 0 auto',
-          height: '50%',
-          minHeight: 250,
-          bgcolor: '#000',
-          position: 'relative',
+      <PlaylistVideoArea
+        currentVideoSource={currentVideoSource}
+        currentVideoSource2={currentVideoSource2}
+        viewMode={viewMode}
+        isDrawingMode={isDrawingMode}
+        drawingTarget={drawingTarget}
+        onDrawingTargetChange={setDrawingTarget}
+        annotationCanvasRefPrimary={annotationCanvasRefPrimary}
+        annotationCanvasRefSecondary={annotationCanvasRefSecondary}
+        primaryCanvasSize={primaryCanvasSize}
+        secondaryCanvasSize={secondaryCanvasSize}
+        primaryContentRect={primaryContentRect}
+        secondaryContentRect={secondaryContentRect}
+        currentAnnotation={currentAnnotation}
+        defaultFreezeDuration={DEFAULT_FREEZE_DURATION}
+        onObjectsChange={handleAnnotationObjectsChange}
+        onFreezeDurationChange={handleFreezeDurationChange}
+        currentTime={currentTime}
+        videoRef={videoRef}
+        videoRef2={videoRef2}
+        hasItems={items.length > 0}
+        controlsVisible={controlsVisible}
+        sliderMin={sliderMin}
+        sliderMax={sliderMax}
+        marks={
+          currentAnnotation?.objects?.length
+            ? currentAnnotation.objects.map((obj) => ({
+                value: obj.timestamp,
+                label: '',
+              }))
+            : []
+        }
+        isPlaying={isPlaying}
+        isFrozen={isFrozen}
+        autoAdvance={autoAdvance}
+        loopPlaylist={loopPlaylist}
+        isMuted={isMuted}
+        volume={volume}
+        isFullscreen={isFullscreen}
+        onSeek={handleSeek}
+        onSeekCommitted={() => {
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
         }}
-      >
-        {currentVideoSource ? (
-          <>
-                   objectFit: 'contain',
-            <PlaylistVideoCanvas
-              currentVideoSource={currentVideoSource}
-              currentVideoSource2={currentVideoSource2}
-              viewMode={viewMode}
-              isDrawingMode={isDrawingMode}
-              drawingTarget={drawingTarget}
-              onDrawingTargetChange={setDrawingTarget}
-              annotationCanvasRefPrimary={annotationCanvasRefPrimary}
-              annotationCanvasRefSecondary={annotationCanvasRefSecondary}
-              primaryCanvasSize={primaryCanvasSize}
-              secondaryCanvasSize={secondaryCanvasSize}
-              primaryContentRect={primaryContentRect}
-              secondaryContentRect={secondaryContentRect}
-              currentAnnotation={currentAnnotation}
-              defaultFreezeDuration={DEFAULT_FREEZE_DURATION}
-              onObjectsChange={handleAnnotationObjectsChange}
-              onFreezeDurationChange={handleFreezeDurationChange}
-              currentTime={currentTime}
-              videoRef={videoRef}
-              videoRef2={videoRef2}
-            />
-          </>
-        ) : (
-          <PlaylistVideoPlaceholder isEmpty={items.length === 0} />
-        )}
-
-        {currentItem && !isDrawingMode && (
-          <PlaylistVideoControlsOverlay
-            visible={controlsVisible}
-            currentTime={currentTime}
-            sliderMin={sliderMin}
-            sliderMax={sliderMax}
-            marks={
-              currentAnnotation?.objects?.length
-                ? currentAnnotation.objects.map((obj) => ({
-                    value: obj.timestamp,
-                    label: '',
-                  }))
-                : []
-            }
-            isPlaying={isPlaying}
-            isFrozen={isFrozen}
-            autoAdvance={autoAdvance}
-            loopPlaylist={loopPlaylist}
-            isDrawingMode={isDrawingMode}
-            isMuted={isMuted}
-            volume={volume}
-            isFullscreen={isFullscreen}
-            onSeek={handleSeek}
-            onSeekCommitted={() => {
-              if (document.activeElement instanceof HTMLElement) {
-                document.activeElement.blur();
-              }
-            }}
-            onPrevious={handlePrevious}
-            onTogglePlay={handleTogglePlay}
-            onNext={handleNext}
-            onToggleAutoAdvance={() => setAutoAdvance(!autoAdvance)}
-            onToggleLoop={() => setLoopPlaylist(!loopPlaylist)}
-            onToggleDrawingMode={handleToggleDrawingMode}
-            onToggleMute={() => setIsMuted(!isMuted)}
-            onVolumeChange={handleVolumeChange}
-            onToggleFullscreen={handleToggleFullscreen}
-          />
-        )}
-
-        {isDrawingMode && (
-          <PlaylistDrawingExitButton onExit={handleToggleDrawingMode} />
-        )}
-      </Box>
+        onPrevious={handlePrevious}
+        onTogglePlay={handleTogglePlay}
+        onNext={handleNext}
+        onToggleAutoAdvance={() => setAutoAdvance(!autoAdvance)}
+        onToggleLoop={() => setLoopPlaylist(!loopPlaylist)}
+        onToggleDrawingMode={handleToggleDrawingMode}
+        onToggleMute={() => setIsMuted(!isMuted)}
+        onVolumeChange={handleVolumeChange}
+        onToggleFullscreen={handleToggleFullscreen}
+        onControlsVisibleChange={setControlsVisible}
+        showControls={Boolean(currentItem)}
+      />
 
       <PlaylistItemSection
         items={items}
