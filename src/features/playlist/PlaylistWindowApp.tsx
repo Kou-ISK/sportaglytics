@@ -9,7 +9,6 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useLayoutEffect,
 } from 'react';
 import { Box } from '@mui/material';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -39,6 +38,7 @@ import { usePlaylistIpcSync } from './hooks/usePlaylistIpcSync';
 import { usePlaylistWindowSync } from './hooks/usePlaylistWindowSync';
 import { usePlaylistLoader } from './hooks/usePlaylistLoader';
 import { usePlaylistSaveRequest } from './hooks/usePlaylistSaveRequest';
+import { usePlaylistVideoSizing } from './hooks/usePlaylistVideoSizing';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
 import { PlaylistVideoArea } from './components/PlaylistVideoArea';
@@ -238,74 +238,19 @@ export default function PlaylistWindowApp() {
     }
   }, [viewMode, currentVideoSource2]);
 
-  // Sync canvas size to rendered video size (avoid aspect ratio drift)
-  useLayoutEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const update = () => {
-      const containerWidth = video.clientWidth || 1920;
-      const containerHeight = video.clientHeight || 1080;
-      setPrimaryCanvasSize({
-        width: containerWidth,
-        height: containerHeight,
-      });
-      const naturalWidth = video.videoWidth || containerWidth;
-      const naturalHeight = video.videoHeight || containerHeight;
-      if (naturalWidth && naturalHeight) {
-        setPrimarySourceSize({ width: naturalWidth, height: naturalHeight });
-      }
-      const scale = Math.min(
-        containerWidth / naturalWidth,
-        containerHeight / naturalHeight,
-      );
-      const displayWidth = naturalWidth * scale;
-      const displayHeight = naturalHeight * scale;
-      setPrimaryContentRect({
-        width: displayWidth,
-        height: displayHeight,
-        offsetX: (containerWidth - displayWidth) / 2,
-        offsetY: (containerHeight - displayHeight) / 2,
-      });
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(video);
-    return () => ro.disconnect();
-  }, [currentVideoSource, viewMode]);
-
-  useLayoutEffect(() => {
-    const video = videoRef2.current;
-    if (!video) return;
-    const update = () => {
-      const containerWidth = video.clientWidth || 1920;
-      const containerHeight = video.clientHeight || 1080;
-      setSecondaryCanvasSize({
-        width: containerWidth,
-        height: containerHeight,
-      });
-      const naturalWidth = video.videoWidth || containerWidth;
-      const naturalHeight = video.videoHeight || containerHeight;
-      if (naturalWidth && naturalHeight) {
-        setSecondarySourceSize({ width: naturalWidth, height: naturalHeight });
-      }
-      const scale = Math.min(
-        containerWidth / naturalWidth,
-        containerHeight / naturalHeight,
-      );
-      const displayWidth = naturalWidth * scale;
-      const displayHeight = naturalHeight * scale;
-      setSecondaryContentRect({
-        width: displayWidth,
-        height: displayHeight,
-        offsetX: (containerWidth - displayWidth) / 2,
-        offsetY: (containerHeight - displayHeight) / 2,
-      });
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(video);
-    return () => ro.disconnect();
-  }, [currentVideoSource2, viewMode]);
+  usePlaylistVideoSizing({
+    videoRef,
+    videoRef2,
+    currentVideoSource,
+    currentVideoSource2,
+    viewMode,
+    setPrimaryCanvasSize,
+    setPrimarySourceSize,
+    setPrimaryContentRect,
+    setSecondaryCanvasSize,
+    setSecondarySourceSize,
+    setSecondaryContentRect,
+  });
 
   // Auto-hide controls overlay - ビデオエリアホバー時のみ表示
   useEffect(() => {
