@@ -25,6 +25,7 @@ import {
   scaleObjectForDisplay,
   shiftObject,
 } from './annotationCanvasUtils';
+import { useDraggableToolbar } from '../hooks/useDraggableToolbar';
 
 const TIMESTAMP_TOLERANCE = 0.12;
 const MIN_FREEZE_UI_SECONDS = 1;
@@ -80,16 +81,14 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const isDrawingRef = useRef(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const toolbarRef = useRef<HTMLDivElement | null>(null);
-    const dragOffsetRef = useRef<{ x: number; y: number } | null>(null);
-    const [toolbarPosition, setToolbarPosition] = useState<{
-      x: number;
-      y: number;
-    }>({
-      x: DEFAULT_TOOLBAR_X,
-      y: DEFAULT_TOOLBAR_Y,
+    const {
+      toolbarRef,
+      position: toolbarPosition,
+      isDragging: isDraggingToolbar,
+      handleDragStart: handleToolbarDragStart,
+    } = useDraggableToolbar({
+      initialPosition: { x: DEFAULT_TOOLBAR_X, y: DEFAULT_TOOLBAR_Y },
     });
-    const [isDraggingToolbar, setIsDraggingToolbar] = useState(false);
     const [selectedObjectId, setSelectedObjectId] = useState<string | null>(
       null,
     );
@@ -141,78 +140,6 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           : freezeDuration,
       );
     }, [freezeDuration]);
-
-    // Clamp toolbar inside viewport on resize
-    useEffect(() => {
-      const clamp = () => {
-        const toolbar = toolbarRef.current;
-        if (!toolbar) return;
-        const tw = toolbar.offsetWidth || 0;
-        const th = toolbar.offsetHeight || 0;
-        setToolbarPosition((pos) => ({
-          x: Math.min(
-            Math.max(0, pos.x),
-            Math.max(0, window.innerWidth - tw - 8),
-          ),
-          y: Math.min(
-            Math.max(0, pos.y),
-            Math.max(0, window.innerHeight - th - 8),
-          ),
-        }));
-      };
-      clamp();
-      window.addEventListener('resize', clamp);
-      return () => window.removeEventListener('resize', clamp);
-    }, []);
-
-    // Drag handlers for toolbar
-    const handleToolbarDragStart = useCallback((e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const toolbar = toolbarRef.current;
-      if (!toolbar) return;
-      const toolbarRect = toolbar.getBoundingClientRect();
-      dragOffsetRef.current = {
-        x: e.clientX - toolbarRect.left,
-        y: e.clientY - toolbarRect.top,
-      };
-      setIsDraggingToolbar(true);
-    }, []);
-
-    useEffect(() => {
-      if (!isDraggingToolbar) return;
-
-      const handleMove = (e: MouseEvent) => {
-        const offset = dragOffsetRef.current;
-        const toolbar = toolbarRef.current;
-        if (!toolbar || !offset) return;
-
-        const newX = e.clientX - offset.x;
-        const newY = e.clientY - offset.y;
-        setToolbarPosition({
-          x: Math.min(
-            Math.max(0, newX),
-            Math.max(0, window.innerWidth - (toolbar.offsetWidth || 0) - 8),
-          ),
-          y: Math.min(
-            Math.max(0, newY),
-            Math.max(0, window.innerHeight - (toolbar.offsetHeight || 0) - 8),
-          ),
-        });
-      };
-
-      const handleUp = () => {
-        setIsDraggingToolbar(false);
-        dragOffsetRef.current = null;
-      };
-
-      window.addEventListener('mousemove', handleMove);
-      window.addEventListener('mouseup', handleUp);
-      return () => {
-        window.removeEventListener('mousemove', handleMove);
-        window.removeEventListener('mouseup', handleUp);
-      };
-    }, [isDraggingToolbar]);
 
     // Render only objects whose timestamp matches currentTime (±0.1s)
     const renderAllObjects = useCallback(() => {
