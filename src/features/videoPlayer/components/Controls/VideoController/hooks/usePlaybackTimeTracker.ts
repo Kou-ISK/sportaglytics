@@ -1,22 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { VideoSyncData } from '../../../../../../types/VideoSync';
-
-interface MinimalVideoJsPlayer {
-  isDisposed?: () => boolean;
-  currentTime?: (time?: number) => number;
-  duration?: () => number;
-  play?: () => Promise<void> | void;
-  pause?: () => void;
-  on?: (event: string, handler: () => void) => void;
-  off?: (event: string, handler: () => void) => void;
-}
+import type { GetExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
 
 interface Params {
   videoList: string[];
   isVideoPlaying: boolean;
   maxSec: number;
   syncData?: VideoSyncData;
-  getExistingPlayer: (id: string) => MinimalVideoJsPlayer | undefined;
+  getExistingPlayer: GetExistingVideoJsPlayer;
   lastManualSeekTimestamp: React.MutableRefObject<number>;
   isSeekingRef: React.MutableRefObject<boolean>;
   safeSetCurrentTime: (time: number, source?: string) => void;

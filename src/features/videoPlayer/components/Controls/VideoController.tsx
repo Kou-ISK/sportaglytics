@@ -6,13 +6,13 @@ import React, {
   useRef,
   useCallback,
 } from 'react';
-import videojs from 'video.js';
 import { VideoSyncData } from '../../../../types/VideoSync';
 import { VideoControllerToolbar } from './VideoController/VideoControllerToolbar';
 import { useFlashStates } from './VideoController/hooks/useFlashStates';
 import { useHotkeyPlayback } from './VideoController/hooks/useHotkeyPlayback';
 import { useSeekCoordinator } from './VideoController/hooks/useSeekCoordinator';
 import { usePlaybackTimeTracker } from './VideoController/hooks/usePlaybackTimeTracker';
+import { useExistingVideoJsPlayer } from './VideoController/hooks/useExistingVideoJsPlayer';
 
 interface VideoControllerProps {
   setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
@@ -120,37 +120,7 @@ export const VideoController = ({
   }, [currentTime]);
 
   // 既存のVideo.jsプレイヤー取得（新規作成はしない）
-  type VjsPlayer = {
-    isDisposed?: () => boolean;
-    readyState?: () => number;
-    play?: () => Promise<void> | void;
-    pause?: () => void;
-    on?: (event: string, handler: () => void) => void;
-    off?: (event: string, handler: () => void) => void;
-    muted?: (val: boolean) => void;
-    ready?: (cb: () => void) => void;
-    currentTime?: () => number;
-    duration?: () => number;
-  };
-  type VjsNamespace = {
-    (el: string): VjsPlayer | undefined;
-    getPlayer?: (id: string) => VjsPlayer | undefined;
-  };
-  const getExistingPlayer = useCallback((id: string): VjsPlayer | undefined => {
-    try {
-      const anyVjs: VjsNamespace = videojs as unknown as VjsNamespace;
-
-      if (typeof anyVjs.getPlayer === 'function') {
-        const p = anyVjs.getPlayer?.(id);
-        if (p && !p.isDisposed?.()) return p;
-      }
-      // ここで videojs(id) を呼ぶと新規生成される可能性があるため禁止
-      return undefined;
-    } catch (e) {
-      console.debug('getExistingPlayer error', e);
-      return undefined;
-    }
-  }, []);
+  const getExistingPlayer = useExistingVideoJsPlayer();
 
   const { videoTime, setVideoTime } = usePlaybackTimeTracker({
     videoList,

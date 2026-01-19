@@ -1,13 +1,6 @@
 import { useEffect } from 'react';
 import { VideoSyncData } from '../../../../../../types/VideoSync';
-
-type VjsPlayer = {
-  isDisposed?: () => boolean;
-  currentTime?: (time?: number) => number;
-  muted?: (val: boolean) => void;
-};
-
-type GetPlayerFn = (id: string) => VjsPlayer | undefined;
+import type { GetExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
 
 interface UseHotkeyPlaybackOptions {
   setVideoPlayBackRate: (value: number) => void;
@@ -18,7 +11,7 @@ interface UseHotkeyPlaybackOptions {
   videoList: string[];
   syncData?: VideoSyncData;
   lastManualSeekTimestamp: React.MutableRefObject<number>;
-  getExistingPlayer: GetPlayerFn;
+  getExistingPlayer: GetExistingVideoJsPlayer;
 }
 
 /**
