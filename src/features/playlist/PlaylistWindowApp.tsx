@@ -8,6 +8,7 @@ import React, {
   useRef,
   useCallback,
   useEffect,
+  useMemo,
   useLayoutEffect,
 } from 'react';
 import { Box } from '@mui/material';
@@ -34,6 +35,7 @@ import { usePlaylistHistory } from './hooks/usePlaylistHistory';
 import { usePlaylistSelection } from './hooks/usePlaylistSelection';
 import { usePlaylistExport } from './hooks/usePlaylistExport';
 import { usePlaylistHotkeys } from './hooks/usePlaylistHotkeys';
+import { usePlaylistPlayback } from './hooks/usePlaylistPlayback';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
 import { PlaylistVideoArea } from './components/PlaylistVideoArea';
@@ -105,7 +107,6 @@ export default function PlaylistWindowApp() {
   const containerRef = useRef<HTMLDivElement>(null);
   const annotationCanvasRefPrimary = useRef<AnnotationCanvasRef>(null);
   const annotationCanvasRefSecondary = useRef<AnnotationCanvasRef>(null);
-  const lastFreezeTimestampRef = useRef<number | null>(null);
   const [primaryCanvasSize, setPrimaryCanvasSize] = useState({
     width: 1920,
     height: 1080,
@@ -233,10 +234,6 @@ export default function PlaylistWindowApp() {
       setDrawingTarget('primary');
     }
   }, [viewMode, currentVideoSource2]);
-
-  useEffect(() => {
-    lastFreezeTimestampRef.current = null;
-  }, [currentItem?.id]);
 
   // Sync canvas size to rendered video size (avoid aspect ratio drift)
   useLayoutEffect(() => {
@@ -461,295 +458,45 @@ export default function PlaylistWindowApp() {
     };
   }, []);
 
-  // Trigger freeze frame
-  const triggerFreezeFrame = useCallback(
-    (freezeDuration: number) => {
-      const duration = Math.max(MIN_FREEZE_DURATION, freezeDuration);
-      if (isFrozen || duration <= 0) return;
-
-      const video = videoRef.current;
-      const video2 = videoRef2.current;
-
-      if (video) {
-        video.pause();
-      }
-      if (video2) {
-        video2.pause();
-      }
-
-      setIsFrozen(true);
-      setIsPlaying(false);
-    },
-    [isFrozen],
-  );
-
-  // Video event handlers
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const handleTimeUpdate = () => {
-      if (isFrozen) return;
-      const playbackTime = video.currentTime;
-      setCurrentTime(playbackTime);
-
-      // Check for freeze frame trigger (annotation timestamp)
-      if (currentItem && currentAnnotation) {
-        const referenceTime = playbackTime;
-        const effectiveFreezeDuration =
-          currentAnnotation.freezeDuration &&
-          currentAnnotation.freezeDuration > 0
-            ? Math.max(MIN_FREEZE_DURATION, currentAnnotation.freezeDuration)
-            : DEFAULT_FREEZE_DURATION;
-        // アノテーションのtimestampに到達したらフリーズ
-        const shouldFreeze = currentAnnotation.objects.some(
-          (obj) =>
-            Math.abs(referenceTime - obj.timestamp) < ANNOTATION_TIME_TOLERANCE,
-        );
-        const lastFreezeAt = lastFreezeTimestampRef.current;
-        const recentlyFrozen =
-          lastFreezeAt !== null &&
-          Math.abs(referenceTime - lastFreezeAt) < FREEZE_RETRIGGER_GUARD;
-        if (
-          currentAnnotation.objects.length > 0 &&
-          shouldFreeze &&
-          !isFrozen &&
-          !recentlyFrozen
-        ) {
-          lastFreezeTimestampRef.current = referenceTime;
-          triggerFreezeFrame(effectiveFreezeDuration);
-        }
-      }
-
-      // Check for item end
-      if (currentItem && video.currentTime >= currentItem.endTime) {
-        handleItemEnd();
-      }
-    };
-
-    const handleLoadedMetadata = () => {
-      setDuration(video.duration);
-      if (currentItem) {
-        video.currentTime = currentItem.startTime;
-      }
-    };
-
-    const handleEnded = () => {
-      handleItemEnd();
-    };
-
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('ended', handleEnded);
-
-    return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('ended', handleEnded);
-    };
-  }, [currentItem, currentAnnotation, isFrozen, triggerFreezeFrame]);
-
-  const handleItemEnd = useCallback(() => {
-    // Clear any freeze state
-    lastFreezeTimestampRef.current = null;
-    setIsFrozen(false);
-
-    if (!autoAdvance) {
-      setIsPlaying(false);
-      return;
-    }
-    if (currentIndex < items.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else if (loopPlaylist && items.length > 0) {
-      setCurrentIndex(0);
-    } else {
-      setIsPlaying(false);
-    }
-  }, [autoAdvance, currentIndex, items.length, loopPlaylist]);
-
-  // Play/pause handling for both videos
-  useEffect(() => {
-    const video = videoRef.current;
-    const video2 = videoRef2.current;
-    if (!video || !currentVideoSource) return;
-
-    if (isPlaying && !isFrozen) {
-      // viewModeに応じてvideoを再生
-      if (viewMode !== 'angle2') {
-        video.play().catch(console.error);
-      }
-      // viewModeに応じてvideo2を再生
-      if (video2 && currentVideoSource2 && viewMode !== 'angle1') {
-        video2.play().catch(console.error);
-      }
-    } else {
-      video.pause();
-      if (video2) {
-        video2.pause();
-      }
-    }
-  }, [isPlaying, isFrozen, currentVideoSource, currentVideoSource2, viewMode]);
-
-  // Volume handling
-  useEffect(() => {
-    const video = videoRef.current;
-    const video2 = videoRef2.current;
-    if (!video) return;
-    video.volume = isMuted ? 0 : volume;
-    if (video2) {
-      video2.volume = 0;
-    }
-  }, [volume, isMuted]);
-
-  // Set video source when item changes (primary)
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !currentVideoSource || !currentItem) return;
-
-    // Reset freeze state
-    lastFreezeTimestampRef.current = null;
-    setIsFrozen(false);
-
-    video.src = currentVideoSource;
-    video.load();
-    video.currentTime = currentItem.startTime;
-    setCurrentTime(currentItem.startTime); // 即座にステートも更新
-
-    if (isPlaying) {
-      video.play().catch(console.error);
-    }
-  }, [currentVideoSource, currentItem?.id]);
-
-  // Set video source when item changes (secondary)
-  useEffect(() => {
-    const video2 = videoRef2.current;
-    if (!video2 || !currentVideoSource2 || !currentItem) return;
-
-    video2.src = currentVideoSource2;
-    video2.load();
-    video2.currentTime = currentItem.startTime;
-    video2.volume = 0;
-
-    if (isPlaying && !isFrozen) {
-      video2.play().catch(console.error);
-    }
-  }, [currentVideoSource2, currentItem?.id]);
-
-  // viewMode切り替え時に再生位置を同期
-  useEffect(() => {
-    const video = videoRef.current;
-    const video2 = videoRef2.current;
-    if (!video || !video2) return;
-    if (!currentVideoSource || !currentVideoSource2) return;
-
-    if (viewMode === 'angle2') {
-      // angle2表示中: videoのcurrentTimeをvideo2に合わせる
-      video.currentTime = video2.currentTime;
-    } else if (viewMode === 'angle1') {
-      // angle1表示中: video2のcurrentTimeをvideoに合わせる
-      video2.currentTime = video.currentTime;
-    } else if (viewMode === 'dual') {
-      // dual表示中: 再生位置がズレている場合は同期
-      const timeDiff = Math.abs(video.currentTime - video2.currentTime);
-      if (timeDiff > 0.1) {
-        video2.currentTime = video.currentTime;
-      }
-    }
-  }, [viewMode, currentVideoSource, currentVideoSource2]);
-
-  // 外部からのアイテム追加を受信
-  useEffect(() => {
-    const handleAddItem = (item: PlaylistItem) => {
-      setItemsWithHistory((prev: PlaylistItem[]) => [...prev, item]);
-      setHasUnsavedChanges(true);
-      setIsDirty(true);
-    };
-
-    window.electronAPI?.playlist.onAddItem(handleAddItem);
-
-    return () => {
-      window.electronAPI?.playlist.offAddItem(handleAddItem);
-    };
-  }, []);
-
-  // ウィンドウタイトルを更新
-  useEffect(() => {
-    const title = isDirty
-      ? `${playlistName} *`
-      : loadedFilePath
-        ? playlistName
-        : playlistName;
-    window.electronAPI?.playlist.setWindowTitle(title);
-  }, [isDirty, playlistName, loadedFilePath]);
-
-  // hasUnsavedChanges と isDirty を同期（hasUnsavedChanges を単一の変更検知ソースに統一）
-  useEffect(() => {
-    setIsDirty(hasUnsavedChanges);
-  }, [hasUnsavedChanges]);
-
-  // isDirtyフラグをElectron側に同期
-  useEffect(() => {
-    window.electronAPI?.playlist.sendCommand({
-      type: 'set-dirty',
-      isDirty,
-    });
-  }, [isDirty]);
-
-  // Handlers
-  const handlePlayItem = useCallback(
-    (id?: string) => {
-      if (id) {
-        const index = items.findIndex((item) => item.id === id);
-        if (index !== -1) {
-          setCurrentIndex(index);
-          setIsPlaying(true);
-          setIsDrawingMode(false); // Exit drawing mode when changing item
-        }
-      } else if (currentIndex >= 0) {
-        setIsPlaying(true);
-      } else if (items.length > 0) {
-        setCurrentIndex(0);
-        setIsPlaying(true);
-      }
-    },
-    [items, currentIndex],
-  );
-
-  const handleTogglePlay = useCallback(() => {
-    if (isFrozen) {
-      // Skip freeze and continue
-      setIsFrozen(false);
-      setIsPlaying(true);
-      return;
-    }
-
-    if (currentIndex < 0 && items.length > 0) {
-      setCurrentIndex(0);
-      setIsPlaying(true);
-    } else {
-      setIsPlaying(!isPlaying);
-    }
-  }, [currentIndex, items.length, isPlaying, isFrozen]);
-
-  const handlePrevious = useCallback(() => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setIsPlaying(true);
-    } else if (loopPlaylist && items.length > 0) {
-      setCurrentIndex(items.length - 1);
-      setIsPlaying(true);
-    }
-  }, [currentIndex, loopPlaylist, items.length]);
-
-  const handleNext = useCallback(() => {
-    if (currentIndex < items.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setIsPlaying(true);
-    } else if (loopPlaylist && items.length > 0) {
-      setCurrentIndex(0);
-      setIsPlaying(true);
-    }
-  }, [currentIndex, items.length, loopPlaylist]);
+  const {
+    handlePlayItem,
+    handleTogglePlay,
+    handlePrevious,
+    handleNext,
+    handleSeek,
+    handleVolumeChange,
+    handleToggleFullscreen,
+  } = usePlaylistPlayback({
+    items,
+    currentIndex,
+    setCurrentIndex,
+    isPlaying,
+    setIsPlaying,
+    isFrozen,
+    setIsFrozen,
+    currentItem,
+    currentAnnotation: currentAnnotation ?? undefined,
+    autoAdvance,
+    loopPlaylist,
+    viewMode,
+    currentVideoSource,
+    currentVideoSource2,
+    videoRef,
+    videoRef2,
+    setCurrentTime,
+    setDuration,
+    volume,
+    isMuted,
+    setVolume,
+    containerRef,
+    isFullscreen,
+    setIsFullscreen,
+    setIsDrawingMode,
+    minFreezeDuration: MIN_FREEZE_DURATION,
+    defaultFreezeDuration: DEFAULT_FREEZE_DURATION,
+    annotationTimeTolerance: ANNOTATION_TIME_TOLERANCE,
+    freezeRetriggerGuard: FREEZE_RETRIGGER_GUARD,
+  });
 
   const handleRemoveItem = useCallback(
     (id: string) => {
@@ -801,48 +548,6 @@ export default function PlaylistWindowApp() {
     },
     [currentIndex, setItemsWithHistory],
   );
-
-  const handleSeek = useCallback(
-    (event: Event, value: number | number[]) => {
-      const time = Array.isArray(value) ? value[0] : value;
-      if (videoRef.current) {
-        videoRef.current.currentTime = time;
-      }
-      // videoSource2が存在する場合は常に同期（表示されていなくても）
-      if (videoRef2.current && currentVideoSource2) {
-        videoRef2.current.currentTime = time;
-      }
-      lastFreezeTimestampRef.current = null;
-      setIsFrozen(false);
-
-      // フォーカスを外してホットキーを有効にする
-      if (event.target && 'blur' in event.target) {
-        (event.target as HTMLElement).blur();
-      }
-      // 確実にフォーカスを外す
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-    },
-    [currentVideoSource2],
-  );
-
-  const handleVolumeChange = useCallback(
-    (_: Event, value: number | number[]) => {
-      setVolume(Array.isArray(value) ? value[0] : value);
-    },
-    [],
-  );
-
-  const handleToggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-    if (!isFullscreen) {
-      containerRef.current.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
-    setIsFullscreen(!isFullscreen);
-  }, [isFullscreen]);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
