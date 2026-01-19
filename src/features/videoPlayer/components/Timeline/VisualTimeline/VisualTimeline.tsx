@@ -1,13 +1,8 @@
 import React, { useMemo, useCallback, useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import { TimelineData } from '../../../../../types/TimelineData';
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineLane } from './TimelineLane';
-import { TimelineEditDialog } from './TimelineEditDialog';
-import { TimelineContextMenu } from './TimelineContextMenu';
-import { TimelineLabelDialog } from './TimelineLabelDialog';
-import { TimelineClipExportDialog } from './TimelineClipExportDialog';
-import { TimelineExportProgressDialog } from './TimelineExportProgressDialog';
 import { TimelineEmptyState } from './TimelineEmptyState';
 import { TimelineSelectionOverlay } from './TimelineSelectionOverlay';
 import { useTimelineViewport } from './hooks/useTimelineViewport';
@@ -15,6 +10,7 @@ import { ZoomIndicator } from './ZoomIndicator';
 import { useTimelineInteractions } from './hooks/useTimelineInteractions';
 import { useTimelineRangeSelection } from './hooks/useTimelineRangeSelection';
 import { useNotification } from '../../../../../contexts/NotificationContext';
+import { TimelineDialogs } from './TimelineDialogs';
 
 interface VisualTimelineProps {
   timeline: TimelineData[];
@@ -668,55 +664,33 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         </Box>
       </Box>
 
-      <TimelineEditDialog
-        draft={editingDraft}
-        open={Boolean(editingDraft)}
-        onChange={handleDialogChange}
-        onClose={handleCloseDialog}
-        onDelete={handleDeleteSingle}
-        onSave={handleSaveDialog}
-      />
-
-      <TimelineContextMenu
-        anchorPosition={contextMenu?.position || null}
-        onClose={handleCloseContextMenu}
-        onEdit={handleContextMenuEdit}
-        onDelete={handleContextMenuDelete}
-        onJumpTo={handleContextMenuJumpTo}
-        onDuplicate={handleContextMenuDuplicate}
-        onAddToPlaylist={
-          onAddToPlaylist
-            ? () => {
-                const items = timeline.filter((t) =>
-                  selectedIds.includes(t.id),
-                );
-                if (items.length > 0) {
-                  onAddToPlaylist(items);
-                }
-              }
-            : undefined
-        }
-        selectedCount={selectedIds.length}
-      />
-
-      <TimelineLabelDialog
-        open={labelDialogOpen}
-        selectedCount={selectedIds.length}
+      <TimelineDialogs
+        editingDraft={editingDraft}
+        onDialogChange={handleDialogChange}
+        onCloseDialog={handleCloseDialog}
+        onDeleteSingle={handleDeleteSingle}
+        onSaveDialog={handleSaveDialog}
+        contextMenu={contextMenu}
+        onCloseContextMenu={handleCloseContextMenu}
+        onContextMenuEdit={handleContextMenuEdit}
+        onContextMenuDelete={handleContextMenuDelete}
+        onContextMenuJumpTo={handleContextMenuJumpTo}
+        onContextMenuDuplicate={handleContextMenuDuplicate}
+        onAddToPlaylist={onAddToPlaylist}
+        timeline={timeline}
+        selectedIds={selectedIds}
+        labelDialogOpen={labelDialogOpen}
         labelGroup={labelGroup}
         labelName={labelName}
         onLabelGroupChange={setLabelGroup}
         onLabelNameChange={setLabelName}
-        onClose={() => setLabelDialogOpen(false)}
-        onApply={handleApplyLabel}
-      />
-
-      <TimelineClipExportDialog
-        open={clipDialogOpen}
-        onClose={() => setClipDialogOpen(false)}
-        onExport={handleExportClips}
+        onCloseLabelDialog={() => setLabelDialogOpen(false)}
+        onApplyLabel={handleApplyLabel}
+        clipDialogOpen={clipDialogOpen}
+        onCloseClipDialog={() => setClipDialogOpen(false)}
+        onExportClips={handleExportClips}
         exportScope={exportScope}
         setExportScope={setExportScope}
-        selectedCount={selectedIds.length}
         exportMode={exportMode}
         setExportMode={setExportMode}
         exportFileName={exportFileName}
@@ -730,9 +704,8 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
         secondarySource={secondarySource}
         setPrimarySource={setPrimarySource}
         setSecondarySource={setSecondarySource}
+        isExporting={isExporting}
       />
-
-      <TimelineExportProgressDialog open={isExporting} />
     </Box>
   );
 };
