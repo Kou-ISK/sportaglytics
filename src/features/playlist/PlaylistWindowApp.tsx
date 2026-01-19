@@ -39,6 +39,7 @@ import { usePlaylistWindowSync } from './hooks/usePlaylistWindowSync';
 import { usePlaylistLoader } from './hooks/usePlaylistLoader';
 import { usePlaylistSaveRequest } from './hooks/usePlaylistSaveRequest';
 import { usePlaylistVideoSizing } from './hooks/usePlaylistVideoSizing';
+import { usePlaylistControlsVisibility } from './hooks/usePlaylistControlsVisibility';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
 import { PlaylistVideoArea } from './components/PlaylistVideoArea';
@@ -252,38 +253,12 @@ export default function PlaylistWindowApp() {
     setSecondaryContentRect,
   });
 
-  // Auto-hide controls overlay - ビデオエリアホバー時のみ表示
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let hideTimer: ReturnType<typeof setTimeout> | null = null;
-    const show = () => {
-      setControlsVisible(true);
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => {
-        if (!isDrawingMode && isPlaying) {
-          setControlsVisible(false);
-        }
-      }, 1800);
-    };
-
-    // 初期表示
-    if (isPlaying && !isDrawingMode) {
-      show();
-    }
-    const handleMove = () => show();
-    container.addEventListener('mousemove', handleMove);
-    container.addEventListener('mouseleave', () => setControlsVisible(false));
-
-    return () => {
-      container.removeEventListener('mousemove', handleMove);
-      container.removeEventListener('mouseleave', () =>
-        setControlsVisible(false),
-      );
-      if (hideTimer) clearTimeout(hideTimer);
-    };
-  }, [isPlaying, isDrawingMode]);
+  usePlaylistControlsVisibility({
+    containerRef,
+    isPlaying,
+    isDrawingMode,
+    setControlsVisible,
+  });
 
   // Current annotation
   const currentAnnotation = useMemo(() => {
