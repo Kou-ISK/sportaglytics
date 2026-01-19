@@ -152,7 +152,7 @@ export default function PlaylistWindowApp() {
   const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
   const {
-    selectedItems,
+    selectedItemIds,
     selectedItems,
     selectedCount,
     toggleSelect,
