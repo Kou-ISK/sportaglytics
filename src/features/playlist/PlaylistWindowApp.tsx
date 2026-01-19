@@ -23,7 +23,6 @@ import {
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import type {
   PlaylistItem,
-  PlaylistSyncData,
   PlaylistType,
   DrawingObject,
   ItemAnnotation,
@@ -36,6 +35,10 @@ import { usePlaylistSelection } from './hooks/usePlaylistSelection';
 import { usePlaylistExport } from './hooks/usePlaylistExport';
 import { usePlaylistHotkeys } from './hooks/usePlaylistHotkeys';
 import { usePlaylistPlayback } from './hooks/usePlaylistPlayback';
+import { usePlaylistIpcSync } from './hooks/usePlaylistIpcSync';
+import { usePlaylistWindowSync } from './hooks/usePlaylistWindowSync';
+import { usePlaylistLoader } from './hooks/usePlaylistLoader';
+import { usePlaylistSaveRequest } from './hooks/usePlaylistSaveRequest';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
 import { PlaylistVideoArea } from './components/PlaylistVideoArea';
@@ -393,70 +396,38 @@ export default function PlaylistWindowApp() {
     [adjustedAnnotationObjects],
   );
 
-  // Handle IPC messages from main process
-  useEffect(() => {
-    const playlistAPI = window.electronAPI?.playlist;
+  usePlaylistIpcSync({
+    setItemsWithHistory,
+    setPlaylistName,
+    setHasUnsavedChanges,
+    setItemAnnotations,
+    setPlaylistType,
+    setPackagePath,
+    setVideoSources,
+    setViewMode,
+    setSaveProgress,
+    setIsDirty,
+  });
 
-    const handlePlaylistSync = (data: PlaylistSyncData) => {
-      console.log('[PlaylistWindow] Received sync data:', data);
-      const activePlaylist = data.state.playlists.find(
-        (p) => p.id === data.state.activePlaylistId,
-      );
-      if (activePlaylist) {
-        // ファイル読み込み時は履歴に追加しない（usePlaylistHistoryが自動処理）
-        setItemsWithHistory(activePlaylist.items);
-        setPlaylistName(activePlaylist.name);
-        setHasUnsavedChanges(false);
-        // Load annotations from items
-        const annotations: Record<string, ItemAnnotation> = {};
-        for (const item of activePlaylist.items) {
-          if (item.annotation) {
-            annotations[item.id] = item.annotation;
-          }
-        }
-        setItemAnnotations(annotations);
-      }
-      setPackagePath(data.packagePath || null);
+  usePlaylistWindowSync({
+    playlistName,
+    loadedFilePath,
+    isDirty,
+  });
 
-      // アイテム側にソースが付いている場合はそれを優先し、グローバルなvideoSourcesで上書きしない
-      const hasItemSources =
-        activePlaylist?.items?.some(
-          (it) => !!it.videoSource || !!it.videoSource2,
-        ) ?? false;
-      if (!hasItemSources) {
-        setVideoSources(data.videoSources || []);
-        if (data.videoSources && data.videoSources.length >= 2) {
-          setViewMode('dual');
-        }
-      } else {
-        // アイテム別ソースがある場合は、現在のアイテムの有無でデュアル判定
-        const current = activePlaylist?.items.find(
-          (it) => it.id === data.state.playingItemId,
-        );
-        const hasDual = !!(
-          current?.videoSource2 ||
-          activePlaylist?.items.some((it) => !!it.videoSource2)
-        );
-        setViewMode(hasDual ? 'dual' : 'angle1');
-      }
-    };
-
-    const handleSaveProgress = (data: { current: number; total: number }) => {
-      setSaveProgress(data);
-    };
-
-    if (playlistAPI) {
-      playlistAPI.onSync(handlePlaylistSync);
-      playlistAPI.onSaveProgress(handleSaveProgress);
-      playlistAPI.sendCommand({ type: 'request-sync' });
-    }
-
-    return () => {
-      if (playlistAPI) {
-        playlistAPI.offSync(handlePlaylistSync);
-      }
-    };
-  }, []);
+  const { loadPlaylistFromPath } = usePlaylistLoader({
+    setItemsWithHistory,
+    setHasUnsavedChanges,
+    setPlaylistName,
+    setPlaylistType,
+    setPackagePath,
+    setLoadedFilePath,
+    setIsDirty,
+    setItemAnnotations,
+    setVideoSources,
+    setViewMode,
+    setCurrentIndex,
+  });
 
   const {
     handlePlayItem,
@@ -794,6 +765,13 @@ export default function PlaylistWindowApp() {
     ],
   );
 
+  usePlaylistSaveRequest({
+    loadedFilePath,
+    handleSavePlaylist,
+    setCloseAfterSave,
+    setSaveDialogOpen,
+  });
+
   // Save playlist as (名前を付けて保存)
   const handleSavePlaylistAs = useCallback(
     async (type: PlaylistType, name: string, shouldCloseAfterSave = false) => {
@@ -962,86 +940,11 @@ export default function PlaylistWindowApp() {
     playlistKeyUpHandlers,
   );
 
-  const loadPlaylistFromPath = useCallback(async (filePath?: string) => {
-    const playlistAPI = window.electronAPI?.playlist;
-    if (!playlistAPI) return;
-
-    const loaded = await playlistAPI.loadPlaylistFile(filePath);
-    if (loaded) {
-      const { playlist, filePath: loadedPath } = loaded;
-      console.log('[PlaylistWindow] Playlist loaded from:', loadedPath);
-      setItemsWithHistory(playlist.items);
-      setHasUnsavedChanges(false);
-      setPlaylistName(playlist.name);
-      setPlaylistType(playlist.type || 'embedded');
-      setPackagePath(playlist.sourcePackagePath || null);
-      setLoadedFilePath(loadedPath);
-      console.log('[PlaylistWindow] loadedFilePath set to:', loadedPath);
-      setIsDirty(false); // 読み込み直後はクリーン状態
-      // Load annotations
-      const annotations: Record<string, ItemAnnotation> = {};
-      for (const item of playlist.items) {
-        if (item.annotation) {
-          annotations[item.id] = item.annotation;
-        }
-      }
-      setItemAnnotations(annotations);
-
-      const sources: string[] = [];
-      if (playlist.items[0]?.videoSource) {
-        sources.push(playlist.items[0].videoSource as string);
-      }
-      if (playlist.items[0]?.videoSource2) {
-        sources.push(playlist.items[0].videoSource2 as string);
-      }
-      if (sources.length > 0) {
-        setVideoSources(sources);
-      }
-      setViewMode(sources.length >= 2 ? 'dual' : 'angle1');
-
-      // プレイリストに要素がある場合は最初のアイテムを選択
-      if (playlist.items.length > 0) {
-        setCurrentIndex(0);
-      }
-    }
-  }, []);
-
   // Load playlist
   const handleLoadPlaylist = useCallback(async () => {
     handleMenuClose();
     await loadPlaylistFromPath();
-  }, [loadPlaylistFromPath]);
-
-  useEffect(() => {
-    const playlistAPI = window.electronAPI?.playlist;
-    if (!playlistAPI?.onExternalOpen) return;
-    const unsub = playlistAPI.onExternalOpen((filePath: string) => {
-      loadPlaylistFromPath(filePath);
-    });
-    return () => {
-      unsub?.();
-    };
-  }, [loadPlaylistFromPath]);
-
-  // ウィンドウクローズ時の保存要求を処理
-  useEffect(() => {
-    const handleRequestSave = () => {
-      if (loadedFilePath) {
-        // 既存ファイルがあれば即上書き保存し、保存後に閉じる
-        handleSavePlaylist(true);
-      } else {
-        // 新規ファイルの場合は保存ダイアログを表示
-        setCloseAfterSave(true);
-        setSaveDialogOpen(true);
-      }
-    };
-
-    window.electronAPI?.on?.('playlist:request-save', handleRequestSave);
-
-    return () => {
-      window.electronAPI?.off?.('playlist:request-save', handleRequestSave);
-    };
-  }, [loadedFilePath, handleSavePlaylist]);
+  }, [handleMenuClose, loadPlaylistFromPath]);
 
   // Edit note
   const handleEditNote = useCallback((itemId: string) => {
