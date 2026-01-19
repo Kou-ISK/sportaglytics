@@ -18,6 +18,7 @@ import { DefaultCodeLayout } from './DefaultCodeLayout';
 import { CodePanelModeIndicator } from './CodePanelModeIndicator';
 import { buildEffectiveLinks, type EffectiveLink } from './effectiveLinks';
 import { useLabelSelections } from './hooks/useLabelSelections';
+import { useActiveRecordings } from './hooks/useActiveRecordings';
 
 interface EnhancedCodePanelProps {
   addTimelineData: (
@@ -95,64 +96,16 @@ export const EnhancedCodePanel = forwardRef<
       settings.codingPanel?.activeCodeWindowId,
     ]);
 
-    // 複数同時録画に対応するため、アクションごとにセッションを保持
-    const [activeRecordings, setActiveRecordings] = React.useState<
-      Record<
-        string,
-        {
-          teamName: string;
-          startTime: number;
-          color?: string;
-          activateTargets: string[];
-          activateTargetColors: Record<string, string | undefined>;
-        }
-      >
-    >({});
-    // ラベル入力の対象となるアクション（最後に操作したもの）
-    const [primaryAction, setPrimaryAction] = React.useState<string | null>(
-      null,
-    );
-    const activeRecordingsRef = React.useRef<typeof activeRecordings>({});
-    React.useEffect(() => {
-      activeRecordingsRef.current = activeRecordings;
-    }, [activeRecordings]);
-    const isSameActionName = React.useCallback(
-      (a: string, b: string): boolean => {
-        if (a === b) return true;
-        for (const team of teamNames) {
-          const prefix = `${team} `;
-          const aStripped = a.startsWith(prefix) ? a.slice(prefix.length) : a;
-          const bStripped = b.startsWith(prefix) ? b.slice(prefix.length) : b;
-          if (
-            aStripped === b ||
-            bStripped === a ||
-            aStripped === bStripped ||
-            `${prefix}${b}` === a ||
-            `${prefix}${a}` === b
-          ) {
-            return true;
-          }
-        }
-        return false;
-      },
-      [teamNames],
-    );
-    const resolveRecordingKey = React.useCallback(
-      (name: string): string | undefined => {
-        if (activeRecordingsRef.current[name]) return name;
-        for (const team of teamNames) {
-          const teamPrefix = `${team} `;
-          if (name.startsWith(teamPrefix)) {
-            const stripped = name.slice(teamPrefix.length);
-            if (activeRecordingsRef.current[stripped]) return stripped;
-          }
-          const prefixed = `${teamPrefix}${name}`;
-          if (activeRecordingsRef.current[prefixed]) return prefixed;
-        }
-        return undefined;
-      },
-      [teamNames],
-    );
+    const {
+      activeRecordings,
+      setActiveRecordings,
+      activeRecordingsRef,
+      primaryAction,
+      setPrimaryAction,
+      isSameActionName,
+      resolveRecordingKey,
+      isRecording,
+    } = useActiveRecordings(teamNames);
 
     // 外部から呼び出せるメソッドを公開
     useImperativeHandle(ref, () => ({
@@ -189,10 +142,6 @@ export const EnhancedCodePanel = forwardRef<
     // ラベルグループの選択状態を管理（groupName -> selected option）
     const { labelSelections, labelSelectionsRef, updateLabelSelections } =
       useLabelSelections();
-    const isRecording = React.useMemo(
-      () => Object.keys(activeRecordings).length > 0,
-      [activeRecordings],
-    );
     const [activeMode, setActiveMode] = React.useState<'code' | 'label'>(
       settings.codingPanel?.defaultMode ?? 'code',
     );
