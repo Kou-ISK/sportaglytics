@@ -20,6 +20,7 @@ import { buildEffectiveLinks, type EffectiveLink } from './effectiveLinks';
 import { useLabelSelections } from './hooks/useLabelSelections';
 import { useActiveRecordings } from './hooks/useActiveRecordings';
 import { useRecordingCompletion } from './hooks/useRecordingCompletion';
+import { useCodePanelSettings } from './hooks/useCodePanelSettings';
 
 interface EnhancedCodePanelProps {
   addTimelineData: (
@@ -143,17 +144,9 @@ export const EnhancedCodePanel = forwardRef<
     // ラベルグループの選択状態を管理（groupName -> selected option）
     const { labelSelections, labelSelectionsRef, updateLabelSelections } =
       useLabelSelections();
-    const [activeMode, setActiveMode] = React.useState<'code' | 'label'>(
-      settings.codingPanel?.defaultMode ?? 'code',
+    const { activeMode, setActiveMode, actionLinks } = useCodePanelSettings(
+      settings.codingPanel,
     );
-    // （ツールバー機能は未使用）
-    const [actionLinks, setActionLinks] = React.useState<
-      {
-        from: string;
-        to: string;
-        type: 'exclusive' | 'deactivate' | 'activate';
-      }[]
-    >(settings.codingPanel?.actionLinks ?? []);
     const setWarning = React.useCallback((message: string | null) => {
       // Warning表示は未実装だが、将来の拡張に備えて引数を吸収
       void message;
@@ -166,21 +159,6 @@ export const EnhancedCodePanel = forwardRef<
     const layoutContainerRef = React.useRef<HTMLDivElement | null>(null);
     const [layoutContainerWidth, setLayoutContainerWidth] =
       React.useState<number>(customLayout?.canvasWidth || 0);
-
-    React.useEffect(() => {
-      if (settings.codingPanel?.actionLinks) {
-        setActionLinks(
-          settings.codingPanel.actionLinks.map((l) => ({
-            from: l.from || l.to || '',
-            to: l.to || '',
-            type: l.type || 'exclusive',
-          })),
-        );
-      }
-      if (settings.codingPanel?.defaultMode) {
-        setActiveMode(settings.codingPanel.defaultMode as 'code' | 'label');
-      }
-    }, [settings.codingPanel]);
 
     // メニューからのモード切替
     React.useEffect(() => {

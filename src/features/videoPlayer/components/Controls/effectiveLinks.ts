@@ -1,7 +1,7 @@
 import { replaceTeamPlaceholders, type TeamContext } from '../../../../utils/teamPlaceholder';
 import type { CodeWindowLayout } from '../../../../types/Settings';
 
-type ActionLink = {
+export type ActionLink = {
   from: string;
   to: string;
   type: 'exclusive' | 'deactivate' | 'activate';
