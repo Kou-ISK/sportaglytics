@@ -32,6 +32,7 @@ import type {
 import { AnnotationCanvasRef } from './components/AnnotationCanvas';
 import { useTheme } from '@mui/material/styles';
 import { usePlaylistHistory } from './hooks/usePlaylistHistory';
+import { usePlaylistSelection } from './hooks/usePlaylistSelection';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import type { HotkeyConfig } from '../../types/Settings';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
@@ -154,9 +155,17 @@ export default function PlaylistWindowApp() {
   >('single');
   const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const {
+    selectedItems,
+    selectedItems,
+    selectedCount,
+    toggleSelect,
+    deleteSelected,
+  } = usePlaylistSelection({
+    items,
+    setItems: setItemsWithHistory,
+    onDirtyChange: setHasUnsavedChanges,
+  });
   const [exportScope, setExportScope] = useState<'all' | 'selected'>('all');
 
   // 保存進行状況
@@ -1112,13 +1121,8 @@ export default function PlaylistWindowApp() {
   }, []);
 
   const handleDeleteSelected = useCallback(() => {
-    if (selectedItemIds.size === 0) return;
-    setItemsWithHistory((prev: PlaylistItem[]) =>
-      prev.filter((item: PlaylistItem) => !selectedItemIds.has(item.id)),
-    );
-    setSelectedItemIds(new Set());
-    setHasUnsavedChanges(true);
-  }, [selectedItemIds, setItemsWithHistory]);
+    deleteSelected();
+  }, [deleteSelected]);
 
   const handleUndo = useCallback(() => {
     const prevItems = undo();
@@ -1600,10 +1604,7 @@ export default function PlaylistWindowApp() {
       return;
     }
 
-    const sourceItems =
-      exportScope === 'selected'
-        ? items.filter((item) => selectedItemIds.has(item.id))
-        : items;
+    const sourceItems = exportScope === 'selected' ? selectedItems : items;
 
     if (sourceItems.length === 0) {
       showError('書き出すアイテムがありません');
@@ -1743,7 +1744,7 @@ export default function PlaylistWindowApp() {
     exportMode,
     exportScope,
     items,
-    selectedItemIds,
+    selectedItems,
     itemAnnotations,
     overlaySettings,
     primaryContentRect,
@@ -1871,17 +1872,7 @@ export default function PlaylistWindowApp() {
         onRemove={handleRemoveItem}
         onPlay={handlePlayItem}
         onEditNote={handleEditNote}
-        onToggleSelect={(id) => {
-          setSelectedItemIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) {
-              next.delete(id);
-            } else {
-              next.add(id);
-            }
-            return next;
-          });
-        }}
+        onToggleSelect={toggleSelect}
       />
 
       {currentItem && (
@@ -1911,7 +1902,7 @@ export default function PlaylistWindowApp() {
         setExportFileName={setExportFileName}
         exportScope={exportScope}
         setExportScope={setExportScope}
-        selectedItemCount={selectedItemIds.size}
+        selectedItemCount={selectedCount}
         exportMode={exportMode}
         setExportMode={setExportMode}
         angleOption={angleOption}
