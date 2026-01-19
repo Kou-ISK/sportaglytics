@@ -19,7 +19,6 @@ import {
   Checkbox,
 } from '@mui/material';
 import { useNotification } from '../../contexts/NotificationContext';
-import { ExportProgressSnackbar } from '../../components/ExportProgressSnackbar';
 import {
   KeyboardSensor,
   PointerSensor,
@@ -41,17 +40,14 @@ import { useTheme } from '@mui/material/styles';
 import { usePlaylistHistory } from './hooks/usePlaylistHistory';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import type { HotkeyConfig } from '../../types/Settings';
-import { PlaylistSaveDialog } from './components/PlaylistSaveDialog';
-import { PlaylistNoteDialog } from './components/PlaylistNoteDialog';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
-import { PlaylistExportDialog } from './components/PlaylistExportDialog';
-import { PlaylistSaveProgressDialog } from './components/PlaylistSaveProgressDialog';
 import { PlaylistVideoControlsOverlay } from './components/PlaylistVideoControlsOverlay';
 import { PlaylistDrawingExitButton } from './components/PlaylistDrawingExitButton';
 import { PlaylistHeaderToolbar } from './components/PlaylistHeaderToolbar';
 import { PlaylistNowPlayingInfo } from './components/PlaylistNowPlayingInfo';
 import { PlaylistVideoPlaceholder } from './components/PlaylistVideoPlaceholder';
 import { PlaylistVideoCanvas } from './components/PlaylistVideoCanvas';
+import { PlaylistWindowDialogs } from './components/PlaylistWindowDialogs';
 
 const DEFAULT_FREEZE_DURATION = 3; // seconds - Sportscode風の自動停止既定値を少し延長
 const MIN_FREEZE_DURATION = 1; // seconds - ユーザー要求の最低停止秒数
@@ -1936,21 +1932,18 @@ export default function PlaylistWindowApp() {
         />
       )}
 
-      {/* Dialogs */}
-      <PlaylistSaveDialog
-        open={saveDialogOpen}
-        onClose={() => {
+      <PlaylistWindowDialogs
+        saveDialogOpen={saveDialogOpen}
+        onCloseSaveDialog={() => {
           setSaveDialogOpen(false);
           setCloseAfterSave(false);
         }}
-        onSave={handleSavePlaylistAs}
-        defaultName={playlistName}
-        defaultType={playlistType}
+        onSavePlaylist={handleSavePlaylistAs}
+        defaultPlaylistName={playlistName}
+        defaultPlaylistType={playlistType}
         closeAfterSave={closeAfterSave}
-      />
-      <PlaylistExportDialog
-        open={exportDialogOpen}
-        onClose={() => setExportDialogOpen(false)}
+        exportDialogOpen={exportDialogOpen}
+        onCloseExportDialog={() => setExportDialogOpen(false)}
         onExport={handleExportPlaylist}
         exportFileName={exportFileName}
         setExportFileName={setExportFileName}
@@ -1967,34 +1960,18 @@ export default function PlaylistWindowApp() {
         overlaySettings={overlaySettings}
         setOverlaySettings={setOverlaySettings}
         disableExport={!!exportProgress}
-      />
-      <PlaylistNoteDialog
-        open={noteDialogOpen}
-        onClose={() => {
+        noteDialogOpen={noteDialogOpen}
+        onCloseNoteDialog={() => {
           setNoteDialogOpen(false);
           setEditingItemId(null);
         }}
-        onSave={handleSaveNote}
+        onSaveNote={handleSaveNote}
         initialNote={editingItem?.memo || ''}
         itemName={editingItem?.actionName || ''}
+        saveProgress={saveProgress}
+        exportProgress={exportProgress}
+        onCloseExportProgress={() => setExportProgress(null)}
       />
-
-      {/* 保存進行状況ダイアログ */}
-      <PlaylistSaveProgressDialog
-        open={saveProgress !== null}
-        progress={saveProgress}
-      />
-
-      {/* 書き出し進行状況 Snackbar */}
-      {exportProgress && (
-        <ExportProgressSnackbar
-          open={!!exportProgress}
-          current={exportProgress.current}
-          total={exportProgress.total}
-          message={exportProgress.message}
-          onClose={() => setExportProgress(null)}
-        />
-      )}
     </Box>
   );
 }
