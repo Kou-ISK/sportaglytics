@@ -46,6 +46,7 @@ import { usePlaylistExportState } from './hooks/usePlaylistExportState';
 import { usePlaylistVideoSourcesSync } from './hooks/usePlaylistVideoSourcesSync';
 import { usePlaylistCurrentItem } from './hooks/usePlaylistCurrentItem';
 import { usePlaylistHistorySync } from './hooks/usePlaylistHistorySync';
+import { usePlaylistVideoControlsState } from './hooks/usePlaylistVideoControlsState';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { renderAnnotationPng } from './utils/renderAnnotationPng';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
@@ -196,8 +197,6 @@ export default function PlaylistWindowApp() {
     currentItem,
     currentVideoSource,
     currentVideoSource2,
-    sliderMin,
-    sliderMax,
     editingItem,
   } = usePlaylistCurrentItem({
     items,
@@ -211,6 +210,26 @@ export default function PlaylistWindowApp() {
     currentItem,
     videoSources,
     setVideoSources,
+  });
+
+  const {
+    sliderMin,
+    sliderMax,
+    marks,
+    handleSeekCommitted,
+    handleToggleAutoAdvance,
+    handleToggleLoop,
+    handleToggleMute,
+  } = usePlaylistVideoControlsState({
+    currentItem,
+    currentAnnotation,
+    duration,
+    autoAdvance,
+    loopPlaylist,
+    isMuted,
+    setAutoAdvance,
+    setLoopPlaylist,
+    setIsMuted,
   });
 
   usePlaylistDrawingTarget({
@@ -534,14 +553,7 @@ export default function PlaylistWindowApp() {
         controlsVisible={controlsVisible}
         sliderMin={sliderMin}
         sliderMax={sliderMax}
-        marks={
-          currentAnnotation?.objects?.length
-            ? currentAnnotation.objects.map((obj) => ({
-                value: obj.timestamp,
-                label: '',
-              }))
-            : []
-        }
+        marks={marks}
         isPlaying={isPlaying}
         isFrozen={isFrozen}
         autoAdvance={autoAdvance}
@@ -550,18 +562,14 @@ export default function PlaylistWindowApp() {
         volume={volume}
         isFullscreen={isFullscreen}
         onSeek={handleSeek}
-        onSeekCommitted={() => {
-          if (document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-          }
-        }}
+        onSeekCommitted={handleSeekCommitted}
         onPrevious={handlePrevious}
         onTogglePlay={handleTogglePlay}
         onNext={handleNext}
-        onToggleAutoAdvance={() => setAutoAdvance(!autoAdvance)}
-        onToggleLoop={() => setLoopPlaylist(!loopPlaylist)}
+        onToggleAutoAdvance={handleToggleAutoAdvance}
+        onToggleLoop={handleToggleLoop}
         onToggleDrawingMode={handleToggleDrawingMode}
-        onToggleMute={() => setIsMuted(!isMuted)}
+        onToggleMute={handleToggleMute}
         onVolumeChange={handleVolumeChange}
           onToggleFullscreen={handleToggleFullscreen}
           onVideoAreaHoverChange={setIsVideoAreaHovered}
