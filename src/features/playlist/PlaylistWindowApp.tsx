@@ -20,7 +20,6 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import type {
-  PlaylistItem,
   PlaylistType,
   ItemAnnotation,
   AnnotationTarget,
@@ -43,6 +42,7 @@ import { usePlaylistAnnotations } from './hooks/usePlaylistAnnotations';
 import { usePlaylistItemOperations } from './hooks/usePlaylistItemOperations';
 import { usePlaylistSaveFlow } from './hooks/usePlaylistSaveFlow';
 import { usePlaylistHotkeyBindings } from './hooks/usePlaylistHotkeyBindings';
+import { usePlaylistNotes } from './hooks/usePlaylistNotes';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { renderAnnotationPng } from './utils/renderAnnotationPng';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
@@ -108,8 +108,6 @@ export default function PlaylistWindowApp() {
   // Dialog states
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [closeAfterSave, setCloseAfterSave] = useState(false);
-  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -283,6 +281,17 @@ export default function PlaylistWindowApp() {
     setIsPlaying,
     setItemsWithHistory,
     setItemAnnotations,
+    setHasUnsavedChanges,
+  });
+
+  const {
+    editingItemId,
+    noteDialogOpen,
+    setNoteDialogOpen,
+    handleEditNote,
+    handleSaveNote,
+  } = usePlaylistNotes({
+    setItemsWithHistory,
     setHasUnsavedChanges,
   });
 
@@ -472,27 +481,6 @@ export default function PlaylistWindowApp() {
     handleMenuClose();
     await loadPlaylistFromPath();
   }, [handleMenuClose, loadPlaylistFromPath]);
-
-  // Edit note
-  const handleEditNote = useCallback((itemId: string) => {
-    setEditingItemId(itemId);
-    setNoteDialogOpen(true);
-  }, []);
-
-  const handleSaveNote = useCallback(
-    (note: string) => {
-      if (!editingItemId) return;
-      setItemsWithHistory((prev: PlaylistItem[]) =>
-        prev.map((item: PlaylistItem) =>
-          item.id === editingItemId ? { ...item, note } : item,
-        ),
-      );
-      setNoteDialogOpen(false);
-      setEditingItemId(null);
-      setHasUnsavedChanges(true);
-    },
-    [editingItemId, setItemsWithHistory],
-  );
 
   const { exportProgress, handleExportPlaylist: exportPlaylist } =
     usePlaylistExport({
