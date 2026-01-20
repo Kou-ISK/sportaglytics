@@ -47,6 +47,7 @@ import { usePlaylistVideoSourcesSync } from './hooks/usePlaylistVideoSourcesSync
 import { usePlaylistCurrentItem } from './hooks/usePlaylistCurrentItem';
 import { usePlaylistHistorySync } from './hooks/usePlaylistHistorySync';
 import { usePlaylistVideoControlsState } from './hooks/usePlaylistVideoControlsState';
+import { usePlaylistSaveDialogState } from './hooks/usePlaylistSaveDialogState';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { renderAnnotationPng } from './utils/renderAnnotationPng';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
@@ -110,8 +111,12 @@ export default function PlaylistWindowApp() {
   const [isFrozen, setIsFrozen] = useState(false);
 
   // Dialog states
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [closeAfterSave, setCloseAfterSave] = useState(false);
+  const {
+    saveDialogOpen,
+    setSaveDialogOpen,
+    closeAfterSave,
+    setCloseAfterSave,
+  } = usePlaylistSaveDialogState();
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
