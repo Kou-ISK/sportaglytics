@@ -45,6 +45,7 @@ import { usePlaylistNotes } from './hooks/usePlaylistNotes';
 import { usePlaylistExportState } from './hooks/usePlaylistExportState';
 import { usePlaylistVideoSourcesSync } from './hooks/usePlaylistVideoSourcesSync';
 import { usePlaylistCurrentItem } from './hooks/usePlaylistCurrentItem';
+import { usePlaylistHistorySync } from './hooks/usePlaylistHistorySync';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { renderAnnotationPng } from './utils/renderAnnotationPng';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
@@ -376,33 +377,11 @@ export default function PlaylistWindowApp() {
     deleteSelected();
   }, [deleteSelected]);
 
-  const handleUndo = useCallback(() => {
-    const prevItems = undo();
-    if (prevItems) {
-      // Annotationsも再構築
-      const annotations: Record<string, ItemAnnotation> = {};
-      for (const item of prevItems) {
-        if (item.annotation) {
-          annotations[item.id] = item.annotation;
-        }
-      }
-      setItemAnnotations(annotations);
-    }
-  }, [undo]);
-
-  const handleRedo = useCallback(() => {
-    const nextItems = redo();
-    if (nextItems) {
-      // Annotationsも再構築
-      const annotations: Record<string, ItemAnnotation> = {};
-      for (const item of nextItems) {
-        if (item.annotation) {
-          annotations[item.id] = item.annotation;
-        }
-      }
-      setItemAnnotations(annotations);
-    }
-  }, [redo]);
+  const { handleUndo, handleRedo } = usePlaylistHistorySync({
+    undo,
+    redo,
+    setItemAnnotations,
+  });
 
   const { handleSavePlaylist, handleSavePlaylistAs } = usePlaylistSaveFlow({
     items,
