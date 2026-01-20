@@ -43,6 +43,7 @@ import { usePlaylistDrawingTarget } from './hooks/usePlaylistDrawingTarget';
 import { usePlaylistAnnotations } from './hooks/usePlaylistAnnotations';
 import { usePlaylistItemOperations } from './hooks/usePlaylistItemOperations';
 import { usePlaylistSaveFlow } from './hooks/usePlaylistSaveFlow';
+import { usePlaylistHotkeyBindings } from './hooks/usePlaylistHotkeyBindings';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
 import { PlaylistVideoArea } from './components/PlaylistVideoArea';
@@ -437,115 +438,27 @@ export default function PlaylistWindowApp() {
     setSaveDialogOpen,
   });
 
-  const playlistHotkeyHandlers = useMemo(
-    () => ({
-      'play-pause': handleTogglePlay,
-      'skip-backward-medium': () => {
-        const newTime = currentTime - 5;
-        handleSeek(new Event('hotkey'), newTime);
-      },
-      'skip-backward-large': () => {
-        const newTime = currentTime - 10;
-        handleSeek(new Event('hotkey'), newTime);
-      },
-      // 倍速再生（タイムラインと同じ実装パターン）
-      'skip-forward-small': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 0.5;
-        if (videoRef2.current) videoRef2.current.playbackRate = 0.5;
-        setIsPlaying(true);
-      },
-      'skip-forward-medium': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 2;
-        if (videoRef2.current) videoRef2.current.playbackRate = 2;
-        setIsPlaying(true);
-      },
-      'skip-forward-large': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 4;
-        if (videoRef2.current) videoRef2.current.playbackRate = 4;
-        setIsPlaying(true);
-      },
-      'skip-forward-xlarge': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 6;
-        if (videoRef2.current) videoRef2.current.playbackRate = 6;
-        setIsPlaying(true);
-      },
-      'previous-item': handlePrevious,
-      'next-item': handleNext,
-      'delete-item': handleDeleteSelected,
-      undo: handleUndo,
-      redo: handleRedo,
-      save: () => {
-        console.log(
-          '[PlaylistWindow] Hotkey Save pressed. loadedFilePath:',
-          loadedFilePath,
-        );
-        // 既存ファイルがあれば即座に上書き保存、なければダイアログ表示
-        if (loadedFilePath) {
-          console.log('[PlaylistWindow] Saving via hotkey to:', loadedFilePath);
-          handleSavePlaylist(false);
-        } else {
-          console.log(
-            '[PlaylistWindow] No loadedFilePath, showing dialog via hotkey',
-          );
-          setSaveDialogOpen(true);
-        }
-      },
-      export: () => setExportDialogOpen(true),
-      'toggle-angle1': () => {
-        setViewMode((prev) => {
-          // dual→angle1, angle1→dual, angle2→angle1
-          if (prev === 'dual') return 'angle1';
-          if (prev === 'angle1') return 'dual';
-          if (prev === 'angle2') return 'angle1';
-          return 'angle1';
-        });
-      },
-      'toggle-angle2': () => {
-        setViewMode((prev) => {
-          // dual→angle2, angle2→dual, angle1→angle2
-          if (prev === 'dual') return 'angle2';
-          if (prev === 'angle2') return 'dual';
-          if (prev === 'angle1') return 'angle2';
-          return 'angle2';
-        });
-      },
-    }),
-    [
-      handleTogglePlay,
-      currentTime,
-      handleSeek,
-      handlePrevious,
-      handleNext,
-      handleDeleteSelected,
-      handleUndo,
-      handleRedo,
-      handleSavePlaylist,
-      loadedFilePath,
-    ],
-  );
-
-  // keyUp時に再生速度を戻す（タイムラインと同じ）
-  const playlistKeyUpHandlers = useMemo(
-    () => ({
-      'skip-forward-small': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 1;
-        if (videoRef2.current) videoRef2.current.playbackRate = 1;
-      },
-      'skip-forward-medium': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 1;
-        if (videoRef2.current) videoRef2.current.playbackRate = 1;
-      },
-      'skip-forward-large': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 1;
-        if (videoRef2.current) videoRef2.current.playbackRate = 1;
-      },
-      'skip-forward-xlarge': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 1;
-        if (videoRef2.current) videoRef2.current.playbackRate = 1;
-      },
-    }),
-    [],
-  );
+  const {
+    hotkeyHandlers: playlistHotkeyHandlers,
+    keyUpHandlers: playlistKeyUpHandlers,
+  } = usePlaylistHotkeyBindings({
+    currentTime,
+    handleTogglePlay,
+    handleSeek,
+    handlePrevious,
+    handleNext,
+    handleDeleteSelected,
+    handleUndo,
+    handleRedo,
+    handleSavePlaylist,
+    loadedFilePath,
+    setSaveDialogOpen,
+    setExportDialogOpen,
+    setViewMode,
+    setIsPlaying,
+    videoRef,
+    videoRef2,
+  });
 
   // Register hotkeys
   useGlobalHotkeys(
