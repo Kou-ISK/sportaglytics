@@ -17,9 +17,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent,
 } from '@dnd-kit/core';
-import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import type {
   PlaylistItem,
   PlaylistType,
@@ -42,6 +41,7 @@ import { usePlaylistVideoSizing } from './hooks/usePlaylistVideoSizing';
 import { usePlaylistControlsVisibility } from './hooks/usePlaylistControlsVisibility';
 import { usePlaylistDrawingTarget } from './hooks/usePlaylistDrawingTarget';
 import { usePlaylistAnnotations } from './hooks/usePlaylistAnnotations';
+import { usePlaylistItemOperations } from './hooks/usePlaylistItemOperations';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
 import { PlaylistVideoArea } from './components/PlaylistVideoArea';
@@ -275,6 +275,15 @@ export default function PlaylistWindowApp() {
     defaultFreezeDuration: DEFAULT_FREEZE_DURATION,
   });
 
+  const { handleRemoveItem, handleDragEnd } = usePlaylistItemOperations({
+    currentIndex,
+    setCurrentIndex,
+    setIsPlaying,
+    setItemsWithHistory,
+    setItemAnnotations,
+    setHasUnsavedChanges,
+  });
+
   usePlaylistIpcSync({
     setItemsWithHistory,
     setPlaylistName,
@@ -347,57 +356,6 @@ export default function PlaylistWindowApp() {
     annotationTimeTolerance: ANNOTATION_TIME_TOLERANCE,
     freezeRetriggerGuard: FREEZE_RETRIGGER_GUARD,
   });
-
-  const handleRemoveItem = useCallback(
-    (id: string) => {
-      setItemsWithHistory((prev) => {
-        const newItems = prev.filter((item) => item.id !== id);
-        const removedIndex = prev.findIndex((item) => item.id === id);
-        if (removedIndex <= currentIndex && currentIndex > 0) {
-          setCurrentIndex(currentIndex - 1);
-        } else if (removedIndex === currentIndex) {
-          setIsPlaying(false);
-          if (newItems.length === 0) {
-            setCurrentIndex(-1);
-          }
-        }
-        return newItems;
-      });
-      // Remove annotation
-      setItemAnnotations((prev) => {
-        const newAnnotations = { ...prev };
-        delete newAnnotations[id];
-        return newAnnotations;
-      });
-      setHasUnsavedChanges(true);
-    },
-    [currentIndex, setItemsWithHistory],
-  );
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-
-      setItemsWithHistory((prev) => {
-        const oldIndex = prev.findIndex((item) => item.id === active.id);
-        const newIndex = prev.findIndex((item) => item.id === over.id);
-        const newItems = arrayMove(prev, oldIndex, newIndex);
-
-        if (oldIndex === currentIndex) {
-          setCurrentIndex(newIndex);
-        } else if (oldIndex < currentIndex && newIndex >= currentIndex) {
-          setCurrentIndex(currentIndex - 1);
-        } else if (oldIndex > currentIndex && newIndex <= currentIndex) {
-          setCurrentIndex(currentIndex + 1);
-        }
-
-        return newItems;
-      });
-      setHasUnsavedChanges(true);
-    },
-    [currentIndex, setItemsWithHistory],
-  );
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
