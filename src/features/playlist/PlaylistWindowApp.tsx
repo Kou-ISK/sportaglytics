@@ -48,6 +48,7 @@ import { usePlaylistCurrentItem } from './hooks/usePlaylistCurrentItem';
 import { usePlaylistHistorySync } from './hooks/usePlaylistHistorySync';
 import { usePlaylistVideoControlsState } from './hooks/usePlaylistVideoControlsState';
 import { usePlaylistSaveDialogState } from './hooks/usePlaylistSaveDialogState';
+import { usePlaylistDialogHandlers } from './hooks/usePlaylistDialogHandlers';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { renderAnnotationPng } from './utils/renderAnnotationPng';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
@@ -179,6 +180,20 @@ export default function PlaylistWindowApp() {
     exportScope,
     setExportScope,
   } = usePlaylistExportState();
+
+  const {
+    handleCloseSaveDialog,
+    handleCloseExportDialog,
+    handleCloseNoteDialog,
+    handleCloseExportProgress,
+  } = usePlaylistDialogHandlers({
+    setSaveDialogOpen,
+    setCloseAfterSave,
+    setExportDialogOpen,
+    setNoteDialogOpen,
+    setEditingItemId,
+    setExportProgress,
+  });
 
   // 保存進行状況
   const [saveProgress, setSaveProgress] = useState<{
@@ -465,8 +480,11 @@ export default function PlaylistWindowApp() {
     await loadPlaylistFromPath();
   }, [handleMenuClose, loadPlaylistFromPath]);
 
-  const { exportProgress, handleExportPlaylist: exportPlaylist } =
-    usePlaylistExport({
+  const {
+    exportProgress,
+    setExportProgress,
+    handleExportPlaylist: exportPlaylist,
+  } = usePlaylistExport({
       items,
       selectedItems,
       videoSources,
@@ -608,16 +626,13 @@ export default function PlaylistWindowApp() {
 
       <PlaylistWindowDialogs
         saveDialogOpen={saveDialogOpen}
-        onCloseSaveDialog={() => {
-          setSaveDialogOpen(false);
-          setCloseAfterSave(false);
-        }}
+        onCloseSaveDialog={handleCloseSaveDialog}
         onSavePlaylist={handleSavePlaylistAs}
         defaultPlaylistName={playlistName}
         defaultPlaylistType={playlistType}
         closeAfterSave={closeAfterSave}
         exportDialogOpen={exportDialogOpen}
-        onCloseExportDialog={() => setExportDialogOpen(false)}
+        onCloseExportDialog={handleCloseExportDialog}
         onExport={handleExportPlaylist}
         exportFileName={exportFileName}
         setExportFileName={setExportFileName}
@@ -635,16 +650,13 @@ export default function PlaylistWindowApp() {
         setOverlaySettings={setOverlaySettings}
         disableExport={!!exportProgress}
         noteDialogOpen={noteDialogOpen}
-        onCloseNoteDialog={() => {
-          setNoteDialogOpen(false);
-          setEditingItemId(null);
-        }}
+        onCloseNoteDialog={handleCloseNoteDialog}
         onSaveNote={handleSaveNote}
         initialNote={editingItem?.memo || ''}
         itemName={editingItem?.actionName || ''}
         saveProgress={saveProgress}
         exportProgress={exportProgress}
-        onCloseExportProgress={() => setExportProgress(null)}
+        onCloseExportProgress={handleCloseExportProgress}
       />
     </Box>
   );
