@@ -5,6 +5,7 @@ import type {
   PlaylistItem,
   PlaylistType,
 } from '../../../types/Playlist';
+import { resolveViewModeForSources } from '../utils/viewMode';
 
 interface UsePlaylistLoaderParams {
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
@@ -82,7 +83,7 @@ export const usePlaylistLoader = ({
         if (sources.length > 0) {
           setVideoSources(sources);
         }
-        setViewMode(sources.length >= 2 ? 'dual' : 'angle1');
+        setViewMode(resolveViewModeForSources(sources));
 
         if (playlist.items.length > 0) {
           setCurrentIndex(0);

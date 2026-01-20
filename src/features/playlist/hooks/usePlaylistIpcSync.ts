@@ -5,6 +5,10 @@ import type {
   PlaylistSyncData,
   PlaylistType,
 } from '../../../types/Playlist';
+import {
+  resolveViewModeForItems,
+  resolveViewModeForSources,
+} from '../utils/viewMode';
 
 interface UsePlaylistIpcSyncParams {
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
@@ -68,17 +72,14 @@ export const usePlaylistIpcSync = ({
 
         const hasEmbeddedSources = (data.videoSources || []).length > 0;
         if (hasEmbeddedSources) {
-          setViewMode(data.videoSources.length >= 2 ? 'dual' : 'angle1');
+          setViewMode(resolveViewModeForSources(data.videoSources));
         } else {
-          // アイテム別ソースがある場合は、現在のアイテムの有無でデュアル判定
-          const current = activePlaylist.items.find(
-            (it) => it.id === data.state.playingItemId,
+          setViewMode(
+            resolveViewModeForItems(
+              activePlaylist.items,
+              data.state.playingItemId,
+            ),
           );
-          const hasDual = !!(
-            current?.videoSource2 ||
-            activePlaylist.items.some((it) => !!it.videoSource2)
-          );
-          setViewMode(hasDual ? 'dual' : 'angle1');
         }
       }
     };
