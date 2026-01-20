@@ -40,6 +40,7 @@ import { usePlaylistLoader } from './hooks/usePlaylistLoader';
 import { usePlaylistSaveRequest } from './hooks/usePlaylistSaveRequest';
 import { usePlaylistVideoSizing } from './hooks/usePlaylistVideoSizing';
 import { usePlaylistControlsVisibility } from './hooks/usePlaylistControlsVisibility';
+import { usePlaylistDrawingTarget } from './hooks/usePlaylistDrawingTarget';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
 import { PlaylistVideoArea } from './components/PlaylistVideoArea';
@@ -230,16 +231,11 @@ export default function PlaylistWindowApp() {
     }
   }, [currentItem, videoSources]);
 
-  useEffect(() => {
-    // angle1のみの場合はprimary、angle2のみの場合はsecondaryに固定
-    if (viewMode === 'angle1') {
-      setDrawingTarget('primary');
-    } else if (viewMode === 'angle2') {
-      setDrawingTarget('secondary');
-    } else if (!currentVideoSource2) {
-      setDrawingTarget('primary');
-    }
-  }, [viewMode, currentVideoSource2]);
+  usePlaylistDrawingTarget({
+    viewMode,
+    currentVideoSource2,
+    setDrawingTarget,
+  });
 
   usePlaylistVideoSizing({
     videoRef,
