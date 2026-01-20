@@ -12,125 +12,110 @@ import { PlaylistNoteDialog } from './PlaylistNoteDialog';
 import { PlaylistSaveProgressDialog } from './PlaylistSaveProgressDialog';
 
 type PlaylistWindowDialogsProps = {
-  saveDialogOpen: boolean;
-  onCloseSaveDialog: () => void;
-  onSavePlaylist: (
-    type: PlaylistType,
-    name: string,
-    shouldCloseAfterSave?: boolean,
-  ) => void;
-  defaultPlaylistName: string;
-  defaultPlaylistType: PlaylistType;
-  closeAfterSave: boolean;
-  exportDialogOpen: boolean;
-  onCloseExportDialog: () => void;
-  onExport: () => void;
-  exportFileName: string;
-  setExportFileName: (value: string) => void;
-  exportScope: 'all' | 'selected';
-  setExportScope: (value: 'all' | 'selected') => void;
-  selectedItemCount: number;
-  exportMode: ExportMode;
-  setExportMode: (value: ExportMode) => void;
-  angleOption: AngleOption;
-  setAngleOption: (value: AngleOption) => void;
-  videoSources: string[];
-  selectedAngleIndex: number;
-  setSelectedAngleIndex: (value: number) => void;
-  overlaySettings: OverlaySettings;
-  setOverlaySettings: (updater: (prev: OverlaySettings) => OverlaySettings) => void;
-  disableExport: boolean;
-  noteDialogOpen: boolean;
-  onCloseNoteDialog: () => void;
-  onSaveNote: (note: string) => void;
-  initialNote: string;
-  itemName: string;
-  saveProgress: { current: number; total: number } | null;
-  exportProgress: { current: number; total: number; message: string } | null;
-  onCloseExportProgress: () => void;
+  saveDialog: {
+    open: boolean;
+    onClose: () => void;
+    onSave: (
+      type: PlaylistType,
+      name: string,
+      shouldCloseAfterSave?: boolean,
+    ) => void;
+    defaultName: string;
+    defaultType: PlaylistType;
+    closeAfterSave: boolean;
+  };
+  exportDialog: {
+    open: boolean;
+    onClose: () => void;
+    onExport: () => void;
+    exportFileName: string;
+    setExportFileName: (value: string) => void;
+    exportScope: 'all' | 'selected';
+    setExportScope: (value: 'all' | 'selected') => void;
+    selectedItemCount: number;
+    exportMode: ExportMode;
+    setExportMode: (value: ExportMode) => void;
+    angleOption: AngleOption;
+    setAngleOption: (value: AngleOption) => void;
+    videoSources: string[];
+    selectedAngleIndex: number;
+    setSelectedAngleIndex: (value: number) => void;
+    overlaySettings: OverlaySettings;
+    setOverlaySettings: (
+      updater: (prev: OverlaySettings) => OverlaySettings,
+    ) => void;
+    disableExport: boolean;
+  };
+  noteDialog: {
+    open: boolean;
+    onClose: () => void;
+    onSave: (note: string) => void;
+    initialNote: string;
+    itemName: string;
+  };
+  progress: {
+    saveProgress: { current: number; total: number } | null;
+    exportProgress: { current: number; total: number; message: string } | null;
+    onCloseExportProgress: () => void;
+  };
 };
 
 export const PlaylistWindowDialogs = ({
-  saveDialogOpen,
-  onCloseSaveDialog,
-  onSavePlaylist,
-  defaultPlaylistName,
-  defaultPlaylistType,
-  closeAfterSave,
-  exportDialogOpen,
-  onCloseExportDialog,
-  onExport,
-  exportFileName,
-  setExportFileName,
-  exportScope,
-  setExportScope,
-  selectedItemCount,
-  exportMode,
-  setExportMode,
-  angleOption,
-  setAngleOption,
-  videoSources,
-  selectedAngleIndex,
-  setSelectedAngleIndex,
-  overlaySettings,
-  setOverlaySettings,
-  disableExport,
-  noteDialogOpen,
-  onCloseNoteDialog,
-  onSaveNote,
-  initialNote,
-  itemName,
-  saveProgress,
-  exportProgress,
-  onCloseExportProgress,
+  saveDialog,
+  exportDialog,
+  noteDialog,
+  progress,
 }: PlaylistWindowDialogsProps) => {
   return (
     <>
       <PlaylistSaveDialog
-        open={saveDialogOpen}
-        onClose={onCloseSaveDialog}
-        onSave={onSavePlaylist}
-        defaultName={defaultPlaylistName}
-        defaultType={defaultPlaylistType}
-        closeAfterSave={closeAfterSave}
+        open={saveDialog.open}
+        onClose={saveDialog.onClose}
+        onSave={saveDialog.onSave}
+        defaultName={saveDialog.defaultName}
+        defaultType={saveDialog.defaultType}
+        closeAfterSave={saveDialog.closeAfterSave}
       />
       <PlaylistExportDialog
-        open={exportDialogOpen}
-        onClose={onCloseExportDialog}
-        onExport={onExport}
-        exportFileName={exportFileName}
-        setExportFileName={setExportFileName}
-        exportScope={exportScope}
-        setExportScope={setExportScope}
-        selectedItemCount={selectedItemCount}
-        exportMode={exportMode}
-        setExportMode={setExportMode}
-        angleOption={angleOption}
-        setAngleOption={setAngleOption}
-        videoSources={videoSources}
-        selectedAngleIndex={selectedAngleIndex}
-        setSelectedAngleIndex={setSelectedAngleIndex}
-        overlaySettings={overlaySettings}
-        setOverlaySettings={setOverlaySettings}
-        disableExport={disableExport}
+        open={exportDialog.open}
+        onClose={exportDialog.onClose}
+        onExport={exportDialog.onExport}
+        exportFileName={exportDialog.exportFileName}
+        setExportFileName={exportDialog.setExportFileName}
+        exportScope={exportDialog.exportScope}
+        setExportScope={exportDialog.setExportScope}
+        selectedItemCount={exportDialog.selectedItemCount}
+        exportMode={exportDialog.exportMode}
+        setExportMode={exportDialog.setExportMode}
+        angleOption={exportDialog.angleOption}
+        setAngleOption={exportDialog.setAngleOption}
+        videoSources={exportDialog.videoSources}
+        selectedAngleIndex={exportDialog.selectedAngleIndex}
+        setSelectedAngleIndex={exportDialog.setSelectedAngleIndex}
+        overlaySettings={exportDialog.overlaySettings}
+        setOverlaySettings={exportDialog.setOverlaySettings}
+        disableExport={exportDialog.disableExport}
       />
       <PlaylistNoteDialog
-        open={noteDialogOpen}
-        onClose={onCloseNoteDialog}
-        onSave={onSaveNote}
-        initialNote={initialNote}
-        itemName={itemName}
+        open={noteDialog.open}
+        onClose={noteDialog.onClose}
+        onSave={noteDialog.onSave}
+        initialNote={noteDialog.initialNote}
+        itemName={noteDialog.itemName}
       />
 
-      <PlaylistSaveProgressDialog open={saveProgress !== null} progress={saveProgress} />
+      <PlaylistSaveProgressDialog
+        open={progress.saveProgress !== null}
+        progress={progress.saveProgress}
+      />
 
-      {exportProgress && (
+      {progress.exportProgress && (
         <ExportProgressSnackbar
-          open={!!exportProgress}
-          current={exportProgress.current}
-          total={exportProgress.total}
-          message={exportProgress.message}
-          onClose={onCloseExportProgress}
+          open={!!progress.exportProgress}
+          current={progress.exportProgress.current}
+          total={progress.exportProgress.total}
+          message={progress.exportProgress.message}
+          onClose={progress.onCloseExportProgress}
         />
       )}
     </>

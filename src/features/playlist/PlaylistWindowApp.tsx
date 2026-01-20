@@ -625,38 +625,46 @@ export default function PlaylistWindowApp() {
       )}
 
       <PlaylistWindowDialogs
-        saveDialogOpen={saveDialogOpen}
-        onCloseSaveDialog={handleCloseSaveDialog}
-        onSavePlaylist={handleSavePlaylistAs}
-        defaultPlaylistName={playlistName}
-        defaultPlaylistType={playlistType}
-        closeAfterSave={closeAfterSave}
-        exportDialogOpen={exportDialogOpen}
-        onCloseExportDialog={handleCloseExportDialog}
-        onExport={handleExportPlaylist}
-        exportFileName={exportFileName}
-        setExportFileName={setExportFileName}
-        exportScope={exportScope}
-        setExportScope={setExportScope}
-        selectedItemCount={selectedCount}
-        exportMode={exportMode}
-        setExportMode={setExportMode}
-        angleOption={angleOption}
-        setAngleOption={setAngleOption}
-        videoSources={videoSources}
-        selectedAngleIndex={selectedAngleIndex}
-        setSelectedAngleIndex={setSelectedAngleIndex}
-        overlaySettings={overlaySettings}
-        setOverlaySettings={setOverlaySettings}
-        disableExport={!!exportProgress}
-        noteDialogOpen={noteDialogOpen}
-        onCloseNoteDialog={handleCloseNoteDialog}
-        onSaveNote={handleSaveNote}
-        initialNote={editingItem?.memo || ''}
-        itemName={editingItem?.actionName || ''}
-        saveProgress={saveProgress}
-        exportProgress={exportProgress}
-        onCloseExportProgress={handleCloseExportProgress}
+        saveDialog={{
+          open: saveDialogOpen,
+          onClose: handleCloseSaveDialog,
+          onSave: handleSavePlaylistAs,
+          defaultName: playlistName,
+          defaultType: playlistType,
+          closeAfterSave,
+        }}
+        exportDialog={{
+          open: exportDialogOpen,
+          onClose: handleCloseExportDialog,
+          onExport: handleExportPlaylist,
+          exportFileName,
+          setExportFileName,
+          exportScope,
+          setExportScope,
+          selectedItemCount: selectedCount,
+          exportMode,
+          setExportMode,
+          angleOption,
+          setAngleOption,
+          videoSources,
+          selectedAngleIndex,
+          setSelectedAngleIndex,
+          overlaySettings,
+          setOverlaySettings,
+          disableExport: !!exportProgress,
+        }}
+        noteDialog={{
+          open: noteDialogOpen,
+          onClose: handleCloseNoteDialog,
+          onSave: handleSaveNote,
+          initialNote: editingItem?.memo || '',
+          itemName: editingItem?.actionName || '',
+        }}
+        progress={{
+          saveProgress,
+          exportProgress,
+          onCloseExportProgress: handleCloseExportProgress,
+        }}
       />
     </Box>
   );
