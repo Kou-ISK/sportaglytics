@@ -67,7 +67,8 @@ type PlaylistVideoAreaProps = {
   onToggleMute: () => void;
   onVolumeChange: (value: number) => void;
   onToggleFullscreen: () => void;
-  onControlsVisibleChange: (visible: boolean) => void;
+  onVideoAreaHoverChange: (hovered: boolean) => void;
+  onVideoAreaInteraction: () => void;
   showControls: boolean;
 };
 
@@ -114,14 +115,15 @@ export const PlaylistVideoArea = ({
   onToggleMute,
   onVolumeChange,
   onToggleFullscreen,
-  onControlsVisibleChange,
+  onVideoAreaHoverChange,
+  onVideoAreaInteraction,
   showControls,
 }: PlaylistVideoAreaProps) => {
   return (
     <Box
-      onMouseEnter={() => onControlsVisibleChange(true)}
-      onMouseLeave={() => onControlsVisibleChange(false)}
-      onMouseMove={() => onControlsVisibleChange(true)}
+      onMouseEnter={() => onVideoAreaHoverChange(true)}
+      onMouseLeave={() => onVideoAreaHoverChange(false)}
+      onMouseMove={onVideoAreaInteraction}
       sx={{
         flex: '0 0 auto',
         height: '50%',

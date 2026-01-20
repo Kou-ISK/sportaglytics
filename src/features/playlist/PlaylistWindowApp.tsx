@@ -95,6 +95,8 @@ export default function PlaylistWindowApp() {
   const [drawingTarget, setDrawingTarget] =
     useState<AnnotationTarget>('primary');
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [isVideoAreaHovered, setIsVideoAreaHovered] = useState(false);
+  const [videoAreaInteractionId, setVideoAreaInteractionId] = useState(0);
 
   // Freeze frame state
   const [isFrozen, setIsFrozen] = useState(false);
@@ -254,9 +256,10 @@ export default function PlaylistWindowApp() {
   });
 
   usePlaylistControlsVisibility({
-    containerRef,
+    isVideoAreaHovered,
     isPlaying,
     isDrawingMode,
+    interactionId: videoAreaInteractionId,
     setControlsVisible,
   });
 
@@ -1067,7 +1070,7 @@ export default function PlaylistWindowApp() {
         onViewModeChange={setViewMode}
       />
 
-      <PlaylistVideoArea
+        <PlaylistVideoArea
         currentVideoSource={currentVideoSource}
         currentVideoSource2={currentVideoSource2}
         viewMode={viewMode}
@@ -1120,10 +1123,13 @@ export default function PlaylistWindowApp() {
         onToggleDrawingMode={handleToggleDrawingMode}
         onToggleMute={() => setIsMuted(!isMuted)}
         onVolumeChange={handleVolumeChange}
-        onToggleFullscreen={handleToggleFullscreen}
-        onControlsVisibleChange={setControlsVisible}
-        showControls={Boolean(currentItem)}
-      />
+          onToggleFullscreen={handleToggleFullscreen}
+          onVideoAreaHoverChange={setIsVideoAreaHovered}
+          onVideoAreaInteraction={() =>
+            setVideoAreaInteractionId((prev) => prev + 1)
+          }
+          showControls={Boolean(currentItem)}
+        />
 
       <PlaylistItemSection
         items={items}
