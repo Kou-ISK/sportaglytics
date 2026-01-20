@@ -42,6 +42,7 @@ import { usePlaylistControlsVisibility } from './hooks/usePlaylistControlsVisibi
 import { usePlaylistDrawingTarget } from './hooks/usePlaylistDrawingTarget';
 import { usePlaylistAnnotations } from './hooks/usePlaylistAnnotations';
 import { usePlaylistItemOperations } from './hooks/usePlaylistItemOperations';
+import { usePlaylistSaveFlow } from './hooks/usePlaylistSaveFlow';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
 import { PlaylistVideoArea } from './components/PlaylistVideoArea';
@@ -413,61 +414,21 @@ export default function PlaylistWindowApp() {
     }
   }, [redo]);
 
-  // Save playlist (上書き保存)
-  const handleSavePlaylist = useCallback(
-    async (shouldCloseAfterSave = false) => {
-      const playlistAPI = window.electronAPI?.playlist;
-      if (!playlistAPI) return;
-
-      // Merge annotations into items
-      const itemsWithAnnotations = items.map((item) => ({
-        ...item,
-        // 参照プレイリストでも追加時のソースを保持しておく（複数パッケージ混在を許容）
-        videoSource: item.videoSource ?? videoSources[0] ?? undefined,
-        videoSource2: item.videoSource2 ?? videoSources[1] ?? undefined,
-        annotation: itemAnnotations[item.id] || item.annotation,
-      }));
-
-      const playlist = {
-        id: crypto.randomUUID(),
-        name: playlistName,
-        type: playlistType,
-        items: itemsWithAnnotations,
-        sourcePackagePath: packagePath || undefined,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-
-      setSaveProgress(null); // 保存開始時に進行状況をリセット
-      const savedPath = await playlistAPI.savePlaylistFile(playlist);
-      setSaveProgress(null); // 保存完了後に進行状況をクリア
-
-      if (savedPath) {
-        console.log('[PlaylistWindow] Playlist saved to:', savedPath);
-
-        // 保存後にウィンドウを閉じる場合
-        if (shouldCloseAfterSave) {
-          // Electron側に保存完了を通知し、Electron側からウィンドウを閉じる
-          // （状態更新はせず、即座にウィンドウを閉じる）
-          window.electronAPI?.send?.('playlist:saved-and-close');
-        } else {
-          // 通常の保存時はReact状態を更新してElectron側と同期
-          setLoadedFilePath(savedPath);
-          setIsDirty(false);
-          setHasUnsavedChanges(false); // ← 追加
-          playlistAPI.sendCommand({ type: 'set-dirty', isDirty: false });
-        }
-      }
-    },
-    [
-      items,
-      videoSources,
-      packagePath,
-      itemAnnotations,
-      playlistName,
-      playlistType,
-    ],
-  );
+  const { handleSavePlaylist, handleSavePlaylistAs } = usePlaylistSaveFlow({
+    items,
+    videoSources,
+    packagePath,
+    itemAnnotations,
+    playlistName,
+    playlistType,
+    setPlaylistName,
+    setPlaylistType,
+    setLoadedFilePath,
+    setIsDirty,
+    setHasUnsavedChanges,
+    setSaveDialogOpen,
+    setSaveProgress,
+  });
 
   usePlaylistSaveRequest({
     loadedFilePath,
@@ -475,57 +436,6 @@ export default function PlaylistWindowApp() {
     setCloseAfterSave,
     setSaveDialogOpen,
   });
-
-  // Save playlist as (名前を付けて保存)
-  const handleSavePlaylistAs = useCallback(
-    async (type: PlaylistType, name: string, shouldCloseAfterSave = false) => {
-      setSaveDialogOpen(false);
-      const playlistAPI = window.electronAPI?.playlist;
-      if (!playlistAPI) return;
-
-      // Merge annotations into items
-      const itemsWithAnnotations = items.map((item) => ({
-        ...item,
-        // 参照プレイリストでも追加時のソースを保持しておく（複数パッケージ混在を許容）
-        videoSource: item.videoSource ?? videoSources[0] ?? undefined,
-        videoSource2: item.videoSource2 ?? videoSources[1] ?? undefined,
-        annotation: itemAnnotations[item.id] || item.annotation,
-      }));
-
-      const playlist = {
-        id: crypto.randomUUID(),
-        name,
-        type,
-        items: itemsWithAnnotations,
-        sourcePackagePath: packagePath || undefined,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-
-      setSaveProgress(null); // 保存開始時に進行状況をリセット
-      const savedPath = await playlistAPI.savePlaylistFileAs(playlist);
-      setSaveProgress(null); // 保存完了後に進行状況をクリア
-
-      if (savedPath) {
-        console.log('[PlaylistWindow] Playlist saved to:', savedPath);
-
-        // 保存後にウィンドウを閉じる場合
-        if (shouldCloseAfterSave) {
-          // Electron側に保存完了を通知し、Electron側からウィンドウを閉じる
-          // （状態更新はせず、即座にウィンドウを閉じる）
-          window.electronAPI?.send?.('playlist:saved-and-close');
-        } else {
-          // 通常の保存時はReact状態を更新してElectron側と同期
-          setPlaylistName(name);
-          setPlaylistType(type);
-          setLoadedFilePath(savedPath);
-          setIsDirty(false);
-          playlistAPI.sendCommand({ type: 'set-dirty', isDirty: false });
-        }
-      }
-    },
-    [items, videoSources, packagePath, itemAnnotations],
-  );
 
   const playlistHotkeyHandlers = useMemo(
     () => ({
