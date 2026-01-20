@@ -8,7 +8,6 @@ import React, {
   useRef,
   useCallback,
   useEffect,
-  useMemo,
 } from 'react';
 import { Box } from '@mui/material';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -44,6 +43,8 @@ import { usePlaylistSaveFlow } from './hooks/usePlaylistSaveFlow';
 import { usePlaylistHotkeyBindings } from './hooks/usePlaylistHotkeyBindings';
 import { usePlaylistNotes } from './hooks/usePlaylistNotes';
 import { usePlaylistExportState } from './hooks/usePlaylistExportState';
+import { usePlaylistVideoSourcesSync } from './hooks/usePlaylistVideoSourcesSync';
+import { usePlaylistCurrentItem } from './hooks/usePlaylistCurrentItem';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { renderAnnotationPng } from './utils/renderAnnotationPng';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
@@ -190,47 +191,26 @@ export default function PlaylistWindowApp() {
     }),
   );
 
-  // Current item
-  const currentItem = useMemo(() => {
-    return currentIndex >= 0 && currentIndex < items.length
-      ? items[currentIndex]
-      : null;
-  }, [items, currentIndex]);
+  const {
+    currentItem,
+    currentVideoSource,
+    currentVideoSource2,
+    sliderMin,
+    sliderMax,
+    editingItem,
+  } = usePlaylistCurrentItem({
+    items,
+    currentIndex,
+    videoSources,
+    duration,
+    editingItemId,
+  });
 
-  // Get video source for current item (primary)
-  const currentVideoSource = useMemo(() => {
-    if (!currentItem) return null;
-    return currentItem.videoSource || videoSources[0] || null;
-  }, [currentItem, videoSources]);
-
-  // Get video source for current item (secondary)
-  // viewModeに関係なく常にソースを取得（表示制御はUI側で行う）
-  const currentVideoSource2 = useMemo(() => {
-    if (!currentItem) return null;
-    return currentItem.videoSource2 || videoSources[1] || null;
-  }, [currentItem, videoSources]);
-
-  // Keep videoSources in sync with the currently selected item (supports mixed packages)
-  useEffect(() => {
-    if (!currentItem) return;
-    const merged: string[] = [];
-    if (currentItem.videoSource) merged.push(currentItem.videoSource);
-    if (currentItem.videoSource2) merged.push(currentItem.videoSource2);
-    // Fallback to previously known sources when item lacks one of them
-    if (!currentItem.videoSource && videoSources[0])
-      merged.unshift(videoSources[0]);
-    if (!currentItem.videoSource2 && videoSources[1]) {
-      if (merged.length === 0) merged.push('');
-      merged[1] = videoSources[1];
-    }
-    const cleaned = merged.filter(Boolean);
-    if (
-      cleaned.length &&
-      JSON.stringify(cleaned) !== JSON.stringify(videoSources)
-    ) {
-      setVideoSources(cleaned);
-    }
-  }, [currentItem, videoSources]);
+  usePlaylistVideoSourcesSync({
+    currentItem,
+    videoSources,
+    setVideoSources,
+  });
 
   usePlaylistDrawingTarget({
     viewMode,
@@ -508,12 +488,6 @@ export default function PlaylistWindowApp() {
     setExportDialogOpen(false);
     void exportPlaylist();
   }, [exportPlaylist]);
-
-  const sliderMin = currentItem?.startTime ?? 0;
-  const sliderMax = currentItem?.endTime ?? duration;
-  const editingItem = editingItemId
-    ? items.find((i) => i.id === editingItemId)
-    : null;
 
   return (
     <Box
