@@ -14,7 +14,6 @@ import { Box } from '@mui/material';
 import type {
   AnnotationTarget,
   DrawingObject,
-  DrawingToolType,
 } from '../../../types/Playlist';
 import { AnnotationToolbar } from './AnnotationToolbar';
 import { AnnotationTextInputOverlay } from './AnnotationTextInputOverlay';
@@ -26,6 +25,7 @@ import {
 import { useDraggableToolbar } from '../hooks/useDraggableToolbar';
 import { useAnnotationPointerHandlers } from '../hooks/useAnnotationPointerHandlers';
 import { useAnnotationActions } from '../hooks/useAnnotationActions';
+import { useAnnotationToolbarState } from '../hooks/useAnnotationToolbarState';
 
 const TIMESTAMP_TOLERANCE = 0.12;
 const MIN_FREEZE_UI_SECONDS = 1;
@@ -97,9 +97,6 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
     );
     const dragObjectStartRef = useRef<{ x: number; y: number } | null>(null);
 
-    const [tool, setTool] = useState<DrawingToolType>('pen');
-    const [color, setColor] = useState<string>('#ff0000');
-    const [strokeWidth, setStrokeWidth] = useState<number>(3);
     const [objects, setObjects] = useState<DrawingObject[]>(initialObjects);
     const [currentObject, setCurrentObject] = useState<DrawingObject | null>(
       null,
@@ -109,21 +106,20 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       x: number;
       y: number;
     } | null>(null);
-    const [localFreezeDuration, setLocalFreezeDuration] =
-      useState<number>(freezeDuration);
-
-    const colors = [
-      '#ff0000',
-      '#ff7f00',
-      '#ff00ff',
-      '#ffff00',
-      '#00ff00',
-      '#00ffff',
-      '#0066ff',
-      '#9900ff',
-      '#ffffff',
-      '#000000',
-    ];
+    const {
+      tool,
+      setTool,
+      color,
+      setColor,
+      strokeWidth,
+      setStrokeWidth,
+      localFreezeDuration,
+      setLocalFreezeDuration,
+      colors,
+    } = useAnnotationToolbarState({
+      freezeDuration,
+      minFreezeDuration: MIN_FREEZE_UI_SECONDS,
+    });
 
     // Initialize from props when not actively drawing
     // Update objects when initialObjects change, but only when not in drawing mode
@@ -132,14 +128,6 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         setObjects(initialObjects);
       }
     }, [initialObjects, isActive, target]);
-
-    useEffect(() => {
-      setLocalFreezeDuration(
-        freezeDuration < MIN_FREEZE_UI_SECONDS
-          ? MIN_FREEZE_UI_SECONDS
-          : freezeDuration,
-      );
-    }, [freezeDuration]);
 
     // Render only objects whose timestamp matches currentTime (±0.1s)
     const renderAllObjects = useCallback(() => {
