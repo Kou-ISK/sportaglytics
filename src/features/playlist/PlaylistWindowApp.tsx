@@ -41,6 +41,7 @@ import { usePlaylistSaveRequest } from './hooks/usePlaylistSaveRequest';
 import { usePlaylistVideoSizing } from './hooks/usePlaylistVideoSizing';
 import { usePlaylistControlsVisibility } from './hooks/usePlaylistControlsVisibility';
 import { usePlaylistDrawingTarget } from './hooks/usePlaylistDrawingTarget';
+import { usePlaylistAnnotations } from './hooks/usePlaylistAnnotations';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
 import { PlaylistVideoArea } from './components/PlaylistVideoArea';
@@ -259,61 +260,20 @@ export default function PlaylistWindowApp() {
     setControlsVisible,
   });
 
-  // Current annotation
-  const currentAnnotation = useMemo(() => {
-    if (!currentItem) return null;
-    const base =
-      itemAnnotations[currentItem.id] || currentItem.annotation || null;
-    if (base) {
-      return {
-        ...base,
-        objects: base.objects || [],
-        freezeAt: base.freezeAt ?? 0,
-        freezeDuration:
-          base.freezeDuration === undefined || base.freezeDuration === 0
-            ? DEFAULT_FREEZE_DURATION
-            : base.freezeDuration,
-      };
-    }
-    return {
-      objects: [],
-      freezeDuration: DEFAULT_FREEZE_DURATION,
-      freezeAt: 0,
-    };
-  }, [currentItem, itemAnnotations]);
-
-  const annotationObjects = currentAnnotation?.objects || [];
-
-  // embedded型プレイリストの場合、保存されている相対時刻を絶対時刻に変換して表示
-  const adjustedAnnotationObjects = useMemo(() => {
-    if (!currentItem) return annotationObjects;
-
-    const isEmbedded = currentItem.videoSource?.startsWith('./videos/');
-    if (!isEmbedded || currentItem.startTime === undefined) {
-      return annotationObjects;
-    }
-
-    // 相対時刻を絶対時刻に変換
-    return annotationObjects.map((obj) => ({
-      ...obj,
-      timestamp: obj.timestamp + currentItem.startTime,
-    }));
-  }, [annotationObjects, currentItem]);
-
-  const primaryAnnotationObjects = useMemo(
-    () =>
-      adjustedAnnotationObjects.filter(
-        (obj) => (obj.target || 'primary') === 'primary',
-      ),
-    [adjustedAnnotationObjects],
-  );
-  const secondaryAnnotationObjects = useMemo(
-    () =>
-      adjustedAnnotationObjects.filter(
-        (obj) => (obj.target || 'primary') === 'secondary',
-      ),
-    [adjustedAnnotationObjects],
-  );
+  const {
+    currentAnnotation,
+    persistCanvasObjects,
+    handleAnnotationObjectsChange,
+    handleFreezeDurationChange,
+  } = usePlaylistAnnotations({
+    currentItem,
+    itemAnnotations,
+    setItemAnnotations,
+    setItemsWithHistory,
+    setHasUnsavedChanges,
+    minFreezeDuration: MIN_FREEZE_DURATION,
+    defaultFreezeDuration: DEFAULT_FREEZE_DURATION,
+  });
 
   usePlaylistIpcSync({
     setItemsWithHistory,
@@ -450,45 +410,6 @@ export default function PlaylistWindowApp() {
   // Toggle drawing mode
   const handleToggleDrawingMode = useCallback(() => {
     if (isDrawingMode) {
-      // Save current annotation when exiting drawing mode (both views)
-      const persistCanvasObjects = (
-        ref: React.RefObject<AnnotationCanvasRef | null>,
-        target: AnnotationTarget,
-      ) => {
-        if (!currentItem || !ref.current) return;
-        const objects = ref.current.getObjects();
-        const currentAnn = itemAnnotations[currentItem.id] || {
-          objects: [],
-          freezeDuration: DEFAULT_FREEZE_DURATION,
-          freezeAt: 0,
-        };
-        const normalized = objects.map((obj) => ({
-          ...obj,
-          target: obj.target || target,
-        }));
-        const otherObjects = currentAnn.objects.filter(
-          (obj) => (obj.target || 'primary') !== target,
-        );
-        const mergedObjects = [...normalized, ...otherObjects];
-        const newAnnotation = {
-          ...currentAnn,
-          objects: mergedObjects,
-          freezeDuration: currentAnn.freezeDuration ?? DEFAULT_FREEZE_DURATION,
-        };
-        setItemAnnotations((prev) => ({
-          ...prev,
-          [currentItem.id]: newAnnotation,
-        }));
-        setItemsWithHistory((prev: PlaylistItem[]) =>
-          prev.map((item: PlaylistItem) =>
-            item.id === currentItem.id
-              ? { ...item, annotation: newAnnotation }
-              : item,
-          ),
-        );
-        setHasUnsavedChanges(true);
-      };
-
       persistCanvasObjects(annotationCanvasRefPrimary, 'primary');
       persistCanvasObjects(annotationCanvasRefSecondary, 'secondary');
     }
@@ -497,101 +418,7 @@ export default function PlaylistWindowApp() {
     if (!isDrawingMode) {
       setIsPlaying(false);
     }
-  }, [isDrawingMode, currentItem, itemAnnotations]);
-
-  // Handle annotation changes
-  const handleAnnotationObjectsChange = useCallback(
-    (objects: DrawingObject[], target: AnnotationTarget = 'primary') => {
-      if (!currentItem) return;
-      const currentAnn = itemAnnotations[currentItem.id] || {
-        objects: [],
-        freezeDuration: DEFAULT_FREEZE_DURATION,
-        freezeAt: 0,
-      };
-
-      // プレイリストタイプに応じてタイムスタンプを調整
-      // embedded型: アイテム内相対時刻に変換（切り出し動画用）
-      // reference型: 元動画の絶対時刻のまま保持
-      const normalizedObjects = objects.map((obj) => {
-        let adjustedTimestamp = obj.timestamp;
-
-        // embedded型プレイリストの場合、タイムスタンプを相対時刻に変換
-        // （将来的に保存時のタイプを参照するため、現在のsaveTypeは使わない）
-        // 現在のcurrentTimeは元動画の絶対時刻なので、startTimeを引いて相対時刻にする
-        // ただし、reference型プレイリストの場合は絶対時刻のまま保持
-        // 判定: currentItem.videoSourceが相対パス（./videos/始まり）ならembedded
-        const isEmbedded = currentItem.videoSource?.startsWith('./videos/');
-        if (isEmbedded && currentItem.startTime !== undefined) {
-          adjustedTimestamp = obj.timestamp - currentItem.startTime;
-        }
-
-        return {
-          ...obj,
-          timestamp: adjustedTimestamp,
-          target: obj.target || target,
-        };
-      });
-
-      const otherObjects = currentAnn.objects.filter(
-        (obj) => (obj.target || 'primary') !== target,
-      );
-      const mergedObjects = [...normalizedObjects, ...otherObjects];
-      const newAnnotation: ItemAnnotation = {
-        ...currentAnn,
-        objects: mergedObjects,
-        freezeDuration: Math.max(
-          MIN_FREEZE_DURATION,
-          currentAnn.freezeDuration ?? DEFAULT_FREEZE_DURATION,
-        ),
-      };
-      setItemAnnotations((prev) => ({
-        ...prev,
-        [currentItem.id]: newAnnotation,
-      }));
-      setItemsWithHistory((prev) =>
-        prev.map((item) =>
-          item.id === currentItem.id
-            ? { ...item, annotation: newAnnotation }
-            : item,
-        ),
-      );
-      setHasUnsavedChanges(true);
-    },
-    [currentItem, itemAnnotations, setItemsWithHistory],
-  );
-
-  const handleFreezeDurationChange = useCallback(
-    (freezeDuration: number) => {
-      if (!currentItem) return;
-      const currentAnn = itemAnnotations[currentItem.id] || {
-        objects: [],
-        freezeDuration: DEFAULT_FREEZE_DURATION,
-        freezeAt: 0,
-      };
-      const effectiveDuration =
-        freezeDuration > 0
-          ? Math.max(MIN_FREEZE_DURATION, freezeDuration)
-          : DEFAULT_FREEZE_DURATION;
-      const newAnnotation = {
-        ...currentAnn,
-        freezeDuration: effectiveDuration,
-      };
-      setItemAnnotations((prev) => ({
-        ...prev,
-        [currentItem.id]: newAnnotation,
-      }));
-      // Also update item
-      setItemsWithHistory((prev) =>
-        prev.map((item) =>
-          item.id === currentItem.id
-            ? { ...item, annotation: newAnnotation }
-            : item,
-        ),
-      );
-      setHasUnsavedChanges(true);
-    },
-    [currentItem, itemAnnotations, setItemsWithHistory],
-  );
+  }, [isDrawingMode, persistCanvasObjects, setIsDrawingMode, setIsPlaying]);
 
   // Hotkey handlers - タイムラインと完全に同じ操作感
   const playlistHotkeys = usePlaylistHotkeys();
