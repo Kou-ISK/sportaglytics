@@ -43,6 +43,7 @@ import { usePlaylistItemOperations } from './hooks/usePlaylistItemOperations';
 import { usePlaylistSaveFlow } from './hooks/usePlaylistSaveFlow';
 import { usePlaylistHotkeyBindings } from './hooks/usePlaylistHotkeyBindings';
 import { usePlaylistNotes } from './hooks/usePlaylistNotes';
+import { usePlaylistExportState } from './hooks/usePlaylistExportState';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { renderAnnotationPng } from './utils/renderAnnotationPng';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
@@ -143,22 +144,6 @@ export default function PlaylistWindowApp() {
     width: 1920,
     height: 1080,
   });
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [overlaySettings, setOverlaySettings] = useState({
-    enabled: true,
-    showActionName: true,
-    showActionIndex: true,
-    showLabels: true,
-    showMemo: true,
-  });
-  const [exportMode, setExportMode] = useState<
-    'single' | 'perInstance' | 'perRow'
-  >('single');
-  const [angleOption, setAngleOption] = useState<
-    'allAngles' | 'single' | 'multi'
-  >('single');
-  const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
-  const [exportFileName, setExportFileName] = useState('');
   const {
     selectedItemIds,
     selectedItems,
@@ -170,7 +155,22 @@ export default function PlaylistWindowApp() {
     setItems: setItemsWithHistory,
     onDirtyChange: setHasUnsavedChanges,
   });
-  const [exportScope, setExportScope] = useState<'all' | 'selected'>('all');
+  const {
+    exportDialogOpen,
+    setExportDialogOpen,
+    overlaySettings,
+    setOverlaySettings,
+    exportMode,
+    setExportMode,
+    angleOption,
+    setAngleOption,
+    selectedAngleIndex,
+    setSelectedAngleIndex,
+    exportFileName,
+    setExportFileName,
+    exportScope,
+    setExportScope,
+  } = usePlaylistExportState();
 
   // 保存進行状況
   const [saveProgress, setSaveProgress] = useState<{
