@@ -73,6 +73,9 @@ const VideoPlayerAppContent = () => {
 
   const [statsOpen, setStatsOpen] = useState(false);
   const [statsView, setStatsView] = useState<StatsView>('possession');
+  const [viewMode, setViewMode] = useState<'dual' | 'angle1' | 'angle2'>(
+    'dual',
+  );
 
   useManualSyncSeek({ syncMode, syncData, videoList });
 
@@ -112,6 +115,7 @@ const VideoPlayerAppContent = () => {
       timelineActionRef,
       setVideoPlayBackRate,
       setIsVideoPlaying: setisVideoPlaying,
+      setViewMode,
       handleCurrentTime,
       performUndo,
       performRedo,
@@ -185,6 +189,7 @@ const VideoPlayerAppContent = () => {
         syncData={syncData}
         syncMode={syncMode}
         playerForceUpdateKey={playerForceUpdateKey}
+        viewMode={viewMode}
         timelineActionRef={timelineActionRef}
         timeline={timeline}
         selectedTimelineIdList={selectedTimelineIdList}

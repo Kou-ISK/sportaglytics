@@ -42,6 +42,8 @@ const DEFAULT_HOTKEYS: HotkeyConfig[] = [
   { id: 'skip-backward-medium', label: '5秒戻る', key: 'Left' },
   { id: 'skip-backward-large', label: '10秒戻る', key: 'Shift+Left' },
   { id: 'play-pause', label: '再生/一時停止', key: 'Space' },
+  { id: 'toggle-angle1', label: 'アングル1切替', key: 'Shift+1' },
+  { id: 'toggle-angle2', label: 'アングル2切替', key: 'Shift+2' },
 ];
 
 /**

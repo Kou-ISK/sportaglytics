@@ -1,4 +1,5 @@
 import { useMemo, RefObject } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import type { HotkeyConfig } from '../../../types/Settings';
 import type { ActionDefinition } from '../../../types/Settings';
 import type { TimelineActionSectionHandle } from '../components/TimelineActionSection';
@@ -13,6 +14,7 @@ interface UseHotkeyBindingsParams {
   timelineActionRef: RefObject<TimelineActionSectionHandle | null>;
   setVideoPlayBackRate: (rate: number) => void;
   setIsVideoPlaying: (value: boolean) => void;
+  setViewMode: Dispatch<SetStateAction<'dual' | 'angle1' | 'angle2'>>;
   handleCurrentTime: (event: Event, time: number) => void;
   performUndo: () => void;
   performRedo: () => void;
@@ -37,6 +39,7 @@ export const useHotkeyBindings = ({
   timelineActionRef,
   setVideoPlayBackRate,
   setIsVideoPlaying,
+  setViewMode,
   handleCurrentTime,
   performUndo,
   performRedo,
@@ -76,6 +79,22 @@ export const useHotkeyBindings = ({
       'skip-backward-large': () => {
         handleCurrentTime(new Event('hotkey'), currentTime - 10);
       },
+      'toggle-angle1': () => {
+        setViewMode((prev) => {
+          if (prev === 'dual') return 'angle1';
+          if (prev === 'angle1') return 'dual';
+          if (prev === 'angle2') return 'angle1';
+          return 'angle1';
+        });
+      },
+      'toggle-angle2': () => {
+        setViewMode((prev) => {
+          if (prev === 'dual') return 'angle2';
+          if (prev === 'angle2') return 'dual';
+          if (prev === 'angle1') return 'angle2';
+          return 'angle2';
+        });
+      },
       analyze: onAnalyze,
       undo: performUndo,
       redo: performRedo,
@@ -106,6 +125,7 @@ export const useHotkeyBindings = ({
       resetSync,
       resyncAudio,
       setIsVideoPlaying,
+      setViewMode,
       setSyncMode,
       setVideoPlayBackRate,
       onAnalyze,

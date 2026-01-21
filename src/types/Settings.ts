@@ -316,6 +316,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     { id: 'skip-backward-medium', label: '5秒戻し', key: 'Left' },
     { id: 'skip-backward-large', label: '10秒戻し', key: 'Shift+Left' },
     { id: 'play-pause', label: '再生/停止', key: 'Space' },
+    { id: 'toggle-angle1', label: 'アングル1切替', key: 'Shift+1' },
+    { id: 'toggle-angle2', label: 'アングル2切替', key: 'Shift+2' },
   ],
   language: 'ja',
   overlayClip: {
