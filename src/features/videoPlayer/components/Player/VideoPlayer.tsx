@@ -11,6 +11,7 @@ interface VideoPlayerProps {
   syncData?: VideoSyncData;
   syncMode?: 'auto' | 'manual';
   forceUpdateKey?: number;
+  viewMode?: 'dual' | 'angle1' | 'angle2';
 }
 
 export const VideoPlayer = ({
@@ -22,6 +23,7 @@ export const VideoPlayer = ({
   syncData,
   syncMode = 'auto',
   forceUpdateKey = 0,
+  viewMode = 'dual',
 }: VideoPlayerProps) => {
   // currentTimeはシークバー表示用にのみ使用（Video.js自身が時刻管理）
   void currentTime;
@@ -42,6 +44,7 @@ export const VideoPlayer = ({
       syncData={syncData}
       syncMode={syncMode}
       forceUpdateKey={forceUpdateKey}
+      viewMode={viewMode}
     />
   );
 };

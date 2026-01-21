@@ -21,6 +21,7 @@ interface PlayerSurfaceProps {
   syncData?: VideoSyncData;
   syncMode: 'auto' | 'manual';
   playerForceUpdateKey: number;
+  viewMode: 'dual' | 'angle1' | 'angle2';
 }
 
 export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
@@ -37,6 +38,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   syncData,
   syncMode,
   playerForceUpdateKey,
+  viewMode,
 }) => {
   return (
     <Box
@@ -44,6 +46,8 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
         gridColumn: '1',
         gridRow: '1',
         position: 'relative',
+        height: '100%',
+        minHeight: 0,
         '&:hover .video-controls-overlay': {
           opacity: 1,
         },
@@ -53,6 +57,8 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
         sx={{
           position: 'relative',
           width: '100%',
+          height: '100%',
+          minHeight: 0,
         }}
       >
         <VideoPlayer
@@ -65,6 +71,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
           syncData={syncData}
           syncMode={syncMode}
           forceUpdateKey={playerForceUpdateKey}
+          viewMode={viewMode}
         />
       </Box>
 

@@ -5,8 +5,6 @@ import { MemoizedSingleVideoPlayer } from '../SingleVideoPlayer';
 import { useSyncedVideoPlayer } from './hooks/useSyncedVideoPlayer';
 import type { SyncedVideoPlayerProps } from './types';
 
-const DEFAULT_ASPECT_RATIO = 16 / 9;
-
 const noopSetMax: React.Dispatch<React.SetStateAction<number>> = (value) => {
   void value;
 };
@@ -19,11 +17,36 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
     setMaxSec,
     syncData,
     forceUpdateKey = 0,
+    viewMode = 'dual',
   } = props;
   const isManualMode = props.syncMode === 'manual';
   const safeVideoList = Array.isArray(videoList) ? videoList : [];
   const allowSeek = isManualMode;
   const offset = syncData?.syncOffset ?? 0;
+  const hasPrimary = Boolean(safeVideoList[0]?.trim());
+  const hasSecondary = Boolean(safeVideoList[1]?.trim());
+
+  const effectiveViewMode = React.useMemo(() => {
+    if (viewMode === 'dual') {
+      if (!hasSecondary && hasPrimary) return 'angle1';
+      if (!hasPrimary && hasSecondary) return 'angle2';
+    }
+    if (viewMode === 'angle1' && !hasPrimary && hasSecondary) return 'angle2';
+    if (viewMode === 'angle2' && !hasSecondary && hasPrimary) return 'angle1';
+    return viewMode;
+  }, [hasPrimary, hasSecondary, viewMode]);
+
+  const visibleVideoCount =
+    effectiveViewMode === 'dual'
+      ? safeVideoList.filter((filePath) => filePath && filePath.trim() !== '')
+          .length
+      : effectiveViewMode === 'angle1'
+        ? hasPrimary
+          ? 1
+          : 0
+        : hasSecondary
+          ? 1
+          : 0;
 
   // [DEBUG] videoList の状態を確認
   console.log('[SyncedVideoPlayer] Render:', {
@@ -33,6 +56,7 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
     syncMode: props.syncMode,
     isManualMode,
     forceUpdateKey,
+    viewMode: effectiveViewMode,
     firstVideo: safeVideoList[0],
     secondVideo: safeVideoList[1],
   });
@@ -40,9 +64,7 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
   // useSyncedVideoPlayer は全てのモードで常に呼び出す（React Hooks のルール）
   const {
     blockPlayStates,
-    aspectRatios,
     handleAspectRatioChange,
-    activeVideoCount,
   } = useSyncedVideoPlayer({
     videoList: safeVideoList,
     isVideoPlaying,
@@ -54,22 +76,44 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
   });
 
   // 手動モードでは同期処理を完全にバイパスし、各プレイヤーを独立させる
+  const isIndexVisible = (index: number) => {
+    if (effectiveViewMode === 'dual') return true;
+    if (effectiveViewMode === 'angle1') return index === 0;
+    return index === 1;
+  };
+
+  const hiddenItemSx = {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    width: 1,
+    height: 1,
+    overflow: 'hidden',
+    opacity: 0,
+    pointerEvents: 'none' as const,
+  };
+
   if (isManualMode) {
     return (
       <Grid
         container
         spacing={0}
-        sx={{ width: '100%', margin: 0, padding: 0, alignItems: 'start' }}
+        sx={{
+          width: '100%',
+          height: '100%',
+          margin: 0,
+          padding: 0,
+          alignItems: 'start',
+          position: 'relative',
+        }}
       >
         {safeVideoList.map((filePath, index) => {
           if (!filePath || filePath.trim() === '') {
             return null;
           }
 
-          const columns = activeVideoCount > 1 ? 6 : 12;
-          const aspectRatio = aspectRatios[index] ?? DEFAULT_ASPECT_RATIO;
-          const paddingTop =
-            aspectRatio > 0 ? `${(1 / aspectRatio) * 100}%` : '56.25%';
+          const columns = visibleVideoCount > 1 ? 6 : 12;
+          const isVisible = isIndexVisible(index);
 
           return (
             <Grid
@@ -77,14 +121,18 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
               item
               xs={12}
               md={columns}
-              sx={{ padding: 0 }}
+              sx={{
+                padding: 0,
+                height: '100%',
+                minHeight: 0,
+                ...(isVisible ? {} : hiddenItemSx),
+              }}
             >
               <Box
                 sx={{
                   position: 'relative',
                   width: '100%',
-                  paddingTop,
-                  height: 0,
+                  height: '100%',
                   overflow: 'hidden',
                   backgroundColor: '#000',
                 }}
@@ -115,17 +163,22 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
     <Grid
       container
       spacing={0}
-      sx={{ width: '100%', margin: 0, padding: 0, alignItems: 'start' }}
+      sx={{
+        width: '100%',
+        height: '100%',
+        margin: 0,
+        padding: 0,
+        alignItems: 'start',
+        position: 'relative',
+      }}
     >
       {safeVideoList.map((filePath, index) => {
         if (!filePath || filePath.trim() === '') {
           return null;
         }
 
-        const columns = activeVideoCount > 1 ? 6 : 12;
-        const aspectRatio = aspectRatios[index] ?? DEFAULT_ASPECT_RATIO;
-        const paddingTop =
-          aspectRatio > 0 ? `${(1 / aspectRatio) * 100}%` : '56.25%';
+        const columns = visibleVideoCount > 1 ? 6 : 12;
+        const isVisible = isIndexVisible(index);
 
         return (
           <Grid
@@ -133,14 +186,18 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
             item
             xs={12}
             md={columns}
-            sx={{ padding: 0 }}
+            sx={{
+              padding: 0,
+              height: '100%',
+              minHeight: 0,
+              ...(isVisible ? {} : hiddenItemSx),
+            }}
           >
             <Box
               sx={{
                 position: 'relative',
                 width: '100%',
-                paddingTop,
-                height: 0,
+                height: '100%',
                 overflow: 'hidden',
                 backgroundColor: '#000',
               }}

@@ -9,6 +9,7 @@ export interface SyncedVideoPlayerProps {
   syncData?: VideoSyncData;
   syncMode?: 'auto' | 'manual';
   forceUpdateKey?: number;
+  viewMode?: 'dual' | 'angle1' | 'angle2';
 }
 
 export interface PlayerState {

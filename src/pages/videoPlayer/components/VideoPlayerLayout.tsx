@@ -53,6 +53,7 @@ type VideoPlayerLayoutProps = Pick<
   onApplyManualSync: () => void;
   onCancelManualSync: () => void;
   onAddToPlaylist: (items: TimelineData[]) => Promise<void>;
+  viewMode: 'dual' | 'angle1' | 'angle2';
 };
 
 export const VideoPlayerLayout = ({
@@ -94,14 +95,16 @@ export const VideoPlayerLayout = ({
   onApplyManualSync,
   onCancelManualSync,
   onAddToPlaylist,
+  viewMode,
 }: VideoPlayerLayoutProps) => {
   return isFileSelected ? (
     <Box
       sx={{
         display: 'grid',
         gridTemplateColumns: '1fr',
-        gridTemplateRows: 'auto minmax(250px, 1fr)',
+        gridTemplateRows: 'minmax(0, 1fr) minmax(250px, 1fr)',
         flex: 1,
+        height: '100%',
         minHeight: 0,
       }}
     >
@@ -119,6 +122,7 @@ export const VideoPlayerLayout = ({
         syncData={syncData}
         syncMode={syncMode}
         playerForceUpdateKey={playerForceUpdateKey}
+        viewMode={viewMode}
       />
 
       {syncMode === 'manual' && (
