@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import { AudioSyncAnalyzer } from '../../../../../../utils/AudioSyncAnalyzer';
 import { VideoSyncData } from '../../../../../../types/VideoSync';
 import { SyncStatus } from '../types';
 
@@ -21,6 +20,9 @@ export const useAudioSync = ({ setSyncData }: UseAudioSyncOptions) => {
       setStatus({ isAnalyzing: true, syncProgress: 0, syncStage: '' });
 
       try {
+        const { AudioSyncAnalyzer } = await import(
+          '../../../../../../utils/AudioSyncAnalyzer'
+        );
         const analyzer = new AudioSyncAnalyzer();
         const syncResult = await analyzer.quickSyncAnalysis(
           tightPath,

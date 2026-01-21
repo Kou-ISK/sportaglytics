@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PlaylistItem } from '../../../types/Playlist';
+import type { PlaylistItem } from '../../../../types/Playlist';
 
 interface PlaylistHistoryState {
   past: PlaylistItem[][];

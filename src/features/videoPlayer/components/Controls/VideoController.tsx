@@ -1,18 +1,17 @@
-import type { SelectChangeEvent } from '@mui/material';
 import React, {
   Dispatch,
   SetStateAction,
   useEffect,
   useRef,
-  useCallback,
 } from 'react';
-import videojs from 'video.js';
 import { VideoSyncData } from '../../../../types/VideoSync';
 import { VideoControllerToolbar } from './VideoController/VideoControllerToolbar';
 import { useFlashStates } from './VideoController/hooks/useFlashStates';
 import { useHotkeyPlayback } from './VideoController/hooks/useHotkeyPlayback';
 import { useSeekCoordinator } from './VideoController/hooks/useSeekCoordinator';
 import { usePlaybackTimeTracker } from './VideoController/hooks/usePlaybackTimeTracker';
+import { useExistingVideoJsPlayer } from './VideoController/hooks/useExistingVideoJsPlayer';
+import { useVideoControllerControls } from './VideoController/hooks/useVideoControllerControls';
 
 interface VideoControllerProps {
   setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
@@ -49,17 +48,7 @@ export const VideoController = ({
   const isVideoPlayingRef = useRef<boolean>(isVideoPlaying); // 最新のisVideoPlaying値を保持
   // 初期値を-Infinityにして、起動直後の操作を阻害しない
   const lastManualSeekTimestamp = useRef<number>(-Infinity);
-  const speedOptions = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4, 6];
-  const SMALL_SKIP_SECONDS = 10;
-  const LARGE_SKIP_SECONDS = 30;
   const hasVideos = videoList.some((path) => path && path.trim() !== '');
-  // 時刻フォーマット関数（分:秒）
-  const formatTime = (seconds: number): string => {
-    if (!isFinite(seconds) || seconds < 0) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // isVideoPlayingが変更されたらrefを更新
   useEffect(() => {
@@ -120,37 +109,7 @@ export const VideoController = ({
   }, [currentTime]);
 
   // 既存のVideo.jsプレイヤー取得（新規作成はしない）
-  type VjsPlayer = {
-    isDisposed?: () => boolean;
-    readyState?: () => number;
-    play?: () => Promise<void> | void;
-    pause?: () => void;
-    on?: (event: string, handler: () => void) => void;
-    off?: (event: string, handler: () => void) => void;
-    muted?: (val: boolean) => void;
-    ready?: (cb: () => void) => void;
-    currentTime?: () => number;
-    duration?: () => number;
-  };
-  type VjsNamespace = {
-    (el: string): VjsPlayer | undefined;
-    getPlayer?: (id: string) => VjsPlayer | undefined;
-  };
-  const getExistingPlayer = useCallback((id: string): VjsPlayer | undefined => {
-    try {
-      const anyVjs: VjsNamespace = videojs as unknown as VjsNamespace;
-
-      if (typeof anyVjs.getPlayer === 'function') {
-        const p = anyVjs.getPlayer?.(id);
-        if (p && !p.isDisposed?.()) return p;
-      }
-      // ここで videojs(id) を呼ぶと新規生成される可能性があるため禁止
-      return undefined;
-    } catch (e) {
-      console.debug('getExistingPlayer error', e);
-      return undefined;
-    }
-  }, []);
+  const getExistingPlayer = useExistingVideoJsPlayer();
 
   const { videoTime, setVideoTime } = usePlaybackTimeTracker({
     videoList,
@@ -169,7 +128,6 @@ export const VideoController = ({
     setIsVideoPlaying,
     isVideoPlayingRef,
     setCurrentTime,
-    videoList,
     syncData,
     lastManualSeekTimestamp,
     getExistingPlayer,
@@ -298,66 +256,29 @@ export const VideoController = ({
     syncData?.isAnalyzed,
   ]);
 
-  const handleSpeedChange = useCallback(
-    (event: SelectChangeEvent<string>) => {
-      const value = Number(event.target.value);
-      if (!Number.isNaN(value)) {
-        setVideoPlayBackRate(value);
-        triggerFlash(`speed-${value}`);
-      }
-    },
-    [setVideoPlayBackRate, triggerFlash],
-  );
-
-  const handleSeekAdjust = useCallback(
-    (deltaSeconds: number) => {
-      const minAllowed =
-        syncData?.isAnalyzed &&
-        typeof syncData.syncOffset === 'number' &&
-        syncData.syncOffset < 0
-          ? syncData.syncOffset
-          : 0;
-      const maxAllowed =
-        typeof maxSec === 'number' && maxSec > minAllowed
-          ? maxSec
-          : Number.POSITIVE_INFINITY;
-
-      // videoTime状態ではなく、プレイヤーの実際のcurrentTime()から起点を取得
-      let base = 0;
-      try {
-        const player = getExistingPlayer('video_0');
-        if (player?.currentTime) {
-          base = player.currentTime() ?? 0;
-        } else {
-          base = Number.isFinite(videoTime) ? videoTime : 0;
-        }
-      } catch {
-        base = Number.isFinite(videoTime) ? videoTime : 0;
-      }
-
-      const target = base + deltaSeconds;
-      const clamped = Math.min(maxAllowed, Math.max(minAllowed, target));
-      lastManualSeekTimestamp.current = Date.now();
-      setVideoTime(clamped);
-      try {
-        handleCurrentTime(new Event('video-controller-seek'), clamped);
-      } catch {
-        handleCurrentTime({} as React.SyntheticEvent, clamped);
-      }
-    },
-    [videoTime, syncData, maxSec, handleCurrentTime, getExistingPlayer],
-  );
-
-  const togglePlayback = useCallback(() => {
-    setIsVideoPlaying((prev) => !prev);
-  }, [setIsVideoPlaying]);
-
-  const handleSpeedPresetSelect = useCallback(
-    (value: number) => {
-      setVideoPlayBackRate(value);
-    },
-    [setVideoPlayBackRate],
-  );
+  const {
+    speedOptions,
+    smallSkipSeconds,
+    largeSkipSeconds,
+    currentTimeLabel,
+    onTogglePlayback,
+    onSeekAdjust,
+    onSpeedPresetSelect,
+    onSpeedChange,
+  } = useVideoControllerControls({
+    setVideoPlayBackRate,
+    triggerFlash,
+    setIsVideoPlaying,
+    setCurrentTime,
+    videoList,
+    syncData,
+    maxSec,
+    videoTime,
+    setVideoTime,
+    handleCurrentTime,
+    getExistingPlayer,
+    lastManualSeekTimestamp,
+  });
 
   return (
     <VideoControllerToolbar
@@ -366,14 +287,14 @@ export const VideoController = ({
       playbackRate={videoPlayBackRate}
       speedOptions={speedOptions}
       flashStates={flashStates}
-      onTogglePlayback={togglePlayback}
-      onSeekAdjust={handleSeekAdjust}
-      onSpeedPresetSelect={handleSpeedPresetSelect}
-      onSpeedChange={handleSpeedChange}
+      onTogglePlayback={onTogglePlayback}
+      onSeekAdjust={onSeekAdjust}
+      onSpeedPresetSelect={onSpeedPresetSelect}
+      onSpeedChange={onSpeedChange}
       triggerFlash={triggerFlash}
-      currentTimeLabel={`${formatTime(videoTime)} / ${formatTime(maxSec)}`}
-      smallSkipSeconds={SMALL_SKIP_SECONDS}
-      largeSkipSeconds={LARGE_SKIP_SECONDS}
+      currentTimeLabel={currentTimeLabel}
+      smallSkipSeconds={smallSkipSeconds}
+      largeSkipSeconds={largeSkipSeconds}
     />
   );
 };

@@ -1,17 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  LinearProgress,
-  Paper,
-  Stack,
-  Step,
-  StepLabel,
-  Stepper,
-  Typography,
-} from '@mui/material';
+import { Box, Paper, Stack, Step, StepLabel, Stepper, Typography } from '@mui/material';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
 import { PackageDatas } from '../../../../../renderer';
 import { MetaData } from '../../../../../types/MetaData';
@@ -28,6 +16,9 @@ import { BasicInfoStep } from './steps/BasicInfoStep';
 import { DirectoryStep } from './steps/DirectoryStep';
 import { VideoSelectionStep } from './steps/VideoSelectionStep';
 import { SummaryStep } from './steps/SummaryStep';
+import { WizardFooter } from './WizardFooter';
+import { WizardSyncAlert } from './WizardSyncAlert';
+import { useWizardSelection } from './hooks/useWizardSelection';
 
 interface CreatePackageWizardProps {
   open: boolean;
@@ -75,23 +66,33 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
   syncStatus,
 }) => {
   const [form, setForm] = useState<WizardFormState>(INITIAL_FORM);
-  const [selection, setSelection] = useState<WizardSelectionState>(
-    createInitialSelection(),
-  );
   const [activeStep, setActiveStep] = useState(0);
   const [errors, setErrors] = useState<Partial<WizardFormState>>({});
   const { error: showError } = useNotification();
+  const {
+    selection,
+    resetSelection,
+    handleSelectDirectory,
+    handleSelectVideo,
+    handleAddAngle,
+    handleRemoveAngle,
+    handleUpdateAngleName,
+  } = useWizardSelection({
+    createAngleId,
+    createInitialSelection,
+    showError,
+  });
   const [hasPromptedDirectory, setHasPromptedDirectory] = useState(false);
 
   useEffect(() => {
     if (open) {
       setForm(INITIAL_FORM);
-      setSelection(createInitialSelection());
+      resetSelection();
       setActiveStep(0);
       setErrors({});
       setHasPromptedDirectory(false);
     }
-  }, [open]);
+  }, [open, resetSelection]);
 
   const isAnalyzing = syncStatus.isAnalyzing;
 
@@ -115,17 +116,6 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     [form],
   );
 
-  const handleSelectDirectory = useCallback(async () => {
-    if (!globalThis.window.electronAPI) {
-      showError('この機能はElectronアプリケーション内でのみ利用できます。');
-      return;
-    }
-    const directory = await globalThis.window.electronAPI?.openDirectory();
-    if (directory) {
-      setSelection((prev) => ({ ...prev, selectedDirectory: directory }));
-    }
-  }, [showError]);
-
   useEffect(() => {
     if (
       activeStep === 1 &&
@@ -141,62 +131,6 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     hasPromptedDirectory,
     selection.selectedDirectory,
   ]);
-
-  const handleSelectVideo = useCallback(
-    async (angleId: string) => {
-      if (!globalThis.window.electronAPI) {
-        showError('この機能はElectronアプリケーション内でのみ利用できます。');
-        return;
-      }
-      const path = await globalThis.window.electronAPI?.openFile();
-      if (path) {
-        setSelection((prev) => ({
-          ...prev,
-          angles: prev.angles.map((angle) =>
-            angle.id === angleId ? { ...angle, filePath: path } : angle,
-          ),
-        }));
-      }
-    },
-    [showError],
-  );
-
-  const handleAddAngle = useCallback(() => {
-    setSelection((prev) => {
-      const newAngleId = createAngleId();
-      const nextIndex = prev.angles.length + 1;
-      return {
-        ...prev,
-        angles: [
-          ...prev.angles,
-          {
-            id: newAngleId,
-            name: `Angle ${nextIndex}`,
-            filePath: '',
-          },
-        ],
-      };
-    });
-  }, []);
-
-  const handleRemoveAngle = useCallback((angleId: string) => {
-    setSelection((prev) => {
-      if (prev.angles.length === 1) return prev;
-      const filtered = prev.angles.filter((angle) => angle.id !== angleId);
-      return {
-        ...prev,
-        angles: filtered,
-      };
-    });
-  }, []);
-  const handleUpdateAngleName = useCallback((angleId: string, name: string) => {
-    setSelection((prev) => ({
-      ...prev,
-      angles: prev.angles.map((angle) =>
-        angle.id === angleId ? { ...angle, name } : angle,
-      ),
-    }));
-  }, []);
 
   const executeCreatePackage = useCallback(async () => {
     if (!globalThis.window.electronAPI) {
@@ -482,45 +416,16 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
 
         {activeStep === 3 && <SummaryStep items={summaryItems} />}
 
-        {syncStatus.isAnalyzing && (
-          <Alert severity="info" sx={{ mt: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <CircularProgress size={20} />
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body2" fontWeight="medium">
-                  音声同期分析中...
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {syncStatus.syncStage}
-                </Typography>
-              </Box>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={syncStatus.syncProgress}
-              sx={{ mt: 1 }}
-            />
-          </Alert>
-        )}
+        <WizardSyncAlert syncStatus={syncStatus} />
 
-        <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
-          <Button onClick={onClose} disabled={isAnalyzing}>
-            キャンセル
-          </Button>
-          <Box sx={{ flex: 1 }} />
-          {activeStep > 0 && (
-            <Button onClick={handleBack} disabled={isAnalyzing}>
-              戻る
-            </Button>
-          )}
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            disabled={isAnalyzing}
-          >
-            {activeStep === STEPS.length - 1 ? '作成' : '次へ'}
-          </Button>
-        </Stack>
+        <WizardFooter
+          activeStep={activeStep}
+          totalSteps={STEPS.length}
+          isAnalyzing={isAnalyzing}
+          onCancel={onClose}
+          onBack={handleBack}
+          onNext={handleNext}
+        />
       </Paper>
 
       <Box

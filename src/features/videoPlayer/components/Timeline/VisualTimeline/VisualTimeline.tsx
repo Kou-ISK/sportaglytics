@@ -1,37 +1,18 @@
-import React, { useMemo, useCallback, useState } from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  FormControlLabel,
-  RadioGroup,
-  Radio,
-  Select,
-  MenuItem,
-  LinearProgress,
-} from '@mui/material';
+import React, { useMemo, useCallback } from 'react';
+import { Box } from '@mui/material';
 import { TimelineData } from '../../../../../types/TimelineData';
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineLane } from './TimelineLane';
-import { TimelineEditDialog } from './TimelineEditDialog';
-import { TimelineContextMenu } from './TimelineContextMenu';
+import { TimelineEmptyState } from './TimelineEmptyState';
+import { TimelineSelectionOverlay } from './TimelineSelectionOverlay';
 import { useTimelineViewport } from './hooks/useTimelineViewport';
 import { ZoomIndicator } from './ZoomIndicator';
 import { useTimelineInteractions } from './hooks/useTimelineInteractions';
 import { useTimelineRangeSelection } from './hooks/useTimelineRangeSelection';
 import { useNotification } from '../../../../../contexts/NotificationContext';
+import { TimelineDialogs } from './TimelineDialogs';
+import { useTimelineExportDialogs } from './hooks/useTimelineExportDialogs';
 
-const renderSourceLabel = (src: string) => {
-  const parts = src.split(/[/\\]/);
-  const name = parts.pop() || src;
-  const parent = parts.pop();
-  return parent ? `${parent}/${name}` : name;
-};
 interface VisualTimelineProps {
   timeline: TimelineData[];
   maxSec: number;
@@ -192,39 +173,41 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   });
 
   const { info } = useNotification();
-  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
-  const [labelGroup, setLabelGroup] = useState('');
-  const [labelName, setLabelName] = useState('');
-  const [clipDialogOpen, setClipDialogOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [overlaySettings, setOverlaySettings] = useState({
-    enabled: true,
-    showActionName: true,
-    showActionIndex: true,
-    showLabels: true,
-    showMemo: true,
+  const {
+    labelDialogOpen,
+    setLabelDialogOpen,
+    labelGroup,
+    setLabelGroup,
+    labelName,
+    setLabelName,
+    handleApplyLabel,
+    clipDialogOpen,
+    setClipDialogOpen,
+    isExporting,
+    overlaySettings,
+    setOverlaySettings,
+    primarySource,
+    setPrimarySource,
+    secondarySource,
+    setSecondarySource,
+    exportScope,
+    setExportScope,
+    exportMode,
+    setExportMode,
+    angleOption,
+    setAngleOption,
+    selectedAngleIndex,
+    setSelectedAngleIndex,
+    exportFileName,
+    setExportFileName,
+    handleExportClips,
+  } = useTimelineExportDialogs({
+    timeline,
+    selectedIds,
+    videoSources,
+    onUpdateTimelineItem,
+    info,
   });
-  const timelineRef = React.useRef(timeline);
-  React.useEffect(() => {
-    timelineRef.current = timeline;
-  }, [timeline]);
-  const [primarySource, setPrimarySource] = useState<string | undefined>(
-    videoSources?.[0],
-  );
-  const [secondarySource, setSecondarySource] = useState<string | undefined>(
-    videoSources?.[1],
-  );
-  const [exportScope, setExportScope] = useState<'selected' | 'all'>(
-    selectedIds.length > 0 ? 'selected' : 'all',
-  );
-  const [exportMode, setExportMode] = useState<
-    'single' | 'perInstance' | 'perRow'
-  >('single');
-  const [angleOption, setAngleOption] = useState<
-    'allAngles' | 'single' | 'multi'
-  >('single');
-  const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
-  const [exportFileName, setExportFileName] = useState('');
 
   const handleMoveItems = useCallback(
     (ids: string[], targetActionName: string) => {
@@ -285,42 +268,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
 
   const firstTeamName = actionNames[0]?.split(' ')[0];
 
-  // 選択時のオーバーレイメニュー（先頭へシーク/ラベルモード/削除）は廃止
-  const handleApplyLabel = useCallback(
-    (override?: { group: string; name: string }) => {
-      if (!onUpdateTimelineItem) return;
-      const group = (override?.group ?? labelGroup).trim();
-      const name = (override?.name ?? labelName).trim();
-      if (!group || !name) return;
-
-      let applied = 0;
-      const uniqueIds = Array.from(new Set(selectedIds));
-      const current = timelineRef.current;
-
-      // 事前に全アイテムのラベル配列を計算してから一括適用
-      uniqueIds.forEach((id) => {
-        const item = current.find((t) => t.id === id);
-        if (!item) return;
-        const existing = item.labels ? [...item.labels] : [];
-        const exists = existing.some(
-          (l) => l.group === group && l.name === name,
-        );
-        const updatedLabels = exists
-          ? existing
-          : [...existing, { group, name }];
-        onUpdateTimelineItem(id, { labels: updatedLabels });
-        applied += 1;
-      });
-
-      if (applied > 0) {
-        info(`${applied}件にラベル '${group}: ${name}' を付与しました`);
-      }
-      setLabelGroup(group);
-      setLabelName(name);
-      setLabelDialogOpen(false);
-    },
-    [info, labelGroup, labelName, onUpdateTimelineItem, selectedIds],
-  );
 
   // グローバルKeyDownでTabジャンプ・Undo/Redoを処理（選択があるときのみ）
   React.useEffect(() => {
@@ -411,168 +358,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     [isSelecting, selectionBox, onSelectionChange],
   );
 
-  const handleOpenClipDialog = useCallback(async () => {
-    // 設定からオーバーレイのデフォルトを読み込む
-    try {
-      const settings =
-        (await globalThis.window.electronAPI?.loadSettings?.()) as
-          | { overlayClip?: typeof overlaySettings }
-          | undefined;
-      if (settings?.overlayClip) {
-        setOverlaySettings((prev) => ({
-          ...prev,
-          ...settings.overlayClip,
-        }));
-      }
-    } catch {
-      // ignore, fallback to current state
-    }
-    setClipDialogOpen(true);
-  }, []);
-
-  const handleExportClips = useCallback(async () => {
-    if (!globalThis.window.electronAPI?.exportClipsWithOverlay) {
-      info('クリップ書き出しAPIが利用できません');
-      setClipDialogOpen(false);
-      return;
-    }
-
-    // アングルオプションに応じた検証
-    if (
-      angleOption === 'allAngles' &&
-      (!videoSources || videoSources.length < 2)
-    ) {
-      info('全アングル書き出しには2つ以上の映像ソースが必要です');
-      return;
-    }
-    if (angleOption === 'multi' && (!videoSources || videoSources.length < 2)) {
-      info('マルチアングル書き出しには2つ以上の映像ソースが必要です');
-      return;
-    }
-    if (
-      angleOption === 'single' &&
-      (!videoSources || !videoSources[selectedAngleIndex])
-    ) {
-      info('選択されたアングルの映像が取得できません');
-      return;
-    }
-    const ordered = [...timeline].sort((a, b) => a.startTime - b.startTime);
-    const actionIndexLookup = new Map<string, number>();
-    const counters: Record<string, number> = {};
-    ordered.forEach((item) => {
-      const c = (counters[item.actionName] || 0) + 1;
-      counters[item.actionName] = c;
-      actionIndexLookup.set(item.id, c);
-    });
-
-    const sourceItems =
-      exportScope === 'selected'
-        ? timeline.filter((t) => selectedIds.includes(t.id))
-        : timeline;
-    if (sourceItems.length === 0) {
-      info('書き出すインスタンスがありません');
-      setClipDialogOpen(false);
-      return;
-    }
-    // 同一アクション内での番号を付与
-    const clips = sourceItems
-      .sort((a, b) => a.startTime - b.startTime)
-      .map((item) => {
-        const count = actionIndexLookup.get(item.id) ?? 1;
-        return {
-          id: item.id,
-          actionName: item.actionName,
-          startTime: item.startTime,
-          endTime: item.endTime,
-          labels:
-            item.labels?.map((l) => ({
-              group: l.group || '',
-              name: l.name,
-            })) || undefined,
-          memo: item.memo || undefined,
-          actionIndex: count,
-        };
-      });
-
-    setIsExporting(true);
-
-    // 全アングルの場合は各アングルごとに書き出し
-    if (angleOption === 'allAngles') {
-      let allSuccess = true;
-      for (let i = 0; i < videoSources!.length; i++) {
-        const result =
-          await globalThis.window.electronAPI.exportClipsWithOverlay({
-            sourcePath: videoSources![i],
-            sourcePath2: undefined,
-            mode: 'single',
-            exportMode,
-            angleOption: 'single',
-            clips,
-            overlay: overlaySettings,
-            outputFileName: exportFileName.trim()
-              ? `${exportFileName.trim()}_angle${i + 1}`
-              : undefined,
-          });
-        if (!result?.success) {
-          allSuccess = false;
-          info(result?.error || `アングル${i + 1}の書き出しに失敗しました`);
-          break;
-        }
-      }
-      setIsExporting(false);
-      if (allSuccess) {
-        info(`全${videoSources!.length}アングルの書き出しが完了しました`);
-        setClipDialogOpen(false);
-      }
-    } else {
-      // 単一アングルまたはマルチアングルの場合
-      const result = await globalThis.window.electronAPI.exportClipsWithOverlay(
-        {
-          sourcePath:
-            angleOption === 'single'
-              ? videoSources![selectedAngleIndex]
-              : videoSources![0],
-          sourcePath2: angleOption === 'multi' ? videoSources![1] : undefined,
-          mode: angleOption === 'multi' ? 'dual' : 'single',
-          exportMode,
-          angleOption,
-          clips,
-          overlay: overlaySettings,
-          outputFileName: exportFileName.trim() || undefined,
-        },
-      );
-      setIsExporting(false);
-      if (result?.success) {
-        info('クリップを書き出しました');
-        setClipDialogOpen(false);
-      } else {
-        info(result?.error || 'クリップ書き出しに失敗しました');
-      }
-    }
-  }, [
-    angleOption,
-    selectedAngleIndex,
-    exportScope,
-    exportMode,
-    info,
-    overlaySettings,
-    primarySource,
-    secondarySource,
-    selectedIds,
-    timeline,
-    videoSources,
-    exportFileName,
-  ]);
-
-  React.useEffect(() => {
-    const handler = () => {
-      handleOpenClipDialog();
-    };
-    globalThis.window.electronAPI?.on?.('menu-export-clips', handler);
-    return () => {
-      globalThis.window.electronAPI?.off?.('menu-export-clips', handler);
-    };
-  }, [handleOpenClipDialog]);
 
   return (
     <Box
@@ -674,274 +459,58 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
             ))}
 
             {timeline.length === 0 && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: 200,
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  タイムラインが空です。アクションボタンでタグ付けを開始してください。
-                </Typography>
-              </Box>
+              <TimelineEmptyState message="タイムラインが空です。アクションボタンでタグ付けを開始してください。" />
             )}
           </Box>
 
           {isSelecting && selectionBox && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: selectionBox.top,
-                left: selectionBox.left,
-                width: selectionBox.width,
-                height: selectionBox.height,
-                border: '1px dashed',
-                borderColor: 'primary.main',
-                bgcolor: 'primary.main',
-                opacity: 0.1,
-                pointerEvents: 'none',
-              }}
-            />
+            <TimelineSelectionOverlay selectionBox={selectionBox} />
           )}
         </Box>
       </Box>
 
-      <TimelineEditDialog
-        draft={editingDraft}
-        open={Boolean(editingDraft)}
-        onChange={handleDialogChange}
-        onClose={handleCloseDialog}
-        onDelete={handleDeleteSingle}
-        onSave={handleSaveDialog}
+      <TimelineDialogs
+        editingDraft={editingDraft}
+        onDialogChange={handleDialogChange}
+        onCloseDialog={handleCloseDialog}
+        onDeleteSingle={handleDeleteSingle}
+        onSaveDialog={handleSaveDialog}
+        contextMenu={contextMenu}
+        onCloseContextMenu={handleCloseContextMenu}
+        onContextMenuEdit={handleContextMenuEdit}
+        onContextMenuDelete={handleContextMenuDelete}
+        onContextMenuJumpTo={handleContextMenuJumpTo}
+        onContextMenuDuplicate={handleContextMenuDuplicate}
+        onAddToPlaylist={onAddToPlaylist}
+        timeline={timeline}
+        selectedIds={selectedIds}
+        labelDialogOpen={labelDialogOpen}
+        labelGroup={labelGroup}
+        labelName={labelName}
+        onLabelGroupChange={setLabelGroup}
+        onLabelNameChange={setLabelName}
+        onCloseLabelDialog={() => setLabelDialogOpen(false)}
+        onApplyLabel={handleApplyLabel}
+        clipDialogOpen={clipDialogOpen}
+        onCloseClipDialog={() => setClipDialogOpen(false)}
+        onExportClips={handleExportClips}
+        exportScope={exportScope}
+        setExportScope={setExportScope}
+        exportMode={exportMode}
+        setExportMode={setExportMode}
+        exportFileName={exportFileName}
+        setExportFileName={setExportFileName}
+        angleOption={angleOption}
+        setAngleOption={setAngleOption}
+        selectedAngleIndex={selectedAngleIndex}
+        setSelectedAngleIndex={setSelectedAngleIndex}
+        videoSources={videoSources}
+        primarySource={primarySource}
+        secondarySource={secondarySource}
+        setPrimarySource={setPrimarySource}
+        setSecondarySource={setSecondarySource}
+        isExporting={isExporting}
       />
-
-      <TimelineContextMenu
-        anchorPosition={contextMenu?.position || null}
-        onClose={handleCloseContextMenu}
-        onEdit={handleContextMenuEdit}
-        onDelete={handleContextMenuDelete}
-        onJumpTo={handleContextMenuJumpTo}
-        onDuplicate={handleContextMenuDuplicate}
-        onAddToPlaylist={
-          onAddToPlaylist
-            ? () => {
-                const items = timeline.filter((t) =>
-                  selectedIds.includes(t.id),
-                );
-                if (items.length > 0) {
-                  onAddToPlaylist(items);
-                }
-              }
-            : undefined
-        }
-        selectedCount={selectedIds.length}
-      />
-
-      <Dialog
-        open={labelDialogOpen}
-        onClose={() => setLabelDialogOpen(false)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>ラベルを付与</DialogTitle>
-        <DialogContent
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            選択中 {selectedIds.length}{' '}
-            件に同じラベルを付与します。入力は次回も保持されるので連続付与が素早く行えます。
-          </Typography>
-          <TextField
-            label="グループ"
-            value={labelGroup}
-            onChange={(e) => setLabelGroup(e.target.value)}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && labelGroup.trim() && labelName.trim()) {
-                e.preventDefault();
-                handleApplyLabel();
-              }
-            }}
-          />
-          <TextField
-            label="ラベル名"
-            value={labelName}
-            onChange={(e) => setLabelName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && labelGroup.trim() && labelName.trim()) {
-                e.preventDefault();
-                handleApplyLabel();
-              }
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLabelDialogOpen(false)}>キャンセル</Button>
-          <Button
-            variant="contained"
-            onClick={() => handleApplyLabel()}
-            disabled={!labelGroup.trim() || !labelName.trim()}
-          >
-            付与
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={clipDialogOpen}
-        onClose={() => setClipDialogOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>クリップ書き出し</DialogTitle>
-        <DialogContent
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            書き出し対象と出力モードを選択してください。オーバーレイは設定画面の値を使用します。
-          </Typography>
-          <Typography variant="subtitle2">Exporting:</Typography>
-          <RadioGroup
-            value={exportScope}
-            onChange={(e) =>
-              setExportScope(e.target.value === 'selected' ? 'selected' : 'all')
-            }
-          >
-            <FormControlLabel value="all" control={<Radio />} label="全体" />
-            <FormControlLabel
-              value="selected"
-              control={<Radio />}
-              label={`選択インスタンス (${selectedIds.length} 件)`}
-            />
-          </RadioGroup>
-
-          <Typography variant="subtitle2">Export As:</Typography>
-          <Select
-            size="small"
-            value={exportMode}
-            onChange={(e) =>
-              setExportMode(
-                e.target.value as 'single' | 'perInstance' | 'perRow',
-              )
-            }
-          >
-            <MenuItem value="single">単一映像ファイル（連結）</MenuItem>
-            <MenuItem value="perInstance">インスタンスごとに出力</MenuItem>
-            <MenuItem value="perRow">行ごとに出力</MenuItem>
-          </Select>
-          <TextField
-            label="ファイル名（連結時）/ プレフィックス"
-            size="small"
-            placeholder="例: combined_export"
-            value={exportFileName}
-            onChange={(e) => setExportFileName(e.target.value)}
-            helperText="単一出力ではこの名前で保存。行/インスタンス出力では先頭に付与します（拡張子は自動で .mp4）。"
-          />
-
-          <Typography variant="subtitle2">Video Angles:</Typography>
-          <RadioGroup
-            row
-            value={angleOption}
-            onChange={(e) =>
-              setAngleOption(e.target.value as 'allAngles' | 'single' | 'multi')
-            }
-          >
-            <FormControlLabel
-              value="allAngles"
-              control={<Radio />}
-              label="全アングル"
-              disabled={!videoSources || videoSources.length < 2}
-            />
-            <FormControlLabel
-              value="single"
-              control={<Radio />}
-              label="単一アングル"
-            />
-            <FormControlLabel
-              value="multi"
-              control={<Radio />}
-              label="マルチ"
-              disabled={!videoSources || videoSources.length < 2}
-            />
-          </RadioGroup>
-          {angleOption === 'single' && (
-            <RadioGroup
-              row
-              value={selectedAngleIndex}
-              onChange={(e) => setSelectedAngleIndex(Number(e.target.value))}
-            >
-              {(videoSources || []).map((_, index) => (
-                <FormControlLabel
-                  key={index}
-                  value={index}
-                  control={<Radio />}
-                  label={`アングル${index + 1}`}
-                />
-              ))}
-            </RadioGroup>
-          )}
-          {angleOption === 'multi' && (
-            <>
-              <TextField
-                select
-                SelectProps={{ native: true }}
-                label="メイン映像"
-                value={primarySource || ''}
-                onChange={(e) => setPrimarySource(e.target.value)}
-                size="small"
-              >
-                {(videoSources || []).map((src) => (
-                  <option key={src} value={src}>
-                    {renderSourceLabel(src)}
-                  </option>
-                ))}
-              </TextField>
-              <TextField
-                select
-                SelectProps={{ native: true }}
-                label="サブ映像（横並び）"
-                value={secondarySource || ''}
-                onChange={(e) => setSecondarySource(e.target.value)}
-                size="small"
-              >
-                {(videoSources || []).map((src) => (
-                  <option key={src} value={src}>
-                    {renderSourceLabel(src)}
-                  </option>
-                ))}
-              </TextField>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setClipDialogOpen(false)}>キャンセル</Button>
-          <Button variant="contained" onClick={handleExportClips}>
-            書き出し
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {isExporting && (
-        <Dialog open keepMounted fullWidth maxWidth="xs">
-          <DialogTitle>書き出し中...</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              FFmpegでクリップを書き出しています。完了までお待ちください。
-            </Typography>
-            <LinearProgress />
-          </DialogContent>
-        </Dialog>
-      )}
     </Box>
   );
 };

@@ -74,10 +74,17 @@ src/
 │   └── playlist/
 │       ├── PlaylistWindowApp.tsx    # プレイリスト専用ウィンドウのメインアプリ
 │       ├── hooks/
-│       │   └── usePlaylistHistory.ts # Undo/Redo対応の履歴管理
+│       │   ├── annotation/                   # 描画関連Hooks
+│       │   └── playlist/                     # プレイリスト関連Hooks
 │       └── components/
-│           ├── AnnotationCanvas.tsx # 描画キャンバス
-│           └── PlaylistButton.tsx   # プレイリスト追加ボタン（メイン画面用）
+│           ├── AnnotationCanvas.tsx         # 描画キャンバス
+│           ├── PlaylistVideoCanvas.tsx      # 映像＋描画レイヤー
+│           ├── PlaylistAngleLayer.tsx       # 角度別レイヤー描画
+│           ├── PlaylistWindowDialogs.tsx    # 保存/書き出し/ノートダイアログ
+│           └── PlaylistButton.tsx           # プレイリスト追加ボタン（メイン画面用）
+│       └── utils/
+│           ├── viewMode.ts                  # 表示モード判定
+│           └── renderAnnotationPng.ts       # 描画PNG生成
 ├── types/
 │   └── Playlist.ts                  # 型定義
 

@@ -13,27 +13,12 @@ import {
   Paper,
   TextField,
   Button,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Alert,
   Divider,
   Tabs,
   Tab,
-  Tooltip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import SaveIcon from '@mui/icons-material/Save';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
 import type {
   AppSettings,
   CodeWindowLayout,
@@ -43,6 +28,10 @@ import { ActionList } from '../../../../ActionList';
 import { TEAM_PLACEHOLDERS } from '../../../../utils/teamPlaceholder';
 import { FreeCanvasEditor } from './FreeCanvasEditor';
 import { ButtonPropertiesEditor } from './ButtonPropertiesEditorNew';
+import { CodeWindowCreateDialog } from './CodeWindowCreateDialog';
+import { CodeWindowSettingsHeader } from './CodeWindowSettingsHeader';
+import { CodeWindowPlaceholderAlert } from './CodeWindowPlaceholderAlert';
+import { CodeWindowSelectorBar } from './CodeWindowSelectorBar';
 import {
   createLayout,
   createButton,
@@ -453,24 +442,7 @@ export const CodeWindowSettings = forwardRef<
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {/* ヘッダー */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Typography variant="h6">コードウィンドウ設定</Typography>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={!hasChanges}
-        >
-          保存
-        </Button>
-      </Box>
+      <CodeWindowSettingsHeader hasChanges={hasChanges} onSave={handleSave} />
 
       {saveSuccess && (
         <Alert severity="success" sx={{ mb: 2 }}>
@@ -479,99 +451,23 @@ export const CodeWindowSettings = forwardRef<
       )}
 
       {/* プレースホルダーの説明 */}
-      <Alert severity="info" sx={{ mb: 2 }}>
-        <Typography variant="body2" fontWeight="bold" gutterBottom>
-          チーム名プレースホルダー
-        </Typography>
-        <Typography variant="body2">
-          ボタン名に{' '}
-          <code>
-            ${'{'}Team1{'}'}
-          </code>{' '}
-          や{' '}
-          <code>
-            ${'{'}Team2{'}'}
-          </code>{' '}
-          を使うと、パッケージ設定のチーム名に自動置換されます。
-        </Typography>
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          例:{' '}
-          <code>
-            ${'{'}Team1{'}'} タックル
-          </code>{' '}
-          → <code>Japan タックル</code>（Team1が&quot;Japan&quot;の場合）
-        </Typography>
-      </Alert>
+      <CodeWindowPlaceholderAlert
+        team1Placeholder={TEAM_PLACEHOLDERS.TEAM1}
+        team2Placeholder={TEAM_PLACEHOLDERS.TEAM2}
+      />
 
-      {/* コードウィンドウ選択 */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end' }}>
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>コードウィンドウ</InputLabel>
-            <Select
-              value={activeCodeWindowId || ''}
-              label="コードウィンドウ"
-              onChange={(e) => {
-                setActiveCodeWindowId(e.target.value || null);
-                setSelectedButtonIds([]);
-              }}
-            >
-              <MenuItem value="">
-                <em>なし</em>
-              </MenuItem>
-              {codeWindows.map((cw) => (
-                <MenuItem key={cw.id} value={cw.id}>
-                  {cw.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button
-            startIcon={<AddIcon />}
-            variant="outlined"
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            コードウィンドウを新規作成
-          </Button>
-          {currentLayout && (
-            <>
-              <Tooltip title="複製">
-                <IconButton
-                  onClick={() => handleDuplicateLayout(currentLayout)}
-                >
-                  <ContentCopyIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="エクスポート">
-                <IconButton onClick={handleExportLayout}>
-                  <FileDownloadIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="削除">
-                <IconButton
-                  color="error"
-                  onClick={() => handleDeleteLayout(currentLayout.id)}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Tooltip>
-            </>
-          )}
-          <Tooltip title="コードウィンドウをインポート">
-            <IconButton onClick={handleImportLayout}>
-              <FileUploadIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </Paper>
+      <CodeWindowSelectorBar
+        codeWindows={codeWindows}
+        activeCodeWindowId={activeCodeWindowId}
+        onSelect={setActiveCodeWindowId}
+        onCreate={() => setCreateDialogOpen(true)}
+        onDuplicate={handleDuplicateLayout}
+        onExport={handleExportLayout}
+        onDelete={handleDeleteLayout}
+        onImport={handleImportLayout}
+        currentLayout={currentLayout}
+        onClearSelection={() => setSelectedButtonIds([])}
+      />
 
       {currentLayout ? (
         <>
@@ -774,62 +670,21 @@ export const CodeWindowSettings = forwardRef<
         </Paper>
       )}
 
-      {/* 新規作成ダイアログ */}
-      <Dialog
+      <CodeWindowCreateDialog
         open={createDialogOpen}
+        layoutName={newLayoutName}
+        canvasWidth={newCanvasWidth}
+        canvasHeight={newCanvasHeight}
+        onLayoutNameChange={setNewLayoutName}
+        onCanvasWidthChange={(value) =>
+          setNewCanvasWidth(Math.max(400, Math.min(2000, value)))
+        }
+        onCanvasHeightChange={(value) =>
+          setNewCanvasHeight(Math.max(300, Math.min(1500, value)))
+        }
         onClose={() => setCreateDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>新しいコードウィンドウを作成</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-            <TextField
-              label="コードウィンドウ名"
-              value={newLayoutName}
-              onChange={(e) => setNewLayoutName(e.target.value)}
-              fullWidth
-              autoFocus
-            />
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label="キャンバス幅 (px)"
-                type="number"
-                value={newCanvasWidth}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value, 10);
-                  if (!isNaN(value))
-                    setNewCanvasWidth(Math.max(400, Math.min(2000, value)));
-                }}
-                inputProps={{ min: 400, max: 2000, step: 50 }}
-                sx={{ flex: 1 }}
-              />
-              <TextField
-                label="キャンバス高さ (px)"
-                type="number"
-                value={newCanvasHeight}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value, 10);
-                  if (!isNaN(value))
-                    setNewCanvasHeight(Math.max(300, Math.min(1500, value)));
-                }}
-                inputProps={{ min: 300, max: 1500, step: 50 }}
-                sx={{ flex: 1 }}
-              />
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>キャンセル</Button>
-          <Button
-            onClick={handleCreateLayout}
-            variant="contained"
-            disabled={!newLayoutName.trim()}
-          >
-            作成
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onCreate={handleCreateLayout}
+      />
     </Box>
   );
 });

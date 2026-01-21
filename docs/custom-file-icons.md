@@ -124,33 +124,63 @@ iconutil -c icns stcw.iconset -o public/icons/stcw.icns
 
 `electron-builder.json`で各ファイル形式を定義しています：
 
-### fileAssociations
+### fileAssociations（Windows/Linux）
 
-基本的なファイル関連付けを定義（アイコンは`extendInfo`で指定）：
+Windows/Linuxの関連付けを定義（macOSは`extendInfo`で定義して重複生成を避ける）：
 
 ```json
 {
-  "fileAssociations": [
-    {
-      "ext": "stpkg",
-      "name": "SporTagLytics Package",
-      "description": "SporTagLytics パッケージファイル",
-      "role": "Editor",
-      "isPackage": true
-    },
-    {
-      "ext": "stpl",
-      "name": "SporTagLytics Playlist",
-      "description": "SporTagLytics プレイリスト",
-      "role": "Viewer"
-    },
-    {
-      "ext": "stcw",
-      "name": "SporTagLytics Code Window",
-      "description": "SporTagLytics コードウィンドウ",
-      "role": "Viewer"
-    }
-  ]
+  "win": {
+    "fileAssociations": [
+      {
+        "ext": "stpkg",
+        "name": "SporTagLytics Package",
+        "description": "SporTagLytics パッケージファイル",
+        "role": "Editor",
+        "icon": "public/icons/stpkg.ico",
+        "isPackage": true
+      },
+      {
+        "ext": "stpl",
+        "name": "SporTagLytics Playlist",
+        "description": "SporTagLytics プレイリスト",
+        "role": "Viewer",
+        "icon": "public/icons/stpl.ico",
+        "isPackage": true
+      },
+      {
+        "ext": "stcw",
+        "name": "SporTagLytics Code Window",
+        "description": "SporTagLytics コードウィンドウ",
+        "role": "Viewer",
+        "icon": "public/icons/stcw.ico"
+      }
+    ]
+  },
+  "linux": {
+    "fileAssociations": [
+      {
+        "ext": "stpkg",
+        "name": "SporTagLytics Package",
+        "description": "SporTagLytics パッケージファイル",
+        "role": "Editor",
+        "isPackage": true
+      },
+      {
+        "ext": "stpl",
+        "name": "SporTagLytics Playlist",
+        "description": "SporTagLytics プレイリスト",
+        "role": "Viewer",
+        "isPackage": true
+      },
+      {
+        "ext": "stcw",
+        "name": "SporTagLytics Code Window",
+        "description": "SporTagLytics コードウィンドウ",
+        "role": "Viewer"
+      }
+    ]
+  }
 }
 ```
 
@@ -161,6 +191,13 @@ UTI定義とアイコン指定：
 ```json
 {
   "mac": {
+    "extraResources": [
+      {
+        "from": "public/icons",
+        "to": ".",
+        "filter": ["stpkg.icns", "stpl.icns", "stcw.icns"]
+      }
+    ],
     "extendInfo": {
       "UTExportedTypeDeclarations": [
         {

@@ -16,37 +16,19 @@
     "buildResources": "public",
     "output": "dist/"
   },
-  "fileAssociations": [
-    {
-      "ext": "stpkg",
-      "name": "SporTagLytics Package",
-      "description": "SporTagLytics パッケージファイル",
-      "role": "Editor",
-      "icon": "public/icons/stpkg.icns",
-      "isPackage": true
-    },
-    {
-      "ext": "stpl",
-      "name": "SporTagLytics Playlist",
-      "description": "SporTagLytics プレイリスト",
-      "role": "Viewer",
-      "icon": "public/icons/stpl.icns",
-      "isPackage": true
-    },
-    {
-      "ext": "stcw",
-      "name": "SporTagLytics Code Window",
-      "description": "SporTagLytics コードウィンドウ",
-      "role": "Viewer",
-      "icon": "public/icons/stcw.icns"
-    }
-  ],
   "mac": {
     "target": {
       "target": "dmg",
       "arch": ["x64", "arm64"]
     },
     "icon": "public/icon.icns",
+    "extraResources": [
+      {
+        "from": "public/icons",
+        "to": ".",
+        "filter": ["stpkg.icns", "stpl.icns", "stcw.icns"]
+      }
+    ],
     "category": "public.app-category.sports",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "hardenedRuntime": true,
@@ -113,6 +95,31 @@
   "win": {
     "target": "nsis",
     "icon": "public/icon.ico",
+    "fileAssociations": [
+      {
+        "ext": "stpkg",
+        "name": "SporTagLytics Package",
+        "description": "SporTagLytics パッケージファイル",
+        "role": "Editor",
+        "icon": "public/icons/stpkg.ico",
+        "isPackage": true
+      },
+      {
+        "ext": "stpl",
+        "name": "SporTagLytics Playlist",
+        "description": "SporTagLytics プレイリスト",
+        "role": "Viewer",
+        "icon": "public/icons/stpl.ico",
+        "isPackage": true
+      },
+      {
+        "ext": "stcw",
+        "name": "SporTagLytics Code Window",
+        "description": "SporTagLytics コードウィンドウ",
+        "role": "Viewer",
+        "icon": "public/icons/stcw.ico"
+      }
+    ],
     "artifactName": "${productName}-Setup-${version}.${ext}"
   },
   "nsis": {
@@ -121,6 +128,28 @@
   "linux": {
     "target": "AppImage",
     "icon": "public/icon.png",
+    "fileAssociations": [
+      {
+        "ext": "stpkg",
+        "name": "SporTagLytics Package",
+        "description": "SporTagLytics パッケージファイル",
+        "role": "Editor",
+        "isPackage": true
+      },
+      {
+        "ext": "stpl",
+        "name": "SporTagLytics Playlist",
+        "description": "SporTagLytics プレイリスト",
+        "role": "Viewer",
+        "isPackage": true
+      },
+      {
+        "ext": "stcw",
+        "name": "SporTagLytics Code Window",
+        "description": "SporTagLytics コードウィンドウ",
+        "role": "Viewer"
+      }
+    ],
     "artifactName": "${productName}-${version}.${ext}"
   }
 }
