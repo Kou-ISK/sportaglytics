@@ -181,20 +181,6 @@ export default function PlaylistWindowApp() {
     setExportScope,
   } = usePlaylistExportState();
 
-  const {
-    handleCloseSaveDialog,
-    handleCloseExportDialog,
-    handleCloseNoteDialog,
-    handleCloseExportProgress,
-  } = usePlaylistDialogHandlers({
-    setSaveDialogOpen,
-    setCloseAfterSave,
-    setExportDialogOpen,
-    setNoteDialogOpen,
-    setEditingItemId,
-    setExportProgress,
-  });
-
   // 保存進行状況
   const [saveProgress, setSaveProgress] = useState<{
     current: number;
@@ -485,25 +471,39 @@ export default function PlaylistWindowApp() {
     setExportProgress,
     handleExportPlaylist: exportPlaylist,
   } = usePlaylistExport({
-      items,
-      selectedItems,
-      videoSources,
-      exportScope,
-      angleOption,
-      selectedAngleIndex,
-      exportMode,
-      exportFileName,
-      overlaySettings,
-      itemAnnotations,
-      minFreezeDuration: MIN_FREEZE_DURATION,
-      primaryContentRect,
-      secondaryContentRect,
-      primarySourceSize,
-      secondarySourceSize,
-      renderAnnotationPng,
-      showError,
-      success,
-    });
+    items,
+    selectedItems,
+    videoSources,
+    exportScope,
+    angleOption,
+    selectedAngleIndex,
+    exportMode,
+    exportFileName,
+    overlaySettings,
+    itemAnnotations,
+    minFreezeDuration: MIN_FREEZE_DURATION,
+    primaryContentRect,
+    secondaryContentRect,
+    primarySourceSize,
+    secondarySourceSize,
+    renderAnnotationPng,
+    showError,
+    success,
+  });
+
+  const {
+    handleCloseSaveDialog,
+    handleCloseExportDialog,
+    handleCloseNoteDialog,
+    handleCloseExportProgress,
+  } = usePlaylistDialogHandlers({
+    setSaveDialogOpen,
+    setCloseAfterSave,
+    setExportDialogOpen,
+    setNoteDialogOpen,
+    setEditingItemId,
+    setExportProgress,
+  });
 
   const handleExportPlaylist = useCallback(() => {
     setExportDialogOpen(false);
