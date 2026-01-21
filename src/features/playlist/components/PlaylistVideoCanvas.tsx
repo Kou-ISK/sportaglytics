@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { Box } from '@mui/material';
 import type { AnnotationTarget, ItemAnnotation } from '../../../types/Playlist';
-import AnnotationCanvas, { AnnotationCanvasRef } from './AnnotationCanvas';
+import type { AnnotationCanvasRef } from './AnnotationCanvas';
+import { PlaylistAngleLayer } from './PlaylistAngleLayer';
 import { PlaylistDrawingTargetToggle } from './PlaylistDrawingTargetToggle';
 
 type ContentRect = {
@@ -81,8 +82,8 @@ export const PlaylistVideoCanvas = ({
           onChange={onDrawingTargetChange}
         />
       )}
-      <Box
-        sx={{
+      <PlaylistAngleLayer
+        boxSx={{
           position: 'absolute',
           top: 0,
           left: 0,
@@ -91,33 +92,28 @@ export const PlaylistVideoCanvas = ({
           zIndex: viewMode === 'angle2' ? -1 : 0,
           pointerEvents: viewMode === 'angle2' ? 'none' : 'auto',
         }}
-      >
-        <video
-          ref={videoRef}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            opacity: viewMode === 'angle2' ? 0 : 1,
-          }}
-        />
-        <AnnotationCanvas
-          ref={annotationCanvasRefPrimary}
-          width={primaryCanvasSize.width}
-          height={primaryCanvasSize.height}
-          isActive={isDrawingMode && drawingTarget === 'primary'}
-          target="primary"
-          initialObjects={primaryObjects}
-          freezeDuration={currentAnnotation?.freezeDuration ?? defaultFreezeDuration}
-          contentRect={primaryContentRect}
-          onObjectsChange={(objects) => onObjectsChange(objects, 'primary')}
-          onFreezeDurationChange={onFreezeDurationChange}
-          currentTime={currentTime}
-        />
-      </Box>
+        videoRef={videoRef}
+        videoStyle={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          opacity: viewMode === 'angle2' ? 0 : 1,
+        }}
+        annotationCanvasRef={annotationCanvasRefPrimary}
+        canvasSize={primaryCanvasSize}
+        contentRect={primaryContentRect}
+        isDrawingMode={isDrawingMode}
+        drawingTarget={drawingTarget}
+        target="primary"
+        initialObjects={primaryObjects}
+        freezeDuration={currentAnnotation?.freezeDuration ?? defaultFreezeDuration}
+        onObjectsChange={onObjectsChange}
+        onFreezeDurationChange={onFreezeDurationChange}
+        currentTime={currentTime}
+      />
       {currentVideoSource2 && (
-        <Box
-          sx={{
+        <PlaylistAngleLayer
+          boxSx={{
             position: 'absolute',
             top: 0,
             left: isDualView ? '50%' : 0,
@@ -129,30 +125,25 @@ export const PlaylistVideoCanvas = ({
             zIndex: viewMode === 'angle1' ? -1 : 0,
             pointerEvents: viewMode === 'angle1' ? 'none' : 'auto',
           }}
-        >
-          <video
-            ref={videoRef2}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              opacity: viewMode === 'angle1' ? 0 : 1,
-            }}
-          />
-          <AnnotationCanvas
-            ref={annotationCanvasRefSecondary}
-            width={secondaryCanvasSize.width}
-            height={secondaryCanvasSize.height}
-            isActive={isDrawingMode && drawingTarget === 'secondary'}
-            target="secondary"
-            initialObjects={secondaryObjects}
-            freezeDuration={currentAnnotation?.freezeDuration ?? defaultFreezeDuration}
-            contentRect={secondaryContentRect}
-            onObjectsChange={(objects) => onObjectsChange(objects, 'secondary')}
-            onFreezeDurationChange={onFreezeDurationChange}
-            currentTime={currentTime}
-          />
-        </Box>
+          videoRef={videoRef2}
+          videoStyle={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            opacity: viewMode === 'angle1' ? 0 : 1,
+          }}
+          annotationCanvasRef={annotationCanvasRefSecondary}
+          canvasSize={secondaryCanvasSize}
+          contentRect={secondaryContentRect}
+          isDrawingMode={isDrawingMode}
+          drawingTarget={drawingTarget}
+          target="secondary"
+          initialObjects={secondaryObjects}
+          freezeDuration={currentAnnotation?.freezeDuration ?? defaultFreezeDuration}
+          onObjectsChange={onObjectsChange}
+          onFreezeDurationChange={onFreezeDurationChange}
+          currentTime={currentTime}
+        />
       )}
     </>
   );

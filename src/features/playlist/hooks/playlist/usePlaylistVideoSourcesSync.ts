@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import type { PlaylistItem } from '../../../types/Playlist';
+import type { PlaylistItem } from '../../../../types/Playlist';
+import { arrayShallowEqual } from '../../utils/arrayEqual';
 
 interface UsePlaylistVideoSourcesSyncParams {
   currentItem: PlaylistItem | null;
@@ -25,10 +26,7 @@ export const usePlaylistVideoSourcesSync = ({
       merged[1] = videoSources[1];
     }
     const cleaned = merged.filter(Boolean);
-    if (
-      cleaned.length &&
-      JSON.stringify(cleaned) !== JSON.stringify(videoSources)
-    ) {
+    if (cleaned.length && !arrayShallowEqual(cleaned, videoSources)) {
       setVideoSources(cleaned);
     }
   }, [currentItem, setVideoSources, videoSources]);

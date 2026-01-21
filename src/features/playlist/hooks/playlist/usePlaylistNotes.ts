@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { PlaylistItem } from '../../../types/Playlist';
+import type { PlaylistItem } from '../../../../types/Playlist';
 
 interface UsePlaylistNotesParams {
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
@@ -10,6 +10,7 @@ interface UsePlaylistNotesResult {
   editingItemId: string | null;
   noteDialogOpen: boolean;
   setNoteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setEditingItemId: React.Dispatch<React.SetStateAction<string | null>>;
   handleEditNote: (itemId: string) => void;
   handleSaveNote: (note: string) => void;
 }
@@ -45,6 +46,7 @@ export const usePlaylistNotes = ({
     editingItemId,
     noteDialogOpen,
     setNoteDialogOpen,
+    setEditingItemId,
     handleEditNote,
     handleSaveNote,
   };

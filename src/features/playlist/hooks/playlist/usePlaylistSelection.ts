@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { PlaylistItem } from '../../../types/Playlist';
+import type { PlaylistItem } from '../../../../types/Playlist';
 
 interface UsePlaylistSelectionParams {
   items: PlaylistItem[];

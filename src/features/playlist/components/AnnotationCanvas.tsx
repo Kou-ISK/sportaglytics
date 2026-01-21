@@ -22,10 +22,10 @@ import {
   renderObject,
   scaleObjectForDisplay,
 } from './annotationCanvasUtils';
-import { useDraggableToolbar } from '../hooks/useDraggableToolbar';
-import { useAnnotationPointerHandlers } from '../hooks/useAnnotationPointerHandlers';
-import { useAnnotationActions } from '../hooks/useAnnotationActions';
-import { useAnnotationToolbarState } from '../hooks/useAnnotationToolbarState';
+import { useDraggableToolbar } from '../hooks/annotation/useDraggableToolbar';
+import { useAnnotationPointerHandlers } from '../hooks/annotation/useAnnotationPointerHandlers';
+import { useAnnotationActions } from '../hooks/annotation/useAnnotationActions';
+import { useAnnotationToolbarState } from '../hooks/annotation/useAnnotationToolbarState';
 
 const TIMESTAMP_TOLERANCE = 0.12;
 const MIN_FREEZE_UI_SECONDS = 1;

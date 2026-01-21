@@ -493,8 +493,11 @@ GitHub Issues: https://github.com/Kou-ISK/SporTagLytics/issues
 
 ## 関連ドキュメント
 
-- [開発ガイド](development.md)
+ユーザー向け:
 - [システム概要](system-overview.md)
 - [技術仕様](requirement.md)
+
+開発向け:
+- [開発ガイド](development.md)
 - [プレイリスト機能実装](playlist-features.md)
 - [コードウィンドウ設定実装](code-window-settings.md)

@@ -21,6 +21,7 @@ import {
   VolumeOff,
   VolumeUp,
 } from '@mui/icons-material';
+import { PLAYLIST_CONTROL_LABELS } from '../constants/playlistControls';
 
 type SliderMark = { value: number; label: string };
 
@@ -129,7 +130,13 @@ export const PlaylistVideoControlsOverlay = ({
           sx={{ mx: 0.5, bgcolor: 'grey.700' }}
         />
 
-        <Tooltip title={autoAdvance ? '連続再生: ON' : '連続再生: OFF'}>
+        <Tooltip
+          title={
+            autoAdvance
+              ? PLAYLIST_CONTROL_LABELS.autoAdvance.on
+              : PLAYLIST_CONTROL_LABELS.autoAdvance.off
+          }
+        >
           <IconButton
             size="small"
             onClick={onToggleAutoAdvance}
@@ -138,7 +145,13 @@ export const PlaylistVideoControlsOverlay = ({
             <PlaylistPlay sx={{ fontSize: 18 }} />
           </IconButton>
         </Tooltip>
-        <Tooltip title={loopPlaylist ? 'ループ: ON' : 'ループ: OFF'}>
+        <Tooltip
+          title={
+            loopPlaylist
+              ? PLAYLIST_CONTROL_LABELS.loop.on
+              : PLAYLIST_CONTROL_LABELS.loop.off
+          }
+        >
           <IconButton
             size="small"
             onClick={onToggleLoop}
@@ -155,7 +168,11 @@ export const PlaylistVideoControlsOverlay = ({
         />
 
         <Tooltip
-          title={isDrawingMode ? '描画モード: ON' : '描画（図形・テキスト）'}
+          title={
+            isDrawingMode
+              ? PLAYLIST_CONTROL_LABELS.drawing.on
+              : PLAYLIST_CONTROL_LABELS.drawing.off
+          }
         >
           <IconButton
             size="small"

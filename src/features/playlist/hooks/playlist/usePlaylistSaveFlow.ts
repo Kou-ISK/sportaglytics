@@ -4,7 +4,7 @@ import type {
   Playlist,
   PlaylistItem,
   PlaylistType,
-} from '../../../types/Playlist';
+} from '../../../../types/Playlist';
 
 interface UsePlaylistSaveFlowParams {
   items: PlaylistItem[];

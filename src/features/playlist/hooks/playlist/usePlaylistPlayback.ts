@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type {
   ItemAnnotation,
   PlaylistItem,
-} from '../../../types/Playlist';
+} from '../../../../types/Playlist';
 
 interface UsePlaylistPlaybackParams {
   items: PlaylistItem[];

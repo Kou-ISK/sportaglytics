@@ -6,9 +6,7 @@ interface UsePlaylistDialogHandlersParams {
   setExportDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setNoteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setEditingItemId: React.Dispatch<React.SetStateAction<string | null>>;
-  setExportProgress: React.Dispatch<
-    React.SetStateAction<{ current: number; total: number; message: string } | null>
-  >;
+  onCloseExportProgress: () => void;
 }
 
 interface UsePlaylistDialogHandlersResult {
@@ -24,7 +22,7 @@ export const usePlaylistDialogHandlers = ({
   setExportDialogOpen,
   setNoteDialogOpen,
   setEditingItemId,
-  setExportProgress,
+  onCloseExportProgress,
 }: UsePlaylistDialogHandlersParams): UsePlaylistDialogHandlersResult => {
   const handleCloseSaveDialog = useCallback(() => {
     setSaveDialogOpen(false);
@@ -41,8 +39,8 @@ export const usePlaylistDialogHandlers = ({
   }, [setEditingItemId, setNoteDialogOpen]);
 
   const handleCloseExportProgress = useCallback(() => {
-    setExportProgress(null);
-  }, [setExportProgress]);
+    onCloseExportProgress();
+  }, [onCloseExportProgress]);
 
   return {
     handleCloseSaveDialog,

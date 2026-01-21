@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { PlaylistItem } from '../../../types/Playlist';
+import type { PlaylistItem } from '../../../../types/Playlist';
 
 interface UsePlaylistCurrentItemParams {
   items: PlaylistItem[];

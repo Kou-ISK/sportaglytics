@@ -4,8 +4,8 @@ import type {
   DrawingObject,
   ItemAnnotation,
   PlaylistItem,
-} from '../../../types/Playlist';
-import type { AnnotationCanvasRef } from '../components/AnnotationCanvas';
+} from '../../../../types/Playlist';
+import type { AnnotationCanvasRef } from '../../components/AnnotationCanvas';
 
 interface UsePlaylistAnnotationsParams {
   currentItem: PlaylistItem | null;
@@ -47,8 +47,8 @@ export const usePlaylistAnnotations = ({
     if (!currentItem) return null;
     const base =
       itemAnnotations[currentItem.id] || currentItem.annotation || null;
-    if (base) {
-      return {
+    const normalized = base
+      ? {
         ...base,
         objects: base.objects || [],
         freezeAt: base.freezeAt ?? 0,
@@ -56,12 +56,24 @@ export const usePlaylistAnnotations = ({
           base.freezeDuration === undefined || base.freezeDuration === 0
             ? defaultFreezeDuration
             : base.freezeDuration,
+      }
+      : {
+        objects: [],
+        freezeDuration: defaultFreezeDuration,
+        freezeAt: 0,
       };
+
+    const isEmbedded = currentItem.videoSource?.startsWith('./videos/');
+    if (!isEmbedded || currentItem.startTime === undefined) {
+      return normalized;
     }
+
     return {
-      objects: [],
-      freezeDuration: defaultFreezeDuration,
-      freezeAt: 0,
+      ...normalized,
+      objects: normalized.objects.map((obj) => ({
+        ...obj,
+        timestamp: obj.timestamp + currentItem.startTime,
+      })),
     };
   }, [currentItem, defaultFreezeDuration, itemAnnotations]);
 

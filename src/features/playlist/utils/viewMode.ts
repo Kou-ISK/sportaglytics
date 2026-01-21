@@ -16,3 +16,11 @@ export const resolveViewModeForItems = (
   );
   return hasDual ? 'dual' : 'angle1';
 };
+
+export const resolveDrawingTarget = (
+  viewMode: 'dual' | 'angle1' | 'angle2',
+): 'primary' | 'secondary' => {
+  if (viewMode === 'angle1') return 'primary';
+  if (viewMode === 'angle2') return 'secondary';
+  return 'primary';
+};

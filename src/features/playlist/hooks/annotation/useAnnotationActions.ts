@@ -2,8 +2,8 @@ import { useCallback, useEffect } from 'react';
 import type {
   AnnotationTarget,
   DrawingObject,
-} from '../../../types/Playlist';
-import { generateAnnotationId } from '../components/annotationCanvasUtils';
+} from '../../../../types/Playlist';
+import { generateAnnotationId } from '../../components/annotationCanvasUtils';
 
 interface UseAnnotationActionsParams {
   isActive: boolean;

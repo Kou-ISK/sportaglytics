@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import type { PlaylistItem, ItemAnnotation, DrawingObject, AnnotationTarget } from '../../../types/Playlist';
-import type { OverlaySettings } from '../components/PlaylistExportDialog';
+import type { PlaylistItem, ItemAnnotation, DrawingObject, AnnotationTarget } from '../../../../types/Playlist';
+import type { OverlaySettings } from '../../components/PlaylistExportDialog';
 
 interface UsePlaylistExportParams {
   items: PlaylistItem[];
@@ -24,8 +24,7 @@ interface UsePlaylistExportParams {
     fallbackSize: { width: number; height: number },
     targetSize?: { width: number; height: number },
   ) => string | null;
-  showError: (message: string) => void;
-  success: (message: string) => void;
+  onMissingApi?: (message: string) => void;
 }
 
 export const usePlaylistExport = ({
@@ -45,8 +44,7 @@ export const usePlaylistExport = ({
   primarySourceSize,
   secondarySourceSize,
   renderAnnotationPng,
-  showError,
-  success,
+  onMissingApi,
 }: UsePlaylistExportParams) => {
   const [exportProgress, setExportProgress] = useState<{
     current: number;
@@ -54,32 +52,41 @@ export const usePlaylistExport = ({
     message: string;
   } | null>(null);
 
+  const clearExportProgress = useCallback(() => {
+    setExportProgress(null);
+  }, []);
+
   const handleExportPlaylist = useCallback(async () => {
     const api = window.electronAPI?.exportClipsWithOverlay;
     if (!api) {
-      showError('書き出しAPIが利用できません');
-      return;
+      onMissingApi?.('書き出しAPIが利用できません');
+      return { success: false, message: '書き出しAPIが利用できません' };
     }
 
     // アングルオプションに応じた検証
     if (angleOption === 'allAngles' && videoSources.length < 2) {
-      showError('全アングル書き出しには2つ以上の映像ソースが必要です');
-      return;
+      return {
+        success: false,
+        message: '全アングル書き出しには2つ以上の映像ソースが必要です',
+      };
     }
     if (angleOption === 'multi' && videoSources.length < 2) {
-      showError('マルチアングル書き出しには2つ以上の映像ソースが必要です');
-      return;
+      return {
+        success: false,
+        message: 'マルチアングル書き出しには2つ以上の映像ソースが必要です',
+      };
     }
     if (angleOption === 'single' && !videoSources[selectedAngleIndex]) {
-      showError('選択されたアングルの映像が取得できません');
-      return;
+      return {
+        success: false,
+        message: '選択されたアングルの映像が取得できません',
+      };
     }
 
     const sourceItems = exportScope === 'selected' ? selectedItems : items;
 
     if (sourceItems.length === 0) {
-      showError('書き出すアイテムがありません');
-      return;
+      return { success: false, message: '書き出すアイテムがありません' };
     }
 
     // 選択されたアイテムのみを使用してactionIndexを計算
@@ -167,18 +174,22 @@ export const usePlaylistExport = ({
         if (!result?.success) {
           allSuccess = false;
           setExportProgress(null);
-          showError(
-            result?.error || `アングル${i + 1}の書き出しに失敗しました`,
-          );
+          return {
+            success: false,
+            message:
+              result?.error || `アングル${i + 1}の書き出しに失敗しました`,
+          };
           break;
         }
       }
 
       setExportProgress(null);
-      if (allSuccess) {
-        success(`全${videoSources.length}アングルの書き出しが完了しました`);
-      }
-      return;
+      return allSuccess
+        ? {
+            success: true,
+            message: `全${videoSources.length}アングルの書き出しが完了しました`,
+          }
+        : { success: false, message: '書き出しに失敗しました' };
     }
 
     setExportProgress({
@@ -203,10 +214,12 @@ export const usePlaylistExport = ({
 
     setExportProgress(null);
     if (result?.success) {
-      success('プレイリストを書き出しました');
-    } else {
-      showError(result?.error || '書き出しに失敗しました');
+      return { success: true, message: 'プレイリストを書き出しました' };
     }
+    return {
+      success: false,
+      message: result?.error || '書き出しに失敗しました',
+    };
   }, [
     angleOption,
     exportFileName,
@@ -223,14 +236,13 @@ export const usePlaylistExport = ({
     secondarySourceSize,
     selectedAngleIndex,
     selectedItems,
-    showError,
-    success,
     videoSources,
+    onMissingApi,
   ]);
 
   return {
     exportProgress,
-    setExportProgress,
     handleExportPlaylist,
+    clearExportProgress,
   };
 };

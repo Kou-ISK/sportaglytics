@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { DragEndEvent } from '@dnd-kit/core';
-import type { ItemAnnotation, PlaylistItem } from '../../../types/Playlist';
+import type { ItemAnnotation, PlaylistItem } from '../../../../types/Playlist';
 
 interface UsePlaylistItemOperationsParams {
   currentIndex: number;

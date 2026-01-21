@@ -4,11 +4,11 @@ import type {
   PlaylistItem,
   PlaylistSyncData,
   PlaylistType,
-} from '../../../types/Playlist';
+} from '../../../../types/Playlist';
 import {
   resolveViewModeForItems,
   resolveViewModeForSources,
-} from '../utils/viewMode';
+} from '../../utils/viewMode';
 
 interface UsePlaylistIpcSyncParams {
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;

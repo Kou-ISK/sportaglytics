@@ -4,8 +4,8 @@ import type {
   Playlist,
   PlaylistItem,
   PlaylistType,
-} from '../../../types/Playlist';
-import { resolveViewModeForSources } from '../utils/viewMode';
+} from '../../../../types/Playlist';
+import { resolveViewModeForSources } from '../../utils/viewMode';
 
 interface UsePlaylistLoaderParams {
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;

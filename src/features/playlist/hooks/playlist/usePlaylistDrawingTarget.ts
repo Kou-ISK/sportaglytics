@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import type { AnnotationTarget } from '../../../types/Playlist';
+import type { AnnotationTarget } from '../../../../types/Playlist';
+import { resolveDrawingTarget } from '../../utils/viewMode';
 
 interface UsePlaylistDrawingTargetParams {
   viewMode: 'dual' | 'angle1' | 'angle2';
@@ -13,10 +14,8 @@ export const usePlaylistDrawingTarget = ({
   setDrawingTarget,
 }: UsePlaylistDrawingTargetParams) => {
   useEffect(() => {
-    if (viewMode === 'angle1') {
-      setDrawingTarget('primary');
-    } else if (viewMode === 'angle2') {
-      setDrawingTarget('secondary');
+    if (viewMode !== 'dual') {
+      setDrawingTarget(resolveDrawingTarget(viewMode));
     } else if (!currentVideoSource2) {
       setDrawingTarget('primary');
     }

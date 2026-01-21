@@ -3,13 +3,13 @@ import type {
   AnnotationTarget,
   DrawingObject,
   DrawingToolType,
-} from '../../../types/Playlist';
+} from '../../../../types/Playlist';
 import {
   findObjectAtPoint,
   generateAnnotationId,
   scaleObjectForDisplay,
   shiftObject,
-} from '../components/annotationCanvasUtils';
+} from '../../components/annotationCanvasUtils';
 
 interface UseAnnotationPointerHandlersParams {
   canvasRef: React.RefObject<HTMLCanvasElement>;

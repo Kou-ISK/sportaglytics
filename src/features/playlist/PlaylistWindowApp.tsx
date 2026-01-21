@@ -25,30 +25,30 @@ import type {
 } from '../../types/Playlist';
 import { AnnotationCanvasRef } from './components/AnnotationCanvas';
 import { useTheme } from '@mui/material/styles';
-import { usePlaylistHistory } from './hooks/usePlaylistHistory';
-import { usePlaylistSelection } from './hooks/usePlaylistSelection';
-import { usePlaylistExport } from './hooks/usePlaylistExport';
-import { usePlaylistHotkeys } from './hooks/usePlaylistHotkeys';
-import { usePlaylistPlayback } from './hooks/usePlaylistPlayback';
-import { usePlaylistIpcSync } from './hooks/usePlaylistIpcSync';
-import { usePlaylistWindowSync } from './hooks/usePlaylistWindowSync';
-import { usePlaylistLoader } from './hooks/usePlaylistLoader';
-import { usePlaylistSaveRequest } from './hooks/usePlaylistSaveRequest';
-import { usePlaylistVideoSizing } from './hooks/usePlaylistVideoSizing';
-import { usePlaylistControlsVisibility } from './hooks/usePlaylistControlsVisibility';
-import { usePlaylistDrawingTarget } from './hooks/usePlaylistDrawingTarget';
-import { usePlaylistAnnotations } from './hooks/usePlaylistAnnotations';
-import { usePlaylistItemOperations } from './hooks/usePlaylistItemOperations';
-import { usePlaylistSaveFlow } from './hooks/usePlaylistSaveFlow';
-import { usePlaylistHotkeyBindings } from './hooks/usePlaylistHotkeyBindings';
-import { usePlaylistNotes } from './hooks/usePlaylistNotes';
-import { usePlaylistExportState } from './hooks/usePlaylistExportState';
-import { usePlaylistVideoSourcesSync } from './hooks/usePlaylistVideoSourcesSync';
-import { usePlaylistCurrentItem } from './hooks/usePlaylistCurrentItem';
-import { usePlaylistHistorySync } from './hooks/usePlaylistHistorySync';
-import { usePlaylistVideoControlsState } from './hooks/usePlaylistVideoControlsState';
-import { usePlaylistSaveDialogState } from './hooks/usePlaylistSaveDialogState';
-import { usePlaylistDialogHandlers } from './hooks/usePlaylistDialogHandlers';
+import { usePlaylistHistory } from './hooks/playlist/usePlaylistHistory';
+import { usePlaylistSelection } from './hooks/playlist/usePlaylistSelection';
+import { usePlaylistExport } from './hooks/playlist/usePlaylistExport';
+import { usePlaylistHotkeys } from './hooks/playlist/usePlaylistHotkeys';
+import { usePlaylistPlayback } from './hooks/playlist/usePlaylistPlayback';
+import { usePlaylistIpcSync } from './hooks/playlist/usePlaylistIpcSync';
+import { usePlaylistWindowSync } from './hooks/playlist/usePlaylistWindowSync';
+import { usePlaylistLoader } from './hooks/playlist/usePlaylistLoader';
+import { usePlaylistSaveRequest } from './hooks/playlist/usePlaylistSaveRequest';
+import { usePlaylistVideoSizing } from './hooks/playlist/usePlaylistVideoSizing';
+import { usePlaylistControlsVisibility } from './hooks/playlist/usePlaylistControlsVisibility';
+import { usePlaylistDrawingTarget } from './hooks/playlist/usePlaylistDrawingTarget';
+import { usePlaylistAnnotations } from './hooks/playlist/usePlaylistAnnotations';
+import { usePlaylistItemOperations } from './hooks/playlist/usePlaylistItemOperations';
+import { usePlaylistSaveFlow } from './hooks/playlist/usePlaylistSaveFlow';
+import { usePlaylistHotkeyBindings } from './hooks/playlist/usePlaylistHotkeyBindings';
+import { usePlaylistNotes } from './hooks/playlist/usePlaylistNotes';
+import { usePlaylistExportState } from './hooks/playlist/usePlaylistExportState';
+import { usePlaylistVideoSourcesSync } from './hooks/playlist/usePlaylistVideoSourcesSync';
+import { usePlaylistCurrentItem } from './hooks/playlist/usePlaylistCurrentItem';
+import { usePlaylistHistorySync } from './hooks/playlist/usePlaylistHistorySync';
+import { usePlaylistVideoControlsState } from './hooks/playlist/usePlaylistVideoControlsState';
+import { usePlaylistSaveDialogState } from './hooks/playlist/usePlaylistSaveDialogState';
+import { usePlaylistDialogHandlers } from './hooks/playlist/usePlaylistDialogHandlers';
 import { useGlobalHotkeys } from '../../hooks/useGlobalHotkeys';
 import { renderAnnotationPng } from './utils/renderAnnotationPng';
 import { PlaylistItemSection } from './components/PlaylistItemSection';
@@ -200,6 +200,18 @@ export default function PlaylistWindowApp() {
   );
 
   const {
+    editingItemId,
+    noteDialogOpen,
+    setNoteDialogOpen,
+    setEditingItemId,
+    handleEditNote,
+    handleSaveNote,
+  } = usePlaylistNotes({
+    setItemsWithHistory,
+    setHasUnsavedChanges,
+  });
+
+  const {
     currentItem,
     currentVideoSource,
     currentVideoSource2,
@@ -210,6 +222,21 @@ export default function PlaylistWindowApp() {
     videoSources,
     duration,
     editingItemId,
+  });
+
+  const {
+    currentAnnotation,
+    persistCanvasObjects,
+    handleAnnotationObjectsChange,
+    handleFreezeDurationChange,
+  } = usePlaylistAnnotations({
+    currentItem,
+    itemAnnotations,
+    setItemAnnotations,
+    setItemsWithHistory,
+    setHasUnsavedChanges,
+    minFreezeDuration: MIN_FREEZE_DURATION,
+    defaultFreezeDuration: DEFAULT_FREEZE_DURATION,
   });
 
   usePlaylistVideoSourcesSync({
@@ -266,38 +293,12 @@ export default function PlaylistWindowApp() {
     setControlsVisible,
   });
 
-  const {
-    currentAnnotation,
-    persistCanvasObjects,
-    handleAnnotationObjectsChange,
-    handleFreezeDurationChange,
-  } = usePlaylistAnnotations({
-    currentItem,
-    itemAnnotations,
-    setItemAnnotations,
-    setItemsWithHistory,
-    setHasUnsavedChanges,
-    minFreezeDuration: MIN_FREEZE_DURATION,
-    defaultFreezeDuration: DEFAULT_FREEZE_DURATION,
-  });
-
   const { handleRemoveItem, handleDragEnd } = usePlaylistItemOperations({
     currentIndex,
     setCurrentIndex,
     setIsPlaying,
     setItemsWithHistory,
     setItemAnnotations,
-    setHasUnsavedChanges,
-  });
-
-  const {
-    editingItemId,
-    noteDialogOpen,
-    setNoteDialogOpen,
-    handleEditNote,
-    handleSaveNote,
-  } = usePlaylistNotes({
-    setItemsWithHistory,
     setHasUnsavedChanges,
   });
 
@@ -468,8 +469,8 @@ export default function PlaylistWindowApp() {
 
   const {
     exportProgress,
-    setExportProgress,
     handleExportPlaylist: exportPlaylist,
+    clearExportProgress,
   } = usePlaylistExport({
     items,
     selectedItems,
@@ -487,8 +488,7 @@ export default function PlaylistWindowApp() {
     primarySourceSize,
     secondarySourceSize,
     renderAnnotationPng,
-    showError,
-    success,
+    onMissingApi: showError,
   });
 
   const {
@@ -502,13 +502,20 @@ export default function PlaylistWindowApp() {
     setExportDialogOpen,
     setNoteDialogOpen,
     setEditingItemId,
-    setExportProgress,
+    onCloseExportProgress: clearExportProgress,
   });
 
   const handleExportPlaylist = useCallback(() => {
     setExportDialogOpen(false);
-    void exportPlaylist();
-  }, [exportPlaylist]);
+    void exportPlaylist().then((result) => {
+      if (!result) return;
+      if (result.success) {
+        success(result.message);
+      } else {
+        showError(result.message);
+      }
+    });
+  }, [exportPlaylist, setExportDialogOpen, showError, success]);
 
   return (
     <Box

@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { ItemAnnotation, PlaylistItem } from '../../../types/Playlist';
+import type { ItemAnnotation, PlaylistItem } from '../../../../types/Playlist';
 
 interface UsePlaylistVideoControlsStateParams {
   currentItem: PlaylistItem | null;
