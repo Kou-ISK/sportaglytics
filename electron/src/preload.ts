@@ -340,6 +340,63 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return false;
     }
   },
+  // 分析ウィンドウAPI
+  analysis: {
+    openWindow: async () => {
+      try {
+        await ipcRenderer.invoke('analysis:open-window');
+      } catch (error) {
+        console.error('Error opening analysis window:', error);
+      }
+    },
+    closeWindow: async () => {
+      try {
+        await ipcRenderer.invoke('analysis:close-window');
+      } catch (error) {
+        console.error('Error closing analysis window:', error);
+      }
+    },
+    isWindowOpen: async () => {
+      try {
+        return await ipcRenderer.invoke('analysis:is-window-open');
+      } catch (error) {
+        console.error('Error checking analysis window state:', error);
+        return false;
+      }
+    },
+    syncToWindow: (data: unknown) => {
+      ipcRenderer.send('analysis:sync-to-window', data);
+    },
+    onSync: (callback: (data: unknown) => void) => {
+      const wrapped = (_event: IpcRendererEvent, data: unknown) => {
+        callback(data);
+      };
+      let map = __listenerStore.get('analysis:sync');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('analysis:sync', map);
+      }
+      map.set(
+        callback as unknown as Function,
+        wrapped as unknown as (...args: unknown[]) => void,
+      );
+      ipcRenderer.on('analysis:sync', wrapped);
+    },
+    offSync: (callback: (data: unknown) => void) => {
+      const map = __listenerStore.get('analysis:sync');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener(
+          'analysis:sync',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
+        map?.delete(callback as unknown as Function);
+      }
+    },
+    sendJumpToSegment: (segment: unknown) => {
+      ipcRenderer.send('analysis:jump-to-segment', segment);
+    },
+  },
   // ウィンドウタイトル更新API
   setWindowTitle: (title: string) => {
     ipcRenderer.send('set-window-title', title);

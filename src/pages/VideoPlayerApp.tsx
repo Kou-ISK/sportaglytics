@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Box } from '@mui/material';
 import {
   StatsModal,
@@ -104,6 +104,26 @@ const VideoPlayerAppContent = () => {
     });
   }, [setSyncMode]);
 
+  const openAnalysisWindow = useCallback(
+    async (nextView?: StatsView) => {
+      const resolvedView = nextView ?? statsView;
+      setStatsView(resolvedView);
+      const analysisApi = window.electronAPI?.analysis;
+      if (analysisApi?.openWindow) {
+        await analysisApi.openWindow();
+        analysisApi.syncToWindow({
+          timeline,
+          teamNames,
+          view: resolvedView,
+        });
+        setStatsOpen(false);
+        return;
+      }
+      setStatsOpen(true);
+    },
+    [statsView, timeline, teamNames],
+  );
+
   const { combinedHotkeys, combinedHandlers, keyUpHandlers } =
     useHotkeyBindings({
       currentTime,
@@ -123,7 +143,9 @@ const VideoPlayerAppContent = () => {
       resetSync,
       manualSyncFromPlayers,
       setSyncMode,
-      onAnalyze: () => setStatsOpen(true),
+      onAnalyze: () => {
+        void openAnalysisWindow();
+      },
       selectedTimelineIdList,
       deleteTimelineDatas,
       clearSelection: () => setSelectedTimelineIdList([]),
@@ -147,16 +169,39 @@ const VideoPlayerAppContent = () => {
     onSetSyncMode: setSyncMode,
   });
 
-  useStatsMenuHandlers({ setStatsOpen, setStatsView });
+  useStatsMenuHandlers({
+    onOpenStats: (view) => {
+      void openAnalysisWindow(view);
+    },
+  });
 
   useTimelineExportImport({ timeline, setTimeline });
 
-  const handleJumpToSegment = (segment: TimelineData) => {
-    const targetTime = Math.max(0, segment.startTime);
-    handleCurrentTime(new Event('matrix-jump'), targetTime);
-    setisVideoPlaying(true);
-    setStatsOpen(false);
-  };
+  const handleJumpToSegment = useCallback(
+    (segment: TimelineData) => {
+      const targetTime = Math.max(0, segment.startTime);
+      handleCurrentTime(new Event('matrix-jump'), targetTime);
+      setisVideoPlaying(true);
+      setStatsOpen(false);
+    },
+    [handleCurrentTime, setisVideoPlaying],
+  );
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.on) return;
+    const handler = (_event: unknown, segment: TimelineData) => {
+      handleJumpToSegment(segment);
+    };
+    api.on('analysis:jump-to-segment', handler);
+    return () => api.off?.('analysis:jump-to-segment', handler);
+  }, [handleJumpToSegment]);
+
+  useEffect(() => {
+    const analysisApi = window.electronAPI?.analysis;
+    if (!analysisApi?.syncToWindow) return;
+    analysisApi.syncToWindow({ timeline, teamNames });
+  }, [timeline, teamNames]);
 
   const { handleAddToPlaylist } = usePlaylistIntegration({
     currentTime,

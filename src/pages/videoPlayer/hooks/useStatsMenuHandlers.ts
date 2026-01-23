@@ -2,13 +2,11 @@ import { useEffect, useCallback } from 'react';
 import type { StatsView } from '../../../features/videoPlayer/components/Analytics/StatsModal/StatsModal';
 
 interface UseStatsMenuHandlersParams {
-  setStatsView: React.Dispatch<React.SetStateAction<StatsView>>;
-  setStatsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onOpenStats: (view: StatsView) => void;
 }
 
 export const useStatsMenuHandlers = ({
-  setStatsView,
-  setStatsOpen,
+  onOpenStats,
 }: UseStatsMenuHandlersParams) => {
   // useCallbackで安定した関数参照を作成
   const handleMenuStats = useCallback(
@@ -22,10 +20,9 @@ export const useStatsMenuHandlers = ({
       const nextView = statsViewOptions.includes(requested as StatsView)
         ? (requested as StatsView)
         : 'possession';
-      setStatsView(nextView);
-      setStatsOpen(true);
+      onOpenStats(nextView);
     },
-    [setStatsView, setStatsOpen],
+    [onOpenStats],
   );
 
   useEffect(() => {

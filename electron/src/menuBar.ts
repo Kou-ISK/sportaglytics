@@ -2,6 +2,7 @@ import { Menu, app, BrowserWindow } from 'electron';
 import { createPlaylistWindow } from './playlistWindow';
 import { openSettingsWindow } from './settingsWindow';
 import { openHelpWindow } from './helpWindow';
+import { openAnalysisWindow } from './analysisWindow';
 
 let recentPackagePaths: string[] = [];
 
@@ -197,6 +198,12 @@ const buildMenu = () => {
   ];
 
   const windowMenuItems: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: '分析ウィンドウを開く',
+      click: () => {
+        openAnalysisWindow();
+      },
+    },
     {
       label: 'プレイリストウィンドウを開く',
       click: () => {

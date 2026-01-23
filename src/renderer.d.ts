@@ -1,4 +1,12 @@
 import type { IPlaylistAPI } from './types/Playlist';
+import type { TimelineData } from './types/TimelineData';
+import type { StatsView } from './features/videoPlayer/components/Analytics/StatsModal/StatsModal';
+
+export interface AnalysisWindowSyncPayload {
+  timeline: TimelineData[];
+  teamNames: string[];
+  view?: StatsView;
+}
 
 export interface IElectronAPI {
   openFile: () => Promise<string>;
@@ -62,6 +70,15 @@ export interface IElectronAPI {
   openSettingsWindow: () => Promise<void>;
   closeSettingsWindow: () => Promise<void>;
   isSettingsWindowOpen: () => Promise<boolean>;
+  analysis: {
+    openWindow: () => Promise<void>;
+    closeWindow: () => Promise<void>;
+    isWindowOpen: () => Promise<boolean>;
+    syncToWindow: (payload: AnalysisWindowSyncPayload) => void;
+    onSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
+    offSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
+    sendJumpToSegment: (segment: TimelineData) => void;
+  };
   setWindowTitle: (title: string) => void;
   exportClipsWithOverlay?: (payload: {
     sourcePath: string;

@@ -9,6 +9,10 @@ import { registerShortcuts } from './shortCutKey';
 import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
 import {
+  registerAnalysisWindowHandlers,
+  setAnalysisMainWindowRef,
+} from './analysisWindow';
+import {
   registerPlaylistHandlers,
   setMainWindowRef,
   setFfmpegPath,
@@ -86,6 +90,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
   mainWindow = window; // グローバル変数に保存
   setMainWindow(window);
   setMainWindowRef(window);
+  setAnalysisMainWindowRef(window);
   window.loadURL(mainURL);
 
   // ウィンドウの読み込み完了を待つ
@@ -1058,6 +1063,7 @@ Utils();
 registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();
+registerAnalysisWindowHandlers();
 
 // FFmpegパスをプレイリストウィンドウに設定
 try {
