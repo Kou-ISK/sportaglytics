@@ -16,6 +16,8 @@ export const useStatsMenuHandlers = ({
         'results',
         'types',
         'momentum',
+        'matrix',
+        'custom',
       ];
       const nextView = statsViewOptions.includes(requested as StatsView)
         ? (requested as StatsView)

@@ -3,6 +3,7 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import QueryStatsIcon from '@mui/icons-material/QueryStats';
 import InsightsIcon from '@mui/icons-material/Insights';
+import BarChartIcon from '@mui/icons-material/BarChart';
 import type { StatsView } from '../StatsModal';
 
 export const TAB_DEFINITIONS: ReadonlyArray<{
@@ -34,6 +35,11 @@ export const TAB_DEFINITIONS: ReadonlyArray<{
     value: 'matrix',
     label: 'クロス集計',
     icon: <InsightsIcon fontSize="small" />,
+  },
+  {
+    value: 'custom',
+    label: 'カスタムチャート',
+    icon: <BarChartIcon fontSize="small" />,
   },
 ];
 

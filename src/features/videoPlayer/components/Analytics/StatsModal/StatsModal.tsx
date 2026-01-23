@@ -8,7 +8,8 @@ export type StatsView =
   | 'results'
   | 'types'
   | 'momentum'
-  | 'matrix';
+  | 'matrix'
+  | 'custom';
 
 interface StatsModalProps {
   open: boolean;
