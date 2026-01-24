@@ -6,7 +6,10 @@ import {
   type AppSettings,
   // normalizeはデフォルトレイアウトを最新にするために利用
 } from '../../src/types/Settings';
-import { normalizeCodingPanelLayouts } from '../../src/types/Settings';
+import {
+  normalizeCodingPanelLayouts,
+  normalizeAnalysisDashboard,
+} from '../../src/types/Settings';
 
 const buildCodingPanel = (
   loadedPanel?: AppSettings['codingPanel'] | null,
@@ -97,6 +100,7 @@ export const loadSettings = async (): Promise<AppSettings> => {
       codingPanel: normalizeCodingPanelLayouts(
         buildCodingPanel(parsed.codingPanel),
       ),
+      analysisDashboard: normalizeAnalysisDashboard(parsed.analysisDashboard),
     };
 
     // 古い/無効なホットキーをフィルタリング

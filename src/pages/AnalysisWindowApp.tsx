@@ -7,7 +7,7 @@ import type { AnalysisWindowSyncPayload } from '../renderer';
 export const AnalysisWindowApp = () => {
   const [timeline, setTimeline] = useState<TimelineData[]>([]);
   const [teamNames, setTeamNames] = useState<string[]>([]);
-  const [statsView, setStatsView] = useState<StatsView>('possession');
+  const [statsView, setStatsView] = useState<StatsView>('dashboard');
 
   useEffect(() => {
     const api = window.electronAPI?.analysis;

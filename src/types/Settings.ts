@@ -256,6 +256,111 @@ export interface TeamArea {
  */
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+export type DashboardMetric = 'count' | 'duration';
+export type DashboardChartType = 'bar' | 'stacked' | 'pie';
+export type DashboardCalcMode = 'raw' | 'percentTotal' | 'difference';
+
+export interface DashboardSeriesFilter {
+  team?: string;
+  action?: string;
+  labelGroup?: string;
+  labelValue?: string;
+}
+
+export interface DashboardSeriesDefinition {
+  id: string;
+  name: string;
+  filters: DashboardSeriesFilter;
+}
+
+export interface AnalysisDashboardWidget {
+  id: string;
+  title: string;
+  chartType: DashboardChartType;
+  metric: DashboardMetric;
+  primaryAxis: import('./MatrixConfig').MatrixAxisConfig;
+  seriesEnabled: boolean;
+  seriesAxis: import('./MatrixConfig').MatrixAxisConfig;
+  colSpan: 4 | 6 | 12;
+  limit?: number;
+  dataMode?: 'axis' | 'series';
+  series?: DashboardSeriesDefinition[];
+  calc?: DashboardCalcMode;
+  widgetFilters?: DashboardSeriesFilter;
+}
+
+export interface AnalysisDashboardConfig {
+  widgets: AnalysisDashboardWidget[];
+}
+
+const createDefaultAnalysisDashboard = (): AnalysisDashboardConfig => ({
+  widgets: [
+    {
+      id: 'dash-team-count',
+      title: 'チーム別件数',
+      chartType: 'bar',
+      metric: 'count',
+      primaryAxis: { type: 'team' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionResult' },
+      colSpan: 6,
+    },
+    {
+      id: 'dash-action-count',
+      title: 'アクション別件数',
+      chartType: 'bar',
+      metric: 'count',
+      primaryAxis: { type: 'action' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionResult' },
+      colSpan: 6,
+      limit: 12,
+    },
+    {
+      id: 'dash-result-stack',
+      title: 'ラベル別スタック',
+      chartType: 'stacked',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'all_labels' },
+      seriesEnabled: true,
+      seriesAxis: { type: 'team' },
+      colSpan: 12,
+    },
+    {
+      id: 'dash-action-result',
+      title: 'ラベル内訳',
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'all_labels' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'all_labels' },
+      colSpan: 6,
+    },
+    {
+      id: 'dash-action-type',
+      title: 'ラベルグループ内訳',
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'all_labels' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'all_labels' },
+      colSpan: 6,
+    },
+  ],
+});
+
+export const normalizeAnalysisDashboard = (
+  dashboard?: AnalysisDashboardConfig | null,
+): AnalysisDashboardConfig => {
+  if (!dashboard || !Array.isArray(dashboard.widgets)) {
+    return createDefaultAnalysisDashboard();
+  }
+  if (dashboard.widgets.length === 0) {
+    return createDefaultAnalysisDashboard();
+  }
+  return dashboard;
+};
+
 /**
  * アプリケーション設定全体
  */
@@ -290,6 +395,8 @@ export interface AppSettings {
     /** アクティブなコードウィンドウID */
     activeCodeWindowId?: string;
   };
+  /** 分析ダッシュボード設定 */
+  analysisDashboard?: AnalysisDashboardConfig;
 }
 
 /**
@@ -356,4 +463,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
     codeWindows: [createDefaultCodeWindowLayout()],
     activeCodeWindowId: 'default',
   },
+  analysisDashboard: createDefaultAnalysisDashboard(),
 };

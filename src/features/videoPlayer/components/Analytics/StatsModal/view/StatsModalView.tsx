@@ -9,6 +9,7 @@ import { ActionBreakdownTab } from './ActionBreakdownTab';
 import { MomentumTab } from './MomentumTab';
 import { MatrixTab } from './MatrixTab';
 import { CustomChartTab } from './CustomChartTab';
+import { DashboardTab } from './DashboardTab';
 import { StatsModalHeader } from './Header';
 
 interface StatsModalViewProps extends StatsModalDerivedState {
@@ -112,6 +113,14 @@ export const StatsModalView = ({
             timeline={timeline}
             onJumpToSegment={onJumpToSegment}
             emptyMessage="クロス集計を表示するにはタイムラインを作成してください。"
+          />
+        )}
+
+        {currentView === 'dashboard' && (
+          <DashboardTab
+            hasData={hasTimelineData}
+            timeline={timeline}
+            emptyMessage="ダッシュボードを表示するにはタイムラインを作成してください。"
           />
         )}
 

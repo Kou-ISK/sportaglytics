@@ -4,6 +4,7 @@ import { StatsModalView } from './view/StatsModalView';
 import { useStatsModalState } from './hooks/useStatsModalState';
 
 export type StatsView =
+  | 'dashboard'
   | 'possession'
   | 'results'
   | 'types'

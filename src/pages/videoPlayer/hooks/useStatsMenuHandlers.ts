@@ -12,6 +12,7 @@ export const useStatsMenuHandlers = ({
   const handleMenuStats = useCallback(
     (_event: unknown, requested?: unknown) => {
       const statsViewOptions: StatsView[] = [
+        'dashboard',
         'possession',
         'results',
         'types',

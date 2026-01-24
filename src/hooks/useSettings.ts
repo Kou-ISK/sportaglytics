@@ -3,6 +3,7 @@ import type { AppSettings } from '../types/Settings';
 import {
   DEFAULT_SETTINGS,
   normalizeCodingPanelLayouts,
+  normalizeAnalysisDashboard,
 } from '../types/Settings';
 
 /**
@@ -83,6 +84,9 @@ export const useSettings = () => {
         codingPanel: buildCodingPanel(
           (loaded as Partial<AppSettings>).codingPanel,
         ),
+        analysisDashboard: normalizeAnalysisDashboard(
+          (loaded as Partial<AppSettings>).analysisDashboard,
+        ),
       };
       setSettings(merged);
     } catch (err) {
@@ -145,6 +149,9 @@ export const useSettings = () => {
         },
         codingPanel: buildCodingPanel(
           (defaultSettings as Partial<AppSettings>).codingPanel,
+        ),
+        analysisDashboard: normalizeAnalysisDashboard(
+          (defaultSettings as Partial<AppSettings>).analysisDashboard,
         ),
       };
       setSettings(merged);

@@ -4,6 +4,7 @@ import PieChartIcon from '@mui/icons-material/PieChart';
 import QueryStatsIcon from '@mui/icons-material/QueryStats';
 import InsightsIcon from '@mui/icons-material/Insights';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import type { StatsView } from '../StatsModal';
 
 export const TAB_DEFINITIONS: ReadonlyArray<{
@@ -11,6 +12,11 @@ export const TAB_DEFINITIONS: ReadonlyArray<{
   label: string;
   icon: ReactElement;
 }> = [
+  {
+    value: 'dashboard',
+    label: 'ダッシュボード',
+    icon: <DashboardCustomizeIcon fontSize="small" />,
+  },
   {
     value: 'possession',
     label: 'ポゼッション',

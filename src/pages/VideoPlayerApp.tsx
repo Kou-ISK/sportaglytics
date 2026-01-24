@@ -72,7 +72,7 @@ const VideoPlayerAppContent = () => {
   } = useVideoPlayerApp();
 
   const [statsOpen, setStatsOpen] = useState(false);
-  const [statsView, setStatsView] = useState<StatsView>('possession');
+  const [statsView, setStatsView] = useState<StatsView>('dashboard');
   const [viewMode, setViewMode] = useState<'dual' | 'angle1' | 'angle2'>(
     'dual',
   );
