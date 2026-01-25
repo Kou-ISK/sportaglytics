@@ -13,16 +13,11 @@ export const useAnalysisMenuHandlers = ({
     (_event: unknown, requested?: unknown) => {
       const analysisViewOptions: AnalysisView[] = [
         'dashboard',
-        'possession',
-        'results',
-        'types',
-        'momentum',
         'matrix',
-        'custom',
       ];
       const nextView = analysisViewOptions.includes(requested as AnalysisView)
         ? (requested as AnalysisView)
-        : 'possession';
+        : 'dashboard';
       onOpenAnalysis(nextView);
     },
     [onOpenAnalysis],

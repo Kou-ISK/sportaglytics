@@ -64,8 +64,12 @@ export const CustomPieChart = ({
           data={pieData}
           dataKey="value"
           nameKey="name"
-          outerRadius="80%"
-          innerRadius="45%"
+          outerRadius="90%"
+          innerRadius="55%"
+          startAngle={180}
+          endAngle={0}
+          cx="50%"
+          cy="100%"
           label={({ name, value }) => {
             if (!totalValue) return `${name}`;
             const percentage = ((value / totalValue) * 100).toFixed(1);

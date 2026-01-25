@@ -6,18 +6,29 @@ import type { SCLabel } from '../types/SCTimeline';
  * labels配列が存在しない場合は、actionType/actionResultから生成
  */
 export const getLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
-  if (item.labels && item.labels.length > 0) {
-    return item.labels;
-  }
+  const labels: SCLabel[] = item.labels ? [...item.labels] : [];
 
   // 後方互換性: labels配列が存在しない場合はactionType/actionResultから生成
-  const labels: SCLabel[] = [];
-  if (item.actionType) {
+  if (labels.length === 0) {
+    if (item.actionType) {
+      labels.push({ name: item.actionType, group: 'actionType' });
+    }
+    if (item.actionResult) {
+      labels.push({ name: item.actionResult, group: 'actionResult' });
+    }
+    return labels;
+  }
+
+  // labels配列がある場合でも、actionType/actionResultが欠けていれば補完する
+  const hasActionType = labels.some((label) => label.group === 'actionType');
+  if (!hasActionType && item.actionType) {
     labels.push({ name: item.actionType, group: 'actionType' });
   }
-  if (item.actionResult) {
+  const hasActionResult = labels.some((label) => label.group === 'actionResult');
+  if (!hasActionResult && item.actionResult) {
     labels.push({ name: item.actionResult, group: 'actionResult' });
   }
+
   return labels;
 };
 

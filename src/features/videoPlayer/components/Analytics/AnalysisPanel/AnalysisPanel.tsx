@@ -5,12 +5,7 @@ import { useAnalysisPanelState } from './hooks/useAnalysisPanelState';
 
 export type AnalysisView =
   | 'dashboard'
-  | 'possession'
-  | 'results'
-  | 'types'
-  | 'momentum'
-  | 'matrix'
-  | 'custom';
+  | 'matrix';
 
 interface AnalysisPanelProps {
   open: boolean;

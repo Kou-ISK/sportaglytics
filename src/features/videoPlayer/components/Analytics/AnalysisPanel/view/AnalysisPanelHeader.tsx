@@ -13,10 +13,10 @@ export const AnalysisPanelHeader: React.FC<AnalysisPanelHeaderProps> = ({
     <Box display="flex" alignItems="center" justifyContent="space-between">
       <Stack direction="row" spacing={2} alignItems="center">
         <Typography variant="h6" component="span">
-          分析ダッシュボード
+          分析
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          タイムラインから自動集計された指標を確認できます
+          ダッシュボードとクロス集計で可視化できます
         </Typography>
       </Stack>
       <IconButton onClick={onClose} size="small">

@@ -17,7 +17,17 @@ export const DashboardCard = ({
   children,
 }: DashboardCardProps) => {
   return (
-    <Paper elevation={1} sx={{ p: 2.5, borderRadius: 2, height: '100%' }}>
+    <Paper
+      elevation={0}
+      variant="outlined"
+      sx={{
+        p: 2.5,
+        borderRadius: 2,
+        height: '100%',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+      }}
+    >
       <Box display="flex" alignItems="flex-start" justifyContent="space-between">
         <Stack spacing={0.5}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>

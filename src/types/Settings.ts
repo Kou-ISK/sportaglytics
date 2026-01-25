@@ -289,76 +289,125 @@ export interface AnalysisDashboardWidget {
   widgetFilters?: DashboardSeriesFilter;
 }
 
-export interface AnalysisDashboardConfig {
+export interface AnalysisDashboard {
+  id: string;
+  name: string;
   widgets: AnalysisDashboardWidget[];
 }
 
+export interface AnalysisDashboardConfig {
+  dashboards: AnalysisDashboard[];
+  activeDashboardId: string;
+}
+
+const DEFAULT_DASHBOARD_WIDGETS: AnalysisDashboardWidget[] = [
+  {
+    id: 'dash-team-count',
+    title: 'チーム別件数',
+    chartType: 'bar',
+    metric: 'count',
+    primaryAxis: { type: 'team' },
+    seriesEnabled: false,
+    seriesAxis: { type: 'group', value: 'actionResult' },
+    colSpan: 6,
+  },
+  {
+    id: 'dash-action-count',
+    title: 'アクション別件数',
+    chartType: 'bar',
+    metric: 'count',
+    primaryAxis: { type: 'action' },
+    seriesEnabled: false,
+    seriesAxis: { type: 'group', value: 'actionResult' },
+    colSpan: 6,
+    limit: 12,
+  },
+  {
+    id: 'dash-result-stack',
+    title: 'ラベル別スタック',
+    chartType: 'stacked',
+    metric: 'count',
+    primaryAxis: { type: 'group', value: 'all_labels' },
+    seriesEnabled: true,
+    seriesAxis: { type: 'team' },
+    colSpan: 12,
+  },
+  {
+    id: 'dash-action-result',
+    title: 'ラベル内訳',
+    chartType: 'pie',
+    metric: 'count',
+    primaryAxis: { type: 'group', value: 'all_labels' },
+    seriesEnabled: false,
+    seriesAxis: { type: 'group', value: 'all_labels' },
+    colSpan: 6,
+  },
+  {
+    id: 'dash-action-type',
+    title: 'ラベルグループ内訳',
+    chartType: 'pie',
+    metric: 'count',
+    primaryAxis: { type: 'group', value: 'all_labels' },
+    seriesEnabled: false,
+    seriesAxis: { type: 'group', value: 'all_labels' },
+    colSpan: 6,
+  },
+];
+
 const createDefaultAnalysisDashboard = (): AnalysisDashboardConfig => ({
-  widgets: [
+  dashboards: [
     {
-      id: 'dash-team-count',
-      title: 'チーム別件数',
-      chartType: 'bar',
-      metric: 'count',
-      primaryAxis: { type: 'team' },
-      seriesEnabled: false,
-      seriesAxis: { type: 'group', value: 'actionResult' },
-      colSpan: 6,
-    },
-    {
-      id: 'dash-action-count',
-      title: 'アクション別件数',
-      chartType: 'bar',
-      metric: 'count',
-      primaryAxis: { type: 'action' },
-      seriesEnabled: false,
-      seriesAxis: { type: 'group', value: 'actionResult' },
-      colSpan: 6,
-      limit: 12,
-    },
-    {
-      id: 'dash-result-stack',
-      title: 'ラベル別スタック',
-      chartType: 'stacked',
-      metric: 'count',
-      primaryAxis: { type: 'group', value: 'all_labels' },
-      seriesEnabled: true,
-      seriesAxis: { type: 'team' },
-      colSpan: 12,
-    },
-    {
-      id: 'dash-action-result',
-      title: 'ラベル内訳',
-      chartType: 'pie',
-      metric: 'count',
-      primaryAxis: { type: 'group', value: 'all_labels' },
-      seriesEnabled: false,
-      seriesAxis: { type: 'group', value: 'all_labels' },
-      colSpan: 6,
-    },
-    {
-      id: 'dash-action-type',
-      title: 'ラベルグループ内訳',
-      chartType: 'pie',
-      metric: 'count',
-      primaryAxis: { type: 'group', value: 'all_labels' },
-      seriesEnabled: false,
-      seriesAxis: { type: 'group', value: 'all_labels' },
-      colSpan: 6,
+      id: 'default',
+      name: 'メイン',
+      widgets: DEFAULT_DASHBOARD_WIDGETS,
     },
   ],
+  activeDashboardId: 'default',
 });
 
 export const normalizeAnalysisDashboard = (
   dashboard?: AnalysisDashboardConfig | null,
 ): AnalysisDashboardConfig => {
-  if (!dashboard || !Array.isArray(dashboard.widgets)) {
+  if (!dashboard) {
     return createDefaultAnalysisDashboard();
   }
-  if (dashboard.widgets.length === 0) {
+
+  const hasDashboards = (dashboard as AnalysisDashboardConfig).dashboards;
+  if (Array.isArray(hasDashboards)) {
+    const dashboards = hasDashboards.filter(
+      (item) => item && Array.isArray(item.widgets),
+    );
+    if (dashboards.length === 0) {
+      return createDefaultAnalysisDashboard();
+    }
+    const activeId =
+      dashboards.find((item) => item.id === dashboard.activeDashboardId)?.id ??
+      dashboards[0].id;
+    return {
+      dashboards: dashboards.map((item, index) => ({
+        id: item.id || `dashboard-${index + 1}`,
+        name: item.name || `ダッシュボード${index + 1}`,
+        widgets: item.widgets,
+      })),
+      activeDashboardId: activeId,
+    };
+  }
+
+  const legacyWidgets = (dashboard as { widgets?: AnalysisDashboardWidget[] })
+    .widgets;
+  if (!Array.isArray(legacyWidgets) || legacyWidgets.length === 0) {
     return createDefaultAnalysisDashboard();
   }
-  return dashboard;
+  return {
+    dashboards: [
+      {
+        id: 'default',
+        name: 'メイン',
+        widgets: legacyWidgets,
+      },
+    ],
+    activeDashboardId: 'default',
+  };
 };
 
 /**
