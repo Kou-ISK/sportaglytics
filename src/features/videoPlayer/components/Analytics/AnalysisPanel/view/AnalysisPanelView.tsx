@@ -13,6 +13,7 @@ import type { AnalysisPanelDerivedState } from '../hooks/useAnalysisPanelState';
 import { MatrixTab } from './MatrixTab';
 import { DashboardTab } from './DashboardTab';
 import { AnalysisPanelHeader } from './AnalysisPanelHeader';
+import { MomentumTab } from './MomentumTab';
 
 interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   open: boolean;
@@ -31,6 +32,7 @@ export const AnalysisPanelView = ({
   onChangeView,
   hasTimelineData,
   resolvedTeamNames,
+  createMomentumData,
   timeline,
   onJumpToSegment,
   embedded = false,
@@ -47,6 +49,7 @@ export const AnalysisPanelView = ({
           size="small"
         >
           <ToggleButton value="dashboard">ダッシュボード</ToggleButton>
+          <ToggleButton value="momentum">モメンタム</ToggleButton>
           <ToggleButton value="matrix">クロス集計</ToggleButton>
         </ToggleButtonGroup>
       </Box>
@@ -66,6 +69,15 @@ export const AnalysisPanelView = ({
           timeline={timeline}
           onJumpToSegment={onJumpToSegment}
           emptyMessage="クロス集計を表示するにはタイムラインを作成してください。"
+        />
+      )}
+
+      {currentView === 'momentum' && (
+        <MomentumTab
+          hasData={hasTimelineData}
+          createMomentumData={createMomentumData}
+          teamNames={resolvedTeamNames}
+          emptyMessage="モメンタムを表示するにはタイムラインを作成してください。"
         />
       )}
     </>

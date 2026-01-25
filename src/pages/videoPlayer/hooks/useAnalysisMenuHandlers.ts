@@ -13,6 +13,7 @@ export const useAnalysisMenuHandlers = ({
     (_event: unknown, requested?: unknown) => {
       const analysisViewOptions: AnalysisView[] = [
         'dashboard',
+        'momentum',
         'matrix',
       ];
       const nextView = analysisViewOptions.includes(requested as AnalysisView)
