@@ -298,7 +298,7 @@ useEffect(() => {
 
 | 対象                | 規則        | 例                                   |
 | ------------------- | ----------- | ------------------------------------ |
-| Reactコンポーネント | PascalCase  | `TimelineEditor`, `StatsCard`        |
+| Reactコンポーネント | PascalCase  | `TimelineEditor`, `AnalysisCard`     |
 | カスタムフック      | camelCase   | `useTimelineViewport`, `useSettings` |
 | ユーティリティ関数  | camelCase   | `formatTime`, `calculateOffset`      |
 | 型定義              | PascalCase  | `TimelineData`, `VideoSyncState`     |

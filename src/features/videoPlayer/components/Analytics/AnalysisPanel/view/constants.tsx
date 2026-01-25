@@ -5,10 +5,10 @@ import QueryStatsIcon from '@mui/icons-material/QueryStats';
 import InsightsIcon from '@mui/icons-material/Insights';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
-import type { StatsView } from '../StatsPanel';
+import type { AnalysisView } from '../AnalysisPanel';
 
 export const TAB_DEFINITIONS: ReadonlyArray<{
-  value: StatsView;
+  value: AnalysisView;
   label: string;
   icon: ReactElement;
 }> = [

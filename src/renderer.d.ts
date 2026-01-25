@@ -1,11 +1,11 @@
 import type { IPlaylistAPI } from './types/Playlist';
 import type { TimelineData } from './types/TimelineData';
-import type { StatsView } from './features/videoPlayer/components/Analytics/StatsPanel/StatsPanel';
+import type { AnalysisView } from './features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
 
 export interface AnalysisWindowSyncPayload {
   timeline: TimelineData[];
   teamNames: string[];
-  view?: StatsView;
+  view?: AnalysisView;
 }
 
 export interface IElectronAPI {

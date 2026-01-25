@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { TimelineData } from '../../../../../types/TimelineData';
-import { StatsPanelView } from './view/StatsPanelView';
-import { useStatsPanelState } from './hooks/useStatsPanelState';
+import { AnalysisPanelView } from './view/AnalysisPanelView';
+import { useAnalysisPanelState } from './hooks/useAnalysisPanelState';
 
-export type StatsView =
+export type AnalysisView =
   | 'dashboard'
   | 'possession'
   | 'results'
@@ -12,18 +12,18 @@ export type StatsView =
   | 'matrix'
   | 'custom';
 
-interface StatsPanelProps {
+interface AnalysisPanelProps {
   open: boolean;
   onClose: () => void;
-  view: StatsView;
-  onViewChange?: (view: StatsView) => void;
+  view: AnalysisView;
+  onViewChange?: (view: AnalysisView) => void;
   timeline: TimelineData[];
   teamNames: string[];
   onJumpToSegment?: (segment: TimelineData) => void;
   embedded?: boolean;
 }
 
-export const StatsPanel = ({
+export const AnalysisPanel = ({
   open,
   onClose,
   view,
@@ -32,16 +32,16 @@ export const StatsPanel = ({
   teamNames,
   onJumpToSegment,
   embedded = false,
-}: StatsPanelProps) => {
-  const [currentView, setCurrentView] = useState<StatsView>(view);
-  const derivedState = useStatsPanelState({ timeline, teamNames });
+}: AnalysisPanelProps) => {
+  const [currentView, setCurrentView] = useState<AnalysisView>(view);
+  const derivedState = useAnalysisPanelState({ timeline, teamNames });
 
   useEffect(() => {
     setCurrentView(view);
   }, [view]);
 
   const handleChangeView = useCallback(
-    (next: StatsView) => {
+    (next: AnalysisView) => {
       setCurrentView(next);
       onViewChange?.(next);
     },
@@ -49,7 +49,7 @@ export const StatsPanel = ({
   );
 
   return (
-    <StatsPanelView
+    <AnalysisPanelView
       open={open}
       onClose={onClose}
       currentView={currentView}

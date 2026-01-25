@@ -3,7 +3,7 @@ import { Divider } from '@mui/material';
 import { MomentumChart } from '../../MomentumChart';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
 import { CreateMomentumDataFn } from '../../../../../../types/Analysis';
-import { StatsCard } from './StatsCard';
+import { AnalysisCard } from './AnalysisCard';
 
 interface MomentumTabProps {
   hasData: boolean;
@@ -23,12 +23,12 @@ export const MomentumTab = ({
   }
 
   return (
-    <StatsCard title="モメンタムチャート">
+    <AnalysisCard title="モメンタムチャート">
       <Divider sx={{ mb: 2 }} />
       <MomentumChart
         createMomentumData={createMomentumData}
         teamNames={teamNames}
       />
-    </StatsCard>
+    </AnalysisCard>
   );
 };

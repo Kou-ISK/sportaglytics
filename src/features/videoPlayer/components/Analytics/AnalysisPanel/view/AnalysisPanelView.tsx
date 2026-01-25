@@ -1,8 +1,8 @@
 import React from 'react';
 import { Box, Dialog, DialogContent, DialogTitle, Tab, Tabs } from '@mui/material';
 import { TimelineData } from '../../../../../../types/TimelineData';
-import type { StatsView } from '../StatsPanel';
-import type { StatsPanelDerivedState } from '../hooks/useStatsPanelState';
+import type { AnalysisView } from '../AnalysisPanel';
+import type { AnalysisPanelDerivedState } from '../hooks/useAnalysisPanelState';
 import { TAB_DEFINITIONS, ACTIONS_TO_SUMMARISE } from './constants';
 import { PossessionTab } from './PossessionTab';
 import { ActionBreakdownTab } from './ActionBreakdownTab';
@@ -10,19 +10,19 @@ import { MomentumTab } from './MomentumTab';
 import { MatrixTab } from './MatrixTab';
 import { CustomChartTab } from './CustomChartTab';
 import { DashboardTab } from './DashboardTab';
-import { StatsPanelHeader } from './StatsPanelHeader';
+import { AnalysisPanelHeader } from './AnalysisPanelHeader';
 
-interface StatsPanelViewProps extends StatsPanelDerivedState {
+interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   open: boolean;
   onClose: () => void;
-  currentView: StatsView;
-  onChangeView: (view: StatsView) => void;
+  currentView: AnalysisView;
+  onChangeView: (view: AnalysisView) => void;
   timeline: TimelineData[];
   onJumpToSegment?: (segment: TimelineData) => void;
   embedded?: boolean;
 }
 
-export const StatsPanelView = ({
+export const AnalysisPanelView = ({
   open,
   onClose,
   currentView,
@@ -36,7 +36,7 @@ export const StatsPanelView = ({
   timeline,
   onJumpToSegment,
   embedded = false,
-}: StatsPanelViewProps) => {
+}: AnalysisPanelViewProps) => {
   const content = (
     <>
       <Tabs
@@ -128,7 +128,7 @@ export const StatsPanelView = ({
     return (
       <Box sx={{ p: 3, height: '100%', overflow: 'auto' }}>
         <Box sx={{ mb: 2 }}>
-          <StatsPanelHeader onClose={onClose} />
+          <AnalysisPanelHeader onClose={onClose} />
         </Box>
         {content}
       </Box>
@@ -146,7 +146,7 @@ export const StatsPanelView = ({
       disableRestoreFocus
     >
       <DialogTitle id="stats-dialog-title" sx={{ pb: 1 }}>
-        <StatsPanelHeader onClose={onClose} />
+        <AnalysisPanelHeader onClose={onClose} />
       </DialogTitle>
 
       <DialogContent dividers sx={{ pt: 0 }}>

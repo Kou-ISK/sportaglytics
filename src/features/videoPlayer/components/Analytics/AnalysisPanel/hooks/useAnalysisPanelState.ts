@@ -4,12 +4,12 @@ import { CreateMomentumDataFn } from '../../../../../../types/Analysis';
 import { rechartsData } from '../../../../../../types/RechartsData';
 import { useAnalysis } from '../../../../analysis/hooks/useAnalysis';
 
-interface UseStatsPanelStateParams {
+interface UseAnalysisPanelStateParams {
   timeline: TimelineData[];
   teamNames: string[];
 }
 
-export interface StatsPanelDerivedState {
+export interface AnalysisPanelDerivedState {
   possessionData: rechartsData[];
   hasTimelineData: boolean;
   resolvedTeamNames: string[];
@@ -24,10 +24,10 @@ export interface StatsPanelDerivedState {
   createMomentumData: CreateMomentumDataFn;
 }
 
-export const useStatsPanelState = ({
+export const useAnalysisPanelState = ({
   timeline,
   teamNames,
-}: UseStatsPanelStateParams): StatsPanelDerivedState => {
+}: UseAnalysisPanelStateParams): AnalysisPanelDerivedState => {
   const {
     calculateActionDuration,
     countActionResultByTeamName,

@@ -16,7 +16,7 @@ import type { TimelineData } from '../../../../../../types/TimelineData';
 import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
 import { MatrixAxisSelector } from './MatrixAxisSelector';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
-import { StatsCard } from './StatsCard';
+import { AnalysisCard } from './AnalysisCard';
 import { buildCustomChartData } from './hooks/useCustomChartData';
 import { CustomBarChart } from './CustomBarChart';
 
@@ -78,7 +78,7 @@ export const CustomChartTab = ({
   const unitLabel = metric === 'duration' ? '秒' : '件';
 
   return (
-    <StatsCard title="カスタムチャート">
+    <AnalysisCard title="カスタムチャート">
       <Stack spacing={2}>
         <Divider />
 
@@ -140,6 +140,6 @@ export const CustomChartTab = ({
           対象データ数: {timeline.length} 件
         </Typography>
       </Stack>
-    </StatsCard>
+    </AnalysisCard>
   );
 };

@@ -5,7 +5,7 @@ import { ActionPieChart } from '../../ActionPieChart';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
 import { useActionBreakdown } from './hooks/useActionBreakdown';
 import { rechartsData } from '../../../../../../types/RechartsData';
-import { StatsCard } from './StatsCard';
+import { AnalysisCard } from './AnalysisCard';
 
 interface ActionBreakdownTabProps {
   hasData: boolean;
@@ -38,7 +38,7 @@ export const ActionBreakdownTab = ({
   return (
     <Stack spacing={3}>
       {breakdown.map(({ actionName, teams }) => (
-        <StatsCard key={actionName} title={titleFormatter(actionName)}>
+        <AnalysisCard key={actionName} title={titleFormatter(actionName)}>
           <Divider sx={{ mb: 2 }} />
           <Grid container spacing={2}>
             {teams.map(({ team }) => (
@@ -51,7 +51,7 @@ export const ActionBreakdownTab = ({
               </Grid>
             ))}
           </Grid>
-        </StatsCard>
+        </AnalysisCard>
       ))}
     </Stack>
   );

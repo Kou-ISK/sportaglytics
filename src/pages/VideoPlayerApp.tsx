@@ -1,9 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Box } from '@mui/material';
 import {
-  StatsPanel,
-  StatsView,
-} from '../features/videoPlayer/components/Analytics/StatsPanel/StatsPanel';
+  AnalysisPanel,
+  AnalysisView,
+} from '../features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
 import { useVideoPlayerApp } from '../hooks/useVideoPlayerApp';
 import { useSettings } from '../hooks/useSettings';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
@@ -14,7 +14,7 @@ import type { TimelineActionSectionHandle } from './videoPlayer/components/Timel
 import { ErrorSnackbar } from './videoPlayer/components/ErrorSnackbar';
 import { SyncAnalysisBackdrop } from './videoPlayer/components/SyncAnalysisBackdrop';
 import { useSyncMenuHandlers } from './videoPlayer/hooks/useSyncMenuHandlers';
-import { useStatsMenuHandlers } from './videoPlayer/hooks/useStatsMenuHandlers';
+import { useAnalysisMenuHandlers } from './videoPlayer/hooks/useAnalysisMenuHandlers';
 import { useTimelineExportImport } from './videoPlayer/hooks/useTimelineExportImport';
 import { OnboardingTutorial } from '../components/OnboardingTutorial';
 import { useHotkeyBindings } from './videoPlayer/hooks/useHotkeyBindings';
@@ -71,8 +71,8 @@ const VideoPlayerAppContent = () => {
     performRedo,
   } = useVideoPlayerApp();
 
-  const [statsOpen, setStatsOpen] = useState(false);
-  const [statsView, setStatsView] = useState<StatsView>('dashboard');
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [analysisView, setAnalysisView] = useState<AnalysisView>('dashboard');
   const [viewMode, setViewMode] = useState<'dual' | 'angle1' | 'angle2'>(
     'dual',
   );
@@ -105,9 +105,9 @@ const VideoPlayerAppContent = () => {
   }, [setSyncMode]);
 
   const openAnalysisWindow = useCallback(
-    async (nextView?: StatsView) => {
-      const resolvedView = nextView ?? statsView;
-      setStatsView(resolvedView);
+    async (nextView?: AnalysisView) => {
+      const resolvedView = nextView ?? analysisView;
+      setAnalysisView(resolvedView);
       const analysisApi = window.electronAPI?.analysis;
       if (analysisApi?.openWindow) {
         await analysisApi.openWindow();
@@ -116,12 +116,12 @@ const VideoPlayerAppContent = () => {
           teamNames,
           view: resolvedView,
         });
-        setStatsOpen(false);
+        setAnalysisOpen(false);
         return;
       }
-      setStatsOpen(true);
+      setAnalysisOpen(true);
     },
-    [statsView, timeline, teamNames],
+    [analysisView, timeline, teamNames],
   );
 
   const { combinedHotkeys, combinedHandlers, keyUpHandlers } =
@@ -169,8 +169,8 @@ const VideoPlayerAppContent = () => {
     onSetSyncMode: setSyncMode,
   });
 
-  useStatsMenuHandlers({
-    onOpenStats: (view) => {
+  useAnalysisMenuHandlers({
+    onOpenAnalysis: (view) => {
       void openAnalysisWindow(view);
     },
   });
@@ -182,7 +182,7 @@ const VideoPlayerAppContent = () => {
       const targetTime = Math.max(0, segment.startTime);
       handleCurrentTime(new Event('matrix-jump'), targetTime);
       setisVideoPlaying(true);
-      setStatsOpen(false);
+      setAnalysisOpen(false);
     },
     [handleCurrentTime, setisVideoPlaying],
   );
@@ -260,11 +260,11 @@ const VideoPlayerAppContent = () => {
         onCancelManualSync={handleCancelManualSync}
         onAddToPlaylist={handleAddToPlaylist}
       />
-      <StatsPanel
-        open={statsOpen}
-        onClose={() => setStatsOpen(false)}
-        view={statsView}
-        onViewChange={setStatsView}
+      <AnalysisPanel
+        open={analysisOpen}
+        onClose={() => setAnalysisOpen(false)}
+        view={analysisView}
+        onViewChange={setAnalysisView}
         timeline={timeline}
         teamNames={teamNames}
         onJumpToSegment={handleJumpToSegment}

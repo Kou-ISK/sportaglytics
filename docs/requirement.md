@@ -588,7 +588,7 @@ src/
 │       │   └── utils/             # 分析ユーティリティ
 │       └── components/
 │           ├── Analytics/         # 統計分析UI
-│           │   └── StatsModal/    # 統計モーダル
+│           │   └── AnalysisPanel/    # 分析パネル
 │           │       └── view/      # 各ビュー（Possession/Results/Types/Momentum/Matrix）
 │           ├── Controls/          # コントロールパネル
 │           │   └── VideoController/
@@ -634,7 +634,7 @@ electron/
 | VideoPlayerApp      | pages/VideoPlayerApp.tsx                       | メインページ             |
 | SettingsPage        | pages/SettingsPage.tsx                         | 設定画面（4タブ）        |
 | VisualTimeline      | features/.../Timeline/VisualTimeline/          | ビジュアルタイムライン   |
-| StatsModal          | features/.../Analytics/StatsModal/             | 統計モーダル             |
+| AnalysisPanel       | features/.../Analytics/AnalysisPanel/         | 分析パネル               |
 | EnhancedCodePanel   | features/.../Controls/                         | コーディングパネル       |
 | SyncedVideoPlayer   | features/.../Player/SyncedVideo/               | 同期ビデオプレイヤー     |
 | VideoPathSelector   | features/.../Setup/VideoPathSelector/          | パッケージ選択・作成     |
@@ -658,8 +658,8 @@ electron/
 | useTimelineEditDraft      | features/.../VisualTimeline/hooks/          | 編集ドラフト         |
 | useTimelineValidation     | features/.../VisualTimeline/hooks/          | バリデーション       |
 | useTimelineRangeSelection | features/.../VisualTimeline/hooks/          | 範囲選択             |
-| useMatrixAxes             | features/.../StatsModal/view/hooks/         | クロス集計軸         |
-| useMatrixFilters          | features/.../StatsModal/view/hooks/         | クロス集計フィルタ   |
+| useMatrixAxes             | features/.../AnalysisPanel/view/hooks/      | クロス集計軸         |
+| useMatrixFilters          | features/.../AnalysisPanel/view/hooks/      | クロス集計フィルタ   |
 
 ### 5.4 設計原則
 
