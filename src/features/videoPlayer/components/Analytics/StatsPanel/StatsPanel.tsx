@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { TimelineData } from '../../../../../types/TimelineData';
-import { StatsModalView } from './view/StatsModalView';
-import { useStatsModalState } from './hooks/useStatsModalState';
+import { StatsPanelView } from './view/StatsPanelView';
+import { useStatsPanelState } from './hooks/useStatsPanelState';
 
 export type StatsView =
   | 'dashboard'
@@ -12,7 +12,7 @@ export type StatsView =
   | 'matrix'
   | 'custom';
 
-interface StatsModalProps {
+interface StatsPanelProps {
   open: boolean;
   onClose: () => void;
   view: StatsView;
@@ -20,9 +20,10 @@ interface StatsModalProps {
   timeline: TimelineData[];
   teamNames: string[];
   onJumpToSegment?: (segment: TimelineData) => void;
+  embedded?: boolean;
 }
 
-export const StatsModal = ({
+export const StatsPanel = ({
   open,
   onClose,
   view,
@@ -30,9 +31,10 @@ export const StatsModal = ({
   timeline,
   teamNames,
   onJumpToSegment,
-}: StatsModalProps) => {
+  embedded = false,
+}: StatsPanelProps) => {
   const [currentView, setCurrentView] = useState<StatsView>(view);
-  const derivedState = useStatsModalState({ timeline, teamNames });
+  const derivedState = useStatsPanelState({ timeline, teamNames });
 
   useEffect(() => {
     setCurrentView(view);
@@ -47,13 +49,14 @@ export const StatsModal = ({
   );
 
   return (
-    <StatsModalView
+    <StatsPanelView
       open={open}
       onClose={onClose}
       currentView={currentView}
       onChangeView={handleChangeView}
       timeline={timeline}
       onJumpToSegment={onJumpToSegment}
+      embedded={embedded}
       {...derivedState}
     />
   );

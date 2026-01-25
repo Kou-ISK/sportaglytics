@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import type { StatsView } from '../../../features/videoPlayer/components/Analytics/StatsModal/StatsModal';
+import type { StatsView } from '../../../features/videoPlayer/components/Analytics/StatsPanel/StatsPanel';
 
 interface UseStatsMenuHandlersParams {
   onOpenStats: (view: StatsView) => void;

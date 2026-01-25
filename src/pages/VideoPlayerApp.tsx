@@ -1,9 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Box } from '@mui/material';
 import {
-  StatsModal,
+  StatsPanel,
   StatsView,
-} from '../features/videoPlayer/components/Analytics/StatsModal/StatsModal';
+} from '../features/videoPlayer/components/Analytics/StatsPanel/StatsPanel';
 import { useVideoPlayerApp } from '../hooks/useVideoPlayerApp';
 import { useSettings } from '../hooks/useSettings';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
@@ -260,7 +260,7 @@ const VideoPlayerAppContent = () => {
         onCancelManualSync={handleCancelManualSync}
         onAddToPlaylist={handleAddToPlaylist}
       />
-      <StatsModal
+      <StatsPanel
         open={statsOpen}
         onClose={() => setStatsOpen(false)}
         view={statsView}

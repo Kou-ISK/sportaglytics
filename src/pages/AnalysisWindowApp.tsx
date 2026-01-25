@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Box } from '@mui/material';
-import { StatsModal, StatsView } from '../features/videoPlayer/components/Analytics/StatsModal/StatsModal';
+import { StatsPanel, StatsView } from '../features/videoPlayer/components/Analytics/StatsPanel/StatsPanel';
 import type { TimelineData } from '../types/TimelineData';
 import type { AnalysisWindowSyncPayload } from '../renderer';
 
@@ -39,7 +39,7 @@ export const AnalysisWindowApp = () => {
 
   return (
     <Box sx={{ height: '100vh', bgcolor: 'background.default' }}>
-      <StatsModal
+      <StatsPanel
         open
         onClose={handleClose}
         view={statsView}
@@ -47,6 +47,7 @@ export const AnalysisWindowApp = () => {
         timeline={timeline}
         teamNames={teamNames}
         onJumpToSegment={handleJumpToSegment}
+        embedded
       />
     </Box>
   );

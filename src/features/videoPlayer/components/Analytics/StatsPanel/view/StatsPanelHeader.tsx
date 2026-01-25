@@ -2,11 +2,11 @@ import React from 'react';
 import { Box, IconButton, Stack, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
-interface StatsModalHeaderProps {
+interface StatsPanelHeaderProps {
   onClose: () => void;
 }
 
-export const StatsModalHeader: React.FC<StatsModalHeaderProps> = ({
+export const StatsPanelHeader: React.FC<StatsPanelHeaderProps> = ({
   onClose,
 }) => {
   return (

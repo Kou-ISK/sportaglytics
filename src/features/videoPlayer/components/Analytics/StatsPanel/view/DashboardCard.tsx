@@ -5,6 +5,7 @@ interface DashboardCardProps {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  chips?: string[];
   children: React.ReactNode;
 }
 
@@ -12,6 +13,7 @@ export const DashboardCard = ({
   title,
   subtitle,
   actions,
+  chips,
   children,
 }: DashboardCardProps) => {
   return (
@@ -25,6 +27,24 @@ export const DashboardCard = ({
             <Typography variant="caption" color="text.secondary">
               {subtitle}
             </Typography>
+          )}
+          {chips && chips.length > 0 && (
+            <Stack direction="row" spacing={0.5} flexWrap="wrap">
+              {chips.map((chip) => (
+                <Typography
+                  key={chip}
+                  variant="caption"
+                  sx={{
+                    px: 0.75,
+                    py: 0.2,
+                    borderRadius: 999,
+                    bgcolor: 'action.hover',
+                  }}
+                >
+                  {chip}
+                </Typography>
+              ))}
+            </Stack>
           )}
         </Stack>
         {actions && <Box>{actions}</Box>}

@@ -43,12 +43,14 @@ import { getAxisLabel } from './utils';
 interface DashboardTabProps {
   hasData: boolean;
   timeline: TimelineData[];
+  teamNames: string[];
   emptyMessage: string;
 }
 
 export const DashboardTab = ({
   hasData,
   timeline,
+  teamNames,
   emptyMessage,
 }: DashboardTabProps) => {
   const { settings, saveSettings } = useSettings();
@@ -56,10 +58,11 @@ export const DashboardTab = ({
     () => extractUniqueGroups(timeline),
     [timeline],
   );
-  const availableTeams = useMemo(
-    () => extractUniqueTeams(timeline),
-    [timeline],
-  );
+  const availableTeams = useMemo(() => {
+    const fromProps = teamNames?.filter(Boolean) ?? [];
+    if (fromProps.length > 0) return fromProps;
+    return extractUniqueTeams(timeline);
+  }, [timeline, teamNames]);
   const availableActions = useMemo(() => {
     const actionSet = new Set<string>();
     for (const item of timeline) {
@@ -98,6 +101,23 @@ export const DashboardTab = ({
 
   const updateDashboardFilters = (patch: Partial<DashboardSeriesFilter>) => {
     setDashboardFilters((prev) => ({ ...prev, ...patch }));
+  };
+
+  const buildFilterChips = (
+    prefix: string,
+    filters?: DashboardSeriesFilter,
+  ): string[] => {
+    if (!filters) return [];
+    const chips: string[] = [];
+    if (filters.team) chips.push(`${prefix} チーム=${filters.team}`);
+    if (filters.action) chips.push(`${prefix} アクション=${filters.action}`);
+    if (filters.labelGroup) {
+      const label = filters.labelValue
+        ? `${filters.labelGroup}:${filters.labelValue}`
+        : filters.labelGroup;
+      chips.push(`${prefix} ラベル=${label}`);
+    }
+    return chips;
   };
 
   const handleStartEdit = () => {
@@ -342,6 +362,10 @@ export const DashboardTab = ({
                       )}`
                     : ''
                 }`;
+          const chips = [
+            ...buildFilterChips('全体', dashboardFilters),
+            ...buildFilterChips('カード', widget.widgetFilters),
+          ];
 
           return (
             <Box
@@ -351,6 +375,7 @@ export const DashboardTab = ({
               <DashboardCard
                 title={widget.title}
                 subtitle={subtitle}
+                chips={chips}
                 actions={
                   isEditing && (
                     <Stack direction="row" spacing={0.5}>

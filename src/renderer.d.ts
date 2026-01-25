@@ -1,6 +1,6 @@
 import type { IPlaylistAPI } from './types/Playlist';
 import type { TimelineData } from './types/TimelineData';
-import type { StatsView } from './features/videoPlayer/components/Analytics/StatsModal/StatsModal';
+import type { StatsView } from './features/videoPlayer/components/Analytics/StatsPanel/StatsPanel';
 
 export interface AnalysisWindowSyncPayload {
   timeline: TimelineData[];
