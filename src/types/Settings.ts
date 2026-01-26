@@ -354,12 +354,64 @@ const DEFAULT_DASHBOARD_WIDGETS: AnalysisDashboardWidget[] = [
   },
 ];
 
+const createTemplateDashboardWidgets = (): AnalysisDashboardWidget[] => {
+  const widgets: AnalysisDashboardWidget[] = [
+    {
+      id: 'template-possession',
+      title: 'ポゼッション割合',
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'team' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionResult' },
+      colSpan: 12,
+      calc: 'percentTotal',
+      widgetFilters: { action: 'ポゼッション' },
+    },
+  ];
+
+  const actions = ['スクラム', 'ラインアウト', 'キック', 'FK', 'PK'];
+  actions.forEach((action) => {
+    widgets.push({
+      id: `template-${action}-result`,
+      title: `${action} 結果内訳`,
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'actionResult' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionResult' },
+      colSpan: 6,
+      calc: 'percentTotal',
+      widgetFilters: { action },
+    });
+    widgets.push({
+      id: `template-${action}-type`,
+      title: `${action} 種別内訳`,
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'actionType' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionType' },
+      colSpan: 6,
+      calc: 'percentTotal',
+      widgetFilters: { action },
+    });
+  });
+
+  return widgets;
+};
+
 const createDefaultAnalysisDashboard = (): AnalysisDashboardConfig => ({
   dashboards: [
     {
       id: 'default',
       name: 'メイン',
       widgets: DEFAULT_DASHBOARD_WIDGETS,
+    },
+    {
+      id: 'template-basic',
+      name: '基本分析テンプレート',
+      widgets: createTemplateDashboardWidgets(),
     },
   ],
   activeDashboardId: 'default',
@@ -380,15 +432,27 @@ export const normalizeAnalysisDashboard = (
     if (dashboards.length === 0) {
       return createDefaultAnalysisDashboard();
     }
+    const normalizedDashboards = dashboards.map((item, index) => ({
+      id: item.id || `dashboard-${index + 1}`,
+      name: item.name || `ダッシュボード${index + 1}`,
+      widgets: item.widgets,
+    }));
+    const hasTemplate = normalizedDashboards.some(
+      (item) => item.id === 'template-basic',
+    );
+    if (!hasTemplate) {
+      normalizedDashboards.push({
+        id: 'template-basic',
+        name: '基本分析テンプレート',
+        widgets: createTemplateDashboardWidgets(),
+      });
+    }
     const activeId =
-      dashboards.find((item) => item.id === dashboard.activeDashboardId)?.id ??
-      dashboards[0].id;
+      normalizedDashboards.find(
+        (item) => item.id === dashboard.activeDashboardId,
+      )?.id ?? normalizedDashboards[0].id;
     return {
-      dashboards: dashboards.map((item, index) => ({
-        id: item.id || `dashboard-${index + 1}`,
-        name: item.name || `ダッシュボード${index + 1}`,
-        widgets: item.widgets,
-      })),
+      dashboards: normalizedDashboards,
       activeDashboardId: activeId,
     };
   }
@@ -404,6 +468,11 @@ export const normalizeAnalysisDashboard = (
         id: 'default',
         name: 'メイン',
         widgets: legacyWidgets,
+      },
+      {
+        id: 'template-basic',
+        name: '基本分析テンプレート',
+        widgets: createTemplateDashboardWidgets(),
       },
     ],
     activeDashboardId: 'default',

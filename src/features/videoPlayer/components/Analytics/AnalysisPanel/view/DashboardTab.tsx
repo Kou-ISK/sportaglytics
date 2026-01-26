@@ -49,14 +49,6 @@ import { CustomBarChart } from './CustomBarChart';
 import { CustomPieChart } from './CustomPieChart';
 import { getAxisLabel } from './utils';
 
-const ACTIONS_TO_SUMMARISE: ReadonlyArray<string> = [
-  'スクラム',
-  'ラインアウト',
-  'キック',
-  'FK',
-  'PK',
-];
-
 interface DashboardTabProps {
   hasData: boolean;
   timeline: TimelineData[];
@@ -250,84 +242,6 @@ export const DashboardTab = ({
     const nextActiveId = nextDashboards[0]?.id ?? '';
     setIsEditing(false);
     await saveDashboards(nextDashboards, nextActiveId);
-  };
-
-  const pushTemplateWidgets = (widgetsToAdd: AnalysisDashboardWidget[]) => {
-    const baseWidgets = isEditing ? draftWidgets : activeDashboardWidgets;
-    setDraftWidgets([...baseWidgets, ...widgetsToAdd]);
-    setIsEditing(true);
-  };
-
-  const handleAddTemplatePossession = () => {
-    if (!availableActions.includes('ポゼッション')) {
-      notification.warning(
-        'ポゼッションのアクションが見つかりません。アクション名を確認してください。',
-      );
-      return;
-    }
-    const widget: AnalysisDashboardWidget = {
-      id: generateWidgetId(),
-      title: 'ポゼッション時間',
-      chartType: 'bar',
-      metric: 'duration',
-      primaryAxis: { type: 'team' },
-      seriesEnabled: false,
-      seriesAxis: { type: 'group', value: 'actionResult' },
-      colSpan: 6,
-      calc: 'raw',
-      widgetFilters: { action: 'ポゼッション' },
-    };
-    pushTemplateWidgets([widget]);
-  };
-
-  const handleAddTemplateResults = () => {
-    const targetActions = ACTIONS_TO_SUMMARISE.filter((action) =>
-      availableActions.includes(action),
-    );
-    if (targetActions.length === 0) {
-      notification.warning(
-        '対象アクションが見つかりません。アクション名を確認してください。',
-      );
-      return;
-    }
-    const widgetsToAdd = targetActions.map((action) => ({
-      id: generateWidgetId(),
-      title: `${action} 結果内訳`,
-      chartType: 'pie' as const,
-      metric: 'count' as const,
-      primaryAxis: { type: 'group', value: 'actionResult' },
-      seriesEnabled: false,
-      seriesAxis: { type: 'group', value: 'actionResult' },
-      colSpan: 6 as const,
-      calc: 'percentTotal' as const,
-      widgetFilters: { action },
-    }));
-    pushTemplateWidgets(widgetsToAdd);
-  };
-
-  const handleAddTemplateTypes = () => {
-    const targetActions = ACTIONS_TO_SUMMARISE.filter((action) =>
-      availableActions.includes(action),
-    );
-    if (targetActions.length === 0) {
-      notification.warning(
-        '対象アクションが見つかりません。アクション名を確認してください。',
-      );
-      return;
-    }
-    const widgetsToAdd = targetActions.map((action) => ({
-      id: generateWidgetId(),
-      title: `${action} 種別内訳`,
-      chartType: 'pie' as const,
-      metric: 'count' as const,
-      primaryAxis: { type: 'group', value: 'actionType' },
-      seriesEnabled: false,
-      seriesAxis: { type: 'group', value: 'actionType' },
-      colSpan: 6 as const,
-      calc: 'percentTotal' as const,
-      widgetFilters: { action },
-    }));
-    pushTemplateWidgets(widgetsToAdd);
   };
 
   const handleExportDashboard = async () => {
@@ -594,43 +508,6 @@ export const DashboardTab = ({
             <DeleteOutlineIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>削除</ListItemText>
-        </MenuItem>
-        <Divider />
-        <MenuItem
-          onClick={() => {
-            setDashboardMenuAnchor(null);
-            handleAddTemplatePossession();
-            notification.info('テンプレートを追加しました。保存してください。');
-          }}
-        >
-          <ListItemIcon>
-            <DashboardIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>テンプレ: ポゼッション</ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setDashboardMenuAnchor(null);
-            handleAddTemplateResults();
-            notification.info('テンプレートを追加しました。保存してください。');
-          }}
-        >
-          <ListItemIcon>
-            <DashboardIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>テンプレ: アクション結果</ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setDashboardMenuAnchor(null);
-            handleAddTemplateTypes();
-            notification.info('テンプレートを追加しました。保存してください。');
-          }}
-        >
-          <ListItemIcon>
-            <DashboardIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>テンプレ: アクション種別</ListItemText>
         </MenuItem>
         <Divider />
         <MenuItem
