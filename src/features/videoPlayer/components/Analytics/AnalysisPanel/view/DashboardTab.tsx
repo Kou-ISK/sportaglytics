@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -276,20 +276,20 @@ export const DashboardTab = ({
   const handleExportDashboard = async () => {
     if (!activeDashboard) return;
     const api = window.electronAPI;
-    if (!api?.saveFileDialog || !api?.writeTextFile) {
+    if (!api?.saveFileDialog || !api?.saveDashboardPackage) {
       notification.error('エクスポート機能が利用できません。');
       return;
     }
-    const defaultName = `${activeDashboard.name || 'dashboard'}.analysis-dashboard.json`;
+    const defaultName = `${activeDashboard.name || 'dashboard'}.stad`;
     const filePath = await api.saveFileDialog(defaultName, [
-      { name: 'Dashboard JSON', extensions: ['json'] },
+      { name: 'SporTagLytics Dashboard', extensions: ['stad'] },
     ]);
     if (!filePath) return;
     const payload = {
       version: 1,
       dashboard: activeDashboard,
     };
-    const ok = await api.writeTextFile(
+    const ok = await api.saveDashboardPackage(
       filePath,
       JSON.stringify(payload, null, 2),
     );
@@ -300,17 +300,16 @@ export const DashboardTab = ({
     }
   };
 
-  const handleImportDashboard = async () => {
+  const importDashboardFromPath = useCallback(async (filePath: string) => {
     const api = window.electronAPI;
-    if (!api?.openFileDialog || !api?.readTextFile) {
+    if (!api?.readTextFile || !api?.readDashboardPackage) {
       notification.error('インポート機能が利用できません。');
       return;
     }
-    const filePath = await api.openFileDialog([
-      { name: 'Dashboard JSON', extensions: ['json'] },
-    ]);
-    if (!filePath) return;
-    const content = await api.readTextFile(filePath);
+    const lowerPath = filePath.toLowerCase();
+    const content = lowerPath.endsWith('.stad')
+      ? await api.readDashboardPackage(filePath)
+      : await api.readTextFile(filePath);
     if (!content) {
       notification.error('ファイルの読み込みに失敗しました。');
       return;
@@ -362,7 +361,33 @@ export const DashboardTab = ({
       console.error('Failed to import dashboard:', error);
       notification.error('インポートに失敗しました。');
     }
+  }, [dashboards, generateDashboardId, notification, saveDashboards]);
+
+  const handleImportDashboard = async () => {
+    const api = window.electronAPI;
+    if (!api?.openDashboardPackageDialog) {
+      notification.error('インポート機能が利用できません。');
+      return;
+    }
+    const filePath = await api.openDashboardPackageDialog([
+      { name: 'SporTagLytics Dashboard', extensions: ['stad', 'json'] },
+    ]);
+    if (!filePath) return;
+    await importDashboardFromPath(filePath);
   };
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.on || !api?.off) return;
+    const handler = (_event: unknown, filePath?: unknown) => {
+      if (typeof filePath !== 'string' || filePath.length === 0) return;
+      void importDashboardFromPath(filePath);
+    };
+    api.on('analysis-dashboard:external-open', handler);
+    return () => {
+      api.off('analysis-dashboard:external-open', handler);
+    };
+  }, [importDashboardFromPath]);
 
   const openEditor = (widget?: AnalysisDashboardWidget) => {
     setEditingWidget(widget ?? null);

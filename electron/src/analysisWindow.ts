@@ -66,6 +66,15 @@ export const sendAnalysisSync = (payload: unknown): void => {
   }
 };
 
+export const sendAnalysisDashboardFileToWindow = async (
+  filePath: string,
+): Promise<void> => {
+  await openAnalysisWindow();
+  if (analysisWindow && !analysisWindow.isDestroyed()) {
+    analysisWindow.webContents.send('analysis-dashboard:external-open', filePath);
+  }
+};
+
 export const registerAnalysisWindowHandlers = (): void => {
   ipcMain.handle('analysis:open-window', async () => {
     await openAnalysisWindow();

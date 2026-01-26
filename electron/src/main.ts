@@ -11,6 +11,7 @@ import { registerSettingsHandlers, loadSettings } from './settingsManager';
 import {
   registerAnalysisWindowHandlers,
   setAnalysisMainWindowRef,
+  sendAnalysisDashboardFileToWindow,
 } from './analysisWindow';
 import {
   registerPlaylistHandlers,
@@ -50,7 +51,7 @@ const mainURL = `file:${__dirname}/../../index.html`;
 
 /**
  * コマンドライン引数からファイルパスを検出
- * .stpl, .stcw, .stpkg, .json を認識
+ * .stpl, .stcw, .stpkg, .stad, .json を認識
  */
 const pickFileArg = (argv: string[]): string | null => {
   return (
@@ -179,6 +180,46 @@ const createWindow = async (): Promise<BrowserWindow> => {
       return null;
     }
   });
+
+  ipcMain.handle(
+    'analysis-dashboard:save-package',
+    async (_event, packagePath: string, content: string) => {
+      try {
+        await fs.mkdir(packagePath, { recursive: true });
+        const dashboardPath = path.join(packagePath, 'dashboard.json');
+        await fs.writeFile(dashboardPath, content, 'utf-8');
+        return true;
+      } catch (error) {
+        console.error('Failed to save dashboard package:', error);
+        return false;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    'analysis-dashboard:read-package',
+    async (_event, packagePath: string) => {
+      try {
+        const dashboardPath = path.join(packagePath, 'dashboard.json');
+        const content = await fs.readFile(dashboardPath, 'utf-8');
+        return content;
+      } catch (error) {
+        console.error('Failed to read dashboard package:', error);
+        return null;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    'analysis-dashboard:open-package-dialog',
+    async (_event, filters: { name: string; extensions: string[] }[]) => {
+      const result = await dialog.showOpenDialog(window, {
+        properties: ['openFile', 'openDirectory'],
+        filters,
+      });
+      return result.canceled ? null : result.filePaths[0];
+    },
+  );
 
   // コードウィンドウファイル保存
   ipcMain.handle(
@@ -1087,6 +1128,9 @@ const handleFileOpen = (filePath: string) => {
   if (ext === '.stpl' || ext === '.json') {
     // プレイリストファイル
     sendPlaylistFileToWindow(filePath);
+  } else if (ext === '.stad') {
+    // 分析ダッシュボードファイル
+    void sendAnalysisDashboardFileToWindow(filePath);
   } else if (ext === '.stcw') {
     // コードウィンドウファイル - 設定画面のコードウィンドウタブを開く
     pendingCodeWindowExternalOpen = filePath;

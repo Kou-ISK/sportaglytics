@@ -116,8 +116,16 @@ export interface IElectronAPI {
   openFileDialog: (
     filters: { name: string; extensions: string[] }[],
   ) => Promise<string | null>;
+  openDashboardPackageDialog: (
+    filters: { name: string; extensions: string[] }[],
+  ) => Promise<string | null>;
   writeTextFile: (filePath: string, content: string) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<string | null>;
+  saveDashboardPackage: (
+    packagePath: string,
+    content: string,
+  ) => Promise<boolean>;
+  readDashboardPackage: (packagePath: string) => Promise<string | null>;
   onExportTimeline: (callback: (format: string) => void) => void;
   onImportTimeline: (callback: () => void) => void;
   onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => void;

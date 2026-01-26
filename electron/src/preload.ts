@@ -429,6 +429,42 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return null;
     }
   },
+  openDashboardPackageDialog: async (
+    filters: { name: string; extensions: string[] }[],
+  ) => {
+    try {
+      return await ipcRenderer.invoke(
+        'analysis-dashboard:open-package-dialog',
+        filters,
+      );
+    } catch (error) {
+      console.error('Error in openDashboardPackageDialog:', error);
+      return null;
+    }
+  },
+  saveDashboardPackage: async (packagePath: string, content: string) => {
+    try {
+      return await ipcRenderer.invoke(
+        'analysis-dashboard:save-package',
+        packagePath,
+        content,
+      );
+    } catch (error) {
+      console.error('Error in saveDashboardPackage:', error);
+      return false;
+    }
+  },
+  readDashboardPackage: async (packagePath: string) => {
+    try {
+      return await ipcRenderer.invoke(
+        'analysis-dashboard:read-package',
+        packagePath,
+      );
+    } catch (error) {
+      console.error('Error in readDashboardPackage:', error);
+      return null;
+    }
+  },
   writeTextFile: async (filePath: string, content: string) => {
     try {
       return await ipcRenderer.invoke('write-text-file', filePath, content);

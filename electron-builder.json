@@ -26,7 +26,7 @@
       {
         "from": "public/icons",
         "to": ".",
-        "filter": ["stpkg.icns", "stpl.icns", "stcw.icns"]
+        "filter": ["stpkg.icns", "stpl.icns", "stcw.icns", "stad.icns"]
       }
     ],
     "category": "public.app-category.sports",
@@ -60,6 +60,14 @@
           "UTTypeTagSpecification": {
             "public.filename-extension": ["stcw"]
           }
+        },
+        {
+          "UTTypeIdentifier": "com.kouisk.sportaglytics.stad",
+          "UTTypeDescription": "SporTagLytics Dashboard",
+          "UTTypeConformsTo": ["public.data"],
+          "UTTypeTagSpecification": {
+            "public.filename-extension": ["stad"]
+          }
         }
       ],
       "CFBundleDocumentTypes": [
@@ -88,6 +96,15 @@
           "CFBundleTypeExtensions": ["stcw"],
           "LSHandlerRank": "Owner",
           "LSItemContentTypes": ["com.kouisk.sportaglytics.stcw"]
+        },
+        {
+          "CFBundleTypeName": "SporTagLytics Dashboard",
+          "CFBundleTypeRole": "Viewer",
+          "CFBundleTypeIconFile": "stad.icns",
+          "CFBundleTypeExtensions": ["stad"],
+          "LSHandlerRank": "Owner",
+          "LSItemContentTypes": ["com.kouisk.sportaglytics.stad"],
+          "LSTypeIsPackage": true
         }
       ]
     }
@@ -118,6 +135,14 @@
         "description": "SporTagLytics コードウィンドウ",
         "role": "Viewer",
         "icon": "public/icons/stcw.ico"
+      },
+      {
+        "ext": "stad",
+        "name": "SporTagLytics Dashboard",
+        "description": "SporTagLytics ダッシュボード",
+        "role": "Viewer",
+        "icon": "public/icons/stad.ico",
+        "isPackage": true
       }
     ],
     "artifactName": "${productName}-Setup-${version}.${ext}"
@@ -147,6 +172,12 @@
         "ext": "stcw",
         "name": "SporTagLytics Code Window",
         "description": "SporTagLytics コードウィンドウ",
+        "role": "Viewer"
+      },
+      {
+        "ext": "stad",
+        "name": "SporTagLytics Dashboard",
+        "description": "SporTagLytics ダッシュボード",
         "role": "Viewer"
       }
     ],
