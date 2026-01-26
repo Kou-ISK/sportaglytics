@@ -89,19 +89,58 @@ export const CustomPieChart = ({
     padding: '8px 12px',
   } as const;
 
+  const renderTooltip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean;
+    payload?: Array<{
+      name?: string;
+      value?: number;
+      payload?: { name?: string; rawValue?: number };
+    }>;
+  }) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const entry = payload[0];
+    const name = entry.name ?? entry.payload?.name ?? '';
+    const value = typeof entry.value === 'number' ? entry.value : 0;
+    const rawValue = entry.payload?.rawValue;
+    const percentValue =
+      calcMode === 'percentTotal'
+        ? value
+        : totalValue > 0
+          ? (value / totalValue) * 100
+          : 0;
+
+    const detail =
+      calcMode === 'percentTotal'
+        ? typeof rawValue === 'number'
+          ? `${percentValue.toFixed(1)}% (${formatRawValue(rawValue)})`
+          : `${percentValue.toFixed(1)}%`
+        : `${percentValue.toFixed(1)}% (${formatValue(value)})`;
+
+    return (
+      <div style={tooltipStyles}>
+        <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{name}</div>
+        <div style={{ color: theme.palette.text.secondary }}>{detail}</div>
+      </div>
+    );
+  };
+
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <PieChart>
+      <PieChart margin={{ top: 8, right: 16, bottom: 24, left: 16 }}>
         <Pie
           data={pieData}
           dataKey="value"
           nameKey="name"
-          outerRadius="90%"
-          innerRadius="55%"
-          startAngle={180}
-          endAngle={0}
+          outerRadius="70%"
+          innerRadius="45%"
+          startAngle={90}
+          endAngle={-270}
           cx="50%"
-          cy="100%"
+          cy="45%"
+          paddingAngle={1}
           label={({ name, value }) => {
             if (!totalValue) return `${name}`;
             const percentage = ((value / totalValue) * 100).toFixed(1);
@@ -116,29 +155,7 @@ export const CustomPieChart = ({
             />
           ))}
         </Pie>
-        <Tooltip
-          formatter={(
-            value: number,
-            _label: string,
-            tooltipPayload: { payload?: { rawValue?: number } },
-          ) => {
-            if (calcMode === 'percentTotal') {
-              const rawValue = tooltipPayload?.payload?.rawValue;
-              if (typeof rawValue === 'number') {
-                return [
-                  `${value.toFixed(1)}% (${formatRawValue(rawValue)})`,
-                  '値',
-                ];
-              }
-              return [`${value.toFixed(1)}%`, '値'];
-            }
-            return [formatValue(value), '値'];
-          }}
-          contentStyle={tooltipStyles}
-          labelStyle={{ color: theme.palette.text.secondary }}
-          itemStyle={{ color: theme.palette.text.primary }}
-          labelFormatter={(label) => String(label)}
-        />
+        <Tooltip content={renderTooltip} />
         <Legend
           verticalAlign="bottom"
           iconType="circle"

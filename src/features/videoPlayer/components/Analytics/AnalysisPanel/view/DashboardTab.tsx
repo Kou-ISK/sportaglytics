@@ -799,6 +799,8 @@ export const DashboardTab = ({
                 ...buildFilterChips('カード', widget.widgetFilters),
               ];
 
+              const chartHeight = widget.chartType === 'pie' ? 260 : 280;
+
               return (
                 <Box
                   key={widget.id}
@@ -854,7 +856,7 @@ export const DashboardTab = ({
                         unitLabel={chart.unitLabel}
                         metric={widget.metric}
                         calcMode={chart.calcMode}
-                        height={300}
+                        height={chartHeight}
                       />
                     ) : (
                       <CustomBarChart
@@ -867,7 +869,7 @@ export const DashboardTab = ({
                         unitLabel={chart.unitLabel}
                         metric={widget.metric}
                         calcMode={chart.calcMode}
-                        height={300}
+                        height={chartHeight}
                       />
                     )}
                   </DashboardCard>

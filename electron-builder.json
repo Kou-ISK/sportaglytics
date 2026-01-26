@@ -104,7 +104,7 @@
           "CFBundleTypeExtensions": ["stad"],
           "LSHandlerRank": "Owner",
           "LSItemContentTypes": ["com.kouisk.sportaglytics.stad"],
-          "LSTypeIsPackage": true
+          "LSTypeIsPackage": false
         }
       ]
     }
