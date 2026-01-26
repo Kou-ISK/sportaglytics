@@ -401,6 +401,38 @@ const createTemplateDashboardWidgets = (): AnalysisDashboardWidget[] => {
   return widgets;
 };
 
+const stripTeamFilters = (
+  widget: AnalysisDashboardWidget,
+): AnalysisDashboardWidget => {
+  const { widgetFilters, series } = widget;
+  const nextWidgetFilters = widgetFilters
+    ? { ...widgetFilters, team: undefined }
+    : undefined;
+  const nextSeries = series
+    ? series.map((entry) => ({
+        ...entry,
+        filters: { ...entry.filters, team: undefined },
+      }))
+    : undefined;
+  return {
+    ...widget,
+    widgetFilters: nextWidgetFilters,
+    series: nextSeries,
+  };
+};
+
+const normalizeDashboards = (
+  dashboards: AnalysisDashboard[],
+): AnalysisDashboard[] => {
+  return dashboards.map((item, index) => ({
+    id: item.id || `dashboard-${index + 1}`,
+    name: item.name || `ダッシュボード${index + 1}`,
+    widgets: Array.isArray(item.widgets)
+      ? item.widgets.map(stripTeamFilters)
+      : [],
+  }));
+};
+
 const createDefaultAnalysisDashboard = (): AnalysisDashboardConfig => ({
   dashboards: [
     {
@@ -432,11 +464,7 @@ export const normalizeAnalysisDashboard = (
     if (dashboards.length === 0) {
       return createDefaultAnalysisDashboard();
     }
-    const normalizedDashboards = dashboards.map((item, index) => ({
-      id: item.id || `dashboard-${index + 1}`,
-      name: item.name || `ダッシュボード${index + 1}`,
-      widgets: item.widgets,
-    }));
+    const normalizedDashboards = normalizeDashboards(dashboards);
     const hasTemplate = normalizedDashboards.some(
       (item) => item.id === 'template-basic',
     );
@@ -467,7 +495,7 @@ export const normalizeAnalysisDashboard = (
       {
         id: 'default',
         name: 'メイン',
-        widgets: legacyWidgets,
+        widgets: legacyWidgets.map(stripTeamFilters),
       },
       {
         id: 'template-basic',

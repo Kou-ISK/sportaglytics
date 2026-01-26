@@ -228,6 +228,11 @@ export const DashboardTab = ({
 
   const handleDeleteDashboard = async () => {
     if (!activeDashboard) return;
+    const protectedIds = new Set(['default', 'template-basic']);
+    if (protectedIds.has(activeDashboard.id)) {
+      notification.warning('このダッシュボードは削除できません。');
+      return;
+    }
     if (dashboards.length <= 1) {
       notification.warning('ダッシュボードは最低1つ必要です。');
       return;
@@ -499,6 +504,10 @@ export const DashboardTab = ({
           <ListItemText>複製</ListItemText>
         </MenuItem>
         <MenuItem
+          disabled={
+            activeDashboard?.id === 'default' ||
+            activeDashboard?.id === 'template-basic'
+          }
           onClick={async () => {
             setDashboardMenuAnchor(null);
             await handleDeleteDashboard();
@@ -893,7 +902,6 @@ export const DashboardTab = ({
       <DashboardWidgetDialog
         open={editorOpen}
         availableGroups={availableGroups}
-        availableTeams={availableTeams}
         availableActions={availableActions}
         availableLabelValues={availableLabelValues}
         initial={editingWidget}

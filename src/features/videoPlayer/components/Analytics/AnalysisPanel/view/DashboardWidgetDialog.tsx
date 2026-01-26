@@ -34,7 +34,6 @@ import { MatrixAxisSelector } from './MatrixAxisSelector';
 interface DashboardWidgetDialogProps {
   open: boolean;
   availableGroups: string[];
-  availableTeams: string[];
   availableActions: string[];
   availableLabelValues: Record<string, string[]>;
   initial?: AnalysisDashboardWidget | null;
@@ -57,7 +56,6 @@ const generateWidgetId = () => {
 export const DashboardWidgetDialog = ({
   open,
   availableGroups,
-  availableTeams,
   availableActions,
   availableLabelValues,
   initial,
@@ -79,7 +77,6 @@ export const DashboardWidgetDialog = ({
   const [calcMode, setCalcMode] = useState<DashboardCalcMode>('raw');
   const [widgetFilters, setWidgetFilters] =
     useState<DashboardSeriesFilter>(DEFAULT_WIDGET_FILTERS);
-  const [quickTeam, setQuickTeam] = useState('');
   const [quickAction, setQuickAction] = useState('');
   const [quickLabelGroup, setQuickLabelGroup] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
@@ -100,7 +97,6 @@ export const DashboardWidgetDialog = ({
       setSeries([]);
       setCalcMode('raw');
       setWidgetFilters(DEFAULT_WIDGET_FILTERS);
-      setQuickTeam('');
       setQuickAction('');
       setQuickLabelGroup('');
       setShowTemplates(false);
@@ -120,7 +116,6 @@ export const DashboardWidgetDialog = ({
     setSeries(initial.series ?? []);
     setCalcMode(initial.calc ?? 'raw');
     setWidgetFilters(initial.widgetFilters ?? DEFAULT_WIDGET_FILTERS);
-    setQuickTeam(initial.widgetFilters?.team ?? '');
     setQuickAction(initial.widgetFilters?.action ?? '');
     setQuickLabelGroup(initial.primaryAxis.value ?? '');
     setShowTemplates(false);
@@ -314,49 +309,13 @@ export const DashboardWidgetDialog = ({
     setSeriesEnabled(false);
     setPrimaryAxis({ type: 'group', value: labelGroup });
     setWidgetFilters({
-      team: quickTeam || undefined,
       action: quickAction || undefined,
       labelGroup: labelGroup || undefined,
       labelValue: undefined,
     });
     if (!title.trim()) {
-      const parts = [quickTeam, quickAction, labelGroup].filter(Boolean);
-      setTitle(parts.length ? `${parts.join(' ')} 比率` : 'ラベル比率');
-    }
-  };
-
-  const applyTeamCompareTemplate = () => {
-    const [teamA, teamB] = availableTeams;
-    if (!teamA || !teamB) return;
-    const labelGroup =
-      quickLabelGroup || availableGroups[0] || 'all_labels';
-    setDataMode('series');
-    setChartType('pie');
-    setMetric('count');
-    setCalcMode('percentTotal');
-    setSeries([
-      {
-        id: generateWidgetId(),
-        name: teamA,
-        filters: {
-          team: teamA,
-          action: quickAction || undefined,
-          labelGroup: labelGroup || undefined,
-        },
-      },
-      {
-        id: generateWidgetId(),
-        name: teamB,
-        filters: {
-          team: teamB,
-          action: quickAction || undefined,
-          labelGroup: labelGroup || undefined,
-        },
-      },
-    ]);
-    if (!title.trim()) {
       const parts = [quickAction, labelGroup].filter(Boolean);
-      setTitle(parts.length ? `${parts.join(' ')} 比較` : 'チーム比較');
+      setTitle(parts.length ? `${parts.join(' ')} 比率` : 'ラベル比率');
     }
   };
 
@@ -590,28 +549,6 @@ export const DashboardWidgetDialog = ({
                         </Stack>
                         <Stack direction="row" spacing={2}>
                           <FormControl fullWidth size="small">
-                            <InputLabel id={`${entry.id}-team-label`}>
-                              チーム
-                            </InputLabel>
-                            <Select
-                              labelId={`${entry.id}-team-label`}
-                              value={entry.filters.team ?? ''}
-                              label="チーム"
-                              onChange={(event) =>
-                                handleSeriesFilterChange(entry.id, {
-                                  team: event.target.value || undefined,
-                                })
-                              }
-                            >
-                              <MenuItem value="">指定なし</MenuItem>
-                              {availableTeams.map((team) => (
-                                <MenuItem key={team} value={team}>
-                                  {team}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                          <FormControl fullWidth size="small">
                             <InputLabel id={`${entry.id}-action-label`}>
                               アクション（actionName）
                             </InputLabel>
@@ -761,54 +698,32 @@ export const DashboardWidgetDialog = ({
                 />
               </Stack>
               <Typography variant="caption" color="text.secondary">
-                アクションは actionName（例: 「帝京 スクラム」）です。actionType で絞る場合は「ラベルグループ=actionType」を選択します。
+                チーム名はダッシュボードでは固定せず、必要に応じて全体フィルタで指定してください。
               </Typography>
               <Collapse in={showFilters}>
                 <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={2}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel id="widget-filter-team-label">チーム</InputLabel>
-                      <Select
-                        labelId="widget-filter-team-label"
-                        value={widgetFilters.team ?? ''}
-                        label="チーム"
-                        onChange={(event) =>
-                          updateWidgetFilters({
-                            team: event.target.value || undefined,
-                          })
-                        }
-                      >
-                        <MenuItem value="">指定なし</MenuItem>
-                        {availableTeams.map((team) => (
-                          <MenuItem key={team} value={team}>
-                            {team}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <FormControl fullWidth size="small">
-                      <InputLabel id="widget-filter-action-label">
-                        アクション（actionName）
-                      </InputLabel>
-                      <Select
-                        labelId="widget-filter-action-label"
-                        value={widgetFilters.action ?? ''}
-                        label="アクション（actionName）"
-                        onChange={(event) =>
-                          updateWidgetFilters({
-                            action: event.target.value || undefined,
-                          })
-                        }
-                      >
-                        <MenuItem value="">指定なし</MenuItem>
-                        {availableActions.map((action) => (
-                          <MenuItem key={action} value={action}>
-                            {action}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Stack>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="widget-filter-action-label">
+                      アクション（actionName）
+                    </InputLabel>
+                    <Select
+                      labelId="widget-filter-action-label"
+                      value={widgetFilters.action ?? ''}
+                      label="アクション（actionName）"
+                      onChange={(event) =>
+                        updateWidgetFilters({
+                          action: event.target.value || undefined,
+                        })
+                      }
+                    >
+                      <MenuItem value="">指定なし</MenuItem>
+                      {availableActions.map((action) => (
+                        <MenuItem key={action} value={action}>
+                          {action}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                   <Stack direction="row" spacing={2}>
                     <FormControl fullWidth size="small">
                       <InputLabel id="widget-filter-group-label">
@@ -891,44 +806,26 @@ export const DashboardWidgetDialog = ({
               </Typography>
               <Collapse in={showTemplates}>
                 <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={2}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel id="quick-team-label">チーム</InputLabel>
-                      <Select
-                        labelId="quick-team-label"
-                        value={quickTeam}
-                        label="チーム"
-                        onChange={(event) => setQuickTeam(event.target.value)}
-                      >
-                        <MenuItem value="">指定なし</MenuItem>
-                        {availableTeams.map((team) => (
-                          <MenuItem key={team} value={team}>
-                            {team}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <FormControl fullWidth size="small">
-                      <InputLabel id="quick-action-label">
-                        アクション
-                      </InputLabel>
-                      <Select
-                        labelId="quick-action-label"
-                        value={quickAction}
-                        label="アクション"
-                        onChange={(event) =>
-                          setQuickAction(event.target.value)
-                        }
-                      >
-                        <MenuItem value="">指定なし</MenuItem>
-                        {availableActions.map((action) => (
-                          <MenuItem key={action} value={action}>
-                            {action}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Stack>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="quick-action-label">
+                      アクション
+                    </InputLabel>
+                    <Select
+                      labelId="quick-action-label"
+                      value={quickAction}
+                      label="アクション"
+                      onChange={(event) =>
+                        setQuickAction(event.target.value)
+                      }
+                    >
+                      <MenuItem value="">指定なし</MenuItem>
+                      {availableActions.map((action) => (
+                        <MenuItem key={action} value={action}>
+                          {action}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                   <Stack direction="row" spacing={2} alignItems="center">
                     <FormControl fullWidth size="small">
                       <InputLabel id="quick-label-group">
@@ -953,11 +850,6 @@ export const DashboardWidgetDialog = ({
                       適用
                     </Button>
                   </Stack>
-                  {availableTeams.length >= 2 && (
-                    <Button variant="text" onClick={applyTeamCompareTemplate}>
-                      テンプレ: チームA vs チームB
-                    </Button>
-                  )}
                 </Stack>
               </Collapse>
             </Stack>

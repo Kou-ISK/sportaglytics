@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@mui/material/styles';
 import {
   Bar,
   BarChart,
@@ -49,6 +50,7 @@ export const CustomBarChart = ({
   height = 360,
   metric,
 }: CustomBarChartProps) => {
+  const theme = useTheme();
   const formatter = (value: number) => {
     if (metric === 'duration') {
       return `${value.toFixed(1)}${unitLabel}`;
@@ -57,6 +59,15 @@ export const CustomBarChart = ({
   };
 
   const normalizedSeriesKeys = seriesKeys.length > 0 ? seriesKeys : ['value'];
+
+  const tooltipStyles = {
+    backgroundColor:
+      theme.palette.mode === 'dark' ? '#1f1f1f' : theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    color: theme.palette.text.primary,
+    borderRadius: 6,
+    padding: '8px 12px',
+  } as const;
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -70,7 +81,11 @@ export const CustomBarChart = ({
           height={70}
         />
         <YAxis />
-        <Tooltip formatter={(value: number) => [formatter(value)]} />
+        <Tooltip
+          formatter={(value: number) => [formatter(value)]}
+          contentStyle={tooltipStyles}
+          labelStyle={{ color: theme.palette.text.secondary }}
+        />
         {showLegend && <Legend />}
         {normalizedSeriesKeys.map((key) => (
           <Bar

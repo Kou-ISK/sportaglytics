@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@mui/material/styles';
 import {
   Cell,
   Legend,
@@ -36,6 +37,7 @@ export const CustomPieChart = ({
   metric,
   height = 300,
 }: CustomPieChartProps) => {
+  const theme = useTheme();
   const normalizedSeriesKeys = seriesKeys.length > 0 ? seriesKeys : ['value'];
   const pieData = data.map((entry) => {
     const total = normalizedSeriesKeys.reduce((sum, key) => {
@@ -56,6 +58,15 @@ export const CustomPieChart = ({
     }
     return `${Math.round(value)}${unitLabel}`;
   };
+
+  const tooltipStyles = {
+    backgroundColor:
+      theme.palette.mode === 'dark' ? '#1f1f1f' : theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    color: theme.palette.text.primary,
+    borderRadius: 6,
+    padding: '8px 12px',
+  } as const;
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -86,6 +97,8 @@ export const CustomPieChart = ({
         </Pie>
         <Tooltip
           formatter={(value: number) => [formatValue(value), '値']}
+          contentStyle={tooltipStyles}
+          labelStyle={{ color: theme.palette.text.secondary }}
         />
         <Legend
           verticalAlign="bottom"
