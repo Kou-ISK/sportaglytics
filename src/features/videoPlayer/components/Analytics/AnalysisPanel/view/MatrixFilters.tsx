@@ -39,13 +39,18 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
   onClearLabelFilters,
   hasActiveFilters,
 }) => {
+  const compactControlSx = {
+    '& .MuiInputBase-input': { py: 0.75 },
+    '& .MuiSelect-select': { py: 0.75 },
+  };
+
   return (
     <>
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
         フィルタ
       </Typography>
-      <Box display="grid" gridTemplateColumns="1fr 1fr 1fr 1fr" gap={2}>
-        <FormControl size="small" fullWidth>
+      <Box display="grid" gridTemplateColumns="1fr 1fr 1fr 1fr" gap={1.5}>
+        <FormControl size="small" fullWidth sx={compactControlSx}>
           <InputLabel>チーム</InputLabel>
           <Select
             value={filters.team}
@@ -61,7 +66,7 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
           </Select>
         </FormControl>
 
-        <FormControl size="small" fullWidth>
+        <FormControl size="small" fullWidth sx={compactControlSx}>
           <InputLabel>アクション</InputLabel>
           <Select
             value={filters.action}
@@ -78,7 +83,7 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
           </Select>
         </FormControl>
 
-        <FormControl size="small" fullWidth>
+        <FormControl size="small" fullWidth sx={compactControlSx}>
           <InputLabel>ラベルグループ</InputLabel>
           <Select
             value={filters.labelGroup}
@@ -94,7 +99,7 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
           </Select>
         </FormControl>
 
-        <FormControl size="small" fullWidth>
+        <FormControl size="small" fullWidth sx={compactControlSx}>
           <InputLabel>ラベル値</InputLabel>
           <Select
             value={filters.labelValue}

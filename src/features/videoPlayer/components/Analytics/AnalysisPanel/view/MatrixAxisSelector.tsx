@@ -25,6 +25,10 @@ export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = (
   props,
 ) => {
   const { label, value, onChange, availableGroups } = props;
+  const compactControlSx = {
+    '& .MuiInputBase-input': { py: 0.75 },
+    '& .MuiSelect-select': { py: 0.75 },
+  };
 
   const handleTypeChange = (event: SelectChangeEvent<MatrixAxisType>) => {
     const newType = event.target.value as MatrixAxisType;
@@ -46,7 +50,7 @@ export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = (
         {label}
       </Typography>
 
-      <FormControl fullWidth size="small">
+      <FormControl fullWidth size="small" sx={compactControlSx}>
         <InputLabel id={`${label}-type-label`}>軸タイプ</InputLabel>
         <Select
           labelId={`${label}-type-label`}
@@ -62,7 +66,7 @@ export const MatrixAxisSelector: React.FC<MatrixAxisSelectorProps> = (
       </FormControl>
 
       {value.type === 'group' && (
-        <FormControl fullWidth size="small">
+        <FormControl fullWidth size="small" sx={compactControlSx}>
           <InputLabel id={`${label}-group-label`}>グループ</InputLabel>
           <Select
             labelId={`${label}-group-label`}

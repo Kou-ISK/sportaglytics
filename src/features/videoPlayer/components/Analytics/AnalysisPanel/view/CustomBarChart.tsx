@@ -39,6 +39,7 @@ interface CustomBarChartProps {
   unitLabel: string;
   height?: number;
   metric: 'count' | 'duration';
+  calcMode?: 'raw' | 'percentTotal' | 'difference';
 }
 
 export const CustomBarChart = ({
@@ -49,6 +50,7 @@ export const CustomBarChart = ({
   unitLabel,
   height = 360,
   metric,
+  calcMode = 'raw',
 }: CustomBarChartProps) => {
   const theme = useTheme();
   const formatter = (value: number) => {
@@ -59,10 +61,16 @@ export const CustomBarChart = ({
   };
 
   const normalizedSeriesKeys = seriesKeys.length > 0 ? seriesKeys : ['value'];
+  const rawUnitLabel = metric === 'duration' ? '秒' : '件';
+  const formatRawValue = (value: number) => {
+    if (metric === 'duration') {
+      return `${value.toFixed(1)}${rawUnitLabel}`;
+    }
+    return `${Math.round(value)}${rawUnitLabel}`;
+  };
 
   const tooltipStyles = {
-    backgroundColor:
-      theme.palette.mode === 'dark' ? '#1f1f1f' : theme.palette.background.paper,
+    backgroundColor: theme.palette.background.paper,
     border: `1px solid ${theme.palette.divider}`,
     color: theme.palette.text.primary,
     borderRadius: 6,
@@ -82,9 +90,34 @@ export const CustomBarChart = ({
         />
         <YAxis />
         <Tooltip
-          formatter={(value: number) => [formatter(value)]}
+          formatter={(
+            value: number,
+            name: string,
+            tooltipPayload: { payload?: Record<string, number | string> },
+          ) => {
+            if (calcMode === 'percentTotal') {
+              const payload = tooltipPayload?.payload ?? {};
+              const rawKey = `__raw_${name}`;
+              const rawValue =
+                typeof payload[rawKey] === 'number'
+                  ? (payload[rawKey] as number)
+                  : typeof payload.rawValue === 'number'
+                    ? (payload.rawValue as number)
+                    : undefined;
+              if (typeof rawValue === 'number') {
+                return [
+                  `${value.toFixed(1)}% (${formatRawValue(rawValue)})`,
+                  name,
+                ];
+              }
+              return [`${value.toFixed(1)}%`, name];
+            }
+            return [formatter(value), name];
+          }}
           contentStyle={tooltipStyles}
           labelStyle={{ color: theme.palette.text.secondary }}
+          itemStyle={{ color: theme.palette.text.primary }}
+          labelFormatter={(label) => String(label)}
         />
         {showLegend && <Legend />}
         {normalizedSeriesKeys.map((key) => (

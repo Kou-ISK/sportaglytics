@@ -35,6 +35,7 @@ import type {
 } from '../../../../../../types/Settings';
 import { useSettings } from '../../../../../../hooks/useSettings';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
+import { replaceTeamPlaceholders } from '../../../../../../utils/teamPlaceholder';
 import {
   extractActionFromActionName,
   extractUniqueGroups,
@@ -88,6 +89,20 @@ export const DashboardTab = ({
     }
     return map;
   }, [timeline, availableGroups]);
+  const teamRoleMap = useMemo(
+    () => ({
+      team1: availableTeams[0],
+      team2: availableTeams[1],
+    }),
+    [availableTeams],
+  );
+  const teamContext = useMemo(
+    () => ({
+      team1Name: availableTeams[0] || 'Team1',
+      team2Name: availableTeams[1] || 'Team2',
+    }),
+    [availableTeams],
+  );
 
   const [isEditing, setIsEditing] = useState(false);
   const [draftWidgets, setDraftWidgets] = useState<AnalysisDashboardWidget[]>([]);
@@ -124,6 +139,11 @@ export const DashboardTab = ({
     if (!filters) return [];
     const chips: string[] = [];
     if (filters.team) chips.push(`${prefix} チーム=${filters.team}`);
+    if (filters.teamRole) {
+      const resolved =
+        filters.teamRole === 'team1' ? teamRoleMap.team1 : teamRoleMap.team2;
+      chips.push(`${prefix} チーム=${resolved || filters.teamRole}`);
+    }
     if (filters.action) chips.push(`${prefix} アクション=${filters.action}`);
     if (filters.labelGroup) {
       const label = filters.labelValue
@@ -137,6 +157,10 @@ export const DashboardTab = ({
     () => buildFilterChips('全体', dashboardFilters),
     [dashboardFilters],
   );
+  const compactControlSx = {
+    '& .MuiInputBase-input': { py: 0.75 },
+    '& .MuiSelect-select': { py: 0.75 },
+  };
 
   const generateDashboardId = () => {
     if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -394,85 +418,223 @@ export const DashboardTab = ({
   }
 
   return (
-    <Stack spacing={2.5}>
-      <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Stack spacing={1}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            分析ダッシュボード
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            データ棚から軸を選んで、必要なグラフを素早く作成できます
-          </Typography>
-          <FormControl size="small" sx={{ minWidth: 220 }}>
-            <InputLabel id="dashboard-select-label">ダッシュボード</InputLabel>
-            <Select
-              labelId="dashboard-select-label"
-              value={activeDashboardId}
-              label="ダッシュボード"
-              onChange={(event) =>
-                handleDashboardChange(event.target.value as string)
-              }
-            >
-              {dashboards.map((dashboard) => (
-                <MenuItem key={dashboard.id} value={dashboard.id}>
-                  {dashboard.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Stack>
-        <Stack direction="row" spacing={1} alignItems="center">
-          {isEditing && <Chip label="編集モード" color="warning" size="small" />}
-          {isEditing ? (
-            <>
+    <Stack spacing={2}>
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          bgcolor: 'background.default',
+          pb: 2,
+        }}
+      >
+        <Stack spacing={1.5}>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Stack spacing={0.5}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                分析ダッシュボード
+              </Typography>
+              <FormControl
+                size="small"
+                sx={{ minWidth: 220, ...compactControlSx }}
+              >
+                <InputLabel id="dashboard-select-label">
+                  ダッシュボード
+                </InputLabel>
+                <Select
+                  labelId="dashboard-select-label"
+                  value={activeDashboardId}
+                  label="ダッシュボード"
+                  onChange={(event) =>
+                    handleDashboardChange(event.target.value as string)
+                  }
+                >
+                  {dashboards.map((dashboard) => (
+                    <MenuItem key={dashboard.id} value={dashboard.id}>
+                      {dashboard.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {isEditing && (
+                <Chip label="編集モード" color="warning" size="small" />
+              )}
+              {isEditing ? (
+                <>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    onClick={handleAddWidget}
+                  >
+                    チャートを追加
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={handleSave}
+                  >
+                    保存
+                  </Button>
+                  <IconButton onClick={handleCancelEdit} size="small">
+                    <CloseIcon />
+                  </IconButton>
+                </>
+              ) : (
+                <>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<EditIcon />}
+                    onClick={handleStartEdit}
+                  >
+                    編集
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleAddWidget}
+                  >
+                    チャートを追加
+                  </Button>
+                </>
+              )}
               <Button
                 size="small"
                 variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={handleAddWidget}
+                startIcon={<DashboardIcon />}
+                onClick={(event) => setDashboardMenuAnchor(event.currentTarget)}
               >
-                チャートを追加
+                管理
               </Button>
-              <Button
-                size="small"
-                variant="contained"
-                startIcon={<SaveIcon />}
-                onClick={handleSave}
+            </Stack>
+          </Box>
+
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Stack spacing={1.5}>
+              <Stack spacing={0.5}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  全体フィルター
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  ダッシュボード全体のスコープを絞り込めます。
+                </Typography>
+              </Stack>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    md: 'repeat(4, minmax(0, 1fr))',
+                  },
+                  gap: 1.5,
+                }}
               >
-                保存
-              </Button>
-              <IconButton onClick={handleCancelEdit} size="small">
-                <CloseIcon />
-              </IconButton>
-            </>
-          ) : (
-            <>
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={handleStartEdit}
-              >
-                編集
-              </Button>
-              <Button
-                size="small"
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleAddWidget}
-              >
-                チャートを追加
-              </Button>
-            </>
-          )}
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<DashboardIcon />}
-            onClick={(event) => setDashboardMenuAnchor(event.currentTarget)}
-          >
-            管理
-          </Button>
+                <FormControl size="small" fullWidth sx={compactControlSx}>
+                  <InputLabel id="dashboard-filter-team">チーム</InputLabel>
+                  <Select
+                    labelId="dashboard-filter-team"
+                    value={dashboardFilters.team ?? ''}
+                    label="チーム"
+                    onChange={(event) =>
+                      updateDashboardFilters({
+                        team: event.target.value || undefined,
+                      })
+                    }
+                  >
+                    <MenuItem value="">指定なし</MenuItem>
+                    {availableTeams.map((team) => (
+                      <MenuItem key={team} value={team}>
+                        {team}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" fullWidth sx={compactControlSx}>
+                  <InputLabel id="dashboard-filter-action">
+                    アクション
+                  </InputLabel>
+                  <Select
+                    labelId="dashboard-filter-action"
+                    value={dashboardFilters.action ?? ''}
+                    label="アクション"
+                    onChange={(event) =>
+                      updateDashboardFilters({
+                        action: event.target.value || undefined,
+                      })
+                    }
+                  >
+                    <MenuItem value="">指定なし</MenuItem>
+                    {availableActions.map((action) => (
+                      <MenuItem key={action} value={action}>
+                        {action}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" fullWidth sx={compactControlSx}>
+                  <InputLabel id="dashboard-filter-group">
+                    ラベルグループ
+                  </InputLabel>
+                  <Select
+                    labelId="dashboard-filter-group"
+                    value={dashboardFilters.labelGroup ?? ''}
+                    label="ラベルグループ"
+                    onChange={(event) =>
+                      updateDashboardFilters({
+                        labelGroup: event.target.value || undefined,
+                        labelValue: undefined,
+                      })
+                    }
+                  >
+                    <MenuItem value="">指定なし</MenuItem>
+                    {availableGroups.map((group) => (
+                      <MenuItem key={group} value={group}>
+                        {group}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" fullWidth sx={compactControlSx}>
+                  <InputLabel id="dashboard-filter-value">ラベル値</InputLabel>
+                  <Select
+                    labelId="dashboard-filter-value"
+                    value={dashboardFilters.labelValue ?? ''}
+                    label="ラベル値"
+                    onChange={(event) =>
+                      updateDashboardFilters({
+                        labelValue: event.target.value || undefined,
+                      })
+                    }
+                    disabled={!dashboardFilters.labelGroup}
+                  >
+                    <MenuItem value="">指定なし</MenuItem>
+                    {((dashboardFilters.labelGroup &&
+                      availableLabelValues[dashboardFilters.labelGroup]) ||
+                      []).map((value) => (
+                      <MenuItem key={value} value={value}>
+                        {value}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              {appliedFilterChips.length > 0 && (
+                <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  {appliedFilterChips.map((chip) => (
+                    <Chip key={chip} label={chip} size="small" />
+                  ))}
+                  <Button size="small" onClick={handleResetFilters}>
+                    リセット
+                  </Button>
+                </Stack>
+              )}
+            </Stack>
+          </Paper>
         </Stack>
       </Box>
 
@@ -543,361 +705,153 @@ export const DashboardTab = ({
         </MenuItem>
       </Menu>
 
-      <Divider />
-
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: '320px 1fr' },
-          gap: 2.5,
-        }}
-      >
-        <Stack spacing={2}>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1.5}>
-              <Stack spacing={0.5}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  データ棚
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  ラベル・アクション・チームを軸にグラフを組み立てます。
-                </Typography>
-              </Stack>
-              <Divider />
-              <Stack spacing={1}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    チーム ({availableTeams.length})
-                  </Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                    {availableTeams.map((team) => (
-                      <Chip key={team} label={team} size="small" />
-                    ))}
-                    {availableTeams.length === 0 && (
-                      <Typography variant="caption" color="text.secondary">
-                        まだデータがありません
-                      </Typography>
-                    )}
-                  </Stack>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    アクション ({availableActions.length})
-                  </Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                    {availableActions.map((action) => (
-                      <Chip key={action} label={action} size="small" />
-                    ))}
-                    {availableActions.length === 0 && (
-                      <Typography variant="caption" color="text.secondary">
-                        まだデータがありません
-                      </Typography>
-                    )}
-                  </Stack>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    ラベルグループ ({availableGroups.length})
-                  </Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                    {availableGroups.map((group) => (
-                      <Chip key={group} label={group} size="small" />
-                    ))}
-                    {availableGroups.length === 0 && (
-                      <Typography variant="caption" color="text.secondary">
-                        まだデータがありません
-                      </Typography>
-                    )}
-                  </Stack>
-                </Box>
-              </Stack>
-            </Stack>
-          </Paper>
-
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1.5}>
-              <Stack spacing={0.5}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  全体フィルター
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  ダッシュボード全体のスコープを絞り込めます。
-                </Typography>
-              </Stack>
-              <Stack spacing={1.5}>
-                <FormControl size="small" fullWidth>
-                  <InputLabel id="dashboard-filter-team">チーム</InputLabel>
-                  <Select
-                    labelId="dashboard-filter-team"
-                    value={dashboardFilters.team ?? ''}
-                    label="チーム"
-                    onChange={(event) =>
-                      updateDashboardFilters({
-                        team: event.target.value || undefined,
-                      })
-                    }
-                  >
-                    <MenuItem value="">指定なし</MenuItem>
-                    {availableTeams.map((team) => (
-                      <MenuItem key={team} value={team}>
-                        {team}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" fullWidth>
-                  <InputLabel id="dashboard-filter-action">
-                    アクション
-                  </InputLabel>
-                  <Select
-                    labelId="dashboard-filter-action"
-                    value={dashboardFilters.action ?? ''}
-                    label="アクション"
-                    onChange={(event) =>
-                      updateDashboardFilters({
-                        action: event.target.value || undefined,
-                      })
-                    }
-                  >
-                    <MenuItem value="">指定なし</MenuItem>
-                    {availableActions.map((action) => (
-                      <MenuItem key={action} value={action}>
-                        {action}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" fullWidth>
-                  <InputLabel id="dashboard-filter-group">
-                    ラベルグループ
-                  </InputLabel>
-                  <Select
-                    labelId="dashboard-filter-group"
-                    value={dashboardFilters.labelGroup ?? ''}
-                    label="ラベルグループ"
-                    onChange={(event) =>
-                      updateDashboardFilters({
-                        labelGroup: event.target.value || undefined,
-                        labelValue: undefined,
-                      })
-                    }
-                  >
-                    <MenuItem value="">指定なし</MenuItem>
-                    {availableGroups.map((group) => (
-                      <MenuItem key={group} value={group}>
-                        {group}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" fullWidth>
-                  <InputLabel id="dashboard-filter-value">ラベル値</InputLabel>
-                  <Select
-                    labelId="dashboard-filter-value"
-                    value={dashboardFilters.labelValue ?? ''}
-                    label="ラベル値"
-                    onChange={(event) =>
-                      updateDashboardFilters({
-                        labelValue: event.target.value || undefined,
-                      })
-                    }
-                    disabled={!dashboardFilters.labelGroup}
-                  >
-                    <MenuItem value="">指定なし</MenuItem>
-                    {((dashboardFilters.labelGroup &&
-                      availableLabelValues[dashboardFilters.labelGroup]) ||
-                      []).map((value) => (
-                      <MenuItem key={value} value={value}>
-                        {value}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                {appliedFilterChips.length > 0 && (
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                    {appliedFilterChips.map((chip) => (
-                      <Chip key={chip} label={chip} size="small" />
-                    ))}
-                    <Button size="small" onClick={handleResetFilters}>
-                      リセット
-                    </Button>
-                  </Stack>
-                )}
-              </Stack>
-            </Stack>
-          </Paper>
-        </Stack>
-
-        <Stack spacing={2}>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  キャンバス
-                </Typography>
-                <Chip
-                  label={isEditing ? '編集' : '閲覧'}
-                  size="small"
-                  color={isEditing ? 'warning' : 'default'}
-                />
-              </Stack>
-              <Typography variant="body2" color="text.secondary">
-                カードの順序は上下ボタンで調整できます。
+      <Stack spacing={2}>
+        {widgets.length === 0 ? (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 4,
+              textAlign: 'center',
+              borderStyle: 'dashed',
+              bgcolor: 'action.hover',
+            }}
+          >
+            <Stack spacing={1.5} alignItems="center">
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                チャートを追加してダッシュボードを作成しましょう
               </Typography>
-              {appliedFilterChips.length > 0 && (
-                <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                  {appliedFilterChips.map((chip) => (
-                    <Chip key={chip} label={chip} size="small" />
-                  ))}
-                </Stack>
-              )}
+              <Typography variant="body2" color="text.secondary">
+                フィルターや軸を使って、用途に合わせた可視化ができます。
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleAddWidget}
+              >
+                チャートを追加
+              </Button>
             </Stack>
           </Paper>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(12, 1fr)',
+              gap: 2,
+            }}
+          >
+            {widgets.map((widget) => {
+              const chart = buildCustomChartData(timeline, availableGroups, {
+                primaryAxis: widget.primaryAxis,
+                seriesAxis: widget.seriesAxis,
+                seriesEnabled: widget.seriesEnabled,
+                metric: widget.metric,
+                limit: widget.limit,
+                series:
+                  widget.dataMode === 'series' ? widget.series : undefined,
+                calc: widget.calc,
+                baseFilters: dashboardFilters,
+                widgetFilters: widget.widgetFilters,
+                teamRoleMap,
+              });
 
-          {widgets.length === 0 ? (
-            <Paper
-              variant="outlined"
-              sx={{
-                p: 4,
-                textAlign: 'center',
-                borderStyle: 'dashed',
-                bgcolor: 'action.hover',
-              }}
-            >
-              <Stack spacing={1.5} alignItems="center">
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  チャートを追加してダッシュボードを作成しましょう
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  データ棚の軸やフィルターを使って、用途に合わせた可視化ができます。
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleAddWidget}
+              const subtitle =
+                widget.dataMode === 'series'
+                  ? '比較シリーズ'
+                  : `${getAxisLabel(
+                      widget.primaryAxis,
+                      availableGroups,
+                    )}${
+                      widget.seriesEnabled
+                        ? ` × ${getAxisLabel(
+                            widget.seriesAxis,
+                            availableGroups,
+                          )}`
+                        : ''
+                    }`;
+              const chips = [
+                ...buildFilterChips('全体', dashboardFilters),
+                ...buildFilterChips('カード', widget.widgetFilters),
+              ];
+
+              return (
+                <Box
+                  key={widget.id}
+                  sx={{ gridColumn: `span ${widget.colSpan}` }}
                 >
-                  チャートを追加
-                </Button>
-              </Stack>
-            </Paper>
-          ) : (
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(12, 1fr)',
-                gap: 2,
-              }}
-            >
-              {widgets.map((widget) => {
-                const chart = buildCustomChartData(timeline, availableGroups, {
-                  primaryAxis: widget.primaryAxis,
-                  seriesAxis: widget.seriesAxis,
-                  seriesEnabled: widget.seriesEnabled,
-                  metric: widget.metric,
-                  limit: widget.limit,
-                  series:
-                    widget.dataMode === 'series' ? widget.series : undefined,
-                  calc: widget.calc,
-                  baseFilters: dashboardFilters,
-                  widgetFilters: widget.widgetFilters,
-                });
-
-                const subtitle =
-                  widget.dataMode === 'series'
-                    ? '比較シリーズ'
-                    : `${getAxisLabel(
-                        widget.primaryAxis,
-                        availableGroups,
-                      )}${
-                        widget.seriesEnabled
-                          ? ` × ${getAxisLabel(
-                              widget.seriesAxis,
-                              availableGroups,
-                            )}`
-                          : ''
-                      }`;
-                const chips = [
-                  ...buildFilterChips('全体', dashboardFilters),
-                  ...buildFilterChips('カード', widget.widgetFilters),
-                ];
-
-                return (
-                  <Box
-                    key={widget.id}
-                    sx={{ gridColumn: `span ${widget.colSpan}` }}
+                  <DashboardCard
+                    title={replaceTeamPlaceholders(widget.title, teamContext)}
+                    subtitle={subtitle}
+                    chips={chips}
+                    actions={
+                      isEditing && (
+                        <Stack direction="row" spacing={0.5}>
+                          <IconButton
+                            size="small"
+                            onClick={() => openEditor(widget)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDuplicate(widget)}
+                          >
+                            <ContentCopyIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleMove(widget.id, 'up')}
+                          >
+                            <ArrowUpwardIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleMove(widget.id, 'down')}
+                          >
+                            <ArrowDownwardIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDelete(widget.id)}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      )
+                    }
                   >
-                    <DashboardCard
-                      title={widget.title}
-                      subtitle={subtitle}
-                      chips={chips}
-                      actions={
-                        isEditing && (
-                          <Stack direction="row" spacing={0.5}>
-                            <IconButton
-                              size="small"
-                              onClick={() => openEditor(widget)}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDuplicate(widget)}
-                            >
-                              <ContentCopyIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleMove(widget.id, 'up')}
-                            >
-                              <ArrowUpwardIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleMove(widget.id, 'down')}
-                            >
-                              <ArrowDownwardIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDelete(widget.id)}
-                            >
-                              <DeleteOutlineIcon fontSize="small" />
-                            </IconButton>
-                          </Stack>
-                        )
-                      }
-                    >
-                      {chart.data.length === 0 ? (
-                        <NoDataPlaceholder message="該当データがありません。" />
-                      ) : widget.chartType === 'pie' ? (
-                        <CustomPieChart
-                          data={chart.data}
-                          seriesKeys={chart.seriesKeys}
-                          unitLabel={chart.unitLabel}
-                          metric={widget.metric}
-                          height={300}
-                        />
-                      ) : (
-                        <CustomBarChart
-                          data={chart.data}
-                          seriesKeys={chart.seriesKeys}
-                          stacked={widget.chartType === 'stacked'}
-                          showLegend={
-                            widget.seriesEnabled && widget.dataMode !== 'series'
-                          }
-                          unitLabel={chart.unitLabel}
-                          metric={widget.metric}
-                          height={300}
-                        />
-                      )}
-                    </DashboardCard>
-                  </Box>
-                );
-              })}
-            </Box>
-          )}
+                    {chart.data.length === 0 ? (
+                      <NoDataPlaceholder message="該当データがありません。" />
+                    ) : widget.chartType === 'pie' ? (
+                      <CustomPieChart
+                        data={chart.data}
+                        seriesKeys={chart.seriesKeys}
+                        unitLabel={chart.unitLabel}
+                        metric={widget.metric}
+                        calcMode={chart.calcMode}
+                        height={300}
+                      />
+                    ) : (
+                      <CustomBarChart
+                        data={chart.data}
+                        seriesKeys={chart.seriesKeys}
+                        stacked={widget.chartType === 'stacked'}
+                        showLegend={
+                          widget.seriesEnabled && widget.dataMode !== 'series'
+                        }
+                        unitLabel={chart.unitLabel}
+                        metric={widget.metric}
+                        calcMode={chart.calcMode}
+                        height={300}
+                      />
+                    )}
+                  </DashboardCard>
+                </Box>
+              );
+            })}
+          </Box>
+        )}
         </Stack>
-      </Box>
 
       <DashboardWidgetDialog
         open={editorOpen}

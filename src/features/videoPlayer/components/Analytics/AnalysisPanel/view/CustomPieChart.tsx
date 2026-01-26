@@ -28,6 +28,7 @@ interface CustomPieChartProps {
   unitLabel: string;
   metric: 'count' | 'duration';
   height?: number;
+  calcMode?: 'raw' | 'percentTotal' | 'difference';
 }
 
 export const CustomPieChart = ({
@@ -36,6 +37,7 @@ export const CustomPieChart = ({
   unitLabel,
   metric,
   height = 300,
+  calcMode = 'raw',
 }: CustomPieChartProps) => {
   const theme = useTheme();
   const normalizedSeriesKeys = seriesKeys.length > 0 ? seriesKeys : ['value'];
@@ -44,9 +46,21 @@ export const CustomPieChart = ({
       const value = entry[key];
       return sum + (typeof value === 'number' ? value : 0);
     }, 0);
+    const rawTotal = normalizedSeriesKeys.reduce((sum, key) => {
+      const rawValue = (entry as Record<string, number | string>)[
+        `__raw_${key}`
+      ];
+      return sum + (typeof rawValue === 'number' ? rawValue : 0);
+    }, 0);
     return {
       name: String(entry.name ?? ''),
       value: total,
+      rawValue:
+        typeof entry.rawValue === 'number'
+          ? entry.rawValue
+          : rawTotal > 0
+            ? rawTotal
+            : undefined,
     };
   });
 
@@ -59,9 +73,16 @@ export const CustomPieChart = ({
     return `${Math.round(value)}${unitLabel}`;
   };
 
+  const rawUnitLabel = metric === 'duration' ? '秒' : '件';
+  const formatRawValue = (value: number) => {
+    if (metric === 'duration') {
+      return `${value.toFixed(1)}${rawUnitLabel}`;
+    }
+    return `${Math.round(value)}${rawUnitLabel}`;
+  };
+
   const tooltipStyles = {
-    backgroundColor:
-      theme.palette.mode === 'dark' ? '#1f1f1f' : theme.palette.background.paper,
+    backgroundColor: theme.palette.background.paper,
     border: `1px solid ${theme.palette.divider}`,
     color: theme.palette.text.primary,
     borderRadius: 6,
@@ -96,9 +117,27 @@ export const CustomPieChart = ({
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: number) => [formatValue(value), '値']}
+          formatter={(
+            value: number,
+            _label: string,
+            tooltipPayload: { payload?: { rawValue?: number } },
+          ) => {
+            if (calcMode === 'percentTotal') {
+              const rawValue = tooltipPayload?.payload?.rawValue;
+              if (typeof rawValue === 'number') {
+                return [
+                  `${value.toFixed(1)}% (${formatRawValue(rawValue)})`,
+                  '値',
+                ];
+              }
+              return [`${value.toFixed(1)}%`, '値'];
+            }
+            return [formatValue(value), '値'];
+          }}
           contentStyle={tooltipStyles}
           labelStyle={{ color: theme.palette.text.secondary }}
+          itemStyle={{ color: theme.palette.text.primary }}
+          labelFormatter={(label) => String(label)}
         />
         <Legend
           verticalAlign="bottom"

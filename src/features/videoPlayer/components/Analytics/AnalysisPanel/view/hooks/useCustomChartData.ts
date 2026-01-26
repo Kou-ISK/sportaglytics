@@ -33,6 +33,7 @@ export interface CustomChartConfig {
   calc?: DashboardCalcMode;
   baseFilters?: DashboardSeriesFilter;
   widgetFilters?: DashboardSeriesFilter;
+  teamRoleMap?: { team1?: string; team2?: string };
 }
 
 export interface CustomChartData {
@@ -45,8 +46,17 @@ export interface CustomChartData {
 const matchesFilters = (
   item: TimelineData,
   filters?: DashboardSeriesFilter,
+  config?: CustomChartConfig,
 ): boolean => {
   if (!filters) return true;
+  if (filters.teamRole) {
+    const team = extractTeamFromActionName(item.actionName);
+    const roleTeam =
+      filters.teamRole === 'team1'
+        ? config?.teamRoleMap?.team1
+        : config?.teamRoleMap?.team2;
+    if (roleTeam && team !== roleTeam) return false;
+  }
   if (filters.team) {
     const team = extractTeamFromActionName(item.actionName);
     if (team !== filters.team) return false;
@@ -71,9 +81,10 @@ const matchesFilters = (
 const filterTimeline = (
   timeline: TimelineData[],
   filters?: DashboardSeriesFilter,
+  config?: CustomChartConfig,
 ): TimelineData[] => {
   if (!filters) return timeline;
-  return timeline.filter((item) => matchesFilters(item, filters));
+  return timeline.filter((item) => matchesFilters(item, filters, config));
 };
 
 export const buildCustomChartData = (
@@ -82,12 +93,12 @@ export const buildCustomChartData = (
   config: CustomChartConfig,
 ): CustomChartData => {
   const calcMode: DashboardCalcMode = config.calc ?? 'raw';
-  const baseFiltered = filterTimeline(timeline, config.baseFilters);
-  const widgetFiltered = filterTimeline(baseFiltered, config.widgetFilters);
+  const baseFiltered = filterTimeline(timeline, config.baseFilters, config);
+  const widgetFiltered = filterTimeline(baseFiltered, config.widgetFilters, config);
 
   if (config.series && config.series.length > 0) {
     const seriesValues = config.series.map((series) => {
-      const filtered = filterTimeline(widgetFiltered, series.filters);
+      const filtered = filterTimeline(widgetFiltered, series.filters, config);
       const rawValue =
         config.metric === 'duration'
           ? filtered.reduce((sum, item) => {
@@ -115,6 +126,7 @@ export const buildCustomChartData = (
       data = seriesValues.map((entry) => ({
         name: entry.name,
         value: total ? (entry.value / total) * 100 : 0,
+        rawValue: entry.value,
       }));
       seriesKeys = ['value'];
       unitLabel = '%';
@@ -220,6 +232,7 @@ export const buildCustomChartData = (
       const next: Record<string, number | string> = { name: entry.label };
       for (const [key, value] of Object.entries(entry.seriesMap)) {
         next[key] = total ? (value / total) * 100 : 0;
+        next[`__raw_${key}`] = value;
       }
       return next;
     });

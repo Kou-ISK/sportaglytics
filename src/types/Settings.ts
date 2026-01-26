@@ -262,6 +262,7 @@ export type DashboardCalcMode = 'raw' | 'percentTotal' | 'difference';
 
 export interface DashboardSeriesFilter {
   team?: string;
+  teamRole?: 'team1' | 'team2';
   action?: string;
   labelGroup?: string;
   labelValue?: string;
@@ -360,7 +361,7 @@ const createTemplateDashboardWidgets = (): AnalysisDashboardWidget[] => {
       id: 'template-possession',
       title: 'ポゼッション割合',
       chartType: 'pie',
-      metric: 'count',
+      metric: 'duration',
       primaryAxis: { type: 'team' },
       seriesEnabled: false,
       seriesAxis: { type: 'group', value: 'actionResult' },
@@ -373,8 +374,8 @@ const createTemplateDashboardWidgets = (): AnalysisDashboardWidget[] => {
   const actions = ['スクラム', 'ラインアウト', 'キック', 'FK', 'PK'];
   actions.forEach((action) => {
     widgets.push({
-      id: `template-${action}-result`,
-      title: `${action} 結果内訳`,
+      id: `template-${action}-result-team1`,
+      title: `${TEAM_PLACEHOLDERS.TEAM1} ${action} 結果内訳`,
       chartType: 'pie',
       metric: 'count',
       primaryAxis: { type: 'group', value: 'actionResult' },
@@ -382,11 +383,23 @@ const createTemplateDashboardWidgets = (): AnalysisDashboardWidget[] => {
       seriesAxis: { type: 'group', value: 'actionResult' },
       colSpan: 6,
       calc: 'percentTotal',
-      widgetFilters: { action },
+      widgetFilters: { action, teamRole: 'team1' },
     });
     widgets.push({
-      id: `template-${action}-type`,
-      title: `${action} 種別内訳`,
+      id: `template-${action}-result-team2`,
+      title: `${TEAM_PLACEHOLDERS.TEAM2} ${action} 結果内訳`,
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'actionResult' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionResult' },
+      colSpan: 6,
+      calc: 'percentTotal',
+      widgetFilters: { action, teamRole: 'team2' },
+    });
+    widgets.push({
+      id: `template-${action}-type-team1`,
+      title: `${TEAM_PLACEHOLDERS.TEAM1} ${action} 種別内訳`,
       chartType: 'pie',
       metric: 'count',
       primaryAxis: { type: 'group', value: 'actionType' },
@@ -394,7 +407,19 @@ const createTemplateDashboardWidgets = (): AnalysisDashboardWidget[] => {
       seriesAxis: { type: 'group', value: 'actionType' },
       colSpan: 6,
       calc: 'percentTotal',
-      widgetFilters: { action },
+      widgetFilters: { action, teamRole: 'team1' },
+    });
+    widgets.push({
+      id: `template-${action}-type-team2`,
+      title: `${TEAM_PLACEHOLDERS.TEAM2} ${action} 種別内訳`,
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'actionType' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionType' },
+      colSpan: 6,
+      calc: 'percentTotal',
+      widgetFilters: { action, teamRole: 'team2' },
     });
   });
 
@@ -424,13 +449,22 @@ const stripTeamFilters = (
 const normalizeDashboards = (
   dashboards: AnalysisDashboard[],
 ): AnalysisDashboard[] => {
-  return dashboards.map((item, index) => ({
-    id: item.id || `dashboard-${index + 1}`,
-    name: item.name || `ダッシュボード${index + 1}`,
-    widgets: Array.isArray(item.widgets)
-      ? item.widgets.map(stripTeamFilters)
-      : [],
-  }));
+  return dashboards.map((item, index) => {
+    const normalized = {
+      id: item.id || `dashboard-${index + 1}`,
+      name: item.name || `ダッシュボード${index + 1}`,
+      widgets: Array.isArray(item.widgets)
+        ? item.widgets.map(stripTeamFilters)
+        : [],
+    };
+    if (normalized.id === 'template-basic') {
+      return {
+        ...normalized,
+        widgets: createTemplateDashboardWidgets(),
+      };
+    }
+    return normalized;
+  });
 };
 
 const createDefaultAnalysisDashboard = (): AnalysisDashboardConfig => ({

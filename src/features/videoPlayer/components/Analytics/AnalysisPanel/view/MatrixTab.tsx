@@ -1,6 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { Stack, Paper, Typography, Divider, Box } from '@mui/material';
+import {
+  Stack,
+  Paper,
+  Typography,
+  Divider,
+  Box,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+} from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
 import { MatrixSection } from './MatrixSection';
@@ -76,74 +86,104 @@ export const MatrixTab = ({
 
   return (
     <>
-      <Stack spacing={3}>
-        {/* カスタム分析 */}
-        <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-          <Stack spacing={2}>
-            {/* ヘッダー */}
+      <Stack spacing={1.5}>
+        <Accordion
+          defaultExpanded
+          elevation={0}
+          sx={{
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            overflow: 'hidden',
+            '&::before': { display: 'none' },
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            sx={{
+              px: 2,
+              py: 1,
+              bgcolor: 'action.selected',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              '& .MuiAccordionSummary-content': { alignItems: 'center' },
+            }}
+          >
             <Box display="flex" alignItems="center" gap={1}>
               <SettingsIcon fontSize="small" />
               <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                カスタム分析
+                設定
               </Typography>
             </Box>
-
-            <Divider />
-
-            {/* 軸設定 */}
-            <Box display="grid" gridTemplateColumns="1fr 1fr" gap={3}>
+          </AccordionSummary>
+          <AccordionDetails sx={{ px: 2, pt: 1.5, pb: 2 }}>
+            <Stack spacing={2}>
               <Box>
-                <MatrixAxisSelector
-                  key="row-axis"
-                  label="行軸"
-                  value={customRowAxis}
-                  onChange={(newConfig) => {
-                    console.log('行軸 - MatrixTab onChange:', {
-                      old: customRowAxis,
-                      new: newConfig,
-                    });
-                    setCustomRowAxis(newConfig);
-                  }}
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                  軸
+                </Typography>
+                <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2}>
+                  <MatrixAxisSelector
+                    key="row-axis"
+                    label="行軸"
+                    value={customRowAxis}
+                    onChange={(newConfig) => {
+                      console.log('行軸 - MatrixTab onChange:', {
+                        old: customRowAxis,
+                        new: newConfig,
+                      });
+                      setCustomRowAxis(newConfig);
+                    }}
+                    availableGroups={availableGroups}
+                  />
+                  <MatrixAxisSelector
+                    key="column-axis"
+                    label="列軸"
+                    value={customColumnAxis}
+                    onChange={(newConfig) => {
+                      console.log('列軸 - MatrixTab onChange:', {
+                        old: customColumnAxis,
+                        new: newConfig,
+                      });
+                      setCustomColumnAxis(newConfig);
+                    }}
+                    availableGroups={availableGroups}
+                  />
+                </Box>
+              </Box>
+              <Divider />
+              <Box>
+                <MatrixFilters
+                  filters={filters}
+                  availableTeams={availableTeams}
+                  availableActions={availableActions}
+                  availableLabelValues={availableLabelValues}
                   availableGroups={availableGroups}
+                  onTeamChange={setFilterTeam}
+                  onActionChange={setFilterAction}
+                  onLabelGroupChange={setFilterLabelGroup}
+                  onLabelValueChange={setFilterLabelValue}
+                  onClearLabelFilters={clearLabelFilters}
+                  hasActiveFilters={hasActiveFilters}
                 />
               </Box>
-              <Box>
-                <MatrixAxisSelector
-                  key="column-axis"
-                  label="列軸"
-                  value={customColumnAxis}
-                  onChange={(newConfig) => {
-                    console.log('列軸 - MatrixTab onChange:', {
-                      old: customColumnAxis,
-                      new: newConfig,
-                    });
-                    setCustomColumnAxis(newConfig);
-                  }}
-                  availableGroups={availableGroups}
-                />
-              </Box>
-            </Box>
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
 
-            {/* フィルタ設定 */}
-            <Divider />
-            <MatrixFilters
-              filters={filters}
-              availableTeams={availableTeams}
-              availableActions={availableActions}
-              availableLabelValues={availableLabelValues}
-              availableGroups={availableGroups}
-              onTeamChange={setFilterTeam}
-              onActionChange={setFilterAction}
-              onLabelGroupChange={setFilterLabelGroup}
-              onLabelValueChange={setFilterLabelValue}
-              onClearLabelFilters={clearLabelFilters}
-              hasActiveFilters={hasActiveFilters}
-            />
-
-            {/* マトリクス表示 */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1.25,
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Stack spacing={1}>
             {customMatrix && customMatrix.rowHeaders.length > 0 && (
               <>
-                <Divider />
                 <MatrixSection
                   title={`${getAxisLabel(customRowAxis)} × ${getAxisLabel(customColumnAxis)}`}
                   rowHeaders={customMatrix.rowHeaders}

@@ -132,6 +132,7 @@ export const CustomChartTab = ({
             showLegend={seriesEnabled}
             unitLabel={unitLabel}
             metric={metric}
+            calcMode={chartState.calcMode}
             height={420}
           />
         </Box>
