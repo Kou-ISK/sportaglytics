@@ -64,7 +64,7 @@
         {
           "UTTypeIdentifier": "com.kouisk.sportaglytics.stad",
           "UTTypeDescription": "SporTagLytics Dashboard",
-          "UTTypeConformsTo": ["public.data"],
+          "UTTypeConformsTo": ["public.data", "com.apple.package"],
           "UTTypeTagSpecification": {
             "public.filename-extension": ["stad"]
           }
@@ -104,7 +104,7 @@
           "CFBundleTypeExtensions": ["stad"],
           "LSHandlerRank": "Owner",
           "LSItemContentTypes": ["com.kouisk.sportaglytics.stad"],
-          "LSTypeIsPackage": false
+          "LSTypeIsPackage": true
         }
       ]
     }
