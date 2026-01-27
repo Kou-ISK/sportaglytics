@@ -22,6 +22,9 @@ const PIE_COLORS = [
   '#d32f2f',
 ];
 
+const normalizeKey = (value: string) =>
+  value.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+
 interface CustomPieChartProps {
   data: Array<Record<string, number | string>>;
   seriesKeys: string[];
@@ -29,6 +32,7 @@ interface CustomPieChartProps {
   metric: 'count' | 'duration';
   height?: number;
   calcMode?: 'raw' | 'percentTotal' | 'difference';
+  teamColorMap?: Record<string, string>;
 }
 
 export const CustomPieChart = ({
@@ -38,6 +42,7 @@ export const CustomPieChart = ({
   metric,
   height = 300,
   calcMode = 'raw',
+  teamColorMap,
 }: CustomPieChartProps) => {
   const theme = useTheme();
   const normalizedSeriesKeys = seriesKeys.length > 0 ? seriesKeys : ['value'];
@@ -129,29 +134,32 @@ export const CustomPieChart = ({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <PieChart margin={{ top: 8, right: 16, bottom: 24, left: 16 }}>
+      <PieChart margin={{ top: 8, right: 120, bottom: 48, left: 120 }}>
         <Pie
           data={pieData}
           dataKey="value"
           nameKey="name"
-          outerRadius="70%"
-          innerRadius="45%"
-          startAngle={90}
-          endAngle={-270}
+          outerRadius="96%"
+          innerRadius="60%"
+          startAngle={180}
+          endAngle={0}
           cx="50%"
-          cy="45%"
+          cy="80%"
           paddingAngle={1}
+          labelLine={{ stroke: theme.palette.divider, strokeWidth: 1 }}
           label={({ name, value }) => {
-            if (!totalValue) return `${name}`;
+            if (!totalValue) return String(name ?? '');
             const percentage = ((value / totalValue) * 100).toFixed(1);
             return `${name}: ${percentage}%`;
           }}
-          labelLine={{ stroke: '#666', strokeWidth: 1 }}
         >
           {pieData.map((entry, index) => (
             <Cell
               key={`pie-${entry.name}-${index}`}
-              fill={PIE_COLORS[index % PIE_COLORS.length]}
+              fill={
+                teamColorMap?.[normalizeKey(entry.name)] ??
+                PIE_COLORS[index % PIE_COLORS.length]
+              }
             />
           ))}
         </Pie>

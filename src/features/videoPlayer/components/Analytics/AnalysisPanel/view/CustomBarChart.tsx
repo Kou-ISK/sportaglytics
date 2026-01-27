@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   ResponsiveContainer,
   Tooltip,
@@ -24,6 +25,9 @@ const SERIES_COLORS = [
   '#d32f2f',
 ];
 
+const normalizeKey = (value: string) =>
+  value.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+
 const getSeriesColor = (key: string) => {
   const hash = Math.abs(
     key.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0),
@@ -40,6 +44,7 @@ interface CustomBarChartProps {
   height?: number;
   metric: 'count' | 'duration';
   calcMode?: 'raw' | 'percentTotal' | 'difference';
+  teamColorMap?: Record<string, string>;
 }
 
 export const CustomBarChart = ({
@@ -51,6 +56,7 @@ export const CustomBarChart = ({
   height = 360,
   metric,
   calcMode = 'raw',
+  teamColorMap,
 }: CustomBarChartProps) => {
   const theme = useTheme();
   const formatter = (value: number) => {
@@ -61,6 +67,12 @@ export const CustomBarChart = ({
   };
 
   const normalizedSeriesKeys = seriesKeys.length > 0 ? seriesKeys : ['value'];
+  const hasPerBarTeamColors =
+    Boolean(teamColorMap) &&
+    normalizedSeriesKeys.length === 1 &&
+    data.some((entry) =>
+      Boolean(teamColorMap?.[String(entry.name ?? '')]),
+    );
   const rawUnitLabel = metric === 'duration' ? '秒' : '件';
   const formatRawValue = (value: number) => {
     if (metric === 'duration') {
@@ -120,15 +132,33 @@ export const CustomBarChart = ({
           labelFormatter={(label) => String(label)}
         />
         {showLegend && <Legend />}
-        {normalizedSeriesKeys.map((key) => (
-          <Bar
-            key={key}
-            dataKey={key}
-            stackId={stacked ? 'stack' : undefined}
-            fill={getSeriesColor(key)}
-            radius={[4, 4, 0, 0]}
-          />
-        ))}
+        {normalizedSeriesKeys.map((key) => {
+          const fallbackFill = getSeriesColor(key);
+          const fill = teamColorMap?.[normalizeKey(key)] ?? fallbackFill;
+          return (
+            <Bar
+              key={key}
+              dataKey={key}
+              stackId={stacked ? 'stack' : undefined}
+              fill={fill}
+              radius={[4, 4, 0, 0]}
+            >
+              {hasPerBarTeamColors &&
+                key === normalizedSeriesKeys[0] &&
+                data.map((entry, index) => {
+                  const entryName = String(entry.name ?? '');
+                  const entryFill =
+                    teamColorMap?.[normalizeKey(entryName)] ?? fill;
+                  return (
+                    <Cell
+                      key={`cell-${entryName}-${index}`}
+                      fill={entryFill}
+                    />
+                  );
+                })}
+            </Bar>
+          );
+        })}
       </BarChart>
     </ResponsiveContainer>
   );

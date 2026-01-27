@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useTheme } from '@mui/material/styles';
 import {
   Box,
   Button,
@@ -42,6 +43,7 @@ import {
   extractUniqueLabelsForGroup,
   extractUniqueTeams,
 } from '../../../../../../utils/labelExtractors';
+import { getTimelineTeamOrder } from '../../../../../../utils/teamOrder';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
 import { DashboardCard } from './DashboardCard';
 import { DashboardWidgetDialog } from './DashboardWidgetDialog';
@@ -63,6 +65,7 @@ export const DashboardTab = ({
   teamNames,
   emptyMessage,
 }: DashboardTabProps) => {
+  const theme = useTheme();
   const { settings, saveSettings } = useSettings();
   const notification = useNotification();
   const availableGroups = useMemo(
@@ -89,20 +92,42 @@ export const DashboardTab = ({
     }
     return map;
   }, [timeline, availableGroups]);
+  const orderedTeams = useMemo(() => {
+    const fromTimeline = getTimelineTeamOrder(timeline).filter(Boolean);
+    if (fromTimeline.length > 0) return fromTimeline;
+    return availableTeams;
+  }, [timeline, availableTeams]);
   const teamRoleMap = useMemo(
     () => ({
-      team1: availableTeams[0],
-      team2: availableTeams[1],
+      team1: orderedTeams[0],
+      team2: orderedTeams[1],
     }),
-    [availableTeams],
+    [orderedTeams],
   );
   const teamContext = useMemo(
     () => ({
-      team1Name: availableTeams[0] || 'Team1',
-      team2Name: availableTeams[1] || 'Team2',
+      team1Name: orderedTeams[0] || 'Team1',
+      team2Name: orderedTeams[1] || 'Team2',
     }),
-    [availableTeams],
+    [orderedTeams],
   );
+  const teamColorMap = useMemo(() => {
+    const map: Record<string, string> = {
+      Team1: theme.palette.team1.main,
+      Team2: theme.palette.team2.main,
+    };
+    if (orderedTeams[0]) {
+      map[orderedTeams[0]] = theme.palette.team1.main;
+    }
+    if (orderedTeams[1]) {
+      map[orderedTeams[1]] = theme.palette.team2.main;
+    }
+    return map;
+  }, [
+    orderedTeams,
+    theme.palette.team1.main,
+    theme.palette.team2.main,
+  ]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [draftWidgets, setDraftWidgets] = useState<AnalysisDashboardWidget[]>([]);
@@ -799,7 +824,7 @@ export const DashboardTab = ({
                 ...buildFilterChips('カード', widget.widgetFilters),
               ];
 
-              const chartHeight = widget.chartType === 'pie' ? 260 : 280;
+              const chartHeight = widget.chartType === 'pie' ? 320 : 280;
 
               return (
                 <Box
@@ -857,6 +882,7 @@ export const DashboardTab = ({
                         metric={widget.metric}
                         calcMode={chart.calcMode}
                         height={chartHeight}
+                        teamColorMap={teamColorMap}
                       />
                     ) : (
                       <CustomBarChart
@@ -870,6 +896,7 @@ export const DashboardTab = ({
                         metric={widget.metric}
                         calcMode={chart.calcMode}
                         height={chartHeight}
+                        teamColorMap={teamColorMap}
                       />
                     )}
                   </DashboardCard>

@@ -1,6 +1,11 @@
 import type { TimelineData } from '../types/TimelineData';
 import type { SCLabel } from '../types/SCTimeline';
 
+const normalizeActionName = (value: string): string => {
+  if (!value) return '';
+  return value.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
 /**
  * TimelineDataからlabels配列を取得し、group別に分類
  * labels配列が存在しない場合は、actionType/actionResultから生成
@@ -100,7 +105,9 @@ export const extractUniqueGroups = (timeline: TimelineData[]): string[] => {
  * TimelineData配列から team (actionNameの最初の単語) を抽出
  */
 export const extractTeamFromActionName = (actionName: string): string => {
-  const parts = actionName.split(' ');
+  const normalized = normalizeActionName(actionName);
+  if (!normalized) return '未設定';
+  const parts = normalized.split(' ');
   return parts[0] || '未設定';
 };
 
@@ -108,7 +115,9 @@ export const extractTeamFromActionName = (actionName: string): string => {
  * TimelineData配列から action (actionNameのteam部分を除いた残り) を抽出
  */
 export const extractActionFromActionName = (actionName: string): string => {
-  const parts = actionName.split(' ');
+  const normalized = normalizeActionName(actionName);
+  if (!normalized) return '未設定';
+  const parts = normalized.split(' ');
   return parts.slice(1).join(' ') || parts[0] || '未設定';
 };
 

@@ -3,6 +3,7 @@ import { TimelineData } from '../../../../../../types/TimelineData';
 import { CreateMomentumDataFn } from '../../../../../../types/Analysis';
 import { rechartsData } from '../../../../../../types/RechartsData';
 import { useAnalysis } from '../../../../analysis/hooks/useAnalysis';
+import { extractTeamFromActionName } from '../../../../../../utils/labelExtractors';
 
 interface UseAnalysisPanelStateParams {
   timeline: TimelineData[];
@@ -49,8 +50,8 @@ export const useAnalysisPanelState = ({
     const set = new Set<string>();
     teamNames.forEach((name) => set.add(name));
     timeline.forEach((item) => {
-      const [team] = item.actionName.split(' ');
-      if (team) {
+      const team = extractTeamFromActionName(item.actionName);
+      if (team && team !== '未設定') {
         set.add(team);
       }
     });

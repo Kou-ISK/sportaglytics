@@ -277,6 +277,23 @@ const buildActionAxisHeaders = (
 };
 
 /**
+ * アクション軸をフラットに構築するヘルパー
+ */
+const buildFlatActionAxisHeaders = (
+  timeline: TimelineData[],
+): {
+  headers: Array<{ parent: string | null; child: string }>;
+  parentSpans: Map<string, number>;
+} => {
+  const headers: Array<{ parent: string | null; child: string }> = [];
+  const actions = extractKeysForAxis(timeline, { type: 'action' });
+  for (const action of actions) {
+    headers.push({ parent: null, child: action });
+  }
+  return { headers, parentSpans: new Map<string, number>() };
+};
+
+/**
  * 階層構造を持つマトリクスを構築
  *
  * チーム→アクション、グループ→ラベルのような親子関係を持つマトリクスを構築します。
@@ -302,7 +319,10 @@ export const buildHierarchicalMatrix = (
   let rowParentSpans = new Map<string, number>();
 
   if (rowAxis.type === 'action') {
-    const result = buildActionAxisHeaders(timeline);
+    const result =
+      columnAxis.type === 'team'
+        ? buildFlatActionAxisHeaders(timeline)
+        : buildActionAxisHeaders(timeline);
     rowHeaders = result.headers;
     rowParentSpans = result.parentSpans;
   } else if (rowAxis.type === 'group' && rowAxis.value) {
@@ -321,7 +341,10 @@ export const buildHierarchicalMatrix = (
   let colParentSpans = new Map<string, number>();
 
   if (columnAxis.type === 'action') {
-    const result = buildActionAxisHeaders(timeline);
+    const result =
+      rowAxis.type === 'team'
+        ? buildFlatActionAxisHeaders(timeline)
+        : buildActionAxisHeaders(timeline);
     columnHeaders = result.headers;
     colParentSpans = result.parentSpans;
   } else if (columnAxis.type === 'group' && columnAxis.value) {
@@ -373,8 +396,9 @@ const findAllHeaderIndices = (
   if (axis.type === 'action') {
     const team = extractTeamFromActionName(item.actionName);
     const action = extractActionFromActionName(item.actionName);
-    const index = headers.findIndex(
-      (h) => h.parent === team && h.child === action,
+    const hasParent = headers.some((h) => h.parent !== null);
+    const index = headers.findIndex((h) =>
+      hasParent ? h.parent === team && h.child === action : h.child === action,
     );
     return index >= 0 ? [index] : [];
   }
