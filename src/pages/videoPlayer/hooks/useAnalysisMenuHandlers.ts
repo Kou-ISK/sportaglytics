@@ -15,6 +15,7 @@ export const useAnalysisMenuHandlers = ({
         'dashboard',
         'momentum',
         'matrix',
+        'ai',
       ];
       const nextView = analysisViewOptions.includes(requested as AnalysisView)
         ? (requested as AnalysisView)

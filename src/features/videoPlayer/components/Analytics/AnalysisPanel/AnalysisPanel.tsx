@@ -6,7 +6,8 @@ import { useAnalysisPanelState } from './hooks/useAnalysisPanelState';
 export type AnalysisView =
   | 'dashboard'
   | 'momentum'
-  | 'matrix';
+  | 'matrix'
+  | 'ai';
 
 interface AnalysisPanelProps {
   open: boolean;

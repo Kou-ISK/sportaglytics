@@ -449,7 +449,9 @@ const stripTeamFilters = (
 const normalizeDashboards = (
   dashboards: AnalysisDashboard[],
 ): AnalysisDashboard[] => {
-  return dashboards.map((item, index) => {
+  return dashboards
+    .filter((item) => item.id !== 'default')
+    .map((item, index) => {
     const normalized = {
       id: item.id || `dashboard-${index + 1}`,
       name: item.name || `ダッシュボード${index + 1}`,
@@ -470,17 +472,12 @@ const normalizeDashboards = (
 const createDefaultAnalysisDashboard = (): AnalysisDashboardConfig => ({
   dashboards: [
     {
-      id: 'default',
-      name: 'メイン',
-      widgets: DEFAULT_DASHBOARD_WIDGETS,
-    },
-    {
       id: 'template-basic',
       name: '基本分析テンプレート',
       widgets: createTemplateDashboardWidgets(),
     },
   ],
-  activeDashboardId: 'default',
+  activeDashboardId: 'template-basic',
 });
 
 export const normalizeAnalysisDashboard = (
@@ -492,9 +489,9 @@ export const normalizeAnalysisDashboard = (
 
   const hasDashboards = (dashboard as AnalysisDashboardConfig).dashboards;
   if (Array.isArray(hasDashboards)) {
-    const dashboards = hasDashboards.filter(
-      (item) => item && Array.isArray(item.widgets),
-    );
+    const dashboards = hasDashboards
+      .filter((item) => item && Array.isArray(item.widgets))
+      .filter((item) => item.id !== 'default');
     if (dashboards.length === 0) {
       return createDefaultAnalysisDashboard();
     }
@@ -527,17 +524,12 @@ export const normalizeAnalysisDashboard = (
   return {
     dashboards: [
       {
-        id: 'default',
-        name: 'メイン',
-        widgets: legacyWidgets.map(stripTeamFilters),
-      },
-      {
         id: 'template-basic',
         name: '基本分析テンプレート',
         widgets: createTemplateDashboardWidgets(),
       },
     ],
-    activeDashboardId: 'default',
+    activeDashboardId: 'template-basic',
   };
 };
 

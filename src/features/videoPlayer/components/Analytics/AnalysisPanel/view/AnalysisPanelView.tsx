@@ -10,10 +10,11 @@ import {
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { AnalysisView } from '../AnalysisPanel';
 import type { AnalysisPanelDerivedState } from '../hooks/useAnalysisPanelState';
-import { MatrixTab } from './MatrixTab';
-import { DashboardTab } from './DashboardTab';
 import { AnalysisPanelHeader } from './AnalysisPanelHeader';
 import { MomentumTab } from './MomentumTab';
+import { AIAnalysisTab } from './AIAnalysisTab';
+import { DashboardTab } from './DashboardTab';
+import { MatrixTab } from './MatrixTab';
 
 interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   open: boolean;
@@ -51,6 +52,7 @@ export const AnalysisPanelView = ({
           <ToggleButton value="dashboard">ダッシュボード</ToggleButton>
           <ToggleButton value="momentum">モメンタム</ToggleButton>
           <ToggleButton value="matrix">クロス集計</ToggleButton>
+          <ToggleButton value="ai">AI分析</ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
@@ -78,6 +80,15 @@ export const AnalysisPanelView = ({
           createMomentumData={createMomentumData}
           teamNames={resolvedTeamNames}
           emptyMessage="モメンタムを表示するにはタイムラインを作成してください。"
+        />
+      )}
+
+      {currentView === 'ai' && (
+        <AIAnalysisTab
+          hasData={hasTimelineData}
+          timeline={timeline}
+          teamNames={resolvedTeamNames}
+          emptyMessage="AI分析を表示するにはタイムラインを作成してください。"
         />
       )}
     </>
