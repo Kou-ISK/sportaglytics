@@ -10,6 +10,12 @@
     "node_modules/js-yaml/**/*",
     "node_modules/ffmpeg-static/**/*"
   ],
+  "extraResources": [
+    {
+      "from": "public/llama",
+      "to": "llama"
+    }
+  ],
   "asarUnpack": ["node_modules/ffmpeg-static/**/*"],
   "compression": "maximum",
   "directories": {

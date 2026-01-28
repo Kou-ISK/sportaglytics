@@ -1,4 +1,4 @@
-import type { IPlaylistAPI } from './types/Playlist';
+import type { IPlaylistAPI, PlaylistItem } from './types/Playlist';
 import type { TimelineData } from './types/TimelineData';
 import type { AnalysisView } from './features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
 
@@ -78,6 +78,16 @@ export interface IElectronAPI {
     onSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
     offSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
     sendJumpToSegment: (segment: TimelineData) => void;
+    sendCreateAiPlaylist: (payload: { name: string; items: PlaylistItem[] }) => void;
+  };
+  llama: {
+    generate: (payload: {
+      prompt: string;
+      model: string;
+      temperature?: number;
+      maxTokens?: number;
+      timeoutMs?: number;
+    }) => Promise<{ text: string }>;
   };
   setWindowTitle: (title: string) => void;
   exportClipsWithOverlay?: (payload: {

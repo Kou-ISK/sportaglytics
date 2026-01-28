@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { TimelineData } from '../../../../../types/TimelineData';
+import type { PlaylistItem } from '../../../../../types/Playlist';
 import { AnalysisPanelView } from './view/AnalysisPanelView';
 import { useAnalysisPanelState } from './hooks/useAnalysisPanelState';
 
@@ -18,6 +19,10 @@ interface AnalysisPanelProps {
   teamNames: string[];
   onJumpToSegment?: (segment: TimelineData) => void;
   embedded?: boolean;
+  onCreateAiPlaylist?: (payload: {
+    name: string;
+    items: PlaylistItem[];
+  }) => Promise<void> | void;
 }
 
 export const AnalysisPanel = ({
@@ -29,6 +34,7 @@ export const AnalysisPanel = ({
   teamNames,
   onJumpToSegment,
   embedded = false,
+  onCreateAiPlaylist,
 }: AnalysisPanelProps) => {
   const [currentView, setCurrentView] = useState<AnalysisView>(view);
   const derivedState = useAnalysisPanelState({ timeline, teamNames });
@@ -54,6 +60,7 @@ export const AnalysisPanel = ({
       timeline={timeline}
       onJumpToSegment={onJumpToSegment}
       embedded={embedded}
+      onCreateAiPlaylist={onCreateAiPlaylist}
       {...derivedState}
     />
   );

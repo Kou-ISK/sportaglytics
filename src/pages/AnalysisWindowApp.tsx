@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { AnalysisPanel, AnalysisView } from '../features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
 import type { TimelineData } from '../types/TimelineData';
+import type { PlaylistItem } from '../types/Playlist';
 import type { AnalysisWindowSyncPayload } from '../renderer';
 
 export const AnalysisWindowApp = () => {
@@ -37,6 +38,14 @@ export const AnalysisWindowApp = () => {
     window.electronAPI?.analysis?.sendJumpToSegment(segment);
   }, []);
 
+  const handleCreateAiPlaylist = useCallback(
+    async (payload: { name: string; items: PlaylistItem[] }) => {
+      if (!window.electronAPI?.analysis?.sendCreateAiPlaylist) return;
+      window.electronAPI.analysis.sendCreateAiPlaylist(payload);
+    },
+    [],
+  );
+
   return (
     <Box sx={{ height: '100vh', bgcolor: 'background.default' }}>
       <AnalysisPanel
@@ -48,6 +57,7 @@ export const AnalysisWindowApp = () => {
         teamNames={teamNames}
         onJumpToSegment={handleJumpToSegment}
         embedded
+        onCreateAiPlaylist={handleCreateAiPlaylist}
       />
     </Box>
   );

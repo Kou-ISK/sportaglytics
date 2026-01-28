@@ -15,6 +15,7 @@ import { MomentumTab } from './MomentumTab';
 import { AIAnalysisTab } from './AIAnalysisTab';
 import { DashboardTab } from './DashboardTab';
 import { MatrixTab } from './MatrixTab';
+import type { PlaylistItem } from '../../../../../../types/Playlist';
 
 interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   open: boolean;
@@ -24,6 +25,10 @@ interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   timeline: TimelineData[];
   onJumpToSegment?: (segment: TimelineData) => void;
   embedded?: boolean;
+  onCreateAiPlaylist?: (payload: {
+    name: string;
+    items: PlaylistItem[];
+  }) => Promise<void> | void;
 }
 
 export const AnalysisPanelView = ({
@@ -37,6 +42,7 @@ export const AnalysisPanelView = ({
   timeline,
   onJumpToSegment,
   embedded = false,
+  onCreateAiPlaylist,
 }: AnalysisPanelViewProps) => {
   const content = (
     <>
@@ -87,8 +93,9 @@ export const AnalysisPanelView = ({
         <AIAnalysisTab
           hasData={hasTimelineData}
           timeline={timeline}
-          teamNames={resolvedTeamNames}
           emptyMessage="AI分析を表示するにはタイムラインを作成してください。"
+          onCreateAiPlaylist={onCreateAiPlaylist}
+          onJumpToSegment={onJumpToSegment}
         />
       )}
     </>

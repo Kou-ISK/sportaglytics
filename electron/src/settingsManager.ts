@@ -52,6 +52,24 @@ const buildCodingPanel = (
   };
 };
 
+const normalizeAiAnalysis = (
+  input?: AppSettings['aiAnalysis'] | null,
+): NonNullable<AppSettings['aiAnalysis']> => {
+  const defaultAiAnalysis =
+    DEFAULT_SETTINGS.aiAnalysis ?? ({
+      provider: 'llama.cpp',
+      baseUrl: 'http://localhost:11434',
+      model: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+      temperature: 0.2,
+      topK: 40,
+      embeddingEnabled: false,
+      teamLabelGroup: '',
+    } as NonNullable<AppSettings['aiAnalysis']>);
+
+  const merged = { ...defaultAiAnalysis, ...(input ?? {}) };
+  return { ...merged, provider: 'llama.cpp' };
+};
+
 /**
  * 設定ファイルのパスを取得
  */
@@ -97,6 +115,7 @@ export const loadSettings = async (): Promise<AppSettings> => {
         ...DEFAULT_SETTINGS.overlayClip,
         ...(parsed.overlayClip ?? {}),
       },
+      aiAnalysis: normalizeAiAnalysis(parsed.aiAnalysis),
       codingPanel: normalizeCodingPanelLayouts(
         buildCodingPanel(parsed.codingPanel),
       ),

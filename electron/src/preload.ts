@@ -396,6 +396,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     sendJumpToSegment: (segment: unknown) => {
       ipcRenderer.send('analysis:jump-to-segment', segment);
     },
+    sendCreateAiPlaylist: (payload: unknown) => {
+      ipcRenderer.send('analysis:create-ai-playlist', payload);
+    },
+  },
+  llama: {
+    generate: async (payload: unknown) => {
+      try {
+        return await ipcRenderer.invoke('llama:generate', payload);
+      } catch (error) {
+        console.error('Error generating with llama.cpp:', error);
+        throw error;
+      }
+    },
   },
   // ウィンドウタイトル更新API
   setWindowTitle: (title: string) => {

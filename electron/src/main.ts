@@ -8,6 +8,7 @@ import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
+import { generateWithLlama } from './llamaManager';
 import {
   registerAnalysisWindowHandlers,
   setAnalysisMainWindowRef,
@@ -104,7 +105,6 @@ const createWindow = async (): Promise<BrowserWindow> => {
   // 設定を読み込んでホットキーを登録
   const settings = await loadSettings();
   registerShortcuts(window, settings.hotkeys);
-
   refreshAppMenu();
 
   // ホットキー設定が更新されたら再登録
@@ -127,6 +127,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
       window.setTitle(title);
     }
   });
+
 
   // ファイル保存ダイアログ
   ipcMain.handle(
@@ -1105,6 +1106,9 @@ registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();
 registerAnalysisWindowHandlers();
+ipcMain.handle('llama:generate', async (_event, payload) => {
+  return generateWithLlama(payload);
+});
 
 // FFmpegパスをプレイリストウィンドウに設定
 try {

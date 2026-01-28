@@ -8,8 +8,9 @@ import { useVideoPlayerApp } from '../hooks/useVideoPlayerApp';
 import { useSettings } from '../hooks/useSettings';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useActionPreset } from '../contexts/ActionPresetContext';
-import { PlaylistProvider } from '../contexts/PlaylistContext';
+import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext';
 import { TimelineData } from '../types/TimelineData';
+import type { PlaylistItem } from '../types/Playlist';
 import type { TimelineActionSectionHandle } from './videoPlayer/components/TimelineActionSection';
 import { ErrorSnackbar } from './videoPlayer/components/ErrorSnackbar';
 import { SyncAnalysisBackdrop } from './videoPlayer/components/SyncAnalysisBackdrop';
@@ -81,6 +82,7 @@ const VideoPlayerAppContent = () => {
 
   // ホットキー設定を読み込み
   const { settings } = useSettings();
+  const { createPlaylist, addItems, openPlaylistWindow } = usePlaylist();
   const { activeActions } = useActionPreset();
   const activeCodeWindow =
     settings.codingPanel?.codeWindows?.find(
@@ -210,6 +212,31 @@ const VideoPlayerAppContent = () => {
     setIsVideoPlaying: setisVideoPlaying,
   });
 
+  const handleCreateAiPlaylist = useCallback(
+    async (payload: { name: string; items: PlaylistItem[] }) => {
+      if (!payload?.items || payload.items.length === 0) return;
+      const playlist = createPlaylist(payload.name, 'AIレビュー・コパイロット');
+      addItems(playlist.id, payload.items);
+      await openPlaylistWindow();
+    },
+    [addItems, createPlaylist, openPlaylistWindow],
+  );
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.on) return;
+    const handler = (_event: unknown, payload: unknown) => {
+      const data = payload as { name?: string; items?: PlaylistItem[] } | null;
+      if (!data || !data.items) return;
+      void handleCreateAiPlaylist({
+        name: data.name || 'AI Review',
+        items: data.items,
+      });
+    };
+    api.on('analysis:create-ai-playlist', handler);
+    return () => api.off?.('analysis:create-ai-playlist', handler);
+  }, [handleCreateAiPlaylist]);
+
   return (
     <Box
       sx={{
@@ -268,6 +295,7 @@ const VideoPlayerAppContent = () => {
         timeline={timeline}
         teamNames={teamNames}
         onJumpToSegment={handleJumpToSegment}
+        onCreateAiPlaylist={handleCreateAiPlaylist}
       />
 
       <ErrorSnackbar error={error} onClose={() => setError(null)} />

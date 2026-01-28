@@ -103,4 +103,10 @@ export const registerAnalysisWindowHandlers = (): void => {
       mainWindow.webContents.send('analysis:jump-to-segment', segment);
     }
   });
+
+  ipcMain.on('analysis:create-ai-playlist', (_event, payload) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('analysis:create-ai-playlist', payload);
+    }
+  });
 };

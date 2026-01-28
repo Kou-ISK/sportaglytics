@@ -53,6 +53,23 @@ export const useSettings = () => {
       activeCodeWindowId,
     });
   };
+  const defaultAiAnalysis: NonNullable<AppSettings['aiAnalysis']> =
+    DEFAULT_SETTINGS.aiAnalysis ?? {
+      provider: 'llama.cpp',
+      baseUrl: 'http://localhost:11434',
+      model: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+      temperature: 0.2,
+      topK: 40,
+      embeddingEnabled: false,
+      teamLabelGroup: '',
+    };
+
+  const normalizeAiAnalysis = (
+    input?: AppSettings['aiAnalysis'] | null,
+  ): NonNullable<AppSettings['aiAnalysis']> => {
+    const merged = { ...defaultAiAnalysis, ...(input ?? {}) };
+    return { ...merged, provider: 'llama.cpp' };
+  };
 
   // 設定を読み込む
   const loadSettings = useCallback(async () => {
@@ -80,6 +97,9 @@ export const useSettings = () => {
         overlayClip: {
           ...DEFAULT_SETTINGS.overlayClip,
           ...(loaded as Partial<AppSettings>).overlayClip,
+        },
+        aiAnalysis: {
+          ...normalizeAiAnalysis((loaded as Partial<AppSettings>).aiAnalysis),
         },
         codingPanel: buildCodingPanel(
           (loaded as Partial<AppSettings>).codingPanel,
@@ -146,6 +166,11 @@ export const useSettings = () => {
         overlayClip: {
           ...DEFAULT_SETTINGS.overlayClip,
           ...(defaultSettings as Partial<AppSettings>).overlayClip,
+        },
+        aiAnalysis: {
+          ...normalizeAiAnalysis(
+            (defaultSettings as Partial<AppSettings>).aiAnalysis,
+          ),
         },
         codingPanel: buildCodingPanel(
           (defaultSettings as Partial<AppSettings>).codingPanel,

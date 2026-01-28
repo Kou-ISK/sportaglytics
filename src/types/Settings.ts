@@ -301,6 +301,16 @@ export interface AnalysisDashboardConfig {
   activeDashboardId: string;
 }
 
+export interface AIAnalysisSettings {
+  provider: 'llama.cpp';
+  baseUrl: string;
+  model: string;
+  temperature: number;
+  topK: number;
+  embeddingEnabled: boolean;
+  teamLabelGroup?: string;
+}
+
 const DEFAULT_DASHBOARD_WIDGETS: AnalysisDashboardWidget[] = [
   {
     id: 'dash-team-count',
@@ -569,6 +579,8 @@ export interface AppSettings {
   };
   /** 分析ダッシュボード設定 */
   analysisDashboard?: AnalysisDashboardConfig;
+  /** AI分析設定 */
+  aiAnalysis?: AIAnalysisSettings;
 }
 
 /**
@@ -636,4 +648,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
     activeCodeWindowId: 'default',
   },
   analysisDashboard: createDefaultAnalysisDashboard(),
+  aiAnalysis: {
+    provider: 'llama.cpp',
+    baseUrl: 'http://localhost:11434',
+    model: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+    temperature: 0.2,
+    topK: 40,
+    embeddingEnabled: false,
+    teamLabelGroup: '',
+  },
 };
