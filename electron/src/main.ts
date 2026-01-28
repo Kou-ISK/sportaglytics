@@ -8,7 +8,7 @@ import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
-import { generateWithLlama } from './llamaManager';
+import { generateWithLlama, listLlamaModels } from './llamaManager';
 import {
   registerAnalysisWindowHandlers,
   setAnalysisMainWindowRef,
@@ -1108,6 +1108,9 @@ registerSettingsWindowHandlers();
 registerAnalysisWindowHandlers();
 ipcMain.handle('llama:generate', async (_event, payload) => {
   return generateWithLlama(payload);
+});
+ipcMain.handle('llama:list-models', async () => {
+  return listLlamaModels();
 });
 
 // FFmpegパスをプレイリストウィンドウに設定

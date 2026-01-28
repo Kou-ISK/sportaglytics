@@ -59,7 +59,7 @@ const normalizeAiAnalysis = (
     DEFAULT_SETTINGS.aiAnalysis ?? ({
       provider: 'llama.cpp',
       baseUrl: 'http://localhost:11434',
-      model: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+      model: 'auto',
       temperature: 0.2,
       topK: 40,
       embeddingEnabled: false,
@@ -67,7 +67,11 @@ const normalizeAiAnalysis = (
     } as NonNullable<AppSettings['aiAnalysis']>);
 
   const merged = { ...defaultAiAnalysis, ...(input ?? {}) };
-  return { ...merged, provider: 'llama.cpp' };
+  const model =
+    typeof merged.model === 'string' && merged.model.trim()
+      ? merged.model
+      : 'auto';
+  return { ...merged, model, provider: 'llama.cpp' };
 };
 
 /**

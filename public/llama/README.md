@@ -10,3 +10,6 @@ Place model files under:
 
 They will be packaged into the app resources under:
 <resources>/llama/
+
+Tip:
+- Set the model name to `auto` to let the app choose the largest available `.gguf` file.

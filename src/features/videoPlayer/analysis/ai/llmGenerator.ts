@@ -17,6 +17,8 @@ export interface LlmGeneratorOptions {
   maxEvidence?: number;
 }
 
+type FallbackSource = 'none' | 'coerced' | 'heuristic';
+
 const tryParseJson = (text: string) => {
   try {
     return JSON.parse(text);
@@ -25,12 +27,32 @@ const tryParseJson = (text: string) => {
   }
 };
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+};
+
+const scoreCandidate = (value: unknown) => {
+  if (!isPlainObject(value)) return 0;
+  let score = 0;
+  if (typeof value.summary === 'string') score += 3;
+  if (Array.isArray(value.hypotheses)) score += 2;
+  if (Array.isArray(value.evidenceHighlights)) score += 2;
+  if (Array.isArray(value.recommendedClips)) score += 2;
+  const validated = aiResponseSchema.safeParse(value);
+  if (validated.success) score += 100;
+  return score;
+};
+
 const extractJson = (rawText: string) => {
   const trimmed = rawText.trim();
   const direct = tryParseJson(trimmed);
   if (direct) return direct;
 
-  const candidates: Array<{ start: number; end: number }> = [];
+  const candidates: Array<{ start: number; end: number; text: string }> = [];
   const stack: number[] = [];
   for (let i = 0; i < rawText.length; i += 1) {
     const ch = rawText[i];
@@ -39,19 +61,237 @@ const extractJson = (rawText: string) => {
     } else if (ch === '}') {
       const start = stack.pop();
       if (start != null) {
-        candidates.push({ start, end: i });
+        candidates.push({
+          start,
+          end: i,
+          text: rawText.slice(start, i + 1),
+        });
       }
     }
   }
 
-  for (let i = candidates.length - 1; i >= 0; i -= 1) {
-    const { start, end } = candidates[i];
-    const slice = rawText.slice(start, end + 1);
-    const parsed = tryParseJson(slice);
-    if (parsed) return parsed;
+  const parsedCandidates = candidates
+    .map((candidate) => {
+      const parsed = tryParseJson(candidate.text);
+      if (!parsed) return null;
+      return {
+        ...candidate,
+        parsed,
+        score: scoreCandidate(parsed),
+        length: candidate.end - candidate.start,
+      };
+    })
+    .filter(Boolean) as Array<{
+    start: number;
+    end: number;
+    text: string;
+    parsed: unknown;
+    score: number;
+    length: number;
+  }>;
+
+  if (parsedCandidates.length === 0) {
+    throw new Error('JSON解析に失敗しました。');
   }
 
-  throw new Error('JSON解析に失敗しました。');
+  parsedCandidates.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return b.length - a.length;
+  });
+
+  if (parsedCandidates[0].score === 0) {
+    throw new Error('JSON解析に失敗しました。');
+  }
+
+  return parsedCandidates[0].parsed;
+};
+
+const asString = (value: unknown): string | null =>
+  typeof value === 'string' ? value : null;
+
+const asStringArray = (value: unknown): string[] | null => {
+  if (!Array.isArray(value)) return null;
+  const filtered = value.filter((item) => typeof item === 'string');
+  return filtered.length === value.length ? filtered : null;
+};
+
+const asNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return null;
+};
+
+const extractFirstObject = (value: unknown): Record<string, unknown> | null => {
+  if (isPlainObject(value)) return value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (isPlainObject(item)) return item;
+    }
+  }
+  return null;
+};
+
+const coerceResponse = (value: unknown): AiCopilotResponse | null => {
+  const obj = extractFirstObject(value);
+  if (!obj) return null;
+  const summary = asString(obj.summary);
+
+  const hypothesesRaw = Array.isArray(obj.hypotheses) ? obj.hypotheses : [];
+  const hypotheses = hypothesesRaw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const data = item as Record<string, unknown>;
+      const text = asString(data.text);
+      const evidenceIds = asStringArray(data.evidenceIds);
+      if (!text || !evidenceIds || evidenceIds.length === 0) return null;
+      return { text, evidenceIds };
+    })
+    .filter(Boolean) as AiCopilotResponse['hypotheses'];
+
+  const highlightsRaw = Array.isArray(obj.evidenceHighlights)
+    ? obj.evidenceHighlights
+    : [];
+  const evidenceHighlights = highlightsRaw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const data = item as Record<string, unknown>;
+      const id = asString(data.id);
+      const why = asString(data.why);
+      if (!id || !why) return null;
+      return { id, why };
+    })
+    .filter(Boolean) as AiCopilotResponse['evidenceHighlights'];
+
+  const clipsRaw = Array.isArray(obj.recommendedClips)
+    ? obj.recommendedClips
+    : [];
+  const recommendedClips = clipsRaw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const data = item as Record<string, unknown>;
+      const title = asString(data.title);
+      const centerId = asString(data.centerId);
+      const preSeconds = asNumber(data.preSeconds);
+      const postSeconds = asNumber(data.postSeconds);
+      const reason = asString(data.reason);
+      const evidenceIds = asStringArray(data.evidenceIds);
+      if (
+        !title ||
+        !centerId ||
+        preSeconds == null ||
+        postSeconds == null ||
+        !reason ||
+        !evidenceIds ||
+        evidenceIds.length === 0
+      ) {
+        return null;
+      }
+      return {
+        title,
+        centerId,
+        preSeconds: Math.max(0, preSeconds),
+        postSeconds: Math.max(0, postSeconds),
+        reason,
+        evidenceIds,
+      };
+    })
+    .filter(Boolean) as AiCopilotResponse['recommendedClips'];
+
+  const hasAny =
+    Boolean(summary) ||
+    hypotheses.length > 0 ||
+    evidenceHighlights.length > 0 ||
+    recommendedClips.length > 0;
+
+  if (!hasAny) return null;
+
+  return {
+    summary: summary ?? '生成に失敗しました。',
+    hypotheses,
+    evidenceHighlights,
+    recommendedClips,
+  };
+};
+
+const FALLBACK_RESPONSE: AiCopilotResponse = {
+  summary:
+    'AI出力を解析できませんでした。内容を短くして再実行してください。',
+  hypotheses: [],
+  evidenceHighlights: [],
+  recommendedClips: [],
+};
+
+const MAX_LLM_EVIDENCE = 12;
+
+const buildHeuristicResponse = (
+  evidence: EvidenceItem[],
+): AiCopilotResponse => {
+  if (evidence.length === 0) return FALLBACK_RESPONSE;
+
+  const topEvidence = evidence.slice(0, Math.min(5, evidence.length));
+  const actionCounts = new Map<string, number>();
+  const labelCounts = new Map<string, number>();
+
+  for (const item of evidence) {
+    actionCounts.set(item.actionName, (actionCounts.get(item.actionName) ?? 0) + 1);
+    for (const label of item.labels) {
+      const key = label.group ? `${label.group}:${label.name}` : label.name;
+      labelCounts.set(key, (labelCounts.get(key) ?? 0) + 1);
+    }
+  }
+
+  const topAction = Array.from(actionCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+  const topLabel = Array.from(labelCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+
+  const summaryParts: string[] = [];
+  summaryParts.push(`関連度の高いイベントは${topEvidence.length}件確認されました。`);
+  if (topAction) {
+    summaryParts.push(`特に「${topAction[0]}」が目立ちます。`);
+  }
+  if (topLabel) {
+    summaryParts.push(`ラベルでは「${topLabel[0]}」が多く含まれています。`);
+  }
+
+  const hypotheses = [topAction, topLabel]
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((entry, index) => {
+      const key = entry?.[0] ?? '';
+      const evidenceIds = evidence
+        .filter((item) =>
+          index === 0
+            ? item.actionName === key
+            : item.labels.some((label) =>
+                (label.group ? `${label.group}:${label.name}` : label.name) === key,
+              ),
+        )
+        .slice(0, 5)
+        .map((item) => item.id);
+      return {
+        text: `${key}が多く、試合展開に影響している可能性があります。`,
+        evidenceIds: evidenceIds.length > 0 ? evidenceIds : [topEvidence[0].id],
+      };
+    });
+
+  const evidenceHighlights = topEvidence.slice(0, 3).map((item) => ({
+    id: item.id,
+    why: '関連度が高いイベントとして抽出されました。',
+  }));
+
+  const recommendedClips = topEvidence.slice(0, 3).map((item, index) => ({
+    title: `${item.actionName} 確認${index + 1}`,
+    centerId: item.id,
+    preSeconds: 5,
+    postSeconds: 5,
+    reason: '関連度の高い根拠の確認用です。',
+    evidenceIds: [item.id],
+  }));
+
+  return {
+    summary: summaryParts.join(' '),
+    hypotheses,
+    evidenceHighlights,
+    recommendedClips,
+  };
 };
 
 export const generateAiResponse = async (params: {
@@ -60,7 +300,19 @@ export const generateAiResponse = async (params: {
   filters?: EvidenceFilters;
   config: LlmGeneratorConfig;
   options?: LlmGeneratorOptions;
-}): Promise<{ response: AiCopilotResponse; rawText: string }> => {
+}): Promise<{
+  response: AiCopilotResponse;
+  rawText: string;
+  debug?: {
+    stderr?: string;
+    binaryPath?: string;
+    modelPath?: string;
+    durationMs?: number;
+  };
+  usedFallback: boolean;
+  validationError?: string;
+  fallbackSource: FallbackSource;
+}> => {
   if (!params.evidence || params.evidence.length === 0) {
     throw new Error('根拠がありません。');
   }
@@ -72,26 +324,59 @@ export const generateAiResponse = async (params: {
     timeoutMs: params.config.timeoutMs,
   });
   const maxRetries = params.options?.maxRetries ?? 2;
-  const maxEvidence = params.options?.maxEvidence ?? params.evidence.length;
+  const maxEvidence = Math.min(
+    params.options?.maxEvidence ?? params.evidence.length,
+    MAX_LLM_EVIDENCE,
+  );
   const trimmedEvidence = params.evidence.slice(0, Math.max(1, maxEvidence));
+  const maxMemoChars = params.options?.maxMemoChars ?? 120;
+  const evidenceSteps = [
+    trimmedEvidence,
+    trimmedEvidence.slice(0, Math.max(1, Math.min(8, trimmedEvidence.length))),
+    trimmedEvidence.slice(0, Math.max(1, Math.min(5, trimmedEvidence.length))),
+  ];
+  const memoSteps = [
+    maxMemoChars,
+    Math.max(80, Math.floor(maxMemoChars * 0.75)),
+    Math.max(60, Math.floor(maxMemoChars * 0.5)),
+  ];
   let attempt = 0;
-  let prompt = buildAugmentedPrompt({
-    question: params.question,
-    evidence: trimmedEvidence,
-    filters: params.filters,
-    maxMemoChars: params.options?.maxMemoChars,
-  });
+  const buildPromptForAttempt = (index: number) =>
+    buildAugmentedPrompt({
+      question: params.question,
+      evidence: evidenceSteps[Math.min(index, evidenceSteps.length - 1)],
+      filters: params.filters,
+      maxMemoChars: memoSteps[Math.min(index, memoSteps.length - 1)],
+    });
+  let prompt = buildPromptForAttempt(0);
   let lastRaw = '';
   let lastError = '';
+  let lastParsed: unknown | null = null;
+  let lastDebug:
+    | {
+        stderr?: string;
+        binaryPath?: string;
+        modelPath?: string;
+        durationMs?: number;
+      }
+    | undefined;
 
   while (attempt <= maxRetries) {
-    const raw = await provider.generate({ prompt });
-    lastRaw = raw;
+    const result = await provider.generate({ prompt });
+    lastRaw = result.text;
+    lastDebug = result.debug;
     try {
-      const parsed = extractJson(raw);
+      const parsed = extractJson(result.text);
+      lastParsed = parsed;
       const validated = aiResponseSchema.safeParse(parsed);
       if (validated.success) {
-        return { response: validated.data, rawText: raw };
+        return {
+          response: validated.data,
+          rawText: result.text,
+          debug: lastDebug,
+          usedFallback: false,
+          fallbackSource: 'none',
+        };
       } else {
         lastError = validated.error.message;
       }
@@ -101,10 +386,49 @@ export const generateAiResponse = async (params: {
 
     attempt += 1;
     if (attempt > maxRetries) break;
-    prompt = buildRepairPrompt(raw, lastError);
+    if (lastError.includes('JSON解析')) {
+      prompt = buildPromptForAttempt(attempt);
+    } else {
+      prompt = buildRepairPrompt(result.text, lastError);
+    }
   }
 
-  throw new Error(
-    `AI生成に失敗しました。${lastError ? `(${lastError})` : ''}`,
-  );
+  if (lastParsed) {
+    const fallback = coerceResponse(lastParsed);
+    if (fallback) {
+      const hasGrounded =
+        fallback.hypotheses.length > 0 ||
+        fallback.evidenceHighlights.length > 0 ||
+        fallback.recommendedClips.length > 0;
+      if (!hasGrounded) {
+        const heuristic = buildHeuristicResponse(trimmedEvidence);
+        return {
+          response: heuristic ?? FALLBACK_RESPONSE,
+          rawText: lastRaw,
+          debug: lastDebug,
+          usedFallback: true,
+          validationError: lastError,
+          fallbackSource: 'heuristic',
+        };
+      }
+      return {
+        response: fallback,
+        rawText: lastRaw,
+        debug: lastDebug,
+        usedFallback: true,
+        validationError: lastError,
+        fallbackSource: 'coerced',
+      };
+    }
+  }
+
+  const heuristic = buildHeuristicResponse(trimmedEvidence);
+  return {
+    response: heuristic ?? FALLBACK_RESPONSE,
+    rawText: lastRaw,
+    debug: lastDebug,
+    usedFallback: true,
+    validationError: lastError,
+    fallbackSource: 'heuristic',
+  };
 };

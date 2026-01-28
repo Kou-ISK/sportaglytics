@@ -197,6 +197,19 @@ const buildMenu = () => {
     },
   ];
 
+  const editMenuItems: Electron.MenuItemConstructorOptions[] = [
+    { role: 'undo' as const, label: '元に戻す' },
+    { role: 'redo' as const, label: 'やり直す' },
+    { type: 'separator' },
+    { role: 'cut' as const, label: '切り取り' },
+    { role: 'copy' as const, label: 'コピー' },
+    { role: 'paste' as const, label: '貼り付け' },
+    { role: 'pasteAndMatchStyle' as const, label: 'スタイルに合わせて貼り付け' },
+    { role: 'delete' as const, label: '削除' },
+    { type: 'separator' },
+    { role: 'selectAll' as const, label: 'すべて選択' },
+  ];
+
   const windowMenuItems: Electron.MenuItemConstructorOptions[] = [
     {
       label: '分析ウィンドウを開く',
@@ -271,6 +284,7 @@ const buildMenu = () => {
   const template: Electron.MenuItemConstructorOptions[] = [
     { label: app.name, submenu: appMenuItems },
     { label: 'ファイル', submenu: fileMenuItems },
+    { label: '編集', submenu: editMenuItems },
     { label: 'コーディング', submenu: codingMenuItems },
     { label: '同期', submenu: syncMenuItems },
     { label: 'ウィンドウ', submenu: windowMenuItems },

@@ -651,7 +651,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   aiAnalysis: {
     provider: 'llama.cpp',
     baseUrl: 'http://localhost:11434',
-    model: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+    model: 'auto',
     temperature: 0.2,
     topK: 40,
     embeddingEnabled: false,

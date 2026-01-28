@@ -3,6 +3,7 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
+import { StringDecoder } from 'string_decoder';
 
 export interface LlamaGenerateRequest {
   prompt: string;
@@ -14,6 +15,17 @@ export interface LlamaGenerateRequest {
 
 export interface LlamaGenerateResult {
   text: string;
+  stderr?: string;
+  binaryPath?: string;
+  modelPath?: string;
+  durationMs?: number;
+}
+
+export interface LlamaModelInfo {
+  name: string;
+  path: string;
+  sizeBytes: number;
+  modifiedAt?: number;
 }
 
 const resolveBinaryNameCandidates = () => {
@@ -69,39 +81,90 @@ const listModelCandidates = (model: string): string[] => {
   ];
 };
 
-const findAnyModelFile = (folders: string[]): string | null => {
-  for (const folder of folders) {
+const getModelSearchFolders = (): string[] => {
+  const platformFolder = process.platform;
+  if (app.isPackaged) {
+    return [
+      path.join(process.resourcesPath, 'llama', 'models'),
+      path.join(process.resourcesPath, 'llama', platformFolder, 'models'),
+    ];
+  }
+  return [
+    path.join(app.getAppPath(), 'public', 'llama', 'models'),
+    path.join(app.getAppPath(), 'public', 'llama', platformFolder, 'models'),
+    path.join(process.cwd(), 'public', 'llama', 'models'),
+    path.join(process.cwd(), 'public', 'llama', platformFolder, 'models'),
+  ];
+};
+
+const collectModelsSync = (): LlamaModelInfo[] => {
+  const results: LlamaModelInfo[] = [];
+  const seen = new Set<string>();
+
+  for (const folder of getModelSearchFolders()) {
     if (!fs.existsSync(folder)) continue;
+    let entries: fs.Dirent[] = [];
     try {
-      const entries = fs.readdirSync(folder);
-      const gguf = entries.find((entry) => entry.toLowerCase().endsWith('.gguf'));
-      if (gguf) {
-        const candidate = path.join(folder, gguf);
-        if (fs.existsSync(candidate)) return candidate;
-      }
+      entries = fs.readdirSync(folder, { withFileTypes: true });
     } catch (_error) {
-      // ignore
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (!entry.name.toLowerCase().endsWith('.gguf')) continue;
+      const fullPath = path.join(folder, entry.name);
+      if (seen.has(fullPath)) continue;
+      try {
+        const stat = fs.statSync(fullPath);
+        results.push({
+          name: entry.name,
+          path: fullPath,
+          sizeBytes: stat.size,
+          modifiedAt: stat.mtimeMs,
+        });
+        seen.add(fullPath);
+      } catch (_error) {
+        // ignore
+      }
     }
   }
-  return null;
+
+  return results;
+};
+
+const pickBestModel = (models: LlamaModelInfo[]): LlamaModelInfo | null => {
+  if (models.length === 0) return null;
+  return models.reduce<LlamaModelInfo>((best, current) => {
+    if (!best) return current;
+    if (current.sizeBytes !== best.sizeBytes) {
+      return current.sizeBytes > best.sizeBytes ? current : best;
+    }
+    return current.name.localeCompare(best.name) < 0 ? current : best;
+  }, models[0]);
+};
+
+export const listLlamaModels = (): LlamaModelInfo[] => {
+  return collectModelsSync();
 };
 
 const resolveModelPath = (model: string): string | null => {
-  if (model && path.isAbsolute(model) && fs.existsSync(model)) {
-    return model;
+  const normalized = model?.trim();
+  const isAuto =
+    !normalized || normalized.toLowerCase() === 'auto';
+
+  if (!isAuto && normalized && path.isAbsolute(normalized) && fs.existsSync(normalized)) {
+    return normalized;
   }
 
-  const candidates = model ? listModelCandidates(model) : [];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
+  if (!isAuto && normalized) {
+    const candidates = listModelCandidates(normalized);
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
   }
 
-  const fallbackFolders = model
-    ? candidates.map((candidate) => path.dirname(candidate))
-    : listModelCandidates('placeholder.gguf').map((candidate) =>
-        path.dirname(candidate),
-      );
-  return findAnyModelFile(fallbackFolders);
+  const fallback = pickBestModel(collectModelsSync());
+  return fallback?.path ?? null;
 };
 
 const writeTempFile = async (content: string, suffix: string) => {
@@ -123,37 +186,41 @@ const JSON_SCHEMA = JSON.stringify(
       'recommendedClips',
     ],
     properties: {
-      summary: { type: 'string' },
+      summary: { type: 'string', maxLength: 400 },
       hypotheses: {
         type: 'array',
+        maxItems: 3,
         items: {
           type: 'object',
           additionalProperties: false,
           required: ['text', 'evidenceIds'],
           properties: {
-            text: { type: 'string' },
+            text: { type: 'string', maxLength: 240 },
             evidenceIds: {
               type: 'array',
               items: { type: 'string' },
               minItems: 1,
+              maxItems: 5,
             },
           },
         },
       },
       evidenceHighlights: {
         type: 'array',
+        maxItems: 5,
         items: {
           type: 'object',
           additionalProperties: false,
           required: ['id', 'why'],
           properties: {
             id: { type: 'string' },
-            why: { type: 'string' },
+            why: { type: 'string', maxLength: 160 },
           },
         },
       },
       recommendedClips: {
         type: 'array',
+        maxItems: 5,
         items: {
           type: 'object',
           additionalProperties: false,
@@ -166,15 +233,16 @@ const JSON_SCHEMA = JSON.stringify(
             'evidenceIds',
           ],
           properties: {
-            title: { type: 'string' },
+            title: { type: 'string', maxLength: 120 },
             centerId: { type: 'string' },
             preSeconds: { type: 'number' },
             postSeconds: { type: 'number' },
-            reason: { type: 'string' },
+            reason: { type: 'string', maxLength: 240 },
             evidenceIds: {
               type: 'array',
               items: { type: 'string' },
               minItems: 1,
+              maxItems: 5,
             },
           },
         },
@@ -184,6 +252,16 @@ const JSON_SCHEMA = JSON.stringify(
   null,
   2,
 );
+
+const truncateLog = (value: string, maxChars: number) => {
+  if (value.length <= maxChars) return value;
+  return value.slice(-maxChars);
+};
+
+const normalizeLlamaOutput = (value: string) => {
+  const cleaned = value.replace(/\s*\[end of text\]\s*/gi, '');
+  return cleaned.trim();
+};
 
 export const generateWithLlama = async (
   request: LlamaGenerateRequest,
@@ -217,18 +295,22 @@ export const generateWithLlama = async (
     String(maxTokens),
     '--temp',
     String(temperature),
+    '--simple-io',
     '--no-display-prompt',
     '-no-cnv',
     '--log-verbosity',
     '0',
   ];
 
+  const startedAt = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawn(binaryPath, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
 
+    const stdoutDecoder = new StringDecoder('utf8');
+    const stderrDecoder = new StringDecoder('utf8');
     let stdout = '';
     let stderr = '';
 
@@ -242,19 +324,27 @@ export const generateWithLlama = async (
     }, timeoutMs);
 
     child.stdout.on('data', (data) => {
-      stdout += data.toString();
+      stdout += stdoutDecoder.write(data);
     });
 
     child.stderr.on('data', (data) => {
-      stderr += data.toString();
+      stderr += stderrDecoder.write(data);
     });
 
     child.on('close', (code) => {
       clearTimeout(timer);
       fsPromises.unlink(promptPath).catch(() => undefined);
       fsPromises.unlink(schemaPath).catch(() => undefined);
+      stdout += stdoutDecoder.end();
+      stderr += stderrDecoder.end();
       if (code === 0) {
-        resolve({ text: stdout.trim() });
+        resolve({
+          text: normalizeLlamaOutput(stdout),
+          stderr: stderr ? truncateLog(stderr, 4000) : undefined,
+          binaryPath,
+          modelPath,
+          durationMs: Date.now() - startedAt,
+        });
       } else {
         const message = stderr.trim() || 'llama.cppが異常終了しました。';
         reject(new Error(message));

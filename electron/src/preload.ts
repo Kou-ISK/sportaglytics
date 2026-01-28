@@ -409,6 +409,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
         throw error;
       }
     },
+    listModels: async () => {
+      try {
+        return await ipcRenderer.invoke('llama:list-models');
+      } catch (error) {
+        console.error('Error listing llama.cpp models:', error);
+        return [];
+      }
+    },
   },
   // ウィンドウタイトル更新API
   setWindowTitle: (title: string) => {

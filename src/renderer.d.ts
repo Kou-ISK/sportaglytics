@@ -8,6 +8,13 @@ export interface AnalysisWindowSyncPayload {
   view?: AnalysisView;
 }
 
+export interface LlamaModelInfo {
+  name: string;
+  path: string;
+  sizeBytes: number;
+  modifiedAt?: number;
+}
+
 export interface IElectronAPI {
   openFile: () => Promise<string>;
   openDirectory: () => Promise<string>;
@@ -87,7 +94,14 @@ export interface IElectronAPI {
       temperature?: number;
       maxTokens?: number;
       timeoutMs?: number;
-    }) => Promise<{ text: string }>;
+    }) => Promise<{
+      text: string;
+      stderr?: string;
+      binaryPath?: string;
+      modelPath?: string;
+      durationMs?: number;
+    }>;
+    listModels: () => Promise<LlamaModelInfo[]>;
   };
   setWindowTitle: (title: string) => void;
   exportClipsWithOverlay?: (payload: {

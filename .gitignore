@@ -26,6 +26,10 @@ yarn-error.log*
 
 .specstory
 
+# local LLM assets
+.tmp_llama/
+public/llama/models/*.gguf
+
 # Apple certificates (never commit these!)
 *.p12
 *.cer

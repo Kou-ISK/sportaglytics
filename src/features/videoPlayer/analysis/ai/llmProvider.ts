@@ -12,9 +12,21 @@ export interface LLMProviderRequest {
   prompt: string;
 }
 
+export interface LLMProviderDebugInfo {
+  stderr?: string;
+  binaryPath?: string;
+  modelPath?: string;
+  durationMs?: number;
+}
+
+export interface LLMProviderResult {
+  text: string;
+  debug?: LLMProviderDebugInfo;
+}
+
 export interface LLMProvider {
   type: LLMProviderType;
-  generate: (request: LLMProviderRequest) => Promise<string>;
+  generate: (request: LLMProviderRequest) => Promise<LLMProviderResult>;
 }
 
 class LocalLLMProvider implements LLMProvider {
@@ -30,11 +42,11 @@ class LocalLLMProvider implements LLMProvider {
     this.timeoutMs = config.timeoutMs ?? 180000;
   }
 
-  async generate(request: LLMProviderRequest): Promise<string> {
+  async generate(request: LLMProviderRequest): Promise<LLMProviderResult> {
     return this.callLlamaCpp(request.prompt);
   }
 
-  private async callLlamaCpp(prompt: string): Promise<string> {
+  private async callLlamaCpp(prompt: string): Promise<LLMProviderResult> {
     const llamaApi = globalThis.window?.electronAPI?.llama;
     if (!llamaApi?.generate) {
       throw new Error('llama.cpp APIが利用できません。');
@@ -43,13 +55,21 @@ class LocalLLMProvider implements LLMProvider {
       prompt,
       model: this.model,
       temperature: this.temperature,
-      maxTokens: 512,
+      maxTokens: 1024,
       timeoutMs: this.timeoutMs,
     });
     if (!result?.text) {
       throw new Error('llama.cppの応答が空です。');
     }
-    return result.text;
+    return {
+      text: result.text,
+      debug: {
+        stderr: result.stderr,
+        binaryPath: result.binaryPath,
+        modelPath: result.modelPath,
+        durationMs: result.durationMs,
+      },
+    };
   }
 }
 

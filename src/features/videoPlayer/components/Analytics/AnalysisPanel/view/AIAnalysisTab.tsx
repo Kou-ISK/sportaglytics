@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  Collapse,
   CircularProgress,
   Divider,
   FormControl,
@@ -58,6 +59,14 @@ const formatSeconds = (value: number) => {
   return `${minutes}:${seconds}`;
 };
 
+const formatBytes = (value: number) => {
+  if (!Number.isFinite(value) || value <= 0) return '--';
+  const gb = value / (1024 ** 3);
+  if (gb >= 1) return `${gb.toFixed(2)} GB`;
+  const mb = value / (1024 ** 2);
+  return `${mb.toFixed(1)} MB`;
+};
+
 const parseNumberInput = (value: string): number | null => {
   if (!value.trim()) return null;
   const parsed = Number(value);
@@ -73,6 +82,15 @@ const buildPlaylistName = () => {
   return `AI Review: ${timestamp}`;
 };
 
+const normalizeEvidenceId = (value: string) => value.trim();
+
+type AvailableModelInfo = {
+  name: string;
+  path: string;
+  sizeBytes: number;
+  modifiedAt?: number;
+};
+
 export const AIAnalysisTab = ({
   hasData,
   timeline,
@@ -85,7 +103,7 @@ export const AIAnalysisTab = ({
     settings.aiAnalysis ?? DEFAULT_SETTINGS.aiAnalysis ?? {
       provider: 'llama.cpp',
       baseUrl: 'http://localhost:11434',
-      model: 'llama3.gguf',
+      model: 'auto',
       temperature: 0.2,
       topK: 40,
       embeddingEnabled: false,
@@ -99,6 +117,14 @@ export const AIAnalysisTab = ({
   const [labelGroup, setLabelGroup] = useState('');
   const [labelName, setLabelName] = useState('');
   const [teamName, setTeamName] = useState('');
+  const [showAiSettings, setShowAiSettings] = useState(false);
+  const [availableModels, setAvailableModels] = useState<AvailableModelInfo[]>(
+    [],
+  );
+  const [modelsStatus, setModelsStatus] = useState<
+    'idle' | 'loading' | 'done' | 'error'
+  >('idle');
+  const [modelsError, setModelsError] = useState<string | null>(null);
 
   const [retrievalStatus, setRetrievalStatus] = useState<
     'idle' | 'running' | 'done' | 'error'
@@ -110,6 +136,15 @@ export const AIAnalysisTab = ({
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [evidenceItems, setEvidenceItems] = useState<EvidenceItem[]>([]);
   const [aiResponse, setAiResponse] = useState<AiCopilotResponse | null>(null);
+  const [llmRawText, setLlmRawText] = useState<string | null>(null);
+  const [llmDebug, setLlmDebug] = useState<{
+    stderr?: string;
+    binaryPath?: string;
+    modelPath?: string;
+    durationMs?: number;
+  } | null>(null);
+  const [llmWarning, setLlmWarning] = useState<string | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
   const [activeFilters, setActiveFilters] = useState<EvidenceFilters | null>(
     null,
   );
@@ -119,6 +154,36 @@ export const AIAnalysisTab = ({
   useEffect(() => {
     setAiSettings(defaultAiSettings);
   }, [defaultAiSettings]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadModels = async () => {
+      const llamaApi = globalThis.window?.electronAPI?.llama;
+      if (!llamaApi?.listModels) {
+        return;
+      }
+      setModelsStatus('loading');
+      setModelsError(null);
+      try {
+        const models = await llamaApi.listModels();
+        if (!mounted) return;
+        const sorted = [...(models ?? [])].sort(
+          (a, b) => b.sizeBytes - a.sizeBytes,
+        );
+        setAvailableModels(sorted);
+        setModelsStatus('done');
+      } catch (error) {
+        if (!mounted) return;
+        console.debug('[AI] model list failed', error);
+        setModelsError('モデル一覧の取得に失敗しました。');
+        setModelsStatus('error');
+      }
+    };
+    loadModels();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const evidenceIndex = useMemo(() => buildEvidenceIndex(timeline), [timeline]);
   const retriever = useMemo(() => new HybridEvidenceRetriever(), []);
@@ -131,6 +196,23 @@ export const AIAnalysisTab = ({
     () => extractUniqueGroups(timeline),
     [timeline],
   );
+
+  const recommendedModel = useMemo(() => {
+    if (availableModels.length === 0) return null;
+    return availableModels[0];
+  }, [availableModels]);
+
+  const isAutoModel =
+    aiSettings.model?.trim().toLowerCase() === 'auto';
+
+  const modelSummary = useMemo(() => {
+    if (isAutoModel) {
+      return recommendedModel
+        ? `auto (推奨: ${recommendedModel.name})`
+        : 'auto';
+    }
+    return aiSettings.model;
+  }, [aiSettings.model, isAutoModel, recommendedModel]);
 
   const effectiveTeamGroup = useMemo(() => {
     if (aiSettings.teamLabelGroup) return aiSettings.teamLabelGroup;
@@ -205,6 +287,9 @@ export const AIAnalysisTab = ({
     setPlaylistMessage(null);
     setRetrievalStatus('running');
     setAiResponse(null);
+    setLlmRawText(null);
+    setLlmDebug(null);
+    setLlmWarning(null);
     setEvidenceItems([]);
     setActiveFilters(null);
 
@@ -274,6 +359,9 @@ export const AIAnalysisTab = ({
     setPlaylistMessage(null);
     setGenerationStatus('running');
     setAiResponse(null);
+    setLlmRawText(null);
+    setLlmDebug(null);
+    setLlmWarning(null);
 
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) {
@@ -291,7 +379,14 @@ export const AIAnalysisTab = ({
         evidenceItems.length > 0
           ? { items: evidenceItems, filters: activeFilters ?? buildFilters() }
           : await ensureEvidence();
-      const { response } = await generateAiResponse({
+      const {
+        response,
+        rawText,
+        debug,
+        usedFallback,
+        fallbackSource,
+      } =
+        await generateAiResponse({
         question: trimmedQuestion,
         evidence: ensured.items,
         filters: ensured.filters,
@@ -308,6 +403,17 @@ export const AIAnalysisTab = ({
         },
       });
       setAiResponse(response);
+      setLlmRawText(rawText);
+      setLlmDebug(debug ?? null);
+      if (usedFallback) {
+        const reason =
+          fallbackSource === 'heuristic'
+            ? 'LLMのJSON生成に失敗したため、根拠上位から推定結果を作成しました。'
+            : 'JSON解析が不完全だったため、出力を補正して表示しています。';
+        setLlmWarning(reason);
+      } else {
+        setLlmWarning(null);
+      }
       setGenerationStatus('done');
     } catch (error) {
       console.debug('[AI] generate failed', error);
@@ -336,9 +442,12 @@ export const AIAnalysisTab = ({
 
   const validatedHighlights: AiEvidenceHighlight[] = useMemo(() => {
     if (!aiResponse) return [];
-    return aiResponse.evidenceHighlights.filter((highlight) =>
-      evidenceMap.has(highlight.id),
-    );
+    return aiResponse.evidenceHighlights
+      .map((highlight) => ({
+        ...highlight,
+        id: normalizeEvidenceId(highlight.id),
+      }))
+      .filter((highlight) => highlight.id && evidenceMap.has(highlight.id));
   }, [aiResponse, evidenceMap]);
 
   const validatedHypotheses: AiHypothesis[] = useMemo(() => {
@@ -346,9 +455,10 @@ export const AIAnalysisTab = ({
     return aiResponse.hypotheses
       .map((hypothesis) => ({
         ...hypothesis,
-        evidenceIds: hypothesis.evidenceIds.filter((id) =>
-          evidenceMap.has(id),
-        ),
+        evidenceIds: hypothesis.evidenceIds
+          .map((id) => normalizeEvidenceId(id))
+          .filter((id) => id && evidenceMap.has(id))
+          .slice(0, 5),
       }))
       .filter((hypothesis) => hypothesis.evidenceIds.length > 0);
   }, [aiResponse, evidenceMap]);
@@ -358,7 +468,11 @@ export const AIAnalysisTab = ({
     return aiResponse.recommendedClips
       .map((clip) => ({
         ...clip,
-        evidenceIds: clip.evidenceIds.filter((id) => evidenceMap.has(id)),
+        centerId: normalizeEvidenceId(clip.centerId),
+        evidenceIds: clip.evidenceIds
+          .map((id) => normalizeEvidenceId(id))
+          .filter((id) => id && evidenceMap.has(id))
+          .slice(0, 5),
       }))
       .filter(
         (clip) => evidenceMap.has(clip.centerId) && clip.evidenceIds.length > 0,
@@ -619,78 +733,144 @@ export const AIAnalysisTab = ({
           <Typography variant="body2" color="text.secondary">
             ローカルLLMの接続先とディメンション定義を設定します。
           </Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <TextField
-              label="モデルファイル"
-              value={aiSettings.model}
-              onChange={(event) =>
-                setAiSettings({
-                  ...aiSettings,
-                  model: event.target.value,
-                })
-              }
-              placeholder="example.gguf"
-              sx={{ flex: 1 }}
-            />
-          </Stack>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <TextField
-              label="Temperature"
-              value={aiSettings.temperature}
-              onChange={(event) =>
-                setAiSettings({
-                  ...aiSettings,
-                  temperature: Number(event.target.value),
-                })
-              }
-              type="number"
-              inputProps={{ min: 0, max: 1, step: 0.1 }}
-              sx={{ flex: 1 }}
-            />
-            <TextField
-              label="Top K"
-              value={aiSettings.topK}
-              onChange={(event) =>
-                setAiSettings({
-                  ...aiSettings,
-                  topK: Number(event.target.value),
-                })
-              }
-              type="number"
-              inputProps={{ min: 1, step: 1 }}
-              sx={{ flex: 1 }}
-            />
-            <FormControl sx={{ flex: 1 }}>
-              <InputLabel id="ai-team-group">チーム判定group</InputLabel>
-              <Select
-                labelId="ai-team-group"
-                label="チーム判定group"
-                value={aiSettings.teamLabelGroup ?? ''}
-                onChange={(event) =>
-                  setAiSettings({
-                    ...aiSettings,
-                    teamLabelGroup: event.target.value,
-                  })
-                }
-              >
-                <MenuItem value="">自動検出</MenuItem>
-                {availableGroups.map((group) => (
-                  <MenuItem key={group} value={group}>
-                    {group}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
-          <Button variant="outlined" onClick={handleSaveSettings}>
-            AI設定を保存
-          </Button>
-          {settingsMessage && (
-            <Alert severity="info">{settingsMessage}</Alert>
-          )}
-          <Typography variant="caption" color="text.secondary">
-            モデルは `public/llama/models` 配下に配置してください。
-          </Typography>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Typography variant="body2" color="text.secondary">
+              現在のモデル: {modelSummary}
+            </Typography>
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => setShowAiSettings((prev) => !prev)}
+            >
+              {showAiSettings ? '設定を閉じる' : '設定を開く'}
+            </Button>
+          </Box>
+          <Collapse in={showAiSettings}>
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  label="モデルファイル"
+                  value={aiSettings.model}
+                  onChange={(event) =>
+                    setAiSettings({
+                      ...aiSettings,
+                      model: event.target.value,
+                    })
+                  }
+                  placeholder="auto / example.gguf"
+                  helperText="auto にすると、検出された最大サイズのモデルを自動選択します。"
+                  sx={{ flex: 1 }}
+                />
+              </Stack>
+              {modelsStatus === 'loading' && (
+                <Typography variant="body2" color="text.secondary">
+                  モデル一覧を取得中...
+                </Typography>
+              )}
+              {availableModels.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Chip
+                    label="auto (推奨)"
+                    color={isAutoModel ? 'primary' : 'default'}
+                    onClick={() =>
+                      setAiSettings({
+                        ...aiSettings,
+                        model: 'auto',
+                      })
+                    }
+                  />
+                  {availableModels.map((model) => (
+                    <Chip
+                      key={model.path}
+                      label={`${model.name} (${formatBytes(model.sizeBytes)})`}
+                      color={aiSettings.model === model.name ? 'primary' : 'default'}
+                      onClick={() =>
+                        setAiSettings({
+                          ...aiSettings,
+                          model: model.name,
+                        })
+                      }
+                    />
+                  ))}
+                </Stack>
+              )}
+              {recommendedModel &&
+                !isAutoModel &&
+                aiSettings.model !== recommendedModel.name && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() =>
+                      setAiSettings({
+                        ...aiSettings,
+                        model: recommendedModel.name,
+                      })
+                    }
+                  >
+                    推奨モデルに切り替え
+                  </Button>
+                )}
+              {modelsError && <Alert severity="warning">{modelsError}</Alert>}
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  label="Temperature"
+                  value={aiSettings.temperature}
+                  onChange={(event) =>
+                    setAiSettings({
+                      ...aiSettings,
+                      temperature: Number(event.target.value),
+                    })
+                  }
+                  type="number"
+                  inputProps={{ min: 0, max: 1, step: 0.1 }}
+                  sx={{ flex: 1 }}
+                />
+                <TextField
+                  label="Top K"
+                  value={aiSettings.topK}
+                  onChange={(event) =>
+                    setAiSettings({
+                      ...aiSettings,
+                      topK: Number(event.target.value),
+                    })
+                  }
+                  type="number"
+                  inputProps={{ min: 1, step: 1 }}
+                  sx={{ flex: 1 }}
+                />
+                <FormControl sx={{ flex: 1 }}>
+                  <InputLabel id="ai-team-group">チーム判定group</InputLabel>
+                  <Select
+                    labelId="ai-team-group"
+                    label="チーム判定group"
+                    value={aiSettings.teamLabelGroup ?? ''}
+                    onChange={(event) =>
+                      setAiSettings({
+                        ...aiSettings,
+                        teamLabelGroup: event.target.value,
+                      })
+                    }
+                  >
+                    <MenuItem value="">自動検出</MenuItem>
+                    {availableGroups.map((group) => (
+                      <MenuItem key={group} value={group}>
+                        {group}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
+              <Button variant="outlined" onClick={handleSaveSettings}>
+                AI設定を保存
+              </Button>
+              {settingsMessage && (
+                <Alert severity="info">{settingsMessage}</Alert>
+              )}
+              <Typography variant="caption" color="text.secondary">
+                モデルは `public/llama/models` 配下に配置してください。
+              </Typography>
+            </Stack>
+          </Collapse>
         </Stack>
       </AnalysisCard>
 
@@ -703,10 +883,11 @@ export const AIAnalysisTab = ({
           )}
           {aiResponse && !hasGroundedOutput && (
             <Alert severity="warning">
-              根拠に紐づく出力が得られませんでした。
+              根拠に紐づく出力が不足しています。表示内容は参考程度に留めてください。
             </Alert>
           )}
-          {aiResponse && hasGroundedOutput && (
+          {llmWarning && <Alert severity="warning">{llmWarning}</Alert>}
+          {aiResponse && (
             <>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                 要約
@@ -793,6 +974,65 @@ export const AIAnalysisTab = ({
                     );
                   })}
                 </Stack>
+              )}
+              {(llmRawText || llmDebug?.stderr) && (
+                <>
+                  <Divider />
+                  <Box>
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setShowDebug((prev) => !prev)}
+                    >
+                      {showDebug ? 'デバッグ情報を隠す' : 'デバッグ情報を表示'}
+                    </Button>
+                    {showDebug && (
+                      <Stack spacing={2} mt={1}>
+                        {llmRawText && (
+                          <TextField
+                            label="LLM raw output"
+                            value={llmRawText}
+                            multiline
+                            minRows={4}
+                            fullWidth
+                            InputProps={{ readOnly: true }}
+                          />
+                        )}
+                        {llmDebug?.stderr && (
+                          <TextField
+                            label="LLM stderr"
+                            value={llmDebug.stderr}
+                            multiline
+                            minRows={3}
+                            fullWidth
+                            InputProps={{ readOnly: true }}
+                          />
+                        )}
+                        {(llmDebug?.binaryPath ||
+                          llmDebug?.modelPath ||
+                          llmDebug?.durationMs != null) && (
+                          <Stack spacing={0.5}>
+                            {llmDebug?.binaryPath && (
+                              <Typography variant="caption" color="text.secondary">
+                                binary: {llmDebug.binaryPath}
+                              </Typography>
+                            )}
+                            {llmDebug?.modelPath && (
+                              <Typography variant="caption" color="text.secondary">
+                                model: {llmDebug.modelPath}
+                              </Typography>
+                            )}
+                            {llmDebug?.durationMs != null && (
+                              <Typography variant="caption" color="text.secondary">
+                                duration: {llmDebug.durationMs} ms
+                              </Typography>
+                            )}
+                          </Stack>
+                        )}
+                      </Stack>
+                    )}
+                  </Box>
+                </>
               )}
             </>
           )}
