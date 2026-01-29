@@ -309,6 +309,7 @@ export interface AIAnalysisSettings {
   topK: number;
   embeddingEnabled: boolean;
   teamLabelGroup?: string;
+  retrieverPreset?: 'balanced' | 'labels' | 'memo' | 'time';
 }
 
 const DEFAULT_DASHBOARD_WIDGETS: AnalysisDashboardWidget[] = [
@@ -656,5 +657,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     topK: 40,
     embeddingEnabled: false,
     teamLabelGroup: '',
+    retrieverPreset: 'balanced',
   },
 };

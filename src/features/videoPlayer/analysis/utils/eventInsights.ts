@@ -1,6 +1,6 @@
 import type { TimelineData } from '../../../../types/TimelineData';
 import { getLabelsFromTimelineData } from '../../../../utils/labelExtractors';
-import type { EvidenceFilters } from '../ai/types';
+import type { EvidenceFilters, EvidenceItem } from '../ai/types';
 
 export type InsightDimension =
   | { type: 'action' }
@@ -59,9 +59,35 @@ export type EventInsights = {
   topStates: InsightStateStat[];
   topTransitions: InsightTransitionStat[];
   topSequences: InsightSequenceStat[];
+  topSequencesByLength?: Record<number, InsightSequenceStat[]>;
   streaks: InsightStreakStat[];
   rareStates: InsightStateStat[];
   longestEvents: InsightEventStat[];
+};
+
+export type AiEvidenceDistributionStat = {
+  key: string;
+  count: number;
+  share: number;
+  evidenceIds: string[];
+};
+
+export type AiInsightFacts = {
+  dimension: string;
+  summary: EventInsights['summary'];
+  topStates: InsightStateStat[];
+  rareStates: InsightStateStat[];
+  topTransitions: InsightTransitionStat[];
+  topSequences: InsightSequenceStat[];
+  topSequencesByLength?: Record<number, InsightSequenceStat[]>;
+  longestEvents: InsightEventStat[];
+  streaks: InsightStreakStat[];
+  evidenceStats: {
+    evidenceCount: number;
+    timeSpanSec: number;
+    actionDistribution: AiEvidenceDistributionStat[];
+    labelDistribution: AiEvidenceDistributionStat[];
+  };
 };
 
 const toLower = (value?: string | null) => (value ?? '').toLowerCase();
@@ -154,15 +180,24 @@ export const buildEventInsights = (
     dimension: InsightDimension;
     topN?: number;
     sequenceLength?: number;
+    sequenceLengths?: number[];
   },
 ): EventInsights => {
   const topN = Math.max(1, config.topN ?? 5);
   const sequenceLength = Math.max(2, config.sequenceLength ?? 3);
+  const sequenceLengths = Array.from(
+    new Set(
+      (config.sequenceLengths && config.sequenceLengths.length > 0
+        ? config.sequenceLengths
+        : [sequenceLength]
+      ).map((len) => Math.max(2, len)),
+    ),
+  );
   const ordered = sortTimeline(timeline);
   const totalEvents = ordered.length;
   const stateSamples = new Map<string, string[]>();
   const transitionSamples = new Map<string, string[][]>();
-  const sequenceSamples = new Map<string, string[][]>();
+  const sequenceSamplesByLength = new Map<number, Map<string, string[][]>>();
 
   const stateTotals = new Map<
     string,
@@ -253,29 +288,41 @@ export const buildEventInsights = (
   );
   const topTransitions = transitionStats.slice(0, topN);
 
-  const sequenceAgg = new Map<string, { count: number; seq: string[] }>();
-  for (let i = 0; i <= stateSequence.length - sequenceLength; i += 1) {
-    const seq = stateSequence.slice(i, i + sequenceLength);
-    const key = seq.join('→');
-    const existing = sequenceAgg.get(key) ?? { count: 0, seq };
-    existing.count += 1;
-    sequenceAgg.set(key, existing);
-    const samples = sequenceSamples.get(key) ?? [];
-    if (samples.length < 2) {
-      const ids = ordered.slice(i, i + sequenceLength).map((item) => item.id);
-      samples.push(ids);
-      sequenceSamples.set(key, samples);
-    }
-  }
-  const sequenceStats: InsightSequenceStat[] = Array.from(sequenceAgg.values())
-    .map((entry) => {
-      const key = entry.seq.join('→');
+  const buildSequenceStats = (len: number): InsightSequenceStat[] => {
+    const sequenceAgg = new Map<string, { count: number; seq: string[] }>();
+    const sequenceSamples =
+      sequenceSamplesByLength.get(len) ?? new Map<string, string[][]>();
+    for (let i = 0; i <= stateSequence.length - len; i += 1) {
+      const seq = stateSequence.slice(i, i + len);
+      const key = seq.join('→');
+      const existing = sequenceAgg.get(key) ?? { count: 0, seq };
+      existing.count += 1;
+      sequenceAgg.set(key, existing);
       const samples = sequenceSamples.get(key) ?? [];
-      const evidenceIds = uniqueIds(samples.flat());
-      return { sequence: entry.seq, count: entry.count, evidenceIds };
-    })
-    .sort((a, b) => b.count - a.count)
-    .slice(0, topN);
+      if (samples.length < 2) {
+        const ids = ordered.slice(i, i + len).map((item) => item.id);
+        samples.push(ids);
+        sequenceSamples.set(key, samples);
+      }
+    }
+    sequenceSamplesByLength.set(len, sequenceSamples);
+    return Array.from(sequenceAgg.values())
+      .map((entry) => {
+        const key = entry.seq.join('→');
+        const samples = sequenceSamples.get(key) ?? [];
+        const evidenceIds = uniqueIds(samples.flat());
+        return { sequence: entry.seq, count: entry.count, evidenceIds };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, topN);
+  };
+
+  const topSequencesByLength: Record<number, InsightSequenceStat[]> = {};
+  for (const len of sequenceLengths) {
+    topSequencesByLength[len] = buildSequenceStats(len);
+  }
+  const sequenceStats =
+    topSequencesByLength[sequenceLength] ?? buildSequenceStats(sequenceLength);
 
   const streaks: InsightStreakStat[] = [];
   let currentState = '';
@@ -349,8 +396,82 @@ export const buildEventInsights = (
     topStates,
     topTransitions,
     topSequences: sequenceStats,
+    topSequencesByLength:
+      sequenceLengths.length > 1 ? topSequencesByLength : undefined,
     streaks: streaks.slice(0, topN),
     rareStates,
     longestEvents,
+  };
+};
+
+const collectEvidenceDistribution = (
+  evidence: EvidenceItem[],
+  type: 'action' | 'label',
+  limit = 6,
+): AiEvidenceDistributionStat[] => {
+  const counts = new Map<string, { count: number; ids: string[] }>();
+  for (const item of evidence) {
+    if (type === 'action') {
+      const key = item.actionName || '未設定';
+      const entry = counts.get(key) ?? { count: 0, ids: [] };
+      entry.count += 1;
+      if (entry.ids.length < 5) entry.ids.push(item.id);
+      counts.set(key, entry);
+    } else {
+      for (const label of item.labels) {
+        const key = label.group ? `${label.group}:${label.name}` : label.name;
+        const entry = counts.get(key) ?? { count: 0, ids: [] };
+        entry.count += 1;
+        if (entry.ids.length < 5) entry.ids.push(item.id);
+        counts.set(key, entry);
+      }
+    }
+  }
+
+  const total = evidence.length;
+  return Array.from(counts.entries())
+    .map(([key, value]) => ({
+      key,
+      count: value.count,
+      share: total > 0 ? value.count / total : 0,
+      evidenceIds: uniqueIds(value.ids),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+};
+
+export const buildAiInsightFacts = (
+  insight: EventInsights,
+  evidence: EvidenceItem[],
+  dimension: InsightDimension,
+): AiInsightFacts => {
+  let minStart = Number.POSITIVE_INFINITY;
+  let maxEnd = Number.NEGATIVE_INFINITY;
+  for (const item of evidence) {
+    minStart = Math.min(minStart, item.startTime);
+    maxEnd = Math.max(maxEnd, item.endTime);
+  }
+  const timeSpanSec =
+    evidence.length === 0 || !Number.isFinite(minStart) || !Number.isFinite(maxEnd)
+      ? 0
+      : Math.max(0, maxEnd - minStart);
+
+  return {
+    dimension:
+      dimension.type === 'labelGroup' ? `label:${dimension.group}` : 'action',
+    summary: insight.summary,
+    topStates: insight.topStates,
+    rareStates: insight.rareStates,
+    topTransitions: insight.topTransitions,
+    topSequences: insight.topSequences,
+    topSequencesByLength: insight.topSequencesByLength,
+    longestEvents: insight.longestEvents,
+    streaks: insight.streaks,
+    evidenceStats: {
+      evidenceCount: evidence.length,
+      timeSpanSec,
+      actionDistribution: collectEvidenceDistribution(evidence, 'action'),
+      labelDistribution: collectEvidenceDistribution(evidence, 'label'),
+    },
   };
 };

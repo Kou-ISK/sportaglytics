@@ -64,6 +64,7 @@ const normalizeAiAnalysis = (
       topK: 40,
       embeddingEnabled: false,
       teamLabelGroup: '',
+      retrieverPreset: 'balanced',
     } as NonNullable<AppSettings['aiAnalysis']>);
 
   const merged = { ...defaultAiAnalysis, ...(input ?? {}) };
@@ -71,7 +72,14 @@ const normalizeAiAnalysis = (
     typeof merged.model === 'string' && merged.model.trim()
       ? merged.model
       : 'auto';
-  return { ...merged, model, provider: 'llama.cpp' };
+  const preset =
+    merged.retrieverPreset === 'labels' ||
+    merged.retrieverPreset === 'memo' ||
+    merged.retrieverPreset === 'time' ||
+    merged.retrieverPreset === 'balanced'
+      ? merged.retrieverPreset
+      : 'balanced';
+  return { ...merged, model, provider: 'llama.cpp', retrieverPreset: preset };
 };
 
 /**

@@ -94,6 +94,7 @@ export interface IElectronAPI {
       temperature?: number;
       maxTokens?: number;
       timeoutMs?: number;
+      requestId?: string;
     }) => Promise<{
       text: string;
       stderr?: string;
@@ -101,7 +102,10 @@ export interface IElectronAPI {
       modelPath?: string;
       durationMs?: number;
     }>;
+    cancel: (requestId: string) => Promise<boolean>;
     listModels: () => Promise<LlamaModelInfo[]>;
+    onProgress: (callback: (payload: unknown) => void) => void;
+    offProgress: (callback: (payload: unknown) => void) => void;
   };
   setWindowTitle: (title: string) => void;
   exportClipsWithOverlay?: (payload: {

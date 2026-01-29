@@ -15,6 +15,8 @@ export interface LlmGeneratorOptions {
   maxRetries?: number;
   maxMemoChars?: number;
   maxEvidence?: number;
+  requestId?: string;
+  signal?: AbortSignal;
 }
 
 type FallbackSource = 'none' | 'coerced' | 'heuristic';
@@ -220,7 +222,7 @@ const FALLBACK_RESPONSE: AiCopilotResponse = {
   recommendedClips: [],
 };
 
-const MAX_LLM_EVIDENCE = 12;
+const MAX_LLM_EVIDENCE = 24;
 
 const uniqueIds = (ids: string[], limit = 5) => {
   const result: string[] = [];
@@ -246,9 +248,12 @@ const buildFactBasedResponse = (
   const toArray = <T>(value: unknown): T[] =>
     Array.isArray(value) ? (value as T[]) : [];
 
-  const topStates = toArray<{ state: string; count: number; share: number; evidenceIds?: string[] }>(
-    (facts as Record<string, unknown>).topStates,
-  );
+  const topStates = toArray<{
+    state: string;
+    count: number;
+    share: number;
+    evidenceIds?: string[];
+  }>((facts as Record<string, unknown>).topStates);
   const topTransitions = toArray<{
     from: string;
     to: string;
@@ -256,29 +261,45 @@ const buildFactBasedResponse = (
     probability: number;
     evidenceIds?: string[];
   }>((facts as Record<string, unknown>).topTransitions);
+  const topSequences = toArray<{
+    sequence: string[];
+    count: number;
+    evidenceIds?: string[];
+  }>((facts as Record<string, unknown>).topSequences);
   const longestEvents = toArray<{ id: string; duration: number }>(
     (facts as Record<string, unknown>).longestEvents,
   );
 
-  if (topStates.length === 0 && topTransitions.length === 0 && longestEvents.length === 0) {
+  if (
+    topStates.length === 0 &&
+    topTransitions.length === 0 &&
+    longestEvents.length === 0 &&
+    topSequences.length === 0
+  ) {
     return null;
   }
 
   const summaryParts: string[] = [];
+  if (evidence.length > 0) {
+    summaryParts.push(`関連イベントは${evidence.length}件確認されました。`);
+  }
   if (topStates[0]) {
     summaryParts.push(
-      `最も多い状態は「${topStates[0].state}」で、全体の${Math.round(
-        (topStates[0].share ?? 0) * 100,
-      )}%を占めます。`,
+      `「${topStates[0].state}」が多く含まれている可能性があります。`,
     );
   }
   if (topTransitions[0]) {
     summaryParts.push(
-      `よく見られる遷移は「${topTransitions[0].from}→${topTransitions[0].to}」です。`,
+      `「${topTransitions[0].from}→${topTransitions[0].to}」の遷移が繰り返される示唆があります。`,
+    );
+  }
+  if (topSequences[0]) {
+    summaryParts.push(
+      `「${topSequences[0].sequence.join('→')}」の流れが複数回現れています。`,
     );
   }
   if (summaryParts.length === 0) {
-    summaryParts.push('特徴的なイベントの傾向が確認されました。');
+    summaryParts.push('特徴的なイベントの傾向が見られる可能性があります。');
   }
 
   const hypotheses: AiCopilotResponse['hypotheses'] = [];
@@ -286,7 +307,7 @@ const buildFactBasedResponse = (
     const ids = (transition.evidenceIds ?? []).filter((id) => evidenceMap.has(id));
     if (ids.length === 0) continue;
     hypotheses.push({
-      text: `${transition.from}から${transition.to}への遷移が多く、展開に影響している可能性があります。`,
+      text: `確認ポイント: ${transition.from}→${transition.to}の遷移が多く、展開に影響している可能性があります（要映像確認）。`,
       evidenceIds: ids.slice(0, 5),
     });
   }
@@ -294,7 +315,16 @@ const buildFactBasedResponse = (
     const ids = (topStates[0].evidenceIds ?? []).filter((id) => evidenceMap.has(id));
     if (ids.length > 0) {
       hypotheses.push({
-        text: `${topStates[0].state}が頻出しており、試合展開に影響している可能性があります。`,
+        text: `確認ポイント: ${topStates[0].state}が頻出しており、試合展開に影響している可能性があります（要映像確認）。`,
+        evidenceIds: ids.slice(0, 5),
+      });
+    }
+  }
+  if (hypotheses.length === 0 && topSequences[0]) {
+    const ids = (topSequences[0].evidenceIds ?? []).filter((id) => evidenceMap.has(id));
+    if (ids.length > 0) {
+      hypotheses.push({
+        text: `確認ポイント: ${topSequences[0].sequence.join('→')}の流れが続いている可能性があります（要映像確認）。`,
         evidenceIds: ids.slice(0, 5),
       });
     }
@@ -330,7 +360,7 @@ const buildFactBasedResponse = (
       centerId: id,
       preSeconds: 5,
       postSeconds: 5,
-      reason: '特徴的なイベントの確認用です。',
+      reason: '特徴的なイベントの確認用です（要映像確認）。',
       evidenceIds: [id],
     });
   }
@@ -366,10 +396,10 @@ const buildHeuristicResponse = (
   const summaryParts: string[] = [];
   summaryParts.push(`関連度の高いイベントは${topEvidence.length}件確認されました。`);
   if (topAction) {
-    summaryParts.push(`特に「${topAction[0]}」が目立ちます。`);
+    summaryParts.push(`特に「${topAction[0]}」が目立つ可能性があります。`);
   }
   if (topLabel) {
-    summaryParts.push(`ラベルでは「${topLabel[0]}」が多く含まれています。`);
+    summaryParts.push(`ラベルでは「${topLabel[0]}」が多く含まれる傾向があります。`);
   }
 
   const hypotheses = [topAction, topLabel]
@@ -388,7 +418,7 @@ const buildHeuristicResponse = (
         .slice(0, 5)
         .map((item) => item.id);
       return {
-        text: `${key}が多く、試合展開に影響している可能性があります。`,
+        text: `確認ポイント: ${key}が多く、試合展開に影響している可能性があります（要映像確認）。`,
         evidenceIds: evidenceIds.length > 0 ? evidenceIds : [topEvidence[0].id],
       };
     });
@@ -403,7 +433,7 @@ const buildHeuristicResponse = (
     centerId: item.id,
     preSeconds: 5,
     postSeconds: 5,
-    reason: '関連度の高い根拠の確認用です。',
+    reason: '関連度の高い根拠の確認用です（要映像確認）。',
     evidenceIds: [item.id],
   }));
 
@@ -438,6 +468,8 @@ export const generateAiResponse = async (params: {
   if (!params.evidence || params.evidence.length === 0) {
     throw new Error('根拠がありません。');
   }
+  const signal = params.options?.signal;
+  const requestId = params.options?.requestId;
   const provider = createLLMProvider({
     type: params.config.provider,
     baseUrl: params.config.baseUrl,
@@ -488,7 +520,17 @@ export const generateAiResponse = async (params: {
     | undefined;
 
   while (attempt <= maxRetries) {
-    const result = await provider.generate({ prompt });
+    if (signal?.aborted) {
+      throw new Error('生成がキャンセルされました。');
+    }
+    const result = await provider.generate({
+      prompt,
+      requestId,
+      signal,
+    });
+    if (signal?.aborted) {
+      throw new Error('生成がキャンセルされました。');
+    }
     lastRaw = result.text;
     lastDebug = result.debug;
     try {

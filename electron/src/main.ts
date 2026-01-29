@@ -8,7 +8,11 @@ import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
-import { generateWithLlama, listLlamaModels } from './llamaManager';
+import {
+  cancelLlamaRequest,
+  generateWithLlama,
+  listLlamaModels,
+} from './llamaManager';
 import {
   registerAnalysisWindowHandlers,
   setAnalysisMainWindowRef,
@@ -1106,11 +1110,18 @@ registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();
 registerAnalysisWindowHandlers();
-ipcMain.handle('llama:generate', async (_event, payload) => {
-  return generateWithLlama(payload);
+ipcMain.handle('llama:generate', async (event, payload) => {
+  return generateWithLlama(payload, {
+    onProgress: (update) => {
+      event.sender.send('llama:progress', update);
+    },
+  });
 });
 ipcMain.handle('llama:list-models', async () => {
   return listLlamaModels();
+});
+ipcMain.handle('llama:cancel', async (_event, requestId: string) => {
+  return cancelLlamaRequest(requestId);
 });
 
 // FFmpegパスをプレイリストウィンドウに設定

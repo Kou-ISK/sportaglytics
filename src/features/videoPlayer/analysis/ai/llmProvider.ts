@@ -10,6 +10,8 @@ export interface LLMProviderConfig {
 
 export interface LLMProviderRequest {
   prompt: string;
+  requestId?: string;
+  signal?: AbortSignal;
 }
 
 export interface LLMProviderDebugInfo {
@@ -43,21 +45,52 @@ class LocalLLMProvider implements LLMProvider {
   }
 
   async generate(request: LLMProviderRequest): Promise<LLMProviderResult> {
-    return this.callLlamaCpp(request.prompt);
+    return this.callLlamaCpp(request.prompt, request.requestId, request.signal);
   }
 
-  private async callLlamaCpp(prompt: string): Promise<LLMProviderResult> {
+  private async callLlamaCpp(
+    prompt: string,
+    requestId?: string,
+    signal?: AbortSignal,
+  ): Promise<LLMProviderResult> {
     const llamaApi = globalThis.window?.electronAPI?.llama;
     if (!llamaApi?.generate) {
       throw new Error('llama.cpp APIが利用できません。');
     }
-    const result = await llamaApi.generate({
-      prompt,
-      model: this.model,
-      temperature: this.temperature,
-      maxTokens: 512,
-      timeoutMs: this.timeoutMs,
-    });
+    if (signal?.aborted) {
+      throw new Error('生成がキャンセルされました。');
+    }
+    const abortHandler = () => {
+      if (requestId && llamaApi.cancel) {
+        void llamaApi.cancel(requestId);
+      }
+    };
+    if (signal) {
+      signal.addEventListener('abort', abortHandler, { once: true });
+    }
+    let result:
+      | {
+          text?: string;
+          stderr?: string;
+          binaryPath?: string;
+          modelPath?: string;
+          durationMs?: number;
+        }
+      | null = null;
+    try {
+      result = await llamaApi.generate({
+        prompt,
+        model: this.model,
+        temperature: this.temperature,
+        maxTokens: 512,
+        timeoutMs: this.timeoutMs,
+        requestId,
+      });
+    } finally {
+      if (signal) {
+        signal.removeEventListener('abort', abortHandler);
+      }
+    }
     if (!result?.text) {
       throw new Error('llama.cppの応答が空です。');
     }

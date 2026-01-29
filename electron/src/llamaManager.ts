@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { spawn } from 'child_process';
+import { spawn, type ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
@@ -11,6 +11,7 @@ export interface LlamaGenerateRequest {
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
+  requestId?: string;
 }
 
 export interface LlamaGenerateResult {
@@ -21,12 +22,49 @@ export interface LlamaGenerateResult {
   durationMs?: number;
 }
 
+export interface LlamaProgressEvent {
+  requestId: string;
+  phase:
+    | 'start'
+    | 'stdout'
+    | 'stderr'
+    | 'done'
+    | 'error'
+    | 'timeout'
+    | 'cancelled';
+  outputChars?: number;
+  elapsedMs?: number;
+}
+
 export interface LlamaModelInfo {
   name: string;
   path: string;
   sizeBytes: number;
   modifiedAt?: number;
 }
+
+const activeRequests = new Map<
+  string,
+  { child: ChildProcess; cleanup: () => void; cancelled: boolean }
+>();
+
+export const cancelLlamaRequest = (requestId: string): boolean => {
+  if (!requestId) return false;
+  const entry = activeRequests.get(requestId);
+  if (!entry) return false;
+  entry.cancelled = true;
+  try {
+    entry.cleanup?.();
+  } catch (_error) {
+    // ignore
+  }
+  try {
+    entry.child.kill();
+  } catch (_error) {
+    // ignore
+  }
+  return true;
+};
 
 const resolveBinaryNameCandidates = () => {
   if (process.platform === 'win32') {
@@ -186,7 +224,7 @@ const JSON_SCHEMA = JSON.stringify(
       'recommendedClips',
     ],
     properties: {
-      summary: { type: 'string', maxLength: 400 },
+      summary: { type: 'string', maxLength: 500 },
       hypotheses: {
         type: 'array',
         maxItems: 3,
@@ -321,6 +359,7 @@ const extractJsonCandidate = (raw: string): string | null => {
 
 export const generateWithLlama = async (
   request: LlamaGenerateRequest,
+  options?: { onProgress?: (event: LlamaProgressEvent) => void },
 ): Promise<LlamaGenerateResult> => {
   const binaryPath = resolveLlamaBinaryPath();
   if (!binaryPath) {
@@ -337,6 +376,7 @@ export const generateWithLlama = async (
   const maxTokens =
     typeof request.maxTokens === 'number' ? request.maxTokens : 512;
   const timeoutMs = request.timeoutMs ?? 300000;
+  const requestId = request.requestId?.trim() || undefined;
 
   const promptPath = await writeTempFile(request.prompt, 'prompt.txt');
   const schemaPath = await writeTempFile(JSON_SCHEMA, 'schema.json');
@@ -360,10 +400,18 @@ export const generateWithLlama = async (
 
   const startedAt = Date.now();
   return new Promise((resolve, reject) => {
+    let wasCancelled = false;
+    const cleanup = () => {
+      fsPromises.unlink(promptPath).catch(() => undefined);
+      fsPromises.unlink(schemaPath).catch(() => undefined);
+    };
     const child = spawn(binaryPath, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
+    if (requestId) {
+      activeRequests.set(requestId, { child, cleanup, cancelled: false });
+    }
     try {
       child.stdin?.end();
     } catch (_error) {
@@ -381,10 +429,33 @@ export const generateWithLlama = async (
       Math.max(20000, Math.floor(timeoutMs * 0.25)),
     );
 
-    const cleanup = () => {
-      fsPromises.unlink(promptPath).catch(() => undefined);
-      fsPromises.unlink(schemaPath).catch(() => undefined);
+    let lastProgressAt = 0;
+    let lastProgressChars = 0;
+    const emitProgress = (phase: LlamaProgressEvent['phase']) => {
+      if (!requestId || !options?.onProgress) return;
+      const now = Date.now();
+      if (
+        phase === 'stdout' &&
+        now - lastProgressAt < 400 &&
+        stdout.length - lastProgressChars < 200
+      ) {
+        return;
+      }
+      lastProgressAt = now;
+      lastProgressChars = stdout.length;
+      try {
+        options.onProgress({
+          requestId,
+          phase,
+          outputChars: stdout.length,
+          elapsedMs: now - startedAt,
+        });
+      } catch (_error) {
+        // ignore
+      }
     };
+
+    emitProgress('start');
 
     const finalizeSuccess = (text: string) => {
       if (settled) return;
@@ -394,6 +465,10 @@ export const generateWithLlama = async (
         clearTimeout(idleTimer);
       }
       cleanup();
+      if (requestId) {
+        activeRequests.delete(requestId);
+        emitProgress('done');
+      }
       resolve({
         text: normalizeLlamaOutput(text),
         stderr: stderr ? truncateLog(stderr, 4000) : undefined,
@@ -416,6 +491,12 @@ export const generateWithLlama = async (
         clearTimeout(idleTimer);
       }
       cleanup();
+      if (requestId) {
+        activeRequests.delete(requestId);
+        if (!wasCancelled) {
+          emitProgress('error');
+        }
+      }
       reject(error);
     };
 
@@ -425,6 +506,9 @@ export const generateWithLlama = async (
         child.kill();
       } catch (_error) {
         // ignore
+      }
+      if (requestId) {
+        emitProgress('timeout');
       }
       const candidate = extractJsonCandidate(stdout);
       if (candidate) {
@@ -446,6 +530,7 @@ export const generateWithLlama = async (
 
     child.stdout.on('data', (data) => {
       stdout += stdoutDecoder.write(data);
+      emitProgress('stdout');
       if (idleTimer) {
         clearTimeout(idleTimer);
       }
@@ -462,6 +547,7 @@ export const generateWithLlama = async (
 
     child.stderr.on('data', (data) => {
       stderr += stderrDecoder.write(data);
+      emitProgress('stderr');
     });
 
     child.on('close', (code) => {
@@ -473,6 +559,16 @@ export const generateWithLlama = async (
       cleanup();
       stdout += stdoutDecoder.end();
       stderr += stderrDecoder.end();
+      if (requestId) {
+        const entry = activeRequests.get(requestId);
+        if (entry?.cancelled) {
+          wasCancelled = true;
+          activeRequests.delete(requestId);
+          emitProgress('cancelled');
+          finalizeError(new Error('llama.cppの生成をキャンセルしました。'));
+          return;
+        }
+      }
       if (code === 0) {
         const candidate = extractJsonCandidate(stdout);
         finalizeSuccess(candidate ?? stdout);

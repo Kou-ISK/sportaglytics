@@ -43,17 +43,15 @@ export const buildAugmentedPrompt = (params: {
   const maxMemoChars = params.maxMemoChars ?? 120;
   const evidenceLines = params.evidence
     .map((item) => {
-      const labels = item.labels
-        .map((label) =>
-          label.group ? `${label.group}:${label.name}` : label.name,
-        )
-        .join(', ');
+      const labels = item.labels.map((label) =>
+        label.group ? `${label.group}:${label.name}` : label.name,
+      );
       const memo = item.memo ? truncateMemo(item.memo, maxMemoChars) : '';
       return [
         `id:${item.id}`,
         `time:${item.startTime}-${item.endTime}`,
         `action:${item.actionName}`,
-        `labels:${labels || '-'}`,
+        `labels:[${labels.join(', ')}]`,
         `memo:${memo || '-'}`,
       ].join(' | ');
     })
@@ -72,9 +70,11 @@ export const buildAugmentedPrompt = (params: {
 
   return [
     'あなたはスポーツ映像分析のAIレビュー・コパイロットです。',
-    '以下の証拠(evidence)のみを根拠に回答し、証拠にない事実は述べないでください。',
-    'insight_factsは傾向の参考情報です。数値や傾向を使う場合は必ず該当evidenceIdsを提示してください。',
-    '出力は簡潔にしてください。summaryは2文以内、hypothesesは最大3件、evidenceHighlightsは最大5件、recommendedClipsは最大5件。',
+    '参照してよいのは insight_facts と evidence のみです。証拠にない事実は述べないでください。',
+    '数値や傾向を述べる場合は、必ず該当する evidenceIds を提示してください。',
+    'hypotheses / recommendedClips は必ず evidenceIds を含め、断定せず「可能性」「示唆」「要映像確認」の語尾で書いてください。',
+    'summary は短く読みやすく（500文字以内）、断定しないでください。',
+    '出力は簡潔にしてください。hypothesesは最大3件、evidenceHighlightsは最大5件、recommendedClipsは最大5件。',
     'evidenceIdsは各項目最大5件、IDはevidence一覧にあるものだけを使ってください。',
     '必ずJSONのみを出力してください。コードブロックや説明文は出力しないでください。',
     'スキーマ:',
@@ -101,6 +101,7 @@ export const buildRepairPrompt = (raw: string, errorMessage: string) => {
   return [
     '以下の出力はJSONスキーマに合致していません。',
     '必ずJSONのみを出力し、スキーマに従って修正してください。',
+    '説明文やコードブロックは禁止です。',
     'スキーマ:',
     '{"summary":string,"hypotheses":[{"text":string,"evidenceIds":string[]}],"evidenceHighlights":[{"id":string,"why":string}],"recommendedClips":[{"title":string,"centerId":string,"preSeconds":number,"postSeconds":number,"reason":string,"evidenceIds":string[]}]}',
     '',

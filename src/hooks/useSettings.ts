@@ -62,13 +62,21 @@ export const useSettings = () => {
       topK: 40,
       embeddingEnabled: false,
       teamLabelGroup: '',
+      retrieverPreset: 'balanced',
     };
 
   const normalizeAiAnalysis = (
     input?: AppSettings['aiAnalysis'] | null,
   ): NonNullable<AppSettings['aiAnalysis']> => {
     const merged = { ...defaultAiAnalysis, ...(input ?? {}) };
-    return { ...merged, provider: 'llama.cpp' };
+    const preset =
+      merged.retrieverPreset === 'labels' ||
+      merged.retrieverPreset === 'memo' ||
+      merged.retrieverPreset === 'time' ||
+      merged.retrieverPreset === 'balanced'
+        ? merged.retrieverPreset
+        : 'balanced';
+    return { ...merged, provider: 'llama.cpp', retrieverPreset: preset };
   };
 
   // 設定を読み込む

@@ -413,12 +413,40 @@ contextBridge.exposeInMainWorld('electronAPI', {
         throw error;
       }
     },
+    cancel: async (requestId: string) => {
+      try {
+        return await ipcRenderer.invoke('llama:cancel', requestId);
+      } catch (error) {
+        console.error('Error cancelling llama.cpp:', error);
+        return false;
+      }
+    },
     listModels: async () => {
       try {
         return await ipcRenderer.invoke('llama:list-models');
       } catch (error) {
         console.error('Error listing llama.cpp models:', error);
         return [];
+      }
+    },
+    onProgress: (callback: (payload: unknown) => void) => {
+      const wrapped = (_event: IpcRendererEvent, payload: unknown) => {
+        callback(payload);
+      };
+      let map = __listenerStore.get('llama:progress');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('llama:progress', map);
+      }
+      map.set(callback as unknown as Function, wrapped as unknown as (...args: unknown[]) => void);
+      ipcRenderer.on('llama:progress', wrapped);
+    },
+    offProgress: (callback: (payload: unknown) => void) => {
+      const map = __listenerStore.get('llama:progress');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener('llama:progress', wrapped as unknown as (...args: unknown[]) => void);
+        map?.delete(callback as unknown as Function);
       }
     },
   },
