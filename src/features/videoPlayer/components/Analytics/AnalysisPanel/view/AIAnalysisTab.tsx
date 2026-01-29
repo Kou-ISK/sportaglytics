@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -33,12 +33,14 @@ import {
   HybridEvidenceRetriever,
   type EvidenceFilters,
   type EvidenceItem,
+  type RetrieverWeights,
   type AiCopilotResponse,
   type AiEvidenceHighlight,
   type AiHypothesis,
   type AiRecommendedClip,
 } from '../../../../analysis/ai';
 import {
+  buildAiInsightFacts,
   buildEventInsights,
   filterTimelineByEvidenceFilters,
   type InsightDimension,
@@ -101,18 +103,43 @@ const formatGapShort = (value: number) => {
 const AUTO_INSIGHT_QUESTION =
   '全体の傾向と特徴的なイベントを要約し、根拠付きで仮説とクリップ候補を提示してください。';
 
-const mergeEvidenceLists = (
-  primary: EvidenceItem[],
-  secondary: EvidenceItem[],
-): EvidenceItem[] => {
-  const map = new Map<string, EvidenceItem>();
-  primary.forEach((item) => map.set(item.id, item));
-  secondary.forEach((item) => {
-    if (!map.has(item.id)) {
-      map.set(item.id, item);
-    }
-  });
-  return Array.from(map.values());
+const QUESTION_TEMPLATES = [
+  '重要な流れの変化点は？',
+  '頻出するイベントのパターンは？',
+  '時間帯ごとの特徴は？',
+  '直前・直後の流れで確認すべき点は？',
+  '長時間続いたイベントは？',
+];
+
+const RETRIEVER_PRESETS: Array<{
+  value: 'balanced' | 'labels' | 'memo' | 'time';
+  label: string;
+  helper: string;
+}> = [
+  { value: 'balanced', label: 'バランス', helper: '全体を均等に評価' },
+  { value: 'labels', label: 'ラベル重視', helper: 'ラベル一致を重視' },
+  { value: 'memo', label: 'メモ重視', helper: 'メモ一致を重視' },
+  { value: 'time', label: '時間重視', helper: '時間条件を重視' },
+];
+
+const RETRIEVER_WEIGHT_MAP: Record<
+  (typeof RETRIEVER_PRESETS)[number]['value'],
+  RetrieverWeights
+> = {
+  balanced: { token: 1, label: 1.6, memo: 1.1, time: 1.2, rareLabel: 0.6 },
+  labels: { token: 0.9, label: 2.2, memo: 0.9, time: 1.1, rareLabel: 0.7 },
+  memo: { token: 0.8, label: 1.2, memo: 2.0, time: 1.1, rareLabel: 0.7 },
+  time: { token: 0.7, label: 1.1, memo: 0.9, time: 2.2, rareLabel: 0.7 },
+};
+
+const resolveDiversifyTarget = (topK: number) => {
+  if (topK <= 18) return Math.max(1, topK);
+  return Math.min(30, Math.max(18, Math.floor(topK * 0.6)));
+};
+
+const formatElapsed = (ms?: number) => {
+  if (!ms || !Number.isFinite(ms)) return '';
+  return `${(ms / 1000).toFixed(1)}秒`;
 };
 
 const collectInsightEvidenceIds = (insight: EventInsights): string[] => {
@@ -129,6 +156,22 @@ const collectInsightEvidenceIds = (insight: EventInsights): string[] => {
   insight.longestEvents.forEach((stat) =>
     stat.evidenceIds.forEach((id) => ids.add(id)),
   );
+  return Array.from(ids);
+};
+
+const collectFlowEvidenceIds = (insight: EventInsights): string[] => {
+  const ids = new Set<string>();
+  insight.topTransitions.forEach((stat) =>
+    stat.evidenceIds.forEach((id) => ids.add(id)),
+  );
+  insight.topSequences.forEach((stat) =>
+    stat.evidenceIds.forEach((id) => ids.add(id)),
+  );
+  if (insight.topSequencesByLength) {
+    Object.values(insight.topSequencesByLength).forEach((stats) => {
+      stats.forEach((stat) => stat.evidenceIds.forEach((id) => ids.add(id)));
+    });
+  }
   return Array.from(ids);
 };
 
@@ -167,6 +210,7 @@ export const AIAnalysisTab = ({
       topK: 40,
       embeddingEnabled: false,
       teamLabelGroup: '',
+      retrieverPreset: 'balanced',
     };
 
   const [aiSettings, setAiSettings] = useState(defaultAiSettings);
@@ -212,6 +256,17 @@ export const AIAnalysisTab = ({
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [playlistMessage, setPlaylistMessage] = useState<string | null>(null);
   const [lastQuestion, setLastQuestion] = useState('');
+  const [generationRequestId, setGenerationRequestId] = useState<string | null>(
+    null,
+  );
+  const [llmProgress, setLlmProgress] = useState<{
+    requestId: string;
+    phase?: string;
+    outputChars?: number;
+    elapsedMs?: number;
+  } | null>(null);
+  const generationAbortRef = useRef<AbortController | null>(null);
+  const generationRunIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setAiSettings(defaultAiSettings);
@@ -244,6 +299,33 @@ export const AIAnalysisTab = ({
     loadModels();
     return () => {
       mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const llamaApi = globalThis.window?.electronAPI?.llama;
+    if (!llamaApi?.onProgress) return;
+    const handleProgress = (payload: unknown) => {
+      if (!payload || typeof payload !== 'object') return;
+      const data = payload as {
+        requestId?: string;
+        phase?: string;
+        outputChars?: number;
+        elapsedMs?: number;
+      };
+      if (!data.requestId || data.requestId !== generationRunIdRef.current) {
+        return;
+      }
+      setLlmProgress({
+        requestId: data.requestId,
+        phase: data.phase,
+        outputChars: data.outputChars,
+        elapsedMs: data.elapsedMs,
+      });
+    };
+    llamaApi.onProgress(handleProgress);
+    return () => {
+      llamaApi.offProgress?.(handleProgress);
     };
   }, []);
 
@@ -294,6 +376,16 @@ export const AIAnalysisTab = ({
     }
     return aiSettings.model;
   }, [aiSettings.model, isAutoModel, recommendedModel]);
+
+  const retrieverPreset = aiSettings.retrieverPreset ?? 'balanced';
+  const retrieverWeights = useMemo(() => {
+    return RETRIEVER_WEIGHT_MAP[retrieverPreset] ?? RETRIEVER_WEIGHT_MAP.balanced;
+  }, [retrieverPreset]);
+  const topK = Math.max(1, aiSettings.topK || 40);
+  const evidenceTarget = useMemo(
+    () => resolveDiversifyTarget(topK),
+    [topK],
+  );
 
   const effectiveTeamGroup = useMemo(() => {
     if (aiSettings.teamLabelGroup) return aiSettings.teamLabelGroup;
@@ -425,6 +517,7 @@ export const AIAnalysisTab = ({
         dimension: resolvedInsightDimension,
         topN: 5,
         sequenceLength: 3,
+        sequenceLengths: [3, 4],
       }),
     [insightTimeline, resolvedInsightDimension],
   );
@@ -434,6 +527,11 @@ export const AIAnalysisTab = ({
       .map((id) => evidenceIndex.byId.get(id))
       .filter(Boolean) as EvidenceItem[];
   }, [evidenceIndex.byId, insightData]);
+
+  const flowEvidenceIds = useMemo(
+    () => collectFlowEvidenceIds(insightData),
+    [insightData],
+  );
 
   const handleRetrieveEvidence = useCallback(async () => {
     setRetrievalError(null);
@@ -453,15 +551,18 @@ export const AIAnalysisTab = ({
       setRetrievalStatus('error');
       return;
     }
+    setLastQuestion(trimmedQuestion);
 
     const filters = buildFilters();
-    const topK = Math.max(1, aiSettings.topK || 40);
 
     try {
       const items = retriever.retrieve(trimmedQuestion, evidenceIndex, {
         topK,
         timeRange: filters.timeRange,
         labelFilters: filters.labelFilters,
+        weights: retrieverWeights,
+        diversify: { maxEvidence: evidenceTarget },
+        insightEvidenceIds: flowEvidenceIds,
       });
       setEvidenceItems(items);
       setActiveFilters(filters);
@@ -478,7 +579,16 @@ export const AIAnalysisTab = ({
       );
       setRetrievalStatus('error');
     }
-  }, [aiSettings.topK, buildFilters, evidenceIndex, question, retriever]);
+  }, [
+    buildFilters,
+    evidenceIndex,
+    evidenceTarget,
+    flowEvidenceIds,
+    question,
+    retriever,
+    retrieverWeights,
+    topK,
+  ]);
 
   const ensureEvidence = useCallback(async () => {
     const trimmedQuestion = question.trim();
@@ -486,11 +596,13 @@ export const AIAnalysisTab = ({
       throw new Error('質問を入力してください。');
     }
     const filters = buildFilters();
-    const topK = Math.max(1, aiSettings.topK || 40);
     const items = retriever.retrieve(trimmedQuestion, evidenceIndex, {
       topK,
       timeRange: filters.timeRange,
       labelFilters: filters.labelFilters,
+      weights: retrieverWeights,
+      diversify: { maxEvidence: evidenceTarget },
+      insightEvidenceIds: flowEvidenceIds,
     });
     setEvidenceItems(items);
     setActiveFilters(filters);
@@ -501,11 +613,14 @@ export const AIAnalysisTab = ({
     }
     return { items, filters };
   }, [
-    aiSettings.topK,
     buildFilters,
     evidenceIndex,
+    evidenceTarget,
+    flowEvidenceIds,
     question,
     retriever,
+    retrieverWeights,
+    topK,
   ]);
 
   const handleGenerate = useCallback(async () => {
@@ -525,6 +640,19 @@ export const AIAnalysisTab = ({
     }
     setLastQuestion(trimmedQuestion);
 
+    const runId = crypto.randomUUID();
+    generationRunIdRef.current = runId;
+    setGenerationRequestId(runId);
+    setLlmProgress({
+      requestId: runId,
+      phase: 'start',
+      outputChars: 0,
+      elapsedMs: 0,
+    });
+    generationAbortRef.current?.abort();
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
+
     const temperature = Number.isFinite(aiSettings.temperature)
       ? aiSettings.temperature
       : 0.2;
@@ -534,25 +662,23 @@ export const AIAnalysisTab = ({
         evidenceItems.length > 0
           ? { items: evidenceItems, filters: activeFilters ?? buildFilters() }
           : await ensureEvidence();
-      const combinedEvidence = mergeEvidenceLists(
+      if (generationRunIdRef.current !== runId) return;
+      const facts = buildAiInsightFacts(
+        insightData,
         ensured.items,
-        insightEvidenceItems,
+        resolvedInsightDimension,
       );
-      if (combinedEvidence.length > 0) {
-        setEvidenceItems(combinedEvidence);
-      }
       const {
         response,
         rawText,
         debug,
         usedFallback,
         fallbackSource,
-      } =
-        await generateAiResponse({
+      } = await generateAiResponse({
         question: trimmedQuestion,
-        evidence: combinedEvidence.length > 0 ? combinedEvidence : ensured.items,
+        evidence: ensured.items,
         filters: ensured.filters,
-        facts: insightData as Record<string, unknown>,
+        facts: facts as Record<string, unknown>,
         config: {
           provider: 'llama.cpp',
           baseUrl: aiSettings.baseUrl,
@@ -562,9 +688,12 @@ export const AIAnalysisTab = ({
         options: {
           maxRetries: 2,
           maxMemoChars: 120,
-          maxEvidence: Math.max(1, aiSettings.topK || 40),
+          maxEvidence: Math.max(1, evidenceTarget),
+          requestId: runId,
+          signal: controller.signal,
         },
       });
+      if (generationRunIdRef.current !== runId) return;
       setAiResponse(response);
       setLlmRawText(rawText);
       setLlmDebug(debug ?? null);
@@ -580,26 +709,54 @@ export const AIAnalysisTab = ({
       setGenerationStatus('done');
     } catch (error) {
       console.debug('[AI] generate failed', error);
-      setGenerationError(
+      const message =
         error instanceof Error
           ? error.message
-          : 'AI生成でエラーが発生しました。',
-      );
-      setGenerationStatus('error');
+          : 'AI生成でエラーが発生しました。';
+      const cancelled = message.includes('キャンセル');
+      if (!cancelled) {
+        setGenerationError(message);
+        setGenerationStatus('error');
+      } else {
+        setGenerationError('生成をキャンセルしました。');
+        setGenerationStatus('idle');
+      }
+    } finally {
+      if (generationRunIdRef.current === runId) {
+        generationRunIdRef.current = null;
+        generationAbortRef.current = null;
+        setGenerationRequestId(null);
+        setLlmProgress(null);
+      }
     }
   }, [
+    activeFilters,
     aiSettings.baseUrl,
     aiSettings.model,
-    aiSettings.provider,
     aiSettings.temperature,
-    activeFilters,
     buildFilters,
     evidenceItems,
+    evidenceTarget,
     ensureEvidence,
     insightData,
-    insightEvidenceItems,
     question,
+    resolvedInsightDimension,
   ]);
+
+  const handleCancelGeneration = useCallback(async () => {
+    if (generationStatus !== 'running') return;
+    generationAbortRef.current?.abort();
+    const requestId = generationRequestId ?? generationRunIdRef.current;
+    if (requestId && globalThis.window?.electronAPI?.llama?.cancel) {
+      await globalThis.window.electronAPI.llama.cancel(requestId);
+    }
+    generationRunIdRef.current = null;
+    generationAbortRef.current = null;
+    setGenerationRequestId(null);
+    setLlmProgress(null);
+    setGenerationError('生成をキャンセルしました。');
+    setGenerationStatus('idle');
+  }, [generationRequestId, generationStatus]);
 
   const handleGenerateInsights = useCallback(async () => {
     setGenerationError(null);
@@ -629,6 +786,24 @@ export const AIAnalysisTab = ({
     setActiveFilters(filters);
     setRetrievalStatus('done');
 
+    const runId = crypto.randomUUID();
+    generationRunIdRef.current = runId;
+    setGenerationRequestId(runId);
+    setLlmProgress({
+      requestId: runId,
+      phase: 'start',
+      outputChars: 0,
+      elapsedMs: 0,
+    });
+    generationAbortRef.current?.abort();
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
+    const facts = buildAiInsightFacts(
+      insightData,
+      insightEvidenceItems,
+      resolvedInsightDimension,
+    );
+
     try {
       const {
         response,
@@ -640,7 +815,7 @@ export const AIAnalysisTab = ({
         question: effectiveQuestion,
         evidence: insightEvidenceItems,
         filters,
-        facts: insightData as Record<string, unknown>,
+        facts: facts as Record<string, unknown>,
         config: {
           provider: 'llama.cpp',
           baseUrl: aiSettings.baseUrl,
@@ -650,9 +825,12 @@ export const AIAnalysisTab = ({
         options: {
           maxRetries: 2,
           maxMemoChars: 120,
-          maxEvidence: Math.max(1, aiSettings.topK || 40),
+          maxEvidence: Math.max(1, evidenceTarget),
+          requestId: runId,
+          signal: controller.signal,
         },
       });
+      if (generationRunIdRef.current !== runId) return;
       setAiResponse(response);
       setLlmRawText(rawText);
       setLlmDebug(debug ?? null);
@@ -668,23 +846,36 @@ export const AIAnalysisTab = ({
       setGenerationStatus('done');
     } catch (error) {
       console.debug('[AI] generate insights failed', error);
-      setGenerationError(
+      const message =
         error instanceof Error
           ? error.message
-          : 'AI生成でエラーが発生しました。',
-      );
-      setGenerationStatus('error');
+          : 'AI生成でエラーが発生しました。';
+      const cancelled = message.includes('キャンセル');
+      if (!cancelled) {
+        setGenerationError(message);
+        setGenerationStatus('error');
+      } else {
+        setGenerationError('生成をキャンセルしました。');
+        setGenerationStatus('idle');
+      }
+    } finally {
+      if (generationRunIdRef.current === runId) {
+        generationRunIdRef.current = null;
+        generationAbortRef.current = null;
+        setGenerationRequestId(null);
+        setLlmProgress(null);
+      }
     }
   }, [
     aiSettings.baseUrl,
     aiSettings.model,
-    aiSettings.provider,
     aiSettings.temperature,
-    aiSettings.topK,
     buildFilters,
+    evidenceTarget,
     insightData,
     insightEvidenceItems,
     question,
+    resolvedInsightDimension,
   ]);
 
   const evidenceMap = useMemo(() => {
@@ -730,6 +921,25 @@ export const AIAnalysisTab = ({
       );
   }, [aiResponse, evidenceMap]);
 
+  const sequenceGroups = useMemo(() => {
+    const groups: string[][] = [];
+    insightData.topSequences.forEach((stat) => {
+      if (stat.evidenceIds.length > 0) {
+        groups.push(stat.evidenceIds);
+      }
+    });
+    if (insightData.topSequencesByLength) {
+      Object.values(insightData.topSequencesByLength).forEach((stats) => {
+        stats.forEach((stat) => {
+          if (stat.evidenceIds.length > 0) {
+            groups.push(stat.evidenceIds);
+          }
+        });
+      });
+    }
+    return groups;
+  }, [insightData]);
+
   const groundedEvidence = useMemo(() => {
     const ids = new Set<string>();
     validatedHypotheses.forEach((item) => {
@@ -752,8 +962,10 @@ export const AIAnalysisTab = ({
   );
 
   const clipSegments = useMemo(() => {
-    return buildClipSegments(validatedClips, evidenceMap);
-  }, [validatedClips, evidenceMap]);
+    return buildClipSegments(validatedClips, evidenceMap, {
+      sequences: sequenceGroups,
+    });
+  }, [validatedClips, evidenceMap, sequenceGroups]);
 
   const displayQuestion = useMemo(() => {
     const trimmed = question.trim();
@@ -896,10 +1108,18 @@ export const AIAnalysisTab = ({
                       AI
                     </Typography>
                     {generationStatus === 'running' && (
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <CircularProgress size={18} thickness={5} />
-                        <Typography variant="body2">生成中...</Typography>
-                      </Box>
+                      <Stack spacing={0.5}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <CircularProgress size={18} thickness={5} />
+                          <Typography variant="body2">生成中...</Typography>
+                        </Box>
+                        {llmProgress && (
+                          <Typography variant="caption" color="text.secondary">
+                            経過 {formatElapsed(llmProgress.elapsedMs)} / 出力{' '}
+                            {llmProgress.outputChars ?? 0} 文字
+                          </Typography>
+                        )}
+                      </Stack>
                     )}
                     {aiResponse && !hasGroundedOutput && (
                       <Alert severity="warning">
@@ -962,6 +1182,10 @@ export const AIAnalysisTab = ({
                                     borderColor: 'divider',
                                     p: 2,
                                     borderRadius: 2,
+                                    cursor: item ? 'pointer' : 'default',
+                                  }}
+                                  onClick={() => {
+                                    if (item) onJumpToSegment?.(item);
                                   }}
                                 >
                                   <Box
@@ -1005,6 +1229,49 @@ export const AIAnalysisTab = ({
               </Stack>
             </Paper>
 
+            <Stack spacing={1}>
+              <Typography variant="caption" color="text.secondary">
+                質問テンプレート
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {QUESTION_TEMPLATES.map((template) => (
+                  <Chip
+                    key={template}
+                    label={template}
+                    size="small"
+                    variant="outlined"
+                    onClick={() => setQuestion(template)}
+                  />
+                ))}
+              </Stack>
+            </Stack>
+
+            <Stack spacing={1}>
+              <Typography variant="caption" color="text.secondary">
+                検索プリセット
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {RETRIEVER_PRESETS.map((preset) => (
+                  <Chip
+                    key={preset.value}
+                    label={preset.label}
+                    size="small"
+                    color={
+                      retrieverPreset === preset.value ? 'primary' : 'default'
+                    }
+                    variant={retrieverPreset === preset.value ? 'filled' : 'outlined'}
+                    onClick={() =>
+                      setAiSettings({ ...aiSettings, retrieverPreset: preset.value })
+                    }
+                  />
+                ))}
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                {RETRIEVER_PRESETS.find((preset) => preset.value === retrieverPreset)
+                  ?.helper ?? ''}
+              </Typography>
+            </Stack>
+
             <Paper
               variant="outlined"
               sx={{
@@ -1033,23 +1300,31 @@ export const AIAnalysisTab = ({
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault();
-                    if (generationStatus !== 'running' && question.trim()) {
-                      void handleGenerate();
+                    if (
+                      generationStatus !== 'running' &&
+                      retrievalStatus !== 'running' &&
+                      question.trim()
+                    ) {
+                      void handleRetrieveEvidence();
                     }
                   }
                 }}
               />
               <Button
                 variant="contained"
-                onClick={handleGenerate}
-                disabled={generationStatus === 'running' || !question.trim()}
+                onClick={handleRetrieveEvidence}
+                disabled={
+                  generationStatus === 'running' ||
+                  retrievalStatus === 'running' ||
+                  !question.trim()
+                }
                 sx={{ borderRadius: 999, px: 3, minWidth: 88 }}
               >
-                {generationStatus === 'running' ? '送信中...' : '送信'}
+                {retrievalStatus === 'running' ? '検索中...' : '根拠取得'}
               </Button>
             </Paper>
             <Typography variant="caption" color="text.secondary">
-              Enterで送信、Shift+Enterで改行できます。
+              Enterで根拠検索、Shift+Enterで改行できます。
             </Typography>
 
             <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -1057,9 +1332,23 @@ export const AIAnalysisTab = ({
                 size="small"
                 variant="outlined"
                 onClick={handleRetrieveEvidence}
-                disabled={retrievalStatus === 'running'}
+                disabled={
+                  retrievalStatus === 'running' || generationStatus === 'running'
+                }
               >
-                {retrievalStatus === 'running' ? '検索中...' : '根拠を検索'}
+                {retrievalStatus === 'running' ? '検索中...' : '根拠を再取得'}
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={handleGenerate}
+                disabled={
+                  generationStatus === 'running' ||
+                  retrievalStatus === 'running' ||
+                  evidenceItems.length === 0
+                }
+              >
+                {generationStatus === 'running' ? '生成中...' : 'この根拠で生成'}
               </Button>
               <Button
                 size="small"
@@ -1076,6 +1365,18 @@ export const AIAnalysisTab = ({
               >
                 {showFilters ? 'フィルタを閉じる' : 'フィルタを開く'}
               </Button>
+              {generationStatus === 'running' && (
+                <Button size="small" variant="text" onClick={handleCancelGeneration}>
+                  生成をキャンセル
+                </Button>
+              )}
+              {evidenceItems.length > 0 && (
+                <Chip
+                  label={`根拠 ${evidenceItems.length}件`}
+                  size="small"
+                  variant="outlined"
+                />
+              )}
               {(retrievalStatus === 'running' ||
                 generationStatus === 'running') && (
                 <CircularProgress size={18} thickness={5} />
@@ -1337,11 +1638,11 @@ export const AIAnalysisTab = ({
         </Stack>
       </AnalysisCard>
 
-      <AnalysisCard title="検索された根拠">
+      <AnalysisCard title="取得された根拠">
         <Stack spacing={2}>
           {retrievalStatus === 'idle' && (
             <Typography variant="body2" color="text.secondary">
-              質問とフィルタを指定して「根拠を検索」または「AIレビューを生成」を押してください。
+              質問とフィルタを指定して「根拠を取得」→「この根拠で生成」を押してください。
             </Typography>
           )}
           {retrievalStatus !== 'idle' && evidenceItems.length === 0 && (
