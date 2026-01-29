@@ -87,6 +87,7 @@ export type AiInsightFacts = {
     timeSpanSec: number;
     actionDistribution: AiEvidenceDistributionStat[];
     labelDistribution: AiEvidenceDistributionStat[];
+    teamDistribution?: AiEvidenceDistributionStat[];
   };
 };
 
@@ -440,10 +441,41 @@ const collectEvidenceDistribution = (
     .slice(0, limit);
 };
 
+const collectLabelGroupDistribution = (
+  evidence: EvidenceItem[],
+  group: string,
+  limit = 6,
+): AiEvidenceDistributionStat[] => {
+  const counts = new Map<string, { count: number; ids: string[] }>();
+  const groupKey = group.toLowerCase();
+  for (const item of evidence) {
+    for (const label of item.labels) {
+      if ((label.group ?? '').toLowerCase() !== groupKey) continue;
+      const key = label.name || '未設定';
+      const entry = counts.get(key) ?? { count: 0, ids: [] };
+      entry.count += 1;
+      if (entry.ids.length < 5) entry.ids.push(item.id);
+      counts.set(key, entry);
+    }
+  }
+
+  const total = evidence.length;
+  return Array.from(counts.entries())
+    .map(([key, value]) => ({
+      key,
+      count: value.count,
+      share: total > 0 ? value.count / total : 0,
+      evidenceIds: uniqueIds(value.ids),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+};
+
 export const buildAiInsightFacts = (
   insight: EventInsights,
   evidence: EvidenceItem[],
   dimension: InsightDimension,
+  teamGroup?: string,
 ): AiInsightFacts => {
   let minStart = Number.POSITIVE_INFINITY;
   let maxEnd = Number.NEGATIVE_INFINITY;
@@ -455,6 +487,11 @@ export const buildAiInsightFacts = (
     evidence.length === 0 || !Number.isFinite(minStart) || !Number.isFinite(maxEnd)
       ? 0
       : Math.max(0, maxEnd - minStart);
+
+  const teamDistribution =
+    teamGroup && teamGroup.trim().length > 0
+      ? collectLabelGroupDistribution(evidence, teamGroup)
+      : [];
 
   return {
     dimension:
@@ -472,6 +509,9 @@ export const buildAiInsightFacts = (
       timeSpanSec,
       actionDistribution: collectEvidenceDistribution(evidence, 'action'),
       labelDistribution: collectEvidenceDistribution(evidence, 'label'),
+      ...(teamDistribution.length > 0
+        ? { teamDistribution }
+        : {}),
     },
   };
 };

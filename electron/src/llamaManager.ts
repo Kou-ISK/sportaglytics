@@ -380,6 +380,7 @@ export const generateWithLlama = async (
 
   const promptPath = await writeTempFile(request.prompt, 'prompt.txt');
   const schemaPath = await writeTempFile(JSON_SCHEMA, 'schema.json');
+  const logVerbosity = 1;
   const args = [
     '-m',
     modelPath,
@@ -395,7 +396,7 @@ export const generateWithLlama = async (
     '--no-display-prompt',
     '-no-cnv',
     '--log-verbosity',
-    '0',
+    String(logVerbosity),
   ];
 
   const startedAt = Date.now();
@@ -546,7 +547,11 @@ export const generateWithLlama = async (
     });
 
     child.stderr.on('data', (data) => {
-      stderr += stderrDecoder.write(data);
+      const chunk = stderrDecoder.write(data);
+      stderr += chunk;
+      if (logVerbosity > 0 && chunk.trim()) {
+        console.info(`[llama.cpp] ${chunk.trim()}`);
+      }
       emitProgress('stderr');
     });
 

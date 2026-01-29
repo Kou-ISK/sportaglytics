@@ -256,6 +256,7 @@ export const AIAnalysisTab = ({
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [playlistMessage, setPlaylistMessage] = useState<string | null>(null);
   const [lastQuestion, setLastQuestion] = useState('');
+  const [evidenceQuery, setEvidenceQuery] = useState('');
   const [generationRequestId, setGenerationRequestId] = useState<string | null>(
     null,
   );
@@ -394,6 +395,10 @@ export const AIAnalysisTab = ({
     );
     return detected ?? '';
   }, [aiSettings.teamLabelGroup, availableGroups]);
+  const teamGroupForFacts = useMemo(() => {
+    if (!effectiveTeamGroup) return '';
+    return availableGroups.includes(effectiveTeamGroup) ? effectiveTeamGroup : '';
+  }, [availableGroups, effectiveTeamGroup]);
 
   const availableLabels = useMemo(() => {
     if (!labelGroup) return [];
@@ -453,6 +458,42 @@ export const AIAnalysisTab = ({
 
     return filters;
   }, [effectiveTeamGroup, teamName, labelGroup, labelName, startTime, endTime]);
+
+  const retrievalBasisText = useMemo(() => {
+    const weights = retrieverWeights;
+    const parts = [
+      `テキスト×${weights.token.toFixed(1)}`,
+      `ラベル×${weights.label.toFixed(1)}`,
+      `メモ×${weights.memo.toFixed(1)}`,
+      `時間×${weights.time.toFixed(1)}`,
+      `稀少ラベル×${weights.rareLabel.toFixed(1)}`,
+    ];
+    const presetLabel =
+      RETRIEVER_PRESETS.find((preset) => preset.value === retrieverPreset)
+        ?.label ?? 'バランス';
+    const extras = [
+      `プリセット:${presetLabel}`,
+      '多様性: 上位/最長/最短/稀少/フロー根拠を優先',
+      `対象件数: 最大${evidenceTarget}件`,
+    ];
+    return `${parts.join(' / ')} | ${extras.join(' / ')}`;
+  }, [evidenceTarget, retrieverPreset, retrieverWeights]);
+
+  const retrievalFilterSummary = useMemo(() => {
+    const parts: string[] = [];
+    const start = parseNumberInput(startTime);
+    const end = parseNumberInput(endTime);
+    if (start != null || end != null) {
+      parts.push(`時間:${start ?? '-'}-${end ?? '-'}`);
+    }
+    if (effectiveTeamGroup && teamName) {
+      parts.push(`チーム:${teamName}`);
+    }
+    if (labelGroup) {
+      parts.push(`ラベル:${labelGroup}${labelName ? `:${labelName}` : ''}`);
+    }
+    return parts.length > 0 ? parts.join(' / ') : 'フィルタなし';
+  }, [effectiveTeamGroup, labelGroup, labelName, startTime, endTime, teamName]);
 
   const parseInsightDimension = useCallback((): InsightDimension => {
     if (insightDimension.startsWith('label:')) {
@@ -552,6 +593,7 @@ export const AIAnalysisTab = ({
       return;
     }
     setLastQuestion(trimmedQuestion);
+    setEvidenceQuery(trimmedQuestion);
 
     const filters = buildFilters();
 
@@ -595,23 +637,36 @@ export const AIAnalysisTab = ({
     if (!trimmedQuestion) {
       throw new Error('質問を入力してください。');
     }
+    setRetrievalStatus('running');
     const filters = buildFilters();
-    const items = retriever.retrieve(trimmedQuestion, evidenceIndex, {
-      topK,
-      timeRange: filters.timeRange,
-      labelFilters: filters.labelFilters,
-      weights: retrieverWeights,
-      diversify: { maxEvidence: evidenceTarget },
-      insightEvidenceIds: flowEvidenceIds,
-    });
-    setEvidenceItems(items);
-    setActiveFilters(filters);
-    setRetrievalStatus('done');
-    if (items.length === 0) {
-      setRetrievalError('該当する根拠が見つかりませんでした。');
-      throw new Error('該当する根拠が見つかりませんでした。');
+    try {
+      const items = retriever.retrieve(trimmedQuestion, evidenceIndex, {
+        topK,
+        timeRange: filters.timeRange,
+        labelFilters: filters.labelFilters,
+        weights: retrieverWeights,
+        diversify: { maxEvidence: evidenceTarget },
+        insightEvidenceIds: flowEvidenceIds,
+      });
+      setEvidenceItems(items);
+      setActiveFilters(filters);
+      setRetrievalStatus('done');
+      if (items.length === 0) {
+        setRetrievalError('該当する根拠が見つかりませんでした。');
+        setRetrievalStatus('error');
+        throw new Error('該当する根拠が見つかりませんでした。');
+      }
+      setEvidenceQuery(trimmedQuestion);
+      return { items, filters };
+    } catch (error) {
+      setRetrievalStatus('error');
+      if (error instanceof Error) {
+        setRetrievalError(error.message);
+      } else {
+        setRetrievalError('根拠の検索でエラーが発生しました。');
+      }
+      throw error;
     }
-    return { items, filters };
   }, [
     buildFilters,
     evidenceIndex,
@@ -623,7 +678,7 @@ export const AIAnalysisTab = ({
     topK,
   ]);
 
-  const handleGenerate = useCallback(async () => {
+  const handleGenerate = useCallback(async (options?: { reuseEvidence?: boolean }) => {
     setGenerationError(null);
     setPlaylistMessage(null);
     setGenerationStatus('running');
@@ -658,15 +713,19 @@ export const AIAnalysisTab = ({
       : 0.2;
 
     try {
-      const ensured =
-        evidenceItems.length > 0
-          ? { items: evidenceItems, filters: activeFilters ?? buildFilters() }
-          : await ensureEvidence();
+      const shouldReuse =
+        options?.reuseEvidence &&
+        evidenceItems.length > 0 &&
+        evidenceQuery === trimmedQuestion;
+      const ensured = shouldReuse
+        ? { items: evidenceItems, filters: activeFilters ?? buildFilters() }
+        : await ensureEvidence();
       if (generationRunIdRef.current !== runId) return;
       const facts = buildAiInsightFacts(
         insightData,
         ensured.items,
         resolvedInsightDimension,
+        teamGroupForFacts,
       );
       const {
         response,
@@ -741,6 +800,7 @@ export const AIAnalysisTab = ({
     insightData,
     question,
     resolvedInsightDimension,
+    evidenceQuery,
   ]);
 
   const handleCancelGeneration = useCallback(async () => {
@@ -802,6 +862,7 @@ export const AIAnalysisTab = ({
       insightData,
       insightEvidenceItems,
       resolvedInsightDimension,
+      teamGroupForFacts,
     );
 
     try {
@@ -1053,7 +1114,8 @@ export const AIAnalysisTab = ({
       <AnalysisCard title="AIレビュー・コパイロット">
         <Stack spacing={2}>
           <Typography variant="body2" color="text.secondary">
-            質問に対して根拠を抽出し、仮説と関連クリップを提案します。外部ネットワーク通信は行いません。
+            質問に対して根拠を抽出し、仮説と関連クリップを提案します。送信すると根拠取得→生成まで行います。
+            外部ネットワーク通信は行いません。
           </Typography>
           <Typography variant="caption" color="text.secondary">
             生成された根拠は右ペインに表示されます。
@@ -1305,14 +1367,14 @@ export const AIAnalysisTab = ({
                       retrievalStatus !== 'running' &&
                       question.trim()
                     ) {
-                      void handleRetrieveEvidence();
+                      void handleGenerate();
                     }
                   }
                 }}
               />
               <Button
                 variant="contained"
-                onClick={handleRetrieveEvidence}
+                onClick={() => handleGenerate()}
                 disabled={
                   generationStatus === 'running' ||
                   retrievalStatus === 'running' ||
@@ -1320,11 +1382,13 @@ export const AIAnalysisTab = ({
                 }
                 sx={{ borderRadius: 999, px: 3, minWidth: 88 }}
               >
-                {retrievalStatus === 'running' ? '検索中...' : '根拠取得'}
+                {generationStatus === 'running'
+                  ? '生成中...'
+                  : '根拠取得して生成'}
               </Button>
             </Paper>
             <Typography variant="caption" color="text.secondary">
-              Enterで根拠検索、Shift+Enterで改行できます。
+              Enterで根拠取得→生成、Shift+Enterで改行できます。
             </Typography>
 
             <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -1336,19 +1400,19 @@ export const AIAnalysisTab = ({
                   retrievalStatus === 'running' || generationStatus === 'running'
                 }
               >
-                {retrievalStatus === 'running' ? '検索中...' : '根拠を再取得'}
+                {retrievalStatus === 'running' ? '検索中...' : '根拠だけ取得'}
               </Button>
               <Button
                 size="small"
                 variant="contained"
-                onClick={handleGenerate}
+                onClick={() => handleGenerate({ reuseEvidence: true })}
                 disabled={
                   generationStatus === 'running' ||
                   retrievalStatus === 'running' ||
                   evidenceItems.length === 0
                 }
               >
-                {generationStatus === 'running' ? '生成中...' : 'この根拠で生成'}
+                {generationStatus === 'running' ? '生成中...' : 'この根拠で再生成'}
               </Button>
               <Button
                 size="small"
@@ -1640,9 +1704,15 @@ export const AIAnalysisTab = ({
 
       <AnalysisCard title="取得された根拠">
         <Stack spacing={2}>
+          <Typography variant="caption" color="text.secondary">
+            根拠取得の評価軸: {retrievalBasisText}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            使用フィルタ: {retrievalFilterSummary}
+          </Typography>
           {retrievalStatus === 'idle' && (
             <Typography variant="body2" color="text.secondary">
-              質問とフィルタを指定して「根拠を取得」→「この根拠で生成」を押してください。
+              質問とフィルタを指定して送信すると、根拠取得から生成まで実行します。
             </Typography>
           )}
           {retrievalStatus !== 'idle' && evidenceItems.length === 0 && (
