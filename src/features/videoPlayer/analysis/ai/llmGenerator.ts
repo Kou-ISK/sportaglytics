@@ -222,6 +222,127 @@ const FALLBACK_RESPONSE: AiCopilotResponse = {
 
 const MAX_LLM_EVIDENCE = 12;
 
+const uniqueIds = (ids: string[], limit = 5) => {
+  const result: string[] = [];
+  for (const id of ids) {
+    if (!id) continue;
+    if (!result.includes(id)) {
+      result.push(id);
+    }
+    if (result.length >= limit) break;
+  }
+  return result;
+};
+
+const buildFactBasedResponse = (
+  facts: Record<string, unknown>,
+  evidence: EvidenceItem[],
+): AiCopilotResponse | null => {
+  if (!facts || typeof facts !== 'object') return null;
+  const evidenceMap = new Map(evidence.map((item) => [item.id, item]));
+  const pickEvidenceTitle = (id: string) =>
+    evidenceMap.get(id)?.actionName ?? id;
+
+  const toArray = <T>(value: unknown): T[] =>
+    Array.isArray(value) ? (value as T[]) : [];
+
+  const topStates = toArray<{ state: string; count: number; share: number; evidenceIds?: string[] }>(
+    (facts as Record<string, unknown>).topStates,
+  );
+  const topTransitions = toArray<{
+    from: string;
+    to: string;
+    count: number;
+    probability: number;
+    evidenceIds?: string[];
+  }>((facts as Record<string, unknown>).topTransitions);
+  const longestEvents = toArray<{ id: string; duration: number }>(
+    (facts as Record<string, unknown>).longestEvents,
+  );
+
+  if (topStates.length === 0 && topTransitions.length === 0 && longestEvents.length === 0) {
+    return null;
+  }
+
+  const summaryParts: string[] = [];
+  if (topStates[0]) {
+    summaryParts.push(
+      `最も多い状態は「${topStates[0].state}」で、全体の${Math.round(
+        (topStates[0].share ?? 0) * 100,
+      )}%を占めます。`,
+    );
+  }
+  if (topTransitions[0]) {
+    summaryParts.push(
+      `よく見られる遷移は「${topTransitions[0].from}→${topTransitions[0].to}」です。`,
+    );
+  }
+  if (summaryParts.length === 0) {
+    summaryParts.push('特徴的なイベントの傾向が確認されました。');
+  }
+
+  const hypotheses: AiCopilotResponse['hypotheses'] = [];
+  for (const transition of topTransitions.slice(0, 2)) {
+    const ids = (transition.evidenceIds ?? []).filter((id) => evidenceMap.has(id));
+    if (ids.length === 0) continue;
+    hypotheses.push({
+      text: `${transition.from}から${transition.to}への遷移が多く、展開に影響している可能性があります。`,
+      evidenceIds: ids.slice(0, 5),
+    });
+  }
+  if (hypotheses.length === 0 && topStates[0]) {
+    const ids = (topStates[0].evidenceIds ?? []).filter((id) => evidenceMap.has(id));
+    if (ids.length > 0) {
+      hypotheses.push({
+        text: `${topStates[0].state}が頻出しており、試合展開に影響している可能性があります。`,
+        evidenceIds: ids.slice(0, 5),
+      });
+    }
+  }
+
+  const evidenceHighlights: AiCopilotResponse['evidenceHighlights'] = [];
+  for (const event of longestEvents.slice(0, 3)) {
+    if (!evidenceMap.has(event.id)) continue;
+    evidenceHighlights.push({
+      id: event.id,
+      why: `継続時間が長いイベント(${event.duration?.toFixed?.(1) ?? ''}秒)として抽出されました。`,
+    });
+  }
+  if (evidenceHighlights.length === 0 && topStates[0]) {
+    const ids = (topStates[0].evidenceIds ?? []).filter((id) => evidenceMap.has(id));
+    if (ids[0]) {
+      evidenceHighlights.push({
+        id: ids[0],
+        why: `頻出状態「${topStates[0].state}」の代表例です。`,
+      });
+    }
+  }
+
+  const recommendedClips: AiCopilotResponse['recommendedClips'] = [];
+  const clipSourceIds = [
+    ...(evidenceHighlights.map((item) => item.id)),
+    ...(hypotheses.flatMap((item) => item.evidenceIds)),
+  ];
+  for (const id of uniqueIds(clipSourceIds, 3)) {
+    if (!evidenceMap.has(id)) continue;
+    recommendedClips.push({
+      title: `${pickEvidenceTitle(id)} 確認`,
+      centerId: id,
+      preSeconds: 5,
+      postSeconds: 5,
+      reason: '特徴的なイベントの確認用です。',
+      evidenceIds: [id],
+    });
+  }
+
+  return {
+    summary: summaryParts.join(' '),
+    hypotheses,
+    evidenceHighlights,
+    recommendedClips,
+  };
+};
+
 const buildHeuristicResponse = (
   evidence: EvidenceItem[],
 ): AiCopilotResponse => {
@@ -300,6 +421,7 @@ export const generateAiResponse = async (params: {
   filters?: EvidenceFilters;
   config: LlmGeneratorConfig;
   options?: LlmGeneratorOptions;
+  facts?: Record<string, unknown> | null;
 }): Promise<{
   response: AiCopilotResponse;
   rawText: string;
@@ -329,6 +451,9 @@ export const generateAiResponse = async (params: {
     MAX_LLM_EVIDENCE,
   );
   const trimmedEvidence = params.evidence.slice(0, Math.max(1, maxEvidence));
+  const factFallback = params.facts
+    ? buildFactBasedResponse(params.facts, trimmedEvidence)
+    : null;
   const maxMemoChars = params.options?.maxMemoChars ?? 120;
   const evidenceSteps = [
     trimmedEvidence,
@@ -347,6 +472,7 @@ export const generateAiResponse = async (params: {
       evidence: evidenceSteps[Math.min(index, evidenceSteps.length - 1)],
       filters: params.filters,
       maxMemoChars: memoSteps[Math.min(index, memoSteps.length - 1)],
+      facts: params.facts ?? null,
     });
   let prompt = buildPromptForAttempt(0);
   let lastRaw = '';
@@ -401,7 +527,7 @@ export const generateAiResponse = async (params: {
         fallback.evidenceHighlights.length > 0 ||
         fallback.recommendedClips.length > 0;
       if (!hasGrounded) {
-        const heuristic = buildHeuristicResponse(trimmedEvidence);
+        const heuristic = factFallback ?? buildHeuristicResponse(trimmedEvidence);
         return {
           response: heuristic ?? FALLBACK_RESPONSE,
           rawText: lastRaw,
@@ -422,7 +548,7 @@ export const generateAiResponse = async (params: {
     }
   }
 
-  const heuristic = buildHeuristicResponse(trimmedEvidence);
+  const heuristic = factFallback ?? buildHeuristicResponse(trimmedEvidence);
   return {
     response: heuristic ?? FALLBACK_RESPONSE,
     rawText: lastRaw,

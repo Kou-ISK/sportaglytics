@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { AnalysisView } from '../../../features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
 
 interface UseAnalysisMenuHandlersParams {
@@ -8,22 +8,24 @@ interface UseAnalysisMenuHandlersParams {
 export const useAnalysisMenuHandlers = ({
   onOpenAnalysis,
 }: UseAnalysisMenuHandlersParams) => {
-  // useCallbackで安定した関数参照を作成
-  const handleMenuAnalysis = useCallback(
-    (_event: unknown, requested?: unknown) => {
-      const analysisViewOptions: AnalysisView[] = [
-        'dashboard',
-        'momentum',
-        'matrix',
-        'ai',
-      ];
-      const nextView = analysisViewOptions.includes(requested as AnalysisView)
-        ? (requested as AnalysisView)
-        : 'dashboard';
-      onOpenAnalysis(nextView);
-    },
-    [onOpenAnalysis],
-  );
+  const onOpenAnalysisRef = useRef(onOpenAnalysis);
+
+  useEffect(() => {
+    onOpenAnalysisRef.current = onOpenAnalysis;
+  }, [onOpenAnalysis]);
+
+  const handleMenuAnalysis = useCallback((_event: unknown, requested?: unknown) => {
+    const analysisViewOptions: AnalysisView[] = [
+      'dashboard',
+      'momentum',
+      'matrix',
+      'ai',
+    ];
+    const nextView = analysisViewOptions.includes(requested as AnalysisView)
+      ? (requested as AnalysisView)
+      : 'dashboard';
+    onOpenAnalysisRef.current(nextView);
+  }, []);
 
   useEffect(() => {
     if (!globalThis.window.electronAPI?.on) {
@@ -44,5 +46,5 @@ export const useAnalysisMenuHandlers = ({
         console.debug('stats event cleanup error', error);
       }
     };
-  }, [handleMenuAnalysis]); // useCallbackで安定した参照を依存配列に指定
+  }, [handleMenuAnalysis]);
 };

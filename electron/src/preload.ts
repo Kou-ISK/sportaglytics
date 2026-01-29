@@ -108,6 +108,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       map = new Map();
       __listenerStore.set(channel, map);
     }
+    const existing = map.get(listener);
+    if (existing) {
+      ipcRenderer.removeListener(channel, existing);
+    }
     map.set(listener, wrapped);
     ipcRenderer.on(channel, wrapped);
   },

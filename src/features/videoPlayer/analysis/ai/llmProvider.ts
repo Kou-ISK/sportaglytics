@@ -55,7 +55,7 @@ class LocalLLMProvider implements LLMProvider {
       prompt,
       model: this.model,
       temperature: this.temperature,
-      maxTokens: 1024,
+      maxTokens: 512,
       timeoutMs: this.timeoutMs,
     });
     if (!result?.text) {

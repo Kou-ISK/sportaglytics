@@ -189,15 +189,21 @@ const VideoPlayerAppContent = () => {
     [handleCurrentTime, setisVideoPlaying],
   );
 
+  const jumpHandlerRef = useRef(handleJumpToSegment);
+
+  useEffect(() => {
+    jumpHandlerRef.current = handleJumpToSegment;
+  }, [handleJumpToSegment]);
+
   useEffect(() => {
     const api = window.electronAPI;
     if (!api?.on) return;
     const handler = (_event: unknown, segment: TimelineData) => {
-      handleJumpToSegment(segment);
+      jumpHandlerRef.current(segment);
     };
     api.on('analysis:jump-to-segment', handler);
     return () => api.off?.('analysis:jump-to-segment', handler);
-  }, [handleJumpToSegment]);
+  }, []);
 
   useEffect(() => {
     const analysisApi = window.electronAPI?.analysis;
@@ -222,20 +228,26 @@ const VideoPlayerAppContent = () => {
     [addItems, createPlaylist, openPlaylistWindow],
   );
 
+  const createPlaylistRef = useRef(handleCreateAiPlaylist);
+
+  useEffect(() => {
+    createPlaylistRef.current = handleCreateAiPlaylist;
+  }, [handleCreateAiPlaylist]);
+
   useEffect(() => {
     const api = window.electronAPI;
     if (!api?.on) return;
     const handler = (_event: unknown, payload: unknown) => {
       const data = payload as { name?: string; items?: PlaylistItem[] } | null;
       if (!data || !data.items) return;
-      void handleCreateAiPlaylist({
+      void createPlaylistRef.current({
         name: data.name || 'AI Review',
         items: data.items,
       });
     };
     api.on('analysis:create-ai-playlist', handler);
     return () => api.off?.('analysis:create-ai-playlist', handler);
-  }, [handleCreateAiPlaylist]);
+  }, []);
 
   return (
     <Box

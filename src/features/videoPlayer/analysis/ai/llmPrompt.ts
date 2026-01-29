@@ -38,6 +38,7 @@ export const buildAugmentedPrompt = (params: {
   evidence: EvidenceItem[];
   filters?: EvidenceFilters;
   maxMemoChars?: number;
+  facts?: Record<string, unknown> | null;
 }) => {
   const maxMemoChars = params.maxMemoChars ?? 120;
   const evidenceLines = params.evidence
@@ -58,9 +59,21 @@ export const buildAugmentedPrompt = (params: {
     })
     .join('\n');
 
+  const factsText = (() => {
+    if (!params.facts) return '(none)';
+    try {
+      const json = JSON.stringify(params.facts, null, 2);
+      const maxChars = 4000;
+      return json.length > maxChars ? `${json.slice(0, maxChars)}…` : json;
+    } catch (_error) {
+      return '(invalid)';
+    }
+  })();
+
   return [
     'あなたはスポーツ映像分析のAIレビュー・コパイロットです。',
     '以下の証拠(evidence)のみを根拠に回答し、証拠にない事実は述べないでください。',
+    'insight_factsは傾向の参考情報です。数値や傾向を使う場合は必ず該当evidenceIdsを提示してください。',
     '出力は簡潔にしてください。summaryは2文以内、hypothesesは最大3件、evidenceHighlightsは最大5件、recommendedClipsは最大5件。',
     'evidenceIdsは各項目最大5件、IDはevidence一覧にあるものだけを使ってください。',
     '必ずJSONのみを出力してください。コードブロックや説明文は出力しないでください。',
@@ -73,6 +86,9 @@ export const buildAugmentedPrompt = (params: {
     `# 質問\n${params.question}`,
     '',
     `# フィルタ\n${formatFilters(params.filters)}`,
+    '',
+    '# insight_facts',
+    factsText,
     '',
     '# evidence',
     evidenceLines || '(none)',

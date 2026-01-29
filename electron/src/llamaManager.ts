@@ -263,6 +263,62 @@ const normalizeLlamaOutput = (value: string) => {
   return cleaned.trim();
 };
 
+const hasRequiredKeys = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.summary === 'string' &&
+    Array.isArray(obj.hypotheses) &&
+    Array.isArray(obj.evidenceHighlights) &&
+    Array.isArray(obj.recommendedClips)
+  );
+};
+
+const extractJsonCandidate = (raw: string): string | null => {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (hasRequiredKeys(parsed)) return trimmed;
+  } catch (_error) {
+    // continue searching
+  }
+
+  const candidates: Array<{ start: number; end: number; text: string }> = [];
+  const stack: number[] = [];
+  for (let i = 0; i < raw.length; i += 1) {
+    const ch = raw[i];
+    if (ch === '{') {
+      stack.push(i);
+    } else if (ch === '}') {
+      const start = stack.pop();
+      if (start != null) {
+        candidates.push({
+          start,
+          end: i,
+          text: raw.slice(start, i + 1),
+        });
+      }
+    }
+  }
+
+  let best: string | null = null;
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate.text);
+      if (hasRequiredKeys(parsed)) {
+        if (!best || candidate.text.length > best.length) {
+          best = candidate.text;
+        }
+      }
+    } catch (_error) {
+      // ignore
+    }
+  }
+
+  return best;
+};
+
 export const generateWithLlama = async (
   request: LlamaGenerateRequest,
 ): Promise<LlamaGenerateResult> => {
@@ -280,7 +336,7 @@ export const generateWithLlama = async (
     typeof request.temperature === 'number' ? request.temperature : 0.2;
   const maxTokens =
     typeof request.maxTokens === 'number' ? request.maxTokens : 512;
-  const timeoutMs = request.timeoutMs ?? 180000;
+  const timeoutMs = request.timeoutMs ?? 300000;
 
   const promptPath = await writeTempFile(request.prompt, 'prompt.txt');
   const schemaPath = await writeTempFile(JSON_SCHEMA, 'schema.json');
@@ -305,26 +361,103 @@ export const generateWithLlama = async (
   const startedAt = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawn(binaryPath, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
+    try {
+      child.stdin?.end();
+    } catch (_error) {
+      // ignore
+    }
 
     const stdoutDecoder = new StringDecoder('utf8');
     const stderrDecoder = new StringDecoder('utf8');
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    let idleTimer: NodeJS.Timeout | null = null;
+    const idleTimeoutMs = Math.min(
+      60000,
+      Math.max(20000, Math.floor(timeoutMs * 0.25)),
+    );
 
-    const timer = setTimeout(() => {
+    const cleanup = () => {
+      fsPromises.unlink(promptPath).catch(() => undefined);
+      fsPromises.unlink(schemaPath).catch(() => undefined);
+    };
+
+    const finalizeSuccess = (text: string) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+      cleanup();
+      resolve({
+        text: normalizeLlamaOutput(text),
+        stderr: stderr ? truncateLog(stderr, 4000) : undefined,
+        binaryPath,
+        modelPath,
+        durationMs: Date.now() - startedAt,
+      });
       try {
         child.kill();
       } catch (_error) {
         // ignore
       }
-      reject(new Error('llama.cppの応答がタイムアウトしました。'));
+    };
+
+    const finalizeError = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+      cleanup();
+      reject(error);
+    };
+
+    const handleTimeout = (reason: string) => {
+      if (settled) return;
+      try {
+        child.kill();
+      } catch (_error) {
+        // ignore
+      }
+      const candidate = extractJsonCandidate(stdout);
+      if (candidate) {
+        stderr += '\n[timeout]';
+        finalizeSuccess(candidate);
+        return;
+      }
+      if (stdout.trim()) {
+        stderr += '\n[timeout]';
+        finalizeSuccess(stdout);
+        return;
+      }
+      finalizeError(new Error(reason));
+    };
+
+    const timer = setTimeout(() => {
+      handleTimeout('llama.cppの応答がタイムアウトしました。');
     }, timeoutMs);
 
     child.stdout.on('data', (data) => {
       stdout += stdoutDecoder.write(data);
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+      idleTimer = setTimeout(() => {
+        handleTimeout('llama.cppの応答がタイムアウトしました。');
+      }, idleTimeoutMs);
+      if (!settled && stdout.includes('{') && stdout.includes('}')) {
+        const candidate = extractJsonCandidate(stdout);
+        if (candidate) {
+          finalizeSuccess(candidate);
+        }
+      }
     });
 
     child.stderr.on('data', (data) => {
@@ -332,30 +465,25 @@ export const generateWithLlama = async (
     });
 
     child.on('close', (code) => {
+      if (settled) return;
       clearTimeout(timer);
-      fsPromises.unlink(promptPath).catch(() => undefined);
-      fsPromises.unlink(schemaPath).catch(() => undefined);
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+      cleanup();
       stdout += stdoutDecoder.end();
       stderr += stderrDecoder.end();
       if (code === 0) {
-        resolve({
-          text: normalizeLlamaOutput(stdout),
-          stderr: stderr ? truncateLog(stderr, 4000) : undefined,
-          binaryPath,
-          modelPath,
-          durationMs: Date.now() - startedAt,
-        });
+        const candidate = extractJsonCandidate(stdout);
+        finalizeSuccess(candidate ?? stdout);
       } else {
         const message = stderr.trim() || 'llama.cppが異常終了しました。';
-        reject(new Error(message));
+        finalizeError(new Error(message));
       }
     });
 
     child.on('error', (error) => {
-      clearTimeout(timer);
-      fsPromises.unlink(promptPath).catch(() => undefined);
-      fsPromises.unlink(schemaPath).catch(() => undefined);
-      reject(error);
+      finalizeError(error instanceof Error ? error : new Error('llama.cppが異常終了しました。'));
     });
   });
 };
