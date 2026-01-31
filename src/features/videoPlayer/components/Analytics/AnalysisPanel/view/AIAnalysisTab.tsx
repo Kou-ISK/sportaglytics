@@ -117,13 +117,118 @@ const LLM_TOP_P = 0.85;
 const LLM_TOP_K = 40;
 const LLM_REPEAT_PENALTY = 1.1;
 
-const QUESTION_TEMPLATES = [
+const DEFAULT_QUESTION_TEMPLATES = [
   '重要な流れの変化点は？',
-  '頻出するイベントのパターンは？',
-  '時間帯ごとの特徴は？',
-  '直前・直後の流れで確認すべき点は？',
-  '長時間続いたイベントは？',
+  '頻出アクションの流れは？',
+  '前半/中盤/後半で偏りは？',
+  '直前・直後で目立つ出来事は？',
+  '長く続いた出来事は？',
 ];
+
+const TEAM_SPLIT_REGEX = /[\s\u3000/／・\\\-–—_]+/;
+
+const splitTeamActionName = (
+  actionName: string,
+): { team: string; action: string } | null => {
+  const trimmed = (actionName ?? '').trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(TEAM_SPLIT_REGEX).filter(Boolean);
+  if (parts.length < 2) return null;
+  const team = parts[0]?.trim();
+  const action = parts.slice(1).join(' ').trim();
+  if (!team || !action) return null;
+  if (/^[\d\W]+$/.test(team)) return null;
+  return { team, action };
+};
+
+const buildQuestionTemplates = (timeline: TimelineData[]): string[] => {
+  if (!timeline || timeline.length === 0) return DEFAULT_QUESTION_TEMPLATES;
+
+  const actionCounts = new Map<string, number>();
+  const labelCounts = new Map<string, number>();
+  const teamCounts = new Map<string, number>();
+  const actionScores = new Map<string, number>();
+  const markAction = (name: string, increment: number, teamHit: boolean) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    actionCounts.set(trimmed, (actionCounts.get(trimmed) ?? 0) + increment);
+    const score =
+      (actionScores.get(trimmed) ?? 0) +
+      increment +
+      (teamHit ? -0.5 : 0);
+    actionScores.set(trimmed, score);
+  };
+
+  for (const item of timeline) {
+    const actionName = item.actionName?.trim();
+    if (actionName) {
+      const parsed = splitTeamActionName(actionName);
+      if (parsed?.team) {
+        teamCounts.set(parsed.team, (teamCounts.get(parsed.team) ?? 0) + 1);
+        if (parsed.action) {
+          markAction(parsed.action, 1, true);
+        }
+      } else {
+        markAction(actionName, 1, false);
+      }
+    }
+    const labels = getLabelsFromTimelineData(item);
+    for (const label of labels) {
+      const key = label.name?.trim();
+      if (!key) continue;
+      labelCounts.set(key, (labelCounts.get(key) ?? 0) + 1);
+    }
+  }
+
+  const topActions = Array.from(actionCounts.entries())
+    .map(([name, count]) => ({
+      name,
+      count,
+      score: actionScores.get(name) ?? count,
+    }))
+    .sort((a, b) => b.score - a.score || b.count - a.count)
+    .map((entry) => entry.name)
+    .filter((name) => !splitTeamActionName(name))
+    .slice(0, 3);
+  const topLabels = Array.from(labelCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name)
+    .slice(0, 3);
+  const topTeams = Array.from(teamCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name)
+    .slice(0, 2);
+
+  const templates: string[] = [];
+  const add = (text: string) => {
+    if (!templates.includes(text)) templates.push(text);
+  };
+
+  if (topActions[0]) {
+    add(`${topActions[0]} が切り替わる前後の流れは？`);
+    add(`${topActions[0]} の直前・直後に多い出来事は？`);
+    add(`${topActions[0]} が起きやすい時間帯は？（前半/中盤/後半）`);
+    add(`${topActions[0]} の結果に偏りはある？（成功/失敗など）`);
+    if (topActions[1]) {
+      add(`${topActions[1]} が切り替わる前後の流れは？`);
+    }
+  }
+  if (topLabels[0]) {
+    add(`「${topLabels[0]}」が起きやすい時間帯は？（前半/中盤/後半）`);
+    add(`「${topLabels[0]}」の前後で多い出来事は？`);
+  }
+  if (topTeams.length >= 2) {
+    add(`${topTeams[0]} と ${topTeams[1]} で【対象】の偏りは？`);
+  } else if (topTeams[0]) {
+    add(`${topTeams[0]} の【対象】傾向は？`);
+  }
+
+  if (templates.length < 4) {
+    DEFAULT_QUESTION_TEMPLATES.forEach((template) => add(template));
+  }
+
+  return templates.slice(0, 6);
+};
 
 const RETRIEVER_PRESETS: Array<{
   value: 'balanced' | 'labels' | 'memo' | 'time';
@@ -539,6 +644,10 @@ export const AIAnalysisTab = ({
     () => filterTimelineByEvidenceFilters(timeline, insightFilters),
     [timeline, insightFilters],
   );
+  const questionTemplates = useMemo(
+    () => buildQuestionTemplates(timeline),
+    [timeline],
+  );
   const resolvedInsightDimension = useMemo<InsightDimension>(() => {
     if (insightDimension !== 'auto') {
       return parseInsightDimension();
@@ -769,6 +878,8 @@ export const AIAnalysisTab = ({
         ensured.items,
         resolvedInsightDimension,
         teamGroupForFacts,
+        trimmedQuestion,
+        timeline,
       );
       const {
         response,
@@ -938,6 +1049,8 @@ export const AIAnalysisTab = ({
       insightEvidenceItems,
       resolvedInsightDimension,
       teamGroupForFacts,
+      effectiveQuestion,
+      timeline,
     );
 
     try {
@@ -1398,7 +1511,7 @@ export const AIAnalysisTab = ({
                 質問テンプレート
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                {QUESTION_TEMPLATES.map((template) => (
+                {questionTemplates.map((template) => (
                   <Chip
                     key={template}
                     label={template}

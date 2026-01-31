@@ -109,6 +109,17 @@ export type AiTeamStat = {
 export type AiInsightFacts = {
   dimension: string;
   summary: EventInsights['summary'];
+  analysisFocus?: {
+    intents: string[];
+    priority: string[];
+    notes?: string;
+  };
+  contextStats?: {
+    target: string;
+    prevActions: AiEvidenceDistributionStat[];
+    nextActions: AiEvidenceDistributionStat[];
+    evidenceIds: string[];
+  };
   topStates: InsightStateStat[];
   topStatesByDuration?: InsightStateStat[];
   rareStates: InsightStateStat[];
@@ -602,6 +613,21 @@ const splitTeamActionName = (
   return { team, action };
 };
 
+const normalizeActionNameForStats = (
+  actionName: string,
+  teamInfo?: { source: 'label' | 'inferred'; teams: string[] },
+): string => {
+  const trimmed = actionName?.trim();
+  if (!trimmed) return '未設定';
+  if (teamInfo?.teams?.length) {
+    const parsed = splitTeamActionName(trimmed);
+    if (parsed && teamInfo.teams.includes(parsed.team)) {
+      return parsed.action || trimmed;
+    }
+  }
+  return trimmed;
+};
+
 const collectLabelGroupDistributionForItems = (
   items: EvidenceItem[],
   group: string,
@@ -750,8 +776,9 @@ const resolveTeamInfo = (
   confidence: number;
   assignments: Map<string, string>;
 } | null => {
-  if (teamGroup && teamGroup.trim().length > 0) {
-    const groupKey = teamGroup.toLowerCase();
+  const resolveByLabelGroup = (groupName?: string) => {
+    if (!groupName || !groupName.trim()) return null;
+    const groupKey = groupName.toLowerCase();
     const assignments = new Map<string, string>();
     for (const item of evidence) {
       const label = item.labels.find(
@@ -760,10 +787,53 @@ const resolveTeamInfo = (
       if (!label?.name) continue;
       assignments.set(item.id, label.name);
     }
-    if (assignments.size > 0) {
-      const confidence =
-        evidence.length > 0 ? assignments.size / evidence.length : 0;
-      return { source: 'label', confidence, assignments };
+    if (assignments.size === 0) return null;
+    const confidence =
+      evidence.length > 0 ? assignments.size / evidence.length : 0;
+    return { source: 'label' as const, confidence, assignments };
+  };
+
+  if (teamGroup) {
+    const byGroup = resolveByLabelGroup(teamGroup);
+    if (byGroup) return byGroup;
+  }
+
+  const total = evidence.length;
+  if (total > 0) {
+    const groupCounts = new Map<string, Map<string, number>>();
+    const groupCoverage = new Map<string, number>();
+    for (const item of evidence) {
+      const seen = new Set<string>();
+      for (const label of item.labels) {
+        if (!label.group || !label.name) continue;
+        const groupKey = label.group.toLowerCase();
+        const counts = groupCounts.get(groupKey) ?? new Map<string, number>();
+        counts.set(label.name, (counts.get(label.name) ?? 0) + 1);
+        groupCounts.set(groupKey, counts);
+        if (!seen.has(groupKey)) {
+          groupCoverage.set(groupKey, (groupCoverage.get(groupKey) ?? 0) + 1);
+          seen.add(groupKey);
+        }
+      }
+    }
+
+    const candidates = Array.from(groupCounts.entries())
+      .map(([group, counts]) => ({
+        group,
+        counts,
+        coverage: (groupCoverage.get(group) ?? 0) / total,
+      }))
+      .filter(
+        (entry) =>
+          entry.coverage >= 0.6 &&
+          entry.counts.size >= 2 &&
+          entry.counts.size <= 4,
+      )
+      .sort((a, b) => b.coverage - a.coverage);
+
+    if (candidates[0]) {
+      const fallback = resolveByLabelGroup(candidates[0].group);
+      if (fallback) return fallback;
     }
   }
 
@@ -777,6 +847,89 @@ const resolveTeamInfo = (
   }
 
   return null;
+};
+
+const detectTargetFromQuestion = (
+  question: string | undefined,
+  timeline: TimelineData[],
+  teamInfo?: { teams: string[] },
+): string | null => {
+  const text = (question ?? '').trim();
+  if (!text) return null;
+  const candidates = new Set<string>();
+  for (const item of timeline) {
+    if (item.actionName) {
+      const normalized = normalizeActionNameForStats(item.actionName, teamInfo);
+      if (normalized && normalized !== '未設定') {
+        candidates.add(normalized);
+      }
+    }
+  }
+  const ordered = Array.from(candidates).sort((a, b) => b.length - a.length);
+  for (const candidate of ordered) {
+    if (text.includes(candidate)) return candidate;
+  }
+  return null;
+};
+
+const buildContextStats = (params: {
+  timeline: TimelineData[];
+  target: string;
+  teamInfo?: { teams: string[] };
+}): AiInsightFacts['contextStats'] | null => {
+  const ordered = [...params.timeline].sort((a, b) => {
+    if (a.startTime !== b.startTime) return a.startTime - b.startTime;
+    return a.endTime - b.endTime;
+  });
+  const prevCounts = new Map<string, { count: number; ids: string[] }>();
+  const nextCounts = new Map<string, { count: number; ids: string[] }>();
+  const evidenceIds: string[] = [];
+
+  const isTarget = (item: TimelineData) => {
+    const action = normalizeActionNameForStats(item.actionName ?? '', params.teamInfo);
+    return action === params.target;
+  };
+
+  for (let i = 0; i < ordered.length; i += 1) {
+    const item = ordered[i];
+    if (!isTarget(item)) continue;
+    evidenceIds.push(item.id);
+    const prev = ordered[i - 1];
+    if (prev) {
+      const prevAction = normalizeActionNameForStats(prev.actionName ?? '', params.teamInfo);
+      const entry = prevCounts.get(prevAction) ?? { count: 0, ids: [] };
+      entry.count += 1;
+      if (entry.ids.length < 5) entry.ids.push(item.id);
+      prevCounts.set(prevAction, entry);
+    }
+    const next = ordered[i + 1];
+    if (next) {
+      const nextAction = normalizeActionNameForStats(next.actionName ?? '', params.teamInfo);
+      const entry = nextCounts.get(nextAction) ?? { count: 0, ids: [] };
+      entry.count += 1;
+      if (entry.ids.length < 5) entry.ids.push(item.id);
+      nextCounts.set(nextAction, entry);
+    }
+  }
+
+  const buildDistribution = (counts: Map<string, { count: number; ids: string[] }>) =>
+    Array.from(counts.entries())
+      .map(([key, value]) => ({
+        key,
+        count: value.count,
+        share: evidenceIds.length > 0 ? value.count / evidenceIds.length : 0,
+        evidenceIds: uniqueIds(value.ids),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+
+  if (evidenceIds.length === 0) return null;
+  return {
+    target: params.target,
+    prevActions: buildDistribution(prevCounts),
+    nextActions: buildDistribution(nextCounts),
+    evidenceIds: uniqueIds(evidenceIds),
+  };
 };
 
 const buildTeamStats = (
@@ -873,12 +1026,14 @@ const buildSummaryAnchors = (params: {
   insight: EventInsights;
   evidenceStats: AiInsightFacts['evidenceStats'];
   teamStats?: AiInsightFacts['teamStats'];
+  focus?: AiInsightFacts['analysisFocus'];
+  contextStats?: AiInsightFacts['contextStats'];
 }): AiSummaryAnchor[] => {
-  const anchors: AiSummaryAnchor[] = [];
-  const push = (text: string, evidenceIds: string[]) => {
+  const candidates: Array<AiSummaryAnchor & { key: string }> = [];
+  const addCandidate = (key: string, text: string, evidenceIds: string[]) => {
     const ids = uniqueIds(evidenceIds);
     if (!text || ids.length === 0) return;
-    anchors.push({ text, evidenceIds: ids });
+    candidates.push({ key, text, evidenceIds: ids });
   };
 
   const teamStats = params.teamStats;
@@ -888,14 +1043,16 @@ const buildSummaryAnchors = (params: {
       const diff = sortedTeams[0].share - sortedTeams[1].share;
       if (diff >= 0.2) {
         const share = Math.round(sortedTeams[0].share * 100);
-        push(
+        addCandidate(
+          'team',
           `イベント数は${sortedTeams[0].team}が多い傾向 (${share}%)`,
           sortedTeams[0].evidenceIds,
         );
       }
     } else if (sortedTeams[0].share >= 0.7) {
       const share = Math.round(sortedTeams[0].share * 100);
-      push(
+      addCandidate(
+        'team',
         `イベント数は${sortedTeams[0].team}に偏っています (${share}%)`,
         sortedTeams[0].evidenceIds,
       );
@@ -914,7 +1071,8 @@ const buildSummaryAnchors = (params: {
               ? '中盤'
               : '後半';
         const share = Math.round(phase.shareCount * 100);
-        push(
+        addCandidate(
+          'team-phase',
           `${team.team}のイベントが${phaseLabel}に集中 (${share}%)`,
           phase.evidenceIds,
         );
@@ -926,7 +1084,8 @@ const buildSummaryAnchors = (params: {
       const topResult = team.topResults?.[0];
       if (topResult && topResult.share >= 0.45) {
         const share = Math.round(topResult.share * 100);
-        push(
+        addCandidate(
+          'team-result',
           `${team.team}の結果は${topResult.key}が多い (${share}%)`,
           topResult.evidenceIds,
         );
@@ -938,13 +1097,18 @@ const buildSummaryAnchors = (params: {
   const topAction = params.evidenceStats.actionDistribution[0];
   if (topAction) {
     const share = Math.round(topAction.share * 100);
-    push(`頻出アクション: ${topAction.key} (${topAction.count}件, ${share}%)`, topAction.evidenceIds);
+    addCandidate(
+      'action',
+      `頻出アクション: ${topAction.key} (${topAction.count}件, ${share}%)`,
+      topAction.evidenceIds,
+    );
   }
 
   const topActionDuration = params.evidenceStats.actionDurationDistribution?.[0];
   if (topActionDuration && topActionDuration.key !== topAction?.key) {
     const share = Math.round((topActionDuration.shareDuration ?? 0) * 100);
-    push(
+    addCandidate(
+      'duration',
       `長時間アクション: ${topActionDuration.key} (${share}%の滞在)`,
       topActionDuration.evidenceIds,
     );
@@ -953,13 +1117,18 @@ const buildSummaryAnchors = (params: {
   const topTeam = params.evidenceStats.teamDistribution?.[0];
   if (topTeam && (!teamStats || teamStats.teams.length === 0)) {
     const share = Math.round(topTeam.share * 100);
-    push(`チーム傾向: ${topTeam.key} (${topTeam.count}件, ${share}%)`, topTeam.evidenceIds);
+    addCandidate(
+      'team',
+      `チーム傾向: ${topTeam.key} (${topTeam.count}件, ${share}%)`,
+      topTeam.evidenceIds,
+    );
   }
 
   const strongTransition = params.insight.strongTransitions?.[0] ?? params.insight.topTransitions[0];
   if (strongTransition) {
     const share = Math.round(strongTransition.probability * 100);
-    push(
+    addCandidate(
+      'flow',
       `強い遷移: ${strongTransition.from}→${strongTransition.to} (${share}%)`,
       strongTransition.evidenceIds,
     );
@@ -967,7 +1136,11 @@ const buildSummaryAnchors = (params: {
 
   const topSequence = params.insight.topSequences[0];
   if (topSequence) {
-    push(`繰り返しシーケンス: ${topSequence.sequence.join('→')}`, topSequence.evidenceIds);
+    addCandidate(
+      'flow',
+      `繰り返しシーケンス: ${topSequence.sequence.join('→')}`,
+      topSequence.evidenceIds,
+    );
   }
 
   const phaseDistribution = params.insight.phaseDistribution;
@@ -979,11 +1152,133 @@ const buildSummaryAnchors = (params: {
       const phaseLabel =
         phase.phase === 'early' ? '前半' : phase.phase === 'mid' ? '中盤' : '後半';
       const share = Math.round(phase.shareCount * 100);
-      push(`イベントが${phaseLabel}に集中 (${share}%)`, phase.evidenceIds);
+      addCandidate(
+        'phase',
+        `イベントが${phaseLabel}に集中 (${share}%)`,
+        phase.evidenceIds,
+      );
     }
   }
 
-  return anchors.slice(0, 4);
+  const contextStats = params.contextStats;
+  if (contextStats) {
+    const prev = contextStats.prevActions[0];
+    if (prev) {
+      addCandidate(
+        'context',
+        `${contextStats.target} の直前は「${prev.key}」が多い傾向があります。`,
+        prev.evidenceIds,
+      );
+    }
+    const next = contextStats.nextActions[0];
+    if (next) {
+      addCandidate(
+        'context',
+        `${contextStats.target} の直後は「${next.key}」が多い傾向があります。`,
+        next.evidenceIds,
+      );
+    }
+  }
+
+  const focusPriority = params.focus?.priority ?? [];
+  const basePriority = [
+    'team',
+    'team-phase',
+    'team-result',
+    'context',
+    'flow',
+    'phase',
+    'result',
+    'action',
+    'duration',
+  ];
+  const priority = Array.from(new Set([...focusPriority, ...basePriority]));
+  const priorityIndex = new Map(priority.map((key, index) => [key, index]));
+
+  let filtered = candidates;
+  if (focusPriority.length > 0) {
+    filtered = candidates.filter((candidate) => focusPriority.includes(candidate.key));
+  }
+  if (filtered.length === 0 && params.focus?.intents?.includes('phase')) {
+    const fallbackIds = params.evidenceStats.actionDistribution[0]?.evidenceIds ?? [];
+    if (fallbackIds.length > 0) {
+      filtered.push({
+        key: 'phase',
+        text: '時間帯の偏りは明確ではありません。',
+        evidenceIds: uniqueIds(fallbackIds),
+      });
+    }
+  }
+
+  filtered.sort((a, b) => {
+    const aIndex = priorityIndex.get(a.key) ?? priority.length;
+    const bIndex = priorityIndex.get(b.key) ?? priority.length;
+    if (aIndex !== bIndex) return aIndex - bIndex;
+    return 0;
+  });
+
+  return filtered.slice(0, 4).map(({ key: _key, ...rest }) => rest);
+};
+
+const detectAnalysisFocus = (
+  question?: string,
+  teamNames: string[] = [],
+): AiInsightFacts['analysisFocus'] | undefined => {
+  const text = (question ?? '').trim();
+  if (!text) return undefined;
+  const lowered = text.toLowerCase();
+  const intents = new Set<string>();
+
+  const hasTeamName = teamNames.some((team) =>
+    team ? lowered.includes(team.toLowerCase()) : false,
+  );
+  if (
+    hasTeamName ||
+    /チーム|相手|自チーム|自分たち|どっち|どちら|ホーム|アウェイ/.test(lowered)
+  ) {
+    intents.add('team');
+  }
+  if (/流れ|つながり|連続|遷移|シーケンス|展開/.test(lowered)) {
+    intents.add('flow');
+  }
+  if (/直前|直後|前後/.test(lowered)) {
+    intents.add('context');
+  }
+  if (/前半|後半|中盤|序盤|終盤|時間|タイミング/.test(lowered)) {
+    intents.add('phase');
+  }
+  if (/結果|成功|失敗|ミス|エラー|反則|ペナルティ|PK|得点|失点|ゴール|トライ/.test(lowered)) {
+    intents.add('result');
+  }
+  if (/ボール|ポゼッション|保持/.test(lowered)) {
+    intents.add('possession');
+  }
+
+  const priority: string[] = [];
+  if (intents.has('team')) {
+    priority.push('team', 'team-phase', 'team-result');
+  }
+  if (intents.has('context')) {
+    priority.push('context');
+  }
+  if (intents.has('flow')) {
+    priority.push('flow');
+  }
+  if (intents.has('phase')) {
+    priority.push('phase');
+  }
+  if (intents.has('result')) {
+    priority.push('team-result', 'result');
+  }
+  if (intents.has('possession')) {
+    priority.push('action', 'duration');
+  }
+
+  return {
+    intents: Array.from(intents),
+    priority,
+    notes: intents.size > 0 ? undefined : 'no-clear-intent',
+  };
 };
 
 export const buildAiInsightFacts = (
@@ -991,6 +1286,8 @@ export const buildAiInsightFacts = (
   evidence: EvidenceItem[],
   dimension: InsightDimension,
   teamGroup?: string,
+  question?: string,
+  fullTimeline?: TimelineData[],
 ): AiInsightFacts => {
   let minStart = Number.POSITIVE_INFINITY;
   let maxEnd = Number.NEGATIVE_INFINITY;
@@ -1009,10 +1306,34 @@ export const buildAiInsightFacts = (
     ? buildTeamStats(evidence, teamInfo, minStart, maxEnd)
     : null;
 
+  const actionDistribution = (() => {
+    if (!teamInfoForAction?.teams?.length) {
+      return collectEvidenceDistribution(evidence, 'action');
+    }
+    const counts = new Map<string, { count: number; ids: string[] }>();
+    for (const item of evidence) {
+      const key = normalizeActionNameForStats(item.actionName, teamInfoForAction);
+      const entry = counts.get(key) ?? { count: 0, ids: [] };
+      entry.count += 1;
+      if (entry.ids.length < 5) entry.ids.push(item.id);
+      counts.set(key, entry);
+    }
+    const total = evidence.length;
+    return Array.from(counts.entries())
+      .map(([key, value]) => ({
+        key,
+        count: value.count,
+        share: total > 0 ? value.count / total : 0,
+        evidenceIds: uniqueIds(value.ids),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  })();
+
   const evidenceStats: AiInsightFacts['evidenceStats'] = {
     evidenceCount: evidence.length,
     timeSpanSec,
-    actionDistribution: collectEvidenceDistribution(evidence, 'action'),
+    actionDistribution,
     labelDistribution: collectEvidenceDistribution(evidence, 'label'),
     actionDurationDistribution,
     ...(teamStatsResult?.teamDistribution?.length
@@ -1023,16 +1344,43 @@ export const buildAiInsightFacts = (
       : {}),
   };
 
-  const summaryAnchors = buildSummaryAnchors({
-    insight,
-    evidenceStats,
-    teamStats: teamInfo
+  const teamStats =
+    teamInfo
       ? {
           source: teamInfo.source,
           confidence: teamInfo.confidence,
           teams: teamStatsResult?.teamStats ?? [],
         }
-      : undefined,
+      : undefined;
+
+  const teamInfoForAction = teamStats
+    ? { source: teamStats.source, teams: teamStats.teams.map((team) => team.team) }
+    : undefined;
+
+  const analysisFocus = detectAnalysisFocus(
+    question,
+    teamStats?.teams.map((team) => team.team) ?? [],
+  );
+
+  const contextTarget =
+    question && fullTimeline
+      ? detectTargetFromQuestion(question, fullTimeline, teamInfoForAction)
+      : null;
+  const contextStats =
+    contextTarget && fullTimeline
+      ? buildContextStats({
+          timeline: fullTimeline,
+          target: contextTarget,
+          teamInfo: teamInfoForAction,
+        })
+      : null;
+
+  const summaryAnchors = buildSummaryAnchors({
+    insight,
+    evidenceStats,
+    teamStats,
+    focus: analysisFocus,
+    contextStats,
   });
 
   return {
@@ -1040,13 +1388,9 @@ export const buildAiInsightFacts = (
       dimension.type === 'labelGroup' ? `label:${dimension.group}` : 'action',
     summary: insight.summary,
     summaryAnchors,
-    teamStats: teamInfo
-      ? {
-          source: teamInfo.source,
-          confidence: teamInfo.confidence,
-          teams: teamStatsResult?.teamStats ?? [],
-        }
-      : undefined,
+    teamStats,
+    analysisFocus,
+    contextStats,
     evidenceStats,
     topStates: insight.topStates,
     topStatesByDuration: insight.topStatesByDuration,

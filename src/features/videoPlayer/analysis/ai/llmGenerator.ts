@@ -399,6 +399,12 @@ const buildFactBasedResponse = (
   const summaryAnchors = toArray<{ text: string; evidenceIds?: string[] }>(
     (facts as Record<string, unknown>).summaryAnchors,
   );
+  const analysisFocus = (facts as Record<string, unknown>).analysisFocus as
+    | { notes?: string; intents?: string[] }
+    | undefined;
+  const contextStats = (facts as Record<string, unknown>).contextStats as
+    | { target?: string; prevActions?: Array<{ key: string; evidenceIds?: string[] }>; nextActions?: Array<{ key: string; evidenceIds?: string[] }> }
+    | undefined;
 
   if (
     topStates.length === 0 &&
@@ -422,20 +428,8 @@ const buildFactBasedResponse = (
       `「${topStates[0].state}」が多く含まれている可能性があります。`,
     );
   }
-  if (topTransitions[0]) {
-    summaryParts.push(
-      `「${topTransitions[0].from}→${topTransitions[0].to}」の遷移が繰り返される示唆があります。`,
-    );
-  } else if (strongTransitions[0]) {
-    summaryParts.push(
-      `「${strongTransitions[0].from}→${strongTransitions[0].to}」の遷移が目立つ可能性があります。`,
-    );
-  }
-  if (topSequences[0]) {
-    summaryParts.push(
-      `「${topSequences[0].sequence.join('→')}」の流れが複数回現れています。`,
-    );
-  }
+  const hasPhaseIntent = analysisFocus?.intents?.includes('phase');
+  const hasContextIntent = analysisFocus?.intents?.includes('context');
   if (phaseDistribution.length > 0) {
     const phase = [...phaseDistribution].sort(
       (a, b) => b.shareCount - a.shareCount,
@@ -444,10 +438,50 @@ const buildFactBasedResponse = (
       const label =
         phase.phase === 'early' ? '前半' : phase.phase === 'mid' ? '中盤' : '後半';
       summaryParts.push(`イベントが${label}に偏る傾向があります。`);
+    } else if (hasPhaseIntent) {
+      summaryParts.push('時間帯の偏りは明確ではありません。');
+    }
+  } else if (hasPhaseIntent) {
+    summaryParts.push('時間帯の偏りは明確ではありません。');
+  }
+
+  if (hasContextIntent) {
+    const prev = contextStats?.prevActions?.[0];
+    const next = contextStats?.nextActions?.[0];
+    if (prev?.key) {
+      summaryParts.push(
+        `${contextStats?.target ?? '対象'}の直前は「${prev.key}」が多い可能性があります。`,
+      );
+    }
+    if (next?.key) {
+      summaryParts.push(
+        `${contextStats?.target ?? '対象'}の直後は「${next.key}」が多い可能性があります。`,
+      );
+    }
+    if (!prev?.key && !next?.key) {
+      summaryParts.push('直前・直後で明確な偏りは確認できませんでした。');
+    }
+  } else if (!hasPhaseIntent) {
+    if (topTransitions[0]) {
+      summaryParts.push(
+        `「${topTransitions[0].from}→${topTransitions[0].to}」の遷移が繰り返される示唆があります。`,
+      );
+    } else if (strongTransitions[0]) {
+      summaryParts.push(
+        `「${strongTransitions[0].from}→${strongTransitions[0].to}」の遷移が目立つ可能性があります。`,
+      );
+    }
+    if (topSequences[0]) {
+      summaryParts.push(
+        `「${topSequences[0].sequence.join('→')}」の流れが複数回現れています。`,
+      );
     }
   }
   if (summaryParts.length === 0) {
     summaryParts.push('特徴的なイベントの傾向が見られる可能性があります。');
+  }
+  if (summaryAnchors.length === 0 && analysisFocus?.notes === 'no-clear-intent') {
+    summaryParts.unshift('明確な偏りは確認できませんでした。');
   }
 
   const hypotheses: AiCopilotResponse['hypotheses'] = [];
