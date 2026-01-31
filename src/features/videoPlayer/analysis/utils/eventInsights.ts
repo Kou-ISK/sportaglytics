@@ -1,4 +1,5 @@
 import type { TimelineData } from '../../../../types/TimelineData';
+import type { SCLabel } from '../../../../types/SCTimeline';
 import { getLabelsFromTimelineData } from '../../../../utils/labelExtractors';
 import type { EvidenceFilters, EvidenceItem } from '../ai/types';
 
@@ -150,9 +151,13 @@ export type AiInsightFacts = {
 
 const toLower = (value?: string | null) => (value ?? '').toLowerCase();
 
-const resolveState = (item: TimelineData, dimension: InsightDimension): string => {
+const resolveState = (
+  item: TimelineData,
+  dimension: InsightDimension,
+  teamInfo?: { source: 'label' | 'inferred'; teams: string[] },
+): string => {
   if (dimension.type === 'action') {
-    return item.actionName?.trim() || '未設定';
+    return normalizeActionNameForStats(item.actionName, teamInfo);
   }
   const labels = getLabelsFromTimelineData(item);
   const target = labels.find(
@@ -239,6 +244,8 @@ export const buildEventInsights = (
     topN?: number;
     sequenceLength?: number;
     sequenceLengths?: number[];
+    teamGroup?: string;
+    normalizeTeamActions?: boolean;
   },
 ): EventInsights => {
   const topN = Math.max(1, config.topN ?? 5);
@@ -252,6 +259,14 @@ export const buildEventInsights = (
     ),
   );
   const ordered = sortTimeline(timeline);
+  const teamInfo =
+    config.dimension.type === 'action' && (config.normalizeTeamActions ?? true)
+      ? resolveTeamInfo(ordered, config.teamGroup)
+      : null;
+  const normalizedTeamInfo =
+    teamInfo && teamInfo.confidence >= 0.4
+      ? { source: teamInfo.source, teams: teamInfo.teams }
+      : undefined;
   const totalEvents = ordered.length;
   const stateSamples = new Map<string, string[]>();
   const transitionSamples = new Map<string, string[][]>();
@@ -266,7 +281,7 @@ export const buildEventInsights = (
   let durationSum = 0;
 
   for (const item of ordered) {
-    const state = resolveState(item, config.dimension);
+    const state = resolveState(item, config.dimension, normalizedTeamInfo);
     const duration = safeDuration(item);
     durationSum += duration;
     const samples = stateSamples.get(state) ?? [];
@@ -309,7 +324,9 @@ export const buildEventInsights = (
 
   const outgoingCounts = new Map<string, number>();
   const transitionAgg = new Map<string, { count: number; gapSum: number }>();
-  const stateSequence = ordered.map((item) => resolveState(item, config.dimension));
+  const stateSequence = ordered.map((item) =>
+    resolveState(item, config.dimension, normalizedTeamInfo),
+  );
 
   for (let i = 0; i < ordered.length - 1; i += 1) {
     const from = stateSequence[i];
@@ -440,7 +457,7 @@ export const buildEventInsights = (
   const longestEvents = ordered
     .map((item) => ({
       id: item.id,
-      state: resolveState(item, config.dimension),
+      state: resolveState(item, config.dimension, normalizedTeamInfo),
       actionName: item.actionName,
       startTime: item.startTime,
       endTime: item.endTime,
@@ -453,7 +470,7 @@ export const buildEventInsights = (
   const shortestEvents = ordered
     .map((item) => ({
       id: item.id,
-      state: resolveState(item, config.dimension),
+      state: resolveState(item, config.dimension, normalizedTeamInfo),
       actionName: item.actionName,
       startTime: item.startTime,
       endTime: item.endTime,
@@ -599,6 +616,12 @@ const collectEvidenceDurationDistribution = (
 
 const TEAM_SPLIT_REGEX = /[\s\u3000/／・\\\-–—_]+/;
 
+type TeamCandidateItem = {
+  id: string;
+  actionName: string;
+  labels?: SCLabel[];
+};
+
 const splitTeamActionName = (
   actionName: string,
 ): { team: string; action: string } | null => {
@@ -708,7 +731,7 @@ const buildPhaseDistributionForItems = (
 };
 
 const inferTeamsFromActionNames = (
-  evidence: EvidenceItem[],
+  evidence: TeamCandidateItem[],
 ): {
   teams: string[];
   assignments: Map<string, string>;
@@ -769,19 +792,20 @@ const inferTeamsFromActionNames = (
 };
 
 const resolveTeamInfo = (
-  evidence: EvidenceItem[],
+  evidence: TeamCandidateItem[],
   teamGroup?: string,
 ): {
   source: 'label' | 'inferred';
   confidence: number;
   assignments: Map<string, string>;
+  teams: string[];
 } | null => {
   const resolveByLabelGroup = (groupName?: string) => {
     if (!groupName || !groupName.trim()) return null;
     const groupKey = groupName.toLowerCase();
     const assignments = new Map<string, string>();
     for (const item of evidence) {
-      const label = item.labels.find(
+      const label = getLabelsFromTimelineData(item).find(
         (entry) => (entry.group ?? '').toLowerCase() === groupKey,
       );
       if (!label?.name) continue;
@@ -790,7 +814,12 @@ const resolveTeamInfo = (
     if (assignments.size === 0) return null;
     const confidence =
       evidence.length > 0 ? assignments.size / evidence.length : 0;
-    return { source: 'label' as const, confidence, assignments };
+    return {
+      source: 'label' as const,
+      confidence,
+      assignments,
+      teams: Array.from(new Set(assignments.values())),
+    };
   };
 
   if (teamGroup) {
@@ -804,7 +833,7 @@ const resolveTeamInfo = (
     const groupCoverage = new Map<string, number>();
     for (const item of evidence) {
       const seen = new Set<string>();
-      for (const label of item.labels) {
+      for (const label of getLabelsFromTimelineData(item)) {
         if (!label.group || !label.name) continue;
         const groupKey = label.group.toLowerCase();
         const counts = groupCounts.get(groupKey) ?? new Map<string, number>();
@@ -843,6 +872,7 @@ const resolveTeamInfo = (
       source: 'inferred',
       confidence: inferred.confidence,
       assignments: inferred.assignments,
+      teams: inferred.teams,
     };
   }
 
@@ -1306,6 +1336,19 @@ export const buildAiInsightFacts = (
     ? buildTeamStats(evidence, teamInfo, minStart, maxEnd)
     : null;
 
+  const teamStats =
+    teamInfo
+      ? {
+          source: teamInfo.source,
+          confidence: teamInfo.confidence,
+          teams: teamStatsResult?.teamStats ?? [],
+        }
+      : undefined;
+
+  const teamInfoForAction = teamStats
+    ? { source: teamStats.source, teams: teamStats.teams.map((team) => team.team) }
+    : undefined;
+
   const actionDistribution = (() => {
     if (!teamInfoForAction?.teams?.length) {
       return collectEvidenceDistribution(evidence, 'action');
@@ -1343,19 +1386,6 @@ export const buildAiInsightFacts = (
       ? { phaseDistribution: insight.phaseDistribution }
       : {}),
   };
-
-  const teamStats =
-    teamInfo
-      ? {
-          source: teamInfo.source,
-          confidence: teamInfo.confidence,
-          teams: teamStatsResult?.teamStats ?? [],
-        }
-      : undefined;
-
-  const teamInfoForAction = teamStats
-    ? { source: teamStats.source, teams: teamStats.teams.map((team) => team.team) }
-    : undefined;
 
   const analysisFocus = detectAnalysisFocus(
     question,

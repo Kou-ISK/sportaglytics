@@ -94,7 +94,7 @@ class LocalLLMProvider implements LLMProvider {
         topP: this.topP,
         topK: this.topK,
         repeatPenalty: this.repeatPenalty,
-        maxTokens: 512,
+        maxTokens: 768,
         timeoutMs: this.timeoutMs,
         requestId,
       });

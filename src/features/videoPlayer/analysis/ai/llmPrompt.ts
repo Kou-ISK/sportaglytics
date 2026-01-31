@@ -39,21 +39,25 @@ export const buildAugmentedPrompt = (params: {
   filters?: EvidenceFilters;
   maxMemoChars?: number;
   facts?: Record<string, unknown> | null;
+  evidenceKeyMap?: Map<string, string>;
 }) => {
   const maxMemoChars = params.maxMemoChars ?? 90;
   const evidenceLines = params.evidence
     .map((item) => {
+      const key = params.evidenceKeyMap?.get(item.id) ?? '';
       const labels = item.labels.map((label) =>
         label.group ? `${label.group}:${label.name}` : label.name,
       );
       const memo = item.memo ? truncateMemo(item.memo, maxMemoChars) : '';
       return [
-        `id:${item.id}`,
+        key ? `key:${key}` : null,
         `time:${item.startTime}-${item.endTime}`,
         `action:${item.actionName}`,
         `labels:[${labels.join(', ')}]`,
         `memo:${memo || '-'}`,
-      ].join(' | ');
+      ]
+        .filter(Boolean)
+        .join(' | ');
     })
     .join('\n');
 
@@ -67,13 +71,11 @@ export const buildAugmentedPrompt = (params: {
       return '(invalid)';
     }
   })();
-  const allowedEvidenceIds = params.evidence
-    .map((item) => item.id)
-    .filter(Boolean);
-  const allowedEvidenceText =
-    allowedEvidenceIds.length > 0
-      ? allowedEvidenceIds.join(', ')
-      : '(none)';
+  const allowedEvidenceKeys = params.evidenceKeyMap
+    ? Array.from(params.evidenceKeyMap.values())
+    : [];
+  const allowedEvidenceKeyText =
+    allowedEvidenceKeys.length > 0 ? allowedEvidenceKeys.join(', ') : '(none)';
 
   return [
     'あなたはスポーツ映像分析のAIレビュー・コパイロットです。',
@@ -84,8 +86,9 @@ export const buildAugmentedPrompt = (params: {
     'summary は summaryAnchors / analysisFocus / contextStats を優先して短く読みやすく（500文字以内）にし、2〜3文でまとめてください。断定しないでください。',
     'analysisFocus.priority がある場合は、その順で重要点を並べてください。analysisFocus.notes が no-clear-intent の場合は無理に偏りを主張しないでください。',
     '出力は簡潔にしてください。hypothesesは最大3件、evidenceHighlightsは最大5件、recommendedClipsは最大5件。',
-    'evidenceIdsは各項目最大5件、IDはevidence一覧にあるものだけを使ってください。',
-    'allowed_evidence_ids に含まれないIDは禁止です。不明な項目は空配列で構いません。',
+    'evidenceIdsは各項目最大5件、allowed_evidence_keys にあるキーのみを使ってください。',
+    'evidenceIdsは allowed_evidence_keys の短いキーを使ってください（例: e1, e2）。長いIDは禁止です。',
+    'allowed_evidence_keys に含まれないキーは禁止です。不明な項目は空配列で構いません。',
     '必ずJSONのみを出力してください。コードブロックや説明文は出力しないでください。',
     'スキーマ:',
     '{"summary":string,"hypotheses":[{"text":string,"evidenceIds":string[]}],"evidenceHighlights":[{"id":string,"why":string}],"recommendedClips":[{"title":string,"centerId":string,"preSeconds":number,"postSeconds":number,"reason":string,"evidenceIds":string[]}]}',
@@ -100,8 +103,8 @@ export const buildAugmentedPrompt = (params: {
     '# insight_facts',
     factsText,
     '',
-    '# allowed_evidence_ids',
-    allowedEvidenceText,
+    '# allowed_evidence_keys',
+    allowedEvidenceKeyText,
     '',
     '# evidence',
     evidenceLines || '(none)',

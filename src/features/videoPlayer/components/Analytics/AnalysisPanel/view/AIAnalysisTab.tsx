@@ -252,8 +252,8 @@ const RETRIEVER_WEIGHT_MAP: Record<
 };
 
 const resolveDiversifyTarget = (topK: number) => {
-  if (topK <= 18) return Math.max(1, topK);
-  return Math.min(30, Math.max(18, Math.floor(topK * 0.6)));
+  if (topK <= 24) return Math.max(1, topK);
+  return Math.min(30, Math.max(24, Math.floor(topK * 0.7)));
 };
 
 const formatElapsed = (ms?: number) => {
@@ -699,8 +699,10 @@ export const AIAnalysisTab = ({
         topN: 5,
         sequenceLength: 3,
         sequenceLengths: [3, 4],
+        teamGroup: teamGroupForFacts,
+        normalizeTeamActions: true,
       }),
-    [insightTimeline, resolvedInsightDimension],
+    [insightTimeline, resolvedInsightDimension, teamGroupForFacts],
   );
   const insightEvidenceItems = useMemo(() => {
     const ids = collectInsightEvidenceIds(insightData);
@@ -871,6 +873,8 @@ export const AIAnalysisTab = ({
           topN: 4,
           sequenceLength: 3,
           sequenceLengths: [3, 4],
+          teamGroup: teamGroupForFacts,
+          normalizeTeamActions: true,
         },
       );
       const facts = buildAiInsightFacts(
@@ -1042,6 +1046,8 @@ export const AIAnalysisTab = ({
         topN: 4,
         sequenceLength: 3,
         sequenceLengths: [3, 4],
+        teamGroup: teamGroupForFacts,
+        normalizeTeamActions: true,
       },
     );
     const facts = buildAiInsightFacts(

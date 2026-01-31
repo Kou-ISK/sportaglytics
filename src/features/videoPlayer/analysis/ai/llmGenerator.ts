@@ -163,6 +163,75 @@ const normalizeEvidenceIds = (ids: string[], allowed: Set<string>, max: number) 
   return result;
 };
 
+const buildEvidenceKeyMap = (evidence: EvidenceItem[]) => {
+  const map = new Map<string, string>();
+  evidence.forEach((item, index) => {
+    map.set(item.id, `e${index + 1}`);
+  });
+  return map;
+};
+
+const invertEvidenceKeyMap = (map: Map<string, string>) => {
+  const inverted = new Map<string, string>();
+  for (const [id, key] of map.entries()) {
+    inverted.set(key, id);
+  }
+  return inverted;
+};
+
+const remapEvidenceKeys = (
+  value: unknown,
+  keyMap: Map<string, string>,
+): unknown => {
+  if (!value || typeof value !== 'object') return value;
+  const inverted = invertEvidenceKeyMap(keyMap);
+
+  const remapId = (id?: string | null) => {
+    if (!id) return id;
+    return inverted.get(id) ?? id;
+  };
+
+  const remapIds = (ids: string[] | null) => {
+    if (!ids) return ids;
+    return ids.map((id) => remapId(id) ?? id);
+  };
+
+  const obj = value as Record<string, unknown>;
+  const remapped: Record<string, unknown> = { ...obj };
+  if (Array.isArray(obj.hypotheses)) {
+    remapped.hypotheses = obj.hypotheses.map((item) => {
+      if (!item || typeof item !== 'object') return item;
+      const data = item as Record<string, unknown>;
+      return {
+        ...data,
+        evidenceIds: remapIds(asStringArray(data.evidenceIds)),
+      };
+    });
+  }
+  if (Array.isArray(obj.evidenceHighlights)) {
+    remapped.evidenceHighlights = obj.evidenceHighlights.map((item) => {
+      if (!item || typeof item !== 'object') return item;
+      const data = item as Record<string, unknown>;
+      return {
+        ...data,
+        id: remapId(asString(data.id)),
+      };
+    });
+  }
+  if (Array.isArray(obj.recommendedClips)) {
+    remapped.recommendedClips = obj.recommendedClips.map((item) => {
+      if (!item || typeof item !== 'object') return item;
+      const data = item as Record<string, unknown>;
+      return {
+        ...data,
+        centerId: remapId(asString(data.centerId)),
+        evidenceIds: remapIds(asStringArray(data.evidenceIds)),
+      };
+    });
+  }
+  return remapped;
+};
+
 const coerceResponse = (value: unknown): AiCopilotResponse | null => {
   const obj = extractFirstObject(value);
   if (!obj) return null;
@@ -253,7 +322,7 @@ const FALLBACK_RESPONSE: AiCopilotResponse = {
   recommendedClips: [],
 };
 
-const MAX_LLM_EVIDENCE = 18;
+const MAX_LLM_EVIDENCE = 30;
 const MAX_SUMMARY_CHARS = 500;
 const MAX_HYPOTHESIS_CHARS = 240;
 const MAX_HIGHLIGHT_CHARS = 160;
@@ -683,15 +752,23 @@ export const generateAiResponse = async (params: {
     Math.max(60, Math.floor(maxMemoChars * 0.5)),
   ];
   let attempt = 0;
-  const buildPromptForAttempt = (index: number) =>
-    buildAugmentedPrompt({
-      question: params.question,
-      evidence: evidenceSteps[Math.min(index, evidenceSteps.length - 1)],
-      filters: params.filters,
-      maxMemoChars: memoSteps[Math.min(index, memoSteps.length - 1)],
-      facts: params.facts ?? null,
-    });
-  let prompt = buildPromptForAttempt(0);
+  const buildPromptForAttempt = (index: number) => {
+    const evidence =
+      evidenceSteps[Math.min(index, evidenceSteps.length - 1)];
+    const evidenceKeyMap = buildEvidenceKeyMap(evidence);
+    return {
+      prompt: buildAugmentedPrompt({
+        question: params.question,
+        evidence,
+        filters: params.filters,
+        maxMemoChars: memoSteps[Math.min(index, memoSteps.length - 1)],
+        facts: params.facts ?? null,
+        evidenceKeyMap,
+      }),
+      evidenceKeyMap,
+    };
+  };
+  let { prompt, evidenceKeyMap: currentEvidenceKeyMap } = buildPromptForAttempt(0);
   let lastRaw = '';
   let lastError = '';
   let lastParsed: unknown | null = null;
@@ -720,33 +797,37 @@ export const generateAiResponse = async (params: {
     lastDebug = result.debug;
     try {
       const parsed = extractJson(result.text);
-      lastParsed = parsed;
-      const validated = aiResponseSchema.safeParse(parsed);
-    if (validated.success) {
-      return {
-        response: validated.data,
-        rawText: result.text,
-        debug: lastDebug,
-        usedFallback: false,
-        fallbackSource: 'none',
-      };
-    } else {
-      lastError = validated.error.message;
-      const sanitized = sanitizeAiResponse(parsed, trimmedEvidence);
-      if (sanitized) {
+      const remapped = currentEvidenceKeyMap
+        ? remapEvidenceKeys(parsed, currentEvidenceKeyMap)
+        : parsed;
+      lastParsed = remapped;
+      const validated = aiResponseSchema.safeParse(remapped);
+      if (validated.success) {
         return {
-          response: sanitized,
+          response: validated.data,
           rawText: result.text,
           debug: lastDebug,
-          usedFallback: true,
-          validationError: lastError,
-          fallbackSource: 'coerced',
+          usedFallback: false,
+          fallbackSource: 'none',
         };
+      } else {
+        lastError = validated.error.message;
+        const sanitized = sanitizeAiResponse(remapped, trimmedEvidence);
+        if (sanitized) {
+          return {
+            response: sanitized,
+            rawText: result.text,
+            debug: lastDebug,
+            usedFallback: true,
+            validationError: lastError,
+            fallbackSource: 'coerced',
+          };
+        }
       }
+    } catch (error) {
+      lastError =
+        error instanceof Error ? error.message : 'JSON解析に失敗しました。';
     }
-  } catch (error) {
-    lastError = error instanceof Error ? error.message : 'JSON解析に失敗しました。';
-  }
 
     attempt += 1;
     if (attempt > maxRetries) break;
@@ -759,7 +840,9 @@ export const generateAiResponse = async (params: {
       mode,
     });
     if (isParseError) {
-      prompt = buildPromptForAttempt(attempt);
+      const nextPrompt = buildPromptForAttempt(attempt);
+      prompt = nextPrompt.prompt;
+      currentEvidenceKeyMap = nextPrompt.evidenceKeyMap;
     } else {
       prompt = buildRepairPrompt(result.text, lastError);
     }
