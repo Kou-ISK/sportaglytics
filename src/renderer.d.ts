@@ -92,6 +92,9 @@ export interface IElectronAPI {
       prompt: string;
       model: string;
       temperature?: number;
+      topP?: number;
+      topK?: number;
+      repeatPenalty?: number;
       maxTokens?: number;
       timeoutMs?: number;
       requestId?: string;

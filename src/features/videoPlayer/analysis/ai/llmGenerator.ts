@@ -8,6 +8,9 @@ export interface LlmGeneratorConfig {
   baseUrl: string;
   model: string;
   temperature?: number;
+  topP?: number;
+  topK?: number;
+  repeatPenalty?: number;
   timeoutMs?: number;
 }
 
@@ -17,6 +20,12 @@ export interface LlmGeneratorOptions {
   maxEvidence?: number;
   requestId?: string;
   signal?: AbortSignal;
+  onRetry?: (payload: {
+    attempt: number;
+    maxRetries: number;
+    reason: string;
+    mode: 'reduce' | 'repair';
+  }) => void;
 }
 
 type FallbackSource = 'none' | 'coerced' | 'heuristic';
@@ -122,6 +131,11 @@ const asNumber = (value: unknown): number | null => {
   return null;
 };
 
+const trimText = (value: string, maxChars: number): string => {
+  if (value.length <= maxChars) return value;
+  return value.slice(0, maxChars);
+};
+
 const extractFirstObject = (value: unknown): Record<string, unknown> | null => {
   if (isPlainObject(value)) return value;
   if (Array.isArray(value)) {
@@ -130,6 +144,23 @@ const extractFirstObject = (value: unknown): Record<string, unknown> | null => {
     }
   }
   return null;
+};
+
+const clampArray = <T>(items: T[], max: number): T[] => {
+  if (items.length <= max) return items;
+  return items.slice(0, max);
+};
+
+const normalizeEvidenceIds = (ids: string[], allowed: Set<string>, max: number) => {
+  const result: string[] = [];
+  for (const id of ids) {
+    if (!allowed.has(id)) continue;
+    if (!result.includes(id)) {
+      result.push(id);
+    }
+    if (result.length >= max) break;
+  }
+  return result;
 };
 
 const coerceResponse = (value: unknown): AiCopilotResponse | null => {
@@ -222,7 +253,91 @@ const FALLBACK_RESPONSE: AiCopilotResponse = {
   recommendedClips: [],
 };
 
-const MAX_LLM_EVIDENCE = 24;
+const MAX_LLM_EVIDENCE = 18;
+const MAX_SUMMARY_CHARS = 500;
+const MAX_HYPOTHESIS_CHARS = 240;
+const MAX_HIGHLIGHT_CHARS = 160;
+const MAX_CLIP_TITLE_CHARS = 120;
+const MAX_CLIP_REASON_CHARS = 240;
+const MAX_HYPOTHESIS_ITEMS = 3;
+const MAX_HIGHLIGHT_ITEMS = 5;
+const MAX_CLIP_ITEMS = 5;
+const MAX_EVIDENCE_IDS = 5;
+
+const sanitizeAiResponse = (
+  value: unknown,
+  evidence: EvidenceItem[],
+): AiCopilotResponse | null => {
+  const base = coerceResponse(value);
+  if (!base) return null;
+  const allowed = new Set(evidence.map((item) => item.id));
+  const summary = trimText(base.summary || '生成に失敗しました。', MAX_SUMMARY_CHARS);
+
+  const hypotheses = clampArray(
+    base.hypotheses
+      .map((item) => {
+        const evidenceIds = normalizeEvidenceIds(
+          item.evidenceIds,
+          allowed,
+          MAX_EVIDENCE_IDS,
+        );
+        if (evidenceIds.length === 0) return null;
+        const text = trimText(item.text, MAX_HYPOTHESIS_CHARS);
+        if (!text) return null;
+        return { text, evidenceIds };
+      })
+      .filter(Boolean) as AiCopilotResponse['hypotheses'],
+    MAX_HYPOTHESIS_ITEMS,
+  );
+
+  const evidenceHighlights = clampArray(
+    base.evidenceHighlights
+      .map((item) => {
+        if (!allowed.has(item.id)) return null;
+        const why = trimText(item.why, MAX_HIGHLIGHT_CHARS);
+        if (!why) return null;
+        return { id: item.id, why };
+      })
+      .filter(Boolean) as AiCopilotResponse['evidenceHighlights'],
+    MAX_HIGHLIGHT_ITEMS,
+  );
+
+  const recommendedClips = clampArray(
+    base.recommendedClips
+      .map((item) => {
+        const evidenceIds = normalizeEvidenceIds(
+          item.evidenceIds,
+          allowed,
+          MAX_EVIDENCE_IDS,
+        );
+        let centerId = item.centerId;
+        if (!allowed.has(centerId)) {
+          centerId = evidenceIds[0] ?? '';
+        }
+        if (!centerId || evidenceIds.length === 0) return null;
+        const title = trimText(item.title, MAX_CLIP_TITLE_CHARS);
+        const reason = trimText(item.reason, MAX_CLIP_REASON_CHARS);
+        if (!title || !reason) return null;
+        return {
+          title,
+          centerId,
+          preSeconds: Math.max(0, item.preSeconds),
+          postSeconds: Math.max(0, item.postSeconds),
+          reason,
+          evidenceIds,
+        };
+      })
+      .filter(Boolean) as AiCopilotResponse['recommendedClips'],
+    MAX_CLIP_ITEMS,
+  );
+
+  return {
+    summary,
+    hypotheses,
+    evidenceHighlights,
+    recommendedClips,
+  };
+};
 
 const uniqueIds = (ids: string[], limit = 5) => {
   const result: string[] = [];
@@ -261,6 +376,13 @@ const buildFactBasedResponse = (
     probability: number;
     evidenceIds?: string[];
   }>((facts as Record<string, unknown>).topTransitions);
+  const strongTransitions = toArray<{
+    from: string;
+    to: string;
+    count: number;
+    probability: number;
+    evidenceIds?: string[];
+  }>((facts as Record<string, unknown>).strongTransitions);
   const topSequences = toArray<{
     sequence: string[];
     count: number;
@@ -268,6 +390,14 @@ const buildFactBasedResponse = (
   }>((facts as Record<string, unknown>).topSequences);
   const longestEvents = toArray<{ id: string; duration: number }>(
     (facts as Record<string, unknown>).longestEvents,
+  );
+  const phaseDistribution = toArray<{
+    phase: 'early' | 'mid' | 'late';
+    shareCount: number;
+    evidenceIds?: string[];
+  }>((facts as Record<string, unknown>).phaseDistribution);
+  const summaryAnchors = toArray<{ text: string; evidenceIds?: string[] }>(
+    (facts as Record<string, unknown>).summaryAnchors,
   );
 
   if (
@@ -280,7 +410,11 @@ const buildFactBasedResponse = (
   }
 
   const summaryParts: string[] = [];
-  if (evidence.length > 0) {
+  if (summaryAnchors.length > 0) {
+    summaryAnchors.slice(0, 2).forEach((anchor) => {
+      if (anchor.text) summaryParts.push(anchor.text);
+    });
+  } else if (evidence.length > 0) {
     summaryParts.push(`関連イベントは${evidence.length}件確認されました。`);
   }
   if (topStates[0]) {
@@ -292,11 +426,25 @@ const buildFactBasedResponse = (
     summaryParts.push(
       `「${topTransitions[0].from}→${topTransitions[0].to}」の遷移が繰り返される示唆があります。`,
     );
+  } else if (strongTransitions[0]) {
+    summaryParts.push(
+      `「${strongTransitions[0].from}→${strongTransitions[0].to}」の遷移が目立つ可能性があります。`,
+    );
   }
   if (topSequences[0]) {
     summaryParts.push(
       `「${topSequences[0].sequence.join('→')}」の流れが複数回現れています。`,
     );
+  }
+  if (phaseDistribution.length > 0) {
+    const phase = [...phaseDistribution].sort(
+      (a, b) => b.shareCount - a.shareCount,
+    )[0];
+    if (phase && phase.shareCount >= 0.45) {
+      const label =
+        phase.phase === 'early' ? '前半' : phase.phase === 'mid' ? '中盤' : '後半';
+      summaryParts.push(`イベントが${label}に偏る傾向があります。`);
+    }
   }
   if (summaryParts.length === 0) {
     summaryParts.push('特徴的なイベントの傾向が見られる可能性があります。');
@@ -475,6 +623,9 @@ export const generateAiResponse = async (params: {
     baseUrl: params.config.baseUrl,
     model: params.config.model,
     temperature: params.config.temperature,
+    topP: params.config.topP,
+    topK: params.config.topK,
+    repeatPenalty: params.config.repeatPenalty,
     timeoutMs: params.config.timeoutMs,
   });
   const maxRetries = params.options?.maxRetries ?? 2;
@@ -486,7 +637,7 @@ export const generateAiResponse = async (params: {
   const factFallback = params.facts
     ? buildFactBasedResponse(params.facts, trimmedEvidence)
     : null;
-  const maxMemoChars = params.options?.maxMemoChars ?? 120;
+  const maxMemoChars = params.options?.maxMemoChars ?? 90;
   const evidenceSteps = [
     trimmedEvidence,
     trimmedEvidence.slice(0, Math.max(1, Math.min(8, trimmedEvidence.length))),
@@ -537,24 +688,43 @@ export const generateAiResponse = async (params: {
       const parsed = extractJson(result.text);
       lastParsed = parsed;
       const validated = aiResponseSchema.safeParse(parsed);
-      if (validated.success) {
+    if (validated.success) {
+      return {
+        response: validated.data,
+        rawText: result.text,
+        debug: lastDebug,
+        usedFallback: false,
+        fallbackSource: 'none',
+      };
+    } else {
+      lastError = validated.error.message;
+      const sanitized = sanitizeAiResponse(parsed, trimmedEvidence);
+      if (sanitized) {
         return {
-          response: validated.data,
+          response: sanitized,
           rawText: result.text,
           debug: lastDebug,
-          usedFallback: false,
-          fallbackSource: 'none',
+          usedFallback: true,
+          validationError: lastError,
+          fallbackSource: 'coerced',
         };
-      } else {
-        lastError = validated.error.message;
       }
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : 'JSON解析に失敗しました。';
     }
+  } catch (error) {
+    lastError = error instanceof Error ? error.message : 'JSON解析に失敗しました。';
+  }
 
     attempt += 1;
     if (attempt > maxRetries) break;
-    if (lastError.includes('JSON解析')) {
+    const isParseError = lastError.includes('JSON解析');
+    const mode: 'reduce' | 'repair' = isParseError ? 'reduce' : 'repair';
+    params.options?.onRetry?.({
+      attempt: attempt + 1,
+      maxRetries,
+      reason: lastError,
+      mode,
+    });
+    if (isParseError) {
       prompt = buildPromptForAttempt(attempt);
     } else {
       prompt = buildRepairPrompt(result.text, lastError);

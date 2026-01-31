@@ -83,6 +83,16 @@ const parseNumberInput = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const mapEvidenceToTimeline = (items: EvidenceItem[]): TimelineData[] =>
+  items.map((item) => ({
+    id: item.id,
+    actionName: item.actionName,
+    startTime: item.startTime,
+    endTime: item.endTime,
+    memo: item.memo,
+    labels: item.labels,
+  }));
+
 const formatPercent = (value: number, digits: number = 1) => {
   if (!Number.isFinite(value)) return '--';
   return `${(value * 100).toFixed(digits)}%`;
@@ -102,6 +112,10 @@ const formatGapShort = (value: number) => {
 
 const AUTO_INSIGHT_QUESTION =
   '全体の傾向と特徴的なイベントを要約し、根拠付きで仮説とクリップ候補を提示してください。';
+const MAX_LLM_RETRIES = 1;
+const LLM_TOP_P = 0.85;
+const LLM_TOP_K = 40;
+const LLM_REPEAT_PENALTY = 1.1;
 
 const QUESTION_TEMPLATES = [
   '重要な流れの変化点は？',
@@ -242,6 +256,14 @@ export const AIAnalysisTab = ({
   const [evidenceItems, setEvidenceItems] = useState<EvidenceItem[]>([]);
   const [aiResponse, setAiResponse] = useState<AiCopilotResponse | null>(null);
   const [llmRawText, setLlmRawText] = useState<string | null>(null);
+  const [llmLiveLog, setLlmLiveLog] = useState('');
+  const [llmAttempt, setLlmAttempt] = useState(1);
+  const [llmRetryInfo, setLlmRetryInfo] = useState<{
+    attempt: number;
+    total: number;
+    mode: 'reduce' | 'repair';
+    reason: string;
+  } | null>(null);
   const [llmDebug, setLlmDebug] = useState<{
     stderr?: string;
     binaryPath?: string;
@@ -313,6 +335,8 @@ export const AIAnalysisTab = ({
         phase?: string;
         outputChars?: number;
         elapsedMs?: number;
+        stderrChunk?: string;
+        stdoutChunk?: string;
       };
       if (!data.requestId || data.requestId !== generationRunIdRef.current) {
         return;
@@ -323,6 +347,13 @@ export const AIAnalysisTab = ({
         outputChars: data.outputChars,
         elapsedMs: data.elapsedMs,
       });
+      if (data.stderrChunk) {
+        setLlmLiveLog((prev) => {
+          const next = `${prev}${data.stderrChunk}`;
+          if (next.length <= 8000) return next;
+          return next.slice(-8000);
+        });
+      }
     };
     llamaApi.onProgress(handleProgress);
     return () => {
@@ -684,6 +715,9 @@ export const AIAnalysisTab = ({
     setGenerationStatus('running');
     setAiResponse(null);
     setLlmRawText(null);
+    setLlmLiveLog('');
+    setLlmAttempt(1);
+    setLlmRetryInfo(null);
     setLlmDebug(null);
     setLlmWarning(null);
 
@@ -721,8 +755,17 @@ export const AIAnalysisTab = ({
         ? { items: evidenceItems, filters: activeFilters ?? buildFilters() }
         : await ensureEvidence();
       if (generationRunIdRef.current !== runId) return;
+      const evidenceInsight = buildEventInsights(
+        mapEvidenceToTimeline(ensured.items),
+        {
+          dimension: resolvedInsightDimension,
+          topN: 4,
+          sequenceLength: 3,
+          sequenceLengths: [3, 4],
+        },
+      );
       const facts = buildAiInsightFacts(
-        insightData,
+        evidenceInsight,
         ensured.items,
         resolvedInsightDimension,
         teamGroupForFacts,
@@ -743,13 +786,30 @@ export const AIAnalysisTab = ({
           baseUrl: aiSettings.baseUrl,
           model: aiSettings.model,
           temperature,
+          topP: LLM_TOP_P,
+          topK: LLM_TOP_K,
+          repeatPenalty: LLM_REPEAT_PENALTY,
         },
         options: {
-          maxRetries: 2,
-          maxMemoChars: 120,
+          maxRetries: MAX_LLM_RETRIES,
+          maxMemoChars: 90,
           maxEvidence: Math.max(1, evidenceTarget),
           requestId: runId,
           signal: controller.signal,
+          onRetry: (info) => {
+            setLlmAttempt(info.attempt);
+            setLlmRetryInfo({
+              attempt: info.attempt,
+              total: info.maxRetries + 1,
+              mode: info.mode,
+              reason: info.reason,
+            });
+            setLlmLiveLog((prev) => {
+              const marker = `\n--- retry ${info.attempt}/${info.maxRetries + 1} (${info.mode}) ---\n`;
+              const next = `${prev}${marker}`;
+              return next.length <= 8000 ? next : next.slice(-8000);
+            });
+          },
         },
       });
       if (generationRunIdRef.current !== runId) return;
@@ -814,6 +874,9 @@ export const AIAnalysisTab = ({
     generationAbortRef.current = null;
     setGenerationRequestId(null);
     setLlmProgress(null);
+    setLlmLiveLog('');
+    setLlmAttempt(1);
+    setLlmRetryInfo(null);
     setGenerationError('生成をキャンセルしました。');
     setGenerationStatus('idle');
   }, [generationRequestId, generationStatus]);
@@ -824,6 +887,9 @@ export const AIAnalysisTab = ({
     setGenerationStatus('running');
     setAiResponse(null);
     setLlmRawText(null);
+    setLlmLiveLog('');
+    setLlmAttempt(1);
+    setLlmRetryInfo(null);
     setLlmDebug(null);
     setLlmWarning(null);
 
@@ -858,8 +924,17 @@ export const AIAnalysisTab = ({
     generationAbortRef.current?.abort();
     const controller = new AbortController();
     generationAbortRef.current = controller;
+    const evidenceInsight = buildEventInsights(
+      mapEvidenceToTimeline(insightEvidenceItems),
+      {
+        dimension: resolvedInsightDimension,
+        topN: 4,
+        sequenceLength: 3,
+        sequenceLengths: [3, 4],
+      },
+    );
     const facts = buildAiInsightFacts(
-      insightData,
+      evidenceInsight,
       insightEvidenceItems,
       resolvedInsightDimension,
       teamGroupForFacts,
@@ -882,13 +957,30 @@ export const AIAnalysisTab = ({
           baseUrl: aiSettings.baseUrl,
           model: aiSettings.model,
           temperature,
+          topP: LLM_TOP_P,
+          topK: LLM_TOP_K,
+          repeatPenalty: LLM_REPEAT_PENALTY,
         },
         options: {
-          maxRetries: 2,
-          maxMemoChars: 120,
+          maxRetries: MAX_LLM_RETRIES,
+          maxMemoChars: 90,
           maxEvidence: Math.max(1, evidenceTarget),
           requestId: runId,
           signal: controller.signal,
+          onRetry: (info) => {
+            setLlmAttempt(info.attempt);
+            setLlmRetryInfo({
+              attempt: info.attempt,
+              total: info.maxRetries + 1,
+              mode: info.mode,
+              reason: info.reason,
+            });
+            setLlmLiveLog((prev) => {
+              const marker = `\n--- retry ${info.attempt}/${info.maxRetries + 1} (${info.mode}) ---\n`;
+              const next = `${prev}${marker}`;
+              return next.length <= 8000 ? next : next.slice(-8000);
+            });
+          },
         },
       });
       if (generationRunIdRef.current !== runId) return;
@@ -1175,6 +1267,16 @@ export const AIAnalysisTab = ({
                           <CircularProgress size={18} thickness={5} />
                           <Typography variant="body2">生成中...</Typography>
                         </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          試行 {llmAttempt}/{MAX_LLM_RETRIES + 1}
+                          {llmRetryInfo
+                            ? ` / 再試行: ${
+                                llmRetryInfo.mode === 'repair'
+                                  ? 'JSON修復'
+                                  : '情報圧縮'
+                              }`
+                            : ''}
+                        </Typography>
                         {llmProgress && (
                           <Typography variant="caption" color="text.secondary">
                             経過 {formatElapsed(llmProgress.elapsedMs)} / 出力{' '}
@@ -1528,7 +1630,7 @@ export const AIAnalysisTab = ({
           {retrievalError && <Alert severity="error">{retrievalError}</Alert>}
           {generationError && <Alert severity="error">{generationError}</Alert>}
 
-          {(llmRawText || llmDebug?.stderr) && (
+          {(llmRawText || llmDebug?.stderr || llmLiveLog) && (
             <>
               <Divider />
               <Box>
@@ -1541,6 +1643,21 @@ export const AIAnalysisTab = ({
                 </Button>
                 {showDebug && (
                   <Stack spacing={2} mt={1}>
+                    {llmRetryInfo && (
+                      <Typography variant="caption" color="text.secondary">
+                        再試行理由: {llmRetryInfo.reason}
+                      </Typography>
+                    )}
+                    {llmLiveLog && (
+                      <TextField
+                        label="LLM live log"
+                        value={llmLiveLog}
+                        multiline
+                        minRows={3}
+                        fullWidth
+                        InputProps={{ readOnly: true }}
+                      />
+                    )}
                     {llmRawText && (
                       <TextField
                         label="LLM raw output"

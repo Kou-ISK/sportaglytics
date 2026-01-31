@@ -12,6 +12,7 @@ export type InsightStateStat = {
   share: number;
   totalDuration: number;
   avgDuration: number;
+  durationShare?: number;
   evidenceIds: string[];
 };
 
@@ -48,6 +49,15 @@ export type InsightEventStat = {
   evidenceIds: string[];
 };
 
+export type InsightPhaseStat = {
+  phase: 'early' | 'mid' | 'late';
+  count: number;
+  shareCount: number;
+  totalDuration: number;
+  shareDuration: number;
+  evidenceIds: string[];
+};
+
 export type EventInsights = {
   summary: {
     totalEvents: number;
@@ -57,12 +67,16 @@ export type EventInsights = {
     avgDuration: number;
   };
   topStates: InsightStateStat[];
+  topStatesByDuration?: InsightStateStat[];
   topTransitions: InsightTransitionStat[];
+  strongTransitions?: InsightTransitionStat[];
   topSequences: InsightSequenceStat[];
   topSequencesByLength?: Record<number, InsightSequenceStat[]>;
   streaks: InsightStreakStat[];
   rareStates: InsightStateStat[];
   longestEvents: InsightEventStat[];
+  shortestEvents?: InsightEventStat[];
+  phaseDistribution?: InsightPhaseStat[];
 };
 
 export type AiEvidenceDistributionStat = {
@@ -70,24 +84,56 @@ export type AiEvidenceDistributionStat = {
   count: number;
   share: number;
   evidenceIds: string[];
+  totalDuration?: number;
+  avgDuration?: number;
+  shareDuration?: number;
+};
+
+export type AiSummaryAnchor = {
+  text: string;
+  evidenceIds: string[];
+};
+
+export type AiTeamStat = {
+  team: string;
+  count: number;
+  share: number;
+  totalDuration: number;
+  shareDuration: number;
+  evidenceIds: string[];
+  topActions?: AiEvidenceDistributionStat[];
+  topResults?: AiEvidenceDistributionStat[];
+  phaseDistribution?: InsightPhaseStat[];
 };
 
 export type AiInsightFacts = {
   dimension: string;
   summary: EventInsights['summary'];
   topStates: InsightStateStat[];
+  topStatesByDuration?: InsightStateStat[];
   rareStates: InsightStateStat[];
   topTransitions: InsightTransitionStat[];
+  strongTransitions?: InsightTransitionStat[];
   topSequences: InsightSequenceStat[];
   topSequencesByLength?: Record<number, InsightSequenceStat[]>;
   longestEvents: InsightEventStat[];
+  shortestEvents?: InsightEventStat[];
+  phaseDistribution?: InsightPhaseStat[];
   streaks: InsightStreakStat[];
+  summaryAnchors?: AiSummaryAnchor[];
+  teamStats?: {
+    source: 'label' | 'inferred';
+    confidence: number;
+    teams: AiTeamStat[];
+  };
   evidenceStats: {
     evidenceCount: number;
     timeSpanSec: number;
     actionDistribution: AiEvidenceDistributionStat[];
     labelDistribution: AiEvidenceDistributionStat[];
+    actionDurationDistribution?: AiEvidenceDistributionStat[];
     teamDistribution?: AiEvidenceDistributionStat[];
+    phaseDistribution?: InsightPhaseStat[];
   };
 };
 
@@ -239,12 +285,16 @@ export const buildEventInsights = (
       share: totalEvents > 0 ? value.count / totalEvents : 0,
       totalDuration: value.duration,
       avgDuration: value.count > 0 ? value.duration / value.count : 0,
+      durationShare: durationSum > 0 ? value.duration / durationSum : 0,
       evidenceIds: uniqueIds(stateSamples.get(state) ?? []),
     }),
   );
 
   stateStats.sort((a, b) => b.count - a.count || b.totalDuration - a.totalDuration);
   const topStates = stateStats.slice(0, topN);
+  const topStatesByDuration = [...stateStats]
+    .sort((a, b) => b.totalDuration - a.totalDuration || b.count - a.count)
+    .slice(0, topN);
 
   const outgoingCounts = new Map<string, number>();
   const transitionAgg = new Map<string, { count: number; gapSum: number }>();
@@ -288,6 +338,10 @@ export const buildEventInsights = (
     (a, b) => b.count - a.count || b.probability - a.probability,
   );
   const topTransitions = transitionStats.slice(0, topN);
+  const strongTransitions = transitionStats
+    .filter((stat) => stat.count >= 2)
+    .sort((a, b) => b.probability - a.probability || b.count - a.count)
+    .slice(0, topN);
 
   const buildSequenceStats = (len: number): InsightSequenceStat[] => {
     const sequenceAgg = new Map<string, { count: number; seq: string[] }>();
@@ -385,6 +439,57 @@ export const buildEventInsights = (
     .filter((item) => item.duration > 0)
     .sort((a, b) => b.duration - a.duration)
     .slice(0, topN);
+  const shortestEvents = ordered
+    .map((item) => ({
+      id: item.id,
+      state: resolveState(item, config.dimension),
+      actionName: item.actionName,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      duration: safeDuration(item),
+      evidenceIds: uniqueIds([item.id]),
+    }))
+    .filter((item) => item.duration > 0)
+    .sort((a, b) => a.duration - b.duration)
+    .slice(0, topN);
+
+  const phaseDistribution: InsightPhaseStat[] = [];
+  if (totalEvents > 0 && timeSpanSec > 0 && Number.isFinite(minStart)) {
+    const firstCut = minStart + timeSpanSec / 3;
+    const secondCut = minStart + (2 * timeSpanSec) / 3;
+    const phaseBuckets = new Map<
+      InsightPhaseStat['phase'],
+      { count: number; duration: number; ids: string[] }
+    >();
+    const phases: InsightPhaseStat['phase'][] = ['early', 'mid', 'late'];
+    phases.forEach((phase) =>
+      phaseBuckets.set(phase, { count: 0, duration: 0, ids: [] }),
+    );
+    for (const item of ordered) {
+      const mid = (item.startTime + item.endTime) / 2;
+      const phase =
+        mid < firstCut ? 'early' : mid < secondCut ? 'mid' : 'late';
+      const bucket = phaseBuckets.get(phase);
+      if (!bucket) continue;
+      bucket.count += 1;
+      bucket.duration += safeDuration(item);
+      if (bucket.ids.length < 5) {
+        bucket.ids.push(item.id);
+      }
+    }
+    for (const phase of phases) {
+      const bucket = phaseBuckets.get(phase);
+      if (!bucket) continue;
+      phaseDistribution.push({
+        phase,
+        count: bucket.count,
+        shareCount: totalEvents > 0 ? bucket.count / totalEvents : 0,
+        totalDuration: bucket.duration,
+        shareDuration: durationSum > 0 ? bucket.duration / durationSum : 0,
+        evidenceIds: uniqueIds(bucket.ids),
+      });
+    }
+  }
 
   return {
     summary: {
@@ -395,13 +500,17 @@ export const buildEventInsights = (
       avgDuration: totalEvents > 0 ? durationSum / totalEvents : 0,
     },
     topStates,
+    topStatesByDuration,
     topTransitions,
+    strongTransitions: strongTransitions.length > 0 ? strongTransitions : undefined,
     topSequences: sequenceStats,
     topSequencesByLength:
       sequenceLengths.length > 1 ? topSequencesByLength : undefined,
     streaks: streaks.slice(0, topN),
     rareStates,
     longestEvents,
+    shortestEvents,
+    phaseDistribution: phaseDistribution.length > 0 ? phaseDistribution : undefined,
   };
 };
 
@@ -441,14 +550,66 @@ const collectEvidenceDistribution = (
     .slice(0, limit);
 };
 
-const collectLabelGroupDistribution = (
+const collectEvidenceDurationDistribution = (
   evidence: EvidenceItem[],
-  group: string,
   limit = 6,
+): AiEvidenceDistributionStat[] => {
+  const counts = new Map<string, { count: number; duration: number; ids: string[] }>();
+  let totalDuration = 0;
+  for (const item of evidence) {
+    const key = item.actionName || '未設定';
+    const duration = Math.max(0, item.endTime - item.startTime);
+    totalDuration += duration;
+    const entry = counts.get(key) ?? { count: 0, duration: 0, ids: [] };
+    entry.count += 1;
+    entry.duration += duration;
+    if (entry.ids.length < 5) entry.ids.push(item.id);
+    counts.set(key, entry);
+  }
+
+  const total = evidence.length;
+  return Array.from(counts.entries())
+    .map(([key, value]) => ({
+      key,
+      count: value.count,
+      share: total > 0 ? value.count / total : 0,
+      totalDuration: value.duration,
+      avgDuration: value.count > 0 ? value.duration / value.count : 0,
+      shareDuration: totalDuration > 0 ? value.duration / totalDuration : 0,
+      evidenceIds: uniqueIds(value.ids),
+    }))
+    .sort(
+      (a, b) =>
+        (b.totalDuration ?? 0) - (a.totalDuration ?? 0) ||
+        b.count - a.count,
+    )
+    .slice(0, limit);
+};
+
+const TEAM_SPLIT_REGEX = /[\s\u3000/／・\\\-–—_]+/;
+
+const splitTeamActionName = (
+  actionName: string,
+): { team: string; action: string } | null => {
+  const trimmed = (actionName ?? '').trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(TEAM_SPLIT_REGEX).filter(Boolean);
+  if (parts.length < 2) return null;
+  const team = parts[0]?.trim();
+  const action = parts.slice(1).join(' ').trim();
+  if (!team || !action) return null;
+  if (/^[\d\W]+$/.test(team)) return null;
+  return { team, action };
+};
+
+const collectLabelGroupDistributionForItems = (
+  items: EvidenceItem[],
+  group: string,
+  limit = 3,
 ): AiEvidenceDistributionStat[] => {
   const counts = new Map<string, { count: number; ids: string[] }>();
   const groupKey = group.toLowerCase();
-  for (const item of evidence) {
+  for (const item of items) {
     for (const label of item.labels) {
       if ((label.group ?? '').toLowerCase() !== groupKey) continue;
       const key = label.name || '未設定';
@@ -458,8 +619,7 @@ const collectLabelGroupDistribution = (
       counts.set(key, entry);
     }
   }
-
-  const total = evidence.length;
+  const total = items.length;
   return Array.from(counts.entries())
     .map(([key, value]) => ({
       key,
@@ -469,6 +629,361 @@ const collectLabelGroupDistribution = (
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
+};
+
+const buildPhaseDistributionForItems = (
+  items: EvidenceItem[],
+  minStart: number,
+  maxEnd: number,
+): InsightPhaseStat[] => {
+  const timeSpanSec =
+    items.length === 0 || !Number.isFinite(minStart) || !Number.isFinite(maxEnd)
+      ? 0
+      : Math.max(0, maxEnd - minStart);
+  if (timeSpanSec <= 0) return [];
+  const firstCut = minStart + timeSpanSec / 3;
+  const secondCut = minStart + (2 * timeSpanSec) / 3;
+
+  const phases: InsightPhaseStat['phase'][] = ['early', 'mid', 'late'];
+  const buckets = new Map<
+    InsightPhaseStat['phase'],
+    { count: number; duration: number; ids: string[] }
+  >();
+  phases.forEach((phase) =>
+    buckets.set(phase, { count: 0, duration: 0, ids: [] }),
+  );
+
+  let durationSum = 0;
+  for (const item of items) {
+    const mid = (item.startTime + item.endTime) / 2;
+    const phase =
+      mid < firstCut ? 'early' : mid < secondCut ? 'mid' : 'late';
+    const bucket = buckets.get(phase);
+    if (!bucket) continue;
+    const duration = Math.max(0, item.endTime - item.startTime);
+    durationSum += duration;
+    bucket.count += 1;
+    bucket.duration += duration;
+    if (bucket.ids.length < 5) bucket.ids.push(item.id);
+  }
+
+  const total = items.length;
+  return phases.map((phase) => {
+    const bucket = buckets.get(phase)!;
+    return {
+      phase,
+      count: bucket.count,
+      shareCount: total > 0 ? bucket.count / total : 0,
+      totalDuration: bucket.duration,
+      shareDuration: durationSum > 0 ? bucket.duration / durationSum : 0,
+      evidenceIds: uniqueIds(bucket.ids),
+    };
+  });
+};
+
+const inferTeamsFromActionNames = (
+  evidence: EvidenceItem[],
+): {
+  teams: string[];
+  assignments: Map<string, string>;
+  confidence: number;
+} | null => {
+  const candidateMap = new Map<
+    string,
+    { count: number; ids: string[]; actions: Set<string> }
+  >();
+
+  for (const item of evidence) {
+    const parsed = splitTeamActionName(item.actionName);
+    if (!parsed) continue;
+    const entry = candidateMap.get(parsed.team) ?? {
+      count: 0,
+      ids: [],
+      actions: new Set<string>(),
+    };
+    entry.count += 1;
+    entry.actions.add(parsed.action);
+    if (entry.ids.length < 5) entry.ids.push(item.id);
+    candidateMap.set(parsed.team, entry);
+  }
+
+  const total = evidence.length;
+  if (total === 0 || candidateMap.size === 0) return null;
+  const minCount = Math.max(2, Math.ceil(total * 0.1));
+  const candidates = Array.from(candidateMap.entries())
+    .map(([team, info]) => ({
+      team,
+      count: info.count,
+      actions: info.actions.size,
+    }))
+    .filter((entry) => entry.count >= minCount && entry.actions >= 2)
+    .sort((a, b) => b.count - a.count);
+
+  if (candidates.length < 2) return null;
+  const topTeams = candidates.slice(0, 3);
+  const coverage =
+    topTeams.reduce((sum, entry) => sum + entry.count, 0) / total;
+  if (coverage < 0.6) return null;
+
+  const teamSet = new Set(topTeams.map((entry) => entry.team));
+  const assignments = new Map<string, string>();
+  for (const item of evidence) {
+    const parsed = splitTeamActionName(item.actionName);
+    if (!parsed) continue;
+    if (!teamSet.has(parsed.team)) continue;
+    assignments.set(item.id, parsed.team);
+  }
+
+  const confidence = total > 0 ? assignments.size / total : 0;
+  return {
+    teams: topTeams.map((entry) => entry.team),
+    assignments,
+    confidence,
+  };
+};
+
+const resolveTeamInfo = (
+  evidence: EvidenceItem[],
+  teamGroup?: string,
+): {
+  source: 'label' | 'inferred';
+  confidence: number;
+  assignments: Map<string, string>;
+} | null => {
+  if (teamGroup && teamGroup.trim().length > 0) {
+    const groupKey = teamGroup.toLowerCase();
+    const assignments = new Map<string, string>();
+    for (const item of evidence) {
+      const label = item.labels.find(
+        (entry) => (entry.group ?? '').toLowerCase() === groupKey,
+      );
+      if (!label?.name) continue;
+      assignments.set(item.id, label.name);
+    }
+    if (assignments.size > 0) {
+      const confidence =
+        evidence.length > 0 ? assignments.size / evidence.length : 0;
+      return { source: 'label', confidence, assignments };
+    }
+  }
+
+  const inferred = inferTeamsFromActionNames(evidence);
+  if (inferred && inferred.teams.length > 0) {
+    return {
+      source: 'inferred',
+      confidence: inferred.confidence,
+      assignments: inferred.assignments,
+    };
+  }
+
+  return null;
+};
+
+const buildTeamStats = (
+  evidence: EvidenceItem[],
+  teamInfo: NonNullable<ReturnType<typeof resolveTeamInfo>>,
+  minStart: number,
+  maxEnd: number,
+): {
+  teamStats: AiTeamStat[];
+  teamDistribution: AiEvidenceDistributionStat[];
+} => {
+  const teamBuckets = new Map<string, EvidenceItem[]>();
+  for (const item of evidence) {
+    const team = teamInfo.assignments.get(item.id);
+    if (!team) continue;
+    const bucket = teamBuckets.get(team) ?? [];
+    bucket.push(item);
+    teamBuckets.set(team, bucket);
+  }
+
+  const total = evidence.length;
+  const totalDuration = evidence.reduce(
+    (sum, item) => sum + Math.max(0, item.endTime - item.startTime),
+    0,
+  );
+
+  const teamStats: AiTeamStat[] = Array.from(teamBuckets.entries()).map(
+    ([team, items]) => {
+      const count = items.length;
+      const duration = items.reduce(
+        (sum, item) => sum + Math.max(0, item.endTime - item.startTime),
+        0,
+      );
+      const normalizedActions = items.map((item) => {
+        if (teamInfo.source === 'inferred') {
+          const parsed = splitTeamActionName(item.actionName);
+          if (parsed && parsed.team === team) return parsed.action;
+        }
+        return item.actionName || '未設定';
+      });
+
+      const actionCounts = new Map<string, { count: number; ids: string[] }>();
+      normalizedActions.forEach((action, index) => {
+        const item = items[index];
+        const key = action || '未設定';
+        const entry = actionCounts.get(key) ?? { count: 0, ids: [] };
+        entry.count += 1;
+        if (entry.ids.length < 5) entry.ids.push(item.id);
+        actionCounts.set(key, entry);
+      });
+      const actionDistribution = Array.from(actionCounts.entries())
+        .map(([key, value]) => ({
+          key,
+          count: value.count,
+          share: count > 0 ? value.count / count : 0,
+          evidenceIds: uniqueIds(value.ids),
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3);
+
+      const resultDistribution = collectLabelGroupDistributionForItems(
+        items,
+        'actionResult',
+        3,
+      );
+
+      return {
+        team,
+        count,
+        share: total > 0 ? count / total : 0,
+        totalDuration: duration,
+        shareDuration: totalDuration > 0 ? duration / totalDuration : 0,
+        evidenceIds: uniqueIds(items.map((item) => item.id)),
+        topActions: actionDistribution,
+        topResults: resultDistribution,
+        phaseDistribution: buildPhaseDistributionForItems(items, minStart, maxEnd),
+      };
+    },
+  );
+
+  teamStats.sort((a, b) => b.count - a.count);
+
+  const teamDistribution: AiEvidenceDistributionStat[] = teamStats.map((team) => ({
+    key: team.team,
+    count: team.count,
+    share: team.share,
+    evidenceIds: uniqueIds(team.evidenceIds),
+  }));
+
+  return { teamStats, teamDistribution };
+};
+
+const buildSummaryAnchors = (params: {
+  insight: EventInsights;
+  evidenceStats: AiInsightFacts['evidenceStats'];
+  teamStats?: AiInsightFacts['teamStats'];
+}): AiSummaryAnchor[] => {
+  const anchors: AiSummaryAnchor[] = [];
+  const push = (text: string, evidenceIds: string[]) => {
+    const ids = uniqueIds(evidenceIds);
+    if (!text || ids.length === 0) return;
+    anchors.push({ text, evidenceIds: ids });
+  };
+
+  const teamStats = params.teamStats;
+  if (teamStats && teamStats.teams.length > 0 && teamStats.confidence >= 0.4) {
+    const sortedTeams = [...teamStats.teams].sort((a, b) => b.share - a.share);
+    if (sortedTeams.length >= 2) {
+      const diff = sortedTeams[0].share - sortedTeams[1].share;
+      if (diff >= 0.2) {
+        const share = Math.round(sortedTeams[0].share * 100);
+        push(
+          `イベント数は${sortedTeams[0].team}が多い傾向 (${share}%)`,
+          sortedTeams[0].evidenceIds,
+        );
+      }
+    } else if (sortedTeams[0].share >= 0.7) {
+      const share = Math.round(sortedTeams[0].share * 100);
+      push(
+        `イベント数は${sortedTeams[0].team}に偏っています (${share}%)`,
+        sortedTeams[0].evidenceIds,
+      );
+    }
+
+    for (const team of teamStats.teams) {
+      if (!team.phaseDistribution || team.phaseDistribution.length === 0) continue;
+      const phase = [...team.phaseDistribution].sort(
+        (a, b) => b.shareCount - a.shareCount,
+      )[0];
+      if (phase && phase.shareCount >= 0.55) {
+        const phaseLabel =
+          phase.phase === 'early'
+            ? '前半'
+            : phase.phase === 'mid'
+              ? '中盤'
+              : '後半';
+        const share = Math.round(phase.shareCount * 100);
+        push(
+          `${team.team}のイベントが${phaseLabel}に集中 (${share}%)`,
+          phase.evidenceIds,
+        );
+        break;
+      }
+    }
+
+    for (const team of teamStats.teams) {
+      const topResult = team.topResults?.[0];
+      if (topResult && topResult.share >= 0.45) {
+        const share = Math.round(topResult.share * 100);
+        push(
+          `${team.team}の結果は${topResult.key}が多い (${share}%)`,
+          topResult.evidenceIds,
+        );
+        break;
+      }
+    }
+  }
+
+  const topAction = params.evidenceStats.actionDistribution[0];
+  if (topAction) {
+    const share = Math.round(topAction.share * 100);
+    push(`頻出アクション: ${topAction.key} (${topAction.count}件, ${share}%)`, topAction.evidenceIds);
+  }
+
+  const topActionDuration = params.evidenceStats.actionDurationDistribution?.[0];
+  if (topActionDuration && topActionDuration.key !== topAction?.key) {
+    const share = Math.round((topActionDuration.shareDuration ?? 0) * 100);
+    push(
+      `長時間アクション: ${topActionDuration.key} (${share}%の滞在)`,
+      topActionDuration.evidenceIds,
+    );
+  }
+
+  const topTeam = params.evidenceStats.teamDistribution?.[0];
+  if (topTeam && (!teamStats || teamStats.teams.length === 0)) {
+    const share = Math.round(topTeam.share * 100);
+    push(`チーム傾向: ${topTeam.key} (${topTeam.count}件, ${share}%)`, topTeam.evidenceIds);
+  }
+
+  const strongTransition = params.insight.strongTransitions?.[0] ?? params.insight.topTransitions[0];
+  if (strongTransition) {
+    const share = Math.round(strongTransition.probability * 100);
+    push(
+      `強い遷移: ${strongTransition.from}→${strongTransition.to} (${share}%)`,
+      strongTransition.evidenceIds,
+    );
+  }
+
+  const topSequence = params.insight.topSequences[0];
+  if (topSequence) {
+    push(`繰り返しシーケンス: ${topSequence.sequence.join('→')}`, topSequence.evidenceIds);
+  }
+
+  const phaseDistribution = params.insight.phaseDistribution;
+  if (phaseDistribution && phaseDistribution.length > 0) {
+    const phase = [...phaseDistribution].sort(
+      (a, b) => b.shareCount - a.shareCount,
+    )[0];
+    if (phase && phase.shareCount >= 0.45) {
+      const phaseLabel =
+        phase.phase === 'early' ? '前半' : phase.phase === 'mid' ? '中盤' : '後半';
+      const share = Math.round(phase.shareCount * 100);
+      push(`イベントが${phaseLabel}に集中 (${share}%)`, phase.evidenceIds);
+    }
+  }
+
+  return anchors.slice(0, 4);
 };
 
 export const buildAiInsightFacts = (
@@ -488,30 +1003,61 @@ export const buildAiInsightFacts = (
       ? 0
       : Math.max(0, maxEnd - minStart);
 
-  const teamDistribution =
-    teamGroup && teamGroup.trim().length > 0
-      ? collectLabelGroupDistribution(evidence, teamGroup)
-      : [];
+  const actionDurationDistribution = collectEvidenceDurationDistribution(evidence);
+  const teamInfo = resolveTeamInfo(evidence, teamGroup);
+  const teamStatsResult = teamInfo
+    ? buildTeamStats(evidence, teamInfo, minStart, maxEnd)
+    : null;
+
+  const evidenceStats: AiInsightFacts['evidenceStats'] = {
+    evidenceCount: evidence.length,
+    timeSpanSec,
+    actionDistribution: collectEvidenceDistribution(evidence, 'action'),
+    labelDistribution: collectEvidenceDistribution(evidence, 'label'),
+    actionDurationDistribution,
+    ...(teamStatsResult?.teamDistribution?.length
+      ? { teamDistribution: teamStatsResult.teamDistribution }
+      : {}),
+    ...(insight.phaseDistribution?.length
+      ? { phaseDistribution: insight.phaseDistribution }
+      : {}),
+  };
+
+  const summaryAnchors = buildSummaryAnchors({
+    insight,
+    evidenceStats,
+    teamStats: teamInfo
+      ? {
+          source: teamInfo.source,
+          confidence: teamInfo.confidence,
+          teams: teamStatsResult?.teamStats ?? [],
+        }
+      : undefined,
+  });
 
   return {
     dimension:
       dimension.type === 'labelGroup' ? `label:${dimension.group}` : 'action',
     summary: insight.summary,
+    summaryAnchors,
+    teamStats: teamInfo
+      ? {
+          source: teamInfo.source,
+          confidence: teamInfo.confidence,
+          teams: teamStatsResult?.teamStats ?? [],
+        }
+      : undefined,
+    evidenceStats,
     topStates: insight.topStates,
+    topStatesByDuration: insight.topStatesByDuration,
     rareStates: insight.rareStates,
     topTransitions: insight.topTransitions,
+    strongTransitions: insight.strongTransitions,
     topSequences: insight.topSequences,
     topSequencesByLength: insight.topSequencesByLength,
     longestEvents: insight.longestEvents,
+    shortestEvents: insight.shortestEvents,
+    phaseDistribution: insight.phaseDistribution,
     streaks: insight.streaks,
-    evidenceStats: {
-      evidenceCount: evidence.length,
-      timeSpanSec,
-      actionDistribution: collectEvidenceDistribution(evidence, 'action'),
-      labelDistribution: collectEvidenceDistribution(evidence, 'label'),
-      ...(teamDistribution.length > 0
-        ? { teamDistribution }
-        : {}),
-    },
   };
 };

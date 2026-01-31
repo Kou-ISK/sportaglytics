@@ -40,7 +40,7 @@ export const buildAugmentedPrompt = (params: {
   maxMemoChars?: number;
   facts?: Record<string, unknown> | null;
 }) => {
-  const maxMemoChars = params.maxMemoChars ?? 120;
+  const maxMemoChars = params.maxMemoChars ?? 90;
   const evidenceLines = params.evidence
     .map((item) => {
       const labels = item.labels.map((label) =>
@@ -61,22 +61,30 @@ export const buildAugmentedPrompt = (params: {
     if (!params.facts) return '(none)';
     try {
       const json = JSON.stringify(params.facts, null, 2);
-      const maxChars = 4000;
+      const maxChars = 2400;
       return json.length > maxChars ? `${json.slice(0, maxChars)}…` : json;
     } catch (_error) {
       return '(invalid)';
     }
   })();
+  const allowedEvidenceIds = params.evidence
+    .map((item) => item.id)
+    .filter(Boolean);
+  const allowedEvidenceText =
+    allowedEvidenceIds.length > 0
+      ? allowedEvidenceIds.join(', ')
+      : '(none)';
 
   return [
     'あなたはスポーツ映像分析のAIレビュー・コパイロットです。',
     '参照してよいのは insight_facts と evidence のみです。証拠にない事実は述べないでください。',
     '数値や傾向を述べる場合は、必ず該当する evidenceIds を提示してください。',
-    'teamDistribution がある場合はチーム別傾向の参考にして構いません（evidenceIds必須）。',
+    'teamStats がある場合はチーム別傾向を必ず確認してください（evidenceIds必須）。teamStats.source が inferred の場合は「推定」として書いてください。',
     'hypotheses / recommendedClips は必ず evidenceIds を含め、断定せず「可能性」「示唆」「要映像確認」の語尾で書いてください。',
-    'summary は短く読みやすく（500文字以内）、断定しないでください。',
+    'summary は summaryAnchors を優先して短く読みやすく（500文字以内）にし、2〜3文でまとめてください。断定しないでください。',
     '出力は簡潔にしてください。hypothesesは最大3件、evidenceHighlightsは最大5件、recommendedClipsは最大5件。',
     'evidenceIdsは各項目最大5件、IDはevidence一覧にあるものだけを使ってください。',
+    'allowed_evidence_ids に含まれないIDは禁止です。不明な項目は空配列で構いません。',
     '必ずJSONのみを出力してください。コードブロックや説明文は出力しないでください。',
     'スキーマ:',
     '{"summary":string,"hypotheses":[{"text":string,"evidenceIds":string[]}],"evidenceHighlights":[{"id":string,"why":string}],"recommendedClips":[{"title":string,"centerId":string,"preSeconds":number,"postSeconds":number,"reason":string,"evidenceIds":string[]}]}',
@@ -90,6 +98,9 @@ export const buildAugmentedPrompt = (params: {
     '',
     '# insight_facts',
     factsText,
+    '',
+    '# allowed_evidence_ids',
+    allowedEvidenceText,
     '',
     '# evidence',
     evidenceLines || '(none)',

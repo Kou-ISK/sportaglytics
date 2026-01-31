@@ -9,6 +9,9 @@ export interface LlamaGenerateRequest {
   prompt: string;
   model: string;
   temperature?: number;
+  topP?: number;
+  topK?: number;
+  repeatPenalty?: number;
   maxTokens?: number;
   timeoutMs?: number;
   requestId?: string;
@@ -34,6 +37,8 @@ export interface LlamaProgressEvent {
     | 'cancelled';
   outputChars?: number;
   elapsedMs?: number;
+  stderrChunk?: string;
+  stdoutChunk?: string;
 }
 
 export interface LlamaModelInfo {
@@ -373,6 +378,10 @@ export const generateWithLlama = async (
 
   const temperature =
     typeof request.temperature === 'number' ? request.temperature : 0.2;
+  const topP = typeof request.topP === 'number' ? request.topP : 0.85;
+  const topK = typeof request.topK === 'number' ? request.topK : 40;
+  const repeatPenalty =
+    typeof request.repeatPenalty === 'number' ? request.repeatPenalty : 1.1;
   const maxTokens =
     typeof request.maxTokens === 'number' ? request.maxTokens : 512;
   const timeoutMs = request.timeoutMs ?? 300000;
@@ -392,6 +401,12 @@ export const generateWithLlama = async (
     String(maxTokens),
     '--temp',
     String(temperature),
+    '--top-p',
+    String(topP),
+    '--top-k',
+    String(topK),
+    '--repeat-penalty',
+    String(repeatPenalty),
     '--simple-io',
     '--no-display-prompt',
     '-no-cnv',
@@ -432,7 +447,10 @@ export const generateWithLlama = async (
 
     let lastProgressAt = 0;
     let lastProgressChars = 0;
-    const emitProgress = (phase: LlamaProgressEvent['phase']) => {
+    const emitProgress = (
+      phase: LlamaProgressEvent['phase'],
+      extra?: { stderrChunk?: string; stdoutChunk?: string },
+    ) => {
       if (!requestId || !options?.onProgress) return;
       const now = Date.now();
       if (
@@ -450,6 +468,7 @@ export const generateWithLlama = async (
           phase,
           outputChars: stdout.length,
           elapsedMs: now - startedAt,
+          ...extra,
         });
       } catch (_error) {
         // ignore
@@ -530,8 +549,9 @@ export const generateWithLlama = async (
     }, timeoutMs);
 
     child.stdout.on('data', (data) => {
-      stdout += stdoutDecoder.write(data);
-      emitProgress('stdout');
+      const chunk = stdoutDecoder.write(data);
+      stdout += chunk;
+      emitProgress('stdout', { stdoutChunk: chunk });
       if (idleTimer) {
         clearTimeout(idleTimer);
       }
@@ -552,7 +572,7 @@ export const generateWithLlama = async (
       if (logVerbosity > 0 && chunk.trim()) {
         console.info(`[llama.cpp] ${chunk.trim()}`);
       }
-      emitProgress('stderr');
+      emitProgress('stderr', { stderrChunk: chunk });
     });
 
     child.on('close', (code) => {

@@ -5,6 +5,9 @@ export interface LLMProviderConfig {
   baseUrl: string;
   model: string;
   temperature?: number;
+  topP?: number;
+  topK?: number;
+  repeatPenalty?: number;
   timeoutMs?: number;
 }
 
@@ -35,12 +38,18 @@ class LocalLLMProvider implements LLMProvider {
   type: LLMProviderType;
   private model: string;
   private temperature: number;
+  private topP: number;
+  private topK: number;
+  private repeatPenalty: number;
   private timeoutMs: number;
 
   constructor(config: LLMProviderConfig) {
     this.type = config.type;
     this.model = config.model;
     this.temperature = config.temperature ?? 0.2;
+    this.topP = config.topP ?? 0.85;
+    this.topK = config.topK ?? 40;
+    this.repeatPenalty = config.repeatPenalty ?? 1.1;
     this.timeoutMs = config.timeoutMs ?? 180000;
   }
 
@@ -82,6 +91,9 @@ class LocalLLMProvider implements LLMProvider {
         prompt,
         model: this.model,
         temperature: this.temperature,
+        topP: this.topP,
+        topK: this.topK,
+        repeatPenalty: this.repeatPenalty,
         maxTokens: 512,
         timeoutMs: this.timeoutMs,
         requestId,
