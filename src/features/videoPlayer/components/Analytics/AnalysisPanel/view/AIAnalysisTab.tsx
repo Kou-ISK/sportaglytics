@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Alert,
   Box,
@@ -71,9 +77,9 @@ const formatSeconds = (value: number) => {
 
 const formatBytes = (value: number) => {
   if (!Number.isFinite(value) || value <= 0) return '--';
-  const gb = value / (1024 ** 3);
+  const gb = value / 1024 ** 3;
   if (gb >= 1) return `${gb.toFixed(2)} GB`;
-  const mb = value / (1024 ** 2);
+  const mb = value / 1024 ** 2;
   return `${mb.toFixed(1)} MB`;
 };
 
@@ -153,9 +159,7 @@ const buildQuestionTemplates = (timeline: TimelineData[]): string[] => {
     if (!trimmed) return;
     actionCounts.set(trimmed, (actionCounts.get(trimmed) ?? 0) + increment);
     const score =
-      (actionScores.get(trimmed) ?? 0) +
-      increment +
-      (teamHit ? -0.5 : 0);
+      (actionScores.get(trimmed) ?? 0) + increment + (teamHit ? -0.5 : 0);
     actionScores.set(trimmed, score);
   };
 
@@ -263,15 +267,21 @@ const formatElapsed = (ms?: number) => {
 
 const collectInsightEvidenceIds = (insight: EventInsights): string[] => {
   const ids = new Set<string>();
-  insight.topStates.forEach((stat) => stat.evidenceIds.forEach((id) => ids.add(id)));
+  insight.topStates.forEach((stat) =>
+    stat.evidenceIds.forEach((id) => ids.add(id)),
+  );
   insight.topTransitions.forEach((stat) =>
     stat.evidenceIds.forEach((id) => ids.add(id)),
   );
   insight.topSequences.forEach((stat) =>
     stat.evidenceIds.forEach((id) => ids.add(id)),
   );
-  insight.streaks.forEach((stat) => stat.evidenceIds.forEach((id) => ids.add(id)));
-  insight.rareStates.forEach((stat) => stat.evidenceIds.forEach((id) => ids.add(id)));
+  insight.streaks.forEach((stat) =>
+    stat.evidenceIds.forEach((id) => ids.add(id)),
+  );
+  insight.rareStates.forEach((stat) =>
+    stat.evidenceIds.forEach((id) => ids.add(id)),
+  );
   insight.longestEvents.forEach((stat) =>
     stat.evidenceIds.forEach((id) => ids.add(id)),
   );
@@ -320,8 +330,8 @@ export const AIAnalysisTab = ({
   onJumpToSegment,
 }: AIAnalysisTabProps) => {
   const { settings, saveSettings } = useSettings();
-  const defaultAiSettings =
-    settings.aiAnalysis ?? DEFAULT_SETTINGS.aiAnalysis ?? {
+  const defaultAiSettings = settings.aiAnalysis ??
+    DEFAULT_SETTINGS.aiAnalysis ?? {
       provider: 'llama.cpp',
       baseUrl: 'http://localhost:11434',
       model: 'auto',
@@ -502,8 +512,7 @@ export const AIAnalysisTab = ({
     return availableModels[0];
   }, [availableModels]);
 
-  const isAutoModel =
-    aiSettings.model?.trim().toLowerCase() === 'auto';
+  const isAutoModel = aiSettings.model?.trim().toLowerCase() === 'auto';
 
   const modelSummary = useMemo(() => {
     if (isAutoModel) {
@@ -516,13 +525,12 @@ export const AIAnalysisTab = ({
 
   const retrieverPreset = aiSettings.retrieverPreset ?? 'balanced';
   const retrieverWeights = useMemo(() => {
-    return RETRIEVER_WEIGHT_MAP[retrieverPreset] ?? RETRIEVER_WEIGHT_MAP.balanced;
+    return (
+      RETRIEVER_WEIGHT_MAP[retrieverPreset] ?? RETRIEVER_WEIGHT_MAP.balanced
+    );
   }, [retrieverPreset]);
   const topK = Math.max(1, aiSettings.topK || 40);
-  const evidenceTarget = useMemo(
-    () => resolveDiversifyTarget(topK),
-    [topK],
-  );
+  const evidenceTarget = useMemo(() => resolveDiversifyTarget(topK), [topK]);
 
   const effectiveTeamGroup = useMemo(() => {
     if (aiSettings.teamLabelGroup) return aiSettings.teamLabelGroup;
@@ -533,7 +541,9 @@ export const AIAnalysisTab = ({
   }, [aiSettings.teamLabelGroup, availableGroups]);
   const teamGroupForFacts = useMemo(() => {
     if (!effectiveTeamGroup) return '';
-    return availableGroups.includes(effectiveTeamGroup) ? effectiveTeamGroup : '';
+    return availableGroups.includes(effectiveTeamGroup)
+      ? effectiveTeamGroup
+      : '';
   }, [availableGroups, effectiveTeamGroup]);
 
   const availableLabels = useMemo(() => {
@@ -595,42 +605,6 @@ export const AIAnalysisTab = ({
     return filters;
   }, [effectiveTeamGroup, teamName, labelGroup, labelName, startTime, endTime]);
 
-  const retrievalBasisText = useMemo(() => {
-    const weights = retrieverWeights;
-    const parts = [
-      `テキスト×${weights.token.toFixed(1)}`,
-      `ラベル×${weights.label.toFixed(1)}`,
-      `メモ×${weights.memo.toFixed(1)}`,
-      `時間×${weights.time.toFixed(1)}`,
-      `稀少ラベル×${weights.rareLabel.toFixed(1)}`,
-    ];
-    const presetLabel =
-      RETRIEVER_PRESETS.find((preset) => preset.value === retrieverPreset)
-        ?.label ?? 'バランス';
-    const extras = [
-      `プリセット:${presetLabel}`,
-      '多様性: 上位/最長/最短/稀少/フロー根拠を優先',
-      `対象件数: 最大${evidenceTarget}件`,
-    ];
-    return `${parts.join(' / ')} | ${extras.join(' / ')}`;
-  }, [evidenceTarget, retrieverPreset, retrieverWeights]);
-
-  const retrievalFilterSummary = useMemo(() => {
-    const parts: string[] = [];
-    const start = parseNumberInput(startTime);
-    const end = parseNumberInput(endTime);
-    if (start != null || end != null) {
-      parts.push(`時間:${start ?? '-'}-${end ?? '-'}`);
-    }
-    if (effectiveTeamGroup && teamName) {
-      parts.push(`チーム:${teamName}`);
-    }
-    if (labelGroup) {
-      parts.push(`ラベル:${labelGroup}${labelName ? `:${labelName}` : ''}`);
-    }
-    return parts.length > 0 ? parts.join(' / ') : 'フィルタなし';
-  }, [effectiveTeamGroup, labelGroup, labelName, startTime, endTime, teamName]);
-
   const parseInsightDimension = useCallback((): InsightDimension => {
     if (insightDimension.startsWith('label:')) {
       const group = insightDimension.replace('label:', '');
@@ -672,14 +646,17 @@ export const AIAnalysisTab = ({
       }
       const coverage = withLabel / insightTimeline.length;
       if (coverage < 0.3) continue;
-      const diversity = values.size / Math.max(2, Math.sqrt(insightTimeline.length));
+      const diversity =
+        values.size / Math.max(2, Math.sqrt(insightTimeline.length));
       const score = coverage * 0.7 + Math.min(1, diversity) * 0.3;
       if (score > bestScore) {
         bestScore = score;
         bestGroup = group;
       }
     }
-    return bestGroup ? { type: 'labelGroup', group: bestGroup } : { type: 'action' };
+    return bestGroup
+      ? { type: 'labelGroup', group: bestGroup }
+      : { type: 'action' };
   }, [
     availableGroups,
     insightDimension,
@@ -820,163 +797,161 @@ export const AIAnalysisTab = ({
     topK,
   ]);
 
-  const handleGenerate = useCallback(async (options?: { reuseEvidence?: boolean }) => {
-    setGenerationError(null);
-    setPlaylistMessage(null);
-    setGenerationStatus('running');
-    setAiResponse(null);
-    setLlmRawText(null);
-    setLlmLiveLog('');
-    setLlmAttempt(1);
-    setLlmRetryInfo(null);
-    setLlmDebug(null);
-    setLlmWarning(null);
+  const handleGenerate = useCallback(
+    async (options?: { reuseEvidence?: boolean }) => {
+      setGenerationError(null);
+      setPlaylistMessage(null);
+      setGenerationStatus('running');
+      setAiResponse(null);
+      setLlmRawText(null);
+      setLlmLiveLog('');
+      setLlmAttempt(1);
+      setLlmRetryInfo(null);
+      setLlmDebug(null);
+      setLlmWarning(null);
 
-    const trimmedQuestion = question.trim();
-    if (!trimmedQuestion) {
-      setGenerationError('質問を入力してください。');
-      setGenerationStatus('error');
-      return;
-    }
-    setLastQuestion(trimmedQuestion);
-
-    const runId = crypto.randomUUID();
-    generationRunIdRef.current = runId;
-    setGenerationRequestId(runId);
-    setLlmProgress({
-      requestId: runId,
-      phase: 'start',
-      outputChars: 0,
-      elapsedMs: 0,
-    });
-    generationAbortRef.current?.abort();
-    const controller = new AbortController();
-    generationAbortRef.current = controller;
-
-    const temperature = Number.isFinite(aiSettings.temperature)
-      ? aiSettings.temperature
-      : 0.2;
-
-    try {
-      const shouldReuse =
-        options?.reuseEvidence &&
-        evidenceItems.length > 0 &&
-        evidenceQuery === trimmedQuestion;
-      const ensured = shouldReuse
-        ? { items: evidenceItems, filters: activeFilters ?? buildFilters() }
-        : await ensureEvidence();
-      if (generationRunIdRef.current !== runId) return;
-      const evidenceInsight = buildEventInsights(
-        mapEvidenceToTimeline(ensured.items),
-        {
-          dimension: resolvedInsightDimension,
-          topN: 4,
-          sequenceLength: 3,
-          sequenceLengths: [3, 4],
-          teamGroup: teamGroupForFacts,
-          normalizeTeamActions: true,
-        },
-      );
-      const facts = buildAiInsightFacts(
-        evidenceInsight,
-        ensured.items,
-        resolvedInsightDimension,
-        teamGroupForFacts,
-        trimmedQuestion,
-        timeline,
-      );
-      const {
-        response,
-        rawText,
-        debug,
-        usedFallback,
-        fallbackSource,
-      } = await generateAiResponse({
-        question: trimmedQuestion,
-        evidence: ensured.items,
-        filters: ensured.filters,
-        facts: facts as Record<string, unknown>,
-        config: {
-          provider: 'llama.cpp',
-          baseUrl: aiSettings.baseUrl,
-          model: aiSettings.model,
-          temperature,
-          topP: LLM_TOP_P,
-          topK: LLM_TOP_K,
-          repeatPenalty: LLM_REPEAT_PENALTY,
-        },
-        options: {
-          maxRetries: MAX_LLM_RETRIES,
-          maxMemoChars: 90,
-          maxEvidence: Math.max(1, evidenceTarget),
-          requestId: runId,
-          signal: controller.signal,
-          onRetry: (info) => {
-            setLlmAttempt(info.attempt);
-            setLlmRetryInfo({
-              attempt: info.attempt,
-              total: info.maxRetries + 1,
-              mode: info.mode,
-              reason: info.reason,
-            });
-            setLlmLiveLog((prev) => {
-              const marker = `\n--- retry ${info.attempt}/${info.maxRetries + 1} (${info.mode}) ---\n`;
-              const next = `${prev}${marker}`;
-              return next.length <= 8000 ? next : next.slice(-8000);
-            });
-          },
-        },
-      });
-      if (generationRunIdRef.current !== runId) return;
-      setAiResponse(response);
-      setLlmRawText(rawText);
-      setLlmDebug(debug ?? null);
-      if (usedFallback) {
-        const reason =
-          fallbackSource === 'heuristic'
-            ? 'LLMのJSON生成に失敗したため、根拠上位から推定結果を作成しました。'
-            : 'JSON解析が不完全だったため、出力を補正して表示しています。';
-        setLlmWarning(reason);
-      } else {
-        setLlmWarning(null);
-      }
-      setGenerationStatus('done');
-    } catch (error) {
-      console.debug('[AI] generate failed', error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'AI生成でエラーが発生しました。';
-      const cancelled = message.includes('キャンセル');
-      if (!cancelled) {
-        setGenerationError(message);
+      const trimmedQuestion = question.trim();
+      if (!trimmedQuestion) {
+        setGenerationError('質問を入力してください。');
         setGenerationStatus('error');
-      } else {
-        setGenerationError('生成をキャンセルしました。');
-        setGenerationStatus('idle');
+        return;
       }
-    } finally {
-      if (generationRunIdRef.current === runId) {
-        generationRunIdRef.current = null;
-        generationAbortRef.current = null;
-        setGenerationRequestId(null);
-        setLlmProgress(null);
+      setLastQuestion(trimmedQuestion);
+
+      const runId = crypto.randomUUID();
+      generationRunIdRef.current = runId;
+      setGenerationRequestId(runId);
+      setLlmProgress({
+        requestId: runId,
+        phase: 'start',
+        outputChars: 0,
+        elapsedMs: 0,
+      });
+      generationAbortRef.current?.abort();
+      const controller = new AbortController();
+      generationAbortRef.current = controller;
+
+      const temperature = Number.isFinite(aiSettings.temperature)
+        ? aiSettings.temperature
+        : 0.2;
+
+      try {
+        const shouldReuse =
+          options?.reuseEvidence &&
+          evidenceItems.length > 0 &&
+          evidenceQuery === trimmedQuestion;
+        const ensured = shouldReuse
+          ? { items: evidenceItems, filters: activeFilters ?? buildFilters() }
+          : await ensureEvidence();
+        if (generationRunIdRef.current !== runId) return;
+        const evidenceInsight = buildEventInsights(
+          mapEvidenceToTimeline(ensured.items),
+          {
+            dimension: resolvedInsightDimension,
+            topN: 4,
+            sequenceLength: 3,
+            sequenceLengths: [3, 4],
+            teamGroup: teamGroupForFacts,
+            normalizeTeamActions: true,
+          },
+        );
+        const facts = buildAiInsightFacts(
+          evidenceInsight,
+          ensured.items,
+          resolvedInsightDimension,
+          teamGroupForFacts,
+          trimmedQuestion,
+          timeline,
+        );
+        const { response, rawText, debug, usedFallback, fallbackSource } =
+          await generateAiResponse({
+            question: trimmedQuestion,
+            evidence: ensured.items,
+            filters: ensured.filters,
+            facts: facts as Record<string, unknown>,
+            config: {
+              provider: 'llama.cpp',
+              baseUrl: aiSettings.baseUrl,
+              model: aiSettings.model,
+              temperature,
+              topP: LLM_TOP_P,
+              topK: LLM_TOP_K,
+              repeatPenalty: LLM_REPEAT_PENALTY,
+            },
+            options: {
+              maxRetries: MAX_LLM_RETRIES,
+              maxMemoChars: 90,
+              maxEvidence: Math.max(1, evidenceTarget),
+              requestId: runId,
+              signal: controller.signal,
+              onRetry: (info) => {
+                setLlmAttempt(info.attempt);
+                setLlmRetryInfo({
+                  attempt: info.attempt,
+                  total: info.maxRetries + 1,
+                  mode: info.mode,
+                  reason: info.reason,
+                });
+                setLlmLiveLog((prev) => {
+                  const marker = `\n--- retry ${info.attempt}/${info.maxRetries + 1} (${info.mode}) ---\n`;
+                  const next = `${prev}${marker}`;
+                  return next.length <= 8000 ? next : next.slice(-8000);
+                });
+              },
+            },
+          });
+        if (generationRunIdRef.current !== runId) return;
+        setAiResponse(response);
+        setLlmRawText(rawText);
+        setLlmDebug(debug ?? null);
+        if (usedFallback) {
+          const reason =
+            fallbackSource === 'heuristic'
+              ? 'LLMのJSON生成に失敗したため、根拠上位から推定結果を作成しました。'
+              : 'JSON解析が不完全だったため、出力を補正して表示しています。';
+          setLlmWarning(reason);
+        } else {
+          setLlmWarning(null);
+        }
+        setGenerationStatus('done');
+      } catch (error) {
+        console.debug('[AI] generate failed', error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'AI生成でエラーが発生しました。';
+        const cancelled = message.includes('キャンセル');
+        if (!cancelled) {
+          setGenerationError(message);
+          setGenerationStatus('error');
+        } else {
+          setGenerationError('生成をキャンセルしました。');
+          setGenerationStatus('idle');
+        }
+      } finally {
+        if (generationRunIdRef.current === runId) {
+          generationRunIdRef.current = null;
+          generationAbortRef.current = null;
+          setGenerationRequestId(null);
+          setLlmProgress(null);
+        }
       }
-    }
-  }, [
-    activeFilters,
-    aiSettings.baseUrl,
-    aiSettings.model,
-    aiSettings.temperature,
-    buildFilters,
-    evidenceItems,
-    evidenceTarget,
-    ensureEvidence,
-    insightData,
-    question,
-    resolvedInsightDimension,
-    evidenceQuery,
-  ]);
+    },
+    [
+      activeFilters,
+      aiSettings.baseUrl,
+      aiSettings.model,
+      aiSettings.temperature,
+      buildFilters,
+      evidenceItems,
+      evidenceTarget,
+      ensureEvidence,
+      insightData,
+      question,
+      resolvedInsightDimension,
+      evidenceQuery,
+    ],
+  );
 
   const handleCancelGeneration = useCallback(async () => {
     if (generationStatus !== 'running') return;
@@ -1060,48 +1035,43 @@ export const AIAnalysisTab = ({
     );
 
     try {
-      const {
-        response,
-        rawText,
-        debug,
-        usedFallback,
-        fallbackSource,
-      } = await generateAiResponse({
-        question: effectiveQuestion,
-        evidence: insightEvidenceItems,
-        filters,
-        facts: facts as Record<string, unknown>,
-        config: {
-          provider: 'llama.cpp',
-          baseUrl: aiSettings.baseUrl,
-          model: aiSettings.model,
-          temperature,
-          topP: LLM_TOP_P,
-          topK: LLM_TOP_K,
-          repeatPenalty: LLM_REPEAT_PENALTY,
-        },
-        options: {
-          maxRetries: MAX_LLM_RETRIES,
-          maxMemoChars: 90,
-          maxEvidence: Math.max(1, evidenceTarget),
-          requestId: runId,
-          signal: controller.signal,
-          onRetry: (info) => {
-            setLlmAttempt(info.attempt);
-            setLlmRetryInfo({
-              attempt: info.attempt,
-              total: info.maxRetries + 1,
-              mode: info.mode,
-              reason: info.reason,
-            });
-            setLlmLiveLog((prev) => {
-              const marker = `\n--- retry ${info.attempt}/${info.maxRetries + 1} (${info.mode}) ---\n`;
-              const next = `${prev}${marker}`;
-              return next.length <= 8000 ? next : next.slice(-8000);
-            });
+      const { response, rawText, debug, usedFallback, fallbackSource } =
+        await generateAiResponse({
+          question: effectiveQuestion,
+          evidence: insightEvidenceItems,
+          filters,
+          facts: facts as Record<string, unknown>,
+          config: {
+            provider: 'llama.cpp',
+            baseUrl: aiSettings.baseUrl,
+            model: aiSettings.model,
+            temperature,
+            topP: LLM_TOP_P,
+            topK: LLM_TOP_K,
+            repeatPenalty: LLM_REPEAT_PENALTY,
           },
-        },
-      });
+          options: {
+            maxRetries: MAX_LLM_RETRIES,
+            maxMemoChars: 90,
+            maxEvidence: Math.max(1, evidenceTarget),
+            requestId: runId,
+            signal: controller.signal,
+            onRetry: (info) => {
+              setLlmAttempt(info.attempt);
+              setLlmRetryInfo({
+                attempt: info.attempt,
+                total: info.maxRetries + 1,
+                mode: info.mode,
+                reason: info.reason,
+              });
+              setLlmLiveLog((prev) => {
+                const marker = `\n--- retry ${info.attempt}/${info.maxRetries + 1} (${info.mode}) ---\n`;
+                const next = `${prev}${marker}`;
+                return next.length <= 8000 ? next : next.slice(-8000);
+              });
+            },
+          },
+        });
       if (generationRunIdRef.current !== runId) return;
       setAiResponse(response);
       setLlmRawText(rawText);
@@ -1230,7 +1200,11 @@ export const AIAnalysisTab = ({
       validatedHighlights.length > 0 ||
       validatedHypotheses.length > 0 ||
       validatedClips.length > 0,
-    [validatedClips.length, validatedHighlights.length, validatedHypotheses.length],
+    [
+      validatedClips.length,
+      validatedHighlights.length,
+      validatedHypotheses.length,
+    ],
   );
 
   const clipSegments = useMemo(() => {
@@ -1322,1008 +1296,1063 @@ export const AIAnalysisTab = ({
       gap={2}
     >
       <Stack spacing={2}>
-      <AnalysisCard title="AIレビュー・コパイロット">
-        <Stack spacing={2}>
-          <Typography variant="body2" color="text.secondary">
-            質問に対して根拠を抽出し、仮説と関連クリップを提案します。送信すると根拠取得→生成まで行います。
-            外部ネットワーク通信は行いません。
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            生成された根拠は右ペインに表示されます。
-          </Typography>
-          <Stack spacing={1.5}>
-            <Paper
-              variant="outlined"
-              sx={{
-                borderRadius: 3,
-                bgcolor: 'background.default',
-                p: 2,
-                minHeight: { xs: 260, md: 320 },
-                maxHeight: { xs: 360, md: 460 },
-                overflowY: 'auto',
-              }}
-            >
-              <Stack spacing={2}>
-                {(displayQuestion || aiResponse || generationStatus === 'running') && (
+        <AnalysisCard title="AI分析">
+          <Stack spacing={2}>
+            <Stack spacing={1.5}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  borderRadius: 3,
+                  bgcolor: 'background.default',
+                  p: 2,
+                  minHeight: { xs: 200, md: 250 },
+                  maxHeight: { xs: 300, md: 350 },
+                  overflowY: 'auto',
+                }}
+              >
+                <Stack spacing={2}>
+                  {(displayQuestion ||
+                    aiResponse ||
+                    generationStatus === 'running') && (
+                    <Box
+                      sx={{
+                        alignSelf: 'flex-end',
+                        bgcolor: 'success.main',
+                        color: 'success.contrastText',
+                        px: 2,
+                        py: 1.5,
+                        borderRadius: 2,
+                        maxWidth: { xs: '100%', md: '85%' },
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                        あなた
+                      </Typography>
+                      <Typography variant="body2">
+                        {displayQuestion || '（インサイト自動生成）'}
+                      </Typography>
+                    </Box>
+                  )}
                   <Box
                     sx={{
-                      alignSelf: 'flex-end',
-                      bgcolor: 'success.main',
-                      color: 'success.contrastText',
+                      alignSelf: 'flex-start',
+                      bgcolor: 'background.paper',
+                      border: '1px solid',
+                      borderColor: 'divider',
                       px: 2,
                       py: 1.5,
                       borderRadius: 2,
-                      maxWidth: { xs: '100%', md: '85%' },
+                      maxWidth: { xs: '100%', md: '90%' },
                     }}
                   >
-                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                      あなた
-                    </Typography>
-                    <Typography variant="body2">
-                      {displayQuestion || '（インサイト自動生成）'}
-                    </Typography>
-                  </Box>
-                )}
-                <Box
-                  sx={{
-                    alignSelf: 'flex-start',
-                    bgcolor: 'background.paper',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    px: 2,
-                    py: 1.5,
-                    borderRadius: 2,
-                    maxWidth: { xs: '100%', md: '90%' },
-                  }}
-                >
-                  <Stack spacing={1.5}>
-                    <Typography variant="caption" color="text.secondary">
-                      AI
-                    </Typography>
-                    {generationStatus === 'running' && (
-                      <Stack spacing={0.5}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <CircularProgress size={18} thickness={5} />
-                          <Typography variant="body2">生成中...</Typography>
-                        </Box>
-                        <Typography variant="caption" color="text.secondary">
-                          試行 {llmAttempt}/{MAX_LLM_RETRIES + 1}
-                          {llmRetryInfo
-                            ? ` / 再試行: ${
-                                llmRetryInfo.mode === 'repair'
-                                  ? 'JSON修復'
-                                  : '情報圧縮'
-                              }`
-                            : ''}
-                        </Typography>
-                        {llmProgress && (
-                          <Typography variant="caption" color="text.secondary">
-                            経過 {formatElapsed(llmProgress.elapsedMs)} / 出力{' '}
-                            {llmProgress.outputChars ?? 0} 文字
-                          </Typography>
-                        )}
-                      </Stack>
-                    )}
-                    {aiResponse && !hasGroundedOutput && (
-                      <Alert severity="warning">
-                        根拠に紐づく出力が不足しています。表示内容は参考程度に留めてください。
-                      </Alert>
-                    )}
-                    {llmWarning && <Alert severity="warning">{llmWarning}</Alert>}
-                    {!aiResponse && generationStatus !== 'running' && (
-                      <Typography variant="body2" color="text.secondary">
-                        まだAI出力がありません。
+                    <Stack spacing={1.5}>
+                      <Typography variant="caption" color="text.secondary">
+                        AI
                       </Typography>
-                    )}
-                    {aiResponse && (
-                      <>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                          要約
-                        </Typography>
+                      {generationStatus === 'running' && (
+                        <Stack spacing={0.5}>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <CircularProgress size={18} thickness={5} />
+                            <Typography variant="body2">生成中...</Typography>
+                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            試行 {llmAttempt}/{MAX_LLM_RETRIES + 1}
+                            {llmRetryInfo
+                              ? ` / 再試行: ${
+                                  llmRetryInfo.mode === 'repair'
+                                    ? 'JSON修復'
+                                    : '情報圧縮'
+                                }`
+                              : ''}
+                          </Typography>
+                          {llmProgress && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              経過 {formatElapsed(llmProgress.elapsedMs)} / 出力{' '}
+                              {llmProgress.outputChars ?? 0} 文字
+                            </Typography>
+                          )}
+                        </Stack>
+                      )}
+                      {aiResponse && !hasGroundedOutput && (
+                        <Alert severity="warning">
+                          根拠に紐づく出力が不足しています。表示内容は参考程度に留めてください。
+                        </Alert>
+                      )}
+                      {llmWarning && (
+                        <Alert severity="warning">{llmWarning}</Alert>
+                      )}
+                      {!aiResponse && generationStatus !== 'running' && (
                         <Typography variant="body2" color="text.secondary">
-                          {stripEvidenceIds(aiResponse.summary)}
+                          まだAI出力がありません。
                         </Typography>
-                        <Divider />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                          因果仮説
-                        </Typography>
-                        {validatedHypotheses.length === 0 ? (
-                          <Typography variant="body2" color="text.secondary">
-                            根拠が不足しているため仮説は表示されません。
+                      )}
+                      {aiResponse && (
+                        <>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 600 }}
+                          >
+                            要約
                           </Typography>
-                        ) : (
-                          <Stack spacing={1}>
-                            {validatedHypotheses.map((hypothesis, index) => (
-                              <Box key={`${hypothesis.text}-${index}`}>
-                                <Typography variant="body2">
-                                  {stripEvidenceIds(hypothesis.text)}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  根拠: {hypothesis.evidenceIds.length}件
-                                </Typography>
-                              </Box>
-                            ))}
-                          </Stack>
-                        )}
-                        <Divider />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                          重要イベント
-                        </Typography>
-                        {validatedHighlights.length === 0 ? (
                           <Typography variant="body2" color="text.secondary">
-                            重要イベントの指摘はありません。
+                            {stripEvidenceIds(aiResponse.summary)}
                           </Typography>
-                        ) : (
-                          <Stack spacing={1}>
-                            {validatedHighlights.map((highlight) => {
-                              const item = timelineMap.get(highlight.id);
-                              return (
-                                <Box
-                                  key={highlight.id}
-                                  sx={{
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    p: 2,
-                                    borderRadius: 2,
-                                    cursor: item ? 'pointer' : 'default',
-                                  }}
-                                  onClick={() => {
-                                    if (item) onJumpToSegment?.(item);
-                                  }}
-                                >
-                                  <Box
-                                    display="flex"
-                                    justifyContent="space-between"
-                                    alignItems="center"
-                                    gap={2}
-                                  >
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                      {item?.actionName ?? highlight.id}
-                                    </Typography>
-                                    {item && (
-                                      <Button
-                                        size="small"
-                                        variant="outlined"
-                                        onClick={() => onJumpToSegment?.(item)}
-                                      >
-                                        映像へジャンプ
-                                      </Button>
-                                    )}
-                                  </Box>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {item
-                                      ? `${formatSeconds(item.startTime)} - ${formatSeconds(
-                                          item.endTime,
-                                        )}`
-                                      : 'イベントを特定できません'}
+                          <Divider />
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 600 }}
+                          >
+                            因果仮説
+                          </Typography>
+                          {validatedHypotheses.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary">
+                              根拠が不足しているため仮説は表示されません。
+                            </Typography>
+                          ) : (
+                            <Stack spacing={1}>
+                              {validatedHypotheses.map((hypothesis, index) => (
+                                <Box key={`${hypothesis.text}-${index}`}>
+                                  <Typography variant="body2">
+                                    {stripEvidenceIds(hypothesis.text)}
                                   </Typography>
-                                  <Typography variant="body2" color="text.secondary" mt={1}>
-                                    {stripEvidenceIds(highlight.why)}
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    根拠: {hypothesis.evidenceIds.length}件
                                   </Typography>
                                 </Box>
-                              );
-                            })}
-                          </Stack>
-                        )}
-                      </>
-                    )}
-                  </Stack>
-                </Box>
-              </Stack>
-            </Paper>
-
-            <Stack spacing={1}>
-              <Typography variant="caption" color="text.secondary">
-                質問テンプレート
-              </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                {questionTemplates.map((template) => (
-                  <Chip
-                    key={template}
-                    label={template}
-                    size="small"
-                    variant="outlined"
-                    onClick={() => setQuestion(template)}
-                  />
-                ))}
-              </Stack>
-            </Stack>
-
-            <Stack spacing={1}>
-              <Typography variant="caption" color="text.secondary">
-                検索プリセット
-              </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                {RETRIEVER_PRESETS.map((preset) => (
-                  <Chip
-                    key={preset.value}
-                    label={preset.label}
-                    size="small"
-                    color={
-                      retrieverPreset === preset.value ? 'primary' : 'default'
-                    }
-                    variant={retrieverPreset === preset.value ? 'filled' : 'outlined'}
-                    onClick={() =>
-                      setAiSettings({ ...aiSettings, retrieverPreset: preset.value })
-                    }
-                  />
-                ))}
-              </Stack>
-              <Typography variant="caption" color="text.secondary">
-                {RETRIEVER_PRESETS.find((preset) => preset.value === retrieverPreset)
-                  ?.helper ?? ''}
-              </Typography>
-            </Stack>
-
-            <Paper
-              variant="outlined"
-              sx={{
-                borderRadius: 999,
-                px: 2,
-                py: 1,
-                display: 'flex',
-                alignItems: 'flex-end',
-                gap: 1.5,
-                bgcolor: 'background.paper',
-              }}
-            >
-              <InputBase
-                value={question}
-                onChange={(event) => setQuestion(event.target.value)}
-                placeholder="メッセージを入力..."
-                fullWidth
-                multiline
-                minRows={1}
-                maxRows={4}
-                sx={{
-                  fontSize: 14,
-                  lineHeight: 1.6,
-                  px: 1,
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    if (
-                      generationStatus !== 'running' &&
-                      retrievalStatus !== 'running' &&
-                      question.trim()
-                    ) {
-                      void handleGenerate();
-                    }
-                  }
-                }}
-              />
-              <Button
-                variant="contained"
-                onClick={() => handleGenerate()}
-                disabled={
-                  generationStatus === 'running' ||
-                  retrievalStatus === 'running' ||
-                  !question.trim()
-                }
-                sx={{ borderRadius: 999, px: 3, minWidth: 88 }}
-              >
-                {generationStatus === 'running'
-                  ? '生成中...'
-                  : '根拠取得して生成'}
-              </Button>
-            </Paper>
-            <Typography variant="caption" color="text.secondary">
-              Enterで根拠取得→生成、Shift+Enterで改行できます。
-            </Typography>
-
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={handleRetrieveEvidence}
-                disabled={
-                  retrievalStatus === 'running' || generationStatus === 'running'
-                }
-              >
-                {retrievalStatus === 'running' ? '検索中...' : '根拠だけ取得'}
-              </Button>
-              <Button
-                size="small"
-                variant="contained"
-                onClick={() => handleGenerate({ reuseEvidence: true })}
-                disabled={
-                  generationStatus === 'running' ||
-                  retrievalStatus === 'running' ||
-                  evidenceItems.length === 0
-                }
-              >
-                {generationStatus === 'running' ? '生成中...' : 'この根拠で再生成'}
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={handleGenerateInsights}
-                disabled={generationStatus === 'running'}
-              >
-                {generationStatus === 'running' ? '生成中...' : 'インサイト自動生成'}
-              </Button>
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => setShowFilters((prev) => !prev)}
-              >
-                {showFilters ? 'フィルタを閉じる' : 'フィルタを開く'}
-              </Button>
-              {generationStatus === 'running' && (
-                <Button size="small" variant="text" onClick={handleCancelGeneration}>
-                  生成をキャンセル
-                </Button>
-              )}
-              {evidenceItems.length > 0 && (
-                <Chip
-                  label={`根拠 ${evidenceItems.length}件`}
-                  size="small"
-                  variant="outlined"
-                />
-              )}
-              {(retrievalStatus === 'running' ||
-                generationStatus === 'running') && (
-                <CircularProgress size={18} thickness={5} />
-              )}
-            </Stack>
-          </Stack>
-
-          <Collapse in={showFilters}>
-            <Stack spacing={2} mt={1}>
-              <Typography variant="caption" color="text.secondary">
-                時間やラベルで絞り込みたい場合だけ設定してください。
-              </Typography>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <TextField
-                  label="開始秒（任意）"
-                  value={startTime}
-                  onChange={(event) => setStartTime(event.target.value)}
-                  type="number"
-                  inputProps={{ min: 0, step: 1 }}
-                  sx={{ flex: 1 }}
-                />
-                <TextField
-                  label="終了秒（任意）"
-                  value={endTime}
-                  onChange={(event) => setEndTime(event.target.value)}
-                  type="number"
-                  inputProps={{ min: 0, step: 1 }}
-                  sx={{ flex: 1 }}
-                />
-                <FormControl sx={{ flex: 1 }}>
-                  <InputLabel id="ai-label-group">ラベルgroup</InputLabel>
-                  <Select
-                    labelId="ai-label-group"
-                    label="ラベルgroup"
-                    value={labelGroup}
-                    onChange={(event) => setLabelGroup(event.target.value)}
-                  >
-                    <MenuItem value="">すべて</MenuItem>
-                    {availableGroups.map((group) => (
-                      <MenuItem key={group} value={group}>
-                        {group}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl sx={{ flex: 1 }} disabled={!labelGroup}>
-                  <InputLabel id="ai-label-name">ラベル名</InputLabel>
-                  <Select
-                    labelId="ai-label-name"
-                    label="ラベル名"
-                    value={labelName}
-                    onChange={(event) => setLabelName(event.target.value)}
-                  >
-                    <MenuItem value="">すべて</MenuItem>
-                    {availableLabels.map((label) => (
-                      <MenuItem key={label} value={label}>
-                        {label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Stack>
-
-              {effectiveTeamGroup && (
-                <FormControl sx={{ maxWidth: 260 }}>
-                  <InputLabel id="ai-team-label">チーム</InputLabel>
-                  <Select
-                    labelId="ai-team-label"
-                    label="チーム"
-                    value={teamName}
-                    onChange={(event) => setTeamName(event.target.value)}
-                  >
-                    <MenuItem value="">すべて</MenuItem>
-                    {availableTeamLabels.map((label) => (
-                      <MenuItem key={label} value={label}>
-                        {label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-            </Stack>
-          </Collapse>
-
-          {retrievalError && <Alert severity="error">{retrievalError}</Alert>}
-          {generationError && <Alert severity="error">{generationError}</Alert>}
-
-          {(llmRawText || llmDebug?.stderr || llmLiveLog) && (
-            <>
-              <Divider />
-              <Box>
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => setShowDebug((prev) => !prev)}
-                >
-                  {showDebug ? 'デバッグ情報を隠す' : 'デバッグ情報を表示'}
-                </Button>
-                {showDebug && (
-                  <Stack spacing={2} mt={1}>
-                    {llmRetryInfo && (
-                      <Typography variant="caption" color="text.secondary">
-                        再試行理由: {llmRetryInfo.reason}
-                      </Typography>
-                    )}
-                    {llmLiveLog && (
-                      <TextField
-                        label="LLM live log"
-                        value={llmLiveLog}
-                        multiline
-                        minRows={3}
-                        fullWidth
-                        InputProps={{ readOnly: true }}
-                      />
-                    )}
-                    {llmRawText && (
-                      <TextField
-                        label="LLM raw output"
-                        value={llmRawText}
-                        multiline
-                        minRows={4}
-                        fullWidth
-                        InputProps={{ readOnly: true }}
-                      />
-                    )}
-                    {llmDebug?.stderr && (
-                      <TextField
-                        label="LLM stderr"
-                        value={llmDebug.stderr}
-                        multiline
-                        minRows={3}
-                        fullWidth
-                        InputProps={{ readOnly: true }}
-                      />
-                    )}
-                    {(llmDebug?.binaryPath ||
-                      llmDebug?.modelPath ||
-                      llmDebug?.durationMs != null) && (
-                      <Stack spacing={0.5}>
-                        {llmDebug?.binaryPath && (
-                          <Typography variant="caption" color="text.secondary">
-                            binary: {llmDebug.binaryPath}
+                              ))}
+                            </Stack>
+                          )}
+                          <Divider />
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 600 }}
+                          >
+                            重要イベント
                           </Typography>
-                        )}
-                        {llmDebug?.modelPath && (
-                          <Typography variant="caption" color="text.secondary">
-                            model: {llmDebug.modelPath}
-                          </Typography>
-                        )}
-                        {llmDebug?.durationMs != null && (
-                          <Typography variant="caption" color="text.secondary">
-                            duration: {llmDebug.durationMs} ms
-                          </Typography>
-                        )}
-                      </Stack>
-                    )}
-                  </Stack>
-                )}
-              </Box>
-            </>
-          )}
-        </Stack>
-      </AnalysisCard>
+                          {validatedHighlights.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary">
+                              重要イベントの指摘はありません。
+                            </Typography>
+                          ) : (
+                            <Stack spacing={1}>
+                              {validatedHighlights.map((highlight) => {
+                                const item = timelineMap.get(highlight.id);
+                                return (
+                                  <Box
+                                    key={highlight.id}
+                                    sx={{
+                                      border: '1px solid',
+                                      borderColor: 'divider',
+                                      p: 2,
+                                      borderRadius: 2,
+                                      cursor: item ? 'pointer' : 'default',
+                                    }}
+                                    onClick={() => {
+                                      if (item) onJumpToSegment?.(item);
+                                    }}
+                                  >
+                                    <Box
+                                      display="flex"
+                                      justifyContent="space-between"
+                                      alignItems="center"
+                                      gap={2}
+                                    >
+                                      <Typography
+                                        variant="subtitle2"
+                                        sx={{ fontWeight: 600 }}
+                                      >
+                                        {item?.actionName ?? highlight.id}
+                                      </Typography>
+                                      {item && (
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          onClick={() =>
+                                            onJumpToSegment?.(item)
+                                          }
+                                        >
+                                          映像へジャンプ
+                                        </Button>
+                                      )}
+                                    </Box>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                    >
+                                      {item
+                                        ? `${formatSeconds(item.startTime)} - ${formatSeconds(
+                                            item.endTime,
+                                          )}`
+                                        : 'イベントを特定できません'}
+                                    </Typography>
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                      mt={1}
+                                    >
+                                      {stripEvidenceIds(highlight.why)}
+                                    </Typography>
+                                  </Box>
+                                );
+                              })}
+                            </Stack>
+                          )}
+                        </>
+                      )}
+                    </Stack>
+                  </Box>
+                </Stack>
+              </Paper>
 
-      <AnalysisCard title="おすすめクリップ">
-        <Stack spacing={2}>
-          <Button
-            variant="contained"
-            onClick={handleCreatePlaylist}
-            disabled={
-              !onCreateAiPlaylist ||
-              clipSegments.length === 0 ||
-              !hasGroundedOutput
-            }
-          >
-            この根拠からプレイリスト生成
-          </Button>
-          {playlistMessage && (
-            <Alert severity="info">{playlistMessage}</Alert>
-          )}
-          {!aiResponse && (
-            <Typography variant="body2" color="text.secondary">
-              まだ生成結果がありません。
-            </Typography>
-          )}
-          {aiResponse && clipSegments.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              生成可能なクリップがありません。
-            </Typography>
-          ) : (
-            <Stack spacing={1}>
-              {validatedClips.map((clip, index) => (
-                <Box
-                  key={`${clip.centerId}-${index}`}
-                  sx={{ border: '1px solid', borderColor: 'divider', p: 2, borderRadius: 2 }}
-                >
-                  {(() => {
-                    const center = evidenceMap.get(clip.centerId);
-                    const centerLabel = center?.actionName ?? '中心イベント';
-                    const centerTime = center
-                      ? `${formatSeconds(center.startTime)} - ${formatSeconds(center.endTime)}`
-                      : '';
-                    return (
-                      <>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                    {stripEvidenceIds(clip.title, 'AIクリップ')}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                        {centerLabel}
-                        {centerTime ? ` / ${centerTime}` : ''} / pre {clip.preSeconds}s / post{' '}
-                        {clip.postSeconds}s
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" mt={1}>
-                    理由: {stripEvidenceIds(clip.reason)}
-                  </Typography>
-                      </>
-                    );
-                  })()}
-                </Box>
-              ))}
-            </Stack>
-          )}
-        </Stack>
-      </AnalysisCard>
-
-      </Stack>
-      <Stack spacing={2}>
-      <AnalysisCard title="引用された根拠">
-        <Stack spacing={2}>
-          {groundedEvidence.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              引用された根拠がありません。
-            </Typography>
-          ) : (
-            groundedEvidence.map((item) => (
-              <Box
-                key={item.id}
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  p: 2,
-                  borderRadius: 2,
-                }}
-              >
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  {item.actionName}
-                </Typography>
+              <Stack spacing={1}>
                 <Typography variant="caption" color="text.secondary">
-                  {formatSeconds(item.startTime)} - {formatSeconds(item.endTime)}
+                  質問テンプレート
                 </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
-                  {getLabelsFromTimelineData({
-                    ...item,
-                    labels: item.labels,
-                  }).map((label, index) => (
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {questionTemplates.map((template) => (
                     <Chip
-                      key={`${label.name}-${index}`}
-                      label={
-                        label.group ? `${label.group}:${label.name}` : label.name
-                      }
+                      key={template}
+                      label={template}
                       size="small"
                       variant="outlined"
+                      onClick={() => setQuestion(template)}
                     />
                   ))}
                 </Stack>
-                {item.memo && (
-                  <Typography variant="body2" color="text.secondary" mt={1}>
-                    メモ: {item.memo}
-                  </Typography>
-                )}
-              </Box>
-            ))
-          )}
-        </Stack>
-      </AnalysisCard>
-
-      <AnalysisCard title="取得された根拠">
-        <Stack spacing={2}>
-          <Typography variant="caption" color="text.secondary">
-            根拠取得の評価軸: {retrievalBasisText}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            使用フィルタ: {retrievalFilterSummary}
-          </Typography>
-          {retrievalStatus === 'idle' && (
-            <Typography variant="body2" color="text.secondary">
-              質問とフィルタを指定して送信すると、根拠取得から生成まで実行します。
-            </Typography>
-          )}
-          {retrievalStatus !== 'idle' && evidenceItems.length === 0 && (
-            <Typography variant="body2" color="text.secondary">
-              該当する根拠がありません。
-            </Typography>
-          )}
-          {evidenceItems.map((item) => (
-            <Box
-              key={item.id}
-              sx={{
-                border: '1px solid',
-                borderColor: 'divider',
-                p: 2,
-                borderRadius: 2,
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                {item.actionName}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {formatSeconds(item.startTime)} - {formatSeconds(item.endTime)}
-              </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
-                {getLabelsFromTimelineData({
-                  ...item,
-                  labels: item.labels,
-                }).map((label, index) => (
-                  <Chip
-                    key={`${label.name}-${index}`}
-                    label={
-                      label.group
-                        ? `${label.group}:${label.name}`
-                        : label.name
-                    }
-                    size="small"
-                    variant="outlined"
-                  />
-                ))}
               </Stack>
-              {item.memo && (
-                <Typography variant="body2" color="text.secondary" mt={1}>
-                  メモ: {item.memo}
-                </Typography>
-              )}
-            </Box>
-          ))}
-        </Stack>
-      </AnalysisCard>
 
-      <AnalysisCard title="イベントインサイト（統計）">
-        <Stack spacing={2}>
-          <Typography variant="body2" color="text.secondary">
-            ユーザー定義のイベントだけを用いて傾向を抽出します。現在の時間/ラベル/チーム
-            フィルタが適用されます。
-          </Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <FormControl sx={{ minWidth: 220 }}>
-              <InputLabel id="insight-dimension">分析軸</InputLabel>
-              <Select
-                labelId="insight-dimension"
-                label="分析軸"
-                value={insightDimension}
-                onChange={(event) => setInsightDimension(event.target.value)}
-              >
-                {insightDimensionOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
-          {insightDimension === 'auto' && (
-            <Typography variant="caption" color="text.secondary">
-              自動選択: {resolvedInsightLabel}
-            </Typography>
-          )}
-          {insightData.summary.totalEvents === 0 ? (
-            <Alert severity="info">対象イベントがありません。</Alert>
-          ) : (
-            <>
-              <Box display="flex" flexWrap="wrap" gap={1}>
-                <Chip
-                  size="small"
-                  label={`対象 ${insightData.summary.totalEvents}件`}
-                />
-                <Chip
-                  size="small"
-                  label={`状態 ${insightData.summary.uniqueStates}種類`}
-                />
-                <Chip
-                  size="small"
-                  label={`スパン ${formatSeconds(insightData.summary.timeSpanSec)}`}
-                />
-                <Chip
-                  size="small"
-                  label={`テンポ ${insightData.summary.eventsPerMin.toFixed(2)}件/分`}
-                />
-                <Chip
-                  size="small"
-                  label={`平均時間 ${formatDurationShort(insightData.summary.avgDuration)}`}
-                />
-              </Box>
-              <Divider />
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                主要イベント
-              </Typography>
-              {insightData.topStates.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  集計対象が不足しています。
-                </Typography>
-              ) : (
-                <Stack spacing={1}>
-                  {insightData.topStates.map((stat, index) => (
-                    <Box key={`${stat.state}-${index}`}>
-                      <Typography variant="body2">
-                        {stat.state}：{stat.count}件（{formatPercent(stat.share)}）
-                        / 平均{formatDurationShort(stat.avgDuration)}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
-              )}
-              <Divider />
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                よくある遷移
-              </Typography>
-              {insightData.topTransitions.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  遷移を計算するにはイベントが2件以上必要です。
-                </Typography>
-              ) : (
-                <Stack spacing={1}>
-                  {insightData.topTransitions.map((stat, index) => (
-                    <Typography key={`${stat.from}-${stat.to}-${index}`} variant="body2">
-                      {stat.from} → {stat.to}：{stat.count}回（
-                      {formatPercent(stat.probability)}）/ 平均間隔
-                      {formatGapShort(stat.avgGap)}
-                    </Typography>
-                  ))}
-                </Stack>
-              )}
-              <Divider />
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                頻出シーケンス（長さ3）
-              </Typography>
-              {insightData.topSequences.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  シーケンスを計算するにはイベントが3件以上必要です。
-                </Typography>
-              ) : (
-                <Stack spacing={1}>
-                  {insightData.topSequences.map((stat, index) => (
-                    <Typography key={`${stat.sequence.join('>')}-${index}`} variant="body2">
-                      {stat.sequence.join(' → ')}：{stat.count}回
-                    </Typography>
-                  ))}
-                </Stack>
-              )}
-              <Divider />
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                特徴的イベント
-              </Typography>
               <Stack spacing={1}>
-                {insightData.longestEvents.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    長時間イベントはありません。
-                  </Typography>
-                ) : (
-                  <Stack spacing={1}>
-                    {insightData.longestEvents.map((event) => (
-                      <Box
-                        key={event.id}
-                        sx={{
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          p: 1.5,
-                          borderRadius: 2,
-                        }}
-                      >
-                        <Box
-                          display="flex"
-                          alignItems="center"
-                          justifyContent="space-between"
-                          gap={1}
-                        >
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {event.state}（{event.actionName}）
-                          </Typography>
-                          {timelineMap.has(event.id) && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => onJumpToSegment?.(timelineMap.get(event.id)!)}
-                            >
-                              映像へジャンプ
-                            </Button>
-                          )}
-                        </Box>
-                        <Typography variant="caption" color="text.secondary">
-                          {formatSeconds(event.startTime)} - {formatSeconds(event.endTime)} /
-                          継続 {formatDurationShort(event.duration)}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Stack>
-                )}
-                {insightData.rareStates.length > 0 && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      出現頻度が低い状態:
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
-                      {insightData.rareStates.map((stat) => (
-                        <Chip
-                          key={stat.state}
-                          size="small"
-                          label={`${stat.state} (${stat.count}件)`}
-                        />
-                      ))}
-                    </Stack>
-                  </Box>
-                )}
-              </Stack>
-            </>
-          )}
-        </Stack>
-      </AnalysisCard>
-
-      <AnalysisCard title="AI設定">
-        <Stack spacing={2}>
-          <Typography variant="body2" color="text.secondary">
-            ローカルLLMの接続先とディメンション定義を設定します。
-          </Typography>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Typography variant="body2" color="text.secondary">
-              現在のモデル: {modelSummary}
-            </Typography>
-            <Button
-              size="small"
-              variant="text"
-              onClick={() => setShowAiSettings((prev) => !prev)}
-            >
-              {showAiSettings ? '設定を閉じる' : '設定を開く'}
-            </Button>
-          </Box>
-          <Collapse in={showAiSettings}>
-            <Stack spacing={2}>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <TextField
-                  label="モデルファイル"
-                  value={aiSettings.model}
-                  onChange={(event) =>
-                    setAiSettings({
-                      ...aiSettings,
-                      model: event.target.value,
-                    })
-                  }
-                  placeholder="auto / example.gguf"
-                  helperText="auto にすると、検出された最大サイズのモデルを自動選択します。"
-                  sx={{ flex: 1 }}
-                />
-              </Stack>
-              {modelsStatus === 'loading' && (
-                <Typography variant="body2" color="text.secondary">
-                  モデル一覧を取得中...
+                <Typography variant="caption" color="text.secondary">
+                  検索プリセット
                 </Typography>
-              )}
-              {availableModels.length > 0 && (
                 <Stack direction="row" spacing={1} flexWrap="wrap">
-                  <Chip
-                    label="auto (推奨)"
-                    color={isAutoModel ? 'primary' : 'default'}
-                    onClick={() =>
-                      setAiSettings({
-                        ...aiSettings,
-                        model: 'auto',
-                      })
-                    }
-                  />
-                  {availableModels.map((model) => (
+                  {RETRIEVER_PRESETS.map((preset) => (
                     <Chip
-                      key={model.path}
-                      label={`${model.name} (${formatBytes(model.sizeBytes)})`}
-                      color={aiSettings.model === model.name ? 'primary' : 'default'}
+                      key={preset.value}
+                      label={preset.label}
+                      size="small"
+                      color={
+                        retrieverPreset === preset.value ? 'primary' : 'default'
+                      }
+                      variant={
+                        retrieverPreset === preset.value ? 'filled' : 'outlined'
+                      }
                       onClick={() =>
                         setAiSettings({
                           ...aiSettings,
-                          model: model.name,
+                          retrieverPreset: preset.value,
                         })
                       }
                     />
                   ))}
                 </Stack>
-              )}
-              {recommendedModel &&
-                !isAutoModel &&
-                aiSettings.model !== recommendedModel.name && (
+                <Typography variant="caption" color="text.secondary">
+                  {RETRIEVER_PRESETS.find(
+                    (preset) => preset.value === retrieverPreset,
+                  )?.helper ?? ''}
+                </Typography>
+              </Stack>
+
+              <Paper
+                variant="outlined"
+                sx={{
+                  borderRadius: 999,
+                  px: 2,
+                  py: 1,
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  gap: 1.5,
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <InputBase
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  placeholder="質問を入力..."
+                  fullWidth
+                  multiline
+                  minRows={1}
+                  maxRows={2}
+                  sx={{
+                    fontSize: 14,
+                    lineHeight: 1.5,
+                    px: 1,
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      if (
+                        generationStatus !== 'running' &&
+                        retrievalStatus !== 'running' &&
+                        question.trim()
+                      ) {
+                        void handleGenerate();
+                      }
+                    }
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={() => handleGenerate()}
+                  disabled={
+                    generationStatus === 'running' ||
+                    retrievalStatus === 'running' ||
+                    !question.trim()
+                  }
+                  sx={{ borderRadius: 999, px: 2, minWidth: 60 }}
+                  size="small"
+                >
+                  {generationStatus === 'running' ? '実行中...' : '実行'}
+                </Button>
+              </Paper>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontSize: 11 }}
+              >
+                Enter で実行、Shift+Enter で改行
+              </Typography>
+
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleRetrieveEvidence}
+                  disabled={
+                    retrievalStatus === 'running' ||
+                    generationStatus === 'running'
+                  }
+                >
+                  {retrievalStatus === 'running' ? '検索中...' : '根拠だけ取得'}
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={() => handleGenerate({ reuseEvidence: true })}
+                  disabled={
+                    generationStatus === 'running' ||
+                    retrievalStatus === 'running' ||
+                    evidenceItems.length === 0
+                  }
+                >
+                  {generationStatus === 'running'
+                    ? '生成中...'
+                    : 'この根拠で再生成'}
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleGenerateInsights}
+                  disabled={generationStatus === 'running'}
+                >
+                  {generationStatus === 'running'
+                    ? '生成中...'
+                    : 'インサイト自動生成'}
+                </Button>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => setShowFilters((prev) => !prev)}
+                >
+                  {showFilters ? 'フィルタを閉じる' : 'フィルタを開く'}
+                </Button>
+                {generationStatus === 'running' && (
                   <Button
                     size="small"
-                    variant="outlined"
-                    onClick={() =>
-                      setAiSettings({
-                        ...aiSettings,
-                        model: recommendedModel.name,
-                      })
-                    }
+                    variant="text"
+                    onClick={handleCancelGeneration}
                   >
-                    推奨モデルに切り替え
+                    生成をキャンセル
                   </Button>
                 )}
-              {modelsError && <Alert severity="warning">{modelsError}</Alert>}
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <TextField
-                  label="Temperature"
-                  value={aiSettings.temperature}
-                  onChange={(event) =>
-                    setAiSettings({
-                      ...aiSettings,
-                      temperature: Number(event.target.value),
-                    })
-                  }
-                  type="number"
-                  inputProps={{ min: 0, max: 1, step: 0.1 }}
-                  sx={{ flex: 1 }}
-                />
-                <TextField
-                  label="Top K"
-                  value={aiSettings.topK}
-                  onChange={(event) =>
-                    setAiSettings({
-                      ...aiSettings,
-                      topK: Number(event.target.value),
-                    })
-                  }
-                  type="number"
-                  inputProps={{ min: 1, step: 1 }}
-                  sx={{ flex: 1 }}
-                />
-                <FormControl sx={{ flex: 1 }}>
-                  <InputLabel id="ai-team-group">チーム判定group</InputLabel>
-                  <Select
-                    labelId="ai-team-group"
-                    label="チーム判定group"
-                    value={aiSettings.teamLabelGroup ?? ''}
+                {evidenceItems.length > 0 && (
+                  <Chip
+                    label={`根拠 ${evidenceItems.length}件`}
+                    size="small"
+                    variant="outlined"
+                  />
+                )}
+                {(retrievalStatus === 'running' ||
+                  generationStatus === 'running') && (
+                  <CircularProgress size={18} thickness={5} />
+                )}
+              </Stack>
+            </Stack>
+
+            <Collapse in={showFilters}>
+              <Stack spacing={2} mt={1}>
+                <Typography variant="caption" color="text.secondary">
+                  時間やラベルで絞り込みたい場合だけ設定してください。
+                </Typography>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <TextField
+                    label="開始秒（任意）"
+                    value={startTime}
+                    onChange={(event) => setStartTime(event.target.value)}
+                    type="number"
+                    inputProps={{ min: 0, step: 1 }}
+                    sx={{ flex: 1 }}
+                  />
+                  <TextField
+                    label="終了秒（任意）"
+                    value={endTime}
+                    onChange={(event) => setEndTime(event.target.value)}
+                    type="number"
+                    inputProps={{ min: 0, step: 1 }}
+                    sx={{ flex: 1 }}
+                  />
+                  <FormControl sx={{ flex: 1 }}>
+                    <InputLabel id="ai-label-group">ラベルgroup</InputLabel>
+                    <Select
+                      labelId="ai-label-group"
+                      label="ラベルgroup"
+                      value={labelGroup}
+                      onChange={(event) => setLabelGroup(event.target.value)}
+                    >
+                      <MenuItem value="">すべて</MenuItem>
+                      {availableGroups.map((group) => (
+                        <MenuItem key={group} value={group}>
+                          {group}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl sx={{ flex: 1 }} disabled={!labelGroup}>
+                    <InputLabel id="ai-label-name">ラベル名</InputLabel>
+                    <Select
+                      labelId="ai-label-name"
+                      label="ラベル名"
+                      value={labelName}
+                      onChange={(event) => setLabelName(event.target.value)}
+                    >
+                      <MenuItem value="">すべて</MenuItem>
+                      {availableLabels.map((label) => (
+                        <MenuItem key={label} value={label}>
+                          {label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Stack>
+
+                {effectiveTeamGroup && (
+                  <FormControl sx={{ maxWidth: 260 }}>
+                    <InputLabel id="ai-team-label">チーム</InputLabel>
+                    <Select
+                      labelId="ai-team-label"
+                      label="チーム"
+                      value={teamName}
+                      onChange={(event) => setTeamName(event.target.value)}
+                    >
+                      <MenuItem value="">すべて</MenuItem>
+                      {availableTeamLabels.map((label) => (
+                        <MenuItem key={label} value={label}>
+                          {label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              </Stack>
+            </Collapse>
+
+            {retrievalError && <Alert severity="error">{retrievalError}</Alert>}
+            {generationError && (
+              <Alert severity="error">{generationError}</Alert>
+            )}
+
+            {(llmRawText || llmDebug?.stderr || llmLiveLog) && (
+              <>
+                <Divider />
+                <Box>
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => setShowDebug((prev) => !prev)}
+                  >
+                    {showDebug ? 'デバッグ情報を隠す' : 'デバッグ情報を表示'}
+                  </Button>
+                  {showDebug && (
+                    <Stack spacing={2} mt={1}>
+                      {llmRetryInfo && (
+                        <Typography variant="caption" color="text.secondary">
+                          再試行理由: {llmRetryInfo.reason}
+                        </Typography>
+                      )}
+                      {llmLiveLog && (
+                        <TextField
+                          label="LLM live log"
+                          value={llmLiveLog}
+                          multiline
+                          minRows={3}
+                          fullWidth
+                          InputProps={{ readOnly: true }}
+                        />
+                      )}
+                      {llmRawText && (
+                        <TextField
+                          label="LLM raw output"
+                          value={llmRawText}
+                          multiline
+                          minRows={4}
+                          fullWidth
+                          InputProps={{ readOnly: true }}
+                        />
+                      )}
+                      {llmDebug?.stderr && (
+                        <TextField
+                          label="LLM stderr"
+                          value={llmDebug.stderr}
+                          multiline
+                          minRows={3}
+                          fullWidth
+                          InputProps={{ readOnly: true }}
+                        />
+                      )}
+                      {(llmDebug?.binaryPath ||
+                        llmDebug?.modelPath ||
+                        llmDebug?.durationMs != null) && (
+                        <Stack spacing={0.5}>
+                          {llmDebug?.binaryPath && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              binary: {llmDebug.binaryPath}
+                            </Typography>
+                          )}
+                          {llmDebug?.modelPath && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              model: {llmDebug.modelPath}
+                            </Typography>
+                          )}
+                          {llmDebug?.durationMs != null && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              duration: {llmDebug.durationMs} ms
+                            </Typography>
+                          )}
+                        </Stack>
+                      )}
+                    </Stack>
+                  )}
+                </Box>
+              </>
+            )}
+          </Stack>
+        </AnalysisCard>
+
+        <AnalysisCard title="クリップ">
+          <Stack spacing={2}>
+            <Button
+              variant="contained"
+              onClick={handleCreatePlaylist}
+              disabled={
+                !onCreateAiPlaylist ||
+                clipSegments.length === 0 ||
+                !hasGroundedOutput
+              }
+              size="small"
+            >
+              プレイリスト作成
+            </Button>
+            {playlistMessage && (
+              <Alert severity="info">{playlistMessage}</Alert>
+            )}
+            {!aiResponse && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: 12 }}
+              >
+                結果がありません。
+              </Typography>
+            )}
+            {aiResponse && clipSegments.length === 0 ? (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: 12 }}
+              >
+                クリップが見つかりませんでした。
+              </Typography>
+            ) : (
+              <Stack spacing={1}>
+                {validatedClips.map((clip, index) => (
+                  <Box
+                    key={`${clip.centerId}-${index}`}
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      p: 2,
+                      borderRadius: 2,
+                    }}
+                  >
+                    {(() => {
+                      const center = evidenceMap.get(clip.centerId);
+                      const centerLabel = center?.actionName ?? '中心イベント';
+                      const centerTime = center
+                        ? `${formatSeconds(center.startTime)} - ${formatSeconds(center.endTime)}`
+                        : '';
+                      return (
+                        <>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 600 }}
+                          >
+                            {stripEvidenceIds(clip.title, 'AIクリップ')}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {centerLabel}
+                            {centerTime ? ` / ${centerTime}` : ''} / pre{' '}
+                            {clip.preSeconds}s / post {clip.postSeconds}s
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            mt={1}
+                          >
+                            理由: {stripEvidenceIds(clip.reason)}
+                          </Typography>
+                        </>
+                      );
+                    })()}
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </Stack>
+        </AnalysisCard>
+      </Stack>
+      <Stack spacing={2}>
+        <AnalysisCard title="根拠">
+          <Stack spacing={2}>
+            {groundedEvidence.length === 0 ? (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: 12 }}
+              >
+                根拠がありません。
+              </Typography>
+            ) : (
+              groundedEvidence.map((item) => (
+                <Box
+                  key={item.id}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    p: 2,
+                    borderRadius: 2,
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    sx={{ mb: 1 }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      {item.actionName}
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => onJumpToSegment?.(item)}
+                      sx={{ fontSize: 10, py: 0.5 }}
+                    >
+                      映像へジャンプ
+                    </Button>
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatSeconds(item.startTime)} -{' '}
+                    {formatSeconds(item.endTime)}
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                    {getLabelsFromTimelineData({
+                      ...item,
+                      labels: item.labels,
+                    }).map((label, index) => (
+                      <Chip
+                        key={`${label.name}-${index}`}
+                        label={
+                          label.group
+                            ? `${label.group}:${label.name}`
+                            : label.name
+                        }
+                        size="small"
+                        variant="outlined"
+                      />
+                    ))}
+                  </Stack>
+                  {item.memo && (
+                    <Typography variant="body2" color="text.secondary" mt={1}>
+                      メモ: {item.memo}
+                    </Typography>
+                  )}
+                </Box>
+              ))
+            )}
+          </Stack>
+        </AnalysisCard>
+
+        <AnalysisCard title="イベントインサイト（統計）">
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
+              ユーザー定義のイベントだけを用いて傾向を抽出します。現在の時間/ラベル/チーム
+              フィルタが適用されます。
+            </Typography>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <FormControl sx={{ minWidth: 220 }}>
+                <InputLabel id="insight-dimension">分析軸</InputLabel>
+                <Select
+                  labelId="insight-dimension"
+                  label="分析軸"
+                  value={insightDimension}
+                  onChange={(event) => setInsightDimension(event.target.value)}
+                >
+                  {insightDimensionOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+            {insightDimension === 'auto' && (
+              <Typography variant="caption" color="text.secondary">
+                自動選択: {resolvedInsightLabel}
+              </Typography>
+            )}
+            {insightData.summary.totalEvents === 0 ? (
+              <Alert severity="info">対象イベントがありません。</Alert>
+            ) : (
+              <>
+                <Box display="flex" flexWrap="wrap" gap={1}>
+                  <Chip
+                    size="small"
+                    label={`対象 ${insightData.summary.totalEvents}件`}
+                  />
+                  <Chip
+                    size="small"
+                    label={`状態 ${insightData.summary.uniqueStates}種類`}
+                  />
+                  <Chip
+                    size="small"
+                    label={`スパン ${formatSeconds(insightData.summary.timeSpanSec)}`}
+                  />
+                  <Chip
+                    size="small"
+                    label={`テンポ ${insightData.summary.eventsPerMin.toFixed(2)}件/分`}
+                  />
+                  <Chip
+                    size="small"
+                    label={`平均時間 ${formatDurationShort(insightData.summary.avgDuration)}`}
+                  />
+                </Box>
+                <Divider />
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  主要イベント
+                </Typography>
+                {insightData.topStates.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    集計対象が不足しています。
+                  </Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    {insightData.topStates.map((stat, index) => (
+                      <Box key={`${stat.state}-${index}`}>
+                        <Typography variant="body2">
+                          {stat.state}：{stat.count}件（
+                          {formatPercent(stat.share)}） / 平均
+                          {formatDurationShort(stat.avgDuration)}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+                <Divider />
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  よくある遷移
+                </Typography>
+                {insightData.topTransitions.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    遷移を計算するにはイベントが2件以上必要です。
+                  </Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    {insightData.topTransitions.map((stat, index) => (
+                      <Typography
+                        key={`${stat.from}-${stat.to}-${index}`}
+                        variant="body2"
+                      >
+                        {stat.from} → {stat.to}：{stat.count}回（
+                        {formatPercent(stat.probability)}）/ 平均間隔
+                        {formatGapShort(stat.avgGap)}
+                      </Typography>
+                    ))}
+                  </Stack>
+                )}
+                <Divider />
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  頻出シーケンス（長さ3）
+                </Typography>
+                {insightData.topSequences.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    シーケンスを計算するにはイベントが3件以上必要です。
+                  </Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    {insightData.topSequences.map((stat, index) => (
+                      <Typography
+                        key={`${stat.sequence.join('>')}-${index}`}
+                        variant="body2"
+                      >
+                        {stat.sequence.join(' → ')}：{stat.count}回
+                      </Typography>
+                    ))}
+                  </Stack>
+                )}
+                <Divider />
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  特徴的イベント
+                </Typography>
+                <Stack spacing={1}>
+                  {insightData.longestEvents.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      長時間イベントはありません。
+                    </Typography>
+                  ) : (
+                    <Stack spacing={1}>
+                      {insightData.longestEvents.map((event) => (
+                        <Box
+                          key={event.id}
+                          sx={{
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            p: 1.5,
+                            borderRadius: 2,
+                          }}
+                        >
+                          <Box
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            gap={1}
+                          >
+                            <Typography
+                              variant="body2"
+                              sx={{ fontWeight: 600 }}
+                            >
+                              {event.state}（{event.actionName}）
+                            </Typography>
+                            {timelineMap.has(event.id) && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() =>
+                                  onJumpToSegment?.(timelineMap.get(event.id)!)
+                                }
+                              >
+                                映像へジャンプ
+                              </Button>
+                            )}
+                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            {formatSeconds(event.startTime)} -{' '}
+                            {formatSeconds(event.endTime)} / 継続{' '}
+                            {formatDurationShort(event.duration)}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  )}
+                  {insightData.rareStates.length > 0 && (
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        出現頻度が低い状態:
+                      </Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                        {insightData.rareStates.map((stat) => (
+                          <Chip
+                            key={stat.state}
+                            size="small"
+                            label={`${stat.state} (${stat.count}件)`}
+                          />
+                        ))}
+                      </Stack>
+                    </Box>
+                  )}
+                </Stack>
+              </>
+            )}
+          </Stack>
+        </AnalysisCard>
+
+        <AnalysisCard title="AI設定">
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
+              ローカルLLMの接続先とディメンション定義を設定します。
+            </Typography>
+            <Box
+              display="flex"
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <Typography variant="body2" color="text.secondary">
+                現在のモデル: {modelSummary}
+              </Typography>
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => setShowAiSettings((prev) => !prev)}
+              >
+                {showAiSettings ? '設定を閉じる' : '設定を開く'}
+              </Button>
+            </Box>
+            <Collapse in={showAiSettings}>
+              <Stack spacing={2}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <TextField
+                    label="モデルファイル"
+                    value={aiSettings.model}
                     onChange={(event) =>
                       setAiSettings({
                         ...aiSettings,
-                        teamLabelGroup: event.target.value,
+                        model: event.target.value,
                       })
                     }
-                  >
-                    <MenuItem value="">自動検出</MenuItem>
-                    {availableGroups.map((group) => (
-                      <MenuItem key={group} value={group}>
-                        {group}
-                      </MenuItem>
+                    placeholder="auto / example.gguf"
+                    helperText="auto にすると、検出された最大サイズのモデルを自動選択します。"
+                    sx={{ flex: 1 }}
+                  />
+                </Stack>
+                {modelsStatus === 'loading' && (
+                  <Typography variant="body2" color="text.secondary">
+                    モデル一覧を取得中...
+                  </Typography>
+                )}
+                {availableModels.length > 0 && (
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip
+                      label="auto (推奨)"
+                      color={isAutoModel ? 'primary' : 'default'}
+                      onClick={() =>
+                        setAiSettings({
+                          ...aiSettings,
+                          model: 'auto',
+                        })
+                      }
+                    />
+                    {availableModels.map((model) => (
+                      <Chip
+                        key={model.path}
+                        label={`${model.name} (${formatBytes(model.sizeBytes)})`}
+                        color={
+                          aiSettings.model === model.name
+                            ? 'primary'
+                            : 'default'
+                        }
+                        onClick={() =>
+                          setAiSettings({
+                            ...aiSettings,
+                            model: model.name,
+                          })
+                        }
+                      />
                     ))}
-                  </Select>
-                </FormControl>
+                  </Stack>
+                )}
+                {recommendedModel &&
+                  !isAutoModel &&
+                  aiSettings.model !== recommendedModel.name && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() =>
+                        setAiSettings({
+                          ...aiSettings,
+                          model: recommendedModel.name,
+                        })
+                      }
+                    >
+                      推奨モデルに切り替え
+                    </Button>
+                  )}
+                {modelsError && <Alert severity="warning">{modelsError}</Alert>}
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <TextField
+                    label="Temperature"
+                    value={aiSettings.temperature}
+                    onChange={(event) =>
+                      setAiSettings({
+                        ...aiSettings,
+                        temperature: Number(event.target.value),
+                      })
+                    }
+                    type="number"
+                    inputProps={{ min: 0, max: 1, step: 0.1 }}
+                    sx={{ flex: 1 }}
+                  />
+                  <TextField
+                    label="Top K"
+                    value={aiSettings.topK}
+                    onChange={(event) =>
+                      setAiSettings({
+                        ...aiSettings,
+                        topK: Number(event.target.value),
+                      })
+                    }
+                    type="number"
+                    inputProps={{ min: 1, step: 1 }}
+                    sx={{ flex: 1 }}
+                  />
+                  <FormControl sx={{ flex: 1 }}>
+                    <InputLabel id="ai-team-group">チーム判定group</InputLabel>
+                    <Select
+                      labelId="ai-team-group"
+                      label="チーム判定group"
+                      value={aiSettings.teamLabelGroup ?? ''}
+                      onChange={(event) =>
+                        setAiSettings({
+                          ...aiSettings,
+                          teamLabelGroup: event.target.value,
+                        })
+                      }
+                    >
+                      <MenuItem value="">自動検出</MenuItem>
+                      {availableGroups.map((group) => (
+                        <MenuItem key={group} value={group}>
+                          {group}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Stack>
+                <Button variant="outlined" onClick={handleSaveSettings}>
+                  AI設定を保存
+                </Button>
+                {settingsMessage && (
+                  <Alert severity="info">{settingsMessage}</Alert>
+                )}
+                <Typography variant="caption" color="text.secondary">
+                  モデルは `public/llama/models` 配下に配置してください。
+                </Typography>
               </Stack>
-              <Button variant="outlined" onClick={handleSaveSettings}>
-                AI設定を保存
-              </Button>
-              {settingsMessage && (
-                <Alert severity="info">{settingsMessage}</Alert>
-              )}
-              <Typography variant="caption" color="text.secondary">
-                モデルは `public/llama/models` 配下に配置してください。
-              </Typography>
-            </Stack>
-          </Collapse>
-        </Stack>
-      </AnalysisCard>
+            </Collapse>
+          </Stack>
+        </AnalysisCard>
       </Stack>
     </Box>
   );

@@ -89,10 +89,7 @@ export const AnalysisPanelView = ({
         />
       )}
 
-      <Box
-        sx={{ display: currentView === 'ai' ? 'block' : 'none' }}
-        aria-hidden={currentView !== 'ai'}
-      >
+      {currentView === 'ai' && (
         <AIAnalysisTab
           hasData={hasTimelineData}
           timeline={timeline}
@@ -100,7 +97,7 @@ export const AnalysisPanelView = ({
           onCreateAiPlaylist={onCreateAiPlaylist}
           onJumpToSegment={onJumpToSegment}
         />
-      </Box>
+      )}
     </>
   );
 
