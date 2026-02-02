@@ -221,11 +221,51 @@ const VideoPlayerAppContent = () => {
   const handleCreateAiPlaylist = useCallback(
     async (payload: { name: string; items: PlaylistItem[] }) => {
       if (!payload?.items || payload.items.length === 0) return;
-      const playlist = createPlaylist(payload.name, 'AIレビュー・コパイロット');
-      addItems(playlist.id, payload.items);
-      await openPlaylistWindow();
+
+      const playlistApi = window.electronAPI?.playlist;
+      if (!playlistApi) {
+        console.debug('プレイリストAPIが利用できません。');
+        return;
+      }
+
+      try {
+        console.log(
+          '[AI Playlist] Creating playlist with items:',
+          payload.items.length,
+        );
+
+        // ウィンドウを開く（まだ開いていなければ）
+        const count = await playlistApi.getOpenWindowCount();
+        if (count === 0) {
+          await playlistApi.openWindow();
+          await new Promise<void>((resolve) => setTimeout(resolve, 500));
+        }
+
+        // 各アイテムに videoSource を設定して追加
+        const list = videoList || [];
+        for (let i = 0; i < payload.items.length; i++) {
+          const item = payload.items[i];
+          const playlistItem: PlaylistItem = {
+            ...item,
+            videoSource: list[0] || undefined,
+            videoSource2: list[1] || undefined,
+          };
+          console.log(
+            `[AI Playlist] Adding item ${i + 1}/${payload.items.length}:`,
+            {
+              actionName: playlistItem.actionName,
+              startTime: playlistItem.startTime,
+              endTime: playlistItem.endTime,
+            },
+          );
+          await playlistApi.addItemToAllWindows(playlistItem);
+        }
+        console.log('[AI Playlist] Successfully added all items');
+      } catch (error) {
+        console.debug('AIプレイリストの作成に失敗しました。', error);
+      }
     },
-    [addItems, createPlaylist, openPlaylistWindow],
+    [videoList],
   );
 
   const createPlaylistRef = useRef(handleCreateAiPlaylist);

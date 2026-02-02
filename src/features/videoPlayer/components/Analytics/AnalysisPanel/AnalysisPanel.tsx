@@ -4,11 +4,7 @@ import type { PlaylistItem } from '../../../../../types/Playlist';
 import { AnalysisPanelView } from './view/AnalysisPanelView';
 import { useAnalysisPanelState } from './hooks/useAnalysisPanelState';
 
-export type AnalysisView =
-  | 'dashboard'
-  | 'momentum'
-  | 'matrix'
-  | 'ai';
+export type AnalysisView = 'dashboard' | 'momentum' | 'matrix' | 'ai';
 
 interface AnalysisPanelProps {
   open: boolean;

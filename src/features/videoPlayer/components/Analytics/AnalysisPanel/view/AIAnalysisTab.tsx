@@ -1935,7 +1935,13 @@ export const AIAnalysisTab = ({
           </Stack>
         </AnalysisCard>
       </Stack>
-      <Stack spacing={2}>
+      <Stack
+        spacing={2}
+        sx={{
+          overflowY: 'auto',
+          maxHeight: { xs: 'none', lg: '100vh' },
+        }}
+      >
         <AnalysisCard title="根拠">
           <Stack spacing={2}>
             {groundedEvidence.length === 0 ? (
