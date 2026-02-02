@@ -8,7 +8,7 @@ import { useVideoPlayerApp } from '../hooks/useVideoPlayerApp';
 import { useSettings } from '../hooks/useSettings';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useActionPreset } from '../contexts/ActionPresetContext';
-import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext';
+import { PlaylistProvider } from '../contexts/PlaylistContext';
 import { TimelineData } from '../types/TimelineData';
 import type { PlaylistItem } from '../types/Playlist';
 import type { TimelineActionSectionHandle } from './videoPlayer/components/TimelineActionSection';
@@ -82,7 +82,6 @@ const VideoPlayerAppContent = () => {
 
   // ホットキー設定を読み込み
   const { settings } = useSettings();
-  const { createPlaylist, addItems, openPlaylistWindow } = usePlaylist();
   const { activeActions } = useActionPreset();
   const activeCodeWindow =
     settings.codingPanel?.codeWindows?.find(

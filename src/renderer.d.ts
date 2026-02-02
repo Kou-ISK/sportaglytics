@@ -30,11 +30,16 @@ export interface IElectronAPI {
     }>,
     metaDataConfig: unknown,
   ) => Promise<PackageDatas>;
-  on: (
-    channel: string,
-    listener: (event: unknown, args: unknown) => void,
-  ) => void;
-  off: (channel: string, listener: (...args: unknown[]) => void) => void; // 追加
+  on(
+    channel: 'analysis:jump-to-segment',
+    listener: (event: unknown, segment: TimelineData) => void,
+  ): void;
+  on(channel: string, listener: (event: unknown, args: unknown) => void): void;
+  off(
+    channel: 'analysis:jump-to-segment',
+    listener: (event: unknown, segment: TimelineData) => void,
+  ): void;
+  off(channel: string, listener: (...args: unknown[]) => void): void;
   // メニューからの音声同期イベント
   onResyncAudio: (callback: () => void) => void;
   onResetSync: (callback: () => void) => void;
@@ -85,7 +90,10 @@ export interface IElectronAPI {
     onSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
     offSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
     sendJumpToSegment: (segment: TimelineData) => void;
-    sendCreateAiPlaylist: (payload: { name: string; items: PlaylistItem[] }) => void;
+    sendCreateAiPlaylist: (payload: {
+      name: string;
+      items: PlaylistItem[];
+    }) => void;
   };
   llama: {
     generate: (payload: {
