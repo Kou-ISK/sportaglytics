@@ -3,14 +3,12 @@ import {
   Box,
   Dialog,
   DialogContent,
-  DialogTitle,
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { AnalysisView } from '../AnalysisPanel';
 import type { AnalysisPanelDerivedState } from '../hooks/useAnalysisPanelState';
-import { AnalysisPanelHeader } from './AnalysisPanelHeader';
 import { MomentumTab } from './MomentumTab';
 import { AIAnalysisTab } from './AIAnalysisTab';
 import { DashboardTab } from './DashboardTab';
@@ -102,14 +100,7 @@ export const AnalysisPanelView = ({
   );
 
   if (embedded) {
-    return (
-      <Box sx={{ p: 3, height: '100%', overflow: 'auto' }}>
-        <Box sx={{ mb: 2 }}>
-          <AnalysisPanelHeader onClose={onClose} />
-        </Box>
-        {content}
-      </Box>
-    );
+    return <Box sx={{ p: 3, height: '100%', overflow: 'auto' }}>{content}</Box>;
   }
 
   return (
@@ -118,17 +109,10 @@ export const AnalysisPanelView = ({
       onClose={onClose}
       fullWidth
       maxWidth="lg"
-      aria-labelledby="stats-dialog-title"
       disableEnforceFocus
       disableRestoreFocus
     >
-      <DialogTitle id="stats-dialog-title" sx={{ pb: 1 }}>
-        <AnalysisPanelHeader onClose={onClose} />
-      </DialogTitle>
-
-      <DialogContent dividers sx={{ pt: 0 }}>
-        {content}
-      </DialogContent>
+      <DialogContent sx={{ pt: 2 }}>{content}</DialogContent>
     </Dialog>
   );
 };
