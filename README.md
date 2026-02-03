@@ -1,7 +1,7 @@
 # SporTagLytics
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
 
 スポーツ映像（特にラグビー）のタグ付け・統計可視化を行うElectronデスクトップアプリケーション。
 
@@ -9,7 +9,8 @@
 
 - 🎥 **デュアル映像同期再生** - 2つの映像を音声同期で完全同期
 - 🏷️ **カスタマイズ可能なタグ付け** - 自由配置のボタンレイアウトとホットキー対応
-- 📊 **リアルタイム統計分析** - ポゼッション、モメンタム、クロス集計など
+- 📊 **リアルタイム統計分析** - ダッシュボード、モメンタム、クロス集計
+- 🤖 **AI分析機能** - ローカルLLMによる映像分析と推奨クリップ生成（v0.5.0）
 - 🎬 **プレイリスト機能** - フリーズフレーム、簡易描画、クリップ書き出し
 - 📈 **ビジュアルタイムライン** - ズーム、範囲選択、ドラッグ編集対応
 - 💾 **多形式エクスポート** - JSON/CSV/SCTimeline形式に対応

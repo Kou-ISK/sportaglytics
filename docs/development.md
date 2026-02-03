@@ -110,11 +110,17 @@ SporTagLytics/
 
 ### 映像処理
 
-| 技術          | 用途             |
-| ------------- | ---------------- |
-| Video.js      | 映像プレイヤー   |
-| FFmpeg        | クリップ書き出し |
-| Web Audio API | 音声同期分析     |
+| 技術          | バージョン | 用途                     |
+| ------------- | ---------- | ------------------------ |
+| Video.js      | 8.23.4     | 映像プレイヤー           |
+| ffmpeg-static | 5.2.0      | クリップ書き出し（同梱） |
+| Web Audio API | -          | 音声同期分析             |
+
+**ffmpeg-static**:
+
+- FFmpegバイナリを静的に同梱し、プラットフォーム固有のビルドを自動選択
+- クリップ書き出し機能（単一/複数アングル、オーバーレイ付き）で使用
+- IPC経由で進捗通知とキャンセル制御をサポート
 
 ### デスクトップアプリケーション
 
@@ -125,12 +131,12 @@ SporTagLytics/
 
 ### 開発ツール
 
-| 技術    | バージョン | 用途                   |
-| ------- | ---------- | ---------------------- |
-| pnpm    | 9.1.0+     | パッケージマネージャー |
-| Vite    | 7.x        | バンドラー             |
-| ESLint  | 8.57.1     | 静的解析               |
-| Vitest  | 4.x        | テスト                 |
+| 技術   | バージョン | 用途                   |
+| ------ | ---------- | ---------------------- |
+| pnpm   | 9.1.0+     | パッケージマネージャー |
+| Vite   | 7.x        | バンドラー             |
+| ESLint | 8.57.1     | 静的解析               |
+| Vitest | 4.x        | テスト                 |
 
 ---
 
@@ -339,6 +345,39 @@ ipcMain.handle('read-file', async (_event, filePath: string) => {
 const data = await window.electronAPI.readFile('/path/to/file.json');
 ```
 
+### IPC通信チャネル一覧
+
+SporTagLyticsで使用される主要なIPCチャネルとその役割:
+
+| チャネル名                    | 方向          | データ型                 | 用途                                     |
+| ----------------------------- | ------------- | ------------------------ | ---------------------------------------- |
+| `analysis:open-window`        | Renderer→Main | なし                     | 統計・分析ウィンドウを開く               |
+| `analysis:close-window`       | Renderer→Main | なし                     | 統計・分析ウィンドウを閉じる             |
+| `analysis:is-window-open`     | Renderer→Main | なし                     | 統計・分析ウィンドウの開閉状態を確認     |
+| `analysis:jump-to-segment`    | Analysis→Main | `TimelineSegment`        | メインプレイヤーの特定時刻へジャンプ     |
+| `analysis:create-ai-playlist` | Analysis→Main | `AIPlaylistPayload`      | AI分析結果からプレイリストを作成         |
+| `playlist:sync`               | Main→Playlist | `PlaylistSyncData`       | プレイリストデータを同期                 |
+| `playlist:command`            | Main→Playlist | `PlaylistCommand`        | プレイリスト操作コマンド（再生・停止等） |
+| `playlist:request-save`       | Main→Playlist | なし                     | プレイリストの保存をリクエスト           |
+| `playlist:window-closed`      | Main→Renderer | `windowId: string`       | プレイリストウィンドウが閉じられた通知   |
+| `jump-to-time`                | Playlist→Main | `number` (seconds)       | メインプレイヤーの指定時刻へジャンプ     |
+| `jump-to-item`                | Playlist→Main | `PlaylistItem`           | プレイリストアイテムへジャンプ           |
+| `read-file`                   | Renderer→Main | `filePath: string`       | ファイル読み込み                         |
+| `write-file`                  | Renderer→Main | `filePath, data: string` | ファイル書き込み                         |
+| `open-directory`              | Renderer→Main | なし                     | ディレクトリ選択ダイアログを開く         |
+| `open-file`                   | Renderer→Main | なし                     | ファイル選択ダイアログを開く             |
+| `export-timeline`             | Renderer→Main | `filePath, format`       | タイムラインをエクスポート               |
+| `llama:generate`              | Renderer→Main | `LlamaGenerateRequest`   | LLM推論をリクエスト                      |
+| `llama:cancel`                | Renderer→Main | `requestId: string`      | LLM推論をキャンセル                      |
+| `llama:progress`              | Main→Renderer | `LlamaProgressEvent`     | LLM推論の進捗通知                        |
+| `settings:get`                | Renderer→Main | `key: string`            | 設定値を取得                             |
+| `settings:set`                | Renderer→Main | `key: string, value`     | 設定値を保存                             |
+| `check-file-exists`           | Renderer→Main | `filePath: string`       | ファイル存在確認                         |
+| `get-app-version`             | Renderer→Main | なし                     | アプリバージョン取得                     |
+| `extract-video-clip`          | Renderer→Main | `ClipExportRequest`      | 映像クリップ書き出し（FFmpeg使用）       |
+
+**注**: 全てのIPCチャネルは `contextBridge` を介して安全に公開されます（`contextIsolation: true`）。
+
 ### 状態管理
 
 **React Context**:
@@ -393,6 +432,59 @@ function TimelineEditor() {
   const { zoom } = useTimelineZoom();
   return <TimelineEditorView zoom={zoom} />;
 }
+```
+
+### 主要カスタムフック一覧
+
+プロジェクト全体で使用される主要なカスタムフックと役割:
+
+| フック名                  | ファイルパス                                           | 用途                                         |
+| ------------------------- | ------------------------------------------------------ | -------------------------------------------- |
+| `useVideoPlayerApp`       | `src/hooks/useVideoPlayerApp.ts`                       | アプリ全体の状態管理（映像・タイムライン等） |
+| `useSettings`             | `src/hooks/useSettings.ts`                             | Electron設定の読み書き                       |
+| `useGlobalHotkeys`        | `src/hooks/useGlobalHotkeys.ts`                        | グローバルホットキー登録・解除               |
+| `useTimelineViewport`     | `src/hooks/videoPlayer/useTimelineViewport.ts`         | タイムラインのズーム・スクロール制御         |
+| `useTimelineInteractions` | `src/hooks/videoPlayer/useTimelineInteractions.ts`     | タイムラインのマウス操作（選択・ドラッグ等） |
+| `useTimelineEditDraft`    | `src/hooks/videoPlayer/useTimelineEditDraft.ts`        | タイムライン編集の一時保存                   |
+| `useTimelineValidation`   | `src/hooks/videoPlayer/useTimelineValidation.ts`       | タイムライン変更のバリデーション             |
+| `useTimelineHistory`      | `src/hooks/videoPlayer/useTimelineHistory.ts`          | Undo/Redo履歴管理                            |
+| `useTimelinePersistence`  | `src/hooks/videoPlayer/useTimelinePersistence.ts`      | タイムラインの永続化（自動保存）             |
+| `useSyncActions`          | `src/hooks/videoPlayer/useSyncActions.ts`              | 音声同期操作（再実行・リセット・手動同期等） |
+| `useMatrixAxes`           | `src/features/videoPlayer/components/MatrixTab/hooks/` | クロス集計マトリクスの軸設定                 |
+| `useMatrixFilters`        | `src/features/videoPlayer/components/MatrixTab/hooks/` | クロス集計のフィルタ管理                     |
+| `useActionBreakdown`      | `src/features/videoPlayer/components/Dashboard/hooks/` | ダッシュボードのアクション内訳計算           |
+| `useUnsavedTabSwitch`     | `src/pages/SettingsPage.tsx`                           | 未保存変更検知とタブ切り替え確認             |
+| `useHotkeyBindings`       | `src/pages/settings/components/HotkeySettings/`        | ホットキー設定の管理と競合チェック           |
+
+### 主要ユーティリティ関数一覧
+
+共通処理を提供するユーティリティ関数:
+
+| 関数名                      | ファイルパス                             | 用途                                     |
+| --------------------------- | ---------------------------------------- | ---------------------------------------- |
+| `formatTime`                | `src/utils/formatTime.ts`                | 秒数を "HH:MM:SS" 形式に変換             |
+| `parseTimeString`           | `src/utils/parseTimeString.ts`           | "HH:MM:SS" 形式を秒数に変換              |
+| `calculateDuration`         | `src/utils/calculateDuration.ts`         | 開始・終了時刻から継続時間を計算         |
+| `extractLabels`             | `src/utils/extractLabels.ts`             | タイムラインからラベル一覧を抽出         |
+| `buildCrossTabMatrix`       | `src/utils/buildCrossTabMatrix.ts`       | クロス集計マトリクスを構築               |
+| `replaceTeamPlaceholders`   | `src/utils/replaceTeamPlaceholders.ts`   | `${Team1}` / `${Team2}` をチーム名に置換 |
+| `checkHotkeyConflicts`      | `src/utils/checkHotkeyConflicts.ts`      | ホットキー競合をチェック                 |
+| `convertToSCTimeline`       | `src/utils/convertToSCTimeline.ts`       | TimelineData → SCTimeline形式に変換      |
+| `convertFromSCTimeline`     | `src/utils/convertFromSCTimeline.ts`     | SCTimeline → TimelineData形式に変換      |
+| `filterTimelineByDateRange` | `src/utils/filterTimelineByDateRange.ts` | 時間範囲でタイムラインをフィルタ         |
+| `groupTimelineByAction`     | `src/utils/groupTimelineByAction.ts`     | アクション別にタイムラインをグループ化   |
+| `calculatePossessionStats`  | `src/utils/calculatePossessionStats.ts`  | ポゼッション統計を計算                   |
+| `exportToCSV`               | `src/utils/exportToCSV.ts`               | タイムラインをCSV形式でエクスポート      |
+| `sanitizeFilename`          | `src/utils/sanitizeFilename.ts`          | ファイル名から不正な文字を除去           |
+
+**使用例**:
+
+```typescript
+import { formatTime } from '@/utils/formatTime';
+import { buildCrossTabMatrix } from '@/utils/buildCrossTabMatrix';
+
+const timeString = formatTime(125.5); // "00:02:05"
+const matrix = buildCrossTabMatrix(timeline, 'action', 'result');
 ```
 
 ---

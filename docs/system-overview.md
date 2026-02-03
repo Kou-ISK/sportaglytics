@@ -8,9 +8,10 @@
 - **映像再生/同期**: `useSyncActions` が音声同期・手動同期・リセットを担い、`useSyncMenuHandlers` でメニューと連携。同期結果は `syncData` として保持し、再生時にオフセット適用。
 - **タグ付け**: `EnhancedCodePanel` でアクション+ラベルを選択し、`addTimelineData` 経由で `timeline` に反映。ホットキーは `useHotkeyBindings` 経由で登録。
 - **タイムライン編集**: `VisualTimeline` が描画。ズーム/幅計算は `useTimelineViewport`、選択やコンテキストメニュー/編集ハンドラは `useTimelineInteractions`。編集ダイアログの入力管理は `useTimelineEditDraft`、バリデーションは `useTimelineValidation`。
-- **分析ダッシュボード**: `AnalysisPanelView`。共通カードレイアウトは `AnalysisCard`、ヘッダーは `AnalysisPanelHeader`。Breakdown は `useActionBreakdown`、Matrix 軸設定は `useMatrixAxes`、フィルタは `useMatrixFilters`。
+- **分析ダッシュボード** (v0.4.0以降): `AnalysisPanelView`。共通カードレイアウトは `AnalysisCard`、ヘッダーは `AnalysisPanelHeader`。Breakdown は `useActionBreakdown`、Matrix 軸設定は `useMatrixAxes`、フィルタは `useMatrixFilters`。独立ウィンドウ（`AnalysisWindowApp`）で表示され、メインウィンドウとの双方向同期を実現。
+- **AI分析** (v0.5.0以降): `AIAnalysisTab` でローカルLLM（llama.cpp）による映像分析を実行。ハイブリッド根拠検索（`evidenceRetrieval.ts`）でタイムラインから関連イベントを抽出し、LLMプロンプト生成（`llmPrompt.ts`）→応答生成（`llmProvider.ts`）→クリップ推奨（`clipGenerator.ts`）の流れ。AI分析からプレイリスト作成時は `window.electronAPI.playlist.addItemToAllWindows()` を使用（v0.5.0で統一）。
 - **設定**: `SettingsPage` は `SettingsTabs`/`SettingsHeader`/`UnsavedChangesDialog` に分離。未保存チェックは `useUnsavedTabSwitch`。
-- **プレイリスト**: `PlaylistContext` でプレイリスト管理、専用ウィンドウ（`PlaylistWindowApp`）で連続/ループ再生、フリーズフレーム、簡易描画、メモ編集に対応。複数ウィンドウに対応し、IPC 経由でメイン↔プレイリスト間で双方向通信。
+- **プレイリスト** (v0.2.0以降): `PlaylistContext` でプレイリスト管理、専用ウィンドウ（`PlaylistWindowApp`）で連続/ループ再生、フリーズフレーム、簡易描画、メモ編集に対応。複数ウィンドウに対応し、IPC 経由でメイン↔プレイリスト間で双方向通信。タイムライン経由とAI分析経由の両方からプレイリスト作成可能（両者ともElectron API使用）。
 
 ## データ構造
 
