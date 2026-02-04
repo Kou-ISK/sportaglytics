@@ -21,14 +21,18 @@ export const DashboardCard = ({
       elevation={0}
       variant="outlined"
       sx={{
-        p: 2.5,
+        p: 2,
         borderRadius: 2,
         height: '100%',
         borderColor: 'divider',
         bgcolor: 'background.paper',
       }}
     >
-      <Box display="flex" alignItems="flex-start" justifyContent="space-between">
+      <Box
+        display="flex"
+        alignItems="flex-start"
+        justifyContent="space-between"
+      >
         <Stack spacing={0.5}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             {title}
@@ -59,7 +63,7 @@ export const DashboardCard = ({
         </Stack>
         {actions && <Box>{actions}</Box>}
       </Box>
-      <Box sx={{ mt: 2 }}>{children}</Box>
+      <Box sx={{ mt: 1.5 }}>{children}</Box>
     </Paper>
   );
 };

@@ -850,24 +850,6 @@ export const DashboardTab = ({
                 teamRoleMap,
               });
 
-              const subtitle =
-                widget.dataMode === 'series'
-                  ? '比較シリーズ'
-                  : `${getAxisLabel(widget.primaryAxis, availableGroups)}${
-                      widget.seriesEnabled
-                        ? ` × ${getAxisLabel(
-                            widget.seriesAxis,
-                            availableGroups,
-                          )}`
-                        : ''
-                    }`;
-              const chips = [
-                ...buildFilterChips('全体', dashboardFilters),
-                ...buildFilterChips('カード', widget.widgetFilters),
-              ];
-
-              const chartHeight = widget.chartType === 'pie' ? 320 : 280;
-
               return (
                 <Box
                   key={widget.id}
@@ -875,8 +857,6 @@ export const DashboardTab = ({
                 >
                   <DashboardCard
                     title={replaceTeamPlaceholders(widget.title, teamContext)}
-                    subtitle={subtitle}
-                    chips={chips}
                     actions={
                       isEditing && (
                         <Stack direction="row" spacing={0.5}>
@@ -922,8 +902,7 @@ export const DashboardTab = ({
                         seriesKeys={chart.seriesKeys}
                         unitLabel={chart.unitLabel}
                         metric={widget.metric}
-                        calcMode={chart.calcMode}
-                        height={chartHeight}
+                        height={260}
                         teamColorMap={teamColorMap}
                       />
                     ) : (
@@ -937,7 +916,7 @@ export const DashboardTab = ({
                         unitLabel={chart.unitLabel}
                         metric={widget.metric}
                         calcMode={chart.calcMode}
-                        height={chartHeight}
+                        height={240}
                         teamColorMap={teamColorMap}
                       />
                     )}

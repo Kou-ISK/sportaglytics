@@ -26,7 +26,10 @@ const SERIES_COLORS = [
 ];
 
 const normalizeKey = (value: string) =>
-  value.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+  value
+    .replace(/\u3000/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const getSeriesColor = (key: string) => {
   const hash = Math.abs(
@@ -53,7 +56,7 @@ export const CustomBarChart = ({
   stacked,
   showLegend,
   unitLabel,
-  height = 360,
+  height = 280,
   metric,
   calcMode = 'raw',
   teamColorMap,
@@ -70,9 +73,7 @@ export const CustomBarChart = ({
   const hasPerBarTeamColors =
     Boolean(teamColorMap) &&
     normalizedSeriesKeys.length === 1 &&
-    data.some((entry) =>
-      Boolean(teamColorMap?.[String(entry.name ?? '')]),
-    );
+    data.some((entry) => Boolean(teamColorMap?.[String(entry.name ?? '')]));
   const rawUnitLabel = metric === 'duration' ? '秒' : '件';
   const formatRawValue = (value: number) => {
     if (metric === 'duration') {
@@ -91,14 +92,14 @@ export const CustomBarChart = ({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ top: 10, right: 20, left: 6 }}>
+      <BarChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis
           dataKey="name"
           interval={0}
           angle={-20}
           textAnchor="end"
-          height={70}
+          height={60}
         />
         <YAxis />
         <Tooltip
@@ -150,10 +151,7 @@ export const CustomBarChart = ({
                   const entryFill =
                     teamColorMap?.[normalizeKey(entryName)] ?? fill;
                   return (
-                    <Cell
-                      key={`cell-${entryName}-${index}`}
-                      fill={entryFill}
-                    />
+                    <Cell key={`cell-${entryName}-${index}`} fill={entryFill} />
                   );
                 })}
             </Bar>

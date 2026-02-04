@@ -1,13 +1,6 @@
 import React from 'react';
 import { useTheme } from '@mui/material/styles';
-import {
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-} from 'recharts';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 const PIE_COLORS = [
   '#1976d2',
@@ -23,7 +16,10 @@ const PIE_COLORS = [
 ];
 
 const normalizeKey = (value: string) =>
-  value.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+  value
+    .replace(/\u3000/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 interface CustomPieChartProps {
   data: Array<Record<string, number | string>>;
@@ -40,7 +36,7 @@ export const CustomPieChart = ({
   seriesKeys,
   unitLabel,
   metric,
-  height = 300,
+  height = 260,
   calcMode = 'raw',
   teamColorMap,
 }: CustomPieChartProps) => {
@@ -134,7 +130,7 @@ export const CustomPieChart = ({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <PieChart margin={{ top: 8, right: 120, bottom: 48, left: 120 }}>
+      <PieChart margin={{ top: 8, right: 40, bottom: 32, left: 40 }}>
         <Pie
           data={pieData}
           dataKey="value"
@@ -164,12 +160,6 @@ export const CustomPieChart = ({
           ))}
         </Pie>
         <Tooltip content={renderTooltip} />
-        <Legend
-          verticalAlign="bottom"
-          iconType="circle"
-          height={36}
-          wrapperStyle={{ fontSize: '0.8rem' }}
-        />
       </PieChart>
     </ResponsiveContainer>
   );
