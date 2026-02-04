@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Box,
+  Button,
   Chip,
   FormControl,
   InputLabel,
@@ -24,7 +25,7 @@ interface MatrixFiltersProps {
   hasActiveFilters: boolean;
 }
 
-const ALL = 'all';
+export const ALL = 'all';
 
 export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
   filters,
@@ -145,6 +146,18 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
               onDelete={onClearLabelFilters}
             />
           )}
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              onTeamChange(ALL);
+              onActionChange(ALL);
+              onClearLabelFilters();
+            }}
+            sx={{ ml: 'auto' }}
+          >
+            すべてクリア
+          </Button>
         </Box>
       )}
     </>

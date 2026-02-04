@@ -164,10 +164,7 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
 
   return (
     <Stack spacing={2}>
-      <Box display="flex" alignItems="center" justifyContent="space-between">
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          モメンタムチャート
-        </Typography>
+      <Box display="flex" alignItems="center" justifyContent="flex-end">
         <LegendComponent theme={theme} />
       </Box>
 

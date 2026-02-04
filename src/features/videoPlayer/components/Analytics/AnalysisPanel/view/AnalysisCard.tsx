@@ -11,8 +11,8 @@ export const AnalysisCard: React.FC<AnalysisCardProps> = ({
   children,
 }) => {
   return (
-    <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+    <Paper elevation={1} sx={{ p: 1.5, borderRadius: 2 }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
         {title}
       </Typography>
       {children}

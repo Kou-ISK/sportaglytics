@@ -1,5 +1,4 @@
 import React from 'react';
-import { Divider } from '@mui/material';
 import { MomentumChart } from '../../MomentumChart';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
 import { CreateMomentumDataFn } from '../../../../../../types/Analysis';
@@ -24,7 +23,6 @@ export const MomentumTab = ({
 
   return (
     <AnalysisCard title="モメンタムチャート">
-      <Divider sx={{ mb: 2 }} />
       <MomentumChart
         createMomentumData={createMomentumData}
         teamNames={teamNames}

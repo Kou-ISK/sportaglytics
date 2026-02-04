@@ -1,11 +1,10 @@
 import React from 'react';
-import { Divider, Paper, Table, TableBody, TableContainer, Typography } from '@mui/material';
+import { Paper, Table, TableBody, TableContainer } from '@mui/material';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import { MatrixTableHead } from './MatrixTableHead';
 import { MatrixBodyRow } from './MatrixBodyRow';
 
 interface MatrixSectionProps {
-  title: string;
   rowHeaders: Array<{ parent: string | null; child: string }>;
   columnHeaders: Array<{ parent: string | null; child: string }>;
   rowParentSpans: Map<string, number>;
@@ -15,7 +14,6 @@ interface MatrixSectionProps {
 }
 
 export const MatrixSection = ({
-  title,
   rowHeaders,
   columnHeaders,
   rowParentSpans,
@@ -31,14 +29,7 @@ export const MatrixSection = ({
   const hasColumnParent = columnHeaders.some((h) => h.parent !== null);
 
   return (
-    <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-      <Typography
-        variant="subtitle2"
-        sx={{ fontWeight: 600, mb: 2, fontSize: '0.8rem' }}
-      >
-        {title}
-      </Typography>
-      <Divider sx={{ mb: 2 }} />
+    <Paper elevation={1} sx={{ p: 1, borderRadius: 2 }}>
       <TableContainer
         component={Paper}
         variant="outlined"
@@ -82,7 +73,6 @@ export const MatrixSection = ({
                     ? `row-${rowHeader.parent}-${rowHeader.child}`
                     : `row-${rowHeader.child}`
                 }
-                title={title}
                 rowHeader={rowHeader}
                 rowIndex={rowIndex}
                 rowHeaders={rowHeaders}

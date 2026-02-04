@@ -36,6 +36,7 @@ import type {
 } from '../../../../../../types/Settings';
 import { useSettings } from '../../../../../../hooks/useSettings';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
+import { FilterSummaryBar } from './FilterSummaryBar';
 import { replaceTeamPlaceholders } from '../../../../../../utils/teamPlaceholder';
 import {
   extractActionFromActionName,
@@ -123,14 +124,12 @@ export const DashboardTab = ({
       map[orderedTeams[1]] = theme.palette.team2.main;
     }
     return map;
-  }, [
-    orderedTeams,
-    theme.palette.team1.main,
-    theme.palette.team2.main,
-  ]);
+  }, [orderedTeams, theme.palette.team1.main, theme.palette.team2.main]);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [draftWidgets, setDraftWidgets] = useState<AnalysisDashboardWidget[]>([]);
+  const [draftWidgets, setDraftWidgets] = useState<AnalysisDashboardWidget[]>(
+    [],
+  );
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingWidget, setEditingWidget] =
     useState<AnalysisDashboardWidget | null>(null);
@@ -230,9 +229,7 @@ export const DashboardTab = ({
 
   const handleSave = async () => {
     const nextDashboards = dashboards.map((item) =>
-      item.id === activeDashboardId
-        ? { ...item, widgets: draftWidgets }
-        : item,
+      item.id === activeDashboardId ? { ...item, widgets: draftWidgets } : item,
     );
     await saveDashboards(nextDashboards, activeDashboardId);
     setIsEditing(false);
@@ -251,7 +248,10 @@ export const DashboardTab = ({
   };
 
   const handleCreateDashboard = async () => {
-    const name = window.prompt('ダッシュボード名を入力してください', '新規ダッシュボード');
+    const name = window.prompt(
+      'ダッシュボード名を入力してください',
+      '新規ダッシュボード',
+    );
     if (!name) return;
     const newDashboard: AnalysisDashboard = {
       id: generateDashboardId(),
@@ -325,68 +325,71 @@ export const DashboardTab = ({
     }
   };
 
-  const importDashboardFromPath = useCallback(async (filePath: string) => {
-    const api = window.electronAPI;
-    if (!api?.readTextFile || !api?.readDashboardPackage) {
-      notification.error('インポート機能が利用できません。');
-      return;
-    }
-    const lowerPath = filePath.toLowerCase();
-    const content = lowerPath.endsWith('.stad')
-      ? await api.readDashboardPackage(filePath)
-      : await api.readTextFile(filePath);
-    if (!content) {
-      notification.error('ファイルの読み込みに失敗しました。');
-      return;
-    }
-    try {
-      const parsed = JSON.parse(content) as {
-        dashboard?: AnalysisDashboard;
-        dashboards?: AnalysisDashboard[];
-        widgets?: AnalysisDashboardWidget[];
-      };
-      const importedDashboards: AnalysisDashboard[] = [];
-      if (Array.isArray(parsed?.dashboards)) {
-        importedDashboards.push(...parsed.dashboards);
-      } else if (parsed?.dashboard) {
-        importedDashboards.push(parsed.dashboard);
-      } else if (Array.isArray(parsed?.widgets)) {
-        importedDashboards.push({
-          id: generateDashboardId(),
-          name: 'インポート',
-          widgets: parsed.widgets,
-        });
-      }
-      if (importedDashboards.length === 0) {
-        notification.error('ダッシュボード形式のJSONではありません。');
+  const importDashboardFromPath = useCallback(
+    async (filePath: string) => {
+      const api = window.electronAPI;
+      if (!api?.readTextFile || !api?.readDashboardPackage) {
+        notification.error('インポート機能が利用できません。');
         return;
       }
-
-      const existingIds = new Set(dashboards.map((item) => item.id));
-      const normalized = importedDashboards.map((item, index) => {
-        const baseId = item.id || generateDashboardId();
-        let nextId = baseId;
-        let counter = 1;
-        while (existingIds.has(nextId)) {
-          nextId = `${baseId}-${counter}`;
-          counter += 1;
-        }
-        existingIds.add(nextId);
-        return {
-          id: nextId,
-          name: item.name || `インポート${index + 1}`,
-          widgets: Array.isArray(item.widgets) ? item.widgets : [],
+      const lowerPath = filePath.toLowerCase();
+      const content = lowerPath.endsWith('.stad')
+        ? await api.readDashboardPackage(filePath)
+        : await api.readTextFile(filePath);
+      if (!content) {
+        notification.error('ファイルの読み込みに失敗しました。');
+        return;
+      }
+      try {
+        const parsed = JSON.parse(content) as {
+          dashboard?: AnalysisDashboard;
+          dashboards?: AnalysisDashboard[];
+          widgets?: AnalysisDashboardWidget[];
         };
-      });
+        const importedDashboards: AnalysisDashboard[] = [];
+        if (Array.isArray(parsed?.dashboards)) {
+          importedDashboards.push(...parsed.dashboards);
+        } else if (parsed?.dashboard) {
+          importedDashboards.push(parsed.dashboard);
+        } else if (Array.isArray(parsed?.widgets)) {
+          importedDashboards.push({
+            id: generateDashboardId(),
+            name: 'インポート',
+            widgets: parsed.widgets,
+          });
+        }
+        if (importedDashboards.length === 0) {
+          notification.error('ダッシュボード形式のJSONではありません。');
+          return;
+        }
 
-      const nextDashboards = [...dashboards, ...normalized];
-      await saveDashboards(nextDashboards, normalized[0].id);
-      notification.success('ダッシュボードをインポートしました。');
-    } catch (error) {
-      console.error('Failed to import dashboard:', error);
-      notification.error('インポートに失敗しました。');
-    }
-  }, [dashboards, generateDashboardId, notification, saveDashboards]);
+        const existingIds = new Set(dashboards.map((item) => item.id));
+        const normalized = importedDashboards.map((item, index) => {
+          const baseId = item.id || generateDashboardId();
+          let nextId = baseId;
+          let counter = 1;
+          while (existingIds.has(nextId)) {
+            nextId = `${baseId}-${counter}`;
+            counter += 1;
+          }
+          existingIds.add(nextId);
+          return {
+            id: nextId,
+            name: item.name || `インポート${index + 1}`,
+            widgets: Array.isArray(item.widgets) ? item.widgets : [],
+          };
+        });
+
+        const nextDashboards = [...dashboards, ...normalized];
+        await saveDashboards(nextDashboards, normalized[0].id);
+        notification.success('ダッシュボードをインポートしました。');
+      } catch (error) {
+        console.error('Failed to import dashboard:', error);
+        notification.error('インポートに失敗しました。');
+      }
+    },
+    [dashboards, generateDashboardId, notification, saveDashboards],
+  );
 
   const handleImportDashboard = async () => {
     const api = window.electronAPI;
@@ -479,34 +482,33 @@ export const DashboardTab = ({
         }}
       >
         <Stack spacing={1.5}>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Stack spacing={0.5}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                分析ダッシュボード
-              </Typography>
-              <FormControl
-                size="small"
-                sx={{ minWidth: 220, ...compactControlSx }}
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <FormControl
+              size="small"
+              sx={{ minWidth: 220, ...compactControlSx }}
+            >
+              <InputLabel id="dashboard-select-label">
+                ダッシュボード
+              </InputLabel>
+              <Select
+                labelId="dashboard-select-label"
+                value={activeDashboardId}
+                label="ダッシュボード"
+                onChange={(event) =>
+                  handleDashboardChange(event.target.value as string)
+                }
               >
-                <InputLabel id="dashboard-select-label">
-                  ダッシュボード
-                </InputLabel>
-                <Select
-                  labelId="dashboard-select-label"
-                  value={activeDashboardId}
-                  label="ダッシュボード"
-                  onChange={(event) =>
-                    handleDashboardChange(event.target.value as string)
-                  }
-                >
-                  {dashboards.map((dashboard) => (
-                    <MenuItem key={dashboard.id} value={dashboard.id}>
-                      {dashboard.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Stack>
+                {dashboards.map((dashboard) => (
+                  <MenuItem key={dashboard.id} value={dashboard.id}>
+                    {dashboard.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <Stack direction="row" spacing={1} alignItems="center">
               {isEditing && (
                 <Chip label="編集モード" color="warning" size="small" />
@@ -564,127 +566,170 @@ export const DashboardTab = ({
             </Stack>
           </Box>
 
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1.5}>
-              <Stack spacing={0.5}>
+          <FilterSummaryBar
+            rowAxis={{ type: 'team', value: '' }}
+            columnAxis={{ type: 'action', value: '' }}
+            showAxisSection={false}
+            showFilterSection={true}
+            hasActiveFilters={appliedFilterChips.length > 0}
+            filterCount={appliedFilterChips.length}
+            filterChips={[
+              ...(dashboardFilters.team
+                ? [
+                    {
+                      label: `チーム: ${dashboardFilters.team}`,
+                      onDelete: () =>
+                        updateDashboardFilters({ team: undefined }),
+                    },
+                  ]
+                : []),
+              ...(dashboardFilters.action
+                ? [
+                    {
+                      label: `アクション: ${dashboardFilters.action}`,
+                      onDelete: () =>
+                        updateDashboardFilters({ action: undefined }),
+                    },
+                  ]
+                : []),
+              ...(dashboardFilters.labelGroup && dashboardFilters.labelValue
+                ? [
+                    {
+                      label: `${dashboardFilters.labelGroup}: ${dashboardFilters.labelValue}`,
+                      onDelete: () =>
+                        updateDashboardFilters({
+                          labelGroup: undefined,
+                          labelValue: undefined,
+                        }),
+                    },
+                  ]
+                : dashboardFilters.labelGroup
+                  ? [
+                      {
+                        label: `ラベルグループ: ${dashboardFilters.labelGroup}`,
+                        onDelete: () =>
+                          updateDashboardFilters({ labelGroup: undefined }),
+                      },
+                    ]
+                  : []),
+            ]}
+            renderFilterEditor={(onClose) => (
+              <Stack spacing={1.5}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  全体フィルター
+                  全体フィルター設定
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   ダッシュボード全体のスコープを絞り込めます。
                 </Typography>
-              </Stack>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: {
-                    xs: '1fr',
-                    md: 'repeat(4, minmax(0, 1fr))',
-                  },
-                  gap: 1.5,
-                }}
-              >
-                <FormControl size="small" fullWidth sx={compactControlSx}>
-                  <InputLabel id="dashboard-filter-team">チーム</InputLabel>
-                  <Select
-                    labelId="dashboard-filter-team"
-                    value={dashboardFilters.team ?? ''}
-                    label="チーム"
-                    onChange={(event) =>
-                      updateDashboardFilters({
-                        team: event.target.value || undefined,
-                      })
-                    }
+                <Box display="grid" gridTemplateColumns="1fr 1fr" gap={1.5}>
+                  <FormControl size="small" fullWidth sx={compactControlSx}>
+                    <InputLabel id="dashboard-filter-team">チーム</InputLabel>
+                    <Select
+                      labelId="dashboard-filter-team"
+                      value={dashboardFilters.team ?? ''}
+                      label="チーム"
+                      onChange={(event) =>
+                        updateDashboardFilters({
+                          team: event.target.value || undefined,
+                        })
+                      }
+                    >
+                      <MenuItem value="">指定なし</MenuItem>
+                      {availableTeams.map((team) => (
+                        <MenuItem key={team} value={team}>
+                          {team}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl size="small" fullWidth sx={compactControlSx}>
+                    <InputLabel id="dashboard-filter-action">
+                      アクション
+                    </InputLabel>
+                    <Select
+                      labelId="dashboard-filter-action"
+                      value={dashboardFilters.action ?? ''}
+                      label="アクション"
+                      onChange={(event) =>
+                        updateDashboardFilters({
+                          action: event.target.value || undefined,
+                        })
+                      }
+                    >
+                      <MenuItem value="">指定なし</MenuItem>
+                      {availableActions.map((action) => (
+                        <MenuItem key={action} value={action}>
+                          {action}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl size="small" fullWidth sx={compactControlSx}>
+                    <InputLabel id="dashboard-filter-group">
+                      ラベルグループ
+                    </InputLabel>
+                    <Select
+                      labelId="dashboard-filter-group"
+                      value={dashboardFilters.labelGroup ?? ''}
+                      label="ラベルグループ"
+                      onChange={(event) =>
+                        updateDashboardFilters({
+                          labelGroup: event.target.value || undefined,
+                          labelValue: undefined,
+                        })
+                      }
+                    >
+                      <MenuItem value="">指定なし</MenuItem>
+                      {availableGroups.map((group) => (
+                        <MenuItem key={group} value={group}>
+                          {group}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl size="small" fullWidth sx={compactControlSx}>
+                    <InputLabel id="dashboard-filter-value">
+                      ラベル値
+                    </InputLabel>
+                    <Select
+                      labelId="dashboard-filter-value"
+                      value={dashboardFilters.labelValue ?? ''}
+                      label="ラベル値"
+                      onChange={(event) =>
+                        updateDashboardFilters({
+                          labelValue: event.target.value || undefined,
+                        })
+                      }
+                      disabled={!dashboardFilters.labelGroup}
+                    >
+                      <MenuItem value="">指定なし</MenuItem>
+                      {(
+                        (dashboardFilters.labelGroup &&
+                          availableLabelValues[dashboardFilters.labelGroup]) ||
+                        []
+                      ).map((value) => (
+                        <MenuItem key={value} value={value}>
+                          {value}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+                <Box display="flex" justifyContent="flex-end" gap={1}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={handleResetFilters}
                   >
-                    <MenuItem value="">指定なし</MenuItem>
-                    {availableTeams.map((team) => (
-                      <MenuItem key={team} value={team}>
-                        {team}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" fullWidth sx={compactControlSx}>
-                  <InputLabel id="dashboard-filter-action">
-                    アクション
-                  </InputLabel>
-                  <Select
-                    labelId="dashboard-filter-action"
-                    value={dashboardFilters.action ?? ''}
-                    label="アクション"
-                    onChange={(event) =>
-                      updateDashboardFilters({
-                        action: event.target.value || undefined,
-                      })
-                    }
-                  >
-                    <MenuItem value="">指定なし</MenuItem>
-                    {availableActions.map((action) => (
-                      <MenuItem key={action} value={action}>
-                        {action}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" fullWidth sx={compactControlSx}>
-                  <InputLabel id="dashboard-filter-group">
-                    ラベルグループ
-                  </InputLabel>
-                  <Select
-                    labelId="dashboard-filter-group"
-                    value={dashboardFilters.labelGroup ?? ''}
-                    label="ラベルグループ"
-                    onChange={(event) =>
-                      updateDashboardFilters({
-                        labelGroup: event.target.value || undefined,
-                        labelValue: undefined,
-                      })
-                    }
-                  >
-                    <MenuItem value="">指定なし</MenuItem>
-                    {availableGroups.map((group) => (
-                      <MenuItem key={group} value={group}>
-                        {group}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" fullWidth sx={compactControlSx}>
-                  <InputLabel id="dashboard-filter-value">ラベル値</InputLabel>
-                  <Select
-                    labelId="dashboard-filter-value"
-                    value={dashboardFilters.labelValue ?? ''}
-                    label="ラベル値"
-                    onChange={(event) =>
-                      updateDashboardFilters({
-                        labelValue: event.target.value || undefined,
-                      })
-                    }
-                    disabled={!dashboardFilters.labelGroup}
-                  >
-                    <MenuItem value="">指定なし</MenuItem>
-                    {((dashboardFilters.labelGroup &&
-                      availableLabelValues[dashboardFilters.labelGroup]) ||
-                      []).map((value) => (
-                      <MenuItem key={value} value={value}>
-                        {value}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-              {appliedFilterChips.length > 0 && (
-                <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                  {appliedFilterChips.map((chip) => (
-                    <Chip key={chip} label={chip} size="small" />
-                  ))}
-                  <Button size="small" onClick={handleResetFilters}>
-                    リセット
+                    すべてクリア
                   </Button>
-                </Stack>
-              )}
-            </Stack>
-          </Paper>
+                  <Button size="small" variant="contained" onClick={onClose}>
+                    閉じる
+                  </Button>
+                </Box>
+              </Stack>
+            )}
+          />
         </Stack>
       </Box>
 
@@ -808,10 +853,7 @@ export const DashboardTab = ({
               const subtitle =
                 widget.dataMode === 'series'
                   ? '比較シリーズ'
-                  : `${getAxisLabel(
-                      widget.primaryAxis,
-                      availableGroups,
-                    )}${
+                  : `${getAxisLabel(widget.primaryAxis, availableGroups)}${
                       widget.seriesEnabled
                         ? ` × ${getAxisLabel(
                             widget.seriesAxis,
@@ -905,7 +947,7 @@ export const DashboardTab = ({
             })}
           </Box>
         )}
-        </Stack>
+      </Stack>
 
       <DashboardWidgetDialog
         open={editorOpen}

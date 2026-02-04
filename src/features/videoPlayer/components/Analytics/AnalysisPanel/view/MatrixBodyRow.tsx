@@ -7,7 +7,6 @@ type Header = { parent: string | null; child: string };
 type MatrixCell = { count: number; entries: TimelineData[] };
 
 type MatrixBodyRowProps = {
-  title: string;
   rowHeader: Header;
   rowIndex: number;
   rowHeaders: Header[];
@@ -18,7 +17,6 @@ type MatrixBodyRowProps = {
 };
 
 export const MatrixBodyRow = ({
-  title,
   rowHeader,
   rowIndex,
   rowHeaders,
@@ -99,7 +97,7 @@ export const MatrixBodyRow = ({
         const colLabel = columnHeader.parent
           ? `${columnHeader.parent} ${columnHeader.child || '未設定'}`
           : columnHeader.child || '未設定';
-        const titleLabel = `${title} - ${rowLabel} × ${colLabel}`;
+        const titleLabel = `${rowLabel} × ${colLabel}`;
         const cellKey = `cell-${rowKey}-${columnHeader.parent || ''}-${columnHeader.child}`;
 
         return (

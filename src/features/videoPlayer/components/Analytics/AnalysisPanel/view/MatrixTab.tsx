@@ -1,16 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Stack,
-  Paper,
-  Typography,
-  Divider,
-  Box,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-} from '@mui/material';
-import SettingsIcon from '@mui/icons-material/Settings';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Stack, Paper, Typography, Box } from '@mui/material';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
 import { MatrixSection } from './MatrixSection';
@@ -22,6 +11,7 @@ import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
 import { MatrixFilters } from './MatrixFilters';
 import { useMatrixFilters } from './hooks/useMatrixFilters';
 import { useMatrixAxes } from './hooks/useMatrixAxes';
+import { FilterSummaryBar } from './FilterSummaryBar';
 
 interface MatrixTabProps {
   hasData: boolean;
@@ -84,93 +74,92 @@ export const MatrixTab = ({
     return <NoDataPlaceholder message={emptyMessage} />;
   }
 
+  // フィルターチップの生成
+  const ALL = 'all';
+  const filterChips: Array<{ label: string; onDelete: () => void }> = [];
+  if (filters.team !== ALL) {
+    filterChips.push({
+      label: `チーム: ${filters.team}`,
+      onDelete: () => setFilterTeam(ALL),
+    });
+  }
+  if (filters.action !== ALL) {
+    filterChips.push({
+      label: `アクション: ${filters.action}`,
+      onDelete: () => setFilterAction(ALL),
+    });
+  }
+  if (filters.labelGroup !== ALL && filters.labelValue !== ALL) {
+    filterChips.push({
+      label: `${filters.labelGroup}: ${filters.labelValue}`,
+      onDelete: clearLabelFilters,
+    });
+  }
+
   return (
     <>
       <Stack spacing={1.5}>
-        <Accordion
-          defaultExpanded
-          elevation={0}
-          sx={{
-            borderRadius: 2,
-            border: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-            overflow: 'hidden',
-            '&::before': { display: 'none' },
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            sx={{
-              px: 2,
-              py: 1,
-              bgcolor: 'action.selected',
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-              '& .MuiAccordionSummary-content': { alignItems: 'center' },
-            }}
-          >
-            <Box display="flex" alignItems="center" gap={1}>
-              <SettingsIcon fontSize="small" />
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                設定
-              </Typography>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails sx={{ px: 2, pt: 1.5, pb: 2 }}>
+        <FilterSummaryBar
+          rowAxis={customRowAxis}
+          columnAxis={customColumnAxis}
+          onRowAxisChange={setCustomRowAxis}
+          onColumnAxisChange={setCustomColumnAxis}
+          renderAxisEditor={(onClose) => (
             <Stack spacing={2}>
-              <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                  軸
-                </Typography>
-                <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2}>
-                  <MatrixAxisSelector
-                    key="row-axis"
-                    label="行軸"
-                    value={customRowAxis}
-                    onChange={(newConfig) => {
-                      console.log('行軸 - MatrixTab onChange:', {
-                        old: customRowAxis,
-                        new: newConfig,
-                      });
-                      setCustomRowAxis(newConfig);
-                    }}
-                    availableGroups={availableGroups}
-                  />
-                  <MatrixAxisSelector
-                    key="column-axis"
-                    label="列軸"
-                    value={customColumnAxis}
-                    onChange={(newConfig) => {
-                      console.log('列軸 - MatrixTab onChange:', {
-                        old: customColumnAxis,
-                        new: newConfig,
-                      });
-                      setCustomColumnAxis(newConfig);
-                    }}
-                    availableGroups={availableGroups}
-                  />
-                </Box>
-              </Box>
-              <Divider />
-              <Box>
-                <MatrixFilters
-                  filters={filters}
-                  availableTeams={availableTeams}
-                  availableActions={availableActions}
-                  availableLabelValues={availableLabelValues}
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                軸設定
+              </Typography>
+              <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2}>
+                <MatrixAxisSelector
+                  key="row-axis"
+                  label="行軸"
+                  value={customRowAxis}
+                  onChange={(newConfig) => {
+                    console.log('行軸 - MatrixTab onChange:', {
+                      old: customRowAxis,
+                      new: newConfig,
+                    });
+                    setCustomRowAxis(newConfig);
+                  }}
                   availableGroups={availableGroups}
-                  onTeamChange={setFilterTeam}
-                  onActionChange={setFilterAction}
-                  onLabelGroupChange={setFilterLabelGroup}
-                  onLabelValueChange={setFilterLabelValue}
-                  onClearLabelFilters={clearLabelFilters}
-                  hasActiveFilters={hasActiveFilters}
+                />
+                <MatrixAxisSelector
+                  key="column-axis"
+                  label="列軸"
+                  value={customColumnAxis}
+                  onChange={(newConfig) => {
+                    console.log('列軸 - MatrixTab onChange:', {
+                      old: customColumnAxis,
+                      new: newConfig,
+                    });
+                    setCustomColumnAxis(newConfig);
+                  }}
+                  availableGroups={availableGroups}
                 />
               </Box>
             </Stack>
-          </AccordionDetails>
-        </Accordion>
+          )}
+          hasActiveFilters={hasActiveFilters}
+          filterCount={
+            Object.values(filters).filter((v) => v !== '' && v !== ALL).length
+          }
+          filterChips={filterChips}
+          renderFilterEditor={(onClose) => (
+            <MatrixFilters
+              filters={filters}
+              availableTeams={availableTeams}
+              availableActions={availableActions}
+              availableLabelValues={availableLabelValues}
+              availableGroups={availableGroups}
+              onTeamChange={setFilterTeam}
+              onActionChange={setFilterAction}
+              onLabelGroupChange={setFilterLabelGroup}
+              onLabelValueChange={setFilterLabelValue}
+              onClearLabelFilters={clearLabelFilters}
+              hasActiveFilters={hasActiveFilters}
+            />
+          )}
+        />
 
         <Paper
           elevation={0}
@@ -185,7 +174,6 @@ export const MatrixTab = ({
             {customMatrix && customMatrix.rowHeaders.length > 0 && (
               <>
                 <MatrixSection
-                  title={`${getAxisLabel(customRowAxis)} × ${getAxisLabel(customColumnAxis)}`}
                   rowHeaders={customMatrix.rowHeaders}
                   columnHeaders={customMatrix.columnHeaders}
                   rowParentSpans={customMatrix.rowParentSpans}

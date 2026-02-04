@@ -6,6 +6,10 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import GridOnIcon from '@mui/icons-material/GridOn';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { AnalysisView } from '../AnalysisPanel';
 import type { AnalysisPanelDerivedState } from '../hooks/useAnalysisPanelState';
@@ -43,8 +47,16 @@ export const AnalysisPanelView = ({
   onCreateAiPlaylist,
 }: AnalysisPanelViewProps) => {
   const content = (
-    <>
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          bgcolor: 'background.default',
+          pb: 2,
+        }}
+      >
         <ToggleButtonGroup
           value={currentView}
           exclusive
@@ -53,54 +65,74 @@ export const AnalysisPanelView = ({
           }}
           size="small"
         >
-          <ToggleButton value="dashboard">ダッシュボード</ToggleButton>
-          <ToggleButton value="momentum">モメンタム</ToggleButton>
-          <ToggleButton value="matrix">クロス集計</ToggleButton>
-          <ToggleButton value="ai">AI分析</ToggleButton>
+          <ToggleButton value="dashboard">
+            <DashboardIcon fontSize="small" sx={{ mr: 0.5 }} />
+            ダッシュボード
+          </ToggleButton>
+          <ToggleButton value="momentum">
+            <TrendingUpIcon fontSize="small" sx={{ mr: 0.5 }} />
+            モメンタム
+          </ToggleButton>
+          <ToggleButton value="matrix">
+            <GridOnIcon fontSize="small" sx={{ mr: 0.5 }} />
+            クロス集計
+          </ToggleButton>
+          <ToggleButton value="ai">
+            <AutoAwesomeIcon fontSize="small" sx={{ mr: 0.5 }} />
+            AI分析
+          </ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
-      {currentView === 'dashboard' && (
-        <DashboardTab
-          hasData={hasTimelineData}
-          timeline={timeline}
-          teamNames={resolvedTeamNames}
-          emptyMessage="ダッシュボードを表示するにはタイムラインを作成してください。"
-        />
-      )}
+      <Box sx={{ flex: 1, overflow: 'auto' }}>
+        {currentView === 'dashboard' && (
+          <DashboardTab
+            hasData={hasTimelineData}
+            timeline={timeline}
+            teamNames={resolvedTeamNames}
+            emptyMessage="ダッシュボードを表示するにはタイムラインを作成してください。"
+          />
+        )}
 
-      {currentView === 'matrix' && (
-        <MatrixTab
-          hasData={hasTimelineData}
-          timeline={timeline}
-          onJumpToSegment={onJumpToSegment}
-          emptyMessage="クロス集計を表示するにはタイムラインを作成してください。"
-        />
-      )}
+        {currentView === 'matrix' && (
+          <MatrixTab
+            hasData={hasTimelineData}
+            timeline={timeline}
+            onJumpToSegment={onJumpToSegment}
+            emptyMessage="クロス集計を表示するにはタイムラインを作成してください。"
+          />
+        )}
 
-      {currentView === 'momentum' && (
-        <MomentumTab
-          hasData={hasTimelineData}
-          createMomentumData={createMomentumData}
-          teamNames={resolvedTeamNames}
-          emptyMessage="モメンタムを表示するにはタイムラインを作成してください。"
-        />
-      )}
+        {currentView === 'momentum' && (
+          <MomentumTab
+            hasData={hasTimelineData}
+            createMomentumData={createMomentumData}
+            teamNames={resolvedTeamNames}
+            emptyMessage="モメンタムを表示するにはタイムラインを作成してください。"
+          />
+        )}
 
-      {currentView === 'ai' && (
-        <AIAnalysisTab
-          hasData={hasTimelineData}
-          timeline={timeline}
-          emptyMessage="AI分析を表示するにはタイムラインを作成してください。"
-          onCreateAiPlaylist={onCreateAiPlaylist}
-          onJumpToSegment={onJumpToSegment}
-        />
-      )}
-    </>
+        {currentView === 'ai' && (
+          <AIAnalysisTab
+            hasData={hasTimelineData}
+            timeline={timeline}
+            emptyMessage="AI分析を表示するにはタイムラインを作成してください。"
+            onCreateAiPlaylist={onCreateAiPlaylist}
+            onJumpToSegment={onJumpToSegment}
+          />
+        )}
+      </Box>
+    </Box>
   );
 
   if (embedded) {
-    return <Box sx={{ p: 3, height: '100%', overflow: 'auto' }}>{content}</Box>;
+    return (
+      <Box
+        sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}
+      >
+        {content}
+      </Box>
+    );
   }
 
   return (
