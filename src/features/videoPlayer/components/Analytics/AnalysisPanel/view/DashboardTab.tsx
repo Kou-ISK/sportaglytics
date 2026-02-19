@@ -3,6 +3,11 @@ import { useTheme } from '@mui/material/styles';
 import {
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   Stack,
   Typography,
@@ -16,6 +21,7 @@ import {
   Menu,
   ListItemIcon,
   ListItemText,
+  TextField,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -25,8 +31,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
+import OutboxIcon from '@mui/icons-material/Outbox';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import type { TimelineData } from '../../../../../../types/TimelineData';
 import type {
@@ -51,13 +57,14 @@ import { DashboardWidgetDialog } from './DashboardWidgetDialog';
 import { buildCustomChartData } from './hooks/useCustomChartData';
 import { CustomBarChart } from './CustomBarChart';
 import { CustomPieChart } from './CustomPieChart';
-import { getAxisLabel } from './utils';
+import { DrilldownDialog } from './DrilldownDialog';
 
 interface DashboardTabProps {
   hasData: boolean;
   timeline: TimelineData[];
   teamNames: string[];
   emptyMessage: string;
+  onJumpToSegment?: (segment: TimelineData) => void;
 }
 
 export const DashboardTab = ({
@@ -65,6 +72,7 @@ export const DashboardTab = ({
   timeline,
   teamNames,
   emptyMessage,
+  onJumpToSegment,
 }: DashboardTabProps) => {
   const theme = useTheme();
   const { settings, saveSettings } = useSettings();
@@ -137,6 +145,17 @@ export const DashboardTab = ({
     useState<DashboardSeriesFilter>({});
   const [dashboardMenuAnchor, setDashboardMenuAnchor] =
     useState<null | HTMLElement>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newDashboardName, setNewDashboardName] = useState('新規ダッシュボード');
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [pendingDashboardId, setPendingDashboardId] = useState<string | null>(
+    null,
+  );
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [detail, setDetail] = useState<{
+    title: string;
+    entries: TimelineData[];
+  } | null>(null);
   const dashboards = settings.analysisDashboard?.dashboards ?? [];
   const activeDashboardId =
     settings.analysisDashboard?.activeDashboardId ?? dashboards[0]?.id ?? '';
@@ -145,6 +164,10 @@ export const DashboardTab = ({
   const activeDashboardWidgets = activeDashboard?.widgets ?? [];
 
   const widgets = isEditing ? draftWidgets : activeDashboardWidgets;
+  const timelineMap = useMemo(
+    () => new Map(timeline.map((item) => [item.id, item])),
+    [timeline],
+  );
 
   useEffect(() => {
     if (!isEditing) {
@@ -191,11 +214,6 @@ export const DashboardTab = ({
     return `dashboard-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   };
 
-  const generateWidgetId = () => {
-    if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
-    return `widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  };
-
   const saveDashboards = async (
     nextDashboards: AnalysisDashboard[],
     nextActiveId: string,
@@ -237,22 +255,41 @@ export const DashboardTab = ({
 
   const handleDashboardChange = async (nextId: string) => {
     if (!nextId || nextId === activeDashboardId) return;
-    if (
-      isEditing &&
-      !window.confirm('編集中の内容を破棄して切り替えますか？')
-    ) {
+    if (isEditing) {
+      setPendingDashboardId(nextId);
+      setDiscardDialogOpen(true);
       return;
     }
     setIsEditing(false);
     await saveDashboards(dashboards, nextId);
   };
 
+  const handleConfirmDiscardAndSwitch = async () => {
+    if (!pendingDashboardId) {
+      setDiscardDialogOpen(false);
+      return;
+    }
+    const nextId = pendingDashboardId;
+    setPendingDashboardId(null);
+    setDiscardDialogOpen(false);
+    setIsEditing(false);
+    await saveDashboards(dashboards, nextId);
+  };
+
   const handleCreateDashboard = async () => {
-    const name = window.prompt(
-      'ダッシュボード名を入力してください',
-      '新規ダッシュボード',
-    );
-    if (!name) return;
+    const name = newDashboardName.trim();
+    if (!name) {
+      notification.warning('ダッシュボード名を入力してください。');
+      return;
+    }
+    if (
+      dashboards.some(
+        (dashboard) => dashboard.name.trim().toLowerCase() === name.toLowerCase(),
+      )
+    ) {
+      notification.warning('同名のダッシュボードが既に存在します。');
+      return;
+    }
     const newDashboard: AnalysisDashboard = {
       id: generateDashboardId(),
       name,
@@ -261,6 +298,8 @@ export const DashboardTab = ({
     await saveDashboards([...dashboards, newDashboard], newDashboard.id);
     setDraftWidgets([]);
     setIsEditing(true);
+    setCreateDialogOpen(false);
+    setNewDashboardName('新規ダッシュボード');
   };
 
   const handleDuplicateDashboard = async () => {
@@ -275,7 +314,7 @@ export const DashboardTab = ({
     setIsEditing(false);
   };
 
-  const handleDeleteDashboard = async () => {
+  const handleRequestDeleteDashboard = () => {
     if (!activeDashboard) return;
     const protectedIds = new Set(['default', 'template-basic']);
     if (protectedIds.has(activeDashboard.id)) {
@@ -286,14 +325,16 @@ export const DashboardTab = ({
       notification.warning('ダッシュボードは最低1つ必要です。');
       return;
     }
-    const confirmed = window.confirm(
-      `「${activeDashboard.name}」を削除しますか？`,
-    );
-    if (!confirmed) return;
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteDashboard = async () => {
+    if (!activeDashboard) return;
     const nextDashboards = dashboards.filter(
       (item) => item.id !== activeDashboard.id,
     );
     const nextActiveId = nextDashboards[0]?.id ?? '';
+    setDeleteDialogOpen(false);
     setIsEditing(false);
     await saveDashboards(nextDashboards, nextActiveId);
   };
@@ -466,8 +507,37 @@ export const DashboardTab = ({
     setDashboardFilters({});
   };
 
+  const handleChartPointSelect = useCallback(
+    (
+      widgetTitle: string,
+      payload: {
+        title: string;
+        entryIds: string[];
+      },
+    ) => {
+      if (!payload.entryIds || payload.entryIds.length === 0) return;
+      const uniqueEntryIds = Array.from(new Set(payload.entryIds));
+      const entries = uniqueEntryIds
+        .map((id) => timelineMap.get(id))
+        .filter((item): item is TimelineData => Boolean(item));
+      setDetail({
+        title: `Dashboard > ${widgetTitle} > ${payload.title}`,
+        entries,
+      });
+    },
+    [timelineMap],
+  );
+
   if (!hasData) {
     return <NoDataPlaceholder message={emptyMessage} />;
+  }
+
+  if (timeline.length === 0) {
+    return (
+      <NoDataPlaceholder
+        message="表示できるタイムラインがありません。"
+      />
+    );
   }
 
   return (
@@ -739,9 +809,10 @@ export const DashboardTab = ({
         onClose={() => setDashboardMenuAnchor(null)}
       >
         <MenuItem
-          onClick={async () => {
+          onClick={() => {
             setDashboardMenuAnchor(null);
-            await handleCreateDashboard();
+            setNewDashboardName('新規ダッシュボード');
+            setCreateDialogOpen(true);
           }}
         >
           <ListItemIcon>
@@ -765,9 +836,9 @@ export const DashboardTab = ({
             activeDashboard?.id === 'default' ||
             activeDashboard?.id === 'template-basic'
           }
-          onClick={async () => {
+          onClick={() => {
             setDashboardMenuAnchor(null);
-            await handleDeleteDashboard();
+            handleRequestDeleteDashboard();
           }}
         >
           <ListItemIcon>
@@ -783,7 +854,7 @@ export const DashboardTab = ({
           }}
         >
           <ListItemIcon>
-            <FileUploadIcon fontSize="small" />
+            <MoveToInboxIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>インポート</ListItemText>
         </MenuItem>
@@ -794,7 +865,7 @@ export const DashboardTab = ({
           }}
         >
           <ListItemIcon>
-            <FileDownloadIcon fontSize="small" />
+            <OutboxIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>エクスポート</ListItemText>
         </MenuItem>
@@ -836,11 +907,16 @@ export const DashboardTab = ({
             }}
           >
             {widgets.map((widget) => {
+              const resolvedWidgetTitle = replaceTeamPlaceholders(
+                widget.title,
+                teamContext,
+              );
               const chart = buildCustomChartData(timeline, availableGroups, {
                 primaryAxis: widget.primaryAxis,
                 seriesAxis: widget.seriesAxis,
                 seriesEnabled: widget.seriesEnabled,
                 metric: widget.metric,
+                analysisMode: widget.analysisMode,
                 limit: widget.limit,
                 series:
                   widget.dataMode === 'series' ? widget.series : undefined,
@@ -848,6 +924,10 @@ export const DashboardTab = ({
                 baseFilters: dashboardFilters,
                 widgetFilters: widget.widgetFilters,
                 teamRoleMap,
+                timeBucketSec: widget.timeBucketSec,
+                histogramBinSec: widget.histogramBinSec,
+                rollingWindow: widget.rollingWindow,
+                outlierIqrMultiplier: widget.outlierIqrMultiplier,
               });
 
               return (
@@ -856,7 +936,7 @@ export const DashboardTab = ({
                   sx={{ gridColumn: `span ${widget.colSpan}` }}
                 >
                   <DashboardCard
-                    title={replaceTeamPlaceholders(widget.title, teamContext)}
+                    title={resolvedWidgetTitle}
                     actions={
                       isEditing && (
                         <Stack direction="row" spacing={0.5}>
@@ -904,6 +984,9 @@ export const DashboardTab = ({
                         metric={widget.metric}
                         height={260}
                         teamColorMap={teamColorMap}
+                        onPointSelect={(payload) =>
+                          handleChartPointSelect(resolvedWidgetTitle, payload)
+                        }
                       />
                     ) : (
                       <CustomBarChart
@@ -918,6 +1001,9 @@ export const DashboardTab = ({
                         calcMode={chart.calcMode}
                         height={240}
                         teamColorMap={teamColorMap}
+                        onPointSelect={(payload) =>
+                          handleChartPointSelect(resolvedWidgetTitle, payload)
+                        }
                       />
                     )}
                   </DashboardCard>
@@ -936,6 +1022,114 @@ export const DashboardTab = ({
         initial={editingWidget}
         onSave={handleEditorSave}
         onClose={() => setEditorOpen(false)}
+      />
+
+      <Dialog
+        open={createDialogOpen}
+        onClose={() => {
+          setCreateDialogOpen(false);
+          setNewDashboardName('新規ダッシュボード');
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>ダッシュボードを新規作成</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            名前を入力して新しいダッシュボードを作成します。
+          </DialogContentText>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            label="ダッシュボード名"
+            value={newDashboardName}
+            onChange={(event) => setNewDashboardName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void handleCreateDashboard();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setCreateDialogOpen(false);
+              setNewDashboardName('新規ダッシュボード');
+            }}
+          >
+            キャンセル
+          </Button>
+          <Button variant="contained" onClick={() => void handleCreateDashboard()}>
+            作成
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={discardDialogOpen}
+        onClose={() => {
+          setDiscardDialogOpen(false);
+          setPendingDashboardId(null);
+        }}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>編集中の変更を破棄しますか？</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            保存していない変更は失われます。ダッシュボードを切り替えますか。
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setDiscardDialogOpen(false);
+              setPendingDashboardId(null);
+            }}
+          >
+            キャンセル
+          </Button>
+          <Button
+            color="warning"
+            variant="contained"
+            onClick={() => void handleConfirmDiscardAndSwitch()}
+          >
+            破棄して切り替え
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>ダッシュボードを削除</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            「{activeDashboard?.name ?? ''}」を削除します。この操作は元に戻せません。
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>キャンセル</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => void handleDeleteDashboard()}
+          >
+            削除
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <DrilldownDialog
+        detail={detail}
+        onClose={() => setDetail(null)}
+        onJump={(segment) => onJumpToSegment?.(segment)}
       />
     </Stack>
   );

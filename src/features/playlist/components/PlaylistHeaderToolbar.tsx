@@ -12,9 +12,9 @@ import {
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
-  FileDownload,
   FolderOpen,
   MoreVert,
+  Outbox,
   PlaylistPlay,
   Save,
 } from '@mui/icons-material';
@@ -94,7 +94,7 @@ export const PlaylistHeaderToolbar = ({
           </IconButton>
         </Tooltip>
 
-        <Tooltip title="書き出し (Cmd+E)">
+        <Tooltip title="エクスポート (Cmd+E)">
           <IconButton
             size="small"
             onClick={onExportClick}
@@ -104,7 +104,7 @@ export const PlaylistHeaderToolbar = ({
               '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.08) },
             }}
           >
-            <FileDownload fontSize="small" />
+            <Outbox fontSize="small" />
           </IconButton>
         </Tooltip>
 

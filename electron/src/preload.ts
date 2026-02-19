@@ -526,6 +526,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return false;
     }
   },
+  writeBinaryFile: async (filePath: string, base64Content: string) => {
+    try {
+      return await ipcRenderer.invoke(
+        'write-binary-file',
+        filePath,
+        base64Content,
+      );
+    } catch (error) {
+      console.error('Error in writeBinaryFile:', error);
+      return false;
+    }
+  },
   readTextFile: async (filePath: string) => {
     try {
       return await ipcRenderer.invoke('read-text-file', filePath);

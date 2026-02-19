@@ -259,6 +259,12 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 export type DashboardMetric = 'count' | 'duration';
 export type DashboardChartType = 'bar' | 'stacked' | 'pie';
 export type DashboardCalcMode = 'raw' | 'percentTotal' | 'difference';
+export type DashboardAnalysisMode =
+  | 'standard'
+  | 'trend'
+  | 'histogram'
+  | 'rolling'
+  | 'outlier';
 
 export interface DashboardSeriesFilter {
   team?: string;
@@ -279,6 +285,7 @@ export interface AnalysisDashboardWidget {
   title: string;
   chartType: DashboardChartType;
   metric: DashboardMetric;
+  analysisMode?: DashboardAnalysisMode;
   primaryAxis: import('./MatrixConfig').MatrixAxisConfig;
   seriesEnabled: boolean;
   seriesAxis: import('./MatrixConfig').MatrixAxisConfig;
@@ -288,6 +295,10 @@ export interface AnalysisDashboardWidget {
   series?: DashboardSeriesDefinition[];
   calc?: DashboardCalcMode;
   widgetFilters?: DashboardSeriesFilter;
+  timeBucketSec?: number;
+  histogramBinSec?: number;
+  rollingWindow?: number;
+  outlierIqrMultiplier?: number;
 }
 
 export interface AnalysisDashboard {
@@ -311,60 +322,6 @@ export interface AIAnalysisSettings {
   teamLabelGroup?: string;
   retrieverPreset?: 'balanced' | 'labels' | 'memo' | 'time';
 }
-
-const DEFAULT_DASHBOARD_WIDGETS: AnalysisDashboardWidget[] = [
-  {
-    id: 'dash-team-count',
-    title: 'チーム別件数',
-    chartType: 'bar',
-    metric: 'count',
-    primaryAxis: { type: 'team' },
-    seriesEnabled: false,
-    seriesAxis: { type: 'group', value: 'actionResult' },
-    colSpan: 6,
-  },
-  {
-    id: 'dash-action-count',
-    title: 'アクション別件数',
-    chartType: 'bar',
-    metric: 'count',
-    primaryAxis: { type: 'action' },
-    seriesEnabled: false,
-    seriesAxis: { type: 'group', value: 'actionResult' },
-    colSpan: 6,
-    limit: 12,
-  },
-  {
-    id: 'dash-result-stack',
-    title: 'ラベル別スタック',
-    chartType: 'stacked',
-    metric: 'count',
-    primaryAxis: { type: 'group', value: 'all_labels' },
-    seriesEnabled: true,
-    seriesAxis: { type: 'team' },
-    colSpan: 12,
-  },
-  {
-    id: 'dash-action-result',
-    title: 'ラベル内訳',
-    chartType: 'pie',
-    metric: 'count',
-    primaryAxis: { type: 'group', value: 'all_labels' },
-    seriesEnabled: false,
-    seriesAxis: { type: 'group', value: 'all_labels' },
-    colSpan: 6,
-  },
-  {
-    id: 'dash-action-type',
-    title: 'ラベルグループ内訳',
-    chartType: 'pie',
-    metric: 'count',
-    primaryAxis: { type: 'group', value: 'all_labels' },
-    seriesEnabled: false,
-    seriesAxis: { type: 'group', value: 'all_labels' },
-    colSpan: 6,
-  },
-];
 
 const createTemplateDashboardWidgets = (): AnalysisDashboardWidget[] => {
   const widgets: AnalysisDashboardWidget[] = [

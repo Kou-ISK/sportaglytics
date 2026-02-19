@@ -11,6 +11,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import {
+  DASHBOARD_ENTRY_IDS_KEY,
+  getDashboardEntryIdsKey,
+  type CustomChartDatumValue,
+} from './hooks/useCustomChartData';
 
 const SERIES_COLORS = [
   '#1976d2',
@@ -39,7 +44,7 @@ const getSeriesColor = (key: string) => {
 };
 
 interface CustomBarChartProps {
-  data: Array<Record<string, number | string>>;
+  data: Array<Record<string, CustomChartDatumValue>>;
   seriesKeys: string[];
   stacked: boolean;
   showLegend: boolean;
@@ -48,6 +53,7 @@ interface CustomBarChartProps {
   metric: 'count' | 'duration';
   calcMode?: 'raw' | 'percentTotal' | 'difference';
   teamColorMap?: Record<string, string>;
+  onPointSelect?: (payload: { title: string; entryIds: string[] }) => void;
 }
 
 export const CustomBarChart = ({
@@ -60,6 +66,7 @@ export const CustomBarChart = ({
   metric,
   calcMode = 'raw',
   teamColorMap,
+  onPointSelect,
 }: CustomBarChartProps) => {
   const theme = useTheme();
   const formatter = (value: number) => {
@@ -90,6 +97,27 @@ export const CustomBarChart = ({
     padding: '8px 12px',
   } as const;
 
+  const toEntryIds = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === 'string');
+  };
+
+  const resolveEntryIds = (
+    payload: Record<string, CustomChartDatumValue>,
+    seriesKey: string,
+  ) => {
+    const fromSeries = toEntryIds(payload[getDashboardEntryIdsKey(seriesKey)]);
+    if (fromSeries.length > 0) return fromSeries;
+    return toEntryIds(payload[DASHBOARD_ENTRY_IDS_KEY]);
+  };
+
+  const buildPointTitle = (name: string, seriesKey: string) => {
+    if (normalizedSeriesKeys.length === 1 || seriesKey === 'value') {
+      return name;
+    }
+    return `${name} / ${seriesKey}`;
+  };
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
@@ -104,10 +132,14 @@ export const CustomBarChart = ({
         <YAxis />
         <Tooltip
           formatter={(
-            value: number,
+            value: number | string | undefined,
             name: string,
-            tooltipPayload: { payload?: Record<string, number | string> },
+            tooltipPayload: {
+              payload?: Record<string, CustomChartDatumValue>;
+            },
           ) => {
+            const numericValue =
+              typeof value === 'number' ? value : Number(value ?? 0);
             if (calcMode === 'percentTotal') {
               const payload = tooltipPayload?.payload ?? {};
               const rawKey = `__raw_${name}`;
@@ -119,13 +151,13 @@ export const CustomBarChart = ({
                     : undefined;
               if (typeof rawValue === 'number') {
                 return [
-                  `${value.toFixed(1)}% (${formatRawValue(rawValue)})`,
+                  `${numericValue.toFixed(1)}% (${formatRawValue(rawValue)})`,
                   name,
                 ];
               }
-              return [`${value.toFixed(1)}%`, name];
+              return [`${numericValue.toFixed(1)}%`, name];
             }
-            return [formatter(value), name];
+            return [formatter(numericValue), name];
           }}
           contentStyle={tooltipStyles}
           labelStyle={{ color: theme.palette.text.secondary }}
@@ -143,6 +175,23 @@ export const CustomBarChart = ({
               stackId={stacked ? 'stack' : undefined}
               fill={fill}
               radius={[4, 4, 0, 0]}
+              cursor={onPointSelect ? 'pointer' : undefined}
+              onClick={(event: {
+                payload?: Record<string, CustomChartDatumValue>;
+              }) => {
+                if (!onPointSelect) return;
+                const payload = event?.payload;
+                if (!payload) return;
+                const value = payload[key];
+                if (typeof value === 'number' && value === 0) return;
+                const entryIds = resolveEntryIds(payload, key);
+                if (entryIds.length === 0) return;
+                const name = String(payload.name ?? key);
+                onPointSelect({
+                  title: buildPointTitle(name, key),
+                  entryIds,
+                });
+              }}
             >
               {hasPerBarTeamColors &&
                 key === normalizedSeriesKeys[0] &&

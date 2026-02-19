@@ -1,6 +1,10 @@
 import React from 'react';
 import { useTheme } from '@mui/material/styles';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+  DASHBOARD_ENTRY_IDS_KEY,
+  type CustomChartDatumValue,
+} from './hooks/useCustomChartData';
 
 const PIE_COLORS = [
   '#1976d2',
@@ -22,13 +26,14 @@ const normalizeKey = (value: string) =>
     .trim();
 
 interface CustomPieChartProps {
-  data: Array<Record<string, number | string>>;
+  data: Array<Record<string, CustomChartDatumValue>>;
   seriesKeys: string[];
   unitLabel: string;
   metric: 'count' | 'duration';
   height?: number;
   calcMode?: 'raw' | 'percentTotal' | 'difference';
   teamColorMap?: Record<string, string>;
+  onPointSelect?: (payload: { title: string; entryIds: string[] }) => void;
 }
 
 export const CustomPieChart = ({
@@ -39,16 +44,22 @@ export const CustomPieChart = ({
   height = 260,
   calcMode = 'raw',
   teamColorMap,
+  onPointSelect,
 }: CustomPieChartProps) => {
   const theme = useTheme();
   const normalizedSeriesKeys = seriesKeys.length > 0 ? seriesKeys : ['value'];
+  const toEntryIds = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === 'string');
+  };
+
   const pieData = data.map((entry) => {
     const total = normalizedSeriesKeys.reduce((sum, key) => {
       const value = entry[key];
       return sum + (typeof value === 'number' ? value : 0);
     }, 0);
     const rawTotal = normalizedSeriesKeys.reduce((sum, key) => {
-      const rawValue = (entry as Record<string, number | string>)[
+      const rawValue = (entry as Record<string, CustomChartDatumValue>)[
         `__raw_${key}`
       ];
       return sum + (typeof rawValue === 'number' ? rawValue : 0);
@@ -62,6 +73,7 @@ export const CustomPieChart = ({
           : rawTotal > 0
             ? rawTotal
             : undefined,
+      entryIds: toEntryIds(entry[DASHBOARD_ENTRY_IDS_KEY]),
     };
   });
 
@@ -95,7 +107,7 @@ export const CustomPieChart = ({
     payload,
   }: {
     active?: boolean;
-    payload?: Array<{
+    payload?: ReadonlyArray<{
       name?: string;
       value?: number;
       payload?: { name?: string; rawValue?: number };
@@ -143,6 +155,18 @@ export const CustomPieChart = ({
           cy="80%"
           paddingAngle={1}
           labelLine={{ stroke: theme.palette.divider, strokeWidth: 1 }}
+          onClick={(
+            entry: { name?: string; value?: number; entryIds?: string[] },
+          ) => {
+            if (!onPointSelect) return;
+            if (typeof entry.value === 'number' && entry.value === 0) return;
+            const entryIds = entry.entryIds ?? [];
+            if (entryIds.length === 0) return;
+            onPointSelect({
+              title: String(entry.name ?? ''),
+              entryIds,
+            });
+          }}
           label={({ name, value }) => {
             if (!totalValue) return String(name ?? '');
             const percentage = ((value / totalValue) * 100).toFixed(1);

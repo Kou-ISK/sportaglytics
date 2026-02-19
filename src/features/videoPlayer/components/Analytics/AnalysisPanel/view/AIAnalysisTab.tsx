@@ -59,6 +59,7 @@ interface AIAnalysisTabProps {
   hasData: boolean;
   timeline: TimelineData[];
   emptyMessage: string;
+  totalTimelineCount?: number;
   onCreateAiPlaylist?: (payload: {
     name: string;
     items: PlaylistItem[];
@@ -326,6 +327,7 @@ export const AIAnalysisTab = ({
   hasData,
   timeline,
   emptyMessage,
+  totalTimelineCount,
   onCreateAiPlaylist,
   onJumpToSegment,
 }: AIAnalysisTabProps) => {
@@ -350,7 +352,7 @@ export const AIAnalysisTab = ({
   const [labelName, setLabelName] = useState('');
   const [teamName, setTeamName] = useState('');
   const [showAiSettings, setShowAiSettings] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [insightDimension, setInsightDimension] = useState('auto');
   const [availableModels, setAvailableModels] = useState<AvailableModelInfo[]>(
     [],
@@ -1286,7 +1288,8 @@ export const AIAnalysisTab = ({
   }, [clipSegments, evidenceMap, onCreateAiPlaylist]);
 
   if (!hasData || timeline.length === 0) {
-    return <NoDataPlaceholder message={emptyMessage} />;
+    if (!hasData) return <NoDataPlaceholder message={emptyMessage} />;
+    return <NoDataPlaceholder message="表示できるタイムラインがありません。" />;
   }
 
   return (
@@ -1299,6 +1302,12 @@ export const AIAnalysisTab = ({
         <AnalysisCard title="AI分析">
           <Stack spacing={2}>
             <Stack spacing={1.5}>
+              {typeof totalTimelineCount === 'number' &&
+                totalTimelineCount > timeline.length && (
+                  <Alert severity="info">
+                    対象タイムライン: {timeline.length}/{totalTimelineCount}
+                  </Alert>
+                )}
               <Paper
                 variant="outlined"
                 sx={{

@@ -97,9 +97,13 @@ export const useMatrixFilters = (
         if (action !== filterAction) return false;
       }
 
-      if (filterLabelGroup !== ALL && filterLabelValue !== ALL) {
-        const label = item.labels?.find((l) => l.group === filterLabelGroup);
-        if (label?.name !== filterLabelValue) return false;
+      if (filterLabelGroup !== ALL) {
+        const labels = item.labels?.filter((l) => l.group === filterLabelGroup) ?? [];
+        if (labels.length === 0) return false;
+        if (filterLabelValue !== ALL) {
+          const matched = labels.some((label) => label.name === filterLabelValue);
+          if (!matched) return false;
+        }
       }
 
       return true;
@@ -125,7 +129,7 @@ export const useMatrixFilters = (
   const hasActiveFilters =
     filterTeam !== ALL ||
     filterAction !== ALL ||
-    (filterLabelGroup !== ALL && filterLabelValue !== ALL);
+    filterLabelGroup !== ALL;
 
   return {
     filters: {

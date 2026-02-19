@@ -9,6 +9,7 @@ export const AnalysisWindowApp = () => {
   const [timeline, setTimeline] = useState<TimelineData[]>([]);
   const [teamNames, setTeamNames] = useState<string[]>([]);
   const [analysisView, setAnalysisView] = useState<AnalysisView>('dashboard');
+  const [isSyncing, setIsSyncing] = useState(true);
 
   useEffect(() => {
     const api = window.electronAPI?.analysis;
@@ -19,6 +20,7 @@ export const AnalysisWindowApp = () => {
       setTimeline(Array.isArray(payload.timeline) ? payload.timeline : []);
       setTeamNames(Array.isArray(payload.teamNames) ? payload.teamNames : []);
       if (payload.view) setAnalysisView(payload.view);
+      setIsSyncing(false);
     };
 
     api.onSync(handleSync);
@@ -57,6 +59,7 @@ export const AnalysisWindowApp = () => {
         teamNames={teamNames}
         onJumpToSegment={handleJumpToSegment}
         embedded
+        isSyncing={isSyncing}
         onCreateAiPlaylist={handleCreateAiPlaylist}
       />
     </Box>

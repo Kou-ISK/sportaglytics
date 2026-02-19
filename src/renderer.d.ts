@@ -159,6 +159,10 @@ export interface IElectronAPI {
     filters: { name: string; extensions: string[] }[],
   ) => Promise<string | null>;
   writeTextFile: (filePath: string, content: string) => Promise<boolean>;
+  writeBinaryFile: (
+    filePath: string,
+    base64Content: string,
+  ) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<string | null>;
   saveDashboardPackage: (
     packagePath: string,

@@ -23,6 +23,8 @@ interface MatrixFiltersProps {
   onLabelValueChange: (value: string) => void;
   onClearLabelFilters: () => void;
   hasActiveFilters: boolean;
+  onApply?: () => void;
+  onClose?: () => void;
 }
 
 export const ALL = 'all';
@@ -39,6 +41,8 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
   onLabelValueChange,
   onClearLabelFilters,
   hasActiveFilters,
+  onApply,
+  onClose,
 }) => {
   const compactControlSx = {
     '& .MuiInputBase-input': { py: 0.75 },
@@ -50,7 +54,11 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
         フィルタ
       </Typography>
-      <Box display="grid" gridTemplateColumns="1fr 1fr 1fr 1fr" gap={1.5}>
+      <Box
+        display="grid"
+        gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr 1fr' }}
+        gap={1.5}
+      >
         <FormControl size="small" fullWidth sx={compactControlSx}>
           <InputLabel>チーム</InputLabel>
           <Select
@@ -139,9 +147,13 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
               onDelete={() => onActionChange(ALL)}
             />
           )}
-          {filters.labelGroup !== ALL && filters.labelValue !== ALL && (
+          {filters.labelGroup !== ALL && (
             <Chip
-              label={`${filters.labelGroup}: ${filters.labelValue}`}
+              label={
+                filters.labelValue !== ALL
+                  ? `${filters.labelGroup}: ${filters.labelValue}`
+                  : `ラベルグループ: ${filters.labelGroup}`
+              }
               size="small"
               onDelete={onClearLabelFilters}
             />
@@ -160,6 +172,15 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
           </Button>
         </Box>
       )}
+
+      <Box display="flex" justifyContent="flex-end" gap={1} mt={0.5}>
+        <Button size="small" variant="outlined" onClick={onClose}>
+          閉じる
+        </Button>
+        <Button size="small" variant="contained" onClick={onApply ?? onClose}>
+          適用
+        </Button>
+      </Box>
     </>
   );
 };

@@ -22,6 +22,7 @@ import type {
 interface MomentumChartProps {
   createMomentumData: CreateMomentumDataFn;
   teamNames: string[];
+  onPointSelect?: (payload: { title: string; entryIds: string[] }) => void;
 }
 
 interface MomentumChartDatum extends MomentumSegment {
@@ -70,6 +71,7 @@ const LegendComponent = ({ theme }: { theme: Theme }) => {
 export const MomentumChart: React.FC<MomentumChartProps> = ({
   createMomentumData,
   teamNames,
+  onPointSelect,
 }: MomentumChartProps) => {
   const theme = useTheme();
   const [teamA, teamB] = teamNames;
@@ -198,7 +200,18 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
             content={<CustomTooltip />}
             cursor={{ fill: theme.palette.action.hover }}
           />
-          <Bar dataKey="value" radius={[4, 4, 4, 4]}>
+          <Bar
+            dataKey="value"
+            radius={[4, 4, 4, 4]}
+            onClick={(event: { payload?: MomentumChartDatum }) => {
+              const datum = event?.payload;
+              if (!datum?.entryId) return;
+              onPointSelect?.({
+                title: `${datum.teamName} ${datum.possessionStart} (${datum.possessionResult})`,
+                entryIds: [datum.entryId],
+              });
+            }}
+          >
             {chartData.map((entry, index) => (
               <Cell key={index} fill={getBarColor(entry)} />
             ))}

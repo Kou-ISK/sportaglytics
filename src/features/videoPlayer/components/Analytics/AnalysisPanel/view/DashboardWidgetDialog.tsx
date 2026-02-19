@@ -23,6 +23,7 @@ import {
 import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
 import type {
   AnalysisDashboardWidget,
+  DashboardAnalysisMode,
   DashboardChartType,
   DashboardMetric,
   DashboardCalcMode,
@@ -65,6 +66,8 @@ export const DashboardWidgetDialog = ({
   const [title, setTitle] = useState('');
   const [chartType, setChartType] = useState<DashboardChartType>('bar');
   const [metric, setMetric] = useState<DashboardMetric>('count');
+  const [analysisMode, setAnalysisMode] =
+    useState<DashboardAnalysisMode>('standard');
   const [primaryAxis, setPrimaryAxis] =
     useState<MatrixAxisConfig>(DEFAULT_PRIMARY_AXIS);
   const [seriesEnabled, setSeriesEnabled] = useState(false);
@@ -82,12 +85,19 @@ export const DashboardWidgetDialog = ({
   const [showTemplates, setShowTemplates] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [timeBucketSec, setTimeBucketSec] = useState<number | ''>(60);
+  const [histogramBinSec, setHistogramBinSec] = useState<number | ''>(5);
+  const [rollingWindow, setRollingWindow] = useState<number | ''>(3);
+  const [outlierIqrMultiplier, setOutlierIqrMultiplier] = useState<number | ''>(
+    1.5,
+  );
 
   useEffect(() => {
     if (!initial) {
       setTitle('');
       setChartType('bar');
       setMetric('count');
+      setAnalysisMode('standard');
       setPrimaryAxis(DEFAULT_PRIMARY_AXIS);
       setSeriesEnabled(false);
       setSeriesAxis(DEFAULT_SERIES_AXIS);
@@ -102,11 +112,16 @@ export const DashboardWidgetDialog = ({
       setShowTemplates(false);
       setShowFilters(true);
       setShowAdvanced(false);
+      setTimeBucketSec(60);
+      setHistogramBinSec(5);
+      setRollingWindow(3);
+      setOutlierIqrMultiplier(1.5);
       return;
     }
     setTitle(initial.title);
     setChartType(initial.chartType);
     setMetric(initial.metric);
+    setAnalysisMode(initial.analysisMode ?? 'standard');
     setPrimaryAxis(initial.primaryAxis);
     setSeriesEnabled(initial.seriesEnabled);
     setSeriesAxis(initial.seriesAxis);
@@ -120,6 +135,10 @@ export const DashboardWidgetDialog = ({
     setQuickLabelGroup(initial.primaryAxis.value ?? '');
     setShowTemplates(false);
     setShowAdvanced(false);
+    setTimeBucketSec(initial.timeBucketSec ?? 60);
+    setHistogramBinSec(initial.histogramBinSec ?? 5);
+    setRollingWindow(initial.rollingWindow ?? 3);
+    setOutlierIqrMultiplier(initial.outlierIqrMultiplier ?? 1.5);
     setShowFilters(
       Boolean(
         initial.widgetFilters?.team ||
@@ -131,10 +150,22 @@ export const DashboardWidgetDialog = ({
   }, [initial, open]);
 
   const resolvedSeriesEnabled = useMemo(() => {
+    if (analysisMode !== 'standard') return false;
     if (chartType === 'stacked') return true;
     if (chartType === 'pie') return false;
     return seriesEnabled;
-  }, [chartType, seriesEnabled]);
+  }, [analysisMode, chartType, seriesEnabled]);
+
+  useEffect(() => {
+    if (analysisMode === 'standard') return;
+    if (dataMode !== 'axis') setDataMode('axis');
+    if (chartType !== 'bar') setChartType('bar');
+    if (calcMode !== 'raw') setCalcMode('raw');
+    if (seriesEnabled) setSeriesEnabled(false);
+    if (analysisMode === 'outlier' && metric !== 'duration') {
+      setMetric('duration');
+    }
+  }, [analysisMode, calcMode, chartType, dataMode, metric, seriesEnabled]);
 
   useEffect(() => {
     if (dataMode === 'series' && series.length === 0) {
@@ -162,6 +193,14 @@ export const DashboardWidgetDialog = ({
     return '円';
   };
 
+  const getAnalysisModeLabel = (mode: DashboardAnalysisMode) => {
+    if (mode === 'trend') return 'トレンド';
+    if (mode === 'histogram') return 'ヒストグラム';
+    if (mode === 'rolling') return 'ローリング';
+    if (mode === 'outlier') return '外れ値';
+    return '標準集計';
+  };
+
   const buildFilterSummary = (filters: DashboardSeriesFilter) => {
     const parts: string[] = [];
     if (filters.team) parts.push(`チーム=${filters.team}`);
@@ -176,6 +215,7 @@ export const DashboardWidgetDialog = ({
   };
 
   const applyPreset = (mode: 'labelPie' | 'compareBar' | 'seriesPie') => {
+    setAnalysisMode('standard');
     if (mode === 'labelPie') {
       setDataMode('axis');
       setChartType('pie');
@@ -220,24 +260,57 @@ export const DashboardWidgetDialog = ({
 
   const filterSummary = buildFilterSummary(widgetFilters);
 
+  const normalizePositive = (value: number | '', fallback: number) => {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      return fallback;
+    }
+    return value;
+  };
+
   const handleSave = () => {
     const resolvedTitle = title.trim() || 'カスタムチャート';
     const normalizedLimit =
       typeof limit === 'number' && limit > 0 ? limit : undefined;
+    const resolvedMode = analysisMode;
+    const resolvedChartType: DashboardChartType =
+      resolvedMode === 'standard' ? chartType : 'bar';
+    const resolvedMetric: DashboardMetric =
+      resolvedMode === 'outlier' ? 'duration' : metric;
+    const resolvedDataMode = resolvedMode === 'standard' ? dataMode : 'axis';
+    const resolvedCalcMode: DashboardCalcMode =
+      resolvedMode === 'standard' ? calcMode : 'raw';
+    const resolvedSeries =
+      resolvedMode === 'standard' && resolvedDataMode === 'series' ? series : [];
+
     onSave({
       id: initial?.id ?? generateWidgetId(),
       title: resolvedTitle,
-      chartType,
-      metric,
+      chartType: resolvedChartType,
+      metric: resolvedMetric,
+      analysisMode: resolvedMode,
       primaryAxis,
-      seriesEnabled: resolvedSeriesEnabled,
+      seriesEnabled: resolvedMode === 'standard' ? resolvedSeriesEnabled : false,
       seriesAxis,
       colSpan,
       limit: normalizedLimit,
-      dataMode,
-      series,
-      calc: calcMode,
+      dataMode: resolvedDataMode,
+      series: resolvedSeries,
+      calc: resolvedCalcMode,
       widgetFilters,
+      timeBucketSec:
+        resolvedMode === 'trend' || resolvedMode === 'rolling'
+          ? normalizePositive(timeBucketSec, 60)
+          : undefined,
+      histogramBinSec:
+        resolvedMode === 'histogram'
+          ? normalizePositive(histogramBinSec, 5)
+          : undefined,
+      rollingWindow:
+        resolvedMode === 'rolling' ? normalizePositive(rollingWindow, 3) : undefined,
+      outlierIqrMultiplier:
+        resolvedMode === 'outlier'
+          ? normalizePositive(outlierIqrMultiplier, 1.5)
+          : undefined,
     });
   };
 
@@ -302,6 +375,7 @@ export const DashboardWidgetDialog = ({
   const handleQuickPieApply = () => {
     const labelGroup =
       quickLabelGroup || availableGroups[0] || 'all_labels';
+    setAnalysisMode('standard');
     setDataMode('axis');
     setChartType('pie');
     setMetric('count');
@@ -334,6 +408,10 @@ export const DashboardWidgetDialog = ({
               <Stack direction="row" spacing={0.5} flexWrap="wrap">
                 <Chip
                   label={`集計: ${dataMode === 'axis' ? '単一' : '比較'}`}
+                  size="small"
+                />
+                <Chip
+                  label={`モード: ${getAnalysisModeLabel(analysisMode)}`}
                   size="small"
                 />
                 <Chip label={`軸: ${getAxisLabel(primaryAxis)}`} size="small" />
@@ -417,10 +495,16 @@ export const DashboardWidgetDialog = ({
                   }}
                   size="small"
                   fullWidth
+                  disabled={analysisMode !== 'standard'}
                 >
                   <ToggleButton value="axis">単一集計</ToggleButton>
                   <ToggleButton value="series">比較シリーズ</ToggleButton>
                 </ToggleButtonGroup>
+                {analysisMode !== 'standard' && (
+                  <Typography variant="caption" color="text.secondary">
+                    高度分析モードでは単一集計で固定されます。
+                  </Typography>
+                )}
               </Stack>
             </Stack>
           </Paper>
@@ -429,200 +513,264 @@ export const DashboardWidgetDialog = ({
             <Stack spacing={1.5}>
               <Stack spacing={0.5}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  3. {dataMode === 'axis' ? '集計軸' : '比較シリーズ'}
+                  3. {analysisMode === 'standard' ? (dataMode === 'axis' ? '集計軸' : '比較シリーズ') : '分析モード設定'}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {dataMode === 'axis'
-                    ? 'X軸で分布を作り、必要なら色分けする軸を追加します。'
-                    : '条件ごとのシリーズを作って比較します。'}
+                  {analysisMode === 'standard'
+                    ? dataMode === 'axis'
+                      ? 'X軸で分布を作り、必要なら色分けする軸を追加します。'
+                      : '条件ごとのシリーズを作って比較します。'
+                    : 'トレンド/分布/外れ値分析では、軸ではなく時系列・分布設定を使います。'}
                 </Typography>
               </Stack>
-              {dataMode === 'axis' && (
+              {analysisMode === 'standard' ? (
                 <>
-                  <MatrixAxisSelector
-                    label="X軸"
-                    value={primaryAxis}
-                    onChange={setPrimaryAxis}
-                    availableGroups={availableGroups}
-                  />
-
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={resolvedSeriesEnabled}
-                        onChange={(event) =>
-                          setSeriesEnabled(event.target.checked)
-                        }
-                        disabled={chartType === 'stacked' || chartType === 'pie'}
+                  {dataMode === 'axis' && (
+                    <>
+                      <MatrixAxisSelector
+                        label="X軸"
+                        value={primaryAxis}
+                        onChange={setPrimaryAxis}
+                        availableGroups={availableGroups}
                       />
-                    }
-                    label="系列（色分け）を使う"
-                  />
 
-                  {resolvedSeriesEnabled && chartType !== 'pie' && (
-                    <MatrixAxisSelector
-                      label="系列軸"
-                      value={seriesAxis}
-                      onChange={setSeriesAxis}
-                      availableGroups={availableGroups}
-                    />
-                  )}
-                </>
-              )}
-
-              {dataMode === 'series' && (
-                <>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <FormControl fullWidth size="small">
-                      <InputLabel id="calc-mode-label">計算</InputLabel>
-                      <Select
-                        labelId="calc-mode-label"
-                        value={calcMode}
-                        label="計算"
-                        onChange={(event) =>
-                          setCalcMode(event.target.value as DashboardCalcMode)
-                        }
-                      >
-                        <MenuItem value="raw">実数</MenuItem>
-                        <MenuItem value="percentTotal">% of total</MenuItem>
-                        <MenuItem value="difference">差分</MenuItem>
-                      </Select>
-                    </FormControl>
-                    <Button variant="outlined" onClick={addSeries}>
-                      シリーズ追加
-                    </Button>
-                  </Stack>
-                  <Typography variant="caption" color="text.secondary">
-                    % of total は系列合計を100%として比率表示します。差分はシリーズ1-2です。
-                  </Typography>
-                  {calcMode === 'difference' && series.length !== 2 && (
-                    <TextField
-                      size="small"
-                      disabled
-                      value="差分はシリーズ2つ推奨"
-                    />
-                  )}
-
-                  {series.length === 0 && (
-                    <TextField
-                      size="small"
-                      disabled
-                      value="比較シリーズを追加してください"
-                    />
-                  )}
-
-                  {series.map((entry, index) => {
-                    const labelValues =
-                      entry.filters.labelGroup &&
-                      availableLabelValues[entry.filters.labelGroup]
-                        ? availableLabelValues[entry.filters.labelGroup]
-                        : [];
-                    return (
-                      <Stack
-                        key={entry.id}
-                        spacing={1.5}
-                        sx={{
-                          p: 1,
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                        }}
-                      >
-                        <Stack direction="row" spacing={2} alignItems="center">
-                          <TextField
-                            size="small"
-                            label={`シリーズ${index + 1} 名`}
-                            value={entry.name}
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={resolvedSeriesEnabled}
                             onChange={(event) =>
-                              handleSeriesChange(entry.id, {
-                                name: event.target.value,
-                              })
+                              setSeriesEnabled(event.target.checked)
                             }
-                            fullWidth
+                            disabled={chartType === 'stacked' || chartType === 'pie'}
                           />
-                          <Button
-                            color="inherit"
-                            onClick={() => removeSeries(entry.id)}
+                        }
+                        label="系列（色分け）を使う"
+                      />
+
+                      {resolvedSeriesEnabled && chartType !== 'pie' && (
+                        <MatrixAxisSelector
+                          label="系列軸"
+                          value={seriesAxis}
+                          onChange={setSeriesAxis}
+                          availableGroups={availableGroups}
+                        />
+                      )}
+                    </>
+                  )}
+
+                  {dataMode === 'series' && (
+                    <>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <FormControl fullWidth size="small">
+                          <InputLabel id="calc-mode-label">計算</InputLabel>
+                          <Select
+                            labelId="calc-mode-label"
+                            value={calcMode}
+                            label="計算"
+                            onChange={(event) =>
+                              setCalcMode(event.target.value as DashboardCalcMode)
+                            }
                           >
-                            削除
-                          </Button>
-                        </Stack>
-                        <Stack direction="row" spacing={2}>
-                          <FormControl fullWidth size="small">
-                            <InputLabel id={`${entry.id}-action-label`}>
-                              アクション（actionName）
-                            </InputLabel>
-                            <Select
-                              labelId={`${entry.id}-action-label`}
-                              value={entry.filters.action ?? ''}
-                              label="アクション（actionName）"
-                              onChange={(event) =>
-                                handleSeriesFilterChange(entry.id, {
-                                  action: event.target.value || undefined,
-                                })
-                              }
-                            >
-                              <MenuItem value="">指定なし</MenuItem>
-                              {availableActions.map((action) => (
-                                <MenuItem key={action} value={action}>
-                                  {action}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                        </Stack>
-                        <Stack direction="row" spacing={2}>
-                          <FormControl fullWidth size="small">
-                            <InputLabel id={`${entry.id}-label-group`}>
-                              ラベルグループ
-                            </InputLabel>
-                            <Select
-                              labelId={`${entry.id}-label-group`}
-                              value={entry.filters.labelGroup ?? ''}
-                              label="ラベルグループ"
-                              onChange={(event) =>
-                                handleSeriesFilterChange(entry.id, {
-                                  labelGroup: event.target.value || undefined,
-                                  labelValue: undefined,
-                                })
-                              }
-                            >
-                              <MenuItem value="">指定なし</MenuItem>
-                              {availableGroups.map((group) => (
-                                <MenuItem key={group} value={group}>
-                                  {group}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                          <FormControl fullWidth size="small">
-                            <InputLabel id={`${entry.id}-label-value`}>
-                              ラベル値
-                            </InputLabel>
-                            <Select
-                              labelId={`${entry.id}-label-value`}
-                              value={entry.filters.labelValue ?? ''}
-                              label="ラベル値"
-                              onChange={(event) =>
-                                handleSeriesFilterChange(entry.id, {
-                                  labelValue: event.target.value || undefined,
-                                })
-                              }
-                              disabled={!entry.filters.labelGroup}
-                            >
-                              <MenuItem value="">指定なし</MenuItem>
-                              {labelValues.map((value) => (
-                                <MenuItem key={value} value={value}>
-                                  {value}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                        </Stack>
+                            <MenuItem value="raw">実数</MenuItem>
+                            <MenuItem value="percentTotal">% of total</MenuItem>
+                            <MenuItem value="difference">差分</MenuItem>
+                          </Select>
+                        </FormControl>
+                        <Button variant="outlined" onClick={addSeries}>
+                          シリーズ追加
+                        </Button>
                       </Stack>
-                    );
-                  })}
+                      <Typography variant="caption" color="text.secondary">
+                        % of total は系列合計を100%として比率表示します。差分はシリーズ1-2です。
+                      </Typography>
+                      {calcMode === 'difference' && series.length !== 2 && (
+                        <TextField
+                          size="small"
+                          disabled
+                          value="差分はシリーズ2つ推奨"
+                        />
+                      )}
+
+                      {series.length === 0 && (
+                        <TextField
+                          size="small"
+                          disabled
+                          value="比較シリーズを追加してください"
+                        />
+                      )}
+
+                      {series.map((entry, index) => {
+                        const labelValues =
+                          entry.filters.labelGroup &&
+                          availableLabelValues[entry.filters.labelGroup]
+                            ? availableLabelValues[entry.filters.labelGroup]
+                            : [];
+                        return (
+                          <Stack
+                            key={entry.id}
+                            spacing={1.5}
+                            sx={{
+                              p: 1,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                            }}
+                          >
+                            <Stack direction="row" spacing={2} alignItems="center">
+                              <TextField
+                                size="small"
+                                label={`シリーズ${index + 1} 名`}
+                                value={entry.name}
+                                onChange={(event) =>
+                                  handleSeriesChange(entry.id, {
+                                    name: event.target.value,
+                                  })
+                                }
+                                fullWidth
+                              />
+                              <Button
+                                color="inherit"
+                                onClick={() => removeSeries(entry.id)}
+                              >
+                                削除
+                              </Button>
+                            </Stack>
+                            <Stack direction="row" spacing={2}>
+                              <FormControl fullWidth size="small">
+                                <InputLabel id={`${entry.id}-action-label`}>
+                                  アクション（actionName）
+                                </InputLabel>
+                                <Select
+                                  labelId={`${entry.id}-action-label`}
+                                  value={entry.filters.action ?? ''}
+                                  label="アクション（actionName）"
+                                  onChange={(event) =>
+                                    handleSeriesFilterChange(entry.id, {
+                                      action: event.target.value || undefined,
+                                    })
+                                  }
+                                >
+                                  <MenuItem value="">指定なし</MenuItem>
+                                  {availableActions.map((action) => (
+                                    <MenuItem key={action} value={action}>
+                                      {action}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Stack>
+                            <Stack direction="row" spacing={2}>
+                              <FormControl fullWidth size="small">
+                                <InputLabel id={`${entry.id}-label-group`}>
+                                  ラベルグループ
+                                </InputLabel>
+                                <Select
+                                  labelId={`${entry.id}-label-group`}
+                                  value={entry.filters.labelGroup ?? ''}
+                                  label="ラベルグループ"
+                                  onChange={(event) =>
+                                    handleSeriesFilterChange(entry.id, {
+                                      labelGroup: event.target.value || undefined,
+                                      labelValue: undefined,
+                                    })
+                                  }
+                                >
+                                  <MenuItem value="">指定なし</MenuItem>
+                                  {availableGroups.map((group) => (
+                                    <MenuItem key={group} value={group}>
+                                      {group}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                              <FormControl fullWidth size="small">
+                                <InputLabel id={`${entry.id}-label-value`}>
+                                  ラベル値
+                                </InputLabel>
+                                <Select
+                                  labelId={`${entry.id}-label-value`}
+                                  value={entry.filters.labelValue ?? ''}
+                                  label="ラベル値"
+                                  onChange={(event) =>
+                                    handleSeriesFilterChange(entry.id, {
+                                      labelValue: event.target.value || undefined,
+                                    })
+                                  }
+                                  disabled={!entry.filters.labelGroup}
+                                >
+                                  <MenuItem value="">指定なし</MenuItem>
+                                  {labelValues.map((value) => (
+                                    <MenuItem key={value} value={value}>
+                                      {value}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Stack>
+                          </Stack>
+                        );
+                      })}
+                    </>
+                  )}
                 </>
+              ) : (
+                <Stack spacing={1}>
+                  <Typography variant="body2" color="text.secondary">
+                    このモードでは軸設定・比較シリーズは使わず、時系列や分布の専用集計を実行します。
+                  </Typography>
+                  {(analysisMode === 'trend' || analysisMode === 'rolling') && (
+                    <TextField
+                      label="時間バケット（秒）"
+                      type="number"
+                      size="small"
+                      value={timeBucketSec}
+                      onChange={(event) => {
+                        const next = Number(event.target.value);
+                        setTimeBucketSec(Number.isFinite(next) ? next : '');
+                      }}
+                      inputProps={{ min: 1, step: 1 }}
+                    />
+                  )}
+                  {analysisMode === 'rolling' && (
+                    <TextField
+                      label="移動平均ウィンドウ（バケット数）"
+                      type="number"
+                      size="small"
+                      value={rollingWindow}
+                      onChange={(event) => {
+                        const next = Number(event.target.value);
+                        setRollingWindow(Number.isFinite(next) ? next : '');
+                      }}
+                      inputProps={{ min: 1, step: 1 }}
+                    />
+                  )}
+                  {analysisMode === 'histogram' && (
+                    <TextField
+                      label="ヒストグラムビン幅（秒）"
+                      type="number"
+                      size="small"
+                      value={histogramBinSec}
+                      onChange={(event) => {
+                        const next = Number(event.target.value);
+                        setHistogramBinSec(Number.isFinite(next) ? next : '');
+                      }}
+                      inputProps={{ min: 0.1, step: 0.1 }}
+                    />
+                  )}
+                  {analysisMode === 'outlier' && (
+                    <TextField
+                      label="外れ値閾値 IQR 係数"
+                      type="number"
+                      size="small"
+                      value={outlierIqrMultiplier}
+                      onChange={(event) => {
+                        const next = Number(event.target.value);
+                        setOutlierIqrMultiplier(Number.isFinite(next) ? next : '');
+                      }}
+                      inputProps={{ min: 0.1, step: 0.1 }}
+                    />
+                  )}
+                </Stack>
               )}
             </Stack>
           </Paper>
@@ -637,6 +785,23 @@ export const DashboardWidgetDialog = ({
                   集計結果の見せ方と単位を選びます。
                 </Typography>
               </Stack>
+              <FormControl fullWidth size="small">
+                <InputLabel id="analysis-mode-label">分析モード</InputLabel>
+                <Select
+                  labelId="analysis-mode-label"
+                  value={analysisMode}
+                  label="分析モード"
+                  onChange={(event) =>
+                    setAnalysisMode(event.target.value as DashboardAnalysisMode)
+                  }
+                >
+                  <MenuItem value="standard">標準集計（軸/比較）</MenuItem>
+                  <MenuItem value="trend">トレンド（時系列）</MenuItem>
+                  <MenuItem value="histogram">ヒストグラム（分布）</MenuItem>
+                  <MenuItem value="rolling">ローリング（移動平均）</MenuItem>
+                  <MenuItem value="outlier">外れ値（IQR）</MenuItem>
+                </Select>
+              </FormControl>
               <Stack direction="row" spacing={2}>
                 <FormControl fullWidth size="small">
                   <InputLabel id="chart-type-label">チャート</InputLabel>
@@ -647,6 +812,7 @@ export const DashboardWidgetDialog = ({
                     onChange={(event) =>
                       setChartType(event.target.value as DashboardChartType)
                     }
+                    disabled={analysisMode !== 'standard'}
                   >
                     <MenuItem value="bar">バー</MenuItem>
                     <MenuItem value="stacked">積み上げ</MenuItem>
@@ -662,12 +828,18 @@ export const DashboardWidgetDialog = ({
                     onChange={(event) =>
                       setMetric(event.target.value as DashboardMetric)
                     }
+                    disabled={analysisMode === 'outlier'}
                   >
                     <MenuItem value="count">件数</MenuItem>
                     <MenuItem value="duration">所要時間</MenuItem>
                   </Select>
                 </FormControl>
               </Stack>
+              {analysisMode !== 'standard' && (
+                <Typography variant="caption" color="text.secondary">
+                  高度分析モードではチャート種別はバーに固定されます。
+                </Typography>
+              )}
             </Stack>
           </Paper>
 

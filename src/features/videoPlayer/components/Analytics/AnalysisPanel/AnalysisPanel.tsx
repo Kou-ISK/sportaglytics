@@ -15,6 +15,7 @@ interface AnalysisPanelProps {
   teamNames: string[];
   onJumpToSegment?: (segment: TimelineData) => void;
   embedded?: boolean;
+  isSyncing?: boolean;
   onCreateAiPlaylist?: (payload: {
     name: string;
     items: PlaylistItem[];
@@ -30,6 +31,7 @@ export const AnalysisPanel = ({
   teamNames,
   onJumpToSegment,
   embedded = false,
+  isSyncing = false,
   onCreateAiPlaylist,
 }: AnalysisPanelProps) => {
   const [currentView, setCurrentView] = useState<AnalysisView>(view);
@@ -56,6 +58,7 @@ export const AnalysisPanel = ({
       timeline={timeline}
       onJumpToSegment={onJumpToSegment}
       embedded={embedded}
+      isSyncing={isSyncing}
       onCreateAiPlaylist={onCreateAiPlaylist}
       {...derivedState}
     />

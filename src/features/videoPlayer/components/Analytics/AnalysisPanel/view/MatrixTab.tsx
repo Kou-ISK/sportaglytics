@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Stack, Paper, Typography, Box } from '@mui/material';
 import { TimelineData } from '../../../../../../types/TimelineData';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
 import { MatrixSection } from './MatrixSection';
 import { MatrixAxisSelector } from './MatrixAxisSelector';
 import { DrilldownDialog } from './DrilldownDialog';
@@ -16,9 +15,9 @@ import { FilterSummaryBar } from './FilterSummaryBar';
 interface MatrixTabProps {
   hasData: boolean;
   timeline: TimelineData[];
-  teamNames: string[];
   onJumpToSegment?: (segment: TimelineData) => void;
   emptyMessage: string;
+  totalTimelineCount?: number;
 }
 
 export const MatrixTab = ({
@@ -26,7 +25,8 @@ export const MatrixTab = ({
   timeline,
   onJumpToSegment,
   emptyMessage,
-}: Omit<MatrixTabProps, 'teamNames'>) => {
+  totalTimelineCount,
+}: MatrixTabProps) => {
   const [detail, setDetail] = useState<{
     title: string;
     entries: TimelineData[];
@@ -94,6 +94,11 @@ export const MatrixTab = ({
       label: `${filters.labelGroup}: ${filters.labelValue}`,
       onDelete: clearLabelFilters,
     });
+  } else if (filters.labelGroup !== ALL) {
+    filterChips.push({
+      label: `ラベルグループ: ${filters.labelGroup}`,
+      onDelete: clearLabelFilters,
+    });
   }
 
   return (
@@ -104,7 +109,7 @@ export const MatrixTab = ({
           columnAxis={customColumnAxis}
           onRowAxisChange={setCustomRowAxis}
           onColumnAxisChange={setCustomColumnAxis}
-          renderAxisEditor={(onClose) => (
+          renderAxisEditor={() => (
             <Stack spacing={2}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                 軸設定
@@ -115,10 +120,6 @@ export const MatrixTab = ({
                   label="行軸"
                   value={customRowAxis}
                   onChange={(newConfig) => {
-                    console.log('行軸 - MatrixTab onChange:', {
-                      old: customRowAxis,
-                      new: newConfig,
-                    });
                     setCustomRowAxis(newConfig);
                   }}
                   availableGroups={availableGroups}
@@ -128,10 +129,6 @@ export const MatrixTab = ({
                   label="列軸"
                   value={customColumnAxis}
                   onChange={(newConfig) => {
-                    console.log('列軸 - MatrixTab onChange:', {
-                      old: customColumnAxis,
-                      new: newConfig,
-                    });
                     setCustomColumnAxis(newConfig);
                   }}
                   availableGroups={availableGroups}
@@ -157,6 +154,8 @@ export const MatrixTab = ({
               onLabelValueChange={setFilterLabelValue}
               onClearLabelFilters={clearLabelFilters}
               hasActiveFilters={hasActiveFilters}
+              onApply={onClose}
+              onClose={onClose}
             />
           )}
         />
@@ -185,6 +184,10 @@ export const MatrixTab = ({
                 />
                 <Typography variant="caption" color="text.secondary">
                   対象データ数: {filteredTimeline.length} / {timeline.length}
+                  {typeof totalTimelineCount === 'number' &&
+                    totalTimelineCount > timeline.length && (
+                      <>（全体: {timeline.length}/{totalTimelineCount}）</>
+                    )}
                 </Typography>
               </>
             )}
@@ -203,27 +206,8 @@ export const MatrixTab = ({
       <DrilldownDialog
         detail={detail}
         onClose={() => setDetail(null)}
-        onJump={(segment) => {
-          onJumpToSegment?.(segment);
-          setDetail(null);
-        }}
+        onJump={(segment) => onJumpToSegment?.(segment)}
       />
     </>
   );
-};
-
-/**
- * 軸設定から表示用のラベルを生成
- */
-const getAxisLabel = (axis: MatrixAxisConfig): string => {
-  switch (axis.type) {
-    case 'group':
-      return axis.value || 'グループ';
-    case 'team':
-      return 'チーム';
-    case 'action':
-      return 'アクション';
-    default:
-      return '不明';
-  }
 };

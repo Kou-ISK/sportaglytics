@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Box,
+  Button,
   Chip,
   IconButton,
   Popover,
@@ -44,8 +45,6 @@ const getAxisLabel = (config: MatrixAxisConfig): string => {
 export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
   rowAxis,
   columnAxis,
-  onRowAxisChange,
-  onColumnAxisChange,
   renderAxisEditor,
   hasActiveFilters,
   filterCount,
@@ -123,7 +122,11 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
             </Stack>
             {renderAxisEditor && (
               <Tooltip title="軸設定を変更">
-                <IconButton size="small" onClick={handleAxisClick}>
+                <IconButton
+                  size="small"
+                  onClick={handleAxisClick}
+                  aria-label="軸設定を変更"
+                >
                   <SettingsIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -149,6 +152,15 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mr: 2 }}>
               フィルタ:
             </Typography>
+            {hasActiveFilters && (
+              <Chip
+                size="small"
+                variant="outlined"
+                color="primary"
+                label={`${filterCount}件`}
+                sx={{ mr: 1 }}
+              />
+            )}
             {hasActiveFilters ? (
               <Stack
                 direction="row"
@@ -178,7 +190,11 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
               <Tooltip
                 title={hasActiveFilters ? 'フィルタを編集' : 'フィルタを追加'}
               >
-                <IconButton size="small" onClick={handleFilterClick}>
+                <IconButton
+                  size="small"
+                  onClick={handleFilterClick}
+                  aria-label={hasActiveFilters ? 'フィルタを編集' : 'フィルタを追加'}
+                >
                   <FilterListIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -209,7 +225,14 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
             },
           }}
         >
-          {renderAxisEditor(handleAxisClose)}
+          <Stack spacing={1.5}>
+            {renderAxisEditor(handleAxisClose)}
+            <Box display="flex" justifyContent="flex-end">
+              <Button size="small" variant="outlined" onClick={handleAxisClose}>
+                閉じる
+              </Button>
+            </Box>
+          </Stack>
         </Popover>
       )}
 
@@ -235,7 +258,18 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
             },
           }}
         >
-          {renderFilterEditor(handleFilterClose)}
+          <Stack spacing={1.5}>
+            {renderFilterEditor(handleFilterClose)}
+            <Box display="flex" justifyContent="flex-end">
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={handleFilterClose}
+              >
+                閉じる
+              </Button>
+            </Box>
+          </Stack>
         </Popover>
       )}
     </Box>

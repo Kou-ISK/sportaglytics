@@ -175,6 +175,21 @@ const createWindow = async (): Promise<BrowserWindow> => {
     },
   );
 
+  // バイナリファイル書き込み（base64）
+  ipcMain.handle(
+    'write-binary-file',
+    async (_event, filePath: string, base64Content: string) => {
+      try {
+        const buffer = Buffer.from(base64Content, 'base64');
+        await fs.writeFile(filePath, buffer);
+        return true;
+      } catch (error) {
+        console.error('Failed to write binary file:', error);
+        return false;
+      }
+    },
+  );
+
   // テキストファイル読み込み
   ipcMain.handle('read-text-file', async (_event, filePath: string) => {
     try {

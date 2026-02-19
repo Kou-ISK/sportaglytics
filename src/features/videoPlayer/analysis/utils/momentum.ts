@@ -63,6 +63,7 @@ const buildSegment = (
   );
 
   return {
+    entryId: entry.id,
     teamName,
     value,
     absoluteValue: duration,
