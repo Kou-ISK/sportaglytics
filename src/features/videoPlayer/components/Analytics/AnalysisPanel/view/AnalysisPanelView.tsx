@@ -36,7 +36,14 @@ import {
   buildAnalysisPdfHtml,
   buildAnalysisSummaryText,
   type AnalysisPdfImagePage,
+  type AnalysisPdfTab,
 } from '../../../../../../utils/analysisExport';
+import {
+  captureScrollableContent,
+  sliceImageForA4Pages,
+  stitchCapturedSlicesIntoParts,
+  withExportLayoutOverrides,
+} from '../../../../../../utils/fullContentCapture';
 
 interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   open: boolean;
@@ -53,11 +60,15 @@ interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   }) => Promise<void> | void;
 }
 
-const PDF_TABS: Array<{ view: Exclude<AnalysisView, 'ai'>; title: string }> = [
-  { view: 'dashboard', title: 'Dashboard' },
-  { view: 'momentum', title: 'Momentum' },
-  { view: 'matrix', title: 'Matrix' },
+const PDF_TABS: Array<{ view: Exclude<AnalysisView, 'ai'>; tab: AnalysisPdfTab }> = [
+  { view: 'dashboard', tab: 'dashboard' },
+  { view: 'momentum', tab: 'momentum' },
+  { view: 'matrix', tab: 'matrix' },
 ];
+
+const MAX_PNG_PART_HEIGHT = 15000;
+const PDF_PAGE_WIDTH_PX = 1400;
+const PDF_PAGE_HEIGHT_PX = 1980;
 
 const waitMs = (ms: number) =>
   new Promise<void>((resolve) => {
@@ -72,6 +83,19 @@ const waitForPaint = () =>
       });
     });
   });
+
+const toBase64FromDataUrl = (dataUrl: string): string => dataUrl.split(',')[1] || '';
+
+const splitPath = (filePath: string) => {
+  const dotIndex = filePath.lastIndexOf('.');
+  if (dotIndex <= 0) {
+    return { base: filePath, ext: '' };
+  }
+  return {
+    base: filePath.slice(0, dotIndex),
+    ext: filePath.slice(dotIndex),
+  };
+};
 
 export const AnalysisPanelView = ({
   open,
@@ -90,6 +114,7 @@ export const AnalysisPanelView = ({
   const exportTargetRef = useRef<HTMLDivElement | null>(null);
   const currentViewRef = useRef<AnalysisView>(currentView);
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     currentViewRef.current = currentView;
@@ -114,7 +139,7 @@ export const AnalysisPanelView = ({
     return true;
   }, []);
 
-  const captureCurrentViewAsBase64 = useCallback(async () => {
+  const captureCurrentViewPngParts = useCallback(async (): Promise<string[] | null> => {
     const api = window.electronAPI;
     const target = exportTargetRef.current;
 
@@ -128,21 +153,32 @@ export const AnalysisPanelView = ({
       return null;
     }
 
-    const rect = target.getBoundingClientRect();
-    const width = Math.max(1, Math.ceil(rect.width));
-    const height = Math.max(1, Math.ceil(rect.height));
+    try {
+      const slices = await withExportLayoutOverrides(target, async () => {
+        return captureScrollableContent(target, (rect) =>
+          api.captureWindowRegionAsPng(rect),
+        );
+      });
 
-    if (width <= 0 || height <= 0) {
-      notification.error('キャプチャ領域のサイズが不正です。');
+      if (slices.length === 0) {
+        notification.error('キャプチャ対象のコンテンツがありません。');
+        return null;
+      }
+
+      const parts = await stitchCapturedSlicesIntoParts(
+        slices,
+        MAX_PNG_PART_HEIGHT,
+      );
+      if (parts.length === 0) {
+        notification.error('画像の連結に失敗しました。');
+        return null;
+      }
+      return parts;
+    } catch (error) {
+      console.error('Failed to capture full content:', error);
+      notification.error('全内容キャプチャに失敗しました。');
       return null;
     }
-
-    return api.captureWindowRegionAsPng({
-      x: Math.floor(rect.left),
-      y: Math.floor(rect.top),
-      width,
-      height,
-    });
   }, [notification]);
 
   const handleCopySummary = async () => {
@@ -191,23 +227,46 @@ export const AnalysisPanelView = ({
       return;
     }
 
-    const base64 = await captureCurrentViewAsBase64();
-    if (!base64) {
-      notification.error('PNGスナップショットの生成に失敗しました。');
-      return;
-    }
-
     const filePath = await api.saveFileDialog(
       `analysis-${currentView}-${new Date().toISOString().slice(0, 10)}.png`,
       [{ name: 'PNG', extensions: ['png'] }],
     );
     if (!filePath) return;
 
-    const ok = await api.writeBinaryFile(filePath, base64);
-    if (ok) {
-      notification.success('PNGを保存しました。');
-    } else {
-      notification.error('PNG保存に失敗しました。');
+    setIsExporting(true);
+    try {
+      const parts = await captureCurrentViewPngParts();
+      if (!parts || parts.length === 0) return;
+
+      const { base, ext } = splitPath(filePath);
+      let allSaved = true;
+
+      for (let i = 0; i < parts.length; i += 1) {
+        const targetPath =
+          parts.length === 1 ? filePath : `${base}-part${i + 1}${ext || '.png'}`;
+        const base64 = toBase64FromDataUrl(parts[i] ?? '');
+        if (!base64) {
+          allSaved = false;
+          break;
+        }
+        const ok = await api.writeBinaryFile(targetPath, base64);
+        if (!ok) {
+          allSaved = false;
+          break;
+        }
+      }
+
+      if (allSaved) {
+        if (parts.length === 1) {
+          notification.success('PNGを保存しました。');
+        } else {
+          notification.success(`PNGを分割保存しました（${parts.length}ファイル）。`);
+        }
+      } else {
+        notification.error('PNG保存に失敗しました。');
+      }
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -238,6 +297,7 @@ export const AnalysisPanelView = ({
     const previousView = currentViewRef.current;
     const pages: AnalysisPdfImagePage[] = [];
 
+    setIsExporting(true);
     try {
       for (const tab of PDF_TABS) {
         if (currentViewRef.current !== tab.view) {
@@ -248,19 +308,35 @@ export const AnalysisPanelView = ({
           throw new Error(`Failed to switch view: ${tab.view}`);
         }
 
-        const base64 = await captureCurrentViewAsBase64();
-        if (!base64) {
-          throw new Error(`Failed to capture view: ${tab.view}`);
+        const parts = await captureCurrentViewPngParts();
+        if (!parts || parts.length === 0) {
+          throw new Error(`Failed to capture full view: ${tab.view}`);
         }
 
-        pages.push({
-          title: tab.title,
-          dataUrl: `data:image/png;base64,${base64}`,
+        const tabPages = (
+          await Promise.all(
+            parts.map((part) =>
+              sliceImageForA4Pages(part, PDF_PAGE_WIDTH_PX, PDF_PAGE_HEIGHT_PX),
+            ),
+          )
+        ).flat();
+
+        if (tabPages.length === 0) {
+          throw new Error(`Failed to split PDF pages: ${tab.view}`);
+        }
+
+        tabPages.forEach((dataUrl, index) => {
+          pages.push({
+            tab: tab.tab,
+            pageIndex: index + 1,
+            totalPages: tabPages.length,
+            dataUrl,
+          });
         });
       }
 
-      if (pages.length !== PDF_TABS.length) {
-        throw new Error('Incomplete snapshot pages for PDF');
+      if (pages.length === 0) {
+        throw new Error('No pages generated for PDF export');
       }
 
       const generatedAt = new Date().toISOString();
@@ -289,6 +365,7 @@ export const AnalysisPanelView = ({
         onChangeView(previousView);
         await waitForViewAndRender(previousView);
       }
+      setIsExporting(false);
     }
   };
 
@@ -308,23 +385,23 @@ export const AnalysisPanelView = ({
             value={currentView}
             exclusive
             onChange={(_event, value) => {
-              if (value) onChangeView(value);
+              if (value && !isExporting) onChangeView(value);
             }}
             size="small"
           >
-            <ToggleButton value="dashboard">
+            <ToggleButton value="dashboard" disabled={isExporting}>
               <DashboardIcon fontSize="small" sx={{ mr: 0.5 }} />
               ダッシュボード
             </ToggleButton>
-            <ToggleButton value="momentum">
+            <ToggleButton value="momentum" disabled={isExporting}>
               <TrendingUpIcon fontSize="small" sx={{ mr: 0.5 }} />
               モメンタム
             </ToggleButton>
-            <ToggleButton value="matrix">
+            <ToggleButton value="matrix" disabled={isExporting}>
               <GridOnIcon fontSize="small" sx={{ mr: 0.5 }} />
               クロス集計
             </ToggleButton>
-            <ToggleButton value="ai">
+            <ToggleButton value="ai" disabled={isExporting}>
               <AutoAwesomeIcon fontSize="small" sx={{ mr: 0.5 }} />
               AI分析
             </ToggleButton>
@@ -335,6 +412,7 @@ export const AnalysisPanelView = ({
             variant="outlined"
             startIcon={<OutboxIcon />}
             onClick={(event) => setExportAnchor(event.currentTarget)}
+            disabled={isExporting}
           >
             エクスポート
           </Button>
@@ -344,23 +422,23 @@ export const AnalysisPanelView = ({
           open={Boolean(exportAnchor)}
           onClose={closeExportMenu}
         >
-          <MenuItem onClick={() => void handleCopySummary()}>
+          <MenuItem onClick={() => void handleCopySummary()} disabled={isExporting}>
             <ListItemIcon>
               <ContentCopyIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Copy structured summary</ListItemText>
           </MenuItem>
-          <MenuItem onClick={() => void handleExportPng()}>
+          <MenuItem onClick={() => void handleExportPng()} disabled={isExporting}>
             <ListItemIcon>
               <ImageIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Snapshot PNG（現在タブ）</ListItemText>
+            <ListItemText>Snapshot PNG（現在タブ全内容）</ListItemText>
           </MenuItem>
-          <MenuItem onClick={() => void handleExportPdf()}>
+          <MenuItem onClick={() => void handleExportPdf()} disabled={isExporting}>
             <ListItemIcon>
               <PictureAsPdfIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Analysis PDF（dashboard/momentum/matrix）</ListItemText>
+            <ListItemText>Analysis PDF（全内容 / dashboard,momentum,matrix）</ListItemText>
           </MenuItem>
         </Menu>
       </Box>

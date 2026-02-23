@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Stack, Paper, Typography, Box } from '@mui/material';
+import { Stack, Paper, Typography, Box, Button } from '@mui/material';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import { MatrixSection } from './MatrixSection';
 import { MatrixAxisSelector } from './MatrixAxisSelector';
@@ -11,6 +11,12 @@ import { MatrixFilters } from './MatrixFilters';
 import { useMatrixFilters } from './hooks/useMatrixFilters';
 import { useMatrixAxes } from './hooks/useMatrixAxes';
 import { FilterSummaryBar } from './FilterSummaryBar';
+import { useNotification } from '../../../../../../contexts/NotificationContext';
+import {
+  buildMatrixCsv,
+  buildMatrixExportAoa,
+  buildMatrixXlsxBase64,
+} from '../../../../../../utils/matrixExport';
 
 interface MatrixTabProps {
   hasData: boolean;
@@ -27,6 +33,7 @@ export const MatrixTab = ({
   emptyMessage,
   totalTimelineCount,
 }: MatrixTabProps) => {
+  const notification = useNotification();
   const [detail, setDetail] = useState<{
     title: string;
     entries: TimelineData[];
@@ -69,6 +76,74 @@ export const MatrixTab = ({
       customColumnAxis,
     );
   }, [filteredTimeline, customRowAxis, customColumnAxis]);
+
+  const axisToken = (value: string | undefined) =>
+    (value || '-')
+      .replace(/[^\w\-]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase();
+
+  const exportMatrix = async (format: 'csv' | 'xlsx') => {
+    const api = globalThis.window.electronAPI;
+    if (!api?.saveFileDialog || !api?.writeTextFile || !api?.writeBinaryFile) {
+      notification.error('エクスポート機能が利用できません。');
+      return;
+    }
+
+    if (!customMatrix || customMatrix.rowHeaders.length === 0) {
+      notification.warning('エクスポート対象のクロス集計データがありません。');
+      return;
+    }
+
+    const date = new Date().toISOString().slice(0, 10);
+    const rowToken = `${customRowAxis.type}-${axisToken(customRowAxis.value)}`;
+    const colToken = `${customColumnAxis.type}-${axisToken(customColumnAxis.value)}`;
+    const extension = format === 'csv' ? 'csv' : 'xlsx';
+    const defaultName = `matrix-${rowToken}-${colToken}-${date}.${extension}`;
+    const filterName = format === 'csv' ? 'CSV' : 'Excel';
+
+    const filePath = await api.saveFileDialog(defaultName, [
+      { name: filterName, extensions: [extension] },
+    ]);
+
+    if (!filePath) return;
+
+    const aoa = buildMatrixExportAoa({
+      meta: {
+        exportedAtIso: new Date().toISOString(),
+        rowAxis: customRowAxis,
+        columnAxis: customColumnAxis,
+        filters,
+        visibleCount: filteredTimeline.length,
+        totalCount: timeline.length,
+      },
+      table: {
+        rowHeaders: customMatrix.rowHeaders,
+        columnHeaders: customMatrix.columnHeaders,
+        matrix: customMatrix.matrix,
+      },
+    });
+
+    if (format === 'csv') {
+      const csv = buildMatrixCsv(aoa);
+      const ok = await api.writeTextFile(filePath, csv);
+      if (ok) {
+        notification.success('クロス集計CSVを保存しました。');
+      } else {
+        notification.error('クロス集計CSVの保存に失敗しました。');
+      }
+      return;
+    }
+
+    const xlsxBase64 = buildMatrixXlsxBase64(aoa, 'Matrix');
+    const ok = await api.writeBinaryFile(filePath, xlsxBase64);
+    if (ok) {
+      notification.success('クロス集計XLSXを保存しました。');
+    } else {
+      notification.error('クロス集計XLSXの保存に失敗しました。');
+    }
+  };
 
   if (!hasData) {
     return <NoDataPlaceholder message={emptyMessage} />;
@@ -159,6 +234,23 @@ export const MatrixTab = ({
             />
           )}
         />
+
+        <Box display="flex" justifyContent="flex-end" gap={1}>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => void exportMatrix('csv')}
+          >
+            CSVエクスポート
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => void exportMatrix('xlsx')}
+          >
+            XLSXエクスポート
+          </Button>
+        </Box>
 
         <Paper
           elevation={0}

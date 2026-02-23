@@ -292,8 +292,12 @@ export const buildAnalysisSummaryText = ({
   ].join('\n');
 };
 
+export type AnalysisPdfTab = 'dashboard' | 'momentum' | 'matrix';
+
 export interface AnalysisPdfImagePage {
-  title: string;
+  tab: AnalysisPdfTab;
+  pageIndex: number;
+  totalPages: number;
   dataUrl: string;
 }
 
@@ -310,17 +314,22 @@ export const buildAnalysisPdfHtml = ({
 }: BuildAnalysisPdfHtmlOptions): string => {
   const summaryHtml = escapeHtml(summaryText).replace(/\n/g, '<br />');
   const escapedGeneratedAt = escapeHtml(generatedAtIso);
+  const tabLabelMap: Record<AnalysisPdfTab, string> = {
+    dashboard: 'Dashboard',
+    momentum: 'Momentum',
+    matrix: 'Matrix',
+  };
 
   const pageHtml = pages
     .map(
       (page) => `
       <section class="page image-page">
         <div class="header">
-          <h1>${escapeHtml(page.title)}</h1>
+          <h1>${escapeHtml(tabLabelMap[page.tab])} ${page.pageIndex}/${page.totalPages}</h1>
           <p class="meta">Generated: ${escapedGeneratedAt}</p>
         </div>
         <div class="image-wrap">
-          <img src="${page.dataUrl}" alt="${escapeHtml(page.title)}" />
+          <img src="${page.dataUrl}" alt="${escapeHtml(tabLabelMap[page.tab])}" />
         </div>
       </section>
     `,
@@ -385,6 +394,7 @@ export const buildAnalysisPdfHtml = ({
       .image-page {
         display: flex;
         flex-direction: column;
+        min-height: calc(297mm - 24mm);
       }
 
       .image-wrap {
@@ -394,12 +404,14 @@ export const buildAnalysisPdfHtml = ({
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 240mm;
+        flex: 1;
         background: #ffffff;
       }
 
       .image-wrap img {
-        width: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
         height: auto;
         display: block;
       }
