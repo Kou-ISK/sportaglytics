@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Stack, Paper, Typography, Box, Button } from '@mui/material';
 import { TimelineData } from '../../../../../../types/TimelineData';
+import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
 import { MatrixSection } from './MatrixSection';
 import { MatrixAxisSelector } from './MatrixAxisSelector';
 import { DrilldownDialog } from './DrilldownDialog';
@@ -13,6 +14,11 @@ import { useMatrixAxes } from './hooks/useMatrixAxes';
 import { FilterSummaryBar } from './FilterSummaryBar';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
 import {
+  deriveMatrixFilters,
+  MATRIX_FILTER_ALL,
+  type MatrixFilterState,
+} from './hooks/matrixFilterUtils';
+import {
   buildMatrixCsv,
   buildMatrixExportAoa,
   buildMatrixXlsxBase64,
@@ -24,6 +30,16 @@ interface MatrixTabProps {
   onJumpToSegment?: (segment: TimelineData) => void;
   emptyMessage: string;
   totalTimelineCount?: number;
+  matrixAxes?: {
+    row: MatrixAxisConfig;
+    column: MatrixAxisConfig;
+  };
+  onMatrixAxesChange?: (axes: {
+    row: MatrixAxisConfig;
+    column: MatrixAxisConfig;
+  }) => void;
+  matrixFilters?: MatrixFilterState;
+  onMatrixFiltersChange?: (filters: MatrixFilterState) => void;
 }
 
 export const MatrixTab = ({
@@ -32,6 +48,10 @@ export const MatrixTab = ({
   onJumpToSegment,
   emptyMessage,
   totalTimelineCount,
+  matrixAxes,
+  onMatrixAxesChange,
+  matrixFilters,
+  onMatrixFiltersChange,
 }: MatrixTabProps) => {
   const notification = useNotification();
   const [detail, setDetail] = useState<{
@@ -47,26 +67,96 @@ export const MatrixTab = ({
 
   // カスタム軸設定の状態
   const {
-    customRowAxis,
-    customColumnAxis,
-    setCustomRowAxis,
-    setCustomColumnAxis,
+    customRowAxis: localRowAxis,
+    customColumnAxis: localColumnAxis,
+    setCustomRowAxis: setLocalRowAxis,
+    setCustomColumnAxis: setLocalColumnAxis,
   } = useMatrixAxes(availableGroups);
 
   // フィルタ設定の状態
   const {
-    filters,
+    filters: localFilters,
+    setFilterTeam: setLocalFilterTeam,
+    setFilterAction: setLocalFilterAction,
+    setFilterLabelGroup: setLocalFilterLabelGroup,
+    setFilterLabelValue: setLocalFilterLabelValue,
+    clearLabelFilters: clearLocalLabelFilters,
+  } = useMatrixFilters(timeline);
+
+  const customRowAxis = matrixAxes?.row ?? localRowAxis;
+  const customColumnAxis = matrixAxes?.column ?? localColumnAxis;
+  const filters = matrixFilters ?? localFilters;
+  const {
     availableTeams,
     availableActions,
     availableLabelValues,
     filteredTimeline,
     hasActiveFilters,
-    setFilterTeam,
-    setFilterAction,
-    setFilterLabelGroup,
-    setFilterLabelValue,
-    clearLabelFilters,
-  } = useMatrixFilters(timeline);
+  } = useMemo(() => deriveMatrixFilters(timeline, filters), [timeline, filters]);
+
+  const setCustomRowAxis = (next: MatrixAxisConfig) => {
+    if (onMatrixAxesChange) {
+      onMatrixAxesChange({ row: next, column: customColumnAxis });
+    } else {
+      setLocalRowAxis(next);
+    }
+  };
+
+  const setCustomColumnAxis = (next: MatrixAxisConfig) => {
+    if (onMatrixAxesChange) {
+      onMatrixAxesChange({ row: customRowAxis, column: next });
+    } else {
+      setLocalColumnAxis(next);
+    }
+  };
+
+  const setFilterTeam = (value: string) => {
+    if (onMatrixFiltersChange) {
+      onMatrixFiltersChange({ ...filters, team: value });
+    } else {
+      setLocalFilterTeam(value);
+    }
+  };
+
+  const setFilterAction = (value: string) => {
+    if (onMatrixFiltersChange) {
+      onMatrixFiltersChange({ ...filters, action: value });
+    } else {
+      setLocalFilterAction(value);
+    }
+  };
+
+  const setFilterLabelGroup = (value: string) => {
+    if (onMatrixFiltersChange) {
+      onMatrixFiltersChange({
+        ...filters,
+        labelGroup: value,
+        labelValue: MATRIX_FILTER_ALL,
+      });
+    } else {
+      setLocalFilterLabelGroup(value);
+    }
+  };
+
+  const setFilterLabelValue = (value: string) => {
+    if (onMatrixFiltersChange) {
+      onMatrixFiltersChange({ ...filters, labelValue: value });
+    } else {
+      setLocalFilterLabelValue(value);
+    }
+  };
+
+  const clearLabelFilters = () => {
+    if (onMatrixFiltersChange) {
+      onMatrixFiltersChange({
+        ...filters,
+        labelGroup: MATRIX_FILTER_ALL,
+        labelValue: MATRIX_FILTER_ALL,
+      });
+    } else {
+      clearLocalLabelFilters();
+    }
+  };
 
   // カスタムマトリクス
   const customMatrix = useMemo(() => {
@@ -150,7 +240,7 @@ export const MatrixTab = ({
   }
 
   // フィルターチップの生成
-  const ALL = 'all';
+  const ALL = MATRIX_FILTER_ALL;
   const filterChips: Array<{ label: string; onDelete: () => void }> = [];
   if (filters.team !== ALL) {
     filterChips.push({

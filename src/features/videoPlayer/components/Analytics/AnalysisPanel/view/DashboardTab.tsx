@@ -65,6 +65,8 @@ interface DashboardTabProps {
   teamNames: string[];
   emptyMessage: string;
   onJumpToSegment?: (segment: TimelineData) => void;
+  dashboardFilters?: DashboardSeriesFilter;
+  onDashboardFiltersChange?: (filters: DashboardSeriesFilter) => void;
 }
 
 export const DashboardTab = ({
@@ -73,6 +75,8 @@ export const DashboardTab = ({
   teamNames,
   emptyMessage,
   onJumpToSegment,
+  dashboardFilters: controlledDashboardFilters,
+  onDashboardFiltersChange,
 }: DashboardTabProps) => {
   const theme = useTheme();
   const { settings, saveSettings } = useSettings();
@@ -141,7 +145,7 @@ export const DashboardTab = ({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingWidget, setEditingWidget] =
     useState<AnalysisDashboardWidget | null>(null);
-  const [dashboardFilters, setDashboardFilters] =
+  const [localDashboardFilters, setLocalDashboardFilters] =
     useState<DashboardSeriesFilter>({});
   const [dashboardMenuAnchor, setDashboardMenuAnchor] =
     useState<null | HTMLElement>(null);
@@ -162,6 +166,8 @@ export const DashboardTab = ({
   const activeDashboard =
     dashboards.find((item) => item.id === activeDashboardId) ?? dashboards[0];
   const activeDashboardWidgets = activeDashboard?.widgets ?? [];
+  const dashboardFilters =
+    controlledDashboardFilters ?? localDashboardFilters;
 
   const widgets = isEditing ? draftWidgets : activeDashboardWidgets;
   const timelineMap = useMemo(
@@ -176,7 +182,12 @@ export const DashboardTab = ({
   }, [isEditing, activeDashboardWidgets]);
 
   const updateDashboardFilters = (patch: Partial<DashboardSeriesFilter>) => {
-    setDashboardFilters((prev) => ({ ...prev, ...patch }));
+    const next = { ...dashboardFilters, ...patch };
+    if (onDashboardFiltersChange) {
+      onDashboardFiltersChange(next);
+    } else {
+      setLocalDashboardFilters(next);
+    }
   };
 
   const buildFilterChips = (
@@ -504,7 +515,11 @@ export const DashboardTab = ({
   };
 
   const handleResetFilters = () => {
-    setDashboardFilters({});
+    if (onDashboardFiltersChange) {
+      onDashboardFiltersChange({});
+    } else {
+      setLocalDashboardFilters({});
+    }
   };
 
   const handleChartPointSelect = useCallback(

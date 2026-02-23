@@ -11,6 +11,7 @@ interface MatrixSectionProps {
   colParentSpans: Map<string, number>;
   matrix: Array<Array<{ count: number; entries: TimelineData[] }>>;
   onDrilldown: (title: string, entries: TimelineData[]) => void;
+  exportMode?: 'screen' | 'print';
 }
 
 export const MatrixSection = ({
@@ -20,10 +21,13 @@ export const MatrixSection = ({
   colParentSpans,
   matrix,
   onDrilldown,
+  exportMode = 'screen',
 }: MatrixSectionProps) => {
   if (rowHeaders.length === 0 || columnHeaders.length === 0) {
     return null;
   }
+
+  const isPrint = exportMode === 'print';
 
   // 列ヘッダーに親要素がある場合、2行構成
   const hasColumnParent = columnHeaders.some((h) => h.parent !== null);
@@ -35,26 +39,31 @@ export const MatrixSection = ({
         variant="outlined"
         sx={{
           borderRadius: 2,
-          maxHeight: '70vh',
-          overflow: 'auto',
+          maxHeight: isPrint ? 'none' : '70vh',
+          overflow: isPrint ? 'visible' : 'auto',
           position: 'relative',
         }}
       >
         <Table
           size="small"
           sx={{
-            minWidth: 650,
+            minWidth: isPrint ? 0 : 650,
             '& thead th': {
-              position: 'sticky',
-              top: 0,
+              position: isPrint ? 'static' : 'sticky',
+              top: isPrint ? 'auto' : 0,
               backgroundColor: 'background.paper',
-              zIndex: 2,
+              zIndex: isPrint ? 'auto' : 2,
             },
             '& tbody th': {
-              position: 'sticky',
-              left: 0,
+              position: isPrint ? 'static' : 'sticky',
+              left: isPrint ? 'auto' : 0,
               backgroundColor: 'background.paper',
-              zIndex: 1,
+              zIndex: isPrint ? 'auto' : 1,
+            },
+            '& th, & td': {
+              whiteSpace: isPrint ? 'normal' : 'nowrap',
+              wordBreak: isPrint ? 'break-word' : 'normal',
+              lineHeight: 1.25,
             },
           }}
         >
@@ -64,6 +73,7 @@ export const MatrixSection = ({
             rowParentSpans={rowParentSpans}
             colParentSpans={colParentSpans}
             hasColumnParent={hasColumnParent}
+            exportMode={exportMode}
           />
           <TableBody>
             {rowHeaders.map((rowHeader, rowIndex) => (
@@ -80,6 +90,7 @@ export const MatrixSection = ({
                 columnHeaders={columnHeaders}
                 rowCells={matrix[rowIndex] ?? []}
                 onDrilldown={onDrilldown}
+                exportMode={exportMode}
               />
             ))}
           </TableBody>

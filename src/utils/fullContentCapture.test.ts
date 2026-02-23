@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeA4PageCount,
+  computeHorizontalScrollOffsets,
   computeScrollOffsets,
   withExportLayoutOverrides,
 } from './fullContentCapture';
@@ -22,6 +23,22 @@ describe('computeScrollOffsets', () => {
 
   it('includes the final offset for tail content', () => {
     expect(computeScrollOffsets(2500, 1000)).toEqual([0, 1000, 1500]);
+  });
+});
+
+describe('computeHorizontalScrollOffsets', () => {
+  it('returns only zero when horizontal mode is off', () => {
+    expect(computeHorizontalScrollOffsets(3000, 1000, 'off')).toEqual([0]);
+  });
+
+  it('returns only zero in auto mode when width fits viewport', () => {
+    expect(computeHorizontalScrollOffsets(1000, 1000, 'auto')).toEqual([0]);
+  });
+
+  it('returns multiple offsets in auto mode when overflow exists', () => {
+    expect(computeHorizontalScrollOffsets(2600, 1000, 'auto')).toEqual([
+      0, 1000, 1600,
+    ]);
   });
 });
 

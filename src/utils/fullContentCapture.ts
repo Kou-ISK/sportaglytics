@@ -1,3 +1,7 @@
+/**
+ * @deprecated PDFエクスポートでは非使用（データ駆動PDFへ移行済み）。
+ * PNGスナップショット用途の後方互換として残置。
+ */
 export interface CaptureRect {
   x: number;
   y: number;
@@ -15,6 +19,12 @@ export interface FullCaptureSlice {
 
 type CaptureRegionFn = (rect: CaptureRect) => Promise<string | null>;
 
+export type HorizontalCaptureMode = 'off' | 'auto' | 'force';
+
+export interface CaptureScrollableContentOptions {
+  horizontal?: HorizontalCaptureMode;
+}
+
 const waitForPaint = () =>
   new Promise<void>((resolve) => {
     requestAnimationFrame(() => {
@@ -31,9 +41,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
   });
 
 const toDataUrl = (base64: string) =>
-  base64.startsWith('data:image/')
-    ? base64
-    : `data:image/png;base64,${base64}`;
+  base64.startsWith('data:image/') ? base64 : `data:image/png;base64,${base64}`;
 
 export const computeScrollOffsets = (
   scrollHeight: number,
@@ -58,6 +66,22 @@ export const computeScrollOffsets = (
   }
 
   return offsets;
+};
+
+export const computeHorizontalScrollOffsets = (
+  scrollWidth: number,
+  viewportWidth: number,
+  mode: HorizontalCaptureMode = 'force',
+): number[] => {
+  if (mode === 'off') {
+    return [0];
+  }
+
+  if (mode === 'auto' && scrollWidth <= viewportWidth + 1) {
+    return [0];
+  }
+
+  return computeScrollOffsets(scrollWidth, viewportWidth);
 };
 
 export const computeA4PageCount = (
@@ -89,7 +113,10 @@ export const withExportLayoutOverrides = async <T>(
     }
   };
 
-  const nodes = [container, ...Array.from(container.querySelectorAll<HTMLElement>('*'))];
+  const nodes = [
+    container,
+    ...Array.from(container.querySelectorAll<HTMLElement>('*')),
+  ];
 
   for (const element of nodes) {
     const computed = window.getComputedStyle(element);
@@ -104,7 +131,9 @@ export const withExportLayoutOverrides = async <T>(
       element.style.zIndex = 'auto';
     }
 
-    const isTableContainer = element.classList.contains('MuiTableContainer-root');
+    const isTableContainer = element.classList.contains(
+      'MuiTableContainer-root',
+    );
     const isNestedScrollable =
       element !== container &&
       element.scrollHeight > element.clientHeight + 1 &&
@@ -128,7 +157,9 @@ export const withExportLayoutOverrides = async <T>(
     await waitForPaint();
     return await fn();
   } finally {
-    for (const [element, cssText] of Array.from(previousStyleMap.entries()).reverse()) {
+    for (const [element, cssText] of Array.from(
+      previousStyleMap.entries(),
+    ).reverse()) {
       element.style.cssText = cssText;
     }
     await waitForPaint();
@@ -138,7 +169,9 @@ export const withExportLayoutOverrides = async <T>(
 export const captureScrollableContent = async (
   container: HTMLElement,
   captureRegionFn: CaptureRegionFn,
+  options: CaptureScrollableContentOptions = {},
 ): Promise<FullCaptureSlice[]> => {
+  const { horizontal = 'force' } = options;
   const rect = container.getBoundingClientRect();
   const width = Math.max(1, Math.ceil(rect.width));
   const height = Math.max(1, Math.ceil(rect.height));
@@ -153,9 +186,10 @@ export const captureScrollableContent = async (
     container.scrollHeight,
     container.clientHeight,
   );
-  const horizontalOffsets = computeScrollOffsets(
+  const horizontalOffsets = computeHorizontalScrollOffsets(
     container.scrollWidth,
     container.clientWidth,
+    horizontal,
   );
   const slices: FullCaptureSlice[] = [];
 
@@ -211,7 +245,10 @@ export const stitchCapturedSlicesIntoParts = async (
   const width = Math.max(
     1,
     ...loaded.map((slice) =>
-      Math.max(slice.offsetLeft + slice.width, slice.offsetLeft + slice.image.width),
+      Math.max(
+        slice.offsetLeft + slice.width,
+        slice.offsetLeft + slice.image.width,
+      ),
     ),
   );
   const totalHeight = loaded.reduce(
@@ -250,7 +287,10 @@ export const stitchCapturedSlicesIntoParts = async (
 export const stitchCapturedSlices = async (
   slices: FullCaptureSlice[],
 ): Promise<string | null> => {
-  const parts = await stitchCapturedSlicesIntoParts(slices, Number.MAX_SAFE_INTEGER);
+  const parts = await stitchCapturedSlicesIntoParts(
+    slices,
+    Number.MAX_SAFE_INTEGER,
+  );
   if (parts.length !== 1) return null;
   return parts[0] ?? null;
 };

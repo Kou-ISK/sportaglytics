@@ -23,6 +23,7 @@ interface MomentumChartProps {
   createMomentumData: CreateMomentumDataFn;
   teamNames: string[];
   onPointSelect?: (payload: { title: string; entryIds: string[] }) => void;
+  disableAnimation?: boolean;
 }
 
 interface MomentumChartDatum extends MomentumSegment {
@@ -72,6 +73,7 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
   createMomentumData,
   teamNames,
   onPointSelect,
+  disableAnimation = false,
 }: MomentumChartProps) => {
   const theme = useTheme();
   const [teamA, teamB] = teamNames;
@@ -203,6 +205,7 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
           <Bar
             dataKey="value"
             radius={[4, 4, 4, 4]}
+            isAnimationActive={!disableAnimation}
             onClick={(event: { payload?: MomentumChartDatum }) => {
               const datum = event?.payload;
               if (!datum?.entryId) return;

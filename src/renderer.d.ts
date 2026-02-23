@@ -1,6 +1,7 @@
 import type { IPlaylistAPI, PlaylistItem } from './types/Playlist';
 import type { TimelineData } from './types/TimelineData';
 import type { AnalysisView } from './features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
+import type { AnalysisReportPayload } from './report/types';
 
 export interface AnalysisWindowSyncPayload {
   timeline: TimelineData[];
@@ -72,7 +73,7 @@ export interface IElectronAPI {
   // 設定管理API
   loadSettings: () => Promise<unknown>;
   saveSettings: (settings: unknown) => Promise<boolean>;
-  send: (channel: string) => void;
+  send: (channel: string, ...args: unknown[]) => void;
   resetSettings: () => Promise<unknown>;
   onOpenSettings: (callback: () => void) => void;
   offOpenSettings: (callback: () => void) => void;
@@ -170,6 +171,10 @@ export interface IElectronAPI {
     height: number;
   }) => Promise<string | null>;
   writePdfFileFromHtml: (filePath: string, html: string) => Promise<boolean>;
+  printAnalysisReportPdf: (
+    filePath: string,
+    payload: AnalysisReportPayload,
+  ) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<string | null>;
   saveDashboardPackage: (
     packagePath: string,

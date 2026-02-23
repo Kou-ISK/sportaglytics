@@ -14,6 +14,7 @@ type MatrixBodyRowProps = {
   columnHeaders: Header[];
   rowCells: MatrixCell[];
   onDrilldown: (title: string, entries: TimelineData[]) => void;
+  exportMode?: 'screen' | 'print';
 };
 
 export const MatrixBodyRow = ({
@@ -24,7 +25,9 @@ export const MatrixBodyRow = ({
   columnHeaders,
   rowCells,
   onDrilldown,
+  exportMode = 'screen',
 }: MatrixBodyRowProps) => {
+  const isPrint = exportMode === 'print';
   const rowTotal = rowCells.reduce((sum, cell) => sum + cell.count, 0);
   const isFirstOfParent =
     rowIndex === 0 || rowHeaders[rowIndex - 1]?.parent !== rowHeader.parent;
@@ -47,10 +50,12 @@ export const MatrixBodyRow = ({
             borderRight: '1px solid',
             borderColor: 'divider',
             backgroundColor: 'action.hover',
-            fontSize: '0.7rem',
-            position: 'sticky',
-            left: 0,
-            zIndex: 1,
+            fontSize: isPrint ? '0.66rem' : '0.7rem',
+            position: isPrint ? 'static' : 'sticky',
+            left: isPrint ? 'auto' : 0,
+            zIndex: isPrint ? 'auto' : 1,
+            whiteSpace: isPrint ? 'normal' : 'nowrap',
+            wordBreak: isPrint ? 'break-word' : 'normal',
           }}
         >
           {rowHeader.parent}
@@ -62,11 +67,13 @@ export const MatrixBodyRow = ({
             fontWeight: 600,
             borderRight: '2px solid',
             borderColor: 'divider',
-            fontSize: '0.7rem',
-            position: 'sticky',
-            left: 0,
-            zIndex: 1,
+            fontSize: isPrint ? '0.66rem' : '0.7rem',
+            position: isPrint ? 'static' : 'sticky',
+            left: isPrint ? 'auto' : 0,
+            zIndex: isPrint ? 'auto' : 1,
             backgroundColor: 'background.paper',
+            whiteSpace: isPrint ? 'normal' : 'nowrap',
+            wordBreak: isPrint ? 'break-word' : 'normal',
           }}
         >
           {rowHeader.child || '未設定'}
@@ -79,11 +86,13 @@ export const MatrixBodyRow = ({
             pl: 2,
             borderRight: '2px solid',
             borderColor: 'divider',
-            fontSize: '0.7rem',
-            position: 'sticky',
-            left: 0,
-            zIndex: 1,
+            fontSize: isPrint ? '0.66rem' : '0.7rem',
+            position: isPrint ? 'static' : 'sticky',
+            left: isPrint ? 'auto' : 0,
+            zIndex: isPrint ? 'auto' : 1,
             backgroundColor: 'background.paper',
+            whiteSpace: isPrint ? 'normal' : 'nowrap',
+            wordBreak: isPrint ? 'break-word' : 'normal',
           }}
         >
           {rowHeader.child || '未設定'}
@@ -101,8 +110,16 @@ export const MatrixBodyRow = ({
         const cellKey = `cell-${rowKey}-${columnHeader.parent || ''}-${columnHeader.child}`;
 
         return (
-          <TableCell key={cellKey} align="center" sx={{ p: 0.5 }}>
-            {cell.count > 0 ? (
+          <TableCell
+            key={cellKey}
+            align="center"
+            sx={{
+              p: 0.5,
+              whiteSpace: isPrint ? 'normal' : 'nowrap',
+              wordBreak: isPrint ? 'break-word' : 'normal',
+            }}
+          >
+            {!isPrint && cell.count > 0 ? (
               <Button
                 size="small"
                 onClick={() => onDrilldown(titleLabel, cell.entries)}
@@ -113,10 +130,10 @@ export const MatrixBodyRow = ({
             ) : (
               <Typography
                 variant="caption"
-                color="text.disabled"
-                sx={{ fontSize: '0.65rem' }}
+                color={cell.count > 0 ? 'text.secondary' : 'text.disabled'}
+                sx={{ fontSize: isPrint ? '0.66rem' : '0.65rem' }}
               >
-                -
+                {cell.count > 0 ? cell.count : '-'}
               </Typography>
             )}
           </TableCell>
@@ -132,15 +149,17 @@ export const MatrixBodyRow = ({
           minWidth: 48,
           maxWidth: 48,
           p: 0.5,
-          position: 'sticky',
-          right: 0,
-          zIndex: 1,
+          position: isPrint ? 'static' : 'sticky',
+          right: isPrint ? 'auto' : 0,
+          zIndex: isPrint ? 'auto' : 1,
+          whiteSpace: isPrint ? 'normal' : 'nowrap',
+          wordBreak: isPrint ? 'break-word' : 'normal',
         }}
       >
         <Typography
           variant="body2"
           color="text.secondary"
-          sx={{ fontSize: '0.7rem' }}
+          sx={{ fontSize: isPrint ? '0.66rem' : '0.7rem' }}
         >
           {rowTotal}
         </Typography>

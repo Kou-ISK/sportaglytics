@@ -8,6 +8,8 @@ import {
 } from './labelExtractors';
 import { buildEventInsights } from '../features/videoPlayer/analysis/utils/eventInsights';
 import { createMomentumDataFactory } from '../features/videoPlayer/analysis/utils/momentum';
+import { buildAnalysisReportData } from '../report/buildAnalysisReportData';
+import type { AnalysisReportBuildContext } from '../report/types';
 
 const toCsvCell = (value: string | number) => {
   const normalized = String(value ?? '');
@@ -38,8 +40,10 @@ const formatTimecode = (seconds: number): string => {
     .padStart(3, '0')}`;
 };
 
-const toSortedEntries = <T>(source: Map<string, T>, sorter: (a: T, b: T) => number) =>
-  Array.from(source.entries()).sort((a, b) => sorter(a[1], b[1]));
+const toSortedEntries = <T>(
+  source: Map<string, T>,
+  sorter: (a: T, b: T) => number,
+) => Array.from(source.entries()).sort((a, b) => sorter(a[1], b[1]));
 
 const joinValues = (values: Iterable<string>): string =>
   Array.from(values).filter(Boolean).join(' | ');
@@ -158,8 +162,10 @@ export const buildAnalysisSummaryText = ({
   teamNames,
 }: BuildSummaryOptions): string => {
   const total = timeline.length;
-  const minStart = total > 0 ? Math.min(...timeline.map((item) => item.startTime)) : 0;
-  const maxEnd = total > 0 ? Math.max(...timeline.map((item) => item.endTime)) : 0;
+  const minStart =
+    total > 0 ? Math.min(...timeline.map((item) => item.startTime)) : 0;
+  const maxEnd =
+    total > 0 ? Math.max(...timeline.map((item) => item.endTime)) : 0;
   const span = total > 0 ? Math.max(0, maxEnd - minStart) : 0;
   const resolvedTeams = buildResolvedTeamNames(timeline, teamNames);
 
@@ -185,14 +191,15 @@ export const buildAnalysisSummaryText = ({
     }
   });
 
-  const teamLines = toSortedEntries(teamAgg, (a, b) => b.count - a.count)
-    .map(([team, stat]) => {
+  const teamLines = toSortedEntries(teamAgg, (a, b) => b.count - a.count).map(
+    ([team, stat]) => {
       const share = total > 0 ? stat.count / total : 0;
       const avg = stat.count > 0 ? stat.duration / stat.count : 0;
       return `- ${team}: 件数 ${stat.count} (${formatPercent(share)}), 合計 ${formatSeconds(
         stat.duration,
       )}秒, 平均 ${formatSeconds(avg)}秒`;
-    });
+    },
+  );
 
   const actionLines = Array.from(actionAgg.entries())
     .sort((a, b) => b[1] - a[1])
@@ -227,7 +234,10 @@ export const buildAnalysisSummaryText = ({
     (sum, segment) => sum + segment.absoluteValue,
     0,
   );
-  const momentumTeamAgg = new Map<string, { count: number; duration: number }>();
+  const momentumTeamAgg = new Map<
+    string,
+    { count: number; duration: number }
+  >();
   const momentumOutcomeAgg = {
     Try: 0,
     Positive: 0,
@@ -236,7 +246,10 @@ export const buildAnalysisSummaryText = ({
   };
 
   momentumSegments.forEach((segment) => {
-    const stat = momentumTeamAgg.get(segment.teamName) ?? { count: 0, duration: 0 };
+    const stat = momentumTeamAgg.get(segment.teamName) ?? {
+      count: 0,
+      duration: 0,
+    };
     stat.count += 1;
     stat.duration += segment.absoluteValue;
     momentumTeamAgg.set(segment.teamName, stat);
@@ -428,4 +441,36 @@ export const buildAnalysisPdfHtml = ({
     ${pageHtml}
   </body>
 </html>`;
+};
+
+interface ExportAnalysisReportPdfOptions {
+  reportContext: AnalysisReportBuildContext;
+  defaultFileName?: string;
+}
+
+export const exportAnalysisReportPdf = async ({
+  reportContext,
+  defaultFileName,
+}: ExportAnalysisReportPdfOptions): Promise<{
+  success: boolean;
+  canceled?: boolean;
+}> => {
+  const api = globalThis.window.electronAPI;
+  if (!api?.saveFileDialog || !api?.printAnalysisReportPdf) {
+    return { success: false };
+  }
+
+  const filePath = await api.saveFileDialog(
+    defaultFileName ??
+      `analysis-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+    [{ name: 'PDF', extensions: ['pdf'] }],
+  );
+  if (!filePath) {
+    return { success: false, canceled: true };
+  }
+
+  const reportData = buildAnalysisReportData(reportContext);
+  const ok = await api.printAnalysisReportPdf(filePath, reportData);
+
+  return { success: ok };
 };

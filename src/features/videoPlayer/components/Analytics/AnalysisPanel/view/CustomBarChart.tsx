@@ -54,6 +54,7 @@ interface CustomBarChartProps {
   calcMode?: 'raw' | 'percentTotal' | 'difference';
   teamColorMap?: Record<string, string>;
   onPointSelect?: (payload: { title: string; entryIds: string[] }) => void;
+  disableAnimation?: boolean;
 }
 
 export const CustomBarChart = ({
@@ -67,6 +68,7 @@ export const CustomBarChart = ({
   calcMode = 'raw',
   teamColorMap,
   onPointSelect,
+  disableAnimation = false,
 }: CustomBarChartProps) => {
   const theme = useTheme();
   const formatter = (value: number) => {
@@ -133,16 +135,17 @@ export const CustomBarChart = ({
         <Tooltip
           formatter={(
             value: number | string | undefined,
-            name: string,
+            name: string | undefined,
             tooltipPayload: {
               payload?: Record<string, CustomChartDatumValue>;
             },
           ) => {
+            const seriesName = name ?? '';
             const numericValue =
               typeof value === 'number' ? value : Number(value ?? 0);
             if (calcMode === 'percentTotal') {
               const payload = tooltipPayload?.payload ?? {};
-              const rawKey = `__raw_${name}`;
+              const rawKey = `__raw_${seriesName}`;
               const rawValue =
                 typeof payload[rawKey] === 'number'
                   ? (payload[rawKey] as number)
@@ -152,12 +155,12 @@ export const CustomBarChart = ({
               if (typeof rawValue === 'number') {
                 return [
                   `${numericValue.toFixed(1)}% (${formatRawValue(rawValue)})`,
-                  name,
+                  seriesName,
                 ];
               }
-              return [`${numericValue.toFixed(1)}%`, name];
+              return [`${numericValue.toFixed(1)}%`, seriesName];
             }
-            return [formatter(numericValue), name];
+            return [formatter(numericValue), seriesName];
           }}
           contentStyle={tooltipStyles}
           labelStyle={{ color: theme.palette.text.secondary }}
@@ -174,6 +177,7 @@ export const CustomBarChart = ({
               dataKey={key}
               stackId={stacked ? 'stack' : undefined}
               fill={fill}
+              isAnimationActive={!disableAnimation}
               radius={[4, 4, 0, 0]}
               cursor={onPointSelect ? 'pointer' : undefined}
               onClick={(event: {

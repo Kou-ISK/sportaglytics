@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Box,
   CircularProgress,
@@ -23,8 +29,10 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ImageIcon from '@mui/icons-material/Image';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { TimelineData } from '../../../../../../types/TimelineData';
+import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
 import type { AnalysisView } from '../AnalysisPanel';
 import type { AnalysisPanelDerivedState } from '../hooks/useAnalysisPanelState';
+import type { DashboardSeriesFilter } from '../../../../../../types/Settings';
 import { MomentumTab } from './MomentumTab';
 import { AIAnalysisTab } from './AIAnalysisTab';
 import { DashboardTab } from './DashboardTab';
@@ -33,17 +41,20 @@ import type { PlaylistItem } from '../../../../../../types/Playlist';
 import { createMomentumDataFactory } from '../../../../analysis/utils/momentum';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
 import {
-  buildAnalysisPdfHtml,
   buildAnalysisSummaryText,
-  type AnalysisPdfImagePage,
-  type AnalysisPdfTab,
+  exportAnalysisReportPdf,
 } from '../../../../../../utils/analysisExport';
 import {
   captureScrollableContent,
-  sliceImageForA4Pages,
   stitchCapturedSlicesIntoParts,
   withExportLayoutOverrides,
 } from '../../../../../../utils/fullContentCapture';
+import { useSettings } from '../../../../../../hooks/useSettings';
+import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
+import {
+  createDefaultMatrixFilters,
+  type MatrixFilterState,
+} from './hooks/matrixFilterUtils';
 
 interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   open: boolean;
@@ -60,31 +71,10 @@ interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   }) => Promise<void> | void;
 }
 
-const PDF_TABS: Array<{ view: Exclude<AnalysisView, 'ai'>; tab: AnalysisPdfTab }> = [
-  { view: 'dashboard', tab: 'dashboard' },
-  { view: 'momentum', tab: 'momentum' },
-  { view: 'matrix', tab: 'matrix' },
-];
-
 const MAX_PNG_PART_HEIGHT = 15000;
-const PDF_PAGE_WIDTH_PX = 1400;
-const PDF_PAGE_HEIGHT_PX = 1980;
 
-const waitMs = (ms: number) =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
-const waitForPaint = () =>
-  new Promise<void>((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        resolve();
-      });
-    });
-  });
-
-const toBase64FromDataUrl = (dataUrl: string): string => dataUrl.split(',')[1] || '';
+const toBase64FromDataUrl = (dataUrl: string): string =>
+  dataUrl.split(',')[1] || '';
 
 const splitPath = (filePath: string) => {
   const dotIndex = filePath.lastIndexOf('.');
@@ -94,6 +84,28 @@ const splitPath = (filePath: string) => {
   return {
     base: filePath.slice(0, dotIndex),
     ext: filePath.slice(dotIndex),
+  };
+};
+
+const pickInitialAxis = (availableGroups: string[], preferred: string) => {
+  if (availableGroups.length === 0) return '';
+  if (availableGroups.includes(preferred)) return preferred;
+  if (availableGroups.length > 1) return availableGroups[1];
+  return availableGroups[0];
+};
+
+const getInitialMatrixAxes = (availableGroups: string[]) => {
+  const rowValue =
+    availableGroups.length === 0
+      ? ''
+      : availableGroups.includes('actionType')
+        ? 'actionType'
+        : availableGroups[0];
+  const colValue = pickInitialAxis(availableGroups, 'actionResult');
+
+  return {
+    row: { type: 'group', value: rowValue } as MatrixAxisConfig,
+    column: { type: 'group', value: colValue } as MatrixAxisConfig,
   };
 };
 
@@ -110,40 +122,55 @@ export const AnalysisPanelView = ({
   isSyncing = false,
   onCreateAiPlaylist,
 }: AnalysisPanelViewProps) => {
+  const { settings } = useSettings();
   const notification = useNotification();
   const exportTargetRef = useRef<HTMLDivElement | null>(null);
-  const currentViewRef = useRef<AnalysisView>(currentView);
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  const [dashboardFilters, setDashboardFilters] =
+    useState<DashboardSeriesFilter>({});
+  const [matrixFilters, setMatrixFilters] = useState<MatrixFilterState>(
+    createDefaultMatrixFilters(),
+  );
+
+  const availableGroups = useMemo(
+    () => extractUniqueGroups(timeline),
+    [timeline],
+  );
+  const [matrixAxes, setMatrixAxes] = useState<{
+    row: MatrixAxisConfig;
+    column: MatrixAxisConfig;
+  }>(() => getInitialMatrixAxes(availableGroups));
+
   useEffect(() => {
-    currentViewRef.current = currentView;
-  }, [currentView]);
+    setMatrixAxes(getInitialMatrixAxes(availableGroups));
+  }, [availableGroups]);
 
   const filteredMomentumDataFactory = useMemo(
     () => createMomentumDataFactory(timeline),
     [timeline],
   );
 
+  const summaryForClipboard = useMemo(
+    () =>
+      buildAnalysisSummaryText({
+        view: currentView,
+        timeline,
+        teamNames: resolvedTeamNames,
+      }),
+    [currentView, timeline, resolvedTeamNames],
+  );
+
   const closeExportMenu = () => setExportAnchor(null);
 
-  const waitForViewAndRender = useCallback(async (targetView: AnalysisView) => {
-    let retries = 60;
-    while (currentViewRef.current !== targetView && retries > 0) {
-      await waitMs(25);
-      retries -= 1;
-    }
-    if (currentViewRef.current !== targetView) return false;
-    await waitForPaint();
-    await waitMs(80);
-    return true;
-  }, []);
-
-  const captureCurrentViewPngParts = useCallback(async (): Promise<string[] | null> => {
+  const captureCurrentViewPngParts = useCallback(async (): Promise<
+    string[] | null
+  > => {
     const api = window.electronAPI;
-    const target = exportTargetRef.current;
+    const rootTarget = exportTargetRef.current;
 
-    if (!target) {
+    if (!rootTarget) {
       notification.error('スナップショット対象が見つかりません。');
       return null;
     }
@@ -153,10 +180,19 @@ export const AnalysisPanelView = ({
       return null;
     }
 
+    const horizontalMode = currentView === 'matrix' ? 'auto' : 'off';
+    const target =
+      currentView === 'matrix'
+        ? (rootTarget.querySelector<HTMLElement>('.MuiTableContainer-root') ??
+          rootTarget)
+        : rootTarget;
+
     try {
       const slices = await withExportLayoutOverrides(target, async () => {
-        return captureScrollableContent(target, (rect) =>
-          api.captureWindowRegionAsPng(rect),
+        return captureScrollableContent(
+          target,
+          (rect) => api.captureWindowRegionAsPng(rect),
+          { horizontal: horizontalMode },
         );
       });
 
@@ -179,20 +215,18 @@ export const AnalysisPanelView = ({
       notification.error('全内容キャプチャに失敗しました。');
       return null;
     }
-  }, [notification]);
+  }, [notification, currentView]);
 
   const handleCopySummary = async () => {
     closeExportMenu();
-    const summary = buildAnalysisSummaryText({
-      view: currentView,
-      timeline,
-      teamNames: resolvedTeamNames,
-    });
+    const summary = summaryForClipboard;
+
     const writeByNavigator = async () => {
       if (!navigator?.clipboard?.writeText) return false;
       await navigator.clipboard.writeText(summary);
       return true;
     };
+
     const writeByTextarea = () => {
       const textarea = document.createElement('textarea');
       textarea.value = summary;
@@ -205,10 +239,13 @@ export const AnalysisPanelView = ({
       document.body.removeChild(textarea);
       return ok;
     };
+
     try {
       const ok = (await writeByNavigator()) || writeByTextarea();
       if (ok) {
-        notification.success('構造化サマリーをクリップボードにコピーしました。');
+        notification.success(
+          '構造化サマリーをクリップボードにコピーしました。',
+        );
       } else {
         notification.error('クリップボードへのコピーに失敗しました。');
       }
@@ -243,7 +280,9 @@ export const AnalysisPanelView = ({
 
       for (let i = 0; i < parts.length; i += 1) {
         const targetPath =
-          parts.length === 1 ? filePath : `${base}-part${i + 1}${ext || '.png'}`;
+          parts.length === 1
+            ? filePath
+            : `${base}-part${i + 1}${ext || '.png'}`;
         const base64 = toBase64FromDataUrl(parts[i] ?? '');
         if (!base64) {
           allSaved = false;
@@ -260,7 +299,9 @@ export const AnalysisPanelView = ({
         if (parts.length === 1) {
           notification.success('PNGを保存しました。');
         } else {
-          notification.success(`PNGを分割保存しました（${parts.length}ファイル）。`);
+          notification.success(
+            `PNGを分割保存しました（${parts.length}ファイル）。`,
+          );
         }
       } else {
         notification.error('PNG保存に失敗しました。');
@@ -273,98 +314,39 @@ export const AnalysisPanelView = ({
   const handleExportPdf = async () => {
     closeExportMenu();
 
-    if (timeline.length === 0) {
-      notification.warning('エクスポート対象のタイムラインがありません。');
-      return;
-    }
-
     const api = window.electronAPI;
-    if (
-      !api?.saveFileDialog ||
-      !api?.writePdfFileFromHtml ||
-      !api?.captureWindowRegionAsPng
-    ) {
+    if (!api?.saveFileDialog || !api?.printAnalysisReportPdf) {
       notification.error('PDFエクスポート機能が利用できません。');
       return;
     }
 
-    const filePath = await api.saveFileDialog(
-      `analysis-report-${new Date().toISOString().slice(0, 10)}.pdf`,
-      [{ name: 'PDF', extensions: ['pdf'] }],
-    );
-    if (!filePath) return;
-
-    const previousView = currentViewRef.current;
-    const pages: AnalysisPdfImagePage[] = [];
-
     setIsExporting(true);
     try {
-      for (const tab of PDF_TABS) {
-        if (currentViewRef.current !== tab.view) {
-          onChangeView(tab.view);
-        }
-        const settled = await waitForViewAndRender(tab.view);
-        if (!settled) {
-          throw new Error(`Failed to switch view: ${tab.view}`);
-        }
-
-        const parts = await captureCurrentViewPngParts();
-        if (!parts || parts.length === 0) {
-          throw new Error(`Failed to capture full view: ${tab.view}`);
-        }
-
-        const tabPages = (
-          await Promise.all(
-            parts.map((part) =>
-              sliceImageForA4Pages(part, PDF_PAGE_WIDTH_PX, PDF_PAGE_HEIGHT_PX),
-            ),
-          )
-        ).flat();
-
-        if (tabPages.length === 0) {
-          throw new Error(`Failed to split PDF pages: ${tab.view}`);
-        }
-
-        tabPages.forEach((dataUrl, index) => {
-          pages.push({
-            tab: tab.tab,
-            pageIndex: index + 1,
-            totalPages: tabPages.length,
-            dataUrl,
-          });
-        });
-      }
-
-      if (pages.length === 0) {
-        throw new Error('No pages generated for PDF export');
-      }
-
-      const generatedAt = new Date().toISOString();
-      const summaryText = buildAnalysisSummaryText({
-        view: previousView,
-        timeline,
-        teamNames: resolvedTeamNames,
-      });
-      const html = buildAnalysisPdfHtml({
-        summaryText,
-        generatedAtIso: generatedAt,
-        pages,
+      const result = await exportAnalysisReportPdf({
+        defaultFileName: `analysis-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+        reportContext: {
+          timeline,
+          resolvedTeamNames,
+          currentDashboardFilters: dashboardFilters,
+          currentMatrixAxes: matrixAxes,
+          currentMatrixFilters: matrixFilters,
+          analysisDashboard: settings.analysisDashboard,
+        },
       });
 
-      const ok = await api.writePdfFileFromHtml(filePath, html);
-      if (ok) {
+      if (result.canceled) {
+        return;
+      }
+
+      if (result.success) {
         notification.success('PDFを保存しました。');
       } else {
         notification.error('PDF保存に失敗しました。');
       }
     } catch (error) {
-      console.error('Failed to export analysis PDF:', error);
+      console.error('Failed to export analysis report PDF:', error);
       notification.error('PDFエクスポートに失敗しました。');
     } finally {
-      if (currentViewRef.current !== previousView) {
-        onChangeView(previousView);
-        await waitForViewAndRender(previousView);
-      }
       setIsExporting(false);
     }
   };
@@ -422,23 +404,32 @@ export const AnalysisPanelView = ({
           open={Boolean(exportAnchor)}
           onClose={closeExportMenu}
         >
-          <MenuItem onClick={() => void handleCopySummary()} disabled={isExporting}>
+          <MenuItem
+            onClick={() => void handleCopySummary()}
+            disabled={isExporting}
+          >
             <ListItemIcon>
               <ContentCopyIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Copy structured summary</ListItemText>
           </MenuItem>
-          <MenuItem onClick={() => void handleExportPng()} disabled={isExporting}>
+          <MenuItem
+            onClick={() => void handleExportPng()}
+            disabled={isExporting}
+          >
             <ListItemIcon>
               <ImageIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Snapshot PNG（現在タブ全内容）</ListItemText>
           </MenuItem>
-          <MenuItem onClick={() => void handleExportPdf()} disabled={isExporting}>
+          <MenuItem
+            onClick={() => void handleExportPdf()}
+            disabled={isExporting}
+          >
             <ListItemIcon>
               <PictureAsPdfIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Analysis PDF（全内容 / dashboard,momentum,matrix）</ListItemText>
+            <ListItemText>Analysis PDF（print layout）</ListItemText>
           </MenuItem>
         </Menu>
       </Box>
@@ -467,6 +458,8 @@ export const AnalysisPanelView = ({
             teamNames={resolvedTeamNames}
             emptyMessage="ダッシュボードを表示するにはタイムラインを作成してください。"
             onJumpToSegment={onJumpToSegment}
+            dashboardFilters={dashboardFilters}
+            onDashboardFiltersChange={setDashboardFilters}
           />
         )}
 
@@ -477,6 +470,10 @@ export const AnalysisPanelView = ({
             onJumpToSegment={onJumpToSegment}
             emptyMessage="クロス集計を表示するにはタイムラインを作成してください。"
             totalTimelineCount={timeline.length}
+            matrixAxes={matrixAxes}
+            onMatrixAxesChange={setMatrixAxes}
+            matrixFilters={matrixFilters}
+            onMatrixFiltersChange={setMatrixFilters}
           />
         )}
 

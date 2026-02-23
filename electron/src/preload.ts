@@ -282,8 +282,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return false;
     }
   },
-  send: (channel: string) => {
-    ipcRenderer.send(channel);
+  send: (channel: string, ...args: unknown[]) => {
+    ipcRenderer.send(channel, ...args);
   },
   resetSettings: async () => {
     try {
@@ -438,14 +438,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
         map = new Map();
         __listenerStore.set('llama:progress', map);
       }
-      map.set(callback as unknown as Function, wrapped as unknown as (...args: unknown[]) => void);
+      map.set(
+        callback as unknown as Function,
+        wrapped as unknown as (...args: unknown[]) => void,
+      );
       ipcRenderer.on('llama:progress', wrapped);
     },
     offProgress: (callback: (payload: unknown) => void) => {
       const map = __listenerStore.get('llama:progress');
       const wrapped = map?.get(callback as unknown as Function);
       if (wrapped) {
-        ipcRenderer.removeListener('llama:progress', wrapped as unknown as (...args: unknown[]) => void);
+        ipcRenderer.removeListener(
+          'llama:progress',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
         map?.delete(callback as unknown as Function);
       }
     },
@@ -553,9 +559,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   writePdfFileFromHtml: async (filePath: string, html: string) => {
     try {
-      return await ipcRenderer.invoke('write-pdf-file-from-html', filePath, html);
+      return await ipcRenderer.invoke(
+        'write-pdf-file-from-html',
+        filePath,
+        html,
+      );
     } catch (error) {
       console.error('Error in writePdfFileFromHtml:', error);
+      return false;
+    }
+  },
+  printAnalysisReportPdf: async (filePath: string, payload: unknown) => {
+    try {
+      return await ipcRenderer.invoke(
+        'analysis-report:print-pdf',
+        filePath,
+        payload,
+      );
+    } catch (error) {
+      console.error('Error in printAnalysisReportPdf:', error);
       return false;
     }
   },

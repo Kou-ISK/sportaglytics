@@ -34,6 +34,7 @@ interface CustomPieChartProps {
   calcMode?: 'raw' | 'percentTotal' | 'difference';
   teamColorMap?: Record<string, string>;
   onPointSelect?: (payload: { title: string; entryIds: string[] }) => void;
+  disableAnimation?: boolean;
 }
 
 export const CustomPieChart = ({
@@ -45,6 +46,7 @@ export const CustomPieChart = ({
   calcMode = 'raw',
   teamColorMap,
   onPointSelect,
+  disableAnimation = false,
 }: CustomPieChartProps) => {
   const theme = useTheme();
   const normalizedSeriesKeys = seriesKeys.length > 0 ? seriesKeys : ['value'];
@@ -147,6 +149,7 @@ export const CustomPieChart = ({
           data={pieData}
           dataKey="value"
           nameKey="name"
+          isAnimationActive={!disableAnimation}
           outerRadius="96%"
           innerRadius="60%"
           startAngle={180}
@@ -155,9 +158,11 @@ export const CustomPieChart = ({
           cy="80%"
           paddingAngle={1}
           labelLine={{ stroke: theme.palette.divider, strokeWidth: 1 }}
-          onClick={(
-            entry: { name?: string; value?: number; entryIds?: string[] },
-          ) => {
+          onClick={(entry: {
+            name?: string;
+            value?: number;
+            entryIds?: string[];
+          }) => {
             if (!onPointSelect) return;
             if (typeof entry.value === 'number' && entry.value === 0) return;
             const entryIds = entry.entryIds ?? [];

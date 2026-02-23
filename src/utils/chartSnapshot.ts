@@ -1,3 +1,7 @@
+/**
+ * @deprecated PDFエクスポートでは非使用（データ駆動PDFへ移行済み）。
+ * 旧スナップショット経路の互換用ユーティリティ。
+ */
 const createSvgDataUrl = (svg: SVGElement) => {
   const clone = svg.cloneNode(true) as SVGElement;
   if (!clone.getAttribute('xmlns')) {

@@ -1,19 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { TimelineData } from '../../../../../../../types//TimelineData';
+import type { TimelineData } from '../../../../../../../types/TimelineData';
 import {
-  extractActionFromActionName,
-  extractTeamFromActionName,
-  extractUniqueTeams,
-} from '../../../../../../../utils/labelExtractors';
+  buildMatrixFilterSummaryText,
+  createDefaultMatrixFilters,
+  deriveMatrixFilters,
+  MATRIX_FILTER_ALL,
+  type MatrixFilterState,
+} from './matrixFilterUtils';
 
-const ALL = 'all';
-
-export interface MatrixFilterState {
-  team: string;
-  action: string;
-  labelGroup: string;
-  labelValue: string;
-}
+export type { MatrixFilterState } from './matrixFilterUtils';
+export { MATRIX_FILTER_ALL, buildMatrixFilterSummaryText };
 
 export interface MatrixFiltersResult {
   filters: MatrixFilterState;
@@ -37,112 +33,54 @@ export interface MatrixFiltersResult {
 export const useMatrixFilters = (
   timeline: TimelineData[],
 ): MatrixFiltersResult => {
-  const [filterTeam, setFilterTeam] = useState<string>(ALL);
-  const [filterAction, setFilterAction] = useState<string>(ALL);
-  const [filterLabelGroup, setFilterLabelGroup] = useState<string>(ALL);
-  const [filterLabelValue, setFilterLabelValue] = useState<string>(ALL);
+  const [filters, setFilters] = useState<MatrixFilterState>(
+    createDefaultMatrixFilters(),
+  );
 
-  // availableActions/LabelValues を算出
-  const { availableTeams, availableActions, availableLabelValues } =
-    useMemo(() => {
-      const teams = extractUniqueTeams(timeline);
+  const derived = useMemo(() => deriveMatrixFilters(timeline, filters), [timeline, filters]);
 
-      // チームフィルタ適用後のアクション一覧
-      const actions = new Set<string>();
-      const filteredByTeam =
-        filterTeam === ALL
-          ? timeline
-          : timeline.filter(
-              (item) =>
-                extractTeamFromActionName(item.actionName) === filterTeam,
-            );
-
-      for (const item of filteredByTeam) {
-        const action = extractActionFromActionName(item.actionName);
-        actions.add(action);
-      }
-
-      // ラベルグループが指定されている場合、その値を抽出
-      const labelValues = new Set<string>();
-      if (filterLabelGroup !== ALL) {
-        for (const item of timeline) {
-          const label = item.labels?.find((l) => l.group === filterLabelGroup);
-          if (label) {
-            labelValues.add(label.name);
-          }
-        }
-      }
-
-      return {
-        availableTeams: teams,
-        availableActions: Array.from(actions).sort((a, b) =>
-          a.localeCompare(b),
-        ),
-        availableLabelValues: Array.from(labelValues).sort((a, b) =>
-          a.localeCompare(b),
-        ),
-      };
-    }, [timeline, filterTeam, filterLabelGroup]);
-
-  // 適用後のタイムライン
-  const filteredTimeline = useMemo(() => {
-    return timeline.filter((item) => {
-      if (filterTeam !== ALL) {
-        const team = extractTeamFromActionName(item.actionName);
-        if (team !== filterTeam) return false;
-      }
-
-      if (filterAction !== ALL) {
-        const action = extractActionFromActionName(item.actionName);
-        if (action !== filterAction) return false;
-      }
-
-      if (filterLabelGroup !== ALL) {
-        const labels = item.labels?.filter((l) => l.group === filterLabelGroup) ?? [];
-        if (labels.length === 0) return false;
-        if (filterLabelValue !== ALL) {
-          const matched = labels.some((label) => label.name === filterLabelValue);
-          if (!matched) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [timeline, filterTeam, filterAction, filterLabelGroup, filterLabelValue]);
-
-  // グループ変更時にラベル値をリセット
   useEffect(() => {
-    setFilterLabelValue(ALL);
-  }, [filterLabelGroup]);
+    setFilters((prev) => {
+      if (prev.labelValue === MATRIX_FILTER_ALL) return prev;
+      return { ...prev, labelValue: MATRIX_FILTER_ALL };
+    });
+  }, [filters.labelGroup]);
+
+  const setFilterTeam = (value: string) => {
+    setFilters((prev) => ({ ...prev, team: value }));
+  };
+
+  const setFilterAction = (value: string) => {
+    setFilters((prev) => ({ ...prev, action: value }));
+  };
+
+  const setFilterLabelGroup = (value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      labelGroup: value,
+      labelValue: MATRIX_FILTER_ALL,
+    }));
+  };
+
+  const setFilterLabelValue = (value: string) => {
+    setFilters((prev) => ({ ...prev, labelValue: value }));
+  };
 
   const clearLabelFilters = () => {
-    setFilterLabelGroup(ALL);
-    setFilterLabelValue(ALL);
+    setFilters((prev) => ({
+      ...prev,
+      labelGroup: MATRIX_FILTER_ALL,
+      labelValue: MATRIX_FILTER_ALL,
+    }));
   };
 
   const clearAllFilters = () => {
-    setFilterTeam(ALL);
-    setFilterAction(ALL);
-    clearLabelFilters();
+    setFilters(createDefaultMatrixFilters());
   };
 
-  const hasActiveFilters =
-    filterTeam !== ALL ||
-    filterAction !== ALL ||
-    filterLabelGroup !== ALL;
-
   return {
-    filters: {
-      team: filterTeam,
-      action: filterAction,
-      labelGroup: filterLabelGroup,
-      labelValue: filterLabelValue,
-    },
-    availableTeams,
-    availableActions,
-    availableLabelValues,
-    filteredTimeline,
-    hasActiveFilters,
+    filters,
+    ...derived,
     setFilterTeam,
     setFilterAction,
     setFilterLabelGroup,
