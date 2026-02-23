@@ -156,12 +156,22 @@ const buildMenu = () => {
           },
         },
         {
-          label: 'タイムライン（CSV）',
+          label: 'タイムライン（CSV / YouTube）',
           click: (_menuItem, browserWindow) => {
             if (browserWindow && 'webContents' in browserWindow) {
               (browserWindow as BrowserWindow).webContents.send(
                 'menu-export-timeline',
                 'csv',
+              );
+            }
+          },
+        },
+        {
+          label: 'タイムライン（Raw CSV）',
+          click: (_menuItem, browserWindow) => {
+            if (browserWindow && 'webContents' in browserWindow) {
+              (browserWindow as BrowserWindow).webContents.send(
+                'menu-export-analysis-raw-csv',
               );
             }
           },

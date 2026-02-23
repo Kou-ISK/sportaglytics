@@ -4,12 +4,15 @@ import { AnalysisPanel, AnalysisView } from '../features/videoPlayer/components/
 import type { TimelineData } from '../types/TimelineData';
 import type { PlaylistItem } from '../types/Playlist';
 import type { AnalysisWindowSyncPayload } from '../renderer';
+import { useRawTimelineCsvExport } from '../hooks/useRawTimelineCsvExport';
 
 export const AnalysisWindowApp = () => {
   const [timeline, setTimeline] = useState<TimelineData[]>([]);
   const [teamNames, setTeamNames] = useState<string[]>([]);
   const [analysisView, setAnalysisView] = useState<AnalysisView>('dashboard');
   const [isSyncing, setIsSyncing] = useState(true);
+
+  useRawTimelineCsvExport({ timeline });
 
   useEffect(() => {
     const api = window.electronAPI?.analysis;

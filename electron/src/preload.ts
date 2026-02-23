@@ -538,6 +538,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return false;
     }
   },
+  captureWindowRegionAsPng: async (rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => {
+    try {
+      return await ipcRenderer.invoke('capture-window-region-png', rect);
+    } catch (error) {
+      console.error('Error in captureWindowRegionAsPng:', error);
+      return null;
+    }
+  },
+  writePdfFileFromHtml: async (filePath: string, html: string) => {
+    try {
+      return await ipcRenderer.invoke('write-pdf-file-from-html', filePath, html);
+    } catch (error) {
+      console.error('Error in writePdfFileFromHtml:', error);
+      return false;
+    }
+  },
   readTextFile: async (filePath: string) => {
     try {
       return await ipcRenderer.invoke('read-text-file', filePath);

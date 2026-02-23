@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   CircularProgress,
@@ -19,9 +19,9 @@ import GridOnIcon from '@mui/icons-material/GridOn';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import OutboxIcon from '@mui/icons-material/Outbox';
-import TableViewIcon from '@mui/icons-material/TableView';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ImageIcon from '@mui/icons-material/Image';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { AnalysisView } from '../AnalysisPanel';
 import type { AnalysisPanelDerivedState } from '../hooks/useAnalysisPanelState';
@@ -33,10 +33,10 @@ import type { PlaylistItem } from '../../../../../../types/Playlist';
 import { createMomentumDataFactory } from '../../../../analysis/utils/momentum';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
 import {
+  buildAnalysisPdfHtml,
   buildAnalysisSummaryText,
-  exportAnalysisCsv,
+  type AnalysisPdfImagePage,
 } from '../../../../../../utils/analysisExport';
-import { captureSvgAsPngDataUrl } from '../../../../../../utils/chartSnapshot';
 
 interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   open: boolean;
@@ -53,6 +53,26 @@ interface AnalysisPanelViewProps extends AnalysisPanelDerivedState {
   }) => Promise<void> | void;
 }
 
+const PDF_TABS: Array<{ view: Exclude<AnalysisView, 'ai'>; title: string }> = [
+  { view: 'dashboard', title: 'Dashboard' },
+  { view: 'momentum', title: 'Momentum' },
+  { view: 'matrix', title: 'Matrix' },
+];
+
+const waitMs = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const waitForPaint = () =>
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resolve();
+      });
+    });
+  });
+
 export const AnalysisPanelView = ({
   open,
   onClose,
@@ -68,7 +88,12 @@ export const AnalysisPanelView = ({
 }: AnalysisPanelViewProps) => {
   const notification = useNotification();
   const exportTargetRef = useRef<HTMLDivElement | null>(null);
+  const currentViewRef = useRef<AnalysisView>(currentView);
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    currentViewRef.current = currentView;
+  }, [currentView]);
 
   const filteredMomentumDataFactory = useMemo(
     () => createMomentumDataFactory(timeline),
@@ -77,30 +102,48 @@ export const AnalysisPanelView = ({
 
   const closeExportMenu = () => setExportAnchor(null);
 
-  const handleExportCsv = async () => {
-    closeExportMenu();
-    if (timeline.length === 0) {
-      notification.warning('エクスポート対象のタイムラインがありません。');
-      return;
+  const waitForViewAndRender = useCallback(async (targetView: AnalysisView) => {
+    let retries = 60;
+    while (currentViewRef.current !== targetView && retries > 0) {
+      await waitMs(25);
+      retries -= 1;
     }
+    if (currentViewRef.current !== targetView) return false;
+    await waitForPaint();
+    await waitMs(80);
+    return true;
+  }, []);
+
+  const captureCurrentViewAsBase64 = useCallback(async () => {
     const api = window.electronAPI;
-    if (!api?.saveFileDialog || !api?.writeTextFile) {
-      notification.error('CSVエクスポート機能が利用できません。');
-      return;
+    const target = exportTargetRef.current;
+
+    if (!target) {
+      notification.error('スナップショット対象が見つかりません。');
+      return null;
     }
-    const filePath = await api.saveFileDialog(
-      `analysis-${currentView}-${new Date().toISOString().slice(0, 10)}.csv`,
-      [{ name: 'CSV', extensions: ['csv'] }],
-    );
-    if (!filePath) return;
-    const csv = exportAnalysisCsv(timeline);
-    const ok = await api.writeTextFile(filePath, csv);
-    if (ok) {
-      notification.success('CSVを保存しました。');
-    } else {
-      notification.error('CSV保存に失敗しました。');
+
+    if (!api?.captureWindowRegionAsPng) {
+      notification.error('画面キャプチャ機能が利用できません。');
+      return null;
     }
-  };
+
+    const rect = target.getBoundingClientRect();
+    const width = Math.max(1, Math.ceil(rect.width));
+    const height = Math.max(1, Math.ceil(rect.height));
+
+    if (width <= 0 || height <= 0) {
+      notification.error('キャプチャ領域のサイズが不正です。');
+      return null;
+    }
+
+    return api.captureWindowRegionAsPng({
+      x: Math.floor(rect.left),
+      y: Math.floor(rect.top),
+      width,
+      height,
+    });
+  }, [notification]);
 
   const handleCopySummary = async () => {
     closeExportMenu();
@@ -129,7 +172,7 @@ export const AnalysisPanelView = ({
     try {
       const ok = (await writeByNavigator()) || writeByTextarea();
       if (ok) {
-        notification.success('サマリーをクリップボードにコピーしました。');
+        notification.success('構造化サマリーをクリップボードにコピーしました。');
       } else {
         notification.error('クリップボードへのコピーに失敗しました。');
       }
@@ -141,43 +184,111 @@ export const AnalysisPanelView = ({
 
   const handleExportPng = async () => {
     closeExportMenu();
-    const target = exportTargetRef.current;
-    if (!target) {
-      notification.error('スナップショット対象が見つかりません。');
-      return;
-    }
-    let dataUrl: string | null = null;
-    try {
-      dataUrl = await captureSvgAsPngDataUrl(target);
-    } catch (error) {
-      console.error('Failed to create PNG snapshot:', error);
-      notification.error('PNGスナップショットの生成に失敗しました。');
-      return;
-    }
-    if (!dataUrl) {
-      notification.warning('この画面にはPNG化できるチャートがありません。');
-      return;
-    }
+
     const api = window.electronAPI;
     if (!api?.saveFileDialog || !api?.writeBinaryFile) {
       notification.error('PNGエクスポート機能が利用できません。');
       return;
     }
+
+    const base64 = await captureCurrentViewAsBase64();
+    if (!base64) {
+      notification.error('PNGスナップショットの生成に失敗しました。');
+      return;
+    }
+
     const filePath = await api.saveFileDialog(
       `analysis-${currentView}-${new Date().toISOString().slice(0, 10)}.png`,
       [{ name: 'PNG', extensions: ['png'] }],
     );
     if (!filePath) return;
-    const base64 = dataUrl.split(',')[1];
-    if (!base64) {
-      notification.error('PNGデータの生成に失敗しました。');
-      return;
-    }
+
     const ok = await api.writeBinaryFile(filePath, base64);
     if (ok) {
       notification.success('PNGを保存しました。');
     } else {
       notification.error('PNG保存に失敗しました。');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    closeExportMenu();
+
+    if (timeline.length === 0) {
+      notification.warning('エクスポート対象のタイムラインがありません。');
+      return;
+    }
+
+    const api = window.electronAPI;
+    if (
+      !api?.saveFileDialog ||
+      !api?.writePdfFileFromHtml ||
+      !api?.captureWindowRegionAsPng
+    ) {
+      notification.error('PDFエクスポート機能が利用できません。');
+      return;
+    }
+
+    const filePath = await api.saveFileDialog(
+      `analysis-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+      [{ name: 'PDF', extensions: ['pdf'] }],
+    );
+    if (!filePath) return;
+
+    const previousView = currentViewRef.current;
+    const pages: AnalysisPdfImagePage[] = [];
+
+    try {
+      for (const tab of PDF_TABS) {
+        if (currentViewRef.current !== tab.view) {
+          onChangeView(tab.view);
+        }
+        const settled = await waitForViewAndRender(tab.view);
+        if (!settled) {
+          throw new Error(`Failed to switch view: ${tab.view}`);
+        }
+
+        const base64 = await captureCurrentViewAsBase64();
+        if (!base64) {
+          throw new Error(`Failed to capture view: ${tab.view}`);
+        }
+
+        pages.push({
+          title: tab.title,
+          dataUrl: `data:image/png;base64,${base64}`,
+        });
+      }
+
+      if (pages.length !== PDF_TABS.length) {
+        throw new Error('Incomplete snapshot pages for PDF');
+      }
+
+      const generatedAt = new Date().toISOString();
+      const summaryText = buildAnalysisSummaryText({
+        view: previousView,
+        timeline,
+        teamNames: resolvedTeamNames,
+      });
+      const html = buildAnalysisPdfHtml({
+        summaryText,
+        generatedAtIso: generatedAt,
+        pages,
+      });
+
+      const ok = await api.writePdfFileFromHtml(filePath, html);
+      if (ok) {
+        notification.success('PDFを保存しました。');
+      } else {
+        notification.error('PDF保存に失敗しました。');
+      }
+    } catch (error) {
+      console.error('Failed to export analysis PDF:', error);
+      notification.error('PDFエクスポートに失敗しました。');
+    } finally {
+      if (currentViewRef.current !== previousView) {
+        onChangeView(previousView);
+        await waitForViewAndRender(previousView);
+      }
     }
   };
 
@@ -233,23 +344,23 @@ export const AnalysisPanelView = ({
           open={Boolean(exportAnchor)}
           onClose={closeExportMenu}
         >
-          <MenuItem onClick={() => void handleExportCsv()}>
-            <ListItemIcon>
-              <TableViewIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>CSV（raw + aggregate）</ListItemText>
-          </MenuItem>
           <MenuItem onClick={() => void handleCopySummary()}>
             <ListItemIcon>
               <ContentCopyIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Copy summary</ListItemText>
+            <ListItemText>Copy structured summary</ListItemText>
           </MenuItem>
           <MenuItem onClick={() => void handleExportPng()}>
             <ListItemIcon>
               <ImageIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Snapshot PNG</ListItemText>
+            <ListItemText>Snapshot PNG（現在タブ）</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={() => void handleExportPdf()}>
+            <ListItemIcon>
+              <PictureAsPdfIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Analysis PDF（dashboard/momentum/matrix）</ListItemText>
           </MenuItem>
         </Menu>
       </Box>

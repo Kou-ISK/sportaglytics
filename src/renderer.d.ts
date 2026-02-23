@@ -163,6 +163,13 @@ export interface IElectronAPI {
     filePath: string,
     base64Content: string,
   ) => Promise<boolean>;
+  captureWindowRegionAsPng: (rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => Promise<string | null>;
+  writePdfFileFromHtml: (filePath: string, html: string) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<string | null>;
   saveDashboardPackage: (
     packagePath: string,

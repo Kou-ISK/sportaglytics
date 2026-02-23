@@ -65,8 +65,9 @@ const sections: HelpSection[] = [
     title: 'エクスポート / インポート',
     summary: 'タイムラインとクリップの入出力',
     steps: [
-      'ファイル > エクスポート から、タイムラインを JSON / CSV / SCTimeline 形式で出力できます。',
+      'ファイル > エクスポート から、タイムラインを JSON / CSV（YouTube） / Raw CSV / SCTimeline 形式で出力できます。',
       'クリップ書き出しは ファイル > エクスポート > 映像クリップ から。単一/インスタンスごと/行ごと、1-2アングル結合、オーバーレイ表示の有無を選択して FFmpeg で出力します。',
+      '分析ウィンドウのエクスポートメニューでは、Copy structured summary / Snapshot PNG（現在タブ）/ Analysis PDF（dashboard・momentum・matrix）を実行できます。',
       'ファイル > インポート から JSON/SCTimeline を読み込みタイムラインへ反映（JSON優先で自動判定）します。取り込み後はタイムラインで内容を確認してください。',
     ],
   },

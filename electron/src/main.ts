@@ -190,6 +190,92 @@ const createWindow = async (): Promise<BrowserWindow> => {
     },
   );
 
+  // 現在ウィンドウの指定領域をPNG(base64)で取得
+  ipcMain.handle(
+    'capture-window-region-png',
+    async (
+      event,
+      rect: { x: number; y: number; width: number; height: number },
+    ) => {
+      try {
+        if (!rect) return null;
+        const x = Math.max(0, Math.round(rect.x));
+        const y = Math.max(0, Math.round(rect.y));
+        const width = Math.max(1, Math.round(rect.width));
+        const height = Math.max(1, Math.round(rect.height));
+        const image = await event.sender.capturePage({ x, y, width, height });
+        if (!image || image.isEmpty()) return null;
+        return image.toPNG().toString('base64');
+      } catch (error) {
+        console.error('Failed to capture window region as PNG:', error);
+        return null;
+      }
+    },
+  );
+
+  // HTMLをPDF化して保存
+  ipcMain.handle(
+    'write-pdf-file-from-html',
+    async (_event, filePath: string, html: string) => {
+      let printWindow: BrowserWindow | null = null;
+      try {
+        printWindow = new BrowserWindow({
+          show: false,
+          width: 1200,
+          height: 1600,
+          webPreferences: {
+            sandbox: false,
+            contextIsolation: true,
+          },
+        });
+
+        const htmlDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(
+          html,
+        )}`;
+        await printWindow.loadURL(htmlDataUrl);
+
+        await printWindow.webContents.executeJavaScript(
+          `new Promise((resolve) => {
+            const done = () => setTimeout(resolve, 120);
+            const images = Array.from(document.images || []);
+            if (images.length === 0) {
+              done();
+              return;
+            }
+            let remaining = images.length;
+            const onFinish = () => {
+              remaining -= 1;
+              if (remaining <= 0) done();
+            };
+            images.forEach((img) => {
+              if (img.complete) {
+                onFinish();
+              } else {
+                img.addEventListener('load', onFinish, { once: true });
+                img.addEventListener('error', onFinish, { once: true });
+              }
+            });
+          })`,
+          true,
+        );
+
+        const pdfBuffer = await printWindow.webContents.printToPDF({
+          printBackground: true,
+          preferCSSPageSize: true,
+        });
+        await fs.writeFile(filePath, pdfBuffer);
+        return true;
+      } catch (error) {
+        console.error('Failed to write PDF from HTML:', error);
+        return false;
+      } finally {
+        if (printWindow && !printWindow.isDestroyed()) {
+          printWindow.destroy();
+        }
+      }
+    },
+  );
+
   // テキストファイル読み込み
   ipcMain.handle('read-text-file', async (_event, filePath: string) => {
     try {

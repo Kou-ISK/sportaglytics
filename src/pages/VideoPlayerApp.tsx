@@ -17,6 +17,7 @@ import { SyncAnalysisBackdrop } from './videoPlayer/components/SyncAnalysisBackd
 import { useSyncMenuHandlers } from './videoPlayer/hooks/useSyncMenuHandlers';
 import { useAnalysisMenuHandlers } from './videoPlayer/hooks/useAnalysisMenuHandlers';
 import { useTimelineExportImport } from './videoPlayer/hooks/useTimelineExportImport';
+import { useRawTimelineCsvExport } from '../hooks/useRawTimelineCsvExport';
 import { OnboardingTutorial } from '../components/OnboardingTutorial';
 import { useHotkeyBindings } from './videoPlayer/hooks/useHotkeyBindings';
 import { useManualSyncSeek } from './videoPlayer/hooks/useManualSyncSeek';
@@ -177,6 +178,7 @@ const VideoPlayerAppContent = () => {
   });
 
   useTimelineExportImport({ timeline, setTimeline });
+  useRawTimelineCsvExport({ timeline });
 
   const handleJumpToSegment = useCallback(
     (segment: TimelineData) => {
