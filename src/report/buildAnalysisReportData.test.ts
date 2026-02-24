@@ -75,10 +75,12 @@ describe('buildAnalysisReportData', () => {
     expect(report.dashboard.filtersSummary).toBe('action=Kick');
     expect(report.dashboard.widgets.length).toBe(1);
     expect(report.dashboard.widgets[0]?.kind).toBe('chart');
+    expect(report.dashboard.pages.length).toBeGreaterThan(0);
     expect(report.momentum.segments.length).toBeGreaterThanOrEqual(0);
-    expect(report.matrix.rowLabels.length).toBeGreaterThan(0);
-    expect(report.matrix.columnLabels.length).toBeGreaterThan(0);
-    expect(report.matrix.values.length).toBe(report.matrix.rowLabels.length);
+    expect(report.matrix.sections.length).toBeGreaterThan(0);
+    expect(report.matrix.sections[0]?.rowHeaders.length).toBeGreaterThan(0);
+    expect(report.matrix.sections[0]?.columnHeaders.length).toBeGreaterThan(0);
+    expect(report.matrix.sections[0]?.values.length).toBeGreaterThan(0);
     expect(report.matrix.visibleCount).toBeGreaterThan(0);
     expect(report.matrix.totalCount).toBe(2);
   });

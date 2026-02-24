@@ -45,11 +45,18 @@ export interface DashboardChartWidgetReportData {
 
 export type DashboardWidgetReportData = DashboardChartWidgetReportData;
 
+export interface DashboardReportPage {
+  pageIndex: number;
+  rowCount: number;
+  widgets: DashboardWidgetReportData[];
+}
+
 export interface AnalysisReportDashboard {
   title: string;
   activeDashboardName?: string;
   cards: AnalysisReportCard[];
   widgets: DashboardWidgetReportData[];
+  pages: DashboardReportPage[];
   filtersSummary: string;
 }
 
@@ -68,6 +75,19 @@ export interface AnalysisReportMomentum {
   };
 }
 
+export interface AnalysisReportMatrixSection {
+  title: string;
+  filterKey: string;
+  rowHeaders: Array<{ parent: string | null; child: string }>;
+  columnHeaders: Array<{ parent: string | null; child: string }>;
+  rowParentSpans: Array<{ key: string; span: number }>;
+  colParentSpans: Array<{ key: string; span: number }>;
+  values: number[][];
+  visibleCount: number;
+  totalCount: number;
+  isOthersBucket: boolean;
+}
+
 export interface AnalysisReportMatrix {
   title: string;
   axes: { row: string; column: string };
@@ -76,11 +96,11 @@ export interface AnalysisReportMatrix {
   columnHeaders: Array<{ parent: string | null; child: string }>;
   rowParentSpans: Array<{ key: string; span: number }>;
   colParentSpans: Array<{ key: string; span: number }>;
-  rowLabels: string[];
-  columnLabels: string[];
   values: number[][];
   visibleCount: number;
   totalCount: number;
+  sections: AnalysisReportMatrixSection[];
+  referenceNote: string;
   min?: number;
   max?: number;
 }

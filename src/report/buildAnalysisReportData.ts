@@ -18,6 +18,10 @@ import {
   buildMatrixFilterSummaryText,
   deriveMatrixFilters,
 } from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/hooks/matrixFilterUtils';
+import {
+  buildMatrixSectionsByTeamAction,
+  paginateDashboardWidgets,
+} from './printLayoutUtils';
 import type {
   AnalysisReportBuildContext,
   AnalysisReportCard,
@@ -191,6 +195,10 @@ export const buildAnalysisReportData = (
       teamContext,
     ),
   );
+  const dashboardPages = paginateDashboardWidgets(dashboardWidgets, {
+    firstPageMaxRows: 2,
+    nextPageMaxRows: 3,
+  });
 
   const createMomentumData = createMomentumDataFactory(ctx.timeline);
   const momentumSegments = createMomentumData(team1Name, team2Name);
@@ -221,16 +229,20 @@ export const buildAnalysisReportData = (
     ctx.currentMatrixAxes.column,
   );
 
-  const rowLabels = matrix.rowHeaders.map((header) =>
-    header.parent ? `${header.parent} > ${header.child}` : header.child,
-  );
-  const columnLabels = matrix.columnHeaders.map((header) =>
-    header.parent ? `${header.parent} > ${header.child}` : header.child,
-  );
   const values = matrix.matrix.map((row) => row.map((cell) => cell.count));
   const flattenedValues = values.flat();
   const min = flattenedValues.length ? Math.min(...flattenedValues) : 0;
   const max = flattenedValues.length ? Math.max(...flattenedValues) : 0;
+
+  const matrixSections = buildMatrixSectionsByTeamAction({
+    timeline: ctx.timeline,
+    rowAxis: ctx.currentMatrixAxes.row,
+    columnAxis: ctx.currentMatrixAxes.column,
+    filters: ctx.currentMatrixFilters,
+    maxTables: 10,
+    maxRows: 12,
+    maxColumns: 12,
+  });
 
   const minStart = ctx.timeline.length
     ? Math.min(...ctx.timeline.map((item) => item.startTime))
@@ -252,6 +264,7 @@ export const buildAnalysisReportData = (
       activeDashboardName: activeDashboard?.name,
       cards: buildDashboardCards(ctx.timeline, activeDashboard),
       widgets: dashboardWidgets,
+      pages: dashboardPages,
       filtersSummary: dashboardFilterSummary,
     },
     momentum: {
@@ -274,11 +287,12 @@ export const buildAnalysisReportData = (
       columnHeaders: matrix.columnHeaders,
       rowParentSpans: toSpanList(matrix.rowParentSpans),
       colParentSpans: toSpanList(matrix.colParentSpans),
-      rowLabels,
-      columnLabels,
       values,
       visibleCount: matrixDerived.filteredTimeline.length,
       totalCount: ctx.timeline.length,
+      sections: matrixSections,
+      referenceNote:
+        '完全なMatrixはクロス集計CSV/XLSXエクスポートを参照してください。',
       min,
       max,
     },

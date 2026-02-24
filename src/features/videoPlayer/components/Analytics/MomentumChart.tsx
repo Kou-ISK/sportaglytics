@@ -24,6 +24,7 @@ interface MomentumChartProps {
   teamNames: string[];
   onPointSelect?: (payload: { title: string; entryIds: string[] }) => void;
   disableAnimation?: boolean;
+  renderMode?: 'screen' | 'print';
 }
 
 interface MomentumChartDatum extends MomentumSegment {
@@ -74,7 +75,9 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
   teamNames,
   onPointSelect,
   disableAnimation = false,
+  renderMode = 'screen',
 }: MomentumChartProps) => {
+  const isPrint = renderMode === 'print';
   const theme = useTheme();
   const [teamA, teamB] = teamNames;
 
@@ -167,7 +170,7 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
   }
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={isPrint ? 1 : 2}>
       <Box display="flex" alignItems="center" justifyContent="flex-end">
         <LegendComponent theme={theme} />
       </Box>
@@ -177,25 +180,30 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
         のポゼッションを表します。
       </Typography>
 
-      <ResponsiveContainer height={420} width="100%">
+      <ResponsiveContainer height={isPrint ? 340 : 420} width="100%">
         <BarChart
           data={chartData}
           layout="vertical"
-          barSize={18}
-          margin={{ top: 10, right: 24, bottom: 10, left: 24 }}
+          barSize={isPrint ? 14 : 18}
+          margin={{
+            top: isPrint ? 8 : 10,
+            right: isPrint ? 12 : 24,
+            bottom: isPrint ? 8 : 10,
+            left: isPrint ? 12 : 24,
+          }}
         >
           <CartesianGrid horizontal={false} strokeDasharray="3 3" />
           <XAxis
             type="number"
             domain={[-maxAbsValue, maxAbsValue]}
             tickFormatter={(val) => `${Math.abs(val)}`}
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: isPrint ? 10 : 12 }}
           />
           <YAxis
             dataKey="displayLabel"
             type="category"
-            width={160}
-            tick={{ fontSize: 12 }}
+            width={isPrint ? 124 : 160}
+            tick={{ fontSize: isPrint ? 10 : 12 }}
           />
           <ReferenceLine x={0} stroke={theme.palette.divider} strokeWidth={2} />
           <Tooltip

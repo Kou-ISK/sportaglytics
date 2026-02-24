@@ -1,13 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Stack, Typography, Divider } from '@mui/material';
+import { Box, Divider, Paper, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import type { TimelineData } from '../types/TimelineData';
-import type { AnalysisReportPayload } from '../report/types';
+import type {
+  AnalysisReportMatrixSection,
+  AnalysisReportPayload,
+  DashboardReportPage,
+  DashboardWidgetReportData,
+} from '../report/types';
 import { DashboardCard } from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/DashboardCard';
 import { CustomBarChart } from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/CustomBarChart';
 import { CustomPieChart } from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/CustomPieChart';
-import { NoDataPlaceholder } from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/NoDataPlaceholder';
 import { MomentumChart } from '../features/videoPlayer/components/Analytics/MomentumChart';
+import { NoDataPlaceholder } from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/NoDataPlaceholder';
 import { MatrixSection } from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/MatrixSection';
 
 const parseRequestIdFromHash = () => {
@@ -23,14 +28,14 @@ const waitForStableRender = async () => {
     try {
       await fonts.ready;
     } catch {
-      // ignore font readiness failure and continue
+      // Continue rendering even if font readiness fails.
     }
   }
 
   await new Promise<void>((resolve) =>
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
-        setTimeout(resolve, 140);
+        setTimeout(resolve, 160);
       }),
     ),
   );
@@ -44,64 +49,40 @@ const toMatrixCells = (values: number[][]) =>
     })),
   );
 
-const buildParentSpans = (
-  headers: Array<{ parent: string | null; child: string }>,
-) => {
-  const spans = new Map<string, number>();
-  headers.forEach((header) => {
-    if (!header.parent) return;
-    spans.set(header.parent, (spans.get(header.parent) ?? 0) + 1);
-  });
-  return spans;
-};
+const toSpanMap = (items: Array<{ key: string; span: number }>) =>
+  new Map(items.map((item) => [item.key, item.span]));
 
-const chunkMatrixColumns = (
-  payload: AnalysisReportPayload['matrix'],
-  maxColumnsPerChunk = 12,
+const chunkMomentumSegments = (
+  segments: AnalysisReportPayload['momentum']['segments'],
 ) => {
-  const matrixCells = toMatrixCells(payload.values);
-  if (payload.columnHeaders.length <= maxColumnsPerChunk) {
-    return [
-      {
-        index: 1,
-        total: 1,
-        columnHeaders: payload.columnHeaders,
-        colParentSpans: buildParentSpans(payload.columnHeaders),
-        matrix: matrixCells,
-      },
-    ];
+  const MAX_PER_PAGE = 60;
+  if (segments.length <= MAX_PER_PAGE) {
+    return [segments];
   }
 
-  const chunks: Array<{
-    index: number;
-    total: number;
-    columnHeaders: Array<{ parent: string | null; child: string }>;
-    colParentSpans: Map<string, number>;
-    matrix: Array<Array<{ count: number; entries: TimelineData[] }>>;
-  }> = [];
-
-  for (
-    let start = 0;
-    start < payload.columnHeaders.length;
-    start += maxColumnsPerChunk
-  ) {
-    const end = Math.min(
-      start + maxColumnsPerChunk,
-      payload.columnHeaders.length,
-    );
-    const columnHeaders = payload.columnHeaders.slice(start, end);
-    const matrix = matrixCells.map((row) => row.slice(start, end));
-    chunks.push({
-      index: chunks.length + 1,
-      total: Math.ceil(payload.columnHeaders.length / maxColumnsPerChunk),
-      columnHeaders,
-      colParentSpans: buildParentSpans(columnHeaders),
-      matrix,
-    });
+  const chunks: (typeof segments)[] = [];
+  for (let start = 0; start < segments.length; start += MAX_PER_PAGE) {
+    chunks.push(segments.slice(start, start + MAX_PER_PAGE));
   }
-
   return chunks;
 };
+
+const fallbackMatrixSections = (
+  payload: AnalysisReportPayload,
+): AnalysisReportMatrixSection[] => [
+  {
+    title: payload.matrix.title,
+    filterKey: 'fallback',
+    rowHeaders: payload.matrix.rowHeaders,
+    columnHeaders: payload.matrix.columnHeaders,
+    rowParentSpans: payload.matrix.rowParentSpans,
+    colParentSpans: payload.matrix.colParentSpans,
+    values: payload.matrix.values,
+    visibleCount: payload.matrix.visibleCount,
+    totalCount: payload.matrix.totalCount,
+    isOthersBucket: false,
+  },
+];
 
 export const AnalysisReportPage = () => {
   const theme = useTheme();
@@ -117,13 +98,9 @@ export const AnalysisReportPage = () => {
         | { requestId?: string; payload?: AnalysisReportPayload }
         | null
         | undefined;
-
       if (!raw?.payload) return;
       if (requestId && raw.requestId && raw.requestId !== requestId) return;
-
-      if (raw.requestId) {
-        setRequestId(raw.requestId);
-      }
+      if (raw.requestId) setRequestId(raw.requestId);
       setPayload(raw.payload);
     };
 
@@ -161,25 +138,36 @@ export const AnalysisReportPage = () => {
   const teamColorMap = useMemo(() => {
     if (!payload) return {};
     const [teamA, teamB] = payload.momentum.teamNames;
-    const next: Record<string, string> = {
+    const map: Record<string, string> = {
       Team1: theme.palette.team1.main,
       Team2: theme.palette.team2.main,
     };
-    if (teamA) next[teamA] = theme.palette.team1.main;
-    if (teamB) next[teamB] = theme.palette.team2.main;
-    return next;
+    if (teamA) map[teamA] = theme.palette.team1.main;
+    if (teamB) map[teamB] = theme.palette.team2.main;
+    return map;
   }, [payload, theme.palette.team1.main, theme.palette.team2.main]);
 
-  const rowParentSpans = useMemo(() => {
-    if (!payload) return new Map<string, number>();
-    return new Map(
-      payload.matrix.rowParentSpans.map((item) => [item.key, item.span]),
-    );
+  const dashboardPages = useMemo<DashboardReportPage[]>(() => {
+    if (!payload) return [];
+    if (payload.dashboard.pages.length > 0) return payload.dashboard.pages;
+    return [
+      {
+        pageIndex: 1,
+        rowCount: 0,
+        widgets: payload.dashboard.widgets,
+      },
+    ];
   }, [payload]);
 
-  const matrixChunks = useMemo(() => {
+  const momentumChunks = useMemo(() => {
     if (!payload) return [];
-    return chunkMatrixColumns(payload.matrix, 12);
+    return chunkMomentumSegments(payload.momentum.segments);
+  }, [payload]);
+
+  const matrixSections = useMemo(() => {
+    if (!payload) return [];
+    if (payload.matrix.sections.length > 0) return payload.matrix.sections;
+    return fallbackMatrixSections(payload);
   }, [payload]);
 
   if (!payload) {
@@ -199,6 +187,55 @@ export const AnalysisReportPage = () => {
       </Box>
     );
   }
+
+  const renderDashboardWidgets = (widgets: DashboardWidgetReportData[]) => (
+    <Box
+      sx={{
+        mt: 1.5,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(12, 1fr)',
+        gap: 1.5,
+      }}
+    >
+      {widgets.map((widget) => (
+        <Box
+          key={widget.id}
+          className="analysis-report-card"
+          sx={{ gridColumn: `span ${widget.colSpan}` }}
+        >
+          <DashboardCard title={widget.title}>
+            {!widget.hasData ? (
+              <NoDataPlaceholder message="該当データがありません。" />
+            ) : widget.chartType === 'pie' ? (
+              <CustomPieChart
+                data={widget.data}
+                seriesKeys={widget.seriesKeys}
+                unitLabel={widget.unitLabel}
+                metric={widget.metric}
+                calcMode={widget.calcMode}
+                height={240}
+                teamColorMap={teamColorMap}
+                disableAnimation
+              />
+            ) : (
+              <CustomBarChart
+                data={widget.data}
+                seriesKeys={widget.seriesKeys}
+                stacked={widget.chartType === 'stacked'}
+                showLegend={widget.showLegend}
+                unitLabel={widget.unitLabel}
+                metric={widget.metric}
+                calcMode={widget.calcMode}
+                height={220}
+                teamColorMap={teamColorMap}
+                disableAnimation
+              />
+            )}
+          </DashboardCard>
+        </Box>
+      ))}
+    </Box>
+  );
 
   return (
     <Box
@@ -223,7 +260,7 @@ export const AnalysisReportPage = () => {
             print-color-adjust: exact;
           }
 
-          .analysis-report-page {
+          .analysis-report-sheet {
             break-inside: avoid;
             page-break-inside: avoid;
           }
@@ -232,13 +269,18 @@ export const AnalysisReportPage = () => {
             break-before: page;
             page-break-before: always;
           }
+
+          .analysis-report-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
         `}
       </style>
 
-      <Box sx={{ width: '100%', maxWidth: 1280, mx: 'auto', px: 2, pt: 2 }}>
+      <Box sx={{ width: '100%', maxWidth: 1240, mx: 'auto', px: 2, pt: 2 }}>
         <Stack spacing={2}>
           <Paper
-            className="analysis-report-page"
+            className="analysis-report-sheet"
             variant="outlined"
             sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}
           >
@@ -264,13 +306,8 @@ export const AnalysisReportPage = () => {
                 </Typography>
               ) : null}
             </Stack>
-          </Paper>
 
-          <Paper
-            className="analysis-report-page"
-            variant="outlined"
-            sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}
-          >
+            <Divider sx={{ my: 1.5 }} />
             <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
               {payload.dashboard.title}
             </Typography>
@@ -291,6 +328,7 @@ export const AnalysisReportPage = () => {
               {payload.dashboard.cards.map((card, index) => (
                 <Box
                   key={`${card.title}-${index}`}
+                  className="analysis-report-card"
                   sx={{ gridColumn: 'span 4' }}
                 >
                   <DashboardCard title={card.title} subtitle={card.subValue}>
@@ -306,99 +344,89 @@ export const AnalysisReportPage = () => {
             <Typography variant="caption" color="text.secondary">
               Dashboard filters: {payload.dashboard.filtersSummary}
             </Typography>
-
-            <Box
-              sx={{
-                mt: 1.5,
-                display: 'grid',
-                gridTemplateColumns: 'repeat(12, 1fr)',
-                gap: 1.5,
-              }}
-            >
-              {payload.dashboard.widgets.map((widget) => (
-                <Box
-                  key={widget.id}
-                  sx={{ gridColumn: `span ${widget.colSpan}` }}
-                >
-                  <DashboardCard title={widget.title}>
-                    {!widget.hasData ? (
-                      <NoDataPlaceholder message="該当データがありません。" />
-                    ) : widget.chartType === 'pie' ? (
-                      <CustomPieChart
-                        data={widget.data}
-                        seriesKeys={widget.seriesKeys}
-                        unitLabel={widget.unitLabel}
-                        metric={widget.metric}
-                        calcMode={widget.calcMode}
-                        height={260}
-                        teamColorMap={teamColorMap}
-                        disableAnimation
-                      />
-                    ) : (
-                      <CustomBarChart
-                        data={widget.data}
-                        seriesKeys={widget.seriesKeys}
-                        stacked={widget.chartType === 'stacked'}
-                        showLegend={widget.showLegend}
-                        unitLabel={widget.unitLabel}
-                        metric={widget.metric}
-                        calcMode={widget.calcMode}
-                        height={240}
-                        teamColorMap={teamColorMap}
-                        disableAnimation
-                      />
-                    )}
-                  </DashboardCard>
-                </Box>
-              ))}
-            </Box>
+            {renderDashboardWidgets(dashboardPages[0]?.widgets ?? [])}
           </Paper>
 
-          <Paper
-            className="analysis-report-page"
-            variant="outlined"
-            sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}
-          >
-            <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
-              {payload.momentum.title}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Teams: {payload.momentum.teamNames.join(' / ')}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-              Segments: {payload.momentum.segments.length}
-            </Typography>
-            {payload.momentum.summary ? (
+          {dashboardPages.slice(1).map((page) => (
+            <Paper
+              key={`dashboard-page-${page.pageIndex}`}
+              className="analysis-report-sheet analysis-report-page-break"
+              variant="outlined"
+              sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}
+            >
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
+                {payload.dashboard.title} (Page {page.pageIndex}/
+                {dashboardPages.length})
+              </Typography>
+              {renderDashboardWidgets(page.widgets)}
+            </Paper>
+          ))}
+
+          {momentumChunks.map((chunk, index) => (
+            <Paper
+              key={`momentum-${index + 1}`}
+              className="analysis-report-sheet analysis-report-page-break"
+              variant="outlined"
+              sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}
+            >
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
+                {payload.momentum.title} ({index + 1}/{momentumChunks.length})
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Teams: {payload.momentum.teamNames.join(' / ')}
+              </Typography>
               <Typography
                 variant="caption"
                 color="text.secondary"
                 sx={{ ml: 1 }}
               >
-                {payload.momentum.summary}
+                Segments: {chunk.length}
               </Typography>
-            ) : null}
-            <Box sx={{ mt: 1.5 }}>
-              <MomentumChart
-                createMomentumData={() => payload.momentum.segments}
-                teamNames={payload.momentum.teamNames}
-                disableAnimation
-              />
-            </Box>
-          </Paper>
+              {payload.momentum.summary ? (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ ml: 1 }}
+                >
+                  {payload.momentum.summary}
+                </Typography>
+              ) : null}
+              <Box sx={{ mt: 1.25, overflow: 'hidden' }}>
+                <MomentumChart
+                  createMomentumData={() => chunk}
+                  teamNames={payload.momentum.teamNames}
+                  disableAnimation
+                  renderMode="print"
+                />
+              </Box>
+            </Paper>
+          ))}
 
-          {matrixChunks.map((chunk, index) => (
+          {matrixSections.length === 0 && (
             <Paper
-              key={`matrix-chunk-${chunk.index}`}
-              className={
-                index === 0
-                  ? 'analysis-report-page'
-                  : 'analysis-report-page analysis-report-page-break'
-              }
+              className="analysis-report-sheet analysis-report-page-break"
               variant="outlined"
               sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}
             >
               <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
-                {payload.matrix.title} ({chunk.index}/{chunk.total})
+                {payload.matrix.title}
+              </Typography>
+              <NoDataPlaceholder message="Matrix summary data is not available." />
+              <Typography variant="caption" color="text.secondary">
+                {payload.matrix.referenceNote}
+              </Typography>
+            </Paper>
+          )}
+
+          {matrixSections.map((section, index) => (
+            <Paper
+              key={`matrix-${section.filterKey}-${index}`}
+              className="analysis-report-sheet analysis-report-page-break"
+              variant="outlined"
+              sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}
+            >
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
+                {payload.matrix.title}: {section.title}
               </Typography>
               <Stack spacing={0.25}>
                 <Typography variant="caption" color="text.secondary">
@@ -409,23 +437,31 @@ export const AnalysisReportPage = () => {
                   Filters: {payload.matrix.filterSummary}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Visible: {payload.matrix.visibleCount} / Total:{' '}
-                  {payload.matrix.totalCount}
+                  Visible: {section.visibleCount} / Total: {section.totalCount}
                 </Typography>
               </Stack>
+
               <Box sx={{ mt: 1.25 }}>
                 <MatrixSection
-                  rowHeaders={payload.matrix.rowHeaders}
-                  columnHeaders={chunk.columnHeaders}
-                  rowParentSpans={rowParentSpans}
-                  colParentSpans={chunk.colParentSpans}
-                  matrix={chunk.matrix}
+                  rowHeaders={section.rowHeaders}
+                  columnHeaders={section.columnHeaders}
+                  rowParentSpans={toSpanMap(section.rowParentSpans)}
+                  colParentSpans={toSpanMap(section.colParentSpans)}
+                  matrix={toMatrixCells(section.values)}
                   onDrilldown={() => {
                     // Report page is non-interactive.
                   }}
                   exportMode="print"
                 />
               </Box>
+
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 1, display: 'block' }}
+              >
+                {payload.matrix.referenceNote}
+              </Typography>
             </Paper>
           ))}
         </Stack>
