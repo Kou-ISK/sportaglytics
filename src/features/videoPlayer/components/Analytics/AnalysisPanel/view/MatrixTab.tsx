@@ -200,14 +200,6 @@ export const MatrixTab = ({
     if (!filePath) return;
 
     const aoa = buildMatrixExportAoa({
-      meta: {
-        exportedAtIso: new Date().toISOString(),
-        rowAxis: customRowAxis,
-        columnAxis: customColumnAxis,
-        filters,
-        visibleCount: filteredTimeline.length,
-        totalCount: timeline.length,
-      },
       table: {
         rowHeaders: customMatrix.rowHeaders,
         columnHeaders: customMatrix.columnHeaders,
@@ -331,14 +323,14 @@ export const MatrixTab = ({
             variant="outlined"
             onClick={() => void exportMatrix('csv')}
           >
-            CSVエクスポート
+            この表をCSVで保存
           </Button>
           <Button
             size="small"
             variant="outlined"
             onClick={() => void exportMatrix('xlsx')}
           >
-            XLSXエクスポート
+            この表をXLSXで保存
           </Button>
         </Box>
 

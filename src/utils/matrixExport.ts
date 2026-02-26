@@ -1,22 +1,7 @@
 import * as XLSX from 'xlsx';
-import type { MatrixAxisConfig } from '../types/MatrixConfig';
 
 type HeaderCell = { parent: string | null; child: string };
 type MatrixCountCell = { count: number };
-
-export interface MatrixExportMeta {
-  exportedAtIso: string;
-  rowAxis: MatrixAxisConfig;
-  columnAxis: MatrixAxisConfig;
-  filters: {
-    team: string;
-    action: string;
-    labelGroup: string;
-    labelValue: string;
-  };
-  visibleCount: number;
-  totalCount: number;
-}
 
 export interface MatrixExportTable {
   rowHeaders: HeaderCell[];
@@ -25,25 +10,14 @@ export interface MatrixExportTable {
 }
 
 interface BuildMatrixExportAoaParams {
-  meta: MatrixExportMeta;
   table: MatrixExportTable;
 }
 
 type AoaCell = string | number;
 export type MatrixExportAoa = AoaCell[][];
 
-const axisToLabel = (axis: MatrixAxisConfig) => {
-  if (axis.type === 'group') return `group:${axis.value || '-'}`;
-  if (axis.type === 'team') return 'team';
-  if (axis.type === 'action') return axis.value ? `action(team:${axis.value})` : 'action';
-  return '-';
-};
-
 const headerLabel = (header: HeaderCell) =>
   header.parent ? `${header.parent} > ${header.child || '未設定'}` : header.child || '未設定';
-
-const sanitizeFilterValue = (value: string) =>
-  value && value !== 'all' ? value : '-';
 
 const toUniqueLabels = (headers: HeaderCell[]) => {
   const seen = new Map<string, number>();
@@ -57,26 +31,13 @@ const toUniqueLabels = (headers: HeaderCell[]) => {
 };
 
 export const buildMatrixExportAoa = ({
-  meta,
   table,
 }: BuildMatrixExportAoaParams): MatrixExportAoa => {
   const { rowHeaders, columnHeaders, matrix } = table;
   const columnLabels = toUniqueLabels(columnHeaders);
   const columnTotals = new Array(columnHeaders.length).fill(0);
 
-  const aoa: MatrixExportAoa = [
-    ['ExportedAt', meta.exportedAtIso],
-    ['RowAxis', axisToLabel(meta.rowAxis)],
-    ['ColumnAxis', axisToLabel(meta.columnAxis)],
-    ['FilterTeam', sanitizeFilterValue(meta.filters.team)],
-    ['FilterAction', sanitizeFilterValue(meta.filters.action)],
-    ['FilterLabelGroup', sanitizeFilterValue(meta.filters.labelGroup)],
-    ['FilterLabelValue', sanitizeFilterValue(meta.filters.labelValue)],
-    ['VisibleCount', meta.visibleCount],
-    ['TotalCount', meta.totalCount],
-    [],
-    ['RowParent', 'Row', ...columnLabels, 'RowTotal'],
-  ];
+  const aoa: MatrixExportAoa = [['RowParent', 'Row', ...columnLabels, 'RowTotal']];
 
   let grandTotal = 0;
 

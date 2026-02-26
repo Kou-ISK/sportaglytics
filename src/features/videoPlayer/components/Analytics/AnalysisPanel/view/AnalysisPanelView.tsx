@@ -411,7 +411,7 @@ export const AnalysisPanelView = ({
             <ListItemIcon>
               <ContentCopyIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Copy structured summary</ListItemText>
+            <ListItemText>構造化サマリーをコピー</ListItemText>
           </MenuItem>
           <MenuItem
             onClick={() => void handleExportPng()}
@@ -420,7 +420,7 @@ export const AnalysisPanelView = ({
             <ListItemIcon>
               <ImageIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Snapshot PNG（現在タブ全内容）</ListItemText>
+            <ListItemText>現在タブをPNGで保存（全内容）</ListItemText>
           </MenuItem>
           <MenuItem
             onClick={() => void handleExportPdf()}
@@ -429,7 +429,7 @@ export const AnalysisPanelView = ({
             <ListItemIcon>
               <PictureAsPdfIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Analysis PDF（print layout）</ListItemText>
+            <ListItemText>分析レポートをPDFで保存</ListItemText>
           </MenuItem>
         </Menu>
       </Box>
