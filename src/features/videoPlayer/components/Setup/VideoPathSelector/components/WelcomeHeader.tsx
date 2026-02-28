@@ -19,6 +19,7 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({ show }) => {
           fontWeight="bold"
           gutterBottom
           sx={{
+            color: 'text.primary',
             background: (theme) =>
               theme.palette.mode === 'dark'
                 ? 'linear-gradient(45deg, #1E90FF 30%, #00FF85 90%)'
@@ -30,7 +31,18 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({ show }) => {
         >
           SporTagLytics
         </Typography>
-        <Typography variant="h6" color="text.secondary" gutterBottom>
+        <Typography
+          variant="h6"
+          gutterBottom
+          sx={{
+            color: (theme) =>
+              theme.palette.mode === 'dark'
+                ? theme.palette.text.primary
+                : theme.palette.text.secondary,
+            fontWeight: (theme) => (theme.palette.mode === 'dark' ? 600 : 500),
+            letterSpacing: 0.2,
+          }}
+        >
           映像分析を効率化する、プロフェッショナルなタグ付けツール
         </Typography>
 
@@ -96,7 +108,16 @@ const QuickStartCard: React.FC<QuickStartCardProps> = ({
       <Typography variant="subtitle2" fontWeight="bold">
         {title}
       </Typography>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: (theme) =>
+            theme.palette.mode === 'dark'
+              ? theme.palette.text.primary
+              : theme.palette.text.secondary,
+          fontWeight: (theme) => (theme.palette.mode === 'dark' ? 500 : 400),
+        }}
+      >
         {description}
       </Typography>
     </Box>

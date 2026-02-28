@@ -1,6 +1,7 @@
 export type MomentumOutcome = 'Try' | 'Positive' | 'Negative' | 'Neutral';
 
 export interface MomentumSegment {
+  entryId?: string;
   teamName: string;
   value: number;
   absoluteValue: number;

@@ -1,23 +1,39 @@
 import type { TimelineData } from '../types/TimelineData';
 import type { SCLabel } from '../types/SCTimeline';
 
+const normalizeActionName = (value: string): string => {
+  if (!value) return '';
+  return value.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
 /**
  * TimelineDataからlabels配列を取得し、group別に分類
  * labels配列が存在しない場合は、actionType/actionResultから生成
  */
 export const getLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
-  if (item.labels && item.labels.length > 0) {
-    return item.labels;
-  }
+  const labels: SCLabel[] = item.labels ? [...item.labels] : [];
 
   // 後方互換性: labels配列が存在しない場合はactionType/actionResultから生成
-  const labels: SCLabel[] = [];
-  if (item.actionType) {
+  if (labels.length === 0) {
+    if (item.actionType) {
+      labels.push({ name: item.actionType, group: 'actionType' });
+    }
+    if (item.actionResult) {
+      labels.push({ name: item.actionResult, group: 'actionResult' });
+    }
+    return labels;
+  }
+
+  // labels配列がある場合でも、actionType/actionResultが欠けていれば補完する
+  const hasActionType = labels.some((label) => label.group === 'actionType');
+  if (!hasActionType && item.actionType) {
     labels.push({ name: item.actionType, group: 'actionType' });
   }
-  if (item.actionResult) {
+  const hasActionResult = labels.some((label) => label.group === 'actionResult');
+  if (!hasActionResult && item.actionResult) {
     labels.push({ name: item.actionResult, group: 'actionResult' });
   }
+
   return labels;
 };
 
@@ -89,7 +105,9 @@ export const extractUniqueGroups = (timeline: TimelineData[]): string[] => {
  * TimelineData配列から team (actionNameの最初の単語) を抽出
  */
 export const extractTeamFromActionName = (actionName: string): string => {
-  const parts = actionName.split(' ');
+  const normalized = normalizeActionName(actionName);
+  if (!normalized) return '未設定';
+  const parts = normalized.split(' ');
   return parts[0] || '未設定';
 };
 
@@ -97,7 +115,9 @@ export const extractTeamFromActionName = (actionName: string): string => {
  * TimelineData配列から action (actionNameのteam部分を除いた残り) を抽出
  */
 export const extractActionFromActionName = (actionName: string): string => {
-  const parts = actionName.split(' ');
+  const normalized = normalizeActionName(actionName);
+  if (!normalized) return '未設定';
+  const parts = normalized.split(' ');
   return parts.slice(1).join(' ') || parts[0] || '未設定';
 };
 

@@ -22,6 +22,9 @@ import type {
 interface MomentumChartProps {
   createMomentumData: CreateMomentumDataFn;
   teamNames: string[];
+  onPointSelect?: (payload: { title: string; entryIds: string[] }) => void;
+  disableAnimation?: boolean;
+  renderMode?: 'screen' | 'print';
 }
 
 interface MomentumChartDatum extends MomentumSegment {
@@ -70,7 +73,11 @@ const LegendComponent = ({ theme }: { theme: Theme }) => {
 export const MomentumChart: React.FC<MomentumChartProps> = ({
   createMomentumData,
   teamNames,
+  onPointSelect,
+  disableAnimation = false,
+  renderMode = 'screen',
 }: MomentumChartProps) => {
+  const isPrint = renderMode === 'print';
   const theme = useTheme();
   const [teamA, teamB] = teamNames;
 
@@ -98,6 +105,13 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
     // ラベルのために余白を持たせる
     return Math.ceil((peak + 5) / 10) * 10;
   }, [chartData]);
+  const yAxisWidth = isPrint ? 124 : 160;
+  const chartMarginLeft = isPrint ? 12 : 24;
+  const chartMarginRight = chartMarginLeft + yAxisWidth;
+  const xAxisTicks = useMemo(() => {
+    if (isPrint) return undefined;
+    return [-maxAbsValue, 0, maxAbsValue];
+  }, [isPrint, maxAbsValue]);
 
   const getBarColor = (entry: MomentumSegment) => {
     // テーマ色を使用
@@ -163,11 +177,8 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
   }
 
   return (
-    <Stack spacing={2}>
-      <Box display="flex" alignItems="center" justifyContent="space-between">
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          モメンタムチャート
-        </Typography>
+    <Stack spacing={isPrint ? 1 : 2}>
+      <Box display="flex" alignItems="center" justifyContent="flex-end">
         <LegendComponent theme={theme} />
       </Box>
 
@@ -176,32 +187,50 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
         のポゼッションを表します。
       </Typography>
 
-      <ResponsiveContainer height={420} width="100%">
+      <ResponsiveContainer height={isPrint ? 340 : 420} width="100%">
         <BarChart
           data={chartData}
           layout="vertical"
-          barSize={18}
-          margin={{ top: 10, right: 24, bottom: 10, left: 24 }}
+          barSize={isPrint ? 14 : 18}
+          margin={{
+            top: isPrint ? 8 : 10,
+            right: chartMarginRight,
+            bottom: isPrint ? 8 : 10,
+            left: chartMarginLeft,
+          }}
         >
           <CartesianGrid horizontal={false} strokeDasharray="3 3" />
           <XAxis
             type="number"
             domain={[-maxAbsValue, maxAbsValue]}
+            ticks={xAxisTicks}
             tickFormatter={(val) => `${Math.abs(val)}`}
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: isPrint ? 10 : 12 }}
           />
           <YAxis
             dataKey="displayLabel"
             type="category"
-            width={160}
-            tick={{ fontSize: 12 }}
+            width={yAxisWidth}
+            tick={{ fontSize: isPrint ? 10 : 12 }}
           />
           <ReferenceLine x={0} stroke={theme.palette.divider} strokeWidth={2} />
           <Tooltip
             content={<CustomTooltip />}
             cursor={{ fill: theme.palette.action.hover }}
           />
-          <Bar dataKey="value" radius={[4, 4, 4, 4]}>
+          <Bar
+            dataKey="value"
+            radius={[4, 4, 4, 4]}
+            isAnimationActive={!disableAnimation}
+            onClick={(event: { payload?: MomentumChartDatum }) => {
+              const datum = event?.payload;
+              if (!datum?.entryId) return;
+              onPointSelect?.({
+                title: `${datum.teamName} ${datum.possessionStart} (${datum.possessionResult})`,
+                entryIds: [datum.entryId],
+              });
+            }}
+          >
             {chartData.map((entry, index) => (
               <Cell key={index} fill={getBarColor(entry)} />
             ))}

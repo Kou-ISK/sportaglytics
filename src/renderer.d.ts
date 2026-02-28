@@ -1,4 +1,20 @@
-import type { IPlaylistAPI } from './types/Playlist';
+import type { IPlaylistAPI, PlaylistItem } from './types/Playlist';
+import type { TimelineData } from './types/TimelineData';
+import type { AnalysisView } from './features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
+import type { AnalysisReportPayload } from './report/types';
+
+export interface AnalysisWindowSyncPayload {
+  timeline: TimelineData[];
+  teamNames: string[];
+  view?: AnalysisView;
+}
+
+export interface LlamaModelInfo {
+  name: string;
+  path: string;
+  sizeBytes: number;
+  modifiedAt?: number;
+}
 
 export interface IElectronAPI {
   openFile: () => Promise<string>;
@@ -15,11 +31,16 @@ export interface IElectronAPI {
     }>,
     metaDataConfig: unknown,
   ) => Promise<PackageDatas>;
-  on: (
-    channel: string,
-    listener: (event: unknown, args: unknown) => void,
-  ) => void;
-  off: (channel: string, listener: (...args: unknown[]) => void) => void; // 追加
+  on(
+    channel: 'analysis:jump-to-segment',
+    listener: (event: unknown, segment: TimelineData) => void,
+  ): void;
+  on(channel: string, listener: (event: unknown, args: unknown) => void): void;
+  off(
+    channel: 'analysis:jump-to-segment',
+    listener: (event: unknown, segment: TimelineData) => void,
+  ): void;
+  off(channel: string, listener: (...args: unknown[]) => void): void;
   // メニューからの音声同期イベント
   onResyncAudio: (callback: () => void) => void;
   onResetSync: (callback: () => void) => void;
@@ -52,7 +73,7 @@ export interface IElectronAPI {
   // 設定管理API
   loadSettings: () => Promise<unknown>;
   saveSettings: (settings: unknown) => Promise<boolean>;
-  send: (channel: string) => void;
+  send: (channel: string, ...args: unknown[]) => void;
   resetSettings: () => Promise<unknown>;
   onOpenSettings: (callback: () => void) => void;
   offOpenSettings: (callback: () => void) => void;
@@ -62,6 +83,42 @@ export interface IElectronAPI {
   openSettingsWindow: () => Promise<void>;
   closeSettingsWindow: () => Promise<void>;
   isSettingsWindowOpen: () => Promise<boolean>;
+  analysis: {
+    openWindow: () => Promise<void>;
+    closeWindow: () => Promise<void>;
+    isWindowOpen: () => Promise<boolean>;
+    syncToWindow: (payload: AnalysisWindowSyncPayload) => void;
+    onSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
+    offSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
+    sendJumpToSegment: (segment: TimelineData) => void;
+    sendCreateAiPlaylist: (payload: {
+      name: string;
+      items: PlaylistItem[];
+    }) => void;
+  };
+  llama: {
+    generate: (payload: {
+      prompt: string;
+      model: string;
+      temperature?: number;
+      topP?: number;
+      topK?: number;
+      repeatPenalty?: number;
+      maxTokens?: number;
+      timeoutMs?: number;
+      requestId?: string;
+    }) => Promise<{
+      text: string;
+      stderr?: string;
+      binaryPath?: string;
+      modelPath?: string;
+      durationMs?: number;
+    }>;
+    cancel: (requestId: string) => Promise<boolean>;
+    listModels: () => Promise<LlamaModelInfo[]>;
+    onProgress: (callback: (payload: unknown) => void) => void;
+    offProgress: (callback: (payload: unknown) => void) => void;
+  };
   setWindowTitle: (title: string) => void;
   exportClipsWithOverlay?: (payload: {
     sourcePath: string;
@@ -99,8 +156,31 @@ export interface IElectronAPI {
   openFileDialog: (
     filters: { name: string; extensions: string[] }[],
   ) => Promise<string | null>;
+  openDashboardPackageDialog: (
+    filters: { name: string; extensions: string[] }[],
+  ) => Promise<string | null>;
   writeTextFile: (filePath: string, content: string) => Promise<boolean>;
+  writeBinaryFile: (
+    filePath: string,
+    base64Content: string,
+  ) => Promise<boolean>;
+  captureWindowRegionAsPng: (rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => Promise<string | null>;
+  writePdfFileFromHtml: (filePath: string, html: string) => Promise<boolean>;
+  printAnalysisReportPdf: (
+    filePath: string,
+    payload: AnalysisReportPayload,
+  ) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<string | null>;
+  saveDashboardPackage: (
+    packagePath: string,
+    content: string,
+  ) => Promise<boolean>;
+  readDashboardPackage: (packagePath: string) => Promise<string | null>;
   onExportTimeline: (callback: (format: string) => void) => void;
   onImportTimeline: (callback: () => void) => void;
   onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => void;

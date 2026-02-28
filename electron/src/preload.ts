@@ -108,6 +108,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       map = new Map();
       __listenerStore.set(channel, map);
     }
+    const existing = map.get(listener);
+    if (existing) {
+      ipcRenderer.removeListener(channel, existing);
+    }
     map.set(listener, wrapped);
     ipcRenderer.on(channel, wrapped);
   },
@@ -278,8 +282,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return false;
     }
   },
-  send: (channel: string) => {
-    ipcRenderer.send(channel);
+  send: (channel: string, ...args: unknown[]) => {
+    ipcRenderer.send(channel, ...args);
   },
   resetSettings: async () => {
     try {
@@ -340,6 +344,118 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return false;
     }
   },
+  // 分析ウィンドウAPI
+  analysis: {
+    openWindow: async () => {
+      try {
+        await ipcRenderer.invoke('analysis:open-window');
+      } catch (error) {
+        console.error('Error opening analysis window:', error);
+      }
+    },
+    closeWindow: async () => {
+      try {
+        await ipcRenderer.invoke('analysis:close-window');
+      } catch (error) {
+        console.error('Error closing analysis window:', error);
+      }
+    },
+    isWindowOpen: async () => {
+      try {
+        return await ipcRenderer.invoke('analysis:is-window-open');
+      } catch (error) {
+        console.error('Error checking analysis window state:', error);
+        return false;
+      }
+    },
+    syncToWindow: (data: unknown) => {
+      ipcRenderer.send('analysis:sync-to-window', data);
+    },
+    onSync: (callback: (data: unknown) => void) => {
+      const wrapped = (_event: IpcRendererEvent, data: unknown) => {
+        callback(data);
+      };
+      let map = __listenerStore.get('analysis:sync');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('analysis:sync', map);
+      }
+      map.set(
+        callback as unknown as Function,
+        wrapped as unknown as (...args: unknown[]) => void,
+      );
+      ipcRenderer.on('analysis:sync', wrapped);
+    },
+    offSync: (callback: (data: unknown) => void) => {
+      const map = __listenerStore.get('analysis:sync');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener(
+          'analysis:sync',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
+        map?.delete(callback as unknown as Function);
+      }
+    },
+    sendJumpToSegment: (segment: unknown) => {
+      ipcRenderer.send('analysis:jump-to-segment', segment);
+    },
+    sendCreateAiPlaylist: (payload: unknown) => {
+      ipcRenderer.send('analysis:create-ai-playlist', payload);
+    },
+  },
+  llama: {
+    generate: async (payload: unknown) => {
+      try {
+        return await ipcRenderer.invoke('llama:generate', payload);
+      } catch (error) {
+        console.error('Error generating with llama.cpp:', error);
+        throw error;
+      }
+    },
+    cancel: async (requestId: string) => {
+      try {
+        return await ipcRenderer.invoke('llama:cancel', requestId);
+      } catch (error) {
+        console.error('Error cancelling llama.cpp:', error);
+        return false;
+      }
+    },
+    listModels: async () => {
+      try {
+        return await ipcRenderer.invoke('llama:list-models');
+      } catch (error) {
+        console.error('Error listing llama.cpp models:', error);
+        return [];
+      }
+    },
+    onProgress: (callback: (payload: unknown) => void) => {
+      const wrapped = (_event: IpcRendererEvent, payload: unknown) => {
+        callback(payload);
+      };
+      let map = __listenerStore.get('llama:progress');
+      if (!map) {
+        map = new Map();
+        __listenerStore.set('llama:progress', map);
+      }
+      map.set(
+        callback as unknown as Function,
+        wrapped as unknown as (...args: unknown[]) => void,
+      );
+      ipcRenderer.on('llama:progress', wrapped);
+    },
+    offProgress: (callback: (payload: unknown) => void) => {
+      const map = __listenerStore.get('llama:progress');
+      const wrapped = map?.get(callback as unknown as Function);
+      if (wrapped) {
+        ipcRenderer.removeListener(
+          'llama:progress',
+          wrapped as unknown as (...args: unknown[]) => void,
+        );
+        map?.delete(callback as unknown as Function);
+      }
+    },
+  },
   // ウィンドウタイトル更新API
   setWindowTitle: (title: string) => {
     ipcRenderer.send('set-window-title', title);
@@ -372,11 +488,96 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return null;
     }
   },
+  openDashboardPackageDialog: async (
+    filters: { name: string; extensions: string[] }[],
+  ) => {
+    try {
+      return await ipcRenderer.invoke(
+        'analysis-dashboard:open-package-dialog',
+        filters,
+      );
+    } catch (error) {
+      console.error('Error in openDashboardPackageDialog:', error);
+      return null;
+    }
+  },
+  saveDashboardPackage: async (packagePath: string, content: string) => {
+    try {
+      return await ipcRenderer.invoke(
+        'analysis-dashboard:save-package',
+        packagePath,
+        content,
+      );
+    } catch (error) {
+      console.error('Error in saveDashboardPackage:', error);
+      return false;
+    }
+  },
+  readDashboardPackage: async (packagePath: string) => {
+    try {
+      return await ipcRenderer.invoke(
+        'analysis-dashboard:read-package',
+        packagePath,
+      );
+    } catch (error) {
+      console.error('Error in readDashboardPackage:', error);
+      return null;
+    }
+  },
   writeTextFile: async (filePath: string, content: string) => {
     try {
       return await ipcRenderer.invoke('write-text-file', filePath, content);
     } catch (error) {
       console.error('Error in writeTextFile:', error);
+      return false;
+    }
+  },
+  writeBinaryFile: async (filePath: string, base64Content: string) => {
+    try {
+      return await ipcRenderer.invoke(
+        'write-binary-file',
+        filePath,
+        base64Content,
+      );
+    } catch (error) {
+      console.error('Error in writeBinaryFile:', error);
+      return false;
+    }
+  },
+  captureWindowRegionAsPng: async (rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => {
+    try {
+      return await ipcRenderer.invoke('capture-window-region-png', rect);
+    } catch (error) {
+      console.error('Error in captureWindowRegionAsPng:', error);
+      return null;
+    }
+  },
+  writePdfFileFromHtml: async (filePath: string, html: string) => {
+    try {
+      return await ipcRenderer.invoke(
+        'write-pdf-file-from-html',
+        filePath,
+        html,
+      );
+    } catch (error) {
+      console.error('Error in writePdfFileFromHtml:', error);
+      return false;
+    }
+  },
+  printAnalysisReportPdf: async (filePath: string, payload: unknown) => {
+    try {
+      return await ipcRenderer.invoke(
+        'analysis-report:print-pdf',
+        filePath,
+        payload,
+      );
+    } catch (error) {
+      console.error('Error in printAnalysisReportPdf:', error);
       return false;
     }
   },

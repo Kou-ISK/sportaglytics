@@ -3,6 +3,7 @@ import type { AppSettings } from '../types/Settings';
 import {
   DEFAULT_SETTINGS,
   normalizeCodingPanelLayouts,
+  normalizeAnalysisDashboard,
 } from '../types/Settings';
 
 /**
@@ -52,6 +53,31 @@ export const useSettings = () => {
       activeCodeWindowId,
     });
   };
+  const defaultAiAnalysis: NonNullable<AppSettings['aiAnalysis']> =
+    DEFAULT_SETTINGS.aiAnalysis ?? {
+      provider: 'llama.cpp',
+      baseUrl: 'http://localhost:11434',
+      model: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+      temperature: 0.2,
+      topK: 40,
+      embeddingEnabled: false,
+      teamLabelGroup: '',
+      retrieverPreset: 'balanced',
+    };
+
+  const normalizeAiAnalysis = (
+    input?: AppSettings['aiAnalysis'] | null,
+  ): NonNullable<AppSettings['aiAnalysis']> => {
+    const merged = { ...defaultAiAnalysis, ...(input ?? {}) };
+    const preset =
+      merged.retrieverPreset === 'labels' ||
+      merged.retrieverPreset === 'memo' ||
+      merged.retrieverPreset === 'time' ||
+      merged.retrieverPreset === 'balanced'
+        ? merged.retrieverPreset
+        : 'balanced';
+    return { ...merged, provider: 'llama.cpp', retrieverPreset: preset };
+  };
 
   // 設定を読み込む
   const loadSettings = useCallback(async () => {
@@ -80,8 +106,14 @@ export const useSettings = () => {
           ...DEFAULT_SETTINGS.overlayClip,
           ...(loaded as Partial<AppSettings>).overlayClip,
         },
+        aiAnalysis: {
+          ...normalizeAiAnalysis((loaded as Partial<AppSettings>).aiAnalysis),
+        },
         codingPanel: buildCodingPanel(
           (loaded as Partial<AppSettings>).codingPanel,
+        ),
+        analysisDashboard: normalizeAnalysisDashboard(
+          (loaded as Partial<AppSettings>).analysisDashboard,
         ),
       };
       setSettings(merged);
@@ -143,8 +175,16 @@ export const useSettings = () => {
           ...DEFAULT_SETTINGS.overlayClip,
           ...(defaultSettings as Partial<AppSettings>).overlayClip,
         },
+        aiAnalysis: {
+          ...normalizeAiAnalysis(
+            (defaultSettings as Partial<AppSettings>).aiAnalysis,
+          ),
+        },
         codingPanel: buildCodingPanel(
           (defaultSettings as Partial<AppSettings>).codingPanel,
+        ),
+        analysisDashboard: normalizeAnalysisDashboard(
+          (defaultSettings as Partial<AppSettings>).analysisDashboard,
         ),
       };
       setSettings(merged);

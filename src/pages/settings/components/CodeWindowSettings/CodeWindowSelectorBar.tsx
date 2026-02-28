@@ -13,8 +13,8 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
+import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
+import OutboxIcon from '@mui/icons-material/Outbox';
 import type { CodeWindowLayout } from '../../../../types/Settings';
 
 type CodeWindowSelectorBarProps = {
@@ -85,7 +85,7 @@ export const CodeWindowSelectorBar = ({
             </Tooltip>
             <Tooltip title="エクスポート">
               <IconButton onClick={onExport}>
-                <FileDownloadIcon />
+                <OutboxIcon />
               </IconButton>
             </Tooltip>
             <Tooltip title="削除">
@@ -97,7 +97,7 @@ export const CodeWindowSelectorBar = ({
         )}
         <Tooltip title="コードウィンドウをインポート">
           <IconButton onClick={onImport}>
-            <FileUploadIcon />
+            <MoveToInboxIcon />
           </IconButton>
         </Tooltip>
       </Box>

@@ -6,7 +6,10 @@ import {
   type AppSettings,
   // normalizeはデフォルトレイアウトを最新にするために利用
 } from '../../src/types/Settings';
-import { normalizeCodingPanelLayouts } from '../../src/types/Settings';
+import {
+  normalizeCodingPanelLayouts,
+  normalizeAnalysisDashboard,
+} from '../../src/types/Settings';
 
 const buildCodingPanel = (
   loadedPanel?: AppSettings['codingPanel'] | null,
@@ -47,6 +50,36 @@ const buildCodingPanel = (
     codeWindows,
     activeCodeWindowId,
   };
+};
+
+const normalizeAiAnalysis = (
+  input?: AppSettings['aiAnalysis'] | null,
+): NonNullable<AppSettings['aiAnalysis']> => {
+  const defaultAiAnalysis =
+    DEFAULT_SETTINGS.aiAnalysis ?? ({
+      provider: 'llama.cpp',
+      baseUrl: 'http://localhost:11434',
+      model: 'auto',
+      temperature: 0.2,
+      topK: 40,
+      embeddingEnabled: false,
+      teamLabelGroup: '',
+      retrieverPreset: 'balanced',
+    } as NonNullable<AppSettings['aiAnalysis']>);
+
+  const merged = { ...defaultAiAnalysis, ...(input ?? {}) };
+  const model =
+    typeof merged.model === 'string' && merged.model.trim()
+      ? merged.model
+      : 'auto';
+  const preset =
+    merged.retrieverPreset === 'labels' ||
+    merged.retrieverPreset === 'memo' ||
+    merged.retrieverPreset === 'time' ||
+    merged.retrieverPreset === 'balanced'
+      ? merged.retrieverPreset
+      : 'balanced';
+  return { ...merged, model, provider: 'llama.cpp', retrieverPreset: preset };
 };
 
 /**
@@ -94,9 +127,11 @@ export const loadSettings = async (): Promise<AppSettings> => {
         ...DEFAULT_SETTINGS.overlayClip,
         ...(parsed.overlayClip ?? {}),
       },
+      aiAnalysis: normalizeAiAnalysis(parsed.aiAnalysis),
       codingPanel: normalizeCodingPanelLayouts(
         buildCodingPanel(parsed.codingPanel),
       ),
+      analysisDashboard: normalizeAnalysisDashboard(parsed.analysisDashboard),
     };
 
     // 古い/無効なホットキーをフィルタリング

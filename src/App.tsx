@@ -3,8 +3,15 @@ import './App.css';
 import { VideoPlayerApp } from './pages/VideoPlayerApp';
 import { SettingsPage } from './pages/SettingsPage';
 import PlaylistWindowApp from './features/playlist/PlaylistWindowApp';
+import { AnalysisWindowApp } from './pages/AnalysisWindowApp';
+import { AnalysisReportPage } from './pages/AnalysisReportPage';
 
-type AppView = 'main' | 'settings' | 'playlist';
+type AppView =
+  | 'main'
+  | 'settings'
+  | 'playlist'
+  | 'analysis'
+  | 'analysis-report';
 
 /**
  * URLハッシュからビューを取得
@@ -13,6 +20,8 @@ const getViewFromHash = (): AppView => {
   const hash = window.location.hash;
   if (hash === '#/playlist') return 'playlist';
   if (hash === '#/settings') return 'settings';
+  if (hash === '#/analysis') return 'analysis';
+  if (hash.startsWith('#/analysis-report')) return 'analysis-report';
   return 'main';
 };
 
@@ -83,6 +92,14 @@ function App() {
 
   if (currentView === 'settings') {
     return <SettingsPage />;
+  }
+
+  if (currentView === 'analysis') {
+    return <AnalysisWindowApp />;
+  }
+
+  if (currentView === 'analysis-report') {
+    return <AnalysisReportPage />;
   }
 
   return <VideoPlayerApp />;

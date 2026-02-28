@@ -1,68 +1,63 @@
-# Copilot への基本指示（SporTagLytics）
+# Copilot Instructions（SporTagLytics）
 
-このリポジトリでコード提案を行う際は、以下の方針を常に優先してください。
+このリポジトリで提案するコードは、保守性・可読性・責務分離を最優先にしてください。
 
-## 技術スタック
+## 規約の優先順位
+規約が競合する場合は次の順で解釈します。
 
-- **React**: 18.3.1（関数コンポーネントのみ）
-- **TypeScript**: 5.9.3（strict mode有効）
-- **Electron**: 31.7.7
-- **Material-UI**: 5.18.0
-- **Video.js**: 8.23.4
-- **パッケージマネージャー**: pnpm 9.1.0+
+1. `AGENTS.md`
+2. `.github/copilot-instructions.md`
+3. `.github/instructions/*.instructions.md`
+4. `.github/technical-instructions.md`
 
-## 全体方針
+## 技術スタック（現行）
+- React 19 系（関数コンポーネントのみ）
+- TypeScript 5.4 系（strict mode）
+- Electron 40 系
+- Material UI 7 系
+- Video.js 8 系
+- pnpm 9 系
 
-- すべて TypeScript で実装し、`any` の使用は Avoid します（やむを得ない場合は TODO を添える）。
-- React 18 の関数コンポーネントのみ使用し、責務は小さく保ちます。
-- UI は Material UI を標準とし、`sx` プロパティでスタイルを調整します。
-- `useEffect` には完全な依存配列とクリーンアップを必ず定義します。
+## ディレクトリ責務と依存方向
+- `src/pages`: ページコンテナ
+- `src/features`: 機能モジュール
+- `src/components`, `src/hooks`, `src/utils`, `src/types`, `src/contexts`: 共通層（shared）
+- `electron/src`: Electron Main process
 
-## 構造と命名
+依存は `pages -> features -> shared` を原則とし、`features -> pages` を禁止します。
 
-- React コンポーネントとそれを格納するディレクトリ／ファイルは **PascalCase** で命名します。
-- ロジック専用モジュール（ユーティリティ、サービス、hook本体など）のファイル名は **camelCase** を用います。
-- カスタム Hook は `useXxx.ts` 形式で、`src/hooks` または `src/features/videoPlayer/**/hooks` に配置します。
-- 共有型は `src/types` にまとめ、既存の `TimelineData` などを再利用します。
-- Barrels（再エクスポート用 index）は循環参照を作らない範囲でシンプルに保ちます。
+feature 間ルール:
+- 他 feature の内部実装へ直接 import しない。
+- 再利用が必要なら共通層へ抽出してから参照する。
+- 共通コンポーネント・共通型の横断利用は許可する。
 
-## ディレクトリ構成と責務分離
+## 実装方針
+### TypeScript
+- `any` は原則禁止。
+- `unknown` + 型ガードで安全に扱う。
+- exported 関数は戻り値型を明示。
+- 無根拠な `as` 断定キャストは禁止。
+- `import type` を優先。
 
-- 機能単位で `src/features/<FeatureName>/` を作り、その配下に `components/`, `hooks/`, `utils/` などの責務別ディレクトリを設けます。
-- 各コンポーネント配下では `view/`（純粋な JSX・スタイル）と `hooks/`（状態・副作用）、`types/`（型）を分け、ビューはロジックを直接持たない構成にします。
-- ページ固有のレイアウトは `src/pages/<PageName>/components` / `hooks` へ配置し、feature への依存方向が一方向になるよう保ちます。
-- Electron 依存処理は `src/services/electron/` にまとめ、React 側はそのサービス層を介して IPC を呼び出します。
-- 共通 UI（ボタン、モーダル等）は `src/components/common/` へ集約し、重複実装を防ぎます。
+### React / TSX
+- Container（状態とI/O）/ Hook（ロジック）/ View（表示）を分離。
+- `useEffect` は依存配列と cleanup を必ず定義。
+- 空状態・エラー状態を明示する。
 
-## 実装時の留意点
+### UI
+- MUI の `sx` とテーマを使用し、色や余白のハードコードを避ける。
 
-- 使い回す計算結果は `useMemo` / `useCallback` でメモ化します。
-- 動画プレイヤー制御や同期ロジックは専用 Hook に切り出し、副作用を閉じ込めます。
-- Electron 依存処理は必ず `window.electronAPI` 経由で呼び出します。
-- 新しいチャートやタイムライン表示でも、既存のプレースホルダーや UI パターンを踏襲します。
-- 既存の共通フック/コンポーネントを優先して再利用します（例: `useTimelineViewport`/`useTimelineInteractions`/`useTimelineEditDraft`/`useTimelineValidation`, `useMatrixAxes`/`useMatrixFilters`/`useActionBreakdown`, `StatsCard`/`StatsModalHeader`, `useUnsavedTabSwitch`, `useHotkeyBindings`, `useSyncActions` の `onSync*` コールバックなど）。
+### Electron
+- Renderer 側は `window.electronAPI` 経由でのみ IPC を呼ぶ。
+- `src/renderer.d.ts` の型定義を更新して整合を保つ。
 
-## Electron 31 対応
+## 品質チェック（最低限）
+変更提案前に、最低限次を実行してください。
 
-- `electron-localshortcut` は使用不可（削除済み）。代わりに `globalShortcut` を使用します。
-- `BrowserWindow` の型アサーションが必要な場合があります（`webContents` アクセス時）。
-- メインプロセスでは `contextIsolation: true` を維持します。
+```bash
+pnpm exec tsc --noEmit
+pnpm exec tsc -p electron/tsconfig.json
+```
 
-## 品質保証
-
-- 変更後は `pnpm exec tsc --noEmit` を実行し、型エラーがない状態で提案します。
-- 重要なユーティリティを変更する場合はテスト（ユニット or 実機確認）を追加／実行します。
-- タイムライン永続化や同期機能に触れる修正では回帰が起きないよう手動検証します。
-- ESLintの未使用変数エラーは必ず解消します（ビルドエラーの原因となります）。
-
-## ドキュメント
-
-- **コードとドキュメントは常にセットで更新**します。機能追加・変更・削除を行う際は、関連するドキュメントファイルも同時に更新します。
-- 影響範囲の目安：
-  - 新機能追加 → `docs/user-guide.md`、`docs/requirement.md`、該当する実装ドキュメント
-  - UI/UX変更 → `docs/user-guide.md`、スクリーンショット（該当する場合）
-  - API/型定義変更 → `docs/development.md`、`docs/system-overview.md`
-  - ビルド/環境変更 → `docs/development.md`、`README.md`
-  - 設定項目追加 → `docs/user-guide.md`（設定セクション）
-- ユーザー体験に影響する変更を加えた場合は、関連ドキュメント（`docs/` 等）を更新します。
-- 複雑なビジネスルールがある箇所には短く意図を説明するコメントを付与します。
+## ドキュメント更新
+ユーザー影響や仕様変更がある場合は、関連する `docs/` を同時に更新してください。

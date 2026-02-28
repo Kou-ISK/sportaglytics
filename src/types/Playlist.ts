@@ -101,6 +101,14 @@ export interface PlaylistItem {
   videoSource2?: string;
   /** 描画アノテーション（図形、テキスト、フリーズ設定） */
   annotation?: ItemAnnotation;
+  /** AI分析メタデータ */
+  aiMeta?: {
+    reason?: string;
+    centerId?: string;
+    centerIds?: string[];
+    evidenceIds?: string[];
+    source?: 'ai-review';
+  };
 }
 
 /**

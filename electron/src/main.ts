@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, IpcMainEvent } from 'electron';
 import * as path from 'path';
 import * as fs from 'node:fs/promises';
 import { spawn } from 'child_process';
@@ -8,6 +8,16 @@ import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
+import {
+  cancelLlamaRequest,
+  generateWithLlama,
+  listLlamaModels,
+} from './llamaManager';
+import {
+  registerAnalysisWindowHandlers,
+  setAnalysisMainWindowRef,
+  sendAnalysisDashboardFileToWindow,
+} from './analysisWindow';
 import {
   registerPlaylistHandlers,
   setMainWindowRef,
@@ -46,7 +56,7 @@ const mainURL = `file:${__dirname}/../../index.html`;
 
 /**
  * コマンドライン引数からファイルパスを検出
- * .stpl, .stcw, .stpkg, .json を認識
+ * .stpl, .stcw, .stpkg, .stad, .json を認識
  */
 const pickFileArg = (argv: string[]): string | null => {
   return (
@@ -86,6 +96,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
   mainWindow = window; // グローバル変数に保存
   setMainWindow(window);
   setMainWindowRef(window);
+  setAnalysisMainWindowRef(window);
   window.loadURL(mainURL);
 
   // ウィンドウの読み込み完了を待つ
@@ -98,7 +109,6 @@ const createWindow = async (): Promise<BrowserWindow> => {
   // 設定を読み込んでホットキーを登録
   const settings = await loadSettings();
   registerShortcuts(window, settings.hotkeys);
-
   refreshAppMenu();
 
   // ホットキー設定が更新されたら再登録
@@ -164,6 +174,205 @@ const createWindow = async (): Promise<BrowserWindow> => {
     },
   );
 
+  // バイナリファイル書き込み（base64）
+  ipcMain.handle(
+    'write-binary-file',
+    async (_event, filePath: string, base64Content: string) => {
+      try {
+        const buffer = Buffer.from(base64Content, 'base64');
+        await fs.writeFile(filePath, buffer);
+        return true;
+      } catch (error) {
+        console.error('Failed to write binary file:', error);
+        return false;
+      }
+    },
+  );
+
+  // 現在ウィンドウの指定領域をPNG(base64)で取得
+  ipcMain.handle(
+    'capture-window-region-png',
+    async (
+      event,
+      rect: { x: number; y: number; width: number; height: number },
+    ) => {
+      try {
+        if (!rect) return null;
+        const x = Math.max(0, Math.round(rect.x));
+        const y = Math.max(0, Math.round(rect.y));
+        const width = Math.max(1, Math.round(rect.width));
+        const height = Math.max(1, Math.round(rect.height));
+        const image = await event.sender.capturePage({ x, y, width, height });
+        if (!image || image.isEmpty()) return null;
+        return image.toPNG().toString('base64');
+      } catch (error) {
+        console.error('Failed to capture window region as PNG:', error);
+        return null;
+      }
+    },
+  );
+
+  // HTMLをPDF化して保存
+  ipcMain.handle(
+    'write-pdf-file-from-html',
+    async (_event, filePath: string, html: string) => {
+      let printWindow: BrowserWindow | null = null;
+      try {
+        printWindow = new BrowserWindow({
+          show: false,
+          width: 1200,
+          height: 1600,
+          webPreferences: {
+            sandbox: false,
+            contextIsolation: true,
+          },
+        });
+
+        const htmlDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(
+          html,
+        )}`;
+        await printWindow.loadURL(htmlDataUrl);
+
+        await printWindow.webContents.executeJavaScript(
+          `new Promise((resolve) => {
+            const done = () => setTimeout(resolve, 120);
+            const images = Array.from(document.images || []);
+            if (images.length === 0) {
+              done();
+              return;
+            }
+            let remaining = images.length;
+            const onFinish = () => {
+              remaining -= 1;
+              if (remaining <= 0) done();
+            };
+            images.forEach((img) => {
+              if (img.complete) {
+                onFinish();
+              } else {
+                img.addEventListener('load', onFinish, { once: true });
+                img.addEventListener('error', onFinish, { once: true });
+              }
+            });
+          })`,
+          true,
+        );
+
+        const pdfBuffer = await printWindow.webContents.printToPDF({
+          printBackground: true,
+          preferCSSPageSize: true,
+        });
+        await fs.writeFile(filePath, pdfBuffer);
+        return true;
+      } catch (error) {
+        console.error('Failed to write PDF from HTML:', error);
+        return false;
+      } finally {
+        if (printWindow && !printWindow.isDestroyed()) {
+          printWindow.destroy();
+        }
+      }
+    },
+  );
+
+  // 分析レポートページを印刷してPDF保存
+  ipcMain.handle(
+    'analysis-report:print-pdf',
+    async (_event, filePath: string, payload: unknown) => {
+      let printWindow: BrowserWindow | null = null;
+      const requestId = `analysis-report-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 10)}`;
+      let cleanupRenderReadyListener: (() => void) | undefined;
+
+      try {
+        printWindow = new BrowserWindow({
+          show: false,
+          width: 1400,
+          height: 1800,
+          webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            sandbox: false,
+            backgroundThrottling: false,
+          },
+        });
+
+        const waitForRenderReady = () =>
+          new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              if (cleanupRenderReadyListener) {
+                cleanupRenderReadyListener();
+              }
+              reject(
+                new Error('Timed out waiting for analysis report render-ready'),
+              );
+            }, 20_000);
+
+            const listener = (
+              event: IpcMainEvent,
+              receivedRequestId?: string,
+            ) => {
+              if (!printWindow || printWindow.isDestroyed()) return;
+              if (event.sender !== printWindow.webContents) return;
+              if (receivedRequestId !== requestId) return;
+              if (cleanupRenderReadyListener) {
+                cleanupRenderReadyListener();
+              }
+              resolve();
+            };
+
+            cleanupRenderReadyListener = () => {
+              clearTimeout(timeout);
+              ipcMain.removeListener('analysis-report:render-ready', listener);
+              cleanupRenderReadyListener = undefined;
+            };
+
+            ipcMain.on('analysis-report:render-ready', listener);
+          });
+
+        const readyPromise = waitForRenderReady();
+        const reportUrl = `${mainURL}#/analysis-report?requestId=${encodeURIComponent(
+          requestId,
+        )}`;
+        await printWindow.loadURL(reportUrl);
+
+        printWindow.webContents.send('analysis-report:payload', {
+          requestId,
+          payload,
+        });
+        const payloadRetryTimer = setTimeout(() => {
+          if (printWindow && !printWindow.isDestroyed()) {
+            printWindow.webContents.send('analysis-report:payload', {
+              requestId,
+              payload,
+            });
+          }
+        }, 350);
+
+        await readyPromise;
+        clearTimeout(payloadRetryTimer);
+
+        const pdfBuffer = await printWindow.webContents.printToPDF({
+          printBackground: true,
+          preferCSSPageSize: true,
+        });
+        await fs.writeFile(filePath, pdfBuffer);
+        return true;
+      } catch (error) {
+        console.error('Failed to print analysis report PDF:', error);
+        return false;
+      } finally {
+        if (cleanupRenderReadyListener) {
+          cleanupRenderReadyListener();
+        }
+        if (printWindow && !printWindow.isDestroyed()) {
+          printWindow.destroy();
+        }
+      }
+    },
+  );
+
   // テキストファイル読み込み
   ipcMain.handle('read-text-file', async (_event, filePath: string) => {
     try {
@@ -174,6 +383,46 @@ const createWindow = async (): Promise<BrowserWindow> => {
       return null;
     }
   });
+
+  ipcMain.handle(
+    'analysis-dashboard:save-package',
+    async (_event, packagePath: string, content: string) => {
+      try {
+        await fs.mkdir(packagePath, { recursive: true });
+        const dashboardPath = path.join(packagePath, 'dashboard.json');
+        await fs.writeFile(dashboardPath, content, 'utf-8');
+        return true;
+      } catch (error) {
+        console.error('Failed to save dashboard package:', error);
+        return false;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    'analysis-dashboard:read-package',
+    async (_event, packagePath: string) => {
+      try {
+        const dashboardPath = path.join(packagePath, 'dashboard.json');
+        const content = await fs.readFile(dashboardPath, 'utf-8');
+        return content;
+      } catch (error) {
+        console.error('Failed to read dashboard package:', error);
+        return null;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    'analysis-dashboard:open-package-dialog',
+    async (_event, filters: { name: string; extensions: string[] }[]) => {
+      const result = await dialog.showOpenDialog(window, {
+        properties: ['openFile', 'openDirectory'],
+        filters,
+      });
+      return result.canceled ? null : result.filePaths[0];
+    },
+  );
 
   // コードウィンドウファイル保存
   ipcMain.handle(
@@ -1058,6 +1307,20 @@ Utils();
 registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();
+registerAnalysisWindowHandlers();
+ipcMain.handle('llama:generate', async (event, payload) => {
+  return generateWithLlama(payload, {
+    onProgress: (update) => {
+      event.sender.send('llama:progress', update);
+    },
+  });
+});
+ipcMain.handle('llama:list-models', async () => {
+  return listLlamaModels();
+});
+ipcMain.handle('llama:cancel', async (_event, requestId: string) => {
+  return cancelLlamaRequest(requestId);
+});
 
 // FFmpegパスをプレイリストウィンドウに設定
 try {
@@ -1081,6 +1344,9 @@ const handleFileOpen = (filePath: string) => {
   if (ext === '.stpl' || ext === '.json') {
     // プレイリストファイル
     sendPlaylistFileToWindow(filePath);
+  } else if (ext === '.stad') {
+    // 分析ダッシュボードファイル
+    void sendAnalysisDashboardFileToWindow(filePath);
   } else if (ext === '.stcw') {
     // コードウィンドウファイル - 設定画面のコードウィンドウタブを開く
     pendingCodeWindowExternalOpen = filePath;

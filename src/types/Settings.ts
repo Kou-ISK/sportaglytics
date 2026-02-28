@@ -256,6 +256,251 @@ export interface TeamArea {
  */
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+export type DashboardMetric = 'count' | 'duration';
+export type DashboardChartType = 'bar' | 'stacked' | 'pie';
+export type DashboardCalcMode = 'raw' | 'percentTotal' | 'difference';
+export type DashboardAnalysisMode =
+  | 'standard'
+  | 'trend'
+  | 'histogram'
+  | 'rolling'
+  | 'outlier';
+
+export interface DashboardSeriesFilter {
+  team?: string;
+  teamRole?: 'team1' | 'team2';
+  action?: string;
+  labelGroup?: string;
+  labelValue?: string;
+}
+
+export interface DashboardSeriesDefinition {
+  id: string;
+  name: string;
+  filters: DashboardSeriesFilter;
+}
+
+export interface AnalysisDashboardWidget {
+  id: string;
+  title: string;
+  chartType: DashboardChartType;
+  metric: DashboardMetric;
+  analysisMode?: DashboardAnalysisMode;
+  primaryAxis: import('./MatrixConfig').MatrixAxisConfig;
+  seriesEnabled: boolean;
+  seriesAxis: import('./MatrixConfig').MatrixAxisConfig;
+  colSpan: 4 | 6 | 12;
+  limit?: number;
+  dataMode?: 'axis' | 'series';
+  series?: DashboardSeriesDefinition[];
+  calc?: DashboardCalcMode;
+  widgetFilters?: DashboardSeriesFilter;
+  timeBucketSec?: number;
+  histogramBinSec?: number;
+  rollingWindow?: number;
+  outlierIqrMultiplier?: number;
+}
+
+export interface AnalysisDashboard {
+  id: string;
+  name: string;
+  widgets: AnalysisDashboardWidget[];
+}
+
+export interface AnalysisDashboardConfig {
+  dashboards: AnalysisDashboard[];
+  activeDashboardId: string;
+}
+
+export interface AIAnalysisSettings {
+  provider: 'llama.cpp';
+  baseUrl: string;
+  model: string;
+  temperature: number;
+  topK: number;
+  embeddingEnabled: boolean;
+  teamLabelGroup?: string;
+  retrieverPreset?: 'balanced' | 'labels' | 'memo' | 'time';
+}
+
+const createTemplateDashboardWidgets = (): AnalysisDashboardWidget[] => {
+  const widgets: AnalysisDashboardWidget[] = [
+    {
+      id: 'template-possession',
+      title: 'ポゼッション割合',
+      chartType: 'pie',
+      metric: 'duration',
+      primaryAxis: { type: 'team' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionResult' },
+      colSpan: 12,
+      calc: 'percentTotal',
+      widgetFilters: { action: 'ポゼッション' },
+    },
+  ];
+
+  const actions = ['スクラム', 'ラインアウト', 'キック', 'FK', 'PK'];
+  actions.forEach((action) => {
+    widgets.push({
+      id: `template-${action}-result-team1`,
+      title: `${TEAM_PLACEHOLDERS.TEAM1} ${action} 結果内訳`,
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'actionResult' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionResult' },
+      colSpan: 6,
+      calc: 'percentTotal',
+      widgetFilters: { action, teamRole: 'team1' },
+    });
+    widgets.push({
+      id: `template-${action}-result-team2`,
+      title: `${TEAM_PLACEHOLDERS.TEAM2} ${action} 結果内訳`,
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'actionResult' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionResult' },
+      colSpan: 6,
+      calc: 'percentTotal',
+      widgetFilters: { action, teamRole: 'team2' },
+    });
+    widgets.push({
+      id: `template-${action}-type-team1`,
+      title: `${TEAM_PLACEHOLDERS.TEAM1} ${action} 種別内訳`,
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'actionType' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionType' },
+      colSpan: 6,
+      calc: 'percentTotal',
+      widgetFilters: { action, teamRole: 'team1' },
+    });
+    widgets.push({
+      id: `template-${action}-type-team2`,
+      title: `${TEAM_PLACEHOLDERS.TEAM2} ${action} 種別内訳`,
+      chartType: 'pie',
+      metric: 'count',
+      primaryAxis: { type: 'group', value: 'actionType' },
+      seriesEnabled: false,
+      seriesAxis: { type: 'group', value: 'actionType' },
+      colSpan: 6,
+      calc: 'percentTotal',
+      widgetFilters: { action, teamRole: 'team2' },
+    });
+  });
+
+  return widgets;
+};
+
+const stripTeamFilters = (
+  widget: AnalysisDashboardWidget,
+): AnalysisDashboardWidget => {
+  const { widgetFilters, series } = widget;
+  const nextWidgetFilters = widgetFilters
+    ? { ...widgetFilters, team: undefined }
+    : undefined;
+  const nextSeries = series
+    ? series.map((entry) => ({
+        ...entry,
+        filters: { ...entry.filters, team: undefined },
+      }))
+    : undefined;
+  return {
+    ...widget,
+    widgetFilters: nextWidgetFilters,
+    series: nextSeries,
+  };
+};
+
+const normalizeDashboards = (
+  dashboards: AnalysisDashboard[],
+): AnalysisDashboard[] => {
+  return dashboards
+    .filter((item) => item.id !== 'default')
+    .map((item, index) => {
+    const normalized = {
+      id: item.id || `dashboard-${index + 1}`,
+      name: item.name || `ダッシュボード${index + 1}`,
+      widgets: Array.isArray(item.widgets)
+        ? item.widgets.map(stripTeamFilters)
+        : [],
+    };
+    if (normalized.id === 'template-basic') {
+      return {
+        ...normalized,
+        widgets: createTemplateDashboardWidgets(),
+      };
+    }
+    return normalized;
+  });
+};
+
+const createDefaultAnalysisDashboard = (): AnalysisDashboardConfig => ({
+  dashboards: [
+    {
+      id: 'template-basic',
+      name: '基本分析テンプレート',
+      widgets: createTemplateDashboardWidgets(),
+    },
+  ],
+  activeDashboardId: 'template-basic',
+});
+
+export const normalizeAnalysisDashboard = (
+  dashboard?: AnalysisDashboardConfig | null,
+): AnalysisDashboardConfig => {
+  if (!dashboard) {
+    return createDefaultAnalysisDashboard();
+  }
+
+  const hasDashboards = (dashboard as AnalysisDashboardConfig).dashboards;
+  if (Array.isArray(hasDashboards)) {
+    const dashboards = hasDashboards
+      .filter((item) => item && Array.isArray(item.widgets))
+      .filter((item) => item.id !== 'default');
+    if (dashboards.length === 0) {
+      return createDefaultAnalysisDashboard();
+    }
+    const normalizedDashboards = normalizeDashboards(dashboards);
+    const hasTemplate = normalizedDashboards.some(
+      (item) => item.id === 'template-basic',
+    );
+    if (!hasTemplate) {
+      normalizedDashboards.push({
+        id: 'template-basic',
+        name: '基本分析テンプレート',
+        widgets: createTemplateDashboardWidgets(),
+      });
+    }
+    const activeId =
+      normalizedDashboards.find(
+        (item) => item.id === dashboard.activeDashboardId,
+      )?.id ?? normalizedDashboards[0].id;
+    return {
+      dashboards: normalizedDashboards,
+      activeDashboardId: activeId,
+    };
+  }
+
+  const legacyWidgets = (dashboard as { widgets?: AnalysisDashboardWidget[] })
+    .widgets;
+  if (!Array.isArray(legacyWidgets) || legacyWidgets.length === 0) {
+    return createDefaultAnalysisDashboard();
+  }
+  return {
+    dashboards: [
+      {
+        id: 'template-basic',
+        name: '基本分析テンプレート',
+        widgets: createTemplateDashboardWidgets(),
+      },
+    ],
+    activeDashboardId: 'template-basic',
+  };
+};
+
 /**
  * アプリケーション設定全体
  */
@@ -290,6 +535,10 @@ export interface AppSettings {
     /** アクティブなコードウィンドウID */
     activeCodeWindowId?: string;
   };
+  /** 分析ダッシュボード設定 */
+  analysisDashboard?: AnalysisDashboardConfig;
+  /** AI分析設定 */
+  aiAnalysis?: AIAnalysisSettings;
 }
 
 /**
@@ -355,5 +604,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
     actionLinks: [],
     codeWindows: [createDefaultCodeWindowLayout()],
     activeCodeWindowId: 'default',
+  },
+  analysisDashboard: createDefaultAnalysisDashboard(),
+  aiAnalysis: {
+    provider: 'llama.cpp',
+    baseUrl: 'http://localhost:11434',
+    model: 'auto',
+    temperature: 0.2,
+    topK: 40,
+    embeddingEnabled: false,
+    teamLabelGroup: '',
+    retrieverPreset: 'balanced',
   },
 };
