@@ -28,6 +28,8 @@ export const MatrixBodyRow = ({
   exportMode = 'screen',
 }: MatrixBodyRowProps) => {
   const isPrint = exportMode === 'print';
+  const rowHeaderFontSize = isPrint ? '0.66rem' : '0.64rem';
+  const cellValueFontSize = isPrint ? '0.66rem' : '0.62rem';
   const rowTotal = rowCells.reduce((sum, cell) => sum + cell.count, 0);
   const isFirstOfParent =
     rowIndex === 0 || rowHeaders[rowIndex - 1]?.parent !== rowHeader.parent;
@@ -50,7 +52,7 @@ export const MatrixBodyRow = ({
             borderRight: '1px solid',
             borderColor: 'divider',
             backgroundColor: 'action.hover',
-            fontSize: isPrint ? '0.66rem' : '0.7rem',
+            fontSize: rowHeaderFontSize,
             position: isPrint ? 'static' : 'sticky',
             left: isPrint ? 'auto' : 0,
             zIndex: isPrint ? 'auto' : 1,
@@ -67,7 +69,7 @@ export const MatrixBodyRow = ({
             fontWeight: 600,
             borderRight: '2px solid',
             borderColor: 'divider',
-            fontSize: isPrint ? '0.66rem' : '0.7rem',
+            fontSize: rowHeaderFontSize,
             position: isPrint ? 'static' : 'sticky',
             left: isPrint ? 'auto' : 0,
             zIndex: isPrint ? 'auto' : 1,
@@ -86,7 +88,7 @@ export const MatrixBodyRow = ({
             pl: 2,
             borderRight: '2px solid',
             borderColor: 'divider',
-            fontSize: isPrint ? '0.66rem' : '0.7rem',
+            fontSize: rowHeaderFontSize,
             position: isPrint ? 'static' : 'sticky',
             left: isPrint ? 'auto' : 0,
             zIndex: isPrint ? 'auto' : 1,
@@ -123,7 +125,7 @@ export const MatrixBodyRow = ({
               <Button
                 size="small"
                 onClick={() => onDrilldown(titleLabel, cell.entries)}
-                sx={{ fontSize: '0.7rem', minWidth: 32, p: 0.5 }}
+                sx={{ fontSize: cellValueFontSize, minWidth: 30, p: 0.5 }}
               >
                 {cell.count}
               </Button>
@@ -131,7 +133,7 @@ export const MatrixBodyRow = ({
               <Typography
                 variant="caption"
                 color={cell.count > 0 ? 'text.secondary' : 'text.disabled'}
-                sx={{ fontSize: isPrint ? '0.66rem' : '0.65rem' }}
+                sx={{ fontSize: cellValueFontSize }}
               >
                 {cell.count > 0 ? cell.count : '-'}
               </Typography>
@@ -159,7 +161,7 @@ export const MatrixBodyRow = ({
         <Typography
           variant="body2"
           color="text.secondary"
-          sx={{ fontSize: isPrint ? '0.66rem' : '0.7rem' }}
+          sx={{ fontSize: rowHeaderFontSize }}
         >
           {rowTotal}
         </Typography>

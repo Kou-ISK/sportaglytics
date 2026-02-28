@@ -105,6 +105,13 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
     // ラベルのために余白を持たせる
     return Math.ceil((peak + 5) / 10) * 10;
   }, [chartData]);
+  const yAxisWidth = isPrint ? 124 : 160;
+  const chartMarginLeft = isPrint ? 12 : 24;
+  const chartMarginRight = chartMarginLeft + yAxisWidth;
+  const xAxisTicks = useMemo(() => {
+    if (isPrint) return undefined;
+    return [-maxAbsValue, 0, maxAbsValue];
+  }, [isPrint, maxAbsValue]);
 
   const getBarColor = (entry: MomentumSegment) => {
     // テーマ色を使用
@@ -187,22 +194,23 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
           barSize={isPrint ? 14 : 18}
           margin={{
             top: isPrint ? 8 : 10,
-            right: isPrint ? 12 : 24,
+            right: chartMarginRight,
             bottom: isPrint ? 8 : 10,
-            left: isPrint ? 12 : 24,
+            left: chartMarginLeft,
           }}
         >
           <CartesianGrid horizontal={false} strokeDasharray="3 3" />
           <XAxis
             type="number"
             domain={[-maxAbsValue, maxAbsValue]}
+            ticks={xAxisTicks}
             tickFormatter={(val) => `${Math.abs(val)}`}
             tick={{ fontSize: isPrint ? 10 : 12 }}
           />
           <YAxis
             dataKey="displayLabel"
             type="category"
-            width={isPrint ? 124 : 160}
+            width={yAxisWidth}
             tick={{ fontSize: isPrint ? 10 : 12 }}
           />
           <ReferenceLine x={0} stroke={theme.palette.divider} strokeWidth={2} />

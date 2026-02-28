@@ -22,6 +22,15 @@ export const MatrixTableHead = ({
 }: MatrixTableHeadProps) => {
   const isPrint = exportMode === 'print';
   const hasRowParent = rowHeaders.some((header) => header.parent !== null);
+  const maxParentLabelLength = columnHeaders.reduce((max, header) => {
+    return Math.max(max, header.parent?.length ?? 0);
+  }, 0);
+  const parentHeaderHeight = hasColumnParent
+    ? Math.min(72, Math.max(32, 16 + maxParentLabelLength * 8))
+    : 0;
+  const firstRowTop = isPrint ? undefined : 0;
+  const secondRowTop = isPrint ? undefined : parentHeaderHeight;
+  const headerFontSize = isPrint ? '0.66rem' : '0.64rem';
 
   return (
     <TableHead>
@@ -35,7 +44,8 @@ export const MatrixTableHead = ({
                   borderColor: 'divider',
                   position: isPrint ? 'static' : 'sticky',
                   left: isPrint ? 'auto' : 0,
-                  zIndex: isPrint ? 'auto' : 3,
+                  zIndex: isPrint ? 'auto' : 4,
+                  top: firstRowTop,
                   backgroundColor: 'background.paper',
                 }}
               />
@@ -45,7 +55,8 @@ export const MatrixTableHead = ({
                   borderColor: 'divider',
                   position: isPrint ? 'static' : 'sticky',
                   left: isPrint ? 'auto' : 0,
-                  zIndex: isPrint ? 'auto' : 3,
+                  zIndex: isPrint ? 'auto' : 4,
+                  top: firstRowTop,
                   backgroundColor: 'background.paper',
                 }}
               />
@@ -57,7 +68,8 @@ export const MatrixTableHead = ({
                 borderColor: 'divider',
                 position: isPrint ? 'static' : 'sticky',
                 left: isPrint ? 'auto' : 0,
-                zIndex: isPrint ? 'auto' : 3,
+                zIndex: isPrint ? 'auto' : 4,
+                top: firstRowTop,
                 backgroundColor: 'background.paper',
               }}
             />
@@ -86,10 +98,12 @@ export const MatrixTableHead = ({
                   writingMode: isPrint ? 'horizontal-tb' : 'vertical-rl',
                   minWidth: isPrint ? 70 : 32,
                   padding: isPrint ? '4px 6px' : '6px 2px',
-                  fontSize: isPrint ? '0.68rem' : '0.7rem',
+                  fontSize: headerFontSize,
                   letterSpacing: '0.02em',
                   whiteSpace: isPrint ? 'normal' : 'nowrap',
                   wordBreak: isPrint ? 'break-word' : 'normal',
+                  top: firstRowTop,
+                  zIndex: isPrint ? 'auto' : 4,
                 }}
               >
                 {name}
@@ -108,10 +122,11 @@ export const MatrixTableHead = ({
               minWidth: 48,
               maxWidth: 48,
               p: 0.5,
-              fontSize: isPrint ? '0.66rem' : '0.7rem',
+              fontSize: headerFontSize,
               position: isPrint ? 'static' : 'sticky',
               right: isPrint ? 'auto' : 0,
-              zIndex: isPrint ? 'auto' : 3,
+              zIndex: isPrint ? 'auto' : 4,
+              top: firstRowTop,
               backgroundColor: 'background.paper',
               whiteSpace: isPrint ? 'normal' : 'nowrap',
               wordBreak: isPrint ? 'break-word' : 'normal',
@@ -130,10 +145,11 @@ export const MatrixTableHead = ({
                 verticalAlign: 'middle',
                 borderRight: '1px solid',
                 borderColor: 'divider',
-                fontSize: isPrint ? '0.66rem' : '0.7rem',
+                fontSize: headerFontSize,
                 position: isPrint ? 'static' : 'sticky',
                 left: isPrint ? 'auto' : 0,
                 zIndex: isPrint ? 'auto' : 3,
+                top: secondRowTop,
                 backgroundColor: 'background.paper',
                 whiteSpace: isPrint ? 'normal' : 'nowrap',
                 wordBreak: isPrint ? 'break-word' : 'normal',
@@ -145,10 +161,11 @@ export const MatrixTableHead = ({
                 verticalAlign: 'middle',
                 borderRight: '2px solid',
                 borderColor: 'divider',
-                fontSize: isPrint ? '0.66rem' : '0.7rem',
+                fontSize: headerFontSize,
                 position: isPrint ? 'static' : 'sticky',
                 left: isPrint ? 'auto' : 0,
                 zIndex: isPrint ? 'auto' : 3,
+                top: secondRowTop,
                 backgroundColor: 'background.paper',
                 whiteSpace: isPrint ? 'normal' : 'nowrap',
                 wordBreak: isPrint ? 'break-word' : 'normal',
@@ -161,10 +178,11 @@ export const MatrixTableHead = ({
               fontWeight: 600,
               borderRight: '2px solid',
               borderColor: 'divider',
-              fontSize: isPrint ? '0.66rem' : '0.7rem',
+              fontSize: headerFontSize,
               position: isPrint ? 'static' : 'sticky',
               left: isPrint ? 'auto' : 0,
               zIndex: isPrint ? 'auto' : 3,
+              top: secondRowTop,
               backgroundColor: 'background.paper',
               whiteSpace: isPrint ? 'normal' : 'nowrap',
               wordBreak: isPrint ? 'break-word' : 'normal',
@@ -184,10 +202,12 @@ export const MatrixTableHead = ({
                 writingMode: isPrint ? 'horizontal-tb' : 'vertical-rl',
                 minWidth: isPrint ? 70 : 32,
                 padding: isPrint ? '4px 6px' : '6px 2px',
-                fontSize: isPrint ? '0.66rem' : '0.7rem',
+                fontSize: headerFontSize,
                 letterSpacing: '0.02em',
                 whiteSpace: isPrint ? 'normal' : 'nowrap',
                 wordBreak: isPrint ? 'break-word' : 'normal',
+                top: secondRowTop,
+                zIndex: isPrint ? 'auto' : 3,
               }}
             >
               {header.child || '未設定'}
@@ -205,10 +225,11 @@ export const MatrixTableHead = ({
               minWidth: 48,
               maxWidth: 48,
               p: 0.5,
-              fontSize: isPrint ? '0.66rem' : '0.7rem',
+              fontSize: headerFontSize,
               position: isPrint ? 'static' : 'sticky',
               right: isPrint ? 'auto' : 0,
               zIndex: isPrint ? 'auto' : 3,
+              top: secondRowTop,
               backgroundColor: 'background.paper',
               whiteSpace: isPrint ? 'normal' : 'nowrap',
               wordBreak: isPrint ? 'break-word' : 'normal',

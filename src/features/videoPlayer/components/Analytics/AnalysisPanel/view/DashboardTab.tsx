@@ -26,7 +26,6 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
-import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -583,6 +582,7 @@ export const DashboardTab = ({
                 labelId="dashboard-select-label"
                 value={activeDashboardId}
                 label="ダッシュボード"
+                disabled={isEditing}
                 onChange={(event) =>
                   handleDashboardChange(event.target.value as string)
                 }
@@ -610,15 +610,19 @@ export const DashboardTab = ({
                   </Button>
                   <Button
                     size="small"
+                    variant="outlined"
+                    onClick={handleCancelEdit}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    size="small"
                     variant="contained"
                     startIcon={<SaveIcon />}
                     onClick={handleSave}
                   >
                     保存
                   </Button>
-                  <IconButton onClick={handleCancelEdit} size="small">
-                    <CloseIcon />
-                  </IconButton>
                 </>
               ) : (
                 <>
@@ -640,14 +644,16 @@ export const DashboardTab = ({
                   </Button>
                 </>
               )}
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<DashboardIcon />}
-                onClick={(event) => setDashboardMenuAnchor(event.currentTarget)}
-              >
-                管理
-              </Button>
+              {!isEditing && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<DashboardIcon />}
+                  onClick={(event) => setDashboardMenuAnchor(event.currentTarget)}
+                >
+                  管理
+                </Button>
+              )}
             </Stack>
           </Box>
 

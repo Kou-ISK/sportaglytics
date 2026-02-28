@@ -50,7 +50,6 @@ export const MatrixSection = ({
             minWidth: isPrint ? 0 : 650,
             '& thead th': {
               position: isPrint ? 'static' : 'sticky',
-              top: isPrint ? 'auto' : 0,
               backgroundColor: 'background.paper',
               zIndex: isPrint ? 'auto' : 2,
             },
@@ -64,6 +63,7 @@ export const MatrixSection = ({
               whiteSpace: isPrint ? 'normal' : 'nowrap',
               wordBreak: isPrint ? 'break-word' : 'normal',
               lineHeight: 1.25,
+              fontSize: isPrint ? '0.68rem' : '0.64rem',
             },
           }}
         >

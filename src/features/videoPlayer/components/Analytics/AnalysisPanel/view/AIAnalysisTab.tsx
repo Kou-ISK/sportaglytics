@@ -6,6 +6,9 @@ import React, {
   useState,
 } from 'react';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -23,6 +26,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import type { TimelineData } from '../../../../../../types/TimelineData';
 import type { PlaylistItem } from '../../../../../../types/Playlist';
 import { useSettings } from '../../../../../../hooks/useSettings';
@@ -265,6 +269,7 @@ const formatElapsed = (ms?: number) => {
   if (!ms || !Number.isFinite(ms)) return '';
   return `${(ms / 1000).toFixed(1)}秒`;
 };
+const EVIDENCE_DEFAULT_VISIBLE_COUNT = 12;
 
 const collectInsightEvidenceIds = (insight: EventInsights): string[] => {
   const ids = new Set<string>();
@@ -352,7 +357,11 @@ export const AIAnalysisTab = ({
   const [labelName, setLabelName] = useState('');
   const [teamName, setTeamName] = useState('');
   const [showAiSettings, setShowAiSettings] = useState(false);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showAllEvidence, setShowAllEvidence] = useState(false);
+  const [isEvidenceAccordionOpen, setIsEvidenceAccordionOpen] = useState(true);
+  const [isInsightAccordionOpen, setIsInsightAccordionOpen] = useState(false);
+  const [isSettingsAccordionOpen, setIsSettingsAccordionOpen] = useState(false);
   const [insightDimension, setInsightDimension] = useState('auto');
   const [availableModels, setAvailableModels] = useState<AvailableModelInfo[]>(
     [],
@@ -1196,6 +1205,19 @@ export const AIAnalysisTab = ({
     });
     return evidenceItems.filter((item) => ids.has(item.id));
   }, [evidenceItems, validatedHypotheses, validatedHighlights, validatedClips]);
+  const visibleEvidenceItems = useMemo(() => {
+    if (showAllEvidence) return groundedEvidence;
+    return groundedEvidence.slice(0, EVIDENCE_DEFAULT_VISIBLE_COUNT);
+  }, [groundedEvidence, showAllEvidence]);
+  const hiddenEvidenceCount = Math.max(
+    0,
+    groundedEvidence.length - visibleEvidenceItems.length,
+  );
+  useEffect(() => {
+    if (groundedEvidence.length <= EVIDENCE_DEFAULT_VISIBLE_COUNT) {
+      setShowAllEvidence(false);
+    }
+  }, [groundedEvidence.length]);
 
   const hasGroundedOutput = useMemo(
     () =>
@@ -1286,6 +1308,18 @@ export const AIAnalysisTab = ({
       setPlaylistMessage('AIプレイリストの作成に失敗しました。');
     }
   }, [clipSegments, evidenceMap, onCreateAiPlaylist]);
+  const accordionSx = {
+    borderRadius: 2,
+    border: '1px solid',
+    borderColor: 'divider',
+    boxShadow: 'none',
+    '&:before': {
+      display: 'none',
+    },
+    '&.Mui-expanded': {
+      mt: 0,
+    },
+  } as const;
 
   if (!hasData || timeline.length === 0) {
     if (!hasData) return <NoDataPlaceholder message={emptyMessage} />;
@@ -1314,8 +1348,10 @@ export const AIAnalysisTab = ({
                   borderRadius: 3,
                   bgcolor: 'background.default',
                   p: 2,
-                  minHeight: { xs: 200, md: 250 },
-                  maxHeight: { xs: 300, md: 350 },
+                  height: {
+                    xs: 'clamp(240px, 44vh, 420px)',
+                    md: 'clamp(280px, 40vh, 520px)',
+                  },
                   overflowY: 'auto',
                 }}
               >
@@ -1944,430 +1980,479 @@ export const AIAnalysisTab = ({
           </Stack>
         </AnalysisCard>
       </Stack>
-      <Stack
-        spacing={2}
-        sx={{
-          overflowY: 'auto',
-          maxHeight: { xs: 'none', lg: '100vh' },
-        }}
-      >
-        <AnalysisCard title="根拠">
-          <Stack spacing={2}>
-            {groundedEvidence.length === 0 ? (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ fontSize: 12 }}
-              >
-                根拠がありません。
+      <Stack spacing={2}>
+        <Accordion
+          disableGutters
+          expanded={isEvidenceAccordionOpen}
+          onChange={(_event, expanded) => setIsEvidenceAccordionOpen(expanded)}
+          sx={accordionSx}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                根拠
               </Typography>
-            ) : (
-              groundedEvidence.map((item) => (
-                <Box
-                  key={item.id}
-                  sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    p: 2,
-                    borderRadius: 2,
-                  }}
-                >
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    sx={{ mb: 1 }}
-                  >
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      {item.actionName}
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => onJumpToSegment?.(item)}
-                      sx={{ fontSize: 10, py: 0.5 }}
-                    >
-                      映像へジャンプ
-                    </Button>
-                  </Stack>
-                  <Typography variant="caption" color="text.secondary">
-                    {formatSeconds(item.startTime)} -{' '}
-                    {formatSeconds(item.endTime)}
-                  </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
-                    {getLabelsFromTimelineData({
-                      ...item,
-                      labels: item.labels,
-                    }).map((label, index) => (
-                      <Chip
-                        key={`${label.name}-${index}`}
-                        label={
-                          label.group
-                            ? `${label.group}:${label.name}`
-                            : label.name
-                        }
-                        size="small"
-                        variant="outlined"
-                      />
-                    ))}
-                  </Stack>
-                  {item.memo && (
-                    <Typography variant="body2" color="text.secondary" mt={1}>
-                      メモ: {item.memo}
-                    </Typography>
-                  )}
-                </Box>
-              ))
-            )}
-          </Stack>
-        </AnalysisCard>
-
-        <AnalysisCard title="イベントインサイト（統計）">
-          <Stack spacing={2}>
-            <Typography variant="body2" color="text.secondary">
-              ユーザー定義のイベントだけを用いて傾向を抽出します。現在の時間/ラベル/チーム
-              フィルタが適用されます。
-            </Typography>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <FormControl sx={{ minWidth: 220 }}>
-                <InputLabel id="insight-dimension">分析軸</InputLabel>
-                <Select
-                  labelId="insight-dimension"
-                  label="分析軸"
-                  value={insightDimension}
-                  onChange={(event) => setInsightDimension(event.target.value)}
-                >
-                  {insightDimensionOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              {groundedEvidence.length > 0 && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`${groundedEvidence.length}件`}
+                />
+              )}
             </Stack>
-            {insightDimension === 'auto' && (
-              <Typography variant="caption" color="text.secondary">
-                自動選択: {resolvedInsightLabel}
-              </Typography>
-            )}
-            {insightData.summary.totalEvents === 0 ? (
-              <Alert severity="info">対象イベントがありません。</Alert>
-            ) : (
-              <>
-                <Box display="flex" flexWrap="wrap" gap={1}>
-                  <Chip
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={2}>
+              {groundedEvidence.length === 0 ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ fontSize: 12 }}
+                >
+                  根拠がありません。
+                </Typography>
+              ) : (
+                visibleEvidenceItems.map((item) => (
+                  <Box
+                    key={item.id}
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      p: 2,
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                      sx={{ mb: 1 }}
+                    >
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        {item.actionName}
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => onJumpToSegment?.(item)}
+                        sx={{ fontSize: 10, py: 0.5 }}
+                      >
+                        映像へジャンプ
+                      </Button>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatSeconds(item.startTime)} - {formatSeconds(item.endTime)}
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                      {getLabelsFromTimelineData({
+                        ...item,
+                        labels: item.labels,
+                      }).map((label, index) => (
+                        <Chip
+                          key={`${label.name}-${index}`}
+                          label={
+                            label.group
+                              ? `${label.group}:${label.name}`
+                              : label.name
+                          }
+                          size="small"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Stack>
+                    {item.memo && (
+                      <Typography variant="body2" color="text.secondary" mt={1}>
+                        メモ: {item.memo}
+                      </Typography>
+                    )}
+                  </Box>
+                ))
+              )}
+              {groundedEvidence.length > EVIDENCE_DEFAULT_VISIBLE_COUNT && (
+                <Box display="flex" justifyContent="center">
+                  <Button
                     size="small"
-                    label={`対象 ${insightData.summary.totalEvents}件`}
-                  />
-                  <Chip
-                    size="small"
-                    label={`状態 ${insightData.summary.uniqueStates}種類`}
-                  />
-                  <Chip
-                    size="small"
-                    label={`スパン ${formatSeconds(insightData.summary.timeSpanSec)}`}
-                  />
-                  <Chip
-                    size="small"
-                    label={`テンポ ${insightData.summary.eventsPerMin.toFixed(2)}件/分`}
-                  />
-                  <Chip
-                    size="small"
-                    label={`平均時間 ${formatDurationShort(insightData.summary.avgDuration)}`}
-                  />
+                    variant="text"
+                    onClick={() => setShowAllEvidence((prev) => !prev)}
+                  >
+                    {showAllEvidence
+                      ? '上位表示に戻す'
+                      : `すべて表示（+${hiddenEvidenceCount}件）`}
+                  </Button>
                 </Box>
-                <Divider />
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  主要イベント
-                </Typography>
-                {insightData.topStates.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    集計対象が不足しています。
-                  </Typography>
-                ) : (
-                  <Stack spacing={1}>
-                    {insightData.topStates.map((stat, index) => (
-                      <Box key={`${stat.state}-${index}`}>
-                        <Typography variant="body2">
-                          {stat.state}：{stat.count}件（
-                          {formatPercent(stat.share)}） / 平均
-                          {formatDurationShort(stat.avgDuration)}
-                        </Typography>
-                      </Box>
+              )}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion
+          disableGutters
+          expanded={isInsightAccordionOpen}
+          onChange={(_event, expanded) => setIsInsightAccordionOpen(expanded)}
+          sx={accordionSx}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              イベントインサイト（統計）
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={2}>
+              <Typography variant="body2" color="text.secondary">
+                ユーザー定義のイベントだけを用いて傾向を抽出します。現在の時間/ラベル/チーム
+                フィルタが適用されます。
+              </Typography>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <FormControl sx={{ minWidth: 220 }}>
+                  <InputLabel id="insight-dimension">分析軸</InputLabel>
+                  <Select
+                    labelId="insight-dimension"
+                    label="分析軸"
+                    value={insightDimension}
+                    onChange={(event) => setInsightDimension(event.target.value)}
+                  >
+                    {insightDimensionOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
                     ))}
-                  </Stack>
-                )}
-                <Divider />
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  よくある遷移
+                  </Select>
+                </FormControl>
+              </Stack>
+              {insightDimension === 'auto' && (
+                <Typography variant="caption" color="text.secondary">
+                  自動選択: {resolvedInsightLabel}
                 </Typography>
-                {insightData.topTransitions.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    遷移を計算するにはイベントが2件以上必要です。
+              )}
+              {insightData.summary.totalEvents === 0 ? (
+                <Alert severity="info">対象イベントがありません。</Alert>
+              ) : (
+                <>
+                  <Box display="flex" flexWrap="wrap" gap={1}>
+                    <Chip
+                      size="small"
+                      label={`対象 ${insightData.summary.totalEvents}件`}
+                    />
+                    <Chip
+                      size="small"
+                      label={`状態 ${insightData.summary.uniqueStates}種類`}
+                    />
+                    <Chip
+                      size="small"
+                      label={`スパン ${formatSeconds(insightData.summary.timeSpanSec)}`}
+                    />
+                    <Chip
+                      size="small"
+                      label={`テンポ ${insightData.summary.eventsPerMin.toFixed(2)}件/分`}
+                    />
+                    <Chip
+                      size="small"
+                      label={`平均時間 ${formatDurationShort(insightData.summary.avgDuration)}`}
+                    />
+                  </Box>
+                  <Divider />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    主要イベント
                   </Typography>
-                ) : (
-                  <Stack spacing={1}>
-                    {insightData.topTransitions.map((stat, index) => (
-                      <Typography
-                        key={`${stat.from}-${stat.to}-${index}`}
-                        variant="body2"
-                      >
-                        {stat.from} → {stat.to}：{stat.count}回（
-                        {formatPercent(stat.probability)}）/ 平均間隔
-                        {formatGapShort(stat.avgGap)}
-                      </Typography>
-                    ))}
-                  </Stack>
-                )}
-                <Divider />
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  頻出シーケンス（長さ3）
-                </Typography>
-                {insightData.topSequences.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    シーケンスを計算するにはイベントが3件以上必要です。
-                  </Typography>
-                ) : (
-                  <Stack spacing={1}>
-                    {insightData.topSequences.map((stat, index) => (
-                      <Typography
-                        key={`${stat.sequence.join('>')}-${index}`}
-                        variant="body2"
-                      >
-                        {stat.sequence.join(' → ')}：{stat.count}回
-                      </Typography>
-                    ))}
-                  </Stack>
-                )}
-                <Divider />
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  特徴的イベント
-                </Typography>
-                <Stack spacing={1}>
-                  {insightData.longestEvents.length === 0 ? (
+                  {insightData.topStates.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">
-                      長時間イベントはありません。
+                      集計対象が不足しています。
                     </Typography>
                   ) : (
                     <Stack spacing={1}>
-                      {insightData.longestEvents.map((event) => (
-                        <Box
-                          key={event.id}
-                          sx={{
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            p: 1.5,
-                            borderRadius: 2,
-                          }}
-                        >
-                          <Box
-                            display="flex"
-                            alignItems="center"
-                            justifyContent="space-between"
-                            gap={1}
-                          >
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 600 }}
-                            >
-                              {event.state}（{event.actionName}）
-                            </Typography>
-                            {timelineMap.has(event.id) && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() =>
-                                  onJumpToSegment?.(timelineMap.get(event.id)!)
-                                }
-                              >
-                                映像へジャンプ
-                              </Button>
-                            )}
-                          </Box>
-                          <Typography variant="caption" color="text.secondary">
-                            {formatSeconds(event.startTime)} -{' '}
-                            {formatSeconds(event.endTime)} / 継続{' '}
-                            {formatDurationShort(event.duration)}
+                      {insightData.topStates.map((stat, index) => (
+                        <Box key={`${stat.state}-${index}`}>
+                          <Typography variant="body2">
+                            {stat.state}：{stat.count}件（
+                            {formatPercent(stat.share)}） / 平均
+                            {formatDurationShort(stat.avgDuration)}
                           </Typography>
                         </Box>
                       ))}
                     </Stack>
                   )}
-                  {insightData.rareStates.length > 0 && (
-                    <Box>
+                  <Divider />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    よくある遷移
+                  </Typography>
+                  {insightData.topTransitions.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      遷移を計算するにはイベントが2件以上必要です。
+                    </Typography>
+                  ) : (
+                    <Stack spacing={1}>
+                      {insightData.topTransitions.map((stat, index) => (
+                        <Typography
+                          key={`${stat.from}-${stat.to}-${index}`}
+                          variant="body2"
+                        >
+                          {stat.from} → {stat.to}：{stat.count}回（
+                          {formatPercent(stat.probability)}）/ 平均間隔
+                          {formatGapShort(stat.avgGap)}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  )}
+                  <Divider />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    頻出シーケンス（長さ3）
+                  </Typography>
+                  {insightData.topSequences.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      シーケンスを計算するにはイベントが3件以上必要です。
+                    </Typography>
+                  ) : (
+                    <Stack spacing={1}>
+                      {insightData.topSequences.map((stat, index) => (
+                        <Typography
+                          key={`${stat.sequence.join('>')}-${index}`}
+                          variant="body2"
+                        >
+                          {stat.sequence.join(' → ')}：{stat.count}回
+                        </Typography>
+                      ))}
+                    </Stack>
+                  )}
+                  <Divider />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    特徴的イベント
+                  </Typography>
+                  <Stack spacing={1}>
+                    {insightData.longestEvents.length === 0 ? (
                       <Typography variant="body2" color="text.secondary">
-                        出現頻度が低い状態:
+                        長時間イベントはありません。
                       </Typography>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
-                        {insightData.rareStates.map((stat) => (
-                          <Chip
-                            key={stat.state}
-                            size="small"
-                            label={`${stat.state} (${stat.count}件)`}
-                          />
+                    ) : (
+                      <Stack spacing={1}>
+                        {insightData.longestEvents.map((event) => (
+                          <Box
+                            key={event.id}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              p: 1.5,
+                              borderRadius: 2,
+                            }}
+                          >
+                            <Box
+                              display="flex"
+                              alignItems="center"
+                              justifyContent="space-between"
+                              gap={1}
+                            >
+                              <Typography
+                                variant="body2"
+                                sx={{ fontWeight: 600 }}
+                              >
+                                {event.state}（{event.actionName}）
+                              </Typography>
+                              {timelineMap.has(event.id) && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() =>
+                                    onJumpToSegment?.(timelineMap.get(event.id)!)
+                                  }
+                                >
+                                  映像へジャンプ
+                                </Button>
+                              )}
+                            </Box>
+                            <Typography variant="caption" color="text.secondary">
+                              {formatSeconds(event.startTime)} -{' '}
+                              {formatSeconds(event.endTime)} / 継続{' '}
+                              {formatDurationShort(event.duration)}
+                            </Typography>
+                          </Box>
                         ))}
                       </Stack>
-                    </Box>
-                  )}
-                </Stack>
-              </>
-            )}
-          </Stack>
-        </AnalysisCard>
-
-        <AnalysisCard title="AI設定">
-          <Stack spacing={2}>
-            <Typography variant="body2" color="text.secondary">
-              ローカルLLMの接続先とディメンション定義を設定します。
-            </Typography>
-            <Box
-              display="flex"
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <Typography variant="body2" color="text.secondary">
-                現在のモデル: {modelSummary}
-              </Typography>
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => setShowAiSettings((prev) => !prev)}
-              >
-                {showAiSettings ? '設定を閉じる' : '設定を開く'}
-              </Button>
-            </Box>
-            <Collapse in={showAiSettings}>
-              <Stack spacing={2}>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                  <TextField
-                    label="モデルファイル"
-                    value={aiSettings.model}
-                    onChange={(event) =>
-                      setAiSettings({
-                        ...aiSettings,
-                        model: event.target.value,
-                      })
-                    }
-                    placeholder="auto / example.gguf"
-                    helperText="auto にすると、検出された最大サイズのモデルを自動選択します。"
-                    sx={{ flex: 1 }}
-                  />
-                </Stack>
-                {modelsStatus === 'loading' && (
-                  <Typography variant="body2" color="text.secondary">
-                    モデル一覧を取得中...
-                  </Typography>
-                )}
-                {availableModels.length > 0 && (
-                  <Stack direction="row" spacing={1} flexWrap="wrap">
-                    <Chip
-                      label="auto (推奨)"
-                      color={isAutoModel ? 'primary' : 'default'}
-                      onClick={() =>
-                        setAiSettings({
-                          ...aiSettings,
-                          model: 'auto',
-                        })
-                      }
-                    />
-                    {availableModels.map((model) => (
-                      <Chip
-                        key={model.path}
-                        label={`${model.name} (${formatBytes(model.sizeBytes)})`}
-                        color={
-                          aiSettings.model === model.name
-                            ? 'primary'
-                            : 'default'
-                        }
-                        onClick={() =>
-                          setAiSettings({
-                            ...aiSettings,
-                            model: model.name,
-                          })
-                        }
-                      />
-                    ))}
+                    )}
+                    {insightData.rareStates.length > 0 && (
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          出現頻度が低い状態:
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                          {insightData.rareStates.map((stat) => (
+                            <Chip
+                              key={stat.state}
+                              size="small"
+                              label={`${stat.state} (${stat.count}件)`}
+                            />
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
                   </Stack>
-                )}
-                {recommendedModel &&
-                  !isAutoModel &&
-                  aiSettings.model !== recommendedModel.name && (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() =>
-                        setAiSettings({
-                          ...aiSettings,
-                          model: recommendedModel.name,
-                        })
-                      }
-                    >
-                      推奨モデルに切り替え
-                    </Button>
-                  )}
-                {modelsError && <Alert severity="warning">{modelsError}</Alert>}
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                  <TextField
-                    label="Temperature"
-                    value={aiSettings.temperature}
-                    onChange={(event) =>
-                      setAiSettings({
-                        ...aiSettings,
-                        temperature: Number(event.target.value),
-                      })
-                    }
-                    type="number"
-                    inputProps={{ min: 0, max: 1, step: 0.1 }}
-                    sx={{ flex: 1 }}
-                  />
-                  <TextField
-                    label="Top K"
-                    value={aiSettings.topK}
-                    onChange={(event) =>
-                      setAiSettings({
-                        ...aiSettings,
-                        topK: Number(event.target.value),
-                      })
-                    }
-                    type="number"
-                    inputProps={{ min: 1, step: 1 }}
-                    sx={{ flex: 1 }}
-                  />
-                  <FormControl sx={{ flex: 1 }}>
-                    <InputLabel id="ai-team-group">チーム判定group</InputLabel>
-                    <Select
-                      labelId="ai-team-group"
-                      label="チーム判定group"
-                      value={aiSettings.teamLabelGroup ?? ''}
+                </>
+              )}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion
+          disableGutters
+          expanded={isSettingsAccordionOpen}
+          onChange={(_event, expanded) => setIsSettingsAccordionOpen(expanded)}
+          sx={accordionSx}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              AI設定
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={2}>
+              <Typography variant="body2" color="text.secondary">
+                ローカルLLMの接続先とディメンション定義を設定します。
+              </Typography>
+              <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <Typography variant="body2" color="text.secondary">
+                  現在のモデル: {modelSummary}
+                </Typography>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => setShowAiSettings((prev) => !prev)}
+                >
+                  {showAiSettings ? '設定を閉じる' : '設定を開く'}
+                </Button>
+              </Box>
+              <Collapse in={showAiSettings}>
+                <Stack spacing={2}>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                    <TextField
+                      label="モデルファイル"
+                      value={aiSettings.model}
                       onChange={(event) =>
                         setAiSettings({
                           ...aiSettings,
-                          teamLabelGroup: event.target.value,
+                          model: event.target.value,
                         })
                       }
-                    >
-                      <MenuItem value="">自動検出</MenuItem>
-                      {availableGroups.map((group) => (
-                        <MenuItem key={group} value={group}>
-                          {group}
-                        </MenuItem>
+                      placeholder="auto / example.gguf"
+                      helperText="auto にすると、検出された最大サイズのモデルを自動選択します。"
+                      sx={{ flex: 1 }}
+                    />
+                  </Stack>
+                  {modelsStatus === 'loading' && (
+                    <Typography variant="body2" color="text.secondary">
+                      モデル一覧を取得中...
+                    </Typography>
+                  )}
+                  {availableModels.length > 0 && (
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      <Chip
+                        label="auto (推奨)"
+                        color={isAutoModel ? 'primary' : 'default'}
+                        onClick={() =>
+                          setAiSettings({
+                            ...aiSettings,
+                            model: 'auto',
+                          })
+                        }
+                      />
+                      {availableModels.map((model) => (
+                        <Chip
+                          key={model.path}
+                          label={`${model.name} (${formatBytes(model.sizeBytes)})`}
+                          color={
+                            aiSettings.model === model.name
+                              ? 'primary'
+                              : 'default'
+                          }
+                          onClick={() =>
+                            setAiSettings({
+                              ...aiSettings,
+                              model: model.name,
+                            })
+                          }
+                        />
                       ))}
-                    </Select>
-                  </FormControl>
+                    </Stack>
+                  )}
+                  {recommendedModel &&
+                    !isAutoModel &&
+                    aiSettings.model !== recommendedModel.name && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() =>
+                          setAiSettings({
+                            ...aiSettings,
+                            model: recommendedModel.name,
+                          })
+                        }
+                      >
+                        推奨モデルに切り替え
+                      </Button>
+                    )}
+                  {modelsError && <Alert severity="warning">{modelsError}</Alert>}
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                    <TextField
+                      label="Temperature"
+                      value={aiSettings.temperature}
+                      onChange={(event) =>
+                        setAiSettings({
+                          ...aiSettings,
+                          temperature: Number(event.target.value),
+                        })
+                      }
+                      type="number"
+                      inputProps={{ min: 0, max: 1, step: 0.1 }}
+                      sx={{ flex: 1 }}
+                    />
+                    <TextField
+                      label="Top K"
+                      value={aiSettings.topK}
+                      onChange={(event) =>
+                        setAiSettings({
+                          ...aiSettings,
+                          topK: Number(event.target.value),
+                        })
+                      }
+                      type="number"
+                      inputProps={{ min: 1, step: 1 }}
+                      sx={{ flex: 1 }}
+                    />
+                    <FormControl sx={{ flex: 1 }}>
+                      <InputLabel id="ai-team-group">チーム判定group</InputLabel>
+                      <Select
+                        labelId="ai-team-group"
+                        label="チーム判定group"
+                        value={aiSettings.teamLabelGroup ?? ''}
+                        onChange={(event) =>
+                          setAiSettings({
+                            ...aiSettings,
+                            teamLabelGroup: event.target.value,
+                          })
+                        }
+                      >
+                        <MenuItem value="">自動検出</MenuItem>
+                        {availableGroups.map((group) => (
+                          <MenuItem key={group} value={group}>
+                            {group}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Stack>
+                  <Button variant="outlined" onClick={handleSaveSettings}>
+                    AI設定を保存
+                  </Button>
+                  {settingsMessage && <Alert severity="info">{settingsMessage}</Alert>}
+                  <Typography variant="caption" color="text.secondary">
+                    モデルは `public/llama/models` 配下に配置してください。
+                  </Typography>
                 </Stack>
-                <Button variant="outlined" onClick={handleSaveSettings}>
-                  AI設定を保存
-                </Button>
-                {settingsMessage && (
-                  <Alert severity="info">{settingsMessage}</Alert>
-                )}
-                <Typography variant="caption" color="text.secondary">
-                  モデルは `public/llama/models` 配下に配置してください。
-                </Typography>
-              </Stack>
-            </Collapse>
-          </Stack>
-        </AnalysisCard>
+              </Collapse>
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
       </Stack>
     </Box>
   );
