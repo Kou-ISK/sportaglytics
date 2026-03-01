@@ -3,7 +3,6 @@ import { Stack, Paper, Typography, Box, Button } from '@mui/material';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
 import { MatrixSection } from './MatrixSection';
-import { MatrixAxisSelector } from './MatrixAxisSelector';
 import { DrilldownDialog } from './DrilldownDialog';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
 import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
@@ -18,11 +17,9 @@ import {
   MATRIX_FILTER_ALL,
   type MatrixFilterState,
 } from './hooks/matrixFilterUtils';
-import {
-  buildMatrixCsv,
-  buildMatrixExportAoa,
-  buildMatrixXlsxBase64,
-} from '../../../../../../utils/matrixExport';
+import { useMatrixTableExport } from './hooks/useMatrixTableExport';
+import { buildMatrixFilterChips } from './utils/matrixFilterChips';
+import { MatrixAxisEditor } from './MatrixAxisEditor';
 
 interface MatrixTabProps {
   hasData: boolean;
@@ -166,66 +163,12 @@ export const MatrixTab = ({
       customColumnAxis,
     );
   }, [filteredTimeline, customRowAxis, customColumnAxis]);
-
-  const axisToken = (value: string | undefined) =>
-    (value || '-')
-      .replace(/[^\w\-]+/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .toLowerCase();
-
-  const exportMatrix = async (format: 'csv' | 'xlsx') => {
-    const api = globalThis.window.electronAPI;
-    if (!api?.saveFileDialog || !api?.writeTextFile || !api?.writeBinaryFile) {
-      notification.error('エクスポート機能が利用できません。');
-      return;
-    }
-
-    if (!customMatrix || customMatrix.rowHeaders.length === 0) {
-      notification.warning('エクスポート対象のクロス集計データがありません。');
-      return;
-    }
-
-    const date = new Date().toISOString().slice(0, 10);
-    const rowToken = `${customRowAxis.type}-${axisToken(customRowAxis.value)}`;
-    const colToken = `${customColumnAxis.type}-${axisToken(customColumnAxis.value)}`;
-    const extension = format === 'csv' ? 'csv' : 'xlsx';
-    const defaultName = `matrix-${rowToken}-${colToken}-${date}.${extension}`;
-    const filterName = format === 'csv' ? 'CSV' : 'Excel';
-
-    const filePath = await api.saveFileDialog(defaultName, [
-      { name: filterName, extensions: [extension] },
-    ]);
-
-    if (!filePath) return;
-
-    const aoa = buildMatrixExportAoa({
-      table: {
-        rowHeaders: customMatrix.rowHeaders,
-        columnHeaders: customMatrix.columnHeaders,
-        matrix: customMatrix.matrix,
-      },
-    });
-
-    if (format === 'csv') {
-      const csv = buildMatrixCsv(aoa);
-      const ok = await api.writeTextFile(filePath, csv);
-      if (ok) {
-        notification.success('クロス集計CSVを保存しました。');
-      } else {
-        notification.error('クロス集計CSVの保存に失敗しました。');
-      }
-      return;
-    }
-
-    const xlsxBase64 = buildMatrixXlsxBase64(aoa, 'Matrix');
-    const ok = await api.writeBinaryFile(filePath, xlsxBase64);
-    if (ok) {
-      notification.success('クロス集計XLSXを保存しました。');
-    } else {
-      notification.error('クロス集計XLSXの保存に失敗しました。');
-    }
-  };
+  const { exportMatrix } = useMatrixTableExport({
+    customMatrix,
+    customRowAxis,
+    customColumnAxis,
+    notification,
+  });
 
   if (!hasData) {
     return <NoDataPlaceholder message={emptyMessage} />;
@@ -233,30 +176,12 @@ export const MatrixTab = ({
 
   // フィルターチップの生成
   const ALL = MATRIX_FILTER_ALL;
-  const filterChips: Array<{ label: string; onDelete: () => void }> = [];
-  if (filters.team !== ALL) {
-    filterChips.push({
-      label: `チーム: ${filters.team}`,
-      onDelete: () => setFilterTeam(ALL),
-    });
-  }
-  if (filters.action !== ALL) {
-    filterChips.push({
-      label: `アクション: ${filters.action}`,
-      onDelete: () => setFilterAction(ALL),
-    });
-  }
-  if (filters.labelGroup !== ALL && filters.labelValue !== ALL) {
-    filterChips.push({
-      label: `${filters.labelGroup}: ${filters.labelValue}`,
-      onDelete: clearLabelFilters,
-    });
-  } else if (filters.labelGroup !== ALL) {
-    filterChips.push({
-      label: `ラベルグループ: ${filters.labelGroup}`,
-      onDelete: clearLabelFilters,
-    });
-  }
+  const filterChips = buildMatrixFilterChips({
+    filters,
+    onResetTeam: () => setFilterTeam(ALL),
+    onResetAction: () => setFilterAction(ALL),
+    onResetLabels: clearLabelFilters,
+  });
 
   return (
     <>
@@ -267,31 +192,13 @@ export const MatrixTab = ({
           onRowAxisChange={setCustomRowAxis}
           onColumnAxisChange={setCustomColumnAxis}
           renderAxisEditor={() => (
-            <Stack spacing={2}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                軸設定
-              </Typography>
-              <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2}>
-                <MatrixAxisSelector
-                  key="row-axis"
-                  label="行軸"
-                  value={customRowAxis}
-                  onChange={(newConfig) => {
-                    setCustomRowAxis(newConfig);
-                  }}
-                  availableGroups={availableGroups}
-                />
-                <MatrixAxisSelector
-                  key="column-axis"
-                  label="列軸"
-                  value={customColumnAxis}
-                  onChange={(newConfig) => {
-                    setCustomColumnAxis(newConfig);
-                  }}
-                  availableGroups={availableGroups}
-                />
-              </Box>
-            </Stack>
+            <MatrixAxisEditor
+              rowAxis={customRowAxis}
+              columnAxis={customColumnAxis}
+              availableGroups={availableGroups}
+              onRowAxisChange={setCustomRowAxis}
+              onColumnAxisChange={setCustomColumnAxis}
+            />
           )}
           hasActiveFilters={hasActiveFilters}
           filterCount={

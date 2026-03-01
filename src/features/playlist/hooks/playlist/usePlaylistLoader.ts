@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import type {
   ItemAnnotation,
-  Playlist,
   PlaylistItem,
   PlaylistType,
 } from '../../../../types/Playlist';

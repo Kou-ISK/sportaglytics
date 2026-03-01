@@ -14,7 +14,7 @@ type CustomCodeLayoutProps = {
   primaryAction: string | null;
   activeLabelButtons: Record<string, boolean>;
   isRecording: boolean;
-  layoutContainerRef: React.RefObject<HTMLDivElement>;
+  layoutContainerRef: React.RefObject<HTMLDivElement | null>;
   layoutContainerWidth: number;
   onButtonClick: (button: CodeWindowButton) => void;
 };

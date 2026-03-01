@@ -29,13 +29,13 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
     let cancelled = false;
     const loadTimeline = async () => {
       try {
-        const response = await fetch(timelineFilePath);
-        if (!response.ok) {
-          throw new Error(
-            `Failed to load timeline file: ${response.status} ${response.statusText}`,
-          );
+        const text = await globalThis.window.electronAPI?.readTextFile?.(
+          timelineFilePath,
+        );
+        if (!text) {
+          throw new Error('Timeline file is empty or not accessible');
         }
-        const raw = await response.json();
+        const raw = JSON.parse(text) as unknown;
         if (cancelled) return;
         // 読み込んだデータを正規化してlabels配列を確実に持たせる
         const rawArray = Array.isArray(raw) ? raw : [];

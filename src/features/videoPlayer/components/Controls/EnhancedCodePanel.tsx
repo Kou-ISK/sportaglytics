@@ -4,7 +4,10 @@ import videojs from 'video.js';
 import { useActionPreset } from '../../../../contexts/ActionPresetContext';
 import type { ActionDefinition, CodeWindowLayout } from '../../../../types/Settings';
 import { useSettings } from '../../../../hooks/useSettings';
-import { type TeamContext } from '../../../../utils/teamPlaceholder';
+import {
+  replaceTeamPlaceholders,
+  type TeamContext,
+} from '../../../../utils/teamPlaceholder';
 import { CustomCodeLayout } from './CustomCodeLayout';
 import { ActionLabelGroup } from './ActionLabelGroup';
 import { DefaultCodeLayout } from './DefaultCodeLayout';

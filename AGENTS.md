@@ -1,93 +1,125 @@
 # SporTagLytics AGENTS Guide
 
-## 目的と適用範囲
-このドキュメントは、SporTagLytics の AI 支援開発（Codex / Copilot / 各種エージェント）に適用する実装規約です。
-最優先事項は **保守性・可読性・責務分離** です。
+このファイルは本リポジトリの AI 実装規約の正本です。
+
+## 目的
+最優先は次の 4 点です。
+
+1. 保守性
+2. 可読性
+3. 責務分離
+4. 安全性（型安全 / Electron セキュリティ）
+
+## 指示ファイル設計（重要）
+1. `AGENTS.md`:
+   全エージェント共通の不変ルール（アーキテクチャ、品質ゲート、セキュリティ）。
+2. `.github/copilot-instructions.md`:
+   Copilot 向けの入口ガイド（正本参照 + 適用順序 + 実行手順）。
+3. `.github/instructions/*.instructions.md`:
+   `applyTo` の差分ルールのみ。
+4. `.github/technical-instructions.md`:
+   背景メモのみ（規約本文の重複禁止）。
 
 ## 規約の優先順位
-規約が競合した場合は、次の順で優先します。
-
-1. `AGENTS.md`（本ファイル）
+1. `AGENTS.md`
 2. `.github/copilot-instructions.md`
 3. `.github/instructions/*.instructions.md`
 4. `.github/technical-instructions.md`
 
-## 技術基準（現行実装）
-- React 19 系（関数コンポーネントのみ）
-- TypeScript 5.4 系（`strict: true`）
-- Electron 40 系
-- Material UI 7 系
-- Video.js 8 系
-- pnpm 9 系
+## 規約の強度
+- `MUST`: 必須。違反は修正対象。
+- `SHOULD`: 推奨。明確な理由がある場合のみ逸脱可。
+- `MAY`: 任意。
 
-## ディレクトリ責務
-- `electron/src`: Main process。ウィンドウ管理、IPC handler、ファイル I/O、OS 依存処理。
-- `src/pages`: 画面単位のコンテナ。Feature の組み合わせと画面遷移を担当。
-- `src/features`: 機能単位モジュール。UI・hooks・utils を機能責務で保持。
-- `src/components`: 複数 feature/page で再利用する共通 UI。
-- `src/hooks`: 複数 feature/page で再利用する共通 hook。
-- `src/utils`: 複数 feature/page で再利用する純粋関数・ユーティリティ。
-- `src/types`: 共有型定義。
-- `src/contexts`: グローバルな React Context。
-- `src/renderer.d.ts`: `window.electronAPI` など Renderer 側の公開型。
+## 技術基準（固定）
+- React 19（関数コンポーネントのみ）
+- TypeScript 5.4（`strict: true`）
+- Electron 40
+- Material UI 7
+- Video.js 8
+- pnpm 9
 
-## 依存方向ルール
-依存方向は次を原則とします。
+## アーキテクチャ方針
+- `MUST`: Feature-First を維持する（`pages -> features -> shared`）。
+- `MUST`: feature 外から feature を参照する場合は `src/features/<feature>/index.ts` のみ使う。
+- `MUST`: `shared -> features` と `features -> pages` を禁止する。
+- `MUST`: `pages` はルーティングと feature 合成に限定する。
+- `MUST`: `src/features/**` では機能責務で分割し、Atomic 分類で構成しない。
+- `SHOULD`: UI は Container / Hook / View を分離する。
 
-- `pages -> features -> shared`
-- `shared` は `src/components`, `src/hooks`, `src/utils`, `src/types`, `src/contexts`（必要に応じて `src/shared` を追加）
+## Atomic Design の扱い
+- `MUST`: Atomic Design をアプリ全体のフォルダ規約として強制しない。
+- `MUST`: Atomic Design は共通 UI 設計（design system）のメンタルモデルとしてのみ利用する。
+- `MUST`: 共通 UI の採用範囲は `src/components/ui` に限定する。
+- `SHOULD`: `src/components/ui` は `primitives / composites / patterns` で整理する。
+- `MAY`: atoms/molecules/organisms の語彙を補助的に使用してもよい。
 
-禁止事項:
-- `features -> pages` の依存
-- feature 内部実装への他 feature からの直接 import
+## TypeScript 実装規約
+- `MUST`: `any` を禁止（不可避時は理由コメント必須）。
+- `MUST`: exported 関数は戻り値型を明示する。
+- `MUST`: 型 import は `import type` を使う。
+- `MUST`: 根拠のない `as` 断定キャストを禁止する。
+- `SHOULD`: `unknown` + 型ガードで絞り込む。
+- `SHOULD`: 互換フィールドは型へ残さず、ロード時マイグレーションで吸収する。
 
-許可事項:
-- 共通コンポーネント・共通型・共通 hook・共通 util の横断利用
+## React 実装規約
+- `MUST`: 空状態・エラー状態を明示する。
+- `MUST`: `useEffect` は依存配列を省略せず、必要な cleanup を実装する。
+- `MUST`: 状態源を最小化し、派生値は計算で表現する。
+- `SHOULD`: 重い派生値は `useMemo`、イベントハンドラは `useCallback` で安定化する。
 
-feature 間で再利用が必要な場合:
-1. まず共通化を検討し、`shared` 層へ抽出する。
-2. 例外を作る場合は、理由・範囲・解消予定を PR に明記する。
+## Electron / IPC 規約
+- `MUST`: Renderer からの Electron 呼び出しは `window.electronAPI` のみ。
+- `MUST`: `src` 側で `electron` / `ipcRenderer` を直接 import しない。
+- `MUST`: preload は最小公開面のみを公開し、汎用イベントバス API（汎用 `on/off/send`）を増やさない。
+- `MUST`: IPC payload と sender を検証する。
+- `MUST`: IPC 型定義の正本は `src/renderer.d.ts`。
 
-## 命名規約
-- Component: `PascalCase`（例: `VideoPlayerLayout.tsx`）
-- Hook: `useXxx`（例: `useTimelineViewport.ts`）
-- util/service module: `camelCase`（例: `timelineExport.ts`）
-- Type / Interface / Enum: `PascalCase`
-- 定数: `UPPER_SNAKE_CASE`
+## Electron セキュリティ基準
+全 BrowserWindow で以下を適用する。
+- `contextIsolation: true`
+- `sandbox: true`
+- `nodeIntegration: false`
+- `webSecurity: true`
+- 不要なナビゲーション / `window.open` を拒否
 
-## 実装規約
-### TypeScript
-- `any` は原則禁止。不可避の場合のみ理由コメントを添える。
-- `unknown` を使い、型ガードで絞り込む。
-- exported 関数は戻り値型を明示する。
-- 根拠のない `as` 断定キャストを禁止する。
-- 型 import は `import type` を優先する。
+## ファイル分割方針（Soft Budget）
+- `MUST`: 行数に関係なく、`UI描画` と `IPC/永続化` と `ドメイン計算` の同居を禁止する。
+- `MUST`: 変更対象ファイルが巨大かつ責務混在している場合は、同PRで最低1段の分割を行う。
+- `SHOULD`: 目安として `TSX <= 300行`, `TS <= 450行` を維持する。
+- `MAY`: 既存巨大ファイルは、触る範囲で段階分割する（全面一括移行しない）。
+- `MUST`: 行数は Warn Only とし、CI fail 条件にはしない。
 
-### React
-- Container / Hook / View の責務を分離する。
-- `useEffect` は依存配列を完全に記述し、クリーンアップを実装する。
-- 重い計算・ハンドラは `useMemo` / `useCallback` で安定化する。
-- 空状態・エラー状態を明示する（例: Placeholder / Alert / Snackbar）。
+## 例外管理
+- `MUST`: 例外は `docs/architecture-exceptions.md` に記録する。
+- `MUST`: 例外には `理由 / 影響範囲 / 解消期限 / 担当` を含める。
 
-### UI (MUI)
-- スタイルは `sx` + テーマ経由を基本とする。
-- 色・余白・タイポグラフィのハードコードを避け、`src/theme.ts` を参照する。
+## 旧実装の扱い
+- `MUST`: deprecated 経路・未使用コード・`.old` ファイルは削除対象。
+- `MUST`: 既存データ互換はロード時マイグレーションで担保する。
+- `MUST`: 保存形式は最新モデルへ統一する。
 
-### Electron / IPC
-- Renderer から Electron 機能を使う経路は `window.electronAPI` のみ。
-- `src` 側で `electron` / `ipcRenderer` を直接 import しない。
-- IPC の型定義は `src/renderer.d.ts` を正として更新する。
+## 品質ゲート（CI fail 条件）
+```bash
+pnpm exec tsc --noEmit
+pnpm exec tsc -p electron/tsconfig.json
+pnpm run lint
+pnpm run check:architecture
+pnpm run test:run
+```
 
-## 既存逸脱コードの扱い
-- 理想構成を規約として維持する。
-- ただし通常の機能開発では、既存コードを無理に全面移行しない。
-- 既存逸脱の解消は「専用リファクタ」タスクで計画的に実施する。
+## レポート運用
+- `SHOULD`: 月次で巨大ファイル残件レポートを生成し、優先順位を更新する。
+- `SHOULD`: `pnpm run report:large-files` の結果をリファクタ計画へ反映する。
 
-## 変更時チェックリスト
-- [ ] 変更が責務境界を壊していない（`pages -> features -> shared`）。
-- [ ] 新規の feature 間直接依存を作っていない。
-- [ ] 型安全性を維持している（`any` 追加なし、危険な cast なし）。
-- [ ] Renderer の Electron 呼び出しが `window.electronAPI` 経由である。
-- [ ] ユーザー影響がある場合、`docs/` の関連文書を更新した。
-- [ ] 最低限 `pnpm exec tsc --noEmit` を実行した。
-- [ ] 最低限 `pnpm exec tsc -p electron/tsconfig.json` を実行した。
+## ドキュメント同期
+- `MUST`: ユーザー影響・設計変更がある場合は `docs/system-overview.md` と `docs/development.md` を更新する。
+
+## PR チェックリスト
+- [ ] 依存方向違反がない（`pages -> features -> shared`）。
+- [ ] feature 公開面（`src/features/<feature>/index.ts`）経由 import に統一されている。
+- [ ] Renderer の Electron 呼び出しが `window.electronAPI` 経由のみ。
+- [ ] Electron セキュリティ基準を満たしている。
+- [ ] 変更ファイルの責務分離（Container/Hook/View または同等）を説明できる。
+- [ ] 例外がある場合は `docs/architecture-exceptions.md` に記録した。
+- [ ] 品質ゲート 5 コマンドを全通過。

@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, Menu, app } from 'electron';
+import { dialog, ipcMain, Menu, app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PackageDatas } from '../../src/renderer';
@@ -161,7 +161,7 @@ export const Utils = () => {
         ? secondaryAngle.relativePath
         : null;
       metaDataConfig.angles = normalizedAngles.map(
-        ({ absolutePath, ...rest }) => rest,
+        ({ absolutePath: _absolutePath, ...rest }) => rest,
       );
       metaDataConfig.primaryAngleId =
         metaDataConfig.primaryAngleId || primaryAngle?.id;

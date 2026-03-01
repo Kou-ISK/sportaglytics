@@ -23,7 +23,7 @@ type ButtonBasicTabProps = {
   availableActions: string[];
   availableLabelGroups: LabelGroup[];
   currentLabelGroup?: LabelGroup;
-  nameInputRef: React.RefObject<HTMLInputElement>;
+  nameInputRef: React.RefObject<HTMLInputElement | null>;
   capturedHotkey: string;
   isCapturingHotkey: boolean;
   setIsCapturingHotkey: (value: boolean) => void;

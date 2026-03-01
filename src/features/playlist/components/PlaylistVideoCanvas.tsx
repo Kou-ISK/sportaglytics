@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { Box } from '@mui/material';
 import type { AnnotationTarget, ItemAnnotation } from '../../../types/Playlist';
 import type { AnnotationCanvasRef } from './AnnotationCanvas';
 import { PlaylistAngleLayer } from './PlaylistAngleLayer';
@@ -15,29 +14,27 @@ type ContentRect = {
 type CanvasSize = { width: number; height: number };
 
 type PlaylistVideoCanvasProps = {
-  currentVideoSource: string | null;
   currentVideoSource2: string | null;
   viewMode: 'dual' | 'angle1' | 'angle2';
   isDrawingMode: boolean;
   drawingTarget: AnnotationTarget;
   onDrawingTargetChange: (value: AnnotationTarget) => void;
-  annotationCanvasRefPrimary: React.RefObject<AnnotationCanvasRef>;
-  annotationCanvasRefSecondary: React.RefObject<AnnotationCanvasRef>;
+  annotationCanvasRefPrimary: React.RefObject<AnnotationCanvasRef | null>;
+  annotationCanvasRefSecondary: React.RefObject<AnnotationCanvasRef | null>;
   primaryCanvasSize: CanvasSize;
   secondaryCanvasSize: CanvasSize;
   primaryContentRect: ContentRect;
   secondaryContentRect: ContentRect;
-  currentAnnotation?: ItemAnnotation;
+  currentAnnotation?: ItemAnnotation | null;
   defaultFreezeDuration: number;
   onObjectsChange: (objects: ItemAnnotation['objects'], target: AnnotationTarget) => void;
   onFreezeDurationChange: (duration: number) => void;
   currentTime: number;
-  videoRef: React.RefObject<HTMLVideoElement>;
-  videoRef2: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoRef2: React.RefObject<HTMLVideoElement | null>;
 };
 
 export const PlaylistVideoCanvas = ({
-  currentVideoSource,
   currentVideoSource2,
   viewMode,
   isDrawingMode,

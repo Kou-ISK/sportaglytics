@@ -26,18 +26,17 @@ export class AudioSyncAnalyzer {
    */
   async extractAudioFromVideo(videoPath: string): Promise<WaveformData> {
     try {
-      // ファイルパスを適切なURLに変換
-      const fileUrl = videoPath.startsWith('file://')
-        ? videoPath
-        : `file://${videoPath}`;
-
-      // fetch APIを使用してファイルを読み込み
-      const response = await fetch(fileUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch video file: ${response.statusText}`);
+      const base64Data =
+        await globalThis.window.electronAPI?.readBinaryFile?.(videoPath);
+      if (!base64Data) {
+        throw new Error(`Failed to read video file: ${videoPath}`);
       }
-
-      const arrayBuffer = await response.arrayBuffer();
+      const binary = atob(base64Data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const arrayBuffer = bytes.buffer;
       const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
 
       const channelData = audioBuffer.getChannelData(0); // モノラル音声として処理

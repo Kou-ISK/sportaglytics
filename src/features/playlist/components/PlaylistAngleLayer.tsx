@@ -15,9 +15,9 @@ type CanvasSize = { width: number; height: number };
 
 type PlaylistAngleLayerProps = {
   boxSx: SxProps<Theme>;
-  videoRef: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   videoStyle: React.CSSProperties;
-  annotationCanvasRef: React.RefObject<AnnotationCanvasRef>;
+  annotationCanvasRef: React.RefObject<AnnotationCanvasRef | null>;
   canvasSize: CanvasSize;
   contentRect: ContentRect;
   isDrawingMode: boolean;

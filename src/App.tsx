@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import { VideoPlayerApp } from './pages/VideoPlayerApp';
 import { SettingsPage } from './pages/SettingsPage';
-import PlaylistWindowApp from './features/playlist/PlaylistWindowApp';
+import { PlaylistWindowApp } from './features/playlist';
 import { AnalysisWindowApp } from './pages/AnalysisWindowApp';
 import { AnalysisReportPage } from './pages/AnalysisReportPage';
 

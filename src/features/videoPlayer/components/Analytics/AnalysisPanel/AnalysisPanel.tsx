@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { TimelineData } from '../../../../../types/TimelineData';
 import type { PlaylistItem } from '../../../../../types/Playlist';
+import type { AnalysisView } from '../../../../../types/AnalysisView';
 import { AnalysisPanelView } from './view/AnalysisPanelView';
 import { useAnalysisPanelState } from './hooks/useAnalysisPanelState';
-
-export type AnalysisView = 'dashboard' | 'momentum' | 'matrix' | 'ai';
 
 interface AnalysisPanelProps {
   open: boolean;

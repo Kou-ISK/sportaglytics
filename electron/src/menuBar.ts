@@ -3,6 +3,7 @@ import { createPlaylistWindow } from './playlistWindow';
 import { openSettingsWindow } from './settingsWindow';
 import { openHelpWindow } from './helpWindow';
 import { openAnalysisWindow } from './analysisWindow';
+import { applyWindowSecurity } from './windowSecurity';
 
 let recentPackagePaths: string[] = [];
 
@@ -13,8 +14,14 @@ const openVersionInfoWindow = () => {
   const versionWindow = new BrowserWindow({
     width: 400,
     height: 200,
-    webPreferences: { nodeIntegration: true },
+    webPreferences: {
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+    },
   });
+  applyWindowSecurity(versionWindow);
   versionWindow.loadURL(
     `data:text/html;charset=utf-8,${encodeURIComponent(`
     <h1>SportagLytics</h1>
@@ -90,7 +97,7 @@ const buildMenu = () => {
     {
       label: '設定...',
       accelerator: 'CmdOrCtrl+,',
-      click: (_menuItem, browserWindow) => {
+      click: (_menuItem, _browserWindow) => {
         openSettingsWindow();
       },
     },

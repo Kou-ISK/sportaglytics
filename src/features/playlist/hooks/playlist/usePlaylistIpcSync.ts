@@ -67,8 +67,8 @@ export const usePlaylistIpcSync = ({
         }
         setItemAnnotations(annotations);
         setPlaylistType(activePlaylist.type);
-        setPackagePath(activePlaylist.packagePath || null);
-        setVideoSources(activePlaylist.videoSources || []);
+        setPackagePath(data.packagePath ?? activePlaylist.sourcePackagePath ?? null);
+        setVideoSources(data.videoSources ?? []);
 
         const hasEmbeddedSources = (data.videoSources || []).length > 0;
         if (hasEmbeddedSources) {

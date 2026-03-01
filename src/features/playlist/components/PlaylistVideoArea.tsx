@@ -18,8 +18,8 @@ type PlaylistVideoAreaProps = {
   isDrawingMode: boolean;
   drawingTarget: AnnotationTarget;
   onDrawingTargetChange: (value: AnnotationTarget) => void;
-  annotationCanvasRefPrimary: React.RefObject<AnnotationCanvasRef>;
-  annotationCanvasRefSecondary: React.RefObject<AnnotationCanvasRef>;
+  annotationCanvasRefPrimary: React.RefObject<AnnotationCanvasRef | null>;
+  annotationCanvasRefSecondary: React.RefObject<AnnotationCanvasRef | null>;
   primaryCanvasSize: { width: number; height: number };
   secondaryCanvasSize: { width: number; height: number };
   primaryContentRect: {
@@ -34,16 +34,16 @@ type PlaylistVideoAreaProps = {
     offsetX: number;
     offsetY: number;
   };
-  currentAnnotation: ItemAnnotation | undefined;
+  currentAnnotation: ItemAnnotation | null;
   defaultFreezeDuration: number;
   onObjectsChange: (
-    target: AnnotationTarget,
     objects: DrawingObject[],
+    target?: AnnotationTarget,
   ) => void;
   onFreezeDurationChange: (value: number) => void;
   currentTime: number;
-  videoRef: React.RefObject<HTMLVideoElement>;
-  videoRef2: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoRef2: React.RefObject<HTMLVideoElement | null>;
   hasItems: boolean;
   controlsVisible: boolean;
   sliderMin: number;
@@ -56,7 +56,7 @@ type PlaylistVideoAreaProps = {
   isMuted: boolean;
   volume: number;
   isFullscreen: boolean;
-  onSeek: (time: number) => void;
+  onSeek: (event: Event, value: number | number[]) => void;
   onSeekCommitted: () => void;
   onPrevious: () => void;
   onTogglePlay: () => void;
@@ -65,7 +65,7 @@ type PlaylistVideoAreaProps = {
   onToggleLoop: () => void;
   onToggleDrawingMode: () => void;
   onToggleMute: () => void;
-  onVolumeChange: (value: number) => void;
+  onVolumeChange: (event: Event, value: number | number[]) => void;
   onToggleFullscreen: () => void;
   onVideoAreaHoverChange: (hovered: boolean) => void;
   onVideoAreaInteraction: () => void;
@@ -134,7 +134,6 @@ export const PlaylistVideoArea = ({
     >
       {currentVideoSource ? (
         <PlaylistVideoCanvas
-          currentVideoSource={currentVideoSource}
           currentVideoSource2={currentVideoSource2}
           viewMode={viewMode}
           isDrawingMode={isDrawingMode}

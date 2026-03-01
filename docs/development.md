@@ -56,17 +56,19 @@ SporTagLytics/
 ├── docs/                     # ドキュメント
 ├── electron/                 # Electronメインプロセス
 │   └── src/
-│       ├── main.ts          # エントリーポイント
-│       ├── preload.ts       # プリロードスクリプト
-│       ├── menuBar.ts       # メニューバー
-│       ├── settingsManager.ts
-│       ├── playlistWindow.ts
+│       ├── main.ts          # 起動/組み立て
+│       ├── preload.ts       # ドメインブリッジ合成
+│       ├── ipc/             # IPCハンドラ登録（files/report/export等）
+│       ├── preload/         # preloadドメインモジュール
+│       ├── windowSecurity.ts
+│       ├── menuBar.ts
 │       └── ...
 ├── public/                   # 静的ファイル
 ├── src/                      # Reactアプリケーション
 │   ├── main.tsx             # エントリーポイント
 │   ├── App.tsx              # ルートコンポーネント
 │   ├── components/          # 共通コンポーネント
+│   │   └── ui/              # design-system（primitives/composites/patterns）
 │   ├── contexts/            # Reactコンテキスト
 │   ├── features/            # 機能別モジュール
 │   │   ├── playlist/
@@ -87,6 +89,7 @@ SporTagLytics/
 | ------------------------- | ------------------------------------------ |
 | `electron/src/`           | Electronメインプロセス、IPC、ネイティブAPI |
 | `src/components/`         | 共通UIコンポーネント                       |
+| `src/components/ui/`      | 共通UI design-system（Shared UI限定）      |
 | `src/contexts/`           | グローバル状態管理（React Context）        |
 | `src/features/<Feature>/` | 機能単位のコンポーネント・フック・型       |
 | `src/hooks/`              | 共通カスタムフック                         |
@@ -103,7 +106,7 @@ SporTagLytics/
 | 技術         | バージョン | 用途             |
 | ------------ | ---------- | ---------------- |
 | React        | 19.2.3     | UIライブラリ     |
-| TypeScript   | 5.9.3      | 型安全な開発     |
+| TypeScript   | 5.4.5      | 型安全な開発     |
 | Material-UI  | 7.3.7      | UIコンポーネント |
 | Recharts     | 3.6.0      | グラフ・チャート |
 | React Router | 7.12.0     | ルーティング     |
@@ -135,7 +138,7 @@ SporTagLytics/
 | ------ | ---------- | ---------------------- |
 | pnpm   | 9.1.0+     | パッケージマネージャー |
 | Vite   | 7.x        | バンドラー             |
-| ESLint | 8.57.1     | 静的解析               |
+| ESLint | 9.39.2     | 静的解析               |
 | Vitest | 4.x        | テスト                 |
 
 ---
@@ -161,27 +164,36 @@ pnpm start
 pnpm run build
 
 # Electronアプリのパッケージング（macOS）
-pnpm run package:mac
+pnpm run electron:package:mac
 ```
 
 ### テスト
 
 ```bash
 # ユニットテスト
-pnpm test
-
-# カバレッジ計測
-pnpm test:coverage
+pnpm run test:run
 ```
 
 ### リンター
 
 ```bash
 # ESLint実行
-pnpm lint
+pnpm run lint
 
 # TypeScript型チェック
-pnpm exec tsc --noEmit
+pnpm run typecheck
+
+# Electron側型チェック
+pnpm run typecheck:electron
+
+# アーキテクチャ境界チェック
+pnpm run check:architecture
+
+# アーキテクチャ健全性レポート（準拠率）
+pnpm run report:architecture-health
+
+# 大規模ファイル残件レポート（Warn Only）
+pnpm run report:large-files
 ```
 
 ---
@@ -243,7 +255,7 @@ Closes #123
 
 1. `develop` から `feature/*` ブランチを作成
 2. 機能開発・テスト・ドキュメント更新
-3. `pnpm lint` と `pnpm exec tsc --noEmit` で型エラーがないことを確認
+3. `pnpm run lint` / `pnpm run typecheck` / `pnpm run typecheck:electron` / `pnpm run check:architecture` を通す
 4. `develop` へのプルリクエストを作成
 5. レビュー後にマージ
 
@@ -300,6 +312,15 @@ useEffect(() => {
 - **テーマの活用**: `theme.palette`, `theme.spacing`
 - **レスポンシブ**: `theme.breakpoints`
 
+### ファイル分割ポリシー
+
+- **Soft Budget（Warn Only）**:
+  `TSX <= 300行`, `TS <= 450行` は目安
+- **必須**:
+  行数に関係なく `UI描画` と `IPC/永続化` と `ドメイン計算` の責務混在を避ける
+- **例外管理**:
+  例外は `docs/architecture-exceptions.md` に記録する
+
 ### 命名規則
 
 | 対象                | 規則        | 例                                   |
@@ -316,67 +337,58 @@ useEffect(() => {
 
 ### Electron IPC通信
 
+現行構成は「main は組み立て」「IPCはドメイン登録関数」「preload は型付きブリッジ合成」です。
+
 **フロー**:
 
 ```
-React (Renderer Process)
-  ↓ window.electronAPI.xxx()
-Preload Script (preload.ts)
-  ↓ ipcRenderer.invoke()
-Main Process (main.ts)
-  ↓ ipcMain.handle()
-ネイティブAPI / ファイルシステム
+Renderer (React)
+  ↓ window.electronAPI.<explicit method>
+Preload (domain bridge)
+  ↓ ipcRenderer.invoke/send
+Main IPC handlers (domain modules)
+  ↓ native APIs / filesystem
 ```
 
-**実装例**:
+**Main側の分割例**:
 
-```typescript
-// preload.ts
-contextBridge.exposeInMainWorld('electronAPI', {
-  readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
-});
+- `electron/src/ipc/fileHandlers.ts`
+- `electron/src/ipc/reportHandlers.ts`
+- `electron/src/ipc/dashboardHandlers.ts`
+- `electron/src/ipc/codeWindowHandlers.ts`
+- `electron/src/ipc/exportHandlers.ts`
+- `electron/src/ipc/llamaHandlers.ts`
 
-// main.ts
-ipcMain.handle('read-file', async (_event, filePath: string) => {
-  return await fs.promises.readFile(filePath, 'utf-8');
-});
+**Preload側の分割例**:
 
-// React側
-const data = await window.electronAPI.readFile('/path/to/file.json');
-```
+- `electron/src/preload/appBridge.ts`
+- `electron/src/preload/eventBridge.ts`
+- `electron/src/preload/settingsBridge.ts`
+- `electron/src/preload/analysisBridge.ts`
+- `electron/src/preload/playlistBridge.ts`
+- `electron/src/preload/codeWindowBridge.ts`
 
-### IPC通信チャネル一覧
+**Renderer API方針**:
 
-SporTagLyticsで使用される主要なIPCチャネルとその役割:
+- `window.electronAPI` から汎用 `on/off/send` は提供しない
+- `onTimelineUndo`, `onMenuShowStats`, `notifyHotkeysUpdated` など用途別メソッドのみ公開
+- `src` 側で `electron` / `ipcRenderer` の直接 import は禁止
 
-| チャネル名                    | 方向          | データ型                 | 用途                                     |
-| ----------------------------- | ------------- | ------------------------ | ---------------------------------------- |
-| `analysis:open-window`        | Renderer→Main | なし                     | 統計・分析ウィンドウを開く               |
-| `analysis:close-window`       | Renderer→Main | なし                     | 統計・分析ウィンドウを閉じる             |
-| `analysis:is-window-open`     | Renderer→Main | なし                     | 統計・分析ウィンドウの開閉状態を確認     |
-| `analysis:jump-to-segment`    | Analysis→Main | `TimelineSegment`        | メインプレイヤーの特定時刻へジャンプ     |
-| `analysis:create-ai-playlist` | Analysis→Main | `AIPlaylistPayload`      | AI分析結果からプレイリストを作成         |
-| `playlist:sync`               | Main→Playlist | `PlaylistSyncData`       | プレイリストデータを同期                 |
-| `playlist:command`            | Main→Playlist | `PlaylistCommand`        | プレイリスト操作コマンド（再生・停止等） |
-| `playlist:request-save`       | Main→Playlist | なし                     | プレイリストの保存をリクエスト           |
-| `playlist:window-closed`      | Main→Renderer | `windowId: string`       | プレイリストウィンドウが閉じられた通知   |
-| `jump-to-time`                | Playlist→Main | `number` (seconds)       | メインプレイヤーの指定時刻へジャンプ     |
-| `jump-to-item`                | Playlist→Main | `PlaylistItem`           | プレイリストアイテムへジャンプ           |
-| `read-file`                   | Renderer→Main | `filePath: string`       | ファイル読み込み                         |
-| `write-file`                  | Renderer→Main | `filePath, data: string` | ファイル書き込み                         |
-| `open-directory`              | Renderer→Main | なし                     | ディレクトリ選択ダイアログを開く         |
-| `open-file`                   | Renderer→Main | なし                     | ファイル選択ダイアログを開く             |
-| `export-timeline`             | Renderer→Main | `filePath, format`       | タイムラインをエクスポート               |
-| `llama:generate`              | Renderer→Main | `LlamaGenerateRequest`   | LLM推論をリクエスト                      |
-| `llama:cancel`                | Renderer→Main | `requestId: string`      | LLM推論をキャンセル                      |
-| `llama:progress`              | Main→Renderer | `LlamaProgressEvent`     | LLM推論の進捗通知                        |
-| `settings:get`                | Renderer→Main | `key: string`            | 設定値を取得                             |
-| `settings:set`                | Renderer→Main | `key: string, value`     | 設定値を保存                             |
-| `check-file-exists`           | Renderer→Main | `filePath: string`       | ファイル存在確認                         |
-| `get-app-version`             | Renderer→Main | なし                     | アプリバージョン取得                     |
-| `extract-video-clip`          | Renderer→Main | `ClipExportRequest`      | 映像クリップ書き出し（FFmpeg使用）       |
+**ローカルファイルアクセス方針**:
 
-**注**: 全てのIPCチャネルは `contextBridge` を介して安全に公開されます（`contextIsolation: true`）。
+- `fetch(filePath)` は使用しない
+- `readJsonFile` / `readTextFile` / `readBinaryFile` を利用
+
+**セキュリティ既定**:
+
+- 全 BrowserWindow: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `webSecurity: true`
+- `electron/src/windowSecurity.ts` で `window.open` 拒否と不要ナビゲーション拒否を適用
+- IPC handler で payload/sender 検証を実施
+
+### 運用補助
+
+- 月次の巨大ファイル残件レポート:
+  `pnpm run report:large-files`
 
 ### 状態管理
 

@@ -57,11 +57,10 @@ export const countActionResultsForTeam = (
 ): rechartsData[] => {
   const acc = createAccumulator();
   filterByTeamAndAction(timeline, teamName, actionName).forEach((item) => {
-    // SCTimeline形式のlabels配列から取得、なければ従来のactionResultから取得
     const actionResult = getLabelByGroupWithFallback(
       item,
       'actionResult',
-      item.actionResult,
+      '',
     );
     if (!actionResult || actionResult === 'Reset') return;
     increment(acc, actionResult, 1);
@@ -76,11 +75,10 @@ export const countActionTypesForTeam = (
 ): rechartsData[] => {
   const acc = createAccumulator();
   filterByTeamAndAction(timeline, teamName, actionName).forEach((item) => {
-    // SCTimeline形式のlabels配列から取得、なければ従来のactionTypeから取得
     const actionType = getLabelByGroupWithFallback(
       item,
       'actionType',
-      item.actionType || '未設定',
+      '未設定',
     );
     increment(acc, actionType, 1);
   });

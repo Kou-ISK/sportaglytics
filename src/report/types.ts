@@ -8,7 +8,7 @@ import type {
   DashboardSeriesFilter,
 } from '../types/Settings';
 import type { TimelineData } from '../types/TimelineData';
-import type { MatrixFilterState } from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/hooks/matrixFilterUtils';
+import type { MatrixFilterState } from '../shared/analysis/matrixFilterUtils';
 
 export interface AnalysisReportMeta {
   generatedAt: string;

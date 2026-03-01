@@ -1,6 +1,6 @@
 import type { IPlaylistAPI, PlaylistItem } from './types/Playlist';
 import type { TimelineData } from './types/TimelineData';
-import type { AnalysisView } from './features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
+import type { AnalysisView } from './types/AnalysisView';
 import type { AnalysisReportPayload } from './report/types';
 
 export interface AnalysisWindowSyncPayload {
@@ -31,16 +31,33 @@ export interface IElectronAPI {
     }>,
     metaDataConfig: unknown,
   ) => Promise<PackageDatas>;
-  on(
-    channel: 'analysis:jump-to-segment',
-    listener: (event: unknown, segment: TimelineData) => void,
-  ): void;
-  on(channel: string, listener: (event: unknown, args: unknown) => void): void;
-  off(
-    channel: 'analysis:jump-to-segment',
-    listener: (event: unknown, segment: TimelineData) => void,
-  ): void;
-  off(channel: string, listener: (...args: unknown[]) => void): void;
+  onAnalysisJumpToSegment: (
+    callback: (segment: TimelineData) => void,
+  ) => () => void;
+  onAnalysisCreateAiPlaylist: (
+    callback: (payload: { name?: string; items?: PlaylistItem[] }) => void,
+  ) => () => void;
+  onMenuShowStats: (
+    callback: (requestedView?: AnalysisView) => void,
+  ) => () => void;
+  onTimelineUndo: (callback: () => void) => () => void;
+  onTimelineRedo: (callback: () => void) => () => void;
+  onMenuExportAnalysisRawCsv: (callback: () => void) => () => void;
+  onMenuShowShortcuts: (callback: () => void) => () => void;
+  onAnalysisDashboardExternalOpen: (
+    callback: (filePath: string) => void,
+  ) => () => void;
+  onMenuExportClips: (callback: () => void) => () => void;
+  onPlaylistRequestSave: (callback: () => void) => () => void;
+  notifyPlaylistSavedAndClose: () => void;
+  notifyHotkeysUpdated: () => void;
+  onAnalysisReportPayload: (
+    callback: (message: {
+      requestId?: string;
+      payload?: AnalysisReportPayload;
+    }) => void,
+  ) => () => void;
+  notifyAnalysisReportRenderReady: (requestId: string) => void;
   // メニューからの音声同期イベント
   onResyncAudio: (callback: () => void) => void;
   onResetSync: (callback: () => void) => void;
@@ -73,7 +90,6 @@ export interface IElectronAPI {
   // 設定管理API
   loadSettings: () => Promise<unknown>;
   saveSettings: (settings: unknown) => Promise<boolean>;
-  send: (channel: string, ...args: unknown[]) => void;
   resetSettings: () => Promise<unknown>;
   onOpenSettings: (callback: () => void) => void;
   offOpenSettings: (callback: () => void) => void;
@@ -176,6 +192,7 @@ export interface IElectronAPI {
     payload: AnalysisReportPayload,
   ) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<string | null>;
+  readBinaryFile: (filePath: string) => Promise<string | null>;
   saveDashboardPackage: (
     packagePath: string,
     content: string,

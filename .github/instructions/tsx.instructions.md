@@ -2,11 +2,11 @@
 applyTo: '**/*.tsx'
 ---
 
-# TSX（React コンポーネント）向け指示
+# React TSX Files (`*.tsx`)
 
-- Container（データ取得・状態・イベント連携）/ Hook（ロジック）/ View（描画）を分離し、責務を混在させない。
-- MUI の `sx` とテーマ（`src/theme.ts`）を使い、色・余白・フォントのハードコードを避ける。
-- `useEffect` / `useMemo` / `useCallback` の依存配列は正確に記述し、不要な再レンダリングを防ぐ。
-- `window.electronAPI` を使う場合は存在チェックを行い、失敗時は安全にフォールバックまたは `console.debug` で記録する。
-- データ未存在時の空状態表示と、失敗時のエラーステート（`Alert` / `Snackbar` 等）を実装する。
-- ユーザー向け文言は日本語中心で統一し、同一画面内で表現ゆれを作らない。
+このファイルで定義するのは `applyTo` 対象の差分ルールのみです。一般規約は `AGENTS.md` を参照してください。
+
+1. 表示（View）と状態/副作用（Container/Hook）を分離する。
+2. `useEffect` は依存配列と cleanup を省略しない。
+3. 計算量の大きい派生値は `useMemo`、イベントハンドラは `useCallback` で安定化する。
+4. 空状態・エラー状態を明示的に描画する。

@@ -47,16 +47,12 @@ export const useRawTimelineCsvExport = ({
 
   useEffect(() => {
     const api = globalThis.window.electronAPI;
-    if (!api?.on) return;
+    if (!api?.onMenuExportAnalysisRawCsv) return;
 
-    const handler = () => {
+    const unsubscribe = api.onMenuExportAnalysisRawCsv(() => {
       void exportRawCsv();
-    };
-
-    api.on('menu-export-analysis-raw-csv', handler);
-    return () => {
-      api.off?.('menu-export-analysis-raw-csv', handler);
-    };
+    });
+    return unsubscribe;
   }, [exportRawCsv]);
 
   return { exportRawCsv };

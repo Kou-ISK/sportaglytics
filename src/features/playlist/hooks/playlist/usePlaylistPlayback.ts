@@ -3,6 +3,7 @@ import type {
   ItemAnnotation,
   PlaylistItem,
 } from '../../../../types/Playlist';
+import { formatSource } from '../../../videoPlayer/components/Player/SingleVideo/utils';
 
 interface UsePlaylistPlaybackParams {
   items: PlaylistItem[];
@@ -19,14 +20,14 @@ interface UsePlaylistPlaybackParams {
   viewMode: 'dual' | 'angle1' | 'angle2';
   currentVideoSource: string | null;
   currentVideoSource2: string | null;
-  videoRef: React.RefObject<HTMLVideoElement>;
-  videoRef2: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoRef2: React.RefObject<HTMLVideoElement | null>;
   setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
   setDuration: React.Dispatch<React.SetStateAction<number>>;
   volume: number;
   isMuted: boolean;
   setVolume: React.Dispatch<React.SetStateAction<number>>;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   isFullscreen: boolean;
   setIsFullscreen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsDrawingMode: React.Dispatch<React.SetStateAction<boolean>>;
@@ -238,7 +239,7 @@ export const usePlaylistPlayback = ({
     lastFreezeTimestampRef.current = null;
     setIsFrozen(false);
 
-    video.src = currentVideoSource;
+    video.src = formatSource(currentVideoSource);
     video.load();
     video.currentTime = currentItem.startTime;
     setCurrentTime(currentItem.startTime); // 即座にステートも更新
@@ -253,7 +254,7 @@ export const usePlaylistPlayback = ({
     const video2 = videoRef2.current;
     if (!video2 || !currentVideoSource2 || !currentItem) return;
 
-    video2.src = currentVideoSource2;
+    video2.src = formatSource(currentVideoSource2);
     video2.load();
     video2.currentTime = currentItem.startTime;
     video2.volume = 0;

@@ -1,4 +1,5 @@
 import { BrowserWindow, app } from 'electron';
+import { applyWindowSecurity } from './windowSecurity';
 
 let helpWindow: BrowserWindow | null = null;
 
@@ -242,8 +243,14 @@ export const openHelpWindow = () => {
     height: 920,
     autoHideMenuBar: true,
     backgroundColor: '#0b1224',
-    webPreferences: { contextIsolation: true },
+    webPreferences: {
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+    },
   });
+  applyWindowSecurity(helpWindow);
 
   helpWindow.loadURL(
     `data:text/html;charset=utf-8,${encodeURIComponent(buildHelpHtml())}`,

@@ -249,14 +249,12 @@ export const useTimelineExportDialogs = ({
   ]);
 
   useEffect(() => {
-    const handler = () => {
+    const api = globalThis.window.electronAPI;
+    if (!api?.onMenuExportClips) return;
+    const unsubscribe = api.onMenuExportClips(() => {
       handleOpenClipDialog();
-    };
-    if (!globalThis.window.electronAPI?.on) return;
-    globalThis.window.electronAPI.on('menu-export-clips', handler);
-    return () => {
-      globalThis.window.electronAPI?.off?.('menu-export-clips', handler);
-    };
+    });
+    return unsubscribe;
   }, [handleOpenClipDialog]);
 
   return {

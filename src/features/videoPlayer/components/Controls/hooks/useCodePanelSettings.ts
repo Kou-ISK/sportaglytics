@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ActionLink } from '../effectiveLinks';
-import type { AppSettings } from '../../../../types/Settings';
+import type { AppSettings } from '../../../../../types/Settings';
 
 type CodingPanelSettings = AppSettings['codingPanel'];
 

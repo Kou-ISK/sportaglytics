@@ -9,7 +9,7 @@ import {
   deriveMatrixFilters,
   MATRIX_FILTER_ALL,
   type MatrixFilterState,
-} from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/hooks/matrixFilterUtils';
+} from '../shared/analysis/matrixFilterUtils';
 import type {
   AnalysisReportMatrixSection,
   DashboardReportPage,

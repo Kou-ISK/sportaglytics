@@ -1,7 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import { VideoPlayer } from '../../../features/videoPlayer/components/Player/VideoPlayer';
-import { VideoController } from '../../../features/videoPlayer/components/Controls/VideoController';
+import { VideoPlayer, VideoController } from '../../../features/videoPlayer';
 import { VideoSyncData } from '../../../types/VideoSync';
 
 interface PlayerSurfaceProps {

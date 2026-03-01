@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { HotkeyConfig } from '../../../types/Settings';
+import type { HotkeyConfig } from '../../../../types/Settings';
 
 export const usePlaylistHotkeys = () => {
   return useMemo<HotkeyConfig[]>(

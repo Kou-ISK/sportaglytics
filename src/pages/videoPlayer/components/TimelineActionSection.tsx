@@ -5,11 +5,11 @@ import React, {
   forwardRef,
 } from 'react';
 import { Box, Paper } from '@mui/material';
-import { VisualTimeline } from '../../../features/videoPlayer/components/Timeline/VisualTimeline/VisualTimeline';
 import {
+  VisualTimeline,
   EnhancedCodePanel,
   type EnhancedCodePanelHandle,
-} from '../../../features/videoPlayer/components/Controls/EnhancedCodePanel';
+} from '../../../features/videoPlayer';
 import { TimelineData } from '../../../types/TimelineData';
 
 export interface TimelineActionSectionHandle {
@@ -100,16 +100,28 @@ export const TimelineActionSection = forwardRef<
     // metaDataConfigFilePathからチーム名を読み込む
     useEffect(() => {
       if (!metaDataConfigFilePath) return;
+      const api = globalThis.window.electronAPI;
+      if (!api?.readJsonFile) return;
 
       let isActive = true;
 
-      fetch(metaDataConfigFilePath)
-        .then((response) => response.json())
+      void api
+        .readJsonFile(metaDataConfigFilePath)
         .then((data) => {
           if (!isActive || !data) return;
 
-          if (data.team1Name && data.team2Name) {
-            setTeamNames([data.team1Name, data.team2Name]);
+          if (
+            typeof data === 'object' &&
+            data &&
+            'team1Name' in data &&
+            'team2Name' in data &&
+            typeof (data as { team1Name?: unknown }).team1Name === 'string' &&
+            typeof (data as { team2Name?: unknown }).team2Name === 'string'
+          ) {
+            setTeamNames([
+              (data as { team1Name: string }).team1Name,
+              (data as { team2Name: string }).team2Name,
+            ]);
           }
         })
         .catch((error) => console.error('Error loading JSON:', error));

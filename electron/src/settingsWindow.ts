@@ -3,6 +3,7 @@
  */
 import { BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
+import { applyWindowSecurity } from './windowSecurity';
 
 let settingsWindow: BrowserWindow | null = null;
 
@@ -23,9 +24,12 @@ const focusOrCreate = () => {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
     },
   });
+  applyWindowSecurity(settingsWindow);
 
   settingsWindow.loadURL(SETTINGS_HASH_URL);
   settingsWindow.on('closed', () => {

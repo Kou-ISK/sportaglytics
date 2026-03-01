@@ -184,8 +184,6 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     clipDialogOpen,
     setClipDialogOpen,
     isExporting,
-    overlaySettings,
-    setOverlaySettings,
     primarySource,
     setPrimarySource,
     secondarySource,

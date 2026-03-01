@@ -128,7 +128,6 @@ export const useTimelineEditing = (
           }
 
           const next = { ...item, labels: updatedLabels };
-          delete (next as Partial<typeof item>).actionResult;
           return next;
         });
         console.debug(
@@ -169,7 +168,6 @@ export const useTimelineEditing = (
           }
 
           const next = { ...item, labels: updatedLabels };
-          delete (next as Partial<typeof item>).actionType;
           return next;
         });
         console.debug(

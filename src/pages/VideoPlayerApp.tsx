@@ -1,21 +1,15 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
-import {
-  AnalysisPanel,
-  AnalysisView,
-} from '../features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
+import { AnalysisPanel } from '../features/videoPlayer';
 import { useVideoPlayerApp } from '../hooks/useVideoPlayerApp';
 import { useSettings } from '../hooks/useSettings';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useActionPreset } from '../contexts/ActionPresetContext';
 import { PlaylistProvider } from '../contexts/PlaylistContext';
-import { TimelineData } from '../types/TimelineData';
-import type { PlaylistItem } from '../types/Playlist';
 import type { TimelineActionSectionHandle } from './videoPlayer/components/TimelineActionSection';
 import { ErrorSnackbar } from './videoPlayer/components/ErrorSnackbar';
 import { SyncAnalysisBackdrop } from './videoPlayer/components/SyncAnalysisBackdrop';
 import { useSyncMenuHandlers } from './videoPlayer/hooks/useSyncMenuHandlers';
-import { useAnalysisMenuHandlers } from './videoPlayer/hooks/useAnalysisMenuHandlers';
 import { useTimelineExportImport } from './videoPlayer/hooks/useTimelineExportImport';
 import { useRawTimelineCsvExport } from '../hooks/useRawTimelineCsvExport';
 import { OnboardingTutorial } from '../components/OnboardingTutorial';
@@ -24,6 +18,7 @@ import { useManualSyncSeek } from './videoPlayer/hooks/useManualSyncSeek';
 import { useTimelineKeyboardShortcuts } from './videoPlayer/hooks/useTimelineKeyboardShortcuts';
 import { usePlaylistIntegration } from './videoPlayer/hooks/usePlaylistIntegration';
 import { VideoPlayerLayout } from './videoPlayer/components/VideoPlayerLayout';
+import { useAnalysisIntegration } from './videoPlayer/hooks/useAnalysisIntegration';
 
 const VideoPlayerAppContent = () => {
   const {
@@ -73,8 +68,6 @@ const VideoPlayerAppContent = () => {
     performRedo,
   } = useVideoPlayerApp();
 
-  const [analysisOpen, setAnalysisOpen] = useState(false);
-  const [analysisView, setAnalysisView] = useState<AnalysisView>('dashboard');
   const [viewMode, setViewMode] = useState<'dual' | 'angle1' | 'angle2'>(
     'dual',
   );
@@ -106,25 +99,21 @@ const VideoPlayerAppContent = () => {
     });
   }, [setSyncMode]);
 
-  const openAnalysisWindow = useCallback(
-    async (nextView?: AnalysisView) => {
-      const resolvedView = nextView ?? analysisView;
-      setAnalysisView(resolvedView);
-      const analysisApi = window.electronAPI?.analysis;
-      if (analysisApi?.openWindow) {
-        await analysisApi.openWindow();
-        analysisApi.syncToWindow({
-          timeline,
-          teamNames,
-          view: resolvedView,
-        });
-        setAnalysisOpen(false);
-        return;
-      }
-      setAnalysisOpen(true);
-    },
-    [analysisView, timeline, teamNames],
-  );
+  const {
+    analysisOpen,
+    setAnalysisOpen,
+    analysisView,
+    setAnalysisView,
+    openAnalysisWindow,
+    handleJumpToSegment,
+    handleCreateAiPlaylist,
+  } = useAnalysisIntegration({
+    timeline,
+    teamNames,
+    videoList,
+    handleCurrentTime,
+    setIsVideoPlaying: setisVideoPlaying,
+  });
 
   const { combinedHotkeys, combinedHandlers, keyUpHandlers } =
     useHotkeyBindings({
@@ -171,46 +160,8 @@ const VideoPlayerAppContent = () => {
     onSetSyncMode: setSyncMode,
   });
 
-  useAnalysisMenuHandlers({
-    onOpenAnalysis: (view) => {
-      void openAnalysisWindow(view);
-    },
-  });
-
   useTimelineExportImport({ timeline, setTimeline });
   useRawTimelineCsvExport({ timeline });
-
-  const handleJumpToSegment = useCallback(
-    (segment: TimelineData) => {
-      const targetTime = Math.max(0, segment.startTime);
-      handleCurrentTime(new Event('matrix-jump'), targetTime);
-      setisVideoPlaying(true);
-      setAnalysisOpen(false);
-    },
-    [handleCurrentTime, setisVideoPlaying],
-  );
-
-  const jumpHandlerRef = useRef(handleJumpToSegment);
-
-  useEffect(() => {
-    jumpHandlerRef.current = handleJumpToSegment;
-  }, [handleJumpToSegment]);
-
-  useEffect(() => {
-    const api = window.electronAPI;
-    if (!api?.on) return;
-    const handler = (_event: unknown, segment: TimelineData) => {
-      jumpHandlerRef.current(segment);
-    };
-    api.on('analysis:jump-to-segment', handler);
-    return () => api.off?.('analysis:jump-to-segment', handler);
-  }, []);
-
-  useEffect(() => {
-    const analysisApi = window.electronAPI?.analysis;
-    if (!analysisApi?.syncToWindow) return;
-    analysisApi.syncToWindow({ timeline, teamNames });
-  }, [timeline, teamNames]);
 
   const { handleAddToPlaylist } = usePlaylistIntegration({
     currentTime,
@@ -218,77 +169,6 @@ const VideoPlayerAppContent = () => {
     handleCurrentTime,
     setIsVideoPlaying: setisVideoPlaying,
   });
-
-  const handleCreateAiPlaylist = useCallback(
-    async (payload: { name: string; items: PlaylistItem[] }) => {
-      if (!payload?.items || payload.items.length === 0) return;
-
-      const playlistApi = window.electronAPI?.playlist;
-      if (!playlistApi) {
-        console.debug('プレイリストAPIが利用できません。');
-        return;
-      }
-
-      try {
-        console.log(
-          '[AI Playlist] Creating playlist with items:',
-          payload.items.length,
-        );
-
-        // ウィンドウを開く（まだ開いていなければ）
-        const count = await playlistApi.getOpenWindowCount();
-        if (count === 0) {
-          await playlistApi.openWindow();
-          await new Promise<void>((resolve) => setTimeout(resolve, 500));
-        }
-
-        // 各アイテムに videoSource を設定して追加
-        const list = videoList || [];
-        for (let i = 0; i < payload.items.length; i++) {
-          const item = payload.items[i];
-          const playlistItem: PlaylistItem = {
-            ...item,
-            videoSource: list[0] || undefined,
-            videoSource2: list[1] || undefined,
-          };
-          console.log(
-            `[AI Playlist] Adding item ${i + 1}/${payload.items.length}:`,
-            {
-              actionName: playlistItem.actionName,
-              startTime: playlistItem.startTime,
-              endTime: playlistItem.endTime,
-            },
-          );
-          await playlistApi.addItemToAllWindows(playlistItem);
-        }
-        console.log('[AI Playlist] Successfully added all items');
-      } catch (error) {
-        console.debug('AIプレイリストの作成に失敗しました。', error);
-      }
-    },
-    [videoList],
-  );
-
-  const createPlaylistRef = useRef(handleCreateAiPlaylist);
-
-  useEffect(() => {
-    createPlaylistRef.current = handleCreateAiPlaylist;
-  }, [handleCreateAiPlaylist]);
-
-  useEffect(() => {
-    const api = window.electronAPI;
-    if (!api?.on) return;
-    const handler = (_event: unknown, payload: unknown) => {
-      const data = payload as { name?: string; items?: PlaylistItem[] } | null;
-      if (!data || !data.items) return;
-      void createPlaylistRef.current({
-        name: data.name || 'AI Review',
-        items: data.items,
-      });
-    };
-    api.on('analysis:create-ai-playlist', handler);
-    return () => api.off?.('analysis:create-ai-playlist', handler);
-  }, []);
 
   return (
     <Box

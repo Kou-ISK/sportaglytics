@@ -8,16 +8,16 @@ import type {
 import {
   buildCustomChartData,
   type CustomChartDatumValue,
-} from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/hooks/useCustomChartData';
+} from '../shared/analysis/customChartData';
 import { extractUniqueGroups } from '../utils/labelExtractors';
 import { getTimelineTeamOrder } from '../utils/teamOrder';
 import { replaceTeamPlaceholders } from '../utils/teamPlaceholder';
-import { createMomentumDataFactory } from '../features/videoPlayer/analysis/utils/momentum';
+import { createMomentumDataFactory } from '../shared/analysis/momentum';
 import { buildHierarchicalMatrix } from '../utils/matrixBuilder';
 import {
   buildMatrixFilterSummaryText,
   deriveMatrixFilters,
-} from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/hooks/matrixFilterUtils';
+} from '../shared/analysis/matrixFilterUtils';
 import {
   buildMatrixSectionsByTeamAction,
   paginateDashboardWidgets,

@@ -130,7 +130,7 @@ export const parseAiCopilotResponse = (rawText: string): AiCopilotParseResult =>
       rawText,
       usedFallback: false,
     };
-  } catch (error) {
+  } catch {
     return {
       response: FALLBACK_RESPONSE,
       warnings: ['parse-failed'],

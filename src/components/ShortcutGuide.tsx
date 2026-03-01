@@ -97,17 +97,17 @@ export const ShortcutGuide: React.FC<ShortcutGuideProps> = ({
   const handleClose = () => setOpen(false);
 
   useEffect(() => {
-    if (!window.electronAPI?.on) {
+    if (!window.electronAPI?.onMenuShowShortcuts) {
       return;
     }
 
-    const handler = () => setOpen(true);
-
-    window.electronAPI.on('menu-show-shortcuts', handler);
+    const unsubscribe = window.electronAPI.onMenuShowShortcuts(() => {
+      setOpen(true);
+    });
 
     return () => {
       try {
-        window.electronAPI?.off?.('menu-show-shortcuts', handler);
+        unsubscribe();
       } catch (error) {
         console.debug('shortcut menu cleanup error', error);
       }

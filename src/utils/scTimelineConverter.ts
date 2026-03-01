@@ -7,6 +7,19 @@ import type {
   SCLabel,
 } from '../types/SCTimeline';
 
+type LegacyTimelineData = TimelineData & {
+  actionType?: unknown;
+  actionResult?: unknown;
+};
+
+const getLegacyTimelineLabel = (
+  item: TimelineData,
+  key: 'actionType' | 'actionResult',
+): string | undefined => {
+  const value = (item as LegacyTimelineData)[key];
+  return typeof value === 'string' && value.trim() ? value : undefined;
+};
+
 /**
  * 簡易UUID生成関数（v4形式）
  */
@@ -43,27 +56,28 @@ const getLabelByGroup = (
 const extractLabelsFromTimelineData = (
   item: TimelineData,
 ): { actionType: string; actionResult: string; labels: SCLabel[] } => {
+  const legacyActionType = getLegacyTimelineLabel(item, 'actionType');
+  const legacyActionResult = getLegacyTimelineLabel(item, 'actionResult');
+
   // labels配列が存在する場合はそこから抽出
   if (item.labels && item.labels.length > 0) {
-    const actionType =
-      getLabelByGroup(item.labels, 'actionType') || item.actionType || '';
-    const actionResult =
-      getLabelByGroup(item.labels, 'actionResult') || item.actionResult || '';
+    const actionType = getLabelByGroup(item.labels, 'actionType') || legacyActionType || '';
+    const actionResult = getLabelByGroup(item.labels, 'actionResult') || legacyActionResult || '';
     return { actionType, actionResult, labels: item.labels };
   }
 
   // labels配列が存在しない場合は従来のフィールドから生成
   const labels: SCLabel[] = [];
-  if (item.actionType) {
-    labels.push({ name: item.actionType, group: 'actionType' });
+  if (legacyActionType) {
+    labels.push({ name: legacyActionType, group: 'actionType' });
   }
-  if (item.actionResult) {
-    labels.push({ name: item.actionResult, group: 'actionResult' });
+  if (legacyActionResult) {
+    labels.push({ name: legacyActionResult, group: 'actionResult' });
   }
 
   return {
-    actionType: item.actionType || '',
-    actionResult: item.actionResult || '',
+    actionType: legacyActionType || '',
+    actionResult: legacyActionResult || '',
     labels,
   };
 };
@@ -144,7 +158,7 @@ export const convertToSCTimeline = (
  * SCTimeline形式からTimelineData配列に変換
  *
  * Sportscode SCTimeline形式のJSONを、SporTagLyticsのTimelineData配列に変換します。
- * 後方互換性を保つため、labels配列とactionType/actionResultフィールドの両方を生成します。
+ * labels配列中心の TimelineData に変換します。
  */
 export const convertFromSCTimeline = (
   scTimeline: SCTimelineFile,
@@ -167,14 +181,20 @@ export const convertFromSCTimeline = (
         actionName: row.name,
         startTime: instance.startTime,
         endTime: instance.endTime,
-        actionType: actionTypeLabel?.name || '',
-        actionResult: actionResultLabel?.name || '',
         memo: instance.notes,
         // labels配列をそのまま保持（SCTimeline形式互換）
-        labels: instance.labels.map((l) => ({
-          name: l.name,
-          group: l.group,
-        })),
+        labels: [
+          ...instance.labels.map((l) => ({
+            name: l.name,
+            group: l.group,
+          })),
+          ...(actionTypeLabel
+            ? [{ name: actionTypeLabel.name, group: 'actionType' as const }]
+            : []),
+          ...(actionResultLabel
+            ? [{ name: actionResultLabel.name, group: 'actionResult' as const }]
+            : []),
+        ],
       };
 
       timelineData.push(item);
@@ -193,30 +213,64 @@ export const convertFromSCTimeline = (
  * labels配列が存在しない古い形式のTimelineDataに対して、
  * actionType/actionResultからlabels配列を生成します。
  */
-export const normalizeTimelineData = (data: TimelineData): TimelineData => {
-  if (data.labels && data.labels.length > 0) {
-    // labels配列が存在する場合、actionType/actionResultフィールドを削除
-    const rest: TimelineData = { ...data };
-    delete (rest as Partial<TimelineData>).actionType;
-    delete (rest as Partial<TimelineData>).actionResult;
-    return rest;
+export const normalizeTimelineData = (data: unknown): TimelineData => {
+  const raw = data as TimelineData & {
+    actionType?: unknown;
+    actionResult?: unknown;
+    labels?: unknown;
+    id?: unknown;
+    actionName?: unknown;
+    startTime?: unknown;
+    endTime?: unknown;
+    memo?: unknown;
+    color?: unknown;
+  };
+
+  const normalizedLabels: SCLabel[] = Array.isArray(raw.labels)
+    ? raw.labels.reduce<SCLabel[]>((acc, label) => {
+        if (!label || typeof label !== 'object') return acc;
+        const name = (label as { name?: unknown }).name;
+        const group = (label as { group?: unknown }).group;
+        if (typeof name !== 'string') return acc;
+        if (typeof group === 'string') {
+          acc.push({ name, group });
+        } else {
+          acc.push({ name });
+        }
+        return acc;
+      }, [])
+    : [];
+
+  const legacyActionType =
+    typeof raw.actionType === 'string' && raw.actionType.trim()
+      ? raw.actionType
+      : undefined;
+  const legacyActionResult =
+    typeof raw.actionResult === 'string' && raw.actionResult.trim()
+      ? raw.actionResult
+      : undefined;
+
+  if (!normalizedLabels.some((label) => label.group === 'actionType') && legacyActionType) {
+    normalizedLabels.push({ name: legacyActionType, group: 'actionType' });
+  }
+  if (!normalizedLabels.some((label) => label.group === 'actionResult') && legacyActionResult) {
+    normalizedLabels.push({ name: legacyActionResult, group: 'actionResult' });
   }
 
-  const labels: SCLabel[] = [];
-  if (data.actionType) {
-    labels.push({ name: data.actionType, group: 'actionType' });
-  }
-  if (data.actionResult) {
-    labels.push({ name: data.actionResult, group: 'actionResult' });
-  }
-
-  // actionType/actionResultフィールドを除外し、labels配列を追加
-  const rest: TimelineData = { ...data };
-  delete (rest as Partial<TimelineData>).actionType;
-  delete (rest as Partial<TimelineData>).actionResult;
   return {
-    ...rest,
-    labels,
+    id: typeof raw.id === 'string' ? raw.id : generateUUID(),
+    actionName: typeof raw.actionName === 'string' ? raw.actionName : '',
+    startTime:
+      typeof raw.startTime === 'number' && Number.isFinite(raw.startTime)
+        ? raw.startTime
+        : 0,
+    endTime:
+      typeof raw.endTime === 'number' && Number.isFinite(raw.endTime)
+        ? raw.endTime
+        : 0,
+    memo: typeof raw.memo === 'string' ? raw.memo : '',
+    labels: normalizedLabels,
+    ...(typeof raw.color === 'string' ? { color: raw.color } : {}),
   };
 };
 

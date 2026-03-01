@@ -12,7 +12,7 @@ import {
 } from '../../components/annotationCanvasUtils';
 
 interface UseAnnotationPointerHandlersParams {
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   isActive: boolean;
   tool: DrawingToolType;
   color: string;

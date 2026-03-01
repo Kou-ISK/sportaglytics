@@ -204,9 +204,7 @@ export const HotkeySettings = forwardRef<
 
       // ホットキーが更新されたことをメインプロセスに通知
       const api = globalThis.window.electronAPI;
-      if (api && 'send' in api) {
-        (api as { send: (channel: string) => void }).send('hotkeys-updated');
-      }
+      api?.notifyHotkeysUpdated?.();
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);

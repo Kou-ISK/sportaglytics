@@ -88,7 +88,7 @@ export const usePlaylistSaveFlow = ({
       console.log('[PlaylistWindow] Playlist saved to:', savedPath);
 
       if (shouldCloseAfterSave) {
-        window.electronAPI?.send?.('playlist:saved-and-close');
+        window.electronAPI?.notifyPlaylistSavedAndClose?.();
         return;
       }
 
@@ -127,7 +127,7 @@ export const usePlaylistSaveFlow = ({
       console.log('[PlaylistWindow] Playlist saved to:', savedPath);
 
       if (shouldCloseAfterSave) {
-        window.electronAPI?.send?.('playlist:saved-and-close');
+        window.electronAPI?.notifyPlaylistSavedAndClose?.();
         return;
       }
 

@@ -24,7 +24,7 @@ export const usePlaylistSaveRequest = ({
     };
 
     const electronAPI = window.electronAPI;
-    if (!electronAPI?.on || !electronAPI?.off) {
+    if (!electronAPI?.onPlaylistRequestSave) {
       console.debug(
         '[PlaylistWindow] electron API unavailable for save request',
       );
@@ -32,7 +32,17 @@ export const usePlaylistSaveRequest = ({
     }
 
     try {
-      electronAPI.on('playlist:request-save', handleRequestSave);
+      const unsubscribe = electronAPI.onPlaylistRequestSave(handleRequestSave);
+      return () => {
+        try {
+          unsubscribe();
+        } catch (error: unknown) {
+          console.debug(
+            '[PlaylistWindow] Failed to cleanup save request handler',
+            error,
+          );
+        }
+      };
     } catch (error: unknown) {
       console.debug(
         '[PlaylistWindow] Failed to register save request handler',
@@ -40,17 +50,6 @@ export const usePlaylistSaveRequest = ({
       );
       return;
     }
-
-    return () => {
-      try {
-        electronAPI.off('playlist:request-save', handleRequestSave);
-      } catch (error: unknown) {
-        console.debug(
-          '[PlaylistWindow] Failed to cleanup save request handler',
-          error,
-        );
-      }
-    };
   }, [
     handleSavePlaylist,
     loadedFilePath,

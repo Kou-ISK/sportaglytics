@@ -29,7 +29,7 @@ import type { DrawingToolType } from '../../../types/Playlist';
 
 type AnnotationToolbarProps = {
   isActive: boolean;
-  toolbarRef: React.RefObject<HTMLDivElement>;
+  toolbarRef: React.RefObject<HTMLDivElement | null>;
   position: { x: number; y: number };
   isDragging: boolean;
   onDragStart: (event: React.MouseEvent) => void;

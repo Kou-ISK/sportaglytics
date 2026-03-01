@@ -31,7 +31,6 @@ const TIMESTAMP_TOLERANCE = 0.12;
 const MIN_FREEZE_UI_SECONDS = 1;
 const DEFAULT_TOOLBAR_X = 6;
 const DEFAULT_TOOLBAR_Y = 60;
-const HIT_TOLERANCE = 8;
 
 // ===== Types =====
 export interface AnnotationCanvasRef {

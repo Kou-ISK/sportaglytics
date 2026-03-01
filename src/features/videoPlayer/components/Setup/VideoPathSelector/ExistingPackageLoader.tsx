@@ -64,20 +64,22 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
     }
 
     try {
-      const response = await fetch(configFilePath);
-      if (!response.ok) {
+      const config = await globalThis.window.electronAPI.readJsonFile(
+        configFilePath,
+      );
+      if (!config || typeof config !== 'object') {
         throw new Error('Failed to load config.json');
       }
-      const config = await response.json();
 
-      const { videoList } = buildVideoListFromConfig(config, packagePath);
+      const configObject = config as Record<string, unknown>;
+      const { videoList } = buildVideoListFromConfig(configObject, packagePath);
 
       if (!videoList.length) {
         throw new Error('アングルに映像が割り当てられていません。');
       }
 
       let resultingSyncData: VideoSyncData | undefined;
-      const storedSync = config.syncData as
+      const storedSync = configObject.syncData as
         | {
             syncOffset?: unknown;
             isAnalyzed?: unknown;

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Box } from '@mui/material';
-import { AnalysisPanel, AnalysisView } from '../features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
+import { AnalysisPanel } from '../features/videoPlayer';
+import type { AnalysisView } from '../types/AnalysisView';
 import type { TimelineData } from '../types/TimelineData';
 import type { PlaylistItem } from '../types/Playlist';
 import type { AnalysisWindowSyncPayload } from '../renderer';

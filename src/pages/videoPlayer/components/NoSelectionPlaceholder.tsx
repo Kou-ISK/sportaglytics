@@ -1,6 +1,6 @@
 import React from 'react';
 import { Paper } from '@mui/material';
-import { VideoPathSelector } from '../../../features/videoPlayer/components/Setup/VideoPathSelector';
+import { VideoPathSelector } from '../../../features/videoPlayer';
 import { VideoSyncData } from '../../../types/VideoSync';
 
 interface NoSelectionPlaceholderProps {

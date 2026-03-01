@@ -17,8 +17,8 @@ interface UsePlaylistHotkeyBindingsParams {
     React.SetStateAction<'dual' | 'angle1' | 'angle2'>
   >;
   setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
-  videoRef: React.RefObject<HTMLVideoElement>;
-  videoRef2: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoRef2: React.RefObject<HTMLVideoElement | null>;
 }
 
 interface UsePlaylistHotkeyBindingsResult {

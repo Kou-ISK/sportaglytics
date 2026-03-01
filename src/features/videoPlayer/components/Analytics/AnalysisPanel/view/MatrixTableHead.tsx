@@ -15,7 +15,7 @@ type MatrixTableHeadProps = {
 export const MatrixTableHead = ({
   rowHeaders,
   columnHeaders,
-  rowParentSpans,
+  rowParentSpans: _rowParentSpans,
   colParentSpans,
   hasColumnParent,
   exportMode = 'screen',
