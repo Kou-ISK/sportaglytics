@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import {
   KeyboardSensor,
   PointerSensor,
@@ -8,16 +8,12 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useNotification } from '../../../../contexts/NotificationContext';
 import { useGlobalHotkeys } from '../../../../hooks/useGlobalHotkeys';
-import type {
-  AnnotationTarget,
-  ItemAnnotation,
-  PlaylistType,
-} from '../../../../types/Playlist';
-import type { AnnotationCanvasRef } from '../../components/AnnotationCanvas';
+import { renderAnnotationPng } from '../../utils/renderAnnotationPng';
+import { usePlaylistAnnotations } from './usePlaylistAnnotations';
+import { usePlaylistControlsVisibility } from './usePlaylistControlsVisibility';
 import { usePlaylistCurrentItem } from './usePlaylistCurrentItem';
 import { usePlaylistDialogHandlers } from './usePlaylistDialogHandlers';
 import { usePlaylistDrawingTarget } from './usePlaylistDrawingTarget';
-import { usePlaylistExport } from './usePlaylistExport';
 import { usePlaylistExportState } from './usePlaylistExportState';
 import { usePlaylistHistory } from './usePlaylistHistory';
 import { usePlaylistHistorySync } from './usePlaylistHistorySync';
@@ -28,17 +24,16 @@ import { usePlaylistItemOperations } from './usePlaylistItemOperations';
 import { usePlaylistLoader } from './usePlaylistLoader';
 import { usePlaylistNotes } from './usePlaylistNotes';
 import { usePlaylistPlayback } from './usePlaylistPlayback';
-import { usePlaylistSaveDialogState } from './usePlaylistSaveDialogState';
 import { usePlaylistSaveFlow } from './usePlaylistSaveFlow';
 import { usePlaylistSaveRequest } from './usePlaylistSaveRequest';
 import { usePlaylistSelection } from './usePlaylistSelection';
 import { usePlaylistVideoControlsState } from './usePlaylistVideoControlsState';
 import { usePlaylistVideoSizing } from './usePlaylistVideoSizing';
 import { usePlaylistVideoSourcesSync } from './usePlaylistVideoSourcesSync';
+import { usePlaylistWindowCoreState } from './usePlaylistWindowCoreState';
+import { usePlaylistWindowExportFlow } from './usePlaylistWindowExportFlow';
+import { usePlaylistWindowMenuActions } from './usePlaylistWindowMenuActions';
 import { usePlaylistWindowSync } from './usePlaylistWindowSync';
-import { usePlaylistAnnotations } from './usePlaylistAnnotations';
-import { usePlaylistControlsVisibility } from './usePlaylistControlsVisibility';
-import { renderAnnotationPng } from '../../utils/renderAnnotationPng';
 
 const DEFAULT_FREEZE_DURATION = 3;
 const MIN_FREEZE_DURATION = 1;
@@ -47,121 +42,17 @@ const FREEZE_RETRIGGER_GUARD = 0.3;
 
 export const usePlaylistWindowController = () => {
   const { success, error: showError } = useNotification();
+  const core = usePlaylistWindowCoreState();
 
-  const {
-    items,
-    setItems: setItemsWithHistory,
-    undo,
-    redo,
-  } = usePlaylistHistory([]);
+  const history = usePlaylistHistory([]);
 
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState<number>(-1);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [loopPlaylist, setLoopPlaylist] = useState(false);
-  const [autoAdvance, setAutoAdvance] = useState(true);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [videoSources, setVideoSources] = useState<string[]>([]);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [viewMode, setViewMode] = useState<'dual' | 'angle1' | 'angle2'>(
-    'dual',
-  );
-  const [playlistName, setPlaylistName] = useState('プレイリスト');
-  const [playlistType, setPlaylistType] = useState<PlaylistType>('embedded');
-  const [packagePath, setPackagePath] = useState<string | null>(null);
-
-  const [isDrawingMode, setIsDrawingMode] = useState(false);
-  const [itemAnnotations, setItemAnnotations] = useState<
-    Record<string, ItemAnnotation>
-  >({});
-  const [drawingTarget, setDrawingTarget] =
-    useState<AnnotationTarget>('primary');
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const [isVideoAreaHovered, setIsVideoAreaHovered] = useState(false);
-  const [videoAreaInteractionId, setVideoAreaInteractionId] = useState(0);
-  const [isFrozen, setIsFrozen] = useState(false);
-
-  const {
-    saveDialogOpen,
-    setSaveDialogOpen,
-    closeAfterSave,
-    setCloseAfterSave,
-  } = usePlaylistSaveDialogState();
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const videoRef2 = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const annotationCanvasRefPrimary = useRef<AnnotationCanvasRef>(null);
-  const annotationCanvasRefSecondary = useRef<AnnotationCanvasRef>(null);
-
-  const [primaryCanvasSize, setPrimaryCanvasSize] = useState({
-    width: 1920,
-    height: 1080,
-  });
-  const [secondaryCanvasSize, setSecondaryCanvasSize] = useState({
-    width: 1920,
-    height: 1080,
-  });
-  const [primaryContentRect, setPrimaryContentRect] = useState({
-    width: 1920,
-    height: 1080,
-    offsetX: 0,
-    offsetY: 0,
-  });
-  const [secondaryContentRect, setSecondaryContentRect] = useState({
-    width: 1920,
-    height: 1080,
-    offsetX: 0,
-    offsetY: 0,
-  });
-  const [primarySourceSize, setPrimarySourceSize] = useState({
-    width: 1920,
-    height: 1080,
-  });
-  const [secondarySourceSize, setSecondarySourceSize] = useState({
-    width: 1920,
-    height: 1080,
+  const selection = usePlaylistSelection({
+    items: history.items,
+    setItems: history.setItems,
+    onDirtyChange: core.setHasUnsavedChanges,
   });
 
-  const {
-    selectedItemIds,
-    selectedItems,
-    selectedCount,
-    toggleSelect,
-    deleteSelected,
-  } = usePlaylistSelection({
-    items,
-    setItems: setItemsWithHistory,
-    onDirtyChange: setHasUnsavedChanges,
-  });
-
-  const {
-    exportDialogOpen,
-    setExportDialogOpen,
-    overlaySettings,
-    setOverlaySettings,
-    exportMode,
-    setExportMode,
-    angleOption,
-    setAngleOption,
-    selectedAngleIndex,
-    setSelectedAngleIndex,
-    exportFileName,
-    setExportFileName,
-    exportScope,
-    setExportScope,
-  } = usePlaylistExportState();
-
-  const [saveProgress, setSaveProgress] = useState<{
-    current: number;
-    total: number;
-  } | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
-  const [loadedFilePath, setLoadedFilePath] = useState<string | null>(null);
+  const exportState = usePlaylistExportState();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -170,454 +61,379 @@ export const usePlaylistWindowController = () => {
     }),
   );
 
-  const {
-    editingItemId,
-    noteDialogOpen,
-    setNoteDialogOpen,
-    setEditingItemId,
-    handleEditNote,
-    handleSaveNote,
-  } = usePlaylistNotes({
-    setItemsWithHistory,
-    setHasUnsavedChanges,
+  const notes = usePlaylistNotes({
+    setItemsWithHistory: history.setItems,
+    setHasUnsavedChanges: core.setHasUnsavedChanges,
   });
 
-  const {
-    currentItem,
-    currentVideoSource,
-    currentVideoSource2,
-    editingItem,
-  } = usePlaylistCurrentItem({
-    items,
-    currentIndex,
-    videoSources,
-    duration,
-    editingItemId,
+  const currentItemState = usePlaylistCurrentItem({
+    items: history.items,
+    currentIndex: core.currentIndex,
+    videoSources: core.videoSources,
+    duration: core.duration,
+    editingItemId: notes.editingItemId,
   });
 
-  const {
-    currentAnnotation,
-    persistCanvasObjects,
-    handleAnnotationObjectsChange,
-    handleFreezeDurationChange,
-  } = usePlaylistAnnotations({
-    currentItem,
-    itemAnnotations,
-    setItemAnnotations,
-    setItemsWithHistory,
-    setHasUnsavedChanges,
+  const annotations = usePlaylistAnnotations({
+    currentItem: currentItemState.currentItem,
+    itemAnnotations: core.itemAnnotations,
+    setItemAnnotations: core.setItemAnnotations,
+    setItemsWithHistory: history.setItems,
+    setHasUnsavedChanges: core.setHasUnsavedChanges,
     minFreezeDuration: MIN_FREEZE_DURATION,
     defaultFreezeDuration: DEFAULT_FREEZE_DURATION,
   });
 
   usePlaylistVideoSourcesSync({
-    currentItem,
-    videoSources,
-    setVideoSources,
+    currentItem: currentItemState.currentItem,
+    videoSources: core.videoSources,
+    setVideoSources: core.setVideoSources,
   });
 
-  const {
-    sliderMin,
-    sliderMax,
-    marks,
-    handleSeekCommitted,
-    handleToggleAutoAdvance,
-    handleToggleLoop,
-    handleToggleMute,
-  } = usePlaylistVideoControlsState({
-    currentItem,
-    currentAnnotation,
-    duration,
-    autoAdvance,
-    loopPlaylist,
-    isMuted,
-    setAutoAdvance,
-    setLoopPlaylist,
-    setIsMuted,
+  const videoControls = usePlaylistVideoControlsState({
+    currentItem: currentItemState.currentItem,
+    currentAnnotation: annotations.currentAnnotation,
+    duration: core.duration,
+    autoAdvance: core.autoAdvance,
+    loopPlaylist: core.loopPlaylist,
+    isMuted: core.isMuted,
+    setAutoAdvance: core.setAutoAdvance,
+    setLoopPlaylist: core.setLoopPlaylist,
+    setIsMuted: core.setIsMuted,
   });
 
   usePlaylistDrawingTarget({
-    viewMode,
-    currentVideoSource2,
-    setDrawingTarget,
+    viewMode: core.viewMode,
+    currentVideoSource2: currentItemState.currentVideoSource2,
+    setDrawingTarget: core.setDrawingTarget,
   });
 
   usePlaylistVideoSizing({
-    videoRef,
-    videoRef2,
-    currentVideoSource,
-    currentVideoSource2,
-    viewMode,
-    setPrimaryCanvasSize,
-    setPrimarySourceSize,
-    setPrimaryContentRect,
-    setSecondaryCanvasSize,
-    setSecondarySourceSize,
-    setSecondaryContentRect,
+    videoRef: core.videoRef,
+    videoRef2: core.videoRef2,
+    currentVideoSource: currentItemState.currentVideoSource,
+    currentVideoSource2: currentItemState.currentVideoSource2,
+    viewMode: core.viewMode,
+    setPrimaryCanvasSize: core.setPrimaryCanvasSize,
+    setPrimarySourceSize: core.setPrimarySourceSize,
+    setPrimaryContentRect: core.setPrimaryContentRect,
+    setSecondaryCanvasSize: core.setSecondaryCanvasSize,
+    setSecondarySourceSize: core.setSecondarySourceSize,
+    setSecondaryContentRect: core.setSecondaryContentRect,
   });
 
   usePlaylistControlsVisibility({
-    isVideoAreaHovered,
-    isPlaying,
-    isDrawingMode,
-    interactionId: videoAreaInteractionId,
-    setControlsVisible,
+    isVideoAreaHovered: core.isVideoAreaHovered,
+    isPlaying: core.isPlaying,
+    isDrawingMode: core.isDrawingMode,
+    interactionId: core.videoAreaInteractionId,
+    setControlsVisible: core.setControlsVisible,
   });
 
-  const { handleRemoveItem, handleDragEnd } = usePlaylistItemOperations({
-    currentIndex,
-    setCurrentIndex,
-    setIsPlaying,
-    setItemsWithHistory,
-    setItemAnnotations,
-    setHasUnsavedChanges,
+  const itemOperations = usePlaylistItemOperations({
+    currentIndex: core.currentIndex,
+    setCurrentIndex: core.setCurrentIndex,
+    setIsPlaying: core.setIsPlaying,
+    setItemsWithHistory: history.setItems,
+    setItemAnnotations: core.setItemAnnotations,
+    setHasUnsavedChanges: core.setHasUnsavedChanges,
   });
 
   usePlaylistIpcSync({
-    setItemsWithHistory,
-    setPlaylistName,
-    setHasUnsavedChanges,
-    setItemAnnotations,
-    setPlaylistType,
-    setPackagePath,
-    setVideoSources,
-    setViewMode,
-    setSaveProgress,
-    setIsDirty,
+    setItemsWithHistory: history.setItems,
+    setPlaylistName: core.setPlaylistName,
+    setHasUnsavedChanges: core.setHasUnsavedChanges,
+    setItemAnnotations: core.setItemAnnotations,
+    setPlaylistType: core.setPlaylistType,
+    setPackagePath: core.setPackagePath,
+    setVideoSources: core.setVideoSources,
+    setViewMode: core.setViewMode,
+    setSaveProgress: core.setSaveProgress,
+    setIsDirty: core.setIsDirty,
   });
 
   usePlaylistWindowSync({
-    playlistName,
-    loadedFilePath,
-    isDirty,
+    playlistName: core.playlistName,
+    loadedFilePath: core.loadedFilePath,
+    isDirty: core.isDirty,
   });
 
-  const { loadPlaylistFromPath } = usePlaylistLoader({
-    setItemsWithHistory,
-    setHasUnsavedChanges,
-    setPlaylistName,
-    setPlaylistType,
-    setPackagePath,
-    setLoadedFilePath,
-    setIsDirty,
-    setItemAnnotations,
-    setVideoSources,
-    setViewMode,
-    setCurrentIndex,
+  const loader = usePlaylistLoader({
+    setItemsWithHistory: history.setItems,
+    setHasUnsavedChanges: core.setHasUnsavedChanges,
+    setPlaylistName: core.setPlaylistName,
+    setPlaylistType: core.setPlaylistType,
+    setPackagePath: core.setPackagePath,
+    setLoadedFilePath: core.setLoadedFilePath,
+    setIsDirty: core.setIsDirty,
+    setItemAnnotations: core.setItemAnnotations,
+    setVideoSources: core.setVideoSources,
+    setViewMode: core.setViewMode,
+    setCurrentIndex: core.setCurrentIndex,
   });
 
-  const {
-    handlePlayItem,
-    handleTogglePlay,
-    handlePrevious,
-    handleNext,
-    handleSeek,
-    handleVolumeChange,
-    handleToggleFullscreen,
-  } = usePlaylistPlayback({
-    items,
-    currentIndex,
-    setCurrentIndex,
-    isPlaying,
-    setIsPlaying,
-    isFrozen,
-    setIsFrozen,
-    currentItem,
-    currentAnnotation: currentAnnotation ?? undefined,
-    autoAdvance,
-    loopPlaylist,
-    viewMode,
-    currentVideoSource,
-    currentVideoSource2,
-    videoRef,
-    videoRef2,
-    setCurrentTime,
-    setDuration,
-    volume,
-    isMuted,
-    setVolume,
-    containerRef,
-    isFullscreen,
-    setIsFullscreen,
-    setIsDrawingMode,
+  const playback = usePlaylistPlayback({
+    items: history.items,
+    currentIndex: core.currentIndex,
+    setCurrentIndex: core.setCurrentIndex,
+    isPlaying: core.isPlaying,
+    setIsPlaying: core.setIsPlaying,
+    isFrozen: core.isFrozen,
+    setIsFrozen: core.setIsFrozen,
+    currentItem: currentItemState.currentItem,
+    currentAnnotation: annotations.currentAnnotation ?? undefined,
+    autoAdvance: core.autoAdvance,
+    loopPlaylist: core.loopPlaylist,
+    viewMode: core.viewMode,
+    currentVideoSource: currentItemState.currentVideoSource,
+    currentVideoSource2: currentItemState.currentVideoSource2,
+    videoRef: core.videoRef,
+    videoRef2: core.videoRef2,
+    setCurrentTime: core.setCurrentTime,
+    setDuration: core.setDuration,
+    volume: core.volume,
+    isMuted: core.isMuted,
+    setVolume: core.setVolume,
+    containerRef: core.containerRef,
+    isFullscreen: core.isFullscreen,
+    setIsFullscreen: core.setIsFullscreen,
+    setIsDrawingMode: core.setIsDrawingMode,
     minFreezeDuration: MIN_FREEZE_DURATION,
     defaultFreezeDuration: DEFAULT_FREEZE_DURATION,
     annotationTimeTolerance: ANNOTATION_TIME_TOLERANCE,
     freezeRetriggerGuard: FREEZE_RETRIGGER_GUARD,
   });
 
-  const handleMenuOpen = useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
-      setAnchorEl(event.currentTarget);
-    },
-    [],
-  );
-
-  const handleMenuClose = useCallback(() => {
-    setAnchorEl(null);
-  }, []);
-
   const handleToggleDrawingMode = useCallback(() => {
-    if (isDrawingMode) {
-      persistCanvasObjects(annotationCanvasRefPrimary, 'primary');
-      persistCanvasObjects(annotationCanvasRefSecondary, 'secondary');
+    if (core.isDrawingMode) {
+      annotations.persistCanvasObjects(core.annotationCanvasRefPrimary, 'primary');
+      annotations.persistCanvasObjects(core.annotationCanvasRefSecondary, 'secondary');
     }
-    setIsDrawingMode(!isDrawingMode);
-    if (!isDrawingMode) {
-      setIsPlaying(false);
+    core.setIsDrawingMode(!core.isDrawingMode);
+    if (!core.isDrawingMode) {
+      core.setIsPlaying(false);
     }
-  }, [isDrawingMode, persistCanvasObjects]);
+  }, [annotations, core]);
 
   const playlistHotkeys = usePlaylistHotkeys();
 
-  const handleDeleteSelected = useCallback(() => {
-    deleteSelected();
-  }, [deleteSelected]);
-
   const { handleUndo, handleRedo } = usePlaylistHistorySync({
-    undo,
-    redo,
-    setItemAnnotations,
+    undo: history.undo,
+    redo: history.redo,
+    setItemAnnotations: core.setItemAnnotations,
   });
 
-  const { handleSavePlaylist, handleSavePlaylistAs } = usePlaylistSaveFlow({
-    items,
-    videoSources,
-    packagePath,
-    itemAnnotations,
-    playlistName,
-    playlistType,
-    setPlaylistName,
-    setPlaylistType,
-    setLoadedFilePath,
-    setIsDirty,
-    setHasUnsavedChanges,
-    setSaveDialogOpen,
-    setSaveProgress,
+  const saveFlow = usePlaylistSaveFlow({
+    items: history.items,
+    videoSources: core.videoSources,
+    packagePath: core.packagePath,
+    itemAnnotations: core.itemAnnotations,
+    playlistName: core.playlistName,
+    playlistType: core.playlistType,
+    setPlaylistName: core.setPlaylistName,
+    setPlaylistType: core.setPlaylistType,
+    setLoadedFilePath: core.setLoadedFilePath,
+    setIsDirty: core.setIsDirty,
+    setHasUnsavedChanges: core.setHasUnsavedChanges,
+    setSaveDialogOpen: core.setSaveDialogOpen,
+    setSaveProgress: core.setSaveProgress,
   });
 
   usePlaylistSaveRequest({
-    loadedFilePath,
-    handleSavePlaylist,
-    setCloseAfterSave,
-    setSaveDialogOpen,
+    loadedFilePath: core.loadedFilePath,
+    handleSavePlaylist: saveFlow.handleSavePlaylist,
+    setCloseAfterSave: core.setCloseAfterSave,
+    setSaveDialogOpen: core.setSaveDialogOpen,
   });
 
-  const {
-    hotkeyHandlers: playlistHotkeyHandlers,
-    keyUpHandlers: playlistKeyUpHandlers,
-  } = usePlaylistHotkeyBindings({
-    currentTime,
-    handleTogglePlay,
-    handleSeek,
-    handlePrevious,
-    handleNext,
-    handleDeleteSelected,
+  const hotkeyBindings = usePlaylistHotkeyBindings({
+    currentTime: core.currentTime,
+    handleTogglePlay: playback.handleTogglePlay,
+    handleSeek: playback.handleSeek,
+    handlePrevious: playback.handlePrevious,
+    handleNext: playback.handleNext,
+    handleDeleteSelected: selection.deleteSelected,
     handleUndo,
     handleRedo,
-    handleSavePlaylist,
-    loadedFilePath,
-    setSaveDialogOpen,
-    setExportDialogOpen,
-    setViewMode,
-    setIsPlaying,
-    videoRef,
-    videoRef2,
+    handleSavePlaylist: saveFlow.handleSavePlaylist,
+    loadedFilePath: core.loadedFilePath,
+    setSaveDialogOpen: core.setSaveDialogOpen,
+    setExportDialogOpen: exportState.setExportDialogOpen,
+    setViewMode: core.setViewMode,
+    setIsPlaying: core.setIsPlaying,
+    videoRef: core.videoRef,
+    videoRef2: core.videoRef2,
   });
 
   useGlobalHotkeys(
     playlistHotkeys,
-    playlistHotkeyHandlers,
-    playlistKeyUpHandlers,
+    hotkeyBindings.hotkeyHandlers,
+    hotkeyBindings.keyUpHandlers,
   );
 
-  const handleLoadPlaylist = useCallback(async () => {
-    handleMenuClose();
-    await loadPlaylistFromPath();
-  }, [handleMenuClose, loadPlaylistFromPath]);
+  const menuActions = usePlaylistWindowMenuActions({
+    loadPlaylistFromPath: loader.loadPlaylistFromPath,
+    loadedFilePath: core.loadedFilePath,
+    handleSavePlaylist: saveFlow.handleSavePlaylist,
+    setSaveDialogOpen: core.setSaveDialogOpen,
+  });
 
-  const {
-    exportProgress,
-    handleExportPlaylist: exportPlaylist,
-    clearExportProgress,
-  } = usePlaylistExport({
-    items,
-    selectedItems,
-    videoSources,
-    exportScope,
-    angleOption,
-    selectedAngleIndex,
-    exportMode,
-    exportFileName,
-    overlaySettings,
-    itemAnnotations,
+  const exportFlow = usePlaylistWindowExportFlow({
+    items: history.items,
+    selectedItems: selection.selectedItems,
+    videoSources: core.videoSources,
+    exportScope: exportState.exportScope,
+    angleOption: exportState.angleOption,
+    selectedAngleIndex: exportState.selectedAngleIndex,
+    exportMode: exportState.exportMode,
+    exportFileName: exportState.exportFileName,
+    overlaySettings: exportState.overlaySettings,
+    itemAnnotations: core.itemAnnotations,
     minFreezeDuration: MIN_FREEZE_DURATION,
-    primaryContentRect,
-    secondaryContentRect,
-    primarySourceSize,
-    secondarySourceSize,
+    primaryContentRect: core.primaryContentRect,
+    secondaryContentRect: core.secondaryContentRect,
+    primarySourceSize: core.primarySourceSize,
+    secondarySourceSize: core.secondarySourceSize,
     renderAnnotationPng,
     onMissingApi: showError,
+    onSuccess: success,
+    onError: showError,
+    setExportDialogOpen: exportState.setExportDialogOpen,
   });
 
-  const {
-    handleCloseSaveDialog,
-    handleCloseExportDialog,
-    handleCloseNoteDialog,
-    handleCloseExportProgress,
-  } = usePlaylistDialogHandlers({
-    setSaveDialogOpen,
-    setCloseAfterSave,
-    setExportDialogOpen,
-    setNoteDialogOpen,
-    setEditingItemId,
-    onCloseExportProgress: clearExportProgress,
+  const dialogHandlers = usePlaylistDialogHandlers({
+    setSaveDialogOpen: core.setSaveDialogOpen,
+    setCloseAfterSave: core.setCloseAfterSave,
+    setExportDialogOpen: exportState.setExportDialogOpen,
+    setNoteDialogOpen: notes.setNoteDialogOpen,
+    setEditingItemId: notes.setEditingItemId,
+    onCloseExportProgress: exportFlow.clearExportProgress,
   });
-
-  const handleExportPlaylist = useCallback(() => {
-    setExportDialogOpen(false);
-    void exportPlaylist().then((result) => {
-      if (!result) return;
-      if (result.success) {
-        success(result.message);
-      } else {
-        showError(result.message);
-      }
-    });
-  }, [exportPlaylist, setExportDialogOpen, showError, success]);
-
-  const handleSaveClick = useCallback(() => {
-    if (loadedFilePath) {
-      handleSavePlaylist(false);
-      return;
-    }
-    setSaveDialogOpen(true);
-  }, [handleSavePlaylist, loadedFilePath, setSaveDialogOpen]);
 
   return {
-    containerRef,
+    containerRef: core.containerRef,
     header: {
-      playlistName,
-      hasUnsavedChanges,
-      exportDisabled: !!exportProgress,
-      hasDualSources: videoSources.length >= 2,
-      anchorEl,
-      onMenuOpen: handleMenuOpen,
-      onMenuClose: handleMenuClose,
-      onSaveClick: handleSaveClick,
-      onSaveAsClick: () => setSaveDialogOpen(true),
-      onLoadClick: handleLoadPlaylist,
-      onExportClick: () => setExportDialogOpen(true),
-      onViewModeChange: setViewMode,
+      playlistName: core.playlistName,
+      hasUnsavedChanges: core.hasUnsavedChanges,
+      exportDisabled: Boolean(exportFlow.exportProgress),
+      hasDualSources: core.videoSources.length >= 2,
+      anchorEl: menuActions.anchorEl,
+      onMenuOpen: menuActions.handleMenuOpen,
+      onMenuClose: menuActions.handleMenuClose,
+      onSaveClick: menuActions.handleSaveClick,
+      onSaveAsClick: () => core.setSaveDialogOpen(true),
+      onLoadClick: menuActions.handleLoadPlaylist,
+      onExportClick: () => exportState.setExportDialogOpen(true),
+      onViewModeChange: core.setViewMode,
     },
     videoArea: {
-      currentVideoSource,
-      currentVideoSource2,
-      viewMode,
-      isDrawingMode,
-      drawingTarget,
-      onDrawingTargetChange: setDrawingTarget,
-      annotationCanvasRefPrimary,
-      annotationCanvasRefSecondary,
-      primaryCanvasSize,
-      secondaryCanvasSize,
-      primaryContentRect,
-      secondaryContentRect,
-      currentAnnotation,
+      currentVideoSource: currentItemState.currentVideoSource,
+      currentVideoSource2: currentItemState.currentVideoSource2,
+      viewMode: core.viewMode,
+      isDrawingMode: core.isDrawingMode,
+      drawingTarget: core.drawingTarget,
+      onDrawingTargetChange: core.setDrawingTarget,
+      annotationCanvasRefPrimary: core.annotationCanvasRefPrimary,
+      annotationCanvasRefSecondary: core.annotationCanvasRefSecondary,
+      primaryCanvasSize: core.primaryCanvasSize,
+      secondaryCanvasSize: core.secondaryCanvasSize,
+      primaryContentRect: core.primaryContentRect,
+      secondaryContentRect: core.secondaryContentRect,
+      currentAnnotation: annotations.currentAnnotation,
       defaultFreezeDuration: DEFAULT_FREEZE_DURATION,
-      onObjectsChange: handleAnnotationObjectsChange,
-      onFreezeDurationChange: handleFreezeDurationChange,
-      currentTime,
-      videoRef,
-      videoRef2,
-      hasItems: items.length > 0,
-      controlsVisible,
-      sliderMin,
-      sliderMax,
-      marks,
-      isPlaying,
-      isFrozen,
-      autoAdvance,
-      loopPlaylist,
-      isMuted,
-      volume,
-      isFullscreen,
-      onSeek: handleSeek,
-      onSeekCommitted: handleSeekCommitted,
-      onPrevious: handlePrevious,
-      onTogglePlay: handleTogglePlay,
-      onNext: handleNext,
-      onToggleAutoAdvance: handleToggleAutoAdvance,
-      onToggleLoop: handleToggleLoop,
+      onObjectsChange: annotations.handleAnnotationObjectsChange,
+      onFreezeDurationChange: annotations.handleFreezeDurationChange,
+      currentTime: core.currentTime,
+      videoRef: core.videoRef,
+      videoRef2: core.videoRef2,
+      hasItems: history.items.length > 0,
+      controlsVisible: core.controlsVisible,
+      sliderMin: videoControls.sliderMin,
+      sliderMax: videoControls.sliderMax,
+      marks: videoControls.marks,
+      isPlaying: core.isPlaying,
+      isFrozen: core.isFrozen,
+      autoAdvance: core.autoAdvance,
+      loopPlaylist: core.loopPlaylist,
+      isMuted: core.isMuted,
+      volume: core.volume,
+      isFullscreen: core.isFullscreen,
+      onSeek: playback.handleSeek,
+      onSeekCommitted: videoControls.handleSeekCommitted,
+      onPrevious: playback.handlePrevious,
+      onTogglePlay: playback.handleTogglePlay,
+      onNext: playback.handleNext,
+      onToggleAutoAdvance: videoControls.handleToggleAutoAdvance,
+      onToggleLoop: videoControls.handleToggleLoop,
       onToggleDrawingMode: handleToggleDrawingMode,
-      onToggleMute: handleToggleMute,
-      onVolumeChange: handleVolumeChange,
-      onToggleFullscreen: handleToggleFullscreen,
-      onVideoAreaHoverChange: setIsVideoAreaHovered,
+      onToggleMute: videoControls.handleToggleMute,
+      onVolumeChange: playback.handleVolumeChange,
+      onToggleFullscreen: playback.handleToggleFullscreen,
+      onVideoAreaHoverChange: core.setIsVideoAreaHovered,
       onVideoAreaInteraction: () =>
-        setVideoAreaInteractionId((previous) => previous + 1),
-      showControls: Boolean(currentItem),
+        core.setVideoAreaInteractionId((previous) => previous + 1),
+      showControls: Boolean(currentItemState.currentItem),
     },
     itemSection: {
-      items,
-      currentIndex,
-      selectedItemIds,
+      items: history.items,
+      currentIndex: core.currentIndex,
+      selectedItemIds: selection.selectedItemIds,
       sensors,
-      onDragEnd: handleDragEnd,
-      onRemove: handleRemoveItem,
-      onPlay: handlePlayItem,
-      onEditNote: handleEditNote,
-      onToggleSelect: toggleSelect,
+      onDragEnd: itemOperations.handleDragEnd,
+      onRemove: itemOperations.handleRemoveItem,
+      onPlay: playback.handlePlayItem,
+      onEditNote: notes.handleEditNote,
+      onToggleSelect: selection.toggleSelect,
     },
-    nowPlaying: currentItem
+    nowPlaying: currentItemState.currentItem
       ? {
-          currentItem,
-          isFrozen,
-          currentIndex,
-          totalCount: items.length,
-          annotation: currentAnnotation ?? undefined,
+          currentItem: currentItemState.currentItem,
+          isFrozen: core.isFrozen,
+          currentIndex: core.currentIndex,
+          totalCount: history.items.length,
+          annotation: annotations.currentAnnotation ?? undefined,
         }
       : null,
     dialogs: {
       saveDialog: {
-        open: saveDialogOpen,
-        onClose: handleCloseSaveDialog,
-        onSave: handleSavePlaylistAs,
-        defaultName: playlistName,
-        defaultType: playlistType,
-        closeAfterSave,
+        open: core.saveDialogOpen,
+        onClose: dialogHandlers.handleCloseSaveDialog,
+        onSave: saveFlow.handleSavePlaylistAs,
+        defaultName: core.playlistName,
+        defaultType: core.playlistType,
+        closeAfterSave: core.closeAfterSave,
       },
       exportDialog: {
-        open: exportDialogOpen,
-        onClose: handleCloseExportDialog,
-        onExport: handleExportPlaylist,
-        exportFileName,
-        setExportFileName,
-        exportScope,
-        setExportScope,
-        selectedItemCount: selectedCount,
-        exportMode,
-        setExportMode,
-        angleOption,
-        setAngleOption,
-        videoSources,
-        selectedAngleIndex,
-        setSelectedAngleIndex,
-        overlaySettings,
-        setOverlaySettings,
-        disableExport: !!exportProgress,
+        open: exportState.exportDialogOpen,
+        onClose: dialogHandlers.handleCloseExportDialog,
+        onExport: exportFlow.handleExportPlaylist,
+        exportFileName: exportState.exportFileName,
+        setExportFileName: exportState.setExportFileName,
+        exportScope: exportState.exportScope,
+        setExportScope: exportState.setExportScope,
+        selectedItemCount: selection.selectedCount,
+        exportMode: exportState.exportMode,
+        setExportMode: exportState.setExportMode,
+        angleOption: exportState.angleOption,
+        setAngleOption: exportState.setAngleOption,
+        videoSources: core.videoSources,
+        selectedAngleIndex: exportState.selectedAngleIndex,
+        setSelectedAngleIndex: exportState.setSelectedAngleIndex,
+        overlaySettings: exportState.overlaySettings,
+        setOverlaySettings: exportState.setOverlaySettings,
+        disableExport: Boolean(exportFlow.exportProgress),
       },
       noteDialog: {
-        open: noteDialogOpen,
-        onClose: handleCloseNoteDialog,
-        onSave: handleSaveNote,
-        initialNote: editingItem?.memo || '',
-        itemName: editingItem?.actionName || '',
+        open: notes.noteDialogOpen,
+        onClose: dialogHandlers.handleCloseNoteDialog,
+        onSave: notes.handleSaveNote,
+        initialNote: currentItemState.editingItem?.memo || '',
+        itemName: currentItemState.editingItem?.actionName || '',
       },
       progress: {
-        saveProgress,
-        exportProgress,
-        onCloseExportProgress: handleCloseExportProgress,
+        saveProgress: core.saveProgress,
+        exportProgress: exportFlow.exportProgress,
+        onCloseExportProgress: dialogHandlers.handleCloseExportProgress,
       },
     },
   };
