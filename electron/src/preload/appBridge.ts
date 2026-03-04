@@ -34,31 +34,66 @@ type AppBridgeKeys =
   | 'onOpenRecentPackage'
   | 'updateRecentPackages';
 
+const isNoHandlerError = (error: unknown, channel: string): boolean => {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes(`No handler registered for '${channel}'`);
+};
+
+const invokeWithFallback = async <T>(
+  ipcRenderer: IpcRenderer,
+  primaryChannel: string,
+  legacyChannel: string | null,
+  ...args: unknown[]
+): Promise<T> => {
+  try {
+    return (await ipcRenderer.invoke(primaryChannel, ...args)) as T;
+  } catch (error) {
+    if (!legacyChannel || !isNoHandlerError(error, primaryChannel)) {
+      throw error;
+    }
+    return (await ipcRenderer.invoke(legacyChannel, ...args)) as T;
+  }
+};
+
 export const createAppBridge = (
   ipcRenderer: IpcRenderer,
 ): Pick<IElectronAPI, AppBridgeKeys> => {
   const appBridge = {
     openFile: async () => {
       try {
-        const filePath = await ipcRenderer.invoke('open-file');
-        return filePath;
+        const filePath = await invokeWithFallback<string>(
+          ipcRenderer,
+          'files:open-video-file',
+          'open-file',
+        );
+        return filePath ?? '';
       } catch (error) {
         console.error('Error:', error);
-        return null;
+        return '';
       }
     },
     openDirectory: async () => {
       try {
-        const filePath = await ipcRenderer.invoke('open-directory');
-        return filePath;
+        const filePath = await invokeWithFallback<string>(
+          ipcRenderer,
+          'files:open-directory',
+          'open-directory',
+        );
+        return filePath ?? '';
       } catch (error) {
         console.error('Error:', error);
-        return null;
+        return '';
       }
     },
     exportTimeline: async (filePath: string, source: unknown) => {
       try {
-        await ipcRenderer.invoke('export-timeline', filePath, source);
+        await invokeWithFallback<void>(
+          ipcRenderer,
+          'timeline:export-json',
+          'export-timeline',
+          filePath,
+          source,
+        );
       } catch (error) {
         console.error('Error exporting timeline:', error);
       }
@@ -75,7 +110,9 @@ export const createAppBridge = (
       metaData: unknown,
     ) => {
       try {
-        const packageDatas: PackageDatas = await ipcRenderer.invoke(
+        const packageDatas = await invokeWithFallback<PackageDatas>(
+          ipcRenderer,
+          'package:create',
           'create-package',
           directoryName,
           packageName,
@@ -97,7 +134,13 @@ export const createAppBridge = (
       },
     ) => {
       try {
-        return await ipcRenderer.invoke('save-sync-data', configPath, syncData);
+        return await invokeWithFallback<boolean>(
+          ipcRenderer,
+          'sync:save-data',
+          'save-sync-data',
+          configPath,
+          syncData,
+        );
       } catch (error) {
         console.error('saveSyncData error:', error);
         return false;
@@ -105,7 +148,12 @@ export const createAppBridge = (
     },
     checkFileExists: async (filePath: string) => {
       try {
-        return await ipcRenderer.invoke('check-file-exists', filePath);
+        return await invokeWithFallback<boolean>(
+          ipcRenderer,
+          'files:exists',
+          'check-file-exists',
+          filePath,
+        );
       } catch (error) {
         console.error('Error checking file:', error);
         return false;
@@ -113,7 +161,12 @@ export const createAppBridge = (
     },
     readJsonFile: async (filePath: string) => {
       try {
-        return await ipcRenderer.invoke('read-json-file', filePath);
+        return await invokeWithFallback<unknown>(
+          ipcRenderer,
+          'files:read-json',
+          'read-json-file',
+          filePath,
+        );
       } catch (error) {
         console.error('Error reading JSON file:', error);
         throw error;
@@ -121,7 +174,12 @@ export const createAppBridge = (
     },
     setManualModeChecked: async (checked: boolean) => {
       try {
-        return await ipcRenderer.invoke('set-manual-mode-checked', checked);
+        return await invokeWithFallback<boolean>(
+          ipcRenderer,
+          'menu:set-manual-mode-checked',
+          'set-manual-mode-checked',
+          checked,
+        );
       } catch (error) {
         console.error('setManualModeChecked error:', error);
         return false;
@@ -129,7 +187,12 @@ export const createAppBridge = (
     },
     setLabelModeChecked: async (checked: boolean) => {
       try {
-        return await ipcRenderer.invoke('set-label-mode-checked', checked);
+        return await invokeWithFallback<boolean>(
+          ipcRenderer,
+          'menu:set-label-mode-checked',
+          'set-label-mode-checked',
+          checked,
+        );
       } catch (error) {
         console.error('setLabelModeChecked error:', error);
         return false;
@@ -147,7 +210,13 @@ export const createAppBridge = (
     },
     convertConfigToRelativePath: async (packagePath: string) => {
       try {
-        return await ipcRenderer.invoke(
+        return await invokeWithFallback<{
+          success: boolean;
+          config?: Record<string, unknown>;
+          error?: string;
+        }>(
+          ipcRenderer,
+          'package:convert-config-to-relative-path',
           'convert-config-to-relative-path',
           packagePath,
         );

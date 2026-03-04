@@ -9,6 +9,29 @@ type OverlaySettings = {
   showMemo: boolean;
 };
 
+const normalizeVideoSource = (value: string | undefined): string | undefined => {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const resolveMultiAngleSources = (
+  videoSources: string[] | undefined,
+  primarySource: string | undefined,
+  secondarySource: string | undefined,
+): { sourcePath?: string; sourcePath2?: string } => {
+  const available = (videoSources ?? []).map(normalizeVideoSource).filter(Boolean) as string[];
+  const sourcePath = normalizeVideoSource(primarySource) ?? available[0];
+  const sourcePath2 = normalizeVideoSource(secondarySource);
+  if (sourcePath2) {
+    return { sourcePath, sourcePath2 };
+  }
+  return {
+    sourcePath,
+    sourcePath2: available.find((source) => source !== sourcePath),
+  };
+};
+
 interface UseTimelineExportDialogsParams {
   timeline: TimelineData[];
   selectedIds: string[];
@@ -60,6 +83,26 @@ export const useTimelineExportDialogs = ({
   >('single');
   const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
+
+  useEffect(() => {
+    if (!videoSources || videoSources.length === 0) {
+      setPrimarySource(undefined);
+      setSecondarySource(undefined);
+      setSelectedAngleIndex(0);
+      return;
+    }
+
+    setPrimarySource((prev) =>
+      prev && videoSources.includes(prev) ? prev : videoSources[0],
+    );
+    setSecondarySource((prev) => {
+      if (prev && videoSources.includes(prev)) return prev;
+      return videoSources.find((source) => source !== videoSources[0]);
+    });
+    setSelectedAngleIndex((prev) =>
+      prev < videoSources.length ? prev : Math.max(0, videoSources.length - 1),
+    );
+  }, [videoSources]);
 
   const handleApplyLabel = useCallback(
     (override?: { group: string; name: string }) => {
@@ -142,6 +185,24 @@ export const useTimelineExportDialogs = ({
       info('選択されたアングルの映像が取得できません');
       return;
     }
+
+    const resolvedMultiSources = resolveMultiAngleSources(
+      videoSources,
+      primarySource,
+      secondarySource,
+    );
+    if (angleOption === 'multi') {
+      const sourcePath = normalizeVideoSource(resolvedMultiSources.sourcePath);
+      const sourcePath2 = normalizeVideoSource(resolvedMultiSources.sourcePath2);
+      if (!sourcePath || !sourcePath2) {
+        info('マルチアングル書き出しにはメイン・サブ映像の両方が必要です');
+        return;
+      }
+      if (sourcePath === sourcePath2) {
+        info('マルチアングル書き出しでは異なる映像ソースを選択してください');
+        return;
+      }
+    }
     const ordered = [...timeline].sort((a, b) => a.startTime - b.startTime);
     const actionIndexLookup = new Map<string, number>();
     const counters: Record<string, number> = {};
@@ -212,13 +273,23 @@ export const useTimelineExportDialogs = ({
       }
     } else {
       // 単一アングルまたはマルチアングルの場合
+      const sourcePathForExport =
+        angleOption === 'single'
+          ? videoSources![selectedAngleIndex]
+          : normalizeVideoSource(resolvedMultiSources.sourcePath);
+      if (!sourcePathForExport) {
+        info('書き出し対象の映像ソースが見つかりません');
+        setIsExporting(false);
+        return;
+      }
+
       const result = await globalThis.window.electronAPI.exportClipsWithOverlay(
         {
-          sourcePath:
-            angleOption === 'single'
-              ? videoSources![selectedAngleIndex]
-              : videoSources![0],
-          sourcePath2: angleOption === 'multi' ? videoSources![1] : undefined,
+          sourcePath: sourcePathForExport,
+          sourcePath2:
+            angleOption === 'multi'
+              ? resolvedMultiSources.sourcePath2
+              : undefined,
           mode: angleOption === 'multi' ? 'dual' : 'single',
           exportMode,
           angleOption,
@@ -244,8 +315,10 @@ export const useTimelineExportDialogs = ({
     overlaySettings,
     selectedAngleIndex,
     selectedIds,
+    secondarySource,
     timeline,
     videoSources,
+    primarySource,
   ]);
 
   useEffect(() => {

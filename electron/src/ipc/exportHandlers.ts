@@ -9,6 +9,13 @@ import {
   type ExportClipForFfmpeg,
   type OverlayLine,
 } from './exportFfmpegRunners';
+import {
+  ensureMp4,
+  escapeDrawtext,
+  getJapaneseFontPath,
+  normalizeAngleOption,
+  resolveDualSourceError,
+} from './exportOptions';
 
 interface RegisterExportHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
@@ -65,83 +72,6 @@ interface ExportClipsPayload {
 }
 
 let isRegistered = false;
-
-type NormalizedAngleOption =
-  | 'allAngles'
-  | 'single'
-  | 'multi'
-  | 'angle1'
-  | 'angle2';
-
-const normalizeAngleOption = (
-  angleOption: ExportClipsPayload['angleOption'],
-  mode: ExportClipsPayload['mode'],
-): NormalizedAngleOption => {
-  if (angleOption === 'all' || angleOption === 'allAngles') {
-    return 'allAngles';
-  }
-  if (angleOption === 'multi') {
-    return 'multi';
-  }
-  if (angleOption === 'angle2') {
-    return 'angle2';
-  }
-  if (angleOption === 'angle1') {
-    return 'angle1';
-  }
-  if (mode === 'dual') {
-    return 'multi';
-  }
-  return 'single';
-};
-
-const ensureMp4 = (name: string): string =>
-  name.toLowerCase().endsWith('.mp4') ? name : `${name}.mp4`;
-
-const getJapaneseFontPath = (isBold = false): string => {
-  const platform = os.platform();
-  if (platform === 'darwin') {
-    return isBold
-      ? '/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc'
-      : '/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc';
-  }
-  if (platform === 'win32') {
-    return isBold
-      ? 'C:\\Windows\\Fonts\\meiryob.ttc'
-      : 'C:\\Windows\\Fonts\\meiryo.ttc';
-  }
-  return isBold
-    ? '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'
-    : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc';
-};
-
-const wrapText = (text: string, maxChars = 60): string => {
-  if (text.length <= maxChars) return text;
-  const lines: string[] = [];
-  let currentLine = '';
-  const words = text.split(' ');
-
-  for (const word of words) {
-    if (currentLine.length + word.length + 1 > maxChars) {
-      if (currentLine) lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = currentLine ? `${currentLine} ${word}` : word;
-    }
-  }
-  if (currentLine) lines.push(currentLine);
-  return lines.join('\n');
-};
-
-const escapeDrawtext = (text: string): string => {
-  const wrapped = wrapText(text, 60);
-  return wrapped
-    .replace(/\\/g, '\\\\')
-    .replace(/:/g, '\\:')
-    .replace(/'/g, "'\\''")
-    .replace(/%/g, '\\%')
-    .replace(/,/g, '\\,');
-};
 
 const dataUrlToTempFile = async (
   dataUrl: string,
@@ -260,6 +190,21 @@ export const registerExportHandlers = ({
             : null;
         const useDual = mode === 'dual' || Boolean(secondarySource);
 
+        if (useDual) {
+          const dualError = resolveDualSourceError(mainSource, secondarySource);
+          if (dualError) {
+            console.error('export-clips-with-overlay dual preflight failed', {
+              sourcePath,
+              sourcePath2,
+              angleOption,
+              mode,
+              mainSource,
+              secondarySource,
+            });
+            return { success: false, error: dualError };
+          }
+        }
+
         const renderClip = async (
           clip: ClipExportItem,
           outputPath?: string,
@@ -325,6 +270,22 @@ export const registerExportHandlers = ({
               escapeDrawtext,
             });
           } else if (useDual) {
+            const dualError = resolveDualSourceError(
+              clipMainSource,
+              clipSecondarySource,
+            );
+            if (dualError) {
+              console.error('export-clips-with-overlay clip dual source error', {
+                clipId: clip.id,
+                sourcePath,
+                sourcePath2,
+                angleOption,
+                mode,
+                clipMainSource,
+                clipSecondarySource,
+              });
+              throw new Error(dualError);
+            }
             await runFfmpegDual({
               getFfmpegPath,
               mainSource: clipMainSource,

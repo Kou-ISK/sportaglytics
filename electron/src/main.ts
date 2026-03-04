@@ -1,7 +1,6 @@
 import { app, BrowserWindow, ipcMain, type IpcMainEvent } from 'electron';
 import * as path from 'path';
 import ffmpegPath from 'ffmpeg-static';
-import { Utils, setMainWindow } from './utils';
 import { registerShortcuts } from './shortCutKey';
 import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
@@ -23,7 +22,11 @@ import { registerDashboardHandlers } from './ipc/dashboardHandlers';
 import { registerExportHandlers } from './ipc/exportHandlers';
 import { registerFileHandlers } from './ipc/fileHandlers';
 import { registerLlamaHandlers } from './ipc/llamaHandlers';
+import { registerLegacyFileAccessHandlers } from './ipc/legacyFileAccessHandlers';
+import { registerMenuStateHandlers } from './ipc/menuStateHandlers';
+import { registerPackageHandlers } from './ipc/packageHandlers';
 import { registerReportHandlers } from './ipc/reportHandlers';
+import { registerSyncHandlers } from './ipc/syncHandlers';
 import { registerWindowEventHandlers } from './ipc/windowEventHandlers';
 
 if (app?.commandLine) {
@@ -136,7 +139,6 @@ const createWindow = async (): Promise<BrowserWindow> => {
     ipcMain.removeListener('preload:ready', handlePreloadReady);
   });
   mainWindow = window;
-  setMainWindow(window);
   setMainWindowRef(window);
   setAnalysisMainWindowRef(window);
   window.loadURL(mainURL);
@@ -154,7 +156,10 @@ const createWindow = async (): Promise<BrowserWindow> => {
   return window;
 };
 
-Utils();
+registerLegacyFileAccessHandlers({ getMainWindow: () => mainWindow });
+registerPackageHandlers();
+registerSyncHandlers();
+registerMenuStateHandlers();
 registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();

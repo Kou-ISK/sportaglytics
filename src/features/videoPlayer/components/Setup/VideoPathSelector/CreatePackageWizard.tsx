@@ -1,15 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Stack, Step, StepLabel, Stepper, Typography } from '@mui/material';
+import React, { useMemo } from 'react';
+import {
+  Box,
+  Paper,
+  Stack,
+  Step,
+  StepLabel,
+  Stepper,
+  Typography,
+} from '@mui/material';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
-import { PackageDatas } from '../../../../../renderer';
-import { MetaData } from '../../../../../types/MetaData';
-import { VideoSyncData } from '../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../types/VideoSync';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 import { ActionList } from '../../../../../ActionList';
-import {
+import type {
   PackageLoadResult,
   SyncStatus,
-  WizardFormState,
   WizardSelectionState,
 } from './types';
 import { BasicInfoStep } from './steps/BasicInfoStep';
@@ -18,6 +23,8 @@ import { VideoSelectionStep } from './steps/VideoSelectionStep';
 import { SummaryStep } from './steps/SummaryStep';
 import { WizardFooter } from './WizardFooter';
 import { WizardSyncAlert } from './WizardSyncAlert';
+import { buildWizardSummaryItems } from './WizardSummaryBuilder';
+import { useCreatePackageFlow } from './hooks/useCreatePackageFlow';
 import { useWizardSelection } from './hooks/useWizardSelection';
 
 interface CreatePackageWizardProps {
@@ -32,12 +39,6 @@ interface CreatePackageWizardProps {
 }
 
 const STEPS = ['基本情報', '保存先選択', '映像ファイル選択', '確認'];
-
-const INITIAL_FORM: WizardFormState = {
-  packageName: '',
-  team1Name: '',
-  team2Name: '',
-};
 
 const createAngleId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -62,12 +63,8 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
   open,
   onClose,
   onPackageCreated,
-  performAudioSync,
   syncStatus,
 }) => {
-  const [form, setForm] = useState<WizardFormState>(INITIAL_FORM);
-  const [activeStep, setActiveStep] = useState(0);
-  const [errors, setErrors] = useState<Partial<WizardFormState>>({});
   const { error: showError } = useNotification();
   const {
     selection,
@@ -82,275 +79,28 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     createInitialSelection,
     showError,
   });
-  const [hasPromptedDirectory, setHasPromptedDirectory] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setForm(INITIAL_FORM);
-      resetSelection();
-      setActiveStep(0);
-      setErrors({});
-      setHasPromptedDirectory(false);
-    }
-  }, [open, resetSelection]);
-
-  const isAnalyzing = syncStatus.isAnalyzing;
-
-  const validateStep = useCallback(
-    (step: number) => {
-      const nextErrors: Partial<WizardFormState> = {};
-      if (step === 0) {
-        if (!form.packageName.trim()) {
-          nextErrors.packageName = 'パッケージ名を入力してください';
-        }
-        if (!form.team1Name.trim()) {
-          nextErrors.team1Name = 'チーム名(1)を入力してください';
-        }
-        if (!form.team2Name.trim()) {
-          nextErrors.team2Name = 'チーム名(2)を入力してください';
-        }
-      }
-      setErrors(nextErrors);
-      return Object.keys(nextErrors).length === 0;
-    },
-    [form],
-  );
-
-  useEffect(() => {
-    if (
-      activeStep === 1 &&
-      !selection.selectedDirectory &&
-      !hasPromptedDirectory
-    ) {
-      setHasPromptedDirectory(true);
-      void handleSelectDirectory();
-    }
-  }, [
+  const {
+    form,
+    setForm,
     activeStep,
-    handleSelectDirectory,
-    hasPromptedDirectory,
-    selection.selectedDirectory,
-  ]);
-
-  const executeCreatePackage = useCallback(async () => {
-    if (!globalThis.window.electronAPI) {
-      showError('この機能はElectronアプリケーション内でのみ利用できます。');
-      return;
-    }
-
-    const anglePayloads: Array<{
-      id: string;
-      name: string;
-      sourcePath: string;
-      role?: 'primary' | 'secondary';
-    }> = selection.angles
-      .filter((angle) => angle.filePath)
-      .map((angle, index) => {
-        const role: 'primary' | 'secondary' | undefined =
-          index === 0 ? 'primary' : index === 1 ? 'secondary' : undefined;
-        return {
-          id: angle.id,
-          name: angle.name.trim() || 'Angle',
-          sourcePath: angle.filePath,
-          role,
-        };
-      });
-
-    if (!anglePayloads.length) {
-      showError('少なくとも1つのアングルに映像を割り当ててください。');
-      return;
-    }
-
-    const metaDataConfig: MetaData = {
-      tightViewPath: '',
-      wideViewPath: null,
-      team1Name: form.team1Name,
-      team2Name: form.team2Name,
-      actionList: ActionList.map((item) => item.action),
-      primaryAngleId: anglePayloads[0]?.id || undefined,
-      secondaryAngleId: anglePayloads[1]?.id || undefined,
-      angles: undefined,
-    };
-
-    try {
-      const packageDatas: PackageDatas =
-        await globalThis.window.electronAPI?.createPackage(
-          selection.selectedDirectory,
-          form.packageName,
-          anglePayloads,
-          metaDataConfig,
-        );
-
-      if (!packageDatas) {
-        throw new Error('Failed to create package');
-      }
-
-      // 新規パッケージ作成時は自動音声同期を実行しない
-      // ユーザーが必要に応じてメニューから「音声同期を再実行」を選択できる
-      const syncData: VideoSyncData | undefined = undefined;
-      const primaryAngle = packageDatas.angles[0];
-      const secondaryAngle =
-        packageDatas.angles.length > 1 ? packageDatas.angles[1] : undefined;
-      const videoList = [
-        primaryAngle?.absolutePath,
-        secondaryAngle?.absolutePath,
-      ].filter(Boolean) as string[];
-
-      onPackageCreated({
-        videoList,
-        syncData,
-        timelinePath: packageDatas.timelinePath,
-        metaDataConfigFilePath: packageDatas.metaDataConfigFilePath,
-        packagePath: `${selection.selectedDirectory}/${form.packageName}`,
-      });
-      onClose();
-    } catch (error) {
-      console.error('パッケージ作成に失敗しました:', error);
-      showError('パッケージの作成中にエラーが発生しました。');
-    }
-  }, [
-    form.packageName,
-    form.team1Name,
-    form.team2Name,
+    errors,
+    handleNext,
+    handleBack,
+  } = useCreatePackageFlow({
+    open,
     onClose,
     onPackageCreated,
-    performAudioSync,
     selection,
-    showError,
-  ]);
-
-  const handleNext = useCallback(async () => {
-    if (!validateStep(activeStep)) {
-      return;
-    }
-
-    if (activeStep === 1) {
-      if (!selection.selectedDirectory) {
-        await handleSelectDirectory();
-        return;
-      }
-    }
-
-    if (activeStep === 2) {
-      const primaryAngle = selection.angles[0];
-      if (!primaryAngle?.filePath) {
-        showError('メインアングルに映像を割り当ててください。');
-        return;
-      }
-
-      if (!selection.angles.some((angle) => angle.filePath)) {
-        showError('少なくとも1つのアングルに映像を割り当ててください。');
-        return;
-      }
-    }
-
-    if (activeStep === STEPS.length - 1) {
-      await executeCreatePackage();
-    } else {
-      setActiveStep((prev) => prev + 1);
-    }
-  }, [
-    activeStep,
+    resetSelection,
     handleSelectDirectory,
-    selection,
-    validateStep,
     showError,
-    executeCreatePackage,
-  ]);
-
-  const handleBack = useCallback(() => {
-    setActiveStep((prev) => Math.max(0, prev - 1));
-  }, []);
+    actionNames: ActionList.map((item) => item.action),
+  });
+  const isAnalyzing = syncStatus.isAnalyzing;
 
   const summaryItems = useMemo(
-    () => [
-      { label: 'パッケージ名', value: form.packageName },
-      {
-        label: 'チーム',
-        value: (
-          <Stack direction="row" spacing={1}>
-            <Box
-              component="span"
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                px: 1,
-                py: 0.5,
-                borderRadius: 1,
-                bgcolor: 'error.light',
-                color: 'error.contrastText',
-                fontSize: '0.75rem',
-              }}
-            >
-              {form.team1Name}
-            </Box>
-            <Typography variant="body2">vs</Typography>
-            <Box
-              component="span"
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                px: 1,
-                py: 0.5,
-                borderRadius: 1,
-                bgcolor: 'primary.light',
-                color: 'primary.contrastText',
-                fontSize: '0.75rem',
-              }}
-            >
-              {form.team2Name}
-            </Box>
-          </Stack>
-        ),
-      },
-      { label: '保存先', value: selection.selectedDirectory },
-      {
-        label: 'アングル設定',
-        value: (
-          <Stack spacing={1}>
-            {selection.angles.map((angle, index) => {
-              const fileName = angle.filePath
-                ? angle.filePath.split('/').pop()
-                : '未選択';
-              const roleLabel =
-                index === 0
-                  ? 'メイン (自動)'
-                  : index === 1
-                    ? 'セカンダリ (自動)'
-                    : '';
-              return (
-                <Stack key={angle.id} direction="row" spacing={1}>
-                  <Typography variant="body2" sx={{ minWidth: 110 }}>
-                    {angle.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {fileName}
-                  </Typography>
-                  {roleLabel && (
-                    <Box
-                      component="span"
-                      sx={{
-                        px: 1,
-                        py: 0.25,
-                        borderRadius: 1,
-                        bgcolor: roleLabel.includes('メイン')
-                          ? 'primary.main'
-                          : 'info.main',
-                        color: 'primary.contrastText',
-                        fontSize: '0.75rem',
-                      }}
-                    >
-                      {roleLabel}
-                    </Box>
-                  )}
-                </Stack>
-              );
-            })}
-          </Stack>
-        ),
-      },
-    ],
-    [form.packageName, form.team1Name, form.team2Name, selection],
+    () => buildWizardSummaryItems(form, selection),
+    [form, selection],
   );
 
   if (!open) {

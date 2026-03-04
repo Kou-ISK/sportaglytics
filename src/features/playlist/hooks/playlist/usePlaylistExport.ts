@@ -27,6 +27,23 @@ interface UsePlaylistExportParams {
   onMissingApi?: (message: string) => void;
 }
 
+const normalizeVideoSource = (value: string | undefined): string | undefined => {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const resolveMultiAngleSources = (
+  videoSources: string[],
+): { sourcePath?: string; sourcePath2?: string } => {
+  const available = videoSources.map(normalizeVideoSource).filter(Boolean) as string[];
+  const sourcePath = available[0];
+  return {
+    sourcePath,
+    sourcePath2: available.find((source) => source !== sourcePath),
+  };
+};
+
 export const usePlaylistExport = ({
   items,
   selectedItems,
@@ -81,6 +98,24 @@ export const usePlaylistExport = ({
         success: false,
         message: '選択されたアングルの映像が取得できません',
       };
+    }
+
+    const resolvedMultiSources = resolveMultiAngleSources(videoSources);
+    if (angleOption === 'multi') {
+      const sourcePath = normalizeVideoSource(resolvedMultiSources.sourcePath);
+      const sourcePath2 = normalizeVideoSource(resolvedMultiSources.sourcePath2);
+      if (!sourcePath || !sourcePath2) {
+        return {
+          success: false,
+          message: 'マルチアングル書き出しにはメイン・サブ映像の両方が必要です',
+        };
+      }
+      if (sourcePath === sourcePath2) {
+        return {
+          success: false,
+          message: 'マルチアングル書き出しでは異なる映像ソースを使用してください',
+        };
+      }
     }
 
     const sourceItems = exportScope === 'selected' ? selectedItems : items;
@@ -202,8 +237,9 @@ export const usePlaylistExport = ({
       sourcePath:
         angleOption === 'single'
           ? videoSources[selectedAngleIndex]
-          : videoSources[0],
-      sourcePath2: angleOption === 'multi' ? videoSources[1] : undefined,
+          : resolvedMultiSources.sourcePath || videoSources[0],
+      sourcePath2:
+        angleOption === 'multi' ? resolvedMultiSources.sourcePath2 : undefined,
       mode: angleOption === 'multi' ? 'dual' : 'single',
       exportMode,
       angleOption,
