@@ -1,6 +1,6 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
-import { TimelineData } from '../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../types/TimelineData';
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineLane } from './TimelineLane';
 import { TimelineEmptyState } from './TimelineEmptyState';
@@ -12,6 +12,8 @@ import { useTimelineRangeSelection } from './hooks/useTimelineRangeSelection';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 import { TimelineDialogs } from './TimelineDialogs';
 import { useTimelineExportDialogs } from './hooks/useTimelineExportDialogs';
+import { useTimelineDerivedData } from './hooks/useTimelineDerivedData';
+import { useTimelineGlobalShortcuts } from './hooks/useTimelineGlobalShortcuts';
 
 interface VisualTimelineProps {
   timeline: TimelineData[];
@@ -94,22 +96,12 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     onUpdateTimeRange,
   });
 
-  const groupedByAction = useMemo(() => {
-    const groups: Record<string, TimelineData[]> = {};
-    for (const item of timeline) {
-      const actionName = item.actionName;
-      if (!groups[actionName]) {
-        groups[actionName] = [];
-      }
-      groups[actionName].push(item);
-    }
-    return groups;
-  }, [timeline]);
-
-  const actionNames = useMemo(
-    () => Object.keys(groupedByAction).sort((a, b) => a.localeCompare(b)),
-    [groupedByAction],
-  );
+  const { groupedByAction, actionNames, firstTeamName, formatTime, timeMarkers } =
+    useTimelineDerivedData({
+      timeline,
+      maxSec,
+      zoomScale,
+    });
 
   // 範囲選択後のclickによる選択クリアを抑止するフラグ
   const suppressClearRef = React.useRef(false);
@@ -222,128 +214,15 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     [bulkUpdateTimelineItems, info, onUpdateTimelineItem],
   );
 
-  const formatTime = useCallback((seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }, []);
-
-  const timeMarkers = useMemo(() => {
-    const markers: number[] = [];
-    if (maxSec <= 0) return markers;
-
-    // 映像の総時間に基づいた基本の目盛り間隔を決定
-    // きりの良い5の倍数の秒数を使用（10秒、30秒、1分、5分、10分など）
-    // ズーム100%で画面に収まる適切な数（約8〜15個程度）の目盛りを表示
-    const getBaseInterval = (duration: number): number => {
-      if (duration <= 60) return 10; // 〜1分: 10秒単位
-      if (duration <= 300) return 30; // 〜5分: 30秒単位
-      if (duration <= 600) return 60; // 〜10分: 1分単位
-      if (duration <= 1800) return 300; // 〜30分: 5分単位
-      if (duration <= 3600) return 600; // 〜1時間: 10分単位
-      return 600; // それ以上: 10分単位
-    };
-
-    // ズーム時も5の倍数の間隔を維持
-    // 利用可能な間隔: 5秒, 10秒, 30秒, 1分, 5分, 10分
-    const ALLOWED_INTERVALS = [5, 10, 30, 60, 300, 600];
-
-    const baseInterval = getBaseInterval(maxSec);
-    const targetInterval = baseInterval / zoomScale;
-
-    // targetIntervalに最も近い許可された間隔を選択
-    const interval = ALLOWED_INTERVALS.reduce((prev, curr) =>
-      Math.abs(curr - targetInterval) < Math.abs(prev - targetInterval)
-        ? curr
-        : prev,
-    );
-
-    for (let i = 0; i <= maxSec; i += interval) {
-      markers.push(i);
-    }
-    return markers;
-  }, [maxSec, zoomScale]);
-
-  const firstTeamName = actionNames[0]?.split(' ')[0];
-
-
-  // グローバルKeyDownでTabジャンプ・Undo/Redoを処理（選択があるときのみ）
-  React.useEffect(() => {
-    const handleKeyDownGlobal = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName?.toLowerCase();
-      const isFormElement =
-        tag === 'input' ||
-        tag === 'textarea' ||
-        tag === 'select' ||
-        tag === 'button';
-      const isInsideTimeline =
-        !!scrollContainerRef.current &&
-        !!target &&
-        scrollContainerRef.current.contains(target);
-
-      // 選択中アクションの次/前インスタンスへジャンプ
-      // Tab / Shift+Tab または Option+↓ / Option+↑
-      const isJumpNext = e.key === 'Tab' || (e.altKey && e.key === 'ArrowDown');
-      const isJumpPrev =
-        (e.key === 'Tab' && e.shiftKey) || (e.altKey && e.key === 'ArrowUp');
-
-      if (isJumpNext || isJumpPrev) {
-        // Tabはデフォルト動作を抑止
-        if (e.key === 'Tab') {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-
-        if (selectedIds.length > 0) {
-          // Option+矢印の場合もデフォルト動作を抑止
-          if (e.altKey) {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-
-          const items = [...timeline].sort((a, b) => a.startTime - b.startTime);
-          const current = items.find((t) => selectedIds.includes(t.id));
-          if (current) {
-            const same = items.filter(
-              (t) => t.actionName === current.actionName,
-            );
-            const idx = same.findIndex((t) => t.id === current.id);
-            if (idx !== -1) {
-              const direction: 1 | -1 = isJumpPrev ? -1 : 1;
-              const nextIdx =
-                (idx + direction + same.length) % Math.max(same.length, 1);
-              const targetItem = same[nextIdx];
-              if (targetItem) {
-                onSelectionChange([targetItem.id]);
-                onSeek(targetItem.startTime);
-              }
-            }
-          }
-        }
-        return;
-      }
-
-      // Undo/Redo（フォーム要素以外）
-      if (
-        isInsideTimeline &&
-        !isFormElement &&
-        (e.metaKey || e.ctrlKey) &&
-        e.key.toLowerCase() === 'z'
-      ) {
-        e.preventDefault();
-        if (e.shiftKey) {
-          onRedo?.();
-        } else {
-          onUndo?.();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDownGlobal, true);
-    return () =>
-      window.removeEventListener('keydown', handleKeyDownGlobal, true);
-  }, [selectedIds, timeline, onSelectionChange, onSeek, onRedo, onUndo]);
+  useTimelineGlobalShortcuts({
+    selectedIds,
+    timeline,
+    scrollContainerRef,
+    onSelectionChange,
+    onSeek,
+    onUndo,
+    onRedo,
+  });
 
   const handleBackgroundClick = useCallback(
     (e: React.MouseEvent) => {
