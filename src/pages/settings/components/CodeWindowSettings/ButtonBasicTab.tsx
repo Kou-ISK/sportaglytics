@@ -1,36 +1,16 @@
 import React from 'react';
 import {
-  Box,
-  Chip,
   Divider,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
   TextField,
-  Tooltip,
   Typography,
-  IconButton,
 } from '@mui/material';
-import KeyboardIcon from '@mui/icons-material/Keyboard';
-import DeleteIcon from '@mui/icons-material/Delete';
-import type { CodeWindowButton } from '../../../../types/Settings';
-
-type LabelGroup = { groupName: string; options: string[] };
-
-type ButtonBasicTabProps = {
-  button: CodeWindowButton;
-  availableActions: string[];
-  availableLabelGroups: LabelGroup[];
-  currentLabelGroup?: LabelGroup;
-  nameInputRef: React.RefObject<HTMLInputElement | null>;
-  capturedHotkey: string;
-  isCapturingHotkey: boolean;
-  setIsCapturingHotkey: (value: boolean) => void;
-  setCapturedHotkey: (value: string) => void;
-  onChange: (field: keyof CodeWindowButton, value: unknown) => void;
-  onInsertPlaceholder: (placeholder: string) => void;
-};
+import { ButtonHotkeyField } from './ButtonHotkeyField';
+import { ButtonPlaceholderChips } from './ButtonPlaceholderChips';
+import type { ButtonBasicTabProps } from './ButtonBasicTab.types';
 
 export const ButtonBasicTab = ({
   button,
@@ -93,39 +73,7 @@ export const ButtonBasicTab = ({
             inputRef={nameInputRef}
             sx={{ mb: 1 }}
           />
-          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ width: '100%', mb: 0.5 }}
-            >
-              クリックで挿入:
-            </Typography>
-            <Chip
-              label="${Team1}"
-              size="small"
-              variant="outlined"
-              color="error"
-              onClick={() => onInsertPlaceholder('${Team1}')}
-              sx={{ cursor: 'pointer', fontFamily: 'monospace' }}
-            />
-            <Chip
-              label="${Team2}"
-              size="small"
-              variant="outlined"
-              color="primary"
-              onClick={() => onInsertPlaceholder('${Team2}')}
-              sx={{ cursor: 'pointer', fontFamily: 'monospace' }}
-            />
-            <Chip
-              label=" "
-              size="small"
-              variant="outlined"
-              onClick={() => onInsertPlaceholder(' ')}
-              sx={{ cursor: 'pointer', minWidth: 40 }}
-              title="スペースを挿入"
-            />
-          </Box>
+          <ButtonPlaceholderChips onInsertPlaceholder={onInsertPlaceholder} />
         </>
       ) : (
         <>
@@ -163,39 +111,7 @@ export const ButtonBasicTab = ({
             inputRef={nameInputRef}
             sx={{ mb: 1 }}
           />
-          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ width: '100%', mb: 0.5 }}
-            >
-              クリックで挿入:
-            </Typography>
-            <Chip
-              label="${Team1}"
-              size="small"
-              variant="outlined"
-              color="error"
-              onClick={() => onInsertPlaceholder('${Team1}')}
-              sx={{ cursor: 'pointer', fontFamily: 'monospace' }}
-            />
-            <Chip
-              label="${Team2}"
-              size="small"
-              variant="outlined"
-              color="primary"
-              onClick={() => onInsertPlaceholder('${Team2}')}
-              sx={{ cursor: 'pointer', fontFamily: 'monospace' }}
-            />
-            <Chip
-              label=" "
-              size="small"
-              variant="outlined"
-              onClick={() => onInsertPlaceholder(' ')}
-              sx={{ cursor: 'pointer', minWidth: 40 }}
-              title="スペースを挿入"
-            />
-          </Box>
+          <ButtonPlaceholderChips onInsertPlaceholder={onInsertPlaceholder} />
 
           {currentLabelGroup ? (
             <>
@@ -267,80 +183,15 @@ export const ButtonBasicTab = ({
 
       <Divider sx={{ my: 2 }} />
 
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>
-        ホットキー
-      </Typography>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ display: 'block', mb: 1 }}
-      >
-        ボタンを起動するショートカットキー（Shift+キーで2チーム目）
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-        <Box
-          onClick={() => setIsCapturingHotkey(true)}
-          sx={{
-            flex: 1,
-            p: 1.5,
-            border: '1px solid',
-            borderColor: isCapturingHotkey ? 'primary.main' : 'divider',
-            borderRadius: 1,
-            backgroundColor: isCapturingHotkey
-              ? 'action.selected'
-              : 'background.paper',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            '&:hover': {
-              borderColor: 'primary.main',
-            },
-          }}
-        >
-          <KeyboardIcon
-            fontSize="small"
-            color={isCapturingHotkey ? 'primary' : 'action'}
-          />
-          <Typography
-            variant="body2"
-            color={
-              isCapturingHotkey
-                ? 'primary'
-                : capturedHotkey
-                  ? 'text.primary'
-                  : 'text.secondary'
-            }
-            sx={{ fontFamily: 'monospace' }}
-          >
-            {isCapturingHotkey
-              ? 'キーを押してください...'
-              : capturedHotkey || '未設定'}
-          </Typography>
-        </Box>
-        {capturedHotkey && (
-          <Tooltip title="ホットキーをクリア">
-            <IconButton
-              size="small"
-              onClick={() => {
-                setCapturedHotkey('');
-                onChange('hotkey', undefined);
-              }}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        )}
-      </Box>
-      {isCapturingHotkey && (
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ mt: 0.5, display: 'block' }}
-        >
-          Escでキャンセル
-        </Typography>
-      )}
+      <ButtonHotkeyField
+        capturedHotkey={capturedHotkey}
+        isCapturingHotkey={isCapturingHotkey}
+        setIsCapturingHotkey={setIsCapturingHotkey}
+        onClear={() => {
+          setCapturedHotkey('');
+          onChange('hotkey', undefined);
+        }}
+      />
     </>
   );
 };

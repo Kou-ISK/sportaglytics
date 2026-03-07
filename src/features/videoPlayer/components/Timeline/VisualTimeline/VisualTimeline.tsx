@@ -1,45 +1,13 @@
 import React, { useCallback } from 'react';
-import { Box } from '@mui/material';
-import type { TimelineData } from '../../../../../types/TimelineData';
-import { TimelineAxis } from './TimelineAxis';
-import { TimelineLane } from './TimelineLane';
-import { TimelineEmptyState } from './TimelineEmptyState';
-import { TimelineSelectionOverlay } from './TimelineSelectionOverlay';
 import { useTimelineViewport } from './hooks/useTimelineViewport';
-import { ZoomIndicator } from './ZoomIndicator';
 import { useTimelineInteractions } from './hooks/useTimelineInteractions';
 import { useTimelineRangeSelection } from './hooks/useTimelineRangeSelection';
 import { useNotification } from '../../../../../contexts/NotificationContext';
-import { TimelineDialogs } from './TimelineDialogs';
 import { useTimelineExportDialogs } from './hooks/useTimelineExportDialogs';
 import { useTimelineDerivedData } from './hooks/useTimelineDerivedData';
 import { useTimelineGlobalShortcuts } from './hooks/useTimelineGlobalShortcuts';
-
-interface VisualTimelineProps {
-  timeline: TimelineData[];
-  maxSec: number;
-  currentTime: number;
-  onSeek: (time: number) => void;
-  onDelete: (ids: string[]) => void;
-  selectedIds: string[];
-  onSelectionChange: (ids: string[]) => void;
-  onUpdateMemo?: (id: string, memo: string) => void;
-  onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
-  onUpdateTimelineItem?: (
-    id: string,
-    updates: Partial<Omit<TimelineData, 'id'>>,
-  ) => void;
-  bulkUpdateTimelineItems?: (
-    ids: string[],
-    updates: Partial<Omit<TimelineData, 'id'>>,
-  ) => void;
-  teamNames: string[];
-  videoSources?: string[];
-  onUndo?: () => void;
-  onRedo?: () => void;
-  /** プレイリストに追加（位置情報付き） */
-  onAddToPlaylist?: (items: TimelineData[]) => void;
-}
+import { VisualTimelineView } from './VisualTimelineView';
+import type { VisualTimelineProps } from './VisualTimeline.types';
 
 export const VisualTimeline: React.FC<VisualTimelineProps> = ({
   timeline,
@@ -235,159 +203,84 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = ({
     [isSelecting, selectionBox, onSelectionChange],
   );
 
+  const dialogsProps = {
+    editingDraft,
+    onDialogChange: handleDialogChange,
+    onCloseDialog: handleCloseDialog,
+    onDeleteSingle: handleDeleteSingle,
+    onSaveDialog: handleSaveDialog,
+    contextMenu,
+    onCloseContextMenu: handleCloseContextMenu,
+    onContextMenuEdit: handleContextMenuEdit,
+    onContextMenuDelete: handleContextMenuDelete,
+    onContextMenuJumpTo: handleContextMenuJumpTo,
+    onContextMenuDuplicate: handleContextMenuDuplicate,
+    onAddToPlaylist,
+    timeline,
+    selectedIds,
+    labelDialogOpen,
+    labelGroup,
+    labelName,
+    onLabelGroupChange: setLabelGroup,
+    onLabelNameChange: setLabelName,
+    onCloseLabelDialog: () => setLabelDialogOpen(false),
+    onApplyLabel: handleApplyLabel,
+    clipDialogOpen,
+    onCloseClipDialog: () => setClipDialogOpen(false),
+    onExportClips: handleExportClips,
+    exportScope,
+    setExportScope,
+    exportMode,
+    setExportMode,
+    exportFileName,
+    setExportFileName,
+    angleOption,
+    setAngleOption,
+    selectedAngleIndex,
+    setSelectedAngleIndex,
+    videoSources,
+    primarySource,
+    secondarySource,
+    setPrimarySource,
+    setSecondarySource,
+    isExporting,
+  } satisfies React.ComponentProps<typeof VisualTimelineView>['dialogsProps'];
+
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        minHeight: 0,
-        overflow: 'hidden',
-        position: 'relative',
-      }}
-    >
-      <ZoomIndicator zoomScale={zoomScale} />
-      <Box sx={{ position: 'relative', flex: 1, minHeight: 0 }}>
-        <Box
-          sx={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 5,
-            backgroundColor: 'background.paper',
-            px: 1.5,
-            pt: 0,
-            pb: 0,
-            mb: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <TimelineAxis
-            axisRef={axisRef}
-            maxSec={maxSec}
-            currentTimePosition={currentTimePosition}
-            contentWidth={containerWidth}
-            zoomScale={zoomScale}
-            timeMarkers={timeMarkers}
-            timeToPosition={timeToPosition}
-            positionToTime={positionToTime}
-            onSeek={onSeek}
-            formatTime={formatTime}
-          />
-        </Box>
-
-        <Box
-          ref={scrollContainerRef}
-          sx={{
-            position: 'relative',
-            flex: 1,
-            minHeight: 0,
-            maxHeight: '100%',
-            overflowY: 'auto',
-            overflowX: 'auto',
-            px: 1.5,
-            pt: 0,
-            pb: 3.5,
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={(e) => handleMouseUp(e, positionToTime)}
-          onClick={handleBackgroundClick}
-        >
-          <Box
-            sx={{
-              width:
-                containerWidth > 0 ? `${containerWidth * zoomScale}px` : '100%',
-              minWidth:
-                containerWidth > 0 ? `${containerWidth * zoomScale}px` : '100%',
-              flexShrink: 0,
-            }}
-            ref={containerRef}
-          >
-            {actionNames.map((actionName) => (
-              <TimelineLane
-                key={actionName}
-                actionName={actionName}
-                items={groupedByAction[actionName]}
-                selectedIds={selectedIds}
-                hoveredItemId={hoveredItemId}
-                focusedItemId={focusedItemId}
-                onHoverChange={setHoveredItemId}
-                onItemClick={handleItemClick}
-                onItemContextMenu={handleItemContextMenu}
-                timeToPosition={timeToPosition}
-                positionToTime={positionToTime}
-                currentTimePosition={currentTimePosition}
-                formatTime={formatTime}
-                firstTeamName={firstTeamName}
-                onSeek={onSeek}
-                maxSec={maxSec}
-                onUpdateTimeRange={onUpdateTimeRange}
-                onMoveItem={handleMoveItems}
-                laneRef={(el) => {
-                  laneRefs.current[actionName] = el;
-                }}
-                contentWidth={containerWidth}
-                zoomScale={zoomScale}
-              />
-            ))}
-
-            {timeline.length === 0 && (
-              <TimelineEmptyState message="タイムラインが空です。アクションボタンでタグ付けを開始してください。" />
-            )}
-          </Box>
-
-          {isSelecting && selectionBox && (
-            <TimelineSelectionOverlay selectionBox={selectionBox} />
-          )}
-        </Box>
-      </Box>
-
-      <TimelineDialogs
-        editingDraft={editingDraft}
-        onDialogChange={handleDialogChange}
-        onCloseDialog={handleCloseDialog}
-        onDeleteSingle={handleDeleteSingle}
-        onSaveDialog={handleSaveDialog}
-        contextMenu={contextMenu}
-        onCloseContextMenu={handleCloseContextMenu}
-        onContextMenuEdit={handleContextMenuEdit}
-        onContextMenuDelete={handleContextMenuDelete}
-        onContextMenuJumpTo={handleContextMenuJumpTo}
-        onContextMenuDuplicate={handleContextMenuDuplicate}
-        onAddToPlaylist={onAddToPlaylist}
-        timeline={timeline}
-        selectedIds={selectedIds}
-        labelDialogOpen={labelDialogOpen}
-        labelGroup={labelGroup}
-        labelName={labelName}
-        onLabelGroupChange={setLabelGroup}
-        onLabelNameChange={setLabelName}
-        onCloseLabelDialog={() => setLabelDialogOpen(false)}
-        onApplyLabel={handleApplyLabel}
-        clipDialogOpen={clipDialogOpen}
-        onCloseClipDialog={() => setClipDialogOpen(false)}
-        onExportClips={handleExportClips}
-        exportScope={exportScope}
-        setExportScope={setExportScope}
-        exportMode={exportMode}
-        setExportMode={setExportMode}
-        exportFileName={exportFileName}
-        setExportFileName={setExportFileName}
-        angleOption={angleOption}
-        setAngleOption={setAngleOption}
-        selectedAngleIndex={selectedAngleIndex}
-        setSelectedAngleIndex={setSelectedAngleIndex}
-        videoSources={videoSources}
-        primarySource={primarySource}
-        secondarySource={secondarySource}
-        setPrimarySource={setPrimarySource}
-        setSecondarySource={setSecondarySource}
-        isExporting={isExporting}
-      />
-    </Box>
+    <VisualTimelineView
+      zoomScale={zoomScale}
+      axisRef={axisRef}
+      maxSec={maxSec}
+      currentTimePosition={currentTimePosition}
+      containerWidth={containerWidth}
+      timeMarkers={timeMarkers}
+      timeToPosition={timeToPosition}
+      positionToTime={positionToTime}
+      onSeek={onSeek}
+      formatTime={formatTime}
+      scrollContainerRef={scrollContainerRef}
+      containerRef={containerRef}
+      actionNames={actionNames}
+      groupedByAction={groupedByAction}
+      selectedIds={selectedIds}
+      hoveredItemId={hoveredItemId}
+      focusedItemId={focusedItemId}
+      setHoveredItemId={setHoveredItemId}
+      handleItemClick={handleItemClick}
+      handleItemContextMenu={handleItemContextMenu}
+      firstTeamName={firstTeamName}
+      onUpdateTimeRange={onUpdateTimeRange}
+      handleMoveItems={handleMoveItems}
+      laneRefs={laneRefs}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={(e) => handleMouseUp(e, positionToTime)}
+      onBackgroundClick={handleBackgroundClick}
+      timeline={timeline}
+      isSelecting={isSelecting}
+      selectionBox={selectionBox}
+      dialogsProps={dialogsProps}
+    />
   );
 };

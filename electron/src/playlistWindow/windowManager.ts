@@ -39,7 +39,7 @@ export const createPlaylistWindow = (filePath?: string): BrowserWindow => {
     minHeight: 400,
     title: filePath ? path.basename(filePath, '.stpl') : 'プレイリスト',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '../preload.js'),
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -48,7 +48,7 @@ export const createPlaylistWindow = (filePath?: string): BrowserWindow => {
   });
   applyWindowSecurity(window);
 
-  const mainURL = `file:${path.join(__dirname, '../../index.html')}#/playlist`;
+  const mainURL = `file:${path.join(__dirname, '../../../index.html')}#/playlist`;
   window.loadURL(mainURL);
   window.setMenuBarVisibility(false);
 
