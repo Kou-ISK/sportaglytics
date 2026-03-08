@@ -4,81 +4,31 @@ import type {
   CodeWindowButton,
   CodeWindowLayout,
 } from '../../../../../types/Settings';
-import { ActionList } from '../../../../../ActionList';
-import { TEAM_PLACEHOLDERS } from '../../../../../utils/teamPlaceholder';
+import {
+  buildAvailableActions,
+  buildAvailableLabelGroups,
+  buildSettingsWithCodeWindows,
+} from './codeWindowSettingsDerived';
 import {
   createButton,
   createLayout,
   DEFAULT_CANVAS_HEIGHT,
   DEFAULT_CANVAS_WIDTH,
 } from '../utils';
+import { useCodeWindowExternalOpen } from './useCodeWindowExternalOpen';
+import { useCodeWindowLayoutIo } from './useCodeWindowLayoutIo';
 
 interface UseCodeWindowSettingsStateParams {
   settings: AppSettings;
   onSave: (settings: AppSettings) => Promise<boolean>;
 }
 
-const buildSettingsWithCodeWindows = (
-  settings: AppSettings,
-  codeWindows: CodeWindowLayout[],
-  activeCodeWindowId: string | null,
-): AppSettings => {
-  return {
-    ...settings,
-    codingPanel: {
-      ...settings.codingPanel,
-      defaultMode: settings.codingPanel?.defaultMode || 'code',
-      toolbars: settings.codingPanel?.toolbars || [],
-      codeWindows,
-      activeCodeWindowId: activeCodeWindowId || undefined,
-      actionLinks: settings.codingPanel?.actionLinks || [],
-    },
-  };
-};
-
 export const useCodeWindowSettingsState = ({
   settings,
   onSave,
 }: UseCodeWindowSettingsStateParams) => {
-  const availableActions = useMemo(() => {
-    const base = ActionList.map((a) => a.action);
-    return base.flatMap((action) => [
-      `${TEAM_PLACEHOLDERS.TEAM1} ${action}`,
-      `${TEAM_PLACEHOLDERS.TEAM2} ${action}`,
-    ]);
-  }, []);
-
-  const availableLabelGroups = useMemo(() => {
-    const groupMap = new Map<string, Set<string>>();
-
-    ActionList.forEach((action) => {
-      const groups = (
-        action as { groups?: { groupName: string; options: string[] }[] }
-      ).groups;
-      if (Array.isArray(groups)) {
-        groups.forEach((g) => {
-          const existing = groupMap.get(g.groupName) || new Set<string>();
-          g.options.forEach((opt) => existing.add(opt));
-          groupMap.set(g.groupName, existing);
-        });
-      }
-      if (action.results?.length > 0) {
-        const existing = groupMap.get('Result') || new Set<string>();
-        action.results.forEach((r) => existing.add(r));
-        groupMap.set('Result', existing);
-      }
-      if (action.types?.length > 0) {
-        const existing = groupMap.get('Type') || new Set<string>();
-        action.types.forEach((t) => existing.add(t));
-        groupMap.set('Type', existing);
-      }
-    });
-
-    return Array.from(groupMap.entries()).map(([groupName, optionsSet]) => ({
-      groupName,
-      options: Array.from(optionsSet).sort((a, b) => a.localeCompare(b)),
-    }));
-  }, []);
+  const availableActions = useMemo(() => buildAvailableActions(), []);
+  const availableLabelGroups = useMemo(() => buildAvailableLabelGroups(), []);
 
   const [codeWindows, setCodeWindows] = useState<CodeWindowLayout[]>(
     settings.codingPanel?.codeWindows || [],
@@ -127,69 +77,13 @@ export const useCodeWindowSettingsState = ({
     return success;
   }, [activeCodeWindowId, codeWindows, onSave, settings]);
 
-  const handleExternalOpen = useCallback(
-    async (filePath: string, options?: { clearPending?: boolean }) => {
-      const api = globalThis.window.electronAPI;
-      if (!api?.codeWindow?.loadFile) return;
-
-      try {
-        const result = await api.codeWindow.loadFile(filePath);
-        if (!result) return;
-
-        const data = result.codeWindow as {
-          version: number;
-          layout: CodeWindowLayout;
-        };
-        if (!data.layout || data.version !== 1) return;
-
-        const existing = codeWindowsRef.current.find(
-          (layout) => layout.id === data.layout.id,
-        );
-        if (existing) {
-          setActiveCodeWindowId(existing.id);
-          setTabIndex(1);
-          return;
-        }
-
-        const importedLayout = {
-          ...data.layout,
-          id: createLayout('').id,
-          name: `${data.layout.name} (インポート)`,
-        };
-        setCodeWindows((prev) => [...prev, importedLayout]);
-        setActiveCodeWindowId(importedLayout.id);
-        setHasChanges(true);
-        setTabIndex(1);
-      } catch (error) {
-        console.error('コードウィンドウファイルの読み込みに失敗:', error);
-      } finally {
-        if (options?.clearPending && api.codeWindow.consumeExternalOpen) {
-          await api.codeWindow.consumeExternalOpen(filePath);
-        }
-      }
-    },
-    [],
-  );
-
-  useEffect(() => {
-    const api = globalThis.window.electronAPI;
-    if (!api?.codeWindow?.onExternalOpen) return;
-
-    const cleanup = api.codeWindow.onExternalOpen((filePath: string) => {
-      void handleExternalOpen(filePath, { clearPending: true });
-    });
-
-    const consumePending = async () => {
-      if (!api.codeWindow.consumeExternalOpen) return;
-      const pendingPath = await api.codeWindow.consumeExternalOpen();
-      if (pendingPath) {
-        await handleExternalOpen(pendingPath);
-      }
-    };
-
-    void consumePending();
-    return cleanup;
-  }, [handleExternalOpen]);
+  useCodeWindowExternalOpen({
+    codeWindowsRef,
+    setCodeWindows,
+    setActiveCodeWindowId,
+    setHasChanges,
+    setTabIndex,
+  });
 
   const handleCreateLayout = useCallback(() => {
     if (!newLayoutName.trim()) return;
@@ -274,89 +168,12 @@ export const useCodeWindowSettingsState = ({
     [currentLayout, selectedButtonIds, handleButtonsChange],
   );
 
-  const importLayoutData = useCallback((data: { version: number; layout: CodeWindowLayout }) => {
-    if (data.layout && data.version === 1) {
-      const importedLayout = {
-        ...data.layout,
-        id: createLayout('').id,
-        name: `${data.layout.name} (インポート)`,
-      };
-      setCodeWindows((prev) => [...prev, importedLayout]);
-      setActiveCodeWindowId(importedLayout.id);
-      setHasChanges(true);
-    }
-  }, []);
-
-  const handleExportLayout = useCallback(async () => {
-    if (!currentLayout) return;
-    const api = globalThis.window.electronAPI;
-    if (!api?.codeWindow?.saveFile) {
-      const safeName = currentLayout.name.replace(/\s+/g, '_');
-      const fileName = `${safeName}.stcw`;
-      const data = {
-        version: 1,
-        layout: currentLayout,
-        exportedAt: new Date().toISOString(),
-      };
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      return;
-    }
-
-    const data = {
-      version: 1,
-      layout: currentLayout,
-      exportedAt: new Date().toISOString(),
-    };
-    await api.codeWindow.saveFile(data);
-  }, [currentLayout]);
-
-  const handleImportLayout = useCallback(async () => {
-    const api = globalThis.window.electronAPI;
-
-    if (!api?.codeWindow?.loadFile) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.stcw,.codewindow,.json';
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) return;
-        try {
-          const text = await file.text();
-          const data = JSON.parse(text) as {
-            version: number;
-            layout: CodeWindowLayout;
-          };
-          importLayoutData(data);
-        } catch {
-          console.error('Failed to import layout');
-        }
-      };
-      input.click();
-      return;
-    }
-
-    const result = await api.codeWindow.loadFile();
-    if (!result) return;
-    try {
-      const data = result.codeWindow as {
-        version: number;
-        layout: CodeWindowLayout;
-      };
-      importLayoutData(data);
-    } catch (error) {
-      console.error('Failed to import layout:', error);
-    }
-  }, [importLayoutData]);
+  const { handleExportLayout, handleImportLayout } = useCodeWindowLayoutIo({
+    currentLayout,
+    setCodeWindows,
+    setActiveCodeWindowId,
+    setHasChanges,
+  });
 
   return {
     availableActions,

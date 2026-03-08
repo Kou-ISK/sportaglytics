@@ -1,7 +1,5 @@
-import { spawn } from 'child_process';
-import * as fs from 'node:fs/promises';
-import * as os from 'os';
-import * as path from 'path';
+import { buildOverlayFilters } from './exportFfmpegOverlay';
+import { concatFfmpegFiles, runFfmpegProcess } from './exportFfmpegProcess';
 
 export interface ExportClipForFfmpeg {
   startTime: number;
@@ -55,54 +53,14 @@ export const runFfmpegSingle = ({
   escapeDrawtext,
 }: RunSingleParams): Promise<void> => {
   return new Promise<void>((resolve, reject) => {
-    const vfTexts: string[] = [];
-    if (overlayEnabled) {
-      const totalDisplayLines = overlayLines.reduce((acc, line) => {
-        const lineCount = (line.text.match(/\n/g) || []).length + 1;
-        return acc + lineCount;
-      }, 0);
-
-      const boxHeight = Math.max(60, 60 + (totalDisplayLines - 1) * 35);
-      const box = `drawbox=x=0:y=ih-${boxHeight}:w=iw:h=${boxHeight}:color=black@0.7:t=fill`;
-      vfTexts.push(box);
-
-      const linesConfig = [
-        {
-          color: 'white',
-          size: 34,
-          y: `h-${boxHeight - 25}`,
-          isBold: true,
-        },
-        {
-          color: '#dcdcdc',
-          size: 28,
-          y: `h-${Math.max(30, boxHeight - 60)}`,
-          isBold: false,
-        },
-        {
-          color: '#bbbbbb',
-          size: 24,
-          y: `h-${Math.max(30, boxHeight - 90)}`,
-          isBold: false,
-        },
-      ];
-
-      overlayLines.forEach((line, idx) => {
-        const safeText = escapeDrawtext(line.text);
-        const cfg = linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
-
-        let fontParam = '';
-        try {
-          const fontPath = getJapaneseFontPath(line.isBold);
-          fontParam = `fontfile='${fontPath}':`;
-        } catch {
-          fontParam = '';
-        }
-
-        const text = `drawtext=${fontParam}text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:shadowcolor=black@0.55:shadowx=2:shadowy=2:x=20:y=${cfg.y}`;
-        vfTexts.push(text);
-      });
-    }
+    const vfTexts = overlayEnabled
+      ? buildOverlayFilters({
+          overlayLines,
+          getJapaneseFontPath,
+          escapeDrawtext,
+          variant: 'single',
+        })
+      : [];
 
     const filterSteps: string[] = [];
     let baseLabel = '[0:v]';
@@ -189,14 +147,7 @@ export const runFfmpegSingle = ({
       outputPath,
     );
 
-    const ff = spawn(getFfmpegPath(), args);
-    ff.stderr.on('data', (data) => {
-      console.log('[ffmpeg]', data.toString());
-    });
-    ff.on('close', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg exited with code ${code}`));
-    });
+    runFfmpegProcess(getFfmpegPath, args).then(resolve).catch(reject);
   });
 };
 
@@ -312,53 +263,12 @@ export const runFfmpegDual = ({
     filterSteps.push(`${mainLabel}${subLabel}hstack=inputs=2[vbase]`);
 
     if (overlayEnabled) {
-      const overlayFilters: string[] = [];
-      const totalDisplayLines = overlayLines.reduce((acc, line) => {
-        const lineCount = (line.text.match(/\n/g) || []).length + 1;
-        return acc + lineCount;
-      }, 0);
-
-      const boxHeight = Math.max(60, 60 + (totalDisplayLines - 1) * 35);
-      const box = `drawbox=x=0:y=ih-${boxHeight}:w=iw:h=${boxHeight}:color=black@0.7:t=fill`;
-      overlayFilters.push(box);
-
-      const linesConfig = [
-        {
-          color: 'white',
-          size: 34,
-          y: `h-${boxHeight - 25}`,
-          isBold: true,
-        },
-        {
-          color: '#dcdcdc',
-          size: 28,
-          y: `h-${Math.max(30, boxHeight - 60)}`,
-          isBold: false,
-        },
-        {
-          color: '#bbbbbb',
-          size: 24,
-          y: `h-${Math.max(30, boxHeight - 90)}`,
-          isBold: false,
-        },
-      ];
-
-      overlayLines.forEach((line, idx) => {
-        const safeText = escapeDrawtext(line.text);
-        const cfg = linesConfig[idx] ?? linesConfig[linesConfig.length - 1];
-
-        let fontParam = '';
-        try {
-          const fontPath = getJapaneseFontPath(line.isBold);
-          fontParam = `fontfile='${fontPath}':`;
-        } catch {
-          fontParam = '';
-        }
-
-        const text = `drawtext=${fontParam}text='${safeText}':fontcolor=${cfg.color}:fontsize=${cfg.size}:borderw=0:bordercolor=black@0.0:x=20:y=${cfg.y}`;
-        overlayFilters.push(text);
+      const overlayFilters = buildOverlayFilters({
+        overlayLines,
+        getJapaneseFontPath,
+        escapeDrawtext,
+        variant: 'dual',
       });
-
       filterSteps.push(`[vbase]${overlayFilters.join(',')}[vout]`);
     } else {
       filterSteps.push('[vbase]null[vout]');
@@ -381,12 +291,7 @@ export const runFfmpegDual = ({
       outputPath,
     ];
 
-    const ff = spawn(getFfmpegPath(), args);
-    ff.stderr.on('data', (data) => console.log('[ffmpeg]', data.toString()));
-    ff.on('close', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg exited with code ${code}`));
-    });
+    runFfmpegProcess(getFfmpegPath, args).then(resolve).catch(reject);
   });
 };
 
@@ -395,39 +300,5 @@ export const concatFiles = async (
   files: string[],
   outputPath: string,
 ): Promise<void> => {
-  const listPath = path.join(
-    os.tmpdir(),
-    `concat_${Date.now()}_${Math.random()}.txt`,
-  );
-  const content = files
-    .map((f) => `file '${f.replace(/'/g, "'\\''")}'`)
-    .join('\n');
-  await fs.writeFile(listPath, content, 'utf-8');
-
-  return new Promise<void>((resolve, reject) => {
-    const ff = spawn(getFfmpegPath(), [
-      '-y',
-      '-f',
-      'concat',
-      '-safe',
-      '0',
-      '-i',
-      listPath,
-      '-fflags',
-      '+genpts',
-      '-c:v',
-      'libx264',
-      '-preset',
-      'veryfast',
-      '-c:a',
-      'aac',
-      outputPath,
-    ]);
-    ff.stderr.on('data', (data) => console.log('[ffmpeg]', data.toString()));
-    ff.on('close', async (code) => {
-      await fs.unlink(listPath).catch(() => undefined);
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg exited with code ${code}`));
-    });
-  });
+  await concatFfmpegFiles(getFfmpegPath, files, outputPath);
 };

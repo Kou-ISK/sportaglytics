@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { TimelineData } from '../../../../../../../types/TimelineData';
 import type {
   AnalysisDashboard,
@@ -7,20 +7,16 @@ import type {
 } from '../../../../../../../types/Settings';
 import { useSettings } from '../../../../../../../hooks/useSettings';
 import { useNotification } from '../../../../../../../contexts/NotificationContext';
-import {
-  extractActionFromActionName,
-  extractUniqueGroups,
-  extractUniqueLabelsForGroup,
-  extractUniqueTeams,
-} from '../../../../../../../utils/labelExtractors';
-import { getTimelineTeamOrder } from '../../../../../../../utils/teamOrder';
 import type {
-  DashboardDetail,
   DashboardTabController,
   UseDashboardTabControllerParams,
 } from './dashboardTabController.types';
-import { buildFilterChips, generateDashboardId } from './dashboardTabController.utils';
+import { generateDashboardId } from './dashboardTabController.utils';
 import { useDashboardImportExport } from './useDashboardImportExport';
+import { useDashboardTabDerived } from './useDashboardTabDerived';
+import { useDashboardTabState } from './useDashboardTabState';
+import { useDashboardWidgetDraftActions } from './useDashboardWidgetDraftActions';
+
 export const useDashboardTabController = ({
   timeline,
   teamNames,
@@ -29,70 +25,7 @@ export const useDashboardTabController = ({
 }: UseDashboardTabControllerParams): DashboardTabController => {
   const { settings, saveSettings } = useSettings();
   const notification = useNotification();
-
-  const availableGroups = useMemo(
-    () => extractUniqueGroups(timeline),
-    [timeline],
-  );
-  const availableTeams = useMemo(() => {
-    const fromProps = teamNames?.filter(Boolean) ?? [];
-    if (fromProps.length > 0) return fromProps;
-    return extractUniqueTeams(timeline);
-  }, [timeline, teamNames]);
-  const availableActions = useMemo(() => {
-    const actionSet = new Set<string>();
-    for (const item of timeline) {
-      const action = extractActionFromActionName(item.actionName);
-      if (action) actionSet.add(action);
-    }
-    return Array.from(actionSet).sort((a, b) => a.localeCompare(b));
-  }, [timeline]);
-  const availableLabelValues = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    for (const group of availableGroups) {
-      map[group] = extractUniqueLabelsForGroup(timeline, group);
-    }
-    return map;
-  }, [timeline, availableGroups]);
-  const orderedTeams = useMemo(() => {
-    const fromTimeline = getTimelineTeamOrder(timeline).filter(Boolean);
-    if (fromTimeline.length > 0) return fromTimeline;
-    return availableTeams;
-  }, [timeline, availableTeams]);
-  const teamRoleMap = useMemo(
-    () => ({
-      team1: orderedTeams[0],
-      team2: orderedTeams[1],
-    }),
-    [orderedTeams],
-  );
-  const teamContext = useMemo(
-    () => ({
-      team1Name: orderedTeams[0] || 'Team1',
-      team2Name: orderedTeams[1] || 'Team2',
-    }),
-    [orderedTeams],
-  );
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [draftWidgets, setDraftWidgets] = useState<AnalysisDashboardWidget[]>(
-    [],
-  );
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingWidget, setEditingWidget] =
-    useState<AnalysisDashboardWidget | null>(null);
-  const [localDashboardFilters, setLocalDashboardFilters] =
-    useState<DashboardSeriesFilter>({});
-  const [dashboardMenuAnchor, setDashboardMenuAnchor] =
-    useState<null | HTMLElement>(null);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [newDashboardName, setNewDashboardName] = useState('新規ダッシュボード');
-  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
-  const [pendingDashboardId, setPendingDashboardId] = useState<string | null>(
-    null,
-  );
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [detail, setDetail] = useState<DashboardDetail | null>(null);
+  const state = useDashboardTabState();
 
   const dashboards = settings.analysisDashboard?.dashboards ?? [];
   const activeDashboardId =
@@ -100,33 +33,30 @@ export const useDashboardTabController = ({
   const activeDashboard =
     dashboards.find((item) => item.id === activeDashboardId) ?? dashboards[0];
   const activeDashboardWidgets = activeDashboard?.widgets ?? [];
-  const dashboardFilters = controlledDashboardFilters ?? localDashboardFilters;
+  const dashboardFilters = controlledDashboardFilters ?? state.localDashboardFilters;
 
-  const widgets = isEditing ? draftWidgets : activeDashboardWidgets;
-  const timelineMap = useMemo(
-    () => new Map(timeline.map((item) => [item.id, item])),
-    [timeline],
-  );
+  const derived = useDashboardTabDerived({
+    timeline,
+    teamNames,
+    dashboardFilters,
+  });
+
+  const widgets = state.isEditing ? state.draftWidgets : activeDashboardWidgets;
 
   useEffect(() => {
-    if (!isEditing) {
-      setDraftWidgets(activeDashboardWidgets);
+    if (!state.isEditing) {
+      state.setDraftWidgets(activeDashboardWidgets);
     }
-  }, [isEditing, activeDashboardWidgets]);
+  }, [activeDashboardWidgets, state]);
 
   const updateDashboardFilters = (patch: Partial<DashboardSeriesFilter>) => {
     const next = { ...dashboardFilters, ...patch };
     if (onDashboardFiltersChange) {
       onDashboardFiltersChange(next);
     } else {
-      setLocalDashboardFilters(next);
+      state.setLocalDashboardFilters(next);
     }
   };
-
-  const appliedFilterChips = useMemo(
-    () => buildFilterChips('全体', dashboardFilters, teamRoleMap),
-    [dashboardFilters, teamRoleMap.team1, teamRoleMap.team2],
-  );
 
   const compactControlSx = {
     '& .MuiInputBase-input': { py: 0.75 },
@@ -147,61 +77,61 @@ export const useDashboardTabController = ({
   };
 
   const handleStartEdit = () => {
-    setDraftWidgets(activeDashboardWidgets);
-    setIsEditing(true);
+    state.setDraftWidgets(activeDashboardWidgets);
+    state.setIsEditing(true);
   };
 
   const openEditor = (widget?: AnalysisDashboardWidget) => {
-    setEditingWidget(widget ?? null);
-    setEditorOpen(true);
+    state.setEditingWidget(widget ?? null);
+    state.setEditorOpen(true);
   };
 
   const handleAddWidget = () => {
-    if (!isEditing) {
-      setDraftWidgets(activeDashboardWidgets);
-      setIsEditing(true);
+    if (!state.isEditing) {
+      state.setDraftWidgets(activeDashboardWidgets);
+      state.setIsEditing(true);
     }
     openEditor();
   };
 
   const handleCancelEdit = () => {
-    setDraftWidgets(activeDashboardWidgets);
-    setIsEditing(false);
+    state.setDraftWidgets(activeDashboardWidgets);
+    state.setIsEditing(false);
   };
 
   const handleSave = async () => {
     const nextDashboards = dashboards.map((item) =>
-      item.id === activeDashboardId ? { ...item, widgets: draftWidgets } : item,
+      item.id === activeDashboardId ? { ...item, widgets: state.draftWidgets } : item,
     );
     await saveDashboards(nextDashboards, activeDashboardId);
-    setIsEditing(false);
+    state.setIsEditing(false);
   };
 
   const handleDashboardChange = async (nextId: string) => {
     if (!nextId || nextId === activeDashboardId) return;
-    if (isEditing) {
-      setPendingDashboardId(nextId);
-      setDiscardDialogOpen(true);
+    if (state.isEditing) {
+      state.setPendingDashboardId(nextId);
+      state.setDiscardDialogOpen(true);
       return;
     }
-    setIsEditing(false);
+    state.setIsEditing(false);
     await saveDashboards(dashboards, nextId);
   };
 
   const handleConfirmDiscardAndSwitch = async () => {
-    if (!pendingDashboardId) {
-      setDiscardDialogOpen(false);
+    if (!state.pendingDashboardId) {
+      state.setDiscardDialogOpen(false);
       return;
     }
-    const nextId = pendingDashboardId;
-    setPendingDashboardId(null);
-    setDiscardDialogOpen(false);
-    setIsEditing(false);
+    const nextId = state.pendingDashboardId;
+    state.setPendingDashboardId(null);
+    state.setDiscardDialogOpen(false);
+    state.setIsEditing(false);
     await saveDashboards(dashboards, nextId);
   };
 
   const handleCreateDashboard = async () => {
-    const name = newDashboardName.trim();
+    const name = state.newDashboardName.trim();
     if (!name) {
       notification.warning('ダッシュボード名を入力してください。');
       return;
@@ -220,10 +150,10 @@ export const useDashboardTabController = ({
       widgets: [],
     };
     await saveDashboards([...dashboards, newDashboard], newDashboard.id);
-    setDraftWidgets([]);
-    setIsEditing(true);
-    setCreateDialogOpen(false);
-    setNewDashboardName('新規ダッシュボード');
+    state.setDraftWidgets([]);
+    state.setIsEditing(true);
+    state.setCreateDialogOpen(false);
+    state.setNewDashboardName('新規ダッシュボード');
   };
 
   const handleDuplicateDashboard = async () => {
@@ -234,8 +164,8 @@ export const useDashboardTabController = ({
       widgets: activeDashboard.widgets ?? [],
     };
     await saveDashboards([...dashboards, newDashboard], newDashboard.id);
-    setDraftWidgets(newDashboard.widgets);
-    setIsEditing(false);
+    state.setDraftWidgets(newDashboard.widgets);
+    state.setIsEditing(false);
   };
 
   const handleRequestDeleteDashboard = () => {
@@ -249,7 +179,7 @@ export const useDashboardTabController = ({
       notification.warning('ダッシュボードは最低1つ必要です。');
       return;
     }
-    setDeleteDialogOpen(true);
+    state.setDeleteDialogOpen(true);
   };
 
   const handleDeleteDashboard = async () => {
@@ -258,8 +188,8 @@ export const useDashboardTabController = ({
       (item) => item.id !== activeDashboard.id,
     );
     const nextActiveId = nextDashboards[0]?.id ?? '';
-    setDeleteDialogOpen(false);
-    setIsEditing(false);
+    state.setDeleteDialogOpen(false);
+    state.setIsEditing(false);
     await saveDashboards(nextDashboards, nextActiveId);
   };
 
@@ -271,51 +201,17 @@ export const useDashboardTabController = ({
       saveDashboards,
     });
 
-  const handleEditorSave = (widget: AnalysisDashboardWidget) => {
-    setDraftWidgets((prev) => {
-      const exists = prev.find((w) => w.id === widget.id);
-      if (exists) {
-        return prev.map((w) => (w.id === widget.id ? widget : w));
-      }
-      return [...prev, widget];
+  const { handleEditorSave, handleDelete, handleDuplicate, handleMove } =
+    useDashboardWidgetDraftActions({
+      setDraftWidgets: state.setDraftWidgets,
+      setEditorOpen: state.setEditorOpen,
     });
-    setEditorOpen(false);
-  };
-
-  const handleDelete = (id: string) => {
-    setDraftWidgets((prev) => prev.filter((w) => w.id !== id));
-  };
-
-  const handleDuplicate = (widget: AnalysisDashboardWidget) => {
-    setDraftWidgets((prev) => [
-      ...prev,
-      {
-        ...widget,
-        id: `${widget.id}-copy-${Date.now()}`,
-        title: `${widget.title} (コピー)`,
-      },
-    ]);
-  };
-
-  const handleMove = (id: string, direction: 'up' | 'down') => {
-    setDraftWidgets((prev) => {
-      const index = prev.findIndex((w) => w.id === id);
-      if (index < 0) return prev;
-      const nextIndex = direction === 'up' ? index - 1 : index + 1;
-      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
-      const next = [...prev];
-      const temp = next[index];
-      next[index] = next[nextIndex];
-      next[nextIndex] = temp;
-      return next;
-    });
-  };
 
   const handleResetFilters = () => {
     if (onDashboardFiltersChange) {
       onDashboardFiltersChange({});
     } else {
-      setLocalDashboardFilters({});
+      state.setLocalDashboardFilters({});
     }
   };
 
@@ -330,44 +226,44 @@ export const useDashboardTabController = ({
       if (!payload.entryIds || payload.entryIds.length === 0) return;
       const uniqueEntryIds = Array.from(new Set(payload.entryIds));
       const entries = uniqueEntryIds
-        .map((id) => timelineMap.get(id))
+        .map((id) => derived.timelineMap.get(id))
         .filter((item): item is TimelineData => Boolean(item));
-      setDetail({
+      state.setDetail({
         title: `Dashboard > ${widgetTitle} > ${payload.title}`,
         entries,
       });
     },
-    [timelineMap],
+    [derived.timelineMap, state],
   );
 
   return {
-    availableGroups,
-    availableTeams,
-    availableActions,
-    availableLabelValues,
-    orderedTeams,
-    teamRoleMap,
-    teamContext,
+    availableGroups: derived.availableGroups,
+    availableTeams: derived.availableTeams,
+    availableActions: derived.availableActions,
+    availableLabelValues: derived.availableLabelValues,
+    orderedTeams: derived.orderedTeams,
+    teamRoleMap: derived.teamRoleMap,
+    teamContext: derived.teamContext,
     compactControlSx,
-    isEditing,
-    draftWidgets,
-    editorOpen,
-    editingWidget,
+    isEditing: state.isEditing,
+    draftWidgets: state.draftWidgets,
+    editorOpen: state.editorOpen,
+    editingWidget: state.editingWidget,
     dashboardFilters,
-    dashboardMenuAnchor,
-    createDialogOpen,
-    newDashboardName,
-    discardDialogOpen,
-    pendingDashboardId,
-    deleteDialogOpen,
-    detail,
+    dashboardMenuAnchor: state.dashboardMenuAnchor,
+    createDialogOpen: state.createDialogOpen,
+    newDashboardName: state.newDashboardName,
+    discardDialogOpen: state.discardDialogOpen,
+    pendingDashboardId: state.pendingDashboardId,
+    deleteDialogOpen: state.deleteDialogOpen,
+    detail: state.detail,
     dashboards,
     activeDashboardId,
     activeDashboard,
     activeDashboardWidgets,
     widgets,
-    appliedFilterChips,
-    timelineMap,
+    appliedFilterChips: derived.appliedFilterChips,
+    timelineMap: derived.timelineMap,
     updateDashboardFilters,
     handleResetFilters,
     handleStartEdit,
@@ -388,13 +284,13 @@ export const useDashboardTabController = ({
     handleDuplicate,
     handleMove,
     handleChartPointSelect,
-    setEditorOpen,
-    setDashboardMenuAnchor,
-    setCreateDialogOpen,
-    setNewDashboardName,
-    setDiscardDialogOpen,
-    setPendingDashboardId,
-    setDeleteDialogOpen,
-    setDetail,
+    setEditorOpen: state.setEditorOpen,
+    setDashboardMenuAnchor: state.setDashboardMenuAnchor,
+    setCreateDialogOpen: state.setCreateDialogOpen,
+    setNewDashboardName: state.setNewDashboardName,
+    setDiscardDialogOpen: state.setDiscardDialogOpen,
+    setPendingDashboardId: state.setPendingDashboardId,
+    setDeleteDialogOpen: state.setDeleteDialogOpen,
+    setDetail: state.setDetail,
   };
 };

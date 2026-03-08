@@ -1,121 +1,21 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import * as fs from 'node:fs/promises';
-import * as os from 'os';
 import * as path from 'path';
-import {
-  concatFiles,
-  runFfmpegDual,
-  runFfmpegSingle,
-  type ExportClipForFfmpeg,
-  type OverlayLine,
-} from './exportFfmpegRunners';
+import { concatFiles } from './exportFfmpegRunners';
 import {
   ensureMp4,
-  escapeDrawtext,
-  getJapaneseFontPath,
   normalizeAngleOption,
   resolveDualSourceError,
 } from './exportOptions';
+import { renderClipWithFfmpeg } from './exportClipRender';
+import type { ExportClipsPayload } from './exportHandlers.types';
 
 interface RegisterExportHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
   getFfmpegPath: () => string;
 }
 
-interface ClipLabel {
-  group: string;
-  name: string;
-}
-
-interface ClipExportItem {
-  id: string;
-  actionName: string;
-  startTime: number;
-  endTime: number;
-  freezeAt?: number | null;
-  freezeDuration?: number;
-  labels?: ClipLabel[];
-  memo?: string;
-  actionIndex?: number;
-  annotationPngPrimary?: string | null;
-  annotationPngSecondary?: string | null;
-  videoSource?: string;
-  videoSource2?: string;
-  angleType?: 'angle1' | 'angle2';
-}
-
-interface ExportOverlayOptions {
-  enabled: boolean;
-  showActionName: boolean;
-  showActionIndex: boolean;
-  showLabels: boolean;
-  showMemo: boolean;
-  textTemplate: string;
-}
-
-interface ExportClipsPayload {
-  sourcePath: string;
-  sourcePath2?: string;
-  mode?: 'single' | 'dual';
-  exportMode?: 'single' | 'perInstance' | 'perRow';
-  angleOption?:
-    | 'all'
-    | 'angle1'
-    | 'angle2'
-    | 'allAngles'
-    | 'single'
-    | 'multi';
-  outputDir?: string;
-  outputFileName?: string;
-  clips: ClipExportItem[];
-  overlay: ExportOverlayOptions;
-}
-
 let isRegistered = false;
-
-const dataUrlToTempFile = async (
-  dataUrl: string,
-  prefix: string,
-  tempFiles: string[],
-): Promise<string> => {
-  const match = dataUrl.match(/^data:(.+);base64,(.*)$/);
-  if (!match) {
-    throw new Error('Invalid data URL for annotation overlay');
-  }
-  const buffer = Buffer.from(match[2], 'base64');
-  const tempPath = path.join(
-    os.tmpdir(),
-    `${prefix}_${Date.now()}_${Math.random()}.png`,
-  );
-  await fs.writeFile(tempPath, buffer);
-  tempFiles.push(tempPath);
-  return tempPath;
-};
-
-const formatOverlayLines = (
-  clip: ClipExportItem,
-  overlay: ExportOverlayOptions,
-): OverlayLine[] => {
-  const lines: OverlayLine[] = [];
-
-  if (overlay.showActionName) {
-    const index = clip.actionIndex ?? 1;
-    lines.push({ text: `#${index} ${clip.actionName}`, isBold: true });
-  }
-
-  if (overlay.showLabels && clip.labels && clip.labels.length > 0) {
-    const labelText = clip.labels
-      .map((l) => (l.group ? `${l.group}: ${l.name}` : l.name))
-      .join(', ');
-    lines.push({ text: labelText, isBold: false });
-  }
-
-  if (overlay.showMemo && clip.memo) {
-    lines.push({ text: clip.memo, isBold: false });
-  }
-
-  return lines;
-};
 
 const resolveOutputDir = async (
   event: Electron.IpcMainInvokeEvent,
@@ -205,76 +105,22 @@ export const registerExportHandlers = ({
           }
         }
 
-        const renderClip = async (
-          clip: ClipExportItem,
-          outputPath?: string,
-        ): Promise<string> => {
-          const overlayLines = formatOverlayLines(clip, overlay);
-          const target =
-            outputPath ||
-            path.join(
-              os.tmpdir(),
-              `clip_${clip.id}_${Date.now()}_${Math.random()}.mp4`,
-            );
-
-          let annPrimaryPath: string | null = null;
-          let annSecondaryPath: string | null = null;
-
-          if (clip.annotationPngPrimary) {
-            annPrimaryPath = await dataUrlToTempFile(
-              clip.annotationPngPrimary,
-              `anno_p_${clip.id}`,
-              tempFiles,
-            );
-          }
-          if (clip.annotationPngSecondary) {
-            annSecondaryPath = await dataUrlToTempFile(
-              clip.annotationPngSecondary,
-              `anno_s_${clip.id}`,
-              tempFiles,
-            );
-          }
-
-          const clipMainSource = clip.videoSource || mainSource;
-          const clipSecondarySource = clip.videoSource2 || secondarySource;
-          const ffmpegClip: ExportClipForFfmpeg = {
-            startTime: clip.startTime,
-            endTime: clip.endTime,
-            freezeAt: clip.freezeAt,
-            freezeDuration: clip.freezeDuration,
-          };
-
-          if (clip.angleType === 'angle2') {
-            const secondaryOnly = clipSecondarySource || clipMainSource;
-            await runFfmpegSingle({
+        const renderClip = async (clip: ExportClipsPayload['clips'][number], outputPath?: string): Promise<string> => {
+          try {
+            return await renderClipWithFfmpeg({
               getFfmpegPath,
-              sourcePath: secondaryOnly,
-              clip: ffmpegClip,
-              outputPath: target,
-              overlayEnabled: overlay.enabled,
-              overlayLines,
-              annotationPath: annSecondaryPath,
-              getJapaneseFontPath,
-              escapeDrawtext,
+              clip,
+              overlay,
+              mainSource,
+              secondarySource,
+              useDual,
+              tempFiles,
+              outputPath,
             });
-          } else if (clip.angleType === 'angle1') {
-            await runFfmpegSingle({
-              getFfmpegPath,
-              sourcePath: clipMainSource,
-              clip: ffmpegClip,
-              outputPath: target,
-              overlayEnabled: overlay.enabled,
-              overlayLines,
-              annotationPath: annPrimaryPath,
-              getJapaneseFontPath,
-              escapeDrawtext,
-            });
-          } else if (useDual) {
-            const dualError = resolveDualSourceError(
-              clipMainSource,
-              clipSecondarySource,
-            );
-            if (dualError) {
+          } catch (error) {
+            if (useDual) {
+              const clipMainSource = clip.videoSource || mainSource;
+              const clipSecondarySource = clip.videoSource2 || secondarySource;
               console.error('export-clips-with-overlay clip dual source error', {
                 clipId: clip.id,
                 sourcePath,
@@ -284,36 +130,9 @@ export const registerExportHandlers = ({
                 clipMainSource,
                 clipSecondarySource,
               });
-              throw new Error(dualError);
             }
-            await runFfmpegDual({
-              getFfmpegPath,
-              mainSource: clipMainSource,
-              secondarySource: clipSecondarySource,
-              clip: ffmpegClip,
-              outputPath: target,
-              overlayEnabled: overlay.enabled,
-              overlayLines,
-              annotationPrimary: annPrimaryPath,
-              annotationSecondary: annSecondaryPath,
-              getJapaneseFontPath,
-              escapeDrawtext,
-            });
-          } else {
-            await runFfmpegSingle({
-              getFfmpegPath,
-              sourcePath: clipMainSource,
-              clip: ffmpegClip,
-              outputPath: target,
-              overlayEnabled: overlay.enabled,
-              overlayLines,
-              annotationPath: annPrimaryPath,
-              getJapaneseFontPath,
-              escapeDrawtext,
-            });
+            throw error;
           }
-
-          return target;
         };
 
         const baseName = outputFileName ? outputFileName.replace(/\.mp4$/i, '') : '';
@@ -335,7 +154,7 @@ export const registerExportHandlers = ({
             await renderClip(clip, outPath);
           }
         } else if (exportMode === 'perRow') {
-          const byAction = new Map<string, ClipExportItem[]>();
+          const byAction = new Map<string, ExportClipsPayload['clips'][number][]>();
           clips.forEach((clip) => {
             const arr = byAction.get(clip.actionName) || [];
             arr.push(clip);

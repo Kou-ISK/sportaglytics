@@ -4,11 +4,12 @@ import type {
   CodeWindowLayout,
 } from '../../../../../types/Settings';
 import {
-  createButtonLink,
-  DEFAULT_BUTTON_HEIGHT,
-  DEFAULT_BUTTON_WIDTH,
-  snapToGrid,
-} from '../utils';
+  addLayoutLink,
+  findTargetButton,
+  moveSelectedButtons,
+  removeButtonAndRelatedLinks,
+  resizeButton,
+} from './freeCanvasDragOperations';
 
 type DragMode = 'move' | 'resize' | 'link' | null;
 type LinkType = 'exclusive' | 'lead' | 'deactivate';
@@ -162,47 +163,28 @@ export const useFreeCanvasInteractions = ({
       const position = getCanvasPosition(event);
 
       if (dragMode === 'move' && draggedButton) {
-        const primaryStart = dragSelectionSnapshot.current[draggedButton.id] ?? {
-          x: draggedButton.x,
-          y: draggedButton.y,
-        };
-        const targetX = snapToGrid(position.x - dragOffset.x, gridSize);
-        const targetY = snapToGrid(position.y - dragOffset.y, gridSize);
-        const deltaX = targetX - primaryStart.x;
-        const deltaY = targetY - primaryStart.y;
-
-        const updatedButtons = layout.buttons.map((button) => {
-          const startPos = dragSelectionSnapshot.current[button.id];
-          if (!startPos) return button;
-          const nextX = Math.max(
-            0,
-            Math.min(layout.canvasWidth - button.width, startPos.x + deltaX),
-          );
-          const nextY = Math.max(
-            0,
-            Math.min(layout.canvasHeight - button.height, startPos.y + deltaY),
-          );
-          return { ...button, x: nextX, y: nextY };
-        });
-        onLayoutChange({ ...layout, buttons: updatedButtons });
+        onLayoutChange(
+          moveSelectedButtons({
+            layout,
+            draggedButton,
+            snapshot: dragSelectionSnapshot.current,
+            pointer: position,
+            dragOffset,
+            gridSize,
+          }),
+        );
         return;
       }
 
       if (dragMode === 'resize' && draggedButton && resizeHandle) {
-        const newWidth = snapToGrid(
-          Math.max(DEFAULT_BUTTON_WIDTH / 2, position.x - draggedButton.x),
-          gridSize,
+        onLayoutChange(
+          resizeButton({
+            layout,
+            draggedButton,
+            pointer: position,
+            gridSize,
+          }),
         );
-        const newHeight = snapToGrid(
-          Math.max(DEFAULT_BUTTON_HEIGHT / 2, position.y - draggedButton.y),
-          gridSize,
-        );
-        const updatedButtons = layout.buttons.map((button) =>
-          button.id === draggedButton.id
-            ? { ...button, width: newWidth, height: newHeight }
-            : button,
-        );
-        onLayoutChange({ ...layout, buttons: updatedButtons });
         return;
       }
 
@@ -228,34 +210,22 @@ export const useFreeCanvasInteractions = ({
     (event: React.MouseEvent) => {
       if (dragMode === 'link' && linkStartButton) {
         const position = getCanvasPosition(event);
-        const targetButton = layout.buttons.find((button) => {
-          return (
-            button.id !== linkStartButton.id &&
-            position.x >= button.x &&
-            position.x <= button.x + button.width &&
-            position.y >= button.y &&
-            position.y <= button.y + button.height
-          );
+        const targetButton = findTargetButton({
+          layout,
+          sourceButtonId: linkStartButton.id,
+          pointer: position,
         });
 
         if (targetButton) {
-          const existingLink = layout.buttonLinks?.find(
-            (link) =>
-              (link.fromButtonId === linkStartButton.id &&
-                link.toButtonId === targetButton.id) ||
-              (link.fromButtonId === targetButton.id &&
-                link.toButtonId === linkStartButton.id),
-          );
-
-          if (!existingLink) {
-            const newLink = createButtonLink(
-              linkStartButton.id,
-              targetButton.id,
-              mapLinkType(linkType),
-            );
+          const nextLayout = addLayoutLink({
+            layout,
+            fromButtonId: linkStartButton.id,
+            toButtonId: targetButton.id,
+            linkType: mapLinkType(linkType),
+          });
+          if (nextLayout) {
             updateLayoutWithHistory({
-              ...layout,
-              buttonLinks: [...(layout.buttonLinks || []), newLink],
+              ...nextLayout,
             });
           }
         }
@@ -291,13 +261,7 @@ export const useFreeCanvasInteractions = ({
 
   const handleDeleteButton = useCallback(
     (buttonId: string) => {
-      updateLayoutWithHistory({
-        ...layout,
-        buttons: layout.buttons.filter((button) => button.id !== buttonId),
-        buttonLinks: layout.buttonLinks?.filter(
-          (link) => link.fromButtonId !== buttonId && link.toButtonId !== buttonId,
-        ),
-      });
+      updateLayoutWithHistory(removeButtonAndRelatedLinks({ layout, buttonId }));
 
       if (!selectedButtonIds.includes(buttonId)) return;
       onSelectButtons(selectedButtonIds.filter((id) => id !== buttonId));

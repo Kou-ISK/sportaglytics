@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import { DEFAULT_SETTINGS } from '../../../../../../../types/Settings';
 import type { PlaylistItem } from '../../../../../../../types/Playlist';
 import type { TimelineData } from '../../../../../../../types/TimelineData';
@@ -6,22 +6,22 @@ import { useSettings } from '../../../../../../../hooks/useSettings';
 import {
   buildEvidenceIndex,
   HybridEvidenceRetriever,
-  type AiCopilotResponse,
-  type EvidenceFilters,
-  type EvidenceItem,
 } from '../../../../../analysis/ai';
 import {
   EVIDENCE_DEFAULT_VISIBLE_COUNT,
-  resolveDiversifyTarget,
   RETRIEVER_PRESETS,
-  RETRIEVER_WEIGHT_MAP,
 } from './aiAnalysis/aiAnalysisUtils';
+import { AI_ANALYSIS_ACCORDION_SX } from './aiAnalysis/aiAnalysisViewConstants';
 import { useAIAnalysisGenerationActions } from './aiAnalysis/useAIAnalysisGenerationActions';
+import { useAIAnalysisFilterSync } from './aiAnalysis/useAIAnalysisFilterSync';
 import { useAIAnalysisGroundedOutput } from './aiAnalysis/useAIAnalysisGroundedOutput';
 import { useAIAnalysisInsightState } from './aiAnalysis/useAIAnalysisInsightState';
 import { useAIAnalysisModelState } from './aiAnalysis/useAIAnalysisModelState';
 import { useAIAnalysisPlaylistActions } from './aiAnalysis/useAIAnalysisPlaylistActions';
+import { useAIAnalysisRetrieverConfig } from './aiAnalysis/useAIAnalysisRetrieverConfig';
 import { useAIAnalysisRetrievalActions } from './aiAnalysis/useAIAnalysisRetrievalActions';
+import { useAIAnalysisSettingsActions } from './aiAnalysis/useAIAnalysisSettingsActions';
+import { useAIAnalysisTabState } from './aiAnalysis/useAIAnalysisTabState';
 
 interface UseAIAnalysisTabControllerParams {
   timeline: TimelineData[];
@@ -52,67 +52,81 @@ export const useAIAnalysisTabController = ({
       retrieverPreset: 'balanced',
     };
 
-  const [aiSettings, setAiSettings] = useState(defaultAiSettings);
-  const [question, setQuestion] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [labelGroup, setLabelGroup] = useState('');
-  const [labelName, setLabelName] = useState('');
-  const [teamName, setTeamName] = useState('');
-  const [showAiSettings, setShowAiSettings] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [showAllEvidence, setShowAllEvidence] = useState(false);
-  const [isEvidenceAccordionOpen, setIsEvidenceAccordionOpen] = useState(true);
-  const [isInsightAccordionOpen, setIsInsightAccordionOpen] = useState(false);
-  const [isSettingsAccordionOpen, setIsSettingsAccordionOpen] = useState(false);
-  const [insightDimension, setInsightDimension] = useState('auto');
-
-  const [retrievalStatus, setRetrievalStatus] = useState<'idle' | 'running' | 'done' | 'error'>(
-    'idle',
-  );
-  const [generationStatus, setGenerationStatus] = useState<'idle' | 'running' | 'done' | 'error'>(
-    'idle',
-  );
-  const [retrievalError, setRetrievalError] = useState<string | null>(null);
-  const [generationError, setGenerationError] = useState<string | null>(null);
-  const [evidenceItems, setEvidenceItems] = useState<EvidenceItem[]>([]);
-  const [aiResponse, setAiResponse] = useState<AiCopilotResponse | null>(null);
-  const [llmRawText, setLlmRawText] = useState<string | null>(null);
-  const [llmLiveLog, setLlmLiveLog] = useState('');
-  const [llmAttempt, setLlmAttempt] = useState(1);
-  const [llmRetryInfo, setLlmRetryInfo] = useState<{
-    attempt: number;
-    total: number;
-    mode: 'reduce' | 'repair';
-    reason: string;
-  } | null>(null);
-  const [llmDebug, setLlmDebug] = useState<{
-    stderr?: string;
-    binaryPath?: string;
-    modelPath?: string;
-    durationMs?: number;
-  } | null>(null);
-  const [llmWarning, setLlmWarning] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<EvidenceFilters | null>(null);
-  const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
-  const [playlistMessage, setPlaylistMessage] = useState<string | null>(null);
-  const [lastQuestion, setLastQuestion] = useState('');
-  const [evidenceQuery, setEvidenceQuery] = useState('');
-  const [generationRequestId, setGenerationRequestId] = useState<string | null>(null);
-  const [llmProgress, setLlmProgress] = useState<{
-    requestId: string;
-    phase?: string;
-    outputChars?: number;
-    elapsedMs?: number;
-  } | null>(null);
+  const {
+    aiSettings,
+    setAiSettings,
+    question,
+    setQuestion,
+    startTime,
+    setStartTime,
+    endTime,
+    setEndTime,
+    labelGroup,
+    setLabelGroup,
+    labelName,
+    setLabelName,
+    teamName,
+    setTeamName,
+    showAiSettings,
+    setShowAiSettings,
+    showFilters,
+    setShowFilters,
+    showAllEvidence,
+    setShowAllEvidence,
+    isEvidenceAccordionOpen,
+    setIsEvidenceAccordionOpen,
+    isInsightAccordionOpen,
+    setIsInsightAccordionOpen,
+    isSettingsAccordionOpen,
+    setIsSettingsAccordionOpen,
+    insightDimension,
+    setInsightDimension,
+    retrievalStatus,
+    setRetrievalStatus,
+    generationStatus,
+    setGenerationStatus,
+    retrievalError,
+    setRetrievalError,
+    generationError,
+    setGenerationError,
+    evidenceItems,
+    setEvidenceItems,
+    aiResponse,
+    setAiResponse,
+    llmRawText,
+    setLlmRawText,
+    llmLiveLog,
+    setLlmLiveLog,
+    llmAttempt,
+    setLlmAttempt,
+    llmRetryInfo,
+    setLlmRetryInfo,
+    llmDebug,
+    setLlmDebug,
+    llmWarning,
+    setLlmWarning,
+    showDebug,
+    setShowDebug,
+    activeFilters,
+    setActiveFilters,
+    settingsMessage,
+    setSettingsMessage,
+    playlistMessage,
+    setPlaylistMessage,
+    lastQuestion,
+    setLastQuestion,
+    evidenceQuery,
+    setEvidenceQuery,
+    generationRequestId,
+    setGenerationRequestId,
+    llmProgress,
+    setLlmProgress,
+  } = useAIAnalysisTabState({
+    defaultAiSettings,
+  });
 
   const generationAbortRef = useRef<AbortController | null>(null);
   const generationRunIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    setAiSettings(defaultAiSettings);
-  }, [defaultAiSettings]);
 
   const evidenceIndex = useMemo(() => buildEvidenceIndex(timeline), [timeline]);
   const retriever = useMemo(() => new HybridEvidenceRetriever(), []);
@@ -159,33 +173,25 @@ export const useAIAnalysisTabController = ({
     setInsightDimension,
   });
 
-  useEffect(() => {
-    if (labelGroup && !availableLabels.includes(labelName)) {
-      setLabelName('');
-    }
-  }, [availableLabels, labelGroup, labelName]);
+  useAIAnalysisFilterSync({
+    labelGroup,
+    labelName,
+    availableLabels,
+    setLabelName,
+    teamName,
+    availableTeamLabels,
+    setTeamName,
+  });
 
-  useEffect(() => {
-    if (teamName && !availableTeamLabels.includes(teamName)) {
-      setTeamName('');
-    }
-  }, [availableTeamLabels, teamName]);
+  const { handleSaveSettings } = useAIAnalysisSettingsActions({
+    settings,
+    aiSettings,
+    saveSettings,
+    setSettingsMessage,
+  });
 
-  const handleSaveSettings = useCallback(async () => {
-    setSettingsMessage(null);
-    const success = await saveSettings({
-      ...settings,
-      aiAnalysis: aiSettings,
-    });
-    setSettingsMessage(success ? 'AI設定を保存しました。' : 'AI設定の保存に失敗しました。');
-  }, [aiSettings, saveSettings, settings]);
-
-  const retrieverPreset = aiSettings.retrieverPreset ?? 'balanced';
-  const retrieverWeights = useMemo(() => {
-    return RETRIEVER_WEIGHT_MAP[retrieverPreset] ?? RETRIEVER_WEIGHT_MAP.balanced;
-  }, [retrieverPreset]);
-  const topK = Math.max(1, aiSettings.topK || 40);
-  const evidenceTarget = useMemo(() => resolveDiversifyTarget(topK), [topK]);
+  const { retrieverPreset, retrieverWeights, topK, evidenceTarget } =
+    useAIAnalysisRetrieverConfig(aiSettings);
 
   const { handleRetrieveEvidence, ensureEvidence } = useAIAnalysisRetrievalActions({
     question,
@@ -276,19 +282,6 @@ export const useAIAnalysisTabController = ({
     setPlaylistMessage,
   });
 
-  const accordionSx = {
-    borderRadius: 2,
-    border: '1px solid',
-    borderColor: 'divider',
-    boxShadow: 'none',
-    '&:before': {
-      display: 'none',
-    },
-    '&.Mui-expanded': {
-      mt: 0,
-    },
-  } as const;
-
   return {
     aiSettings,
     setAiSettings,
@@ -369,6 +362,6 @@ export const useAIAnalysisTabController = ({
     stripEvidenceIds,
     handleCreatePlaylist,
     questionTemplates,
-    accordionSx,
+    accordionSx: AI_ANALYSIS_ACCORDION_SX,
   };
 };

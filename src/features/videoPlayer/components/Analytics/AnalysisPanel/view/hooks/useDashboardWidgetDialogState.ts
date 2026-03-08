@@ -14,13 +14,11 @@ import type {
 } from './dashboardWidgetDialogState.types';
 import {
   buildFilterSummary,
-  generateWidgetId,
   getAnalysisModeLabel,
   getAxisLabel,
   getChartLabel,
-  normalizePositive,
-  resolveDefaultGroup,
 } from './dashboardWidgetDialogState.utils';
+import { useDashboardWidgetDialogActions } from './useDashboardWidgetDialogActions';
 
 export const DEFAULT_PRIMARY_AXIS: MatrixAxisConfig = { type: 'team' };
 export const DEFAULT_SERIES_AXIS: MatrixAxisConfig = {
@@ -141,182 +139,48 @@ export const useDashboardWidgetDialogState = ({
     }
   }, [analysisMode, calcMode, chartType, dataMode, metric, seriesEnabled]);
 
-  const addSeriesPair = () => {
-    setSeries((prev) => {
-      const firstIndex = prev.length + 1;
-      return [
-        ...prev,
-        {
-          id: generateWidgetId(),
-          name: `シリーズ${firstIndex}`,
-          filters: {},
-        },
-        {
-          id: generateWidgetId(),
-          name: `シリーズ${firstIndex + 1}`,
-          filters: {},
-        },
-      ];
-    });
-  };
+  const actions = useDashboardWidgetDialogActions({
+    availableGroups,
+    initialId: initial?.id,
+    onSave,
+    title,
+    chartType,
+    metric,
+    analysisMode,
+    primaryAxis,
+    resolvedSeriesEnabled,
+    seriesAxis,
+    colSpan,
+    limit,
+    dataMode,
+    series,
+    calcMode,
+    widgetFilters,
+    timeBucketSec,
+    histogramBinSec,
+    rollingWindow,
+    outlierIqrMultiplier,
+    quickAction,
+    quickLabelGroup,
+    setTitle,
+    setAnalysisMode,
+    setDataMode,
+    setChartType,
+    setMetric,
+    setCalcMode,
+    setSeriesEnabled,
+    setPrimaryAxis,
+    setWidgetFilters,
+    setSeries,
+  });
 
   useEffect(() => {
     if (dataMode === 'series' && series.length === 0) {
-      addSeriesPair();
+      actions.addSeriesPair();
     }
-  }, [dataMode, series.length]);
-
-  const applyPreset = (mode: 'labelPie' | 'compareBar' | 'seriesPie') => {
-    setAnalysisMode('standard');
-    if (mode === 'labelPie') {
-      setDataMode('axis');
-      setChartType('pie');
-      setMetric('count');
-      setCalcMode('percentTotal');
-      setSeriesEnabled(false);
-      setPrimaryAxis({
-        type: 'group',
-        value: resolveDefaultGroup(availableGroups, 'actionResult'),
-      });
-      setShowFilters(true);
-      if (!title.trim()) setTitle('ラベル比率');
-      return;
-    }
-    if (mode === 'compareBar') {
-      setDataMode('axis');
-      setChartType('bar');
-      setMetric('count');
-      setCalcMode('raw');
-      setSeriesEnabled(false);
-      setPrimaryAxis({
-        type: 'group',
-        value: resolveDefaultGroup(availableGroups, 'actionType'),
-      });
-      setShowFilters(true);
-      if (!title.trim()) setTitle('件数比較');
-      return;
-    }
-    setDataMode('series');
-    setChartType('pie');
-    setMetric('count');
-    setCalcMode('percentTotal');
-    setShowFilters(true);
-    if (series.length === 0) {
-      setSeries([
-        { id: generateWidgetId(), name: 'シリーズ1', filters: {} },
-        { id: generateWidgetId(), name: 'シリーズ2', filters: {} },
-      ]);
-    }
-    if (!title.trim()) setTitle('シリーズ比較');
-  };
+  }, [actions, dataMode, series.length]);
 
   const filterSummary = buildFilterSummary(widgetFilters);
-
-  const handleSave = () => {
-    const resolvedTitle = title.trim() || 'カスタムチャート';
-    const normalizedLimit =
-      typeof limit === 'number' && limit > 0 ? limit : undefined;
-    const resolvedMode = analysisMode;
-    const resolvedChartType: DashboardChartType =
-      resolvedMode === 'standard' ? chartType : 'bar';
-    const resolvedMetric: DashboardMetric =
-      resolvedMode === 'outlier' ? 'duration' : metric;
-    const resolvedDataMode = resolvedMode === 'standard' ? dataMode : 'axis';
-    const resolvedCalcMode: DashboardCalcMode =
-      resolvedMode === 'standard' ? calcMode : 'raw';
-    const resolvedSeries =
-      resolvedMode === 'standard' && resolvedDataMode === 'series' ? series : [];
-
-    onSave({
-      id: initial?.id ?? generateWidgetId(),
-      title: resolvedTitle,
-      chartType: resolvedChartType,
-      metric: resolvedMetric,
-      analysisMode: resolvedMode,
-      primaryAxis,
-      seriesEnabled: resolvedMode === 'standard' ? resolvedSeriesEnabled : false,
-      seriesAxis,
-      colSpan,
-      limit: normalizedLimit,
-      dataMode: resolvedDataMode,
-      series: resolvedSeries,
-      calc: resolvedCalcMode,
-      widgetFilters,
-      timeBucketSec:
-        resolvedMode === 'trend' || resolvedMode === 'rolling'
-          ? normalizePositive(timeBucketSec, 60)
-          : undefined,
-      histogramBinSec:
-        resolvedMode === 'histogram'
-          ? normalizePositive(histogramBinSec, 5)
-          : undefined,
-      rollingWindow:
-        resolvedMode === 'rolling' ? normalizePositive(rollingWindow, 3) : undefined,
-      outlierIqrMultiplier:
-        resolvedMode === 'outlier'
-          ? normalizePositive(outlierIqrMultiplier, 1.5)
-          : undefined,
-    });
-  };
-
-  const handleSeriesChange = (
-    id: string,
-    patch: Partial<DashboardSeriesDefinition>,
-  ) => {
-    setSeries((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    );
-  };
-
-  const handleSeriesFilterChange = (
-    id: string,
-    patch: Partial<DashboardSeriesFilter>,
-  ) => {
-    setSeries((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, filters: { ...item.filters, ...patch } } : item,
-      ),
-    );
-  };
-
-  const addSeries = () => {
-    setSeries((prev) => [
-      ...prev,
-      {
-        id: generateWidgetId(),
-        name: `シリーズ${prev.length + 1}`,
-        filters: {},
-      },
-    ]);
-  };
-
-  const removeSeries = (id: string) => {
-    setSeries((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const updateWidgetFilters = (patch: Partial<DashboardSeriesFilter>) => {
-    setWidgetFilters((prev) => ({ ...prev, ...patch }));
-  };
-
-  const handleQuickPieApply = () => {
-    const labelGroup = quickLabelGroup || availableGroups[0] || 'all_labels';
-    setAnalysisMode('standard');
-    setDataMode('axis');
-    setChartType('pie');
-    setMetric('count');
-    setCalcMode('percentTotal');
-    setSeriesEnabled(false);
-    setPrimaryAxis({ type: 'group', value: labelGroup });
-    setWidgetFilters({
-      action: quickAction || undefined,
-      labelGroup: labelGroup || undefined,
-      labelValue: undefined,
-    });
-    if (!title.trim()) {
-      const parts = [quickAction, labelGroup].filter(Boolean);
-      setTitle(parts.length ? `${parts.join(' ')} 比率` : 'ラベル比率');
-    }
-  };
 
   return {
     title,
@@ -364,14 +228,14 @@ export const useDashboardWidgetDialogState = ({
     setHistogramBinSec,
     setRollingWindow,
     setOutlierIqrMultiplier,
-    applyPreset,
-    handleSave,
-    handleSeriesChange,
-    handleSeriesFilterChange,
-    addSeries,
-    removeSeries,
-    updateWidgetFilters,
-    handleQuickPieApply,
+    applyPreset: actions.applyPreset,
+    handleSave: actions.handleSave,
+    handleSeriesChange: actions.handleSeriesChange,
+    handleSeriesFilterChange: actions.handleSeriesFilterChange,
+    addSeries: actions.addSeries,
+    removeSeries: actions.removeSeries,
+    updateWidgetFilters: actions.updateWidgetFilters,
+    handleQuickPieApply: actions.handleQuickPieApply,
     getAxisLabel,
     getChartLabel,
     getAnalysisModeLabel,

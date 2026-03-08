@@ -1,0 +1,4 @@
+export const DEFAULT_FREEZE_DURATION = 3;
+export const MIN_FREEZE_DURATION = 1;
+export const ANNOTATION_TIME_TOLERANCE = 0.12;
+export const FREEZE_RETRIGGER_GUARD = 0.3;
