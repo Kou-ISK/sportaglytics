@@ -5,9 +5,11 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 ## レイヤー構成
 
 - 依存方向: `pages -> features -> shared`
+- `pages` は `src/pages/*.tsx` のみを許可し、ルーティングと feature 合成だけを担当
+- `features` は `src/features/<feature>/` 配下に UI / hook / context / domain を内包する
 - `shared` 相当: `src/components`, `src/hooks`, `src/utils`, `src/types`, `src/contexts`, `src/shared`, `src/report`
+- `src/hooks` と `src/contexts` には feature 専用サブディレクトリを置かない
 - 共通 UI design-system: `src/components/ui`（Shared UI 限定）
-- `pages` はルーティングと feature 合成のみ担当
 - feature 外から feature を参照する場合は `src/features/<feature>/index.ts` の公開 API のみ利用
 - Atomic Design はアプリ全体のフォルダ規約としては採用せず、Shared UI 設計のメンタルモデルとして限定運用
 
@@ -59,6 +61,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - 旧データは読込時にマイグレーションし、保存時は新形式のみ出力
 - `AnalysisView` は shared 型 (`src/types/AnalysisView.ts`) を利用
 - playlist 同期は `PlaylistSyncData` を正とし、playlist 画面・hooks の契約を統一
+- プレイリスト追加は `src/features/playlist` の公開 API に集約し、renderer からの個別 IPC 呼び出しを分散させない
 
 ## 品質ゲート
 

@@ -71,10 +71,12 @@ SporTagLytics/
 │   │   └── ui/              # design-system（primitives/composites/patterns）
 │   ├── contexts/            # Reactコンテキスト
 │   ├── features/            # 機能別モジュール
+│   │   ├── analysisReport/
+│   │   ├── settings/
 │   │   ├── playlist/
 │   │   └── videoPlayer/
-│   ├── hooks/               # カスタムフック
-│   ├── pages/               # ページコンポーネント
+│   ├── hooks/               # 共通カスタムフックのみ
+│   ├── pages/               # 薄い page wrapper のみ
 │   ├── types/               # 型定義
 │   └── utils/               # ユーティリティ関数
 ├── index.html
@@ -90,10 +92,10 @@ SporTagLytics/
 | `electron/src/`           | Electronメインプロセス、IPC、ネイティブAPI |
 | `src/components/`         | 共通UIコンポーネント                       |
 | `src/components/ui/`      | 共通UI design-system（Shared UI限定）      |
-| `src/contexts/`           | グローバル状態管理（React Context）        |
-| `src/features/<Feature>/` | 機能単位のコンポーネント・フック・型       |
-| `src/hooks/`              | 共通カスタムフック                         |
-| `src/pages/`              | ページレベルのコンポーネント               |
+| `src/contexts/`           | truly shared なグローバル状態のみ          |
+| `src/features/<Feature>/` | 機能単位の UI / hook / context / domain    |
+| `src/hooks/`              | truly shared な共通カスタムフックのみ      |
+| `src/pages/`              | feature を呼び出す top-level wrapper のみ  |
 | `src/types/`              | 共有型定義                                 |
 | `src/utils/`              | 共通ユーティリティ関数                     |
 
@@ -452,21 +454,14 @@ function TimelineEditor() {
 
 | フック名                  | ファイルパス                                           | 用途                                         |
 | ------------------------- | ------------------------------------------------------ | -------------------------------------------- |
-| `useVideoPlayerApp`       | `src/hooks/useVideoPlayerApp.ts`                       | アプリ全体の状態管理（映像・タイムライン等） |
+| `useVideoPlayerScreenController` | `src/features/videoPlayer/app/hooks/useVideoPlayerScreenController.ts` | video player 画面の状態管理                  |
 | `useSettings`             | `src/hooks/useSettings.ts`                             | Electron設定の読み書き                       |
 | `useGlobalHotkeys`        | `src/hooks/useGlobalHotkeys.ts`                        | グローバルホットキー登録・解除               |
-| `useTimelineViewport`     | `src/hooks/videoPlayer/useTimelineViewport.ts`         | タイムラインのズーム・スクロール制御         |
-| `useTimelineInteractions` | `src/hooks/videoPlayer/useTimelineInteractions.ts`     | タイムラインのマウス操作（選択・ドラッグ等） |
-| `useTimelineEditDraft`    | `src/hooks/videoPlayer/useTimelineEditDraft.ts`        | タイムライン編集の一時保存                   |
-| `useTimelineValidation`   | `src/hooks/videoPlayer/useTimelineValidation.ts`       | タイムライン変更のバリデーション             |
-| `useTimelineHistory`      | `src/hooks/videoPlayer/useTimelineHistory.ts`          | Undo/Redo履歴管理                            |
-| `useTimelinePersistence`  | `src/hooks/videoPlayer/useTimelinePersistence.ts`      | タイムラインの永続化（自動保存）             |
-| `useSyncActions`          | `src/hooks/videoPlayer/useSyncActions.ts`              | 音声同期操作（再実行・リセット・手動同期等） |
-| `useMatrixAxes`           | `src/features/videoPlayer/components/MatrixTab/hooks/` | クロス集計マトリクスの軸設定                 |
-| `useMatrixFilters`        | `src/features/videoPlayer/components/MatrixTab/hooks/` | クロス集計のフィルタ管理                     |
-| `useActionBreakdown`      | `src/features/videoPlayer/components/Dashboard/hooks/` | ダッシュボードのアクション内訳計算           |
-| `useUnsavedTabSwitch`     | `src/pages/SettingsPage.tsx`                           | 未保存変更検知とタブ切り替え確認             |
-| `useHotkeyBindings`       | `src/pages/settings/components/HotkeySettings/`        | ホットキー設定の管理と競合チェック           |
+| `useTimelineHistory`      | `src/features/videoPlayer/app/hooks/useTimelineHistory.ts` | Undo/Redo履歴管理                         |
+| `useTimelinePersistence`  | `src/features/videoPlayer/app/hooks/useTimelinePersistence.ts` | タイムラインの永続化（自動保存）         |
+| `useSyncActions`          | `src/features/videoPlayer/app/hooks/useSyncActions.ts` | 音声同期操作（再実行・リセット・手動同期等） |
+| `useUnsavedTabSwitch`     | `src/features/settings/hooks/useUnsavedTabSwitch.ts`   | 未保存変更検知とタブ切り替え確認             |
+| `useHotkeySettingsController` | `src/features/settings/components/useHotkeySettingsController.ts` | ホットキー設定の管理と競合チェック     |
 
 ### 主要ユーティリティ関数一覧
 

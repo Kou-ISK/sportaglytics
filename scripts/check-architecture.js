@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const ROOT = process.cwd();
 const SRC_ROOT = path.join(ROOT, 'src');
+const FEATURES_ROOT = path.join(SRC_ROOT, 'features');
 
 const SHARED_DIRS = new Set([
   'components',
@@ -17,6 +18,15 @@ const SHARED_DIRS = new Set([
 ]);
 
 const files = [];
+
+const featureNames = fs.existsSync(FEATURES_ROOT)
+  ? new Set(
+      fs
+        .readdirSync(FEATURES_ROOT, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name),
+    )
+  : new Set();
 
 const walk = (dir) => {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -67,6 +77,27 @@ for (const file of files) {
   const fromIsSrc = Boolean(fromSeg);
   const fromLayer = fromSeg?.[1];
   const fromFeature = fromSeg?.[1] === 'features' ? fromSeg[2] : null;
+  const relPath = normalize(path.relative(ROOT, file));
+
+  if (fromLayer === 'pages' && (fromSeg?.length ?? 0) > 3) {
+    violations.push(`${relPath}: nested page implementation must live in features`);
+  }
+
+  if (
+    fromLayer === 'hooks' &&
+    fromSeg?.[2] &&
+    featureNames.has(fromSeg[2])
+  ) {
+    violations.push(`${relPath}: feature-specific hooks must live under src/features/${fromSeg[2]}`);
+  }
+
+  if (
+    fromLayer === 'contexts' &&
+    fromSeg?.[2] &&
+    featureNames.has(fromSeg[2])
+  ) {
+    violations.push(`${relPath}: feature-specific context must live under src/features/${fromSeg[2]}`);
+  }
 
   let match;
   while ((match = importRegex.exec(content)) !== null) {
@@ -74,12 +105,12 @@ for (const file of files) {
 
     // shared -> features 禁止
     if (fromIsSrc && SHARED_DIRS.has(fromLayer) && spec.includes('features/')) {
-      violations.push(`${normalize(path.relative(ROOT, file))}: shared layer must not import features -> ${spec}`);
+      violations.push(`${relPath}: shared layer must not import features -> ${spec}`);
     }
 
     // features -> pages 禁止
     if (fromFeature && spec.includes('pages/')) {
-      violations.push(`${normalize(path.relative(ROOT, file))}: feature must not import pages -> ${spec}`);
+      violations.push(`${relPath}: feature must not import pages -> ${spec}`);
     }
 
     // feature外から deep import 禁止
@@ -94,13 +125,13 @@ for (const file of files) {
         parts.length === 3 ||
         (parts.length === 4 && (parts[3] === 'index' || parts[3] === 'index.ts' || parts[3] === 'index.tsx'));
       if (!isAllowed) {
-        violations.push(`${normalize(path.relative(ROOT, file))}: feature external import must use public index -> ${spec}`);
+        violations.push(`${relPath}: feature external import must use public index -> ${spec}`);
       }
     }
 
     // pages -> shared を強制はしないが pages -> pages deep を抑止
     if (fromLayer === 'pages' && spec.includes('/pages/')) {
-      violations.push(`${normalize(path.relative(ROOT, file))}: pages should not import another page internals -> ${spec}`);
+      violations.push(`${relPath}: pages should not import another page internals -> ${spec}`);
     }
   }
 }

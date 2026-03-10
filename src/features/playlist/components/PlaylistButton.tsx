@@ -10,8 +10,8 @@ import {
 } from '@mui/material';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { usePlaylist } from '../../../contexts/PlaylistContext';
 import type { TimelineData } from '../../../types/TimelineData';
+import { usePlaylist } from '../PlaylistProvider';
 
 interface AddToPlaylistMenuProps {
   /** メニューを開くアンカー要素 */
@@ -33,33 +33,13 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({
   items,
   videoList,
 }) => {
-  const list = videoList || [];
+  const { addTimelineItemsToAllWindows } = usePlaylist();
 
   const handleAddToPlaylist = async () => {
-    // 開いているプレイリストウィンドウ数を取得
-    const count = await window.electronAPI?.playlist.getOpenWindowCount();
-
-    if (count === 0) {
-      // ウィンドウが開いていない場合は新規ウィンドウを作成
-      await window.electronAPI?.playlist.openWindow();
-    }
-
-    // 全てのウィンドウにアイテムを追加
-    for (const item of items) {
-      const playlistItem = {
-        id: crypto.randomUUID(),
-        timelineItemId: item.id,
-        actionName: item.actionName,
-        startTime: item.startTime,
-        endTime: item.endTime,
-        labels: item.labels,
-        memo: item.memo,
-        addedAt: Date.now(),
-        videoSource: list[0] || undefined,
-        videoSource2: list[1] || undefined,
-      };
-      await window.electronAPI?.playlist.addItemToAllWindows(playlistItem);
-    }
+    await addTimelineItemsToAllWindows(items, {
+      primary: videoList?.[0],
+      secondary: videoList?.[1],
+    });
     onClose();
   };
 

@@ -6,6 +6,7 @@ const path = require('node:path');
 const ROOT = process.cwd();
 const SRC_ROOT = path.join(ROOT, 'src');
 const ELECTRON_ROOT = path.join(ROOT, 'electron/src');
+const FEATURES_ROOT = path.join(SRC_ROOT, 'features');
 
 const TSX_LIMIT = 300;
 const TS_LIMIT = 450;
@@ -21,6 +22,15 @@ const SHARED_DIRS = new Set([
 ]);
 
 const files = [];
+
+const featureNames = fs.existsSync(FEATURES_ROOT)
+  ? new Set(
+      fs
+        .readdirSync(FEATURES_ROOT, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name),
+    )
+  : new Set();
 
 const walk = (dir) => {
   if (!fs.existsSync(dir)) return;
@@ -83,6 +93,26 @@ for (const file of files) {
   const fromLayer = fromSeg?.[1];
   const fromFeature = fromSeg?.[1] === 'features' ? fromSeg[2] : null;
   const fromIsSrc = Boolean(fromSeg);
+
+  if (fromLayer === 'pages' && (fromSeg?.length ?? 0) > 3) {
+    info.hardIssues.push('nested page implementation must live in features');
+  }
+
+  if (
+    fromLayer === 'hooks' &&
+    fromSeg?.[2] &&
+    featureNames.has(fromSeg[2])
+  ) {
+    info.hardIssues.push(`feature-specific hooks must live under src/features/${fromSeg[2]}`);
+  }
+
+  if (
+    fromLayer === 'contexts' &&
+    fromSeg?.[2] &&
+    featureNames.has(fromSeg[2])
+  ) {
+    info.hardIssues.push(`feature-specific context must live under src/features/${fromSeg[2]}`);
+  }
 
   let match;
   while ((match = importRegex.exec(content)) !== null) {

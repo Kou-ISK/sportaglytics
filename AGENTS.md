@@ -45,7 +45,8 @@
 - `MUST`: `shared -> features` と `features -> pages` を禁止する。
 - `MUST`: `pages` はルーティングと feature 合成に限定する。
 - `MUST`: `src/features/**` では機能責務で分割し、Atomic 分類で構成しない。
-- `SHOULD`: UI は Container / Hook / View を分離する。
+- `MUST`: 再利用対象または複雑な UI は `Screen / Controller(or Hook) / View` で責務を分離する。
+- `MUST`: Electron・URL・永続化などの外部依存は `Gateway/Adapter` または `Controller/Hook` に閉じ込め、`View` から直接触れさせない。
 
 ## Atomic Design の扱い
 - `MUST`: Atomic Design をアプリ全体のフォルダ規約として強制しない。
@@ -68,12 +69,22 @@
 - `MUST`: 状態源を最小化し、派生値は計算で表現する。
 - `SHOULD`: 重い派生値は `useMemo`、イベントハンドラは `useCallback` で安定化する。
 
+## UI / Storybook 対応規約
+- `MUST`: Storybook の対象となる UI は `View` とし、props だけで描画可能にする。
+- `MUST`: `pages` と `Screen` は story の主対象にしない。story の主対象は `src/components/ui` と feature 配下の `View` コンポーネントに限定する。
+- `MUST`: `View` は `window.electronAPI`、IPC 呼び出し、URL/hash 読み取り、直接永続化、`BrowserWindow` 前提の分岐に依存しない。
+- `MUST`: `View` はアプリ全体の状態源を内包しない。必要な状態と操作は `Controller/Hook` から props と callback で受け取る。
+- `MUST`: `src/components/ui` は shared UI に限定し、feature 固有 hook・feature 固有 state・Electron 依存を持ち込まない。
+- `SHOULD`: Provider が必要な UI は `Screen` または decorator で注入できる構造にし、`View` 自体を provider 必須にしない。
+- `SHOULD`: Story 用の fixture / mock data は `shared/testing` または各 feature 配下の `testing` / `fixtures` に置き、`View` が本番 IPC に依存しなくても表示できるようにする。
+
 ## Electron / IPC 規約
 - `MUST`: Renderer からの Electron 呼び出しは `window.electronAPI` のみ。
 - `MUST`: `src` 側で `electron` / `ipcRenderer` を直接 import しない。
 - `MUST`: preload は最小公開面のみを公開し、汎用イベントバス API（汎用 `on/off/send`）を増やさない。
 - `MUST`: IPC payload と sender を検証する。
 - `MUST`: IPC 型定義の正本は `src/renderer.d.ts`。
+- `MUST`: `window.electronAPI` の使用箇所は `Screen` / `Controller/Hook` / `Gateway` に限定し、`View` と `src/components/ui` から直接呼ばない。
 
 ## Electron セキュリティ基準
 全 BrowserWindow で以下を適用する。
@@ -85,6 +96,7 @@
 
 ## ファイル分割方針（Soft Budget）
 - `MUST`: 行数に関係なく、`UI描画` と `IPC/永続化` と `ドメイン計算` の同居を禁止する。
+- `MUST`: Story 化対象の UI を追加・変更する場合、描画専用 `View` と外部依存を持つ層を同一ファイルに同居させない。
 - `MUST`: 変更対象ファイルが巨大かつ責務混在している場合は、同PRで最低1段の分割を行う。
 - `SHOULD`: 目安として `TSX <= 300行`, `TS <= 450行` を維持する。
 - `MAY`: 既存巨大ファイルは、触る範囲で段階分割する（全面一括移行しない）。
@@ -120,6 +132,8 @@ pnpm run test:run
 - [ ] feature 公開面（`src/features/<feature>/index.ts`）経由 import に統一されている。
 - [ ] Renderer の Electron 呼び出しが `window.electronAPI` 経由のみ。
 - [ ] Electron セキュリティ基準を満たしている。
-- [ ] 変更ファイルの責務分離（Container/Hook/View または同等）を説明できる。
+- [ ] 変更ファイルの責務分離（`Screen / Controller(or Hook) / View / Gateway` または同等）を説明できる。
+- [ ] Story 対象 UI が `View` として分離され、`window.electronAPI` / URL / 永続化へ直接依存していない。
+- [ ] `src/components/ui` に feature 固有依存または Electron 依存を持ち込んでいない。
 - [ ] 例外がある場合は `docs/architecture-exceptions.md` に記録した。
 - [ ] 品質ゲート 5 コマンドを全通過。

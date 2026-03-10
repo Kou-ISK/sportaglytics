@@ -1,3 +1,5 @@
+export { AnalysisWindowScreen } from './app/AnalysisWindowScreen';
+export { VideoPlayerScreen } from './app/VideoPlayerScreen';
 export { AnalysisPanel } from './components/Analytics/AnalysisPanel/AnalysisPanel';
 export { SyncedVideoPlayer } from './components/Player/SyncedVideoPlayer';
 export { VideoPlayer } from './components/Player/VideoPlayer';
