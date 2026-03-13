@@ -1,5 +1,4 @@
 import React, {
-  useEffect,
   useRef,
   useImperativeHandle,
   forwardRef,
@@ -22,9 +21,7 @@ interface TimelineActionSectionProps {
   currentTime: number;
   selectedTimelineIdList: string[];
   setSelectedTimelineIdList: (ids: string[]) => void;
-  metaDataConfigFilePath: string;
   teamNames: string[];
-  setTeamNames: React.Dispatch<React.SetStateAction<string[]>>;
   addTimelineData: (
     actionName: string,
     startTime: number,
@@ -72,9 +69,7 @@ export const TimelineActionSection = forwardRef<
       currentTime,
       selectedTimelineIdList,
       setSelectedTimelineIdList,
-      metaDataConfigFilePath,
       teamNames,
-      setTeamNames,
       addTimelineData,
       deleteTimelineDatas,
       updateMemo,
@@ -97,39 +92,6 @@ export const TimelineActionSection = forwardRef<
         codePanelRef.current?.triggerAction(teamName, actionName);
       },
     }));
-    // metaDataConfigFilePathからチーム名を読み込む
-    useEffect(() => {
-      if (!metaDataConfigFilePath) return;
-      const api = globalThis.window.electronAPI;
-      if (!api?.readJsonFile) return;
-
-      let isActive = true;
-
-      void api
-        .readJsonFile(metaDataConfigFilePath)
-        .then((data) => {
-          if (!isActive || !data) return;
-
-          if (
-            typeof data === 'object' &&
-            data &&
-            'team1Name' in data &&
-            'team2Name' in data &&
-            typeof (data as { team1Name?: unknown }).team1Name === 'string' &&
-            typeof (data as { team2Name?: unknown }).team2Name === 'string'
-          ) {
-            setTeamNames([
-              (data as { team1Name: string }).team1Name,
-              (data as { team2Name: string }).team2Name,
-            ]);
-          }
-        })
-        .catch((error) => console.error('Error loading JSON:', error));
-
-      return () => {
-        isActive = false;
-      };
-    }, [metaDataConfigFilePath, setTeamNames]);
 
     // タイムラインから最初のチーム名を計算（タイムラインの色と一致させるため）
     const firstTeamName = React.useMemo(() => {

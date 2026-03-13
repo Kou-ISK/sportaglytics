@@ -5,6 +5,7 @@ import type { SettingsTabHandle } from '../types';
 import { HotkeySettingsListItem } from './HotkeySettingsListItem';
 import { DEFAULT_HOTKEYS } from './hotkeySettings.constants';
 import { useHotkeySettingsController } from './useHotkeySettingsController';
+import { useHotkeySettingsSave } from './useHotkeySettingsSave';
 
 interface HotkeySettingsProps {
   settings: AppSettings;
@@ -29,6 +30,13 @@ export const HotkeySettings = forwardRef<SettingsTabHandle, HotkeySettingsProps>
       handleResetToDefaults,
       markSaved,
     } = useHotkeySettingsController({ initialHotkeys });
+    const handleSave = useHotkeySettingsSave({
+      settings,
+      hotkeys,
+      onSave,
+      markSaved,
+      setSaveSuccess,
+    });
 
     useImperativeHandle(
       ref,
@@ -37,22 +45,6 @@ export const HotkeySettings = forwardRef<SettingsTabHandle, HotkeySettingsProps>
       }),
       [hasUnsavedChanges],
     );
-
-    const handleSave = async () => {
-      const newSettings: AppSettings = {
-        ...settings,
-        hotkeys,
-      };
-
-      const success = await onSave(newSettings);
-      if (success) {
-        markSaved();
-        const api = globalThis.window.electronAPI;
-        api?.notifyHotkeysUpdated?.();
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
-    };
 
     return (
       <Box sx={{ maxWidth: 800 }}>

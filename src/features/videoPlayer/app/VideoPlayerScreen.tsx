@@ -18,6 +18,7 @@ import { useTimelineKeyboardShortcuts } from './hooks/useTimelineKeyboardShortcu
 import { usePlaylistIntegration } from './hooks/usePlaylistIntegration';
 import { VideoPlayerLayout } from './components/VideoPlayerLayout';
 import { useAnalysisIntegration } from './hooks/useAnalysisIntegration';
+import { useMetadataTeamNames } from './hooks/useMetadataTeamNames';
 
 export const VideoPlayerScreen = () => {
   const {
@@ -71,6 +72,7 @@ export const VideoPlayerScreen = () => {
     'dual',
   );
 
+  useMetadataTeamNames({ metaDataConfigFilePath, setTeamNames });
   useManualSyncSeek({ syncMode, syncData, videoList });
 
   // ホットキー設定を読み込み
@@ -197,10 +199,8 @@ export const VideoPlayerScreen = () => {
         timelineActionRef={timelineActionRef}
         timeline={timeline}
         selectedTimelineIdList={selectedTimelineIdList}
-        metaDataConfigFilePath={metaDataConfigFilePath}
         teamNames={teamNames}
         setSelectedTimelineIdList={setSelectedTimelineIdList}
-        setTeamNames={setTeamNames}
         addTimelineData={addTimelineData}
         deleteTimelineDatas={deleteTimelineDatas}
         updateMemo={updateMemo}

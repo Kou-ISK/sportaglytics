@@ -31,10 +31,8 @@ type VideoPlayerLayoutProps = Pick<
   | 'playerForceUpdateKey'
   | 'timeline'
   | 'selectedTimelineIdList'
-  | 'metaDataConfigFilePath'
   | 'teamNames'
   | 'setSelectedTimelineIdList'
-  | 'setTeamNames'
   | 'addTimelineData'
   | 'deleteTimelineDatas'
   | 'updateMemo'
@@ -75,10 +73,8 @@ export const VideoPlayerLayout = ({
   timelineActionRef,
   timeline,
   selectedTimelineIdList,
-  metaDataConfigFilePath,
   teamNames,
   setSelectedTimelineIdList,
-  setTeamNames,
   addTimelineData,
   deleteTimelineDatas,
   updateMemo,
@@ -156,10 +152,8 @@ export const VideoPlayerLayout = ({
         maxSec={maxSec}
         currentTime={currentTime}
         selectedTimelineIdList={selectedTimelineIdList}
-        metaDataConfigFilePath={metaDataConfigFilePath}
         teamNames={teamNames}
         setSelectedTimelineIdList={setSelectedTimelineIdList}
-        setTeamNames={setTeamNames}
         addTimelineData={addTimelineData}
         deleteTimelineDatas={deleteTimelineDatas}
         updateMemo={updateMemo}

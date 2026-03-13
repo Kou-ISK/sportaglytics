@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   IconButton,
   Dialog,
@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import CloseIcon from '@mui/icons-material/Close';
+import { useShortcutGuideMenuOpen } from '../hooks/useShortcutGuideMenuOpen';
 
 interface ShortcutItem {
   category: string;
@@ -85,34 +86,21 @@ export const ShortcutGuide: React.FC<ShortcutGuideProps> = ({
 
   // 制御モード（外部からopenを渡された場合）と非制御モードの両方に対応
   const open = controlledOpen ?? internalOpen;
-  const setOpen = (newOpen: boolean) => {
-    if (onOpenChange) {
-      onOpenChange(newOpen);
-    } else {
-      setInternalOpen(newOpen);
-    }
-  };
-
-  const handleOpen = () => setOpen(true);
-  const handleClose = () => setOpen(false);
-
-  useEffect(() => {
-    if (!window.electronAPI?.onMenuShowShortcuts) {
-      return;
-    }
-
-    const unsubscribe = window.electronAPI.onMenuShowShortcuts(() => {
-      setOpen(true);
-    });
-
-    return () => {
-      try {
-        unsubscribe();
-      } catch (error) {
-        console.debug('shortcut menu cleanup error', error);
+  const setOpen = useCallback(
+    (newOpen: boolean) => {
+      if (onOpenChange) {
+        onOpenChange(newOpen);
+      } else {
+        setInternalOpen(newOpen);
       }
-    };
-  }, []);
+    },
+    [onOpenChange],
+  );
+
+  const handleOpen = useCallback(() => setOpen(true), [setOpen]);
+  const handleClose = useCallback(() => setOpen(false), [setOpen]);
+
+  useShortcutGuideMenuOpen(handleOpen);
 
   return (
     <>
