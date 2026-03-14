@@ -6,12 +6,13 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 
 - 依存方向: `pages -> features -> shared`
 - `pages` は `src/pages/*.tsx` のみを許可し、ルーティングと feature 合成だけを担当
-- `features` は `src/features/<feature>/` 配下に UI / hook / context / domain を内包する
+- `features` は `src/features/<feature>/` 配下に `Screen / Controller(or Hook) / View / Gateway / domain` を内包する
 - `shared` 相当: `src/components`, `src/hooks`, `src/utils`, `src/types`, `src/contexts`, `src/shared`, `src/report`
 - `src/hooks` と `src/contexts` には feature 専用サブディレクトリを置かない
 - 共通 UI design-system: `src/components/ui`（Shared UI 限定）
 - feature 外から feature を参照する場合は `src/features/<feature>/index.ts` の公開 API のみ利用
 - Atomic Design はアプリ全体のフォルダ規約としては採用せず、Shared UI 設計のメンタルモデルとして限定運用
+- Storybook 対象は `pages` や `Screen` ではなく、shared UI と feature 配下の `View` コンポーネントに限定する
 
 ## Electron 構成
 

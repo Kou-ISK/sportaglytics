@@ -561,7 +561,7 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 
 #### 2.7.4 エラーハンドリング
 
-- 統一エラーステート（useVideoPlayerApp）
+- 統一エラーステート（useVideoPlayerScreenController）
 - エラータイプ分類: file, network, sync, playback, general
 - Snackbar通知（6秒自動非表示）
 - エラー種別による色分け
@@ -779,26 +779,26 @@ electron/
 
 | フック                    | パス                                        | 責務                 |
 | ------------------------- | ------------------------------------------- | -------------------- |
-| useVideoPlayerApp         | hooks/useVideoPlayerApp.ts                  | アプリ全体の状態管理 |
+| useVideoPlayerScreenController | features/videoPlayer/app/hooks/useVideoPlayerScreenController.ts | アプリ全体の状態管理 |
 | useSettings               | hooks/useSettings.ts                        | 設定の読み書き       |
 | useGlobalHotkeys          | hooks/useGlobalHotkeys.ts                   | グローバルホットキー |
-| useSyncActions            | hooks/videoPlayer/useSyncActions.ts         | 同期操作             |
-| useTimelineEditing        | hooks/videoPlayer/useTimelineEditing.ts     | タイムライン編集     |
-| useTimelineHistory        | hooks/videoPlayer/useTimelineHistory.ts     | Undo/Redo履歴        |
-| useTimelinePersistence    | hooks/videoPlayer/useTimelinePersistence.ts | 永続化               |
-| useTimelineSelection      | hooks/videoPlayer/useTimelineSelection.ts   | 選択状態             |
+| useSyncActions            | features/videoPlayer/app/hooks/useSyncActions.ts | 同期操作        |
+| useTimelineEditing        | features/videoPlayer/app/hooks/useTimelineEditing.ts | タイムライン編集 |
+| useTimelineHistory        | features/videoPlayer/app/hooks/useTimelineHistory.ts | Undo/Redo履歴    |
+| useTimelinePersistence    | features/videoPlayer/app/hooks/useTimelinePersistence.ts | 永続化         |
+| useTimelineSelection      | features/videoPlayer/app/hooks/useTimelineSelection.ts | 選択状態        |
 | useTimelineViewport       | features/.../VisualTimeline/hooks/          | ズーム・ビューポート |
 | useTimelineInteractions   | features/.../VisualTimeline/hooks/          | インタラクション     |
 | useTimelineEditDraft      | features/.../VisualTimeline/hooks/          | 編集ドラフト         |
 | useTimelineValidation     | features/.../VisualTimeline/hooks/          | バリデーション       |
 | useTimelineRangeSelection | features/.../VisualTimeline/hooks/          | 範囲選択             |
-| useMatrixAxes             | features/.../AnalysisPanel/view/hooks/      | クロス集計軸         |
-| useMatrixFilters          | features/.../AnalysisPanel/view/hooks/      | クロス集計フィルタ   |
+| useMatrixAxes             | features/.../AnalysisPanel/controllers/           | クロス集計軸         |
+| useMatrixFilters          | features/.../AnalysisPanel/controllers/           | クロス集計フィルタ   |
 
 ### 5.4 設計原則
 
 1. **関数コンポーネントのみ**: React 19の関数コンポーネント + Hooks
-2. **責務分離**: View（JSX）とロジック（Hooks）を明確に分離
+2. **責務分離**: `Screen / Controller(or Hook) / View / Gateway` を分離し、`View` に外部依存を持ち込まない
 3. **型安全性**: TypeScript strict mode、`any`の最小化
 4. **Feature-based構造**: 機能単位でコード整理、依存関係の明確化
 5. **Material UI標準**: `sx`プロパティでスタイリング統一

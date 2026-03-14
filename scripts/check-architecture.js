@@ -70,6 +70,8 @@ const resolveImport = (file, spec) => {
 };
 
 const violations = [];
+const screenDirectWindowRegex =
+  /\b(?:globalThis\.)?window\.electronAPI\b|\b(?:globalThis\.)?window\.location\b|\b(?:globalThis\.)?window\.close\s*\(/;
 
 for (const file of files) {
   const content = fs.readFileSync(file, 'utf8');
@@ -81,6 +83,14 @@ for (const file of files) {
 
   if (fromLayer === 'pages' && (fromSeg?.length ?? 0) > 3) {
     violations.push(`${relPath}: nested page implementation must live in features`);
+  }
+
+  if (relPath.includes('/view/hooks/')) {
+    violations.push(`${relPath}: view/hooks is forbidden; move hook to controllers or feature hooks`);
+  }
+
+  if (relPath.includes('/ui/hooks/')) {
+    violations.push(`${relPath}: ui/hooks is forbidden; move hook to controllers or gateways`);
   }
 
   if (
@@ -97,6 +107,10 @@ for (const file of files) {
     featureNames.has(fromSeg[2])
   ) {
     violations.push(`${relPath}: feature-specific context must live under src/features/${fromSeg[2]}`);
+  }
+
+  if (relPath.endsWith('Screen.tsx') && screenDirectWindowRegex.test(content)) {
+    violations.push(`${relPath}: Screen must not access window.electronAPI, window.location, or window.close directly`);
   }
 
   let match;

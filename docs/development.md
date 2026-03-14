@@ -398,18 +398,22 @@ Main IPC handlers (domain modules)
 
 - `ActionPresetContext`: アクションプリセット
 - `NotificationContext`: 通知システム
-- `PlaylistContext`: プレイリスト状態
 - `ThemeModeContext`: テーマ切替
 
 **カスタムフック**:
 
 - `useSettings`: Electron設定の読み書き
-- `useVideoPlayerApp`: 映像プレイヤー全体の状態管理
+- `useVideoPlayerScreenController`: 映像プレイヤー全体の状態管理
 - `useTimelineViewport`: タイムラインのズーム・スクロール
 - `useTimelineInteractions`: タイムラインのインタラクション
 - `useGlobalHotkeys`: グローバルホットキー
 
 ### コンポーネント設計（責務分離）
+
+- `Screen`: feature の入口。画面構成と feature 合成を担当
+- `Controller/Hook`: 状態管理、ユースケース、外部連携、副作用を担当
+- `View`: props と callback だけで描画できる UI。`window.electronAPI` / URL / 永続化へ直接依存しない
+- `Gateway`: Electron・URL・永続化など外部境界の薄い抽象化
 
 ```typescript
 // ❌ Bad: ビューとロジックが混在

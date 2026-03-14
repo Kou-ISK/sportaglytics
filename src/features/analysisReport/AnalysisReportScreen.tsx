@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { AnalysisReportDocument } from './ui/components/AnalysisReportDocument';
-import { useAnalysisReportPayload } from './ui/hooks/useAnalysisReportPayload';
+import { AnalysisReportDocument } from './components/AnalysisReportDocument';
+import { useAnalysisReportController } from './controllers/useAnalysisReportController';
 
 export const AnalysisReportScreen = () => {
-  const { payload } = useAnalysisReportPayload();
+  const { payload } = useAnalysisReportController();
 
   if (!payload) {
     return (

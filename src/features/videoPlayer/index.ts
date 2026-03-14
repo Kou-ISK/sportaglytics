@@ -12,9 +12,9 @@ export {
 export { VideoPathSelector } from './components/Setup/VideoPathSelector';
 
 // Analysis report view components (public)
-export { DashboardCard } from './components/Analytics/AnalysisPanel/view/DashboardCard';
-export { CustomBarChart } from './components/Analytics/AnalysisPanel/view/CustomBarChart';
-export { CustomPieChart } from './components/Analytics/AnalysisPanel/view/CustomPieChart';
+export { DashboardCard } from './components/Analytics/AnalysisPanel/components/DashboardCard';
+export { CustomBarChart } from './components/Analytics/AnalysisPanel/components/CustomBarChart';
+export { CustomPieChart } from './components/Analytics/AnalysisPanel/components/CustomPieChart';
 export { MomentumChart } from './components/Analytics/MomentumChart';
-export { NoDataPlaceholder } from './components/Analytics/AnalysisPanel/view/NoDataPlaceholder';
-export { MatrixSection } from './components/Analytics/AnalysisPanel/view/MatrixSection';
+export { NoDataPlaceholder } from './components/Analytics/AnalysisPanel/components/NoDataPlaceholder';
+export { MatrixSection } from './components/Analytics/AnalysisPanel/components/MatrixSection';

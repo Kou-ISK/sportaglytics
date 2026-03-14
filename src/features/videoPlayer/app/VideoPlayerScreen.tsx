@@ -10,7 +10,7 @@ import { ErrorSnackbar } from './components/ErrorSnackbar';
 import { SyncAnalysisBackdrop } from './components/SyncAnalysisBackdrop';
 import { useSyncMenuHandlers } from './hooks/useSyncMenuHandlers';
 import { useTimelineExportImport } from './hooks/useTimelineExportImport';
-import { useRawTimelineCsvExport } from '../../../hooks/useRawTimelineCsvExport';
+import { useRawTimelineCsvExport } from '../analysis/hooks/useRawTimelineCsvExport';
 import { OnboardingTutorial } from '../../../components/OnboardingTutorial';
 import { useHotkeyBindings } from './hooks/useHotkeyBindings';
 import { useManualSyncSeek } from './hooks/useManualSyncSeek';
@@ -58,6 +58,7 @@ export const VideoPlayerScreen = () => {
     resyncAudio,
     resetSync,
     manualSyncFromPlayers,
+    cancelManualSync,
     playerForceUpdateKey,
     error,
     setError,
@@ -90,15 +91,6 @@ export const VideoPlayerScreen = () => {
   const handleApplyManualSync = useCallback(async () => {
     await manualSyncFromPlayers();
   }, [manualSyncFromPlayers]);
-
-  // 手動同期キャンセルハンドラ
-  const handleCancelManualSync = useCallback(() => {
-    setSyncMode('auto');
-    if (!window.electronAPI?.setManualModeChecked) return;
-    window.electronAPI.setManualModeChecked(false).catch((error) => {
-      console.debug('手動同期モード解除の更新に失敗しました。', error);
-    });
-  }, [setSyncMode]);
 
   const {
     analysisOpen,
@@ -216,7 +208,9 @@ export const VideoPlayerScreen = () => {
         performUndo={performUndo}
         performRedo={performRedo}
         onApplyManualSync={handleApplyManualSync}
-        onCancelManualSync={handleCancelManualSync}
+        onCancelManualSync={() => {
+          void cancelManualSync();
+        }}
         onAddToPlaylist={handleAddToPlaylist}
       />
       <AnalysisPanel

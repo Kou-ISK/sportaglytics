@@ -274,12 +274,26 @@ export const useSyncActions = ({
     setSyncData,
   ]);
 
+  const cancelManualSync = useCallback(async (): Promise<void> => {
+    setSyncMode('auto');
+    const api = globalThis.window.electronAPI;
+    if (!api?.setManualModeChecked) {
+      return;
+    }
+    try {
+      await api.setManualModeChecked(false);
+    } catch (error) {
+      console.debug('手動同期モード解除の更新に失敗しました。', error);
+    }
+  }, [setSyncMode]);
+
   return {
     playerForceUpdateKey,
     resyncAudio,
     resetSync,
     adjustSyncOffset,
     manualSyncFromPlayers,
+    cancelManualSync,
     isAnalyzing,
     syncProgress,
     syncStage,
