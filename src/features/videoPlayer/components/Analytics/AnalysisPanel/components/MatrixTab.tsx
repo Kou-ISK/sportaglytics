@@ -1,16 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Stack, Paper, Typography, Box, Button } from '@mui/material';
 import { TimelineData } from '../../../../../../types/TimelineData';
 import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
-import { MatrixSection } from './MatrixSection';
-import { DrilldownDialog } from './DrilldownDialog';
-import { NoDataPlaceholder } from './NoDataPlaceholder';
 import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
-import { MatrixFilters } from './MatrixFilters';
 import { useMatrixFilters } from '../controllers/useMatrixFilters';
 import { useMatrixAxes } from '../controllers/useMatrixAxes';
-import { FilterSummaryBar } from './FilterSummaryBar';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
 import {
   deriveMatrixFilters,
@@ -19,7 +13,7 @@ import {
 } from '../controllers/matrixFilterUtils';
 import { useMatrixTableExport } from '../controllers/useMatrixTableExport';
 import { buildMatrixFilterChips } from '../utils/matrixFilterChips';
-import { MatrixAxisEditor } from './MatrixAxisEditor';
+import { MatrixTabView } from './MatrixTabView';
 
 interface MatrixTabProps {
   hasData: boolean;
@@ -170,10 +164,6 @@ export const MatrixTab = ({
     notification,
   });
 
-  if (!hasData) {
-    return <NoDataPlaceholder message={emptyMessage} />;
-  }
-
   // フィルターチップの生成
   const ALL = MATRIX_FILTER_ALL;
   const filterChips = buildMatrixFilterChips({
@@ -184,111 +174,42 @@ export const MatrixTab = ({
   });
 
   return (
-    <>
-      <Stack spacing={1.5}>
-        <FilterSummaryBar
-          rowAxis={customRowAxis}
-          columnAxis={customColumnAxis}
-          onRowAxisChange={setCustomRowAxis}
-          onColumnAxisChange={setCustomColumnAxis}
-          renderAxisEditor={() => (
-            <MatrixAxisEditor
-              rowAxis={customRowAxis}
-              columnAxis={customColumnAxis}
-              availableGroups={availableGroups}
-              onRowAxisChange={setCustomRowAxis}
-              onColumnAxisChange={setCustomColumnAxis}
-            />
-          )}
-          hasActiveFilters={hasActiveFilters}
-          filterCount={
-            Object.values(filters).filter((v) => v !== '' && v !== ALL).length
-          }
-          filterChips={filterChips}
-          renderFilterEditor={(onClose) => (
-            <MatrixFilters
-              filters={filters}
-              availableTeams={availableTeams}
-              availableActions={availableActions}
-              availableLabelValues={availableLabelValues}
-              availableGroups={availableGroups}
-              onTeamChange={setFilterTeam}
-              onActionChange={setFilterAction}
-              onLabelGroupChange={setFilterLabelGroup}
-              onLabelValueChange={setFilterLabelValue}
-              onClearLabelFilters={clearLabelFilters}
-              hasActiveFilters={hasActiveFilters}
-              onApply={onClose}
-              onClose={onClose}
-            />
-          )}
-        />
-
-        <Box display="flex" justifyContent="flex-end" gap={1}>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => void exportMatrix('csv')}
-          >
-            この表をCSVで保存
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => void exportMatrix('xlsx')}
-          >
-            この表をXLSXで保存
-          </Button>
-        </Box>
-
-        <Paper
-          elevation={0}
-          sx={{
-            p: 1.25,
-            borderRadius: 2,
-            border: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Stack spacing={1}>
-            {customMatrix && customMatrix.rowHeaders.length > 0 && (
-              <>
-                <MatrixSection
-                  rowHeaders={customMatrix.rowHeaders}
-                  columnHeaders={customMatrix.columnHeaders}
-                  rowParentSpans={customMatrix.rowParentSpans}
-                  colParentSpans={customMatrix.colParentSpans}
-                  matrix={customMatrix.matrix}
-                  onDrilldown={(title, entries) =>
-                    setDetail({ title, entries })
-                  }
-                />
-                <Typography variant="caption" color="text.secondary">
-                  対象データ数: {filteredTimeline.length} / {timeline.length}
-                  {typeof totalTimelineCount === 'number' &&
-                    totalTimelineCount > timeline.length && (
-                      <>（全体: {timeline.length}/{totalTimelineCount}）</>
-                    )}
-                </Typography>
-              </>
-            )}
-
-            {customMatrix?.rowHeaders.length === 0 && (
-              <Box sx={{ py: 4, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  フィルタ条件に一致するデータがありません
-                </Typography>
-              </Box>
-            )}
-          </Stack>
-        </Paper>
-      </Stack>
-
-      <DrilldownDialog
-        detail={detail}
-        onClose={() => setDetail(null)}
-        onJump={(segment) => onJumpToSegment?.(segment)}
-      />
-    </>
+    <MatrixTabView
+      hasData={hasData}
+      emptyMessage={emptyMessage}
+      totalTimelineCount={totalTimelineCount}
+      filteredTimelineCount={filteredTimeline.length}
+      timelineCount={timeline.length}
+      availableGroups={availableGroups}
+      availableTeams={availableTeams}
+      availableActions={availableActions}
+      availableLabelValues={availableLabelValues}
+      customRowAxis={customRowAxis}
+      customColumnAxis={customColumnAxis}
+      filters={filters}
+      hasActiveFilters={hasActiveFilters}
+      filterCount={
+        Object.values(filters).filter((value) => value !== '' && value !== ALL)
+          .length
+      }
+      filterChips={filterChips}
+      customMatrix={customMatrix}
+      detail={detail}
+      onRowAxisChange={setCustomRowAxis}
+      onColumnAxisChange={setCustomColumnAxis}
+      onTeamChange={setFilterTeam}
+      onActionChange={setFilterAction}
+      onLabelGroupChange={setFilterLabelGroup}
+      onLabelValueChange={setFilterLabelValue}
+      onClearLabelFilters={clearLabelFilters}
+      onExportMatrix={exportMatrix}
+      onDrilldown={(title, entries) => {
+        setDetail({ title, entries });
+      }}
+      onDetailClose={() => {
+        setDetail(null);
+      }}
+      onJumpToSegment={onJumpToSegment}
+    />
   );
 };
