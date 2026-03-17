@@ -8,7 +8,7 @@ import { TimelineLane } from './TimelineLane';
 import { TimelineSelectionOverlay } from './TimelineSelectionOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
 
-interface VisualTimelineViewProps {
+export interface VisualTimelineViewProps {
   zoomScale: number;
   axisRef: React.RefObject<HTMLDivElement | null>;
   maxSec: number;

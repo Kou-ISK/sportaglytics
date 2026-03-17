@@ -11,7 +11,7 @@ import { MatrixSection } from './MatrixSection';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
 import type { MatrixFilterState } from '../controllers/matrixFilterUtils';
 
-interface MatrixTabViewProps {
+export interface MatrixTabViewProps {
   hasData: boolean;
   emptyMessage: string;
   totalTimelineCount?: number;
