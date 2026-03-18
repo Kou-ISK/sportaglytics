@@ -1,27 +1,20 @@
 import React from 'react';
 import { Box, Stack } from '@mui/material';
 import { CreatePackageWizard } from './VideoPathSelector/CreatePackageWizard';
-import { AudioSyncBackdrop } from './VideoPathSelector/AudioSyncBackdrop';
 import { WelcomeHeader } from './VideoPathSelector/components/WelcomeHeader';
 import { DropZoneCard } from './VideoPathSelector/components/DropZoneCard';
 import { ActionButtonsRow } from './VideoPathSelector/components/ActionButtonsRow';
 import { RecentPackagesSection } from './VideoPathSelector/components/RecentPackagesSection';
-import type { PackageLoadResult, SyncStatus } from './VideoPathSelector/types';
+import type { PackageLoadResult } from './VideoPathSelector/types';
 import type { DragAndDropState } from './VideoPathSelector/hooks/useDragAndDrop';
 import type { RecentPackage } from './VideoPathSelector/hooks/useRecentPackages';
-import type { VideoSyncData } from '../../../../types/VideoSync';
 
 interface VideoPathSelectorViewProps {
   showWelcome: boolean;
   dragState: DragAndDropState;
   dragHandlers: React.HTMLAttributes<HTMLDivElement>;
   wizardOpen: boolean;
-  syncStatus: SyncStatus;
   recentPackages: RecentPackage[];
-  performAudioSync: (
-    tightPath: string,
-    widePath: string,
-  ) => Promise<VideoSyncData>;
   onPackageLoaded: (payload: PackageLoadResult) => void;
   onOpenWizard: () => void;
   onCloseWizard: () => void;
@@ -35,9 +28,7 @@ export const VideoPathSelectorView: React.FC<VideoPathSelectorViewProps> = ({
   dragState,
   dragHandlers,
   wizardOpen,
-  syncStatus,
   recentPackages,
-  performAudioSync,
   onPackageLoaded,
   onOpenWizard,
   onCloseWizard,
@@ -84,11 +75,7 @@ export const VideoPathSelectorView: React.FC<VideoPathSelectorViewProps> = ({
         open={wizardOpen}
         onClose={onCloseWizard}
         onPackageCreated={onPackageCreated}
-        performAudioSync={performAudioSync}
-        syncStatus={syncStatus}
       />
-
-      <AudioSyncBackdrop status={syncStatus} />
     </Box>
   );
 };

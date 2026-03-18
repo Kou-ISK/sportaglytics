@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAudioSync } from './useAudioSync';
 import { useDragAndDrop } from './useDragAndDrop';
 import { usePackageDropLoader } from './usePackageDropLoader';
 import { useRecentPackages } from './useRecentPackages';
@@ -16,11 +15,9 @@ import type {
 interface VideoPathSelectorController {
   showWelcome: boolean;
   wizardOpen: boolean;
-  syncStatus: ReturnType<typeof useAudioSync>['status'];
   dragState: ReturnType<typeof useDragAndDrop>['dragState'];
   dragHandlers: ReturnType<typeof useDragAndDrop>['handlers'];
   recentPackages: ReturnType<typeof useRecentPackages>['recentPackages'];
-  performAudioSync: ReturnType<typeof useAudioSync>['performAudioSync'];
   handlePackageLoaded: (payload: PackageLoadResult) => void;
   handlePackageCreated: (payload: PackageLoadResult) => void;
   handleOpenWizard: () => void;
@@ -40,9 +37,6 @@ export const useVideoPathSelectorController = ({
   const [wizardOpen, setWizardOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
-  const { performAudioSync, status: syncStatus } = useAudioSync({
-    setSyncData,
-  });
   const { recentPackages, addRecentPackage, removeRecentPackage } =
     useRecentPackages();
   const registerRecentPackage = useRecentPackageRegistration({
@@ -116,11 +110,9 @@ export const useVideoPathSelectorController = ({
   return {
     showWelcome,
     wizardOpen,
-    syncStatus,
     dragState,
     dragHandlers,
     recentPackages,
-    performAudioSync,
     handlePackageLoaded,
     handlePackageCreated,
     handleOpenWizard: () => setWizardOpen(true),

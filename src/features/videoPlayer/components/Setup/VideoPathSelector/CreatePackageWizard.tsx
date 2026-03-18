@@ -1,10 +1,8 @@
 import React, { useMemo } from 'react';
-import type { VideoSyncData } from '../../../../../types/VideoSync';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 import { ActionList } from '../../../../../ActionList';
 import type {
   PackageLoadResult,
-  SyncStatus,
   WizardSelectionState,
 } from './types';
 import { buildWizardSummaryItems } from './WizardSummaryBuilder';
@@ -16,11 +14,6 @@ interface CreatePackageWizardProps {
   open: boolean;
   onClose: () => void;
   onPackageCreated: (payload: PackageLoadResult) => void;
-  performAudioSync: (
-    tightPath: string,
-    widePath: string,
-  ) => Promise<VideoSyncData>;
-  syncStatus: SyncStatus;
 }
 
 const createAngleId = () =>
@@ -46,7 +39,6 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
   open,
   onClose,
   onPackageCreated,
-  syncStatus,
 }) => {
   const { error: showError } = useNotification();
   const {
@@ -79,7 +71,6 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     showError,
     actionNames: ActionList.map((item) => item.action),
   });
-  const isAnalyzing = syncStatus.isAnalyzing;
 
   const summaryItems = useMemo(
     () => buildWizardSummaryItems(form, selection),
@@ -94,8 +85,6 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
       errors={errors}
       selection={selection}
       summaryItems={summaryItems}
-      syncStatus={syncStatus}
-      isAnalyzing={isAnalyzing}
       onClose={onClose}
       onBack={handleBack}
       onNext={handleNext}

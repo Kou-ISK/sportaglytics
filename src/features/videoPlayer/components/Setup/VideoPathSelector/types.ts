@@ -36,12 +36,6 @@ export interface WizardStepContext
   activeStep: number;
 }
 
-export interface SyncStatus {
-  isAnalyzing: boolean;
-  syncProgress: number;
-  syncStage: string;
-}
-
 export interface PackageLoadResult {
   videoList: string[];
   syncData: VideoSyncData | undefined;

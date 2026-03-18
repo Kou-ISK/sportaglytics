@@ -17,7 +17,6 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { AngleSelection } from '../types';
 
 interface VideoSelectionStepProps {
-  isAnalyzing: boolean;
   angles: AngleSelection[];
   onSelectVideo: (angleId: string) => void;
   onAddAngle: () => void;
@@ -29,7 +28,6 @@ interface VideoSelectionStepProps {
  * Step 3: アングルの追加/割り当て
  */
 export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
-  isAnalyzing,
   angles,
   onSelectVideo,
   onAddAngle,
@@ -106,7 +104,6 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
                   <Button
                     variant="outlined"
                     onClick={() => onSelectVideo(angle.id)}
-                    disabled={isAnalyzing}
                   >
                     {angle.filePath ? '映像を再選択' : '映像を選択'}
                   </Button>
@@ -137,7 +134,6 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
             startIcon={<AddIcon />}
             onClick={onAddAngle}
             variant="text"
-            disabled={isAnalyzing}
             sx={{ alignSelf: 'flex-start' }}
           >
             アングルを追加

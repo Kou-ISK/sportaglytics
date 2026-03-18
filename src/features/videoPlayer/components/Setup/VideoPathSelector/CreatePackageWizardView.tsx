@@ -14,9 +14,7 @@ import { DirectoryStep } from './steps/DirectoryStep';
 import { VideoSelectionStep } from './steps/VideoSelectionStep';
 import { SummaryStep } from './steps/SummaryStep';
 import { WizardFooter } from './WizardFooter';
-import { WizardSyncAlert } from './WizardSyncAlert';
 import type {
-  SyncStatus,
   WizardFormState,
   WizardSelectionState,
 } from './types';
@@ -29,8 +27,6 @@ interface CreatePackageWizardViewProps {
   errors: Partial<WizardFormState>;
   selection: WizardSelectionState;
   summaryItems: WizardSummaryItem[];
-  syncStatus: SyncStatus;
-  isAnalyzing: boolean;
   onClose: () => void;
   onBack: () => void;
   onNext: () => void;
@@ -51,8 +47,6 @@ export const CreatePackageWizardView: React.FC<CreatePackageWizardViewProps> = (
   errors,
   selection,
   summaryItems,
-  syncStatus,
-  isAnalyzing,
   onClose,
   onBack,
   onNext,
@@ -111,7 +105,6 @@ export const CreatePackageWizardView: React.FC<CreatePackageWizardViewProps> = (
 
         {activeStep === 2 && (
           <VideoSelectionStep
-            isAnalyzing={isAnalyzing}
             angles={selection.angles}
             onSelectVideo={onSelectVideo}
             onAddAngle={onAddAngle}
@@ -122,12 +115,9 @@ export const CreatePackageWizardView: React.FC<CreatePackageWizardViewProps> = (
 
         {activeStep === 3 && <SummaryStep items={summaryItems} />}
 
-        <WizardSyncAlert syncStatus={syncStatus} />
-
         <WizardFooter
           activeStep={activeStep}
           totalSteps={STEP_LABELS.length}
-          isAnalyzing={isAnalyzing}
           onCancel={onClose}
           onBack={onBack}
           onNext={onNext}
