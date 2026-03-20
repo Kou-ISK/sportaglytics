@@ -1,4 +1,4 @@
-export const ONBOARDING_STORAGE_KEY = 'sportaglytics-onboarding-completed';
+const ONBOARDING_STORAGE_KEY = 'sportaglytics-onboarding-completed';
 
 const getStorage = (): Storage | null => {
   try {

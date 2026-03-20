@@ -238,13 +238,3 @@ export interface IPlaylistAPI {
   /** ウィンドウタイトルを設定（プレイリストウィンドウ側） */
   setWindowTitle: (title: string) => void;
 }
-
-/**
- * 初期プレイリスト状態
- */
-export const initialPlaylistState: PlaylistState = {
-  playlists: [],
-  activePlaylistId: null,
-  playingItemId: null,
-  loopMode: 'none',
-};

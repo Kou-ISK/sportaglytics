@@ -63,5 +63,3 @@ export const SettingsScreen: React.FC = () => {
     </Box>
   );
 };
-
-export default SettingsScreen;

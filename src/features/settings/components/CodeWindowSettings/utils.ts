@@ -2,7 +2,6 @@ import { ulid } from 'ulid';
 import type {
   CodeWindowButton,
   CodeWindowLayout,
-  ActionLink,
   ButtonLink,
   TeamArea,
 } from '../../../../types/Settings';
@@ -18,14 +17,14 @@ export const DEFAULT_CANVAS_WIDTH = 360;
 export const DEFAULT_CANVAS_HEIGHT = 400;
 
 /** デフォルトのチームエリア */
-export const DEFAULT_TEAM1_AREA: TeamArea = {
+const DEFAULT_TEAM1_AREA: TeamArea = {
   x: 0,
   y: 0,
   width: DEFAULT_CANVAS_WIDTH / 2,
   height: DEFAULT_CANVAS_HEIGHT,
 };
 
-export const DEFAULT_TEAM2_AREA: TeamArea = {
+const DEFAULT_TEAM2_AREA: TeamArea = {
   x: DEFAULT_CANVAS_WIDTH / 2,
   y: 0,
   width: DEFAULT_CANVAS_WIDTH / 2,
@@ -91,48 +90,6 @@ export const createLayout = (
 });
 
 /**
- * デフォルトレイアウトを作成（アクションリストから自動生成）
- */
-export const createDefaultLayout = (): CodeWindowLayout => {
-  // デフォルトレイアウトはタイプ/チームごとに均等配置済みのため、ここではボタンなしで返す
-  return {
-    id: 'default',
-    name: 'デフォルト',
-    canvasWidth: DEFAULT_CANVAS_WIDTH,
-    canvasHeight: DEFAULT_CANVAS_HEIGHT,
-    buttons: [],
-    buttonLinks: [],
-    splitByTeam: true,
-    team1Area: {
-      x: 0,
-      y: 0,
-      width: DEFAULT_CANVAS_WIDTH / 2,
-      height: DEFAULT_CANVAS_HEIGHT,
-    },
-    team2Area: {
-      x: DEFAULT_CANVAS_WIDTH / 2,
-      y: 0,
-      width: DEFAULT_CANVAS_WIDTH / 2,
-      height: DEFAULT_CANVAS_HEIGHT,
-    },
-  };
-};
-
-/**
- * 新しいリンク（ラベル→アクション）を作成
- */
-export const createLink = (
-  from: string,
-  to: string,
-  type: ActionLink['type'],
-): ActionLink => ({
-  id: ulid(),
-  from,
-  to,
-  type,
-});
-
-/**
  * 新しいボタン間リンクを作成
  * Sportscodeでは右クリックドラッグで排他リンク（exclusive）を作成
  */
@@ -148,24 +105,9 @@ export const createButtonLink = (
 });
 
 /**
- * ボタンが指定エリア内にあるかチェック
- */
-export const isButtonInArea = (
-  button: CodeWindowButton,
-  area: TeamArea,
-): boolean => {
-  return (
-    button.x >= area.x &&
-    button.y >= area.y &&
-    button.x + button.width <= area.x + area.width &&
-    button.y + button.height <= area.y + area.height
-  );
-};
-
-/**
  * 2つのボタンが重なっているかチェック
  */
-export const isOverlapping = (
+const isOverlapping = (
   button1: CodeWindowButton,
   button2: CodeWindowButton,
 ): boolean => {

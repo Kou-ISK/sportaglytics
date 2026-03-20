@@ -32,5 +32,3 @@ export const AnalysisWindowScreen = () => {
     </Box>
   );
 };
-
-export default AnalysisWindowScreen;

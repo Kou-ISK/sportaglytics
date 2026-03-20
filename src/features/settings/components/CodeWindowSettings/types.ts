@@ -1,7 +1,6 @@
 import type {
   CodeWindowButton,
   CodeWindowLayout,
-  ActionLink,
 } from '../../../../types/Settings';
 
 /**
@@ -29,16 +28,6 @@ export interface GridCell {
 export interface ButtonEditorProps {
   layout: CodeWindowLayout;
   onLayoutChange: (layout: CodeWindowLayout) => void;
-  availableActions: string[];
-  availableLabelGroups: Array<{ groupName: string; options: string[] }>;
-}
-
-/**
- * リンクエディタのprops
- */
-export interface LinkEditorProps {
-  links: ActionLink[];
-  onLinksChange: (links: ActionLink[]) => void;
   availableActions: string[];
   availableLabelGroups: Array<{ groupName: string; options: string[] }>;
 }
@@ -72,13 +61,4 @@ export interface ButtonPropertiesProps {
 export const DEFAULT_BUTTON_COLORS = {
   action: '#1976d2',
   label: '#9c27b0',
-};
-
-/**
- * リンクタイプの表示名
- */
-export const LINK_TYPE_LABELS: Record<ActionLink['type'], string> = {
-  exclusive: '排他（どちらか一方のみ）',
-  deactivate: '無効化（fromを押すとtoを終了）',
-  activate: '有効化（fromを押すとtoも開始）',
 };

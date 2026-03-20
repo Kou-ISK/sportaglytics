@@ -245,8 +245,3 @@ function buildTheme(mode: 'dark' | 'light'): ThemeOptions {
 export function getAppTheme(mode: 'dark' | 'light' = 'dark') {
   return createTheme(buildTheme(mode));
 }
-
-// ========================================
-// 後方互換: appTheme（既存コードで使用中）
-// ========================================
-export const appTheme = getAppTheme('dark');

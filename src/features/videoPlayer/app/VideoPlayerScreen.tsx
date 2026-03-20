@@ -234,5 +234,3 @@ export const VideoPlayerScreen = () => {
     </Box>
   );
 };
-
-export default VideoPlayerScreen;

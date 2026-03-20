@@ -147,5 +147,3 @@ export const CodeWindowSettings = forwardRef<
 });
 
 CodeWindowSettings.displayName = 'CodeWindowSettings';
-
-export default CodeWindowSettings;

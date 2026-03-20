@@ -26,5 +26,3 @@ export const AnalysisReportScreen = () => {
 
   return <AnalysisReportDocument payload={payload} />;
 };
-
-export default AnalysisReportScreen;
