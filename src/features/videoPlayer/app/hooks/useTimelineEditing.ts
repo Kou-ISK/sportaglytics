@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { ulid } from 'ulid';
 import type { TimelineData } from '../../../../types/TimelineData';
 
-export interface TimelineEditingHandlers {
+interface TimelineEditingHandlers {
   addTimelineData: (
     actionName: string,
     startTime: number,

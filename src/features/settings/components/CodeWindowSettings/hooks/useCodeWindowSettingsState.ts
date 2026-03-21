@@ -210,7 +210,3 @@ export const useCodeWindowSettingsState = ({
     saveSettings,
   };
 };
-
-export type CodeWindowSettingsState = ReturnType<
-  typeof useCodeWindowSettingsState
->;

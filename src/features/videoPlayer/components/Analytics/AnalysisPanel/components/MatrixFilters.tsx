@@ -27,7 +27,7 @@ interface MatrixFiltersProps {
   onClose?: () => void;
 }
 
-export const ALL = 'all';
+const ALL = 'all';
 
 export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
   filters,

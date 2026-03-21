@@ -11,17 +11,3 @@ export interface SyncedVideoPlayerProps {
   forceUpdateKey?: number;
   viewMode?: 'dual' | 'angle1' | 'angle2';
 }
-
-export interface PlayerState {
-  videoTime: number;
-  videoAspectRatios: number[];
-}
-
-export interface SyncDerivedState {
-  adjustedCurrentTimes: number[];
-  blockPlayStates: boolean[];
-}
-
-export interface AspectRatioChangeHandler {
-  (index: number, ratio: number): void;
-}

@@ -16,8 +16,6 @@ export interface WizardFormState {
   team2Name: string;
 }
 
-export type AngleRole = 'primary' | 'secondary';
-
 export interface AngleSelection {
   id: string;
   name: string;
@@ -27,13 +25,6 @@ export interface AngleSelection {
 export interface WizardSelectionState {
   selectedDirectory: string;
   angles: AngleSelection[];
-}
-
-export interface WizardStepContext
-  extends WizardFormState,
-    WizardSelectionState {
-  errors: Partial<Record<keyof WizardFormState, string>>;
-  activeStep: number;
 }
 
 export interface PackageLoadResult {

@@ -10,7 +10,7 @@ import {
 import { createMomentumDataFactory } from '../utils/momentum';
 import { CreateMomentumDataFn } from '../../../../types/Analysis';
 
-export interface AnalysisSelectors {
+interface AnalysisSelectors {
   calculateActionDuration: () => rechartsData[];
   countActions: () => rechartsData[];
   countActionResultByTeamName: (

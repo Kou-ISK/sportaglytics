@@ -1,5 +1,5 @@
 import { createTheme, ThemeOptions, alpha } from '@mui/material/styles';
-import type { SxProps } from '@mui/system';
+import type { SxProps } from '@mui/material/styles';
 
 // ========================================
 // 型拡張: カスタムパレット＋セマンティックトークン

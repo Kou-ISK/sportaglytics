@@ -1,6 +1,6 @@
-export type LLMProviderType = 'llama.cpp';
+type LLMProviderType = 'llama.cpp';
 
-export interface LLMProviderConfig {
+interface LLMProviderConfig {
   type: LLMProviderType;
   baseUrl: string;
   model: string;
@@ -11,25 +11,25 @@ export interface LLMProviderConfig {
   timeoutMs?: number;
 }
 
-export interface LLMProviderRequest {
+interface LLMProviderRequest {
   prompt: string;
   requestId?: string;
   signal?: AbortSignal;
 }
 
-export interface LLMProviderDebugInfo {
+interface LLMProviderDebugInfo {
   stderr?: string;
   binaryPath?: string;
   modelPath?: string;
   durationMs?: number;
 }
 
-export interface LLMProviderResult {
+interface LLMProviderResult {
   text: string;
   debug?: LLMProviderDebugInfo;
 }
 
-export interface LLMProvider {
+interface LLMProvider {
   type: LLMProviderType;
   generate: (request: LLMProviderRequest) => Promise<LLMProviderResult>;
 }

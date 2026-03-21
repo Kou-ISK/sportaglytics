@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 type HeaderCell = { parent: string | null; child: string };
 type MatrixCountCell = { count: number };
 
-export interface MatrixExportTable {
+interface MatrixExportTable {
   rowHeaders: HeaderCell[];
   columnHeaders: HeaderCell[];
   matrix: MatrixCountCell[][];
@@ -14,7 +14,7 @@ interface BuildMatrixExportAoaParams {
 }
 
 type AoaCell = string | number;
-export type MatrixExportAoa = AoaCell[][];
+type MatrixExportAoa = AoaCell[][];
 
 const headerLabel = (header: HeaderCell) =>
   header.parent ? `${header.parent} > ${header.child || '未設定'}` : header.child || '未設定';

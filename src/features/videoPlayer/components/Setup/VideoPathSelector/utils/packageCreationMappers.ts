@@ -6,7 +6,7 @@ import type {
   WizardSelectionState,
 } from '../types';
 
-export interface PackageAnglePayload {
+interface PackageAnglePayload {
   id: string;
   name: string;
   sourcePath: string;

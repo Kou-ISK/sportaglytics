@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { TimelineData } from '../../../../../../types/TimelineData';
 import {
-  buildMatrixFilterSummaryText,
   createDefaultMatrixFilters,
   deriveMatrixFilters,
   MATRIX_FILTER_ALL,
@@ -9,9 +8,8 @@ import {
 } from './matrixFilterUtils';
 
 export type { MatrixFilterState } from './matrixFilterUtils';
-export { MATRIX_FILTER_ALL, buildMatrixFilterSummaryText };
 
-export interface MatrixFiltersResult {
+interface MatrixFiltersResult {
   filters: MatrixFilterState;
   availableTeams: string[];
   availableActions: string[];

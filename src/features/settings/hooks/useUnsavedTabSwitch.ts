@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export interface UnsavedTabConfig {
+interface UnsavedTabConfig {
   hasUnsavedChanges: (tabIndex: number) => boolean;
 }
 

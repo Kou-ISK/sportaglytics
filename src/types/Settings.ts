@@ -1,10 +1,8 @@
 export type {
-  ActionGroup,
   ActionDefinition,
   HotkeyConfig,
   CodeWindowButton,
   ButtonLink,
-  ActionLink,
   TeamArea,
   CodeWindowLayout,
   ThemeMode,

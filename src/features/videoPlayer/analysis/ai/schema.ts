@@ -25,5 +25,3 @@ export const aiResponseSchema = z.object({
     }),
   ),
 });
-
-export type AiResponseSchema = z.infer<typeof aiResponseSchema>;

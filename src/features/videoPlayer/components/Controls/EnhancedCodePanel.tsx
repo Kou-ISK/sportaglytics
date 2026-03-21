@@ -6,7 +6,7 @@ import {
 import { EnhancedCodePanelView } from './EnhancedCodePanelView';
 import { useEnhancedCodePanelController } from './hooks/useEnhancedCodePanelController';
 
-export { type EnhancedCodePanelHandle, type EnhancedCodePanelProps };
+export { type EnhancedCodePanelHandle };
 
 export const EnhancedCodePanel = forwardRef<
   EnhancedCodePanelHandle,

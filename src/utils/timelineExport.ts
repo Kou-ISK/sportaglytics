@@ -3,7 +3,7 @@ import type { TimelineData } from '../types/TimelineData';
 /**
  * 秒数をHH:mm:ss形式（1時間未満ならmm:ss）に変換
  */
-export const formatTimeForExport = (seconds: number): string => {
+const formatTimeForExport = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);

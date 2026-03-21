@@ -47,13 +47,6 @@ export interface AiCopilotResponse {
   recommendedClips: AiRecommendedClip[];
 }
 
-export interface AiCopilotParseResult {
-  response: AiCopilotResponse;
-  warnings: string[];
-  rawText: string;
-  usedFallback: boolean;
-}
-
 export interface AiClipSegment {
   startTime: number;
   endTime: number;

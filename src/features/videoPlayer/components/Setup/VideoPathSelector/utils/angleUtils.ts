@@ -47,7 +47,7 @@ const normalizeRelativePath = (angle: unknown): string | undefined => {
   return undefined;
 };
 
-export const resolveAnglesFromConfig = (
+const resolveAnglesFromConfig = (
   config: unknown,
   packagePath: string,
 ): {

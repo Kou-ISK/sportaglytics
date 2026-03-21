@@ -20,8 +20,8 @@ import {
 } from './dashboardWidgetDialogState.utils';
 import { useDashboardWidgetDialogActions } from './useDashboardWidgetDialogActions';
 
-export const DEFAULT_PRIMARY_AXIS: MatrixAxisConfig = { type: 'team' };
-export const DEFAULT_SERIES_AXIS: MatrixAxisConfig = {
+const DEFAULT_PRIMARY_AXIS: MatrixAxisConfig = { type: 'team' };
+const DEFAULT_SERIES_AXIS: MatrixAxisConfig = {
   type: 'group',
   value: 'all_labels',
 };

@@ -33,7 +33,7 @@ export interface RetrieverOptions {
   insightEvidenceIds?: string[];
 }
 
-export interface Retriever {
+interface Retriever {
   retrieve: (
     query: string,
     index: EvidenceIndex,

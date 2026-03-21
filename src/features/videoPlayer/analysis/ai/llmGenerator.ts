@@ -15,7 +15,7 @@ import {
   sanitizeAiResponse,
 } from './llmResponseNormalization';
 
-export interface LlmGeneratorConfig {
+interface LlmGeneratorConfig {
   provider: 'llama.cpp';
   baseUrl: string;
   model: string;
@@ -26,7 +26,7 @@ export interface LlmGeneratorConfig {
   timeoutMs?: number;
 }
 
-export interface LlmGeneratorOptions {
+interface LlmGeneratorOptions {
   maxRetries?: number;
   maxMemoChars?: number;
   maxEvidence?: number;

@@ -3,7 +3,7 @@ import type { DrawingObject } from '../../../types/Playlist';
 export const generateAnnotationId = (): string =>
   Math.random().toString(36).substring(2, 11);
 
-export const drawArrowHead = (
+const drawArrowHead = (
   ctx: CanvasRenderingContext2D,
   fromX: number,
   fromY: number,
@@ -191,7 +191,7 @@ export const getObjectBounds = (
   }
 };
 
-export const pointInBounds = (
+const pointInBounds = (
   x: number,
   y: number,
   bounds: { minX: number; minY: number; maxX: number; maxY: number },

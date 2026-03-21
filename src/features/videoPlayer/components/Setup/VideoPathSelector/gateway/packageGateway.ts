@@ -12,7 +12,7 @@ interface PackageTeamNames {
   team2Name: string;
 }
 
-export interface LoadedPackageData extends PackageTeamNames {
+interface LoadedPackageData extends PackageTeamNames {
   configFilePath: string;
   packagePath: string;
   missingSyncData: boolean;
@@ -49,7 +49,7 @@ const getElectronApi = (): NonNullable<Window['electronAPI']> => {
   return api;
 };
 
-export const normalizePackagePath = (value: unknown): string | null => {
+const normalizePackagePath = (value: unknown): string | null => {
   if (typeof value === 'string' && value.length > 0) {
     return value;
   }

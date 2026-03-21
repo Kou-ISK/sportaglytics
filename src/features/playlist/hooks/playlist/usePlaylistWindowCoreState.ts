@@ -159,7 +159,3 @@ export const usePlaylistWindowCoreState = () => {
     setLoadedFilePath,
   };
 };
-
-export type PlaylistWindowCoreState = ReturnType<
-  typeof usePlaylistWindowCoreState
->;

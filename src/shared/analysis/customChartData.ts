@@ -26,14 +26,7 @@ export {
   DASHBOARD_ENTRY_IDS_KEY,
   getDashboardEntryIdsKey,
 } from './customChartData.shared';
-export type {
-  DashboardMetric,
-  DashboardCalcMode,
-  DashboardSeriesDefinition,
-  CustomChartConfig,
-  CustomChartDatumValue,
-  CustomChartData,
-} from './customChartData.shared';
+export type { CustomChartDatumValue } from './customChartData.shared';
 
 const matchesFilters = (
   item: TimelineData,

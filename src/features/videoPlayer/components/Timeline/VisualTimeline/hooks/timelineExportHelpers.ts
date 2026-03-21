@@ -8,9 +8,8 @@ export type OverlaySettings = {
   showMemo: boolean;
 };
 
-export type ExportScope = 'selected' | 'all';
-export type ExportMode = 'single' | 'perInstance' | 'perRow';
-export type AngleOption = 'allAngles' | 'single' | 'multi';
+type ExportScope = 'selected' | 'all';
+type AngleOption = 'allAngles' | 'single' | 'multi';
 
 export const normalizeVideoSource = (value: string | undefined): string | undefined => {
   if (!value) return undefined;

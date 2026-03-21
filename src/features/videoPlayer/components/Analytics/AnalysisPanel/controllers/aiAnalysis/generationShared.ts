@@ -25,7 +25,7 @@ interface StartGenerationSessionParams {
   } | null) => void;
 }
 
-export interface GenerationUiResetters {
+interface GenerationUiResetters {
   setGenerationError: (value: string | null) => void;
   setPlaylistMessage: (value: string | null) => void;
   setGenerationStatus: (value: GenerationStatus) => void;

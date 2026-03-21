@@ -1,6 +1,6 @@
 import { MATRIX_FILTER_ALL, type MatrixFilterState } from '../controllers/matrixFilterUtils';
 
-export interface MatrixFilterChip {
+interface MatrixFilterChip {
   label: string;
   onDelete: () => void;
 }

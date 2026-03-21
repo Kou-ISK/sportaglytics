@@ -1,6 +1,6 @@
 import type { EffectiveLink } from '../effectiveLinks';
 
-export interface LinkEffects {
+interface LinkEffects {
   activateTargets: string[];
   exclusiveTargets: string[];
   deactivateTargets: string[];
@@ -12,7 +12,7 @@ const pushUnique = (items: string[], value: string): void => {
   }
 };
 
-export const isLinkRelatedToTarget = (
+const isLinkRelatedToTarget = (
   link: EffectiveLink,
   targetName: string,
   isSameActionName: (a: string, b: string) => boolean,

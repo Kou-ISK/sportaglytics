@@ -14,7 +14,7 @@ export interface MatrixFilterState {
   labelValue: string;
 }
 
-export interface MatrixFilterDerived {
+interface MatrixFilterDerived {
   availableTeams: string[];
   availableActions: string[];
   availableLabelValues: string[];

@@ -7,7 +7,7 @@ import type {
 
 const TEAM_SPLIT_REGEX = /[\s\u3000/／・\\\-–—_]+/;
 
-export type TeamCandidateItem = {
+type TeamCandidateItem = {
   id: string;
   actionName: string;
   labels?: SCLabel[];
