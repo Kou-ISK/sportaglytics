@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useFlashStates } from './useFlashStates';
-import { useHotkeyPlayback } from './useHotkeyPlayback';
 import { useSeekCoordinator } from './useSeekCoordinator';
 import { usePlaybackTimeTracker } from './usePlaybackTimeTracker';
 import { useExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
@@ -104,18 +103,6 @@ export const useVideoControllerController = ({
     lastManualSeekTimestamp,
     isSeekingRef,
     safeSetCurrentTime,
-  });
-
-  useHotkeyPlayback({
-    setVideoPlayBackRate,
-    triggerFlash,
-    setIsVideoPlaying,
-    isVideoPlayingRef,
-    setCurrentTime,
-    videoList,
-    syncData,
-    lastManualSeekTimestamp,
-    getExistingPlayer,
   });
 
   useEffect(() => {

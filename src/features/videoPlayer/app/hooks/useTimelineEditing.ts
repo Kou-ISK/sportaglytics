@@ -15,14 +15,6 @@ interface TimelineEditingHandlers {
   ) => void;
   deleteTimelineDatas: (idList: string[]) => void;
   updateMemo: (id: string, memo: string) => void;
-  /**
-   * @deprecated Use updateTimelineItem with labels array instead
-   */
-  updateActionResult: (id: string, actionResult: string) => void;
-  /**
-   * @deprecated Use updateTimelineItem with labels array instead
-   */
-  updateActionType: (id: string, actionType: string) => void;
   updateTimelineRange: (id: string, startTime: number, endTime: number) => void;
   updateTimelineItem: (
     id: string,
@@ -96,86 +88,6 @@ export const useTimelineEditing = (
       setTimeline((prev) =>
         prev.map((item) => (item.id === id ? { ...item, memo } : item)),
       );
-    },
-    [setTimeline],
-  );
-
-  const updateActionResult = useCallback(
-    (id: string, actionResult: string) => {
-      console.debug('[useTimelineEditing] updateActionResult called:', {
-        id,
-        actionResult,
-      });
-      setTimeline((prev) => {
-        const updated = prev.map((item) => {
-          if (item.id !== id) return item;
-
-          // labels配列を更新（actionResultグループを更新）
-          const updatedLabels = item.labels ? [...item.labels] : [];
-          const resultIndex = updatedLabels.findIndex(
-            (l) => l.group === 'actionResult',
-          );
-
-          if (resultIndex >= 0) {
-            // 既存のactionResultラベルを更新
-            updatedLabels[resultIndex] = {
-              name: actionResult,
-              group: 'actionResult',
-            };
-          } else {
-            // actionResultラベルが存在しない場合は追加
-            updatedLabels.push({ name: actionResult, group: 'actionResult' });
-          }
-
-          const next = { ...item, labels: updatedLabels };
-          return next;
-        });
-        console.debug(
-          '[useTimelineEditing] Timeline after updateActionResult:',
-          updated.find((item) => item.id === id),
-        );
-        return updated;
-      });
-    },
-    [setTimeline],
-  );
-
-  const updateActionType = useCallback(
-    (id: string, actionType: string) => {
-      console.debug('[useTimelineEditing] updateActionType called:', {
-        id,
-        actionType,
-      });
-      setTimeline((prev) => {
-        const updated = prev.map((item) => {
-          if (item.id !== id) return item;
-
-          // labels配列を更新（actionTypeグループを更新）
-          const updatedLabels = item.labels ? [...item.labels] : [];
-          const typeIndex = updatedLabels.findIndex(
-            (l) => l.group === 'actionType',
-          );
-
-          if (typeIndex >= 0) {
-            // 既存のactionTypeラベルを更新
-            updatedLabels[typeIndex] = {
-              name: actionType,
-              group: 'actionType',
-            };
-          } else {
-            // actionTypeラベルが存在しない場合は追加
-            updatedLabels.push({ name: actionType, group: 'actionType' });
-          }
-
-          const next = { ...item, labels: updatedLabels };
-          return next;
-        });
-        console.debug(
-          '[useTimelineEditing] Timeline after updateActionType:',
-          updated.find((item) => item.id === id),
-        );
-        return updated;
-      });
     },
     [setTimeline],
   );
@@ -273,8 +185,6 @@ export const useTimelineEditing = (
     addTimelineData,
     deleteTimelineDatas,
     updateMemo,
-    updateActionResult,
-    updateActionType,
     updateTimelineRange,
     updateTimelineItem,
     bulkUpdateTimelineItems,
