@@ -83,12 +83,10 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
     const payload = timeline.map((item) => ({ ...item }));
 
     saveTimerRef.current = window.setTimeout(() => {
-      console.debug('[useTimelinePersistence] Saving timeline:', payload);
       window.electronAPI
         ?.exportTimeline(timelineFilePath, payload)
         .then(() => {
           timelinePersistedSnapshotRef.current = nextSnapshot;
-          console.debug('[useTimelinePersistence] Timeline saved successfully');
         })
         .catch((error: unknown) => {
           console.error('Failed to export timeline:', error);

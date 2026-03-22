@@ -65,7 +65,6 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
           videoList={videoList}
           isVideoPlaying={isVideoPlaying}
           videoPlayBackRate={videoPlayBackRate}
-          currentTime={currentTime}
           setMaxSec={setMaxSec}
           syncData={syncData}
           syncMode={syncMode}

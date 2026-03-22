@@ -118,19 +118,10 @@ export const useTimelineEditing = (
 
   const updateTimelineItem = useCallback(
     (id: string, updates: Partial<Omit<TimelineData, 'id'>>) => {
-      console.debug('[useTimelineEditing] updateTimelineItem called:', {
-        id,
-        updates,
-      });
       setTimeline((prev) => {
-        const updated = prev.map((item) =>
+        return prev.map((item) =>
           item.id === id ? { ...item, ...updates } : item,
         );
-        console.debug(
-          '[useTimelineEditing] Timeline after updateTimelineItem:',
-          updated.find((item) => item.id === id),
-        );
-        return updated;
       });
     },
     [setTimeline],

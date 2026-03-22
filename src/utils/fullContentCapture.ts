@@ -1,6 +1,6 @@
 /**
- * @deprecated PDFエクスポートでは非使用（データ駆動PDFへ移行済み）。
- * PNGスナップショット用途の後方互換として残置。
+ * スクロール領域を分割キャプチャして、PNG エクスポート用の
+ * 連結可能なスナップショット群へ変換する utility。
  */
 interface CaptureRect {
   x: number;

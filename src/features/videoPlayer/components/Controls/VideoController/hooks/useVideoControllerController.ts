@@ -85,9 +85,6 @@ export const useVideoControllerController = ({
       return;
     }
 
-    console.log(
-      `[INFO] 外部シーク検知: ${prevCurrentTimeRef.current}秒 → ${currentTime}秒`,
-    );
     lastManualSeekTimestamp.current = Date.now();
     prevCurrentTimeRef.current = currentTime;
   }, [currentTime]);
@@ -174,9 +171,7 @@ export const useVideoControllerController = ({
               playResult &&
               typeof (playResult as Promise<unknown>).catch === 'function'
             ) {
-              (playResult as Promise<unknown>).catch(() => {
-                console.debug('play promise rejected (autoplay policy)');
-              });
+              (playResult as Promise<unknown>).catch(() => undefined);
             }
           };
 

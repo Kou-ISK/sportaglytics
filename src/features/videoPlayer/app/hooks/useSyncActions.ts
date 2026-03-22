@@ -130,20 +130,19 @@ export const useSyncActions = ({
     setSyncStage('');
 
     try {
-      const { AudioSyncAnalyzer } = await import(
+      const { runAudioSyncAnalysis } = await import(
         '../../../../utils/AudioSyncAnalyzer'
       );
-      const analyzer = new AudioSyncAnalyzer();
 
       logInfo('音声同期を再実行中...');
-      const result = await analyzer.quickSyncAnalysis(
-        videoList[0],
-        videoList[1],
-        (stage: string, progress: number) => {
+      const result = await runAudioSyncAnalysis({
+        videoPath1: videoList[0] ?? '',
+        videoPath2: videoList[1] ?? '',
+        onProgress: (stage: string, progress: number) => {
           setSyncStage(stage);
           setSyncProgress(progress);
         },
-      );
+      });
 
       const newSyncData: VideoSyncData = {
         syncOffset: result.offsetSeconds,

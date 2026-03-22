@@ -18,15 +18,6 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
   allowSeek = true,
   onAspectRatioChange,
 }) => {
-  // [DEBUG] SingleVideoPlayer のレンダリングを確認
-  console.log(`[SingleVideoPlayer ${id}] Render:`, {
-    videoSrc,
-    hasVideoSrc: !!videoSrc,
-    videoSrcLength: videoSrc?.length,
-    forceUpdate,
-    allowSeek,
-  });
-
   const { containerRef, videoRef, playerRef, isReady, durationSec } =
     useVideoJsPlayer({
       id,

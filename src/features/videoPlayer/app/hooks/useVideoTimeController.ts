@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
 import videojs from 'video.js';
 import type { VideoSyncData } from '../../../../types/VideoSync';
 
@@ -6,7 +7,6 @@ type UseVideoTimeControllerParams = {
   videoList: string[];
   syncData: VideoSyncData | undefined;
   syncMode: 'auto' | 'manual';
-  isDev: boolean;
 };
 
 type VideoJsPlayer = {
@@ -21,7 +21,9 @@ type VideoJsNamespace = {
   getPlayer?: (id: string) => VideoJsPlayer | undefined;
 };
 
-const getMinAllowedGlobalTime = (syncData: VideoSyncData | undefined): number => {
+const getMinAllowedGlobalTime = (
+  syncData: VideoSyncData | undefined,
+): number => {
   if (
     syncData &&
     syncData.isAnalyzed &&
@@ -34,13 +36,16 @@ const getMinAllowedGlobalTime = (syncData: VideoSyncData | undefined): number =>
   return 0;
 };
 
-const dispatchSeekEvent = (type: 'video-seek-start' | 'video-seek-end', time?: number): void => {
+const dispatchSeekEvent = (
+  type: 'video-seek-start' | 'video-seek-end',
+  time?: number,
+): void => {
   if (type === 'video-seek-start') {
-    window.dispatchEvent(new CustomEvent(type, { detail: { time } }));
+    globalThis.window.dispatchEvent(new CustomEvent(type, { detail: { time } }));
     return;
   }
 
-  window.dispatchEvent(new CustomEvent(type));
+  globalThis.window.dispatchEvent(new CustomEvent(type));
 };
 
 const seekEachPlayer = ({
@@ -48,13 +53,11 @@ const seekEachPlayer = ({
   videoList,
   syncData,
   isManualMode,
-  isDev,
 }: {
   timeClamped: number;
   videoList: string[];
   syncData: VideoSyncData | undefined;
   isManualMode: boolean;
-  isDev: boolean;
 }): void => {
   const namespace = videojs as unknown as VideoJsNamespace;
 
@@ -89,20 +92,6 @@ const seekEachPlayer = ({
       if (index > 0 && syncData?.isAnalyzed && !isManualMode) {
         const offset = syncData.syncOffset || 0;
         targetTime = Math.max(0, timeClamped + offset);
-
-        console.log(
-          `[OFFSET DEBUG] video_${index}: global=${timeClamped.toFixed(3)}s, ` +
-            `offset=${offset.toFixed(3)}s, target=${targetTime.toFixed(3)}s ` +
-            `(calc: ${timeClamped.toFixed(3)} + ${offset.toFixed(3)} = ${targetTime.toFixed(3)})`,
-        );
-      }
-
-      if (isDev) {
-        console.log(
-          `Seek: Video ${index} -> ${targetTime}s (global=${timeClamped}, offset=${
-            syncData?.syncOffset ?? 0
-          })`,
-        );
       }
 
       try {
@@ -120,22 +109,18 @@ export const useVideoTimeController = ({
   videoList,
   syncData,
   syncMode,
-  isDev,
-}: UseVideoTimeControllerParams) => {
+}: UseVideoTimeControllerParams): {
+  currentTime: number;
+  setCurrentTime: Dispatch<SetStateAction<number>>;
+  handleCurrentTime: (
+    event: SyntheticEvent | Event,
+    newValue: number | number[],
+  ) => void;
+} => {
   const [currentTime, setCurrentTime] = useState(0);
-  const prevCurrentTimeRef = useRef<number>(0);
-
-  useEffect(() => {
-    if (currentTime > 7200 && prevCurrentTimeRef.current !== currentTime) {
-      console.warn(
-        `[WARNING] currentTime is unusually high (${currentTime}s, limit=7200s).`,
-      );
-    }
-    prevCurrentTimeRef.current = currentTime;
-  }, [currentTime]);
 
   const handleCurrentTime = useCallback(
-    (_event: React.SyntheticEvent | Event, newValue: number | number[]) => {
+    (_event: SyntheticEvent | Event, newValue: number | number[]) => {
       const time = newValue as number;
       const isManualMode = syncMode === 'manual';
       const minAllowed = getMinAllowedGlobalTime(syncData);
@@ -157,7 +142,6 @@ export const useVideoTimeController = ({
           videoList,
           syncData,
           isManualMode,
-          isDev,
         });
 
         setTimeout(() => {
@@ -165,7 +149,7 @@ export const useVideoTimeController = ({
         }, 500);
       }, 50);
     },
-    [isDev, syncData, syncMode, videoList],
+    [syncData, syncMode, videoList],
   );
 
   return {
