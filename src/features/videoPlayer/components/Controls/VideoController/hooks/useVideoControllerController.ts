@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useFlashStates } from './useFlashStates';
-import { useSeekCoordinator } from './useSeekCoordinator';
 import { usePlaybackTimeTracker } from './usePlaybackTimeTracker';
 import { useExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
 import { useVideoControllerControls } from './useVideoControllerControls';
@@ -35,7 +34,6 @@ export const useVideoControllerController = ({
   syncData,
 }: VideoControllerProps): VideoControllerToolbarProps => {
   const { flashStates, triggerFlash } = useFlashStates();
-  const isSeekingRef = useSeekCoordinator();
   const lastSetCurrentTimeValueRef = useRef<number>(0);
   const lastSetCurrentTimeTimestampRef = useRef<number>(0);
   const isVideoPlayingRef = useRef<boolean>(isVideoPlaying);
@@ -98,7 +96,6 @@ export const useVideoControllerController = ({
     syncData,
     getExistingPlayer,
     lastManualSeekTimestamp,
-    isSeekingRef,
     safeSetCurrentTime,
   });
 
