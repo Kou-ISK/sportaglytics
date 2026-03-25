@@ -1,4 +1,11 @@
 import { useMemo } from 'react';
+import {
+  buildPlaybackRateHandler,
+  buildResetPlaybackRateHandler,
+  buildSaveHandler,
+  buildSeekHandler,
+  togglePlaylistViewMode,
+} from './playlistHotkeyUtils';
 
 interface UsePlaylistHotkeyBindingsParams {
   currentTime: number;
@@ -44,73 +51,49 @@ export const usePlaylistHotkeyBindings = ({
   videoRef,
   videoRef2,
 }: UsePlaylistHotkeyBindingsParams): UsePlaylistHotkeyBindingsResult => {
+  const playbackRefs = useMemo(
+    () => ({
+      primary: videoRef,
+      secondary: videoRef2,
+    }),
+    [videoRef, videoRef2],
+  );
+
+  const resetPlaybackRate = buildResetPlaybackRateHandler(playbackRefs);
+
   const hotkeyHandlers = useMemo(
     () => ({
       'play-pause': handleTogglePlay,
-      'skip-backward-medium': () => {
-        const newTime = currentTime - 5;
-        handleSeek(new Event('hotkey'), newTime);
-      },
-      'skip-backward-large': () => {
-        const newTime = currentTime - 10;
-        handleSeek(new Event('hotkey'), newTime);
-      },
-      'skip-forward-small': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 0.5;
-        if (videoRef2.current) videoRef2.current.playbackRate = 0.5;
-        setIsPlaying(true);
-      },
-      'skip-forward-medium': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 2;
-        if (videoRef2.current) videoRef2.current.playbackRate = 2;
-        setIsPlaying(true);
-      },
-      'skip-forward-large': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 4;
-        if (videoRef2.current) videoRef2.current.playbackRate = 4;
-        setIsPlaying(true);
-      },
-      'skip-forward-xlarge': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 6;
-        if (videoRef2.current) videoRef2.current.playbackRate = 6;
-        setIsPlaying(true);
-      },
+      'skip-backward-medium': buildSeekHandler(handleSeek, currentTime, -5),
+      'skip-backward-large': buildSeekHandler(handleSeek, currentTime, -10),
+      'skip-forward-small': buildPlaybackRateHandler(playbackRefs, setIsPlaying, 0.5),
+      'skip-forward-medium': buildPlaybackRateHandler(
+        playbackRefs,
+        setIsPlaying,
+        2,
+      ),
+      'skip-forward-large': buildPlaybackRateHandler(playbackRefs, setIsPlaying, 4),
+      'skip-forward-xlarge': buildPlaybackRateHandler(
+        playbackRefs,
+        setIsPlaying,
+        6,
+      ),
       'previous-item': handlePrevious,
       'next-item': handleNext,
       'delete-item': handleDeleteSelected,
       undo: handleUndo,
       redo: handleRedo,
-      save: () => {
-        console.log(
-          '[PlaylistWindow] Hotkey Save pressed. loadedFilePath:',
-          loadedFilePath,
-        );
-        if (loadedFilePath) {
-          console.log('[PlaylistWindow] Saving via hotkey to:', loadedFilePath);
-          void handleSavePlaylist(false);
-        } else {
-          console.log(
-            '[PlaylistWindow] No loadedFilePath, showing dialog via hotkey',
-          );
-          setSaveDialogOpen(true);
-        }
-      },
+      save: buildSaveHandler(
+        loadedFilePath,
+        handleSavePlaylist,
+        setSaveDialogOpen,
+      ),
       export: () => setExportDialogOpen(true),
       'toggle-angle1': () => {
-        setViewMode((prev) => {
-          if (prev === 'dual') return 'angle1';
-          if (prev === 'angle1') return 'dual';
-          if (prev === 'angle2') return 'angle1';
-          return 'angle1';
-        });
+        setViewMode((prev) => togglePlaylistViewMode(prev, 'angle1'));
       },
       'toggle-angle2': () => {
-        setViewMode((prev) => {
-          if (prev === 'dual') return 'angle2';
-          if (prev === 'angle2') return 'dual';
-          if (prev === 'angle1') return 'angle2';
-          return 'angle2';
-        });
+        setViewMode((prev) => togglePlaylistViewMode(prev, 'angle2'));
       },
     }),
     [
@@ -128,31 +111,18 @@ export const usePlaylistHotkeyBindings = ({
       setIsPlaying,
       setSaveDialogOpen,
       setViewMode,
-      videoRef,
-      videoRef2,
+      playbackRefs,
     ],
   );
 
   const keyUpHandlers = useMemo(
     () => ({
-      'skip-forward-small': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 1;
-        if (videoRef2.current) videoRef2.current.playbackRate = 1;
-      },
-      'skip-forward-medium': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 1;
-        if (videoRef2.current) videoRef2.current.playbackRate = 1;
-      },
-      'skip-forward-large': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 1;
-        if (videoRef2.current) videoRef2.current.playbackRate = 1;
-      },
-      'skip-forward-xlarge': () => {
-        if (videoRef.current) videoRef.current.playbackRate = 1;
-        if (videoRef2.current) videoRef2.current.playbackRate = 1;
-      },
+      'skip-forward-small': resetPlaybackRate,
+      'skip-forward-medium': resetPlaybackRate,
+      'skip-forward-large': resetPlaybackRate,
+      'skip-forward-xlarge': resetPlaybackRate,
     }),
-    [videoRef, videoRef2],
+    [resetPlaybackRate],
   );
 
   return { hotkeyHandlers, keyUpHandlers };

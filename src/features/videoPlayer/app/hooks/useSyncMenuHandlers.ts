@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react';
+import { safeMenuCleanup } from './menuHandlerUtils';
 
 interface UseSyncMenuHandlersParams {
   onResyncAudio: () => void | Promise<void>;
@@ -12,8 +13,7 @@ export const useSyncMenuHandlers = ({
   onResetSync,
   onManualSync,
   onSetSyncMode,
-}: UseSyncMenuHandlersParams) => {
-  // useCallbackで安定した関数参照を作成
+}: UseSyncMenuHandlersParams): void => {
   const handleResync = useCallback(() => onResyncAudio(), [onResyncAudio]);
   const handleReset = useCallback(() => onResetSync(), [onResetSync]);
   const handleManual = useCallback(() => onManualSync(), [onManualSync]);
@@ -33,18 +33,14 @@ export const useSyncMenuHandlers = ({
     api.onResetSync(handleReset);
     api.onManualSync(handleManual);
     api.onSetSyncMode(handleSetMode);
-    console.log('[SYNC] 同期メニューイベントリスナー登録完了');
 
     return () => {
-      try {
+      safeMenuCleanup(() => {
         api.offResyncAudio?.(handleResync);
         api.offResetSync?.(handleReset);
         api.offManualSync?.(handleManual);
         api.offSetSyncMode?.(handleSetMode);
-        console.log('[SYNC] 同期メニューリスナー解除完了');
-      } catch (error) {
-        console.debug('メニューイベントの解除エラー', error);
-      }
+      });
     };
-  }, [handleResync, handleReset, handleManual, handleSetMode]); // useCallbackで安定した参照
+  }, [handleResync, handleReset, handleManual, handleSetMode]);
 };

@@ -375,6 +375,8 @@ Main IPC handlers (domain modules)
 - `window.electronAPI` から汎用 `on/off/send` は提供しない
 - `onTimelineUndo`, `onMenuShowStats`, `notifyHotkeysUpdated` など用途別メソッドのみ公開
 - `src` 側で `electron` / `ipcRenderer` の直接 import は禁止
+- Renderer の複雑な hook は `Controller/Hook -> Gateway/Helper -> View/Domain` に分け、IPC 登録・payload 正規化・state 適用を同一関数へ詰め込まない
+- 例: playlist window 同期は gateway helper + snapshot helper、audio sync は stage helper + orchestration に分割する
 
 **ローカルファイルアクセス方針**:
 

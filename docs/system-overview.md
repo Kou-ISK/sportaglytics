@@ -62,7 +62,9 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - 旧データは読込時にマイグレーションし、保存時は新形式のみ出力
 - `AnalysisView` は shared 型 (`src/types/AnalysisView.ts`) を利用
 - playlist 同期は `PlaylistSyncData` を正とし、playlist 画面・hooks の契約を統一
+- playlist window の同期 hook は IPC 登録を gateway helper、payload 正規化を snapshot helper に分離し、hook 本体では state 適用だけを扱う
 - プレイリスト追加は `src/features/playlist` の公開 API に集約し、renderer からの個別 IPC 呼び出しを分散させない
+- 音声同期の相関解析は `src/utils/audioSync/` 配下で stage helper に分割し、探索ロジックと orchestration を分離する
 
 ## 品質ゲート
 

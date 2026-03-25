@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { AnalysisView } from '../../../../types/AnalysisView';
+import {
+  resolveRequestedAnalysisView,
+  safeMenuCleanup,
+} from './menuHandlerUtils';
 
 interface UseAnalysisMenuHandlersParams {
   onOpenAnalysis: (view: AnalysisView) => void;
@@ -7,24 +11,15 @@ interface UseAnalysisMenuHandlersParams {
 
 export const useAnalysisMenuHandlers = ({
   onOpenAnalysis,
-}: UseAnalysisMenuHandlersParams) => {
+}: UseAnalysisMenuHandlersParams): void => {
   const onOpenAnalysisRef = useRef(onOpenAnalysis);
 
   useEffect(() => {
     onOpenAnalysisRef.current = onOpenAnalysis;
   }, [onOpenAnalysis]);
 
-  const handleMenuAnalysis = useCallback((requested?: unknown) => {
-    const analysisViewOptions: AnalysisView[] = [
-      'dashboard',
-      'momentum',
-      'matrix',
-      'ai',
-    ];
-    const nextView = analysisViewOptions.includes(requested as AnalysisView)
-      ? (requested as AnalysisView)
-      : 'dashboard';
-    onOpenAnalysisRef.current(nextView);
+  const handleMenuAnalysis = useCallback((requested?: unknown): void => {
+    onOpenAnalysisRef.current(resolveRequestedAnalysisView(requested));
   }, []);
 
   useEffect(() => {
@@ -36,15 +31,9 @@ export const useAnalysisMenuHandlers = ({
 
     // Note: 'general-shortcut-event'はuseGlobalHotkeysで処理されるため、ここでは登録しない
     const unsubscribe = api.onMenuShowStats(handleMenuAnalysis);
-    console.log('[ANALYSIS] menu-show-stats リスナー登録完了');
 
     return () => {
-      try {
-        unsubscribe();
-        console.log('[ANALYSIS] リスナー解除完了');
-      } catch (error) {
-        console.debug('stats event cleanup error', error);
-      }
+      safeMenuCleanup(unsubscribe);
     };
   }, [handleMenuAnalysis]);
 };
