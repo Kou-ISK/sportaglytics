@@ -1,10 +1,16 @@
 import { useCallback } from 'react';
 import type {
   ItemAnnotation,
-  Playlist,
   PlaylistItem,
   PlaylistType,
 } from '../../../../types/Playlist';
+import {
+  notifyPlaylistSavedAndClose,
+  savePlaylistFile,
+  savePlaylistFileAs,
+  syncPlaylistDirtyState,
+} from '../../gateway/playlistWindowGateway';
+import { buildPlaylistPayload } from '../../utils/playlistFileState';
 
 interface UsePlaylistSaveFlowParams {
   items: PlaylistItem[];
@@ -48,57 +54,41 @@ export const usePlaylistSaveFlow = ({
   setSaveDialogOpen,
   setSaveProgress,
 }: UsePlaylistSaveFlowParams): UsePlaylistSaveFlowResult => {
-  const buildPlaylistPayload = useCallback(
-    (name: string, type: PlaylistType): Playlist => {
-      const itemsWithAnnotations = items.map((item) => ({
-        ...item,
-        videoSource: item.videoSource ?? videoSources[0] ?? undefined,
-        videoSource2: item.videoSource2 ?? videoSources[1] ?? undefined,
-        annotation: itemAnnotations[item.id] || item.annotation,
-      }));
-
-      return {
-        id: crypto.randomUUID(),
+  const createPlaylistPayload = useCallback(
+    (name: string, type: PlaylistType) =>
+      buildPlaylistPayload({
+        items,
+        videoSources,
+        packagePath,
+        itemAnnotations,
         name,
         type,
-        items: itemsWithAnnotations,
-        sourcePackagePath: packagePath || undefined,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-    },
+      }),
     [itemAnnotations, items, packagePath, videoSources],
   );
 
   const handleSavePlaylist = useCallback(
-    async (shouldCloseAfterSave = false) => {
-      const playlistAPI = window.electronAPI?.playlist;
-      if (!playlistAPI) {
-        console.debug('[PlaylistWindow] playlist API unavailable for save');
-        return;
-      }
-
-      const playlist = buildPlaylistPayload(playlistName, playlistType);
+    async (shouldCloseAfterSave = false): Promise<void> => {
+      const playlist = createPlaylistPayload(playlistName, playlistType);
 
       setSaveProgress(null);
-      const savedPath = await playlistAPI.savePlaylistFile(playlist);
+      const savedPath = await savePlaylistFile(playlist);
       setSaveProgress(null);
 
       if (!savedPath) return;
-      console.log('[PlaylistWindow] Playlist saved to:', savedPath);
 
       if (shouldCloseAfterSave) {
-        window.electronAPI?.notifyPlaylistSavedAndClose?.();
+        notifyPlaylistSavedAndClose();
         return;
       }
 
       setLoadedFilePath(savedPath);
       setIsDirty(false);
       setHasUnsavedChanges(false);
-      playlistAPI.sendCommand({ type: 'set-dirty', isDirty: false });
+      syncPlaylistDirtyState(false);
     },
     [
-      buildPlaylistPayload,
+      createPlaylistPayload,
       playlistName,
       playlistType,
       setHasUnsavedChanges,
@@ -109,25 +99,22 @@ export const usePlaylistSaveFlow = ({
   );
 
   const handleSavePlaylistAs = useCallback(
-    async (type: PlaylistType, name: string, shouldCloseAfterSave = false) => {
+    async (
+      type: PlaylistType,
+      name: string,
+      shouldCloseAfterSave = false,
+    ): Promise<void> => {
       setSaveDialogOpen(false);
-      const playlistAPI = window.electronAPI?.playlist;
-      if (!playlistAPI) {
-        console.debug('[PlaylistWindow] playlist API unavailable for save as');
-        return;
-      }
-
-      const playlist = buildPlaylistPayload(name, type);
+      const playlist = createPlaylistPayload(name, type);
 
       setSaveProgress(null);
-      const savedPath = await playlistAPI.savePlaylistFileAs(playlist);
+      const savedPath = await savePlaylistFileAs(playlist);
       setSaveProgress(null);
 
       if (!savedPath) return;
-      console.log('[PlaylistWindow] Playlist saved to:', savedPath);
 
       if (shouldCloseAfterSave) {
-        window.electronAPI?.notifyPlaylistSavedAndClose?.();
+        notifyPlaylistSavedAndClose();
         return;
       }
 
@@ -135,10 +122,10 @@ export const usePlaylistSaveFlow = ({
       setPlaylistType(type);
       setLoadedFilePath(savedPath);
       setIsDirty(false);
-      playlistAPI.sendCommand({ type: 'set-dirty', isDirty: false });
+      syncPlaylistDirtyState(false);
     },
     [
-      buildPlaylistPayload,
+      createPlaylistPayload,
       setIsDirty,
       setLoadedFilePath,
       setPlaylistName,

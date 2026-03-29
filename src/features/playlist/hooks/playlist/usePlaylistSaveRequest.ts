@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { subscribePlaylistSaveRequest } from '../../gateway/playlistWindowGateway';
 
 interface UsePlaylistSaveRequestParams {
   loadedFilePath: string | null;
@@ -12,9 +13,9 @@ export const usePlaylistSaveRequest = ({
   handleSavePlaylist,
   setCloseAfterSave,
   setSaveDialogOpen,
-}: UsePlaylistSaveRequestParams) => {
+}: UsePlaylistSaveRequestParams): void => {
   useEffect(() => {
-    const handleRequestSave = () => {
+    const handleRequestSave = (): void => {
       if (loadedFilePath) {
         void handleSavePlaylist(true);
       } else {
@@ -23,33 +24,7 @@ export const usePlaylistSaveRequest = ({
       }
     };
 
-    const electronAPI = window.electronAPI;
-    if (!electronAPI?.onPlaylistRequestSave) {
-      console.debug(
-        '[PlaylistWindow] electron API unavailable for save request',
-      );
-      return;
-    }
-
-    try {
-      const unsubscribe = electronAPI.onPlaylistRequestSave(handleRequestSave);
-      return () => {
-        try {
-          unsubscribe();
-        } catch (error: unknown) {
-          console.debug(
-            '[PlaylistWindow] Failed to cleanup save request handler',
-            error,
-          );
-        }
-      };
-    } catch (error: unknown) {
-      console.debug(
-        '[PlaylistWindow] Failed to register save request handler',
-        error,
-      );
-      return;
-    }
+    return subscribePlaylistSaveRequest(handleRequestSave);
   }, [
     handleSavePlaylist,
     loadedFilePath,

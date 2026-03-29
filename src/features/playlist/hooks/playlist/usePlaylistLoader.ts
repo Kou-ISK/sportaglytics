@@ -4,7 +4,11 @@ import type {
   PlaylistItem,
   PlaylistType,
 } from '../../../../types/Playlist';
-import { resolveViewModeForSources } from '../../utils/viewMode';
+import {
+  loadPlaylistFile,
+  subscribePlaylistExternalOpen,
+} from '../../gateway/playlistWindowGateway';
+import { buildLoadedPlaylistSnapshot } from '../../utils/playlistFileState';
 
 interface UsePlaylistLoaderParams {
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
@@ -42,54 +46,26 @@ export const usePlaylistLoader = ({
   setCurrentIndex,
 }: UsePlaylistLoaderParams): UsePlaylistLoaderResult => {
   const loadPlaylistFromPath = useCallback(
-    async (filePath?: string) => {
-      const playlistAPI = window.electronAPI?.playlist;
-      if (!playlistAPI) {
-        console.debug('[PlaylistWindow] playlist API unavailable for load');
-        return;
-      }
+    async (filePath?: string): Promise<void> => {
+      const loaded = await loadPlaylistFile(filePath);
+      if (!loaded) return;
 
-      try {
-        const loaded = await playlistAPI.loadPlaylistFile(filePath);
-        if (!loaded) return;
+      const snapshot = buildLoadedPlaylistSnapshot(
+        loaded.playlist,
+        loaded.filePath,
+      );
 
-        const { playlist, filePath: loadedPath } = loaded;
-        console.log('[PlaylistWindow] Playlist loaded from:', loadedPath);
-        setItemsWithHistory(playlist.items);
-        setHasUnsavedChanges(false);
-        setPlaylistName(playlist.name);
-        setPlaylistType(playlist.type || 'embedded');
-        setPackagePath(playlist.sourcePackagePath || null);
-        setLoadedFilePath(loadedPath);
-        console.log('[PlaylistWindow] loadedFilePath set to:', loadedPath);
-        setIsDirty(false); // 読み込み直後はクリーン状態
-
-        const annotations: Record<string, ItemAnnotation> = {};
-        for (const item of playlist.items) {
-          if (item.annotation) {
-            annotations[item.id] = item.annotation;
-          }
-        }
-        setItemAnnotations(annotations);
-
-        const sources: string[] = [];
-        if (playlist.items[0]?.videoSource) {
-          sources.push(playlist.items[0].videoSource as string);
-        }
-        if (playlist.items[0]?.videoSource2) {
-          sources.push(playlist.items[0].videoSource2 as string);
-        }
-        if (sources.length > 0) {
-          setVideoSources(sources);
-        }
-        setViewMode(resolveViewModeForSources(sources));
-
-        if (playlist.items.length > 0) {
-          setCurrentIndex(0);
-        }
-      } catch (error: unknown) {
-        console.debug('[PlaylistWindow] Failed to load playlist file', error);
-      }
+      setItemsWithHistory(snapshot.items);
+      setHasUnsavedChanges(snapshot.hasUnsavedChanges);
+      setPlaylistName(snapshot.playlistName);
+      setPlaylistType(snapshot.playlistType);
+      setPackagePath(snapshot.packagePath);
+      setLoadedFilePath(snapshot.loadedFilePath);
+      setIsDirty(snapshot.isDirty);
+      setItemAnnotations(snapshot.itemAnnotations);
+      setVideoSources(snapshot.videoSources);
+      setViewMode(snapshot.viewMode);
+      setCurrentIndex(snapshot.currentIndex);
     },
     [
       setCurrentIndex,
@@ -107,36 +83,9 @@ export const usePlaylistLoader = ({
   );
 
   useEffect(() => {
-    const playlistAPI = window.electronAPI?.playlist;
-    if (!playlistAPI?.onExternalOpen) {
-      console.debug(
-        '[PlaylistWindow] playlist API unavailable for external open',
-      );
-      return;
-    }
-
-    let unsubscribe: (() => void) | undefined;
-    try {
-      unsubscribe = playlistAPI.onExternalOpen((filePath: string) => {
-        void loadPlaylistFromPath(filePath);
-      });
-    } catch (error: unknown) {
-      console.debug(
-        '[PlaylistWindow] Failed to register external open handler',
-        error,
-      );
-    }
-
-    return () => {
-      try {
-        unsubscribe?.();
-      } catch (error: unknown) {
-        console.debug(
-          '[PlaylistWindow] Failed to cleanup external open handler',
-          error,
-        );
-      }
-    };
+    return subscribePlaylistExternalOpen((filePath: string) => {
+      void loadPlaylistFromPath(filePath);
+    });
   }, [loadPlaylistFromPath]);
 
   return { loadPlaylistFromPath };
