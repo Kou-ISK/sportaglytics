@@ -25,7 +25,7 @@ export const createSettingsBridge = (
         throw error;
       }
     },
-    saveSettings: async (settings: unknown) => {
+    saveSettings: async (settings: AppSettings) => {
       try {
         return await ipcRenderer.invoke('settings:save', settings);
       } catch (error) {

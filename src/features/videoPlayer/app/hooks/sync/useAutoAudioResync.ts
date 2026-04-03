@@ -61,14 +61,28 @@ export const useAutoAudioResync = ({
     setSyncStage('');
 
     try {
-      const { runAudioSyncAnalysis } = await import(
-        '../../../../../utils/AudioSyncAnalyzer'
-      );
+      const [{ runAudioSyncAnalysis }, { decodeBase64ToArrayBuffer }] =
+        await Promise.all([
+          import('../../../../../utils/AudioSyncAnalyzer'),
+          import('../../../../../utils/audioSync/audioDecode'),
+        ]);
+
+      const readFileAsArrayBuffer = async (
+        videoPath: string,
+      ): Promise<ArrayBuffer> => {
+        const base64Data =
+          await globalThis.window.electronAPI?.readBinaryFile?.(videoPath);
+        if (!base64Data) {
+          throw new Error(`Failed to read video file: ${videoPath}`);
+        }
+        return decodeBase64ToArrayBuffer(base64Data);
+      };
 
       notifyInfo('音声同期を再実行中...');
       const result = await runAudioSyncAnalysis({
         videoPath1: videoList[0] ?? '',
         videoPath2: videoList[1] ?? '',
+        readFileAsArrayBuffer,
         onProgress: (stage: string, progress: number) => {
           setSyncStage(stage);
           setSyncProgress(progress);

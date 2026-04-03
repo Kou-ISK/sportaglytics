@@ -1,15 +1,15 @@
-import { buildAnalysisReportData } from '../report/buildAnalysisReportData';
-import type { AnalysisReportBuildContext } from '../report/types';
+import { buildAnalysisReportData } from '../../../../../../report/buildAnalysisReportData';
+import type { AnalysisReportBuildContext } from '../../../../../../report/types';
 
-interface ExportAnalysisReportPdfOptions {
+interface SaveAnalysisReportPdfOptions {
   reportContext: AnalysisReportBuildContext;
   defaultFileName?: string;
 }
 
-export const exportAnalysisReportPdf = async ({
+export const saveAnalysisReportPdf = async ({
   reportContext,
   defaultFileName,
-}: ExportAnalysisReportPdfOptions): Promise<{
+}: SaveAnalysisReportPdfOptions): Promise<{
   success: boolean;
   canceled?: boolean;
 }> => {
@@ -28,7 +28,7 @@ export const exportAnalysisReportPdf = async ({
   }
 
   const reportData = buildAnalysisReportData(reportContext);
-  const ok = await api.printAnalysisReportPdf(filePath, reportData);
+  const success = await api.printAnalysisReportPdf(filePath, reportData);
 
-  return { success: ok };
+  return { success };
 };

@@ -42,13 +42,7 @@ export const ThemeModeProvider: React.FC<ThemeModeProviderProps> = ({
         if (!api) return;
 
         const settings = await api.loadSettings();
-        if (
-          settings &&
-          typeof settings === 'object' &&
-          'themeMode' in settings
-        ) {
-          setThemeMode((settings as { themeMode: ThemeMode }).themeMode);
-        }
+        setThemeMode(settings.themeMode);
       } catch (err) {
         console.error('Failed to load theme mode:', err);
       }

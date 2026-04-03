@@ -1,5 +1,8 @@
 import type { AudioAnalysisResult, WaveformData } from '../types/VideoSync';
-import { extractWaveformFromVideo, createAudioContext } from './audioSync/audioDecode';
+import {
+  createAudioContext,
+  extractWaveformFromArrayBuffer,
+} from './audioSync/audioDecode';
 import {
   analyzeSyncOffsetByCorrelation,
   runQuickCorrelationAnalysis,
@@ -12,15 +15,15 @@ interface AudioSyncAnalysisContext {
 interface RunAudioSyncAnalysisParams {
   videoPath1: string;
   videoPath2: string;
+  readFileAsArrayBuffer: (videoPath: string) => Promise<ArrayBuffer>;
   onProgress?: (stage: string, progress: number) => void;
 }
 
-export const createAudioSyncAnalysisContext =
-  (): AudioSyncAnalysisContext => {
-    return {
-      audioContext: createAudioContext(),
-    };
+export const createAudioSyncAnalysisContext = (): AudioSyncAnalysisContext => {
+  return {
+    audioContext: createAudioContext(),
   };
+};
 
 export const disposeAudioSyncAnalysisContext = (
   context: AudioSyncAnalysisContext,
@@ -32,9 +35,9 @@ export const disposeAudioSyncAnalysisContext = (
 
 export const extractAudioWaveform = async (
   context: AudioSyncAnalysisContext,
-  videoPath: string,
+  arrayBuffer: ArrayBuffer,
 ): Promise<WaveformData> => {
-  return extractWaveformFromVideo(context.audioContext, videoPath);
+  return extractWaveformFromArrayBuffer(context.audioContext, arrayBuffer);
 };
 
 export const analyzeAudioSyncOffset = async (
@@ -42,26 +45,25 @@ export const analyzeAudioSyncOffset = async (
   waveform2: WaveformData,
   maxOffsetSeconds = 30,
 ): Promise<AudioAnalysisResult> => {
-  return analyzeSyncOffsetByCorrelation(
-    waveform1,
-    waveform2,
-    maxOffsetSeconds,
-  );
+  return analyzeSyncOffsetByCorrelation(waveform1, waveform2, maxOffsetSeconds);
 };
 
 export const runAudioSyncAnalysis = async ({
   videoPath1,
   videoPath2,
+  readFileAsArrayBuffer,
   onProgress,
 }: RunAudioSyncAnalysisParams): Promise<AudioAnalysisResult> => {
   const context = createAudioSyncAnalysisContext();
 
   try {
     onProgress?.('音声抽出中 (映像1)...', 10);
-    const waveform1 = await extractAudioWaveform(context, videoPath1);
+    const source1 = await readFileAsArrayBuffer(videoPath1);
+    const waveform1 = await extractAudioWaveform(context, source1);
 
     onProgress?.('音声抽出中 (映像2)...', 30);
-    const waveform2 = await extractAudioWaveform(context, videoPath2);
+    const source2 = await readFileAsArrayBuffer(videoPath2);
+    const waveform2 = await extractAudioWaveform(context, source2);
 
     onProgress?.('同期点を計算中...', 50);
     const result = await runQuickCorrelationAnalysis(

@@ -97,7 +97,7 @@ SporTagLytics/
 | `src/hooks/`              | truly shared な共通カスタムフックのみ      |
 | `src/pages/`              | feature を呼び出す top-level wrapper のみ  |
 | `src/types/`              | 共有型定義                                 |
-| `src/utils/`              | 共通ユーティリティ関数                     |
+| `src/utils/`              | 共通ユーティリティ関数（pure helper優先）  |
 
 ---
 
@@ -375,6 +375,7 @@ Main IPC handlers (domain modules)
 - `window.electronAPI` から汎用 `on/off/send` は提供しない
 - `onTimelineUndo`, `onMenuShowStats`, `notifyHotkeysUpdated` など用途別メソッドのみ公開
 - `src` 側で `electron` / `ipcRenderer` の直接 import は禁止
+- settings の正規化は `src/types/settings/normalizers.ts` の `normalizeAppSettings` を正本とし、main / renderer で同じ補完ロジックを重複させない
 - Renderer の複雑な hook は `Controller/Hook -> Gateway/Helper -> View/Domain` に分け、IPC 登録・payload 正規化・state 適用を同一関数へ詰め込まない
 - 例: playlist window は gateway + snapshot helper + data/interaction runtime、audio sync は stage helper + orchestration に分割する
 - shared domain の大きい集計関数は facade と builder 群に分け、stat family 単位で責務を切り出す
@@ -383,6 +384,7 @@ Main IPC handlers (domain modules)
 
 - `fetch(filePath)` は使用しない
 - `readJsonFile` / `readTextFile` / `readBinaryFile` を利用
+- `src/utils` は pure function / pure helper に限定し、Electron I/O は feature の controller / gateway 側へ置く
 
 **セキュリティ既定**:
 
@@ -459,16 +461,16 @@ function TimelineEditor() {
 
 プロジェクト全体で使用される主要なカスタムフックと役割:
 
-| フック名                  | ファイルパス                                           | 用途                                         |
-| ------------------------- | ------------------------------------------------------ | -------------------------------------------- |
+| フック名                         | ファイルパス                                                           | 用途                                         |
+| -------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------- |
 | `useVideoPlayerScreenController` | `src/features/videoPlayer/app/hooks/useVideoPlayerScreenController.ts` | video player 画面の状態管理                  |
-| `useSettings`             | `src/hooks/useSettings.ts`                             | Electron設定の読み書き                       |
-| `useGlobalHotkeys`        | `src/hooks/useGlobalHotkeys.ts`                        | グローバルホットキー登録・解除               |
-| `useTimelineHistory`      | `src/features/videoPlayer/app/hooks/useTimelineHistory.ts` | Undo/Redo履歴管理                         |
-| `useTimelinePersistence`  | `src/features/videoPlayer/app/hooks/useTimelinePersistence.ts` | タイムラインの永続化（自動保存）         |
-| `useSyncActions`          | `src/features/videoPlayer/app/hooks/useSyncActions.ts` | 音声同期操作（再実行・リセット・手動同期等） |
-| `useUnsavedTabSwitch`     | `src/features/settings/hooks/useUnsavedTabSwitch.ts`   | 未保存変更検知とタブ切り替え確認             |
-| `useHotkeySettingsController` | `src/features/settings/components/useHotkeySettingsController.ts` | ホットキー設定の管理と競合チェック     |
+| `useSettings`                    | `src/hooks/useSettings.ts`                                             | Electron設定の読み書き                       |
+| `useGlobalHotkeys`               | `src/hooks/useGlobalHotkeys.ts`                                        | グローバルホットキー登録・解除               |
+| `useTimelineHistory`             | `src/features/videoPlayer/app/hooks/useTimelineHistory.ts`             | Undo/Redo履歴管理                            |
+| `useTimelinePersistence`         | `src/features/videoPlayer/app/hooks/useTimelinePersistence.ts`         | タイムラインの永続化（自動保存）             |
+| `useSyncActions`                 | `src/features/videoPlayer/app/hooks/useSyncActions.ts`                 | 音声同期操作（再実行・リセット・手動同期等） |
+| `useUnsavedTabSwitch`            | `src/features/settings/hooks/useUnsavedTabSwitch.ts`                   | 未保存変更検知とタブ切り替え確認             |
+| `useHotkeySettingsController`    | `src/features/settings/components/useHotkeySettingsController.ts`      | ホットキー設定の管理と競合チェック           |
 
 ### 主要ユーティリティ関数一覧
 

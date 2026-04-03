@@ -6,15 +6,13 @@ import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
 import type { DashboardSeriesFilter } from '../../../../../../types/Settings';
 import type { MatrixFilterState } from './matrixFilterUtils';
 import type { NotificationContextValue } from '../../../../../../contexts/NotificationContext';
-import {
-  buildAnalysisSummaryText,
-  exportAnalysisReportPdf,
-} from '../../../../../../utils/analysisExport';
+import { buildAnalysisSummaryText } from '../../../../../../utils/analysisExport';
 import {
   captureScrollableContent,
   stitchCapturedSlicesIntoParts,
   withExportLayoutOverrides,
 } from '../../../../../../utils/fullContentCapture';
+import { saveAnalysisReportPdf } from '../gateways/analysisReportPdfGateway';
 
 const MAX_PNG_PART_HEIGHT = 15000;
 
@@ -43,7 +41,9 @@ interface UseAnalysisExportActionsParams {
     column: MatrixAxisConfig;
   };
   matrixFilters: MatrixFilterState;
-  analysisDashboard: import('../../../../../../types/Settings').AnalysisDashboardConfig | undefined;
+  analysisDashboard:
+    | import('../../../../../../types/Settings').AnalysisDashboardConfig
+    | undefined;
   notification: NotificationContextValue;
   exportTargetRef: RefObject<HTMLDivElement | null>;
 }
@@ -86,7 +86,9 @@ export const useAnalysisExportActions = ({
     setExportAnchor(null);
   };
 
-  const captureCurrentViewPngParts = useCallback(async (): Promise<string[] | null> => {
+  const captureCurrentViewPngParts = useCallback(async (): Promise<
+    string[] | null
+  > => {
     const api = window.electronAPI;
     const rootTarget = exportTargetRef.current;
 
@@ -163,7 +165,9 @@ export const useAnalysisExportActions = ({
     try {
       const ok = (await writeByNavigator()) || writeByTextarea();
       if (ok) {
-        notification.success('構造化サマリーをクリップボードにコピーしました。');
+        notification.success(
+          '構造化サマリーをクリップボードにコピーしました。',
+        );
       } else {
         notification.error('クリップボードへのコピーに失敗しました。');
       }
@@ -198,7 +202,9 @@ export const useAnalysisExportActions = ({
 
       for (let i = 0; i < parts.length; i += 1) {
         const targetPath =
-          parts.length === 1 ? filePath : `${base}-part${i + 1}${ext || '.png'}`;
+          parts.length === 1
+            ? filePath
+            : `${base}-part${i + 1}${ext || '.png'}`;
         const base64 = toBase64FromDataUrl(parts[i] ?? '');
         if (!base64) {
           allSaved = false;
@@ -215,7 +221,9 @@ export const useAnalysisExportActions = ({
         if (parts.length === 1) {
           notification.success('PNGを保存しました。');
         } else {
-          notification.success(`PNGを分割保存しました（${parts.length}ファイル）。`);
+          notification.success(
+            `PNGを分割保存しました（${parts.length}ファイル）。`,
+          );
         }
       } else {
         notification.error('PNG保存に失敗しました。');
@@ -236,7 +244,7 @@ export const useAnalysisExportActions = ({
 
     setIsExporting(true);
     try {
-      const result = await exportAnalysisReportPdf({
+      const result = await saveAnalysisReportPdf({
         defaultFileName: `analysis-report-${new Date().toISOString().slice(0, 10)}.pdf`,
         reportContext: {
           timeline,

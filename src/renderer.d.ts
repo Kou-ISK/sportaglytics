@@ -2,6 +2,7 @@ import type { IPlaylistAPI, PlaylistItem } from './types/Playlist';
 import type { TimelineData } from './types/TimelineData';
 import type { AnalysisView } from './types/AnalysisView';
 import type { AnalysisReportPayload } from './report/types';
+import type { AppSettings } from './types/Settings';
 
 export interface AnalysisWindowSyncPayload {
   timeline: TimelineData[];
@@ -88,13 +89,13 @@ export interface IElectronAPI {
     error?: string;
   }>;
   // 設定管理API
-  loadSettings: () => Promise<unknown>;
-  saveSettings: (settings: unknown) => Promise<boolean>;
-  resetSettings: () => Promise<unknown>;
+  loadSettings: () => Promise<AppSettings>;
+  saveSettings: (settings: AppSettings) => Promise<boolean>;
+  resetSettings: () => Promise<AppSettings>;
   onOpenSettings: (callback: () => void) => void;
   offOpenSettings: (callback: () => void) => void;
   onSettingsUpdated: (
-    callback: (settings: import('./types/Settings').AppSettings) => void,
+    callback: (settings: AppSettings) => void,
   ) => (() => void) | void;
   openSettingsWindow: () => Promise<void>;
   closeSettingsWindow: () => Promise<void>;

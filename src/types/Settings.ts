@@ -20,6 +20,7 @@ export type {
 } from './settings/coreTypes';
 export { DEFAULT_SETTINGS } from './settings/defaults';
 export {
+  normalizeAppSettings,
   normalizeCodingPanelLayouts,
   normalizeAnalysisDashboard,
 } from './settings/normalizers';

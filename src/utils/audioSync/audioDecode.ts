@@ -6,7 +6,8 @@ type ExtendedWindow = Window & {
 
 export const createAudioContext = (): AudioContext => {
   const extendedWindow = window as ExtendedWindow;
-  const AudioContextCtor = window.AudioContext ?? extendedWindow.webkitAudioContext;
+  const AudioContextCtor =
+    window.AudioContext ?? extendedWindow.webkitAudioContext;
 
   if (!AudioContextCtor) {
     throw new Error('Web Audio API is not supported in this environment.');
@@ -15,12 +16,7 @@ export const createAudioContext = (): AudioContext => {
   return new AudioContextCtor();
 };
 
-const readVideoAsArrayBuffer = async (videoPath: string): Promise<ArrayBuffer> => {
-  const base64Data = await globalThis.window.electronAPI?.readBinaryFile?.(videoPath);
-  if (!base64Data) {
-    throw new Error(`Failed to read video file: ${videoPath}`);
-  }
-
+export const decodeBase64ToArrayBuffer = (base64Data: string): ArrayBuffer => {
   const binary = atob(base64Data);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
@@ -29,7 +25,10 @@ const readVideoAsArrayBuffer = async (videoPath: string): Promise<ArrayBuffer> =
   return bytes.buffer;
 };
 
-const generatePeaks = (channelData: Float32Array, peakCount: number): number[] => {
+const generatePeaks = (
+  channelData: Float32Array,
+  peakCount: number,
+): number[] => {
   const peaks: number[] = [];
   const blockSize = Math.floor(channelData.length / peakCount);
 
@@ -50,11 +49,10 @@ const generatePeaks = (channelData: Float32Array, peakCount: number): number[] =
   return peaks;
 };
 
-export const extractWaveformFromVideo = async (
+export const extractWaveformFromArrayBuffer = async (
   audioContext: AudioContext,
-  videoPath: string,
+  arrayBuffer: ArrayBuffer,
 ): Promise<WaveformData> => {
-  const arrayBuffer = await readVideoAsArrayBuffer(videoPath);
   const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
   const channelData = audioBuffer.getChannelData(0);
   const peaks = generatePeaks(channelData, 1000);

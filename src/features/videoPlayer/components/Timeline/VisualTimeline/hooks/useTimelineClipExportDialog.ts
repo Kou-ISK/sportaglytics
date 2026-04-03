@@ -72,10 +72,7 @@ export const useTimelineClipExportDialog = ({
 
   const handleOpenClipDialog = useCallback(async () => {
     try {
-      const settings =
-        (await globalThis.window.electronAPI?.loadSettings?.()) as
-          | { overlayClip?: OverlaySettings }
-          | undefined;
+      const settings = await globalThis.window.electronAPI?.loadSettings?.();
       if (settings?.overlayClip) {
         setOverlaySettings((prev) => ({
           ...prev,

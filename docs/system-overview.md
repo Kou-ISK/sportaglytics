@@ -8,6 +8,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - `pages` は `src/pages/*.tsx` のみを許可し、ルーティングと feature 合成だけを担当
 - `features` は `src/features/<feature>/` 配下に `Screen / Controller(or Hook) / View / Gateway / domain` を内包する
 - `shared` 相当: `src/components`, `src/hooks`, `src/utils`, `src/types`, `src/contexts`, `src/shared`, `src/report`
+- `src/utils` は pure helper を優先し、Electron・URL・永続化の直接依存は置かない
 - `src/hooks` と `src/contexts` には feature 専用サブディレクトリを置かない
 - 共通 UI design-system: `src/components/ui`（Shared UI 限定）
 - feature 外から feature を参照する場合は `src/features/<feature>/index.ts` の公開 API のみ利用
@@ -50,6 +51,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 
 - Renderer は `window.electronAPI` のみを利用
 - 汎用 `on/off/send` は廃止し、用途別の明示 API に統一
+- settings の正規化は `src/types/settings/normalizers.ts` の `normalizeAppSettings` を正本とし、main / renderer で重複実装しない
 - ローカルファイル読込で `fetch(filePath)` は使用しない
   - `readJsonFile`
   - `readTextFile`
