@@ -1,6 +1,12 @@
 import type { IpcRenderer, IpcRendererEvent } from 'electron';
 import type { IElectronAPI } from '../../../src/renderer';
 import type { AppSettings } from '../../../src/types/Settings';
+import {
+  getMappedListener,
+  removeMappedListener,
+  setMappedListener,
+  type ListenerStore,
+} from './listenerStore';
 
 type SettingsBridgeKeys =
   | 'loadSettings'
@@ -15,6 +21,7 @@ type SettingsBridgeKeys =
 
 export const createSettingsBridge = (
   ipcRenderer: IpcRenderer,
+  listenerStore: ListenerStore,
 ): Pick<IElectronAPI, SettingsBridgeKeys> => {
   const settingsBridge = {
     loadSettings: async () => {
@@ -50,25 +57,36 @@ export const createSettingsBridge = (
       return () => ipcRenderer.removeListener('settings:updated', wrapped);
     },
     onOpenSettings: (callback: () => void) => {
-      try {
-        ipcRenderer.removeAllListeners('menu-open-settings');
-      } catch (error) {
-        console.warn('Failed to remove listeners:', error);
-      }
-      ipcRenderer.on(
+      const existing = getMappedListener(
+        listenerStore,
         'menu-open-settings',
-        callback as unknown as (event: IpcRendererEvent) => void,
+        callback,
       );
+      if (existing) {
+        ipcRenderer.removeListener('menu-open-settings', existing);
+      }
+
+      const wrapped = (...rawArgs: unknown[]) => {
+        const [event] = rawArgs as [IpcRendererEvent];
+        void event;
+        callback();
+      };
+
+      setMappedListener(listenerStore, 'menu-open-settings', callback, wrapped);
+      ipcRenderer.on('menu-open-settings', wrapped);
     },
     offOpenSettings: (callback: () => void) => {
-      try {
-        ipcRenderer.removeListener(
-          'menu-open-settings',
-          callback as unknown as (event: IpcRendererEvent) => void,
-        );
-      } catch {
-        // noop
+      const wrapped = getMappedListener(
+        listenerStore,
+        'menu-open-settings',
+        callback,
+      );
+      if (!wrapped) {
+        return;
       }
+
+      ipcRenderer.removeListener('menu-open-settings', wrapped);
+      removeMappedListener(listenerStore, 'menu-open-settings', callback);
     },
     openSettingsWindow: async () => {
       try {

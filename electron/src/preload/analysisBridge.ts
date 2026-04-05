@@ -46,17 +46,18 @@ export const createAnalysisBridge = (
         ipcRenderer.send('analysis:sync-to-window', data);
       },
       onSync: (callback: (data: AnalysisWindowSyncPayload) => void) => {
-        const wrapped = (
-          _event: IpcRendererEvent,
-          data: AnalysisWindowSyncPayload,
-        ) => {
+        const wrapped = (...rawArgs: unknown[]) => {
+          const [, data] = rawArgs as [
+            IpcRendererEvent,
+            AnalysisWindowSyncPayload,
+          ];
           callback(data);
         };
         setMappedListener(
           listenerStore,
           'analysis:sync',
-          callback as unknown as Function,
-          wrapped as unknown as (...args: unknown[]) => void,
+          callback,
+          wrapped,
         );
         ipcRenderer.on('analysis:sync', wrapped);
       },
@@ -64,20 +65,17 @@ export const createAnalysisBridge = (
         const wrapped = getMappedListener(
           listenerStore,
           'analysis:sync',
-          callback as unknown as Function,
+          callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener(
-          'analysis:sync',
-          wrapped as unknown as (...args: unknown[]) => void,
-        );
+        ipcRenderer.removeListener('analysis:sync', wrapped);
         removeMappedListener(
           listenerStore,
           'analysis:sync',
-          callback as unknown as Function,
+          callback,
         );
       },
       sendJumpToSegment: (segment: TimelineData) => {
@@ -116,14 +114,15 @@ export const createAnalysisBridge = (
         }
       },
       onProgress: (callback: (payload: unknown) => void) => {
-        const wrapped = (_event: IpcRendererEvent, payload: unknown) => {
+        const wrapped = (...rawArgs: unknown[]) => {
+          const [, payload] = rawArgs as [IpcRendererEvent, unknown];
           callback(payload);
         };
         setMappedListener(
           listenerStore,
           'llama:progress',
-          callback as unknown as Function,
-          wrapped as unknown as (...args: unknown[]) => void,
+          callback,
+          wrapped,
         );
         ipcRenderer.on('llama:progress', wrapped);
       },
@@ -131,20 +130,17 @@ export const createAnalysisBridge = (
         const wrapped = getMappedListener(
           listenerStore,
           'llama:progress',
-          callback as unknown as Function,
+          callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener(
-          'llama:progress',
-          wrapped as unknown as (...args: unknown[]) => void,
-        );
+        ipcRenderer.removeListener('llama:progress', wrapped);
         removeMappedListener(
           listenerStore,
           'llama:progress',
-          callback as unknown as Function,
+          callback,
         );
       },
     },

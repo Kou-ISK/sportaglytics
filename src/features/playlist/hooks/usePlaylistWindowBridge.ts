@@ -12,6 +12,15 @@ import type {
   PlaylistSyncData,
 } from '../../../types/Playlist';
 import type { PlayItemCallback, SeekCallback } from './playlistCallbacks';
+import {
+  addPlaylistItemToAllWindows,
+  ensurePlaylistWindowOpen,
+  observePlaylistWindowState,
+  openPlaylistWindow as openPlaylistWindowGateway,
+  subscribePlaylistCommand,
+  subscribePlaylistWindowClosed,
+  syncPlaylistWindow,
+} from '../gateway/playlistWindowGateway';
 
 interface UsePlaylistWindowBridgeParams {
   state: PlaylistState;
@@ -46,27 +55,19 @@ export const usePlaylistWindowBridge = ({
   seekCallbackRef,
   playItemCallbackRef,
 }: UsePlaylistWindowBridgeParams): UsePlaylistWindowBridgeResult => {
-  const ensurePlaylistWindowOpen = useCallback(async () => {
-    const playlistApi = window.electronAPI?.playlist;
-    if (!playlistApi) return null;
-
-    const count = await playlistApi.getOpenWindowCount();
-    if (count > 0) {
-      return playlistApi;
+  const ensureWindowOpen = useCallback(async () => {
+    const opened = await ensurePlaylistWindowOpen();
+    if (opened) {
+      setIsWindowOpen(true);
     }
-
-    await playlistApi.openWindow();
-    setIsWindowOpen(true);
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 500);
-    });
-    return playlistApi;
+    return opened;
   }, [setIsWindowOpen]);
 
   const openPlaylistWindow = useCallback(async () => {
-    if (!window.electronAPI?.playlist) return;
-    await window.electronAPI.playlist.openWindow();
-    setIsWindowOpen(true);
+    const opened = await openPlaylistWindowGateway();
+    if (opened) {
+      setIsWindowOpen(true);
+    }
   }, [setIsWindowOpen]);
 
   const addItemsToAllWindows = useCallback(
@@ -76,18 +77,18 @@ export const usePlaylistWindowBridge = ({
     ) => {
       if (items.length === 0) return;
 
-      const playlistApi = await ensurePlaylistWindowOpen();
-      if (!playlistApi) return;
+      const isOpen = await ensureWindowOpen();
+      if (!isOpen) return;
 
       for (const item of items) {
-        await playlistApi.addItemToAllWindows({
+        await addPlaylistItemToAllWindows({
           ...item,
           videoSource: item.videoSource ?? videoSources?.primary ?? undefined,
           videoSource2: item.videoSource2 ?? videoSources?.secondary ?? undefined,
         });
       }
     },
-    [ensurePlaylistWindowOpen],
+    [ensureWindowOpen],
   );
 
   const syncToWindow = useCallback(
@@ -97,7 +98,7 @@ export const usePlaylistWindowBridge = ({
       videoPath2?: string | null,
       packagePath?: string,
     ) => {
-      if (!window.electronAPI?.playlist || !isWindowOpen) return;
+      if (!isWindowOpen) return;
       const videoSources: string[] = [];
       if (videoPath) videoSources.push(videoPath);
       if (videoPath2) videoSources.push(videoPath2);
@@ -110,14 +111,12 @@ export const usePlaylistWindowBridge = ({
         currentTime,
         packagePath,
       };
-      window.electronAPI.playlist.syncToWindow(syncData);
+      syncPlaylistWindow(syncData);
     },
     [state, isWindowOpen],
   );
 
   useEffect(() => {
-    if (!window.electronAPI?.playlist) return;
-
     const handleCommand = (command: PlaylistCommand) => {
       switch (command.type) {
         case 'seek':
@@ -145,31 +144,18 @@ export const usePlaylistWindowBridge = ({
       setIsWindowOpen(false);
     };
 
-    const api = window.electronAPI.playlist;
-    api.onCommand(handleCommand as (cmd: unknown) => void);
-    api.onWindowClosed(handleWindowClosed);
+    const unsubscribeCommand = subscribePlaylistCommand(handleCommand);
+    const unsubscribeWindowClosed =
+      subscribePlaylistWindowClosed(handleWindowClosed);
 
     return () => {
-      window.electronAPI?.playlist?.offCommand(
-        handleCommand as (cmd: unknown) => void,
-      );
-      window.electronAPI?.playlist?.offWindowClosed(handleWindowClosed);
+      unsubscribeCommand();
+      unsubscribeWindowClosed();
     };
   }, [playItemCallbackRef, seekCallbackRef, setIsWindowOpen, setPlayingItem, setState, state.playlists]);
 
   useEffect(() => {
-    if (!window.electronAPI?.playlist) return;
-
-    const checkWindowState = async () => {
-      const open = await window.electronAPI!.playlist.isWindowOpen();
-      setIsWindowOpen(open);
-    };
-
-    void checkWindowState();
-    const interval = setInterval(() => {
-      void checkWindowState();
-    }, 2000);
-    return () => clearInterval(interval);
+    return observePlaylistWindowState(setIsWindowOpen);
   }, [setIsWindowOpen]);
 
   return {

@@ -10,10 +10,12 @@ export const registerHandleWithAliases = <Args extends unknown[], Result>(
   aliases: string[],
   handler: IpcInvokeHandler<Args, Result>,
 ): void => {
-  const invokeHandler = handler as unknown as (
+  const invokeHandler = (
     event: IpcMainInvokeEvent,
     ...args: unknown[]
-  ) => unknown;
+  ): Result | Promise<Result> => {
+    return handler(event, ...(args as Args));
+  };
   ipcMain.handle(channel, invokeHandler);
   aliases.forEach((alias) => {
     ipcMain.handle(alias, invokeHandler);

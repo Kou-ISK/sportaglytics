@@ -21,17 +21,15 @@ const listenerStore = createListenerStore();
 const registerListener = createRegisterListener(ipcRenderer, listenerStore);
 
 try {
-  (
-    ipcRenderer as unknown as { setMaxListeners?: (n: number) => void }
-  ).setMaxListeners?.(50);
+  ipcRenderer.setMaxListeners(50);
 } catch {
   // noop
 }
 
 const electronAPI = {
   ...createAppBridge(ipcRenderer),
-  ...createEventBridge(registerListener),
-  ...createSettingsBridge(ipcRenderer),
+  ...createEventBridge(registerListener, listenerStore),
+  ...createSettingsBridge(ipcRenderer, listenerStore),
   ...createAnalysisBridge(ipcRenderer, listenerStore),
   ...createPlaylistBridge(ipcRenderer, listenerStore),
   ...createCodeWindowBridge(ipcRenderer),

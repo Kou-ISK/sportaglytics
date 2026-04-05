@@ -4,6 +4,12 @@ import type { AnalysisView } from '../../../src/types/AnalysisView';
 import type { TimelineData } from '../../../src/types/TimelineData';
 import type { PlaylistItem } from '../../../src/types/Playlist';
 import type { IElectronAPI } from '../../../src/renderer';
+import {
+  getMappedListener,
+  removeMappedListener,
+  setMappedListener,
+  type ListenerStore,
+} from './listenerStore';
 
 type RegisterListener = <T extends unknown[]>(
   channel: string,
@@ -36,6 +42,7 @@ type EventBridgeKeys =
 
 export const createEventBridge = (
   registerListener: RegisterListener,
+  listenerStore: ListenerStore,
 ): Pick<IElectronAPI, EventBridgeKeys> => ({
   onAnalysisJumpToSegment: (callback: (segment: TimelineData) => void) =>
     registerListener('analysis:jump-to-segment', callback),
@@ -74,90 +81,126 @@ export const createEventBridge = (
     ipcRenderer.send('analysis-report:render-ready', requestId);
   },
   onResyncAudio: (callback: () => void) => {
-    try {
-      ipcRenderer.removeAllListeners('menu-resync-audio');
-    } catch {
-      // ignore
-    }
-    ipcRenderer.on(
+    const existing = getMappedListener(
+      listenerStore,
       'menu-resync-audio',
-      callback as unknown as (event: IpcRendererEvent) => void,
+      callback,
     );
+    if (existing) {
+      ipcRenderer.removeListener('menu-resync-audio', existing);
+    }
+
+    const wrapped = (...rawArgs: unknown[]) => {
+      const [event] = rawArgs as [IpcRendererEvent];
+      void event;
+      callback();
+    };
+
+    setMappedListener(listenerStore, 'menu-resync-audio', callback, wrapped);
+    ipcRenderer.on('menu-resync-audio', wrapped);
   },
   offResyncAudio: (callback: () => void) => {
-    try {
-      ipcRenderer.removeListener(
-        'menu-resync-audio',
-        callback as unknown as (event: IpcRendererEvent) => void,
-      );
-    } catch {
-      /* noop */
+    const wrapped = getMappedListener(
+      listenerStore,
+      'menu-resync-audio',
+      callback,
+    );
+    if (!wrapped) {
+      return;
     }
+    ipcRenderer.removeListener('menu-resync-audio', wrapped);
+    removeMappedListener(listenerStore, 'menu-resync-audio', callback);
   },
   onResetSync: (callback: () => void) => {
-    try {
-      ipcRenderer.removeAllListeners('menu-reset-sync');
-    } catch {
-      // ignore
-    }
-    ipcRenderer.on(
+    const existing = getMappedListener(
+      listenerStore,
       'menu-reset-sync',
-      callback as unknown as (event: IpcRendererEvent) => void,
+      callback,
     );
+    if (existing) {
+      ipcRenderer.removeListener('menu-reset-sync', existing);
+    }
+
+    const wrapped = (...rawArgs: unknown[]) => {
+      const [event] = rawArgs as [IpcRendererEvent];
+      void event;
+      callback();
+    };
+
+    setMappedListener(listenerStore, 'menu-reset-sync', callback, wrapped);
+    ipcRenderer.on('menu-reset-sync', wrapped);
   },
   offResetSync: (callback: () => void) => {
-    try {
-      ipcRenderer.removeListener(
-        'menu-reset-sync',
-        callback as unknown as (event: IpcRendererEvent) => void,
-      );
-    } catch {
-      /* noop */
+    const wrapped = getMappedListener(
+      listenerStore,
+      'menu-reset-sync',
+      callback,
+    );
+    if (!wrapped) {
+      return;
     }
+    ipcRenderer.removeListener('menu-reset-sync', wrapped);
+    removeMappedListener(listenerStore, 'menu-reset-sync', callback);
   },
   onManualSync: (callback: () => void) => {
-    try {
-      ipcRenderer.removeAllListeners('menu-manual-sync');
-    } catch {
-      // ignore
-    }
-    ipcRenderer.on(
+    const existing = getMappedListener(
+      listenerStore,
       'menu-manual-sync',
-      callback as unknown as (event: IpcRendererEvent) => void,
+      callback,
     );
+    if (existing) {
+      ipcRenderer.removeListener('menu-manual-sync', existing);
+    }
+
+    const wrapped = (...rawArgs: unknown[]) => {
+      const [event] = rawArgs as [IpcRendererEvent];
+      void event;
+      callback();
+    };
+
+    setMappedListener(listenerStore, 'menu-manual-sync', callback, wrapped);
+    ipcRenderer.on('menu-manual-sync', wrapped);
   },
   offManualSync: (callback: () => void) => {
-    try {
-      ipcRenderer.removeListener(
-        'menu-manual-sync',
-        callback as unknown as (event: IpcRendererEvent) => void,
-      );
-    } catch {
-      /* noop */
+    const wrapped = getMappedListener(
+      listenerStore,
+      'menu-manual-sync',
+      callback,
+    );
+    if (!wrapped) {
+      return;
     }
+    ipcRenderer.removeListener('menu-manual-sync', wrapped);
+    removeMappedListener(listenerStore, 'menu-manual-sync', callback);
   },
   onSetSyncMode: (callback: (mode: 'auto' | 'manual') => void) => {
-    try {
-      ipcRenderer.removeAllListeners('menu-set-sync-mode');
-    } catch {
-      // ignore
-    }
-    ipcRenderer.on('menu-set-sync-mode', (_event, mode: 'auto' | 'manual') =>
-      callback(mode),
+    const existing = getMappedListener(
+      listenerStore,
+      'menu-set-sync-mode',
+      callback,
     );
+    if (existing) {
+      ipcRenderer.removeListener('menu-set-sync-mode', existing);
+    }
+
+    const wrapped = (...rawArgs: unknown[]) => {
+      const [, mode] = rawArgs as [IpcRendererEvent, 'auto' | 'manual'];
+      callback(mode);
+    };
+
+    setMappedListener(listenerStore, 'menu-set-sync-mode', callback, wrapped);
+    ipcRenderer.on('menu-set-sync-mode', wrapped);
   },
   offSetSyncMode: (callback: (mode: 'auto' | 'manual') => void) => {
-    try {
-      ipcRenderer.removeListener(
-        'menu-set-sync-mode',
-        callback as unknown as (
-          event: IpcRendererEvent,
-          mode: 'auto' | 'manual',
-        ) => void,
-      );
-    } catch {
-      /* noop */
+    const wrapped = getMappedListener(
+      listenerStore,
+      'menu-set-sync-mode',
+      callback,
+    );
+    if (!wrapped) {
+      return;
     }
+    ipcRenderer.removeListener('menu-set-sync-mode', wrapped);
+    removeMappedListener(listenerStore, 'menu-set-sync-mode', callback);
   },
 });
-

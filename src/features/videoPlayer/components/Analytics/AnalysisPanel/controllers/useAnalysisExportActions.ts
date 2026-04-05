@@ -12,24 +12,19 @@ import {
   stitchCapturedSlicesIntoParts,
   withExportLayoutOverrides,
 } from '../../../../../../utils/fullContentCapture';
-import { saveAnalysisReportPdf } from '../gateways/analysisReportPdfGateway';
+import {
+  canCaptureAnalysisWindowRegion,
+  canExportAnalysisPng,
+  copyAnalysisSummaryToClipboard,
+  exportAnalysisPngParts,
+  captureAnalysisWindowRegionAsPng,
+} from '../gateways/analysisExportGateway';
+import {
+  canSaveAnalysisReportPdf,
+  saveAnalysisReportPdf,
+} from '../gateways/analysisReportPdfGateway';
 
 const MAX_PNG_PART_HEIGHT = 15000;
-
-const toBase64FromDataUrl = (dataUrl: string): string => {
-  return dataUrl.split(',')[1] || '';
-};
-
-const splitPath = (filePath: string): { base: string; ext: string } => {
-  const dotIndex = filePath.lastIndexOf('.');
-  if (dotIndex <= 0) {
-    return { base: filePath, ext: '' };
-  }
-  return {
-    base: filePath.slice(0, dotIndex),
-    ext: filePath.slice(dotIndex),
-  };
-};
 
 interface UseAnalysisExportActionsParams {
   currentView: AnalysisView;
@@ -89,7 +84,6 @@ export const useAnalysisExportActions = ({
   const captureCurrentViewPngParts = useCallback(async (): Promise<
     string[] | null
   > => {
-    const api = window.electronAPI;
     const rootTarget = exportTargetRef.current;
 
     if (!rootTarget) {
@@ -97,7 +91,7 @@ export const useAnalysisExportActions = ({
       return null;
     }
 
-    if (!api?.captureWindowRegionAsPng) {
+    if (!canCaptureAnalysisWindowRegion()) {
       notification.error('画面キャプチャ機能が利用できません。');
       return null;
     }
@@ -113,7 +107,7 @@ export const useAnalysisExportActions = ({
       const slices = await withExportLayoutOverrides(target, async () => {
         return captureScrollableContent(
           target,
-          (rect) => api.captureWindowRegionAsPng(rect),
+          captureAnalysisWindowRegionAsPng,
           { horizontal: horizontalMode },
         );
       });
@@ -141,29 +135,9 @@ export const useAnalysisExportActions = ({
 
   const handleCopySummary = useCallback(async (): Promise<void> => {
     closeExportMenu();
-    const summary = summaryForClipboard;
-
-    const writeByNavigator = async (): Promise<boolean> => {
-      if (!navigator?.clipboard?.writeText) return false;
-      await navigator.clipboard.writeText(summary);
-      return true;
-    };
-
-    const writeByTextarea = (): boolean => {
-      const textarea = document.createElement('textarea');
-      textarea.value = summary;
-      textarea.setAttribute('readonly', 'true');
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      return ok;
-    };
 
     try {
-      const ok = (await writeByNavigator()) || writeByTextarea();
+      const ok = await copyAnalysisSummaryToClipboard(summaryForClipboard);
       if (ok) {
         notification.success(
           '構造化サマリーをクリップボードにコピーしました。',
@@ -180,49 +154,30 @@ export const useAnalysisExportActions = ({
   const handleExportPng = useCallback(async (): Promise<void> => {
     closeExportMenu();
 
-    const api = window.electronAPI;
-    if (!api?.saveFileDialog || !api?.writeBinaryFile) {
+    if (!canExportAnalysisPng()) {
       notification.error('PNGエクスポート機能が利用できません。');
       return;
     }
-
-    const filePath = await api.saveFileDialog(
-      `analysis-${currentView}-${new Date().toISOString().slice(0, 10)}.png`,
-      [{ name: 'PNG', extensions: ['png'] }],
-    );
-    if (!filePath) return;
 
     setIsExporting(true);
     try {
       const parts = await captureCurrentViewPngParts();
       if (!parts || parts.length === 0) return;
 
-      const { base, ext } = splitPath(filePath);
-      let allSaved = true;
-
-      for (let i = 0; i < parts.length; i += 1) {
-        const targetPath =
-          parts.length === 1
-            ? filePath
-            : `${base}-part${i + 1}${ext || '.png'}`;
-        const base64 = toBase64FromDataUrl(parts[i] ?? '');
-        if (!base64) {
-          allSaved = false;
-          break;
-        }
-        const ok = await api.writeBinaryFile(targetPath, base64);
-        if (!ok) {
-          allSaved = false;
-          break;
-        }
+      const result = await exportAnalysisPngParts({
+        defaultFileName: `analysis-${currentView}-${new Date().toISOString().slice(0, 10)}.png`,
+        parts,
+      });
+      if (result.canceled) {
+        return;
       }
 
-      if (allSaved) {
-        if (parts.length === 1) {
+      if (result.success) {
+        if (result.partCount === 1) {
           notification.success('PNGを保存しました。');
         } else {
           notification.success(
-            `PNGを分割保存しました（${parts.length}ファイル）。`,
+            `PNGを分割保存しました（${result.partCount}ファイル）。`,
           );
         }
       } else {
@@ -236,8 +191,7 @@ export const useAnalysisExportActions = ({
   const handleExportPdf = useCallback(async (): Promise<void> => {
     closeExportMenu();
 
-    const api = window.electronAPI;
-    if (!api?.saveFileDialog || !api?.printAnalysisReportPdf) {
+    if (!canSaveAnalysisReportPdf()) {
       notification.error('PDFエクスポート機能が利用できません。');
       return;
     }

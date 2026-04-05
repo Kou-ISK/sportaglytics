@@ -34,17 +34,15 @@ export const createPlaylistBridge = (
         ipcRenderer.send('playlist:sync-to-window', data);
       },
       onCommand: (callback: (command: PlaylistCommand) => void) => {
-        const wrapped = (
-          _event: IpcRendererEvent,
-          command: PlaylistCommand,
-        ) => {
+        const wrapped = (...rawArgs: unknown[]) => {
+          const [, command] = rawArgs as [IpcRendererEvent, PlaylistCommand];
           callback(command);
         };
         setMappedListener(
           listenerStore,
           'playlist:command',
-          callback as unknown as Function,
-          wrapped as unknown as (...args: unknown[]) => void,
+          callback,
+          wrapped,
         );
         ipcRenderer.on('playlist:command', wrapped);
       },
@@ -52,20 +50,17 @@ export const createPlaylistBridge = (
         const wrapped = getMappedListener(
           listenerStore,
           'playlist:command',
-          callback as unknown as Function,
+          callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener(
-          'playlist:command',
-          wrapped as unknown as (...args: unknown[]) => void,
-        );
+        ipcRenderer.removeListener('playlist:command', wrapped);
         removeMappedListener(
           listenerStore,
           'playlist:command',
-          callback as unknown as Function,
+          callback,
         );
       },
       onWindowClosed: (callback: () => void) => {
@@ -73,7 +68,7 @@ export const createPlaylistBridge = (
         setMappedListener(
           listenerStore,
           'playlist:window-closed',
-          callback as unknown as Function,
+          callback,
           wrapped,
         );
         ipcRenderer.on('playlist:window-closed', wrapped);
@@ -82,31 +77,29 @@ export const createPlaylistBridge = (
         const wrapped = getMappedListener(
           listenerStore,
           'playlist:window-closed',
-          callback as unknown as Function,
+          callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener(
-          'playlist:window-closed',
-          wrapped as unknown as (...args: unknown[]) => void,
-        );
+        ipcRenderer.removeListener('playlist:window-closed', wrapped);
         removeMappedListener(
           listenerStore,
           'playlist:window-closed',
-          callback as unknown as Function,
+          callback,
         );
       },
       onSync: (callback: (data: PlaylistSyncData) => void) => {
-        const wrapped = (_event: IpcRendererEvent, data: PlaylistSyncData) => {
+        const wrapped = (...rawArgs: unknown[]) => {
+          const [, data] = rawArgs as [IpcRendererEvent, PlaylistSyncData];
           callback(data);
         };
         setMappedListener(
           listenerStore,
           'playlist:sync',
-          callback as unknown as Function,
-          wrapped as unknown as (...args: unknown[]) => void,
+          callback,
+          wrapped,
         );
         ipcRenderer.on('playlist:sync', wrapped);
       },
@@ -114,20 +107,17 @@ export const createPlaylistBridge = (
         const wrapped = getMappedListener(
           listenerStore,
           'playlist:sync',
-          callback as unknown as Function,
+          callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener(
-          'playlist:sync',
-          wrapped as unknown as (...args: unknown[]) => void,
-        );
+        ipcRenderer.removeListener('playlist:sync', wrapped);
         removeMappedListener(
           listenerStore,
           'playlist:sync',
-          callback as unknown as Function,
+          callback,
         );
       },
       sendCommand: (command: PlaylistCommand) => {
@@ -166,14 +156,15 @@ export const createPlaylistBridge = (
         await ipcRenderer.invoke('playlist:add-item-to-all-windows', item);
       },
       onAddItem: (callback: (item: PlaylistItem) => void) => {
-        const wrapped = (_event: IpcRendererEvent, item: PlaylistItem) => {
+        const wrapped = (...rawArgs: unknown[]) => {
+          const [, item] = rawArgs as [IpcRendererEvent, PlaylistItem];
           callback(item);
         };
         setMappedListener(
           listenerStore,
           'playlist:add-item',
-          callback as unknown as Function,
-          wrapped as unknown as (...args: unknown[]) => void,
+          callback,
+          wrapped,
         );
         ipcRenderer.on('playlist:add-item', wrapped);
       },
@@ -181,20 +172,17 @@ export const createPlaylistBridge = (
         const wrapped = getMappedListener(
           listenerStore,
           'playlist:add-item',
-          callback as unknown as Function,
+          callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener(
-          'playlist:add-item',
-          wrapped as unknown as (...args: unknown[]) => void,
-        );
+        ipcRenderer.removeListener('playlist:add-item', wrapped);
         removeMappedListener(
           listenerStore,
           'playlist:add-item',
-          callback as unknown as Function,
+          callback,
         );
       },
       setWindowTitle: (title: string) => {

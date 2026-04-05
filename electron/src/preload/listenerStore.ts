@@ -2,7 +2,7 @@ import type { IpcRenderer, IpcRendererEvent } from 'electron';
 
 export type ListenerStore = Map<
   string,
-  Map<Function, (...args: unknown[]) => void>
+  Map<object, (...args: unknown[]) => void>
 >;
 
 export const createListenerStore = (): ListenerStore => new Map();
@@ -31,12 +31,12 @@ export const createRegisterListener = (
       listenerStore.set(channel, map);
     }
 
-    map.set(callback as unknown as Function, wrapped);
+    map.set(callback, wrapped);
     ipcRenderer.on(channel, wrapped);
 
     return () => {
       ipcRenderer.removeListener(channel, wrapped);
-      map?.delete(callback as unknown as Function);
+      map?.delete(callback);
       if (map && map.size === 0) {
         listenerStore.delete(channel);
       }
@@ -47,7 +47,7 @@ export const createRegisterListener = (
 export const setMappedListener = (
   listenerStore: ListenerStore,
   channel: string,
-  callback: Function,
+  callback: object,
   wrapped: (...args: unknown[]) => void,
 ): void => {
   let map = listenerStore.get(channel);
@@ -61,7 +61,7 @@ export const setMappedListener = (
 export const getMappedListener = (
   listenerStore: ListenerStore,
   channel: string,
-  callback: Function,
+  callback: object,
 ): ((...args: unknown[]) => void) | undefined => {
   return listenerStore.get(channel)?.get(callback);
 };
@@ -69,7 +69,7 @@ export const getMappedListener = (
 export const removeMappedListener = (
   listenerStore: ListenerStore,
   channel: string,
-  callback: Function,
+  callback: object,
 ): void => {
   const map = listenerStore.get(channel);
   if (!map) {

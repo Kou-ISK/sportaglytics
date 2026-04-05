@@ -1,4 +1,9 @@
-import type { Playlist } from '../../../types/Playlist';
+import type {
+  Playlist,
+  PlaylistCommand,
+  PlaylistItem,
+  PlaylistSyncData,
+} from '../../../types/Playlist';
 
 type PlaylistLoadResult = {
   playlist: Playlist;
@@ -6,6 +11,13 @@ type PlaylistLoadResult = {
 };
 
 const getPlaylistApi = () => globalThis.window.electronAPI?.playlist;
+const noop = (): void => undefined;
+
+const waitFor = async (ms: number): Promise<void> => {
+  await new Promise<void>((resolve) => {
+    globalThis.setTimeout(resolve, ms);
+  });
+};
 
 export const loadPlaylistFile = async (
   filePath?: string,
@@ -53,6 +65,174 @@ export const savePlaylistFileAs = async (
     console.debug('[PlaylistWindowGateway] savePlaylistFileAs failed', error);
     return null;
   }
+};
+
+export const getPlaylistOpenWindowCount = async (): Promise<number> => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi) {
+    return 0;
+  }
+
+  try {
+    return await playlistApi.getOpenWindowCount();
+  } catch (error: unknown) {
+    console.debug(
+      '[PlaylistWindowGateway] getOpenWindowCount failed',
+      error,
+    );
+    return 0;
+  }
+};
+
+export const openPlaylistWindow = async (): Promise<boolean> => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi) {
+    return false;
+  }
+
+  try {
+    await playlistApi.openWindow();
+    return true;
+  } catch (error: unknown) {
+    console.debug('[PlaylistWindowGateway] openWindow failed', error);
+    return false;
+  }
+};
+
+export const ensurePlaylistWindowOpen = async (): Promise<boolean> => {
+  const count = await getPlaylistOpenWindowCount();
+  if (count > 0) {
+    return true;
+  }
+
+  const opened = await openPlaylistWindow();
+  if (!opened) {
+    return false;
+  }
+
+  await waitFor(500);
+  return true;
+};
+
+export const isPlaylistWindowOpen = async (): Promise<boolean> => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi) {
+    return false;
+  }
+
+  try {
+    return await playlistApi.isWindowOpen();
+  } catch (error: unknown) {
+    console.debug('[PlaylistWindowGateway] isWindowOpen failed', error);
+    return false;
+  }
+};
+
+export const syncPlaylistWindow = (data: PlaylistSyncData): void => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi) {
+    return;
+  }
+
+  try {
+    playlistApi.syncToWindow(data);
+  } catch (error: unknown) {
+    console.debug('[PlaylistWindowGateway] syncToWindow failed', error);
+  }
+};
+
+export const addPlaylistItemToAllWindows = async (
+  item: PlaylistItem,
+): Promise<boolean> => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi) {
+    return false;
+  }
+
+  try {
+    await playlistApi.addItemToAllWindows(item);
+    return true;
+  } catch (error: unknown) {
+    console.debug(
+      '[PlaylistWindowGateway] addItemToAllWindows failed',
+      error,
+    );
+    return false;
+  }
+};
+
+export const subscribePlaylistCommand = (
+  callback: (command: PlaylistCommand) => void,
+): (() => void) => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi) {
+    return noop;
+  }
+
+  try {
+    playlistApi.onCommand(callback);
+    return () => {
+      try {
+        playlistApi.offCommand(callback);
+      } catch (error: unknown) {
+        console.debug('[PlaylistWindowGateway] offCommand failed', error);
+      }
+    };
+  } catch (error: unknown) {
+    console.debug('[PlaylistWindowGateway] onCommand failed', error);
+    return noop;
+  }
+};
+
+export const subscribePlaylistWindowClosed = (
+  callback: () => void,
+): (() => void) => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi) {
+    return noop;
+  }
+
+  try {
+    playlistApi.onWindowClosed(callback);
+    return () => {
+      try {
+        playlistApi.offWindowClosed(callback);
+      } catch (error: unknown) {
+        console.debug(
+          '[PlaylistWindowGateway] offWindowClosed failed',
+          error,
+        );
+      }
+    };
+  } catch (error: unknown) {
+    console.debug('[PlaylistWindowGateway] onWindowClosed failed', error);
+    return noop;
+  }
+};
+
+export const observePlaylistWindowState = (
+  callback: (isOpen: boolean) => void,
+  intervalMs = 2000,
+): (() => void) => {
+  let disposed = false;
+
+  const syncState = async (): Promise<void> => {
+    const isOpen = await isPlaylistWindowOpen();
+    if (!disposed) {
+      callback(isOpen);
+    }
+  };
+
+  void syncState();
+
+  const intervalId = globalThis.setInterval(() => {
+    void syncState();
+  }, intervalMs);
+
+  return () => {
+    disposed = true;
+    globalThis.clearInterval(intervalId);
+  };
 };
 
 export const subscribePlaylistExternalOpen = (

@@ -34,3 +34,12 @@ export interface PackageLoadResult {
   metaDataConfigFilePath: string;
   packagePath?: string;
 }
+
+export interface RecentPackage {
+  path: string;
+  name: string;
+  team1Name: string;
+  team2Name: string;
+  lastOpened: number;
+  videoCount: number;
+}

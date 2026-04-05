@@ -40,10 +40,9 @@ export const createAppBridgeMenuApi = (
       } catch {
         // ignore
       }
-      ipcRenderer.on(
-        'menu-import-timeline',
-        callback as unknown as (event: IpcRendererEvent) => void,
-      );
+      ipcRenderer.on('menu-import-timeline', (_event: IpcRendererEvent) => {
+        callback();
+      });
     },
     onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => {
       try {
@@ -61,7 +60,9 @@ export const createAppBridgeMenuApi = (
       } catch {
         // ignore
       }
-      ipcRenderer.on('menu-open-package', callback as unknown as () => void);
+      ipcRenderer.on('menu-open-package', () => {
+        callback();
+      });
     },
     onOpenRecentPackage: (callback: (path: string) => void) => {
       try {

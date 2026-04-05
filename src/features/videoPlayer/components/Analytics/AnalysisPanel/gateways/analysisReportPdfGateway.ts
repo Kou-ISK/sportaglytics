@@ -6,6 +6,11 @@ interface SaveAnalysisReportPdfOptions {
   defaultFileName?: string;
 }
 
+export const canSaveAnalysisReportPdf = (): boolean => {
+  const api = globalThis.window.electronAPI;
+  return Boolean(api?.saveFileDialog && api?.printAnalysisReportPdf);
+};
+
 export const saveAnalysisReportPdf = async ({
   reportContext,
   defaultFileName,
@@ -14,7 +19,7 @@ export const saveAnalysisReportPdf = async ({
   canceled?: boolean;
 }> => {
   const api = globalThis.window.electronAPI;
-  if (!api?.saveFileDialog || !api?.printAnalysisReportPdf) {
+  if (!canSaveAnalysisReportPdf() || !api?.saveFileDialog || !api?.printAnalysisReportPdf) {
     return { success: false };
   }
 

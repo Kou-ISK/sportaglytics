@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { PackageLoadResult } from '../types';
-import type { RecentPackage } from './useRecentPackages';
+import type { RecentPackage } from '../types';
 import { readPackageTeamNames } from '../gateway/packageGateway';
 
 interface UseRecentPackageRegistrationParams {
