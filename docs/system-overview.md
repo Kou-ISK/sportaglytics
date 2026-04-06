@@ -32,6 +32,8 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
   - `electron/src/preload/analysisBridge.ts`
   - `electron/src/preload/playlistBridge.ts`
   - `electron/src/preload/codeWindowBridge.ts`
+- playlist / analysis window の IPC 契約は `src/types/ipc/playlistWindow.ts` と `src/types/ipc/analysisWindow.ts` を正本にし、channel 名・payload 型・型ガードを main / preload / renderer で共有する
+- main process の sender 検証は `electron/src/ipc/windowSenderGuards.ts` を共通利用し、`BrowserWindow.fromWebContents(...)` で live な sender window を確認する
 
 ## セキュリティ基準
 
@@ -51,8 +53,10 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 
 - Renderer は `window.electronAPI` のみを利用
 - 汎用 `on/off/send` は廃止し、用途別の明示 API に統一
+- playlist / analysis window の公開面は `window.electronAPI.playlist` / `window.electronAPI.analysis` に閉じ込め、top-level に window 専用イベント API を増やさない
 - settings の正規化は `src/types/settings/normalizers.ts` の `normalizeAppSettings` を正本とし、main / renderer で重複実装しない
 - settings 正規化の実装詳細は `src/types/settings/normalizerUtils.ts` / `dashboardNormalizers.ts` / `codingPanelNormalizers.ts` に分割し、`normalizers.ts` は facade を維持する
+- preload は outbound / inbound の両方向で payload guard を通し、無効 payload を main / renderer に流さない
 - ローカルファイル読込で `fetch(filePath)` は使用しない
   - `readJsonFile`
   - `readTextFile`
@@ -65,6 +69,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - 旧データは読込時にマイグレーションし、保存時は新形式のみ出力
 - `AnalysisView` は shared 型 (`src/types/AnalysisView.ts`) を利用
 - playlist 同期は `PlaylistSyncData` を正とし、playlist 画面・hooks の契約を統一
+- playlist / analysis window まわりの renderer 側直接依存は gateway に閉じ込め、`src/features/playlist/gateway/playlistWindowGateway.ts` と `src/features/videoPlayer/app/gateways/analysisWindowGateway.ts` を入口に統一する
 - playlist window の同期 hook は IPC 登録・open state 監視・window open を gateway helper に分離し、hook 本体では state 適用だけを扱う
 - playlist window の runtime は `data runtime` と `interaction runtime` に分け、state 合成と playback/hotkey 合成を分離する
 - プレイリスト追加は `src/features/playlist` の公開 API に集約し、renderer からの個別 IPC 呼び出しを分散させない

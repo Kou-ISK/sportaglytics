@@ -1,38 +1,45 @@
 import type {
-  IPlaylistAPI,
   PlaylistItem,
+  PlaylistSaveProgressPayload,
   PlaylistSyncData,
 } from '../../../../types/Playlist';
+import {
+  requestPlaylistSync,
+  subscribePlaylistAddItem,
+  subscribePlaylistSaveProgress,
+  subscribePlaylistSync,
+} from '../../gateway/playlistWindowGateway';
 
 interface PlaylistIpcHandlers {
   onSync: (data: PlaylistSyncData) => void;
-  onSaveProgress: (data: { current: number; total: number }) => void;
+  onSaveProgress: (data: PlaylistSaveProgressPayload) => void;
   onAddItem: (item: PlaylistItem) => void;
 }
 
 export const registerPlaylistIpcHandlers = (
-  playlistApi: IPlaylistAPI,
   handlers: PlaylistIpcHandlers,
 ): (() => void) => {
+  let unsubscribeSync: (() => void) | null = null;
   let unsubscribeSaveProgress: (() => void) | null = null;
+  let unsubscribeAddItem: (() => void) | null = null;
 
   try {
-    playlistApi.onSync(handlers.onSync);
-    unsubscribeSaveProgress = playlistApi.onSaveProgress(
+    unsubscribeSync = subscribePlaylistSync(handlers.onSync);
+    unsubscribeSaveProgress = subscribePlaylistSaveProgress(
       handlers.onSaveProgress,
     );
-    playlistApi.onAddItem(handlers.onAddItem);
-    playlistApi.sendCommand({ type: 'request-sync' });
+    unsubscribeAddItem = subscribePlaylistAddItem(handlers.onAddItem);
+    requestPlaylistSync();
   } catch (error: unknown) {
-    playlistApi.offSync(handlers.onSync);
-    playlistApi.offAddItem(handlers.onAddItem);
+    unsubscribeSync?.();
+    unsubscribeAddItem?.();
     unsubscribeSaveProgress?.();
     throw error;
   }
 
   return () => {
-    playlistApi.offSync(handlers.onSync);
-    playlistApi.offAddItem(handlers.onAddItem);
+    unsubscribeSync?.();
+    unsubscribeAddItem?.();
     unsubscribeSaveProgress?.();
   };
 };

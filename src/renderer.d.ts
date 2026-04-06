@@ -1,14 +1,12 @@
-import type { IPlaylistAPI, PlaylistItem } from './types/Playlist';
-import type { TimelineData } from './types/TimelineData';
+import type {
+  IPlaylistAPI,
+} from './types/Playlist';
 import type { AnalysisView } from './types/AnalysisView';
 import type { AnalysisReportPayload } from './report/types';
 import type { AppSettings } from './types/Settings';
-
-export interface AnalysisWindowSyncPayload {
-  timeline: TimelineData[];
-  teamNames: string[];
-  view?: AnalysisView;
-}
+import type {
+  IAnalysisWindowAPI,
+} from './types/ipc/analysisWindow';
 
 export interface LlamaModelInfo {
   name: string;
@@ -32,12 +30,6 @@ export interface IElectronAPI {
     }>,
     metaDataConfig: unknown,
   ) => Promise<PackageDatas>;
-  onAnalysisJumpToSegment: (
-    callback: (segment: TimelineData) => void,
-  ) => () => void;
-  onAnalysisCreateAiPlaylist: (
-    callback: (payload: { name?: string; items?: PlaylistItem[] }) => void,
-  ) => () => void;
   onMenuShowStats: (
     callback: (requestedView?: AnalysisView) => void,
   ) => () => void;
@@ -45,12 +37,7 @@ export interface IElectronAPI {
   onTimelineRedo: (callback: () => void) => () => void;
   onMenuExportAnalysisRawCsv: (callback: () => void) => () => void;
   onMenuShowShortcuts: (callback: () => void) => () => void;
-  onAnalysisDashboardExternalOpen: (
-    callback: (filePath: string) => void,
-  ) => () => void;
   onMenuExportClips: (callback: () => void) => () => void;
-  onPlaylistRequestSave: (callback: () => void) => () => void;
-  notifyPlaylistSavedAndClose: () => void;
   notifyHotkeysUpdated: () => void;
   onAnalysisReportPayload: (
     callback: (message: {
@@ -100,19 +87,7 @@ export interface IElectronAPI {
   openSettingsWindow: () => Promise<void>;
   closeSettingsWindow: () => Promise<void>;
   isSettingsWindowOpen: () => Promise<boolean>;
-  analysis: {
-    openWindow: () => Promise<void>;
-    closeWindow: () => Promise<void>;
-    isWindowOpen: () => Promise<boolean>;
-    syncToWindow: (payload: AnalysisWindowSyncPayload) => void;
-    onSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
-    offSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
-    sendJumpToSegment: (segment: TimelineData) => void;
-    sendCreateAiPlaylist: (payload: {
-      name: string;
-      items: PlaylistItem[];
-    }) => void;
-  };
+  analysis: IAnalysisWindowAPI;
   llama: {
     generate: (payload: {
       prompt: string;

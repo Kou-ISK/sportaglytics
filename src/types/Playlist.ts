@@ -147,6 +147,16 @@ export interface PlaylistState {
   loopMode: 'none' | 'single' | 'all';
 }
 
+export interface PlaylistSaveProgressPayload {
+  current: number;
+  total: number;
+}
+
+export interface PlaylistFileLoadResult {
+  playlist: Playlist;
+  filePath: string;
+}
+
 /**
  * プレイリストウィンドウへ送信するデータ（メイン→プレイリスト）
  */
@@ -219,13 +229,11 @@ export interface IPlaylistAPI {
   /** プレイリストを読み込み */
   loadPlaylistFile: (
     filePath?: string,
-  ) => Promise<{ playlist: Playlist; filePath: string } | null>;
+  ) => Promise<PlaylistFileLoadResult | null>;
   /** システムから関連付けで開かれたプレイリストファイル通知 */
   onExternalOpen: (callback: (filePath: string) => void) => () => void;
   /** 保存進行状況の通知を受け取る */
-  onSaveProgress: (
-    callback: (data: { current: number; total: number }) => void,
-  ) => () => void;
+  onSaveProgress: (callback: (data: PlaylistSaveProgressPayload) => void) => () => void;
   /** 複数ウィンドウ管理 */
   /** 開いているプレイリストウィンドウの数を取得 */
   getOpenWindowCount: () => Promise<number>;
@@ -237,4 +245,8 @@ export interface IPlaylistAPI {
   offAddItem: (callback: (item: PlaylistItem) => void) => void;
   /** ウィンドウタイトルを設定（プレイリストウィンドウ側） */
   setWindowTitle: (title: string) => void;
+  /** 保存要求を受信（プレイリストウィンドウ側） */
+  onRequestSave: (callback: () => void) => () => void;
+  /** 保存完了後にウィンドウを閉じる通知を送信 */
+  notifySavedAndClose: () => void;
 }

@@ -4,6 +4,7 @@ import type {
   PlaylistItem,
   PlaylistSyncData,
 } from '../../../src/types/Playlist';
+import { PLAYLIST_WINDOW_CHANNELS } from '../../../src/types/ipc/playlistWindow';
 import { applyWindowSecurity } from '../windowSecurity';
 import {
   getMainWindowRef,
@@ -80,7 +81,7 @@ export const createPlaylistWindow = (filePath?: string): BrowserWindow => {
     });
 
     if (choice.response === 0) {
-      window.webContents.send('playlist:request-save');
+      window.webContents.send(PLAYLIST_WINDOW_CHANNELS.requestSave);
       return;
     }
 
@@ -94,13 +95,7 @@ export const createPlaylistWindow = (filePath?: string): BrowserWindow => {
     playlistWindows.delete(windowId);
     const mainWindow = getMainWindowRef();
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('playlist:window-closed', windowId);
-    }
-  });
-
-  window.webContents.on('ipc-message', (_event, channel, title: string) => {
-    if (channel === 'playlist:set-window-title') {
-      window.setTitle(title);
+      mainWindow.webContents.send(PLAYLIST_WINDOW_CHANNELS.windowClosed, windowId);
     }
   });
 
@@ -109,7 +104,8 @@ export const createPlaylistWindow = (filePath?: string): BrowserWindow => {
 
 export const sendPlaylistFileToWindow = (filePath: string): void => {
   const win = createPlaylistWindow(filePath);
-  const send = () => win.webContents.send('playlist:external-open', filePath);
+  const send = () =>
+    win.webContents.send(PLAYLIST_WINDOW_CHANNELS.externalOpen, filePath);
   if (win.webContents.isLoading()) {
     win.webContents.once('did-finish-load', send);
   } else {
@@ -160,7 +156,7 @@ export const addItemToAllWindows = (item: PlaylistItem): void => {
   const playlistWindows = getPlaylistWindows();
   for (const [, info] of playlistWindows) {
     if (!info.window.isDestroyed()) {
-      info.window.webContents.send('playlist:add-item', item);
+      info.window.webContents.send(PLAYLIST_WINDOW_CHANNELS.addItem, item);
       info.isDirty = true;
     }
   }
@@ -177,7 +173,7 @@ export const syncToPlaylistWindow = (data: PlaylistSyncData): void => {
   const playlistWindows = getPlaylistWindows();
   const firstWindow = playlistWindows.values().next().value;
   if (firstWindow && !firstWindow.window.isDestroyed()) {
-    firstWindow.window.webContents.send('playlist:sync', data);
+    firstWindow.window.webContents.send(PLAYLIST_WINDOW_CHANNELS.sync, data);
   }
 };
 
@@ -203,4 +199,17 @@ export const isSenderPlaylistWindow = (sender: Electron.WebContents): boolean =>
   return Array.from(playlistWindows.values()).some(
     (info) => info.window === senderWindow,
   );
+};
+
+export const setPlaylistWindowTitleForSender = (
+  sender: Electron.WebContents,
+  title: string,
+): boolean => {
+  const info = getWindowInfoBySender(sender);
+  if (!info || info.window.isDestroyed()) {
+    return false;
+  }
+
+  info.window.setTitle(title);
+  return true;
 };

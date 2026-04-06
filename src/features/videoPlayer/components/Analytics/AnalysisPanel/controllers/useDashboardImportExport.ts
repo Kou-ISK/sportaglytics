@@ -4,6 +4,7 @@ import type {
   AnalysisDashboardWidget,
 } from '../../../../../../types/Settings';
 import type { NotificationContextValue } from '../../../../../../contexts/NotificationContext';
+import { subscribeAnalysisDashboardExternalOpen } from '../../../../app/gateways/analysisWindowGateway';
 import { generateDashboardId } from './dashboardTabController.utils';
 
 interface UseDashboardImportExportParams {
@@ -134,9 +135,7 @@ export const useDashboardImportExport = ({
   }, [importDashboardFromPath, notification]);
 
   useEffect(() => {
-    const api = window.electronAPI;
-    if (!api?.onAnalysisDashboardExternalOpen) return;
-    const unsubscribe = api.onAnalysisDashboardExternalOpen((filePath) => {
+    const unsubscribe = subscribeAnalysisDashboardExternalOpen((filePath) => {
       if (typeof filePath !== 'string' || filePath.length === 0) return;
       void importDashboardFromPath(filePath);
     });

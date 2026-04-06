@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AnalysisView } from '../../../../types/AnalysisView';
 import type { TimelineData } from '../../../../types/TimelineData';
-import type { PlaylistItem } from '../../../../types/Playlist';
 import { usePlaylist } from '../../../playlist';
 import { useAnalysisMenuHandlers } from './useAnalysisMenuHandlers';
+import type { AnalysisAiPlaylistPayload } from '../../../../types/ipc/analysisWindow';
+import {
+  openAnalysisWindow as openAnalysisWindowGateway,
+  subscribeAnalysisCreateAiPlaylist,
+  subscribeAnalysisJumpToSegment,
+  syncAnalysisWindow,
+} from '../gateways/analysisWindowGateway';
 
 interface UseAnalysisIntegrationParams {
   timeline: TimelineData[];
@@ -20,10 +26,7 @@ interface UseAnalysisIntegrationResult {
   setAnalysisView: (view: AnalysisView) => void;
   openAnalysisWindow: (nextView?: AnalysisView) => Promise<void>;
   handleJumpToSegment: (segment: TimelineData) => void;
-  handleCreateAiPlaylist: (payload: {
-    name: string;
-    items: PlaylistItem[];
-  }) => Promise<void>;
+  handleCreateAiPlaylist: (payload: AnalysisAiPlaylistPayload) => Promise<void>;
 }
 
 export const useAnalysisIntegration = ({
@@ -41,10 +44,9 @@ export const useAnalysisIntegration = ({
     async (nextView?: AnalysisView) => {
       const resolvedView = nextView ?? analysisView;
       setAnalysisView(resolvedView);
-      const analysisApi = window.electronAPI?.analysis;
-      if (analysisApi?.openWindow) {
-        await analysisApi.openWindow();
-        analysisApi.syncToWindow({
+      const opened = await openAnalysisWindowGateway();
+      if (opened) {
+        syncAnalysisWindow({
           timeline,
           teamNames,
           view: resolvedView,
@@ -79,22 +81,18 @@ export const useAnalysisIntegration = ({
   }, [handleJumpToSegment]);
 
   useEffect(() => {
-    const api = window.electronAPI;
-    if (!api?.onAnalysisJumpToSegment) return;
-    const unsubscribe = api.onAnalysisJumpToSegment((segment) => {
+    const unsubscribe = subscribeAnalysisJumpToSegment((segment) => {
       jumpHandlerRef.current(segment);
     });
     return unsubscribe;
   }, []);
 
   useEffect(() => {
-    const analysisApi = window.electronAPI?.analysis;
-    if (!analysisApi?.syncToWindow) return;
-    analysisApi.syncToWindow({ timeline, teamNames });
+    syncAnalysisWindow({ timeline, teamNames });
   }, [timeline, teamNames]);
 
   const handleCreateAiPlaylist = useCallback(
-    async (payload: { name: string; items: PlaylistItem[] }) => {
+    async (payload: AnalysisAiPlaylistPayload) => {
       if (!payload?.items || payload.items.length === 0) return;
 
       try {
@@ -115,15 +113,8 @@ export const useAnalysisIntegration = ({
   }, [handleCreateAiPlaylist]);
 
   useEffect(() => {
-    const api = window.electronAPI;
-    if (!api?.onAnalysisCreateAiPlaylist) return;
-    const unsubscribe = api.onAnalysisCreateAiPlaylist((payload) => {
-      const data = payload as { name?: string; items?: PlaylistItem[] } | null;
-      if (!data || !data.items) return;
-      void createPlaylistRef.current({
-        name: data.name || 'AI Review',
-        items: data.items,
-      });
+    const unsubscribe = subscribeAnalysisCreateAiPlaylist((payload) => {
+      void createPlaylistRef.current(payload);
     });
     return unsubscribe;
   }, []);

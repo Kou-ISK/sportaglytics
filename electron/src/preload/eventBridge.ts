@@ -1,8 +1,6 @@
 import { IpcRendererEvent, ipcRenderer } from 'electron';
 import type { AnalysisReportPayload } from '../../../src/report/types';
 import type { AnalysisView } from '../../../src/types/AnalysisView';
-import type { TimelineData } from '../../../src/types/TimelineData';
-import type { PlaylistItem } from '../../../src/types/Playlist';
 import type { IElectronAPI } from '../../../src/renderer';
 import {
   getMappedListener,
@@ -17,17 +15,12 @@ type RegisterListener = <T extends unknown[]>(
 ) => () => void;
 
 type EventBridgeKeys =
-  | 'onAnalysisJumpToSegment'
-  | 'onAnalysisCreateAiPlaylist'
   | 'onMenuShowStats'
   | 'onTimelineUndo'
   | 'onTimelineRedo'
   | 'onMenuExportAnalysisRawCsv'
   | 'onMenuShowShortcuts'
-  | 'onAnalysisDashboardExternalOpen'
   | 'onMenuExportClips'
-  | 'onPlaylistRequestSave'
-  | 'notifyPlaylistSavedAndClose'
   | 'notifyHotkeysUpdated'
   | 'onAnalysisReportPayload'
   | 'notifyAnalysisReportRenderReady'
@@ -44,11 +37,6 @@ export const createEventBridge = (
   registerListener: RegisterListener,
   listenerStore: ListenerStore,
 ): Pick<IElectronAPI, EventBridgeKeys> => ({
-  onAnalysisJumpToSegment: (callback: (segment: TimelineData) => void) =>
-    registerListener('analysis:jump-to-segment', callback),
-  onAnalysisCreateAiPlaylist: (
-    callback: (payload: { name?: string; items?: PlaylistItem[] }) => void,
-  ) => registerListener('analysis:create-ai-playlist', callback),
   onMenuShowStats: (callback: (requestedView?: AnalysisView) => void) =>
     registerListener('menu-show-stats', callback),
   onTimelineUndo: (callback: () => void) =>
@@ -59,15 +47,8 @@ export const createEventBridge = (
     registerListener('menu-export-analysis-raw-csv', callback),
   onMenuShowShortcuts: (callback: () => void) =>
     registerListener('menu-show-shortcuts', callback),
-  onAnalysisDashboardExternalOpen: (callback: (filePath: string) => void) =>
-    registerListener('analysis-dashboard:external-open', callback),
   onMenuExportClips: (callback: () => void) =>
     registerListener('menu-export-clips', callback),
-  onPlaylistRequestSave: (callback: () => void) =>
-    registerListener('playlist:request-save', callback),
-  notifyPlaylistSavedAndClose: () => {
-    ipcRenderer.send('playlist:saved-and-close');
-  },
   notifyHotkeysUpdated: () => {
     ipcRenderer.send('hotkeys-updated');
   },

@@ -1,11 +1,14 @@
 import { dialog, ipcMain } from 'electron';
 import * as path from 'path';
-import type {
-  Playlist,
-  PlaylistCommand,
-  PlaylistItem,
-  PlaylistSyncData,
-} from '../../../src/types/Playlist';
+import type { PlaylistFileLoadResult } from '../../../src/types/Playlist';
+import {
+  PLAYLIST_WINDOW_CHANNELS,
+  isPlaylist,
+  isPlaylistCommand,
+  isPlaylistItem,
+  isPlaylistSyncData,
+} from '../../../src/types/ipc/playlistWindow';
+import { getValidatedEventSenderWindow, isEventFromWindow } from '../ipc/windowSenderGuards';
 import {
   addItemToAllWindows,
   closePlaylistWindow,
@@ -14,37 +17,70 @@ import {
   getWindowInfoBySender,
   isPlaylistWindowOpen,
   isSenderPlaylistWindow,
+  setPlaylistWindowTitleForSender,
   syncToPlaylistWindow,
 } from './windowManager';
 import { getFfmpegPathRef, getMainWindowRef, getPlaylistWindows } from './state';
 import { loadPlaylistFromPath, savePlaylistToPath } from './storage';
 
 export const registerPlaylistHandlers = (): void => {
-  ipcMain.handle('playlist:open-window', (_event, filePath?: string) => {
-    createPlaylistWindow(filePath);
-  });
+  ipcMain.handle(
+    PLAYLIST_WINDOW_CHANNELS.openWindow,
+    (event, filePath?: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid playlist open sender');
+      }
 
-  ipcMain.handle('playlist:close-window', () => {
+      createPlaylistWindow(typeof filePath === 'string' ? filePath : undefined);
+    },
+  );
+
+  ipcMain.handle(PLAYLIST_WINDOW_CHANNELS.closeWindow, (event) => {
+    if (!getValidatedEventSenderWindow(event)) {
+      throw new Error('Invalid playlist close sender');
+    }
+
     closePlaylistWindow();
   });
 
-  ipcMain.handle('playlist:is-window-open', () => {
+  ipcMain.handle(PLAYLIST_WINDOW_CHANNELS.isWindowOpen, (event) => {
+    if (!getValidatedEventSenderWindow(event)) {
+      throw new Error('Invalid playlist state sender');
+    }
     return isPlaylistWindowOpen();
   });
 
-  ipcMain.handle('playlist:get-open-count', () => {
+  ipcMain.handle(PLAYLIST_WINDOW_CHANNELS.getOpenCount, (event) => {
+    if (!getValidatedEventSenderWindow(event)) {
+      throw new Error('Invalid playlist count sender');
+    }
     return getOpenWindowCount();
   });
 
-  ipcMain.handle('playlist:add-item-to-all-windows', (_event, item: PlaylistItem) => {
-    addItemToAllWindows(item);
-  });
+  ipcMain.handle(
+    PLAYLIST_WINDOW_CHANNELS.addItemToAllWindows,
+    (event, item: unknown) => {
+      if (!isEventFromWindow(event, getMainWindowRef()) || !isPlaylistItem(item)) {
+        return;
+      }
 
-  ipcMain.on('playlist:sync-to-window', (_event, data: PlaylistSyncData) => {
+      addItemToAllWindows(item);
+    },
+  );
+
+  ipcMain.on(PLAYLIST_WINDOW_CHANNELS.syncToWindow, (event, data: unknown) => {
+    if (!isEventFromWindow(event, getMainWindowRef()) || !isPlaylistSyncData(data)) {
+      return;
+    }
+
     syncToPlaylistWindow(data);
   });
 
-  ipcMain.on('playlist:command', (event, command: PlaylistCommand) => {
+  ipcMain.on(PLAYLIST_WINDOW_CHANNELS.command, (event, command: unknown) => {
+    if (!isSenderPlaylistWindow(event.sender) || !isPlaylistCommand(command)) {
+      return;
+    }
+
     if (command?.type === 'set-dirty') {
       const playlistWindows = getPlaylistWindows();
       for (const [windowId, info] of playlistWindows) {
@@ -62,11 +98,15 @@ export const registerPlaylistHandlers = (): void => {
     const mainWindow = getMainWindowRef();
 
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('playlist:command', command);
+      mainWindow.webContents.send(PLAYLIST_WINDOW_CHANNELS.command, command);
     }
   });
 
-  ipcMain.on('playlist:saved-and-close', (event) => {
+  ipcMain.on(PLAYLIST_WINDOW_CHANNELS.savedAndClose, (event) => {
+    if (!isSenderPlaylistWindow(event.sender)) {
+      return;
+    }
+
     const sender = event.sender;
     const playlistWindows = getPlaylistWindows();
     for (const [windowId, info] of playlistWindows) {
@@ -82,9 +122,13 @@ export const registerPlaylistHandlers = (): void => {
   });
 
   ipcMain.handle(
-    'playlist:save-file',
-    async (event, playlist: Playlist): Promise<string | null> => {
+    PLAYLIST_WINDOW_CHANNELS.saveFile,
+    async (event, playlist: unknown): Promise<string | null> => {
       try {
+        if (!isSenderPlaylistWindow(event.sender) || !isPlaylist(playlist)) {
+          return null;
+        }
+
         const windowInfo = getWindowInfoBySender(event.sender);
         let targetPath = windowInfo?.filePath;
 
@@ -127,9 +171,13 @@ export const registerPlaylistHandlers = (): void => {
   );
 
   ipcMain.handle(
-    'playlist:save-file-as',
-    async (event, playlist: Playlist): Promise<string | null> => {
+    PLAYLIST_WINDOW_CHANNELS.saveFileAs,
+    async (event, playlist: unknown): Promise<string | null> => {
       try {
+        if (!isSenderPlaylistWindow(event.sender) || !isPlaylist(playlist)) {
+          return null;
+        }
+
         const windowInfo = getWindowInfoBySender(event.sender);
         const currentPath = windowInfo?.filePath;
         const defaultName = currentPath
@@ -181,13 +229,17 @@ export const registerPlaylistHandlers = (): void => {
   );
 
   ipcMain.handle(
-    'playlist:load-file',
+    PLAYLIST_WINDOW_CHANNELS.loadFile,
     async (
       event,
-      givenPath?: string,
-    ): Promise<{ playlist: Playlist; filePath: string } | null> => {
+      givenPath?: unknown,
+    ): Promise<PlaylistFileLoadResult | null> => {
       try {
-        let targetPath = givenPath;
+        if (!getValidatedEventSenderWindow(event)) {
+          return null;
+        }
+
+        let targetPath = typeof givenPath === 'string' ? givenPath : undefined;
         if (!targetPath) {
           const { filePaths } = await dialog.showOpenDialog({
             title: 'プレイリストを開く',
@@ -223,6 +275,17 @@ export const registerPlaylistHandlers = (): void => {
         );
         return null;
       }
+    },
+  );
+
+  ipcMain.on(
+    PLAYLIST_WINDOW_CHANNELS.setWindowTitle,
+    (event, title: unknown) => {
+      if (!isSenderPlaylistWindow(event.sender) || typeof title !== 'string') {
+        return;
+      }
+
+      setPlaylistWindowTitleForSender(event.sender, title);
     },
   );
 };

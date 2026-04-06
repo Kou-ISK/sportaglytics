@@ -3,9 +3,20 @@ import type { IElectronAPI } from '../../../src/renderer';
 import type {
   Playlist,
   PlaylistCommand,
+  PlaylistFileLoadResult,
   PlaylistItem,
+  PlaylistSaveProgressPayload,
   PlaylistSyncData,
 } from '../../../src/types/Playlist';
+import {
+  PLAYLIST_WINDOW_CHANNELS,
+  isPlaylist,
+  isPlaylistCommand,
+  isPlaylistFileLoadResult,
+  isPlaylistItem,
+  isPlaylistSaveProgressPayload,
+  isPlaylistSyncData,
+} from '../../../src/types/ipc/playlistWindow';
 import {
   getMappedListener,
   removeMappedListener,
@@ -22,44 +33,52 @@ export const createPlaylistBridge = (
   const playlistBridge = {
     playlist: {
       openWindow: async () => {
-        await ipcRenderer.invoke('playlist:open-window');
+        await ipcRenderer.invoke(PLAYLIST_WINDOW_CHANNELS.openWindow);
       },
       closeWindow: async () => {
-        await ipcRenderer.invoke('playlist:close-window');
+        await ipcRenderer.invoke(PLAYLIST_WINDOW_CHANNELS.closeWindow);
       },
       isWindowOpen: async (): Promise<boolean> => {
-        return await ipcRenderer.invoke('playlist:is-window-open');
+        return await ipcRenderer.invoke(PLAYLIST_WINDOW_CHANNELS.isWindowOpen);
       },
       syncToWindow: (data: PlaylistSyncData) => {
-        ipcRenderer.send('playlist:sync-to-window', data);
+        if (!isPlaylistSyncData(data)) {
+          console.warn('Invalid playlist sync payload rejected in preload');
+          return;
+        }
+        ipcRenderer.send(PLAYLIST_WINDOW_CHANNELS.syncToWindow, data);
       },
       onCommand: (callback: (command: PlaylistCommand) => void) => {
         const wrapped = (...rawArgs: unknown[]) => {
           const [, command] = rawArgs as [IpcRendererEvent, PlaylistCommand];
+          if (!isPlaylistCommand(command)) {
+            console.warn('Invalid playlist command received in preload');
+            return;
+          }
           callback(command);
         };
         setMappedListener(
           listenerStore,
-          'playlist:command',
+          PLAYLIST_WINDOW_CHANNELS.command,
           callback,
           wrapped,
         );
-        ipcRenderer.on('playlist:command', wrapped);
+        ipcRenderer.on(PLAYLIST_WINDOW_CHANNELS.command, wrapped);
       },
       offCommand: (callback: (command: PlaylistCommand) => void) => {
         const wrapped = getMappedListener(
           listenerStore,
-          'playlist:command',
+          PLAYLIST_WINDOW_CHANNELS.command,
           callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener('playlist:command', wrapped);
+        ipcRenderer.removeListener(PLAYLIST_WINDOW_CHANNELS.command, wrapped);
         removeMappedListener(
           listenerStore,
-          'playlist:command',
+          PLAYLIST_WINDOW_CHANNELS.command,
           callback,
         );
       },
@@ -67,126 +86,172 @@ export const createPlaylistBridge = (
         const wrapped = () => callback();
         setMappedListener(
           listenerStore,
-          'playlist:window-closed',
+          PLAYLIST_WINDOW_CHANNELS.windowClosed,
           callback,
           wrapped,
         );
-        ipcRenderer.on('playlist:window-closed', wrapped);
+        ipcRenderer.on(PLAYLIST_WINDOW_CHANNELS.windowClosed, wrapped);
       },
       offWindowClosed: (callback: () => void) => {
         const wrapped = getMappedListener(
           listenerStore,
-          'playlist:window-closed',
+          PLAYLIST_WINDOW_CHANNELS.windowClosed,
           callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener('playlist:window-closed', wrapped);
+        ipcRenderer.removeListener(PLAYLIST_WINDOW_CHANNELS.windowClosed, wrapped);
         removeMappedListener(
           listenerStore,
-          'playlist:window-closed',
+          PLAYLIST_WINDOW_CHANNELS.windowClosed,
           callback,
         );
       },
       onSync: (callback: (data: PlaylistSyncData) => void) => {
         const wrapped = (...rawArgs: unknown[]) => {
           const [, data] = rawArgs as [IpcRendererEvent, PlaylistSyncData];
+          if (!isPlaylistSyncData(data)) {
+            console.warn('Invalid playlist sync payload received in preload');
+            return;
+          }
           callback(data);
         };
         setMappedListener(
           listenerStore,
-          'playlist:sync',
+          PLAYLIST_WINDOW_CHANNELS.sync,
           callback,
           wrapped,
         );
-        ipcRenderer.on('playlist:sync', wrapped);
+        ipcRenderer.on(PLAYLIST_WINDOW_CHANNELS.sync, wrapped);
       },
       offSync: (callback: (data: PlaylistSyncData) => void) => {
         const wrapped = getMappedListener(
           listenerStore,
-          'playlist:sync',
+          PLAYLIST_WINDOW_CHANNELS.sync,
           callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener('playlist:sync', wrapped);
+        ipcRenderer.removeListener(PLAYLIST_WINDOW_CHANNELS.sync, wrapped);
         removeMappedListener(
           listenerStore,
-          'playlist:sync',
+          PLAYLIST_WINDOW_CHANNELS.sync,
           callback,
         );
       },
       sendCommand: (command: PlaylistCommand) => {
-        ipcRenderer.send('playlist:command', command);
+        if (!isPlaylistCommand(command)) {
+          console.warn('Invalid playlist command rejected in preload');
+          return;
+        }
+        ipcRenderer.send(PLAYLIST_WINDOW_CHANNELS.command, command);
       },
       savePlaylistFile: async (playlist: Playlist): Promise<string | null> => {
-        return await ipcRenderer.invoke('playlist:save-file', playlist);
+        if (!isPlaylist(playlist)) {
+          console.warn('Invalid playlist payload rejected in preload');
+          return null;
+        }
+        return await ipcRenderer.invoke(PLAYLIST_WINDOW_CHANNELS.saveFile, playlist);
       },
       savePlaylistFileAs: async (playlist: Playlist): Promise<string | null> => {
-        return await ipcRenderer.invoke('playlist:save-file-as', playlist);
+        if (!isPlaylist(playlist)) {
+          console.warn('Invalid playlist payload rejected in preload');
+          return null;
+        }
+        return await ipcRenderer.invoke(PLAYLIST_WINDOW_CHANNELS.saveFileAs, playlist);
       },
       loadPlaylistFile: async (
         filePath?: string,
-      ): Promise<{ playlist: Playlist; filePath: string } | null> => {
-        return await ipcRenderer.invoke('playlist:load-file', filePath);
+      ): Promise<PlaylistFileLoadResult | null> => {
+        const result = await ipcRenderer.invoke(
+          PLAYLIST_WINDOW_CHANNELS.loadFile,
+          filePath,
+        );
+        return isPlaylistFileLoadResult(result) ? result : null;
       },
       onExternalOpen: (callback: (filePath: string) => void) => {
         const wrapped = (_: unknown, path: string) => callback(path);
-        ipcRenderer.on('playlist:external-open', wrapped);
+        ipcRenderer.on(PLAYLIST_WINDOW_CHANNELS.externalOpen, wrapped);
         return () =>
-          ipcRenderer.removeListener('playlist:external-open', wrapped);
+          ipcRenderer.removeListener(PLAYLIST_WINDOW_CHANNELS.externalOpen, wrapped);
       },
       onSaveProgress: (
-        callback: (data: { current: number; total: number }) => void,
+        callback: (data: PlaylistSaveProgressPayload) => void,
       ) => {
-        const wrapped = (_: unknown, data: { current: number; total: number }) =>
+        const wrapped = (_: unknown, data: PlaylistSaveProgressPayload) => {
+          if (!isPlaylistSaveProgressPayload(data)) {
+            console.warn('Invalid playlist save progress payload received in preload');
+            return;
+          }
           callback(data);
-        ipcRenderer.on('playlist:save-progress', wrapped);
+        };
+        ipcRenderer.on(PLAYLIST_WINDOW_CHANNELS.saveProgress, wrapped);
         return () =>
-          ipcRenderer.removeListener('playlist:save-progress', wrapped);
+          ipcRenderer.removeListener(PLAYLIST_WINDOW_CHANNELS.saveProgress, wrapped);
       },
       getOpenWindowCount: async (): Promise<number> => {
-        return await ipcRenderer.invoke('playlist:get-open-count');
+        return await ipcRenderer.invoke(PLAYLIST_WINDOW_CHANNELS.getOpenCount);
       },
       addItemToAllWindows: async (item: PlaylistItem): Promise<void> => {
-        await ipcRenderer.invoke('playlist:add-item-to-all-windows', item);
+        if (!isPlaylistItem(item)) {
+          console.warn('Invalid playlist item rejected in preload');
+          return;
+        }
+        await ipcRenderer.invoke(PLAYLIST_WINDOW_CHANNELS.addItemToAllWindows, item);
       },
       onAddItem: (callback: (item: PlaylistItem) => void) => {
         const wrapped = (...rawArgs: unknown[]) => {
           const [, item] = rawArgs as [IpcRendererEvent, PlaylistItem];
+          if (!isPlaylistItem(item)) {
+            console.warn('Invalid playlist item received in preload');
+            return;
+          }
           callback(item);
         };
         setMappedListener(
           listenerStore,
-          'playlist:add-item',
+          PLAYLIST_WINDOW_CHANNELS.addItem,
           callback,
           wrapped,
         );
-        ipcRenderer.on('playlist:add-item', wrapped);
+        ipcRenderer.on(PLAYLIST_WINDOW_CHANNELS.addItem, wrapped);
       },
       offAddItem: (callback: (item: PlaylistItem) => void) => {
         const wrapped = getMappedListener(
           listenerStore,
-          'playlist:add-item',
+          PLAYLIST_WINDOW_CHANNELS.addItem,
           callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener('playlist:add-item', wrapped);
+        ipcRenderer.removeListener(PLAYLIST_WINDOW_CHANNELS.addItem, wrapped);
         removeMappedListener(
           listenerStore,
-          'playlist:add-item',
+          PLAYLIST_WINDOW_CHANNELS.addItem,
           callback,
         );
       },
       setWindowTitle: (title: string) => {
-        ipcRenderer.send('playlist:set-window-title', title);
+        if (typeof title !== 'string') {
+          console.warn('Invalid playlist title rejected in preload');
+          return;
+        }
+        ipcRenderer.send(PLAYLIST_WINDOW_CHANNELS.setWindowTitle, title);
+      },
+      onRequestSave: (callback: () => void) => {
+        const wrapped = () => callback();
+        ipcRenderer.on(PLAYLIST_WINDOW_CHANNELS.requestSave, wrapped);
+        return () =>
+          ipcRenderer.removeListener(PLAYLIST_WINDOW_CHANNELS.requestSave, wrapped);
+      },
+      notifySavedAndClose: () => {
+        ipcRenderer.send(PLAYLIST_WINDOW_CHANNELS.savedAndClose);
       },
     },
   } satisfies Pick<IElectronAPI, PlaylistBridgeKeys>;

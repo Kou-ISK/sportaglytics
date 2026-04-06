@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AnalysisView } from '../../../../types/AnalysisView';
 import type { TimelineData } from '../../../../types/TimelineData';
-import type { PlaylistItem } from '../../../../types/Playlist';
-import type { AnalysisWindowSyncPayload } from '../../../../renderer';
+import type { AnalysisAiPlaylistPayload } from '../../../../types/ipc/analysisWindow';
 import { useRawTimelineCsvExport } from '../../analysis/hooks/useRawTimelineCsvExport';
+import {
+  closeAnalysisWindow,
+  sendAnalysisCreateAiPlaylist,
+  sendAnalysisJumpToSegment,
+  subscribeAnalysisWindowSync,
+} from '../gateways/analysisWindowGateway';
 
 interface UseAnalysisWindowControllerResult {
   timeline: TimelineData[];
@@ -13,10 +18,7 @@ interface UseAnalysisWindowControllerResult {
   setAnalysisView: React.Dispatch<React.SetStateAction<AnalysisView>>;
   handleClose: () => void;
   handleJumpToSegment: (segment: TimelineData) => void;
-  handleCreateAiPlaylist: (payload: {
-    name: string;
-    items: PlaylistItem[];
-  }) => Promise<void>;
+  handleCreateAiPlaylist: (payload: AnalysisAiPlaylistPayload) => Promise<void>;
 }
 
 export const useAnalysisWindowController =
@@ -29,12 +31,11 @@ export const useAnalysisWindowController =
     useRawTimelineCsvExport({ timeline });
 
     useEffect(() => {
-      const api = globalThis.window.electronAPI?.analysis;
-      if (!api?.onSync) {
-        return;
-      }
-
-      const handleSync = (payload: AnalysisWindowSyncPayload) => {
+      const handleSync = (payload: {
+        timeline: TimelineData[];
+        teamNames: string[];
+        view?: AnalysisView;
+      }) => {
         if (!payload) {
           return;
         }
@@ -46,29 +47,23 @@ export const useAnalysisWindowController =
         setIsSyncing(false);
       };
 
-      api.onSync(handleSync);
-      return () => api.offSync?.(handleSync);
+      return subscribeAnalysisWindowSync(handleSync);
     }, []);
 
     const handleClose = useCallback(() => {
-      const api = globalThis.window.electronAPI?.analysis;
-      if (api?.closeWindow) {
-        api.closeWindow();
+      if (closeAnalysisWindow()) {
         return;
       }
       globalThis.window.close();
     }, []);
 
     const handleJumpToSegment = useCallback((segment: TimelineData) => {
-      globalThis.window.electronAPI?.analysis?.sendJumpToSegment(segment);
+      sendAnalysisJumpToSegment(segment);
     }, []);
 
     const handleCreateAiPlaylist = useCallback(
-      async (payload: { name: string; items: PlaylistItem[] }) => {
-        if (!globalThis.window.electronAPI?.analysis?.sendCreateAiPlaylist) {
-          return;
-        }
-        globalThis.window.electronAPI.analysis.sendCreateAiPlaylist(payload);
+      async (payload: AnalysisAiPlaylistPayload) => {
+        sendAnalysisCreateAiPlaylist(payload);
       },
       [],
     );

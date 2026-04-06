@@ -39,11 +39,6 @@ export const usePlaylistIpcSync = ({
   setIsDirty,
 }: UsePlaylistIpcSyncParams): void => {
   useEffect(() => {
-    const playlistAPI = globalThis.window.electronAPI?.playlist;
-    if (!playlistAPI) {
-      return;
-    }
-
     const handlePlaylistSync = (
       data: Parameters<typeof buildPlaylistSyncSnapshot>[0],
     ): void => {
@@ -74,7 +69,7 @@ export const usePlaylistIpcSync = ({
 
     let cleanup = (): void => {};
     try {
-      cleanup = registerPlaylistIpcHandlers(playlistAPI, {
+      cleanup = registerPlaylistIpcHandlers({
         onSync: handlePlaylistSync,
         onSaveProgress: handleSaveProgress,
         onAddItem: handleAddItem,

@@ -3,8 +3,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlaylistItem } from '../../../../types/Playlist';
+import type { AnalysisWindowSyncPayload } from '../../../../types/ipc/analysisWindow';
 import type { TimelineData } from '../../../../types/TimelineData';
-import type { AnalysisWindowSyncPayload } from '../../../../renderer';
 import { useAnalysisWindowController } from './useAnalysisWindowController';
 
 const hookMocks = vi.hoisted(() => ({

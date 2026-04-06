@@ -3,6 +3,7 @@ import { existsSync } from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import type { Playlist } from '../../../src/types/Playlist';
+import { PLAYLIST_WINDOW_CHANNELS } from '../../../src/types/ipc/playlistWindow';
 
 const extractVideoSegment = async (
   ffmpegPath: string,
@@ -77,7 +78,7 @@ export const savePlaylistToPath = async (
     const sendProgress = (current: number, total: number): void => {
       const sender = event.sender;
       if (sender && !sender.isDestroyed()) {
-        sender.send('playlist:save-progress', {
+        sender.send(PLAYLIST_WINDOW_CHANNELS.saveProgress, {
           current,
           total,
         });

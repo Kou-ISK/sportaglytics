@@ -1,14 +1,11 @@
 import type {
+  PlaylistFileLoadResult,
   Playlist,
   PlaylistCommand,
   PlaylistItem,
+  PlaylistSaveProgressPayload,
   PlaylistSyncData,
 } from '../../../types/Playlist';
-
-type PlaylistLoadResult = {
-  playlist: Playlist;
-  filePath: string;
-};
 
 const getPlaylistApi = () => globalThis.window.electronAPI?.playlist;
 const noop = (): void => undefined;
@@ -21,7 +18,7 @@ const waitFor = async (ms: number): Promise<void> => {
 
 export const loadPlaylistFile = async (
   filePath?: string,
-): Promise<PlaylistLoadResult | null> => {
+): Promise<PlaylistFileLoadResult | null> => {
   const playlistApi = getPlaylistApi();
   if (!playlistApi) {
     return null;
@@ -184,6 +181,81 @@ export const subscribePlaylistCommand = (
   }
 };
 
+export const subscribePlaylistSync = (
+  callback: (data: PlaylistSyncData) => void,
+): (() => void) => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi) {
+    return noop;
+  }
+
+  try {
+    playlistApi.onSync(callback);
+    return () => {
+      try {
+        playlistApi.offSync(callback);
+      } catch (error: unknown) {
+        console.debug('[PlaylistWindowGateway] offSync failed', error);
+      }
+    };
+  } catch (error: unknown) {
+    console.debug('[PlaylistWindowGateway] onSync failed', error);
+    return noop;
+  }
+};
+
+export const subscribePlaylistSaveProgress = (
+  callback: (data: PlaylistSaveProgressPayload) => void,
+): (() => void) => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi?.onSaveProgress) {
+    return noop;
+  }
+
+  try {
+    return playlistApi.onSaveProgress(callback);
+  } catch (error: unknown) {
+    console.debug('[PlaylistWindowGateway] onSaveProgress failed', error);
+    return noop;
+  }
+};
+
+export const subscribePlaylistAddItem = (
+  callback: (item: PlaylistItem) => void,
+): (() => void) => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi) {
+    return noop;
+  }
+
+  try {
+    playlistApi.onAddItem(callback);
+    return () => {
+      try {
+        playlistApi.offAddItem(callback);
+      } catch (error: unknown) {
+        console.debug('[PlaylistWindowGateway] offAddItem failed', error);
+      }
+    };
+  } catch (error: unknown) {
+    console.debug('[PlaylistWindowGateway] onAddItem failed', error);
+    return noop;
+  }
+};
+
+export const requestPlaylistSync = (): void => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi?.sendCommand) {
+    return;
+  }
+
+  try {
+    playlistApi.sendCommand({ type: 'request-sync' });
+  } catch (error: unknown) {
+    console.debug('[PlaylistWindowGateway] request-sync failed', error);
+  }
+};
+
 export const subscribePlaylistWindowClosed = (
   callback: () => void,
 ): (() => void) => {
@@ -254,15 +326,15 @@ export const subscribePlaylistExternalOpen = (
 export const subscribePlaylistSaveRequest = (
   callback: () => void,
 ): (() => void) => {
-  const electronApi = globalThis.window.electronAPI;
-  if (!electronApi?.onPlaylistRequestSave) {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi?.onRequestSave) {
     return () => undefined;
   }
 
   try {
-    return electronApi.onPlaylistRequestSave(callback);
+    return playlistApi.onRequestSave(callback);
   } catch (error: unknown) {
-    console.debug('[PlaylistWindowGateway] onPlaylistRequestSave failed', error);
+    console.debug('[PlaylistWindowGateway] onRequestSave failed', error);
     return () => undefined;
   }
 };
@@ -297,8 +369,13 @@ export const syncPlaylistDirtyState = (isDirty: boolean): void => {
 };
 
 export const notifyPlaylistSavedAndClose = (): void => {
+  const playlistApi = getPlaylistApi();
+  if (!playlistApi?.notifySavedAndClose) {
+    return;
+  }
+
   try {
-    globalThis.window.electronAPI?.notifyPlaylistSavedAndClose?.();
+    playlistApi.notifySavedAndClose();
   } catch (error: unknown) {
     console.debug(
       '[PlaylistWindowGateway] notifyPlaylistSavedAndClose failed',

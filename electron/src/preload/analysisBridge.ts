@@ -1,9 +1,13 @@
 import type { IpcRenderer, IpcRendererEvent } from 'electron';
-import type {
-  AnalysisWindowSyncPayload,
-  IElectronAPI,
-} from '../../../src/renderer';
-import type { PlaylistItem } from '../../../src/types/Playlist';
+import type { IElectronAPI } from '../../../src/renderer';
+import {
+  ANALYSIS_WINDOW_CHANNELS,
+  isAnalysisAiPlaylistPayload,
+  isAnalysisWindowSyncPayload,
+  isTimelineData,
+  type AnalysisAiPlaylistPayload,
+  type AnalysisWindowSyncPayload,
+} from '../../../src/types/ipc/analysisWindow';
 import type { TimelineData } from '../../../src/types/TimelineData';
 import {
   getMappedListener,
@@ -22,28 +26,32 @@ export const createAnalysisBridge = (
     analysis: {
       openWindow: async () => {
         try {
-          await ipcRenderer.invoke('analysis:open-window');
+          await ipcRenderer.invoke(ANALYSIS_WINDOW_CHANNELS.openWindow);
         } catch (error) {
           console.error('Error opening analysis window:', error);
         }
       },
       closeWindow: async () => {
         try {
-          await ipcRenderer.invoke('analysis:close-window');
+          await ipcRenderer.invoke(ANALYSIS_WINDOW_CHANNELS.closeWindow);
         } catch (error) {
           console.error('Error closing analysis window:', error);
         }
       },
       isWindowOpen: async () => {
         try {
-          return await ipcRenderer.invoke('analysis:is-window-open');
+          return await ipcRenderer.invoke(ANALYSIS_WINDOW_CHANNELS.isWindowOpen);
         } catch (error) {
           console.error('Error checking analysis window state:', error);
           return false;
         }
       },
       syncToWindow: (data: AnalysisWindowSyncPayload) => {
-        ipcRenderer.send('analysis:sync-to-window', data);
+        if (!isAnalysisWindowSyncPayload(data)) {
+          console.warn('Invalid analysis sync payload rejected in preload');
+          return;
+        }
+        ipcRenderer.send(ANALYSIS_WINDOW_CHANNELS.syncToWindow, data);
       },
       onSync: (callback: (data: AnalysisWindowSyncPayload) => void) => {
         const wrapped = (...rawArgs: unknown[]) => {
@@ -51,41 +59,97 @@ export const createAnalysisBridge = (
             IpcRendererEvent,
             AnalysisWindowSyncPayload,
           ];
+          if (!isAnalysisWindowSyncPayload(data)) {
+            console.warn('Invalid analysis sync payload received in preload');
+            return;
+          }
           callback(data);
         };
         setMappedListener(
           listenerStore,
-          'analysis:sync',
+          ANALYSIS_WINDOW_CHANNELS.sync,
           callback,
           wrapped,
         );
-        ipcRenderer.on('analysis:sync', wrapped);
+        ipcRenderer.on(ANALYSIS_WINDOW_CHANNELS.sync, wrapped);
       },
       offSync: (callback: (data: AnalysisWindowSyncPayload) => void) => {
         const wrapped = getMappedListener(
           listenerStore,
-          'analysis:sync',
+          ANALYSIS_WINDOW_CHANNELS.sync,
           callback,
         );
         if (!wrapped) {
           return;
         }
 
-        ipcRenderer.removeListener('analysis:sync', wrapped);
+        ipcRenderer.removeListener(ANALYSIS_WINDOW_CHANNELS.sync, wrapped);
         removeMappedListener(
           listenerStore,
-          'analysis:sync',
+          ANALYSIS_WINDOW_CHANNELS.sync,
           callback,
         );
       },
       sendJumpToSegment: (segment: TimelineData) => {
-        ipcRenderer.send('analysis:jump-to-segment', segment);
+        if (!isTimelineData(segment)) {
+          console.warn('Invalid analysis jump segment rejected in preload');
+          return;
+        }
+        ipcRenderer.send(ANALYSIS_WINDOW_CHANNELS.jumpToSegment, segment);
       },
-      sendCreateAiPlaylist: (payload: {
-        name: string;
-        items: PlaylistItem[];
-      }) => {
-        ipcRenderer.send('analysis:create-ai-playlist', payload);
+      sendCreateAiPlaylist: (payload: AnalysisAiPlaylistPayload) => {
+        if (!isAnalysisAiPlaylistPayload(payload)) {
+          console.warn('Invalid analysis AI playlist payload rejected in preload');
+          return;
+        }
+        ipcRenderer.send(ANALYSIS_WINDOW_CHANNELS.createAiPlaylist, payload);
+      },
+      onJumpToSegment: (callback: (segment: TimelineData) => void) => {
+        const wrapped = (...rawArgs: unknown[]) => {
+          const [, segment] = rawArgs as [IpcRendererEvent, TimelineData];
+          if (!isTimelineData(segment)) {
+            console.warn('Invalid analysis jump segment received in preload');
+            return;
+          }
+          callback(segment);
+        };
+        ipcRenderer.on(ANALYSIS_WINDOW_CHANNELS.jumpToSegment, wrapped);
+        return () =>
+          ipcRenderer.removeListener(ANALYSIS_WINDOW_CHANNELS.jumpToSegment, wrapped);
+      },
+      onCreateAiPlaylist: (
+        callback: (payload: AnalysisAiPlaylistPayload) => void,
+      ) => {
+        const wrapped = (...rawArgs: unknown[]) => {
+          const [, payload] = rawArgs as [IpcRendererEvent, AnalysisAiPlaylistPayload];
+          if (!isAnalysisAiPlaylistPayload(payload)) {
+            console.warn('Invalid analysis AI playlist payload received in preload');
+            return;
+          }
+          callback(payload);
+        };
+        ipcRenderer.on(ANALYSIS_WINDOW_CHANNELS.createAiPlaylist, wrapped);
+        return () =>
+          ipcRenderer.removeListener(
+            ANALYSIS_WINDOW_CHANNELS.createAiPlaylist,
+            wrapped,
+          );
+      },
+      onDashboardExternalOpen: (callback: (filePath: string) => void) => {
+        const wrapped = (...rawArgs: unknown[]) => {
+          const [, filePath] = rawArgs as [IpcRendererEvent, unknown];
+          if (typeof filePath !== 'string' || filePath.length === 0) {
+            console.warn('Invalid analysis dashboard path received in preload');
+            return;
+          }
+          callback(filePath);
+        };
+        ipcRenderer.on(ANALYSIS_WINDOW_CHANNELS.dashboardExternalOpen, wrapped);
+        return () =>
+          ipcRenderer.removeListener(
+            ANALYSIS_WINDOW_CHANNELS.dashboardExternalOpen,
+            wrapped,
+          );
       },
     },
     llama: {
