@@ -2,8 +2,8 @@ import { BrowserWindow, dialog } from 'electron';
 import * as path from 'path';
 import type {
   PlaylistItem,
-  PlaylistSyncData,
-} from '../../../src/types/Playlist';
+} from '../../../src/types/playlist/core';
+import type { PlaylistSyncData } from '../../../src/types/playlist/window';
 import { PLAYLIST_WINDOW_CHANNELS } from '../../../src/types/ipc/playlistWindow';
 import { applyWindowSecurity } from '../windowSecurity';
 import {

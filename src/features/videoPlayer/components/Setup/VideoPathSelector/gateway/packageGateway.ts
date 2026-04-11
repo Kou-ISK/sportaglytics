@@ -141,17 +141,18 @@ export const readPackageTeamNames = async (
 
 export const subscribeToPackageDirectoryOpen = (
   callback: (dirPath: string) => void,
-): (() => void) | undefined =>
-  globalThis.window.electronAPI?.onPackageDirectoryOpen?.(callback);
+): (() => void) => {
+  return globalThis.window.electronAPI?.onPackageDirectoryOpen?.(callback) ?? (() => undefined);
+};
 
-export const subscribeToOpenPackage = (callback: () => void): void => {
-  globalThis.window.electronAPI?.onOpenPackage?.(callback);
+export const subscribeToOpenPackage = (callback: () => void): (() => void) => {
+  return globalThis.window.electronAPI?.onOpenPackage?.(callback) ?? (() => undefined);
 };
 
 export const subscribeToOpenRecentPackage = (
   callback: (path: string) => void,
-): void => {
-  globalThis.window.electronAPI?.onOpenRecentPackage?.(callback);
+): (() => void) => {
+  return globalThis.window.electronAPI?.onOpenRecentPackage?.(callback) ?? (() => undefined);
 };
 
 export const toPackageLoadErrorMessage = (error: unknown): string => {

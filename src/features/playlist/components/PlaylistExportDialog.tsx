@@ -15,18 +15,14 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
+import type {
+  ClipExportAngleOption as AngleOption,
+  ClipExportMode as ExportMode,
+  ClipExportOverlaySettings as OverlaySettings,
+  ClipExportScope,
+} from '../../../shared/clipExport/clipExportTypes';
 
-type ExportScope = 'all' | 'selected';
-export type ExportMode = 'single' | 'perInstance' | 'perRow';
-export type AngleOption = 'allAngles' | 'single' | 'multi';
-
-export type OverlaySettings = {
-  enabled: boolean;
-  showActionName: boolean;
-  showActionIndex: boolean;
-  showLabels: boolean;
-  showMemo: boolean;
-};
+export type { AngleOption, ExportMode, OverlaySettings };
 
 type PlaylistExportDialogProps = {
   open: boolean;
@@ -34,8 +30,8 @@ type PlaylistExportDialogProps = {
   onExport: () => void;
   exportFileName: string;
   setExportFileName: (value: string) => void;
-  exportScope: ExportScope;
-  setExportScope: (value: ExportScope) => void;
+  exportScope: ClipExportScope;
+  setExportScope: (value: ClipExportScope) => void;
   selectedItemCount: number;
   exportMode: ExportMode;
   setExportMode: (value: ExportMode) => void;
@@ -85,7 +81,7 @@ export const PlaylistExportDialog = ({
           <RadioGroup
             value={exportScope}
             onChange={(event) =>
-              setExportScope(event.target.value as ExportScope)
+              setExportScope(event.target.value as ClipExportScope)
             }
           >
             <FormControlLabel

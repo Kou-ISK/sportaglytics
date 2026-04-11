@@ -379,14 +379,23 @@ Main IPC handlers (domain modules)
 - playlist / analysis window の renderer 側入口は `window.electronAPI.playlist` / `window.electronAPI.analysis` に限定し、window 専用イベントを top-level API へ散らさない
 - settings の正規化は `src/types/settings/normalizers.ts` の `normalizeAppSettings` を正本とし、main / renderer で同じ補完ロジックを重複させない
 - settings の正規化ロジックは `src/types/settings/normalizerUtils.ts` / `dashboardNormalizers.ts` / `codingPanelNormalizers.ts` に責務分割し、公開窓口は `normalizers.ts` に維持する
+- playlist の共有契約は `src/types/playlist/core.ts` / `window.ts` / `api.ts` に分け、`src/types/Playlist.ts` は公開 facade に留める
+- `src/types` の下位構成は `analysis/`, `timeline/`, `video/`, `package/`, `playlist/`, `settings/`, `ipc/` のようにユースケースで切る
+- `analysis/core.ts` のような抽象ディレクトリ名は優先しない。`view.ts`, `momentum.ts`, `matrix.ts` のように実際の契約名をそのままファイル名に使う
+- root 直下の `src/types/*.ts` は互換 facade とみなし、新規の実体は use-case 配下へ追加する
 - Renderer の複雑な hook は `Controller/Hook -> Gateway/Helper -> View/Domain` に分け、IPC 登録・payload 正規化・state 適用を同一関数へ詰め込まない
 - 例: playlist window は gateway + data/interaction runtime、audio sync は stage helper + orchestration に分割する
 - `App.tsx` は app shell の view switch のみに留め、hash / Electron event / external open は shared hook に抽出する
 - `localStorage` や Electron menu sync は feature hook へ直書きせず、gateway / storage helper に寄せる
 - preload の `on/off` ペアは typed listener store を介して wrapper を管理し、`as unknown as Function` に依存しない
+- menu 系 listener も cleanup 関数を返す typed 登録 API に統一し、`removeAllListeners` を使った singleton listener 上書きは行わない
 - preload の playlist / analysis bridge は outbound / inbound の両方向で payload guard を通し、無効 payload を main / renderer に流さない
 - main process の window 系 handler は `electron/src/ipc/windowSenderGuards.ts` を通して sender を検証し、main window / sub window の送信元境界を明確に分ける
 - shared domain の大きい集計関数は facade と builder 群に分け、stat family 単位で責務を切り出す
+- timeline import/export は gateway と pure service に分け、menu 購読・dialog・serialize/deserialize を 1 hook に詰め込まない
+- clip export の共通契約は `src/shared/clipExport/` に置き、playlist / timeline 両方の source 解決・multi/all-angles 実行・payload 型をそこへ集約する
+- analysis dashboard import/export は controller 直下で I/O しない。dialog / read-write は gateway、JSON parse / 正規化 / ID 重複解消は pure service に分離する
+- Video.js の既存 player 参照と時刻操作は feature 内 adapter に寄せ、hook ごとに独自 cast を持ち込まない
 
 **ローカルファイルアクセス方針**:
 

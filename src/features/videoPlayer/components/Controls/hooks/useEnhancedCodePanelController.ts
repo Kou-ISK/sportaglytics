@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import videojs from 'video.js';
 import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
 import type {
   ActionDefinition,
@@ -18,6 +17,7 @@ import { useCodePanelSettings } from './useCodePanelSettings';
 import { useCodePanelInteractions } from './useCodePanelInteractions';
 import type { EnhancedCodePanelProps } from '../EnhancedCodePanel.types';
 import type { EnhancedCodePanelViewProps } from '../EnhancedCodePanelView';
+import { getVideoJsPlayerCurrentTime } from '../../../shared/videojs/videoJsAdapter';
 
 interface UseEnhancedCodePanelControllerResult {
   triggerAction: (teamName: string, actionName: string) => void;
@@ -93,7 +93,7 @@ export const useEnhancedCodePanelController = ({
     const handler = (checked: boolean) => {
       setActiveMode(checked ? 'label' : 'code');
     };
-    globalThis.window.electronAPI.onToggleLabelMode(handler);
+    return globalThis.window.electronAPI.onToggleLabelMode(handler);
   }, [setActiveMode]);
 
   useEffect(() => {
@@ -121,17 +121,7 @@ export const useEnhancedCodePanelController = ({
   }, [customLayout?.id]);
 
   const getCurrentTime = useCallback((): number | null => {
-    type VjsNamespace = {
-      getPlayer?: (
-        id: string,
-      ) => { currentTime?: () => number | undefined } | undefined;
-    };
-    const ns = videojs as unknown as VjsNamespace;
-    const player = ns.getPlayer?.('video_0');
-    const currentTime = player?.currentTime?.();
-    return typeof currentTime === 'number' && !Number.isNaN(currentTime)
-      ? currentTime
-      : null;
+    return getVideoJsPlayerCurrentTime('video_0');
   }, []);
 
   const completeRecording = useRecordingCompletion({

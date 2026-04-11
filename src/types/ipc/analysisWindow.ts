@@ -1,6 +1,6 @@
-import type { AnalysisView } from '../AnalysisView';
-import type { PlaylistItem } from '../Playlist';
-import type { TimelineData } from '../TimelineData';
+import type { AnalysisView } from '../analysis/view';
+import type { PlaylistItem } from '../playlist/core';
+import type { TimelineData } from '../timeline/core';
 import { isPlaylistItem } from './playlistWindow';
 import {
   isArrayOf,

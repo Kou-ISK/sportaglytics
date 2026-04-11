@@ -56,7 +56,11 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - playlist / analysis window の公開面は `window.electronAPI.playlist` / `window.electronAPI.analysis` に閉じ込め、top-level に window 専用イベント API を増やさない
 - settings の正規化は `src/types/settings/normalizers.ts` の `normalizeAppSettings` を正本とし、main / renderer で重複実装しない
 - settings 正規化の実装詳細は `src/types/settings/normalizerUtils.ts` / `dashboardNormalizers.ts` / `codingPanelNormalizers.ts` に分割し、`normalizers.ts` は facade を維持する
+- playlist の共有契約は `src/types/playlist/` 配下で `core` / `window` / `api` に分割し、`src/types/Playlist.ts` は facade として維持する
+- root 直下の shared type は徐々に廃止し、`src/types/analysis/`, `timeline/`, `video/`, `package/`, `playlist/`, `settings/`, `ipc/` のようにユースケース単位で配置する
+- `analysis/core.ts` のような抽象名は避け、`view.ts`, `momentum.ts`, `matrix.ts` のように実際の概念名で分割する
 - preload は outbound / inbound の両方向で payload guard を通し、無効 payload を main / renderer に流さない
+- menu 系の preload listener も typed listener store を使って cleanup 可能な登録 API に揃え、`removeAllListeners` 前提の singleton listener を置かない
 - ローカルファイル読込で `fetch(filePath)` は使用しない
   - `readJsonFile`
   - `readTextFile`
@@ -67,9 +71,13 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - `TimelineData` は `labels` 中心モデル
 - 旧フィールド `actionType` / `actionResult` は型から削除
 - 旧データは読込時にマイグレーションし、保存時は新形式のみ出力
-- `AnalysisView` は shared 型 (`src/types/AnalysisView.ts`) を利用
+- `AnalysisView` など analysis 系 shared contract は `src/types/analysis/` 配下を正本にし、root の `src/types/AnalysisView.ts` は互換 facade として扱う
 - playlist 同期は `PlaylistSyncData` を正とし、playlist 画面・hooks の契約を統一
 - playlist / analysis window まわりの renderer 側直接依存は gateway に閉じ込め、`src/features/playlist/gateway/playlistWindowGateway.ts` と `src/features/videoPlayer/app/gateways/analysisWindowGateway.ts` を入口に統一する
+- timeline import/export は `src/features/videoPlayer/app/gateways/timelineImportExportGateway.ts` と `src/features/videoPlayer/app/utils/timelineImportExportService.ts` に分離し、menu 購読・file dialog・serialize/deserialize を hook に同居させない
+- clip export は `src/shared/clipExport/` に型・gateway・pure service を集約し、playlist / timeline 側では clip builder と UI state だけを持つ
+- analysis dashboard import/export は `analysisDashboardGateway.ts` と `analysisDashboardImportExportService.ts` に分離し、controller に JSON parse / dialog / read-write を同居させない
+- Video.js 参照は `src/features/videoPlayer/shared/videojs/videoJsAdapter.ts` に集約し、feature 内に `videojs as unknown as ...` を散在させない
 - playlist window の同期 hook は IPC 登録・open state 監視・window open を gateway helper に分離し、hook 本体では state 適用だけを扱う
 - playlist window の runtime は `data runtime` と `interaction runtime` に分け、state 合成と playback/hotkey 合成を分離する
 - プレイリスト追加は `src/features/playlist` の公開 API に集約し、renderer からの個別 IPC 呼び出しを分散させない

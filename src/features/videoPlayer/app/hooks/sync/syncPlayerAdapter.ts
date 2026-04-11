@@ -1,25 +1,13 @@
-import videojs from 'video.js';
 import type { VideoSyncData } from '../../../../../types/VideoSync';
-
-type VideoJsSyncPlayer = {
-  currentTime?: (time?: number) => number | void;
-  pause?: () => void;
-};
-
-type VideoJsNamespace = {
-  getPlayer?: (id: string) => VideoJsSyncPlayer | undefined;
-};
-
-const getVideoJsNamespace = (): VideoJsNamespace => {
-  return videojs as unknown as VideoJsNamespace;
-};
+import {
+  getVideoJsPlayer,
+  getVideoJsPlayerCurrentTime,
+  setVideoJsPlayerCurrentTime,
+} from '../../../shared/videojs/videoJsAdapter';
 
 const getPlayerTime = (id: string): number => {
   try {
-    const currentTime = getVideoJsNamespace().getPlayer?.(id)?.currentTime?.();
-    return typeof currentTime === 'number' && !Number.isNaN(currentTime)
-      ? currentTime
-      : 0;
+    return getVideoJsPlayerCurrentTime(id) ?? 0;
   } catch {
     return 0;
   }
@@ -45,7 +33,7 @@ export const syncPlayersToGlobalTime = (
   currentGlobalTime: number,
 ): void => {
   videoList.forEach((_, index) => {
-    const player = getVideoJsNamespace().getPlayer?.(`video_${index}`);
+    const player = getVideoJsPlayer(`video_${index}`);
     if (!player) {
       return;
     }
@@ -58,6 +46,6 @@ export const syncPlayersToGlobalTime = (
     );
 
     player.pause?.();
-    player.currentTime?.(targetTime);
+    setVideoJsPlayerCurrentTime(player, targetTime);
   });
 };

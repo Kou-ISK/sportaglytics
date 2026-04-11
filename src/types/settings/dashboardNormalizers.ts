@@ -1,4 +1,4 @@
-import type { MatrixAxisConfig } from '../MatrixConfig';
+import type { MatrixAxisConfig } from '../analysis/matrix';
 import type {
   AnalysisDashboard,
   AnalysisDashboardConfig,
@@ -247,7 +247,9 @@ const normalizeDashboardWidget = (
   return stripTeamFilters(normalized);
 };
 
-const normalizeDashboards = (dashboards: unknown[]): AnalysisDashboard[] => {
+export const normalizeDashboardList = (
+  dashboards: unknown[],
+): AnalysisDashboard[] => {
   return dashboards
     .filter(isPlainObject)
     .filter((item) => item.id !== 'default')
@@ -294,7 +296,7 @@ export const normalizeAnalysisDashboard = (
       return createDefaultAnalysisDashboard();
     }
 
-    const normalizedDashboards = normalizeDashboards(dashboards);
+    const normalizedDashboards = normalizeDashboardList(dashboards);
     const hasTemplate = normalizedDashboards.some(
       (item) => item.id === 'template-basic',
     );

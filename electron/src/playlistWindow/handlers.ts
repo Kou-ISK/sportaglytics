@@ -1,6 +1,6 @@
 import { dialog, ipcMain } from 'electron';
 import * as path from 'path';
-import type { PlaylistFileLoadResult } from '../../../src/types/Playlist';
+import type { PlaylistFileLoadResult } from '../../../src/types/playlist/core';
 import {
   PLAYLIST_WINDOW_CHANNELS,
   isPlaylist,

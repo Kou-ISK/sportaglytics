@@ -1,5 +1,10 @@
 import React from 'react';
 import { TimelineData } from '../../../../../types/TimelineData';
+import type {
+  ClipExportAngleOption,
+  ClipExportMode,
+  ClipExportScope,
+} from '../../../../../shared/clipExport/clipExportTypes';
 import { TimelineEditDialog, TimelineEditDraft } from './TimelineEditDialog';
 import { TimelineContextMenu } from './TimelineContextMenu';
 import { TimelineLabelDialog } from './TimelineLabelDialog';
@@ -31,18 +36,14 @@ interface TimelineDialogsProps {
   clipDialogOpen: boolean;
   onCloseClipDialog: () => void;
   onExportClips: () => void;
-  exportScope: 'selected' | 'all';
-  setExportScope: React.Dispatch<React.SetStateAction<'selected' | 'all'>>;
-  exportMode: 'single' | 'perInstance' | 'perRow';
-  setExportMode: React.Dispatch<
-    React.SetStateAction<'single' | 'perInstance' | 'perRow'>
-  >;
+  exportScope: ClipExportScope;
+  setExportScope: React.Dispatch<React.SetStateAction<ClipExportScope>>;
+  exportMode: ClipExportMode;
+  setExportMode: React.Dispatch<React.SetStateAction<ClipExportMode>>;
   exportFileName: string;
   setExportFileName: React.Dispatch<React.SetStateAction<string>>;
-  angleOption: 'allAngles' | 'single' | 'multi';
-  setAngleOption: React.Dispatch<
-    React.SetStateAction<'allAngles' | 'single' | 'multi'>
-  >;
+  angleOption: ClipExportAngleOption;
+  setAngleOption: React.Dispatch<React.SetStateAction<ClipExportAngleOption>>;
   selectedAngleIndex: number;
   setSelectedAngleIndex: React.Dispatch<React.SetStateAction<number>>;
   videoSources?: string[];

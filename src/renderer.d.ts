@@ -1,12 +1,16 @@
 import type {
   IPlaylistAPI,
-} from './types/Playlist';
+} from './types/playlist/api';
 import type { AnalysisView } from './types/AnalysisView';
 import type { AnalysisReportPayload } from './report/types';
 import type { AppSettings } from './types/Settings';
 import type {
   IAnalysisWindowAPI,
 } from './types/ipc/analysisWindow';
+import type {
+  ClipExportExecutionResult,
+  ClipExportPayload,
+} from './shared/clipExport/clipExportTypes';
 
 export interface LlamaModelInfo {
   name: string;
@@ -69,7 +73,7 @@ export interface IElectronAPI {
   ) => Promise<boolean>;
   setManualModeChecked: (checked: boolean) => Promise<boolean>;
   setLabelModeChecked: (checked: boolean) => Promise<boolean>;
-  onToggleLabelMode: (callback: (checked: boolean) => void) => void;
+  onToggleLabelMode: (callback: (checked: boolean) => void) => () => void;
   convertConfigToRelativePath: (packagePath: string) => Promise<{
     success: boolean;
     config?: Record<string, unknown>;
@@ -112,35 +116,9 @@ export interface IElectronAPI {
     offProgress: (callback: (payload: unknown) => void) => void;
   };
   setWindowTitle: (title: string) => void;
-  exportClipsWithOverlay?: (payload: {
-    sourcePath: string;
-    sourcePath2?: string;
-    mode?: 'single' | 'dual';
-    exportMode?: 'single' | 'perInstance' | 'perRow';
-    angleOption?: 'allAngles' | 'single' | 'multi';
-    outputDir?: string;
-    outputFileName?: string;
-    clips: Array<{
-      id: string;
-      actionName: string;
-      startTime: number;
-      endTime: number;
-      freezeAt?: number | null;
-      freezeDuration?: number;
-      labels?: { group: string; name: string }[];
-      memo?: string;
-      actionIndex?: number;
-      annotationPngPrimary?: string | null;
-      annotationPngSecondary?: string | null;
-    }>;
-    overlay: {
-      enabled: boolean;
-      showActionName: boolean;
-      showActionIndex: boolean;
-      showLabels: boolean;
-      showMemo: boolean;
-    };
-  }) => Promise<{ success: boolean; error?: string }>;
+  exportClipsWithOverlay?: (
+    payload: ClipExportPayload,
+  ) => Promise<ClipExportExecutionResult>;
   saveFileDialog: (
     defaultPath: string,
     filters: { name: string; extensions: string[] }[],
@@ -174,11 +152,11 @@ export interface IElectronAPI {
     content: string,
   ) => Promise<boolean>;
   readDashboardPackage: (packagePath: string) => Promise<string | null>;
-  onExportTimeline: (callback: (format: string) => void) => void;
-  onImportTimeline: (callback: () => void) => void;
-  onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => void;
-  onOpenPackage: (callback: () => void) => void;
-  onOpenRecentPackage: (callback: (path: string) => void) => void;
+  onExportTimeline: (callback: (format: string) => void) => () => void;
+  onImportTimeline: (callback: () => void) => () => void;
+  onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => () => void;
+  onOpenPackage: (callback: () => void) => () => void;
+  onOpenRecentPackage: (callback: (path: string) => void) => () => void;
   updateRecentPackages: (paths: string[]) => void;
   // プレイリストAPI
   playlist: IPlaylistAPI;

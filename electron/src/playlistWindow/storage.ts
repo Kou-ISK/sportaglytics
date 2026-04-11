@@ -2,7 +2,7 @@ import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import type { Playlist } from '../../../src/types/Playlist';
+import type { Playlist } from '../../../src/types/playlist/core';
 import { PLAYLIST_WINDOW_CHANNELS } from '../../../src/types/ipc/playlistWindow';
 
 const extractVideoSegment = async (

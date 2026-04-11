@@ -5,19 +5,24 @@ import type {
   ItemAnnotation,
   PlaylistItem,
 } from '../../../../types/Playlist';
-import type { OverlaySettings } from '../../components/PlaylistExportDialog';
+import type {
+  ClipExportAngleOption,
+  ClipExportMode,
+  ClipExportOverlaySettings,
+  ClipExportScope,
+} from '../../../../shared/clipExport/clipExportTypes';
 import { usePlaylistExport } from './usePlaylistExport';
 
 interface UsePlaylistWindowExportFlowParams {
   items: PlaylistItem[];
   selectedItems: PlaylistItem[];
   videoSources: string[];
-  exportScope: 'all' | 'selected';
-  angleOption: 'allAngles' | 'single' | 'multi';
+  exportScope: ClipExportScope;
+  angleOption: ClipExportAngleOption;
   selectedAngleIndex: number;
-  exportMode: 'single' | 'perInstance' | 'perRow';
+  exportMode: ClipExportMode;
   exportFileName: string;
-  overlaySettings: OverlaySettings;
+  overlaySettings: ClipExportOverlaySettings;
   itemAnnotations: Record<string, ItemAnnotation>;
   minFreezeDuration: number;
   primaryContentRect: {

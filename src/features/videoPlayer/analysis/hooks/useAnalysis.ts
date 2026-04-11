@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { TimelineData } from '../../../../types/TimelineData';
-import { rechartsData } from '../../../../types/RechartsData';
+import type { TimelineData } from '../../../../types/TimelineData';
+import type { RechartsDatum } from '../../../../types/RechartsData';
 import {
   aggregateActionDurations,
   countActions as countActionsAggregate,
@@ -8,19 +8,19 @@ import {
   countActionTypesForTeam,
 } from '../utils/actionAggregations';
 import { createMomentumDataFactory } from '../utils/momentum';
-import { CreateMomentumDataFn } from '../../../../types/Analysis';
+import type { CreateMomentumDataFn } from '../../../../types/Analysis';
 
 interface AnalysisSelectors {
-  calculateActionDuration: () => rechartsData[];
-  countActions: () => rechartsData[];
+  calculateActionDuration: () => RechartsDatum[];
+  countActions: () => RechartsDatum[];
   countActionResultByTeamName: (
     teamName: string,
     actionName: string,
-  ) => rechartsData[];
+  ) => RechartsDatum[];
   countActionTypeByTeamName: (
     teamName: string,
     actionName: string,
-  ) => rechartsData[];
+  ) => RechartsDatum[];
   createMomentumData: CreateMomentumDataFn;
 }
 

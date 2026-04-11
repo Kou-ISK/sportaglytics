@@ -1,6 +1,10 @@
 import { useEffect } from 'react';
-import videojs from 'video.js';
 import type { VideoSyncData } from '../../../../types/VideoSync';
+import {
+  getVideoJsPlayer,
+  getVideoJsPlayerCurrentTime,
+  setVideoJsPlayerCurrentTime,
+} from '../../shared/videojs/videoJsAdapter';
 
 type ManualSyncSeekParams = {
   syncMode: 'auto' | 'manual';
@@ -18,21 +22,15 @@ export const useManualSyncSeek = ({
       const offset = syncData.syncOffset || 0;
 
       try {
-        const vjs = videojs as unknown as {
-          getPlayer?: (
-            id: string,
-          ) => { currentTime?: (time?: number) => number } | undefined;
-        };
-
-        const p0 = vjs.getPlayer?.('video_0');
-        const p1 = vjs.getPlayer?.('video_1');
+        const p0 = getVideoJsPlayer('video_0');
+        const p1 = getVideoJsPlayer('video_1');
 
         if (p0 && p1) {
-          const t0 = p0.currentTime?.() ?? 0;
+          const t0 = getVideoJsPlayerCurrentTime(p0) ?? 0;
           // video_1はoffsetを考慮した位置にシーク
           // t1 = t0 + offset (offset = video_0の時刻に加算してvideo_1の時刻を得る値)
           const t1 = Math.max(0, t0 + offset);
-          p1.currentTime?.(t1);
+          setVideoJsPlayerCurrentTime(p1, t1);
 
           console.log(
             `[手動モード] offsetを考慮したシーク: video_0=${t0.toFixed(3)}s, video_1=${t1.toFixed(3)}s (offset=${offset.toFixed(3)}s)`,

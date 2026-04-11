@@ -152,11 +152,7 @@ export const useVideoControllerController = ({
           if (index > 0) {
             const targetTime = Math.max(0, baseTime + localOffset);
             try {
-              (
-                player as unknown as {
-                  currentTime?: (time?: number) => number;
-                }
-              ).currentTime?.(targetTime);
+              player.currentTime?.(targetTime);
             } catch {
               /* noop */
             }
@@ -190,11 +186,7 @@ export const useVideoControllerController = ({
             if (index > 0) {
               const targetTime = Math.max(0, baseTime - localOffset);
               try {
-                (
-                  player as unknown as {
-                    currentTime?: (time?: number) => number;
-                  }
-                ).currentTime?.(targetTime);
+                player.currentTime?.(targetTime);
               } catch {
                 /* noop */
               }

@@ -2,12 +2,14 @@ import type { IpcRenderer, IpcRendererEvent } from 'electron';
 import type { IElectronAPI } from '../../../src/renderer';
 import type {
   Playlist,
-  PlaylistCommand,
   PlaylistFileLoadResult,
   PlaylistItem,
   PlaylistSaveProgressPayload,
+} from '../../../src/types/playlist/core';
+import type {
+  PlaylistCommand,
   PlaylistSyncData,
-} from '../../../src/types/Playlist';
+} from '../../../src/types/playlist/window';
 import {
   PLAYLIST_WINDOW_CHANNELS,
   isPlaylist,

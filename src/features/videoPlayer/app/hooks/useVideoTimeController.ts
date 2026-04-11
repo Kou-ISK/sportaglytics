@@ -1,24 +1,15 @@
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
-import videojs from 'video.js';
 import type { VideoSyncData } from '../../../../types/VideoSync';
+import {
+  getVideoJsPlayer,
+  setVideoJsPlayerCurrentTime,
+} from '../../shared/videojs/videoJsAdapter';
 
 type UseVideoTimeControllerParams = {
   videoList: string[];
   syncData: VideoSyncData | undefined;
   syncMode: 'auto' | 'manual';
-};
-
-type VideoJsPlayer = {
-  el?: () => Element | null;
-  isDisposed?: () => boolean;
-  error?: () => unknown;
-  duration?: () => number | undefined;
-  currentTime?: (time?: number) => number | undefined;
-};
-
-type VideoJsNamespace = {
-  getPlayer?: (id: string) => VideoJsPlayer | undefined;
 };
 
 const getMinAllowedGlobalTime = (
@@ -59,11 +50,9 @@ const seekEachPlayer = ({
   syncData: VideoSyncData | undefined;
   isManualMode: boolean;
 }): void => {
-  const namespace = videojs as unknown as VideoJsNamespace;
-
   videoList.forEach((_, index) => {
     try {
-      const player = namespace.getPlayer?.(`video_${index}`);
+      const player = getVideoJsPlayer(`video_${index}`);
       if (
         !player ||
         !player.el?.() ||
@@ -95,7 +84,7 @@ const seekEachPlayer = ({
       }
 
       try {
-        player.currentTime?.(targetTime);
+        setVideoJsPlayerCurrentTime(player, targetTime);
       } catch (seekError) {
         console.debug(`Failed to seek video_${index}:`, seekError);
       }

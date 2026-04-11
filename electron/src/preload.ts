@@ -27,7 +27,7 @@ try {
 }
 
 const electronAPI = {
-  ...createAppBridge(ipcRenderer),
+  ...createAppBridge(ipcRenderer, registerListener),
   ...createEventBridge(registerListener, listenerStore),
   ...createSettingsBridge(ipcRenderer, listenerStore),
   ...createAnalysisBridge(ipcRenderer, listenerStore),

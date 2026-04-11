@@ -1,4 +1,1 @@
-export type rechartsData = {
-  name: string;
-  value: number;
-};
+export type { RechartsDatum } from './analysis/chart';

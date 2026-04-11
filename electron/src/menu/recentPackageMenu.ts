@@ -8,8 +8,7 @@ export const setRecentPackagePaths = (paths: string[]) => {
 
 const getRecentDocs = (): string[] => {
   if (recentPackagePaths.length) return recentPackagePaths;
-  const fn = (app as unknown as { getRecentDocuments?: () => string[] })
-    .getRecentDocuments;
+  const fn = Reflect.get(app, 'getRecentDocuments');
   if (typeof fn === 'function') return fn();
   return [];
 };

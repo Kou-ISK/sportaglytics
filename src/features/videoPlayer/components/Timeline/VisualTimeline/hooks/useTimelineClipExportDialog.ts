@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { TimelineData } from '../../../../../../types/TimelineData';
 import {
+  canExportClipsWithOverlay,
+  exportClipsWithOverlay,
+  loadClipOverlaySettings,
+} from '../../../../../../shared/clipExport/clipExportGateway';
+import {
+  executeClipExport,
+  resolveClipExportSourceSelection,
+  validateClipExportSources,
+} from '../../../../../../shared/clipExport/clipExportService';
+import {
+  DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
+  type ClipExportAngleOption,
+  type ClipExportMode,
+  type ClipExportOverlaySettings,
+  type ClipExportScope,
+} from '../../../../../../shared/clipExport/clipExportTypes';
+import {
   buildExportClips,
-  normalizeVideoSource,
   resolveExportSourceItems,
-  resolveMultiAngleSources,
-  resolveSingleOrMultiSourcePath,
-  type OverlaySettings,
-  validateExportSources,
 } from './timelineExportHelpers';
 
 interface UseTimelineClipExportDialogParams {
@@ -17,36 +29,53 @@ interface UseTimelineClipExportDialogParams {
   info: (message: string) => void;
 }
 
+interface UseTimelineClipExportDialogResult {
+  clipDialogOpen: boolean;
+  setClipDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isExporting: boolean;
+  overlaySettings: ClipExportOverlaySettings;
+  setOverlaySettings: React.Dispatch<
+    React.SetStateAction<ClipExportOverlaySettings>
+  >;
+  primarySource: string | undefined;
+  setPrimarySource: React.Dispatch<React.SetStateAction<string | undefined>>;
+  secondarySource: string | undefined;
+  setSecondarySource: React.Dispatch<React.SetStateAction<string | undefined>>;
+  exportScope: ClipExportScope;
+  setExportScope: React.Dispatch<React.SetStateAction<ClipExportScope>>;
+  exportMode: ClipExportMode;
+  setExportMode: React.Dispatch<React.SetStateAction<ClipExportMode>>;
+  angleOption: ClipExportAngleOption;
+  setAngleOption: React.Dispatch<React.SetStateAction<ClipExportAngleOption>>;
+  selectedAngleIndex: number;
+  setSelectedAngleIndex: React.Dispatch<React.SetStateAction<number>>;
+  exportFileName: string;
+  setExportFileName: React.Dispatch<React.SetStateAction<string>>;
+  handleExportClips: () => Promise<void>;
+}
+
 export const useTimelineClipExportDialog = ({
   timeline,
   selectedIds,
   videoSources,
   info,
-}: UseTimelineClipExportDialogParams) => {
+}: UseTimelineClipExportDialogParams): UseTimelineClipExportDialogResult => {
   const [clipDialogOpen, setClipDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [overlaySettings, setOverlaySettings] = useState<OverlaySettings>({
-    enabled: true,
-    showActionName: true,
-    showActionIndex: true,
-    showLabels: true,
-    showMemo: true,
-  });
+  const [overlaySettings, setOverlaySettings] = useState<ClipExportOverlaySettings>(
+    DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
+  );
   const [primarySource, setPrimarySource] = useState<string | undefined>(
     videoSources?.[0],
   );
   const [secondarySource, setSecondarySource] = useState<string | undefined>(
     videoSources?.[1],
   );
-  const [exportScope, setExportScope] = useState<'selected' | 'all'>(
+  const [exportScope, setExportScope] = useState<ClipExportScope>(
     selectedIds.length > 0 ? 'selected' : 'all',
   );
-  const [exportMode, setExportMode] = useState<
-    'single' | 'perInstance' | 'perRow'
-  >('single');
-  const [angleOption, setAngleOption] = useState<
-    'allAngles' | 'single' | 'multi'
-  >('single');
+  const [exportMode, setExportMode] = useState<ClipExportMode>('single');
+  const [angleOption, setAngleOption] = useState<ClipExportAngleOption>('single');
   const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
 
@@ -71,38 +100,31 @@ export const useTimelineClipExportDialog = ({
   }, [videoSources]);
 
   const handleOpenClipDialog = useCallback(async () => {
-    try {
-      const settings = await globalThis.window.electronAPI?.loadSettings?.();
-      if (settings?.overlayClip) {
-        setOverlaySettings((prev) => ({
-          ...prev,
-          ...settings.overlayClip,
-        }));
-      }
-    } catch (error) {
-      console.debug('[useTimelineClipExportDialog] loadSettings error', error);
+    const settings = await loadClipOverlaySettings();
+    if (settings) {
+      setOverlaySettings(settings);
     }
     setClipDialogOpen(true);
   }, []);
 
   const handleExportClips = useCallback(async () => {
-    if (!globalThis.window.electronAPI?.exportClipsWithOverlay) {
+    if (!canExportClipsWithOverlay()) {
       info('クリップ書き出しAPIが利用できません');
       setClipDialogOpen(false);
       return;
     }
 
-    const resolvedMultiSources = resolveMultiAngleSources(
+    const resolvedSources = resolveClipExportSourceSelection(
       videoSources,
       primarySource,
       secondarySource,
     );
 
-    const sourceValidationError = validateExportSources({
+    const sourceValidationError = validateClipExportSources({
       angleOption,
       videoSources,
       selectedAngleIndex,
-      resolvedMultiSources,
+      resolvedSources,
     });
     if (sourceValidationError) {
       info(sourceValidationError);
@@ -126,70 +148,27 @@ export const useTimelineClipExportDialog = ({
     });
 
     setIsExporting(true);
-
-    if (angleOption === 'allAngles') {
-      let allSuccess = true;
-      for (let i = 0; i < videoSources!.length; i += 1) {
-        const result =
-          await globalThis.window.electronAPI.exportClipsWithOverlay({
-            sourcePath: videoSources![i],
-            sourcePath2: undefined,
-            mode: 'single',
-            exportMode,
-            angleOption: 'single',
-            clips,
-            overlay: overlaySettings,
-            outputFileName: exportFileName.trim()
-              ? `${exportFileName.trim()}_angle${i + 1}`
-              : undefined,
-          });
-        if (!result?.success) {
-          allSuccess = false;
-          info(result?.error || `アングル${i + 1}の書き出しに失敗しました`);
-          break;
-        }
-      }
-      setIsExporting(false);
-      if (allSuccess) {
-        info(`全${videoSources!.length}アングルの書き出しが完了しました`);
-        setClipDialogOpen(false);
-      }
-      return;
-    }
-
-    const sourcePathForExport = resolveSingleOrMultiSourcePath({
-      angleOption,
-      videoSources,
-      selectedAngleIndex,
-      resolvedMultiSources,
-    });
-    if (!sourcePathForExport) {
-      info('書き出し対象の映像ソースが見つかりません');
-      setIsExporting(false);
-      return;
-    }
-
-    const result = await globalThis.window.electronAPI.exportClipsWithOverlay({
-      sourcePath: sourcePathForExport,
-      sourcePath2:
-        angleOption === 'multi'
-          ? normalizeVideoSource(resolvedMultiSources.sourcePath2)
-          : undefined,
-      mode: angleOption === 'multi' ? 'dual' : 'single',
-      exportMode,
-      angleOption,
+    const result = await executeClipExport({
+      executeExport: exportClipsWithOverlay,
       clips,
+      videoSources,
+      angleOption,
+      selectedAngleIndex,
+      resolvedSources,
+      exportMode,
+      exportFileName,
       overlay: overlaySettings,
-      outputFileName: exportFileName.trim() || undefined,
+      successMessage: 'クリップを書き出しました',
     });
-
     setIsExporting(false);
-    if (result?.success) {
-      info('クリップを書き出しました');
+
+    if (result.success) {
+      info(result.message);
       setClipDialogOpen(false);
       return;
     }
-    info(result?.error || 'クリップ書き出しに失敗しました');
+
+    info(result.message);
   }, [
     angleOption,
     exportFileName,

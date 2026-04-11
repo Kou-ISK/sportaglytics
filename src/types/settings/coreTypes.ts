@@ -102,9 +102,9 @@ export interface AnalysisDashboardWidget {
   chartType: DashboardChartType;
   metric: DashboardMetric;
   analysisMode?: DashboardAnalysisMode;
-  primaryAxis: import('../MatrixConfig').MatrixAxisConfig;
+  primaryAxis: import('../analysis/matrix').MatrixAxisConfig;
   seriesEnabled: boolean;
-  seriesAxis: import('../MatrixConfig').MatrixAxisConfig;
+  seriesAxis: import('../analysis/matrix').MatrixAxisConfig;
   colSpan: 4 | 6 | 12;
   limit?: number;
   dataMode?: 'axis' | 'series';

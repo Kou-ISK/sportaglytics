@@ -1,1 +1,1 @@
-export type AnalysisView = 'dashboard' | 'momentum' | 'matrix' | 'ai';
+export type { AnalysisView } from './analysis/view';

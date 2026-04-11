@@ -1,21 +1,52 @@
 import { useCallback, useState } from 'react';
-import type { PlaylistItem, ItemAnnotation, DrawingObject, AnnotationTarget } from '../../../../types/Playlist';
-import type { OverlaySettings } from '../../components/PlaylistExportDialog';
+import type {
+  AnnotationTarget,
+  DrawingObject,
+  ItemAnnotation,
+  PlaylistItem,
+} from '../../../../types/Playlist';
+import {
+  canExportClipsWithOverlay,
+  exportClipsWithOverlay,
+} from '../../../../shared/clipExport/clipExportGateway';
+import {
+  executeClipExport,
+  resolveClipExportSourceSelection,
+  validateClipExportSources,
+} from '../../../../shared/clipExport/clipExportService';
+import type {
+  ClipExportAngleOption,
+  ClipExportMode,
+  ClipExportOverlaySettings,
+  ClipExportProgressState,
+  ClipExportScope,
+} from '../../../../shared/clipExport/clipExportTypes';
+import { buildPlaylistExportClips } from '../../utils/playlistClipExportBuilder';
 
 interface UsePlaylistExportParams {
   items: PlaylistItem[];
   selectedItems: PlaylistItem[];
   videoSources: string[];
-  exportScope: 'all' | 'selected';
-  angleOption: 'allAngles' | 'single' | 'multi';
+  exportScope: ClipExportScope;
+  angleOption: ClipExportAngleOption;
   selectedAngleIndex: number;
-  exportMode: 'single' | 'perInstance' | 'perRow';
+  exportMode: ClipExportMode;
   exportFileName: string;
-  overlaySettings: OverlaySettings;
+  overlaySettings: ClipExportOverlaySettings;
   itemAnnotations: Record<string, ItemAnnotation>;
   minFreezeDuration: number;
-  primaryContentRect: { width: number; height: number; offsetX: number; offsetY: number };
-  secondaryContentRect: { width: number; height: number; offsetX: number; offsetY: number };
+  primaryContentRect: {
+    width: number;
+    height: number;
+    offsetX: number;
+    offsetY: number;
+  };
+  secondaryContentRect: {
+    width: number;
+    height: number;
+    offsetX: number;
+    offsetY: number;
+  };
   primarySourceSize: { width: number; height: number };
   secondarySourceSize: { width: number; height: number };
   renderAnnotationPng: (
@@ -27,22 +58,14 @@ interface UsePlaylistExportParams {
   onMissingApi?: (message: string) => void;
 }
 
-const normalizeVideoSource = (value: string | undefined): string | undefined => {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
-const resolveMultiAngleSources = (
-  videoSources: string[],
-): { sourcePath?: string; sourcePath2?: string } => {
-  const available = videoSources.map(normalizeVideoSource).filter(Boolean) as string[];
-  const sourcePath = available[0];
-  return {
-    sourcePath,
-    sourcePath2: available.find((source) => source !== sourcePath),
-  };
-};
+interface UsePlaylistExportResult {
+  exportProgress: ClipExportProgressState | null;
+  handleExportPlaylist: () => Promise<{
+    success: boolean;
+    message: string;
+  }>;
+  clearExportProgress: () => void;
+}
 
 export const usePlaylistExport = ({
   items,
@@ -62,200 +85,64 @@ export const usePlaylistExport = ({
   secondarySourceSize,
   renderAnnotationPng,
   onMissingApi,
-}: UsePlaylistExportParams) => {
-  const [exportProgress, setExportProgress] = useState<{
-    current: number;
-    total: number;
-    message: string;
-  } | null>(null);
+}: UsePlaylistExportParams): UsePlaylistExportResult => {
+  const [exportProgress, setExportProgress] = useState<ClipExportProgressState | null>(
+    null,
+  );
 
   const clearExportProgress = useCallback(() => {
     setExportProgress(null);
   }, []);
 
   const handleExportPlaylist = useCallback(async () => {
-    const api = window.electronAPI?.exportClipsWithOverlay;
-    if (!api) {
+    if (!canExportClipsWithOverlay()) {
       onMissingApi?.('書き出しAPIが利用できません');
       return { success: false, message: '書き出しAPIが利用できません' };
     }
 
-    // アングルオプションに応じた検証
-    if (angleOption === 'allAngles' && videoSources.length < 2) {
+    const resolvedSources = resolveClipExportSourceSelection(videoSources);
+    const sourceValidationError = validateClipExportSources({
+      angleOption,
+      videoSources,
+      selectedAngleIndex,
+      resolvedSources,
+    });
+    if (sourceValidationError) {
       return {
         success: false,
-        message: '全アングル書き出しには2つ以上の映像ソースが必要です',
+        message: sourceValidationError,
       };
-    }
-    if (angleOption === 'multi' && videoSources.length < 2) {
-      return {
-        success: false,
-        message: 'マルチアングル書き出しには2つ以上の映像ソースが必要です',
-      };
-    }
-    if (angleOption === 'single' && !videoSources[selectedAngleIndex]) {
-      return {
-        success: false,
-        message: '選択されたアングルの映像が取得できません',
-      };
-    }
-
-    const resolvedMultiSources = resolveMultiAngleSources(videoSources);
-    if (angleOption === 'multi') {
-      const sourcePath = normalizeVideoSource(resolvedMultiSources.sourcePath);
-      const sourcePath2 = normalizeVideoSource(resolvedMultiSources.sourcePath2);
-      if (!sourcePath || !sourcePath2) {
-        return {
-          success: false,
-          message: 'マルチアングル書き出しにはメイン・サブ映像の両方が必要です',
-        };
-      }
-      if (sourcePath === sourcePath2) {
-        return {
-          success: false,
-          message: 'マルチアングル書き出しでは異なる映像ソースを使用してください',
-        };
-      }
     }
 
     const sourceItems = exportScope === 'selected' ? selectedItems : items;
-
     if (sourceItems.length === 0) {
       return { success: false, message: '書き出すアイテムがありません' };
     }
 
-    // 選択されたアイテムのみを使用してactionIndexを計算
-    const ordered = [...sourceItems];
-    const actionIndexLookup = new Map<string, number>();
-    const counters: Record<string, number> = {};
-    ordered.forEach((item) => {
-      const count = (counters[item.actionName] || 0) + 1;
-      counters[item.actionName] = count;
-      actionIndexLookup.set(item.id, count);
+    const clips = buildPlaylistExportClips({
+      sourceItems,
+      itemAnnotations,
+      minFreezeDuration,
+      primaryContentRect,
+      secondaryContentRect,
+      primarySourceSize,
+      secondarySourceSize,
+      renderAnnotationPng,
     });
 
-    const clips = sourceItems.map((item) => {
-      const annotation = itemAnnotations[item.id] || item.annotation;
-      const allTimestamps =
-        annotation?.objects
-          ?.map((obj) => obj.timestamp)
-          .filter((time) => time !== undefined) || [];
-      const freezeAtAbsolute =
-        allTimestamps.length > 0 ? Math.min(...allTimestamps) : null;
-      const freezeAt =
-        freezeAtAbsolute !== null
-          ? Math.max(0, freezeAtAbsolute - item.startTime)
-          : null;
-      const freezeDuration =
-        annotation?.freezeDuration && annotation.freezeDuration > 0
-          ? Math.max(minFreezeDuration, annotation.freezeDuration)
-          : minFreezeDuration;
-      const annotationPngPrimary = renderAnnotationPng(
-        annotation?.objects,
-        'primary',
-        primaryContentRect,
-        primarySourceSize,
-      );
-      const annotationPngSecondary = renderAnnotationPng(
-        annotation?.objects,
-        'secondary',
-        secondaryContentRect,
-        secondarySourceSize,
-      );
-
-      return {
-        id: item.id,
-        actionName: item.actionName,
-        startTime: item.startTime,
-        endTime: item.endTime,
-        freezeAt,
-        freezeDuration,
-        labels:
-          item.labels?.map((label) => ({
-            group: label.group || '',
-            name: label.name,
-          })) || undefined,
-        memo: item.memo || undefined,
-        actionIndex: actionIndexLookup.get(item.id) ?? 1,
-        annotationPngPrimary,
-        annotationPngSecondary,
-        videoSource: item.videoSource || undefined,
-        videoSource2: item.videoSource2 || undefined,
-      };
-    });
-
-    if (angleOption === 'allAngles') {
-      let allSuccess = true;
-      for (let i = 0; i < videoSources.length; i += 1) {
-        setExportProgress({
-          current: i,
-          total: videoSources.length,
-          message: `アングル${i + 1} / ${videoSources.length} を書き出し中...`,
-        });
-
-        const result = await api({
-          sourcePath: videoSources[i],
-          sourcePath2: undefined,
-          mode: 'single',
-          exportMode,
-          angleOption: 'single',
-          outputFileName: exportFileName.trim()
-            ? `${exportFileName.trim()}_angle${i + 1}`
-            : undefined,
-          clips,
-          overlay: overlaySettings,
-        });
-
-        if (!result?.success) {
-          allSuccess = false;
-          setExportProgress(null);
-          return {
-            success: false,
-            message:
-              result?.error || `アングル${i + 1}の書き出しに失敗しました`,
-          };
-          break;
-        }
-      }
-
-      setExportProgress(null);
-      return allSuccess
-        ? {
-            success: true,
-            message: `全${videoSources.length}アングルの書き出しが完了しました`,
-          }
-        : { success: false, message: '書き出しに失敗しました' };
-    }
-
-    setExportProgress({
-      current: 0,
-      total: 1,
-      message: '書き出し中...',
-    });
-
-    const result = await api({
-      sourcePath:
-        angleOption === 'single'
-          ? videoSources[selectedAngleIndex]
-          : resolvedMultiSources.sourcePath || videoSources[0],
-      sourcePath2:
-        angleOption === 'multi' ? resolvedMultiSources.sourcePath2 : undefined,
-      mode: angleOption === 'multi' ? 'dual' : 'single',
-      exportMode,
-      angleOption,
-      outputFileName: exportFileName.trim() || undefined,
+    return await executeClipExport({
+      executeExport: exportClipsWithOverlay,
       clips,
+      videoSources,
+      angleOption,
+      selectedAngleIndex,
+      resolvedSources,
+      exportMode,
+      exportFileName,
       overlay: overlaySettings,
+      successMessage: 'プレイリストを書き出しました',
+      onProgress: setExportProgress,
     });
-
-    setExportProgress(null);
-    if (result?.success) {
-      return { success: true, message: 'プレイリストを書き出しました' };
-    }
-    return {
-      success: false,
-      message: result?.error || '書き出しに失敗しました',
-    };
   }, [
     angleOption,
     exportFileName,
@@ -264,6 +151,7 @@ export const usePlaylistExport = ({
     itemAnnotations,
     items,
     minFreezeDuration,
+    onMissingApi,
     overlaySettings,
     primaryContentRect,
     primarySourceSize,
@@ -273,7 +161,6 @@ export const usePlaylistExport = ({
     selectedAngleIndex,
     selectedItems,
     videoSources,
-    onMissingApi,
   ]);
 
   return {

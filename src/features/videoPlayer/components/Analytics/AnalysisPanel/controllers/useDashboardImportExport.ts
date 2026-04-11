@@ -1,10 +1,19 @@
 import { useCallback, useEffect } from 'react';
-import type {
-  AnalysisDashboard,
-  AnalysisDashboardWidget,
-} from '../../../../../../types/Settings';
+import type { AnalysisDashboard } from '../../../../../../types/Settings';
 import type { NotificationContextValue } from '../../../../../../contexts/NotificationContext';
 import { subscribeAnalysisDashboardExternalOpen } from '../../../../app/gateways/analysisWindowGateway';
+import {
+  canExportAnalysisDashboard,
+  canImportAnalysisDashboard,
+  readAnalysisDashboardImportContent,
+  requestAnalysisDashboardExportPath,
+  requestAnalysisDashboardImportPath,
+  writeAnalysisDashboardPackage,
+} from '../gateways/analysisDashboardGateway';
+import {
+  buildAnalysisDashboardExportContent,
+  parseAnalysisDashboardImportContent,
+} from '../utils/analysisDashboardImportExportService';
 import { generateDashboardId } from './dashboardTabController.utils';
 
 interface UseDashboardImportExportParams {
@@ -30,23 +39,18 @@ export const useDashboardImportExport = ({
 }: UseDashboardImportExportParams): DashboardImportExportActions => {
   const handleExportDashboard = useCallback(async () => {
     if (!activeDashboard) return;
-    const api = window.electronAPI;
-    if (!api?.saveFileDialog || !api?.saveDashboardPackage) {
+    if (!canExportAnalysisDashboard()) {
       notification.error('エクスポート機能が利用できません。');
       return;
     }
+
     const defaultName = `${activeDashboard.name || 'dashboard'}.stad`;
-    const filePath = await api.saveFileDialog(defaultName, [
-      { name: 'SporTagLytics Dashboard', extensions: ['stad'] },
-    ]);
+    const filePath = await requestAnalysisDashboardExportPath(defaultName);
     if (!filePath) return;
-    const payload = {
-      version: 1,
-      dashboard: activeDashboard,
-    };
-    const ok = await api.saveDashboardPackage(
+
+    const ok = await writeAnalysisDashboardPackage(
       filePath,
-      JSON.stringify(payload, null, 2),
+      buildAnalysisDashboardExportContent(activeDashboard),
     );
     if (ok) {
       notification.success('ダッシュボードをエクスポートしました。');
@@ -57,79 +61,44 @@ export const useDashboardImportExport = ({
 
   const importDashboardFromPath = useCallback(
     async (filePath: string) => {
-      const api = window.electronAPI;
-      if (!api?.readTextFile || !api?.readDashboardPackage) {
+      if (!canImportAnalysisDashboard()) {
         notification.error('インポート機能が利用できません。');
         return;
       }
-      const lowerPath = filePath.toLowerCase();
-      const content = lowerPath.endsWith('.stad')
-        ? await api.readDashboardPackage(filePath)
-        : await api.readTextFile(filePath);
+
+      const content = await readAnalysisDashboardImportContent(filePath);
       if (!content) {
         notification.error('ファイルの読み込みに失敗しました。');
         return;
       }
+
       try {
-        const parsed = JSON.parse(content) as {
-          dashboard?: AnalysisDashboard;
-          dashboards?: AnalysisDashboard[];
-          widgets?: AnalysisDashboardWidget[];
-        };
-        const importedDashboards: AnalysisDashboard[] = [];
-        if (Array.isArray(parsed?.dashboards)) {
-          importedDashboards.push(...parsed.dashboards);
-        } else if (parsed?.dashboard) {
-          importedDashboards.push(parsed.dashboard);
-        } else if (Array.isArray(parsed?.widgets)) {
-          importedDashboards.push({
-            id: generateDashboardId(),
-            name: 'インポート',
-            widgets: parsed.widgets,
+        const { nextDashboards, nextActiveId } =
+          parseAnalysisDashboardImportContent({
+            content,
+            existingDashboards: dashboards,
+            generateDashboardId,
           });
-        }
-        if (importedDashboards.length === 0) {
-          notification.error('ダッシュボード形式のJSONではありません。');
-          return;
-        }
 
-        const existingIds = new Set(dashboards.map((item) => item.id));
-        const normalized = importedDashboards.map((item, index) => {
-          const baseId = item.id || generateDashboardId();
-          let nextId = baseId;
-          let counter = 1;
-          while (existingIds.has(nextId)) {
-            nextId = `${baseId}-${counter}`;
-            counter += 1;
-          }
-          existingIds.add(nextId);
-          return {
-            id: nextId,
-            name: item.name || `インポート${index + 1}`,
-            widgets: Array.isArray(item.widgets) ? item.widgets : [],
-          };
-        });
-
-        const nextDashboards = [...dashboards, ...normalized];
-        await saveDashboards(nextDashboards, normalized[0].id);
+        await saveDashboards(nextDashboards, nextActiveId);
         notification.success('ダッシュボードをインポートしました。');
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to import dashboard:', error);
-        notification.error('インポートに失敗しました。');
+        notification.error(
+          error instanceof Error ? error.message : 'インポートに失敗しました。',
+        );
       }
     },
     [dashboards, notification, saveDashboards],
   );
 
   const handleImportDashboard = useCallback(async () => {
-    const api = window.electronAPI;
-    if (!api?.openDashboardPackageDialog) {
+    if (!canImportAnalysisDashboard()) {
       notification.error('インポート機能が利用できません。');
       return;
     }
-    const filePath = await api.openDashboardPackageDialog([
-      { name: 'SporTagLytics Dashboard', extensions: ['stad', 'json'] },
-    ]);
+
+    const filePath = await requestAnalysisDashboardImportPath();
     if (!filePath) return;
     await importDashboardFromPath(filePath);
   }, [importDashboardFromPath, notification]);

@@ -1,6 +1,11 @@
 import type { DrawingObject, ItemAnnotation, PlaylistItem, PlaylistType } from '../../../../types/Playlist';
+import type {
+  ClipExportAngleOption as AngleOption,
+  ClipExportMode as ExportMode,
+  ClipExportOverlaySettings as OverlaySettings,
+  ClipExportScope,
+} from '../../../../shared/clipExport/clipExportTypes';
 import type { AnnotationCanvasRef } from '../../components/AnnotationCanvas';
-import type { AngleOption, ExportMode, OverlaySettings } from '../../components/PlaylistExportDialog';
 
 export type PlaylistViewMode = 'dual' | 'angle1' | 'angle2';
 export type PlaylistDndSensors = ReturnType<typeof import('@dnd-kit/core').useSensors>;
@@ -105,8 +110,8 @@ export interface BuildDialogsSectionParams {
   onExportPlaylist: () => void;
   exportFileName: string;
   setExportFileName: React.Dispatch<React.SetStateAction<string>>;
-  exportScope: 'all' | 'selected';
-  setExportScope: React.Dispatch<React.SetStateAction<'all' | 'selected'>>;
+  exportScope: ClipExportScope;
+  setExportScope: React.Dispatch<React.SetStateAction<ClipExportScope>>;
   selectedCount: number;
   exportMode: ExportMode;
   setExportMode: React.Dispatch<React.SetStateAction<ExportMode>>;

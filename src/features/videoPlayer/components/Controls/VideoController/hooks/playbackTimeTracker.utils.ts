@@ -1,8 +1,8 @@
 import type { VideoSyncData } from '../../../../../../types/VideoSync';
 
 interface PlaybackTrackerPlayer {
-  currentTime?: () => number;
-  duration?: () => number;
+  currentTime?: (time?: number) => number | void | undefined;
+  duration?: () => number | undefined;
 }
 
 interface ResolveActualPlaybackTimeParams {

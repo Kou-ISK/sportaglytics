@@ -1,11 +1,4 @@
-export type VideoPlayerErrorType =
-  | 'file'
-  | 'network'
-  | 'sync'
-  | 'playback'
-  | 'general';
-
-export interface VideoPlayerError {
-  type: VideoPlayerErrorType;
-  message: string;
-}
+export type {
+  VideoPlayerError,
+  VideoPlayerErrorType,
+} from './video/error';

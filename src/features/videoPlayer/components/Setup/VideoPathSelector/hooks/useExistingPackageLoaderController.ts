@@ -47,12 +47,17 @@ export const useExistingPackageLoaderController = ({
   );
 
   useEffect(() => {
-    subscribeToOpenPackage(() => {
+    const unsubscribeOpenPackage = subscribeToOpenPackage(() => {
       void handleSelectPackage();
     });
-    subscribeToOpenRecentPackage((path) => {
+    const unsubscribeOpenRecentPackage = subscribeToOpenRecentPackage((path) => {
       void handleSelectPackage(path);
     });
+
+    return () => {
+      unsubscribeOpenPackage();
+      unsubscribeOpenRecentPackage();
+    };
   }, [handleSelectPackage]);
 
   return {

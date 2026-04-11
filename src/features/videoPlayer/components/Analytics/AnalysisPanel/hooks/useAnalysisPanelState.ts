@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { TimelineData } from '../../../../../../types/TimelineData';
-import { CreateMomentumDataFn } from '../../../../../../types/Analysis';
-import { rechartsData } from '../../../../../../types/RechartsData';
+import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { CreateMomentumDataFn } from '../../../../../../types/Analysis';
+import type { RechartsDatum } from '../../../../../../types/RechartsData';
 import { useAnalysis } from '../../../../analysis/hooks/useAnalysis';
 import { extractTeamFromActionName } from '../../../../../../utils/labelExtractors';
 
@@ -11,17 +11,17 @@ interface UseAnalysisPanelStateParams {
 }
 
 export interface AnalysisPanelDerivedState {
-  possessionData: rechartsData[];
+  possessionData: RechartsDatum[];
   hasTimelineData: boolean;
   resolvedTeamNames: string[];
   countActionResultByTeamName: (
     teamName: string,
     actionName: string,
-  ) => rechartsData[];
+  ) => RechartsDatum[];
   countActionTypeByTeamName: (
     teamName: string,
     actionName: string,
-  ) => rechartsData[];
+  ) => RechartsDatum[];
   createMomentumData: CreateMomentumDataFn;
 }
 

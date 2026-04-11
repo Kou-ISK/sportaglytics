@@ -1,14 +1,17 @@
 import type {
+  PlaylistAiMeta,
   ItemAnnotation,
   Playlist,
-  PlaylistCommand,
   PlaylistFileLoadResult,
   PlaylistItem,
   PlaylistSaveProgressPayload,
   PlaylistState,
+} from '../playlist/core';
+import type {
+  PlaylistCommand,
   PlaylistSyncData,
-} from '../Playlist';
-import type { SCLabel } from '../SCTimeline';
+} from '../playlist/window';
+import type { SCLabel } from '../timeline/sportscode';
 import {
   isArrayOf,
   isBoolean,
@@ -116,7 +119,7 @@ const isItemAnnotation = (value: unknown): value is ItemAnnotation => {
 
 const isPlaylistAiMeta = (
   value: unknown,
-): value is NonNullable<PlaylistItem['aiMeta']> => {
+): value is PlaylistAiMeta => {
   if (!isPlainObject(value)) {
     return false;
   }
@@ -201,7 +204,9 @@ export const isPlaylistSyncData = (value: unknown): value is PlaylistSyncData =>
   );
 };
 
-export const isPlaylistCommand = (value: unknown): value is PlaylistCommand => {
+export const isPlaylistCommand = (
+  value: unknown,
+): value is PlaylistCommand => {
   if (!isPlainObject(value) || !isString(value.type)) {
     return false;
   }

@@ -24,3 +24,4 @@ export {
   normalizeCodingPanelLayouts,
   normalizeAnalysisDashboard,
 } from './settings/normalizers';
+export { normalizeDashboardList } from './settings/dashboardNormalizers';
