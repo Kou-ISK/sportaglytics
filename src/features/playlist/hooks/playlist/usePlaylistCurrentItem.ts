@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { PlaylistItem } from '../../../../types/Playlist';
+import type { PlaylistItem } from '../../../../types/playlist/core';
 
 interface UsePlaylistCurrentItemParams {
   items: PlaylistItem[];
@@ -45,7 +45,9 @@ export const usePlaylistCurrentItem = ({
   const sliderMax = currentItem?.endTime ?? duration;
 
   const editingItem = useMemo(() => {
-    return editingItemId ? items.find((i) => i.id === editingItemId) ?? null : null;
+    return editingItemId
+      ? (items.find((i) => i.id === editingItemId) ?? null)
+      : null;
   }, [editingItemId, items]);
 
   return {

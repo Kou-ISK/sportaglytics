@@ -3,7 +3,7 @@ import type {
   ItemAnnotation,
   PlaylistItem,
   PlaylistType,
-} from '../../../../types/Playlist';
+} from '../../../../types/playlist/core';
 import {
   notifyPlaylistSavedAndClose,
   savePlaylistFile,

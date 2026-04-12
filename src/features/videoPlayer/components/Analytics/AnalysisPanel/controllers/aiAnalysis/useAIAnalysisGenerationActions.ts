@@ -11,7 +11,7 @@ import type {
 } from '../../../../../analysis/ai';
 import { cancelLocalLlmRequest } from '../../../../../analysis/ai/llmGateway';
 import type { InsightDimension } from '../../../../../analysis/utils/eventInsights';
-import type { TimelineData } from '../../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../../types/timeline/core';
 import { useAIAnalysisInsightGeneration } from './useAIAnalysisInsightGeneration';
 import { useAIAnalysisQuestionGeneration } from './useAIAnalysisQuestionGeneration';
 

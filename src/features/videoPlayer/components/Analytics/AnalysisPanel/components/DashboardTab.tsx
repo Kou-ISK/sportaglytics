@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTheme } from '@mui/material/styles';
-import type { TimelineData } from '../../../../../../types/TimelineData';
-import type { DashboardSeriesFilter } from '../../../../../../types/Settings';
+import type { TimelineData } from '../../../../../../types/timeline/core';
+import type { DashboardSeriesFilter } from '../../../../../../types/settings/coreTypes';
 import { useDashboardTabController } from '../controllers/useDashboardTabController';
 import { DashboardTabView } from './DashboardTabView';
 
@@ -51,8 +51,7 @@ const toDashboardFilterChips = (
         ? [
             {
               label: `ラベルグループ: ${dashboardFilters.labelGroup}`,
-              onDelete: () =>
-                updateDashboardFilters({ labelGroup: undefined }),
+              onDelete: () => updateDashboardFilters({ labelGroup: undefined }),
             },
           ]
         : []),

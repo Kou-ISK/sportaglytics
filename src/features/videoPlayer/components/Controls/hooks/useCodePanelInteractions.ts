@@ -3,11 +3,12 @@ import type {
   ActionDefinition,
   CodeWindowButton,
   CodeWindowLayout,
-} from '../../../../../types/Settings';
+} from '../../../../../types/settings/coreTypes';
 import {
   replaceTeamPlaceholders,
   type TeamContext,
 } from '../../../../../utils/teamPlaceholder';
+import { resolveActionLabelGroups } from '../../../shared/actionLabelGroups';
 import type { EffectiveLink } from '../effectiveLinks';
 import { useActionButtonInteractions } from './useActionButtonInteractions';
 import type { ActiveRecordingSession } from './useActiveRecordings';
@@ -152,23 +153,10 @@ export const useCodePanelInteractions = ({
     [activeMode, handleApplyLabel, setPrimaryAction, updateLabelSelections],
   );
 
-  const getActionLabels = useCallback((action: ActionDefinition) => {
-    if (action.groups && action.groups.length > 0) {
-      return action.groups;
-    }
-
-    const legacyGroups = [];
-    if (action.types.length > 0) {
-      legacyGroups.push({ groupName: 'actionType', options: action.types });
-    }
-    if (action.results.length > 0) {
-      legacyGroups.push({
-        groupName: 'actionResult',
-        options: action.results,
-      });
-    }
-    return legacyGroups;
-  }, []);
+  const getActionLabels = useCallback(
+    (action: ActionDefinition) => resolveActionLabelGroups(action),
+    [],
+  );
 
   const handleCustomButtonClick = useCallback(
     (button: CodeWindowButton) => {

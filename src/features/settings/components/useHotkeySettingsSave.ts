@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { AppSettings, HotkeyConfig } from '../../../types/Settings';
+import type {
+  AppSettings,
+  HotkeyConfig,
+} from '../../../types/settings/coreTypes';
 import { notifyHotkeysUpdated } from '../gateways/hotkeySettingsGateway';
 
 interface UseHotkeySettingsSaveParams {

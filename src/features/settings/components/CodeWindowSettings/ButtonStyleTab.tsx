@@ -12,7 +12,7 @@ import {
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
-import type { CodeWindowButton } from '../../../../types/Settings';
+import type { CodeWindowButton } from '../../../../types/settings/coreTypes';
 import { DEFAULT_BUTTON_COLORS } from './types';
 
 const PRESET_COLORS = [
@@ -109,7 +109,9 @@ export const ButtonStyleTab = ({
         type="number"
         fullWidth
         value={button.fontSize ?? 14}
-        onChange={(event) => onNumberChange('fontSize', event.target.value, 8, 48)}
+        onChange={(event) =>
+          onNumberChange('fontSize', event.target.value, 8, 48)
+        }
         inputProps={{ min: 8, max: 48, step: 1 }}
         sx={{ mb: 2 }}
       />

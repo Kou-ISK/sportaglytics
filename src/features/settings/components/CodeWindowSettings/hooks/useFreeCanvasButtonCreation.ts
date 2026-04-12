@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { CodeWindowLayout } from '../../../../../types/Settings';
+import type { CodeWindowLayout } from '../../../../../types/settings/coreTypes';
 import {
   canPlaceButton,
   createButton,

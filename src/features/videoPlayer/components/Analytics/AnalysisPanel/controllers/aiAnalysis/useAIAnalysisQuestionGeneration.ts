@@ -31,7 +31,7 @@ import {
   startGenerationSession,
   type GenerationStatus,
 } from './generationShared';
-import type { TimelineData } from '../../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../../types/timeline/core';
 
 interface UseAIAnalysisQuestionGenerationParams {
   question: string;

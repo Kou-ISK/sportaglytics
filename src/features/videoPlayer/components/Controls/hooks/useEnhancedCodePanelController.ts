@@ -3,7 +3,7 @@ import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
 import type {
   ActionDefinition,
   CodeWindowLayout,
-} from '../../../../../types/Settings';
+} from '../../../../../types/settings/coreTypes';
 import { useSettings } from '../../../../../hooks/useSettings';
 import {
   replaceTeamPlaceholders,

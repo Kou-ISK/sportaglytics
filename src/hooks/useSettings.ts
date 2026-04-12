@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  DEFAULT_SETTINGS,
-  normalizeAppSettings,
-  type AppSettings,
-} from '../types/Settings';
+import { DEFAULT_SETTINGS } from '../types/settings/defaults';
+import { normalizeAppSettings } from '../types/settings/normalizers';
+import type { AppSettings } from '../types/settings/coreTypes';
 import {
   loadAppSettings,
   resetAppSettings,

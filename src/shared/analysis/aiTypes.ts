@@ -1,4 +1,4 @@
-import type { SCLabel } from '../../types/SCTimeline';
+import type { SCLabel } from '../../types/timeline/sportscode';
 
 export interface EvidenceItem {
   id: string;

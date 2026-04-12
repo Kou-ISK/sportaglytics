@@ -13,7 +13,7 @@ import {
   Switch,
   Stack,
 } from '@mui/material';
-import type { AppSettings, ThemeMode } from '../../../types/Settings';
+import type { AppSettings, ThemeMode } from '../../../types/settings/coreTypes';
 import { useThemeMode } from '../../../contexts/ThemeModeContext';
 import type { SettingsTabHandle } from '../types';
 

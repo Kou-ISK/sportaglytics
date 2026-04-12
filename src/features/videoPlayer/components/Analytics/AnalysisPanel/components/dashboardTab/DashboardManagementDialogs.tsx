@@ -8,7 +8,7 @@ import {
   DialogTitle,
   TextField,
 } from '@mui/material';
-import type { AnalysisDashboard } from '../../../../../../../types/Settings';
+import type { AnalysisDashboard } from '../../../../../../../types/settings/coreTypes';
 
 interface DashboardManagementDialogsProps {
   createDialogOpen: boolean;
@@ -41,7 +41,12 @@ export const DashboardManagementDialogs = ({
 }: DashboardManagementDialogsProps) => {
   return (
     <>
-      <Dialog open={createDialogOpen} onClose={onCreateDialogClose} fullWidth maxWidth="sm">
+      <Dialog
+        open={createDialogOpen}
+        onClose={onCreateDialogClose}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>ダッシュボードを新規作成</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
@@ -70,7 +75,12 @@ export const DashboardManagementDialogs = ({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={discardDialogOpen} onClose={onDiscardDialogClose} fullWidth maxWidth="xs">
+      <Dialog
+        open={discardDialogOpen}
+        onClose={onDiscardDialogClose}
+        fullWidth
+        maxWidth="xs"
+      >
         <DialogTitle>編集中の変更を破棄しますか？</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -89,16 +99,26 @@ export const DashboardManagementDialogs = ({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={deleteDialogOpen} onClose={onDeleteDialogClose} fullWidth maxWidth="xs">
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={onDeleteDialogClose}
+        fullWidth
+        maxWidth="xs"
+      >
         <DialogTitle>ダッシュボードを削除</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            「{activeDashboard?.name ?? ''}」を削除します。この操作は元に戻せません。
+            「{activeDashboard?.name ?? ''}
+            」を削除します。この操作は元に戻せません。
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={onDeleteDialogClose}>キャンセル</Button>
-          <Button color="error" variant="contained" onClick={() => void onDeleteDashboard()}>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => void onDeleteDashboard()}
+          >
             削除
           </Button>
         </DialogActions>

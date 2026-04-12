@@ -14,7 +14,7 @@ import type {
   AiEvidenceHighlight,
   AiHypothesis,
 } from '../../../../../analysis/ai';
-import type { TimelineData } from '../../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../../types/timeline/core';
 
 interface AIAnalysisConversationPanelProps {
   displayQuestion: string;
@@ -209,7 +209,10 @@ export const AIAnalysisConversationPanel = ({
                             alignItems="center"
                             gap={2}
                           >
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            <Typography
+                              variant="subtitle2"
+                              sx={{ fontWeight: 600 }}
+                            >
                               {item?.actionName ?? highlight.id}
                             </Typography>
                             {item && (
@@ -229,7 +232,11 @@ export const AIAnalysisConversationPanel = ({
                                 )}`
                               : 'イベントを特定できません'}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary" mt={1}>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            mt={1}
+                          >
                             {stripEvidenceIds(highlight.why)}
                           </Typography>
                         </Box>

@@ -8,7 +8,7 @@ import {
   type AnalysisAiPlaylistPayload,
   type AnalysisWindowSyncPayload,
 } from '../../../src/types/ipc/analysisWindow';
-import type { TimelineData } from '../../../src/types/TimelineData';
+import type { TimelineData } from '../../../src/types/timeline/core';
 import {
   getMappedListener,
   removeMappedListener,
@@ -40,7 +40,9 @@ export const createAnalysisBridge = (
       },
       isWindowOpen: async () => {
         try {
-          return await ipcRenderer.invoke(ANALYSIS_WINDOW_CHANNELS.isWindowOpen);
+          return await ipcRenderer.invoke(
+            ANALYSIS_WINDOW_CHANNELS.isWindowOpen,
+          );
         } catch (error) {
           console.error('Error checking analysis window state:', error);
           return false;
@@ -99,7 +101,9 @@ export const createAnalysisBridge = (
       },
       sendCreateAiPlaylist: (payload: AnalysisAiPlaylistPayload) => {
         if (!isAnalysisAiPlaylistPayload(payload)) {
-          console.warn('Invalid analysis AI playlist payload rejected in preload');
+          console.warn(
+            'Invalid analysis AI playlist payload rejected in preload',
+          );
           return;
         }
         ipcRenderer.send(ANALYSIS_WINDOW_CHANNELS.createAiPlaylist, payload);
@@ -115,15 +119,23 @@ export const createAnalysisBridge = (
         };
         ipcRenderer.on(ANALYSIS_WINDOW_CHANNELS.jumpToSegment, wrapped);
         return () =>
-          ipcRenderer.removeListener(ANALYSIS_WINDOW_CHANNELS.jumpToSegment, wrapped);
+          ipcRenderer.removeListener(
+            ANALYSIS_WINDOW_CHANNELS.jumpToSegment,
+            wrapped,
+          );
       },
       onCreateAiPlaylist: (
         callback: (payload: AnalysisAiPlaylistPayload) => void,
       ) => {
         const wrapped = (...rawArgs: unknown[]) => {
-          const [, payload] = rawArgs as [IpcRendererEvent, AnalysisAiPlaylistPayload];
+          const [, payload] = rawArgs as [
+            IpcRendererEvent,
+            AnalysisAiPlaylistPayload,
+          ];
           if (!isAnalysisAiPlaylistPayload(payload)) {
-            console.warn('Invalid analysis AI playlist payload received in preload');
+            console.warn(
+              'Invalid analysis AI playlist payload received in preload',
+            );
             return;
           }
           callback(payload);
@@ -182,12 +194,7 @@ export const createAnalysisBridge = (
           const [, payload] = rawArgs as [IpcRendererEvent, unknown];
           callback(payload);
         };
-        setMappedListener(
-          listenerStore,
-          'llama:progress',
-          callback,
-          wrapped,
-        );
+        setMappedListener(listenerStore, 'llama:progress', callback, wrapped);
         ipcRenderer.on('llama:progress', wrapped);
       },
       offProgress: (callback: (payload: unknown) => void) => {
@@ -201,11 +208,7 @@ export const createAnalysisBridge = (
         }
 
         ipcRenderer.removeListener('llama:progress', wrapped);
-        removeMappedListener(
-          listenerStore,
-          'llama:progress',
-          callback,
-        );
+        removeMappedListener(listenerStore, 'llama:progress', callback);
       },
     },
   } satisfies Pick<IElectronAPI, AnalysisBridgeKeys>;

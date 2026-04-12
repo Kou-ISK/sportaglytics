@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type React from 'react';
-import type { AnalysisDashboardWidget } from '../../../../../../types/Settings';
+import type { AnalysisDashboardWidget } from '../../../../../../types/settings/coreTypes';
 
 interface UseDashboardWidgetDraftActionsParams {
   setDraftWidgets: React.Dispatch<

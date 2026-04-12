@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   CodeWindowButton,
   CodeWindowLayout,
-} from '../../../../../types/Settings';
+} from '../../../../../types/settings/coreTypes';
 import { createButton } from '../utils';
 
 interface UseFreeCanvasHistoryAndShortcutsParams {

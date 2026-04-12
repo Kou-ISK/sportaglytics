@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { CodeWindowButton } from '../../../../../types/Settings';
+import type { CodeWindowButton } from '../../../../../types/settings/coreTypes';
 import type { EffectiveLink } from '../effectiveLinks';
 import { findRelatedLinks, resolveLinkEffects } from './codePanelLinkRules';
 import type { ActiveRecordingSession } from './useActiveRecordings';

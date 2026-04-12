@@ -3,7 +3,7 @@ import type {
   AppSettings,
   CodeWindowButton,
   CodeWindowLayout,
-} from '../../../../../types/Settings';
+} from '../../../../../types/settings/coreTypes';
 import {
   buildAvailableActions,
   buildAvailableLabelGroups,

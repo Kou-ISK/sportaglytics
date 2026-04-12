@@ -1,5 +1,5 @@
-import type { PlaylistItem } from '../../../../../../types/Playlist';
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { PlaylistItem } from '../../../../../../types/playlist/core';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 import type { RetrieverPresetValue } from './ai/AIAnalysisControlsPanel.types';
 import type { useAIAnalysisTabController } from '../controllers/useAIAnalysisTabController';
 

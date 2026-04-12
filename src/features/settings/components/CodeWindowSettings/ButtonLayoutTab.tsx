@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Chip, Divider, TextField, Typography } from '@mui/material';
-import type { CodeWindowButton } from '../../../../types/Settings';
+import type { CodeWindowButton } from '../../../../types/settings/coreTypes';
 import { DEFAULT_BUTTON_HEIGHT, DEFAULT_BUTTON_WIDTH } from './utils';
 
 type ButtonLayoutTabProps = {
@@ -36,7 +36,12 @@ export const ButtonLayoutTab = ({
           type="number"
           value={button.x}
           onChange={(event) =>
-            onNumberChange('x', event.target.value, 0, canvasWidth - button.width)
+            onNumberChange(
+              'x',
+              event.target.value,
+              0,
+              canvasWidth - button.width,
+            )
           }
           inputProps={{ min: 0, max: canvasWidth - button.width, step: 10 }}
           sx={{ flex: 1 }}
@@ -47,7 +52,12 @@ export const ButtonLayoutTab = ({
           type="number"
           value={button.y}
           onChange={(event) =>
-            onNumberChange('y', event.target.value, 0, canvasHeight - button.height)
+            onNumberChange(
+              'y',
+              event.target.value,
+              0,
+              canvasHeight - button.height,
+            )
           }
           inputProps={{ min: 0, max: canvasHeight - button.height, step: 10 }}
           sx={{ flex: 1 }}

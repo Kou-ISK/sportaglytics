@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import type { DrawingObject } from '../../../../types/Playlist';
+import type { DrawingObject } from '../../../../types/playlist/core';
 import {
   getObjectBounds,
   renderObject,

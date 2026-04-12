@@ -1,9 +1,9 @@
-import { TimelineData } from '../../types/TimelineData';
+import { TimelineData } from '../../types/timeline/core';
 import {
   CreateMomentumDataFn,
   MomentumOutcome,
   MomentumSegment,
-} from '../../types/Analysis';
+} from '../../types/analysis/momentum';
 import { getLabelByGroupWithFallback } from '../../utils/labelExtractors';
 
 const POSSESSION_KEYWORD = 'ポゼッション';

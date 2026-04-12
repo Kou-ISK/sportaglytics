@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { HotkeyConfig } from '../types/Settings';
+import type { HotkeyConfig } from '../types/settings/coreTypes';
 import {
   findFallbackKeyUpHotkey,
   findMatchingHotkey,

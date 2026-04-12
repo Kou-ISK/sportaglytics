@@ -1,5 +1,5 @@
 import React from 'react';
-import type { PlaylistType } from '../../../types/Playlist';
+import type { PlaylistType } from '../../../types/playlist/core';
 import { ExportProgressSnackbar } from '../../../components/ExportProgressSnackbar';
 import { PlaylistSaveDialog } from './PlaylistSaveDialog';
 import {

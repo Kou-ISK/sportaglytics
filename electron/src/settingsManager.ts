@@ -1,11 +1,9 @@
 import { app, ipcMain, BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import {
-  DEFAULT_SETTINGS,
-  normalizeAppSettings,
-  type AppSettings,
-} from '../../src/types/Settings';
+import { DEFAULT_SETTINGS } from '../../src/types/settings/defaults';
+import { normalizeAppSettings } from '../../src/types/settings/normalizers';
+import type { AppSettings } from '../../src/types/settings/coreTypes';
 
 type UnknownRecord = Record<string, unknown>;
 

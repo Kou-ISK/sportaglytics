@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import type { TimelineData } from '../../../../../../types/TimelineData';
-import type { DashboardSeriesFilter } from '../../../../../../types/Settings';
+import type { TimelineData } from '../../../../../../types/timeline/core';
+import type { DashboardSeriesFilter } from '../../../../../../types/settings/coreTypes';
 import {
   extractActionFromActionName,
   extractUniqueGroups,

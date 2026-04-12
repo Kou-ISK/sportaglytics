@@ -4,7 +4,7 @@ import type {
   AnnotationTarget,
   ItemAnnotation,
   DrawingObject,
-} from '../../../types/Playlist';
+} from '../../../types/playlist/core';
 import type { AnnotationCanvasRef } from './AnnotationCanvas';
 import { PlaylistVideoCanvas } from './PlaylistVideoCanvas';
 import { PlaylistVideoPlaceholder } from './PlaylistVideoPlaceholder';

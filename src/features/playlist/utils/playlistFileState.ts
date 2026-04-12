@@ -3,7 +3,7 @@ import type {
   Playlist,
   PlaylistItem,
   PlaylistType,
-} from '../../../types/Playlist';
+} from '../../../types/playlist/core';
 import { resolveViewModeForSources } from './viewMode';
 
 interface BuildPlaylistPayloadParams {

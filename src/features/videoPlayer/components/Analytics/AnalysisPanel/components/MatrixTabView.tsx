@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Button, Paper, Stack, Typography } from '@mui/material';
-import type { TimelineData } from '../../../../../../types/TimelineData';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
+import type { TimelineData } from '../../../../../../types/timeline/core';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
 import { MatrixAxisEditor } from './MatrixAxisEditor';
 import { DrilldownDialog } from './DrilldownDialog';
@@ -159,7 +159,9 @@ export const MatrixTabView = ({
                   対象データ数: {filteredTimelineCount} / {timelineCount}
                   {typeof totalTimelineCount === 'number' &&
                     totalTimelineCount > timelineCount && (
-                      <>（全体: {timelineCount}/{totalTimelineCount}）</>
+                      <>
+                        （全体: {timelineCount}/{totalTimelineCount}）
+                      </>
                     )}
                 </Typography>
               </>

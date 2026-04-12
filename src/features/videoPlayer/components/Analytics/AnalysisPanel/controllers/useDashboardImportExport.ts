@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import type { AnalysisDashboard } from '../../../../../../types/Settings';
+import type { AnalysisDashboard } from '../../../../../../types/settings/coreTypes';
 import type { NotificationContextValue } from '../../../../../../contexts/NotificationContext';
 import { subscribeAnalysisDashboardExternalOpen } from '../../../../app/gateways/analysisWindowGateway';
 import {

@@ -1,6 +1,6 @@
 import React from 'react';
 import Grid from '@mui/material/GridLegacy';
-import type { ActionDefinition } from '../../../../types/Settings';
+import type { ActionDefinition } from '../../../../types/settings/coreTypes';
 import { TeamActionSection } from './TeamActionSection';
 
 type DefaultCodeLayoutProps = {
@@ -9,7 +9,9 @@ type DefaultCodeLayoutProps = {
   actions: ActionDefinition[];
   primaryAction: string | null;
   activeRecordings: Record<string, { startTime: number }>;
-  getActionLabels: (action: ActionDefinition) => { groupName: string; options: string[] }[];
+  getActionLabels: (
+    action: ActionDefinition,
+  ) => { groupName: string; options: string[] }[];
   onActionClick: (teamName: string, action: ActionDefinition) => void;
   renderLabelGroup: (
     actionName: string,

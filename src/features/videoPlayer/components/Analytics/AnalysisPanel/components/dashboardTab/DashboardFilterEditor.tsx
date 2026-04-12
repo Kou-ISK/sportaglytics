@@ -9,7 +9,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import type { DashboardSeriesFilter } from '../../../../../../../types/Settings';
+import type { DashboardSeriesFilter } from '../../../../../../../types/settings/coreTypes';
 
 interface DashboardFilterEditorProps {
   compactControlSx: {

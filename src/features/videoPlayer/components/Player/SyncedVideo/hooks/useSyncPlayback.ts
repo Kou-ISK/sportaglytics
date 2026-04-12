@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { VideoSyncData } from '../../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../../types/video/sync';
 import {
   calculateAdjustedCurrentTimes,
   calculateBlockStates,

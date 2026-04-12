@@ -1,5 +1,5 @@
-import type { TimelineData } from '../../../../types/TimelineData';
-import type { RechartsDatum } from '../../../../types/RechartsData';
+import type { TimelineData } from '../../../../types/timeline/core';
+import type { RechartsDatum } from '../../../../types/analysis/chart';
 import { getLabelByGroupWithFallback } from '../../../../utils/labelExtractors';
 
 type ActionAccumulator = Map<string, number>;

@@ -4,7 +4,7 @@ import type {
   DrawingObject,
   ItemAnnotation,
   PlaylistItem,
-} from '../../../../types/Playlist';
+} from '../../../../types/playlist/core';
 import {
   canExportClipsWithOverlay,
   exportClipsWithOverlay,
@@ -86,9 +86,8 @@ export const usePlaylistExport = ({
   renderAnnotationPng,
   onMissingApi,
 }: UsePlaylistExportParams): UsePlaylistExportResult => {
-  const [exportProgress, setExportProgress] = useState<ClipExportProgressState | null>(
-    null,
-  );
+  const [exportProgress, setExportProgress] =
+    useState<ClipExportProgressState | null>(null);
 
   const clearExportProgress = useCallback(() => {
     setExportProgress(null);

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 import type { NotificationContextValue } from '../../../../../../contexts/NotificationContext';
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
 import {

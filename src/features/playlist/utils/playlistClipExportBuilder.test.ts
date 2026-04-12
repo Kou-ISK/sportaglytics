@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { PlaylistItem } from '../../../types/Playlist';
+import type { PlaylistItem } from '../../../types/playlist/core';
 import { buildPlaylistExportClips } from './playlistClipExportBuilder';
 
 const sampleItems: PlaylistItem[] = [

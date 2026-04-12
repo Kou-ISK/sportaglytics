@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CodeWindowButton } from '../../../../../types/Settings';
+import type { CodeWindowButton } from '../../../../../types/settings/coreTypes';
 import type { ButtonPropertiesEditorProps } from '../ButtonPropertiesEditor.types';
 import type { ButtonPropertiesEditorViewProps } from '../ButtonPropertiesEditor.types';
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Stack, Typography } from '@mui/material';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 import { MatrixAxisSelector } from './MatrixAxisSelector';
 
 interface MatrixAxisEditorProps {

@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, IconButton, Paper, Tooltip, Typography } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LinkIcon from '@mui/icons-material/Link';
-import type { CodeWindowButton } from '../../../../types/Settings';
+import type { CodeWindowButton } from '../../../../types/settings/coreTypes';
 
 type FreeCanvasButtonProps = {
   button: CodeWindowButton;

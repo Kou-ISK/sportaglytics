@@ -1,4 +1,4 @@
-import type { VideoSyncData } from '../../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../../types/video/sync';
 
 interface PlaybackTrackerPlayer {
   currentTime?: (time?: number) => number | void | undefined;

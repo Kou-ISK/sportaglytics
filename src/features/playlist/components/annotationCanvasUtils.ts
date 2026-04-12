@@ -1,4 +1,4 @@
-import type { DrawingObject } from '../../../types/Playlist';
+import type { DrawingObject } from '../../../types/playlist/core';
 
 export const generateAnnotationId = (): string =>
   Math.random().toString(36).substring(2, 11);

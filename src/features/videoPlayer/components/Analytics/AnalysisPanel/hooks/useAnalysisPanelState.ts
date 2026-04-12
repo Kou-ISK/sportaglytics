@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import type { TimelineData } from '../../../../../../types/TimelineData';
-import type { CreateMomentumDataFn } from '../../../../../../types/Analysis';
-import type { RechartsDatum } from '../../../../../../types/RechartsData';
+import type { TimelineData } from '../../../../../../types/timeline/core';
+import type { CreateMomentumDataFn } from '../../../../../../types/analysis/momentum';
+import type { RechartsDatum } from '../../../../../../types/analysis/chart';
 import { useAnalysis } from '../../../../analysis/hooks/useAnalysis';
 import { extractTeamFromActionName } from '../../../../../../utils/labelExtractors';
 

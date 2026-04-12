@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 
 const pickInitialAxis = (availableGroups: string[], preferred: string) => {
   if (availableGroups.length === 0) return '';

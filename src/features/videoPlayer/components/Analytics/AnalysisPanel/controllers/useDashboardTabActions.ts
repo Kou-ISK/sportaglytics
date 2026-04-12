@@ -1,11 +1,11 @@
 import { useCallback } from 'react';
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 import type {
   AnalysisDashboard,
   AnalysisDashboardWidget,
   AppSettings,
   DashboardSeriesFilter,
-} from '../../../../../../types/Settings';
+} from '../../../../../../types/settings/coreTypes';
 import type { useNotification } from '../../../../../../contexts/NotificationContext';
 import { generateDashboardId } from './dashboardTabController.utils';
 import { useDashboardImportExport } from './useDashboardImportExport';

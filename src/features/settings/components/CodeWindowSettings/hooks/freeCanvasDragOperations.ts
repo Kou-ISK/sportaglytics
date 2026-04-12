@@ -1,7 +1,7 @@
 import type {
   CodeWindowButton,
   CodeWindowLayout,
-} from '../../../../../types/Settings';
+} from '../../../../../types/settings/coreTypes';
 import {
   createButtonLink,
   DEFAULT_BUTTON_HEIGHT,

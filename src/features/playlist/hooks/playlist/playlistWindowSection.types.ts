@@ -1,4 +1,9 @@
-import type { DrawingObject, ItemAnnotation, PlaylistItem, PlaylistType } from '../../../../types/Playlist';
+import type {
+  DrawingObject,
+  ItemAnnotation,
+  PlaylistItem,
+  PlaylistType,
+} from '../../../../types/playlist/core';
 import type {
   ClipExportAngleOption as AngleOption,
   ClipExportMode as ExportMode,
@@ -8,7 +13,9 @@ import type {
 import type { AnnotationCanvasRef } from '../../components/AnnotationCanvas';
 
 export type PlaylistViewMode = 'dual' | 'angle1' | 'angle2';
-export type PlaylistDndSensors = ReturnType<typeof import('@dnd-kit/core').useSensors>;
+export type PlaylistDndSensors = ReturnType<
+  typeof import('@dnd-kit/core').useSensors
+>;
 
 export interface BuildHeaderSectionParams {
   playlistName: string;
@@ -50,7 +57,10 @@ export interface BuildVideoAreaSectionParams {
   };
   currentAnnotation: ItemAnnotation | null;
   defaultFreezeDuration: number;
-  onObjectsChange: (objects: DrawingObject[], target?: 'primary' | 'secondary') => void;
+  onObjectsChange: (
+    objects: DrawingObject[],
+    target?: 'primary' | 'secondary',
+  ) => void;
   onFreezeDurationChange: (freezeDuration: number) => void;
   currentTime: number;
   videoRef: React.RefObject<HTMLVideoElement | null>;

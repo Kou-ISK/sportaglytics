@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Playlist } from '../../../types/Playlist';
+import type { Playlist } from '../../../types/playlist/core';
 import {
   buildLoadedPlaylistSnapshot,
   buildPlaylistPayload,
@@ -87,26 +87,26 @@ describe('playlistFileState', () => {
       updatedAt: 1,
     };
 
-    expect(buildLoadedPlaylistSnapshot(playlist, '/playlist/demo.playlist')).toEqual(
-      {
-        items: playlist.items,
-        hasUnsavedChanges: false,
-        playlistName: 'Loaded',
-        playlistType: 'reference',
-        packagePath: '/package/source',
-        loadedFilePath: '/playlist/demo.playlist',
-        isDirty: false,
-        itemAnnotations: {
-          'item-1': {
-            objects: [],
-            freezeAt: 0,
-            freezeDuration: 0,
-          },
+    expect(
+      buildLoadedPlaylistSnapshot(playlist, '/playlist/demo.playlist'),
+    ).toEqual({
+      items: playlist.items,
+      hasUnsavedChanges: false,
+      playlistName: 'Loaded',
+      playlistType: 'reference',
+      packagePath: '/package/source',
+      loadedFilePath: '/playlist/demo.playlist',
+      isDirty: false,
+      itemAnnotations: {
+        'item-1': {
+          objects: [],
+          freezeAt: 0,
+          freezeDuration: 0,
         },
-        videoSources: ['/video/a.mp4', '/video/b.mp4'],
-        viewMode: 'dual',
-        currentIndex: 0,
       },
-    );
+      videoSources: ['/video/a.mp4', '/video/b.mp4'],
+      viewMode: 'dual',
+      currentIndex: 0,
+    });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { AnalysisDashboardConfig } from '../types/Settings';
-import type { TimelineData } from '../types/TimelineData';
+import type { AnalysisDashboardConfig } from '../types/settings/coreTypes';
+import type { TimelineData } from '../types/timeline/core';
 import { buildAnalysisReportData } from './buildAnalysisReportData';
 
 const timeline: TimelineData[] = [

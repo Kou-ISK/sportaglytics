@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 
 interface UseTimelineDerivedDataParams {
   timeline: TimelineData[];

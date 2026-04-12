@@ -1,4 +1,4 @@
-import type { AnalysisView } from '../../../../types/AnalysisView';
+import type { AnalysisView } from '../../../../types/analysis/view';
 
 const isAnalysisView = (requested: unknown): requested is AnalysisView => {
   return (

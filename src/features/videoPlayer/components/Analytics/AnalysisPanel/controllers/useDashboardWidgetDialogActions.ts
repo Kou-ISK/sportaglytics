@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 import type {
   AnalysisDashboardWidget,
   DashboardAnalysisMode,
@@ -8,7 +8,7 @@ import type {
   DashboardMetric,
   DashboardSeriesDefinition,
   DashboardSeriesFilter,
-} from '../../../../../../types/Settings';
+} from '../../../../../../types/settings/coreTypes';
 import { useDashboardWidgetPresetActions } from './dashboardWidgetPresetActions';
 import { useDashboardWidgetSaveAction } from './dashboardWidgetSaveAction';
 import { useDashboardWidgetSeriesActions } from './dashboardWidgetSeriesActions';

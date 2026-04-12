@@ -1,9 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { RefObject } from 'react';
-import type { TimelineData } from '../../../../../../types/TimelineData';
-import type { AnalysisView } from '../../../../../../types/AnalysisView';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
-import type { DashboardSeriesFilter } from '../../../../../../types/Settings';
+import type { TimelineData } from '../../../../../../types/timeline/core';
+import type { AnalysisView } from '../../../../../../types/analysis/view';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
+import type {
+  AnalysisDashboardConfig,
+  DashboardSeriesFilter,
+} from '../../../../../../types/settings/coreTypes';
 import type { MatrixFilterState } from './matrixFilterUtils';
 import type { NotificationContextValue } from '../../../../../../contexts/NotificationContext';
 import { buildAnalysisSummaryText } from '../../../../../../utils/analysisExport';
@@ -36,9 +39,7 @@ interface UseAnalysisExportActionsParams {
     column: MatrixAxisConfig;
   };
   matrixFilters: MatrixFilterState;
-  analysisDashboard:
-    | import('../../../../../../types/Settings').AnalysisDashboardConfig
-    | undefined;
+  analysisDashboard: AnalysisDashboardConfig | undefined;
   notification: NotificationContextValue;
   exportTargetRef: RefObject<HTMLDivElement | null>;
 }

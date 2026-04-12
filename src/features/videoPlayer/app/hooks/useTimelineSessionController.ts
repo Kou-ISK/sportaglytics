@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { ChangeEvent, Dispatch, SetStateAction } from 'react';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
 import { useTimelineEditing } from './useTimelineEditing';
 import { useTimelineHistory } from './useTimelineHistory';
 import { useTimelinePersistence } from './useTimelinePersistence';

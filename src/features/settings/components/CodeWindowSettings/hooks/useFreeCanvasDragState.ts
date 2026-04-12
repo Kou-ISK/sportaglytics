@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type {
   CodeWindowButton,
   CodeWindowLayout,
-} from '../../../../../types/Settings';
+} from '../../../../../types/settings/coreTypes';
 
 export type FreeCanvasDragMode = 'move' | 'resize' | 'link' | null;
 export type FreeCanvasLinkType = 'exclusive' | 'lead' | 'deactivate';

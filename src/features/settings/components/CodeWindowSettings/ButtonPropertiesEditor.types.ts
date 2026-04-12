@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { CodeWindowButton } from '../../../../types/Settings';
+import type { CodeWindowButton } from '../../../../types/settings/coreTypes';
 import type { LabelGroup } from './ButtonBasicTab.types';
 
 export interface ButtonPropertiesEditorProps {

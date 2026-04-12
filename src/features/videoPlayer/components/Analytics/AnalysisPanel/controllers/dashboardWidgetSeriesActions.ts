@@ -3,7 +3,7 @@ import type React from 'react';
 import type {
   DashboardSeriesDefinition,
   DashboardSeriesFilter,
-} from '../../../../../../types/Settings';
+} from '../../../../../../types/settings/coreTypes';
 import { generateWidgetId } from './dashboardWidgetDialogState.utils';
 
 interface UseDashboardWidgetSeriesActionsParams {

@@ -4,8 +4,8 @@ import type {
   DashboardChartType,
   DashboardSeriesDefinition,
   DashboardSeriesFilter,
-} from '../../../../../../../types/Settings';
-import type { MatrixAxisConfig } from '../../../../../../../types/MatrixConfig';
+} from '../../../../../../../types/settings/coreTypes';
+import type { MatrixAxisConfig } from '../../../../../../../types/analysis/matrix';
 
 export interface DashboardWidgetSeriesConfigProps {
   calcMode: DashboardCalcMode;

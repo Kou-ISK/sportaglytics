@@ -1,7 +1,7 @@
 import type {
   MetaData,
   VideoAngleConfig,
-} from '../../../../../../types/MetaData';
+} from '../../../../../../types/package/metadata';
 
 type LoadedAngle = {
   id: string;

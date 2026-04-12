@@ -1,4 +1,4 @@
-import type { DashboardSeriesFilter } from '../../../../../../types/Settings';
+import type { DashboardSeriesFilter } from '../../../../../../types/settings/coreTypes';
 
 export const generateDashboardId = (): string => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();

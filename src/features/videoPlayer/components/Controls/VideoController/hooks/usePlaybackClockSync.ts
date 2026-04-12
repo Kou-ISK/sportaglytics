@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { VideoSyncData } from '../../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { GetExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
 import {
   resolveActualPlaybackTime,

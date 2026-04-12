@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 import type {
   DashboardAnalysisMode,
   DashboardCalcMode,
@@ -7,7 +7,7 @@ import type {
   DashboardMetric,
   DashboardSeriesDefinition,
   DashboardSeriesFilter,
-} from '../../../../../../types/Settings';
+} from '../../../../../../types/settings/coreTypes';
 import type {
   DashboardWidgetDialogState,
   UseDashboardWidgetDialogStateParams,

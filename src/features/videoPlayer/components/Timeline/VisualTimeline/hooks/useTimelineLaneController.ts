@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 import type {
   TimelineLaneProps,
   TimelineLaneViewProps,

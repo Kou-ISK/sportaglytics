@@ -1,5 +1,5 @@
-import type { AnalysisDashboard } from '../../../../../../types/Settings';
-import { normalizeDashboardList } from '../../../../../../types/Settings';
+import type { AnalysisDashboard } from '../../../../../../types/settings/coreTypes';
+import { normalizeDashboardList } from '../../../../../../types/settings/dashboardNormalizers';
 
 interface ParseAnalysisDashboardImportContentParams {
   content: string;

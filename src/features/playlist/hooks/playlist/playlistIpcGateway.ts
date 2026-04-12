@@ -1,8 +1,8 @@
 import type {
   PlaylistItem,
   PlaylistSaveProgressPayload,
-  PlaylistSyncData,
-} from '../../../../types/Playlist';
+} from '../../../../types/playlist/core';
+import type { PlaylistSyncData } from '../../../../types/playlist/window';
 import {
   requestPlaylistSync,
   subscribePlaylistAddItem,

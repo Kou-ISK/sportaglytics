@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
-import type { VideoSyncData } from '../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../types/video/sync';
 import {
   getVideoJsPlayer,
   setVideoJsPlayerCurrentTime,

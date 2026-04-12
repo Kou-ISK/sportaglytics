@@ -1,13 +1,12 @@
 import React from 'react';
 import { Box, List, Paper, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import {
-  DndContext,
-  closestCenter,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import type { PlaylistItem } from '../../../types/Playlist';
+  SortableContext,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import type { PlaylistItem } from '../../../types/playlist/core';
 import { PlaylistSortableItem } from './PlaylistSortableItem';
 
 type PlaylistItemSectionProps = {

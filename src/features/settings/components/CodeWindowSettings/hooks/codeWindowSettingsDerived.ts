@@ -1,7 +1,7 @@
 import type {
   AppSettings,
   CodeWindowLayout,
-} from '../../../../../types/Settings';
+} from '../../../../../types/settings/coreTypes';
 import { ActionList } from '../../../../../ActionList';
 import { TEAM_PLACEHOLDERS } from '../../../../../utils/teamPlaceholder';
 

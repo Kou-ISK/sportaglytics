@@ -11,7 +11,7 @@ import {
 import type {
   MatrixAxisConfig,
   MatrixAxisType,
-} from '../../../../../../types/MatrixConfig';
+} from '../../../../../../types/analysis/matrix';
 
 // --- ここから本体 ---
 interface MatrixAxisSelectorProps {

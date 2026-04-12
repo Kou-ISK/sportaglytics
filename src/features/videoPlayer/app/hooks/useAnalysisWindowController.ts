@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AnalysisView } from '../../../../types/AnalysisView';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { AnalysisView } from '../../../../types/analysis/view';
+import type { TimelineData } from '../../../../types/timeline/core';
 import type { AnalysisAiPlaylistPayload } from '../../../../types/ipc/analysisWindow';
 import { useRawTimelineCsvExport } from '../../analysis/hooks/useRawTimelineCsvExport';
 import {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { TimelineData } from '../types/TimelineData';
-import { buildAnalysisSummaryText, exportRawAnalysisCsv } from './analysisExport';
+import type { TimelineData } from '../types/timeline/core';
+import {
+  buildAnalysisSummaryText,
+  exportRawAnalysisCsv,
+} from './analysisExport';
 
 const parseCsvLine = (line: string): string[] =>
   line

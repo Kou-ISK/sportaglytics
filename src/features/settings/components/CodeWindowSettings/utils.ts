@@ -4,7 +4,7 @@ import type {
   CodeWindowLayout,
   ButtonLink,
   TeamArea,
-} from '../../../../types/Settings';
+} from '../../../../types/settings/coreTypes';
 
 /** デフォルトのボタンサイズ（ピクセル） */
 export const DEFAULT_BUTTON_WIDTH = 160;

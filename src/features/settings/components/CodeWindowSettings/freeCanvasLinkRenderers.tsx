@@ -1,5 +1,8 @@
 import React from 'react';
-import type { CodeWindowButton, CodeWindowLayout } from '../../../../types/Settings';
+import type {
+  CodeWindowButton,
+  CodeWindowLayout,
+} from '../../../../types/settings/coreTypes';
 import { getButtonCenter, getButtonEdge } from './utils';
 
 type LinkType = 'exclusive' | 'lead' | 'deactivate';

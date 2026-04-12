@@ -5,12 +5,11 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from 'react';
+import type { PlaylistItem, PlaylistState } from '../../../types/playlist/core';
 import type {
-  PlaylistItem,
   PlaylistCommand,
-  PlaylistState,
   PlaylistSyncData,
-} from '../../../types/Playlist';
+} from '../../../types/playlist/window';
 import type { PlayItemCallback, SeekCallback } from './playlistCallbacks';
 import {
   addPlaylistItemToAllWindows,
@@ -84,7 +83,8 @@ export const usePlaylistWindowBridge = ({
         await addPlaylistItemToAllWindows({
           ...item,
           videoSource: item.videoSource ?? videoSources?.primary ?? undefined,
-          videoSource2: item.videoSource2 ?? videoSources?.secondary ?? undefined,
+          videoSource2:
+            item.videoSource2 ?? videoSources?.secondary ?? undefined,
         });
       }
     },
@@ -152,7 +152,14 @@ export const usePlaylistWindowBridge = ({
       unsubscribeCommand();
       unsubscribeWindowClosed();
     };
-  }, [playItemCallbackRef, seekCallbackRef, setIsWindowOpen, setPlayingItem, setState, state.playlists]);
+  }, [
+    playItemCallbackRef,
+    seekCallbackRef,
+    setIsWindowOpen,
+    setPlayingItem,
+    setState,
+    state.playlists,
+  ]);
 
   useEffect(() => {
     return observePlaylistWindowState(setIsWindowOpen);

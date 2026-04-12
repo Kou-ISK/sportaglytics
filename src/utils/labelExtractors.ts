@@ -1,9 +1,12 @@
-import type { TimelineData } from '../types/TimelineData';
-import type { SCLabel } from '../types/SCTimeline';
+import type { TimelineData } from '../types/timeline/core';
+import type { SCLabel } from '../types/timeline/sportscode';
 
 const normalizeActionName = (value: string): string => {
   if (!value) return '';
-  return value.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/\u3000/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 };
 
 type LegacyTimelineData = TimelineData & {
@@ -44,7 +47,9 @@ export const getLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
   if (!hasActionType && legacyActionType) {
     labels.push({ name: legacyActionType, group: 'actionType' });
   }
-  const hasActionResult = labels.some((label) => label.group === 'actionResult');
+  const hasActionResult = labels.some(
+    (label) => label.group === 'actionResult',
+  );
   if (!hasActionResult && legacyActionResult) {
     labels.push({ name: legacyActionResult, group: 'actionResult' });
   }

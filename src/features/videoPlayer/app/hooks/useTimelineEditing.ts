@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { ulid } from 'ulid';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
 
 interface TimelineEditingHandlers {
   addTimelineData: (

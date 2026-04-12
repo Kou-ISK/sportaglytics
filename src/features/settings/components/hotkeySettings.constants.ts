@@ -1,4 +1,4 @@
-import type { HotkeyConfig } from '../../../types/Settings';
+import type { HotkeyConfig } from '../../../types/settings/coreTypes';
 
 export const DEFAULT_HOTKEYS: HotkeyConfig[] = [
   { id: 'resync-audio', label: '音声同期を再実行', key: 'Command+Shift+S' },

@@ -3,7 +3,7 @@ import type {
   ItemAnnotation,
   PlaylistItem,
   PlaylistType,
-} from '../../../../types/Playlist';
+} from '../../../../types/playlist/core';
 import { registerPlaylistIpcHandlers } from './playlistIpcGateway';
 import { buildPlaylistSyncSnapshot } from './playlistSyncSnapshot';
 
@@ -57,7 +57,10 @@ export const usePlaylistIpcSync = ({
       setViewMode(snapshot.viewMode);
     };
 
-    const handleSaveProgress = (data: { current: number; total: number }): void => {
+    const handleSaveProgress = (data: {
+      current: number;
+      total: number;
+    }): void => {
       setSaveProgress(data);
     };
 

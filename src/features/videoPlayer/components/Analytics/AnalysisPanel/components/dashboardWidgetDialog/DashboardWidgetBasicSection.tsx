@@ -1,6 +1,13 @@
 import React from 'react';
-import { Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import type { DashboardAnalysisMode } from '../../../../../../../types/Settings';
+import {
+  Paper,
+  Stack,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
+import type { DashboardAnalysisMode } from '../../../../../../../types/settings/coreTypes';
 
 interface DashboardWidgetBasicSectionProps {
   title: string;

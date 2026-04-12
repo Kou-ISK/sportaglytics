@@ -13,7 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Link, LinkOff } from '@mui/icons-material';
-import type { PlaylistType } from '../../../types/Playlist';
+import type { PlaylistType } from '../../../types/playlist/core';
 
 type PlaylistSaveDialogProps = {
   open: boolean;

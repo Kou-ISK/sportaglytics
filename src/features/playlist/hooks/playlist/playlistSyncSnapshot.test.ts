@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PlaylistSyncData } from '../../../../types/Playlist';
+import type { PlaylistSyncData } from '../../../../types/playlist/window';
 import { buildPlaylistSyncSnapshot } from './playlistSyncSnapshot';
 
 const createSyncData = (

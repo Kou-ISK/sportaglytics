@@ -1,5 +1,5 @@
 import type { PackageDatas } from '../../../../../../renderer';
-import type { VideoSyncData } from '../../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { PackageLoadResult } from '../types';
 import { buildVideoListFromConfig } from '../utils/angleUtils';
 

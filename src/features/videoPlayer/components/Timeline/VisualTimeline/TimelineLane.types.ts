@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { TimelineData } from '../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../types/timeline/core';
 
 export interface TimelineLaneProps {
   actionName: string;

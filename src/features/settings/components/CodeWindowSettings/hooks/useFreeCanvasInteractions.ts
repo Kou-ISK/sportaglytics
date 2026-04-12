@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import type {
   CodeWindowButton,
   CodeWindowLayout,
-} from '../../../../../types/Settings';
+} from '../../../../../types/settings/coreTypes';
 import {
   type FreeCanvasDragMode,
   useFreeCanvasDragState,

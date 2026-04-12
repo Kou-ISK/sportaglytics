@@ -1,5 +1,5 @@
 import type { SxProps, Theme } from '@mui/material/styles';
-import type { TimelineData } from '../../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../../types/timeline/core';
 import type { EvidenceItem } from '../../../../../analysis/ai';
 import type { EventInsights } from '../../../../../analysis/utils/eventInsights';
 

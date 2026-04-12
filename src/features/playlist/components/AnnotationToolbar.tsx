@@ -25,7 +25,7 @@ import {
   DragIndicator,
   OpenWith,
 } from '@mui/icons-material';
-import type { DrawingToolType } from '../../../types/Playlist';
+import type { DrawingToolType } from '../../../types/playlist/core';
 
 type AnnotationToolbarProps = {
   isActive: boolean;
@@ -195,9 +195,7 @@ export const AnnotationToolbar = ({
                 height: 16,
                 bgcolor: paletteColor,
                 border:
-                  color === paletteColor
-                    ? '2px solid white'
-                    : '1px solid #666',
+                  color === paletteColor ? '2px solid white' : '1px solid #666',
                 '&:hover': { bgcolor: paletteColor },
               }}
             />

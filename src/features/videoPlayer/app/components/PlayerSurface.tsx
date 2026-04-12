@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { VideoPlayer, VideoController } from '../..';
-import type { VideoSyncData } from '../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../types/video/sync';
 
 interface PlayerSurfaceProps {
   videoList: string[];

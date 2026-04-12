@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { AIAnalysisSettings } from '../../../../../../../types/Settings';
+import type { AIAnalysisSettings } from '../../../../../../../types/settings/coreTypes';
 import type {
   AiCopilotResponse,
   EvidenceFilters,

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { TimelineData } from '../../../../../../types/TimelineData';
+import { TimelineData } from '../../../../../../types/timeline/core';
 
 interface UseTimelineSelectionParams {
   timeline: TimelineData[];

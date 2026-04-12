@@ -3,7 +3,7 @@ import type {
   AppSettings,
   CodeWindowButton,
   CodeWindowLayout,
-} from '../../../../types/Settings';
+} from '../../../../types/settings/coreTypes';
 import { useCodeWindowSettingsState } from './hooks/useCodeWindowSettingsState';
 import { buildSelectionButtonUpdates } from './codeWindowButtonUpdateUtils';
 import type { SettingsTabHandle } from '../../types';
@@ -70,7 +70,10 @@ export const CodeWindowSettings = forwardRef<
 
   const handleSelectedButtonUpdate = (updatedButton: CodeWindowButton) => {
     if (selectedButtonIds.length > 1 && selectedButton) {
-      const updates = buildSelectionButtonUpdates(selectedButton, updatedButton);
+      const updates = buildSelectionButtonUpdates(
+        selectedButton,
+        updatedButton,
+      );
       if (Object.keys(updates).length > 0) {
         applyUpdatesToSelection(updates);
       }

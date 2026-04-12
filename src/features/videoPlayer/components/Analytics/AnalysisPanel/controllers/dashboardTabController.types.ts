@@ -1,9 +1,9 @@
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 import type {
   AnalysisDashboard,
   AnalysisDashboardWidget,
   DashboardSeriesFilter,
-} from '../../../../../../types/Settings';
+} from '../../../../../../types/settings/coreTypes';
 
 export interface UseDashboardTabControllerParams {
   timeline: TimelineData[];

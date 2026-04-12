@@ -1,5 +1,5 @@
-import type { MatrixAxisConfig } from '../types/MatrixConfig';
-import type { TimelineData } from '../types/TimelineData';
+import type { MatrixAxisConfig } from '../types/analysis/matrix';
+import type { TimelineData } from '../types/timeline/core';
 import {
   extractActionFromActionName,
   extractTeamFromActionName,

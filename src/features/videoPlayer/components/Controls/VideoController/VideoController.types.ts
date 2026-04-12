@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { VideoSyncData } from '../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../types/video/sync';
 
 export interface VideoControllerProps {
   setIsVideoPlaying: React.Dispatch<React.SetStateAction<boolean>>;

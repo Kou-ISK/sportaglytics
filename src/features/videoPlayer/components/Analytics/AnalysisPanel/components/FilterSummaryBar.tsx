@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 
 interface FilterSummaryBarProps {
   // 軸設定
@@ -193,7 +193,9 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
                 <IconButton
                   size="small"
                   onClick={handleFilterClick}
-                  aria-label={hasActiveFilters ? 'フィルタを編集' : 'フィルタを追加'}
+                  aria-label={
+                    hasActiveFilters ? 'フィルタを編集' : 'フィルタを追加'
+                  }
                 >
                   <FilterListIcon fontSize="small" />
                 </IconButton>

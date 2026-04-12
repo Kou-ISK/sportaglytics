@@ -1,10 +1,13 @@
 import React from 'react';
-import type { TimelineData } from '../../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../../types/timeline/core';
 import type { EvidenceItem } from '../../../../../analysis/ai';
 import type { EventInsights } from '../../../../../analysis/utils/eventInsights';
 import { AIAnalysisEvidenceAccordion } from './AIAnalysisEvidenceAccordion';
 import { AIAnalysisInsightAccordion } from './AIAnalysisInsightAccordion';
-import type { InsightAccordionSx, InsightDimensionOption } from './aiAnalysisInsightsSidebar.types';
+import type {
+  InsightAccordionSx,
+  InsightDimensionOption,
+} from './aiAnalysisInsightsSidebar.types';
 
 interface AIAnalysisInsightsSidebarProps {
   accordionSx: InsightAccordionSx;

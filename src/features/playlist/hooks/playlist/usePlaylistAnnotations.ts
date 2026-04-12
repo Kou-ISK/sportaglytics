@@ -4,7 +4,7 @@ import type {
   DrawingObject,
   ItemAnnotation,
   PlaylistItem,
-} from '../../../../types/Playlist';
+} from '../../../../types/playlist/core';
 import type { AnnotationCanvasRef } from '../../components/AnnotationCanvas';
 
 interface UsePlaylistAnnotationsParams {
@@ -13,9 +13,7 @@ interface UsePlaylistAnnotationsParams {
   setItemAnnotations: React.Dispatch<
     React.SetStateAction<Record<string, ItemAnnotation>>
   >;
-  setItemsWithHistory: React.Dispatch<
-    React.SetStateAction<PlaylistItem[]>
-  >;
+  setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
   minFreezeDuration: number;
   defaultFreezeDuration: number;
@@ -49,19 +47,19 @@ export const usePlaylistAnnotations = ({
       itemAnnotations[currentItem.id] || currentItem.annotation || null;
     const normalized = base
       ? {
-        ...base,
-        objects: base.objects || [],
-        freezeAt: base.freezeAt ?? 0,
-        freezeDuration:
-          base.freezeDuration === undefined || base.freezeDuration === 0
-            ? defaultFreezeDuration
-            : base.freezeDuration,
-      }
+          ...base,
+          objects: base.objects || [],
+          freezeAt: base.freezeAt ?? 0,
+          freezeDuration:
+            base.freezeDuration === undefined || base.freezeDuration === 0
+              ? defaultFreezeDuration
+              : base.freezeDuration,
+        }
       : {
-        objects: [],
-        freezeDuration: defaultFreezeDuration,
-        freezeAt: 0,
-      };
+          objects: [],
+          freezeDuration: defaultFreezeDuration,
+          freezeAt: 0,
+        };
 
     const isEmbedded = currentItem.videoSource?.startsWith('./videos/');
     if (!isEmbedded || currentItem.startTime === undefined) {

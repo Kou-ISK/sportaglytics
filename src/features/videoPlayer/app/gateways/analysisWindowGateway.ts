@@ -2,7 +2,7 @@ import type {
   AnalysisAiPlaylistPayload,
   AnalysisWindowSyncPayload,
 } from '../../../../types/ipc/analysisWindow';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
 
 const getAnalysisApi = () => globalThis.window.electronAPI?.analysis;
 const noop = (): void => undefined;

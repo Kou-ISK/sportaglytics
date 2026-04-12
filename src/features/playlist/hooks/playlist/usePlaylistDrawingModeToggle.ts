@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { AnnotationTarget } from '../../../../types/Playlist';
+import type { AnnotationTarget } from '../../../../types/playlist/core';
 import type { AnnotationCanvasRef } from '../../components/AnnotationCanvas';
 
 interface UsePlaylistDrawingModeToggleParams {

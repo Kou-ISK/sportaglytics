@@ -3,7 +3,7 @@ import type {
   AnnotationTarget,
   DrawingObject,
   DrawingToolType,
-} from '../../../../types/Playlist';
+} from '../../../../types/playlist/core';
 import {
   findObjectAtPoint,
   generateAnnotationId,
@@ -271,9 +271,7 @@ export const useAnnotationPointerHandlers = ({
 
       setObjects((prev) => {
         const updated = prev.map((obj) =>
-          obj.id === draggingObjectId
-            ? shiftObject(obj, baseDx, baseDy)
-            : obj,
+          obj.id === draggingObjectId ? shiftObject(obj, baseDx, baseDy) : obj,
         );
         onObjectsChange?.(updated, target);
         return updated;

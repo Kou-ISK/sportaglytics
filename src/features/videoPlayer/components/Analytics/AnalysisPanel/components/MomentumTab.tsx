@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { MomentumChart } from '../../MomentumChart';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
-import { CreateMomentumDataFn } from '../../../../../../types/Analysis';
+import { CreateMomentumDataFn } from '../../../../../../types/analysis/momentum';
 import { AnalysisCard } from './AnalysisCard';
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 import { DrilldownDialog } from './DrilldownDialog';
 
 interface MomentumTabProps {
@@ -38,11 +38,7 @@ export const MomentumTab = ({
   }
 
   if (timeline.length === 0) {
-    return (
-      <NoDataPlaceholder
-        message="表示できるタイムラインがありません。"
-      />
-    );
+    return <NoDataPlaceholder message="表示できるタイムラインがありません。" />;
   }
 
   return (

@@ -1,4 +1,4 @@
-import type { PlaylistItem } from '../../../types/Playlist';
+import type { PlaylistItem } from '../../../types/playlist/core';
 
 export const resolveViewModeForSources = (
   videoSources: string[],

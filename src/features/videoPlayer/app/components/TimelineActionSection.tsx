@@ -1,15 +1,11 @@
-import React, {
-  useRef,
-  useImperativeHandle,
-  forwardRef,
-} from 'react';
+import React, { useRef, useImperativeHandle, forwardRef } from 'react';
 import { Box, Paper } from '@mui/material';
 import {
   VisualTimeline,
   EnhancedCodePanel,
   type EnhancedCodePanelHandle,
 } from '../..';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
 
 export interface TimelineActionSectionHandle {
   triggerAction: (teamName: string, actionName: string) => void;

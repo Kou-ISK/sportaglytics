@@ -1,4 +1,4 @@
-import type { AudioAnalysisResult, WaveformData } from '../types/VideoSync';
+import type { AudioAnalysisResult, WaveformData } from '../types/video/sync';
 import {
   createAudioContext,
   extractWaveformFromArrayBuffer,

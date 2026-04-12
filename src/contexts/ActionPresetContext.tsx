@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { ActionList } from '../ActionList';
-import type { ActionDefinition } from '../types/Settings';
+import type { ActionDefinition } from '../types/settings/coreTypes';
 
 const DEFAULT_ACTIONS: ActionDefinition[] = ActionList.map((item) => ({
   action: item.action,

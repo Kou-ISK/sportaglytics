@@ -1,4 +1,4 @@
-import type { HotkeyConfig } from '../../../types/Settings';
+import type { HotkeyConfig } from '../../../types/settings/coreTypes';
 import { FORBIDDEN_HOTKEYS } from './hotkeySettings.constants';
 
 export const formatKeyCombo = (event: KeyboardEvent): string => {

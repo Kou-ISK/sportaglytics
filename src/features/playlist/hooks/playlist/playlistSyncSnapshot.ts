@@ -1,9 +1,9 @@
 import type {
   ItemAnnotation,
   PlaylistItem,
-  PlaylistSyncData,
   PlaylistType,
-} from '../../../../types/Playlist';
+} from '../../../../types/playlist/core';
+import type { PlaylistSyncData } from '../../../../types/playlist/window';
 import {
   resolveViewModeForItems,
   resolveViewModeForSources,

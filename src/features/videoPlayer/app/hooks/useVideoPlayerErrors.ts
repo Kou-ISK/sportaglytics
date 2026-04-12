@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { VideoPlayerError } from '../../../../types/VideoPlayerError';
+import type { VideoPlayerError } from '../../../../types/video/error';
 
 interface UseVideoPlayerErrorsReturn {
   error: VideoPlayerError | null;

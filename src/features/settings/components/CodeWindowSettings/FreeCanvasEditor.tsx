@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import { Box } from '@mui/material';
-import type { CodeWindowLayout } from '../../../../types/Settings';
+import type { CodeWindowLayout } from '../../../../types/settings/coreTypes';
 import { FreeCanvasContextMenu } from './FreeCanvasContextMenu';
 import { FreeCanvasCustomActionDialog } from './FreeCanvasCustomActionDialog';
 import { FreeCanvasCustomLabelDialog } from './FreeCanvasCustomLabelDialog';
@@ -36,17 +36,14 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   const canvasRef = useRef<HTMLDivElement>(null);
   const selectedPrimaryId = selectedButtonIds[0] ?? null;
 
-  const {
-    selectedLinkId,
-    setSelectedLinkId,
-    updateLayoutWithHistory,
-  } = useFreeCanvasHistoryAndShortcuts({
-    layout,
-    selectedButtonIds,
-    selectedPrimaryId,
-    onLayoutChange,
-    onSelectButtons,
-  });
+  const { selectedLinkId, setSelectedLinkId, updateLayoutWithHistory } =
+    useFreeCanvasHistoryAndShortcuts({
+      layout,
+      selectedButtonIds,
+      selectedPrimaryId,
+      onLayoutChange,
+      onSelectButtons,
+    });
 
   const getCanvasPosition = useCallback(
     (event: React.MouseEvent | MouseEvent): { x: number; y: number } => {

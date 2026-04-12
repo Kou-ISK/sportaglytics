@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
-import type { TimelineData } from '../../../../../../types/TimelineData';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
+import type { TimelineData } from '../../../../../../types/timeline/core';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
 import { useMatrixFilters } from './useMatrixFilters';

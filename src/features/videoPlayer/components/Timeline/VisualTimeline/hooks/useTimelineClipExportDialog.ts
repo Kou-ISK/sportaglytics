@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 import {
   canExportClipsWithOverlay,
   exportClipsWithOverlay,

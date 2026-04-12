@@ -1,4 +1,4 @@
-import type { CodeWindowButton } from '../../../../types/Settings';
+import type { CodeWindowButton } from '../../../../types/settings/coreTypes';
 
 type UpdatableKey =
   | 'color'

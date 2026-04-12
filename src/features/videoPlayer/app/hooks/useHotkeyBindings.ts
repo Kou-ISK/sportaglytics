@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type {
   ActionDefinition,
   HotkeyConfig,
-} from '../../../../types/Settings';
+} from '../../../../types/settings/coreTypes';
 import type { TimelineActionSectionHandle } from '../components/TimelineActionSection';
 
 interface UseHotkeyBindingsParams {

@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import { TimelineData } from '../../../../../../types/TimelineData';
+import { TimelineData } from '../../../../../../types/timeline/core';
 
 interface DrilldownDialogProps {
   detail: { title: string; entries: TimelineData[] } | null;
@@ -66,7 +66,8 @@ export const DrilldownDialog = ({
       <DialogContent dividers>
         <Stack spacing={2}>
           <Typography variant="caption" color="text.secondary">
-            件数: {detail.entries.length}件 ・ 合計時間: {formatHms(totalDuration)}
+            件数: {detail.entries.length}件 ・ 合計時間:{' '}
+            {formatHms(totalDuration)}
           </Typography>
           {detail.entries.map((entry, index) => {
             const actionParts = entry.actionName.split(' ');

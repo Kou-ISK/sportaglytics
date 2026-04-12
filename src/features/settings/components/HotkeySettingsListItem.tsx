@@ -9,7 +9,7 @@ import {
   Paper,
   Typography,
 } from '@mui/material';
-import type { HotkeyConfig } from '../../../types/Settings';
+import type { HotkeyConfig } from '../../../types/settings/coreTypes';
 
 interface HotkeySettingsListItemProps {
   hotkey: HotkeyConfig;

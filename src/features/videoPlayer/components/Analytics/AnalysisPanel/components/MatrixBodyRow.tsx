@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, TableCell, TableRow, Typography } from '@mui/material';
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 
 type Header = { parent: string | null; child: string };
 

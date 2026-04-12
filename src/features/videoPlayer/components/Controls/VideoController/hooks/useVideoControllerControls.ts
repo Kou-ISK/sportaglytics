@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { SelectChangeEvent } from '@mui/material';
-import type { VideoSyncData } from '../../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { GetExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
 
 interface UseVideoControllerControlsParams {

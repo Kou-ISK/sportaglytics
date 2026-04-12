@@ -17,7 +17,7 @@ import type { Theme } from '@mui/material/styles';
 import type {
   CreateMomentumDataFn,
   MomentumSegment,
-} from '../../../../types/Analysis';
+} from '../../../../types/analysis/momentum';
 
 interface MomentumChartProps {
   createMomentumData: CreateMomentumDataFn;

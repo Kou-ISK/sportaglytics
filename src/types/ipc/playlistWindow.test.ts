@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  PlaylistCommand,
-  PlaylistSyncData,
-} from '../Playlist';
+import type { PlaylistCommand, PlaylistSyncData } from '../playlist/window';
 import {
   isPlaylistCommand,
   isPlaylistItem,

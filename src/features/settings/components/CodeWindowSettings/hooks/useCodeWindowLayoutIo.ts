@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type React from 'react';
-import type { CodeWindowLayout } from '../../../../../types/Settings';
+import type { CodeWindowLayout } from '../../../../../types/settings/coreTypes';
 import {
   canUseCodeWindowFileApi,
   loadCodeWindowFile,

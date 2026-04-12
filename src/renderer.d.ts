@@ -1,12 +1,8 @@
-import type {
-  IPlaylistAPI,
-} from './types/playlist/api';
-import type { AnalysisView } from './types/AnalysisView';
+import type { IPlaylistAPI } from './types/playlist/api';
+import type { AnalysisView } from './types/analysis/view';
 import type { AnalysisReportPayload } from './report/types';
-import type { AppSettings } from './types/Settings';
-import type {
-  IAnalysisWindowAPI,
-} from './types/ipc/analysisWindow';
+import type { AppSettings } from './types/settings/coreTypes';
+import type { IAnalysisWindowAPI } from './types/ipc/analysisWindow';
 import type {
   ClipExportExecutionResult,
   ClipExportPayload,
@@ -154,7 +150,9 @@ export interface IElectronAPI {
   readDashboardPackage: (packagePath: string) => Promise<string | null>;
   onExportTimeline: (callback: (format: string) => void) => () => void;
   onImportTimeline: (callback: () => void) => () => void;
-  onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => () => void;
+  onCodingModeChange: (
+    callback: (mode: 'code' | 'label') => void,
+  ) => () => void;
   onOpenPackage: (callback: () => void) => () => void;
   onOpenRecentPackage: (callback: (path: string) => void) => () => void;
   updateRecentPackages: (paths: string[]) => void;

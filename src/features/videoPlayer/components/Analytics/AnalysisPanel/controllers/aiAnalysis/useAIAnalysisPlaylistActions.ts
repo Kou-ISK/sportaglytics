@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { PlaylistItem } from '../../../../../../../types/Playlist';
+import type { PlaylistItem } from '../../../../../../../types/playlist/core';
 import type { EvidenceItem } from '../../../../../analysis/ai';
 import { buildPlaylistName } from './aiAnalysisUtils';
 

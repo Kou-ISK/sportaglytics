@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { VideoSyncData } from '../../../../types/VideoSync';
-import type { VideoPlayerError } from '../../../../types/VideoPlayerError';
+import type { VideoSyncData } from '../../../../types/video/sync';
+import type { VideoPlayerError } from '../../../../types/video/error';
 import { useAutoAudioResync } from './sync/useAutoAudioResync';
 import { useManualSyncActions } from './sync/useManualSyncActions';
 import { useSyncPlayerUpdater } from './sync/useSyncPlayerUpdater';

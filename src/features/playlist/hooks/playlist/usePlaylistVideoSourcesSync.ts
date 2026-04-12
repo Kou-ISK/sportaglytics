@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { PlaylistItem } from '../../../../types/Playlist';
+import type { PlaylistItem } from '../../../../types/playlist/core';
 import { arrayShallowEqual } from '../../utils/arrayEqual';
 
 interface UsePlaylistVideoSourcesSyncParams {

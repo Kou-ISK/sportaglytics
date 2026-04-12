@@ -1,9 +1,9 @@
-import type { MatrixAxisConfig } from '../../types/MatrixConfig';
-import type { TimelineData } from '../../types/TimelineData';
+import type { MatrixAxisConfig } from '../../types/analysis/matrix';
+import type { TimelineData } from '../../types/timeline/core';
 import type {
   DashboardAnalysisMode,
   DashboardSeriesFilter,
-} from '../../types/Settings';
+} from '../../types/settings/coreTypes';
 
 export type DashboardMetric = 'count' | 'duration';
 export type DashboardCalcMode = 'raw' | 'percentTotal' | 'difference';

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { AIAnalysisSettings } from '../../../../../../../types/Settings';
+import type { AIAnalysisSettings } from '../../../../../../../types/settings/coreTypes';
 import {
   resolveDiversifyTarget,
   RETRIEVER_WEIGHT_MAP,

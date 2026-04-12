@@ -1,6 +1,9 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import type { CodeWindowButton, CodeWindowLayout } from '../../../../types/Settings';
+import type {
+  CodeWindowButton,
+  CodeWindowLayout,
+} from '../../../../types/settings/coreTypes';
 import { DEFAULT_BUTTON_COLORS } from './types';
 import { FreeCanvasButton } from './FreeCanvasButton';
 import { FreeCanvasEmptyState } from './FreeCanvasEmptyState';
@@ -76,7 +79,8 @@ export const FreeCanvasStage = ({
 
       {layout.buttons.map((button) => {
         const isSelected = selectedButtonIds.includes(button.id);
-        const isDragging = draggedButton?.id === button.id && dragMode === 'move';
+        const isDragging =
+          draggedButton?.id === button.id && dragMode === 'move';
         const isLinkSource = linkStartButton?.id === button.id;
         const buttonColor =
           button.color ||
@@ -95,7 +99,9 @@ export const FreeCanvasStage = ({
             onMouseDown={(event) => onButtonMouseDown(event, button, 'move')}
             onRightMouseDown={(event) => onButtonRightMouseDown(event, button)}
             onDelete={() => onDeleteButton(button.id)}
-            onResizeMouseDown={(event) => onButtonMouseDown(event, button, 'resize')}
+            onResizeMouseDown={(event) =>
+              onButtonMouseDown(event, button, 'resize')
+            }
           />
         );
       })}

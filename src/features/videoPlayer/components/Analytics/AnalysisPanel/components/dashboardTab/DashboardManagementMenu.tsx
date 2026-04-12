@@ -11,7 +11,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
 import OutboxIcon from '@mui/icons-material/Outbox';
-import type { AnalysisDashboard } from '../../../../../../../types/Settings';
+import type { AnalysisDashboard } from '../../../../../../../types/settings/coreTypes';
 
 interface DashboardManagementMenuProps {
   anchorEl: HTMLElement | null;

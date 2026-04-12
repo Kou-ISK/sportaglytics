@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Stack } from '@mui/material';
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 import type { DashboardTabController } from '../controllers/dashboardTabController.types';
 import { FilterSummaryBar } from './FilterSummaryBar';
 import { NoDataPlaceholder } from './NoDataPlaceholder';

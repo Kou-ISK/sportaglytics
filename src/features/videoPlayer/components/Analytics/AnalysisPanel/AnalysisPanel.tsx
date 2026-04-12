@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { TimelineData } from '../../../../../types/TimelineData';
-import type { PlaylistItem } from '../../../../../types/Playlist';
-import type { AnalysisView } from '../../../../../types/AnalysisView';
+import { TimelineData } from '../../../../../types/timeline/core';
+import type { PlaylistItem } from '../../../../../types/playlist/core';
+import type { AnalysisView } from '../../../../../types/analysis/view';
 import { AnalysisPanelView } from './components/AnalysisPanelView';
 import { useAnalysisPanelController } from './controllers/useAnalysisPanelController';
 import { useAnalysisPanelState } from './hooks/useAnalysisPanelState';

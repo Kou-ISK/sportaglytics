@@ -14,7 +14,7 @@ import AddIcon from '@mui/icons-material/Add';
 import type {
   CodeWindowButton,
   CodeWindowLayout,
-} from '../../../../types/Settings';
+} from '../../../../types/settings/coreTypes';
 import { TEAM_PLACEHOLDERS } from '../../../../utils/teamPlaceholder';
 import { FreeCanvasEditor } from './FreeCanvasEditor';
 import { ButtonPropertiesEditor } from './ButtonPropertiesEditorNew';
@@ -157,7 +157,9 @@ export const CodeWindowSettingsView: React.FC<CodeWindowSettingsViewProps> = ({
           </Tabs>
 
           <TabPanel value={tabIndex} index={0}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
+            <Box
+              sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}
+            >
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <Box sx={{ flex: 1, overflow: 'auto' }}>
                   <FreeCanvasEditor
@@ -187,7 +189,9 @@ export const CodeWindowSettingsView: React.FC<CodeWindowSettingsViewProps> = ({
           </TabPanel>
 
           <TabPanel value={tabIndex} index={1}>
-            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box
+              sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 3 }}
+            >
               <TextField
                 label="コードウィンドウ名"
                 value={currentLayout.name}

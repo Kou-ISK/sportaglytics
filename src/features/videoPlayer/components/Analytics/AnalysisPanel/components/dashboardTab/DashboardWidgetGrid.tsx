@@ -13,11 +13,11 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import type { TimelineData } from '../../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../../types/timeline/core';
 import type {
   AnalysisDashboardWidget,
   DashboardSeriesFilter,
-} from '../../../../../../../types/Settings';
+} from '../../../../../../../types/settings/coreTypes';
 import { replaceTeamPlaceholders } from '../../../../../../../utils/teamPlaceholder';
 import { NoDataPlaceholder } from '../NoDataPlaceholder';
 import { DashboardCard } from '../DashboardCard';
@@ -82,7 +82,11 @@ export const DashboardWidgetGrid = ({
           <Typography variant="body2" color="text.secondary">
             フィルターや軸を使って、用途に合わせた可視化ができます。
           </Typography>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={onAddWidget}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={onAddWidget}
+          >
             チャートを追加
           </Button>
         </Stack>
@@ -99,7 +103,10 @@ export const DashboardWidgetGrid = ({
       }}
     >
       {widgets.map((widget) => {
-        const resolvedWidgetTitle = replaceTeamPlaceholders(widget.title, teamContext);
+        const resolvedWidgetTitle = replaceTeamPlaceholders(
+          widget.title,
+          teamContext,
+        );
         const chart = buildCustomChartData(timeline, availableGroups, {
           primaryAxis: widget.primaryAxis,
           seriesAxis: widget.seriesAxis,
@@ -125,19 +132,34 @@ export const DashboardWidgetGrid = ({
               actions={
                 isEditing && (
                   <Stack direction="row" spacing={0.5}>
-                    <IconButton size="small" onClick={() => onEditWidget(widget)}>
+                    <IconButton
+                      size="small"
+                      onClick={() => onEditWidget(widget)}
+                    >
                       <EditIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" onClick={() => onDuplicateWidget(widget)}>
+                    <IconButton
+                      size="small"
+                      onClick={() => onDuplicateWidget(widget)}
+                    >
                       <ContentCopyIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" onClick={() => onMoveWidget(widget.id, 'up')}>
+                    <IconButton
+                      size="small"
+                      onClick={() => onMoveWidget(widget.id, 'up')}
+                    >
                       <ArrowUpwardIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" onClick={() => onMoveWidget(widget.id, 'down')}>
+                    <IconButton
+                      size="small"
+                      onClick={() => onMoveWidget(widget.id, 'down')}
+                    >
                       <ArrowDownwardIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" onClick={() => onDeleteWidget(widget.id)}>
+                    <IconButton
+                      size="small"
+                      onClick={() => onDeleteWidget(widget.id)}
+                    >
                       <DeleteOutlineIcon fontSize="small" />
                     </IconButton>
                   </Stack>
@@ -154,20 +176,26 @@ export const DashboardWidgetGrid = ({
                   metric={widget.metric}
                   height={260}
                   teamColorMap={teamColorMap}
-                  onPointSelect={(payload) => onChartPointSelect(resolvedWidgetTitle, payload)}
+                  onPointSelect={(payload) =>
+                    onChartPointSelect(resolvedWidgetTitle, payload)
+                  }
                 />
               ) : (
                 <CustomBarChart
                   data={chart.data}
                   seriesKeys={chart.seriesKeys}
                   stacked={widget.chartType === 'stacked'}
-                  showLegend={widget.seriesEnabled && widget.dataMode !== 'series'}
+                  showLegend={
+                    widget.seriesEnabled && widget.dataMode !== 'series'
+                  }
                   unitLabel={chart.unitLabel}
                   metric={widget.metric}
                   calcMode={chart.calcMode}
                   height={240}
                   teamColorMap={teamColorMap}
-                  onPointSelect={(payload) => onChartPointSelect(resolvedWidgetTitle, payload)}
+                  onPointSelect={(payload) =>
+                    onChartPointSelect(resolvedWidgetTitle, payload)
+                  }
                 />
               )}
             </DashboardCard>

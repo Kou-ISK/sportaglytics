@@ -1,5 +1,5 @@
-import type { TimelineData } from '../../../../types/TimelineData';
-import type { SCLabel } from '../../../../types/SCTimeline';
+import type { TimelineData } from '../../../../types/timeline/core';
+import type { SCLabel } from '../../../../types/timeline/sportscode';
 
 export const buildSelectionLabelUpdates = (
   timeline: TimelineData[],

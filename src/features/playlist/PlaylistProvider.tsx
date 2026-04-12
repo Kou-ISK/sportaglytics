@@ -11,8 +11,8 @@ import type {
   Playlist,
   PlaylistItem,
   PlaylistState,
-} from '../../types/Playlist';
-import type { TimelineData } from '../../types/TimelineData';
+} from '../../types/playlist/core';
+import type { TimelineData } from '../../types/timeline/core';
 import { usePlaylistStateActions } from './hooks/usePlaylistStateActions';
 import { usePlaylistWindowBridge } from './hooks/usePlaylistWindowBridge';
 import type { PlayItemCallback, SeekCallback } from './hooks/playlistCallbacks';
@@ -33,7 +33,11 @@ interface PlaylistContextValue {
   ) => void;
   addItems: (playlistId: string, items: PlaylistItem[]) => void;
   removeItem: (playlistId: string, itemId: string) => void;
-  reorderItems: (playlistId: string, fromIndex: number, toIndex: number) => void;
+  reorderItems: (
+    playlistId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) => void;
   updateItemNote: (playlistId: string, itemId: string, note: string) => void;
   setLoopMode: (mode: 'none' | 'single' | 'all') => void;
   setPlayingItem: (itemId: string | null) => void;

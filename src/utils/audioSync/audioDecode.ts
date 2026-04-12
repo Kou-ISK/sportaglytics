@@ -1,4 +1,4 @@
-import type { WaveformData } from '../../types/VideoSync';
+import type { WaveformData } from '../../types/video/sync';
 
 type ExtendedWindow = Window & {
   webkitAudioContext?: typeof AudioContext;

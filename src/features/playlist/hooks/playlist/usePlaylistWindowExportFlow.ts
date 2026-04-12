@@ -4,7 +4,7 @@ import type {
   DrawingObject,
   ItemAnnotation,
   PlaylistItem,
-} from '../../../../types/Playlist';
+} from '../../../../types/playlist/core';
 import type {
   ClipExportAngleOption,
   ClipExportMode,

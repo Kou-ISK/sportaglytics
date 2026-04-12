@@ -3,7 +3,7 @@ import type {
   AnnotationTarget,
   ItemAnnotation,
   PlaylistType,
-} from '../../../../types/Playlist';
+} from '../../../../types/playlist/core';
 import type { AnnotationCanvasRef } from '../../components/AnnotationCanvas';
 import { usePlaylistSaveDialogState } from './usePlaylistSaveDialogState';
 

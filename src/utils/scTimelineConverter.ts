@@ -1,11 +1,11 @@
-import type { TimelineData } from '../types/TimelineData';
+import type { TimelineData } from '../types/timeline/core';
 import type {
   SCTimelineFile,
   SCTimelineContent,
   SCRow,
   SCInstance,
   SCLabel,
-} from '../types/SCTimeline';
+} from '../types/timeline/sportscode';
 
 type LegacyTimelineData = TimelineData & {
   actionType?: unknown;
@@ -61,8 +61,10 @@ const extractLabelsFromTimelineData = (
 
   // labels配列が存在する場合はそこから抽出
   if (item.labels && item.labels.length > 0) {
-    const actionType = getLabelByGroup(item.labels, 'actionType') || legacyActionType || '';
-    const actionResult = getLabelByGroup(item.labels, 'actionResult') || legacyActionResult || '';
+    const actionType =
+      getLabelByGroup(item.labels, 'actionType') || legacyActionType || '';
+    const actionResult =
+      getLabelByGroup(item.labels, 'actionResult') || legacyActionResult || '';
     return { actionType, actionResult, labels: item.labels };
   }
 
@@ -250,10 +252,16 @@ export const normalizeTimelineData = (data: unknown): TimelineData => {
       ? raw.actionResult
       : undefined;
 
-  if (!normalizedLabels.some((label) => label.group === 'actionType') && legacyActionType) {
+  if (
+    !normalizedLabels.some((label) => label.group === 'actionType') &&
+    legacyActionType
+  ) {
     normalizedLabels.push({ name: legacyActionType, group: 'actionType' });
   }
-  if (!normalizedLabels.some((label) => label.group === 'actionResult') && legacyActionResult) {
+  if (
+    !normalizedLabels.some((label) => label.group === 'actionResult') &&
+    legacyActionResult
+  ) {
     normalizedLabels.push({ name: legacyActionResult, group: 'actionResult' });
   }
 

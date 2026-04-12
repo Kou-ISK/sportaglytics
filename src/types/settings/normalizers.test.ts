@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS } from '../Settings';
 import {
+  DEFAULT_SETTINGS,
   createDefaultCodeWindowLayout,
   createTemplateDashboardWidgets,
 } from './defaults';

@@ -4,8 +4,8 @@ import type {
   Playlist,
   PlaylistItem,
   PlaylistState,
-} from '../../../types/Playlist';
-import type { TimelineData } from '../../../types/TimelineData';
+} from '../../../types/playlist/core';
+import type { TimelineData } from '../../../types/timeline/core';
 import type { PlaylistStateActions } from './playlistCallbacks';
 
 interface UsePlaylistStateActionsParams {

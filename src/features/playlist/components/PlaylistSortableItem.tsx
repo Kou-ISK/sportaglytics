@@ -21,7 +21,7 @@ import {
 } from '@mui/icons-material';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { PlaylistItem } from '../../../types/Playlist';
+import type { PlaylistItem } from '../../../types/playlist/core';
 
 type PlaylistSortableItemProps = {
   item: PlaylistItem;

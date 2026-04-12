@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { TimelineData } from '../types/TimelineData';
+import type { TimelineData } from '../types/timeline/core';
 import type { DashboardWidgetReportData } from './types';
 import {
   buildMatrixSectionsByTeamAction,

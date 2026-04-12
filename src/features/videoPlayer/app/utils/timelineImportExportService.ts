@@ -1,5 +1,5 @@
-import type { TimelineData } from '../../../../types/TimelineData';
-import type { SCTimelineFile } from '../../../../types/SCTimeline';
+import type { TimelineData } from '../../../../types/timeline/core';
+import type { SCTimelineFile } from '../../../../types/timeline/sportscode';
 import {
   exportToCSV,
   exportToJSON,

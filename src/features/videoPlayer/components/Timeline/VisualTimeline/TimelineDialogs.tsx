@@ -1,5 +1,5 @@
 import React from 'react';
-import { TimelineData } from '../../../../../types/TimelineData';
+import { TimelineData } from '../../../../../types/timeline/core';
 import type {
   ClipExportAngleOption,
   ClipExportMode,
@@ -17,7 +17,10 @@ interface TimelineDialogsProps {
   onCloseDialog: () => void;
   onDeleteSingle: () => void;
   onSaveDialog: () => void;
-  contextMenu: { position: { top: number; left: number }; itemId: string } | null;
+  contextMenu: {
+    position: { top: number; left: number };
+    itemId: string;
+  } | null;
   onCloseContextMenu: () => void;
   onContextMenuEdit: () => void;
   onContextMenuDelete: () => void;

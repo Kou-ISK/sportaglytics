@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import type {
   AIAnalysisSettings,
   AppSettings,
-} from '../../../../../../../types/Settings';
+} from '../../../../../../../types/settings/coreTypes';
 
 interface UseAIAnalysisSettingsActionsParams {
   settings: AppSettings;

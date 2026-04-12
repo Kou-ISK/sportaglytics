@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { HotkeyConfig } from '../../../types/Settings';
+import type { HotkeyConfig } from '../../../types/settings/coreTypes';
 import { DEFAULT_HOTKEYS } from './hotkeySettings.constants';
 import {
   formatKeyCombo,

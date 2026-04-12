@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { VideoSyncData } from '../../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { GetExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
 import { usePlaybackClockSync } from './usePlaybackClockSync';
 import { usePlaybackTimeWarnings } from './usePlaybackTimeWarnings';

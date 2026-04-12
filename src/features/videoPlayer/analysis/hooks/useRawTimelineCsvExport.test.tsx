@@ -7,7 +7,7 @@ import {
   NotificationContext,
   type NotificationContextValue,
 } from '../../../../contexts/NotificationContext';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
 import { useRawTimelineCsvExport } from './useRawTimelineCsvExport';
 
 const timeline: TimelineData[] = [
@@ -32,9 +32,11 @@ const createNotificationValue = (): NotificationContextValue => ({
 describe('useRawTimelineCsvExport', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    delete (globalThis.window as typeof globalThis.window & {
-      electronAPI?: unknown;
-    }).electronAPI;
+    delete (
+      globalThis.window as typeof globalThis.window & {
+        electronAPI?: unknown;
+      }
+    ).electronAPI;
   });
 
   it('subscribes to the menu handler and exports CSV successfully', async () => {
@@ -74,7 +76,9 @@ describe('useRawTimelineCsvExport', () => {
       expect(saveFileDialog).toHaveBeenCalled();
       expect(writeTextFile).toHaveBeenCalled();
     });
-    expect(notification.success).toHaveBeenCalledWith('Raw CSVを保存しました。');
+    expect(notification.success).toHaveBeenCalledWith(
+      'Raw CSVを保存しました。',
+    );
   });
 
   it('reports an error when the export API is unavailable', async () => {

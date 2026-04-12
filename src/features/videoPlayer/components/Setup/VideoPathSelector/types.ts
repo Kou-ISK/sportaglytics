@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction } from 'react';
-import { VideoSyncData } from '../../../../../types/VideoSync';
+import { VideoSyncData } from '../../../../../types/video/sync';
 
 export interface VideoPathSelectorProps {
   setVideoList: Dispatch<SetStateAction<string[]>>;

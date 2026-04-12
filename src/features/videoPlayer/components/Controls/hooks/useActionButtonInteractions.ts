@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { ActionDefinition } from '../../../../../types/Settings';
+import type { ActionDefinition } from '../../../../../types/settings/coreTypes';
 import type { ActiveRecordingSession } from './useActiveRecordings';
 import type { LabelSelectionsMap } from './useLabelSelections';
 import { findRelatedLinks, resolveLinkEffects } from './codePanelLinkRules';

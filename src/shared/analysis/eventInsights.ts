@@ -1,4 +1,4 @@
-import type { TimelineData } from '../../types/TimelineData';
+import type { TimelineData } from '../../types/timeline/core';
 import { getLabelsFromTimelineData } from '../../utils/labelExtractors';
 import type { EvidenceFilters } from './aiTypes';
 import { toLower } from './eventInsightsCommon';

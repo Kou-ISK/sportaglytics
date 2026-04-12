@@ -4,8 +4,8 @@ import type {
   DashboardAnalysisMode,
   DashboardChartType,
   DashboardMetric,
-} from '../../../../../../../types/Settings';
-import type { MatrixAxisConfig } from '../../../../../../../types/MatrixConfig';
+} from '../../../../../../../types/settings/coreTypes';
+import type { MatrixAxisConfig } from '../../../../../../../types/analysis/matrix';
 
 interface DashboardWidgetCurrentSettingsProps {
   dataMode: 'axis' | 'series';
@@ -37,13 +37,25 @@ export const DashboardWidgetCurrentSettings = ({
           現在の設定
         </Typography>
         <Stack direction="row" spacing={0.5} flexWrap="wrap">
-          <Chip label={`集計: ${dataMode === 'axis' ? '単一' : '比較'}`} size="small" />
-          <Chip label={`モード: ${getAnalysisModeLabel(analysisMode)}`} size="small" />
+          <Chip
+            label={`集計: ${dataMode === 'axis' ? '単一' : '比較'}`}
+            size="small"
+          />
+          <Chip
+            label={`モード: ${getAnalysisModeLabel(analysisMode)}`}
+            size="small"
+          />
           <Chip label={`軸: ${getAxisLabel(primaryAxis)}`} size="small" />
           <Chip label={`チャート: ${getChartLabel(chartType)}`} size="small" />
-          <Chip label={`単位: ${metric === 'count' ? '件数' : '所要時間'}`} size="small" />
+          <Chip
+            label={`単位: ${metric === 'count' ? '件数' : '所要時間'}`}
+            size="small"
+          />
           {filterSummary.length > 0 && (
-            <Chip label={`絞り込み: ${filterSummary.join(' / ')}`} size="small" />
+            <Chip
+              label={`絞り込み: ${filterSummary.join(' / ')}`}
+              size="small"
+            />
           )}
         </Stack>
       </Stack>

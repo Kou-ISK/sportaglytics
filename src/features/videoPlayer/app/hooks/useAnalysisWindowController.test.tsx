@@ -2,9 +2,9 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PlaylistItem } from '../../../../types/Playlist';
+import type { PlaylistItem } from '../../../../types/playlist/core';
 import type { AnalysisWindowSyncPayload } from '../../../../types/ipc/analysisWindow';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
 import { useAnalysisWindowController } from './useAnalysisWindowController';
 
 const hookMocks = vi.hoisted(() => ({
@@ -52,9 +52,11 @@ describe('useAnalysisWindowController', () => {
       }
     ).electronAPI = {
       analysis: {
-        onSync: vi.fn((handler: (payload: AnalysisWindowSyncPayload) => void) => {
-          syncHandler = handler;
-        }),
+        onSync: vi.fn(
+          (handler: (payload: AnalysisWindowSyncPayload) => void) => {
+            syncHandler = handler;
+          },
+        ),
         offSync,
         closeWindow,
         sendJumpToSegment,

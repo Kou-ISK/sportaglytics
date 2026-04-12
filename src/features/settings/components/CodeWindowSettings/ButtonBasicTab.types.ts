@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { CodeWindowButton } from '../../../../types/Settings';
+import type { CodeWindowButton } from '../../../../types/settings/coreTypes';
 
 export type LabelGroup = { groupName: string; options: string[] };
 

@@ -1,12 +1,12 @@
 import React from 'react';
 import { CircularProgress, Stack, Typography } from '@mui/material';
-import type { TimelineData } from '../../../../../../../types/TimelineData';
-import type { AnalysisView } from '../../../../../../../types/AnalysisView';
-import type { CreateMomentumDataFn } from '../../../../../../../types/Analysis';
-import type { MatrixAxisConfig } from '../../../../../../../types/MatrixConfig';
-import type { DashboardSeriesFilter } from '../../../../../../../types/Settings';
+import type { TimelineData } from '../../../../../../../types/timeline/core';
+import type { AnalysisView } from '../../../../../../../types/analysis/view';
+import type { CreateMomentumDataFn } from '../../../../../../../types/analysis/momentum';
+import type { MatrixAxisConfig } from '../../../../../../../types/analysis/matrix';
+import type { DashboardSeriesFilter } from '../../../../../../../types/settings/coreTypes';
 import type { MatrixFilterState } from '../../controllers/matrixFilterUtils';
-import type { PlaylistItem } from '../../../../../../../types/Playlist';
+import type { PlaylistItem } from '../../../../../../../types/playlist/core';
 import { AIAnalysisTab } from '../AIAnalysisTab';
 import { DashboardTab } from '../DashboardTab';
 import { MatrixTab } from '../MatrixTab';

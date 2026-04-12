@@ -1,4 +1,4 @@
-import type { TimelineData } from '../types/TimelineData';
+import type { TimelineData } from '../types/timeline/core';
 
 /**
  * 秒数をHH:mm:ss形式（1時間未満ならmm:ss）に変換

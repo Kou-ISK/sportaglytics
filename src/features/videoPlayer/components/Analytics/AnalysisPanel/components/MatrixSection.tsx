@@ -1,6 +1,6 @@
 import React from 'react';
 import { Paper, Table, TableBody, TableContainer } from '@mui/material';
-import { TimelineData } from '../../../../../../types/TimelineData';
+import { TimelineData } from '../../../../../../types/timeline/core';
 import { MatrixTableHead } from './MatrixTableHead';
 import { MatrixBodyRow } from './MatrixBodyRow';
 

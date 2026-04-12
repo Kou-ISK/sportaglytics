@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import type { RefObject } from 'react';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
 import type { useVideoPlayerScreenController } from '../hooks/useVideoPlayerScreenController';
 import { ManualSyncControls } from './ManualSyncControls';
 import { NoSelectionPlaceholder } from './NoSelectionPlaceholder';
@@ -165,7 +165,11 @@ export const VideoPlayerLayout = ({
         performUndo={performUndo}
         performRedo={performRedo}
         applyLabelsToTimeline={(ids, labels) => {
-          for (const update of buildSelectionLabelUpdates(timeline, ids, labels)) {
+          for (const update of buildSelectionLabelUpdates(
+            timeline,
+            ids,
+            labels,
+          )) {
             if (bulkUpdateTimelineItems) {
               bulkUpdateTimelineItems([update.id], { labels: update.labels });
             } else {

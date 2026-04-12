@@ -15,7 +15,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
 import OutboxIcon from '@mui/icons-material/Outbox';
-import type { CodeWindowLayout } from '../../../../types/Settings';
+import type { CodeWindowLayout } from '../../../../types/settings/coreTypes';
 
 type CodeWindowSelectorBarProps = {
   codeWindows: CodeWindowLayout[];
@@ -89,7 +89,10 @@ export const CodeWindowSelectorBar = ({
               </IconButton>
             </Tooltip>
             <Tooltip title="削除">
-              <IconButton color="error" onClick={() => onDelete(currentLayout.id)}>
+              <IconButton
+                color="error"
+                onClick={() => onDelete(currentLayout.id)}
+              >
                 <DeleteIcon />
               </IconButton>
             </Tooltip>

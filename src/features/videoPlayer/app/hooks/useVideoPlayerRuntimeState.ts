@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
-import type { VideoPlayerError } from '../../../../types/VideoPlayerError';
-import type { VideoSyncData } from '../../../../types/VideoSync';
+import type { VideoPlayerError } from '../../../../types/video/error';
+import type { VideoSyncData } from '../../../../types/video/sync';
 import { useSyncActions } from './useSyncActions';
 import { useVideoMetadataSync } from './useVideoMetadataSync';
 import { useVideoPlayerErrors } from './useVideoPlayerErrors';

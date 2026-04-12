@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it } from 'vitest';
-import type { HotkeyConfig } from '../types/Settings';
+import type { HotkeyConfig } from '../types/settings/coreTypes';
 import {
   findFallbackKeyUpHotkey,
   findMatchingHotkey,

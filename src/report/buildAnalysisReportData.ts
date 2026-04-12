@@ -1,10 +1,10 @@
-import type { MatrixAxisConfig } from '../types/MatrixConfig';
+import type { MatrixAxisConfig } from '../types/analysis/matrix';
 import type {
   AnalysisDashboard,
   AnalysisDashboardConfig,
   AnalysisDashboardWidget,
   DashboardSeriesFilter,
-} from '../types/Settings';
+} from '../types/settings/coreTypes';
 import {
   buildCustomChartData,
   type CustomChartDatumValue,

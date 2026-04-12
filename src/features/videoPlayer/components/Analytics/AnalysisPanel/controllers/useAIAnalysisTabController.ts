@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
-import { DEFAULT_SETTINGS } from '../../../../../../types/Settings';
-import type { PlaylistItem } from '../../../../../../types/Playlist';
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import { DEFAULT_SETTINGS } from '../../../../../../types/settings/defaults';
+import type { PlaylistItem } from '../../../../../../types/playlist/core';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 import { useSettings } from '../../../../../../hooks/useSettings';
 import {
   buildEvidenceIndex,

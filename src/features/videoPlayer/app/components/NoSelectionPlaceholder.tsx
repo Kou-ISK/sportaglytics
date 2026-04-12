@@ -1,7 +1,7 @@
 import React from 'react';
 import { Paper } from '@mui/material';
 import { VideoPathSelector } from '../..';
-import type { VideoSyncData } from '../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../types/video/sync';
 
 interface NoSelectionPlaceholderProps {
   setVideoList: React.Dispatch<React.SetStateAction<string[]>>;

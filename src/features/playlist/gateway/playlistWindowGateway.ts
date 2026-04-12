@@ -1,11 +1,13 @@
 import type {
   PlaylistFileLoadResult,
   Playlist,
-  PlaylistCommand,
   PlaylistItem,
   PlaylistSaveProgressPayload,
+} from '../../../types/playlist/core';
+import type {
+  PlaylistCommand,
   PlaylistSyncData,
-} from '../../../types/Playlist';
+} from '../../../types/playlist/window';
 
 const getPlaylistApi = () => globalThis.window.electronAPI?.playlist;
 const noop = (): void => undefined;
@@ -73,10 +75,7 @@ export const getPlaylistOpenWindowCount = async (): Promise<number> => {
   try {
     return await playlistApi.getOpenWindowCount();
   } catch (error: unknown) {
-    console.debug(
-      '[PlaylistWindowGateway] getOpenWindowCount failed',
-      error,
-    );
+    console.debug('[PlaylistWindowGateway] getOpenWindowCount failed', error);
     return 0;
   }
 };
@@ -150,10 +149,7 @@ export const addPlaylistItemToAllWindows = async (
     await playlistApi.addItemToAllWindows(item);
     return true;
   } catch (error: unknown) {
-    console.debug(
-      '[PlaylistWindowGateway] addItemToAllWindows failed',
-      error,
-    );
+    console.debug('[PlaylistWindowGateway] addItemToAllWindows failed', error);
     return false;
   }
 };
@@ -270,10 +266,7 @@ export const subscribePlaylistWindowClosed = (
       try {
         playlistApi.offWindowClosed(callback);
       } catch (error: unknown) {
-        console.debug(
-          '[PlaylistWindowGateway] offWindowClosed failed',
-          error,
-        );
+        console.debug('[PlaylistWindowGateway] offWindowClosed failed', error);
       }
     };
   } catch (error: unknown) {

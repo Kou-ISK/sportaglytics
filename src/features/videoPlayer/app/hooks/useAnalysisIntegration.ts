@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AnalysisView } from '../../../../types/AnalysisView';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { AnalysisView } from '../../../../types/analysis/view';
+import type { TimelineData } from '../../../../types/timeline/core';
 import { usePlaylist } from '../../../playlist';
 import { useAnalysisMenuHandlers } from './useAnalysisMenuHandlers';
 import type { AnalysisAiPlaylistPayload } from '../../../../types/ipc/analysisWindow';

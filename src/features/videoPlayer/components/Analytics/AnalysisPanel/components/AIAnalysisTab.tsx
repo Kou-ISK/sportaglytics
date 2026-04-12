@@ -1,6 +1,6 @@
 import React from 'react';
-import type { PlaylistItem } from '../../../../../../types/Playlist';
-import type { TimelineData } from '../../../../../../types/TimelineData';
+import type { PlaylistItem } from '../../../../../../types/playlist/core';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 import type { RetrieverPresetValue } from './ai/AIAnalysisControlsPanel.types';
 import { AIAnalysisTabView } from './AIAnalysisTabView';
 import { useAIAnalysisTabController } from '../controllers/useAIAnalysisTabController';
@@ -25,7 +25,10 @@ export const AIAnalysisTab = ({
   onCreateAiPlaylist,
   onJumpToSegment,
 }: AIAnalysisTabProps) => {
-  const controller = useAIAnalysisTabController({ timeline, onCreateAiPlaylist });
+  const controller = useAIAnalysisTabController({
+    timeline,
+    onCreateAiPlaylist,
+  });
 
   return (
     <AIAnalysisTabView

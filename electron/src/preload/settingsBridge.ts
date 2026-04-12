@@ -1,6 +1,6 @@
 import type { IpcRenderer, IpcRendererEvent } from 'electron';
 import type { IElectronAPI } from '../../../src/renderer';
-import type { AppSettings } from '../../../src/types/Settings';
+import type { AppSettings } from '../../../src/types/settings/coreTypes';
 import {
   getMappedListener,
   removeMappedListener,

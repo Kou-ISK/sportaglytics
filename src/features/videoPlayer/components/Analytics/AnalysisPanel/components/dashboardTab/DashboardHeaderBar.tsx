@@ -13,7 +13,7 @@ import {
   Select,
   Stack,
 } from '@mui/material';
-import type { AnalysisDashboard } from '../../../../../../../types/Settings';
+import type { AnalysisDashboard } from '../../../../../../../types/settings/coreTypes';
 
 interface DashboardHeaderBarProps {
   compactControlSx: {

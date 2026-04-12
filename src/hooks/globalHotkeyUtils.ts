@@ -1,4 +1,4 @@
-import type { HotkeyConfig } from '../types/Settings';
+import type { HotkeyConfig } from '../types/settings/coreTypes';
 
 export interface KeyboardModifiers {
   ctrlKey: boolean;

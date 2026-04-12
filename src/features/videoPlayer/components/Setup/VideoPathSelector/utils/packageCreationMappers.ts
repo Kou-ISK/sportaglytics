@@ -1,5 +1,5 @@
 import type { PackageDatas } from '../../../../../../renderer';
-import type { MetaData } from '../../../../../../types/MetaData';
+import type { MetaData } from '../../../../../../types/package/metadata';
 import type {
   PackageLoadResult,
   WizardFormState,

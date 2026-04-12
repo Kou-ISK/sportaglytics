@@ -12,7 +12,7 @@ import type {
   DashboardAnalysisMode,
   DashboardChartType,
   DashboardMetric,
-} from '../../../../../../../types/Settings';
+} from '../../../../../../../types/settings/coreTypes';
 
 interface DashboardWidgetVisualizationSectionProps {
   analysisMode: DashboardAnalysisMode;
@@ -82,7 +82,9 @@ export const DashboardWidgetVisualizationSection = ({
               labelId="metric-label"
               value={metric}
               label="集計単位"
-              onChange={(event) => setMetric(event.target.value as DashboardMetric)}
+              onChange={(event) =>
+                setMetric(event.target.value as DashboardMetric)
+              }
               disabled={analysisMode === 'outlier'}
             >
               <MenuItem value="count">件数</MenuItem>

@@ -16,7 +16,7 @@ import OutboxIcon from '@mui/icons-material/Outbox';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ImageIcon from '@mui/icons-material/Image';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import type { AnalysisView } from '../../../../../../../types/AnalysisView';
+import type { AnalysisView } from '../../../../../../../types/analysis/view';
 
 interface AnalysisPanelToolbarProps {
   currentView: AnalysisView;

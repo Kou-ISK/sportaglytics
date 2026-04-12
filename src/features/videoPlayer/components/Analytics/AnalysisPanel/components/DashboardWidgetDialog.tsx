@@ -7,9 +7,7 @@ import {
   Button,
   Stack,
 } from '@mui/material';
-import type {
-  AnalysisDashboardWidget,
-} from '../../../../../../types/Settings';
+import type { AnalysisDashboardWidget } from '../../../../../../types/settings/coreTypes';
 import {
   DEFAULT_WIDGET_FILTERS,
   useDashboardWidgetDialogState,

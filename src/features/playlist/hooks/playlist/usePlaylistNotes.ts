@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { PlaylistItem } from '../../../../types/Playlist';
+import type { PlaylistItem } from '../../../../types/playlist/core';
 
 interface UsePlaylistNotesParams {
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;

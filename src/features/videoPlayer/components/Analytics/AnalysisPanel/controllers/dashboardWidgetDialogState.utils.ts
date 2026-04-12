@@ -1,9 +1,9 @@
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 import type {
   DashboardAnalysisMode,
   DashboardChartType,
   DashboardSeriesFilter,
-} from '../../../../../../types/Settings';
+} from '../../../../../../types/settings/coreTypes';
 
 export const generateWidgetId = (): string => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();

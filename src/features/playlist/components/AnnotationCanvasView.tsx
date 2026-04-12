@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import type { DrawingToolType } from '../../../types/Playlist';
+import type { DrawingToolType } from '../../../types/playlist/core';
 import { AnnotationTextInputOverlay } from './AnnotationTextInputOverlay';
 import { AnnotationToolbar } from './AnnotationToolbar';
 

@@ -1,4 +1,4 @@
-import type { TimelineData } from '../../types/TimelineData';
+import type { TimelineData } from '../../types/timeline/core';
 import { getLabelsFromTimelineData } from '../../utils/labelExtractors';
 import type { InsightDimension } from './eventInsights.types';
 import { normalizeActionNameForStats } from './eventInsightsTeamInfo';

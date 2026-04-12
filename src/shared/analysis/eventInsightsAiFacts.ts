@@ -1,4 +1,4 @@
-import type { TimelineData } from '../../types/TimelineData';
+import type { TimelineData } from '../../types/timeline/core';
 import type { EvidenceItem } from './aiTypes';
 import type {
   AiInsightFacts,

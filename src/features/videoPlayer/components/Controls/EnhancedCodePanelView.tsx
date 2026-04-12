@@ -4,7 +4,7 @@ import type {
   ActionDefinition,
   CodeWindowButton,
   CodeWindowLayout,
-} from '../../../../types/Settings';
+} from '../../../../types/settings/coreTypes';
 import type { TeamContext } from '../../../../utils/teamPlaceholder';
 import { ActionLabelGroup } from './ActionLabelGroup';
 import { CodePanelModeIndicator } from './CodePanelModeIndicator';

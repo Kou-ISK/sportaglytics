@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import type { TimelineData } from '../../../../../../types/TimelineData';
-import type { AnalysisView } from '../../../../../../types/AnalysisView';
-import type { CreateMomentumDataFn } from '../../../../../../types/Analysis';
-import type { MatrixAxisConfig } from '../../../../../../types/MatrixConfig';
-import type { DashboardSeriesFilter } from '../../../../../../types/Settings';
-import type { PlaylistItem } from '../../../../../../types/Playlist';
+import type { TimelineData } from '../../../../../../types/timeline/core';
+import type { AnalysisView } from '../../../../../../types/analysis/view';
+import type { CreateMomentumDataFn } from '../../../../../../types/analysis/momentum';
+import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
+import type { DashboardSeriesFilter } from '../../../../../../types/settings/coreTypes';
+import type { PlaylistItem } from '../../../../../../types/playlist/core';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
 import { useSettings } from '../../../../../../hooks/useSettings';
 import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';

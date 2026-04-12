@@ -1,5 +1,8 @@
 import type React from 'react';
-import type { ItemAnnotation, PlaylistItem } from '../../../../types/Playlist';
+import type {
+  ItemAnnotation,
+  PlaylistItem,
+} from '../../../../types/playlist/core';
 
 export interface UsePlaylistPlaybackParams {
   items: PlaylistItem[];

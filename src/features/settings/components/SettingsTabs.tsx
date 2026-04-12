@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs, Tab, Paper, Box } from '@mui/material';
-import type { AppSettings } from '../../../types/Settings';
+import type { AppSettings } from '../../../types/settings/coreTypes';
 import type { SettingsTabHandle } from '../types';
 import { GeneralSettings } from './GeneralSettings';
 import { HotkeySettings } from './HotkeySettings';

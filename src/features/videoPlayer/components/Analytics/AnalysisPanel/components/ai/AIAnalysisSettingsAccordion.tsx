@@ -17,7 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { AIAnalysisSettings } from '../../../../../../../types/Settings';
+import type { AIAnalysisSettings } from '../../../../../../../types/settings/coreTypes';
 
 interface AvailableModelInfo {
   name: string;
@@ -97,7 +97,11 @@ export const AIAnalysisSettingsAccordion = ({
             <Typography variant="body2" color="text.secondary">
               現在のモデル: {modelSummary}
             </Typography>
-            <Button size="small" variant="text" onClick={onToggleShowAiSettings}>
+            <Button
+              size="small"
+              variant="text"
+              onClick={onToggleShowAiSettings}
+            >
               {showAiSettings ? '設定を閉じる' : '設定を開く'}
             </Button>
           </Box>
@@ -139,7 +143,9 @@ export const AIAnalysisSettingsAccordion = ({
                     <Chip
                       key={model.path}
                       label={`${model.name} (${formatBytes(model.sizeBytes)})`}
-                      color={aiSettings.model === model.name ? 'primary' : 'default'}
+                      color={
+                        aiSettings.model === model.name ? 'primary' : 'default'
+                      }
                       onClick={() =>
                         onAiSettingsChange({
                           ...aiSettings,
@@ -219,7 +225,9 @@ export const AIAnalysisSettingsAccordion = ({
               <Button variant="outlined" onClick={onSaveSettings}>
                 AI設定を保存
               </Button>
-              {settingsMessage && <Alert severity="info">{settingsMessage}</Alert>}
+              {settingsMessage && (
+                <Alert severity="info">{settingsMessage}</Alert>
+              )}
               <Typography variant="caption" color="text.secondary">
                 モデルは `public/llama/models` 配下に配置してください。
               </Typography>

@@ -1,4 +1,4 @@
-import type { TimelineData } from '../types/TimelineData';
+import type { TimelineData } from '../types/timeline/core';
 
 export const getTimelineTeamOrder = (timeline: TimelineData[]): string[] => {
   const actionNames = Array.from(

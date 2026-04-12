@@ -1,5 +1,5 @@
-import type { Playlist, PlaylistItem } from '../../../types/Playlist';
-import type { TimelineData } from '../../../types/TimelineData';
+import type { Playlist, PlaylistItem } from '../../../types/playlist/core';
+import type { TimelineData } from '../../../types/timeline/core';
 
 export type SeekCallback = (time: number) => void;
 export type PlayItemCallback = (item: PlaylistItem) => void;
@@ -17,7 +17,11 @@ export interface PlaylistStateActions {
   ) => void;
   addItems: (playlistId: string, items: PlaylistItem[]) => void;
   removeItem: (playlistId: string, itemId: string) => void;
-  reorderItems: (playlistId: string, fromIndex: number, toIndex: number) => void;
+  reorderItems: (
+    playlistId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) => void;
   updateItemNote: (playlistId: string, itemId: string, note: string) => void;
   setLoopMode: (mode: 'none' | 'single' | 'all') => void;
   setPlayingItem: (itemId: string | null) => void;

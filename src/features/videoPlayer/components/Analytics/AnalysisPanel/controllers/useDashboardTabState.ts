@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type {
   AnalysisDashboardWidget,
   DashboardSeriesFilter,
-} from '../../../../../../types/Settings';
+} from '../../../../../../types/settings/coreTypes';
 import type { DashboardDetail } from './dashboardTabController.types';
 
 export const useDashboardTabState = () => {

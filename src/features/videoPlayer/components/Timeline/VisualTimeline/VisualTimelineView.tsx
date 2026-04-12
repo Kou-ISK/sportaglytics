@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import type { TimelineData } from '../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../types/timeline/core';
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineDialogs } from './TimelineDialogs';
 import { TimelineEmptyState } from './TimelineEmptyState';

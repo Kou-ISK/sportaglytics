@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AnalysisDashboard } from '../../../../../../types/Settings';
+import type { AnalysisDashboard } from '../../../../../../types/settings/coreTypes';
 import {
   buildAnalysisDashboardExportContent,
   parseAnalysisDashboardImportContent,

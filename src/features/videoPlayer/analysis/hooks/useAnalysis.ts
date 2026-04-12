@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import type { TimelineData } from '../../../../types/TimelineData';
-import type { RechartsDatum } from '../../../../types/RechartsData';
+import type { TimelineData } from '../../../../types/timeline/core';
+import type { RechartsDatum } from '../../../../types/analysis/chart';
 import {
   aggregateActionDurations,
   countActions as countActionsAggregate,
@@ -8,7 +8,7 @@ import {
   countActionTypesForTeam,
 } from '../utils/actionAggregations';
 import { createMomentumDataFactory } from '../utils/momentum';
-import type { CreateMomentumDataFn } from '../../../../types/Analysis';
+import type { CreateMomentumDataFn } from '../../../../types/analysis/momentum';
 
 interface AnalysisSelectors {
   calculateActionDuration: () => RechartsDatum[];

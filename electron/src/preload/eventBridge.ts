@@ -1,6 +1,6 @@
 import { IpcRendererEvent, ipcRenderer } from 'electron';
 import type { AnalysisReportPayload } from '../../../src/report/types';
-import type { AnalysisView } from '../../../src/types/AnalysisView';
+import type { AnalysisView } from '../../../src/types/analysis/view';
 import type { IElectronAPI } from '../../../src/renderer';
 import {
   getMappedListener,

@@ -11,7 +11,7 @@ import {
   Switch,
   Typography,
 } from '@mui/material';
-import type { DashboardSeriesFilter } from '../../../../../../../types/Settings';
+import type { DashboardSeriesFilter } from '../../../../../../../types/settings/coreTypes';
 
 interface DashboardWidgetFilterSectionProps {
   showFilters: boolean;
@@ -37,7 +37,11 @@ export const DashboardWidgetFilterSection = ({
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Stack spacing={1.5}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
             5. 対象データ（絞り込み）
           </Typography>
@@ -122,9 +126,11 @@ export const DashboardWidgetFilterSection = ({
                   disabled={!widgetFilters.labelGroup}
                 >
                   <MenuItem value="">指定なし</MenuItem>
-                  {((widgetFilters.labelGroup &&
-                    availableLabelValues[widgetFilters.labelGroup]) ||
-                    []).map((value) => (
+                  {(
+                    (widgetFilters.labelGroup &&
+                      availableLabelValues[widgetFilters.labelGroup]) ||
+                    []
+                  ).map((value) => (
                     <MenuItem key={value} value={value}>
                       {value}
                     </MenuItem>

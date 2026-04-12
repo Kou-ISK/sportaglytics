@@ -10,7 +10,10 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import type { AnnotationTarget, DrawingObject } from '../../../types/Playlist';
+import type {
+  AnnotationTarget,
+  DrawingObject,
+} from '../../../types/playlist/core';
 import { useDraggableToolbar } from '../hooks/annotation/useDraggableToolbar';
 import { useAnnotationPointerHandlers } from '../hooks/annotation/useAnnotationPointerHandlers';
 import { useAnnotationActions } from '../hooks/annotation/useAnnotationActions';
@@ -76,14 +79,21 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         initialPosition: { x: DEFAULT_TOOLBAR_X, y: DEFAULT_TOOLBAR_Y },
       });
 
-    const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
-    const [draggingObjectId, setDraggingObjectId] = useState<string | null>(null);
-    const [objects, setObjects] = useState<DrawingObject[]>(initialObjects);
-    const [currentObject, setCurrentObject] = useState<DrawingObject | null>(null);
-    const [textInput, setTextInput] = useState('');
-    const [textPosition, setTextPosition] = useState<{ x: number; y: number } | null>(
+    const [selectedObjectId, setSelectedObjectId] = useState<string | null>(
       null,
     );
+    const [draggingObjectId, setDraggingObjectId] = useState<string | null>(
+      null,
+    );
+    const [objects, setObjects] = useState<DrawingObject[]>(initialObjects);
+    const [currentObject, setCurrentObject] = useState<DrawingObject | null>(
+      null,
+    );
+    const [textInput, setTextInput] = useState('');
+    const [textPosition, setTextPosition] = useState<{
+      x: number;
+      y: number;
+    } | null>(null);
 
     const {
       tool,

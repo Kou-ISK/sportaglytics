@@ -9,7 +9,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { DashboardCalcMode } from '../../../../../../../types/Settings';
+import type { DashboardCalcMode } from '../../../../../../../types/settings/coreTypes';
 import type { DashboardWidgetSeriesConfigProps } from './DashboardWidgetAxisSection.types';
 
 export const DashboardWidgetSeriesConfigPanel = ({
@@ -33,7 +33,9 @@ export const DashboardWidgetSeriesConfigPanel = ({
             labelId="calc-mode-label"
             value={calcMode}
             label="計算"
-            onChange={(event) => setCalcMode(event.target.value as DashboardCalcMode)}
+            onChange={(event) =>
+              setCalcMode(event.target.value as DashboardCalcMode)
+            }
           >
             <MenuItem value="raw">実数</MenuItem>
             <MenuItem value="percentTotal">% of total</MenuItem>
@@ -52,12 +54,17 @@ export const DashboardWidgetSeriesConfigPanel = ({
       )}
 
       {series.length === 0 && (
-        <TextField size="small" disabled value="比較シリーズを追加してください" />
+        <TextField
+          size="small"
+          disabled
+          value="比較シリーズを追加してください"
+        />
       )}
 
       {series.map((entry, index) => {
         const labelValues =
-          entry.filters.labelGroup && availableLabelValues[entry.filters.labelGroup]
+          entry.filters.labelGroup &&
+          availableLabelValues[entry.filters.labelGroup]
             ? availableLabelValues[entry.filters.labelGroup]
             : [];
         return (
@@ -113,7 +120,9 @@ export const DashboardWidgetSeriesConfigPanel = ({
             </Stack>
             <Stack direction="row" spacing={2}>
               <FormControl fullWidth size="small">
-                <InputLabel id={`${entry.id}-label-group`}>ラベルグループ</InputLabel>
+                <InputLabel id={`${entry.id}-label-group`}>
+                  ラベルグループ
+                </InputLabel>
                 <Select
                   labelId={`${entry.id}-label-group`}
                   value={entry.filters.labelGroup ?? ''}

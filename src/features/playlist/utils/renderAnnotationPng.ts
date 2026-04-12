@@ -1,4 +1,7 @@
-import type { AnnotationTarget, DrawingObject } from '../../../types/Playlist';
+import type {
+  AnnotationTarget,
+  DrawingObject,
+} from '../../../types/playlist/core';
 
 interface Size {
   width: number;
@@ -11,12 +14,11 @@ export const renderAnnotationPng = (
   fallbackSize: Size,
   targetSize?: Size,
 ): string | null => {
-  const filtered = objects?.filter((o) => (o.target || 'primary') === target) || [];
+  const filtered =
+    objects?.filter((o) => (o.target || 'primary') === target) || [];
   if (filtered.length === 0) return null;
   const baseWidth =
-    filtered.find((o) => o.baseWidth)?.baseWidth ||
-    fallbackSize.width ||
-    1920;
+    filtered.find((o) => o.baseWidth)?.baseWidth || fallbackSize.width || 1920;
   const baseHeight =
     filtered.find((o) => o.baseHeight)?.baseHeight ||
     fallbackSize.height ||

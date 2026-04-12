@@ -1,5 +1,5 @@
-import type { TimelineData } from '../types/TimelineData';
-import type { MatrixAxisConfig, MatrixCell } from '../types/MatrixConfig';
+import type { TimelineData } from '../types/timeline/core';
+import type { MatrixAxisConfig, MatrixCell } from '../types/analysis/matrix';
 import {
   getLabelByGroupWithFallback,
   extractTeamFromActionName,

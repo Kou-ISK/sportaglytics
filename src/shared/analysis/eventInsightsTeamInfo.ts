@@ -1,4 +1,4 @@
-import type { SCLabel } from '../../types/SCTimeline';
+import type { SCLabel } from '../../types/timeline/sportscode';
 import type { EvidenceItem } from './aiTypes';
 import type {
   AiEvidenceDistributionStat,

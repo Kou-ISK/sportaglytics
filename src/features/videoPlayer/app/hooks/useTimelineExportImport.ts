@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
 import {
   readTimelineFile,
   requestTimelineExportPath,

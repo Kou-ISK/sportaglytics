@@ -1,4 +1,4 @@
-import type { TimelineData } from '../types/TimelineData';
+import type { TimelineData } from '../types/timeline/core';
 import {
   extractActionFromActionName,
   extractTeamFromActionName,
@@ -119,7 +119,10 @@ export const buildAnalysisSummaryText = ({
     (sum, segment) => sum + segment.absoluteValue,
     0,
   );
-  const momentumTeamAgg = new Map<string, { count: number; duration: number }>();
+  const momentumTeamAgg = new Map<
+    string,
+    { count: number; duration: number }
+  >();
   const momentumOutcomeAgg = {
     Try: 0,
     Positive: 0,
