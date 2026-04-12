@@ -1,4 +1,7 @@
-import { replaceTeamPlaceholders, type TeamContext } from '../../../../utils/teamPlaceholder';
+import {
+  replaceTeamPlaceholders,
+  type TeamContext,
+} from '../../../../utils/teamPlaceholder';
 import type { CodeWindowLayout } from '../../../../types/Settings';
 
 export type ActionLink = {

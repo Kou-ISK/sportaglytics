@@ -53,7 +53,10 @@ export const collectEvidenceDurationDistribution = (
   evidence: EvidenceItem[],
   limit = 6,
 ): AiEvidenceDistributionStat[] => {
-  const counts = new Map<string, { count: number; duration: number; ids: string[] }>();
+  const counts = new Map<
+    string,
+    { count: number; duration: number; ids: string[] }
+  >();
   let totalDuration = 0;
   for (const item of evidence) {
     const key = item.actionName || '未設定';
@@ -79,8 +82,7 @@ export const collectEvidenceDurationDistribution = (
     }))
     .sort(
       (a, b) =>
-        (b.totalDuration ?? 0) - (a.totalDuration ?? 0) ||
-        b.count - a.count,
+        (b.totalDuration ?? 0) - (a.totalDuration ?? 0) || b.count - a.count,
     )
     .slice(0, limit);
 };

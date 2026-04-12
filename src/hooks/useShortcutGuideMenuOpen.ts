@@ -1,15 +1,11 @@
 import { useEffect } from 'react';
+import { subscribeShortcutGuideMenuOpen } from '../shared/menu/shortcutMenuGateway';
 
 export const useShortcutGuideMenuOpen = (onOpen: () => void): void => {
   useEffect(() => {
-    const unsubscribe =
-      globalThis.window.electronAPI?.onMenuShowShortcuts?.(onOpen);
+    const unsubscribe = subscribeShortcutGuideMenuOpen(onOpen);
 
     return () => {
-      if (!unsubscribe) {
-        return;
-      }
-
       try {
         unsubscribe();
       } catch (error) {

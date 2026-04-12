@@ -1,4 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
+import { isStringArray, isStringPayload } from './ipcPayloadGuards';
+import { getValidatedEventSenderWindow } from './windowSenderGuards';
 
 interface RegisterWindowEventHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
@@ -18,17 +20,29 @@ export const registerWindowEventHandlers = ({
   }
   isRegistered = true;
 
-  ipcMain.on('hotkeys-updated', () => {
+  ipcMain.on('hotkeys-updated', (event) => {
+    if (!getValidatedEventSenderWindow(event)) {
+      return;
+    }
+
     onHotkeysUpdated();
   });
 
-  ipcMain.on('recent-packages:update', (_event, paths: string[]) => {
-    if (Array.isArray(paths)) {
+  ipcMain.on('recent-packages:update', (event, paths: unknown) => {
+    if (!getValidatedEventSenderWindow(event)) {
+      return;
+    }
+
+    if (isStringArray(paths)) {
       onRecentPackagesUpdated(paths);
     }
   });
 
-  ipcMain.on('set-window-title', (_event, title: string) => {
+  ipcMain.on('set-window-title', (event, title: unknown) => {
+    if (!getValidatedEventSenderWindow(event) || !isStringPayload(title)) {
+      return;
+    }
+
     const window = getMainWindow();
     if (window && !window.isDestroyed()) {
       window.setTitle(title);

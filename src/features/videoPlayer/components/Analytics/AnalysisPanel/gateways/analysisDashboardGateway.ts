@@ -17,7 +17,7 @@ export const canImportAnalysisDashboard = (): boolean => {
   const api = getAnalysisDashboardApi();
   return Boolean(
     api?.openDashboardPackageDialog &&
-      (api?.readDashboardPackage || api?.readTextFile),
+    (api?.readDashboardPackage || api?.readTextFile),
   );
 };
 
@@ -44,7 +44,9 @@ export const writeAnalysisDashboardPackage = async (
   return await api.saveDashboardPackage(filePath, content);
 };
 
-export const requestAnalysisDashboardImportPath = async (): Promise<string | null> => {
+export const requestAnalysisDashboardImportPath = async (): Promise<
+  string | null
+> => {
   const api = getAnalysisDashboardApi();
   if (!api?.openDashboardPackageDialog) {
     return null;

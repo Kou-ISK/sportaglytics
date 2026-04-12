@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { VideoPlayerError } from '../../../../../types/VideoPlayerError';
-import type { VideoSyncData } from '../../../../../types/VideoSync';
+import type { VideoPlayerError } from '../../../../../types/video/error';
+import type { VideoSyncData } from '../../../../../types/video/sync';
+import { readBinaryFileBase64 } from '../../gateways/syncGateway';
 
 interface UseAutoAudioResyncParams {
   videoList: string[];
@@ -70,8 +71,7 @@ export const useAutoAudioResync = ({
       const readFileAsArrayBuffer = async (
         videoPath: string,
       ): Promise<ArrayBuffer> => {
-        const base64Data =
-          await globalThis.window.electronAPI?.readBinaryFile?.(videoPath);
+        const base64Data = await readBinaryFileBase64(videoPath);
         if (!base64Data) {
           throw new Error(`Failed to read video file: ${videoPath}`);
         }

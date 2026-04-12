@@ -57,7 +57,10 @@ export const useTimelineExportImport = ({
           return;
         }
 
-        const writeSuccess = await writeTimelineFile(filePath, exportPlan.content);
+        const writeSuccess = await writeTimelineFile(
+          filePath,
+          exportPlan.content,
+        );
 
         if (writeSuccess) {
           successRef.current(

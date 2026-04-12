@@ -18,7 +18,11 @@ export const useManualSyncSeek = ({
   videoList,
 }: ManualSyncSeekParams): void => {
   useEffect(() => {
-    if (syncMode === 'manual' && syncData?.isAnalyzed && videoList.length >= 2) {
+    if (
+      syncMode === 'manual' &&
+      syncData?.isAnalyzed &&
+      videoList.length >= 2
+    ) {
       const offset = syncData.syncOffset || 0;
 
       try {

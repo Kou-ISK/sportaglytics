@@ -1,6 +1,9 @@
 import { useMemo, RefObject } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { ActionDefinition, HotkeyConfig } from '../../../../types/Settings';
+import type {
+  ActionDefinition,
+  HotkeyConfig,
+} from '../../../../types/Settings';
 import type { TimelineActionSectionHandle } from '../components/TimelineActionSection';
 
 interface UseHotkeyBindingsParams {

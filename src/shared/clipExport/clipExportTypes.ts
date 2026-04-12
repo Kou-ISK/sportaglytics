@@ -46,10 +46,7 @@ export interface ClipExportPayload {
   sourcePath2?: string;
   mode?: 'single' | 'dual';
   exportMode?: ClipExportMode;
-  angleOption?:
-    | 'all'
-    | ClipExportAngleType
-    | ClipExportAngleOption;
+  angleOption?: 'all' | ClipExportAngleType | ClipExportAngleOption;
   outputDir?: string;
   outputFileName?: string;
   clips: ClipExportItem[];

@@ -48,7 +48,10 @@ interface UseAIAnalysisQuestionGenerationParams {
   evidenceQuery: string;
   activeFilters: EvidenceFilters | null;
   buildFilters: () => EvidenceFilters;
-  ensureEvidence: () => Promise<{ items: EvidenceItem[]; filters: EvidenceFilters }>;
+  ensureEvidence: () => Promise<{
+    items: EvidenceItem[];
+    filters: EvidenceFilters;
+  }>;
   generationRunIdRef: MutableRefObject<string | null>;
   generationAbortRef: MutableRefObject<AbortController | null>;
   setGenerationError: (value: string | null) => void;
@@ -58,27 +61,33 @@ interface UseAIAnalysisQuestionGenerationParams {
   setLlmRawText: (value: string | null) => void;
   setLlmLiveLog: Dispatch<SetStateAction<string>>;
   setLlmAttempt: (value: number) => void;
-  setLlmRetryInfo: (value: {
-    attempt: number;
-    total: number;
-    mode: 'reduce' | 'repair';
-    reason: string;
-  } | null) => void;
-  setLlmDebug: (value: {
-    stderr?: string;
-    binaryPath?: string;
-    modelPath?: string;
-    durationMs?: number;
-  } | null) => void;
+  setLlmRetryInfo: (
+    value: {
+      attempt: number;
+      total: number;
+      mode: 'reduce' | 'repair';
+      reason: string;
+    } | null,
+  ) => void;
+  setLlmDebug: (
+    value: {
+      stderr?: string;
+      binaryPath?: string;
+      modelPath?: string;
+      durationMs?: number;
+    } | null,
+  ) => void;
   setLlmWarning: (value: string | null) => void;
   setLastQuestion: (value: string) => void;
   setGenerationRequestId: (value: string | null) => void;
-  setLlmProgress: (value: {
-    requestId: string;
-    phase?: string;
-    outputChars?: number;
-    elapsedMs?: number;
-  } | null) => void;
+  setLlmProgress: (
+    value: {
+      requestId: string;
+      phase?: string;
+      outputChars?: number;
+      elapsedMs?: number;
+    } | null,
+  ) => void;
 }
 
 export const useAIAnalysisQuestionGeneration = ({

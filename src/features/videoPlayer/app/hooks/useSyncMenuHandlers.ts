@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { safeMenuCleanup } from './menuHandlerUtils';
+import { subscribeSyncMenu } from '../gateways/menuEventGateway';
 
 interface UseSyncMenuHandlersParams {
   onResyncAudio: () => void | Promise<void>;
@@ -23,24 +24,15 @@ export const useSyncMenuHandlers = ({
   );
 
   useEffect(() => {
-    if (!globalThis.window.electronAPI) {
-      return;
-    }
-
-    const api = globalThis.window.electronAPI;
-
-    api.onResyncAudio(handleResync);
-    api.onResetSync(handleReset);
-    api.onManualSync(handleManual);
-    api.onSetSyncMode(handleSetMode);
+    const unsubscribe = subscribeSyncMenu({
+      onResyncAudio: handleResync,
+      onResetSync: handleReset,
+      onManualSync: handleManual,
+      onSetSyncMode: handleSetMode,
+    });
 
     return () => {
-      safeMenuCleanup(() => {
-        api.offResyncAudio?.(handleResync);
-        api.offResetSync?.(handleReset);
-        api.offManualSync?.(handleManual);
-        api.offSetSyncMode?.(handleSetMode);
-      });
+      safeMenuCleanup(unsubscribe);
     };
   }, [handleResync, handleReset, handleManual, handleSetMode]);
 };

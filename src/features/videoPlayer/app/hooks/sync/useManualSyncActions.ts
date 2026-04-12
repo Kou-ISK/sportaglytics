@@ -1,6 +1,10 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { VideoSyncData } from '../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../types/video/sync';
+import {
+  saveSyncData,
+  setManualSyncModeChecked,
+} from '../../gateways/syncGateway';
 import { getManualSyncTimes } from './syncPlayerAdapter';
 
 interface UseManualSyncActionsParams {
@@ -19,16 +23,7 @@ interface UseManualSyncActionsResult {
 }
 
 const closeManualMode = async (): Promise<void> => {
-  const api = globalThis.window.electronAPI;
-  if (!api?.setManualModeChecked) {
-    return;
-  }
-
-  try {
-    await api.setManualModeChecked(false);
-  } catch (error) {
-    console.debug('手動同期モード解除の更新に失敗しました。', error);
-  }
+  await setManualSyncModeChecked(false);
 };
 
 export const useManualSyncActions = ({
@@ -85,15 +80,8 @@ export const useManualSyncActions = ({
       setSyncData(newSyncData);
       notifyInfo(`手動同期を適用しました (差分: ${newOffset.toFixed(3)} 秒)`);
 
-      if (metaDataConfigFilePath && globalThis.window.electronAPI?.saveSyncData) {
-        try {
-          await globalThis.window.electronAPI.saveSyncData(
-            metaDataConfigFilePath,
-            newSyncData,
-          );
-        } catch (error) {
-          console.debug('manualSync saveSyncData error', error);
-        }
+      if (metaDataConfigFilePath) {
+        await saveSyncData(metaDataConfigFilePath, newSyncData);
       }
 
       await forceUpdateVideoPlayers(newSyncData);

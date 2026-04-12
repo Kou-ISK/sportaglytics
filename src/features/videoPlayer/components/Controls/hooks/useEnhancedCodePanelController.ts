@@ -18,6 +18,10 @@ import { useCodePanelInteractions } from './useCodePanelInteractions';
 import type { EnhancedCodePanelProps } from '../EnhancedCodePanel.types';
 import type { EnhancedCodePanelViewProps } from '../EnhancedCodePanelView';
 import { getVideoJsPlayerCurrentTime } from '../../../shared/videojs/videoJsAdapter';
+import {
+  setLabelModeChecked,
+  subscribeLabelModeToggle,
+} from '../gateways/labelModeGateway';
 
 interface UseEnhancedCodePanelControllerResult {
   triggerAction: (teamName: string, actionName: string) => void;
@@ -88,19 +92,14 @@ export const useEnhancedCodePanelController = ({
   );
 
   useEffect(() => {
-    if (!globalThis.window.electronAPI?.onToggleLabelMode) return;
-
     const handler = (checked: boolean) => {
       setActiveMode(checked ? 'label' : 'code');
     };
-    return globalThis.window.electronAPI.onToggleLabelMode(handler);
+    return subscribeLabelModeToggle(handler);
   }, [setActiveMode]);
 
   useEffect(() => {
-    if (!globalThis.window.electronAPI?.setLabelModeChecked) return;
-    void globalThis.window.electronAPI.setLabelModeChecked(
-      activeMode === 'label',
-    );
+    void setLabelModeChecked(activeMode === 'label');
   }, [activeMode]);
 
   useEffect(() => {
@@ -170,7 +169,8 @@ export const useEnhancedCodePanelController = ({
     (buttonName: string): string | undefined => {
       if (!customLayout) return undefined;
       const button = customLayout.buttons.find(
-        (entry) => replaceTeamPlaceholders(entry.name, teamContext) === buttonName,
+        (entry) =>
+          replaceTeamPlaceholders(entry.name, teamContext) === buttonName,
       );
       return button?.color;
     },

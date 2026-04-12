@@ -1,3 +1,4 @@
+import type { PackageDatas } from '../../../../../../renderer';
 import type { VideoSyncData } from '../../../../../../types/VideoSync';
 import type { PackageLoadResult } from '../types';
 import { buildVideoListFromConfig } from '../utils/angleUtils';
@@ -54,7 +55,11 @@ const normalizePackagePath = (value: unknown): string | null => {
     return value;
   }
 
-  if (isRecord(value) && typeof value.path === 'string' && value.path.length > 0) {
+  if (
+    isRecord(value) &&
+    typeof value.path === 'string' &&
+    value.path.length > 0
+  ) {
     return value.path;
   }
 
@@ -71,6 +76,30 @@ export const pickPackagePath = async (
 
   const selectedPath = await getElectronApi().openDirectory();
   return selectedPath || null;
+};
+
+export const selectPackageDirectory = async (): Promise<string | null> => {
+  const selectedPath = await getElectronApi().openDirectory();
+  return selectedPath || null;
+};
+
+export const selectVideoFile = async (): Promise<string | null> => {
+  const selectedPath = await getElectronApi().openFile();
+  return selectedPath || null;
+};
+
+export const createVideoPackage = async (
+  directoryName: string,
+  packageName: string,
+  angles: Parameters<NonNullable<Window['electronAPI']>['createPackage']>[2],
+  metaDataConfig: unknown,
+): Promise<PackageDatas> => {
+  return await getElectronApi().createPackage(
+    directoryName,
+    packageName,
+    angles,
+    metaDataConfig,
+  );
 };
 
 export const loadPackageDirectory = async (
@@ -102,7 +131,8 @@ export const loadPackageDirectory = async (
     throw new Error(PACKAGE_VIDEO_MISSING);
   }
 
-  const syncData = videoList.length >= 2 ? toSyncData(config.syncData) : undefined;
+  const syncData =
+    videoList.length >= 2 ? toSyncData(config.syncData) : undefined;
 
   return {
     packagePath,
@@ -142,17 +172,26 @@ export const readPackageTeamNames = async (
 export const subscribeToPackageDirectoryOpen = (
   callback: (dirPath: string) => void,
 ): (() => void) => {
-  return globalThis.window.electronAPI?.onPackageDirectoryOpen?.(callback) ?? (() => undefined);
+  return (
+    globalThis.window.electronAPI?.onPackageDirectoryOpen?.(callback) ??
+    (() => undefined)
+  );
 };
 
 export const subscribeToOpenPackage = (callback: () => void): (() => void) => {
-  return globalThis.window.electronAPI?.onOpenPackage?.(callback) ?? (() => undefined);
+  return (
+    globalThis.window.electronAPI?.onOpenPackage?.(callback) ??
+    (() => undefined)
+  );
 };
 
 export const subscribeToOpenRecentPackage = (
   callback: (path: string) => void,
 ): (() => void) => {
-  return globalThis.window.electronAPI?.onOpenRecentPackage?.(callback) ?? (() => undefined);
+  return (
+    globalThis.window.electronAPI?.onOpenRecentPackage?.(callback) ??
+    (() => undefined)
+  );
 };
 
 export const toPackageLoadErrorMessage = (error: unknown): string => {

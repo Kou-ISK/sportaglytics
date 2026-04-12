@@ -7,6 +7,7 @@ import type {
   PackageAnglePayload,
   PackageMetaDataConfig,
 } from './packageTypes';
+import { isPlainObject } from './ipcPayloadGuards';
 
 const ensureSafeName = (raw: string, index: number): string => {
   const fallback = `Angle ${index + 1}`;
@@ -16,16 +17,28 @@ const ensureSafeName = (raw: string, index: number): string => {
   return sanitized || fallback;
 };
 
+const normalizeAngleRole = (
+  value: unknown,
+): PackageAnglePayload['role'] | undefined => {
+  return value === 'primary' || value === 'secondary' ? value : undefined;
+};
+
 const normalizeAngles = (
   angles: unknown,
   newFilePath: string,
   videosDir: string,
 ): NormalizedAngle[] => {
   return (Array.isArray(angles) ? angles : []).map((angle, index) => {
-    const typedAngle = angle as Partial<PackageAnglePayload>;
-    const name = ensureSafeName(typedAngle.name ?? '', index);
+    if (!isPlainObject(angle)) {
+      throw new Error(`Invalid angle payload at index ${index}`);
+    }
+
+    const name = ensureSafeName(
+      typeof angle.name === 'string' ? angle.name : '',
+      index,
+    );
     const sourcePath =
-      typeof typedAngle.sourcePath === 'string' ? typedAngle.sourcePath : '';
+      typeof angle.sourcePath === 'string' ? angle.sourcePath : '';
     if (!sourcePath) {
       throw new Error(`Invalid source path for angle "${name}"`);
     }
@@ -35,9 +48,9 @@ const normalizeAngles = (
     const absolutePath = path.join(videosDir, fileName);
     fs.renameSync(sourcePath, absolutePath);
     return {
-      id: String(typedAngle.id ?? `angle-${index + 1}`),
+      id: typeof angle.id === 'string' ? angle.id : `angle-${index + 1}`,
       name,
-      role: typedAngle.role,
+      role: normalizeAngleRole(angle.role),
       relativePath,
       absolutePath,
     };
@@ -49,7 +62,9 @@ const resolvePrimaryAndSecondaryAngles = (
   metaDataConfig: PackageMetaDataConfig,
 ) => {
   const primaryAngle =
-    normalizedAngles.find((angle) => angle.id === metaDataConfig.primaryAngleId) ||
+    normalizedAngles.find(
+      (angle) => angle.id === metaDataConfig.primaryAngleId,
+    ) ||
     normalizedAngles.find((angle) => angle.role === 'primary') ||
     normalizedAngles[0];
   const secondaryAngle =
@@ -79,21 +94,32 @@ const writePackageMetadata = async (
     metaDataConfig,
   );
 
-  await fs.promises.writeFile(path.join(newPackagePath, 'timeline.json'), '[]', 'utf-8');
+  await fs.promises.writeFile(
+    path.join(newPackagePath, 'timeline.json'),
+    '[]',
+    'utf-8',
+  );
 
   fs.mkdirSync(path.join(newPackagePath, '.metadata'));
   metaDataConfig.tightViewPath =
     primaryAngle?.relativePath || `videos/${newFilePath} 寄り.mp4`;
-  metaDataConfig.wideViewPath = secondaryAngle ? secondaryAngle.relativePath : null;
+  metaDataConfig.wideViewPath = secondaryAngle
+    ? secondaryAngle.relativePath
+    : null;
   metaDataConfig.angles = normalizedAngles.map(
     ({ absolutePath: _absolutePath, ...rest }) => rest,
   );
-  metaDataConfig.primaryAngleId = metaDataConfig.primaryAngleId || primaryAngle?.id;
+  metaDataConfig.primaryAngleId =
+    metaDataConfig.primaryAngleId || primaryAngle?.id;
   metaDataConfig.secondaryAngleId =
     metaDataConfig.secondaryAngleId || secondaryAngle?.id;
 
   const metaDataPath = path.join(newPackagePath, '.metadata', 'config.json');
-  await fs.promises.writeFile(metaDataPath, JSON.stringify(metaDataConfig), 'utf-8');
+  await fs.promises.writeFile(
+    metaDataPath,
+    JSON.stringify(metaDataConfig),
+    'utf-8',
+  );
 
   if (process.platform === 'darwin') {
     const infoPlist = generateInfoPlist({
@@ -103,7 +129,11 @@ const writePackageMetadata = async (
       createdAt: new Date().toISOString(),
       version: '1.0',
     });
-    fs.writeFileSync(path.join(newPackagePath, 'Info.plist'), infoPlist, 'utf-8');
+    fs.writeFileSync(
+      path.join(newPackagePath, 'Info.plist'),
+      infoPlist,
+      'utf-8',
+    );
   }
 
   const readme = `SporTagLytics Package
@@ -144,13 +174,18 @@ export const createPackage = async (
     throw new Error('No angles were provided for package creation.');
   }
 
-  const metaDataConfig = (metaDataConfigInput ?? {}) as PackageMetaDataConfig;
-  const { metaDataPath, primaryAngle, secondaryAngle } = await writePackageMetadata(
-    newPackagePath,
-    newFilePath,
-    normalizedAngles,
-    metaDataConfig,
-  );
+  const metaDataConfig: PackageMetaDataConfig = isPlainObject(
+    metaDataConfigInput,
+  )
+    ? { ...metaDataConfigInput }
+    : {};
+  const { metaDataPath, primaryAngle, secondaryAngle } =
+    await writePackageMetadata(
+      newPackagePath,
+      newFilePath,
+      normalizedAngles,
+      metaDataConfig,
+    );
 
   return {
     timelinePath: path.join(newPackagePath, 'timeline.json'),

@@ -4,6 +4,12 @@ import {
   normalizeAppSettings,
   type AppSettings,
 } from '../types/Settings';
+import {
+  loadAppSettings,
+  resetAppSettings,
+  saveAppSettings,
+  subscribeAppSettingsUpdated,
+} from '../shared/settings/settingsGateway';
 
 interface UseSettingsResult {
   settings: AppSettings;
@@ -26,12 +32,7 @@ export const useSettings = (): UseSettingsResult => {
     setIsLoading(true);
     setError(null);
     try {
-      const api = globalThis.window.electronAPI;
-      if (!api) {
-        throw new Error('Electron API is not available');
-      }
-
-      setSettings(normalizeAppSettings(await api.loadSettings()));
+      setSettings(normalizeAppSettings(await loadAppSettings()));
     } catch (err) {
       console.error('Failed to load settings:', err);
       setError('設定の読み込みに失敗しました');
@@ -45,13 +46,8 @@ export const useSettings = (): UseSettingsResult => {
     async (newSettings: AppSettings): Promise<boolean> => {
       setError(null);
       try {
-        const api = globalThis.window.electronAPI;
-        if (!api) {
-          throw new Error('Electron API is not available');
-        }
-
         const normalizedSettings = normalizeAppSettings(newSettings);
-        const success = await api.saveSettings(normalizedSettings);
+        const success = await saveAppSettings(normalizedSettings);
         if (success) {
           setSettings(normalizedSettings);
           return true;
@@ -71,12 +67,7 @@ export const useSettings = (): UseSettingsResult => {
   const resetSettings = useCallback(async (): Promise<boolean> => {
     setError(null);
     try {
-      const api = globalThis.window.electronAPI;
-      if (!api) {
-        throw new Error('Electron API is not available');
-      }
-
-      setSettings(normalizeAppSettings(await api.resetSettings()));
+      setSettings(normalizeAppSettings(await resetAppSettings()));
       return true;
     } catch (err) {
       console.error('Failed to reset settings:', err);
@@ -90,16 +81,9 @@ export const useSettings = (): UseSettingsResult => {
   }, [loadSettings]);
 
   useEffect(() => {
-    const unsubscribe = globalThis.window.electronAPI?.onSettingsUpdated?.(
-      () => {
-        void loadSettings();
-      },
-    );
-    return () => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    };
+    return subscribeAppSettingsUpdated(() => {
+      void loadSettings();
+    });
   }, [loadSettings]);
 
   return {

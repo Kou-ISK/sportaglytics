@@ -57,11 +57,7 @@ export const countActionResultsForTeam = (
 ): RechartsDatum[] => {
   const acc = createAccumulator();
   filterByTeamAndAction(timeline, teamName, actionName).forEach((item) => {
-    const actionResult = getLabelByGroupWithFallback(
-      item,
-      'actionResult',
-      '',
-    );
+    const actionResult = getLabelByGroupWithFallback(item, 'actionResult', '');
     if (!actionResult || actionResult === 'Reset') return;
     increment(acc, actionResult, 1);
   });

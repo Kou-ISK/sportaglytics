@@ -52,9 +52,13 @@ const matchesFilters = (
   }
   if (filters.labelGroup) {
     const labels = getLabelsFromTimelineData(item);
-    const inGroup = labels.filter((label) => label.group === filters.labelGroup);
+    const inGroup = labels.filter(
+      (label) => label.group === filters.labelGroup,
+    );
     if (filters.labelValue) {
-      const hasMatch = inGroup.some((label) => label.name === filters.labelValue);
+      const hasMatch = inGroup.some(
+        (label) => label.name === filters.labelValue,
+      );
       if (!hasMatch) return false;
     } else if (inGroup.length === 0) {
       return false;
@@ -172,7 +176,11 @@ const buildAxisRows = (
   const entryIdsByPrimary = new Map<string, Record<string, Set<string>>>();
 
   for (const item of timeline) {
-    const primaryValues = getAxisValues(item, config.primaryAxis, availableGroups);
+    const primaryValues = getAxisValues(
+      item,
+      config.primaryAxis,
+      availableGroups,
+    );
     const seriesValues = config.seriesEnabled
       ? getAxisValues(item, config.seriesAxis, availableGroups)
       : [seriesFallback];
@@ -271,7 +279,11 @@ export const buildCustomChartData = (
   const calcMode: DashboardCalcMode = config.calc ?? 'raw';
   const analysisMode = config.analysisMode ?? 'standard';
   const baseFiltered = filterTimeline(timeline, config.baseFilters, config);
-  const widgetFiltered = filterTimeline(baseFiltered, config.widgetFilters, config);
+  const widgetFiltered = filterTimeline(
+    baseFiltered,
+    config.widgetFilters,
+    config,
+  );
 
   if (analysisMode === 'trend') {
     return buildTrendLikeData(widgetFiltered, config, 'trend');

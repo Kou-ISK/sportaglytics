@@ -80,7 +80,10 @@ export const useMatrixTabController = ({
     availableLabelValues,
     filteredTimeline,
     hasActiveFilters,
-  } = useMemo(() => deriveMatrixFilters(timeline, filters), [timeline, filters]);
+  } = useMemo(
+    () => deriveMatrixFilters(timeline, filters),
+    [timeline, filters],
+  );
 
   const setCustomRowAxis = (next: MatrixAxisConfig): void => {
     if (onMatrixAxesChange) {

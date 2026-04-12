@@ -3,7 +3,9 @@ import type React from 'react';
 import type { AnalysisDashboardWidget } from '../../../../../../types/Settings';
 
 interface UseDashboardWidgetDraftActionsParams {
-  setDraftWidgets: React.Dispatch<React.SetStateAction<AnalysisDashboardWidget[]>>;
+  setDraftWidgets: React.Dispatch<
+    React.SetStateAction<AnalysisDashboardWidget[]>
+  >;
   setEditorOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 

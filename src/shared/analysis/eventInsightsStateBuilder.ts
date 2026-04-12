@@ -5,7 +5,11 @@ import {
   type NormalizedInsightTeamInfo,
   uniqueInsightIds,
 } from './eventInsightsCommon';
-import type { EventInsights, InsightDimension, InsightStateStat } from './eventInsights.types';
+import type {
+  EventInsights,
+  InsightDimension,
+  InsightStateStat,
+} from './eventInsights.types';
 
 export interface StateStatsResult {
   summary: EventInsights['summary'];
@@ -77,7 +81,9 @@ export const buildStateStats = ({
     }),
   );
 
-  stateStats.sort((a, b) => b.count - a.count || b.totalDuration - a.totalDuration);
+  stateStats.sort(
+    (a, b) => b.count - a.count || b.totalDuration - a.totalDuration,
+  );
 
   const rarityThreshold = Math.max(1, Math.ceil(totalEvents * 0.05));
 

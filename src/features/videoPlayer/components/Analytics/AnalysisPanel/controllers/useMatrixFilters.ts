@@ -35,7 +35,10 @@ export const useMatrixFilters = (
     createDefaultMatrixFilters(),
   );
 
-  const derived = useMemo(() => deriveMatrixFilters(timeline, filters), [timeline, filters]);
+  const derived = useMemo(
+    () => deriveMatrixFilters(timeline, filters),
+    [timeline, filters],
+  );
 
   useEffect(() => {
     setFilters((prev) => {

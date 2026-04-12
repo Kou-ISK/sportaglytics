@@ -4,7 +4,9 @@ import type {
   ClipExportScope,
 } from '../../../../../../shared/clipExport/clipExportTypes';
 
-const buildActionIndexLookup = (timeline: TimelineData[]): Map<string, number> => {
+const buildActionIndexLookup = (
+  timeline: TimelineData[],
+): Map<string, number> => {
   const ordered = [...timeline].sort((a, b) => a.startTime - b.startTime);
   const actionIndexLookup = new Map<string, number>();
   const counters: Record<string, number> = {};

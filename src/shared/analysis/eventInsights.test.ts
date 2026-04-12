@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildEventInsights, filterTimelineByEvidenceFilters } from './eventInsights';
+import {
+  buildEventInsights,
+  filterTimelineByEvidenceFilters,
+} from './eventInsights';
 
 describe('eventInsights', () => {
   it('builds summary, transitions, and sequence insights from ordered timeline data', () => {

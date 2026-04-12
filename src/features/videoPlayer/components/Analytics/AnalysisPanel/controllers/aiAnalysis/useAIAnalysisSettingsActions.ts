@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
-import type { AIAnalysisSettings, AppSettings } from '../../../../../../../types/Settings';
+import type {
+  AIAnalysisSettings,
+  AppSettings,
+} from '../../../../../../../types/Settings';
 
 interface UseAIAnalysisSettingsActionsParams {
   settings: AppSettings;
@@ -20,7 +23,9 @@ export const useAIAnalysisSettingsActions = ({
       ...settings,
       aiAnalysis: aiSettings,
     });
-    setSettingsMessage(success ? 'AI設定を保存しました。' : 'AI設定の保存に失敗しました。');
+    setSettingsMessage(
+      success ? 'AI設定を保存しました。' : 'AI設定の保存に失敗しました。',
+    );
   }, [aiSettings, saveSettings, setSettingsMessage, settings]);
 
   return {

@@ -54,7 +54,9 @@ export const buildTransitionStats = ({
     },
   );
 
-  transitionStats.sort((a, b) => b.count - a.count || b.probability - a.probability);
+  transitionStats.sort(
+    (a, b) => b.count - a.count || b.probability - a.probability,
+  );
 
   const strongTransitions = transitionStats
     .filter((stat) => stat.count >= 2)
@@ -63,6 +65,7 @@ export const buildTransitionStats = ({
 
   return {
     topTransitions: transitionStats.slice(0, topN),
-    strongTransitions: strongTransitions.length > 0 ? strongTransitions : undefined,
+    strongTransitions:
+      strongTransitions.length > 0 ? strongTransitions : undefined,
   };
 };

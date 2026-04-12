@@ -25,7 +25,8 @@ export const useDashboardTabController = ({
   const activeDashboard =
     dashboards.find((item) => item.id === activeDashboardId) ?? dashboards[0];
   const activeDashboardWidgets = activeDashboard?.widgets ?? [];
-  const dashboardFilters = controlledDashboardFilters ?? state.localDashboardFilters;
+  const dashboardFilters =
+    controlledDashboardFilters ?? state.localDashboardFilters;
 
   const derived = useDashboardTabDerived({
     timeline,

@@ -64,12 +64,17 @@ export const useVisualTimelineController = ({
     onUpdateTimeRange,
   });
 
-  const { groupedByAction, actionNames, firstTeamName, formatTime, timeMarkers } =
-    useTimelineDerivedData({
-      timeline,
-      maxSec,
-      zoomScale,
-    });
+  const {
+    groupedByAction,
+    actionNames,
+    firstTeamName,
+    formatTime,
+    timeMarkers,
+  } = useTimelineDerivedData({
+    timeline,
+    maxSec,
+    zoomScale,
+  });
 
   const suppressClearRef = React.useRef(false);
   const handleSelectionApplied = useCallback(() => {

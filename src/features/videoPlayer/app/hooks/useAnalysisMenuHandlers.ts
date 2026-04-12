@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { AnalysisView } from '../../../../types/AnalysisView';
+import type { AnalysisView } from '../../../../types/analysis/view';
+import { subscribeAnalysisStatsMenu } from '../gateways/menuEventGateway';
 import {
   resolveRequestedAnalysisView,
   safeMenuCleanup,
@@ -23,14 +24,8 @@ export const useAnalysisMenuHandlers = ({
   }, []);
 
   useEffect(() => {
-    if (!globalThis.window.electronAPI?.onMenuShowStats) {
-      return;
-    }
-
-    const api = globalThis.window.electronAPI;
-
     // Note: 'general-shortcut-event'はuseGlobalHotkeysで処理されるため、ここでは登録しない
-    const unsubscribe = api.onMenuShowStats(handleMenuAnalysis);
+    const unsubscribe = subscribeAnalysisStatsMenu(handleMenuAnalysis);
 
     return () => {
       safeMenuCleanup(unsubscribe);

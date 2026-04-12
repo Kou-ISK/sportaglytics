@@ -1,8 +1,7 @@
 import type { AiCopilotResponse, EvidenceItem } from './types';
 
 export const FALLBACK_RESPONSE: AiCopilotResponse = {
-  summary:
-    'AI出力を解析できませんでした。内容を短くして再実行してください。',
+  summary: 'AI出力を解析できませんでした。内容を短くして再実行してください。',
   hypotheses: [],
   evidenceHighlights: [],
   recommendedClips: [],
@@ -26,7 +25,8 @@ export const buildFactBasedResponse = (
 ): AiCopilotResponse | null => {
   if (!facts || typeof facts !== 'object') return null;
   const evidenceMap = new Map(evidence.map((item) => [item.id, item]));
-  const pickEvidenceTitle = (id: string) => evidenceMap.get(id)?.actionName ?? id;
+  const pickEvidenceTitle = (id: string) =>
+    evidenceMap.get(id)?.actionName ?? id;
 
   const toArray = <T>(value: unknown): T[] =>
     Array.isArray(value) ? (value as T[]) : [];
@@ -108,7 +108,11 @@ export const buildFactBasedResponse = (
     )[0];
     if (phase && phase.shareCount >= 0.45) {
       const label =
-        phase.phase === 'early' ? '前半' : phase.phase === 'mid' ? '中盤' : '後半';
+        phase.phase === 'early'
+          ? '前半'
+          : phase.phase === 'mid'
+            ? '中盤'
+            : '後半';
       summaryParts.push(`イベントが${label}に偏る傾向があります。`);
     } else if (hasPhaseIntent) {
       summaryParts.push('時間帯の偏りは明確ではありません。');
@@ -152,13 +156,18 @@ export const buildFactBasedResponse = (
   if (summaryParts.length === 0) {
     summaryParts.push('特徴的なイベントの傾向が見られる可能性があります。');
   }
-  if (summaryAnchors.length === 0 && analysisFocus?.notes === 'no-clear-intent') {
+  if (
+    summaryAnchors.length === 0 &&
+    analysisFocus?.notes === 'no-clear-intent'
+  ) {
     summaryParts.unshift('明確な偏りは確認できませんでした。');
   }
 
   const hypotheses: AiCopilotResponse['hypotheses'] = [];
   for (const transition of topTransitions.slice(0, 2)) {
-    const ids = (transition.evidenceIds ?? []).filter((id) => evidenceMap.has(id));
+    const ids = (transition.evidenceIds ?? []).filter((id) =>
+      evidenceMap.has(id),
+    );
     if (ids.length === 0) continue;
     hypotheses.push({
       text: `確認ポイント: ${transition.from}→${transition.to}の遷移が多く、展開に影響している可能性があります（要映像確認）。`,
@@ -166,7 +175,9 @@ export const buildFactBasedResponse = (
     });
   }
   if (hypotheses.length === 0 && topStates[0]) {
-    const ids = (topStates[0].evidenceIds ?? []).filter((id) => evidenceMap.has(id));
+    const ids = (topStates[0].evidenceIds ?? []).filter((id) =>
+      evidenceMap.has(id),
+    );
     if (ids.length > 0) {
       hypotheses.push({
         text: `確認ポイント: ${topStates[0].state}が頻出しており、試合展開に影響している可能性があります（要映像確認）。`,
@@ -175,7 +186,9 @@ export const buildFactBasedResponse = (
     }
   }
   if (hypotheses.length === 0 && topSequences[0]) {
-    const ids = (topSequences[0].evidenceIds ?? []).filter((id) => evidenceMap.has(id));
+    const ids = (topSequences[0].evidenceIds ?? []).filter((id) =>
+      evidenceMap.has(id),
+    );
     if (ids.length > 0) {
       hypotheses.push({
         text: `確認ポイント: ${topSequences[0].sequence.join('→')}の流れが続いている可能性があります（要映像確認）。`,
@@ -193,7 +206,9 @@ export const buildFactBasedResponse = (
     });
   }
   if (evidenceHighlights.length === 0 && topStates[0]) {
-    const ids = (topStates[0].evidenceIds ?? []).filter((id) => evidenceMap.has(id));
+    const ids = (topStates[0].evidenceIds ?? []).filter((id) =>
+      evidenceMap.has(id),
+    );
     if (ids[0]) {
       evidenceHighlights.push({
         id: ids[0],
@@ -237,23 +252,34 @@ export const buildHeuristicResponse = (
   const labelCounts = new Map<string, number>();
 
   for (const item of evidence) {
-    actionCounts.set(item.actionName, (actionCounts.get(item.actionName) ?? 0) + 1);
+    actionCounts.set(
+      item.actionName,
+      (actionCounts.get(item.actionName) ?? 0) + 1,
+    );
     for (const label of item.labels) {
       const key = label.group ? `${label.group}:${label.name}` : label.name;
       labelCounts.set(key, (labelCounts.get(key) ?? 0) + 1);
     }
   }
 
-  const topAction = Array.from(actionCounts.entries()).sort((a, b) => b[1] - a[1])[0];
-  const topLabel = Array.from(labelCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+  const topAction = Array.from(actionCounts.entries()).sort(
+    (a, b) => b[1] - a[1],
+  )[0];
+  const topLabel = Array.from(labelCounts.entries()).sort(
+    (a, b) => b[1] - a[1],
+  )[0];
 
   const summaryParts: string[] = [];
-  summaryParts.push(`関連度の高いイベントは${topEvidence.length}件確認されました。`);
+  summaryParts.push(
+    `関連度の高いイベントは${topEvidence.length}件確認されました。`,
+  );
   if (topAction) {
     summaryParts.push(`特に「${topAction[0]}」が目立つ可能性があります。`);
   }
   if (topLabel) {
-    summaryParts.push(`ラベルでは「${topLabel[0]}」が多く含まれる傾向があります。`);
+    summaryParts.push(
+      `ラベルでは「${topLabel[0]}」が多く含まれる傾向があります。`,
+    );
   }
 
   const hypotheses = [topAction, topLabel]
@@ -265,8 +291,11 @@ export const buildHeuristicResponse = (
         .filter((item) =>
           index === 0
             ? item.actionName === key
-            : item.labels.some((label) =>
-                (label.group ? `${label.group}:${label.name}` : label.name) === key,
+            : item.labels.some(
+                (label) =>
+                  (label.group
+                    ? `${label.group}:${label.name}`
+                    : label.name) === key,
               ),
         )
         .slice(0, 5)

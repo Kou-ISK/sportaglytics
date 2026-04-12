@@ -1,6 +1,11 @@
 import { useCallback, useEffect } from 'react';
 import type React from 'react';
 import type { CodeWindowLayout } from '../../../../../types/Settings';
+import {
+  consumeCodeWindowExternalOpen,
+  loadCodeWindowFile,
+  subscribeCodeWindowExternalOpen,
+} from '../../../gateways/codeWindowFileGateway';
 import { createLayout } from '../utils';
 
 interface UseCodeWindowExternalOpenParams {
@@ -11,6 +16,22 @@ interface UseCodeWindowExternalOpenParams {
   setTabIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+};
+
+const isLayoutImportData = (
+  value: unknown,
+): value is { version: number; layout: CodeWindowLayout } => {
+  return (
+    isRecord(value) &&
+    value.version === 1 &&
+    isRecord(value.layout) &&
+    typeof value.layout.id === 'string' &&
+    typeof value.layout.name === 'string'
+  );
+};
+
 export const useCodeWindowExternalOpen = ({
   codeWindowsRef,
   setCodeWindows,
@@ -20,18 +41,12 @@ export const useCodeWindowExternalOpen = ({
 }: UseCodeWindowExternalOpenParams): void => {
   const handleExternalOpen = useCallback(
     async (filePath: string, options?: { clearPending?: boolean }) => {
-      const api = globalThis.window.electronAPI;
-      if (!api?.codeWindow?.loadFile) return;
-
       try {
-        const result = await api.codeWindow.loadFile(filePath);
+        const result = await loadCodeWindowFile(filePath);
         if (!result) return;
 
-        const data = result.codeWindow as {
-          version: number;
-          layout: CodeWindowLayout;
-        };
-        if (!data.layout || data.version !== 1) return;
+        const data = result.codeWindow;
+        if (!isLayoutImportData(data)) return;
 
         const existing = codeWindowsRef.current.find(
           (layout) => layout.id === data.layout.id,
@@ -54,25 +69,27 @@ export const useCodeWindowExternalOpen = ({
       } catch (error) {
         console.error('コードウィンドウファイルの読み込みに失敗:', error);
       } finally {
-        if (options?.clearPending && api.codeWindow.consumeExternalOpen) {
-          await api.codeWindow.consumeExternalOpen(filePath);
+        if (options?.clearPending) {
+          await consumeCodeWindowExternalOpen(filePath);
         }
       }
     },
-    [codeWindowsRef, setActiveCodeWindowId, setCodeWindows, setHasChanges, setTabIndex],
+    [
+      codeWindowsRef,
+      setActiveCodeWindowId,
+      setCodeWindows,
+      setHasChanges,
+      setTabIndex,
+    ],
   );
 
   useEffect(() => {
-    const api = globalThis.window.electronAPI;
-    if (!api?.codeWindow?.onExternalOpen) return;
-
-    const cleanup = api.codeWindow.onExternalOpen((filePath: string) => {
+    const cleanup = subscribeCodeWindowExternalOpen((filePath: string) => {
       void handleExternalOpen(filePath, { clearPending: true });
     });
 
     const consumePending = async () => {
-      if (!api.codeWindow.consumeExternalOpen) return;
-      const pendingPath = await api.codeWindow.consumeExternalOpen();
+      const pendingPath = await consumeCodeWindowExternalOpen();
       if (pendingPath) {
         await handleExternalOpen(pendingPath);
       }

@@ -216,7 +216,8 @@ export const generateAiResponse = async (params: {
         fallback.evidenceHighlights.length > 0 ||
         fallback.recommendedClips.length > 0;
       if (!hasGrounded) {
-        const heuristic = factFallback ?? buildHeuristicResponse(trimmedEvidence);
+        const heuristic =
+          factFallback ?? buildHeuristicResponse(trimmedEvidence);
         return {
           response: heuristic ?? FALLBACK_RESPONSE,
           rawText: lastRaw,

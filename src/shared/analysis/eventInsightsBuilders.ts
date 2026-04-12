@@ -1,7 +1,13 @@
 import type { TimelineData } from '../../types/TimelineData';
 import type { NormalizedInsightTeamInfo } from './eventInsightsCommon';
-import { buildDurationExtremes, buildPhaseDistribution } from './eventInsightsDurationBuilder';
-import { buildTopSequencesByLength, buildStreaks } from './eventInsightsSequenceBuilder';
+import {
+  buildDurationExtremes,
+  buildPhaseDistribution,
+} from './eventInsightsDurationBuilder';
+import {
+  buildTopSequencesByLength,
+  buildStreaks,
+} from './eventInsightsSequenceBuilder';
 import { buildStateStats } from './eventInsightsStateBuilder';
 import { buildTransitionStats } from './eventInsightsTransitionBuilder';
 import type { EventInsights, InsightDimension } from './eventInsights.types';

@@ -41,7 +41,9 @@ export const getAnalysisModeLabel = (mode: DashboardAnalysisMode): string => {
   return '標準集計';
 };
 
-export const buildFilterSummary = (filters: DashboardSeriesFilter): string[] => {
+export const buildFilterSummary = (
+  filters: DashboardSeriesFilter,
+): string[] => {
   const parts: string[] = [];
   if (filters.team) parts.push(`チーム=${filters.team}`);
   if (filters.action) parts.push(`アクション=${filters.action}`);
@@ -54,7 +56,10 @@ export const buildFilterSummary = (filters: DashboardSeriesFilter): string[] => 
   return parts;
 };
 
-export const normalizePositive = (value: number | '', fallback: number): number => {
+export const normalizePositive = (
+  value: number | '',
+  fallback: number,
+): number => {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     return fallback;
   }

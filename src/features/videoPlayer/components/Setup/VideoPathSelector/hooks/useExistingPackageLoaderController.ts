@@ -50,9 +50,11 @@ export const useExistingPackageLoaderController = ({
     const unsubscribeOpenPackage = subscribeToOpenPackage(() => {
       void handleSelectPackage();
     });
-    const unsubscribeOpenRecentPackage = subscribeToOpenRecentPackage((path) => {
-      void handleSelectPackage(path);
-    });
+    const unsubscribeOpenRecentPackage = subscribeToOpenRecentPackage(
+      (path) => {
+        void handleSelectPackage(path);
+      },
+    );
 
     return () => {
       unsubscribeOpenPackage();

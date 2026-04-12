@@ -48,7 +48,8 @@ export const useAIAnalysisPlaylistActions = ({
     const items: PlaylistItem[] = clipSegments.map((segment, index) => {
       const primaryCenterId = segment.centerIds[0];
       const center = primaryCenterId ? evidenceMap.get(primaryCenterId) : null;
-      const actionName = segment.title || center?.actionName || `AI Clip ${index + 1}`;
+      const actionName =
+        segment.title || center?.actionName || `AI Clip ${index + 1}`;
       return {
         id: crypto.randomUUID(),
         timelineItemId: primaryCenterId ?? null,

@@ -1,6 +1,8 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'path';
+import { isFileDialogFilterArray, isStringPayload } from './ipcPayloadGuards';
+import { getValidatedEventSenderWindow } from './windowSenderGuards';
 
 interface RegisterDashboardHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
@@ -18,7 +20,14 @@ export const registerDashboardHandlers = ({
 
   ipcMain.handle(
     'analysis-dashboard:save-package',
-    async (_event, packagePath: string, content: string) => {
+    async (event, packagePath: unknown, content: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid dashboard save sender');
+      }
+      if (!isStringPayload(packagePath) || !isStringPayload(content)) {
+        return false;
+      }
+
       try {
         await fs.mkdir(packagePath, { recursive: true });
         const dashboardPath = path.join(packagePath, 'dashboard.json');
@@ -33,7 +42,14 @@ export const registerDashboardHandlers = ({
 
   ipcMain.handle(
     'analysis-dashboard:read-package',
-    async (_event, packagePath: string) => {
+    async (event, packagePath: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid dashboard read sender');
+      }
+      if (!isStringPayload(packagePath)) {
+        return null;
+      }
+
       try {
         const dashboardPath = path.join(packagePath, 'dashboard.json');
         const content = await fs.readFile(dashboardPath, 'utf-8');
@@ -47,17 +63,22 @@ export const registerDashboardHandlers = ({
 
   ipcMain.handle(
     'analysis-dashboard:open-package-dialog',
-    async (_event, filters: { name: string; extensions: string[] }[]) => {
-      const window = getMainWindow();
-      const result = window
-        ? await dialog.showOpenDialog(window, {
-            properties: ['openFile', 'openDirectory'],
-            filters,
-          })
-        : await dialog.showOpenDialog({
-            properties: ['openFile', 'openDirectory'],
-            filters,
-          });
+    async (event, filters: unknown) => {
+      const senderWindow = getValidatedEventSenderWindow(event);
+      if (!senderWindow) {
+        throw new Error('Invalid dashboard dialog sender');
+      }
+      if (!isFileDialogFilterArray(filters)) {
+        return null;
+      }
+
+      const mainWindow = getMainWindow();
+      const window =
+        mainWindow && !mainWindow.isDestroyed() ? mainWindow : senderWindow;
+      const result = await dialog.showOpenDialog(window, {
+        properties: ['openFile', 'openDirectory'],
+        filters,
+      });
       return result.canceled ? null : result.filePaths[0];
     },
   );

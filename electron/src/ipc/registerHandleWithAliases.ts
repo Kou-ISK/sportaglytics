@@ -5,16 +5,16 @@ type IpcInvokeHandler<Args extends unknown[], Result> = (
   ...args: Args
 ) => Result | Promise<Result>;
 
-export const registerHandleWithAliases = <Args extends unknown[], Result>(
+export const registerHandleWithAliases = <Result>(
   channel: string,
   aliases: string[],
-  handler: IpcInvokeHandler<Args, Result>,
+  handler: IpcInvokeHandler<unknown[], Result>,
 ): void => {
   const invokeHandler = (
     event: IpcMainInvokeEvent,
     ...args: unknown[]
   ): Result | Promise<Result> => {
-    return handler(event, ...(args as Args));
+    return handler(event, ...args);
   };
   ipcMain.handle(channel, invokeHandler);
   aliases.forEach((alias) => {

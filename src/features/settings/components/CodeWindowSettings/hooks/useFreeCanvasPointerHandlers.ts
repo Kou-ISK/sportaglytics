@@ -35,9 +35,10 @@ interface UseFreeCanvasPointerHandlersParams {
   onSelectButtons: (ids: string[]) => void;
   setSelectedLinkId: (linkId: string | null) => void;
   updateLayoutWithHistory: (layout: CodeWindowLayout) => void;
-  getCanvasPosition: (
-    event: React.MouseEvent | MouseEvent,
-  ) => { x: number; y: number };
+  getCanvasPosition: (event: React.MouseEvent | MouseEvent) => {
+    x: number;
+    y: number;
+  };
 }
 
 const mapLinkType = (
@@ -138,7 +139,10 @@ export const useFreeCanvasPointerHandlers = ({
             updateLayoutWithHistory(nextLayout);
           }
         }
-      } else if ((dragMode === 'move' || dragMode === 'resize') && draggedButton) {
+      } else if (
+        (dragMode === 'move' || dragMode === 'resize') &&
+        draggedButton
+      ) {
         updateLayoutWithHistory(layout);
       }
 
@@ -167,7 +171,9 @@ export const useFreeCanvasPointerHandlers = ({
 
   const handleDeleteButton = useCallback(
     (buttonId: string) => {
-      updateLayoutWithHistory(removeButtonAndRelatedLinks({ layout, buttonId }));
+      updateLayoutWithHistory(
+        removeButtonAndRelatedLinks({ layout, buttonId }),
+      );
 
       if (!selectedButtonIds.includes(buttonId)) return;
       onSelectButtons(selectedButtonIds.filter((id) => id !== buttonId));

@@ -18,9 +18,10 @@ interface UseFreeCanvasInteractionsParams {
   onSelectButtons: (ids: string[]) => void;
   setSelectedLinkId: (linkId: string | null) => void;
   updateLayoutWithHistory: (layout: CodeWindowLayout) => void;
-  getCanvasPosition: (
-    event: React.MouseEvent | MouseEvent,
-  ) => { x: number; y: number };
+  getCanvasPosition: (event: React.MouseEvent | MouseEvent) => {
+    x: number;
+    y: number;
+  };
 }
 
 const getLinkTypeFromEvent = (

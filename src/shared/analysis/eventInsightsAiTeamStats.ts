@@ -84,19 +84,25 @@ export const buildTeamStats = (
         evidenceIds: uniqueIds(items.map((item) => item.id)),
         topActions: actionDistribution,
         topResults: resultDistribution,
-        phaseDistribution: buildPhaseDistributionForItems(items, minStart, maxEnd),
+        phaseDistribution: buildPhaseDistributionForItems(
+          items,
+          minStart,
+          maxEnd,
+        ),
       };
     },
   );
 
   teamStats.sort((a, b) => b.count - a.count);
 
-  const teamDistribution: AiEvidenceDistributionStat[] = teamStats.map((team) => ({
-    key: team.team,
-    count: team.count,
-    share: team.share,
-    evidenceIds: uniqueIds(team.evidenceIds),
-  }));
+  const teamDistribution: AiEvidenceDistributionStat[] = teamStats.map(
+    (team) => ({
+      key: team.team,
+      count: team.count,
+      share: team.share,
+      evidenceIds: uniqueIds(team.evidenceIds),
+    }),
+  );
 
   return { teamStats, teamDistribution };
 };

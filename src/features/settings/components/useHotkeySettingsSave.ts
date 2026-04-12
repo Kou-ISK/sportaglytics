@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, HotkeyConfig } from '../../../types/Settings';
+import { notifyHotkeysUpdated } from '../gateways/hotkeySettingsGateway';
 
 interface UseHotkeySettingsSaveParams {
   settings: AppSettings;
@@ -39,7 +40,7 @@ export const useHotkeySettingsSave = ({
     }
 
     markSaved();
-    globalThis.window.electronAPI?.notifyHotkeysUpdated?.();
+    notifyHotkeysUpdated();
 
     if (timeoutRef.current !== null) {
       globalThis.clearTimeout(timeoutRef.current);

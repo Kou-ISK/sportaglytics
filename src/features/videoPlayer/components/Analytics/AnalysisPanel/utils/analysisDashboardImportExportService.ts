@@ -53,7 +53,9 @@ const ensureUniqueDashboardIds = (
   importedDashboards: AnalysisDashboard[],
   generateDashboardId: () => string,
 ): AnalysisDashboard[] => {
-  const existingIds = new Set(existingDashboards.map((dashboard) => dashboard.id));
+  const existingIds = new Set(
+    existingDashboards.map((dashboard) => dashboard.id),
+  );
 
   return importedDashboards.map((dashboard, index) => {
     const baseId = dashboard.id || generateDashboardId();
@@ -101,7 +103,10 @@ export const parseAnalysisDashboardImportContent = ({
     throw new Error(IMPORT_FAILURE_MESSAGE);
   }
 
-  const importedDashboards = extractImportedDashboards(parsed, generateDashboardId);
+  const importedDashboards = extractImportedDashboards(
+    parsed,
+    generateDashboardId,
+  );
   if (importedDashboards.length === 0) {
     throw new Error(INVALID_FORMAT_MESSAGE);
   }

@@ -1,5 +1,6 @@
 import { Menu } from 'electron';
 import { registerHandleWithAliases } from './registerHandleWithAliases';
+import { getValidatedEventSenderWindow } from './windowSenderGuards';
 
 let isRegistered = false;
 
@@ -21,7 +22,14 @@ export const registerMenuStateHandlers = (): void => {
   registerHandleWithAliases(
     'menu:set-manual-mode-checked',
     ['set-manual-mode-checked'],
-    async (_event, checked: boolean) => {
+    async (event, checked: unknown) => {
+      if (
+        !getValidatedEventSenderWindow(event) ||
+        typeof checked !== 'boolean'
+      ) {
+        return false;
+      }
+
       try {
         const updated = setMenuCheckedState('toggle-manual-mode', checked);
         console.log(`手動モードが${checked ? 'オン' : 'オフ'}になりました`);
@@ -36,7 +44,14 @@ export const registerMenuStateHandlers = (): void => {
   registerHandleWithAliases(
     'menu:set-label-mode-checked',
     ['set-label-mode-checked'],
-    async (_event, checked: boolean) => {
+    async (event, checked: unknown) => {
+      if (
+        !getValidatedEventSenderWindow(event) ||
+        typeof checked !== 'boolean'
+      ) {
+        return false;
+      }
+
       try {
         const updated = setMenuCheckedState('toggle-label-mode', checked);
         console.log(`ラベルモードが${checked ? 'オン' : 'オフ'}になりました`);

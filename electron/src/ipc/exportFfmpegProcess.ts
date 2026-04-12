@@ -31,7 +31,9 @@ export const concatFfmpegFiles = async (
     os.tmpdir(),
     `concat_${Date.now()}_${Math.random()}.txt`,
   );
-  const content = files.map((file) => `file '${file.replace(/'/g, "'\\''")}'`).join('\n');
+  const content = files
+    .map((file) => `file '${file.replace(/'/g, "'\\''")}'`)
+    .join('\n');
   await fs.writeFile(listPath, content, 'utf-8');
 
   try {

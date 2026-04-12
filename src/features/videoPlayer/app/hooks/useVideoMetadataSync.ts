@@ -1,5 +1,10 @@
 import { useEffect } from 'react';
-import type { VideoSyncData } from '../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../types/video/sync';
+import {
+  readVideoMetadataPackageName,
+  saveVideoMetadataSyncData,
+  setVideoWindowTitle,
+} from '../gateways/videoMetadataGateway';
 
 type UseVideoMetadataSyncParams = {
   metaDataConfigFilePath: string;
@@ -13,16 +18,11 @@ export const useVideoMetadataSync = ({
   useEffect(() => {
     (async () => {
       try {
-        if (
-          !metaDataConfigFilePath ||
-          !syncData ||
-          !window.electronAPI ||
-          typeof window.electronAPI.saveSyncData !== 'function'
-        ) {
+        if (!metaDataConfigFilePath || !syncData) {
           return;
         }
 
-        await window.electronAPI.saveSyncData(metaDataConfigFilePath, syncData);
+        await saveVideoMetadataSyncData(metaDataConfigFilePath, syncData);
       } catch (error) {
         console.error('[useVideoMetadataSync] saveSyncData failed', error);
       }
@@ -31,26 +31,20 @@ export const useVideoMetadataSync = ({
 
   useEffect(() => {
     if (!metaDataConfigFilePath) {
-      window.electronAPI?.setWindowTitle?.('SporTagLytics');
+      setVideoWindowTitle('SporTagLytics');
       return;
     }
 
     (async () => {
       try {
-        const config = await window.electronAPI?.readJsonFile?.(
+        const packageName = await readVideoMetadataPackageName(
           metaDataConfigFilePath,
         );
-
-        if (!(config && typeof config === 'object' && 'packageName' in config)) {
-          return;
-        }
-
-        const packageName = (config as { packageName?: string }).packageName;
         if (!packageName) {
           return;
         }
 
-        window.electronAPI?.setWindowTitle?.(`${packageName} - SporTagLytics`);
+        setVideoWindowTitle(`${packageName} - SporTagLytics`);
       } catch (error) {
         console.error('[useVideoMetadataSync] window title sync failed', error);
       }

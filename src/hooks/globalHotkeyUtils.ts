@@ -118,7 +118,9 @@ export const sortHotkeysBySpecificity = (
     );
 };
 
-export const shouldIgnoreHotkeyTarget = (target: EventTarget | null): boolean => {
+export const shouldIgnoreHotkeyTarget = (
+  target: EventTarget | null,
+): boolean => {
   if (!(target instanceof HTMLElement)) {
     return false;
   }

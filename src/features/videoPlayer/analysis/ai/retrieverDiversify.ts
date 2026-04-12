@@ -16,7 +16,8 @@ const DEFAULT_DIVERSIFY: Required<RetrieverDiversifyOptions> = {
 };
 
 const pickDurationExtremes = (items: EvidenceIndexItem[]) => {
-  if (items.length === 0) return { shortest: null, longest: null, median: null };
+  if (items.length === 0)
+    return { shortest: null, longest: null, median: null };
   const durations = items.map((item) => item.duration).sort((a, b) => a - b);
   const medianValue = durations[Math.floor(durations.length / 2)];
   let medianItem = items[0];
@@ -54,7 +55,10 @@ const selectRareLabelItems = (
   return rare.slice(0, limit);
 };
 
-const computeTargetCount = (selectedCount: number, requested: number): number => {
+const computeTargetCount = (
+  selectedCount: number,
+  requested: number,
+): number => {
   const capped = Math.min(Math.max(1, requested), 30);
   return Math.min(Math.max(capped, selectedCount), 30);
 };
@@ -67,8 +71,13 @@ export const diversifyEvidence = (
 ): EvidenceItem[] => {
   const topK = Math.max(1, options.topK);
   const candidates = scored.slice(0, topK).map((entry) => entry.item);
-  const scoredMap = new Map(scored.map((entry) => [entry.item.id, entry.score]));
-  const diversifyConfig = { ...DEFAULT_DIVERSIFY, ...(options.diversify ?? {}) };
+  const scoredMap = new Map(
+    scored.map((entry) => [entry.item.id, entry.score]),
+  );
+  const diversifyConfig = {
+    ...DEFAULT_DIVERSIFY,
+    ...(options.diversify ?? {}),
+  };
 
   const selected: EvidenceIndexItem[] = [];
   const selectedIds = new Set<string>();
@@ -93,7 +102,9 @@ export const diversifyEvidence = (
         teamContext.mentionedTeam === team ? perTeamBase + 1 : perTeamBase;
       const teamCandidates = candidates
         .filter((item) => teamContext.assignments.get(item.id) === team)
-        .sort((a, b) => (scoredMap.get(b.id) ?? 0) - (scoredMap.get(a.id) ?? 0));
+        .sort(
+          (a, b) => (scoredMap.get(b.id) ?? 0) - (scoredMap.get(a.id) ?? 0),
+        );
       for (const item of teamCandidates.slice(0, target)) {
         addItem(item);
       }
@@ -105,9 +116,12 @@ export const diversifyEvidence = (
   addItem(shortest);
   addItem(longest);
 
-  selectRareLabelItems(candidates, index, scoredMap, diversifyConfig.maxRare).forEach(
-    (item) => addItem(item),
-  );
+  selectRareLabelItems(
+    candidates,
+    index,
+    scoredMap,
+    diversifyConfig.maxRare,
+  ).forEach((item) => addItem(item));
 
   if (options.insightEvidenceIds?.length) {
     let added = 0;
@@ -121,7 +135,10 @@ export const diversifyEvidence = (
     }
   }
 
-  const target = computeTargetCount(selected.length, diversifyConfig.maxEvidence);
+  const target = computeTargetCount(
+    selected.length,
+    diversifyConfig.maxEvidence,
+  );
   for (const item of candidates) {
     if (selected.length >= target) break;
     addItem(item);

@@ -65,7 +65,9 @@ export const useDashboardWidgetSeriesActions = ({
     (id: string, patch: Partial<DashboardSeriesFilter>) => {
       setSeries((prev) =>
         prev.map((item) =>
-          item.id === id ? { ...item, filters: { ...item.filters, ...patch } } : item,
+          item.id === id
+            ? { ...item, filters: { ...item.filters, ...patch } }
+            : item,
         ),
       );
     },

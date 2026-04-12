@@ -1,6 +1,9 @@
 import type { TimelineData } from '../../types/TimelineData';
 import { uniqueInsightIds } from './eventInsightsCommon';
-import type { InsightSequenceStat, InsightStreakStat } from './eventInsights.types';
+import type {
+  InsightSequenceStat,
+  InsightStreakStat,
+} from './eventInsights.types';
 
 interface BuildTopSequencesByLengthParams {
   ordered: TimelineData[];

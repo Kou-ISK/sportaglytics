@@ -22,7 +22,10 @@ interface UseLabelButtonInteractionsParams {
   ) => void;
   setPrimaryAction: React.Dispatch<React.SetStateAction<string | null>>;
   setWarning: (message: string | null) => void;
-  completeRecording: (actionName: string, labelsPatch?: Record<string, string>) => void;
+  completeRecording: (
+    actionName: string,
+    labelsPatch?: Record<string, string>,
+  ) => void;
   activeRecordingsRef: React.MutableRefObject<
     Record<string, ActiveRecordingSession>
   >;

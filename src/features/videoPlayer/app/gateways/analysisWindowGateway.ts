@@ -114,10 +114,7 @@ export const subscribeAnalysisJumpToSegment = (
   try {
     return api.onJumpToSegment(callback);
   } catch (error: unknown) {
-    console.debug(
-      '[AnalysisWindowGateway] onJumpToSegment failed',
-      error,
-    );
+    console.debug('[AnalysisWindowGateway] onJumpToSegment failed', error);
     return noop;
   }
 };
@@ -133,10 +130,7 @@ export const subscribeAnalysisCreateAiPlaylist = (
   try {
     return api.onCreateAiPlaylist(callback);
   } catch (error: unknown) {
-    console.debug(
-      '[AnalysisWindowGateway] onCreateAiPlaylist failed',
-      error,
-    );
+    console.debug('[AnalysisWindowGateway] onCreateAiPlaylist failed', error);
     return noop;
   }
 };

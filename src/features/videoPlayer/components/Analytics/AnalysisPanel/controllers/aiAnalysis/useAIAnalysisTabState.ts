@@ -53,7 +53,9 @@ export const useAIAnalysisTabState = ({
   } | null>(null);
   const [llmWarning, setLlmWarning] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<EvidenceFilters | null>(null);
+  const [activeFilters, setActiveFilters] = useState<EvidenceFilters | null>(
+    null,
+  );
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [playlistMessage, setPlaylistMessage] = useState<string | null>(null);
   const [lastQuestion, setLastQuestion] = useState('');

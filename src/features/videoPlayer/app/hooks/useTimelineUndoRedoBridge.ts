@@ -1,7 +1,8 @@
 import { useCallback, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useNotification } from '../../../../contexts/NotificationContext';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
+import { subscribeTimelineUndoRedoMenu } from '../gateways/menuEventGateway';
 
 interface UseTimelineUndoRedoBridgeParams {
   performUndo: () => TimelineData[] | null;
@@ -42,18 +43,7 @@ export const useTimelineUndoRedoBridge = ({
   }, [info, performRedo, setPersistedTimeline]);
 
   useEffect(() => {
-    const api = globalThis.window.electronAPI;
-    if (!api?.onTimelineUndo || !api?.onTimelineRedo) {
-      return;
-    }
-
-    const unsubscribeUndo = api.onTimelineUndo(handleUndo);
-    const unsubscribeRedo = api.onTimelineRedo(handleRedo);
-
-    return () => {
-      unsubscribeUndo();
-      unsubscribeRedo();
-    };
+    return subscribeTimelineUndoRedoMenu(handleUndo, handleRedo);
   }, [handleRedo, handleUndo]);
 
   return {

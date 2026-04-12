@@ -1,4 +1,7 @@
-import type { AppSettings, CodeWindowLayout } from '../../../../../types/Settings';
+import type {
+  AppSettings,
+  CodeWindowLayout,
+} from '../../../../../types/Settings';
 import { ActionList } from '../../../../../ActionList';
 import { TEAM_PLACEHOLDERS } from '../../../../../utils/teamPlaceholder';
 
@@ -37,7 +40,9 @@ export const buildAvailableLabelGroups = (): LabelGroup[] => {
   const groupMap = new Map<string, Set<string>>();
 
   ActionList.forEach((action) => {
-    const groups = (action as { groups?: { groupName: string; options: string[] }[] }).groups;
+    const groups = (
+      action as { groups?: { groupName: string; options: string[] }[] }
+    ).groups;
     if (Array.isArray(groups)) {
       groups.forEach((group) => {
         const existing = groupMap.get(group.groupName) || new Set<string>();

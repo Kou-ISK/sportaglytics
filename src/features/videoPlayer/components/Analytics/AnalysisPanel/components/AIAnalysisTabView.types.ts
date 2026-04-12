@@ -3,7 +3,9 @@ import type { TimelineData } from '../../../../../../types/TimelineData';
 import type { RetrieverPresetValue } from './ai/AIAnalysisControlsPanel.types';
 import type { useAIAnalysisTabController } from '../controllers/useAIAnalysisTabController';
 
-export type AIAnalysisTabControllerState = ReturnType<typeof useAIAnalysisTabController>;
+export type AIAnalysisTabControllerState = ReturnType<
+  typeof useAIAnalysisTabController
+>;
 
 export interface AIAnalysisTabViewProps extends AIAnalysisTabControllerState {
   hasData: boolean;

@@ -9,6 +9,7 @@ import type {
   EvidenceFilters,
   EvidenceItem,
 } from '../../../../../analysis/ai';
+import { cancelLocalLlmRequest } from '../../../../../analysis/ai/llmGateway';
 import type { InsightDimension } from '../../../../../analysis/utils/eventInsights';
 import type { TimelineData } from '../../../../../../../types/TimelineData';
 import { useAIAnalysisInsightGeneration } from './useAIAnalysisInsightGeneration';
@@ -30,7 +31,10 @@ interface UseAIAnalysisGenerationActionsParams {
   activeFilters: EvidenceFilters | null;
   insightEvidenceItems: EvidenceItem[];
   buildFilters: () => EvidenceFilters;
-  ensureEvidence: () => Promise<{ items: EvidenceItem[]; filters: EvidenceFilters }>;
+  ensureEvidence: () => Promise<{
+    items: EvidenceItem[];
+    filters: EvidenceFilters;
+  }>;
   generationStatus: 'idle' | 'running' | 'done' | 'error';
   generationRequestId: string | null;
   generationRunIdRef: MutableRefObject<string | null>;
@@ -42,27 +46,33 @@ interface UseAIAnalysisGenerationActionsParams {
   setLlmRawText: (value: string | null) => void;
   setLlmLiveLog: Dispatch<SetStateAction<string>>;
   setLlmAttempt: (value: number) => void;
-  setLlmRetryInfo: (value: {
-    attempt: number;
-    total: number;
-    mode: 'reduce' | 'repair';
-    reason: string;
-  } | null) => void;
-  setLlmDebug: (value: {
-    stderr?: string;
-    binaryPath?: string;
-    modelPath?: string;
-    durationMs?: number;
-  } | null) => void;
+  setLlmRetryInfo: (
+    value: {
+      attempt: number;
+      total: number;
+      mode: 'reduce' | 'repair';
+      reason: string;
+    } | null,
+  ) => void;
+  setLlmDebug: (
+    value: {
+      stderr?: string;
+      binaryPath?: string;
+      modelPath?: string;
+      durationMs?: number;
+    } | null,
+  ) => void;
   setLlmWarning: (value: string | null) => void;
   setLastQuestion: (value: string) => void;
   setGenerationRequestId: (value: string | null) => void;
-  setLlmProgress: (value: {
-    requestId: string;
-    phase?: string;
-    outputChars?: number;
-    elapsedMs?: number;
-  } | null) => void;
+  setLlmProgress: (
+    value: {
+      requestId: string;
+      phase?: string;
+      outputChars?: number;
+      elapsedMs?: number;
+    } | null,
+  ) => void;
   setEvidenceItems: (value: EvidenceItem[]) => void;
   setActiveFilters: (value: EvidenceFilters | null) => void;
   setRetrievalStatus: (value: 'idle' | 'running' | 'done' | 'error') => void;
@@ -164,8 +174,8 @@ export const useAIAnalysisGenerationActions = ({
     if (generationStatus !== 'running') return;
     generationAbortRef.current?.abort();
     const requestId = generationRequestId ?? generationRunIdRef.current;
-    if (requestId && globalThis.window?.electronAPI?.llama?.cancel) {
-      await globalThis.window.electronAPI.llama.cancel(requestId);
+    if (requestId) {
+      await cancelLocalLlmRequest(requestId);
     }
     generationRunIdRef.current = null;
     generationAbortRef.current = null;

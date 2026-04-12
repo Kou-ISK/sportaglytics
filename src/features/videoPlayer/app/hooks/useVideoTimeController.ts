@@ -32,7 +32,9 @@ const dispatchSeekEvent = (
   time?: number,
 ): void => {
   if (type === 'video-seek-start') {
-    globalThis.window.dispatchEvent(new CustomEvent(type, { detail: { time } }));
+    globalThis.window.dispatchEvent(
+      new CustomEvent(type, { detail: { time } }),
+    );
     return;
   }
 
@@ -64,7 +66,8 @@ const seekEachPlayer = ({
 
       const durationCandidate = player.duration?.();
       const duration =
-        typeof durationCandidate === 'number' && !Number.isNaN(durationCandidate)
+        typeof durationCandidate === 'number' &&
+        !Number.isNaN(durationCandidate)
           ? durationCandidate
           : 0;
 

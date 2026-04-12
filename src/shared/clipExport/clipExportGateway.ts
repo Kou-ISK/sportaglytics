@@ -1,6 +1,11 @@
-import type { ClipExportExecutionResult, ClipExportOverlaySettings, ClipExportPayload } from './clipExportTypes';
+import type {
+  ClipExportExecutionResult,
+  ClipExportOverlaySettings,
+  ClipExportPayload,
+} from './clipExportTypes';
 
 const getClipExportApi = () => globalThis.window.electronAPI;
+const noop = (): void => undefined;
 
 export const canExportClipsWithOverlay = (): boolean => {
   return Boolean(getClipExportApi()?.exportClipsWithOverlay);
@@ -28,17 +33,34 @@ export const exportClipsWithOverlay = async (
   }
 };
 
-export const loadClipOverlaySettings = async (): Promise<ClipExportOverlaySettings | null> => {
+export const loadClipOverlaySettings =
+  async (): Promise<ClipExportOverlaySettings | null> => {
+    const api = getClipExportApi();
+    if (!api?.loadSettings) {
+      return null;
+    }
+
+    try {
+      const settings = await api.loadSettings();
+      return settings.overlayClip ?? null;
+    } catch (error: unknown) {
+      console.debug('[clipExportGateway] loadSettings failed', error);
+      return null;
+    }
+  };
+
+export const subscribeClipExportMenuRequest = (
+  callback: () => void,
+): (() => void) => {
   const api = getClipExportApi();
-  if (!api?.loadSettings) {
-    return null;
+  if (!api?.onMenuExportClips) {
+    return noop;
   }
 
   try {
-    const settings = await api.loadSettings();
-    return settings.overlayClip ?? null;
+    return api.onMenuExportClips(callback);
   } catch (error: unknown) {
-    console.debug('[clipExportGateway] loadSettings failed', error);
-    return null;
+    console.debug('[clipExportGateway] onMenuExportClips failed', error);
+    return noop;
   }
 };

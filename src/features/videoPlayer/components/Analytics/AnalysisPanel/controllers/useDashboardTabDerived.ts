@@ -21,7 +21,10 @@ export const useDashboardTabDerived = ({
   teamNames,
   dashboardFilters,
 }: UseDashboardTabDerivedParams) => {
-  const availableGroups = useMemo(() => extractUniqueGroups(timeline), [timeline]);
+  const availableGroups = useMemo(
+    () => extractUniqueGroups(timeline),
+    [timeline],
+  );
 
   const availableTeams = useMemo(() => {
     const fromProps = teamNames?.filter(Boolean) ?? [];
@@ -73,7 +76,10 @@ export const useDashboardTabDerived = ({
     [dashboardFilters, teamRoleMap.team1, teamRoleMap.team2],
   );
 
-  const timelineMap = useMemo(() => new Map(timeline.map((item) => [item.id, item])), [timeline]);
+  const timelineMap = useMemo(
+    () => new Map(timeline.map((item) => [item.id, item])),
+    [timeline],
+  );
 
   return {
     availableGroups,

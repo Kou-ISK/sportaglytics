@@ -9,7 +9,8 @@ export const formatKeyCombo = (event: KeyboardEvent): string => {
   if (event.shiftKey) keys.push('Shift');
 
   if (event.key && !['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) {
-    const keyName = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+    const keyName =
+      event.key.length === 1 ? event.key.toUpperCase() : event.key;
     keys.push(keyName);
   }
 
@@ -26,7 +27,8 @@ export const getHotkeyConflictWarning = (params: {
   }
 
   const duplicate = params.hotkeys.find(
-    (hotkey) => hotkey.key === params.keyCombo && hotkey.id !== params.editingId,
+    (hotkey) =>
+      hotkey.key === params.keyCombo && hotkey.id !== params.editingId,
   );
   if (duplicate) {
     return `"${params.keyCombo}" は既に「${duplicate.label}」に割り当てられています`;

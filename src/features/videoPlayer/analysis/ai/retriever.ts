@@ -50,7 +50,10 @@ const addToken = (set: Set<string>, value?: string | null) => {
   set.add(token);
 };
 
-const expandQueryTokens = (query: string, index: EvidenceIndex): Set<string> => {
+const expandQueryTokens = (
+  query: string,
+  index: EvidenceIndex,
+): Set<string> => {
   const tokens = tokenizeQuery(query);
   const normalizedQuery = query.toLowerCase();
 
@@ -86,7 +89,11 @@ const expandQueryTokens = (query: string, index: EvidenceIndex): Set<string> => 
 };
 
 export class HybridEvidenceRetriever implements Retriever {
-  retrieve(query: string, index: EvidenceIndex, options: RetrieverOptions): EvidenceItem[] {
+  retrieve(
+    query: string,
+    index: EvidenceIndex,
+    options: RetrieverOptions,
+  ): EvidenceItem[] {
     const queryTokens = expandQueryTokens(query, index);
     const teamContext = resolveTeamContext(query, index.items);
     const filtered = index.items.filter(

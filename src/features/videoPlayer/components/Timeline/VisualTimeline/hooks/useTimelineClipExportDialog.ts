@@ -4,6 +4,7 @@ import {
   canExportClipsWithOverlay,
   exportClipsWithOverlay,
   loadClipOverlaySettings,
+  subscribeClipExportMenuRequest,
 } from '../../../../../../shared/clipExport/clipExportGateway';
 import {
   executeClipExport,
@@ -62,9 +63,8 @@ export const useTimelineClipExportDialog = ({
 }: UseTimelineClipExportDialogParams): UseTimelineClipExportDialogResult => {
   const [clipDialogOpen, setClipDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [overlaySettings, setOverlaySettings] = useState<ClipExportOverlaySettings>(
-    DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
-  );
+  const [overlaySettings, setOverlaySettings] =
+    useState<ClipExportOverlaySettings>(DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS);
   const [primarySource, setPrimarySource] = useState<string | undefined>(
     videoSources?.[0],
   );
@@ -75,7 +75,8 @@ export const useTimelineClipExportDialog = ({
     selectedIds.length > 0 ? 'selected' : 'all',
   );
   const [exportMode, setExportMode] = useState<ClipExportMode>('single');
-  const [angleOption, setAngleOption] = useState<ClipExportAngleOption>('single');
+  const [angleOption, setAngleOption] =
+    useState<ClipExportAngleOption>('single');
   const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
 
@@ -185,12 +186,9 @@ export const useTimelineClipExportDialog = ({
   ]);
 
   useEffect(() => {
-    const api = globalThis.window.electronAPI;
-    if (!api?.onMenuExportClips) return;
-    const unsubscribe = api.onMenuExportClips(() => {
+    return subscribeClipExportMenuRequest(() => {
       handleOpenClipDialog();
     });
-    return unsubscribe;
   }, [handleOpenClipDialog]);
 
   return {

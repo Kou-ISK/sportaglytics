@@ -24,8 +24,10 @@ export interface TimelineLaneProps {
   zoomScale: number;
 }
 
-export interface TimelineLaneViewProps
-  extends Omit<TimelineLaneProps, 'laneRef'> {
+export interface TimelineLaneViewProps extends Omit<
+  TimelineLaneProps,
+  'laneRef'
+> {
   containerRef: React.RefObject<HTMLDivElement | null>;
   isDraggingPlayhead: boolean;
   isAltKeyPressed: boolean;

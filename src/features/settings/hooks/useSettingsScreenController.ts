@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useSettings } from '../../../hooks/useSettings';
+import {
+  peekCodeWindowExternalOpen,
+  subscribeCodeWindowExternalOpen,
+} from '../gateways/codeWindowFileGateway';
+import { closeDetachedSettingsWindowIfOpen } from '../gateways/settingsWindowGateway';
 import { useUnsavedTabSwitch } from './useUnsavedTabSwitch';
 import type { SettingsTabHandle } from '../types';
 
@@ -51,22 +56,14 @@ export const useSettingsScreenController =
     });
 
     useEffect(() => {
-      const api = globalThis.window.electronAPI;
-      if (!api?.codeWindow?.onExternalOpen) {
-        return;
-      }
-
       const handleExternalOpen = () => {
         requestTabChange(2);
       };
 
-      const cleanup = api.codeWindow.onExternalOpen(handleExternalOpen);
+      const cleanup = subscribeCodeWindowExternalOpen(handleExternalOpen);
 
       const checkPending = async (): Promise<void> => {
-        if (!api.codeWindow.peekExternalOpen) {
-          return;
-        }
-        const pendingPath = await api.codeWindow.peekExternalOpen();
+        const pendingPath = await peekCodeWindowExternalOpen();
         if (pendingPath) {
           requestTabChange(2);
         }
@@ -78,13 +75,8 @@ export const useSettingsScreenController =
     }, [requestTabChange]);
 
     const handleClose = async (): Promise<void> => {
-      const api = globalThis.window.electronAPI;
-      if (api?.isSettingsWindowOpen) {
-        const isDetached = await api.isSettingsWindowOpen();
-        if (isDetached && api.closeSettingsWindow) {
-          await api.closeSettingsWindow();
-          return;
-        }
+      if (await closeDetachedSettingsWindowIfOpen()) {
+        return;
       }
 
       const event = new CustomEvent('back-to-main');

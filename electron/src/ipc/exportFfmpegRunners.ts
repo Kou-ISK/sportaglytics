@@ -166,7 +166,8 @@ export const runFfmpegDual = ({
 }: RunDualParams): Promise<void> => {
   return new Promise<void>((resolve, reject) => {
     const actualMainSource = clip.sourceOverride || mainSource;
-    const actualSecondarySource = clip.secondarySourceOverride || secondarySource;
+    const actualSecondarySource =
+      clip.secondarySourceOverride || secondarySource;
     if (!actualSecondarySource) {
       reject(new Error('2画面結合に必要な第2ソースがありません'));
       return;

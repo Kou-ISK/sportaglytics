@@ -59,7 +59,8 @@ export const useDashboardWidgetSaveAction = ({
 }: UseDashboardWidgetSaveActionParams) => {
   const handleSave = useCallback(() => {
     const resolvedTitle = title.trim() || 'カスタムチャート';
-    const normalizedLimit = typeof limit === 'number' && limit > 0 ? limit : undefined;
+    const normalizedLimit =
+      typeof limit === 'number' && limit > 0 ? limit : undefined;
     const resolvedMode = analysisMode;
     const resolvedChartType: DashboardChartType =
       resolvedMode === 'standard' ? chartType : 'bar';
@@ -69,7 +70,9 @@ export const useDashboardWidgetSaveAction = ({
     const resolvedCalcMode: DashboardCalcMode =
       resolvedMode === 'standard' ? calcMode : 'raw';
     const resolvedSeries =
-      resolvedMode === 'standard' && resolvedDataMode === 'series' ? series : [];
+      resolvedMode === 'standard' && resolvedDataMode === 'series'
+        ? series
+        : [];
 
     onSave({
       id: initialId ?? generateWidgetId(),
@@ -78,7 +81,8 @@ export const useDashboardWidgetSaveAction = ({
       metric: resolvedMetric,
       analysisMode: resolvedMode,
       primaryAxis,
-      seriesEnabled: resolvedMode === 'standard' ? resolvedSeriesEnabled : false,
+      seriesEnabled:
+        resolvedMode === 'standard' ? resolvedSeriesEnabled : false,
       seriesAxis,
       colSpan,
       limit: normalizedLimit,
@@ -95,7 +99,9 @@ export const useDashboardWidgetSaveAction = ({
           ? normalizePositive(histogramBinSec, 5)
           : undefined,
       rollingWindow:
-        resolvedMode === 'rolling' ? normalizePositive(rollingWindow, 3) : undefined,
+        resolvedMode === 'rolling'
+          ? normalizePositive(rollingWindow, 3)
+          : undefined,
       outlierIqrMultiplier:
         resolvedMode === 'outlier'
           ? normalizePositive(outlierIqrMultiplier, 1.5)

@@ -1,5 +1,7 @@
 import { BrowserWindow, IpcMainEvent, ipcMain } from 'electron';
 import * as fs from 'node:fs/promises';
+import { isAnalysisReportPayload, isStringPayload } from './ipcPayloadGuards';
+import { getValidatedEventSenderWindow } from './windowSenderGuards';
 
 interface RegisterReportHandlersOptions {
   mainURL: string;
@@ -21,7 +23,14 @@ export const registerReportHandlers = ({
 
   ipcMain.handle(
     'write-pdf-file-from-html',
-    async (_event, filePath: string, html: string) => {
+    async (event, filePath: unknown, html: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid PDF HTML sender');
+      }
+      if (!isStringPayload(filePath) || !isStringPayload(html)) {
+        return false;
+      }
+
       let printWindow: BrowserWindow | null = null;
       try {
         printWindow = new BrowserWindow({
@@ -86,7 +95,14 @@ export const registerReportHandlers = ({
 
   ipcMain.handle(
     'analysis-report:print-pdf',
-    async (_event, filePath: string, payload: unknown) => {
+    async (event, filePath: unknown, payload: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid analysis report PDF sender');
+      }
+      if (!isStringPayload(filePath) || !isAnalysisReportPayload(payload)) {
+        return false;
+      }
+
       let printWindow: BrowserWindow | null = null;
       const requestId = `analysis-report-${Date.now()}-${Math.random()
         .toString(36)

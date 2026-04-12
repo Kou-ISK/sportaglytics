@@ -57,10 +57,7 @@ export const requestTimelineExportPath = async (
   try {
     return await api.saveFileDialog(defaultPath, filters);
   } catch (error: unknown) {
-    console.debug(
-      '[TimelineImportExportGateway] saveFileDialog failed',
-      error,
-    );
+    console.debug('[TimelineImportExportGateway] saveFileDialog failed', error);
     return null;
   }
 };
@@ -77,10 +74,7 @@ export const writeTimelineFile = async (
   try {
     return await api.writeTextFile(filePath, content);
   } catch (error: unknown) {
-    console.debug(
-      '[TimelineImportExportGateway] writeTextFile failed',
-      error,
-    );
+    console.debug('[TimelineImportExportGateway] writeTextFile failed', error);
     return false;
   }
 };
@@ -96,10 +90,7 @@ export const requestTimelineImportPath = async (): Promise<string | null> => {
       { name: 'タイムライン形式', extensions: ['json', 'SCTimeline'] },
     ]);
   } catch (error: unknown) {
-    console.debug(
-      '[TimelineImportExportGateway] openFileDialog failed',
-      error,
-    );
+    console.debug('[TimelineImportExportGateway] openFileDialog failed', error);
     return null;
   }
 };

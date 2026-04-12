@@ -1,8 +1,4 @@
-import type {
-  Dispatch,
-  MutableRefObject,
-  SetStateAction,
-} from 'react';
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 
 export type GenerationStatus = 'idle' | 'running' | 'done' | 'error';
 
@@ -17,12 +13,14 @@ interface StartGenerationSessionParams {
   generationRunIdRef: MutableRefObject<string | null>;
   generationAbortRef: MutableRefObject<AbortController | null>;
   setGenerationRequestId: (value: string | null) => void;
-  setLlmProgress: (value: {
-    requestId: string;
-    phase?: string;
-    outputChars?: number;
-    elapsedMs?: number;
-  } | null) => void;
+  setLlmProgress: (
+    value: {
+      requestId: string;
+      phase?: string;
+      outputChars?: number;
+      elapsedMs?: number;
+    } | null,
+  ) => void;
 }
 
 interface GenerationUiResetters {
@@ -33,18 +31,22 @@ interface GenerationUiResetters {
   setLlmRawText: (value: string | null) => void;
   setLlmLiveLog: Dispatch<SetStateAction<string>>;
   setLlmAttempt: (value: number) => void;
-  setLlmRetryInfo: (value: {
-    attempt: number;
-    total: number;
-    mode: 'reduce' | 'repair';
-    reason: string;
-  } | null) => void;
-  setLlmDebug: (value: {
-    stderr?: string;
-    binaryPath?: string;
-    modelPath?: string;
-    durationMs?: number;
-  } | null) => void;
+  setLlmRetryInfo: (
+    value: {
+      attempt: number;
+      total: number;
+      mode: 'reduce' | 'repair';
+      reason: string;
+    } | null,
+  ) => void;
+  setLlmDebug: (
+    value: {
+      stderr?: string;
+      binaryPath?: string;
+      modelPath?: string;
+      durationMs?: number;
+    } | null,
+  ) => void;
   setLlmWarning: (value: string | null) => void;
 }
 
@@ -100,12 +102,14 @@ interface FinalizeGenerationSessionParams {
   generationRunIdRef: MutableRefObject<string | null>;
   generationAbortRef: MutableRefObject<AbortController | null>;
   setGenerationRequestId: (value: string | null) => void;
-  setLlmProgress: (value: {
-    requestId: string;
-    phase?: string;
-    outputChars?: number;
-    elapsedMs?: number;
-  } | null) => void;
+  setLlmProgress: (
+    value: {
+      requestId: string;
+      phase?: string;
+      outputChars?: number;
+      elapsedMs?: number;
+    } | null,
+  ) => void;
 }
 
 export const finalizeGenerationSession = ({

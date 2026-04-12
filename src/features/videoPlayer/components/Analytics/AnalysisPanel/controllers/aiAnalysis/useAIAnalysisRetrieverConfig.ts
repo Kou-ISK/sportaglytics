@@ -10,7 +10,9 @@ export const useAIAnalysisRetrieverConfig = (
 ) => {
   const retrieverPreset = aiSettings.retrieverPreset ?? 'balanced';
   const retrieverWeights = useMemo(() => {
-    return RETRIEVER_WEIGHT_MAP[retrieverPreset] ?? RETRIEVER_WEIGHT_MAP.balanced;
+    return (
+      RETRIEVER_WEIGHT_MAP[retrieverPreset] ?? RETRIEVER_WEIGHT_MAP.balanced
+    );
   }, [retrieverPreset]);
   const topK = Math.max(1, aiSettings.topK || 40);
   const evidenceTarget = useMemo(() => resolveDiversifyTarget(topK), [topK]);

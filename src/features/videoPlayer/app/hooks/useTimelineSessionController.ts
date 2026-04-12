@@ -79,9 +79,7 @@ export const useTimelineSessionController =
     const setTimeline = useCallback<Dispatch<SetStateAction<TimelineData[]>>>(
       (value) => {
         const next =
-          typeof value === 'function'
-            ? value(timelineRef.current)
-            : value;
+          typeof value === 'function' ? value(timelineRef.current) : value;
         timelineRef.current = next;
         setTimelineWithHistory(next);
         setPersistedTimeline(next);

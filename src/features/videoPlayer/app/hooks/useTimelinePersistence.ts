@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
 import { normalizeTimelineData } from '../../../../utils/scTimelineConverter';
+import {
+  readTimelineFile,
+  writeTimelineFile,
+} from '../gateways/timelineImportExportGateway';
 
 interface UseTimelinePersistenceResult {
   timeline: TimelineData[];
@@ -29,9 +33,7 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
     let cancelled = false;
     const loadTimeline = async () => {
       try {
-        const text = await globalThis.window.electronAPI?.readTextFile?.(
-          timelineFilePath,
-        );
+        const text = await readTimelineFile(timelineFilePath);
         if (!text) {
           throw new Error('Timeline file is empty or not accessible');
         }
@@ -62,12 +64,7 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
   }, [timelineFilePath]);
 
   useEffect(() => {
-    if (
-      !timelineFilePath ||
-      !window?.electronAPI?.exportTimeline ||
-      typeof window.electronAPI.exportTimeline !== 'function' ||
-      !timelineLoadedRef.current
-    ) {
+    if (!timelineFilePath || !timelineLoadedRef.current) {
       return;
     }
 
@@ -83,9 +80,11 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
     const payload = timeline.map((item) => ({ ...item }));
 
     saveTimerRef.current = window.setTimeout(() => {
-      window.electronAPI
-        ?.exportTimeline(timelineFilePath, payload)
-        .then(() => {
+      writeTimelineFile(timelineFilePath, JSON.stringify(payload))
+        .then((saved) => {
+          if (!saved) {
+            throw new Error('Timeline write failed');
+          }
           timelinePersistedSnapshotRef.current = nextSnapshot;
         })
         .catch((error: unknown) => {

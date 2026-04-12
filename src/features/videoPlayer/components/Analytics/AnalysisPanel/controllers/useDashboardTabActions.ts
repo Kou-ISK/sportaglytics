@@ -27,7 +27,9 @@ interface UseDashboardTabActionsParams {
     draftWidgets: AnalysisDashboardWidget[];
     newDashboardName: string;
     pendingDashboardId: string | null;
-    setDraftWidgets: React.Dispatch<React.SetStateAction<AnalysisDashboardWidget[]>>;
+    setDraftWidgets: React.Dispatch<
+      React.SetStateAction<AnalysisDashboardWidget[]>
+    >;
     setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
     setEditorOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setEditingWidget: React.Dispatch<
@@ -121,7 +123,9 @@ export const useDashboardTabActions = ({
 
   const handleSave = useCallback(async () => {
     const nextDashboards = dashboards.map((item) =>
-      item.id === activeDashboardId ? { ...item, widgets: state.draftWidgets } : item,
+      item.id === activeDashboardId
+        ? { ...item, widgets: state.draftWidgets }
+        : item,
     );
     await saveDashboards(nextDashboards, activeDashboardId);
     state.setIsEditing(false);
@@ -161,7 +165,8 @@ export const useDashboardTabActions = ({
     }
     if (
       dashboards.some(
-        (dashboard) => dashboard.name.trim().toLowerCase() === name.toLowerCase(),
+        (dashboard) =>
+          dashboard.name.trim().toLowerCase() === name.toLowerCase(),
       )
     ) {
       notification.warning('同名のダッシュボードが既に存在します。');

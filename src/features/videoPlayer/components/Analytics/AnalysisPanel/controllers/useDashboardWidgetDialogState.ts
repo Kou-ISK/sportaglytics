@@ -50,8 +50,9 @@ export const useDashboardWidgetDialogState = ({
   const [dataMode, setDataMode] = useState<'axis' | 'series'>('axis');
   const [series, setSeries] = useState<DashboardSeriesDefinition[]>([]);
   const [calcMode, setCalcMode] = useState<DashboardCalcMode>('raw');
-  const [widgetFilters, setWidgetFilters] =
-    useState<DashboardSeriesFilter>(DEFAULT_WIDGET_FILTERS);
+  const [widgetFilters, setWidgetFilters] = useState<DashboardSeriesFilter>(
+    DEFAULT_WIDGET_FILTERS,
+  );
   const [quickAction, setQuickAction] = useState('');
   const [quickLabelGroup, setQuickLabelGroup] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
@@ -114,9 +115,9 @@ export const useDashboardWidgetDialogState = ({
     setShowFilters(
       Boolean(
         initial.widgetFilters?.team ||
-          initial.widgetFilters?.action ||
-          initial.widgetFilters?.labelGroup ||
-          initial.widgetFilters?.labelValue,
+        initial.widgetFilters?.action ||
+        initial.widgetFilters?.labelGroup ||
+        initial.widgetFilters?.labelValue,
       ),
     );
   }, [initial, open]);

@@ -19,7 +19,11 @@ export const saveAnalysisReportPdf = async ({
   canceled?: boolean;
 }> => {
   const api = globalThis.window.electronAPI;
-  if (!canSaveAnalysisReportPdf() || !api?.saveFileDialog || !api?.printAnalysisReportPdf) {
+  if (
+    !canSaveAnalysisReportPdf() ||
+    !api?.saveFileDialog ||
+    !api?.printAnalysisReportPdf
+  ) {
     return { success: false };
   }
 

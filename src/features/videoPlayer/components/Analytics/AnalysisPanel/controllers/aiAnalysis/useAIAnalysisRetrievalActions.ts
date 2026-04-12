@@ -23,12 +23,14 @@ interface UseAIAnalysisRetrievalActionsParams {
   setRetrievalStatus: (value: 'idle' | 'running' | 'done' | 'error') => void;
   setAiResponse: (value: AiCopilotResponse | null) => void;
   setLlmRawText: (value: string | null) => void;
-  setLlmDebug: (value: {
-    stderr?: string;
-    binaryPath?: string;
-    modelPath?: string;
-    durationMs?: number;
-  } | null) => void;
+  setLlmDebug: (
+    value: {
+      stderr?: string;
+      binaryPath?: string;
+      modelPath?: string;
+      durationMs?: number;
+    } | null,
+  ) => void;
   setLlmWarning: (value: string | null) => void;
   setEvidenceItems: (value: EvidenceItem[]) => void;
   setActiveFilters: (value: EvidenceFilters | null) => void;

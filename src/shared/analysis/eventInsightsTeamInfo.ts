@@ -179,7 +179,8 @@ const inferTeamsFromActionNames = (
 
   if (candidates.length < 2) return null;
   const topTeams = candidates.slice(0, 3);
-  const coverage = topTeams.reduce((sum, entry) => sum + entry.count, 0) / total;
+  const coverage =
+    topTeams.reduce((sum, entry) => sum + entry.count, 0) / total;
   if (coverage < 0.6) return null;
 
   const teamSet = new Set(topTeams.map((entry) => entry.team));
@@ -215,7 +216,8 @@ export const resolveTeamInfo = (
       assignments.set(item.id, label.name);
     }
     if (assignments.size === 0) return null;
-    const confidence = evidence.length > 0 ? assignments.size / evidence.length : 0;
+    const confidence =
+      evidence.length > 0 ? assignments.size / evidence.length : 0;
     return {
       source: 'label',
       confidence,

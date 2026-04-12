@@ -39,7 +39,10 @@ type UseCodePanelInteractionsParams = {
   ) => void;
   setPrimaryAction: React.Dispatch<React.SetStateAction<string | null>>;
   setWarning: (message: string | null) => void;
-  completeRecording: (actionName: string, labelsPatch?: Record<string, string>) => void;
+  completeRecording: (
+    actionName: string,
+    labelsPatch?: Record<string, string>,
+  ) => void;
   recentActionsRef: React.MutableRefObject<string[]>;
   activeRecordingsRef: React.MutableRefObject<
     Record<string, ActiveRecordingSession>
@@ -74,7 +77,8 @@ export const useCodePanelInteractions = ({
     (buttonName: string): string | undefined => {
       if (!customLayout) return undefined;
       const button = customLayout.buttons.find(
-        (entry) => replaceTeamPlaceholders(entry.name, teamContext) === buttonName,
+        (entry) =>
+          replaceTeamPlaceholders(entry.name, teamContext) === buttonName,
       );
       return button?.color;
     },
@@ -184,7 +188,9 @@ export const useCodePanelInteractions = ({
           actionName = buttonName;
         }
 
-        const action = activeActions.find((entry) => entry.action === actionName);
+        const action = activeActions.find(
+          (entry) => entry.action === actionName,
+        );
         const effectiveAction: ActionDefinition =
           action ||
           ({
@@ -205,7 +211,10 @@ export const useCodePanelInteractions = ({
       }
 
       if (button.type === 'label' && button.labelValue) {
-        const labelButtonName = replaceTeamPlaceholders(button.name, teamContext);
+        const labelButtonName = replaceTeamPlaceholders(
+          button.name,
+          teamContext,
+        );
         handleLabelButtonClick(button, labelButtonName, button.labelValue);
       }
     },

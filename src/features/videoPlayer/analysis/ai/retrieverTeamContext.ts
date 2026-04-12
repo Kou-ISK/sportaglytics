@@ -59,13 +59,17 @@ const resolveTeamAssignmentsFromLabels = (
   }
 
   const total = items.length;
-  const candidates = Array.from(labelGroups.entries()).map(([group, counts]) => {
-    const coverage = (groupItemCounts.get(group) ?? 0) / total;
-    return { group, counts, coverage };
-  });
+  const candidates = Array.from(labelGroups.entries()).map(
+    ([group, counts]) => {
+      const coverage = (groupItemCounts.get(group) ?? 0) / total;
+      return { group, counts, coverage };
+    },
+  );
 
   const teamGroupCandidates = candidates
-    .filter((entry) => entry.group.includes('team') || entry.group.includes('チーム'))
+    .filter(
+      (entry) => entry.group.includes('team') || entry.group.includes('チーム'),
+    )
     .sort((a, b) => b.counts.size - a.counts.size);
   const fallbackCandidates = candidates
     .filter(
@@ -110,7 +114,10 @@ const resolveTeamAssignmentsFromLabels = (
 const resolveTeamAssignmentsFromActionName = (
   items: EvidenceIndexItem[],
 ): TeamContext | null => {
-  const candidateMap = new Map<string, { count: number; actions: Set<string> }>();
+  const candidateMap = new Map<
+    string,
+    { count: number; actions: Set<string> }
+  >();
   for (const item of items) {
     const parsed = splitTeamActionName(item.actionName);
     if (!parsed) continue;

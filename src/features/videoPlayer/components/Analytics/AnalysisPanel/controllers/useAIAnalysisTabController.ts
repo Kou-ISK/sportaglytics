@@ -40,8 +40,7 @@ export const useAIAnalysisTabController = ({
   onCreateAiPlaylist,
 }: UseAIAnalysisTabControllerParams) => {
   const { settings, saveSettings } = useSettings();
-  const defaultAiSettings =
-    settings.aiAnalysis ??
+  const defaultAiSettings = settings.aiAnalysis ??
     DEFAULT_SETTINGS.aiAnalysis ?? {
       provider: 'llama.cpp',
       baseUrl: 'http://localhost:11434',
@@ -62,7 +61,10 @@ export const useAIAnalysisTabController = ({
 
   const evidenceIndex = useMemo(() => buildEvidenceIndex(timeline), [timeline]);
   const retriever = useMemo(() => new HybridEvidenceRetriever(), []);
-  const timelineMap = useMemo(() => new Map(timeline.map((item) => [item.id, item])), [timeline]);
+  const timelineMap = useMemo(
+    () => new Map(timeline.map((item) => [item.id, item])),
+    [timeline],
+  );
 
   const {
     availableModels,
@@ -125,28 +127,29 @@ export const useAIAnalysisTabController = ({
   const { retrieverPreset, retrieverWeights, topK, evidenceTarget } =
     useAIAnalysisRetrieverConfig(tabState.aiSettings);
 
-  const { handleRetrieveEvidence, ensureEvidence } = useAIAnalysisRetrievalActions({
-    question: tabState.question,
-    buildFilters,
-    retriever,
-    evidenceIndex,
-    topK,
-    retrieverWeights,
-    evidenceTarget,
-    flowEvidenceIds,
-    setRetrievalError: tabState.setRetrievalError,
-    setGenerationError: tabState.setGenerationError,
-    setPlaylistMessage: tabState.setPlaylistMessage,
-    setRetrievalStatus: tabState.setRetrievalStatus,
-    setAiResponse: tabState.setAiResponse,
-    setLlmRawText: tabState.setLlmRawText,
-    setLlmDebug: tabState.setLlmDebug,
-    setLlmWarning: tabState.setLlmWarning,
-    setEvidenceItems: tabState.setEvidenceItems,
-    setActiveFilters: tabState.setActiveFilters,
-    setLastQuestion: tabState.setLastQuestion,
-    setEvidenceQuery: tabState.setEvidenceQuery,
-  });
+  const { handleRetrieveEvidence, ensureEvidence } =
+    useAIAnalysisRetrievalActions({
+      question: tabState.question,
+      buildFilters,
+      retriever,
+      evidenceIndex,
+      topK,
+      retrieverWeights,
+      evidenceTarget,
+      flowEvidenceIds,
+      setRetrievalError: tabState.setRetrievalError,
+      setGenerationError: tabState.setGenerationError,
+      setPlaylistMessage: tabState.setPlaylistMessage,
+      setRetrievalStatus: tabState.setRetrievalStatus,
+      setAiResponse: tabState.setAiResponse,
+      setLlmRawText: tabState.setLlmRawText,
+      setLlmDebug: tabState.setLlmDebug,
+      setLlmWarning: tabState.setLlmWarning,
+      setEvidenceItems: tabState.setEvidenceItems,
+      setActiveFilters: tabState.setActiveFilters,
+      setLastQuestion: tabState.setLastQuestion,
+      setEvidenceQuery: tabState.setEvidenceQuery,
+    });
 
   const { handleGenerate, handleCancelGeneration, handleGenerateInsights } =
     useAIAnalysisGenerationActions({

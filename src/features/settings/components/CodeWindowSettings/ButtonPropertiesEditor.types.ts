@@ -12,8 +12,7 @@ export interface ButtonPropertiesEditorProps {
   canvasHeight?: number;
 }
 
-export interface ButtonPropertiesEditorViewProps
-  extends ButtonPropertiesEditorProps {
+export interface ButtonPropertiesEditorViewProps extends ButtonPropertiesEditorProps {
   canvasWidth: number;
   canvasHeight: number;
   localColor: string;

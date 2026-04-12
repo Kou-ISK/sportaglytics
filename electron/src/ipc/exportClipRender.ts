@@ -49,7 +49,9 @@ export const formatOverlayLines = (
 
   if (overlay.showLabels && clip.labels && clip.labels.length > 0) {
     const labelText = clip.labels
-      .map((label) => (label.group ? `${label.group}: ${label.name}` : label.name))
+      .map((label) =>
+        label.group ? `${label.group}: ${label.name}` : label.name,
+      )
       .join(', ');
     lines.push({ text: labelText, isBold: false });
   }
@@ -149,7 +151,10 @@ export const renderClipWithFfmpeg = async ({
   }
 
   if (useDual) {
-    const dualError = resolveDualSourceError(clipMainSource, clipSecondarySource);
+    const dualError = resolveDualSourceError(
+      clipMainSource,
+      clipSecondarySource,
+    );
     if (dualError) {
       throw new Error(dualError);
     }

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { PackageDatas } from '../../../../../../renderer';
 import type {
   PackageLoadResult,
   WizardFormState,
   WizardSelectionState,
 } from '../types';
+import { createVideoPackage } from '../gateway/packageGateway';
 import {
   buildAnglePayloads,
   buildMetaDataConfig,
@@ -91,27 +91,25 @@ export const useCreatePackageFlow = ({
   ]);
 
   const executeCreatePackage = useCallback(async () => {
-    if (!globalThis.window.electronAPI) {
-      showError('この機能はElectronアプリケーション内でのみ利用できます。');
-      return;
-    }
-
     const anglePayloads = buildAnglePayloads(selection);
     if (!anglePayloads.length) {
       showError('少なくとも1つのアングルに映像を割り当ててください。');
       return;
     }
 
-    const metaDataConfig = buildMetaDataConfig(form, actionNames, anglePayloads);
+    const metaDataConfig = buildMetaDataConfig(
+      form,
+      actionNames,
+      anglePayloads,
+    );
 
     try {
-      const packageDatas: PackageDatas =
-        await globalThis.window.electronAPI.createPackage(
-          selection.selectedDirectory,
-          form.packageName,
-          anglePayloads,
-          metaDataConfig,
-        );
+      const packageDatas = await createVideoPackage(
+        selection.selectedDirectory,
+        form.packageName,
+        anglePayloads,
+        metaDataConfig,
+      );
 
       if (!packageDatas) {
         throw new Error('Failed to create package');
@@ -121,7 +119,11 @@ export const useCreatePackageFlow = ({
       onClose();
     } catch (error) {
       console.error('パッケージ作成に失敗しました:', error);
-      showError('パッケージの作成中にエラーが発生しました。');
+      showError(
+        error instanceof Error && error.message === 'ELECTRON_API_UNAVAILABLE'
+          ? 'この機能はElectronアプリケーション内でのみ利用できます。'
+          : 'パッケージの作成中にエラーが発生しました。',
+      );
     }
   }, [actionNames, form, onClose, onPackageCreated, selection, showError]);
 

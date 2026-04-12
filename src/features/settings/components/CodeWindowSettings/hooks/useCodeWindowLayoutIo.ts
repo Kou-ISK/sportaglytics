@@ -1,6 +1,11 @@
 import { useCallback } from 'react';
 import type React from 'react';
 import type { CodeWindowLayout } from '../../../../../types/Settings';
+import {
+  canUseCodeWindowFileApi,
+  loadCodeWindowFile,
+  saveCodeWindowFile,
+} from '../../../gateways/codeWindowFileGateway';
 import { createLayout } from '../utils';
 
 interface UseCodeWindowLayoutIoParams {
@@ -9,6 +14,21 @@ interface UseCodeWindowLayoutIoParams {
   setActiveCodeWindowId: React.Dispatch<React.SetStateAction<string | null>>;
   setHasChanges: React.Dispatch<React.SetStateAction<boolean>>;
 }
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+};
+
+const isLayoutImportData = (
+  value: unknown,
+): value is { version: number; layout: CodeWindowLayout } => {
+  return (
+    isRecord(value) &&
+    value.version === 1 &&
+    isRecord(value.layout) &&
+    typeof value.layout.name === 'string'
+  );
+};
 
 export const useCodeWindowLayoutIo = ({
   currentLayout,
@@ -34,14 +54,13 @@ export const useCodeWindowLayoutIo = ({
 
   const handleExportLayout = useCallback(async () => {
     if (!currentLayout) return;
-    const api = globalThis.window.electronAPI;
     const data = {
       version: 1,
       layout: currentLayout,
       exportedAt: new Date().toISOString(),
     };
 
-    if (!api?.codeWindow?.saveFile) {
+    if (!canUseCodeWindowFileApi()) {
       const safeName = currentLayout.name.replace(/\s+/g, '_');
       const fileName = `${safeName}.stcw`;
       const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -58,13 +77,11 @@ export const useCodeWindowLayoutIo = ({
       return;
     }
 
-    await api.codeWindow.saveFile(data);
+    await saveCodeWindowFile(data);
   }, [currentLayout]);
 
   const handleImportLayout = useCallback(async () => {
-    const api = globalThis.window.electronAPI;
-
-    if (!api?.codeWindow?.loadFile) {
+    if (!canUseCodeWindowFileApi()) {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = '.stcw,.codewindow,.json';
@@ -73,11 +90,10 @@ export const useCodeWindowLayoutIo = ({
         if (!file) return;
         try {
           const text = await file.text();
-          const data = JSON.parse(text) as {
-            version: number;
-            layout: CodeWindowLayout;
-          };
-          importLayoutData(data);
+          const data = JSON.parse(text) as unknown;
+          if (isLayoutImportData(data)) {
+            importLayoutData(data);
+          }
         } catch {
           console.error('Failed to import layout');
         }
@@ -86,14 +102,12 @@ export const useCodeWindowLayoutIo = ({
       return;
     }
 
-    const result = await api.codeWindow.loadFile();
+    const result = await loadCodeWindowFile();
     if (!result) return;
     try {
-      const data = result.codeWindow as {
-        version: number;
-        layout: CodeWindowLayout;
-      };
-      importLayoutData(data);
+      if (isLayoutImportData(result.codeWindow)) {
+        importLayoutData(result.codeWindow);
+      }
     } catch (error) {
       console.error('Failed to import layout:', error);
     }

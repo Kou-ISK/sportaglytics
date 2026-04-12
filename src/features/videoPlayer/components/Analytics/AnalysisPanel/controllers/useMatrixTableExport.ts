@@ -7,6 +7,7 @@ import {
   buildMatrixExportAoa,
   buildMatrixXlsxBase64,
 } from '../../../../../../utils/matrixExport';
+import { saveMatrixTableExport } from '../gateways/matrixTableExportGateway';
 
 interface UseMatrixTableExportParams {
   customMatrix: ReturnType<typeof buildHierarchicalMatrix>;
@@ -30,14 +31,10 @@ export const useMatrixTableExport = ({
 }: UseMatrixTableExportParams) => {
   const exportMatrix = useCallback(
     async (format: 'csv' | 'xlsx') => {
-      const api = globalThis.window.electronAPI;
-      if (!api?.saveFileDialog || !api?.writeTextFile || !api?.writeBinaryFile) {
-        notification.error('エクスポート機能が利用できません。');
-        return;
-      }
-
       if (!customMatrix || customMatrix.rowHeaders.length === 0) {
-        notification.warning('エクスポート対象のクロス集計データがありません。');
+        notification.warning(
+          'エクスポート対象のクロス集計データがありません。',
+        );
         return;
       }
 
@@ -48,12 +45,6 @@ export const useMatrixTableExport = ({
       const defaultName = `matrix-${rowToken}-${colToken}-${date}.${extension}`;
       const filterName = format === 'csv' ? 'CSV' : 'Excel';
 
-      const filePath = await api.saveFileDialog(defaultName, [
-        { name: filterName, extensions: [extension] },
-      ]);
-
-      if (!filePath) return;
-
       const aoa = buildMatrixExportAoa({
         table: {
           rowHeaders: customMatrix.rowHeaders,
@@ -62,24 +53,35 @@ export const useMatrixTableExport = ({
         },
       });
 
-      if (format === 'csv') {
-        const csv = buildMatrixCsv(aoa);
-        const ok = await api.writeTextFile(filePath, csv);
-        if (ok) {
-          notification.success('クロス集計CSVを保存しました。');
-        } else {
-          notification.error('クロス集計CSVの保存に失敗しました。');
-        }
+      const result = await saveMatrixTableExport(
+        defaultName,
+        [{ name: filterName, extensions: [extension] }],
+        format === 'csv'
+          ? { kind: 'text', content: buildMatrixCsv(aoa) }
+          : { kind: 'base64', content: buildMatrixXlsxBase64(aoa, 'Matrix') },
+      );
+
+      if (result === 'cancelled') {
+        return;
+      }
+      if (result === 'unavailable') {
+        notification.error('エクスポート機能が利用できません。');
+        return;
+      }
+      if (result === 'failed') {
+        notification.error(
+          format === 'csv'
+            ? 'クロス集計CSVの保存に失敗しました。'
+            : 'クロス集計XLSXの保存に失敗しました。',
+        );
         return;
       }
 
-      const xlsxBase64 = buildMatrixXlsxBase64(aoa, 'Matrix');
-      const ok = await api.writeBinaryFile(filePath, xlsxBase64);
-      if (ok) {
-        notification.success('クロス集計XLSXを保存しました。');
-      } else {
-        notification.error('クロス集計XLSXの保存に失敗しました。');
-      }
+      notification.success(
+        format === 'csv'
+          ? 'クロス集計CSVを保存しました。'
+          : 'クロス集計XLSXを保存しました。',
+      );
     },
     [customColumnAxis, customMatrix, customRowAxis, notification],
   );

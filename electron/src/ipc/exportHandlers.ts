@@ -9,6 +9,8 @@ import {
 } from './exportOptions';
 import { renderClipWithFfmpeg } from './exportClipRender';
 import type { ExportClipsPayload } from './exportHandlers.types';
+import { isNonEmptyString, isPlainObject } from './ipcPayloadGuards';
+import { getValidatedEventSenderWindow } from './windowSenderGuards';
 
 interface RegisterExportHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
@@ -16,6 +18,86 @@ interface RegisterExportHandlersOptions {
 }
 
 let isRegistered = false;
+
+const isOptionalString = (value: unknown): boolean => {
+  return value === undefined || typeof value === 'string';
+};
+
+const isOptionalNumber = (value: unknown): boolean => {
+  return (
+    value === undefined || (typeof value === 'number' && Number.isFinite(value))
+  );
+};
+
+const isClipExportOverlay = (value: unknown): boolean => {
+  return (
+    isPlainObject(value) &&
+    typeof value.enabled === 'boolean' &&
+    typeof value.showActionName === 'boolean' &&
+    typeof value.showActionIndex === 'boolean' &&
+    typeof value.showLabels === 'boolean' &&
+    typeof value.showMemo === 'boolean'
+  );
+};
+
+const isExportMode = (value: unknown): boolean => {
+  return (
+    value === undefined ||
+    value === 'single' ||
+    value === 'perInstance' ||
+    value === 'perRow'
+  );
+};
+
+const isAngleOption = (value: unknown): boolean => {
+  return (
+    value === undefined ||
+    value === 'all' ||
+    value === 'allAngles' ||
+    value === 'single' ||
+    value === 'multi' ||
+    value === 'angle1' ||
+    value === 'angle2'
+  );
+};
+
+const isClipExportItem = (value: unknown): boolean => {
+  return (
+    isPlainObject(value) &&
+    isNonEmptyString(value.id) &&
+    typeof value.actionName === 'string' &&
+    typeof value.startTime === 'number' &&
+    Number.isFinite(value.startTime) &&
+    typeof value.endTime === 'number' &&
+    Number.isFinite(value.endTime) &&
+    isOptionalNumber(value.freezeAt) &&
+    isOptionalNumber(value.freezeDuration) &&
+    isOptionalString(value.memo) &&
+    isOptionalString(value.videoSource) &&
+    isOptionalString(value.videoSource2) &&
+    (value.angleType === undefined ||
+      value.angleType === 'angle1' ||
+      value.angleType === 'angle2')
+  );
+};
+
+const isExportClipsPayload = (value: unknown): value is ExportClipsPayload => {
+  return (
+    isPlainObject(value) &&
+    isNonEmptyString(value.sourcePath) &&
+    isOptionalString(value.sourcePath2) &&
+    (value.mode === undefined ||
+      value.mode === 'single' ||
+      value.mode === 'dual') &&
+    isExportMode(value.exportMode) &&
+    isAngleOption(value.angleOption) &&
+    Array.isArray(value.clips) &&
+    value.clips.every(isClipExportItem) &&
+    isClipExportOverlay(value.overlay) &&
+    isOptionalString(value.outputDir) &&
+    isOptionalString(value.outputFileName)
+  );
+};
 
 const resolveOutputDir = async (
   event: Electron.IpcMainInvokeEvent,
@@ -50,7 +132,14 @@ export const registerExportHandlers = ({
 
   ipcMain.handle(
     'export-clips-with-overlay',
-    async (event, payload: ExportClipsPayload) => {
+    async (event, payload: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid clip export sender');
+      }
+      if (!isExportClipsPayload(payload)) {
+        return { success: false, error: 'Invalid clip export payload' };
+      }
+
       const tempFiles: string[] = [];
       try {
         const {
@@ -105,7 +194,10 @@ export const registerExportHandlers = ({
           }
         }
 
-        const renderClip = async (clip: ExportClipsPayload['clips'][number], outputPath?: string): Promise<string> => {
+        const renderClip = async (
+          clip: ExportClipsPayload['clips'][number],
+          outputPath?: string,
+        ): Promise<string> => {
           try {
             return await renderClipWithFfmpeg({
               getFfmpegPath,
@@ -121,21 +213,26 @@ export const registerExportHandlers = ({
             if (useDual) {
               const clipMainSource = clip.videoSource || mainSource;
               const clipSecondarySource = clip.videoSource2 || secondarySource;
-              console.error('export-clips-with-overlay clip dual source error', {
-                clipId: clip.id,
-                sourcePath,
-                sourcePath2,
-                angleOption,
-                mode,
-                clipMainSource,
-                clipSecondarySource,
-              });
+              console.error(
+                'export-clips-with-overlay clip dual source error',
+                {
+                  clipId: clip.id,
+                  sourcePath,
+                  sourcePath2,
+                  angleOption,
+                  mode,
+                  clipMainSource,
+                  clipSecondarySource,
+                },
+              );
             }
             throw error;
           }
         };
 
-        const baseName = outputFileName ? outputFileName.replace(/\.mp4$/i, '') : '';
+        const baseName = outputFileName
+          ? outputFileName.replace(/\.mp4$/i, '')
+          : '';
 
         if (exportMode === 'perInstance') {
           for (let i = 0; i < clips.length; i += 1) {
@@ -154,7 +251,10 @@ export const registerExportHandlers = ({
             await renderClip(clip, outPath);
           }
         } else if (exportMode === 'perRow') {
-          const byAction = new Map<string, ExportClipsPayload['clips'][number][]>();
+          const byAction = new Map<
+            string,
+            ExportClipsPayload['clips'][number][]
+          >();
           clips.forEach((clip) => {
             const arr = byAction.get(clip.actionName) || [];
             arr.push(clip);
@@ -170,7 +270,8 @@ export const registerExportHandlers = ({
             const safeAction = actionName.replace(/\s+/g, '_');
             let angleSuffix = '';
             if (useDual) angleSuffix = '_multi';
-            else if (normalizedAngleOption === 'angle2') angleSuffix = '_angle2';
+            else if (normalizedAngleOption === 'angle2')
+              angleSuffix = '_angle2';
             else angleSuffix = '_angle1';
 
             const fileName = `${safeAction}${angleSuffix}`;
@@ -180,7 +281,9 @@ export const registerExportHandlers = ({
             const outPath = path.join(targetDir, outName);
 
             await concatFiles(getFfmpegPath, temps, outPath);
-            await Promise.all(temps.map((t) => fs.unlink(t).catch(() => undefined)));
+            await Promise.all(
+              temps.map((t) => fs.unlink(t).catch(() => undefined)),
+            );
           }
         } else {
           const temps: string[] = [];
@@ -200,7 +303,9 @@ export const registerExportHandlers = ({
           const outPath = path.join(targetDir, outName);
 
           await concatFiles(getFfmpegPath, temps, outPath);
-          await Promise.all(temps.map((t) => fs.unlink(t).catch(() => undefined)));
+          await Promise.all(
+            temps.map((t) => fs.unlink(t).catch(() => undefined)),
+          );
         }
 
         return { success: true };
@@ -208,7 +313,9 @@ export const registerExportHandlers = ({
         console.error('export-clips-with-overlay error', err);
         return { success: false, error: String(err) };
       } finally {
-        await Promise.all(tempFiles.map((f) => fs.unlink(f).catch(() => undefined)));
+        await Promise.all(
+          tempFiles.map((f) => fs.unlink(f).catch(() => undefined)),
+        );
       }
     },
   );

@@ -34,8 +34,7 @@ export const useTimelineGlobalShortcuts = ({
         !!target &&
         scrollContainerRef.current.contains(target);
 
-      const isJumpNext =
-        e.key === 'Tab' || (e.altKey && e.key === 'ArrowDown');
+      const isJumpNext = e.key === 'Tab' || (e.altKey && e.key === 'ArrowDown');
       const isJumpPrev =
         (e.key === 'Tab' && e.shiftKey) || (e.altKey && e.key === 'ArrowUp');
 
@@ -94,5 +93,13 @@ export const useTimelineGlobalShortcuts = ({
     window.addEventListener('keydown', handleKeyDownGlobal, true);
     return () =>
       window.removeEventListener('keydown', handleKeyDownGlobal, true);
-  }, [selectedIds, timeline, scrollContainerRef, onSelectionChange, onSeek, onUndo, onRedo]);
+  }, [
+    selectedIds,
+    timeline,
+    scrollContainerRef,
+    onSelectionChange,
+    onSeek,
+    onUndo,
+    onRedo,
+  ]);
 };

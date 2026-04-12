@@ -83,7 +83,11 @@ export const useTimelineLaneController = ({
   }, [isTeam1, items]);
 
   const handleEdgeMouseDown = useCallback(
-    (event: React.MouseEvent, item: TimelineData, edge: 'start' | 'end'): void => {
+    (
+      event: React.MouseEvent,
+      item: TimelineData,
+      edge: 'start' | 'end',
+    ): void => {
       if (!event.altKey) {
         return;
       }

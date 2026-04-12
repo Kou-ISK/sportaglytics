@@ -31,9 +31,9 @@ describe('parseElectronKey', () => {
 
 describe('sortHotkeysBySpecificity', () => {
   it('sorts hotkeys with more modifiers first', () => {
-    expect(sortHotkeysBySpecificity(hotkeys).map((hotkey) => hotkey.id)).toEqual(
-      ['cmd-shift-a', 'shift-right', 'plain-right'],
-    );
+    expect(
+      sortHotkeysBySpecificity(hotkeys).map((hotkey) => hotkey.id),
+    ).toEqual(['cmd-shift-a', 'shift-right', 'plain-right']);
   });
 });
 
@@ -44,7 +44,10 @@ describe('findMatchingHotkey', () => {
       shiftKey: true,
     });
 
-    const matched = findMatchingHotkey(event, sortHotkeysBySpecificity(hotkeys));
+    const matched = findMatchingHotkey(
+      event,
+      sortHotkeysBySpecificity(hotkeys),
+    );
     expect(matched?.id).toBe('shift-right');
   });
 
@@ -65,7 +68,10 @@ describe('findMatchingHotkey', () => {
 describe('findFallbackKeyUpHotkey', () => {
   it('matches by plain key when modifier state has already changed', () => {
     const event = new KeyboardEvent('keyup', { key: 'ArrowRight' });
-    const matched = findFallbackKeyUpHotkey(event, sortHotkeysBySpecificity(hotkeys));
+    const matched = findFallbackKeyUpHotkey(
+      event,
+      sortHotkeysBySpecificity(hotkeys),
+    );
     expect(matched?.id).toBe('shift-right');
   });
 });

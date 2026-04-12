@@ -11,9 +11,10 @@ interface UseFreeCanvasDragStateParams {
   layout: CodeWindowLayout;
   selectedButtonIds: string[];
   onSelectButtons: (ids: string[]) => void;
-  getCanvasPosition: (
-    event: React.MouseEvent | MouseEvent,
-  ) => { x: number; y: number };
+  getCanvasPosition: (event: React.MouseEvent | MouseEvent) => {
+    x: number;
+    y: number;
+  };
 }
 
 const snapshotSelectedButtons = (
@@ -139,7 +140,10 @@ export const useFreeCanvasDragState = ({
         button.id,
         event.metaKey || event.ctrlKey || event.shiftKey,
       );
-      dragSelectionSnapshot.current = snapshotSelectedButtons(layout, nextSelection);
+      dragSelectionSnapshot.current = snapshotSelectedButtons(
+        layout,
+        nextSelection,
+      );
     },
     [applySelectionForButton, getCanvasPosition, layout],
   );

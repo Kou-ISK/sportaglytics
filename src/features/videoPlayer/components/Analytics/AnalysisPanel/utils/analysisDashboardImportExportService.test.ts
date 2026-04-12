@@ -16,7 +16,10 @@ const existingDashboards: AnalysisDashboard[] = [
 describe('analysisDashboardImportExportService', () => {
   it('builds dashboard export content', () => {
     const content = buildAnalysisDashboardExportContent(existingDashboards[0]);
-    const parsed = JSON.parse(content) as { version: number; dashboard: AnalysisDashboard };
+    const parsed = JSON.parse(content) as {
+      version: number;
+      dashboard: AnalysisDashboard;
+    };
 
     expect(parsed.version).toBe(1);
     expect(parsed.dashboard.id).toBe('existing-dashboard');

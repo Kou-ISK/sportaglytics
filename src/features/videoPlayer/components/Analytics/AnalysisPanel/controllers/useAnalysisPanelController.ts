@@ -70,7 +70,10 @@ export interface AnalysisPanelViewProps {
   onExportPdf: () => Promise<void>;
 }
 
-const pickInitialAxis = (availableGroups: string[], preferred: string): string => {
+const pickInitialAxis = (
+  availableGroups: string[],
+  preferred: string,
+): string => {
   if (availableGroups.length === 0) {
     return '';
   }
@@ -126,7 +129,10 @@ export const useAnalysisPanelController = ({
     createDefaultMatrixFilters(),
   );
 
-  const availableGroups = useMemo(() => extractUniqueGroups(timeline), [timeline]);
+  const availableGroups = useMemo(
+    () => extractUniqueGroups(timeline),
+    [timeline],
+  );
   const [matrixAxes, setMatrixAxes] = useState<{
     row: MatrixAxisConfig;
     column: MatrixAxisConfig;

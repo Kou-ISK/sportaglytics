@@ -1,7 +1,11 @@
 import { useCallback, useEffect } from 'react';
-import type { TimelineData } from '../../../../types/TimelineData';
+import type { TimelineData } from '../../../../types/timeline/core';
 import { useNotification } from '../../../../contexts/NotificationContext';
 import { exportRawAnalysisCsv } from '../../../../utils/analysisExport';
+import {
+  saveRawTimelineCsv,
+  subscribeRawTimelineCsvExportRequest,
+} from '../gateways/rawTimelineCsvExportGateway';
 
 interface UseRawTimelineCsvExportParams {
   timeline: TimelineData[];
@@ -23,36 +27,32 @@ export const useRawTimelineCsvExport = ({
       return;
     }
 
-    const api = globalThis.window.electronAPI;
-    if (!api?.saveFileDialog || !api?.writeTextFile) {
-      notification.error('Raw CSVエクスポート機能が利用できません。');
+    const csv = exportRawAnalysisCsv(timeline);
+    const result = await saveRawTimelineCsv(
+      buildDefaultFileName(),
+      [{ name: 'CSV (Raw)', extensions: ['csv'] }],
+      csv,
+    );
+
+    if (result === 'saved') {
+      notification.success('Raw CSVを保存しました。');
+      return;
+    }
+    if (result === 'cancelled') {
       return;
     }
 
-    const filePath = await api.saveFileDialog(buildDefaultFileName(), [
-      { name: 'CSV (Raw)', extensions: ['csv'] },
-    ]);
-
-    if (!filePath) return;
-
-    const csv = exportRawAnalysisCsv(timeline);
-    const ok = await api.writeTextFile(filePath, csv);
-
-    if (ok) {
-      notification.success('Raw CSVを保存しました。');
-    } else {
-      notification.error('Raw CSV保存に失敗しました。');
-    }
+    notification.error(
+      result === 'unavailable'
+        ? 'Raw CSVエクスポート機能が利用できません。'
+        : 'Raw CSV保存に失敗しました。',
+    );
   }, [notification, timeline]);
 
   useEffect(() => {
-    const api = globalThis.window.electronAPI;
-    if (!api?.onMenuExportAnalysisRawCsv) return;
-
-    const unsubscribe = api.onMenuExportAnalysisRawCsv(() => {
+    return subscribeRawTimelineCsvExportRequest(() => {
       void exportRawCsv();
     });
-    return unsubscribe;
   }, [exportRawCsv]);
 
   return { exportRawCsv };

@@ -88,7 +88,9 @@ export const useAIAnalysisGroundedOutput = ({
           .filter((id) => id && evidenceMap.has(id))
           .slice(0, 5),
       }))
-      .filter((clip) => evidenceMap.has(clip.centerId) && clip.evidenceIds.length > 0);
+      .filter(
+        (clip) => evidenceMap.has(clip.centerId) && clip.evidenceIds.length > 0,
+      );
   }, [aiResponse, evidenceMap]);
 
   const sequenceGroups = useMemo(() => {
@@ -108,7 +110,9 @@ export const useAIAnalysisGroundedOutput = ({
 
   const groundedEvidence = useMemo(() => {
     const ids = new Set<string>();
-    validatedHypotheses.forEach((item) => item.evidenceIds.forEach((id) => ids.add(id)));
+    validatedHypotheses.forEach((item) =>
+      item.evidenceIds.forEach((id) => ids.add(id)),
+    );
     validatedHighlights.forEach((item) => ids.add(item.id));
     validatedClips.forEach((clip) => {
       clip.evidenceIds.forEach((id) => ids.add(id));

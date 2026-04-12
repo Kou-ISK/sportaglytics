@@ -1,5 +1,7 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import * as fs from 'node:fs/promises';
+import { isPlainObject, toOptionalString } from './ipcPayloadGuards';
+import { getValidatedEventSenderWindow } from './windowSenderGuards';
 
 interface RegisterCodeWindowHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
@@ -28,26 +30,28 @@ export const registerCodeWindowHandlers = ({
 
   ipcMain.handle(
     'code-window:save-file',
-    async (_event, codeWindow: unknown, filePath?: string) => {
+    async (event, codeWindow: unknown, filePath?: unknown) => {
+      const senderWindow = getValidatedEventSenderWindow(event);
+      if (!senderWindow) {
+        throw new Error('Invalid code window save sender');
+      }
+      if (!isPlainObject(codeWindow)) {
+        return null;
+      }
+
       try {
-        let targetPath = filePath;
+        let targetPath = toOptionalString(filePath);
         if (!targetPath) {
           const window = getMainWindow();
-          const result = window
-            ? await dialog.showSaveDialog(window, {
-                defaultPath: 'CodeWindow.stcw',
-                filters: [
-                  { name: 'コードウィンドウファイル', extensions: ['stcw'] },
-                  { name: 'すべてのファイル', extensions: ['*'] },
-                ],
-              })
-            : await dialog.showSaveDialog({
-                defaultPath: 'CodeWindow.stcw',
-                filters: [
-                  { name: 'コードウィンドウファイル', extensions: ['stcw'] },
-                  { name: 'すべてのファイル', extensions: ['*'] },
-                ],
-              });
+          const parentWindow =
+            window && !window.isDestroyed() ? window : senderWindow;
+          const result = await dialog.showSaveDialog(parentWindow, {
+            defaultPath: 'CodeWindow.stcw',
+            filters: [
+              { name: 'コードウィンドウファイル', extensions: ['stcw'] },
+              { name: 'すべてのファイル', extensions: ['*'] },
+            ],
+          });
           if (result.canceled || !result.filePath) return null;
           targetPath = result.filePath;
         }
@@ -62,32 +66,31 @@ export const registerCodeWindowHandlers = ({
     },
   );
 
-  ipcMain.handle('code-window:load-file', async (_event, filePath?: string) => {
+  ipcMain.handle('code-window:load-file', async (event, filePath?: unknown) => {
+    const senderWindow = getValidatedEventSenderWindow(event);
+    if (!senderWindow) {
+      throw new Error('Invalid code window load sender');
+    }
+
     try {
-      let targetPath = filePath;
+      let targetPath = toOptionalString(filePath);
       if (!targetPath) {
         const window = getMainWindow();
-        const result = window
-          ? await dialog.showOpenDialog(window, {
-              properties: ['openFile'],
-              filters: [
-                { name: 'コードウィンドウファイル', extensions: ['stcw'] },
-                { name: 'すべてのファイル', extensions: ['*'] },
-              ],
-            })
-          : await dialog.showOpenDialog({
-              properties: ['openFile'],
-              filters: [
-                { name: 'コードウィンドウファイル', extensions: ['stcw'] },
-                { name: 'すべてのファイル', extensions: ['*'] },
-              ],
-            });
+        const parentWindow =
+          window && !window.isDestroyed() ? window : senderWindow;
+        const result = await dialog.showOpenDialog(parentWindow, {
+          properties: ['openFile'],
+          filters: [
+            { name: 'コードウィンドウファイル', extensions: ['stcw'] },
+            { name: 'すべてのファイル', extensions: ['*'] },
+          ],
+        });
         if (result.canceled || result.filePaths.length === 0) return null;
         targetPath = result.filePaths[0];
       }
 
       const content = await fs.readFile(targetPath, 'utf-8');
-      const codeWindow = JSON.parse(content);
+      const codeWindow = JSON.parse(content) as unknown;
       return { codeWindow, filePath: targetPath };
     } catch (error) {
       console.error('Failed to load code window file:', error);
@@ -95,15 +98,27 @@ export const registerCodeWindowHandlers = ({
     }
   });
 
-  ipcMain.handle('code-window:peek-external-open', async () => {
+  ipcMain.handle('code-window:peek-external-open', async (event) => {
+    if (!getValidatedEventSenderWindow(event)) {
+      throw new Error('Invalid code window peek sender');
+    }
+
     return pendingCodeWindowExternalOpen;
   });
 
   ipcMain.handle(
     'code-window:consume-external-open',
-    async (_event, expectedPath?: string) => {
+    async (event, expectedPath?: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid code window consume sender');
+      }
+
       if (!pendingCodeWindowExternalOpen) return null;
-      if (expectedPath && pendingCodeWindowExternalOpen !== expectedPath) {
+      const normalizedExpectedPath = toOptionalString(expectedPath);
+      if (
+        normalizedExpectedPath &&
+        pendingCodeWindowExternalOpen !== normalizedExpectedPath
+      ) {
         return null;
       }
       const nextPath = pendingCodeWindowExternalOpen;

@@ -1,7 +1,9 @@
 import { app, BrowserWindow, dialog } from 'electron';
 import * as fs from 'node:fs/promises';
 import { refreshAppMenu } from '../menuBar';
+import { isStringPayload } from './ipcPayloadGuards';
 import { registerHandleWithAliases } from './registerHandleWithAliases';
+import { getValidatedEventSenderWindow } from './windowSenderGuards';
 
 interface RegisterLegacyFileAccessHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
@@ -72,7 +74,11 @@ export const registerLegacyFileAccessHandlers = ({
   registerHandleWithAliases(
     'files:open-directory',
     ['open-directory'],
-    async () => {
+    async (event) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid open directory sender');
+      }
+
       try {
         return await openDirectoryDialog(getMainWindow());
       } catch (error) {
@@ -85,7 +91,11 @@ export const registerLegacyFileAccessHandlers = ({
   registerHandleWithAliases(
     'files:open-video-file',
     ['open-file'],
-    async () => {
+    async (event) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid open video file sender');
+      }
+
       try {
         return await openVideoFileDialog(getMainWindow());
       } catch (error) {
@@ -98,7 +108,14 @@ export const registerLegacyFileAccessHandlers = ({
   registerHandleWithAliases(
     'timeline:export-json',
     ['export-timeline'],
-    async (_event, filePath: string, source: unknown) => {
+    async (event, filePath: unknown, source: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid timeline export sender');
+      }
+      if (!isStringPayload(filePath)) {
+        throw new Error('Invalid timeline export payload');
+      }
+
       const serialized = JSON.stringify(source);
       await fs.writeFile(filePath, serialized, 'utf-8');
     },
@@ -107,7 +124,14 @@ export const registerLegacyFileAccessHandlers = ({
   registerHandleWithAliases(
     'files:exists',
     ['check-file-exists'],
-    async (_event, filePath: string) => {
+    async (event, filePath: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid file exists sender');
+      }
+      if (!isStringPayload(filePath)) {
+        return false;
+      }
+
       try {
         await fs.access(filePath);
         console.log(`ファイル存在確認: ${filePath} - 存在します`);
@@ -122,10 +146,17 @@ export const registerLegacyFileAccessHandlers = ({
   registerHandleWithAliases(
     'files:read-json',
     ['read-json-file'],
-    async (_event, filePath: string) => {
+    async (event, filePath: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid read JSON sender');
+      }
+      if (!isStringPayload(filePath)) {
+        throw new Error('Invalid JSON file path');
+      }
+
       try {
         const data = await fs.readFile(filePath, 'utf-8');
-        return JSON.parse(data);
+        return JSON.parse(data) as unknown;
       } catch (error) {
         console.error(`JSONファイル読み込みエラー: ${filePath}`, error);
         throw error;

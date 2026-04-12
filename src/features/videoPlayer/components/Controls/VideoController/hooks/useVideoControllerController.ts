@@ -14,7 +14,9 @@ interface VideoControllerToolbarProps {
   onTogglePlayback: () => void;
   onSeekAdjust: (deltaSeconds: number) => void;
   onSpeedPresetSelect: (value: number) => void;
-  onSpeedChange: (event: import('@mui/material').SelectChangeEvent<string>) => void;
+  onSpeedChange: (
+    event: import('@mui/material').SelectChangeEvent<string>,
+  ) => void;
   triggerFlash: (key: string) => void;
   currentTimeLabel: string;
   smallSkipSeconds: number;

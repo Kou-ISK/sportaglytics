@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CodeWindowButton, CodeWindowLayout } from '../../../../../types/Settings';
+import type {
+  CodeWindowButton,
+  CodeWindowLayout,
+} from '../../../../../types/Settings';
 import { createButton } from '../utils';
 
 interface UseFreeCanvasHistoryAndShortcutsParams {
@@ -85,7 +88,9 @@ export const useFreeCanvasHistoryAndShortcuts = ({
           e.preventDefault();
           const newLayout = {
             ...layout,
-            buttonLinks: layout.buttonLinks?.filter((l) => l.id !== selectedLinkId),
+            buttonLinks: layout.buttonLinks?.filter(
+              (l) => l.id !== selectedLinkId,
+            ),
           };
           updateLayoutWithHistory(newLayout);
           setSelectedLinkId(null);
@@ -93,7 +98,9 @@ export const useFreeCanvasHistoryAndShortcuts = ({
           e.preventDefault();
           const newLayout = {
             ...layout,
-            buttons: layout.buttons.filter((b) => !selectedButtonIds.includes(b.id)),
+            buttons: layout.buttons.filter(
+              (b) => !selectedButtonIds.includes(b.id),
+            ),
             buttonLinks: layout.buttonLinks?.filter(
               (l) =>
                 !selectedButtonIds.includes(l.fromButtonId) &&
@@ -118,7 +125,9 @@ export const useFreeCanvasHistoryAndShortcuts = ({
       }
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
-        const buttonToCopy = layout.buttons.find((b) => b.id === selectedPrimaryId);
+        const buttonToCopy = layout.buttons.find(
+          (b) => b.id === selectedPrimaryId,
+        );
         if (buttonToCopy) {
           e.preventDefault();
           copiedButtonRef.current = { ...buttonToCopy };
@@ -129,7 +138,12 @@ export const useFreeCanvasHistoryAndShortcuts = ({
         const source = copiedButtonRef.current;
         if (source) {
           e.preventDefault();
-          const newId = createButton(source.type, source.name, source.x, source.y).id;
+          const newId = createButton(
+            source.type,
+            source.name,
+            source.x,
+            source.y,
+          ).id;
           const offset = 12;
           const newX = Math.min(
             Math.max(0, source.x + offset),

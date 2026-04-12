@@ -1,4 +1,7 @@
-import { MATRIX_FILTER_ALL, type MatrixFilterState } from '../controllers/matrixFilterUtils';
+import {
+  MATRIX_FILTER_ALL,
+  type MatrixFilterState,
+} from '../controllers/matrixFilterUtils';
 
 interface MatrixFilterChip {
   label: string;

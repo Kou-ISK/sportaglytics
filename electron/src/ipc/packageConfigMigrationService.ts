@@ -125,7 +125,11 @@ export const convertConfigToRelativePath = async (
       }
     }
 
-    await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    await fs.promises.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2),
+      'utf-8',
+    );
 
     console.log('config.jsonを相対パスに変換しました:', configPath);
     return { success: true, config };

@@ -41,10 +41,11 @@ export const useSyncActions = ({
   onSyncInfo,
   onSyncWarning,
 }: UseSyncActionsParams): UseSyncActionsResult => {
-  const { playerForceUpdateKey, forceUpdateVideoPlayers } = useSyncPlayerUpdater({
-    videoList,
-    setIsVideoPlaying,
-  });
+  const { playerForceUpdateKey, forceUpdateVideoPlayers } =
+    useSyncPlayerUpdater({
+      videoList,
+      setIsVideoPlaying,
+    });
 
   const logInfo = useCallback(
     (message: string): void => {

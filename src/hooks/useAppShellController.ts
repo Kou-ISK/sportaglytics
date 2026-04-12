@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
+import {
+  getCurrentLocationHash,
+  openDetachedSettingsWindow,
+  subscribeCodeWindowExternalOpenForShell,
+  subscribeLocationHashChange,
+  subscribeOpenSettingsRequest,
+} from '../shared/appShell/appShellGateway';
 
 export type AppView =
   | 'main'
@@ -8,7 +15,7 @@ export type AppView =
   | 'analysis-report';
 
 const getViewFromHash = (): AppView => {
-  const hash = globalThis.window.location.hash;
+  const hash = getCurrentLocationHash();
   if (hash === '#/playlist') return 'playlist';
   if (hash === '#/settings') return 'settings';
   if (hash === '#/analysis') return 'analysis';
@@ -20,13 +27,11 @@ export const useAppShellController = (): AppView => {
   const [currentView, setCurrentView] = useState<AppView>(getViewFromHash);
 
   const openSettingsView = useCallback(() => {
-    const api = globalThis.window.electronAPI;
-    if (api?.openSettingsWindow) {
-      void api.openSettingsWindow();
-      return;
-    }
-
-    setCurrentView('settings');
+    void openDetachedSettingsWindow().then((opened) => {
+      if (!opened) {
+        setCurrentView('settings');
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -34,22 +39,11 @@ export const useAppShellController = (): AppView => {
       setCurrentView(getViewFromHash());
     };
 
-    globalThis.window.addEventListener('hashchange', handleHashChange);
-    return () =>
-      globalThis.window.removeEventListener('hashchange', handleHashChange);
+    return subscribeLocationHashChange(handleHashChange);
   }, []);
 
   useEffect(() => {
-    const api = globalThis.window.electronAPI;
-    if (!api) {
-      return;
-    }
-
-    api.onOpenSettings(openSettingsView);
-
-    return () => {
-      api.offOpenSettings(openSettingsView);
-    };
+    return subscribeOpenSettingsRequest(openSettingsView);
   }, [openSettingsView]);
 
   useEffect(() => {
@@ -65,12 +59,7 @@ export const useAppShellController = (): AppView => {
   }, []);
 
   useEffect(() => {
-    const api = globalThis.window.electronAPI;
-    if (!api?.codeWindow?.onExternalOpen) {
-      return;
-    }
-
-    return api.codeWindow.onExternalOpen(() => {
+    return subscribeCodeWindowExternalOpenForShell(() => {
       openSettingsView();
     });
   }, [openSettingsView]);

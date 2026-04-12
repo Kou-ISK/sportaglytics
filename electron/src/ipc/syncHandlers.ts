@@ -1,5 +1,11 @@
 import * as fs from 'node:fs/promises';
+import {
+  isNonEmptyString,
+  isPlainObject,
+  normalizeSyncDataPayload,
+} from './ipcPayloadGuards';
 import { registerHandleWithAliases } from './registerHandleWithAliases';
+import { getValidatedEventSenderWindow } from './windowSenderGuards';
 
 let isRegistered = false;
 
@@ -12,25 +18,24 @@ export const registerSyncHandlers = (): void => {
   registerHandleWithAliases(
     'sync:save-data',
     ['save-sync-data'],
-    async (
-      _event,
-      configPath: string,
-      syncData: {
-        syncOffset: number;
-        isAnalyzed: boolean;
-        confidenceScore?: number;
-      },
-    ) => {
+    async (event, configPath: unknown, syncData: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid sync save sender');
+      }
+
+      const normalizedSyncData = normalizeSyncDataPayload(syncData);
+      if (!isNonEmptyString(configPath) || !normalizedSyncData) {
+        return false;
+      }
+
       try {
         const raw = await fs.readFile(configPath, 'utf-8');
-        const json = JSON.parse(raw || '{}');
+        const parsed = JSON.parse(raw || '{}') as unknown;
+        const json = isPlainObject(parsed) ? parsed : {};
         json.syncData = {
-          syncOffset: Number(syncData?.syncOffset) || 0,
-          isAnalyzed: !!syncData?.isAnalyzed,
-          confidenceScore:
-            typeof syncData?.confidenceScore === 'number'
-              ? syncData.confidenceScore
-              : undefined,
+          syncOffset: normalizedSyncData.syncOffset,
+          isAnalyzed: normalizedSyncData.isAnalyzed,
+          confidenceScore: normalizedSyncData.confidenceScore,
         };
         await fs.writeFile(configPath, JSON.stringify(json, null, 2), 'utf-8');
         return true;

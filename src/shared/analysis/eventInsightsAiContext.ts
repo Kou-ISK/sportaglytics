@@ -40,7 +40,10 @@ export const buildContextStats = (params: {
   const evidenceIds: string[] = [];
 
   const isTarget = (item: TimelineData) => {
-    const action = normalizeActionNameForStats(item.actionName ?? '', params.teamInfo);
+    const action = normalizeActionNameForStats(
+      item.actionName ?? '',
+      params.teamInfo,
+    );
     return action === params.target;
   };
 
@@ -50,7 +53,10 @@ export const buildContextStats = (params: {
     evidenceIds.push(item.id);
     const prev = ordered[i - 1];
     if (prev) {
-      const prevAction = normalizeActionNameForStats(prev.actionName ?? '', params.teamInfo);
+      const prevAction = normalizeActionNameForStats(
+        prev.actionName ?? '',
+        params.teamInfo,
+      );
       const entry = prevCounts.get(prevAction) ?? { count: 0, ids: [] };
       entry.count += 1;
       if (entry.ids.length < 5) entry.ids.push(item.id);
@@ -58,7 +64,10 @@ export const buildContextStats = (params: {
     }
     const next = ordered[i + 1];
     if (next) {
-      const nextAction = normalizeActionNameForStats(next.actionName ?? '', params.teamInfo);
+      const nextAction = normalizeActionNameForStats(
+        next.actionName ?? '',
+        params.teamInfo,
+      );
       const entry = nextCounts.get(nextAction) ?? { count: 0, ids: [] };
       entry.count += 1;
       if (entry.ids.length < 5) entry.ids.push(item.id);
@@ -66,7 +75,9 @@ export const buildContextStats = (params: {
     }
   }
 
-  const buildDistribution = (counts: Map<string, { count: number; ids: string[] }>) =>
+  const buildDistribution = (
+    counts: Map<string, { count: number; ids: string[] }>,
+  ) =>
     Array.from(counts.entries())
       .map(([key, value]) => ({
         key,

@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import {
+  canListLocalLlmModels,
+  canSubscribeLocalLlmProgress,
+  listLocalLlmModels,
+  subscribeLocalLlmProgress,
+} from '../../../../../analysis/ai/llmGateway';
 import type { AvailableModelInfo } from './aiAnalysisUtils';
 
 interface LlmProgressState {
@@ -25,31 +31,59 @@ interface AIAnalysisModelState {
   modelSummary: string;
 }
 
+const isOptionalString = (value: unknown): boolean => {
+  return value === undefined || typeof value === 'string';
+};
+
+const isOptionalNumber = (value: unknown): boolean => {
+  return value === undefined || typeof value === 'number';
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+};
+
+const isLlmProgressPayload = (
+  payload: unknown,
+): payload is LlmProgressState & { stderrChunk?: string } => {
+  return (
+    isRecord(payload) &&
+    typeof payload.requestId === 'string' &&
+    isOptionalString(payload.phase) &&
+    isOptionalNumber(payload.outputChars) &&
+    isOptionalNumber(payload.elapsedMs) &&
+    isOptionalString(payload.stderrChunk)
+  );
+};
+
 export const useAIAnalysisModelState = ({
   model,
   generationRunIdRef,
   setLlmProgress,
   setLlmLiveLog,
 }: UseAIAnalysisModelStateParams): AIAnalysisModelState => {
-  const [availableModels, setAvailableModels] = useState<AvailableModelInfo[]>([]);
-  const [modelsStatus, setModelsStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
-    'idle',
+  const [availableModels, setAvailableModels] = useState<AvailableModelInfo[]>(
+    [],
   );
+  const [modelsStatus, setModelsStatus] = useState<
+    'idle' | 'loading' | 'done' | 'error'
+  >('idle');
   const [modelsError, setModelsError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     const loadModels = async () => {
-      const llamaApi = globalThis.window?.electronAPI?.llama;
-      if (!llamaApi?.listModels) {
+      if (!canListLocalLlmModels()) {
         return;
       }
       setModelsStatus('loading');
       setModelsError(null);
       try {
-        const models = await llamaApi.listModels();
+        const models = await listLocalLlmModels();
         if (!mounted) return;
-        const sorted = [...(models ?? [])].sort((a, b) => b.sizeBytes - a.sizeBytes);
+        const sorted = [...(models ?? [])].sort(
+          (a, b) => b.sizeBytes - a.sizeBytes,
+        );
         setAvailableModels(sorted);
         setModelsStatus('done');
       } catch (error) {
@@ -66,18 +100,11 @@ export const useAIAnalysisModelState = ({
   }, []);
 
   useEffect(() => {
-    const llamaApi = globalThis.window?.electronAPI?.llama;
-    if (!llamaApi?.onProgress) return;
+    if (!canSubscribeLocalLlmProgress()) return;
 
     const handleProgress = (payload: unknown) => {
-      if (!payload || typeof payload !== 'object') return;
-      const data = payload as {
-        requestId?: string;
-        phase?: string;
-        outputChars?: number;
-        elapsedMs?: number;
-        stderrChunk?: string;
-      };
+      if (!isLlmProgressPayload(payload)) return;
+      const data = payload;
       if (!data.requestId || data.requestId !== generationRunIdRef.current) {
         return;
       }
@@ -96,10 +123,7 @@ export const useAIAnalysisModelState = ({
       }
     };
 
-    llamaApi.onProgress(handleProgress);
-    return () => {
-      llamaApi.offProgress?.(handleProgress);
-    };
+    return subscribeLocalLlmProgress(handleProgress);
   }, [generationRunIdRef, setLlmLiveLog, setLlmProgress]);
 
   const recommendedModel = useMemo(() => {
@@ -111,7 +135,9 @@ export const useAIAnalysisModelState = ({
 
   const modelSummary = useMemo(() => {
     if (isAutoModel) {
-      return recommendedModel ? `auto (推奨: ${recommendedModel.name})` : 'auto';
+      return recommendedModel
+        ? `auto (推奨: ${recommendedModel.name})`
+        : 'auto';
     }
     return model;
   }, [isAutoModel, model, recommendedModel]);

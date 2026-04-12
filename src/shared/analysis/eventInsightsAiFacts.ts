@@ -5,7 +5,10 @@ import type {
   EventInsights,
   InsightDimension,
 } from './eventInsights.types';
-import { normalizeActionNameForStats, resolveTeamInfo } from './eventInsightsTeamInfo';
+import {
+  normalizeActionNameForStats,
+  resolveTeamInfo,
+} from './eventInsightsTeamInfo';
 import {
   collectEvidenceDistribution,
   collectEvidenceDurationDistribution,
@@ -34,27 +37,32 @@ export const buildAiInsightFacts = (
     maxEnd = Math.max(maxEnd, item.endTime);
   }
   const timeSpanSec =
-    evidence.length === 0 || !Number.isFinite(minStart) || !Number.isFinite(maxEnd)
+    evidence.length === 0 ||
+    !Number.isFinite(minStart) ||
+    !Number.isFinite(maxEnd)
       ? 0
       : Math.max(0, maxEnd - minStart);
 
-  const actionDurationDistribution = collectEvidenceDurationDistribution(evidence);
+  const actionDurationDistribution =
+    collectEvidenceDurationDistribution(evidence);
   const teamInfo = resolveTeamInfo(evidence, teamGroup);
   const teamStatsResult = teamInfo
     ? buildTeamStats(evidence, teamInfo, minStart, maxEnd)
     : null;
 
-  const teamStats =
-    teamInfo
-      ? {
-          source: teamInfo.source,
-          confidence: teamInfo.confidence,
-          teams: teamStatsResult?.teamStats ?? [],
-        }
-      : undefined;
+  const teamStats = teamInfo
+    ? {
+        source: teamInfo.source,
+        confidence: teamInfo.confidence,
+        teams: teamStatsResult?.teamStats ?? [],
+      }
+    : undefined;
 
   const teamInfoForAction = teamStats
-    ? { source: teamStats.source, teams: teamStats.teams.map((team) => team.team) }
+    ? {
+        source: teamStats.source,
+        teams: teamStats.teams.map((team) => team.team),
+      }
     : undefined;
 
   const actionDistribution = (() => {
@@ -63,7 +71,10 @@ export const buildAiInsightFacts = (
     }
     const counts = new Map<string, { count: number; ids: string[] }>();
     for (const item of evidence) {
-      const key = normalizeActionNameForStats(item.actionName, teamInfoForAction);
+      const key = normalizeActionNameForStats(
+        item.actionName,
+        teamInfoForAction,
+      );
       const entry = counts.get(key) ?? { count: 0, ids: [] };
       entry.count += 1;
       if (entry.ids.length < 5) entry.ids.push(item.id);
@@ -122,7 +133,8 @@ export const buildAiInsightFacts = (
   });
 
   return {
-    dimension: dimension.type === 'labelGroup' ? `label:${dimension.group}` : 'action',
+    dimension:
+      dimension.type === 'labelGroup' ? `label:${dimension.group}` : 'action',
     summary: insight.summary,
     summaryAnchors,
     teamStats,

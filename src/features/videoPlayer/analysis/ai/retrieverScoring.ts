@@ -178,7 +178,11 @@ export const scoreEvidenceItem = (
   let teamBonus = 0;
   if (teamContext?.hasTeamIntent && teamContext.assignments.size > 0) {
     const team = teamContext.assignments.get(item.id);
-    if (team && teamContext.mentionedTeam && team === teamContext.mentionedTeam) {
+    if (
+      team &&
+      teamContext.mentionedTeam &&
+      team === teamContext.mentionedTeam
+    ) {
       teamBonus += 1.4;
     } else if (team && !teamContext.mentionedTeam) {
       teamBonus += 0.4;

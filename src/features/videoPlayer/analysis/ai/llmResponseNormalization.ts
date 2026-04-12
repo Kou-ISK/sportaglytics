@@ -118,7 +118,11 @@ const clampArray = <T>(items: T[], max: number): T[] => {
   return items.slice(0, max);
 };
 
-const normalizeEvidenceIds = (ids: string[], allowed: Set<string>, max: number) => {
+const normalizeEvidenceIds = (
+  ids: string[],
+  allowed: Set<string>,
+  max: number,
+) => {
   const result: string[] = [];
   for (const id of ids) {
     if (!allowed.has(id)) continue;
@@ -298,7 +302,10 @@ export const sanitizeAiResponse = (
   const base = coerceResponse(value);
   if (!base) return null;
   const allowed = new Set(evidence.map((item) => item.id));
-  const summary = trimText(base.summary || '生成に失敗しました。', MAX_SUMMARY_CHARS);
+  const summary = trimText(
+    base.summary || '生成に失敗しました。',
+    MAX_SUMMARY_CHARS,
+  );
 
   const hypotheses = clampArray(
     base.hypotheses

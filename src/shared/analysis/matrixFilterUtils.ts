@@ -43,7 +43,11 @@ export const deriveMatrixFilters = (
         );
 
   const availableActions = Array.from(
-    new Set(filteredByTeam.map((item) => extractActionFromActionName(item.actionName))),
+    new Set(
+      filteredByTeam.map((item) =>
+        extractActionFromActionName(item.actionName),
+      ),
+    ),
   ).sort((a, b) => a.localeCompare(b));
 
   const availableLabelValues =
@@ -52,8 +56,10 @@ export const deriveMatrixFilters = (
       : Array.from(
           new Set(
             timeline
-              .map((item) =>
-                item.labels?.find((l) => l.group === filters.labelGroup)?.name,
+              .map(
+                (item) =>
+                  item.labels?.find((l) => l.group === filters.labelGroup)
+                    ?.name,
               )
               .filter((v): v is string => Boolean(v)),
           ),
@@ -71,10 +77,13 @@ export const deriveMatrixFilters = (
     }
 
     if (filters.labelGroup !== MATRIX_FILTER_ALL) {
-      const labels = item.labels?.filter((l) => l.group === filters.labelGroup) ?? [];
+      const labels =
+        item.labels?.filter((l) => l.group === filters.labelGroup) ?? [];
       if (labels.length === 0) return false;
       if (filters.labelValue !== MATRIX_FILTER_ALL) {
-        const matched = labels.some((label) => label.name === filters.labelValue);
+        const matched = labels.some(
+          (label) => label.name === filters.labelValue,
+        );
         if (!matched) return false;
       }
     }
@@ -96,10 +105,13 @@ export const deriveMatrixFilters = (
   };
 };
 
-export const buildMatrixFilterSummaryText = (filters: MatrixFilterState): string => {
+export const buildMatrixFilterSummaryText = (
+  filters: MatrixFilterState,
+): string => {
   const parts: string[] = [];
   if (filters.team !== MATRIX_FILTER_ALL) parts.push(`team=${filters.team}`);
-  if (filters.action !== MATRIX_FILTER_ALL) parts.push(`action=${filters.action}`);
+  if (filters.action !== MATRIX_FILTER_ALL)
+    parts.push(`action=${filters.action}`);
   if (filters.labelGroup !== MATRIX_FILTER_ALL) {
     if (filters.labelValue !== MATRIX_FILTER_ALL) {
       parts.push(`label=${filters.labelGroup}:${filters.labelValue}`);

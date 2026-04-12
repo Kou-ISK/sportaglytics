@@ -44,7 +44,9 @@ export const useTimelineLabelDialog = ({
         const exists = existing.some(
           (label) => label.group === group && label.name === name,
         );
-        const updatedLabels = exists ? existing : [...existing, { group, name }];
+        const updatedLabels = exists
+          ? existing
+          : [...existing, { group, name }];
         onUpdateTimelineItem(id, { labels: updatedLabels });
         applied += 1;
       });

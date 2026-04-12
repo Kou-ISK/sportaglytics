@@ -4,13 +4,8 @@ import { usePackageDropLoader } from './usePackageDropLoader';
 import { useRecentPackages } from './useRecentPackages';
 import { useRecentPackageRegistration } from './useRecentPackageRegistration';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
-import {
-  isOnboardingCompleted,
-} from '../../../../../../shared/onboarding/onboardingStorage';
-import type {
-  PackageLoadResult,
-  VideoPathSelectorProps,
-} from '../types';
+import { isOnboardingCompleted } from '../../../../../../shared/onboarding/onboardingStorage';
+import type { PackageLoadResult, VideoPathSelectorProps } from '../types';
 
 interface VideoPathSelectorController {
   showWelcome: boolean;
@@ -23,7 +18,9 @@ interface VideoPathSelectorController {
   handleOpenWizard: () => void;
   handleCloseWizard: () => void;
   handleRecentPackageOpen: (path: string) => void;
-  removeRecentPackage: ReturnType<typeof useRecentPackages>['removeRecentPackage'];
+  removeRecentPackage: ReturnType<
+    typeof useRecentPackages
+  >['removeRecentPackage'];
 }
 
 export const useVideoPathSelectorController = ({
@@ -98,7 +95,8 @@ export const useVideoPathSelectorController = ({
   const { handlePackageDrop } = usePackageDropLoader({
     onPackageLoaded: handlePackageLoaded,
   });
-  const { dragState, handlers: dragHandlers } = useDragAndDrop(handlePackageDrop);
+  const { dragState, handlers: dragHandlers } =
+    useDragAndDrop(handlePackageDrop);
 
   const handleRecentPackageOpen = useCallback(
     (path: string) => {

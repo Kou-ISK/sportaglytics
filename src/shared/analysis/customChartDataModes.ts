@@ -1,6 +1,10 @@
 import type { TimelineData } from '../../types/TimelineData';
 import { extractActionFromActionName } from '../../utils/labelExtractors';
-import type { CustomChartConfig, CustomChartData, CustomChartDatumValue } from './customChartData.shared';
+import type {
+  CustomChartConfig,
+  CustomChartData,
+  CustomChartDatumValue,
+} from './customChartData.shared';
 import {
   DEFAULT_HISTOGRAM_BIN_SEC,
   DEFAULT_OUTLIER_IQR,
@@ -20,9 +24,17 @@ export const buildTrendLikeData = (
   mode: 'trend' | 'rolling',
 ): CustomChartData => {
   if (timeline.length === 0) {
-    return { data: [], seriesKeys: ['value'], unitLabel: '件', calcMode: 'raw' };
+    return {
+      data: [],
+      seriesKeys: ['value'],
+      unitLabel: '件',
+      calcMode: 'raw',
+    };
   }
-  const bucketSec = toPositiveNumber(config.timeBucketSec, DEFAULT_TIME_BUCKET_SEC);
+  const bucketSec = toPositiveNumber(
+    config.timeBucketSec,
+    DEFAULT_TIME_BUCKET_SEC,
+  );
   const rollingWindow = Math.max(
     1,
     Math.round(toPositiveNumber(config.rollingWindow, DEFAULT_ROLLING_WINDOW)),
@@ -59,7 +71,10 @@ export const buildTrendLikeData = (
     if (mode === 'rolling') {
       const windowStart = Math.max(0, index - rollingWindow + 1);
       const windowBuckets = buckets.slice(windowStart, index + 1);
-      const windowTotal = windowBuckets.reduce((sum, item) => sum + item.value, 0);
+      const windowTotal = windowBuckets.reduce(
+        (sum, item) => sum + item.value,
+        0,
+      );
       value = windowTotal / windowBuckets.length;
       const ids = new Set<string>();
       windowBuckets.forEach((item) => {
@@ -88,7 +103,12 @@ export const buildHistogramData = (
   config: CustomChartConfig,
 ): CustomChartData => {
   if (timeline.length === 0) {
-    return { data: [], seriesKeys: ['value'], unitLabel: '件', calcMode: 'raw' };
+    return {
+      data: [],
+      seriesKeys: ['value'],
+      unitLabel: '件',
+      calcMode: 'raw',
+    };
   }
   const binSec = toPositiveNumber(
     config.histogramBinSec,
@@ -138,13 +158,20 @@ export const buildOutlierData = (
   config: CustomChartConfig,
 ): CustomChartData => {
   if (timeline.length === 0) {
-    return { data: [], seriesKeys: ['value'], unitLabel: '秒', calcMode: 'raw' };
+    return {
+      data: [],
+      seriesKeys: ['value'],
+      unitLabel: '秒',
+      calcMode: 'raw',
+    };
   }
   const multiplier = toPositiveNumber(
     config.outlierIqrMultiplier,
     DEFAULT_OUTLIER_IQR,
   );
-  const durations = timeline.map((item) => getDuration(item)).sort((a, b) => a - b);
+  const durations = timeline
+    .map((item) => getDuration(item))
+    .sort((a, b) => a - b);
   const q1 = percentile(durations, 0.25);
   const q3 = percentile(durations, 0.75);
   const iqr = q3 - q1;

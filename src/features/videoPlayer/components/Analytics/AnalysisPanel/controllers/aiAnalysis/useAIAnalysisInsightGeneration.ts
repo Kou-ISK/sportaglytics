@@ -56,27 +56,33 @@ interface UseAIAnalysisInsightGenerationParams {
   setLlmRawText: (value: string | null) => void;
   setLlmLiveLog: Dispatch<SetStateAction<string>>;
   setLlmAttempt: (value: number) => void;
-  setLlmRetryInfo: (value: {
-    attempt: number;
-    total: number;
-    mode: 'reduce' | 'repair';
-    reason: string;
-  } | null) => void;
-  setLlmDebug: (value: {
-    stderr?: string;
-    binaryPath?: string;
-    modelPath?: string;
-    durationMs?: number;
-  } | null) => void;
+  setLlmRetryInfo: (
+    value: {
+      attempt: number;
+      total: number;
+      mode: 'reduce' | 'repair';
+      reason: string;
+    } | null,
+  ) => void;
+  setLlmDebug: (
+    value: {
+      stderr?: string;
+      binaryPath?: string;
+      modelPath?: string;
+      durationMs?: number;
+    } | null,
+  ) => void;
   setLlmWarning: (value: string | null) => void;
   setLastQuestion: (value: string) => void;
   setGenerationRequestId: (value: string | null) => void;
-  setLlmProgress: (value: {
-    requestId: string;
-    phase?: string;
-    outputChars?: number;
-    elapsedMs?: number;
-  } | null) => void;
+  setLlmProgress: (
+    value: {
+      requestId: string;
+      phase?: string;
+      outputChars?: number;
+      elapsedMs?: number;
+    } | null,
+  ) => void;
   setEvidenceItems: (value: EvidenceItem[]) => void;
   setActiveFilters: (value: EvidenceFilters | null) => void;
   setRetrievalStatus: (value: 'idle' | 'running' | 'done' | 'error') => void;

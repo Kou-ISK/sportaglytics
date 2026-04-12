@@ -1,5 +1,9 @@
 import { useCallback, useState } from 'react';
 import type { WizardSelectionState } from '../types';
+import {
+  selectPackageDirectory,
+  selectVideoFile,
+} from '../gateway/packageGateway';
 
 interface UseWizardSelectionParams {
   createAngleId: () => string;
@@ -21,30 +25,30 @@ export const useWizardSelection = ({
   }, [createInitialSelection]);
 
   const handleSelectDirectory = useCallback(async () => {
-    if (!globalThis.window.electronAPI) {
+    try {
+      const directory = await selectPackageDirectory();
+      if (directory) {
+        setSelection((prev) => ({ ...prev, selectedDirectory: directory }));
+      }
+    } catch {
       showError('この機能はElectronアプリケーション内でのみ利用できます。');
-      return;
-    }
-    const directory = await globalThis.window.electronAPI?.openDirectory();
-    if (directory) {
-      setSelection((prev) => ({ ...prev, selectedDirectory: directory }));
     }
   }, [showError]);
 
   const handleSelectVideo = useCallback(
     async (angleId: string) => {
-      if (!globalThis.window.electronAPI) {
+      try {
+        const path = await selectVideoFile();
+        if (path) {
+          setSelection((prev) => ({
+            ...prev,
+            angles: prev.angles.map((angle) =>
+              angle.id === angleId ? { ...angle, filePath: path } : angle,
+            ),
+          }));
+        }
+      } catch {
         showError('この機能はElectronアプリケーション内でのみ利用できます。');
-        return;
-      }
-      const path = await globalThis.window.electronAPI?.openFile();
-      if (path) {
-        setSelection((prev) => ({
-          ...prev,
-          angles: prev.angles.map((angle) =>
-            angle.id === angleId ? { ...angle, filePath: path } : angle,
-          ),
-        }));
       }
     },
     [showError],

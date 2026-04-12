@@ -11,7 +11,10 @@ interface UseFreeCanvasButtonCreationParams {
   layout: CodeWindowLayout;
   onSelectButtons: (ids: string[]) => void;
   updateLayoutWithHistory: (layout: CodeWindowLayout) => void;
-  getCanvasPosition: (event: React.MouseEvent | MouseEvent) => { x: number; y: number };
+  getCanvasPosition: (event: React.MouseEvent | MouseEvent) => {
+    x: number;
+    y: number;
+  };
   gridSize: number;
 }
 
@@ -27,7 +30,10 @@ export const useFreeCanvasButtonCreation = ({
     mouseY: number;
     position: { x: number; y: number };
   } | null>(null);
-  const [dialogPosition, setDialogPosition] = useState<{ x: number; y: number }>({
+  const [dialogPosition, setDialogPosition] = useState<{
+    x: number;
+    y: number;
+  }>({
     x: 50,
     y: 50,
   });

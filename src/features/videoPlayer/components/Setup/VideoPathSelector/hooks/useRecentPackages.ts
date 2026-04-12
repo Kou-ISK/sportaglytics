@@ -37,17 +37,14 @@ export const useRecentPackages = () => {
     [],
   );
 
-  const removeRecentPackage = useCallback(
-    (path: string) => {
-      setRecentPackages((prev) => {
-        const updated = prev.filter((p) => p.path !== path);
-        saveRecentPackagesToStorage(updated);
-        syncRecentPackagesMenu(updated);
-        return updated;
-      });
-    },
-    [],
-  );
+  const removeRecentPackage = useCallback((path: string) => {
+    setRecentPackages((prev) => {
+      const updated = prev.filter((p) => p.path !== path);
+      saveRecentPackagesToStorage(updated);
+      syncRecentPackagesMenu(updated);
+      return updated;
+    });
+  }, []);
 
   const clearRecentPackages = useCallback(() => {
     setRecentPackages([]);

@@ -21,7 +21,10 @@ interface UseActionButtonInteractionsParams {
   ) => void;
   setPrimaryAction: React.Dispatch<React.SetStateAction<string | null>>;
   setWarning: (message: string | null) => void;
-  completeRecording: (actionName: string, labelsPatch?: Record<string, string>) => void;
+  completeRecording: (
+    actionName: string,
+    labelsPatch?: Record<string, string>,
+  ) => void;
   recentActionsRef: React.MutableRefObject<string[]>;
   getButtonColorByName: (buttonName: string) => string | undefined;
 }
@@ -110,7 +113,9 @@ export const useActionButtonInteractions = ({
       }));
 
       if (effects.activateTargets.length > 0) {
-        setWarning(`活性化リンク: ${effects.activateTargets.join(', ')} も記録します`);
+        setWarning(
+          `活性化リンク: ${effects.activateTargets.join(', ')} も記録します`,
+        );
       } else {
         setWarning(null);
       }

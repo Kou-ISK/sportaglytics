@@ -42,7 +42,8 @@ export const buildSummaryAnchors = (params: {
     }
 
     for (const team of teamStats.teams) {
-      if (!team.phaseDistribution || team.phaseDistribution.length === 0) continue;
+      if (!team.phaseDistribution || team.phaseDistribution.length === 0)
+        continue;
       const phase = [...team.phaseDistribution].sort(
         (a, b) => b.shareCount - a.shareCount,
       )[0];
@@ -87,7 +88,8 @@ export const buildSummaryAnchors = (params: {
     );
   }
 
-  const topActionDuration = params.evidenceStats.actionDurationDistribution?.[0];
+  const topActionDuration =
+    params.evidenceStats.actionDurationDistribution?.[0];
   if (topActionDuration && topActionDuration.key !== topAction?.key) {
     const share = Math.round((topActionDuration.shareDuration ?? 0) * 100);
     addCandidate(
@@ -129,10 +131,16 @@ export const buildSummaryAnchors = (params: {
 
   const phaseDistribution = params.insight.phaseDistribution;
   if (phaseDistribution && phaseDistribution.length > 0) {
-    const phase = [...phaseDistribution].sort((a, b) => b.shareCount - a.shareCount)[0];
+    const phase = [...phaseDistribution].sort(
+      (a, b) => b.shareCount - a.shareCount,
+    )[0];
     if (phase && phase.shareCount >= 0.45) {
       const phaseLabel =
-        phase.phase === 'early' ? '前半' : phase.phase === 'mid' ? '中盤' : '後半';
+        phase.phase === 'early'
+          ? '前半'
+          : phase.phase === 'mid'
+            ? '中盤'
+            : '後半';
       const share = Math.round(phase.shareCount * 100);
       addCandidate(
         'phase',
@@ -179,10 +187,13 @@ export const buildSummaryAnchors = (params: {
 
   let filtered = candidates;
   if (focusPriority.length > 0) {
-    filtered = candidates.filter((candidate) => focusPriority.includes(candidate.key));
+    filtered = candidates.filter((candidate) =>
+      focusPriority.includes(candidate.key),
+    );
   }
   if (filtered.length === 0 && params.focus?.intents?.includes('phase')) {
-    const fallbackIds = params.evidenceStats.actionDistribution[0]?.evidenceIds ?? [];
+    const fallbackIds =
+      params.evidenceStats.actionDistribution[0]?.evidenceIds ?? [];
     if (fallbackIds.length > 0) {
       filtered.push({
         key: 'phase',

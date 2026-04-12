@@ -65,7 +65,10 @@ export const useAIAnalysisInsightState = ({
   insightDimension,
   setInsightDimension,
 }: UseAIAnalysisInsightStateParams): AIAnalysisInsightState => {
-  const availableGroups = useMemo(() => extractUniqueGroups(timeline), [timeline]);
+  const availableGroups = useMemo(
+    () => extractUniqueGroups(timeline),
+    [timeline],
+  );
 
   const insightDimensionOptions = useMemo(() => {
     return [
@@ -88,13 +91,17 @@ export const useAIAnalysisInsightState = ({
 
   const effectiveTeamGroup = useMemo(() => {
     if (teamLabelGroup) return teamLabelGroup;
-    const detected = availableGroups.find((group) => group.toLowerCase() === 'team');
+    const detected = availableGroups.find(
+      (group) => group.toLowerCase() === 'team',
+    );
     return detected ?? '';
   }, [availableGroups, teamLabelGroup]);
 
   const teamGroupForFacts = useMemo(() => {
     if (!effectiveTeamGroup) return '';
-    return availableGroups.includes(effectiveTeamGroup) ? effectiveTeamGroup : '';
+    return availableGroups.includes(effectiveTeamGroup)
+      ? effectiveTeamGroup
+      : '';
   }, [availableGroups, effectiveTeamGroup]);
 
   const availableLabels = useMemo(() => {
@@ -171,15 +178,23 @@ export const useAIAnalysisInsightState = ({
       }
       const coverage = withLabel / insightTimeline.length;
       if (coverage < 0.3) continue;
-      const diversity = values.size / Math.max(2, Math.sqrt(insightTimeline.length));
+      const diversity =
+        values.size / Math.max(2, Math.sqrt(insightTimeline.length));
       const score = coverage * 0.7 + Math.min(1, diversity) * 0.3;
       if (score > bestScore) {
         bestScore = score;
         bestGroup = group;
       }
     }
-    return bestGroup ? { type: 'labelGroup', group: bestGroup } : { type: 'action' };
-  }, [availableGroups, insightDimension, insightTimeline, parseInsightDimension]);
+    return bestGroup
+      ? { type: 'labelGroup', group: bestGroup }
+      : { type: 'action' };
+  }, [
+    availableGroups,
+    insightDimension,
+    insightTimeline,
+    parseInsightDimension,
+  ]);
 
   const resolvedInsightLabel = useMemo(() => {
     if (resolvedInsightDimension.type === 'labelGroup') {
@@ -203,12 +218,20 @@ export const useAIAnalysisInsightState = ({
 
   const insightEvidenceItems = useMemo(() => {
     const ids = collectInsightEvidenceIds(insightData);
-    return ids.map((id) => evidenceById.get(id)).filter(Boolean) as EvidenceItem[];
+    return ids
+      .map((id) => evidenceById.get(id))
+      .filter(Boolean) as EvidenceItem[];
   }, [evidenceById, insightData]);
 
-  const flowEvidenceIds = useMemo(() => collectFlowEvidenceIds(insightData), [insightData]);
+  const flowEvidenceIds = useMemo(
+    () => collectFlowEvidenceIds(insightData),
+    [insightData],
+  );
 
-  const questionTemplates = useMemo(() => buildQuestionTemplates(timeline), [timeline]);
+  const questionTemplates = useMemo(
+    () => buildQuestionTemplates(timeline),
+    [timeline],
+  );
 
   return {
     availableGroups,

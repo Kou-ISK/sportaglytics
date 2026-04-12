@@ -39,7 +39,8 @@ export interface DashboardWidgetAnalysisModeSettingsProps {
 }
 
 export interface DashboardWidgetAxisSectionProps
-  extends DashboardWidgetSeriesConfigProps,
+  extends
+    DashboardWidgetSeriesConfigProps,
     DashboardWidgetAnalysisModeSettingsProps {
   dataMode: 'axis' | 'series';
   primaryAxis: MatrixAxisConfig;

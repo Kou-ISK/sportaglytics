@@ -35,7 +35,9 @@ const getMethod = <TArgs extends unknown[], TResult>(
     : undefined;
 };
 
-const isVideoJsPlayerHandle = (value: unknown): value is VideoJsPlayerHandle => {
+const isVideoJsPlayerHandle = (
+  value: unknown,
+): value is VideoJsPlayerHandle => {
   if (!isObjectLike(value)) {
     return false;
   }

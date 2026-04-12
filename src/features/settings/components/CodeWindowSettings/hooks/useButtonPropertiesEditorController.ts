@@ -76,7 +76,8 @@ export const useButtonPropertiesEditorController = ({
   }, [button, isCapturingHotkey, onUpdate]);
 
   const currentLabelGroup = useMemo(
-    () => availableLabelGroups.find((group) => group.groupName === button?.name),
+    () =>
+      availableLabelGroups.find((group) => group.groupName === button?.name),
     [availableLabelGroups, button?.name],
   );
 

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { HotkeyConfig } from '../../../types/Settings';
 import { DEFAULT_HOTKEYS } from './hotkeySettings.constants';
-import { formatKeyCombo, getHotkeyConflictWarning } from './hotkeySettings.utils';
+import {
+  formatKeyCombo,
+  getHotkeyConflictWarning,
+} from './hotkeySettings.utils';
 
 interface UseHotkeySettingsControllerParams {
   initialHotkeys: HotkeyConfig[];

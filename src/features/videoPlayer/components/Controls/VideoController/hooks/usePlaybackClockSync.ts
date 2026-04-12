@@ -60,7 +60,11 @@ export const usePlaybackClockSync = ({
           return;
         }
 
-        if (syncData?.isAnalyzed && (syncData.syncOffset ?? 0) < 0 && videoTime < 0) {
+        if (
+          syncData?.isAnalyzed &&
+          (syncData.syncOffset ?? 0) < 0 &&
+          videoTime < 0
+        ) {
           return;
         }
 
@@ -93,7 +97,8 @@ export const usePlaybackClockSync = ({
             const primaryPlayer = getExistingPlayer('video_0');
             const secondaryPlayer = getExistingPlayer('video_1');
             const primaryTime = resolveObservedVideoTime(primaryPlayer) ?? 0;
-            const secondaryTime = resolveObservedVideoTime(secondaryPlayer) ?? 0;
+            const secondaryTime =
+              resolveObservedVideoTime(secondaryPlayer) ?? 0;
             const primaryDuration = resolvePlayerDuration(primaryPlayer);
 
             const actualTime = resolveActualPlaybackTime({

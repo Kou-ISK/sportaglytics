@@ -31,7 +31,10 @@ export const useVideoControllerControls = ({
   getExistingPlayer,
   lastManualSeekTimestamp,
 }: UseVideoControllerControlsParams) => {
-  const speedOptions = useMemo(() => [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4, 6], []);
+  const speedOptions = useMemo(
+    () => [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4, 6],
+    [],
+  );
   const SMALL_SKIP_SECONDS = 10;
   const LARGE_SKIP_SECONDS = 30;
 

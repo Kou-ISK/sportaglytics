@@ -93,7 +93,11 @@ export const saveSettings = async (settings: AppSettings): Promise<boolean> => {
  * IPCハンドラを登録
  */
 export const registerSettingsHandlers = (): void => {
-  ipcMain.handle('settings:load', async () => {
+  ipcMain.handle('settings:load', async (event) => {
+    if (!getValidatedSenderWindow(event)) {
+      throw new Error('Invalid settings load sender');
+    }
+
     return await loadSettings();
   });
 

@@ -25,7 +25,8 @@ export const buildClipSegments = (
   },
 ): AiClipSegment[] => {
   const sequences = options?.sequences ?? [];
-  const overlapThreshold = options?.mergeOverlapRatio ?? MERGE_OVERLAP_THRESHOLD;
+  const overlapThreshold =
+    options?.mergeOverlapRatio ?? MERGE_OVERLAP_THRESHOLD;
   const gapThreshold = options?.mergeGapSeconds ?? MERGE_GAP_SECONDS;
   const rawSegments = recommendedClips
     .map((clip) => {

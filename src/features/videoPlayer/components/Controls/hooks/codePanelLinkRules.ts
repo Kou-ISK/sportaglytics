@@ -63,7 +63,10 @@ export const resolveLinkEffects = (
       continue;
     }
 
-    if (link.type === 'deactivate' && isSameActionName(link.from, clickedName)) {
+    if (
+      link.type === 'deactivate' &&
+      isSameActionName(link.from, clickedName)
+    ) {
       pushUnique(effects.deactivateTargets, link.to);
     }
   }
