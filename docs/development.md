@@ -11,6 +11,7 @@
 7. [アーキテクチャ](#アーキテクチャ)
 8. [テストとデバッグ](#テストとデバッグ)
 9. [リリースプロセス](#リリースプロセス)
+10. [ドキュメント運用](#ドキュメント運用)
 
 ---
 
@@ -34,8 +35,8 @@ cd SporTagLytics
 # 依存関係をインストール
 pnpm install
 
-# 開発モードで起動
-pnpm start
+# Electronアプリを開発モードで起動
+pnpm run electron:dev
 ```
 
 ### エディタ設定（VS Code推奨）
@@ -54,6 +55,7 @@ pnpm start
 SporTagLytics/
 ├── .github/                  # GitHub設定とCopilot指示
 ├── docs/                     # ドキュメント
+│   └── adr/                  # Architecture Decision Records
 ├── electron/                 # Electronメインプロセス
 │   └── src/
 │       ├── main.ts          # 起動/組み立て
@@ -150,14 +152,16 @@ SporTagLytics/
 ### 開発モード
 
 ```bash
-pnpm start
+pnpm run electron:dev
 ```
 
 内部的に以下が実行されます:
 
-1. `vite` でReactアプリをホット起動
-2. `tsc` でElectronメインプロセスをトランスパイル
-3. `electron .` でアプリを起動
+1. `vite` で React アプリをホット起動
+2. Vite の起動を待つ
+3. React / Electron / preload を build して `electron .` でアプリを起動
+
+Renderer のみ確認する場合は `pnpm start` を使用できます。
 
 ### 本番ビルド
 
@@ -413,6 +417,10 @@ Main IPC handlers (domain modules)
 
 - 月次の巨大ファイル残件レポート:
   `pnpm run report:large-files`
+- アーキテクチャ準拠率レポート:
+  `pnpm run report:architecture-health`
+- 長期的な設計判断:
+  `docs/adr/`
 
 ### 状態管理
 
@@ -603,6 +611,18 @@ git push origin <default-branch> --tags
 
 ---
 
+## ドキュメント運用
+
+- ドキュメント入口は [docs/README.md](README.md)。
+- ドキュメント運用ルールは [docs/documentation-guide.md](documentation-guide.md)。
+- ディレクトリ構成と配置判断は [docs/project-structure.md](project-structure.md)。
+- 長期的な設計判断は [docs/adr/README.md](adr/README.md) に ADR として記録する。
+- 実装規約の正本は [AGENTS.md](../AGENTS.md)。`.github/instructions/*.instructions.md` には差分ルールだけを書く。
+- ユーザー影響または設計変更がある PR では、`docs/system-overview.md` と `docs/development.md` の同期要否を確認する。
+- 新規ドキュメントを追加した場合は `docs/README.md` に掲載する。
+
+---
+
 ## トラブルシューティング
 
 ### ビルドエラー: `Module not found`
@@ -628,7 +648,11 @@ pnpm add -D electron
 
 ## 内部ドキュメント
 
+- [ドキュメント索引](README.md)
 - [システム概要](system-overview.md)
+- [プロジェクト構成](project-structure.md)
+- [ADR](adr/README.md)
+- [ドキュメント運用ガイド](documentation-guide.md)
 - [技術仕様](requirement.md)
 - [設計ガイド](design-system.md)
 - [プレイリスト機能実装](playlist-features.md)

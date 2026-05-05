@@ -2,6 +2,13 @@
 
 SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGENTS.md` を正とし、本書は実装トレース用の要約に限定します。
 
+関連する入口:
+
+- [ドキュメント索引](README.md)
+- [ドキュメント運用ガイド](documentation-guide.md)
+- [プロジェクト構成](project-structure.md)
+- [ADR](adr/README.md)
+
 ## レイヤー構成
 
 - 依存方向: `pages -> features -> shared`
@@ -102,3 +109,5 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - CI fail 条件は行数ではなく、境界違反・型・テスト
 - 規約例外は `docs/architecture-exceptions.md` で管理
 - 月次レポートは `pnpm run report:large-files` で生成
+- 長期的な設計判断は `docs/adr/` に ADR として記録
+- ディレクトリ構成と配置判断は `docs/project-structure.md` を更新

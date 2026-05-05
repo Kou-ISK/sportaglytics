@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- OSS 向け community health files、Issue templates、docs 索引、ADR、ドキュメント運用ガイドを追加
+- README、開発ガイド、AI contributor 向け規約導線を整理
+- ディレクトリ構成と新規ファイル配置判断を `docs/project-structure.md` に明文化
+
 ## [0.5.0] - 2026-02-02
 
 ### Added
