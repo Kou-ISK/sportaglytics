@@ -38,8 +38,10 @@
 
 ## User Impact / Docs
 
-- [ ] ユーザー影響なし
-- [ ] ユーザー影響あり（`docs/system-overview.md` / `docs/development.md` を更新）
+- [ ] Docs Impact Matrix（`docs/documentation-guide.md`）を確認した
+- [ ] ユーザー影響なし（理由を下に記載）
+- [ ] ユーザー影響あり（該当 docs を更新）
 - [ ] 新規ドキュメントを追加した場合、`docs/README.md` に掲載した
 - [ ] ディレクトリ構成・配置判断を変更した場合、`docs/project-structure.md` を更新した
 - [ ] ドキュメント運用に関わる変更は `docs/documentation-guide.md` と矛盾していない
+- Docs impact / no-docs reason:

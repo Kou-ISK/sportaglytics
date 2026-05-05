@@ -6,6 +6,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 
 - [ドキュメント索引](README.md)
 - [ドキュメント運用ガイド](documentation-guide.md)
+- [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix)
 - [プロジェクト構成](project-structure.md)
 - [ADR](adr/README.md)
 
@@ -111,3 +112,4 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - 月次レポートは `pnpm run report:large-files` で生成
 - 長期的な設計判断は `docs/adr/` に ADR として記録
 - ディレクトリ構成と配置判断は `docs/project-structure.md` を更新
+- 実装変更時の docs 同期は `docs/documentation-guide.md` の Docs Impact Matrix に従う

@@ -31,6 +31,24 @@
 
 コードの内部リネームだけで利用者・設計判断・開発手順に影響しない場合、ドキュメント更新は不要です。
 
+## Docs Impact Matrix
+
+実装変更時は、以下の対応先を同じ PR で確認します。該当なしの場合も PR に理由を記載してください。
+
+| Change type                                                  | Required docs                                                                             |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| ユーザー操作、設定、表示文言、トラブルシュートが変わる       | `docs/user-guide.md`                                                                      |
+| 機能要件、制限事項、対応フォーマットが変わる                 | `docs/requirement.md`                                                                     |
+| 保存形式、import/export、互換性、migration が変わる          | `docs/user-guide.md`, `docs/requirement.md`, 必要に応じて feature/spec docs               |
+| アーキテクチャ境界、依存方向、IPC、preload、型契約が変わる   | `docs/system-overview.md`, 必要に応じて `docs/adr/`                                       |
+| 長期的な設計判断、採用/不採用理由、将来の制約が増える        | `docs/adr/`                                                                               |
+| ディレクトリ構成、配置ルール、新規ファイルの置き場所が変わる | `docs/project-structure.md`                                                               |
+| 開発手順、品質ゲート、scripts、CI、report 運用が変わる       | `docs/development.md`                                                                     |
+| design-system、theme、shared UI 方針が変わる                 | `docs/design-system.md`                                                                   |
+| 配布、署名、公証、Homebrew、release 操作が変わる             | `docs/homebrew-distribution.md`, `.github/RELEASE.md`, 必要に応じて `docs/development.md` |
+| 新規ドキュメントを追加する                                   | `docs/README.md`                                                                          |
+| ユーザー影響または contributor-visible な変更を記録する      | `CHANGELOG.md`                                                                            |
+
 ## ADR Policy
 
 ADR は Architecture Decision Record です。次の条件を満たす場合に追加または更新します。
@@ -62,6 +80,8 @@ Status は `Proposed`, `Accepted`, `Deprecated`, `Superseded` のいずれかを
 
 - `README.md` から必要な入口へ辿れる。
 - `docs/README.md` に新規 docs が掲載されている。
+- Docs Impact Matrix に沿って該当 docs を同じ PR で更新した。
+- docs 更新不要の場合は PR に理由を書いた。
 - ディレクトリ構成や配置判断を変えた場合は `docs/project-structure.md` を更新した。
 - 設計判断が増えた場合は ADR がある。
 - `docs/system-overview.md` と `docs/development.md` が現行構造と矛盾していない。
