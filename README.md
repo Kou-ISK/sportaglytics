@@ -49,10 +49,13 @@ brew install --cask sportaglytics
 
 - [ドキュメント索引](docs/README.md): 利用者、開発者、AI contributor 向けの入口
 - [ユーザーガイド](docs/user-guide.md): 詳細な使い方
+- [Privacy and Data Handling](docs/privacy-and-data-handling.md): ローカル保存、外部送信、AI 分析時のデータ境界
 - [開発ガイド](docs/development.md): 開発環境、ワークフロー、品質ゲート
+- [Testing and Quality Gates](docs/testing.md): テスト方針と品質ゲート
 - [システム概要](docs/system-overview.md): 現行アーキテクチャの要約
 - [プロジェクト構成](docs/project-structure.md): ディレクトリ構成と新規ファイルの配置判断
 - [ADR](docs/adr/README.md): 長期的な設計判断の記録
+- [AI Analysis and Local LLM Setup](docs/ai-analysis.md): ローカル LLM セットアップ
 - [ドキュメント運用ガイド](docs/documentation-guide.md): docs 更新方針と同期ルール
 - [CHANGELOG](CHANGELOG.md): 変更履歴
 

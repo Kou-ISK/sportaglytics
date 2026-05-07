@@ -107,13 +107,13 @@ SporTagLytics/
 
 ### フロントエンド
 
-| 技術         | バージョン | 用途             |
-| ------------ | ---------- | ---------------- |
-| React        | 19.2.3     | UIライブラリ     |
-| TypeScript   | 5.4.5      | 型安全な開発     |
-| Material-UI  | 7.3.7      | UIコンポーネント |
-| Recharts     | 3.6.0      | グラフ・チャート |
-| React Router | 7.12.0     | ルーティング     |
+| 技術        | バージョン | 用途                     |
+| ----------- | ---------- | ------------------------ |
+| React       | 19.2.3     | UIライブラリ             |
+| TypeScript  | 5.4.5      | 型安全な開発             |
+| Material-UI | 7.3.7      | UIコンポーネント         |
+| Recharts    | 3.6.0      | グラフ・チャート         |
+| Vite        | 7.3.x      | renderer / preload build |
 
 ### 映像処理
 
@@ -499,58 +499,27 @@ function TimelineEditor() {
 
 ### 主要ユーティリティ関数一覧
 
-共通処理を提供するユーティリティ関数:
+共通処理の主な配置は次の通りです。古い root-level utility 名を前提にせず、現行の domain / feature 配置を確認してください。
 
-| 関数名                      | ファイルパス                             | 用途                                     |
-| --------------------------- | ---------------------------------------- | ---------------------------------------- |
-| `formatTime`                | `src/utils/formatTime.ts`                | 秒数を "HH:MM:SS" 形式に変換             |
-| `parseTimeString`           | `src/utils/parseTimeString.ts`           | "HH:MM:SS" 形式を秒数に変換              |
-| `calculateDuration`         | `src/utils/calculateDuration.ts`         | 開始・終了時刻から継続時間を計算         |
-| `extractLabels`             | `src/utils/extractLabels.ts`             | タイムラインからラベル一覧を抽出         |
-| `buildCrossTabMatrix`       | `src/utils/buildCrossTabMatrix.ts`       | クロス集計マトリクスを構築               |
-| `replaceTeamPlaceholders`   | `src/utils/replaceTeamPlaceholders.ts`   | `${Team1}` / `${Team2}` をチーム名に置換 |
-| `checkHotkeyConflicts`      | `src/utils/checkHotkeyConflicts.ts`      | ホットキー競合をチェック                 |
-| `convertToSCTimeline`       | `src/utils/convertToSCTimeline.ts`       | TimelineData → SCTimeline形式に変換      |
-| `convertFromSCTimeline`     | `src/utils/convertFromSCTimeline.ts`     | SCTimeline → TimelineData形式に変換      |
-| `filterTimelineByDateRange` | `src/utils/filterTimelineByDateRange.ts` | 時間範囲でタイムラインをフィルタ         |
-| `groupTimelineByAction`     | `src/utils/groupTimelineByAction.ts`     | アクション別にタイムラインをグループ化   |
-| `calculatePossessionStats`  | `src/utils/calculatePossessionStats.ts`  | ポゼッション統計を計算                   |
-| `exportToCSV`               | `src/utils/exportToCSV.ts`               | タイムラインをCSV形式でエクスポート      |
-| `sanitizeFilename`          | `src/utils/sanitizeFilename.ts`          | ファイル名から不正な文字を除去           |
-
-**使用例**:
-
-```typescript
-import { formatTime } from '@/utils/formatTime';
-import { buildCrossTabMatrix } from '@/utils/buildCrossTabMatrix';
-
-const timeString = formatTime(125.5); // "00:02:05"
-const matrix = buildCrossTabMatrix(timeline, 'action', 'result');
-```
+| Domain                 | Current location                                                    | Notes                                       |
+| ---------------------- | ------------------------------------------------------------------- | ------------------------------------------- |
+| timeline import/export | `src/features/videoPlayer/app/utils/timelineImportExportService.ts` | UI hook から serialize / deserialize を分離 |
+| SCTimeline conversion  | `src/utils/scTimelineConverter.ts`                                  | Sportscode 互換変換                         |
+| timeline CSV / JSON    | `src/utils/timelineExport.ts`                                       | app timeline format / CSV                   |
+| label extraction       | `src/utils/labelExtractors.ts`                                      | labels 中心モデルの抽出                     |
+| matrix build/export    | `src/utils/matrixBuilder.ts`, `src/utils/matrixExport.ts`           | クロス集計と CSV/XLSX 出力                  |
+| clip export            | `src/shared/clipExport/`                                            | source validation / execution plan          |
+| analysis shared domain | `src/shared/analysis/`                                              | event insights / AI context / chart data    |
+| report generation      | `src/report/`                                                       | analysis report data and pagination         |
+| audio sync             | `src/utils/AudioSyncAnalyzer.ts`, `src/utils/audioSync/`            | waveform decode / sync analysis             |
 
 ---
 
 ## テストとデバッグ
 
-### ユニットテスト（Jest + React Testing Library）
+テスト運用の詳細は [Testing and Quality Gates](testing.md) を参照してください。
 
-```typescript
-import { render, screen, fireEvent } from '@testing-library/react';
-import { TimelineEditor } from './TimelineEditor';
-
-test('タイムラインエディタが正しくレンダリングされる', () => {
-  render(<TimelineEditor data={mockData} />);
-  expect(screen.getByRole('button', { name: '削除' })).toBeInTheDocument();
-});
-
-test('イベントをクリックすると選択される', () => {
-  const onSelect = jest.fn();
-  render(<TimelineEditor data={mockData} onSelect={onSelect} />);
-
-  fireEvent.click(screen.getByText('パス'));
-  expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ action: 'パス' }));
-});
-```
+現行 test runner は Vitest です。新規 test は `vitest` から `describe`, `it`, `expect`, `vi` を import します。React hook / component test では `@testing-library/react` を使い、DOM が必要な場合は `/* @vitest-environment jsdom */` を付けます。
 
 ### デバッグ
 
@@ -568,46 +537,17 @@ test('イベントをクリックすると選択される', () => {
 
 ## リリースプロセス
 
-### バージョニング（Semantic Versioning）
+リリース手順の正本は [.github/RELEASE.md](../.github/RELEASE.md) です。Homebrew Cask の詳細は [homebrew-distribution.md](homebrew-distribution.md) を参照してください。
 
-- `MAJOR`: 互換性のない変更
-- `MINOR`: 後方互換性のある機能追加
-- `PATCH`: 後方互換性のあるバグ修正
-
-### リリース手順
-
-1. **バージョン更新**:
-
-```bash
-pnpm version minor
-```
-
-2. **CHANGELOG更新**:
-
-- `CHANGELOG.md` に変更内容を記載
-
-3. **ビルド & テスト**:
+ローカル確認の最低限:
 
 ```bash
 pnpm run build
-pnpm test
-pnpm exec tsc --noEmit
+pnpm exec tsc -p electron/tsconfig.json
+pnpm run bundle:preload
+pnpm run check:preload
+pnpm run electron:package:mac
 ```
-
-4. **Git タグ**:
-
-```bash
-git add .
-git commit -m "chore: release v<version>"
-git tag v<version>
-git push origin <default-branch> --tags
-```
-
-5. **GitHub Release**:
-
-- GitHub上でReleaseを作成
-- CHANGELOGから変更内容をコピー
-- ビルド成果物を添付
 
 ---
 
@@ -655,8 +595,12 @@ pnpm add -D electron
 - [プロジェクト構成](project-structure.md)
 - [ADR](adr/README.md)
 - [ドキュメント運用ガイド](documentation-guide.md)
+- [Testing and Quality Gates](testing.md)
 - [技術仕様](requirement.md)
 - [設計ガイド](design-system.md)
+- [AI Analysis and Local LLM Setup](ai-analysis.md)
+- [Analysis Report Export](analysis-report.md)
+- [Privacy and Data Handling](privacy-and-data-handling.md)
 - [プレイリスト機能実装](playlist-features.md)
 - [コードウィンドウ設定実装](code-window-settings.md)
 - [音声同期オフセット仕様](audio-sync-offset-specification.md)

@@ -9,6 +9,8 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix)
 - [プロジェクト構成](project-structure.md)
 - [ADR](adr/README.md)
+- [Testing and Quality Gates](testing.md)
+- [Privacy and Data Handling](privacy-and-data-handling.md)
 
 ## レイヤー構成
 
@@ -85,6 +87,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - timeline import/export は `src/features/videoPlayer/app/gateways/timelineImportExportGateway.ts` と `src/features/videoPlayer/app/utils/timelineImportExportService.ts` に分離し、menu 購読・file dialog・serialize/deserialize を hook に同居させない（ADR: [0009](adr/0009-timeline-import-export-interoperability.md)）
 - clip export は `src/shared/clipExport/` に型・gateway・pure service を集約し、playlist / timeline 側では clip builder と UI state だけを持つ（ADR: [0010](adr/0010-ffmpeg-clip-export-execution-boundary.md)）
 - analysis dashboard import/export は `analysisDashboardGateway.ts` と `analysisDashboardImportExportService.ts` に分離し、controller に JSON parse / dialog / read-write を同居させない（ADR: [0011](adr/0011-dashboard-widget-system-and-analysis-consolidation.md)）
+- analysis report export は `src/report/` と `src/features/analysisReport/` に分離し、PDF 出力境界は [analysis-report.md](analysis-report.md) に従う
 - Video.js 参照は `src/features/videoPlayer/shared/videojs/videoJsAdapter.ts` に集約し、feature 内に `videojs as unknown as ...` を散在させない
 - playlist window の同期 hook は IPC 登録・open state 監視・window open を gateway helper に分離し、hook 本体では state 適用だけを扱う
 - playlist window の runtime は `data runtime` と `interaction runtime` に分け、state 合成と playback/hotkey 合成を分離する

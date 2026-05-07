@@ -367,6 +367,8 @@ v0.4.0より、統計・分析機能は独立したウィンドウ（`AnalysisWi
 
 AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自動分析し、質問に対する回答や推奨クリップを生成します。
 
+セットアップ詳細: [AI Analysis and Local LLM Setup](ai-analysis.md)
+
 **UIレイアウト**:
 
 - 2カラムグリッドレイアウト（1.6fr : 1fr）
@@ -377,7 +379,7 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 
 **機能**:
 
-1. **ハイブリッド根拠検索**（`src/features/videoPlayer/analysis/ai/evidenceRetrieval.ts`）
+1. **ハイブリッド根拠検索**（`src/features/videoPlayer/analysis/ai/retriever.ts`）
    - テキスト検索（アクション名、メモ）
    - ラベル検索（完全一致、部分一致）
    - 時間範囲検索
@@ -410,7 +412,7 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 - llama.cppバイナリとライブラリ: `public/llama/darwin/`（macOS版のみv0.5.0で同梱）
 - GGUFモデルファイル: `public/llama/models/`に配置（ユーザーが手動ダウンロード）
 - Electron IPC: メインプロセス（`llamaManager.ts`）とレンダラー間通信
-- タイプ定義: `renderer.d.ts`にチャネル別オーバーロード
+- タイプ定義: `src/types/ipc/` と `src/renderer.d.ts`
 
 **データフロー**:
 
@@ -937,6 +939,7 @@ electron/
 
 - **ローカルストレージのみ**: すべてのデータはユーザーのローカルディスクに保存
 - **外部送信なし**: 映像・タイムラインデータは外部に送信されない
+- 詳細: [Privacy and Data Handling](privacy-and-data-handling.md)
 
 ### 8.2 権限
 
@@ -951,13 +954,14 @@ electron/
 
 ```bash
 pnpm exec tsc --noEmit          # React側
-pnpm exec tsc -p electron --noEmit  # Electron側
+pnpm exec tsc -p electron/tsconfig.json  # Electron側
 ```
 
 ### 9.2 ユニットテスト
 
-- `pnpm test` でReact Testing Libraryによるテスト実行
+- `pnpm run test:run` で Vitest を実行
 - 重要なユーティリティ関数のテスト
+- 詳細: [Testing and Quality Gates](testing.md)
 
 ### 9.3 手動テスト
 

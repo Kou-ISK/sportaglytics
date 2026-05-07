@@ -2,6 +2,8 @@
 
 SporTagLytics は Electron デスクトップアプリケーションです。脆弱性の報告では、ユーザーデータ、ローカルファイルアクセス、IPC、preload、署名済み配布物への影響を重視します。
 
+通常のデータ保存場所と外部送信の有無は [Privacy and Data Handling](docs/privacy-and-data-handling.md) を参照してください。
+
 ## Supported Versions
 
 | Version        | Supported   |

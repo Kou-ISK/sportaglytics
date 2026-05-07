@@ -1,38 +1,26 @@
-# Homebrew Cask for SporTagLytics
+# Homebrew Cask Notes
 
-This directory contains the Homebrew Cask formula for installing SporTagLytics on macOS.
-
-## For Users
-
-To install SporTagLytics via Homebrew:
+SporTagLytics is distributed through a dedicated Homebrew tap:
 
 ```bash
+brew tap Kou-ISK/tap
 brew install --cask sportaglytics
 ```
 
-## For Maintainers
+The maintainer-facing source of truth is [docs/homebrew-distribution.md](../docs/homebrew-distribution.md). Release sequencing is documented in [RELEASE.md](RELEASE.md).
 
-### Creating a new release
+## Generated Cask Shape
 
-1. Update version in `package.json`
-2. Create and push a git tag:
-   ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
-   ```
-3. GitHub Actions will automatically build the DMG and create a release
-4. Update the cask formula with new version and SHA256
-
-### Cask Formula Template
-
-After a release is created, submit to homebrew-cask or maintain in your own tap:
+The release workflow updates `Kou-ISK/homebrew-tap` and writes `Casks/sportaglytics.rb` with architecture-specific DMG assets.
 
 ```ruby
 cask "sportaglytics" do
-  version "0.1.0"
-  sha256 "YOUR_SHA256_HERE"
+  version "<version>"
+  sha256 arm:   "<arm64-sha256>",
+         intel: "<x64-sha256>"
 
-  url "https://github.com/Kou-ISK/sportaglytics/releases/download/v#{version}/SporTagLytics-#{version}.dmg"
+  url "https://github.com/Kou-ISK/sportaglytics/releases/download/v#{version}/SporTagLytics-#{version}-#{Hardware::CPU.arch}.dmg",
+      verified: "github.com/Kou-ISK/sportaglytics/"
   name "SporTagLytics"
   desc "Video tagging application for sports analysis"
   homepage "https://github.com/Kou-ISK/sportaglytics"
@@ -52,35 +40,14 @@ cask "sportaglytics" do
 end
 ```
 
-### Getting SHA256
+Do not hand-edit this file in the main repository as if it were the actual cask. The actual cask lives in `Kou-ISK/homebrew-tap`.
 
-After GitHub Actions builds and releases the DMG:
-
-```bash
-curl -L https://github.com/Kou-ISK/sportaglytics/releases/download/v0.1.0/SporTagLytics-0.1.0.dmg | shasum -a 256
-```
-
-Or download the DMG and run:
+## Manual Verification
 
 ```bash
-shasum -a 256 SporTagLytics-0.1.0.dmg
+brew update
+brew untap Kou-ISK/tap
+brew tap Kou-ISK/tap
+brew install --cask sportaglytics
+brew uninstall --cask sportaglytics
 ```
-
-### Creating Your Own Tap (Optional)
-
-If you want to maintain your own Homebrew tap:
-
-1. Create a repository named `homebrew-tap`
-2. Add the cask formula to `Casks/sportaglytics.rb`
-3. Users can then install with:
-   ```bash
-   brew tap Kou-ISK/tap
-   brew install --cask sportaglytics
-   ```
-
-## Automated Updates
-
-The workflow supports:
-
-- **Tag-based releases**: Push a tag like `v0.1.0` to trigger a build
-- **Manual dispatch**: Trigger builds manually from GitHub Actions UI

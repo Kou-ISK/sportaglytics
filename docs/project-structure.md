@@ -75,10 +75,12 @@ feature 配下は機能責務で分割します。Atomic Design の分類を fea
 | --------------------------------------------------------------------------- | ------------------------------ |
 | `docs/README.md`                                                            | docs index。新規 docs の掲載先 |
 | `docs/documentation-guide.md`                                               | docs 運用ルール                |
+| `docs/testing.md`                                                           | テストと品質ゲート             |
 | `docs/system-overview.md`                                                   | 現行アーキテクチャ要約         |
 | `docs/project-structure.md`                                                 | ディレクトリ構成と配置判断     |
 | `docs/adr/`                                                                 | Architecture Decision Records  |
 | `docs/*-features.md`, `docs/*-implementation.md`, `docs/*-specification.md` | feature/spec note              |
+| `docs/privacy-and-data-handling.md`                                         | privacy / local data handling  |
 | `docs/homebrew-*`                                                           | 配布・導入手順                 |
 
 ## Placement Decisions

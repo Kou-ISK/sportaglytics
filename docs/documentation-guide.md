@@ -4,17 +4,19 @@
 
 ## Source of Truth
 
-| 種別                         | 正本                                     |
-| ---------------------------- | ---------------------------------------- |
-| AI 実装規約                  | `AGENTS.md`                              |
-| Copilot 適用順序             | `.github/copilot-instructions.md`        |
-| ファイル種別ごとの差分ルール | `.github/instructions/*.instructions.md` |
-| 現行アーキテクチャ要約       | `docs/system-overview.md`                |
-| ディレクトリ構成と配置判断   | `docs/project-structure.md`              |
-| 長期的な設計判断             | `docs/adr/`                              |
-| 一時的な規約例外             | `docs/architecture-exceptions.md`        |
-| 利用者向け操作説明           | `docs/user-guide.md`                     |
-| 開発者向け手順               | `docs/development.md`                    |
+| 種別                          | 正本                                     |
+| ----------------------------- | ---------------------------------------- |
+| AI 実装規約                   | `AGENTS.md`                              |
+| Copilot 適用順序              | `.github/copilot-instructions.md`        |
+| ファイル種別ごとの差分ルール  | `.github/instructions/*.instructions.md` |
+| 現行アーキテクチャ要約        | `docs/system-overview.md`                |
+| ディレクトリ構成と配置判断    | `docs/project-structure.md`              |
+| 長期的な設計判断              | `docs/adr/`                              |
+| 一時的な規約例外              | `docs/architecture-exceptions.md`        |
+| 利用者向け操作説明            | `docs/user-guide.md`                     |
+| 開発者向け手順                | `docs/development.md`                    |
+| テストと品質ゲート            | `docs/testing.md`                        |
+| privacy / local data handling | `docs/privacy-and-data-handling.md`      |
 
 同じ規約本文を複数ファイルへ重複記載しないでください。別ドキュメントからは正本へリンクします。
 
@@ -35,19 +37,19 @@
 
 実装変更時は、以下の対応先を同じ PR で確認します。該当なしの場合も PR に理由を記載してください。
 
-| Change type                                                  | Required docs                                                                             |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| ユーザー操作、設定、表示文言、トラブルシュートが変わる       | `docs/user-guide.md`                                                                      |
-| 機能要件、制限事項、対応フォーマットが変わる                 | `docs/requirement.md`                                                                     |
-| 保存形式、import/export、互換性、migration が変わる          | `docs/user-guide.md`, `docs/requirement.md`, 必要に応じて feature/spec docs               |
-| アーキテクチャ境界、依存方向、IPC、preload、型契約が変わる   | `docs/system-overview.md`, 必要に応じて `docs/adr/`                                       |
-| 長期的な設計判断、採用/不採用理由、将来の制約が増える        | `docs/adr/`                                                                               |
-| ディレクトリ構成、配置ルール、新規ファイルの置き場所が変わる | `docs/project-structure.md`                                                               |
-| 開発手順、品質ゲート、scripts、CI、report 運用が変わる       | `docs/development.md`                                                                     |
-| design-system、theme、shared UI 方針が変わる                 | `docs/design-system.md`                                                                   |
-| 配布、署名、公証、Homebrew、release 操作が変わる             | `docs/homebrew-distribution.md`, `.github/RELEASE.md`, 必要に応じて `docs/development.md` |
-| 新規ドキュメントを追加する                                   | `docs/README.md`                                                                          |
-| ユーザー影響または contributor-visible な変更を記録する      | `CHANGELOG.md`                                                                            |
+| Change type                                                     | Required docs                                                                             |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| ユーザー操作、設定、表示文言、トラブルシュートが変わる          | `docs/user-guide.md`                                                                      |
+| 機能要件、制限事項、対応フォーマットが変わる                    | `docs/requirement.md`                                                                     |
+| 保存形式、import/export、互換性、migration が変わる             | `docs/user-guide.md`, `docs/requirement.md`, 必要に応じて feature/spec docs               |
+| アーキテクチャ境界、依存方向、IPC、preload、型契約が変わる      | `docs/system-overview.md`, 必要に応じて `docs/adr/`                                       |
+| 長期的な設計判断、採用/不採用理由、将来の制約が増える           | `docs/adr/`                                                                               |
+| ディレクトリ構成、配置ルール、新規ファイルの置き場所が変わる    | `docs/project-structure.md`                                                               |
+| 開発手順、品質ゲート、scripts、CI、report、testing 運用が変わる | `docs/development.md`, `docs/testing.md`                                                  |
+| design-system、theme、shared UI 方針が変わる                    | `docs/design-system.md`                                                                   |
+| 配布、署名、公証、Homebrew、release 操作が変わる                | `.github/RELEASE.md`, `docs/homebrew-distribution.md`, 必要に応じて `docs/development.md` |
+| 新規ドキュメントを追加する                                      | `docs/README.md`                                                                          |
+| ユーザー影響または contributor-visible な変更を記録する         | `CHANGELOG.md`                                                                            |
 
 ## ADR Policy
 
