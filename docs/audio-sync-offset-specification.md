@@ -4,6 +4,8 @@
 
 このドキュメントでは、SporTagLyticsにおける音声同期オフセット（`offsetSeconds`）の計算方法と適用方法について説明します。
 
+関連 ADR: [0007 Audio Sync Offset Contract](adr/0007-audio-sync-offset-contract.md)
+
 ## オフセットの定義
 
 ### AudioSyncAnalyzerでの計算

@@ -19,7 +19,7 @@
 
 - [ユーザーガイド](user-guide.md): パッケージ作成、タグ付け、分析、プレイリスト、エクスポート。
 - [Homebrew quickstart](homebrew-quickstart.md): Homebrew Cask での導入。
-- [プレイリスト機能](playlist-features.md): プレイリスト画面と関連操作。
+- [プレイリスト機能](playlist-features.md): プレイリスト画面と関連操作（関連 ADR: [0008](adr/0008-dedicated-sub-window-runtime-and-synchronization.md), [0010](adr/0010-ffmpeg-clip-export-execution-boundary.md)）。
 
 ## Developer Documentation
 
@@ -34,9 +34,9 @@
 ## Feature / Specification Notes
 
 - [技術仕様書](requirement.md): 機能要件と仕様メモ。
-- [音声同期オフセット仕様](audio-sync-offset-specification.md): 音声同期 offset の計算・適用。
+- [音声同期オフセット仕様](audio-sync-offset-specification.md): 音声同期 offset の計算・適用（関連 ADR: [0007](adr/0007-audio-sync-offset-contract.md)）。
 - [コードウィンドウ設定](code-window-settings.md): コードウィンドウ設定機能。
-- [SCTimeline 実装](sctimeline-implementation.md): SCTimeline 形式対応。
+- [SCTimeline 実装](sctimeline-implementation.md): SCTimeline 形式対応（関連 ADR: [0009](adr/0009-timeline-import-export-interoperability.md)）。
 - [カスタムファイルアイコン](custom-file-icons.md): 独自ファイル形式と icon / bundle 設定。
 - [Homebrew distribution](homebrew-distribution.md): Homebrew Cask 配布手順。
 

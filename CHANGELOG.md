@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README、開発ガイド、AI contributor 向け規約導線を整理
 - ディレクトリ構成と新規ファイル配置判断を `docs/project-structure.md` に明文化
 - ADR と Docs Impact Matrix を追加し、実装変更時のドキュメント同期ルールを制定
+- 音声同期、専用ウィンドウ、タイムライン相互運用、FFmpeg 書き出し、ダッシュボード統合の ADR を追加
 
 ## [0.5.0] - 2026-02-02
 

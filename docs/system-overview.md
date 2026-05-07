@@ -40,7 +40,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
   - `electron/src/preload/analysisBridge.ts`
   - `electron/src/preload/playlistBridge.ts`
   - `electron/src/preload/codeWindowBridge.ts`
-- playlist / analysis window の IPC 契約は `src/types/ipc/playlistWindow.ts` と `src/types/ipc/analysisWindow.ts` を正本にし、channel 名・payload 型・型ガードを main / preload / renderer で共有する
+- playlist / analysis window の IPC 契約は `src/types/ipc/playlistWindow.ts` と `src/types/ipc/analysisWindow.ts` を正本にし、channel 名・payload 型・型ガードを main / preload / renderer で共有する（ADR: [0008](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)）
 - main process の sender 検証は `electron/src/ipc/windowSenderGuards.ts` を共通利用し、`BrowserWindow.fromWebContents(...)` で live な sender window を確認する
 
 ## セキュリティ基準
@@ -82,14 +82,14 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - `AnalysisView` など analysis 系 shared contract は `src/types/analysis/` 配下を正本にし、root の `src/types/AnalysisView.ts` は互換 facade として扱う
 - playlist 同期は `PlaylistSyncData` を正とし、playlist 画面・hooks の契約を統一
 - playlist / analysis window まわりの renderer 側直接依存は gateway に閉じ込め、`src/features/playlist/gateway/playlistWindowGateway.ts` と `src/features/videoPlayer/app/gateways/analysisWindowGateway.ts` を入口に統一する
-- timeline import/export は `src/features/videoPlayer/app/gateways/timelineImportExportGateway.ts` と `src/features/videoPlayer/app/utils/timelineImportExportService.ts` に分離し、menu 購読・file dialog・serialize/deserialize を hook に同居させない
-- clip export は `src/shared/clipExport/` に型・gateway・pure service を集約し、playlist / timeline 側では clip builder と UI state だけを持つ
-- analysis dashboard import/export は `analysisDashboardGateway.ts` と `analysisDashboardImportExportService.ts` に分離し、controller に JSON parse / dialog / read-write を同居させない
+- timeline import/export は `src/features/videoPlayer/app/gateways/timelineImportExportGateway.ts` と `src/features/videoPlayer/app/utils/timelineImportExportService.ts` に分離し、menu 購読・file dialog・serialize/deserialize を hook に同居させない（ADR: [0009](adr/0009-timeline-import-export-interoperability.md)）
+- clip export は `src/shared/clipExport/` に型・gateway・pure service を集約し、playlist / timeline 側では clip builder と UI state だけを持つ（ADR: [0010](adr/0010-ffmpeg-clip-export-execution-boundary.md)）
+- analysis dashboard import/export は `analysisDashboardGateway.ts` と `analysisDashboardImportExportService.ts` に分離し、controller に JSON parse / dialog / read-write を同居させない（ADR: [0011](adr/0011-dashboard-widget-system-and-analysis-consolidation.md)）
 - Video.js 参照は `src/features/videoPlayer/shared/videojs/videoJsAdapter.ts` に集約し、feature 内に `videojs as unknown as ...` を散在させない
 - playlist window の同期 hook は IPC 登録・open state 監視・window open を gateway helper に分離し、hook 本体では state 適用だけを扱う
 - playlist window の runtime は `data runtime` と `interaction runtime` に分け、state 合成と playback/hotkey 合成を分離する
 - プレイリスト追加は `src/features/playlist` の公開 API に集約し、renderer からの個別 IPC 呼び出しを分散させない
-- 音声同期の相関解析は `src/utils/audioSync/` 配下で stage helper に分割し、探索ロジックと orchestration を分離する
+- 音声同期の相関解析は `src/utils/audioSync/` 配下で stage helper に分割し、探索ロジックと orchestration を分離する。offset contract は ADR: [0007](adr/0007-audio-sync-offset-contract.md) に従う
 - event insights の shared domain は facade と builder 群に分け、summary/stat family ごとの集計責務を分離する
 - `src/App.tsx` は app shell view switch のみを持ち、hash / Electron shell event / external open は `src/hooks/useAppShellController.ts` に閉じ込める
 - recent packages は state hook と storage/menu gateway を分離し、`localStorage` と Electron menu sync を hook 本体へ直書きしない

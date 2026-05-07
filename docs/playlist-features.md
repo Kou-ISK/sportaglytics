@@ -4,6 +4,11 @@
 
 SporTagLyticsのプレイリスト機能は、タイムライン上の選択したイベントをプレイリストとしてまとめ、専用ウィンドウで連続再生・分析・クリップ書き出しを行える機能です。フリーズフレーム・簡易描画・メモ編集など、詳細な分析を支援する機能を備えています。
 
+関連 ADR:
+
+- [0008 Dedicated Sub-Window Runtime and Synchronization](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)
+- [0010 FFmpeg Clip Export Execution Boundary](adr/0010-ffmpeg-clip-export-execution-boundary.md)
+
 **更新情報（2026年1月14日）**:
 
 - 複数プレイリストウィンドウの同時表示に対応
@@ -683,6 +688,6 @@ export type PlaylistCommand =
 
 - [system-overview.md](./system-overview.md): 全体アーキテクチャ
 - [requirement.md](./requirement.md): 機能要件
-- [Playlist.ts](../src/types/Playlist.ts): 型定義
-- [PlaylistContext.tsx](../src/contexts/PlaylistContext.tsx): Context実装
+- [core.ts](../src/types/playlist/core.ts): playlist 型定義
+- [PlaylistProvider.tsx](../src/features/playlist/PlaylistProvider.tsx): playlist provider 実装
 - [PlaylistWindowApp.tsx](../src/features/playlist/PlaylistWindowApp.tsx): 専用ウィンドウ実装

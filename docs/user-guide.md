@@ -490,6 +490,8 @@ MyPlaylist.stpl/              # パッケージディレクトリ（Finderでは
 
 ## データのインポート・エクスポート
 
+関連 ADR: [0009 Timeline Import/Export Interoperability](adr/0009-timeline-import-export-interoperability.md)
+
 ### エクスポート
 
 **形式**:

@@ -5,6 +5,8 @@
 SporTagLyticsに、Sportscode の SCTimeline 形式のインポート/エクスポート機能を実装しました。
 既存の TimelineData 構造を拡張し、完全な後方互換性を保ちながら SCTimeline との相互変換を可能にしています。
 
+関連 ADR: [0009 Timeline Import/Export Interoperability](adr/0009-timeline-import-export-interoperability.md)
+
 ## 実装したファイル
 
 ### 1. 型定義

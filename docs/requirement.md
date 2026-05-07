@@ -285,6 +285,8 @@ PackageName/
 
 v0.4.0より、統計・分析機能は独立したウィンドウ（`AnalysisWindowApp`）で表示されます。
 
+関連 ADR: [0008 Dedicated Sub-Window Runtime and Synchronization](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)
+
 **表示タブ（v0.5.0現在）**:
 
 | タブ           | 内容                                                 | バージョン |
@@ -324,6 +326,8 @@ v0.4.0より、統計・分析機能は独立したウィンドウ（`AnalysisWi
 - ドリルダウンダイアログで詳細一覧表示
 
 #### 2.5.2 ダッシュボード機能（v0.4.0以降）
+
+関連 ADR: [0011 Dashboard Widget System and Analysis Consolidation](adr/0011-dashboard-widget-system-and-analysis-consolidation.md)
 
 **概要**:
 
@@ -568,6 +572,8 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 
 ### 2.8 タイムラインエクスポート/インポート
 
+関連 ADR: [0009 Timeline Import/Export Interoperability](adr/0009-timeline-import-export-interoperability.md)
+
 #### 2.8.1 対応フォーマット
 
 | フォーマット | 用途                                                          |
@@ -635,6 +641,8 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 - タイムラインのメモとは独立に管理
 
 **クリップ書き出し**:
+
+関連 ADR: [0010 FFmpeg Clip Export Execution Boundary](adr/0010-ffmpeg-clip-export-execution-boundary.md)
 
 - 書き出しモード: 1ファイル/インスタンスごと/アクションごと
 - 書き出し範囲: 全体/選択中
@@ -777,23 +785,23 @@ electron/
 
 ### 5.3 主要カスタムフック一覧
 
-| フック                    | パス                                        | 責務                 |
-| ------------------------- | ------------------------------------------- | -------------------- |
+| フック                         | パス                                                             | 責務                 |
+| ------------------------------ | ---------------------------------------------------------------- | -------------------- |
 | useVideoPlayerScreenController | features/videoPlayer/app/hooks/useVideoPlayerScreenController.ts | アプリ全体の状態管理 |
-| useSettings               | hooks/useSettings.ts                        | 設定の読み書き       |
-| useGlobalHotkeys          | hooks/useGlobalHotkeys.ts                   | グローバルホットキー |
-| useSyncActions            | features/videoPlayer/app/hooks/useSyncActions.ts | 同期操作        |
-| useTimelineEditing        | features/videoPlayer/app/hooks/useTimelineEditing.ts | タイムライン編集 |
-| useTimelineHistory        | features/videoPlayer/app/hooks/useTimelineHistory.ts | Undo/Redo履歴    |
-| useTimelinePersistence    | features/videoPlayer/app/hooks/useTimelinePersistence.ts | 永続化         |
-| useTimelineSelection      | features/videoPlayer/app/hooks/useTimelineSelection.ts | 選択状態        |
-| useTimelineViewport       | features/.../VisualTimeline/hooks/          | ズーム・ビューポート |
-| useTimelineInteractions   | features/.../VisualTimeline/hooks/          | インタラクション     |
-| useTimelineEditDraft      | features/.../VisualTimeline/hooks/          | 編集ドラフト         |
-| useTimelineValidation     | features/.../VisualTimeline/hooks/          | バリデーション       |
-| useTimelineRangeSelection | features/.../VisualTimeline/hooks/          | 範囲選択             |
-| useMatrixAxes             | features/.../AnalysisPanel/controllers/           | クロス集計軸         |
-| useMatrixFilters          | features/.../AnalysisPanel/controllers/           | クロス集計フィルタ   |
+| useSettings                    | hooks/useSettings.ts                                             | 設定の読み書き       |
+| useGlobalHotkeys               | hooks/useGlobalHotkeys.ts                                        | グローバルホットキー |
+| useSyncActions                 | features/videoPlayer/app/hooks/useSyncActions.ts                 | 同期操作             |
+| useTimelineEditing             | features/videoPlayer/app/hooks/useTimelineEditing.ts             | タイムライン編集     |
+| useTimelineHistory             | features/videoPlayer/app/hooks/useTimelineHistory.ts             | Undo/Redo履歴        |
+| useTimelinePersistence         | features/videoPlayer/app/hooks/useTimelinePersistence.ts         | 永続化               |
+| useTimelineSelection           | features/videoPlayer/app/hooks/useTimelineSelection.ts           | 選択状態             |
+| useTimelineViewport            | features/.../VisualTimeline/hooks/                               | ズーム・ビューポート |
+| useTimelineInteractions        | features/.../VisualTimeline/hooks/                               | インタラクション     |
+| useTimelineEditDraft           | features/.../VisualTimeline/hooks/                               | 編集ドラフト         |
+| useTimelineValidation          | features/.../VisualTimeline/hooks/                               | バリデーション       |
+| useTimelineRangeSelection      | features/.../VisualTimeline/hooks/                               | 範囲選択             |
+| useMatrixAxes                  | features/.../AnalysisPanel/controllers/                          | クロス集計軸         |
+| useMatrixFilters               | features/.../AnalysisPanel/controllers/                          | クロス集計フィルタ   |
 
 ### 5.4 設計原則
 
@@ -1010,6 +1018,6 @@ MIT
 ## 13. 参考資料
 
 - [プロジェクトリポジトリ](https://github.com/Kou-ISK/sportaglytics)
-- [Copilot基本指示](.github/copilot-instructions.md)
-- [TypeScript指示](.github/instructions/typescript.instructions.md)
-- [TSX指示](.github/instructions/tsx.instructions.md)
+- [Copilot基本指示](../.github/copilot-instructions.md)
+- [TypeScript指示](../.github/instructions/typescript.instructions.md)
+- [TSX指示](../.github/instructions/tsx.instructions.md)
