@@ -129,6 +129,7 @@
 
 - `MUST`: 仕様・設計・ユーザー影響・開発手順・配置判断が変わる場合は、同一 PR で該当ドキュメントを更新する。
 - `MUST`: 長期的な設計判断を追加・変更する場合は `docs/adr/` に ADR を追加または更新する。
+- `MUST`: ADR の採番・命名・状態変更は `docs/documentation-guide.md` の ADR Operations に従う。
 - `MUST`: 新規ドキュメントを追加する場合は `docs/README.md` から辿れるようにする。
 - `MUST`: ドキュメント運用は `docs/documentation-guide.md` に従う。
 - `MUST`: ドキュメント更新不要と判断する場合は、PR で理由を明示する。
@@ -174,6 +175,7 @@ pnpm run test:run
 - [ ] `src/components/ui` に feature 固有依存または Electron 依存を持ち込んでいない。
 - [ ] 例外がある場合は `docs/architecture-exceptions.md` に記録した。
 - [ ] 設計判断がある場合は `docs/adr/` に記録した。
+- [ ] ADR を追加・更新した場合は ADR Operations に従い、`docs/adr/README.md` を更新した。
 - [ ] 新規ドキュメントがある場合は `docs/README.md` に追加した。
 - [ ] ディレクトリ構成・配置判断が変わる場合は `docs/project-structure.md` を更新した。
 - [ ] ドキュメント更新不要の場合は PR に理由を記載した。

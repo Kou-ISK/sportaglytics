@@ -13,6 +13,7 @@
 | 設計判断の背景を見る           | [ADR](adr/README.md)                                                                             |
 | ドキュメントを更新する         | [ドキュメント運用ガイド](documentation-guide.md)                                                 |
 | 実装変更時の docs 更新先を見る | [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix)                                  |
+| ADR の採番・命名を確認する     | [ADR Operations](documentation-guide.md#adr-operations)                                          |
 | テスト/品質ゲートを確認する    | [Testing and Quality Gates](testing.md)                                                          |
 | AI agent / Copilot で実装する  | [AGENTS.md](../AGENTS.md), [.github/copilot-instructions.md](../.github/copilot-instructions.md) |
 
@@ -33,6 +34,7 @@
 - [Architecture exceptions](architecture-exceptions.md): `AGENTS.md` からの一時例外台帳。
 - [ADR](adr/README.md): 長期的な設計判断。
 - [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix): 実装変更時に同時更新する docs の対応表。
+- [ADR Operations](documentation-guide.md#adr-operations): ADR の採番、命名、更新 lifecycle。
 
 ## Feature / Specification Notes
 
@@ -55,5 +57,6 @@ AI agent は次の順で参照してください。
 4. [システム概要](system-overview.md): 現行実装のトレース。
 5. [プロジェクト構成](project-structure.md): 新規ファイルの配置判断。
 6. [ADR](adr/README.md): 変更してはいけない設計判断、変更する場合に更新すべき判断。
+7. [ADR Operations](documentation-guide.md#adr-operations): ADR の採番、命名、更新 lifecycle。
 
 設計・ユーザー影響・ドキュメント運用が変わる変更では、[Docs Impact Matrix](documentation-guide.md#docs-impact-matrix) に従って同期してください。

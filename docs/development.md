@@ -558,6 +558,7 @@ pnpm run electron:package:mac
 - 実装変更時の更新先は [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix) に従う。
 - ディレクトリ構成と配置判断は [docs/project-structure.md](project-structure.md)。
 - 長期的な設計判断は [docs/adr/README.md](adr/README.md) に ADR として記録する。
+- ADR の採番、命名、更新 lifecycle は [ADR Operations](documentation-guide.md#adr-operations) に従う。
 - 実装規約の正本は [AGENTS.md](../AGENTS.md)。`.github/instructions/*.instructions.md` には差分ルールだけを書く。
 - ユーザー影響または設計変更がある PR では、`docs/system-overview.md` と `docs/development.md` の同期要否を確認する。
 - docs 更新不要の場合も PR に理由を記載する。
