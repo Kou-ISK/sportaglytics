@@ -195,6 +195,9 @@ pnpm run typecheck:electron
 # アーキテクチャ境界チェック
 pnpm run check:architecture
 
+# ADR 命名・索引チェック
+pnpm run check:adr
+
 # アーキテクチャ健全性レポート（準拠率）
 pnpm run report:architecture-health
 
@@ -559,6 +562,7 @@ pnpm run electron:package:mac
 - ディレクトリ構成と配置判断は [docs/project-structure.md](project-structure.md)。
 - 長期的な設計判断は [docs/adr/README.md](adr/README.md) に ADR として記録する。
 - ADR の採番、命名、更新 lifecycle は [ADR Operations](documentation-guide.md#adr-operations) に従う。
+- ADR を追加、リネーム、状態変更した場合は `pnpm run check:adr` を実行する。
 - 実装規約の正本は [AGENTS.md](../AGENTS.md)。`.github/instructions/*.instructions.md` には差分ルールだけを書く。
 - ユーザー影響または設計変更がある PR では、`docs/system-overview.md` と `docs/development.md` の同期要否を確認する。
 - docs 更新不要の場合も PR に理由を記載する。

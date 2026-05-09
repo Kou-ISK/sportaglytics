@@ -20,12 +20,13 @@ pnpm run test:run
 | `pnpm exec tsc -p electron/tsconfig.json` | Electron main / preload typecheck      |
 | `pnpm run lint`                           | ESLint with zero warnings              |
 | `pnpm run check:architecture`             | Feature-First / Electron boundary      |
+| `pnpm run check:adr`                      | ADR filename / index consistency       |
 | `pnpm run test:run`                       | Vitest one-shot test run               |
 | `pnpm run report:architecture-health`     | architecture compliance report         |
 | `pnpm run report:large-files`             | large file soft-budget report          |
 | `pnpm run check:preload`                  | preload bundle sanity check            |
 
-`check:preload` は preload bridge、Electron API surface、release/package 周辺を触る場合に実行します。`report:*` は docs-only でも branch 状態を確認したい場合に実行します。
+`check:adr` は ADR を追加、リネーム、状態変更した場合に実行します。`check:preload` は preload bridge、Electron API surface、release/package 周辺を触る場合に実行します。`report:*` は docs-only でも branch 状態を確認したい場合に実行します。
 
 ## Test Stack
 

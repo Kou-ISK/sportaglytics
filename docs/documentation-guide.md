@@ -73,14 +73,18 @@ Status は `Proposed`, `Accepted`, `Deprecated`, `Superseded` のいずれかを
 
 ADR の採番、命名、更新は次のルールに従います。
 
-- `MUST`: ファイル名は `docs/adr/NNNN-short-title.md` とする。
-- `MUST`: `NNNN` は 4 桁ゼロ埋めの連番とし、次の未使用番号を使う。
+- `MUST`: ファイル名は `docs/adr/NNNN-short-title.md` とし、ADR ID をファイル名の先頭に必ず含める。
+- `MUST`: `NNNN` は 4 桁ゼロ埋めの連番とし、既存最大 ID の次の未使用番号を使う。欠番予約はしない。
 - `MUST`: `short-title` は lowercase ASCII kebab-case にする。空白、underscore、日本語、記号装飾は使わない。
+- `MUST`: 先頭見出しは `# NNNN Title` とし、ファイル名の ADR ID と一致させる。
 - `MUST`: merge 済み ADR の番号は変更しない。公開後のリネームやリナンバリングは履歴追跡を壊すため禁止する。
 - `MUST`: ADR を追加・状態変更した場合は `docs/adr/README.md` の一覧を更新する。
 - `MUST`: `Superseded` にする場合は、旧 ADR に `Superseded by`、新 ADR に `Supersedes` を明記し、双方向にリンクする。
+- `MUST`: ADR を追加、リネーム、状態変更した場合は `pnpm run check:adr` を実行する。
 - `SHOULD`: 1 ADR は 1 つの長期判断に絞る。実装差分や作業ログは ADR ではなく PR description、CHANGELOG、機能 docs に置く。
 - `SHOULD`: `Date` は判断を採用した日付を `YYYY-MM-DD` で記録する。
+
+ADR ID は cross-reference、検索、履歴追跡、AI agent の参照安定性のための永続識別子です。タイトルが一意でも ID は省略しません。
 
 `Accepted` 済み ADR の本文を編集する場合は、誤字、リンク、意味を変えない補足に限定します。判断自体を変える場合は既存 ADR を書き換えず、新しい ADR を追加して `Superseded` 関係を残してください。
 

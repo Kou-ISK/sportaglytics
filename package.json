@@ -41,6 +41,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:electron": "tsc -p electron/tsconfig.json",
     "check:architecture": "node scripts/check-architecture.js",
+    "check:adr": "node scripts/check-adr.js",
     "report:architecture-health": "node scripts/report-architecture-health.js",
     "report:large-files": "node scripts/report-large-files.js",
     "bundle:preload": "vite build --config vite.preload.config.ts",

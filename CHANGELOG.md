@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 音声同期、専用ウィンドウ、タイムライン相互運用、FFmpeg 書き出し、ダッシュボード統合の ADR を追加
 - テスト/品質ゲート、AI 分析 setup、分析レポート export、privacy/data handling の docs を追加し、古い開発・release 記述を同期
 - ADR の採番、命名、状態変更、supersede 関係の運用ルールを明文化
+- ADR ファイル名の ID 必須ルールと `check:adr` による検査を追加
 
 ## [0.5.0] - 2026-02-02
 

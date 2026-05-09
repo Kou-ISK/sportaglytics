@@ -102,7 +102,7 @@ feature 配下は機能責務で分割します。Atomic Design の分類を fea
 - `src/shared/`, `src/utils/`: feature import、Electron direct import、file dialog、window access。
 - `electron/src/main.ts`: 大きな domain logic、個別 feature の詳細処理。
 - `.github/instructions/*.instructions.md`: 一般規約の重複本文。差分ルールだけを書く。
-- `docs/adr/`: 実装差分の羅列。長期的な判断背景だけを書く。
+- `docs/adr/`: 実装差分の羅列、一時メモ、作業ログ。ADR には長期的な判断背景だけを書く。
 
 ## Generated / Local Artifacts
 

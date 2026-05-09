@@ -17,7 +17,7 @@
 4. 一般規約を `.instructions.md` に再記述しない。
 5. 実装前後で品質ゲート通過を前提にする。
 6. 設計判断を変更する場合は `docs/adr/` を確認し、必要に応じて ADR を追加・更新する。
-7. ADR を追加・更新する場合は `docs/documentation-guide.md` の ADR Operations に従う。
+7. ADR を追加・更新する場合は `docs/documentation-guide.md` の ADR Operations に従い、`pnpm run check:adr` を実行する。
 8. 仕様・設計・ユーザー影響・開発手順・配置判断が変わる場合は `docs/documentation-guide.md` の Docs Impact Matrix に従って docs を同時更新する。
 9. ドキュメントを追加する場合は `docs/README.md` と `docs/documentation-guide.md` を確認する。
 
