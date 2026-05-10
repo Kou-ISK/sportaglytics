@@ -6,13 +6,16 @@
     "build/**/*",
     "!build/**/*.map",
     "!build/**/*.LICENSE.txt",
+    "!build/**/llama/models/*.gguf",
+    "!build/**/llama/models/**/*.gguf",
     "!node_modules/**/*",
     "node_modules/ffmpeg-static/**/*"
   ],
   "extraResources": [
     {
       "from": "public/llama",
-      "to": "llama"
+      "to": "llama",
+      "filter": ["**/*", "!**/*.gguf"]
     }
   ],
   "asarUnpack": ["node_modules/ffmpeg-static/**/*"],

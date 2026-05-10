@@ -47,6 +47,8 @@
 - [カスタムファイルアイコン](custom-file-icons.md): 独自ファイル形式と icon / bundle 設定。
 - [Homebrew distribution](homebrew-distribution.md): Homebrew Cask 配布手順。
 
+LLM model artifact distribution is governed by ADR: [0012](adr/0012-llm-model-artifact-distribution-boundary.md).
+
 ## AI Contributor Map
 
 AI agent は次の順で参照してください。

@@ -4,7 +4,7 @@ This directory is for local llama.cpp binaries and GGUF models used by SporTagLy
 
 Full setup and troubleshooting: [docs/ai-analysis.md](../../docs/ai-analysis.md)
 
-Place platform-specific binaries in one of these paths (not bundled by default):
+Place platform-specific binaries in one of these paths:
 
 - public/llama/darwin/llama-completion (preferred) or llama-cli (or llama)
 - public/llama/win32/llama-completion.exe (preferred) or llama-cli.exe (or llama.exe / main.exe)
@@ -14,9 +14,9 @@ Place model files under:
 
 - public/llama/models/<model>.gguf
 
-They will be packaged into the app resources under:
+Model files are local runtime assets. They are ignored by git and excluded from official Electron packages by default.
 
-<resources>/llama/
+If a packaged app needs a model, configure an absolute model path or place the model in a documented local resource location outside this repository. Bundling model weights in release artifacts requires an explicit ADR because package size, licensing, and update strategy change.
 
 Tip:
 
