@@ -221,18 +221,25 @@ feature/*    ← 機能開発ブランチ
 
 ### ブランチ命名規則
 
-| プレフィックス | 用途             | 例                             |
-| -------------- | ---------------- | ------------------------------ |
-| `feature/`     | 新機能開発       | `feature/timeline-zoom`        |
-| `fix/`         | バグ修正         | `fix/audio-sync-crash`         |
-| `refactor/`    | リファクタリング | `refactor/timeline-components` |
-| `docs/`        | ドキュメント     | `docs/update-readme`           |
-| `chore/`       | ビルド設定等     | `chore/update-dependencies`    |
+AI agent 向けの正本は `AGENTS.md` の Git / ブランチ / コミット運用です。
+通常の作業ブランチは `develop` 最新から作成し、`<type>/<short-kebab-description>` 形式にします。
+
+| プレフィックス | 用途               | 例                             |
+| -------------- | ------------------ | ------------------------------ |
+| `feature/`     | 新機能開発         | `feature/timeline-zoom`        |
+| `fix/`         | バグ修正           | `fix/audio-sync-crash`         |
+| `refactor/`    | リファクタリング   | `refactor/timeline-components` |
+| `docs/`        | ドキュメント       | `docs/update-readme`           |
+| `test/`        | テスト追加・修正   | `test/timeline-duplicate`      |
+| `chore/`       | ビルド設定・雑務   | `chore/update-dependencies`    |
+| `perf/`        | パフォーマンス改善 | `perf/timeline-rendering`      |
 
 ### コミットメッセージ規約（Conventional Commits）
 
+AI agent は Conventional Commits を必須として扱います。
+
 ```
-<type>: <subject>
+<type>(<scope>): <subject>
 
 <body>
 
@@ -248,11 +255,15 @@ feature/*    ← 機能開発ブランチ
 - `style`: コードフォーマット
 - `test`: テスト追加・修正
 - `chore`: ビルド設定・依存関係
+- `perf`: パフォーマンス改善
+- `build`: build / package 設定
+- `ci`: CI / GitHub Actions
+- `revert`: 変更の取り消し
 
 **例**:
 
 ```
-feat: タイムライン範囲選択機能を追加
+feat(timeline): タイムライン範囲選択機能を追加
 
 Shiftキー + ドラッグで複数イベントを範囲選択可能に。
 選択範囲はハイライト表示される。

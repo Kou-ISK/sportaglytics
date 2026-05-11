@@ -39,6 +39,7 @@ type VideoPlayerLayoutProps = Pick<
   | 'updateTimelineRange'
   | 'updateTimelineItem'
   | 'bulkUpdateTimelineItems'
+  | 'duplicateTimelineItem'
   | 'setVideoList'
   | 'setIsFileSelected'
   | 'setTimelineFilePath'
@@ -81,6 +82,7 @@ export const VideoPlayerLayout = ({
   updateTimelineRange,
   updateTimelineItem,
   bulkUpdateTimelineItems,
+  duplicateTimelineItem,
   setVideoList,
   setIsFileSelected,
   setTimelineFilePath,
@@ -160,6 +162,7 @@ export const VideoPlayerLayout = ({
         updateTimelineRange={updateTimelineRange}
         updateTimelineItem={updateTimelineItem}
         bulkUpdateTimelineItems={bulkUpdateTimelineItems}
+        duplicateTimelineItem={duplicateTimelineItem}
         videoList={videoList}
         handleCurrentTime={handleCurrentTime}
         performUndo={performUndo}

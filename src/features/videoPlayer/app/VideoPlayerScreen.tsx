@@ -55,6 +55,7 @@ export const VideoPlayerScreen = () => {
     updateTimelineRange,
     updateTimelineItem,
     bulkUpdateTimelineItems,
+    duplicateTimelineItem,
     resyncAudio,
     resetSync,
     manualSyncFromPlayers,
@@ -199,6 +200,7 @@ export const VideoPlayerScreen = () => {
         updateTimelineRange={updateTimelineRange}
         updateTimelineItem={updateTimelineItem}
         bulkUpdateTimelineItems={bulkUpdateTimelineItems}
+        duplicateTimelineItem={duplicateTimelineItem}
         setVideoList={setVideoList}
         setIsFileSelected={setIsFileSelected}
         setTimelineFilePath={setTimelineFilePath}

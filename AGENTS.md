@@ -142,6 +142,16 @@
 - `MUST`: 既存データ互換はロード時マイグレーションで担保する。
 - `MUST`: 保存形式は最新モデルへ統一する。
 
+## Git / ブランチ / コミット運用
+
+- `MUST`: 作業ブランチは `develop` 最新から作成する。ただし release / hotfix など明示された場合はその指示を優先する。
+- `MUST`: ブランチ名は `<type>/<short-kebab-description>` とし、英小文字・数字・ハイフンを使う。
+- `MUST`: ブランチ `type` は `feature`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf` のいずれかを使う。
+- `MUST`: コミットメッセージは Conventional Commits 形式の `<type>(<scope>): <subject>` または `<type>: <subject>` を使う。
+- `MUST`: コミット `type` は変更内容に合わせて `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `style`, `build`, `ci`, `revert` から選ぶ。
+- `SHOULD`: `scope` は feature / domain / tooling 名を短く指定する（例: `fix(timeline): enable duplicate action`）。
+- `SHOULD`: 1 コミットはレビュー可能な意味単位にし、無関係な変更を混ぜない。
+
 ## 品質ゲート（CI fail 条件）
 
 ```bash

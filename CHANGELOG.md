@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Electron package にローカル GGUF model files が混入し、ASAR 制限で package 生成に失敗する問題を修正
+- Timeline のコンテキストメニュー「複製」が no-op になっていた問題を修正
 
 ### Documentation
 
