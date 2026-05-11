@@ -216,23 +216,26 @@ main         ← 本番環境（リリースタグ）
   ↑
 develop      ← 開発統合ブランチ
   ↑
-feature/*    ← 機能開発ブランチ
+feature/* / fix/* / refactor/* ... ← 作業ブランチ
 ```
 
 ### ブランチ命名規則
 
 AI agent 向けの正本は `AGENTS.md` の Git / ブランチ / コミット運用です。
-通常の作業ブランチは `develop` 最新から作成し、`<type>/<short-kebab-description>` 形式にします。
+通常の作業ブランチは `develop` 最新から作成し、`<prefix>/<short-kebab-description>` 形式にします。
+ブランチ prefix と Conventional Commits の type は別物です。新機能ブランチは既存運用に合わせて `feature/` を使い、コミット type は `feat` を使います。
 
-| プレフィックス | 用途               | 例                             |
-| -------------- | ------------------ | ------------------------------ |
-| `feature/`     | 新機能開発         | `feature/timeline-zoom`        |
-| `fix/`         | バグ修正           | `fix/audio-sync-crash`         |
-| `refactor/`    | リファクタリング   | `refactor/timeline-components` |
-| `docs/`        | ドキュメント       | `docs/update-readme`           |
-| `test/`        | テスト追加・修正   | `test/timeline-duplicate`      |
-| `chore/`       | ビルド設定・雑務   | `chore/update-dependencies`    |
-| `perf/`        | パフォーマンス改善 | `perf/timeline-rendering`      |
+| Prefix      | 用途                             | 例                             |
+| ----------- | -------------------------------- | ------------------------------ |
+| `feature/`  | 新機能開発                       | `feature/timeline-zoom`        |
+| `fix/`      | バグ修正                         | `fix/audio-sync-crash`         |
+| `refactor/` | リファクタリング                 | `refactor/timeline-components` |
+| `docs/`     | ドキュメント                     | `docs/update-readme`           |
+| `test/`     | テスト追加・修正                 | `test/timeline-duplicate`      |
+| `chore/`    | ビルド設定・依存関係・雑務       | `chore/update-dependencies`    |
+| `perf/`     | パフォーマンス改善               | `perf/timeline-rendering`      |
+| `release/`  | リリース作業。明示された場合のみ | `release/0.6.0`                |
+| `hotfix/`   | 緊急修正。明示された場合のみ     | `hotfix/package-crash`         |
 
 ### コミットメッセージ規約（Conventional Commits）
 
@@ -273,7 +276,7 @@ Closes #123
 
 ### プルリクエスト
 
-1. `develop` から `feature/*` ブランチを作成
+1. `develop` から目的に合う prefix の作業ブランチを作成
 2. 機能開発・テスト・ドキュメント更新
 3. `pnpm run lint` / `pnpm run typecheck` / `pnpm run typecheck:electron` / `pnpm run check:architecture` を通す
 4. `develop` へのプルリクエストを作成

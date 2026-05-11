@@ -145,8 +145,10 @@
 ## Git / ブランチ / コミット運用
 
 - `MUST`: 作業ブランチは `develop` 最新から作成する。ただし release / hotfix など明示された場合はその指示を優先する。
-- `MUST`: ブランチ名は `<type>/<short-kebab-description>` とし、英小文字・数字・ハイフンを使う。
-- `MUST`: ブランチ `type` は `feature`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf` のいずれかを使う。
+- `MUST`: ブランチ名は `<prefix>/<short-kebab-description>` とし、英小文字・数字・ハイフンを使う。
+- `MUST`: 通常作業のブランチ `prefix` は `feature`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf` のいずれかを使う。
+- `MUST`: `release` / `hotfix` prefix は release / 緊急修正作業として明示された場合のみ使う。
+- `MUST`: 新機能ブランチの prefix は既存運用に合わせて `feature` とする。Conventional Commits の `feat` をブランチ prefix として使わない。
 - `MUST`: コミットメッセージは Conventional Commits 形式の `<type>(<scope>): <subject>` または `<type>: <subject>` を使う。
 - `MUST`: コミット `type` は変更内容に合わせて `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `style`, `build`, `ci`, `revert` から選ぶ。
 - `SHOULD`: `scope` は feature / domain / tooling 名を短く指定する（例: `fix(timeline): enable duplicate action`）。
