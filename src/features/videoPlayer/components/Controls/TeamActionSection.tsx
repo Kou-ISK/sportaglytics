@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
-import type { ActionDefinition } from '../../../../types/Settings';
+import type { ActionDefinition } from '../../../../types/settings/coreTypes';
 
 type LabelGroup = { groupName: string; options: string[] };
 

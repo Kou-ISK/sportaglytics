@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { AnnotationTarget } from '../../../../types/Playlist';
+import type { AnnotationTarget } from '../../../../types/playlist/core';
 import { resolveDrawingTarget } from '../../utils/viewMode';
 
 interface UsePlaylistDrawingTargetParams {

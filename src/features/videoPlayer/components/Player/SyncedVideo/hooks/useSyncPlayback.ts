@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import videojs from 'video.js';
-import type { VideoSyncData } from '../../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../../types/video/sync';
 import {
   calculateAdjustedCurrentTimes,
   calculateBlockStates,
 } from '../utils/syncCalculations';
+import {
+  getVideoJsPlayer,
+  getVideoJsPlayerCurrentTime,
+} from '../../../../shared/videojs/videoJsAdapter';
 import { useSyncDebugLogging } from './useSyncDebugLogging';
 
 interface UseSyncPlaybackParams {
@@ -24,19 +27,6 @@ interface UseSyncPlaybackReturn {
   setPrimaryClock: (time: number) => void;
   lastReportedTimeRef: React.MutableRefObject<number>;
 }
-
-const ensurePlayer = (id: string) => {
-  const namespace = videojs as unknown as {
-    getPlayer?: (pid: string) =>
-      | {
-          currentTime?: () => number;
-          on?: (event: string, handler: () => void) => void;
-          off?: (event: string, handler: () => void) => void;
-        }
-      | undefined;
-  };
-  return namespace.getPlayer?.(id);
-};
 
 export const useSyncPlayback = ({
   videoList,
@@ -68,9 +58,9 @@ export const useSyncPlayback = ({
 
     const updatePrimaryClock = () => {
       try {
-        const player = ensurePlayer('video_0');
-        const current = player?.currentTime?.();
-        if (typeof current === 'number' && !Number.isNaN(current)) {
+        const player = getVideoJsPlayer('video_0');
+        const current = player ? getVideoJsPlayerCurrentTime(player) : null;
+        if (current !== null) {
           setPrimaryClock(current);
           lastReportedTimeRef.current = current;
           return true;
@@ -113,7 +103,7 @@ export const useSyncPlayback = ({
   }, []);
 
   useEffect(() => {
-    const player = ensurePlayer('video_0');
+    const player = getVideoJsPlayer('video_0');
     if (!player || !isVideoPlaying) {
       return;
     }
@@ -128,10 +118,9 @@ export const useSyncPlayback = ({
         return;
       }
       try {
-        const current = player.currentTime?.();
+        const current = getVideoJsPlayerCurrentTime(player);
         if (
-          typeof current === 'number' &&
-          !Number.isNaN(current) &&
+          current !== null &&
           Math.abs(current - lastReportedTimeRef.current) >= reportThreshold
         ) {
           setPrimaryClock(current);

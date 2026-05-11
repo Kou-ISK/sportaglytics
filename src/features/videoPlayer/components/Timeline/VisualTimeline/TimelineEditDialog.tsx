@@ -14,7 +14,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
-import type { SCLabel } from '../../../../../types/SCTimeline';
+import { resolveActionLabelGroups } from '../../../shared/actionLabelGroups';
+import type { SCLabel } from '../../../../../types/timeline/sportscode';
 import { useTimelineEditDraft } from './hooks/useTimelineEditDraft';
 import { useTimelineValidation } from './hooks/useTimelineValidation';
 
@@ -67,28 +68,10 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
     ? findActionDefinition(draft.actionName)
     : undefined;
 
-  // アクション定義からラベルグループを取得
-  // 新しいgroups構造を優先し、なければ旧来のtypes/resultsから生成
-  const labelGroups = React.useMemo(() => {
-    if (actionDefinition?.groups && actionDefinition.groups.length > 0) {
-      return actionDefinition.groups;
-    }
-    // 後方互換性: types/resultsから生成
-    const legacyGroups = [];
-    if (actionDefinition?.types && actionDefinition.types.length > 0) {
-      legacyGroups.push({
-        groupName: 'actionType',
-        options: actionDefinition.types,
-      });
-    }
-    if (actionDefinition?.results && actionDefinition.results.length > 0) {
-      legacyGroups.push({
-        groupName: 'actionResult',
-        options: actionDefinition.results,
-      });
-    }
-    return legacyGroups;
-  }, [actionDefinition]);
+  const labelGroups = React.useMemo(
+    () => resolveActionLabelGroups(actionDefinition),
+    [actionDefinition],
+  );
 
   if (!draft) {
     return null;

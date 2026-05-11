@@ -1,0 +1,88 @@
+import { TimelineData } from '../../types/timeline/core';
+import {
+  CreateMomentumDataFn,
+  MomentumOutcome,
+  MomentumSegment,
+} from '../../types/analysis/momentum';
+import { getLabelByGroupWithFallback } from '../../utils/labelExtractors';
+
+const POSSESSION_KEYWORD = 'ポゼッション';
+
+const NEGATIVE_RESULTS = new Set([
+  'Kick Error',
+  'Pen Con',
+  'Turnover',
+  'Turnover (Scrum)',
+]);
+
+const POSITIVE_RESULTS = new Set([
+  'Try',
+  'Drop Goal',
+  'Pen Won',
+  'Scrum',
+  'Own Lineout',
+]);
+
+const resolveOutcome = (result?: string | null): MomentumOutcome => {
+  if (result === 'Try') {
+    return 'Try';
+  }
+  if (result && NEGATIVE_RESULTS.has(result)) {
+    return 'Negative';
+  }
+  if (result && POSITIVE_RESULTS.has(result)) {
+    return 'Positive';
+  }
+  return 'Neutral';
+};
+
+const resolveTeamName = (actionName: string, team1: string, team2: string) => {
+  if (actionName.includes(team1)) return team1;
+  if (actionName.includes(team2)) return team2;
+  return team1;
+};
+
+const buildSegment = (
+  entry: TimelineData,
+  teamName: string,
+  team1: string,
+): MomentumSegment => {
+  const duration = Math.max(0, entry.endTime - entry.startTime);
+  const value = teamName === team1 ? -duration : duration;
+
+  // labels配列から取得。存在しない場合は既定値を使用。
+  const actionType = getLabelByGroupWithFallback(
+    entry,
+    'actionType',
+    '開始情報なし',
+  );
+  const actionResult = getLabelByGroupWithFallback(
+    entry,
+    'actionResult',
+    '結果なし',
+  );
+
+  return {
+    entryId: entry.id,
+    teamName,
+    value,
+    absoluteValue: duration,
+    possessionStart: actionType,
+    possessionResult: actionResult,
+    outcome: resolveOutcome(actionResult),
+  };
+};
+
+export const createMomentumDataFactory = (
+  timeline: TimelineData[],
+): CreateMomentumDataFn => {
+  return (team1Name, team2Name) => {
+    const segments = timeline
+      .filter((item) => item.actionName.includes(POSSESSION_KEYWORD))
+      .map((item) => {
+        const teamName = resolveTeamName(item.actionName, team1Name, team2Name);
+        return buildSegment(item, teamName, team1Name);
+      });
+    return segments;
+  };
+};

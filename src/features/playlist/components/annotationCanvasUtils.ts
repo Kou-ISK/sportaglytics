@@ -1,9 +1,9 @@
-import type { DrawingObject } from '../../../types/Playlist';
+import type { DrawingObject } from '../../../types/playlist/core';
 
 export const generateAnnotationId = (): string =>
   Math.random().toString(36).substring(2, 11);
 
-export const drawArrowHead = (
+const drawArrowHead = (
   ctx: CanvasRenderingContext2D,
   fromX: number,
   fromY: number,
@@ -109,7 +109,7 @@ export const renderObject = (
 export const scaleObjectForDisplay = (
   obj: DrawingObject,
   target: { width: number; height: number; offsetX: number; offsetY: number },
-) => {
+): DrawingObject => {
   const scaleX = target.width / (obj.baseWidth ?? target.width);
   const scaleY = target.height / (obj.baseHeight ?? target.height);
   const transformPoint = (p: { x: number; y: number }) => ({
@@ -147,10 +147,14 @@ export const scaleObjectForDisplay = (
         startY: obj.startY * scaleY + target.offsetY,
         fontSize: obj.fontSize ? obj.fontSize * ((scaleX + scaleY) / 2) : 24,
       };
+    case 'select':
+      return obj;
   }
 };
 
-export const getObjectBounds = (obj: DrawingObject) => {
+export const getObjectBounds = (
+  obj: DrawingObject,
+): { minX: number; minY: number; maxX: number; maxY: number } | null => {
   switch (obj.type) {
     case 'pen': {
       if (!obj.path || obj.path.length === 0) {
@@ -182,10 +186,12 @@ export const getObjectBounds = (obj: DrawingObject) => {
         maxX: obj.startX + (obj.text?.length || 1) * ((obj.fontSize || 24) / 2),
         maxY: obj.startY,
       };
+    case 'select':
+      return null;
   }
 };
 
-export const pointInBounds = (
+const pointInBounds = (
   x: number,
   y: number,
   bounds: { minX: number; minY: number; maxX: number; maxY: number },
@@ -205,6 +211,7 @@ export const findObjectAtPoint = (
   for (let i = objects.length - 1; i >= 0; i -= 1) {
     const obj = objects[i];
     const bounds = getObjectBounds(obj);
+    if (!bounds) continue;
     if (pointInBounds(x, y, bounds, tolerance)) return obj;
   }
   return null;
@@ -235,5 +242,7 @@ export const shiftObject = (
         endX: obj.endX !== undefined ? obj.endX + dx : obj.endX,
         endY: obj.endY !== undefined ? obj.endY + dy : obj.endY,
       };
+    case 'select':
+      return obj;
   }
 };

@@ -1,52 +1,42 @@
 import { useState } from 'react';
-
-interface OverlaySettings {
-  enabled: boolean;
-  showActionName: boolean;
-  showActionIndex: boolean;
-  showLabels: boolean;
-  showMemo: boolean;
-}
+import {
+  DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
+  type ClipExportAngleOption,
+  type ClipExportMode,
+  type ClipExportOverlaySettings,
+  type ClipExportScope,
+} from '../../../../shared/clipExport/clipExportTypes';
 
 interface UsePlaylistExportStateResult {
   exportDialogOpen: boolean;
   setExportDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  overlaySettings: OverlaySettings;
-  setOverlaySettings: React.Dispatch<React.SetStateAction<OverlaySettings>>;
-  exportMode: 'single' | 'perInstance' | 'perRow';
-  setExportMode: React.Dispatch<
-    React.SetStateAction<'single' | 'perInstance' | 'perRow'>
+  overlaySettings: ClipExportOverlaySettings;
+  setOverlaySettings: React.Dispatch<
+    React.SetStateAction<ClipExportOverlaySettings>
   >;
-  angleOption: 'allAngles' | 'single' | 'multi';
-  setAngleOption: React.Dispatch<
-    React.SetStateAction<'allAngles' | 'single' | 'multi'>
-  >;
+  exportMode: ClipExportMode;
+  setExportMode: React.Dispatch<React.SetStateAction<ClipExportMode>>;
+  angleOption: ClipExportAngleOption;
+  setAngleOption: React.Dispatch<React.SetStateAction<ClipExportAngleOption>>;
   selectedAngleIndex: number;
   setSelectedAngleIndex: React.Dispatch<React.SetStateAction<number>>;
   exportFileName: string;
   setExportFileName: React.Dispatch<React.SetStateAction<string>>;
-  exportScope: 'all' | 'selected';
-  setExportScope: React.Dispatch<React.SetStateAction<'all' | 'selected'>>;
+  exportScope: ClipExportScope;
+  setExportScope: React.Dispatch<React.SetStateAction<ClipExportScope>>;
 }
 
 export const usePlaylistExportState = (): UsePlaylistExportStateResult => {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [overlaySettings, setOverlaySettings] = useState<OverlaySettings>({
-    enabled: true,
-    showActionName: true,
-    showActionIndex: true,
-    showLabels: true,
-    showMemo: true,
-  });
-  const [exportMode, setExportMode] = useState<
-    'single' | 'perInstance' | 'perRow'
-  >('single');
-  const [angleOption, setAngleOption] = useState<
-    'allAngles' | 'single' | 'multi'
-  >('single');
+  const [overlaySettings, setOverlaySettings] =
+    useState<ClipExportOverlaySettings>(
+      DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
+    );
+  const [exportMode, setExportMode] = useState<ClipExportMode>('single');
+  const [angleOption, setAngleOption] = useState<ClipExportAngleOption>('single');
   const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
-  const [exportScope, setExportScope] = useState<'all' | 'selected'>('all');
+  const [exportScope, setExportScope] = useState<ClipExportScope>('all');
 
   return {
     exportDialogOpen,

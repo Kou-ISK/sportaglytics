@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { TimelineData } from '../types/TimelineData';
-import { buildAnalysisSummaryText, exportRawAnalysisCsv } from './analysisExport';
+import type { TimelineData } from '../types/timeline/core';
+import {
+  buildAnalysisSummaryText,
+  exportRawAnalysisCsv,
+} from './analysisExport';
 
 const parseCsvLine = (line: string): string[] =>
   line
@@ -30,7 +33,7 @@ describe('exportRawAnalysisCsv', () => {
         startTime: 20,
         endTime: 22,
         memo: 'line1\nline2, "quote"',
-        actionType: 'Carry',
+        labels: [{ group: 'actionType', name: 'Carry' }],
       },
     ];
 
@@ -78,7 +81,7 @@ describe('exportRawAnalysisCsv', () => {
   });
 
   it('falls back to legacy actionType/actionResult when labels are missing', () => {
-    const timeline: TimelineData[] = [
+    const timeline = [
       {
         id: 'legacy-1',
         actionName: 'TeamA Counter',
@@ -88,7 +91,7 @@ describe('exportRawAnalysisCsv', () => {
         actionType: 'Counter',
         actionResult: 'Turnover',
       },
-    ];
+    ] as unknown as TimelineData[];
 
     const csv = exportRawAnalysisCsv(timeline);
     const [headerLine, rowLine] = csv.split('\n');

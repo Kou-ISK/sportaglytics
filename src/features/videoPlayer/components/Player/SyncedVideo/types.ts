@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { VideoSyncData } from '../../../../../types/VideoSync';
+import type { VideoSyncData } from '../../../../../types/video/sync';
 
 export interface SyncedVideoPlayerProps {
   videoList: string[];
@@ -10,18 +10,4 @@ export interface SyncedVideoPlayerProps {
   syncMode?: 'auto' | 'manual';
   forceUpdateKey?: number;
   viewMode?: 'dual' | 'angle1' | 'angle2';
-}
-
-export interface PlayerState {
-  videoTime: number;
-  videoAspectRatios: number[];
-}
-
-export interface SyncDerivedState {
-  adjustedCurrentTimes: number[];
-  blockPlayStates: boolean[];
-}
-
-export interface AspectRatioChangeHandler {
-  (index: number, ratio: number): void;
 }

@@ -1,6 +1,8 @@
-export type LLMProviderType = 'llama.cpp';
+import { cancelLocalLlmRequest, generateLocalLlm } from './llmGateway';
 
-export interface LLMProviderConfig {
+type LLMProviderType = 'llama.cpp';
+
+interface LLMProviderConfig {
   type: LLMProviderType;
   baseUrl: string;
   model: string;
@@ -11,25 +13,25 @@ export interface LLMProviderConfig {
   timeoutMs?: number;
 }
 
-export interface LLMProviderRequest {
+interface LLMProviderRequest {
   prompt: string;
   requestId?: string;
   signal?: AbortSignal;
 }
 
-export interface LLMProviderDebugInfo {
+interface LLMProviderDebugInfo {
   stderr?: string;
   binaryPath?: string;
   modelPath?: string;
   durationMs?: number;
 }
 
-export interface LLMProviderResult {
+interface LLMProviderResult {
   text: string;
   debug?: LLMProviderDebugInfo;
 }
 
-export interface LLMProvider {
+interface LLMProvider {
   type: LLMProviderType;
   generate: (request: LLMProviderRequest) => Promise<LLMProviderResult>;
 }
@@ -62,32 +64,26 @@ class LocalLLMProvider implements LLMProvider {
     requestId?: string,
     signal?: AbortSignal,
   ): Promise<LLMProviderResult> {
-    const llamaApi = globalThis.window?.electronAPI?.llama;
-    if (!llamaApi?.generate) {
-      throw new Error('llama.cpp APIが利用できません。');
-    }
     if (signal?.aborted) {
       throw new Error('生成がキャンセルされました。');
     }
     const abortHandler = () => {
-      if (requestId && llamaApi.cancel) {
-        void llamaApi.cancel(requestId);
+      if (requestId) {
+        void cancelLocalLlmRequest(requestId);
       }
     };
     if (signal) {
       signal.addEventListener('abort', abortHandler, { once: true });
     }
-    let result:
-      | {
-          text?: string;
-          stderr?: string;
-          binaryPath?: string;
-          modelPath?: string;
-          durationMs?: number;
-        }
-      | null = null;
+    let result: {
+      text?: string;
+      stderr?: string;
+      binaryPath?: string;
+      modelPath?: string;
+      durationMs?: number;
+    } | null = null;
     try {
-      result = await llamaApi.generate({
+      result = await generateLocalLlm({
         prompt,
         model: this.model,
         temperature: this.temperature,

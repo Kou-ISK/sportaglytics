@@ -13,22 +13,25 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-
-type ExportScope = 'selected' | 'all';
+import type {
+  ClipExportAngleOption,
+  ClipExportMode,
+  ClipExportScope,
+} from '../../../../../shared/clipExport/clipExportTypes';
 
 type TimelineClipExportDialogProps = {
   open: boolean;
   onClose: () => void;
   onExport: () => void;
-  exportScope: ExportScope;
-  setExportScope: (value: ExportScope) => void;
+  exportScope: ClipExportScope;
+  setExportScope: (value: ClipExportScope) => void;
   selectedCount: number;
-  exportMode: 'single' | 'perInstance' | 'perRow';
-  setExportMode: (value: 'single' | 'perInstance' | 'perRow') => void;
+  exportMode: ClipExportMode;
+  setExportMode: (value: ClipExportMode) => void;
   exportFileName: string;
   setExportFileName: (value: string) => void;
-  angleOption: 'allAngles' | 'single' | 'multi';
-  setAngleOption: (value: 'allAngles' | 'single' | 'multi') => void;
+  angleOption: ClipExportAngleOption;
+  setAngleOption: (value: ClipExportAngleOption) => void;
   selectedAngleIndex: number;
   setSelectedAngleIndex: (value: number) => void;
   videoSources?: string[];
@@ -95,7 +98,7 @@ export const TimelineClipExportDialog = ({
           size="small"
           value={exportMode}
           onChange={(event) =>
-            setExportMode(event.target.value as 'single' | 'perInstance' | 'perRow')
+            setExportMode(event.target.value as ClipExportMode)
           }
         >
           <MenuItem value="single">単一映像ファイル（連結）</MenuItem>
@@ -116,7 +119,7 @@ export const TimelineClipExportDialog = ({
           row
           value={angleOption}
           onChange={(event) =>
-            setAngleOption(event.target.value as 'allAngles' | 'single' | 'multi')
+            setAngleOption(event.target.value as ClipExportAngleOption)
           }
         >
           <FormControlLabel

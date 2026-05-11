@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { PlaylistItem } from '../../../../types/Playlist';
+import type { PlaylistItem } from '../../../../types/playlist/core';
 
 interface UsePlaylistSelectionParams {
   items: PlaylistItem[];
@@ -41,9 +41,7 @@ export const usePlaylistSelection = ({
 
   const deleteSelected = useCallback(() => {
     if (selectedItemIds.size === 0) return;
-    setItems((prev) =>
-      prev.filter((item) => !selectedItemIds.has(item.id)),
-    );
+    setItems((prev) => prev.filter((item) => !selectedItemIds.has(item.id)));
     clearSelection();
     onDirtyChange?.(true);
   }, [clearSelection, onDirtyChange, selectedItemIds, setItems]);

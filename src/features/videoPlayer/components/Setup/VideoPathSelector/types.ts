@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction } from 'react';
-import { VideoSyncData } from '../../../../../types/VideoSync';
+import { VideoSyncData } from '../../../../../types/video/sync';
 
 export interface VideoPathSelectorProps {
   setVideoList: Dispatch<SetStateAction<string[]>>;
@@ -16,8 +16,6 @@ export interface WizardFormState {
   team2Name: string;
 }
 
-export type AngleRole = 'primary' | 'secondary';
-
 export interface AngleSelection {
   id: string;
   name: string;
@@ -29,23 +27,19 @@ export interface WizardSelectionState {
   angles: AngleSelection[];
 }
 
-export interface WizardStepContext
-  extends WizardFormState,
-    WizardSelectionState {
-  errors: Partial<Record<keyof WizardFormState, string>>;
-  activeStep: number;
-}
-
-export interface SyncStatus {
-  isAnalyzing: boolean;
-  syncProgress: number;
-  syncStage: string;
-}
-
 export interface PackageLoadResult {
   videoList: string[];
   syncData: VideoSyncData | undefined;
   timelinePath: string;
   metaDataConfigFilePath: string;
   packagePath?: string;
+}
+
+export interface RecentPackage {
+  path: string;
+  name: string;
+  team1Name: string;
+  team2Name: string;
+  lastOpened: number;
+  videoCount: number;
 }

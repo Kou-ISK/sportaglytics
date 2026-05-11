@@ -1,0 +1,195 @@
+import React from 'react';
+import { useTheme } from '@mui/material/styles';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+  DASHBOARD_ENTRY_IDS_KEY,
+  type CustomChartDatumValue,
+} from '../controllers/useCustomChartData';
+
+const PIE_COLORS = [
+  '#1976d2',
+  '#388e3c',
+  '#f57c00',
+  '#7b1fa2',
+  '#0288d1',
+  '#e64a19',
+  '#689f38',
+  '#c2185b',
+  '#0097a7',
+  '#d32f2f',
+];
+
+const normalizeKey = (value: string) =>
+  value
+    .replace(/\u3000/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+interface CustomPieChartProps {
+  data: Array<Record<string, CustomChartDatumValue>>;
+  seriesKeys: string[];
+  unitLabel: string;
+  metric: 'count' | 'duration';
+  height?: number;
+  calcMode?: 'raw' | 'percentTotal' | 'difference';
+  teamColorMap?: Record<string, string>;
+  onPointSelect?: (payload: { title: string; entryIds: string[] }) => void;
+  disableAnimation?: boolean;
+}
+
+export const CustomPieChart = ({
+  data,
+  seriesKeys,
+  unitLabel,
+  metric,
+  height = 260,
+  calcMode = 'raw',
+  teamColorMap,
+  onPointSelect,
+  disableAnimation = false,
+}: CustomPieChartProps) => {
+  const theme = useTheme();
+  const normalizedSeriesKeys = seriesKeys.length > 0 ? seriesKeys : ['value'];
+  const toEntryIds = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === 'string');
+  };
+
+  const pieData = data.map((entry) => {
+    const total = normalizedSeriesKeys.reduce((sum, key) => {
+      const value = entry[key];
+      return sum + (typeof value === 'number' ? value : 0);
+    }, 0);
+    const rawTotal = normalizedSeriesKeys.reduce((sum, key) => {
+      const rawValue = (entry as Record<string, CustomChartDatumValue>)[
+        `__raw_${key}`
+      ];
+      return sum + (typeof rawValue === 'number' ? rawValue : 0);
+    }, 0);
+    return {
+      name: String(entry.name ?? ''),
+      value: total,
+      rawValue:
+        typeof entry.rawValue === 'number'
+          ? entry.rawValue
+          : rawTotal > 0
+            ? rawTotal
+            : undefined,
+      entryIds: toEntryIds(entry[DASHBOARD_ENTRY_IDS_KEY]),
+    };
+  });
+
+  const totalValue = pieData.reduce((sum, entry) => sum + entry.value, 0);
+
+  const formatValue = (value: number) => {
+    if (metric === 'duration') {
+      return `${value.toFixed(1)}${unitLabel}`;
+    }
+    return `${Math.round(value)}${unitLabel}`;
+  };
+
+  const rawUnitLabel = metric === 'duration' ? '秒' : '件';
+  const formatRawValue = (value: number) => {
+    if (metric === 'duration') {
+      return `${value.toFixed(1)}${rawUnitLabel}`;
+    }
+    return `${Math.round(value)}${rawUnitLabel}`;
+  };
+
+  const tooltipStyles = {
+    backgroundColor: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    color: theme.palette.text.primary,
+    borderRadius: 6,
+    padding: '8px 12px',
+  } as const;
+
+  const renderTooltip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean;
+    payload?: ReadonlyArray<{
+      name?: string;
+      value?: number;
+      payload?: { name?: string; rawValue?: number };
+    }>;
+  }) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const entry = payload[0];
+    const name = entry.name ?? entry.payload?.name ?? '';
+    const value = typeof entry.value === 'number' ? entry.value : 0;
+    const rawValue = entry.payload?.rawValue;
+    const percentValue =
+      calcMode === 'percentTotal'
+        ? value
+        : totalValue > 0
+          ? (value / totalValue) * 100
+          : 0;
+
+    const detail =
+      calcMode === 'percentTotal'
+        ? typeof rawValue === 'number'
+          ? `${percentValue.toFixed(1)}% (${formatRawValue(rawValue)})`
+          : `${percentValue.toFixed(1)}%`
+        : `${percentValue.toFixed(1)}% (${formatValue(value)})`;
+
+    return (
+      <div style={tooltipStyles}>
+        <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{name}</div>
+        <div style={{ color: theme.palette.text.secondary }}>{detail}</div>
+      </div>
+    );
+  };
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <PieChart margin={{ top: 8, right: 40, bottom: 32, left: 40 }}>
+        <Pie
+          data={pieData}
+          dataKey="value"
+          nameKey="name"
+          isAnimationActive={!disableAnimation}
+          outerRadius="96%"
+          innerRadius="60%"
+          startAngle={180}
+          endAngle={0}
+          cx="50%"
+          cy="80%"
+          paddingAngle={1}
+          labelLine={{ stroke: theme.palette.divider, strokeWidth: 1 }}
+          onClick={(entry: {
+            name?: string;
+            value?: number;
+            entryIds?: string[];
+          }) => {
+            if (!onPointSelect) return;
+            if (typeof entry.value === 'number' && entry.value === 0) return;
+            const entryIds = entry.entryIds ?? [];
+            if (entryIds.length === 0) return;
+            onPointSelect({
+              title: String(entry.name ?? ''),
+              entryIds,
+            });
+          }}
+          label={({ name, value }) => {
+            if (!totalValue) return String(name ?? '');
+            const percentage = ((value / totalValue) * 100).toFixed(1);
+            return `${name}: ${percentage}%`;
+          }}
+        >
+          {pieData.map((entry, index) => (
+            <Cell
+              key={`pie-${entry.name}-${index}`}
+              fill={
+                teamColorMap?.[normalizeKey(entry.name)] ??
+                PIE_COLORS[index % PIE_COLORS.length]
+              }
+            />
+          ))}
+        </Pie>
+        <Tooltip content={renderTooltip} />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+};

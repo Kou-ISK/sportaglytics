@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { TimelineData } from '../../../../../../types/TimelineData';
+import { TimelineData } from '../../../../../../types/timeline/core';
 import { useTimelineSelection } from './useTimelineSelection';
 import { useTimelineContextMenu } from './useTimelineContextMenu';
 import { useTimelineEditActions } from './useTimelineEditDraft';

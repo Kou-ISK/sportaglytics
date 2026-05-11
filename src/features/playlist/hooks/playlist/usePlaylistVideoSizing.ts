@@ -4,8 +4,8 @@ type Size = { width: number; height: number };
 type ContentRect = { width: number; height: number; offsetX: number; offsetY: number };
 
 interface UsePlaylistVideoSizingParams {
-  videoRef: React.RefObject<HTMLVideoElement>;
-  videoRef2: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoRef2: React.RefObject<HTMLVideoElement | null>;
   currentVideoSource: string | null;
   currentVideoSource2: string | null;
   viewMode: 'dual' | 'angle1' | 'angle2';

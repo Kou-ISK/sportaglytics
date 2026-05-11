@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { TimelineData } from '../../../../../types/TimelineData';
+import { TimelineData } from '../../../../../types/timeline/core';
 
 interface TimelineLaneItemProps {
   item: TimelineData;
@@ -51,7 +51,10 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
     contentWidth !== undefined
       ? contentWidth * zoomScale
       : Math.max(timeToPosition(maxSec), 0);
-  const left = Math.max(0, Math.min(timeToPosition(item.startTime), totalWidth));
+  const left = Math.max(
+    0,
+    Math.min(timeToPosition(item.startTime), totalWidth),
+  );
   const right = Math.max(0, Math.min(timeToPosition(item.endTime), totalWidth));
   const width = Math.max(4, right - left);
   const isSelected = selectedIds.includes(item.id);
@@ -94,7 +97,10 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           {item.labels && item.labels.length > 0 && (
             <>
               {item.labels.map((label) => (
-                <Typography key={`${label.group}-${label.name}`} variant="caption">
+                <Typography
+                  key={`${label.group}-${label.name}`}
+                  variant="caption"
+                >
                   {label.group}: {label.name}
                 </Typography>
               ))}
@@ -112,8 +118,13 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
         draggable={Boolean(onMoveItem)}
         onDragStart={(event) => {
           if (!onMoveItem) return;
-          const dragIds = selectedIds.includes(item.id) ? selectedIds : [item.id];
-          event.dataTransfer.setData('text/timeline-ids', JSON.stringify(dragIds));
+          const dragIds = selectedIds.includes(item.id)
+            ? selectedIds
+            : [item.id];
+          event.dataTransfer.setData(
+            'text/timeline-ids',
+            JSON.stringify(dragIds),
+          );
           event.dataTransfer.effectAllowed = 'move';
         }}
         onDragOver={(event) => {
@@ -153,7 +164,9 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           boxShadow: isSelected
             ? `0 0 0 3px ${theme.palette.secondary.main}33, 0 4px 12px ${theme.palette.secondary.main}55`
             : 'none',
-          outline: isFocused ? `2px solid ${theme.palette.primary.main}` : 'none',
+          outline: isFocused
+            ? `2px solid ${theme.palette.primary.main}`
+            : 'none',
           outlineOffset: 2,
           transition: 'all 0.2s',
           '&:hover': {

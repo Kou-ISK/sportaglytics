@@ -285,6 +285,8 @@ PackageName/
 
 v0.4.0より、統計・分析機能は独立したウィンドウ（`AnalysisWindowApp`）で表示されます。
 
+関連 ADR: [0008 Dedicated Sub-Window Runtime and Synchronization](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)
+
 **表示タブ（v0.5.0現在）**:
 
 | タブ           | 内容                                                 | バージョン |
@@ -325,6 +327,8 @@ v0.4.0より、統計・分析機能は独立したウィンドウ（`AnalysisWi
 
 #### 2.5.2 ダッシュボード機能（v0.4.0以降）
 
+関連 ADR: [0011 Dashboard Widget System and Analysis Consolidation](adr/0011-dashboard-widget-system-and-analysis-consolidation.md)
+
 **概要**:
 
 - カスタマイズ可能なウィジェットシステム
@@ -363,6 +367,8 @@ v0.4.0より、統計・分析機能は独立したウィンドウ（`AnalysisWi
 
 AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自動分析し、質問に対する回答や推奨クリップを生成します。
 
+セットアップ詳細: [AI Analysis and Local LLM Setup](ai-analysis.md)
+
 **UIレイアウト**:
 
 - 2カラムグリッドレイアウト（1.6fr : 1fr）
@@ -373,7 +379,7 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 
 **機能**:
 
-1. **ハイブリッド根拠検索**（`src/features/videoPlayer/analysis/ai/evidenceRetrieval.ts`）
+1. **ハイブリッド根拠検索**（`src/features/videoPlayer/analysis/ai/retriever.ts`）
    - テキスト検索（アクション名、メモ）
    - ラベル検索（完全一致、部分一致）
    - 時間範囲検索
@@ -406,7 +412,7 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 - llama.cppバイナリとライブラリ: `public/llama/darwin/`（macOS版のみv0.5.0で同梱）
 - GGUFモデルファイル: `public/llama/models/`に配置（ユーザーが手動ダウンロード）
 - Electron IPC: メインプロセス（`llamaManager.ts`）とレンダラー間通信
-- タイプ定義: `renderer.d.ts`にチャネル別オーバーロード
+- タイプ定義: `src/types/ipc/` と `src/renderer.d.ts`
 
 **データフロー**:
 
@@ -561,12 +567,14 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 
 #### 2.7.4 エラーハンドリング
 
-- 統一エラーステート（useVideoPlayerApp）
+- 統一エラーステート（useVideoPlayerScreenController）
 - エラータイプ分類: file, network, sync, playback, general
 - Snackbar通知（6秒自動非表示）
 - エラー種別による色分け
 
 ### 2.8 タイムラインエクスポート/インポート
+
+関連 ADR: [0009 Timeline Import/Export Interoperability](adr/0009-timeline-import-export-interoperability.md)
 
 #### 2.8.1 対応フォーマット
 
@@ -635,6 +643,8 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 - タイムラインのメモとは独立に管理
 
 **クリップ書き出し**:
+
+関連 ADR: [0010 FFmpeg Clip Export Execution Boundary](adr/0010-ffmpeg-clip-export-execution-boundary.md)
 
 - 書き出しモード: 1ファイル/インスタンスごと/アクションごと
 - 書き出し範囲: 全体/選択中
@@ -777,28 +787,28 @@ electron/
 
 ### 5.3 主要カスタムフック一覧
 
-| フック                    | パス                                        | 責務                 |
-| ------------------------- | ------------------------------------------- | -------------------- |
-| useVideoPlayerApp         | hooks/useVideoPlayerApp.ts                  | アプリ全体の状態管理 |
-| useSettings               | hooks/useSettings.ts                        | 設定の読み書き       |
-| useGlobalHotkeys          | hooks/useGlobalHotkeys.ts                   | グローバルホットキー |
-| useSyncActions            | hooks/videoPlayer/useSyncActions.ts         | 同期操作             |
-| useTimelineEditing        | hooks/videoPlayer/useTimelineEditing.ts     | タイムライン編集     |
-| useTimelineHistory        | hooks/videoPlayer/useTimelineHistory.ts     | Undo/Redo履歴        |
-| useTimelinePersistence    | hooks/videoPlayer/useTimelinePersistence.ts | 永続化               |
-| useTimelineSelection      | hooks/videoPlayer/useTimelineSelection.ts   | 選択状態             |
-| useTimelineViewport       | features/.../VisualTimeline/hooks/          | ズーム・ビューポート |
-| useTimelineInteractions   | features/.../VisualTimeline/hooks/          | インタラクション     |
-| useTimelineEditDraft      | features/.../VisualTimeline/hooks/          | 編集ドラフト         |
-| useTimelineValidation     | features/.../VisualTimeline/hooks/          | バリデーション       |
-| useTimelineRangeSelection | features/.../VisualTimeline/hooks/          | 範囲選択             |
-| useMatrixAxes             | features/.../AnalysisPanel/view/hooks/      | クロス集計軸         |
-| useMatrixFilters          | features/.../AnalysisPanel/view/hooks/      | クロス集計フィルタ   |
+| フック                         | パス                                                             | 責務                 |
+| ------------------------------ | ---------------------------------------------------------------- | -------------------- |
+| useVideoPlayerScreenController | features/videoPlayer/app/hooks/useVideoPlayerScreenController.ts | アプリ全体の状態管理 |
+| useSettings                    | hooks/useSettings.ts                                             | 設定の読み書き       |
+| useGlobalHotkeys               | hooks/useGlobalHotkeys.ts                                        | グローバルホットキー |
+| useSyncActions                 | features/videoPlayer/app/hooks/useSyncActions.ts                 | 同期操作             |
+| useTimelineEditing             | features/videoPlayer/app/hooks/useTimelineEditing.ts             | タイムライン編集     |
+| useTimelineHistory             | features/videoPlayer/app/hooks/useTimelineHistory.ts             | Undo/Redo履歴        |
+| useTimelinePersistence         | features/videoPlayer/app/hooks/useTimelinePersistence.ts         | 永続化               |
+| useTimelineSelection           | features/videoPlayer/app/hooks/useTimelineSelection.ts           | 選択状態             |
+| useTimelineViewport            | features/.../VisualTimeline/hooks/                               | ズーム・ビューポート |
+| useTimelineInteractions        | features/.../VisualTimeline/hooks/                               | インタラクション     |
+| useTimelineEditDraft           | features/.../VisualTimeline/hooks/                               | 編集ドラフト         |
+| useTimelineValidation          | features/.../VisualTimeline/hooks/                               | バリデーション       |
+| useTimelineRangeSelection      | features/.../VisualTimeline/hooks/                               | 範囲選択             |
+| useMatrixAxes                  | features/.../AnalysisPanel/controllers/                          | クロス集計軸         |
+| useMatrixFilters               | features/.../AnalysisPanel/controllers/                          | クロス集計フィルタ   |
 
 ### 5.4 設計原則
 
 1. **関数コンポーネントのみ**: React 19の関数コンポーネント + Hooks
-2. **責務分離**: View（JSX）とロジック（Hooks）を明確に分離
+2. **責務分離**: `Screen / Controller(or Hook) / View / Gateway` を分離し、`View` に外部依存を持ち込まない
 3. **型安全性**: TypeScript strict mode、`any`の最小化
 4. **Feature-based構造**: 機能単位でコード整理、依存関係の明確化
 5. **Material UI標準**: `sx`プロパティでスタイリング統一
@@ -929,6 +939,7 @@ electron/
 
 - **ローカルストレージのみ**: すべてのデータはユーザーのローカルディスクに保存
 - **外部送信なし**: 映像・タイムラインデータは外部に送信されない
+- 詳細: [Privacy and Data Handling](privacy-and-data-handling.md)
 
 ### 8.2 権限
 
@@ -943,13 +954,14 @@ electron/
 
 ```bash
 pnpm exec tsc --noEmit          # React側
-pnpm exec tsc -p electron --noEmit  # Electron側
+pnpm exec tsc -p electron/tsconfig.json  # Electron側
 ```
 
 ### 9.2 ユニットテスト
 
-- `pnpm test` でReact Testing Libraryによるテスト実行
+- `pnpm run test:run` で Vitest を実行
 - 重要なユーティリティ関数のテスト
+- 詳細: [Testing and Quality Gates](testing.md)
 
 ### 9.3 手動テスト
 
@@ -1010,6 +1022,6 @@ MIT
 ## 13. 参考資料
 
 - [プロジェクトリポジトリ](https://github.com/Kou-ISK/sportaglytics)
-- [Copilot基本指示](.github/copilot-instructions.md)
-- [TypeScript指示](.github/instructions/typescript.instructions.md)
-- [TSX指示](.github/instructions/tsx.instructions.md)
+- [Copilot基本指示](../.github/copilot-instructions.md)
+- [TypeScript指示](../.github/instructions/typescript.instructions.md)
+- [TSX指示](../.github/instructions/tsx.instructions.md)

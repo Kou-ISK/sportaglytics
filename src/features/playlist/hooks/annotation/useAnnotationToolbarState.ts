@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { DrawingToolType } from '../../../../types/Playlist';
+import type { DrawingToolType } from '../../../../types/playlist/core';
 
 interface UseAnnotationToolbarStateParams {
   freezeDuration: number;

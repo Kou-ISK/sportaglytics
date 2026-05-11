@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
-import type { ItemAnnotation, PlaylistItem } from '../../../../types/Playlist';
+import type {
+  ItemAnnotation,
+  PlaylistItem,
+} from '../../../../types/playlist/core';
 
 interface UsePlaylistHistorySyncParams {
   undo: () => PlaylistItem[] | null;

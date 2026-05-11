@@ -11,6 +11,7 @@
 7. [アーキテクチャ](#アーキテクチャ)
 8. [テストとデバッグ](#テストとデバッグ)
 9. [リリースプロセス](#リリースプロセス)
+10. [ドキュメント運用](#ドキュメント運用)
 
 ---
 
@@ -34,8 +35,8 @@ cd SporTagLytics
 # 依存関係をインストール
 pnpm install
 
-# 開発モードで起動
-pnpm start
+# Electronアプリを開発モードで起動
+pnpm run electron:dev
 ```
 
 ### エディタ設定（VS Code推奨）
@@ -54,25 +55,30 @@ pnpm start
 SporTagLytics/
 ├── .github/                  # GitHub設定とCopilot指示
 ├── docs/                     # ドキュメント
+│   └── adr/                  # Architecture Decision Records
 ├── electron/                 # Electronメインプロセス
 │   └── src/
-│       ├── main.ts          # エントリーポイント
-│       ├── preload.ts       # プリロードスクリプト
-│       ├── menuBar.ts       # メニューバー
-│       ├── settingsManager.ts
-│       ├── playlistWindow.ts
+│       ├── main.ts          # 起動/組み立て
+│       ├── preload.ts       # ドメインブリッジ合成
+│       ├── ipc/             # IPCハンドラ登録（files/report/export等）
+│       ├── preload/         # preloadドメインモジュール
+│       ├── windowSecurity.ts
+│       ├── menuBar.ts
 │       └── ...
 ├── public/                   # 静的ファイル
 ├── src/                      # Reactアプリケーション
 │   ├── main.tsx             # エントリーポイント
 │   ├── App.tsx              # ルートコンポーネント
 │   ├── components/          # 共通コンポーネント
+│   │   └── ui/              # design-system（primitives/composites/patterns）
 │   ├── contexts/            # Reactコンテキスト
 │   ├── features/            # 機能別モジュール
+│   │   ├── analysisReport/
+│   │   ├── settings/
 │   │   ├── playlist/
 │   │   └── videoPlayer/
-│   ├── hooks/               # カスタムフック
-│   ├── pages/               # ページコンポーネント
+│   ├── hooks/               # 共通カスタムフックのみ
+│   ├── pages/               # 薄い page wrapper のみ
 │   ├── types/               # 型定義
 │   └── utils/               # ユーティリティ関数
 ├── index.html
@@ -87,12 +93,13 @@ SporTagLytics/
 | ------------------------- | ------------------------------------------ |
 | `electron/src/`           | Electronメインプロセス、IPC、ネイティブAPI |
 | `src/components/`         | 共通UIコンポーネント                       |
-| `src/contexts/`           | グローバル状態管理（React Context）        |
-| `src/features/<Feature>/` | 機能単位のコンポーネント・フック・型       |
-| `src/hooks/`              | 共通カスタムフック                         |
-| `src/pages/`              | ページレベルのコンポーネント               |
+| `src/components/ui/`      | 共通UI design-system（Shared UI限定）      |
+| `src/contexts/`           | truly shared なグローバル状態のみ          |
+| `src/features/<Feature>/` | 機能単位の UI / hook / context / domain    |
+| `src/hooks/`              | truly shared な共通カスタムフックのみ      |
+| `src/pages/`              | feature を呼び出す top-level wrapper のみ  |
 | `src/types/`              | 共有型定義                                 |
-| `src/utils/`              | 共通ユーティリティ関数                     |
+| `src/utils/`              | 共通ユーティリティ関数（pure helper優先）  |
 
 ---
 
@@ -100,13 +107,13 @@ SporTagLytics/
 
 ### フロントエンド
 
-| 技術         | バージョン | 用途             |
-| ------------ | ---------- | ---------------- |
-| React        | 19.2.3     | UIライブラリ     |
-| TypeScript   | 5.9.3      | 型安全な開発     |
-| Material-UI  | 7.3.7      | UIコンポーネント |
-| Recharts     | 3.6.0      | グラフ・チャート |
-| React Router | 7.12.0     | ルーティング     |
+| 技術        | バージョン | 用途                     |
+| ----------- | ---------- | ------------------------ |
+| React       | 19.2.3     | UIライブラリ             |
+| TypeScript  | 5.4.5      | 型安全な開発             |
+| Material-UI | 7.3.7      | UIコンポーネント         |
+| Recharts    | 3.6.0      | グラフ・チャート         |
+| Vite        | 7.3.x      | renderer / preload build |
 
 ### 映像処理
 
@@ -135,7 +142,7 @@ SporTagLytics/
 | ------ | ---------- | ---------------------- |
 | pnpm   | 9.1.0+     | パッケージマネージャー |
 | Vite   | 7.x        | バンドラー             |
-| ESLint | 8.57.1     | 静的解析               |
+| ESLint | 9.39.2     | 静的解析               |
 | Vitest | 4.x        | テスト                 |
 
 ---
@@ -145,14 +152,16 @@ SporTagLytics/
 ### 開発モード
 
 ```bash
-pnpm start
+pnpm run electron:dev
 ```
 
 内部的に以下が実行されます:
 
-1. `vite` でReactアプリをホット起動
-2. `tsc` でElectronメインプロセスをトランスパイル
-3. `electron .` でアプリを起動
+1. `vite` で React アプリをホット起動
+2. Vite の起動を待つ
+3. React / Electron / preload を build して `electron .` でアプリを起動
+
+Renderer のみ確認する場合は `pnpm start` を使用できます。
 
 ### 本番ビルド
 
@@ -161,27 +170,39 @@ pnpm start
 pnpm run build
 
 # Electronアプリのパッケージング（macOS）
-pnpm run package:mac
+pnpm run electron:package:mac
 ```
 
 ### テスト
 
 ```bash
 # ユニットテスト
-pnpm test
-
-# カバレッジ計測
-pnpm test:coverage
+pnpm run test:run
 ```
 
 ### リンター
 
 ```bash
 # ESLint実行
-pnpm lint
+pnpm run lint
 
 # TypeScript型チェック
-pnpm exec tsc --noEmit
+pnpm run typecheck
+
+# Electron側型チェック
+pnpm run typecheck:electron
+
+# アーキテクチャ境界チェック
+pnpm run check:architecture
+
+# ADR 命名・索引チェック
+pnpm run check:adr
+
+# アーキテクチャ健全性レポート（準拠率）
+pnpm run report:architecture-health
+
+# 大規模ファイル残件レポート（Warn Only）
+pnpm run report:large-files
 ```
 
 ---
@@ -243,7 +264,7 @@ Closes #123
 
 1. `develop` から `feature/*` ブランチを作成
 2. 機能開発・テスト・ドキュメント更新
-3. `pnpm lint` と `pnpm exec tsc --noEmit` で型エラーがないことを確認
+3. `pnpm run lint` / `pnpm run typecheck` / `pnpm run typecheck:electron` / `pnpm run check:architecture` を通す
 4. `develop` へのプルリクエストを作成
 5. レビュー後にマージ
 
@@ -300,6 +321,15 @@ useEffect(() => {
 - **テーマの活用**: `theme.palette`, `theme.spacing`
 - **レスポンシブ**: `theme.breakpoints`
 
+### ファイル分割ポリシー
+
+- **Soft Budget（Warn Only）**:
+  `TSX <= 300行`, `TS <= 450行` は目安
+- **必須**:
+  行数に関係なく `UI描画` と `IPC/永続化` と `ドメイン計算` の責務混在を避ける
+- **例外管理**:
+  例外は `docs/architecture-exceptions.md` に記録する
+
 ### 命名規則
 
 | 対象                | 規則        | 例                                   |
@@ -316,67 +346,84 @@ useEffect(() => {
 
 ### Electron IPC通信
 
+現行構成は「main は組み立て」「IPCはドメイン登録関数」「preload は型付きブリッジ合成」です。
+
 **フロー**:
 
 ```
-React (Renderer Process)
-  ↓ window.electronAPI.xxx()
-Preload Script (preload.ts)
-  ↓ ipcRenderer.invoke()
-Main Process (main.ts)
-  ↓ ipcMain.handle()
-ネイティブAPI / ファイルシステム
+Renderer (React)
+  ↓ window.electronAPI.<explicit method>
+Preload (domain bridge)
+  ↓ ipcRenderer.invoke/send
+Main IPC handlers (domain modules)
+  ↓ native APIs / filesystem
 ```
 
-**実装例**:
+**Main側の分割例**:
 
-```typescript
-// preload.ts
-contextBridge.exposeInMainWorld('electronAPI', {
-  readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
-});
+- `electron/src/ipc/fileHandlers.ts`
+- `electron/src/ipc/reportHandlers.ts`
+- `electron/src/ipc/dashboardHandlers.ts`
+- `electron/src/ipc/codeWindowHandlers.ts`
+- `electron/src/ipc/exportHandlers.ts`
+- `electron/src/ipc/llamaHandlers.ts`
 
-// main.ts
-ipcMain.handle('read-file', async (_event, filePath: string) => {
-  return await fs.promises.readFile(filePath, 'utf-8');
-});
+**Preload側の分割例**:
 
-// React側
-const data = await window.electronAPI.readFile('/path/to/file.json');
-```
+- `electron/src/preload/appBridge.ts`
+- `electron/src/preload/eventBridge.ts`
+- `electron/src/preload/settingsBridge.ts`
+- `electron/src/preload/analysisBridge.ts`
+- `electron/src/preload/playlistBridge.ts`
+- `electron/src/preload/codeWindowBridge.ts`
 
-### IPC通信チャネル一覧
+**Renderer API方針**:
 
-SporTagLyticsで使用される主要なIPCチャネルとその役割:
+- `window.electronAPI` から汎用 `on/off/send` は提供しない
+- `onTimelineUndo`, `onMenuShowStats`, `notifyHotkeysUpdated` など用途別メソッドのみ公開
+- `src` 側で `electron` / `ipcRenderer` の直接 import は禁止
+- playlist / analysis window の IPC 契約は `src/types/ipc/playlistWindow.ts` / `src/types/ipc/analysisWindow.ts` を正本とし、channel 名・payload 型・型ガードを main / preload / renderer で共有する
+- playlist / analysis window の renderer 側入口は `window.electronAPI.playlist` / `window.electronAPI.analysis` に限定し、window 専用イベントを top-level API へ散らさない
+- settings の正規化は `src/types/settings/normalizers.ts` の `normalizeAppSettings` を正本とし、main / renderer で同じ補完ロジックを重複させない
+- settings の正規化ロジックは `src/types/settings/normalizerUtils.ts` / `dashboardNormalizers.ts` / `codingPanelNormalizers.ts` に責務分割し、公開窓口は `normalizers.ts` に維持する
+- playlist の共有契約は `src/types/playlist/core.ts` / `window.ts` / `api.ts` に分け、`src/types/Playlist.ts` は公開 facade に留める
+- `src/types` の下位構成は `analysis/`, `timeline/`, `video/`, `package/`, `playlist/`, `settings/`, `ipc/` のようにユースケースで切る
+- `analysis/core.ts` のような抽象ディレクトリ名は優先しない。`view.ts`, `momentum.ts`, `matrix.ts` のように実際の契約名をそのままファイル名に使う
+- root 直下の `src/types/*.ts` は互換 facade とみなし、新規の実体は use-case 配下へ追加する
+- Renderer の複雑な hook は `Controller/Hook -> Gateway/Helper -> View/Domain` に分け、IPC 登録・payload 正規化・state 適用を同一関数へ詰め込まない
+- 例: playlist window は gateway + data/interaction runtime、audio sync は stage helper + orchestration に分割する
+- `App.tsx` は app shell の view switch のみに留め、hash / Electron event / external open は shared hook に抽出する
+- `localStorage` や Electron menu sync は feature hook へ直書きせず、gateway / storage helper に寄せる
+- preload の `on/off` ペアは typed listener store を介して wrapper を管理し、`as unknown as Function` に依存しない
+- menu 系 listener も cleanup 関数を返す typed 登録 API に統一し、`removeAllListeners` を使った singleton listener 上書きは行わない
+- preload の playlist / analysis bridge は outbound / inbound の両方向で payload guard を通し、無効 payload を main / renderer に流さない
+- main process の window 系 handler は `electron/src/ipc/windowSenderGuards.ts` を通して sender を検証し、main window / sub window の送信元境界を明確に分ける
+- shared domain の大きい集計関数は facade と builder 群に分け、stat family 単位で責務を切り出す
+- timeline import/export は gateway と pure service に分け、menu 購読・dialog・serialize/deserialize を 1 hook に詰め込まない
+- clip export の共通契約は `src/shared/clipExport/` に置き、playlist / timeline 両方の source 解決・multi/all-angles 実行・payload 型をそこへ集約する
+- analysis dashboard import/export は controller 直下で I/O しない。dialog / read-write は gateway、JSON parse / 正規化 / ID 重複解消は pure service に分離する
+- Video.js の既存 player 参照と時刻操作は feature 内 adapter に寄せ、hook ごとに独自 cast を持ち込まない
 
-| チャネル名                    | 方向          | データ型                 | 用途                                     |
-| ----------------------------- | ------------- | ------------------------ | ---------------------------------------- |
-| `analysis:open-window`        | Renderer→Main | なし                     | 統計・分析ウィンドウを開く               |
-| `analysis:close-window`       | Renderer→Main | なし                     | 統計・分析ウィンドウを閉じる             |
-| `analysis:is-window-open`     | Renderer→Main | なし                     | 統計・分析ウィンドウの開閉状態を確認     |
-| `analysis:jump-to-segment`    | Analysis→Main | `TimelineSegment`        | メインプレイヤーの特定時刻へジャンプ     |
-| `analysis:create-ai-playlist` | Analysis→Main | `AIPlaylistPayload`      | AI分析結果からプレイリストを作成         |
-| `playlist:sync`               | Main→Playlist | `PlaylistSyncData`       | プレイリストデータを同期                 |
-| `playlist:command`            | Main→Playlist | `PlaylistCommand`        | プレイリスト操作コマンド（再生・停止等） |
-| `playlist:request-save`       | Main→Playlist | なし                     | プレイリストの保存をリクエスト           |
-| `playlist:window-closed`      | Main→Renderer | `windowId: string`       | プレイリストウィンドウが閉じられた通知   |
-| `jump-to-time`                | Playlist→Main | `number` (seconds)       | メインプレイヤーの指定時刻へジャンプ     |
-| `jump-to-item`                | Playlist→Main | `PlaylistItem`           | プレイリストアイテムへジャンプ           |
-| `read-file`                   | Renderer→Main | `filePath: string`       | ファイル読み込み                         |
-| `write-file`                  | Renderer→Main | `filePath, data: string` | ファイル書き込み                         |
-| `open-directory`              | Renderer→Main | なし                     | ディレクトリ選択ダイアログを開く         |
-| `open-file`                   | Renderer→Main | なし                     | ファイル選択ダイアログを開く             |
-| `export-timeline`             | Renderer→Main | `filePath, format`       | タイムラインをエクスポート               |
-| `llama:generate`              | Renderer→Main | `LlamaGenerateRequest`   | LLM推論をリクエスト                      |
-| `llama:cancel`                | Renderer→Main | `requestId: string`      | LLM推論をキャンセル                      |
-| `llama:progress`              | Main→Renderer | `LlamaProgressEvent`     | LLM推論の進捗通知                        |
-| `settings:get`                | Renderer→Main | `key: string`            | 設定値を取得                             |
-| `settings:set`                | Renderer→Main | `key: string, value`     | 設定値を保存                             |
-| `check-file-exists`           | Renderer→Main | `filePath: string`       | ファイル存在確認                         |
-| `get-app-version`             | Renderer→Main | なし                     | アプリバージョン取得                     |
-| `extract-video-clip`          | Renderer→Main | `ClipExportRequest`      | 映像クリップ書き出し（FFmpeg使用）       |
+**ローカルファイルアクセス方針**:
 
-**注**: 全てのIPCチャネルは `contextBridge` を介して安全に公開されます（`contextIsolation: true`）。
+- `fetch(filePath)` は使用しない
+- `readJsonFile` / `readTextFile` / `readBinaryFile` を利用
+- `src/utils` は pure function / pure helper に限定し、Electron I/O は feature の controller / gateway 側へ置く
+
+**セキュリティ既定**:
+
+- 全 BrowserWindow: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `webSecurity: true`
+- `electron/src/windowSecurity.ts` で `window.open` 拒否と不要ナビゲーション拒否を適用
+- IPC handler で payload/sender 検証を実施
+
+### 運用補助
+
+- 月次の巨大ファイル残件レポート:
+  `pnpm run report:large-files`
+- アーキテクチャ準拠率レポート:
+  `pnpm run report:architecture-health`
+- 長期的な設計判断:
+  `docs/adr/`
 
 ### 状態管理
 
@@ -384,18 +431,22 @@ SporTagLyticsで使用される主要なIPCチャネルとその役割:
 
 - `ActionPresetContext`: アクションプリセット
 - `NotificationContext`: 通知システム
-- `PlaylistContext`: プレイリスト状態
 - `ThemeModeContext`: テーマ切替
 
 **カスタムフック**:
 
 - `useSettings`: Electron設定の読み書き
-- `useVideoPlayerApp`: 映像プレイヤー全体の状態管理
+- `useVideoPlayerScreenController`: 映像プレイヤー全体の状態管理
 - `useTimelineViewport`: タイムラインのズーム・スクロール
 - `useTimelineInteractions`: タイムラインのインタラクション
 - `useGlobalHotkeys`: グローバルホットキー
 
 ### コンポーネント設計（責務分離）
+
+- `Screen`: feature の入口。画面構成と feature 合成を担当
+- `Controller/Hook`: 状態管理、ユースケース、外部連携、副作用を担当
+- `View`: props と callback だけで描画できる UI。`window.electronAPI` / URL / 永続化へ直接依存しない
+- `Gateway`: Electron・URL・永続化など外部境界の薄い抽象化
 
 ```typescript
 // ❌ Bad: ビューとロジックが混在
@@ -438,78 +489,40 @@ function TimelineEditor() {
 
 プロジェクト全体で使用される主要なカスタムフックと役割:
 
-| フック名                  | ファイルパス                                           | 用途                                         |
-| ------------------------- | ------------------------------------------------------ | -------------------------------------------- |
-| `useVideoPlayerApp`       | `src/hooks/useVideoPlayerApp.ts`                       | アプリ全体の状態管理（映像・タイムライン等） |
-| `useSettings`             | `src/hooks/useSettings.ts`                             | Electron設定の読み書き                       |
-| `useGlobalHotkeys`        | `src/hooks/useGlobalHotkeys.ts`                        | グローバルホットキー登録・解除               |
-| `useTimelineViewport`     | `src/hooks/videoPlayer/useTimelineViewport.ts`         | タイムラインのズーム・スクロール制御         |
-| `useTimelineInteractions` | `src/hooks/videoPlayer/useTimelineInteractions.ts`     | タイムラインのマウス操作（選択・ドラッグ等） |
-| `useTimelineEditDraft`    | `src/hooks/videoPlayer/useTimelineEditDraft.ts`        | タイムライン編集の一時保存                   |
-| `useTimelineValidation`   | `src/hooks/videoPlayer/useTimelineValidation.ts`       | タイムライン変更のバリデーション             |
-| `useTimelineHistory`      | `src/hooks/videoPlayer/useTimelineHistory.ts`          | Undo/Redo履歴管理                            |
-| `useTimelinePersistence`  | `src/hooks/videoPlayer/useTimelinePersistence.ts`      | タイムラインの永続化（自動保存）             |
-| `useSyncActions`          | `src/hooks/videoPlayer/useSyncActions.ts`              | 音声同期操作（再実行・リセット・手動同期等） |
-| `useMatrixAxes`           | `src/features/videoPlayer/components/MatrixTab/hooks/` | クロス集計マトリクスの軸設定                 |
-| `useMatrixFilters`        | `src/features/videoPlayer/components/MatrixTab/hooks/` | クロス集計のフィルタ管理                     |
-| `useActionBreakdown`      | `src/features/videoPlayer/components/Dashboard/hooks/` | ダッシュボードのアクション内訳計算           |
-| `useUnsavedTabSwitch`     | `src/pages/SettingsPage.tsx`                           | 未保存変更検知とタブ切り替え確認             |
-| `useHotkeyBindings`       | `src/pages/settings/components/HotkeySettings/`        | ホットキー設定の管理と競合チェック           |
+| フック名                         | ファイルパス                                                           | 用途                                         |
+| -------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------- |
+| `useVideoPlayerScreenController` | `src/features/videoPlayer/app/hooks/useVideoPlayerScreenController.ts` | video player 画面の状態管理                  |
+| `useSettings`                    | `src/hooks/useSettings.ts`                                             | Electron設定の読み書き                       |
+| `useGlobalHotkeys`               | `src/hooks/useGlobalHotkeys.ts`                                        | グローバルホットキー登録・解除               |
+| `useTimelineHistory`             | `src/features/videoPlayer/app/hooks/useTimelineHistory.ts`             | Undo/Redo履歴管理                            |
+| `useTimelinePersistence`         | `src/features/videoPlayer/app/hooks/useTimelinePersistence.ts`         | タイムラインの永続化（自動保存）             |
+| `useSyncActions`                 | `src/features/videoPlayer/app/hooks/useSyncActions.ts`                 | 音声同期操作（再実行・リセット・手動同期等） |
+| `useUnsavedTabSwitch`            | `src/features/settings/hooks/useUnsavedTabSwitch.ts`                   | 未保存変更検知とタブ切り替え確認             |
+| `useHotkeySettingsController`    | `src/features/settings/components/useHotkeySettingsController.ts`      | ホットキー設定の管理と競合チェック           |
 
 ### 主要ユーティリティ関数一覧
 
-共通処理を提供するユーティリティ関数:
+共通処理の主な配置は次の通りです。古い root-level utility 名を前提にせず、現行の domain / feature 配置を確認してください。
 
-| 関数名                      | ファイルパス                             | 用途                                     |
-| --------------------------- | ---------------------------------------- | ---------------------------------------- |
-| `formatTime`                | `src/utils/formatTime.ts`                | 秒数を "HH:MM:SS" 形式に変換             |
-| `parseTimeString`           | `src/utils/parseTimeString.ts`           | "HH:MM:SS" 形式を秒数に変換              |
-| `calculateDuration`         | `src/utils/calculateDuration.ts`         | 開始・終了時刻から継続時間を計算         |
-| `extractLabels`             | `src/utils/extractLabels.ts`             | タイムラインからラベル一覧を抽出         |
-| `buildCrossTabMatrix`       | `src/utils/buildCrossTabMatrix.ts`       | クロス集計マトリクスを構築               |
-| `replaceTeamPlaceholders`   | `src/utils/replaceTeamPlaceholders.ts`   | `${Team1}` / `${Team2}` をチーム名に置換 |
-| `checkHotkeyConflicts`      | `src/utils/checkHotkeyConflicts.ts`      | ホットキー競合をチェック                 |
-| `convertToSCTimeline`       | `src/utils/convertToSCTimeline.ts`       | TimelineData → SCTimeline形式に変換      |
-| `convertFromSCTimeline`     | `src/utils/convertFromSCTimeline.ts`     | SCTimeline → TimelineData形式に変換      |
-| `filterTimelineByDateRange` | `src/utils/filterTimelineByDateRange.ts` | 時間範囲でタイムラインをフィルタ         |
-| `groupTimelineByAction`     | `src/utils/groupTimelineByAction.ts`     | アクション別にタイムラインをグループ化   |
-| `calculatePossessionStats`  | `src/utils/calculatePossessionStats.ts`  | ポゼッション統計を計算                   |
-| `exportToCSV`               | `src/utils/exportToCSV.ts`               | タイムラインをCSV形式でエクスポート      |
-| `sanitizeFilename`          | `src/utils/sanitizeFilename.ts`          | ファイル名から不正な文字を除去           |
-
-**使用例**:
-
-```typescript
-import { formatTime } from '@/utils/formatTime';
-import { buildCrossTabMatrix } from '@/utils/buildCrossTabMatrix';
-
-const timeString = formatTime(125.5); // "00:02:05"
-const matrix = buildCrossTabMatrix(timeline, 'action', 'result');
-```
+| Domain                 | Current location                                                    | Notes                                       |
+| ---------------------- | ------------------------------------------------------------------- | ------------------------------------------- |
+| timeline import/export | `src/features/videoPlayer/app/utils/timelineImportExportService.ts` | UI hook から serialize / deserialize を分離 |
+| SCTimeline conversion  | `src/utils/scTimelineConverter.ts`                                  | Sportscode 互換変換                         |
+| timeline CSV / JSON    | `src/utils/timelineExport.ts`                                       | app timeline format / CSV                   |
+| label extraction       | `src/utils/labelExtractors.ts`                                      | labels 中心モデルの抽出                     |
+| matrix build/export    | `src/utils/matrixBuilder.ts`, `src/utils/matrixExport.ts`           | クロス集計と CSV/XLSX 出力                  |
+| clip export            | `src/shared/clipExport/`                                            | source validation / execution plan          |
+| analysis shared domain | `src/shared/analysis/`                                              | event insights / AI context / chart data    |
+| report generation      | `src/report/`                                                       | analysis report data and pagination         |
+| audio sync             | `src/utils/AudioSyncAnalyzer.ts`, `src/utils/audioSync/`            | waveform decode / sync analysis             |
 
 ---
 
 ## テストとデバッグ
 
-### ユニットテスト（Jest + React Testing Library）
+テスト運用の詳細は [Testing and Quality Gates](testing.md) を参照してください。
 
-```typescript
-import { render, screen, fireEvent } from '@testing-library/react';
-import { TimelineEditor } from './TimelineEditor';
-
-test('タイムラインエディタが正しくレンダリングされる', () => {
-  render(<TimelineEditor data={mockData} />);
-  expect(screen.getByRole('button', { name: '削除' })).toBeInTheDocument();
-});
-
-test('イベントをクリックすると選択される', () => {
-  const onSelect = jest.fn();
-  render(<TimelineEditor data={mockData} onSelect={onSelect} />);
-
-  fireEvent.click(screen.getByText('パス'));
-  expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ action: 'パス' }));
-});
-```
+現行 test runner は Vitest です。新規 test は `vitest` から `describe`, `it`, `expect`, `vi` を import します。React hook / component test では `@testing-library/react` を使い、DOM が必要な場合は `/* @vitest-environment jsdom */` を付けます。
 
 ### デバッグ
 
@@ -527,46 +540,33 @@ test('イベントをクリックすると選択される', () => {
 
 ## リリースプロセス
 
-### バージョニング（Semantic Versioning）
+リリース手順の正本は [.github/RELEASE.md](../.github/RELEASE.md) です。Homebrew Cask の詳細は [homebrew-distribution.md](homebrew-distribution.md) を参照してください。
 
-- `MAJOR`: 互換性のない変更
-- `MINOR`: 後方互換性のある機能追加
-- `PATCH`: 後方互換性のあるバグ修正
-
-### リリース手順
-
-1. **バージョン更新**:
-
-```bash
-pnpm version minor
-```
-
-2. **CHANGELOG更新**:
-
-- `CHANGELOG.md` に変更内容を記載
-
-3. **ビルド & テスト**:
+ローカル確認の最低限:
 
 ```bash
 pnpm run build
-pnpm test
-pnpm exec tsc --noEmit
+pnpm exec tsc -p electron/tsconfig.json
+pnpm run bundle:preload
+pnpm run check:preload
+pnpm run electron:package:mac
 ```
 
-4. **Git タグ**:
+---
 
-```bash
-git add .
-git commit -m "chore: release v<version>"
-git tag v<version>
-git push origin <default-branch> --tags
-```
+## ドキュメント運用
 
-5. **GitHub Release**:
-
-- GitHub上でReleaseを作成
-- CHANGELOGから変更内容をコピー
-- ビルド成果物を添付
+- ドキュメント入口は [docs/README.md](README.md)。
+- ドキュメント運用ルールは [docs/documentation-guide.md](documentation-guide.md)。
+- 実装変更時の更新先は [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix) に従う。
+- ディレクトリ構成と配置判断は [docs/project-structure.md](project-structure.md)。
+- 長期的な設計判断は [docs/adr/README.md](adr/README.md) に ADR として記録する。
+- ADR の採番、命名、更新 lifecycle は [ADR Operations](documentation-guide.md#adr-operations) に従う。
+- ADR を追加、リネーム、状態変更した場合は `pnpm run check:adr` を実行する。
+- 実装規約の正本は [AGENTS.md](../AGENTS.md)。`.github/instructions/*.instructions.md` には差分ルールだけを書く。
+- ユーザー影響または設計変更がある PR では、`docs/system-overview.md` と `docs/development.md` の同期要否を確認する。
+- docs 更新不要の場合も PR に理由を記載する。
+- 新規ドキュメントを追加した場合は `docs/README.md` に掲載する。
 
 ---
 
@@ -595,9 +595,17 @@ pnpm add -D electron
 
 ## 内部ドキュメント
 
+- [ドキュメント索引](README.md)
 - [システム概要](system-overview.md)
+- [プロジェクト構成](project-structure.md)
+- [ADR](adr/README.md)
+- [ドキュメント運用ガイド](documentation-guide.md)
+- [Testing and Quality Gates](testing.md)
 - [技術仕様](requirement.md)
 - [設計ガイド](design-system.md)
+- [AI Analysis and Local LLM Setup](ai-analysis.md)
+- [Analysis Report Export](analysis-report.md)
+- [Privacy and Data Handling](privacy-and-data-handling.md)
 - [プレイリスト機能実装](playlist-features.md)
 - [コードウィンドウ設定実装](code-window-settings.md)
 - [音声同期オフセット仕様](audio-sync-offset-specification.md)

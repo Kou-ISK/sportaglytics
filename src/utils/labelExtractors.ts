@@ -1,9 +1,25 @@
-import type { TimelineData } from '../types/TimelineData';
-import type { SCLabel } from '../types/SCTimeline';
+import type { TimelineData } from '../types/timeline/core';
+import type { SCLabel } from '../types/timeline/sportscode';
 
 const normalizeActionName = (value: string): string => {
   if (!value) return '';
-  return value.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/\u3000/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+type LegacyTimelineData = TimelineData & {
+  actionType?: unknown;
+  actionResult?: unknown;
+};
+
+const getLegacyLabelValue = (
+  item: TimelineData,
+  key: 'actionType' | 'actionResult',
+): string | undefined => {
+  const value = (item as LegacyTimelineData)[key];
+  return typeof value === 'string' && value.trim() ? value : undefined;
 };
 
 /**
@@ -12,26 +28,30 @@ const normalizeActionName = (value: string): string => {
  */
 export const getLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
   const labels: SCLabel[] = item.labels ? [...item.labels] : [];
+  const legacyActionType = getLegacyLabelValue(item, 'actionType');
+  const legacyActionResult = getLegacyLabelValue(item, 'actionResult');
 
-  // 後方互換性: labels配列が存在しない場合はactionType/actionResultから生成
+  // 後方互換性: labels配列が存在しない場合は旧フィールドから生成
   if (labels.length === 0) {
-    if (item.actionType) {
-      labels.push({ name: item.actionType, group: 'actionType' });
+    if (legacyActionType) {
+      labels.push({ name: legacyActionType, group: 'actionType' });
     }
-    if (item.actionResult) {
-      labels.push({ name: item.actionResult, group: 'actionResult' });
+    if (legacyActionResult) {
+      labels.push({ name: legacyActionResult, group: 'actionResult' });
     }
     return labels;
   }
 
-  // labels配列がある場合でも、actionType/actionResultが欠けていれば補完する
+  // labels配列がある場合でも、旧フィールド値があれば補完する
   const hasActionType = labels.some((label) => label.group === 'actionType');
-  if (!hasActionType && item.actionType) {
-    labels.push({ name: item.actionType, group: 'actionType' });
+  if (!hasActionType && legacyActionType) {
+    labels.push({ name: legacyActionType, group: 'actionType' });
   }
-  const hasActionResult = labels.some((label) => label.group === 'actionResult');
-  if (!hasActionResult && item.actionResult) {
-    labels.push({ name: item.actionResult, group: 'actionResult' });
+  const hasActionResult = labels.some(
+    (label) => label.group === 'actionResult',
+  );
+  if (!hasActionResult && legacyActionResult) {
+    labels.push({ name: legacyActionResult, group: 'actionResult' });
   }
 
   return labels;

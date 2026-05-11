@@ -1,15 +1,15 @@
 /**
- * @deprecated PDFエクスポートでは非使用（データ駆動PDFへ移行済み）。
- * PNGスナップショット用途の後方互換として残置。
+ * スクロール領域を分割キャプチャして、PNG エクスポート用の
+ * 連結可能なスナップショット群へ変換する utility。
  */
-export interface CaptureRect {
+interface CaptureRect {
   x: number;
   y: number;
   width: number;
   height: number;
 }
 
-export interface FullCaptureSlice {
+interface FullCaptureSlice {
   offsetLeft: number;
   offsetTop: number;
   width: number;
@@ -19,9 +19,9 @@ export interface FullCaptureSlice {
 
 type CaptureRegionFn = (rect: CaptureRect) => Promise<string | null>;
 
-export type HorizontalCaptureMode = 'off' | 'auto' | 'force';
+type HorizontalCaptureMode = 'off' | 'auto' | 'force';
 
-export interface CaptureScrollableContentOptions {
+interface CaptureScrollableContentOptions {
   horizontal?: HorizontalCaptureMode;
 }
 
@@ -282,66 +282,4 @@ export const stitchCapturedSlicesIntoParts = async (
   }
 
   return parts;
-};
-
-export const stitchCapturedSlices = async (
-  slices: FullCaptureSlice[],
-): Promise<string | null> => {
-  const parts = await stitchCapturedSlicesIntoParts(
-    slices,
-    Number.MAX_SAFE_INTEGER,
-  );
-  if (parts.length !== 1) return null;
-  return parts[0] ?? null;
-};
-
-export const sliceImageForA4Pages = async (
-  imageDataUrl: string,
-  pageWidthPx: number,
-  pageHeightPx: number,
-): Promise<string[]> => {
-  const image = await loadImage(imageDataUrl);
-  const pageCount = computeA4PageCount(
-    image.width,
-    image.height,
-    pageWidthPx,
-    pageHeightPx,
-  );
-
-  if (pageCount === 0) return [];
-
-  const pages: string[] = [];
-  const sourcePageHeight = (pageHeightPx * image.width) / pageWidthPx;
-
-  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
-    const sourceY = Math.floor(pageIndex * sourcePageHeight);
-    const sourceHeight = Math.max(
-      1,
-      Math.min(image.height - sourceY, Math.ceil(sourcePageHeight)),
-    );
-    const targetHeight = Math.floor((sourceHeight * pageWidthPx) / image.width);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.floor(pageWidthPx));
-    canvas.height = Math.max(1, Math.floor(pageHeightPx));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) continue;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(
-      image,
-      0,
-      sourceY,
-      image.width,
-      sourceHeight,
-      0,
-      0,
-      canvas.width,
-      Math.max(1, targetHeight),
-    );
-    pages.push(canvas.toDataURL('image/png'));
-  }
-
-  return pages;
 };

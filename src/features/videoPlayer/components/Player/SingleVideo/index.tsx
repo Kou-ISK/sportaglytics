@@ -17,5 +17,3 @@ export const MemoizedSingleVideoPlayer = React.memo(
     return true;
   },
 );
-
-export type { SingleVideoPlayerProps } from './types';

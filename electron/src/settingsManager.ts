@@ -1,85 +1,18 @@
-import { app, ipcMain, BrowserWindow } from 'electron';
+import { app, ipcMain, BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import {
-  DEFAULT_SETTINGS,
-  type AppSettings,
-  // normalizeはデフォルトレイアウトを最新にするために利用
-} from '../../src/types/Settings';
-import {
-  normalizeCodingPanelLayouts,
-  normalizeAnalysisDashboard,
-} from '../../src/types/Settings';
+import { DEFAULT_SETTINGS } from '../../src/types/settings/defaults';
+import { normalizeAppSettings } from '../../src/types/settings/normalizers';
+import type { AppSettings } from '../../src/types/settings/coreTypes';
 
-const buildCodingPanel = (
-  loadedPanel?: AppSettings['codingPanel'] | null,
-): NonNullable<AppSettings['codingPanel']> => {
-  const defaultCodingPanel =
-    DEFAULT_SETTINGS.codingPanel ??
-    ({
-      defaultMode: 'code',
-      toolbars: [],
-      actionLinks: [],
-      codeWindows: [],
-    } as NonNullable<AppSettings['codingPanel']>);
+type UnknownRecord = Record<string, unknown>;
 
-  const panel: Partial<NonNullable<AppSettings['codingPanel']>> =
-    loadedPanel ?? {};
-
-  const codeWindows =
-    (panel as any).codeWindows && (panel as any).codeWindows.length > 0
-      ? (panel as any).codeWindows
-      : (panel as any).layouts && (panel as any).layouts.length > 0
-        ? (panel as any).layouts
-        : (defaultCodingPanel.codeWindows ?? []);
-  const activeCodeWindowId =
-    (panel as any).activeCodeWindowId ??
-    (panel as any).activeLayoutId ??
-    defaultCodingPanel.activeCodeWindowId ??
-    codeWindows[0]?.id;
-
-  return {
-    ...defaultCodingPanel,
-    ...panel,
-    defaultMode: panel.defaultMode ?? defaultCodingPanel.defaultMode ?? 'code',
-    toolbars:
-      panel.toolbars?.filter((t) => t.mode === 'code' || t.mode === 'label') ??
-      defaultCodingPanel.toolbars ??
-      [],
-    actionLinks: panel.actionLinks ?? defaultCodingPanel.actionLinks ?? [],
-    codeWindows,
-    activeCodeWindowId,
-  };
+const isPlainObject = (value: unknown): value is UnknownRecord => {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
-const normalizeAiAnalysis = (
-  input?: AppSettings['aiAnalysis'] | null,
-): NonNullable<AppSettings['aiAnalysis']> => {
-  const defaultAiAnalysis =
-    DEFAULT_SETTINGS.aiAnalysis ?? ({
-      provider: 'llama.cpp',
-      baseUrl: 'http://localhost:11434',
-      model: 'auto',
-      temperature: 0.2,
-      topK: 40,
-      embeddingEnabled: false,
-      teamLabelGroup: '',
-      retrieverPreset: 'balanced',
-    } as NonNullable<AppSettings['aiAnalysis']>);
-
-  const merged = { ...defaultAiAnalysis, ...(input ?? {}) };
-  const model =
-    typeof merged.model === 'string' && merged.model.trim()
-      ? merged.model
-      : 'auto';
-  const preset =
-    merged.retrieverPreset === 'labels' ||
-    merged.retrieverPreset === 'memo' ||
-    merged.retrieverPreset === 'time' ||
-    merged.retrieverPreset === 'balanced'
-      ? merged.retrieverPreset
-      : 'balanced';
-  return { ...merged, model, provider: 'llama.cpp', retrieverPreset: preset };
+const isErrnoException = (value: unknown): value is NodeJS.ErrnoException => {
+  return isPlainObject(value) && typeof value.code === 'string';
 };
 
 /**
@@ -90,25 +23,23 @@ const getSettingsPath = (): string => {
   return path.join(userDataPath, 'settings.json');
 };
 
-/**
- * 有効なホットキーIDのセット
- */
-const VALID_HOTKEY_IDS = new Set([
-  'resync-audio',
-  'reset-sync',
-  'manual-sync',
-  'toggle-manual-mode',
-  'analyze',
-  'undo',
-  'redo',
-  'skip-forward-small',
-  'skip-forward-medium',
-  'skip-forward-large',
-  'skip-forward-xlarge',
-  'skip-backward-medium',
-  'skip-backward-large',
-  'play-pause',
-]);
+const getValidatedSenderWindow = (
+  event: IpcMainInvokeEvent,
+): BrowserWindow | null => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (!senderWindow || senderWindow.isDestroyed()) {
+    return null;
+  }
+  return senderWindow;
+};
+
+const broadcastSettingsUpdated = (settings: AppSettings): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    if (!window.isDestroyed()) {
+      window.webContents.send('settings:updated', settings);
+    }
+  });
+};
 
 /**
  * 設定を読み込む
@@ -117,53 +48,21 @@ export const loadSettings = async (): Promise<AppSettings> => {
   const settingsPath = getSettingsPath();
   try {
     const data = await fs.readFile(settingsPath, 'utf-8');
-    const parsed = JSON.parse(data) as Partial<AppSettings>;
-
-    // デフォルト設定とマージして不足項目を補完
-    const merged: AppSettings = {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
-      overlayClip: {
-        ...DEFAULT_SETTINGS.overlayClip,
-        ...(parsed.overlayClip ?? {}),
-      },
-      aiAnalysis: normalizeAiAnalysis(parsed.aiAnalysis),
-      codingPanel: normalizeCodingPanelLayouts(
-        buildCodingPanel(parsed.codingPanel),
-      ),
-      analysisDashboard: normalizeAnalysisDashboard(parsed.analysisDashboard),
-    };
-
-    // 古い/無効なホットキーをフィルタリング
-    if (merged.hotkeys && merged.hotkeys.length > 0) {
-      merged.hotkeys = merged.hotkeys.filter((hotkey) =>
-        VALID_HOTKEY_IDS.has(hotkey.id),
-      );
-
-      // フィルタリング後にホットキーが空の場合はデフォルトを使用
-      if (merged.hotkeys.length === 0) {
-        merged.hotkeys = DEFAULT_SETTINGS.hotkeys;
-      }
-    } else {
-      merged.hotkeys = DEFAULT_SETTINGS.hotkeys;
-    }
-
-    return merged;
+    return normalizeAppSettings(JSON.parse(data) as unknown);
   } catch (error) {
-    // ファイルが存在しない場合はデフォルト設定を保存して返す
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    if (isErrnoException(error) && error.code === 'ENOENT') {
       console.info(
         'Settings file not found (first launch), creating with defaults',
       );
-      // デフォルト設定を保存（非同期だが待たない）
-      saveSettings(DEFAULT_SETTINGS).catch((saveError) => {
-        console.error('Failed to save default settings:', saveError);
-      });
+      void saveSettings(normalizeAppSettings(DEFAULT_SETTINGS)).catch(
+        (saveError) => {
+          console.error('Failed to save default settings:', saveError);
+        },
+      );
     } else {
-      // その他のエラー（パースエラー等）
       console.warn('Settings file invalid, using defaults:', error);
     }
-    return DEFAULT_SETTINGS;
+    return normalizeAppSettings(DEFAULT_SETTINGS);
   }
 };
 
@@ -172,13 +71,15 @@ export const loadSettings = async (): Promise<AppSettings> => {
  */
 export const saveSettings = async (settings: AppSettings): Promise<boolean> => {
   const settingsPath = getSettingsPath();
+  const normalizedSettings = normalizeAppSettings(settings);
   try {
-    // ディレクトリが存在しない場合は作成
     const dir = path.dirname(settingsPath);
     await fs.mkdir(dir, { recursive: true });
-
-    const data = JSON.stringify(settings, null, 2);
-    await fs.writeFile(settingsPath, data, 'utf-8');
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify(normalizedSettings, null, 2),
+      'utf-8',
+    );
     return true;
   } catch (error) {
     console.error('Failed to save settings:', error);
@@ -189,27 +90,38 @@ export const saveSettings = async (settings: AppSettings): Promise<boolean> => {
 /**
  * IPCハンドラを登録
  */
-export const registerSettingsHandlers = () => {
-  ipcMain.handle('settings:load', async () => {
+export const registerSettingsHandlers = (): void => {
+  ipcMain.handle('settings:load', async (event) => {
+    if (!getValidatedSenderWindow(event)) {
+      throw new Error('Invalid settings load sender');
+    }
+
     return await loadSettings();
   });
 
-  ipcMain.handle('settings:save', async (_event, settings: AppSettings) => {
-    const ok = await saveSettings(settings);
+  ipcMain.handle('settings:save', async (event, settings: unknown) => {
+    if (!getValidatedSenderWindow(event) || !isPlainObject(settings)) {
+      return false;
+    }
+
+    const normalizedSettings = normalizeAppSettings(settings);
+    const ok = await saveSettings(normalizedSettings);
     if (ok) {
-      // 設定変更を他ウィンドウへ通知（コードウィンドウ切替など）
-      BrowserWindow.getAllWindows().forEach((win) => {
-        if (!win.isDestroyed()) {
-          win.webContents.send('settings:updated', settings);
-        }
-      });
+      broadcastSettingsUpdated(normalizedSettings);
     }
     return ok;
   });
 
-  ipcMain.handle('settings:reset', async () => {
-    // デフォルト設定に戻す
-    await saveSettings(DEFAULT_SETTINGS);
-    return DEFAULT_SETTINGS;
+  ipcMain.handle('settings:reset', async (event) => {
+    if (!getValidatedSenderWindow(event)) {
+      throw new Error('Invalid settings reset sender');
+    }
+
+    const defaultSettings = normalizeAppSettings(DEFAULT_SETTINGS);
+    const ok = await saveSettings(defaultSettings);
+    if (ok) {
+      broadcastSettingsUpdated(defaultSettings);
+    }
+    return defaultSettings;
   });
 };

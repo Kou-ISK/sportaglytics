@@ -1,4 +1,4 @@
-import type { SCLabel } from '../../../../types/SCTimeline';
+import type { SCLabel } from '../../../../types/timeline/sportscode';
 
 export interface EvidenceItem {
   id: string;
@@ -45,13 +45,6 @@ export interface AiCopilotResponse {
   hypotheses: AiHypothesis[];
   evidenceHighlights: AiEvidenceHighlight[];
   recommendedClips: AiRecommendedClip[];
-}
-
-export interface AiCopilotParseResult {
-  response: AiCopilotResponse;
-  warnings: string[];
-  rawText: string;
-  usedFallback: boolean;
 }
 
 export interface AiClipSegment {

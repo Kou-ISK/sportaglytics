@@ -1,14 +1,14 @@
-import type { MatrixAxisConfig } from '../types/MatrixConfig';
-import type { MomentumSegment } from '../types/Analysis';
+import type { MatrixAxisConfig } from '../types/analysis/matrix';
+import type { MomentumSegment } from '../types/analysis/momentum';
 import type {
   AnalysisDashboardConfig,
   DashboardCalcMode,
   DashboardChartType,
   DashboardMetric,
   DashboardSeriesFilter,
-} from '../types/Settings';
-import type { TimelineData } from '../types/TimelineData';
-import type { MatrixFilterState } from '../features/videoPlayer/components/Analytics/AnalysisPanel/view/hooks/matrixFilterUtils';
+} from '../types/settings/coreTypes';
+import type { TimelineData } from '../types/timeline/core';
+import type { MatrixFilterState } from '../shared/analysis/matrixFilterUtils';
 
 export interface AnalysisReportMeta {
   generatedAt: string;

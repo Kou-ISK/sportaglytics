@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
-import { Box } from '@mui/material';
-import type { AnnotationTarget, ItemAnnotation } from '../../../types/Playlist';
+import type {
+  AnnotationTarget,
+  ItemAnnotation,
+} from '../../../types/playlist/core';
 import type { AnnotationCanvasRef } from './AnnotationCanvas';
 import { PlaylistAngleLayer } from './PlaylistAngleLayer';
 import { PlaylistDrawingTargetToggle } from './PlaylistDrawingTargetToggle';
@@ -15,29 +17,30 @@ type ContentRect = {
 type CanvasSize = { width: number; height: number };
 
 type PlaylistVideoCanvasProps = {
-  currentVideoSource: string | null;
   currentVideoSource2: string | null;
   viewMode: 'dual' | 'angle1' | 'angle2';
   isDrawingMode: boolean;
   drawingTarget: AnnotationTarget;
   onDrawingTargetChange: (value: AnnotationTarget) => void;
-  annotationCanvasRefPrimary: React.RefObject<AnnotationCanvasRef>;
-  annotationCanvasRefSecondary: React.RefObject<AnnotationCanvasRef>;
+  annotationCanvasRefPrimary: React.RefObject<AnnotationCanvasRef | null>;
+  annotationCanvasRefSecondary: React.RefObject<AnnotationCanvasRef | null>;
   primaryCanvasSize: CanvasSize;
   secondaryCanvasSize: CanvasSize;
   primaryContentRect: ContentRect;
   secondaryContentRect: ContentRect;
-  currentAnnotation?: ItemAnnotation;
+  currentAnnotation?: ItemAnnotation | null;
   defaultFreezeDuration: number;
-  onObjectsChange: (objects: ItemAnnotation['objects'], target: AnnotationTarget) => void;
+  onObjectsChange: (
+    objects: ItemAnnotation['objects'],
+    target: AnnotationTarget,
+  ) => void;
   onFreezeDurationChange: (duration: number) => void;
   currentTime: number;
-  videoRef: React.RefObject<HTMLVideoElement>;
-  videoRef2: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoRef2: React.RefObject<HTMLVideoElement | null>;
 };
 
 export const PlaylistVideoCanvas = ({
-  currentVideoSource,
   currentVideoSource2,
   viewMode,
   isDrawingMode,
@@ -106,7 +109,9 @@ export const PlaylistVideoCanvas = ({
         drawingTarget={drawingTarget}
         target="primary"
         initialObjects={primaryObjects}
-        freezeDuration={currentAnnotation?.freezeDuration ?? defaultFreezeDuration}
+        freezeDuration={
+          currentAnnotation?.freezeDuration ?? defaultFreezeDuration
+        }
         onObjectsChange={onObjectsChange}
         onFreezeDurationChange={onFreezeDurationChange}
         currentTime={currentTime}
@@ -119,9 +124,7 @@ export const PlaylistVideoCanvas = ({
             left: isDualView ? '50%' : 0,
             width: isDualView ? '50%' : '100%',
             height: '100%',
-            borderLeft: isDualView
-              ? '1px solid rgba(255,255,255,0.2)'
-              : 'none',
+            borderLeft: isDualView ? '1px solid rgba(255,255,255,0.2)' : 'none',
             zIndex: viewMode === 'angle1' ? -1 : 0,
             pointerEvents: viewMode === 'angle1' ? 'none' : 'auto',
           }}
@@ -139,7 +142,9 @@ export const PlaylistVideoCanvas = ({
           drawingTarget={drawingTarget}
           target="secondary"
           initialObjects={secondaryObjects}
-          freezeDuration={currentAnnotation?.freezeDuration ?? defaultFreezeDuration}
+          freezeDuration={
+            currentAnnotation?.freezeDuration ?? defaultFreezeDuration
+          }
           onObjectsChange={onObjectsChange}
           onFreezeDurationChange={onFreezeDurationChange}
           currentTime={currentTime}

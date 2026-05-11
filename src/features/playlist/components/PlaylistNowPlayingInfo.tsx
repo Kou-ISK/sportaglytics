@@ -2,8 +2,8 @@ import React from 'react';
 import { Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { Brush, PauseCircle, PlayArrow } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
-import type { PlaylistItem } from '../../../types/Playlist';
-import type { ItemAnnotation } from '../../../types/Playlist';
+import type { PlaylistItem } from '../../../types/playlist/core';
+import type { ItemAnnotation } from '../../../types/playlist/core';
 
 type PlaylistNowPlayingInfoProps = {
   currentItem: PlaylistItem;

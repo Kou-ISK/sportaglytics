@@ -1,7 +1,10 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
-import type { AnnotationTarget, ItemAnnotation } from '../../../types/Playlist';
+import type {
+  AnnotationTarget,
+  ItemAnnotation,
+} from '../../../types/playlist/core';
 import AnnotationCanvas, { AnnotationCanvasRef } from './AnnotationCanvas';
 
 type ContentRect = {
@@ -15,9 +18,9 @@ type CanvasSize = { width: number; height: number };
 
 type PlaylistAngleLayerProps = {
   boxSx: SxProps<Theme>;
-  videoRef: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   videoStyle: React.CSSProperties;
-  annotationCanvasRef: React.RefObject<AnnotationCanvasRef>;
+  annotationCanvasRef: React.RefObject<AnnotationCanvasRef | null>;
   canvasSize: CanvasSize;
   contentRect: ContentRect;
   isDrawingMode: boolean;
@@ -25,7 +28,10 @@ type PlaylistAngleLayerProps = {
   target: AnnotationTarget;
   initialObjects?: ItemAnnotation['objects'];
   freezeDuration: number;
-  onObjectsChange: (objects: ItemAnnotation['objects'], target: AnnotationTarget) => void;
+  onObjectsChange: (
+    objects: ItemAnnotation['objects'],
+    target: AnnotationTarget,
+  ) => void;
   onFreezeDurationChange: (duration: number) => void;
   currentTime: number;
 };

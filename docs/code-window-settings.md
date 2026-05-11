@@ -569,6 +569,6 @@ const handleDuplicateLayout = useCallback((layout: CodeWindowLayout) => {
 
 - [system-overview.md](./system-overview.md): 全体アーキテクチャ
 - [requirement.md](./requirement.md): 機能要件
-- [Settings.ts](../src/types/Settings.ts): 設定型定義
-- [CodeWindowSettings.tsx](../src/pages/settings/components/CodeWindowSettings/CodeWindowSettings.tsx): 実装
-- [FreeCanvasEditor.tsx](../src/pages/settings/components/CodeWindowSettings/FreeCanvasEditor.tsx): エディタ実装
+- [coreTypes.ts](../src/types/settings/coreTypes.ts): 設定型定義
+- [CodeWindowSettings.tsx](../src/features/settings/components/CodeWindowSettings/CodeWindowSettings.tsx): 実装
+- [FreeCanvasEditor.tsx](../src/features/settings/components/CodeWindowSettings/FreeCanvasEditor.tsx): エディタ実装

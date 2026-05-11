@@ -48,19 +48,6 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
           ? 1
           : 0;
 
-  // [DEBUG] videoList の状態を確認
-  console.log('[SyncedVideoPlayer] Render:', {
-    videoList,
-    videoListLength: videoList?.length,
-    safeVideoListLength: safeVideoList.length,
-    syncMode: props.syncMode,
-    isManualMode,
-    forceUpdateKey,
-    viewMode: effectiveViewMode,
-    firstVideo: safeVideoList[0],
-    secondVideo: safeVideoList[1],
-  });
-
   // useSyncedVideoPlayer は全てのモードで常に呼び出す（React Hooks のルール）
   const {
     blockPlayStates,

@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 import type {
   AnnotationTarget,
   DrawingObject,
-} from '../../../../types/Playlist';
+} from '../../../../types/playlist/core';
 import { generateAnnotationId } from '../../components/annotationCanvasUtils';
 
 interface UseAnnotationActionsParams {
@@ -115,7 +115,13 @@ export const useAnnotationActions = ({
     setCurrentObject(null);
     onObjectsChange?.([], target);
     setSelectedObjectId(null);
-  }, [onObjectsChange, setCurrentObject, setObjects, setSelectedObjectId, target]);
+  }, [
+    onObjectsChange,
+    setCurrentObject,
+    setObjects,
+    setSelectedObjectId,
+    target,
+  ]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -132,7 +138,14 @@ export const useAnnotationActions = ({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isActive, onObjectsChange, selectedObjectId, setObjects, setSelectedObjectId, target]);
+  }, [
+    isActive,
+    onObjectsChange,
+    selectedObjectId,
+    setObjects,
+    setSelectedObjectId,
+    target,
+  ]);
 
   return {
     handleTextSubmit,

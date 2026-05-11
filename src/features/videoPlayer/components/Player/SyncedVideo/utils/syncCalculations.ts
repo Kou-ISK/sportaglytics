@@ -2,9 +2,7 @@ const OFFSET_EPSILON = 0.05;
 
 const clampToZero = (value: number) => (value < 0 ? 0 : value);
 
-export const isNegativeOffset = (offset: number) => offset < -OFFSET_EPSILON;
-
-export const isPositiveOffset = (offset: number) => offset > OFFSET_EPSILON;
+const isNegativeOffset = (offset: number) => offset < -OFFSET_EPSILON;
 
 export const calculateAdjustedCurrentTimes = (
   videoList: string[],
@@ -47,5 +45,3 @@ export const calculateBlockStates = ({
 
   return videoList.map(() => false);
 };
-
-export const SYNC_EPSILON = OFFSET_EPSILON;

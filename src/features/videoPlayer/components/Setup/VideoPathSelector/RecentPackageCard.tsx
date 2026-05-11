@@ -14,7 +14,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import CloseIcon from '@mui/icons-material/Close';
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { RecentPackage } from './hooks/useRecentPackages';
+import type { RecentPackage } from './types';
 
 interface RecentPackageCardProps {
   package: RecentPackage;

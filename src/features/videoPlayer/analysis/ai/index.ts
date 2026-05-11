@@ -1,5 +1,4 @@
 export * from './types';
-export * from './embeddings';
 export * from './evidenceIndex';
 export * from './retriever';
 export * from './llmProvider';

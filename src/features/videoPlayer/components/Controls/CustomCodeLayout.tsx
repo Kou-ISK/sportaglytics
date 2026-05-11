@@ -1,7 +1,10 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
-import type { CodeWindowLayout, CodeWindowButton } from '../../../../types/Settings';
+import type {
+  CodeWindowLayout,
+  CodeWindowButton,
+} from '../../../../types/settings/coreTypes';
 import {
   replaceTeamPlaceholders,
   type TeamContext,
@@ -14,7 +17,7 @@ type CustomCodeLayoutProps = {
   primaryAction: string | null;
   activeLabelButtons: Record<string, boolean>;
   isRecording: boolean;
-  layoutContainerRef: React.RefObject<HTMLDivElement>;
+  layoutContainerRef: React.RefObject<HTMLDivElement | null>;
   layoutContainerWidth: number;
   onButtonClick: (button: CodeWindowButton) => void;
 };
@@ -30,7 +33,8 @@ export const CustomCodeLayout = ({
   layoutContainerWidth,
   onButtonClick,
 }: CustomCodeLayoutProps) => {
-  const containerWidth = layoutContainerWidth || Math.max(1, layout.canvasWidth);
+  const containerWidth =
+    layoutContainerWidth || Math.max(1, layout.canvasWidth);
   const scale = containerWidth / layout.canvasWidth;
   const containerHeight = layout.canvasHeight * scale;
 
@@ -53,7 +57,8 @@ export const CustomCodeLayout = ({
           teamContext,
         );
         const isActive =
-          button.type === 'action' && Boolean(activeRecordings[resolvedButtonName]);
+          button.type === 'action' &&
+          Boolean(activeRecordings[resolvedButtonName]);
         const isSelected = isActive || primaryAction === resolvedButtonName;
         const isLabelSelected =
           button.type === 'label' && activeLabelButtons[button.id];
@@ -102,7 +107,9 @@ export const CustomCodeLayout = ({
               overflow: 'hidden',
               '&:hover': {
                 backgroundColor:
-                  isSelected || isLabelSelected ? buttonColor : `${buttonColor}22`,
+                  isSelected || isLabelSelected
+                    ? buttonColor
+                    : `${buttonColor}22`,
               },
               '&:active': {
                 transform: 'scale(0.98)',

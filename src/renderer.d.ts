@@ -1,13 +1,12 @@
-import type { IPlaylistAPI, PlaylistItem } from './types/Playlist';
-import type { TimelineData } from './types/TimelineData';
-import type { AnalysisView } from './features/videoPlayer/components/Analytics/AnalysisPanel/AnalysisPanel';
+import type { IPlaylistAPI } from './types/playlist/api';
+import type { AnalysisView } from './types/analysis/view';
 import type { AnalysisReportPayload } from './report/types';
-
-export interface AnalysisWindowSyncPayload {
-  timeline: TimelineData[];
-  teamNames: string[];
-  view?: AnalysisView;
-}
+import type { AppSettings } from './types/settings/coreTypes';
+import type { IAnalysisWindowAPI } from './types/ipc/analysisWindow';
+import type {
+  ClipExportExecutionResult,
+  ClipExportPayload,
+} from './shared/clipExport/clipExportTypes';
 
 export interface LlamaModelInfo {
   name: string;
@@ -31,16 +30,22 @@ export interface IElectronAPI {
     }>,
     metaDataConfig: unknown,
   ) => Promise<PackageDatas>;
-  on(
-    channel: 'analysis:jump-to-segment',
-    listener: (event: unknown, segment: TimelineData) => void,
-  ): void;
-  on(channel: string, listener: (event: unknown, args: unknown) => void): void;
-  off(
-    channel: 'analysis:jump-to-segment',
-    listener: (event: unknown, segment: TimelineData) => void,
-  ): void;
-  off(channel: string, listener: (...args: unknown[]) => void): void;
+  onMenuShowStats: (
+    callback: (requestedView?: AnalysisView) => void,
+  ) => () => void;
+  onTimelineUndo: (callback: () => void) => () => void;
+  onTimelineRedo: (callback: () => void) => () => void;
+  onMenuExportAnalysisRawCsv: (callback: () => void) => () => void;
+  onMenuShowShortcuts: (callback: () => void) => () => void;
+  onMenuExportClips: (callback: () => void) => () => void;
+  notifyHotkeysUpdated: () => void;
+  onAnalysisReportPayload: (
+    callback: (message: {
+      requestId?: string;
+      payload?: AnalysisReportPayload;
+    }) => void,
+  ) => () => void;
+  notifyAnalysisReportRenderReady: (requestId: string) => void;
   // メニューからの音声同期イベント
   onResyncAudio: (callback: () => void) => void;
   onResetSync: (callback: () => void) => void;
@@ -64,38 +69,25 @@ export interface IElectronAPI {
   ) => Promise<boolean>;
   setManualModeChecked: (checked: boolean) => Promise<boolean>;
   setLabelModeChecked: (checked: boolean) => Promise<boolean>;
-  onToggleLabelMode: (callback: (checked: boolean) => void) => void;
+  onToggleLabelMode: (callback: (checked: boolean) => void) => () => void;
   convertConfigToRelativePath: (packagePath: string) => Promise<{
     success: boolean;
     config?: Record<string, unknown>;
     error?: string;
   }>;
   // 設定管理API
-  loadSettings: () => Promise<unknown>;
-  saveSettings: (settings: unknown) => Promise<boolean>;
-  send: (channel: string, ...args: unknown[]) => void;
-  resetSettings: () => Promise<unknown>;
+  loadSettings: () => Promise<AppSettings>;
+  saveSettings: (settings: AppSettings) => Promise<boolean>;
+  resetSettings: () => Promise<AppSettings>;
   onOpenSettings: (callback: () => void) => void;
   offOpenSettings: (callback: () => void) => void;
   onSettingsUpdated: (
-    callback: (settings: import('./types/Settings').AppSettings) => void,
+    callback: (settings: AppSettings) => void,
   ) => (() => void) | void;
   openSettingsWindow: () => Promise<void>;
   closeSettingsWindow: () => Promise<void>;
   isSettingsWindowOpen: () => Promise<boolean>;
-  analysis: {
-    openWindow: () => Promise<void>;
-    closeWindow: () => Promise<void>;
-    isWindowOpen: () => Promise<boolean>;
-    syncToWindow: (payload: AnalysisWindowSyncPayload) => void;
-    onSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
-    offSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
-    sendJumpToSegment: (segment: TimelineData) => void;
-    sendCreateAiPlaylist: (payload: {
-      name: string;
-      items: PlaylistItem[];
-    }) => void;
-  };
+  analysis: IAnalysisWindowAPI;
   llama: {
     generate: (payload: {
       prompt: string;
@@ -120,35 +112,9 @@ export interface IElectronAPI {
     offProgress: (callback: (payload: unknown) => void) => void;
   };
   setWindowTitle: (title: string) => void;
-  exportClipsWithOverlay?: (payload: {
-    sourcePath: string;
-    sourcePath2?: string;
-    mode?: 'single' | 'dual';
-    exportMode?: 'single' | 'perInstance' | 'perRow';
-    angleOption?: 'allAngles' | 'single' | 'multi';
-    outputDir?: string;
-    outputFileName?: string;
-    clips: Array<{
-      id: string;
-      actionName: string;
-      startTime: number;
-      endTime: number;
-      freezeAt?: number | null;
-      freezeDuration?: number;
-      labels?: { group: string; name: string }[];
-      memo?: string;
-      actionIndex?: number;
-      annotationPngPrimary?: string | null;
-      annotationPngSecondary?: string | null;
-    }>;
-    overlay: {
-      enabled: boolean;
-      showActionName: boolean;
-      showActionIndex: boolean;
-      showLabels: boolean;
-      showMemo: boolean;
-    };
-  }) => Promise<{ success: boolean; error?: string }>;
+  exportClipsWithOverlay?: (
+    payload: ClipExportPayload,
+  ) => Promise<ClipExportExecutionResult>;
   saveFileDialog: (
     defaultPath: string,
     filters: { name: string; extensions: string[] }[],
@@ -176,16 +142,19 @@ export interface IElectronAPI {
     payload: AnalysisReportPayload,
   ) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<string | null>;
+  readBinaryFile: (filePath: string) => Promise<string | null>;
   saveDashboardPackage: (
     packagePath: string,
     content: string,
   ) => Promise<boolean>;
   readDashboardPackage: (packagePath: string) => Promise<string | null>;
-  onExportTimeline: (callback: (format: string) => void) => void;
-  onImportTimeline: (callback: () => void) => void;
-  onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => void;
-  onOpenPackage: (callback: () => void) => void;
-  onOpenRecentPackage: (callback: (path: string) => void) => void;
+  onExportTimeline: (callback: (format: string) => void) => () => void;
+  onImportTimeline: (callback: () => void) => () => void;
+  onCodingModeChange: (
+    callback: (mode: 'code' | 'label') => void,
+  ) => () => void;
+  onOpenPackage: (callback: () => void) => () => void;
+  onOpenRecentPackage: (callback: (path: string) => void) => () => void;
   updateRecentPackages: (paths: string[]) => void;
   // プレイリストAPI
   playlist: IPlaylistAPI;

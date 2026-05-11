@@ -2,13 +2,10 @@ import { useEffect } from 'react';
 import type {
   ItemAnnotation,
   PlaylistItem,
-  PlaylistSyncData,
   PlaylistType,
-} from '../../../../types/Playlist';
-import {
-  resolveViewModeForItems,
-  resolveViewModeForSources,
-} from '../../utils/viewMode';
+} from '../../../../types/playlist/core';
+import { registerPlaylistIpcHandlers } from './playlistIpcGateway';
+import { buildPlaylistSyncSnapshot } from './playlistSyncSnapshot';
 
 interface UsePlaylistIpcSyncParams {
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
@@ -40,66 +37,46 @@ export const usePlaylistIpcSync = ({
   setViewMode,
   setSaveProgress,
   setIsDirty,
-}: UsePlaylistIpcSyncParams) => {
+}: UsePlaylistIpcSyncParams): void => {
   useEffect(() => {
-    const playlistAPI = window.electronAPI?.playlist;
-    if (!playlistAPI) {
-      console.debug('[PlaylistWindow] playlist API unavailable for IPC sync');
-      return;
-    }
-
-    const handlePlaylistSync = (data: PlaylistSyncData) => {
-      console.log('[PlaylistWindow] Received sync data:', data);
-      const activePlaylist = data.state.playlists.find(
-        (p) => p.id === data.state.activePlaylistId,
-      );
-      if (activePlaylist) {
-        // ファイル読み込み時は履歴に追加しない（usePlaylistHistoryが自動処理）
-        setItemsWithHistory(activePlaylist.items);
-        setPlaylistName(activePlaylist.name);
-        setHasUnsavedChanges(false);
-        // Load annotations from items
-        const annotations: Record<string, ItemAnnotation> = {};
-        for (const item of activePlaylist.items) {
-          if (item.annotation) {
-            annotations[item.id] = item.annotation;
-          }
-        }
-        setItemAnnotations(annotations);
-        setPlaylistType(activePlaylist.type);
-        setPackagePath(activePlaylist.packagePath || null);
-        setVideoSources(activePlaylist.videoSources || []);
-
-        const hasEmbeddedSources = (data.videoSources || []).length > 0;
-        if (hasEmbeddedSources) {
-          setViewMode(resolveViewModeForSources(data.videoSources));
-        } else {
-          setViewMode(
-            resolveViewModeForItems(
-              activePlaylist.items,
-              data.state.playingItemId,
-            ),
-          );
-        }
+    const handlePlaylistSync = (
+      data: Parameters<typeof buildPlaylistSyncSnapshot>[0],
+    ): void => {
+      const snapshot = buildPlaylistSyncSnapshot(data);
+      if (!snapshot) {
+        return;
       }
+
+      setItemsWithHistory(snapshot.items);
+      setPlaylistName(snapshot.playlistName);
+      setHasUnsavedChanges(snapshot.hasUnsavedChanges);
+      setItemAnnotations(snapshot.itemAnnotations);
+      setPlaylistType(snapshot.playlistType);
+      setPackagePath(snapshot.packagePath);
+      setVideoSources(snapshot.videoSources);
+      setViewMode(snapshot.viewMode);
     };
 
-    const handleSaveProgress = (data: { current: number; total: number }) => {
+    const handleSaveProgress = (data: {
+      current: number;
+      total: number;
+    }): void => {
       setSaveProgress(data);
     };
 
-    const handleAddItem = (item: PlaylistItem) => {
+    const handleAddItem = (item: PlaylistItem): void => {
       setItemsWithHistory((prev: PlaylistItem[]) => [...prev, item]);
       setHasUnsavedChanges(true);
       setIsDirty(true);
     };
 
-    let unsubscribeSaveProgress: (() => void) | undefined;
+    let cleanup = (): void => {};
     try {
-      playlistAPI.onSync(handlePlaylistSync);
-      unsubscribeSaveProgress = playlistAPI.onSaveProgress(handleSaveProgress);
-      playlistAPI.onAddItem(handleAddItem);
-      playlistAPI.sendCommand({ type: 'request-sync' });
+      cleanup = registerPlaylistIpcHandlers({
+        onSync: handlePlaylistSync,
+        onSaveProgress: handleSaveProgress,
+        onAddItem: handleAddItem,
+      });
     } catch (error: unknown) {
       console.debug(
         '[PlaylistWindow] Failed to register playlist IPC handlers',
@@ -109,9 +86,7 @@ export const usePlaylistIpcSync = ({
 
     return () => {
       try {
-        playlistAPI.offSync(handlePlaylistSync);
-        playlistAPI.offAddItem(handleAddItem);
-        unsubscribeSaveProgress?.();
+        cleanup();
       } catch (error: unknown) {
         console.debug(
           '[PlaylistWindow] Failed to cleanup playlist IPC handlers',

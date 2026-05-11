@@ -1,93 +1,183 @@
 # SporTagLytics AGENTS Guide
 
-## 目的と適用範囲
-このドキュメントは、SporTagLytics の AI 支援開発（Codex / Copilot / 各種エージェント）に適用する実装規約です。
-最優先事項は **保守性・可読性・責務分離** です。
+このファイルは本リポジトリの AI 実装規約の正本です。
+
+## 目的
+
+最優先は次の 4 点です。
+
+1. 保守性
+2. 可読性
+3. 責務分離
+4. 安全性（型安全 / Electron セキュリティ）
+
+## 指示ファイル設計（重要）
+
+1. `AGENTS.md`:
+   全エージェント共通の不変ルール（アーキテクチャ、品質ゲート、セキュリティ）。
+2. `.github/copilot-instructions.md`:
+   Copilot 向けの入口ガイド（正本参照 + 適用順序 + 実行手順）。
+3. `.github/instructions/*.instructions.md`:
+   `applyTo` の差分ルールのみ。
+4. `.github/technical-instructions.md`:
+   背景メモのみ（規約本文の重複禁止）。
+5. `docs/adr/`:
+   長期的な設計判断の記録（規約本文ではなく判断背景）。
+6. `docs/README.md` / `docs/documentation-guide.md`:
+   ドキュメント索引と運用ルール。
 
 ## 規約の優先順位
-規約が競合した場合は、次の順で優先します。
 
-1. `AGENTS.md`（本ファイル）
+1. `AGENTS.md`
 2. `.github/copilot-instructions.md`
 3. `.github/instructions/*.instructions.md`
 4. `.github/technical-instructions.md`
 
-## 技術基準（現行実装）
-- React 19 系（関数コンポーネントのみ）
-- TypeScript 5.4 系（`strict: true`）
-- Electron 40 系
-- Material UI 7 系
-- Video.js 8 系
-- pnpm 9 系
+## 規約の強度
 
-## ディレクトリ責務
-- `electron/src`: Main process。ウィンドウ管理、IPC handler、ファイル I/O、OS 依存処理。
-- `src/pages`: 画面単位のコンテナ。Feature の組み合わせと画面遷移を担当。
-- `src/features`: 機能単位モジュール。UI・hooks・utils を機能責務で保持。
-- `src/components`: 複数 feature/page で再利用する共通 UI。
-- `src/hooks`: 複数 feature/page で再利用する共通 hook。
-- `src/utils`: 複数 feature/page で再利用する純粋関数・ユーティリティ。
-- `src/types`: 共有型定義。
-- `src/contexts`: グローバルな React Context。
-- `src/renderer.d.ts`: `window.electronAPI` など Renderer 側の公開型。
+- `MUST`: 必須。違反は修正対象。
+- `SHOULD`: 推奨。明確な理由がある場合のみ逸脱可。
+- `MAY`: 任意。
 
-## 依存方向ルール
-依存方向は次を原則とします。
+## 技術基準（固定）
 
-- `pages -> features -> shared`
-- `shared` は `src/components`, `src/hooks`, `src/utils`, `src/types`, `src/contexts`（必要に応じて `src/shared` を追加）
+- React 19（関数コンポーネントのみ）
+- TypeScript 5.4（`strict: true`）
+- Electron 40
+- Material UI 7
+- Video.js 8
+- pnpm 9
 
-禁止事項:
-- `features -> pages` の依存
-- feature 内部実装への他 feature からの直接 import
+## アーキテクチャ方針
 
-許可事項:
-- 共通コンポーネント・共通型・共通 hook・共通 util の横断利用
+- `MUST`: Feature-First を維持する（`pages -> features -> shared`）。
+- `MUST`: feature 外から feature を参照する場合は `src/features/<feature>/index.ts` のみ使う。
+- `MUST`: `shared -> features` と `features -> pages` を禁止する。
+- `MUST`: `pages` はルーティングと feature 合成に限定する。
+- `MUST`: `src/features/**` では機能責務で分割し、Atomic 分類で構成しない。
+- `MUST`: 再利用対象または複雑な UI は `Screen / Controller(or Hook) / View` で責務を分離する。
+- `MUST`: Electron・URL・永続化などの外部依存は `Gateway/Adapter` または `Controller/Hook` に閉じ込め、`View` から直接触れさせない。
 
-feature 間で再利用が必要な場合:
-1. まず共通化を検討し、`shared` 層へ抽出する。
-2. 例外を作る場合は、理由・範囲・解消予定を PR に明記する。
+## Atomic Design の扱い
 
-## 命名規約
-- Component: `PascalCase`（例: `VideoPlayerLayout.tsx`）
-- Hook: `useXxx`（例: `useTimelineViewport.ts`）
-- util/service module: `camelCase`（例: `timelineExport.ts`）
-- Type / Interface / Enum: `PascalCase`
-- 定数: `UPPER_SNAKE_CASE`
+- `MUST`: Atomic Design をアプリ全体のフォルダ規約として強制しない。
+- `MUST`: Atomic Design は共通 UI 設計（design system）のメンタルモデルとしてのみ利用する。
+- `MUST`: 共通 UI の採用範囲は `src/components/ui` に限定する。
+- `SHOULD`: `src/components/ui` は `primitives / composites / patterns` で整理する。
+- `MAY`: atoms/molecules/organisms の語彙を補助的に使用してもよい。
 
-## 実装規約
-### TypeScript
-- `any` は原則禁止。不可避の場合のみ理由コメントを添える。
-- `unknown` を使い、型ガードで絞り込む。
-- exported 関数は戻り値型を明示する。
-- 根拠のない `as` 断定キャストを禁止する。
-- 型 import は `import type` を優先する。
+## TypeScript 実装規約
 
-### React
-- Container / Hook / View の責務を分離する。
-- `useEffect` は依存配列を完全に記述し、クリーンアップを実装する。
-- 重い計算・ハンドラは `useMemo` / `useCallback` で安定化する。
-- 空状態・エラー状態を明示する（例: Placeholder / Alert / Snackbar）。
+- `MUST`: `any` を禁止（不可避時は理由コメント必須）。
+- `MUST`: exported 関数は戻り値型を明示する。
+- `MUST`: 型 import は `import type` を使う。
+- `MUST`: 根拠のない `as` 断定キャストを禁止する。
+- `SHOULD`: `unknown` + 型ガードで絞り込む。
+- `SHOULD`: 互換フィールドは型へ残さず、ロード時マイグレーションで吸収する。
 
-### UI (MUI)
-- スタイルは `sx` + テーマ経由を基本とする。
-- 色・余白・タイポグラフィのハードコードを避け、`src/theme.ts` を参照する。
+## React 実装規約
 
-### Electron / IPC
-- Renderer から Electron 機能を使う経路は `window.electronAPI` のみ。
-- `src` 側で `electron` / `ipcRenderer` を直接 import しない。
-- IPC の型定義は `src/renderer.d.ts` を正として更新する。
+- `MUST`: 空状態・エラー状態を明示する。
+- `MUST`: `useEffect` は依存配列を省略せず、必要な cleanup を実装する。
+- `MUST`: 状態源を最小化し、派生値は計算で表現する。
+- `SHOULD`: 重い派生値は `useMemo`、イベントハンドラは `useCallback` で安定化する。
 
-## 既存逸脱コードの扱い
-- 理想構成を規約として維持する。
-- ただし通常の機能開発では、既存コードを無理に全面移行しない。
-- 既存逸脱の解消は「専用リファクタ」タスクで計画的に実施する。
+## UI / Storybook 対応規約
 
-## 変更時チェックリスト
-- [ ] 変更が責務境界を壊していない（`pages -> features -> shared`）。
-- [ ] 新規の feature 間直接依存を作っていない。
-- [ ] 型安全性を維持している（`any` 追加なし、危険な cast なし）。
-- [ ] Renderer の Electron 呼び出しが `window.electronAPI` 経由である。
-- [ ] ユーザー影響がある場合、`docs/` の関連文書を更新した。
-- [ ] 最低限 `pnpm exec tsc --noEmit` を実行した。
-- [ ] 最低限 `pnpm exec tsc -p electron/tsconfig.json` を実行した。
+- `MUST`: Storybook の対象となる UI は `View` とし、props だけで描画可能にする。
+- `MUST`: `pages` と `Screen` は story の主対象にしない。story の主対象は `src/components/ui` と feature 配下の `View` コンポーネントに限定する。
+- `MUST`: `View` は `window.electronAPI`、IPC 呼び出し、URL/hash 読み取り、直接永続化、`BrowserWindow` 前提の分岐に依存しない。
+- `MUST`: `View` はアプリ全体の状態源を内包しない。必要な状態と操作は `Controller/Hook` から props と callback で受け取る。
+- `MUST`: `src/components/ui` は shared UI に限定し、feature 固有 hook・feature 固有 state・Electron 依存を持ち込まない。
+- `SHOULD`: Provider が必要な UI は `Screen` または decorator で注入できる構造にし、`View` 自体を provider 必須にしない。
+- `SHOULD`: Story 用の fixture / mock data は `shared/testing` または各 feature 配下の `testing` / `fixtures` に置き、`View` が本番 IPC に依存しなくても表示できるようにする。
+
+## Electron / IPC 規約
+
+- `MUST`: Renderer からの Electron 呼び出しは `window.electronAPI` のみ。
+- `MUST`: `src` 側で `electron` / `ipcRenderer` を直接 import しない。
+- `MUST`: preload は最小公開面のみを公開し、汎用イベントバス API（汎用 `on/off/send`）を増やさない。
+- `MUST`: IPC payload と sender を検証する。
+- `MUST`: IPC 型定義の正本は `src/renderer.d.ts`。
+- `MUST`: `window.electronAPI` の使用箇所は `Screen` / `Controller/Hook` / `Gateway` に限定し、`View` と `src/components/ui` から直接呼ばない。
+
+## Electron セキュリティ基準
+
+全 BrowserWindow で以下を適用する。
+
+- `contextIsolation: true`
+- `sandbox: true`
+- `nodeIntegration: false`
+- `webSecurity: true`
+- 不要なナビゲーション / `window.open` を拒否
+
+## ファイル分割方針（Soft Budget）
+
+- `MUST`: 行数に関係なく、`UI描画` と `IPC/永続化` と `ドメイン計算` の同居を禁止する。
+- `MUST`: Story 化対象の UI を追加・変更する場合、描画専用 `View` と外部依存を持つ層を同一ファイルに同居させない。
+- `MUST`: 変更対象ファイルが巨大かつ責務混在している場合は、同PRで最低1段の分割を行う。
+- `SHOULD`: 目安として `TSX <= 300行`, `TS <= 450行` を維持する。
+- `MAY`: 既存巨大ファイルは、触る範囲で段階分割する（全面一括移行しない）。
+- `MUST`: 行数は Warn Only とし、CI fail 条件にはしない。
+
+## 例外管理
+
+- `MUST`: 例外は `docs/architecture-exceptions.md` に記録する。
+- `MUST`: 例外には `理由 / 影響範囲 / 解消期限 / 担当` を含める。
+
+## ADR / ドキュメント運用
+
+- `MUST`: 仕様・設計・ユーザー影響・開発手順・配置判断が変わる場合は、同一 PR で該当ドキュメントを更新する。
+- `MUST`: 長期的な設計判断を追加・変更する場合は `docs/adr/` に ADR を追加または更新する。
+- `MUST`: ADR の採番・命名・状態変更は `docs/documentation-guide.md` の ADR Operations に従う。
+- `MUST`: ADR ファイル名には 4 桁ゼロ埋め ID を含め、ADR 変更時は `pnpm run check:adr` を実行する。
+- `MUST`: 新規ドキュメントを追加する場合は `docs/README.md` から辿れるようにする。
+- `MUST`: ドキュメント運用は `docs/documentation-guide.md` に従う。
+- `MUST`: ドキュメント更新不要と判断する場合は、PR で理由を明示する。
+- `SHOULD`: ADR には `Context / Decision / Consequences` を含め、実装差分の羅列ではなく判断背景を残す。
+
+## 旧実装の扱い
+
+- `MUST`: deprecated 経路・未使用コード・`.old` ファイルは削除対象。
+- `MUST`: 既存データ互換はロード時マイグレーションで担保する。
+- `MUST`: 保存形式は最新モデルへ統一する。
+
+## 品質ゲート（CI fail 条件）
+
+```bash
+pnpm exec tsc --noEmit
+pnpm exec tsc -p electron/tsconfig.json
+pnpm run lint
+pnpm run check:architecture
+pnpm run test:run
+```
+
+## レポート運用
+
+- `SHOULD`: 月次で巨大ファイル残件レポートを生成し、優先順位を更新する。
+- `SHOULD`: `pnpm run report:large-files` の結果をリファクタ計画へ反映する。
+
+## ドキュメント同期
+
+- `MUST`: `docs/documentation-guide.md` の Docs Impact Matrix に従って更新先を判断する。
+- `MUST`: ユーザー影響・設計変更がある場合は `docs/system-overview.md` と `docs/development.md` を更新する。
+- `MUST`: 長期的な設計判断がある場合は `docs/adr/` を更新する。
+- `MUST`: 新規ドキュメントを追加した場合は `docs/README.md` を更新する。
+- `MUST`: ディレクトリ構成・配置判断を変更した場合は `docs/project-structure.md` を更新する。
+
+## PR チェックリスト
+
+- [ ] 依存方向違反がない（`pages -> features -> shared`）。
+- [ ] feature 公開面（`src/features/<feature>/index.ts`）経由 import に統一されている。
+- [ ] Renderer の Electron 呼び出しが `window.electronAPI` 経由のみ。
+- [ ] Electron セキュリティ基準を満たしている。
+- [ ] 変更ファイルの責務分離（`Screen / Controller(or Hook) / View / Gateway` または同等）を説明できる。
+- [ ] Story 対象 UI が `View` として分離され、`window.electronAPI` / URL / 永続化へ直接依存していない。
+- [ ] `src/components/ui` に feature 固有依存または Electron 依存を持ち込んでいない。
+- [ ] 例外がある場合は `docs/architecture-exceptions.md` に記録した。
+- [ ] 設計判断がある場合は `docs/adr/` に記録した。
+- [ ] ADR を追加・更新した場合は ADR Operations に従い、`docs/adr/README.md` を更新した。
+- [ ] 新規ドキュメントがある場合は `docs/README.md` に追加した。
+- [ ] ディレクトリ構成・配置判断が変わる場合は `docs/project-structure.md` を更新した。
+- [ ] ドキュメント更新不要の場合は PR に理由を記載した。
+- [ ] 品質ゲート 5 コマンドを全通過。

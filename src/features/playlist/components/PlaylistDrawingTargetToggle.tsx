@@ -1,6 +1,12 @@
 import React from 'react';
-import { Box, Paper, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import type { AnnotationTarget } from '../../../types/Playlist';
+import {
+  Box,
+  Paper,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
+import type { AnnotationTarget } from '../../../types/playlist/core';
 
 type PlaylistDrawingTargetToggleProps = {
   drawingTarget: AnnotationTarget;

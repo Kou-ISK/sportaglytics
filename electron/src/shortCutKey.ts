@@ -1,5 +1,5 @@
 import { BrowserWindow, globalShortcut } from 'electron';
-import type { HotkeyConfig } from '../../src/types/Settings';
+import type { HotkeyConfig } from '../../src/types/settings/coreTypes';
 import { createPlaylistWindow } from './playlistWindow';
 
 /**

@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { TimelineData } from '../../../../../types/TimelineData';
-import type { PlaylistItem } from '../../../../../types/Playlist';
-import { AnalysisPanelView } from './view/AnalysisPanelView';
+import { TimelineData } from '../../../../../types/timeline/core';
+import type { PlaylistItem } from '../../../../../types/playlist/core';
+import type { AnalysisView } from '../../../../../types/analysis/view';
+import { AnalysisPanelView } from './components/AnalysisPanelView';
+import { useAnalysisPanelController } from './controllers/useAnalysisPanelController';
 import { useAnalysisPanelState } from './hooks/useAnalysisPanelState';
-
-export type AnalysisView = 'dashboard' | 'momentum' | 'matrix' | 'ai';
 
 interface AnalysisPanelProps {
   open: boolean;
@@ -35,7 +35,6 @@ export const AnalysisPanel = ({
   onCreateAiPlaylist,
 }: AnalysisPanelProps) => {
   const [currentView, setCurrentView] = useState<AnalysisView>(view);
-  const derivedState = useAnalysisPanelState({ timeline, teamNames });
 
   useEffect(() => {
     setCurrentView(view);
@@ -49,18 +48,19 @@ export const AnalysisPanel = ({
     [onViewChange],
   );
 
-  return (
-    <AnalysisPanelView
-      open={open}
-      onClose={onClose}
-      currentView={currentView}
-      onChangeView={handleChangeView}
-      timeline={timeline}
-      onJumpToSegment={onJumpToSegment}
-      embedded={embedded}
-      isSyncing={isSyncing}
-      onCreateAiPlaylist={onCreateAiPlaylist}
-      {...derivedState}
-    />
-  );
+  const derivedState = useAnalysisPanelState({ timeline, teamNames });
+  const viewProps = useAnalysisPanelController({
+    open,
+    onClose,
+    currentView,
+    onChangeView: handleChangeView,
+    timeline,
+    onJumpToSegment,
+    embedded,
+    isSyncing,
+    onCreateAiPlaylist,
+    ...derivedState,
+  });
+
+  return <AnalysisPanelView {...viewProps} />;
 };

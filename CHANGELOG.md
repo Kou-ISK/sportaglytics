@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Electron package にローカル GGUF model files が混入し、ASAR 制限で package 生成に失敗する問題を修正
+
+### Documentation
+
+- OSS 向け community health files、Issue templates、docs 索引、ADR、ドキュメント運用ガイドを追加
+- README、開発ガイド、AI contributor 向け規約導線を整理
+- ディレクトリ構成と新規ファイル配置判断を `docs/project-structure.md` に明文化
+- ADR と Docs Impact Matrix を追加し、実装変更時のドキュメント同期ルールを制定
+- 音声同期、専用ウィンドウ、タイムライン相互運用、FFmpeg 書き出し、ダッシュボード統合の ADR を追加
+- テスト/品質ゲート、AI 分析 setup、分析レポート export、privacy/data handling の docs を追加し、古い開発・release 記述を同期
+- ADR の採番、命名、状態変更、supersede 関係の運用ルールを明文化
+- ADR ファイル名の ID 必須ルールと `check:adr` による検査を追加
+- LLM model artifact の配布境界 ADR を追加し、公式 package では GGUF model files を除外する方針を明文化
+
 ## [0.5.0] - 2026-02-02
 
 ### Added
