@@ -20,6 +20,7 @@
 7. ADR を追加・更新する場合は `docs/documentation-guide.md` の ADR Operations に従い、`pnpm run check:adr` を実行する。
 8. 仕様・設計・ユーザー影響・開発手順・配置判断が変わる場合は `docs/documentation-guide.md` の Docs Impact Matrix に従って docs を同時更新する。
 9. ドキュメントを追加する場合は `docs/README.md` と `docs/documentation-guide.md` を確認する。
+10. ブランチ名とコミットメッセージは `AGENTS.md` の Git / ブランチ / コミット運用に従う。
 
 ## 品質ゲート
 

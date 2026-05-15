@@ -43,6 +43,7 @@ interface UseTimelineSessionControllerResult {
     ids: string[],
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  duplicateTimelineItem: (id: string) => string | null;
   sortTimelineDatas: (column: string, sortDesc: boolean) => void;
   performUndo: () => TimelineData[] | null;
   performRedo: () => TimelineData[] | null;

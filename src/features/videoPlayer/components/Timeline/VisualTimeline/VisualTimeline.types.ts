@@ -18,6 +18,7 @@ export interface VisualTimelineProps {
     ids: string[],
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  onDuplicateTimelineItem?: (id: string) => string | null;
   teamNames: string[];
   videoSources?: string[];
   onUndo?: () => void;

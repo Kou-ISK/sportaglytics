@@ -24,8 +24,31 @@ interface TimelineEditingHandlers {
     ids: string[],
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  duplicateTimelineItem: (id: string) => string | null;
   sortTimelineDatas: (column: string, sortDesc: boolean) => void;
 }
+
+export const duplicateTimelineItemInList = (
+  timeline: TimelineData[],
+  itemId: string,
+  duplicateId: string,
+): TimelineData[] => {
+  const sourceIndex = timeline.findIndex((item) => item.id === itemId);
+  if (sourceIndex === -1) return timeline;
+
+  const source = timeline[sourceIndex];
+  const duplicate: TimelineData = {
+    ...source,
+    id: duplicateId,
+    labels: source.labels?.map((label) => ({ ...label })),
+  };
+
+  return [
+    ...timeline.slice(0, sourceIndex + 1),
+    duplicate,
+    ...timeline.slice(sourceIndex + 1),
+  ];
+};
 
 export const useTimelineEditing = (
   setTimeline: React.Dispatch<React.SetStateAction<TimelineData[]>>,
@@ -138,6 +161,22 @@ export const useTimelineEditing = (
     [setTimeline],
   );
 
+  const duplicateTimelineItem = useCallback(
+    (id: string): string | null => {
+      const duplicateId = ulid();
+      let duplicated = false;
+
+      setTimeline((prev) => {
+        const next = duplicateTimelineItemInList(prev, id, duplicateId);
+        duplicated = next !== prev;
+        return next;
+      });
+
+      return duplicated ? duplicateId : null;
+    },
+    [setTimeline],
+  );
+
   const sortTimelineDatas = useCallback(
     (column: string, sortDesc: boolean) => {
       setTimeline((prev) => {
@@ -179,6 +218,7 @@ export const useTimelineEditing = (
     updateTimelineRange,
     updateTimelineItem,
     bulkUpdateTimelineItems,
+    duplicateTimelineItem,
     sortTimelineDatas,
   };
 };

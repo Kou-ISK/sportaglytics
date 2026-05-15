@@ -21,6 +21,7 @@ export const useVisualTimelineController = ({
   onUpdateTimeRange,
   onUpdateTimelineItem,
   bulkUpdateTimelineItems,
+  onDuplicateTimelineItem,
   videoSources,
   onUndo,
   onRedo,
@@ -62,6 +63,7 @@ export const useVisualTimelineController = ({
     onUpdateTimelineItem,
     onUpdateMemo,
     onUpdateTimeRange,
+    onDuplicateTimelineItem,
   });
 
   const {
