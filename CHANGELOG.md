@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Electron package にローカル GGUF model files が混入し、ASAR 制限で package 生成に失敗する問題を修正
 - Timeline のコンテキストメニュー「複製」が no-op になっていた問題を修正
 
+### Security
+
+- Dependabot / `pnpm audit` の重要通知に対応し、Electron、Vite、uuid、electron-builder、video.js、wait-on と関連 transitive dependencies を patched version に更新
+- patched version が提供されていない `xlsx` を削除し、Matrix XLSX export を dependency-free な最小 OOXML writer に置換
+
 ### Documentation
 
 - OSS 向け community health files、Issue templates、docs 索引、ADR、ドキュメント運用ガイドを追加
