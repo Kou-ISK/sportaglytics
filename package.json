@@ -21,9 +21,8 @@
     "react-dom": "^19.2.3",
     "recharts": "^3.6.0",
     "ulid": "^3.0.2",
-    "uuid": "^13.0.0",
-    "video.js": "^8.23.4",
-    "xlsx": "^0.18.5",
+    "uuid": "^13.0.2",
+    "video.js": "^8.23.7",
     "zod": "^3.25.76"
   },
   "main": "build/electron/src/main.js",
@@ -74,21 +73,30 @@
     "@typescript-eslint/parser": "^8.53.0",
     "@vitejs/plugin-react": "^5.1.2",
     "concurrently": "^9.2.1",
-    "electron": "^40.0.0",
-    "electron-builder": "^26.4.0",
+    "electron": "^40.10.0",
+    "electron-builder": "^26.8.1",
+    "electron-builder-squirrel-windows": "26.8.1",
     "eslint": "^9.39.2",
     "jsdom": "^27.4.0",
     "prettier": "^3.8.0",
     "typescript": "^5.4.5",
-    "vite": "^7.3.1",
+    "vite": "^7.3.3",
     "vitest": "^4.0.17",
-    "wait-on": "^9.0.3"
+    "wait-on": "^9.0.10"
   },
   "repository": "https://github.com/Kou-ISK/sportaglytics.git",
   "license": "MIT",
   "pnpm": {
     "overrides": {
-      "min-document": "2.19.2"
+      "ajv@6.12.6": "6.15.0",
+      "brace-expansion@1.1.12": "1.1.14",
+      "brace-expansion@2.0.2": "2.1.0",
+      "flatted@3.3.3": "3.4.2",
+      "min-document": "2.19.2",
+      "minimatch@3.1.2": "3.1.5",
+      "minimatch@9.0.5": "9.0.9",
+      "picomatch@4.0.3": "4.0.4",
+      "yaml@1.10.2": "1.10.3"
     }
   }
 }

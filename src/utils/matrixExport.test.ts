@@ -52,10 +52,20 @@ describe('buildMatrixCsv', () => {
 describe('buildMatrixXlsxBase64', () => {
   it('returns non-empty base64 workbook', () => {
     const base64 = buildMatrixXlsxBase64([
-      ['A', 'B'],
-      [1, 2],
+      ['A&B', 'B'],
+      [1, 'x < y'],
     ]);
     expect(typeof base64).toBe('string');
     expect(base64.length).toBeGreaterThan(20);
+    const decoded = atob(base64);
+    expect(decoded.charCodeAt(0)).toBe(0x50);
+    expect(decoded.charCodeAt(1)).toBe(0x4b);
+    expect(decoded.charCodeAt(2)).toBe(0x03);
+    expect(decoded.charCodeAt(3)).toBe(0x04);
+    expect(decoded).toContain('[Content_Types].xml');
+    expect(decoded).toContain('xl/worksheets/sheet1.xml');
+    expect(decoded).toContain('A&amp;B');
+    expect(decoded).toContain('<v>1</v>');
+    expect(decoded).toContain('x &lt; y');
   });
 });
