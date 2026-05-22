@@ -1,12 +1,17 @@
 import React from 'react';
 import {
   Box,
-  Paper,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  Divider,
   Stack,
   Step,
   StepLabel,
   Stepper,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
 import { BasicInfoStep } from './steps/BasicInfoStep';
@@ -14,10 +19,7 @@ import { DirectoryStep } from './steps/DirectoryStep';
 import { VideoSelectionStep } from './steps/VideoSelectionStep';
 import { SummaryStep } from './steps/SummaryStep';
 import { WizardFooter } from './WizardFooter';
-import type {
-  WizardFormState,
-  WizardSelectionState,
-} from './types';
+import type { WizardFormState, WizardSelectionState } from './types';
 import type { WizardSummaryItem } from './WizardSummaryBuilder';
 
 interface CreatePackageWizardViewProps {
@@ -25,6 +27,7 @@ interface CreatePackageWizardViewProps {
   activeStep: number;
   form: WizardFormState;
   errors: Partial<WizardFormState>;
+  isCreating: boolean;
   selection: WizardSelectionState;
   summaryItems: WizardSummaryItem[];
   onClose: () => void;
@@ -38,13 +41,16 @@ interface CreatePackageWizardViewProps {
   onUpdateAngleName: (angleId: string, name: string) => void;
 }
 
-const STEP_LABELS = ['基本情報', '保存先選択', '映像ファイル選択', '確認'];
+const STEP_LABELS = ['詳細', '保存先', '映像', '確認'];
 
-export const CreatePackageWizardView: React.FC<CreatePackageWizardViewProps> = ({
+export const CreatePackageWizardView: React.FC<
+  CreatePackageWizardViewProps
+> = ({
   open,
   activeStep,
   form,
   errors,
+  isCreating,
   selection,
   summaryItems,
   onClose,
@@ -57,85 +63,118 @@ export const CreatePackageWizardView: React.FC<CreatePackageWizardViewProps> = (
   onRemoveAngle,
   onUpdateAngleName,
 }) => {
-  if (!open) {
-    return null;
-  }
+  const theme = useTheme();
+  const isCompact = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
-    <>
-      <Paper
-        elevation={3}
+    <Dialog
+      open={open}
+      onClose={isCreating ? undefined : onClose}
+      fullWidth
+      maxWidth="md"
+      PaperProps={{
+        sx: {
+          height: { xs: '100%', md: 'min(760px, 92vh)' },
+          m: { xs: 0, md: 3 },
+          borderRadius: { xs: 0, md: 2 },
+          overflow: 'hidden',
+        },
+      }}
+    >
+      <Box
         sx={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '90%',
-          maxWidth: '700px',
-          maxHeight: '90vh',
-          overflow: 'auto',
-          p: 4,
-          zIndex: 1300,
+          px: { xs: 2, md: 3 },
+          py: 2,
+          borderBottom: (dialogTheme) =>
+            `1px solid ${dialogTheme.palette.divider}`,
         }}
       >
         <Stack direction="row" spacing={1} alignItems="center" mb={2}>
           <VideoFileIcon color="primary" />
-          <Typography variant="h5">新規パッケージ作成</Typography>
+          <Typography variant="h6">新規パッケージ</Typography>
         </Stack>
+      </Box>
 
-        <Stepper activeStep={activeStep} sx={{ mt: 3, mb: 4 }}>
-          {STEP_LABELS.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+      <DialogContent
+        sx={{
+          p: 0,
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          minHeight: 0,
+        }}
+      >
+        <Box
+          sx={{
+            width: { xs: '100%', md: 180 },
+            flexShrink: 0,
+            p: { xs: 2, md: 3 },
+            borderRight: {
+              xs: 'none',
+              md: (contentTheme) => `1px solid ${contentTheme.palette.divider}`,
+            },
+            borderBottom: {
+              xs: (contentTheme) => `1px solid ${contentTheme.palette.divider}`,
+              md: 'none',
+            },
+          }}
+        >
+          <Stepper
+            activeStep={activeStep}
+            orientation={isCompact ? 'horizontal' : 'vertical'}
+            alternativeLabel={isCompact}
+          >
+            {STEP_LABELS.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+        </Box>
 
-        {activeStep === 0 && (
-          <BasicInfoStep form={form} errors={errors} onChange={onFormChange} />
-        )}
+        <Box
+          sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: { xs: 2, md: 3 } }}
+        >
+          {activeStep === 0 && (
+            <BasicInfoStep
+              form={form}
+              errors={errors}
+              onChange={onFormChange}
+            />
+          )}
 
-        {activeStep === 1 && (
-          <DirectoryStep
-            packageName={form.packageName}
-            selectedDirectory={selection.selectedDirectory}
-            onSelectDirectory={onSelectDirectory}
-          />
-        )}
+          {activeStep === 1 && (
+            <DirectoryStep
+              packageName={form.packageName}
+              selectedDirectory={selection.selectedDirectory}
+              onSelectDirectory={onSelectDirectory}
+            />
+          )}
 
-        {activeStep === 2 && (
-          <VideoSelectionStep
-            angles={selection.angles}
-            onSelectVideo={onSelectVideo}
-            onAddAngle={onAddAngle}
-            onRemoveAngle={onRemoveAngle}
-            onUpdateAngleName={onUpdateAngleName}
-          />
-        )}
+          {activeStep === 2 && (
+            <VideoSelectionStep
+              angles={selection.angles}
+              onSelectVideo={onSelectVideo}
+              onAddAngle={onAddAngle}
+              onRemoveAngle={onRemoveAngle}
+              onUpdateAngleName={onUpdateAngleName}
+            />
+          )}
 
-        {activeStep === 3 && <SummaryStep items={summaryItems} />}
+          {activeStep === 3 && <SummaryStep items={summaryItems} />}
+        </Box>
+      </DialogContent>
 
+      <Divider />
+      <DialogActions sx={{ px: { xs: 2, md: 3 }, py: 2 }}>
         <WizardFooter
           activeStep={activeStep}
           totalSteps={STEP_LABELS.length}
           onCancel={onClose}
           onBack={onBack}
           onNext={onNext}
+          isCreating={isCreating}
         />
-      </Paper>
-
-      <Box
-        sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          bgcolor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 1299,
-        }}
-        onClick={onClose}
-      />
-    </>
+      </DialogActions>
+    </Dialog>
   );
 };

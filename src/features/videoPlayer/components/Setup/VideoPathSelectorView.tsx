@@ -43,7 +43,7 @@ export const VideoPathSelectorView: React.FC<VideoPathSelectorViewProps> = ({
         mx: 'auto',
         mt: 2,
         px: { xs: 2, md: 3 },
-        pb: 4,
+        pb: 3,
         maxWidth: 1180,
         bgcolor: 'background.paper',
         borderRadius: 2,
@@ -54,15 +54,15 @@ export const VideoPathSelectorView: React.FC<VideoPathSelectorViewProps> = ({
       }}
       {...dragHandlers}
     >
-      <Stack spacing={4}>
+      <Stack spacing={2.5}>
         <WelcomeHeader show={showWelcome} />
-
-        <DropZoneCard dragState={dragState} />
 
         <ActionButtonsRow
           onPackageLoaded={onPackageLoaded}
           onOpenWizard={onOpenWizard}
         />
+
+        <DropZoneCard dragState={dragState} />
 
         <RecentPackagesSection
           packages={recentPackages}

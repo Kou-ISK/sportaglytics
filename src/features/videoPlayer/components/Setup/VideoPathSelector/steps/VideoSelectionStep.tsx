@@ -1,7 +1,5 @@
 import React from 'react';
 import {
-  Alert,
-  AlertTitle,
   Box,
   Button,
   Chip,
@@ -35,11 +33,20 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
   onUpdateAngleName,
 }) => {
   return (
-    <Stack spacing={3}>
-      <Alert severity="info">
-        <AlertTitle>アングルを追加して映像を割り当て</AlertTitle>
-        1つ目に選んだ映像が自動でメイン、2つ目がセカンダリになります。追加のアングルも任意に割り当てられます。
-      </Alert>
+    <Stack spacing={2.5}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        spacing={2}
+      >
+        <Typography variant="subtitle1" fontWeight={700}>
+          映像
+        </Typography>
+        <Button startIcon={<AddIcon />} onClick={onAddAngle} variant="text">
+          追加
+        </Button>
+      </Stack>
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack spacing={2}>
@@ -71,7 +78,7 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
                 >
                   <TextField
                     size="small"
-                    label="アングル名"
+                    label="アングル"
                     value={angle.name}
                     onChange={(e) =>
                       onUpdateAngleName(angle.id, e.target.value)
@@ -83,7 +90,6 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
                       label={roleLabel}
                       color={index === 0 ? 'primary' : 'info'}
                       size="small"
-                      variant="outlined"
                     />
                   )}
                   <IconButton
@@ -105,7 +111,7 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
                     variant="outlined"
                     onClick={() => onSelectVideo(angle.id)}
                   >
-                    {angle.filePath ? '映像を再選択' : '映像を選択'}
+                    {angle.filePath ? '変更' : '選択'}
                   </Button>
                   {angle.filePath ? (
                     <Chip
@@ -122,7 +128,7 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
                     />
                   ) : (
                     <Typography variant="body2" color="text.secondary">
-                      未選択
+                      No media
                     </Typography>
                   )}
                 </Stack>
@@ -130,14 +136,9 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = ({
             );
           })}
           <Divider />
-          <Button
-            startIcon={<AddIcon />}
-            onClick={onAddAngle}
-            variant="text"
-            sx={{ alignSelf: 'flex-start' }}
-          >
-            アングルを追加
-          </Button>
+          <Typography variant="caption" color="text.secondary">
+            先頭がメイン、2番目がセカンダリとして扱われます。
+          </Typography>
         </Stack>
       </Paper>
     </Stack>

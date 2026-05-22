@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  Alert,
-  AlertTitle,
-  Box,
-  Button,
-  Paper,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Chip, Stack, Typography, alpha } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 
@@ -26,36 +18,50 @@ export const DirectoryStep: React.FC<DirectoryStepProps> = ({
   onSelectDirectory,
 }) => {
   return (
-    <Stack spacing={3}>
-      <Alert severity="info">
-        <AlertTitle>パッケージの保存先を選択してください</AlertTitle>
-        選択したフォルダ内に「{packageName || 'パッケージ'}
-        」フォルダが作成されます
-      </Alert>
+    <Stack spacing={2.5}>
+      <Typography variant="subtitle1" fontWeight={700}>
+        保存先
+      </Typography>
+
+      <Box
+        sx={{
+          p: 2,
+          border: '1px solid',
+          borderColor: selectedDirectory ? 'success.main' : 'divider',
+          borderRadius: 2,
+          bgcolor: (theme) =>
+            selectedDirectory
+              ? alpha(theme.palette.success.main, 0.08)
+              : 'background.paper',
+        }}
+      >
+        <Stack spacing={1.5}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            {selectedDirectory && <CheckCircleIcon color="success" />}
+            <Typography variant="body2" color="text.secondary">
+              {selectedDirectory || '未選択'}
+            </Typography>
+          </Stack>
+          {packageName && (
+            <Chip
+              label={`${packageName} を作成`}
+              size="small"
+              variant="outlined"
+              sx={{ alignSelf: 'flex-start' }}
+            />
+          )}
+        </Stack>
+      </Box>
+
       <Box>
         <Button
           variant="contained"
           startIcon={<FolderOpenIcon />}
           onClick={onSelectDirectory}
-          sx={{ mb: 1 }}
         >
-          保存先を選ぶ
+          選択
         </Button>
       </Box>
-      {selectedDirectory ? (
-        <Paper variant="outlined" sx={{ p: 2, bgcolor: 'success.light' }}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <CheckCircleIcon color="success" />
-            <Typography variant="body2" noWrap>
-              {selectedDirectory}
-            </Typography>
-          </Stack>
-        </Paper>
-      ) : (
-        <Typography color="text.secondary">
-          ボタンを押すとフォルダ選択ダイアログが開きます
-        </Typography>
-      )}
     </Stack>
   );
 };

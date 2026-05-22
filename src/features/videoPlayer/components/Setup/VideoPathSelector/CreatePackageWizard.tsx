@@ -1,10 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 import { ActionList } from '../../../../../ActionList';
-import type {
-  PackageLoadResult,
-  WizardSelectionState,
-} from './types';
+import type { PackageLoadResult, WizardSelectionState } from './types';
 import { buildWizardSummaryItems } from './WizardSummaryBuilder';
 import { useCreatePackageFlow } from './hooks/useCreatePackageFlow';
 import { useWizardSelection } from './hooks/useWizardSelection';
@@ -59,6 +56,7 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     setForm,
     activeStep,
     errors,
+    isCreating,
     handleNext,
     handleBack,
   } = useCreatePackageFlow({
@@ -83,6 +81,7 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
       activeStep={activeStep}
       form={form}
       errors={errors}
+      isCreating={isCreating}
       selection={selection}
       summaryItems={summaryItems}
       onClose={onClose}
