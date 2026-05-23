@@ -9,6 +9,35 @@ const normalizeActionName = (value: string): string => {
     .trim();
 };
 
+const normalizeLabelGroupKey = (value: string | undefined): string => {
+  return normalizeActionName(value ?? '').toLowerCase();
+};
+
+const CANONICAL_LABEL_GROUPS = {
+  actionType: new Set(['actiontype', 'type', 'types', '種別']),
+  actionResult: new Set(['actionresult', 'result', 'results', '結果']),
+};
+
+export const normalizeLabelGroupName = (
+  group: string | undefined,
+): string | undefined => {
+  const key = normalizeLabelGroupKey(group);
+  if (!key) return group;
+  if (CANONICAL_LABEL_GROUPS.actionType.has(key)) return 'actionType';
+  if (CANONICAL_LABEL_GROUPS.actionResult.has(key)) return 'actionResult';
+  return group;
+};
+
+const isSameLabelGroup = (
+  actual: string | undefined,
+  expected: string,
+): boolean => {
+  return (
+    normalizeLabelGroupName(actual) === normalizeLabelGroupName(expected) ||
+    normalizeLabelGroupKey(actual) === normalizeLabelGroupKey(expected)
+  );
+};
+
 type LegacyTimelineData = TimelineData & {
   actionType?: unknown;
   actionResult?: unknown;
@@ -27,7 +56,12 @@ const getLegacyLabelValue = (
  * labels配列が存在しない場合は、actionType/actionResultから生成
  */
 export const getLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
-  const labels: SCLabel[] = item.labels ? [...item.labels] : [];
+  const labels: SCLabel[] = item.labels
+    ? item.labels.map((label) => ({
+        ...label,
+        group: normalizeLabelGroupName(label.group),
+      }))
+    : [];
   const legacyActionType = getLegacyLabelValue(item, 'actionType');
   const legacyActionResult = getLegacyLabelValue(item, 'actionResult');
 
@@ -43,12 +77,14 @@ export const getLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
   }
 
   // labels配列がある場合でも、旧フィールド値があれば補完する
-  const hasActionType = labels.some((label) => label.group === 'actionType');
+  const hasActionType = labels.some((label) =>
+    isSameLabelGroup(label.group, 'actionType'),
+  );
   if (!hasActionType && legacyActionType) {
     labels.push({ name: legacyActionType, group: 'actionType' });
   }
-  const hasActionResult = labels.some(
-    (label) => label.group === 'actionResult',
+  const hasActionResult = labels.some((label) =>
+    isSameLabelGroup(label.group, 'actionResult'),
   );
   if (!hasActionResult && legacyActionResult) {
     labels.push({ name: legacyActionResult, group: 'actionResult' });
@@ -66,7 +102,7 @@ export const getLabelByGroup = (
   group: string,
 ): string | undefined => {
   const labels = getLabelsFromTimelineData(item);
-  const label = labels.find((l) => l.group === group);
+  const label = labels.find((l) => isSameLabelGroup(l.group, group));
   return label?.name;
 };
 

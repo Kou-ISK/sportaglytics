@@ -59,6 +59,16 @@ export const useAutoAudioResync = ({
       notifyWarning('2つの映像が必要です');
       return;
     }
+    const primaryVideoPath = videoList[0];
+    const secondaryVideoPath = videoList[1];
+    if (!primaryVideoPath || !secondaryVideoPath) {
+      notifyWarning('同期対象の映像パスが見つかりません');
+      return;
+    }
+    if (primaryVideoPath === secondaryVideoPath) {
+      notifyWarning('同期対象に別々の映像を指定してください');
+      return;
+    }
 
     setIsAnalyzing(true);
     setSyncProgress(0);
@@ -85,8 +95,8 @@ export const useAutoAudioResync = ({
 
       notifyInfo('音声同期を再実行中...');
       const result = await runAudioSyncAnalysis({
-        videoPath1: videoList[0] ?? '',
-        videoPath2: videoList[1] ?? '',
+        videoPath1: primaryVideoPath,
+        videoPath2: secondaryVideoPath,
         readFileAsArrayBuffer,
         onProgress: (stage: string, progress: number) => {
           setSyncStage(stage);
@@ -102,7 +112,13 @@ export const useAutoAudioResync = ({
 
       setSyncData(newSyncData);
       setSyncProgress(100);
-      notifyInfo('音声同期完了');
+      if (result.confidence < 0.35) {
+        notifyWarning(
+          '音声同期の信頼度が低いです。手動同期で確認してください。',
+        );
+      } else {
+        notifyInfo('音声同期完了');
+      }
 
       await forceUpdateVideoPlayers(newSyncData);
     } catch (error) {
