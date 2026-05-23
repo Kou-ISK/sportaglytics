@@ -78,11 +78,7 @@ export const runAudioSyncAnalysis = async ({
     return result;
   } catch (error) {
     console.error('音声同期分析エラー:', error);
-    return {
-      offsetSeconds: 0,
-      confidence: 0.5,
-      correlationPeak: 0.3,
-    };
+    throw error;
   } finally {
     disposeAudioSyncAnalysisContext(context);
   }

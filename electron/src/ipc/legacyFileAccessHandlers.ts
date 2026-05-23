@@ -15,12 +15,12 @@ const openDirectoryDialog = async (
   mainWindow: BrowserWindow | null,
 ): Promise<string | undefined> => {
   const options: Electron.OpenDialogOptions = {
-    properties: ['openDirectory'],
+    properties: ['openDirectory', 'treatPackageAsDirectory'],
     message: 'パッケージを選択する',
     filters: [
       {
-        name: 'パッケージファイル',
-        extensions: ['pkg'],
+        name: 'SporTagLytics Package',
+        extensions: ['stpkg'],
       },
     ],
   };

@@ -52,3 +52,19 @@ export const readBinaryFileBase64 = async (
     return null;
   }
 };
+
+export const extractAudioWavForSyncBase64 = async (
+  videoPath: string,
+): Promise<string | null> => {
+  const api = getElectronApi();
+  if (!api?.extractAudioWavForSync) {
+    return null;
+  }
+
+  try {
+    return await api.extractAudioWavForSync(videoPath);
+  } catch (error: unknown) {
+    console.debug('[syncGateway] extractAudioWavForSync failed', error);
+    return null;
+  }
+};
