@@ -67,6 +67,7 @@ export interface IElectronAPI {
       confidenceScore?: number;
     },
   ) => Promise<boolean>;
+  extractAudioWavForSync: (videoPath: string) => Promise<string | null>;
   setManualModeChecked: (checked: boolean) => Promise<boolean>;
   setLabelModeChecked: (checked: boolean) => Promise<boolean>;
   onToggleLabelMode: (callback: (checked: boolean) => void) => () => void;

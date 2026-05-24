@@ -44,6 +44,7 @@ export const useCreatePackageFlow = ({
   const [activeStep, setActiveStep] = useState(0);
   const [errors, setErrors] = useState<Partial<WizardFormState>>({});
   const [hasPromptedDirectory, setHasPromptedDirectory] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -52,6 +53,7 @@ export const useCreatePackageFlow = ({
     setActiveStep(0);
     setErrors({});
     setHasPromptedDirectory(false);
+    setIsCreating(false);
   }, [open, resetSelection]);
 
   const validateStep = useCallback(
@@ -91,6 +93,10 @@ export const useCreatePackageFlow = ({
   ]);
 
   const executeCreatePackage = useCallback(async () => {
+    if (isCreating) {
+      return;
+    }
+
     const anglePayloads = buildAnglePayloads(selection);
     if (!anglePayloads.length) {
       showError('少なくとも1つのアングルに映像を割り当ててください。');
@@ -104,6 +110,7 @@ export const useCreatePackageFlow = ({
     );
 
     try {
+      setIsCreating(true);
       const packageDatas = await createVideoPackage(
         selection.selectedDirectory,
         form.packageName,
@@ -124,10 +131,24 @@ export const useCreatePackageFlow = ({
           ? 'この機能はElectronアプリケーション内でのみ利用できます。'
           : 'パッケージの作成中にエラーが発生しました。',
       );
+    } finally {
+      setIsCreating(false);
     }
-  }, [actionNames, form, onClose, onPackageCreated, selection, showError]);
+  }, [
+    actionNames,
+    form,
+    isCreating,
+    onClose,
+    onPackageCreated,
+    selection,
+    showError,
+  ]);
 
   const handleNext = useCallback(async () => {
+    if (isCreating) {
+      return;
+    }
+
     if (!validateStep(activeStep)) {
       return;
     }
@@ -159,6 +180,7 @@ export const useCreatePackageFlow = ({
     activeStep,
     executeCreatePackage,
     handleSelectDirectory,
+    isCreating,
     selection,
     showError,
     validateStep,
@@ -173,6 +195,7 @@ export const useCreatePackageFlow = ({
     setForm,
     activeStep,
     errors,
+    isCreating,
     handleNext,
     handleBack,
   };

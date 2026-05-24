@@ -8,6 +8,7 @@ export type AppBridgeLegacyKeys =
   | 'exportTimeline'
   | 'createPackage'
   | 'saveSyncData'
+  | 'extractAudioWavForSync'
   | 'checkFileExists'
   | 'readJsonFile'
   | 'setManualModeChecked'
@@ -103,6 +104,19 @@ export const createAppBridgeLegacyApi = (
       } catch (error) {
         console.error('saveSyncData error:', error);
         return false;
+      }
+    },
+    extractAudioWavForSync: async (videoPath: string) => {
+      try {
+        return await invokeWithFallback<string | null>(
+          ipcRenderer,
+          'sync:extract-audio-wav',
+          'extract-audio-wav-for-sync',
+          videoPath,
+        );
+      } catch (error) {
+        console.error('extractAudioWavForSync error:', error);
+        return null;
       }
     },
     checkFileExists: async (filePath: string) => {
