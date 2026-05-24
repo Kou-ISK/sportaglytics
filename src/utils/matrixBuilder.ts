@@ -2,6 +2,7 @@ import type { TimelineData } from '../types/timeline/core';
 import type { MatrixAxisConfig, MatrixCell } from '../types/analysis/matrix';
 import {
   getLabelByGroupWithFallback,
+  getLabelsFromTimelineData,
   extractTeamFromActionName,
   extractActionFromActionName,
   extractUniqueLabelsForGroup,
@@ -9,13 +10,15 @@ import {
   extractUniqueActionsForTeam,
 } from './labelExtractors';
 
+const UNSET_LABEL = '未設定';
+
 /**
  * MatrixAxisConfigに基づいて、TimelineDataから値を抽出
  */
 const extractValueFromAxis = (
   item: TimelineData,
   axis: MatrixAxisConfig,
-  fallback: string = '未設定',
+  fallback: string = UNSET_LABEL,
 ): string => {
   switch (axis.type) {
     case 'group':
@@ -82,14 +85,21 @@ const buildGroupAxisHeaders = (
     const labelsByGroup = new Map<string, Set<string>>();
 
     for (const item of timeline) {
-      if (item.labels) {
-        for (const label of item.labels) {
-          if (label.group && label.name) {
-            if (!labelsByGroup.has(label.group)) {
-              labelsByGroup.set(label.group, new Set());
-            }
-            labelsByGroup.get(label.group)?.add(label.name);
+      const labels = getLabelsFromTimelineData(item);
+      if (labels.length === 0) {
+        if (!labelsByGroup.has(UNSET_LABEL)) {
+          labelsByGroup.set(UNSET_LABEL, new Set());
+        }
+        labelsByGroup.get(UNSET_LABEL)?.add(UNSET_LABEL);
+        continue;
+      }
+
+      for (const label of labels) {
+        if (label.group && label.name) {
+          if (!labelsByGroup.has(label.group)) {
+            labelsByGroup.set(label.group, new Set());
           }
+          labelsByGroup.get(label.group)?.add(label.name);
         }
       }
     }
@@ -113,16 +123,19 @@ const buildGroupAxisHeaders = (
 
   // 特定のグループの場合
   const labels = extractUniqueLabelsForGroup(timeline, groupName);
+  const hasUnset = timeline.some(
+    (item) => getLabelByGroupWithFallback(item, groupName, '') === '',
+  );
+  const axisLabels = hasUnset ? [...labels, UNSET_LABEL] : labels;
 
   // labelsからgroupを抽出してグループ化
   const labelsByGroup = new Map<string, string[]>();
 
   for (const item of timeline) {
-    const labelObj = item.labels?.find((l) => l.group === groupName);
-    const labelName = labelObj?.name;
-    const group = labelObj?.group;
+    const labelName = getLabelByGroupWithFallback(item, groupName, '');
+    const group = labelName ? groupName : UNSET_LABEL;
 
-    if (labelName && group) {
+    if (labelName) {
       if (!labelsByGroup.has(group)) {
         labelsByGroup.set(group, []);
       }
@@ -147,9 +160,14 @@ const buildGroupAxisHeaders = (
     }
   } else {
     // グループ情報がない場合は、ラベルのみ
-    for (const label of labels) {
+    for (const label of axisLabels) {
       headers.push({ parent: null, child: label });
     }
+  }
+
+  if (hasUnset && !headers.some((header) => header.child === UNSET_LABEL)) {
+    headers.push({ parent: UNSET_LABEL, child: UNSET_LABEL });
+    parentSpans.set(UNSET_LABEL, 1);
   }
 
   return { headers, parentSpans };
@@ -312,26 +330,28 @@ const findAllHeaderIndices = (
     // 'all_labels'の場合は、item内の全ラベルから一致するものを全て取得
     if (axis.value === 'all_labels') {
       const indices: number[] = [];
-      if (item.labels) {
-        for (const label of item.labels) {
-          const index = headers.findIndex(
-            (h) => h.parent === label.group && h.child === label.name,
-          );
-          if (index >= 0 && !indices.includes(index)) {
-            indices.push(index);
-          }
+      const labels = getLabelsFromTimelineData(item);
+      if (labels.length === 0) {
+        const index = headers.findIndex(
+          (h) => h.parent === UNSET_LABEL && h.child === UNSET_LABEL,
+        );
+        return index >= 0 ? [index] : [];
+      }
+      for (const label of labels) {
+        const index = headers.findIndex(
+          (h) => h.parent === label.group && h.child === label.name,
+        );
+        if (index >= 0 && !indices.includes(index)) {
+          indices.push(index);
         }
       }
       return indices;
     }
 
     // 特定のグループの場合
-    const label = getLabelByGroupWithFallback(item, axis.value, '');
-    if (label) {
-      const index = headers.findIndex((h) => h.child === label);
-      return index >= 0 ? [index] : [];
-    }
-    return [];
+    const label = getLabelByGroupWithFallback(item, axis.value, UNSET_LABEL);
+    const index = headers.findIndex((h) => h.child === label);
+    return index >= 0 ? [index] : [];
   }
 
   const key = extractValueFromAxis(item, axis);
