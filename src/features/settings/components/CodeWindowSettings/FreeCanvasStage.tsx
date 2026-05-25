@@ -18,6 +18,13 @@ interface FreeCanvasStageProps {
   selectedButtonIds: string[];
   links: React.ReactNode;
   draggingLink: React.ReactNode;
+  rangeSelectionBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null;
+  onCanvasMouseDown: (event: React.MouseEvent) => void;
   onCanvasClick: (event: React.MouseEvent) => void;
   onMouseMove: (event: React.MouseEvent) => void;
   onMouseUp: (event: React.MouseEvent) => void;
@@ -43,6 +50,8 @@ export const FreeCanvasStage = ({
   selectedButtonIds,
   links,
   draggingLink,
+  rangeSelectionBox,
+  onCanvasMouseDown,
   onCanvasClick,
   onMouseMove,
   onMouseUp,
@@ -54,6 +63,7 @@ export const FreeCanvasStage = ({
   return (
     <Box
       ref={canvasRef}
+      onMouseDown={onCanvasMouseDown}
       onClick={onCanvasClick}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
@@ -70,6 +80,24 @@ export const FreeCanvasStage = ({
         cursor: dragMode === 'link' ? 'crosshair' : 'default',
       }}
     >
+      {rangeSelectionBox && (
+        <Box
+          sx={{
+            position: 'absolute',
+            left: rangeSelectionBox.x,
+            top: rangeSelectionBox.y,
+            width: rangeSelectionBox.width,
+            height: rangeSelectionBox.height,
+            border: '1px solid',
+            borderColor: 'primary.main',
+            backgroundColor: 'primary.main',
+            opacity: 0.12,
+            pointerEvents: 'none',
+            zIndex: 30,
+          }}
+        />
+      )}
+
       <FreeCanvasLinkLayer
         width={layout.canvasWidth}
         height={layout.canvasHeight}

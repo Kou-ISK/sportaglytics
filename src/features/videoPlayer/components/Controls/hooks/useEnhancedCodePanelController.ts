@@ -87,9 +87,6 @@ export const useEnhancedCodePanelController = ({
     Record<string, boolean>
   >({});
   const layoutContainerRef = useRef<HTMLDivElement | null>(null);
-  const [layoutContainerWidth, setLayoutContainerWidth] = useState<number>(
-    customLayout?.canvasWidth || 0,
-  );
 
   useEffect(() => {
     const handler = (checked: boolean) => {
@@ -101,23 +98,6 @@ export const useEnhancedCodePanelController = ({
   useEffect(() => {
     void setLabelModeChecked(activeMode === 'label');
   }, [activeMode]);
-
-  useEffect(() => {
-    const updateWidth = () => {
-      if (!layoutContainerRef.current) return;
-      const width = layoutContainerRef.current.clientWidth;
-      if (width) {
-        setLayoutContainerWidth(width);
-      }
-    };
-
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    if (layoutContainerRef.current) {
-      observer.observe(layoutContainerRef.current);
-    }
-    return () => observer.disconnect();
-  }, [customLayout?.id]);
 
   const getCurrentTime = useCallback((): number | null => {
     return getVideoJsPlayerCurrentTime('video_0');
@@ -216,7 +196,6 @@ export const useEnhancedCodePanelController = ({
       activeLabelButtons,
       isRecording,
       layoutContainerRef,
-      layoutContainerWidth,
       teamNames,
       firstTeamName,
       activeActions,
