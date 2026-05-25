@@ -113,6 +113,7 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
       <TimelineEditDialog
         draft={editingDraft}
         open={Boolean(editingDraft)}
+        timeline={timeline}
         onChange={onDialogChange}
         onClose={onCloseDialog}
         onDelete={onDeleteSingle}
