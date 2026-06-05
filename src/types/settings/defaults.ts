@@ -1,3 +1,4 @@
+import { ActionList } from '../../ActionList';
 import { TEAM_PLACEHOLDERS } from '../../utils/teamPlaceholder';
 import type {
   AnalysisDashboardConfig,
@@ -5,6 +6,14 @@ import type {
   AppSettings,
   CodeWindowLayout,
 } from './coreTypes';
+
+const createCodeWindowIdPart = (value: string): string => {
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return normalized || 'label';
+};
 
 export const createDefaultCodeWindowLayout = (): CodeWindowLayout => {
   const canvasWidth = 360;
@@ -68,6 +77,68 @@ export const createDefaultCodeWindowLayout = (): CodeWindowLayout => {
       width: canvasWidth / 2,
       height: canvasHeight,
     },
+  };
+};
+
+export const createRugbyLabelsCodeWindowLayout = (): CodeWindowLayout => {
+  const canvasWidth = 420;
+  const margin = 8;
+  const columns = 4;
+  const buttonWidth = 96;
+  const buttonHeight = 22;
+  const gapX = 6;
+  const gapY = 4;
+  const blockGapY = 12;
+  const buttons: CodeWindowLayout['buttons'] = [];
+  let y = margin;
+
+  ActionList.forEach((action, actionIndex) => {
+    const labels = [
+      ...action.types.map((value) => ({
+        group: 'Type',
+        value,
+        color: '#455a64',
+      })),
+      ...action.results.map((value) => ({
+        group: 'Result',
+        value,
+        color: '#ef6c00',
+      })),
+    ];
+
+    labels.forEach((label, labelIndex) => {
+      const col = labelIndex % columns;
+      const row = Math.floor(labelIndex / columns);
+      buttons.push({
+        id: `rugby-label-${String(actionIndex + 1).padStart(2, '0')}-${label.group.toLowerCase()}-${String(labelIndex + 1).padStart(2, '0')}-${createCodeWindowIdPart(label.value)}`,
+        type: 'label',
+        name: label.group,
+        labelValue: label.value,
+        x: margin + col * (buttonWidth + gapX),
+        y: y + row * (buttonHeight + gapY),
+        width: buttonWidth,
+        height: buttonHeight,
+        team: 'shared',
+        color: label.color,
+        textColor: '#ffffff',
+        borderRadius: 3,
+        fontSize: 10,
+        textAlign: 'center',
+      });
+    });
+
+    const rows = Math.max(1, Math.ceil(labels.length / columns));
+    y += rows * (buttonHeight + gapY) - gapY + blockGapY;
+  });
+
+  return {
+    id: 'rugby-labels',
+    name: 'Rugby Labels',
+    canvasWidth,
+    canvasHeight: y - blockGapY + margin,
+    buttons,
+    buttonLinks: [],
+    splitByTeam: false,
   };
 };
 
@@ -211,7 +282,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
       },
     ],
     actionLinks: [],
-    codeWindows: [createDefaultCodeWindowLayout()],
+    codeWindows: [
+      createDefaultCodeWindowLayout(),
+      createRugbyLabelsCodeWindowLayout(),
+    ],
     activeCodeWindowId: 'default',
   },
   analysisDashboard: createDefaultAnalysisDashboard(),

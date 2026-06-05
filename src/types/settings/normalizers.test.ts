@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SETTINGS,
   createDefaultCodeWindowLayout,
+  createRugbyLabelsCodeWindowLayout,
   createTemplateDashboardWidgets,
 } from './defaults';
 import { normalizeAppSettings } from './normalizers';
@@ -99,6 +100,12 @@ describe('normalizeAppSettings', () => {
         (layout) => layout.id === 'default',
       ),
     ).toBe(true);
+    expect(
+      normalized.codingPanel?.codeWindows?.some(
+        (layout) => layout.id === 'rugby-labels',
+      ),
+    ).toBe(true);
+
     expect(normalized.analysisDashboard?.activeDashboardId).toBe(
       'custom-dashboard',
     );
@@ -118,5 +125,22 @@ describe('normalizeAppSettings', () => {
       type: 'group',
       value: 'Result',
     });
+  });
+
+  it('provides a rugby labels code window preset ordered by Type then Result', () => {
+    const preset = createRugbyLabelsCodeWindowLayout();
+    const firstTypeIndex = preset.buttons.findIndex(
+      (button) => button.name === 'Type',
+    );
+    const firstResultIndex = preset.buttons.findIndex(
+      (button) => button.name === 'Result',
+    );
+
+    expect(preset.id).toBe('rugby-labels');
+    expect(firstTypeIndex).toBeGreaterThanOrEqual(0);
+    expect(firstResultIndex).toBeGreaterThan(firstTypeIndex);
+    expect(new Set(preset.buttons.map((button) => button.name))).toEqual(
+      new Set(['Type', 'Result']),
+    );
   });
 });

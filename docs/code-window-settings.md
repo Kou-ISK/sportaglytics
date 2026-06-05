@@ -531,6 +531,11 @@ const handleDuplicateLayout = useCallback((layout: CodeWindowLayout) => {
 3. 名前とキャンバスサイズを入力
 4. 作成
 
+### 標準プリセット
+
+- `デフォルト`: チーム別の基本アクション記録レイアウト
+- `Rugby Labels`: `ActionList` 由来のラベル専用レイアウト。各アクション内で `Type`、`Result` の順にラベルボタンを配置する
+
 ### ボタン配置
 
 1. キャンバス上をクリックしてボタンを追加
