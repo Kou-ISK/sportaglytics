@@ -4,7 +4,6 @@ import {
   extractTeamFromActionName,
   getLabelByGroupWithFallback,
   getLabelsFromTimelineData,
-  normalizeLabelGroupName,
 } from '../../utils/labelExtractors';
 import type {
   CustomChartConfig,
@@ -52,9 +51,10 @@ const matchesFilters = (
     if (action !== filters.action) return false;
   }
   if (filters.labelGroup) {
-    const filterGroup = normalizeLabelGroupName(filters.labelGroup);
     const labels = getLabelsFromTimelineData(item);
-    const inGroup = labels.filter((label) => label.group === filterGroup);
+    const inGroup = labels.filter(
+      (label) => label.group === filters.labelGroup,
+    );
     if (filters.labelValue) {
       const hasMatch = inGroup.some(
         (label) => label.name === filters.labelValue,

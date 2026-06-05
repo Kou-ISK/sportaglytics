@@ -71,7 +71,7 @@ export const buildTeamStats = (
 
       const resultDistribution = collectLabelGroupDistributionForItems(
         items,
-        'actionResult',
+        'Result',
         3,
       );
 

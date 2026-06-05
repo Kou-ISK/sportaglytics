@@ -21,8 +21,8 @@ describe('exportRawAnalysisCsv', () => {
         memo: 'plain memo',
         color: '#112233',
         labels: [
-          { group: 'actionType', name: 'Kick' },
-          { group: 'actionResult', name: 'Try' },
+          { group: 'Type', name: 'Kick' },
+          { group: 'Result', name: 'Try' },
           { group: 'zone', name: '22m' },
           { group: 'phase', name: 'Set Piece' },
         ],
@@ -33,7 +33,7 @@ describe('exportRawAnalysisCsv', () => {
         startTime: 20,
         endTime: 22,
         memo: 'line1\nline2, "quote"',
-        labels: [{ group: 'actionType', name: 'Carry' }],
+        labels: [{ group: 'Type', name: 'Carry' }],
       },
     ];
 
@@ -57,8 +57,8 @@ describe('exportRawAnalysisCsv', () => {
       'color',
       'labelCount',
       'labels',
-      'label:actionType',
-      'label:actionResult',
+      'label:Type',
+      'label:Result',
       'label:phase',
       'label:zone',
     ]);
@@ -71,8 +71,8 @@ describe('exportRawAnalysisCsv', () => {
     expect(row1[columnIndex.id]).toBe('evt-1');
     expect(row1[columnIndex.team]).toBe('TeamA');
     expect(row1[columnIndex.action]).toBe('Kick, Long');
-    expect(row1[columnIndex['label:actionType']]).toBe('Kick');
-    expect(row1[columnIndex['label:actionResult']]).toBe('Try');
+    expect(row1[columnIndex['label:Type']]).toBe('Kick');
+    expect(row1[columnIndex['label:Result']]).toBe('Try');
     expect(row1[columnIndex['label:phase']]).toBe('Set Piece');
     expect(row1[columnIndex['label:zone']]).toBe('22m');
 
@@ -80,7 +80,7 @@ describe('exportRawAnalysisCsv', () => {
     expect(csv).toContain('"TeamA Kick, Long"');
   });
 
-  it('falls back to legacy actionType/actionResult when labels are missing', () => {
+  it('migrates legacy action fields when labels are missing', () => {
     const timeline = [
       {
         id: 'legacy-1',
@@ -101,8 +101,8 @@ describe('exportRawAnalysisCsv', () => {
       header.map((name, index) => [name, index]),
     ) as Record<string, number>;
 
-    expect(row[columnIndex['label:actionType']]).toBe('Counter');
-    expect(row[columnIndex['label:actionResult']]).toBe('Turnover');
+    expect(row[columnIndex['label:Type']]).toBe('Counter');
+    expect(row[columnIndex['label:Result']]).toBe('Turnover');
   });
 });
 
@@ -116,8 +116,8 @@ describe('buildAnalysisSummaryText', () => {
         endTime: 18,
         memo: '',
         labels: [
-          { group: 'actionType', name: 'Kick' },
-          { group: 'actionResult', name: 'Try' },
+          { group: 'Type', name: 'Kick' },
+          { group: 'Result', name: 'Try' },
         ],
       },
       {
@@ -127,8 +127,8 @@ describe('buildAnalysisSummaryText', () => {
         endTime: 27,
         memo: '',
         labels: [
-          { group: 'actionType', name: 'Carry' },
-          { group: 'actionResult', name: 'Turnover' },
+          { group: 'Type', name: 'Carry' },
+          { group: 'Result', name: 'Turnover' },
         ],
       },
       {
@@ -137,7 +137,7 @@ describe('buildAnalysisSummaryText', () => {
         startTime: 30,
         endTime: 35,
         memo: '',
-        labels: [{ group: 'actionResult', name: 'Try' }],
+        labels: [{ group: 'Result', name: 'Try' }],
       },
     ];
 

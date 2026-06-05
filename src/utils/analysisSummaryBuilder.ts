@@ -62,7 +62,7 @@ export const buildAnalysisSummaryText = ({
     const duration = Math.max(0, entry.endTime - entry.startTime);
     const team = extractTeamFromActionName(entry.actionName);
     const action = extractActionFromActionName(entry.actionName);
-    const result = getLabelByGroup(entry, 'actionResult');
+    const result = getLabelByGroup(entry, 'Result');
 
     const teamStat = teamAgg.get(team) ?? { count: 0, duration: 0 };
     teamStat.count += 1;

@@ -6,6 +6,7 @@ import type {
   SCInstance,
   SCLabel,
 } from '../types/timeline/sportscode';
+import { migrateLegacyTimelineLabels } from './timelineLabelMigration';
 
 type LegacyTimelineData = TimelineData & {
   actionType?: unknown;
@@ -39,49 +40,31 @@ const generateUUID = (): string => {
 };
 
 /**
- * TimelineDataのlabels配列から特定のgroupに属するラベルを取得
- */
-const getLabelByGroup = (
-  labels: SCLabel[] | undefined,
-  group: string,
-): string | undefined => {
-  if (!labels || labels.length === 0) return undefined;
-  const label = labels.find((l) => l.group === group);
-  return label?.name;
-};
-
-/**
  * TimelineDataから必要なラベル情報を抽出または生成
  */
-const extractLabelsFromTimelineData = (
-  item: TimelineData,
-): { actionType: string; actionResult: string; labels: SCLabel[] } => {
+const extractLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
   const legacyActionType = getLegacyTimelineLabel(item, 'actionType');
   const legacyActionResult = getLegacyTimelineLabel(item, 'actionResult');
+  const labels = migrateLegacyTimelineLabels(item.labels);
 
-  // labels配列が存在する場合はそこから抽出
-  if (item.labels && item.labels.length > 0) {
-    const actionType =
-      getLabelByGroup(item.labels, 'actionType') || legacyActionType || '';
-    const actionResult =
-      getLabelByGroup(item.labels, 'actionResult') || legacyActionResult || '';
-    return { actionType, actionResult, labels: item.labels };
+  if (
+    legacyActionType &&
+    !labels.some(
+      (label) => label.group === 'Type' && label.name === legacyActionType,
+    )
+  ) {
+    labels.push({ name: legacyActionType, group: 'Type' });
+  }
+  if (
+    legacyActionResult &&
+    !labels.some(
+      (label) => label.group === 'Result' && label.name === legacyActionResult,
+    )
+  ) {
+    labels.push({ name: legacyActionResult, group: 'Result' });
   }
 
-  // labels配列が存在しない場合は従来のフィールドから生成
-  const labels: SCLabel[] = [];
-  if (legacyActionType) {
-    labels.push({ name: legacyActionType, group: 'actionType' });
-  }
-  if (legacyActionResult) {
-    labels.push({ name: legacyActionResult, group: 'actionResult' });
-  }
-
-  return {
-    actionType: legacyActionType || '',
-    actionResult: legacyActionResult || '',
-    labels,
-  };
+  return labels;
 };
 
 /**
@@ -112,7 +95,7 @@ export const convertToSCTimeline = (
   for (const [actionName, items] of rowMap.entries()) {
     // インスタンスを生成
     const instances: SCInstance[] = items.map((item, index) => {
-      const { labels } = extractLabelsFromTimelineData(item);
+      const labels = extractLabelsFromTimelineData(item);
 
       return {
         uniqueId: item.id,
@@ -169,13 +152,7 @@ export const convertFromSCTimeline = (
 
   for (const row of scTimeline.timeline.rows) {
     for (const instance of row.instances) {
-      // labels配列から actionType と actionResult を抽出
-      const actionTypeLabel = instance.labels.find(
-        (l) => l.group === 'actionType',
-      );
-      const actionResultLabel = instance.labels.find(
-        (l) => l.group === 'actionResult',
-      );
+      const labels = migrateLegacyTimelineLabels(instance.labels);
 
       // TimelineDataに変換
       const item: TimelineData = {
@@ -185,18 +162,7 @@ export const convertFromSCTimeline = (
         endTime: instance.endTime,
         memo: instance.notes,
         // labels配列をそのまま保持（SCTimeline形式互換）
-        labels: [
-          ...instance.labels.map((l) => ({
-            name: l.name,
-            group: l.group,
-          })),
-          ...(actionTypeLabel
-            ? [{ name: actionTypeLabel.name, group: 'actionType' as const }]
-            : []),
-          ...(actionResultLabel
-            ? [{ name: actionResultLabel.name, group: 'actionResult' as const }]
-            : []),
-        ],
+        labels,
       };
 
       timelineData.push(item);
@@ -213,7 +179,7 @@ export const convertFromSCTimeline = (
  * TimelineDataの正規化
  *
  * labels配列が存在しない古い形式のTimelineDataに対して、
- * actionType/actionResultからlabels配列を生成します。
+ * actionType/actionResultからType/Resultラベルを生成します。
  */
 export const normalizeTimelineData = (data: unknown): TimelineData => {
   const raw = data as TimelineData & {
@@ -228,7 +194,7 @@ export const normalizeTimelineData = (data: unknown): TimelineData => {
     color?: unknown;
   };
 
-  const normalizedLabels: SCLabel[] = Array.isArray(raw.labels)
+  const rawLabels: SCLabel[] = Array.isArray(raw.labels)
     ? raw.labels.reduce<SCLabel[]>((acc, label) => {
         if (!label || typeof label !== 'object') return acc;
         const name = (label as { name?: unknown }).name;
@@ -242,6 +208,7 @@ export const normalizeTimelineData = (data: unknown): TimelineData => {
         return acc;
       }, [])
     : [];
+  const normalizedLabels = migrateLegacyTimelineLabels(rawLabels);
 
   const legacyActionType =
     typeof raw.actionType === 'string' && raw.actionType.trim()
@@ -253,16 +220,21 @@ export const normalizeTimelineData = (data: unknown): TimelineData => {
       : undefined;
 
   if (
-    !normalizedLabels.some((label) => label.group === 'actionType') &&
+    !normalizedLabels.some(
+      (label) => label.group === 'Type' && label.name === legacyActionType,
+    ) &&
     legacyActionType
   ) {
-    normalizedLabels.push({ name: legacyActionType, group: 'actionType' });
+    normalizedLabels.push({ name: legacyActionType, group: 'Type' });
   }
   if (
-    !normalizedLabels.some((label) => label.group === 'actionResult') &&
+    !normalizedLabels.some(
+      (label) =>
+        label.group === 'Result' && label.name === legacyActionResult,
+    ) &&
     legacyActionResult
   ) {
-    normalizedLabels.push({ name: legacyActionResult, group: 'actionResult' });
+    normalizedLabels.push({ name: legacyActionResult, group: 'Result' });
   }
 
   return {

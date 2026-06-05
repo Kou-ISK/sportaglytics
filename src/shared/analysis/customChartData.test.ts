@@ -3,7 +3,7 @@ import type { TimelineData } from '../../types/timeline/core';
 import { buildCustomChartData } from './customChartData';
 
 describe('buildCustomChartData', () => {
-  it('maps common Sportscode label group names to basic dashboard groups', () => {
+  it('keeps label groups independent when building dashboard data', () => {
     const timeline: TimelineData[] = [
       {
         id: 'entry-1',
@@ -23,32 +23,32 @@ describe('buildCustomChartData', () => {
         endTime: 9,
         memo: '',
         labels: [
-          { group: '結果', name: 'Lost' },
-          { group: '種別', name: 'Negative' },
+          { group: 'Result', name: 'Lost' },
+          { group: 'Type', name: 'Negative' },
         ],
       },
     ];
 
     const resultBreakdown = buildCustomChartData(
       timeline,
-      ['actionResult', 'actionType'],
+      ['Result', 'Type'],
       {
         metric: 'count',
-        primaryAxis: { type: 'group', value: 'actionResult' },
+        primaryAxis: { type: 'group', value: 'Result' },
         seriesEnabled: false,
-        seriesAxis: { type: 'group', value: 'actionResult' },
+        seriesAxis: { type: 'group', value: 'Result' },
         calc: 'percentTotal',
         widgetFilters: { action: 'スクラム' },
       },
     );
     const typeBreakdown = buildCustomChartData(
       timeline,
-      ['actionResult', 'actionType'],
+      ['Result', 'Type'],
       {
         metric: 'count',
-        primaryAxis: { type: 'group', value: 'actionType' },
+        primaryAxis: { type: 'group', value: 'Type' },
         seriesEnabled: false,
-        seriesAxis: { type: 'group', value: 'actionType' },
+        seriesAxis: { type: 'group', value: 'Type' },
         calc: 'percentTotal',
         widgetFilters: { action: 'スクラム', labelGroup: 'Result' },
       },

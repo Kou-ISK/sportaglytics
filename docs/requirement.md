@@ -148,13 +148,13 @@ TimelineData = {
   actionName: string;   // アクション名（チーム名 + アクション種別）
   startTime: number;    // 開始時刻（秒）
   endTime: number;      // 終了時刻（秒）
-  actionResult: string; // アクション結果
-  actionType: string;   // アクション種別
-  qualifier: string;    // 追加情報・修飾子
+  memo: string;         // メモ
   labels?: Array<{ name: string; group?: string }>; // ラベルグループ構造
   color?: string;       // タイムライン上での表示色
 }
 ```
+
+旧 `actionResult` / `actionType` は読み込み時のみ互換入力として受け付け、`Result` / `Type` ラベルグループへ移行する。
 
 #### 2.3.2 テーブル表示・編集機能
 

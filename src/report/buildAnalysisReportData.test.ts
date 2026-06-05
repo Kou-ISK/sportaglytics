@@ -11,8 +11,8 @@ const timeline: TimelineData[] = [
     endTime: 15,
     memo: 'first',
     labels: [
-      { group: 'actionType', name: 'Kick' },
-      { group: 'actionResult', name: 'Positive' },
+      { group: 'Type', name: 'Kick' },
+      { group: 'Result', name: 'Positive' },
     ],
   },
   {
@@ -22,8 +22,8 @@ const timeline: TimelineData[] = [
     endTime: 30,
     memo: 'second',
     labels: [
-      { group: 'actionType', name: 'Carry' },
-      { group: 'actionResult', name: 'Negative' },
+      { group: 'Type', name: 'Carry' },
+      { group: 'Result', name: 'Negative' },
     ],
   },
 ];
@@ -40,9 +40,9 @@ const dashboard: AnalysisDashboardConfig = {
           title: 'Result Breakdown',
           chartType: 'bar',
           metric: 'count',
-          primaryAxis: { type: 'group', value: 'actionResult' },
+          primaryAxis: { type: 'group', value: 'Result' },
           seriesEnabled: false,
-          seriesAxis: { type: 'group', value: 'actionResult' },
+          seriesAxis: { type: 'group', value: 'Result' },
           colSpan: 6,
           calc: 'raw',
         },
@@ -58,8 +58,8 @@ describe('buildAnalysisReportData', () => {
       resolvedTeamNames: ['TeamA', 'TeamB'],
       currentDashboardFilters: { action: 'Kick' },
       currentMatrixAxes: {
-        row: { type: 'group', value: 'actionType' },
-        column: { type: 'group', value: 'actionResult' },
+        row: { type: 'group', value: 'Type' },
+        column: { type: 'group', value: 'Result' },
       },
       currentMatrixFilters: {
         team: 'all',

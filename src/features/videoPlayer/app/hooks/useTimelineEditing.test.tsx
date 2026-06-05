@@ -15,7 +15,7 @@ const sourceTimelineItem: TimelineData = {
   startTime: 12,
   endTime: 18,
   memo: 'memo',
-  labels: [{ name: 'Try', group: 'actionType' }],
+  labels: [{ name: 'Try', group: 'Type' }],
   color: '#123456',
 };
 

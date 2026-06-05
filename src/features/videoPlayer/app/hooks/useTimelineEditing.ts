@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { ulid } from 'ulid';
 import type { TimelineData } from '../../../../types/timeline/core';
+import { migrateLegacyTimelineLabels } from '../../../../utils/timelineLabelMigration';
 
 interface TimelineEditingHandlers {
   addTimelineData: (
@@ -64,16 +65,21 @@ export const useTimelineEditing = (
       labels?: Array<{ name: string; group: string }>,
       color?: string,
     ) => {
-      // labels配列が渡された場合はそれを使用、なければactionType/actionResultから生成
+      // labels配列が渡された場合はそれを使用、なければ旧引数を現行ラベルへ移行する
       const finalLabels: Array<{ name: string; group: string }> = [];
       if (labels && labels.length > 0) {
-        finalLabels.push(...labels);
+        finalLabels.push(
+          ...migrateLegacyTimelineLabels(labels).filter(
+            (label): label is { name: string; group: string } =>
+              typeof label.group === 'string',
+          ),
+        );
       } else {
         if (actionType) {
-          finalLabels.push({ name: actionType, group: 'actionType' });
+          finalLabels.push({ name: actionType, group: 'Type' });
         }
         if (actionResult) {
-          finalLabels.push({ name: actionResult, group: 'actionResult' });
+          finalLabels.push({ name: actionResult, group: 'Result' });
         }
       }
 

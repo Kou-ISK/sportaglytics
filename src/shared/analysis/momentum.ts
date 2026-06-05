@@ -53,12 +53,12 @@ const buildSegment = (
   // labels配列から取得。存在しない場合は既定値を使用。
   const actionType = getLabelByGroupWithFallback(
     entry,
-    'actionType',
+    'Type',
     '開始情報なし',
   );
   const actionResult = getLabelByGroupWithFallback(
     entry,
-    'actionResult',
+    'Result',
     '結果なし',
   );
 

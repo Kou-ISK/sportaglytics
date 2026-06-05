@@ -15,10 +15,7 @@ import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
 import { resolveActionLabelGroups } from '../../../shared/actionLabelGroups';
 import type { TimelineData } from '../../../../../types/timeline/core';
 import type { SCLabel } from '../../../../../types/timeline/sportscode';
-import {
-  getLabelsFromTimelineData,
-  normalizeLabelGroupName,
-} from '../../../../../utils/labelExtractors';
+import { getLabelsFromTimelineData } from '../../../../../utils/labelExtractors';
 import { useTimelineEditDraft } from './hooks/useTimelineEditDraft';
 import { useTimelineValidation } from './hooks/useTimelineValidation';
 
@@ -55,16 +52,12 @@ const addGroupOptions = (
 ): void => {
   const name = groupName?.trim();
   if (!name) return;
-  const existingName =
-    Array.from(groups.keys()).find(
-      (key) => normalizeLabelGroupName(key) === normalizeLabelGroupName(name),
-    ) ?? name;
-  const values = groups.get(existingName) ?? new Set<string>();
+  const values = groups.get(name) ?? new Set<string>();
   options.forEach((option) => {
     const value = option.trim();
     if (value) values.add(value);
   });
-  groups.set(existingName, values);
+  groups.set(name, values);
 };
 
 const getEditorLabels = (item: TimelineData): SCLabel[] => {
@@ -91,9 +84,11 @@ const buildEditableLabelGroups = (
       addGroupOptions(groups, label.group, [label.name]),
     );
   });
-  actionGroups.forEach((group) =>
-    addGroupOptions(groups, group.groupName, group.options),
-  );
+  if (groups.size === 0) {
+    actionGroups.forEach((group) =>
+      addGroupOptions(groups, group.groupName, group.options),
+    );
+  }
 
   return Array.from(groups.entries()).map(([groupName, values]) => ({
     groupName,
@@ -156,36 +151,44 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
     return null;
   }
 
-  const getLabelValue = (groupName: string): string => {
-    const label = draft.labels.find((l) => l.group === groupName);
-    return label?.name || '';
+  const getLabelValues = (groupName: string): string[] => {
+    return draft.labels
+      .filter((label) => label.group === groupName)
+      .map((label) => label.name);
   };
 
-  const handleLabelChange = (groupName: string, value: string) => {
-    const updatedLabels = [...draft.labels];
-    const existingIndex = updatedLabels.findIndex((l) => l.group === groupName);
+  const handleClearGroup = (groupName: string) => {
+    onChange({
+      labels: draft.labels.filter((label) => label.group !== groupName),
+    });
+  };
 
-    if (value === '') {
-      // 空文字の場合はラベルを削除
-      if (existingIndex >= 0) {
-        updatedLabels.splice(existingIndex, 1);
-      }
-    } else if (existingIndex >= 0) {
-      // 既存のラベルを更新
-      updatedLabels[existingIndex] = { name: value, group: groupName };
-    } else {
-      // 新しいラベルを追加
-      updatedLabels.push({ name: value, group: groupName });
+  const handleToggleLabel = (groupName: string, value: string) => {
+    const exists = draft.labels.some(
+      (label) => label.group === groupName && label.name === value,
+    );
+    if (exists) {
+      onChange({
+        labels: draft.labels.filter(
+          (label) => !(label.group === groupName && label.name === value),
+        ),
+      });
+      return;
     }
-
-    onChange({ labels: updatedLabels });
+    onChange({ labels: [...draft.labels, { name: value, group: groupName }] });
   };
 
   const handleAddCustomLabel = () => {
     const groupName = customGroup.trim();
     const value = customLabel.trim();
     if (!groupName || !value) return;
-    handleLabelChange(groupName, value);
+    if (
+      !draft.labels.some(
+        (label) => label.group === groupName && label.name === value,
+      )
+    ) {
+      onChange({ labels: [...draft.labels, { name: value, group: groupName }] });
+    }
     setCustomLabel('');
   };
 
@@ -234,10 +237,11 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
 
           <Stack spacing={1}>
             {labelGroups.map((group) => {
-              const selectedValue = getLabelValue(group.groupName);
-              const options = selectedValue
-                ? Array.from(new Set([selectedValue, ...group.options]))
-                : group.options;
+              const selectedValues = getLabelValues(group.groupName);
+              const selectedValueSet = new Set(selectedValues);
+              const options = Array.from(
+                new Set([...selectedValues, ...group.options]),
+              );
               return (
                 <Box key={group.groupName}>
                   <Typography
@@ -254,9 +258,9 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     <Button
                       size="small"
-                      variant={!selectedValue ? 'contained' : 'outlined'}
-                      color={!selectedValue ? 'inherit' : 'primary'}
-                      onClick={() => handleLabelChange(group.groupName, '')}
+                      variant={selectedValues.length === 0 ? 'contained' : 'outlined'}
+                      color={selectedValues.length === 0 ? 'inherit' : 'primary'}
+                      onClick={() => handleClearGroup(group.groupName)}
                       sx={{ minWidth: 56, px: 1, py: 0.25 }}
                     >
                       なし
@@ -265,8 +269,10 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
                       <Button
                         key={option}
                         size="small"
-                        variant={selectedValue === option ? 'contained' : 'outlined'}
-                        onClick={() => handleLabelChange(group.groupName, option)}
+                        variant={
+                          selectedValueSet.has(option) ? 'contained' : 'outlined'
+                        }
+                        onClick={() => handleToggleLabel(group.groupName, option)}
                         sx={{
                           minWidth: 72,
                           px: 1,
