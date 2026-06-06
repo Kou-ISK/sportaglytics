@@ -40,6 +40,10 @@ export interface MatrixTabViewProps {
   onLabelValueChange: (value: string) => void;
   onClearLabelFilters: () => void;
   onExportMatrix: (format: 'csv' | 'xlsx') => Promise<void>;
+  onCreateDetailPlaylist: (
+    title: string,
+    entries: TimelineData[],
+  ) => Promise<void>;
   onDrilldown: (title: string, entries: TimelineData[]) => void;
   onDetailClose: () => void;
   onJumpToSegment?: (segment: TimelineData) => void;
@@ -71,6 +75,7 @@ export const MatrixTabView = ({
   onLabelValueChange,
   onClearLabelFilters,
   onExportMatrix,
+  onCreateDetailPlaylist,
   onDrilldown,
   onDetailClose,
   onJumpToSegment,
@@ -185,6 +190,7 @@ export const MatrixTabView = ({
         detail={detail}
         onClose={onDetailClose}
         onJump={(segment) => onJumpToSegment?.(segment)}
+        onCreatePlaylist={onCreateDetailPlaylist}
       />
     </>
   );

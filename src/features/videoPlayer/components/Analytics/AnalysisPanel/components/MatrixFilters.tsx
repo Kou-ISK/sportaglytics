@@ -158,28 +158,37 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
               onDelete={onClearLabelFilters}
             />
           )}
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => {
-              onTeamChange(ALL);
-              onActionChange(ALL);
-              onClearLabelFilters();
-            }}
-            sx={{ ml: 'auto' }}
-          >
-            すべてクリア
-          </Button>
         </Box>
       )}
 
-      <Box display="flex" justifyContent="flex-end" gap={1} mt={0.5}>
-        <Button size="small" variant="outlined" onClick={onClose}>
-          閉じる
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        gap={1}
+        mt={0.5}
+        flexWrap="wrap"
+      >
+        <Button
+          size="small"
+          variant="outlined"
+          disabled={!hasActiveFilters}
+          onClick={() => {
+            onTeamChange(ALL);
+            onActionChange(ALL);
+            onClearLabelFilters();
+          }}
+        >
+          すべてクリア
         </Button>
-        <Button size="small" variant="contained" onClick={onApply ?? onClose}>
-          適用
-        </Button>
+        <Box display="flex" justifyContent="flex-end" gap={1}>
+          <Button size="small" variant="outlined" onClick={onClose}>
+            閉じる
+          </Button>
+          <Button size="small" variant="contained" onClick={onApply ?? onClose}>
+            適用
+          </Button>
+        </Box>
       </Box>
     </>
   );

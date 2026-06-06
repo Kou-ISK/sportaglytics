@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
+import type { PlaylistItem } from '../../../../../../types/playlist/core';
 import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
 import { useMatrixFilters } from './useMatrixFilters';
@@ -31,7 +32,29 @@ export interface MatrixTabControllerParams {
   }) => void;
   matrixFilters?: MatrixFilterState;
   onMatrixFiltersChange?: (filters: MatrixFilterState) => void;
+  onCreateAiPlaylist?: (payload: {
+    name: string;
+    items: PlaylistItem[];
+  }) => Promise<void> | void;
 }
+
+const createPlaylistItemId = (index: number): string => {
+  return globalThis.crypto?.randomUUID?.() ?? `matrix-${Date.now()}-${index}`;
+};
+
+const buildMatrixPlaylistItems = (entries: TimelineData[]): PlaylistItem[] => {
+  const addedAt = Date.now();
+  return entries.map((entry, index) => ({
+    id: createPlaylistItemId(index),
+    timelineItemId: entry.id,
+    actionName: entry.actionName,
+    startTime: entry.startTime,
+    endTime: entry.endTime,
+    labels: entry.labels,
+    memo: entry.memo,
+    addedAt,
+  }));
+};
 
 export const useMatrixTabController = ({
   hasData,
@@ -43,6 +66,7 @@ export const useMatrixTabController = ({
   onMatrixAxesChange,
   matrixFilters,
   onMatrixFiltersChange,
+  onCreateAiPlaylist,
 }: MatrixTabControllerParams): MatrixTabViewProps => {
   const notification = useNotification();
   const [detail, setDetail] = useState<{
@@ -183,6 +207,31 @@ export const useMatrixTabController = ({
     (value) => value !== '' && value !== allFilterValue,
   ).length;
 
+  const handleCreateDetailPlaylist = useCallback(
+    async (title: string, entries: TimelineData[]): Promise<void> => {
+      if (!onCreateAiPlaylist) {
+        notification.warning('プレイリスト機能が利用できません。');
+        return;
+      }
+      if (entries.length === 0) {
+        notification.info('プレイリストに追加できる映像がありません。');
+        return;
+      }
+
+      try {
+        await onCreateAiPlaylist({
+          name: `クロス集計: ${title}`,
+          items: buildMatrixPlaylistItems(entries),
+        });
+        notification.success('プレイリストを作成しました。');
+      } catch (error) {
+        console.debug('[Matrix] playlist creation failed', error);
+        notification.error('プレイリストの作成に失敗しました。');
+      }
+    },
+    [notification, onCreateAiPlaylist],
+  );
+
   return {
     hasData,
     emptyMessage,
@@ -209,6 +258,7 @@ export const useMatrixTabController = ({
     onLabelValueChange: setFilterLabelValue,
     onClearLabelFilters: clearLabelFilters,
     onExportMatrix: exportMatrix,
+    onCreateDetailPlaylist: handleCreateDetailPlaylist,
     onDrilldown: (title, entries) => {
       setDetail({ title, entries });
     },

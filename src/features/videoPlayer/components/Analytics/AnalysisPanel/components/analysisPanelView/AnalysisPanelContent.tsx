@@ -95,6 +95,7 @@ export const AnalysisPanelContent = ({
           onMatrixAxesChange={onMatrixAxesChange}
           matrixFilters={matrixFilters}
           onMatrixFiltersChange={onMatrixFiltersChange}
+          onCreateAiPlaylist={onCreateAiPlaylist}
         />
       )}
 

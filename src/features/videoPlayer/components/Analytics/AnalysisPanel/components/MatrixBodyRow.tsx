@@ -36,6 +36,7 @@ export const MatrixBodyRow = ({
   const rowHeaderFontSize = isPrint ? '0.66rem' : '0.64rem';
   const cellValueFontSize = isPrint ? '0.66rem' : '0.62rem';
   const rowTotal = rowCells.reduce((sum, cell) => sum + cell.count, 0);
+  const rowEntries = rowCells.flatMap((cell) => cell.entries);
   const isFirstOfParent =
     rowIndex === 0 || rowHeaders[rowIndex - 1]?.parent !== rowHeader.parent;
   const rowspan = rowHeader.parent
@@ -172,13 +173,28 @@ export const MatrixBodyRow = ({
           wordBreak: isPrint ? 'break-word' : 'normal',
         }}
       >
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ fontSize: rowHeaderFontSize }}
-        >
-          {rowTotal}
-        </Typography>
+        {!isPrint && rowTotal > 0 ? (
+          <Button
+            size="small"
+            onClick={() => {
+              const rowLabel = rowHeader.parent
+                ? `${rowHeader.parent} ${rowHeader.child || '未設定'}`
+                : rowHeader.child || '未設定';
+              onDrilldown(`${rowLabel} × 合計`, rowEntries);
+            }}
+            sx={{ fontSize: rowHeaderFontSize, minWidth: 30, p: 0.5 }}
+          >
+            {rowTotal}
+          </Button>
+        ) : (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontSize: rowHeaderFontSize }}
+          >
+            {rowTotal}
+          </Typography>
+        )}
       </TableCell>
     </TableRow>
   );
