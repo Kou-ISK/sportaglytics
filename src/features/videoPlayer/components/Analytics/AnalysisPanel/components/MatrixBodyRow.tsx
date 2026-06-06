@@ -1,6 +1,11 @@
 import React from 'react';
 import { Button, TableCell, TableRow, Typography } from '@mui/material';
 import type { TimelineData } from '../../../../../../types/timeline/core';
+import {
+  MATRIX_ROW_CHILD_COLUMN_WIDTH,
+  MATRIX_ROW_PARENT_COLUMN_WIDTH,
+  MATRIX_ROW_SINGLE_COLUMN_WIDTH,
+} from './matrixTableLayout';
 
 type Header = { parent: string | null; child: string };
 
@@ -55,6 +60,9 @@ export const MatrixBodyRow = ({
             fontSize: rowHeaderFontSize,
             position: isPrint ? 'static' : 'sticky',
             left: isPrint ? 'auto' : 0,
+            width: MATRIX_ROW_PARENT_COLUMN_WIDTH,
+            minWidth: MATRIX_ROW_PARENT_COLUMN_WIDTH,
+            maxWidth: MATRIX_ROW_PARENT_COLUMN_WIDTH,
             zIndex: isPrint ? 'auto' : 1,
             whiteSpace: isPrint ? 'normal' : 'nowrap',
             wordBreak: isPrint ? 'break-word' : 'normal',
@@ -72,6 +80,9 @@ export const MatrixBodyRow = ({
             fontSize: rowHeaderFontSize,
             position: isPrint ? 'static' : 'sticky',
             left: isPrint ? 'auto' : 0,
+            width: MATRIX_ROW_SINGLE_COLUMN_WIDTH,
+            minWidth: MATRIX_ROW_SINGLE_COLUMN_WIDTH,
+            maxWidth: MATRIX_ROW_SINGLE_COLUMN_WIDTH,
             zIndex: isPrint ? 'auto' : 1,
             backgroundColor: 'background.paper',
             whiteSpace: isPrint ? 'normal' : 'nowrap',
@@ -90,7 +101,10 @@ export const MatrixBodyRow = ({
             borderColor: 'divider',
             fontSize: rowHeaderFontSize,
             position: isPrint ? 'static' : 'sticky',
-            left: isPrint ? 'auto' : 0,
+            left: isPrint ? 'auto' : MATRIX_ROW_PARENT_COLUMN_WIDTH,
+            width: MATRIX_ROW_CHILD_COLUMN_WIDTH,
+            minWidth: MATRIX_ROW_CHILD_COLUMN_WIDTH,
+            maxWidth: MATRIX_ROW_CHILD_COLUMN_WIDTH,
             zIndex: isPrint ? 'auto' : 1,
             backgroundColor: 'background.paper',
             whiteSpace: isPrint ? 'normal' : 'nowrap',

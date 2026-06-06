@@ -1,5 +1,10 @@
 import React from 'react';
 import { TableCell, TableHead, TableRow } from '@mui/material';
+import {
+  MATRIX_ROW_CHILD_COLUMN_WIDTH,
+  MATRIX_ROW_PARENT_COLUMN_WIDTH,
+  MATRIX_ROW_SINGLE_COLUMN_WIDTH,
+} from './matrixTableLayout';
 
 type Header = { parent: string | null; child: string };
 
@@ -16,21 +21,38 @@ export const MatrixTableHead = ({
   rowHeaders,
   columnHeaders,
   rowParentSpans: _rowParentSpans,
-  colParentSpans,
+  colParentSpans: _colParentSpans,
   hasColumnParent,
   exportMode = 'screen',
 }: MatrixTableHeadProps) => {
   const isPrint = exportMode === 'print';
   const hasRowParent = rowHeaders.some((header) => header.parent !== null);
-  const maxParentLabelLength = columnHeaders.reduce((max, header) => {
-    return Math.max(max, header.parent?.length ?? 0);
-  }, 0);
-  const parentHeaderHeight = hasColumnParent
-    ? Math.min(72, Math.max(32, 16 + maxParentLabelLength * 8))
-    : 0;
-  const firstRowTop = isPrint ? undefined : 0;
-  const secondRowTop = isPrint ? undefined : parentHeaderHeight;
   const headerFontSize = isPrint ? '0.66rem' : '0.64rem';
+  const parentHeaderCells = columnHeaders.reduce<
+    Array<{ key: string; name: string | null; colspan: number }>
+  >((cells, header, index) => {
+    if (!header.parent) {
+      cells.push({
+        key: `parent-empty-${index}-${header.child || 'unset'}`,
+        name: null,
+        colspan: 1,
+      });
+      return cells;
+    }
+
+    const previous = cells[cells.length - 1];
+    if (previous?.name === header.parent) {
+      previous.colspan += 1;
+      return cells;
+    }
+
+    cells.push({
+      key: `parent-${header.parent}-${index}`,
+      name: header.parent,
+      colspan: 1,
+    });
+    return cells;
+  }, []);
 
   return (
     <TableHead>
@@ -44,8 +66,10 @@ export const MatrixTableHead = ({
                   borderColor: 'divider',
                   position: isPrint ? 'static' : 'sticky',
                   left: isPrint ? 'auto' : 0,
+                  width: MATRIX_ROW_PARENT_COLUMN_WIDTH,
+                  minWidth: MATRIX_ROW_PARENT_COLUMN_WIDTH,
+                  maxWidth: MATRIX_ROW_PARENT_COLUMN_WIDTH,
                   zIndex: isPrint ? 'auto' : 4,
-                  top: firstRowTop,
                   backgroundColor: 'background.paper',
                 }}
               />
@@ -54,9 +78,11 @@ export const MatrixTableHead = ({
                   borderRight: '2px solid',
                   borderColor: 'divider',
                   position: isPrint ? 'static' : 'sticky',
-                  left: isPrint ? 'auto' : 0,
+                  left: isPrint ? 'auto' : MATRIX_ROW_PARENT_COLUMN_WIDTH,
+                  width: MATRIX_ROW_CHILD_COLUMN_WIDTH,
+                  minWidth: MATRIX_ROW_CHILD_COLUMN_WIDTH,
+                  maxWidth: MATRIX_ROW_CHILD_COLUMN_WIDTH,
                   zIndex: isPrint ? 'auto' : 4,
-                  top: firstRowTop,
                   backgroundColor: 'background.paper',
                 }}
               />
@@ -68,48 +94,35 @@ export const MatrixTableHead = ({
                 borderColor: 'divider',
                 position: isPrint ? 'static' : 'sticky',
                 left: isPrint ? 'auto' : 0,
+                width: MATRIX_ROW_SINGLE_COLUMN_WIDTH,
+                minWidth: MATRIX_ROW_SINGLE_COLUMN_WIDTH,
+                maxWidth: MATRIX_ROW_SINGLE_COLUMN_WIDTH,
                 zIndex: isPrint ? 'auto' : 4,
-                top: firstRowTop,
                 backgroundColor: 'background.paper',
               }}
             />
           )}
-          {(() => {
-            const parents: Array<{ name: string; colspan: number }> = [];
-            const seen = new Set<string>();
-            for (const header of columnHeaders) {
-              if (header.parent && !seen.has(header.parent)) {
-                seen.add(header.parent);
-                parents.push({
-                  name: header.parent,
-                  colspan: colParentSpans.get(header.parent) || 1,
-                });
-              }
-            }
-            return parents.map(({ name, colspan }) => (
-              <TableCell
-                key={`parent-${name}`}
-                colSpan={colspan}
-                align="center"
-                sx={{
-                  fontWeight: 600,
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
-                  writingMode: isPrint ? 'horizontal-tb' : 'vertical-rl',
-                  minWidth: isPrint ? 70 : 32,
-                  padding: isPrint ? '4px 6px' : '6px 2px',
-                  fontSize: headerFontSize,
-                  letterSpacing: '0.02em',
-                  whiteSpace: isPrint ? 'normal' : 'nowrap',
-                  wordBreak: isPrint ? 'break-word' : 'normal',
-                  top: firstRowTop,
-                  zIndex: isPrint ? 'auto' : 4,
-                }}
-              >
-                {name}
-              </TableCell>
-            ));
-          })()}
+          {parentHeaderCells.map(({ key, name, colspan }) => (
+            <TableCell
+              key={key}
+              colSpan={colspan}
+              align="center"
+              sx={{
+                fontWeight: 600,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                writingMode: isPrint ? 'horizontal-tb' : 'vertical-rl',
+                minWidth: isPrint ? 70 : 32,
+                padding: isPrint ? '4px 6px' : '6px 2px',
+                fontSize: headerFontSize,
+                letterSpacing: '0.02em',
+                whiteSpace: isPrint ? 'normal' : 'nowrap',
+                wordBreak: isPrint ? 'break-word' : 'normal',
+              }}
+            >
+              {name}
+            </TableCell>
+          ))}
           <TableCell
             rowSpan={2}
             align="center"
@@ -126,7 +139,6 @@ export const MatrixTableHead = ({
               position: isPrint ? 'static' : 'sticky',
               right: isPrint ? 'auto' : 0,
               zIndex: isPrint ? 'auto' : 4,
-              top: firstRowTop,
               backgroundColor: 'background.paper',
               whiteSpace: isPrint ? 'normal' : 'nowrap',
               wordBreak: isPrint ? 'break-word' : 'normal',
@@ -148,8 +160,10 @@ export const MatrixTableHead = ({
                 fontSize: headerFontSize,
                 position: isPrint ? 'static' : 'sticky',
                 left: isPrint ? 'auto' : 0,
+                width: MATRIX_ROW_PARENT_COLUMN_WIDTH,
+                minWidth: MATRIX_ROW_PARENT_COLUMN_WIDTH,
+                maxWidth: MATRIX_ROW_PARENT_COLUMN_WIDTH,
                 zIndex: isPrint ? 'auto' : 3,
-                top: secondRowTop,
                 backgroundColor: 'background.paper',
                 whiteSpace: isPrint ? 'normal' : 'nowrap',
                 wordBreak: isPrint ? 'break-word' : 'normal',
@@ -163,9 +177,11 @@ export const MatrixTableHead = ({
                 borderColor: 'divider',
                 fontSize: headerFontSize,
                 position: isPrint ? 'static' : 'sticky',
-                left: isPrint ? 'auto' : 0,
+                left: isPrint ? 'auto' : MATRIX_ROW_PARENT_COLUMN_WIDTH,
+                width: MATRIX_ROW_CHILD_COLUMN_WIDTH,
+                minWidth: MATRIX_ROW_CHILD_COLUMN_WIDTH,
+                maxWidth: MATRIX_ROW_CHILD_COLUMN_WIDTH,
                 zIndex: isPrint ? 'auto' : 3,
-                top: secondRowTop,
                 backgroundColor: 'background.paper',
                 whiteSpace: isPrint ? 'normal' : 'nowrap',
                 wordBreak: isPrint ? 'break-word' : 'normal',
@@ -181,8 +197,10 @@ export const MatrixTableHead = ({
               fontSize: headerFontSize,
               position: isPrint ? 'static' : 'sticky',
               left: isPrint ? 'auto' : 0,
+              width: MATRIX_ROW_SINGLE_COLUMN_WIDTH,
+              minWidth: MATRIX_ROW_SINGLE_COLUMN_WIDTH,
+              maxWidth: MATRIX_ROW_SINGLE_COLUMN_WIDTH,
               zIndex: isPrint ? 'auto' : 3,
-              top: secondRowTop,
               backgroundColor: 'background.paper',
               whiteSpace: isPrint ? 'normal' : 'nowrap',
               wordBreak: isPrint ? 'break-word' : 'normal',
@@ -206,8 +224,6 @@ export const MatrixTableHead = ({
                 letterSpacing: '0.02em',
                 whiteSpace: isPrint ? 'normal' : 'nowrap',
                 wordBreak: isPrint ? 'break-word' : 'normal',
-                top: secondRowTop,
-                zIndex: isPrint ? 'auto' : 3,
               }}
             >
               {header.child || '未設定'}
@@ -229,7 +245,6 @@ export const MatrixTableHead = ({
               position: isPrint ? 'static' : 'sticky',
               right: isPrint ? 'auto' : 0,
               zIndex: isPrint ? 'auto' : 3,
-              top: secondRowTop,
               backgroundColor: 'background.paper',
               whiteSpace: isPrint ? 'normal' : 'nowrap',
               wordBreak: isPrint ? 'break-word' : 'normal',

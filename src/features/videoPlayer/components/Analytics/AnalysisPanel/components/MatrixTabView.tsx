@@ -81,7 +81,7 @@ export const MatrixTabView = ({
 
   return (
     <>
-      <Stack spacing={1.5}>
+      <Stack spacing={1.5} sx={{ minWidth: 0 }}>
         <FilterSummaryBar
           rowAxis={customRowAxis}
           columnAxis={customColumnAxis}
@@ -142,9 +142,12 @@ export const MatrixTabView = ({
             borderRadius: 2,
             border: '1px solid',
             borderColor: 'divider',
+            minWidth: 0,
+            maxWidth: '100%',
+            overflow: 'hidden',
           }}
         >
-          <Stack spacing={1}>
+          <Stack spacing={1} sx={{ minWidth: 0 }}>
             {customMatrix && customMatrix.rowHeaders.length > 0 && (
               <>
                 <MatrixSection

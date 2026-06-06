@@ -222,8 +222,8 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
           PaperProps={{
             sx: {
               p: 2,
-              minWidth: 500,
-              maxWidth: 600,
+              width: { xs: 'calc(100vw - 32px)', sm: 560 },
+              maxWidth: 'calc(100vw - 32px)',
             },
           }}
         >
@@ -255,22 +255,13 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
           PaperProps={{
             sx: {
               p: 2,
-              minWidth: 600,
-              maxWidth: 800,
+              width: { xs: 'calc(100vw - 32px)', md: 720 },
+              maxWidth: 'calc(100vw - 32px)',
             },
           }}
         >
           <Stack spacing={1.5}>
             {renderFilterEditor(handleFilterClose)}
-            <Box display="flex" justifyContent="flex-end">
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={handleFilterClose}
-              >
-                閉じる
-              </Button>
-            </Box>
           </Stack>
         </Popover>
       )}
