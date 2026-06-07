@@ -13,15 +13,44 @@ interface BuildOverlayFiltersParams {
   variant: 'single' | 'dual';
 }
 
-const buildBoxHeight = (overlayLines: OverlayLine[]): number => {
+const buildBoxHeight = (
+  overlayLines: OverlayLine[],
+  variant: 'single' | 'dual',
+): number => {
   const totalDisplayLines = overlayLines.reduce((acc, line) => {
     const lineCount = (line.text.match(/\n/g) || []).length + 1;
     return acc + lineCount;
   }, 0);
+  if (variant === 'single') {
+    return Math.max(48, 46 + (totalDisplayLines - 1) * 28);
+  }
   return Math.max(60, 60 + (totalDisplayLines - 1) * 35);
 };
 
-const buildLineConfigs = (boxHeight: number): OverlayLineConfig[] => {
+const buildLineConfigs = (
+  boxHeight: number,
+  variant: 'single' | 'dual',
+): OverlayLineConfig[] => {
+  if (variant === 'single') {
+    return [
+      {
+        color: 'white',
+        size: 30,
+        y: `h-${boxHeight - 14}`,
+      },
+      {
+        color: '#dcdcdc',
+        size: 24,
+        y: `h-${Math.max(18, boxHeight - 42)}`,
+      },
+      {
+        color: '#bbbbbb',
+        size: 21,
+        y: `h-${Math.max(18, boxHeight - 68)}`,
+      },
+    ];
+  }
+
   return [
     {
       color: 'white',
@@ -47,11 +76,11 @@ export const buildOverlayFilters = ({
   escapeDrawtext,
   variant,
 }: BuildOverlayFiltersParams): string[] => {
-  const boxHeight = buildBoxHeight(overlayLines);
+  const boxHeight = buildBoxHeight(overlayLines, variant);
   const filters: string[] = [
     `drawbox=x=0:y=ih-${boxHeight}:w=iw:h=${boxHeight}:color=black@0.7:t=fill`,
   ];
-  const lineConfigs = buildLineConfigs(boxHeight);
+  const lineConfigs = buildLineConfigs(boxHeight, variant);
 
   overlayLines.forEach((line, idx) => {
     const safeText = escapeDrawtext(line.text);
