@@ -3,7 +3,12 @@ import { useNotification } from '../../../../../../contexts/NotificationContext'
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 import type { PlaylistItem } from '../../../../../../types/playlist/core';
-import { extractUniqueGroups } from '../../../../../../utils/labelExtractors';
+import {
+  extractActionFromActionName,
+  extractTeamFromActionName,
+  extractUniqueGroups,
+  getLabelsFromTimelineData,
+} from '../../../../../../utils/labelExtractors';
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
 import { useMatrixFilters } from './useMatrixFilters';
 import { useMatrixAxes } from './useMatrixAxes';
@@ -90,8 +95,7 @@ export const useMatrixTabController = ({
     filters: localFilters,
     setFilterTeam: setLocalFilterTeam,
     setFilterAction: setLocalFilterAction,
-    setFilterLabelGroup: setLocalFilterLabelGroup,
-    setFilterLabelValue: setLocalFilterLabelValue,
+    applyFilters: applyLocalFilters,
     clearLabelFilters: clearLocalLabelFilters,
   } = useMatrixFilters(timeline);
 
@@ -108,6 +112,38 @@ export const useMatrixTabController = ({
     () => deriveMatrixFilters(timeline, filters),
     [timeline, filters],
   );
+  const availableActionsByTeam = useMemo(() => {
+    const actionsByTeam: Record<string, Set<string>> = {};
+    timeline.forEach((item) => {
+      const team = extractTeamFromActionName(item.actionName);
+      const action = extractActionFromActionName(item.actionName);
+      if (!team || !action) return;
+      actionsByTeam[team] ??= new Set<string>();
+      actionsByTeam[team].add(action);
+    });
+    return Object.fromEntries(
+      Object.entries(actionsByTeam).map(([team, actions]) => [
+        team,
+        Array.from(actions).sort((a, b) => a.localeCompare(b)),
+      ]),
+    );
+  }, [timeline]);
+  const availableLabelValuesByGroup = useMemo(() => {
+    const valuesByGroup: Record<string, Set<string>> = {};
+    timeline.forEach((item) => {
+      getLabelsFromTimelineData(item).forEach((label) => {
+        if (!label.group || !label.name) return;
+        valuesByGroup[label.group] ??= new Set<string>();
+        valuesByGroup[label.group].add(label.name);
+      });
+    });
+    return Object.fromEntries(
+      Object.entries(valuesByGroup).map(([group, values]) => [
+        group,
+        Array.from(values).sort((a, b) => a.localeCompare(b)),
+      ]),
+    );
+  }, [timeline]);
 
   const setCustomRowAxis = (next: MatrixAxisConfig): void => {
     if (onMatrixAxesChange) {
@@ -145,28 +181,6 @@ export const useMatrixTabController = ({
     setLocalFilterAction(value);
   };
 
-  const setFilterLabelGroup = (value: string): void => {
-    if (onMatrixFiltersChange) {
-      onMatrixFiltersChange({
-        ...filters,
-        labelGroup: value,
-        labelValue: MATRIX_FILTER_ALL,
-      });
-      return;
-    }
-
-    setLocalFilterLabelGroup(value);
-  };
-
-  const setFilterLabelValue = (value: string): void => {
-    if (onMatrixFiltersChange) {
-      onMatrixFiltersChange({ ...filters, labelValue: value });
-      return;
-    }
-
-    setLocalFilterLabelValue(value);
-  };
-
   const clearLabelFilters = (): void => {
     if (onMatrixFiltersChange) {
       onMatrixFiltersChange({
@@ -178,6 +192,15 @@ export const useMatrixTabController = ({
     }
 
     clearLocalLabelFilters();
+  };
+
+  const applyFilters = (nextFilters: MatrixFilterState): void => {
+    if (onMatrixFiltersChange) {
+      onMatrixFiltersChange(nextFilters);
+      return;
+    }
+
+    applyLocalFilters(nextFilters);
   };
 
   const customMatrix = useMemo(() => {
@@ -242,6 +265,8 @@ export const useMatrixTabController = ({
     availableTeams,
     availableActions,
     availableLabelValues,
+    availableActionsByTeam,
+    availableLabelValuesByGroup,
     customRowAxis,
     customColumnAxis,
     filters,
@@ -252,11 +277,7 @@ export const useMatrixTabController = ({
     detail,
     onRowAxisChange: setCustomRowAxis,
     onColumnAxisChange: setCustomColumnAxis,
-    onTeamChange: setFilterTeam,
-    onActionChange: setFilterAction,
-    onLabelGroupChange: setFilterLabelGroup,
-    onLabelValueChange: setFilterLabelValue,
-    onClearLabelFilters: clearLabelFilters,
+    onFiltersApply: applyFilters,
     onExportMatrix: exportMatrix,
     onCreateDetailPlaylist: handleCreateDetailPlaylist,
     onDrilldown: (title, entries) => {

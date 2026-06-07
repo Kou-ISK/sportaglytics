@@ -21,6 +21,8 @@ export interface MatrixTabViewProps {
   availableTeams: string[];
   availableActions: string[];
   availableLabelValues: string[];
+  availableActionsByTeam: Record<string, string[]>;
+  availableLabelValuesByGroup: Record<string, string[]>;
   customRowAxis: MatrixAxisConfig;
   customColumnAxis: MatrixAxisConfig;
   filters: MatrixFilterState;
@@ -34,11 +36,7 @@ export interface MatrixTabViewProps {
   } | null;
   onRowAxisChange: (value: MatrixAxisConfig) => void;
   onColumnAxisChange: (value: MatrixAxisConfig) => void;
-  onTeamChange: (value: string) => void;
-  onActionChange: (value: string) => void;
-  onLabelGroupChange: (value: string) => void;
-  onLabelValueChange: (value: string) => void;
-  onClearLabelFilters: () => void;
+  onFiltersApply: (filters: MatrixFilterState) => void;
   onExportMatrix: (format: 'csv' | 'xlsx') => Promise<void>;
   onCreateDetailPlaylist: (
     title: string,
@@ -59,6 +57,8 @@ export const MatrixTabView = ({
   availableTeams,
   availableActions,
   availableLabelValues,
+  availableActionsByTeam,
+  availableLabelValuesByGroup,
   customRowAxis,
   customColumnAxis,
   filters,
@@ -69,11 +69,7 @@ export const MatrixTabView = ({
   detail,
   onRowAxisChange,
   onColumnAxisChange,
-  onTeamChange,
-  onActionChange,
-  onLabelGroupChange,
-  onLabelValueChange,
-  onClearLabelFilters,
+  onFiltersApply,
   onExportMatrix,
   onCreateDetailPlaylist,
   onDrilldown,
@@ -110,12 +106,10 @@ export const MatrixTabView = ({
               availableTeams={availableTeams}
               availableActions={availableActions}
               availableLabelValues={availableLabelValues}
+              availableActionsByTeam={availableActionsByTeam}
+              availableLabelValuesByGroup={availableLabelValuesByGroup}
               availableGroups={availableGroups}
-              onTeamChange={onTeamChange}
-              onActionChange={onActionChange}
-              onLabelGroupChange={onLabelGroupChange}
-              onLabelValueChange={onLabelValueChange}
-              onClearLabelFilters={onClearLabelFilters}
+              onFiltersApply={onFiltersApply}
               hasActiveFilters={hasActiveFilters}
               onApply={onClose}
               onClose={onClose}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -9,44 +9,77 @@ import {
   Select,
   Typography,
 } from '@mui/material';
-import { MatrixFilterState } from '../controllers/useMatrixFilters';
+import {
+  createDefaultMatrixFilters,
+  MATRIX_FILTER_ALL,
+  type MatrixFilterState,
+} from '../controllers/matrixFilterUtils';
 
 interface MatrixFiltersProps {
   filters: MatrixFilterState;
   availableTeams: string[];
   availableActions: string[];
   availableLabelValues: string[];
+  availableActionsByTeam: Record<string, string[]>;
+  availableLabelValuesByGroup: Record<string, string[]>;
   availableGroups: string[];
-  onTeamChange: (value: string) => void;
-  onActionChange: (value: string) => void;
-  onLabelGroupChange: (value: string) => void;
-  onLabelValueChange: (value: string) => void;
-  onClearLabelFilters: () => void;
+  onFiltersApply: (filters: MatrixFilterState) => void;
   hasActiveFilters: boolean;
   onApply?: () => void;
   onClose?: () => void;
 }
 
-const ALL = 'all';
+const hasDraftFilters = (filters: MatrixFilterState): boolean => {
+  return Object.values(filters).some(
+    (value) => value !== '' && value !== MATRIX_FILTER_ALL,
+  );
+};
 
 export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
   filters,
   availableTeams,
   availableActions,
   availableLabelValues,
+  availableActionsByTeam,
+  availableLabelValuesByGroup,
   availableGroups,
-  onTeamChange,
-  onActionChange,
-  onLabelGroupChange,
-  onLabelValueChange,
-  onClearLabelFilters,
+  onFiltersApply,
   hasActiveFilters,
   onApply,
   onClose,
 }) => {
+  const [draftFilters, setDraftFilters] =
+    useState<MatrixFilterState>(filters);
+  const hasDraftActiveFilters = useMemo(
+    () => hasDraftFilters(draftFilters),
+    [draftFilters],
+  );
+  const draftAvailableActions =
+    draftFilters.team === MATRIX_FILTER_ALL
+      ? availableActions
+      : (availableActionsByTeam[draftFilters.team] ?? []);
+  const draftAvailableLabelValues =
+    draftFilters.labelGroup === MATRIX_FILTER_ALL
+      ? []
+      : (availableLabelValuesByGroup[draftFilters.labelGroup] ??
+        availableLabelValues);
   const compactControlSx = {
     '& .MuiInputBase-input': { py: 0.75 },
     '& .MuiSelect-select': { py: 0.75 },
+  };
+
+  useEffect(() => {
+    setDraftFilters(filters);
+  }, [filters]);
+
+  const handleClose = (): void => {
+    setDraftFilters(filters);
+    onClose?.();
+  };
+
+  const handleApply = (): void => {
+    onFiltersApply(draftFilters);
+    onApply?.();
   };
 
   return (
@@ -62,11 +95,17 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
         <FormControl size="small" fullWidth sx={compactControlSx}>
           <InputLabel>チーム</InputLabel>
           <Select
-            value={filters.team}
+            value={draftFilters.team}
             label="チーム"
-            onChange={(e) => onTeamChange(e.target.value)}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                team: e.target.value,
+                action: MATRIX_FILTER_ALL,
+              }))
+            }
           >
-            <MenuItem value={ALL}>全て</MenuItem>
+            <MenuItem value={MATRIX_FILTER_ALL}>全て</MenuItem>
             {availableTeams.map((team) => (
               <MenuItem key={team} value={team}>
                 {team}
@@ -78,13 +117,18 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
         <FormControl size="small" fullWidth sx={compactControlSx}>
           <InputLabel>アクション</InputLabel>
           <Select
-            value={filters.action}
+            value={draftFilters.action}
             label="アクション"
-            onChange={(e) => onActionChange(e.target.value)}
-            disabled={availableActions.length === 0}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                action: e.target.value,
+              }))
+            }
+            disabled={draftAvailableActions.length === 0}
           >
-            <MenuItem value={ALL}>全て</MenuItem>
-            {availableActions.map((action) => (
+            <MenuItem value={MATRIX_FILTER_ALL}>全て</MenuItem>
+            {draftAvailableActions.map((action) => (
               <MenuItem key={action} value={action}>
                 {action}
               </MenuItem>
@@ -95,11 +139,17 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
         <FormControl size="small" fullWidth sx={compactControlSx}>
           <InputLabel>ラベルグループ</InputLabel>
           <Select
-            value={filters.labelGroup}
+            value={draftFilters.labelGroup}
             label="ラベルグループ"
-            onChange={(e) => onLabelGroupChange(e.target.value)}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                labelGroup: e.target.value,
+                labelValue: MATRIX_FILTER_ALL,
+              }))
+            }
           >
-            <MenuItem value={ALL}>全て</MenuItem>
+            <MenuItem value={MATRIX_FILTER_ALL}>全て</MenuItem>
             {availableGroups.map((group) => (
               <MenuItem key={group} value={group}>
                 {group}
@@ -111,15 +161,21 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
         <FormControl size="small" fullWidth sx={compactControlSx}>
           <InputLabel>ラベル値</InputLabel>
           <Select
-            value={filters.labelValue}
+            value={draftFilters.labelValue}
             label="ラベル値"
-            onChange={(e) => onLabelValueChange(e.target.value)}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                labelValue: e.target.value,
+              }))
+            }
             disabled={
-              filters.labelGroup === ALL || availableLabelValues.length === 0
+              draftFilters.labelGroup === MATRIX_FILTER_ALL ||
+              draftAvailableLabelValues.length === 0
             }
           >
-            <MenuItem value={ALL}>全て</MenuItem>
-            {availableLabelValues.map((value) => (
+            <MenuItem value={MATRIX_FILTER_ALL}>全て</MenuItem>
+            {draftAvailableLabelValues.map((value) => (
               <MenuItem key={value} value={value}>
                 {value}
               </MenuItem>
@@ -128,34 +184,50 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
         </FormControl>
       </Box>
 
-      {hasActiveFilters && (
+      {(hasActiveFilters || hasDraftActiveFilters) && (
         <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
           <Typography variant="caption" color="text.secondary">
-            適用中:
+            編集中:
           </Typography>
-          {filters.team !== ALL && (
+          {draftFilters.team !== MATRIX_FILTER_ALL && (
             <Chip
-              label={`チーム: ${filters.team}`}
+              label={`チーム: ${draftFilters.team}`}
               size="small"
-              onDelete={() => onTeamChange(ALL)}
+              onDelete={() =>
+                setDraftFilters((prev) => ({
+                  ...prev,
+                  team: MATRIX_FILTER_ALL,
+                }))
+              }
             />
           )}
-          {filters.action !== ALL && (
+          {draftFilters.action !== MATRIX_FILTER_ALL && (
             <Chip
-              label={`アクション: ${filters.action}`}
+              label={`アクション: ${draftFilters.action}`}
               size="small"
-              onDelete={() => onActionChange(ALL)}
+              onDelete={() =>
+                setDraftFilters((prev) => ({
+                  ...prev,
+                  action: MATRIX_FILTER_ALL,
+                }))
+              }
             />
           )}
-          {filters.labelGroup !== ALL && (
+          {draftFilters.labelGroup !== MATRIX_FILTER_ALL && (
             <Chip
               label={
-                filters.labelValue !== ALL
-                  ? `${filters.labelGroup}: ${filters.labelValue}`
-                  : `ラベルグループ: ${filters.labelGroup}`
+                draftFilters.labelValue !== MATRIX_FILTER_ALL
+                  ? `${draftFilters.labelGroup}: ${draftFilters.labelValue}`
+                  : `ラベルグループ: ${draftFilters.labelGroup}`
               }
               size="small"
-              onDelete={onClearLabelFilters}
+              onDelete={() =>
+                setDraftFilters((prev) => ({
+                  ...prev,
+                  labelGroup: MATRIX_FILTER_ALL,
+                  labelValue: MATRIX_FILTER_ALL,
+                }))
+              }
             />
           )}
         </Box>
@@ -172,20 +244,16 @@ export const MatrixFilters: React.FC<MatrixFiltersProps> = ({
         <Button
           size="small"
           variant="outlined"
-          disabled={!hasActiveFilters}
-          onClick={() => {
-            onTeamChange(ALL);
-            onActionChange(ALL);
-            onClearLabelFilters();
-          }}
+          disabled={!hasDraftActiveFilters}
+          onClick={() => setDraftFilters(createDefaultMatrixFilters())}
         >
           すべてクリア
         </Button>
         <Box display="flex" justifyContent="flex-end" gap={1}>
-          <Button size="small" variant="outlined" onClick={onClose}>
+          <Button size="small" variant="outlined" onClick={handleClose}>
             閉じる
           </Button>
-          <Button size="small" variant="contained" onClick={onApply ?? onClose}>
+          <Button size="small" variant="contained" onClick={handleApply}>
             適用
           </Button>
         </Box>
