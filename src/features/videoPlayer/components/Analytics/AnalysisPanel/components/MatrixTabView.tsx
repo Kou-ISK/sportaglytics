@@ -21,6 +21,8 @@ export interface MatrixTabViewProps {
   availableTeams: string[];
   availableActions: string[];
   availableLabelValues: string[];
+  availableActionsByTeam: Record<string, string[]>;
+  availableLabelValuesByGroup: Record<string, string[]>;
   customRowAxis: MatrixAxisConfig;
   customColumnAxis: MatrixAxisConfig;
   filters: MatrixFilterState;
@@ -34,12 +36,12 @@ export interface MatrixTabViewProps {
   } | null;
   onRowAxisChange: (value: MatrixAxisConfig) => void;
   onColumnAxisChange: (value: MatrixAxisConfig) => void;
-  onTeamChange: (value: string) => void;
-  onActionChange: (value: string) => void;
-  onLabelGroupChange: (value: string) => void;
-  onLabelValueChange: (value: string) => void;
-  onClearLabelFilters: () => void;
+  onFiltersApply: (filters: MatrixFilterState) => void;
   onExportMatrix: (format: 'csv' | 'xlsx') => Promise<void>;
+  onCreateDetailPlaylist: (
+    title: string,
+    entries: TimelineData[],
+  ) => Promise<void>;
   onDrilldown: (title: string, entries: TimelineData[]) => void;
   onDetailClose: () => void;
   onJumpToSegment?: (segment: TimelineData) => void;
@@ -55,6 +57,8 @@ export const MatrixTabView = ({
   availableTeams,
   availableActions,
   availableLabelValues,
+  availableActionsByTeam,
+  availableLabelValuesByGroup,
   customRowAxis,
   customColumnAxis,
   filters,
@@ -65,12 +69,9 @@ export const MatrixTabView = ({
   detail,
   onRowAxisChange,
   onColumnAxisChange,
-  onTeamChange,
-  onActionChange,
-  onLabelGroupChange,
-  onLabelValueChange,
-  onClearLabelFilters,
+  onFiltersApply,
   onExportMatrix,
+  onCreateDetailPlaylist,
   onDrilldown,
   onDetailClose,
   onJumpToSegment,
@@ -81,7 +82,7 @@ export const MatrixTabView = ({
 
   return (
     <>
-      <Stack spacing={1.5}>
+      <Stack spacing={1.5} sx={{ minWidth: 0 }}>
         <FilterSummaryBar
           rowAxis={customRowAxis}
           columnAxis={customColumnAxis}
@@ -105,12 +106,10 @@ export const MatrixTabView = ({
               availableTeams={availableTeams}
               availableActions={availableActions}
               availableLabelValues={availableLabelValues}
+              availableActionsByTeam={availableActionsByTeam}
+              availableLabelValuesByGroup={availableLabelValuesByGroup}
               availableGroups={availableGroups}
-              onTeamChange={onTeamChange}
-              onActionChange={onActionChange}
-              onLabelGroupChange={onLabelGroupChange}
-              onLabelValueChange={onLabelValueChange}
-              onClearLabelFilters={onClearLabelFilters}
+              onFiltersApply={onFiltersApply}
               hasActiveFilters={hasActiveFilters}
               onApply={onClose}
               onClose={onClose}
@@ -142,9 +141,12 @@ export const MatrixTabView = ({
             borderRadius: 2,
             border: '1px solid',
             borderColor: 'divider',
+            minWidth: 0,
+            maxWidth: '100%',
+            overflow: 'hidden',
           }}
         >
-          <Stack spacing={1}>
+          <Stack spacing={1} sx={{ minWidth: 0 }}>
             {customMatrix && customMatrix.rowHeaders.length > 0 && (
               <>
                 <MatrixSection
@@ -182,6 +184,7 @@ export const MatrixTabView = ({
         detail={detail}
         onClose={onDetailClose}
         onJump={(segment) => onJumpToSegment?.(segment)}
+        onCreatePlaylist={onCreateDetailPlaylist}
       />
     </>
   );

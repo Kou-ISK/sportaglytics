@@ -43,8 +43,8 @@ const buildTimelineEntry = (
   endTime: Number(id) + 2,
   memo: '',
   labels: [
-    { group: 'actionType', name: action },
-    { group: 'actionResult', name: result },
+    { group: 'Type', name: action },
+    { group: 'Result', name: result },
   ],
 });
 
@@ -136,8 +136,8 @@ describe('buildMatrixSectionsByTeamAction', () => {
 
     const sections = buildMatrixSectionsByTeamAction({
       timeline,
-      rowAxis: { type: 'group', value: 'actionType' },
-      columnAxis: { type: 'group', value: 'actionResult' },
+      rowAxis: { type: 'group', value: 'Type' },
+      columnAxis: { type: 'group', value: 'Result' },
       filters: {
         team: 'all',
         action: 'all',

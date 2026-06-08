@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Chip,
-  IconButton,
   Popover,
   Stack,
   Typography,
@@ -106,29 +105,34 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mr: 2 }}>
               軸:
             </Typography>
-            <Stack direction="row" spacing={1} sx={{ flex: 1 }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ flex: 1, minWidth: 0, flexWrap: 'wrap' }}
+            >
               <Chip
                 label={`行: ${getAxisLabel(rowAxis)}`}
                 size="small"
                 variant="outlined"
-                onClick={handleAxisClick}
               />
               <Chip
                 label={`列: ${getAxisLabel(columnAxis)}`}
                 size="small"
                 variant="outlined"
-                onClick={handleAxisClick}
               />
             </Stack>
             {renderAxisEditor && (
               <Tooltip title="軸設定を変更">
-                <IconButton
+                <Button
                   size="small"
+                  variant="outlined"
+                  startIcon={<SettingsIcon fontSize="small" />}
                   onClick={handleAxisClick}
                   aria-label="軸設定を変更"
+                  sx={{ flexShrink: 0 }}
                 >
-                  <SettingsIcon fontSize="small" />
-                </IconButton>
+                  軸を変更
+                </Button>
               </Tooltip>
             )}
           </Box>
@@ -165,7 +169,7 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
               <Stack
                 direction="row"
                 spacing={1}
-                sx={{ flex: 1, flexWrap: 'wrap' }}
+                sx={{ flex: 1, minWidth: 0, flexWrap: 'wrap' }}
               >
                 {filterChips.map((chip, index) => (
                   <Chip
@@ -190,15 +194,18 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
               <Tooltip
                 title={hasActiveFilters ? 'フィルタを編集' : 'フィルタを追加'}
               >
-                <IconButton
+                <Button
                   size="small"
+                  variant={hasActiveFilters ? 'contained' : 'outlined'}
+                  startIcon={<FilterListIcon fontSize="small" />}
                   onClick={handleFilterClick}
                   aria-label={
                     hasActiveFilters ? 'フィルタを編集' : 'フィルタを追加'
                   }
+                  sx={{ flexShrink: 0 }}
                 >
-                  <FilterListIcon fontSize="small" />
-                </IconButton>
+                  {hasActiveFilters ? 'フィルタを編集' : 'フィルタを追加'}
+                </Button>
               </Tooltip>
             )}
           </Box>
@@ -222,8 +229,8 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
           PaperProps={{
             sx: {
               p: 2,
-              minWidth: 500,
-              maxWidth: 600,
+              width: { xs: 'calc(100vw - 32px)', sm: 560 },
+              maxWidth: 'calc(100vw - 32px)',
             },
           }}
         >
@@ -255,22 +262,13 @@ export const FilterSummaryBar: React.FC<FilterSummaryBarProps> = ({
           PaperProps={{
             sx: {
               p: 2,
-              minWidth: 600,
-              maxWidth: 800,
+              width: { xs: 'calc(100vw - 32px)', md: 720 },
+              maxWidth: 'calc(100vw - 32px)',
             },
           }}
         >
           <Stack spacing={1.5}>
             {renderFilterEditor(handleFilterClose)}
-            <Box display="flex" justifyContent="flex-end">
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={handleFilterClose}
-              >
-                閉じる
-              </Button>
-            </Box>
           </Stack>
         </Popover>
       )}

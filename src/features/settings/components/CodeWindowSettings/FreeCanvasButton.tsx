@@ -27,6 +27,10 @@ export const FreeCanvasButton = ({
   onDelete,
   onResizeMouseDown,
 }: FreeCanvasButtonProps) => {
+  const isLabelButton = button.type === 'label' && Boolean(button.labelValue);
+  const primaryText = isLabelButton ? button.labelValue : button.name;
+  const secondaryText = isLabelButton ? button.name : button.labelValue;
+
   return (
     <Paper
       elevation={isSelected ? 4 : 1}
@@ -70,21 +74,29 @@ export const FreeCanvasButton = ({
         sx={{
           fontWeight: 600,
           textAlign: 'center',
-          fontSize: '0.7rem',
+          fontSize: isLabelButton ? '0.72rem' : '0.7rem',
           lineHeight: 1.2,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           width: '100%',
         }}
       >
-        {button.name}
+        {primaryText}
       </Typography>
-      {button.labelValue && (
+      {secondaryText && (
         <Typography
           variant="caption"
-          sx={{ fontSize: '0.6rem', opacity: 0.8, textAlign: 'center' }}
+          sx={{
+            fontSize: isLabelButton ? '0.56rem' : '0.6rem',
+            opacity: 0.75,
+            textAlign: 'center',
+            lineHeight: 1.15,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            width: '100%',
+          }}
         >
-          {button.labelValue}
+          {secondaryText}
         </Typography>
       )}
       {isSelected && (

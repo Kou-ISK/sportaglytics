@@ -60,7 +60,7 @@ export const useDashboardWidgetPresetActions = ({
         setSeriesEnabled(false);
         setPrimaryAxis({
           type: 'group',
-          value: resolveDefaultGroup(availableGroups, 'actionResult'),
+          value: resolveDefaultGroup(availableGroups, 'Result'),
         });
         if (!title.trim()) setTitle('ラベル比率');
         return;
@@ -73,7 +73,7 @@ export const useDashboardWidgetPresetActions = ({
         setSeriesEnabled(false);
         setPrimaryAxis({
           type: 'group',
-          value: resolveDefaultGroup(availableGroups, 'actionType'),
+          value: resolveDefaultGroup(availableGroups, 'Type'),
         });
         if (!title.trim()) setTitle('件数比較');
         return;

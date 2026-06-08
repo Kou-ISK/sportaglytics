@@ -1,5 +1,6 @@
 import type { TimelineData } from '../types/timeline/core';
 import type { SCLabel } from '../types/timeline/sportscode';
+import { migrateLegacyTimelineLabels } from './timelineLabelMigration';
 
 const normalizeActionName = (value: string): string => {
   if (!value) return '';
@@ -7,6 +8,20 @@ const normalizeActionName = (value: string): string => {
     .replace(/\u3000/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+};
+
+export const normalizeLabelGroupName = (
+  group: string | undefined,
+): string | undefined => {
+  const normalized = normalizeActionName(group ?? '');
+  return normalized || group;
+};
+
+const isSameLabelGroup = (
+  actual: string | undefined,
+  expected: string,
+): boolean => {
+  return normalizeLabelGroupName(actual) === normalizeLabelGroupName(expected);
 };
 
 type LegacyTimelineData = TimelineData & {
@@ -24,34 +39,41 @@ const getLegacyLabelValue = (
 
 /**
  * TimelineDataからlabels配列を取得し、group別に分類
- * labels配列が存在しない場合は、actionType/actionResultから生成
+ * labels配列が存在しない場合は、旧actionType/actionResultからType/Resultを生成
  */
 export const getLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
-  const labels: SCLabel[] = item.labels ? [...item.labels] : [];
+  const labels: SCLabel[] = migrateLegacyTimelineLabels(item.labels).map(
+    (label) => {
+      const group = normalizeLabelGroupName(label.group);
+      return group ? { ...label, group } : { name: label.name };
+    },
+  );
   const legacyActionType = getLegacyLabelValue(item, 'actionType');
   const legacyActionResult = getLegacyLabelValue(item, 'actionResult');
 
   // 後方互換性: labels配列が存在しない場合は旧フィールドから生成
   if (labels.length === 0) {
     if (legacyActionType) {
-      labels.push({ name: legacyActionType, group: 'actionType' });
+      labels.push({ name: legacyActionType, group: 'Type' });
     }
     if (legacyActionResult) {
-      labels.push({ name: legacyActionResult, group: 'actionResult' });
+      labels.push({ name: legacyActionResult, group: 'Result' });
     }
     return labels;
   }
 
   // labels配列がある場合でも、旧フィールド値があれば補完する
-  const hasActionType = labels.some((label) => label.group === 'actionType');
+  const hasActionType = labels.some((label) =>
+    isSameLabelGroup(label.group, 'Type'),
+  );
   if (!hasActionType && legacyActionType) {
-    labels.push({ name: legacyActionType, group: 'actionType' });
+    labels.push({ name: legacyActionType, group: 'Type' });
   }
-  const hasActionResult = labels.some(
-    (label) => label.group === 'actionResult',
+  const hasActionResult = labels.some((label) =>
+    isSameLabelGroup(label.group, 'Result'),
   );
   if (!hasActionResult && legacyActionResult) {
-    labels.push({ name: legacyActionResult, group: 'actionResult' });
+    labels.push({ name: legacyActionResult, group: 'Result' });
   }
 
   return labels;
@@ -66,7 +88,7 @@ export const getLabelByGroup = (
   group: string,
 ): string | undefined => {
   const labels = getLabelsFromTimelineData(item);
-  const label = labels.find((l) => l.group === group);
+  const label = labels.find((l) => isSameLabelGroup(l.group, group));
   return label?.name;
 };
 

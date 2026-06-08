@@ -23,13 +23,13 @@ export const resolveActionLabelGroups = (
   const legacyGroups: ActionGroup[] = [];
   if (action.types && action.types.length > 0) {
     legacyGroups.push({
-      groupName: 'actionType',
+      groupName: 'Type',
       options: [...action.types],
     });
   }
   if (action.results && action.results.length > 0) {
     legacyGroups.push({
-      groupName: 'actionResult',
+      groupName: 'Result',
       options: [...action.results],
     });
   }

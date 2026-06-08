@@ -20,6 +20,7 @@ import {
   asPositiveNumber,
   isPlainObject,
 } from './normalizerUtils';
+import { migrateLegacyLabelGroupName } from '../../utils/timelineLabelMigration';
 
 const TEMPLATE_WIDGET_FALLBACK = createTemplateDashboardWidgets()[0];
 
@@ -36,10 +37,14 @@ const normalizeMatrixAxis = (
       ? value.type
       : fallback.type;
   const normalizedValue = asNonEmptyString(value.value);
+  const axisValue =
+    type === 'group'
+      ? migrateLegacyLabelGroupName(normalizedValue)
+      : normalizedValue;
 
   return {
     type,
-    ...(normalizedValue ? { value: normalizedValue } : {}),
+    ...(axisValue ? { value: axisValue } : {}),
   };
 };
 
@@ -102,7 +107,7 @@ const normalizeDashboardSeriesFilter = (
     team: asNonEmptyString(value.team),
     teamRole: normalizeTeamRole(value.teamRole),
     action: asNonEmptyString(value.action),
-    labelGroup: asNonEmptyString(value.labelGroup),
+    labelGroup: migrateLegacyLabelGroupName(asNonEmptyString(value.labelGroup)),
     labelValue: asNonEmptyString(value.labelValue),
   };
 };

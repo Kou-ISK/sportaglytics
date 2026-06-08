@@ -80,7 +80,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 
 - `TimelineData` は `labels` 中心モデル
 - 旧フィールド `actionType` / `actionResult` は型から削除
-- 旧データは読込時にマイグレーションし、保存時は新形式のみ出力
+- 旧データは読込時に `Type` / `Result` ラベルへマイグレーションし、保存時は新形式のみ出力
 - `AnalysisView` など analysis 系 shared contract は `src/types/analysis/` 配下を正本にし、root の `src/types/AnalysisView.ts` は互換 facade として扱う
 - playlist 同期は `PlaylistSyncData` を正とし、playlist 画面・hooks の契約を統一
 - playlist / analysis window まわりの renderer 側直接依存は gateway に閉じ込め、`src/features/playlist/gateway/playlistWindowGateway.ts` と `src/features/videoPlayer/app/gateways/analysisWindowGateway.ts` を入口に統一する

@@ -6,7 +6,11 @@ import type {
   CodeWindowLayout,
   TeamArea,
 } from './coreTypes';
-import { DEFAULT_SETTINGS, createDefaultCodeWindowLayout } from './defaults';
+import {
+  DEFAULT_SETTINGS,
+  createDefaultCodeWindowLayout,
+  createRugbyLabelsCodeWindowLayout,
+} from './defaults';
 import {
   asBoolean,
   asFiniteNumber,
@@ -263,29 +267,36 @@ const normalizeCodeWindowLayout = (
 export const normalizeCodingPanelLayouts = (
   panel: NonNullable<AppSettings['codingPanel']>,
 ): NonNullable<AppSettings['codingPanel']> => {
-  const defaultLayout = createDefaultCodeWindowLayout();
+  const presetLayouts = [
+    createDefaultCodeWindowLayout(),
+    createRugbyLabelsCodeWindowLayout(),
+  ];
+  const defaultLayout = presetLayouts[0];
   const codeWindows = Array.isArray(panel.codeWindows)
     ? panel.codeWindows.map(cloneCodeWindowLayout)
     : [];
-  const idx = codeWindows.findIndex((layout) => layout.id === defaultLayout.id);
-  const shouldReplace =
-    idx === -1 ||
-    codeWindows[idx].canvasWidth !== defaultLayout.canvasWidth ||
-    codeWindows[idx].canvasHeight !== defaultLayout.canvasHeight ||
-    (codeWindows[idx].buttons?.length ?? 0) !== defaultLayout.buttons.length;
 
-  if (idx === -1) {
-    codeWindows.unshift(defaultLayout);
-  } else if (shouldReplace) {
-    codeWindows[idx] = defaultLayout;
-  }
+  presetLayouts.forEach((presetLayout, presetIndex) => {
+    const idx = codeWindows.findIndex((layout) => layout.id === presetLayout.id);
+    const shouldReplace =
+      idx === -1 ||
+      codeWindows[idx].canvasWidth !== presetLayout.canvasWidth ||
+      codeWindows[idx].canvasHeight !== presetLayout.canvasHeight ||
+      (codeWindows[idx].buttons?.length ?? 0) !== presetLayout.buttons.length;
+
+    if (idx === -1) {
+      codeWindows.splice(presetIndex, 0, presetLayout);
+    } else if (shouldReplace) {
+      codeWindows[idx] = presetLayout;
+    }
+  });
 
   const requestedActiveId = panel.activeCodeWindowId;
   const activeCodeWindowId = codeWindows.some(
     (layout) => layout.id === requestedActiveId,
   )
     ? requestedActiveId
-    : defaultLayout.id;
+    : defaultLayout?.id ?? 'default';
 
   return {
     ...panel,

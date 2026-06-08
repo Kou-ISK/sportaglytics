@@ -13,14 +13,14 @@ export const useMatrixAxes = (availableGroups: string[]) => {
     () =>
       availableGroups.length === 0
         ? ''
-        : availableGroups.includes('actionType')
-          ? 'actionType'
+        : availableGroups.includes('Type')
+          ? 'Type'
           : availableGroups[0],
     [availableGroups],
   );
 
   const initialColValue = useMemo(
-    () => pickInitialAxis(availableGroups, 'actionResult'),
+    () => pickInitialAxis(availableGroups, 'Result'),
     [availableGroups],
   );
 
