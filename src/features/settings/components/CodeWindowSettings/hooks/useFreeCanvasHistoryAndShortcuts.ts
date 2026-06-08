@@ -83,6 +83,13 @@ export const useFreeCanvasHistoryAndShortcuts = ({
         target?.closest('[role=\"textbox\"]');
       if (isTextInput) return;
 
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        onSelectButtons(layout.buttons.map((button) => button.id));
+        setSelectedLinkId(null);
+        return;
+      }
+
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedLinkId) {
           e.preventDefault();

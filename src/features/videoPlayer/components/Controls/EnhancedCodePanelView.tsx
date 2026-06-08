@@ -20,7 +20,6 @@ export interface EnhancedCodePanelViewProps {
   activeLabelButtons: Record<string, boolean>;
   isRecording: boolean;
   layoutContainerRef: React.RefObject<HTMLDivElement | null>;
-  layoutContainerWidth: number;
   teamNames: string[];
   firstTeamName?: string;
   activeActions: ActionDefinition[];
@@ -46,7 +45,6 @@ export const EnhancedCodePanelView = ({
   activeLabelButtons,
   isRecording,
   layoutContainerRef,
-  layoutContainerWidth,
   teamNames,
   firstTeamName,
   activeActions,
@@ -83,7 +81,7 @@ export const EnhancedCodePanelView = ({
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
-        overflowX: 'hidden',
+        overflowX: 'auto',
       }}
     >
       <Box
@@ -107,7 +105,6 @@ export const EnhancedCodePanelView = ({
           activeLabelButtons={activeLabelButtons}
           isRecording={isRecording}
           layoutContainerRef={layoutContainerRef}
-          layoutContainerWidth={layoutContainerWidth}
           onButtonClick={handleCustomButtonClick}
         />
       ) : (

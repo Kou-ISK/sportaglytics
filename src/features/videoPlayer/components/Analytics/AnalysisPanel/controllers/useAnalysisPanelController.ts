@@ -95,10 +95,10 @@ const getInitialMatrixAxes = (
   const rowValue =
     availableGroups.length === 0
       ? ''
-      : availableGroups.includes('actionType')
-        ? 'actionType'
+      : availableGroups.includes('Type')
+        ? 'Type'
         : availableGroups[0];
-  const colValue = pickInitialAxis(availableGroups, 'actionResult');
+  const colValue = pickInitialAxis(availableGroups, 'Result');
 
   return {
     row: { type: 'group', value: rowValue } as MatrixAxisConfig,

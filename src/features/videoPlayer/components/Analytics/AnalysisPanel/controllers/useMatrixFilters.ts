@@ -20,6 +20,7 @@ interface MatrixFiltersResult {
   setFilterAction: (value: string) => void;
   setFilterLabelGroup: (value: string) => void;
   setFilterLabelValue: (value: string) => void;
+  applyFilters: (filters: MatrixFilterState) => void;
   clearLabelFilters: () => void;
   clearAllFilters: () => void;
 }
@@ -67,6 +68,10 @@ export const useMatrixFilters = (
     setFilters((prev) => ({ ...prev, labelValue: value }));
   };
 
+  const applyFilters = (nextFilters: MatrixFilterState) => {
+    setFilters(nextFilters);
+  };
+
   const clearLabelFilters = () => {
     setFilters((prev) => ({
       ...prev,
@@ -86,6 +91,7 @@ export const useMatrixFilters = (
     setFilterAction,
     setFilterLabelGroup,
     setFilterLabelValue,
+    applyFilters,
     clearLabelFilters,
     clearAllFilters,
   };

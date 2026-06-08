@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   CodeWindowButton,
   CodeWindowLayout,
@@ -23,6 +23,13 @@ interface UseFreeCanvasInteractionsParams {
     y: number;
   };
 }
+
+type RangeSelectionBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 const getLinkTypeFromEvent = (
   event: React.MouseEvent,
@@ -49,6 +56,11 @@ export const useFreeCanvasInteractions = ({
     onSelectButtons,
     getCanvasPosition,
   });
+  const [rangeSelectionBox, setRangeSelectionBox] =
+    useState<RangeSelectionBox | null>(null);
+  const rangeSelectionStartRef = useRef<{ x: number; y: number } | null>(null);
+  const rangeSelectionBaseRef = useRef<string[]>([]);
+  const didRangeSelectRef = useRef(false);
 
   const pointerHandlers = useFreeCanvasPointerHandlers({
     canvasRef,
@@ -96,18 +108,135 @@ export const useFreeCanvasInteractions = ({
     [dragState, setSelectedLinkId],
   );
 
+  const getRangeSelectionIds = useCallback(
+    (box: RangeSelectionBox, baseSelection: string[]): string[] => {
+      const selectedIds = layout.buttons
+        .filter((button) => {
+          const buttonRight = button.x + button.width;
+          const buttonBottom = button.y + button.height;
+          const boxRight = box.x + box.width;
+          const boxBottom = box.y + box.height;
+          return (
+            button.x < boxRight &&
+            buttonRight > box.x &&
+            button.y < boxBottom &&
+            buttonBottom > box.y
+          );
+        })
+        .map((button) => button.id);
+
+      return Array.from(new Set([...baseSelection, ...selectedIds]));
+    },
+    [layout.buttons],
+  );
+
+  const handleCanvasMouseDown = useCallback(
+    (event: React.MouseEvent) => {
+      if (event.button !== 0 || event.target !== canvasRef.current) return;
+      event.preventDefault();
+
+      const position = getCanvasPosition(event);
+      rangeSelectionStartRef.current = position;
+      rangeSelectionBaseRef.current =
+        event.metaKey || event.ctrlKey || event.shiftKey
+          ? selectedButtonIds
+          : [];
+      didRangeSelectRef.current = false;
+      setRangeSelectionBox({
+        x: position.x,
+        y: position.y,
+        width: 0,
+        height: 0,
+      });
+      onSelectButtons(rangeSelectionBaseRef.current);
+      setSelectedLinkId(null);
+    },
+    [
+      canvasRef,
+      getCanvasPosition,
+      onSelectButtons,
+      selectedButtonIds,
+      setSelectedLinkId,
+    ],
+  );
+
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      const start = rangeSelectionStartRef.current;
+      if (start) {
+        const position = getCanvasPosition(event);
+        const box = {
+          x: Math.min(start.x, position.x),
+          y: Math.min(start.y, position.y),
+          width: Math.abs(position.x - start.x),
+          height: Math.abs(position.y - start.y),
+        };
+        setRangeSelectionBox(box);
+        if (box.width > 3 || box.height > 3) {
+          didRangeSelectRef.current = true;
+        }
+        onSelectButtons(getRangeSelectionIds(box, rangeSelectionBaseRef.current));
+        return;
+      }
+
+      pointerHandlers.handleMouseMove(event);
+    },
+    [getCanvasPosition, getRangeSelectionIds, onSelectButtons, pointerHandlers],
+  );
+
+  const handleMouseUp = useCallback(
+    (event: React.MouseEvent) => {
+      if (rangeSelectionStartRef.current) {
+        rangeSelectionStartRef.current = null;
+        rangeSelectionBaseRef.current = [];
+        setRangeSelectionBox(null);
+        return;
+      }
+
+      pointerHandlers.handleMouseUp(event);
+    },
+    [pointerHandlers],
+  );
+
+  const handleCanvasClick = useCallback(
+    (event: React.MouseEvent) => {
+      if (didRangeSelectRef.current) {
+        event.preventDefault();
+        didRangeSelectRef.current = false;
+        return;
+      }
+
+      pointerHandlers.handleCanvasClick(event);
+    },
+    [pointerHandlers],
+  );
+
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (!rangeSelectionStartRef.current) return;
+      rangeSelectionStartRef.current = null;
+      rangeSelectionBaseRef.current = [];
+      setRangeSelectionBox(null);
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
+
   return {
     dragMode: dragState.dragMode,
     draggedButton: dragState.draggedButton,
     linkEndPos: dragState.linkEndPos,
     linkStartButton: dragState.linkStartButton,
     linkType: dragState.linkType,
+    rangeSelectionBox,
     handleButtonMouseDown,
     handleButtonRightMouseDown,
-    handleCanvasClick: pointerHandlers.handleCanvasClick,
+    handleCanvasMouseDown,
+    handleCanvasClick,
     handleDeleteButton: pointerHandlers.handleDeleteButton,
-    handleMouseMove: pointerHandlers.handleMouseMove,
-    handleMouseUp: pointerHandlers.handleMouseUp,
+    handleMouseMove,
+    handleMouseUp,
     handleSelectLink: pointerHandlers.handleSelectLink,
   };
 };

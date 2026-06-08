@@ -42,7 +42,7 @@ const collectLabelGroups = (timeline: TimelineData[]): string[] => {
     });
   });
 
-  const fixed = ['actionType', 'actionResult'];
+  const fixed = ['Type', 'Result'];
   const extras = Array.from(groups)
     .filter((group) => !fixed.includes(group))
     .sort((a, b) => a.localeCompare(b));

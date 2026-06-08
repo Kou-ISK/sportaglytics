@@ -33,12 +33,23 @@ export const MatrixSection = ({
   const hasColumnParent = columnHeaders.some((h) => h.parent !== null);
 
   return (
-    <Paper elevation={1} sx={{ p: 1, borderRadius: 2 }}>
+    <Paper
+      elevation={1}
+      sx={{
+        p: 1,
+        borderRadius: 2,
+        minWidth: 0,
+        maxWidth: '100%',
+        overflow: 'hidden',
+      }}
+    >
       <TableContainer
         component={Paper}
         variant="outlined"
         sx={{
           borderRadius: 2,
+          width: '100%',
+          maxWidth: '100%',
           maxHeight: isPrint ? 'none' : '70vh',
           overflow: isPrint ? 'visible' : 'auto',
           position: 'relative',
@@ -49,9 +60,7 @@ export const MatrixSection = ({
           sx={{
             minWidth: isPrint ? 0 : 650,
             '& thead th': {
-              position: isPrint ? 'static' : 'sticky',
               backgroundColor: 'background.paper',
-              zIndex: isPrint ? 'auto' : 2,
             },
             '& tbody th': {
               position: isPrint ? 'static' : 'sticky',

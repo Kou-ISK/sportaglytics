@@ -90,8 +90,10 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     linkEndPos,
     linkStartButton,
     linkType,
+    rangeSelectionBox,
     handleButtonMouseDown,
     handleButtonRightMouseDown,
+    handleCanvasMouseDown,
     handleCanvasClick,
     handleDeleteButton,
     handleMouseMove,
@@ -118,6 +120,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
         draggedButton={draggedButton}
         linkStartButton={linkStartButton}
         selectedButtonIds={selectedButtonIds}
+        rangeSelectionBox={rangeSelectionBox}
         links={renderCanvasLinks({
           layout,
           showLinks,
@@ -130,6 +133,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
           linkEndPos,
           linkType,
         })}
+        onCanvasMouseDown={handleCanvasMouseDown}
         onCanvasClick={handleCanvasClick}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

@@ -18,7 +18,6 @@ type CustomCodeLayoutProps = {
   activeLabelButtons: Record<string, boolean>;
   isRecording: boolean;
   layoutContainerRef: React.RefObject<HTMLDivElement | null>;
-  layoutContainerWidth: number;
   onButtonClick: (button: CodeWindowButton) => void;
 };
 
@@ -30,22 +29,17 @@ export const CustomCodeLayout = ({
   activeLabelButtons,
   isRecording,
   layoutContainerRef,
-  layoutContainerWidth,
   onButtonClick,
 }: CustomCodeLayoutProps) => {
-  const containerWidth =
-    layoutContainerWidth || Math.max(1, layout.canvasWidth);
-  const scale = containerWidth / layout.canvasWidth;
-  const containerHeight = layout.canvasHeight * scale;
-
   return (
     <Box
       ref={layoutContainerRef}
       sx={{
         mb: 2,
         position: 'relative',
-        width: '100%',
-        height: containerHeight,
+        width: layout.canvasWidth,
+        height: layout.canvasHeight,
+        flex: '0 0 auto',
         backgroundColor: 'transparent',
         borderRadius: 0,
         border: 'none',
@@ -65,8 +59,7 @@ export const CustomCodeLayout = ({
 
         const buttonColor =
           button.color || (button.type === 'action' ? '#1976d2' : '#9c27b0');
-        const baseFontPx = button.fontSize ?? 14;
-        const fontPx = Math.max(10, baseFontPx * scale);
+        const fontPx = button.fontSize ?? 14;
         const displayText =
           button.type === 'label' && button.labelValue
             ? button.labelValue
@@ -78,10 +71,10 @@ export const CustomCodeLayout = ({
             onClick={() => onButtonClick(button)}
             sx={{
               position: 'absolute',
-              left: button.x * scale,
-              top: button.y * scale,
-              width: button.width * scale,
-              height: button.height * scale,
+              left: button.x,
+              top: button.y,
+              width: button.width,
+              height: button.height,
               minWidth: 0,
               px: 0.5,
               display: 'flex',
@@ -101,7 +94,7 @@ export const CustomCodeLayout = ({
                   ? button.textColor || '#fff'
                   : buttonColor,
               border: `1px solid ${buttonColor}`,
-              borderRadius: `${(button.borderRadius ?? 4) * scale}px`,
+              borderRadius: `${button.borderRadius ?? 4}px`,
               cursor: 'pointer',
               transition: 'all 0.15s',
               overflow: 'hidden',
