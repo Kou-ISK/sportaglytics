@@ -41,6 +41,21 @@ interface RunDualParams {
   escapeDrawtext: (text: string) => string;
 }
 
+const canUseStreamCopyForSingle = ({
+  overlayEnabled,
+  annotationPath,
+  clip,
+}: Pick<
+  RunSingleParams,
+  'overlayEnabled' | 'annotationPath' | 'clip'
+>): boolean => {
+  const hasFreeze =
+    clip.freezeAt !== null &&
+    clip.freezeAt !== undefined &&
+    (clip.freezeDuration ?? 0) > 0;
+  return !overlayEnabled && !annotationPath && !hasFreeze;
+};
+
 export const runFfmpegSingle = ({
   getFfmpegPath,
   sourcePath,
@@ -53,6 +68,33 @@ export const runFfmpegSingle = ({
   escapeDrawtext,
 }: RunSingleParams): Promise<void> => {
   return new Promise<void>((resolve, reject) => {
+    const actualSource = clip.sourceOverride || sourcePath;
+    const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
+
+    if (canUseStreamCopyForSingle({ overlayEnabled, annotationPath, clip })) {
+      runFfmpegProcess(getFfmpegPath, [
+        '-y',
+        '-ss',
+        String(clip.startTime),
+        '-i',
+        actualSource,
+        '-t',
+        String(clipDuration),
+        '-map',
+        '0:v',
+        '-map',
+        '0:a?',
+        '-c',
+        'copy',
+        '-avoid_negative_ts',
+        'make_zero',
+        outputPath,
+      ])
+        .then(resolve)
+        .catch(reject);
+      return;
+    }
+
     const vfTexts = overlayEnabled
       ? buildOverlayFilters({
           overlayLines,
@@ -66,10 +108,7 @@ export const runFfmpegSingle = ({
     let baseLabel = '[0:v]';
     let mapLabel = '0:v';
     let audioMap = '0:a?';
-    const actualSource = clip.sourceOverride || sourcePath;
     const inputArgs = ['-y', '-i', actualSource];
-
-    const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
 
     filterSteps.push(
       `[0:v]trim=start=${clip.startTime}:end=${clip.endTime},setpts=PTS-STARTPTS[vtrim]`,
