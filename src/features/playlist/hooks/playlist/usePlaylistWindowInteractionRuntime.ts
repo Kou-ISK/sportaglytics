@@ -79,7 +79,6 @@ export const usePlaylistWindowInteractionRuntime = (
     containerRef: core.containerRef,
     isFullscreen: core.isFullscreen,
     setIsFullscreen: core.setIsFullscreen,
-    setIsDrawingMode: core.setIsDrawingMode,
     minFreezeDuration: MIN_FREEZE_DURATION,
     defaultFreezeDuration: DEFAULT_FREEZE_DURATION,
     annotationTimeTolerance: ANNOTATION_TIME_TOLERANCE,

@@ -9,6 +9,7 @@ interface UseTimelineGlobalShortcutsParams {
   onSeek: (time: number) => void;
   onUndo?: () => void;
   onRedo?: () => void;
+  onAddToPlaylist?: (items: TimelineData[]) => void;
 }
 
 export const useTimelineGlobalShortcuts = ({
@@ -19,6 +20,7 @@ export const useTimelineGlobalShortcuts = ({
   onSeek,
   onUndo,
   onRedo,
+  onAddToPlaylist,
 }: UseTimelineGlobalShortcutsParams) => {
   useEffect(() => {
     const handleKeyDownGlobal = (e: KeyboardEvent) => {
@@ -31,7 +33,7 @@ export const useTimelineGlobalShortcuts = ({
         tag === 'button';
       const isInsideTimeline =
         !!scrollContainerRef.current &&
-        !!target &&
+        target instanceof Node &&
         scrollContainerRef.current.contains(target);
 
       const isJumpNext = e.key === 'Tab' || (e.altKey && e.key === 'ArrowDown');
@@ -88,6 +90,23 @@ export const useTimelineGlobalShortcuts = ({
           onUndo?.();
         }
       }
+
+      if (
+        !isFormElement &&
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === 'p'
+      ) {
+        const selectedItems = timeline.filter((item) =>
+          selectedIds.includes(item.id),
+        );
+        if (selectedItems.length === 0 || !onAddToPlaylist) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        onAddToPlaylist(selectedItems);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDownGlobal, true);
@@ -101,5 +120,6 @@ export const useTimelineGlobalShortcuts = ({
     onSeek,
     onUndo,
     onRedo,
+    onAddToPlaylist,
   ]);
 };

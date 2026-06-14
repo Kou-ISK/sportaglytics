@@ -191,6 +191,7 @@ export const useVisualTimelineController = ({
     onSeek,
     onUndo,
     onRedo,
+    onAddToPlaylist,
   });
 
   const handleBackgroundClick = useCallback(
