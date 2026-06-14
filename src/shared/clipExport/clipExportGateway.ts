@@ -3,6 +3,7 @@ import type {
   ClipExportOverlaySettings,
   ClipExportPayload,
 } from './clipExportTypes';
+import type { ExportProgressWindowState } from '../../types/ipc/exportProgressWindow';
 
 const getClipExportApi = () => globalThis.window.electronAPI;
 const noop = (): void => undefined;
@@ -32,6 +33,40 @@ export const exportClipsWithOverlay = async (
     };
   }
 };
+
+export const subscribeClipExportProgressWindowState = (
+  callback: (state: ExportProgressWindowState) => void,
+): (() => void) => {
+  const api = getClipExportApi();
+  if (!api?.onExportProgressWindowState) {
+    return noop;
+  }
+
+  try {
+    return api.onExportProgressWindowState(callback);
+  } catch (error: unknown) {
+    console.debug('[clipExportGateway] onExportProgressWindowState failed', error);
+    return noop;
+  }
+};
+
+export const requestClipExportProgressWindowState =
+  async (): Promise<ExportProgressWindowState | null> => {
+    const api = getClipExportApi();
+    if (!api?.requestExportProgressWindowState) {
+      return null;
+    }
+
+    try {
+      return await api.requestExportProgressWindowState();
+    } catch (error: unknown) {
+      console.debug(
+        '[clipExportGateway] requestExportProgressWindowState failed',
+        error,
+      );
+      return null;
+    }
+  };
 
 export const loadClipOverlaySettings =
   async (): Promise<ClipExportOverlaySettings | null> => {

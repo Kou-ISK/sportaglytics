@@ -145,7 +145,6 @@ export const useVisualTimelineController = ({
     handleApplyLabel,
     clipDialogOpen,
     setClipDialogOpen,
-    isExporting,
     primarySource,
     setPrimarySource,
     secondarySource,
@@ -244,7 +243,6 @@ export const useVisualTimelineController = ({
     secondarySource,
     setPrimarySource,
     setSecondarySource,
-    isExporting,
   } satisfies VisualTimelineViewProps['dialogsProps'];
 
   return {

@@ -1,9 +1,16 @@
 import type { IpcRenderer } from 'electron';
 import type { IElectronAPI } from '../../../src/renderer';
+import {
+  EXPORT_PROGRESS_WINDOW_CHANNELS,
+  isExportProgressWindowState,
+  type ExportProgressWindowState,
+} from '../../../src/types/ipc/exportProgressWindow';
 
 export type AppBridgeFsKeys =
   | 'setWindowTitle'
   | 'exportClipsWithOverlay'
+  | 'onExportProgressWindowState'
+  | 'requestExportProgressWindowState'
   | 'saveFileDialog'
   | 'openFileDialog'
   | 'openDashboardPackageDialog'
@@ -31,6 +38,26 @@ export const createAppBridgeFsApi = (
         console.error('Error exportClipsWithOverlay:', error);
         return { success: false, error: String(error) };
       }
+    },
+    onExportProgressWindowState: (
+      callback: (state: ExportProgressWindowState) => void,
+    ) => {
+      const wrapped = (_: unknown, state: unknown) => {
+        if (!isExportProgressWindowState(state)) {
+          console.warn('Invalid export progress state received in preload');
+          return;
+        }
+        callback(state);
+      };
+      ipcRenderer.on(EXPORT_PROGRESS_WINDOW_CHANNELS.sync, wrapped);
+      return () =>
+        ipcRenderer.removeListener(EXPORT_PROGRESS_WINDOW_CHANNELS.sync, wrapped);
+    },
+    requestExportProgressWindowState: async () => {
+      const state = await ipcRenderer.invoke(
+        EXPORT_PROGRESS_WINDOW_CHANNELS.requestState,
+      );
+      return isExportProgressWindowState(state) ? state : null;
     },
     saveFileDialog: async (
       defaultPath: string,

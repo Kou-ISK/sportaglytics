@@ -20,6 +20,7 @@ import { applyWindowSecurity } from './windowSecurity';
 import { registerCodeWindowHandlers, setPendingCodeWindowExternalOpen } from './ipc/codeWindowHandlers';
 import { registerDashboardHandlers } from './ipc/dashboardHandlers';
 import { registerExportHandlers } from './ipc/exportHandlers';
+import { registerExportProgressWindowHandlers } from './exportProgressWindow';
 import { registerFileHandlers } from './ipc/fileHandlers';
 import { registerLlamaHandlers } from './ipc/llamaHandlers';
 import { registerLegacyFileAccessHandlers } from './ipc/legacyFileAccessHandlers';
@@ -164,6 +165,7 @@ registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();
 registerAnalysisWindowHandlers();
+registerExportProgressWindowHandlers();
 registerMainIpcHandlers();
 
 try {

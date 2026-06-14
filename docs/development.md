@@ -127,7 +127,7 @@ SporTagLytics/
 
 - FFmpegバイナリを静的に同梱し、プラットフォーム固有のビルドを自動選択
 - クリップ書き出し機能（単一/複数アングル、オーバーレイ付き）で使用
-- IPC経由で進捗通知とキャンセル制御をサポート
+- IPC経由で専用の書き出し進捗ウィンドウへ状態を通知する
 
 ### デスクトップアプリケーション
 
@@ -415,6 +415,7 @@ Main IPC handlers (domain modules)
 - shared domain の大きい集計関数は facade と builder 群に分け、stat family 単位で責務を切り出す
 - timeline import/export は gateway と pure service に分け、menu 購読・dialog・serialize/deserialize を 1 hook に詰め込まない
 - clip export の共通契約は `src/shared/clipExport/` に置き、playlist / timeline 両方の source 解決・multi/all-angles 実行・payload 型をそこへ集約する
+- clip export の進捗ウィンドウ契約は `src/types/ipc/exportProgressWindow.ts` を正本とし、main 側は `electron/src/exportProgressWindow.ts` から進捗状態を送る
 - analysis dashboard import/export は controller 直下で I/O しない。dialog / read-write は gateway、JSON parse / 正規化 / ID 重複解消は pure service に分離する
 - Video.js の既存 player 参照と時刻操作は feature 内 adapter に寄せ、hook ごとに独自 cast を持ち込まない
 

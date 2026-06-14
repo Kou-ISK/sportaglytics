@@ -139,8 +139,6 @@ export interface BuildDialogsSectionParams {
   initialNote: string;
   itemName: string;
   saveProgress: { current: number; total: number } | null;
-  exportProgress: { current: number; total: number; message: string } | null;
-  onCloseExportProgress: () => void;
 }
 
 export interface BuildNowPlayingSectionParams {

@@ -5,6 +5,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { PlaylistWindowApp } from './features/playlist';
 import { AnalysisWindowApp } from './pages/AnalysisWindowApp';
 import { AnalysisReportPage } from './pages/AnalysisReportPage';
+import { ExportProgressWindowApp } from './pages/ExportProgressWindowApp';
 import { useAppShellController } from './hooks/useAppShellController';
 
 function App() {
@@ -25,6 +26,10 @@ function App() {
 
   if (currentView === 'analysis-report') {
     return <AnalysisReportPage />;
+  }
+
+  if (currentView === 'export-progress') {
+    return <ExportProgressWindowApp />;
   }
 
   return <VideoPlayerApp />;

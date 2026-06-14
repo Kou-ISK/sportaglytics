@@ -42,6 +42,7 @@ export interface ClipExportItem {
 }
 
 export interface ClipExportPayload {
+  progressId?: string;
   sourcePath: string;
   sourcePath2?: string;
   mode?: 'single' | 'dual';

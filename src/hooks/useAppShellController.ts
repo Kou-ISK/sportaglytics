@@ -12,6 +12,7 @@ export type AppView =
   | 'settings'
   | 'playlist'
   | 'analysis'
+  | 'export-progress'
   | 'analysis-report';
 
 const getViewFromHash = (): AppView => {
@@ -19,6 +20,7 @@ const getViewFromHash = (): AppView => {
   if (hash === '#/playlist') return 'playlist';
   if (hash === '#/settings') return 'settings';
   if (hash === '#/analysis') return 'analysis';
+  if (hash === '#/export-progress') return 'export-progress';
   if (hash.startsWith('#/analysis-report')) return 'analysis-report';
   return 'main';
 };
