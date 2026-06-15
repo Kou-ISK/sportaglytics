@@ -66,10 +66,18 @@ If `HOMEBREW_TAP_TOKEN` is missing, the Homebrew update step fails. If signing /
 ## Tag-Based Release
 
 ```bash
-git checkout main
-git pull --ff-only
+git checkout develop
+git pull --ff-only origin develop
 
-# after version/changelog commit is merged
+# after version/changelog commit is created on develop
+git push origin develop
+
+git checkout main
+git pull --ff-only origin main
+git merge --no-ff develop
+git push origin main
+
+# tag from main after develop is merged
 git tag v<version>
 git push origin v<version>
 ```
