@@ -19,6 +19,7 @@ interface ClipExportSourceValidationParams {
 }
 
 interface ExecuteClipExportOptions {
+  progressId?: string;
   executeExport: ClipExportExecutor;
   clips: ClipExportItem[];
   videoSources?: string[];
@@ -152,6 +153,7 @@ const buildFailureMessage = (
 
 export const executeClipExport = async ({
   executeExport,
+  progressId,
   clips,
   videoSources,
   angleOption,
@@ -175,6 +177,7 @@ export const executeClipExport = async ({
 
       const result = await executeExport({
         sourcePath: availableSources[i],
+        progressId,
         sourcePath2: undefined,
         mode: 'single',
         exportMode,
@@ -224,6 +227,7 @@ export const executeClipExport = async ({
 
   const result = await executeExport({
     sourcePath,
+    progressId,
     sourcePath2:
       angleOption === 'multi'
         ? normalizeClipExportSource(resolvedSources.sourcePath2)

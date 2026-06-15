@@ -33,7 +33,6 @@ interface UseTimelineClipExportDialogParams {
 interface UseTimelineClipExportDialogResult {
   clipDialogOpen: boolean;
   setClipDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  isExporting: boolean;
   overlaySettings: ClipExportOverlaySettings;
   setOverlaySettings: React.Dispatch<
     React.SetStateAction<ClipExportOverlaySettings>
@@ -62,7 +61,6 @@ export const useTimelineClipExportDialog = ({
   info,
 }: UseTimelineClipExportDialogParams): UseTimelineClipExportDialogResult => {
   const [clipDialogOpen, setClipDialogOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
   const [overlaySettings, setOverlaySettings] =
     useState<ClipExportOverlaySettings>(DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS);
   const [primarySource, setPrimarySource] = useState<string | undefined>(
@@ -147,9 +145,13 @@ export const useTimelineClipExportDialog = ({
       timeline,
       sourceItems,
     });
+    const progressId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `export-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    setIsExporting(true);
     const result = await executeClipExport({
+      progressId,
       executeExport: exportClipsWithOverlay,
       clips,
       videoSources,
@@ -161,8 +163,6 @@ export const useTimelineClipExportDialog = ({
       overlay: overlaySettings,
       successMessage: 'クリップを書き出しました',
     });
-    setIsExporting(false);
-
     if (result.success) {
       info(result.message);
       setClipDialogOpen(false);
@@ -194,7 +194,6 @@ export const useTimelineClipExportDialog = ({
   return {
     clipDialogOpen,
     setClipDialogOpen,
-    isExporting,
     overlaySettings,
     setOverlaySettings,
     primarySource,

@@ -7,6 +7,7 @@ import type {
   ClipExportExecutionResult,
   ClipExportPayload,
 } from './shared/clipExport/clipExportTypes';
+import type { ExportProgressWindowState } from './types/ipc/exportProgressWindow';
 
 export interface LlamaModelInfo {
   name: string;
@@ -116,6 +117,10 @@ export interface IElectronAPI {
   exportClipsWithOverlay?: (
     payload: ClipExportPayload,
   ) => Promise<ClipExportExecutionResult>;
+  onExportProgressWindowState?: (
+    callback: (state: ExportProgressWindowState) => void,
+  ) => () => void;
+  requestExportProgressWindowState?: () => Promise<ExportProgressWindowState | null>;
   saveFileDialog: (
     defaultPath: string,
     filters: { name: string; extensions: string[] }[],

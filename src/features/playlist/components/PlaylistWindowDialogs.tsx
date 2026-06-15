@@ -1,6 +1,5 @@
 import React from 'react';
 import type { PlaylistType } from '../../../types/playlist/core';
-import { ExportProgressSnackbar } from '../../../components/ExportProgressSnackbar';
 import { PlaylistSaveDialog } from './PlaylistSaveDialog';
 import {
   PlaylistExportDialog,
@@ -55,8 +54,6 @@ type PlaylistWindowDialogsProps = {
   };
   progress: {
     saveProgress: { current: number; total: number } | null;
-    exportProgress: { current: number; total: number; message: string } | null;
-    onCloseExportProgress: () => void;
   };
 };
 
@@ -108,16 +105,6 @@ export const PlaylistWindowDialogs = ({
         open={progress.saveProgress !== null}
         progress={progress.saveProgress}
       />
-
-      {progress.exportProgress && (
-        <ExportProgressSnackbar
-          open={!!progress.exportProgress}
-          current={progress.exportProgress.current}
-          total={progress.exportProgress.total}
-          message={progress.exportProgress.message}
-          onClose={progress.onCloseExportProgress}
-        />
-      )}
     </>
   );
 };

@@ -194,8 +194,6 @@ export const buildPlaylistDialogsSection = ({
   initialNote,
   itemName,
   saveProgress,
-  exportProgress,
-  onCloseExportProgress,
 }: BuildDialogsSectionParams) => {
   return {
     saveDialog: {
@@ -235,8 +233,6 @@ export const buildPlaylistDialogsSection = ({
     },
     progress: {
       saveProgress,
-      exportProgress,
-      onCloseExportProgress,
     },
   };
 };

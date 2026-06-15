@@ -29,7 +29,6 @@ export interface UsePlaylistPlaybackParams {
   containerRef: React.RefObject<HTMLDivElement | null>;
   isFullscreen: boolean;
   setIsFullscreen: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsDrawingMode: React.Dispatch<React.SetStateAction<boolean>>;
   minFreezeDuration: number;
   defaultFreezeDuration: number;
   annotationTimeTolerance: number;

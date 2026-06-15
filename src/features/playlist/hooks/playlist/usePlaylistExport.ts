@@ -128,8 +128,20 @@ export const usePlaylistExport = ({
       secondarySourceSize,
       renderAnnotationPng,
     });
+    const progressId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `export-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const initialProgress = {
+      current: 0,
+      total: Math.max(1, clips.length),
+      message: '書き出し準備中...',
+    };
+
+    setExportProgress(initialProgress);
 
     return await executeClipExport({
+      progressId,
       executeExport: exportClipsWithOverlay,
       clips,
       videoSources,

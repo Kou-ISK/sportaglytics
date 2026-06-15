@@ -9,7 +9,6 @@ import { TimelineEditDialog, TimelineEditDraft } from './TimelineEditDialog';
 import { TimelineContextMenu } from './TimelineContextMenu';
 import { TimelineLabelDialog } from './TimelineLabelDialog';
 import { TimelineClipExportDialog } from './TimelineClipExportDialog';
-import { TimelineExportProgressDialog } from './TimelineExportProgressDialog';
 
 interface TimelineDialogsProps {
   editingDraft: TimelineEditDraft | null;
@@ -54,7 +53,6 @@ interface TimelineDialogsProps {
   secondarySource?: string;
   setPrimarySource: React.Dispatch<React.SetStateAction<string | undefined>>;
   setSecondarySource: React.Dispatch<React.SetStateAction<string | undefined>>;
-  isExporting: boolean;
 }
 
 export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
@@ -97,7 +95,6 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
   secondarySource,
   setPrimarySource,
   setSecondarySource,
-  isExporting,
 }) => {
   const handleAddToPlaylist = onAddToPlaylist
     ? () => {
@@ -163,8 +160,6 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
         setPrimarySource={setPrimarySource}
         setSecondarySource={setSecondarySource}
       />
-
-      <TimelineExportProgressDialog open={isExporting} />
     </>
   );
 };

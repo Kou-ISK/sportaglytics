@@ -21,7 +21,6 @@ interface UsePlaylistPlaybackActionsParams
     | 'containerRef'
     | 'isFullscreen'
     | 'setIsFullscreen'
-    | 'setIsDrawingMode'
     | 'minFreezeDuration'
   > {
   lastFreezeTimestampRef: React.MutableRefObject<number | null>;
@@ -53,7 +52,6 @@ export const usePlaylistPlaybackActions = ({
   containerRef,
   isFullscreen,
   setIsFullscreen,
-  setIsDrawingMode,
   minFreezeDuration,
   lastFreezeTimestampRef,
 }: UsePlaylistPlaybackActionsParams): PlaylistPlaybackActions => {
@@ -106,7 +104,6 @@ export const usePlaylistPlaybackActions = ({
         if (index !== -1) {
           setCurrentIndex(index);
           setIsPlaying(true);
-          setIsDrawingMode(false);
         }
         return;
       }
@@ -117,7 +114,7 @@ export const usePlaylistPlaybackActions = ({
         setIsPlaying(true);
       }
     },
-    [currentIndex, items, setCurrentIndex, setIsDrawingMode, setIsPlaying],
+    [currentIndex, items, setCurrentIndex, setIsPlaying],
   );
 
   const handleTogglePlay = useCallback(() => {

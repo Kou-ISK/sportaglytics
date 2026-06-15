@@ -174,8 +174,6 @@ export const usePlaylistWindowSections = ({
     initialNote: currentItemState.editingItem?.memo || '',
     itemName: currentItemState.editingItem?.actionName || '',
     saveProgress: core.saveProgress,
-    exportProgress: exportFlow.exportProgress,
-    onCloseExportProgress: dialogHandlers.handleCloseExportProgress,
   });
 
   return {

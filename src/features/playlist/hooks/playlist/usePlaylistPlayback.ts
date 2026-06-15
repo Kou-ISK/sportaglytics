@@ -23,7 +23,6 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     containerRef: params.containerRef,
     isFullscreen: params.isFullscreen,
     setIsFullscreen: params.setIsFullscreen,
-    setIsDrawingMode: params.setIsDrawingMode,
     minFreezeDuration: params.minFreezeDuration,
     lastFreezeTimestampRef,
   });
