@@ -1,5 +1,5 @@
-import { TimelineData } from '../../../../types/TimelineData';
-import { rechartsData } from '../../../../types/RechartsData';
+import type { TimelineData } from '../../../../types/timeline/core';
+import type { RechartsDatum } from '../../../../types/analysis/chart';
 import { getLabelByGroupWithFallback } from '../../../../utils/labelExtractors';
 
 type ActionAccumulator = Map<string, number>;
@@ -12,22 +12,22 @@ const increment = (acc: ActionAccumulator, key: string, amount: number) => {
   acc.set(key, current + amount);
 };
 
-const toRechartsData = (acc: ActionAccumulator): rechartsData[] => {
+const toRechartsData = (acc: ActionAccumulator): RechartsDatum[] => {
   return Array.from(acc.entries()).map(([name, value]) => ({ name, value }));
 };
 
-const sortByValueDesc = (data: rechartsData[]) =>
+const sortByValueDesc = (data: RechartsDatum[]) =>
   [...data].sort((a, b) => b.value - a.value);
 
-const sortByNameDesc = (data: rechartsData[]) =>
+const sortByNameDesc = (data: RechartsDatum[]) =>
   [...data].sort((a, b) => -a.name.localeCompare(b.name));
 
-const sortByNameAsc = (data: rechartsData[]) =>
+const sortByNameAsc = (data: RechartsDatum[]) =>
   [...data].sort((a, b) => a.name.localeCompare(b.name));
 
 export const aggregateActionDurations = (
   timeline: TimelineData[],
-): rechartsData[] => {
+): RechartsDatum[] => {
   const acc = createAccumulator();
   timeline.forEach(({ actionName, startTime, endTime }) => {
     const duration = Math.max(0, endTime - startTime);
@@ -36,7 +36,7 @@ export const aggregateActionDurations = (
   return sortByValueDesc(toRechartsData(acc));
 };
 
-export const countActions = (timeline: TimelineData[]): rechartsData[] => {
+export const countActions = (timeline: TimelineData[]): RechartsDatum[] => {
   const acc = createAccumulator();
   timeline.forEach(({ actionName }) => {
     increment(acc, actionName, 1);
@@ -54,15 +54,10 @@ export const countActionResultsForTeam = (
   timeline: TimelineData[],
   teamName: string,
   actionName: string,
-): rechartsData[] => {
+): RechartsDatum[] => {
   const acc = createAccumulator();
   filterByTeamAndAction(timeline, teamName, actionName).forEach((item) => {
-    // SCTimeline形式のlabels配列から取得、なければ従来のactionResultから取得
-    const actionResult = getLabelByGroupWithFallback(
-      item,
-      'actionResult',
-      item.actionResult,
-    );
+    const actionResult = getLabelByGroupWithFallback(item, 'Result', '');
     if (!actionResult || actionResult === 'Reset') return;
     increment(acc, actionResult, 1);
   });
@@ -73,14 +68,13 @@ export const countActionTypesForTeam = (
   timeline: TimelineData[],
   teamName: string,
   actionName: string,
-): rechartsData[] => {
+): RechartsDatum[] => {
   const acc = createAccumulator();
   filterByTeamAndAction(timeline, teamName, actionName).forEach((item) => {
-    // SCTimeline形式のlabels配列から取得、なければ従来のactionTypeから取得
     const actionType = getLabelByGroupWithFallback(
       item,
-      'actionType',
-      item.actionType || '未設定',
+      'Type',
+      '未設定',
     );
     increment(acc, actionType, 1);
   });

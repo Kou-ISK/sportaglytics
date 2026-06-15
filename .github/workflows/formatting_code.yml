@@ -1,30 +1,30 @@
-name: formatting code
+name: quality-check
+
 on:
   pull_request:
     branches: [main, "feat**"]
 
 jobs:
-  test:
-    name: Check the source code
+  check:
+    name: Validate source code
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{github.head_ref}}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
 
       - name: Get pnpm store directory
         shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -34,24 +34,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install Dependencies
-        run: pnpm install
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Prettier & eslint
-        run: pnpm run fix
+      - name: Lint
+        run: pnpm run lint
 
-      - name: Check diff
-        id: diff
-        run: |
-          git add .
-          git diff --staged --name-only --exit-code
-        continue-on-error: true
+      - name: Typecheck renderer
+        run: pnpm run typecheck
 
-      - name: Commit and push
-        if: steps.diff.outcome == 'failure'
-        run: |
-          set -x
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git commit -m 'Formatting code' --no-verify
-          git push --no-verify
+      - name: Typecheck electron
+        run: pnpm run typecheck:electron
+
+      - name: Architecture check
+        run: pnpm run check:architecture
+
+      - name: Test
+        run: pnpm run test:run

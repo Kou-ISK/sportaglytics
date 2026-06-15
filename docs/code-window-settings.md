@@ -531,6 +531,11 @@ const handleDuplicateLayout = useCallback((layout: CodeWindowLayout) => {
 3. 名前とキャンバスサイズを入力
 4. 作成
 
+### 標準プリセット
+
+- `デフォルト`: チーム別の基本アクション記録レイアウト
+- `Rugby Labels`: `ActionList` 由来のラベル専用レイアウト。各アクション内で `Type`、`Result` の順にラベルボタンを配置する
+
 ### ボタン配置
 
 1. キャンバス上をクリックしてボタンを追加
@@ -569,6 +574,6 @@ const handleDuplicateLayout = useCallback((layout: CodeWindowLayout) => {
 
 - [system-overview.md](./system-overview.md): 全体アーキテクチャ
 - [requirement.md](./requirement.md): 機能要件
-- [Settings.ts](../src/types/Settings.ts): 設定型定義
-- [CodeWindowSettings.tsx](../src/pages/settings/components/CodeWindowSettings/CodeWindowSettings.tsx): 実装
-- [FreeCanvasEditor.tsx](../src/pages/settings/components/CodeWindowSettings/FreeCanvasEditor.tsx): エディタ実装
+- [coreTypes.ts](../src/types/settings/coreTypes.ts): 設定型定義
+- [CodeWindowSettings.tsx](../src/features/settings/components/CodeWindowSettings/CodeWindowSettings.tsx): 実装
+- [FreeCanvasEditor.tsx](../src/features/settings/components/CodeWindowSettings/FreeCanvasEditor.tsx): エディタ実装

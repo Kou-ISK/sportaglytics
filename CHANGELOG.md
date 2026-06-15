@@ -7,6 +7,135 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-15
+
+### Added
+
+- クリップ書き出しの進捗を専用ウィンドウで表示し、書き出し中もメインウィンドウの操作を継続できるように改善
+- タイムラインで選択中のイベントを `Cmd+Shift+P` でプレイリストへ追加できるショートカットを追加
+- コードウィンドウの Rugby Labels プリセットを追加
+
+### Fixed
+
+- Electron package にローカル GGUF model files が混入し、ASAR 制限で package 生成に失敗する問題を修正
+- Timeline のコンテキストメニュー「複製」が no-op になっていた問題を修正
+- クロス集計表のヘッダ/フィルタ操作でレイアウトが崩れる問題を修正
+- クロス集計のフィルタ編集を「適用」操作で確定し、「閉じる」では未適用の変更を反映しないように修正
+- クロス集計の合計欄から該当映像へジャンプできるように修正
+- プレイリスト描画の再生中に、描画位置へ到達した瞬間にクリップ冒頭へ戻る問題を修正
+- プレイリスト描画モードが「完了」前に終了してしまう問題を修正
+- 単一アングルの映像書き出しでオーバーレイ高さと文字サイズが不安定になる問題を修正
+- オーバーレイなしの単一アングル書き出しで stream copy を使い、品質を変えずに処理を高速化
+
+### Security
+
+- Dependabot / `pnpm audit` の重要通知に対応し、Electron、Vite、uuid、electron-builder、video.js、wait-on と関連 transitive dependencies を patched version に更新
+- patched version が提供されていない `xlsx` を削除し、Matrix XLSX export を dependency-free な最小 OOXML writer に置換
+
+### Documentation
+
+- OSS 向け community health files、Issue templates、docs 索引、ADR、ドキュメント運用ガイドを追加
+- README、開発ガイド、AI contributor 向け規約導線を整理
+- ディレクトリ構成と新規ファイル配置判断を `docs/project-structure.md` に明文化
+- ADR と Docs Impact Matrix を追加し、実装変更時のドキュメント同期ルールを制定
+- 音声同期、専用ウィンドウ、タイムライン相互運用、FFmpeg 書き出し、ダッシュボード統合の ADR を追加
+- テスト/品質ゲート、AI 分析 setup、分析レポート export、privacy/data handling の docs を追加し、古い開発・release 記述を同期
+- ADR の採番、命名、状態変更、supersede 関係の運用ルールを明文化
+- ADR ファイル名の ID 必須ルールと `check:adr` による検査を追加
+- LLM model artifact の配布境界 ADR を追加し、公式 package では GGUF model files を除外する方針を明文化
+
+## [0.5.0] - 2026-02-02
+
+### Added
+
+- **AI分析機能**
+  - ローカルLLM（llama.cpp）による映像分析パイプライン実装
+  - ハイブリッド根拠検索（テキスト・ラベル・メモ・時間・レアラベル）
+  - AI応答生成（要約、仮説、根拠ハイライト、推奨クリップ）
+  - モデル自動検出（`public/llama/models/`配下の.ggufファイル）
+  - AI分析からのプレイリスト自動生成機能
+  - llama.cppバイナリとライブラリ（macOS対応、public/llama/darwin/）
+  - スポーツ非依存の質問テンプレート
+
+### Changed
+
+- AI分析UIレイアウトを大幅改善
+  - 2カラムグリッドレイアウト（1.6fr : 1fr）に変更
+  - 右ペインにスクロール機能追加（maxHeight: 100vh）
+  - テキスト簡素化（「AI分析」タイトル、「実行」「プレイリスト作成」ボタン）
+  - 入力フィールドを2行表示（maxRows: 2）に変更
+- AI根拠選択とトークン制限を改善
+- AI分析の意図とコンテキスト要約を洗練
+- AI分析のグラウンディングとチーム統計を改善
+- AIフローを効率化し、llama.cpp進捗ログを追加
+- llama.cpp統合とグラウンディング機能を改善
+- AI Chat UIを洗練し、IPCリスナーを安定化
+- llama出力の安定性とAI設定UIを改善
+
+### Fixed
+
+- AI分析からプレイリスト作成時に映像が反映されない問題を修正
+  - PlaylistContextからElectron API（`window.electronAPI.playlist.addItemToAllWindows()`）に統一
+  - 各PlaylistItemに`videoSource`/`videoSource2`を正しく設定
+  - TypeScript型定義を改善（renderer.d.tsにチャネル別オーバーロード追加）
+
+## [0.4.3] - 2026-01-27
+
+### Changed
+
+- 分析チャートとチーム集計を改善
+- .stadパッケージ設定を他のアイコンと統一
+
+## [0.4.2] - 2026-01-27
+
+### Changed
+
+- ダッシュボードファイルアイコンとチャートレイアウトを修正
+
+## [0.4.1] - 2026-01-27
+
+### Changed
+
+- .stadパッケージ設定を他のアイコンと統一
+
+## [0.4.0] - 2026-01-26
+
+### Added
+
+- **分析専用ウィンドウ機能**
+  - 統計・分析を独立ウィンドウで表示
+  - メインウィンドウとの双方向同期
+- **ダッシュボード機能**
+  - カスタマイズ可能なウィジェットシステム
+  - デフォルトテンプレートダッシュボード
+  - ダッシュボードテンプレート管理
+  - シリーズ比較機能
+  - .stadパッケージ形式のサポート
+- **カスタムチャート機能**
+  - カスタム軸制御
+  - カスタムバーチャート
+  - カスタム円グラフ
+- **表示モード機能**
+  - 表示モードホットキー追加
+  - 単一アングル映像のフィット表示
+
+### Changed
+
+- 分析パネルコンポーネントをリネーム
+- StatsModalをPanelにリネーム
+- 分析ビューを簡素化
+- ダッシュボード制約とテーマ付きツールチップを調整
+- Momentumビューを復元
+
+## [0.3.0] - 2026-01-18
+
+### Changed
+
+- Electron/React/MUIなど主要依存関係を更新
+- CRA由来の構成整理（web-vitals、未使用設定、webpack設定の削除）
+- ESLintフラット設定に移行
+- GitHub ActionsのNode/pnpmを現行に合わせて統一
+
 ## [0.2.7] - 2026-01-18
 
 ### Added

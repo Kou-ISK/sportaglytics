@@ -1,4 +1,5 @@
 import { BrowserWindow, app } from 'electron';
+import { applyWindowSecurity } from './windowSecurity';
 
 let helpWindow: BrowserWindow | null = null;
 
@@ -46,7 +47,7 @@ const sections: HelpSection[] = [
     summary: 'イベントの編集・移動・複製・プレイリスト追加',
     steps: [
       '画面下部のビジュアルタイムラインでクリックジャンプ、ホイールズーム、ドラッグ範囲選択が可能。範囲選択後に一括操作できます。',
-      'イベントを右クリックして編集/削除/重複/移動/ラベル付与/プレイリスト追加を実行。ツールバーにも主要操作ボタンがあります。',
+      'イベントを右クリックして編集/削除/重複/移動/ラベル付与/プレイリスト追加を実行。選択中のイベントは Cmd/Ctrl+Shift+P でもプレイリストに追加できます。',
       '編集ダイアログで時間・メモ・ラベルをまとめて更新。Undo/Redo は Cmd/Ctrl+Z / Cmd/Ctrl+Shift+Z で呼び出します。',
     ],
   },
@@ -56,7 +57,7 @@ const sections: HelpSection[] = [
     summary: 'ポゼッション・結果・種別・モメンタム・クロス集計の可視化',
     steps: [
       'メニュー（分析）またはショートカット Cmd/Ctrl + Shift + A で開きます。',
-      'ポゼッション・結果・種別・モメンタム・クロス集計を切り替え、チーム/アクション/ラベルでフィルタできます。',
+      'ダッシュボード・モメンタム・クロス集計・AI分析を切り替え、チーム/アクション/ラベルでフィルタできます。',
       'クロス集計では軸を自由に切り替えられ、セルをクリックすると該当イベントへジャンプします。',
     ],
   },
@@ -65,8 +66,10 @@ const sections: HelpSection[] = [
     title: 'エクスポート / インポート',
     summary: 'タイムラインとクリップの入出力',
     steps: [
-      'ファイル > エクスポート から、タイムラインを JSON / CSV / SCTimeline 形式で出力できます。',
-      'クリップ書き出しは ファイル > エクスポート > 映像クリップ から。単一/インスタンスごと/行ごと、1-2アングル結合、オーバーレイ表示の有無を選択して FFmpeg で出力します。',
+      'ファイル > エクスポート から、タイムラインを JSON / CSV（YouTube） / Raw CSV / SCTimeline 形式で出力できます。',
+      'クリップ書き出しは ファイル > エクスポート > 映像クリップ から。単一/インスタンスごと/行ごと、1-2アングル結合、オーバーレイ表示の有無を選択して FFmpeg で出力します。書き出し中は専用の進捗ウィンドウで状態を確認できます。',
+      '分析ウィンドウのエクスポートメニューでは、構造化サマリーをコピー / 現在タブをPNGで保存（全内容） / 分析レポートをPDFで保存 を実行できます。',
+      'クロス集計タブでは、現在表示中の表のみをCSV / XLSXで出力できます（異なる種類の表は同じファイルに混在しません）。',
       'ファイル > インポート から JSON/SCTimeline を読み込みタイムラインへ反映（JSON優先で自動判定）します。取り込み後はタイムラインで内容を確認してください。',
     ],
   },
@@ -75,7 +78,7 @@ const sections: HelpSection[] = [
     title: 'プレイリスト',
     summary: 'プレイリスト専用ウィンドウで再生・メモ・描画',
     steps: [
-      'タイムラインでイベントを複数選択し、右クリックまたはツールバーのプレイリストボタンから追加。追加後はドラッグで順序を並べ替えできます。',
+      'タイムラインでイベントを複数選択し、右クリック、ツールバーのプレイリストボタン、または Cmd/Ctrl+Shift+P から追加。追加後はドラッグで順序を並べ替えできます。',
       'メニュー「ウィンドウ > プレイリストウィンドウを開く」で専用ウィンドウを表示し、再生/フリーズフレーム/簡易描画/ノート編集、ループ設定（なし/単一/全体）が可能です。',
       'プレイリストからメインプレイヤーへシーク・再生できます。ウィンドウを閉じてもメニューから再度開き直せます。',
     ],
@@ -240,8 +243,14 @@ export const openHelpWindow = () => {
     height: 920,
     autoHideMenuBar: true,
     backgroundColor: '#0b1224',
-    webPreferences: { contextIsolation: true },
+    webPreferences: {
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+    },
   });
+  applyWindowSecurity(helpWindow);
 
   helpWindow.loadURL(
     `data:text/html;charset=utf-8,${encodeURIComponent(buildHelpHtml())}`,
@@ -251,6 +260,8 @@ export const openHelpWindow = () => {
   });
 };
 
-app.on('window-all-closed', () => {
-  helpWindow = null;
-});
+if (app?.on) {
+  app.on('window-all-closed', () => {
+    helpWindow = null;
+  });
+}

@@ -1,9 +1,10 @@
-import type { TimelineData } from '../types/TimelineData';
+import type { TimelineData } from '../types/timeline/core';
+import { normalizeTimelineData } from './scTimelineConverter';
 
 /**
  * 秒数をHH:mm:ss形式（1時間未満ならmm:ss）に変換
  */
-export const formatTimeForExport = (seconds: number): string => {
+const formatTimeForExport = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
@@ -38,18 +39,15 @@ export const exportToCSV = (timeline: TimelineData[]): string => {
 
   // データ行
   for (const item of timeline) {
-    // labels配列からactionType/actionResultを取得
-    const actionTypeLabel = item.labels?.find((l) => l.group === 'actionType');
-    const actionResultLabel = item.labels?.find(
-      (l) => l.group === 'actionResult',
-    );
+    const typeLabel = item.labels?.find((l) => l.group === 'Type');
+    const resultLabel = item.labels?.find((l) => l.group === 'Result');
 
     const row = [
       formatTimeForExport(item.startTime),
       formatTimeForExport(item.endTime),
       `"${item.actionName.replace(/"/g, '""')}"`, // CSVエスケープ
-      `"${(actionTypeLabel?.name || '').replace(/"/g, '""')}"`,
-      `"${(actionResultLabel?.name || '').replace(/"/g, '""')}"`,
+      `"${(typeLabel?.name || '').replace(/"/g, '""')}"`,
+      `"${(resultLabel?.name || '').replace(/"/g, '""')}"`,
       `"${(item.memo || '').replace(/"/g, '""')}"`,
     ];
     csvRows.push(row.join(','));
@@ -83,28 +81,7 @@ export const importFromJSON = (jsonString: string): TimelineData[] => {
       throw new TypeError('Invalid timeline item format');
     }
 
-    // labels配列が存在しない場合は、actionType/actionResultから生成（後方互換性）
-    let labels = item.labels;
-    if (!labels || labels.length === 0) {
-      labels = [];
-      if (item.actionType) {
-        labels.push({ name: item.actionType, group: 'actionType' });
-      }
-      if (item.actionResult) {
-        labels.push({ name: item.actionResult, group: 'actionResult' });
-      }
-    }
-
-    const timelineItem: TimelineData = {
-      id: item.id,
-      actionName: item.actionName,
-      startTime: item.startTime,
-      endTime: item.endTime,
-      memo: item.memo,
-      labels: labels.length > 0 ? labels : undefined,
-    };
-
-    result.push(timelineItem);
+    result.push(normalizeTimelineData(item));
   }
 
   return result;

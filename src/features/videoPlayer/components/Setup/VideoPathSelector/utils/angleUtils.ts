@@ -1,7 +1,7 @@
 import type {
   MetaData,
   VideoAngleConfig,
-} from '../../../../../../types/MetaData';
+} from '../../../../../../types/package/metadata';
 
 type LoadedAngle = {
   id: string;
@@ -47,7 +47,7 @@ const normalizeRelativePath = (angle: unknown): string | undefined => {
   return undefined;
 };
 
-export const resolveAnglesFromConfig = (
+const resolveAnglesFromConfig = (
   config: unknown,
   packagePath: string,
 ): {

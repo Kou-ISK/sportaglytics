@@ -1,150 +1,127 @@
-# リリース手順
+# Release Process
 
-このドキュメントでは、SporTagLyticsの新バージョンをリリースする手順を説明します。
+このドキュメントは SporTagLytics の GitHub Release 運用手順です。Homebrew Tap の詳細は [docs/homebrew-distribution.md](../docs/homebrew-distribution.md) を参照してください。
 
-## 自動ビルドとリリース
+## Current Workflow
 
-GitHub Actionsを使用して、macOS、Windows、Linuxの実行ファイルを自動的にビルドし、GitHubリリースとして公開します。
+`.github/workflows/release.yml` は次の方法で起動します。
 
-### 1. バージョンの更新
+- `v*` tag push
+- GitHub Actions の `workflow_dispatch`
 
-`package.json`のバージョンを更新します：
+現行 workflow は macOS runner で macOS DMG を作成します。Windows / Linux artifacts は `electron-builder.json` に設定がありますが、現行 release workflow では生成していません。
+
+生成される artifact:
+
+- `SporTagLytics-<version>-arm64.dmg`
+- `SporTagLytics-<version>-x64.dmg`
+
+`<version>` は `package.json` の `version` を正とします。手動実行時も、入力 version と `package.json` の version を一致させてください。
+
+## Required Secrets
+
+| Secret                        | Required for                         |
+| ----------------------------- | ------------------------------------ |
+| `GITHUB_TOKEN`                | GitHub Release creation              |
+| `HOMEBREW_TAP_TOKEN`          | `Kou-ISK/homebrew-tap` auto update   |
+| `CSC_LINK`                    | macOS code signing certificate       |
+| `CSC_KEY_PASSWORD`            | macOS code signing certificate       |
+| `APPLE_ID`                    | notarization when signing is enabled |
+| `APPLE_APP_SPECIFIC_PASSWORD` | notarization when signing is enabled |
+| `APPLE_TEAM_ID`               | notarization when signing is enabled |
+
+If `HOMEBREW_TAP_TOKEN` is missing, the Homebrew update step fails. If signing / notarization secrets are missing, check the electron-builder behavior and workflow logs before publishing a public release.
+
+## Pre-Release Checklist
+
+1. Update `package.json` version.
+2. Move relevant `CHANGELOG.md` entries from `[Unreleased]` to the release version.
+3. Run quality gates:
+
+   ```bash
+   pnpm exec tsc --noEmit
+   pnpm exec tsc -p electron/tsconfig.json
+   pnpm run lint
+   pnpm run check:architecture
+   pnpm run test:run
+   ```
+
+4. Run build/package checks when release files or Electron boundary changed:
+
+   ```bash
+   pnpm run build
+   pnpm exec tsc -p electron/tsconfig.json
+   pnpm run bundle:preload
+   pnpm run check:preload
+   pnpm run electron:package:mac
+   ```
+
+5. Confirm docs affected by the release are updated:
+   - `README.md`
+   - `docs/README.md`
+   - `docs/homebrew-distribution.md`
+   - `docs/homebrew-quickstart.md`
+   - `docs/privacy-and-data-handling.md` when data handling changed
+
+## Tag-Based Release
 
 ```bash
-# 例: 0.1.0 → 0.2.0
-vim package.json
-# "version": "0.2.0" に変更
-```
+git checkout develop
+git pull --ff-only origin develop
 
-### 2. 変更をコミット
+# after version/changelog commit is created on develop
+git push origin develop
 
-```bash
-git add package.json
-git commit -m "chore: bump version to 0.2.0"
+git checkout main
+git pull --ff-only origin main
+git merge --no-ff develop
 git push origin main
+
+# tag from main after develop is merged
+git tag v<version>
+git push origin v<version>
 ```
 
-### 3. Gitタグの作成とプッシュ
+The workflow creates or replaces `v<version>` release assets based on `package.json`.
 
-```bash
-# タグを作成（vプレフィックス必須）
-git tag v0.2.0
+## Manual Release Dispatch
 
-# タグをプッシュ
-git push origin v0.2.0
-```
+1. Open GitHub Actions.
+2. Select `Release`.
+3. Click `Run workflow`.
+4. Enter a version matching `package.json`.
+5. Watch the macOS package, SHA256, release, and Homebrew update steps.
 
-### 4. 自動ビルドの実行
+## Post-Release Verification
 
-タグをプッシュすると、GitHub Actionsが自動的に以下を実行します：
+- GitHub Release exists and includes both `arm64` and `x64` DMGs.
+- SHA256 values in `Kou-ISK/homebrew-tap` match generated artifacts.
+- Homebrew install works:
 
-1. **macOS**: `SporTagLytics-0.2.0.dmg` をビルド
-2. **Windows**: `SporTagLytics-Setup-0.2.0.exe` をビルド
-3. **Linux**: `SporTagLytics-0.2.0.AppImage` をビルド
-4. **GitHub Release**: 上記ファイルを含むリリースを自動作成
+  ```bash
+  brew update
+  brew tap Kou-ISK/tap
+  brew install --cask sportaglytics
+  ```
 
-ビルドの進行状況は[Actions](https://github.com/Kou-ISK/sportaglytics/actions)タブで確認できます。
+- App launches on a clean macOS environment.
+- `.stpkg`, `.stpl`, `.stcw`, `.stad` file associations still work.
 
-### 5. リリースノートの編集（任意）
+## Troubleshooting
 
-GitHub上で自動生成されたリリースノートを編集できます：
+### Release workflow did not start
 
-1. [Releases](https://github.com/Kou-ISK/sportaglytics/releases)ページに移動
-2. 最新リリースの「Edit release」をクリック
-3. リリースノートを編集して「Update release」
+- Confirm tag name starts with `v`.
+- Confirm the tag was pushed to GitHub.
+- Confirm Actions are enabled for the repository.
 
-## 手動ビルド（開発・テスト用）
+### Artifact names do not match
 
-### ローカルでビルドする場合
+- Confirm `electron-builder.json` `artifactName` still matches `SporTagLytics-<version>-<arch>.dmg`.
+- Confirm `package.json` version matches the tag version without `v`.
 
-```bash
-# すべてのプラットフォームでビルド
-pnpm run electron:build
+### Homebrew update failed
 
-# macOSのみ
-pnpm exec electron-builder --mac
-
-# Windowsのみ（Windowsマシンが必要）
-pnpm exec electron-builder --win
-
-# Linuxのみ
-pnpm exec electron-builder --linux
-```
-
-ビルド成果物は`dist/`ディレクトリに出力されます。
-
-### 手動ビルドのトリガー（GitHub Actions）
-
-GitHubのActionsタブから手動でビルドをトリガーできます：
-
-1. [Actions](https://github.com/Kou-ISK/sportaglytics/actions)タブに移動
-2. 「Build and Release」ワークフローを選択
-3. 「Run workflow」ボタンをクリック
-4. バージョン（任意）を入力して「Run workflow」
-
-## Homebrew Caskへの登録（macOS）
-
-### オプション1: 公式homebrew-caskへ登録
-
-1. リリース後、DMGファイルのSHA256を取得：
-
-   ```bash
-   curl -L https://github.com/Kou-ISK/sportaglytics/releases/download/v0.2.0/SporTagLytics-0.2.0.dmg | shasum -a 256
-   ```
-
-2. [homebrew-cask](https://github.com/Homebrew/homebrew-cask)にPRを送信
-3. `.github/HOMEBREW.md`のテンプレートを参照してcask定義を作成
-
-### オプション2: 独自Tapの作成
-
-1. `homebrew-tap`という名前のリポジトリを作成
-2. `Casks/sportaglytics.rb`を追加：
-
-   ```ruby
-   cask "sportaglytics" do
-     version "0.2.0"
-     sha256 "YOUR_SHA256_HERE"
-
-     url "https://github.com/Kou-ISK/sportaglytics/releases/download/v#{version}/SporTagLytics-#{version}.dmg"
-     name "SporTagLytics"
-     desc "Video tagging application for sports analysis"
-     homepage "https://github.com/Kou-ISK/sportaglytics"
-
-     app "SporTagLytics.app"
-   end
-   ```
-
-3. ユーザーは以下でインストール可能：
-   ```bash
-   brew tap Kou-ISK/tap
-   brew install --cask sportaglytics
-   ```
-
-## トラブルシューティング
-
-### ビルドが失敗する場合
-
-1. **型エラー**: ローカルで`pnpm exec tsc --noEmit`を実行して型チェック
-2. **依存関係エラー**: `pnpm install`を実行して依存関係を更新
-3. **コード署名エラー（macOS）**:
-   - 開発環境では`electron-builder.json`で`mac.identity`をnullに設定
-   - CI環境では適切な証明書とプロビジョニングプロファイルが必要
-
-### リリースが作成されない場合
-
-- タグ名が`v`で始まっていることを確認（例: `v0.2.0`）
-- GitHub Actionsのログで詳細なエラーを確認
-- `GITHUB_TOKEN`の権限を確認（通常は自動設定）
-
-## チェックリスト
-
-リリース前に以下を確認：
-
-- [ ] `package.json`のバージョンが更新されている
-- [ ] `CHANGELOG.md`が更新されている（ある場合）
-- [ ] ローカルでビルドが成功する（`pnpm run electron:build`）
-- [ ] 型チェックがパスする（`pnpm exec tsc --noEmit`）
-- [ ] 既存の機能が動作する（手動テスト）
-- [ ] タグがプッシュされている
-- [ ] GitHub Actionsのビルドが成功している
-- [ ] リリースページで成果物がダウンロード可能
+- Confirm `HOMEBREW_TAP_TOKEN` is valid and has access to `Kou-ISK/homebrew-tap`.
+- Confirm the tap repository exists and has `Casks/` writable by the token.
+- Re-run the workflow after fixing the secret, or manually update the cask using the SHA256 values from the workflow log.

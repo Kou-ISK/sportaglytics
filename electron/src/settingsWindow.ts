@@ -3,6 +3,8 @@
  */
 import { BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
+import { applyWindowSecurity } from './windowSecurity';
+import { getValidatedEventSenderWindow } from './ipc/windowSenderGuards';
 
 let settingsWindow: BrowserWindow | null = null;
 
@@ -23,9 +25,12 @@ const focusOrCreate = () => {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
     },
   });
+  applyWindowSecurity(settingsWindow);
 
   settingsWindow.loadURL(SETTINGS_HASH_URL);
   settingsWindow.on('closed', () => {
@@ -50,13 +55,21 @@ export const isSettingsWindowOpen = (): boolean =>
   Boolean(settingsWindow && !settingsWindow.isDestroyed());
 
 export const registerSettingsWindowHandlers = (): void => {
-  ipcMain.handle('settings:open-window', () => {
+  ipcMain.handle('settings:open-window', (event) => {
+    if (!getValidatedEventSenderWindow(event)) {
+      throw new Error('Invalid settings open sender');
+    }
+
     openSettingsWindow();
   });
 
   ipcMain.handle('settings:close-window', (event) => {
     // 呼び出し元のウィンドウを優先して閉じる（設定ウィンドウ内のボタン対応）
-    const senderWindow = BrowserWindow.fromWebContents(event.sender);
+    const senderWindow = getValidatedEventSenderWindow(event);
+    if (!senderWindow) {
+      throw new Error('Invalid settings close sender');
+    }
+
     if (senderWindow && senderWindow === settingsWindow) {
       senderWindow.close();
       settingsWindow = null;
@@ -65,7 +78,11 @@ export const registerSettingsWindowHandlers = (): void => {
     closeSettingsWindow();
   });
 
-  ipcMain.handle('settings:is-window-open', () => {
+  ipcMain.handle('settings:is-window-open', (event) => {
+    if (!getValidatedEventSenderWindow(event)) {
+      throw new Error('Invalid settings state sender');
+    }
+
     return isSettingsWindowOpen();
   });
 };

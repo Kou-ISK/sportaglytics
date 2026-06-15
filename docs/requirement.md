@@ -17,15 +17,15 @@
 
 ### 1.3 技術スタック
 
-| カテゴリ               | 技術          | バージョン |
-| ---------------------- | ------------- | ---------- |
-| フロントエンド         | React         | 18.3.1     |
-| 言語                   | TypeScript    | 5.9.3      |
-| デスクトップ           | Electron      | 31.7.7     |
-| UI                     | Material-UI   | 5.18.0     |
-| ビデオ                 | Video.js      | 8.23.4     |
-| パッケージマネージャー | pnpm          | 9.1.0+     |
-| ビルドツール           | react-scripts | 5.0.1      |
+| カテゴリ               | 技術        | バージョン |
+| ---------------------- | ----------- | ---------- |
+| フロントエンド         | React       | 19.2.3     |
+| 言語                   | TypeScript  | 5.9.3      |
+| デスクトップ           | Electron    | 40.0.0     |
+| UI                     | Material-UI | 7.3.7      |
+| ビデオ                 | Video.js    | 8.23.4     |
+| パッケージマネージャー | pnpm        | 9.1.0+     |
+| ビルドツール           | Vite        | 7.x        |
 
 ---
 
@@ -52,7 +52,8 @@
 
 **手動調整**:
 
-- 手動オフセット調整ダイアログ（`Cmd+Shift+O`）
+- 現在位置で同期（`Cmd+Shift+M`）
+- 手動同期モード切替（`Cmd+Shift+T`）
 - 同期リセット機能（`Cmd+Shift+R`）
 - 同期再実行（`Cmd+Shift+S`）
 
@@ -148,13 +149,13 @@ TimelineData = {
   actionName: string;   // アクション名（チーム名 + アクション種別）
   startTime: number;    // 開始時刻（秒）
   endTime: number;      // 終了時刻（秒）
-  actionResult: string; // アクション結果
-  actionType: string;   // アクション種別
-  qualifier: string;    // 追加情報・修飾子
+  memo: string;         // メモ
   labels?: Array<{ name: string; group?: string }>; // ラベルグループ構造
   color?: string;       // タイムライン上での表示色
 }
 ```
+
+旧 `actionResult` / `actionType` は読み込み時のみ互換入力として受け付け、`Result` / `Type` ラベルグループへ移行する。
 
 #### 2.3.2 テーブル表示・編集機能
 
@@ -281,17 +282,34 @@ PackageName/
 
 ### 2.5 統計分析・可視化機能
 
-#### 2.5.1 統計モーダル（`Cmd+Shift+A`）
+#### 2.5.1 分析ウィンドウ（v0.4.0以降、`Cmd+Shift+A`）
 
-**5つの分析ビュー**:
+v0.4.0より、統計・分析機能は独立したウィンドウ（`AnalysisWindowApp`）で表示されます。
 
-| ビュー         | 内容                                            | ショートカット |
-| -------------- | ----------------------------------------------- | -------------- |
-| ポゼッション   | チーム別ポゼッション時間の円グラフ（MM:SS形式） | `Cmd+Option+1` |
-| アクション結果 | チーム別・アクション別の結果統計（円グラフ）    | `Cmd+Option+2` |
-| アクション種別 | アクション種別の分布統計（円グラフ）            | `Cmd+Option+3` |
-| モメンタム     | ポゼッションの流れを棒グラフで可視化            | `Cmd+Option+4` |
-| クロス集計     | 任意の軸でヒートマップ表示                      | `Cmd+Option+5` |
+関連 ADR: [0008 Dedicated Sub-Window Runtime and Synchronization](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)
+
+**表示タブ（v0.5.0現在）**:
+
+| タブ           | 内容                                                 | バージョン |
+| -------------- | ---------------------------------------------------- | ---------- |
+| ダッシュボード | カスタマイズ可能なウィジェット配置、テンプレート管理 | v0.4.0     |
+| モメンタム     | ポゼッションの流れを棒グラフで可視化                 | v0.2.0     |
+| クロス集計     | 任意の軸でヒートマップ表示、ドリルダウン             | v0.2.0     |
+| AI分析         | ローカルLLMによる映像分析、推奨クリップ生成          | v0.5.0     |
+
+**旧タブ（v0.4.0で統合）**:
+
+以下のタブはv0.4.0でダッシュボード機能に統合されました：
+
+- **ポゼッション** → ダッシュボードのデフォルトウィジェット
+- **アクション結果** → カスタムチャート機能で再現可能
+- **アクション種別** → カスタムチャート機能で再現可能
+
+**ウィンドウ機能**:
+
+- メインウィンドウとの双方向同期
+- タイムラインデータの自動反映
+- チャート要素クリックで該当映像位置にジャンプ
 
 **モメンタムチャート**:
 
@@ -308,7 +326,108 @@ PackageName/
 - セルクリックで該当イベントへジャンプ
 - ドリルダウンダイアログで詳細一覧表示
 
-#### 2.5.2 チャートインタラクション
+#### 2.5.2 ダッシュボード機能（v0.4.0以降）
+
+関連 ADR: [0011 Dashboard Widget System and Analysis Consolidation](adr/0011-dashboard-widget-system-and-analysis-consolidation.md)
+
+**概要**:
+
+- カスタマイズ可能なウィジェットシステム
+- ドラッグ&ドロップによる配置変更
+- .stadパッケージ形式でテンプレート保存・読み込み
+
+**ウィジェット種別**:
+
+- チャート（円グラフ、棒グラフ、カスタムチャート）
+- 統計カード
+- フィルタコンポーネント
+
+**テンプレート管理**:
+
+- デフォルトテンプレート
+- カスタムテンプレートの保存・読み込み
+- .stadパッケージのインポート/エクスポート
+
+#### 2.5.3 カスタムチャート機能（v0.4.0以降）
+
+**機能**:
+
+- カスタム軸制御（X軸、Y軸、グループ化）
+- カスタムバーチャート
+- カスタム円グラフ
+- シリーズ比較機能
+
+**データソース**:
+
+- タイムラインデータから自動集計
+- 任意のフィールド組み合わせによる分析
+
+#### 2.5.4 AI分析機能（v0.5.0以降）
+
+**概要**:
+
+AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自動分析し、質問に対する回答や推奨クリップを生成します。
+
+セットアップ詳細: [AI Analysis and Local LLM Setup](ai-analysis.md)
+
+**UIレイアウト**:
+
+- 2カラムグリッドレイアウト（1.6fr : 1fr）
+  - 左ペイン: AI会話（質問入力、テンプレート、応答表示）
+  - 右ペイン: プレイリスト作成（スクロール可能、maxHeight: 100vh）
+- 質問入力フィールド: maxRows 2行
+- ボタン: 「実行」「プレイリスト作成」
+
+**機能**:
+
+1. **ハイブリッド根拠検索**（`src/features/videoPlayer/analysis/ai/retriever.ts`）
+   - テキスト検索（アクション名、メモ）
+   - ラベル検索（完全一致、部分一致）
+   - 時間範囲検索
+   - レアラベル検索（統計的に珍しいイベント）
+   - 複数検索結果のマージとスコアリング
+
+2. **LLMプロンプト生成**（`llmPrompt.ts`）
+   - システムプロンプト: スポーツ分析特化の指示
+   - コンテキスト: タイムラインサマリー、チーム統計
+   - 根拠: 検索で抽出されたイベント詳細
+   - 質問: ユーザー入力
+
+3. **AI応答生成**（`llmProvider.ts`）
+   - llama.cppバイナリとの統合
+   - ストリーミング応答（進捗表示）
+   - エラーハンドリング
+   - 応答パース（要約、仮説、根拠ID、推奨クリップ）
+
+4. **クリップ推奨**（`clipGenerator.ts`）
+   - AIが選んだ重要シーンのリスト生成
+   - タイムラインデータとの紐付け
+
+5. **プレイリスト自動生成**
+   - 「プレイリスト作成」ボタンで推奨クリップからプレイリストを作成
+   - `window.electronAPI.playlist.addItemToAllWindows()` を使用（v0.5.0で統一）
+   - 各PlaylistItemに`videoSource`/`videoSource2`を設定
+
+**技術仕様**:
+
+- llama.cppバイナリとライブラリ: `public/llama/darwin/`（macOS版のみv0.5.0で同梱）
+- GGUFモデルファイル: `public/llama/models/`に配置（ユーザーが手動ダウンロード）
+- Electron IPC: メインプロセス（`llamaManager.ts`）とレンダラー間通信
+- タイプ定義: `src/types/ipc/` と `src/renderer.d.ts`
+
+**データフロー**:
+
+```
+ユーザー質問 → ハイブリッド検索 → 根拠抽出 → プロンプト生成 → llama.cpp実行 → 応答パース → UI更新 → プレイリスト生成
+```
+
+**制限事項**:
+
+- v0.5.0ではmacOSのみサポート（Windows/Linux版llama.cppバイナリは未同梱）
+- モデルファイルは別途ダウンロードが必要
+- ローカル処理のため、モデルサイズとマシン性能に依存
+
+#### 2.5.5 チャートインタラクション
 
 - チャート要素クリックで該当映像位置にジャンプ
 - スクロール対応の統計情報表示
@@ -412,27 +531,51 @@ PackageName/
 
 ### 2.7 ユーザーサポート機能
 
-#### 2.7.1 オンボーディングチュートリアル
+\_#### 2.7.1 ヘルプウィンドウ
+
+- 独立したBrowserWindowとして実装
+- メニュー「ヘルプ」または `Cmd+?` / `Ctrl+?` で開く
+- 常に最前面表示（`alwaysOnTop: true`）
+- HTML/CSS/JavaScriptで構築された自己完結型UI
+
+**含まれるセクション**:
+
+1. パッケージ管理
+2. 映像再生と同期
+3. タグ付け（コードウィンドウ）
+4. タイムライン編集
+5. 統計ダッシュボード
+6. エクスポート/インポート
+7. プレイリスト
+8. 設定とコードウィンドウ管理
+9. キーボードショートカット
+10. トラブルシューティング
+
+各セクションはステップバイステップの手順と具体的な操作方法を提供。
+
+#### 2.7.2 オンボーディングチュートリアル
 
 - 初回起動時に自動表示
 - 4ステップのウィザード形式
 - LocalStorageで完了フラグを管理
 - スキップ機能
 
-#### 2.7.2 ショートカットガイド
+#### 2.7.3 ショートカットガイド
 
 - コントローラー右上の「?」アイコンから表示
 - カテゴリ別一覧（再生制御、音声同期、統計・分析）
 - モーダル形式での表示
 
-#### 2.7.3 エラーハンドリング
+#### 2.7.4 エラーハンドリング
 
-- 統一エラーステート（useVideoPlayerApp）
+- 統一エラーステート（useVideoPlayerScreenController）
 - エラータイプ分類: file, network, sync, playback, general
 - Snackbar通知（6秒自動非表示）
 - エラー種別による色分け
 
 ### 2.8 タイムラインエクスポート/インポート
+
+関連 ADR: [0009 Timeline Import/Export Interoperability](adr/0009-timeline-import-export-interoperability.md)
 
 #### 2.8.1 対応フォーマット
 
@@ -453,7 +596,7 @@ PackageName/
 
 **アイテム追加**:
 
-- タイムラインから複数選択でプレイリストに追加（右クリックメニューまたはツールバーボタン）
+- タイムラインから複数選択でプレイリストに追加（右クリックメニュー、ツールバーボタン、`Cmd+Shift+P`）
 - 開いている全てのプレイリストウィンドウに追加（ウィンドウが無い場合は自動で新規作成）
 
 **複数プレイリスト管理**:
@@ -502,11 +645,14 @@ PackageName/
 
 **クリップ書き出し**:
 
+関連 ADR: [0010 FFmpeg Clip Export Execution Boundary](adr/0010-ffmpeg-clip-export-execution-boundary.md)
+
 - 書き出しモード: 1ファイル/インスタンスごと/アクションごと
 - 書き出し範囲: 全体/選択中
 - アングル選択: 全アングル/単一/マルチ
 - オーバーレイ設定: アクション名、インデックス、ラベル、メモの表示切替
 - FFmpeg統合（ffmpeg-static使用）
+- 書き出し進捗は専用ウィンドウに表示し、メインウィンドウ側の操作はブロックしない
 
 #### 2.9.3 メインウィンドウとの連携
 
@@ -588,7 +734,7 @@ src/
 │       │   └── utils/             # 分析ユーティリティ
 │       └── components/
 │           ├── Analytics/         # 統計分析UI
-│           │   └── StatsModal/    # 統計モーダル
+│           │   └── AnalysisPanel/    # 分析パネル
 │           │       └── view/      # 各ビュー（Possession/Results/Types/Momentum/Matrix）
 │           ├── Controls/          # コントロールパネル
 │           │   └── VideoController/
@@ -634,7 +780,7 @@ electron/
 | VideoPlayerApp      | pages/VideoPlayerApp.tsx                       | メインページ             |
 | SettingsPage        | pages/SettingsPage.tsx                         | 設定画面（4タブ）        |
 | VisualTimeline      | features/.../Timeline/VisualTimeline/          | ビジュアルタイムライン   |
-| StatsModal          | features/.../Analytics/StatsModal/             | 統計モーダル             |
+| AnalysisPanel       | features/.../Analytics/AnalysisPanel/          | 分析パネル               |
 | EnhancedCodePanel   | features/.../Controls/                         | コーディングパネル       |
 | SyncedVideoPlayer   | features/.../Player/SyncedVideo/               | 同期ビデオプレイヤー     |
 | VideoPathSelector   | features/.../Setup/VideoPathSelector/          | パッケージ選択・作成     |
@@ -643,28 +789,28 @@ electron/
 
 ### 5.3 主要カスタムフック一覧
 
-| フック                    | パス                                        | 責務                 |
-| ------------------------- | ------------------------------------------- | -------------------- |
-| useVideoPlayerApp         | hooks/useVideoPlayerApp.ts                  | アプリ全体の状態管理 |
-| useSettings               | hooks/useSettings.ts                        | 設定の読み書き       |
-| useGlobalHotkeys          | hooks/useGlobalHotkeys.ts                   | グローバルホットキー |
-| useSyncActions            | hooks/videoPlayer/useSyncActions.ts         | 同期操作             |
-| useTimelineEditing        | hooks/videoPlayer/useTimelineEditing.ts     | タイムライン編集     |
-| useTimelineHistory        | hooks/videoPlayer/useTimelineHistory.ts     | Undo/Redo履歴        |
-| useTimelinePersistence    | hooks/videoPlayer/useTimelinePersistence.ts | 永続化               |
-| useTimelineSelection      | hooks/videoPlayer/useTimelineSelection.ts   | 選択状態             |
-| useTimelineViewport       | features/.../VisualTimeline/hooks/          | ズーム・ビューポート |
-| useTimelineInteractions   | features/.../VisualTimeline/hooks/          | インタラクション     |
-| useTimelineEditDraft      | features/.../VisualTimeline/hooks/          | 編集ドラフト         |
-| useTimelineValidation     | features/.../VisualTimeline/hooks/          | バリデーション       |
-| useTimelineRangeSelection | features/.../VisualTimeline/hooks/          | 範囲選択             |
-| useMatrixAxes             | features/.../StatsModal/view/hooks/         | クロス集計軸         |
-| useMatrixFilters          | features/.../StatsModal/view/hooks/         | クロス集計フィルタ   |
+| フック                         | パス                                                             | 責務                 |
+| ------------------------------ | ---------------------------------------------------------------- | -------------------- |
+| useVideoPlayerScreenController | features/videoPlayer/app/hooks/useVideoPlayerScreenController.ts | アプリ全体の状態管理 |
+| useSettings                    | hooks/useSettings.ts                                             | 設定の読み書き       |
+| useGlobalHotkeys               | hooks/useGlobalHotkeys.ts                                        | グローバルホットキー |
+| useSyncActions                 | features/videoPlayer/app/hooks/useSyncActions.ts                 | 同期操作             |
+| useTimelineEditing             | features/videoPlayer/app/hooks/useTimelineEditing.ts             | タイムライン編集     |
+| useTimelineHistory             | features/videoPlayer/app/hooks/useTimelineHistory.ts             | Undo/Redo履歴        |
+| useTimelinePersistence         | features/videoPlayer/app/hooks/useTimelinePersistence.ts         | 永続化               |
+| useTimelineSelection           | features/videoPlayer/app/hooks/useTimelineSelection.ts           | 選択状態             |
+| useTimelineViewport            | features/.../VisualTimeline/hooks/                               | ズーム・ビューポート |
+| useTimelineInteractions        | features/.../VisualTimeline/hooks/                               | インタラクション     |
+| useTimelineEditDraft           | features/.../VisualTimeline/hooks/                               | 編集ドラフト         |
+| useTimelineValidation          | features/.../VisualTimeline/hooks/                               | バリデーション       |
+| useTimelineRangeSelection      | features/.../VisualTimeline/hooks/                               | 範囲選択             |
+| useMatrixAxes                  | features/.../AnalysisPanel/controllers/                          | クロス集計軸         |
+| useMatrixFilters               | features/.../AnalysisPanel/controllers/                          | クロス集計フィルタ   |
 
 ### 5.4 設計原則
 
-1. **関数コンポーネントのみ**: React 18の関数コンポーネント + Hooks
-2. **責務分離**: View（JSX）とロジック（Hooks）を明確に分離
+1. **関数コンポーネントのみ**: React 19の関数コンポーネント + Hooks
+2. **責務分離**: `Screen / Controller(or Hook) / View / Gateway` を分離し、`View` に外部依存を持ち込まない
 3. **型安全性**: TypeScript strict mode、`any`の最小化
 4. **Feature-based構造**: 機能単位でコード整理、依存関係の明確化
 5. **Material UI標準**: `sx`プロパティでスタイリング統一
@@ -795,6 +941,7 @@ electron/
 
 - **ローカルストレージのみ**: すべてのデータはユーザーのローカルディスクに保存
 - **外部送信なし**: 映像・タイムラインデータは外部に送信されない
+- 詳細: [Privacy and Data Handling](privacy-and-data-handling.md)
 
 ### 8.2 権限
 
@@ -809,13 +956,14 @@ electron/
 
 ```bash
 pnpm exec tsc --noEmit          # React側
-pnpm exec tsc -p electron --noEmit  # Electron側
+pnpm exec tsc -p electron/tsconfig.json  # Electron側
 ```
 
 ### 9.2 ユニットテスト
 
-- `pnpm test` でReact Testing Libraryによるテスト実行
+- `pnpm run test:run` で Vitest を実行
 - 重要なユーティリティ関数のテスト
+- 詳細: [Testing and Quality Gates](testing.md)
 
 ### 9.3 手動テスト
 
@@ -876,6 +1024,6 @@ MIT
 ## 13. 参考資料
 
 - [プロジェクトリポジトリ](https://github.com/Kou-ISK/sportaglytics)
-- [Copilot基本指示](.github/copilot-instructions.md)
-- [TypeScript指示](.github/instructions/typescript.instructions.md)
-- [TSX指示](.github/instructions/tsx.instructions.md)
+- [Copilot基本指示](../.github/copilot-instructions.md)
+- [TypeScript指示](../.github/instructions/typescript.instructions.md)
+- [TSX指示](../.github/instructions/tsx.instructions.md)

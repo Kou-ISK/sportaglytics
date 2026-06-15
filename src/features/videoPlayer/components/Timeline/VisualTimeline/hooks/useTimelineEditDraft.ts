@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { TimelineData } from '../../../../../../types/TimelineData';
-import { TimelineEditDraft } from '../TimelineEditDialog';
+import type { TimelineData } from '../../../../../../types/timeline/core';
+import type { TimelineEditDraft } from '../TimelineEditDialog';
 
 interface UseTimelineEditDraftParams {
   timeline: TimelineData[];
@@ -12,6 +12,7 @@ interface UseTimelineEditDraftParams {
   ) => void;
   onUpdateMemo?: (id: string, memo: string) => void;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
+  onDuplicateTimelineItem?: (id: string) => string | null;
 }
 
 // Dialog用: draftを操作する軽量フック（元のAPIを維持）
@@ -55,6 +56,7 @@ export const useTimelineEditActions = ({
   onUpdateTimelineItem,
   onUpdateMemo,
   onUpdateTimeRange,
+  onDuplicateTimelineItem,
 }: UseTimelineEditDraftParams) => {
   const [editingDraft, setEditingDraft] = useState<TimelineEditDraft | null>(
     null,
@@ -138,13 +140,12 @@ export const useTimelineEditActions = ({
   );
 
   const handleContextMenuDuplicate = useCallback(
-    (itemId: string) => {
+    (itemId: string): string | null => {
       const item = timeline.find((entry) => entry.id === itemId);
-      if (!item) return;
-      // 未実装: 将来のためにログのみ
-      console.log('Duplicate item:', item);
+      if (!item || !onDuplicateTimelineItem) return null;
+      return onDuplicateTimelineItem(item.id);
     },
-    [timeline],
+    [onDuplicateTimelineItem, timeline],
   );
 
   return {

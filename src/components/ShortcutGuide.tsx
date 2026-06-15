@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   IconButton,
   Dialog,
@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import CloseIcon from '@mui/icons-material/Close';
+import { useShortcutGuideMenuOpen } from '../hooks/useShortcutGuideMenuOpen';
 
 interface ShortcutItem {
   category: string;
@@ -40,18 +41,14 @@ const shortcuts: ShortcutItem[] = [
     items: [
       { key: 'Command + Shift + S', action: '音声再同期' },
       { key: 'Command + Shift + R', action: '同期リセット' },
-      { key: 'Command + Shift + O', action: '手動オフセット調整' },
+      { key: 'Command + Shift + M', action: '今の位置で同期' },
+      { key: 'Command + Shift + T', action: '手動モード切替' },
     ],
   },
   {
     category: '統計・分析',
     items: [
-      { key: 'Command + Shift + A', action: '統計モーダルをトグル' },
-      { key: 'Command + Option + 1', action: 'ポゼッションを表示' },
-      { key: 'Command + Option + 2', action: 'アクション結果を表示' },
-      { key: 'Command + Option + 3', action: 'アクション種別を表示' },
-      { key: 'Command + Option + 4', action: 'モメンタムを表示' },
-      { key: 'Command + Option + 5', action: 'クロス集計を表示' },
+      { key: 'Command + Shift + A', action: '統計・分析ウィンドウを開く' },
       { key: 'Command + /', action: 'ショートカット一覧を表示' },
     ],
   },
@@ -66,6 +63,7 @@ const shortcuts: ShortcutItem[] = [
       },
       { key: 'Enter', action: '選択したアイテムを編集' },
       { key: 'Delete/Backspace', action: '選択したアイテムを削除' },
+      { key: 'Command + Shift + P', action: '選択項目をプレイリストに追加' },
       { key: 'Command + Z', action: '元に戻す' },
       { key: 'Command + Shift + Z', action: 'やり直し' },
     ],
@@ -85,34 +83,21 @@ export const ShortcutGuide: React.FC<ShortcutGuideProps> = ({
 
   // 制御モード（外部からopenを渡された場合）と非制御モードの両方に対応
   const open = controlledOpen ?? internalOpen;
-  const setOpen = (newOpen: boolean) => {
-    if (onOpenChange) {
-      onOpenChange(newOpen);
-    } else {
-      setInternalOpen(newOpen);
-    }
-  };
-
-  const handleOpen = () => setOpen(true);
-  const handleClose = () => setOpen(false);
-
-  useEffect(() => {
-    if (!window.electronAPI?.on) {
-      return;
-    }
-
-    const handler = () => setOpen(true);
-
-    window.electronAPI.on('menu-show-shortcuts', handler);
-
-    return () => {
-      try {
-        window.electronAPI?.off?.('menu-show-shortcuts', handler);
-      } catch (error) {
-        console.debug('shortcut menu cleanup error', error);
+  const setOpen = useCallback(
+    (newOpen: boolean) => {
+      if (onOpenChange) {
+        onOpenChange(newOpen);
+      } else {
+        setInternalOpen(newOpen);
       }
-    };
-  }, []);
+    },
+    [onOpenChange],
+  );
+
+  const handleOpen = useCallback(() => setOpen(true), [setOpen]);
+  const handleClose = useCallback(() => setOpen(false), [setOpen]);
+
+  useShortcutGuideMenuOpen(handleOpen);
 
   return (
     <>

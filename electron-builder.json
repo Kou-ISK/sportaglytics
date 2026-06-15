@@ -6,10 +6,17 @@
     "build/**/*",
     "!build/**/*.map",
     "!build/**/*.LICENSE.txt",
+    "!build/**/llama/models/*.gguf",
+    "!build/**/llama/models/**/*.gguf",
     "!node_modules/**/*",
-    "node_modules/electron-is-dev/**/*",
-    "node_modules/js-yaml/**/*",
     "node_modules/ffmpeg-static/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "public/llama",
+      "to": "llama",
+      "filter": ["**/*", "!**/*.gguf"]
+    }
   ],
   "asarUnpack": ["node_modules/ffmpeg-static/**/*"],
   "compression": "maximum",
@@ -17,37 +24,19 @@
     "buildResources": "public",
     "output": "dist/"
   },
-  "fileAssociations": [
-    {
-      "ext": "stpkg",
-      "name": "SporTagLytics Package",
-      "description": "SporTagLytics パッケージファイル",
-      "role": "Editor",
-      "icon": "public/icons/stpkg.icns",
-      "isPackage": true
-    },
-    {
-      "ext": "stpl",
-      "name": "SporTagLytics Playlist",
-      "description": "SporTagLytics プレイリスト",
-      "role": "Viewer",
-      "icon": "public/icons/stpl.icns",
-      "isPackage": true
-    },
-    {
-      "ext": "stcw",
-      "name": "SporTagLytics Code Window",
-      "description": "SporTagLytics コードウィンドウ",
-      "role": "Viewer",
-      "icon": "public/icons/stcw.icns"
-    }
-  ],
   "mac": {
     "target": {
       "target": "dmg",
       "arch": ["x64", "arm64"]
     },
     "icon": "public/icon.icns",
+    "extraResources": [
+      {
+        "from": "public/icons",
+        "to": ".",
+        "filter": ["stpkg.icns", "stpl.icns", "stcw.icns", "stad.icns"]
+      }
+    ],
     "category": "public.app-category.sports",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "hardenedRuntime": true,
@@ -79,6 +68,14 @@
           "UTTypeTagSpecification": {
             "public.filename-extension": ["stcw"]
           }
+        },
+        {
+          "UTTypeIdentifier": "com.kouisk.sportaglytics.stad",
+          "UTTypeDescription": "SporTagLytics Dashboard",
+          "UTTypeConformsTo": ["public.data", "com.apple.package"],
+          "UTTypeTagSpecification": {
+            "public.filename-extension": ["stad"]
+          }
         }
       ],
       "CFBundleDocumentTypes": [
@@ -107,6 +104,15 @@
           "CFBundleTypeExtensions": ["stcw"],
           "LSHandlerRank": "Owner",
           "LSItemContentTypes": ["com.kouisk.sportaglytics.stcw"]
+        },
+        {
+          "CFBundleTypeName": "SporTagLytics Dashboard",
+          "CFBundleTypeRole": "Viewer",
+          "CFBundleTypeIconFile": "stad.icns",
+          "CFBundleTypeExtensions": ["stad"],
+          "LSHandlerRank": "Owner",
+          "LSItemContentTypes": ["com.kouisk.sportaglytics.stad"],
+          "LSTypeIsPackage": true
         }
       ]
     }
@@ -114,6 +120,39 @@
   "win": {
     "target": "nsis",
     "icon": "public/icon.ico",
+    "fileAssociations": [
+      {
+        "ext": "stpkg",
+        "name": "SporTagLytics Package",
+        "description": "SporTagLytics パッケージファイル",
+        "role": "Editor",
+        "icon": "public/icons/stpkg.ico",
+        "isPackage": true
+      },
+      {
+        "ext": "stpl",
+        "name": "SporTagLytics Playlist",
+        "description": "SporTagLytics プレイリスト",
+        "role": "Viewer",
+        "icon": "public/icons/stpl.ico",
+        "isPackage": true
+      },
+      {
+        "ext": "stcw",
+        "name": "SporTagLytics Code Window",
+        "description": "SporTagLytics コードウィンドウ",
+        "role": "Viewer",
+        "icon": "public/icons/stcw.ico"
+      },
+      {
+        "ext": "stad",
+        "name": "SporTagLytics Dashboard",
+        "description": "SporTagLytics ダッシュボード",
+        "role": "Viewer",
+        "icon": "public/icons/stad.ico",
+        "isPackage": true
+      }
+    ],
     "artifactName": "${productName}-Setup-${version}.${ext}"
   },
   "nsis": {
@@ -122,6 +161,34 @@
   "linux": {
     "target": "AppImage",
     "icon": "public/icon.png",
+    "fileAssociations": [
+      {
+        "ext": "stpkg",
+        "name": "SporTagLytics Package",
+        "description": "SporTagLytics パッケージファイル",
+        "role": "Editor",
+        "isPackage": true
+      },
+      {
+        "ext": "stpl",
+        "name": "SporTagLytics Playlist",
+        "description": "SporTagLytics プレイリスト",
+        "role": "Viewer",
+        "isPackage": true
+      },
+      {
+        "ext": "stcw",
+        "name": "SporTagLytics Code Window",
+        "description": "SporTagLytics コードウィンドウ",
+        "role": "Viewer"
+      },
+      {
+        "ext": "stad",
+        "name": "SporTagLytics Dashboard",
+        "description": "SporTagLytics ダッシュボード",
+        "role": "Viewer"
+      }
+    ],
     "artifactName": "${productName}-${version}.${ext}"
   }
 }

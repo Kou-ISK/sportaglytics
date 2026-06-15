@@ -1,6 +1,6 @@
 # Homebrew配布ガイド（完全自動化版）
 
-このドキュメントでは、SporTagLyticsをHomebrew Caskで**完全自動配布**するための手順を説明します。
+このドキュメントでは、SporTagLyticsをHomebrew Caskで**完全自動配布**するための手順を説明します。リリース全体の正本は [.github/RELEASE.md](../.github/RELEASE.md) です。
 
 ## 配布方式
 
@@ -65,19 +65,28 @@ brew install --cask sportaglytics
 vim package.json  # "version": "<version>" に変更
 ```
 
-### 2. コミット&タグプッシュ
+### 2. develop へコミットして main へマージ
 
 ```bash
-git add package.json
+git add package.json CHANGELOG.md
 git commit -m "chore: bump version to <version>"
-git push origin main
+git push origin develop
 
+git checkout main
+git pull --ff-only origin main
+git merge --no-ff develop
+git push origin main
+```
+
+### 3. タグプッシュ
+
+```bash
 # タグをプッシュ（これで自動化開始！）
 git tag v<version>
 git push origin v<version>
 ```
 
-### 3. 自動実行される処理（5-10分）
+### 4. 自動実行される処理（5-10分）
 
 GitHub Actionsが以下を自動実行します:
 
@@ -90,7 +99,7 @@ GitHub Actionsが以下を自動実行します:
 2. アプリケーションのビルド
    ├─ React アプリをビルド
    ├─ Electron TypeScriptコンパイル
-   └─ Intel & Apple Silicon 両対応で.zipを生成
+   └─ Intel & Apple Silicon 両対応でDMGを生成
 
 3. SHA256ハッシュの計算
    ├─ arm64版のSHA256を自動計算
@@ -98,7 +107,7 @@ GitHub Actionsが以下を自動実行します:
 
 4. GitHubリリースの作成
    ├─ リリースノート自動生成
-   └─ .zipファイルをアップロード
+   └─ DMGファイルをアップロード
 
 5. Homebrew Tapの自動更新 ⭐
    ├─ homebrew-tapリポジトリをクローン
@@ -107,12 +116,12 @@ GitHub Actionsが以下を自動実行します:
    └─ 自動プッシュ
 ```
 
-### 4. 完了確認
+### 5. 完了確認
 
 - Releaseページを確認: https://github.com/Kou-ISK/sportaglytics/releases
 - Homebrew Tapが自動更新されたことを確認: https://github.com/Kou-ISK/homebrew-tap
 
-### 5. ユーザーが更新可能に
+### 6. ユーザーが更新可能に
 
 ```bash
 brew upgrade --cask sportaglytics

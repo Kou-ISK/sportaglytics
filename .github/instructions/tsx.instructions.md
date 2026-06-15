@@ -2,10 +2,11 @@
 applyTo: '**/*.tsx'
 ---
 
-# TSX（React コンポーネント）向け指示
-- コンポーネントは責務単位で分割し、ロジックは可能な限りカスタム Hook に移譲する。  
-- UI レイアウトには MUI の `Box` / `Stack` / `Grid` を使用し、`sx` でレスポンシブ調整を行う。  
-- `useEffect` / `useMemo` / `useCallback` には依存配列を正確に設定し、不要な再レンダリングを防ぐ。  
-- `window.electronAPI` へアクセスする際は存在チェックを行い、例外発生時は `console.debug` で記録する。  
-- タイムライン・分析 UI は空状態の表示 (`NoDataPlaceholder` 等) を忘れずに提供する。  
-- i18n 方針としてユーザー向けテキストは日本語で記載し、ハードコード文字列を定数化する場合は `labels` 等のオブジェクトにまとめる。
+# React TSX Files (`*.tsx`)
+
+このファイルで定義するのは `applyTo` 対象の差分ルールのみです。一般規約は `AGENTS.md` を参照してください。
+
+1. 表示（View）と状態/副作用（Container/Hook）を分離する。
+2. `useEffect` は依存配列と cleanup を省略しない。
+3. 計算量の大きい派生値は `useMemo`、イベントハンドラは `useCallback` で安定化する。
+4. 空状態・エラー状態を明示的に描画する。

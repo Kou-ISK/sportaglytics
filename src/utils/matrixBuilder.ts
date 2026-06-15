@@ -1,7 +1,8 @@
-import type { TimelineData } from '../types/TimelineData';
-import type { MatrixAxisConfig, MatrixCell } from '../types/MatrixConfig';
+import type { TimelineData } from '../types/timeline/core';
+import type { MatrixAxisConfig, MatrixCell } from '../types/analysis/matrix';
 import {
   getLabelByGroupWithFallback,
+  getLabelsFromTimelineData,
   extractTeamFromActionName,
   extractActionFromActionName,
   extractUniqueLabelsForGroup,
@@ -9,13 +10,15 @@ import {
   extractUniqueActionsForTeam,
 } from './labelExtractors';
 
+const UNSET_LABEL = '未設定';
+
 /**
  * MatrixAxisConfigに基づいて、TimelineDataから値を抽出
  */
 const extractValueFromAxis = (
   item: TimelineData,
   axis: MatrixAxisConfig,
-  fallback: string = '未設定',
+  fallback: string = UNSET_LABEL,
 ): string => {
   switch (axis.type) {
     case 'group':
@@ -33,7 +36,7 @@ const extractValueFromAxis = (
 /**
  * MatrixAxisConfigに基づいて、キー（軸の値）のリストを抽出
  */
-export const extractKeysForAxis = (
+const extractKeysForAxis = (
   timeline: TimelineData[],
   axis: MatrixAxisConfig,
   teamFilter?: string,
@@ -65,101 +68,6 @@ export const extractKeysForAxis = (
 };
 
 /**
- * 汎用的なマトリクス構築関数
- *
- * @param timeline TimelineData配列
- * @param rowAxis 行軸の設定
- * @param columnAxis 列軸の設定
- * @param filter オプショナルなフィルタ関数
- * @returns MatrixCell二次元配列
- */
-export const buildGenericMatrix = (
-  timeline: TimelineData[],
-  rowAxis: MatrixAxisConfig,
-  columnAxis: MatrixAxisConfig,
-  filter?: (item: TimelineData) => boolean,
-): {
-  matrix: MatrixCell[][];
-  rowKeys: string[];
-  columnKeys: string[];
-} => {
-  // フィルタ適用
-  const filteredTimeline = filter ? timeline.filter(filter) : timeline;
-
-  // 行・列のキーを抽出
-  const rowKeys = extractKeysForAxis(filteredTimeline, rowAxis);
-  const columnKeys = extractKeysForAxis(filteredTimeline, columnAxis);
-
-  if (rowKeys.length === 0 || columnKeys.length === 0) {
-    return { matrix: [], rowKeys: [], columnKeys: [] };
-  }
-
-  // キーのインデックスマップを作成
-  const rowMap = new Map<string, number>();
-  for (const [index, key] of rowKeys.entries()) {
-    rowMap.set(key, index);
-  }
-
-  const colMap = new Map<string, number>();
-  for (const [index, key] of columnKeys.entries()) {
-    colMap.set(key, index);
-  }
-
-  // マトリクスセルを初期化
-  const matrix: MatrixCell[][] = rowKeys.map(() =>
-    columnKeys.map(() => ({ count: 0, entries: [] })),
-  );
-
-  // データを集計
-  for (const item of filteredTimeline) {
-    const rowKey = extractValueFromAxis(item, rowAxis);
-    const colKey = extractValueFromAxis(item, columnAxis);
-
-    const rowIndex = rowMap.get(rowKey);
-    const colIndex = colMap.get(colKey);
-
-    if (rowIndex === undefined || colIndex === undefined) {
-      continue;
-    }
-
-    const cell = matrix[rowIndex]?.[colIndex];
-    if (!cell) {
-      continue;
-    }
-
-    cell.count += 1;
-    cell.entries.push(item);
-  }
-
-  return { matrix, rowKeys, columnKeys };
-};
-
-/**
- * チーム別のマトリクスを構築
- *
- * @param timeline TimelineData配列
- * @param team チーム名
- * @param rowAxis 行軸の設定（通常は action）
- * @param columnAxis 列軸の設定（通常は group）
- * @returns MatrixCell二次元配列とキー
- */
-export const buildMatrixForTeam = (
-  timeline: TimelineData[],
-  team: string,
-  rowAxis: MatrixAxisConfig,
-  columnAxis: MatrixAxisConfig,
-): {
-  matrix: MatrixCell[][];
-  rowKeys: string[];
-  columnKeys: string[];
-} => {
-  return buildGenericMatrix(timeline, rowAxis, columnAxis, (item) => {
-    const itemTeam = extractTeamFromActionName(item.actionName);
-    return itemTeam === team;
-  });
-};
-
-/**
  * グループ軸の階層構造を構築するヘルパー
  */
 const buildGroupAxisHeaders = (
@@ -177,14 +85,21 @@ const buildGroupAxisHeaders = (
     const labelsByGroup = new Map<string, Set<string>>();
 
     for (const item of timeline) {
-      if (item.labels) {
-        for (const label of item.labels) {
-          if (label.group && label.name) {
-            if (!labelsByGroup.has(label.group)) {
-              labelsByGroup.set(label.group, new Set());
-            }
-            labelsByGroup.get(label.group)?.add(label.name);
+      const labels = getLabelsFromTimelineData(item);
+      if (labels.length === 0) {
+        if (!labelsByGroup.has(UNSET_LABEL)) {
+          labelsByGroup.set(UNSET_LABEL, new Set());
+        }
+        labelsByGroup.get(UNSET_LABEL)?.add(UNSET_LABEL);
+        continue;
+      }
+
+      for (const label of labels) {
+        if (label.group && label.name) {
+          if (!labelsByGroup.has(label.group)) {
+            labelsByGroup.set(label.group, new Set());
           }
+          labelsByGroup.get(label.group)?.add(label.name);
         }
       }
     }
@@ -208,16 +123,19 @@ const buildGroupAxisHeaders = (
 
   // 特定のグループの場合
   const labels = extractUniqueLabelsForGroup(timeline, groupName);
+  const hasUnset = timeline.some(
+    (item) => getLabelByGroupWithFallback(item, groupName, '') === '',
+  );
+  const axisLabels = hasUnset ? [...labels, UNSET_LABEL] : labels;
 
   // labelsからgroupを抽出してグループ化
   const labelsByGroup = new Map<string, string[]>();
 
   for (const item of timeline) {
-    const labelObj = item.labels?.find((l) => l.group === groupName);
-    const labelName = labelObj?.name;
-    const group = labelObj?.group;
+    const labelName = getLabelByGroupWithFallback(item, groupName, '');
+    const group = labelName ? groupName : UNSET_LABEL;
 
-    if (labelName && group) {
+    if (labelName) {
       if (!labelsByGroup.has(group)) {
         labelsByGroup.set(group, []);
       }
@@ -242,9 +160,14 @@ const buildGroupAxisHeaders = (
     }
   } else {
     // グループ情報がない場合は、ラベルのみ
-    for (const label of labels) {
+    for (const label of axisLabels) {
       headers.push({ parent: null, child: label });
     }
+  }
+
+  if (hasUnset && !headers.some((header) => header.child === UNSET_LABEL)) {
+    headers.push({ parent: UNSET_LABEL, child: UNSET_LABEL });
+    parentSpans.set(UNSET_LABEL, 1);
   }
 
   return { headers, parentSpans };
@@ -277,6 +200,23 @@ const buildActionAxisHeaders = (
 };
 
 /**
+ * アクション軸をフラットに構築するヘルパー
+ */
+const buildFlatActionAxisHeaders = (
+  timeline: TimelineData[],
+): {
+  headers: Array<{ parent: string | null; child: string }>;
+  parentSpans: Map<string, number>;
+} => {
+  const headers: Array<{ parent: string | null; child: string }> = [];
+  const actions = extractKeysForAxis(timeline, { type: 'action' });
+  for (const action of actions) {
+    headers.push({ parent: null, child: action });
+  }
+  return { headers, parentSpans: new Map<string, number>() };
+};
+
+/**
  * 階層構造を持つマトリクスを構築
  *
  * チーム→アクション、グループ→ラベルのような親子関係を持つマトリクスを構築します。
@@ -302,7 +242,10 @@ export const buildHierarchicalMatrix = (
   let rowParentSpans = new Map<string, number>();
 
   if (rowAxis.type === 'action') {
-    const result = buildActionAxisHeaders(timeline);
+    const result =
+      columnAxis.type === 'team'
+        ? buildFlatActionAxisHeaders(timeline)
+        : buildActionAxisHeaders(timeline);
     rowHeaders = result.headers;
     rowParentSpans = result.parentSpans;
   } else if (rowAxis.type === 'group' && rowAxis.value) {
@@ -321,7 +264,10 @@ export const buildHierarchicalMatrix = (
   let colParentSpans = new Map<string, number>();
 
   if (columnAxis.type === 'action') {
-    const result = buildActionAxisHeaders(timeline);
+    const result =
+      rowAxis.type === 'team'
+        ? buildFlatActionAxisHeaders(timeline)
+        : buildActionAxisHeaders(timeline);
     columnHeaders = result.headers;
     colParentSpans = result.parentSpans;
   } else if (columnAxis.type === 'group' && columnAxis.value) {
@@ -373,8 +319,9 @@ const findAllHeaderIndices = (
   if (axis.type === 'action') {
     const team = extractTeamFromActionName(item.actionName);
     const action = extractActionFromActionName(item.actionName);
-    const index = headers.findIndex(
-      (h) => h.parent === team && h.child === action,
+    const hasParent = headers.some((h) => h.parent !== null);
+    const index = headers.findIndex((h) =>
+      hasParent ? h.parent === team && h.child === action : h.child === action,
     );
     return index >= 0 ? [index] : [];
   }
@@ -383,26 +330,28 @@ const findAllHeaderIndices = (
     // 'all_labels'の場合は、item内の全ラベルから一致するものを全て取得
     if (axis.value === 'all_labels') {
       const indices: number[] = [];
-      if (item.labels) {
-        for (const label of item.labels) {
-          const index = headers.findIndex(
-            (h) => h.parent === label.group && h.child === label.name,
-          );
-          if (index >= 0 && !indices.includes(index)) {
-            indices.push(index);
-          }
+      const labels = getLabelsFromTimelineData(item);
+      if (labels.length === 0) {
+        const index = headers.findIndex(
+          (h) => h.parent === UNSET_LABEL && h.child === UNSET_LABEL,
+        );
+        return index >= 0 ? [index] : [];
+      }
+      for (const label of labels) {
+        const index = headers.findIndex(
+          (h) => h.parent === label.group && h.child === label.name,
+        );
+        if (index >= 0 && !indices.includes(index)) {
+          indices.push(index);
         }
       }
       return indices;
     }
 
     // 特定のグループの場合
-    const label = getLabelByGroupWithFallback(item, axis.value, '');
-    if (label) {
-      const index = headers.findIndex((h) => h.child === label);
-      return index >= 0 ? [index] : [];
-    }
-    return [];
+    const label = getLabelByGroupWithFallback(item, axis.value, UNSET_LABEL);
+    const index = headers.findIndex((h) => h.child === label);
+    return index >= 0 ? [index] : [];
   }
 
   const key = extractValueFromAxis(item, axis);

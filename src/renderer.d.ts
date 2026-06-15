@@ -1,4 +1,20 @@
-import type { IPlaylistAPI } from './types/Playlist';
+import type { IPlaylistAPI } from './types/playlist/api';
+import type { AnalysisView } from './types/analysis/view';
+import type { AnalysisReportPayload } from './report/types';
+import type { AppSettings } from './types/settings/coreTypes';
+import type { IAnalysisWindowAPI } from './types/ipc/analysisWindow';
+import type {
+  ClipExportExecutionResult,
+  ClipExportPayload,
+} from './shared/clipExport/clipExportTypes';
+import type { ExportProgressWindowState } from './types/ipc/exportProgressWindow';
+
+export interface LlamaModelInfo {
+  name: string;
+  path: string;
+  sizeBytes: number;
+  modifiedAt?: number;
+}
 
 export interface IElectronAPI {
   openFile: () => Promise<string>;
@@ -15,11 +31,22 @@ export interface IElectronAPI {
     }>,
     metaDataConfig: unknown,
   ) => Promise<PackageDatas>;
-  on: (
-    channel: string,
-    listener: (event: unknown, args: unknown) => void,
-  ) => void;
-  off: (channel: string, listener: (...args: unknown[]) => void) => void; // 追加
+  onMenuShowStats: (
+    callback: (requestedView?: AnalysisView) => void,
+  ) => () => void;
+  onTimelineUndo: (callback: () => void) => () => void;
+  onTimelineRedo: (callback: () => void) => () => void;
+  onMenuExportAnalysisRawCsv: (callback: () => void) => () => void;
+  onMenuShowShortcuts: (callback: () => void) => () => void;
+  onMenuExportClips: (callback: () => void) => () => void;
+  notifyHotkeysUpdated: () => void;
+  onAnalysisReportPayload: (
+    callback: (message: {
+      requestId?: string;
+      payload?: AnalysisReportPayload;
+    }) => void,
+  ) => () => void;
+  notifyAnalysisReportRenderReady: (requestId: string) => void;
   // メニューからの音声同期イベント
   onResyncAudio: (callback: () => void) => void;
   onResetSync: (callback: () => void) => void;
@@ -41,57 +68,59 @@ export interface IElectronAPI {
       confidenceScore?: number;
     },
   ) => Promise<boolean>;
+  extractAudioWavForSync: (videoPath: string) => Promise<string | null>;
   setManualModeChecked: (checked: boolean) => Promise<boolean>;
   setLabelModeChecked: (checked: boolean) => Promise<boolean>;
-  onToggleLabelMode: (callback: (checked: boolean) => void) => void;
+  onToggleLabelMode: (callback: (checked: boolean) => void) => () => void;
   convertConfigToRelativePath: (packagePath: string) => Promise<{
     success: boolean;
     config?: Record<string, unknown>;
     error?: string;
   }>;
   // 設定管理API
-  loadSettings: () => Promise<unknown>;
-  saveSettings: (settings: unknown) => Promise<boolean>;
-  send: (channel: string) => void;
-  resetSettings: () => Promise<unknown>;
+  loadSettings: () => Promise<AppSettings>;
+  saveSettings: (settings: AppSettings) => Promise<boolean>;
+  resetSettings: () => Promise<AppSettings>;
   onOpenSettings: (callback: () => void) => void;
   offOpenSettings: (callback: () => void) => void;
   onSettingsUpdated: (
-    callback: (settings: import('./types/Settings').AppSettings) => void,
+    callback: (settings: AppSettings) => void,
   ) => (() => void) | void;
   openSettingsWindow: () => Promise<void>;
   closeSettingsWindow: () => Promise<void>;
   isSettingsWindowOpen: () => Promise<boolean>;
-  setWindowTitle: (title: string) => void;
-  exportClipsWithOverlay?: (payload: {
-    sourcePath: string;
-    sourcePath2?: string;
-    mode?: 'single' | 'dual';
-    exportMode?: 'single' | 'perInstance' | 'perRow';
-    angleOption?: 'allAngles' | 'single' | 'multi';
-    outputDir?: string;
-    outputFileName?: string;
-    clips: Array<{
-      id: string;
-      actionName: string;
-      startTime: number;
-      endTime: number;
-      freezeAt?: number | null;
-      freezeDuration?: number;
-      labels?: { group: string; name: string }[];
-      memo?: string;
-      actionIndex?: number;
-      annotationPngPrimary?: string | null;
-      annotationPngSecondary?: string | null;
+  analysis: IAnalysisWindowAPI;
+  llama: {
+    generate: (payload: {
+      prompt: string;
+      model: string;
+      temperature?: number;
+      topP?: number;
+      topK?: number;
+      repeatPenalty?: number;
+      maxTokens?: number;
+      timeoutMs?: number;
+      requestId?: string;
+    }) => Promise<{
+      text: string;
+      stderr?: string;
+      binaryPath?: string;
+      modelPath?: string;
+      durationMs?: number;
     }>;
-    overlay: {
-      enabled: boolean;
-      showActionName: boolean;
-      showActionIndex: boolean;
-      showLabels: boolean;
-      showMemo: boolean;
-    };
-  }) => Promise<{ success: boolean; error?: string }>;
+    cancel: (requestId: string) => Promise<boolean>;
+    listModels: () => Promise<LlamaModelInfo[]>;
+    onProgress: (callback: (payload: unknown) => void) => void;
+    offProgress: (callback: (payload: unknown) => void) => void;
+  };
+  setWindowTitle: (title: string) => void;
+  exportClipsWithOverlay?: (
+    payload: ClipExportPayload,
+  ) => Promise<ClipExportExecutionResult>;
+  onExportProgressWindowState?: (
+    callback: (state: ExportProgressWindowState) => void,
+  ) => () => void;
+  requestExportProgressWindowState?: () => Promise<ExportProgressWindowState | null>;
   saveFileDialog: (
     defaultPath: string,
     filters: { name: string; extensions: string[] }[],
@@ -99,13 +128,39 @@ export interface IElectronAPI {
   openFileDialog: (
     filters: { name: string; extensions: string[] }[],
   ) => Promise<string | null>;
+  openDashboardPackageDialog: (
+    filters: { name: string; extensions: string[] }[],
+  ) => Promise<string | null>;
   writeTextFile: (filePath: string, content: string) => Promise<boolean>;
+  writeBinaryFile: (
+    filePath: string,
+    base64Content: string,
+  ) => Promise<boolean>;
+  captureWindowRegionAsPng: (rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => Promise<string | null>;
+  writePdfFileFromHtml: (filePath: string, html: string) => Promise<boolean>;
+  printAnalysisReportPdf: (
+    filePath: string,
+    payload: AnalysisReportPayload,
+  ) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<string | null>;
-  onExportTimeline: (callback: (format: string) => void) => void;
-  onImportTimeline: (callback: () => void) => void;
-  onCodingModeChange: (callback: (mode: 'code' | 'label') => void) => void;
-  onOpenPackage: (callback: () => void) => void;
-  onOpenRecentPackage: (callback: (path: string) => void) => void;
+  readBinaryFile: (filePath: string) => Promise<string | null>;
+  saveDashboardPackage: (
+    packagePath: string,
+    content: string,
+  ) => Promise<boolean>;
+  readDashboardPackage: (packagePath: string) => Promise<string | null>;
+  onExportTimeline: (callback: (format: string) => void) => () => void;
+  onImportTimeline: (callback: () => void) => () => void;
+  onCodingModeChange: (
+    callback: (mode: 'code' | 'label') => void,
+  ) => () => void;
+  onOpenPackage: (callback: () => void) => () => void;
+  onOpenRecentPackage: (callback: (path: string) => void) => () => void;
   updateRecentPackages: (paths: string[]) => void;
   // プレイリストAPI
   playlist: IPlaylistAPI;

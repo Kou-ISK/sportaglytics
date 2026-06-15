@@ -10,11 +10,11 @@ interface DropZoneCardProps {
 export const DropZoneCard: React.FC<DropZoneCardProps> = ({ dragState }) => {
   return (
     <Paper
-      elevation={dragState.isDragging ? 8 : 2}
+      variant="outlined"
       sx={{
-        p: 4,
-        textAlign: 'center',
-        border: '2px dashed',
+        px: 2,
+        py: 1.5,
+        borderStyle: 'dashed',
         borderColor: (() => {
           if (!dragState.isDragging) return 'divider';
           return dragState.isValidDrop ? 'primary.main' : 'error.main';
@@ -32,18 +32,14 @@ export const DropZoneCard: React.FC<DropZoneCardProps> = ({ dragState }) => {
     >
       <CloudUploadIcon
         sx={{
-          fontSize: 64,
+          fontSize: 22,
           color: dragState.isDragging ? 'primary.main' : 'text.secondary',
-          mb: 2,
+          mr: 1,
+          verticalAlign: 'middle',
         }}
       />
-      <Typography variant="h6" gutterBottom>
-        {dragState.isDragging
-          ? 'ここにドロップ'
-          : 'パッケージフォルダをドラッグ&ドロップ'}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        または下のボタンから選択
+      <Typography component="span" variant="body2" color="text.secondary">
+        {dragState.isDragging ? 'Drop package' : 'Drop .stpkg'}
       </Typography>
     </Paper>
   );

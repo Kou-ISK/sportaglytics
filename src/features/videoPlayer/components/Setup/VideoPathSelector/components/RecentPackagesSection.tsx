@@ -1,5 +1,6 @@
 import React from 'react';
-import { Divider, Grid, Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
+import Grid from '@mui/material/GridLegacy';
 import { RecentPackageCard } from '../RecentPackageCard';
 import type { RecentPackage } from '../hooks/useRecentPackages';
 
@@ -17,16 +18,14 @@ export const RecentPackagesSection: React.FC<RecentPackagesSectionProps> = ({
   if (packages.length === 0) return null;
 
   return (
-    <>
-      <Divider sx={{ my: 2 }}>
-        <Typography variant="overline" color="text.secondary">
-          最近使ったパッケージ
-        </Typography>
-      </Divider>
+    <Stack spacing={1.5}>
+      <Typography variant="overline" color="text.secondary">
+        Recent
+      </Typography>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={1.5}>
         {packages.map((pkg) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={pkg.path}>
+          <Grid item xs={12} sm={6} md={4} key={pkg.path}>
             <RecentPackageCard
               package={pkg}
               onOpen={onOpen}
@@ -35,6 +34,6 @@ export const RecentPackagesSection: React.FC<RecentPackagesSectionProps> = ({
           </Grid>
         ))}
       </Grid>
-    </>
+    </Stack>
   );
 };

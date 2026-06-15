@@ -4,6 +4,11 @@
 
 SporTagLyticsのプレイリスト機能は、タイムライン上の選択したイベントをプレイリストとしてまとめ、専用ウィンドウで連続再生・分析・クリップ書き出しを行える機能です。フリーズフレーム・簡易描画・メモ編集など、詳細な分析を支援する機能を備えています。
 
+関連 ADR:
+
+- [0008 Dedicated Sub-Window Runtime and Synchronization](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)
+- [0010 FFmpeg Clip Export Execution Boundary](adr/0010-ffmpeg-clip-export-execution-boundary.md)
+
 **更新情報（2026年1月14日）**:
 
 - 複数プレイリストウィンドウの同時表示に対応
@@ -74,10 +79,17 @@ src/
 │   └── playlist/
 │       ├── PlaylistWindowApp.tsx    # プレイリスト専用ウィンドウのメインアプリ
 │       ├── hooks/
-│       │   └── usePlaylistHistory.ts # Undo/Redo対応の履歴管理
+│       │   ├── annotation/                   # 描画関連Hooks
+│       │   └── playlist/                     # プレイリスト関連Hooks
 │       └── components/
-│           ├── AnnotationCanvas.tsx # 描画キャンバス
-│           └── PlaylistButton.tsx   # プレイリスト追加ボタン（メイン画面用）
+│           ├── AnnotationCanvas.tsx         # 描画キャンバス
+│           ├── PlaylistVideoCanvas.tsx      # 映像＋描画レイヤー
+│           ├── PlaylistAngleLayer.tsx       # 角度別レイヤー描画
+│           ├── PlaylistWindowDialogs.tsx    # 保存/書き出し/ノートダイアログ
+│           └── PlaylistButton.tsx           # プレイリスト追加ボタン（メイン画面用）
+│       └── utils/
+│           ├── viewMode.ts                  # 表示モード判定
+│           └── renderAnnotationPng.ts       # 描画PNG生成
 ├── types/
 │   └── Playlist.ts                  # 型定義
 
@@ -386,7 +398,8 @@ const handleExportClips = useCallback(async () => {
 ]);
 ```
 
-- 書き出し中は進捗がSnackbarで表示されます
+- 書き出し中は専用の進捗ウィンドウが表示されます
+- メインウィンドウやプレイリストウィンドウには進捗バーを出さず、書き出し中も通常操作を継続できます
 
 ### 5. デュアルビュー
 
@@ -634,6 +647,8 @@ export type PlaylistCommand =
 2. 右クリック → 「プレイリストに追加」
 3. 開いている全てのプレイリストウィンドウに追加（ウィンドウが無い場合は自動で新規作成）
 
+選択中のイベントは `Cmd+Shift+P` でもプレイリストに追加できます。
+
 ### 専用ウィンドウで再生
 
 1. プレイリストボタンからウィンドウを開く
@@ -644,7 +659,7 @@ export type PlaylistCommand =
 
 1. Brush アイコンで描画モード切替（再生は一時停止）
 2. 図形/テキストツールで注釈を追加
-3. 描画を終了して再生を再開
+3. 「完了」を押すまで描画モードを維持し、描画を終了して再生を再開
 4. 再生中、描画した時刻に到達すると自動でフリーズ
 
 - 保存した描画・フリーズ設定はプレイリスト読み込み時に復元されます
@@ -676,6 +691,6 @@ export type PlaylistCommand =
 
 - [system-overview.md](./system-overview.md): 全体アーキテクチャ
 - [requirement.md](./requirement.md): 機能要件
-- [Playlist.ts](../src/types/Playlist.ts): 型定義
-- [PlaylistContext.tsx](../src/contexts/PlaylistContext.tsx): Context実装
+- [core.ts](../src/types/playlist/core.ts): playlist 型定義
+- [PlaylistProvider.tsx](../src/features/playlist/PlaylistProvider.tsx): playlist provider 実装
 - [PlaylistWindowApp.tsx](../src/features/playlist/PlaylistWindowApp.tsx): 専用ウィンドウ実装

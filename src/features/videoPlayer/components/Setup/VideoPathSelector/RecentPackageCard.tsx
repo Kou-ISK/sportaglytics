@@ -14,7 +14,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import CloseIcon from '@mui/icons-material/Close';
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { RecentPackage } from './hooks/useRecentPackages';
+import type { RecentPackage } from './types';
 
 interface RecentPackageCardProps {
   package: RecentPackage;
@@ -52,6 +52,7 @@ export const RecentPackageCard: React.FC<RecentPackageCardProps> = ({
 
   return (
     <Card
+      variant="outlined"
       sx={{
         position: 'relative',
         height: '100%',
@@ -68,37 +69,33 @@ export const RecentPackageCard: React.FC<RecentPackageCardProps> = ({
         sx={{
           height: '100%',
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: 'row',
           alignItems: 'stretch',
           justifyContent: 'flex-start',
         }}
       >
         <Box
           sx={{
-            p: 3,
+            width: 58,
+            flexShrink: 0,
             bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: 100,
           }}
         >
-          <FolderIcon sx={{ fontSize: 56, color: 'primary.main' }} />
+          <FolderIcon sx={{ fontSize: 28, color: 'primary.main' }} />
         </Box>
 
-        <CardContent sx={{ flexGrow: 1, width: '100%', p: 2.5 }}>
+        <CardContent sx={{ flexGrow: 1, minWidth: 0, width: '100%', p: 1.75 }}>
           <Typography
-            variant="h6"
-            gutterBottom
+            variant="subtitle1"
             sx={{
-              fontWeight: 600,
+              fontWeight: 700,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              minHeight: '3em',
-              lineHeight: '1.5em',
+              whiteSpace: 'nowrap',
+              pr: 3,
             }}
           >
             {pkg.name}
@@ -107,7 +104,7 @@ export const RecentPackageCard: React.FC<RecentPackageCardProps> = ({
           <Stack
             direction="row"
             spacing={1}
-            sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}
+            sx={{ mt: 1, mb: 1, flexWrap: 'wrap', gap: 0.5 }}
           >
             <Chip
               label={pkg.team1Name}
@@ -143,13 +140,13 @@ export const RecentPackageCard: React.FC<RecentPackageCardProps> = ({
             />
           </Stack>
 
-          <Stack spacing={1}>
+          <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap' }}>
             <Stack direction="row" spacing={0.5} alignItems="center">
               <VideoLibraryIcon
                 sx={{ fontSize: 16, color: 'text.secondary' }}
               />
               <Typography variant="body2" color="text.secondary">
-                {pkg.videoCount}本の映像
+                {pkg.videoCount}
               </Typography>
             </Stack>
 

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { TimelineData } from '../../../../../../types/TimelineData';
+import type { TimelineData } from '../../../../../../types/timeline/core';
 import { useTimelineSelection } from './useTimelineSelection';
 import { useTimelineContextMenu } from './useTimelineContextMenu';
 import { useTimelineEditActions } from './useTimelineEditDraft';
@@ -16,6 +16,7 @@ interface UseTimelineInteractionsParams {
   ) => void;
   onUpdateMemo?: (id: string, memo: string) => void;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
+  onDuplicateTimelineItem?: (id: string) => string | null;
 }
 
 export const useTimelineInteractions = ({
@@ -27,6 +28,7 @@ export const useTimelineInteractions = ({
   onUpdateTimelineItem,
   onUpdateMemo,
   onUpdateTimeRange,
+  onDuplicateTimelineItem,
 }: UseTimelineInteractionsParams) => {
   // Selection / hover / focus
   const {
@@ -70,6 +72,7 @@ export const useTimelineInteractions = ({
     onUpdateTimelineItem,
     onUpdateMemo,
     onUpdateTimeRange,
+    onDuplicateTimelineItem,
   });
 
   const handleContextMenuEdit = useCallback(() => {
@@ -92,9 +95,19 @@ export const useTimelineInteractions = ({
 
   const handleContextMenuDuplicateWrapped = useCallback(() => {
     if (!contextMenu) return;
-    handleContextMenuDuplicate(contextMenu.itemId);
+    const duplicatedId = handleContextMenuDuplicate(contextMenu.itemId);
+    if (duplicatedId) {
+      setFocusedItemId(duplicatedId);
+      onSelectionChange([duplicatedId]);
+    }
     setContextMenu(null);
-  }, [contextMenu, handleContextMenuDuplicate, setContextMenu]);
+  }, [
+    contextMenu,
+    handleContextMenuDuplicate,
+    onSelectionChange,
+    setContextMenu,
+    setFocusedItemId,
+  ]);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
