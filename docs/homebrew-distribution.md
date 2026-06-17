@@ -65,23 +65,26 @@ brew install --cask sportaglytics
 vim package.json  # "version": "<version>" に変更
 ```
 
-### 2. develop へコミットして main へマージ
+### 2. develop へコミットして main へ PR で統合
 
 ```bash
 git add package.json CHANGELOG.md
 git commit -m "chore: bump version to <version>"
 git push origin develop
 
+gh pr create --base main --head develop --title "Release v<version>" --body "Release v<version>"
+
+# CI / レビュー / branch protection 通過後
+gh pr merge --merge
+
 git checkout main
 git pull --ff-only origin main
-git merge --no-ff develop
-git push origin main
 ```
 
 ### 3. タグプッシュ
 
 ```bash
-# タグをプッシュ（これで自動化開始！）
+# main の PR merge commit にタグをプッシュ（これで自動化開始！）
 git tag v<version>
 git push origin v<version>
 ```
