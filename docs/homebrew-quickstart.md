@@ -50,17 +50,20 @@
 # 1. バージョンを更新（例: 0.2.6）
 vim package.json  # "version": "<version>" に変更
 
-# 2. develop へコミットして main へマージ
+# 2. develop へコミットして main へ PR で統合
 git add package.json CHANGELOG.md
 git commit -m "chore: bump version to <version>"
 git push origin develop
 
+gh pr create --base main --head develop --title "Release v<version>" --body "Release v<version>"
+
+# CI / レビュー / branch protection 通過後
+gh pr merge --merge
+
 git checkout main
 git pull --ff-only origin main
-git merge --no-ff develop
-git push origin main
 
-# 3. main 上でタグをプッシュ
+# 3. main の PR merge commit にタグをプッシュ
 git tag v<version>
 git push origin v<version>
 ```
