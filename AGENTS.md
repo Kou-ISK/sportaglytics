@@ -149,6 +149,9 @@
 - `MUST`: 通常作業のブランチ `prefix` は `feature`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf` のいずれかを使う。
 - `MUST`: `release` / `hotfix` prefix は release / 緊急修正作業として明示された場合のみ使う。
 - `MUST`: 新機能ブランチの prefix は既存運用に合わせて `feature` とする。Conventional Commits の `feat` をブランチ prefix として使わない。
+- `MUST`: 通常作業は作業ブランチから `develop` への PR で統合する。
+- `MUST`: リリース時は release 準備コミットを `develop` に統合した後、`develop` から `main` への PR を作成し、PR マージ後の `main` にリリースタグを作成する。
+- `MUST`: `main` へ直接 merge / push しない。ただし緊急 hotfix で明示承認がある場合のみ例外とし、理由を PR または release note に残す。
 - `MUST`: コミットメッセージは Conventional Commits 形式の `<type>(<scope>): <subject>` または `<type>: <subject>` を使う。
 - `MUST`: コミット `type` は変更内容に合わせて `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `style`, `build`, `ci`, `revert` から選ぶ。
 - `SHOULD`: `scope` は feature / domain / tooling 名を短く指定する（例: `fix(timeline): enable duplicate action`）。

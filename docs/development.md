@@ -214,7 +214,7 @@ pnpm run report:large-files
 ```
 main         ← 本番環境（リリースタグ）
   ↑
-develop      ← 開発統合ブランチ
+develop      ← 開発統合ブランチ（リリース時は PR で main へ統合）
   ↑
 feature/* / fix/* / refactor/* ... ← 作業ブランチ
 ```
@@ -281,6 +281,16 @@ Closes #123
 3. `pnpm run lint` / `pnpm run typecheck` / `pnpm run typecheck:electron` / `pnpm run check:architecture` を通す
 4. `develop` へのプルリクエストを作成
 5. レビュー後にマージ
+
+### リリース統合
+
+1. release 準備コミット（version / CHANGELOG / 必要な docs）を `develop` に統合
+2. `develop` から `main` へのプルリクエストを作成
+3. CI / レビュー / branch protection を通して PR をマージ
+4. マージ後の `main` を pull し、その commit に `v<version>` tag を作成
+5. tag を push して release workflow を起動
+
+`main` への直接 merge / push は行いません。緊急 hotfix で明示承認がある場合のみ例外とし、理由を PR または release note に残します。
 
 ---
 

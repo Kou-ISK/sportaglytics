@@ -72,12 +72,16 @@ git pull --ff-only origin develop
 # after version/changelog commit is created on develop
 git push origin develop
 
+# create and merge a GitHub PR: develop => main
+gh pr create --base main --head develop --title "Release v<version>" --body "Release v<version>"
+
+# after CI / review / branch protection passes
+gh pr merge --merge
+
 git checkout main
 git pull --ff-only origin main
-git merge --no-ff develop
-git push origin main
 
-# tag from main after develop is merged
+# tag from main after the develop => main PR is merged
 git tag v<version>
 git push origin v<version>
 ```
