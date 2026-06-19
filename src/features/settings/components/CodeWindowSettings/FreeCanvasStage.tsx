@@ -38,6 +38,7 @@ interface FreeCanvasStageProps {
     event: React.MouseEvent,
     button: CodeWindowButton,
   ) => void;
+  onButtonInspect?: (button: CodeWindowButton) => void;
   onDeleteButton: (buttonId: string) => void;
 }
 
@@ -58,6 +59,7 @@ export const FreeCanvasStage = ({
   onContextMenu,
   onButtonMouseDown,
   onButtonRightMouseDown,
+  onButtonInspect,
   onDeleteButton,
 }: FreeCanvasStageProps) => {
   return (
@@ -126,6 +128,7 @@ export const FreeCanvasStage = ({
             buttonColor={buttonColor}
             onMouseDown={(event) => onButtonMouseDown(event, button, 'move')}
             onRightMouseDown={(event) => onButtonRightMouseDown(event, button)}
+            onInspect={() => onButtonInspect?.(button)}
             onDelete={() => onDeleteButton(button.id)}
             onResizeMouseDown={(event) =>
               onButtonMouseDown(event, button, 'resize')

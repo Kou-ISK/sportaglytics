@@ -1,5 +1,14 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Box, Divider, Stack, Typography } from '@mui/material';
+import {
+  Box,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Stack,
+  Typography,
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import type {
   CodeWindowButton,
   CodeWindowLayout,
@@ -24,66 +33,83 @@ export const CodingPanelWindowEditPane = ({
   onLayoutChange,
 }: CodingPanelWindowEditPaneProps): React.ReactElement => {
   const [selectedButtonIds, setSelectedButtonIds] = useState<string[]>([]);
+  const [inspectedButtonId, setInspectedButtonId] = useState<string | null>(
+    null,
+  );
   const availableActions = useMemo(() => buildAvailableActions(), []);
   const availableLabelGroups = useMemo(() => buildAvailableLabelGroups(), []);
 
   const selectedButton = useMemo((): CodeWindowButton | null => {
-    if (!layout || selectedButtonIds.length === 0) return null;
+    if (!layout) return null;
+    const targetId = inspectedButtonId ?? selectedButtonIds[0];
+    if (!targetId) return null;
     return (
-      layout.buttons.find((button) => button.id === selectedButtonIds[0]) ??
-      null
+      layout.buttons.find((button) => button.id === targetId) ?? null
     );
-  }, [layout, selectedButtonIds]);
+  }, [inspectedButtonId, layout, selectedButtonIds]);
+
+  const editedButtonIds = useMemo((): string[] => {
+    if (!selectedButton) return [];
+    return selectedButtonIds.includes(selectedButton.id)
+      ? selectedButtonIds
+      : [selectedButton.id];
+  }, [selectedButton, selectedButtonIds]);
+
+  const handleInspectButton = useCallback((button: CodeWindowButton): void => {
+    setSelectedButtonIds((current) =>
+      current.includes(button.id) ? current : [button.id],
+    );
+    setInspectedButtonId(button.id);
+  }, []);
 
   const handleSelectedButtonUpdate = useCallback(
     (updatedButton: CodeWindowButton): void => {
       if (!layout || !selectedButton) return;
 
       const updates =
-        selectedButtonIds.length > 1
+        editedButtonIds.length > 1
           ? buildSelectionButtonUpdates(selectedButton, updatedButton)
           : updatedButton;
       const nextButtons = layout.buttons.map((button) => {
-        if (!selectedButtonIds.includes(button.id)) return button;
-        return selectedButtonIds.length > 1
+        if (!editedButtonIds.includes(button.id)) return button;
+        return editedButtonIds.length > 1
           ? { ...button, ...updates }
           : updatedButton;
       });
       onLayoutChange({ ...layout, buttons: nextButtons });
     },
-    [layout, onLayoutChange, selectedButton, selectedButtonIds],
+    [editedButtonIds, layout, onLayoutChange, selectedButton],
   );
 
   const handleDeleteSelectedButtons = useCallback((): void => {
-    if (!layout || selectedButtonIds.length === 0) return;
+    if (!layout || editedButtonIds.length === 0) return;
     onLayoutChange({
       ...layout,
       buttons: layout.buttons.filter(
-        (button) => !selectedButtonIds.includes(button.id),
+        (button) => !editedButtonIds.includes(button.id),
       ),
       buttonLinks: (layout.buttonLinks ?? []).filter(
         (link) =>
-          !selectedButtonIds.includes(link.fromButtonId) &&
-          !selectedButtonIds.includes(link.toButtonId),
+          !editedButtonIds.includes(link.fromButtonId) &&
+          !editedButtonIds.includes(link.toButtonId),
       ),
     });
     setSelectedButtonIds([]);
-  }, [layout, onLayoutChange, selectedButtonIds]);
+    setInspectedButtonId(null);
+  }, [editedButtonIds, layout, onLayoutChange]);
+
+  const handleCloseInspector = useCallback((): void => {
+    setInspectedButtonId(null);
+  }, []);
 
   return (
-    <Box
-      sx={{
-        minHeight: 0,
-        flex: 1,
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 360px',
-      }}
-    >
+    <>
       <Box
         ref={canvasHostRef}
         sx={{
           minWidth: 0,
           minHeight: 0,
+          flex: 1,
           overflow: 'hidden',
           p: 1,
           boxSizing: 'border-box',
@@ -97,21 +123,44 @@ export const CodingPanelWindowEditPane = ({
             onSelectButtons={setSelectedButtonIds}
             availableActions={availableActions}
             availableLabelGroups={availableLabelGroups}
+            onInspectButton={handleInspectButton}
           />
         )}
       </Box>
-      <Box
-        sx={{
-          minWidth: 0,
-          minHeight: 0,
-          overflow: 'auto',
-          borderLeft: '1px solid',
-          borderColor: 'divider',
-        }}
+
+      <Dialog
+        open={Boolean(inspectedButtonId && selectedButton)}
+        onClose={handleCloseInspector}
+        maxWidth="sm"
+        fullWidth
       >
-        <Stack spacing={1.5} sx={{ p: 1.5 }}>
-          <Typography variant="subtitle2">ボタン設定</Typography>
-          <Divider />
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            pr: 6,
+          }}
+        >
+          <Stack spacing={0} sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle1" noWrap>
+              ボタン Inspector
+            </Typography>
+            {editedButtonIds.length > 1 && (
+              <Typography variant="caption" color="text.secondary">
+                {editedButtonIds.length} 個の選択ボタンへ適用
+              </Typography>
+            )}
+          </Stack>
+          <IconButton
+            aria-label="閉じる"
+            onClick={handleCloseInspector}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
           <ButtonPropertiesEditor
             button={selectedButton}
             onUpdate={handleSelectedButtonUpdate}
@@ -121,8 +170,8 @@ export const CodingPanelWindowEditPane = ({
             canvasWidth={layout?.canvasWidth}
             canvasHeight={layout?.canvasHeight}
           />
-        </Stack>
-      </Box>
-    </Box>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

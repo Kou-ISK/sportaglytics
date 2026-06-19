@@ -1,6 +1,9 @@
 import React, { useCallback, useRef } from 'react';
 import { Box } from '@mui/material';
-import type { CodeWindowLayout } from '../../../../types/settings/coreTypes';
+import type {
+  CodeWindowButton,
+  CodeWindowLayout,
+} from '../../../../types/settings/coreTypes';
 import { FreeCanvasContextMenu } from './FreeCanvasContextMenu';
 import { FreeCanvasCustomActionDialog } from './FreeCanvasCustomActionDialog';
 import { FreeCanvasCustomLabelDialog } from './FreeCanvasCustomLabelDialog';
@@ -21,6 +24,7 @@ interface FreeCanvasEditorProps {
   availableActions: string[];
   availableLabelGroups: Array<{ groupName: string; options: string[] }>;
   showLinks?: boolean;
+  onInspectButton?: (button: CodeWindowButton) => void;
 }
 
 export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
@@ -31,6 +35,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   availableActions,
   availableLabelGroups,
   showLinks = true,
+  onInspectButton,
 }) => {
   const gridSize = 10;
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -140,6 +145,7 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
         onContextMenu={handleContextMenu}
         onButtonMouseDown={handleButtonMouseDown}
         onButtonRightMouseDown={handleButtonRightMouseDown}
+        onButtonInspect={onInspectButton}
         onDeleteButton={handleDeleteButton}
       />
 
