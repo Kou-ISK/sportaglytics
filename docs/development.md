@@ -406,8 +406,8 @@ Main IPC handlers (domain modules)
 - `window.electronAPI` から汎用 `on/off/send` は提供しない
 - `onTimelineUndo`, `onMenuShowStats`, `notifyHotkeysUpdated` など用途別メソッドのみ公開
 - `src` 側で `electron` / `ipcRenderer` の直接 import は禁止
-- playlist / analysis window の IPC 契約は `src/types/ipc/playlistWindow.ts` / `src/types/ipc/analysisWindow.ts` を正本とし、channel 名・payload 型・型ガードを main / preload / renderer で共有する
-- playlist / analysis window の renderer 側入口は `window.electronAPI.playlist` / `window.electronAPI.analysis` に限定し、window 専用イベントを top-level API へ散らさない
+- playlist / analysis / coding panel window の IPC 契約は `src/types/ipc/playlistWindow.ts` / `src/types/ipc/analysisWindow.ts` / `src/types/ipc/codingPanelWindow.ts` を正本とし、channel 名・payload 型・型ガードを main / preload / renderer で共有する
+- playlist / analysis / coding panel window の renderer 側入口は `window.electronAPI.playlist` / `window.electronAPI.analysis` / `window.electronAPI.codingPanelWindow` に限定し、window 専用イベントを top-level API へ散らさない
 - settings の正規化は `src/types/settings/normalizers.ts` の `normalizeAppSettings` を正本とし、main / renderer で同じ補完ロジックを重複させない
 - settings の正規化ロジックは `src/types/settings/normalizerUtils.ts` / `dashboardNormalizers.ts` / `codingPanelNormalizers.ts` に責務分割し、公開窓口は `normalizers.ts` に維持する
 - playlist の共有契約は `src/types/playlist/core.ts` / `window.ts` / `api.ts` に分け、`src/types/Playlist.ts` は公開 facade に留める
@@ -416,6 +416,9 @@ Main IPC handlers (domain modules)
 - root 直下の `src/types/*.ts` は互換 facade とみなし、新規の実体は use-case 配下へ追加する
 - Renderer の複雑な hook は `Controller/Hook -> Gateway/Helper -> View/Domain` に分け、IPC 登録・payload 正規化・state 適用を同一関数へ詰め込まない
 - 例: playlist window は gateway + data/interaction runtime、audio sync は stage helper + orchestration に分割する
+- coding panel window では別ウィンドウ側で映像時刻を採番しない。別ウィンドウはクリック command を送信し、メイン動画ウィンドウ側 controller が現在時刻を読み取って既存のタグ付け処理を実行する
+- coding panel window にフォーカスがあるときの hotkey は `CodingPanelWindowScreen` が受け取り、hotkey id command としてメイン動画ウィンドウへ転送する。実際の再生制御・タグ付け処理はメイン動画ウィンドウ側の既存 handler で実行する
+- `.stcw` の runtime 切り替えは OS file association だけに依存しない。`menu-open-code-window-file` から起動中アプリの renderer が file dialog を開き、読み込んだ layout を `EnhancedCodePanel` controller の session layout として反映する
 - `App.tsx` は app shell の view switch のみに留め、hash / Electron event / external open は shared hook に抽出する
 - `localStorage` や Electron menu sync は feature hook へ直書きせず、gateway / storage helper に寄せる
 - preload の `on/off` ペアは typed listener store を介して wrapper を管理し、`as unknown as Function` に依存しない

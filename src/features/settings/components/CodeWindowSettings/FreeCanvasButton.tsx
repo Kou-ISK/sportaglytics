@@ -99,6 +99,28 @@ export const FreeCanvasButton = ({
           {secondaryText}
         </Typography>
       )}
+      {button.hotkey && button.showHotkey && (
+        <Typography
+          variant="caption"
+          sx={{
+            position: 'absolute',
+            right: 4,
+            bottom: 2,
+            maxWidth: 'calc(100% - 8px)',
+            px: 0.5,
+            borderRadius: '3px',
+            fontSize: '0.52rem',
+            lineHeight: 1.15,
+            color: 'inherit',
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {button.hotkey}
+        </Typography>
+      )}
       {isSelected && (
         <>
           <IconButton

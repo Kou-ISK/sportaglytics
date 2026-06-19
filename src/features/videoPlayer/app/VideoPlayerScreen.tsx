@@ -1,11 +1,14 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
-import { AnalysisPanel } from '..';
+import {
+  AnalysisPanel,
+  CodingPanelRuntime,
+  type EnhancedCodePanelHandle,
+} from '..';
 import { useVideoPlayerScreenController } from './hooks/useVideoPlayerScreenController';
 import { useSettings } from '../../../hooks/useSettings';
 import { useGlobalHotkeys } from '../../../hooks/useGlobalHotkeys';
 import { useActionPreset } from '../../../contexts/ActionPresetContext';
-import type { TimelineActionSectionHandle } from './components/TimelineActionSection';
 import { ErrorSnackbar } from './components/ErrorSnackbar';
 import { SyncAnalysisBackdrop } from './components/SyncAnalysisBackdrop';
 import { useSyncMenuHandlers } from './hooks/useSyncMenuHandlers';
@@ -19,6 +22,8 @@ import { usePlaylistIntegration } from './hooks/usePlaylistIntegration';
 import { VideoPlayerLayout } from './components/VideoPlayerLayout';
 import { useAnalysisIntegration } from './hooks/useAnalysisIntegration';
 import { useMetadataTeamNames } from './hooks/useMetadataTeamNames';
+import { buildSelectionLabelUpdates } from './utils/applyLabelsToTimelineSelection';
+import type { CodeWindowLayout } from '../../../types/settings/coreTypes';
 
 export const VideoPlayerScreen = () => {
   const {
@@ -80,13 +85,16 @@ export const VideoPlayerScreen = () => {
   // ホットキー設定を読み込み
   const { settings } = useSettings();
   const { activeActions } = useActionPreset();
+  const [activeRuntimeCodeWindow, setActiveRuntimeCodeWindow] =
+    useState<CodeWindowLayout | null>(null);
   const activeCodeWindow =
-    settings.codingPanel?.codeWindows?.find(
-      (l) => l.id === settings.codingPanel?.activeCodeWindowId,
-    ) || settings.codingPanel?.codeWindows?.[0];
+    (activeRuntimeCodeWindow ??
+      settings.codingPanel?.codeWindows?.find(
+        (l) => l.id === settings.codingPanel?.activeCodeWindowId,
+      )) ||
+    settings.codingPanel?.codeWindows?.[0];
 
-  // TimelineActionSectionへのrefを作成
-  const timelineActionRef = useRef<TimelineActionSectionHandle | null>(null);
+  const codingPanelRuntimeRef = useRef<EnhancedCodePanelHandle | null>(null);
 
   // 手動同期適用ハンドラ
   const handleApplyManualSync = useCallback(async () => {
@@ -117,7 +125,7 @@ export const VideoPlayerScreen = () => {
       settingsHotkeys: settings.hotkeys,
       activeActions,
       codeWindowButtons: activeCodeWindow?.buttons,
-      timelineActionRef,
+      timelineActionRef: codingPanelRuntimeRef,
       setVideoPlayBackRate,
       setIsVideoPlaying: setisVideoPlaying,
       setViewMode,
@@ -164,6 +172,37 @@ export const VideoPlayerScreen = () => {
     setIsVideoPlaying: setisVideoPlaying,
   });
 
+  const firstTeamName = React.useMemo(() => {
+    if (timeline.length === 0) return teamNames[0];
+    const sortedActionNames = [
+      ...new Set(timeline.map((item) => item.actionName)),
+    ].sort((left, right) => left.localeCompare(right));
+    return sortedActionNames[0]?.split(' ')[0] || teamNames[0];
+  }, [teamNames, timeline]);
+
+  const handleApplyLabelsToTimeline = useCallback(
+    (ids: string[], labels: { name: string; group: string }[]): void => {
+      for (const update of buildSelectionLabelUpdates(timeline, ids, labels)) {
+        bulkUpdateTimelineItems([update.id], { labels: update.labels });
+      }
+    },
+    [bulkUpdateTimelineItems, timeline],
+  );
+
+  const handleCodingWindowHotkeyKeyDown = useCallback(
+    (hotkeyId: string): void => {
+      combinedHandlers[hotkeyId]?.();
+    },
+    [combinedHandlers],
+  );
+
+  const handleCodingWindowHotkeyKeyUp = useCallback(
+    (hotkeyId: string): void => {
+      keyUpHandlers[hotkeyId as keyof typeof keyUpHandlers]?.();
+    },
+    [keyUpHandlers],
+  );
+
   return (
     <Box
       sx={{
@@ -189,12 +228,10 @@ export const VideoPlayerScreen = () => {
         syncMode={syncMode}
         playerForceUpdateKey={playerForceUpdateKey}
         viewMode={viewMode}
-        timelineActionRef={timelineActionRef}
         timeline={timeline}
         selectedTimelineIdList={selectedTimelineIdList}
         teamNames={teamNames}
         setSelectedTimelineIdList={setSelectedTimelineIdList}
-        addTimelineData={addTimelineData}
         deleteTimelineDatas={deleteTimelineDatas}
         updateMemo={updateMemo}
         updateTimelineRange={updateTimelineRange}
@@ -214,6 +251,18 @@ export const VideoPlayerScreen = () => {
           void cancelManualSync();
         }}
         onAddToPlaylist={handleAddToPlaylist}
+      />
+      <CodingPanelRuntime
+        ref={codingPanelRuntimeRef}
+        addTimelineData={addTimelineData}
+        teamNames={teamNames}
+        firstTeamName={firstTeamName}
+        selectedIds={selectedTimelineIdList}
+        onApplyLabels={handleApplyLabelsToTimeline}
+        windowHotkeys={combinedHotkeys}
+        onHotkeyKeyDown={handleCodingWindowHotkeyKeyDown}
+        onHotkeyKeyUp={handleCodingWindowHotkeyKeyUp}
+        onActiveLayoutChange={setActiveRuntimeCodeWindow}
       />
       <AnalysisPanel
         open={analysisOpen}

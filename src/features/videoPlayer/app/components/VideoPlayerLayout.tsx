@@ -1,15 +1,10 @@
 import { Box } from '@mui/material';
-import type { RefObject } from 'react';
 import type { TimelineData } from '../../../../types/timeline/core';
 import type { useVideoPlayerScreenController } from '../hooks/useVideoPlayerScreenController';
 import { ManualSyncControls } from './ManualSyncControls';
 import { NoSelectionPlaceholder } from './NoSelectionPlaceholder';
 import { PlayerSurface } from './PlayerSurface';
-import { buildSelectionLabelUpdates } from '../utils/applyLabelsToTimelineSelection';
-import {
-  TimelineActionSection,
-  type TimelineActionSectionHandle,
-} from './TimelineActionSection';
+import { TimelineActionSection } from './TimelineActionSection';
 
 type VideoPlayerAppState = ReturnType<typeof useVideoPlayerScreenController>;
 
@@ -33,7 +28,6 @@ type VideoPlayerLayoutProps = Pick<
   | 'selectedTimelineIdList'
   | 'teamNames'
   | 'setSelectedTimelineIdList'
-  | 'addTimelineData'
   | 'deleteTimelineDatas'
   | 'updateMemo'
   | 'updateTimelineRange'
@@ -49,7 +43,6 @@ type VideoPlayerLayoutProps = Pick<
   | 'performUndo'
   | 'performRedo'
 > & {
-  timelineActionRef: RefObject<TimelineActionSectionHandle | null>;
   onApplyManualSync: () => void;
   onCancelManualSync: () => void;
   onAddToPlaylist: (items: TimelineData[]) => Promise<void>;
@@ -71,12 +64,10 @@ export const VideoPlayerLayout = ({
   syncData,
   syncMode,
   playerForceUpdateKey,
-  timelineActionRef,
   timeline,
   selectedTimelineIdList,
   teamNames,
   setSelectedTimelineIdList,
-  addTimelineData,
   deleteTimelineDatas,
   updateMemo,
   updateTimelineRange,
@@ -149,14 +140,12 @@ export const VideoPlayerLayout = ({
       )}
 
       <TimelineActionSection
-        ref={timelineActionRef}
         timeline={timeline}
         maxSec={maxSec}
         currentTime={currentTime}
         selectedTimelineIdList={selectedTimelineIdList}
         teamNames={teamNames}
         setSelectedTimelineIdList={setSelectedTimelineIdList}
-        addTimelineData={addTimelineData}
         deleteTimelineDatas={deleteTimelineDatas}
         updateMemo={updateMemo}
         updateTimelineRange={updateTimelineRange}
@@ -167,19 +156,6 @@ export const VideoPlayerLayout = ({
         handleCurrentTime={handleCurrentTime}
         performUndo={performUndo}
         performRedo={performRedo}
-        applyLabelsToTimeline={(ids, labels) => {
-          for (const update of buildSelectionLabelUpdates(
-            timeline,
-            ids,
-            labels,
-          )) {
-            if (bulkUpdateTimelineItems) {
-              bulkUpdateTimelineItems([update.id], { labels: update.labels });
-            } else {
-              updateTimelineItem(update.id, { labels: update.labels });
-            }
-          }
-        }}
         onAddToPlaylist={onAddToPlaylist}
       />
     </Box>

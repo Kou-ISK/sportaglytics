@@ -32,6 +32,7 @@ export interface CodeWindowButton {
   textAlign?: 'left' | 'center' | 'right';
   borderRadius?: number;
   hotkey?: string;
+  showHotkey?: boolean;
   team?: 'team1' | 'team2' | 'shared';
   groupId?: string;
   fontSize?: number;

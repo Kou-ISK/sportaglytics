@@ -56,6 +56,7 @@ interface CodeWindowButton {
   fontSize?: number;
   borderRadius?: number;
   hotkey?: string;
+  showHotkey?: boolean;
   team?: 'team1' | 'team2' | 'shared';
 }
 
@@ -69,6 +70,17 @@ interface ButtonLink {
 ```
 
 ## 主要機能
+
+### 2026-06-17 更新メモ
+
+- コードウィンドウ作成時または設定タブで指定した `canvasWidth` / `canvasHeight` は、ボタン配置編集ペインにも実寸で適用する。編集時のボタン配置は実際のコードパネルと同じサイズ条件で確認できる。
+- ボタン単位で `showHotkey` を保持する。`hotkey` が設定されているボタンでは、基本タブからショートカットキーの表示/非表示を切り替えられる。
+- コードパネル実表示と自由配置エディタの両方で、`showHotkey: true` のボタンにショートカットキーを小さく表示する。
+- 複数選択済みのボタンをドラッグする場合、クリックしたボタンだけに選択を戻さず、選択中のボタン群をまとめて移動する。
+- コードパネルはメイン動画ウィンドウ内のペインとしては表示せず、Sportscode と同様に独立したコードウィンドウとして開く。コードウィンドウ側は表示状態とクリック command のみを扱い、タグ付け時刻・押下状態・タイムライン更新はメイン動画ウィンドウ側で確定する。
+- コードウィンドウにフォーカスがある状態でも再生/停止、早送り、巻き戻し、コードボタン hotkey などを受け取り、メイン動画ウィンドウへ command として転送する。
+- `.stcw` を OS から開いた場合は設定画面ではなく独立コードウィンドウとして読み込み、開いている映像パッケージに対してタグ付けできる。
+- 開発起動中や brew 版とのファイル関連付け競合がある場合でも、「コーディング > コードウィンドウファイルを開く...」から起動中アプリへ直接 `.stcw` を読み込める。
 
 ### 1. 自由配置エディタ（FreeCanvasEditor）
 
@@ -542,6 +554,16 @@ const handleDuplicateLayout = useCallback((layout: CodeWindowLayout) => {
 2. ドラッグ&ドロップで位置調整
 3. 右パネルでプロパティ（色/サイズ/ホットキー）を設定
 
+### 独立コードウィンドウ
+
+1. アプリの「コーディング」または「ウィンドウ」メニューから「コードウィンドウを開く」を選択
+2. コードウィンドウ側でボタンを押下
+3. メイン動画ウィンドウが現在の映像時刻を読み取り、既存のコードパネル処理と同じ経路でタグ付けする
+
+コードウィンドウはパッケージ選択前でも開ける。開いている映像がある場合は、そのメイン動画ウィンドウの現在時刻に対してタグ付けする。コードウィンドウ側は `activeRecordings` / `activeLabelButtons` / `primaryAction` などの押下状態を IPC sync で受け取って描画する。押下状態の正本はメイン動画ウィンドウ側に置く。
+
+`.stcw` ファイルをダブルクリックして開いた場合は、現在の runtime code window layout として反映する。ダブルクリックが brew 版など別のインストールへ紐付いている場合は、「コーディング > コードウィンドウファイルを開く...」から `.stcw` を選ぶ。ユーザーはアクション用コードウィンドウ、ラベル用コードウィンドウなどを用途ごとに切り替えながら、同じ映像パッケージへタグ付けできる。
+
 ### リンク作成
 
 1. 右クリック+ドラッグでボタン間を接続
@@ -564,11 +586,31 @@ const handleDuplicateLayout = useCallback((layout: CodeWindowLayout) => {
 
 ## 今後の拡張案
 
+- **Live Notes / Code Notes**: コードボタンの開始時または終了時にメモ入力を促し、インスタンスへ紐づける。Sportscode 公式機能比較では Live Notes と Code Notes on Activation/Deactivation が Coding 機能として示されている。
+- **全画面コードモード**: 動画を全画面表示したままコードウィンドウを重ねて操作する。Sportscode 公式機能比較では Full Screen Code Mode として示されている。
+- **Batch Rename**: 複数ボタンの名前を一括リネームする。現状の複数選択一括編集は主にスタイル/配置向けなので、命名規則や接頭辞/接尾辞変換を追加候補にする。
+- **Alternate Names**: ボタン表示名と記録名、または相手チーム別の別名セットを切り替える。Sportscode 公式機能比較では Alternate Names が Coding 機能として示されている。
+- **リンク機能の拡張**: 既存の exclusive / activate / deactivate に加え、ラベルとコードのリンク条件、リンクの inspector、リンク一覧管理を追加候補にする。Sportscode 公式機能比較では Exclusive Link がラベルとコードの紐づけにも触れている。
+- **ボタンレイヤー操作**: 重なったボタンの前面/背面移動、1段階ずつのレイヤー上下移動を追加候補にする。公開されている旧 SportsCode マニュアル系資料では Button Layers 操作が説明されている。
+- **Option ドラッグ複製**: 選択ボタンまたは選択グループをドラッグ複製する。公開されている旧 SportsCode マニュアル系資料では Option ドラッグによるボタン複製、Option+Command ドラッグによる選択グループ複製が説明されている。
+- **透明度/操作履歴表示**: コードウィンドウ透明度の調整、直近のボタン押下履歴ラインを追加候補にする。旧 SportsCode マニュアル系資料では Code Window Transparency と Code Button History が説明されている。
+- **Code Window Scripting / Action Buttons**: コードウィンドウ内に再生制御や集計出力などのスクリプト実行ボタンを配置する。Sportscode 公式機能比較では Code Window Scripting と Code Window Action Buttons が Reporting 機能として示されている。
+- **コードウィンドウ内チャート/レポート表示**: コードウィンドウ上に棒/積み上げ/円グラフなどを配置し、クリックで対象動画へ遷移する。Sportscode 公式機能比較では Charts と Report Mode on Timeline/Database が示されている。
+- **ホットキー重複検知**: 同一コードウィンドウ内のボタン hotkey 重複を保存前に警告する。Sportscode 系資料では hotkey はコードウィンドウ内で一意である前提が示されている。
 - **グループ化**: 複数ボタンをグループ化して一括移動/編集
 - **レイヤー**: ボタンの重なり順序を管理
 - **テンプレート**: よく使うボタン配置をテンプレートとして保存
 - **AI配置提案**: アクションリストからボタン配置を自動提案
 - **コラボレーション**: 複数ユーザーでレイアウトを共同編集
+
+### 調査元
+
+- Hudl Sportscode Comparison: https://www.hudl.com/products/sportscode/tiers
+- Hudl Support - Code Window Modes: https://support.hudl.com/s/article/code-window-modes-sportscode
+- Hudl Support - Create a Code or Label Button in a Code Window: https://support.hudl.com/s/article/create-code-and-label-buttons-in-a-code-window-sportscode
+- Hudl Support - Label Instances While in Code Mode: https://support.hudl.com/s/article/labeling-instances-in-code-mode-sportscode
+- Hudl Support - Keyboard Shortcuts: https://support.hudl.com/s/article/keyboard-shortcuts-sportscode
+- Hudl SportsCodeManual-2.pdf: https://static.hudl.com/craft/SportsCodeManual-2.pdf
 
 ## 関連ドキュメント
 

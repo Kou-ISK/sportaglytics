@@ -16,6 +16,14 @@ export interface EnhancedCodePanelProps {
     ids: string[],
     labels: { name: string; group: string }[],
   ) => void;
+  windowHotkeys?: Array<{ id: string; label: string; key: string }>;
+  onHotkeyKeyDown?: (hotkeyId: string) => void;
+  onHotkeyKeyUp?: (hotkeyId: string) => void;
+  onActiveLayoutChange?: (
+    layout:
+      | import('../../../../types/settings/coreTypes').CodeWindowLayout
+      | null,
+  ) => void;
 }
 
 export interface EnhancedCodePanelHandle {

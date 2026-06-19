@@ -56,7 +56,6 @@ export const useActionButtonInteractions = ({
       }
 
       const clickedButtonName = originalButtonName || action.action;
-      setPrimaryAction(clickedButtonName);
 
       const relatedLinks = findRelatedLinks(
         effectiveLinks,
@@ -91,6 +90,7 @@ export const useActionButtonInteractions = ({
 
       const time = getCurrentTime();
       if (time === null) return;
+      setPrimaryAction(clickedButtonName);
 
       const targetColors: Record<string, string | undefined> = {};
       effects.activateTargets.forEach((targetName) => {

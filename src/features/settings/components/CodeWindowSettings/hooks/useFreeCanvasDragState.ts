@@ -30,6 +30,29 @@ const snapshotSelectedButtons = (
   return snapshot;
 };
 
+export const resolveButtonDragSelection = ({
+  id,
+  additive,
+  selectedButtonIds,
+}: {
+  id: string;
+  additive: boolean;
+  selectedButtonIds: string[];
+}): string[] => {
+  if (!additive && selectedButtonIds.includes(id)) {
+    return selectedButtonIds;
+  }
+
+  if (!additive) {
+    return [id];
+  }
+
+  const exists = selectedButtonIds.includes(id);
+  return exists
+    ? selectedButtonIds.filter((value) => value !== id)
+    : [...selectedButtonIds, id];
+};
+
 const applySelection = ({
   id,
   additive,
@@ -41,14 +64,11 @@ const applySelection = ({
   selectedButtonIds: string[];
   onSelectButtons: (ids: string[]) => void;
 }) => {
-  if (!additive) {
-    onSelectButtons([id]);
-    return [id];
-  }
-  const exists = selectedButtonIds.includes(id);
-  const next = exists
-    ? selectedButtonIds.filter((value) => value !== id)
-    : [...selectedButtonIds, id];
+  const next = resolveButtonDragSelection({
+    id,
+    additive,
+    selectedButtonIds,
+  });
   onSelectButtons(next);
   return next;
 };

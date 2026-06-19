@@ -64,6 +64,7 @@ export const CustomCodeLayout = ({
           button.type === 'label' && button.labelValue
             ? button.labelValue
             : resolvedButtonName;
+        const showHotkey = Boolean(button.hotkey && button.showHotkey);
 
         return (
           <Box
@@ -128,10 +129,33 @@ export const CustomCodeLayout = ({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
+                paddingRight: showHotkey ? 4 : 0,
               }}
             >
               {displayText}
             </span>
+            {showHotkey && (
+              <Box
+                component="span"
+                sx={{
+                  position: 'absolute',
+                  right: 4,
+                  bottom: 2,
+                  maxWidth: 'calc(100% - 8px)',
+                  px: 0.5,
+                  borderRadius: '3px',
+                  fontSize: Math.max(8, Math.round(fontPx * 0.62)),
+                  lineHeight: 1.15,
+                  backgroundColor: 'rgba(0,0,0,0.16)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                }}
+              >
+                {button.hotkey}
+              </Box>
+            )}
           </Box>
         );
       })}

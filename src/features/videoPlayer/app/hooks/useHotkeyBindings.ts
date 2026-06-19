@@ -4,7 +4,7 @@ import type {
   ActionDefinition,
   HotkeyConfig,
 } from '../../../../types/settings/coreTypes';
-import type { TimelineActionSectionHandle } from '../components/TimelineActionSection';
+import type { EnhancedCodePanelHandle } from '../../components/Controls/EnhancedCodePanel';
 
 interface UseHotkeyBindingsParams {
   currentTime: number;
@@ -13,7 +13,7 @@ interface UseHotkeyBindingsParams {
   settingsHotkeys: HotkeyConfig[];
   activeActions: ActionDefinition[];
   codeWindowButtons?: { id: string; name: string; hotkey?: string }[];
-  timelineActionRef: RefObject<TimelineActionSectionHandle | null>;
+  timelineActionRef: RefObject<EnhancedCodePanelHandle | null>;
   setVideoPlayBackRate: (rate: number) => void;
   setIsVideoPlaying: (value: boolean) => void;
   setViewMode: Dispatch<SetStateAction<'dual' | 'angle1' | 'angle2'>>;
@@ -54,7 +54,7 @@ export const useHotkeyBindings = ({
   deleteTimelineDatas,
   clearSelection,
 }: UseHotkeyBindingsParams) => {
-  const hotkeyHandlers = useMemo(
+  const hotkeyHandlers = useMemo<Record<string, () => void>>(
     () => ({
       'skip-forward-small': () => {
         setVideoPlayBackRate(0.5);
@@ -137,7 +137,7 @@ export const useHotkeyBindings = ({
     ],
   );
 
-  const keyUpHandlers = useMemo(
+  const keyUpHandlers = useMemo<Record<string, () => void>>(
     () => ({
       'skip-forward-small': () => {
         setVideoPlayBackRate(1);

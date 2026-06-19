@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
 import type {
+  CodingPanelWindowCommand,
+  CodingPanelWindowSyncPayload,
+} from '../../../../../types/ipc/codingPanelWindow';
+import type {
   ActionDefinition,
   CodeWindowLayout,
 } from '../../../../../types/settings/coreTypes';
@@ -22,6 +26,18 @@ import {
   setLabelModeChecked,
   subscribeLabelModeToggle,
 } from '../gateways/labelModeGateway';
+import {
+  openCodingPanelWindow,
+  subscribeCodingPanelWindowCommand,
+  syncCodingPanelWindow,
+} from '../gateways/codingPanelWindowGateway';
+import {
+  consumeRuntimeCodeWindowExternalOpen,
+  chooseRuntimeCodeWindowFile,
+  loadRuntimeCodeWindowFile,
+  subscribeRuntimeCodeWindowExternalOpen,
+  subscribeRuntimeCodeWindowMenuOpen,
+} from '../gateways/codeWindowRuntimeFileGateway';
 
 interface UseEnhancedCodePanelControllerResult {
   triggerAction: (teamName: string, actionName: string) => void;
@@ -34,9 +50,16 @@ export const useEnhancedCodePanelController = ({
   firstTeamName,
   selectedIds = [],
   onApplyLabels,
+  windowHotkeys = [],
+  onHotkeyKeyDown,
+  onHotkeyKeyUp,
+  onActiveLayoutChange,
 }: EnhancedCodePanelProps): UseEnhancedCodePanelControllerResult => {
   const { activeActions } = useActionPreset();
   const { settings } = useSettings();
+  const [sessionLayout, setSessionLayout] = useState<CodeWindowLayout | null>(
+    null,
+  );
 
   const teamContext: TeamContext = useMemo(
     () => ({
@@ -46,7 +69,7 @@ export const useEnhancedCodePanelController = ({
     [teamNames],
   );
 
-  const customLayout = useMemo((): CodeWindowLayout | null => {
+  const settingsLayout = useMemo((): CodeWindowLayout | null => {
     if (
       !settings.codingPanel?.codeWindows ||
       !settings.codingPanel?.activeCodeWindowId
@@ -62,6 +85,48 @@ export const useEnhancedCodePanelController = ({
     settings.codingPanel?.codeWindows,
     settings.codingPanel?.activeCodeWindowId,
   ]);
+  const customLayout = sessionLayout ?? settingsLayout;
+
+  useEffect(() => {
+    onActiveLayoutChange?.(customLayout);
+  }, [customLayout, onActiveLayoutChange]);
+
+  const openRuntimeCodeWindowFile = useCallback(async (filePath: string) => {
+    const layout = await loadRuntimeCodeWindowFile(filePath);
+    if (!layout) return;
+    setSessionLayout(layout);
+    await consumeRuntimeCodeWindowExternalOpen(filePath);
+    await openCodingPanelWindow();
+  }, []);
+
+  const chooseRuntimeCodeWindow = useCallback(async () => {
+    const layout = await chooseRuntimeCodeWindowFile();
+    if (!layout) return;
+    setSessionLayout(layout);
+    await openCodingPanelWindow();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeRuntimeCodeWindowExternalOpen((filePath) => {
+      void openRuntimeCodeWindowFile(filePath);
+    });
+
+    const consumePending = async (): Promise<void> => {
+      const pendingPath = await consumeRuntimeCodeWindowExternalOpen();
+      if (pendingPath) {
+        await openRuntimeCodeWindowFile(pendingPath);
+      }
+    };
+    void consumePending();
+
+    return unsubscribe;
+  }, [openRuntimeCodeWindowFile]);
+
+  useEffect(() => {
+    return subscribeRuntimeCodeWindowMenuOpen(() => {
+      void chooseRuntimeCodeWindow();
+    });
+  }, [chooseRuntimeCodeWindow]);
 
   const {
     activeRecordings,
@@ -145,6 +210,105 @@ export const useEnhancedCodePanelController = ({
     setActiveLabelButtons,
   });
 
+  const codingPanelWindowPayload = useMemo(
+    (): CodingPanelWindowSyncPayload => ({
+      activeMode,
+      customLayout,
+      teamNames,
+      firstTeamName,
+      activeActions,
+      activeRecordings,
+      primaryAction,
+      activeLabelButtons,
+      isRecording,
+      labelSelections,
+      hotkeys: windowHotkeys,
+    }),
+    [
+      activeActions,
+      activeLabelButtons,
+      activeMode,
+      activeRecordings,
+      customLayout,
+      firstTeamName,
+      isRecording,
+      labelSelections,
+      primaryAction,
+      teamNames,
+      windowHotkeys,
+    ],
+  );
+
+  useEffect(() => {
+    syncCodingPanelWindow(codingPanelWindowPayload);
+  }, [codingPanelWindowPayload]);
+
+  const handleCodingPanelWindowCommand = useCallback(
+    (command: CodingPanelWindowCommand): void => {
+      if (command.type === 'request-sync') {
+        syncCodingPanelWindow(codingPanelWindowPayload);
+        return;
+      }
+
+      if (command.type === 'hotkey-key-down') {
+        onHotkeyKeyDown?.(command.hotkeyId);
+        return;
+      }
+
+      if (command.type === 'hotkey-key-up') {
+        onHotkeyKeyUp?.(command.hotkeyId);
+        return;
+      }
+
+      if (command.type === 'custom-button-click') {
+        const button = customLayout?.buttons.find(
+          (entry) => entry.id === command.buttonId,
+        );
+        if (button) {
+          handleCustomButtonClick(button);
+        }
+        return;
+      }
+
+      if (command.type === 'action-click') {
+        const action =
+          activeActions.find((entry) => entry.action === command.actionName) ??
+          ({
+            action: command.actionName,
+            types: [],
+            results: [],
+            groups: [],
+          } as ActionDefinition);
+        handleActionClick(command.teamName, action);
+        return;
+      }
+
+      handleLabelSelect(command.actionName, command.groupName, command.option);
+    },
+    [
+      activeActions,
+      codingPanelWindowPayload,
+      customLayout?.buttons,
+      handleActionClick,
+      handleCustomButtonClick,
+      handleLabelSelect,
+      onHotkeyKeyDown,
+      onHotkeyKeyUp,
+    ],
+  );
+
+  useEffect(() => {
+    return subscribeCodingPanelWindowCommand(handleCodingPanelWindowCommand);
+  }, [handleCodingPanelWindowCommand]);
+
+  const handleOpenDetachedWindow = useCallback((): void => {
+    void openCodingPanelWindow().then((opened) => {
+      if (opened) {
+        syncCodingPanelWindow(codingPanelWindowPayload);
+      }
+    });
+  }, [codingPanelWindowPayload]);
+
   const getButtonColorByName = useCallback(
     (buttonName: string): string | undefined => {
       if (!customLayout) return undefined;
@@ -204,6 +368,7 @@ export const useEnhancedCodePanelController = ({
       handleLabelSelect,
       handleCustomButtonClick,
       handleActionClick,
+      onOpenDetachedWindow: handleOpenDetachedWindow,
     },
   };
 };

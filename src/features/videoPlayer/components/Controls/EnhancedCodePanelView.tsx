@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import type {
   ActionDefinition,
   CodeWindowButton,
@@ -34,6 +35,7 @@ export interface EnhancedCodePanelViewProps {
   ) => void;
   handleCustomButtonClick: (button: CodeWindowButton) => void;
   handleActionClick: (teamName: string, action: ActionDefinition) => void;
+  onOpenDetachedWindow?: () => void;
 }
 
 export const EnhancedCodePanelView = ({
@@ -53,6 +55,7 @@ export const EnhancedCodePanelView = ({
   handleLabelSelect,
   handleCustomButtonClick,
   handleActionClick,
+  onOpenDetachedWindow,
 }: EnhancedCodePanelViewProps) => {
   const referenceTeamName = firstTeamName || teamNames[0];
 
@@ -94,6 +97,17 @@ export const EnhancedCodePanelView = ({
         }}
       >
         <CodePanelModeIndicator activeMode={activeMode} />
+        {onOpenDetachedWindow && (
+          <Tooltip title="コードパネルを別ウィンドウで開く">
+            <IconButton
+              size="small"
+              aria-label="コードパネルを別ウィンドウで開く"
+              onClick={onOpenDetachedWindow}
+            >
+              <OpenInNewIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {customLayout ? (
