@@ -58,7 +58,12 @@ const syncPayload: CodingPanelWindowSyncPayload = {
 
 describe('codingPanelWindow IPC guards', () => {
   it('accepts valid sync payloads and commands', () => {
-    expect(isCodingPanelWindowSyncPayload(syncPayload)).toBe(true);
+    expect(
+      isCodingPanelWindowSyncPayload({
+        ...syncPayload,
+        codeWindowFilePath: '/tmp/window.stcw',
+      }),
+    ).toBe(true);
     expect(
       isCodingPanelWindowCommand({
         type: 'request-sync',
@@ -74,6 +79,19 @@ describe('codingPanelWindow IPC guards', () => {
       isCodingPanelWindowCommand({
         type: 'custom-button-click',
         buttonId: 'button-1',
+      }),
+    ).toBe(true);
+    expect(
+      isCodingPanelWindowCommand({
+        type: 'layout-updated',
+        layout: syncPayload.customLayout,
+      }),
+    ).toBe(true);
+    expect(
+      isCodingPanelWindowCommand({
+        type: 'save-layout',
+        layout: syncPayload.customLayout,
+        saveAs: false,
       }),
     ).toBe(true);
     expect(

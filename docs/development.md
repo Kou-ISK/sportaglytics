@@ -419,6 +419,7 @@ Main IPC handlers (domain modules)
 - coding panel window では別ウィンドウ側で映像時刻を採番しない。別ウィンドウはクリック command を送信し、メイン動画ウィンドウ側 controller が現在時刻を読み取って既存のタグ付け処理を実行する
 - coding panel window にフォーカスがあるときの hotkey は `CodingPanelWindowScreen` が受け取り、hotkey id command としてメイン動画ウィンドウへ転送する。実際の再生制御・タグ付け処理はメイン動画ウィンドウ側の既存 handler で実行する
 - `.stcw` の runtime 切り替えは OS file association だけに依存しない。`menu-open-code-window-file` から起動中アプリの renderer が file dialog を開き、読み込んだ layout を `EnhancedCodePanel` controller の session layout として反映する
+- coding panel window の編集モードは、別ウィンドウ上の `CodingPanelWindowEditPane` で表示する。layout 更新と保存要求は `codingPanelWindow` command としてメイン動画ウィンドウ側 controller に戻し、runtime layout と `.stcw` の file path は controller が保持する
 - `App.tsx` は app shell の view switch のみに留め、hash / Electron event / external open は shared hook に抽出する
 - `localStorage` や Electron menu sync は feature hook へ直書きせず、gateway / storage helper に寄せる
 - preload の `on/off` ペアは typed listener store を介して wrapper を管理し、`as unknown as Function` に依存しない

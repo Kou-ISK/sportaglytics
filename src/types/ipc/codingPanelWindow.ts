@@ -25,10 +25,13 @@ export interface CodingPanelWindowSyncPayload {
   isRecording: boolean;
   labelSelections: Record<string, Record<string, string>>;
   hotkeys: HotkeyConfig[];
+  codeWindowFilePath?: string;
 }
 
 export type CodingPanelWindowCommand =
   | { type: 'request-sync' }
+  | { type: 'layout-updated'; layout: CodeWindowLayout }
+  | { type: 'save-layout'; layout: CodeWindowLayout; saveAs: boolean }
   | { type: 'hotkey-key-down'; hotkeyId: string }
   | { type: 'hotkey-key-up'; hotkeyId: string }
   | { type: 'custom-button-click'; buttonId: string }
@@ -172,7 +175,9 @@ export const isCodingPanelWindowSyncPayload = (
     typeof value.isRecording === 'boolean' &&
     isLabelSelections(value.labelSelections) &&
     Array.isArray(value.hotkeys) &&
-    value.hotkeys.every(isHotkeyConfig)
+    value.hotkeys.every(isHotkeyConfig) &&
+    (value.codeWindowFilePath === undefined ||
+      isString(value.codeWindowFilePath))
   );
 };
 
@@ -183,6 +188,14 @@ export const isCodingPanelWindowCommand = (
 
   if (value.type === 'request-sync') {
     return true;
+  }
+
+  if (value.type === 'layout-updated') {
+    return isCodeWindowLayout(value.layout);
+  }
+
+  if (value.type === 'save-layout') {
+    return isCodeWindowLayout(value.layout) && typeof value.saveAs === 'boolean';
   }
 
   if (value.type === 'hotkey-key-down' || value.type === 'hotkey-key-up') {

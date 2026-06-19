@@ -35,6 +35,7 @@ import {
   consumeRuntimeCodeWindowExternalOpen,
   chooseRuntimeCodeWindowFile,
   loadRuntimeCodeWindowFile,
+  saveRuntimeCodeWindowFile,
   subscribeRuntimeCodeWindowExternalOpen,
   subscribeRuntimeCodeWindowMenuOpen,
 } from '../gateways/codeWindowRuntimeFileGateway';
@@ -60,6 +61,7 @@ export const useEnhancedCodePanelController = ({
   const [sessionLayout, setSessionLayout] = useState<CodeWindowLayout | null>(
     null,
   );
+  const [sessionFilePath, setSessionFilePath] = useState<string | null>(null);
 
   const teamContext: TeamContext = useMemo(
     () => ({
@@ -92,17 +94,19 @@ export const useEnhancedCodePanelController = ({
   }, [customLayout, onActiveLayoutChange]);
 
   const openRuntimeCodeWindowFile = useCallback(async (filePath: string) => {
-    const layout = await loadRuntimeCodeWindowFile(filePath);
-    if (!layout) return;
-    setSessionLayout(layout);
+    const file = await loadRuntimeCodeWindowFile(filePath);
+    if (!file) return;
+    setSessionLayout(file.layout);
+    setSessionFilePath(file.filePath);
     await consumeRuntimeCodeWindowExternalOpen(filePath);
     await openCodingPanelWindow();
   }, []);
 
   const chooseRuntimeCodeWindow = useCallback(async () => {
-    const layout = await chooseRuntimeCodeWindowFile();
-    if (!layout) return;
-    setSessionLayout(layout);
+    const file = await chooseRuntimeCodeWindowFile();
+    if (!file) return;
+    setSessionLayout(file.layout);
+    setSessionFilePath(file.filePath);
     await openCodingPanelWindow();
   }, []);
 
@@ -223,6 +227,7 @@ export const useEnhancedCodePanelController = ({
       isRecording,
       labelSelections,
       hotkeys: windowHotkeys,
+      codeWindowFilePath: sessionFilePath ?? undefined,
     }),
     [
       activeActions,
@@ -234,6 +239,7 @@ export const useEnhancedCodePanelController = ({
       isRecording,
       labelSelections,
       primaryAction,
+      sessionFilePath,
       teamNames,
       windowHotkeys,
     ],
@@ -247,6 +253,24 @@ export const useEnhancedCodePanelController = ({
     (command: CodingPanelWindowCommand): void => {
       if (command.type === 'request-sync') {
         syncCodingPanelWindow(codingPanelWindowPayload);
+        return;
+      }
+
+      if (command.type === 'layout-updated') {
+        setSessionLayout(command.layout);
+        return;
+      }
+
+      if (command.type === 'save-layout') {
+        setSessionLayout(command.layout);
+        void saveRuntimeCodeWindowFile(
+          command.layout,
+          command.saveAs ? undefined : (sessionFilePath ?? undefined),
+        ).then((savedPath) => {
+          if (savedPath) {
+            setSessionFilePath(savedPath);
+          }
+        });
         return;
       }
 
@@ -294,6 +318,7 @@ export const useEnhancedCodePanelController = ({
       handleLabelSelect,
       onHotkeyKeyDown,
       onHotkeyKeyUp,
+      sessionFilePath,
     ],
   );
 

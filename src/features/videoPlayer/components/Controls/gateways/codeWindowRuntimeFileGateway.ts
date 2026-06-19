@@ -5,6 +5,11 @@ type CodeWindowFilePayload = {
   layout: CodeWindowLayout;
 };
 
+export interface RuntimeCodeWindowFile {
+  layout: CodeWindowLayout;
+  filePath: string;
+}
+
 const getCodeWindowApi = () => globalThis.window.electronAPI?.codeWindow;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -27,7 +32,7 @@ export const isCodeWindowFilePayload = (
 
 export const loadRuntimeCodeWindowFile = async (
   filePath: string,
-): Promise<CodeWindowLayout | null> => {
+): Promise<RuntimeCodeWindowFile | null> => {
   const api = getCodeWindowApi();
   if (!api?.loadFile) {
     return null;
@@ -38,7 +43,10 @@ export const loadRuntimeCodeWindowFile = async (
     if (!result || !isCodeWindowFilePayload(result.codeWindow)) {
       return null;
     }
-    return result.codeWindow.layout;
+    return {
+      layout: result.codeWindow.layout,
+      filePath: result.filePath,
+    };
   } catch (error: unknown) {
     console.debug('[codeWindowRuntimeFileGateway] load failed', error);
     return null;
@@ -46,7 +54,7 @@ export const loadRuntimeCodeWindowFile = async (
 };
 
 export const chooseRuntimeCodeWindowFile =
-  async (): Promise<CodeWindowLayout | null> => {
+  async (): Promise<RuntimeCodeWindowFile | null> => {
     const api = getCodeWindowApi();
     if (!api?.loadFile) {
       return null;
@@ -57,12 +65,38 @@ export const chooseRuntimeCodeWindowFile =
       if (!result || !isCodeWindowFilePayload(result.codeWindow)) {
         return null;
       }
-      return result.codeWindow.layout;
+      return {
+        layout: result.codeWindow.layout,
+        filePath: result.filePath,
+      };
     } catch (error: unknown) {
       console.debug('[codeWindowRuntimeFileGateway] choose failed', error);
       return null;
     }
   };
+
+export const saveRuntimeCodeWindowFile = async (
+  layout: CodeWindowLayout,
+  filePath?: string,
+): Promise<string | null> => {
+  const api = getCodeWindowApi();
+  if (!api?.saveFile) {
+    return null;
+  }
+
+  try {
+    return await api.saveFile(
+      {
+        version: 1,
+        layout,
+      },
+      filePath,
+    );
+  } catch (error: unknown) {
+    console.debug('[codeWindowRuntimeFileGateway] save failed', error);
+    return null;
+  }
+};
 
 export const subscribeRuntimeCodeWindowExternalOpen = (
   callback: (filePath: string) => void,
