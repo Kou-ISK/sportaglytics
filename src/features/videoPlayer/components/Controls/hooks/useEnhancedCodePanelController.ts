@@ -265,7 +265,9 @@ export const useEnhancedCodePanelController = ({
         setSessionLayout(command.layout);
         void saveRuntimeCodeWindowFile(
           command.layout,
-          command.saveAs ? undefined : (sessionFilePath ?? undefined),
+          command.saveAs
+            ? undefined
+            : (command.filePath ?? sessionFilePath ?? undefined),
         ).then((savedPath) => {
           if (savedPath) {
             setSessionFilePath(savedPath);

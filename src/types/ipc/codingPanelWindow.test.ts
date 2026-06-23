@@ -92,6 +92,7 @@ describe('codingPanelWindow IPC guards', () => {
         type: 'save-layout',
         layout: syncPayload.customLayout,
         saveAs: false,
+        filePath: '/tmp/window.stcw',
       }),
     ).toBe(true);
     expect(

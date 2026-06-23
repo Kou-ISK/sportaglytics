@@ -209,9 +209,10 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
         type: 'save-layout',
         layout: draftLayout,
         saveAs,
+        filePath: saveAs ? undefined : payload?.codeWindowFilePath,
       });
     },
-    [draftLayout],
+    [draftLayout, payload?.codeWindowFilePath],
   );
 
   if (!payload) {

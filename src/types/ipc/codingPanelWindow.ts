@@ -31,7 +31,12 @@ export interface CodingPanelWindowSyncPayload {
 export type CodingPanelWindowCommand =
   | { type: 'request-sync' }
   | { type: 'layout-updated'; layout: CodeWindowLayout }
-  | { type: 'save-layout'; layout: CodeWindowLayout; saveAs: boolean }
+  | {
+      type: 'save-layout';
+      layout: CodeWindowLayout;
+      saveAs: boolean;
+      filePath?: string;
+    }
   | { type: 'hotkey-key-down'; hotkeyId: string }
   | { type: 'hotkey-key-up'; hotkeyId: string }
   | { type: 'custom-button-click'; buttonId: string }
@@ -195,7 +200,11 @@ export const isCodingPanelWindowCommand = (
   }
 
   if (value.type === 'save-layout') {
-    return isCodeWindowLayout(value.layout) && typeof value.saveAs === 'boolean';
+    return (
+      isCodeWindowLayout(value.layout) &&
+      typeof value.saveAs === 'boolean' &&
+      (value.filePath === undefined || isString(value.filePath))
+    );
   }
 
   if (value.type === 'hotkey-key-down' || value.type === 'hotkey-key-up') {
