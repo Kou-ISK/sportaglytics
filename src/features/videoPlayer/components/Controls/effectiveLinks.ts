@@ -1,5 +1,5 @@
 import {
-  replaceTeamPlaceholders,
+  replaceTeamPlaceholderAliases,
   type TeamContext,
 } from '../../../../utils/teamPlaceholder';
 import type { CodeWindowLayout } from '../../../../types/settings/coreTypes';
@@ -36,8 +36,8 @@ export const buildEffectiveLinks = (
 
   actionLinks.forEach((link) => {
     links.push({
-      from: replaceTeamPlaceholders(link.from, teamContext),
-      to: replaceTeamPlaceholders(link.to, teamContext),
+      from: replaceTeamPlaceholderAliases(link.from, teamContext),
+      to: replaceTeamPlaceholderAliases(link.to, teamContext),
       type: link.type,
     });
   });
@@ -48,8 +48,8 @@ export const buildEffectiveLinks = (
       const toName = getButtonNameById(customLayout, link.toButtonId);
       if (fromName && toName && link.type !== 'sequence') {
         links.push({
-          from: replaceTeamPlaceholders(fromName, teamContext),
-          to: replaceTeamPlaceholders(toName, teamContext),
+          from: replaceTeamPlaceholderAliases(fromName, teamContext),
+          to: replaceTeamPlaceholderAliases(toName, teamContext),
           type: link.type as 'exclusive' | 'deactivate' | 'activate',
           fromId: link.fromButtonId,
           toId: link.toButtonId,

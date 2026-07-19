@@ -7,6 +7,7 @@ export type AppBridgeMenuKeys =
   | 'onExportTimeline'
   | 'onImportTimeline'
   | 'onCodingModeChange'
+  | 'onOpenCodeWindowFile'
   | 'onOpenPackage'
   | 'onOpenRecentPackage'
   | 'updateRecentPackages';
@@ -40,6 +41,10 @@ export const createAppBridgeMenuApi = (
           return;
         }
         callback(mode);
+      }),
+    onOpenCodeWindowFile: (callback: () => void) =>
+      registerListener('menu-open-code-window-file', () => {
+        callback();
       }),
     onOpenPackage: (callback: () => void) =>
       registerListener('menu-open-package', () => {

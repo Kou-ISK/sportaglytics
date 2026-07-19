@@ -5,8 +5,9 @@ import type {
   CodeWindowLayout,
   CodeWindowButton,
 } from '../../../../types/settings/coreTypes';
+import type { SCLabel } from '../../../../types/timeline/sportscode';
 import {
-  replaceTeamPlaceholders,
+  replaceTeamPlaceholderAliases,
   type TeamContext,
 } from '../../../../utils/teamPlaceholder';
 
@@ -17,8 +18,22 @@ type CustomCodeLayoutProps = {
   primaryAction: string | null;
   activeLabelButtons: Record<string, boolean>;
   isRecording: boolean;
+  selectedTimelineLabels: SCLabel[];
   layoutContainerRef: React.RefObject<HTMLDivElement | null>;
   onButtonClick: (button: CodeWindowButton) => void;
+};
+
+const hasSelectedTimelineLabel = (
+  labels: SCLabel[],
+  groupNames: string[],
+  labelValue?: string,
+): boolean => {
+  if (!labelValue) return false;
+  return labels.some(
+    (label) =>
+      label.name === labelValue &&
+      groupNames.some((groupName) => label.group === groupName),
+  );
 };
 
 export const CustomCodeLayout = ({
@@ -28,6 +43,7 @@ export const CustomCodeLayout = ({
   primaryAction,
   activeLabelButtons,
   isRecording,
+  selectedTimelineLabels,
   layoutContainerRef,
   onButtonClick,
 }: CustomCodeLayoutProps) => {
@@ -46,7 +62,7 @@ export const CustomCodeLayout = ({
       }}
     >
       {layout.buttons.map((button) => {
-        const resolvedButtonName = replaceTeamPlaceholders(
+        const resolvedButtonName = replaceTeamPlaceholderAliases(
           button.name,
           teamContext,
         );
@@ -55,7 +71,13 @@ export const CustomCodeLayout = ({
           Boolean(activeRecordings[resolvedButtonName]);
         const isSelected = isActive || primaryAction === resolvedButtonName;
         const isLabelSelected =
-          button.type === 'label' && activeLabelButtons[button.id];
+          button.type === 'label' &&
+          (activeLabelButtons[button.id] ||
+            hasSelectedTimelineLabel(
+              selectedTimelineLabels,
+              [resolvedButtonName, button.name],
+              button.labelValue,
+            ));
 
         const buttonColor =
           button.color || (button.type === 'action' ? '#1976d2' : '#9c27b0');
@@ -64,6 +86,7 @@ export const CustomCodeLayout = ({
           button.type === 'label' && button.labelValue
             ? button.labelValue
             : resolvedButtonName;
+        const showHotkey = Boolean(button.hotkey && button.showHotkey);
 
         return (
           <Box
@@ -128,10 +151,33 @@ export const CustomCodeLayout = ({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
+                paddingRight: showHotkey ? 4 : 0,
               }}
             >
               {displayText}
             </span>
+            {showHotkey && (
+              <Box
+                component="span"
+                sx={{
+                  position: 'absolute',
+                  right: 4,
+                  bottom: 2,
+                  maxWidth: 'calc(100% - 8px)',
+                  px: 0.5,
+                  borderRadius: '3px',
+                  fontSize: Math.max(8, Math.round(fontPx * 0.62)),
+                  lineHeight: 1.15,
+                  backgroundColor: 'rgba(0,0,0,0.16)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                }}
+              >
+                {button.hotkey}
+              </Box>
+            )}
           </Box>
         );
       })}

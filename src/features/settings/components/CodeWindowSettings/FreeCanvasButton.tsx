@@ -12,6 +12,7 @@ type FreeCanvasButtonProps = {
   buttonColor: string;
   onMouseDown: (event: React.MouseEvent) => void;
   onRightMouseDown: (event: React.MouseEvent) => void;
+  onInspect?: () => void;
   onDelete: () => void;
   onResizeMouseDown: (event: React.MouseEvent) => void;
 };
@@ -24,6 +25,7 @@ export const FreeCanvasButton = ({
   buttonColor,
   onMouseDown,
   onRightMouseDown,
+  onInspect,
   onDelete,
   onResizeMouseDown,
 }: FreeCanvasButtonProps) => {
@@ -37,13 +39,25 @@ export const FreeCanvasButton = ({
       onMouseDown={(event) => {
         if (event.button === 0) {
           onMouseDown(event);
-        } else if (event.button === 2) {
+        } else if (
+          event.button === 2 &&
+          (event.altKey || event.shiftKey || event.ctrlKey || event.metaKey)
+        ) {
           onRightMouseDown(event);
         }
+      }}
+      onDoubleClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onInspect?.();
       }}
       onContextMenu={(event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (event.altKey || event.shiftKey || event.ctrlKey || event.metaKey) {
+          return;
+        }
+        onInspect?.();
       }}
       sx={{
         position: 'absolute',
@@ -99,6 +113,28 @@ export const FreeCanvasButton = ({
           {secondaryText}
         </Typography>
       )}
+      {button.hotkey && button.showHotkey && (
+        <Typography
+          variant="caption"
+          sx={{
+            position: 'absolute',
+            right: 4,
+            bottom: 2,
+            maxWidth: 'calc(100% - 8px)',
+            px: 0.5,
+            borderRadius: '3px',
+            fontSize: '0.52rem',
+            lineHeight: 1.15,
+            color: 'inherit',
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {button.hotkey}
+        </Typography>
+      )}
       {isSelected && (
         <>
           <IconButton
@@ -119,7 +155,10 @@ export const FreeCanvasButton = ({
           >
             <DeleteIcon sx={{ fontSize: 14 }} />
           </IconButton>
-          <Tooltip title="右クリックドラッグで排他リンクを作成" placement="top">
+          <Tooltip
+            title="Control/Option/Shift + 右ドラッグでリンクを作成"
+            placement="top"
+          >
             <Box
               sx={{
                 position: 'absolute',

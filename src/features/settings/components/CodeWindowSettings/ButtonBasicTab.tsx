@@ -2,9 +2,11 @@ import React from 'react';
 import {
   Divider,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
@@ -46,7 +48,8 @@ export const ButtonBasicTab = ({
             color="text.secondary"
             sx={{ display: 'block', mb: 1 }}
           >
-            ※Sportscode方式: チームを区別する場合は「チーム名 アクション名」形式で命名 （例: &quot;Team A ポゼッション&quot;,
+            ※Sportscode方式: チームを区別する場合は「チーム名
+            アクション名」形式で命名 （例: &quot;Team A ポゼッション&quot;,
             &quot;Team B Attack&quot;）
           </Typography>
           <FormControl fullWidth size="small" sx={{ mb: 2 }}>
@@ -81,7 +84,9 @@ export const ButtonBasicTab = ({
             <InputLabel>ラベルグループ（既存から選択）</InputLabel>
             <Select
               value={
-                availableLabelGroups.find((group) => group.groupName === button.name)
+                availableLabelGroups.find(
+                  (group) => group.groupName === button.name,
+                )
                   ? button.name
                   : ''
               }
@@ -124,7 +129,9 @@ export const ButtonBasicTab = ({
                       : ''
                   }
                   label="ラベル値（既存から選択）"
-                  onChange={(event) => onChange('labelValue', event.target.value)}
+                  onChange={(event) =>
+                    onChange('labelValue', event.target.value)
+                  }
                 >
                   <MenuItem value="">
                     <em>カスタム入力</em>
@@ -176,7 +183,9 @@ export const ButtonBasicTab = ({
         fullWidth
         size="small"
         value={button.groupId || ''}
-        onChange={(event) => onChange('groupId', event.target.value || undefined)}
+        onChange={(event) =>
+          onChange('groupId', event.target.value || undefined)
+        }
         placeholder="例: possession, scrum"
         sx={{ mb: 2 }}
       />
@@ -190,7 +199,20 @@ export const ButtonBasicTab = ({
         onClear={() => {
           setCapturedHotkey('');
           onChange('hotkey', undefined);
+          onChange('showHotkey', false);
         }}
+      />
+
+      <FormControlLabel
+        control={
+          <Switch
+            checked={Boolean(button.showHotkey)}
+            disabled={!button.hotkey}
+            onChange={(event) => onChange('showHotkey', event.target.checked)}
+          />
+        }
+        label="ショートカットキーをボタンに表示"
+        sx={{ mt: 1 }}
       />
     </>
   );

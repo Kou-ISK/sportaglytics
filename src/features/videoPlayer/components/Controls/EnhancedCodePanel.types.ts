@@ -1,3 +1,5 @@
+import type { SCLabel } from '../../../../types/timeline/sportscode';
+
 export interface EnhancedCodePanelProps {
   addTimelineData: (
     actionName: string,
@@ -12,12 +14,25 @@ export interface EnhancedCodePanelProps {
   teamNames: string[];
   firstTeamName?: string;
   selectedIds?: string[];
+  selectedTimelineLabels?: SCLabel[];
   onApplyLabels?: (
     ids: string[],
     labels: { name: string; group: string }[],
   ) => void;
+  windowHotkeys?: Array<{ id: string; label: string; key: string }>;
+  onHotkeyKeyDown?: (hotkeyId: string) => void;
+  onHotkeyKeyUp?: (hotkeyId: string) => void;
+  onActiveLayoutChange?: (
+    layout:
+      | import('../../../../types/settings/coreTypes').CodeWindowLayout
+      | null,
+  ) => void;
 }
 
 export interface EnhancedCodePanelHandle {
-  triggerAction: (teamName: string, actionName: string) => void;
+  triggerAction: (
+    teamName: string,
+    actionName: string,
+    buttonId?: string,
+  ) => void;
 }

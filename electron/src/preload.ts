@@ -3,6 +3,7 @@ import type { IElectronAPI } from '../../src/renderer';
 import { createAnalysisBridge } from './preload/analysisBridge';
 import { createAppBridge } from './preload/appBridge';
 import { createCodeWindowBridge } from './preload/codeWindowBridge';
+import { createCodingPanelWindowBridge } from './preload/codingPanelWindowBridge';
 import { createEventBridge } from './preload/eventBridge';
 import {
   createListenerStore,
@@ -33,6 +34,7 @@ const electronAPI = {
   ...createAnalysisBridge(ipcRenderer, listenerStore),
   ...createPlaylistBridge(ipcRenderer, listenerStore),
   ...createCodeWindowBridge(ipcRenderer),
+  codingPanelWindow: createCodingPanelWindowBridge(ipcRenderer, listenerStore),
 } satisfies IElectronAPI;
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

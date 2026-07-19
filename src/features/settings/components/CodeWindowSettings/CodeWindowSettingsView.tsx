@@ -161,7 +161,14 @@ export const CodeWindowSettingsView: React.FC<CodeWindowSettingsViewProps> = ({
               sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}
             >
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <Box sx={{ flex: 1, overflow: 'auto' }}>
+                <Box
+                  sx={{
+                    width: currentLayout.canvasWidth,
+                    height: currentLayout.canvasHeight,
+                    flex: '0 0 auto',
+                    overflow: 'auto',
+                  }}
+                >
                   <FreeCanvasEditor
                     layout={currentLayout}
                     onLayoutChange={onCanvasLayoutChange}

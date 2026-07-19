@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   getCurrentLocationHash,
   openDetachedSettingsWindow,
-  subscribeCodeWindowExternalOpenForShell,
   subscribeLocationHashChange,
   subscribeOpenSettingsRequest,
 } from '../shared/appShell/appShellGateway';
@@ -12,6 +11,7 @@ export type AppView =
   | 'settings'
   | 'playlist'
   | 'analysis'
+  | 'coding-panel'
   | 'export-progress'
   | 'analysis-report';
 
@@ -20,6 +20,7 @@ const getViewFromHash = (): AppView => {
   if (hash === '#/playlist') return 'playlist';
   if (hash === '#/settings') return 'settings';
   if (hash === '#/analysis') return 'analysis';
+  if (hash === '#/coding-panel') return 'coding-panel';
   if (hash === '#/export-progress') return 'export-progress';
   if (hash.startsWith('#/analysis-report')) return 'analysis-report';
   return 'main';
@@ -59,12 +60,6 @@ export const useAppShellController = (): AppView => {
       globalThis.removeEventListener('back-to-main', handleBackToMain);
     };
   }, []);
-
-  useEffect(() => {
-    return subscribeCodeWindowExternalOpenForShell(() => {
-      openSettingsView();
-    });
-  }, [openSettingsView]);
 
   return currentView;
 };

@@ -1,10 +1,22 @@
 import { app, BrowserWindow } from 'electron';
 import { createPlaylistWindow } from '../playlistWindow';
 import { openAnalysisWindow } from '../analysisWindow';
+import { openCodingPanelWindow } from '../codingPanelWindow';
 import { openHelpWindow } from '../helpWindow';
 import { openSettingsWindow } from '../settingsWindow';
 import { buildRecentPackageItems } from './recentPackageMenu';
-import { openVersionInfoWindow, sendToFocusedWindow } from './menuWindowActions';
+import {
+  openVersionInfoWindow,
+  sendToFocusedWindow,
+} from './menuWindowActions';
+
+const sendToAllWindows = (channel: string, ...args: unknown[]): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    if (!window.isDestroyed()) {
+      window.webContents.send(channel, ...args);
+    }
+  });
+};
 
 export const buildAppMenuItems = (
   isMac: boolean,
@@ -144,17 +156,33 @@ export const buildEditMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   { role: 'selectAll' as const, label: 'すべて選択' },
 ];
 
-export const buildCodingMenuItems = (): Electron.MenuItemConstructorOptions[] => [
-  {
-    id: 'toggle-label-mode',
-    label: 'ラベルモード',
-    type: 'checkbox',
-    checked: false,
-    click: (menuItem) => {
-      sendToFocusedWindow('menu-toggle-label-mode', menuItem.checked);
+export const buildCodingMenuItems =
+  (): Electron.MenuItemConstructorOptions[] => [
+    {
+      label: 'コードウィンドウを開く',
+      accelerator: 'CmdOrCtrl+Shift+C',
+      click: () => {
+        void openCodingPanelWindow();
+      },
     },
-  },
-];
+    {
+      label: 'コードウィンドウファイルを開く...',
+      accelerator: 'CmdOrCtrl+Option+C',
+      click: () => {
+        sendToAllWindows('menu-open-code-window-file');
+      },
+    },
+    { type: 'separator' },
+    {
+      id: 'toggle-label-mode',
+      label: 'ラベルモード',
+      type: 'checkbox',
+      checked: false,
+      click: (menuItem) => {
+        sendToAllWindows('menu-toggle-label-mode', menuItem.checked);
+      },
+    },
+  ];
 
 export const buildSyncMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   {
@@ -175,25 +203,33 @@ export const buildSyncMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   },
 ];
 
-export const buildWindowMenuItems = (): Electron.MenuItemConstructorOptions[] => [
-  {
-    label: '分析ウィンドウを開く',
-    click: () => {
-      openAnalysisWindow();
+export const buildWindowMenuItems =
+  (): Electron.MenuItemConstructorOptions[] => [
+    {
+      label: 'コードウィンドウを開く',
+      click: () => {
+        void openCodingPanelWindow();
+      },
     },
-  },
-  {
-    label: 'プレイリストウィンドウを開く',
-    click: () => {
-      createPlaylistWindow();
+    { type: 'separator' },
+    {
+      label: '分析ウィンドウを開く',
+      click: () => {
+        openAnalysisWindow();
+      },
     },
-  },
-  { type: 'separator' },
-  { role: 'minimize' as const, label: '最小化' },
-  { role: 'zoom' as const, label: '拡大/縮小' },
-  { type: 'separator' },
-  { role: 'front' as const, label: '全てを前面に出す' },
-];
+    {
+      label: 'プレイリストウィンドウを開く',
+      click: () => {
+        createPlaylistWindow();
+      },
+    },
+    { type: 'separator' },
+    { role: 'minimize' as const, label: '最小化' },
+    { role: 'zoom' as const, label: '拡大/縮小' },
+    { type: 'separator' },
+    { role: 'front' as const, label: '全てを前面に出す' },
+  ];
 
 export const buildHelpMenuItems = (
   isDevEnv: boolean,

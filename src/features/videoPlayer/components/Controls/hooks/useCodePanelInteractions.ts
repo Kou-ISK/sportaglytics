@@ -5,7 +5,8 @@ import type {
   CodeWindowLayout,
 } from '../../../../../types/settings/coreTypes';
 import {
-  replaceTeamPlaceholders,
+  containsUnresolvedTeamPlaceholder,
+  replaceTeamPlaceholderAliases,
   type TeamContext,
 } from '../../../../../utils/teamPlaceholder';
 import { resolveActionLabelGroups } from '../../../shared/actionLabelGroups';
@@ -79,7 +80,7 @@ export const useCodePanelInteractions = ({
       if (!customLayout) return undefined;
       const button = customLayout.buttons.find(
         (entry) =>
-          replaceTeamPlaceholders(entry.name, teamContext) === buttonName,
+          replaceTeamPlaceholderAliases(entry.name, teamContext) === buttonName,
       );
       return button?.color;
     },
@@ -115,6 +116,7 @@ export const useCodePanelInteractions = ({
 
   const { handleLabelButtonClick } = useLabelButtonInteractions({
     activeMode,
+    hasSelectedTimelineItems: selectedIds.length > 0,
     teamNames,
     effectiveLinks,
     isSameActionName,
@@ -161,7 +163,14 @@ export const useCodePanelInteractions = ({
   const handleCustomButtonClick = useCallback(
     (button: CodeWindowButton) => {
       if (button.type === 'action') {
-        const buttonName = replaceTeamPlaceholders(button.name, teamContext);
+        const buttonName = replaceTeamPlaceholderAliases(
+          button.name,
+          teamContext,
+        );
+        if (containsUnresolvedTeamPlaceholder(buttonName)) {
+          setWarning('チーム名の読み込み後にコードボタンを押してください');
+          return;
+        }
         const matchedTeam = teamNames.find((team) =>
           buttonName.startsWith(`${team} `),
         );
@@ -199,7 +208,7 @@ export const useCodePanelInteractions = ({
       }
 
       if (button.type === 'label' && button.labelValue) {
-        const labelButtonName = replaceTeamPlaceholders(
+        const labelButtonName = replaceTeamPlaceholderAliases(
           button.name,
           teamContext,
         );
