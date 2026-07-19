@@ -47,6 +47,8 @@ const syncPayload: CodingPanelWindowSyncPayload = {
       Result: 'Success',
     },
   },
+  selectedTimelineLabels: [{ group: 'Result', name: 'Success' }],
+  statusMessage: null,
   hotkeys: [
     {
       id: 'play-pause',

@@ -20,6 +20,7 @@ import {
   buildSelectionButtonUpdates,
   FreeCanvasEditor,
 } from '../../settings';
+import { CODING_PANEL_WINDOW_CREATION_ACTIONS_ID } from './CodingPanelWindowToolbar';
 
 interface CodingPanelWindowEditPaneProps {
   layout: CodeWindowLayout | null;
@@ -124,6 +125,8 @@ export const CodingPanelWindowEditPane = ({
             availableActions={availableActions}
             availableLabelGroups={availableLabelGroups}
             onInspectButton={handleInspectButton}
+            showCreationToolbar
+            creationToolbarTargetId={CODING_PANEL_WINDOW_CREATION_ACTIONS_ID}
           />
         )}
       </Box>
@@ -131,8 +134,14 @@ export const CodingPanelWindowEditPane = ({
       <Dialog
         open={Boolean(inspectedButtonId && selectedButton)}
         onClose={handleCloseInspector}
-        maxWidth="sm"
-        fullWidth
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            width: 420,
+            maxWidth: 'calc(100vw - 32px)',
+            maxHeight: 'calc(100vh - 48px)',
+          },
+        }}
       >
         <DialogTitle
           sx={{
@@ -140,6 +149,7 @@ export const CodingPanelWindowEditPane = ({
             alignItems: 'center',
             gap: 1,
             pr: 6,
+            py: 1.25,
           }}
         >
           <Stack spacing={0} sx={{ minWidth: 0 }}>
@@ -160,7 +170,63 @@ export const CodingPanelWindowEditPane = ({
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent
+          dividers
+          sx={{
+            p: 1,
+            overflow: 'auto',
+            '& > .MuiPaper-root': {
+              p: 1.25,
+              borderRadius: 1,
+            },
+            '& .MuiTabs-root': {
+              minHeight: 32,
+              mb: 0.5,
+            },
+            '& .MuiTab-root': {
+              minHeight: 32,
+              py: 0.5,
+              fontSize: '0.75rem',
+            },
+            '& .MuiFormControl-root, & .MuiTextField-root': {
+              mb: '8px !important',
+            },
+            '& .MuiInputBase-root': {
+              minHeight: 34,
+              fontSize: '0.82rem',
+            },
+            '& .MuiInputLabel-root': {
+              fontSize: '0.82rem',
+            },
+            '& .MuiMenuItem-root': {
+              minHeight: 30,
+              fontSize: '0.82rem',
+            },
+            '& .MuiTypography-subtitle1': {
+              fontSize: '0.92rem',
+            },
+            '& .MuiTypography-subtitle2': {
+              mb: 0.5,
+              fontSize: '0.8rem',
+            },
+            '& .MuiTypography-caption': {
+              fontSize: '0.68rem',
+            },
+            '& .MuiDivider-root': {
+              my: '10px !important',
+            },
+            '& .MuiChip-root': {
+              height: 22,
+              fontSize: '0.7rem',
+            },
+            '& .MuiToggleButton-root': {
+              py: 0.5,
+            },
+            '& .MuiSlider-root': {
+              py: 0.75,
+            },
+          }}
+        >
           <ButtonPropertiesEditor
             button={selectedButton}
             onUpdate={handleSelectedButtonUpdate}

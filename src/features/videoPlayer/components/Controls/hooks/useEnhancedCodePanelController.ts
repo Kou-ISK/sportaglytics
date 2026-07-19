@@ -10,7 +10,7 @@ import type {
 } from '../../../../../types/settings/coreTypes';
 import { useSettings } from '../../../../../hooks/useSettings';
 import {
-  replaceTeamPlaceholders,
+  replaceTeamPlaceholderAliases,
   type TeamContext,
 } from '../../../../../utils/teamPlaceholder';
 import { buildEffectiveLinks } from '../effectiveLinks';
@@ -41,7 +41,11 @@ import {
 } from '../gateways/codeWindowRuntimeFileGateway';
 
 interface UseEnhancedCodePanelControllerResult {
-  triggerAction: (teamName: string, actionName: string) => void;
+  triggerAction: (
+    teamName: string,
+    actionName: string,
+    buttonId?: string,
+  ) => void;
   viewProps: EnhancedCodePanelViewProps;
 }
 
@@ -50,6 +54,7 @@ export const useEnhancedCodePanelController = ({
   teamNames,
   firstTeamName,
   selectedIds = [],
+  selectedTimelineLabels = [],
   onApplyLabels,
   windowHotkeys = [],
   onHotkeyKeyDown,
@@ -65,8 +70,8 @@ export const useEnhancedCodePanelController = ({
 
   const teamContext: TeamContext = useMemo(
     () => ({
-      team1Name: teamNames[0] || 'Team1',
-      team2Name: teamNames[1] || 'Team2',
+      team1Name: teamNames[0] || '',
+      team2Name: teamNames[1] || '',
     }),
     [teamNames],
   );
@@ -148,8 +153,9 @@ export const useEnhancedCodePanelController = ({
   const { activeMode, setActiveMode, actionLinks } = useCodePanelSettings(
     settings.codingPanel,
   );
-  const setWarning = useCallback((message: string | null) => {
-    void message;
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const setWarning = useCallback((message: string | null): void => {
+    setStatusMessage(message);
   }, []);
   const recentActionsRef = useRef<string[]>([]);
   const [activeLabelButtons, setActiveLabelButtons] = useState<
@@ -226,6 +232,8 @@ export const useEnhancedCodePanelController = ({
       activeLabelButtons,
       isRecording,
       labelSelections,
+      selectedTimelineLabels,
+      statusMessage,
       hotkeys: windowHotkeys,
       codeWindowFilePath: sessionFilePath ?? undefined,
     }),
@@ -239,7 +247,9 @@ export const useEnhancedCodePanelController = ({
       isRecording,
       labelSelections,
       primaryAction,
+      selectedTimelineLabels,
       sessionFilePath,
+      statusMessage,
       teamNames,
       windowHotkeys,
     ],
@@ -341,7 +351,7 @@ export const useEnhancedCodePanelController = ({
       if (!customLayout) return undefined;
       const button = customLayout.buttons.find(
         (entry) =>
-          replaceTeamPlaceholders(entry.name, teamContext) === buttonName,
+          replaceTeamPlaceholderAliases(entry.name, teamContext) === buttonName,
       );
       return button?.color;
     },
@@ -349,7 +359,7 @@ export const useEnhancedCodePanelController = ({
   );
 
   const triggerAction = useCallback(
-    (teamName: string, actionName: string) => {
+    (teamName: string, actionName: string, buttonId?: string) => {
       const matchingTeam = teamNames.find((team) =>
         actionName.startsWith(`${team} `),
       );
@@ -371,6 +381,7 @@ export const useEnhancedCodePanelController = ({
         action,
         actionName,
         getButtonColorByName(actionName),
+        buttonId,
       );
     },
     [activeActions, getButtonColorByName, handleActionClick, teamNames],
@@ -392,6 +403,8 @@ export const useEnhancedCodePanelController = ({
       activeActions,
       getActionLabels,
       labelSelections,
+      selectedTimelineLabels,
+      statusMessage,
       handleLabelSelect,
       handleCustomButtonClick,
       handleActionClick,

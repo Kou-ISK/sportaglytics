@@ -92,7 +92,7 @@ export const VideoPlayerLayout = ({
       sx={{
         display: 'grid',
         gridTemplateColumns: '1fr',
-        gridTemplateRows: 'minmax(0, 1fr) minmax(250px, 1fr)',
+        gridTemplateRows: 'minmax(0, 1fr) minmax(160px, 30vh)',
         flex: 1,
         height: '100%',
         minHeight: 0,

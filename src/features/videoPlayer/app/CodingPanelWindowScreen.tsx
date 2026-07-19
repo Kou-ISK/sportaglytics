@@ -26,11 +26,6 @@ import {
   type CodingPanelWindowMode,
 } from './CodingPanelWindowToolbar';
 
-const fallbackTeamContext: TeamContext = {
-  team1Name: 'Team1',
-  team2Name: 'Team2',
-};
-
 const createEmptyLayout = (
   canvasWidth: number,
   canvasHeight: number,
@@ -172,7 +167,11 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
     return handlers;
   }, [payload?.hotkeys]);
 
-  useGlobalHotkeys(payload?.hotkeys ?? [], hotkeyHandlers, hotkeyKeyUpHandlers);
+  useGlobalHotkeys(
+    windowMode === 'edit' ? [] : (payload?.hotkeys ?? []),
+    hotkeyHandlers,
+    hotkeyKeyUpHandlers,
+  );
 
   const handleModeChange = useCallback(
     (
@@ -226,8 +225,8 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
   }
 
   const teamContext: TeamContext = {
-    team1Name: payload.teamNames[0] || fallbackTeamContext.team1Name,
-    team2Name: payload.teamNames[1] || fallbackTeamContext.team2Name,
+    team1Name: payload.teamNames[0] || '',
+    team2Name: payload.teamNames[1] || '',
   };
 
   return (
@@ -270,6 +269,8 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
             activeActions={payload.activeActions}
             getActionLabels={getActionLabels}
             labelSelections={payload.labelSelections}
+            selectedTimelineLabels={payload.selectedTimelineLabels}
+            statusMessage={payload.statusMessage}
             handleLabelSelect={handleLabelSelect}
             handleCustomButtonClick={handleCustomButtonClick}
             handleActionClick={handleActionClick}

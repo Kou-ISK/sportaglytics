@@ -1,5 +1,8 @@
-import React, { useCallback, useRef } from 'react';
-import { Box } from '@mui/material';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Box, Button, Stack } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import LabelIcon from '@mui/icons-material/Label';
 import type {
   CodeWindowButton,
   CodeWindowLayout,
@@ -25,6 +28,8 @@ interface FreeCanvasEditorProps {
   availableLabelGroups: Array<{ groupName: string; options: string[] }>;
   showLinks?: boolean;
   onInspectButton?: (button: CodeWindowButton) => void;
+  showCreationToolbar?: boolean;
+  creationToolbarTargetId?: string;
 }
 
 export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
@@ -36,9 +41,13 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
   availableLabelGroups,
   showLinks = true,
   onInspectButton,
+  showCreationToolbar = false,
+  creationToolbarTargetId,
 }) => {
   const gridSize = 10;
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [creationToolbarTarget, setCreationToolbarTarget] =
+    useState<HTMLElement | null>(null);
   const selectedPrimaryId = selectedButtonIds[0] ?? null;
 
   const { selectedLinkId, setSelectedLinkId, updateLayoutWithHistory } =
@@ -116,8 +125,73 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     getCanvasPosition,
   });
 
+  useEffect(() => {
+    if (!creationToolbarTargetId) {
+      setCreationToolbarTarget(null);
+      return;
+    }
+    setCreationToolbarTarget(document.getElementById(creationToolbarTargetId));
+  }, [creationToolbarTargetId]);
+
+  const creationToolbar = showCreationToolbar ? (
+    <Stack direction="row" spacing={0.25}>
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<AddIcon />}
+        onClick={() => handleOpenCustomActionDialog({ x: 20, y: 20 })}
+        sx={{
+          minWidth: 0,
+          minHeight: 24,
+          px: 0.5,
+          py: 0.125,
+          fontSize: '0.66rem',
+          lineHeight: 1.1,
+          '& .MuiButton-startIcon': {
+            mr: 0.25,
+            ml: 0,
+          },
+          '& .MuiSvgIcon-root': {
+            fontSize: 14,
+          },
+        }}
+      >
+        アクション
+      </Button>
+      <Button
+        size="small"
+        variant="outlined"
+        color="secondary"
+        startIcon={<LabelIcon />}
+        onClick={() => handleOpenCustomLabelDialog({ x: 20, y: 20 })}
+        sx={{
+          minWidth: 0,
+          minHeight: 24,
+          px: 0.5,
+          py: 0.125,
+          fontSize: '0.66rem',
+          lineHeight: 1.1,
+          '& .MuiButton-startIcon': {
+            mr: 0.25,
+            ml: 0,
+          },
+          '& .MuiSvgIcon-root': {
+            fontSize: 14,
+          },
+        }}
+      >
+        ラベル
+      </Button>
+    </Stack>
+  ) : null;
+
   return (
-    <Box>
+    <Box sx={{ position: 'relative', width: layout.canvasWidth }}>
+      {creationToolbarTarget && creationToolbar
+        ? createPortal(creationToolbar, creationToolbarTarget)
+        : creationToolbarTargetId
+          ? null
+          : creationToolbar}
       <FreeCanvasStage
         canvasRef={canvasRef}
         layout={layout}

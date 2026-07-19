@@ -1,3 +1,5 @@
+import type { SCLabel } from '../../../../types/timeline/sportscode';
+
 export interface EnhancedCodePanelProps {
   addTimelineData: (
     actionName: string,
@@ -12,6 +14,7 @@ export interface EnhancedCodePanelProps {
   teamNames: string[];
   firstTeamName?: string;
   selectedIds?: string[];
+  selectedTimelineLabels?: SCLabel[];
   onApplyLabels?: (
     ids: string[],
     labels: { name: string; group: string }[],
@@ -27,5 +30,9 @@ export interface EnhancedCodePanelProps {
 }
 
 export interface EnhancedCodePanelHandle {
-  triggerAction: (teamName: string, actionName: string) => void;
+  triggerAction: (
+    teamName: string,
+    actionName: string,
+    buttonId?: string,
+  ) => void;
 }

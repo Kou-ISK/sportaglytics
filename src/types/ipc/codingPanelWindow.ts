@@ -3,6 +3,7 @@ import type {
   CodeWindowLayout,
   HotkeyConfig,
 } from '../settings/coreTypes';
+import type { SCLabel } from '../timeline/sportscode';
 
 export const CODING_PANEL_WINDOW_CHANNELS = {
   openWindow: 'coding-panel:open-window',
@@ -24,6 +25,8 @@ export interface CodingPanelWindowSyncPayload {
   activeLabelButtons: Record<string, boolean>;
   isRecording: boolean;
   labelSelections: Record<string, Record<string, string>>;
+  selectedTimelineLabels: SCLabel[];
+  statusMessage: string | null;
   hotkeys: HotkeyConfig[];
   codeWindowFilePath?: string;
 }
@@ -163,6 +166,14 @@ const isLabelSelections = (
   });
 };
 
+const isTimelineLabel = (value: unknown): value is SCLabel => {
+  if (!isPlainObject(value)) return false;
+  return (
+    isString(value.name) &&
+    (value.group === undefined || isString(value.group))
+  );
+};
+
 export const isCodingPanelWindowSyncPayload = (
   value: unknown,
 ): value is CodingPanelWindowSyncPayload => {
@@ -179,6 +190,9 @@ export const isCodingPanelWindowSyncPayload = (
     isBooleanMap(value.activeLabelButtons) &&
     typeof value.isRecording === 'boolean' &&
     isLabelSelections(value.labelSelections) &&
+    Array.isArray(value.selectedTimelineLabels) &&
+    value.selectedTimelineLabels.every(isTimelineLabel) &&
+    (value.statusMessage === null || isString(value.statusMessage)) &&
     Array.isArray(value.hotkeys) &&
     value.hotkeys.every(isHotkeyConfig) &&
     (value.codeWindowFilePath === undefined ||

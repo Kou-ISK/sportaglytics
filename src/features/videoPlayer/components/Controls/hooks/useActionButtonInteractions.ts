@@ -67,6 +67,7 @@ export const useActionButtonInteractions = ({
         relatedLinks,
         clickedButtonName,
         isSameActionName,
+        buttonId,
       );
 
       effects.exclusiveTargets.forEach((targetName) => {

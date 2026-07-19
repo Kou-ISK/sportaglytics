@@ -7,6 +7,8 @@ import SaveIcon from '@mui/icons-material/Save';
 import SaveAsIcon from '@mui/icons-material/SaveAs';
 
 export type CodingPanelWindowMode = 'code' | 'label' | 'edit';
+export const CODING_PANEL_WINDOW_CREATION_ACTIONS_ID =
+  'coding-panel-window-creation-actions';
 
 interface CodingPanelWindowToolbarProps {
   mode: CodingPanelWindowMode;
@@ -59,6 +61,14 @@ export const CodingPanelWindowToolbar = ({
       <Typography variant="body2" color="text.secondary" noWrap>
         {title}
       </Typography>
+      {mode === 'edit' && (
+        <Stack
+          id={CODING_PANEL_WINDOW_CREATION_ACTIONS_ID}
+          direction="row"
+          spacing={0.25}
+          alignItems="center"
+        />
+      )}
       <Box sx={{ flex: 1 }} />
       {mode === 'edit' && (
         <>
@@ -67,6 +77,15 @@ export const CodingPanelWindowToolbar = ({
             startIcon={<SaveIcon />}
             disabled={!canSave}
             onClick={onSave}
+            sx={{
+              minHeight: 24,
+              px: 0.75,
+              py: 0.125,
+              fontSize: '0.7rem',
+              lineHeight: 1.1,
+              '& .MuiButton-startIcon': { mr: 0.25 },
+              '& .MuiSvgIcon-root': { fontSize: 14 },
+            }}
           >
             保存
           </Button>
@@ -75,6 +94,15 @@ export const CodingPanelWindowToolbar = ({
             startIcon={<SaveAsIcon />}
             disabled={!canSave}
             onClick={onSaveAs}
+            sx={{
+              minHeight: 24,
+              px: 0.75,
+              py: 0.125,
+              fontSize: '0.7rem',
+              lineHeight: 1.1,
+              '& .MuiButton-startIcon': { mr: 0.25 },
+              '& .MuiSvgIcon-root': { fontSize: 14 },
+            }}
           >
             別名保存
           </Button>

@@ -7,6 +7,7 @@ import type { LabelSelectionsMap } from './useLabelSelections';
 
 interface UseLabelButtonInteractionsParams {
   activeMode: 'code' | 'label';
+  hasSelectedTimelineItems: boolean;
   teamNames: string[];
   effectiveLinks: EffectiveLink[];
   isSameActionName: (a: string, b: string) => boolean;
@@ -38,6 +39,7 @@ interface UseLabelButtonInteractionsParams {
 
 export const useLabelButtonInteractions = ({
   activeMode,
+  hasSelectedTimelineItems,
   teamNames,
   effectiveLinks,
   isSameActionName,
@@ -70,6 +72,7 @@ export const useLabelButtonInteractions = ({
         relatedLinks,
         labelButtonName,
         isSameActionName,
+        button.id,
       );
 
       const toDeactivate: string[] = [];
@@ -128,8 +131,16 @@ export const useLabelButtonInteractions = ({
         completeRecording(actionName, { [labelButtonName]: labelValue }),
       );
 
-      if (activeMode === 'label') {
-        handleApplyLabel(button.name, labelValue);
+      if (activeMode === 'label' && hasSelectedTimelineItems) {
+        handleApplyLabel(labelButtonName, labelValue);
+      }
+      if (
+        activeMode === 'label' &&
+        !hasSelectedTimelineItems &&
+        targetActions.size === 0
+      ) {
+        setWarning('タイムラインのアクションを選択してください');
+        return;
       }
       if (newlyStarted.length === 0) {
         setWarning(null);
@@ -143,6 +154,7 @@ export const useLabelButtonInteractions = ({
       getButtonColorByName,
       getCurrentTime,
       handleApplyLabel,
+      hasSelectedTimelineItems,
       isSameActionName,
       resolveRecordingKey,
       setActiveLabelButtons,

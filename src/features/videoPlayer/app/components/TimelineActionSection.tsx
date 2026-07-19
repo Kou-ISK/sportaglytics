@@ -60,7 +60,7 @@ export const TimelineActionSection = ({
         display: 'flex',
         height: '100%',
         minHeight: 0,
-        p: 1.5,
+        p: 1,
       }}
     >
       <Paper

@@ -24,6 +24,7 @@ import { useAnalysisIntegration } from './hooks/useAnalysisIntegration';
 import { useMetadataTeamNames } from './hooks/useMetadataTeamNames';
 import { buildSelectionLabelUpdates } from './utils/applyLabelsToTimelineSelection';
 import type { CodeWindowLayout } from '../../../types/settings/coreTypes';
+import type { SCLabel } from '../../../types/timeline/sportscode';
 
 export const VideoPlayerScreen = () => {
   const {
@@ -189,6 +190,24 @@ export const VideoPlayerScreen = () => {
     [bulkUpdateTimelineItems, timeline],
   );
 
+  const selectedTimelineLabels = React.useMemo<SCLabel[]>(() => {
+    if (selectedTimelineIdList.length === 0) return [];
+
+    const selectedItems = selectedTimelineIdList
+      .map((id) => timeline.find((item) => item.id === id))
+      .filter((item) => item !== undefined);
+    if (selectedItems.length !== selectedTimelineIdList.length) return [];
+
+    const [firstItem, ...restItems] = selectedItems;
+    return (firstItem.labels ?? []).filter((label) =>
+      restItems.every((item) =>
+        (item.labels ?? []).some(
+          (entry) => entry.name === label.name && entry.group === label.group,
+        ),
+      ),
+    );
+  }, [selectedTimelineIdList, timeline]);
+
   const handleCodingWindowHotkeyKeyDown = useCallback(
     (hotkeyId: string): void => {
       combinedHandlers[hotkeyId]?.();
@@ -258,6 +277,7 @@ export const VideoPlayerScreen = () => {
         teamNames={teamNames}
         firstTeamName={firstTeamName}
         selectedIds={selectedTimelineIdList}
+        selectedTimelineLabels={selectedTimelineLabels}
         onApplyLabels={handleApplyLabelsToTimeline}
         windowHotkeys={combinedHotkeys}
         onHotkeyKeyDown={handleCodingWindowHotkeyKeyDown}
