@@ -11,6 +11,7 @@ type UpdatableKey =
   | 'y'
   | 'fontSize'
   | 'hotkey'
+  | 'showHotkey'
   | 'name'
   | 'labelValue'
   | 'team';
@@ -26,6 +27,7 @@ const UPDATABLE_KEYS: UpdatableKey[] = [
   'y',
   'fontSize',
   'hotkey',
+  'showHotkey',
   'name',
   'labelValue',
   'team',

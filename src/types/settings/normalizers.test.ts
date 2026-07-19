@@ -36,6 +36,13 @@ describe('normalizeAppSettings', () => {
             ...legacyLayout,
             id: 'legacy-layout',
             name: 'Legacy Layout',
+            buttons: [
+              {
+                ...legacyLayout.buttons[0],
+                hotkey: 'A',
+                showHotkey: true,
+              },
+            ],
           },
         ],
         activeLayoutId: 'legacy-layout',
@@ -104,6 +111,11 @@ describe('normalizeAppSettings', () => {
       normalized.codingPanel?.codeWindows?.some(
         (layout) => layout.id === 'rugby-labels',
       ),
+    ).toBe(true);
+    expect(
+      normalized.codingPanel?.codeWindows?.find(
+        (layout) => layout.id === 'legacy-layout',
+      )?.buttons[0]?.showHotkey,
     ).toBe(true);
 
     expect(normalized.analysisDashboard?.activeDashboardId).toBe(

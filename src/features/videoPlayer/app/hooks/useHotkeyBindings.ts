@@ -4,7 +4,7 @@ import type {
   ActionDefinition,
   HotkeyConfig,
 } from '../../../../types/settings/coreTypes';
-import type { TimelineActionSectionHandle } from '../components/TimelineActionSection';
+import type { EnhancedCodePanelHandle } from '../../components/Controls/EnhancedCodePanel';
 
 interface UseHotkeyBindingsParams {
   currentTime: number;
@@ -13,7 +13,7 @@ interface UseHotkeyBindingsParams {
   settingsHotkeys: HotkeyConfig[];
   activeActions: ActionDefinition[];
   codeWindowButtons?: { id: string; name: string; hotkey?: string }[];
-  timelineActionRef: RefObject<TimelineActionSectionHandle | null>;
+  timelineActionRef: RefObject<EnhancedCodePanelHandle | null>;
   setVideoPlayBackRate: (rate: number) => void;
   setIsVideoPlaying: (value: boolean) => void;
   setViewMode: Dispatch<SetStateAction<'dual' | 'angle1' | 'angle2'>>;
@@ -54,7 +54,7 @@ export const useHotkeyBindings = ({
   deleteTimelineDatas,
   clearSelection,
 }: UseHotkeyBindingsParams) => {
-  const hotkeyHandlers = useMemo(
+  const hotkeyHandlers = useMemo<Record<string, () => void>>(
     () => ({
       'skip-forward-small': () => {
         setVideoPlayBackRate(0.5);
@@ -137,7 +137,7 @@ export const useHotkeyBindings = ({
     ],
   );
 
-  const keyUpHandlers = useMemo(
+  const keyUpHandlers = useMemo<Record<string, () => void>>(
     () => ({
       'skip-forward-small': () => {
         setVideoPlayBackRate(1);
@@ -226,27 +226,26 @@ export const useHotkeyBindings = ({
   // コードウィンドウボタンのハンドラ
   const codeWindowHandlers = useMemo(() => {
     const handlers: Record<string, () => void> = {};
-    const teamContext =
-      teamNames.length >= 2
-        ? { team1Name: teamNames[0], team2Name: teamNames[1] }
-        : {
-            team1Name: teamNames[0] || 'Team1',
-            team2Name: teamNames[1] || 'Team2',
-          };
-
     const replacePlaceholder = (name: string) =>
       name
-        .replace(/\$\{Team1\}/g, teamContext.team1Name)
-        .replace(/\$\{Team2\}/g, teamContext.team2Name);
+        .replace(/\$\{Team1\}/g, teamNames[0] || '${Team1}')
+        .replace(/\$\{Team2\}/g, teamNames[1] || '${Team2}')
+        .replace(/^Team1\s+/, teamNames[0] ? `${teamNames[0]} ` : 'Team1 ')
+        .replace(/^Team2\s+/, teamNames[1] ? `${teamNames[1]} ` : 'Team2 ');
 
     for (const btn of codeWindowButtons) {
       if (!btn.hotkey) continue;
       const actionName = replacePlaceholder(btn.name);
+      if (/\$\{Team[12]\}/.test(actionName)) continue;
       handlers[`codewindow-${btn.id}`] = () => {
         // ボタン名がチーム名プレフィックスを含むためそのままトリガー
         const team = teamNames.find((t) => actionName.startsWith(`${t} `));
         const resolvedTeam = team || teamNames[0] || '';
-        timelineActionRef.current?.triggerAction(resolvedTeam, actionName);
+        timelineActionRef.current?.triggerAction(
+          resolvedTeam,
+          actionName,
+          btn.id,
+        );
       };
     }
     return handlers;

@@ -1,4 +1,5 @@
 export { AnalysisWindowScreen } from './app/AnalysisWindowScreen';
+export { CodingPanelWindowScreen } from './app/CodingPanelWindowScreen';
 export { VideoPlayerScreen } from './app/VideoPlayerScreen';
 export { AnalysisPanel } from './components/Analytics/AnalysisPanel/AnalysisPanel';
 export { VideoPlayer } from './components/Player/VideoPlayer';
@@ -8,6 +9,7 @@ export {
   EnhancedCodePanel,
   type EnhancedCodePanelHandle,
 } from './components/Controls/EnhancedCodePanel';
+export { CodingPanelRuntime } from './components/Controls/CodingPanelRuntime';
 export { VideoPathSelector } from './components/Setup/VideoPathSelector';
 
 // Analysis report view components (public)

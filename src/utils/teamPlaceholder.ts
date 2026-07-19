@@ -42,3 +42,28 @@ export function replaceTeamPlaceholders(
     .replace(/\$\{Team1\}/g, context.team1Name || 'Team1')
     .replace(/\$\{Team2\}/g, context.team2Name || 'Team2');
 }
+
+export function replaceTeamPlaceholdersWhenKnown(
+  text: string,
+  context: TeamContext,
+): string {
+  if (!text) return text;
+
+  return text
+    .replace(/\$\{Team1\}/g, context.team1Name || '${Team1}')
+    .replace(/\$\{Team2\}/g, context.team2Name || '${Team2}');
+}
+
+export function replaceTeamPlaceholderAliases(
+  text: string,
+  context: TeamContext,
+): string {
+  const replaced = replaceTeamPlaceholdersWhenKnown(text, context);
+  return replaced
+    .replace(/^Team1\s+/, context.team1Name ? `${context.team1Name} ` : 'Team1 ')
+    .replace(/^Team2\s+/, context.team2Name ? `${context.team2Name} ` : 'Team2 ');
+}
+
+export function containsUnresolvedTeamPlaceholder(text: string): boolean {
+  return /\$\{Team[12]\}/.test(text);
+}

@@ -140,6 +140,10 @@ const normalizeCodeWindowButton = (value: unknown): CodeWindowButton | null => {
     normalized.hotkey = hotkey;
   }
 
+  if (typeof value.showHotkey === 'boolean') {
+    normalized.showHotkey = value.showHotkey;
+  }
+
   if (
     value.team === 'team1' ||
     value.team === 'team2' ||
@@ -277,7 +281,9 @@ export const normalizeCodingPanelLayouts = (
     : [];
 
   presetLayouts.forEach((presetLayout, presetIndex) => {
-    const idx = codeWindows.findIndex((layout) => layout.id === presetLayout.id);
+    const idx = codeWindows.findIndex(
+      (layout) => layout.id === presetLayout.id,
+    );
     const shouldReplace =
       idx === -1 ||
       codeWindows[idx].canvasWidth !== presetLayout.canvasWidth ||
@@ -296,7 +302,7 @@ export const normalizeCodingPanelLayouts = (
     (layout) => layout.id === requestedActiveId,
   )
     ? requestedActiveId
-    : defaultLayout?.id ?? 'default';
+    : (defaultLayout?.id ?? 'default');
 
   return {
     ...panel,

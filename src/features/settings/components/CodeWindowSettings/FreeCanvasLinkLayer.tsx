@@ -27,83 +27,83 @@ export const FreeCanvasLinkLayer = ({
       <defs>
         <marker
           id="arrowhead-exclusive"
-          markerWidth="12"
-          markerHeight="9"
-          refX="10"
-          refY="4.5"
+          markerWidth="6"
+          markerHeight="4"
+          refX="5"
+          refY="2"
           orient="auto"
         >
-          <polygon points="0 0, 12 4.5, 0 9" fill="#d32f2f" />
+          <polygon points="0 0, 6 2, 0 4" fill="#d32f2f" />
         </marker>
         <marker
           id="arrowhead-activate"
-          markerWidth="12"
-          markerHeight="9"
-          refX="10"
-          refY="4.5"
+          markerWidth="6"
+          markerHeight="4"
+          refX="5"
+          refY="2"
           orient="auto"
         >
-          <polygon points="0 0, 12 4.5, 0 9" fill="#388e3c" />
+          <polygon points="0 0, 6 2, 0 4" fill="#388e3c" />
         </marker>
         <marker
           id="arrowhead-deactivate"
-          markerWidth="12"
-          markerHeight="9"
-          refX="10"
-          refY="4.5"
+          markerWidth="6"
+          markerHeight="4"
+          refX="5"
+          refY="2"
           orient="auto"
         >
-          <polygon points="0 0, 12 4.5, 0 9" fill="#f57c00" />
+          <polygon points="0 0, 6 2, 0 4" fill="#f57c00" />
         </marker>
         <marker
           id="arrowhead-sequence"
-          markerWidth="12"
-          markerHeight="9"
-          refX="10"
-          refY="4.5"
+          markerWidth="6"
+          markerHeight="4"
+          refX="5"
+          refY="2"
           orient="auto"
         >
-          <polygon points="0 0, 12 4.5, 0 9" fill="#1976d2" />
+          <polygon points="0 0, 6 2, 0 4" fill="#1976d2" />
         </marker>
         <marker
           id="arrowhead-selected"
-          markerWidth="12"
-          markerHeight="9"
-          refX="10"
-          refY="4.5"
+          markerWidth="6"
+          markerHeight="4"
+          refX="5"
+          refY="2"
           orient="auto"
         >
-          <polygon points="0 0, 12 4.5, 0 9" fill="#1976d2" />
+          <polygon points="0 0, 6 2, 0 4" fill="#1976d2" />
         </marker>
         <marker
           id="arrowhead-dragging-exclusive"
-          markerWidth="12"
-          markerHeight="9"
-          refX="10"
-          refY="4.5"
+          markerWidth="6"
+          markerHeight="4"
+          refX="5"
+          refY="2"
           orient="auto"
         >
-          <polygon points="0 0, 12 4.5, 0 9" fill="#d32f2f" />
+          <polygon points="0 0, 6 2, 0 4" fill="#d32f2f" />
         </marker>
         <marker
           id="arrowhead-dragging-lead"
-          markerWidth="12"
-          markerHeight="9"
-          refX="10"
-          refY="4.5"
+          markerWidth="6"
+          markerHeight="4"
+          refX="5"
+          refY="2"
           orient="auto"
         >
-          <polygon points="0 0, 12 4.5, 0 9" fill="#388e3c" />
+          <polygon points="0 0, 6 2, 0 4" fill="#388e3c" />
         </marker>
         <marker
           id="arrowhead-dragging-deactivate"
-          markerWidth="12"
-          markerHeight="9"
-          refX="10"
-          refY="4.5"
+          markerWidth="6"
+          markerHeight="4"
+          refX="5"
+          refY="2"
           orient="auto"
         >
-          <polygon points="0 0, 12 4.5, 0 9" fill="#f57c00" />
+          <polygon points="0 0, 6 2, 0 4" fill="#f57c00" />
         </marker>
       </defs>
       <g style={{ pointerEvents: 'auto' }}>{links}</g>

@@ -10,6 +10,11 @@ import {
   sendAnalysisDashboardFileToWindow,
 } from './analysisWindow';
 import {
+  registerCodingPanelWindowHandlers,
+  openCodingPanelWindow,
+  setCodingPanelMainWindowRef,
+} from './codingPanelWindow';
+import {
   registerPlaylistHandlers,
   setMainWindowRef,
   setFfmpegPath,
@@ -17,7 +22,10 @@ import {
 } from './playlistWindow';
 import { registerSettingsWindowHandlers } from './settingsWindow';
 import { applyWindowSecurity } from './windowSecurity';
-import { registerCodeWindowHandlers, setPendingCodeWindowExternalOpen } from './ipc/codeWindowHandlers';
+import {
+  registerCodeWindowHandlers,
+  setPendingCodeWindowExternalOpen,
+} from './ipc/codeWindowHandlers';
 import { registerDashboardHandlers } from './ipc/dashboardHandlers';
 import { registerExportHandlers } from './ipc/exportHandlers';
 import { registerExportProgressWindowHandlers } from './exportProgressWindow';
@@ -142,6 +150,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
   mainWindow = window;
   setMainWindowRef(window);
   setAnalysisMainWindowRef(window);
+  setCodingPanelMainWindowRef(window);
   window.loadURL(mainURL);
 
   await new Promise<void>((resolve) => {
@@ -165,6 +174,7 @@ registerSettingsHandlers();
 registerPlaylistHandlers();
 registerSettingsWindowHandlers();
 registerAnalysisWindowHandlers();
+registerCodingPanelWindowHandlers();
 registerExportProgressWindowHandlers();
 registerMainIpcHandlers();
 
@@ -188,6 +198,7 @@ const handleFileOpen = (filePath: string): void => {
     void sendAnalysisDashboardFileToWindow(filePath);
   } else if (ext === '.stcw') {
     setPendingCodeWindowExternalOpen(filePath);
+    void openCodingPanelWindow();
     mainWindow.webContents.send('open-code-window-file', filePath);
   } else if (ext === '.stpkg' || !ext) {
     mainWindow.webContents.send('open-package-directory', filePath);

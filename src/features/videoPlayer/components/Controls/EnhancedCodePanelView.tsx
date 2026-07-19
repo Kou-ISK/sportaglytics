@@ -1,10 +1,12 @@
 import React from 'react';
-import { Box } from '@mui/material';
+import { Alert, Box, IconButton, Tooltip } from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import type {
   ActionDefinition,
   CodeWindowButton,
   CodeWindowLayout,
 } from '../../../../types/settings/coreTypes';
+import type { SCLabel } from '../../../../types/timeline/sportscode';
 import type { TeamContext } from '../../../../utils/teamPlaceholder';
 import { ActionLabelGroup } from './ActionLabelGroup';
 import { CodePanelModeIndicator } from './CodePanelModeIndicator';
@@ -27,6 +29,8 @@ export interface EnhancedCodePanelViewProps {
     action: ActionDefinition,
   ) => { groupName: string; options: string[] }[];
   labelSelections: Record<string, Record<string, string>>;
+  selectedTimelineLabels: SCLabel[];
+  statusMessage: string | null;
   handleLabelSelect: (
     actionName: string,
     groupName: string,
@@ -34,6 +38,7 @@ export interface EnhancedCodePanelViewProps {
   ) => void;
   handleCustomButtonClick: (button: CodeWindowButton) => void;
   handleActionClick: (teamName: string, action: ActionDefinition) => void;
+  onOpenDetachedWindow?: () => void;
 }
 
 export const EnhancedCodePanelView = ({
@@ -50,9 +55,12 @@ export const EnhancedCodePanelView = ({
   activeActions,
   getActionLabels,
   labelSelections,
+  selectedTimelineLabels,
+  statusMessage,
   handleLabelSelect,
   handleCustomButtonClick,
   handleActionClick,
+  onOpenDetachedWindow,
 }: EnhancedCodePanelViewProps) => {
   const referenceTeamName = firstTeamName || teamNames[0];
 
@@ -94,7 +102,24 @@ export const EnhancedCodePanelView = ({
         }}
       >
         <CodePanelModeIndicator activeMode={activeMode} />
+        {onOpenDetachedWindow && (
+          <Tooltip title="コードパネルを別ウィンドウで開く">
+            <IconButton
+              size="small"
+              aria-label="コードパネルを別ウィンドウで開く"
+              onClick={onOpenDetachedWindow}
+            >
+              <OpenInNewIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
+
+      {statusMessage && (
+        <Alert severity="warning" sx={{ mb: 1, py: 0 }}>
+          {statusMessage}
+        </Alert>
+      )}
 
       {customLayout ? (
         <CustomCodeLayout
@@ -104,6 +129,7 @@ export const EnhancedCodePanelView = ({
           primaryAction={primaryAction}
           activeLabelButtons={activeLabelButtons}
           isRecording={isRecording}
+          selectedTimelineLabels={selectedTimelineLabels}
           layoutContainerRef={layoutContainerRef}
           onButtonClick={handleCustomButtonClick}
         />

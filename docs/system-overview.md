@@ -42,7 +42,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
   - `electron/src/preload/analysisBridge.ts`
   - `electron/src/preload/playlistBridge.ts`
   - `electron/src/preload/codeWindowBridge.ts`
-- playlist / analysis window の IPC 契約は `src/types/ipc/playlistWindow.ts` と `src/types/ipc/analysisWindow.ts` を正本にし、channel 名・payload 型・型ガードを main / preload / renderer で共有する（ADR: [0008](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)）
+- playlist / analysis / coding panel window の IPC 契約は `src/types/ipc/playlistWindow.ts`、`src/types/ipc/analysisWindow.ts`、`src/types/ipc/codingPanelWindow.ts` を正本にし、channel 名・payload 型・型ガードを main / preload / renderer で共有する（ADR: [0008](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)）
 - main process の sender 検証は `electron/src/ipc/windowSenderGuards.ts` を共通利用し、`BrowserWindow.fromWebContents(...)` で live な sender window を確認する
 
 ## セキュリティ基準
@@ -63,7 +63,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 
 - Renderer は `window.electronAPI` のみを利用
 - 汎用 `on/off/send` は廃止し、用途別の明示 API に統一
-- playlist / analysis window の公開面は `window.electronAPI.playlist` / `window.electronAPI.analysis` に閉じ込め、top-level に window 専用イベント API を増やさない
+- playlist / analysis / coding panel window の公開面は `window.electronAPI.playlist` / `window.electronAPI.analysis` / `window.electronAPI.codingPanelWindow` に閉じ込め、top-level に window 専用イベント API を増やさない
 - settings の正規化は `src/types/settings/normalizers.ts` の `normalizeAppSettings` を正本とし、main / renderer で重複実装しない
 - settings 正規化の実装詳細は `src/types/settings/normalizerUtils.ts` / `dashboardNormalizers.ts` / `codingPanelNormalizers.ts` に分割し、`normalizers.ts` は facade を維持する
 - playlist の共有契約は `src/types/playlist/` 配下で `core` / `window` / `api` に分割し、`src/types/Playlist.ts` は facade として維持する
@@ -83,7 +83,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - 旧データは読込時に `Type` / `Result` ラベルへマイグレーションし、保存時は新形式のみ出力
 - `AnalysisView` など analysis 系 shared contract は `src/types/analysis/` 配下を正本にし、root の `src/types/AnalysisView.ts` は互換 facade として扱う
 - playlist 同期は `PlaylistSyncData` を正とし、playlist 画面・hooks の契約を統一
-- playlist / analysis window まわりの renderer 側直接依存は gateway に閉じ込め、`src/features/playlist/gateway/playlistWindowGateway.ts` と `src/features/videoPlayer/app/gateways/analysisWindowGateway.ts` を入口に統一する
+- playlist / analysis / coding panel window まわりの renderer 側直接依存は gateway に閉じ込め、`src/features/playlist/gateway/playlistWindowGateway.ts`、`src/features/videoPlayer/app/gateways/analysisWindowGateway.ts`、`src/features/videoPlayer/components/Controls/gateways/codingPanelWindowGateway.ts` を入口に統一する
 - timeline import/export は `src/features/videoPlayer/app/gateways/timelineImportExportGateway.ts` と `src/features/videoPlayer/app/utils/timelineImportExportService.ts` に分離し、menu 購読・file dialog・serialize/deserialize を hook に同居させない（ADR: [0009](adr/0009-timeline-import-export-interoperability.md)）
 - clip export は `src/shared/clipExport/` に型・gateway・pure service を集約し、playlist / timeline 側では clip builder と UI state だけを持つ（ADR: [0010](adr/0010-ffmpeg-clip-export-execution-boundary.md)）
 - clip export の実行進捗は `electron/src/exportProgressWindow.ts` と `src/types/ipc/exportProgressWindow.ts` を境界にし、main 側の FFmpeg 実行ループから専用進捗ウィンドウへ送信する。playlist / timeline 側は `progressId` を export payload に渡し、進捗ウィンドウの起動と更新は main 側に閉じ込める
@@ -93,6 +93,8 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - playlist window の同期 hook は IPC 登録・open state 監視・window open を gateway helper に分離し、hook 本体では state 適用だけを扱う
 - playlist window の runtime は `data runtime` と `interaction runtime` に分け、state 合成と playback/hotkey 合成を分離する
 - プレイリスト追加は `src/features/playlist` の公開 API に集約し、renderer からの個別 IPC 呼び出しを分散させない
+- coding panel window は表示状態 sync とクリック command のみを扱い、タグ付け時刻・押下状態・タイムライン更新はメイン動画ウィンドウの `EnhancedCodePanel` controller で確定する
+- coding panel window の編集モードは別ウィンドウ内で動作し、編集 UI は `CodingPanelWindowEditPane` に分離する。ボタン詳細編集は右側常設ペインではなく Inspector ダイアログで表示する。layout 更新と `.stcw` 保存要求は command としてメイン動画ウィンドウ側 controller に戻し、runtime layout / file path を controller が保持する
 - 音声同期の相関解析は `src/utils/audioSync/` 配下で stage helper に分割し、探索ロジックと orchestration を分離する。offset contract は ADR: [0007](adr/0007-audio-sync-offset-contract.md) に従う
 - event insights の shared domain は facade と builder 群に分け、summary/stat family ごとの集計責務を分離する
 - `src/App.tsx` は app shell view switch のみを持ち、hash / Electron shell event / external open は `src/hooks/useAppShellController.ts` に閉じ込める

@@ -42,6 +42,7 @@ export const resolveLinkEffects = (
   relatedLinks: EffectiveLink[],
   clickedName: string,
   isSameActionName: (a: string, b: string) => boolean,
+  clickedId?: string,
 ): LinkEffects => {
   const effects: LinkEffects = {
     activateTargets: [],
@@ -50,23 +51,30 @@ export const resolveLinkEffects = (
   };
 
   for (const link of relatedLinks) {
-    if (link.type === 'activate' && isSameActionName(link.from, clickedName)) {
+    const isFromClicked =
+      clickedId && (link.fromId || link.toId)
+        ? link.fromId === clickedId
+        : isSameActionName(link.from, clickedName);
+    const counterpart =
+      clickedId && (link.fromId || link.toId)
+        ? link.fromId === clickedId
+          ? link.to
+          : link.from
+        : isSameActionName(link.from, clickedName)
+          ? link.to
+          : link.from;
+
+    if (link.type === 'activate' && isFromClicked) {
       pushUnique(effects.activateTargets, link.to);
       continue;
     }
 
     if (link.type === 'exclusive') {
-      const counterpart = isSameActionName(link.from, clickedName)
-        ? link.to
-        : link.from;
       pushUnique(effects.exclusiveTargets, counterpart);
       continue;
     }
 
-    if (
-      link.type === 'deactivate' &&
-      isSameActionName(link.from, clickedName)
-    ) {
+    if (link.type === 'deactivate' && isFromClicked) {
       pushUnique(effects.deactivateTargets, link.to);
     }
   }

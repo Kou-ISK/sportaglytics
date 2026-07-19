@@ -3,6 +3,7 @@ import type { AnalysisView } from './types/analysis/view';
 import type { AnalysisReportPayload } from './report/types';
 import type { AppSettings } from './types/settings/coreTypes';
 import type { IAnalysisWindowAPI } from './types/ipc/analysisWindow';
+import type { ICodingPanelWindowAPI } from './types/ipc/codingPanelWindow';
 import type {
   ClipExportExecutionResult,
   ClipExportPayload,
@@ -90,6 +91,7 @@ export interface IElectronAPI {
   closeSettingsWindow: () => Promise<void>;
   isSettingsWindowOpen: () => Promise<boolean>;
   analysis: IAnalysisWindowAPI;
+  codingPanelWindow: ICodingPanelWindowAPI;
   llama: {
     generate: (payload: {
       prompt: string;
@@ -159,6 +161,7 @@ export interface IElectronAPI {
   onCodingModeChange: (
     callback: (mode: 'code' | 'label') => void,
   ) => () => void;
+  onOpenCodeWindowFile: (callback: () => void) => () => void;
   onOpenPackage: (callback: () => void) => () => void;
   onOpenRecentPackage: (callback: (path: string) => void) => () => void;
   updateRecentPackages: (paths: string[]) => void;

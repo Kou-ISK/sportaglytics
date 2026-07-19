@@ -7,6 +7,7 @@ import { AnalysisWindowApp } from './pages/AnalysisWindowApp';
 import { AnalysisReportPage } from './pages/AnalysisReportPage';
 import { ExportProgressWindowApp } from './pages/ExportProgressWindowApp';
 import { useAppShellController } from './hooks/useAppShellController';
+import { CodingPanelWindowScreen } from './features/videoPlayer';
 
 function App() {
   const currentView = useAppShellController();
@@ -30,6 +31,10 @@ function App() {
 
   if (currentView === 'export-progress') {
     return <ExportProgressWindowApp />;
+  }
+
+  if (currentView === 'coding-panel') {
+    return <CodingPanelWindowScreen />;
   }
 
   return <VideoPlayerApp />;
