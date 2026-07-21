@@ -8,6 +8,7 @@ import { getAppTheme } from '../../../../theme';
 import { VideoPathSelectorView } from './VideoPathSelectorView';
 import { CreatePackageWizardView } from './VideoPathSelector/CreatePackageWizardView';
 import type { DragAndDropState } from './VideoPathSelector/hooks/useDragAndDrop';
+import { VideoSelectionStep } from './VideoPathSelector/steps/VideoSelectionStep';
 
 const dragState: DragAndDropState = {
   isDragging: false,
@@ -85,7 +86,20 @@ describe('CreatePackageWizardView', () => {
         isCreating
         selection={{
           selectedDirectory: '/tmp',
-          angles: [{ id: 'angle-1', name: 'Main', filePath: '/tmp/main.mp4' }],
+          angles: [
+            {
+              id: 'angle-1',
+              name: 'Main',
+              clips: [
+                {
+                  id: 'clip-1',
+                  sourceKind: 'local',
+                  source: '/tmp/main.mp4',
+                  gapBeforeSeconds: 0,
+                },
+              ],
+            },
+          ],
         }}
         summaryItems={[{ label: 'パッケージ名', value: 'match-1' }]}
         onClose={vi.fn()}
@@ -94,9 +108,15 @@ describe('CreatePackageWizardView', () => {
         onFormChange={vi.fn()}
         onSelectDirectory={vi.fn()}
         onSelectVideo={vi.fn()}
+        onSelectVideos={vi.fn()}
         onAddAngle={vi.fn()}
         onRemoveAngle={vi.fn()}
         onUpdateAngleName={vi.fn()}
+        onAddClip={vi.fn()}
+        onRemoveClip={vi.fn()}
+        onUpdateClip={vi.fn()}
+        onReorderClip={vi.fn()}
+        onMoveClip={vi.fn()}
       />,
     );
 
@@ -104,5 +124,93 @@ describe('CreatePackageWizardView', () => {
 
     expect(createButton).toBeTruthy();
     expect(createButton.hasAttribute('disabled')).toBe(true);
+  });
+});
+
+describe('VideoSelectionStep', () => {
+  it('selects an angle and exposes sequence import and ordering actions', () => {
+    const handleSelectVideos = vi.fn();
+    const handleMoveClip = vi.fn();
+    const handleReorderClip = vi.fn();
+
+    renderWithProviders(
+      <VideoSelectionStep
+        angles={[
+          {
+            id: 'angle-main',
+            name: 'Main',
+            clips: [
+              {
+                id: 'clip-main-1',
+                sourceKind: 'local',
+                source: '/tmp/first-half.mp4',
+                gapBeforeSeconds: 0,
+              },
+              {
+                id: 'clip-main-2',
+                sourceKind: 'local',
+                source: '/tmp/second-half.mp4',
+                gapBeforeSeconds: 2.5,
+              },
+            ],
+          },
+          {
+            id: 'angle-endzone',
+            name: 'Endzone',
+            clips: [
+              {
+                id: 'clip-endzone-1',
+                sourceKind: 'youtube',
+                source: 'https://www.youtube.com/watch?v=example',
+                gapBeforeSeconds: 0,
+              },
+            ],
+          },
+        ]}
+        onSelectVideo={vi.fn()}
+        onSelectVideos={handleSelectVideos}
+        onAddAngle={vi.fn()}
+        onRemoveAngle={vi.fn()}
+        onUpdateAngleName={vi.fn()}
+        onAddClip={vi.fn()}
+        onRemoveClip={vi.fn()}
+        onUpdateClip={vi.fn()}
+        onReorderClip={handleReorderClip}
+        onMoveClip={handleMoveClip}
+      />,
+    );
+
+    expect(screen.getByText('Import in Sequence')).toBeTruthy();
+    expect(screen.getByText('first-half.mp4')).toBeTruthy();
+    expect(screen.getByText('前に 2.5 秒の空白')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '複数選択' }));
+    expect(handleSelectVideos).toHaveBeenCalledWith('angle-main');
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'クリップを上へ移動' })[1],
+    );
+    expect(handleMoveClip).toHaveBeenCalledWith(
+      'angle-main',
+      'clip-main-2',
+      -1,
+    );
+
+    const dragHandles = document.querySelectorAll<HTMLElement>(
+      '[data-clip-drag-handle]',
+    );
+    const clipRows = document.querySelectorAll<HTMLElement>('[data-clip-row]');
+    fireEvent.pointerDown(dragHandles[1], { button: 0 });
+    fireEvent.pointerEnter(clipRows[0], { buttons: 1 });
+    expect(handleReorderClip).toHaveBeenCalledWith(
+      'angle-main',
+      'clip-main-2',
+      'clip-main-1',
+    );
+
+    fireEvent.click(screen.getByText('Endzone'));
+    expect(
+      screen.getByText('https://www.youtube.com/watch?v=example'),
+    ).toBeTruthy();
   });
 });

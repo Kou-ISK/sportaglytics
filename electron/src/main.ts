@@ -37,6 +37,7 @@ import { registerPackageHandlers } from './ipc/packageHandlers';
 import { registerReportHandlers } from './ipc/reportHandlers';
 import { registerSyncHandlers } from './ipc/syncHandlers';
 import { registerWindowEventHandlers } from './ipc/windowEventHandlers';
+import { registerYoutubeEmbedClientIdentity } from './youtubeEmbedIdentity';
 
 if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -127,6 +128,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
     },
   });
 
+  registerYoutubeEmbedClientIdentity(window.webContents.session);
   applyWindowSecurity(window);
   const preloadReadyTimeout = setTimeout(() => {
     if (!window.isDestroyed()) {

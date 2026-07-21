@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 最大8アングル・各16ローカルクリップをパッケージ化し、クリップ間の空白を黒画面と無音で埋める機能を追加
+- YouTube URLを映像アングルとしてパッケージへ保存・再生する機能を追加
+
+### Changed
+
+- パッケージの映像モデルを `angles[] -> clips[]` へ拡張し、旧 `tightViewPath` / `wideViewPath` はロード時互換として維持
+- パッケージ作成の映像登録を、アングル一覧・Import in Sequence・Inspector の3ペイン構成へ変更し、複数ファイル選択とクリップ並べ替えに対応
+
+### Fixed
+
+- `file://` で動作する Electron 版で YouTube 埋め込みのクライアント識別情報が欠落し、Error 153 で再生できない問題を修正
+- YouTube アングルを共通コントローラーと再生・シーク・速度変更ホットキーから操作できない問題を修正
+
 ## [0.7.0] - 2026-07-19
 
 ### Added

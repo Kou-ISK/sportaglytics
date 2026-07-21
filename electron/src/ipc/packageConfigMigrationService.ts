@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { ConvertConfigResult } from './packageTypes';
+import { isPlainObject } from './ipcPayloadGuards';
 
 const toPosixPath = (value: string) => value.replace(/\\/g, '/');
 
@@ -74,6 +75,9 @@ const ensureRelativeVideoPath = async ({
   if (typeof value !== 'string' || value.trim() === '') {
     return value;
   }
+  if (/^https:\/\//i.test(value.trim())) {
+    return value.trim();
+  }
   return tryResolveRelativePath(packageRoot, videosDir, value);
 };
 
@@ -122,6 +126,36 @@ export const convertConfigToRelativePath = async (
       if (converted !== config.wideViewPath) {
         config.wideViewPath = converted;
         console.log('wideViewPathを更新:', converted);
+      }
+    }
+
+    if (Array.isArray(config.angles)) {
+      for (const angle of config.angles) {
+        if (!isPlainObject(angle)) {
+          continue;
+        }
+        const angleRecord = angle;
+        if (angleRecord.sourceKind !== 'youtube' && angleRecord.relativePath) {
+          angleRecord.relativePath = await ensureRelativeVideoPath({
+            packageRoot,
+            videosDir,
+            value: angleRecord.relativePath,
+          });
+        }
+        if (!Array.isArray(angleRecord.clips)) continue;
+        for (const clip of angleRecord.clips) {
+          if (!isPlainObject(clip)) {
+            continue;
+          }
+          const clipRecord = clip;
+          if (clipRecord.sourceKind !== 'youtube' && clipRecord.relativePath) {
+            clipRecord.relativePath = await ensureRelativeVideoPath({
+              packageRoot,
+              videosDir,
+              value: clipRecord.relativePath,
+            });
+          }
+        }
       }
     }
 

@@ -67,6 +67,7 @@ export const useSyncActions = ({
 
   const autoAudioResync = useAutoAudioResync({
     videoList,
+    syncData,
     setSyncData,
     forceUpdateVideoPlayers,
     onSyncError,

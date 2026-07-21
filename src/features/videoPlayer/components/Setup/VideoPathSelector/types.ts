@@ -19,7 +19,14 @@ export interface WizardFormState {
 export interface AngleSelection {
   id: string;
   name: string;
-  filePath: string;
+  clips: ClipSelection[];
+}
+
+export interface ClipSelection {
+  id: string;
+  sourceKind: 'local' | 'youtube';
+  source: string;
+  gapBeforeSeconds: number;
 }
 
 export interface WizardSelectionState {

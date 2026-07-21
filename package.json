@@ -17,12 +17,14 @@
     "@mui/icons-material": "^7.3.7",
     "@mui/material": "^7.3.7",
     "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "3.1.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "recharts": "^3.6.0",
     "ulid": "^3.0.2",
     "uuid": "^13.0.2",
     "video.js": "^8.23.7",
+    "videojs-youtube": "3.0.1",
     "zod": "^3.25.76"
   },
   "main": "build/electron/src/main.js",
@@ -65,6 +67,7 @@
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.1",
+    "@types/ffprobe-static": "2.0.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.9",
     "@types/react": "^19.2.8",

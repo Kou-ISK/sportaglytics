@@ -9,6 +9,7 @@ import {
 
 interface UseAutoAudioResyncParams {
   videoList: string[];
+  syncData: VideoSyncData | undefined;
   setSyncData: Dispatch<SetStateAction<VideoSyncData | undefined>>;
   forceUpdateVideoPlayers: (newSyncData: VideoSyncData) => Promise<void>;
   onSyncError?: (value: VideoPlayerError) => void;
@@ -26,6 +27,7 @@ interface UseAutoAudioResyncResult {
 
 export const useAutoAudioResync = ({
   videoList,
+  syncData,
   setSyncData,
   forceUpdateVideoPlayers,
   onSyncError,
@@ -55,6 +57,12 @@ export const useAutoAudioResync = ({
   );
 
   const resyncAudio = useCallback(async (): Promise<void> => {
+    if (videoList.some((source) => /^https?:\/\//i.test(source))) {
+      notifyWarning(
+        'YouTube 映像は自動音声同期に対応していません。手動同期を利用してください。',
+      );
+      return;
+    }
     if (videoList.length < 2) {
       notifyWarning('2つの映像が必要です');
       return;
@@ -105,6 +113,7 @@ export const useAutoAudioResync = ({
       });
 
       const newSyncData: VideoSyncData = {
+        ...syncData,
         syncOffset: result.offsetSeconds,
         isAnalyzed: true,
         confidenceScore: result.confidence,
@@ -139,19 +148,28 @@ export const useAutoAudioResync = ({
     notifyWarning,
     onSyncError,
     setSyncData,
+    syncData,
     videoList,
   ]);
 
   const resetSync = useCallback((): void => {
     const resetSyncData: VideoSyncData = {
       syncOffset: 0,
-      isAnalyzed: false,
+      angleOffsets: syncData?.angleOffsets,
+      isAnalyzed: Boolean(
+        syncData?.angleOffsets?.some((offset) => offset !== 0),
+      ),
       confidenceScore: 0,
     };
     setSyncData(resetSyncData);
     notifyInfo('同期をリセットしました');
     void forceUpdateVideoPlayers(resetSyncData);
-  }, [forceUpdateVideoPlayers, notifyInfo, setSyncData]);
+  }, [
+    forceUpdateVideoPlayers,
+    notifyInfo,
+    setSyncData,
+    syncData?.angleOffsets,
+  ]);
 
   return {
     isAnalyzing,

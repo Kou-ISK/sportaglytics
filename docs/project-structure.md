@@ -35,6 +35,8 @@ Renderer は Feature-First です。依存方向は `pages -> features -> shared
 
 feature 配下は機能責務で分割します。Atomic Design の分類を feature フォルダへ持ち込まないでください。
 
+パッケージ作成の映像選択 UI は `src/features/videoPlayer/components/Setup/VideoPathSelector/steps/` に Controller / View を置き、3ペインの描画部品は `steps/videoSelection/` に配置します。描画部品は props と callback のみに依存し、IPC と file dialog は gateway / hook に閉じ込めます。
+
 | Path                      | Role                                                               |
 | ------------------------- | ------------------------------------------------------------------ |
 | `index.ts`                | feature 外へ公開する API。feature 外からの import はここに限定する |
@@ -58,16 +60,17 @@ feature 配下は機能責務で分割します。Atomic Design の分類を fea
 
 ## Electron Layout
 
-| Path                           | Role                                  | Placement rule                                                          |
-| ------------------------------ | ------------------------------------- | ----------------------------------------------------------------------- |
-| `electron/src/main.ts`         | app startup / top-level assembly      | 詳細な domain logic を増やさず、登録・組み立てに留める                  |
-| `electron/src/ipc/`            | main process IPC handlers             | domain ごとに handler を分け、payload guard と sender validation を行う |
-| `electron/src/preload.ts`      | preload bridge assembly               | domain bridge を合成する entry に留める                                 |
-| `electron/src/preload/`        | preload domain bridges                | `contextBridge` で公開する明示 API と typed listener store              |
-| `electron/src/menu/`           | application menu helpers              | menu section、recent package menu、window action helpers                |
-| `electron/src/playlistWindow/` | playlist sub-window main-side runtime | playlist window handler、storage、window manager                        |
-| `electron/src/llama/`          | local LLM process helpers             | model discovery、process runner、request registry、output normalization |
-| `electron/src/templates/`      | generated platform templates          | Info.plist など build/package 用 template                               |
+| Path                                                 | Role                                  | Placement rule                                                          |
+| ---------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------- |
+| `electron/src/main.ts`                               | app startup / top-level assembly      | 詳細な domain logic を増やさず、登録・組み立てに留める                  |
+| `electron/src/ipc/`                                  | main process IPC handlers             | domain ごとに handler を分け、payload guard と sender validation を行う |
+| `electron/src/ipc/packageMediaCompositionService.ts` | package media composition             | 複数ローカルクリップの検査、黒画面ギャップ挿入、FFmpeg正規化            |
+| `electron/src/preload.ts`                            | preload bridge assembly               | domain bridge を合成する entry に留める                                 |
+| `electron/src/preload/`                              | preload domain bridges                | `contextBridge` で公開する明示 API と typed listener store              |
+| `electron/src/menu/`                                 | application menu helpers              | menu section、recent package menu、window action helpers                |
+| `electron/src/playlistWindow/`                       | playlist sub-window main-side runtime | playlist window handler、storage、window manager                        |
+| `electron/src/llama/`                                | local LLM process helpers             | model discovery、process runner、request registry、output normalization |
+| `electron/src/templates/`                            | generated platform templates          | Info.plist など build/package 用 template                               |
 
 ## Documentation Layout
 

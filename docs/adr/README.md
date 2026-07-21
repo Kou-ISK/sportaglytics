@@ -18,6 +18,8 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0010](0010-ffmpeg-clip-export-execution-boundary.md)              | FFmpeg clip export execution boundary              | Accepted | 2026-05-06 |
 | [0011](0011-dashboard-widget-system-and-analysis-consolidation.md) | Dashboard widget system and analysis consolidation | Accepted | 2026-05-06 |
 | [0012](0012-llm-model-artifact-distribution-boundary.md)           | LLM model artifact distribution boundary           | Accepted | 2026-05-10 |
+| [0013](0013-multi-angle-media-source-model.md)                     | Multi-angle media source model                     | Accepted | 2026-07-19 |
+| [0014](0014-youtube-embed-client-identity.md)                      | YouTube embed client identity                      | Accepted | 2026-07-20 |
 
 ## Status Values
 

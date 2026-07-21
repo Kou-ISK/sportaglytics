@@ -117,11 +117,19 @@ SporTagLytics/
 
 ### 映像処理
 
-| 技術          | バージョン | 用途                     |
-| ------------- | ---------- | ------------------------ |
-| Video.js      | 8.23.4     | 映像プレイヤー           |
-| ffmpeg-static | 5.2.0      | クリップ書き出し（同梱） |
-| Web Audio API | -          | 音声同期分析             |
+| 技術            | バージョン | 用途                     |
+| --------------- | ---------- | ------------------------ |
+| Video.js        | 8.23.4     | 映像プレイヤー           |
+| ffmpeg-static   | 5.2.0      | クリップ書き出し（同梱） |
+| ffprobe-static  | 3.1.0      | パッケージ映像の構成確認 |
+| videojs-youtube | 3.0.1      | YouTube 再生 tech        |
+| Web Audio API   | -          | 音声同期分析             |
+
+複数クリップのパッケージ作成は main process の FFmpeg/FFprobe 境界で行います。Renderer からプロセスを起動せず、`package:create` の型付き IPC と payload guard を通してください。
+配布ビルドでは両バイナリを `electron-builder.json` の `files` と `asarUnpack` に含めます。
+複数ファイル選択は `files:open-video-files` / `openVideoFiles()` の専用 IPC・preload API を利用します。汎用 dialog API を Renderer へ公開せず、選択順の反映と16クリップ上限の適用は `useWizardSelection` に閉じ込めます。
+
+YouTube 再生では、配布版の `file://` Renderer に通常の Referer がないことを前提に、`src/types/video/youtubeEmbed.ts` のアプリ識別 URL を Video.js の `widget_referrer` と Electron Session の YouTube `/embed/` Referer に使用します。IFrame API の制御通信を壊すため、実際の親画面と一致しない HTTPS `origin` parameter は指定しません。Error 153 対策として証明書検証や `webSecurity` を無効化してはいけません。
 
 **ffmpeg-static**:
 

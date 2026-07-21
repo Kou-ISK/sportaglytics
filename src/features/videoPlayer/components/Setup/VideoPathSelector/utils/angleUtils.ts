@@ -6,8 +6,10 @@ import type {
 type LoadedAngle = {
   id: string;
   name: string;
-  relativePath: string;
+  relativePath?: string;
   absolutePath: string;
+  sourceKind: 'local' | 'youtube';
+  playbackOffsetSeconds: number;
   role?: 'primary' | 'secondary';
 };
 
@@ -47,6 +49,39 @@ const normalizeRelativePath = (angle: unknown): string | undefined => {
   return undefined;
 };
 
+const normalizeSourceUrl = (angle: unknown): string | undefined => {
+  if (
+    angle &&
+    typeof angle === 'object' &&
+    'sourceUrl' in angle &&
+    typeof (angle as { sourceUrl?: unknown }).sourceUrl === 'string'
+  ) {
+    const value = (angle as { sourceUrl: string }).sourceUrl.trim();
+    return /^https:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//i.test(value)
+      ? value
+      : undefined;
+  }
+  return undefined;
+};
+
+const normalizeYoutubePlaybackOffset = (angle: unknown): number => {
+  if (!angle || typeof angle !== 'object' || !('clips' in angle)) return 0;
+  const clips = (angle as { clips?: unknown }).clips;
+  if (!Array.isArray(clips) || clips.length === 0) return 0;
+  const firstClip = clips[0];
+  if (
+    !firstClip ||
+    typeof firstClip !== 'object' ||
+    !('gapBeforeSeconds' in firstClip)
+  ) {
+    return 0;
+  }
+  const gap = (firstClip as { gapBeforeSeconds?: unknown }).gapBeforeSeconds;
+  return typeof gap === 'number' && Number.isFinite(gap)
+    ? -Math.max(0, gap)
+    : 0;
+};
+
 const resolveAnglesFromConfig = (
   config: unknown,
   packagePath: string,
@@ -61,7 +96,8 @@ const resolveAnglesFromConfig = (
   const normalizedAngles: LoadedAngle[] = anglesRaw
     .map((angle, index) => {
       const relativePath = normalizeRelativePath(angle);
-      if (!relativePath) return null;
+      const sourceUrl = normalizeSourceUrl(angle);
+      if (!relativePath && !sourceUrl) return null;
       return {
         id: String(
           (angle as VideoAngleConfig)?.id ||
@@ -75,7 +111,11 @@ const resolveAnglesFromConfig = (
           index,
         ),
         relativePath,
-        absolutePath: `${packagePath}/${relativePath}`,
+        absolutePath: sourceUrl || `${packagePath}/${relativePath}`,
+        sourceKind: sourceUrl ? 'youtube' : 'local',
+        playbackOffsetSeconds: sourceUrl
+          ? normalizeYoutubePlaybackOffset(angle)
+          : 0,
         role:
           (angle as VideoAngleConfig)?.role === 'primary' ||
           (angle as VideoAngleConfig)?.role === 'secondary'
@@ -133,6 +173,8 @@ export const buildVideoListFromConfig = (
             name: 'Angle 1',
             relativePath: tightRelative,
             absolutePath: `${packagePath}/${tightRelative}`,
+            sourceKind: 'local' as const,
+            playbackOffsetSeconds: 0,
           },
           ...(wideRelative
             ? [
@@ -141,6 +183,8 @@ export const buildVideoListFromConfig = (
                   name: 'Angle 2',
                   relativePath: wideRelative,
                   absolutePath: `${packagePath}/${wideRelative}`,
+                  sourceKind: 'local' as const,
+                  playbackOffsetSeconds: 0,
                 },
               ]
             : []),
@@ -164,10 +208,19 @@ export const buildVideoListFromConfig = (
         angles.find((angle) => angle.id !== effectivePrimary?.id)
       : fallbackAngles[1];
 
-  const videoList = [
-    effectivePrimary?.absolutePath,
-    effectiveSecondary?.absolutePath,
-  ].filter(Boolean) as string[];
+  const orderedAngles = [
+    effectivePrimary,
+    effectiveSecondary,
+    ...resolvedAngles.filter(
+      (angle) =>
+        angle.id !== effectivePrimary?.id &&
+        angle.id !== effectiveSecondary?.id,
+    ),
+  ];
+  const activeAngles = orderedAngles.filter((angle): angle is LoadedAngle =>
+    Boolean(angle),
+  );
+  const videoList = activeAngles.map((angle) => angle.absolutePath);
 
-  return { videoList, angles: resolvedAngles };
+  return { videoList, angles: activeAngles };
 };

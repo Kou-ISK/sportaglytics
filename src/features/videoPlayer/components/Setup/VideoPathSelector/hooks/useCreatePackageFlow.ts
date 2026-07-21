@@ -160,12 +160,42 @@ export const useCreatePackageFlow = ({
 
     if (activeStep === 2) {
       const primaryAngle = selection.angles[0];
-      if (!primaryAngle?.filePath) {
+      if (!primaryAngle?.clips.some((clip) => clip.source.trim())) {
         showError('メインアングルに映像を割り当ててください。');
         return;
       }
-      if (!selection.angles.some((angle) => angle.filePath)) {
+      if (
+        !selection.angles.some((angle) =>
+          angle.clips.some((clip) => clip.source.trim()),
+        )
+      ) {
         showError('少なくとも1つのアングルに映像を割り当ててください。');
+        return;
+      }
+
+      const invalidYoutube = selection.angles.some((angle) =>
+        angle.clips.some(
+          (clip) =>
+            clip.sourceKind === 'youtube' &&
+            !/^https:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//i.test(
+              clip.source.trim(),
+            ),
+        ),
+      );
+      if (invalidYoutube) {
+        showError('有効な YouTube URL を入力してください。');
+        return;
+      }
+
+      const mixedOrMultipleYoutube = selection.angles.some(
+        (angle) =>
+          angle.clips.some((clip) => clip.sourceKind === 'youtube') &&
+          angle.clips.filter((clip) => clip.source.trim()).length > 1,
+      );
+      if (mixedOrMultipleYoutube) {
+        showError(
+          'YouTube アングルには1つの動画だけを割り当ててください。複数クリップはローカル映像で利用できます。',
+        );
         return;
       }
     }

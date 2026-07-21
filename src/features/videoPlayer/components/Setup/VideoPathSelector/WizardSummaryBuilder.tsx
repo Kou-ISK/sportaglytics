@@ -49,16 +49,19 @@ const renderAngles = (selection: WizardSelectionState): React.ReactNode => {
   return (
     <Stack spacing={1}>
       {selection.angles.map((angle, index) => {
-        const fileName = angle.filePath ? angle.filePath.split('/').pop() : '未選択';
         const roleLabel =
-          index === 0 ? 'メイン (自動)' : index === 1 ? 'セカンダリ (自動)' : '';
+          index === 0
+            ? 'メイン (自動)'
+            : index === 1
+              ? 'セカンダリ (自動)'
+              : '';
         return (
           <Stack key={angle.id} direction="row" spacing={1}>
             <Typography variant="body2" sx={{ minWidth: 110 }}>
               {angle.name}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {fileName}
+              {angle.clips.filter((clip) => clip.source.trim()).length} clips
             </Typography>
             {roleLabel && (
               <Box

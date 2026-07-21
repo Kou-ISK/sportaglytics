@@ -1,0 +1,272 @@
+import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import ffmpegPath from 'ffmpeg-static';
+import ffprobeStatic from 'ffprobe-static';
+import type {
+  NormalizedAngle,
+  PackageAnglePayload,
+  PackageClipPayload,
+} from './packageTypes';
+
+interface MediaProbe {
+  durationSeconds: number;
+  width: number;
+  height: number;
+  hasAudio: boolean;
+}
+
+interface ProbeOutput {
+  format?: { duration?: string };
+  streams?: Array<{
+    codec_type?: string;
+    width?: number;
+    height?: number;
+  }>;
+}
+
+const isProbeOutput = (value: unknown): value is ProbeOutput => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = Object.fromEntries(Object.entries(value));
+  return record.streams === undefined || Array.isArray(record.streams);
+};
+
+const resolveBinaryPath = (binaryPath: string): string =>
+  process.env.NODE_ENV === 'production'
+    ? binaryPath.replace('app.asar', 'app.asar.unpacked')
+    : binaryPath;
+
+const runProcess = async (
+  executable: string,
+  args: string[],
+): Promise<{ stdout: string; stderr: string }> =>
+  await new Promise((resolve, reject) => {
+    const child = spawn(executable, args, { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.once('error', reject);
+    child.once('close', (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+      reject(
+        new Error(`Media process failed (${code ?? 'unknown'}): ${stderr}`),
+      );
+    });
+  });
+
+const probeMedia = async (filePath: string): Promise<MediaProbe> => {
+  const result = await runProcess(resolveBinaryPath(ffprobeStatic.path), [
+    '-v',
+    'error',
+    '-show_streams',
+    '-show_format',
+    '-of',
+    'json',
+    filePath,
+  ]);
+  const parsed: unknown = JSON.parse(result.stdout);
+  if (!isProbeOutput(parsed)) {
+    throw new Error(
+      `映像情報を取得できませんでした: ${path.basename(filePath)}`,
+    );
+  }
+  const output = parsed;
+  const video = output.streams?.find((stream) => stream.codec_type === 'video');
+  const durationSeconds = Number(output.format?.duration);
+  if (!video || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    throw new Error(`有効な映像ではありません: ${path.basename(filePath)}`);
+  }
+  return {
+    durationSeconds,
+    width: video.width && video.width > 0 ? video.width : 1920,
+    height: video.height && video.height > 0 ? video.height : 1080,
+    hasAudio: Boolean(
+      output.streams?.some((stream) => stream.codec_type === 'audio'),
+    ),
+  };
+};
+
+const sanitizeSegment = (value: string, fallback: string): string => {
+  const sanitized = value.trim().replace(/[\\/:*?"<>|]/g, '_');
+  return sanitized || fallback;
+};
+
+const isYoutubeUrl = (value: string): boolean =>
+  /^https:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//i.test(value.trim());
+
+const copyClipSources = async (
+  angle: PackageAnglePayload,
+  videosDir: string,
+): Promise<
+  Array<PackageClipPayload & { copiedPath: string; relativePath: string }>
+> => {
+  const sourceDirectory = path.join(
+    videosDir,
+    'sources',
+    sanitizeSegment(angle.id, 'angle'),
+  );
+  await fs.promises.mkdir(sourceDirectory, { recursive: true });
+
+  return await Promise.all(
+    angle.clips.map(async (clip, index) => {
+      if (clip.sourceKind !== 'local') {
+        throw new Error(
+          'ローカル映像と YouTube は同じアングル内で混在できません。',
+        );
+      }
+      if (!/\.(?:mp4|mov|m4v|webm)$/i.test(clip.source)) {
+        throw new Error(
+          `対応していない映像形式です: ${path.basename(clip.source)}`,
+        );
+      }
+      await fs.promises.access(clip.source, fs.constants.R_OK);
+      const extension = path.extname(clip.source) || '.mp4';
+      const fileName = `${String(index + 1).padStart(2, '0')}-${sanitizeSegment(
+        path.basename(clip.source, extension),
+        'clip',
+      )}${extension}`;
+      const copiedPath = path.join(sourceDirectory, fileName);
+      await fs.promises.copyFile(clip.source, copiedPath);
+      return {
+        ...clip,
+        copiedPath,
+        relativePath: path
+          .relative(path.dirname(videosDir), copiedPath)
+          .replace(/\\/g, '/'),
+      };
+    }),
+  );
+};
+
+const composeLocalClips = async (
+  clips: Array<PackageClipPayload & { copiedPath: string }>,
+  outputPath: string,
+): Promise<void> => {
+  if (!ffmpegPath) {
+    throw new Error('ffmpeg binary not found');
+  }
+  const probes = await Promise.all(
+    clips.map((clip) => probeMedia(clip.copiedPath)),
+  );
+  const targetWidth = Math.max(2, probes[0].width - (probes[0].width % 2));
+  const targetHeight = Math.max(2, probes[0].height - (probes[0].height % 2));
+  const filters: string[] = [];
+
+  clips.forEach((clip, index) => {
+    const gap = clip.gapBeforeSeconds;
+    const probe = probes[index];
+    filters.push(
+      `[${index}:v:0]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30,format=yuv420p,tpad=start_mode=add:start_duration=${gap},setpts=PTS-STARTPTS[v${index}]`,
+    );
+    if (probe.hasAudio) {
+      filters.push(
+        `[${index}:a:0]aresample=48000,apad,atrim=duration=${probe.durationSeconds},adelay=${Math.round(gap * 1000)}:all=1[a${index}]`,
+      );
+    } else {
+      filters.push(
+        `anullsrc=r=48000:cl=stereo,atrim=duration=${probe.durationSeconds + gap}[a${index}]`,
+      );
+    }
+  });
+  const concatInputs = clips
+    .map((_, index) => `[v${index}][a${index}]`)
+    .join('');
+  filters.push(`${concatInputs}concat=n=${clips.length}:v=1:a=1[outv][outa]`);
+
+  const inputArgs = clips.flatMap((clip) => ['-i', clip.copiedPath]);
+  await runProcess(resolveBinaryPath(ffmpegPath), [
+    '-y',
+    ...inputArgs,
+    '-filter_complex',
+    filters.join(';'),
+    '-map',
+    '[outv]',
+    '-map',
+    '[outa]',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'fast',
+    '-crf',
+    '20',
+    '-c:a',
+    'aac',
+    '-movflags',
+    '+faststart',
+    outputPath,
+  ]);
+};
+
+export const materializePackageAngle = async (
+  angle: PackageAnglePayload,
+  angleIndex: number,
+  packageName: string,
+  videosDir: string,
+): Promise<NormalizedAngle> => {
+  const name = sanitizeSegment(angle.name, `Angle ${angleIndex + 1}`);
+  const youtubeClips = angle.clips.filter(
+    (clip) => clip.sourceKind === 'youtube',
+  );
+  if (youtubeClips.length > 0) {
+    if (angle.clips.length !== 1 || !isYoutubeUrl(youtubeClips[0].source)) {
+      throw new Error(
+        'YouTube アングルには有効なURLを1つだけ指定してください。',
+      );
+    }
+    const clip = youtubeClips[0];
+    return {
+      id: angle.id,
+      name,
+      role: angle.role,
+      sourceKind: 'youtube',
+      sourceUrl: clip.source.trim(),
+      absolutePath: clip.source.trim(),
+      clips: [
+        {
+          id: clip.id,
+          sourceKind: 'youtube',
+          sourceUrl: clip.source.trim(),
+          gapBeforeSeconds: clip.gapBeforeSeconds,
+        },
+      ],
+    };
+  }
+
+  const copiedClips = await copyClipSources(angle, videosDir);
+  const canCopyWithoutComposition =
+    copiedClips.length === 1 && copiedClips[0].gapBeforeSeconds === 0;
+  const outputExtension = canCopyWithoutComposition
+    ? path.extname(copiedClips[0].copiedPath) || '.mp4'
+    : '.mp4';
+  const outputName = `${packageName} ${name}${outputExtension}`;
+  const outputPath = path.join(videosDir, outputName);
+  if (canCopyWithoutComposition) {
+    await fs.promises.copyFile(copiedClips[0].copiedPath, outputPath);
+  } else {
+    await composeLocalClips(copiedClips, outputPath);
+  }
+  const relativePath = `videos/${outputName}`;
+  return {
+    id: angle.id,
+    name,
+    role: angle.role,
+    sourceKind: 'local',
+    relativePath,
+    absolutePath: outputPath,
+    clips: copiedClips.map((clip) => ({
+      id: clip.id,
+      sourceKind: 'local',
+      relativePath: clip.relativePath,
+      absolutePath: clip.copiedPath,
+      gapBeforeSeconds: clip.gapBeforeSeconds,
+    })),
+  };
+};

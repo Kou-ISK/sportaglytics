@@ -82,7 +82,8 @@ const seekEachPlayer = ({
       }
 
       if (index > 0 && syncData?.isAnalyzed && !isManualMode) {
-        const offset = syncData.syncOffset || 0;
+        const offset =
+          syncData.angleOffsets?.[index] ?? syncData.syncOffset ?? 0;
         targetTime = Math.max(0, timeClamped + offset);
       }
 

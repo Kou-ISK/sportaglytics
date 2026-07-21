@@ -9,7 +9,8 @@
     "!build/**/llama/models/*.gguf",
     "!build/**/llama/models/**/*.gguf",
     "!node_modules/**/*",
-    "node_modules/ffmpeg-static/**/*"
+    "node_modules/ffmpeg-static/**/*",
+    "node_modules/ffprobe-static/**/*"
   ],
   "extraResources": [
     {
@@ -18,7 +19,10 @@
       "filter": ["**/*", "!**/*.gguf"]
     }
   ],
-  "asarUnpack": ["node_modules/ffmpeg-static/**/*"],
+  "asarUnpack": [
+    "node_modules/ffmpeg-static/**/*",
+    "node_modules/ffprobe-static/**/*"
+  ],
   "compression": "maximum",
   "directories": {
     "buildResources": "public",

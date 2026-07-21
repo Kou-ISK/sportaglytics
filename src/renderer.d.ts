@@ -19,6 +19,7 @@ export interface LlamaModelInfo {
 
 export interface IElectronAPI {
   openFile: () => Promise<string>;
+  openVideoFiles: () => Promise<string[]>;
   openDirectory: () => Promise<string>;
   exportTimeline: (filePath: string, source: unknown) => Promise<void>;
   createPackage: (
@@ -27,7 +28,12 @@ export interface IElectronAPI {
     angles: Array<{
       id: string;
       name: string;
-      sourcePath: string;
+      clips: Array<{
+        id: string;
+        sourceKind: 'local' | 'youtube';
+        source: string;
+        gapBeforeSeconds: number;
+      }>;
       role?: 'primary' | 'secondary';
     }>,
     metaDataConfig: unknown,
@@ -193,7 +199,17 @@ export interface PackageDatas {
     name: string;
     role?: 'primary' | 'secondary';
     absolutePath: string;
-    relativePath: string;
+    relativePath?: string;
+    sourceKind: 'local' | 'youtube';
+    sourceUrl?: string;
+    clips: Array<{
+      id: string;
+      sourceKind: 'local' | 'youtube';
+      absolutePath?: string;
+      relativePath?: string;
+      sourceUrl?: string;
+      gapBeforeSeconds: number;
+    }>;
   }>;
   metaDataConfigFilePath: string;
 }

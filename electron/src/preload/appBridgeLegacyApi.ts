@@ -1,9 +1,11 @@
 import type { IpcRenderer } from 'electron';
 import type { IElectronAPI, PackageDatas } from '../../../src/renderer';
+import { isStringArray } from '../../../src/types/ipc/shared';
 import { invokeWithFallback } from './appBridge.compat';
 
 export type AppBridgeLegacyKeys =
   | 'openFile'
+  | 'openVideoFiles'
   | 'openDirectory'
   | 'exportTimeline'
   | 'createPackage'
@@ -30,6 +32,17 @@ export const createAppBridgeLegacyApi = (
       } catch (error) {
         console.error('Error:', error);
         return '';
+      }
+    },
+    openVideoFiles: async () => {
+      try {
+        const paths: unknown = await ipcRenderer.invoke(
+          'files:open-video-files',
+        );
+        return isStringArray(paths) ? paths : [];
+      } catch (error) {
+        console.error('Error selecting video files:', error);
+        return [];
       }
     },
     openDirectory: async () => {
@@ -64,7 +77,12 @@ export const createAppBridgeLegacyApi = (
       angles: Array<{
         id: string;
         name: string;
-        sourcePath: string;
+        clips: Array<{
+          id: string;
+          sourceKind: 'local' | 'youtube';
+          source: string;
+          gapBeforeSeconds: number;
+        }>;
         role?: 'primary' | 'secondary';
       }>,
       metaData: unknown,

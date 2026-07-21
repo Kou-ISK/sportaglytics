@@ -5,9 +5,11 @@ import { generateInfoPlist } from '../templates/InfoPlist';
 import type {
   NormalizedAngle,
   PackageAnglePayload,
+  PackageClipPayload,
   PackageMetaDataConfig,
 } from './packageTypes';
 import { isPlainObject } from './ipcPayloadGuards';
+import { materializePackageAngle } from './packageMediaCompositionService';
 
 const ensureSafeName = (raw: string, index: number): string => {
   const fallback = `Angle ${index + 1}`;
@@ -23,39 +25,39 @@ const normalizeAngleRole = (
   return value === 'primary' || value === 'secondary' ? value : undefined;
 };
 
-const normalizeAngles = (
-  angles: unknown,
-  newFilePath: string,
-  videosDir: string,
-): NormalizedAngle[] => {
-  return (Array.isArray(angles) ? angles : []).map((angle, index) => {
-    if (!isPlainObject(angle)) {
+const normalizeAnglePayloads = (angles: unknown): PackageAnglePayload[] =>
+  (Array.isArray(angles) ? angles : []).map((angle, index) => {
+    if (!isPlainObject(angle) || !Array.isArray(angle.clips)) {
       throw new Error(`Invalid angle payload at index ${index}`);
     }
-
-    const name = ensureSafeName(
-      typeof angle.name === 'string' ? angle.name : '',
-      index,
-    );
-    const sourcePath =
-      typeof angle.sourcePath === 'string' ? angle.sourcePath : '';
-    if (!sourcePath) {
-      throw new Error(`Invalid source path for angle "${name}"`);
-    }
-    const ext = path.extname(sourcePath) || '.mp4';
-    const fileName = `${newFilePath} ${name}${ext}`;
-    const relativePath = `videos/${fileName}`;
-    const absolutePath = path.join(videosDir, fileName);
-    fs.renameSync(sourcePath, absolutePath);
     return {
       id: typeof angle.id === 'string' ? angle.id : `angle-${index + 1}`,
-      name,
+      name: ensureSafeName(
+        typeof angle.name === 'string' ? angle.name : '',
+        index,
+      ),
       role: normalizeAngleRole(angle.role),
-      relativePath,
-      absolutePath,
+      clips: angle.clips.map((clip, clipIndex) => {
+        if (!isPlainObject(clip)) {
+          throw new Error(`Invalid clip payload at index ${clipIndex}`);
+        }
+        const sourceKind: PackageClipPayload['sourceKind'] =
+          clip.sourceKind === 'youtube' ? 'youtube' : 'local';
+        return {
+          id:
+            typeof clip.id === 'string'
+              ? clip.id
+              : `clip-${index + 1}-${clipIndex + 1}`,
+          sourceKind,
+          source: typeof clip.source === 'string' ? clip.source : '',
+          gapBeforeSeconds:
+            typeof clip.gapBeforeSeconds === 'number'
+              ? clip.gapBeforeSeconds
+              : 0,
+        };
+      }),
     };
   });
-};
 
 const resolvePrimaryAndSecondaryAngles = (
   normalizedAngles: NormalizedAngle[],
@@ -102,13 +104,25 @@ const writePackageMetadata = async (
 
   fs.mkdirSync(path.join(newPackagePath, '.metadata'));
   metaDataConfig.tightViewPath =
-    primaryAngle?.relativePath || `videos/${newFilePath} 寄り.mp4`;
+    primaryAngle?.relativePath || primaryAngle?.sourceUrl || '';
   metaDataConfig.wideViewPath = secondaryAngle
-    ? secondaryAngle.relativePath
+    ? secondaryAngle.relativePath || secondaryAngle.sourceUrl || null
     : null;
-  metaDataConfig.angles = normalizedAngles.map(
-    ({ absolutePath: _absolutePath, ...rest }) => rest,
-  );
+  metaDataConfig.angles = normalizedAngles.map((angle) => ({
+    id: angle.id,
+    name: angle.name,
+    role: angle.role,
+    relativePath: angle.relativePath,
+    sourceKind: angle.sourceKind,
+    sourceUrl: angle.sourceUrl,
+    clips: angle.clips.map((clip) => ({
+      id: clip.id,
+      sourceKind: clip.sourceKind,
+      relativePath: clip.relativePath,
+      sourceUrl: clip.sourceUrl,
+      gapBeforeSeconds: clip.gapBeforeSeconds,
+    })),
+  }));
   metaDataConfig.primaryAngleId =
     metaDataConfig.primaryAngleId || primaryAngle?.id;
   metaDataConfig.secondaryAngleId =
@@ -161,39 +175,53 @@ export const createPackage = async (
   const packageBaseName = packageName.endsWith('.stpkg')
     ? packageName
     : `${packageName}.stpkg`;
+  if (
+    path.basename(packageBaseName) !== packageBaseName ||
+    packageBaseName === '.stpkg' ||
+    /[\\/:*?"<>|]/.test(packageBaseName)
+  ) {
+    throw new Error('Invalid package name.');
+  }
 
   const newPackagePath = path.join(directoryName, packageBaseName);
   const newFilePath = packageBaseName.replace(/\.stpkg$/i, '');
-
-  fs.mkdirSync(newPackagePath);
-  const videosDir = path.join(newPackagePath, 'videos');
-  fs.mkdirSync(videosDir);
-
-  const normalizedAngles = normalizeAngles(angles, newFilePath, videosDir);
-  if (normalizedAngles.length === 0) {
+  const anglePayloads = normalizeAnglePayloads(angles);
+  if (anglePayloads.length === 0) {
     throw new Error('No angles were provided for package creation.');
   }
+  fs.mkdirSync(newPackagePath);
+  try {
+    const videosDir = path.join(newPackagePath, 'videos');
+    fs.mkdirSync(videosDir);
+    const normalizedAngles: NormalizedAngle[] = [];
+    for (const [index, angle] of anglePayloads.entries()) {
+      normalizedAngles.push(
+        await materializePackageAngle(angle, index, newFilePath, videosDir),
+      );
+    }
 
-  const metaDataConfig: PackageMetaDataConfig = isPlainObject(
-    metaDataConfigInput,
-  )
-    ? { ...metaDataConfigInput }
-    : {};
-  const { metaDataPath, primaryAngle, secondaryAngle } =
-    await writePackageMetadata(
-      newPackagePath,
-      newFilePath,
-      normalizedAngles,
-      metaDataConfig,
-    );
+    const metaDataConfig: PackageMetaDataConfig = isPlainObject(
+      metaDataConfigInput,
+    )
+      ? { ...metaDataConfigInput }
+      : {};
+    const { metaDataPath, primaryAngle, secondaryAngle } =
+      await writePackageMetadata(
+        newPackagePath,
+        newFilePath,
+        normalizedAngles,
+        metaDataConfig,
+      );
 
-  return {
-    timelinePath: path.join(newPackagePath, 'timeline.json'),
-    tightViewPath:
-      primaryAngle?.absolutePath ||
-      path.join(videosDir, `${newFilePath} 寄り.mp4`),
-    wideViewPath: secondaryAngle ? secondaryAngle.absolutePath : null,
-    angles: normalizedAngles,
-    metaDataConfigFilePath: metaDataPath,
-  };
+    return {
+      timelinePath: path.join(newPackagePath, 'timeline.json'),
+      tightViewPath: primaryAngle?.absolutePath || '',
+      wideViewPath: secondaryAngle ? secondaryAngle.absolutePath : null,
+      angles: normalizedAngles,
+      metaDataConfigFilePath: metaDataPath,
+    };
+  } catch (error) {
+    await fs.promises.rm(newPackagePath, { recursive: true, force: true });
+    throw error;
+  }
 };

@@ -1,5 +1,6 @@
 export interface VideoSyncData {
   syncOffset: number;
+  angleOffsets?: number[];
   isAnalyzed: boolean;
   waveformData?: Float32Array;
   confidenceScore?: number;

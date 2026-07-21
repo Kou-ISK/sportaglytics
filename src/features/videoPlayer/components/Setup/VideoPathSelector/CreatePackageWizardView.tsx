@@ -35,10 +35,28 @@ interface CreatePackageWizardViewProps {
   onNext: () => void;
   onFormChange: (updates: Partial<WizardFormState>) => void;
   onSelectDirectory: () => Promise<void>;
-  onSelectVideo: (angleId: string) => Promise<void>;
+  onSelectVideo: (angleId: string, clipId: string) => Promise<void>;
+  onSelectVideos: (angleId: string) => Promise<void>;
   onAddAngle: () => void;
   onRemoveAngle: (angleId: string) => void;
   onUpdateAngleName: (angleId: string, name: string) => void;
+  onAddClip: (angleId: string) => void;
+  onRemoveClip: (angleId: string, clipId: string) => void;
+  onUpdateClip: (
+    angleId: string,
+    clipId: string,
+    updates: Partial<{
+      sourceKind: 'local' | 'youtube';
+      source: string;
+      gapBeforeSeconds: number;
+    }>,
+  ) => void;
+  onReorderClip: (
+    angleId: string,
+    activeClipId: string,
+    overClipId: string,
+  ) => void;
+  onMoveClip: (angleId: string, clipId: string, direction: -1 | 1) => void;
 }
 
 const STEP_LABELS = ['詳細', '保存先', '映像', '確認'];
@@ -59,9 +77,15 @@ export const CreatePackageWizardView: React.FC<
   onFormChange,
   onSelectDirectory,
   onSelectVideo,
+  onSelectVideos,
   onAddAngle,
   onRemoveAngle,
   onUpdateAngleName,
+  onAddClip,
+  onRemoveClip,
+  onUpdateClip,
+  onReorderClip,
+  onMoveClip,
 }) => {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down('md'));
@@ -71,7 +95,7 @@ export const CreatePackageWizardView: React.FC<
       open={open}
       onClose={isCreating ? undefined : onClose}
       fullWidth
-      maxWidth="md"
+      maxWidth="lg"
       PaperProps={{
         sx: {
           height: { xs: '100%', md: 'min(760px, 92vh)' },
@@ -154,9 +178,15 @@ export const CreatePackageWizardView: React.FC<
             <VideoSelectionStep
               angles={selection.angles}
               onSelectVideo={onSelectVideo}
+              onSelectVideos={onSelectVideos}
               onAddAngle={onAddAngle}
               onRemoveAngle={onRemoveAngle}
               onUpdateAngleName={onUpdateAngleName}
+              onAddClip={onAddClip}
+              onRemoveClip={onRemoveClip}
+              onUpdateClip={onUpdateClip}
+              onReorderClip={onReorderClip}
+              onMoveClip={onMoveClip}
             />
           )}
 

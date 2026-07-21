@@ -23,6 +23,11 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
   const safeVideoList = Array.isArray(videoList) ? videoList : [];
   const allowSeek = isManualMode;
   const offset = syncData?.syncOffset ?? 0;
+  const resolveOffset = React.useCallback(
+    (index: number): number =>
+      index === 0 ? 0 : (syncData?.angleOffsets?.[index] ?? offset),
+    [offset, syncData?.angleOffsets],
+  );
   const hasPrimary = Boolean(safeVideoList[0]?.trim());
   const hasSecondary = Boolean(safeVideoList[1]?.trim());
 
@@ -47,12 +52,16 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
         : hasSecondary
           ? 1
           : 0;
+  const gridColumns =
+    visibleVideoCount <= 1 ? 12 : visibleVideoCount <= 4 ? 6 : 4;
+  const gridRows = Math.max(
+    1,
+    Math.ceil(visibleVideoCount / (12 / gridColumns)),
+  );
+  const gridItemHeight = `${100 / gridRows}%`;
 
   // useSyncedVideoPlayer は全てのモードで常に呼び出す（React Hooks のルール）
-  const {
-    blockPlayStates,
-    handleAspectRatioChange,
-  } = useSyncedVideoPlayer({
+  const { blockPlayStates, handleAspectRatioChange } = useSyncedVideoPlayer({
     videoList: safeVideoList,
     isVideoPlaying,
     videoPlayBackRate,
@@ -99,7 +108,6 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
             return null;
           }
 
-          const columns = visibleVideoCount > 1 ? 6 : 12;
           const isVisible = isIndexVisible(index);
 
           return (
@@ -107,10 +115,10 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
               key={`${filePath}-${index}`}
               item
               xs={12}
-              md={columns}
+              md={gridColumns}
               sx={{
                 padding: 0,
-                height: '100%',
+                height: gridItemHeight,
                 minHeight: 0,
                 ...(isVisible ? {} : hiddenItemSx),
               }}
@@ -133,7 +141,7 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
                   blockPlay={false}
                   allowSeek
                   forceUpdate={forceUpdateKey}
-                  offsetSeconds={0}
+                  offsetSeconds={resolveOffset(index)}
                   onAspectRatioChange={(ratio) =>
                     handleAspectRatioChange(index, ratio)
                   }
@@ -164,7 +172,6 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
           return null;
         }
 
-        const columns = visibleVideoCount > 1 ? 6 : 12;
         const isVisible = isIndexVisible(index);
 
         return (
@@ -172,10 +179,10 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
             key={`${filePath}-${index}`}
             item
             xs={12}
-            md={columns}
+            md={gridColumns}
             sx={{
               padding: 0,
-              height: '100%',
+              height: gridItemHeight,
               minHeight: 0,
               ...(isVisible ? {} : hiddenItemSx),
             }}
@@ -198,7 +205,7 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
                 blockPlay={blockPlayStates[index] ?? false}
                 allowSeek={allowSeek}
                 forceUpdate={forceUpdateKey}
-                offsetSeconds={index === 0 ? 0 : offset}
+                offsetSeconds={resolveOffset(index)}
                 onAspectRatioChange={(ratio) =>
                   handleAspectRatioChange(index, ratio)
                 }

@@ -9,7 +9,12 @@ import type {
 interface PackageAnglePayload {
   id: string;
   name: string;
-  sourcePath: string;
+  clips: Array<{
+    id: string;
+    sourceKind: 'local' | 'youtube';
+    source: string;
+    gapBeforeSeconds: number;
+  }>;
   role?: 'primary' | 'secondary';
 }
 
@@ -17,14 +22,18 @@ export const buildAnglePayloads = (
   selection: WizardSelectionState,
 ): PackageAnglePayload[] => {
   return selection.angles
-    .filter((angle) => angle.filePath)
+    .map((angle) => ({
+      ...angle,
+      clips: angle.clips.filter((clip) => clip.source.trim()),
+    }))
+    .filter((angle) => angle.clips.length > 0)
     .map((angle, index) => {
       const role: 'primary' | 'secondary' | undefined =
         index === 0 ? 'primary' : index === 1 ? 'secondary' : undefined;
       return {
         id: angle.id,
         name: angle.name.trim() || 'Angle',
-        sourcePath: angle.filePath,
+        clips: angle.clips,
         role,
       };
     });
@@ -52,13 +61,9 @@ export const buildPackageLoadResult = (
   selection: WizardSelectionState,
   form: WizardFormState,
 ): PackageLoadResult => {
-  const primaryAngle = packageDatas.angles[0];
-  const secondaryAngle =
-    packageDatas.angles.length > 1 ? packageDatas.angles[1] : undefined;
-  const videoList = [
-    primaryAngle?.absolutePath,
-    secondaryAngle?.absolutePath,
-  ].filter(Boolean) as string[];
+  const videoList = packageDatas.angles
+    .map((angle) => angle.absolutePath)
+    .filter((source) => source.trim().length > 0);
 
   return {
     videoList,

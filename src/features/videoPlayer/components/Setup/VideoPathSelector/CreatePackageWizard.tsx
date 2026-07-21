@@ -18,6 +18,11 @@ const createAngleId = () =>
     ? crypto.randomUUID()
     : `angle-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+const createClipId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `clip-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
 const createInitialSelection = (): WizardSelectionState => {
   const firstAngleId = createAngleId();
   return {
@@ -26,7 +31,14 @@ const createInitialSelection = (): WizardSelectionState => {
       {
         id: firstAngleId,
         name: 'Angle 1',
-        filePath: '',
+        clips: [
+          {
+            id: createClipId(),
+            sourceKind: 'local',
+            source: '',
+            gapBeforeSeconds: 0,
+          },
+        ],
       },
     ],
   };
@@ -43,11 +55,18 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     resetSelection,
     handleSelectDirectory,
     handleSelectVideo,
+    handleSelectVideos,
     handleAddAngle,
     handleRemoveAngle,
     handleUpdateAngleName,
+    handleAddClip,
+    handleRemoveClip,
+    handleUpdateClip,
+    handleReorderClip,
+    handleMoveClip,
   } = useWizardSelection({
     createAngleId,
+    createClipId,
     createInitialSelection,
     showError,
   });
@@ -90,9 +109,15 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
       onFormChange={(updates) => setForm((prev) => ({ ...prev, ...updates }))}
       onSelectDirectory={handleSelectDirectory}
       onSelectVideo={handleSelectVideo}
+      onSelectVideos={handleSelectVideos}
       onAddAngle={handleAddAngle}
       onRemoveAngle={handleRemoveAngle}
       onUpdateAngleName={handleUpdateAngleName}
+      onAddClip={handleAddClip}
+      onRemoveClip={handleRemoveClip}
+      onUpdateClip={handleUpdateClip}
+      onReorderClip={handleReorderClip}
+      onMoveClip={handleMoveClip}
     />
   );
 };
