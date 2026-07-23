@@ -38,8 +38,11 @@ type VideoPlayerLayoutProps = Pick<
   | 'setIsFileSelected'
   | 'setTimelineFilePath'
   | 'setPackagePath'
+  | 'metaDataConfigFilePath'
   | 'setMetaDataConfigFilePath'
   | 'setSyncData'
+  | 'mediaAngles'
+  | 'setMediaAngles'
   | 'performUndo'
   | 'performRedo'
 > & {
@@ -78,8 +81,11 @@ export const VideoPlayerLayout = ({
   setIsFileSelected,
   setTimelineFilePath,
   setPackagePath,
+  metaDataConfigFilePath,
   setMetaDataConfigFilePath,
   setSyncData,
+  mediaAngles,
+  setMediaAngles,
   performUndo,
   performRedo,
   onApplyManualSync,
@@ -111,6 +117,8 @@ export const VideoPlayerLayout = ({
         maxSec={maxSec}
         syncData={syncData}
         syncMode={syncMode}
+        mediaAngles={mediaAngles}
+        setMediaAngles={setMediaAngles}
         playerForceUpdateKey={playerForceUpdateKey}
         viewMode={viewMode}
       />
@@ -135,6 +143,10 @@ export const VideoPlayerLayout = ({
           <ManualSyncControls
             onApplySync={onApplyManualSync}
             onCancel={onCancelManualSync}
+            mediaAngles={mediaAngles}
+            metaDataConfigFilePath={metaDataConfigFilePath}
+            setMediaAngles={setMediaAngles}
+            setVideoList={setVideoList}
           />
         </Box>
       )}
@@ -167,6 +179,7 @@ export const VideoPlayerLayout = ({
       setPackagePath={setPackagePath}
       setMetaDataConfigFilePath={setMetaDataConfigFilePath}
       setSyncData={setSyncData}
+      setMediaAngles={setMediaAngles}
     />
   );
 };

@@ -16,6 +16,24 @@ export interface VideoClipConfig {
   relativePath?: string;
   sourceUrl?: string;
   gapBeforeSeconds: number;
+  timelineStartSeconds?: number;
+  durationSeconds?: number;
+}
+
+export interface PackageMediaClip {
+  id: string;
+  sourceKind: 'local' | 'youtube';
+  source: string;
+  gapBeforeSeconds: number;
+  timelineStartSeconds: number;
+  durationSeconds?: number;
+}
+
+export interface PackageMediaAngle {
+  id: string;
+  name: string;
+  sourceKind: 'local' | 'youtube';
+  clips: PackageMediaClip[];
 }
 
 export interface MetaData {

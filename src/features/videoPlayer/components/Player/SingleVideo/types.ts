@@ -10,5 +10,6 @@ export interface SingleVideoPlayerProps {
   blockPlay?: boolean;
   allowSeek?: boolean;
   offsetSeconds?: number;
+  initialTimeSeconds?: number;
   onAspectRatioChange?: (ratio: number) => void;
 }

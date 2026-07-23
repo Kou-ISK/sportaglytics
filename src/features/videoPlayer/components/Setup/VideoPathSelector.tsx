@@ -10,6 +10,7 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
   setPackagePath,
   setMetaDataConfigFilePath,
   setSyncData,
+  setMediaAngles,
 }) => {
   const {
     handlePackageCreated,
@@ -26,6 +27,7 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
     setPackagePath,
     setMetaDataConfigFilePath,
     setSyncData,
+    setMediaAngles,
   });
 
   return (

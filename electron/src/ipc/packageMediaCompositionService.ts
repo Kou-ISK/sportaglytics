@@ -8,6 +8,7 @@ import type {
   PackageAnglePayload,
   PackageClipPayload,
 } from './packageTypes';
+import { deriveTimelineGaps } from '../../../src/types/package/clipTimeline';
 
 interface MediaProbe {
   durationSeconds: number;
@@ -62,7 +63,7 @@ const runProcess = async (
     });
   });
 
-const probeMedia = async (filePath: string): Promise<MediaProbe> => {
+export const probeMedia = async (filePath: string): Promise<MediaProbe> => {
   const result = await runProcess(resolveBinaryPath(ffprobeStatic.path), [
     '-v',
     'error',
@@ -147,7 +148,13 @@ const copyClipSources = async (
 };
 
 const composeLocalClips = async (
-  clips: Array<PackageClipPayload & { copiedPath: string }>,
+  clips: Array<
+    PackageClipPayload & {
+      copiedPath: string;
+      durationSeconds: number;
+      timelineStartSeconds: number;
+    }
+  >,
   outputPath: string,
 ): Promise<void> => {
   if (!ffmpegPath) {
@@ -161,7 +168,11 @@ const composeLocalClips = async (
   const filters: string[] = [];
 
   clips.forEach((clip, index) => {
-    const gap = clip.gapBeforeSeconds;
+    const previous = index > 0 ? clips[index - 1] : undefined;
+    const previousEnd = previous
+      ? previous.timelineStartSeconds + previous.durationSeconds
+      : 0;
+    const gap = Math.max(0, clip.timelineStartSeconds - previousEnd);
     const probe = probes[index];
     filters.push(
       `[${index}:v:0]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30,format=yuv420p,tpad=start_mode=add:start_duration=${gap},setpts=PTS-STARTPTS[v${index}]`,
@@ -205,6 +216,71 @@ const composeLocalClips = async (
   ]);
 };
 
+export const recomposeLocalTimeline = async (
+  clips: Array<{
+    id: string;
+    sourcePath: string;
+    timelineStartSeconds?: number;
+    gapBeforeSeconds?: number;
+  }>,
+  outputPath: string,
+): Promise<
+  Array<{
+    id: string;
+    sourcePath: string;
+    timelineStartSeconds: number;
+    durationSeconds: number;
+    gapBeforeSeconds: number;
+  }>
+> => {
+  const probedWithLegacyFields = await Promise.all(
+    clips.map(async (clip) => ({
+      ...clip,
+      durationSeconds: (await probeMedia(clip.sourcePath)).durationSeconds,
+    })),
+  );
+  let legacyCursor = 0;
+  const probed = probedWithLegacyFields.map((clip) => {
+    const timelineStartSeconds =
+      typeof clip.timelineStartSeconds === 'number'
+        ? clip.timelineStartSeconds
+        : legacyCursor + Math.max(0, clip.gapBeforeSeconds ?? 0);
+    legacyCursor = timelineStartSeconds + clip.durationSeconds;
+    return { ...clip, timelineStartSeconds };
+  });
+  const derived = deriveTimelineGaps(probed);
+  if (derived.overlap) {
+    throw new Error(
+      `CLIP_TIMELINE_OVERLAP:${derived.overlap.previousClipId}:${derived.overlap.clipId}`,
+    );
+  }
+  const byId = new Map(probed.map((clip) => [clip.id, clip]));
+  const placed = derived.clips.map((clip) => {
+    const original = byId.get(clip.id);
+    if (!original) throw new Error('CLIP_SOURCE_NOT_FOUND');
+    return {
+      id: clip.id,
+      sourcePath: original.sourcePath,
+      copiedPath: original.sourcePath,
+      sourceKind: 'local' as const,
+      source: original.sourcePath,
+      timelineStartSeconds: clip.timelineStartSeconds,
+      durationSeconds: clip.durationSeconds,
+      gapBeforeSeconds: clip.gapBeforeSeconds,
+    };
+  });
+  await composeLocalClips(placed, outputPath);
+  return placed.map(
+    ({ copiedPath: _copiedPath, source: _source, ...clip }) => ({
+      id: clip.id,
+      sourcePath: clip.sourcePath,
+      timelineStartSeconds: clip.timelineStartSeconds,
+      durationSeconds: clip.durationSeconds,
+      gapBeforeSeconds: clip.gapBeforeSeconds,
+    }),
+  );
+};
+
 export const materializePackageAngle = async (
   angle: PackageAnglePayload,
   angleIndex: number,
@@ -216,42 +292,76 @@ export const materializePackageAngle = async (
     (clip) => clip.sourceKind === 'youtube',
   );
   if (youtubeClips.length > 0) {
-    if (angle.clips.length !== 1 || !isYoutubeUrl(youtubeClips[0].source)) {
+    if (
+      youtubeClips.length !== angle.clips.length ||
+      !youtubeClips.every((clip) => isYoutubeUrl(clip.source))
+    ) {
       throw new Error(
-        'YouTube アングルには有効なURLを1つだけ指定してください。',
+        '同じアングル内でローカル映像とYouTubeは混在できません。',
       );
     }
-    const clip = youtubeClips[0];
+    let timelineCursor = 0;
+    const normalizedYoutubeClips = youtubeClips.map((clip) => {
+      const timelineStartSeconds =
+        typeof clip.timelineStartSeconds === 'number'
+          ? clip.timelineStartSeconds
+          : timelineCursor + Math.max(0, clip.gapBeforeSeconds);
+      const previousEnd = timelineCursor;
+      timelineCursor =
+        timelineStartSeconds + Math.max(0, clip.durationSeconds ?? 0);
+      return {
+        id: clip.id,
+        sourceKind: 'youtube' as const,
+        sourceUrl: clip.source.trim(),
+        gapBeforeSeconds: Math.max(0, timelineStartSeconds - previousEnd),
+        timelineStartSeconds,
+        durationSeconds: clip.durationSeconds,
+      };
+    });
     return {
       id: angle.id,
       name,
       role: angle.role,
       sourceKind: 'youtube',
-      sourceUrl: clip.source.trim(),
-      absolutePath: clip.source.trim(),
-      clips: [
-        {
-          id: clip.id,
-          sourceKind: 'youtube',
-          sourceUrl: clip.source.trim(),
-          gapBeforeSeconds: clip.gapBeforeSeconds,
-        },
-      ],
+      sourceUrl: normalizedYoutubeClips[0].sourceUrl,
+      absolutePath: normalizedYoutubeClips[0].sourceUrl,
+      clips: normalizedYoutubeClips,
     };
   }
 
   const copiedClips = await copyClipSources(angle, videosDir);
+  const probes = await Promise.all(
+    copiedClips.map((clip) => probeMedia(clip.copiedPath)),
+  );
+  let timelineCursor = 0;
+  const placedClips = copiedClips.map((clip, index) => {
+    const durationSeconds = probes[index].durationSeconds;
+    const previousEnd = timelineCursor;
+    const timelineStartSeconds =
+      typeof clip.timelineStartSeconds === 'number' &&
+      Number.isFinite(clip.timelineStartSeconds) &&
+      clip.timelineStartSeconds >= 0
+        ? clip.timelineStartSeconds
+        : timelineCursor + clip.gapBeforeSeconds;
+    timelineCursor = timelineStartSeconds + durationSeconds;
+    return {
+      ...clip,
+      durationSeconds,
+      timelineStartSeconds,
+      gapBeforeSeconds: Math.max(0, timelineStartSeconds - previousEnd),
+    };
+  });
   const canCopyWithoutComposition =
-    copiedClips.length === 1 && copiedClips[0].gapBeforeSeconds === 0;
+    placedClips.length === 1 && placedClips[0].timelineStartSeconds === 0;
   const outputExtension = canCopyWithoutComposition
     ? path.extname(copiedClips[0].copiedPath) || '.mp4'
     : '.mp4';
   const outputName = `${packageName} ${name}${outputExtension}`;
   const outputPath = path.join(videosDir, outputName);
   if (canCopyWithoutComposition) {
-    await fs.promises.copyFile(copiedClips[0].copiedPath, outputPath);
+    await fs.promises.copyFile(placedClips[0].copiedPath, outputPath);
   } else {
-    await composeLocalClips(copiedClips, outputPath);
+    await composeLocalClips(placedClips, outputPath);
   }
   const relativePath = `videos/${outputName}`;
   return {
@@ -261,12 +371,20 @@ export const materializePackageAngle = async (
     sourceKind: 'local',
     relativePath,
     absolutePath: outputPath,
-    clips: copiedClips.map((clip) => ({
-      id: clip.id,
-      sourceKind: 'local',
-      relativePath: clip.relativePath,
-      absolutePath: clip.copiedPath,
-      gapBeforeSeconds: clip.gapBeforeSeconds,
-    })),
+    clips: placedClips.map((clip, index) => {
+      const previous = index > 0 ? placedClips[index - 1] : undefined;
+      const previousEnd = previous
+        ? previous.timelineStartSeconds + previous.durationSeconds
+        : 0;
+      return {
+        id: clip.id,
+        sourceKind: 'local',
+        relativePath: clip.relativePath,
+        absolutePath: clip.copiedPath,
+        gapBeforeSeconds: Math.max(0, clip.timelineStartSeconds - previousEnd),
+        timelineStartSeconds: clip.timelineStartSeconds,
+        durationSeconds: clip.durationSeconds,
+      };
+    }),
   };
 };

@@ -16,6 +16,7 @@ export interface SyncDataPayload {
   syncOffset: number;
   isAnalyzed: boolean;
   confidenceScore?: number;
+  angleOffsets?: number[];
 }
 
 export interface PackageAnglePayloadGuarded {
@@ -87,7 +88,16 @@ export const isSyncDataPayload = (value: unknown): value is SyncDataPayload => {
     typeof value.isAnalyzed === 'boolean' &&
     (value.confidenceScore === undefined ||
       (typeof value.confidenceScore === 'number' &&
-        Number.isFinite(value.confidenceScore)))
+        Number.isFinite(value.confidenceScore))) &&
+    (value.angleOffsets === undefined ||
+      (Array.isArray(value.angleOffsets) &&
+        value.angleOffsets.length <= 8 &&
+        value.angleOffsets.every(
+          (offset) =>
+            typeof offset === 'number' &&
+            Number.isFinite(offset) &&
+            Math.abs(offset) <= 86400,
+        )))
   );
 };
 
@@ -113,7 +123,16 @@ export const isPackageAnglePayloadArray = (
             isNonEmptyString(clip.source) &&
             typeof clip.gapBeforeSeconds === 'number' &&
             Number.isFinite(clip.gapBeforeSeconds) &&
-            clip.gapBeforeSeconds >= 0,
+            clip.gapBeforeSeconds >= 0 &&
+            (clip.timelineStartSeconds === undefined ||
+              (typeof clip.timelineStartSeconds === 'number' &&
+                Number.isFinite(clip.timelineStartSeconds) &&
+                clip.timelineStartSeconds >= 0 &&
+                clip.timelineStartSeconds <= 86400)) &&
+            (clip.durationSeconds === undefined ||
+              (typeof clip.durationSeconds === 'number' &&
+                Number.isFinite(clip.durationSeconds) &&
+                clip.durationSeconds > 0)),
         ) &&
         (angle.role === undefined ||
           angle.role === 'primary' ||
@@ -135,6 +154,7 @@ export const normalizeSyncDataPayload = (
     syncOffset: value.syncOffset,
     isAnalyzed: value.isAnalyzed,
     confidenceScore: value.confidenceScore,
+    angleOffsets: value.angleOffsets,
   };
 };
 

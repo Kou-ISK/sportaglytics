@@ -6,10 +6,12 @@ export interface VideoSelectionStepProps {
   angles: AngleSelection[];
   onSelectVideo: (angleId: string, clipId: string) => void;
   onSelectVideos: (angleId: string) => void;
+  onSelectVideosAsAngles: () => void;
+  onAddYoutubeClip: (angleId: string, source: string) => void;
+  onAddDroppedVideos: (angleId: string, paths: string[]) => void;
   onAddAngle: () => void;
   onRemoveAngle: (angleId: string) => void;
   onUpdateAngleName: (angleId: string, name: string) => void;
-  onAddClip: (angleId: string) => void;
   onRemoveClip: (angleId: string, clipId: string) => void;
   onUpdateClip: (
     angleId: string,
@@ -39,7 +41,6 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = (
     () => angles[0]?.clips[0]?.id ?? '',
   );
   const selectNewAngleRef = useRef(false);
-  const selectNewClipForAngleRef = useRef<string | null>(null);
 
   const selectedAngle =
     angles.find((angle) => angle.id === selectedAngleId) ?? angles[0];
@@ -59,11 +60,6 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = (
 
   useEffect(() => {
     if (!selectedAngle) return;
-    if (selectNewClipForAngleRef.current === selectedAngle.id) {
-      setSelectedClipId(selectedAngle.clips.at(-1)?.id ?? '');
-      selectNewClipForAngleRef.current = null;
-      return;
-    }
     if (!selectedAngle.clips.some((clip) => clip.id === selectedClipId)) {
       setSelectedClipId(selectedAngle.clips[0]?.id ?? '');
     }
@@ -83,12 +79,6 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = (
     props.onAddAngle();
   }, [props]);
 
-  const handleAddClip = useCallback((): void => {
-    if (!selectedAngle) return;
-    selectNewClipForAngleRef.current = selectedAngle.id;
-    props.onAddClip(selectedAngle.id);
-  }, [props, selectedAngle]);
-
   return (
     <VideoSelectionStepView
       {...props}
@@ -97,7 +87,6 @@ export const VideoSelectionStep: React.FC<VideoSelectionStepProps> = (
       onSelectAngle={handleSelectAngle}
       onSelectClip={setSelectedClipId}
       onAddAngle={handleAddAngle}
-      onAddClip={handleAddClip}
     />
   );
 };

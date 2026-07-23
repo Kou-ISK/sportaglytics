@@ -20,6 +20,7 @@ interface UsePlaybackClockSyncParams {
   safeSetCurrentTime: (time: number, source?: string) => void;
   videoTime: number;
   setVideoTime: Dispatch<SetStateAction<number>>;
+  disabled?: boolean;
 }
 
 export const usePlaybackClockSync = ({
@@ -32,11 +33,12 @@ export const usePlaybackClockSync = ({
   safeSetCurrentTime,
   videoTime,
   setVideoTime,
+  disabled = false,
 }: UsePlaybackClockSyncParams): void => {
   const rafLastTsRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (videoList.length === 0) {
+    if (disabled || videoList.length === 0) {
       return;
     }
 
@@ -167,5 +169,6 @@ export const usePlaybackClockSync = ({
     syncData,
     videoList,
     videoTime,
+    disabled,
   ]);
 };

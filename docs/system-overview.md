@@ -79,9 +79,10 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 
 ## 主要データモデル
 
-- package media は `.metadata/config.json` の `angles[] -> clips[]` を正本とし、最大8アングル・各16クリップを扱う。main process の `packageMediaCompositionService.ts` がローカル断片を黒画面ギャップ込みの再生用映像へ正規化し、YouTube URL は Video.js tech へ渡す（ADR: [0013](adr/0013-multi-angle-media-source-model.md)）
+- package media は `.metadata/config.json` の `angles[] -> clips[]` と各クリップの `timelineStartSeconds` を正本とし、最大8アングル・各16クリップを扱う。`packageClipTimelineService.ts` は影響するローカルアングルだけを一時出力へ再合成し、成功時にconfigと再生映像を置換する。`gapBeforeSeconds` は後方互換の派生値である（ADR: [0015](adr/0015-clip-timeline-placement-and-audio-assisted-sync.md)）
 - YouTube 埋め込みは shared のアプリ識別 URL を Video.js の `widget_referrer` と YouTube `/embed/` リクエストの Referer に使用する。`file://` と不一致になる HTTPS `origin` parameter は指定せず、IFrame API の共通再生制御を維持する。main process の `youtubeEmbedIdentity.ts` が Session 単位で対象リクエストだけを補正し、証明書検証と `webSecurity` は維持する（ADR: [0014](adr/0014-youtube-embed-client-identity.md)）
-- パッケージ作成の映像ステップは Controller の `VideoSelectionStep` と描画専用 `VideoSelectionStepView` に分離し、`videoSelection/` 配下のアングル一覧、クリップシーケンス、Inspector を合成する
+- 複数YouTubeクリップのアングルは共通タイムライン時計から現在クリップとクリップ内時刻を解決する。既知のクリップ終了から次の開始位置まではプレイヤーを外して黒表示を維持し、共通コントローラーとホットキーはタイムライン時計を操作する
+- パッケージ作成は基本情報・映像の2ステップとし、保存先は作成時に選択する。各アングルの「＋」から映像種別を選択し、同期位置は作成画面では扱わず再生画面のシンクモードへ集約する
 - `tightViewPath` / `wideViewPath` は旧パッケージ互換の派生フィールドであり、新規処理は `angles[]` を優先する
 - `TimelineData` は `labels` 中心モデル
 - 旧フィールド `actionType` / `actionResult` は型から削除

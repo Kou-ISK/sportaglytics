@@ -1,7 +1,7 @@
 import { Box, Typography, IconButton, Tooltip } from '@mui/material';
 import Fullscreen from '@mui/icons-material/Fullscreen';
 import FullscreenExit from '@mui/icons-material/FullscreenExit';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useVideoJsPlayer } from './hooks/useVideoJsPlayer';
 import { usePlaybackBehaviour } from './hooks/usePlaybackBehaviour';
 import { useFullscreen } from './hooks/useFullscreen';
@@ -17,6 +17,7 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
   blockPlay = false,
   allowSeek = true,
   onAspectRatioChange,
+  initialTimeSeconds = 0,
 }) => {
   const { containerRef, videoRef, playerRef, isReady, durationSec } =
     useVideoJsPlayer({
@@ -29,6 +30,13 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
 
   const [showEndMask, setShowEndMask] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const initialTimeRef = useRef(initialTimeSeconds);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!isReady || !player || initialTimeRef.current <= 0) return;
+    player.currentTime(initialTimeRef.current);
+  }, [isReady, playerRef]);
 
   const { isFullscreen, handleToggleFullscreen } = useFullscreen({
     playerRef,

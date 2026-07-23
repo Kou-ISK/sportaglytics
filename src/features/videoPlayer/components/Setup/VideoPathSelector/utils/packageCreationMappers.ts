@@ -58,7 +58,7 @@ export const buildMetaDataConfig = (
 
 export const buildPackageLoadResult = (
   packageDatas: PackageDatas,
-  selection: WizardSelectionState,
+  packageDirectory: string,
   form: WizardFormState,
 ): PackageLoadResult => {
   const videoList = packageDatas.angles
@@ -70,6 +70,24 @@ export const buildPackageLoadResult = (
     syncData: undefined,
     timelinePath: packageDatas.timelinePath,
     metaDataConfigFilePath: packageDatas.metaDataConfigFilePath,
-    packagePath: `${selection.selectedDirectory}/${form.packageName}`,
+    packagePath: `${packageDirectory}/${form.packageName}`,
+    mediaAngles: packageDatas.angles.map((angle) => ({
+      id: angle.id,
+      name: angle.name,
+      sourceKind: angle.sourceKind,
+      clips: angle.clips.map((clip) => ({
+        id: clip.id,
+        sourceKind: clip.sourceKind,
+        source:
+          clip.sourceKind === 'youtube'
+            ? (clip.sourceUrl ?? '')
+            : clip.relativePath
+              ? `${packageDirectory}/${form.packageName}/${clip.relativePath}`
+              : '',
+        gapBeforeSeconds: clip.gapBeforeSeconds,
+        timelineStartSeconds: clip.timelineStartSeconds ?? 0,
+        durationSeconds: clip.durationSeconds,
+      })),
+    })),
   };
 };

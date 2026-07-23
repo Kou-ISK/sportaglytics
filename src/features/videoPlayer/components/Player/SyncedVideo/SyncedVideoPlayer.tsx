@@ -4,6 +4,7 @@ import Grid from '@mui/material/GridLegacy';
 import { MemoizedSingleVideoPlayer } from '../SingleVideoPlayer';
 import { useSyncedVideoPlayer } from './hooks/useSyncedVideoPlayer';
 import type { SyncedVideoPlayerProps } from './types';
+import { resolveTimelineClip } from '../../../../../types/package/clipTimeline';
 
 const noopSetMax: React.Dispatch<React.SetStateAction<number>> = (value) => {
   void value;
@@ -18,6 +19,9 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
     syncData,
     forceUpdateKey = 0,
     viewMode = 'dual',
+    currentTime = 0,
+    mediaAngles = [],
+    setMediaAngles,
   } = props;
   const isManualMode = props.syncMode === 'manual';
   const safeVideoList = Array.isArray(videoList) ? videoList : [];
@@ -27,6 +31,70 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
     (index: number): number =>
       index === 0 ? 0 : (syncData?.angleOffsets?.[index] ?? offset),
     [offset, syncData?.angleOffsets],
+  );
+  const timelineClips = React.useMemo(
+    () =>
+      safeVideoList.map((fallbackSource, index) => {
+        const angle = mediaAngles[index];
+        if (
+          !angle ||
+          angle.sourceKind !== 'youtube' ||
+          angle.clips.length <= 1
+        ) {
+          return {
+            source: fallbackSource,
+            clipId: undefined,
+            clipTimeSeconds: currentTime,
+          };
+        }
+        const angleTime = currentTime + resolveOffset(index);
+        const active = resolveTimelineClip(angle.clips, angleTime);
+        return active
+          ? {
+              source: active.clip.source,
+              clipId: active.clip.id,
+              clipTimeSeconds: active.clipTimeSeconds,
+            }
+          : { source: '', clipId: undefined, clipTimeSeconds: 0 };
+      }),
+    [currentTime, mediaAngles, resolveOffset, safeVideoList],
+  );
+  const effectiveVideoList = timelineClips.map((entry) => entry.source);
+  const recordYoutubeDuration = React.useCallback(
+    (
+      angleIndex: number,
+      clipId: string | undefined,
+    ): React.Dispatch<React.SetStateAction<number>> =>
+      (value) => {
+        if (
+          !clipId ||
+          typeof value !== 'number' ||
+          !Number.isFinite(value) ||
+          value <= 0
+        ) {
+          return;
+        }
+        const clipStart =
+          mediaAngles[angleIndex]?.clips.find((clip) => clip.id === clipId)
+            ?.timelineStartSeconds ?? 0;
+        setMaxSec((current) => Math.max(current, clipStart + value));
+        setMediaAngles?.((current) =>
+          current.map((angle, index) =>
+            index !== angleIndex
+              ? angle
+              : {
+                  ...angle,
+                  clips: angle.clips.map((clip) =>
+                    clip.id === clipId &&
+                    Math.abs((clip.durationSeconds ?? 0) - value) > 0.01
+                      ? { ...clip, durationSeconds: value }
+                      : clip,
+                  ),
+                },
+          ),
+        );
+      },
+    [mediaAngles, setMaxSec, setMediaAngles],
   );
   const hasPrimary = Boolean(safeVideoList[0]?.trim());
   const hasSecondary = Boolean(safeVideoList[1]?.trim());
@@ -62,7 +130,7 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
 
   // useSyncedVideoPlayer は全てのモードで常に呼び出す（React Hooks のルール）
   const { blockPlayStates, handleAspectRatioChange } = useSyncedVideoPlayer({
-    videoList: safeVideoList,
+    videoList: effectiveVideoList,
     isVideoPlaying,
     videoPlayBackRate,
     setMaxSec,
@@ -103,10 +171,9 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
           position: 'relative',
         }}
       >
-        {safeVideoList.map((filePath, index) => {
-          if (!filePath || filePath.trim() === '') {
-            return null;
-          }
+        {safeVideoList.map((fallbackPath, index) => {
+          if (!fallbackPath || fallbackPath.trim() === '') return null;
+          const filePath = timelineClips[index]?.source ?? fallbackPath;
 
           const isVisible = isIndexVisible(index);
 
@@ -132,20 +199,34 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
                   backgroundColor: '#000',
                 }}
               >
-                <MemoizedSingleVideoPlayer
-                  videoSrc={filePath}
-                  id={`video_${index}`}
-                  isVideoPlaying={isVideoPlaying}
-                  videoPlayBackRate={videoPlayBackRate}
-                  setMaxSec={index === 0 ? setMaxSec : noopSetMax}
-                  blockPlay={false}
-                  allowSeek
-                  forceUpdate={forceUpdateKey}
-                  offsetSeconds={resolveOffset(index)}
-                  onAspectRatioChange={(ratio) =>
-                    handleAspectRatioChange(index, ratio)
-                  }
-                />
+                {filePath ? (
+                  <MemoizedSingleVideoPlayer
+                    videoSrc={filePath}
+                    id={`video_${index}`}
+                    isVideoPlaying={isVideoPlaying}
+                    videoPlayBackRate={videoPlayBackRate}
+                    setMaxSec={
+                      timelineClips[index]?.clipId
+                        ? recordYoutubeDuration(
+                            index,
+                            timelineClips[index].clipId,
+                          )
+                        : index === 0
+                          ? setMaxSec
+                          : noopSetMax
+                    }
+                    blockPlay={false}
+                    allowSeek
+                    forceUpdate={forceUpdateKey}
+                    initialTimeSeconds={
+                      timelineClips[index]?.clipTimeSeconds ?? 0
+                    }
+                    offsetSeconds={resolveOffset(index)}
+                    onAspectRatioChange={(ratio) =>
+                      handleAspectRatioChange(index, ratio)
+                    }
+                  />
+                ) : null}
               </Box>
             </Grid>
           );
@@ -167,10 +248,9 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
         position: 'relative',
       }}
     >
-      {safeVideoList.map((filePath, index) => {
-        if (!filePath || filePath.trim() === '') {
-          return null;
-        }
+      {safeVideoList.map((fallbackPath, index) => {
+        if (!fallbackPath || fallbackPath.trim() === '') return null;
+        const filePath = timelineClips[index]?.source ?? fallbackPath;
 
         const isVisible = isIndexVisible(index);
 
@@ -196,20 +276,34 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
                 backgroundColor: '#000',
               }}
             >
-              <MemoizedSingleVideoPlayer
-                videoSrc={filePath}
-                id={`video_${index}`}
-                isVideoPlaying={isVideoPlaying}
-                videoPlayBackRate={videoPlayBackRate}
-                setMaxSec={index === 0 ? setMaxSec : noopSetMax}
-                blockPlay={blockPlayStates[index] ?? false}
-                allowSeek={allowSeek}
-                forceUpdate={forceUpdateKey}
-                offsetSeconds={resolveOffset(index)}
-                onAspectRatioChange={(ratio) =>
-                  handleAspectRatioChange(index, ratio)
-                }
-              />
+              {filePath ? (
+                <MemoizedSingleVideoPlayer
+                  videoSrc={filePath}
+                  id={`video_${index}`}
+                  isVideoPlaying={isVideoPlaying}
+                  videoPlayBackRate={videoPlayBackRate}
+                  setMaxSec={
+                    timelineClips[index]?.clipId
+                      ? recordYoutubeDuration(
+                          index,
+                          timelineClips[index].clipId,
+                        )
+                      : index === 0
+                        ? setMaxSec
+                        : noopSetMax
+                  }
+                  blockPlay={blockPlayStates[index] ?? false}
+                  allowSeek={allowSeek}
+                  forceUpdate={forceUpdateKey}
+                  initialTimeSeconds={
+                    timelineClips[index]?.clipTimeSeconds ?? 0
+                  }
+                  offsetSeconds={resolveOffset(index)}
+                  onAspectRatioChange={(ratio) =>
+                    handleAspectRatioChange(index, ratio)
+                  }
+                />
+              ) : null}
             </Box>
           </Grid>
         );

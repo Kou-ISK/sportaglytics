@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded
 
 ## Date
 
@@ -11,7 +11,7 @@ Accepted
 ## Related ADRs
 
 - Supersedes: N/A
-- Superseded by: N/A
+- Superseded by: [0015 Clip timeline placement and audio-assisted sync](0015-clip-timeline-placement-and-audio-assisted-sync.md)
 
 ## Context
 

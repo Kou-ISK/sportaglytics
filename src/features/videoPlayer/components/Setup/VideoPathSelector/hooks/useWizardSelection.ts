@@ -27,14 +27,18 @@ export const useWizardSelection = ({
     setSelection(createInitialSelection());
   }, [createInitialSelection]);
 
-  const handleSelectDirectory = useCallback(async () => {
+  const handleSelectDirectory = useCallback(async (): Promise<
+    string | null
+  > => {
     try {
       const directory = await selectPackageDirectory();
       if (directory) {
         setSelection((prev) => ({ ...prev, selectedDirectory: directory }));
       }
+      return directory || null;
     } catch {
       showError('この機能はElectronアプリケーション内でのみ利用できます。');
+      return null;
     }
   }, [showError]);
 
@@ -76,19 +80,12 @@ export const useWizardSelection = ({
           {
             id: newAngleId,
             name: `Angle ${nextIndex}`,
-            clips: [
-              {
-                id: createClipId(),
-                sourceKind: 'local',
-                source: '',
-                gapBeforeSeconds: 0,
-              },
-            ],
+            clips: [],
           },
         ],
       };
     });
-  }, [createAngleId, createClipId]);
+  }, [createAngleId]);
 
   const handleSelectVideos = useCallback(
     async (angleId: string) => {
@@ -99,6 +96,16 @@ export const useWizardSelection = ({
           ...prev,
           angles: prev.angles.map((angle) => {
             if (angle.id !== angleId) return angle;
+            if (
+              angle.clips.some(
+                (clip) => clip.source.trim() && clip.sourceKind === 'youtube',
+              )
+            ) {
+              showError(
+                '同じアングル内でローカル映像とYouTubeは混在できません。',
+              );
+              return angle;
+            }
             const selectedClips: ClipSelection[] = paths
               .slice(0, 16)
               .map((source) => ({
@@ -124,36 +131,122 @@ export const useWizardSelection = ({
     [createClipId, showError],
   );
 
-  const handleAddClip = useCallback(
-    (angleId: string) => {
+  const handleAddDroppedVideos = useCallback(
+    (angleId: string, paths: string[]) => {
+      const validPaths = paths.filter((source) =>
+        /\.(?:mp4|mov|m4v|webm)$/i.test(source),
+      );
+      if (validPaths.length !== paths.length) {
+        showError('対応していないファイルは追加されませんでした。');
+      }
+      if (validPaths.length === 0) return;
       setSelection((prev) => ({
         ...prev,
-        angles: prev.angles.map((angle) =>
-          angle.id === angleId && angle.clips.length < 16
-            ? {
-                ...angle,
-                clips: [
-                  ...angle.clips,
-                  {
-                    id: createClipId(),
-                    sourceKind: 'local',
-                    source: '',
-                    gapBeforeSeconds: 0,
-                  },
-                ],
-              }
-            : angle,
-        ),
+        angles: prev.angles.map((angle) => {
+          if (angle.id !== angleId) return angle;
+          const retainedClips = angle.clips.filter((clip) =>
+            clip.source.trim(),
+          );
+          if (retainedClips.some((clip) => clip.sourceKind === 'youtube')) {
+            showError(
+              '同じアングル内でローカル映像とYouTubeは混在できません。',
+            );
+            return angle;
+          }
+          const available = Math.max(0, 16 - retainedClips.length);
+          return {
+            ...angle,
+            clips: [
+              ...retainedClips,
+              ...validPaths.slice(0, available).map((source) => ({
+                id: createClipId(),
+                sourceKind: 'local' as const,
+                source,
+                gapBeforeSeconds: 0,
+              })),
+            ],
+          };
+        }),
       }));
     },
-    [createClipId],
+    [createClipId, showError],
+  );
+
+  const handleSelectVideosAsAngles = useCallback(async () => {
+    try {
+      const paths = await selectVideoFiles();
+      if (paths.length === 0) return;
+      setSelection((prev) => {
+        const firstAngleIsEmpty =
+          prev.angles.length === 1 && prev.angles[0].clips.length === 0;
+        const availableSlots =
+          8 - prev.angles.length + (firstAngleIsEmpty ? 1 : 0);
+        const selectedPaths = paths.slice(0, availableSlots);
+        if (selectedPaths.length === 0) return prev;
+
+        const newAngles = selectedPaths.map((source, index) => ({
+          id: createAngleId(),
+          name: `Angle ${prev.angles.length + index + (firstAngleIsEmpty ? 0 : 1)}`,
+          clips: [
+            {
+              id: createClipId(),
+              sourceKind: 'local' as const,
+              source,
+              gapBeforeSeconds: 0,
+            },
+          ],
+        }));
+
+        return {
+          ...prev,
+          angles: [...(firstAngleIsEmpty ? [] : prev.angles), ...newAngles],
+        };
+      });
+    } catch {
+      showError('映像ファイルを選択できませんでした。');
+    }
+  }, [createAngleId, createClipId, showError]);
+
+  const handleAddYoutubeClip = useCallback(
+    (angleId: string, source: string) => {
+      setSelection((prev) => {
+        return {
+          ...prev,
+          angles: prev.angles.map((angle) => {
+            if (angle.id !== angleId || angle.clips.length >= 16) return angle;
+            const retainedClips = angle.clips.filter((clip) =>
+              clip.source.trim(),
+            );
+            if (retainedClips.some((clip) => clip.sourceKind !== 'youtube')) {
+              showError(
+                '同じアングル内でローカル映像とYouTubeは混在できません。',
+              );
+              return angle;
+            }
+            return {
+              ...angle,
+              clips: [
+                ...retainedClips,
+                {
+                  id: createClipId(),
+                  sourceKind: 'youtube' as const,
+                  source,
+                  gapBeforeSeconds: 0,
+                },
+              ],
+            };
+          }),
+        };
+      });
+    },
+    [createClipId, showError],
   );
 
   const handleRemoveClip = useCallback((angleId: string, clipId: string) => {
     setSelection((prev) => ({
       ...prev,
       angles: prev.angles.map((angle) =>
-        angle.id === angleId && angle.clips.length > 1
+        angle.id === angleId
           ? {
               ...angle,
               clips: angle.clips.filter((clip) => clip.id !== clipId),
@@ -270,10 +363,12 @@ export const useWizardSelection = ({
     handleSelectDirectory,
     handleSelectVideo,
     handleSelectVideos,
+    handleSelectVideosAsAngles,
+    handleAddYoutubeClip,
+    handleAddDroppedVideos,
     handleAddAngle,
     handleRemoveAngle,
     handleUpdateAngleName,
-    handleAddClip,
     handleRemoveClip,
     handleUpdateClip,
     handleReorderClip,

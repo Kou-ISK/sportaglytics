@@ -51,6 +51,8 @@ export const VideoPlayerScreen = () => {
     setVideoPlayBackRate,
     syncData,
     setSyncData,
+    mediaAngles,
+    setMediaAngles,
     syncMode,
     setSyncMode,
     handleCurrentTime,
@@ -261,8 +263,11 @@ export const VideoPlayerScreen = () => {
         setIsFileSelected={setIsFileSelected}
         setTimelineFilePath={setTimelineFilePath}
         setPackagePath={setPackagePath}
+        metaDataConfigFilePath={metaDataConfigFilePath}
         setMetaDataConfigFilePath={setMetaDataConfigFilePath}
         setSyncData={setSyncData}
+        mediaAngles={mediaAngles}
+        setMediaAngles={setMediaAngles}
         performUndo={performUndo}
         performRedo={performRedo}
         onApplyManualSync={handleApplyManualSync}

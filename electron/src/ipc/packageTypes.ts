@@ -10,6 +10,8 @@ export interface PackageClipPayload {
   sourceKind: 'local' | 'youtube';
   source: string;
   gapBeforeSeconds: number;
+  timelineStartSeconds?: number;
+  durationSeconds?: number;
 }
 
 export interface PackageMetaDataConfig extends Record<string, unknown> {
@@ -33,6 +35,8 @@ export interface PackageMetaDataConfig extends Record<string, unknown> {
       relativePath?: string;
       sourceUrl?: string;
       gapBeforeSeconds: number;
+      timelineStartSeconds?: number;
+      durationSeconds?: number;
     }>;
   }>;
 }
@@ -52,6 +56,8 @@ export interface NormalizedAngle {
     absolutePath?: string;
     sourceUrl?: string;
     gapBeforeSeconds: number;
+    timelineStartSeconds?: number;
+    durationSeconds?: number;
   }>;
 }
 

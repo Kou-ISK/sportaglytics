@@ -56,7 +56,7 @@ export const AngleSidebar: React.FC<AngleSidebarProps> = ({
         sx={{ px: 1.5, py: 1 }}
       >
         <Typography variant="overline" color="text.secondary">
-          Angles
+          アングル
         </Typography>
         <Tooltip title="アングルを追加">
           <span>
@@ -90,10 +90,12 @@ export const AngleSidebar: React.FC<AngleSidebarProps> = ({
             </ListItemIcon>
             <ListItemText
               primary={angle.name || `Angle ${index + 1}`}
-              secondary={`${angle.clips.length} clips`}
+              secondary={`${angle.clips.filter((clip) => clip.source).length}本`}
               primaryTypographyProps={{ noWrap: true, fontWeight: 600 }}
             />
-            {index === 0 && <Chip label="Main" size="small" color="primary" />}
+            {index === 0 && (
+              <Chip label="メイン" size="small" color="primary" />
+            )}
           </ListItemButton>
         ))}
       </List>

@@ -35,7 +35,7 @@ Renderer は Feature-First です。依存方向は `pages -> features -> shared
 
 feature 配下は機能責務で分割します。Atomic Design の分類を feature フォルダへ持ち込まないでください。
 
-パッケージ作成の映像選択 UI は `src/features/videoPlayer/components/Setup/VideoPathSelector/steps/` に Controller / View を置き、3ペインの描画部品は `steps/videoSelection/` に配置します。描画部品は props と callback のみに依存し、IPC と file dialog は gateway / hook に閉じ込めます。
+パッケージ作成の映像選択 UI は `src/features/videoPlayer/components/Setup/VideoPathSelector/steps/` に Controller / View を置き、アングル一覧とクリップシーケンスの2ペイン描画部品は `steps/videoSelection/` に配置します。YouTube URLと同期位置は `VideoSelectionStepView` から必要時だけダイアログで表示します。描画部品は props と callback のみに依存し、IPC と file dialog は gateway / hook に閉じ込めます。
 
 | Path                      | Role                                                               |
 | ------------------------- | ------------------------------------------------------------------ |

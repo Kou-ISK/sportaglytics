@@ -14,6 +14,7 @@ export const VideoController = ({
   maxSec,
   videoList,
   syncData,
+  useTimelineClock,
 }: VideoControllerProps) => {
   const toolbarProps = useVideoControllerController({
     setVideoPlayBackRate,
@@ -26,6 +27,7 @@ export const VideoController = ({
     syncData,
     maxSec,
     videoList,
+    useTimelineClock,
   });
 
   return <VideoControllerToolbar {...toolbarProps} />;

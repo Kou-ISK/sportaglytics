@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildVideoListFromConfig } from './angleUtils';
-import { buildAnglePayloads } from './packageCreationMappers';
+import {
+  buildAnglePayloads,
+  buildPackageLoadResult,
+} from './packageCreationMappers';
 
 describe('multi-angle package mapping', () => {
   it('loads every configured angle and keeps primary/secondary first', () => {
@@ -71,5 +74,21 @@ describe('multi-angle package mapping', () => {
 
     expect(result[0].clips).toHaveLength(2);
     expect(result[0].clips[1].gapBeforeSeconds).toBe(4.5);
+  });
+
+  it('uses the directory selected during the final create action', () => {
+    const result = buildPackageLoadResult(
+      {
+        timelinePath: '/chosen/match.stpkg/timeline.json',
+        tightViewPath: '',
+        wideViewPath: null,
+        angles: [],
+        metaDataConfigFilePath: '/chosen/match.stpkg/.metadata/config.json',
+      },
+      '/chosen',
+      { packageName: 'match.stpkg', team1Name: 'A', team2Name: 'B' },
+    );
+
+    expect(result.packagePath).toBe('/chosen/match.stpkg');
   });
 });

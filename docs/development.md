@@ -128,6 +128,9 @@ SporTagLytics/
 複数クリップのパッケージ作成は main process の FFmpeg/FFprobe 境界で行います。Renderer からプロセスを起動せず、`package:create` の型付き IPC と payload guard を通してください。
 配布ビルドでは両バイナリを `electron-builder.json` の `files` と `asarUnpack` に含めます。
 複数ファイル選択は `files:open-video-files` / `openVideoFiles()` の専用 IPC・preload API を利用します。汎用 dialog API を Renderer へ公開せず、選択順の反映と16クリップ上限の適用は `useWizardSelection` に閉じ込めます。
+パッケージ作成は基本情報・映像の2ステップで構成し、保存先は最終作成操作で `selectPackageDirectory()` を呼び出します。Finderドロップは `resolveDroppedVideoFilePath(file)` から `webUtils.getPathForFile` を使い、Rendererから廃止済みの `File.path` を参照しません。同期位置は作成画面から除外し、`applyClipTimeline(configPath, placements)` がconfig内の実パスを解決して再合成します。
+
+YouTube音声アシストはmacOS 13以降のloopback captureを使用します。`beginLoopbackAudioCapture()` はユーザー操作からだけ呼び、15秒のMediaStreamをメモリ上で解析した後に全trackを停止して `endLoopbackAudioCapture()` を呼びます。URLから音声を取得したり、一時ファイルへ保存したりしてはいけません。
 
 YouTube 再生では、配布版の `file://` Renderer に通常の Referer がないことを前提に、`src/types/video/youtubeEmbed.ts` のアプリ識別 URL を Video.js の `widget_referrer` と Electron Session の YouTube `/embed/` Referer に使用します。IFrame API の制御通信を壊すため、実際の親画面と一致しない HTTPS `origin` parameter は指定しません。Error 153 対策として証明書検証や `webSecurity` を無効化してはいけません。
 

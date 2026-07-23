@@ -35,6 +35,7 @@ export const useVideoControllerController = ({
   maxSec,
   videoList,
   syncData,
+  useTimelineClock = false,
 }: VideoControllerProps): VideoControllerToolbarProps => {
   const { flashStates, triggerFlash } = useFlashStates();
   const lastSetCurrentTimeValueRef = useRef<number>(0);
@@ -100,6 +101,7 @@ export const useVideoControllerController = ({
     getExistingPlayer,
     lastManualSeekTimestamp,
     safeSetCurrentTime,
+    timelineClockTime: useTimelineClock ? currentTime : undefined,
   });
 
   useEffect(() => {

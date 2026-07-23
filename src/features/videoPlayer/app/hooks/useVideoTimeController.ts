@@ -5,11 +5,14 @@ import {
   getVideoJsPlayer,
   setVideoJsPlayerCurrentTime,
 } from '../../shared/videojs/videoJsAdapter';
+import type { PackageMediaAngle } from '../../../../types/package/metadata';
+import { resolveTimelineClip } from '../../../../types/package/clipTimeline';
 
 type UseVideoTimeControllerParams = {
   videoList: string[];
   syncData: VideoSyncData | undefined;
   syncMode: 'auto' | 'manual';
+  mediaAngles: PackageMediaAngle[];
 };
 
 const getMinAllowedGlobalTime = (
@@ -46,11 +49,13 @@ const seekEachPlayer = ({
   videoList,
   syncData,
   isManualMode,
+  mediaAngles,
 }: {
   timeClamped: number;
   videoList: string[];
   syncData: VideoSyncData | undefined;
   isManualMode: boolean;
+  mediaAngles: PackageMediaAngle[];
 }): void => {
   videoList.forEach((_, index) => {
     try {
@@ -64,6 +69,25 @@ const seekEachPlayer = ({
         return;
       }
 
+      let targetTime = timeClamped;
+      const offset =
+        index > 0 && syncData?.isAnalyzed && !isManualMode
+          ? (syncData.angleOffsets?.[index] ?? syncData.syncOffset ?? 0)
+          : 0;
+      const angle = mediaAngles[index];
+      if (
+        angle?.sourceKind === 'youtube' &&
+        angle.clips.length > 1 &&
+        !isManualMode
+      ) {
+        const active = resolveTimelineClip(angle.clips, timeClamped + offset);
+        if (!active) {
+          player.pause?.();
+          return;
+        }
+        targetTime = active.clipTimeSeconds;
+      }
+
       const durationCandidate = player.duration?.();
       const duration =
         typeof durationCandidate === 'number' &&
@@ -75,15 +99,19 @@ const seekEachPlayer = ({
         return;
       }
 
-      let targetTime = timeClamped;
-
       if (index === 0) {
-        targetTime = Math.max(getMinAllowedGlobalTime(syncData), timeClamped);
+        targetTime =
+          angle?.sourceKind === 'youtube' && angle.clips.length > 1
+            ? targetTime
+            : Math.max(getMinAllowedGlobalTime(syncData), timeClamped);
       }
 
-      if (index > 0 && syncData?.isAnalyzed && !isManualMode) {
-        const offset =
-          syncData.angleOffsets?.[index] ?? syncData.syncOffset ?? 0;
+      if (
+        index > 0 &&
+        syncData?.isAnalyzed &&
+        !isManualMode &&
+        !(angle?.sourceKind === 'youtube' && angle.clips.length > 1)
+      ) {
         targetTime = Math.max(0, timeClamped + offset);
       }
 
@@ -102,6 +130,7 @@ export const useVideoTimeController = ({
   videoList,
   syncData,
   syncMode,
+  mediaAngles,
 }: UseVideoTimeControllerParams): {
   currentTime: number;
   setCurrentTime: Dispatch<SetStateAction<number>>;
@@ -135,6 +164,7 @@ export const useVideoTimeController = ({
           videoList,
           syncData,
           isManualMode,
+          mediaAngles,
         });
 
         setTimeout(() => {
@@ -142,7 +172,7 @@ export const useVideoTimeController = ({
         }, 500);
       }, 50);
     },
-    [syncData, syncMode, videoList],
+    [mediaAngles, syncData, syncMode, videoList],
   );
 
   return {

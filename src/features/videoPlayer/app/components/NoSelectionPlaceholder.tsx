@@ -2,6 +2,7 @@ import React from 'react';
 import { Paper } from '@mui/material';
 import { VideoPathSelector } from '../..';
 import type { VideoSyncData } from '../../../../types/video/sync';
+import type { PackageMediaAngle } from '../../../../types/package/metadata';
 
 interface NoSelectionPlaceholderProps {
   setVideoList: React.Dispatch<React.SetStateAction<string[]>>;
@@ -10,6 +11,7 @@ interface NoSelectionPlaceholderProps {
   setPackagePath: React.Dispatch<React.SetStateAction<string>>;
   setMetaDataConfigFilePath: React.Dispatch<React.SetStateAction<string>>;
   setSyncData: React.Dispatch<React.SetStateAction<VideoSyncData | undefined>>;
+  setMediaAngles: React.Dispatch<React.SetStateAction<PackageMediaAngle[]>>;
 }
 
 export const NoSelectionPlaceholder: React.FC<NoSelectionPlaceholderProps> = (

@@ -38,6 +38,13 @@ const toSyncData = (value: unknown): VideoSyncData | undefined => {
       typeof value.confidenceScore === 'number'
         ? value.confidenceScore
         : undefined,
+    angleOffsets:
+      Array.isArray(value.angleOffsets) &&
+      value.angleOffsets.every(
+        (offset) => typeof offset === 'number' && Number.isFinite(offset),
+      )
+        ? value.angleOffsets
+        : undefined,
   };
 };
 
@@ -135,12 +142,8 @@ export const loadPackageDirectory = async (
     throw new Error(PACKAGE_VIDEO_MISSING);
   }
 
-  const supportsAudioSync =
-    angles.length === 2 &&
-    angles.every((angle) => angle.sourceKind === 'local');
-  const persistedSyncData = supportsAudioSync
-    ? toSyncData(config.syncData)
-    : undefined;
+  const supportsAudioSync = angles.length >= 2;
+  const persistedSyncData = toSyncData(config.syncData);
   const angleOffsets = angles.map((angle) => angle.playbackOffsetSeconds);
   const hasAngleOffset = angleOffsets.some((offset) => offset !== 0);
   const syncData =
@@ -165,6 +168,12 @@ export const loadPackageDirectory = async (
       timelinePath: `${packagePath}/timeline.json`,
       metaDataConfigFilePath: configFilePath,
       packagePath,
+      mediaAngles: angles.map((angle) => ({
+        id: angle.id,
+        name: angle.name,
+        sourceKind: angle.sourceKind,
+        clips: angle.clips,
+      })),
     },
   };
 };

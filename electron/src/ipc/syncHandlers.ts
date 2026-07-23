@@ -12,6 +12,11 @@ import {
 } from './ipcPayloadGuards';
 import { registerHandleWithAliases } from './registerHandleWithAliases';
 import { getValidatedEventSenderWindow } from './windowSenderGuards';
+import {
+  authorizeLoopbackCapture,
+  isLoopbackAudioCaptureSupported,
+  revokeLoopbackCapture,
+} from '../loopbackAudioCapture';
 
 let isRegistered = false;
 const execFileAsync = promisify(execFile);
@@ -31,7 +36,11 @@ const createTempWavPath = (): string => {
   return path.join(os.tmpdir(), `sportaglytics-sync-${unique}.wav`);
 };
 
-const extractAudioWavBase64 = async (videoPath: string): Promise<string> => {
+const extractAudioWavBase64 = async (
+  videoPath: string,
+  startSeconds = 0,
+  durationSeconds = 90,
+): Promise<string> => {
   await fs.access(videoPath);
   const tempWavPath = createTempWavPath();
 
@@ -43,6 +52,8 @@ const extractAudioWavBase64 = async (videoPath: string): Promise<string> => {
         '-loglevel',
         'error',
         '-y',
+        '-ss',
+        String(startSeconds),
         '-i',
         videoPath,
         '-vn',
@@ -51,7 +62,7 @@ const extractAudioWavBase64 = async (videoPath: string): Promise<string> => {
         '-ar',
         '44100',
         '-t',
-        '90',
+        String(durationSeconds),
         tempWavPath,
       ],
       { maxBuffer: 1024 * 1024 },
@@ -91,6 +102,7 @@ export const registerSyncHandlers = (): void => {
           syncOffset: normalizedSyncData.syncOffset,
           isAnalyzed: normalizedSyncData.isAnalyzed,
           confidenceScore: normalizedSyncData.confidenceScore,
+          angleOffsets: normalizedSyncData.angleOffsets,
         };
         await fs.writeFile(configPath, JSON.stringify(json, null, 2), 'utf-8');
         return true;
@@ -98,6 +110,30 @@ export const registerSyncHandlers = (): void => {
         console.error('save-sync-data error:', error);
         return false;
       }
+    },
+  );
+
+  registerHandleWithAliases(
+    'sync:begin-loopback-audio-capture',
+    [],
+    async (event) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid loopback capture sender');
+      }
+      if (!isLoopbackAudioCaptureSupported()) return false;
+      authorizeLoopbackCapture(event.sender.id);
+      return true;
+    },
+  );
+
+  registerHandleWithAliases(
+    'sync:end-loopback-audio-capture',
+    [],
+    async (event) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid loopback capture sender');
+      }
+      revokeLoopbackCapture(event.sender.id);
     },
   );
 
@@ -116,6 +152,45 @@ export const registerSyncHandlers = (): void => {
         return await extractAudioWavBase64(videoPath);
       } catch (error) {
         console.error('extract-audio-wav error:', error);
+        return null;
+      }
+    },
+  );
+
+  registerHandleWithAliases(
+    'sync:extract-audio-window',
+    [],
+    async (
+      event,
+      videoPath: unknown,
+      startSeconds: unknown,
+      durationSeconds: unknown,
+    ) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid sync audio window sender');
+      }
+      if (
+        !isNonEmptyString(videoPath) ||
+        typeof startSeconds !== 'number' ||
+        !Number.isFinite(startSeconds) ||
+        startSeconds < 0 ||
+        startSeconds > 86_400 ||
+        typeof durationSeconds !== 'number' ||
+        !Number.isFinite(durationSeconds) ||
+        durationSeconds <= 0 ||
+        durationSeconds > 30
+      ) {
+        return null;
+      }
+
+      try {
+        return await extractAudioWavBase64(
+          videoPath,
+          startSeconds,
+          durationSeconds,
+        );
+      } catch (error) {
+        console.error('extract-audio-window error:', error);
         return null;
       }
     },

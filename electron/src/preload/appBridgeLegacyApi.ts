@@ -11,6 +11,10 @@ export type AppBridgeLegacyKeys =
   | 'createPackage'
   | 'saveSyncData'
   | 'extractAudioWavForSync'
+  | 'extractLocalAudioWindow'
+  | 'applyClipTimeline'
+  | 'beginLoopbackAudioCapture'
+  | 'endLoopbackAudioCapture'
   | 'checkFileExists'
   | 'readJsonFile'
   | 'setManualModeChecked'
@@ -109,6 +113,7 @@ export const createAppBridgeLegacyApi = (
         syncOffset: number;
         isAnalyzed: boolean;
         confidenceScore?: number;
+        angleOffsets?: number[];
       },
     ) => {
       try {
@@ -136,6 +141,36 @@ export const createAppBridgeLegacyApi = (
         console.error('extractAudioWavForSync error:', error);
         return null;
       }
+    },
+    extractLocalAudioWindow: async (
+      videoPath: string,
+      startSeconds: number,
+      durationSeconds: number,
+    ) => {
+      try {
+        return await ipcRenderer.invoke(
+          'sync:extract-audio-window',
+          videoPath,
+          startSeconds,
+          durationSeconds,
+        );
+      } catch (error) {
+        console.error('extractLocalAudioWindow error:', error);
+        return null;
+      }
+    },
+    applyClipTimeline: async (configPath, placements) => {
+      return ipcRenderer.invoke(
+        'package:apply-clip-timeline',
+        configPath,
+        placements,
+      );
+    },
+    beginLoopbackAudioCapture: async () => {
+      return ipcRenderer.invoke('sync:begin-loopback-audio-capture');
+    },
+    endLoopbackAudioCapture: async () => {
+      await ipcRenderer.invoke('sync:end-loopback-audio-capture');
     },
     checkFileExists: async (filePath: string) => {
       try {

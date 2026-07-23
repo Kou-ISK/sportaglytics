@@ -80,7 +80,7 @@ describe('CreatePackageWizardView', () => {
     renderWithProviders(
       <CreatePackageWizardView
         open
-        activeStep={3}
+        activeStep={1}
         form={{ packageName: 'match-1', team1Name: 'A', team2Name: 'B' }}
         errors={{}}
         isCreating
@@ -101,18 +101,18 @@ describe('CreatePackageWizardView', () => {
             },
           ],
         }}
-        summaryItems={[{ label: 'パッケージ名', value: 'match-1' }]}
         onClose={vi.fn()}
         onBack={vi.fn()}
         onNext={vi.fn()}
         onFormChange={vi.fn()}
-        onSelectDirectory={vi.fn()}
         onSelectVideo={vi.fn()}
         onSelectVideos={vi.fn()}
+        onSelectVideosAsAngles={vi.fn()}
+        onAddYoutubeClip={vi.fn()}
+        onAddDroppedVideos={vi.fn()}
         onAddAngle={vi.fn()}
         onRemoveAngle={vi.fn()}
         onUpdateAngleName={vi.fn()}
-        onAddClip={vi.fn()}
         onRemoveClip={vi.fn()}
         onUpdateClip={vi.fn()}
         onReorderClip={vi.fn()}
@@ -128,7 +128,7 @@ describe('CreatePackageWizardView', () => {
 });
 
 describe('VideoSelectionStep', () => {
-  it('selects an angle and exposes sequence import and ordering actions', () => {
+  it('reveals import choices and sync controls only when requested', async () => {
     const handleSelectVideos = vi.fn();
     const handleMoveClip = vi.fn();
     const handleReorderClip = vi.fn();
@@ -169,10 +169,12 @@ describe('VideoSelectionStep', () => {
         ]}
         onSelectVideo={vi.fn()}
         onSelectVideos={handleSelectVideos}
+        onSelectVideosAsAngles={vi.fn()}
+        onAddYoutubeClip={vi.fn()}
+        onAddDroppedVideos={vi.fn()}
         onAddAngle={vi.fn()}
         onRemoveAngle={vi.fn()}
         onUpdateAngleName={vi.fn()}
-        onAddClip={vi.fn()}
         onRemoveClip={vi.fn()}
         onUpdateClip={vi.fn()}
         onReorderClip={handleReorderClip}
@@ -180,15 +182,26 @@ describe('VideoSelectionStep', () => {
       />,
     );
 
-    expect(screen.getByText('Import in Sequence')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'このアングルに映像を追加' }),
+    ).toBeTruthy();
     expect(screen.getByText('first-half.mp4')).toBeTruthy();
-    expect(screen.getByText('前に 2.5 秒の空白')).toBeTruthy();
+    expect(
+      screen.getAllByText('同期位置は再生画面のシンクモードで設定').length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText('開始位置（秒）')).toBeNull();
+    expect(screen.queryByText('同期を調整…')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: '複数選択' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'このアングルに映像を追加' }),
+    );
+    expect(screen.getByText('ローカル映像')).toBeTruthy();
+    expect(screen.getByText('YouTube')).toBeTruthy();
+    fireEvent.click(screen.getByText('ローカル映像'));
     expect(handleSelectVideos).toHaveBeenCalledWith('angle-main');
 
     fireEvent.click(
-      screen.getAllByRole('button', { name: 'クリップを上へ移動' })[1],
+      screen.getAllByRole('button', { name: '映像を上へ移動' })[1],
     );
     expect(handleMoveClip).toHaveBeenCalledWith(
       'angle-main',

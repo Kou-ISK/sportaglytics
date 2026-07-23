@@ -54,6 +54,14 @@ const normalizeAnglePayloads = (angles: unknown): PackageAnglePayload[] =>
             typeof clip.gapBeforeSeconds === 'number'
               ? clip.gapBeforeSeconds
               : 0,
+          timelineStartSeconds:
+            typeof clip.timelineStartSeconds === 'number'
+              ? clip.timelineStartSeconds
+              : undefined,
+          durationSeconds:
+            typeof clip.durationSeconds === 'number'
+              ? clip.durationSeconds
+              : undefined,
         };
       }),
     };
@@ -121,6 +129,8 @@ const writePackageMetadata = async (
       relativePath: clip.relativePath,
       sourceUrl: clip.sourceUrl,
       gapBeforeSeconds: clip.gapBeforeSeconds,
+      timelineStartSeconds: clip.timelineStartSeconds,
+      durationSeconds: clip.durationSeconds,
     })),
   }));
   metaDataConfig.primaryAngleId =

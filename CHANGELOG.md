@@ -11,11 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 最大8アングル・各16ローカルクリップをパッケージ化し、クリップ間の空白を黒画面と無音で埋める機能を追加
 - YouTube URLを映像アングルとしてパッケージへ保存・再生する機能を追加
+- クリップ単位の絶対タイムライン配置、黒画面・無音区間の再合成、macOSでのYouTube音声アシストを追加
 
 ### Changed
 
 - パッケージの映像モデルを `angles[] -> clips[]` へ拡張し、旧 `tightViewPath` / `wideViewPath` はロード時互換として維持
-- パッケージ作成の映像登録を、アングル一覧・Import in Sequence・Inspector の3ペイン構成へ変更し、複数ファイル選択とクリップ並べ替えに対応
+- パッケージ作成を基本情報・映像の2ステップへ簡素化し、同期設定を再生画面のシンクモードへ移動
+- 映像追加を各アングルの「＋」からローカル／YouTubeを選ぶ操作へ変更し、複数選択・複数ドロップ・クリップ並べ替えに対応
 
 ### Fixed
 

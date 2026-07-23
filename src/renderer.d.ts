@@ -20,6 +20,7 @@ export interface LlamaModelInfo {
 export interface IElectronAPI {
   openFile: () => Promise<string>;
   openVideoFiles: () => Promise<string[]>;
+  resolveDroppedVideoFilePath: (file: File) => string;
   openDirectory: () => Promise<string>;
   exportTimeline: (filePath: string, source: unknown) => Promise<void>;
   createPackage: (
@@ -33,6 +34,8 @@ export interface IElectronAPI {
         sourceKind: 'local' | 'youtube';
         source: string;
         gapBeforeSeconds: number;
+        timelineStartSeconds?: number;
+        durationSeconds?: number;
       }>;
       role?: 'primary' | 'secondary';
     }>,
@@ -73,8 +76,24 @@ export interface IElectronAPI {
       syncOffset: number;
       isAnalyzed: boolean;
       confidenceScore?: number;
+      angleOffsets?: number[];
     },
   ) => Promise<boolean>;
+  applyClipTimeline: (
+    configPath: string,
+    placements: Array<{
+      clipId: string;
+      timelineStartSeconds: number;
+      durationSeconds?: number;
+    }>,
+  ) => Promise<PackageDatas>;
+  extractLocalAudioWindow: (
+    videoPath: string,
+    startSeconds: number,
+    durationSeconds: number,
+  ) => Promise<string | null>;
+  beginLoopbackAudioCapture: () => Promise<boolean>;
+  endLoopbackAudioCapture: () => Promise<void>;
   extractAudioWavForSync: (videoPath: string) => Promise<string | null>;
   setManualModeChecked: (checked: boolean) => Promise<boolean>;
   setLabelModeChecked: (checked: boolean) => Promise<boolean>;
@@ -209,6 +228,8 @@ export interface PackageDatas {
       relativePath?: string;
       sourceUrl?: string;
       gapBeforeSeconds: number;
+      timelineStartSeconds?: number;
+      durationSeconds?: number;
     }>;
   }>;
   metaDataConfigFilePath: string;

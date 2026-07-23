@@ -10,17 +10,12 @@ import {
   StepLabel,
   Stepper,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
 import { BasicInfoStep } from './steps/BasicInfoStep';
-import { DirectoryStep } from './steps/DirectoryStep';
 import { VideoSelectionStep } from './steps/VideoSelectionStep';
-import { SummaryStep } from './steps/SummaryStep';
 import { WizardFooter } from './WizardFooter';
 import type { WizardFormState, WizardSelectionState } from './types';
-import type { WizardSummaryItem } from './WizardSummaryBuilder';
 
 interface CreatePackageWizardViewProps {
   open: boolean;
@@ -29,18 +24,18 @@ interface CreatePackageWizardViewProps {
   errors: Partial<WizardFormState>;
   isCreating: boolean;
   selection: WizardSelectionState;
-  summaryItems: WizardSummaryItem[];
   onClose: () => void;
   onBack: () => void;
   onNext: () => void;
   onFormChange: (updates: Partial<WizardFormState>) => void;
-  onSelectDirectory: () => Promise<void>;
   onSelectVideo: (angleId: string, clipId: string) => Promise<void>;
   onSelectVideos: (angleId: string) => Promise<void>;
+  onSelectVideosAsAngles: () => Promise<void>;
+  onAddYoutubeClip: (angleId: string, source: string) => void;
+  onAddDroppedVideos: (angleId: string, paths: string[]) => void;
   onAddAngle: () => void;
   onRemoveAngle: (angleId: string) => void;
   onUpdateAngleName: (angleId: string, name: string) => void;
-  onAddClip: (angleId: string) => void;
   onRemoveClip: (angleId: string, clipId: string) => void;
   onUpdateClip: (
     angleId: string,
@@ -59,7 +54,7 @@ interface CreatePackageWizardViewProps {
   onMoveClip: (angleId: string, clipId: string, direction: -1 | 1) => void;
 }
 
-const STEP_LABELS = ['詳細', '保存先', '映像', '確認'];
+const STEP_LABELS = ['基本情報', '映像'];
 
 export const CreatePackageWizardView: React.FC<
   CreatePackageWizardViewProps
@@ -70,25 +65,28 @@ export const CreatePackageWizardView: React.FC<
   errors,
   isCreating,
   selection,
-  summaryItems,
   onClose,
   onBack,
   onNext,
   onFormChange,
-  onSelectDirectory,
   onSelectVideo,
   onSelectVideos,
+  onSelectVideosAsAngles,
+  onAddYoutubeClip,
+  onAddDroppedVideos,
   onAddAngle,
   onRemoveAngle,
   onUpdateAngleName,
-  onAddClip,
   onRemoveClip,
   onUpdateClip,
   onReorderClip,
   onMoveClip,
 }) => {
-  const theme = useTheme();
-  const isCompact = useMediaQuery(theme.breakpoints.down('md'));
+  const assignedClipCount = selection.angles.reduce(
+    (count, angle) =>
+      count + angle.clips.filter((clip) => clip.source.trim()).length,
+    0,
+  );
 
   return (
     <Dialog
@@ -98,7 +96,7 @@ export const CreatePackageWizardView: React.FC<
       maxWidth="lg"
       PaperProps={{
         sx: {
-          height: { xs: '100%', md: 'min(760px, 92vh)' },
+          height: { xs: '100%', md: 'min(720px, 92vh)' },
           m: { xs: 0, md: 3 },
           borderRadius: { xs: 0, md: 2 },
           overflow: 'hidden',
@@ -123,29 +121,22 @@ export const CreatePackageWizardView: React.FC<
         sx={{
           p: 0,
           display: 'flex',
-          flexDirection: { xs: 'column', md: 'row' },
+          flexDirection: 'column',
           minHeight: 0,
         }}
       >
         <Box
           sx={{
-            width: { xs: '100%', md: 180 },
-            flexShrink: 0,
-            p: { xs: 2, md: 3 },
-            borderRight: {
-              xs: 'none',
-              md: (contentTheme) => `1px solid ${contentTheme.palette.divider}`,
-            },
-            borderBottom: {
-              xs: (contentTheme) => `1px solid ${contentTheme.palette.divider}`,
-              md: 'none',
-            },
+            px: { xs: 2, md: 3 },
+            py: 1.5,
+            borderBottom: (contentTheme) =>
+              `1px solid ${contentTheme.palette.divider}`,
           }}
         >
           <Stepper
             activeStep={activeStep}
-            orientation={isCompact ? 'horizontal' : 'vertical'}
-            alternativeLabel={isCompact}
+            orientation="horizontal"
+            alternativeLabel
           >
             {STEP_LABELS.map((label) => (
               <Step key={label}>
@@ -167,43 +158,45 @@ export const CreatePackageWizardView: React.FC<
           )}
 
           {activeStep === 1 && (
-            <DirectoryStep
-              packageName={form.packageName}
-              selectedDirectory={selection.selectedDirectory}
-              onSelectDirectory={onSelectDirectory}
-            />
-          )}
-
-          {activeStep === 2 && (
             <VideoSelectionStep
               angles={selection.angles}
               onSelectVideo={onSelectVideo}
               onSelectVideos={onSelectVideos}
+              onSelectVideosAsAngles={onSelectVideosAsAngles}
+              onAddYoutubeClip={onAddYoutubeClip}
+              onAddDroppedVideos={onAddDroppedVideos}
               onAddAngle={onAddAngle}
               onRemoveAngle={onRemoveAngle}
               onUpdateAngleName={onUpdateAngleName}
-              onAddClip={onAddClip}
               onRemoveClip={onRemoveClip}
               onUpdateClip={onUpdateClip}
               onReorderClip={onReorderClip}
               onMoveClip={onMoveClip}
             />
           )}
-
-          {activeStep === 3 && <SummaryStep items={summaryItems} />}
         </Box>
       </DialogContent>
 
       <Divider />
-      <DialogActions sx={{ px: { xs: 2, md: 3 }, py: 2 }}>
-        <WizardFooter
-          activeStep={activeStep}
-          totalSteps={STEP_LABELS.length}
-          onCancel={onClose}
-          onBack={onBack}
-          onNext={onNext}
-          isCreating={isCreating}
-        />
+      <DialogActions sx={{ px: { xs: 2, md: 3 }, py: 1.5 }}>
+        <Stack spacing={0.75} sx={{ width: '100%' }}>
+          {activeStep === 1 && (
+            <Typography variant="caption" color="text.secondary">
+              {selection.angles.length}アングル・{assignedClipCount}本
+              {selection.selectedDirectory
+                ? ` ／ 保存先: ${selection.selectedDirectory}`
+                : ' ／ 保存先は作成時に選択します'}
+            </Typography>
+          )}
+          <WizardFooter
+            activeStep={activeStep}
+            totalSteps={STEP_LABELS.length}
+            onCancel={onClose}
+            onBack={onBack}
+            onNext={onNext}
+            isCreating={isCreating}
+          />
+        </Stack>
       </DialogActions>
     </Dialog>
   );

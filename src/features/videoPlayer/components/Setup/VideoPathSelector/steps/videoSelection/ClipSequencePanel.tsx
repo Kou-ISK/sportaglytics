@@ -4,25 +4,40 @@ import {
   Button,
   Divider,
   IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   Paper,
   Stack,
+  TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import LinkIcon from '@mui/icons-material/Link';
 import MovieOutlinedIcon from '@mui/icons-material/MovieOutlined';
+import VideoLibraryOutlinedIcon from '@mui/icons-material/VideoLibraryOutlined';
 import type { AngleSelection } from '../../types';
 
 interface ClipSequencePanelProps {
   angle: AngleSelection | undefined;
+  angleCount: number;
   selectedClipId: string;
   onSelectClip: (clipId: string) => void;
-  onSelectVideos: (angleId: string) => void;
-  onAddClip: () => void;
+  onUpdateAngleName: (angleId: string, name: string) => void;
+  onRemoveAngle: (angleId: string) => void;
+  onSelectVideo: (angleId: string, clipId: string) => void;
+  onEditYoutube: (angleId: string, clipId: string, source: string) => void;
+  onRemoveClip: (angleId: string, clipId: string) => void;
+  onAddLocal: () => void;
+  onAddYoutube: () => void;
+  onAddDroppedVideos: (angleId: string, paths: string[]) => void;
   onReorderClip: (
     angleId: string,
     activeClipId: string,
@@ -36,16 +51,25 @@ const fileName = (source: string): string =>
 
 export const ClipSequencePanel: React.FC<ClipSequencePanelProps> = ({
   angle,
+  angleCount,
   selectedClipId,
   onSelectClip,
-  onSelectVideos,
-  onAddClip,
+  onUpdateAngleName,
+  onRemoveAngle,
+  onSelectVideo,
+  onEditYoutube,
+  onRemoveClip,
+  onAddLocal,
+  onAddYoutube,
+  onAddDroppedVideos,
   onReorderClip,
   onMoveClip,
 }) => {
   const [pointerDragClipId, setPointerDragClipId] = useState<string | null>(
     null,
   );
+  const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null);
+  const [isFileDragOver, setIsFileDragOver] = useState(false);
 
   useEffect(() => {
     const stopPointerDrag = (): void => setPointerDragClipId(null);
@@ -59,14 +83,42 @@ export const ClipSequencePanel: React.FC<ClipSequencePanelProps> = ({
 
   return (
     <Box
+      onDragEnter={(event) => {
+        if (event.dataTransfer.types.includes('Files')) {
+          event.preventDefault();
+          setIsFileDragOver(true);
+        }
+      }}
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes('Files')) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsFileDragOver(false);
+        }
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setIsFileDragOver(false);
+        if (!angle) return;
+        const paths = Array.from(event.dataTransfer.files)
+          .map((file) =>
+            window.electronAPI?.resolveDroppedVideoFilePath?.(file),
+          )
+          .filter((filePath): filePath is string => Boolean(filePath));
+        onAddDroppedVideos(angle.id, paths);
+      }}
       sx={{
         display: 'flex',
         flexDirection: 'column',
         minWidth: 0,
         minHeight: 0,
-        overflow: 'hidden',
-        borderRight: { md: '1px solid' },
-        borderColor: 'divider',
+        outline: isFileDragOver ? '2px solid' : 'none',
+        outlineColor: 'primary.main',
+        outlineOffset: -2,
       }}
     >
       <Stack
@@ -76,35 +128,75 @@ export const ClipSequencePanel: React.FC<ClipSequencePanelProps> = ({
         spacing={1}
         sx={{ px: 1.5, py: 1 }}
       >
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="body2" fontWeight={700} noWrap>
-            {angle?.name ?? 'アングル未選択'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Import in Sequence
-          </Typography>
-        </Box>
+        {angle ? (
+          <TextField
+            variant="standard"
+            size="small"
+            value={angle.name}
+            onChange={(event) =>
+              onUpdateAngleName(angle.id, event.target.value)
+            }
+            inputProps={{ 'aria-label': 'アングル名' }}
+            sx={{ minWidth: 180 }}
+          />
+        ) : (
+          <Typography variant="body2">アングル未選択</Typography>
+        )}
         <Stack direction="row" spacing={0.5}>
           <Button
             size="small"
-            startIcon={<FolderOpenIcon />}
-            onClick={() => angle && onSelectVideos(angle.id)}
-            disabled={!angle}
-            aria-label="複数選択"
-            sx={{ whiteSpace: 'nowrap' }}
-          >
-            複数選択
-          </Button>
-          <Button
-            size="small"
+            variant="contained"
             startIcon={<AddIcon />}
-            onClick={onAddClip}
-            disabled={!angle || angle.clips.length >= 16}
-            aria-label="空クリップ"
-            sx={{ whiteSpace: 'nowrap' }}
+            aria-label="このアングルに映像を追加"
+            aria-haspopup="menu"
+            onClick={(event) => setAddAnchor(event.currentTarget)}
           >
-            空クリップ
+            追加
           </Button>
+          <Menu
+            anchorEl={addAnchor}
+            open={Boolean(addAnchor)}
+            onClose={() => setAddAnchor(null)}
+          >
+            <MenuItem
+              onClick={() => {
+                setAddAnchor(null);
+                onAddLocal();
+              }}
+            >
+              <ListItemIcon>
+                <VideoLibraryOutlinedIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary="ローカル映像"
+                secondary="複数のファイルを選択できます"
+              />
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setAddAnchor(null);
+                onAddYoutube();
+              }}
+            >
+              <ListItemIcon>
+                <LinkIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="YouTube" secondary="URLを入力します" />
+            </MenuItem>
+          </Menu>
+          <Tooltip title="アングルを削除">
+            <span>
+              <IconButton
+                size="small"
+                color="error"
+                disabled={!angle || angleCount === 1}
+                onClick={() => angle && onRemoveAngle(angle.id)}
+                aria-label="アングルを削除"
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
         </Stack>
       </Stack>
       <Divider />
@@ -119,6 +211,9 @@ export const ClipSequencePanel: React.FC<ClipSequencePanelProps> = ({
           <MovieOutlinedIcon color="disabled" />
           <Typography variant="body2" color="text.secondary">
             このアングルには映像がありません
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            ＋から追加するか、複数の映像をここへドロップ
           </Typography>
         </Stack>
       ) : (
@@ -189,16 +284,32 @@ export const ClipSequencePanel: React.FC<ClipSequencePanelProps> = ({
                   </Typography>
                 </Stack>
                 <Typography variant="caption" color="text.secondary">
-                  {clip.gapBeforeSeconds > 0
-                    ? `前に ${clip.gapBeforeSeconds.toFixed(1)} 秒の空白`
-                    : '前のクリップに続けて配置'}
+                  同期位置は再生画面のシンクモードで設定
                 </Typography>
               </Box>
               <Stack direction="row" spacing={0}>
                 <IconButton
                   size="small"
+                  aria-label={
+                    clip.sourceKind === 'youtube'
+                      ? 'YouTube URLを編集'
+                      : clip.source
+                        ? '映像を差し替え'
+                        : '映像を選択'
+                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (clip.sourceKind === 'youtube')
+                      onEditYoutube(angle.id, clip.id, clip.source);
+                    else onSelectVideo(angle.id, clip.id);
+                  }}
+                >
+                  <EditOutlinedIcon fontSize="inherit" />
+                </IconButton>
+                <IconButton
+                  size="small"
                   disabled={index === 0}
-                  aria-label="クリップを上へ移動"
+                  aria-label="映像を上へ移動"
                   onClick={(event) => {
                     event.stopPropagation();
                     onMoveClip(angle.id, clip.id, -1);
@@ -209,13 +320,25 @@ export const ClipSequencePanel: React.FC<ClipSequencePanelProps> = ({
                 <IconButton
                   size="small"
                   disabled={index === angle.clips.length - 1}
-                  aria-label="クリップを下へ移動"
+                  aria-label="映像を下へ移動"
                   onClick={(event) => {
                     event.stopPropagation();
                     onMoveClip(angle.id, clip.id, 1);
                   }}
                 >
                   <ArrowDownwardIcon fontSize="inherit" />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  disabled={angle.clips.length === 1}
+                  color="error"
+                  aria-label="映像を削除"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRemoveClip(angle.id, clip.id);
+                  }}
+                >
+                  <DeleteOutlineIcon fontSize="inherit" />
                 </IconButton>
               </Stack>
             </Paper>

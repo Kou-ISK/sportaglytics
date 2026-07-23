@@ -1,8 +1,7 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 import { ActionList } from '../../../../../ActionList';
 import type { PackageLoadResult, WizardSelectionState } from './types';
-import { buildWizardSummaryItems } from './WizardSummaryBuilder';
 import { useCreatePackageFlow } from './hooks/useCreatePackageFlow';
 import { useWizardSelection } from './hooks/useWizardSelection';
 import { CreatePackageWizardView } from './CreatePackageWizardView';
@@ -31,14 +30,7 @@ const createInitialSelection = (): WizardSelectionState => {
       {
         id: firstAngleId,
         name: 'Angle 1',
-        clips: [
-          {
-            id: createClipId(),
-            sourceKind: 'local',
-            source: '',
-            gapBeforeSeconds: 0,
-          },
-        ],
+        clips: [],
       },
     ],
   };
@@ -56,10 +48,12 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     handleSelectDirectory,
     handleSelectVideo,
     handleSelectVideos,
+    handleSelectVideosAsAngles,
+    handleAddYoutubeClip,
+    handleAddDroppedVideos,
     handleAddAngle,
     handleRemoveAngle,
     handleUpdateAngleName,
-    handleAddClip,
     handleRemoveClip,
     handleUpdateClip,
     handleReorderClip,
@@ -89,11 +83,6 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     actionNames: ActionList.map((item) => item.action),
   });
 
-  const summaryItems = useMemo(
-    () => buildWizardSummaryItems(form, selection),
-    [form, selection],
-  );
-
   return (
     <CreatePackageWizardView
       open={open}
@@ -102,18 +91,18 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
       errors={errors}
       isCreating={isCreating}
       selection={selection}
-      summaryItems={summaryItems}
       onClose={onClose}
       onBack={handleBack}
       onNext={handleNext}
       onFormChange={(updates) => setForm((prev) => ({ ...prev, ...updates }))}
-      onSelectDirectory={handleSelectDirectory}
       onSelectVideo={handleSelectVideo}
       onSelectVideos={handleSelectVideos}
+      onSelectVideosAsAngles={handleSelectVideosAsAngles}
+      onAddYoutubeClip={handleAddYoutubeClip}
+      onAddDroppedVideos={handleAddDroppedVideos}
       onAddAngle={handleAddAngle}
       onRemoveAngle={handleRemoveAngle}
       onUpdateAngleName={handleUpdateAngleName}
-      onAddClip={handleAddClip}
       onRemoveClip={handleRemoveClip}
       onUpdateClip={handleUpdateClip}
       onReorderClip={handleReorderClip}

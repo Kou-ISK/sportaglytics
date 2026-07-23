@@ -1,5 +1,6 @@
 import type {
   MetaData,
+  PackageMediaClip,
   VideoAngleConfig,
 } from '../../../../../../types/package/metadata';
 
@@ -11,6 +12,7 @@ type LoadedAngle = {
   sourceKind: 'local' | 'youtube';
   playbackOffsetSeconds: number;
   role?: 'primary' | 'secondary';
+  clips: PackageMediaClip[];
 };
 
 const normalizeAngleName = (value: unknown, index: number) => {
@@ -76,10 +78,70 @@ const normalizeYoutubePlaybackOffset = (angle: unknown): number => {
   ) {
     return 0;
   }
-  const gap = (firstClip as { gapBeforeSeconds?: unknown }).gapBeforeSeconds;
-  return typeof gap === 'number' && Number.isFinite(gap)
-    ? -Math.max(0, gap)
+  const value = firstClip as {
+    timelineStartSeconds?: unknown;
+    gapBeforeSeconds?: unknown;
+  };
+  const start =
+    typeof value.timelineStartSeconds === 'number'
+      ? value.timelineStartSeconds
+      : value.gapBeforeSeconds;
+  return typeof start === 'number' && Number.isFinite(start)
+    ? -Math.max(0, start)
     : 0;
+};
+
+const normalizeClips = (
+  angle: unknown,
+  packagePath: string,
+): PackageMediaClip[] => {
+  if (!angle || typeof angle !== 'object' || !('clips' in angle)) return [];
+  const clips = (angle as { clips?: unknown }).clips;
+  if (!Array.isArray(clips)) return [];
+  let legacyCursor = 0;
+  return clips.flatMap((clip, index) => {
+    if (!clip || typeof clip !== 'object') return [];
+    const value = clip as Record<string, unknown>;
+    const sourceKind = value.sourceKind === 'youtube' ? 'youtube' : 'local';
+    const relativePath =
+      typeof value.relativePath === 'string' ? value.relativePath : undefined;
+    const sourceUrl =
+      typeof value.sourceUrl === 'string' ? value.sourceUrl : undefined;
+    const source =
+      sourceKind === 'youtube'
+        ? sourceUrl
+        : relativePath
+          ? `${packagePath}/${relativePath}`
+          : undefined;
+    if (!source) return [];
+    const gapBeforeSeconds =
+      typeof value.gapBeforeSeconds === 'number' &&
+      Number.isFinite(value.gapBeforeSeconds)
+        ? Math.max(0, value.gapBeforeSeconds)
+        : 0;
+    const durationSeconds =
+      typeof value.durationSeconds === 'number' &&
+      Number.isFinite(value.durationSeconds) &&
+      value.durationSeconds > 0
+        ? value.durationSeconds
+        : undefined;
+    const timelineStartSeconds =
+      typeof value.timelineStartSeconds === 'number' &&
+      Number.isFinite(value.timelineStartSeconds)
+        ? Math.max(0, value.timelineStartSeconds)
+        : legacyCursor + gapBeforeSeconds;
+    legacyCursor = timelineStartSeconds + (durationSeconds ?? 0);
+    return [
+      {
+        id: typeof value.id === 'string' ? value.id : `clip-${index + 1}`,
+        sourceKind,
+        source,
+        gapBeforeSeconds,
+        timelineStartSeconds,
+        durationSeconds,
+      },
+    ];
+  });
 };
 
 const resolveAnglesFromConfig = (
@@ -121,6 +183,7 @@ const resolveAnglesFromConfig = (
           (angle as VideoAngleConfig)?.role === 'secondary'
             ? (angle as VideoAngleConfig).role
             : undefined,
+        clips: normalizeClips(angle, packagePath),
       };
     })
     .filter(Boolean) as LoadedAngle[];
@@ -175,6 +238,7 @@ export const buildVideoListFromConfig = (
             absolutePath: `${packagePath}/${tightRelative}`,
             sourceKind: 'local' as const,
             playbackOffsetSeconds: 0,
+            clips: [],
           },
           ...(wideRelative
             ? [
@@ -185,6 +249,7 @@ export const buildVideoListFromConfig = (
                   absolutePath: `${packagePath}/${wideRelative}`,
                   sourceKind: 'local' as const,
                   playbackOffsetSeconds: 0,
+                  clips: [],
                 },
               ]
             : []),
