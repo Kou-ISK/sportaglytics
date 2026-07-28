@@ -132,6 +132,8 @@ SporTagLytics/
 
 YouTube音声アシストはmacOS 13以降のloopback captureを使用します。`beginLoopbackAudioCapture()` はユーザー操作からだけ呼び、15秒のMediaStreamをメモリ上で解析した後に全trackを停止して `endLoopbackAudioCapture()` を呼びます。URLから音声を取得したり、一時ファイルへ保存したりしてはいけません。
 
+アングル単位の再生offsetは `.metadata/config.json` の `syncData.angleOffsets[]` をアングルindexに対応させます。`angleOffsets[index]` がない旧データでは `syncOffset` へフォールバックします。符号と加算契約、IPC上限は [音声同期オフセット仕様](audio-sync-offset-specification.md) と [ADR 0016](adr/0016-multi-angle-audio-sync-offset-persistence.md) を正本とします。
+
 YouTube 再生では、配布版の `file://` Renderer に通常の Referer がないことを前提に、`src/types/video/youtubeEmbed.ts` のアプリ識別 URL を Video.js の `widget_referrer` と Electron Session の YouTube `/embed/` Referer に使用します。IFrame API の制御通信を壊すため、実際の親画面と一致しない HTTPS `origin` parameter は指定しません。Error 153 対策として証明書検証や `webSecurity` を無効化してはいけません。
 
 **ffmpeg-static**:

@@ -35,7 +35,7 @@ Renderer は Feature-First です。依存方向は `pages -> features -> shared
 
 feature 配下は機能責務で分割します。Atomic Design の分類を feature フォルダへ持ち込まないでください。
 
-パッケージ作成の映像選択 UI は `src/features/videoPlayer/components/Setup/VideoPathSelector/steps/` に Controller / View を置き、アングル一覧とクリップシーケンスの2ペイン描画部品は `steps/videoSelection/` に配置します。YouTube URLと同期位置は `VideoSelectionStepView` から必要時だけダイアログで表示します。描画部品は props と callback のみに依存し、IPC と file dialog は gateway / hook に閉じ込めます。
+パッケージ作成の映像選択 UI は `src/features/videoPlayer/components/Setup/VideoPathSelector/steps/` に Controller / View を置き、アングル一覧とクリップシーケンスの2ペイン描画部品は `steps/videoSelection/` に配置します。`VideoSelectionStepView` はYouTube URL入力だけを必要時にダイアログ表示し、同期位置は作成画面で扱いません。クリップ単位シンクの状態制御は `src/features/videoPlayer/app/hooks/sync/useClipTimelineSyncController.ts`、描画は `src/features/videoPlayer/app/components/ClipSyncControlsView.tsx` に分離します。描画部品は props と callback のみに依存し、IPC と file dialog は gateway / hook に閉じ込めます。
 
 | Path                      | Role                                                               |
 | ------------------------- | ------------------------------------------------------------------ |
@@ -65,6 +65,8 @@ feature 配下は機能責務で分割します。Atomic Design の分類を fea
 | `electron/src/main.ts`                               | app startup / top-level assembly      | 詳細な domain logic を増やさず、登録・組み立てに留める                  |
 | `electron/src/ipc/`                                  | main process IPC handlers             | domain ごとに handler を分け、payload guard と sender validation を行う |
 | `electron/src/ipc/packageMediaCompositionService.ts` | package media composition             | 複数ローカルクリップの検査、黒画面ギャップ挿入、FFmpeg正規化            |
+| `electron/src/ipc/packageClipTimelineService.ts`     | clip timeline application             | 配置検証、影響アングルの再合成、configと再生映像の原子的置換            |
+| `electron/src/loopbackAudioCapture.ts`               | macOS loopback capture authorization  | 対応OS判定、ユーザー操作単位の許可、display media requestの制限         |
 | `electron/src/preload.ts`                            | preload bridge assembly               | domain bridge を合成する entry に留める                                 |
 | `electron/src/preload/`                              | preload domain bridges                | `contextBridge` で公開する明示 API と typed listener store              |
 | `electron/src/menu/`                                 | application menu helpers              | menu section、recent package menu、window action helpers                |

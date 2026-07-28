@@ -41,7 +41,7 @@
 - [技術仕様書](requirement.md): 機能要件と仕様メモ。
 - [AI Analysis and Local LLM Setup](ai-analysis.md): ローカル llama.cpp / GGUF model のセットアップと運用。
 - [Analysis Report Export](analysis-report.md): 分析レポート PDF / PNG / summary export の境界。
-- [音声同期オフセット仕様](audio-sync-offset-specification.md): 音声同期 offset の計算・適用（関連 ADR: [0007](adr/0007-audio-sync-offset-contract.md)）。
+- [音声同期オフセット仕様](audio-sync-offset-specification.md): 音声同期 offset の計算・適用とマルチアングル保存契約（関連 ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）。
 - [コードウィンドウ設定](code-window-settings.md): コードウィンドウ設定機能。
 - [SCTimeline 実装](sctimeline-implementation.md): SCTimeline 形式対応（関連 ADR: [0009](adr/0009-timeline-import-export-interoperability.md)）。
 - [カスタムファイルアイコン](custom-file-icons.md): 独自ファイル形式と icon / bundle 設定。

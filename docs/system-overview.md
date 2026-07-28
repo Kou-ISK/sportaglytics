@@ -80,6 +80,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 ## 主要データモデル
 
 - package media は `.metadata/config.json` の `angles[] -> clips[]` と各クリップの `timelineStartSeconds` を正本とし、最大8アングル・各16クリップを扱う。`packageClipTimelineService.ts` は影響するローカルアングルだけを一時出力へ再合成し、成功時にconfigと再生映像を置換する。`gapBeforeSeconds` は後方互換の派生値である（ADR: [0015](adr/0015-clip-timeline-placement-and-audio-assisted-sync.md)）
+- アングル単位の再生補正は `.metadata/config.json` の `syncData.angleOffsets[]` を正本とし、アングルindexごとに `globalTime + offset` を適用する。`syncOffset` は配列要素がない旧パッケージの後方互換値として維持する（ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）
 - YouTube 埋め込みは shared のアプリ識別 URL を Video.js の `widget_referrer` と YouTube `/embed/` リクエストの Referer に使用する。`file://` と不一致になる HTTPS `origin` parameter は指定せず、IFrame API の共通再生制御を維持する。main process の `youtubeEmbedIdentity.ts` が Session 単位で対象リクエストだけを補正し、証明書検証と `webSecurity` は維持する（ADR: [0014](adr/0014-youtube-embed-client-identity.md)）
 - 複数YouTubeクリップのアングルは共通タイムライン時計から現在クリップとクリップ内時刻を解決する。既知のクリップ終了から次の開始位置まではプレイヤーを外して黒表示を維持し、共通コントローラーとホットキーはタイムライン時計を操作する
 - パッケージ作成は基本情報・映像の2ステップとし、保存先は作成時に選択する。各アングルの「＋」から映像種別を選択し、同期位置は作成画面では扱わず再生画面のシンクモードへ集約する
@@ -101,7 +102,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - プレイリスト追加は `src/features/playlist` の公開 API に集約し、renderer からの個別 IPC 呼び出しを分散させない
 - coding panel window は表示状態 sync とクリック command のみを扱い、タグ付け時刻・押下状態・タイムライン更新はメイン動画ウィンドウの `EnhancedCodePanel` controller で確定する
 - coding panel window の編集モードは別ウィンドウ内で動作し、編集 UI は `CodingPanelWindowEditPane` に分離する。ボタン詳細編集は右側常設ペインではなく Inspector ダイアログで表示する。layout 更新と `.stcw` 保存要求は command としてメイン動画ウィンドウ側 controller に戻し、runtime layout / file path を controller が保持する
-- 音声同期の相関解析は `src/utils/audioSync/` 配下で stage helper に分割し、探索ロジックと orchestration を分離する。offset contract は ADR: [0007](adr/0007-audio-sync-offset-contract.md) に従う
+- 音声同期の相関解析は `src/utils/audioSync/` 配下で stage helper に分割し、探索ロジックと orchestration を分離する。offset contract は ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md) に従う
 - event insights の shared domain は facade と builder 群に分け、summary/stat family ごとの集計責務を分離する
 - `src/App.tsx` は app shell view switch のみを持ち、hash / Electron shell event / external open は `src/hooks/useAppShellController.ts` に閉じ込める
 - recent packages は state hook と storage/menu gateway を分離し、`localStorage` と Electron menu sync を hook 本体へ直書きしない

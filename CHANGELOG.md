@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - パッケージの映像モデルを `angles[] -> clips[]` へ拡張し、旧 `tightViewPath` / `wideViewPath` はロード時互換として維持
 - パッケージ作成を基本情報・映像の2ステップへ簡素化し、同期設定を再生画面のシンクモードへ移動
 - 映像追加を各アングルの「＋」からローカル／YouTubeを選ぶ操作へ変更し、複数選択・複数ドロップ・クリップ並べ替えに対応
+- マルチアングルの同期offset保存契約、実Electron E2E、YouTube音声アシストのプライバシー境界をドキュメントへ反映
 
 ### Fixed
 
