@@ -187,6 +187,7 @@ export interface IElectronAPI {
     callback: (mode: 'code' | 'label') => void,
   ) => () => void;
   onOpenCodeWindowFile: (callback: () => void) => () => void;
+  onCreateCodeWindowFile: (callback: () => void) => () => void;
   onOpenPackage: (callback: () => void) => () => void;
   onOpenRecentPackage: (callback: (path: string) => void) => () => void;
   updateRecentPackages: (paths: string[]) => void;

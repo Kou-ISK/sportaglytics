@@ -40,6 +40,17 @@ describe('createAppBridgeMenuApi', () => {
 
     unsubscribeRecent();
     expect(listeners.has('menu-open-recent-package')).toBe(false);
+
+    const onCreateCodeWindowFile = vi.fn();
+    const unsubscribeCreate = bridge.onCreateCodeWindowFile(
+      onCreateCodeWindowFile,
+    );
+    listeners.get('menu-create-code-window-file')?.();
+
+    expect(onCreateCodeWindowFile).toHaveBeenCalledOnce();
+
+    unsubscribeCreate();
+    expect(listeners.has('menu-create-code-window-file')).toBe(false);
   });
 
   it('forwards recent package updates to ipcRenderer', () => {

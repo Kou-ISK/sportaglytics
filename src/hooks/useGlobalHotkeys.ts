@@ -44,6 +44,12 @@ export const useGlobalHotkeys = (
 
       event.preventDefault();
       event.stopPropagation();
+      // A shortcut represents one user action per physical key press. Keep
+      // suppressing the browser default during OS key repeat, but do not run
+      // toggle actions (play/pause and coding buttons) again.
+      if (event.repeat) {
+        return;
+      }
       handler();
     };
 

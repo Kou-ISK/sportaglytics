@@ -118,6 +118,8 @@ function buildTheme(mode: 'dark' | 'light'): ThemeOptions {
   const bgPaper = mode === 'dark' ? S.background.paper : '#FFFFFF';
   const textPrimary = mode === 'dark' ? S.text.primary : '#000000';
   const textSecondary = mode === 'dark' ? S.text.secondary : '#666666';
+  const textDisabled = mode === 'dark' ? S.text.disabled : 'rgba(0,0,0,0.38)';
+  const divider = mode === 'dark' ? S.divider : 'rgba(0,0,0,0.12)';
 
   return {
     palette: {
@@ -129,11 +131,11 @@ function buildTheme(mode: 'dark' | 'light'): ThemeOptions {
       text: {
         primary: textPrimary,
         secondary: textSecondary,
-        disabled: S.text.disabled,
+        disabled: textDisabled,
       },
       primary: S.primary,
       secondary: S.secondary,
-      divider: S.divider,
+      divider,
       // チームカラー
       team1: {
         main: S.team1,
