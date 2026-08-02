@@ -1,8 +1,8 @@
-# コードウィンドウ設定機能 実装ドキュメント
+# コードウィンドウ編集機能 実装ドキュメント
 
 ## 概要
 
-SporTagLyticsのコードウィンドウ設定は、アクション記録用のボタン配置を自由にカスタマイズできる機能です。ドラッグ&ドロップによるボタン配置、ボタン間のリンク設定、Undo/Redo履歴管理など、高度な編集機能を備えています。
+SporTagLyticsのコードウィンドウは、`.stcw` ドキュメントとして作成・保存し、独立ウィンドウ上でボタン配置をカスタマイズします。ドラッグ&ドロップによるボタン配置、ボタン間のリンク設定、Undo/Redo履歴管理を行えます。
 
 ## アーキテクチャ
 
@@ -10,19 +10,16 @@ SporTagLyticsのコードウィンドウ設定は、アクション記録用の�
 
 ```
 src/
-├── pages/
-│   └── settings/
-│       └── components/
-│           └── CodeWindowSettings/
-│               ├── CodeWindowSettings.tsx         # メインコンポーネント
-│               ├── FreeCanvasEditor.tsx           # 自由配置エディタ
-│               ├── ButtonPropertiesEditorNew.tsx  # ボタンプロパティエディタ
-│               ├── types.ts                       # 型定義
-│               └── utils.ts                       # ユーティリティ
+├── features/
+│   ├── videoPlayer/app/
+│   │   ├── CodingPanelWindowScreen.tsx     # 独立ウィンドウ
+│   │   └── CodingPanelWindowEditPane.tsx   # 編集ペイン
+│   └── settings/components/CodeWindowSettings/
+│       ├── FreeCanvasEditor.tsx               # 自由配置プリミティブ
+│       └── ButtonPropertiesEditorNew.tsx      # Inspector用プリミティブ
 ├── types/
-│   └── Settings.ts                                # 設定型定義
-└── hooks/
-    └── useSettings.ts                             # 設定管理フック
+│   └── settings/coreTypes.ts                  # layout型定義
+└── electron/src/ipc/codeWindowHandlers.ts             # .stcw 入出力
 ```
 
 ### データ構造
@@ -73,7 +70,7 @@ interface ButtonLink {
 
 ### 2026-06-17 更新メモ
 
-- コードウィンドウ作成時または設定タブで指定した `canvasWidth` / `canvasHeight` は、ボタン配置編集ペインにも実寸で適用する。編集時のボタン配置は実際のコードパネルと同じサイズ条件で確認できる。
+- `.stcw` の `canvasWidth` / `canvasHeight` は、独立ウィンドウのボタン配置編集ペインに実寸で適用する。
 - ボタン単位で `showHotkey` を保持する。`hotkey` が設定されているボタンでは、基本タブからショートカットキーの表示/非表示を切り替えられる。
 - コードパネル実表示と自由配置エディタの両方で、`showHotkey: true` のボタンにショートカットキーを小さく表示する。
 - 複数選択済みのボタンをドラッグする場合、クリックしたボタンだけに選択を戻さず、選択中のボタン群をまとめて移動する。
@@ -541,10 +538,12 @@ const handleDuplicateLayout = useCallback((layout: CodeWindowLayout) => {
 
 ### レイアウト作成
 
-1. 設定画面 → コードウィンドウタブ
-2. 「コードウィンドウを新規作成」ボタン
-3. 名前とキャンバスサイズを入力
-4. 作成
+1. 「コーディング > 新規コードウィンドウ…」を選択
+2. 保存先と `.stcw` ファイル名を指定
+3. 開いた独立コードウィンドウで編集モードへ切り替え
+4. ボタンとリンクを追加して保存
+
+設定画面は `.stcw` の作成・選択・インポート・エクスポートに使用しない。
 
 ### 標準プリセット
 
@@ -630,5 +629,5 @@ const handleDuplicateLayout = useCallback((layout: CodeWindowLayout) => {
 - [system-overview.md](./system-overview.md): 全体アーキテクチャ
 - [requirement.md](./requirement.md): 機能要件
 - [coreTypes.ts](../src/types/settings/coreTypes.ts): 設定型定義
-- [CodeWindowSettings.tsx](../src/features/settings/components/CodeWindowSettings/CodeWindowSettings.tsx): 実装
+- [CodingPanelWindowScreen.tsx](../src/features/videoPlayer/app/CodingPanelWindowScreen.tsx): 独立ウィンドウ実装
 - [FreeCanvasEditor.tsx](../src/features/settings/components/CodeWindowSettings/FreeCanvasEditor.tsx): エディタ実装

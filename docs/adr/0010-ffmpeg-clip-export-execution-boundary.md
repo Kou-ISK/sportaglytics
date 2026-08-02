@@ -25,10 +25,13 @@ Accepted
 - `allAngles` は利用可能な各 video source を single-angle export として順に処理する。
 - `multi` は異なる primary / secondary source を必須とし、source が不足または同一の場合は export 前に validation error とする。
 - overlay と annotation は export payload の明示的な設定として扱い、暗黙の UI state 参照に依存しない。
+- 書き出し設定ダイアログは実行開始前に閉じる。進捗は独立した非モーダルウィンドウへ表示し、状態更新でメインウィンドウのフォーカスを奪わない。
+- determinate progress はクリップ件数だけで近似せず、FFmpeg の `out_time` と対象工程の期待durationから算出して、工程全体の進捗へ合成する。
 
 ## Consequences
 
 - FFmpeg 実行境界を Electron main process に固定でき、renderer security model を維持できる。
 - source validation と export orchestration を unit test しやすい。
 - playlist と timeline の export UX を共有しながら、feature 側は clip selection と UI state に集中できる。
+- 長時間の書き出し中もメインウィンドウの参照・再生操作を継続でき、進捗率と残り時間はFFmpegの実処理位置に追従する。
 - 将来 background queue、remote export、GPU encoder、別 media tool を追加する場合は、execution boundary と user-facing failure handling を再設計する必要がある。

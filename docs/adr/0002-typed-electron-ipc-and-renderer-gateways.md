@@ -20,6 +20,7 @@ Electron 境界は typed IPC と renderer gateway に集約します。
 
 - Renderer からの Electron 呼び出しは `window.electronAPI` の明示 API のみ許可する。
 - preload は用途別 domain bridge を合成し、汎用 event bus を公開しない。
+- `electron/tsconfig.json` は型検査専用でemitしない。main processの生成は`electron/tsconfig.build.json`、sandbox preloadの生成はViteの単一bundleに分離し、TypeScript emitが`preload.js`を上書きしないようにする。
 - IPC contract は `src/renderer.d.ts` と `src/types/ipc/` を正本にする。
 - main / preload / renderer の境界で payload guard と sender validation を行う。
 - Renderer 側の Electron / URL / persistence 依存は `Gateway` または `Controller/Hook` に閉じ込め、`View` と `src/components/ui` から直接呼ばない。
@@ -28,6 +29,7 @@ Electron 境界は typed IPC と renderer gateway に集約します。
 ## Consequences
 
 - Electron セキュリティ設定と preload の最小公開面を維持しやすい。
+- 品質ゲートを実行した後も、sandboxで解決不能な相対`require()`を含むpreloadへ退行しない。
 - IPC channel 追加時に payload 型、guard、sender 検証を合わせてレビューできる。
 - View は props と callback で描画できるため、テストや Storybook 対象にしやすい。
 - 小さな変更でも gateway / type / guard の更新が必要になり、初期実装コストは増える。

@@ -36,7 +36,7 @@
 #### 2.1.1 マルチアングル映像再生
 
 - **要件**: 最大8アングルを同時に再生
-- **複数クリップ**: 各アングル最大16本。`timelineStartSeconds` を絶対開始位置の正本とし、クリップ間の空白区間は黒画面・無音で正規化
+- **複数クリップ**: 各アングル最大16本。`timelineStartSeconds` を絶対開始位置の正本とし、クリップ間の空白区間は再生時に黒画面・無音として扱う。空白のための再生用映像は生成しない
 - **YouTube**: 同一アングルへ複数URLを登録可能。ダウンロードやストリームURL解決は行わない。ローカル映像との同一アングル内混在は対象外
 - **登録操作**: 各アングルの「＋」からローカル映像またはYouTubeを選択する。ローカル映像の複数選択・Finderからの複数ドロップ、ドラッグおよびボタンによる順序変更に対応
 - **段階的開示**: 作成画面では同期設定を求めず、再生画面のシンクモードで基準クリップと対象クリップを個別配置する
@@ -158,7 +158,19 @@ TimelineData = {
   endTime: number;      // 終了時刻（秒）
   memo: string;         // メモ
   labels?: Array<{ name: string; group?: string }>; // ラベルグループ構造
-  color?: string;       // タイムライン上での表示色
+  color?: string;       // 旧形式・外部出力互換用（表示色の正本ではない）
+}
+
+TimelineRow = {
+  id: string;
+  name: string;
+  color: string;        // 行背景と所属インスタンスの表示色
+}
+
+TimelineDocument = {
+  version: 2;
+  rows: TimelineRow[];  // 空行を含む表示順
+  instances: TimelineData[];
 }
 ```
 
@@ -214,7 +226,15 @@ TimelineData = {
 - 右クリック: コンテキストメニュー（編集/削除/ジャンプ/ラベル編集）
 - Enterキー: 選択中のイベントを編集
 - Delete/Backspaceキー: 選択中のイベントを削除
-- エッジドラッグ: 開始/終了時刻の調整
+- 左下の`＋`: 空の行を追加
+- 行ヘッダーをクリック: 行を単一選択。`Command`クリックで複数選択
+- 行ヘッダーをドラッグ、またはコンテキストメニューの上下移動: 行を並べ替え
+- 選択行で`Delete`/`Backspace`、またはコンテキストメニュー: 確認後に行と所属インスタンスを削除
+- 行ヘッダーで`Enter`、ダブルクリック、またはコンテキスト操作: 行名と色を編集
+- インスタンスを別行へ通常ドラッグ: 移動先の行名と色を適用。`Option`ドラッグではコピー
+- `Command+C`で選択インスタンスをコピーし、貼り付け先の行を選択して`Command+V`: 元の時間位置を保って当該行へ貼り付け
+- `Option+Command`を押しながら赤い再生ヘッドをドラッグ: 現在の行へインスタンスを作成
+- `Option+Command`を押しながらインスタンス端をドラッグ: 開始・終了位置を調整
 
 **ラベル付与機能**:
 
@@ -261,9 +281,9 @@ PackageName/
 │   └── config.json          # チーム名、映像構成、同期データ
 ├── timeline.json            # タイムラインデータ
 └── videos/
-    ├── PackageName Angle 1.mp4
-    ├── PackageName Angle 2.mp4
-    └── sources/             # 合成前のローカルクリップ
+    └── sources/
+        ├── angle-1/         # アングルごとの元クリップコピー
+        └── angle-2/
 ```
 
 #### 2.4.2 パッケージ作成
@@ -279,7 +299,7 @@ PackageName/
 
 - 映像ファイルのコピー＆リネーム
 - `.metadata/config.json` の生成
-- 複数ローカルクリップの初期連結。同期適用後は絶対開始位置から黒画面・無音区間を再合成
+- 複数ローカルクリップは元ファイルを保持し、絶対開始位置から再生対象とクリップ内時刻を実行時に解決。空白中は黒画面・無音を表示し、書き出し時だけ一時的に連続映像へ合成
 
 #### 2.4.3 パッケージ読み込み
 
@@ -442,7 +462,7 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 
 ### 2.6 設定機能（SettingsPage）
 
-設定画面は `Cmd + ,` で開く。4つのタブで構成。
+設定画面は `Cmd + ,` で開く。現行UIは「一般」と「ホットキー」の2タブで構成し、`.stcw` は設定画面で管理しない。
 
 #### 2.6.1 一般設定（GeneralSettings）
 
@@ -472,6 +492,8 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 
 再生制御、同期操作、分析機能のホットキーをカスタマイズ。
 
+物理キー長押しで発生するOSのrepeat keydownは同一操作として再実行しない。再生/停止などのトグル操作は最新状態に対して反転し、押下中だけ有効な速度変更はkeyupで通常速度へ戻す。
+
 | ID                   | デフォルト     | 説明             |
 | -------------------- | -------------- | ---------------- |
 | resync-audio         | `Cmd+Shift+S`  | 音声同期を再実行 |
@@ -489,7 +511,11 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 | skip-backward-large  | `Shift+Left`   | 10秒戻し         |
 | play-pause           | `Space`        | 再生/停止        |
 
-#### 2.6.4 コードウィンドウ設定（CodeWindowSettings）
+#### 2.6.4 コードウィンドウドキュメント編集
+
+- メニューバーの「コーディング > 新規コードウィンドウ…」から保存先を選び、空の `.stcw` を作成して独立コードウィンドウで開ける
+- `.stcw` の作成・編集・保存・別名保存は独立コードウィンドウで行い、設定画面でファイル管理を行わない
+- コードボタンのリンクによる自動活性化・非活性化はボタン状態で示し、操作を妨げる情報通知は表示しない
 
 **自由配置エディタ（FreeCanvasEditor）**:
 
@@ -759,7 +785,7 @@ src/
 ├── pages/                         # ページコンポーネント
 │   ├── settings/                  # 設定画面
 │   │   └── components/            # 設定タブコンポーネント
-│   │       └── CodeWindowSettings/  # コードウィンドウ設定
+│   │       └── CodeWindowSettings/  # コードウィンドウ編集プリミティブ
 │   └── videoPlayer/               # ビデオプレイヤーページ
 │       ├── components/            # ページ固有コンポーネント
 │       └── hooks/                 # ページ固有フック
@@ -785,14 +811,14 @@ electron/
 | コンポーネント      | パス                                           | 責務                     |
 | ------------------- | ---------------------------------------------- | ------------------------ |
 | VideoPlayerApp      | pages/VideoPlayerApp.tsx                       | メインページ             |
-| SettingsPage        | pages/SettingsPage.tsx                         | 設定画面（4タブ）        |
+| SettingsPage        | pages/SettingsPage.tsx                         | 設定画面（2タブ）        |
 | VisualTimeline      | features/.../Timeline/VisualTimeline/          | ビジュアルタイムライン   |
 | AnalysisPanel       | features/.../Analytics/AnalysisPanel/          | 分析パネル               |
 | EnhancedCodePanel   | features/.../Controls/                         | コーディングパネル       |
 | SyncedVideoPlayer   | features/.../Player/SyncedVideo/               | 同期ビデオプレイヤー     |
 | VideoPathSelector   | features/.../Setup/VideoPathSelector/          | パッケージ選択・作成     |
 | CreatePackageWizard | features/.../Setup/.../CreatePackageWizard.tsx | パッケージ作成ウィザード |
-| FreeCanvasEditor    | pages/settings/.../CodeWindowSettings/         | コードウィンドウ編集     |
+| FreeCanvasEditor    | features/settings/.../CodeWindowSettings/      | 独立コードウィンドウ編集 |
 
 ### 5.3 主要カスタムフック一覧
 
