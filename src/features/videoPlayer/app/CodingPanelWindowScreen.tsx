@@ -46,12 +46,12 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
   const [payload, setPayload] = useState<CodingPanelWindowSyncPayload | null>(
     null,
   );
-  const [windowMode, setWindowMode] =
-    useState<CodingPanelWindowMode>('code');
+  const [windowMode, setWindowMode] = useState<CodingPanelWindowMode>('code');
   const [draftLayout, setDraftLayout] = useState<CodeWindowLayout | null>(null);
   const layoutContainerRef = useRef<HTMLDivElement | null>(null);
   const editCanvasHostRef = useRef<HTMLDivElement | null>(null);
   const syncedPayloadModeRef = useRef<'code' | 'label' | null>(null);
+  const syncedFilePathRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const unsubscribe = subscribeCodingPanelWindowSync(setPayload);
@@ -61,7 +61,9 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
 
   useEffect(() => {
     if (!payload) return;
-    if (windowMode !== 'edit') {
+    const documentChanged =
+      syncedFilePathRef.current !== payload.codeWindowFilePath;
+    if (documentChanged || windowMode !== 'edit') {
       setDraftLayout(payload.customLayout);
     }
     if (
@@ -71,6 +73,7 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
       setWindowMode(payload.activeMode);
     }
     syncedPayloadModeRef.current = payload.activeMode;
+    syncedFilePathRef.current = payload.codeWindowFilePath;
   }, [payload, windowMode]);
 
   useEffect(() => {
