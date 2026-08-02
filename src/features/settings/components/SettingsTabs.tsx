@@ -4,7 +4,6 @@ import type { AppSettings } from '../../../types/settings/coreTypes';
 import type { SettingsTabHandle } from '../types';
 import { GeneralSettings } from './GeneralSettings';
 import { HotkeySettings } from './HotkeySettings';
-import { CodeWindowSettings } from './CodeWindowSettings';
 
 interface SettingsTabsProps {
   currentTab: number;
@@ -13,7 +12,6 @@ interface SettingsTabsProps {
   saveSettings: (settings: AppSettings) => Promise<boolean>;
   generalRef: React.RefObject<SettingsTabHandle | null>;
   hotkeyRef: React.RefObject<SettingsTabHandle | null>;
-  codeWindowRef: React.RefObject<SettingsTabHandle | null>;
 }
 
 interface TabPanelProps {
@@ -42,7 +40,6 @@ export const SettingsTabs: React.FC<SettingsTabsProps> = ({
   saveSettings,
   generalRef,
   hotkeyRef,
-  codeWindowRef,
 }) => {
   return (
     <Paper elevation={2}>
@@ -54,7 +51,6 @@ export const SettingsTabs: React.FC<SettingsTabsProps> = ({
       >
         <Tab label="一般" id="settings-tab-0" />
         <Tab label="ホットキー" id="settings-tab-1" />
-        <Tab label="コードウィンドウ" id="settings-tab-2" />
       </Tabs>
 
       <TabPanel value={currentTab} index={0}>
@@ -67,13 +63,6 @@ export const SettingsTabs: React.FC<SettingsTabsProps> = ({
       <TabPanel value={currentTab} index={1}>
         <HotkeySettings
           ref={hotkeyRef}
-          settings={settings}
-          onSave={saveSettings}
-        />
-      </TabPanel>
-      <TabPanel value={currentTab} index={2}>
-        <CodeWindowSettings
-          ref={codeWindowRef}
           settings={settings}
           onSave={saveSettings}
         />

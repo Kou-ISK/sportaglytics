@@ -37,8 +37,13 @@ import {
   loadRuntimeCodeWindowFile,
   saveRuntimeCodeWindowFile,
   subscribeRuntimeCodeWindowExternalOpen,
+  subscribeRuntimeCodeWindowMenuCreate,
   subscribeRuntimeCodeWindowMenuOpen,
 } from '../gateways/codeWindowRuntimeFileGateway';
+import {
+  createEmptyCodeWindowLayout,
+  getCodeWindowNameFromFilePath,
+} from '../utils/createEmptyCodeWindowLayout';
 
 interface UseEnhancedCodePanelControllerResult {
   triggerAction: (
@@ -67,6 +72,7 @@ export const useEnhancedCodePanelController = ({
     null,
   );
   const [sessionFilePath, setSessionFilePath] = useState<string | null>(null);
+  const saveLayoutInFlightRef = useRef(false);
 
   const teamContext: TeamContext = useMemo(
     () => ({
@@ -136,6 +142,26 @@ export const useEnhancedCodePanelController = ({
       void chooseRuntimeCodeWindow();
     });
   }, [chooseRuntimeCodeWindow]);
+
+  const createRuntimeCodeWindow = useCallback(async () => {
+    const layout = createEmptyCodeWindowLayout();
+    const savedPath = await saveRuntimeCodeWindowFile(layout);
+    if (!savedPath) return;
+    const namedLayout = {
+      ...layout,
+      name: getCodeWindowNameFromFilePath(savedPath),
+    };
+    await saveRuntimeCodeWindowFile(namedLayout, savedPath);
+    setSessionLayout(namedLayout);
+    setSessionFilePath(savedPath);
+    await openCodingPanelWindow();
+  }, []);
+
+  useEffect(() => {
+    return subscribeRuntimeCodeWindowMenuCreate(() => {
+      void createRuntimeCodeWindow();
+    });
+  }, [createRuntimeCodeWindow]);
 
   const {
     activeRecordings,
@@ -259,6 +285,30 @@ export const useEnhancedCodePanelController = ({
     syncCodingPanelWindow(codingPanelWindowPayload);
   }, [codingPanelWindowPayload]);
 
+  const saveLayout = useCallback(
+    async (
+      command: Extract<CodingPanelWindowCommand, { type: 'save-layout' }>,
+    ) => {
+      if (saveLayoutInFlightRef.current) return;
+      saveLayoutInFlightRef.current = true;
+      setSessionLayout(command.layout);
+      try {
+        const savedPath = await saveRuntimeCodeWindowFile(
+          command.layout,
+          command.saveAs
+            ? undefined
+            : (command.filePath ?? sessionFilePath ?? undefined),
+        );
+        if (savedPath) {
+          setSessionFilePath(savedPath);
+        }
+      } finally {
+        saveLayoutInFlightRef.current = false;
+      }
+    },
+    [sessionFilePath],
+  );
+
   const handleCodingPanelWindowCommand = useCallback(
     (command: CodingPanelWindowCommand): void => {
       if (command.type === 'request-sync') {
@@ -272,17 +322,7 @@ export const useEnhancedCodePanelController = ({
       }
 
       if (command.type === 'save-layout') {
-        setSessionLayout(command.layout);
-        void saveRuntimeCodeWindowFile(
-          command.layout,
-          command.saveAs
-            ? undefined
-            : (command.filePath ?? sessionFilePath ?? undefined),
-        ).then((savedPath) => {
-          if (savedPath) {
-            setSessionFilePath(savedPath);
-          }
-        });
+        void saveLayout(command);
         return;
       }
 
@@ -330,7 +370,7 @@ export const useEnhancedCodePanelController = ({
       handleLabelSelect,
       onHotkeyKeyDown,
       onHotkeyKeyUp,
-      sessionFilePath,
+      saveLayout,
     ],
   );
 

@@ -136,6 +136,25 @@ export const subscribeRuntimeCodeWindowMenuOpen = (
   }
 };
 
+export const subscribeRuntimeCodeWindowMenuCreate = (
+  callback: () => void,
+): (() => void) => {
+  const api = globalThis.window.electronAPI;
+  if (!api?.onCreateCodeWindowFile) {
+    return () => undefined;
+  }
+
+  try {
+    return api.onCreateCodeWindowFile(callback);
+  } catch (error: unknown) {
+    console.debug(
+      '[codeWindowRuntimeFileGateway] create menu subscribe failed',
+      error,
+    );
+    return () => undefined;
+  }
+};
+
 export const consumeRuntimeCodeWindowExternalOpen = async (
   expectedPath?: string,
 ): Promise<string | null> => {

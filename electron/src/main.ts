@@ -1,4 +1,10 @@
-import { app, BrowserWindow, ipcMain, type IpcMainEvent } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  session,
+  type IpcMainEvent,
+} from 'electron';
 import * as path from 'path';
 import ffmpegPath from 'ffmpeg-static';
 import { registerShortcuts } from './shortCutKey';
@@ -37,6 +43,8 @@ import { registerPackageHandlers } from './ipc/packageHandlers';
 import { registerReportHandlers } from './ipc/reportHandlers';
 import { registerSyncHandlers } from './ipc/syncHandlers';
 import { registerWindowEventHandlers } from './ipc/windowEventHandlers';
+import { registerYoutubeEmbedClientIdentity } from './youtubeEmbedIdentity';
+import { registerLoopbackAudioCapture } from './loopbackAudioCapture';
 
 if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -127,6 +135,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
     },
   });
 
+  registerYoutubeEmbedClientIdentity(window.webContents.session);
   applyWindowSecurity(window);
   const preloadReadyTimeout = setTimeout(() => {
     if (!window.isDestroyed()) {
@@ -214,6 +223,7 @@ app.on('open-file', (event, filePath) => {
 });
 
 app.whenReady().then(async () => {
+  registerLoopbackAudioCapture(session.defaultSession);
   await createWindow();
   if (pendingFile) {
     handleFileOpen(pendingFile);

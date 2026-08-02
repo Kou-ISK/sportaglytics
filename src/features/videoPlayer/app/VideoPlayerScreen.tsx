@@ -29,6 +29,7 @@ import type { SCLabel } from '../../../types/timeline/sportscode';
 export const VideoPlayerScreen = () => {
   const {
     timeline,
+    timelineRows,
     setTimeline,
     selectedTimelineIdList,
     setSelectedTimelineIdList,
@@ -51,11 +52,18 @@ export const VideoPlayerScreen = () => {
     setVideoPlayBackRate,
     syncData,
     setSyncData,
+    mediaAngles,
+    setMediaAngles,
     syncMode,
     setSyncMode,
     handleCurrentTime,
     setPackagePath,
     addTimelineData,
+    addTimelineRow,
+    updateTimelineRow,
+    moveTimelineRow,
+    deleteTimelineRows,
+    pasteTimelineItemsToRow,
     deleteTimelineDatas,
     updateMemo,
     updateTimelineRange,
@@ -121,7 +129,6 @@ export const VideoPlayerScreen = () => {
   const { combinedHotkeys, combinedHandlers, keyUpHandlers } =
     useHotkeyBindings({
       currentTime,
-      isVideoPlaying,
       teamNames,
       settingsHotkeys: settings.hotkeys,
       activeActions,
@@ -229,6 +236,8 @@ export const VideoPlayerScreen = () => {
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'background.default',
+        minWidth: 0,
+        overflow: 'hidden',
       }}
     >
       <VideoPlayerLayout
@@ -248,6 +257,7 @@ export const VideoPlayerScreen = () => {
         playerForceUpdateKey={playerForceUpdateKey}
         viewMode={viewMode}
         timeline={timeline}
+        timelineRows={timelineRows}
         selectedTimelineIdList={selectedTimelineIdList}
         teamNames={teamNames}
         setSelectedTimelineIdList={setSelectedTimelineIdList}
@@ -257,12 +267,21 @@ export const VideoPlayerScreen = () => {
         updateTimelineItem={updateTimelineItem}
         bulkUpdateTimelineItems={bulkUpdateTimelineItems}
         duplicateTimelineItem={duplicateTimelineItem}
+        addTimelineData={addTimelineData}
+        addTimelineRow={addTimelineRow}
+        updateTimelineRow={updateTimelineRow}
+        moveTimelineRow={moveTimelineRow}
+        deleteTimelineRows={deleteTimelineRows}
+        pasteTimelineItemsToRow={pasteTimelineItemsToRow}
         setVideoList={setVideoList}
         setIsFileSelected={setIsFileSelected}
         setTimelineFilePath={setTimelineFilePath}
         setPackagePath={setPackagePath}
+        metaDataConfigFilePath={metaDataConfigFilePath}
         setMetaDataConfigFilePath={setMetaDataConfigFilePath}
         setSyncData={setSyncData}
+        mediaAngles={mediaAngles}
+        setMediaAngles={setMediaAngles}
         performUndo={performUndo}
         performRedo={performRedo}
         onApplyManualSync={handleApplyManualSync}

@@ -1,5 +1,9 @@
 import { buildOverlayFilters } from './exportFfmpegOverlay';
-import { concatFfmpegFiles, runFfmpegProcess } from './exportFfmpegProcess';
+import {
+  concatFfmpegFiles,
+  runFfmpegProcess,
+  type FfmpegProcessProgressOptions,
+} from './exportFfmpegProcess';
 
 export interface ExportClipForFfmpeg {
   startTime: number;
@@ -25,6 +29,7 @@ interface RunSingleParams {
   annotationPath?: string | null;
   getJapaneseFontPath: (isBold?: boolean) => string;
   escapeDrawtext: (text: string) => string;
+  onProgress?: (progress: number) => void;
 }
 
 interface RunDualParams {
@@ -39,7 +44,21 @@ interface RunDualParams {
   annotationSecondary?: string | null;
   getJapaneseFontPath: (isBold?: boolean) => string;
   escapeDrawtext: (text: string) => string;
+  onProgress?: (progress: number) => void;
 }
+
+const runWithOptionalProgress = (
+  getFfmpegPath: () => string,
+  args: string[],
+  durationSeconds: number,
+  onProgress?: (progress: number) => void,
+): Promise<void> =>
+  onProgress
+    ? runFfmpegProcess(getFfmpegPath, args, {
+        durationSeconds,
+        onProgress,
+      })
+    : runFfmpegProcess(getFfmpegPath, args);
 
 const canUseStreamCopyForSingle = ({
   overlayEnabled,
@@ -66,30 +85,36 @@ export const runFfmpegSingle = ({
   annotationPath,
   getJapaneseFontPath,
   escapeDrawtext,
+  onProgress,
 }: RunSingleParams): Promise<void> => {
   return new Promise<void>((resolve, reject) => {
     const actualSource = clip.sourceOverride || sourcePath;
     const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
 
     if (canUseStreamCopyForSingle({ overlayEnabled, annotationPath, clip })) {
-      runFfmpegProcess(getFfmpegPath, [
-        '-y',
-        '-ss',
-        String(clip.startTime),
-        '-i',
-        actualSource,
-        '-t',
-        String(clipDuration),
-        '-map',
-        '0:v',
-        '-map',
-        '0:a?',
-        '-c',
-        'copy',
-        '-avoid_negative_ts',
-        'make_zero',
-        outputPath,
-      ])
+      runWithOptionalProgress(
+        getFfmpegPath,
+        [
+          '-y',
+          '-ss',
+          String(clip.startTime),
+          '-i',
+          actualSource,
+          '-t',
+          String(clipDuration),
+          '-map',
+          '0:v',
+          '-map',
+          '0:a?',
+          '-c',
+          'copy',
+          '-avoid_negative_ts',
+          'make_zero',
+          outputPath,
+        ],
+        clipDuration,
+        onProgress,
+      )
         .then(resolve)
         .catch(reject);
       return;
@@ -186,7 +211,11 @@ export const runFfmpegSingle = ({
       outputPath,
     );
 
-    runFfmpegProcess(getFfmpegPath, args).then(resolve).catch(reject);
+    const durationSeconds =
+      clipDuration + Math.max(0, clip.freezeDuration ?? 0);
+    runWithOptionalProgress(getFfmpegPath, args, durationSeconds, onProgress)
+      .then(resolve)
+      .catch(reject);
   });
 };
 
@@ -202,6 +231,7 @@ export const runFfmpegDual = ({
   annotationSecondary,
   getJapaneseFontPath,
   escapeDrawtext,
+  onProgress,
 }: RunDualParams): Promise<void> => {
   return new Promise<void>((resolve, reject) => {
     const actualMainSource = clip.sourceOverride || mainSource;
@@ -331,7 +361,10 @@ export const runFfmpegDual = ({
       outputPath,
     ];
 
-    runFfmpegProcess(getFfmpegPath, args).then(resolve).catch(reject);
+    const durationSeconds = clipDuration + Math.max(0, freezeDur);
+    runWithOptionalProgress(getFfmpegPath, args, durationSeconds, onProgress)
+      .then(resolve)
+      .catch(reject);
   });
 };
 
@@ -339,6 +372,7 @@ export const concatFiles = async (
   getFfmpegPath: () => string,
   files: string[],
   outputPath: string,
+  progressOptions?: FfmpegProcessProgressOptions,
 ): Promise<void> => {
-  await concatFfmpegFiles(getFfmpegPath, files, outputPath);
+  await concatFfmpegFiles(getFfmpegPath, files, outputPath, progressOptions);
 };

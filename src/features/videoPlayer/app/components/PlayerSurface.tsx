@@ -2,6 +2,8 @@ import React from 'react';
 import { Box } from '@mui/material';
 import { VideoPlayer, VideoController } from '../..';
 import type { VideoSyncData } from '../../../../types/video/sync';
+import type { PackageMediaAngle } from '../../../../types/package/metadata';
+import { usesVirtualClipTimeline } from '../../../../types/package/clipTimeline';
 
 interface PlayerSurfaceProps {
   videoList: string[];
@@ -21,6 +23,8 @@ interface PlayerSurfaceProps {
   syncMode: 'auto' | 'manual';
   playerForceUpdateKey: number;
   viewMode: 'dual' | 'angle1' | 'angle2';
+  mediaAngles: PackageMediaAngle[];
+  setMediaAngles: React.Dispatch<React.SetStateAction<PackageMediaAngle[]>>;
 }
 
 export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
@@ -38,7 +42,69 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   syncMode,
   playerForceUpdateKey,
   viewMode,
+  mediaAngles,
+  setMediaAngles,
 }) => {
+  const useTimelineClock =
+    syncMode === 'auto' && usesVirtualClipTimeline(mediaAngles[0]?.clips ?? []);
+  const primaryTimelineEnd = React.useMemo(
+    () =>
+      mediaAngles[0]?.clips.reduce(
+        (maximum, clip) =>
+          Math.max(
+            maximum,
+            clip.timelineStartSeconds + (clip.durationSeconds ?? 0),
+          ),
+        0,
+      ) ?? 0,
+    [mediaAngles],
+  );
+  const primaryTimelineDurationsKnown =
+    mediaAngles[0]?.clips.every(
+      (clip) => typeof clip.durationSeconds === 'number',
+    ) ?? false;
+
+  React.useEffect(() => {
+    if (useTimelineClock && primaryTimelineEnd > 0) {
+      setMaxSec((current) => Math.max(current, primaryTimelineEnd));
+    }
+  }, [primaryTimelineEnd, setMaxSec, useTimelineClock]);
+
+  React.useEffect(() => {
+    if (!useTimelineClock || !isVideoPlaying) return;
+    let animationFrameId = 0;
+    let previousTimestamp: number | undefined;
+    const updateClock = (timestamp: number): void => {
+      if (previousTimestamp !== undefined) {
+        const elapsed = Math.max(0, timestamp - previousTimestamp) / 1000;
+        setCurrentTime((value) => {
+          const next = Math.min(86_400, value + elapsed * videoPlayBackRate);
+          if (
+            primaryTimelineDurationsKnown &&
+            primaryTimelineEnd > 0 &&
+            next >= primaryTimelineEnd
+          ) {
+            setIsVideoPlaying(false);
+            return primaryTimelineEnd;
+          }
+          return next;
+        });
+      }
+      previousTimestamp = timestamp;
+      animationFrameId = globalThis.requestAnimationFrame(updateClock);
+    };
+    animationFrameId = globalThis.requestAnimationFrame(updateClock);
+    return () => globalThis.cancelAnimationFrame(animationFrameId);
+  }, [
+    isVideoPlaying,
+    setCurrentTime,
+    setIsVideoPlaying,
+    primaryTimelineDurationsKnown,
+    primaryTimelineEnd,
+    useTimelineClock,
+    videoPlayBackRate,
+  ]);
+
   return (
     <Box
       sx={{
@@ -47,6 +113,8 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
         position: 'relative',
         height: '100%',
         minHeight: 0,
+        minWidth: 0,
+        overflow: 'hidden',
         '&:hover .video-controls-overlay': {
           opacity: 1,
         },
@@ -58,6 +126,8 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
           width: '100%',
           height: '100%',
           minHeight: 0,
+          minWidth: 0,
+          overflow: 'hidden',
         }}
       >
         <VideoPlayer
@@ -68,6 +138,9 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
           setMaxSec={setMaxSec}
           syncData={syncData}
           syncMode={syncMode}
+          currentTime={currentTime}
+          mediaAngles={mediaAngles}
+          setMediaAngles={setMediaAngles}
           forceUpdateKey={playerForceUpdateKey}
           viewMode={viewMode}
         />
@@ -98,6 +171,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
             maxSec={maxSec}
             videoList={videoList}
             syncData={syncData}
+            useTimelineClock={useTimelineClock}
           />
         </Box>
       )}

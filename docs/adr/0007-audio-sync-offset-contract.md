@@ -2,11 +2,16 @@
 
 ## Status
 
-Accepted
+Superseded
 
 ## Date
 
 2026-05-06
+
+## Related ADRs
+
+- Supersedes: N/A
+- Superseded by: [0016 Multi-angle audio sync offset persistence](0016-multi-angle-audio-sync-offset-persistence.md)
 
 ## Context
 

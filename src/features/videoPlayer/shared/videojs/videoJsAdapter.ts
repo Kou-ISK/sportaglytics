@@ -1,10 +1,12 @@
 import videojs from 'video.js';
 
 export interface VideoJsPlayerHandle {
+  techName_?: string;
   el?: () => Element | null;
   isDisposed?: () => boolean;
   error?: () => unknown;
   duration?: () => number | undefined;
+  currentType?: () => string;
   currentTime?: (time?: number) => number | void | undefined;
   readyState?: () => number;
   play?: () => Promise<void> | void;
@@ -19,6 +21,19 @@ const isObjectLike = (value: unknown): value is object => {
   return (
     (typeof value === 'object' && value !== null) || typeof value === 'function'
   );
+};
+
+export const isYoutubeVideoJsPlayer = (
+  player: VideoJsPlayerHandle | undefined,
+): boolean => {
+  try {
+    return (
+      player?.currentType?.() === 'video/youtube' ||
+      player?.techName_?.toLowerCase() === 'youtube'
+    );
+  } catch {
+    return false;
+  }
 };
 
 const getMethod = <TArgs extends unknown[], TResult>(

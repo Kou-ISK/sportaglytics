@@ -50,7 +50,7 @@ If `HOMEBREW_TAP_TOKEN` is missing, the Homebrew update step fails. If signing /
 
    ```bash
    pnpm run build
-   pnpm exec tsc -p electron/tsconfig.json
+   pnpm run build:electron-main
    pnpm run bundle:preload
    pnpm run check:preload
    pnpm run electron:package:mac

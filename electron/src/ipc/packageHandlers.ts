@@ -1,4 +1,5 @@
 import { createPackage } from './packageCreationService';
+import { applyClipTimeline } from './packageClipTimelineService';
 import { convertConfigToRelativePath } from './packageConfigMigrationService';
 import {
   isNonEmptyString,
@@ -39,6 +40,42 @@ export const registerPackageHandlers = (): void => {
       }
 
       return createPackage(directoryName, packageName, angles, metaDataConfig);
+    },
+  );
+
+  registerHandleWithAliases(
+    'package:apply-clip-timeline',
+    [],
+    async (event, configPath: unknown, placements: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid clip timeline sender');
+      }
+      if (
+        !isNonEmptyString(configPath) ||
+        !Array.isArray(placements) ||
+        placements.length === 0 ||
+        placements.length > 128 ||
+        !placements.every(
+          (placement) =>
+            isPlainObject(placement) &&
+            isNonEmptyString(placement.clipId) &&
+            typeof placement.timelineStartSeconds === 'number' &&
+            Number.isFinite(placement.timelineStartSeconds) &&
+            placement.timelineStartSeconds >= 0 &&
+            placement.timelineStartSeconds <= 86_400 &&
+            (placement.durationSeconds === undefined ||
+              (typeof placement.durationSeconds === 'number' &&
+                Number.isFinite(placement.durationSeconds) &&
+                placement.durationSeconds > 0 &&
+                placement.durationSeconds <= 86_400 &&
+                placement.timelineStartSeconds + placement.durationSeconds <=
+                  86_400)),
+        )
+      ) {
+        throw new Error('Invalid clip timeline payload');
+      }
+
+      return applyClipTimeline(configPath, placements);
     },
   );
 

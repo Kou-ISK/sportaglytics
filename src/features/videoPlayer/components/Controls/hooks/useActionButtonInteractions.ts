@@ -73,13 +73,11 @@ export const useActionButtonInteractions = ({
       effects.exclusiveTargets.forEach((targetName) => {
         const targetKey = resolveRecordingKey(targetName);
         if (!targetKey) return;
-        setWarning(`排他リンク: ${targetName} を終了します`);
         completeRecording(targetKey);
       });
       effects.deactivateTargets.forEach((targetName) => {
         const targetKey = resolveRecordingKey(targetName);
         if (!targetKey) return;
-        setWarning(`非活性化: ${targetName} を終了します`);
         completeRecording(targetKey);
       });
 
@@ -113,13 +111,7 @@ export const useActionButtonInteractions = ({
         [clickedButtonName]: prev[clickedButtonName] ?? {},
       }));
 
-      if (effects.activateTargets.length > 0) {
-        setWarning(
-          `活性化リンク: ${effects.activateTargets.join(', ')} も記録します`,
-        );
-      } else {
-        setWarning(null);
-      }
+      setWarning(null);
       recentActionsRef.current = [
         ...recentActionsRef.current.slice(-10),
         action.action,

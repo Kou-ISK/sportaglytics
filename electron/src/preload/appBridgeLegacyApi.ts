@@ -1,14 +1,20 @@
 import type { IpcRenderer } from 'electron';
 import type { IElectronAPI, PackageDatas } from '../../../src/renderer';
+import { isStringArray } from '../../../src/types/ipc/shared';
 import { invokeWithFallback } from './appBridge.compat';
 
 export type AppBridgeLegacyKeys =
   | 'openFile'
+  | 'openVideoFiles'
   | 'openDirectory'
   | 'exportTimeline'
   | 'createPackage'
   | 'saveSyncData'
   | 'extractAudioWavForSync'
+  | 'extractLocalAudioWindow'
+  | 'applyClipTimeline'
+  | 'beginLoopbackAudioCapture'
+  | 'endLoopbackAudioCapture'
   | 'checkFileExists'
   | 'readJsonFile'
   | 'setManualModeChecked'
@@ -30,6 +36,17 @@ export const createAppBridgeLegacyApi = (
       } catch (error) {
         console.error('Error:', error);
         return '';
+      }
+    },
+    openVideoFiles: async () => {
+      try {
+        const paths: unknown = await ipcRenderer.invoke(
+          'files:open-video-files',
+        );
+        return isStringArray(paths) ? paths : [];
+      } catch (error) {
+        console.error('Error selecting video files:', error);
+        return [];
       }
     },
     openDirectory: async () => {
@@ -64,7 +81,12 @@ export const createAppBridgeLegacyApi = (
       angles: Array<{
         id: string;
         name: string;
-        sourcePath: string;
+        clips: Array<{
+          id: string;
+          sourceKind: 'local' | 'youtube';
+          source: string;
+          gapBeforeSeconds: number;
+        }>;
         role?: 'primary' | 'secondary';
       }>,
       metaData: unknown,
@@ -91,6 +113,7 @@ export const createAppBridgeLegacyApi = (
         syncOffset: number;
         isAnalyzed: boolean;
         confidenceScore?: number;
+        angleOffsets?: number[];
       },
     ) => {
       try {
@@ -118,6 +141,36 @@ export const createAppBridgeLegacyApi = (
         console.error('extractAudioWavForSync error:', error);
         return null;
       }
+    },
+    extractLocalAudioWindow: async (
+      videoPath: string,
+      startSeconds: number,
+      durationSeconds: number,
+    ) => {
+      try {
+        return await ipcRenderer.invoke(
+          'sync:extract-audio-window',
+          videoPath,
+          startSeconds,
+          durationSeconds,
+        );
+      } catch (error) {
+        console.error('extractLocalAudioWindow error:', error);
+        return null;
+      }
+    },
+    applyClipTimeline: async (configPath, placements) => {
+      return ipcRenderer.invoke(
+        'package:apply-clip-timeline',
+        configPath,
+        placements,
+      );
+    },
+    beginLoopbackAudioCapture: async () => {
+      return ipcRenderer.invoke('sync:begin-loopback-audio-capture');
+    },
+    endLoopbackAudioCapture: async () => {
+      await ipcRenderer.invoke('sync:end-loopback-audio-capture');
     },
     checkFileExists: async (filePath: string) => {
       try {

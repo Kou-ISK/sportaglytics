@@ -15,4 +15,5 @@ export interface VideoControllerProps {
   maxSec: number;
   videoList: string[];
   syncData?: VideoSyncData;
+  useTimelineClock?: boolean;
 }

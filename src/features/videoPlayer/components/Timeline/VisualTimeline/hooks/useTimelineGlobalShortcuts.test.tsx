@@ -50,6 +50,7 @@ describe('useTimelineGlobalShortcuts', () => {
         onSelectionChange: vi.fn(),
         onSeek: vi.fn(),
         onAddToPlaylist,
+        selectedRowIds: [],
       }),
     );
 
@@ -63,5 +64,75 @@ describe('useTimelineGlobalShortcuts', () => {
     );
 
     expect(onAddToPlaylist).toHaveBeenCalledWith([timeline[0], timeline[2]]);
+  });
+
+  it('copies instances and pastes them into the single selected row', () => {
+    const onCopyItems = vi.fn();
+    const onPasteItems = vi.fn();
+    const container = document.createElement('div');
+    container.tabIndex = 0;
+    document.body.appendChild(container);
+    container.focus();
+
+    renderHook(() =>
+      useTimelineGlobalShortcuts({
+        selectedIds: ['item-1', 'item-3'],
+        selectedRowIds: ['row-target'],
+        timeline,
+        scrollContainerRef: {
+          current: container,
+        } satisfies React.RefObject<HTMLDivElement>,
+        onSelectionChange: vi.fn(),
+        onSeek: vi.fn(),
+        onCopyItems,
+        onPasteItems,
+      }),
+    );
+
+    container.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'c',
+        metaKey: true,
+        bubbles: true,
+      }),
+    );
+    container.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'v',
+        metaKey: true,
+        bubbles: true,
+      }),
+    );
+
+    expect(onCopyItems).toHaveBeenCalledWith([timeline[0], timeline[2]]);
+    expect(onPasteItems).toHaveBeenCalledWith('row-target');
+  });
+
+  it('requests deletion for selected rows with the delete key', () => {
+    const onRequestDeleteRows = vi.fn();
+    const container = document.createElement('div');
+    container.tabIndex = 0;
+    document.body.appendChild(container);
+    container.focus();
+
+    renderHook(() =>
+      useTimelineGlobalShortcuts({
+        selectedIds: [],
+        selectedRowIds: ['row-1', 'row-2'],
+        timeline,
+        scrollContainerRef: {
+          current: container,
+        } satisfies React.RefObject<HTMLDivElement>,
+        onSelectionChange: vi.fn(),
+        onSeek: vi.fn(),
+        onRequestDeleteRows,
+      }),
+    );
+
+    container.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }),
+    );
+
+    expect(onRequestDeleteRows).toHaveBeenCalledWith(['row-1', 'row-2']);
   });
 });

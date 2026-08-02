@@ -1,5 +1,10 @@
-import { Dispatch, SetStateAction } from 'react';
-import { VideoSyncData } from '../../../../../types/video/sync';
+import type { Dispatch, SetStateAction } from 'react';
+import type { VideoSyncData } from '../../../../../types/video/sync';
+import type {
+  PackageMediaAngle,
+  PackageMediaClip,
+} from '../../../../../types/package/metadata';
+export type { PackageMediaAngle, PackageMediaClip };
 
 export interface VideoPathSelectorProps {
   setVideoList: Dispatch<SetStateAction<string[]>>;
@@ -8,6 +13,7 @@ export interface VideoPathSelectorProps {
   setPackagePath: Dispatch<SetStateAction<string>>;
   setMetaDataConfigFilePath: Dispatch<SetStateAction<string>>;
   setSyncData: Dispatch<SetStateAction<VideoSyncData | undefined>>;
+  setMediaAngles: Dispatch<SetStateAction<PackageMediaAngle[]>>;
 }
 
 export interface WizardFormState {
@@ -19,7 +25,16 @@ export interface WizardFormState {
 export interface AngleSelection {
   id: string;
   name: string;
-  filePath: string;
+  clips: ClipSelection[];
+}
+
+export interface ClipSelection {
+  id: string;
+  sourceKind: 'local' | 'youtube';
+  source: string;
+  gapBeforeSeconds: number;
+  timelineStartSeconds?: number;
+  durationSeconds?: number;
 }
 
 export interface WizardSelectionState {
@@ -33,6 +48,7 @@ export interface PackageLoadResult {
   timelinePath: string;
   metaDataConfigFilePath: string;
   packagePath?: string;
+  mediaAngles?: PackageMediaAngle[];
 }
 
 export interface RecentPackage {

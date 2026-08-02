@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import videojs from 'video.js';
+import 'videojs-youtube';
 import type Player from 'video.js/dist/types/player';
-import { formatSource } from '../utils';
+import { YOUTUBE_EMBED_REFERRER } from '../../../../../../types/video/youtubeEmbed';
+import { resolveVideoSource } from '../utils';
 
 interface UseVideoJsInitializationParams {
   id: string;
@@ -133,6 +135,15 @@ export const useVideoJsInitialization = ({
 
     let cancelled = false;
     let rafId: number | undefined;
+    let youtubeDurationPollId:
+      | ReturnType<typeof globalThis.setInterval>
+      | undefined;
+    const stopYoutubeDurationPolling = (): void => {
+      if (youtubeDurationPollId !== undefined) {
+        globalThis.clearInterval(youtubeDurationPollId);
+        youtubeDurationPollId = undefined;
+      }
+    };
     const reportAspectRatio = reportAspectRatioFactory(
       aspectRatioCallbackRef,
       lastReportedAspectRatioRef,
@@ -156,6 +167,8 @@ export const useVideoJsInitialization = ({
         return;
       }
 
+      const initialSource = resolveVideoSource(videoSrc);
+      const isYoutubeSource = initialSource.type === 'video/youtube';
       const playerInstance = videojs(videoEl, {
         controls: allowSeek,
         preload: 'auto',
@@ -171,15 +184,72 @@ export const useVideoJsInitialization = ({
           nativeAudioTracks: false,
         },
         controlBar: false,
+        techOrder: ['html5', 'youtube'],
+        youtube: {
+          enablePrivacyEnhancedMode: true,
+          modestbranding: 1,
+          rel: 0,
+          customVars: {
+            widget_referrer: YOUTUBE_EMBED_REFERRER,
+          },
+        },
       });
 
       playerRef.current = playerInstance;
+      if (isYoutubeSource) {
+        // YouTube tech の play() は iframe 準備前でも再生要求をキューできる。
+        // HTMLMediaElement の metadata を待つと初回 play と相互待ちになるため、
+        // 共通コントローラーは source 設定直後から有効にする。
+        setIsReady(true);
+      }
+
+      const reportMetadata = (): number => {
+        const rawDuration = playerInstance.duration();
+        const mediaDuration =
+          typeof rawDuration === 'number' && Number.isFinite(rawDuration)
+            ? rawDuration
+            : 0;
+        if (mediaDuration > 0) {
+          setDurationSec(mediaDuration);
+          setMaxSec(mediaDuration);
+          stopYoutubeDurationPolling();
+        }
+        setIsReady(true);
+        reportAspectRatio(playerInstance);
+        return mediaDuration;
+      };
+
+      const handleMetadata = () => {
+        reportMetadata();
+      };
+      metadataHandlerRef.current = handleMetadata;
 
       const handleReady = () => {
         if (!initialMuteApplied.current && id !== 'video_0') {
           playerInstance.muted(true);
           initialMuteApplied.current = true;
         }
+
+        if (!isYoutubeSource) {
+          return;
+        }
+
+        // videojs-youtube は iframe の ready 後に動画を cue するため、
+        // 初期状態では loadedmetadata が発火しない場合がある。
+        // 共通コントローラーは tech の ready から利用可能にし、duration は
+        // YouTube IFrame API が公開するまで短時間だけ追跡する。
+        setIsReady(true);
+        if (reportMetadata() > 0 || youtubeDurationPollId !== undefined) {
+          return;
+        }
+
+        let attempts = 0;
+        youtubeDurationPollId = globalThis.setInterval(() => {
+          attempts += 1;
+          if (reportMetadata() > 0 || attempts >= 40) {
+            stopYoutubeDurationPolling();
+          }
+        }, 250);
       };
 
       const handleTechError = () => {
@@ -194,17 +264,6 @@ export const useVideoJsInitialization = ({
       techErrorHandlerRef.current = handleTechError;
       videoEl.addEventListener('error', handleTechError);
 
-      const handleMetadata = () => {
-        const mediaDuration = playerInstance.duration() ?? 0;
-        if (mediaDuration > 0) {
-          setDurationSec(mediaDuration);
-          setMaxSec(mediaDuration);
-        }
-        setIsReady(true);
-        reportAspectRatio(playerInstance);
-      };
-      metadataHandlerRef.current = handleMetadata;
-
       const handleResize = () => {
         reportAspectRatio(playerInstance);
       };
@@ -218,8 +277,7 @@ export const useVideoJsInitialization = ({
       playerInstance.on('resize', handleResize);
 
       if (videoSrc && videoSrc.trim()) {
-        const source = formatSource(videoSrc);
-        playerInstance.src({ src: source, type: 'video/mp4' });
+        playerInstance.src(initialSource);
       }
     };
 
@@ -230,6 +288,7 @@ export const useVideoJsInitialization = ({
       if (rafId !== undefined) {
         cancelAnimationFrame(rafId);
       }
+      stopYoutubeDurationPolling();
       const playerInstance = playerRef.current;
       const handleTechError = techErrorHandlerRef.current;
       if (playerInstance && !playerInstance.isDisposed()) {

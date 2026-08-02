@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IElectronAPI } from '../../src/renderer';
 import { createAnalysisBridge } from './preload/analysisBridge';
 import { createAppBridge } from './preload/appBridge';
@@ -35,6 +35,14 @@ const electronAPI = {
   ...createPlaylistBridge(ipcRenderer, listenerStore),
   ...createCodeWindowBridge(ipcRenderer),
   codingPanelWindow: createCodingPanelWindowBridge(ipcRenderer, listenerStore),
+  resolveDroppedVideoFilePath: (file: File): string => {
+    try {
+      const filePath = webUtils.getPathForFile(file);
+      return /\.(?:mp4|mov|m4v|webm)$/i.test(filePath) ? filePath : '';
+    } catch {
+      return '';
+    }
+  },
 } satisfies IElectronAPI;
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

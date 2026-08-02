@@ -7,6 +7,7 @@ SporTagLytics は local-first の Electron desktop app です。このドキュ�
 - 映像、タイムライン、プレイリスト、分析データはユーザーのローカルディスクに保存されます。
 - 現行アプリは cloud sync、telemetry、remote analytics、cloud LLM provider を実装していません。
 - AI 分析はローカル llama.cpp 実行を標準境界とし、外部 API へ映像やタイムラインを送信しません。
+- YouTube音声アシストは、macOS 13以降でユーザーが明示的に開始した時だけ表示中のシステム再生音を取得し、メモリ上で解析します。取得音声はファイルへ保存しません。
 - 将来 cloud LLM や外部送信を追加する場合は、ADR とユーザー向け docs の更新を必須とします。
 
 関連 ADR:
@@ -26,13 +27,23 @@ SporTagLytics は local-first の Electron desktop app です。このドキュ�
 | Recent package list                       | Renderer `localStorage` and OS recent documents                       | Stores local paths only                        |
 | Onboarding completion                     | Renderer `localStorage` key `sportaglytics-onboarding-completed`      | Boolean flag                                   |
 | LLM prompt/schema temporary files         | OS temp directory as `sportaglytics-llama-*` during local generation  | Removed after request on best effort           |
+| YouTube音声アシストの取得音声             | Renderer process memory                                               | 15秒の解析後、キャンセル、エラー時に破棄       |
 | Exported clips, PNG, PDF, timeline export | User-selected save location                                           | Created only after explicit user action        |
 | GGUF model files                          | `public/llama/models/*.gguf` or packaged app resource `llama/models/` | Large local files; not managed by git          |
 | llama.cpp binary                          | Environment path, app resources, or `public/llama/<platform>/`        | Executed locally by Electron main process      |
 
 ## External Transmission
 
-The app does not send match footage, timeline data, labels, notes, dashboard templates, or AI prompts to a remote service in the current implementation.
+The app does not upload local match footage, timeline data, labels, notes, dashboard templates, captured system audio, or AI prompts to a remote service in the current implementation.
+
+YouTube映像を再生する場合は、入力されたURLに基づいてYouTubeの埋め込みプレイヤーへネットワーク接続します。音声アシストは再生中の音をローカルで解析し、YouTubeの音声URL解決、ダウンロード、一時ファイル保存は行いません。
+
+## System Audio Capture
+
+- macOS 13以降で、ユーザーが「音声で微調整」を押した場合だけloopback captureを許可します。
+- OSのシステム音声取得許可が必要です。拒否または非対応環境では通常の手動配置を維持します。
+- 取得中は対象外のアプリ音声が混入する可能性があります。解析前に他アプリの音声を停止してください。
+- MediaStreamの全trackは解析終了、キャンセル、エラー時に停止し、取得データを永続化しません。
 
 Network access can still happen outside the app when the user manually uses GitHub Releases, Homebrew, package managers, or external links. Those operations are outside SporTagLytics runtime data processing.
 

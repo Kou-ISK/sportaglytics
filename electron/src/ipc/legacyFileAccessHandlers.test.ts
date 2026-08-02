@@ -79,4 +79,32 @@ describe('legacy file access handlers', () => {
       ],
     });
   });
+
+  it('selects multiple video files in sequence order', async () => {
+    const { registerLegacyFileAccessHandlers } =
+      await import('./legacyFileAccessHandlers');
+    const parentWindow = { id: 'main-window' };
+    registerLegacyFileAccessHandlers({
+      getMainWindow: () => parentWindow as Electron.BrowserWindow,
+    });
+    electronMocks.showOpenDialog.mockResolvedValue({
+      canceled: false,
+      filePaths: ['/tmp/period-1.mp4', '/tmp/period-2.mov'],
+    });
+
+    const handler = electronMocks.handlers.get('files:open-video-files');
+    const result = await handler?.({ sender: {} });
+
+    expect(result).toEqual(['/tmp/period-1.mp4', '/tmp/period-2.mov']);
+    expect(electronMocks.showOpenDialog).toHaveBeenCalledWith(parentWindow, {
+      properties: ['openFile', 'multiSelections'],
+      message: '同じアングルへ追加する映像を順番に選択',
+      filters: [
+        {
+          name: '映像ファイル',
+          extensions: ['mov', 'mp4', 'm4v', 'webm'],
+        },
+      ],
+    });
+  });
 });

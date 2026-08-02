@@ -33,7 +33,7 @@ export const WizardFooter = ({
         {isCreating
           ? '作成中...'
           : activeStep === totalSteps - 1
-            ? '作成'
+            ? 'パッケージを作成…'
             : '次へ'}
       </Button>
     </Stack>

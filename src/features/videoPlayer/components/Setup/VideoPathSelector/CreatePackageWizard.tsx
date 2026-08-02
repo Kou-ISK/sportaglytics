@@ -1,8 +1,7 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 import { ActionList } from '../../../../../ActionList';
 import type { PackageLoadResult, WizardSelectionState } from './types';
-import { buildWizardSummaryItems } from './WizardSummaryBuilder';
 import { useCreatePackageFlow } from './hooks/useCreatePackageFlow';
 import { useWizardSelection } from './hooks/useWizardSelection';
 import { CreatePackageWizardView } from './CreatePackageWizardView';
@@ -18,6 +17,11 @@ const createAngleId = () =>
     ? crypto.randomUUID()
     : `angle-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+const createClipId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `clip-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
 const createInitialSelection = (): WizardSelectionState => {
   const firstAngleId = createAngleId();
   return {
@@ -26,7 +30,7 @@ const createInitialSelection = (): WizardSelectionState => {
       {
         id: firstAngleId,
         name: 'Angle 1',
-        filePath: '',
+        clips: [],
       },
     ],
   };
@@ -43,11 +47,20 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     resetSelection,
     handleSelectDirectory,
     handleSelectVideo,
+    handleSelectVideos,
+    handleSelectVideosAsAngles,
+    handleAddYoutubeClip,
+    handleAddDroppedVideos,
     handleAddAngle,
     handleRemoveAngle,
     handleUpdateAngleName,
+    handleRemoveClip,
+    handleUpdateClip,
+    handleReorderClip,
+    handleMoveClip,
   } = useWizardSelection({
     createAngleId,
+    createClipId,
     createInitialSelection,
     showError,
   });
@@ -70,11 +83,6 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
     actionNames: ActionList.map((item) => item.action),
   });
 
-  const summaryItems = useMemo(
-    () => buildWizardSummaryItems(form, selection),
-    [form, selection],
-  );
-
   return (
     <CreatePackageWizardView
       open={open}
@@ -83,16 +91,22 @@ export const CreatePackageWizard: React.FC<CreatePackageWizardProps> = ({
       errors={errors}
       isCreating={isCreating}
       selection={selection}
-      summaryItems={summaryItems}
       onClose={onClose}
       onBack={handleBack}
       onNext={handleNext}
       onFormChange={(updates) => setForm((prev) => ({ ...prev, ...updates }))}
-      onSelectDirectory={handleSelectDirectory}
       onSelectVideo={handleSelectVideo}
+      onSelectVideos={handleSelectVideos}
+      onSelectVideosAsAngles={handleSelectVideosAsAngles}
+      onAddYoutubeClip={handleAddYoutubeClip}
+      onAddDroppedVideos={handleAddDroppedVideos}
       onAddAngle={handleAddAngle}
       onRemoveAngle={handleRemoveAngle}
       onUpdateAngleName={handleUpdateAngleName}
+      onRemoveClip={handleRemoveClip}
+      onUpdateClip={handleUpdateClip}
+      onReorderClip={handleReorderClip}
+      onMoveClip={handleMoveClip}
     />
   );
 };

@@ -53,17 +53,13 @@ export const usePlaybackBehaviour = ({
       }
 
       const techEl = getVideoElement(targetPlayer);
-      if (!techEl || techEl.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      if (techEl && techEl.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
         const handleCanPlay = () => {
           techEl?.removeEventListener('canplay', handleCanPlay);
           tryPlay();
         };
 
-        if (techEl) {
-          techEl.addEventListener('canplay', handleCanPlay, { once: true });
-        } else {
-          targetPlayer.one?.('canplay', () => tryPlay());
-        }
+        techEl.addEventListener('canplay', handleCanPlay, { once: true });
         return;
       }
 
