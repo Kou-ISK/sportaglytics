@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded
 
 ## Date
 
@@ -11,7 +11,7 @@ Accepted
 ## Related ADRs
 
 - Supersedes: N/A
-- Superseded by: N/A
+- Superseded by: [0019 Code-window-owned modes and direct visual editing](0019-code-window-owned-modes-and-direct-visual-editing.md)
 
 ## Context
 

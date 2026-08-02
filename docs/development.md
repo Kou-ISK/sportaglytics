@@ -448,6 +448,9 @@ Main IPC handlers (domain modules)
 - `App.tsx` は app shell の view switch のみに留め、hash / Electron event / external open は shared hook に抽出する
 - `localStorage` や Electron menu sync は feature hook へ直書きせず、gateway / storage helper に寄せる
 - コードウィンドウ新規作成は `menu-create-code-window-file` / `onCreateCodeWindowFile()` の専用イベントで runtime controller へ渡す。controllerは空の layout を `.stcw` として保存した後、設定画面を経由せず独立 coding panel window で開く
+- コード／ラベル／編集モードは独立コードウィンドウ内のtyped commandで切り替える。アプリ全体のmenu stateとして公開しない
+- コードボタンの実行・編集表示は `CodeWindowButtonSurface` を共有し、View propsだけで描画する。編集モードやBrowserWindow resizeを保存キャンバス寸法へ暗黙反映しない
+- メニュー、コードウィンドウ、設定、ヘルプを変更した場合はbuild後に `pnpm run test:e2e:code-window-menu` を実行し、検索と狭幅layoutを含むsub-window動線を確認する
 - menu barのドキュメント操作は「ファイル > 新規 / 開く」へ集約する。`menu-create-video-package` / `onCreateVideoPackage()` は `menuEventGateway` から動画プレイヤーcontrollerへ渡し、映像表示中でも作成ウィザードへ遷移できるようにする。コードウィンドウの作成・選択を「コーディング」または「ウィンドウ」へ重複配置しない（ADR: [0018](adr/0018-document-oriented-menu-structure.md)）
 - preload の `on/off` ペアは typed listener store を介して wrapper を管理し、`as unknown as Function` に依存しない
 - menu 系 listener も cleanup 関数を返す typed 登録 API に統一し、`removeAllListeners` を使った singleton listener 上書きは行わない
