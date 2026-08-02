@@ -24,13 +24,11 @@ import { CODING_PANEL_WINDOW_CREATION_ACTIONS_ID } from './CodingPanelWindowTool
 
 interface CodingPanelWindowEditPaneProps {
   layout: CodeWindowLayout | null;
-  canvasHostRef: React.RefObject<HTMLDivElement | null>;
   onLayoutChange: (layout: CodeWindowLayout) => void;
 }
 
 export const CodingPanelWindowEditPane = ({
   layout,
-  canvasHostRef,
   onLayoutChange,
 }: CodingPanelWindowEditPaneProps): React.ReactElement => {
   const [selectedButtonIds, setSelectedButtonIds] = useState<string[]>([]);
@@ -44,9 +42,7 @@ export const CodingPanelWindowEditPane = ({
     if (!layout) return null;
     const targetId = inspectedButtonId ?? selectedButtonIds[0];
     if (!targetId) return null;
-    return (
-      layout.buttons.find((button) => button.id === targetId) ?? null
-    );
+    return layout.buttons.find((button) => button.id === targetId) ?? null;
   }, [inspectedButtonId, layout, selectedButtonIds]);
 
   const editedButtonIds = useMemo((): string[] => {
@@ -106,13 +102,12 @@ export const CodingPanelWindowEditPane = ({
   return (
     <>
       <Box
-        ref={canvasHostRef}
         sx={{
           minWidth: 0,
           minHeight: 0,
           flex: 1,
-          overflow: 'hidden',
-          p: 1,
+          overflow: 'auto',
+          p: 1.5,
           boxSizing: 'border-box',
         }}
       >

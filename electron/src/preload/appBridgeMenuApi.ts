@@ -3,7 +3,6 @@ import type { IElectronAPI } from '../../../src/renderer';
 import type { RegisterListener } from './listenerStore';
 
 export type AppBridgeMenuKeys =
-  | 'onToggleLabelMode'
   | 'onExportTimeline'
   | 'onImportTimeline'
   | 'onCodingModeChange'
@@ -19,13 +18,6 @@ export const createAppBridgeMenuApi = (
   registerListener: RegisterListener,
 ): Pick<IElectronAPI, AppBridgeMenuKeys> => {
   return {
-    onToggleLabelMode: (callback: (checked: boolean) => void) =>
-      registerListener('menu-toggle-label-mode', (checked: unknown) => {
-        if (typeof checked !== 'boolean') {
-          return;
-        }
-        callback(checked);
-      }),
     onExportTimeline: (callback: (format: string) => void) =>
       registerListener('menu-export-timeline', (format: unknown) => {
         if (typeof format !== 'string') {

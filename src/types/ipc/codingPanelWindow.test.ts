@@ -73,6 +73,12 @@ describe('codingPanelWindow IPC guards', () => {
     ).toBe(true);
     expect(
       isCodingPanelWindowCommand({
+        type: 'set-mode',
+        mode: 'label',
+      }),
+    ).toBe(true);
+    expect(
+      isCodingPanelWindowCommand({
         type: 'hotkey-key-down',
         hotkeyId: 'play-pause',
       }),
@@ -117,6 +123,12 @@ describe('codingPanelWindow IPC guards', () => {
     expect(
       isCodingPanelWindowCommand({
         type: 'custom-button-click',
+      }),
+    ).toBe(false);
+    expect(
+      isCodingPanelWindowCommand({
+        type: 'set-mode',
+        mode: 'invalid',
       }),
     ).toBe(false);
   });

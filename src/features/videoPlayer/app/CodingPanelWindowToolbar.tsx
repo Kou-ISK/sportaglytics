@@ -1,5 +1,13 @@
 import React from 'react';
-import { Box, Button, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import {
+  Box,
+  IconButton,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import LabelIcon from '@mui/icons-material/Label';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -72,40 +80,30 @@ export const CodingPanelWindowToolbar = ({
       <Box sx={{ flex: 1 }} />
       {mode === 'edit' && (
         <>
-          <Button
-            size="small"
-            startIcon={<SaveIcon />}
-            disabled={!canSave}
-            onClick={onSave}
-            sx={{
-              minHeight: 24,
-              px: 0.75,
-              py: 0.125,
-              fontSize: '0.7rem',
-              lineHeight: 1.1,
-              '& .MuiButton-startIcon': { mr: 0.25 },
-              '& .MuiSvgIcon-root': { fontSize: 14 },
-            }}
-          >
-            保存
-          </Button>
-          <Button
-            size="small"
-            startIcon={<SaveAsIcon />}
-            disabled={!canSave}
-            onClick={onSaveAs}
-            sx={{
-              minHeight: 24,
-              px: 0.75,
-              py: 0.125,
-              fontSize: '0.7rem',
-              lineHeight: 1.1,
-              '& .MuiButton-startIcon': { mr: 0.25 },
-              '& .MuiSvgIcon-root': { fontSize: 14 },
-            }}
-          >
-            別名保存
-          </Button>
+          <Tooltip title="保存">
+            <span>
+              <IconButton
+                size="small"
+                disabled={!canSave}
+                onClick={onSave}
+                aria-label="保存"
+              >
+                <SaveIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="別名保存">
+            <span>
+              <IconButton
+                size="small"
+                disabled={!canSave}
+                onClick={onSaveAs}
+                aria-label="別名保存"
+              >
+                <SaveAsIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
         </>
       )}
     </Stack>

@@ -64,8 +64,9 @@ try {
       (item) => item.label === 'ウィンドウ',
     );
     return {
+      topLevelLabels: applicationMenu?.items.map((item) => item.label) ?? [],
       fileLabels: fileMenu?.submenu?.items.map((item) => item.label) ?? [],
-      codingLabels: codingMenu?.submenu?.items.map((item) => item.label) ?? [],
+      hasCodingMenu: Boolean(codingMenu),
       windowLabels: windowMenu?.submenu?.items.map((item) => item.label) ?? [],
     };
   });
@@ -74,7 +75,8 @@ try {
     '開く',
     '最近開いた映像パッケージ',
   ]);
-  assert.deepEqual(menuSnapshot.codingLabels, ['ラベルモード']);
+  assert.equal(menuSnapshot.hasCodingMenu, false);
+  assert.equal(menuSnapshot.topLevelLabels.includes('コーディング'), false);
   assert.equal(
     menuSnapshot.windowLabels.includes('コードウィンドウを開く'),
     false,
@@ -152,7 +154,24 @@ try {
         name: 'Selected Code Window',
         canvasWidth: 800,
         canvasHeight: 600,
-        buttons: [],
+        buttons: [
+          {
+            id: 'test-action',
+            type: 'action',
+            name: 'Test Action',
+            x: 42,
+            y: 38,
+            width: 156,
+            height: 58,
+            color: '#0a84ff',
+            textColor: '#ffffff',
+            fontSize: 17,
+            textAlign: 'left',
+            borderRadius: 7,
+            hotkey: 'T',
+            showHotkey: true,
+          },
+        ],
       },
     }),
     'utf-8',
@@ -167,6 +186,53 @@ try {
   await codeWindowPage
     .getByText('Selected Code Window', { exact: true })
     .waitFor({ state: 'visible', timeout: 10_000 });
+  await codeWindowPage.getByRole('button', { name: 'コード' }).click();
+  const runtimeButton = codeWindowPage.locator(
+    '[data-code-window-button="test-action"]',
+  );
+  await runtimeButton.waitFor({ state: 'visible' });
+  const runtimeAppearance = await runtimeButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      left: style.left,
+      top: style.top,
+      width: style.width,
+      height: style.height,
+      color: style.color,
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderColor,
+      borderRadius: style.borderRadius,
+      fontSize: style.fontSize,
+      justifyContent: style.justifyContent,
+    };
+  });
+  await codeWindowPage.getByRole('button', { name: '編集' }).click();
+  const editorButton = codeWindowPage.locator(
+    '[data-code-window-button="test-action"]',
+  );
+  await editorButton.waitFor({ state: 'visible' });
+  const editorAppearance = await editorButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      left: style.left,
+      top: style.top,
+      width: style.width,
+      height: style.height,
+      color: style.color,
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderColor,
+      borderRadius: style.borderRadius,
+      fontSize: style.fontSize,
+      justifyContent: style.justifyContent,
+    };
+  });
+  assert.deepEqual(editorAppearance, runtimeAppearance);
+  await codeWindowPage.waitForTimeout(200);
+  const unchangedDocument = JSON.parse(
+    await fs.readFile(selectedCodeWindowPath, 'utf-8'),
+  );
+  assert.equal(unchangedDocument.layout.canvasWidth, 800);
+  assert.equal(unchangedDocument.layout.canvasHeight, 600);
   console.log('Code window file selection flow passed');
 
   const settingsWindowPromise = electronApp.waitForEvent('window', {
@@ -175,7 +241,7 @@ try {
   await mainPage.evaluate(() => window.electronAPI.openSettingsWindow());
   const settingsPage = await settingsWindowPromise;
   await settingsPage.waitForLoadState('domcontentloaded');
-  await settingsPage.getByText('一般', { exact: true }).waitFor({
+  await settingsPage.getByRole('tab', { name: '一般' }).waitFor({
     state: 'visible',
     timeout: 10_000,
   });
@@ -188,7 +254,56 @@ try {
     await settingsPage.evaluate(() => typeof window.electronAPI.loadSettings),
     'function',
   );
+  assert.equal(
+    await settingsPage.getByRole('button', { name: '変更を保存' }).isDisabled(),
+    true,
+  );
+  await settingsPage.getByRole('tab', { name: 'ホットキー' }).click();
+  const hotkeySearch = settingsPage.getByLabel('ホットキーを検索');
+  await hotkeySearch.fill('再生');
+  assert.ok(
+    (await settingsPage
+      .getByRole('list', { name: 'ホットキー一覧' })
+      .getByRole('listitem')
+      .count()) > 0,
+  );
+  await hotkeySearch.fill('存在しない操作');
+  await settingsPage.getByText('一致するホットキーはありません。').waitFor();
+  await settingsPage.setViewportSize({ width: 640, height: 560 });
+  assert.equal(
+    await settingsPage.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ),
+    true,
+  );
   console.log('Settings window preload flow passed');
+
+  const helpWindowPromise = electronApp.waitForEvent('window', {
+    timeout: 10_000,
+  });
+  await clickMenuItem('open-help');
+  const helpPage = await helpWindowPromise;
+  await helpPage.waitForLoadState('domcontentloaded');
+  const helpSearch = helpPage.getByLabel('ヘルプを検索');
+  await helpSearch.waitFor({ state: 'visible' });
+  await helpSearch.fill('同期');
+  assert.ok(await helpPage.locator('.nav-item:not([hidden])').count());
+  await helpSearch.fill('一致しない検索語');
+  await helpPage.getByText('一致する項目はありません').waitFor();
+  await helpSearch.press('Escape');
+  await helpPage.getByRole('heading', { name: 'パッケージ管理' }).waitFor();
+  await helpPage.setViewportSize({ width: 640, height: 520 });
+  assert.equal(
+    await helpPage.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ),
+    true,
+  );
+  console.log('Searchable help window flow passed');
 
   const screenshotPath = process.env.E2E_SCREENSHOT_PATH;
   if (screenshotPath) {
@@ -202,6 +317,9 @@ try {
     });
     await settingsPage.screenshot({
       path: path.join(screenshotDirectory, 'settings-window-loaded.png'),
+    });
+    await helpPage.screenshot({
+      path: path.join(screenshotDirectory, 'help-window-loaded.png'),
     });
   }
   console.log('Code window menu E2E passed');

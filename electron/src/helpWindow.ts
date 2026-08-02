@@ -118,13 +118,21 @@ const sections: HelpSection[] = [
   },
 ];
 
-const buildHelpHtml = () => {
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+export const buildHelpHtml = (): string => {
   const navItems = sections
     .map(
       (s) =>
-        `<button class="nav-item" data-target="${s.id}">
-          <div class="nav-title">${s.title}</div>
-          <div class="nav-summary">${s.summary}</div>
+        `<button class="nav-item" type="button" role="tab" aria-selected="false" aria-controls="${escapeHtml(s.id)}" data-target="${escapeHtml(s.id)}" data-search="${escapeHtml(`${s.title} ${s.summary} ${s.steps.join(' ')}`)}">
+          <span class="nav-title">${escapeHtml(s.title)}</span>
+          <span class="nav-summary">${escapeHtml(s.summary)}</span>
         </button>`,
     )
     .join('');
@@ -132,13 +140,12 @@ const buildHelpHtml = () => {
   const contentItems = sections
     .map(
       (s) => `
-        <section id="${s.id}" class="content-section">
-          <h2>${s.title}</h2>
-          <p class="summary">${s.summary}</p>
+        <section id="${escapeHtml(s.id)}" class="content-section" role="tabpanel">
+          <h2>${escapeHtml(s.title)}</h2>
+          <p class="summary">${escapeHtml(s.summary)}</p>
           <ol>
-            ${s.steps.map((step) => `<li>${step}</li>`).join('')}
+            ${s.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join('')}
           </ol>
-          <button class="back-to-list" data-target="list">一覧に戻る</button>
         </section>
       `,
     )
@@ -148,100 +155,115 @@ const buildHelpHtml = () => {
   <html>
     <head>
       <meta charset="UTF-8" />
-      <title>ヘルプ / 機能一覧</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>ヘルプ</title>
       <style>
-        :root { color-scheme: dark; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #0b1224; color: #e2e8f0; }
-        h1, h2 { color: #cbd5e1; margin: 0; }
+        :root { color-scheme: light dark; --bg: #f5f5f7; --sidebar: rgba(246,246,248,.92); --surface: #fff; --text: #1d1d1f; --secondary: #6e6e73; --divider: rgba(0,0,0,.12); --accent: #0066cc; --selected: rgba(0,102,204,.12); }
+        @media (prefers-color-scheme: dark) { :root { --bg: #1e1e1e; --sidebar: rgba(38,38,40,.94); --surface: #2b2b2d; --text: #f5f5f7; --secondary: #a1a1a6; --divider: rgba(255,255,255,.14); --accent: #64a8ff; --selected: rgba(100,168,255,.18); } }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: var(--bg); color: var(--text); font-size: 14px; }
+        h1, h2 { margin: 0; letter-spacing: -.015em; }
         h1 { font-size: 22px; }
-        h2 { font-size: 20px; }
-        p, ol, ul { margin: 0; padding: 0; }
-        .layout { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
-        .sidebar { border-right: 1px solid rgba(255,255,255,0.08); padding: 20px; background: #0f172a; }
-        .content { padding: 24px; }
-        .nav-item { width: 100%; text-align: left; background: rgba(255,255,255,0.04); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.15s ease; }
-        .nav-item:hover { background: rgba(255,255,255,0.08); transform: translateY(-1px); }
-        .nav-title { font-weight: 600; margin-bottom: 4px; }
-        .nav-summary { font-size: 13px; color: #a5b4fc; line-height: 1.4; }
-        .content-section { display: none; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px; max-width: 960px; }
+        h2 { font-size: 24px; }
+        .layout { display: grid; grid-template-columns: minmax(250px, 310px) minmax(0, 1fr); min-height: 100vh; }
+        .sidebar { border-right: 1px solid var(--divider); background: var(--sidebar); min-width: 0; }
+        .sidebar-header { position: sticky; top: 0; z-index: 2; padding: 20px 16px 12px; background: var(--sidebar); backdrop-filter: blur(18px); }
+        .subtitle { margin: 3px 0 14px; color: var(--secondary); font-size: 12px; }
+        .search { width: 100%; min-height: 32px; padding: 6px 10px; border: 1px solid var(--divider); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
+        .search:focus { outline: 3px solid color-mix(in srgb, var(--accent) 28%, transparent); border-color: var(--accent); }
+        .nav { padding: 4px 8px 20px; }
+        .nav-item { width: 100%; display: block; text-align: left; background: transparent; color: var(--text); border: 0; border-radius: 7px; padding: 9px 10px; margin: 1px 0; cursor: default; }
+        .nav-item:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+        .nav-item[aria-selected="true"] { background: var(--selected); color: var(--accent); }
+        .nav-item[hidden] { display: none; }
+        .nav-title, .nav-summary { display: block; }
+        .nav-title { font-weight: 600; }
+        .nav-summary { margin-top: 2px; font-size: 12px; color: var(--secondary); line-height: 1.35; }
+        .content { min-width: 0; padding: clamp(24px, 5vw, 54px); }
+        .content-section { display: none; max-width: 760px; }
         .content-section.active { display: block; }
-        .summary { color: #a5b4fc; margin: 12px 0 12px; }
-        ol { padding-left: 20px; color: #e2e8f0; }
-        li { margin-bottom: 10px; line-height: 1.6; }
-        .back-to-list { margin-top: 16px; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.06); color: #e2e8f0; cursor: pointer; }
-        .back-to-list:hover { background: rgba(255,255,255,0.1); }
-        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-        .home-link { color: #a5b4fc; cursor: pointer; text-decoration: underline; font-size: 13px; }
+        .summary { color: var(--secondary); margin: 8px 0 28px; font-size: 15px; }
+        ol { margin: 0; padding-left: 24px; }
+        li { margin-bottom: 16px; padding-left: 4px; line-height: 1.65; }
+        .empty { display: none; padding: 18px 10px; color: var(--secondary); text-align: center; }
+        .empty.active { display: block; }
+        @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } .sidebar { border-right: 0; border-bottom: 1px solid var(--divider); } .sidebar-header { padding-top: 14px; } .nav { max-height: 210px; overflow: auto; } .content { padding: 24px 20px 40px; } }
+        @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
       </style>
     </head>
     <body>
       <div class="layout">
         <aside class="sidebar">
-          <div class="header">
-            <h1>機能一覧</h1>
+          <div class="sidebar-header">
+            <h1>ヘルプ</h1>
+            <p class="subtitle">操作や機能を検索できます</p>
+            <input id="help-search" class="search" type="search" placeholder="機能や操作を検索" aria-label="ヘルプを検索" autocomplete="off" />
           </div>
-          ${navItems}
+          <nav class="nav" role="tablist" aria-label="ヘルプトピック">
+            ${navItems}
+            <div id="empty" class="empty">一致する項目はありません</div>
+          </nav>
         </aside>
         <main class="content">
-          <div id="placeholder" class="content-section active" style="display:block;">
-            <h2>使い方ガイドへようこそ</h2>
-            <p class="summary">左の一覧から知りたい機能を選ぶと、使い方の手順が表示されます。</p>
-            <p>各ページで、操作方法やショートカット、設定のポイントを確認できます。</p>
-          </div>
           ${contentItems}
         </main>
       </div>
       <script>
         const navButtons = Array.from(document.querySelectorAll('.nav-item'));
-        const sections = Array.from(document.querySelectorAll('.content-section'));
-        const placeholder = document.getElementById('placeholder');
+        const contentSections = Array.from(document.querySelectorAll('.content-section'));
+        const search = document.getElementById('help-search');
+        const empty = document.getElementById('empty');
 
         const showSection = (id) => {
-          sections.forEach((sec) => {
-            sec.classList.remove('active');
-            sec.style.display = 'none';
-          });
+          contentSections.forEach((section) => section.classList.toggle('active', section.id === id));
+          navButtons.forEach((button) => button.setAttribute('aria-selected', String(button.dataset.target === id)));
           const target = document.getElementById(id);
-          if (target) {
-            target.classList.add('active');
-            target.style.display = 'block';
-          }
+          if (target) target.focus({ preventScroll: true });
         };
 
-        navButtons.forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const target = btn.getAttribute('data-target');
-            showSection(target);
+        navButtons.forEach((button) => {
+          button.addEventListener('click', () => showSection(button.dataset.target));
+          button.addEventListener('keydown', (event) => {
+            if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+            event.preventDefault();
+            const visible = navButtons.filter((candidate) => !candidate.hidden);
+            const index = visible.indexOf(button);
+            const delta = event.key === 'ArrowDown' ? 1 : -1;
+            visible[(index + delta + visible.length) % visible.length]?.focus();
           });
         });
 
-        document.querySelectorAll('.back-to-list').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            sections.forEach((sec) => {
-              sec.classList.remove('active');
-              sec.style.display = 'none';
-            });
-            placeholder?.classList.add('active');
-            if (placeholder) placeholder.style.display = 'block';
-          });
+        search.addEventListener('input', () => {
+          const query = search.value.trim().toLocaleLowerCase();
+          navButtons.forEach((button) => { button.hidden = !button.dataset.search.toLocaleLowerCase().includes(query); });
+          const firstVisible = navButtons.find((button) => !button.hidden);
+          empty.classList.toggle('active', !firstVisible);
+          if (firstVisible) showSection(firstVisible.dataset.target);
+          else contentSections.forEach((section) => section.classList.remove('active'));
         });
+        search.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && search.value) { search.value = ''; search.dispatchEvent(new Event('input')); }
+        });
+        showSection(navButtons[0]?.dataset.target);
       </script>
     </body>
   </html>
   `;
 };
 
-export const openHelpWindow = () => {
+export const openHelpWindow = (): void => {
   if (helpWindow && !helpWindow.isDestroyed()) {
     helpWindow.focus();
     return;
   }
 
   helpWindow = new BrowserWindow({
-    width: 960,
-    height: 920,
+    width: 980,
+    height: 760,
+    minWidth: 620,
+    minHeight: 480,
     autoHideMenuBar: true,
-    backgroundColor: '#0b1224',
+    backgroundColor: '#f5f5f7',
     webPreferences: {
       contextIsolation: true,
       sandbox: true,

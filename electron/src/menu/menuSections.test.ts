@@ -21,7 +21,6 @@ vi.mock('../settingsWindow', () => ({
 }));
 vi.mock('../playlistWindow', () => ({ createPlaylistWindow: vi.fn() }));
 vi.mock('../analysisWindow', () => ({ openAnalysisWindow: vi.fn() }));
-vi.mock('../codingPanelWindow', () => ({ openCodingPanelWindow: vi.fn() }));
 vi.mock('../helpWindow', () => ({ openHelpWindow: vi.fn() }));
 vi.mock('./recentPackageMenu', () => ({ buildRecentPackageItems: () => [] }));
 vi.mock('./menuWindowActions', () => ({
@@ -29,11 +28,7 @@ vi.mock('./menuWindowActions', () => ({
   sendToFocusedWindow: vi.fn(),
 }));
 
-import {
-  buildCodingMenuItems,
-  buildFileMenuItems,
-  buildWindowMenuItems,
-} from './menuSections';
+import { buildFileMenuItems, buildWindowMenuItems } from './menuSections';
 
 const getSubmenuItems = (
   item: Electron.MenuItemConstructorOptions | undefined,
@@ -41,7 +36,7 @@ const getSubmenuItems = (
   return Array.isArray(item?.submenu) ? item.submenu : [];
 };
 
-describe('coding menu', () => {
+describe('document menus', () => {
   beforeEach(() => {
     send.mockClear();
   });
@@ -84,10 +79,7 @@ describe('coding menu', () => {
     expect(send).toHaveBeenCalledWith('menu-open-code-window-file');
   });
 
-  it('keeps document lifecycle actions out of Coding and Window', () => {
-    expect(buildCodingMenuItems().map((item) => item.label)).toEqual([
-      'ラベルモード',
-    ]);
+  it('keeps document lifecycle actions out of Window', () => {
     expect(buildWindowMenuItems().map((item) => item.label)).not.toContain(
       'コードウィンドウを開く',
     );
