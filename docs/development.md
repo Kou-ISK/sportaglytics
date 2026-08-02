@@ -448,6 +448,7 @@ Main IPC handlers (domain modules)
 - `App.tsx` は app shell の view switch のみに留め、hash / Electron event / external open は shared hook に抽出する
 - `localStorage` や Electron menu sync は feature hook へ直書きせず、gateway / storage helper に寄せる
 - コードウィンドウ新規作成は `menu-create-code-window-file` / `onCreateCodeWindowFile()` の専用イベントで runtime controller へ渡す。controllerは空の layout を `.stcw` として保存した後、設定画面を経由せず独立 coding panel window で開く
+- menu barのドキュメント操作は「ファイル > 新規 / 開く」へ集約する。`menu-create-video-package` / `onCreateVideoPackage()` は `menuEventGateway` から動画プレイヤーcontrollerへ渡し、映像表示中でも作成ウィザードへ遷移できるようにする。コードウィンドウの作成・選択を「コーディング」または「ウィンドウ」へ重複配置しない（ADR: [0018](adr/0018-document-oriented-menu-structure.md)）
 - preload の `on/off` ペアは typed listener store を介して wrapper を管理し、`as unknown as Function` に依存しない
 - menu 系 listener も cleanup 関数を返す typed 登録 API に統一し、`removeAllListeners` を使った singleton listener 上書きは行わない
 - preload の playlist / analysis bridge は outbound / inbound の両方向で payload guard を通し、無効 payload を main / renderer に流さない
