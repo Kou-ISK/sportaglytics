@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-02
+
 ### Changed
 
 - メニューバーをドキュメント指向へ再編し、映像パッケージとコードウィンドウの作成・選択を「ファイル > 新規 / 開く」へ集約
