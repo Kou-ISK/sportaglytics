@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-02
+
 ### Added
 
 - 最大8アングル・各16ローカルクリップをパッケージ化し、クリップ間の空白を再生時に黒画面と無音で扱う仮想タイムラインを追加
