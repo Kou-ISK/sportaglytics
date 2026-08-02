@@ -53,6 +53,7 @@ type VideoPlayerLayoutProps = Pick<
   | 'performUndo'
   | 'performRedo'
 > & {
+  openWizardRequestKey: number;
   onApplyManualSync: () => void;
   onCancelManualSync: () => void;
   onAddToPlaylist: (items: TimelineData[]) => Promise<void>;
@@ -106,6 +107,7 @@ export const VideoPlayerLayout = ({
   onCancelManualSync,
   onAddToPlaylist,
   viewMode,
+  openWizardRequestKey,
 }: VideoPlayerLayoutProps) => {
   return isFileSelected ? (
     <Box
@@ -201,6 +203,7 @@ export const VideoPlayerLayout = ({
     </Box>
   ) : (
     <NoSelectionPlaceholder
+      openWizardRequestKey={openWizardRequestKey}
       setVideoList={setVideoList}
       setIsFileSelected={setIsFileSelected}
       setTimelineFilePath={setTimelineFilePath}

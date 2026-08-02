@@ -106,6 +106,8 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - coding panel window は表示状態 sync とクリック command のみを扱い、タグ付け時刻・押下状態・タイムライン更新はメイン動画ウィンドウの `EnhancedCodePanel` controller で確定する
 - coding panel window のsync/command IPCは各channelにつきrenderer subscriberを1つに限定する。contextBridge越しのcallback同一性へ解除を依存させず、再購読時に従来のwrapped listenerを除去する
 - 新規コードウィンドウのメニュー要求は `menu-create-code-window-file` / `onCreateCodeWindowFile()` の専用契約でメイン動画ウィンドウの runtime controller へ渡す。controllerは空の `.stcw` を保存し、ファイルパスと layout を独立 coding panel window へ同期する
+- メニューはドキュメント指向で分類し、映像パッケージとコードウィンドウの作成・選択は「ファイル」、動作モードは「コーディング」、既存ウィンドウ管理は「ウィンドウ」に限定する。対象を選ばないコードウィンドウ表示経路は持たない（ADR: [0018](adr/0018-document-oriented-menu-structure.md)）
+- 映像パッケージ作成のメニュー要求は `menu-create-video-package` / `onCreateVideoPackage()` をgateway経由で動画プレイヤーcontrollerへ渡し、現在の映像表示を終了して作成ウィザードを開く
 - coding panel window の編集モードは別ウィンドウ内で動作し、編集 UI は `CodingPanelWindowEditPane` に分離する。ボタン詳細編集は右側常設ペインではなく Inspector ダイアログで表示する。layout 更新と `.stcw` 保存要求は command としてメイン動画ウィンドウ側 controller に戻し、runtime layout / file path を controller が保持する
 - 音声同期の相関解析は `src/utils/audioSync/` 配下で stage helper に分割し、探索ロジックと orchestration を分離する。offset contract は ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md) に従う
 - event insights の shared domain は facade と builder 群に分け、summary/stat family ごとの集計責務を分離する

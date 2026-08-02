@@ -23,6 +23,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0015](0015-clip-timeline-placement-and-audio-assisted-sync.md)    | Clip timeline placement and audio-assisted sync    | Accepted   | 2026-07-23 |
 | [0016](0016-multi-angle-audio-sync-offset-persistence.md)          | Multi-angle audio sync offset persistence          | Accepted   | 2026-07-26 |
 | [0017](0017-row-owned-timeline-presentation.md)                    | Row-owned timeline presentation                    | Accepted   | 2026-08-02 |
+| [0018](0018-document-oriented-menu-structure.md)                   | Document-oriented menu structure                   | Accepted   | 2026-08-02 |
 
 ## Status Values
 

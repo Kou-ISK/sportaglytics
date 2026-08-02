@@ -7,6 +7,7 @@ import type {
 export type { PackageMediaAngle, PackageMediaClip };
 
 export interface VideoPathSelectorProps {
+  openWizardRequestKey?: number;
   setVideoList: Dispatch<SetStateAction<string[]>>;
   setIsFileSelected: Dispatch<SetStateAction<boolean>>;
   setTimelineFilePath: Dispatch<SetStateAction<string>>;

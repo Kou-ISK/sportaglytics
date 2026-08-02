@@ -24,6 +24,7 @@ interface VideoPathSelectorController {
 }
 
 export const useVideoPathSelectorController = ({
+  openWizardRequestKey = 0,
   setVideoList,
   setIsFileSelected,
   setTimelineFilePath,
@@ -45,6 +46,12 @@ export const useVideoPathSelectorController = ({
   useEffect(() => {
     setShowWelcome(!isOnboardingCompleted());
   }, []);
+
+  useEffect(() => {
+    if (openWizardRequestKey > 0) {
+      setWizardOpen(true);
+    }
+  }, [openWizardRequestKey]);
 
   const handlePackageLoaded = useCallback(
     ({

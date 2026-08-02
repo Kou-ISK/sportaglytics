@@ -188,6 +188,7 @@ export interface IElectronAPI {
   ) => () => void;
   onOpenCodeWindowFile: (callback: () => void) => () => void;
   onCreateCodeWindowFile: (callback: () => void) => () => void;
+  onCreateVideoPackage: (callback: () => void) => () => void;
   onOpenPackage: (callback: () => void) => () => void;
   onOpenRecentPackage: (callback: (path: string) => void) => () => void;
   updateRecentPackages: (paths: string[]) => void;

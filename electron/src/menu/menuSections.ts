@@ -1,7 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import { createPlaylistWindow } from '../playlistWindow';
 import { openAnalysisWindow } from '../analysisWindow';
-import { openCodingPanelWindow } from '../codingPanelWindow';
 import { openHelpWindow } from '../helpWindow';
 import { openSettingsWindow } from '../settingsWindow';
 import { buildRecentPackageItems } from './recentPackageMenu';
@@ -43,7 +42,55 @@ export const buildAppMenuItems = (
 ];
 
 export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
+  {
+    label: '新規',
+    submenu: [
+      {
+        id: 'create-video-package',
+        label: '映像パッケージ…',
+        accelerator: 'CmdOrCtrl+N',
+        click: () => {
+          sendToAllWindows('menu-create-video-package');
+        },
+      },
+      {
+        id: 'create-code-window',
+        label: 'コードウィンドウ…',
+        accelerator: 'CmdOrCtrl+Shift+N',
+        click: () => {
+          sendToAllWindows('menu-create-code-window-file');
+        },
+      },
+    ],
+  },
+  {
+    label: '開く',
+    submenu: [
+      {
+        id: 'open-video-package',
+        label: '映像パッケージ…',
+        accelerator: 'CmdOrCtrl+O',
+        click: () => {
+          sendToAllWindows('menu-open-package');
+        },
+      },
+      {
+        id: 'open-code-window-file',
+        label: 'コードウィンドウ…',
+        accelerator: 'CmdOrCtrl+Option+O',
+        click: () => {
+          sendToAllWindows('menu-open-code-window-file');
+        },
+      },
+    ],
+  },
+  {
+    label: '最近開いた映像パッケージ',
+    submenu: buildRecentPackageItems(),
+  },
+  { type: 'separator' },
   { role: 'close' as const, label: 'ウィンドウを閉じる' },
+  { type: 'separator' },
   {
     label: 'インポート',
     submenu: [
@@ -82,66 +129,58 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
           }
         },
       },
-      {
-        label: 'タイムライン（JSON）',
-        click: (_menuItem, browserWindow) => {
-          if (browserWindow && 'webContents' in browserWindow) {
-            (browserWindow as BrowserWindow).webContents.send(
-              'menu-export-timeline',
-              'json',
-            );
-          }
-        },
-      },
-      {
-        label: 'タイムライン（CSV / YouTube）',
-        click: (_menuItem, browserWindow) => {
-          if (browserWindow && 'webContents' in browserWindow) {
-            (browserWindow as BrowserWindow).webContents.send(
-              'menu-export-timeline',
-              'csv',
-            );
-          }
-        },
-      },
-      {
-        label: 'タイムライン（Raw CSV）',
-        click: (_menuItem, browserWindow) => {
-          if (browserWindow && 'webContents' in browserWindow) {
-            (browserWindow as BrowserWindow).webContents.send(
-              'menu-export-analysis-raw-csv',
-            );
-          }
-        },
-      },
-      {
-        label: 'Sportscode XML（SCTimeline）',
-        click: (_menuItem, browserWindow) => {
-          if (browserWindow && 'webContents' in browserWindow) {
-            (browserWindow as BrowserWindow).webContents.send(
-              'menu-export-timeline',
-              'sctimeline',
-            );
-          }
-        },
-      },
+      ...buildTimelineExportItems(),
     ],
   },
-  { type: 'separator' },
-  {
-    label: '開く...',
-    accelerator: 'CmdOrCtrl+O',
-    click: (_menuItem, browserWindow) => {
-      if (browserWindow && 'webContents' in browserWindow) {
-        (browserWindow as BrowserWindow).webContents.send('menu-open-package');
-      }
-    },
-  },
-  {
-    label: '最近開いたパッケージ',
-    submenu: buildRecentPackageItems(),
-  },
 ];
+
+function buildTimelineExportItems(): Electron.MenuItemConstructorOptions[] {
+  return [
+    {
+      label: 'タイムライン（JSON）',
+      click: (_menuItem, browserWindow) => {
+        if (browserWindow && 'webContents' in browserWindow) {
+          (browserWindow as BrowserWindow).webContents.send(
+            'menu-export-timeline',
+            'json',
+          );
+        }
+      },
+    },
+    {
+      label: 'タイムライン（CSV / YouTube）',
+      click: (_menuItem, browserWindow) => {
+        if (browserWindow && 'webContents' in browserWindow) {
+          (browserWindow as BrowserWindow).webContents.send(
+            'menu-export-timeline',
+            'csv',
+          );
+        }
+      },
+    },
+    {
+      label: 'タイムライン（Raw CSV）',
+      click: (_menuItem, browserWindow) => {
+        if (browserWindow && 'webContents' in browserWindow) {
+          (browserWindow as BrowserWindow).webContents.send(
+            'menu-export-analysis-raw-csv',
+          );
+        }
+      },
+    },
+    {
+      label: 'Sportscode XML（SCTimeline）',
+      click: (_menuItem, browserWindow) => {
+        if (browserWindow && 'webContents' in browserWindow) {
+          (browserWindow as BrowserWindow).webContents.send(
+            'menu-export-timeline',
+            'sctimeline',
+          );
+        }
+      },
+    },
+  ];
+}
 
 export const buildEditMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   { role: 'undo' as const, label: '元に戻す' },
@@ -158,30 +197,6 @@ export const buildEditMenuItems = (): Electron.MenuItemConstructorOptions[] => [
 
 export const buildCodingMenuItems =
   (): Electron.MenuItemConstructorOptions[] => [
-    {
-      id: 'create-code-window',
-      label: '新規コードウィンドウ…',
-      accelerator: 'CmdOrCtrl+Shift+N',
-      click: () => {
-        sendToAllWindows('menu-create-code-window-file');
-      },
-    },
-    { type: 'separator' },
-    {
-      label: 'コードウィンドウを開く',
-      accelerator: 'CmdOrCtrl+Shift+C',
-      click: () => {
-        void openCodingPanelWindow();
-      },
-    },
-    {
-      label: 'コードウィンドウファイルを開く...',
-      accelerator: 'CmdOrCtrl+Option+C',
-      click: () => {
-        sendToAllWindows('menu-open-code-window-file');
-      },
-    },
-    { type: 'separator' },
     {
       id: 'toggle-label-mode',
       label: 'ラベルモード',
@@ -215,20 +230,13 @@ export const buildSyncMenuItems = (): Electron.MenuItemConstructorOptions[] => [
 export const buildWindowMenuItems =
   (): Electron.MenuItemConstructorOptions[] => [
     {
-      label: 'コードウィンドウを開く',
-      click: () => {
-        void openCodingPanelWindow();
-      },
-    },
-    { type: 'separator' },
-    {
-      label: '分析ウィンドウを開く',
+      label: '分析ウィンドウを表示',
       click: () => {
         openAnalysisWindow();
       },
     },
     {
-      label: 'プレイリストウィンドウを開く',
+      label: 'プレイリストウィンドウを表示',
       click: () => {
         createPlaylistWindow();
       },
