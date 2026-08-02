@@ -22,7 +22,10 @@ const parseTimelineDragIds = (rawIds: string): string[] => {
 
 export const useTimelineLaneController = ({
   laneRef,
+  rowId,
   actionName,
+  rowColor,
+  isRowSelected,
   items,
   selectedIds,
   hoveredItemId,
@@ -31,6 +34,13 @@ export const useTimelineLaneController = ({
   onItemClick,
   onItemContextMenu,
   onMoveItem,
+  onCreateItem,
+  onEditRow,
+  onRowClick,
+  onRowContextMenu,
+  onRowDragStart,
+  onRowDragOver,
+  onRowDrop,
   timeToPosition,
   positionToTime,
   currentTimePosition,
@@ -44,7 +54,11 @@ export const useTimelineLaneController = ({
 }: TimelineLaneProps): TimelineLaneViewProps => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
-  const [isAltKeyPressed, setIsAltKeyPressed] = useState(false);
+  const [isEditModifierPressed, setIsEditModifierPressed] = useState(false);
+  const [draftRange, setDraftRange] = useState<{
+    startTime: number;
+    endTime: number;
+  } | null>(null);
 
   useEffect(() => {
     laneRef?.(containerRef.current);
@@ -52,35 +66,28 @@ export const useTimelineLaneController = ({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.altKey) {
-        setIsAltKeyPressed(true);
-      }
+      setIsEditModifierPressed(event.altKey && event.metaKey);
     };
 
     const handleKeyUp = (event: KeyboardEvent): void => {
-      if (!event.altKey) {
-        setIsAltKeyPressed(false);
-      }
+      setIsEditModifierPressed(event.altKey && event.metaKey);
     };
+    const handleBlur = (): void => setIsEditModifierPressed(false);
 
     globalThis.addEventListener('keydown', handleKeyDown);
     globalThis.addEventListener('keyup', handleKeyUp);
+    globalThis.addEventListener('blur', handleBlur);
 
     return () => {
       globalThis.removeEventListener('keydown', handleKeyDown);
       globalThis.removeEventListener('keyup', handleKeyUp);
+      globalThis.removeEventListener('blur', handleBlur);
     };
   }, []);
 
   const teamName = actionName.split(' ')[0];
   const isTeam1 = teamName === firstTeamName;
-  const laneLabelColor = useMemo(() => {
-    if (items[0]?.color) {
-      return items[0].color;
-    }
-
-    return isTeam1 ? 'team1.main' : 'team2.main';
-  }, [isTeam1, items]);
+  const laneLabelColor = useMemo(() => rowColor, [rowColor]);
 
   const handleEdgeMouseDown = useCallback(
     (
@@ -88,7 +95,7 @@ export const useTimelineLaneController = ({
       item: TimelineData,
       edge: 'start' | 'end',
     ): void => {
-      if (!event.altKey) {
+      if (!event.altKey || !event.metaKey) {
         return;
       }
 
@@ -131,6 +138,16 @@ export const useTimelineLaneController = ({
     (event: React.MouseEvent): void => {
       event.stopPropagation();
       setIsDraggingPlayhead(true);
+      const isCreating = event.altKey && event.metaKey && Boolean(onCreateItem);
+      const anchorTime =
+        currentTimePosition > 0
+          ? Math.max(0, Math.min(positionToTime(currentTimePosition), maxSec))
+          : 0;
+      if (isCreating) {
+        setDraftRange({ startTime: anchorTime, endTime: anchorTime });
+      }
+
+      let lastTime = anchorTime;
 
       const handleMouseMove = (mouseEvent: MouseEvent): void => {
         if (!containerRef.current) {
@@ -143,11 +160,27 @@ export const useTimelineLaneController = ({
           Math.min(mouseEvent.clientX - rect.left, rect.width),
         );
         const time = (clickX / rect.width) * maxSec;
+        lastTime = time;
         onSeek(time);
+        if (isCreating) {
+          setDraftRange({
+            startTime: Math.min(anchorTime, time),
+            endTime: Math.max(anchorTime, time),
+          });
+        }
       };
 
       const handleMouseUp = (): void => {
         setIsDraggingPlayhead(false);
+        if (isCreating && Math.abs(lastTime - anchorTime) >= 0.1) {
+          onCreateItem?.(
+            actionName,
+            Math.min(anchorTime, lastTime),
+            Math.max(anchorTime, lastTime),
+            rowColor,
+          );
+        }
+        setDraftRange(null);
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
       };
@@ -155,7 +188,15 @@ export const useTimelineLaneController = ({
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     },
-    [maxSec, onSeek],
+    [
+      actionName,
+      currentTimePosition,
+      maxSec,
+      onCreateItem,
+      onSeek,
+      positionToTime,
+      rowColor,
+    ],
   );
 
   const handleLaneDragOver = useCallback(
@@ -165,7 +206,7 @@ export const useTimelineLaneController = ({
       }
 
       event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
+      event.dataTransfer.dropEffect = event.altKey ? 'copy' : 'move';
     },
     [onMoveItem],
   );
@@ -181,14 +222,17 @@ export const useTimelineLaneController = ({
         event.dataTransfer.getData('text/timeline-ids'),
       );
       if (ids.length > 0) {
-        onMoveItem(ids, actionName);
+        onMoveItem(ids, actionName, event.altKey ? 'copy' : 'move');
       }
     },
     [actionName, onMoveItem],
   );
 
   return {
+    rowId,
     actionName,
+    rowColor,
+    isRowSelected,
     items,
     selectedIds,
     hoveredItemId,
@@ -197,6 +241,13 @@ export const useTimelineLaneController = ({
     onItemClick,
     onItemContextMenu,
     onMoveItem,
+    onCreateItem,
+    onEditRow,
+    onRowClick,
+    onRowContextMenu,
+    onRowDragStart,
+    onRowDragOver,
+    onRowDrop,
     timeToPosition,
     positionToTime,
     currentTimePosition,
@@ -209,9 +260,10 @@ export const useTimelineLaneController = ({
     zoomScale,
     containerRef,
     isDraggingPlayhead,
-    isAltKeyPressed,
+    isEditModifierPressed,
     isTeam1,
     laneLabelColor,
+    draftRange,
     onLaneDragOver: handleLaneDragOver,
     onLaneDrop: handleLaneDrop,
     onPlayheadMouseDown: handlePlayheadMouseDown,

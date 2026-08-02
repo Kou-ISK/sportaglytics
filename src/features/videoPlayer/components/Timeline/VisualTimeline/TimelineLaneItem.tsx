@@ -12,7 +12,11 @@ interface TimelineLaneItemProps {
   onHoverChange: (id: string | null) => void;
   onItemClick: (event: React.MouseEvent, id: string) => void;
   onItemContextMenu: (event: React.MouseEvent, id: string) => void;
-  onMoveItem?: (ids: string[], targetActionName: string) => void;
+  onMoveItem?: (
+    ids: string[],
+    targetActionName: string,
+    operation: 'move' | 'copy',
+  ) => void;
   onEdgeMouseDown: (
     event: React.MouseEvent,
     item: TimelineData,
@@ -24,7 +28,8 @@ interface TimelineLaneItemProps {
   contentWidth?: number;
   zoomScale: number;
   isTeam1: boolean;
-  isAltKeyPressed: boolean;
+  rowColor: string;
+  isEditModifierPressed: boolean;
 }
 
 export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
@@ -44,7 +49,8 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
   contentWidth,
   zoomScale,
   isTeam1,
-  isAltKeyPressed,
+  rowColor,
+  isEditModifierPressed,
 }) => {
   const theme = useTheme();
   const totalWidth =
@@ -62,11 +68,8 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
   const isFocused = focusedItemId === item.id;
 
   // バー背景色の決定（item.colorがあればそれを使用、なければチーム色）
-  const barBgColor = item.color
-    ? item.color
-    : isTeam1
-      ? theme.custom.bars.team1
-      : theme.custom.bars.team2;
+  const barBgColor = rowColor;
+  void isTeam1;
 
   let barOpacity = 0.7;
   if (isHovered) {
@@ -113,9 +116,13 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
       }
     >
       <Box
+        data-testid={`timeline-instance-${item.id}`}
+        role="button"
+        tabIndex={0}
+        aria-pressed={isSelected}
         onClick={(event) => onItemClick(event, item.id)}
         onContextMenu={(event) => onItemContextMenu(event, item.id)}
-        draggable={Boolean(onMoveItem)}
+        draggable={Boolean(onMoveItem) && !isEditModifierPressed}
         onDragStart={(event) => {
           if (!onMoveItem) return;
           const dragIds = selectedIds.includes(item.id)
@@ -125,12 +132,12 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
             'text/timeline-ids',
             JSON.stringify(dragIds),
           );
-          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.effectAllowed = 'copyMove';
         }}
         onDragOver={(event) => {
           if (onMoveItem) {
             event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
+            event.dataTransfer.dropEffect = event.altKey ? 'copy' : 'move';
           }
         }}
         onDrop={(event) => {
@@ -139,7 +146,7 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           const data = event.dataTransfer.getData('text/timeline-ids');
           const ids: string[] = data ? JSON.parse(data) : [];
           if (ids.length > 0) {
-            onMoveItem(ids, actionName);
+            onMoveItem(ids, actionName, event.altKey ? 'copy' : 'move');
           }
         }}
         onMouseEnter={() => onHoverChange(item.id)}
@@ -178,16 +185,17 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
         {/* 左エッジ（開始時刻調整） */}
         <Box
           onMouseDown={(event) => onEdgeMouseDown(event, item, 'start')}
+          aria-label="開始位置を調整"
           sx={{
             position: 'absolute',
             left: 0,
             top: 0,
             bottom: 0,
             width: 8,
-            cursor: isAltKeyPressed ? 'ew-resize' : 'pointer',
+            cursor: isEditModifierPressed ? 'ew-resize' : 'pointer',
             zIndex: 15,
             '&:hover': {
-              backgroundColor: isAltKeyPressed
+              backgroundColor: isEditModifierPressed
                 ? 'rgba(255,255,255,0.3)'
                 : 'transparent',
             },
@@ -213,16 +221,17 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
         {/* 右エッジ（終了時刻調整） */}
         <Box
           onMouseDown={(event) => onEdgeMouseDown(event, item, 'end')}
+          aria-label="終了位置を調整"
           sx={{
             position: 'absolute',
             right: 0,
             top: 0,
             bottom: 0,
             width: 8,
-            cursor: isAltKeyPressed ? 'ew-resize' : 'pointer',
+            cursor: isEditModifierPressed ? 'ew-resize' : 'pointer',
             zIndex: 15,
             '&:hover': {
-              backgroundColor: isAltKeyPressed
+              backgroundColor: isEditModifierPressed
                 ? 'rgba(255,255,255,0.3)'
                 : 'transparent',
             },

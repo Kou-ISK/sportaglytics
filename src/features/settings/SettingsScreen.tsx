@@ -13,7 +13,6 @@ export const SettingsScreen: React.FC = () => {
     saveSettings,
     generalRef,
     hotkeyRef,
-    codeWindowRef,
     currentTab,
     requestTabChange,
     confirmDialogOpen,
@@ -50,7 +49,6 @@ export const SettingsScreen: React.FC = () => {
           saveSettings={saveSettings}
           generalRef={generalRef}
           hotkeyRef={hotkeyRef}
-          codeWindowRef={codeWindowRef}
         />
       </Container>
 

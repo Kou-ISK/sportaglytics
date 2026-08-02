@@ -13,10 +13,21 @@ vi.mock('video.js', () => ({
 import {
   getVideoJsPlayer,
   getVideoJsPlayerCurrentTime,
+  isYoutubeVideoJsPlayer,
   setVideoJsPlayerCurrentTime,
 } from './videoJsAdapter';
 
 describe('videoJsAdapter', () => {
+  it('recognizes the YouTube tech used by shared playback controls', () => {
+    expect(isYoutubeVideoJsPlayer({ currentType: () => 'video/youtube' })).toBe(
+      true,
+    );
+    expect(isYoutubeVideoJsPlayer({ currentType: () => 'video/mp4' })).toBe(
+      false,
+    );
+    expect(isYoutubeVideoJsPlayer({ techName_: 'Youtube' })).toBe(true);
+  });
+
   beforeEach(() => {
     videoJsMocks.getPlayer.mockReset();
   });

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type Player from 'video.js/dist/types/player';
-import { formatSource } from '../utils';
+import { resolveVideoSource } from '../utils';
 
 interface UseVideoJsSourceSyncParams {
   id: string;
@@ -25,7 +25,7 @@ export const useVideoJsSourceSync = ({
       return;
     }
 
-    const source = formatSource(videoSrc);
+    const source = resolveVideoSource(videoSrc);
     let currentSource = '';
     try {
       const value = player.currentSource?.();
@@ -36,7 +36,7 @@ export const useVideoJsSourceSync = ({
       currentSource = '';
     }
 
-    if (currentSource === source) {
+    if (currentSource === source.src) {
       return;
     }
 
@@ -44,7 +44,7 @@ export const useVideoJsSourceSync = ({
     setIsReady(false);
     setDurationSec(0);
     player.pause();
-    player.src({ src: source, type: 'video/mp4' });
+    player.src(source);
   }, [
     id,
     lastReportedAspectRatioRef,

@@ -4,6 +4,7 @@ import { usePlaybackTimeTracker } from './usePlaybackTimeTracker';
 import { useExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
 import { useVideoControllerControls } from './useVideoControllerControls';
 import type { VideoControllerProps } from '../VideoController.types';
+import { isYoutubeVideoJsPlayer } from '../../../../shared/videojs/videoJsAdapter';
 
 interface VideoControllerToolbarProps {
   hasVideos: boolean;
@@ -34,6 +35,7 @@ export const useVideoControllerController = ({
   maxSec,
   videoList,
   syncData,
+  useTimelineClock = false,
 }: VideoControllerProps): VideoControllerToolbarProps => {
   const { flashStates, triggerFlash } = useFlashStates();
   const lastSetCurrentTimeValueRef = useRef<number>(0);
@@ -99,6 +101,7 @@ export const useVideoControllerController = ({
     getExistingPlayer,
     lastManualSeekTimestamp,
     safeSetCurrentTime,
+    timelineClockTime: useTimelineClock ? currentTime : undefined,
   });
 
   useEffect(() => {
@@ -175,7 +178,7 @@ export const useVideoControllerController = ({
               ? Math.max(0, (localOffset - baseTime) * 1000)
               : 0;
 
-          if (readyState >= 1) {
+          if (readyState >= 1 || isYoutubeVideoJsPlayer(player)) {
             if (delayMs > 0) {
               globalThis.setTimeout(playNow, delayMs);
             } else {

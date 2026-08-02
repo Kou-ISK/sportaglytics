@@ -117,17 +117,33 @@ SporTagLytics/
 
 ### 映像処理
 
-| 技術          | バージョン | 用途                     |
-| ------------- | ---------- | ------------------------ |
-| Video.js      | 8.23.4     | 映像プレイヤー           |
-| ffmpeg-static | 5.2.0      | クリップ書き出し（同梱） |
-| Web Audio API | -          | 音声同期分析             |
+| 技術            | バージョン | 用途                     |
+| --------------- | ---------- | ------------------------ |
+| Video.js        | 8.23.4     | 映像プレイヤー           |
+| ffmpeg-static   | 5.2.0      | クリップ書き出し（同梱） |
+| ffprobe-static  | 3.1.0      | パッケージ映像の構成確認 |
+| videojs-youtube | 3.0.1      | YouTube 再生 tech        |
+| Web Audio API   | -          | 音声同期分析             |
+
+複数クリップのパッケージ作成は main process の FFmpeg/FFprobe 境界で行います。Renderer からプロセスを起動せず、`package:create` の型付き IPC と payload guard を通してください。
+配布ビルドでは両バイナリを `electron-builder.json` の `files` と `asarUnpack` に含めます。
+複数ファイル選択は `files:open-video-files` / `openVideoFiles()` の専用 IPC・preload API を利用します。汎用 dialog API を Renderer へ公開せず、選択順の反映と16クリップ上限の適用は `useWizardSelection` に閉じ込めます。
+パッケージ作成は基本情報・映像の2ステップで構成し、保存先は最終作成操作で `selectPackageDirectory()` を呼び出します。Finderドロップは `resolveDroppedVideoFilePath(file)` から `webUtils.getPathForFile` を使い、Rendererから廃止済みの `File.path` を参照しません。同期位置は作成画面から除外し、`applyClipTimeline(configPath, placements)` はconfig内の絶対配置と派生gapだけを原子的に保存します。再生時は元クリップを仮想タイムラインで切り替え、書き出しで連続入力が必要な場合だけ `exportVirtualTimelineSource.ts` がOS一時領域へ合成します。
+
+`convertConfigToRelativePath()` は、`tightViewPath` / `wideViewPath` だけの旧configを1アングル1クリップの `angles[].clips[]` へ移行します。元クリップとアングル単位の再生用コピーが併存する場合は、ロード前に各アングルの互換パスを先頭の元クリップへ原子的に更新します。再生用コピーは自動削除しません。容量整理を行う場合は、元クリップとの内容一致を確認してから回収可能な方法で削除します。
+
+YouTube音声アシストはmacOS 13以降のloopback captureを使用します。`beginLoopbackAudioCapture()` はユーザー操作からだけ呼び、15秒のMediaStreamをメモリ上で解析した後に全trackを停止して `endLoopbackAudioCapture()` を呼びます。URLから音声を取得したり、一時ファイルへ保存したりしてはいけません。
+
+アングル単位の再生offsetは `.metadata/config.json` の `syncData.angleOffsets[]` をアングルindexに対応させます。`angleOffsets[index]` がない旧データでは `syncOffset` へフォールバックします。符号と加算契約、IPC上限は [音声同期オフセット仕様](audio-sync-offset-specification.md) と [ADR 0016](adr/0016-multi-angle-audio-sync-offset-persistence.md) を正本とします。
+
+YouTube 再生では、配布版の `file://` Renderer に通常の Referer がないことを前提に、`src/types/video/youtubeEmbed.ts` のアプリ識別 URL を Video.js の `widget_referrer` と Electron Session の YouTube `/embed/` Referer に使用します。IFrame API の制御通信を壊すため、実際の親画面と一致しない HTTPS `origin` parameter は指定しません。Error 153 対策として証明書検証や `webSecurity` を無効化してはいけません。
 
 **ffmpeg-static**:
 
 - FFmpegバイナリを静的に同梱し、プラットフォーム固有のビルドを自動選択
 - クリップ書き出し機能（単一/複数アングル、オーバーレイ付き）で使用
-- IPC経由で専用の書き出し進捗ウィンドウへ状態を通知する
+- `-progress pipe:1` の `out_time` を工程durationで正規化し、IPC経由で専用の書き出し進捗ウィンドウへ通知する
+- 進捗ウィンドウは非モーダルとし、初回表示・更新のどちらでもメインウィンドウからフォーカスを奪わない
 
 ### デスクトップアプリケーション
 
@@ -160,6 +176,15 @@ pnpm run electron:dev
 1. `vite` で React アプリをホット起動
 2. Vite の起動を待つ
 3. React / Electron / preload を build して `electron .` でアプリを起動
+
+Electronのビルドは、型検査、main process emit、sandbox preload bundleを分離しています。
+
+- `pnpm exec tsc -p electron/tsconfig.json`: 型検査のみ（no emit）
+- `pnpm run build:electron-main`: main processを`build/electron/`へemit（preloadは対象外）
+- `pnpm run bundle:preload`: sandboxで動く単一`preload.js`を生成
+- `pnpm run check:preload`: 相対`require()`や公開API欠落がないことを検査
+
+main process用のTypeScript emitへpreloadを含めると、Vite bundleが分割`require()`を含むファイルで上書きされ、全ウィンドウの`window.electronAPI`が利用不能になります。buildには必ず上記の分離したコマンドを使用してください。
 
 Renderer のみ確認する場合は `pnpm start` を使用できます。
 
@@ -422,6 +447,7 @@ Main IPC handlers (domain modules)
 - coding panel window の編集モードは、別ウィンドウ上の `CodingPanelWindowEditPane` で表示する。ボタン詳細編集は右側常設ペインではなく Inspector ダイアログで開く。layout 更新と保存要求は `codingPanelWindow` command としてメイン動画ウィンドウ側 controller に戻し、runtime layout と `.stcw` の file path は controller が保持する
 - `App.tsx` は app shell の view switch のみに留め、hash / Electron event / external open は shared hook に抽出する
 - `localStorage` や Electron menu sync は feature hook へ直書きせず、gateway / storage helper に寄せる
+- コードウィンドウ新規作成は `menu-create-code-window-file` / `onCreateCodeWindowFile()` の専用イベントで runtime controller へ渡す。controllerは空の layout を `.stcw` として保存した後、設定画面を経由せず独立 coding panel window で開く
 - preload の `on/off` ペアは typed listener store を介して wrapper を管理し、`as unknown as Function` に依存しない
 - menu 系 listener も cleanup 関数を返す typed 登録 API に統一し、`removeAllListeners` を使った singleton listener 上書きは行わない
 - preload の playlist / analysis bridge は outbound / inbound の両方向で payload guard を通し、無効 payload を main / renderer に流さない
@@ -429,7 +455,7 @@ Main IPC handlers (domain modules)
 - shared domain の大きい集計関数は facade と builder 群に分け、stat family 単位で責務を切り出す
 - timeline import/export は gateway と pure service に分け、menu 購読・dialog・serialize/deserialize を 1 hook に詰め込まない
 - clip export の共通契約は `src/shared/clipExport/` に置き、playlist / timeline 両方の source 解決・multi/all-angles 実行・payload 型をそこへ集約する
-- clip export の進捗ウィンドウ契約は `src/types/ipc/exportProgressWindow.ts` を正本とし、main 側は `electron/src/exportProgressWindow.ts` から進捗状態を送る
+- clip export の進捗ウィンドウ契約は `src/types/ipc/exportProgressWindow.ts` を正本とし、main 側は `exportFfmpegProcess.ts` で実時間進捗を算出して `electron/src/exportProgressWindow.ts` から状態を送る。設定ダイアログは書き出し開始前に閉じ、進捗更新でウィンドウをactivateしない
 - analysis dashboard import/export は controller 直下で I/O しない。dialog / read-write は gateway、JSON parse / 正規化 / ID 重複解消は pure service に分離する
 - Video.js の既存 player 参照と時刻操作は feature 内 adapter に寄せ、hook ごとに独自 cast を持ち込まない
 
@@ -468,7 +494,11 @@ Main IPC handlers (domain modules)
 - `useVideoPlayerScreenController`: 映像プレイヤー全体の状態管理
 - `useTimelineViewport`: タイムラインのズーム・スクロール
 - `useTimelineInteractions`: タイムラインのインタラクション
+- `useTimelineRowInteractions`: 行の選択、ドラッグ並べ替え、コンテキストメニュー、削除確認
+- `timelineDocument`: package内の旧配列形式とversion 2（`rows[]` / `instances[]`）のロード時移行・直列化
 - `useGlobalHotkeys`: グローバルホットキー
+
+`useGlobalHotkeys` は物理キー1回の押下を1操作として扱い、OSが送る `KeyboardEvent.repeat` は無視します。再生/停止のようなトグル状態は関数形式のstate updaterで反転し、短時間に別ウィンドウから入力されても古いrender時点の状態を使いません。押下中だけ有効な再生速度は最初のkeydownとkeyupで開始・解除します。
 
 ### コンポーネント設計（責務分離）
 
@@ -575,7 +605,7 @@ function TimelineEditor() {
 
 ```bash
 pnpm run build
-pnpm exec tsc -p electron/tsconfig.json
+pnpm run build:electron-main
 pnpm run bundle:preload
 pnpm run check:preload
 pnpm run electron:package:mac
@@ -636,7 +666,7 @@ pnpm add -D electron
 - [Analysis Report Export](analysis-report.md)
 - [Privacy and Data Handling](privacy-and-data-handling.md)
 - [プレイリスト機能実装](playlist-features.md)
-- [コードウィンドウ設定実装](code-window-settings.md)
+- [コードウィンドウ編集実装](code-window-settings.md)
 - [音声同期オフセット仕様](audio-sync-offset-specification.md)
 - [SCTimeline実装](sctimeline-implementation.md)
 

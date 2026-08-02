@@ -150,6 +150,7 @@ export const useTimelineClipExportDialog = ({
         ? crypto.randomUUID()
         : `export-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+    setClipDialogOpen(false);
     const result = await executeClipExport({
       progressId,
       executeExport: exportClipsWithOverlay,
@@ -165,7 +166,6 @@ export const useTimelineClipExportDialog = ({
     });
     if (result.success) {
       info(result.message);
-      setClipDialogOpen(false);
       return;
     }
 

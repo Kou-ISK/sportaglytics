@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
 import type { VideoPlayerError } from '../../../../types/video/error';
 import type { VideoSyncData } from '../../../../types/video/sync';
+import type { PackageMediaAngle } from '../../../../types/package/metadata';
 import { useSyncActions } from './useSyncActions';
 import { useVideoMetadataSync } from './useVideoMetadataSync';
 import { useVideoPlayerErrors } from './useVideoPlayerErrors';
@@ -24,6 +25,8 @@ interface UseVideoPlayerRuntimeStateResult {
   setVideoPlayBackRate: Dispatch<SetStateAction<number>>;
   syncData: VideoSyncData | undefined;
   setSyncData: Dispatch<SetStateAction<VideoSyncData | undefined>>;
+  mediaAngles: PackageMediaAngle[];
+  setMediaAngles: Dispatch<SetStateAction<PackageMediaAngle[]>>;
   syncMode: 'auto' | 'manual';
   setSyncMode: Dispatch<SetStateAction<'auto' | 'manual'>>;
   currentTime: number;
@@ -61,6 +64,7 @@ export const useVideoPlayerRuntimeState =
     const [syncData, setSyncData] = useState<VideoSyncData | undefined>(
       undefined,
     );
+    const [mediaAngles, setMediaAngles] = useState<PackageMediaAngle[]>([]);
     const [syncMode, setSyncMode] = useState<'auto' | 'manual'>('auto');
     const [packagePath, setPackagePath] = useState('');
     const { error, setError, clearError } = useVideoPlayerErrors();
@@ -79,6 +83,7 @@ export const useVideoPlayerRuntimeState =
         videoList,
         syncData,
         syncMode,
+        mediaAngles,
       });
 
     const syncActions = useSyncActions({
@@ -113,6 +118,8 @@ export const useVideoPlayerRuntimeState =
       setVideoPlayBackRate,
       syncData,
       setSyncData,
+      mediaAngles,
+      setMediaAngles,
       syncMode,
       setSyncMode,
       currentTime,

@@ -38,6 +38,13 @@ const toSyncData = (value: unknown): VideoSyncData | undefined => {
       typeof value.confidenceScore === 'number'
         ? value.confidenceScore
         : undefined,
+    angleOffsets:
+      Array.isArray(value.angleOffsets) &&
+      value.angleOffsets.every(
+        (offset) => typeof offset === 'number' && Number.isFinite(offset),
+      )
+        ? value.angleOffsets
+        : undefined,
   };
 };
 
@@ -88,6 +95,10 @@ export const selectVideoFile = async (): Promise<string | null> => {
   return selectedPath || null;
 };
 
+export const selectVideoFiles = async (): Promise<string[]> => {
+  return await getElectronApi().openVideoFiles();
+};
+
 export const createVideoPackage = async (
   directoryName: string,
   packageName: string,
@@ -126,26 +137,43 @@ export const loadPackageDirectory = async (
     throw new Error(PACKAGE_CONFIG_INVALID);
   }
 
-  const { videoList } = buildVideoListFromConfig(config, packagePath);
+  const { videoList, angles } = buildVideoListFromConfig(config, packagePath);
   if (videoList.length === 0) {
     throw new Error(PACKAGE_VIDEO_MISSING);
   }
 
+  const supportsAudioSync = angles.length >= 2;
+  const persistedSyncData = toSyncData(config.syncData);
+  const angleOffsets = angles.map((angle) => angle.playbackOffsetSeconds);
+  const hasAngleOffset = angleOffsets.some((offset) => offset !== 0);
   const syncData =
-    videoList.length >= 2 ? toSyncData(config.syncData) : undefined;
+    persistedSyncData || hasAngleOffset
+      ? {
+          syncOffset: persistedSyncData?.syncOffset ?? 0,
+          isAnalyzed: persistedSyncData?.isAnalyzed ?? true,
+          confidenceScore: persistedSyncData?.confidenceScore,
+          angleOffsets,
+        }
+      : undefined;
 
   return {
     packagePath,
     configFilePath,
     team1Name: readTeamName(config.team1Name, 'Team 1'),
     team2Name: readTeamName(config.team2Name, 'Team 2'),
-    missingSyncData: videoList.length >= 2 && !syncData,
+    missingSyncData: supportsAudioSync && !persistedSyncData,
     result: {
       videoList,
       syncData,
       timelinePath: `${packagePath}/timeline.json`,
       metaDataConfigFilePath: configFilePath,
       packagePath,
+      mediaAngles: angles.map((angle) => ({
+        id: angle.id,
+        name: angle.name,
+        sourceKind: angle.sourceKind,
+        clips: angle.clips,
+      })),
     },
   };
 };

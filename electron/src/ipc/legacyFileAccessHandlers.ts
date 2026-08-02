@@ -52,7 +52,7 @@ const openVideoFileDialog = async (
     filters: [
       {
         name: '映像ファイル',
-        extensions: ['mov', 'mp4'],
+        extensions: ['mov', 'mp4', 'm4v', 'webm'],
       },
     ],
   };
@@ -61,6 +61,25 @@ const openVideoFileDialog = async (
     : await dialog.showOpenDialog(options);
   if (result.canceled) return undefined;
   return result.filePaths[0];
+};
+
+const openVideoFilesDialog = async (
+  mainWindow: BrowserWindow | null,
+): Promise<string[]> => {
+  const options: Electron.OpenDialogOptions = {
+    properties: ['openFile', 'multiSelections'],
+    message: '同じアングルへ追加する映像を順番に選択',
+    filters: [
+      {
+        name: '映像ファイル',
+        extensions: ['mov', 'mp4', 'm4v', 'webm'],
+      },
+    ],
+  };
+  const result = mainWindow
+    ? await dialog.showOpenDialog(mainWindow, options)
+    : await dialog.showOpenDialog(options);
+  return result.canceled ? [] : result.filePaths;
 };
 
 export const registerLegacyFileAccessHandlers = ({
@@ -104,6 +123,18 @@ export const registerLegacyFileAccessHandlers = ({
       }
     },
   );
+
+  registerHandleWithAliases('files:open-video-files', [], async (event) => {
+    if (!getValidatedEventSenderWindow(event)) {
+      throw new Error('Invalid open video files sender');
+    }
+    try {
+      return await openVideoFilesDialog(getMainWindow());
+    } catch (error) {
+      console.error('open video files dialog error:', error);
+      return [];
+    }
+  });
 
   registerHandleWithAliases(
     'timeline:export-json',

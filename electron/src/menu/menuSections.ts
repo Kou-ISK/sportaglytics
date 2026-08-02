@@ -159,6 +159,15 @@ export const buildEditMenuItems = (): Electron.MenuItemConstructorOptions[] => [
 export const buildCodingMenuItems =
   (): Electron.MenuItemConstructorOptions[] => [
     {
+      id: 'create-code-window',
+      label: '新規コードウィンドウ…',
+      accelerator: 'CmdOrCtrl+Shift+N',
+      click: () => {
+        sendToAllWindows('menu-create-code-window-file');
+      },
+    },
+    { type: 'separator' },
+    {
       label: 'コードウィンドウを開く',
       accelerator: 'CmdOrCtrl+Shift+C',
       click: () => {

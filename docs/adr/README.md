@@ -4,20 +4,25 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 
 ## Records
 
-| ID                                                                 | Title                                              | Status   | Date       |
-| ------------------------------------------------------------------ | -------------------------------------------------- | -------- | ---------- |
-| [0001](0001-feature-first-boundaries.md)                           | Feature-First boundaries                           | Accepted | 2026-05-04 |
-| [0002](0002-typed-electron-ipc-and-renderer-gateways.md)           | Typed Electron IPC and renderer gateways           | Accepted | 2026-05-04 |
-| [0003](0003-shared-type-contracts-and-load-time-migration.md)      | Shared type contracts and load-time migration      | Accepted | 2026-05-04 |
-| [0004](0004-doc-sync-and-documentation-source-of-truth.md)         | Doc sync and documentation source of truth         | Accepted | 2026-05-05 |
-| [0005](0005-local-llm-analysis-boundary.md)                        | Local LLM analysis boundary                        | Accepted | 2026-05-05 |
-| [0006](0006-application-document-formats-and-file-associations.md) | Application document formats and file associations | Accepted | 2026-05-05 |
-| [0007](0007-audio-sync-offset-contract.md)                         | Audio sync offset contract                         | Accepted | 2026-05-06 |
-| [0008](0008-dedicated-sub-window-runtime-and-synchronization.md)   | Dedicated sub-window runtime and synchronization   | Accepted | 2026-05-06 |
-| [0009](0009-timeline-import-export-interoperability.md)            | Timeline import/export interoperability            | Accepted | 2026-05-06 |
-| [0010](0010-ffmpeg-clip-export-execution-boundary.md)              | FFmpeg clip export execution boundary              | Accepted | 2026-05-06 |
-| [0011](0011-dashboard-widget-system-and-analysis-consolidation.md) | Dashboard widget system and analysis consolidation | Accepted | 2026-05-06 |
-| [0012](0012-llm-model-artifact-distribution-boundary.md)           | LLM model artifact distribution boundary           | Accepted | 2026-05-10 |
+| ID                                                                 | Title                                              | Status     | Date       |
+| ------------------------------------------------------------------ | -------------------------------------------------- | ---------- | ---------- |
+| [0001](0001-feature-first-boundaries.md)                           | Feature-First boundaries                           | Accepted   | 2026-05-04 |
+| [0002](0002-typed-electron-ipc-and-renderer-gateways.md)           | Typed Electron IPC and renderer gateways           | Accepted   | 2026-05-04 |
+| [0003](0003-shared-type-contracts-and-load-time-migration.md)      | Shared type contracts and load-time migration      | Accepted   | 2026-05-04 |
+| [0004](0004-doc-sync-and-documentation-source-of-truth.md)         | Doc sync and documentation source of truth         | Accepted   | 2026-05-05 |
+| [0005](0005-local-llm-analysis-boundary.md)                        | Local LLM analysis boundary                        | Accepted   | 2026-05-05 |
+| [0006](0006-application-document-formats-and-file-associations.md) | Application document formats and file associations | Accepted   | 2026-05-05 |
+| [0007](0007-audio-sync-offset-contract.md)                         | Audio sync offset contract                         | Superseded | 2026-05-06 |
+| [0008](0008-dedicated-sub-window-runtime-and-synchronization.md)   | Dedicated sub-window runtime and synchronization   | Accepted   | 2026-05-06 |
+| [0009](0009-timeline-import-export-interoperability.md)            | Timeline import/export interoperability            | Accepted   | 2026-05-06 |
+| [0010](0010-ffmpeg-clip-export-execution-boundary.md)              | FFmpeg clip export execution boundary              | Accepted   | 2026-05-06 |
+| [0011](0011-dashboard-widget-system-and-analysis-consolidation.md) | Dashboard widget system and analysis consolidation | Accepted   | 2026-05-06 |
+| [0012](0012-llm-model-artifact-distribution-boundary.md)           | LLM model artifact distribution boundary           | Accepted   | 2026-05-10 |
+| [0013](0013-multi-angle-media-source-model.md)                     | Multi-angle media source model                     | Superseded | 2026-07-19 |
+| [0014](0014-youtube-embed-client-identity.md)                      | YouTube embed client identity                      | Accepted   | 2026-07-20 |
+| [0015](0015-clip-timeline-placement-and-audio-assisted-sync.md)    | Clip timeline placement and audio-assisted sync    | Accepted   | 2026-07-23 |
+| [0016](0016-multi-angle-audio-sync-offset-persistence.md)          | Multi-angle audio sync offset persistence          | Accepted   | 2026-07-26 |
+| [0017](0017-row-owned-timeline-presentation.md)                    | Row-owned timeline presentation                    | Accepted   | 2026-08-02 |
 
 ## Status Values
 

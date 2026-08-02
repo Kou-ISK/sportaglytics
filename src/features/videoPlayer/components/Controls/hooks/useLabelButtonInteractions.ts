@@ -79,12 +79,10 @@ export const useLabelButtonInteractions = ({
       for (const targetName of effects.deactivateTargets) {
         const targetKey = resolveRecordingKey(targetName);
         if (!targetKey) continue;
-        setWarning(`非活性化: ${targetName} を終了します`);
         toDeactivate.push(targetKey);
         break;
       }
 
-      const newlyStarted: string[] = [];
       for (const targetActionName of effects.activateTargets) {
         const time = getCurrentTime();
         if (time === null) break;
@@ -104,8 +102,6 @@ export const useLabelButtonInteractions = ({
           [targetActionName]: prev[targetActionName] ?? {},
         }));
         setPrimaryAction(targetActionName);
-        setWarning(`活性化リンク: ${targetActionName} の記録を開始しました`);
-        newlyStarted.push(targetActionName);
         break;
       }
 
@@ -142,9 +138,7 @@ export const useLabelButtonInteractions = ({
         setWarning('タイムラインのアクションを選択してください');
         return;
       }
-      if (newlyStarted.length === 0) {
-        setWarning(null);
-      }
+      setWarning(null);
     },
     [
       activeMode,

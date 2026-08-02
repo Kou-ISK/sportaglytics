@@ -13,6 +13,7 @@ import { updateExportProgressWindow } from '../exportProgressWindow';
 import type { ExportProgressWindowState } from '../../../src/types/ipc/exportProgressWindow';
 import { isNonEmptyString, isPlainObject } from './ipcPayloadGuards';
 import { getValidatedEventSenderWindow } from './windowSenderGuards';
+import { materializeVirtualTimelineForExport } from './exportVirtualTimelineSource';
 
 interface RegisterExportHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
@@ -155,9 +156,7 @@ const buildProgressState = ({
   };
 };
 
-const sendProgress = (
-  state: ExportProgressWindowState | null,
-): void => {
+const sendProgress = (state: ExportProgressWindowState | null): void => {
   if (!state) {
     return;
   }
@@ -198,13 +197,21 @@ export const registerExportHandlers = ({
           progressId,
         } = payload;
         const progressStartedAt = Date.now();
-        let progressCurrent = 0;
+        const getClipOutputDuration = (
+          clip: ExportClipsPayload['clips'][number],
+        ): number =>
+          Math.max(0.5, clip.endTime - clip.startTime) +
+          Math.max(0, clip.freezeDuration ?? 0);
+        const renderDurationTotal = clips.reduce(
+          (total, clip) => total + getClipOutputDuration(clip),
+          0,
+        );
+        let completedProgressWeight = 0;
+        let reportedProgressCurrent = 0;
         const progressTotal =
           exportMode === 'perInstance'
-            ? clips.length
-            : exportMode === 'perRow'
-              ? clips.length + new Set(clips.map((clip) => clip.actionName)).size
-              : clips.length + 1;
+            ? renderDurationTotal
+            : renderDurationTotal * 2;
         const updateProgress = (message: string): void => {
           if (!progressId) {
             return;
@@ -213,7 +220,7 @@ export const registerExportHandlers = ({
             buildProgressState({
               progressId,
               startedAt: progressStartedAt,
-              current: progressCurrent,
+              current: reportedProgressCurrent,
               total: Math.max(1, progressTotal),
               message,
             }),
@@ -227,7 +234,7 @@ export const registerExportHandlers = ({
             buildProgressState({
               progressId,
               startedAt: progressStartedAt,
-              current: progressCurrent,
+              current: reportedProgressCurrent,
               total: Math.max(1, progressTotal),
               message,
               status: 'failed',
@@ -235,8 +242,27 @@ export const registerExportHandlers = ({
             }),
           );
         };
-        const advanceProgress = (message: string): void => {
-          progressCurrent = Math.min(progressCurrent + 1, progressTotal);
+        const advanceProgress = (weight: number, message: string): void => {
+          completedProgressWeight = Math.min(
+            completedProgressWeight + weight,
+            progressTotal,
+          );
+          reportedProgressCurrent = completedProgressWeight;
+          updateProgress(message);
+        };
+        const updateStageProgress = (
+          fraction: number,
+          weight: number,
+          message: string,
+        ): void => {
+          const normalizedFraction = Math.min(1, Math.max(0, fraction));
+          reportedProgressCurrent = Math.max(
+            reportedProgressCurrent,
+            Math.min(
+              progressTotal,
+              completedProgressWeight + normalizedFraction * weight,
+            ),
+          );
           updateProgress(message);
         };
 
@@ -256,16 +282,36 @@ export const registerExportHandlers = ({
           }
         }
 
+        const requestedSources = [
+          sourcePath,
+          sourcePath2,
+          ...clips.flatMap((clip) => [clip.videoSource, clip.videoSource2]),
+        ].filter((source): source is string => Boolean(source));
+        const resolvedSourceMap = new Map<string, string>();
+        for (const source of new Set(requestedSources)) {
+          updateProgress('書き出し用の映像を準備中...');
+          resolvedSourceMap.set(
+            source,
+            await materializeVirtualTimelineForExport(source, tempFiles),
+          );
+        }
+        const resolveSource = (
+          source: string | undefined,
+        ): string | undefined =>
+          source ? (resolvedSourceMap.get(source) ?? source) : undefined;
+
         const normalizedAngleOption = normalizeAngleOption(angleOption, mode);
         const mainSource =
           normalizedAngleOption === 'angle2'
-            ? sourcePath2 || sourcePath
-            : sourcePath;
+            ? resolveSource(sourcePath2) ||
+              resolveSource(sourcePath) ||
+              sourcePath
+            : resolveSource(sourcePath) || sourcePath;
         const secondarySource =
           normalizedAngleOption === 'allAngles' ||
           normalizedAngleOption === 'multi' ||
           mode === 'dual'
-            ? sourcePath2 || null
+            ? resolveSource(sourcePath2) || null
             : null;
         const useDual = mode === 'dual' || Boolean(secondarySource);
 
@@ -288,17 +334,23 @@ export const registerExportHandlers = ({
         const renderClip = async (
           clip: ExportClipsPayload['clips'][number],
           outputPath?: string,
+          onProgress?: (progress: number) => void,
         ): Promise<string> => {
           try {
             return await renderClipWithFfmpeg({
               getFfmpegPath,
-              clip,
+              clip: {
+                ...clip,
+                videoSource: resolveSource(clip.videoSource),
+                videoSource2: resolveSource(clip.videoSource2),
+              },
               overlay,
               mainSource,
               secondarySource,
               useDual,
               tempFiles,
               outputPath,
+              onProgress,
             });
           } catch (error) {
             if (useDual) {
@@ -324,7 +376,6 @@ export const registerExportHandlers = ({
         const baseName = outputFileName
           ? outputFileName.replace(/\.mp4$/i, '')
           : '';
-
         if (exportMode === 'perInstance') {
           for (let i = 0; i < clips.length; i += 1) {
             const clip = clips[i];
@@ -342,8 +393,16 @@ export const registerExportHandlers = ({
               ? ensureMp4(`${baseName}_${instanceNum}_${safeAction}${suffix}`)
               : ensureMp4(`${instanceNum}_${safeAction}${suffix}`);
             const outPath = path.join(targetDir, outName);
-            await renderClip(clip, outPath);
+            const clipDuration = getClipOutputDuration(clip);
+            await renderClip(clip, outPath, (fraction) => {
+              updateStageProgress(
+                fraction,
+                clipDuration,
+                `${i + 1} / ${clips.length} クリップを書き出し中...`,
+              );
+            });
             advanceProgress(
+              clipDuration,
               `${i + 1} / ${clips.length} クリップを書き出しました`,
             );
           }
@@ -361,9 +420,21 @@ export const registerExportHandlers = ({
           for (const [actionName, group] of byAction.entries()) {
             const temps: string[] = [];
             for (const clip of group) {
+              const clipDuration = getClipOutputDuration(clip);
               updateProgress(`${actionName} のクリップを生成中...`);
-              temps.push(await renderClip(clip));
-              advanceProgress(`${actionName} のクリップを生成しました`);
+              temps.push(
+                await renderClip(clip, undefined, (fraction) => {
+                  updateStageProgress(
+                    fraction,
+                    clipDuration,
+                    `${actionName} のクリップを生成中...`,
+                  );
+                }),
+              );
+              advanceProgress(
+                clipDuration,
+                `${actionName} のクリップを生成しました`,
+              );
             }
 
             const safeAction = actionName.replace(/\s+/g, '_');
@@ -380,8 +451,21 @@ export const registerExportHandlers = ({
             const outPath = path.join(targetDir, outName);
 
             updateProgress(`${actionName} を結合中...`);
-            await concatFiles(getFfmpegPath, temps, outPath);
-            advanceProgress(`${actionName} を書き出しました`);
+            const groupDuration = group.reduce(
+              (total, clip) => total + getClipOutputDuration(clip),
+              0,
+            );
+            await concatFiles(getFfmpegPath, temps, outPath, {
+              durationSeconds: groupDuration,
+              onProgress: (fraction) => {
+                updateStageProgress(
+                  fraction,
+                  groupDuration,
+                  `${actionName} を結合中...`,
+                );
+              },
+            });
+            advanceProgress(groupDuration, `${actionName} を書き出しました`);
             await Promise.all(
               temps.map((t) => fs.unlink(t).catch(() => undefined)),
             );
@@ -390,11 +474,19 @@ export const registerExportHandlers = ({
           const temps: string[] = [];
           for (let i = 0; i < clips.length; i += 1) {
             const clip = clips[i];
-            updateProgress(
-              `${i + 1} / ${clips.length} クリップを生成中...`,
+            const clipDuration = getClipOutputDuration(clip);
+            updateProgress(`${i + 1} / ${clips.length} クリップを生成中...`);
+            temps.push(
+              await renderClip(clip, undefined, (fraction) => {
+                updateStageProgress(
+                  fraction,
+                  clipDuration,
+                  `${i + 1} / ${clips.length} クリップを生成中...`,
+                );
+              }),
             );
-            temps.push(await renderClip(clip));
             advanceProgress(
+              clipDuration,
               `${i + 1} / ${clips.length} クリップを生成しました`,
             );
           }
@@ -411,8 +503,20 @@ export const registerExportHandlers = ({
           const outPath = path.join(targetDir, outName);
 
           updateProgress('クリップを結合中...');
-          await concatFiles(getFfmpegPath, temps, outPath);
-          advanceProgress('書き出しが完了しました');
+          await concatFiles(getFfmpegPath, temps, outPath, {
+            durationSeconds: clips.reduce(
+              (total, clip) => total + getClipOutputDuration(clip),
+              0,
+            ),
+            onProgress: (fraction) => {
+              updateStageProgress(
+                fraction,
+                renderDurationTotal,
+                'クリップを結合中...',
+              );
+            },
+          });
+          advanceProgress(renderDurationTotal, '書き出しが完了しました');
           await Promise.all(
             temps.map((t) => fs.unlink(t).catch(() => undefined)),
           );
@@ -423,7 +527,7 @@ export const registerExportHandlers = ({
             buildProgressState({
               progressId,
               startedAt: progressStartedAt,
-              current: Math.max(progressCurrent, progressTotal),
+              current: progressTotal,
               total: Math.max(1, progressTotal),
               message: '書き出しが完了しました',
               status: 'completed',

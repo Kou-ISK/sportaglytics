@@ -9,7 +9,12 @@ import type {
 interface PackageAnglePayload {
   id: string;
   name: string;
-  sourcePath: string;
+  clips: Array<{
+    id: string;
+    sourceKind: 'local' | 'youtube';
+    source: string;
+    gapBeforeSeconds: number;
+  }>;
   role?: 'primary' | 'secondary';
 }
 
@@ -17,14 +22,18 @@ export const buildAnglePayloads = (
   selection: WizardSelectionState,
 ): PackageAnglePayload[] => {
   return selection.angles
-    .filter((angle) => angle.filePath)
+    .map((angle) => ({
+      ...angle,
+      clips: angle.clips.filter((clip) => clip.source.trim()),
+    }))
+    .filter((angle) => angle.clips.length > 0)
     .map((angle, index) => {
       const role: 'primary' | 'secondary' | undefined =
         index === 0 ? 'primary' : index === 1 ? 'secondary' : undefined;
       return {
         id: angle.id,
         name: angle.name.trim() || 'Angle',
-        sourcePath: angle.filePath,
+        clips: angle.clips,
         role,
       };
     });
@@ -49,22 +58,36 @@ export const buildMetaDataConfig = (
 
 export const buildPackageLoadResult = (
   packageDatas: PackageDatas,
-  selection: WizardSelectionState,
+  packageDirectory: string,
   form: WizardFormState,
 ): PackageLoadResult => {
-  const primaryAngle = packageDatas.angles[0];
-  const secondaryAngle =
-    packageDatas.angles.length > 1 ? packageDatas.angles[1] : undefined;
-  const videoList = [
-    primaryAngle?.absolutePath,
-    secondaryAngle?.absolutePath,
-  ].filter(Boolean) as string[];
+  const videoList = packageDatas.angles
+    .map((angle) => angle.absolutePath)
+    .filter((source) => source.trim().length > 0);
 
   return {
     videoList,
     syncData: undefined,
     timelinePath: packageDatas.timelinePath,
     metaDataConfigFilePath: packageDatas.metaDataConfigFilePath,
-    packagePath: `${selection.selectedDirectory}/${form.packageName}`,
+    packagePath: `${packageDirectory}/${form.packageName}`,
+    mediaAngles: packageDatas.angles.map((angle) => ({
+      id: angle.id,
+      name: angle.name,
+      sourceKind: angle.sourceKind,
+      clips: angle.clips.map((clip) => ({
+        id: clip.id,
+        sourceKind: clip.sourceKind,
+        source:
+          clip.sourceKind === 'youtube'
+            ? (clip.sourceUrl ?? '')
+            : clip.relativePath
+              ? `${packageDirectory}/${form.packageName}/${clip.relativePath}`
+              : '',
+        gapBeforeSeconds: clip.gapBeforeSeconds,
+        timelineStartSeconds: clip.timelineStartSeconds ?? 0,
+        durationSeconds: clip.durationSeconds,
+      })),
+    })),
   };
 };

@@ -17,7 +17,7 @@ interface UseCreatePackageFlowParams {
   onPackageCreated: (payload: PackageLoadResult) => void;
   selection: WizardSelectionState;
   resetSelection: () => void;
-  handleSelectDirectory: () => Promise<void>;
+  handleSelectDirectory: () => Promise<string | null>;
   showError: (message: string) => void;
   actionNames: string[];
 }
@@ -28,7 +28,7 @@ const INITIAL_FORM: WizardFormState = {
   team2Name: '',
 };
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 2;
 
 export const useCreatePackageFlow = ({
   open,
@@ -43,7 +43,6 @@ export const useCreatePackageFlow = ({
   const [form, setForm] = useState<WizardFormState>(INITIAL_FORM);
   const [activeStep, setActiveStep] = useState(0);
   const [errors, setErrors] = useState<Partial<WizardFormState>>({});
-  const [hasPromptedDirectory, setHasPromptedDirectory] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
@@ -52,7 +51,6 @@ export const useCreatePackageFlow = ({
     resetSelection();
     setActiveStep(0);
     setErrors({});
-    setHasPromptedDirectory(false);
     setIsCreating(false);
   }, [open, resetSelection]);
 
@@ -76,73 +74,60 @@ export const useCreatePackageFlow = ({
     [form],
   );
 
-  useEffect(() => {
-    if (
-      activeStep === 1 &&
-      !selection.selectedDirectory &&
-      !hasPromptedDirectory
-    ) {
-      setHasPromptedDirectory(true);
-      void handleSelectDirectory();
-    }
-  }, [
-    activeStep,
-    handleSelectDirectory,
-    hasPromptedDirectory,
-    selection.selectedDirectory,
-  ]);
-
-  const executeCreatePackage = useCallback(async () => {
-    if (isCreating) {
-      return;
-    }
-
-    const anglePayloads = buildAnglePayloads(selection);
-    if (!anglePayloads.length) {
-      showError('少なくとも1つのアングルに映像を割り当ててください。');
-      return;
-    }
-
-    const metaDataConfig = buildMetaDataConfig(
-      form,
-      actionNames,
-      anglePayloads,
-    );
-
-    try {
-      setIsCreating(true);
-      const packageDatas = await createVideoPackage(
-        selection.selectedDirectory,
-        form.packageName,
-        anglePayloads,
-        metaDataConfig,
-      );
-
-      if (!packageDatas) {
-        throw new Error('Failed to create package');
+  const executeCreatePackage = useCallback(
+    async (directory: string) => {
+      if (isCreating) {
+        return;
       }
 
-      onPackageCreated(buildPackageLoadResult(packageDatas, selection, form));
-      onClose();
-    } catch (error) {
-      console.error('パッケージ作成に失敗しました:', error);
-      showError(
-        error instanceof Error && error.message === 'ELECTRON_API_UNAVAILABLE'
-          ? 'この機能はElectronアプリケーション内でのみ利用できます。'
-          : 'パッケージの作成中にエラーが発生しました。',
+      const anglePayloads = buildAnglePayloads(selection);
+      if (!anglePayloads.length) {
+        showError('少なくとも1つのアングルに映像を割り当ててください。');
+        return;
+      }
+
+      const metaDataConfig = buildMetaDataConfig(
+        form,
+        actionNames,
+        anglePayloads,
       );
-    } finally {
-      setIsCreating(false);
-    }
-  }, [
-    actionNames,
-    form,
-    isCreating,
-    onClose,
-    onPackageCreated,
-    selection,
-    showError,
-  ]);
+
+      try {
+        setIsCreating(true);
+        const packageDatas = await createVideoPackage(
+          directory,
+          form.packageName,
+          anglePayloads,
+          metaDataConfig,
+        );
+
+        if (!packageDatas) {
+          throw new Error('Failed to create package');
+        }
+
+        onPackageCreated(buildPackageLoadResult(packageDatas, directory, form));
+        onClose();
+      } catch (error) {
+        console.error('パッケージ作成に失敗しました:', error);
+        showError(
+          error instanceof Error && error.message === 'ELECTRON_API_UNAVAILABLE'
+            ? 'この機能はElectronアプリケーション内でのみ利用できます。'
+            : 'パッケージの作成中にエラーが発生しました。',
+        );
+      } finally {
+        setIsCreating(false);
+      }
+    },
+    [
+      actionNames,
+      form,
+      isCreating,
+      onClose,
+      onPackageCreated,
+      selection,
+      showError,
+    ],
+  );
 
   const handleNext = useCallback(async () => {
     if (isCreating) {
@@ -153,25 +138,51 @@ export const useCreatePackageFlow = ({
       return;
     }
 
-    if (activeStep === 1 && !selection.selectedDirectory) {
-      await handleSelectDirectory();
-      return;
-    }
-
-    if (activeStep === 2) {
+    if (activeStep === 1) {
       const primaryAngle = selection.angles[0];
-      if (!primaryAngle?.filePath) {
+      if (!primaryAngle?.clips.some((clip) => clip.source.trim())) {
         showError('メインアングルに映像を割り当ててください。');
         return;
       }
-      if (!selection.angles.some((angle) => angle.filePath)) {
+      if (
+        !selection.angles.some((angle) =>
+          angle.clips.some((clip) => clip.source.trim()),
+        )
+      ) {
         showError('少なくとも1つのアングルに映像を割り当ててください。');
+        return;
+      }
+
+      const invalidYoutube = selection.angles.some((angle) =>
+        angle.clips.some(
+          (clip) =>
+            clip.sourceKind === 'youtube' &&
+            !/^https:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//i.test(
+              clip.source.trim(),
+            ),
+        ),
+      );
+      if (invalidYoutube) {
+        showError('有効な YouTube URL を入力してください。');
+        return;
+      }
+
+      const mixedYoutubeAndLocal = selection.angles.some(
+        (angle) =>
+          angle.clips.some((clip) => clip.sourceKind === 'youtube') &&
+          angle.clips.some((clip) => clip.sourceKind === 'local'),
+      );
+      if (mixedYoutubeAndLocal) {
+        showError('同じアングル内でローカル映像とYouTubeは混在できません。');
         return;
       }
     }
 
     if (activeStep === TOTAL_STEPS - 1) {
-      await executeCreatePackage();
+      const directory =
+        selection.selectedDirectory || (await handleSelectDirectory());
+      if (!directory) return;
+      await executeCreatePackage(directory);
       return;
     }
 

@@ -63,7 +63,8 @@ export const ExportProgressWindowApp = (): React.ReactElement => {
     return () => window.clearInterval(timer);
   }, []);
 
-  const progress = state && state.total > 0 ? (state.current / state.total) * 100 : 0;
+  const progress =
+    state && state.total > 0 ? (state.current / state.total) * 100 : 0;
   const remainingLabel = useMemo(() => {
     return state ? buildRemainingLabel(state, now) : '書き出し開始を待機中';
   }, [now, state]);
@@ -105,15 +106,33 @@ export const ExportProgressWindowApp = (): React.ReactElement => {
 
           <Box>
             <LinearProgress
+              data-testid="export-progress-bar"
               variant={state ? 'determinate' : 'indeterminate'}
               value={Math.min(100, Math.max(0, progress))}
-              sx={{ height: 10, borderRadius: 5 }}
+              sx={{
+                height: 10,
+                borderRadius: 5,
+                '& .MuiLinearProgress-bar': {
+                  transition:
+                    state?.status === 'running'
+                      ? 'transform 200ms linear'
+                      : 'none',
+                },
+              }}
             />
-            <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              sx={{ mt: 1 }}
+            >
               <Typography variant="caption" color="rgba(255,255,255,0.72)">
-                {state ? `${state.current} / ${state.total}` : '-'}
+                {state ? '映像時間ベース' : '-'}
               </Typography>
-              <Typography variant="caption" color="rgba(255,255,255,0.72)">
+              <Typography
+                data-testid="export-progress-percent"
+                variant="caption"
+                color="rgba(255,255,255,0.72)"
+              >
                 {state ? `${Math.round(progress)}%` : ''}
               </Typography>
             </Stack>

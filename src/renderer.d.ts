@@ -19,6 +19,8 @@ export interface LlamaModelInfo {
 
 export interface IElectronAPI {
   openFile: () => Promise<string>;
+  openVideoFiles: () => Promise<string[]>;
+  resolveDroppedVideoFilePath: (file: File) => string;
   openDirectory: () => Promise<string>;
   exportTimeline: (filePath: string, source: unknown) => Promise<void>;
   createPackage: (
@@ -27,7 +29,14 @@ export interface IElectronAPI {
     angles: Array<{
       id: string;
       name: string;
-      sourcePath: string;
+      clips: Array<{
+        id: string;
+        sourceKind: 'local' | 'youtube';
+        source: string;
+        gapBeforeSeconds: number;
+        timelineStartSeconds?: number;
+        durationSeconds?: number;
+      }>;
       role?: 'primary' | 'secondary';
     }>,
     metaDataConfig: unknown,
@@ -67,8 +76,24 @@ export interface IElectronAPI {
       syncOffset: number;
       isAnalyzed: boolean;
       confidenceScore?: number;
+      angleOffsets?: number[];
     },
   ) => Promise<boolean>;
+  applyClipTimeline: (
+    configPath: string,
+    placements: Array<{
+      clipId: string;
+      timelineStartSeconds: number;
+      durationSeconds?: number;
+    }>,
+  ) => Promise<PackageDatas>;
+  extractLocalAudioWindow: (
+    videoPath: string,
+    startSeconds: number,
+    durationSeconds: number,
+  ) => Promise<string | null>;
+  beginLoopbackAudioCapture: () => Promise<boolean>;
+  endLoopbackAudioCapture: () => Promise<void>;
   extractAudioWavForSync: (videoPath: string) => Promise<string | null>;
   setManualModeChecked: (checked: boolean) => Promise<boolean>;
   setLabelModeChecked: (checked: boolean) => Promise<boolean>;
@@ -162,6 +187,7 @@ export interface IElectronAPI {
     callback: (mode: 'code' | 'label') => void,
   ) => () => void;
   onOpenCodeWindowFile: (callback: () => void) => () => void;
+  onCreateCodeWindowFile: (callback: () => void) => () => void;
   onOpenPackage: (callback: () => void) => () => void;
   onOpenRecentPackage: (callback: (path: string) => void) => () => void;
   updateRecentPackages: (paths: string[]) => void;
@@ -193,7 +219,19 @@ export interface PackageDatas {
     name: string;
     role?: 'primary' | 'secondary';
     absolutePath: string;
-    relativePath: string;
+    relativePath?: string;
+    sourceKind: 'local' | 'youtube';
+    sourceUrl?: string;
+    clips: Array<{
+      id: string;
+      sourceKind: 'local' | 'youtube';
+      absolutePath?: string;
+      relativePath?: string;
+      sourceUrl?: string;
+      gapBeforeSeconds: number;
+      timelineStartSeconds?: number;
+      durationSeconds?: number;
+    }>;
   }>;
   metaDataConfigFilePath: string;
 }

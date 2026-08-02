@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { VideoSyncData } from '../../../../../types/video/sync';
+import type { PackageMediaAngle } from '../../../../../types/package/metadata';
 
 export interface SyncedVideoPlayerProps {
   videoList: string[];
@@ -10,4 +11,7 @@ export interface SyncedVideoPlayerProps {
   syncMode?: 'auto' | 'manual';
   forceUpdateKey?: number;
   viewMode?: 'dual' | 'angle1' | 'angle2';
+  currentTime?: number;
+  mediaAngles?: PackageMediaAngle[];
+  setMediaAngles?: Dispatch<SetStateAction<PackageMediaAngle[]>>;
 }

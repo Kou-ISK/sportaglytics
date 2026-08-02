@@ -3,13 +3,13 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release (e.g., 0.1.0)"
+        description: 'Version to release (e.g., 0.1.0)'
         required: true
-        default: "0.1.0"
+        default: '0.1.0'
 
 jobs:
   release:
@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: '20'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -49,7 +49,10 @@ jobs:
         run: pnpm run build
 
       - name: Build Electron TypeScript
-        run: pnpm exec tsc -p electron
+        run: pnpm run build:electron-main
+
+      - name: Bundle and verify preload
+        run: pnpm run bundle:preload && pnpm run check:preload
 
       - name: Package for macOS (x64)
         timeout-minutes: 20

@@ -72,7 +72,13 @@ export const useManualSyncActions = ({
       const { primaryTime, secondaryTime } = getManualSyncTimes();
       const newOffset = secondaryTime - primaryTime;
       const newSyncData: VideoSyncData = {
+        ...syncData,
         syncOffset: newOffset,
+        angleOffsets: syncData?.angleOffsets
+          ? syncData.angleOffsets.map((offset, index) =>
+              index === 1 ? newOffset : offset,
+            )
+          : undefined,
         isAnalyzed: true,
         confidenceScore: undefined,
       };
@@ -96,6 +102,7 @@ export const useManualSyncActions = ({
     notifyInfo,
     setSyncData,
     setSyncMode,
+    syncData,
   ]);
 
   const cancelManualSync = useCallback(async (): Promise<void> => {

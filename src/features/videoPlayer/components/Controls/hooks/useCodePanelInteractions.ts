@@ -168,7 +168,7 @@ export const useCodePanelInteractions = ({
           teamContext,
         );
         if (containsUnresolvedTeamPlaceholder(buttonName)) {
-          setWarning('チーム名の読み込み後にコードボタンを押してください');
+          setWarning(null);
           return;
         }
         const matchedTeam = teamNames.find((team) =>

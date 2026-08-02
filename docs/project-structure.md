@@ -35,6 +35,8 @@ Renderer は Feature-First です。依存方向は `pages -> features -> shared
 
 feature 配下は機能責務で分割します。Atomic Design の分類を feature フォルダへ持ち込まないでください。
 
+パッケージ作成の映像選択 UI は `src/features/videoPlayer/components/Setup/VideoPathSelector/steps/` に Controller / View を置き、アングル一覧とクリップシーケンスの2ペイン描画部品は `steps/videoSelection/` に配置します。`VideoSelectionStepView` はYouTube URL入力だけを必要時にダイアログ表示し、同期位置は作成画面で扱いません。クリップ単位シンクの状態制御は `src/features/videoPlayer/app/hooks/sync/useClipTimelineSyncController.ts`、描画は `src/features/videoPlayer/app/components/ClipSyncControlsView.tsx` に分離します。描画部品は props と callback のみに依存し、IPC と file dialog は gateway / hook に閉じ込めます。
+
 | Path                      | Role                                                               |
 | ------------------------- | ------------------------------------------------------------------ |
 | `index.ts`                | feature 外へ公開する API。feature 外からの import はここに限定する |
@@ -53,21 +55,27 @@ feature 配下は機能責務で分割します。Atomic Design の分類を fea
 | ------------------------------ | ------------------------------------------------------------------------------------------ |
 | `src/features/videoPlayer/`    | package loading、video playback、timeline editing、analysis panel、AI analysis integration |
 | `src/features/playlist/`       | playlist window、playlist state、annotations、clip export integration                      |
-| `src/features/settings/`       | app settings、hotkeys、code window settings                                                |
+| `src/features/settings/`       | app settings、hotkeys、code window editor primitives                                       |
 | `src/features/analysisReport/` | printable/exportable analysis report screen and report gateway                             |
 
 ## Electron Layout
 
-| Path                           | Role                                  | Placement rule                                                          |
-| ------------------------------ | ------------------------------------- | ----------------------------------------------------------------------- |
-| `electron/src/main.ts`         | app startup / top-level assembly      | 詳細な domain logic を増やさず、登録・組み立てに留める                  |
-| `electron/src/ipc/`            | main process IPC handlers             | domain ごとに handler を分け、payload guard と sender validation を行う |
-| `electron/src/preload.ts`      | preload bridge assembly               | domain bridge を合成する entry に留める                                 |
-| `electron/src/preload/`        | preload domain bridges                | `contextBridge` で公開する明示 API と typed listener store              |
-| `electron/src/menu/`           | application menu helpers              | menu section、recent package menu、window action helpers                |
-| `electron/src/playlistWindow/` | playlist sub-window main-side runtime | playlist window handler、storage、window manager                        |
-| `electron/src/llama/`          | local LLM process helpers             | model discovery、process runner、request registry、output normalization |
-| `electron/src/templates/`      | generated platform templates          | Info.plist など build/package 用 template                               |
+| Path                                                 | Role                                  | Placement rule                                                          |
+| ---------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------- |
+| `electron/src/main.ts`                               | app startup / top-level assembly      | 詳細な domain logic を増やさず、登録・組み立てに留める                  |
+| `electron/src/ipc/`                                  | main process IPC handlers             | domain ごとに handler を分け、payload guard と sender validation を行う |
+| `electron/src/ipc/packageMediaCompositionService.ts` | package media materialization         | ローカル元クリップの検査・コピー、書き出し用の一時FFmpeg合成            |
+| `electron/src/ipc/packageClipTimelineService.ts`     | clip timeline application             | 配置・重複・範囲の検証、configの原子的更新                              |
+| `electron/src/ipc/exportVirtualTimelineSource.ts`    | export timeline adapter               | 仮想ローカルタイムラインを書き出し時だけOS一時領域へ実体化              |
+| `electron/src/loopbackAudioCapture.ts`               | macOS loopback capture authorization  | 対応OS判定、ユーザー操作単位の許可、display media requestの制限         |
+| `electron/src/preload.ts`                            | preload bridge assembly               | domain bridge を合成する entry に留める                                 |
+| `electron/src/preload/`                              | preload domain bridges                | `contextBridge` で公開する明示 API と typed listener store              |
+| `electron/tsconfig.json`                             | Electron typecheck                    | no emit。AGENTSの品質ゲートから実行する                                 |
+| `electron/tsconfig.build.json`                       | Electron main process build           | preloadを除外し、Viteの単一bundleを上書きしない                         |
+| `electron/src/menu/`                                 | application menu helpers              | menu section、recent package menu、window action helpers                |
+| `electron/src/playlistWindow/`                       | playlist sub-window main-side runtime | playlist window handler、storage、window manager                        |
+| `electron/src/llama/`                                | local LLM process helpers             | model discovery、process runner、request registry、output normalization |
+| `electron/src/templates/`                            | generated platform templates          | Info.plist など build/package 用 template                               |
 
 ## Documentation Layout
 

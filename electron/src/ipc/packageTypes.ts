@@ -1,8 +1,17 @@
 export interface PackageAnglePayload {
   id: string;
   name: string;
-  sourcePath: string;
+  clips: PackageClipPayload[];
   role?: 'primary' | 'secondary';
+}
+
+export interface PackageClipPayload {
+  id: string;
+  sourceKind: 'local' | 'youtube';
+  source: string;
+  gapBeforeSeconds: number;
+  timelineStartSeconds?: number;
+  durationSeconds?: number;
 }
 
 export interface PackageMetaDataConfig extends Record<string, unknown> {
@@ -17,7 +26,18 @@ export interface PackageMetaDataConfig extends Record<string, unknown> {
     id: string;
     name: string;
     role?: 'primary' | 'secondary';
-    relativePath: string;
+    relativePath?: string;
+    sourceKind?: 'local' | 'youtube';
+    sourceUrl?: string;
+    clips?: Array<{
+      id: string;
+      sourceKind: 'local' | 'youtube';
+      relativePath?: string;
+      sourceUrl?: string;
+      gapBeforeSeconds: number;
+      timelineStartSeconds?: number;
+      durationSeconds?: number;
+    }>;
   }>;
 }
 
@@ -25,8 +45,20 @@ export interface NormalizedAngle {
   id: string;
   name: string;
   role?: 'primary' | 'secondary';
-  relativePath: string;
+  relativePath?: string;
   absolutePath: string;
+  sourceKind: 'local' | 'youtube';
+  sourceUrl?: string;
+  clips: Array<{
+    id: string;
+    sourceKind: 'local' | 'youtube';
+    relativePath?: string;
+    absolutePath?: string;
+    sourceUrl?: string;
+    gapBeforeSeconds: number;
+    timelineStartSeconds?: number;
+    durationSeconds?: number;
+  }>;
 }
 
 export interface ConvertConfigResult {

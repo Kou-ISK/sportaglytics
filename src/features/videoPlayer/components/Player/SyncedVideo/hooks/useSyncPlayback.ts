@@ -40,6 +40,13 @@ export const useSyncPlayback = ({
   const lastReportedTimeRef = useRef(0);
   const isSeekingRef = useRef(false);
   const offset = syncData?.syncOffset ?? 0;
+  const offsets = useMemo(
+    () =>
+      videoList.map((_, index) =>
+        index === 0 ? 0 : (syncData?.angleOffsets?.[index] ?? offset),
+      ),
+    [offset, syncData?.angleOffsets, videoList],
+  );
   const analyzed = syncData?.isAnalyzed ?? false;
   const isManualMode = syncMode === 'manual';
   const activePlayerCount = useMemo(
@@ -138,8 +145,8 @@ export const useSyncPlayback = ({
   }, [isVideoPlaying, primaryClock, videoList.join('|')]);
 
   const adjustedCurrentTimes = useMemo(() => {
-    return calculateAdjustedCurrentTimes(videoList, primaryClock, offset);
-  }, [videoList, primaryClock, offset]);
+    return calculateAdjustedCurrentTimes(videoList, primaryClock, offsets);
+  }, [videoList, primaryClock, offsets]);
 
   const blockPlayStates = useMemo(() => {
     if (isManualMode) {
@@ -148,10 +155,10 @@ export const useSyncPlayback = ({
     return calculateBlockStates({
       videoList,
       analyzed,
-      offset,
+      offsets,
       primaryClock,
     });
-  }, [videoList, analyzed, offset, primaryClock, isManualMode]);
+  }, [videoList, analyzed, offsets, primaryClock, isManualMode]);
 
   useSyncDebugLogging({
     enabled: debugLogging,

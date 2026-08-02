@@ -47,6 +47,7 @@ export const ControlButton: React.FC<ControlButtonProps> = ({
     <Tooltip title={title}>
       <span>
         <IconButton
+          aria-label={title}
           onClick={() => {
             if (disabled) return;
             onClick();

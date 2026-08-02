@@ -30,6 +30,7 @@ export const useVideoPathSelectorController = ({
   setPackagePath,
   setMetaDataConfigFilePath,
   setSyncData,
+  setMediaAngles,
 }: VideoPathSelectorProps): VideoPathSelectorController => {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -52,11 +53,13 @@ export const useVideoPathSelectorController = ({
       timelinePath,
       metaDataConfigFilePath,
       packagePath,
+      mediaAngles,
     }: PackageLoadResult) => {
       setVideoList(videoList);
       setSyncData(syncData);
       setTimelineFilePath(timelinePath);
       setMetaDataConfigFilePath(metaDataConfigFilePath);
+      setMediaAngles(mediaAngles ?? []);
       if (packagePath) {
         setPackagePath(packagePath);
       }
@@ -76,6 +79,7 @@ export const useVideoPathSelectorController = ({
       registerRecentPackage,
       setIsFileSelected,
       setMetaDataConfigFilePath,
+      setMediaAngles,
       setPackagePath,
       setSyncData,
       setTimelineFilePath,

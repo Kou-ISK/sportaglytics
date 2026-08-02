@@ -9,7 +9,8 @@
     "!build/**/llama/models/*.gguf",
     "!build/**/llama/models/**/*.gguf",
     "!node_modules/**/*",
-    "node_modules/ffmpeg-static/**/*"
+    "node_modules/ffmpeg-static/**/*",
+    "node_modules/ffprobe-static/**/*"
   ],
   "extraResources": [
     {
@@ -18,7 +19,10 @@
       "filter": ["**/*", "!**/*.gguf"]
     }
   ],
-  "asarUnpack": ["node_modules/ffmpeg-static/**/*"],
+  "asarUnpack": [
+    "node_modules/ffmpeg-static/**/*",
+    "node_modules/ffprobe-static/**/*"
+  ],
   "compression": "maximum",
   "directories": {
     "buildResources": "public",
@@ -44,6 +48,7 @@
     "entitlements": "public/entitlements.mac.plist",
     "entitlementsInherit": "public/entitlements.mac.inherit.plist",
     "extendInfo": {
+      "NSAudioCaptureUsageDescription": "YouTubeを含む表示中の映像の音声を解析し、ユーザーが指定した同期位置を微調整するために使用します。",
       "UTExportedTypeDeclarations": [
         {
           "UTTypeIdentifier": "com.kouisk.sportaglytics.stpkg",

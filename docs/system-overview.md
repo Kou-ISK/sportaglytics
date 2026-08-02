@@ -42,6 +42,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
   - `electron/src/preload/analysisBridge.ts`
   - `electron/src/preload/playlistBridge.ts`
   - `electron/src/preload/codeWindowBridge.ts`
+- Electronの型検査は`electron/tsconfig.json`（no emit）、main process生成は`electron/tsconfig.build.json`、sandbox preload生成は`vite.preload.config.ts`に分離する。preload bundleの生成後に品質ゲートを実行しても、main process用TypeScript emitが`build/electron/src/preload.js`を上書きしない（ADR: [0002](adr/0002-typed-electron-ipc-and-renderer-gateways.md)）
 - playlist / analysis / coding panel window の IPC 契約は `src/types/ipc/playlistWindow.ts`、`src/types/ipc/analysisWindow.ts`、`src/types/ipc/codingPanelWindow.ts` を正本にし、channel 名・payload 型・型ガードを main / preload / renderer で共有する（ADR: [0008](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)）
 - main process の sender 検証は `electron/src/ipc/windowSenderGuards.ts` を共通利用し、`BrowserWindow.fromWebContents(...)` で live な sender window を確認する
 
@@ -75,9 +76,17 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
   - `readJsonFile`
   - `readTextFile`
   - `readBinaryFile`
+- パッケージ作成の複数映像選択は、明示 API `openVideoFiles(): Promise<string[]>` と `files:open-video-files` IPC に閉じ込める。Renderer の Controller が結果を選択順で state へ反映し、描画専用 View は Electron API に依存しない
 
 ## 主要データモデル
 
+- package media は `.metadata/config.json` の `angles[] -> clips[]` と各クリップの `timelineStartSeconds` を正本とし、最大8アングル・各16クリップを扱う。ローカル映像も元クリップを仮想タイムライン上で切り替え、空白は再生時に黒画面・無音として扱う。`packageClipTimelineService.ts` はconfigだけを原子的に更新し、書き出し時だけ一時領域へ連続映像を合成する。`gapBeforeSeconds` は後方互換の派生値である（ADR: [0015](adr/0015-clip-timeline-placement-and-audio-assisted-sync.md)）
+- アングル単位の再生補正は `.metadata/config.json` の `syncData.angleOffsets[]` を正本とし、アングルindexごとに `globalTime + offset` を適用する。`syncOffset` は配列要素がない旧パッケージの後方互換値として維持する（ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）
+- YouTube 埋め込みは shared のアプリ識別 URL を Video.js の `widget_referrer` と YouTube `/embed/` リクエストの Referer に使用する。`file://` と不一致になる HTTPS `origin` parameter は指定せず、IFrame API の共通再生制御を維持する。main process の `youtubeEmbedIdentity.ts` が Session 単位で対象リクエストだけを補正し、証明書検証と `webSecurity` は維持する（ADR: [0014](adr/0014-youtube-embed-client-identity.md)）
+- 複数クリップまたは先頭空白を持つローカル・YouTubeアングルは、共通タイムライン時計から現在クリップとクリップ内時刻を解決する。既知のクリップ終了から次の開始位置まではプレイヤーを外して黒表示を維持し、共通コントローラーとホットキーはタイムライン時計を操作する
+- `tightViewPath` / `wideViewPath` だけの旧パッケージは、ロード前のconfig migrationで1アングル1クリップの `angles[].clips[]` へ移行する。`angles[].clips` とアングル単位の再生用コピーが併存する形式は、互換パスを元クリップ参照へ切り替える。既存映像の自動削除は行わず、重複ファイルの整理は内容一致を確認した明示的な移行作業とする
+- パッケージ作成は基本情報・映像の2ステップとし、保存先は作成時に選択する。各アングルの「＋」から映像種別を選択し、同期位置は作成画面では扱わず再生画面のシンクモードへ集約する
+- `tightViewPath` / `wideViewPath` は旧パッケージ互換の派生フィールドであり、新規処理は `angles[]` を優先する
 - `TimelineData` は `labels` 中心モデル
 - 旧フィールド `actionType` / `actionResult` は型から削除
 - 旧データは読込時に `Type` / `Result` ラベルへマイグレーションし、保存時は新形式のみ出力
@@ -85,8 +94,9 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - playlist 同期は `PlaylistSyncData` を正とし、playlist 画面・hooks の契約を統一
 - playlist / analysis / coding panel window まわりの renderer 側直接依存は gateway に閉じ込め、`src/features/playlist/gateway/playlistWindowGateway.ts`、`src/features/videoPlayer/app/gateways/analysisWindowGateway.ts`、`src/features/videoPlayer/components/Controls/gateways/codingPanelWindowGateway.ts` を入口に統一する
 - timeline import/export は `src/features/videoPlayer/app/gateways/timelineImportExportGateway.ts` と `src/features/videoPlayer/app/utils/timelineImportExportService.ts` に分離し、menu 購読・file dialog・serialize/deserialize を hook に同居させない（ADR: [0009](adr/0009-timeline-import-export-interoperability.md)）
+- package内の `timeline.json` はversion 2で `rows[]` と `instances[]` を分離し、名称・色・順序は行が所有する。旧配列形式はロード時に行を導出し、編集されるまで書き換えない。行の選択・並べ替え・削除、通常ドラッグによるインスタンス移動、`Option`ドラッグまたは`Command+C/V`による行間コピーをサポートする（ADR: [0017](adr/0017-row-owned-timeline-presentation.md)）
 - clip export は `src/shared/clipExport/` に型・gateway・pure service を集約し、playlist / timeline 側では clip builder と UI state だけを持つ（ADR: [0010](adr/0010-ffmpeg-clip-export-execution-boundary.md)）
-- clip export の実行進捗は `electron/src/exportProgressWindow.ts` と `src/types/ipc/exportProgressWindow.ts` を境界にし、main 側の FFmpeg 実行ループから専用進捗ウィンドウへ送信する。playlist / timeline 側は `progressId` を export payload に渡し、進捗ウィンドウの起動と更新は main 側に閉じ込める
+- clip export の実行進捗は `electron/src/exportProgressWindow.ts` と `src/types/ipc/exportProgressWindow.ts` を境界にし、main 側で FFmpeg の `out_time` を工程durationに対する割合へ変換して専用進捗ウィンドウへ送信する。進捗ウィンドウは非モーダルかつ更新時にactivateせず、playlist / timeline 側は `progressId` を渡した後もメイン画面の操作を継続できる（ADR: [0010](adr/0010-ffmpeg-clip-export-execution-boundary.md)）
 - analysis dashboard import/export は `analysisDashboardGateway.ts` と `analysisDashboardImportExportService.ts` に分離し、controller に JSON parse / dialog / read-write を同居させない（ADR: [0011](adr/0011-dashboard-widget-system-and-analysis-consolidation.md)）
 - analysis report export は `src/report/` と `src/features/analysisReport/` に分離し、PDF 出力境界は [analysis-report.md](analysis-report.md) に従う
 - Video.js 参照は `src/features/videoPlayer/shared/videojs/videoJsAdapter.ts` に集約し、feature 内に `videojs as unknown as ...` を散在させない
@@ -94,8 +104,10 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - playlist window の runtime は `data runtime` と `interaction runtime` に分け、state 合成と playback/hotkey 合成を分離する
 - プレイリスト追加は `src/features/playlist` の公開 API に集約し、renderer からの個別 IPC 呼び出しを分散させない
 - coding panel window は表示状態 sync とクリック command のみを扱い、タグ付け時刻・押下状態・タイムライン更新はメイン動画ウィンドウの `EnhancedCodePanel` controller で確定する
+- coding panel window のsync/command IPCは各channelにつきrenderer subscriberを1つに限定する。contextBridge越しのcallback同一性へ解除を依存させず、再購読時に従来のwrapped listenerを除去する
+- 新規コードウィンドウのメニュー要求は `menu-create-code-window-file` / `onCreateCodeWindowFile()` の専用契約でメイン動画ウィンドウの runtime controller へ渡す。controllerは空の `.stcw` を保存し、ファイルパスと layout を独立 coding panel window へ同期する
 - coding panel window の編集モードは別ウィンドウ内で動作し、編集 UI は `CodingPanelWindowEditPane` に分離する。ボタン詳細編集は右側常設ペインではなく Inspector ダイアログで表示する。layout 更新と `.stcw` 保存要求は command としてメイン動画ウィンドウ側 controller に戻し、runtime layout / file path を controller が保持する
-- 音声同期の相関解析は `src/utils/audioSync/` 配下で stage helper に分割し、探索ロジックと orchestration を分離する。offset contract は ADR: [0007](adr/0007-audio-sync-offset-contract.md) に従う
+- 音声同期の相関解析は `src/utils/audioSync/` 配下で stage helper に分割し、探索ロジックと orchestration を分離する。offset contract は ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md) に従う
 - event insights の shared domain は facade と builder 群に分け、summary/stat family ごとの集計責務を分離する
 - `src/App.tsx` は app shell view switch のみを持ち、hash / Electron shell event / external open は `src/hooks/useAppShellController.ts` に閉じ込める
 - recent packages は state hook と storage/menu gateway を分離し、`localStorage` と Electron menu sync を hook 本体へ直書きしない

@@ -39,7 +39,9 @@ export const syncPlayersToGlobalTime = (
     }
 
     const offset =
-      index > 0 && syncData.isAnalyzed ? syncData.syncOffset || 0 : 0;
+      index > 0 && syncData.isAnalyzed
+        ? (syncData.angleOffsets?.[index] ?? syncData.syncOffset ?? 0)
+        : 0;
     const targetTime = Math.max(
       0,
       currentGlobalTime + (index > 0 ? offset : 0),

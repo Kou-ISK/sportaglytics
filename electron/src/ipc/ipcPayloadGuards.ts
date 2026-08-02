@@ -16,12 +16,18 @@ export interface SyncDataPayload {
   syncOffset: number;
   isAnalyzed: boolean;
   confidenceScore?: number;
+  angleOffsets?: number[];
 }
 
 export interface PackageAnglePayloadGuarded {
   id: string;
   name: string;
-  sourcePath: string;
+  clips: Array<{
+    id: string;
+    sourceKind: 'local' | 'youtube';
+    source: string;
+    gapBeforeSeconds: number;
+  }>;
   role?: 'primary' | 'secondary';
 }
 
@@ -82,7 +88,16 @@ export const isSyncDataPayload = (value: unknown): value is SyncDataPayload => {
     typeof value.isAnalyzed === 'boolean' &&
     (value.confidenceScore === undefined ||
       (typeof value.confidenceScore === 'number' &&
-        Number.isFinite(value.confidenceScore)))
+        Number.isFinite(value.confidenceScore))) &&
+    (value.angleOffsets === undefined ||
+      (Array.isArray(value.angleOffsets) &&
+        value.angleOffsets.length <= 8 &&
+        value.angleOffsets.every(
+          (offset) =>
+            typeof offset === 'number' &&
+            Number.isFinite(offset) &&
+            Math.abs(offset) <= 86400,
+        )))
   );
 };
 
@@ -97,12 +112,34 @@ export const isPackageAnglePayloadArray = (
         isPlainObject(angle) &&
         isNonEmptyString(angle.id) &&
         isNonEmptyString(angle.name) &&
-        isNonEmptyString(angle.sourcePath) &&
+        Array.isArray(angle.clips) &&
+        angle.clips.length > 0 &&
+        angle.clips.length <= 16 &&
+        angle.clips.every(
+          (clip) =>
+            isPlainObject(clip) &&
+            isNonEmptyString(clip.id) &&
+            (clip.sourceKind === 'local' || clip.sourceKind === 'youtube') &&
+            isNonEmptyString(clip.source) &&
+            typeof clip.gapBeforeSeconds === 'number' &&
+            Number.isFinite(clip.gapBeforeSeconds) &&
+            clip.gapBeforeSeconds >= 0 &&
+            (clip.timelineStartSeconds === undefined ||
+              (typeof clip.timelineStartSeconds === 'number' &&
+                Number.isFinite(clip.timelineStartSeconds) &&
+                clip.timelineStartSeconds >= 0 &&
+                clip.timelineStartSeconds <= 86400)) &&
+            (clip.durationSeconds === undefined ||
+              (typeof clip.durationSeconds === 'number' &&
+                Number.isFinite(clip.durationSeconds) &&
+                clip.durationSeconds > 0)),
+        ) &&
         (angle.role === undefined ||
           angle.role === 'primary' ||
           angle.role === 'secondary')
       );
-    })
+    }) &&
+    value.length <= 8
   );
 };
 
@@ -117,6 +154,7 @@ export const normalizeSyncDataPayload = (
     syncOffset: value.syncOffset,
     isAnalyzed: value.isAnalyzed,
     confidenceScore: value.confidenceScore,
+    angleOffsets: value.angleOffsets,
   };
 };
 

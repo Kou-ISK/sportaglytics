@@ -12,6 +12,7 @@ interface Params {
   getExistingPlayer: GetExistingVideoJsPlayer;
   lastManualSeekTimestamp: React.MutableRefObject<number>;
   safeSetCurrentTime: (time: number, source?: string) => void;
+  timelineClockTime?: number;
 }
 
 export const usePlaybackTimeTracker = ({
@@ -22,6 +23,7 @@ export const usePlaybackTimeTracker = ({
   getExistingPlayer,
   lastManualSeekTimestamp,
   safeSetCurrentTime,
+  timelineClockTime,
 }: Params) => {
   const [videoTime, setVideoTime] = useState(0);
 
@@ -30,6 +32,12 @@ export const usePlaybackTimeTracker = ({
       setVideoTime(0);
     }
   }, [videoTime]);
+
+  useEffect(() => {
+    if (timelineClockTime !== undefined) {
+      setVideoTime(timelineClockTime);
+    }
+  }, [timelineClockTime]);
 
   usePlaybackTimeWarnings({ videoTime, maxSec });
   usePlaybackClockSync({
@@ -42,6 +50,7 @@ export const usePlaybackTimeTracker = ({
     safeSetCurrentTime,
     videoTime,
     setVideoTime,
+    disabled: timelineClockTime !== undefined,
   });
 
   return { videoTime, setVideoTime };
