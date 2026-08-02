@@ -73,6 +73,12 @@ export const calculateTimelineStart = ({
 }): number =>
   referenceStartSeconds + referenceCurrentSeconds - targetCurrentSeconds;
 
+export const usesVirtualClipTimeline = (
+  clips: Array<{ timelineStartSeconds: number }>,
+): boolean =>
+  clips.length > 1 ||
+  clips.some((clip) => clip.timelineStartSeconds > TIMELINE_EPSILON_SECONDS);
+
 export const resolveTimelineClip = <
   TClip extends {
     timelineStartSeconds: number;

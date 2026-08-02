@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import { VideoPlayer, VideoController } from '../..';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
+import { usesVirtualClipTimeline } from '../../../../types/package/clipTimeline';
 
 interface PlayerSurfaceProps {
   videoList: string[];
@@ -45,9 +46,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   setMediaAngles,
 }) => {
   const useTimelineClock =
-    syncMode === 'auto' &&
-    mediaAngles[0]?.sourceKind === 'youtube' &&
-    mediaAngles[0].clips.length > 1;
+    syncMode === 'auto' && usesVirtualClipTimeline(mediaAngles[0]?.clips ?? []);
   const primaryTimelineEnd = React.useMemo(
     () =>
       mediaAngles[0]?.clips.reduce(
@@ -114,6 +113,8 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
         position: 'relative',
         height: '100%',
         minHeight: 0,
+        minWidth: 0,
+        overflow: 'hidden',
         '&:hover .video-controls-overlay': {
           opacity: 1,
         },
@@ -125,6 +126,8 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
           width: '100%',
           height: '100%',
           minHeight: 0,
+          minWidth: 0,
+          overflow: 'hidden',
         }}
       >
         <VideoPlayer

@@ -106,7 +106,7 @@ const writePackageMetadata = async (
 
   await fs.promises.writeFile(
     path.join(newPackagePath, 'timeline.json'),
-    '[]',
+    '{"version":2,"rows":[],"instances":[]}',
     'utf-8',
   );
 

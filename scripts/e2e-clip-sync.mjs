@@ -44,6 +44,19 @@ const launch = async (extraArgs = []) =>
     },
   });
 
+const listMediaFiles = async (directoryPath) => {
+  const entries = await fs.readdir(directoryPath, { withFileTypes: true });
+  const nested = await Promise.all(
+    entries.map((entry) => {
+      const entryPath = path.join(directoryPath, entry.name);
+      return entry.isDirectory() ? listMediaFiles(entryPath) : [entryPath];
+    }),
+  );
+  return nested
+    .flat()
+    .filter((filePath) => /\.(?:mp4|mov|m4v|webm)$/i.test(filePath));
+};
+
 let electronApp = await launch();
 try {
   await electronApp.evaluate(({ dialog }, outputPath) => {
@@ -117,20 +130,32 @@ try {
     Math.abs(localConfig.angles[0].clips[1].gapBeforeSeconds - 1.5) < 0.05,
     'clip B must have a derived black gap',
   );
-  const composedDuration = Number(
-    execFileSync(ffprobePath, [
-      '-v',
-      'error',
-      '-show_entries',
-      'format=duration',
-      '-of',
-      'default=nw=1:nk=1',
-      localPackage.angles[0].absolutePath,
-    ])
-      .toString()
-      .trim(),
+  const packageMediaFiles = await listMediaFiles(
+    path.join(workPath, 'local-sync.stpkg', 'videos'),
   );
-  assert.ok(composedDuration >= 2.45 && composedDuration < 2.7);
+  assert.equal(
+    packageMediaFiles.length,
+    3,
+    'the package must retain only the three immutable source clips',
+  );
+  assert.ok(
+    packageMediaFiles.every((filePath) =>
+      filePath.includes(`${path.sep}videos${path.sep}sources${path.sep}`),
+    ),
+    'no angle-level playback file may be rendered for a timeline gap',
+  );
+  assert.equal(
+    localPackage.angles[0].absolutePath,
+    packageMediaFiles.find((filePath) => filePath.endsWith('01-a.mp4')),
+    'the angle fallback path must point at its first immutable source clip',
+  );
+  const mediaStatsBeforeRejectedApply = await Promise.all(
+    packageMediaFiles.map(async (filePath) => ({
+      filePath,
+      size: (await fs.stat(filePath)).size,
+      mtimeMs: (await fs.stat(filePath)).mtimeMs,
+    })),
+  );
   const stableConfigPath = path.join(
     workPath,
     'local-sync.stpkg',
@@ -156,6 +181,18 @@ try {
     configBeforeRejectedApply,
     'a rejected overlap must not replace config',
   );
+  assert.deepEqual(
+    await Promise.all(
+      packageMediaFiles.map(async (filePath) => ({
+        filePath,
+        size: (await fs.stat(filePath)).size,
+        mtimeMs: (await fs.stat(filePath)).mtimeMs,
+      })),
+    ),
+    mediaStatsBeforeRejectedApply,
+    'timeline placement must not rewrite any playback media',
+  );
+  console.log('Local package persistence passed');
 
   await page.getByText('新規パッケージ', { exact: true }).click();
   await page.getByLabel('パッケージ').fill('e2e-sync');
@@ -226,8 +263,100 @@ try {
     path.join(packagePath, '.metadata', 'config.json'),
     JSON.stringify(config, null, 2),
   );
+  console.log('YouTube package creation passed');
 
   await electronApp.close();
+  console.log('Launching local virtual timeline');
+  electronApp = await launch([path.join(workPath, 'local-sync.stpkg')]);
+  page = await electronApp.firstWindow();
+  await page.getByText('タイムラインが空です。', { exact: false }).waitFor({
+    timeout: 30_000,
+  });
+  await page.locator('#video_0').waitFor({ timeout: 30_000 });
+  const codingPanelWindowPromise = electronApp.waitForEvent('window', {
+    timeout: 10_000,
+  });
+  await page.evaluate(() => window.electronAPI.codingPanelWindow.openWindow());
+  const codingPanelPage = await codingPanelWindowPromise;
+  await codingPanelPage.getByRole('button', { name: 'コード' }).waitFor({
+    timeout: 10_000,
+  });
+  const hotkeyStartedAt = Date.now();
+  await codingPanelPage.keyboard.press('Space');
+  await page
+    .getByRole('button', { name: '一時停止' })
+    .waitFor({ timeout: 750 });
+  assert.ok(
+    Date.now() - hotkeyStartedAt < 750,
+    'a focused code window hotkey must control playback without IPC lag',
+  );
+  await page.waitForTimeout(850);
+  assert.equal(
+    await page.locator('#video_0').count(),
+    0,
+    'the primary angle must render black during its virtual gap',
+  );
+  await page.waitForTimeout(1_400);
+  await page.locator('#video_0').waitFor({ timeout: 5_000 });
+  const exportPath = path.join(workPath, 'export');
+  await fs.mkdir(exportPath);
+  const exportResult = await page.evaluate(
+    async ({ sourcePath, outputDir }) =>
+      window.electronAPI.exportClipsWithOverlay?.({
+        sourcePath,
+        mode: 'single',
+        exportMode: 'perInstance',
+        angleOption: 'single',
+        outputDir,
+        outputFileName: 'virtual-gap',
+        clips: [
+          {
+            id: 'virtual-gap',
+            actionName: 'virtual-gap',
+            startTime: 0,
+            endTime: 2.5,
+          },
+        ],
+        overlay: {
+          enabled: false,
+          showActionName: false,
+          showActionIndex: false,
+          showLabels: false,
+          showMemo: false,
+        },
+      }),
+    { sourcePath: localPackage.angles[0].absolutePath, outputDir: exportPath },
+  );
+  assert.equal(exportResult?.success, true, exportResult?.error);
+  const exportedFiles = await listMediaFiles(exportPath);
+  assert.equal(exportedFiles.length, 1);
+  const exportedDuration = Number(
+    execFileSync(ffprobePath, [
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'default=nw=1:nk=1',
+      exportedFiles[0],
+    ])
+      .toString()
+      .trim(),
+  );
+  assert.ok(
+    exportedDuration >= 2.45 && exportedDuration < 2.7,
+    'export may transiently materialize the virtual gap',
+  );
+  assert.equal(
+    (await listMediaFiles(path.join(workPath, 'local-sync.stpkg', 'videos')))
+      .length,
+    3,
+    'transient export must not add playback media to the package',
+  );
+  console.log('Local virtual gap playback passed');
+
+  await electronApp.close();
+  console.log('Launching persisted YouTube timeline');
   electronApp = await launch([packagePath]);
   page = await electronApp.firstWindow();
   await page.getByText('タイムラインが空です。', { exact: false }).waitFor({

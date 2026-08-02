@@ -3,6 +3,7 @@ import {
   calculateTimelineStart,
   deriveTimelineGaps,
   resolveTimelineClip,
+  usesVirtualClipTimeline,
 } from './clipTimeline';
 
 describe('clip timeline placement', () => {
@@ -66,5 +67,18 @@ describe('clip timeline placement', () => {
       clip: clips[1],
       clipTimeSeconds: 10,
     });
+  });
+});
+
+describe('usesVirtualClipTimeline', () => {
+  it('requires a virtual clock for multiple clips or an initial gap', () => {
+    expect(usesVirtualClipTimeline([{ timelineStartSeconds: 0 }])).toBe(false);
+    expect(usesVirtualClipTimeline([{ timelineStartSeconds: 1 }])).toBe(true);
+    expect(
+      usesVirtualClipTimeline([
+        { timelineStartSeconds: 0 },
+        { timelineStartSeconds: 10 },
+      ]),
+    ).toBe(true);
   });
 });

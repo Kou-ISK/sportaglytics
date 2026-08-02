@@ -6,7 +6,10 @@ import {
   setVideoJsPlayerCurrentTime,
 } from '../../shared/videojs/videoJsAdapter';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
-import { resolveTimelineClip } from '../../../../types/package/clipTimeline';
+import {
+  resolveTimelineClip,
+  usesVirtualClipTimeline,
+} from '../../../../types/package/clipTimeline';
 
 type UseVideoTimeControllerParams = {
   videoList: string[];
@@ -75,11 +78,9 @@ const seekEachPlayer = ({
           ? (syncData.angleOffsets?.[index] ?? syncData.syncOffset ?? 0)
           : 0;
       const angle = mediaAngles[index];
-      if (
-        angle?.sourceKind === 'youtube' &&
-        angle.clips.length > 1 &&
-        !isManualMode
-      ) {
+      const usesVirtualTimeline =
+        !isManualMode && usesVirtualClipTimeline(angle?.clips ?? []);
+      if (usesVirtualTimeline && angle) {
         const active = resolveTimelineClip(angle.clips, timeClamped + offset);
         if (!active) {
           player.pause?.();
@@ -100,17 +101,16 @@ const seekEachPlayer = ({
       }
 
       if (index === 0) {
-        targetTime =
-          angle?.sourceKind === 'youtube' && angle.clips.length > 1
-            ? targetTime
-            : Math.max(getMinAllowedGlobalTime(syncData), timeClamped);
+        targetTime = usesVirtualTimeline
+          ? targetTime
+          : Math.max(getMinAllowedGlobalTime(syncData), timeClamped);
       }
 
       if (
         index > 0 &&
         syncData?.isAnalyzed &&
         !isManualMode &&
-        !(angle?.sourceKind === 'youtube' && angle.clips.length > 1)
+        !usesVirtualTimeline
       ) {
         targetTime = Math.max(0, timeClamped + offset);
       }

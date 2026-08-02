@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { PackageDatas } from '../../../src/renderer';
 import { isPlainObject } from './ipcPayloadGuards';
-import { recomposeLocalTimeline } from './packageMediaCompositionService';
+import { probeMedia } from './packageMediaCompositionService';
 
 export interface ClipTimelinePlacement {
   clipId: string;
@@ -66,12 +66,6 @@ export const applyClipTimeline = async (
     throw new Error('UNKNOWN_CLIP_PLACEMENT');
   }
 
-  const replacements: Array<{
-    targetPath: string;
-    tempPath: string;
-    backupPath: string;
-  }> = [];
-
   for (const angleValue of nextConfig.angles) {
     if (!isPlainObject(angleValue) || !Array.isArray(angleValue.clips))
       continue;
@@ -105,107 +99,70 @@ export const applyClipTimeline = async (
           : 0;
       return leftStart - rightStart;
     });
-    if (sourceKind === 'youtube') {
-      let previousEnd = 0;
-      for (const clipValue of angleValue.clips) {
-        if (!isPlainObject(clipValue)) continue;
-        const start =
-          typeof clipValue.timelineStartSeconds === 'number'
-            ? clipValue.timelineStartSeconds
-            : 0;
-        if (start < previousEnd - 0.001) {
-          throw new Error('CLIP_TIMELINE_OVERLAP');
+    let previousEnd = 0;
+    for (const clipValue of angleValue.clips) {
+      if (!isPlainObject(clipValue) || typeof clipValue.id !== 'string') {
+        throw new Error('INVALID_CLIP_TIMELINE');
+      }
+      const start =
+        typeof clipValue.timelineStartSeconds === 'number'
+          ? clipValue.timelineStartSeconds
+          : previousEnd;
+      let duration =
+        typeof clipValue.durationSeconds === 'number' &&
+        Number.isFinite(clipValue.durationSeconds) &&
+        clipValue.durationSeconds > 0
+          ? clipValue.durationSeconds
+          : undefined;
+      if (sourceKind === 'local') {
+        if (typeof clipValue.relativePath !== 'string') {
+          throw new Error('INVALID_LOCAL_CLIP');
         }
-        clipValue.gapBeforeSeconds = Math.max(0, start - previousEnd);
-        const duration =
-          typeof clipValue.durationSeconds === 'number'
-            ? clipValue.durationSeconds
-            : 0;
-        previousEnd = start + Math.max(0, duration);
+        if (duration === undefined) {
+          duration = (
+            await probeMedia(
+              resolveInsidePackage(packagePath, clipValue.relativePath),
+            )
+          ).durationSeconds;
+        }
       }
-      continue;
+      if (start < previousEnd - 0.001) {
+        throw new Error('CLIP_TIMELINE_OVERLAP');
+      }
+      if (duration !== undefined && start + duration > 86_400) {
+        throw new Error('CLIP_TIMELINE_OUT_OF_RANGE');
+      }
+      clipValue.timelineStartSeconds = start;
+      clipValue.gapBeforeSeconds = Math.max(0, start - previousEnd);
+      if (duration !== undefined) {
+        clipValue.durationSeconds = duration;
+      }
+      // YouTube can still be positioned manually when the embed cannot
+      // report its duration. The absolute start remains authoritative; once
+      // the player reports a duration a later apply can validate the gap and
+      // overlap precisely.
+      previousEnd = start + (duration ?? 0);
     }
-    if (typeof angleValue.relativePath !== 'string') continue;
-
-    const localClips = angleValue.clips.map((clipValue) => {
+    if (sourceKind === 'local' && typeof angleValue.relativePath !== 'string') {
+      const firstClip = angleValue.clips[0];
       if (
-        !isPlainObject(clipValue) ||
-        typeof clipValue.id !== 'string' ||
-        typeof clipValue.relativePath !== 'string'
+        isPlainObject(firstClip) &&
+        typeof firstClip.relativePath === 'string'
       ) {
-        throw new Error('INVALID_LOCAL_CLIP');
+        angleValue.relativePath = firstClip.relativePath;
       }
-      return {
-        id: clipValue.id,
-        sourcePath: resolveInsidePackage(packagePath, clipValue.relativePath),
-        timelineStartSeconds:
-          typeof clipValue.timelineStartSeconds === 'number'
-            ? clipValue.timelineStartSeconds
-            : undefined,
-        gapBeforeSeconds:
-          typeof clipValue.gapBeforeSeconds === 'number'
-            ? clipValue.gapBeforeSeconds
-            : 0,
-      };
-    });
-    const targetPath = resolveInsidePackage(
-      packagePath,
-      angleValue.relativePath,
-    );
-    const extension = path.extname(targetPath) || '.mp4';
-    const tempPath = `${targetPath}.timeline-${Date.now()}${extension}`;
-    const backupPath = `${targetPath}.timeline-backup`;
-    let composed: Awaited<ReturnType<typeof recomposeLocalTimeline>>;
-    try {
-      composed = await recomposeLocalTimeline(localClips, tempPath);
-    } catch (error) {
-      await fs.rm(tempPath, { force: true });
-      await Promise.all(
-        replacements.map((replacement) =>
-          fs.rm(replacement.tempPath, { force: true }),
-        ),
-      );
-      throw error;
     }
-    const composedById = new Map(composed.map((clip) => [clip.id, clip]));
-    angleValue.clips.forEach((clipValue) => {
-      if (!isPlainObject(clipValue) || typeof clipValue.id !== 'string') return;
-      const clip = composedById.get(clipValue.id);
-      if (!clip) return;
-      clipValue.timelineStartSeconds = clip.timelineStartSeconds;
-      clipValue.durationSeconds = clip.durationSeconds;
-      clipValue.gapBeforeSeconds = clip.gapBeforeSeconds;
-    });
-    replacements.push({ targetPath, tempPath, backupPath });
   }
 
   const configTempPath = `${normalizedConfigPath}.timeline.tmp`;
   const configBackupPath = `${normalizedConfigPath}.timeline-backup`;
   await fs.writeFile(configTempPath, JSON.stringify(nextConfig, null, 2));
-  const applied: typeof replacements = [];
   try {
-    for (const replacement of replacements) {
-      await fs.rm(replacement.backupPath, { force: true });
-      await fs.rename(replacement.targetPath, replacement.backupPath);
-      await fs.rename(replacement.tempPath, replacement.targetPath);
-      applied.push(replacement);
-    }
     await fs.rm(configBackupPath, { force: true });
     await fs.rename(normalizedConfigPath, configBackupPath);
     await fs.rename(configTempPath, normalizedConfigPath);
-    await Promise.all(
-      applied.map((replacement) =>
-        fs.rm(replacement.backupPath, { force: true }),
-      ),
-    );
     await fs.rm(configBackupPath, { force: true });
   } catch (error) {
-    await Promise.all(
-      applied.map(async (replacement) => {
-        await fs.rm(replacement.targetPath, { force: true });
-        await fs.rename(replacement.backupPath, replacement.targetPath);
-      }),
-    );
     await fs.rm(configTempPath, { force: true });
     try {
       await fs.access(configBackupPath);
@@ -214,11 +171,6 @@ export const applyClipTimeline = async (
     } catch {
       // The config was not swapped yet.
     }
-    await Promise.all(
-      replacements.map((replacement) =>
-        fs.rm(replacement.tempPath, { force: true }),
-      ),
-    );
     throw error;
   }
 
@@ -232,12 +184,22 @@ export const applyClipTimeline = async (
       angleValue.role === 'primary' || angleValue.role === 'secondary'
         ? angleValue.role
         : undefined;
+    const firstClip = angleValue.clips[0];
+    const firstClipAbsolutePath = isPlainObject(firstClip)
+      ? firstClip.sourceKind === 'youtube' &&
+        typeof firstClip.sourceUrl === 'string'
+        ? firstClip.sourceUrl
+        : typeof firstClip.relativePath === 'string'
+          ? resolveInsidePackage(packagePath, firstClip.relativePath)
+          : ''
+      : '';
     const absolutePath =
-      sourceKind === 'youtube' && typeof angleValue.sourceUrl === 'string'
+      firstClipAbsolutePath ||
+      (sourceKind === 'youtube' && typeof angleValue.sourceUrl === 'string'
         ? angleValue.sourceUrl
         : typeof angleValue.relativePath === 'string'
           ? resolveInsidePackage(packagePath, angleValue.relativePath)
-          : '';
+          : '');
     return [
       {
         id:

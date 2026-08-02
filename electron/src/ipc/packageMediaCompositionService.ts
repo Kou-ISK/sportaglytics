@@ -284,7 +284,7 @@ export const recomposeLocalTimeline = async (
 export const materializePackageAngle = async (
   angle: PackageAnglePayload,
   angleIndex: number,
-  packageName: string,
+  _packageName: string,
   videosDir: string,
 ): Promise<NormalizedAngle> => {
   const name = sanitizeSegment(angle.name, `Angle ${angleIndex + 1}`);
@@ -351,26 +351,25 @@ export const materializePackageAngle = async (
       gapBeforeSeconds: Math.max(0, timelineStartSeconds - previousEnd),
     };
   });
-  const canCopyWithoutComposition =
-    placedClips.length === 1 && placedClips[0].timelineStartSeconds === 0;
-  const outputExtension = canCopyWithoutComposition
-    ? path.extname(copiedClips[0].copiedPath) || '.mp4'
-    : '.mp4';
-  const outputName = `${packageName} ${name}${outputExtension}`;
-  const outputPath = path.join(videosDir, outputName);
-  if (canCopyWithoutComposition) {
-    await fs.promises.copyFile(placedClips[0].copiedPath, outputPath);
-  } else {
-    await composeLocalClips(placedClips, outputPath);
+  const derived = deriveTimelineGaps(placedClips);
+  if (derived.overlap) {
+    throw new Error(
+      `CLIP_TIMELINE_OVERLAP:${derived.overlap.previousClipId}:${derived.overlap.clipId}`,
+    );
   }
-  const relativePath = `videos/${outputName}`;
+  const firstClip = placedClips[0];
+  if (!firstClip) {
+    throw new Error('LOCAL_ANGLE_REQUIRES_CLIP');
+  }
   return {
     id: angle.id,
     name,
     role: angle.role,
     sourceKind: 'local',
-    relativePath,
-    absolutePath: outputPath,
+    // The angle-level path is a compatibility/fallback pointer only. Playback
+    // resolves the active source clip from the virtual timeline at runtime.
+    relativePath: firstClip.relativePath,
+    absolutePath: firstClip.copiedPath,
     clips: placedClips.map((clip, index) => {
       const previous = index > 0 ? placedClips[index - 1] : undefined;
       const previousEnd = previous

@@ -265,9 +265,7 @@ export const useClipTimelineSyncController = ({
       return;
     }
     setIsApplying(true);
-    setMessage(
-      '再生用映像を再合成しています。ファイル置換を安全に行うため、この段階ではキャンセルできません。',
-    );
+    setMessage('クリップのタイムライン配置を保存しています。');
     try {
       const result = await api.applyClipTimeline(
         metaDataConfigFilePath,
@@ -303,13 +301,13 @@ export const useClipTimelineSyncController = ({
           })),
         })),
       );
-      setMessage('同期を適用し、再生映像を更新しました。');
+      setMessage('同期を適用し、仮想タイムラインを更新しました。');
       await onApplySync();
     } catch (error) {
       setMessage(
         error instanceof Error && error.message.includes('OVERLAP')
           ? '同一アングル内でクリップが重なっています。'
-          : '再合成に失敗したため、従来の映像を維持しました。',
+          : '同期配置を保存できませんでした。',
       );
     } finally {
       setIsApplying(false);
