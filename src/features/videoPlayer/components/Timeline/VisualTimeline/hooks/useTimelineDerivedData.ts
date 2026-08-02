@@ -1,14 +1,19 @@
 import { useCallback, useMemo } from 'react';
-import type { TimelineData } from '../../../../../../types/timeline/core';
+import type {
+  TimelineData,
+  TimelineRow,
+} from '../../../../../../types/timeline/core';
 
 interface UseTimelineDerivedDataParams {
   timeline: TimelineData[];
+  rows: TimelineRow[];
   maxSec: number;
   zoomScale: number;
 }
 
 export const useTimelineDerivedData = ({
   timeline,
+  rows,
   maxSec,
   zoomScale,
 }: UseTimelineDerivedDataParams) => {
@@ -23,10 +28,7 @@ export const useTimelineDerivedData = ({
     return groups;
   }, [timeline]);
 
-  const actionNames = useMemo(
-    () => Object.keys(groupedByAction).sort((a, b) => a.localeCompare(b)),
-    [groupedByAction],
-  );
+  const actionNames = useMemo(() => rows.map((row) => row.name), [rows]);
 
   const firstTeamName = useMemo(
     () => actionNames[0]?.split(' ')[0],
@@ -68,6 +70,7 @@ export const useTimelineDerivedData = ({
 
   return {
     groupedByAction,
+    rows,
     actionNames,
     firstTeamName,
     formatTime,

@@ -6,11 +6,14 @@ import { useTimelineRangeSelection } from './useTimelineRangeSelection';
 import { useTimelineExportDialogs } from './useTimelineExportDialogs';
 import { useTimelineDerivedData } from './useTimelineDerivedData';
 import { useTimelineGlobalShortcuts } from './useTimelineGlobalShortcuts';
+import { useTimelineRowInteractions } from './useTimelineRowInteractions';
 import type { VisualTimelineProps } from '../VisualTimeline.types';
 import type { VisualTimelineViewProps } from '../VisualTimelineView';
+import { buildTimelineRowMoveUpdates } from '../../../../shared/timelineRows';
 
 export const useVisualTimelineController = ({
   timeline,
+  rows,
   maxSec,
   currentTime,
   onSeek,
@@ -22,6 +25,12 @@ export const useVisualTimelineController = ({
   onUpdateTimelineItem,
   bulkUpdateTimelineItems,
   onDuplicateTimelineItem,
+  onCreateTimelineItem,
+  onAddRow,
+  onUpdateRow,
+  onMoveRow,
+  onDeleteRows,
+  onPasteTimelineItemsToRow,
   videoSources,
   onUndo,
   onRedo,
@@ -35,8 +44,16 @@ export const useVisualTimelineController = ({
     timeToPosition,
     positionToTime,
     currentTimePosition,
+    scrollLeft,
   } = useTimelineViewport({ maxSec, currentTime });
   const axisRef = React.useRef<HTMLDivElement>(null);
+  const rowInteractions = useTimelineRowInteractions({
+    rows,
+    onInstanceSelectionChange: onSelectionChange,
+    onUpdateRow,
+    onMoveRow,
+    onDeleteRows,
+  });
   const {
     hoveredItemId,
     focusedItemId,
@@ -65,18 +82,21 @@ export const useVisualTimelineController = ({
     onUpdateTimeRange,
     onDuplicateTimelineItem,
   });
+  const handleTimelineItemClick = useCallback(
+    (event: React.MouseEvent, id: string): void => {
+      rowInteractions.clearRowSelection();
+      handleItemClick(event, id);
+    },
+    [handleItemClick, rowInteractions],
+  );
 
-  const {
-    groupedByAction,
-    actionNames,
-    firstTeamName,
-    formatTime,
-    timeMarkers,
-  } = useTimelineDerivedData({
-    timeline,
-    maxSec,
-    zoomScale,
-  });
+  const { groupedByAction, firstTeamName, formatTime, timeMarkers } =
+    useTimelineDerivedData({
+      timeline,
+      rows,
+      maxSec,
+      zoomScale,
+    });
 
   const suppressClearRef = React.useRef(false);
   const handleSelectionApplied = useCallback(() => {
@@ -169,18 +189,67 @@ export const useVisualTimelineController = ({
   });
 
   const handleMoveItems = useCallback(
-    (ids: string[], targetActionName: string) => {
+    (ids: string[], targetActionName: string, operation: 'move' | 'copy') => {
       if (ids.length === 0) return;
+      if (operation === 'copy') {
+        const targetRow = rows.find((row) => row.name === targetActionName);
+        const sourceItems = timeline.filter((item) => ids.includes(item.id));
+        if (
+          !targetRow ||
+          !onPasteTimelineItemsToRow ||
+          sourceItems.length === 0
+        )
+          return;
+        const pastedIds = onPasteTimelineItemsToRow(sourceItems, targetRow.id);
+        onSelectionChange(pastedIds);
+        info(`${pastedIds.length}件を ${targetActionName} にコピーしました`);
+        return;
+      }
+      const isAlreadyInTarget = timeline
+        .filter((item) => ids.includes(item.id))
+        .every((item) => item.actionName === targetActionName);
+      if (isAlreadyInTarget) return;
+      const updates = buildTimelineRowMoveUpdates(rows, targetActionName);
       if (bulkUpdateTimelineItems) {
-        bulkUpdateTimelineItems(ids, { actionName: targetActionName });
+        bulkUpdateTimelineItems(ids, updates);
       } else if (onUpdateTimelineItem) {
-        ids.forEach((id) =>
-          onUpdateTimelineItem(id, { actionName: targetActionName }),
-        );
+        ids.forEach((id) => onUpdateTimelineItem(id, updates));
       }
       info(`${ids.length}件を ${targetActionName} に移動しました`);
     },
-    [bulkUpdateTimelineItems, info, onUpdateTimelineItem],
+    [
+      bulkUpdateTimelineItems,
+      info,
+      onPasteTimelineItemsToRow,
+      onSelectionChange,
+      onUpdateTimelineItem,
+      rows,
+      timeline,
+    ],
+  );
+
+  const copiedItemsRef = React.useRef<typeof timeline>([]);
+  const handleCopyTimelineItems = useCallback(
+    (items: typeof timeline): void => {
+      copiedItemsRef.current = items.map((item) => ({
+        ...item,
+        labels: item.labels?.map((label) => ({ ...label })),
+      }));
+      info(`${items.length}件のインスタンスをコピーしました`);
+    },
+    [info],
+  );
+  const handlePasteTimelineItems = useCallback(
+    (targetRowId: string): void => {
+      const copiedItems = copiedItemsRef.current;
+      if (copiedItems.length === 0 || !onPasteTimelineItemsToRow) return;
+      const pastedIds = onPasteTimelineItemsToRow(copiedItems, targetRowId);
+      if (pastedIds.length === 0) return;
+      onSelectionChange(pastedIds);
+      rowInteractions.clearRowSelection();
+      info(`${pastedIds.length}件のインスタンスを貼り付けました`);
+    },
+    [info, onPasteTimelineItemsToRow, onSelectionChange, rowInteractions],
   );
 
   useTimelineGlobalShortcuts({
@@ -192,6 +261,10 @@ export const useVisualTimelineController = ({
     onUndo,
     onRedo,
     onAddToPlaylist,
+    selectedRowIds: rowInteractions.selectedRowIds,
+    onCopyItems: handleCopyTimelineItems,
+    onPasteItems: handlePasteTimelineItems,
+    onRequestDeleteRows: rowInteractions.onRequestDeleteRows,
   });
 
   const handleBackgroundClick = useCallback(
@@ -200,8 +273,9 @@ export const useVisualTimelineController = ({
       if (isSelecting || selectionBox) return;
       if (suppressClearRef.current) return;
       onSelectionChange([]);
+      rowInteractions.clearRowSelection();
     },
-    [isSelecting, onSelectionChange, selectionBox],
+    [isSelecting, onSelectionChange, rowInteractions, selectionBox],
   );
 
   const dialogsProps = {
@@ -248,6 +322,7 @@ export const useVisualTimelineController = ({
 
   return {
     zoomScale,
+    scrollLeft,
     axisRef,
     maxSec,
     currentTimePosition,
@@ -259,23 +334,47 @@ export const useVisualTimelineController = ({
     formatTime,
     scrollContainerRef,
     containerRef,
-    actionNames,
+    rows,
     groupedByAction,
     selectedIds,
     hoveredItemId,
     focusedItemId,
     setHoveredItemId,
-    handleItemClick,
+    handleItemClick: handleTimelineItemClick,
     handleItemContextMenu,
     firstTeamName,
     onUpdateTimeRange,
     handleMoveItems,
+    onCreateTimelineItem,
+    onAddRow,
+    onUpdateRow,
+    selectedRowIds: rowInteractions.selectedRowIds,
+    editingRow: rowInteractions.editingRow,
+    rowNameDraft: rowInteractions.rowNameDraft,
+    rowColorDraft: rowInteractions.rowColorDraft,
+    rowContextMenu: rowInteractions.rowContextMenu,
+    rowsPendingDeletion: rowInteractions.rowsPendingDeletion,
+    onRowNameDraftChange: rowInteractions.onRowNameDraftChange,
+    onRowColorDraftChange: rowInteractions.onRowColorDraftChange,
+    onOpenRowEditor: rowInteractions.onOpenRowEditor,
+    onCloseRowEditor: rowInteractions.onCloseRowEditor,
+    onSaveRow: rowInteractions.onSaveRow,
+    onRowClick: rowInteractions.onRowClick,
+    onRowContextMenu: rowInteractions.onRowContextMenu,
+    onRowDragStart: rowInteractions.onRowDragStart,
+    onRowDragOver: rowInteractions.onRowDragOver,
+    onRowDrop: rowInteractions.onRowDrop,
+    onCloseRowContextMenu: rowInteractions.onCloseRowContextMenu,
+    onEditContextRow: rowInteractions.onEditContextRow,
+    onMoveSelectedRow: rowInteractions.onMoveSelectedRow,
+    onRequestDeleteRows: rowInteractions.onRequestDeleteRows,
+    onCancelDeleteRows: rowInteractions.onCancelDeleteRows,
+    onConfirmDeleteRows: rowInteractions.onConfirmDeleteRows,
     laneRefs,
     onMouseDown: handleMouseDown,
     onMouseMove: handleMouseMove,
     onMouseUp: (event) => handleMouseUp(event, positionToTime),
     onBackgroundClick: handleBackgroundClick,
-    timeline,
     isSelecting,
     selectionBox,
     dialogsProps,

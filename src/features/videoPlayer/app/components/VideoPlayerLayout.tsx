@@ -25,6 +25,7 @@ type VideoPlayerLayoutProps = Pick<
   | 'syncMode'
   | 'playerForceUpdateKey'
   | 'timeline'
+  | 'timelineRows'
   | 'selectedTimelineIdList'
   | 'teamNames'
   | 'setSelectedTimelineIdList'
@@ -34,6 +35,12 @@ type VideoPlayerLayoutProps = Pick<
   | 'updateTimelineItem'
   | 'bulkUpdateTimelineItems'
   | 'duplicateTimelineItem'
+  | 'addTimelineData'
+  | 'addTimelineRow'
+  | 'updateTimelineRow'
+  | 'moveTimelineRow'
+  | 'deleteTimelineRows'
+  | 'pasteTimelineItemsToRow'
   | 'setVideoList'
   | 'setIsFileSelected'
   | 'setTimelineFilePath'
@@ -68,6 +75,7 @@ export const VideoPlayerLayout = ({
   syncMode,
   playerForceUpdateKey,
   timeline,
+  timelineRows,
   selectedTimelineIdList,
   teamNames,
   setSelectedTimelineIdList,
@@ -77,6 +85,12 @@ export const VideoPlayerLayout = ({
   updateTimelineItem,
   bulkUpdateTimelineItems,
   duplicateTimelineItem,
+  addTimelineData,
+  addTimelineRow,
+  updateTimelineRow,
+  moveTimelineRow,
+  deleteTimelineRows,
+  pasteTimelineItemsToRow,
   setVideoList,
   setIsFileSelected,
   setTimelineFilePath,
@@ -97,11 +111,18 @@ export const VideoPlayerLayout = ({
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: '1fr',
-        gridTemplateRows: 'minmax(0, 1fr) minmax(160px, 30vh)',
+        gridTemplateColumns: 'minmax(0, 1fr)',
+        // 小さいウィンドウでもプレイヤー領域を 0px にしない。
+        // タイムラインはビューポートに追従しつつ、過度に映像を圧迫しない。
+        gridTemplateRows: 'minmax(120px, 1fr) clamp(96px, 30vh, 320px)',
         flex: 1,
         height: '100%',
         minHeight: 0,
+        minWidth: 0,
+        width: '100%',
+        maxWidth: '100vw',
+        overflowY: 'auto',
+        overflowX: 'hidden',
       }}
     >
       <PlayerSurface
@@ -153,6 +174,7 @@ export const VideoPlayerLayout = ({
 
       <TimelineActionSection
         timeline={timeline}
+        timelineRows={timelineRows}
         maxSec={maxSec}
         currentTime={currentTime}
         selectedTimelineIdList={selectedTimelineIdList}
@@ -164,6 +186,12 @@ export const VideoPlayerLayout = ({
         updateTimelineItem={updateTimelineItem}
         bulkUpdateTimelineItems={bulkUpdateTimelineItems}
         duplicateTimelineItem={duplicateTimelineItem}
+        addTimelineData={addTimelineData}
+        addTimelineRow={addTimelineRow}
+        updateTimelineRow={updateTimelineRow}
+        moveTimelineRow={moveTimelineRow}
+        deleteTimelineRows={deleteTimelineRows}
+        pasteTimelineItemsToRow={pasteTimelineItemsToRow}
         videoList={videoList}
         handleCurrentTime={handleCurrentTime}
         performUndo={performUndo}

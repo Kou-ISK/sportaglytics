@@ -1,20 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
-import type { TimelineData } from '../../../../types/timeline/core';
-import { normalizeTimelineData } from '../../../../utils/scTimelineConverter';
+import type {
+  TimelineData,
+  TimelineRow,
+} from '../../../../types/timeline/core';
 import {
   readTimelineFile,
   writeTimelineFile,
 } from '../gateways/timelineImportExportGateway';
+import {
+  parseTimelineDocument,
+  serializeTimelineDocument,
+} from '../utils/timelineDocument';
 
 interface UseTimelinePersistenceResult {
   timeline: TimelineData[];
   setTimeline: React.Dispatch<React.SetStateAction<TimelineData[]>>;
+  timelineRows: TimelineRow[];
+  setTimelineRows: React.Dispatch<React.SetStateAction<TimelineRow[]>>;
   timelineFilePath: string;
   setTimelineFilePath: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
   const [timeline, setTimeline] = useState<TimelineData[]>([]);
+  const [timelineRows, setTimelineRows] = useState<TimelineRow[]>([]);
   const [timelineFilePath, setTimelineFilePath] = useState('');
   const timelineLoadedRef = useRef(false);
   const timelinePersistedSnapshotRef = useRef('[]');
@@ -26,6 +35,7 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
 
     if (!timelineFilePath) {
       setTimeline([]);
+      setTimelineRows([]);
       timelineLoadedRef.current = true;
       return;
     }
@@ -37,22 +47,20 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
         if (!text) {
           throw new Error('Timeline file is empty or not accessible');
         }
-        const raw = JSON.parse(text) as unknown;
         if (cancelled) return;
-        // 読み込んだデータを正規化してlabels配列を確実に持たせる
-        const rawArray = Array.isArray(raw) ? raw : [];
-        const normalized = rawArray.map((item) => normalizeTimelineData(item));
-        // 読み込んだ元のデータ（正規化前）をスナップショットとして保存
-        // これにより、正規化後のデータが変更として検知され、自動保存される
-        timelinePersistedSnapshotRef.current = JSON.stringify(rawArray);
+        const parsed = parseTimelineDocument(text);
+        // 旧配列形式は読み込み時だけ移行し、ユーザーが編集するまでは書き換えない。
+        timelinePersistedSnapshotRef.current = parsed.snapshot;
         timelineLoadedRef.current = true;
-        setTimeline(normalized);
+        setTimeline(parsed.timeline);
+        setTimelineRows(parsed.rows);
       } catch (error) {
         if (cancelled) return;
         console.error('タイムラインの読み込みに失敗しました:', error);
         timelinePersistedSnapshotRef.current = '[]';
         timelineLoadedRef.current = true;
         setTimeline([]);
+        setTimelineRows([]);
       }
     };
 
@@ -68,7 +76,7 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
       return;
     }
 
-    const nextSnapshot = JSON.stringify(timeline);
+    const nextSnapshot = serializeTimelineDocument(timeline, timelineRows);
     if (nextSnapshot === timelinePersistedSnapshotRef.current) {
       return;
     }
@@ -77,10 +85,8 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
       window.clearTimeout(saveTimerRef.current);
     }
 
-    const payload = timeline.map((item) => ({ ...item }));
-
     saveTimerRef.current = window.setTimeout(() => {
-      writeTimelineFile(timelineFilePath, JSON.stringify(payload))
+      writeTimelineFile(timelineFilePath, nextSnapshot)
         .then((saved) => {
           if (!saved) {
             throw new Error('Timeline write failed');
@@ -101,11 +107,13 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
         saveTimerRef.current = null;
       }
     };
-  }, [timeline, timelineFilePath]);
+  }, [timeline, timelineFilePath, timelineRows]);
 
   return {
     timeline,
     setTimeline,
+    timelineRows,
+    setTimelineRows,
     timelineFilePath,
     setTimelineFilePath,
   };

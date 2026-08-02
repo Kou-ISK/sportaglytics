@@ -8,6 +8,7 @@ interface TimelineAxisProps {
   currentTimePosition: number;
   contentWidth: number;
   zoomScale: number;
+  scrollLeft: number;
   timeMarkers: number[];
   timeToPosition: (time: number) => number;
   positionToTime: (px: number) => number;
@@ -21,6 +22,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   currentTimePosition,
   contentWidth,
   zoomScale,
+  scrollLeft,
   timeMarkers,
   timeToPosition,
   positionToTime,
@@ -114,6 +116,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
           cursor: 'pointer',
           userSelect: 'none',
           overflow: 'hidden',
+          transform: `translateX(${-scrollLeft}px)`,
           '&:hover': {
             backgroundColor:
               theme.palette.mode === 'dark' ? 'grey.800' : 'grey.200',

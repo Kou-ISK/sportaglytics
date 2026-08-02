@@ -1,11 +1,14 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 import { TimelineLaneItem } from './TimelineLaneItem';
 import type { TimelineLaneViewProps } from './TimelineLane.types';
 
 export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
+  rowId,
   actionName,
+  rowColor,
+  isRowSelected,
   items,
   selectedIds,
   hoveredItemId,
@@ -14,6 +17,12 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
   onItemClick,
   onItemContextMenu,
   onMoveItem,
+  onEditRow,
+  onRowClick,
+  onRowContextMenu,
+  onRowDragStart,
+  onRowDragOver,
+  onRowDrop,
   timeToPosition,
   currentTimePosition,
   formatTime,
@@ -22,9 +31,10 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
   zoomScale,
   containerRef,
   isDraggingPlayhead,
-  isAltKeyPressed,
+  isEditModifierPressed,
   isTeam1,
   laneLabelColor,
+  draftRange,
   onLaneDragOver,
   onLaneDrop,
   onPlayheadMouseDown,
@@ -44,6 +54,21 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
       }}
     >
       <Typography
+        component="button"
+        type="button"
+        draggable
+        aria-pressed={isRowSelected}
+        data-testid={`timeline-row-header-${rowId}`}
+        onClick={(event) => onRowClick(event, rowId)}
+        onDoubleClick={onEditRow}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') onEditRow?.();
+        }}
+        onContextMenu={(event) => onRowContextMenu(event, rowId)}
+        onDragStart={(event) => onRowDragStart(event, rowId)}
+        onDragOver={onRowDragOver}
+        onDrop={(event) => onRowDrop(event, rowId)}
+        aria-label={`${actionName} 行`}
         variant="caption"
         sx={{
           color: laneLabelColor,
@@ -54,6 +79,28 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
           textAlign: 'right',
           userSelect: 'none',
           lineHeight: 1.1,
+          position: 'sticky',
+          left: 0,
+          zIndex: 12,
+          alignSelf: 'stretch',
+          border: 0,
+          borderRight: 1,
+          borderColor: 'divider',
+          backgroundColor: isRowSelected
+            ? alpha(theme.palette.primary.main, 0.18)
+            : 'background.paper',
+          boxShadow: isRowSelected
+            ? `inset 3px 0 0 ${theme.palette.primary.main}`
+            : 'none',
+          cursor: 'grab',
+          px: 1,
+          '&:focus-visible': {
+            outline: `2px solid ${theme.palette.primary.main}`,
+            outlineOffset: -2,
+          },
+          '&:active': {
+            cursor: 'grabbing',
+          },
         }}
       >
         {actionName}
@@ -61,12 +108,13 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
 
       <Box
         ref={containerRef}
+        data-testid={`timeline-lane-${actionName}`}
         sx={{
           position: 'relative',
           height: 26,
           flex: 1,
           flexShrink: 0,
-          backgroundColor: theme.custom.rails.laneBg,
+          backgroundColor: alpha(rowColor, 0.16),
           borderRadius: 1,
           border: 1,
           borderColor: 'divider',
@@ -104,12 +152,36 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
             contentWidth={contentWidth}
             zoomScale={zoomScale}
             isTeam1={isTeam1}
-            isAltKeyPressed={isAltKeyPressed}
+            rowColor={rowColor}
+            isEditModifierPressed={isEditModifierPressed}
           />
         ))}
 
+        {draftRange && (
+          <Box
+            data-testid="timeline-create-preview"
+            sx={{
+              position: 'absolute',
+              left: `${timeToPosition(draftRange.startTime)}px`,
+              width: `${Math.max(
+                2,
+                timeToPosition(draftRange.endTime) -
+                  timeToPosition(draftRange.startTime),
+              )}px`,
+              top: 1,
+              bottom: 1,
+              bgcolor: alpha(rowColor, 0.72),
+              border: `1px dashed ${rowColor}`,
+              borderRadius: 1,
+              pointerEvents: 'none',
+              zIndex: 9,
+            }}
+          />
+        )}
+
         <Box
           onMouseDown={onPlayheadMouseDown}
+          data-testid={`timeline-playhead-${actionName}`}
           sx={{
             position: 'absolute',
             left: `${currentTimePosition}px`,
@@ -118,7 +190,11 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
             width: 2,
             backgroundColor: 'error.main',
             zIndex: 10,
-            cursor: isDraggingPlayhead ? 'grabbing' : 'grab',
+            cursor: isEditModifierPressed
+              ? 'col-resize'
+              : isDraggingPlayhead
+                ? 'grabbing'
+                : 'grab',
             '&:hover': {
               width: 4,
             },

@@ -8,14 +8,13 @@ import type { EnhancedCodePanelHandle } from '../../components/Controls/Enhanced
 
 interface UseHotkeyBindingsParams {
   currentTime: number;
-  isVideoPlaying: boolean;
   teamNames: string[];
   settingsHotkeys: HotkeyConfig[];
   activeActions: ActionDefinition[];
   codeWindowButtons?: { id: string; name: string; hotkey?: string }[];
   timelineActionRef: RefObject<EnhancedCodePanelHandle | null>;
   setVideoPlayBackRate: (rate: number) => void;
-  setIsVideoPlaying: (value: boolean) => void;
+  setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
   setViewMode: Dispatch<SetStateAction<'dual' | 'angle1' | 'angle2'>>;
   handleCurrentTime: (event: Event, time: number) => void;
   performUndo: () => void;
@@ -33,7 +32,6 @@ interface UseHotkeyBindingsParams {
 
 export const useHotkeyBindings = ({
   currentTime,
-  isVideoPlaying,
   teamNames,
   settingsHotkeys,
   activeActions,
@@ -73,7 +71,7 @@ export const useHotkeyBindings = ({
         setIsVideoPlaying(true);
       },
       'play-pause': () => {
-        setIsVideoPlaying(!isVideoPlaying);
+        setIsVideoPlaying((playing) => !playing);
       },
       'skip-backward-medium': () => {
         handleCurrentTime(new Event('hotkey'), currentTime - 5);
@@ -120,7 +118,6 @@ export const useHotkeyBindings = ({
     [
       currentTime,
       handleCurrentTime,
-      isVideoPlaying,
       manualSyncFromPlayers,
       performRedo,
       performUndo,
