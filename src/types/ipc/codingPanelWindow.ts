@@ -33,6 +33,7 @@ export interface CodingPanelWindowSyncPayload {
 
 export type CodingPanelWindowCommand =
   | { type: 'request-sync' }
+  | { type: 'set-mode'; mode: 'code' | 'label' }
   | { type: 'layout-updated'; layout: CodeWindowLayout }
   | {
       type: 'save-layout';
@@ -169,8 +170,7 @@ const isLabelSelections = (
 const isTimelineLabel = (value: unknown): value is SCLabel => {
   if (!isPlainObject(value)) return false;
   return (
-    isString(value.name) &&
-    (value.group === undefined || isString(value.group))
+    isString(value.name) && (value.group === undefined || isString(value.group))
   );
 };
 
@@ -207,6 +207,10 @@ export const isCodingPanelWindowCommand = (
 
   if (value.type === 'request-sync') {
     return true;
+  }
+
+  if (value.type === 'set-mode') {
+    return value.mode === 'code' || value.mode === 'label';
   }
 
   if (value.type === 'layout-updated') {

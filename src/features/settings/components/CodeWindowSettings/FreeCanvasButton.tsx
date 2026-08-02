@@ -1,8 +1,9 @@
 import React from 'react';
-import { Box, IconButton, Paper, Tooltip, Typography } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LinkIcon from '@mui/icons-material/Link';
 import type { CodeWindowButton } from '../../../../types/settings/coreTypes';
+import { CodeWindowButtonSurface } from '../../../../components/ui/composites/CodeWindowButtonSurface';
 
 type FreeCanvasButtonProps = {
   button: CodeWindowButton;
@@ -31,11 +32,14 @@ export const FreeCanvasButton = ({
 }: FreeCanvasButtonProps) => {
   const isLabelButton = button.type === 'label' && Boolean(button.labelValue);
   const primaryText = isLabelButton ? button.labelValue : button.name;
-  const secondaryText = isLabelButton ? button.name : button.labelValue;
-
   return (
-    <Paper
-      elevation={isSelected ? 4 : 1}
+    <CodeWindowButtonSurface
+      button={button}
+      displayText={primaryText ?? button.name}
+      buttonColor={buttonColor}
+      isSelectedForEditing={isSelected}
+      isDragging={isDragging}
+      cursor={isLinkSource ? 'crosshair' : isDragging ? 'grabbing' : 'grab'}
       onMouseDown={(event) => {
         if (event.button === 0) {
           onMouseDown(event);
@@ -59,82 +63,7 @@ export const FreeCanvasButton = ({
         }
         onInspect?.();
       }}
-      sx={{
-        position: 'absolute',
-        left: button.x,
-        top: button.y,
-        width: button.width,
-        height: button.height,
-        backgroundColor: buttonColor,
-        color: button.textColor || '#fff',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: isLinkSource ? 'crosshair' : isDragging ? 'grabbing' : 'grab',
-        border: isSelected ? '2px solid #fff' : 'none',
-        boxShadow: isSelected ? '0 0 0 2px #1976d2' : undefined,
-        borderRadius: `${button.borderRadius ?? 4}px`,
-        transition: isDragging ? 'none' : 'box-shadow 0.2s',
-        opacity: isDragging ? 0.8 : 1,
-        p: 0.5,
-        overflow: 'hidden',
-        userSelect: 'none',
-        zIndex: isSelected ? 10 : 1,
-      }}
     >
-      <Typography
-        variant="caption"
-        sx={{
-          fontWeight: 600,
-          textAlign: 'center',
-          fontSize: isLabelButton ? '0.72rem' : '0.7rem',
-          lineHeight: 1.2,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          width: '100%',
-        }}
-      >
-        {primaryText}
-      </Typography>
-      {secondaryText && (
-        <Typography
-          variant="caption"
-          sx={{
-            fontSize: isLabelButton ? '0.56rem' : '0.6rem',
-            opacity: 0.75,
-            textAlign: 'center',
-            lineHeight: 1.15,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            width: '100%',
-          }}
-        >
-          {secondaryText}
-        </Typography>
-      )}
-      {button.hotkey && button.showHotkey && (
-        <Typography
-          variant="caption"
-          sx={{
-            position: 'absolute',
-            right: 4,
-            bottom: 2,
-            maxWidth: 'calc(100% - 8px)',
-            px: 0.5,
-            borderRadius: '3px',
-            fontSize: '0.52rem',
-            lineHeight: 1.15,
-            color: 'inherit',
-            backgroundColor: 'rgba(0,0,0,0.2)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {button.hotkey}
-        </Typography>
-      )}
       {isSelected && (
         <>
           <IconButton
@@ -198,6 +127,6 @@ export const FreeCanvasButton = ({
           />
         </>
       )}
-    </Paper>
+    </CodeWindowButtonSurface>
   );
 };

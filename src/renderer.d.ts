@@ -96,8 +96,6 @@ export interface IElectronAPI {
   endLoopbackAudioCapture: () => Promise<void>;
   extractAudioWavForSync: (videoPath: string) => Promise<string | null>;
   setManualModeChecked: (checked: boolean) => Promise<boolean>;
-  setLabelModeChecked: (checked: boolean) => Promise<boolean>;
-  onToggleLabelMode: (callback: (checked: boolean) => void) => () => void;
   convertConfigToRelativePath: (packagePath: string) => Promise<{
     success: boolean;
     config?: Record<string, unknown>;

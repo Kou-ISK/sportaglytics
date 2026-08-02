@@ -195,19 +195,6 @@ export const buildEditMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   { role: 'selectAll' as const, label: 'すべて選択' },
 ];
 
-export const buildCodingMenuItems =
-  (): Electron.MenuItemConstructorOptions[] => [
-    {
-      id: 'toggle-label-mode',
-      label: 'ラベルモード',
-      type: 'checkbox',
-      checked: false,
-      click: (menuItem) => {
-        sendToAllWindows('menu-toggle-label-mode', menuItem.checked);
-      },
-    },
-  ];
-
 export const buildSyncMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   {
     label: '自動同期（音声解析）',
@@ -253,6 +240,7 @@ export const buildHelpMenuItems = (
 ): Electron.MenuItemConstructorOptions[] => {
   const helpMenuItems: Electron.MenuItemConstructorOptions[] = [
     {
+      id: 'open-help',
       label: 'ヘルプ / 機能一覧を開く',
       click: () => openHelpWindow(),
     },
