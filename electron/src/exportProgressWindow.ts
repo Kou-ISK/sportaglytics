@@ -15,9 +15,8 @@ const EXPORT_PROGRESS_HASH_URL = `file:${path.join(
   '../../index.html',
 )}#/export-progress`;
 
-const focusOrCreate = (): BrowserWindow => {
+const getOrCreate = (): BrowserWindow => {
   if (progressWindow && !progressWindow.isDestroyed()) {
-    progressWindow.focus();
     return progressWindow;
   }
 
@@ -30,6 +29,7 @@ const focusOrCreate = (): BrowserWindow => {
     resizable: true,
     minimizable: true,
     maximizable: false,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -56,12 +56,20 @@ const sendState = (state: ExportProgressWindowState): void => {
   progressWindow.webContents.send(EXPORT_PROGRESS_WINDOW_CHANNELS.sync, state);
 };
 
-export const openExportProgressWindow = async (): Promise<void> => {
-  const window = focusOrCreate();
+export const openExportProgressWindow = async (
+  activate = true,
+): Promise<void> => {
+  const window = getOrCreate();
   if (window.webContents.isLoading()) {
     await new Promise<void>((resolve) => {
       window.webContents.once('did-finish-load', () => resolve());
     });
+  }
+  if (!window.isVisible()) {
+    window.showInactive();
+  }
+  if (activate) {
+    window.focus();
   }
 };
 
@@ -69,7 +77,7 @@ export const updateExportProgressWindow = (
   state: ExportProgressWindowState,
 ): void => {
   progressStates.set(state.id, state);
-  void openExportProgressWindow().then(() => sendState(state));
+  void openExportProgressWindow(false).then(() => sendState(state));
 };
 
 export const registerExportProgressWindowHandlers = (): void => {

@@ -72,6 +72,7 @@ interface RenderClipWithFfmpegParams {
   useDual: boolean;
   tempFiles: string[];
   outputPath?: string;
+  onProgress?: (progress: number) => void;
 }
 
 export const renderClipWithFfmpeg = async ({
@@ -83,6 +84,7 @@ export const renderClipWithFfmpeg = async ({
   useDual,
   tempFiles,
   outputPath,
+  onProgress,
 }: RenderClipWithFfmpegParams): Promise<string> => {
   const overlayLines = formatOverlayLines(clip, overlay);
   const target =
@@ -131,6 +133,7 @@ export const renderClipWithFfmpeg = async ({
       annotationPath: annSecondaryPath,
       getJapaneseFontPath,
       escapeDrawtext,
+      onProgress,
     });
     return target;
   }
@@ -146,6 +149,7 @@ export const renderClipWithFfmpeg = async ({
       annotationPath: annPrimaryPath,
       getJapaneseFontPath,
       escapeDrawtext,
+      onProgress,
     });
     return target;
   }
@@ -170,6 +174,7 @@ export const renderClipWithFfmpeg = async ({
       annotationSecondary: annSecondaryPath,
       getJapaneseFontPath,
       escapeDrawtext,
+      onProgress,
     });
     return target;
   }
@@ -184,6 +189,7 @@ export const renderClipWithFfmpeg = async ({
     annotationPath: annPrimaryPath,
     getJapaneseFontPath,
     escapeDrawtext,
+    onProgress,
   });
 
   return target;
