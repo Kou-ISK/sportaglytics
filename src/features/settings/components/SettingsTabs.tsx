@@ -1,5 +1,7 @@
 import React from 'react';
 import { Tabs, Tab, Paper, Box } from '@mui/material';
+import TuneIcon from '@mui/icons-material/Tune';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
 import type { AppSettings } from '../../../types/settings/coreTypes';
 import type { SettingsTabHandle } from '../types';
 import { GeneralSettings } from './GeneralSettings';
@@ -20,7 +22,11 @@ interface TabPanelProps {
   value: number;
 }
 
-const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
+const TabPanel = ({
+  children,
+  value,
+  index,
+}: TabPanelProps): React.ReactElement => {
   return (
     <div
       role="tabpanel"
@@ -28,29 +34,45 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
       id={`settings-tabpanel-${index}`}
       aria-labelledby={`settings-tab-${index}`}
     >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {value === index && (
+        <Box sx={{ p: { xs: 1.5, sm: 2.5 } }}>{children}</Box>
+      )}
     </div>
   );
 };
 
-export const SettingsTabs: React.FC<SettingsTabsProps> = ({
+export const SettingsTabs = ({
   currentTab,
   onTabChange,
   settings,
   saveSettings,
   generalRef,
   hotkeyRef,
-}) => {
+}: SettingsTabsProps): React.ReactElement => {
   return (
-    <Paper elevation={2}>
+    <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
       <Tabs
         value={currentTab}
         onChange={(_e, v) => onTabChange(v)}
         aria-label="設定タブ"
-        variant="fullWidth"
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{ borderBottom: 1, borderColor: 'divider', px: 1 }}
       >
-        <Tab label="一般" id="settings-tab-0" />
-        <Tab label="ホットキー" id="settings-tab-1" />
+        <Tab
+          icon={<TuneIcon fontSize="small" />}
+          iconPosition="start"
+          label="一般"
+          id="settings-tab-0"
+          aria-controls="settings-tabpanel-0"
+        />
+        <Tab
+          icon={<KeyboardIcon fontSize="small" />}
+          iconPosition="start"
+          label="ホットキー"
+          id="settings-tab-1"
+          aria-controls="settings-tabpanel-1"
+        />
       </Tabs>
 
       <TabPanel value={currentTab} index={0}>

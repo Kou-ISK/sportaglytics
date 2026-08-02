@@ -40,26 +40,4 @@ export const registerMenuStateHandlers = (): void => {
       }
     },
   );
-
-  registerHandleWithAliases(
-    'menu:set-label-mode-checked',
-    ['set-label-mode-checked'],
-    async (event, checked: unknown) => {
-      if (
-        !getValidatedEventSenderWindow(event) ||
-        typeof checked !== 'boolean'
-      ) {
-        return false;
-      }
-
-      try {
-        const updated = setMenuCheckedState('toggle-label-mode', checked);
-        console.log(`ラベルモードが${checked ? 'オン' : 'オフ'}になりました`);
-        return updated;
-      } catch (error) {
-        console.error('set-label-mode-checked error:', error);
-        return false;
-      }
-    },
-  );
 };

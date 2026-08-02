@@ -19,17 +19,6 @@ describe('createAppBridgeMenuApi', () => {
       registerListener,
     );
 
-    const onToggleLabelMode = vi.fn();
-    const unsubscribeToggle = bridge.onToggleLabelMode(onToggleLabelMode);
-    listeners.get('menu-toggle-label-mode')?.('invalid');
-    listeners.get('menu-toggle-label-mode')?.(true);
-
-    expect(onToggleLabelMode).toHaveBeenCalledTimes(1);
-    expect(onToggleLabelMode).toHaveBeenCalledWith(true);
-
-    unsubscribeToggle();
-    expect(listeners.has('menu-toggle-label-mode')).toBe(false);
-
     const onOpenRecentPackage = vi.fn();
     const unsubscribeRecent = bridge.onOpenRecentPackage(onOpenRecentPackage);
     listeners.get('menu-open-recent-package')?.(42);
@@ -51,6 +40,16 @@ describe('createAppBridgeMenuApi', () => {
 
     unsubscribeCreate();
     expect(listeners.has('menu-create-code-window-file')).toBe(false);
+
+    const onCreateVideoPackage = vi.fn();
+    const unsubscribeCreatePackage =
+      bridge.onCreateVideoPackage(onCreateVideoPackage);
+    listeners.get('menu-create-video-package')?.();
+
+    expect(onCreateVideoPackage).toHaveBeenCalledOnce();
+
+    unsubscribeCreatePackage();
+    expect(listeners.has('menu-create-video-package')).toBe(false);
   });
 
   it('forwards recent package updates to ipcRenderer', () => {

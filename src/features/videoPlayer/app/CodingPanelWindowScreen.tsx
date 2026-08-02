@@ -38,20 +38,15 @@ const createEmptyLayout = (
   buttonLinks: [],
 });
 
-const fitCanvasSize = (value: number, min: number): number => {
-  return Math.max(min, Math.floor(value / 10) * 10);
-};
-
 export const CodingPanelWindowScreen = (): React.ReactElement => {
   const [payload, setPayload] = useState<CodingPanelWindowSyncPayload | null>(
     null,
   );
-  const [windowMode, setWindowMode] =
-    useState<CodingPanelWindowMode>('code');
+  const [windowMode, setWindowMode] = useState<CodingPanelWindowMode>('code');
   const [draftLayout, setDraftLayout] = useState<CodeWindowLayout | null>(null);
   const layoutContainerRef = useRef<HTMLDivElement | null>(null);
-  const editCanvasHostRef = useRef<HTMLDivElement | null>(null);
   const syncedPayloadModeRef = useRef<'code' | 'label' | null>(null);
+  const syncedFilePathRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const unsubscribe = subscribeCodingPanelWindowSync(setPayload);
@@ -61,7 +56,9 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
 
   useEffect(() => {
     if (!payload) return;
-    if (windowMode !== 'edit') {
+    const documentChanged =
+      syncedFilePathRef.current !== payload.codeWindowFilePath;
+    if (documentChanged || windowMode !== 'edit') {
       setDraftLayout(payload.customLayout);
     }
     if (
@@ -71,42 +68,8 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
       setWindowMode(payload.activeMode);
     }
     syncedPayloadModeRef.current = payload.activeMode;
+    syncedFilePathRef.current = payload.codeWindowFilePath;
   }, [payload, windowMode]);
-
-  useEffect(() => {
-    const host = editCanvasHostRef.current;
-    if (!host || windowMode !== 'edit') return undefined;
-
-    const resizeObserver = new ResizeObserver(([entry]) => {
-      if (!entry) return;
-      const nextWidth = fitCanvasSize(entry.contentRect.width, 420);
-      const nextHeight = fitCanvasSize(entry.contentRect.height, 320);
-      setDraftLayout((current) => {
-        const base =
-          current ??
-          payload?.customLayout ??
-          createEmptyLayout(nextWidth, nextHeight);
-        if (
-          base.canvasWidth === nextWidth &&
-          base.canvasHeight === nextHeight
-        ) {
-          return base;
-        }
-        const nextLayout = {
-          ...base,
-          canvasWidth: nextWidth,
-          canvasHeight: nextHeight,
-        };
-        sendCodingPanelWindowCommand({
-          type: 'layout-updated',
-          layout: nextLayout,
-        });
-        return nextLayout;
-      });
-    });
-    resizeObserver.observe(host);
-    return () => resizeObserver.disconnect();
-  }, [payload?.customLayout, windowMode]);
 
   const handleCustomButtonClick = useCallback((button: CodeWindowButton) => {
     sendCodingPanelWindowCommand({
@@ -185,6 +148,9 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
             current ?? payload?.customLayout ?? createEmptyLayout(720, 480),
         );
       }
+      if (nextMode === 'code' || nextMode === 'label') {
+        sendCodingPanelWindowCommand({ type: 'set-mode', mode: nextMode });
+      }
       setWindowMode(nextMode);
     },
     [payload?.customLayout],
@@ -250,7 +216,6 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
       {windowMode === 'edit' ? (
         <CodingPanelWindowEditPane
           layout={draftLayout}
-          canvasHostRef={editCanvasHostRef}
           onLayoutChange={handleDraftLayoutChange}
         />
       ) : (

@@ -18,7 +18,6 @@ export type AppBridgeLegacyKeys =
   | 'checkFileExists'
   | 'readJsonFile'
   | 'setManualModeChecked'
-  | 'setLabelModeChecked'
   | 'convertConfigToRelativePath';
 
 export const createAppBridgeLegacyApi = (
@@ -208,19 +207,6 @@ export const createAppBridgeLegacyApi = (
         );
       } catch (error) {
         console.error('setManualModeChecked error:', error);
-        return false;
-      }
-    },
-    setLabelModeChecked: async (checked: boolean) => {
-      try {
-        return await invokeWithFallback<boolean>(
-          ipcRenderer,
-          'menu:set-label-mode-checked',
-          'set-label-mode-checked',
-          checked,
-        );
-      } catch (error) {
-        console.error('setLabelModeChecked error:', error);
         return false;
       }
     },

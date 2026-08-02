@@ -5,6 +5,7 @@ import type { VideoSyncData } from '../../../../types/video/sync';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
 
 interface NoSelectionPlaceholderProps {
+  openWizardRequestKey: number;
   setVideoList: React.Dispatch<React.SetStateAction<string[]>>;
   setIsFileSelected: React.Dispatch<React.SetStateAction<boolean>>;
   setTimelineFilePath: React.Dispatch<React.SetStateAction<string>>;

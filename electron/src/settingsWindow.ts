@@ -17,10 +17,10 @@ const focusOrCreate = () => {
   }
 
   settingsWindow = new BrowserWindow({
-    width: 1100,
-    height: 800,
-    minWidth: 900,
-    minHeight: 700,
+    width: 820,
+    height: 760,
+    minWidth: 620,
+    minHeight: 520,
     title: '設定',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

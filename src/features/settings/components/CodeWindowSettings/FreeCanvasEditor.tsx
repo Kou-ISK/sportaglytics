@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Box, Button, Stack } from '@mui/material';
+import { Box, IconButton, Stack, Tooltip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import LabelIcon from '@mui/icons-material/Label';
 import type {
@@ -135,53 +135,25 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
 
   const creationToolbar = showCreationToolbar ? (
     <Stack direction="row" spacing={0.25}>
-      <Button
-        size="small"
-        variant="outlined"
-        startIcon={<AddIcon />}
-        onClick={() => handleOpenCustomActionDialog({ x: 20, y: 20 })}
-        sx={{
-          minWidth: 0,
-          minHeight: 24,
-          px: 0.5,
-          py: 0.125,
-          fontSize: '0.66rem',
-          lineHeight: 1.1,
-          '& .MuiButton-startIcon': {
-            mr: 0.25,
-            ml: 0,
-          },
-          '& .MuiSvgIcon-root': {
-            fontSize: 14,
-          },
-        }}
-      >
-        アクション
-      </Button>
-      <Button
-        size="small"
-        variant="outlined"
-        color="secondary"
-        startIcon={<LabelIcon />}
-        onClick={() => handleOpenCustomLabelDialog({ x: 20, y: 20 })}
-        sx={{
-          minWidth: 0,
-          minHeight: 24,
-          px: 0.5,
-          py: 0.125,
-          fontSize: '0.66rem',
-          lineHeight: 1.1,
-          '& .MuiButton-startIcon': {
-            mr: 0.25,
-            ml: 0,
-          },
-          '& .MuiSvgIcon-root': {
-            fontSize: 14,
-          },
-        }}
-      >
-        ラベル
-      </Button>
+      <Tooltip title="アクションボタンを追加">
+        <IconButton
+          size="small"
+          onClick={() => handleOpenCustomActionDialog({ x: 20, y: 20 })}
+          aria-label="アクションボタンを追加"
+        >
+          <AddIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="ラベルボタンを追加">
+        <IconButton
+          size="small"
+          color="secondary"
+          onClick={() => handleOpenCustomLabelDialog({ x: 20, y: 20 })}
+          aria-label="ラベルボタンを追加"
+        >
+          <LabelIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
     </Stack>
   ) : null;
 

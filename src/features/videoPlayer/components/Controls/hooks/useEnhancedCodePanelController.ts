@@ -23,10 +23,6 @@ import type { EnhancedCodePanelProps } from '../EnhancedCodePanel.types';
 import type { EnhancedCodePanelViewProps } from '../EnhancedCodePanelView';
 import { getVideoJsPlayerCurrentTime } from '../../../shared/videojs/videoJsAdapter';
 import {
-  setLabelModeChecked,
-  subscribeLabelModeToggle,
-} from '../gateways/labelModeGateway';
-import {
   openCodingPanelWindow,
   subscribeCodingPanelWindowCommand,
   syncCodingPanelWindow,
@@ -189,17 +185,6 @@ export const useEnhancedCodePanelController = ({
   >({});
   const layoutContainerRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const handler = (checked: boolean) => {
-      setActiveMode(checked ? 'label' : 'code');
-    };
-    return subscribeLabelModeToggle(handler);
-  }, [setActiveMode]);
-
-  useEffect(() => {
-    void setLabelModeChecked(activeMode === 'label');
-  }, [activeMode]);
-
   const getCurrentTime = useCallback((): number | null => {
     return getVideoJsPlayerCurrentTime('video_0');
   }, []);
@@ -316,6 +301,11 @@ export const useEnhancedCodePanelController = ({
         return;
       }
 
+      if (command.type === 'set-mode') {
+        setActiveMode(command.mode);
+        return;
+      }
+
       if (command.type === 'layout-updated') {
         setSessionLayout(command.layout);
         return;
@@ -371,6 +361,7 @@ export const useEnhancedCodePanelController = ({
       onHotkeyKeyDown,
       onHotkeyKeyUp,
       saveLayout,
+      setActiveMode,
     ],
   );
 

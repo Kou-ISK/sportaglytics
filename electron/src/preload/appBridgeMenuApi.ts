@@ -3,12 +3,12 @@ import type { IElectronAPI } from '../../../src/renderer';
 import type { RegisterListener } from './listenerStore';
 
 export type AppBridgeMenuKeys =
-  | 'onToggleLabelMode'
   | 'onExportTimeline'
   | 'onImportTimeline'
   | 'onCodingModeChange'
   | 'onOpenCodeWindowFile'
   | 'onCreateCodeWindowFile'
+  | 'onCreateVideoPackage'
   | 'onOpenPackage'
   | 'onOpenRecentPackage'
   | 'updateRecentPackages';
@@ -18,13 +18,6 @@ export const createAppBridgeMenuApi = (
   registerListener: RegisterListener,
 ): Pick<IElectronAPI, AppBridgeMenuKeys> => {
   return {
-    onToggleLabelMode: (callback: (checked: boolean) => void) =>
-      registerListener('menu-toggle-label-mode', (checked: unknown) => {
-        if (typeof checked !== 'boolean') {
-          return;
-        }
-        callback(checked);
-      }),
     onExportTimeline: (callback: (format: string) => void) =>
       registerListener('menu-export-timeline', (format: unknown) => {
         if (typeof format !== 'string') {
@@ -49,6 +42,10 @@ export const createAppBridgeMenuApi = (
       }),
     onCreateCodeWindowFile: (callback: () => void) =>
       registerListener('menu-create-code-window-file', () => {
+        callback();
+      }),
+    onCreateVideoPackage: (callback: () => void) =>
+      registerListener('menu-create-video-package', () => {
         callback();
       }),
     onOpenPackage: (callback: () => void) =>

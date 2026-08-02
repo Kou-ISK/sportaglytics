@@ -18,18 +18,18 @@
 
 Renderer は Feature-First です。依存方向は `pages -> features -> shared` を維持します。
 
-| Path                      | Role                         | Put here                                                                                     |
-| ------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------- |
-| `src/pages/`              | top-level page wrapper       | routing / entry composition だけ。feature deep import はせず public index 経由にする         |
-| `src/features/<feature>/` | feature implementation       | feature 固有の Screen、Controller/Hook、View、Gateway、domain logic                          |
-| `src/components/ui/`      | shared UI design-system      | feature 非依存の primitives / composites / patterns                                          |
-| `src/components/`         | legacy/shared components     | 複数 feature で使う UI。新規 shared UI は可能なら `src/components/ui/` へ寄せる              |
-| `src/hooks/`              | truly shared hooks           | feature 固有 state を持たない cross-feature hook                                             |
-| `src/contexts/`           | truly shared contexts        | アプリ横断の状態だけ。feature 専用 context は feature 配下へ置く                             |
-| `src/shared/`             | shared domain / gateway      | feature 非依存の domain service、shared gateway、cross-feature contract                      |
-| `src/types/`              | shared type contracts        | analysis / ipc / package / playlist / settings / timeline / video など use-case 単位の共有型 |
-| `src/utils/`              | shared pure helpers          | Electron、URL、永続化に直接触れない pure helper                                              |
-| `src/report/`             | report-specific shared logic | analysis report data / print layout など report 横断処理                                     |
+| Path                      | Role                         | Put here                                                                                      |
+| ------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `src/pages/`              | top-level page wrapper       | routing / entry composition だけ。feature deep import はせず public index 経由にする          |
+| `src/features/<feature>/` | feature implementation       | feature 固有の Screen、Controller/Hook、View、Gateway、domain logic                           |
+| `src/components/ui/`      | shared UI design-system      | feature 非依存の primitives / composites / patterns。実行・編集で共有するbutton surfaceも置く |
+| `src/components/`         | legacy/shared components     | 複数 feature で使う UI。新規 shared UI は可能なら `src/components/ui/` へ寄せる               |
+| `src/hooks/`              | truly shared hooks           | feature 固有 state を持たない cross-feature hook                                              |
+| `src/contexts/`           | truly shared contexts        | アプリ横断の状態だけ。feature 専用 context は feature 配下へ置く                              |
+| `src/shared/`             | shared domain / gateway      | feature 非依存の domain service、shared gateway、cross-feature contract                       |
+| `src/types/`              | shared type contracts        | analysis / ipc / package / playlist / settings / timeline / video など use-case 単位の共有型  |
+| `src/utils/`              | shared pure helpers          | Electron、URL、永続化に直接触れない pure helper                                               |
+| `src/report/`             | report-specific shared logic | analysis report data / print layout など report 横断処理                                      |
 
 ## Feature Layout
 

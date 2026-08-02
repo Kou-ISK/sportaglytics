@@ -29,14 +29,15 @@ export const HotkeySettingsListItem = ({
   onEditStart,
   onEditSave,
   onEditCancel,
-}: HotkeySettingsListItemProps) => {
+}: HotkeySettingsListItemProps): React.ReactElement => {
   return (
     <ListItem
       sx={{
         border: '1px solid',
         borderColor: 'divider',
-        borderRadius: 1,
+        borderRadius: 1.5,
         mb: 1,
+        px: { xs: 1.25, sm: 2 },
       }}
     >
       <ListItemText
@@ -83,23 +84,28 @@ export const HotkeySettingsListItem = ({
                 </Button>
               </Box>
             </Box>
-          ) : (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                mt: 1,
-              }}
-            >
-              <Chip label={hotkey.key} size="small" />
-              <Button size="small" onClick={() => onEditStart(hotkey)}>
-                変更
-              </Button>
-            </Box>
-          )
+          ) : undefined
         }
       />
+      {!isEditing && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flex: '0 0 auto',
+          }}
+        >
+          <Chip label={hotkey.key} size="small" variant="outlined" />
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => onEditStart(hotkey)}
+          >
+            変更
+          </Button>
+        </Box>
+      )}
     </ListItem>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Box } from '@mui/material';
 import {
   AnalysisPanel,
@@ -25,6 +25,7 @@ import { useMetadataTeamNames } from './hooks/useMetadataTeamNames';
 import { buildSelectionLabelUpdates } from './utils/applyLabelsToTimelineSelection';
 import type { CodeWindowLayout } from '../../../types/settings/coreTypes';
 import type { SCLabel } from '../../../types/timeline/sportscode';
+import { subscribeCreateVideoPackageMenu } from './gateways/menuEventGateway';
 
 export const VideoPlayerScreen = () => {
   const {
@@ -87,6 +88,14 @@ export const VideoPlayerScreen = () => {
   const [viewMode, setViewMode] = useState<'dual' | 'angle1' | 'angle2'>(
     'dual',
   );
+  const [openWizardRequestKey, setOpenWizardRequestKey] = useState(0);
+
+  useEffect(() => {
+    return subscribeCreateVideoPackageMenu(() => {
+      setOpenWizardRequestKey((current) => current + 1);
+      setIsFileSelected(false);
+    });
+  }, [setIsFileSelected]);
 
   useMetadataTeamNames({ metaDataConfigFilePath, setTeamNames });
   useManualSyncSeek({ syncMode, syncData, videoList });
@@ -241,6 +250,7 @@ export const VideoPlayerScreen = () => {
       }}
     >
       <VideoPlayerLayout
+        openWizardRequestKey={openWizardRequestKey}
         isFileSelected={isFileSelected}
         videoList={videoList}
         isVideoPlaying={isVideoPlaying}
