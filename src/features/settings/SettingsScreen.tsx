@@ -1,11 +1,11 @@
 import React from 'react';
-import { Box, Container, Typography } from '@mui/material';
+import { Alert, Box, CircularProgress, Container, Stack } from '@mui/material';
 import { SettingsTabs } from './components/SettingsTabs';
 import { SettingsHeader } from './components/SettingsHeader';
 import { UnsavedChangesDialog } from './components/UnsavedChangesDialog';
 import { useSettingsScreenController } from './hooks/useSettingsScreenController';
 
-export const SettingsScreen: React.FC = () => {
+export const SettingsScreen = (): React.ReactElement => {
   const {
     settings,
     isLoading,
@@ -23,16 +23,19 @@ export const SettingsScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Typography>設定を読み込み中...</Typography>
+      <Container maxWidth="md" sx={{ py: 6 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <CircularProgress size={22} />
+          <Box>設定を読み込み中…</Box>
+        </Stack>
       </Container>
     );
   }
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Typography color="error">{error}</Typography>
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Alert severity="error">{error}</Alert>
       </Container>
     );
   }
@@ -41,7 +44,15 @@ export const SettingsScreen: React.FC = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <SettingsHeader onClose={handleClose} />
 
-      <Container maxWidth="lg" sx={{ flexGrow: 1, py: 3 }}>
+      <Container
+        maxWidth="md"
+        sx={{
+          flexGrow: 1,
+          minHeight: 0,
+          overflow: 'auto',
+          py: { xs: 1.5, sm: 2.5 },
+        }}
+      >
         <SettingsTabs
           currentTab={currentTab}
           onTabChange={requestTabChange}
@@ -52,7 +63,6 @@ export const SettingsScreen: React.FC = () => {
         />
       </Container>
 
-      {/* 未保存の変更警告ダイアログ */}
       <UnsavedChangesDialog
         open={confirmDialogOpen}
         onCancel={cancelSwitch}
