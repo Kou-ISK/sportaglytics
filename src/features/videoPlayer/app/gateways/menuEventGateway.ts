@@ -22,6 +22,22 @@ export const subscribeAnalysisStatsMenu = (
   }
 };
 
+export const subscribeCreateVideoPackageMenu = (
+  callback: () => void,
+): (() => void) => {
+  const api = getElectronApi();
+  if (!api?.onCreateVideoPackage) {
+    return noop;
+  }
+
+  try {
+    return api.onCreateVideoPackage(callback);
+  } catch (error: unknown) {
+    console.debug('[menuEventGateway] onCreateVideoPackage failed', error);
+    return noop;
+  }
+};
+
 export const subscribeTimelineUndoRedoMenu = (
   onUndo: () => void,
   onRedo: () => void,

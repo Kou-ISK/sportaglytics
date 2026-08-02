@@ -4,6 +4,7 @@ import type { VideoPathSelectorProps } from './VideoPathSelector/types';
 import { useVideoPathSelectorController } from './VideoPathSelector/hooks/useVideoPathSelectorController';
 
 export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
+  openWizardRequestKey,
   setVideoList,
   setIsFileSelected,
   setTimelineFilePath,
@@ -21,6 +22,7 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
     removeRecentPackage,
     ...viewProps
   } = useVideoPathSelectorController({
+    openWizardRequestKey,
     setVideoList,
     setIsFileSelected,
     setTimelineFilePath,

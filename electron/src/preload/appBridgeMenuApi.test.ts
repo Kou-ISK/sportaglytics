@@ -51,6 +51,16 @@ describe('createAppBridgeMenuApi', () => {
 
     unsubscribeCreate();
     expect(listeners.has('menu-create-code-window-file')).toBe(false);
+
+    const onCreateVideoPackage = vi.fn();
+    const unsubscribeCreatePackage =
+      bridge.onCreateVideoPackage(onCreateVideoPackage);
+    listeners.get('menu-create-video-package')?.();
+
+    expect(onCreateVideoPackage).toHaveBeenCalledOnce();
+
+    unsubscribeCreatePackage();
+    expect(listeners.has('menu-create-video-package')).toBe(false);
   });
 
   it('forwards recent package updates to ipcRenderer', () => {
