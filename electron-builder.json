@@ -8,9 +8,7 @@
     "!build/**/*.LICENSE.txt",
     "!build/**/llama/models/*.gguf",
     "!build/**/llama/models/**/*.gguf",
-    "!node_modules/**/*",
-    "node_modules/ffmpeg-static/**/*",
-    "node_modules/ffprobe-static/**/*"
+    "!node_modules/**/*"
   ],
   "extraResources": [
     {
@@ -19,26 +17,24 @@
       "filter": ["**/*", "!**/*.gguf"]
     }
   ],
-  "asarUnpack": [
-    "node_modules/ffmpeg-static/**/*",
-    "node_modules/ffprobe-static/**/*"
-  ],
   "compression": "maximum",
   "directories": {
     "buildResources": "public",
     "output": "dist/"
   },
   "mac": {
-    "target": {
-      "target": "dmg",
-      "arch": ["x64", "arm64"]
-    },
+    "target": "dmg",
     "icon": "public/icon.icns",
     "extraResources": [
       {
         "from": "public/icons",
         "to": ".",
         "filter": ["stpkg.icns", "stpl.icns", "stcw.icns", "stad.icns"]
+      },
+      {
+        "from": ".cache/media-tools/darwin-${arch}",
+        "to": "media-tools",
+        "filter": ["ffmpeg", "ffprobe", "build.json", "licenses/**/*"]
       }
     ],
     "category": "public.app-category.sports",

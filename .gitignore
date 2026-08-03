@@ -12,6 +12,7 @@ node_modules/
 # production
 /build
 /dist
+/.cache/media-tools
 
 # misc
 .DS_Store

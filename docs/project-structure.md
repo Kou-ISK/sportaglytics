@@ -65,6 +65,9 @@ feature 配下は機能責務で分割します。Atomic Design の分類を fea
 | `electron/src/main.ts`                               | app startup / top-level assembly      | 詳細な domain logic を増やさず、登録・組み立てに留める                  |
 | `electron/src/ipc/`                                  | main process IPC handlers             | domain ごとに handler を分け、payload guard と sender validation を行う |
 | `electron/src/ipc/packageMediaCompositionService.ts` | package media materialization         | ローカル元クリップの検査・コピー、書き出し用の一時FFmpeg合成            |
+| `electron/src/mediaTools.ts`                         | media binary resolution               | 配布版同梱binaryと開発用binaryの解決、共通H.264 encoder設定             |
+| `electron/src/ipc/mediaProcessRunner.ts`             | bounded native process execution      | FFmpeg/FFprobeのtimeout・出力量制限とprocess終了                        |
+| `scripts/build-media-tools.mjs`                      | reproducible media tool build         | 固定hashのFFmpeg sourceからmacOS architecture別binaryを生成             |
 | `electron/src/ipc/packageClipTimelineService.ts`     | clip timeline application             | 配置・重複・範囲の検証、configの原子的更新                              |
 | `electron/src/ipc/exportVirtualTimelineSource.ts`    | export timeline adapter               | 仮想ローカルタイムラインを書き出し時だけOS一時領域へ実体化              |
 | `electron/src/loopbackAudioCapture.ts`               | macOS loopback capture authorization  | 対応OS判定、ユーザー操作単位の許可、display media requestの制限         |

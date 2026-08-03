@@ -68,13 +68,9 @@ Follow [project-structure.md](project-structure.md) when adding new test support
 
 ## Clip Timeline Electron E2E
 
-複数クリップの登録、絶対タイムライン配置、実行時の黒画面・無音、YouTubeクリップ切替、再起動後の復元は、実Electronと短いFFmpeg fixtureを使って検証します。先にRenderer、Electron main、preloadをbuildしてからE2Eを実行してください。
+複数クリップの登録、絶対タイムライン配置、実行時の黒画面・無音、YouTubeクリップ切替、再起動後の復元は、実Electronと短いFFmpeg fixtureを使って検証します。各E2EコマンドはRenderer、Electron main、preloadのbuildとpreload検査を先に自動実行します。全Electron E2Eをまとめて実行する場合は `pnpm run test:e2e` を使います。
 
 ```bash
-pnpm run build
-pnpm run build:electron-main
-pnpm run bundle:preload
-pnpm run check:preload
 pnpm run test:e2e:clip-sync
 ```
 
@@ -95,14 +91,12 @@ pnpm run test:e2e:clip-sync
 書き出し中のウィンドウ操作と実進捗の連動は、30秒のFFmpeg fixtureを使う専用E2Eで検証します。
 
 ```bash
-pnpm run build
-pnpm run build:electron-main
-pnpm run bundle:preload
-pnpm run check:preload
 pnpm run test:e2e:export-progress
 ```
 
 `test:e2e:export-progress` は、進捗ウィンドウがフォーカスを奪わないこと、書き出し中にメインウィンドウで新規パッケージ画面へ遷移できること、FFmpeg由来の0%と100%の間の進捗が単調増加すること、出力ファイルが生成されることを確認します。
+
+release前は`pnpm audit`と`pnpm audit --prod`がともに既知脆弱性0件であることを確認します。`pnpm run media:build:all-mac`後に、`file`と`ffmpeg -version` / `ffprobe -version`で`x64` / `arm64`、FFmpeg 8.1.2の一致を確認します。probe processのtimeout・出力量上限は`mediaProcessRunner.test.ts`で検証します。
 
 macOSのシステム音声取得許可ダイアログを伴う成功経路は、CIの権限拒否テストと分離します。署名・配布候補では、macOS 13以降の実機で許可済みプロファイルを使い、15秒取得、解析終了後のtrack停止、外部アプリ音声の混入警告を確認してください。
 
@@ -111,10 +105,6 @@ macOSのシステム音声取得許可ダイアログを伴う成功経路は、
 メニューバーのドキュメント操作は、実Electronで「ファイル > 新規 / 開く」の構造、重複する「コードウィンドウを開く」とトップレベル「コーディング」が存在しないこと、`Command+N`相当のパッケージ作成ウィザード表示を検証します。コードウィンドウは空の `.stcw` 作成、選択した `.stcw` の表示、ウィンドウ内モード切替、実行・編集表示の一致、編集開始時にキャンバス寸法が変わらないことを確認します。設定画面を経由しないこと、「別名保存」1回につきnative save dialogが1回だけ開くこと、設定の検索・responsive layout、ヘルプの検索・responsive layoutも検証対象です。
 
 ```bash
-pnpm run build
-pnpm run build:electron-main
-pnpm run bundle:preload
-pnpm run check:preload
 pnpm run test:e2e:code-window-menu
 ```
 
@@ -123,10 +113,6 @@ pnpm run test:e2e:code-window-menu
 タイムライン行の追加・名称/色編集・行選択・ドラッグ並べ替え・削除、修飾キーなしのインスタンス行間移動、`Command+C/V`による選択行への貼り付け、`Option+Command`による長さ調整と手動インスタンス作成を検証します。加えて、ウィンドウを複数サイズへ変更した後も全映像とタイムラインが表示領域内に残ることを実Electronで確認します。
 
 ```bash
-pnpm run build
-pnpm run build:electron-main
-pnpm run bundle:preload
-pnpm run check:preload
 pnpm run test:e2e:timeline-rows
 ```
 
