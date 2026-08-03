@@ -6,7 +6,7 @@ import {
   type IpcMainEvent,
 } from 'electron';
 import * as path from 'path';
-import ffmpegPath from 'ffmpeg-static';
+import { getFfmpegPath } from './mediaTools';
 import { registerShortcuts } from './shortCutKey';
 import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
@@ -50,10 +50,11 @@ if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 }
 
-const getFfmpegPath = (): string => {
+const getResolvedFfmpegPath = (): string => {
+  const ffmpegPath = getFfmpegPath();
   if (!ffmpegPath) {
     throw new Error(
-      'ffmpeg binary not found. Please ensure ffmpeg-static is properly installed.',
+      'ffmpeg binary not found. Please ensure a media toolchain is available.',
     );
   }
 
@@ -116,7 +117,7 @@ const registerMainIpcHandlers = (): void => {
   registerCodeWindowHandlers({ getMainWindow: () => mainWindow });
   registerExportHandlers({
     getMainWindow: () => mainWindow,
-    getFfmpegPath,
+    getResolvedFfmpegPath,
   });
   registerLlamaHandlers();
 };
@@ -188,7 +189,7 @@ registerExportProgressWindowHandlers();
 registerMainIpcHandlers();
 
 try {
-  setFfmpegPath(getFfmpegPath());
+  setFfmpegPath(getResolvedFfmpegPath());
 } catch (error) {
   console.error('Failed to set FFmpeg path:', error);
 }

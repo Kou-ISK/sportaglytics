@@ -1,8 +1,7 @@
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import ffmpegPath from 'ffmpeg-static';
-import ffprobeStatic from 'ffprobe-static';
+import { getFfmpegPath, getFfprobePath } from '../mediaTools';
 import type {
   NormalizedAngle,
   PackageAnglePayload,
@@ -64,7 +63,7 @@ const runProcess = async (
   });
 
 export const probeMedia = async (filePath: string): Promise<MediaProbe> => {
-  const result = await runProcess(resolveBinaryPath(ffprobeStatic.path), [
+  const result = await runProcess(resolveBinaryPath(getFfprobePath()), [
     '-v',
     'error',
     '-show_streams',
@@ -157,6 +156,7 @@ const composeLocalClips = async (
   >,
   outputPath: string,
 ): Promise<void> => {
+  const ffmpegPath = getFfmpegPath();
   if (!ffmpegPath) {
     throw new Error('ffmpeg binary not found');
   }

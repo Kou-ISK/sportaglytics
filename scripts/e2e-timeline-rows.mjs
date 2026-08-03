@@ -8,7 +8,8 @@ import { _electron as electron } from 'playwright';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron');
-const ffmpegPath = require('ffmpeg-static');
+const { getFfmpegPath } = require('../electron/src/mediaTools.ts');
+const ffmpegPath = getFfmpegPath();
 const repositoryPath = path.resolve(import.meta.dirname, '..');
 const workPath = await fs.mkdtemp(
   path.join(os.tmpdir(), 'sportaglytics-timeline-rows-e2e-'),
