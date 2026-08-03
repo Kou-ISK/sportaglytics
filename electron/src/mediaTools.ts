@@ -28,7 +28,9 @@ const collectCandidatePaths = (toolName: 'ffmpeg' | 'ffprobe'): string[] => {
     candidates.push(path.join(root, 'bin', executableName));
     candidates.push(path.join(root, 'tools', executableName));
     candidates.push(path.join(root, 'media-tools', executableName));
-    candidates.push(path.join(root, 'resources', 'media-tools', executableName));
+    candidates.push(
+      path.join(root, 'resources', 'media-tools', executableName),
+    );
     candidates.push(path.join(root, 'build', 'media-tools', executableName));
     candidates.push(path.join(root, 'dist', 'media-tools', executableName));
     candidates.push(path.join(root, toolName, executableName));
@@ -37,7 +39,9 @@ const collectCandidatePaths = (toolName: 'ffmpeg' | 'ffprobe'): string[] => {
   return candidates;
 };
 
-export const resolveMediaToolPath = (toolName: 'ffmpeg' | 'ffprobe'): string => {
+export const resolveMediaToolPath = (
+  toolName: 'ffmpeg' | 'ffprobe',
+): string => {
   const envKey = toolNameToEnvKey[toolName];
   const explicitValue = process.env[envKey]?.trim();
   if (explicitValue) {

@@ -8,7 +8,10 @@ import { _electron as electron } from 'playwright';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron');
-const { getFfmpegPath, getFfprobePath } = require('../electron/src/mediaTools.ts');
+const {
+  getFfmpegPath,
+  getFfprobePath,
+} = require('../electron/src/mediaTools.ts');
 const ffmpegPath = getFfmpegPath();
 const ffprobePath = getFfprobePath();
 const repositoryPath = path.resolve(import.meta.dirname, '..');
