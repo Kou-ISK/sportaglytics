@@ -50,6 +50,21 @@ if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 }
 
+const getResolvedFfmpegPath = (): string => {
+  const ffmpegPath = getFfmpegPath();
+  if (!ffmpegPath) {
+    throw new Error(
+      'ffmpeg binary not found. Please ensure a media toolchain is available.',
+    );
+  }
+
+  if (app.isPackaged) {
+    return ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+  }
+
+  return ffmpegPath;
+};
+
 const mainURL = `file:${__dirname}/../../index.html`;
 const preloadPath = path.join(__dirname, 'preload.js');
 
@@ -102,7 +117,7 @@ const registerMainIpcHandlers = (): void => {
   registerCodeWindowHandlers({ getMainWindow: () => mainWindow });
   registerExportHandlers({
     getMainWindow: () => mainWindow,
-    getFfmpegPath,
+    getFfmpegPath: getResolvedFfmpegPath,
   });
   registerLlamaHandlers();
 };
@@ -174,7 +189,7 @@ registerExportProgressWindowHandlers();
 registerMainIpcHandlers();
 
 try {
-  setFfmpegPath(getFfmpegPath());
+  setFfmpegPath(getResolvedFfmpegPath());
 } catch (error) {
   console.error('Failed to set FFmpeg path:', error);
 }

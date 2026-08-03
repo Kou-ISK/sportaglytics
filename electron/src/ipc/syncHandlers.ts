@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
+import { app } from 'electron';
 import { getFfmpegPath } from '../mediaTools';
 import {
   isNonEmptyString,
@@ -20,6 +21,17 @@ import {
 let isRegistered = false;
 const execFileAsync = promisify(execFile);
 
+const getResolvedFfmpegPath = (): string => {
+  const ffmpegPath = getFfmpegPath();
+  if (!ffmpegPath) {
+    throw new Error('ffmpeg binary not found');
+  }
+
+  return app.isPackaged
+    ? ffmpegPath.replace('app.asar', 'app.asar.unpacked')
+    : ffmpegPath;
+};
+
 const createTempWavPath = (): string => {
   const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return path.join(os.tmpdir(), `sportaglytics-sync-${unique}.wav`);
@@ -35,7 +47,7 @@ const extractAudioWavBase64 = async (
 
   try {
     await execFileAsync(
-      getFfmpegPath(),
+      getResolvedFfmpegPath(),
       [
         '-hide_banner',
         '-loglevel',
