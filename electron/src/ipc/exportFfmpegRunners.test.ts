@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runFfmpegSingle } from './exportFfmpegRunners';
 import { runFfmpegProcess } from './exportFfmpegProcess';
+import { H264_ENCODER_ARGS } from '../mediaTools';
 
 vi.mock('./exportFfmpegProcess', () => ({
   concatFfmpegFiles: vi.fn(),
@@ -66,7 +67,7 @@ describe('runFfmpegSingle', () => {
 
     const args = mockedRunFfmpegProcess.mock.calls[0]?.[1] ?? [];
     expect(args).toContain('-filter_complex');
-    expect(args).toContain('h264_videotoolbox');
+    expect(args).toEqual(expect.arrayContaining(H264_ENCODER_ARGS));
     expect(args).not.toContain('copy');
   });
 
@@ -85,7 +86,7 @@ describe('runFfmpegSingle', () => {
 
     const args = mockedRunFfmpegProcess.mock.calls[0]?.[1] ?? [];
     expect(args).toContain('-filter_complex');
-    expect(args).toContain('h264_videotoolbox');
+    expect(args).toEqual(expect.arrayContaining(H264_ENCODER_ARGS));
     expect(args).not.toContain('copy');
   });
 });

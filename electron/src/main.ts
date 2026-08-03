@@ -117,7 +117,7 @@ const registerMainIpcHandlers = (): void => {
   registerCodeWindowHandlers({ getMainWindow: () => mainWindow });
   registerExportHandlers({
     getMainWindow: () => mainWindow,
-    getResolvedFfmpegPath,
+    getFfmpegPath: getResolvedFfmpegPath,
   });
   registerLlamaHandlers();
 };
