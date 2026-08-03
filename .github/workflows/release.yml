@@ -22,10 +22,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22.12.0'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 9.1.0
 
@@ -45,6 +45,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Security audit
+        run: pnpm audit && pnpm audit --prod
+
+      - name: Quality gates
+        run: |
+          pnpm exec tsc --noEmit
+          pnpm exec tsc -p electron/tsconfig.json
+          pnpm run lint
+          pnpm run check:architecture
+          pnpm run test:run
+          pnpm run check:adr
+
       - name: Build React app
         run: pnpm run build
 
@@ -53,6 +65,9 @@ jobs:
 
       - name: Bundle and verify preload
         run: pnpm run bundle:preload && pnpm run check:preload
+
+      - name: Build verified media tools
+        run: pnpm run media:build:all-mac
 
       - name: Package for macOS (x64)
         timeout-minutes: 20
@@ -134,7 +149,7 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.get_version.outputs.VERSION }}
           files: |

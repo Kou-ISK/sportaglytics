@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import * as fs from 'node:fs/promises';
 import * as os from 'os';
 import * as path from 'path';
+import { H264_ENCODER_ARGS } from '../mediaTools';
 
 export interface FfmpegProcessProgressOptions {
   durationSeconds: number;
@@ -33,7 +34,12 @@ export const runFfmpegProcess = (
     const ffmpegArgs = progressOptions
       ? ['-progress', 'pipe:1', '-nostats', ...args]
       : args;
-    const ff = spawn(getFfmpegPath(), ffmpegArgs);
+    const ff = spawn(getFfmpegPath(), ffmpegArgs, {
+      shell: false,
+      windowsHide: true,
+    });
+    const timeout = setTimeout(() => ff.kill('SIGKILL'), 6 * 60 * 60 * 1000);
+    timeout.unref();
     let progressBuffer = '';
     let lastProgress = -1;
     ff.stdout.on('data', (data) => {
@@ -54,8 +60,12 @@ export const runFfmpegProcess = (
     ff.stderr.on('data', (data) => {
       console.log('[ffmpeg]', data.toString());
     });
-    ff.once('error', reject);
+    ff.once('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
     ff.on('close', (code) => {
+      clearTimeout(timeout);
       if (code === 0) {
         if (progressOptions && lastProgress < 1) {
           progressOptions.onProgress(1);
@@ -96,10 +106,7 @@ export const concatFfmpegFiles = async (
         listPath,
         '-fflags',
         '+genpts',
-        '-c:v',
-        'libx264',
-        '-preset',
-        'veryfast',
+        ...H264_ENCODER_ARGS,
         '-c:a',
         'aac',
         outputPath,

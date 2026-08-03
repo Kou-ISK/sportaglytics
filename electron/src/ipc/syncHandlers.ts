@@ -66,7 +66,11 @@ const extractAudioWavBase64 = async (
         String(durationSeconds),
         tempWavPath,
       ],
-      { maxBuffer: 1024 * 1024 },
+      {
+        maxBuffer: 1024 * 1024,
+        timeout: 2 * 60 * 1000,
+        killSignal: 'SIGKILL',
+      },
     );
 
     const content = await fs.readFile(tempWavPath);

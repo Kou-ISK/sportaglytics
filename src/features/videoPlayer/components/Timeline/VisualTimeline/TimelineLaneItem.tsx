@@ -175,6 +175,7 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
             ? `2px solid ${theme.palette.primary.main}`
             : 'none',
           outlineOffset: 2,
+          zIndex: 2,
           transition: 'all 0.2s',
           '&:hover': {
             transform: 'scaleY(1.1)',

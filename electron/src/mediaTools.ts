@@ -1,15 +1,33 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { app } from 'electron';
+
+type MediaToolName = 'ffmpeg' | 'ffprobe';
 
 const toolNameToEnvKey = {
   ffmpeg: 'SPORTAGLYTICS_FFMPEG_PATH',
   ffprobe: 'SPORTAGLYTICS_FFPROBE_PATH',
 } as const;
 
-const getExecutableName = (toolName: 'ffmpeg' | 'ffprobe'): string =>
+const normalizeArch = (arch: NodeJS.Architecture): 'arm64' | 'x64' => {
+  if (arch === 'arm64' || arch === 'x64') return arch;
+  throw new Error(`Unsupported media tool architecture: ${arch}`);
+};
+
+const getExecutableName = (toolName: MediaToolName): string =>
   process.platform === 'win32' ? `${toolName}.exe` : toolName;
 
-const collectCandidatePaths = (toolName: 'ffmpeg' | 'ffprobe'): string[] => {
+const findOnPath = (tool: MediaToolName): string | null => {
+  const executable = getExecutableName(tool);
+  for (const directory of (process.env.PATH ?? '').split(path.delimiter)) {
+    if (!directory) continue;
+    const candidate = path.join(directory, executable);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+};
+
+const collectCandidatePaths = (toolName: MediaToolName): string[] => {
   const executableName = getExecutableName(toolName);
   const roots = [
     process.cwd(),
@@ -39,20 +57,58 @@ const collectCandidatePaths = (toolName: 'ffmpeg' | 'ffprobe'): string[] => {
   return candidates;
 };
 
-export const resolveMediaToolPath = (
-  toolName: 'ffmpeg' | 'ffprobe',
-): string => {
-  const envKey = toolNameToEnvKey[toolName];
-  const explicitValue = process.env[envKey]?.trim();
-  if (explicitValue) {
-    return explicitValue;
+const getDevelopmentToolPath = (tool: MediaToolName): string => {
+  const envKey = toolNameToEnvKey[tool];
+  const environmentPath = process.env[envKey]?.trim();
+  if (environmentPath && fs.existsSync(environmentPath)) {
+    return environmentPath;
   }
 
-  const resolved = collectCandidatePaths(toolName).find((candidate) =>
+  const cachedPath = path.resolve(
+    process.cwd(),
+    '.cache',
+    'media-tools',
+    `${process.platform}-${normalizeArch(process.arch)}`,
+    tool,
+  );
+  if (fs.existsSync(cachedPath)) return cachedPath;
+
+  const resolved = collectCandidatePaths(tool).find((candidate) =>
     fs.existsSync(candidate),
   );
-  return resolved ?? getExecutableName(toolName);
+  if (resolved) return resolved;
+
+  const systemPath = findOnPath(tool);
+  if (systemPath) return systemPath;
+
+  throw new Error(
+    `${tool} が見つかりません。pnpm run media:build を実行してください。`,
+  );
 };
 
-export const getFfmpegPath = (): string => resolveMediaToolPath('ffmpeg');
-export const getFfprobePath = (): string => resolveMediaToolPath('ffprobe');
+export const getMediaToolPath = (tool: MediaToolName): string => {
+  if (!app.isPackaged) return getDevelopmentToolPath(tool);
+
+  const executable = getExecutableName(tool);
+  const packagedPath = path.join(
+    process.resourcesPath,
+    'media-tools',
+    executable,
+  );
+  if (!fs.existsSync(packagedPath)) {
+    throw new Error(`Packaged ${tool} binary not found`);
+  }
+  return packagedPath;
+};
+
+export const getFfmpegPath = (): string => getMediaToolPath('ffmpeg');
+export const getFfprobePath = (): string => getMediaToolPath('ffprobe');
+
+export const H264_ENCODER_ARGS: readonly string[] = [
+  '-c:v',
+  'libx264',
+  '-preset',
+  'fast',
+  '-crf',
+  '20',
+];
