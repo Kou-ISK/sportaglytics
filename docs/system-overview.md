@@ -60,6 +60,8 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - `window.open` を拒否
 - 許可されないナビゲーションを拒否
 
+配布版のFFmpeg/FFprobeは、固定SHA-256で検証したFFmpeg 8.1.2 sourceからmacOSのCPU architectureごとにbuildします。npmのprebuilt binaryへ依存せず、配布版は`Resources/media-tools`以外へfallbackしません。FFprobeは30秒・1 MiB、長時間のFFmpeg処理も有限時間・有限出力で実行し、上限超過時はchild processを終了します（ADR: [0020](adr/0020-verified-media-toolchain-and-process-containment.md)）。
+
 ## Renderer API 方針
 
 - Renderer は `window.electronAPI` のみを利用

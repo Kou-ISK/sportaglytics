@@ -8,7 +8,7 @@ import { _electron as electron } from 'playwright';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron');
-const ffmpegPath = require('ffmpeg-static');
+const { ffmpegPath } = await import('./media-tool-paths.mjs');
 const repositoryPath = path.resolve(import.meta.dirname, '..');
 const workPath = await fs.mkdtemp(
   path.join(os.tmpdir(), 'sportaglytics-timeline-rows-e2e-'),
@@ -25,6 +25,8 @@ const fixturePaths = ['angle-1.mp4', 'angle-2.mp4'].map((name, index) => {
     'lavfi',
     '-i',
     `color=c=${index === 0 ? 'red' : 'blue'}:s=320x180:d=3`,
+    '-c:v',
+    'h264_videotoolbox',
     '-pix_fmt',
     'yuv420p',
     '-y',
@@ -41,6 +43,17 @@ const launch = (args = []) =>
     args: [repositoryPath, `--user-data-dir=${profilePath}`, ...args],
     env: { ...electronEnvironment, NODE_ENV: 'test' },
   });
+
+const waitForTimeline = async (predicate, timeoutMs = 5000) => {
+  const timelinePath = path.join(packagePath, 'timeline.json');
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const document = JSON.parse(await fs.readFile(timelinePath, 'utf8'));
+    if (predicate(document)) return document;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return JSON.parse(await fs.readFile(timelinePath, 'utf8'));
+};
 
 await Promise.all(
   fixturePaths.map(async (fixturePath, index) => {
@@ -121,6 +134,18 @@ try {
     timeout: 30_000,
   });
   await page.locator('#video_0').waitFor({ timeout: 30_000 });
+  await page.waitForFunction(
+    () => {
+      const video = document.querySelector('#video_0_html5_api');
+      return (
+        video instanceof HTMLVideoElement &&
+        Number.isFinite(video.duration) &&
+        video.duration > 0
+      );
+    },
+    undefined,
+    { timeout: 30_000 },
+  );
   console.log('Package loaded');
 
   const assertPlayersVisible = async (width, height) => {
@@ -184,6 +209,7 @@ try {
   await assertPlayersVisible(1200, 760);
   await assertPlayersVisible(820, 520);
   await assertPlayersVisible(640, 420);
+  await assertPlayersVisible(1200, 760);
   console.log('Responsive player checks passed');
 
   const initialColor = await page
@@ -409,37 +435,97 @@ try {
   console.log('Timeline edge modifier checks passed');
 
   const playhead = page.getByTestId('timeline-playhead-Defence');
-  await playhead.evaluate((handle) => {
-    const playheadRect = handle.getBoundingClientRect();
+  await page.keyboard.down('Alt');
+  await page.keyboard.down('Meta');
+  await page.waitForFunction(() => {
+    const handle = document.querySelector(
+      '[data-testid="timeline-playhead-Defence"]',
+    );
+    return (
+      handle instanceof HTMLElement &&
+      getComputedStyle(handle).cursor === 'col-resize'
+    );
+  });
+  const playheadBox = await playhead.boundingBox();
+  const laneBox = await playhead.evaluate((handle) => {
     const lane = handle.parentElement;
     if (!lane) throw new Error('Timeline playhead lane is missing');
-    const laneRect = lane.getBoundingClientRect();
-    handle.dispatchEvent(
-      new MouseEvent('mousedown', {
-        bubbles: true,
-        altKey: true,
-        metaKey: true,
-        clientX: playheadRect.left + 1,
-        clientY: playheadRect.top + 8,
-      }),
-    );
-    document.dispatchEvent(
-      new MouseEvent('mousemove', {
-        bubbles: true,
-        altKey: true,
-        metaKey: true,
-        clientX: laneRect.left + laneRect.width * 0.7,
-        clientY: laneRect.top + 8,
-      }),
-    );
-    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    const rect = lane.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
   });
-  await page.waitForTimeout(500);
-  console.log('Manual instance drag passed');
-
-  const document = JSON.parse(
-    await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
+  assert.ok(playheadBox, 'Timeline playhead must be visible');
+  const hitTarget = await page.evaluate(
+    ({ x, y }) => {
+      const element = document.elementFromPoint(x, y);
+      return {
+        testId: element?.getAttribute('data-testid') ?? '',
+        tagName: element?.tagName ?? '',
+      };
+    },
+    {
+      x: playheadBox.x + playheadBox.width / 2,
+      y: playheadBox.y + playheadBox.height / 2,
+    },
   );
+  assert.equal(
+    hitTarget.testId,
+    'timeline-playhead-Defence',
+    `Timeline playhead must be the active pointer target, received ${JSON.stringify(hitTarget)}`,
+  );
+  const playheadRatio = (playheadBox.x - laneBox.x) / laneBox.width;
+  const viewportWidth = await page.evaluate(() => window.innerWidth);
+  const playheadCenterX = playheadBox.x + playheadBox.width / 2;
+  const visibleLaneMinX = Math.max(laneBox.x + 12, 12);
+  const visibleLaneMaxX = Math.min(
+    laneBox.x + laneBox.width - 12,
+    viewportWidth - 12,
+  );
+  const targetX =
+    playheadCenterX + 120 <= visibleLaneMaxX
+      ? playheadCenterX + 120
+      : Math.max(visibleLaneMinX, playheadCenterX - 120);
+  await page.mouse.move(
+    playheadCenterX,
+    playheadBox.y + playheadBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.getByTestId('timeline-create-preview').waitFor();
+  await page.mouse.move(targetX, laneBox.y + 8, { steps: 4 });
+  await page.evaluate(
+    ({ x, y }) => {
+      document.dispatchEvent(
+        new MouseEvent('mousemove', {
+          bubbles: true,
+          buttons: 1,
+          altKey: true,
+          metaKey: true,
+          clientX: x,
+          clientY: y,
+        }),
+      );
+    },
+    { x: targetX, y: laneBox.y + 8 },
+  );
+  await page.waitForFunction(() => {
+    const preview = document.querySelector(
+      '[data-testid="timeline-create-preview"]',
+    );
+    return preview instanceof HTMLElement && preview.offsetWidth > 2;
+  });
+  const previewBox = await page
+    .getByTestId('timeline-create-preview')
+    .boundingBox();
+  assert.ok(
+    previewBox && previewBox.width > 2,
+    `Timeline preview must span a range (playhead=${playheadRatio}, targetX=${targetX}, width=${previewBox?.width ?? 0})`,
+  );
+  await page.mouse.up();
+  await page.keyboard.up('Meta');
+  await page.keyboard.up('Alt');
+  const document = await waitForTimeline(
+    (timelineDocument) => timelineDocument.instances.length === 4,
+  );
+  console.log('Manual instance drag passed');
   assert.equal(document.version, 2);
   assert.deepEqual(
     document.rows.map((row) => row.name),

@@ -3,8 +3,7 @@ import { execFile } from 'node:child_process';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { app } from 'electron';
-import ffmpegPath from 'ffmpeg-static';
+import { getFfmpegPath } from '../mediaTools';
 import {
   isNonEmptyString,
   isPlainObject,
@@ -20,16 +19,6 @@ import {
 
 let isRegistered = false;
 const execFileAsync = promisify(execFile);
-
-const getFfmpegPath = (): string => {
-  if (!ffmpegPath) {
-    throw new Error('ffmpeg binary not found');
-  }
-
-  return app.isPackaged
-    ? ffmpegPath.replace('app.asar', 'app.asar.unpacked')
-    : ffmpegPath;
-};
 
 const createTempWavPath = (): string => {
   const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -65,7 +54,11 @@ const extractAudioWavBase64 = async (
         String(durationSeconds),
         tempWavPath,
       ],
-      { maxBuffer: 1024 * 1024 },
+      {
+        maxBuffer: 1024 * 1024,
+        timeout: 2 * 60 * 1000,
+        killSignal: 'SIGKILL',
+      },
     );
 
     const content = await fs.readFile(tempWavPath);

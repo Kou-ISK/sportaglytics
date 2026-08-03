@@ -1,14 +1,17 @@
-import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import ffmpegPath from 'ffmpeg-static';
-import ffprobeStatic from 'ffprobe-static';
+import {
+  getFfmpegPath,
+  getFfprobePath,
+  H264_ENCODER_ARGS,
+} from '../mediaTools';
 import type {
   NormalizedAngle,
   PackageAnglePayload,
   PackageClipPayload,
 } from './packageTypes';
 import { deriveTimelineGaps } from '../../../src/types/package/clipTimeline';
+import { runMediaProcess } from './mediaProcessRunner';
 
 interface MediaProbe {
   durationSeconds: number;
@@ -32,47 +35,12 @@ const isProbeOutput = (value: unknown): value is ProbeOutput => {
   return record.streams === undefined || Array.isArray(record.streams);
 };
 
-const resolveBinaryPath = (binaryPath: string): string =>
-  process.env.NODE_ENV === 'production'
-    ? binaryPath.replace('app.asar', 'app.asar.unpacked')
-    : binaryPath;
-
-const runProcess = async (
-  executable: string,
-  args: string[],
-): Promise<{ stdout: string; stderr: string }> =>
-  await new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { windowsHide: true });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
-    child.once('error', reject);
-    child.once('close', (code) => {
-      if (code === 0) {
-        resolve({ stdout, stderr });
-        return;
-      }
-      reject(
-        new Error(`Media process failed (${code ?? 'unknown'}): ${stderr}`),
-      );
-    });
-  });
-
 export const probeMedia = async (filePath: string): Promise<MediaProbe> => {
-  const result = await runProcess(resolveBinaryPath(ffprobeStatic.path), [
-    '-v',
-    'error',
-    '-show_streams',
-    '-show_format',
-    '-of',
-    'json',
-    filePath,
-  ]);
+  const result = await runMediaProcess(
+    getFfprobePath(),
+    ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', filePath],
+    { timeoutMs: 30_000, maxOutputBytes: 1024 * 1024 },
+  );
   const parsed: unknown = JSON.parse(result.stdout);
   if (!isProbeOutput(parsed)) {
     throw new Error(
@@ -157,9 +125,6 @@ const composeLocalClips = async (
   >,
   outputPath: string,
 ): Promise<void> => {
-  if (!ffmpegPath) {
-    throw new Error('ffmpeg binary not found');
-  }
   const probes = await Promise.all(
     clips.map((clip) => probeMedia(clip.copiedPath)),
   );
@@ -193,27 +158,26 @@ const composeLocalClips = async (
   filters.push(`${concatInputs}concat=n=${clips.length}:v=1:a=1[outv][outa]`);
 
   const inputArgs = clips.flatMap((clip) => ['-i', clip.copiedPath]);
-  await runProcess(resolveBinaryPath(ffmpegPath), [
-    '-y',
-    ...inputArgs,
-    '-filter_complex',
-    filters.join(';'),
-    '-map',
-    '[outv]',
-    '-map',
-    '[outa]',
-    '-c:v',
-    'libx264',
-    '-preset',
-    'fast',
-    '-crf',
-    '20',
-    '-c:a',
-    'aac',
-    '-movflags',
-    '+faststart',
-    outputPath,
-  ]);
+  await runMediaProcess(
+    getFfmpegPath(),
+    [
+      '-y',
+      ...inputArgs,
+      '-filter_complex',
+      filters.join(';'),
+      '-map',
+      '[outv]',
+      '-map',
+      '[outa]',
+      ...H264_ENCODER_ARGS,
+      '-c:a',
+      'aac',
+      '-movflags',
+      '+faststart',
+      outputPath,
+    ],
+    { timeoutMs: 6 * 60 * 60 * 1000, maxOutputBytes: 4 * 1024 * 1024 },
+  );
 };
 
 export const recomposeLocalTimeline = async (

@@ -6,7 +6,7 @@ import {
   type IpcMainEvent,
 } from 'electron';
 import * as path from 'path';
-import ffmpegPath from 'ffmpeg-static';
+import { getFfmpegPath } from './mediaTools';
 import { registerShortcuts } from './shortCutKey';
 import { refreshAppMenu, setRecentPackagePaths } from './menuBar';
 import { registerSettingsHandlers, loadSettings } from './settingsManager';
@@ -49,20 +49,6 @@ import { registerLoopbackAudioCapture } from './loopbackAudioCapture';
 if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 }
-
-const getFfmpegPath = (): string => {
-  if (!ffmpegPath) {
-    throw new Error(
-      'ffmpeg binary not found. Please ensure ffmpeg-static is properly installed.',
-    );
-  }
-
-  if (app.isPackaged) {
-    return ffmpegPath.replace('app.asar', 'app.asar.unpacked');
-  }
-
-  return ffmpegPath;
-};
 
 const mainURL = `file:${__dirname}/../../index.html`;
 const preloadPath = path.join(__dirname, 'preload.js');

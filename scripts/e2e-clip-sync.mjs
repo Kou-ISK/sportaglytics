@@ -8,8 +8,7 @@ import { _electron as electron } from 'playwright';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron');
-const ffmpegPath = require('ffmpeg-static');
-const ffprobePath = require('ffprobe-static').path;
+const { ffmpegPath, ffprobePath } = await import('./media-tool-paths.mjs');
 const repositoryPath = path.resolve(import.meta.dirname, '..');
 const workPath = await fs.mkdtemp(path.join(os.tmpdir(), 'sportaglytics-e2e-'));
 const profilePath = path.join(workPath, 'profile');
@@ -24,6 +23,8 @@ const fixturePaths = ['a.mp4', 'b.mp4', 'c.mp4'].map((name, index) => {
     'lavfi',
     '-i',
     `color=c=${['red', 'blue', 'green'][index]}:s=160x90:d=0.5`,
+    '-c:v',
+    'h264_videotoolbox',
     '-pix_fmt',
     'yuv420p',
     '-y',

@@ -5,7 +5,7 @@
   "private": true,
   "packageManager": "pnpm@9.1.0",
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=22.12.0",
     "pnpm": ">=9.0.0"
   },
   "dependencies": {
@@ -16,8 +16,6 @@
     "@emotion/styled": "^11.13.0",
     "@mui/icons-material": "^7.3.7",
     "@mui/material": "^7.3.7",
-    "ffmpeg-static": "^5.2.0",
-    "ffprobe-static": "3.1.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "recharts": "^3.6.0",
@@ -39,10 +37,14 @@
     "build": "vite build",
     "test": "vitest",
     "test:run": "vitest --run",
-    "test:e2e:clip-sync": "node scripts/e2e-clip-sync.mjs",
-    "test:e2e:code-window-menu": "node scripts/e2e-code-window-menu.mjs",
-    "test:e2e:export-progress": "node scripts/e2e-export-progress.mjs",
-    "test:e2e:timeline-rows": "node scripts/e2e-timeline-rows.mjs",
+    "e2e:prepare": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload",
+    "test:e2e": "pnpm run e2e:prepare && node scripts/e2e-clip-sync.mjs && node scripts/e2e-code-window-menu.mjs && node scripts/e2e-export-progress.mjs && node scripts/e2e-timeline-rows.mjs",
+    "test:e2e:clip-sync": "pnpm run e2e:prepare && node scripts/e2e-clip-sync.mjs",
+    "test:e2e:code-window-menu": "pnpm run e2e:prepare && node scripts/e2e-code-window-menu.mjs",
+    "test:e2e:export-progress": "pnpm run e2e:prepare && node scripts/e2e-export-progress.mjs",
+    "test:e2e:timeline-rows": "pnpm run e2e:prepare && node scripts/e2e-timeline-rows.mjs",
+    "media:build": "node scripts/build-media-tools.mjs",
+    "media:build:all-mac": "node scripts/build-media-tools.mjs --all-mac",
     "typecheck": "tsc --noEmit",
     "typecheck:electron": "tsc -p electron/tsconfig.json",
     "build:electron-main": "tsc -p electron/tsconfig.build.json",
@@ -55,7 +57,7 @@
     "preview": "vite preview",
     "electron:start": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && env -u ELECTRON_RUN_AS_NODE electron .",
     "electron:build": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && electron-builder",
-    "electron:package:mac": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && electron-builder --mac --x64 --arm64",
+    "electron:package:mac": "pnpm run media:build:all-mac && pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && electron-builder --mac --x64 --arm64",
     "electron:dev": "concurrently \"pnpm start\" \"wait-on http://localhost:3000 && pnpm run electron:start\""
   },
   "browserslist": {
@@ -72,7 +74,6 @@
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.1",
-    "@types/ffprobe-static": "2.0.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.9",
     "@types/react": "^19.2.8",
@@ -81,31 +82,35 @@
     "@typescript-eslint/parser": "^8.53.0",
     "@vitejs/plugin-react": "^5.1.2",
     "concurrently": "^9.2.1",
-    "electron": "^40.10.0",
-    "electron-builder": "^26.8.1",
-    "electron-builder-squirrel-windows": "26.8.1",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "electron-builder-squirrel-windows": "26.15.3",
     "eslint": "^9.39.2",
     "jsdom": "^27.4.0",
     "playwright": "1.61.1",
     "prettier": "^3.8.0",
     "typescript": "^5.4.5",
-    "vite": "^7.3.3",
-    "vitest": "^4.0.17",
-    "wait-on": "^9.0.10"
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10",
+    "wait-on": "^9.1.0"
   },
   "repository": "https://github.com/Kou-ISK/sportaglytics.git",
   "license": "MIT",
   "pnpm": {
     "overrides": {
-      "ajv@6.12.6": "6.15.0",
-      "brace-expansion@1.1.12": "1.1.14",
-      "brace-expansion@2.0.2": "2.1.0",
-      "flatted@3.3.3": "3.4.2",
-      "min-document": "2.19.2",
-      "minimatch@3.1.2": "3.1.5",
-      "minimatch@9.0.5": "9.0.9",
-      "picomatch@4.0.3": "4.0.4",
-      "yaml@1.10.2": "1.10.3"
+      "@babel/core": "7.29.6",
+      "brace-expansion@1": "1.1.17",
+      "brace-expansion@2": "2.1.3",
+      "brace-expansion@5": "5.0.8",
+      "esbuild": "0.28.1",
+      "form-data": "4.0.6",
+      "js-yaml": "4.3.0",
+      "postcss": "8.5.18",
+      "shell-quote": "1.9.0",
+      "tar": "7.5.21",
+      "tmp": "0.2.7",
+      "undici": "6.27.0",
+      "ws": "8.21.0"
     }
   }
 }

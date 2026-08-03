@@ -1,9 +1,9 @@
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import * as path from 'path';
-import { spawn } from 'child_process';
 import type { Playlist } from '../../../src/types/playlist/core';
 import { PLAYLIST_WINDOW_CHANNELS } from '../../../src/types/ipc/playlistWindow';
+import { runMediaProcess } from '../ipc/mediaProcessRunner';
 
 const extractVideoSegment = async (
   ffmpegPath: string,
@@ -29,26 +29,9 @@ const extractVideoSegment = async (
     destPath,
   ];
 
-  return new Promise((resolve, reject) => {
-    const process = spawn(ffmpegPath, args);
-
-    let stderrData = '';
-    process.stderr.on('data', (data) => {
-      stderrData += data.toString();
-    });
-
-    process.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        console.error('[FFmpeg] Error output:', stderrData);
-        reject(new Error(`FFmpeg exited with code ${code}`));
-      }
-    });
-
-    process.on('error', (err) => {
-      reject(err);
-    });
+  await runMediaProcess(ffmpegPath, args, {
+    timeoutMs: 6 * 60 * 60 * 1000,
+    maxOutputBytes: 4 * 1024 * 1024,
   });
 };
 
@@ -193,11 +176,15 @@ const resolvePackageVideoPath = (
   return existsSync(resolved) ? resolved : undefined;
 };
 
-export const loadPlaylistFromPath = async (targetPath: string): Promise<Playlist> => {
+export const loadPlaylistFromPath = async (
+  targetPath: string,
+): Promise<Playlist> => {
   const playlistJsonPath = path.join(targetPath, 'playlist.json');
 
   if (!existsSync(playlistJsonPath)) {
-    throw new Error(`プレイリストファイルが見つかりません: ${playlistJsonPath}`);
+    throw new Error(
+      `プレイリストファイルが見つかりません: ${playlistJsonPath}`,
+    );
   }
 
   const content = await fs.readFile(playlistJsonPath, 'utf-8');
@@ -211,7 +198,12 @@ export const loadPlaylistFromPath = async (targetPath: string): Promise<Playlist
     );
   }
 
-  if (!playlist.id || !playlist.name || !playlist.type || !Array.isArray(playlist.items)) {
+  if (
+    !playlist.id ||
+    !playlist.name ||
+    !playlist.type ||
+    !Array.isArray(playlist.items)
+  ) {
     throw new Error(
       'プレイリストファイルの形式が不正です。必須フィールドが欠落しています。',
     );

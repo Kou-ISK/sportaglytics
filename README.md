@@ -62,7 +62,7 @@ brew install --cask sportaglytics
 ## 技術スタック
 
 - **フロントエンド**: React 19.2 + TypeScript 5.4
-- **デスクトップ**: Electron 40
+- **デスクトップ**: Electron 43
 - **UI**: Material-UI 7
 - **映像**: Video.js 8
 - **パッケージ管理**: pnpm 9
@@ -71,7 +71,7 @@ brew install --cask sportaglytics
 
 ### 必要な環境
 
-- Node.js 18.0.0+
+- Node.js 22.12.0+
 - pnpm 9.0.0+
 
 ### セットアップ

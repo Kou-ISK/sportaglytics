@@ -66,7 +66,7 @@ describe('runFfmpegSingle', () => {
 
     const args = mockedRunFfmpegProcess.mock.calls[0]?.[1] ?? [];
     expect(args).toContain('-filter_complex');
-    expect(args).toContain('libx264');
+    expect(args).toContain('h264_videotoolbox');
     expect(args).not.toContain('copy');
   });
 
@@ -85,7 +85,7 @@ describe('runFfmpegSingle', () => {
 
     const args = mockedRunFfmpegProcess.mock.calls[0]?.[1] ?? [];
     expect(args).toContain('-filter_complex');
-    expect(args).toContain('libx264');
+    expect(args).toContain('h264_videotoolbox');
     expect(args).not.toContain('copy');
   });
 });

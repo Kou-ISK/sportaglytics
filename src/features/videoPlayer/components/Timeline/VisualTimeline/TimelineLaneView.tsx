@@ -180,6 +180,21 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
         )}
 
         <Box
+          aria-hidden="true"
+          sx={{
+            position: 'absolute',
+            left: `${currentTimePosition}px`,
+            top: 0,
+            bottom: 0,
+            width: 2,
+            transform: 'translateX(-1px)',
+            backgroundColor: 'error.main',
+            pointerEvents: 'none',
+            zIndex: 10,
+          }}
+        />
+
+        <Box
           onMouseDown={onPlayheadMouseDown}
           data-testid={`timeline-playhead-${actionName}`}
           sx={{
@@ -187,17 +202,15 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
             left: `${currentTimePosition}px`,
             top: 0,
             bottom: 0,
-            width: 2,
-            backgroundColor: 'error.main',
-            zIndex: 10,
+            width: 12,
+            transform: 'translateX(-6px)',
+            backgroundColor: 'transparent',
+            zIndex: isEditModifierPressed || isDraggingPlayhead ? 11 : 1,
             cursor: isEditModifierPressed
               ? 'col-resize'
               : isDraggingPlayhead
                 ? 'grabbing'
                 : 'grab',
-            '&:hover': {
-              width: 4,
-            },
           }}
         />
       </Box>
