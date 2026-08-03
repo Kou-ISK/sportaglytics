@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { app } from 'electron';
-import ffmpegPath from 'ffmpeg-static';
+import { getFfmpegPath } from '../mediaTools';
 import {
   isNonEmptyString,
   isPlainObject,
@@ -21,7 +21,8 @@ import {
 let isRegistered = false;
 const execFileAsync = promisify(execFile);
 
-const getFfmpegPath = (): string => {
+const getResolvedFfmpegPath = (): string => {
+  const ffmpegPath = getFfmpegPath();
   if (!ffmpegPath) {
     throw new Error('ffmpeg binary not found');
   }
@@ -46,7 +47,7 @@ const extractAudioWavBase64 = async (
 
   try {
     await execFileAsync(
-      getFfmpegPath(),
+      getResolvedFfmpegPath(),
       [
         '-hide_banner',
         '-loglevel',
@@ -65,7 +66,11 @@ const extractAudioWavBase64 = async (
         String(durationSeconds),
         tempWavPath,
       ],
-      { maxBuffer: 1024 * 1024 },
+      {
+        maxBuffer: 1024 * 1024,
+        timeout: 2 * 60 * 1000,
+        killSignal: 'SIGKILL',
+      },
     );
 
     const content = await fs.readFile(tempWavPath);
