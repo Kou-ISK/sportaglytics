@@ -4,6 +4,7 @@ import {
   runFfmpegProcess,
   type FfmpegProcessProgressOptions,
 } from './exportFfmpegProcess';
+import { H264_ENCODER_ARGS } from '../mediaTools';
 
 export interface ExportClipForFfmpeg {
   startTime: number;
@@ -200,10 +201,7 @@ export const runFfmpegSingle = ({
     }
 
     args.push(
-      '-c:v',
-      'libx264',
-      '-preset',
-      'veryfast',
+      ...H264_ENCODER_ARGS,
       '-c:a',
       'aac',
       '-map',
@@ -352,10 +350,7 @@ export const runFfmpegDual = ({
       '[vout]',
       '-map',
       audioMap,
-      '-c:v',
-      'libx264',
-      '-preset',
-      'veryfast',
+      ...H264_ENCODER_ARGS,
       '-c:a',
       'aac',
       outputPath,

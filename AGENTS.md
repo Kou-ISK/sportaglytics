@@ -43,7 +43,7 @@
 
 - React 19（関数コンポーネントのみ）
 - TypeScript 5.4（`strict: true`）
-- Electron 40
+- Electron 43
 - Material UI 7
 - Video.js 8
 - pnpm 9

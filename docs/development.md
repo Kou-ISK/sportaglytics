@@ -21,7 +21,7 @@
 
 | ツール  | バージョン |
 | ------- | ---------- |
-| Node.js | 18.x 以上  |
+| Node.js | 22.12 以上 |
 | pnpm    | 9.1.0 以上 |
 | Git     | 最新版     |
 
@@ -117,16 +117,15 @@ SporTagLytics/
 
 ### 映像処理
 
-| 技術            | バージョン | 用途                     |
-| --------------- | ---------- | ------------------------ |
-| Video.js        | 8.23.4     | 映像プレイヤー           |
-| ffmpeg-static   | 5.2.0      | クリップ書き出し（同梱） |
-| ffprobe-static  | 3.1.0      | パッケージ映像の構成確認 |
-| videojs-youtube | 3.0.1      | YouTube 再生 tech        |
-| Web Audio API   | -          | 音声同期分析             |
+| 技術            | バージョン | 用途                                          |
+| --------------- | ---------- | --------------------------------------------- |
+| Video.js        | 8.23.4     | 映像プレイヤー                                |
+| FFmpeg/FFprobe  | 8.1.2      | probe・同期・書き出し（source buildして同梱） |
+| videojs-youtube | 3.0.1      | YouTube 再生 tech                             |
+| Web Audio API   | -          | 音声同期分析                                  |
 
 複数クリップのパッケージ作成は main process の FFmpeg/FFprobe 境界で行います。Renderer からプロセスを起動せず、`package:create` の型付き IPC と payload guard を通してください。
-配布ビルドでは両バイナリを `electron-builder.json` の `files` と `asarUnpack` に含めます。
+配布ビルドでは、固定SHA-256を検証したFFmpeg 8.1.2 sourceから`x64` / `arm64`を別々にbuildし、対象architectureの両バイナリを`Resources/media-tools`へ含めます。
 複数ファイル選択は `files:open-video-files` / `openVideoFiles()` の専用 IPC・preload API を利用します。汎用 dialog API を Renderer へ公開せず、選択順の反映と16クリップ上限の適用は `useWizardSelection` に閉じ込めます。
 パッケージ作成は基本情報・映像の2ステップで構成し、保存先は最終作成操作で `selectPackageDirectory()` を呼び出します。Finderドロップは `resolveDroppedVideoFilePath(file)` から `webUtils.getPathForFile` を使い、Rendererから廃止済みの `File.path` を参照しません。同期位置は作成画面から除外し、`applyClipTimeline(configPath, placements)` はconfig内の絶対配置と派生gapだけを原子的に保存します。再生時は元クリップを仮想タイムラインで切り替え、書き出しで連続入力が必要な場合だけ `exportVirtualTimelineSource.ts` がOS一時領域へ合成します。
 
@@ -138,10 +137,14 @@ YouTube音声アシストはmacOS 13以降のloopback captureを使用します�
 
 YouTube 再生では、配布版の `file://` Renderer に通常の Referer がないことを前提に、`src/types/video/youtubeEmbed.ts` のアプリ識別 URL を Video.js の `widget_referrer` と Electron Session の YouTube `/embed/` Referer に使用します。IFrame API の制御通信を壊すため、実際の親画面と一致しない HTTPS `origin` parameter は指定しません。Error 153 対策として証明書検証や `webSecurity` を無効化してはいけません。
 
-**ffmpeg-static**:
+**FFmpeg / FFprobe toolchain**:
 
-- FFmpegバイナリを静的に同梱し、プラットフォーム固有のビルドを自動選択
+- `pnpm run media:build`で開発マシン向け、`pnpm run media:build:all-mac`で配布用の両architectureをbuild
+- source archiveはversionとSHA-256を固定し、checksum不一致時はbuildを停止
+- 文字overlay用のFreeType 2.14.3 / HarfBuzz 14.3.0も固定hashから静的buildし、license noticeを配布物へ含める
+- 開発時だけ`SPORTAGLYTICS_FFMPEG_PATH` / `SPORTAGLYTICS_FFPROBE_PATH`またはPATH上のbinaryを利用可能。配布版は同梱binaryだけを利用
 - クリップ書き出し機能（単一/複数アングル、オーバーレイ付き）で使用
+- probeは30秒・1 MiB、合成は有限時間・有限出力のprocess guardを適用
 - `-progress pipe:1` の `out_time` を工程durationで正規化し、IPC経由で専用の書き出し進捗ウィンドウへ通知する
 - 進捗ウィンドウは非モーダルとし、初回表示・更新のどちらでもメインウィンドウからフォーカスを奪わない
 
@@ -149,8 +152,8 @@ YouTube 再生では、配布版の `file://` Renderer に通常の Referer が�
 
 | 技術             | バージョン | 用途                 |
 | ---------------- | ---------- | -------------------- |
-| Electron         | 40.0.0     | デスクトップアプリ化 |
-| electron-builder | 26.4.0     | アプリパッケージング |
+| Electron         | 43.x       | デスクトップアプリ化 |
+| electron-builder | 26.15.x    | アプリパッケージング |
 
 ### 開発ツール
 
@@ -450,7 +453,7 @@ Main IPC handlers (domain modules)
 - コードウィンドウ新規作成は `menu-create-code-window-file` / `onCreateCodeWindowFile()` の専用イベントで runtime controller へ渡す。controllerは空の layout を `.stcw` として保存した後、設定画面を経由せず独立 coding panel window で開く
 - コード／ラベル／編集モードは独立コードウィンドウ内のtyped commandで切り替える。アプリ全体のmenu stateとして公開しない
 - コードボタンの実行・編集表示は `CodeWindowButtonSurface` を共有し、View propsだけで描画する。編集モードやBrowserWindow resizeを保存キャンバス寸法へ暗黙反映しない
-- メニュー、コードウィンドウ、設定、ヘルプを変更した場合はbuild後に `pnpm run test:e2e:code-window-menu` を実行し、検索と狭幅layoutを含むsub-window動線を確認する
+- メニュー、コードウィンドウ、設定、ヘルプを変更した場合は `pnpm run test:e2e:code-window-menu` を実行し、検索と狭幅layoutを含むsub-window動線を確認する。コマンドは必要なbuildとpreload検査を先に自動実行する
 - menu barのドキュメント操作は「ファイル > 新規 / 開く」へ集約する。`menu-create-video-package` / `onCreateVideoPackage()` は `menuEventGateway` から動画プレイヤーcontrollerへ渡し、映像表示中でも作成ウィザードへ遷移できるようにする。コードウィンドウの作成・選択を「コーディング」または「ウィンドウ」へ重複配置しない（ADR: [0018](adr/0018-document-oriented-menu-structure.md)）
 - preload の `on/off` ペアは typed listener store を介して wrapper を管理し、`as unknown as Function` に依存しない
 - menu 系 listener も cleanup 関数を返す typed 登録 API に統一し、`removeAllListeners` を使った singleton listener 上書きは行わない

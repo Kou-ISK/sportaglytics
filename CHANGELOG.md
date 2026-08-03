@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Electronをサポート中の43.2へ更新し、production / development dependencyの既知脆弱性を解消
+- FFmpeg/FFprobeの古いnpm binaryを廃止し、固定SHA-256で検証したFFmpeg 8.1.2 sourceからCPU architecture別にbuildする方式へ変更
+- 映像probeに30秒・1 MiB、合成processに有限時間・有限出力の上限を追加
+
+### Fixed
+
+- タイムラインの再生ヘッドを見た目の太さを変えずに掴みやすくし、インスタンス操作と重なる場合はインスタンスを優先するよう修正
+
 ## [0.8.1] - 2026-08-02
 
 ### Changed
