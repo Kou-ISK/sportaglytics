@@ -49,17 +49,17 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   const primaryClips = mediaAngles[0]?.clips ?? [];
   const useTimelineClock =
     syncMode === 'auto' && usesVirtualClipTimeline(primaryClips);
-
-  usePrimaryTimelineClock({
-    enabled: useTimelineClock,
-    isVideoPlaying,
-    videoPlayBackRate,
-    currentTime,
-    clips: primaryClips,
-    setCurrentTime,
-    setIsVideoPlaying,
-    setMaxSec,
-  });
+  const { onPrimaryPlaybackTimeChange, onPrimaryPlaybackEnded } =
+    usePrimaryTimelineClock({
+      enabled: useTimelineClock,
+      isVideoPlaying,
+      videoPlayBackRate,
+      currentTime,
+      clips: primaryClips,
+      setCurrentTime,
+      setIsVideoPlaying,
+      setMaxSec,
+    });
 
   return (
     <Box
@@ -99,6 +99,12 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
           setMediaAngles={setMediaAngles}
           forceUpdateKey={playerForceUpdateKey}
           viewMode={viewMode}
+          onPrimaryPlaybackTimeChange={
+            useTimelineClock ? onPrimaryPlaybackTimeChange : undefined
+          }
+          onPrimaryPlaybackEnded={
+            useTimelineClock ? onPrimaryPlaybackEnded : undefined
+          }
         />
       </Box>
 
