@@ -5,20 +5,15 @@ import {
   applySecondarySyncOffset,
   type VideoSyncData,
 } from '../../../../../types/video/sync';
-import {
-  saveSyncData,
-  setManualSyncModeChecked,
-} from '../../gateways/syncGateway';
+import { setManualSyncModeChecked } from '../../gateways/syncGateway';
 import { getManualSyncTimes } from './syncPlayerAdapter';
 import { usesClipPlacementSync } from './syncModeGuards';
 
 interface UseManualSyncActionsParams {
   mediaAngles: PackageMediaAngle[];
   syncData: VideoSyncData | undefined;
-  setSyncData: Dispatch<SetStateAction<VideoSyncData | undefined>>;
-  metaDataConfigFilePath: string;
   setSyncMode: Dispatch<SetStateAction<'auto' | 'manual'>>;
-  forceUpdateVideoPlayers: (newSyncData: VideoSyncData) => Promise<void>;
+  commitSyncData: (newSyncData: VideoSyncData) => Promise<void>;
   onSyncInfo?: (message: string) => void;
   onSyncWarning?: (message: string) => void;
 }
@@ -36,10 +31,8 @@ const closeManualMode = async (): Promise<void> => {
 export const useManualSyncActions = ({
   mediaAngles,
   syncData,
-  setSyncData,
-  metaDataConfigFilePath,
   setSyncMode,
-  forceUpdateVideoPlayers,
+  commitSyncData,
   onSyncInfo,
   onSyncWarning,
 }: UseManualSyncActionsParams): UseManualSyncActionsResult => {
@@ -85,15 +78,12 @@ export const useManualSyncActions = ({
       syncData,
       offsetSeconds,
     );
-    setSyncData(adjustedSyncData);
     notifyInfo(`同期オフセットを調整しました: ${offsetSeconds} 秒`);
-
-    await forceUpdateVideoPlayers(adjustedSyncData);
+    await commitSyncData(adjustedSyncData);
   }, [
     canUseAngleLevelSync,
-    forceUpdateVideoPlayers,
+    commitSyncData,
     notifyInfo,
-    setSyncData,
     syncData,
   ]);
 
@@ -110,14 +100,8 @@ export const useManualSyncActions = ({
         confidenceScore: undefined,
       };
 
-      setSyncData(newSyncData);
       notifyInfo(`手動同期を適用しました (差分: ${newOffset.toFixed(3)} 秒)`);
-
-      if (metaDataConfigFilePath) {
-        await saveSyncData(metaDataConfigFilePath, newSyncData);
-      }
-
-      await forceUpdateVideoPlayers(newSyncData);
+      await commitSyncData(newSyncData);
       setSyncMode('auto');
       await closeManualMode();
     } catch (error) {
@@ -125,10 +109,8 @@ export const useManualSyncActions = ({
     }
   }, [
     canUseAngleLevelSync,
-    forceUpdateVideoPlayers,
-    metaDataConfigFilePath,
+    commitSyncData,
     notifyInfo,
-    setSyncData,
     setSyncMode,
     syncData,
   ]);
