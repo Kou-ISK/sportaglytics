@@ -12,6 +12,7 @@ interface UseSyncActionsParams {
   mediaAngles: PackageMediaAngle[];
   syncData: VideoSyncData | undefined;
   setSyncData: Dispatch<SetStateAction<VideoSyncData | undefined>>;
+  isVideoPlaying: boolean;
   setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
   metaDataConfigFilePath: string;
   setSyncMode: Dispatch<SetStateAction<'auto' | 'manual'>>;
@@ -37,6 +38,7 @@ export const useSyncActions = ({
   mediaAngles,
   syncData,
   setSyncData,
+  isVideoPlaying,
   setIsVideoPlaying,
   metaDataConfigFilePath,
   setSyncMode,
@@ -48,6 +50,7 @@ export const useSyncActions = ({
     useSyncPlayerUpdater({
       videoList,
       mediaAngles,
+      isVideoPlaying,
       setIsVideoPlaying,
     });
 
