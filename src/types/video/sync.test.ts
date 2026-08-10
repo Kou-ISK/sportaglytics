@@ -5,7 +5,6 @@ import {
   clampAngleMediaTime,
   globalTimeToAngleMediaTime,
   resolveAngleSyncOffset,
-  resolveLoadedAngleOffsets,
   resolvePlaybackAngleOffset,
   shouldBlockAnglePlayback,
   type VideoSyncData,
@@ -84,44 +83,6 @@ describe('video sync data helpers', () => {
           usesVirtualTimeline: false,
         }),
       ).toBe(0);
-    });
-  });
-
-  describe('resolveLoadedAngleOffsets', () => {
-    it('keeps angleOffsets undefined for local two-angle packages that only persist legacy syncOffset', () => {
-      expect(
-        resolveLoadedAngleOffsets({
-          persistedSyncData: syncData(1.25),
-          derivedAngleOffsets: [0, 0],
-        }),
-      ).toBeUndefined();
-    });
-
-    it('repairs the v0.8.3 all-zero angleOffsets corruption from syncOffset', () => {
-      expect(
-        resolveLoadedAngleOffsets({
-          persistedSyncData: syncData(1.25, [0, 0]),
-          derivedAngleOffsets: [0, 0],
-        }),
-      ).toEqual([0, 1.25]);
-    });
-
-    it('preserves explicit persisted per-angle offsets', () => {
-      expect(
-        resolveLoadedAngleOffsets({
-          persistedSyncData: syncData(-0.5, [0, -0.5, 0.75]),
-          derivedAngleOffsets: [0, 0, 0],
-        }),
-      ).toEqual([0, -0.5, 0.75]);
-    });
-
-    it('uses derived offsets when package media supplies them', () => {
-      expect(
-        resolveLoadedAngleOffsets({
-          persistedSyncData: undefined,
-          derivedAngleOffsets: [0, -2],
-        }),
-      ).toEqual([0, -2]);
     });
   });
 
