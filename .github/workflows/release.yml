@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       version:
@@ -15,10 +13,6 @@ on:
 
 jobs:
   release:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.ref_type == 'tag' ||
-      (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-0.8.3]'))
     runs-on: macos-latest
 
     steps:
