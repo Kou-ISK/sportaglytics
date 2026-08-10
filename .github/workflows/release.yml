@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version:
@@ -13,6 +15,10 @@ on:
 
 jobs:
   release:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.ref_type == 'tag' ||
+      (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-0.8.3]'))
     runs-on: macos-latest
 
     steps:
@@ -153,6 +159,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.get_version.outputs.VERSION }}
+          target_commitish: ${{ github.sha }}
           files: |
             ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.dmg
             ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.dmg
