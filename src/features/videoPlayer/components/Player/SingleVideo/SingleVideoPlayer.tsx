@@ -17,6 +17,8 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
   blockPlay = false,
   allowSeek = true,
   onAspectRatioChange,
+  onPlaybackTimeChange,
+  onPlaybackEnded,
   initialTimeSeconds = 0,
 }) => {
   const { containerRef, videoRef, playerRef, isReady, durationSec } =
@@ -37,6 +39,34 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
     if (!isReady || !player || initialTimeRef.current <= 0) return;
     player.currentTime(initialTimeRef.current);
   }, [isReady, playerRef]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!isReady || !player || (!onPlaybackTimeChange && !onPlaybackEnded)) {
+      return;
+    }
+
+    const handleTimeUpdate = () => {
+      const time = player.currentTime?.();
+      if (typeof time === 'number' && Number.isFinite(time) && time >= 0) {
+        onPlaybackTimeChange?.(time);
+      }
+    };
+    const handleEnded = () => {
+      const time = player.currentTime?.();
+      if (typeof time === 'number' && Number.isFinite(time) && time >= 0) {
+        onPlaybackTimeChange?.(time);
+      }
+      onPlaybackEnded?.();
+    };
+
+    player.on?.('timeupdate', handleTimeUpdate);
+    player.on?.('ended', handleEnded);
+    return () => {
+      player.off?.('timeupdate', handleTimeUpdate);
+      player.off?.('ended', handleEnded);
+    };
+  }, [isReady, onPlaybackEnded, onPlaybackTimeChange, playerRef]);
 
   const { isFullscreen, handleToggleFullscreen } = useFullscreen({
     playerRef,
