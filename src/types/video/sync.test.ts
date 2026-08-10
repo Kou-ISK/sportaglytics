@@ -96,10 +96,10 @@ describe('video sync data helpers', () => {
       });
     });
 
-    it('keeps legacy angleOffsets absent when none existed', () => {
+    it('materializes the modern per-angle representation on a legacy update', () => {
       expect(applySecondarySyncOffset(syncData(0), -0.25)).toEqual({
         syncOffset: -0.25,
-        angleOffsets: undefined,
+        angleOffsets: [0, -0.25],
         isAnalyzed: true,
       });
     });
