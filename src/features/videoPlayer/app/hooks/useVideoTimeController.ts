@@ -1,6 +1,11 @@
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
-import type { VideoSyncData } from '../../../../types/video/sync';
+import {
+  clampAngleMediaTime,
+  globalTimeToAngleMediaTime,
+  resolvePlaybackAngleOffset,
+  type VideoSyncData,
+} from '../../../../types/video/sync';
 import {
   getVideoJsPlayer,
   setVideoJsPlayerCurrentTime,
@@ -18,21 +23,6 @@ type UseVideoTimeControllerParams = {
   mediaAngles: PackageMediaAngle[];
 };
 
-const getMinAllowedGlobalTime = (
-  syncData: VideoSyncData | undefined,
-): number => {
-  if (
-    syncData &&
-    syncData.isAnalyzed &&
-    typeof syncData.syncOffset === 'number' &&
-    syncData.syncOffset < 0
-  ) {
-    return syncData.syncOffset;
-  }
-
-  return 0;
-};
-
 const dispatchSeekEvent = (
   type: 'video-seek-start' | 'video-seek-end',
   time?: number,
@@ -48,16 +38,16 @@ const dispatchSeekEvent = (
 };
 
 const seekEachPlayer = ({
-  timeClamped,
+  globalTime,
   videoList,
   syncData,
-  isManualMode,
+  syncMode,
   mediaAngles,
 }: {
-  timeClamped: number;
+  globalTime: number;
   videoList: string[];
   syncData: VideoSyncData | undefined;
-  isManualMode: boolean;
+  syncMode: 'auto' | 'manual';
   mediaAngles: PackageMediaAngle[];
 }): void => {
   videoList.forEach((_, index) => {
@@ -72,47 +62,38 @@ const seekEachPlayer = ({
         return;
       }
 
-      let targetTime = timeClamped;
-      const offset =
-        index > 0 && syncData?.isAnalyzed && !isManualMode
-          ? (syncData.angleOffsets?.[index] ?? syncData.syncOffset ?? 0)
-          : 0;
       const angle = mediaAngles[index];
       const usesVirtualTimeline =
-        !isManualMode && usesVirtualClipTimeline(angle?.clips ?? []);
+        syncMode === 'auto' && usesVirtualClipTimeline(angle?.clips ?? []);
+      const offset = resolvePlaybackAngleOffset({
+        syncData,
+        angleIndex: index,
+        syncMode,
+        usesVirtualTimeline,
+      });
+
+      let targetTime: number;
       if (usesVirtualTimeline && angle) {
-        const active = resolveTimelineClip(angle.clips, timeClamped + offset);
+        const active = resolveTimelineClip(angle.clips, globalTime);
         if (!active) {
           player.pause?.();
           return;
         }
         targetTime = active.clipTimeSeconds;
+      } else {
+        targetTime = clampAngleMediaTime(
+          globalTimeToAngleMediaTime(globalTime, offset),
+        );
       }
 
       const durationCandidate = player.duration?.();
       const duration =
         typeof durationCandidate === 'number' &&
-        !Number.isNaN(durationCandidate)
+        Number.isFinite(durationCandidate)
           ? durationCandidate
           : 0;
-
       if (!(duration > 0)) {
         return;
-      }
-
-      if (index === 0) {
-        targetTime = usesVirtualTimeline
-          ? targetTime
-          : Math.max(getMinAllowedGlobalTime(syncData), timeClamped);
-      }
-
-      if (
-        index > 0 &&
-        syncData?.isAnalyzed &&
-        !isManualMode &&
-        !usesVirtualTimeline
-      ) {
-        targetTime = Math.max(0, timeClamped + offset);
       }
 
       try {
@@ -143,31 +124,31 @@ export const useVideoTimeController = ({
 
   const handleCurrentTime = useCallback(
     (_event: SyntheticEvent | Event, newValue: number | number[]) => {
-      const time = newValue as number;
-      const isManualMode = syncMode === 'manual';
-      const minAllowed = getMinAllowedGlobalTime(syncData);
+      const rawTime = Array.isArray(newValue) ? newValue[0] : newValue;
+      const time = Number(rawTime);
 
       dispatchSeekEvent('video-seek-start', time);
 
-      if (Number.isNaN(time) || time < minAllowed) {
-        console.warn('Invalid time value:', time);
-        setCurrentTime(minAllowed);
+      if (!Number.isFinite(time) || time < 0) {
+        console.warn('Invalid global time value:', rawTime);
+        setCurrentTime(0);
+        dispatchSeekEvent('video-seek-end');
         return;
       }
 
-      const timeClamped = Math.max(time, minAllowed);
-      setCurrentTime(timeClamped);
+      const globalTime = Math.max(0, time);
+      setCurrentTime(globalTime);
 
-      setTimeout(() => {
+      globalThis.setTimeout(() => {
         seekEachPlayer({
-          timeClamped,
+          globalTime,
           videoList,
           syncData,
-          isManualMode,
+          syncMode,
           mediaAngles,
         });
 
-        setTimeout(() => {
+        globalThis.setTimeout(() => {
           dispatchSeekEvent('video-seek-end');
         }, 500);
       }, 50);
