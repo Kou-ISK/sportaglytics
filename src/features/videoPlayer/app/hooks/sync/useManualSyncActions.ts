@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { VideoSyncData } from '../../../../../types/video/sync';
+import {
+  applySecondarySyncOffset,
+  type VideoSyncData,
+} from '../../../../../types/video/sync';
 import {
   saveSyncData,
   setManualSyncModeChecked,
@@ -56,13 +59,13 @@ export const useManualSyncActions = ({
       return;
     }
 
-    const adjustedSyncData: VideoSyncData = {
-      ...syncData,
-      syncOffset: Number(newOffset),
-      isAnalyzed: true,
-    };
+    const offsetSeconds = Number(newOffset);
+    const adjustedSyncData = applySecondarySyncOffset(
+      syncData,
+      offsetSeconds,
+    );
     setSyncData(adjustedSyncData);
-    notifyInfo(`同期オフセットを調整しました: ${Number(newOffset)} 秒`);
+    notifyInfo(`同期オフセットを調整しました: ${offsetSeconds} 秒`);
 
     await forceUpdateVideoPlayers(adjustedSyncData);
   }, [forceUpdateVideoPlayers, notifyInfo, setSyncData, syncData]);
@@ -72,14 +75,7 @@ export const useManualSyncActions = ({
       const { primaryTime, secondaryTime } = getManualSyncTimes();
       const newOffset = secondaryTime - primaryTime;
       const newSyncData: VideoSyncData = {
-        ...syncData,
-        syncOffset: newOffset,
-        angleOffsets: syncData?.angleOffsets
-          ? syncData.angleOffsets.map((offset, index) =>
-              index === 1 ? newOffset : offset,
-            )
-          : undefined,
-        isAnalyzed: true,
+        ...applySecondarySyncOffset(syncData, newOffset),
         confidenceScore: undefined,
       };
 
