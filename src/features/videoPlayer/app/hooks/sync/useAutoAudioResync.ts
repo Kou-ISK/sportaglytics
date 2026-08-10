@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
 import type { PackageMediaAngle } from '../../../../../types/package/metadata';
 import type { VideoPlayerError } from '../../../../../types/video/error';
 import {
@@ -17,8 +16,7 @@ interface UseAutoAudioResyncParams {
   videoList: string[];
   mediaAngles: PackageMediaAngle[];
   syncData: VideoSyncData | undefined;
-  setSyncData: Dispatch<SetStateAction<VideoSyncData | undefined>>;
-  forceUpdateVideoPlayers: (newSyncData: VideoSyncData) => Promise<void>;
+  commitSyncData: (newSyncData: VideoSyncData) => Promise<void>;
   onSyncError?: (value: VideoPlayerError) => void;
   onSyncInfo?: (message: string) => void;
   onSyncWarning?: (message: string) => void;
@@ -36,8 +34,7 @@ export const useAutoAudioResync = ({
   videoList,
   mediaAngles,
   syncData,
-  setSyncData,
-  forceUpdateVideoPlayers,
+  commitSyncData,
   onSyncError,
   onSyncInfo,
   onSyncWarning,
@@ -127,7 +124,6 @@ export const useAutoAudioResync = ({
         confidenceScore: result.confidence,
       };
 
-      setSyncData(newSyncData);
       setSyncProgress(100);
       if (result.confidence < 0.35) {
         notifyWarning(
@@ -137,7 +133,7 @@ export const useAutoAudioResync = ({
         notifyInfo('音声同期完了');
       }
 
-      await forceUpdateVideoPlayers(newSyncData);
+      await commitSyncData(newSyncData);
     } catch (error) {
       console.error('音声同期エラー:', error);
       onSyncError?.({
@@ -151,22 +147,20 @@ export const useAutoAudioResync = ({
       setSyncStage('');
     }
   }, [
-    forceUpdateVideoPlayers,
+    commitSyncData,
     mediaAngles,
     notifyInfo,
     notifyWarning,
     onSyncError,
-    setSyncData,
     syncData,
     videoList,
   ]);
 
   const resetSync = useCallback((): void => {
     const resetSyncData = resetSecondarySyncOffset(syncData);
-    setSyncData(resetSyncData);
     notifyInfo('同期をリセットしました');
-    void forceUpdateVideoPlayers(resetSyncData);
-  }, [forceUpdateVideoPlayers, notifyInfo, setSyncData, syncData]);
+    void commitSyncData(resetSyncData);
+  }, [commitSyncData, notifyInfo, syncData]);
 
   return {
     isAnalyzing,
