@@ -4,7 +4,7 @@ import type { VideoPlayerError } from '../../../../types/video/error';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
 import { useSyncActions } from './useSyncActions';
-import { useVideoMetadataSync } from './useVideoMetadataSync';
+import { useVideoWindowTitle } from './useVideoWindowTitle';
 import { useVideoPlayerErrors } from './useVideoPlayerErrors';
 import { useVideoTimeController } from './useVideoTimeController';
 
@@ -98,10 +98,7 @@ export const useVideoPlayerRuntimeState =
       onSyncError: setError,
     });
 
-    useVideoMetadataSync({
-      metaDataConfigFilePath,
-      syncData,
-    });
+    useVideoWindowTitle(metaDataConfigFilePath);
 
     return {
       videoList,
