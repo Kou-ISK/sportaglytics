@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { VideoSyncData } from '../../../../../../types/video/sync';
+import {
+  resolveAngleSyncOffset,
+  type VideoSyncData,
+} from '../../../../../../types/video/sync';
 import {
   calculateAdjustedCurrentTimes,
   calculateBlockStates,
@@ -39,16 +42,16 @@ export const useSyncPlayback = ({
   const [primaryClock, setPrimaryClock] = useState(0);
   const lastReportedTimeRef = useRef(0);
   const isSeekingRef = useRef(false);
-  const offset = syncData?.syncOffset ?? 0;
+  const isManualMode = syncMode === 'manual';
   const offsets = useMemo(
     () =>
       videoList.map((_, index) =>
-        index === 0 ? 0 : (syncData?.angleOffsets?.[index] ?? offset),
+        isManualMode ? 0 : resolveAngleSyncOffset(syncData, index),
       ),
-    [offset, syncData?.angleOffsets, videoList],
+    [isManualMode, syncData, videoList],
   );
-  const analyzed = syncData?.isAnalyzed ?? false;
-  const isManualMode = syncMode === 'manual';
+  const offset = offsets[1] ?? 0;
+  const analyzed = !isManualMode && (syncData?.isAnalyzed ?? false);
   const activePlayerCount = useMemo(
     () => videoList.filter((src) => src && src.trim() !== '').length,
     [videoList],
