@@ -91,6 +91,7 @@ export const useVideoPlayerRuntimeState =
       mediaAngles,
       syncData,
       setSyncData,
+      isVideoPlaying,
       setIsVideoPlaying,
       metaDataConfigFilePath,
       setSyncMode,
