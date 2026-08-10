@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import type { VideoPlayerError } from '../../../../types/video/error';
+import { saveSyncData } from '../gateways/syncGateway';
 import { useAutoAudioResync } from './sync/useAutoAudioResync';
 import { useManualSyncActions } from './sync/useManualSyncActions';
 import { useSyncPlayerUpdater } from './sync/useSyncPlayerUpdater';
@@ -68,12 +69,37 @@ export const useSyncActions = ({
     [onSyncWarning],
   );
 
+  const commitSyncData = useCallback(
+    async (newSyncData: VideoSyncData): Promise<void> => {
+      // Runtime state is updated immediately so the UI reflects the user's
+      // confirmed action. Persistence is explicit and occurs only here; package
+      // loading itself never writes config.json as a side effect.
+      setSyncData(newSyncData);
+
+      if (metaDataConfigFilePath) {
+        const saved = await saveSyncData(metaDataConfigFilePath, newSyncData);
+        if (!saved) {
+          logWarn(
+            '同期データをパッケージへ保存できませんでした。現在の画面には反映されています。',
+          );
+        }
+      }
+
+      await forceUpdateVideoPlayers(newSyncData);
+    },
+    [
+      forceUpdateVideoPlayers,
+      logWarn,
+      metaDataConfigFilePath,
+      setSyncData,
+    ],
+  );
+
   const autoAudioResync = useAutoAudioResync({
     videoList,
     mediaAngles,
     syncData,
-    setSyncData,
-    forceUpdateVideoPlayers,
+    commitSyncData,
     onSyncError,
     onSyncInfo: logInfo,
     onSyncWarning: logWarn,
@@ -81,10 +107,8 @@ export const useSyncActions = ({
   const manualSyncActions = useManualSyncActions({
     mediaAngles,
     syncData,
-    setSyncData,
-    metaDataConfigFilePath,
     setSyncMode,
-    forceUpdateVideoPlayers,
+    commitSyncData,
     onSyncInfo: logInfo,
     onSyncWarning: logWarn,
   });
