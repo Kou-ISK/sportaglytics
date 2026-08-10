@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { VideoPlayerError } from '../../../../../types/video/error';
-import type { VideoSyncData } from '../../../../../types/video/sync';
+import {
+  applySecondarySyncOffset,
+  type VideoSyncData,
+} from '../../../../../types/video/sync';
 import {
   extractAudioWavForSyncBase64,
   readBinaryFileBase64,
@@ -113,9 +116,7 @@ export const useAutoAudioResync = ({
       });
 
       const newSyncData: VideoSyncData = {
-        ...syncData,
-        syncOffset: result.offsetSeconds,
-        isAnalyzed: true,
+        ...applySecondarySyncOffset(syncData, result.offsetSeconds),
         confidenceScore: result.confidence,
       };
 
