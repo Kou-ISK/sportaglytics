@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import type { VideoPlayerError } from '../../../../types/video/error';
+import { toPersistedSyncData } from '../../shared/packageSyncData';
 import { saveSyncData } from '../gateways/syncGateway';
 import { useAutoAudioResync } from './sync/useAutoAudioResync';
 import { useManualSyncActions } from './sync/useManualSyncActions';
@@ -71,13 +72,19 @@ export const useSyncActions = ({
 
   const commitSyncData = useCallback(
     async (newSyncData: VideoSyncData): Promise<void> => {
-      // Runtime state is updated immediately so the UI reflects the user's
-      // confirmed action. Persistence is explicit and occurs only here; package
-      // loading itself never writes config.json as a side effect.
+      // Runtime state uses playback order. Persisted angleOffsets must be
+      // converted back to config.json angles[] order before writing.
       setSyncData(newSyncData);
 
       if (metaDataConfigFilePath) {
-        const saved = await saveSyncData(metaDataConfigFilePath, newSyncData);
+        const persistedSyncData = toPersistedSyncData(
+          newSyncData,
+          mediaAngles,
+        );
+        const saved = await saveSyncData(
+          metaDataConfigFilePath,
+          persistedSyncData,
+        );
         if (!saved) {
           logWarn(
             '同期データをパッケージへ保存できませんでした。現在の画面には反映されています。',
@@ -90,6 +97,7 @@ export const useSyncActions = ({
     [
       forceUpdateVideoPlayers,
       logWarn,
+      mediaAngles,
       metaDataConfigFilePath,
       setSyncData,
     ],
