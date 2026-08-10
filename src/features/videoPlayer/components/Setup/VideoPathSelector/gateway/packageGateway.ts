@@ -1,4 +1,5 @@
 import type { PackageDatas } from '../../../../../../renderer';
+import { usesVirtualClipTimeline } from '../../../../../../types/package/clipTimeline';
 import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { PackageLoadResult } from '../types';
 import { buildVideoListFromConfig } from '../utils/angleUtils';
@@ -144,6 +145,9 @@ export const loadPackageDirectory = async (
   }
 
   const supportsAudioSync = angles.length >= 2;
+  const hasClipPlacementSync = angles
+    .slice(0, 2)
+    .some((angle) => usesVirtualClipTimeline(angle.clips));
   const persistedSyncData = toSyncData(config.syncData);
   const syncData = migrateLoadedPackageSyncData(persistedSyncData);
 
@@ -152,7 +156,8 @@ export const loadPackageDirectory = async (
     configFilePath,
     team1Name: readTeamName(config.team1Name, 'Team 1'),
     team2Name: readTeamName(config.team2Name, 'Team 2'),
-    missingSyncData: supportsAudioSync && !persistedSyncData,
+    missingSyncData:
+      supportsAudioSync && !hasClipPlacementSync && !persistedSyncData,
     result: {
       videoList,
       syncData,
