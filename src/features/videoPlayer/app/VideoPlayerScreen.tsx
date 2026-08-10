@@ -98,7 +98,7 @@ export const VideoPlayerScreen = () => {
   }, [setIsFileSelected]);
 
   useMetadataTeamNames({ metaDataConfigFilePath, setTeamNames });
-  useManualSyncSeek({ syncMode, syncData, videoList });
+  useManualSyncSeek({ syncMode, syncData, videoList, mediaAngles });
 
   // ホットキー設定を読み込み
   const { settings } = useSettings();
