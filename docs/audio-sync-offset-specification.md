@@ -2,78 +2,64 @@
 
 ## 概要
 
-このドキュメントでは、SporTagLyticsにおける音声同期オフセット（`offsetSeconds`）の計算・適用と、マルチアングル用の保存形式を説明します。
+このドキュメントでは、SporTagLytics におけるアングル単位の音声同期オフセットの計算・適用・保存契約を説明します。
 
-関連 ADR: [0016 Multi-angle Audio Sync Offset Persistence](adr/0016-multi-angle-audio-sync-offset-persistence.md)
+関連 ADR:
 
-## オフセットの定義
+- [0016 Multi-angle Audio Sync Offset Persistence](adr/0016-multi-angle-audio-sync-offset-persistence.md)
+- [0015 Clip Timeline Placement and Audio-assisted Sync](adr/0015-clip-timeline-placement-and-audio-assisted-sync.md)
 
-### AudioSyncAnalyzerでの計算
+## 共通タイムライン
 
-`AudioSyncAnalyzer`クラスは、2つの動画（video1とvideo2）の音声波形を比較し、同期に必要なオフセットを計算します。
+- `video_0` / 第1アングルを共通タイムラインの基準とします。
+- global time は常に `0` 以上です。
+- 第1アングルの offset は常に `0` です。
+- 直接メディアとして再生する第2アングル以降は、同じ global time に対応するメディア時刻を次式で求めます。
 
 ```typescript
-// 返されるoffsetSecondsの意味:
-// offsetSeconds > 0: video2がvideo1より早く始まっている → video1に+offsetSecondsを加える
-// offsetSeconds < 0: video1がvideo2より早く始まっている → video1に-|offsetSeconds|を加える
+mediaTime = globalTime + angleOffset;
 ```
 
-#### 例
+逆変換は次式です。
 
-- `offsetSeconds = 0.159` の場合
-  - video2がvideo1より0.159秒**早く**始まっている
-  - video1を0.159秒**遅らせる**（進める）必要がある
+```typescript
+globalTime = mediaTime - angleOffset;
+```
 
-- `offsetSeconds = -0.200` の場合
-  - video1がvideo2より0.200秒**早く**始まっている
-  - video1を0.200秒**戻す**必要がある
+符号計算を UI や Controller が独自実装せず、同期ドメインの共通ヘルパーを使用します。
 
-### 相関計算の実装
+## オフセットの意味
+
+`offset > 0` の場合、同一イベントは対象アングル上で基準アングルより大きいメディア時刻に存在します。
+
+例: `offset = +0.159`
+
+```text
+global 10.000s -> target media 10.159s
+```
+
+`offset < 0` の場合、同一イベントは対象アングル上で基準アングルより小さいメディア時刻に存在します。
+
+例: `offset = -0.200`
+
+```text
+global 10.000s -> target media 9.800s
+```
+
+対象メディア時刻が負になる区間では、そのアングルを再生せず待機します。global time 自体を負にしません。
+
+## AudioSyncAnalyzer
+
+`AudioSyncAnalyzer` は第1アングルと第2アングルの音声波形を比較し、上記の signed offset を返します。相関計算で使用する開始位置は次の契約です。
 
 ```typescript
 const start1 = Math.max(0, -offset);
 const start2 = Math.max(0, offset);
 ```
 
-- `offset > 0` の場合: `start1=0`, `start2=offset`
-  - video1[0]とvideo2[offset]を比較
-  - video2が先に始まっている状況
+解析結果は第2アングルの `syncOffset` と、存在する場合は `angleOffsets[1]` へ同時に反映します。
 
-- `offset < 0` の場合: `start1=|offset|`, `start2=0`
-  - video1[|offset|]とvideo2[0]を比較
-  - video1が先に始まっている状況
-
-## オフセットの適用
-
-### useSyncPlaybackでの実装
-
-```typescript
-const legacyOffset = syncData?.syncOffset ?? 0;
-const offsets = videoList.map((_, index) =>
-  index === 0 ? 0 : (syncData?.angleOffsets?.[index] ?? legacyOffset),
-);
-
-const targetTime = Math.max(0, globalTime + offsets[index]);
-```
-
-### 重要なポイント
-
-1. **加算で適用**: `targetTime = globalTime + offset`
-   - 引き算ではなく**足し算**を使用
-
-2. **video_0は基準**:
-   - `angleOffsets[0]` は常に `0`
-   - `video_1` 以降は同じindexの `angleOffsets[index]` を適用
-
-3. **後方互換**:
-   - `angleOffsets[index]` がない旧パッケージは `syncOffset` を使用
-   - `syncOffset` は従来の2アングル同期における第2アングルの値として維持
-
-4. **音声ミュート**:
-   - video_0のみ音声を再生
-   - video_1以降は音声をミュートして再生（音の重複を防ぐ）
-
-## 保存形式
+## マルチアングル保存形式
 
 同期データは `.metadata/config.json` の `syncData` に保存します。
 
@@ -88,47 +74,75 @@ const targetTime = Math.max(0, globalTime + offsets[index]);
 }
 ```
 
-- `angleOffsets` は `.metadata/config.json` の `angles[]` と同じindexを使います。
-- IPC境界では最大8要素、有限値、絶対値24時間以内を検証します。
-- クリップ単位の `timelineStartSeconds` はアングル内の断片配置であり、アングル単位の `angleOffsets` とは別の契約です。
+- `angleOffsets[index]` は `.metadata/config.json` の `angles[index]` に対応します。
+- `angleOffsets[0]` は常に `0` です。
+- `angleOffsets[index]` が欠けた旧パッケージでは `syncOffset` を互換値として利用します。
+- `angleOffsets[1]` が存在する最新状態では `syncOffset` と同値に正規化します。
+- 既知の旧バージョンによる不整合はパッケージ読み込み境界で修復します。
+- IPC 境界では最大8要素、有限値、絶対値24時間以内を検証します。
 
-## デバッグ
+## クリップ単位シンクとの境界
 
-オフセット適用時には以下のログが出力されます：
+`timelineStartSeconds` はクリップが**共通タイムライン上のどこに置かれるか**を表す絶対配置です。複数クリップ、または開始位置が0秒ではないクリップを持つアングルでは、これを再生位置の正本とします。
 
+その場合は次の規則を適用します。
+
+```text
+virtual clip timeline
+  -> timelineStartSeconds が配置の正本
+  -> effective angle offset = 0
+  -> angleOffsets を重ねて適用しない
 ```
-[OFFSET DEBUG] video_2: global=5.000s, offset=-0.200s, target=4.800s (計算: 5.000 + -0.200 = 4.800)
-```
 
-- `global`: 現在のグローバル時間（基準時間）
-- `offset`: 対象アングルに適用する `angleOffsets[index]`、または旧形式の `syncOffset`
-- `target`: 実際に適用される時間
+したがって、クリップ配置済みの先頭2アングルに対して旧来のアングル単位音声同期・手動 offset 同期を追加適用しません。調整は「クリップ単位シンク」で行います。
+
+YouTube の開始ギャップも `timelineStartSeconds` で表現します。同じギャップを派生 `playbackOffsetSeconds` として二重保持しません。
+
+## 再生時計
+
+通常の単一メディア再生では、第1アングルの Video.js 実メディア時刻が global time です。
+
+virtual clip timeline では次のように扱います。
+
+1. 映像クリップ再生中: `clip.timelineStartSeconds + video_0.currentTime()` を global time とする。
+2. 黒ギャップ中: 実メディアが存在しないため、再生レートを考慮した経過時間で global time を進める。
+3. バッファリング中: 実メディア時刻が進んでいない限り global time も進めない。
+4. 次のクリップ開始位置を越えて壁時計で飛び越さず、開始位置へ正確に着地する。
+
+## 再生責務
+
+- `SingleVideoPlayer` / Player 層が Video.js の再生・停止を所有します。
+- `VideoController` は再生状態や global time の操作要求を発行します。
+- Controller が各アングルへ独自の offset 計算を行ったり、全 Video.js インスタンスを直接 `play/seek` したりしません。
+- シーク、同期再適用、manual mode 遷移も同じ時刻変換契約を使います。
+
+## 音声
+
+- `video_0` のみ音声を再生します。
+- `video_1` 以降はミュートし、重複音声を防ぎます。
 
 ## トラブルシューティング
 
-### 症状: 音が2回鳴る（エコー）
+### 映像の同期位置がずれる
 
-- **原因**: オフセットの符号が逆（引き算で適用している）
-- **解決**: `timeClamped + offset` を使用する
+確認事項:
 
-### 症状: 音声がずれている
+1. `angleOffsets[1]` と `syncOffset` が同じ値に正規化されているか。
+2. 直接メディアの再生計算が `globalTime + offset` になっているか。
+3. virtual clip timeline に angle offset を重ねていないか。
+4. 音声同期の信頼度が十分か。
+5. 両動画に解析可能な音声トラックが存在するか。
 
-- **確認事項**:
-  1. 音声同期の信頼度が0.35以上あるか
-  2. デバッグログで実際に適用されているoffset値を確認
-  3. 両方の動画の音声が有効かどうか（音声トラックが存在するか）
+### 複数クリップの途中で位置が飛ぶ
 
-### 症状: 同期精度が低い
+確認事項:
 
-- **改善方法**:
-  1. 笛、拍手、インパクト音など特徴のある位置へ双方の映像をシークして再試行する
-  2. より特徴的な音（笛、拍手など）がある区間を分析対象にする
-  3. 音声の品質を確認（ノイズが多い場合は精度が下がる）
+1. `timelineStartSeconds` が絶対配置として保存されているか。
+2. クリップ切替時に旧ソースの Video.js 時刻を新クリップへ流用していないか。
+3. 黒ギャップ以外で壁時計だけを進めていないか。
 
 ## 更新履歴
 
-- 2025-11-23: 初版作成
-  - オフセット計算と適用方法の仕様を明文化
-  - 引き算→足し算への修正を反映
-- 2026-07-26: マルチアングル対応
-  - `angleOffsets`、`syncOffset`の後方互換、保存場所を反映
+- 2025-11-23: 初版作成。
+- 2026-07-26: マルチアングル `angleOffsets` と `syncOffset` 後方互換を追加。
+- 2026-08-10: global/media 時刻変換を一本化し、virtual clip timeline との二重補正禁止、ロード時正規化、再生時計と責務境界を明文化。
