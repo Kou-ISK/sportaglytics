@@ -1,8 +1,11 @@
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import type { PackageMediaAngle } from '../../../../../types/package/metadata';
+import { usesVirtualClipTimeline } from '../../../../../types/package/clipTimeline';
 import type { VideoPlayerError } from '../../../../../types/video/error';
 import {
   applySecondarySyncOffset,
+  resetSecondarySyncOffset,
   type VideoSyncData,
 } from '../../../../../types/video/sync';
 import {
@@ -12,6 +15,7 @@ import {
 
 interface UseAutoAudioResyncParams {
   videoList: string[];
+  mediaAngles: PackageMediaAngle[];
   syncData: VideoSyncData | undefined;
   setSyncData: Dispatch<SetStateAction<VideoSyncData | undefined>>;
   forceUpdateVideoPlayers: (newSyncData: VideoSyncData) => Promise<void>;
@@ -28,8 +32,14 @@ interface UseAutoAudioResyncResult {
   resetSync: () => void;
 }
 
+const usesClipPlacementSync = (mediaAngles: PackageMediaAngle[]): boolean =>
+  mediaAngles
+    .slice(0, 2)
+    .some((angle) => usesVirtualClipTimeline(angle.clips));
+
 export const useAutoAudioResync = ({
   videoList,
+  mediaAngles,
   syncData,
   setSyncData,
   forceUpdateVideoPlayers,
@@ -60,6 +70,12 @@ export const useAutoAudioResync = ({
   );
 
   const resyncAudio = useCallback(async (): Promise<void> => {
+    if (usesClipPlacementSync(mediaAngles)) {
+      notifyWarning(
+        'クリップ配置済みのアングルはクリップ単位シンクが基準です。クリップ単位シンクで調整してください。',
+      );
+      return;
+    }
     if (videoList.some((source) => /^https?:\/\//i.test(source))) {
       notifyWarning(
         'YouTube 映像は自動音声同期に対応していません。手動同期を利用してください。',
@@ -145,6 +161,7 @@ export const useAutoAudioResync = ({
     }
   }, [
     forceUpdateVideoPlayers,
+    mediaAngles,
     notifyInfo,
     notifyWarning,
     onSyncError,
@@ -154,23 +171,11 @@ export const useAutoAudioResync = ({
   ]);
 
   const resetSync = useCallback((): void => {
-    const resetSyncData: VideoSyncData = {
-      syncOffset: 0,
-      angleOffsets: syncData?.angleOffsets,
-      isAnalyzed: Boolean(
-        syncData?.angleOffsets?.some((offset) => offset !== 0),
-      ),
-      confidenceScore: 0,
-    };
+    const resetSyncData = resetSecondarySyncOffset(syncData);
     setSyncData(resetSyncData);
     notifyInfo('同期をリセットしました');
     void forceUpdateVideoPlayers(resetSyncData);
-  }, [
-    forceUpdateVideoPlayers,
-    notifyInfo,
-    setSyncData,
-    syncData?.angleOffsets,
-  ]);
+  }, [forceUpdateVideoPlayers, notifyInfo, setSyncData, syncData]);
 
   return {
     isAnalyzing,
