@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import type Player from 'video.js/dist/types/player';
 import { useVideoJsInitialization } from './useVideoJsInitialization';
 import { useVideoJsSeekControl } from './useVideoJsSeekControl';
-import { useVideoJsSourceSync } from './useVideoJsSourceSync';
 
 interface UseVideoJsPlayerParams {
   id: string;
@@ -32,6 +31,8 @@ export const useVideoJsPlayer = ({
   const aspectRatioCallbackRef = useRef(onAspectRatioChange);
   const lastReportedAspectRatioRef = useRef<number | null>(null);
 
+  // This hook owns both player creation and source assignment. Keeping source
+  // mutation in one place avoids pause/src races with an in-flight play().
   useVideoJsInitialization({
     id,
     videoSrc,
@@ -48,15 +49,6 @@ export const useVideoJsPlayer = ({
     metadataHandlerRef,
     resizeHandlerRef,
     aspectRatioCallbackRef,
-    lastReportedAspectRatioRef,
-  });
-
-  useVideoJsSourceSync({
-    id,
-    videoSrc,
-    playerRef,
-    setIsReady,
-    setDurationSec,
     lastReportedAspectRatioRef,
   });
 
