@@ -9,6 +9,7 @@ export interface VideoJsPlayerHandle {
   currentType?: () => string;
   currentTime?: (time?: number) => number | void | undefined;
   readyState?: () => number;
+  ended?: () => boolean;
   play?: () => Promise<void> | void;
   pause?: () => void;
   on?: (event: string, handler: () => void) => void;
