@@ -12,6 +12,8 @@ export const MemoizedSingleVideoPlayer = React.memo(
     if (prev.allowSeek !== next.allowSeek) return false;
     if (prev.setMaxSec !== next.setMaxSec) return false;
     if (prev.forceUpdate !== next.forceUpdate) return false;
+    if (prev.onPlaybackTimeChange !== next.onPlaybackTimeChange) return false;
+    if (prev.onPlaybackEnded !== next.onPlaybackEnded) return false;
     return true;
   },
 );
