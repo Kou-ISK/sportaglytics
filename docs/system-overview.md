@@ -83,9 +83,9 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 ## 主要データモデル
 
 - package media は `.metadata/config.json` の `angles[] -> clips[]` と各クリップの `timelineStartSeconds` を正本とし、最大8アングル・各16クリップを扱う。ローカル映像も元クリップを仮想タイムライン上で切り替え、空白は再生時に黒画面・無音として扱う。`packageClipTimelineService.ts` はconfigだけを原子的に更新し、書き出し時だけ一時領域へ連続映像を合成する。`gapBeforeSeconds` は後方互換の派生値である（ADR: [0015](adr/0015-clip-timeline-placement-and-audio-assisted-sync.md)）
-- アングル単位の再生補正は `.metadata/config.json` の `syncData.angleOffsets[]` を正本とし、アングルindexごとに `globalTime + offset` を適用する。`syncOffset` は配列要素がない旧パッケージの後方互換値として維持する（ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）
+- アングル単位の再生補正は `.metadata/config.json` の `syncData.angleOffsets[]` を正本とし、直接メディアとして再生するアングルへ `globalTime + offset` を適用する。`syncOffset` は旧パッケージ互換として維持し、`angleOffsets[1]` が存在する最新状態では同値に正規化する。既知の不整合はパッケージ読み込み境界で修復する（ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）
 - YouTube 埋め込みは shared のアプリ識別 URL を Video.js の `widget_referrer` と YouTube `/embed/` リクエストの Referer に使用する。`file://` と不一致になる HTTPS `origin` parameter は指定せず、IFrame API の共通再生制御を維持する。main process の `youtubeEmbedIdentity.ts` が Session 単位で対象リクエストだけを補正し、証明書検証と `webSecurity` は維持する（ADR: [0014](adr/0014-youtube-embed-client-identity.md)）
-- 複数クリップまたは先頭空白を持つローカル・YouTubeアングルは、共通タイムライン時計から現在クリップとクリップ内時刻を解決する。既知のクリップ終了から次の開始位置まではプレイヤーを外して黒表示を維持し、共通コントローラーとホットキーはタイムライン時計を操作する
+- 複数クリップまたは先頭空白を持つローカル・YouTubeアングルは `timelineStartSeconds` を絶対配置の唯一の正本とし、angle offset を重ねて適用しない。映像区間の共通時計は第1アングルの実メディア時刻、黒ギャップだけ経過時間で進めるため、バッファリング中にタイムラインだけを先行させない。既知のクリップ終了から次の開始位置まではプレイヤーを外して黒表示を維持する（ADR: [0015](adr/0015-clip-timeline-placement-and-audio-assisted-sync.md), [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）
 - `tightViewPath` / `wideViewPath` だけの旧パッケージは、ロード前のconfig migrationで1アングル1クリップの `angles[].clips[]` へ移行する。`angles[].clips` とアングル単位の再生用コピーが併存する形式は、互換パスを元クリップ参照へ切り替える。既存映像の自動削除は行わず、重複ファイルの整理は内容一致を確認した明示的な移行作業とする
 - パッケージ作成は基本情報・映像の2ステップとし、保存先は作成時に選択する。各アングルの「＋」から映像種別を選択し、同期位置は作成画面では扱わず再生画面のシンクモードへ集約する
 - `tightViewPath` / `wideViewPath` は旧パッケージ互換の派生フィールドであり、新規処理は `angles[]` を優先する
@@ -124,6 +124,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - `pnpm run lint`
 - `pnpm run test:run`
 - `pnpm run check:architecture`
+- `pnpm run check:adr`
 - `pnpm run report:architecture-health`（準拠率の可視化）
 
 ## ファイル分割運用
