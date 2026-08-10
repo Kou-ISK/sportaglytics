@@ -29,6 +29,8 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
     currentTime = 0,
     mediaAngles = [],
     setMediaAngles,
+    onPrimaryPlaybackTimeChange,
+    onPrimaryPlaybackEnded,
   } = props;
   const isManualMode = props.syncMode === 'manual';
   const syncMode = isManualMode ? 'manual' : 'auto';
@@ -255,6 +257,12 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
                   }
                   onAspectRatioChange={(ratio) =>
                     handleAspectRatioChange(index, ratio)
+                  }
+                  onPlaybackTimeChange={
+                    index === 0 ? onPrimaryPlaybackTimeChange : undefined
+                  }
+                  onPlaybackEnded={
+                    index === 0 ? onPrimaryPlaybackEnded : undefined
                   }
                 />
               ) : null}
