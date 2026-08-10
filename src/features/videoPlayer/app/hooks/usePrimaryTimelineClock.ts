@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { PackageMediaClip } from '../../../../types/package/metadata';
-import { getVideoJsPlayerCurrentTime } from '../../shared/videojs/videoJsAdapter';
+import {
+  getVideoJsPlayer,
+  getVideoJsPlayerCurrentTime,
+  type VideoJsPlayerHandle,
+} from '../../shared/videojs/videoJsAdapter';
 import {
   advancePrimaryTimelineClock,
   arePrimaryTimelineDurationsKnown,
@@ -30,6 +34,9 @@ export const usePrimaryTimelineClock = ({
   setMaxSec,
 }: UsePrimaryTimelineClockParams): void => {
   const currentTimeRef = useRef(currentTime);
+  const consumedEndedPlayersRef = useRef<WeakSet<VideoJsPlayerHandle>>(
+    new WeakSet(),
+  );
   const primaryTimelineEnd = useMemo(
     () => calculatePrimaryTimelineEnd(clips),
     [clips],
@@ -62,12 +69,27 @@ export const usePrimaryTimelineClock = ({
         const elapsedSeconds =
           Math.max(0, timestamp - previousTimestamp) / 1000;
         const currentGlobalTime = currentTimeRef.current;
+        const primaryPlayer = getVideoJsPlayer('video_0');
+        const observedPrimaryMediaTime = primaryPlayer
+          ? getVideoJsPlayerCurrentTime(primaryPlayer)
+          : null;
+        const playerEnded = primaryPlayer?.ended?.() === true;
+        const shouldConsumeEnded =
+          primaryPlayer !== undefined &&
+          playerEnded &&
+          !consumedEndedPlayersRef.current.has(primaryPlayer);
+
+        if (shouldConsumeEnded && primaryPlayer) {
+          consumedEndedPlayersRef.current.add(primaryPlayer);
+        }
+
         const nextGlobalTime = advancePrimaryTimelineClock({
           currentGlobalTime,
           elapsedSeconds,
           playbackRate: videoPlayBackRate,
           clips,
-          observedPrimaryMediaTime: getVideoJsPlayerCurrentTime('video_0'),
+          observedPrimaryMediaTime,
+          observedPrimaryMediaEnded: shouldConsumeEnded,
         });
         const boundedTime =
           durationsKnown &&
