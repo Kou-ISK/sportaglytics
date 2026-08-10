@@ -6,7 +6,7 @@ import {
 } from './packageCreationMappers';
 
 describe('multi-angle package mapping', () => {
-  it('loads every configured angle and keeps primary/secondary first', () => {
+  it('loads every configured angle, keeps primary/secondary first, and preserves config identity', () => {
     const result = buildVideoListFromConfig(
       {
         primaryAngleId: 'main',
@@ -44,6 +44,7 @@ describe('multi-angle package mapping', () => {
       '/match.stpkg/videos/reverse.mp4',
       'https://www.youtube.com/watch?v=abc123',
     ]);
+    expect(result.angles.map((angle) => angle.configIndex)).toEqual([2, 1, 0, 3]);
     expect(result.angles[3].clips[0].timelineStartSeconds).toBe(2);
   });
 
@@ -90,5 +91,36 @@ describe('multi-angle package mapping', () => {
     );
 
     expect(result.packagePath).toBe('/chosen/match.stpkg');
+  });
+
+  it('marks newly created runtime angles with their config order', () => {
+    const result = buildPackageLoadResult(
+      {
+        timelinePath: '/chosen/match.stpkg/timeline.json',
+        tightViewPath: '',
+        wideViewPath: null,
+        metaDataConfigFilePath: '/chosen/match.stpkg/.metadata/config.json',
+        angles: [
+          {
+            id: 'main',
+            name: 'Main',
+            sourceKind: 'local',
+            absolutePath: '/chosen/match.stpkg/videos/main.mp4',
+            clips: [],
+          },
+          {
+            id: 'wide',
+            name: 'Wide',
+            sourceKind: 'local',
+            absolutePath: '/chosen/match.stpkg/videos/wide.mp4',
+            clips: [],
+          },
+        ],
+      },
+      '/chosen',
+      { packageName: 'match.stpkg', team1Name: 'A', team2Name: 'B' },
+    );
+
+    expect(result.mediaAngles.map((angle) => angle.configIndex)).toEqual([0, 1]);
   });
 });
