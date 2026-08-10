@@ -12,6 +12,7 @@ type LoadedAngle = {
   sourceKind: 'local' | 'youtube';
   role?: 'primary' | 'secondary';
   clips: PackageMediaClip[];
+  configIndex: number;
 };
 
 const normalizeAngleName = (value: unknown, index: number) => {
@@ -155,6 +156,7 @@ const resolveAnglesFromConfig = (
             ? (angle as VideoAngleConfig).role
             : undefined,
         clips: normalizeClips(angle, packagePath),
+        configIndex: index,
       };
     })
     .filter(Boolean) as LoadedAngle[];
@@ -209,6 +211,7 @@ export const buildVideoListFromConfig = (
             absolutePath: `${packagePath}/${tightRelative}`,
             sourceKind: 'local' as const,
             clips: [],
+            configIndex: 0,
           },
           ...(wideRelative
             ? [
@@ -219,6 +222,7 @@ export const buildVideoListFromConfig = (
                   absolutePath: `${packagePath}/${wideRelative}`,
                   sourceKind: 'local' as const,
                   clips: [],
+                  configIndex: 1,
                 },
               ]
             : []),
