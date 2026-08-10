@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       version:
@@ -15,10 +13,6 @@ on:
 
 jobs:
   release:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.ref_type == 'tag' ||
-      (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-0.8.3]'))
     runs-on: macos-latest
 
     steps:
@@ -171,9 +165,14 @@ jobs:
 
       - name: Update Homebrew Tap
         run: |
+          # homebrew-tapリポジトリをクローン
           git clone https://${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/Kou-ISK/homebrew-tap.git
           cd homebrew-tap
+
+          # Casksディレクトリを作成（初回のみ）
           mkdir -p Casks
+
+          # Cask formulaを生成
           cat > Casks/sportaglytics.rb << 'EOF'
           cask "sportaglytics" do
             version "${{ steps.get_version.outputs.VERSION }}"
@@ -200,6 +199,8 @@ jobs:
             ]
           end
           EOF
+
+          # Git設定とコミット
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Casks/sportaglytics.rb
