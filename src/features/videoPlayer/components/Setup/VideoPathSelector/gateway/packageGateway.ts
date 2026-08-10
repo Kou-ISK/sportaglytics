@@ -1,5 +1,8 @@
 import type { PackageDatas } from '../../../../../../renderer';
-import type { VideoSyncData } from '../../../../../../types/video/sync';
+import {
+  resolveLoadedAngleOffsets,
+  type VideoSyncData,
+} from '../../../../../../types/video/sync';
 import type { PackageLoadResult } from '../types';
 import { buildVideoListFromConfig } from '../utils/angleUtils';
 
@@ -144,8 +147,14 @@ export const loadPackageDirectory = async (
 
   const supportsAudioSync = angles.length >= 2;
   const persistedSyncData = toSyncData(config.syncData);
-  const angleOffsets = angles.map((angle) => angle.playbackOffsetSeconds);
-  const hasAngleOffset = angleOffsets.some((offset) => offset !== 0);
+  const derivedAngleOffsets = angles.map(
+    (angle) => angle.playbackOffsetSeconds,
+  );
+  const angleOffsets = resolveLoadedAngleOffsets({
+    persistedSyncData,
+    derivedAngleOffsets,
+  });
+  const hasAngleOffset = Boolean(angleOffsets);
   const syncData =
     persistedSyncData || hasAngleOffset
       ? {
