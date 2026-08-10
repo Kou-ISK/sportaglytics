@@ -19,11 +19,7 @@ export interface WaveformData {
   peaks: number[];
 }
 
-const SYNC_OFFSET_EPSILON = 1e-9;
 export const PLAYBACK_OFFSET_EPSILON_SECONDS = 0.05;
-
-const isEffectivelyZero = (value: number): boolean =>
-  Math.abs(value) <= SYNC_OFFSET_EPSILON;
 
 /**
  * Returns the persisted angle-level offset for an angle.
@@ -108,49 +104,4 @@ export const applySecondarySyncOffset = (
     angleOffsets,
     isAnalyzed: true,
   };
-};
-
-export const resolveLoadedAngleOffsets = ({
-  persistedSyncData,
-  derivedAngleOffsets,
-}: {
-  persistedSyncData: VideoSyncData | undefined;
-  derivedAngleOffsets: number[];
-}): number[] | undefined => {
-  const persistedAngleOffsets = persistedSyncData?.angleOffsets;
-  const hasDerivedAngleOffset = derivedAngleOffsets.some(
-    (offset) => !isEffectivelyZero(offset),
-  );
-
-  if (!persistedAngleOffsets && !hasDerivedAngleOffset) {
-    return undefined;
-  }
-
-  const angleOffsets = derivedAngleOffsets.map(
-    (derivedOffset, index) =>
-      persistedAngleOffsets?.[index] ?? derivedOffset,
-  );
-
-  if (angleOffsets.length > 0) {
-    angleOffsets[0] = 0;
-  }
-
-  const persistedOffsetsWereAllZero =
-    persistedAngleOffsets !== undefined &&
-    persistedAngleOffsets.length > 1 &&
-    persistedAngleOffsets.every(isEffectivelyZero);
-  const legacySecondaryOffset = persistedSyncData?.syncOffset ?? 0;
-
-  // v0.8.3以前のローダーは、ローカル動画の保存済みsyncOffsetを
-  // angleOffsets: [0, 0, ...]で上書きし、その値をconfig.jsonへ再保存していた。
-  // その壊れた状態だけを識別し、従来の第2アングル用syncOffsetから復旧する。
-  if (
-    angleOffsets.length > 1 &&
-    persistedOffsetsWereAllZero &&
-    !isEffectivelyZero(legacySecondaryOffset)
-  ) {
-    angleOffsets[1] = legacySecondaryOffset;
-  }
-
-  return angleOffsets;
 };
