@@ -273,7 +273,8 @@ try {
   await page.getByText('タイムラインが空です。', { exact: false }).waitFor({
     timeout: 30_000,
   });
-  await page.locator('#video_0').waitFor({ timeout: 30_000 });
+  const primaryVideo = page.locator('#video_0');
+  await primaryVideo.waitFor({ timeout: 30_000 });
   const codingPanelWindowPromise = electronApp.waitForEvent('window', {
     timeout: 10_000,
   });
@@ -291,14 +292,13 @@ try {
     Date.now() - hotkeyStartedAt < 750,
     'a focused code window hotkey must control playback without IPC lag',
   );
-  await page.waitForTimeout(850);
+  await primaryVideo.waitFor({ state: 'detached', timeout: 5_000 });
   assert.equal(
-    await page.locator('#video_0').count(),
+    await primaryVideo.count(),
     0,
     'the primary angle must render black during its virtual gap',
   );
-  await page.waitForTimeout(1_400);
-  await page.locator('#video_0').waitFor({ timeout: 5_000 });
+  await primaryVideo.waitFor({ state: 'attached', timeout: 5_000 });
   const exportPath = path.join(workPath, 'export');
   await fs.mkdir(exportPath);
   const exportResult = await page.evaluate(
