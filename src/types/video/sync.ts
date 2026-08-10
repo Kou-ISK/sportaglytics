@@ -19,6 +19,7 @@ export interface WaveformData {
   peaks: number[];
 }
 
+const SYNC_VALUE_EPSILON = 1e-9;
 export const PLAYBACK_OFFSET_EPSILON_SECONDS = 0.05;
 
 /**
@@ -103,5 +104,27 @@ export const applySecondarySyncOffset = (
     syncOffset,
     angleOffsets,
     isAnalyzed: true,
+  };
+};
+
+/**
+ * Resets only the legacy/two-angle synchronization channel. Explicit offsets
+ * for angle 2 and later are preserved because they represent independent
+ * multi-angle synchronization state.
+ */
+export const resetSecondarySyncOffset = (
+  syncData: VideoSyncData | undefined,
+): VideoSyncData => {
+  const reset = applySecondarySyncOffset(syncData, 0);
+  const hasOtherAngleSync =
+    reset.angleOffsets?.some(
+      (offset, index) =>
+        index > 1 && Math.abs(offset) > SYNC_VALUE_EPSILON,
+    ) ?? false;
+
+  return {
+    ...reset,
+    isAnalyzed: hasOtherAngleSync,
+    confidenceScore: 0,
   };
 };
