@@ -170,7 +170,6 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
             handleCurrentTime={handleCurrentTime}
             maxSec={maxSec}
             videoList={videoList}
-            syncData={syncData}
             useTimelineClock={useTimelineClock}
           />
         </Box>
