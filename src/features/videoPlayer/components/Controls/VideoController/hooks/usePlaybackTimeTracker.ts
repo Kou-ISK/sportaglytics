@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { GetExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
 import { usePlaybackClockSync } from './usePlaybackClockSync';
 import { usePlaybackTimeWarnings } from './usePlaybackTimeWarnings';
@@ -8,7 +7,6 @@ interface Params {
   videoList: string[];
   isVideoPlaying: boolean;
   maxSec: number;
-  syncData?: VideoSyncData;
   getExistingPlayer: GetExistingVideoJsPlayer;
   lastManualSeekTimestamp: React.MutableRefObject<number>;
   safeSetCurrentTime: (time: number, source?: string) => void;
@@ -19,7 +17,6 @@ export const usePlaybackTimeTracker = ({
   videoList,
   isVideoPlaying,
   maxSec,
-  syncData,
   getExistingPlayer,
   lastManualSeekTimestamp,
   safeSetCurrentTime,
@@ -28,7 +25,7 @@ export const usePlaybackTimeTracker = ({
   const [videoTime, setVideoTime] = useState(0);
 
   useEffect(() => {
-    if (isNaN(videoTime)) {
+    if (!Number.isFinite(videoTime) || videoTime < 0) {
       setVideoTime(0);
     }
   }, [videoTime]);
@@ -43,8 +40,6 @@ export const usePlaybackTimeTracker = ({
   usePlaybackClockSync({
     videoList,
     isVideoPlaying,
-    maxSec,
-    syncData,
     getExistingPlayer,
     lastManualSeekTimestamp,
     safeSetCurrentTime,
