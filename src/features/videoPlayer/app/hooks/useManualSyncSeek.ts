@@ -1,5 +1,12 @@
 import { useEffect } from 'react';
-import type { VideoSyncData } from '../../../../types/video/sync';
+import type { PackageMediaAngle } from '../../../../types/package/metadata';
+import { usesVirtualClipTimeline } from '../../../../types/package/clipTimeline';
+import {
+  clampAngleMediaTime,
+  globalTimeToAngleMediaTime,
+  resolvePlaybackAngleOffset,
+  type VideoSyncData,
+} from '../../../../types/video/sync';
 import {
   getVideoJsPlayer,
   getVideoJsPlayerCurrentTime,
@@ -10,39 +17,43 @@ type ManualSyncSeekParams = {
   syncMode: 'auto' | 'manual';
   syncData?: VideoSyncData;
   videoList: string[];
+  mediaAngles: PackageMediaAngle[];
 };
 
 export const useManualSyncSeek = ({
   syncMode,
   syncData,
   videoList,
+  mediaAngles,
 }: ManualSyncSeekParams): void => {
   useEffect(() => {
-    if (
-      syncMode === 'manual' &&
-      syncData?.isAnalyzed &&
-      videoList.length >= 2
-    ) {
-      const offset = syncData.syncOffset || 0;
-
-      try {
-        const p0 = getVideoJsPlayer('video_0');
-        const p1 = getVideoJsPlayer('video_1');
-
-        if (p0 && p1) {
-          const t0 = getVideoJsPlayerCurrentTime(p0) ?? 0;
-          // video_1はoffsetを考慮した位置にシーク
-          // t1 = t0 + offset (offset = video_0の時刻に加算してvideo_1の時刻を得る値)
-          const t1 = Math.max(0, t0 + offset);
-          setVideoJsPlayerCurrentTime(p1, t1);
-
-          console.log(
-            `[手動モード] offsetを考慮したシーク: video_0=${t0.toFixed(3)}s, video_1=${t1.toFixed(3)}s (offset=${offset.toFixed(3)}s)`,
-          );
-        }
-      } catch (error) {
-        console.error('手動モード開始時のシークエラー:', error);
-      }
+    if (syncMode !== 'manual' || videoList.length < 2) {
+      return;
     }
-  }, [syncMode, syncData, videoList]);
+
+    try {
+      const primaryPlayer = getVideoJsPlayer('video_0');
+      const secondaryPlayer = getVideoJsPlayer('video_1');
+      if (!primaryPlayer || !secondaryPlayer) {
+        return;
+      }
+
+      const primaryTime = getVideoJsPlayerCurrentTime(primaryPlayer) ?? 0;
+      const secondaryOffset = resolvePlaybackAngleOffset({
+        syncData,
+        angleIndex: 1,
+        // Enter manual mode from the current automatic playback alignment.
+        syncMode: 'auto',
+        usesVirtualTimeline: usesVirtualClipTimeline(
+          mediaAngles[1]?.clips ?? [],
+        ),
+      });
+      const secondaryTime = clampAngleMediaTime(
+        globalTimeToAngleMediaTime(primaryTime, secondaryOffset),
+      );
+      setVideoJsPlayerCurrentTime(secondaryPlayer, secondaryTime);
+    } catch (error) {
+      console.error('手動モード開始時のシークエラー:', error);
+    }
+  }, [mediaAngles, syncMode, syncData, videoList]);
 };
