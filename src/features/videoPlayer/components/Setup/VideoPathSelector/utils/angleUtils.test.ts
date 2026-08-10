@@ -121,6 +121,9 @@ describe('multi-angle package mapping', () => {
       { packageName: 'match.stpkg', team1Name: 'A', team2Name: 'B' },
     );
 
-    expect(result.mediaAngles.map((angle) => angle.configIndex)).toEqual([0, 1]);
+    expect(result.mediaAngles?.map((angle) => angle.configIndex)).toEqual([
+      0,
+      1,
+    ]);
   });
 });
