@@ -7,6 +7,11 @@ import {
   resolveTimelineClip,
   usesVirtualClipTimeline,
 } from '../../../../../types/package/clipTimeline';
+import {
+  clampAngleMediaTime,
+  globalTimeToAngleMediaTime,
+  resolvePlaybackAngleOffset,
+} from '../../../../../types/video/sync';
 
 const noopSetMax: React.Dispatch<React.SetStateAction<number>> = (value) => {
   void value;
@@ -26,27 +31,59 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
     setMediaAngles,
   } = props;
   const isManualMode = props.syncMode === 'manual';
+  const syncMode = isManualMode ? 'manual' : 'auto';
   const safeVideoList = Array.isArray(videoList) ? videoList : [];
   const allowSeek = isManualMode;
-  const offset = syncData?.syncOffset ?? 0;
-  const resolveOffset = React.useCallback(
-    (index: number): number =>
-      index === 0 ? 0 : (syncData?.angleOffsets?.[index] ?? offset),
-    [offset, syncData?.angleOffsets],
+
+  const playbackOffsets = React.useMemo(
+    () =>
+      safeVideoList.map((_, index) =>
+        resolvePlaybackAngleOffset({
+          syncData,
+          angleIndex: index,
+          syncMode,
+          usesVirtualTimeline: usesVirtualClipTimeline(
+            mediaAngles[index]?.clips ?? [],
+          ),
+        }),
+      ),
+    [mediaAngles, safeVideoList, syncData, syncMode],
   );
+
+  const playbackSyncData = React.useMemo(
+    () =>
+      syncData
+        ? {
+            ...syncData,
+            syncOffset: playbackOffsets[1] ?? 0,
+            angleOffsets: playbackOffsets,
+          }
+        : undefined,
+    [playbackOffsets, syncData],
+  );
+
   const timelineClips = React.useMemo(
     () =>
       safeVideoList.map((fallbackSource, index) => {
         const angle = mediaAngles[index];
-        if (!angle || !usesVirtualClipTimeline(angle.clips)) {
+        const usesVirtualTimeline = usesVirtualClipTimeline(angle?.clips ?? []);
+        const offset = playbackOffsets[index] ?? 0;
+
+        if (!angle || !usesVirtualTimeline) {
           return {
             source: fallbackSource,
             clipId: undefined,
-            clipTimeSeconds: currentTime,
+            clipTimeSeconds: isManualMode
+              ? currentTime
+              : clampAngleMediaTime(
+                  globalTimeToAngleMediaTime(currentTime, offset),
+                ),
           };
         }
-        const angleTime = currentTime + resolveOffset(index);
-        const active = resolveTimelineClip(angle.clips, angleTime);
+
+        // timelineStartSeconds is already absolute on the common timeline.
+        // playbackOffsets[index] is therefore guaranteed to be zero here.
+        const active = resolveTimelineClip(angle.clips, currentTime);
         return active
           ? {
               source: active.clip.source,
@@ -55,9 +92,10 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
             }
           : { source: '', clipId: undefined, clipTimeSeconds: 0 };
       }),
-    [currentTime, mediaAngles, resolveOffset, safeVideoList],
+    [currentTime, isManualMode, mediaAngles, playbackOffsets, safeVideoList],
   );
   const effectiveVideoList = timelineClips.map((entry) => entry.source);
+
   const recordTimelineClipDuration = React.useCallback(
     (
       angleIndex: number,
@@ -128,8 +166,8 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
     isVideoPlaying,
     videoPlayBackRate,
     setMaxSec,
-    syncData,
-    syncMode: isManualMode ? 'manual' : 'auto',
+    syncData: playbackSyncData,
+    syncMode,
     forceUpdateKey,
   });
 
@@ -168,7 +206,6 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
       {safeVideoList.map((fallbackPath, index) => {
         if (!fallbackPath || fallbackPath.trim() === '') return null;
         const filePath = timelineClips[index]?.source ?? fallbackPath;
-
         const isVisible = isIndexVisible(index);
 
         return (
@@ -216,7 +253,6 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
                   initialTimeSeconds={
                     timelineClips[index]?.clipTimeSeconds ?? 0
                   }
-                  offsetSeconds={resolveOffset(index)}
                   onAspectRatioChange={(ratio) =>
                     handleAspectRatioChange(index, ratio)
                   }
