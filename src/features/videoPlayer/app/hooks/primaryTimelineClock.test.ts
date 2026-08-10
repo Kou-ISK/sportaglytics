@@ -46,6 +46,19 @@ describe('primary virtual timeline clock', () => {
     ).toBe(2);
   });
 
+  it('uses media ended to leave the last decoded frame and enter the gap', () => {
+    expect(
+      advancePrimaryTimelineClock({
+        currentGlobalTime: 4.8,
+        elapsedSeconds: 0.016,
+        playbackRate: 1,
+        clips,
+        observedPrimaryMediaTime: 4.9,
+        observedPrimaryMediaEnded: true,
+      }),
+    ).toBe(5);
+  });
+
   it('advances wall-clock time only through a black gap', () => {
     expect(
       advancePrimaryTimelineClock({
