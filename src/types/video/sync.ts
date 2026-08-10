@@ -26,8 +26,8 @@ export const PLAYBACK_OFFSET_EPSILON_SECONDS = 0.05;
  * Returns the persisted angle-level offset for an angle.
  *
  * Contract: angle 0 is the global clock and is always 0. Synchronization is
- * active only after analysis/manual confirmation. Legacy two-angle packages
- * fall back to syncOffset for angle 1 and any missing secondary entry.
+ * active only after analysis/manual confirmation. Legacy syncOffset is the
+ * compatibility representation for angle 1 only; angle 2+ must be explicit.
  */
 export const resolveAngleSyncOffset = (
   syncData: VideoSyncData | undefined,
@@ -36,7 +36,13 @@ export const resolveAngleSyncOffset = (
   if (angleIndex <= 0 || !syncData?.isAnalyzed) {
     return 0;
   }
-  return syncData.angleOffsets?.[angleIndex] ?? syncData.syncOffset ?? 0;
+
+  const explicitOffset = syncData.angleOffsets?.[angleIndex];
+  if (typeof explicitOffset === 'number') {
+    return explicitOffset;
+  }
+
+  return angleIndex === 1 ? syncData.syncOffset : 0;
 };
 
 /**
