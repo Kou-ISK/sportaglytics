@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import type { PackageMediaAngle } from '../../../../types/package/metadata';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import type { VideoPlayerError } from '../../../../types/video/error';
 import { useAutoAudioResync } from './sync/useAutoAudioResync';
@@ -8,6 +9,7 @@ import { useSyncPlayerUpdater } from './sync/useSyncPlayerUpdater';
 
 interface UseSyncActionsParams {
   videoList: string[];
+  mediaAngles: PackageMediaAngle[];
   syncData: VideoSyncData | undefined;
   setSyncData: Dispatch<SetStateAction<VideoSyncData | undefined>>;
   setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
@@ -32,6 +34,7 @@ interface UseSyncActionsResult {
 
 export const useSyncActions = ({
   videoList,
+  mediaAngles,
   syncData,
   setSyncData,
   setIsVideoPlaying,
@@ -44,6 +47,7 @@ export const useSyncActions = ({
   const { playerForceUpdateKey, forceUpdateVideoPlayers } =
     useSyncPlayerUpdater({
       videoList,
+      mediaAngles,
       setIsVideoPlaying,
     });
 
