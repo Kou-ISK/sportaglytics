@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { MAX_PACKAGE_TIMELINE_SECONDS } from '../../../../../../types/package/clipTimeline';
 import { resolveMaxAllowedTime } from './playbackTimeTracker.utils';
 
 interface UsePlaybackTimeWarningsParams {
@@ -14,15 +15,15 @@ export const usePlaybackTimeWarnings = ({
     const maxAllowedTime = resolveMaxAllowedTime(maxSec);
     if (videoTime > maxAllowedTime) {
       console.warn(
-        `[WARNING] videoTimeが異常に高い値 (${videoTime}秒、上限=${maxAllowedTime}秒) です。`,
+        `[WARNING] videoTimeが再生可能範囲を超えています (${videoTime}秒、上限=${maxAllowedTime}秒)。`,
       );
     }
   }, [maxSec, videoTime]);
 
   useEffect(() => {
-    if (maxSec > 7200) {
+    if (maxSec > MAX_PACKAGE_TIMELINE_SECONDS) {
       console.error(
-        `[ERROR] VideoController: 異常に高いmaxSec (${maxSec}秒) が設定されています。`,
+        `[ERROR] VideoController: maxSecが24時間上限を超えています (${maxSec}秒)。`,
       );
     }
   }, [maxSec]);
