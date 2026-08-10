@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { MAX_PACKAGE_TIMELINE_SECONDS } from '../../../../../../types/package/clipTimeline';
 import { useFlashStates } from './useFlashStates';
 import { usePlaybackTimeTracker } from './usePlaybackTimeTracker';
@@ -73,14 +73,6 @@ export const useVideoControllerController = ({
     },
     [maxSec, setCurrentTime],
   );
-
-  const prevCurrentTimeRef = useRef<number>(currentTime);
-  useEffect(() => {
-    if (currentTime === prevCurrentTimeRef.current) {
-      return;
-    }
-    prevCurrentTimeRef.current = currentTime;
-  }, [currentTime]);
 
   const getExistingPlayer = useExistingVideoJsPlayer();
 
