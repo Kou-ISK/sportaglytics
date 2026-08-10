@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import type { PackageMediaAngle } from '../../../../../types/package/metadata';
 import type { VideoSyncData } from '../../../../../types/video/sync';
 import {
   getPrimaryPlayerTime,
@@ -8,6 +9,7 @@ import {
 
 interface UseSyncPlayerUpdaterParams {
   videoList: string[];
+  mediaAngles: PackageMediaAngle[];
   setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -18,6 +20,7 @@ interface UseSyncPlayerUpdaterResult {
 
 export const useSyncPlayerUpdater = ({
   videoList,
+  mediaAngles,
   setIsVideoPlaying,
 }: UseSyncPlayerUpdaterParams): UseSyncPlayerUpdaterResult => {
   const [playerForceUpdateKey, setPlayerForceUpdateKey] = useState(0);
@@ -30,6 +33,7 @@ export const useSyncPlayerUpdater = ({
         requestAnimationFrame(() => {
           syncPlayersToGlobalTime(
             videoList,
+            mediaAngles,
             newSyncData,
             getPrimaryPlayerTime(),
           );
@@ -43,7 +47,7 @@ export const useSyncPlayerUpdater = ({
         });
       });
     },
-    [setIsVideoPlaying, videoList],
+    [mediaAngles, setIsVideoPlaying, videoList],
   );
 
   return {
