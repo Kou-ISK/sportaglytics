@@ -83,21 +83,25 @@ export const shouldBlockAnglePlayback = (
 ): boolean =>
   globalTimeToAngleMediaTime(globalTime, angleOffset) < -epsilonSeconds;
 
+/**
+ * Commits a new second-angle synchronization value in the current format.
+ * Reading legacy syncOffset-only data is supported, but once synchronization
+ * is edited we always materialize angleOffsets so new writes do not perpetuate
+ * the legacy-only representation.
+ */
 export const applySecondarySyncOffset = (
   syncData: VideoSyncData | undefined,
   syncOffset: number,
 ): VideoSyncData => {
-  const existingAngleOffsets = syncData?.angleOffsets;
-  let angleOffsets: number[] | undefined;
+  const angleOffsets = syncData?.angleOffsets
+    ? [...syncData.angleOffsets]
+    : [0, syncOffset];
 
-  if (existingAngleOffsets) {
-    angleOffsets = [...existingAngleOffsets];
-    if (angleOffsets.length === 0) {
-      angleOffsets.push(0);
-    }
-    angleOffsets[0] = 0;
-    angleOffsets[1] = syncOffset;
+  if (angleOffsets.length === 0) {
+    angleOffsets.push(0);
   }
+  angleOffsets[0] = 0;
+  angleOffsets[1] = syncOffset;
 
   return {
     ...syncData,
