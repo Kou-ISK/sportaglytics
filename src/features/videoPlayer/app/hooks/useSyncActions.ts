@@ -53,24 +53,21 @@ export const useSyncActions = ({
 
   const logInfo = useCallback(
     (message: string): void => {
-      if (onSyncInfo) {
-        onSyncInfo(message);
-      }
+      onSyncInfo?.(message);
     },
     [onSyncInfo],
   );
 
   const logWarn = useCallback(
     (message: string): void => {
-      if (onSyncWarning) {
-        onSyncWarning(message);
-      }
+      onSyncWarning?.(message);
     },
     [onSyncWarning],
   );
 
   const autoAudioResync = useAutoAudioResync({
     videoList,
+    mediaAngles,
     syncData,
     setSyncData,
     forceUpdateVideoPlayers,
@@ -79,12 +76,14 @@ export const useSyncActions = ({
     onSyncWarning: logWarn,
   });
   const manualSyncActions = useManualSyncActions({
+    mediaAngles,
     syncData,
     setSyncData,
     metaDataConfigFilePath,
     setSyncMode,
     forceUpdateVideoPlayers,
     onSyncInfo: logInfo,
+    onSyncWarning: logWarn,
   });
 
   return {
