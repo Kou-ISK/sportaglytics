@@ -1,13 +1,11 @@
 import { useCallback, useMemo } from 'react';
 import type { SelectChangeEvent } from '@mui/material';
-import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { GetExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
 
 interface UseVideoControllerControlsParams {
   setVideoPlayBackRate: React.Dispatch<React.SetStateAction<number>>;
   triggerFlash: (key: string) => void;
   setIsVideoPlaying: React.Dispatch<React.SetStateAction<boolean>>;
-  syncData?: VideoSyncData;
   maxSec: number;
   videoTime: number;
   setVideoTime: (value: number) => void;
@@ -23,7 +21,6 @@ export const useVideoControllerControls = ({
   setVideoPlayBackRate,
   triggerFlash,
   setIsVideoPlaying,
-  syncData,
   maxSec,
   videoTime,
   setVideoTime,
@@ -39,7 +36,7 @@ export const useVideoControllerControls = ({
   const LARGE_SKIP_SECONDS = 30;
 
   const formatTime = useCallback((seconds: number): string => {
-    if (!isFinite(seconds) || seconds < 0) return '0:00';
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -58,18 +55,15 @@ export const useVideoControllerControls = ({
 
   const handleSeekAdjust = useCallback(
     (deltaSeconds: number) => {
-      const minAllowed =
-        syncData?.isAnalyzed &&
-        typeof syncData.syncOffset === 'number' &&
-        syncData.syncOffset < 0
-          ? syncData.syncOffset
-          : 0;
+      const minAllowed = 0;
       const maxAllowed =
         typeof maxSec === 'number' && maxSec > minAllowed
           ? maxSec
           : Number.POSITIVE_INFINITY;
 
-      // videoTime状態ではなく、プレイヤーの実際のcurrentTime()から起点を取得
+      // The primary angle is the global clock. Use its actual media time as
+      // the seek origin and let useVideoTimeController map the global target
+      // to every secondary angle.
       let base = 0;
       try {
         const player = getExistingPlayer('video_0');
@@ -94,7 +88,6 @@ export const useVideoControllerControls = ({
     },
     [
       videoTime,
-      syncData,
       maxSec,
       handleCurrentTime,
       getExistingPlayer,
