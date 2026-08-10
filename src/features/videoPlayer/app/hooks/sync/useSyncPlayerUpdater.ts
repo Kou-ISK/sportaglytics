@@ -10,6 +10,7 @@ import {
 interface UseSyncPlayerUpdaterParams {
   videoList: string[];
   mediaAngles: PackageMediaAngle[];
+  isVideoPlaying: boolean;
   setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -21,14 +22,18 @@ interface UseSyncPlayerUpdaterResult {
 export const useSyncPlayerUpdater = ({
   videoList,
   mediaAngles,
+  isVideoPlaying,
   setIsVideoPlaying,
 }: UseSyncPlayerUpdaterParams): UseSyncPlayerUpdaterResult => {
   const [playerForceUpdateKey, setPlayerForceUpdateKey] = useState(0);
 
   const forceUpdateVideoPlayers = useCallback(
     (newSyncData: VideoSyncData): Promise<void> => {
+      const shouldResume = isVideoPlaying;
       return new Promise((resolve) => {
-        setIsVideoPlaying(false);
+        if (shouldResume) {
+          setIsVideoPlaying(false);
+        }
 
         requestAnimationFrame(() => {
           syncPlayersToGlobalTime(
@@ -41,13 +46,15 @@ export const useSyncPlayerUpdater = ({
           setPlayerForceUpdateKey((previous) => previous + 1);
 
           globalThis.setTimeout(() => {
-            setIsVideoPlaying(true);
+            if (shouldResume) {
+              setIsVideoPlaying(true);
+            }
             resolve();
           }, 300);
         });
       });
     },
-    [mediaAngles, setIsVideoPlaying, videoList],
+    [isVideoPlaying, mediaAngles, setIsVideoPlaying, videoList],
   );
 
   return {
