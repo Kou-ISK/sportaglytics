@@ -1,5 +1,4 @@
 import type React from 'react';
-import type { VideoSyncData } from '../../../../../types/video/sync';
 
 export interface VideoControllerProps {
   setIsVideoPlaying: React.Dispatch<React.SetStateAction<boolean>>;
@@ -14,6 +13,5 @@ export interface VideoControllerProps {
   ) => void;
   maxSec: number;
   videoList: string[];
-  syncData?: VideoSyncData;
   useTimelineClock?: boolean;
 }
