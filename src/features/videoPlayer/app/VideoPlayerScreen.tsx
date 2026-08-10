@@ -114,10 +114,12 @@ export const VideoPlayerScreen = () => {
 
   const codingPanelRuntimeRef = useRef<EnhancedCodePanelHandle | null>(null);
 
-  // 手動同期適用ハンドラ
+  // Clip timeline placement is already the persisted synchronization result.
+  // Applying it must only leave manual mode; applying legacy angle sync here
+  // would stack a second correction onto the absolute clip placement.
   const handleApplyManualSync = useCallback(async () => {
-    await manualSyncFromPlayers();
-  }, [manualSyncFromPlayers]);
+    await cancelManualSync();
+  }, [cancelManualSync]);
 
   const {
     analysisOpen,
