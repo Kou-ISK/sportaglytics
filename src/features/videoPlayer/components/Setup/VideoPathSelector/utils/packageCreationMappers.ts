@@ -71,10 +71,11 @@ export const buildPackageLoadResult = (
     timelinePath: packageDatas.timelinePath,
     metaDataConfigFilePath: packageDatas.metaDataConfigFilePath,
     packagePath: `${packageDirectory}/${form.packageName}`,
-    mediaAngles: packageDatas.angles.map((angle) => ({
+    mediaAngles: packageDatas.angles.map((angle, index) => ({
       id: angle.id,
       name: angle.name,
       sourceKind: angle.sourceKind,
+      configIndex: index,
       clips: angle.clips.map((clip) => ({
         id: clip.id,
         sourceKind: clip.sourceKind,
