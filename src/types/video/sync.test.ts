@@ -26,11 +26,13 @@ describe('video sync data helpers', () => {
       expect(resolveAngleSyncOffset(syncData(1.25, [0, 1.25]), 0)).toBe(0);
     });
 
-    it('prefers per-angle offsets and falls back to legacy syncOffset', () => {
+    it('uses explicit per-angle offsets and legacy syncOffset only for angle 1', () => {
       const data = syncData(1.25, [0, -0.5, 0.75]);
       expect(resolveAngleSyncOffset(data, 1)).toBe(-0.5);
       expect(resolveAngleSyncOffset(data, 2)).toBe(0.75);
-      expect(resolveAngleSyncOffset(data, 3)).toBe(1.25);
+      expect(resolveAngleSyncOffset(data, 3)).toBe(0);
+      expect(resolveAngleSyncOffset(syncData(1.25), 1)).toBe(1.25);
+      expect(resolveAngleSyncOffset(syncData(1.25), 2)).toBe(0);
     });
 
     it('does not apply unconfirmed sync data', () => {
