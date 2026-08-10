@@ -140,10 +140,11 @@ jobs:
               exit 1
           fi
 
-      - name: Delete existing release (if exists)
-        continue-on-error: true
+      - name: Delete existing release and tag (if exists)
         run: |
-          gh release delete v${{ steps.get_version.outputs.VERSION }} --yes --cleanup-tag
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          gh release delete "v${VERSION}" --yes --cleanup-tag || true
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/v${VERSION}" || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
