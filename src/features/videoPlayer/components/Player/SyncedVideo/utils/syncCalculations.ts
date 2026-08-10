@@ -1,8 +1,8 @@
-const OFFSET_EPSILON = 0.05;
-
-const clampToZero = (value: number) => (value < 0 ? 0 : value);
-
-const isNegativeOffset = (offset: number) => offset < -OFFSET_EPSILON;
+import {
+  clampAngleMediaTime,
+  globalTimeToAngleMediaTime,
+  shouldBlockAnglePlayback,
+} from '../../../../../../types/video/sync';
 
 export const calculateAdjustedCurrentTimes = (
   videoList: string[],
@@ -10,11 +10,10 @@ export const calculateAdjustedCurrentTimes = (
   offsets: number[],
 ): number[] => {
   return videoList.map((_, index) => {
-    if (index === 0) {
-      return clampToZero(primaryClock);
-    }
-    const shifted = primaryClock + (offsets[index] ?? 0);
-    return clampToZero(shifted);
+    const offset = index === 0 ? 0 : (offsets[index] ?? 0);
+    return clampAngleMediaTime(
+      globalTimeToAngleMediaTime(primaryClock, offset),
+    );
   });
 };
 
@@ -35,9 +34,9 @@ export const calculateBlockStates = ({
     return videoList.map(() => false);
   }
 
-  return videoList.map((_, index) => {
-    const offset = offsets[index] ?? 0;
-    if (!isNegativeOffset(offset)) return false;
-    return primaryClock < Math.abs(offset) - OFFSET_EPSILON;
-  });
+  return videoList.map((_, index) =>
+    index === 0
+      ? false
+      : shouldBlockAnglePlayback(primaryClock, offsets[index] ?? 0),
+  );
 };
