@@ -44,7 +44,7 @@ describe('multi-angle package mapping', () => {
       '/match.stpkg/videos/reverse.mp4',
       'https://www.youtube.com/watch?v=abc123',
     ]);
-    expect(result.angles[3].playbackOffsetSeconds).toBe(-2);
+    expect(result.angles[3].clips[0].timelineStartSeconds).toBe(2);
   });
 
   it('keeps ordered clips and their black-gap duration in the IPC payload', () => {
