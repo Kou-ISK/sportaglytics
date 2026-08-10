@@ -34,6 +34,8 @@ export interface PackageMediaAngle {
   name: string;
   sourceKind: 'local' | 'youtube';
   clips: PackageMediaClip[];
+  /** Original config.json angles[] index. Runtime playback may reorder angles. */
+  configIndex?: number;
 }
 
 export interface MetaData {
