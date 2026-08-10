@@ -1,5 +1,3 @@
-import type { VideoSyncData } from '../../../../types/video/sync';
-
 interface TeamMetadata {
   team1Name: string;
   team2Name: string;
@@ -11,23 +9,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
 
 const getElectronApi = (): Window['electronAPI'] => {
   return globalThis.window.electronAPI;
-};
-
-export const saveVideoMetadataSyncData = async (
-  metaDataConfigFilePath: string,
-  syncData: VideoSyncData,
-): Promise<boolean> => {
-  const api = getElectronApi();
-  if (!api?.saveSyncData || !metaDataConfigFilePath) {
-    return false;
-  }
-
-  try {
-    return await api.saveSyncData(metaDataConfigFilePath, syncData);
-  } catch (error: unknown) {
-    console.debug('[videoMetadataGateway] saveSyncData failed', error);
-    return false;
-  }
 };
 
 export const readVideoMetadataPackageName = async (
