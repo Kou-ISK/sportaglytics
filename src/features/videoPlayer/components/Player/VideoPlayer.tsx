@@ -15,6 +15,8 @@ interface VideoPlayerProps {
   currentTime?: number;
   mediaAngles?: PackageMediaAngle[];
   setMediaAngles?: React.Dispatch<React.SetStateAction<PackageMediaAngle[]>>;
+  onPrimaryPlaybackTimeChange?: (timeSeconds: number) => void;
+  onPrimaryPlaybackEnded?: () => void;
 }
 
 export const VideoPlayer = ({
@@ -29,6 +31,8 @@ export const VideoPlayer = ({
   currentTime = 0,
   mediaAngles = [],
   setMediaAngles,
+  onPrimaryPlaybackTimeChange,
+  onPrimaryPlaybackEnded,
 }: VideoPlayerProps): React.JSX.Element => {
   return (
     <SyncedVideoPlayer
@@ -43,6 +47,8 @@ export const VideoPlayer = ({
       currentTime={currentTime}
       mediaAngles={mediaAngles}
       setMediaAngles={setMediaAngles}
+      onPrimaryPlaybackTimeChange={onPrimaryPlaybackTimeChange}
+      onPrimaryPlaybackEnded={onPrimaryPlaybackEnded}
     />
   );
 };
