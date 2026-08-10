@@ -13,7 +13,6 @@ export const VideoController = ({
   handleCurrentTime,
   maxSec,
   videoList,
-  syncData,
   useTimelineClock,
 }: VideoControllerProps) => {
   const toolbarProps = useVideoControllerController({
@@ -24,7 +23,6 @@ export const VideoController = ({
     setCurrentTime,
     currentTime,
     handleCurrentTime,
-    syncData,
     maxSec,
     videoList,
     useTimelineClock,
