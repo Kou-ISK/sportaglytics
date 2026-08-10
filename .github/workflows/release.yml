@@ -54,7 +54,7 @@ jobs:
           pnpm exec tsc -p electron/tsconfig.json
           pnpm run lint
           pnpm run check:architecture
-          pnpm run test:run
+          pnpm run test:ci
           pnpm run check:adr
 
       - name: Build React app
