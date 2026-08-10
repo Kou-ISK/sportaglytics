@@ -37,6 +37,7 @@
     "build": "vite build",
     "test": "vitest",
     "test:run": "vitest --run",
+    "test:ci": "vitest --run --no-file-parallelism",
     "e2e:prepare": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload",
     "test:e2e": "pnpm run e2e:prepare && node scripts/e2e-clip-sync.mjs && node scripts/e2e-code-window-menu.mjs && node scripts/e2e-export-progress.mjs && node scripts/e2e-timeline-rows.mjs",
     "test:e2e:clip-sync": "pnpm run e2e:prepare && node scripts/e2e-clip-sync.mjs",

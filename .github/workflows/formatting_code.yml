@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22.12.0"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -50,4 +50,4 @@ jobs:
         run: pnpm run check:architecture
 
       - name: Test
-        run: pnpm run test:run
+        run: pnpm run test:ci
