@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import type { PackageMediaAngle } from '../../../../../types/package/metadata';
 import {
   applySecondarySyncOffset,
   type VideoSyncData,
@@ -9,14 +10,17 @@ import {
   setManualSyncModeChecked,
 } from '../../gateways/syncGateway';
 import { getManualSyncTimes } from './syncPlayerAdapter';
+import { usesClipPlacementSync } from './syncModeGuards';
 
 interface UseManualSyncActionsParams {
+  mediaAngles: PackageMediaAngle[];
   syncData: VideoSyncData | undefined;
   setSyncData: Dispatch<SetStateAction<VideoSyncData | undefined>>;
   metaDataConfigFilePath: string;
   setSyncMode: Dispatch<SetStateAction<'auto' | 'manual'>>;
   forceUpdateVideoPlayers: (newSyncData: VideoSyncData) => Promise<void>;
   onSyncInfo?: (message: string) => void;
+  onSyncWarning?: (message: string) => void;
 }
 
 interface UseManualSyncActionsResult {
@@ -30,24 +34,41 @@ const closeManualMode = async (): Promise<void> => {
 };
 
 export const useManualSyncActions = ({
+  mediaAngles,
   syncData,
   setSyncData,
   metaDataConfigFilePath,
   setSyncMode,
   forceUpdateVideoPlayers,
   onSyncInfo,
+  onSyncWarning,
 }: UseManualSyncActionsParams): UseManualSyncActionsResult => {
   const notifyInfo = useCallback(
     (message: string): void => {
-      if (onSyncInfo) {
-        onSyncInfo(message);
-      }
+      onSyncInfo?.(message);
     },
     [onSyncInfo],
   );
 
+  const notifyWarning = useCallback(
+    (message: string): void => {
+      onSyncWarning?.(message);
+    },
+    [onSyncWarning],
+  );
+
+  const canUseAngleLevelSync = useCallback((): boolean => {
+    if (!usesClipPlacementSync(mediaAngles)) {
+      return true;
+    }
+    notifyWarning(
+      'クリップ配置済みのアングルはクリップ単位シンクが基準です。クリップ単位シンクで調整してください。',
+    );
+    return false;
+  }, [mediaAngles, notifyWarning]);
+
   const adjustSyncOffset = useCallback(async (): Promise<void> => {
-    if (!syncData) {
+    if (!syncData || !canUseAngleLevelSync()) {
       return;
     }
 
@@ -68,9 +89,19 @@ export const useManualSyncActions = ({
     notifyInfo(`同期オフセットを調整しました: ${offsetSeconds} 秒`);
 
     await forceUpdateVideoPlayers(adjustedSyncData);
-  }, [forceUpdateVideoPlayers, notifyInfo, setSyncData, syncData]);
+  }, [
+    canUseAngleLevelSync,
+    forceUpdateVideoPlayers,
+    notifyInfo,
+    setSyncData,
+    syncData,
+  ]);
 
   const manualSyncFromPlayers = useCallback(async (): Promise<void> => {
+    if (!canUseAngleLevelSync()) {
+      return;
+    }
+
     try {
       const { primaryTime, secondaryTime } = getManualSyncTimes();
       const newOffset = secondaryTime - primaryTime;
@@ -93,6 +124,7 @@ export const useManualSyncActions = ({
       console.error('manualSyncFromPlayers error', error);
     }
   }, [
+    canUseAngleLevelSync,
     forceUpdateVideoPlayers,
     metaDataConfigFilePath,
     notifyInfo,
