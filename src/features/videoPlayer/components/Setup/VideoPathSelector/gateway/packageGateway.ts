@@ -1,9 +1,9 @@
 import type { PackageDatas } from '../../../../../../renderer';
 import { usesVirtualClipTimeline } from '../../../../../../types/package/clipTimeline';
 import type { VideoSyncData } from '../../../../../../types/video/sync';
+import { loadRuntimeSyncData } from '../../../../shared/packageSyncData';
 import type { PackageLoadResult } from '../types';
 import { buildVideoListFromConfig } from '../utils/angleUtils';
-import { migrateLoadedPackageSyncData } from '../utils/packageSyncMigration';
 
 const ELECTRON_API_UNAVAILABLE = 'ELECTRON_API_UNAVAILABLE';
 const PACKAGE_CONFIG_NOT_FOUND = 'PACKAGE_CONFIG_NOT_FOUND';
@@ -149,7 +149,7 @@ export const loadPackageDirectory = async (
     .slice(0, 2)
     .some((angle) => usesVirtualClipTimeline(angle.clips));
   const persistedSyncData = toSyncData(config.syncData);
-  const syncData = migrateLoadedPackageSyncData(persistedSyncData);
+  const syncData = loadRuntimeSyncData(persistedSyncData, angles);
 
   return {
     packagePath,
@@ -169,6 +169,7 @@ export const loadPackageDirectory = async (
         name: angle.name,
         sourceKind: angle.sourceKind,
         clips: angle.clips,
+        configIndex: angle.configIndex,
       })),
     },
   };
