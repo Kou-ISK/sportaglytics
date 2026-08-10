@@ -1,4 +1,14 @@
-import type { VideoSyncData } from '../../../../../types/video/sync';
+import type { PackageMediaAngle } from '../../../../../types/package/metadata';
+import {
+  resolveTimelineClip,
+  usesVirtualClipTimeline,
+} from '../../../../../types/package/clipTimeline';
+import {
+  clampAngleMediaTime,
+  globalTimeToAngleMediaTime,
+  resolvePlaybackAngleOffset,
+  type VideoSyncData,
+} from '../../../../../types/video/sync';
 import {
   getVideoJsPlayer,
   getVideoJsPlayerCurrentTime,
@@ -29,6 +39,7 @@ export const getManualSyncTimes = (): {
 
 export const syncPlayersToGlobalTime = (
   videoList: string[],
+  mediaAngles: PackageMediaAngle[],
   syncData: VideoSyncData,
   currentGlobalTime: number,
 ): void => {
@@ -38,14 +49,28 @@ export const syncPlayersToGlobalTime = (
       return;
     }
 
-    const offset =
-      index > 0 && syncData.isAnalyzed
-        ? (syncData.angleOffsets?.[index] ?? syncData.syncOffset ?? 0)
-        : 0;
-    const targetTime = Math.max(
-      0,
-      currentGlobalTime + (index > 0 ? offset : 0),
-    );
+    const angle = mediaAngles[index];
+    const usesVirtualTimeline = usesVirtualClipTimeline(angle?.clips ?? []);
+    const offset = resolvePlaybackAngleOffset({
+      syncData,
+      angleIndex: index,
+      syncMode: 'auto',
+      usesVirtualTimeline,
+    });
+
+    let targetTime: number;
+    if (usesVirtualTimeline && angle) {
+      const active = resolveTimelineClip(angle.clips, currentGlobalTime);
+      if (!active) {
+        player.pause?.();
+        return;
+      }
+      targetTime = active.clipTimeSeconds;
+    } else {
+      targetTime = clampAngleMediaTime(
+        globalTimeToAngleMediaTime(currentGlobalTime, offset),
+      );
+    }
 
     player.pause?.();
     setVideoJsPlayerCurrentTime(player, targetTime);
