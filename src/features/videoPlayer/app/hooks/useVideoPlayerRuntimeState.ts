@@ -88,6 +88,7 @@ export const useVideoPlayerRuntimeState =
 
     const syncActions = useSyncActions({
       videoList,
+      mediaAngles,
       syncData,
       setSyncData,
       setIsVideoPlaying,
