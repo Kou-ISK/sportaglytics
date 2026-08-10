@@ -1,10 +1,8 @@
 import type { PackageDatas } from '../../../../../../renderer';
-import {
-  resolveLoadedAngleOffsets,
-  type VideoSyncData,
-} from '../../../../../../types/video/sync';
+import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { PackageLoadResult } from '../types';
 import { buildVideoListFromConfig } from '../utils/angleUtils';
+import { migrateLoadedPackageSyncData } from '../utils/packageSyncMigration';
 
 const ELECTRON_API_UNAVAILABLE = 'ELECTRON_API_UNAVAILABLE';
 const PACKAGE_CONFIG_NOT_FOUND = 'PACKAGE_CONFIG_NOT_FOUND';
@@ -147,23 +145,7 @@ export const loadPackageDirectory = async (
 
   const supportsAudioSync = angles.length >= 2;
   const persistedSyncData = toSyncData(config.syncData);
-  const derivedAngleOffsets = angles.map(
-    (angle) => angle.playbackOffsetSeconds,
-  );
-  const angleOffsets = resolveLoadedAngleOffsets({
-    persistedSyncData,
-    derivedAngleOffsets,
-  });
-  const hasAngleOffset = Boolean(angleOffsets);
-  const syncData =
-    persistedSyncData || hasAngleOffset
-      ? {
-          syncOffset: persistedSyncData?.syncOffset ?? 0,
-          isAnalyzed: persistedSyncData?.isAnalyzed ?? true,
-          confidenceScore: persistedSyncData?.confidenceScore,
-          angleOffsets,
-        }
-      : undefined;
+  const syncData = migrateLoadedPackageSyncData(persistedSyncData);
 
   return {
     packagePath,
