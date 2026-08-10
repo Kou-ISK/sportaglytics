@@ -14,4 +14,6 @@ export interface SyncedVideoPlayerProps {
   currentTime?: number;
   mediaAngles?: PackageMediaAngle[];
   setMediaAngles?: Dispatch<SetStateAction<PackageMediaAngle[]>>;
+  onPrimaryPlaybackTimeChange?: (timeSeconds: number) => void;
+  onPrimaryPlaybackEnded?: () => void;
 }
