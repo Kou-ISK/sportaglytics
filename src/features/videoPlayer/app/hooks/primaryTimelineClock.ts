@@ -39,16 +39,39 @@ export const advancePrimaryTimelineClock = ({
   playbackRate,
   clips,
   observedPrimaryMediaTime,
+  observedPrimaryMediaEnded = false,
 }: {
   currentGlobalTime: number;
   elapsedSeconds: number;
   playbackRate: number;
   clips: PackageMediaClip[];
   observedPrimaryMediaTime: number | null;
+  observedPrimaryMediaEnded?: boolean;
 }): number => {
   const active = resolveTimelineClip(clips, currentGlobalTime);
 
   if (active) {
+    const clipEnd =
+      typeof active.clip.durationSeconds === 'number'
+        ? active.clip.timelineStartSeconds + active.clip.durationSeconds
+        : undefined;
+    const nextClipStart = resolveNextClipStart(
+      clips,
+      active.clip.timelineStartSeconds,
+    );
+    const upperBound = Math.min(
+      clipEnd ?? MAX_PACKAGE_TIMELINE_SECONDS,
+      nextClipStart ?? MAX_PACKAGE_TIMELINE_SECONDS,
+      MAX_PACKAGE_TIMELINE_SECONDS,
+    );
+
+    // HTML/video.js may end on the final decoded frame slightly before the
+    // container duration. The ended event is authoritative for leaving the
+    // clip; clamp to its configured end so the following black gap can start.
+    if (observedPrimaryMediaEnded && clipEnd !== undefined) {
+      return upperBound;
+    }
+
     if (
       observedPrimaryMediaTime === null ||
       !Number.isFinite(observedPrimaryMediaTime) ||
@@ -68,19 +91,6 @@ export const advancePrimaryTimelineClock = ({
 
     const observedGlobalTime =
       active.clip.timelineStartSeconds + observedPrimaryMediaTime;
-    const clipEnd =
-      typeof active.clip.durationSeconds === 'number'
-        ? active.clip.timelineStartSeconds + active.clip.durationSeconds
-        : undefined;
-    const nextClipStart = resolveNextClipStart(
-      clips,
-      active.clip.timelineStartSeconds,
-    );
-    const upperBound = Math.min(
-      clipEnd ?? MAX_PACKAGE_TIMELINE_SECONDS,
-      nextClipStart ?? MAX_PACKAGE_TIMELINE_SECONDS,
-      MAX_PACKAGE_TIMELINE_SECONDS,
-    );
 
     return Math.max(
       active.clip.timelineStartSeconds,
