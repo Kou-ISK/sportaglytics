@@ -10,7 +10,6 @@ type LoadedAngle = {
   relativePath?: string;
   absolutePath: string;
   sourceKind: 'local' | 'youtube';
-  playbackOffsetSeconds: number;
   role?: 'primary' | 'secondary';
   clips: PackageMediaClip[];
 };
@@ -64,31 +63,6 @@ const normalizeSourceUrl = (angle: unknown): string | undefined => {
       : undefined;
   }
   return undefined;
-};
-
-const normalizeYoutubePlaybackOffset = (angle: unknown): number => {
-  if (!angle || typeof angle !== 'object' || !('clips' in angle)) return 0;
-  const clips = (angle as { clips?: unknown }).clips;
-  if (!Array.isArray(clips) || clips.length === 0) return 0;
-  const firstClip = clips[0];
-  if (
-    !firstClip ||
-    typeof firstClip !== 'object' ||
-    !('gapBeforeSeconds' in firstClip)
-  ) {
-    return 0;
-  }
-  const value = firstClip as {
-    timelineStartSeconds?: unknown;
-    gapBeforeSeconds?: unknown;
-  };
-  const start =
-    typeof value.timelineStartSeconds === 'number'
-      ? value.timelineStartSeconds
-      : value.gapBeforeSeconds;
-  return typeof start === 'number' && Number.isFinite(start)
-    ? -Math.max(0, start)
-    : 0;
 };
 
 const normalizeClips = (
@@ -175,9 +149,6 @@ const resolveAnglesFromConfig = (
         relativePath,
         absolutePath: sourceUrl || `${packagePath}/${relativePath}`,
         sourceKind: sourceUrl ? 'youtube' : 'local',
-        playbackOffsetSeconds: sourceUrl
-          ? normalizeYoutubePlaybackOffset(angle)
-          : 0,
         role:
           (angle as VideoAngleConfig)?.role === 'primary' ||
           (angle as VideoAngleConfig)?.role === 'secondary'
@@ -237,7 +208,6 @@ export const buildVideoListFromConfig = (
             relativePath: tightRelative,
             absolutePath: `${packagePath}/${tightRelative}`,
             sourceKind: 'local' as const,
-            playbackOffsetSeconds: 0,
             clips: [],
           },
           ...(wideRelative
@@ -248,7 +218,6 @@ export const buildVideoListFromConfig = (
                   relativePath: wideRelative,
                   absolutePath: `${packagePath}/${wideRelative}`,
                   sourceKind: 'local' as const,
-                  playbackOffsetSeconds: 0,
                   clips: [],
                 },
               ]
