@@ -4,6 +4,7 @@ import {
   applySecondarySyncOffset,
   clampAngleMediaTime,
   globalTimeToAngleMediaTime,
+  resetSecondarySyncOffset,
   resolveAngleSyncOffset,
   resolvePlaybackAngleOffset,
   shouldBlockAnglePlayback,
@@ -100,6 +101,26 @@ describe('video sync data helpers', () => {
         syncOffset: -0.25,
         angleOffsets: undefined,
         isAnalyzed: true,
+      });
+    });
+  });
+
+  describe('resetSecondarySyncOffset', () => {
+    it('clears the legacy/two-angle channel', () => {
+      expect(resetSecondarySyncOffset(syncData(1.5, [0, 1.5]))).toEqual({
+        syncOffset: 0,
+        angleOffsets: [0, 0],
+        isAnalyzed: false,
+        confidenceScore: 0,
+      });
+    });
+
+    it('preserves independent offsets for later angles', () => {
+      expect(resetSecondarySyncOffset(syncData(1.5, [0, 1.5, 0.75]))).toEqual({
+        syncOffset: 0,
+        angleOffsets: [0, 0, 0.75],
+        isAnalyzed: true,
+        confidenceScore: 0,
       });
     });
   });
