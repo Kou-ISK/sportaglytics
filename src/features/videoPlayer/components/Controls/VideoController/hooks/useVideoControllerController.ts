@@ -5,6 +5,7 @@ import { useExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
 import { useVideoControllerControls } from './useVideoControllerControls';
 import type { VideoControllerProps } from '../VideoController.types';
 import { isYoutubeVideoJsPlayer } from '../../../../shared/videojs/videoJsAdapter';
+import { resolveControllerSeekTarget } from '../../../../shared/playbackSyncTiming';
 
 interface VideoControllerToolbarProps {
   hasVideos: boolean;
@@ -112,38 +113,23 @@ export const useVideoControllerController = ({
     const tryPlayAll = () => {
       const basePlayer = getExistingPlayer('video_0');
       const useSlider = !!(
+        !useTimelineClock &&
         syncData?.isAnalyzed &&
         (syncData?.syncOffset ?? 0) < 0 &&
         videoTime < 0
       );
 
-      let baseTime = 0;
-      try {
-        baseTime = useSlider
-          ? videoTime
-          : basePlayer?.currentTime
-            ? basePlayer.currentTime() || videoTime
-            : videoTime;
-      } catch {
-        baseTime = videoTime;
-      }
-
-      let localOffset = 0;
-      if (syncData?.isAnalyzed) {
-        localOffset = syncData.syncOffset || 0;
-      } else if (videoList.length > 1) {
-        const secondaryPlayer = getExistingPlayer('video_1');
-        let secondaryTime = 0;
+      let baseTime = videoTime;
+      if (!useTimelineClock) {
         try {
-          secondaryTime = secondaryPlayer?.currentTime
-            ? secondaryPlayer.currentTime() || 0
-            : 0;
+          baseTime = useSlider
+            ? videoTime
+            : basePlayer?.currentTime
+              ? basePlayer.currentTime() || videoTime
+              : videoTime;
         } catch {
-          secondaryTime = 0;
+          baseTime = videoTime;
         }
-        localOffset =
-          (basePlayer?.currentTime ? basePlayer.currentTime() || 0 : 0) -
-          secondaryTime;
       }
 
       videoList.forEach((_, index) => {
@@ -153,9 +139,35 @@ export const useVideoControllerController = ({
             return;
           }
 
-          const readyState = player.readyState?.() ?? 0;
-          if (index > 0) {
-            const targetTime = Math.max(0, baseTime + localOffset);
+          let localOffset = 0;
+          if (index > 0 && !useTimelineClock) {
+            if (syncData?.isAnalyzed) {
+              localOffset =
+                syncData.angleOffsets?.[index] ?? syncData.syncOffset ?? 0;
+            } else {
+              let secondaryTime = 0;
+              try {
+                secondaryTime = player.currentTime?.() ?? 0;
+              } catch {
+                secondaryTime = 0;
+              }
+
+              let basePlayerTime = baseTime;
+              try {
+                basePlayerTime = basePlayer?.currentTime?.() ?? baseTime;
+              } catch {
+                basePlayerTime = baseTime;
+              }
+              localOffset = basePlayerTime - secondaryTime;
+            }
+          }
+
+          const targetTime = resolveControllerSeekTarget({
+            baseTime,
+            offset: localOffset,
+            useTimelineClock,
+          });
+          if (index > 0 && targetTime !== null) {
             try {
               player.currentTime?.(targetTime);
             } catch {
@@ -174,11 +186,14 @@ export const useVideoControllerController = ({
           };
 
           const delayMs =
-            index > 0 && localOffset > baseTime
-              ? Math.max(0, (localOffset - baseTime) * 1000)
+            index > 0 &&
+            !useTimelineClock &&
+            localOffset < 0 &&
+            baseTime < Math.abs(localOffset)
+              ? Math.max(0, (Math.abs(localOffset) - baseTime) * 1000)
               : 0;
 
-          if (readyState >= 1 || isYoutubeVideoJsPlayer(player)) {
+          if (player.readyState?.() >= 1 || isYoutubeVideoJsPlayer(player)) {
             if (delayMs > 0) {
               globalThis.setTimeout(playNow, delayMs);
             } else {
@@ -188,8 +203,7 @@ export const useVideoControllerController = ({
           }
 
           const onReady = () => {
-            if (index > 0) {
-              const targetTime = Math.max(0, baseTime - localOffset);
+            if (index > 0 && targetTime !== null) {
               try {
                 player.currentTime?.(targetTime);
               } catch {
@@ -221,8 +235,10 @@ export const useVideoControllerController = ({
   }, [
     getExistingPlayer,
     isVideoPlaying,
+    syncData?.angleOffsets,
     syncData?.isAnalyzed,
     syncData?.syncOffset,
+    useTimelineClock,
     videoList,
     videoTime,
   ]);
