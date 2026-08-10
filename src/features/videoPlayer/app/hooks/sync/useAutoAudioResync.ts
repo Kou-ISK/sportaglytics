@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { PackageMediaAngle } from '../../../../../types/package/metadata';
-import { usesVirtualClipTimeline } from '../../../../../types/package/clipTimeline';
 import type { VideoPlayerError } from '../../../../../types/video/error';
 import {
   applySecondarySyncOffset,
@@ -12,6 +11,7 @@ import {
   extractAudioWavForSyncBase64,
   readBinaryFileBase64,
 } from '../../gateways/syncGateway';
+import { usesClipPlacementSync } from './syncModeGuards';
 
 interface UseAutoAudioResyncParams {
   videoList: string[];
@@ -32,11 +32,6 @@ interface UseAutoAudioResyncResult {
   resetSync: () => void;
 }
 
-const usesClipPlacementSync = (mediaAngles: PackageMediaAngle[]): boolean =>
-  mediaAngles
-    .slice(0, 2)
-    .some((angle) => usesVirtualClipTimeline(angle.clips));
-
 export const useAutoAudioResync = ({
   videoList,
   mediaAngles,
@@ -53,18 +48,14 @@ export const useAutoAudioResync = ({
 
   const notifyInfo = useCallback(
     (message: string): void => {
-      if (onSyncInfo) {
-        onSyncInfo(message);
-      }
+      onSyncInfo?.(message);
     },
     [onSyncInfo],
   );
 
   const notifyWarning = useCallback(
     (message: string): void => {
-      if (onSyncWarning) {
-        onSyncWarning(message);
-      }
+      onSyncWarning?.(message);
     },
     [onSyncWarning],
   );
