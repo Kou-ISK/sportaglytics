@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { resolveRecordingRange } from '../domain/recordingRange';
 import type { ActiveRecordingSession } from './useActiveRecordings';
 import type { LabelSelectionsMap } from './useLabelSelections';
 
@@ -47,10 +48,12 @@ export const useRecordingCompletion = ({
         const endTime = getCurrentTime();
         if (endTime === null) return prev;
 
-        const [begin, end] =
-          endTime >= session.startTime
-            ? [session.startTime, endTime]
-            : [endTime, session.startTime];
+        const range = resolveRecordingRange({
+          startTime: session.startTime,
+          endTime,
+          leadTimeSeconds: session.leadTimeSeconds,
+          lagTimeSeconds: session.lagTimeSeconds,
+        });
 
         const labelsMap = {
           ...(labelSelectionsRef.current[actionName] ?? {}),
@@ -64,8 +67,8 @@ export const useRecordingCompletion = ({
         // メインアクションをタイムラインに追加（色付き）
         addTimelineData(
           actionName,
-          begin,
-          end,
+          range.startTime,
+          range.endTime,
           '',
           undefined,
           undefined,
@@ -77,8 +80,8 @@ export const useRecordingCompletion = ({
         session.activateTargets.forEach((targetName) => {
           addTimelineData(
             targetName,
-            begin,
-            end,
+            range.startTime,
+            range.endTime,
             '',
             undefined,
             undefined,
