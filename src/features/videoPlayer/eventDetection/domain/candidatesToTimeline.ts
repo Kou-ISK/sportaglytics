@@ -23,8 +23,9 @@ interface ConvertCandidatesParams {
   duplicateToleranceSeconds?: number;
 }
 
-const getCenterTime = (item: Pick<TimelineData, 'startTime' | 'endTime'>) =>
-  (item.startTime + item.endTime) / 2;
+const getCenterTime = (
+  item: Pick<TimelineData, 'startTime' | 'endTime'>,
+): number => (item.startTime + item.endTime) / 2;
 
 const getIntersectionOverUnion = (
   left: Pick<TimelineData, 'startTime' | 'endTime'>,
@@ -56,23 +57,34 @@ export const isDuplicateDetectedEvent = (
   return getIntersectionOverUnion(candidate, existing) >= 0.5;
 };
 
+const getDetectedBaseRange = (
+  candidate: EventDetectionCandidate,
+): { startTime: number; endTime: number } => {
+  const startTime = candidate.detectedStartTime;
+  const endTime = candidate.detectedEndTime;
+  if (
+    typeof startTime === 'number' &&
+    Number.isFinite(startTime) &&
+    typeof endTime === 'number' &&
+    Number.isFinite(endTime)
+  ) {
+    return { startTime, endTime };
+  }
+
+  return {
+    startTime: candidate.anchorTime,
+    endTime: candidate.anchorTime,
+  };
+};
+
 const candidateToTimelineItem = (
   candidate: EventDetectionCandidate,
   mapping: EventTimelineMapping,
   maxTime?: number,
 ): NewTimelineData => {
-  const hasDetectedRange =
-    typeof candidate.detectedStartTime === 'number' &&
-    Number.isFinite(candidate.detectedStartTime) &&
-    typeof candidate.detectedEndTime === 'number' &&
-    Number.isFinite(candidate.detectedEndTime);
+  const baseRange = getDetectedBaseRange(candidate);
   const range = resolveRecordingRange({
-    startTime: hasDetectedRange
-      ? (candidate.detectedStartTime as number)
-      : candidate.anchorTime,
-    endTime: hasDetectedRange
-      ? (candidate.detectedEndTime as number)
-      : candidate.anchorTime,
+    ...baseRange,
     leadTimeSeconds: mapping.leadTimeSeconds,
     lagTimeSeconds: mapping.lagTimeSeconds,
     maxTime,
