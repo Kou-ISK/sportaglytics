@@ -22,7 +22,7 @@ Accepted
 ## Decision
 
 - 映像ウィンドウを再生時計、Video.js player、タイムライン document、履歴の唯一の authority とする。
-- タイムラインは singleton の専用 `BrowserWindow` とし、映像パッケージを開いたときに表示する。閉じた後は映像ウィンドウの明示ボタンから再表示できる。
+- タイムラインは singleton の専用 `BrowserWindow` とし、映像パッケージを開いたときに表示する。閉じた後は OS の「ウィンドウ」メニューから再表示する。映像面にはタイムライン再表示用の常設オーバーレイを置かない。
 - 映像側からタイムライン側へ document/選択の `TimelineWindowSyncPayload` と、高頻度でも小さい `TimelineWindowClockPayload` を分けて送り、タイムライン側の編集、シーク、選択、Undo/Redo、プレイリスト追加、ホットキー入力は `TimelineWindowCommand` として映像側へ戻す。
 - channel、payload、command、型ガードの正本は `src/types/ipc/timelineWindow.ts` とし、main process は sender window を検証する。
 - タイムライン renderer は短い間隔の同期時刻間を compositor-friendly な linear transition で補間する。ドラッグ中は transition を外して即時表示し、映像への連続シークは最新入力を1フレームに集約する。
@@ -32,6 +32,7 @@ Accepted
 
 - 映像とタイムラインを別ディスプレイへ自由に配置でき、どちらのウィンドウにフォーカスがあっても設定済み映像ホットキーを同じ main runtime へ送れる。
 - 再生状態と編集履歴は一箇所に残るため、独立 renderer 間の競合を避けられる。
+- ウィンドウ再表示の導線は OS メニューへ集約され、映像面のオーバーレイ UI を増やさずに済む。
 - タイムライン側の transition と楽観的なシーク位置は表示専用であり、保存データや再生 authority として扱ってはならない。
 - 再生中に timeline document 全体を IPC serialize しないため、長時間・多数インスタンスでも clock sync の payload size は一定になる。
 - 新しいタイムライン操作を追加する場合は command union、preload guard、main controller の処理を同時に更新する必要がある。
