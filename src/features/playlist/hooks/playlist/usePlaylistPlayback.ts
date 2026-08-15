@@ -1,13 +1,22 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePlaylistPlaybackActions } from './usePlaylistPlaybackActions';
 import { usePlaylistPlaybackEffects } from './usePlaylistPlaybackEffects';
 import type { UsePlaylistPlaybackParams } from './usePlaylistPlayback.types';
 
 export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
   const lastFreezeTimestampRef = useRef<number | null>(null);
+  const freezeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (freezeTimeoutRef.current) clearTimeout(freezeTimeoutRef.current);
+    },
+    [],
+  );
 
   const actions = usePlaylistPlaybackActions({
     items: params.items,
+    currentItem: params.currentItem,
     currentIndex: params.currentIndex,
     setCurrentIndex: params.setCurrentIndex,
     isPlaying: params.isPlaying,
@@ -25,6 +34,7 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     setIsFullscreen: params.setIsFullscreen,
     minFreezeDuration: params.minFreezeDuration,
     lastFreezeTimestampRef,
+    freezeTimeoutRef,
   });
 
   usePlaylistPlaybackEffects({

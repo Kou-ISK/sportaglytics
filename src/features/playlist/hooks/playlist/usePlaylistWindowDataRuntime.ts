@@ -43,6 +43,9 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
     items: history.items,
     setItems: history.setItems,
     onDirtyChange: core.setHasUnsavedChanges,
+    currentIndex: core.currentIndex,
+    setCurrentIndex: core.setCurrentIndex,
+    setIsPlaying: core.setIsPlaying,
   });
   const exportState = usePlaylistExportState();
   const sensors = usePlaylistDndSensors();
@@ -109,7 +112,7 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
 
   usePlaylistWindowSync({
     playlistName: core.playlistName,
-    isDirty: core.isDirty,
+    isDirty: core.hasUnsavedChanges,
   });
 
   const loader = usePlaylistLoader({
@@ -130,6 +133,10 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
     undo: history.undo,
     redo: history.redo,
     setItemAnnotations: core.setItemAnnotations,
+    items: history.items,
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
+    onDirtyChange: core.setHasUnsavedChanges,
   });
 
   const saveFlow = usePlaylistSaveFlow({

@@ -155,4 +155,29 @@ describe('normalizeAppSettings', () => {
       new Set(['Type', 'Result']),
     );
   });
+
+  it('migrates legacy jump-back shortcuts to continuous reverse playback defaults', () => {
+    const normalized = normalizeAppSettings({
+      hotkeys: [
+        { id: 'skip-backward-medium', label: '5秒戻し', key: 'Left' },
+        { id: 'skip-backward-large', label: '10秒戻し', key: 'Shift+Left' },
+      ],
+    });
+
+    expect(
+      normalized.hotkeys.some((hotkey) =>
+        hotkey.id.startsWith('skip-backward-'),
+      ),
+    ).toBe(false);
+    expect(
+      normalized.hotkeys
+        .filter((hotkey) => hotkey.id.startsWith('reverse-playback-'))
+        .map(({ id, key }) => ({ id, key })),
+    ).toEqual([
+      { id: 'reverse-playback-slow', key: 'Left' },
+      { id: 'reverse-playback-2x', key: 'Shift+Left' },
+      { id: 'reverse-playback-4x', key: 'Option+Left' },
+      { id: 'reverse-playback-6x', key: 'Command+Left' },
+    ]);
+  });
 });

@@ -161,7 +161,15 @@ export const shouldResetPlaybackHotkeyState = (
   return (
     plainKey === 'arrowright' ||
     plainKey === 'right' ||
+    plainKey === 'arrowleft' ||
+    plainKey === 'left' ||
+    plainKey === 'shift' ||
+    plainKey === 'alt' ||
     plainKey === 'meta' ||
+    event.code === 'ShiftLeft' ||
+    event.code === 'ShiftRight' ||
+    event.code === 'AltLeft' ||
+    event.code === 'AltRight' ||
     event.code === 'MetaLeft' ||
     event.code === 'MetaRight'
   );

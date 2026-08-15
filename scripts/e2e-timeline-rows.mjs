@@ -119,22 +119,28 @@ console.log('Package fixture created');
 
 const electronApp = await launch();
 try {
-  const page = await electronApp.firstWindow();
-  await page.evaluate(() => {
+  const mainPage = await electronApp.firstWindow();
+  await mainPage.evaluate(() => {
     localStorage.setItem('sportaglytics-onboarding-completed', 'true');
   });
-  await page.reload();
+  await mainPage.reload();
+  const timelineWindowPromise = electronApp.waitForEvent('window', {
+    timeout: 30_000,
+  });
   await electronApp.evaluate(({ BrowserWindow }, selectedPackagePath) => {
     BrowserWindow.getAllWindows()[0]?.webContents.send(
       'open-package-directory',
       selectedPackagePath,
     );
   }, packagePath);
+  const page = await timelineWindowPromise;
+  await page.waitForLoadState('domcontentloaded');
+  assert.equal(new URL(page.url()).hash, '#/timeline');
   await page.getByRole('button', { name: 'Attack 行', exact: true }).waitFor({
     timeout: 30_000,
   });
-  await page.locator('#video_0').waitFor({ timeout: 30_000 });
-  await page.waitForFunction(
+  await mainPage.locator('#video_0').waitFor({ timeout: 30_000 });
+  await mainPage.waitForFunction(
     () => {
       const video = document.querySelector('#video_0_html5_api');
       return (
@@ -146,7 +152,56 @@ try {
     undefined,
     { timeout: 30_000 },
   );
-  console.log('Package loaded');
+  assert.equal(
+    await mainPage.locator('[data-testid^="timeline-lane-"]').count(),
+    0,
+    'timeline must not remain embedded in the video window',
+  );
+  await page.bringToFront();
+  await page.keyboard.press('Space');
+  await mainPage.waitForFunction(() => {
+    const video = document.querySelector('#video_0_html5_api');
+    return video instanceof HTMLVideoElement && !video.paused;
+  });
+  await page.keyboard.press('Space');
+  await mainPage.waitForFunction(() => {
+    const video = document.querySelector('#video_0_html5_api');
+    return video instanceof HTMLVideoElement && video.paused;
+  });
+  console.log('Detached timeline and cross-window playback hotkey passed');
+
+  await page.keyboard.press('Space');
+  await mainPage.waitForFunction(() => {
+    const video = document.querySelector('#video_0_html5_api');
+    return video instanceof HTMLVideoElement && video.currentTime > 1;
+  });
+  await page.keyboard.press('Space');
+  const timeBeforeReverse = await mainPage
+    .locator('#video_0_html5_api')
+    .evaluate((video) => video.currentTime);
+  await page.keyboard.down('Shift');
+  await page.keyboard.down('ArrowLeft');
+  await page.waitForTimeout(350);
+  await page.keyboard.up('ArrowLeft');
+  await page.keyboard.up('Shift');
+  await mainPage.waitForFunction((before) => {
+    const video = document.querySelector('#video_0_html5_api');
+    return (
+      video instanceof HTMLVideoElement && video.currentTime < before - 0.25
+    );
+  }, timeBeforeReverse);
+  const reverseResult = await mainPage
+    .locator('#video_0_html5_api')
+    .evaluate((video) => ({
+      currentTime: video.currentTime,
+      paused: video.paused,
+    }));
+  assert.equal(
+    reverseResult.paused,
+    true,
+    'reverse playback must stop on keyup',
+  );
+  console.log('Detached timeline continuous reverse hotkey passed');
 
   const assertPlayersVisible = async (width, height) => {
     await electronApp.evaluate(
@@ -155,8 +210,8 @@ try {
       },
       { width, height },
     );
-    await page.waitForTimeout(250);
-    const boxes = await page
+    await mainPage.waitForTimeout(250);
+    const boxes = await mainPage
       .locator('#video_0, #video_1')
       .evaluateAll((videos) =>
         videos.map((video) => {
@@ -174,7 +229,7 @@ try {
       );
     assert.equal(boxes.length, 2);
     if (!boxes.every((box) => box.visible)) {
-      const ancestors = await page.locator('#video_0').evaluate((video) => {
+      const ancestors = await mainPage.locator('#video_0').evaluate((video) => {
         const result = [];
         let element = video;
         for (let index = 0; element && index < 6; index += 1) {

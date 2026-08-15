@@ -6,15 +6,27 @@ export const usePlaylistHotkeys = () => {
     () => [
       { id: 'play-pause', label: '再生/停止', key: 'Space', disabled: false },
       {
-        id: 'skip-backward-medium',
-        label: '5秒戻し',
+        id: 'reverse-playback-slow',
+        label: '0.5倍速逆再生',
         key: 'Left',
         disabled: false,
       },
       {
-        id: 'skip-backward-large',
-        label: '10秒戻し',
+        id: 'reverse-playback-2x',
+        label: '2倍速逆再生',
         key: 'Shift+Left',
+        disabled: false,
+      },
+      {
+        id: 'reverse-playback-4x',
+        label: '4倍速逆再生',
+        key: 'Option+Left',
+        disabled: false,
+      },
+      {
+        id: 'reverse-playback-6x',
+        label: '6倍速逆再生',
+        key: 'Command+Left',
         disabled: false,
       },
       {
@@ -44,7 +56,7 @@ export const usePlaylistHotkeys = () => {
       {
         id: 'previous-item',
         label: '前のアイテム',
-        key: 'Command+Left',
+        key: 'Command+Option+Left',
         disabled: false,
       },
       {

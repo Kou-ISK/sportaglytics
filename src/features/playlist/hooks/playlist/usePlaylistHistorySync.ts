@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import type {
   ItemAnnotation,
   PlaylistItem,
@@ -10,6 +10,10 @@ interface UsePlaylistHistorySyncParams {
   setItemAnnotations: React.Dispatch<
     React.SetStateAction<Record<string, ItemAnnotation>>
   >;
+  items: PlaylistItem[];
+  canUndo: boolean;
+  canRedo: boolean;
+  onDirtyChange: (dirty: boolean) => void;
 }
 
 interface UsePlaylistHistorySyncResult {
@@ -21,6 +25,10 @@ export const usePlaylistHistorySync = ({
   undo,
   redo,
   setItemAnnotations,
+  items,
+  canUndo,
+  canRedo,
+  onDirtyChange,
 }: UsePlaylistHistorySyncParams): UsePlaylistHistorySyncResult => {
   const rebuildAnnotations = useCallback(
     (items: PlaylistItem[]) => {
@@ -35,19 +43,21 @@ export const usePlaylistHistorySync = ({
     [setItemAnnotations],
   );
 
+  useEffect(() => {
+    rebuildAnnotations(items);
+  }, [items, rebuildAnnotations]);
+
   const handleUndo = useCallback(() => {
-    const prevItems = undo();
-    if (prevItems) {
-      rebuildAnnotations(prevItems);
-    }
-  }, [rebuildAnnotations, undo]);
+    if (!canUndo) return;
+    undo();
+    onDirtyChange(true);
+  }, [canUndo, onDirtyChange, undo]);
 
   const handleRedo = useCallback(() => {
-    const nextItems = redo();
-    if (nextItems) {
-      rebuildAnnotations(nextItems);
-    }
-  }, [rebuildAnnotations, redo]);
+    if (!canRedo) return;
+    redo();
+    onDirtyChange(true);
+  }, [canRedo, onDirtyChange, redo]);
 
   return { handleUndo, handleRedo };
 };

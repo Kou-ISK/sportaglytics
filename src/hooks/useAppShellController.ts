@@ -13,7 +13,8 @@ export type AppView =
   | 'analysis'
   | 'coding-panel'
   | 'export-progress'
-  | 'analysis-report';
+  | 'analysis-report'
+  | 'timeline';
 
 const getViewFromHash = (): AppView => {
   const hash = getCurrentLocationHash();
@@ -21,6 +22,7 @@ const getViewFromHash = (): AppView => {
   if (hash === '#/settings') return 'settings';
   if (hash === '#/analysis') return 'analysis';
   if (hash === '#/coding-panel') return 'coding-panel';
+  if (hash === '#/timeline') return 'timeline';
   if (hash === '#/export-progress') return 'export-progress';
   if (hash.startsWith('#/analysis-report')) return 'analysis-report';
   return 'main';

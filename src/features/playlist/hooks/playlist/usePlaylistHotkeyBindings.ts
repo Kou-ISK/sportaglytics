@@ -1,16 +1,15 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   buildPlaybackRateHandler,
   buildResetPlaybackRateHandler,
   buildSaveHandler,
-  buildSeekHandler,
   togglePlaylistViewMode,
 } from './playlistHotkeyUtils';
 
 interface UsePlaylistHotkeyBindingsParams {
-  currentTime: number;
   handleTogglePlay: () => void;
-  handleSeek: (event: Event, value: number | number[]) => void;
+  startReversePlayback: (rate: 0.5 | 2 | 4 | 6) => void;
+  stopReversePlayback: () => void;
   handlePrevious: () => void;
   handleNext: () => void;
   handleDeleteSelected: () => void;
@@ -34,9 +33,9 @@ interface UsePlaylistHotkeyBindingsResult {
 }
 
 export const usePlaylistHotkeyBindings = ({
-  currentTime,
   handleTogglePlay,
-  handleSeek,
+  startReversePlayback,
+  stopReversePlayback,
   handlePrevious,
   handleNext,
   handleDeleteSelected,
@@ -60,24 +59,31 @@ export const usePlaylistHotkeyBindings = ({
   );
 
   const resetPlaybackRate = buildResetPlaybackRateHandler(playbackRefs);
+  const startForwardPlayback = useCallback(
+    (rate: 0.5 | 2 | 4 | 6): (() => void) => {
+      const start = buildPlaybackRateHandler(playbackRefs, setIsPlaying, rate);
+      return () => {
+        stopReversePlayback();
+        start();
+      };
+    },
+    [playbackRefs, setIsPlaying, stopReversePlayback],
+  );
 
   const hotkeyHandlers = useMemo(
     () => ({
-      'play-pause': handleTogglePlay,
-      'skip-backward-medium': buildSeekHandler(handleSeek, currentTime, -5),
-      'skip-backward-large': buildSeekHandler(handleSeek, currentTime, -10),
-      'skip-forward-small': buildPlaybackRateHandler(playbackRefs, setIsPlaying, 0.5),
-      'skip-forward-medium': buildPlaybackRateHandler(
-        playbackRefs,
-        setIsPlaying,
-        2,
-      ),
-      'skip-forward-large': buildPlaybackRateHandler(playbackRefs, setIsPlaying, 4),
-      'skip-forward-xlarge': buildPlaybackRateHandler(
-        playbackRefs,
-        setIsPlaying,
-        6,
-      ),
+      'play-pause': () => {
+        stopReversePlayback();
+        handleTogglePlay();
+      },
+      'reverse-playback-slow': () => startReversePlayback(0.5),
+      'reverse-playback-2x': () => startReversePlayback(2),
+      'reverse-playback-4x': () => startReversePlayback(4),
+      'reverse-playback-6x': () => startReversePlayback(6),
+      'skip-forward-small': startForwardPlayback(0.5),
+      'skip-forward-medium': startForwardPlayback(2),
+      'skip-forward-large': startForwardPlayback(4),
+      'skip-forward-xlarge': startForwardPlayback(6),
       'previous-item': handlePrevious,
       'next-item': handleNext,
       'delete-item': handleDeleteSelected,
@@ -97,13 +103,11 @@ export const usePlaylistHotkeyBindings = ({
       },
     }),
     [
-      currentTime,
       handleDeleteSelected,
       handleNext,
       handlePrevious,
       handleRedo,
       handleSavePlaylist,
-      handleSeek,
       handleTogglePlay,
       handleUndo,
       loadedFilePath,
@@ -112,6 +116,9 @@ export const usePlaylistHotkeyBindings = ({
       setSaveDialogOpen,
       setViewMode,
       playbackRefs,
+      startReversePlayback,
+      startForwardPlayback,
+      stopReversePlayback,
     ],
   );
 
@@ -121,8 +128,12 @@ export const usePlaylistHotkeyBindings = ({
       'skip-forward-medium': resetPlaybackRate,
       'skip-forward-large': resetPlaybackRate,
       'skip-forward-xlarge': resetPlaybackRate,
+      'reverse-playback-slow': stopReversePlayback,
+      'reverse-playback-2x': stopReversePlayback,
+      'reverse-playback-4x': stopReversePlayback,
+      'reverse-playback-6x': stopReversePlayback,
     }),
-    [resetPlaybackRate],
+    [resetPlaybackRate, stopReversePlayback],
   );
 
   return { hotkeyHandlers, keyUpHandlers };

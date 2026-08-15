@@ -14,6 +14,7 @@ import { usePlaylistPlayback } from './usePlaylistPlayback';
 import { usePlaylistSaveRequest } from './usePlaylistSaveRequest';
 import { usePlaylistVideoSizing } from './usePlaylistVideoSizing';
 import type { PlaylistWindowDataRuntime } from './usePlaylistWindowDataRuntime';
+import { useContinuousReversePlayback } from '../../../../hooks/useContinuousReversePlayback';
 
 interface PlaylistWindowInteractionRuntime {
   playback: ReturnType<typeof usePlaylistPlayback>;
@@ -23,8 +24,7 @@ interface PlaylistWindowInteractionRuntime {
 export const usePlaylistWindowInteractionRuntime = (
   runtime: PlaylistWindowDataRuntime,
 ): PlaylistWindowInteractionRuntime => {
-  const { core, history, selection, exportState, currentItemState } =
-    runtime;
+  const { core, history, selection, exportState, currentItemState } = runtime;
 
   usePlaylistDrawingTarget({
     viewMode: core.viewMode,
@@ -101,10 +101,23 @@ export const usePlaylistWindowInteractionRuntime = (
     setSaveDialogOpen: core.setSaveDialogOpen,
   });
 
+  const { startReversePlayback, stopReversePlayback } =
+    useContinuousReversePlayback({
+      currentTime: core.currentTime,
+      minimumTime: currentItemState.currentItem?.startTime ?? 0,
+      onPause: () => {
+        if (core.videoRef.current) core.videoRef.current.playbackRate = 1;
+        if (core.videoRef2.current) core.videoRef2.current.playbackRate = 1;
+        core.setIsPlaying(false);
+      },
+      onSeek: (time) =>
+        playback.handleSeek(new Event('reverse-playback'), time),
+    });
+
   const hotkeyBindings = usePlaylistHotkeyBindings({
-    currentTime: core.currentTime,
     handleTogglePlay: playback.handleTogglePlay,
-    handleSeek: playback.handleSeek,
+    startReversePlayback,
+    stopReversePlayback,
     handlePrevious: playback.handlePrevious,
     handleNext: playback.handleNext,
     handleDeleteSelected: selection.deleteSelected,

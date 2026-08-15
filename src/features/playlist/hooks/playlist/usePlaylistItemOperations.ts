@@ -35,13 +35,16 @@ export const usePlaylistItemOperations = ({
       setItemsWithHistory((prev) => {
         const newItems = prev.filter((item) => item.id !== id);
         const removedIndex = prev.findIndex((item) => item.id === id);
-        if (removedIndex <= currentIndex && currentIndex > 0) {
-          setCurrentIndex(currentIndex - 1);
-        } else if (removedIndex === currentIndex) {
+        if (removedIndex === -1) return prev;
+        if (removedIndex === currentIndex) {
           setIsPlaying(false);
-          if (newItems.length === 0) {
-            setCurrentIndex(-1);
-          }
+          setCurrentIndex(
+            newItems.length === 0
+              ? -1
+              : Math.min(currentIndex, newItems.length - 1),
+          );
+        } else if (removedIndex < currentIndex) {
+          setCurrentIndex(currentIndex - 1);
         }
         return newItems;
       });
@@ -70,6 +73,7 @@ export const usePlaylistItemOperations = ({
       setItemsWithHistory((prev) => {
         const oldIndex = prev.findIndex((item) => item.id === active.id);
         const newIndex = prev.findIndex((item) => item.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return prev;
         const newItems = arrayMove(prev, oldIndex, newIndex);
 
         if (oldIndex === currentIndex) {
