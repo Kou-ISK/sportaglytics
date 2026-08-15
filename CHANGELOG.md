@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Code WindowのAction buttonごとにSportscode方式の開始前・終了後の記録秒数を設定でき、クリックとhotkeyの両方で同じrangeを適用
+- Kickoff / Scrum / Lineoutを中心としたローカル自動イベント検出のtyped IPC、検証済みmodel pack、runner SHA-256、progress/cancel、Timeline一括追加基盤を追加
+- 既存の手動Coding済みpackageを教師データへ変換し、VideoMAE / X3D-S / SlowFast R50をmatch-level splitでfine-tune・event spotting比較するoffline research pipelineを追加
+- Validationだけでconfidence thresholdを選び、未見Testへ固定適用するmodel benchmarkと、license適格性を含むproduction winner判定を追加
+
+### Changed
+
+- 映像上の「タイムラインを表示」floating buttonを削除し、閉じたTimelineの再表示をOSの「ウィンドウ」メニューへ統一
+- `develop` 宛てPRでもquality-checkを実行し、ADR checkと軽量なPython research compile/unit testをCI品質ゲートへ追加
+
+### Documentation
+
+- 自動イベント検出の製品品質ゲート、pretrained model研究、dataset split、fine-tuning、license gate、verified model pack昇格手順を同期
+
 ## [0.8.4] - 2026-08-15
 
 ### Added
@@ -270,7 +286,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - タイムラインからプレイリストに映像を追加する仕様を変更
 - プレイリストのパッケージ形式を変更
 - 映像出力時の通し番号設定を変更
-- プレイリストの映像時間表示を削除
 
 ### Fixed
 
@@ -441,8 +456,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - メタデータ処理の改善
   - 状態確認の厳密化
   - シーク処理の最適化（1.5秒閾値）
-  - ソース変更の安全性向上
   - Promiseベースの再生制御
+  - 待機時間を500msに延長
 
 ---
 
