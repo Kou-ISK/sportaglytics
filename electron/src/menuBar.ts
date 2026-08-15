@@ -1,5 +1,6 @@
 import { Menu, app } from 'electron';
 import {
+  buildAnalysisMenuItems,
   buildAppMenuItems,
   buildEditMenuItems,
   buildFileMenuItems,
@@ -24,6 +25,7 @@ const buildMenu = () => {
     { label: 'ファイル', submenu: buildFileMenuItems() },
     { label: '編集', submenu: buildEditMenuItems() },
     { label: '同期', submenu: buildSyncMenuItems() },
+    { label: '分析', submenu: buildAnalysisMenuItems() },
     { label: 'ウィンドウ', submenu: buildWindowMenuItems() },
     ...(helpMenuItems.length
       ? [{ label: 'ヘルプ', submenu: helpMenuItems }]
