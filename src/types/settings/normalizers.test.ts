@@ -41,6 +41,8 @@ describe('normalizeAppSettings', () => {
                 ...legacyLayout.buttons[0],
                 hotkey: 'A',
                 showHotkey: true,
+                leadTimeSeconds: 5,
+                lagTimeSeconds: 3,
               },
             ],
           },
@@ -112,11 +114,12 @@ describe('normalizeAppSettings', () => {
         (layout) => layout.id === 'rugby-labels',
       ),
     ).toBe(true);
-    expect(
-      normalized.codingPanel?.codeWindows?.find(
-        (layout) => layout.id === 'legacy-layout',
-      )?.buttons[0]?.showHotkey,
-    ).toBe(true);
+    const migratedButton = normalized.codingPanel?.codeWindows?.find(
+      (layout) => layout.id === 'legacy-layout',
+    )?.buttons[0];
+    expect(migratedButton?.showHotkey).toBe(true);
+    expect(migratedButton?.leadTimeSeconds).toBe(5);
+    expect(migratedButton?.lagTimeSeconds).toBe(3);
 
     expect(normalized.analysisDashboard?.activeDashboardId).toBe(
       'custom-dashboard',
@@ -137,6 +140,34 @@ describe('normalizeAppSettings', () => {
       type: 'group',
       value: 'Result',
     });
+  });
+
+  it('drops invalid negative recording range settings', () => {
+    const layout = createDefaultCodeWindowLayout();
+    const normalized = normalizeAppSettings({
+      codingPanel: {
+        codeWindows: [
+          {
+            ...layout,
+            id: 'invalid-range-layout',
+            buttons: [
+              {
+                ...layout.buttons[0],
+                leadTimeSeconds: -1,
+                lagTimeSeconds: -3,
+              },
+            ],
+          },
+        ],
+        activeCodeWindowId: 'invalid-range-layout',
+      },
+    });
+
+    const button = normalized.codingPanel?.codeWindows?.find(
+      (candidate) => candidate.id === 'invalid-range-layout',
+    )?.buttons[0];
+    expect(button?.leadTimeSeconds).toBeUndefined();
+    expect(button?.lagTimeSeconds).toBeUndefined();
   });
 
   it('provides a rugby labels code window preset ordered by Type then Result', () => {
