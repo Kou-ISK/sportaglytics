@@ -36,6 +36,41 @@ def _load_aliases(path: Path) -> dict[str, set[str]]:
     return result
 
 
+def _parse_event_action_name(
+    action_name: str,
+    aliases: dict[str, set[str]],
+) -> tuple[str, str | None] | None:
+    """Resolve event type and optional possession-side label from an action name.
+
+    Exact aliases remain supported (for example ``スクラム``). Team/side-prefixed
+    actions such as ``帝京 スクラム`` and ``相手 ラインアウト`` are interpreted
+    as the same event type while preserving the prefix as supervision metadata.
+    The event alias must be the final token(s), so unrelated actions containing a
+    set-piece word elsewhere are not silently converted into event labels.
+    """
+
+    normalized = _normalize_action_name(action_name)
+    candidates = sorted(
+        (
+            (alias, event_type)
+            for event_type, event_aliases in aliases.items()
+            for alias in event_aliases
+        ),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+    for alias, event_type in candidates:
+        if normalized == alias:
+            return event_type, None
+        suffix = f" {alias}"
+        if not normalized.endswith(suffix):
+            continue
+        possession_label = normalized[: -len(suffix)].strip()
+        if possession_label:
+            return event_type, possession_label
+    return None
+
+
 def _event_anchor_offsets(value: Any, label: str) -> dict[str, float]:
     if value is None:
         return {}
@@ -162,30 +197,28 @@ def _event_annotations(
     aliases: dict[str, set[str]],
     anchor_offsets: dict[str, float],
 ) -> list[dict[str, Any]]:
-    lookup = {
-        alias: event_type
-        for event_type, event_aliases in aliases.items()
-        for alias in event_aliases
-    }
     events: list[dict[str, Any]] = []
     for instance in instances:
         action_name = instance.get("actionName")
         start_time = instance.get("startTime")
         if not isinstance(action_name, str) or not isinstance(start_time, (int, float)):
             continue
-        event_type = lookup.get(_normalize_action_name(action_name))
-        if event_type is None:
+        parsed_action = _parse_event_action_name(action_name, aliases)
+        if parsed_action is None:
             continue
+        event_type, possession_label = parsed_action
         # Timeline startTime can intentionally include Code Window lead padding.
         # The dataset spec can add that lead back to recover the analyst's
         # original button-press/event-onset anchor without mutating source data.
         anchor_time = float(start_time) + anchor_offsets.get(event_type, 0.0)
-        events.append(
-            {
-                "eventType": event_type,
-                "anchorTimeSeconds": max(0.0, anchor_time),
-            }
-        )
+        event: dict[str, Any] = {
+            "eventType": event_type,
+            "anchorTimeSeconds": max(0.0, anchor_time),
+            "sourceActionName": action_name.strip(),
+        }
+        if possession_label is not None:
+            event["possessionLabel"] = possession_label
+        events.append(event)
     return sorted(events, key=lambda item: item["anchorTimeSeconds"])
 
 
