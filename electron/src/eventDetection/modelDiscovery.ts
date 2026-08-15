@@ -29,6 +29,10 @@ const isMetric = (value: unknown): value is EventDetectionMetric => {
     Number.isFinite(value.recall) &&
     typeof value.evaluatedMatches === 'number' &&
     Number.isInteger(value.evaluatedMatches) &&
+    typeof value.confidenceThreshold === 'number' &&
+    Number.isFinite(value.confidenceThreshold) &&
+    value.confidenceThreshold >= 0 &&
+    value.confidenceThreshold <= 1 &&
     (value.timestampWithinTwoSecondsRate === undefined ||
       (typeof value.timestampWithinTwoSecondsRate === 'number' &&
         Number.isFinite(value.timestampWithinTwoSecondsRate)))
@@ -143,7 +147,8 @@ const loadVerifiedModel = async (
 ): Promise<VerifiedEventDetectionModel | null> => {
   try {
     const raw = await readFile(path.join(modelDirectory, MANIFEST_FILENAME), 'utf-8');
-    const manifest = parseManifest(JSON.parse(raw) as unknown);
+    const parsed: unknown = JSON.parse(raw);
+    const manifest = parseManifest(parsed);
     if (!manifest || manifest.status !== 'verified') return null;
 
     const verifiedEvents = getVerifiedEventTypes(manifest.events, manifest.metrics);
