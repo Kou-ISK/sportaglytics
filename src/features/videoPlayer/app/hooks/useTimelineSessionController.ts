@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { ChangeEvent, Dispatch, SetStateAction } from 'react';
 import { ulid } from 'ulid';
 import type {
+  NewTimelineData,
   TimelineData,
   TimelineRow,
 } from '../../../../types/timeline/core';
@@ -43,6 +44,7 @@ interface UseTimelineSessionControllerResult {
     labels?: Array<{ name: string; group: string }>,
     color?: string,
   ) => void;
+  addTimelineDatas: (items: NewTimelineData[]) => string[];
   addTimelineRow: (name?: string, color?: string) => void;
   updateTimelineRow: (
     id: string,
@@ -242,6 +244,22 @@ export const useTimelineSessionController =
       [editing, timelineRows],
     );
 
+    const addTimelineDatas = useCallback(
+      (items: NewTimelineData[]): string[] => {
+        const resolvedItems = items.map((item) => {
+          const rowColor = timelineRows.find(
+            (row) => row.name === item.actionName,
+          )?.color;
+          return {
+            ...item,
+            color: rowColor ?? item.color,
+          };
+        });
+        return editing.addTimelineDatas(resolvedItems);
+      },
+      [editing, timelineRows],
+    );
+
     return {
       timeline,
       timelineRows,
@@ -256,6 +274,7 @@ export const useTimelineSessionController =
       getSelectedTimelineId,
       ...editing,
       addTimelineData,
+      addTimelineDatas,
       addTimelineRow,
       updateTimelineRow,
       moveTimelineRow,
