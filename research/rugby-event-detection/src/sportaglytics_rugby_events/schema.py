@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 EVENT_TYPES = ("kickoff", "scrum", "lineout")
 Split = Literal["train", "validation", "test"]
@@ -27,6 +27,14 @@ def _require_float(value: Any, label: str) -> float:
     if result < 0:
         raise ValueError(f"{label} must be >= 0")
     return result
+
+
+def _optional_positive_int(value: Any, label: str) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{label} must be a positive integer when provided")
+    return value
 
 
 @dataclass(frozen=True)
@@ -86,9 +94,10 @@ class MatchManifest:
     @classmethod
     def from_json(cls, value: Any) -> "MatchManifest":
         data = _require_mapping(value, "match")
-        split = _require_string(data.get("split"), "match.split")
-        if split not in ("train", "validation", "test"):
-            raise ValueError(f"unsupported split: {split}")
+        split_value = _require_string(data.get("split"), "match.split")
+        if split_value not in ("train", "validation", "test"):
+            raise ValueError(f"unsupported split: {split_value}")
+        split = cast(Split, split_value)
         raw_segments = data.get("segments")
         raw_events = data.get("events", [])
         if not isinstance(raw_segments, list) or not raw_segments:
@@ -122,10 +131,9 @@ class DatasetManifest:
         ids = [match.match_id for match in matches]
         if len(ids) != len(set(ids)):
             raise ValueError("matchId values must be unique")
-        if not any(match.split == "validation" for match in matches):
-            raise ValueError("manifest must contain a validation split")
-        if not any(match.split == "test" for match in matches):
-            raise ValueError("manifest must contain a test split")
+        for required_split in ("train", "validation", "test"):
+            if not any(match.split == required_split for match in matches):
+                raise ValueError(f"manifest must contain a {required_split} split")
         return cls(
             dataset_id=_require_string(data.get("datasetId"), "manifest.datasetId"),
             matches=matches,
@@ -152,8 +160,11 @@ class ModelCandidate:
     def from_json(cls, value: Any) -> "ModelCandidate":
         data = _require_mapping(value, "model")
         num_frames = data.get("numFrames")
-        if not isinstance(num_frames, int) or num_frames <= 0:
+        if not isinstance(num_frames, int) or isinstance(num_frames, bool) or num_frames <= 0:
             raise ValueError("model.numFrames must be a positive integer")
+        production_eligible = data.get("productionEligible")
+        if not isinstance(production_eligible, bool):
+            raise ValueError("model.productionEligible must be boolean")
         clip_duration = _require_float(
             data.get("clipDurationSeconds"),
             "model.clipDurationSeconds",
@@ -165,24 +176,14 @@ class ModelCandidate:
             family=_require_string(data.get("family"), "model.family"),
             checkpoint=_require_string(data.get("checkpoint"), "model.checkpoint"),
             license_name=_require_string(data.get("license"), "model.license"),
-            production_eligible=bool(data.get("productionEligible", False)),
+            production_eligible=production_eligible,
             num_frames=num_frames,
             clip_duration_seconds=clip_duration,
-            sampling_rate=data.get("samplingRate")
-            if isinstance(data.get("samplingRate"), int)
-            else None,
-            assumed_fps=data.get("assumedFps")
-            if isinstance(data.get("assumedFps"), int)
-            else None,
-            side_size=data.get("sideSize")
-            if isinstance(data.get("sideSize"), int)
-            else None,
-            crop_size=data.get("cropSize")
-            if isinstance(data.get("cropSize"), int)
-            else None,
-            slowfast_alpha=data.get("slowfastAlpha")
-            if isinstance(data.get("slowfastAlpha"), int)
-            else None,
+            sampling_rate=_optional_positive_int(data.get("samplingRate"), "model.samplingRate"),
+            assumed_fps=_optional_positive_int(data.get("assumedFps"), "model.assumedFps"),
+            side_size=_optional_positive_int(data.get("sideSize"), "model.sideSize"),
+            crop_size=_optional_positive_int(data.get("cropSize"), "model.cropSize"),
+            slowfast_alpha=_optional_positive_int(data.get("slowfastAlpha"), "model.slowfastAlpha"),
             source_revision=data.get("sourceRevision")
             if isinstance(data.get("sourceRevision"), str)
             else None,
