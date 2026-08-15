@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { send } = vi.hoisted(() => ({
+const { send, openTimelineWindow } = vi.hoisted(() => ({
   send: vi.fn(),
+  openTimelineWindow: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -21,6 +22,7 @@ vi.mock('../settingsWindow', () => ({
 }));
 vi.mock('../playlistWindow', () => ({ createPlaylistWindow: vi.fn() }));
 vi.mock('../analysisWindow', () => ({ openAnalysisWindow: vi.fn() }));
+vi.mock('../timelineWindow', () => ({ openTimelineWindow }));
 vi.mock('../helpWindow', () => ({ openHelpWindow: vi.fn() }));
 vi.mock('./recentPackageMenu', () => ({ buildRecentPackageItems: () => [] }));
 vi.mock('./menuWindowActions', () => ({
@@ -39,6 +41,7 @@ const getSubmenuItems = (
 describe('document menus', () => {
   beforeEach(() => {
     send.mockClear();
+    openTimelineWindow.mockClear();
   });
 
   it('groups document creation and opening under File', () => {
@@ -77,6 +80,18 @@ describe('document menus', () => {
     expect(send).toHaveBeenCalledWith('menu-create-video-package');
     expect(send).toHaveBeenCalledWith('menu-create-code-window-file');
     expect(send).toHaveBeenCalledWith('menu-open-code-window-file');
+  });
+
+  it('reopens the detached timeline from Window', () => {
+    const timelineItem = buildWindowMenuItems().find(
+      (item) => item.label === 'タイムラインを表示',
+    );
+
+    expect(timelineItem?.click).toBeTypeOf('function');
+    if (timelineItem?.click) {
+      Reflect.apply(timelineItem.click, undefined, []);
+    }
+    expect(openTimelineWindow).toHaveBeenCalledTimes(1);
   });
 
   it('keeps document lifecycle actions out of Window', () => {
