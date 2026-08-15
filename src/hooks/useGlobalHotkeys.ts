@@ -89,6 +89,10 @@ export const useGlobalHotkeys = (
         'skip-forward-medium',
         'skip-forward-large',
         'skip-forward-xlarge',
+        'reverse-playback-slow',
+        'reverse-playback-2x',
+        'reverse-playback-4x',
+        'reverse-playback-6x',
       ];
       if (shouldResetPlaybackHotkeyState(event)) {
         for (const id of resetIds) {
@@ -97,18 +101,36 @@ export const useGlobalHotkeys = (
             event.preventDefault();
             event.stopPropagation();
             h();
-            break;
           }
         }
       }
     };
 
+    const handleBlur = (): void => {
+      const handlers = keyUpHandlersRef.current;
+      if (!handlers) return;
+      for (const id of [
+        'skip-forward-small',
+        'skip-forward-medium',
+        'skip-forward-large',
+        'skip-forward-xlarge',
+        'reverse-playback-slow',
+        'reverse-playback-2x',
+        'reverse-playback-4x',
+        'reverse-playback-6x',
+      ]) {
+        handlers[id]?.();
+      }
+    };
+
     globalThis.window.addEventListener('keydown', handleKeyDown);
     globalThis.window.addEventListener('keyup', handleKeyUp);
+    globalThis.window.addEventListener('blur', handleBlur);
 
     return () => {
       globalThis.window.removeEventListener('keydown', handleKeyDown);
       globalThis.window.removeEventListener('keyup', handleKeyUp);
+      globalThis.window.removeEventListener('blur', handleBlur);
     };
   }, [hotkeys]);
 };

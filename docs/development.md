@@ -505,7 +505,7 @@ Main IPC handlers (domain modules)
 - `timelineDocument`: package内の旧配列形式とversion 2（`rows[]` / `instances[]`）のロード時移行・直列化
 - `useGlobalHotkeys`: グローバルホットキー
 
-`useGlobalHotkeys` は物理キー1回の押下を1操作として扱い、OSが送る `KeyboardEvent.repeat` は無視します。再生/停止のようなトグル状態は関数形式のstate updaterで反転し、短時間に別ウィンドウから入力されても古いrender時点の状態を使いません。押下中だけ有効な再生速度は最初のkeydownとkeyupで開始・解除します。
+`useGlobalHotkeys` は物理キー1回の押下を1操作として扱い、OSが送る `KeyboardEvent.repeat` は無視します。再生/停止のようなトグル状態は関数形式のstate updaterで反転し、短時間に別ウィンドウから入力されても古いrender時点の状態を使いません。押下中だけ有効な再生速度と連続逆再生は最初のkeydownとkeyupで開始・解除し、ウィンドウのblurでも解除します。逆再生は `useContinuousReversePlayback` が `requestAnimationFrame` の経過時間から再生位置を戻し、長いframe停止後の飛びを抑制します。
 
 ### コンポーネント設計（責務分離）
 

@@ -1,5 +1,6 @@
 export { AnalysisWindowScreen } from './app/AnalysisWindowScreen';
 export { CodingPanelWindowScreen } from './app/CodingPanelWindowScreen';
+export { TimelineWindowScreen } from './app/TimelineWindowScreen';
 export { VideoPlayerScreen } from './app/VideoPlayerScreen';
 export { AnalysisPanel } from './components/Analytics/AnalysisPanel/AnalysisPanel';
 export { VideoPlayer } from './components/Player/VideoPlayer';

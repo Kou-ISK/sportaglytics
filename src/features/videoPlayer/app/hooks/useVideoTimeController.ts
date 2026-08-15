@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import {
@@ -18,7 +18,7 @@ type UseVideoTimeControllerParams = {
   mediaAngles: PackageMediaAngle[];
 };
 
-const getMinAllowedGlobalTime = (
+export const getMinAllowedGlobalTime = (
   syncData: VideoSyncData | undefined,
 ): number => {
   if (
@@ -140,14 +140,25 @@ export const useVideoTimeController = ({
   ) => void;
 } => {
   const [currentTime, setCurrentTime] = useState(0);
+  const pendingSeekRef = useRef<number | null>(null);
+  const seekFrameRef = useRef<number | null>(null);
+  const seekEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (seekFrameRef.current !== null)
+        cancelAnimationFrame(seekFrameRef.current);
+      if (seekEndTimerRef.current !== null)
+        clearTimeout(seekEndTimerRef.current);
+    },
+    [],
+  );
 
   const handleCurrentTime = useCallback(
     (_event: SyntheticEvent | Event, newValue: number | number[]) => {
       const time = newValue as number;
       const isManualMode = syncMode === 'manual';
       const minAllowed = getMinAllowedGlobalTime(syncData);
-
-      dispatchSeekEvent('video-seek-start', time);
 
       if (Number.isNaN(time) || time < minAllowed) {
         console.warn('Invalid time value:', time);
@@ -157,20 +168,31 @@ export const useVideoTimeController = ({
 
       const timeClamped = Math.max(time, minAllowed);
       setCurrentTime(timeClamped);
+      pendingSeekRef.current = timeClamped;
+      dispatchSeekEvent('video-seek-start', timeClamped);
 
-      setTimeout(() => {
-        seekEachPlayer({
-          timeClamped,
-          videoList,
-          syncData,
-          isManualMode,
-          mediaAngles,
+      if (seekFrameRef.current === null) {
+        seekFrameRef.current = requestAnimationFrame(() => {
+          seekFrameRef.current = null;
+          const pendingTime = pendingSeekRef.current;
+          if (pendingTime === null) return;
+          pendingSeekRef.current = null;
+          seekEachPlayer({
+            timeClamped: pendingTime,
+            videoList,
+            syncData,
+            isManualMode,
+            mediaAngles,
+          });
         });
+      }
 
-        setTimeout(() => {
-          dispatchSeekEvent('video-seek-end');
-        }, 500);
-      }, 50);
+      if (seekEndTimerRef.current !== null)
+        clearTimeout(seekEndTimerRef.current);
+      seekEndTimerRef.current = setTimeout(() => {
+        seekEndTimerRef.current = null;
+        dispatchSeekEvent('video-seek-end');
+      }, 120);
     },
     [mediaAngles, syncData, syncMode, videoList],
   );

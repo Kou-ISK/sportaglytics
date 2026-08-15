@@ -36,6 +36,11 @@ export const usePlaybackClockSync = ({
   disabled = false,
 }: UsePlaybackClockSyncParams): void => {
   const rafLastTsRef = useRef<number | null>(null);
+  const videoTimeRef = useRef(videoTime);
+
+  useEffect(() => {
+    videoTimeRef.current = videoTime;
+  }, [videoTime]);
 
   useEffect(() => {
     if (disabled || videoList.length === 0) {
@@ -65,7 +70,7 @@ export const usePlaybackClockSync = ({
         if (
           syncData?.isAnalyzed &&
           (syncData.syncOffset ?? 0) < 0 &&
-          videoTime < 0
+          videoTimeRef.current < 0
         ) {
           return;
         }
@@ -75,7 +80,7 @@ export const usePlaybackClockSync = ({
         if (
           shouldApplyObservedVideoTime(
             nextVideoTime,
-            videoTime,
+            videoTimeRef.current,
             timeSinceManualSeek,
           )
         ) {
@@ -107,14 +112,14 @@ export const usePlaybackClockSync = ({
               primaryTime,
               secondaryTime,
               primaryDuration,
-              videoTime,
+              videoTime: videoTimeRef.current,
               maxSec,
               syncData,
             });
 
             if (
               actualTime !== null &&
-              shouldApplyActualPlaybackTime(actualTime, videoTime)
+              shouldApplyActualPlaybackTime(actualTime, videoTimeRef.current)
             ) {
               setVideoTime(actualTime);
               safeSetCurrentTime(actualTime, 'RAF-actualTime');
@@ -168,7 +173,6 @@ export const usePlaybackClockSync = ({
     setVideoTime,
     syncData,
     videoList,
-    videoTime,
     disabled,
   ]);
 };

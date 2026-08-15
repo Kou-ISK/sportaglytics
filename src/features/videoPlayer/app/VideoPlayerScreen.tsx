@@ -17,7 +17,6 @@ import { useRawTimelineCsvExport } from '../analysis/hooks/useRawTimelineCsvExpo
 import { OnboardingTutorial } from '../../../components/OnboardingTutorial';
 import { useHotkeyBindings } from './hooks/useHotkeyBindings';
 import { useManualSyncSeek } from './hooks/useManualSyncSeek';
-import { useTimelineKeyboardShortcuts } from './hooks/useTimelineKeyboardShortcuts';
 import { usePlaylistIntegration } from './hooks/usePlaylistIntegration';
 import { VideoPlayerLayout } from './components/VideoPlayerLayout';
 import { useAnalysisIntegration } from './hooks/useAnalysisIntegration';
@@ -26,6 +25,9 @@ import { buildSelectionLabelUpdates } from './utils/applyLabelsToTimelineSelecti
 import type { CodeWindowLayout } from '../../../types/settings/coreTypes';
 import type { SCLabel } from '../../../types/timeline/sportscode';
 import { subscribeCreateVideoPackageMenu } from './gateways/menuEventGateway';
+import { useTimelineWindowIntegration } from './hooks/useTimelineWindowIntegration';
+import { useContinuousReversePlayback } from '../../../hooks/useContinuousReversePlayback';
+import { getMinAllowedGlobalTime } from './hooks/useVideoTimeController';
 
 export const VideoPlayerScreen = () => {
   const {
@@ -114,6 +116,17 @@ export const VideoPlayerScreen = () => {
 
   const codingPanelRuntimeRef = useRef<EnhancedCodePanelHandle | null>(null);
 
+  const { startReversePlayback, stopReversePlayback } =
+    useContinuousReversePlayback({
+      currentTime,
+      minimumTime: getMinAllowedGlobalTime(syncData),
+      onPause: () => {
+        setVideoPlayBackRate(1);
+        setisVideoPlaying(false);
+      },
+      onSeek: (time) => handleCurrentTime(new Event('reverse-playback'), time),
+    });
+
   // 手動同期適用ハンドラ
   const handleApplyManualSync = useCallback(async () => {
     await manualSyncFromPlayers();
@@ -137,7 +150,6 @@ export const VideoPlayerScreen = () => {
 
   const { combinedHotkeys, combinedHandlers, keyUpHandlers } =
     useHotkeyBindings({
-      currentTime,
       teamNames,
       settingsHotkeys: settings.hotkeys,
       activeActions,
@@ -146,7 +158,8 @@ export const VideoPlayerScreen = () => {
       setVideoPlayBackRate,
       setIsVideoPlaying: setisVideoPlaying,
       setViewMode,
-      handleCurrentTime,
+      startReversePlayback,
+      stopReversePlayback,
       performUndo,
       performRedo,
       resyncAudio,
@@ -164,14 +177,6 @@ export const VideoPlayerScreen = () => {
   // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）
   useGlobalHotkeys(combinedHotkeys, combinedHandlers, keyUpHandlers);
 
-  useTimelineKeyboardShortcuts({
-    selectedTimelineIdList,
-    deleteTimelineDatas,
-    setSelectedTimelineIdList,
-    performUndo,
-    performRedo,
-  });
-
   useSyncMenuHandlers({
     onResyncAudio: resyncAudio,
     onResetSync: resetSync,
@@ -187,6 +192,50 @@ export const VideoPlayerScreen = () => {
     videoList,
     handleCurrentTime,
     setIsVideoPlaying: setisVideoPlaying,
+  });
+
+  const { open: openTimelineWindow } = useTimelineWindowIntegration({
+    isFileSelected,
+    timeline,
+    rows: timelineRows,
+    maxSec,
+    currentTime,
+    isPlaying: isVideoPlaying,
+    playbackRate: videoPlayBackRate,
+    selectedIds: selectedTimelineIdList,
+    teamNames,
+    videoSources: videoList,
+    hotkeys: combinedHotkeys,
+    hotkeyHandlers: combinedHandlers,
+    hotkeyKeyUpHandlers: keyUpHandlers,
+    onSeek: (time) =>
+      handleCurrentTime(new Event('timeline-window-seek'), time),
+    onSelectionChange: setSelectedTimelineIdList,
+    onDeleteItems: deleteTimelineDatas,
+    onUpdateMemo: updateMemo,
+    onUpdateRange: updateTimelineRange,
+    onUpdateItem: updateTimelineItem,
+    onBulkUpdateItems: bulkUpdateTimelineItems,
+    onDuplicateItem: duplicateTimelineItem,
+    onCreateItem: (actionName, startTime, endTime, color) =>
+      addTimelineData(
+        actionName,
+        startTime,
+        endTime,
+        '',
+        undefined,
+        undefined,
+        undefined,
+        color,
+      ),
+    onAddRow: addTimelineRow,
+    onUpdateRow: updateTimelineRow,
+    onMoveRow: moveTimelineRow,
+    onDeleteRows: deleteTimelineRows,
+    onPasteItems: pasteTimelineItemsToRow,
+    onUndo: performUndo,
+    onRedo: performRedo,
+    onAddToPlaylist: (items) => void handleAddToPlaylist(items),
   });
 
   const firstTeamName = React.useMemo(() => {
@@ -266,23 +315,6 @@ export const VideoPlayerScreen = () => {
         syncMode={syncMode}
         playerForceUpdateKey={playerForceUpdateKey}
         viewMode={viewMode}
-        timeline={timeline}
-        timelineRows={timelineRows}
-        selectedTimelineIdList={selectedTimelineIdList}
-        teamNames={teamNames}
-        setSelectedTimelineIdList={setSelectedTimelineIdList}
-        deleteTimelineDatas={deleteTimelineDatas}
-        updateMemo={updateMemo}
-        updateTimelineRange={updateTimelineRange}
-        updateTimelineItem={updateTimelineItem}
-        bulkUpdateTimelineItems={bulkUpdateTimelineItems}
-        duplicateTimelineItem={duplicateTimelineItem}
-        addTimelineData={addTimelineData}
-        addTimelineRow={addTimelineRow}
-        updateTimelineRow={updateTimelineRow}
-        moveTimelineRow={moveTimelineRow}
-        deleteTimelineRows={deleteTimelineRows}
-        pasteTimelineItemsToRow={pasteTimelineItemsToRow}
         setVideoList={setVideoList}
         setIsFileSelected={setIsFileSelected}
         setTimelineFilePath={setTimelineFilePath}
@@ -292,13 +324,11 @@ export const VideoPlayerScreen = () => {
         setSyncData={setSyncData}
         mediaAngles={mediaAngles}
         setMediaAngles={setMediaAngles}
-        performUndo={performUndo}
-        performRedo={performRedo}
         onApplyManualSync={handleApplyManualSync}
         onCancelManualSync={() => {
           void cancelManualSync();
         }}
-        onAddToPlaylist={handleAddToPlaylist}
+        onOpenTimeline={() => void openTimelineWindow()}
       />
       <CodingPanelRuntime
         ref={codingPanelRuntimeRef}

@@ -37,6 +37,8 @@ feature 配下は機能責務で分割します。Atomic Design の分類を fea
 
 パッケージ作成の映像選択 UI は `src/features/videoPlayer/components/Setup/VideoPathSelector/steps/` に Controller / View を置き、アングル一覧とクリップシーケンスの2ペイン描画部品は `steps/videoSelection/` に配置します。`VideoSelectionStepView` はYouTube URL入力だけを必要時にダイアログ表示し、同期位置は作成画面で扱いません。クリップ単位シンクの状態制御は `src/features/videoPlayer/app/hooks/sync/useClipTimelineSyncController.ts`、描画は `src/features/videoPlayer/app/components/ClipSyncControlsView.tsx` に分離します。描画部品は props と callback のみに依存し、IPC と file dialog は gateway / hook に閉じ込めます。
 
+独立タイムラインは `src/features/videoPlayer/app/TimelineWindowScreen.tsx` を入口とし、描画を `components/TimelineWindowView.tsx`、状態同期と command 変換を `hooks/useTimelineWindowController.ts`、Electron 境界を `gateways/timelineWindowGateway.ts` に分離します。共有 IPC 契約は `src/types/ipc/timelineWindow.ts`、main process の lifecycle は `electron/src/timelineWindow.ts` に置きます。
+
 | Path                      | Role                                                               |
 | ------------------------- | ------------------------------------------------------------------ |
 | `index.ts`                | feature 外へ公開する API。feature 外からの import はここに限定する |

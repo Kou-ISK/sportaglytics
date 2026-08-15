@@ -191,6 +191,7 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
             backgroundColor: 'error.main',
             pointerEvents: 'none',
             zIndex: 10,
+            transition: isDraggingPlayhead ? 'none' : 'left 80ms linear',
           }}
         />
 
@@ -211,6 +212,7 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
               : isDraggingPlayhead
                 ? 'grabbing'
                 : 'grab',
+            transition: isDraggingPlayhead ? 'none' : 'left 80ms linear',
           }}
         />
       </Box>

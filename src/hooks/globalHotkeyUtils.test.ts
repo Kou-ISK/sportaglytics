@@ -106,4 +106,17 @@ describe('shouldResetPlaybackHotkeyState', () => {
       shouldResetPlaybackHotkeyState(new KeyboardEvent('keyup', { key: 'a' })),
     ).toBe(false);
   });
+
+  it('resets held reverse playback when an arrow or modifier is released', () => {
+    expect(
+      shouldResetPlaybackHotkeyState(
+        new KeyboardEvent('keyup', { key: 'ArrowLeft' }),
+      ),
+    ).toBe(true);
+    expect(
+      shouldResetPlaybackHotkeyState(
+        new KeyboardEvent('keyup', { key: 'Alt', code: 'AltLeft' }),
+      ),
+    ).toBe(true);
+  });
 });

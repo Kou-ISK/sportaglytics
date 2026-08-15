@@ -1,10 +1,9 @@
-import { Box } from '@mui/material';
-import type { TimelineData } from '../../../../types/timeline/core';
+import { Box, IconButton, Tooltip } from '@mui/material';
 import type { useVideoPlayerScreenController } from '../hooks/useVideoPlayerScreenController';
 import { ManualSyncControls } from './ManualSyncControls';
 import { NoSelectionPlaceholder } from './NoSelectionPlaceholder';
 import { PlayerSurface } from './PlayerSurface';
-import { TimelineActionSection } from './TimelineActionSection';
+import ViewTimelineOutlined from '@mui/icons-material/ViewTimelineOutlined';
 
 type VideoPlayerAppState = ReturnType<typeof useVideoPlayerScreenController>;
 
@@ -24,23 +23,6 @@ type VideoPlayerLayoutProps = Pick<
   | 'syncData'
   | 'syncMode'
   | 'playerForceUpdateKey'
-  | 'timeline'
-  | 'timelineRows'
-  | 'selectedTimelineIdList'
-  | 'teamNames'
-  | 'setSelectedTimelineIdList'
-  | 'deleteTimelineDatas'
-  | 'updateMemo'
-  | 'updateTimelineRange'
-  | 'updateTimelineItem'
-  | 'bulkUpdateTimelineItems'
-  | 'duplicateTimelineItem'
-  | 'addTimelineData'
-  | 'addTimelineRow'
-  | 'updateTimelineRow'
-  | 'moveTimelineRow'
-  | 'deleteTimelineRows'
-  | 'pasteTimelineItemsToRow'
   | 'setVideoList'
   | 'setIsFileSelected'
   | 'setTimelineFilePath'
@@ -50,13 +32,11 @@ type VideoPlayerLayoutProps = Pick<
   | 'setSyncData'
   | 'mediaAngles'
   | 'setMediaAngles'
-  | 'performUndo'
-  | 'performRedo'
 > & {
   openWizardRequestKey: number;
   onApplyManualSync: () => void;
   onCancelManualSync: () => void;
-  onAddToPlaylist: (items: TimelineData[]) => Promise<void>;
+  onOpenTimeline: () => void;
   viewMode: 'dual' | 'angle1' | 'angle2';
 };
 
@@ -75,23 +55,6 @@ export const VideoPlayerLayout = ({
   syncData,
   syncMode,
   playerForceUpdateKey,
-  timeline,
-  timelineRows,
-  selectedTimelineIdList,
-  teamNames,
-  setSelectedTimelineIdList,
-  deleteTimelineDatas,
-  updateMemo,
-  updateTimelineRange,
-  updateTimelineItem,
-  bulkUpdateTimelineItems,
-  duplicateTimelineItem,
-  addTimelineData,
-  addTimelineRow,
-  updateTimelineRow,
-  moveTimelineRow,
-  deleteTimelineRows,
-  pasteTimelineItemsToRow,
   setVideoList,
   setIsFileSelected,
   setTimelineFilePath,
@@ -101,11 +64,9 @@ export const VideoPlayerLayout = ({
   setSyncData,
   mediaAngles,
   setMediaAngles,
-  performUndo,
-  performRedo,
   onApplyManualSync,
   onCancelManualSync,
-  onAddToPlaylist,
+  onOpenTimeline,
   viewMode,
   openWizardRequestKey,
 }: VideoPlayerLayoutProps) => {
@@ -114,9 +75,8 @@ export const VideoPlayerLayout = ({
       sx={{
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1fr)',
-        // 小さいウィンドウでもプレイヤー領域を 0px にしない。
-        // タイムラインはビューポートに追従しつつ、過度に映像を圧迫しない。
-        gridTemplateRows: 'minmax(120px, 1fr) clamp(96px, 30vh, 320px)',
+        // 独立タイムラインに高さを奪われず、映像面を常に維持する。
+        gridTemplateRows: 'minmax(120px, 1fr)',
         flex: 1,
         height: '100%',
         minHeight: 0,
@@ -146,11 +106,29 @@ export const VideoPlayerLayout = ({
         viewMode={viewMode}
       />
 
+      <Tooltip title="タイムラインを表示">
+        <IconButton
+          aria-label="タイムラインを表示"
+          onClick={onOpenTimeline}
+          sx={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            zIndex: 1200,
+            bgcolor: 'background.paper',
+            boxShadow: 2,
+            '&:hover': { bgcolor: 'action.hover' },
+          }}
+        >
+          <ViewTimelineOutlined />
+        </IconButton>
+      </Tooltip>
+
       {syncMode === 'manual' && (
         <Box
           sx={{
             gridColumn: '1',
-            gridRow: '2',
+            gridRow: '1',
             position: 'relative',
             zIndex: 1100,
             display: 'flex',
@@ -173,33 +151,6 @@ export const VideoPlayerLayout = ({
           />
         </Box>
       )}
-
-      <TimelineActionSection
-        timeline={timeline}
-        timelineRows={timelineRows}
-        maxSec={maxSec}
-        currentTime={currentTime}
-        selectedTimelineIdList={selectedTimelineIdList}
-        teamNames={teamNames}
-        setSelectedTimelineIdList={setSelectedTimelineIdList}
-        deleteTimelineDatas={deleteTimelineDatas}
-        updateMemo={updateMemo}
-        updateTimelineRange={updateTimelineRange}
-        updateTimelineItem={updateTimelineItem}
-        bulkUpdateTimelineItems={bulkUpdateTimelineItems}
-        duplicateTimelineItem={duplicateTimelineItem}
-        addTimelineData={addTimelineData}
-        addTimelineRow={addTimelineRow}
-        updateTimelineRow={updateTimelineRow}
-        moveTimelineRow={moveTimelineRow}
-        deleteTimelineRows={deleteTimelineRows}
-        pasteTimelineItemsToRow={pasteTimelineItemsToRow}
-        videoList={videoList}
-        handleCurrentTime={handleCurrentTime}
-        performUndo={performUndo}
-        performRedo={performRedo}
-        onAddToPlaylist={onAddToPlaylist}
-      />
     </Box>
   ) : (
     <NoSelectionPlaceholder

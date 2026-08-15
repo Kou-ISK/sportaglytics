@@ -45,6 +45,22 @@ const launch = async (extraArgs = []) =>
     },
   });
 
+const waitForWindowHash = async (app, hash, timeoutMs = 10_000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const matched = app.windows().find((candidate) => {
+      try {
+        return new URL(candidate.url()).hash === hash;
+      } catch {
+        return false;
+      }
+    });
+    if (matched) return matched;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Window ${hash} did not open within ${timeoutMs}ms`);
+};
+
 const listMediaFiles = async (directoryPath) => {
   const entries = await fs.readdir(directoryPath, { withFileTypes: true });
   const nested = await Promise.all(
@@ -227,7 +243,7 @@ try {
   await addYoutube('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
 
   await page.getByRole('button', { name: 'パッケージを作成…' }).click();
-  await page.getByText('タイムラインが空です。', { exact: false }).waitFor({
+  await page.getByRole('button', { name: 'タイムラインを表示' }).waitFor({
     timeout: 30_000,
   });
   await page.keyboard.press('Meta+Shift+T');
@@ -270,15 +286,15 @@ try {
   console.log('Launching local virtual timeline');
   electronApp = await launch([path.join(workPath, 'local-sync.stpkg')]);
   page = await electronApp.firstWindow();
-  await page.getByText('タイムラインが空です。', { exact: false }).waitFor({
+  await page.getByRole('button', { name: 'タイムラインを表示' }).waitFor({
     timeout: 30_000,
   });
   await page.locator('#video_0').waitFor({ timeout: 30_000 });
-  const codingPanelWindowPromise = electronApp.waitForEvent('window', {
-    timeout: 10_000,
-  });
   await page.evaluate(() => window.electronAPI.codingPanelWindow.openWindow());
-  const codingPanelPage = await codingPanelWindowPromise;
+  const codingPanelPage = await waitForWindowHash(
+    electronApp,
+    '#/coding-panel',
+  );
   await codingPanelPage.getByRole('button', { name: 'コード' }).waitFor({
     timeout: 10_000,
   });
@@ -360,7 +376,7 @@ try {
   console.log('Launching persisted YouTube timeline');
   electronApp = await launch([packagePath]);
   page = await electronApp.firstWindow();
-  await page.getByText('タイムラインが空です。', { exact: false }).waitFor({
+  await page.getByRole('button', { name: 'タイムラインを表示' }).waitFor({
     timeout: 30_000,
   });
   await page.locator('iframe[src*="M7lc1UVf-VE"]').waitFor({

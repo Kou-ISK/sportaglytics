@@ -75,8 +75,13 @@
 - 同期オフセットを考慮した時刻調整
 - 同期状態の視覚的表示（オフセット値・信頼度）
 - NaN防止の多層防護（型チェック、範囲検証）
+- 連続入力を描画フレーム単位で集約し、固定遅延を挟まず複数映像へ反映
+- 独立タイムラインウィンドウの再生ヘッドは映像側の時刻を authority として滑らかに補間
 
 #### 2.1.4 映像制御
+
+- 映像とタイムラインは独立ウィンドウで表示し、映像側が再生状態の唯一の authority となる
+- 映像操作ホットキーは映像・タイムラインのどちらにフォーカスがある場合も同じ再生 runtime へ作用する
 
 **再生/停止**:
 
@@ -92,8 +97,10 @@
 
 **シーク**:
 
-- 5秒戻し: `←`キー
-- 10秒戻し: `Shift + ←`
+- 0.5倍速逆再生: `←`キー（押下中）
+- 2倍速逆再生: `Shift + ←`（押下中）
+- 4倍速逆再生: `Option + ←`（押下中）
+- 6倍速逆再生: `Command + ←`（押下中）
 - スライダーによる任意位置ジャンプ
 
 **編集操作**:
@@ -494,24 +501,26 @@ AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自
 
 機能名または現在のキーで一覧を検索でき、該当件数と空状態を表示する。
 
-物理キー長押しで発生するOSのrepeat keydownは同一操作として再実行しない。再生/停止などのトグル操作は最新状態に対して反転し、押下中だけ有効な速度変更はkeyupで通常速度へ戻す。
+物理キー長押しで発生するOSのrepeat keydownは同一操作として再実行しない。再生/停止などのトグル操作は最新状態に対して反転する。早送りはkeydownからkeyupまで指定速度で再生し、逆再生はHTML Mediaの負の再生速度に依存せず、描画フレーム単位の連続シークで戻してkeyup時に停止する。フォーカス喪失時も押下状態を解除する。
 
-| ID                   | デフォルト     | 説明             |
-| -------------------- | -------------- | ---------------- |
-| resync-audio         | `Cmd+Shift+S`  | 音声同期を再実行 |
-| reset-sync           | `Cmd+Shift+R`  | 同期をリセット   |
-| manual-sync          | `Cmd+Shift+M`  | 今の位置で同期   |
-| toggle-manual-mode   | `Cmd+Shift+T`  | 手動モード切替   |
-| analyze              | `Cmd+Shift+A`  | 分析開始         |
-| undo                 | `Cmd+Z`        | 元に戻す         |
-| redo                 | `Cmd+Shift+Z`  | やり直す         |
-| skip-forward-small   | `Right`        | 0.5倍速再生      |
-| skip-forward-medium  | `Shift+Right`  | 2倍速再生        |
-| skip-forward-large   | `Cmd+Right`    | 4倍速再生        |
-| skip-forward-xlarge  | `Option+Right` | 6倍速再生        |
-| skip-backward-medium | `Left`         | 5秒戻し          |
-| skip-backward-large  | `Shift+Left`   | 10秒戻し         |
-| play-pause           | `Space`        | 再生/停止        |
+| ID                    | デフォルト     | 説明             |
+| --------------------- | -------------- | ---------------- |
+| resync-audio          | `Cmd+Shift+S`  | 音声同期を再実行 |
+| reset-sync            | `Cmd+Shift+R`  | 同期をリセット   |
+| manual-sync           | `Cmd+Shift+M`  | 今の位置で同期   |
+| toggle-manual-mode    | `Cmd+Shift+T`  | 手動モード切替   |
+| analyze               | `Cmd+Shift+A`  | 分析開始         |
+| undo                  | `Cmd+Z`        | 元に戻す         |
+| redo                  | `Cmd+Shift+Z`  | やり直す         |
+| skip-forward-small    | `Right`        | 0.5倍速再生      |
+| skip-forward-medium   | `Shift+Right`  | 2倍速再生        |
+| skip-forward-large    | `Cmd+Right`    | 4倍速再生        |
+| skip-forward-xlarge   | `Option+Right` | 6倍速再生        |
+| reverse-playback-slow | `Left`         | 0.5倍速逆再生    |
+| reverse-playback-2x   | `Shift+Left`   | 2倍速逆再生      |
+| reverse-playback-4x   | `Option+Left`  | 4倍速逆再生      |
+| reverse-playback-6x   | `Cmd+Left`     | 6倍速逆再生      |
+| play-pause            | `Space`        | 再生/停止        |
 
 #### 2.6.4 コードウィンドウドキュメント編集
 

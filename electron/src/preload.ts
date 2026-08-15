@@ -11,6 +11,7 @@ import {
 } from './preload/listenerStore';
 import { createPlaylistBridge } from './preload/playlistBridge';
 import { createSettingsBridge } from './preload/settingsBridge';
+import { createTimelineWindowBridge } from './preload/timelineWindowBridge';
 
 contextBridge.exposeInMainWorld('versions', {
   node: () => process.versions.node,
@@ -35,6 +36,7 @@ const electronAPI = {
   ...createPlaylistBridge(ipcRenderer, listenerStore),
   ...createCodeWindowBridge(ipcRenderer),
   codingPanelWindow: createCodingPanelWindowBridge(ipcRenderer, listenerStore),
+  timelineWindow: createTimelineWindowBridge(ipcRenderer, listenerStore),
   resolveDroppedVideoFilePath: (file: File): string => {
     try {
       const filePath = webUtils.getPathForFile(file);

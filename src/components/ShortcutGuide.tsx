@@ -28,12 +28,14 @@ const shortcuts: ShortcutItem[] = [
     category: '再生制御',
     items: [
       { key: 'Space', action: '再生/停止' },
-      { key: '←', action: '5秒戻し' },
+      { key: '←', action: '0.5倍速逆再生（押下中）' },
+      { key: 'Shift + ←', action: '2倍速逆再生（押下中）' },
+      { key: 'Option + ←', action: '4倍速逆再生（押下中）' },
+      { key: 'Command + ←', action: '6倍速逆再生（押下中）' },
       { key: '→', action: '0.5倍速' },
       { key: 'Shift + →', action: '2倍速' },
       { key: 'Command + →', action: '4倍速' },
       { key: 'Option + →', action: '6倍速' },
-      { key: 'Shift + ←', action: '10秒戻し' },
     ],
   },
   {
