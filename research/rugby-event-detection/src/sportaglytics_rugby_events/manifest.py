@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,26 @@ def _load_aliases(path: Path) -> dict[str, set[str]]:
             for value in values
             if isinstance(value, str) and value.strip()
         }
+    return result
+
+
+def _event_anchor_offsets(value: Any, label: str) -> dict[str, float]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be an object keyed by event type")
+    result: dict[str, float] = {}
+    for event_type, raw_offset in value.items():
+        if event_type not in EVENT_TYPES:
+            raise ValueError(f"{label} contains unsupported event type: {event_type}")
+        if (
+            not isinstance(raw_offset, (int, float))
+            or isinstance(raw_offset, bool)
+            or not math.isfinite(float(raw_offset))
+            or float(raw_offset) < 0
+        ):
+            raise ValueError(f"{label}.{event_type} must be a finite number >= 0")
+        result[event_type] = float(raw_offset)
     return result
 
 
@@ -139,6 +160,7 @@ def _segments_for_angle(package_root: Path, angle: dict[str, Any]) -> list[dict[
 def _event_annotations(
     instances: list[dict[str, Any]],
     aliases: dict[str, set[str]],
+    anchor_offsets: dict[str, float],
 ) -> list[dict[str, Any]]:
     lookup = {
         alias: event_type
@@ -154,10 +176,14 @@ def _event_annotations(
         event_type = lookup.get(_normalize_action_name(action_name))
         if event_type is None:
             continue
+        # Timeline startTime can intentionally include Code Window lead padding.
+        # The dataset spec can add that lead back to recover the analyst's
+        # original button-press/event-onset anchor without mutating source data.
+        anchor_time = float(start_time) + anchor_offsets.get(event_type, 0.0)
         events.append(
             {
                 "eventType": event_type,
-                "anchorTimeSeconds": max(0.0, float(start_time)),
+                "anchorTimeSeconds": max(0.0, anchor_time),
             }
         )
     return sorted(events, key=lambda item: item["anchorTimeSeconds"])
@@ -176,6 +202,10 @@ def build_manifest(
         raise ValueError("dataset spec packages must be a non-empty array")
 
     aliases = _load_aliases(aliases_path)
+    default_anchor_offsets = _event_anchor_offsets(
+        spec.get("eventAnchorOffsetsSeconds"),
+        "eventAnchorOffsetsSeconds",
+    )
     manifest_matches: list[dict[str, Any]] = []
     seen_match_ids: set[str] = set()
 
@@ -212,13 +242,24 @@ def build_manifest(
             config,
             requested_angle_id if isinstance(requested_angle_id, str) else None,
         )
+        package_anchor_offsets = dict(default_anchor_offsets)
+        package_anchor_offsets.update(
+            _event_anchor_offsets(
+                item.get("eventAnchorOffsetsSeconds"),
+                f"packages[{match_id}].eventAnchorOffsetsSeconds",
+            )
+        )
         manifest_matches.append(
             {
                 "matchId": match_id,
                 "split": split,
                 "angleId": angle.get("id"),
                 "segments": _segments_for_angle(package_root, angle),
-                "events": _event_annotations(timeline, aliases),
+                "events": _event_annotations(
+                    timeline,
+                    aliases,
+                    package_anchor_offsets,
+                ),
             }
         )
 
