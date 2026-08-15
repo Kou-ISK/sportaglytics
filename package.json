@@ -37,6 +37,7 @@
     "build": "vite build",
     "test": "vitest",
     "test:run": "vitest --run",
+    "test:ci": "vitest --run --no-file-parallelism",
     "e2e:prepare": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload",
     "test:e2e": "pnpm run e2e:prepare && node scripts/e2e-clip-sync.mjs && node scripts/e2e-code-window-menu.mjs && node scripts/e2e-export-progress.mjs && node scripts/e2e-timeline-rows.mjs",
     "test:e2e:clip-sync": "pnpm run e2e:prepare && node scripts/e2e-clip-sync.mjs",
@@ -99,17 +100,18 @@
   "pnpm": {
     "overrides": {
       "@babel/core": "7.29.6",
-      "brace-expansion@1": "1.1.17",
-      "brace-expansion@2": "2.1.3",
-      "brace-expansion@5": "5.0.8",
+      "brace-expansion@1": "1.1.18",
+      "brace-expansion@2": "2.1.4",
+      "brace-expansion@5": "5.0.9",
       "esbuild": "0.28.1",
       "form-data": "4.0.6",
-      "js-yaml": "4.3.0",
-      "postcss": "8.5.18",
+      "js-yaml": "4.3.1",
+      "nanoid": "3.3.17",
+      "postcss": "8.5.23",
       "shell-quote": "1.9.0",
       "tar": "7.5.21",
       "tmp": "0.2.7",
-      "undici": "6.27.0",
+      "undici": "6.28.0",
       "ws": "8.21.0"
     }
   }
