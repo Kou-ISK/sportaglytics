@@ -29,6 +29,12 @@ interface UseActionButtonInteractionsParams {
   getButtonColorByName: (buttonName: string) => string | undefined;
 }
 
+const normalizePaddingSeconds = (value: number | undefined): number => {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, value)
+    : 0;
+};
+
 export const useActionButtonInteractions = ({
   activeMode,
   effectiveLinks,
@@ -50,6 +56,8 @@ export const useActionButtonInteractions = ({
       originalButtonName?: string,
       buttonColor?: string,
       buttonId?: string,
+      leadTimeSeconds?: number,
+      lagTimeSeconds?: number,
     ) => {
       if (activeMode === 'label') {
         return;
@@ -101,6 +109,8 @@ export const useActionButtonInteractions = ({
         [clickedButtonName]: {
           teamName,
           startTime: time,
+          leadTimeSeconds: normalizePaddingSeconds(leadTimeSeconds),
+          lagTimeSeconds: normalizePaddingSeconds(lagTimeSeconds),
           color: buttonColor,
           activateTargets: effects.activateTargets,
           activateTargetColors: targetColors,
