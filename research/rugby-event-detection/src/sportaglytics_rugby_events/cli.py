@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from .auto_prepare import build_manifest_from_root
@@ -19,6 +20,20 @@ def _selected_model_ids(value: str | None) -> set[str] | None:
         return None
     selected = {item.strip() for item in value.split(",") if item.strip()}
     return selected or None
+
+
+def _normalize_forwarded_args(argv: list[str]) -> list[str]:
+    """Remove pnpm's literal separator when it is forwarded after the subcommand.
+
+    Some pnpm versions forward ``pnpm run <script> -- --flag`` as
+    ``<python> <subcommand> -- --flag``. argparse treats that standalone ``--``
+    as end-of-options, so the following required flags become positional values.
+    Accept both forms without changing the documented pnpm commands.
+    """
+
+    if len(argv) >= 2 and argv[1] == "--":
+        return [argv[0], *argv[2:]]
+    return argv
 
 
 def _add_scan_arguments(parser: argparse.ArgumentParser) -> None:
@@ -126,8 +141,9 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
-    args = _build_parser().parse_args()
+def main(argv: list[str] | None = None) -> None:
+    forwarded_args = list(sys.argv[1:] if argv is None else argv)
+    args = _build_parser().parse_args(_normalize_forwarded_args(forwarded_args))
     if args.command == "inspect":
         resolved_output = (
             args.output.expanduser().resolve() if args.output is not None else None
