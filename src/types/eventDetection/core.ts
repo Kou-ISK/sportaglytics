@@ -12,6 +12,8 @@ export interface EventDetectionMetric {
   precision: number;
   recall: number;
   evaluatedMatches: number;
+  /** Confidence threshold used when the reported metrics were measured. */
+  confidenceThreshold: number;
   timestampWithinTwoSecondsRate?: number;
 }
 
