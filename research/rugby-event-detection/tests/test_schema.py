@@ -9,6 +9,7 @@ sys.path.insert(0, str(RESEARCH_ROOT / "src"))
 
 from sportaglytics_rugby_events.schema import (  # noqa: E402
     DatasetManifest,
+    EventAnnotation,
     ModelCandidate,
 )
 
@@ -27,6 +28,20 @@ class SchemaTest(unittest.TestCase):
                     "clipDurationSeconds": 2.6,
                 }
             )
+
+    def test_event_annotation_preserves_possession_metadata(self) -> None:
+        event = EventAnnotation.from_json(
+            {
+                "eventType": "scrum",
+                "anchorTimeSeconds": 123.4,
+                "possessionLabel": "帝京",
+                "sourceActionName": "帝京 スクラム",
+            }
+        )
+
+        self.assertEqual(event.event_type, "scrum")
+        self.assertEqual(event.possession_label, "帝京")
+        self.assertEqual(event.source_action_name, "帝京 スクラム")
 
     def test_dataset_requires_train_validation_and_test_splits(self) -> None:
         base_match = {
