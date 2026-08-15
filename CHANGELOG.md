@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-08-15
+
 ### Added
 
 - 映像とタイムラインを独立ウィンドウへ分離し、タイムライン側の編集・シーク・ホットキーを映像側の単一再生状態へ同期
