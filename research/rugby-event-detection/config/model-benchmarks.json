@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "videomae-base-kinetics",
+      "family": "videomae",
+      "checkpoint": "MCG-NJU/videomae-base-finetuned-kinetics",
+      "license": "CC-BY-NC-4.0",
+      "productionEligible": false,
+      "numFrames": 16,
+      "clipDurationSeconds": 2.13,
+      "notes": "Research baseline only. The published checkpoint is non-commercial."
+    },
+    {
+      "id": "x3d-s-kinetics400",
+      "family": "pytorchvideo",
+      "checkpoint": "x3d_s",
+      "sourceRevision": "f3142bb05cdb56af0704ab6f0adfb0c7bbafe4a0",
+      "license": "Apache-2.0",
+      "productionEligible": true,
+      "numFrames": 13,
+      "samplingRate": 6,
+      "assumedFps": 30,
+      "sideSize": 182,
+      "cropSize": 182,
+      "clipDurationSeconds": 2.6
+    },
+    {
+      "id": "slowfast-r50-kinetics400",
+      "family": "pytorchvideo",
+      "checkpoint": "slowfast_r50",
+      "sourceRevision": "f3142bb05cdb56af0704ab6f0adfb0c7bbafe4a0",
+      "license": "Apache-2.0",
+      "productionEligible": true,
+      "numFrames": 32,
+      "samplingRate": 2,
+      "assumedFps": 30,
+      "slowfastAlpha": 4,
+      "sideSize": 256,
+      "cropSize": 256,
+      "clipDurationSeconds": 2.13
+    }
+  ]
+}
