@@ -31,7 +31,6 @@ def make_match(match_id: str, split: str, event_time: float) -> MatchManifest:
             ),
         ),
         events=(
-            EventAnnotation(event_type="kickoff", anchor_time_seconds=event_time),
             EventAnnotation(event_type="scrum", anchor_time_seconds=event_time + 10),
             EventAnnotation(event_type="lineout", anchor_time_seconds=event_time + 20),
         ),
@@ -42,10 +41,10 @@ class MetricsTest(unittest.TestCase):
     def test_quality_gate_matches_existing_product_policy(self) -> None:
         matches = tuple(make_match(f"test-{index}", "test", 10.0) for index in range(5))
         predictions = [
-            Prediction(match.match_id, "kickoff", 11.0, 0.9)
+            Prediction(match.match_id, "scrum", 21.0, 0.9)
             for match in matches
         ]
-        metrics = evaluate_event(matches, predictions, "kickoff", 0.8)
+        metrics = evaluate_event(matches, predictions, "scrum", 0.8)
         self.assertEqual(metrics.true_positive, 5)
         self.assertEqual(metrics.false_positive, 0)
         self.assertEqual(metrics.false_negative, 0)
@@ -55,10 +54,10 @@ class MetricsTest(unittest.TestCase):
     def test_gate_requires_five_unseen_matches(self) -> None:
         matches = tuple(make_match(f"test-{index}", "test", 10.0) for index in range(4))
         predictions = [
-            Prediction(match.match_id, "kickoff", 10.0, 0.99)
+            Prediction(match.match_id, "scrum", 20.0, 0.99)
             for match in matches
         ]
-        metrics = evaluate_event(matches, predictions, "kickoff", 0.9)
+        metrics = evaluate_event(matches, predictions, "scrum", 0.9)
         self.assertFalse(metrics.passes_gate)
 
     def test_validation_threshold_rejects_lower_confidence_false_positives(self) -> None:
@@ -69,7 +68,6 @@ class MetricsTest(unittest.TestCase):
         predictions: list[Prediction] = []
         for match in matches:
             for event_type, event_time in (
-                ("kickoff", 10.0),
                 ("scrum", 20.0),
                 ("lineout", 30.0),
             ):
@@ -81,10 +79,9 @@ class MetricsTest(unittest.TestCase):
                 )
 
         thresholds = select_thresholds(matches, predictions)
-        self.assertGreater(thresholds["kickoff"], 0.60)
         self.assertGreater(thresholds["scrum"], 0.60)
         self.assertGreater(thresholds["lineout"], 0.60)
-        self.assertLessEqual(thresholds["kickoff"], 0.90)
+        self.assertLessEqual(thresholds["scrum"], 0.90)
 
 
 if __name__ == "__main__":
