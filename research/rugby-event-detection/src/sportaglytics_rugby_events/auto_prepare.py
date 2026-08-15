@@ -55,7 +55,7 @@ def build_manifest_from_root(
             raw_config = _load_json(config_path)
             if not isinstance(raw_config, dict):
                 raise ValueError("config root is not an object")
-            config = normalize_package_config(raw_config)
+            config = normalize_package_config(raw_config, source.package_root)
             angle = _select_angle(config, None)
             timeline = _timeline_instances(_load_json(source.timeline_path))
             prepared.append(
@@ -75,7 +75,6 @@ def build_manifest_from_root(
             )
 
     if len(prepared) < 3:
-        report["preparationFailures"] = skipped
         raise ValueError(
             "automatic preparation needs at least 3 usable matches after video/config validation; "
             "run the inspect command and review unresolved sources"
@@ -129,6 +128,7 @@ def build_manifest_from_root(
         )
         handle.write("\n")
 
+    report_path = output_path.with_name(f"{output_path.stem}.sources.json")
     report["preparationFailures"] = skipped
     report["preparedSources"] = len(matches)
     report["automaticSplit"] = {
@@ -139,9 +139,8 @@ def build_manifest_from_root(
     }
     report["manifestPath"] = str(output_path)
     report["generatedSpecPath"] = str(auto_spec_path)
-    report_path = output_path.with_name(f"{output_path.stem}.sources.json")
+    report["reportPath"] = str(report_path)
     with report_path.open("w", encoding="utf-8") as handle:
         json.dump(report, handle, ensure_ascii=False, indent=2)
         handle.write("\n")
-    report["reportPath"] = str(report_path)
     return manifest, report
