@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from 'electron';
+import { EVENT_DETECTION_CHANNELS } from '../../../src/types/ipc/eventDetection';
 import { createPlaylistWindow } from '../playlistWindow';
 import { openAnalysisWindow } from '../analysisWindow';
 import { openHelpWindow } from '../helpWindow';
@@ -214,6 +215,16 @@ export const buildSyncMenuItems = (): Electron.MenuItemConstructorOptions[] => [
     click: () => sendToFocusedWindow('menu-reset-sync'),
   },
 ];
+
+export const buildAnalysisMenuItems =
+  (): Electron.MenuItemConstructorOptions[] => [
+    {
+      label: '自動イベント検出…',
+      click: () => {
+        sendToAllWindows(EVENT_DETECTION_CHANNELS.openRequested);
+      },
+    },
+  ];
 
 export const buildWindowMenuItems =
   (): Electron.MenuItemConstructorOptions[] => [
