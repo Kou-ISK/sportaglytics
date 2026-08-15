@@ -151,7 +151,10 @@ def evaluate_event(
 
 
 def threshold_grid() -> tuple[float, ...]:
-    return tuple(round(value / 100, 2) for value in range(50, 100))
+    # Four-way classifiers can be useful below 0.50 even when they are well
+    # separated from the negative class. Do not hide that calibration behavior
+    # during validation screening; the product gate still enforces precision.
+    return tuple(round(value / 100, 2) for value in range(5, 100))
 
 
 def select_thresholds(
