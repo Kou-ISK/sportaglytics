@@ -129,11 +129,24 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = _build_parser().parse_args()
     if args.command == "inspect":
+        resolved_output = (
+            args.output.expanduser().resolve() if args.output is not None else None
+        )
         report = write_inspection_report(
             args.root.expanduser().resolve(),
-            args.output.expanduser().resolve() if args.output is not None else None,
+            resolved_output,
         )
-        print(json.dumps(report, ensure_ascii=False, indent=2))
+        if resolved_output is None:
+            payload = report
+        else:
+            payload = {
+                "root": report["root"],
+                "timelineFilesFound": report["timelineFilesFound"],
+                "usableSources": report["usableSources"],
+                "unresolvedSources": report["unresolvedSources"],
+                "output": str(resolved_output),
+            }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
 
     if args.command == "prepare":
