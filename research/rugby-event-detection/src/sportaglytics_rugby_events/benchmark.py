@@ -10,7 +10,7 @@ from typing import Any
 import torch
 
 from .dataset import build_training_samples
-from .metrics import Prediction, evaluate_all, select_thresholds
+from .metrics import EventMetrics, Prediction, evaluate_all, select_thresholds
 from .models import build_model
 from .schema import DatasetManifest, EVENT_TYPES, MatchManifest, ModelCandidate
 from .spotting import ScanSummary, scan_matches
@@ -82,9 +82,8 @@ def _ground_truth_json(
 ) -> dict[str, object]:
     return {
         "datasetId": dataset_id,
-        # The independent Node evaluator only needs a list that must not overlap
-        # the held-out test set. Include validation matches because they influenced
-        # model/threshold selection even though no gradient update used them.
+        # Include validation matches because they influenced model/threshold selection.
+        # The independent evaluator uses this list to reject any held-out overlap.
         "trainingMatchIds": [match.match_id for match in development_matches],
         "matches": [
             {
@@ -118,7 +117,7 @@ def _scan_json(summary: ScanSummary) -> dict[str, object]:
     }
 
 
-def _metric_json(metrics: dict[str, object]) -> dict[str, object]:
+def _metric_json(metrics: dict[str, EventMetrics]) -> dict[str, object]:
     return {
         event_type: value.to_json()
         for event_type, value in metrics.items()
@@ -148,12 +147,7 @@ def _screen_one(
     nms_seconds: float,
     seed: int,
 ) -> dict[str, object]:
-    """Train and rank one candidate using train/validation only.
-
-    The held-out test split is intentionally never decoded here. This keeps model
-    family selection, fine-tuning strategy selection and confidence-threshold
-    selection out of the final qualification set.
-    """
+    """Train and rank one candidate using train/validation only."""
 
     model_dir = output_root / candidate.model_id
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -212,12 +206,10 @@ def _screen_one(
         _prediction_json(validation_matches, validation_scan.predictions),
     )
 
-    minimum_precision = min(
-        metric.precision for metric in validation_metrics.values()
+    minimum_precision = min(metric.precision for metric in validation_metrics.values())
+    average_recall = sum(metric.recall for metric in validation_metrics.values()) / len(
+        validation_metrics
     )
-    average_recall = sum(
-        metric.recall for metric in validation_metrics.values()
-    ) / len(validation_metrics)
     average_precise_rate = sum(
         metric.timestamp_within_two_seconds_rate
         for metric in validation_metrics.values()
@@ -336,9 +328,7 @@ def run_benchmark(
         for result in research_ranking
         if result.get("productionEligibleByLicense") is True
     ]
-    screening_winner = (
-        production_ranking[0].get("modelId") if production_ranking else None
-    )
+    screening_winner = production_ranking[0].get("modelId") if production_ranking else None
 
     report = {
         "version": 2,
@@ -405,7 +395,12 @@ def run_qualification(
         raise FileNotFoundError(f"thresholds do not exist: {thresholds_path}")
 
     thresholds = _read_thresholds(thresholds_path)
-    bundle = build_model(candidate, strategy, device_name)
+    bundle = build_model(
+        candidate,
+        strategy,
+        device_name,
+        pretrained_backbone=False,
+    )
     bundle.load(checkpoint_path)
     test_matches = _matches_for_split(manifest, "test")
     test_scan = scan_matches(
@@ -421,25 +416,22 @@ def run_qualification(
     )
 
     output_root.mkdir(parents=True, exist_ok=True)
-    test_predictions_path = output_root / "test-predictions.json"
-    test_ground_truth_path = output_root / "test-ground-truth.json"
-    locked_thresholds_path = output_root / "thresholds.json"
     _write_json(
-        test_predictions_path,
+        output_root / "test-predictions.json",
         _prediction_json(test_matches, test_scan.predictions),
     )
     development_matches = tuple(
         match for match in manifest.matches if match.split != "test"
     )
     _write_json(
-        test_ground_truth_path,
+        output_root / "test-ground-truth.json",
         _ground_truth_json(
             manifest.dataset_id,
             development_matches,
             test_matches,
         ),
     )
-    _write_json(locked_thresholds_path, thresholds)
+    _write_json(output_root / "thresholds.json", thresholds)
 
     report = {
         "version": 1,
