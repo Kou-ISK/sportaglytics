@@ -20,6 +20,13 @@ def _require_string(value: Any, label: str) -> str:
     return value.strip()
 
 
+def _optional_string(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
 def _require_float(value: Any, label: str) -> float:
     if not isinstance(value, (int, float)):
         raise ValueError(f"{label} must be numeric")
@@ -68,6 +75,8 @@ class TimelineSegment:
 class EventAnnotation:
     event_type: str
     anchor_time_seconds: float
+    possession_label: str | None = None
+    source_action_name: str | None = None
 
     @classmethod
     def from_json(cls, value: Any) -> "EventAnnotation":
@@ -81,6 +90,8 @@ class EventAnnotation:
                 data.get("anchorTimeSeconds"),
                 "event.anchorTimeSeconds",
             ),
+            possession_label=_optional_string(data.get("possessionLabel")),
+            source_action_name=_optional_string(data.get("sourceActionName")),
         )
 
 
