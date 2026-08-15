@@ -17,6 +17,11 @@ jobs:
         with:
           node-version: "22.12.0"
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -51,6 +56,9 @@ jobs:
 
       - name: ADR check
         run: pnpm run check:adr
+
+      - name: Research Python check
+        run: pnpm run research:events:check
 
       - name: Test
         run: pnpm run test:ci
