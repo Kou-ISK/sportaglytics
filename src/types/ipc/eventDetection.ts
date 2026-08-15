@@ -19,6 +19,7 @@ export const EVENT_DETECTION_CHANNELS = {
   run: 'event-detection:run',
   cancel: 'event-detection:cancel',
   progress: 'event-detection:progress',
+  openRequested: 'event-detection:open-requested',
 } as const;
 
 const EVENT_TYPE_SET = new Set<string>(RUGBY_EVENT_TYPES);
@@ -29,6 +30,7 @@ export interface IEventDetectionAPI {
   cancel: (requestId: string) => Promise<boolean>;
   onProgress: (callback: (progress: EventDetectionProgress) => void) => void;
   offProgress: (callback: (progress: EventDetectionProgress) => void) => void;
+  onOpenRequested: (callback: () => void) => () => void;
 }
 
 export const isRugbyEventType = (value: unknown): value is RugbyEventType =>
