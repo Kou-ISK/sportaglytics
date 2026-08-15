@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .package_compat import find_package_config_path
+
 IGNORED_DIRECTORY_NAMES = {
     ".git",
     ".venv",
@@ -38,16 +40,6 @@ def _is_ignored(path: Path, root: Path) -> bool:
     return any(part in IGNORED_DIRECTORY_NAMES for part in relative_parts)
 
 
-def _find_config_path(package_root: Path) -> Path | None:
-    for candidate in (
-        package_root / ".metadata" / "config.json",
-        package_root / "config.json",
-    ):
-        if candidate.is_file():
-            return candidate
-    return None
-
-
 def _timeline_summary(path: Path) -> tuple[str, list[dict[str, Any]], str | None]:
     try:
         raw = _load_json(path)
@@ -77,7 +69,10 @@ def _config_summary(path: Path | None) -> tuple[str, list[str], str | None]:
     angles = raw.get("angles")
     if isinstance(angles, list) and angles:
         return "angles", keys, None
-    if any(isinstance(raw.get(key), str) and raw.get(key).strip() for key in ("tightViewPath", "wideViewPath")):
+    if any(
+        isinstance(raw.get(key), str) and raw.get(key).strip()
+        for key in ("tightViewPath", "wideViewPath")
+    ):
         return "legacy-tight-wide", keys, None
     return "unknown", keys, "config has neither angles[] nor tightViewPath/wideViewPath"
 
@@ -159,7 +154,7 @@ def discover_sources(root: Path) -> tuple[DiscoveredSource, ...]:
     for timeline_path in timeline_paths:
         package_root = timeline_path.parent.resolve()
         timeline_format, instances, timeline_issue = _timeline_summary(timeline_path)
-        config_path = _find_config_path(package_root)
+        config_path = find_package_config_path(package_root)
         config_format, config_keys, config_issue = _config_summary(config_path)
         issues = [issue for issue in (timeline_issue, config_issue) if issue is not None]
         usable = timeline_format in {"legacy-array", "timeline-v2"} and config_format in {
@@ -216,9 +211,9 @@ def _auto_split_names(count: int, seed: int) -> list[str]:
     if count < 3:
         raise ValueError("automatic dataset preparation requires at least 3 usable matches")
     validation_count = max(1, round(count * 0.2))
-    test_count = max(1, round(count * 0.2))
+    test_count = 5 if count >= 12 else max(1, round(count * 0.2))
     while count - validation_count - test_count < 1:
-        if validation_count >= test_count and validation_count > 1:
+        if validation_count > 1:
             validation_count -= 1
         elif test_count > 1:
             test_count -= 1
@@ -231,36 +226,3 @@ def _auto_split_names(count: int, seed: int) -> list[str]:
     )
     random.Random(seed).shuffle(splits)
     return splits
-
-
-def build_auto_spec(root: Path, dataset_id: str | None, seed: int) -> tuple[dict[str, Any], dict[str, Any]]:
-    report = inspection_report(root)
-    usable = [source for source in discover_sources(root) if source.usable]
-    if not usable:
-        raise ValueError("no usable SporTagLytics sources were found under the requested root")
-    splits = _auto_split_names(len(usable), seed)
-    packages = []
-    for index, (source, split) in enumerate(zip(usable, splits, strict=True), start=1):
-        relative = source.package_root.relative_to(root.expanduser().resolve())
-        readable = "-".join(part for part in relative.parts if part and part != ".") or source.package_root.name
-        match_id = f"{index:03d}-{readable}".replace(" ", "-")
-        packages.append(
-            {
-                "matchId": match_id,
-                "split": split,
-                "packagePath": str(source.package_root),
-            }
-        )
-    spec = {
-        "version": 1,
-        "datasetId": dataset_id or f"{root.expanduser().resolve().name}-rugby-events",
-        "packages": packages,
-    }
-    report["automaticSplit"] = {
-        "seed": seed,
-        "train": sum(1 for item in packages if item["split"] == "train"),
-        "validation": sum(1 for item in packages if item["split"] == "validation"),
-        "test": sum(1 for item in packages if item["split"] == "test"),
-    }
-    report["selectedPackageRoots"] = [item["packagePath"] for item in packages]
-    return spec, report
