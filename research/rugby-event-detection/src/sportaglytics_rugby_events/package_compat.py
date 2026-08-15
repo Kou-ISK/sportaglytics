@@ -19,12 +19,43 @@ def _source_kind(value: str) -> str:
     return "youtube" if re.match(r"^https://", value.strip(), re.IGNORECASE) else "local"
 
 
-def normalize_package_config(config: dict[str, Any]) -> dict[str, Any]:
+def _resolve_legacy_local_path(package_root: Path | None, value: str) -> str:
+    if package_root is None:
+        return value
+    source = Path(value).expanduser()
+    direct = source if source.is_absolute() else package_root / source
+    if direct.is_file():
+        return str(source if source.is_absolute() else source.as_posix())
+
+    videos_dir = package_root / "videos"
+    fallback = videos_dir / source.name
+    if fallback.is_file():
+        return fallback.relative_to(package_root).as_posix()
+    if videos_dir.is_dir():
+        matched = next(
+            (
+                candidate
+                for candidate in videos_dir.iterdir()
+                if candidate.is_file() and candidate.name.casefold() == source.name.casefold()
+            ),
+            None,
+        )
+        if matched is not None:
+            return matched.relative_to(package_root).as_posix()
+    return value
+
+
+def normalize_package_config(
+    config: dict[str, Any],
+    package_root: Path | None = None,
+) -> dict[str, Any]:
     """Return a research-only normalized view without mutating source files.
 
     Current packages already expose ``angles[]``. Older SporTagLytics packages
     used ``tightViewPath`` / ``wideViewPath`` instead; reproduce the application's
     load-time migration in memory so research can consume those packages directly.
+    Broken historical absolute paths are conservatively recovered by basename from
+    the package's ``videos`` directory when the file is present there.
     """
 
     raw_angles = config.get("angles")
@@ -43,11 +74,16 @@ def normalize_package_config(config: dict[str, Any]) -> dict[str, Any]:
     angles: list[dict[str, Any]] = []
     for index, source in enumerate(legacy_sources, start=1):
         source_kind = _source_kind(source)
+        resolved_source = (
+            source
+            if source_kind == "youtube"
+            else _resolve_legacy_local_path(package_root, source)
+        )
         angle_id = f"legacy-angle-{index}"
         source_fields = (
-            {"sourceUrl": source}
+            {"sourceUrl": resolved_source}
             if source_kind == "youtube"
-            else {"relativePath": source}
+            else {"relativePath": resolved_source}
         )
         angles.append(
             {
