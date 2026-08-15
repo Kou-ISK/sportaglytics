@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from .package_compat import find_package_config_path, normalize_package_config
 from .schema import EVENT_TYPES, DatasetManifest
 from .video import probe_video_duration
 
@@ -17,6 +18,10 @@ def _load_json(path: Path) -> Any:
 
 def _normalize_action_name(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip()).casefold()
+
+
+def _display_action_name(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip())
 
 
 def _load_aliases(path: Path) -> dict[str, set[str]]:
@@ -44,12 +49,13 @@ def _parse_event_action_name(
 
     Exact aliases remain supported (for example ``スクラム``). Team/side-prefixed
     actions such as ``帝京 スクラム`` and ``相手 ラインアウト`` are interpreted
-    as the same event type while preserving the prefix as supervision metadata.
-    The event alias must be the final token(s), so unrelated actions containing a
-    set-piece word elsewhere are not silently converted into event labels.
+    as the same event type while preserving the original prefix as supervision
+    metadata. The event alias must be the final token(s), so unrelated actions
+    containing a set-piece word elsewhere are not silently converted into labels.
     """
 
-    normalized = _normalize_action_name(action_name)
+    display_name = _display_action_name(action_name)
+    normalized = display_name.casefold()
     candidates = sorted(
         (
             (alias, event_type)
@@ -65,7 +71,9 @@ def _parse_event_action_name(
         suffix = f" {alias}"
         if not normalized.endswith(suffix):
             continue
-        possession_label = normalized[: -len(suffix)].strip()
+        alias_token_count = len(alias.split(" "))
+        display_tokens = display_name.split(" ")
+        possession_label = " ".join(display_tokens[:-alias_token_count]).strip()
         if possession_label:
             return event_type, possession_label
     return None
@@ -207,9 +215,6 @@ def _event_annotations(
         if parsed_action is None:
             continue
         event_type, possession_label = parsed_action
-        # Timeline startTime can intentionally include Code Window lead padding.
-        # The dataset spec can add that lead back to recover the analyst's
-        # original button-press/event-onset anchor without mutating source data.
         anchor_time = float(start_time) + anchor_offsets.get(event_type, 0.0)
         event: dict[str, Any] = {
             "eventType": event_type,
@@ -259,16 +264,17 @@ def build_manifest(
         seen_match_ids.add(match_id)
 
         package_root = Path(package_value).expanduser().resolve()
-        config_path = package_root / ".metadata" / "config.json"
+        config_path = find_package_config_path(package_root)
         timeline_path = package_root / "timeline.json"
-        if not config_path.is_file() or not timeline_path.is_file():
+        if config_path is None or not timeline_path.is_file():
             raise FileNotFoundError(
-                f"{match_id}: package requires .metadata/config.json and timeline.json"
+                f"{match_id}: package requires config.json and timeline.json"
             )
 
         config = _load_json(config_path)
         if not isinstance(config, dict):
             raise ValueError(f"{match_id}: invalid package config")
+        config = normalize_package_config(config, package_root)
         timeline = _timeline_instances(_load_json(timeline_path))
         requested_angle_id = item.get("angleId")
         angle = _select_angle(
