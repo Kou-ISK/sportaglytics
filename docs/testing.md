@@ -40,67 +40,31 @@ pnpm run check:adr
 | `pnpm run report:architecture-health` | architecture report |
 | `pnpm run report:large-files` | soft file-size report |
 
-GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestで frozen install、lint、renderer/electron typecheck、architecture、ADR、Python research check、Vitestを実行します。
+GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Python research check、Vitestを実行します。
 
 ## Test Placement
-
-原則:
 
 - pure domain logic → 同ディレクトリの `*.test.ts`
 - React behavior → `*.test.tsx`
 - shared contract / normalizer → contract近傍のtest
 - Electron menu/manager pure behavior → `electron/src/**.test.ts`
 - real BrowserWindow / file association / preload bundling → E2E
-- offline model researchのpure metric/split logic → `research/rugby-event-detection/tests/`
+- offline model researchのpure metric/schema logic → `research/rugby-event-detection/tests/`
 
-外部processやheavy model weightをunit testで実行する必要がない場合、process/model境界より内側のpure logicを先に分離してtestします。
+Heavy model weightをunit testで取得せず、process/model境界より内側のpure logicを分離してtestします。
 
-## Changes That Require Tests
+## Settings / Timeline / IPC
 
-### Settings / migration
+Settingsやmigrationでは新fieldの保存読込、legacy default、invalid value正規化を検証します。Code Windowの `leadTimeSeconds` / `lagTimeSeconds` は未設定時0秒相当を維持します。
 
-型・保存形式・normalizerを変える場合:
+Timeline変更ではrange normalization、row ownership、history/Undo単位、duplicate/copy semanticsを検証します。自動Codingは `addTimelineDatas()` の1 state updateで追加するため、一括Undoを前提にします。
 
-- 新fieldが保存/読込される
-- invalid legacy valueが安全に落ちる
-- field未存在時の旧挙動が維持される
-
-Code Windowの `leadTimeSeconds` / `lagTimeSeconds` では、既存設定が0秒相当の挙動を維持し、negative valueが正規化で除外されることをtestします。
-
-### Timeline
-
-Timeline domain変更では:
-
-- range normalization
-- row color ownership
-- migration
-- history/Undo単位
-- duplicate/copy semantics
-
-を検証します。
-
-複数eventの自動Codingは `addTimelineDatas()` の1 state updateで追加する設計なので、利用側は一括Undoを前提にします。
-
-### IPC / Preload
-
-新IPCでは最低限:
-
-- payload guard
-- sender validation
-- explicit API surface
-- listener cleanup
-- invalid result rejection
-
-を確認します。
-
-Preload bridge変更時は:
+IPC / preload変更ではpayload guard、sender validation、explicit API、listener cleanup、invalid result rejectionを確認します。
 
 ```bash
 pnpm run bundle:preload
 pnpm run check:preload
 ```
-
-も実行します。
 
 ## Automatic Event Detection Tests
 
@@ -108,53 +72,38 @@ pnpm run check:preload
 
 ### 1. Application code gate
 
-通常Vitestで以下を検証します。
+Vitestで:
 
-- `recordingRange.test.ts`
-  - lead/lag適用
-  - legacy 0秒挙動
-  - reverse start/end normalization
-  - media duration clamp
-- `candidatesToTimeline.test.ts`
-  - confidence filter
-  - lead/lag変換
-  - existing Timelineとのduplicate suppression
-  - same-run duplicate suppression
-  - different event typeの共存
-- `modelQualityGate.test.ts`
-  - Precision / Recall / match count / temporal accuracy
-  - class単位promotion
-  - evaluated confidence threshold
-- settings normalizer tests
-  - lead/lag migration
-- Electron menu tests
-  - Timeline reopen action
+- recording lead/lag range
+- confidence filter
+- lead/lag Timeline変換
+- existing/same-run duplicate suppression
+- model quality gate
+- settings migration
+- Timeline reopen menu
+
+を確認します。
 
 ### 2. Research code gate
-
-Pretrained model比較コードはheavy dependencyをCIへ毎回installせず、次を必須にします。
 
 ```bash
 pnpm run research:events:check
 ```
 
-このcheckでは:
+Heavy dependency/modelをCIへ毎回installせず、以下を確認します。
 
-- `research/rugby-event-detection/src` のPython syntax compile
-- research entrypoint/testsのcompile
+- Python source / entrypoint / testsのsyntax compile
 - validation threshold selection
-- Precision/Recall/timestamp gate
+- Precision / Recall / timestamp gate
 - unseen match count gate
+- dataset/model metadata schema
+- `productionEligible` の厳密なboolean validation
 
-を確認します。
+実modelのdownload/fine-tuningはローカルresearch環境で行います。
 
-実modelのdownload/fine-tuningはローカルresearch環境で行います。CIでweightを取得しないことは、model精度を未検証でよいという意味ではありません。
+### 3. Model screening and promotion gate
 
-### 3. Model promotion gate
-
-ML modelの精度はVitestやPython unit testでは判定しません。match-level unseen datasetで別評価します。
-
-Pretrained comparison:
+#### Validation-only screening
 
 ```bash
 pnpm run research:events:prepare -- \
@@ -167,15 +116,39 @@ pnpm run research:events:benchmark -- \
   --strategy head
 ```
 
-Benchmarkはvalidation matchだけでevent別confidence thresholdを選択し、そのthresholdをlockしてtest matchへ適用します。Test結果を見た後に同じtest setでthresholdを調整してはいけません。
+`benchmark` はTrainでfine-tuningし、Validationでmodel family / strategy / confidence thresholdを比較します。**Test splitをscanしてはいけません。**
+
+Screeningで確認するもの:
+
+- event class別Validation Precision / Recall
+- timestamp accuracy
+- local scan runtime
+- checkpoint/threshold SHA-256
+- licenseによるproduction eligibility
+
+必要なら有望な1候補を `--strategy full` で再度Train/Validation比較します。
+
+#### Held-out qualification
+
+Model family、strategy、stride/NMS、checkpoint、Validation thresholdを凍結してから、1つのproduction-eligible modelだけをTestへ通します。
+
+```bash
+pnpm run research:events:qualify -- \
+  --manifest /path/to/manifest.json \
+  --model-id x3d-s-kinetics400 \
+  --checkpoint /path/to/checkpoint.pt \
+  --thresholds /path/to/thresholds.json \
+  --output-dir /path/to/qualification \
+  --strategy full
+```
 
 独立evaluator:
 
 ```bash
 pnpm run research:events:evaluate -- \
-  <model>/test-ground-truth.json \
-  <model>/test-predictions.json \
-  <model>/thresholds.json
+  qualification/test-ground-truth.json \
+  qualification/test-predictions.json \
+  qualification/thresholds.json
 ```
 
 Product minimum per event class:
@@ -187,17 +160,15 @@ Product minimum per event class:
 | unseen matches | >= 5 |
 | TP within ±2 sec | >= 0.90 |
 
-通常match toleranceは±5秒です。Evaluatorはground truth側の `trainingMatchIds` とtest `matchId` の重複を検出すると失敗します。同一試合の隣接frameをTrain/Testへrandom splitしてはいけません。
+通常matching toleranceは±5秒です。Evaluatorはdevelopment側match IDsとtest `matchId` の重複を拒否します。
 
-評価時confidence thresholdは出力metricsへ保存し、production manifestへ転記します。Runtime側ではこのthreshold未満へ下げられません。
+Test結果を見た後でmodel family、training strategy、NMS、stride、confidence thresholdを変更した場合、そのTest setを次のproduction claimへ再利用してはいけません。新しいheld-out Test setを用意します。
 
-さらにproduction候補はlicense条件も満たす必要があります。Research baselineが精度ゲートを通っても、非商用checkpointならverified production modelへ昇格させません。
+Production候補はlicense条件も満たす必要があります。非商用checkpointは精度ゲートを通ってもverified production modelへ昇格させません。
 
-Model packを `verified` にする前に evaluator exit code 0、各class metrics、license、runner SHA-256を確認します。
+Model packを `verified` にする前にqualificationの `productGatePassed`、independent evaluator、各class metrics、license、runner SHA-256を確認します。
 
 ## E2E
-
-全E2E:
 
 ```bash
 pnpm run test:e2e
@@ -212,22 +183,14 @@ pnpm run test:e2e:export-progress
 pnpm run test:e2e:timeline-rows
 ```
 
-E2E対象例:
-
-- package/video sync
-- Code Window document/menu lifecycle
-- export progress window
-- detached Timeline rows/interaction
-- preload bundle / BrowserWindow behavior
-
-自動event detectionのreal model inference E2Eは、verified model packをCI artifactとして安全に供給できるようになるまで通常CIへ含めません。アプリ本体はmodelなし状態を正常系として扱い、UIは「検証済みモデルなし」を表示します。
+自動event detectionのreal model inference E2Eは、verified model packをCI artifactとして安全に供給できるまで通常CIへ含めません。Modelなし状態は正常系であり、UIは「検証済みモデルなし」を表示します。
 
 ## Debugging Failed CI
 
 推奨順:
 
-1. Install failure → `package.json` と `pnpm-lock.yaml` の整合性
-2. Lint → warningを含め0件にする
+1. Install / lockfile
+2. Lint
 3. Renderer typecheck
 4. Electron typecheck
 5. Architecture
@@ -235,7 +198,7 @@ E2E対象例:
 7. Research Python check
 8. Unit tests
 
-CI logの最初の失敗stepを修正し、後続stepの未実行を別の失敗と誤認しないようにします。
+最初の失敗stepを修正し、後続stepのskipを別の失敗と誤認しないようにします。
 
 ## Regression Policy
 
@@ -243,6 +206,6 @@ CI logの最初の失敗stepを修正し、後続stepの未実行を別の失敗
 - flaky testを単純skipしない
 - legacy behaviorを変える場合はmigration testを追加
 - security boundaryを緩めてtestを通さない
-- 自動event detectionの品質閾値を機能を見せるために下げない
-- test setを見ながらconfidence thresholdやmodel選定を調整しない
+- event detection品質閾値を機能を見せるために下げない
+- Test setをmodel/threshold選定へ利用しない
 - license不適格modelを精度だけでproduction昇格させない
