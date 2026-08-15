@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +14,7 @@ from .manifest import (
     _timeline_instances,
 )
 from .package_compat import find_package_config_path, normalize_package_config
-from .schema import DatasetManifest
+from .schema import EVENT_TYPES, DatasetManifest
 from .sources import _auto_split_names, discover_sources, inspection_report
 
 
@@ -58,15 +59,35 @@ def build_manifest_from_root(
             config = normalize_package_config(raw_config, source.package_root)
             angle = _select_angle(config, None)
             timeline = _timeline_instances(_load_json(source.timeline_path))
+            events = _event_annotations(timeline, aliases, {})
+            event_counts = Counter(event["eventType"] for event in events)
+            missing_event_types = [
+                event_type for event_type in EVENT_TYPES if event_counts[event_type] == 0
+            ]
+            if missing_event_types:
+                skipped.append(
+                    {
+                        "packageRoot": str(source.package_root),
+                        "reason": (
+                            "source is not safe as complete supervision: no coded "
+                            + ", ".join(missing_event_types)
+                            + " events were found"
+                        ),
+                    }
+                )
+                continue
             prepared.append(
                 {
                     "packageRoot": source.package_root,
                     "angleId": angle.get("id"),
                     "segments": _segments_for_angle(source.package_root, angle),
-                    "events": _event_annotations(timeline, aliases, {}),
+                    "events": events,
+                    "eventCounts": dict(event_counts),
                 }
             )
-        except (OSError, ValueError, TypeError) as error:
+        except Exception as error:
+            # Dataset discovery is a per-source boundary. A malformed historical
+            # package must be reported and skipped rather than blocking all other matches.
             skipped.append(
                 {
                     "packageRoot": str(source.package_root),
@@ -76,8 +97,8 @@ def build_manifest_from_root(
 
     if len(prepared) < 3:
         raise ValueError(
-            "automatic preparation needs at least 3 usable matches after video/config validation; "
-            "run the inspect command and review unresolved sources"
+            "automatic preparation needs at least 3 safely coded matches after video/config "
+            "and event-label validation; run the inspect command and review unresolved sources"
         )
 
     splits = _auto_split_names(len(prepared), seed)
@@ -100,6 +121,7 @@ def build_manifest_from_root(
                 "matchId": match_id,
                 "split": split,
                 "packagePath": str(package_root),
+                "eventCounts": item["eventCounts"],
             }
         )
 
@@ -120,6 +142,7 @@ def build_manifest_from_root(
             {
                 "version": 1,
                 "datasetId": manifest.dataset_id,
+                "eventTypes": list(EVENT_TYPES),
                 "packages": auto_packages,
             },
             handle,
@@ -129,6 +152,7 @@ def build_manifest_from_root(
         handle.write("\n")
 
     report_path = output_path.with_name(f"{output_path.stem}.sources.json")
+    report["eventTypes"] = list(EVENT_TYPES)
     report["preparationFailures"] = skipped
     report["preparedSources"] = len(matches)
     report["automaticSplit"] = {
