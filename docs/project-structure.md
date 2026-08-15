@@ -10,6 +10,7 @@
 | `docs/` | user / developer / architecture docs | 仕様、ADR、配布・運用手順。新規docsは`docs/README.md`へ掲載 |
 | `electron/` | Electron main / preload | Node/Electron API、IPC、BrowserWindow、local process管理 |
 | `public/` | static bundled assets | icon、static template、同梱assets。大型modelはgit管理しない |
+| `research/` | offline model research | 学習・ベンチマーク・dataset manifest生成。アプリruntimeへ直接importしない |
 | `resources/` | optional packaged runtime assets | 検証済みruntime/model pack等。配布工程で用意するasset |
 | `scripts/` | repo-level automation | architecture/preload/ADR check、evaluation、report、E2E |
 | `src/` | React renderer | UI、feature、shared domain、shared type。Electron direct import禁止 |
@@ -219,6 +220,40 @@ scripts/
 
 `evaluate-event-detection.mjs` はmatch-level unseen ground truthとpredictionを比較し、verified model manifestへ転記可能なclass別metricsを出力します。
 
+## Research Layout
+
+学習・fine-tuning・pretrained model比較はアプリ本体や `scripts/` へ混在させず、`research/` に隔離します。
+
+```text
+research/rugby-event-detection/
+├── README.md
+├── pyproject.toml
+├── run.py
+├── config/
+│   ├── dataset-spec.example.json
+│   ├── event-aliases.json
+│   └── model-benchmarks.json
+├── src/sportaglytics_rugby_events/
+│   ├── manifest.py
+│   ├── dataset.py
+│   ├── models.py
+│   ├── training.py
+│   ├── spotting.py
+│   ├── metrics.py
+│   └── benchmark.py
+└── tests/
+```
+
+役割:
+
+- SporTagLytics package/Timelineからmatch-level dataset manifestを作る
+- pretrained backboneを同じsplitでfine-tuneする
+- validationだけでconfidence thresholdを選ぶ
+- unseen testへ固定thresholdを適用する
+- 精度、時間誤差、local inference速度、license適格性を同じreportへ出す
+
+`research/` はproduction dependencyではありません。Renderer/Electronからimportせず、生成checkpoint、映像、frame、`runs/` はgit管理しません。品質ゲートを通過した結果だけを、別工程でverified model packのrunner contractへ変換します。
+
 ## Documentation Placement
 
 ```text
@@ -239,11 +274,12 @@ docs/
 
 新規ファイル追加前に確認:
 
-1. feature固有かsharedか。
+1. feature固有かsharedか、offline researchか。
 2. UI描画と外部依存が分離されているか。
 3. Viewから `window.electronAPI` を呼んでいないか。
 4. feature外参照が `index.ts` 経由か。
 5. Electron APIはmain/preload/gateway境界内か。
 6. IPC contractは `src/types/ipc/` にあるか。
 7. pure domain logicをHook/Viewへ埋め込んでいないか。
-8. 新しい設計判断ならADR/docs indexを更新したか。
+8. ML学習コードをproduction runtimeへ直接依存させていないか。
+9. 新しい設計判断ならADR/docs indexを更新したか。
