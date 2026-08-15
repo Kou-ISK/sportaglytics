@@ -194,7 +194,7 @@ export const VideoPlayerScreen = () => {
     setIsVideoPlaying: setisVideoPlaying,
   });
 
-  const { open: openTimelineWindow } = useTimelineWindowIntegration({
+  useTimelineWindowIntegration({
     isFileSelected,
     timeline,
     rows: timelineRows,
@@ -328,7 +328,6 @@ export const VideoPlayerScreen = () => {
         onCancelManualSync={() => {
           void cancelManualSync();
         }}
-        onOpenTimeline={() => void openTimelineWindow()}
       />
       <CodingPanelRuntime
         ref={codingPanelRuntimeRef}
