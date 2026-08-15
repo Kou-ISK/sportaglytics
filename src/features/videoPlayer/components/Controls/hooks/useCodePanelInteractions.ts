@@ -203,6 +203,8 @@ export const useCodePanelInteractions = ({
           buttonName,
           button.color,
           button.id,
+          button.leadTimeSeconds,
+          button.lagTimeSeconds,
         );
         return;
       }
