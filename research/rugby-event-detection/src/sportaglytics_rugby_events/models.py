@@ -186,15 +186,16 @@ def _build_pytorchvideo(
     candidate: ModelCandidate,
     strategy: str,
     device: torch.device,
+    pretrained_backbone: bool,
 ) -> ModelBundle:
     if candidate.checkpoint == "x3d_s":
         from pytorchvideo.models.hub.x3d import x3d_s
 
-        model = x3d_s(pretrained=True)
+        model = x3d_s(pretrained=pretrained_backbone)
     elif candidate.checkpoint == "slowfast_r50":
         from pytorchvideo.models.hub.slowfast import slowfast_r50
 
-        model = slowfast_r50(pretrained=True)
+        model = slowfast_r50(pretrained=pretrained_backbone)
     else:
         raise ValueError(f"unsupported PyTorchVideo checkpoint: {candidate.checkpoint}")
 
@@ -208,10 +209,21 @@ def build_model(
     candidate: ModelCandidate,
     strategy: str,
     device_name: str,
+    *,
+    pretrained_backbone: bool = True,
 ) -> ModelBundle:
     device = resolve_device(device_name)
     if candidate.family == "videomae":
+        if not pretrained_backbone:
+            raise ValueError(
+                "VideoMAE architecture-only restore is not supported by this research adapter"
+            )
         return _build_videomae(candidate, strategy, device)
     if candidate.family == "pytorchvideo":
-        return _build_pytorchvideo(candidate, strategy, device)
+        return _build_pytorchvideo(
+            candidate,
+            strategy,
+            device,
+            pretrained_backbone,
+        )
     raise ValueError(f"unsupported model family: {candidate.family}")
