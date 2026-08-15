@@ -1,10 +1,10 @@
-import type { ChildProcessWithoutNullStreams } from 'child_process';
+import type { ChildProcess } from 'child_process';
 
-const activeRequests = new Map<string, ChildProcessWithoutNullStreams>();
+const activeRequests = new Map<string, ChildProcess>();
 
 export const registerEventDetectionProcess = (
   requestId: string,
-  process: ChildProcessWithoutNullStreams,
+  process: ChildProcess,
 ): void => {
   activeRequests.set(requestId, process);
 };
