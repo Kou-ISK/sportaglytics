@@ -55,5 +55,11 @@ export const createEventDetectionBridge = (
         callback,
       );
     },
+    onOpenRequested: (callback: () => void) => {
+      const wrapped = () => callback();
+      ipcRenderer.on(EVENT_DETECTION_CHANNELS.openRequested, wrapped);
+      return () =>
+        ipcRenderer.removeListener(EVENT_DETECTION_CHANNELS.openRequested, wrapped);
+    },
   } satisfies IEventDetectionAPI,
 });
