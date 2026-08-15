@@ -3,6 +3,7 @@ import { createPlaylistWindow } from '../playlistWindow';
 import { openAnalysisWindow } from '../analysisWindow';
 import { openHelpWindow } from '../helpWindow';
 import { openSettingsWindow } from '../settingsWindow';
+import { openTimelineWindow } from '../timelineWindow';
 import { buildRecentPackageItems } from './recentPackageMenu';
 import {
   openVersionInfoWindow,
@@ -216,6 +217,12 @@ export const buildSyncMenuItems = (): Electron.MenuItemConstructorOptions[] => [
 
 export const buildWindowMenuItems =
   (): Electron.MenuItemConstructorOptions[] => [
+    {
+      label: 'タイムラインを表示',
+      click: () => {
+        void openTimelineWindow();
+      },
+    },
     {
       label: '分析ウィンドウを表示',
       click: () => {
