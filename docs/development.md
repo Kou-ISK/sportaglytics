@@ -27,6 +27,8 @@
 | pnpm | 9.1.0以上 |
 | Git | 最新版 |
 
+自動イベント検出のmodel研究を行う場合だけ、追加でPython 3.10〜3.12を使用します。通常のElectron開発・配布にPython runtimeは不要です。
+
 ### セットアップ
 
 ```bash
@@ -61,6 +63,8 @@ pnpm run electron:dev
 - pnpm 9
 
 アプリはlocal-first desktop applicationです。RendererはNode/Electron APIを直接使用せず、typed preload APIを経由します。
+
+自動イベント検出のoffline researchだけは `research/rugby-event-detection/` の独立Python環境でPyTorch / Transformers / PyTorchVideoを利用します。この依存はElectron packageへ含めません。
 
 ---
 
@@ -146,6 +150,14 @@ pnpm run check:architecture
 pnpm run test:run
 ```
 
+Event detection research codeを変更した場合:
+
+```bash
+pnpm run research:events:check
+```
+
+このcheckはheavy model weightを取得せず、Python sourceのcompileとstdlibだけで動くthreshold/quality-gate unit testを実行します。
+
 ADR変更時:
 
 ```bash
@@ -174,6 +186,7 @@ GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requ
 - Electron typecheck
 - architecture check
 - ADR check
+- Python research compile/unit test
 - Vitest CI suite
 
 CIをローカルテストの代わりにせず、可能な環境では同じコマンドを事前実行します。
@@ -238,6 +251,8 @@ Story対象Viewは:
 詳細仕様: [自動イベント検出](event-detection.md)
 
 設計判断: [ADR 0022](adr/0022-verified-local-rugby-event-detection.md)
+
+研究pipeline詳細: [`research/rugby-event-detection/README.md`](../research/rugby-event-detection/README.md)
 
 ### Product policy
 
@@ -351,6 +366,59 @@ Evaluator:
 
 指定eventが1つでも基準未達ならexit code 1です。
 
+### Pretrained model benchmark / fine-tuning
+
+巨大なvideo backboneをゼロから学習しません。既存pretrained representationを共通datasetで比較し、ラグビーevent用classifierをfine-tuneします。
+
+初期candidate:
+
+| Model | Initial role | Production eligibility |
+| --- | --- | --- |
+| VideoMAE Base Kinetics | research baseline | 公開checkpointがCC BY-NC 4.0のため不可 |
+| X3D-S Kinetics-400 | primary candidate | Apache-2.0、品質ゲート通過時のみ可 |
+| SlowFast R50 Kinetics-400 | primary candidate | Apache-2.0、品質ゲート通過時のみ可 |
+
+PyTorchVideo sourceはresearch `pyproject.toml` でcommit SHAを固定します。ライセンス適格性は `config/model-benchmarks.json` の `productionEligible` で評価結果と分離して管理します。精度が高くても非商用checkpointをproduction winnerへ選びません。
+
+既存human Codingからdataset manifestを生成:
+
+```bash
+pnpm run research:events:prepare -- \
+  --spec /path/to/dataset-spec.json \
+  --output research/rugby-event-detection/runs/rugby-v1/manifest.json
+```
+
+最初はclassifier headだけを比較:
+
+```bash
+pnpm run research:events:benchmark -- \
+  --manifest research/rugby-event-detection/runs/rugby-v1/manifest.json \
+  --output-dir research/rugby-event-detection/runs/rugby-v1/head-screen \
+  --strategy head
+```
+
+有望なproduction-eligible candidateだけfull fine-tuningを試します。
+
+```bash
+pnpm run research:events:benchmark -- \
+  --manifest /path/to/manifest.json \
+  --output-dir /path/to/full-finetune \
+  --models x3d-s-kinetics400 \
+  --strategy full
+```
+
+評価順序は固定します。
+
+1. `train` matchでfine-tuning
+2. `validation` match全体をsliding-window spotting
+3. validationだけでevent別confidence thresholdを選択
+4. thresholdをlock
+5. 完全未見の`test` matchをscan
+6. 既存product gateで判定
+7. license適格性とlocal inference速度を合わせてproduction候補を選ぶ
+
+Test結果を見てthresholdを再調整しません。Testを見てmodel設計を変更した場合、そのtest setは次のproduction claimに再利用せず、新しいheld-out setを用意します。
+
 ### Runner protocol
 
 Electronから:
@@ -416,6 +484,14 @@ pnpm run test:run
 - model quality gate
 - menu/window behavior
 - settings migration
+- validation threshold selection
+- unseen match count gate
+
+Research Python code:
+
+```bash
+pnpm run research:events:check
+```
 
 ### E2E
 
@@ -437,6 +513,8 @@ Model packがUIへ出ない場合は、次を確認します。
 4. current platform/architecture runnerがあるか
 5. SHA-256が一致するか
 6. runner pathがmodel directory外を指していないか
+
+Research benchmarkが失敗する場合は、dataset manifestのlocal path、各splitのイベント数、Python virtualenv、model checkpoint download可否、利用deviceのmemoryを確認してください。
 
 ---
 
