@@ -45,6 +45,11 @@ import { registerSyncHandlers } from './ipc/syncHandlers';
 import { registerWindowEventHandlers } from './ipc/windowEventHandlers';
 import { registerYoutubeEmbedClientIdentity } from './youtubeEmbedIdentity';
 import { registerLoopbackAudioCapture } from './loopbackAudioCapture';
+import {
+  closeTimelineWindow,
+  registerTimelineWindowHandlers,
+  setTimelineMainWindowRef,
+} from './timelineWindow';
 
 if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -156,11 +161,13 @@ const createWindow = async (): Promise<BrowserWindow> => {
   window.on('closed', () => {
     clearTimeout(preloadReadyTimeout);
     ipcMain.removeListener('preload:ready', handlePreloadReady);
+    closeTimelineWindow();
   });
   mainWindow = window;
   setMainWindowRef(window);
   setAnalysisMainWindowRef(window);
   setCodingPanelMainWindowRef(window);
+  setTimelineMainWindowRef(window);
   window.loadURL(mainURL);
 
   await new Promise<void>((resolve) => {
@@ -186,6 +193,7 @@ registerSettingsWindowHandlers();
 registerAnalysisWindowHandlers();
 registerCodingPanelWindowHandlers();
 registerExportProgressWindowHandlers();
+registerTimelineWindowHandlers();
 registerMainIpcHandlers();
 
 try {

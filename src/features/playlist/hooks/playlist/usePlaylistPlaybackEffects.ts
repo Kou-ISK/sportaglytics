@@ -1,30 +1,29 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type React from 'react';
 import { formatSource } from '../../../videoPlayer/components/Player/SingleVideo/utils';
 import type { UsePlaylistPlaybackParams } from './usePlaylistPlayback.types';
 
-interface UsePlaylistPlaybackEffectsParams
-  extends Pick<
-    UsePlaylistPlaybackParams,
-    | 'isFrozen'
-    | 'setIsFrozen'
-    | 'currentItem'
-    | 'currentAnnotation'
-    | 'minFreezeDuration'
-    | 'defaultFreezeDuration'
-    | 'annotationTimeTolerance'
-    | 'freezeRetriggerGuard'
-    | 'videoRef'
-    | 'videoRef2'
-    | 'setCurrentTime'
-    | 'setDuration'
-    | 'isPlaying'
-    | 'currentVideoSource'
-    | 'currentVideoSource2'
-    | 'viewMode'
-    | 'volume'
-    | 'isMuted'
-  > {
+interface UsePlaylistPlaybackEffectsParams extends Pick<
+  UsePlaylistPlaybackParams,
+  | 'isFrozen'
+  | 'setIsFrozen'
+  | 'currentItem'
+  | 'currentAnnotation'
+  | 'minFreezeDuration'
+  | 'defaultFreezeDuration'
+  | 'annotationTimeTolerance'
+  | 'freezeRetriggerGuard'
+  | 'videoRef'
+  | 'videoRef2'
+  | 'setCurrentTime'
+  | 'setDuration'
+  | 'isPlaying'
+  | 'currentVideoSource'
+  | 'currentVideoSource2'
+  | 'viewMode'
+  | 'volume'
+  | 'isMuted'
+> {
   lastFreezeTimestampRef: React.MutableRefObject<number | null>;
   triggerFreezeFrame: (freezeDuration: number) => void;
   handleItemEnd: () => void;
@@ -43,7 +42,9 @@ const syncDualViewTimes = (params: {
     params.subVideo.currentTime = params.mainVideo.currentTime;
     return;
   }
-  const timeDiff = Math.abs(params.mainVideo.currentTime - params.subVideo.currentTime);
+  const timeDiff = Math.abs(
+    params.mainVideo.currentTime - params.subVideo.currentTime,
+  );
   if (timeDiff > 0.1) {
     params.subVideo.currentTime = params.mainVideo.currentTime;
   }
@@ -72,34 +73,55 @@ export const usePlaylistPlaybackEffects = ({
   triggerFreezeFrame,
   handleItemEnd,
 }: UsePlaylistPlaybackEffectsParams): void => {
+  const isPlayingRef = useRef(isPlaying);
+  const isFrozenRef = useRef(isFrozen);
+  const endedItemIdRef = useRef<string | null>(null);
   const currentItemId = currentItem?.id;
   const currentItemStartTime = currentItem?.startTime;
   const currentItemEndTime = currentItem?.endTime;
 
   useEffect(() => {
+    isPlayingRef.current = isPlaying;
+    isFrozenRef.current = isFrozen;
+  }, [isFrozen, isPlaying]);
+
+  useEffect(() => {
+    endedItemIdRef.current = null;
+  }, [currentItemId]);
+
+  useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    const finishCurrentItem = (): void => {
+      if (endedItemIdRef.current === currentItemId) return;
+      endedItemIdRef.current = currentItemId ?? null;
+      handleItemEnd();
+    };
+
     const handleTimeUpdate = () => {
-      if (isFrozen) return;
+      if (isFrozenRef.current) return;
       const playbackTime = video.currentTime;
       setCurrentTime(playbackTime);
 
       if (currentItemId && currentAnnotation) {
         const effectiveFreezeDuration =
-          currentAnnotation.freezeDuration && currentAnnotation.freezeDuration > 0
+          currentAnnotation.freezeDuration &&
+          currentAnnotation.freezeDuration > 0
             ? Math.max(minFreezeDuration, currentAnnotation.freezeDuration)
             : defaultFreezeDuration;
         const shouldFreeze = currentAnnotation.objects.some(
-          (obj) => Math.abs(playbackTime - obj.timestamp) < annotationTimeTolerance,
+          (obj) =>
+            Math.abs(playbackTime - obj.timestamp) < annotationTimeTolerance,
         );
         const lastFreezeAt = lastFreezeTimestampRef.current;
         const recentlyFrozen =
-          lastFreezeAt !== null && Math.abs(playbackTime - lastFreezeAt) < freezeRetriggerGuard;
+          lastFreezeAt !== null &&
+          Math.abs(playbackTime - lastFreezeAt) < freezeRetriggerGuard;
         if (
           currentAnnotation.objects.length > 0 &&
           shouldFreeze &&
-          !isFrozen &&
+          !isFrozenRef.current &&
           !recentlyFrozen
         ) {
           lastFreezeTimestampRef.current = playbackTime;
@@ -107,8 +129,11 @@ export const usePlaylistPlaybackEffects = ({
         }
       }
 
-      if (currentItemEndTime !== undefined && video.currentTime >= currentItemEndTime) {
-        handleItemEnd();
+      if (
+        currentItemEndTime !== undefined &&
+        video.currentTime >= currentItemEndTime
+      ) {
+        finishCurrentItem();
       }
     };
 
@@ -121,12 +146,20 @@ export const usePlaylistPlaybackEffects = ({
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('ended', handleItemEnd);
+    video.addEventListener('ended', finishCurrentItem);
+
+    let animationFrameId = 0;
+    const updateFrame = (): void => {
+      handleTimeUpdate();
+      animationFrameId = requestAnimationFrame(updateFrame);
+    };
+    if (isPlaying) animationFrameId = requestAnimationFrame(updateFrame);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('ended', handleItemEnd);
+      video.removeEventListener('ended', finishCurrentItem);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, [
     annotationTimeTolerance,
@@ -137,7 +170,7 @@ export const usePlaylistPlaybackEffects = ({
     defaultFreezeDuration,
     freezeRetriggerGuard,
     handleItemEnd,
-    isFrozen,
+    isPlaying,
     lastFreezeTimestampRef,
     minFreezeDuration,
     setCurrentTime,
@@ -163,7 +196,15 @@ export const usePlaylistPlaybackEffects = ({
 
     mainVideo.pause();
     subVideo?.pause();
-  }, [currentVideoSource, currentVideoSource2, isFrozen, isPlaying, viewMode, videoRef, videoRef2]);
+  }, [
+    currentVideoSource,
+    currentVideoSource2,
+    isFrozen,
+    isPlaying,
+    viewMode,
+    videoRef,
+    videoRef2,
+  ]);
 
   useEffect(() => {
     const mainVideo = videoRef.current;
@@ -177,7 +218,11 @@ export const usePlaylistPlaybackEffects = ({
 
   useEffect(() => {
     const mainVideo = videoRef.current;
-    if (!mainVideo || !currentVideoSource || currentItemStartTime === undefined) {
+    if (
+      !mainVideo ||
+      !currentVideoSource ||
+      currentItemStartTime === undefined
+    ) {
       return;
     }
 
@@ -188,14 +233,17 @@ export const usePlaylistPlaybackEffects = ({
     mainVideo.currentTime = currentItemStartTime;
     setCurrentTime(currentItemStartTime);
 
-    if (isPlaying) {
-      mainVideo.play().catch(console.error);
-    }
+    const playWhenReady = (): void => {
+      if (isPlayingRef.current && !isFrozenRef.current) {
+        mainVideo.play().catch(console.error);
+      }
+    };
+    mainVideo.addEventListener('canplay', playWhenReady, { once: true });
+    return () => mainVideo.removeEventListener('canplay', playWhenReady);
   }, [
     currentItemId,
     currentItemStartTime,
     currentVideoSource,
-    isPlaying,
     lastFreezeTimestampRef,
     setCurrentTime,
     setIsFrozen,
@@ -204,7 +252,11 @@ export const usePlaylistPlaybackEffects = ({
 
   useEffect(() => {
     const subVideo = videoRef2.current;
-    if (!subVideo || !currentVideoSource2 || currentItemStartTime === undefined) {
+    if (
+      !subVideo ||
+      !currentVideoSource2 ||
+      currentItemStartTime === undefined
+    ) {
       return;
     }
 
@@ -213,17 +265,14 @@ export const usePlaylistPlaybackEffects = ({
     subVideo.currentTime = currentItemStartTime;
     subVideo.volume = 0;
 
-    if (isPlaying && !isFrozen) {
-      subVideo.play().catch(console.error);
-    }
-  }, [
-    currentItemId,
-    currentItemStartTime,
-    currentVideoSource2,
-    isFrozen,
-    isPlaying,
-    videoRef2,
-  ]);
+    const playWhenReady = (): void => {
+      if (isPlayingRef.current && !isFrozenRef.current) {
+        subVideo.play().catch(console.error);
+      }
+    };
+    subVideo.addEventListener('canplay', playWhenReady, { once: true });
+    return () => subVideo.removeEventListener('canplay', playWhenReady);
+  }, [currentItemId, currentItemStartTime, currentVideoSource2, videoRef2]);
 
   useEffect(() => {
     const mainVideo = videoRef.current;

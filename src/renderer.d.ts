@@ -9,6 +9,7 @@ import type {
   ClipExportPayload,
 } from './shared/clipExport/clipExportTypes';
 import type { ExportProgressWindowState } from './types/ipc/exportProgressWindow';
+import type { ITimelineWindowAPI } from './types/ipc/timelineWindow';
 
 export interface LlamaModelInfo {
   name: string;
@@ -115,6 +116,7 @@ export interface IElectronAPI {
   isSettingsWindowOpen: () => Promise<boolean>;
   analysis: IAnalysisWindowAPI;
   codingPanelWindow: ICodingPanelWindowAPI;
+  timelineWindow: ITimelineWindowAPI;
   llama: {
     generate: (payload: {
       prompt: string;

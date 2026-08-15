@@ -7,7 +7,6 @@ import type {
 import type { EnhancedCodePanelHandle } from '../../components/Controls/EnhancedCodePanel';
 
 interface UseHotkeyBindingsParams {
-  currentTime: number;
   teamNames: string[];
   settingsHotkeys: HotkeyConfig[];
   activeActions: ActionDefinition[];
@@ -16,7 +15,8 @@ interface UseHotkeyBindingsParams {
   setVideoPlayBackRate: (rate: number) => void;
   setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
   setViewMode: Dispatch<SetStateAction<'dual' | 'angle1' | 'angle2'>>;
-  handleCurrentTime: (event: Event, time: number) => void;
+  startReversePlayback: (rate: 0.5 | 2 | 4 | 6) => void;
+  stopReversePlayback: () => void;
   performUndo: () => void;
   performRedo: () => void;
   resyncAudio: () => void;
@@ -31,7 +31,6 @@ interface UseHotkeyBindingsParams {
 }
 
 export const useHotkeyBindings = ({
-  currentTime,
   teamNames,
   settingsHotkeys,
   activeActions,
@@ -40,7 +39,8 @@ export const useHotkeyBindings = ({
   setVideoPlayBackRate,
   setIsVideoPlaying,
   setViewMode,
-  handleCurrentTime,
+  startReversePlayback,
+  stopReversePlayback,
   performUndo,
   performRedo,
   resyncAudio,
@@ -55,30 +55,33 @@ export const useHotkeyBindings = ({
   const hotkeyHandlers = useMemo<Record<string, () => void>>(
     () => ({
       'skip-forward-small': () => {
+        stopReversePlayback();
         setVideoPlayBackRate(0.5);
         setIsVideoPlaying(true);
       },
       'skip-forward-medium': () => {
+        stopReversePlayback();
         setVideoPlayBackRate(2);
         setIsVideoPlaying(true);
       },
       'skip-forward-large': () => {
+        stopReversePlayback();
         setVideoPlayBackRate(4);
         setIsVideoPlaying(true);
       },
       'skip-forward-xlarge': () => {
+        stopReversePlayback();
         setVideoPlayBackRate(6);
         setIsVideoPlaying(true);
       },
       'play-pause': () => {
+        stopReversePlayback();
         setIsVideoPlaying((playing) => !playing);
       },
-      'skip-backward-medium': () => {
-        handleCurrentTime(new Event('hotkey'), currentTime - 5);
-      },
-      'skip-backward-large': () => {
-        handleCurrentTime(new Event('hotkey'), currentTime - 10);
-      },
+      'reverse-playback-slow': () => startReversePlayback(0.5),
+      'reverse-playback-2x': () => startReversePlayback(2),
+      'reverse-playback-4x': () => startReversePlayback(4),
+      'reverse-playback-6x': () => startReversePlayback(6),
       'toggle-angle1': () => {
         setViewMode((prev) => {
           if (prev === 'dual') return 'angle1';
@@ -116,8 +119,6 @@ export const useHotkeyBindings = ({
       },
     }),
     [
-      currentTime,
-      handleCurrentTime,
       manualSyncFromPlayers,
       performRedo,
       performUndo,
@@ -128,6 +129,8 @@ export const useHotkeyBindings = ({
       setSyncMode,
       setVideoPlayBackRate,
       onAnalyze,
+      startReversePlayback,
+      stopReversePlayback,
       selectedTimelineIdList,
       deleteTimelineDatas,
       clearSelection,
@@ -148,8 +151,12 @@ export const useHotkeyBindings = ({
       'skip-forward-xlarge': () => {
         setVideoPlayBackRate(1);
       },
+      'reverse-playback-slow': stopReversePlayback,
+      'reverse-playback-2x': stopReversePlayback,
+      'reverse-playback-4x': stopReversePlayback,
+      'reverse-playback-6x': stopReversePlayback,
     }),
-    [setVideoPlayBackRate],
+    [setVideoPlayBackRate, stopReversePlayback],
   );
 
   const actionHotkeys = useMemo(() => {

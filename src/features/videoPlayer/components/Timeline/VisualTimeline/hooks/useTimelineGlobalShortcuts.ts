@@ -145,6 +145,7 @@ export const useTimelineGlobalShortcuts = ({
         e.key.toLowerCase() === 'z'
       ) {
         e.preventDefault();
+        e.stopPropagation();
         if (e.shiftKey) {
           onRedo?.();
         } else {

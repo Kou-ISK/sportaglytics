@@ -163,6 +163,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
             backgroundColor: 'error.main',
             zIndex: 10,
             cursor: isDraggingPlayhead ? 'grabbing' : 'grab',
+            transition: isDraggingPlayhead ? 'none' : 'left 80ms linear',
             '&:hover': {
               width: 4,
             },
