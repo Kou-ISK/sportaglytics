@@ -4,8 +4,10 @@ import argparse
 import json
 from pathlib import Path
 
+from .auto_prepare import build_manifest_from_root
 from .benchmark import run_benchmark, run_qualification
 from .manifest import build_manifest
+from .sources import write_inspection_report
 
 RESEARCH_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ALIASES = RESEARCH_ROOT / "config" / "event-aliases.json"
@@ -33,13 +35,44 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    inspect = subparsers.add_parser(
+        "inspect",
+        help=(
+            "Recursively find timeline.json files and report current/legacy package layouts, "
+            "action names and nearby video candidates without changing source data."
+        ),
+    )
+    inspect.add_argument("--root", type=Path, required=True)
+    inspect.add_argument("--output", type=Path, default=None)
+
     prepare = subparsers.add_parser(
         "prepare",
-        help="Convert human-coded SporTagLytics packages into a match-level dataset manifest.",
+        help=(
+            "Create a match-level dataset manifest. Use --root for automatic recursive "
+            "discovery or --spec for an explicitly curated dataset."
+        ),
     )
-    prepare.add_argument("--spec", type=Path, required=True)
+    source_group = prepare.add_mutually_exclusive_group(required=True)
+    source_group.add_argument(
+        "--root",
+        type=Path,
+        help="Recursively discover every timeline.json below one source directory.",
+    )
+    source_group.add_argument("--spec", type=Path)
     prepare.add_argument("--aliases", type=Path, default=DEFAULT_ALIASES)
     prepare.add_argument("--output", type=Path, required=True)
+    prepare.add_argument(
+        "--dataset-id",
+        type=str,
+        default=None,
+        help="Optional dataset id for --root mode. Defaults to <root-name>-rugby-events.",
+    )
+    prepare.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Deterministic match-level train/validation/test split seed in --root mode.",
+    )
 
     benchmark = subparsers.add_parser(
         "benchmark",
@@ -95,18 +128,53 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = _build_parser().parse_args()
+    if args.command == "inspect":
+        report = write_inspection_report(
+            args.root.expanduser().resolve(),
+            args.output.expanduser().resolve() if args.output is not None else None,
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return
+
     if args.command == "prepare":
+        output_path = args.output.expanduser().resolve()
+        aliases_path = args.aliases.expanduser().resolve()
+        if args.root is not None:
+            manifest, report = build_manifest_from_root(
+                root=args.root.expanduser().resolve(),
+                aliases_path=aliases_path,
+                output_path=output_path,
+                dataset_id=args.dataset_id,
+                seed=args.seed,
+            )
+            print(
+                json.dumps(
+                    {
+                        "datasetId": manifest.dataset_id,
+                        "matches": len(manifest.matches),
+                        "output": str(output_path),
+                        "sourceReport": report.get("reportPath"),
+                        "generatedSpec": report.get("generatedSpecPath"),
+                        "automaticSplit": report.get("automaticSplit"),
+                        "skippedSources": len(report.get("preparationFailures", [])),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return
+
         manifest = build_manifest(
             args.spec.expanduser().resolve(),
-            args.aliases.expanduser().resolve(),
-            args.output.expanduser().resolve(),
+            aliases_path,
+            output_path,
         )
         print(
             json.dumps(
                 {
                     "datasetId": manifest.dataset_id,
                     "matches": len(manifest.matches),
-                    "output": str(args.output),
+                    "output": str(output_path),
                 },
                 ensure_ascii=False,
                 indent=2,
