@@ -32,6 +32,13 @@ yarn-error.log*
 .tmp_llama/
 public/llama/models/*.gguf
 
+# local event-detection research
+research/rugby-event-detection/.venv/
+research/rugby-event-detection/runs/
+research/rugby-event-detection/data/
+**/__pycache__/
+*.pyc
+
 # Apple certificates (never commit these!)
 *.p12
 *.cer
