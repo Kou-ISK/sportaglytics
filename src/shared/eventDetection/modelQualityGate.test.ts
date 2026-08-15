@@ -11,6 +11,7 @@ describe('event detection quality gate', () => {
         precision: 0.96,
         recall: 0.92,
         evaluatedMatches: 6,
+        confidenceThreshold: 0.9,
         timestampWithinTwoSecondsRate: 0.93,
       }),
     ).toBe(true);
@@ -22,6 +23,7 @@ describe('event detection quality gate', () => {
         precision: 0.98,
         recall: 0.95,
         evaluatedMatches: 8,
+        confidenceThreshold: 0.9,
         timestampWithinTwoSecondsRate: 0.82,
       }),
     ).toBe(false);
@@ -34,12 +36,14 @@ describe('event detection quality gate', () => {
           precision: 0.97,
           recall: 0.94,
           evaluatedMatches: 7,
+          confidenceThreshold: 0.92,
           timestampWithinTwoSecondsRate: 0.95,
         },
         scrum: {
           precision: 0.92,
           recall: 0.94,
           evaluatedMatches: 7,
+          confidenceThreshold: 0.9,
           timestampWithinTwoSecondsRate: 0.95,
         },
       }),
