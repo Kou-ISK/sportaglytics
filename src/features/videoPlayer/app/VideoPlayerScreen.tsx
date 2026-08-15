@@ -28,6 +28,8 @@ import { subscribeCreateVideoPackageMenu } from './gateways/menuEventGateway';
 import { useTimelineWindowIntegration } from './hooks/useTimelineWindowIntegration';
 import { useContinuousReversePlayback } from '../../../hooks/useContinuousReversePlayback';
 import { getMinAllowedGlobalTime } from './hooks/useVideoTimeController';
+import { EventDetectionDialogView } from '../eventDetection/components/EventDetectionDialogView';
+import { useEventDetectionController } from '../eventDetection/hooks/useEventDetectionController';
 
 export const VideoPlayerScreen = () => {
   const {
@@ -62,6 +64,7 @@ export const VideoPlayerScreen = () => {
     handleCurrentTime,
     setPackagePath,
     addTimelineData,
+    addTimelineDatas,
     addTimelineRow,
     updateTimelineRow,
     moveTimelineRow,
@@ -113,6 +116,14 @@ export const VideoPlayerScreen = () => {
         (l) => l.id === settings.codingPanel?.activeCodeWindowId,
       )) ||
     settings.codingPanel?.codeWindows?.[0];
+
+  const { viewProps: eventDetectionViewProps } = useEventDetectionController({
+    mediaAngles,
+    timeline,
+    maxTime: maxSec,
+    activeCodeWindow,
+    addTimelineDatas,
+  });
 
   const codingPanelRuntimeRef = useRef<EnhancedCodePanelHandle | null>(null);
 
@@ -352,6 +363,7 @@ export const VideoPlayerScreen = () => {
         onJumpToSegment={handleJumpToSegment}
         onCreateAiPlaylist={handleCreateAiPlaylist}
       />
+      <EventDetectionDialogView {...eventDetectionViewProps} />
 
       <ErrorSnackbar error={error} onClose={() => setError(null)} />
       <SyncAnalysisBackdrop
