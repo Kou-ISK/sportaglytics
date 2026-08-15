@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 import gc
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -11,7 +12,7 @@ import torch
 from .dataset import build_training_samples
 from .metrics import Prediction, evaluate_all, select_thresholds
 from .models import build_model
-from .schema import DatasetManifest, EVENT_TYPES, ModelCandidate
+from .schema import DatasetManifest, EVENT_TYPES, MatchManifest, ModelCandidate
 from .spotting import ScanSummary, scan_matches
 from .training import train_model
 
@@ -47,12 +48,12 @@ def load_model_candidates(
 def _matches_for_split(
     manifest: DatasetManifest,
     split: str,
-) -> tuple:
+) -> tuple[MatchManifest, ...]:
     return tuple(match for match in manifest.matches if match.split == split)
 
 
 def _prediction_json(
-    matches: tuple,
+    matches: tuple[MatchManifest, ...],
     predictions: list[Prediction],
 ) -> dict[str, object]:
     return {
@@ -76,12 +77,15 @@ def _prediction_json(
 
 def _ground_truth_json(
     dataset_id: str,
-    training_matches: tuple,
-    test_matches: tuple,
+    development_matches: tuple[MatchManifest, ...],
+    test_matches: tuple[MatchManifest, ...],
 ) -> dict[str, object]:
     return {
         "datasetId": dataset_id,
-        "trainingMatchIds": [match.match_id for match in training_matches],
+        # The independent Node evaluator only needs a list that must not overlap
+        # the held-out test set. Include validation matches because they influenced
+        # model/threshold selection even though no gradient update used them.
+        "trainingMatchIds": [match.match_id for match in development_matches],
         "matches": [
             {
                 "matchId": match.match_id,
@@ -114,14 +118,22 @@ def _scan_json(summary: ScanSummary) -> dict[str, object]:
     }
 
 
-def _metric_json(metrics: dict) -> dict[str, object]:
+def _metric_json(metrics: dict[str, object]) -> dict[str, object]:
     return {
         event_type: value.to_json()
         for event_type, value in metrics.items()
     }
 
 
-def _benchmark_one(
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _screen_one(
     candidate: ModelCandidate,
     manifest: DatasetManifest,
     output_root: Path,
@@ -136,13 +148,16 @@ def _benchmark_one(
     nms_seconds: float,
     seed: int,
 ) -> dict[str, object]:
+    """Train and rank one candidate using train/validation only.
+
+    The held-out test split is intentionally never decoded here. This keeps model
+    family selection, fine-tuning strategy selection and confidence-threshold
+    selection out of the final qualification set.
+    """
+
     model_dir = output_root / candidate.model_id
     model_dir.mkdir(parents=True, exist_ok=True)
-    train_matches = _matches_for_split(manifest, "train")
     validation_matches = _matches_for_split(manifest, "validation")
-    test_matches = _matches_for_split(manifest, "test")
-    if not train_matches:
-        raise ValueError("dataset manifest has no train split")
 
     train_samples = build_training_samples(
         manifest,
@@ -160,11 +175,12 @@ def _benchmark_one(
     )
 
     bundle = build_model(candidate, strategy, device_name)
+    checkpoint_path = model_dir / "checkpoint.pt"
     training = train_model(
         bundle,
         train_samples,
         validation_samples,
-        model_dir / "checkpoint.pt",
+        checkpoint_path,
         epochs,
         batch_size,
         learning_rate,
@@ -183,36 +199,31 @@ def _benchmark_one(
         validation_matches,
         validation_scan.predictions,
     )
-    test_scan = scan_matches(
-        bundle,
-        test_matches,
-        stride_seconds,
-        batch_size,
-        nms_seconds,
-    )
-    test_metrics = evaluate_all(
-        test_matches,
-        test_scan.predictions,
+    validation_metrics = evaluate_all(
+        validation_matches,
+        validation_scan.predictions,
         thresholds,
     )
-    all_events_pass = all(
-        test_metrics[event_type].passes_gate
-        for event_type in EVENT_TYPES
-    )
-    product_gate_passed = candidate.production_eligible and all_events_pass
 
-    _write_json(model_dir / "thresholds.json", thresholds)
+    thresholds_path = model_dir / "thresholds.json"
+    _write_json(thresholds_path, thresholds)
     _write_json(
         model_dir / "validation-predictions.json",
         _prediction_json(validation_matches, validation_scan.predictions),
     )
-    _write_json(
-        model_dir / "test-predictions.json",
-        _prediction_json(test_matches, test_scan.predictions),
+
+    minimum_precision = min(
+        metric.precision for metric in validation_metrics.values()
     )
-    _write_json(
-        model_dir / "test-ground-truth.json",
-        _ground_truth_json(manifest.dataset_id, train_matches, test_matches),
+    average_recall = sum(
+        metric.recall for metric in validation_metrics.values()
+    ) / len(validation_metrics)
+    average_precise_rate = sum(
+        metric.timestamp_within_two_seconds_rate
+        for metric in validation_metrics.values()
+    ) / len(validation_metrics)
+    average_f1 = sum(metric.f1 for metric in validation_metrics.values()) / len(
+        validation_metrics
     )
 
     return {
@@ -225,13 +236,15 @@ def _benchmark_one(
         "device": str(bundle.device),
         "training": asdict(training),
         "validationScan": _scan_json(validation_scan),
-        "testScan": _scan_json(test_scan),
         "selectedThresholds": thresholds,
-        "testMetrics": _metric_json(test_metrics),
-        "allEventsPassQualityGate": all_events_pass,
-        "productionGatePassed": product_gate_passed,
-        "averageF1": sum(metric.f1 for metric in test_metrics.values())
-        / len(test_metrics),
+        "validationMetrics": _metric_json(validation_metrics),
+        "minimumValidationPrecision": minimum_precision,
+        "averageValidationRecall": average_recall,
+        "averageValidationTimestampWithinTwoSecondsRate": average_precise_rate,
+        "averageValidationF1": average_f1,
+        "meetsValidationPrecisionTarget": minimum_precision >= 0.95,
+        "checkpointSha256": _sha256(checkpoint_path),
+        "thresholdsSha256": _sha256(thresholds_path),
     }
 
 
@@ -251,6 +264,8 @@ def run_benchmark(
     nms_seconds: float,
     seed: int,
 ) -> dict[str, object]:
+    """Screen model candidates without touching the held-out test split."""
+
     manifest = load_manifest(manifest_path)
     candidates = load_model_candidates(models_config_path, selected_ids)
     if not candidates:
@@ -266,7 +281,7 @@ def run_benchmark(
 
     for candidate in candidates:
         try:
-            result = _benchmark_one(
+            result = _screen_one(
                 candidate,
                 manifest,
                 output_root,
@@ -291,7 +306,6 @@ def run_benchmark(
                 "strategy": strategy,
                 "status": "failed",
                 "error": str(error),
-                "productionGatePassed": False,
             }
         results.append(result)
         gc.collect()
@@ -300,17 +314,16 @@ def run_benchmark(
         if torch.backends.mps.is_available():
             torch.mps.empty_cache()
 
-    successful = [
-        result for result in results if result.get("status") != "failed"
-    ]
-    ranked = sorted(
+    successful = [result for result in results if result.get("status") != "failed"]
+    research_ranking = sorted(
         successful,
         key=lambda result: (
-            bool(result.get("productionGatePassed")),
-            bool(result.get("productionEligibleByLicense")),
-            float(result.get("averageF1", 0.0)),
+            float(result.get("minimumValidationPrecision", 0.0)),
+            float(result.get("averageValidationRecall", 0.0)),
+            float(result.get("averageValidationTimestampWithinTwoSecondsRate", 0.0)),
+            float(result.get("averageValidationF1", 0.0)),
             -float(
-                (result.get("testScan") or {}).get(
+                (result.get("validationScan") or {}).get(
                     "wallSecondsPerVideoMinute",
                     float("inf"),
                 )
@@ -318,33 +331,143 @@ def run_benchmark(
         ),
         reverse=True,
     )
-    production_winner = next(
-        (
-            result["modelId"]
-            for result in ranked
-            if result.get("productionGatePassed") is True
-        ),
-        None,
+    production_ranking = [
+        result
+        for result in research_ranking
+        if result.get("productionEligibleByLicense") is True
+    ]
+    screening_winner = (
+        production_ranking[0].get("modelId") if production_ranking else None
     )
+
     report = {
-        "version": 1,
+        "version": 2,
+        "mode": "validation-screen",
         "datasetId": manifest.dataset_id,
         "strategy": strategy,
         "learningRate": resolved_learning_rate,
+        "validationPrecisionTarget": 0.95,
+        "selectionPolicy": (
+            "All candidate comparison and confidence-threshold selection use train/validation "
+            "matches only. The held-out test split is not scanned by this command. "
+            "Non-commercial checkpoints remain research-only regardless of validation accuracy."
+        ),
+        "screeningWinner": screening_winner,
+        "researchRanking": [result.get("modelId") for result in research_ranking],
+        "productionRanking": [result.get("modelId") for result in production_ranking],
+        "results": results,
+    }
+    _write_json(output_root / "benchmark-report.json", report)
+    return report
+
+
+def _read_thresholds(path: Path) -> dict[str, float]:
+    raw = _read_json(path)
+    if not isinstance(raw, dict):
+        raise ValueError("thresholds must be an object")
+    thresholds: dict[str, float] = {}
+    for event_type in EVENT_TYPES:
+        value = raw.get(event_type)
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(f"missing numeric threshold for {event_type}")
+        threshold = float(value)
+        if threshold < 0 or threshold > 1:
+            raise ValueError(f"threshold for {event_type} must be between 0 and 1")
+        thresholds[event_type] = threshold
+    return thresholds
+
+
+def run_qualification(
+    manifest_path: Path,
+    models_config_path: Path,
+    model_id: str,
+    checkpoint_path: Path,
+    thresholds_path: Path,
+    output_root: Path,
+    strategy: str,
+    device_name: str,
+    batch_size: int,
+    stride_seconds: float,
+    nms_seconds: float,
+) -> dict[str, object]:
+    """Evaluate one frozen production-eligible model on the held-out test split."""
+
+    manifest = load_manifest(manifest_path)
+    candidates = load_model_candidates(models_config_path, {model_id})
+    candidate = candidates[0]
+    if not candidate.production_eligible:
+        raise ValueError(
+            f"{candidate.model_id} is research-only and cannot be production-qualified"
+        )
+    if not checkpoint_path.is_file():
+        raise FileNotFoundError(f"checkpoint does not exist: {checkpoint_path}")
+    if not thresholds_path.is_file():
+        raise FileNotFoundError(f"thresholds do not exist: {thresholds_path}")
+
+    thresholds = _read_thresholds(thresholds_path)
+    bundle = build_model(candidate, strategy, device_name)
+    bundle.load(checkpoint_path)
+    test_matches = _matches_for_split(manifest, "test")
+    test_scan = scan_matches(
+        bundle,
+        test_matches,
+        stride_seconds,
+        batch_size,
+        nms_seconds,
+    )
+    test_metrics = evaluate_all(test_matches, test_scan.predictions, thresholds)
+    product_gate_passed = all(
+        test_metrics[event_type].passes_gate for event_type in EVENT_TYPES
+    )
+
+    output_root.mkdir(parents=True, exist_ok=True)
+    test_predictions_path = output_root / "test-predictions.json"
+    test_ground_truth_path = output_root / "test-ground-truth.json"
+    locked_thresholds_path = output_root / "thresholds.json"
+    _write_json(
+        test_predictions_path,
+        _prediction_json(test_matches, test_scan.predictions),
+    )
+    development_matches = tuple(
+        match for match in manifest.matches if match.split != "test"
+    )
+    _write_json(
+        test_ground_truth_path,
+        _ground_truth_json(
+            manifest.dataset_id,
+            development_matches,
+            test_matches,
+        ),
+    )
+    _write_json(locked_thresholds_path, thresholds)
+
+    report = {
+        "version": 1,
+        "mode": "held-out-qualification",
+        "datasetId": manifest.dataset_id,
+        "modelId": candidate.model_id,
+        "family": candidate.family,
+        "license": candidate.license_name,
+        "productionEligibleByLicense": True,
+        "strategy": strategy,
+        "device": str(bundle.device),
+        "checkpointSha256": _sha256(checkpoint_path),
+        "sourceThresholdsSha256": _sha256(thresholds_path),
+        "lockedThresholds": thresholds,
+        "testScan": _scan_json(test_scan),
+        "testMetrics": _metric_json(test_metrics),
+        "productGatePassed": product_gate_passed,
         "qualityGate": {
             "precision": 0.95,
             "recall": 0.90,
             "evaluatedMatches": 5,
             "timestampWithinTwoSecondsRate": 0.90,
         },
-        "selectionPolicy": (
-            "Confidence thresholds are selected on validation matches only. "
-            "The locked thresholds are then evaluated on unseen test matches. "
-            "Non-commercial checkpoints cannot become production winners."
+        "policy": (
+            "This command evaluates exactly one frozen production-eligible checkpoint and "
+            "its preselected validation thresholds. If this test result informs further "
+            "model changes, use a new held-out test set for the next production claim."
         ),
-        "productionWinner": production_winner,
-        "ranking": [result["modelId"] for result in ranked],
-        "results": results,
     }
-    _write_json(output_root / "benchmark-report.json", report)
+    _write_json(output_root / "qualification-report.json", report)
     return report
