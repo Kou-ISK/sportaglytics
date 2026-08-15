@@ -41,6 +41,8 @@ This mode:
 7. skips unresolved packages rather than requiring every match path to be entered manually;
 8. creates deterministic match-level Train / Validation / Test splits using seed `42` by default.
 
+When at least 12 usable matches exist, the automatic policy reserves five Test matches so the held-out product gate can satisfy its five-unseen-match requirement. Smaller datasets use an approximately 20% Test split for research iteration.
+
 The output directory also receives:
 
 - `manifest.auto-spec.json`: the exact package paths and frozen split assignment used for the run;
