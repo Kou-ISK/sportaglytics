@@ -21,6 +21,9 @@ export const passesEventDetectionQualityGate = (
     metric.recall >= EVENT_DETECTION_QUALITY_GATE.minRecall &&
     Number.isInteger(metric.evaluatedMatches) &&
     metric.evaluatedMatches >= EVENT_DETECTION_QUALITY_GATE.minEvaluatedMatches &&
+    Number.isFinite(metric.confidenceThreshold) &&
+    metric.confidenceThreshold >= 0 &&
+    metric.confidenceThreshold <= 1 &&
     typeof metric.timestampWithinTwoSecondsRate === 'number' &&
     Number.isFinite(metric.timestampWithinTwoSecondsRate) &&
     metric.timestampWithinTwoSecondsRate >=
