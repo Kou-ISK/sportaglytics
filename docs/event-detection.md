@@ -114,6 +114,61 @@ pnpm run research:events:evaluate -- \
 }
 ```
 
+## Pretrained model research / promotion
+
+Production modelをゼロから学習することを前提にしません。`research/rugby-event-detection/` で既存pretrained video backboneを共通datasetへfine-tuneし、event spotting精度とlocal runtimeを比較します。
+
+初期比較:
+
+| Candidate | 用途 | Production候補 |
+| --- | --- | --- |
+| VideoMAE Base Kinetics | representation精度のresearch baseline | 公開checkpointがCC BY-NC 4.0のため不可 |
+| X3D-S Kinetics-400 | lightweight production candidate | Apache-2.0、品質ゲート通過時のみ |
+| SlowFast R50 Kinetics-400 | temporal production candidate | Apache-2.0、品質ゲート通過時のみ |
+
+Research modelのlicenseは精度とは別のgateです。`productionEligible: false` のcheckpointは、test精度が高くてもverified model packへ昇格させません。
+
+### Dataset preparation
+
+既に手動CodingしたSporTagLytics packageを教師データとして再利用します。
+
+```bash
+pnpm run research:events:prepare -- \
+  --spec /path/to/dataset-spec.json \
+  --output research/rugby-event-detection/runs/rugby-v1/manifest.json
+```
+
+Exporterはselected local angle、clipの `timelineStartSeconds`、duration、Timeline actionの `startTime` を保持し、`event-aliases.json` を通じて `kickoff` / `scrum` / `lineout` へ正規化します。映像自体はコピーしません。
+
+### Benchmark
+
+最初はbackboneを固定してclassifier headだけをfine-tuneします。
+
+```bash
+pnpm run research:events:benchmark -- \
+  --manifest research/rugby-event-detection/runs/rugby-v1/manifest.json \
+  --output-dir research/rugby-event-detection/runs/rugby-v1/head-screen \
+  --strategy head
+```
+
+必要なproduction-eligible candidateだけ `--strategy full` でfull fine-tuningします。
+
+Benchmarkの評価順序:
+
+1. `train` matchでfine-tuningする。
+2. `validation` match全体をsliding windowでspottingする。
+3. temporal NMS後、validationだけでevent class別confidence thresholdを選ぶ。
+4. thresholdを固定する。
+5. 完全未見の`test` match全体をscanする。
+6. 既存の±5秒matching / ±2秒precision評価とproduct gateを適用する。
+7. license適格性と処理時間を含めproduction winnerを判定する。
+
+Test結果を見て同じtest setのthresholdを再調整しません。Test結果を根拠にmodel設計を変更した場合、そのtest setは次のproduction claimではvalidation相当とみなし、新しいheld-out test setを用意します。
+
+Benchmark outputはmodelごとにcheckpoint、validation/test prediction、locked thresholds、independent evaluator互換ground truthを保存し、run rootに `benchmark-report.json` を生成します。品質とlicenseの両方を満たすmodelがない場合、`productionWinner` は `null` のままです。
+
+詳細手順は [`research/rugby-event-detection/README.md`](../research/rugby-event-detection/README.md) を参照してください。
+
 ## Model pack
 
 探索先:
