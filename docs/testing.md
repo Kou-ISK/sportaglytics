@@ -14,6 +14,12 @@ pnpm run check:architecture
 pnpm run test:run
 ```
 
+Event detection research code変更時:
+
+```bash
+pnpm run research:events:check
+```
+
 ADR変更時:
 
 ```bash
@@ -29,11 +35,12 @@ pnpm run check:adr
 | `pnpm run check:adr` | ADR filename/index consistency |
 | `pnpm run test:run` | Vitest one-shot |
 | `pnpm run test:ci` | serialized Vitest CI run |
+| `pnpm run research:events:check` | Python research source compile + lightweight unit tests |
 | `pnpm run check:preload` | preload bundle sanity |
 | `pnpm run report:architecture-health` | architecture report |
 | `pnpm run report:large-files` | soft file-size report |
 
-GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestで frozen install、lint、renderer/electron typecheck、architecture、ADR、Vitestを実行します。
+GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestで frozen install、lint、renderer/electron typecheck、architecture、ADR、Python research check、Vitestを実行します。
 
 ## Test Placement
 
@@ -44,8 +51,9 @@ GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requ
 - shared contract / normalizer → contract近傍のtest
 - Electron menu/manager pure behavior → `electron/src/**.test.ts`
 - real BrowserWindow / file association / preload bundling → E2E
+- offline model researchのpure metric/split logic → `research/rugby-event-detection/tests/`
 
-外部processをunit testで実行する必要がない場合、process起動境界より内側のpure logicを先に分離してtestします。
+外部processやheavy model weightをunit testで実行する必要がない場合、process/model境界より内側のpure logicを先に分離してtestします。
 
 ## Changes That Require Tests
 
@@ -96,7 +104,7 @@ pnpm run check:preload
 
 ## Automatic Event Detection Tests
 
-自動イベント検出には2種類の品質ゲートがあります。
+自動イベント検出には3段階の品質確認があります。
 
 ### 1. Application code gate
 
@@ -122,15 +130,52 @@ pnpm run check:preload
 - Electron menu tests
   - Timeline reopen action
 
-### 2. Model promotion gate
+### 2. Research code gate
 
-ML modelの精度はVitestでは判定しません。match-level unseen datasetで別評価します。
+Pretrained model比較コードはheavy dependencyをCIへ毎回installせず、次を必須にします。
+
+```bash
+pnpm run research:events:check
+```
+
+このcheckでは:
+
+- `research/rugby-event-detection/src` のPython syntax compile
+- research entrypoint/testsのcompile
+- validation threshold selection
+- Precision/Recall/timestamp gate
+- unseen match count gate
+
+を確認します。
+
+実modelのdownload/fine-tuningはローカルresearch環境で行います。CIでweightを取得しないことは、model精度を未検証でよいという意味ではありません。
+
+### 3. Model promotion gate
+
+ML modelの精度はVitestやPython unit testでは判定しません。match-level unseen datasetで別評価します。
+
+Pretrained comparison:
+
+```bash
+pnpm run research:events:prepare -- \
+  --spec /path/to/dataset-spec.json \
+  --output /path/to/manifest.json
+
+pnpm run research:events:benchmark -- \
+  --manifest /path/to/manifest.json \
+  --output-dir /path/to/benchmark \
+  --strategy head
+```
+
+Benchmarkはvalidation matchだけでevent別confidence thresholdを選択し、そのthresholdをlockしてtest matchへ適用します。Test結果を見た後に同じtest setでthresholdを調整してはいけません。
+
+独立evaluator:
 
 ```bash
 pnpm run research:events:evaluate -- \
-  research/rugby-event-detection/ground-truth.json \
-  research/rugby-event-detection/predictions.json \
-  research/rugby-event-detection/thresholds.json
+  <model>/test-ground-truth.json \
+  <model>/test-predictions.json \
+  <model>/thresholds.json
 ```
 
 Product minimum per event class:
@@ -142,11 +187,13 @@ Product minimum per event class:
 | unseen matches | >= 5 |
 | TP within ±2 sec | >= 0.90 |
 
-Evaluatorはground truth側の `trainingMatchIds` とtest `matchId` の重複を検出すると失敗します。同一試合の隣接frameをTrain/Testへrandom splitしてはいけません。
+通常match toleranceは±5秒です。Evaluatorはground truth側の `trainingMatchIds` とtest `matchId` の重複を検出すると失敗します。同一試合の隣接frameをTrain/Testへrandom splitしてはいけません。
 
 評価時confidence thresholdは出力metricsへ保存し、production manifestへ転記します。Runtime側ではこのthreshold未満へ下げられません。
 
-Model packを `verified` にする前に evaluator exit code 0 と各class metricsを確認します。
+さらにproduction候補はlicense条件も満たす必要があります。Research baselineが精度ゲートを通っても、非商用checkpointならverified production modelへ昇格させません。
+
+Model packを `verified` にする前に evaluator exit code 0、各class metrics、license、runner SHA-256を確認します。
 
 ## E2E
 
@@ -185,7 +232,8 @@ E2E対象例:
 4. Electron typecheck
 5. Architecture
 6. ADR check
-7. Unit tests
+7. Research Python check
+8. Unit tests
 
 CI logの最初の失敗stepを修正し、後続stepの未実行を別の失敗と誤認しないようにします。
 
@@ -196,3 +244,5 @@ CI logの最初の失敗stepを修正し、後続stepの未実行を別の失敗
 - legacy behaviorを変える場合はmigration testを追加
 - security boundaryを緩めてtestを通さない
 - 自動event detectionの品質閾値を機能を見せるために下げない
+- test setを見ながらconfidence thresholdやmodel選定を調整しない
+- license不適格modelを精度だけでproduction昇格させない
