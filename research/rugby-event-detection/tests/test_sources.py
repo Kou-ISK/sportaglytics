@@ -88,6 +88,12 @@ class SourceDiscoveryTest(unittest.TestCase):
         self.assertIn("validation", first)
         self.assertIn("test", first)
 
+    def test_automatic_split_reserves_five_test_matches_when_dataset_allows_it(self) -> None:
+        splits = _auto_split_names(12, 42)
+        self.assertEqual(splits.count("test"), 5)
+        self.assertGreaterEqual(splits.count("train"), 1)
+        self.assertGreaterEqual(splits.count("validation"), 1)
+
     def test_legacy_tight_wide_config_is_normalized_in_memory(self) -> None:
         original = {
             "tightViewPath": "videos/tight.mp4",
