@@ -108,6 +108,23 @@ class ModelBundle:
             path,
         )
 
+    def load(self, path: Path) -> None:
+        checkpoint = torch.load(path, map_location="cpu", weights_only=True)
+        if not isinstance(checkpoint, dict):
+            raise ValueError("checkpoint must contain an object")
+        if checkpoint.get("modelId") != self.candidate.model_id:
+            raise ValueError("checkpoint modelId does not match selected model")
+        if checkpoint.get("strategy") != self.strategy:
+            raise ValueError("checkpoint strategy does not match requested strategy")
+        if checkpoint.get("labels") != list(LABELS):
+            raise ValueError("checkpoint labels do not match the current event schema")
+        state_dict = checkpoint.get("stateDict")
+        if not isinstance(state_dict, dict):
+            raise ValueError("checkpoint stateDict is missing")
+        self.model.load_state_dict(state_dict)
+        self.model.to(self.device)
+        self.model.eval()
+
 
 def _configure_trainable_parameters(
     model: nn.Module,
