@@ -32,6 +32,15 @@ class ClipSample:
     global_center_seconds: float
 
 
+def clip_sample_key(sample: ClipSample) -> tuple[str, str, float, float]:
+    return (
+        sample.match_id,
+        str(sample.segment.video_path),
+        round(sample.local_start_seconds, 6),
+        round(sample.local_end_seconds, 6),
+    )
+
+
 def _window_in_segment(
     segment: TimelineSegment,
     center_seconds: float,
@@ -101,7 +110,7 @@ def build_positive_samples(
     samples: list[ClipSample] = []
     for match in matches:
         for event in match.events:
-            seen_windows: set[tuple[str, float, float]] = set()
+            seen_windows: set[tuple[str, str, float, float]] = set()
             for center_seconds in _positive_centers(
                 event,
                 samples_per_event,
@@ -118,25 +127,20 @@ def build_positive_samples(
                 if window is None:
                     continue
                 local_start, local_end = window
-                window_key = (
-                    str(segment.video_path),
-                    round(local_start, 6),
-                    round(local_end, 6),
+                sample = ClipSample(
+                    match_id=match.match_id,
+                    event_type=event.event_type,
+                    label_id=LABEL_TO_ID[event.event_type],
+                    segment=segment,
+                    local_start_seconds=local_start,
+                    local_end_seconds=local_end,
+                    global_center_seconds=center_seconds,
                 )
+                window_key = clip_sample_key(sample)
                 if window_key in seen_windows:
                     continue
                 seen_windows.add(window_key)
-                samples.append(
-                    ClipSample(
-                        match_id=match.match_id,
-                        event_type=event.event_type,
-                        label_id=LABEL_TO_ID[event.event_type],
-                        segment=segment,
-                        local_start_seconds=local_start,
-                        local_end_seconds=local_end,
-                        global_center_seconds=center_seconds,
-                    )
-                )
+                samples.append(sample)
     return samples
 
 
@@ -148,11 +152,26 @@ def _distance_to_event_interval(center_seconds: float, event: EventAnnotation) -
     return 0.0
 
 
-def _negative_candidates(
-    matches: tuple[MatchManifest, ...],
+def build_negative_candidate_pool(
+    manifest: DatasetManifest,
+    split: str,
     clip_duration_seconds: float,
-    exclusion_seconds: float,
+    exclusion_seconds: float | None = None,
 ) -> list[ClipSample]:
+    """Build deterministic background windows that are safe to label as ``other``.
+
+    Every candidate is kept away from the full annotated interval of every target
+    event. The pool is intentionally larger than the random-negative subset used by
+    the first training stage so a trained model can later mine the most confusing
+    background examples without touching Validation or Test.
+    """
+
+    matches = tuple(match for match in manifest.matches if match.split == split)
+    exclusion = (
+        max(clip_duration_seconds, 5.0)
+        if exclusion_seconds is None
+        else max(0.0, exclusion_seconds)
+    )
     samples: list[ClipSample] = []
     stride = max(clip_duration_seconds, 1.0)
     for match in matches:
@@ -165,7 +184,7 @@ def _negative_candidates(
             center = first_center
             while center <= last_center + 1e-6:
                 if all(
-                    _distance_to_event_interval(center, event) >= exclusion_seconds
+                    _distance_to_event_interval(center, event) >= exclusion
                     for event in match.events
                 ):
                     local_start = center - half - segment.timeline_start_seconds
@@ -200,10 +219,10 @@ def build_training_samples(
         samples_per_event=positive_samples_per_event,
         positive_span_seconds=positive_span_seconds,
     )
-    negative = _negative_candidates(
-        matches,
+    negative = build_negative_candidate_pool(
+        manifest,
+        split,
         clip_duration_seconds,
-        exclusion_seconds=max(clip_duration_seconds, 5.0),
     )
     target_negative = int(round(len(positive) * max(0.0, negative_ratio)))
     if positive and target_negative == 0 and negative:
