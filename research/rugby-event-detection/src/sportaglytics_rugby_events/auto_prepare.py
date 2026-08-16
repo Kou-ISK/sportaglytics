@@ -26,6 +26,23 @@ def _match_id(root: Path, package_root: Path, index: int) -> str:
     return f"{index:03d}-{readable}".replace(" ", "-")
 
 
+def _failure_category(reason: str) -> str:
+    normalized = reason.casefold()
+    if "not safe as complete supervision" in normalized:
+        return "missing-required-event-labels"
+    if "config" in normalized and ("not found" in normalized or "neither" in normalized):
+        return "unsupported-or-missing-config"
+    if "video" in normalized and (
+        "not found" in normalized
+        or "does not exist" in normalized
+        or "unable to determine" in normalized
+    ):
+        return "unresolved-video"
+    if "timeline" in normalized and ("neither" in normalized or "invalid" in normalized):
+        return "unsupported-or-invalid-timeline"
+    return "other"
+
+
 def build_manifest_from_root(
     root: Path,
     aliases_path: Path,
@@ -104,6 +121,12 @@ def build_manifest_from_root(
     splits = _auto_split_names(len(prepared), seed)
     matches: list[dict[str, Any]] = []
     auto_packages: list[dict[str, Any]] = []
+    split_event_counts = {
+        "train": Counter(),
+        "validation": Counter(),
+        "test": Counter(),
+    }
+    all_event_counts = Counter()
     for index, (item, split) in enumerate(zip(prepared, splits, strict=True), start=1):
         package_root = item["packageRoot"]
         match_id = _match_id(root, package_root, index)
@@ -124,6 +147,8 @@ def build_manifest_from_root(
                 "eventCounts": item["eventCounts"],
             }
         )
+        split_event_counts[split].update(item["eventCounts"])
+        all_event_counts.update(item["eventCounts"])
 
     manifest_json = {
         "version": 1,
@@ -151,16 +176,35 @@ def build_manifest_from_root(
         )
         handle.write("\n")
 
+    failure_categories = Counter(
+        _failure_category(item["reason"])
+        for item in skipped
+    )
     report_path = output_path.with_name(f"{output_path.stem}.sources.json")
     report["eventTypes"] = list(EVENT_TYPES)
     report["preparationFailures"] = skipped
+    report["preparationFailureSummary"] = dict(sorted(failure_categories.items()))
     report["preparedSources"] = len(matches)
+    report["preparedEventCounts"] = {
+        event_type: all_event_counts[event_type]
+        for event_type in EVENT_TYPES
+    }
     report["automaticSplit"] = {
         "seed": seed,
         "train": sum(1 for match in matches if match["split"] == "train"),
         "validation": sum(1 for match in matches if match["split"] == "validation"),
         "test": sum(1 for match in matches if match["split"] == "test"),
     }
+    report["splitEventCounts"] = {
+        split: {
+            event_type: counts[event_type]
+            for event_type in EVENT_TYPES
+        }
+        for split, counts in split_event_counts.items()
+    }
+    report["productionQualificationReadyByMatchCount"] = (
+        report["automaticSplit"]["test"] >= 5
+    )
     report["manifestPath"] = str(output_path)
     report["generatedSpecPath"] = str(auto_spec_path)
     report["reportPath"] = str(report_path)
