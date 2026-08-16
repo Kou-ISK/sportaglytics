@@ -16,6 +16,7 @@ from .manifest import (
 from .package_compat import find_package_config_path, normalize_package_config
 from .schema import EVENT_TYPES, DatasetManifest
 from .sources import _auto_split_names, discover_sources, inspection_report
+from .split_lock import assign_locked_splits, source_key
 
 
 def _match_id(root: Path, package_root: Path, index: int) -> str:
@@ -49,6 +50,7 @@ def build_manifest_from_root(
     output_path: Path,
     dataset_id: str | None = None,
     seed: int = 42,
+    split_lock_path: Path | None = None,
 ) -> tuple[DatasetManifest, dict[str, Any]]:
     root = root.expanduser().resolve()
     output_path = output_path.expanduser().resolve()
@@ -107,6 +109,7 @@ def build_manifest_from_root(
             prepared.append(
                 {
                     "packageRoot": source.package_root,
+                    "sourceKey": source_key(root, source.package_root),
                     "angleId": angle.get("id"),
                     "segments": _segments_for_angle(source.package_root, angle),
                     "events": events,
@@ -132,7 +135,23 @@ def build_manifest_from_root(
             "and event-label validation; run the inspect command and review unresolved sources"
         )
 
-    splits = _auto_split_names(len(prepared), seed)
+    source_keys = [str(item["sourceKey"]) for item in prepared]
+    if split_lock_path is None:
+        splits = _auto_split_names(len(prepared), seed)
+        split_lock_report: dict[str, object] = {
+            "status": "disabled",
+            "path": None,
+            "preservedCurrentMatches": 0,
+            "newAssignments": {},
+        }
+    else:
+        splits, split_lock_report = assign_locked_splits(
+            source_keys,
+            seed,
+            split_lock_path,
+            root,
+        )
+
     matches: list[dict[str, Any]] = []
     auto_packages: list[dict[str, Any]] = []
     split_event_counts = {
@@ -156,6 +175,7 @@ def build_manifest_from_root(
         auto_packages.append(
             {
                 "matchId": match_id,
+                "sourceKey": item["sourceKey"],
                 "split": split,
                 "packagePath": str(package_root),
                 "eventCounts": item["eventCounts"],
@@ -226,6 +246,7 @@ def build_manifest_from_root(
         "validation": sum(1 for match in matches if match["split"] == "validation"),
         "test": sum(1 for match in matches if match["split"] == "test"),
     }
+    report["splitLock"] = split_lock_report
     report["splitEventCounts"] = {
         split: {
             event_type: counts[event_type]
