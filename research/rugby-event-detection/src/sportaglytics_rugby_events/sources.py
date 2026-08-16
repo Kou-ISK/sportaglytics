@@ -210,8 +210,21 @@ def write_inspection_report(root: Path, output_path: Path | None) -> dict[str, A
 def _auto_split_names(count: int, seed: int) -> list[str]:
     if count < 3:
         raise ValueError("automatic dataset preparation requires at least 3 usable matches")
-    validation_count = max(1, round(count * 0.2))
-    test_count = 5 if count >= 12 else max(1, round(count * 0.2))
+
+    # With fewer than 12 complete matches the dataset cannot satisfy the product gate's
+    # five-match held-out Test requirement anyway. Preserve one future-facing Test match,
+    # but allocate two Validation matches once possible so threshold/spotting estimates do
+    # not hinge on a single sparse game. At 12+ matches, reserve the required five Tests.
+    if count >= 12:
+        test_count = 5
+        validation_count = max(2, round((count - test_count) * 0.2))
+    elif count >= 5:
+        test_count = 1
+        validation_count = 2
+    else:
+        test_count = 1
+        validation_count = 1
+
     while count - validation_count - test_count < 1:
         if validation_count > 1:
             validation_count -= 1
