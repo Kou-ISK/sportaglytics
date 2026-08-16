@@ -8,6 +8,7 @@ import unittest
 RESEARCH_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RESEARCH_ROOT / "src"))
 
+from sportaglytics_rugby_events.sources import _auto_split_names  # noqa: E402
 from sportaglytics_rugby_events.split_lock import assign_locked_splits  # noqa: E402
 
 
@@ -24,6 +25,7 @@ class SplitLockTest(unittest.TestCase):
                 root,
             )
             self.assertEqual(initial_report["status"], "created")
+            self.assertEqual(initial_splits, _auto_split_names(7, 42))
             self.assertEqual(initial_splits.count("train"), 4)
             self.assertEqual(initial_splits.count("validation"), 2)
             self.assertEqual(initial_splits.count("test"), 1)
