@@ -36,6 +36,12 @@ def _require_float(value: Any, label: str) -> float:
     return result
 
 
+def _optional_float(value: Any, label: str) -> float | None:
+    if value is None:
+        return None
+    return _require_float(value, label)
+
+
 def _optional_positive_int(value: Any, label: str) -> int | None:
     if value is None:
         return None
@@ -75,8 +81,15 @@ class TimelineSegment:
 class EventAnnotation:
     event_type: str
     anchor_time_seconds: float
+    end_time_seconds: float | None = None
     possession_label: str | None = None
     source_action_name: str | None = None
+
+    @property
+    def interval_end_seconds(self) -> float:
+        if self.end_time_seconds is None:
+            return self.anchor_time_seconds
+        return max(self.anchor_time_seconds, self.end_time_seconds)
 
     @classmethod
     def from_json(cls, value: Any) -> "EventAnnotation":
@@ -84,12 +97,17 @@ class EventAnnotation:
         event_type = _require_string(data.get("eventType"), "event.eventType")
         if event_type not in EVENT_TYPES:
             raise ValueError(f"unsupported event type: {event_type}")
+        anchor = _require_float(
+            data.get("anchorTimeSeconds"),
+            "event.anchorTimeSeconds",
+        )
+        end = _optional_float(data.get("endTimeSeconds"), "event.endTimeSeconds")
+        if end is not None and end < anchor:
+            end = anchor
         return cls(
             event_type=event_type,
-            anchor_time_seconds=_require_float(
-                data.get("anchorTimeSeconds"),
-                "event.anchorTimeSeconds",
-            ),
+            anchor_time_seconds=anchor,
+            end_time_seconds=end,
             possession_label=_optional_string(data.get("possessionLabel")),
             source_action_name=_optional_string(data.get("sourceActionName")),
         )
