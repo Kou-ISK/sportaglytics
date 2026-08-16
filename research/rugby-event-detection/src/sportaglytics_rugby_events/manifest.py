@@ -215,10 +215,18 @@ def _event_annotations(
         if parsed_action is None:
             continue
         event_type, possession_label = parsed_action
-        anchor_time = float(start_time) + anchor_offsets.get(event_type, 0.0)
+        offset = anchor_offsets.get(event_type, 0.0)
+        anchor_time = max(0.0, float(start_time) + offset)
+        raw_end_time = instance.get("endTime")
+        end_time = (
+            max(anchor_time, float(raw_end_time) + offset)
+            if isinstance(raw_end_time, (int, float))
+            else anchor_time
+        )
         event: dict[str, Any] = {
             "eventType": event_type,
-            "anchorTimeSeconds": max(0.0, anchor_time),
+            "anchorTimeSeconds": anchor_time,
+            "endTimeSeconds": end_time,
             "sourceActionName": action_name.strip(),
         }
         if possession_label is not None:
