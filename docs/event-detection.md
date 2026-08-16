@@ -6,9 +6,11 @@
 
 初期対象:
 
-1. `kickoff`
+1. `restart`
 2. `scrum`
 3. `lineout`
+
+`restart` は SporTagLytics 上の「リスタート」に対応し、50mキックオフ、22mドロップアウト、トライライン/ゴールラインドロップアウトなど、キックによる試合再開をまとめたクラスです。過去データの `Kickoff` / `キックオフ` も教師データ読込時に `restart` へ正規化します。
 
 `maul` と `goalKick` はshared contractには定義しますが、class単位の品質ゲートを通過したmodel packでのみ利用可能にします。
 
@@ -77,35 +79,39 @@ frame単位・clip単位のrandom splitは禁止します。同じ試合の隣�
 
 精度とlicenseは独立したgateです。`productionEligible: false` のcheckpointはvalidation/test精度にかかわらずverified production modelへ昇格させません。
 
-### 1. Human Codingからdataset manifestを作る
+### 最短の学習開始
+
+タグ付け済み試合を含む親ディレクトリを1つ指定します。
 
 ```bash
-pnpm run research:events:prepare -- \
-  --spec /path/to/dataset-spec.json \
-  --output research/rugby-event-detection/runs/rugby-v1/manifest.json
+pnpm run research:events:train -- \
+  --root "/path/to/coded-matches"
 ```
 
-ExporterはSporTagLytics packageの:
+このコマンドは再帰的に現行/対応済み旧形式のpackageを探索し、`restart` / `scrum` / `lineout` がすべてCodingされている試合だけを安全な教師データとして採用します。その後、試合単位でTrain / Validation / Testへ決定論的に分割し、既定ではX3D-S Kinetics-400のclassifier headを5 epoch学習します。
 
-- `.metadata/config.json`
-- `timeline.json`
-- selected local angle
-- `timelineStartSeconds`
+この学習入口が使用するのはTrainとValidationだけです。Testはdecodeも評価もしません。
 
-を利用します。YouTube映像は研究dataset対象外です。映像byteはコピーせずlocal pathを参照します。
+### Timeline Actionの正規化
 
-Timeline action名は `research/rugby-event-detection/config/event-aliases.json` で `kickoff` / `scrum` / `lineout` へ正規化します。
+`research/rugby-event-detection/config/event-aliases.json` を正本として、少なくとも次をcanonical eventへ正規化します。
+
+- `リスタート`, `Restart`, `Kickoff`, `キックオフ`, 22m/try-line/goal-line dropout表記 -> `restart`
+- `スクラム`, `Scrum` -> `scrum`
+- `ラインアウト`, `Lineout` -> `lineout`
+
+チーム/side prefix付きActionはevent aliasが末尾にある場合、そのprefixを`possessionLabel`として保持します。
 
 ### Lead付きTimelineからanchorを復元する
 
 通常はTimeline `startTime` を教師anchorにします。ただしCode Windowでleadを設定して作成したTimelineでは `startTime` が実際のボタン押下/event onsetより早くなっています。
 
-Dataset specで次を指定できます。
+明示dataset specでは次を指定できます。
 
 ```json
 {
   "eventAnchorOffsetsSeconds": {
-    "kickoff": 5,
+    "restart": 5,
     "scrum": 8,
     "lineout": 5
   }
@@ -120,53 +126,21 @@ anchor = Timeline startTime + eventAnchorOffsetsSeconds[eventType]
 
 元Codingで使用したlead秒数を指定してください。既にevent onsetへtrim済みなら0秒です。Packageごとのoverrideも可能です。
 
-### 2. Validation-only screening
+### Validation-only screening
 
-最初はclassifier headだけをfine-tuneします。
+手動で比較する場合はclassifier headから開始します。
 
 ```bash
 pnpm run research:events:benchmark -- \
   --manifest /path/to/manifest.json \
   --output-dir /path/to/head-screen \
+  --models x3d-s-kinetics400 \
   --strategy head
 ```
 
-`benchmark` は:
+`benchmark` はTrainでfine-tuningし、Validation試合全体をsliding-window scanしてclass別NMSとconfidence threshold選択を行います。Test映像はdecodeも評価もしません。
 
-1. `train` matchでfine-tuning
-2. `validation` match全体をsliding-window scan
-3. class別temporal NMS
-4. validationだけでconfidence thresholdを選択
-5. validationのPrecision / Recall / timestamp accuracy / local runtimeでranking
-
-まで行います。
-
-**このcommandはTest映像をdecodeも評価もしません。**
-
-`benchmark-report.json` には:
-
-- `researchRanking`
-- license適格modelだけの `productionRanking`
-- `screeningWinner`
-- validation metrics
-- scan runtime
-- checkpoint / threshold SHA-256
-
-を記録します。`screeningWinner` はproduction-qualified modelではありません。
-
-必要に応じて有望なproduction-eligible modelだけをfull fine-tuningします。
-
-```bash
-pnpm run research:events:benchmark -- \
-  --manifest /path/to/manifest.json \
-  --output-dir /path/to/full-finetune \
-  --models x3d-s-kinetics400 \
-  --strategy full
-```
-
-Head/fullの比較もValidationだけで行います。
-
-### 3. Frozen held-out qualification
+### Frozen held-out qualification
 
 Model family、training strategy、stride/NMS、checkpoint、validation-selected thresholdsを凍結した後、production-eligibleな**1モデルだけ**をTestへ通します。
 
@@ -177,39 +151,10 @@ pnpm run research:events:qualify -- \
   --checkpoint /path/to/checkpoint.pt \
   --thresholds /path/to/thresholds.json \
   --output-dir /path/to/qualification \
-  --strategy full
+  --strategy head
 ```
 
-`qualify` はresearch-only modelを拒否し、checkpointのmodel ID / strategy / label schemaを検証してからTestをscanします。
-
-出力:
-
-```text
-qualification/
-├── qualification-report.json
-├── test-predictions.json
-├── test-ground-truth.json
-└── thresholds.json
-```
-
-`qualification-report.json` には:
-
-- checkpoint SHA-256
-- source thresholds SHA-256
-- locked thresholds
-- unseen-test metrics
-- `productGatePassed`
-
-を記録します。
-
-独立Node evaluatorでも同じ成果物を再検証できます。
-
-```bash
-pnpm run research:events:evaluate -- \
-  qualification/test-ground-truth.json \
-  qualification/test-predictions.json \
-  qualification/thresholds.json
-```
+Test結果を見てモデル設計を変更した場合、そのTest setは次のproduction claimへ再利用しません。
 
 ## Model pack
 
@@ -219,28 +164,7 @@ pnpm run research:events:evaluate -- \
 - development: `resources/event-detection-models/<model>/`
 - user local: Electron `userData/event-detection-models/<model>/`
 
-最低構成:
-
-```text
-event-detection-models/
-└── rugby-events-v1/
-    ├── manifest.json
-    ├── bin/
-    │   └── runner
-    └── model files ...
-```
-
-Manifestは少なくとも:
-
-- schema/version/id/display name
-- `status: verified`
-- supported event classes
-- class別quality metrics
-- evaluated confidence thresholds
-- platform/architecture別runner path
-- runner SHA-256
-
-を持ちます。
+Manifestは少なくともschema/version/id/display name、`status: verified`、supported event classes、class別quality metrics、confidence thresholds、platform/architecture別runner path、runner SHA-256を持ちます。
 
 `status: verified` だけでは利用可能になりません。アプリはclass別metrics、platform runner、path traversal、runner SHA-256を再検証します。
 
@@ -263,21 +187,9 @@ Production境界:
 - executable SHA-256必須
 - RendererはPyTorch / ONNX Runtime等へ直接依存しない
 
-Runner resultの時刻はpackage全体のglobal timeline秒です。複数clipではrequestの `timelineStartSeconds` を用いてlocal clip timeからglobal timeへ変換します。
-
 ## Timeline変換
 
-`src/features/videoPlayer/eventDetection/domain/candidatesToTimeline.ts` は:
-
-1. enabled eventだけを残す
-2. verified confidence threshold未満を除外
-3. detector rangeまたはanchorを取得
-4. lead/lagを共通range resolverで適用
-5. existing Timeline / same-runとのduplicateを除外
-6. `NewTimelineData[]` へ変換
-7. `addTimelineDatas` で1回のstate updateとして追加
-
-します。
+`src/features/videoPlayer/eventDetection/domain/candidatesToTimeline.ts` はenabled event、verified confidence threshold、lead/lag、既存Timeline重複を処理した上で `NewTimelineData[]` へ変換し、`addTimelineDatas` で1回のstate updateとして追加します。
 
 Timelineへ追加された後は自動検出由来かどうかを特別扱いせず、通常の手動eventとして編集できます。
 
