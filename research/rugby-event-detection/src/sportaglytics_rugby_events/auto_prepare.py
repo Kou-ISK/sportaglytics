@@ -56,13 +56,16 @@ def build_manifest_from_root(
     report = inspection_report(root)
 
     prepared: list[dict[str, Any]] = []
-    skipped: list[dict[str, str]] = []
+    skipped: list[dict[str, Any]] = []
     for source in discover_sources(root):
         if not source.usable:
+            reason = "; ".join(source.issues) or "unsupported source layout"
             skipped.append(
                 {
                     "packageRoot": str(source.package_root),
-                    "reason": "; ".join(source.issues) or "unsupported source layout",
+                    "category": _failure_category(reason),
+                    "reason": reason,
+                    "actionNameCounts": source.action_name_counts,
                 }
             )
             continue
@@ -82,14 +85,22 @@ def build_manifest_from_root(
                 event_type for event_type in EVENT_TYPES if event_counts[event_type] == 0
             ]
             if missing_event_types:
+                reason = (
+                    "source is not safe as complete supervision: no coded "
+                    + ", ".join(missing_event_types)
+                    + " events were found"
+                )
                 skipped.append(
                     {
                         "packageRoot": str(source.package_root),
-                        "reason": (
-                            "source is not safe as complete supervision: no coded "
-                            + ", ".join(missing_event_types)
-                            + " events were found"
-                        ),
+                        "category": "missing-required-event-labels",
+                        "reason": reason,
+                        "missingEventTypes": missing_event_types,
+                        "recognizedEventCounts": {
+                            event_type: event_counts[event_type]
+                            for event_type in EVENT_TYPES
+                        },
+                        "actionNameCounts": source.action_name_counts,
                     }
                 )
                 continue
@@ -105,10 +116,13 @@ def build_manifest_from_root(
         except Exception as error:
             # Dataset discovery is a per-source boundary. A malformed historical
             # package must be reported and skipped rather than blocking all other matches.
+            reason = str(error)
             skipped.append(
                 {
                     "packageRoot": str(source.package_root),
-                    "reason": str(error),
+                    "category": _failure_category(reason),
+                    "reason": reason,
+                    "actionNameCounts": source.action_name_counts,
                 }
             )
 
@@ -177,13 +191,30 @@ def build_manifest_from_root(
         handle.write("\n")
 
     failure_categories = Counter(
-        _failure_category(item["reason"])
+        str(item.get("category") or _failure_category(str(item.get("reason", ""))))
         for item in skipped
     )
+    missing_type_counts = Counter()
+    missing_combinations = Counter()
+    for item in skipped:
+        missing = item.get("missingEventTypes")
+        if not isinstance(missing, list) or not missing:
+            continue
+        normalized_missing = tuple(str(value) for value in missing)
+        missing_type_counts.update(normalized_missing)
+        missing_combinations["+".join(normalized_missing)] += 1
+
     report_path = output_path.with_name(f"{output_path.stem}.sources.json")
     report["eventTypes"] = list(EVENT_TYPES)
     report["preparationFailures"] = skipped
     report["preparationFailureSummary"] = dict(sorted(failure_categories.items()))
+    report["missingEventTypeSummary"] = {
+        event_type: missing_type_counts[event_type]
+        for event_type in EVENT_TYPES
+    }
+    report["missingEventCombinationSummary"] = dict(
+        sorted(missing_combinations.items(), key=lambda item: (-item[1], item[0]))
+    )
     report["preparedSources"] = len(matches)
     report["preparedEventCounts"] = {
         event_type: all_event_counts[event_type]
