@@ -32,6 +32,27 @@ class ForwardedArgumentsTest(unittest.TestCase):
             ],
         )
 
+    def test_removes_separator_after_script_level_defaults(self) -> None:
+        self.assertEqual(
+            normalize_forwarded_args(
+                [
+                    "train",
+                    "--stride-seconds",
+                    "2.0",
+                    "--",
+                    "--root",
+                    "/tmp/data",
+                ]
+            ),
+            [
+                "train",
+                "--stride-seconds",
+                "2.0",
+                "--root",
+                "/tmp/data",
+            ],
+        )
+
     def test_preserves_normal_forwarded_arguments(self) -> None:
         args = ["prepare", "--root", "/tmp/data", "--output", "/tmp/manifest.json"]
         self.assertEqual(normalize_forwarded_args(args), args)
