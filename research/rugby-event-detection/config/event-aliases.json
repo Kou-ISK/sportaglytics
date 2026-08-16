@@ -1,5 +1,22 @@
 {
-  "kickoff": ["Kickoff", "Kick Off", "Kick-off", "キックオフ"],
+  "restart": [
+    "Restart",
+    "RESTART",
+    "リスタート",
+    "Kickoff",
+    "Kick Off",
+    "Kick-off",
+    "キックオフ",
+    "22m Dropout",
+    "22m Drop Out",
+    "22mドロップアウト",
+    "Try Line Dropout",
+    "Try-line Dropout",
+    "トライラインドロップアウト",
+    "Goal Line Dropout",
+    "Goal-line Dropout",
+    "ゴールラインドロップアウト"
+  ],
   "scrum": ["Scrum", "SCRUM", "スクラム"],
   "lineout": ["Lineout", "Line Out", "Line-out", "LINEOUT", "ラインアウト"]
 }
