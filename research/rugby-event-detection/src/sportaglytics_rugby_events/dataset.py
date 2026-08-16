@@ -6,8 +6,14 @@ import random
 import numpy as np
 
 from .models import LABEL_TO_ID
-from .schema import DatasetManifest, MatchManifest, TimelineSegment
+from .schema import DatasetManifest, EventAnnotation, MatchManifest, TimelineSegment
 from .video import read_uniform_rgb_frames
+
+# Existing coding ranges are intentionally weak supervision: users code a useful
+# review interval, not a frame-exact action boundary. Sample the early part of that
+# interval so long Restart sequences do not teach ordinary open play as Restart.
+DEFAULT_POSITIVE_SAMPLES_PER_EVENT = 2
+DEFAULT_POSITIVE_SPAN_SECONDS = 8.0
 
 
 @dataclass(frozen=True)
@@ -54,36 +60,87 @@ def _segment_for_time(
     )
 
 
+def _positive_centers(
+    event: EventAnnotation,
+    samples_per_event: int,
+    positive_span_seconds: float,
+) -> tuple[float, ...]:
+    if samples_per_event <= 0:
+        raise ValueError("samples_per_event must be positive")
+    if positive_span_seconds <= 0:
+        raise ValueError("positive_span_seconds must be positive")
+
+    supervision_end = min(
+        event.interval_end_seconds,
+        event.anchor_time_seconds + positive_span_seconds,
+    )
+    span = max(0.0, supervision_end - event.anchor_time_seconds)
+    if span <= 1e-6:
+        return (event.anchor_time_seconds,)
+
+    # Exclude the terminal endpoint. For a long coded sequence, the very end can
+    # already look like ordinary play rather than the set-piece/restart we want to spot.
+    step = span / samples_per_event
+    return tuple(
+        event.anchor_time_seconds + step * index
+        for index in range(samples_per_event)
+    )
+
+
 def build_positive_samples(
     matches: tuple[MatchManifest, ...],
     clip_duration_seconds: float,
+    samples_per_event: int = DEFAULT_POSITIVE_SAMPLES_PER_EVENT,
+    positive_span_seconds: float = DEFAULT_POSITIVE_SPAN_SECONDS,
 ) -> list[ClipSample]:
     samples: list[ClipSample] = []
     for match in matches:
         for event in match.events:
-            segment = _segment_for_time(match, event.anchor_time_seconds)
-            if segment is None:
-                continue
-            window = _window_in_segment(
-                segment,
-                event.anchor_time_seconds,
-                clip_duration_seconds,
-            )
-            if window is None:
-                continue
-            local_start, local_end = window
-            samples.append(
-                ClipSample(
-                    match_id=match.match_id,
-                    event_type=event.event_type,
-                    label_id=LABEL_TO_ID[event.event_type],
-                    segment=segment,
-                    local_start_seconds=local_start,
-                    local_end_seconds=local_end,
-                    global_center_seconds=event.anchor_time_seconds,
+            seen_windows: set[tuple[str, float, float]] = set()
+            for center_seconds in _positive_centers(
+                event,
+                samples_per_event,
+                positive_span_seconds,
+            ):
+                segment = _segment_for_time(match, center_seconds)
+                if segment is None:
+                    continue
+                window = _window_in_segment(
+                    segment,
+                    center_seconds,
+                    clip_duration_seconds,
                 )
-            )
+                if window is None:
+                    continue
+                local_start, local_end = window
+                window_key = (
+                    str(segment.video_path),
+                    round(local_start, 6),
+                    round(local_end, 6),
+                )
+                if window_key in seen_windows:
+                    continue
+                seen_windows.add(window_key)
+                samples.append(
+                    ClipSample(
+                        match_id=match.match_id,
+                        event_type=event.event_type,
+                        label_id=LABEL_TO_ID[event.event_type],
+                        segment=segment,
+                        local_start_seconds=local_start,
+                        local_end_seconds=local_end,
+                        global_center_seconds=center_seconds,
+                    )
+                )
     return samples
+
+
+def _distance_to_event_interval(center_seconds: float, event: EventAnnotation) -> float:
+    if center_seconds < event.anchor_time_seconds:
+        return event.anchor_time_seconds - center_seconds
+    if center_seconds > event.interval_end_seconds:
+        return center_seconds - event.interval_end_seconds
+    return 0.0
 
 
 def _negative_candidates(
@@ -94,7 +151,6 @@ def _negative_candidates(
     samples: list[ClipSample] = []
     stride = max(clip_duration_seconds, 1.0)
     for match in matches:
-        event_times = [event.anchor_time_seconds for event in match.events]
         for segment in match.segments:
             if segment.duration_seconds < clip_duration_seconds:
                 continue
@@ -103,7 +159,10 @@ def _negative_candidates(
             last_center = segment.timeline_end_seconds - half
             center = first_center
             while center <= last_center + 1e-6:
-                if all(abs(center - event_time) >= exclusion_seconds for event_time in event_times):
+                if all(
+                    _distance_to_event_interval(center, event) >= exclusion_seconds
+                    for event in match.events
+                ):
                     local_start = center - half - segment.timeline_start_seconds
                     samples.append(
                         ClipSample(
@@ -126,9 +185,16 @@ def build_training_samples(
     clip_duration_seconds: float,
     negative_ratio: float,
     seed: int,
+    positive_samples_per_event: int = DEFAULT_POSITIVE_SAMPLES_PER_EVENT,
+    positive_span_seconds: float = DEFAULT_POSITIVE_SPAN_SECONDS,
 ) -> list[ClipSample]:
     matches = tuple(match for match in manifest.matches if match.split == split)
-    positive = build_positive_samples(matches, clip_duration_seconds)
+    positive = build_positive_samples(
+        matches,
+        clip_duration_seconds,
+        samples_per_event=positive_samples_per_event,
+        positive_span_seconds=positive_span_seconds,
+    )
     negative = _negative_candidates(
         matches,
         clip_duration_seconds,
