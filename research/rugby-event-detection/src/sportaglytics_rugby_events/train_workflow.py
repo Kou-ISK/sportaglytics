@@ -5,6 +5,7 @@ from typing import Any
 
 from .auto_prepare import build_manifest_from_root
 from .benchmark import run_benchmark
+from .split_lock import default_split_lock_path
 
 
 def _progress(message: str) -> None:
@@ -37,14 +38,17 @@ def run_training_workflow(
 
     _progress(f"source discovery start: {root}")
     manifest_path = output_root / "manifest.json"
+    split_lock_path = default_split_lock_path(root)
     manifest, source_report = build_manifest_from_root(
         root=root,
         aliases_path=aliases_path.expanduser().resolve(),
         output_path=manifest_path,
         dataset_id=f"{root.name}-rugby-events",
         seed=seed,
+        split_lock_path=split_lock_path,
     )
     split = source_report.get("automaticSplit")
+    split_lock = source_report.get("splitLock", {})
     failure_summary = source_report.get("preparationFailureSummary", {})
     split_event_counts = source_report.get("splitEventCounts", {})
     prepared_event_counts = source_report.get("preparedEventCounts", {})
@@ -55,6 +59,12 @@ def run_training_workflow(
         f"dataset ready: usableMatches={len(manifest.matches)}, split={split}, "
         f"skippedSources={len(source_report.get('preparationFailures', []))}"
     )
+    if split_lock:
+        _progress(
+            f"split lock: status={split_lock.get('status')}, "
+            f"path={split_lock.get('path')}, "
+            f"preserved={split_lock.get('preservedCurrentMatches')}"
+        )
     _progress(f"prepared event counts: {prepared_event_counts}")
     _progress(f"split event counts: {split_event_counts}")
     if failure_summary:
@@ -95,6 +105,7 @@ def run_training_workflow(
         "sourceRoot": str(root),
         "usableMatches": len(manifest.matches),
         "split": split,
+        "splitLock": split_lock,
         "preparedEventCounts": prepared_event_counts,
         "splitEventCounts": split_event_counts,
         "skippedSources": len(source_report.get("preparationFailures", [])),
@@ -108,8 +119,10 @@ def run_training_workflow(
         "screeningWinner": benchmark_report.get("screeningWinner"),
         "results": benchmark_report.get("results", []),
         "testPolicy": (
-            "The held-out test split was not decoded or evaluated. Use qualify only after "
-            "the model, strategy, stride, NMS and validation thresholds are frozen, and only "
-            "when at least five held-out Test matches are available."
+            "The held-out test split was not decoded or evaluated. Existing split assignments "
+            "are locked across dataset growth so a previously used development match cannot "
+            "silently become Test. Use qualify only after the model, strategy, stride, NMS and "
+            "validation thresholds are frozen, and only when at least five held-out Test matches "
+            "are available."
         ),
     }
