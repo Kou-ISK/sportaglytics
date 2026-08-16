@@ -38,18 +38,22 @@ interface UseEventDetectionControllerResult {
 }
 
 const EVENT_NAMES: Record<RugbyEventType, string> = {
-  kickoff: 'Kickoff',
+  restart: 'リスタート',
   scrum: 'Scrum',
   lineout: 'Lineout',
   maul: 'Maul',
   goalKick: 'Goal Kick',
 };
 
+const EVENT_NAME_ALIASES: Partial<Record<RugbyEventType, readonly string[]>> = {
+  restart: ['リスタート', 'Restart', 'Kickoff', 'Kick Off', 'キックオフ'],
+};
+
 const DEFAULT_RANGES: Record<
   RugbyEventType,
   { leadTimeSeconds: number; lagTimeSeconds: number }
 > = {
-  kickoff: { leadTimeSeconds: 5, lagTimeSeconds: 15 },
+  restart: { leadTimeSeconds: 5, lagTimeSeconds: 15 },
   scrum: { leadTimeSeconds: 5, lagTimeSeconds: 10 },
   lineout: { leadTimeSeconds: 5, lagTimeSeconds: 10 },
   maul: { leadTimeSeconds: 5, lagTimeSeconds: 10 },
@@ -66,17 +70,20 @@ const createRequestId = (): string => {
   return `event-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 };
 
+const normalizeEventName = (value: string): string =>
+  value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+
 const buildMappings = (
   model: EventDetectionModelInfo,
   activeCodeWindow?: CodeWindowLayout,
 ): EventTimelineMapping[] => {
   return model.events.map((eventType) => {
     const defaultName = EVENT_NAMES[eventType];
+    const aliases = EVENT_NAME_ALIASES[eventType] ?? [defaultName];
+    const normalizedAliases = new Set(aliases.map(normalizeEventName));
     const configuredButton = activeCodeWindow?.buttons.find(
       (button) =>
-        button.type === 'action' &&
-        button.name.trim().toLocaleLowerCase() ===
-          defaultName.toLocaleLowerCase(),
+        button.type === 'action' && normalizedAliases.has(normalizeEventName(button.name)),
     );
     const defaultRange = DEFAULT_RANGES[eventType];
     const metric = model.metrics[eventType];
