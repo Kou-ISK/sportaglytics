@@ -7,8 +7,9 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from .dataset import ClipSample, decode_samples
+from .dataset import ClipSample, LABEL_TO_ID, decode_samples
 from .models import LABELS, ModelBundle
+from .schema import EVENT_TYPES
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,17 @@ class TrainingSummary:
     validation_samples: int
     best_validation_loss: float
     best_validation_accuracy: float
+
+
+@dataclass(frozen=True)
+class HardNegativeMiningSummary:
+    candidate_pool: int
+    scored_candidates: int
+    selected_samples: int
+    min_event_confidence: float
+    minimum_selected_score: float | None
+    mean_selected_score: float | None
+    maximum_selected_score: float | None
 
 
 def _progress(message: str) -> None:
@@ -83,6 +95,95 @@ def _evaluate_classification(
                     f"({min(count, len(samples))}/{len(samples)} samples)"
                 )
     return loss_total / count, correct / count
+
+
+def mine_hard_negative_samples(
+    bundle: ModelBundle,
+    candidates: list[ClipSample],
+    batch_size: int,
+    max_samples: int,
+    max_scored_candidates: int,
+    min_event_confidence: float,
+    seed: int,
+) -> tuple[list[ClipSample], HardNegativeMiningSummary]:
+    """Select background clips the current model most strongly mistakes for an event.
+
+    Callers must provide candidates from the Train split only. This function never
+    reads Validation/Test manifests and therefore keeps model selection leakage-safe.
+    """
+
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+    if max_samples < 0 or max_scored_candidates < 0:
+        raise ValueError("hard-negative sample limits must be >= 0")
+    if not 0 <= min_event_confidence <= 1:
+        raise ValueError("min_event_confidence must be between 0 and 1")
+    if not candidates or max_samples == 0 or max_scored_candidates == 0:
+        return [], HardNegativeMiningSummary(
+            candidate_pool=len(candidates),
+            scored_candidates=0,
+            selected_samples=0,
+            min_event_confidence=min_event_confidence,
+            minimum_selected_score=None,
+            mean_selected_score=None,
+            maximum_selected_score=None,
+        )
+
+    rng = random.Random(seed)
+    scoring_pool = list(candidates)
+    if len(scoring_pool) > max_scored_candidates:
+        scoring_pool = rng.sample(scoring_pool, max_scored_candidates)
+
+    bundle.model.eval()
+    scored: list[tuple[float, ClipSample]] = []
+    batches = _batches(scoring_pool, batch_size)
+    report_every = max(1, len(batches) // 5)
+    processed = 0
+    _progress(
+        f"hard-negative mining start: backgroundPool={len(candidates)}, "
+        f"scoring={len(scoring_pool)}, target={max_samples}, "
+        f"minEventConfidence={min_event_confidence:.2f}"
+    )
+    with torch.no_grad():
+        for batch_index, batch in enumerate(batches, start=1):
+            clips = decode_samples(batch, bundle.candidate.num_frames)
+            probabilities = bundle.probabilities(clips).detach().cpu()
+            for row, sample in enumerate(batch):
+                event_score = max(
+                    float(probabilities[row, LABEL_TO_ID[event_type]].item())
+                    for event_type in EVENT_TYPES
+                )
+                if event_score >= min_event_confidence:
+                    scored.append((event_score, sample))
+            processed += len(batch)
+            if batch_index == 1 or batch_index == len(batches) or batch_index % report_every == 0:
+                _progress(
+                    f"hard-negative mining {processed}/{len(scoring_pool)} candidates "
+                    f"({100.0 * processed / len(scoring_pool):.0f}%)"
+                )
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    selected_pairs = scored[:max_samples]
+    selected = [sample for _, sample in selected_pairs]
+    selected_scores = [score for score, _ in selected_pairs]
+    summary = HardNegativeMiningSummary(
+        candidate_pool=len(candidates),
+        scored_candidates=len(scoring_pool),
+        selected_samples=len(selected),
+        min_event_confidence=min_event_confidence,
+        minimum_selected_score=min(selected_scores) if selected_scores else None,
+        mean_selected_score=(
+            sum(selected_scores) / len(selected_scores)
+            if selected_scores
+            else None
+        ),
+        maximum_selected_score=max(selected_scores) if selected_scores else None,
+    )
+    _progress(
+        f"hard-negative mining complete: selected={summary.selected_samples}, "
+        f"meanScore={summary.mean_selected_score if summary.mean_selected_score is not None else 0.0:.3f}"
+    )
+    return selected, summary
 
 
 def train_model(
