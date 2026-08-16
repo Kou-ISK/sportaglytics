@@ -2,6 +2,7 @@
   "version": 1,
   "datasetId": "rugby-events-v1",
   "eventAnchorOffsetsSeconds": {
+    "restart": 0,
     "scrum": 0,
     "lineout": 0
   },
