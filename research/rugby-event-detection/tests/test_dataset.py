@@ -8,10 +8,11 @@ RESEARCH_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RESEARCH_ROOT / "src"))
 
 from sportaglytics_rugby_events.dataset import (  # noqa: E402
-    _negative_candidates,
+    build_negative_candidate_pool,
     build_positive_samples,
 )
 from sportaglytics_rugby_events.schema import (  # noqa: E402
+    DatasetManifest,
     EventAnnotation,
     MatchManifest,
     TimelineSegment,
@@ -73,7 +74,7 @@ class DatasetSamplingTest(unittest.TestCase):
         self.assertEqual(len(samples), 1)
         self.assertAlmostEqual(samples[0].global_center_seconds, 20.0)
 
-    def test_negative_sampling_excludes_full_coded_interval_and_margin(self) -> None:
+    def test_negative_pool_excludes_full_coded_interval_and_margin(self) -> None:
         match = make_match(
             EventAnnotation(
                 event_type="restart",
@@ -81,9 +82,11 @@ class DatasetSamplingTest(unittest.TestCase):
                 end_time_seconds=30,
             )
         )
+        manifest = DatasetManifest(dataset_id="test", matches=(match,))
 
-        samples = _negative_candidates(
-            (match,),
+        samples = build_negative_candidate_pool(
+            manifest,
+            split="train",
             clip_duration_seconds=2.0,
             exclusion_seconds=5.0,
         )
@@ -92,6 +95,7 @@ class DatasetSamplingTest(unittest.TestCase):
         self.assertTrue(centers)
         self.assertTrue(all(center <= 5.0 or center >= 35.0 for center in centers))
         self.assertFalse(any(10.0 <= center <= 30.0 for center in centers))
+        self.assertTrue(all(sample.event_type == "other" for sample in samples))
 
 
 if __name__ == "__main__":
