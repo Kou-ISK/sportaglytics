@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
 
-EVENT_TYPES = ("scrum", "lineout")
+EVENT_TYPES = ("restart", "scrum", "lineout")
 Split = Literal["train", "validation", "test"]
 
 
