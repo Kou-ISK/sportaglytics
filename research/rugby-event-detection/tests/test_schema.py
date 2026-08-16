@@ -9,6 +9,7 @@ sys.path.insert(0, str(RESEARCH_ROOT / "src"))
 
 from sportaglytics_rugby_events.schema import (  # noqa: E402
     DatasetManifest,
+    EVENT_TYPES,
     EventAnnotation,
     ModelCandidate,
 )
@@ -26,6 +27,24 @@ class SchemaTest(unittest.TestCase):
                     "productionEligible": "false",
                     "numFrames": 13,
                     "clipDurationSeconds": 2.6,
+                }
+            )
+
+    def test_initial_event_schema_uses_restart_not_kickoff(self) -> None:
+        self.assertEqual(EVENT_TYPES, ("restart", "scrum", "lineout"))
+        event = EventAnnotation.from_json(
+            {
+                "eventType": "restart",
+                "anchorTimeSeconds": 12.5,
+                "sourceActionName": "リスタート",
+            }
+        )
+        self.assertEqual(event.event_type, "restart")
+        with self.assertRaisesRegex(ValueError, "unsupported event type"):
+            EventAnnotation.from_json(
+                {
+                    "eventType": "kickoff",
+                    "anchorTimeSeconds": 12.5,
                 }
             )
 
