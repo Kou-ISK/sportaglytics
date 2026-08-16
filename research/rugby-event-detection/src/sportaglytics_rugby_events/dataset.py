@@ -2,12 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import random
+from typing import TYPE_CHECKING
 
-import numpy as np
+from .schema import EVENT_TYPES, DatasetManifest, EventAnnotation, MatchManifest, TimelineSegment
 
-from .models import LABEL_TO_ID
-from .schema import DatasetManifest, EventAnnotation, MatchManifest, TimelineSegment
-from .video import read_uniform_rgb_frames
+if TYPE_CHECKING:
+    import numpy as np
+
+LABEL_TO_ID = {
+    label: index
+    for index, label in enumerate((*EVENT_TYPES, "other"))
+}
 
 # Existing coding ranges are intentionally weak supervision: users code a useful
 # review interval, not a frame-exact action boundary. Sample the early part of that
@@ -216,6 +221,10 @@ def decode_samples(
     samples: list[ClipSample],
     num_frames: int,
 ) -> list[np.ndarray]:
+    # Keep discovery/sampling importable in the lightweight CI environment.
+    # Video/ML dependencies are required only when clips are actually decoded.
+    from .video import read_uniform_rgb_frames
+
     return [
         read_uniform_rgb_frames(
             sample.segment.video_path,
