@@ -20,6 +20,10 @@ class TrainingSummary:
     best_validation_accuracy: float
 
 
+def _progress(message: str) -> None:
+    print(f"[rugby-events] {message}", flush=True)
+
+
 def _batches(
     samples: list[ClipSample],
     batch_size: int,
@@ -58,8 +62,10 @@ def _evaluate_classification(
     loss_total = 0.0
     correct = 0
     count = 0
+    batches = _batches(samples, batch_size)
+    report_every = max(1, len(batches) // 5)
     with torch.no_grad():
-        for batch in _batches(samples, batch_size):
+        for batch_index, batch in enumerate(batches, start=1):
             clips = decode_samples(batch, bundle.candidate.num_frames)
             labels = torch.tensor(
                 [sample.label_id for sample in batch],
@@ -71,6 +77,11 @@ def _evaluate_classification(
             loss_total += float(loss.detach().cpu()) * len(batch)
             correct += int((logits.argmax(dim=1) == labels).sum().detach().cpu())
             count += len(batch)
+            if batch_index == 1 or batch_index == len(batches) or batch_index % report_every == 0:
+                _progress(
+                    f"validation clips {batch_index}/{len(batches)} batches "
+                    f"({min(count, len(samples))}/{len(samples)} samples)"
+                )
     return loss_total / count, correct / count
 
 
@@ -109,6 +120,12 @@ def train_model(
     best_state: dict[str, torch.Tensor] | None = None
     shuffled = list(train_samples)
 
+    _progress(
+        f"training start: device={bundle.device}, strategy={bundle.strategy}, "
+        f"train={len(train_samples)} clips, validation={len(validation_samples)} clips, "
+        f"epochs={epochs}, batchSize={batch_size}"
+    )
+
     for epoch in range(epochs):
         random.Random(seed + epoch).shuffle(shuffled)
         if bundle.strategy == "full":
@@ -117,7 +134,12 @@ def train_model(
             # Keep frozen batch-normalization/statistical layers stable in head-only screening.
             bundle.model.eval()
 
-        for batch in _batches(shuffled, batch_size):
+        batches = _batches(shuffled, batch_size)
+        report_every = max(1, len(batches) // 10)
+        running_loss = 0.0
+        processed = 0
+        _progress(f"epoch {epoch + 1}/{epochs} started ({len(batches)} batches)")
+        for batch_index, batch in enumerate(batches, start=1):
             clips = decode_samples(batch, bundle.candidate.num_frames)
             labels = torch.tensor(
                 [sample.label_id for sample in batch],
@@ -129,12 +151,27 @@ def train_model(
             loss = criterion(logits, labels)
             loss.backward()
             optimizer.step()
+            batch_loss = float(loss.detach().cpu())
+            running_loss += batch_loss * len(batch)
+            processed += len(batch)
+            if batch_index == 1 or batch_index == len(batches) or batch_index % report_every == 0:
+                _progress(
+                    f"epoch {epoch + 1}/{epochs}: {batch_index}/{len(batches)} batches "
+                    f"({processed}/{len(shuffled)} samples), "
+                    f"meanLoss={running_loss / processed:.4f}"
+                )
 
+        _progress(f"epoch {epoch + 1}/{epochs}: running validation classification")
         validation_loss, validation_accuracy = _evaluate_classification(
             bundle,
             validation_samples,
             batch_size,
             criterion,
+        )
+        _progress(
+            f"epoch {epoch + 1}/{epochs} complete: "
+            f"validationLoss={validation_loss:.4f}, "
+            f"validationAccuracy={validation_accuracy:.3f}"
         )
         if validation_loss < best_loss:
             best_loss = validation_loss
@@ -143,12 +180,14 @@ def train_model(
                 key: value.detach().cpu().clone()
                 for key, value in bundle.model.state_dict().items()
             }
+            _progress(f"epoch {epoch + 1}/{epochs}: new best checkpoint selected")
 
     if best_state is None:
         raise RuntimeError("training did not produce a checkpoint")
     bundle.model.load_state_dict(best_state)
     bundle.model.to(bundle.device)
     bundle.save(output_path)
+    _progress(f"training checkpoint saved: {output_path}")
     return TrainingSummary(
         epochs=epochs,
         train_samples=len(train_samples),
