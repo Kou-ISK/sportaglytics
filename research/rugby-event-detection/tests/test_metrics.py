@@ -31,6 +31,7 @@ def make_match(match_id: str, split: str, event_time: float) -> MatchManifest:
             ),
         ),
         events=(
+            EventAnnotation(event_type="restart", anchor_time_seconds=event_time + 5),
             EventAnnotation(event_type="scrum", anchor_time_seconds=event_time + 10),
             EventAnnotation(event_type="lineout", anchor_time_seconds=event_time + 20),
         ),
@@ -68,6 +69,7 @@ class MetricsTest(unittest.TestCase):
         predictions: list[Prediction] = []
         for match in matches:
             for event_type, event_time in (
+                ("restart", 15.0),
                 ("scrum", 20.0),
                 ("lineout", 30.0),
             ):
@@ -79,8 +81,10 @@ class MetricsTest(unittest.TestCase):
                 )
 
         thresholds = select_thresholds(matches, predictions)
+        self.assertGreater(thresholds["restart"], 0.60)
         self.assertGreater(thresholds["scrum"], 0.60)
         self.assertGreater(thresholds["lineout"], 0.60)
+        self.assertLessEqual(thresholds["restart"], 0.90)
         self.assertLessEqual(thresholds["scrum"], 0.90)
 
 
