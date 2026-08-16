@@ -10,10 +10,12 @@ from .auto_prepare import build_manifest_from_root
 from .benchmark import run_benchmark, run_qualification
 from .manifest import build_manifest
 from .sources import write_inspection_report
+from .train_workflow import run_training_workflow
 
 RESEARCH_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ALIASES = RESEARCH_ROOT / "config" / "event-aliases.json"
 DEFAULT_MODELS = RESEARCH_ROOT / "config" / "model-benchmarks.json"
+DEFAULT_TRAIN_MODEL = "x3d-s-kinetics400"
 
 
 def _selected_model_ids(value: str | None) -> set[str] | None:
@@ -28,6 +30,21 @@ def _add_scan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--stride-seconds", type=float, default=0.5)
     parser.add_argument("--nms-seconds", type=float, default=4.0)
+
+
+def _add_training_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--strategy",
+        choices=("head", "full"),
+        default="head",
+        help="Train only the classifier head for screening, or fine-tune the full backbone.",
+    )
+    _add_scan_arguments(parser)
+    parser.add_argument("--epochs", type=int, default=5)
+    parser.add_argument("--learning-rate", type=float, default=None)
+    parser.add_argument("--weight-decay", type=float, default=0.01)
+    parser.add_argument("--negative-ratio", type=float, default=2.0)
+    parser.add_argument("--seed", type=int, default=42)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -76,6 +93,34 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Deterministic match-level train/validation/test split seed in --root mode.",
     )
 
+    train = subparsers.add_parser(
+        "train",
+        help=(
+            "One-command workflow: discover coded matches, create a leakage-safe manifest "
+            "and train one pretrained development candidate on train/validation only."
+        ),
+    )
+    train.add_argument(
+        "--root",
+        type=Path,
+        required=True,
+        help="Parent directory containing coded current or supported legacy packages.",
+    )
+    train.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Run directory. Defaults to research/rugby-event-detection/runs/<root-name>-x3d-head.",
+    )
+    train.add_argument("--aliases", type=Path, default=DEFAULT_ALIASES)
+    train.add_argument("--models-config", type=Path, default=DEFAULT_MODELS)
+    train.add_argument(
+        "--model",
+        default=DEFAULT_TRAIN_MODEL,
+        help=f"Pretrained model id. Defaults to {DEFAULT_TRAIN_MODEL}.",
+    )
+    _add_training_arguments(train)
+
     benchmark = subparsers.add_parser(
         "benchmark",
         help=(
@@ -92,18 +137,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Comma-separated model ids. Defaults to all configured candidates.",
     )
-    benchmark.add_argument(
-        "--strategy",
-        choices=("head", "full"),
-        default="head",
-        help="Train only the classifier head for screening, or fine-tune the full backbone.",
-    )
-    _add_scan_arguments(benchmark)
-    benchmark.add_argument("--epochs", type=int, default=5)
-    benchmark.add_argument("--learning-rate", type=float, default=None)
-    benchmark.add_argument("--weight-decay", type=float, default=0.01)
-    benchmark.add_argument("--negative-ratio", type=float, default=2.0)
-    benchmark.add_argument("--seed", type=int, default=42)
+    _add_training_arguments(benchmark)
 
     qualify = subparsers.add_parser(
         "qualify",
@@ -126,6 +160,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     _add_scan_arguments(qualify)
     return parser
+
+
+def _default_train_output(root: Path, strategy: str) -> Path:
+    root_name = root.expanduser().resolve().name or "rugby-events"
+    model_name = "x3d" if DEFAULT_TRAIN_MODEL.startswith("x3d") else "model"
+    return RESEARCH_ROOT / "runs" / f"{root_name}-{model_name}-{strategy}"
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -196,6 +236,33 @@ def main(argv: list[str] | None = None) -> None:
                 indent=2,
             )
         )
+        return
+
+    if args.command == "train":
+        root = args.root.expanduser().resolve()
+        output_root = (
+            args.output_dir.expanduser().resolve()
+            if args.output_dir is not None
+            else _default_train_output(root, args.strategy).resolve()
+        )
+        report = run_training_workflow(
+            root=root,
+            output_root=output_root,
+            aliases_path=args.aliases,
+            models_config_path=args.models_config,
+            model_id=args.model,
+            strategy=args.strategy,
+            device_name=args.device,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            weight_decay=args.weight_decay,
+            negative_ratio=args.negative_ratio,
+            stride_seconds=args.stride_seconds,
+            nms_seconds=args.nms_seconds,
+            seed=args.seed,
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2))
         return
 
     if args.command == "benchmark":
