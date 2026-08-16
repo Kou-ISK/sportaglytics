@@ -48,11 +48,12 @@ class SchemaTest(unittest.TestCase):
                 }
             )
 
-    def test_event_annotation_preserves_possession_metadata(self) -> None:
+    def test_event_annotation_preserves_coded_interval_and_metadata(self) -> None:
         event = EventAnnotation.from_json(
             {
                 "eventType": "scrum",
                 "anchorTimeSeconds": 123.4,
+                "endTimeSeconds": 136.2,
                 "possessionLabel": "帝京",
                 "sourceActionName": "帝京 スクラム",
             }
@@ -61,6 +62,17 @@ class SchemaTest(unittest.TestCase):
         self.assertEqual(event.event_type, "scrum")
         self.assertEqual(event.possession_label, "帝京")
         self.assertEqual(event.source_action_name, "帝京 スクラム")
+        self.assertAlmostEqual(event.interval_end_seconds, 136.2)
+
+    def test_event_annotation_clamps_invalid_end_before_anchor(self) -> None:
+        event = EventAnnotation.from_json(
+            {
+                "eventType": "lineout",
+                "anchorTimeSeconds": 50.0,
+                "endTimeSeconds": 45.0,
+            }
+        )
+        self.assertAlmostEqual(event.interval_end_seconds, 50.0)
 
     def test_dataset_requires_train_validation_and_test_splits(self) -> None:
         base_match = {
