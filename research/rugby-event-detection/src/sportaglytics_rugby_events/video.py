@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import av
@@ -71,6 +72,131 @@ def read_uniform_rgb_frames(
     source_times = np.asarray(timestamps, dtype=np.float64)
     indices = np.abs(source_times[:, None] - targets[None, :]).argmin(axis=0)
     return np.stack([frames[int(index)] for index in indices], axis=0)
+
+
+def iter_uniform_rgb_windows(
+    path: Path,
+    windows: Sequence[tuple[float, float]],
+    num_frames: int,
+) -> Iterator[np.ndarray]:
+    """Decode many chronological windows with one sequential pass through a video.
+
+    Whole-match spotting previously reopened and sought the same video once per window.
+    This iterator flattens each window's target timestamps, decodes the source once, and
+    yields completed windows in input order. Only target frames for the small number of
+    overlapping windows are retained, so memory use stays bounded by window overlap rather
+    than match duration.
+    """
+
+    if num_frames <= 0:
+        raise ValueError("num_frames must be positive")
+    if not windows:
+        return
+
+    normalized: list[tuple[float, float]] = []
+    previous_start = -1.0
+    for start_seconds, end_seconds in windows:
+        if start_seconds < 0:
+            raise ValueError("window start must be >= 0")
+        if end_seconds <= start_seconds:
+            raise ValueError("window end must be after start")
+        if start_seconds + 1e-9 < previous_start:
+            raise ValueError("windows must be ordered by start time")
+        normalized.append((start_seconds, end_seconds))
+        previous_start = start_seconds
+
+    targets: list[tuple[float, int, int]] = []
+    slots: list[list[np.ndarray | None]] = [
+        [None for _ in range(num_frames)] for _ in normalized
+    ]
+    for window_index, (start_seconds, end_seconds) in enumerate(normalized):
+        for sample_index, target in enumerate(
+            np.linspace(start_seconds, end_seconds, num_frames, dtype=np.float64)
+        ):
+            targets.append((float(target), window_index, sample_index))
+    targets.sort(key=lambda item: item[0])
+
+    target_index = 0
+    next_window_to_yield = 0
+    previous_frame: av.VideoFrame | None = None
+    previous_timestamp: float | None = None
+    previous_rgb: np.ndarray | None = None
+
+    with av.open(str(path)) as container:
+        stream = container.streams.video[0]
+        stream.thread_type = "AUTO"
+        if stream.time_base is not None:
+            first_target = targets[0][0]
+            seek_offset = int(max(0.0, first_target - 1.0) / float(stream.time_base))
+            container.seek(seek_offset, stream=stream, any_frame=False, backward=True)
+
+        for current_frame in container.decode(stream):
+            current_timestamp = _frame_timestamp_seconds(current_frame, stream)
+            if current_timestamp is None:
+                continue
+            if current_timestamp + 1e-6 < targets[0][0]:
+                previous_frame = current_frame
+                previous_timestamp = current_timestamp
+                previous_rgb = None
+                continue
+
+            current_rgb: np.ndarray | None = None
+            while target_index < len(targets) and targets[target_index][0] <= current_timestamp:
+                target, window_index, sample_index = targets[target_index]
+                choose_previous = (
+                    previous_frame is not None
+                    and previous_timestamp is not None
+                    and abs(previous_timestamp - target) <= abs(current_timestamp - target)
+                )
+                if choose_previous:
+                    if previous_rgb is None:
+                        previous_rgb = previous_frame.to_ndarray(format="rgb24")
+                    selected = previous_rgb
+                else:
+                    if current_rgb is None:
+                        current_rgb = current_frame.to_ndarray(format="rgb24")
+                    selected = current_rgb
+                slots[window_index][sample_index] = selected
+                target_index += 1
+
+                while next_window_to_yield < len(slots) and all(
+                    frame is not None for frame in slots[next_window_to_yield]
+                ):
+                    completed = slots[next_window_to_yield]
+                    yield np.stack(
+                        [frame for frame in completed if frame is not None],
+                        axis=0,
+                    )
+                    slots[next_window_to_yield] = []
+                    next_window_to_yield += 1
+
+            previous_frame = current_frame
+            previous_timestamp = current_timestamp
+            previous_rgb = current_rgb
+            if target_index >= len(targets):
+                break
+
+    if target_index < len(targets):
+        if previous_frame is None:
+            raise ValueError(f"no video frames decoded for {path}")
+        if previous_rgb is None:
+            previous_rgb = previous_frame.to_ndarray(format="rgb24")
+        while target_index < len(targets):
+            _, window_index, sample_index = targets[target_index]
+            slots[window_index][sample_index] = previous_rgb
+            target_index += 1
+
+    while next_window_to_yield < len(slots):
+        completed = slots[next_window_to_yield]
+        if len(completed) != num_frames or any(frame is None for frame in completed):
+            raise ValueError(
+                f"unable to decode all target frames for {path}, window {next_window_to_yield}"
+            )
+        yield np.stack(
+            [frame for frame in completed if frame is not None],
+            axis=0,
+        )
+        next_window_to_yield += 1
 
 
 def preprocess_kinetics_tensor(
