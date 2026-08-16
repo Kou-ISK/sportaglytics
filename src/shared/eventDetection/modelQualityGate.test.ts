@@ -31,8 +31,8 @@ describe('event detection quality gate', () => {
 
   it('promotes only event classes that independently pass the gate', () => {
     expect(
-      getVerifiedEventTypes(['kickoff', 'scrum'], {
-        kickoff: {
+      getVerifiedEventTypes(['restart', 'scrum'], {
+        restart: {
           precision: 0.97,
           recall: 0.94,
           evaluatedMatches: 7,
@@ -47,6 +47,6 @@ describe('event detection quality gate', () => {
           timestampWithinTwoSecondsRate: 0.95,
         },
       }),
-    ).toEqual(['kickoff']);
+    ).toEqual(['restart']);
   });
 });
