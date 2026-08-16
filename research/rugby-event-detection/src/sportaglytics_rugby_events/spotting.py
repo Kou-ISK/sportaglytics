@@ -32,6 +32,10 @@ class ScanSummary:
         return self.wall_seconds / (self.video_seconds / 60.0)
 
 
+def _progress(message: str) -> None:
+    print(f"[rugby-events] {message}", flush=True)
+
+
 def _scan_windows(
     matches: tuple[MatchManifest, ...],
     clip_duration_seconds: float,
@@ -113,9 +117,15 @@ def scan_matches(
         stride_seconds,
     )
     raw_predictions: list[Prediction] = []
+    total_batches = (len(windows) + batch_size - 1) // batch_size
+    report_every = max(1, total_batches // 20) if total_batches else 1
+    _progress(
+        f"whole-match scan start: matches={len(matches)}, windows={len(windows)}, "
+        f"stride={stride_seconds:.2f}s, batches={total_batches}, device={bundle.device}"
+    )
     start_time = time.perf_counter()
 
-    for index in range(0, len(windows), batch_size):
+    for batch_index, index in enumerate(range(0, len(windows), batch_size), start=1):
         batch = windows[index : index + batch_size]
         clips = [
             read_uniform_rgb_frames(
@@ -139,6 +149,13 @@ def scan_matches(
                         ),
                     )
                 )
+        if batch_index == 1 or batch_index == total_batches or batch_index % report_every == 0:
+            elapsed = time.perf_counter() - start_time
+            percent = 100.0 * batch_index / max(1, total_batches)
+            _progress(
+                f"whole-match scan {batch_index}/{total_batches} batches "
+                f"({percent:.0f}%), elapsed={elapsed:.1f}s"
+            )
 
     wall_seconds = time.perf_counter() - start_time
     predictions = _temporal_nms(
@@ -149,6 +166,10 @@ def scan_matches(
         segment.duration_seconds
         for match in matches
         for segment in match.segments
+    )
+    _progress(
+        f"whole-match scan complete: windows={len(windows)}, "
+        f"elapsed={wall_seconds:.1f}s, candidatesAfterNms={len(predictions)}"
     )
     return ScanSummary(
         predictions=predictions,
