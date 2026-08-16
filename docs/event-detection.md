@@ -27,6 +27,22 @@
 
 自動検出専用Timelineや専用レビューキューは持ちません。
 
+## Coding区間を教師データとして扱う
+
+SporTagLyticsのCodingはframe-exactなannotationではなく、分析者が後から見返しやすい「大体の区間」で構いません。
+
+現在の想定例:
+
+- `restart`: キック付近から、その後の1シークエンスが終わる程度まで
+- `scrum`: クラウチ付近からスクラム局面が分かる範囲
+- `lineout`: 選手が並んだ付近からラインアウト局面が分かる範囲
+
+研究manifestはTimelineの `startTime` と `endTime` の両方を保持します。学習時は長いCoding区間全体を同じ強さの正例にはしません。Restartの後半など通常のオープンプレーへ移行した映像を誤ってRestartとして学習しないよう、既定では各eventについてCoding開始側の最大8秒を弱教師区間とし、その中から2 clipを正例として生成します。
+
+負例 (`other`) は **Codingされた区間全体とその周辺余白を除外してから**生成します。これにより、長めにCodingされたRestartの後半が誤って`other`として学習されることを防ぎます。
+
+この設計の目的は、厳密な開始frameを当てることではなく、試合全体からRestart / Scrum / Lineoutの局面を十分なPrecision / Recallで見つけて、後から人が必要に応じてTimeline範囲を微調整できる状態を作ることです。
+
 ## Code Windowの記録範囲
 
 Action buttonには次を保存できます。
@@ -47,11 +63,24 @@ UIでは「開始前に含める秒数」「終了後に含める秒数」と表
 | Precision | 0.95 |
 | Recall | 0.90 |
 | unseen test matches | 5 |
-| TPのうち正解時刻±2秒以内 | 0.90 |
+| TPのうちCoding区間から2秒以内 | 0.90 |
 
-通常のevent matching toleranceは±5秒です。
+通常のevent matching toleranceはCoding区間から5秒です。予測時刻が人間のCoding区間内に入っていれば時刻誤差は0秒として扱い、区間外の場合だけ最も近い区間境界からの距離を測ります。
 
-評価時に確定した `confidenceThreshold` をmodel manifestへ保存し、production runtimeではその値未満へ下げません。これらは研究分野一般の標準値ではなく、SporTagLyticsで誤検出修正の負担が手動Codingの負担を上回らないための製品採用基準です。
+したがって、例えば正解Codingが `10:20-10:35` でAIが `10:27` を検出した場合は完全な時刻一致です。`startTime=10:20` との差7秒を誤差として扱いません。
+
+評価時に確定したproduct用 `confidenceThreshold` をmodel manifestへ保存し、production runtimeではその値未満へ下げません。これらは研究分野一般の標準値ではなく、SporTagLyticsで誤検出修正の負担が手動Codingの負担を上回らないための製品採用基準です。
+
+## Research評価とProduct評価を分離する
+
+開発途中にPrecision 0.95だけを優先すると、「10件中1件だけ検出してPrecision 1.0」のようなモデルを過大評価できます。そのためValidationでは2種類のoperating pointを別々に保存します。
+
+- **Research threshold**: classごとのF1が最大になるthreshold。モデル自体の識別能力の比較に使用する。
+- **Product threshold**: Precision 0.95を優先した保守的threshold。最終qualificationでのみ使用する。
+
+benchmark reportには、best-F1、best-F1時のPrecision / Recall、Precision 0.95を維持できる最大Recall、Recall 0.90を維持できる最大Precisionをclassごとに記録します。
+
+モデルfamilyやfine-tuning戦略の研究比較順位はResearch threshold側を使用します。Testへ持ち込むthresholdはProduct thresholdだけです。
 
 ## Dataset split policy
 
@@ -64,6 +93,8 @@ frame単位・clip単位のrandom splitは禁止します。同じ試合の隣�
 - `test`: 凍結済み1モデルの最終production qualificationのみ
 
 **Test splitを複数モデルの比較に使用してはいけません。** Test結果を見てmodel、strategy、threshold、stride、NMS等を変更した場合、そのTest setは次のproduction claimへ再利用せず、新しいheld-out Test setを用意します。
+
+Production quality gateはunseen Test 5試合を要求するため、自動splitでこの条件を満たすには少なくとも12試合の安全な完全Coding済みmatchが必要です。それ未満のrunはdevelopment-onlyです。
 
 ## Pretrained model research
 
@@ -118,13 +149,14 @@ pnpm run research:events:train -- \
 }
 ```
 
-教師anchorは次で算出します。
+教師区間は次で算出します。
 
 ```text
-anchor = Timeline startTime + eventAnchorOffsetsSeconds[eventType]
+start = Timeline startTime + eventAnchorOffsetsSeconds[eventType]
+end   = Timeline endTime   + eventAnchorOffsetsSeconds[eventType]
 ```
 
-元Codingで使用したlead秒数を指定してください。既にevent onsetへtrim済みなら0秒です。Packageごとのoverrideも可能です。
+元Codingで使用したlead秒数を指定してください。既にevent onset付近からCodingされている場合は0秒のままで構いません。
 
 ### Validation-only screening
 
@@ -138,11 +170,11 @@ pnpm run research:events:benchmark -- \
   --strategy head
 ```
 
-`benchmark` はTrainでfine-tuningし、Validation試合全体をsliding-window scanしてclass別NMSとconfidence threshold選択を行います。Test映像はdecodeも評価もしません。
+`benchmark` はTrainでfine-tuningし、Validation試合全体をsliding-window scanしてclass別NMSを行います。その後Research thresholdとProduct thresholdをそれぞれValidationだけで決定します。Test映像はdecodeも評価もしません。
 
 ### Frozen held-out qualification
 
-Model family、training strategy、stride/NMS、checkpoint、validation-selected thresholdsを凍結した後、production-eligibleな**1モデルだけ**をTestへ通します。
+Model family、training strategy、stride/NMS、checkpoint、product validation thresholdsを凍結した後、production-eligibleな**1モデルだけ**をTestへ通します。
 
 ```bash
 pnpm run research:events:qualify -- \
@@ -155,6 +187,20 @@ pnpm run research:events:qualify -- \
 ```
 
 Test結果を見てモデル設計を変更した場合、そのTest setは次のproduction claimへ再利用しません。
+
+## 次の改善順序
+
+開発は次の順番で進めます。
+
+1. interval weak supervision + interval-aware evaluationでX3D-S head-only baselineを取り直す。
+2. ValidationのResearch metricsと誤検出傾向を確認する。
+3. 完全Coding済み通常試合を増やし、少なくとも12試合へ到達させる。
+4. Train上の高confidence false positiveを使うHard Negative Miningを追加する。
+5. X3D-S full fine-tuning / SlowFast等を同一splitで比較する。
+6. model / strategy / stride / NMS / product thresholdを凍結する。
+7. unseen Test 5試合で1回だけqualificationする。
+
+Hard Negative Miningやfull fine-tuningは、interval baselineの失敗パターンを確認する前に無条件で適用しません。小規模datasetでは過学習や計算時間増加の方が大きくなる可能性があるためです。
 
 ## Model pack
 
@@ -190,6 +236,8 @@ Production境界:
 ## Timeline変換
 
 `src/features/videoPlayer/eventDetection/domain/candidatesToTimeline.ts` はenabled event、verified confidence threshold、lead/lag、既存Timeline重複を処理した上で `NewTimelineData[]` へ変換し、`addTimelineDatas` で1回のstate updateとして追加します。
+
+Runnerが検出区間 (`detectedStartTime` / `detectedEndTime`) を返せる場合はそのrangeを基準にし、返さないpoint detectorではanchorを基準にAction mappingのlead/lagを適用します。
 
 Timelineへ追加された後は自動検出由来かどうかを特別扱いせず、通常の手動eventとして編集できます。
 
