@@ -1,5 +1,5 @@
 export const RUGBY_EVENT_TYPES = [
-  'kickoff',
+  'restart',
   'scrum',
   'lineout',
   'maul',
