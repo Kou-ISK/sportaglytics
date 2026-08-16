@@ -212,7 +212,13 @@ def main(argv: list[str] | None = None) -> None:
                         "sourceReport": report.get("reportPath"),
                         "generatedSpec": report.get("generatedSpecPath"),
                         "automaticSplit": report.get("automaticSplit"),
+                        "preparedEventCounts": report.get("preparedEventCounts"),
+                        "splitEventCounts": report.get("splitEventCounts"),
                         "skippedSources": len(report.get("preparationFailures", [])),
+                        "skippedSourceReasons": report.get("preparationFailureSummary"),
+                        "productionQualificationReadyByMatchCount": report.get(
+                            "productionQualificationReadyByMatchCount"
+                        ),
                     },
                     ensure_ascii=False,
                     indent=2,
