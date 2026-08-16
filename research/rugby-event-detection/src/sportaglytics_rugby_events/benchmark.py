@@ -17,6 +17,10 @@ from .spotting import ScanSummary, scan_matches
 from .training import train_model
 
 
+def _progress(message: str) -> None:
+    print(f"[rugby-events] {message}", flush=True)
+
+
 def _read_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -153,6 +157,7 @@ def _screen_one(
     model_dir.mkdir(parents=True, exist_ok=True)
     validation_matches = _matches_for_split(manifest, "validation")
 
+    _progress(f"building samples for {candidate.model_id}")
     train_samples = build_training_samples(
         manifest,
         "train",
@@ -167,8 +172,16 @@ def _screen_one(
         negative_ratio,
         seed + 10_000,
     )
+    _progress(
+        f"samples ready: train={len(train_samples)}, validation={len(validation_samples)}, "
+        f"validationMatches={len(validation_matches)}"
+    )
 
+    _progress(
+        f"loading pretrained model {candidate.model_id}; first run may download its checkpoint"
+    )
     bundle = build_model(candidate, strategy, device_name)
+    _progress(f"model ready: {candidate.model_id} on {bundle.device}")
     checkpoint_path = model_dir / "checkpoint.pt"
     training = train_model(
         bundle,
@@ -182,6 +195,9 @@ def _screen_one(
         seed,
     )
 
+    _progress(
+        f"classifier training complete; scanning full validation matches at {stride_seconds:.2f}s stride"
+    )
     validation_scan = scan_matches(
         bundle,
         validation_matches,
@@ -189,6 +205,7 @@ def _screen_one(
         batch_size,
         nms_seconds,
     )
+    _progress("selecting validation confidence thresholds and computing event metrics")
     thresholds = select_thresholds(
         validation_matches,
         validation_scan.predictions,
@@ -216,6 +233,10 @@ def _screen_one(
     ) / len(validation_metrics)
     average_f1 = sum(metric.f1 for metric in validation_metrics.values()) / len(
         validation_metrics
+    )
+    _progress(
+        f"validation metrics ready: minPrecision={minimum_precision:.3f}, "
+        f"avgRecall={average_recall:.3f}, avgWithin2s={average_precise_rate:.3f}"
     )
 
     return {
@@ -289,6 +310,7 @@ def run_benchmark(
                 seed,
             )
         except Exception as error:
+            _progress(f"{candidate.model_id} failed: {error}")
             result = {
                 "modelId": candidate.model_id,
                 "family": candidate.family,
@@ -395,6 +417,7 @@ def run_qualification(
         raise FileNotFoundError(f"thresholds do not exist: {thresholds_path}")
 
     thresholds = _read_thresholds(thresholds_path)
+    _progress(f"loading frozen qualification model {candidate.model_id}")
     bundle = build_model(
         candidate,
         strategy,
@@ -403,6 +426,9 @@ def run_qualification(
     )
     bundle.load(checkpoint_path)
     test_matches = _matches_for_split(manifest, "test")
+    _progress(
+        f"starting held-out Test scan: matches={len(test_matches)}, stride={stride_seconds:.2f}s"
+    )
     test_scan = scan_matches(
         bundle,
         test_matches,
