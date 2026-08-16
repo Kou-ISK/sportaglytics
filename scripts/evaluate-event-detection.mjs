@@ -9,7 +9,7 @@ const QUALITY_GATE = {
   minPrecision: 0.95,
   minRecall: 0.9,
   minEvaluatedMatches: 5,
-  minTimestampWithinTwoSecondsRate: 0.9,
+  minPredictionDistanceFromCodedIntervalWithinTwoSecondsRate: 0.9,
 };
 
 const usage = () => {
@@ -43,7 +43,9 @@ const validateGroundTruth = (data) => {
       if (
         !event ||
         typeof event.eventType !== 'string' ||
-        !isFiniteNonNegative(event.anchorTime)
+        !isFiniteNonNegative(event.anchorTime) ||
+        (event.endTime !== undefined &&
+          (!isFiniteNonNegative(event.endTime) || event.endTime < event.anchorTime))
       ) {
         throw new Error(`Invalid ground-truth event in ${match.matchId}.`);
       }
@@ -108,11 +110,23 @@ const groupEvents = (matches, eventType, includePredictionConfidence) => {
       .map((event) =>
         includePredictionConfidence
           ? { anchorTime: event.anchorTime, confidence: event.confidence }
-          : { anchorTime: event.anchorTime },
+          : {
+              anchorTime: event.anchorTime,
+              endTime:
+                isFiniteNonNegative(event.endTime) && event.endTime >= event.anchorTime
+                  ? event.endTime
+                  : event.anchorTime,
+            },
       );
     byMatch.set(match.matchId, events);
   }
   return byMatch;
+};
+
+const distanceToCodedInterval = (predictionTime, truth) => {
+  if (predictionTime < truth.anchorTime) return truth.anchorTime - predictionTime;
+  if (predictionTime > truth.endTime) return predictionTime - truth.endTime;
+  return 0;
 };
 
 const evaluateEventType = ({
@@ -127,6 +141,7 @@ const evaluateEventType = ({
   let falsePositive = 0;
   let falseNegative = 0;
   let withinTwoSeconds = 0;
+  let withinInterval = 0;
   const absoluteErrors = [];
 
   for (const [matchId, truthEvents] of groundTruthByMatch.entries()) {
@@ -139,7 +154,7 @@ const evaluateEventType = ({
       let nearestIndex = -1;
       let nearestDistance = Number.POSITIVE_INFINITY;
       unmatchedTruth.forEach((truth, index) => {
-        const distance = Math.abs(prediction.anchorTime - truth.anchorTime);
+        const distance = distanceToCodedInterval(prediction.anchorTime, truth);
         if (distance < nearestDistance) {
           nearestDistance = distance;
           nearestIndex = index;
@@ -151,6 +166,9 @@ const evaluateEventType = ({
         absoluteErrors.push(nearestDistance);
         if (nearestDistance <= PRECISE_TOLERANCE_SECONDS) {
           withinTwoSeconds += 1;
+        }
+        if (nearestDistance === 0) {
+          withinInterval += 1;
         }
         unmatchedTruth.splice(nearestIndex, 1);
       } else {
@@ -177,6 +195,8 @@ const evaluateEventType = ({
       : 0;
   const timestampWithinTwoSecondsRate =
     truePositive > 0 ? withinTwoSeconds / truePositive : 0;
+  const withinAnnotatedIntervalRate =
+    truePositive > 0 ? withinInterval / truePositive : 0;
   const meanAbsoluteErrorSeconds =
     absoluteErrors.length > 0
       ? absoluteErrors.reduce((sum, value) => sum + value, 0) /
@@ -188,7 +208,7 @@ const evaluateEventType = ({
     recall >= QUALITY_GATE.minRecall &&
     evaluatedMatches >= QUALITY_GATE.minEvaluatedMatches &&
     timestampWithinTwoSecondsRate >=
-      QUALITY_GATE.minTimestampWithinTwoSecondsRate;
+      QUALITY_GATE.minPredictionDistanceFromCodedIntervalWithinTwoSecondsRate;
 
   return {
     eventType,
@@ -197,6 +217,7 @@ const evaluateEventType = ({
     recall,
     evaluatedMatches,
     timestampWithinTwoSecondsRate,
+    withinAnnotatedIntervalRate,
     meanAbsoluteErrorSeconds,
     truePositive,
     falsePositive,
@@ -235,6 +256,8 @@ const main = async () => {
     datasetId: groundTruth.datasetId ?? null,
     matchToleranceSeconds: MATCH_TOLERANCE_SECONDS,
     preciseToleranceSeconds: PRECISE_TOLERANCE_SECONDS,
+    timingSemantics:
+      'Prediction timing is measured to the nearest coded interval boundary; predictions inside a coded interval have zero timing error.',
     qualityGate: QUALITY_GATE,
     allEventsPass: results.length > 0 && results.every((result) => result.passesGate),
     metrics: Object.fromEntries(
@@ -246,6 +269,7 @@ const main = async () => {
           evaluatedMatches: result.evaluatedMatches,
           confidenceThreshold: result.confidenceThreshold,
           timestampWithinTwoSecondsRate: result.timestampWithinTwoSecondsRate,
+          withinAnnotatedIntervalRate: result.withinAnnotatedIntervalRate,
         },
       ]),
     ),
