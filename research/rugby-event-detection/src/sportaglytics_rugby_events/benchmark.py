@@ -13,7 +13,9 @@ import torch
 from .dataset import (
     DEFAULT_POSITIVE_SAMPLES_PER_EVENT,
     DEFAULT_POSITIVE_SPAN_SECONDS,
+    build_negative_candidate_pool,
     build_training_samples,
+    clip_sample_key,
 )
 from .metrics import (
     EventMetrics,
@@ -27,7 +29,13 @@ from .metrics import (
 from .models import build_model
 from .schema import DatasetManifest, EVENT_TYPES, MatchManifest, ModelCandidate
 from .spotting import ScanSummary, scan_matches
-from .training import train_model
+from .training import mine_hard_negative_samples, train_model
+
+HARD_NEGATIVE_RATIO_TO_POSITIVES = 0.5
+HARD_NEGATIVE_MIN_EVENT_CONFIDENCE = 0.35
+HARD_NEGATIVE_POOL_MULTIPLIER = 8
+HARD_NEGATIVE_MIN_SCORING_POOL = 600
+HARD_NEGATIVE_REFINEMENT_EPOCHS = 2
 
 
 def _progress(message: str) -> None:
@@ -179,7 +187,7 @@ def _screen_one(
     nms_seconds: float,
     seed: int,
 ) -> dict[str, object]:
-    """Train and rank one candidate using train/validation only."""
+    """Train and rank one candidate using Train/Validation only."""
 
     model_dir = output_root / candidate.model_id
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -200,10 +208,10 @@ def _screen_one(
         negative_ratio,
         seed + 10_000,
     )
-    train_sample_counts = _sample_counts(train_samples)
+    initial_train_sample_counts = _sample_counts(train_samples)
     validation_sample_counts = _sample_counts(validation_samples)
     _progress(
-        f"samples ready: train={len(train_samples)} {train_sample_counts}, "
+        f"samples ready: train={len(train_samples)} {initial_train_sample_counts}, "
         f"validation={len(validation_samples)} {validation_sample_counts}, "
         f"validationMatches={len(validation_matches)}"
     )
@@ -213,12 +221,14 @@ def _screen_one(
     )
     bundle = build_model(candidate, strategy, device_name)
     _progress(f"model ready: {candidate.model_id} on {bundle.device}")
+
+    initial_checkpoint_path = model_dir / "checkpoint-before-hard-negatives.pt"
     checkpoint_path = model_dir / "checkpoint.pt"
-    training = train_model(
+    initial_training = train_model(
         bundle,
         train_samples,
         validation_samples,
-        checkpoint_path,
+        initial_checkpoint_path,
         epochs,
         batch_size,
         learning_rate,
@@ -226,6 +236,76 @@ def _screen_one(
         seed,
     )
 
+    # Mine confusing background only from Train. Validation remains untouched until
+    # final threshold/model evaluation, and Test is never decoded by this command.
+    background_pool = build_negative_candidate_pool(
+        manifest,
+        "train",
+        candidate.clip_duration_seconds,
+    )
+    existing_background_keys = {
+        clip_sample_key(sample)
+        for sample in train_samples
+        if sample.event_type == "other"
+    }
+    hard_negative_pool = [
+        sample
+        for sample in background_pool
+        if clip_sample_key(sample) not in existing_background_keys
+    ]
+    positive_sample_count = sum(
+        1 for sample in train_samples if sample.event_type != "other"
+    )
+    hard_negative_target = max(
+        1,
+        int(round(positive_sample_count * HARD_NEGATIVE_RATIO_TO_POSITIVES)),
+    )
+    hard_negative_scoring_limit = max(
+        HARD_NEGATIVE_MIN_SCORING_POOL,
+        hard_negative_target * HARD_NEGATIVE_POOL_MULTIPLIER,
+    )
+    hard_negatives, hard_negative_summary = mine_hard_negative_samples(
+        bundle,
+        hard_negative_pool,
+        batch_size=batch_size,
+        max_samples=hard_negative_target,
+        max_scored_candidates=hard_negative_scoring_limit,
+        min_event_confidence=HARD_NEGATIVE_MIN_EVENT_CONFIDENCE,
+        seed=seed + 20_000,
+    )
+
+    hard_negative_training = None
+    final_train_samples = list(train_samples)
+    if hard_negatives:
+        final_train_samples.extend(hard_negatives)
+        refinement_epochs = min(
+            HARD_NEGATIVE_REFINEMENT_EPOCHS,
+            max(1, epochs),
+        )
+        refinement_learning_rate = learning_rate * 0.5
+        _progress(
+            f"hard-negative refinement: added={len(hard_negatives)}, "
+            f"train={len(final_train_samples)}, epochs={refinement_epochs}, "
+            f"learningRate={refinement_learning_rate:g}"
+        )
+        hard_negative_training = train_model(
+            bundle,
+            final_train_samples,
+            validation_samples,
+            checkpoint_path,
+            refinement_epochs,
+            batch_size,
+            refinement_learning_rate,
+            weight_decay,
+            seed + 30_000,
+        )
+        final_training = hard_negative_training
+    else:
+        _progress("hard-negative refinement skipped: no sufficiently confusing background found")
+        bundle.save(checkpoint_path)
+        final_training = initial_training
+
+    final_train_sample_counts = _sample_counts(final_train_samples)
     _progress(
         f"classifier training complete; scanning full validation matches at {stride_seconds:.2f}s stride"
     )
@@ -311,11 +391,25 @@ def _screen_one(
             "maxPositiveSpanSeconds": DEFAULT_POSITIVE_SPAN_SECONDS,
             "negativeSamplingExcludesFullCodedIntervals": True,
         },
+        "hardNegativeMining": {
+            "trainOnly": True,
+            "ratioToPositiveSamples": HARD_NEGATIVE_RATIO_TO_POSITIVES,
+            "minEventConfidence": HARD_NEGATIVE_MIN_EVENT_CONFIDENCE,
+            "poolMultiplier": HARD_NEGATIVE_POOL_MULTIPLIER,
+            "refinementEpochs": (
+                hard_negative_training.epochs
+                if hard_negative_training is not None
+                else 0
+            ),
+            "summary": asdict(hard_negative_summary),
+        },
         "sampleCounts": {
-            "train": train_sample_counts,
+            "trainInitial": initial_train_sample_counts,
+            "train": final_train_sample_counts,
             "validation": validation_sample_counts,
         },
-        "training": asdict(training),
+        "initialTraining": asdict(initial_training),
+        "training": asdict(final_training),
         "validationScan": _scan_json(validation_scan),
         # thresholds.json remains the conservative product candidate for qualification.
         "selectedThresholds": product_thresholds,
@@ -333,6 +427,7 @@ def _screen_one(
         "averageResearchRecallAtBestF1": average_research_recall,
         "meetsValidationPrecisionTarget": minimum_precision >= 0.95,
         "checkpointSha256": _sha256(checkpoint_path),
+        "initialCheckpointSha256": _sha256(initial_checkpoint_path),
         "thresholdsSha256": _sha256(thresholds_path),
         "researchThresholdsSha256": _sha256(research_thresholds_path),
     }
@@ -429,7 +524,7 @@ def run_benchmark(
     screening_winner = production_ranking[0].get("modelId") if production_ranking else None
 
     report = {
-        "version": 3,
+        "version": 4,
         "mode": "validation-screen",
         "datasetId": manifest.dataset_id,
         "strategy": strategy,
@@ -437,9 +532,11 @@ def run_benchmark(
         "validationPrecisionTarget": 0.95,
         "selectionPolicy": (
             "Research ranking uses best-F1 validation operating points so model discrimination "
-            "is separated from the conservative product precision gate. Product thresholds are "
-            "still selected on Validation only and remain the only thresholds eligible for held-out "
-            "qualification. The held-out Test split is never scanned by this command."
+            "is separated from the conservative product precision gate. Hard-negative mining "
+            "uses Train background only; Validation remains model/threshold selection data and "
+            "the held-out Test split is never decoded by this command. Product thresholds are "
+            "selected on Validation only and remain the only thresholds eligible for held-out "
+            "qualification."
         ),
         "screeningWinner": screening_winner,
         "researchRanking": [result.get("modelId") for result in research_ranking],
@@ -491,7 +588,7 @@ def run_qualification(
     if not checkpoint_path.is_file():
         raise FileNotFoundError(f"checkpoint does not exist: {checkpoint_path}")
     if not thresholds_path.is_file():
-        raise FileNotFoundError(f"thresholds do not exist: {thresholds_path}")
+        raise FileNotFoundError(f"thresholds does not exist: {thresholds_path}")
 
     thresholds = _read_thresholds(thresholds_path)
     _progress(f"loading frozen qualification model {candidate.model_id}")
