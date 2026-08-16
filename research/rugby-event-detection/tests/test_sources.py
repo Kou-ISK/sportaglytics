@@ -88,6 +88,12 @@ class SourceDiscoveryTest(unittest.TestCase):
         self.assertIn("validation", first)
         self.assertIn("test", first)
 
+    def test_small_dataset_allocates_two_validation_matches(self) -> None:
+        splits = _auto_split_names(5, 42)
+        self.assertEqual(splits.count("train"), 2)
+        self.assertEqual(splits.count("validation"), 2)
+        self.assertEqual(splits.count("test"), 1)
+
     def test_automatic_split_reserves_five_test_matches_when_dataset_allows_it(self) -> None:
         splits = _auto_split_names(12, 42)
         self.assertEqual(splits.count("test"), 5)
