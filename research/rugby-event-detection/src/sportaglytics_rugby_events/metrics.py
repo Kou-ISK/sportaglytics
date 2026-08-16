@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Iterable
 
-from .schema import EVENT_TYPES, MatchManifest
+from .schema import EVENT_TYPES, EventAnnotation, MatchManifest
 
 MATCH_TOLERANCE_SECONDS = 5.0
 PRECISE_TOLERANCE_SECONDS = 2.0
@@ -30,11 +30,26 @@ class EventMetrics:
     f1: float
     evaluated_matches: int
     timestamp_within_two_seconds_rate: float
+    within_annotated_interval_rate: float
     mean_absolute_error_seconds: float | None
     true_positive: int
     false_positive: int
     false_negative: int
     passes_gate: bool
+
+    def to_json(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ResearchEventSummary:
+    event_type: str
+    best_f1_threshold: float
+    best_f1: float
+    precision_at_best_f1: float
+    recall_at_best_f1: float
+    max_recall_at_precision_target: float
+    max_precision_at_recall_target: float
 
     def to_json(self) -> dict[str, object]:
         return asdict(self)
@@ -59,6 +74,17 @@ def _predictions_for(
     )
 
 
+def _distance_to_event_interval(
+    prediction_time_seconds: float,
+    truth: EventAnnotation,
+) -> float:
+    if prediction_time_seconds < truth.anchor_time_seconds:
+        return truth.anchor_time_seconds - prediction_time_seconds
+    if prediction_time_seconds > truth.interval_end_seconds:
+        return prediction_time_seconds - truth.interval_end_seconds
+    return 0.0
+
+
 def evaluate_event(
     matches: tuple[MatchManifest, ...],
     predictions: list[Prediction],
@@ -69,12 +95,13 @@ def evaluate_event(
     false_positive = 0
     false_negative = 0
     within_two_seconds = 0
+    within_interval = 0
     absolute_errors: list[float] = []
     known_match_ids = {match.match_id for match in matches}
 
     for match in matches:
         truths = [
-            event.anchor_time_seconds
+            event
             for event in match.events
             if event.event_type == event_type
         ]
@@ -90,8 +117,8 @@ def evaluate_event(
                 false_positive += 1
                 continue
             distances = [
-                abs(prediction.anchor_time_seconds - truth_time)
-                for truth_time in unmatched_truth
+                _distance_to_event_interval(prediction.anchor_time_seconds, truth)
+                for truth in unmatched_truth
             ]
             nearest_index = min(range(len(distances)), key=distances.__getitem__)
             nearest_distance = distances[nearest_index]
@@ -100,6 +127,8 @@ def evaluate_event(
                 absolute_errors.append(nearest_distance)
                 if nearest_distance <= PRECISE_TOLERANCE_SECONDS:
                     within_two_seconds += 1
+                if nearest_distance <= 1e-6:
+                    within_interval += 1
                 unmatched_truth.pop(nearest_index)
             else:
                 false_positive += 1
@@ -123,6 +152,7 @@ def evaluate_event(
         else 0.0
     )
     precise_rate = within_two_seconds / true_positive if true_positive else 0.0
+    interval_rate = within_interval / true_positive if true_positive else 0.0
     mean_error = (
         sum(absolute_errors) / len(absolute_errors)
         if absolute_errors
@@ -142,6 +172,7 @@ def evaluate_event(
         f1=f1,
         evaluated_matches=len(matches),
         timestamp_within_two_seconds_rate=precise_rate,
+        within_annotated_interval_rate=interval_rate,
         mean_absolute_error_seconds=mean_error,
         true_positive=true_positive,
         false_positive=false_positive,
@@ -152,26 +183,39 @@ def evaluate_event(
 
 def threshold_grid() -> tuple[float, ...]:
     # Four-way classifiers can be useful below 0.50 even when they are well
-    # separated from the negative class. Do not hide that calibration behavior
-    # during validation screening; the product gate still enforces precision.
+    # separated from the negative class. Product qualification remains strict.
     return tuple(round(value / 100, 2) for value in range(5, 100))
+
+
+def _metrics_over_thresholds(
+    validation_matches: tuple[MatchManifest, ...],
+    predictions: list[Prediction],
+    event_type: str,
+) -> list[EventMetrics]:
+    return [
+        evaluate_event(
+            validation_matches,
+            predictions,
+            event_type,
+            threshold,
+        )
+        for threshold in threshold_grid()
+    ]
 
 
 def select_thresholds(
     validation_matches: tuple[MatchManifest, ...],
     predictions: list[Prediction],
 ) -> dict[str, float]:
+    """Select conservative product thresholds on Validation only."""
+
     selected: dict[str, float] = {}
     for event_type in EVENT_TYPES:
-        evaluated = [
-            evaluate_event(
-                validation_matches,
-                predictions,
-                event_type,
-                threshold,
-            )
-            for threshold in threshold_grid()
-        ]
+        evaluated = _metrics_over_thresholds(
+            validation_matches,
+            predictions,
+            event_type,
+        )
         precision_qualified = [
             item for item in evaluated if item.precision >= MIN_PRECISION
         ]
@@ -196,6 +240,89 @@ def select_thresholds(
         )
         selected[event_type] = best.confidence_threshold
     return selected
+
+
+def select_research_thresholds(
+    validation_matches: tuple[MatchManifest, ...],
+    predictions: list[Prediction],
+) -> dict[str, float]:
+    """Select thresholds that expose model discrimination rather than product policy."""
+
+    selected: dict[str, float] = {}
+    for event_type in EVENT_TYPES:
+        evaluated = _metrics_over_thresholds(
+            validation_matches,
+            predictions,
+            event_type,
+        )
+        best = max(
+            evaluated,
+            key=lambda item: (
+                item.f1,
+                item.recall,
+                item.precision,
+                item.timestamp_within_two_seconds_rate,
+                item.confidence_threshold,
+            ),
+        )
+        selected[event_type] = best.confidence_threshold
+    return selected
+
+
+def summarize_research_event(
+    validation_matches: tuple[MatchManifest, ...],
+    predictions: list[Prediction],
+    event_type: str,
+) -> ResearchEventSummary:
+    evaluated = _metrics_over_thresholds(
+        validation_matches,
+        predictions,
+        event_type,
+    )
+    best = max(
+        evaluated,
+        key=lambda item: (
+            item.f1,
+            item.recall,
+            item.precision,
+            item.confidence_threshold,
+        ),
+    )
+    precision_qualified = [
+        item for item in evaluated if item.precision >= MIN_PRECISION
+    ]
+    recall_qualified = [
+        item for item in evaluated if item.recall >= MIN_RECALL
+    ]
+    return ResearchEventSummary(
+        event_type=event_type,
+        best_f1_threshold=best.confidence_threshold,
+        best_f1=best.f1,
+        precision_at_best_f1=best.precision,
+        recall_at_best_f1=best.recall,
+        max_recall_at_precision_target=max(
+            (item.recall for item in precision_qualified),
+            default=0.0,
+        ),
+        max_precision_at_recall_target=max(
+            (item.precision for item in recall_qualified),
+            default=0.0,
+        ),
+    )
+
+
+def summarize_research_all(
+    matches: tuple[MatchManifest, ...],
+    predictions: list[Prediction],
+) -> dict[str, ResearchEventSummary]:
+    return {
+        event_type: summarize_research_event(
+            matches,
+            predictions,
+            event_type,
+        )
+        for event_type in EVENT_TYPES
+    }
 
 
 def evaluate_all(
