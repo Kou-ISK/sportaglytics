@@ -10,6 +10,7 @@ from .auto_prepare import build_manifest_from_root
 from .benchmark import run_benchmark, run_qualification
 from .manifest import build_manifest
 from .sources import write_inspection_report
+from .split_lock import default_split_lock_path
 from .train_workflow import run_training_workflow
 
 RESEARCH_ROOT = Path(__file__).resolve().parents[2]
@@ -90,7 +91,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--seed",
         type=int,
         default=42,
-        help="Deterministic match-level train/validation/test split seed in --root mode.",
+        help=(
+            "Deterministic match-level split seed in --root mode. Once a split lock exists, "
+            "changing this seed is rejected to preserve Test provenance."
+        ),
     )
 
     train = subparsers.add_parser(
@@ -196,12 +200,14 @@ def main(argv: list[str] | None = None) -> None:
         output_path = args.output.expanduser().resolve()
         aliases_path = args.aliases.expanduser().resolve()
         if args.root is not None:
+            root = args.root.expanduser().resolve()
             manifest, report = build_manifest_from_root(
-                root=args.root.expanduser().resolve(),
+                root=root,
                 aliases_path=aliases_path,
                 output_path=output_path,
                 dataset_id=args.dataset_id,
                 seed=args.seed,
+                split_lock_path=default_split_lock_path(root),
             )
             print(
                 json.dumps(
@@ -212,6 +218,7 @@ def main(argv: list[str] | None = None) -> None:
                         "sourceReport": report.get("reportPath"),
                         "generatedSpec": report.get("generatedSpecPath"),
                         "automaticSplit": report.get("automaticSplit"),
+                        "splitLock": report.get("splitLock"),
                         "preparedEventCounts": report.get("preparedEventCounts"),
                         "splitEventCounts": report.get("splitEventCounts"),
                         "skippedSources": len(report.get("preparationFailures", [])),
