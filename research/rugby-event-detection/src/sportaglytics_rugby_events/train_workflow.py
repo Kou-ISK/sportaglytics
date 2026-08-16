@@ -45,10 +45,25 @@ def run_training_workflow(
         seed=seed,
     )
     split = source_report.get("automaticSplit")
+    failure_summary = source_report.get("preparationFailureSummary", {})
+    split_event_counts = source_report.get("splitEventCounts", {})
+    prepared_event_counts = source_report.get("preparedEventCounts", {})
+    qualification_ready = bool(
+        source_report.get("productionQualificationReadyByMatchCount", False)
+    )
     _progress(
         f"dataset ready: usableMatches={len(manifest.matches)}, split={split}, "
         f"skippedSources={len(source_report.get('preparationFailures', []))}"
     )
+    _progress(f"prepared event counts: {prepared_event_counts}")
+    _progress(f"split event counts: {split_event_counts}")
+    if failure_summary:
+        _progress(f"skipped source reasons: {failure_summary}")
+    if not qualification_ready:
+        _progress(
+            "development-only dataset: fewer than 5 held-out Test matches; "
+            "do not use this run for production qualification"
+        )
     _progress(f"manifest saved: {manifest_path}")
     _progress(
         f"development training start: model={model_id}, strategy={strategy}, "
@@ -80,7 +95,11 @@ def run_training_workflow(
         "sourceRoot": str(root),
         "usableMatches": len(manifest.matches),
         "split": split,
+        "preparedEventCounts": prepared_event_counts,
+        "splitEventCounts": split_event_counts,
         "skippedSources": len(source_report.get("preparationFailures", [])),
+        "skippedSourceReasons": failure_summary,
+        "productionQualificationReadyByMatchCount": qualification_ready,
         "manifest": str(manifest_path),
         "sourceReport": source_report.get("reportPath"),
         "modelId": model_id,
@@ -90,6 +109,7 @@ def run_training_workflow(
         "results": benchmark_report.get("results", []),
         "testPolicy": (
             "The held-out test split was not decoded or evaluated. Use qualify only after "
-            "the model, strategy, stride, NMS and validation thresholds are frozen."
+            "the model, strategy, stride, NMS and validation thresholds are frozen, and only "
+            "when at least five held-out Test matches are available."
         ),
     }
