@@ -39,7 +39,7 @@ This command:
 1. recursively finds supported current and legacy SporTagLytics packages;
 2. accepts only matches that contain complete supervision for `restart`, `scrum` and `lineout`;
 3. normalizes Coding aliases such as `リスタート`, `Kickoff`, `キックオフ`, `スクラム` and `ラインアウト`;
-4. creates deterministic match-level Train / Validation / Test splits;
+4. creates deterministic match-level Train / Validation / Test splits and persists those assignments in a local split lock;
 5. converts human Coding ranges into weak interval supervision, sampling the early part of each interval instead of assuming frame-exact event timestamps;
 6. trains the production-eligible X3D-S Kinetics-400 candidate with classifier-head fine-tuning for 5 epochs by default;
 7. mines difficult `other` clips from **Train background only** and performs a short refinement stage;
@@ -146,7 +146,9 @@ Required roles:
 - `validation`: model/strategy comparison, research Best-F1 analysis and product confidence-threshold selection
 - `test`: final held-out qualification only
 
-Before a production decision, reserve at least **5 completely unseen test matches**, because the product gate requires five. Automatic preparation reserves five Test matches when at least 12 safely coded matches are available.
+Automatic `--root` preparation writes a local split lock under `research/rugby-event-detection/runs/.split-locks/`, keyed by the absolute source root. The first lock reproduces the existing deterministic split exactly. After that, assignments are immutable: adding newly completed matches may fill additional Test or Validation capacity, but an existing Train/Validation match is never moved into Test. This prevents dataset growth from silently contaminating the held-out set. Changing the split seed after a lock exists is rejected.
+
+Before a production decision, reserve at least **5 completely unseen test matches**, because the product gate requires five. Automatic preparation targets five Test matches when at least 12 safely coded matches are available. Twelve matches are only the minimum qualification shape; for model development, a larger total is preferable because five matches remain permanently held out.
 
 The `benchmark` and one-command `train` workflows must never scan `test`. After a model, strategy and thresholds are frozen, `qualify` scans the held-out Test split exactly for the production decision. If the Test result causes any model/threshold/strategy/stride/NMS change, retire that Test set and create a new held-out set before the next production claim.
 
@@ -167,6 +169,8 @@ pnpm run research:events:prepare -- \
   --root "/absolute/path/to/coded-matches" \
   --output research/rugby-event-detection/runs/rugby-events-v1/manifest.json
 ```
+
+The first automatic prepare for a source root creates its split lock. Run this before adding more safely coded matches if the dataset has already been used for development, so the historical Train / Validation / Test assignments are frozen before expansion.
 
 The explicit `--spec` workflow remains available for manual angle selection or package-specific anchor corrections.
 
@@ -231,6 +235,7 @@ The normal one-command development shortcut uses a `2.0s` Validation stride to k
 - Do not mine hard negatives from Validation or Test.
 - Do not compare model families or fine-tuning strategies on held-out Test.
 - Do not select confidence thresholds on Test.
+- Do not move a previously used Train/Validation match into Test when the dataset grows; preserve the split lock.
 - Do not mark a model `verified` based on isolated clip-classification accuracy.
 - Do not make a non-commercial checkpoint production eligible by editing metadata.
 - Do not commit match footage, extracted frames, checkpoints or downloaded pretrained weights.
