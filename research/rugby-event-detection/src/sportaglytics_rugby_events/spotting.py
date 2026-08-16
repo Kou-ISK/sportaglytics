@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 import time
+
+import numpy as np
 
 from .metrics import Prediction
 from .models import LABEL_TO_ID, ModelBundle
 from .schema import EVENT_TYPES, MatchManifest, TimelineSegment
-from .video import read_uniform_rgb_frames
+from .video import iter_uniform_rgb_windows
 
 
 @dataclass(frozen=True)
@@ -102,6 +105,34 @@ def _temporal_nms(
     )
 
 
+def _segment_key(window: ScanWindow) -> tuple[str, Path, float, float]:
+    return (
+        window.match_id,
+        window.segment.video_path,
+        window.segment.timeline_start_seconds,
+        window.segment.duration_seconds,
+    )
+
+
+def _append_predictions(
+    raw_predictions: list[Prediction],
+    bundle: ModelBundle,
+    windows: list[ScanWindow],
+    clips: list[np.ndarray],
+) -> None:
+    probabilities = bundle.probabilities(clips).detach().cpu()
+    for row, window in enumerate(windows):
+        for event_type in EVENT_TYPES:
+            raw_predictions.append(
+                Prediction(
+                    match_id=window.match_id,
+                    event_type=event_type,
+                    anchor_time_seconds=window.global_center_seconds,
+                    confidence=float(probabilities[row, LABEL_TO_ID[event_type]].item()),
+                )
+            )
+
+
 def scan_matches(
     bundle: ModelBundle,
     matches: tuple[MatchManifest, ...],
@@ -125,37 +156,70 @@ def scan_matches(
     )
     start_time = time.perf_counter()
 
-    for batch_index, index in enumerate(range(0, len(windows), batch_size), start=1):
-        batch = windows[index : index + batch_size]
-        clips = [
-            read_uniform_rgb_frames(
-                window.segment.video_path,
-                window.local_start_seconds,
-                window.local_end_seconds,
-                bundle.candidate.num_frames,
-            )
-            for window in batch
+    groups: list[list[ScanWindow]] = []
+    current_group: list[ScanWindow] = []
+    current_key: tuple[str, Path, float, float] | None = None
+    for window in windows:
+        key = _segment_key(window)
+        if current_key is not None and key != current_key:
+            groups.append(current_group)
+            current_group = []
+        current_group.append(window)
+        current_key = key
+    if current_group:
+        groups.append(current_group)
+
+    batch_windows: list[ScanWindow] = []
+    batch_clips: list[np.ndarray] = []
+    completed_batches = 0
+    processed_windows = 0
+
+    for group_index, group in enumerate(groups, start=1):
+        first = group[0]
+        _progress(
+            f"decoding segment {group_index}/{len(groups)} once: "
+            f"{first.segment.video_path.name}, windows={len(group)}"
+        )
+        ranges = [
+            (window.local_start_seconds, window.local_end_seconds)
+            for window in group
         ]
-        probabilities = bundle.probabilities(clips).detach().cpu()
-        for row, window in enumerate(batch):
-            for event_type in EVENT_TYPES:
-                raw_predictions.append(
-                    Prediction(
-                        match_id=window.match_id,
-                        event_type=event_type,
-                        anchor_time_seconds=window.global_center_seconds,
-                        confidence=float(
-                            probabilities[row, LABEL_TO_ID[event_type]].item()
-                        ),
-                    )
+        decoded = iter_uniform_rgb_windows(
+            first.segment.video_path,
+            ranges,
+            bundle.candidate.num_frames,
+        )
+        for window, clip in zip(group, decoded, strict=True):
+            batch_windows.append(window)
+            batch_clips.append(clip)
+            if len(batch_windows) < batch_size:
+                continue
+            _append_predictions(raw_predictions, bundle, batch_windows, batch_clips)
+            processed_windows += len(batch_windows)
+            completed_batches += 1
+            batch_windows = []
+            batch_clips = []
+            if (
+                completed_batches == 1
+                or completed_batches == total_batches
+                or completed_batches % report_every == 0
+            ):
+                elapsed = time.perf_counter() - start_time
+                percent = 100.0 * processed_windows / max(1, len(windows))
+                _progress(
+                    f"whole-match scan {processed_windows}/{len(windows)} windows "
+                    f"({percent:.0f}%), elapsed={elapsed:.1f}s"
                 )
-        if batch_index == 1 or batch_index == total_batches or batch_index % report_every == 0:
-            elapsed = time.perf_counter() - start_time
-            percent = 100.0 * batch_index / max(1, total_batches)
-            _progress(
-                f"whole-match scan {batch_index}/{total_batches} batches "
-                f"({percent:.0f}%), elapsed={elapsed:.1f}s"
-            )
+
+    if batch_windows:
+        _append_predictions(raw_predictions, bundle, batch_windows, batch_clips)
+        processed_windows += len(batch_windows)
+        completed_batches += 1
+        elapsed = time.perf_counter() - start_time
+        _progress(
+            f"whole-match scan {processed_windows}/{len(windows)} windows "
+            f"(100%), elapsed={elapsed:.1f}s"
+        )
 
     wall_seconds = time.perf_counter() - start_time
     predictions = _temporal_nms(
