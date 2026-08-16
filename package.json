@@ -48,6 +48,7 @@
     "media:build:all-mac": "node scripts/build-media-tools.mjs --all-mac",
     "research:events:inspect": "python3 research/rugby-event-detection/run.py inspect",
     "research:events:prepare": "python3 research/rugby-event-detection/run.py prepare",
+    "research:events:train": "python3 research/rugby-event-detection/run.py train",
     "research:events:benchmark": "python3 research/rugby-event-detection/run.py benchmark",
     "research:events:qualify": "python3 research/rugby-event-detection/run.py qualify",
     "research:events:check": "python3 -m compileall -q research/rugby-event-detection/src research/rugby-event-detection/run.py research/rugby-event-detection/tests && python3 -m unittest discover -s research/rugby-event-detection/tests -p 'test_*.py'",
