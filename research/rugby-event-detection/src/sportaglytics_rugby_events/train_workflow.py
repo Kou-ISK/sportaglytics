@@ -7,6 +7,10 @@ from .auto_prepare import build_manifest_from_root
 from .benchmark import run_benchmark
 
 
+def _progress(message: str) -> None:
+    print(f"[rugby-events] {message}", flush=True)
+
+
 def run_training_workflow(
     *,
     root: Path,
@@ -31,6 +35,7 @@ def run_training_workflow(
     output_root = output_root.expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
 
+    _progress(f"source discovery start: {root}")
     manifest_path = output_root / "manifest.json"
     manifest, source_report = build_manifest_from_root(
         root=root,
@@ -38,6 +43,16 @@ def run_training_workflow(
         output_path=manifest_path,
         dataset_id=f"{root.name}-rugby-events",
         seed=seed,
+    )
+    split = source_report.get("automaticSplit")
+    _progress(
+        f"dataset ready: usableMatches={len(manifest.matches)}, split={split}, "
+        f"skippedSources={len(source_report.get('preparationFailures', []))}"
+    )
+    _progress(f"manifest saved: {manifest_path}")
+    _progress(
+        f"development training start: model={model_id}, strategy={strategy}, "
+        f"epochs={epochs}, validationStride={stride_seconds:.2f}s"
     )
 
     benchmark_root = output_root / "benchmark"
@@ -57,13 +72,14 @@ def run_training_workflow(
         nms_seconds=nms_seconds,
         seed=seed,
     )
+    _progress(f"development run complete: output={benchmark_root}")
 
     return {
         "mode": "prepare-and-train",
         "datasetId": manifest.dataset_id,
         "sourceRoot": str(root),
         "usableMatches": len(manifest.matches),
-        "split": source_report.get("automaticSplit"),
+        "split": split,
         "skippedSources": len(source_report.get("preparationFailures", [])),
         "manifest": str(manifest_path),
         "sourceReport": source_report.get("reportPath"),
