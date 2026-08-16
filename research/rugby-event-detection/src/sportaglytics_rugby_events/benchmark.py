@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import asdict
 import gc
 import hashlib
@@ -9,8 +10,20 @@ from typing import Any
 
 import torch
 
-from .dataset import build_training_samples
-from .metrics import EventMetrics, Prediction, evaluate_all, select_thresholds
+from .dataset import (
+    DEFAULT_POSITIVE_SAMPLES_PER_EVENT,
+    DEFAULT_POSITIVE_SPAN_SECONDS,
+    build_training_samples,
+)
+from .metrics import (
+    EventMetrics,
+    Prediction,
+    ResearchEventSummary,
+    evaluate_all,
+    select_research_thresholds,
+    select_thresholds,
+    summarize_research_all,
+)
 from .models import build_model
 from .schema import DatasetManifest, EVENT_TYPES, MatchManifest, ModelCandidate
 from .spotting import ScanSummary, scan_matches
@@ -96,6 +109,7 @@ def _ground_truth_json(
                     {
                         "eventType": event.event_type,
                         "anchorTime": event.anchor_time_seconds,
+                        "endTime": event.interval_end_seconds,
                     }
                     for event in match.events
                 ],
@@ -128,6 +142,20 @@ def _metric_json(metrics: dict[str, EventMetrics]) -> dict[str, object]:
     }
 
 
+def _research_summary_json(
+    metrics: dict[str, ResearchEventSummary],
+) -> dict[str, object]:
+    return {
+        event_type: value.to_json()
+        for event_type, value in metrics.items()
+    }
+
+
+def _sample_counts(samples: list[object]) -> dict[str, int]:
+    counts = Counter(getattr(sample, "event_type", "unknown") for sample in samples)
+    return dict(sorted(counts.items()))
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -157,7 +185,7 @@ def _screen_one(
     model_dir.mkdir(parents=True, exist_ok=True)
     validation_matches = _matches_for_split(manifest, "validation")
 
-    _progress(f"building samples for {candidate.model_id}")
+    _progress(f"building interval-supervised samples for {candidate.model_id}")
     train_samples = build_training_samples(
         manifest,
         "train",
@@ -172,8 +200,11 @@ def _screen_one(
         negative_ratio,
         seed + 10_000,
     )
+    train_sample_counts = _sample_counts(train_samples)
+    validation_sample_counts = _sample_counts(validation_samples)
     _progress(
-        f"samples ready: train={len(train_samples)}, validation={len(validation_samples)}, "
+        f"samples ready: train={len(train_samples)} {train_sample_counts}, "
+        f"validation={len(validation_samples)} {validation_sample_counts}, "
         f"validationMatches={len(validation_matches)}"
     )
 
@@ -205,38 +236,66 @@ def _screen_one(
         batch_size,
         nms_seconds,
     )
-    _progress("selecting validation confidence thresholds and computing event metrics")
-    thresholds = select_thresholds(
+    _progress("computing research-optimal and product-conservative validation thresholds")
+    product_thresholds = select_thresholds(
         validation_matches,
         validation_scan.predictions,
     )
-    validation_metrics = evaluate_all(
+    research_thresholds = select_research_thresholds(
         validation_matches,
         validation_scan.predictions,
-        thresholds,
+    )
+    product_validation_metrics = evaluate_all(
+        validation_matches,
+        validation_scan.predictions,
+        product_thresholds,
+    )
+    research_validation_metrics = evaluate_all(
+        validation_matches,
+        validation_scan.predictions,
+        research_thresholds,
+    )
+    research_summary = summarize_research_all(
+        validation_matches,
+        validation_scan.predictions,
     )
 
     thresholds_path = model_dir / "thresholds.json"
-    _write_json(thresholds_path, thresholds)
+    research_thresholds_path = model_dir / "research-thresholds.json"
+    _write_json(thresholds_path, product_thresholds)
+    _write_json(research_thresholds_path, research_thresholds)
     _write_json(
         model_dir / "validation-predictions.json",
         _prediction_json(validation_matches, validation_scan.predictions),
     )
 
-    minimum_precision = min(metric.precision for metric in validation_metrics.values())
-    average_recall = sum(metric.recall for metric in validation_metrics.values()) / len(
-        validation_metrics
+    minimum_precision = min(
+        metric.precision for metric in product_validation_metrics.values()
     )
+    average_recall = sum(
+        metric.recall for metric in product_validation_metrics.values()
+    ) / len(product_validation_metrics)
     average_precise_rate = sum(
         metric.timestamp_within_two_seconds_rate
-        for metric in validation_metrics.values()
-    ) / len(validation_metrics)
-    average_f1 = sum(metric.f1 for metric in validation_metrics.values()) / len(
-        validation_metrics
-    )
+        for metric in product_validation_metrics.values()
+    ) / len(product_validation_metrics)
+    average_f1 = sum(
+        metric.f1 for metric in product_validation_metrics.values()
+    ) / len(product_validation_metrics)
+    average_research_best_f1 = sum(
+        metric.best_f1 for metric in research_summary.values()
+    ) / len(research_summary)
+    average_research_recall = sum(
+        metric.recall_at_best_f1 for metric in research_summary.values()
+    ) / len(research_summary)
+    average_research_precision = sum(
+        metric.precision_at_best_f1 for metric in research_summary.values()
+    ) / len(research_summary)
     _progress(
-        f"validation metrics ready: minPrecision={minimum_precision:.3f}, "
-        f"avgRecall={average_recall:.3f}, avgWithin2s={average_precise_rate:.3f}"
+        f"validation ready: researchBestF1={average_research_best_f1:.3f}, "
+        f"researchPrecision={average_research_precision:.3f}, "
+        f"researchRecall={average_research_recall:.3f}, "
+        f"productMinPrecision={minimum_precision:.3f}"
     )
 
     return {
@@ -247,17 +306,35 @@ def _screen_one(
         "productionEligibleByLicense": candidate.production_eligible,
         "strategy": strategy,
         "device": str(bundle.device),
+        "weakSupervision": {
+            "positiveSamplesPerEvent": DEFAULT_POSITIVE_SAMPLES_PER_EVENT,
+            "maxPositiveSpanSeconds": DEFAULT_POSITIVE_SPAN_SECONDS,
+            "negativeSamplingExcludesFullCodedIntervals": True,
+        },
+        "sampleCounts": {
+            "train": train_sample_counts,
+            "validation": validation_sample_counts,
+        },
         "training": asdict(training),
         "validationScan": _scan_json(validation_scan),
-        "selectedThresholds": thresholds,
-        "validationMetrics": _metric_json(validation_metrics),
+        # thresholds.json remains the conservative product candidate for qualification.
+        "selectedThresholds": product_thresholds,
+        "productThresholds": product_thresholds,
+        "researchThresholds": research_thresholds,
+        "validationMetrics": _metric_json(product_validation_metrics),
+        "researchValidationMetrics": _metric_json(research_validation_metrics),
+        "researchSummary": _research_summary_json(research_summary),
         "minimumValidationPrecision": minimum_precision,
         "averageValidationRecall": average_recall,
         "averageValidationTimestampWithinTwoSecondsRate": average_precise_rate,
         "averageValidationF1": average_f1,
+        "averageResearchBestF1": average_research_best_f1,
+        "averageResearchPrecisionAtBestF1": average_research_precision,
+        "averageResearchRecallAtBestF1": average_research_recall,
         "meetsValidationPrecisionTarget": minimum_precision >= 0.95,
         "checkpointSha256": _sha256(checkpoint_path),
         "thresholdsSha256": _sha256(thresholds_path),
+        "researchThresholdsSha256": _sha256(research_thresholds_path),
     }
 
 
@@ -332,10 +409,9 @@ def run_benchmark(
     research_ranking = sorted(
         successful,
         key=lambda result: (
-            float(result.get("minimumValidationPrecision", 0.0)),
-            float(result.get("averageValidationRecall", 0.0)),
-            float(result.get("averageValidationTimestampWithinTwoSecondsRate", 0.0)),
-            float(result.get("averageValidationF1", 0.0)),
+            float(result.get("averageResearchBestF1", 0.0)),
+            float(result.get("averageResearchRecallAtBestF1", 0.0)),
+            float(result.get("averageResearchPrecisionAtBestF1", 0.0)),
             -float(
                 (result.get("validationScan") or {}).get(
                     "wallSecondsPerVideoMinute",
@@ -353,16 +429,17 @@ def run_benchmark(
     screening_winner = production_ranking[0].get("modelId") if production_ranking else None
 
     report = {
-        "version": 2,
+        "version": 3,
         "mode": "validation-screen",
         "datasetId": manifest.dataset_id,
         "strategy": strategy,
         "learningRate": resolved_learning_rate,
         "validationPrecisionTarget": 0.95,
         "selectionPolicy": (
-            "All candidate comparison and confidence-threshold selection use train/validation "
-            "matches only. The held-out test split is not scanned by this command. "
-            "Non-commercial checkpoints remain research-only regardless of validation accuracy."
+            "Research ranking uses best-F1 validation operating points so model discrimination "
+            "is separated from the conservative product precision gate. Product thresholds are "
+            "still selected on Validation only and remain the only thresholds eligible for held-out "
+            "qualification. The held-out Test split is never scanned by this command."
         ),
         "screeningWinner": screening_winner,
         "researchRanking": [result.get("modelId") for result in research_ranking],
@@ -460,7 +537,7 @@ def run_qualification(
     _write_json(output_root / "thresholds.json", thresholds)
 
     report = {
-        "version": 1,
+        "version": 2,
         "mode": "held-out-qualification",
         "datasetId": manifest.dataset_id,
         "modelId": candidate.model_id,
@@ -479,12 +556,14 @@ def run_qualification(
             "precision": 0.95,
             "recall": 0.90,
             "evaluatedMatches": 5,
-            "timestampWithinTwoSecondsRate": 0.90,
+            "predictionDistanceFromCodedIntervalWithinTwoSecondsRate": 0.90,
         },
         "policy": (
             "This command evaluates exactly one frozen production-eligible checkpoint and "
-            "its preselected validation thresholds. If this test result informs further "
-            "model changes, use a new held-out test set for the next production claim."
+            "its preselected validation thresholds. Timing error is measured to the nearest "
+            "coded interval boundary, so a prediction anywhere inside the human-coded action "
+            "range has zero timing error. If this test result informs further model changes, "
+            "use a new held-out test set for the next production claim."
         ),
     }
     _write_json(output_root / "qualification-report.json", report)
