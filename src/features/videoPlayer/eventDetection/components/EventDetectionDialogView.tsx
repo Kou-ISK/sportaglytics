@@ -61,7 +61,7 @@ export interface EventDetectionDialogViewProps {
 }
 
 const EVENT_LABELS: Record<RugbyEventType, string> = {
-  kickoff: 'Kickoff',
+  restart: 'リスタート',
   scrum: 'Scrum',
   lineout: 'Lineout',
   maul: 'Maul',
