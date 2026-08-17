@@ -169,13 +169,17 @@ addTimelineDatas(items: NewTimelineData[]): string[]
 
 自動イベント検出は戦術判断を自動化する機能ではない。映像中の明確なラグビーイベントを検出して通常Timelineを初期Codingし、その後の手動分析を早く開始できるようにする。
 
+実作業では、少数の高Precision候補だけを自動作成するより、**実際のイベントをほぼすべて候補として出し、人間が不要候補を削除する**workflowを優先する。
+
 ### Initial target classes
 
 優先:
 
-1. Kickoff
+1. Restart
 2. Scrum
 3. Lineout
+
+`Restart` は50mキックオフ、22mドロップアウト、トライライン/ゴールラインドロップアウト等を含む。
 
 Contract上の拡張候補:
 
@@ -190,6 +194,8 @@ Contract上の拡張候補:
 - contact pose estimation
 - tackle quality / dangerous tackle自動判定
 - LLM/VLMによるvisual event recognition
+- ユーザー端末ごとの自動fine-tuning
+- 暗黙のtraining data upload
 
 ### User flow
 
@@ -199,43 +205,57 @@ Contract上の拡張候補:
 4. local video angleを選択
 5. event type / Timeline action name / before-after secondsを確認
 6. local detectionを実行
-7. confidence filter / duplicate suppression
-8. accepted eventsを通常Timelineへ一括追加
-9. 通常のmanual edit / labeling / dashboard / playlistへ進む
+7. verified confidence threshold / duplicate suppressionを適用
+8. candidatesを通常Timelineへ一括追加
+9. false positiveを削除し、必要なら見逃しeventを追加
+10. 通常のmanual edit / labeling / dashboard / playlistへ進む
 
 専用AI Timelineやreview queueは必須としない。
 
 ### Verified-only policy
 
-Product UIへ出るmodel/event classは品質基準を満たすものだけとする。
+Product UIへ出るmodel/event classは最低runtime基準を満たすものだけとする。
 
 Minimum per class:
 
 | Metric | Requirement |
 | --- | ---: |
-| Precision | >= 0.95 |
-| Recall | >= 0.90 |
+| Recall | >= 0.95 |
 | unseen evaluation matches | >= 5 |
-| TP timestamp within ±2 sec | >= 0.90 |
+| Precision | 0〜1の有限値として記録 |
+| confidence threshold | 0〜1の有限値 |
 
-さらにevaluation時の `confidenceThreshold` をmanifestへ保存し、production runtimeではその値未満へ下げない。
+Precisionの固定最低値や秒単位の厳密なevent onsetをruntime gateにしない。
 
-Model packが `status: verified` を名乗るだけでは利用可能にしない。Applicationはmetricsを再検証する。
+Model packが `status: verified` を名乗るだけでは利用可能にしない。Applicationはminimum runtime metricsを再検証する。
 
-### Evaluation split
+### Product usability qualification
 
-- frame-level random split禁止
-- match ID単位でtrain / validation / testを分離
-- test matchが `trainingMatchIds` と重複した場合はevaluationを失敗させる
+Modelを`verified`へ昇格する前に、別private R&D repositoryで少なくとも次を検証する。
 
-Evaluation command:
+- Recall 95% / 98% / 99%近傍でのPrecision
+- false positives per match
+- missed events per match
+- wall-clock inference time / video minute
+- AI候補の削除と見逃し追加を含むmanual edit operations
+- 通常の手Codingと比較した作業時間削減
 
-```bash
-pnpm run research:events:evaluate -- \
-  <ground-truth.json> \
-  <predictions.json> \
-  <thresholds.json>
-```
+処理時間と修正時間を合わせても作業効率化にならないmodelは採用しない。
+
+### R&D boundary
+
+SporTagLytics public repositoryはevent modelのconsumerとする。以下は別private R&D repositoryで管理する。
+
+- dataset discovery / preparation
+- training / fine-tuning
+- hard-negative mining
+- model family比較
+- threshold / NMS / stride探索
+- validation / held-out qualification
+- private source diagnostics
+- model export
+
+元動画、`.stpkg`、Timeline Coding、frames、checkpoints、runsをpublic Git repositoryへcommitしない。
 
 ### Local execution boundary
 
@@ -365,6 +385,7 @@ Legacy compatible fieldはdomain typeへ残し続けずload-time normalizerで�
 - automatic event detectionはlocal process
 - AI Analysisはlocal llama.cpp
 - telemetry / cloud analyticsを前提にしない
+- model training用user dataの暗黙収集を行わない
 
 ## 3.2 Security
 
@@ -400,6 +421,7 @@ External process:
 
 - playback UIをheavy inferenceでblockしない
 - event detectionはchild processへ分離
+- inference runtimeをproduct usability benchmarkの対象にする
 - Timeline high-frequency clock syncとdocument syncを分離
 - bulk event追加はsingle state update
 
@@ -421,7 +443,7 @@ ADR変更時:
 pnpm run check:adr
 ```
 
-Pull request CIは `develop` を含む通常統合先で実行する。
+Pull request CIは `develop` を含む通常統合先で実行する。Model R&DのCIはprivate repository側で管理する。
 
 ---
 
@@ -433,4 +455,4 @@ Pull request CIは `develop` を含む通常統合先で実行する。
 - [Testing and Quality Gates](testing.md)
 - [自動イベント検出](event-detection.md)
 - [ADR 0021 Detached Timeline and Playback Authority](adr/0021-detached-timeline-playback-authority.md)
-- [ADR 0022 Verified Local Rugby Event Detection](adr/0022-verified-local-rugby-event-detection.md)
+- [ADR 0023 External Rugby Event Model R&D Boundary](adr/0023-external-rugby-event-model-rd-boundary.md)
