@@ -1,9 +1,8 @@
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box } from '@mui/material';
 import type { useVideoPlayerScreenController } from '../hooks/useVideoPlayerScreenController';
 import { ManualSyncControls } from './ManualSyncControls';
 import { NoSelectionPlaceholder } from './NoSelectionPlaceholder';
 import { PlayerSurface } from './PlayerSurface';
-import ViewTimelineOutlined from '@mui/icons-material/ViewTimelineOutlined';
 
 type VideoPlayerAppState = ReturnType<typeof useVideoPlayerScreenController>;
 
@@ -36,7 +35,6 @@ type VideoPlayerLayoutProps = Pick<
   openWizardRequestKey: number;
   onApplyManualSync: () => void;
   onCancelManualSync: () => void;
-  onOpenTimeline: () => void;
   viewMode: 'dual' | 'angle1' | 'angle2';
 };
 
@@ -66,7 +64,6 @@ export const VideoPlayerLayout = ({
   setMediaAngles,
   onApplyManualSync,
   onCancelManualSync,
-  onOpenTimeline,
   viewMode,
   openWizardRequestKey,
 }: VideoPlayerLayoutProps) => {
@@ -105,24 +102,6 @@ export const VideoPlayerLayout = ({
         playerForceUpdateKey={playerForceUpdateKey}
         viewMode={viewMode}
       />
-
-      <Tooltip title="タイムラインを表示">
-        <IconButton
-          aria-label="タイムラインを表示"
-          onClick={onOpenTimeline}
-          sx={{
-            position: 'absolute',
-            top: 12,
-            right: 12,
-            zIndex: 1200,
-            bgcolor: 'background.paper',
-            boxShadow: 2,
-            '&:hover': { bgcolor: 'action.hover' },
-          }}
-        >
-          <ViewTimelineOutlined />
-        </IconButton>
-      </Tooltip>
 
       {syncMode === 'manual' && (
         <Box

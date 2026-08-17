@@ -92,6 +92,8 @@ export const useLabelButtonInteractions = ({
           [targetActionName]: {
             teamName: teamNames[0] || 'Team',
             startTime: time,
+            leadTimeSeconds: 0,
+            lagTimeSeconds: 0,
             color: getButtonColorByName(targetActionName) ?? button.color,
             activateTargets: [],
             activateTargetColors: targetColors,

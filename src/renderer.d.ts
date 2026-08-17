@@ -4,6 +4,7 @@ import type { AnalysisReportPayload } from './report/types';
 import type { AppSettings } from './types/settings/coreTypes';
 import type { IAnalysisWindowAPI } from './types/ipc/analysisWindow';
 import type { ICodingPanelWindowAPI } from './types/ipc/codingPanelWindow';
+import type { IEventDetectionAPI } from './types/ipc/eventDetection';
 import type {
   ClipExportExecutionResult,
   ClipExportPayload,
@@ -117,6 +118,7 @@ export interface IElectronAPI {
   analysis: IAnalysisWindowAPI;
   codingPanelWindow: ICodingPanelWindowAPI;
   timelineWindow: ITimelineWindowAPI;
+  eventDetection: IEventDetectionAPI;
   llama: {
     generate: (payload: {
       prompt: string;

@@ -14,6 +14,8 @@ import { ButtonHotkeyField } from './ButtonHotkeyField';
 import { ButtonPlaceholderChips } from './ButtonPlaceholderChips';
 import type { ButtonBasicTabProps } from './ButtonBasicTab.types';
 
+const MAX_RECORDING_PADDING_SECONDS = 600;
+
 export const ButtonBasicTab = ({
   button,
   availableActions,
@@ -26,6 +28,7 @@ export const ButtonBasicTab = ({
   setCapturedHotkey,
   onChange,
   onInsertPlaceholder,
+  onNumberChange,
 }: ButtonBasicTabProps) => {
   return (
     <>
@@ -77,6 +80,64 @@ export const ButtonBasicTab = ({
             sx={{ mb: 1 }}
           />
           <ButtonPlaceholderChips onInsertPlaceholder={onInsertPlaceholder} />
+
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+            記録範囲
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mb: 1.5 }}
+          >
+            ボタンを押した時刻より前後をタイムラインに含めます。未設定は0秒です。
+          </Typography>
+          <TextField
+            fullWidth
+            size="small"
+            type="number"
+            label="開始前に含める秒数"
+            value={button.leadTimeSeconds ?? 0}
+            onChange={(event) =>
+              onNumberChange(
+                'leadTimeSeconds',
+                event.target.value,
+                0,
+                MAX_RECORDING_PADDING_SECONDS,
+              )
+            }
+            slotProps={{
+              htmlInput: {
+                min: 0,
+                max: MAX_RECORDING_PADDING_SECONDS,
+                step: 1,
+              },
+            }}
+            sx={{ mb: 1 }}
+          />
+          <TextField
+            fullWidth
+            size="small"
+            type="number"
+            label="終了後に含める秒数"
+            value={button.lagTimeSeconds ?? 0}
+            onChange={(event) =>
+              onNumberChange(
+                'lagTimeSeconds',
+                event.target.value,
+                0,
+                MAX_RECORDING_PADDING_SECONDS,
+              )
+            }
+            slotProps={{
+              htmlInput: {
+                min: 0,
+                max: MAX_RECORDING_PADDING_SECONDS,
+                step: 1,
+              },
+            }}
+            sx={{ mb: 2 }}
+          />
         </>
       ) : (
         <>

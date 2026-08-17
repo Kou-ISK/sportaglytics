@@ -102,6 +102,7 @@ export const ButtonPropertiesEditorView: React.FC<
           setCapturedHotkey={setCapturedHotkey}
           onChange={onChange}
           onInsertPlaceholder={onInsertPlaceholder}
+          onNumberChange={onNumberChange}
         />
       </TabPanel>
 

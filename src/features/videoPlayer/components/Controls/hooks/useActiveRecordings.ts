@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 export type ActiveRecordingSession = {
   teamName: string;
   startTime: number;
+  leadTimeSeconds: number;
+  lagTimeSeconds: number;
   color?: string;
   activateTargets: string[];
   activateTargetColors: Record<string, string | undefined>;

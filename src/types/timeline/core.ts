@@ -10,6 +10,8 @@ export interface TimelineData {
   color?: string;
 }
 
+export type NewTimelineData = Omit<TimelineData, 'id'>;
+
 /** タイムラインの行。色と表示順はインスタンスではなく行が所有する。 */
 export interface TimelineRow {
   id: string;

@@ -79,6 +79,11 @@ const normalizeActionLinkType = (
     : undefined;
 };
 
+const normalizeNonNegativeNumber = (value: unknown): number | undefined => {
+  const normalized = asFiniteNumber(value);
+  return normalized != null && normalized >= 0 ? normalized : undefined;
+};
+
 const normalizeCodeWindowButton = (value: unknown): CodeWindowButton | null => {
   if (!isPlainObject(value)) {
     return null;
@@ -160,6 +165,18 @@ const normalizeCodeWindowButton = (value: unknown): CodeWindowButton | null => {
   const fontSize = asPositiveNumber(value.fontSize);
   if (fontSize != null) {
     normalized.fontSize = fontSize;
+  }
+
+  if (type === 'action') {
+    const leadTimeSeconds = normalizeNonNegativeNumber(value.leadTimeSeconds);
+    if (leadTimeSeconds != null) {
+      normalized.leadTimeSeconds = leadTimeSeconds;
+    }
+
+    const lagTimeSeconds = normalizeNonNegativeNumber(value.lagTimeSeconds);
+    if (lagTimeSeconds != null) {
+      normalized.lagTimeSeconds = lagTimeSeconds;
+    }
   }
 
   return normalized;

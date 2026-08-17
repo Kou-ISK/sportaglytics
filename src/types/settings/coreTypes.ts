@@ -36,6 +36,10 @@ export interface CodeWindowButton {
   team?: 'team1' | 'team2' | 'shared';
   groupId?: string;
   fontSize?: number;
+  /** Seconds to include before an action button is activated. */
+  leadTimeSeconds?: number;
+  /** Seconds to include after an action button is deactivated. */
+  lagTimeSeconds?: number;
 }
 
 export interface ButtonLink {
