@@ -14,12 +14,6 @@ pnpm run check:architecture
 pnpm run test:run
 ```
 
-Event detection research code変更時:
-
-```bash
-pnpm run research:events:check
-```
-
 ADR変更時:
 
 ```bash
@@ -35,12 +29,11 @@ pnpm run check:adr
 | `pnpm run check:adr` | ADR filename/index consistency |
 | `pnpm run test:run` | Vitest one-shot |
 | `pnpm run test:ci` | serialized Vitest CI run |
-| `pnpm run research:events:check` | Python research source compile + lightweight unit tests |
 | `pnpm run check:preload` | preload bundle sanity |
 | `pnpm run report:architecture-health` | architecture report |
 | `pnpm run report:large-files` | soft file-size report |
 
-GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Python research check、Vitestを実行します。
+GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Vitestを実行します。Model training/evaluationのCIは別private R&D repositoryの責務です。
 
 ## Test Placement
 
@@ -49,9 +42,8 @@ GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requ
 - shared contract / normalizer → contract近傍のtest
 - Electron menu/manager pure behavior → `electron/src/**.test.ts`
 - real BrowserWindow / file association / preload bundling → E2E
-- offline model researchのpure metric/schema logic → `research/rugby-event-detection/tests/`
 
-Heavy model weightをunit testで取得せず、process/model境界より内側のpure logicを分離してtestします。
+Heavy model weightやtraining frameworkをSporTagLytics unit testで取得しません。Public repositoryではmodel pack consumer boundaryだけをtestします。
 
 ## Settings / Timeline / IPC
 
@@ -68,11 +60,7 @@ pnpm run check:preload
 
 ## Automatic Event Detection Tests
 
-自動イベント検出には3段階の品質確認があります。
-
-### 1. Application code gate
-
-Vitestで:
+SporTagLytics側では次を確認します。
 
 - recording lead/lag range
 - confidence filter
@@ -81,92 +69,19 @@ Vitestで:
 - model quality gate
 - settings migration
 - Timeline reopen menu
+- verified manifest / runner SHA-256 / path traversal validation
+- request/result IPC validation
+- cancel / timeout / bounded child process behavior
 
-を確認します。
+Runtime quality gateはRecall優先です。最低条件はclassごとにRecall >= 0.95、match-level unseen evaluation >= 5で、Precisionは有限な0〜1の値として記録します。
 
-### 2. Research code gate
+高Recall operating pointでのfalse positives per match、処理時間、manual edit operations、実作業時間削減はprivate R&D qualificationで検証し、実用的でないmodelを`verified`へ昇格させない前提です。
 
-```bash
-pnpm run research:events:check
-```
+## Model R&D Tests
 
-Heavy dependency/modelをCIへ毎回installせず、以下を確認します。
+Dataset preparation、training、hard-negative mining、threshold/NMS/stride探索、held-out qualification、model exportのtestは別private R&D repositoryで管理します。
 
-- Python source / entrypoint / testsのsyntax compile
-- validation threshold selection
-- Precision / Recall / timestamp gate
-- unseen match count gate
-- dataset/model metadata schema
-- `productionEligible` の厳密なboolean validation
-
-実modelのdownload/fine-tuningはローカルresearch環境で行います。
-
-### 3. Model screening and promotion gate
-
-#### Validation-only screening
-
-```bash
-pnpm run research:events:prepare -- \
-  --spec /path/to/dataset-spec.json \
-  --output /path/to/manifest.json
-
-pnpm run research:events:benchmark -- \
-  --manifest /path/to/manifest.json \
-  --output-dir /path/to/benchmark \
-  --strategy head
-```
-
-`benchmark` はTrainでfine-tuningし、Validationでmodel family / strategy / confidence thresholdを比較します。**Test splitをscanしてはいけません。**
-
-Screeningで確認するもの:
-
-- event class別Validation Precision / Recall
-- timestamp accuracy
-- local scan runtime
-- checkpoint/threshold SHA-256
-- licenseによるproduction eligibility
-
-必要なら有望な1候補を `--strategy full` で再度Train/Validation比較します。
-
-#### Held-out qualification
-
-Model family、strategy、stride/NMS、checkpoint、Validation thresholdを凍結してから、1つのproduction-eligible modelだけをTestへ通します。
-
-```bash
-pnpm run research:events:qualify -- \
-  --manifest /path/to/manifest.json \
-  --model-id x3d-s-kinetics400 \
-  --checkpoint /path/to/checkpoint.pt \
-  --thresholds /path/to/thresholds.json \
-  --output-dir /path/to/qualification \
-  --strategy full
-```
-
-独立evaluator:
-
-```bash
-pnpm run research:events:evaluate -- \
-  qualification/test-ground-truth.json \
-  qualification/test-predictions.json \
-  qualification/thresholds.json
-```
-
-Product minimum per event class:
-
-| Metric | Gate |
-| --- | ---: |
-| Precision | >= 0.95 |
-| Recall | >= 0.90 |
-| unseen matches | >= 5 |
-| TP within ±2 sec | >= 0.90 |
-
-通常matching toleranceは±5秒です。Evaluatorはdevelopment側match IDsとtest `matchId` の重複を拒否します。
-
-Test結果を見た後でmodel family、training strategy、NMS、stride、confidence thresholdを変更した場合、そのTest setを次のproduction claimへ再利用してはいけません。新しいheld-out Test setを用意します。
-
-Production候補はlicense条件も満たす必要があります。非商用checkpointは精度ゲートを通ってもverified production modelへ昇格させません。
-
-Model packを `verified` にする前にqualificationの `productGatePassed`、independent evaluator、各class metrics、license、runner SHA-256を確認します。
+Public repositoryのCIやtest fixtureへ、実チーム名、実試合名、ローカル絶対path、実動画file名、private diagnostic outputを持ち込みません。
 
 ## E2E
 
@@ -195,8 +110,7 @@ pnpm run test:e2e:timeline-rows
 4. Electron typecheck
 5. Architecture
 6. ADR check
-7. Research Python check
-8. Unit tests
+7. Unit tests
 
 最初の失敗stepを修正し、後続stepのskipを別の失敗と誤認しないようにします。
 
@@ -206,6 +120,7 @@ pnpm run test:e2e:timeline-rows
 - flaky testを単純skipしない
 - legacy behaviorを変える場合はmigration testを追加
 - security boundaryを緩めてtestを通さない
-- event detection品質閾値を機能を見せるために下げない
-- Test setをmodel/threshold選定へ利用しない
+- Recall優先のruntime minimumを機能を見せるために下げない
+- model training/evaluation codeをpublic app repositoryへ再混在させない
+- private source-identifying fixtureをpublic CIへ入れない
 - license不適格modelを精度だけでproduction昇格させない

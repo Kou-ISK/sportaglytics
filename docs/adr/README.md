@@ -27,7 +27,8 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0019](0019-code-window-owned-modes-and-direct-visual-editing.md)  | Code-window-owned modes and direct visual editing  | Accepted   | 2026-08-02 |
 | [0020](0020-verified-media-toolchain-and-process-containment.md)   | Verified media toolchain and process containment   | Accepted   | 2026-08-03 |
 | [0021](0021-detached-timeline-playback-authority.md)               | Detached timeline and playback authority           | Accepted   | 2026-08-15 |
-| [0022](0022-verified-local-rugby-event-detection.md)               | Verified local rugby event detection               | Accepted   | 2026-08-15 |
+| [0022](0022-verified-local-rugby-event-detection.md)               | Verified local rugby event detection               | Superseded | 2026-08-15 |
+| [0023](0023-external-rugby-event-model-rd-boundary.md)             | External rugby event model R&D boundary            | Accepted   | 2026-08-18 |
 
 ## Status Values
 

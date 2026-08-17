@@ -10,11 +10,12 @@
 | `docs/` | user / developer / architecture docs | 仕様、ADR、配布・運用手順。新規docsは`docs/README.md`へ掲載 |
 | `electron/` | Electron main / preload | Node/Electron API、IPC、BrowserWindow、local process管理 |
 | `public/` | static bundled assets | icon、static template、同梱assets。大型modelはgit管理しない |
-| `research/` | offline model research | 学習・ベンチマーク・dataset manifest生成。アプリruntimeへ直接importしない |
 | `resources/` | optional packaged runtime assets | 検証済みruntime/model pack等。配布工程で用意するasset |
-| `scripts/` | repo-level automation | architecture/preload/ADR check、evaluation、report、E2E |
+| `scripts/` | repo-level automation | architecture/preload/ADR check、report、E2E |
 | `src/` | React renderer | UI、feature、shared domain、shared type。Electron direct import禁止 |
 | root | package/config/community entry | package.json、TS/Vite/ESLint、README、LICENSE等 |
+
+Model training / evaluation / dataset preparationはSporTagLytics repositoryの責務ではありません。別private R&D repositoryで管理し、public appにはverified model packのconsumer contractだけを置きます。
 
 ## Renderer Layout
 
@@ -118,9 +119,9 @@ src/shared/eventDetection/
 
 - `types/eventDetection/core.ts`: model/event/request/result/mappingのrenderer-main共有domain型
 - `types/ipc/eventDetection.ts`: channel、preload API、payload guard
-- `shared/eventDetection/modelQualityGate.ts`: product promotion gateのpure判定
+- `shared/eventDetection/modelQualityGate.ts`: verified model packのminimum runtime gate
 
-ML framework固有typeはここへ置きません。ONNX/PyTorch等はrunner内部の実装詳細です。
+ML framework固有typeやtraining/evaluation codeはここへ置きません。ONNX/PyTorch等はrunnerまたは外部R&Dの実装詳細です。
 
 ## Electron Layout
 
@@ -203,7 +204,7 @@ Window-specific BrowserWindow / IPC contractはmainとshared typeを分けます
 
 ## Scripts
 
-Repo全体へ作用する検査・評価は `scripts/` です。
+Repo全体へ作用する検査・report・E2Eは `scripts/` です。
 
 代表例:
 
@@ -214,45 +215,31 @@ scripts/
 ├── check-preload-bundle.js
 ├── report-architecture-health.js
 ├── report-large-files.js
-├── evaluate-event-detection.mjs
 └── e2e-*.mjs
 ```
 
-`evaluate-event-detection.mjs` はmatch-level unseen ground truthとpredictionを比較し、verified model manifestへ転記可能なclass別metricsを出力します。
+Model training/evaluation用scriptはここへ置きません。
 
-## Research Layout
+## External Model R&D Boundary
 
-学習・fine-tuning・pretrained model比較はアプリ本体や `scripts/` へ混在させず、`research/` に隔離します。
+SporTagLyticsはevent modelの**consumer**です。別private R&D repositoryが、dataset preparation、training、benchmark、qualification、model exportを担当します。
 
-```text
-research/rugby-event-detection/
-├── README.md
-├── pyproject.toml
-├── run.py
-├── config/
-│   ├── dataset-spec.example.json
-│   ├── event-aliases.json
-│   └── model-benchmarks.json
-├── src/sportaglytics_rugby_events/
-│   ├── manifest.py
-│   ├── dataset.py
-│   ├── models.py
-│   ├── training.py
-│   ├── spotting.py
-│   ├── metrics.py
-│   └── benchmark.py
-└── tests/
-```
+Public repositoryへ持ち込めるもの:
 
-役割:
+- model pack schemaに適合したmanifest
+- verified runner contract
+- compatibility/quality metadata
+- synthetic fixtureを使ったruntime test
 
-- SporTagLytics package/Timelineからmatch-level dataset manifestを作る
-- pretrained backboneを同じsplitでfine-tuneする
-- validationだけでconfidence thresholdを選ぶ
-- unseen testへ固定thresholdを適用する
-- 精度、時間誤差、local inference速度、license適格性を同じreportへ出す
+Public repositoryへ持ち込まないもの:
 
-`research/` はproduction dependencyではありません。Renderer/Electronからimportせず、生成checkpoint、映像、frame、`runs/` はgit管理しません。品質ゲートを通過した結果だけを、別工程でverified model packのrunner contractへ変換します。
+- 元動画 / `.stpkg` / Coding dataset
+- source-identifying manifest/path
+- frames / checkpoints / training runs
+- model family比較やfine-tuning script
+- private diagnostic output
+
+詳細は [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md) を正とします。
 
 ## Documentation Placement
 
@@ -268,18 +255,18 @@ docs/
 └── adr/
 ```
 
-長期判断を新規追加・変更する場合はADRへ記録します。自動イベント検出の実行境界・品質ゲートは [ADR 0022](adr/0022-verified-local-rugby-event-detection.md) を正とします。
+長期判断を新規追加・変更する場合はADRへ記録します。自動イベント検出の実行境界・R&D分離・品質方針は [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md) を正とします。
 
 ## Placement Checklist
 
 新規ファイル追加前に確認:
 
-1. feature固有かsharedか、offline researchか。
+1. feature固有かsharedか、または外部R&Dの責務か。
 2. UI描画と外部依存が分離されているか。
 3. Viewから `window.electronAPI` を呼んでいないか。
 4. feature外参照が `index.ts` 経由か。
 5. Electron APIはmain/preload/gateway境界内か。
 6. IPC contractは `src/types/ipc/` にあるか。
 7. pure domain logicをHook/Viewへ埋め込んでいないか。
-8. ML学習コードをproduction runtimeへ直接依存させていないか。
+8. ML学習・評価コードをSporTagLytics runtime repositoryへ戻していないか。
 9. 新しい設計判断ならADR/docs indexを更新したか。

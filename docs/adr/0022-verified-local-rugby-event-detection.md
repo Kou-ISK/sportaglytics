@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded
 
 ## Date
 
@@ -12,6 +12,7 @@ Accepted
 
 - Extends: [0002 Typed Electron IPC and Renderer Gateways](0002-typed-electron-ipc-and-renderer-gateways.md)
 - Extends: [0020 Verified Media Toolchain and Process Containment](0020-verified-media-toolchain-and-process-containment.md)
+- Superseded by: [0023 External Rugby Event Model R&D Boundary](0023-external-rugby-event-model-rd-boundary.md)
 
 ## Context
 
@@ -25,27 +26,18 @@ SporTagLytics の Coding では「リスタート」を、50m キックオフだ
 
 - 自動イベント検出は「分析結果の自動生成」ではなく、通常の Timeline を初期作成する Coding assistance と位置付ける。
 - 製品で利用可能なモデルは `verified` model pack のみとする。`experimental` model pack は一般ユーザーの実行候補へ出さない。
-- event class ごとに少なくとも次を満たした場合だけ、その class を製品へ公開する。
-  - Precision >= 0.95
-  - Recall >= 0.90
-  - match 単位で分離した unseen evaluation match >= 5
-  - 正解時刻 ±2 秒以内の割合 >= 0.90
-  - 評価時に使用した `confidenceThreshold` を manifest に保存する
-- 製品の runtime confidence は manifest の検証済み `confidenceThreshold` 未満へ下げない。
+- event class ごとに少なくとも Precision >= 0.95、Recall >= 0.90、match 単位で分離した unseen evaluation match >= 5、正解時刻 ±2 秒以内の割合 >= 0.90 を満たすという初期 gate を採用する。
 - runner executable は model pack 内に置き、platform/architecture ごとの相対 path と SHA-256 を manifest に保存する。main process は実行前に path traversal、存在、hash、品質ゲートを検証する。
 - 推論は Electron renderer/main 内で実行せず、main process が有限 timeout の child process として runner を起動する。`shell: false` とし、request/result は一時 JSON file で交換する。cancel、result size 上限、stderr 上限、sender/payload validation を持つ。
 - renderer は `window.electronAPI.eventDetection` の明示 API のみ使用する。IPC contract は `src/types/ipc/eventDetection.ts` を正本とする。
-- 最初の評価対象は `restart`、`scrum`、`lineout` とする。`restart` は 50m キックオフ、22m ドロップアウト、トライライン/ゴールラインドロップアウトを含む。`maul`、`goalKick` は同じ品質ゲートを通過した場合のみ追加する。player tracking、ball tracking、選手識別、高度な tackle 判定は本 ADR の対象外とする。
 - detector result は Timeline へ追加する直前に confidence filter と重複除去を行う。追加後は通常の `TimelineData` として扱い、AI/モデル固有 field を `TimelineData` へ追加しない。
 - 同一検出runの複数eventは1回の state update で一括追加し、1回の Undo で戻せるようにする。
-- 手動 Coding と自動検出は同じ lead/lag range calculation を使用する。Code Window の action button は `leadTimeSeconds` / `lagTimeSeconds` を保存できる。
-- 初回研究学習は、親ディレクトリから安全な教師試合を自動発見し、match-level で Train / Validation / Test に分離したうえで、production-eligible な pretrained X3D-S の head-only fine-tuning を既定とする。学習入口は held-out Test を一切評価しない。
+- 手動 Coding と自動検出は同じ lead/lag range calculation を使用する。
+- 初回研究学習はSporTagLytics repository内の `research/rugby-event-detection/` に隔離する。
 
 ## Consequences
 
-- 検出精度が基準未満のモデルは UI に現れず、未検証 AI 機能が既存の分析体験を悪化させない。
-- 自動検出後は既存 Timeline をそのまま編集・ラベル付け・集計でき、手動分析用の別ワークフローを覚える必要がない。
-- `restart` 内の細分類が将来必要になった場合は、まず pooled restart detector の品質と各 subtype のデータ量を確認し、別 dataset/evaluation を設計する。
-- モデル改善とアプリ本体の更新を分離できるが、model pack の署名/配布方法は別途決める必要がある。
-- 新しいevent classを公開するには、match-level evaluation、confidence operating point、manifest metrics の更新が必要になる。
-- runtime/framework（ONNX Runtime等）は runner pack 内部実装として交換可能であり、特定ML runtimeをrenderer依存へ追加しない。
+- runtime と model pack の安全境界は確立された。
+- 一方、モデル研究コード・dataset preparation・研究CIまでpublic application repositoryへ含めたことで、製品開発とモデル研究のrelease cycle、privacy boundary、依存関係が混在した。
+- Precision優先の初期gateは、実際のCoding作業では「ほぼ全件を先に出し、不要候補を削除する」方が楽というworkflowに十分合っていなかった。
+- これらの点は ADR 0023 で置き換える。
