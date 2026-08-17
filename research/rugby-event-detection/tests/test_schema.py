@@ -54,14 +54,14 @@ class SchemaTest(unittest.TestCase):
                 "eventType": "scrum",
                 "anchorTimeSeconds": 123.4,
                 "endTimeSeconds": 136.2,
-                "possessionLabel": "帝京",
-                "sourceActionName": "帝京 スクラム",
+                "possessionLabel": "team-a",
+                "sourceActionName": "team-a スクラム",
             }
         )
 
         self.assertEqual(event.event_type, "scrum")
-        self.assertEqual(event.possession_label, "帝京")
-        self.assertEqual(event.source_action_name, "帝京 スクラム")
+        self.assertEqual(event.possession_label, "team-a")
+        self.assertEqual(event.source_action_name, "team-a スクラム")
         self.assertAlmostEqual(event.interval_end_seconds, 136.2)
 
     def test_event_annotation_clamps_invalid_end_before_anchor(self) -> None:

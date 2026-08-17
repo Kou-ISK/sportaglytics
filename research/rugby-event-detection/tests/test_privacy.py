@@ -21,8 +21,8 @@ from sportaglytics_rugby_events.privacy import (  # noqa: E402
 class ResearchPrivacyTest(unittest.TestCase):
     def test_source_and_dataset_ids_do_not_embed_source_names(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "帝京資料"
-            package_root = root / "2025シーズン" / "20251012 帝京v昭和"
+            root = Path(directory) / "private-rugby-data"
+            package_root = root / "season-a" / "match-private-alpha-v-beta"
             package_root.mkdir(parents=True)
 
             anonymous_source = source_id(root, package_root)
@@ -30,8 +30,8 @@ class ResearchPrivacyTest(unittest.TestCase):
             dataset_id = default_dataset_id(root)
 
             combined = " ".join((anonymous_source, anonymous_match, dataset_id))
-            self.assertNotIn("帝京", combined)
-            self.assertNotIn("昭和", combined)
+            self.assertNotIn("private-rugby-data", combined)
+            self.assertNotIn("match-private-alpha-v-beta", combined)
             self.assertTrue(anonymous_source.startswith("source-"))
             self.assertTrue(anonymous_match.startswith("match-"))
             self.assertTrue(dataset_id.startswith("rugby-events-"))
@@ -41,8 +41,8 @@ class ResearchPrivacyTest(unittest.TestCase):
             "eventType": "scrum",
             "anchorTimeSeconds": 10.0,
             "endTimeSeconds": 18.0,
-            "possessionLabel": "帝京",
-            "sourceActionName": "帝京 スクラム",
+            "possessionLabel": "private-team-alpha",
+            "sourceActionName": "private-team-alpha scrum",
         }
 
         sanitized = sanitize_event(event)
@@ -56,16 +56,16 @@ class ResearchPrivacyTest(unittest.TestCase):
                 "endTimeSeconds": 18.0,
             },
         )
-        self.assertNotIn("帝京", serialized)
+        self.assertNotIn("private-team-alpha", serialized)
         self.assertNotIn("possessionLabel", serialized)
         self.assertNotIn("sourceActionName", serialized)
 
     def test_manifest_video_path_uses_anonymous_symlink_name(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             temp_root = Path(directory)
-            source_dir = temp_root / "帝京資料" / "20251012 帝京v昭和"
+            source_dir = temp_root / "private-rugby-data" / "match-private-alpha-v-beta"
             source_dir.mkdir(parents=True)
-            source_video = source_dir / "20251012 帝京v昭和 寄り.mp4"
+            source_video = source_dir / "match-private-alpha-v-beta-tight.mp4"
             source_video.write_bytes(b"test")
             output_path = temp_root / "public-output" / "manifest.json"
             output_path.parent.mkdir(parents=True)
@@ -87,8 +87,8 @@ class ResearchPrivacyTest(unittest.TestCase):
             serialized = json.dumps(sanitized, ensure_ascii=False)
             self.assertTrue(persisted_path.is_symlink())
             self.assertEqual(persisted_path.resolve(), source_video.resolve())
-            self.assertNotIn("帝京", serialized)
-            self.assertNotIn("昭和", serialized)
+            self.assertNotIn("private-rugby-data", serialized)
+            self.assertNotIn("match-private-alpha-v-beta", serialized)
             self.assertEqual(persisted_path.name, "segment-001.mp4")
 
 

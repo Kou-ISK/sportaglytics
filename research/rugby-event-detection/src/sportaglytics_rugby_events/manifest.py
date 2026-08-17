@@ -47,8 +47,8 @@ def _parse_event_action_name(
 ) -> tuple[str, str | None] | None:
     """Resolve event type and optional possession-side label from an action name.
 
-    Exact aliases remain supported (for example ``スクラム``). Team/side-prefixed
-    actions such as ``帝京 スクラム`` and ``相手 ラインアウト`` are interpreted
+    Exact aliases remain supported (for example ``スクラム``). Synthetic side-prefixed
+    actions such as ``team-a スクラム`` and ``opponent ラインアウト`` are interpreted
     as the same event type while preserving the original prefix as supervision
     metadata. The event alias must be the final token(s), so unrelated actions
     containing a set-piece word elsewhere are not silently converted into labels.
