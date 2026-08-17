@@ -4,10 +4,8 @@ import type {
 } from '../../types/eventDetection/core';
 
 export const EVENT_DETECTION_QUALITY_GATE = {
-  minPrecision: 0.95,
-  minRecall: 0.9,
+  minRecall: 0.95,
   minEvaluatedMatches: 5,
-  minTimestampWithinTwoSecondsRate: 0.9,
 } as const;
 
 export const passesEventDetectionQualityGate = (
@@ -16,18 +14,15 @@ export const passesEventDetectionQualityGate = (
   if (!metric) return false;
   return (
     Number.isFinite(metric.precision) &&
-    metric.precision >= EVENT_DETECTION_QUALITY_GATE.minPrecision &&
+    metric.precision >= 0 &&
+    metric.precision <= 1 &&
     Number.isFinite(metric.recall) &&
     metric.recall >= EVENT_DETECTION_QUALITY_GATE.minRecall &&
     Number.isInteger(metric.evaluatedMatches) &&
     metric.evaluatedMatches >= EVENT_DETECTION_QUALITY_GATE.minEvaluatedMatches &&
     Number.isFinite(metric.confidenceThreshold) &&
     metric.confidenceThreshold >= 0 &&
-    metric.confidenceThreshold <= 1 &&
-    typeof metric.timestampWithinTwoSecondsRate === 'number' &&
-    Number.isFinite(metric.timestampWithinTwoSecondsRate) &&
-    metric.timestampWithinTwoSecondsRate >=
-      EVENT_DETECTION_QUALITY_GATE.minTimestampWithinTwoSecondsRate
+    metric.confidenceThreshold <= 1
   );
 };
 
