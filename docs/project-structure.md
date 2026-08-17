@@ -4,136 +4,282 @@
 
 ## Top-Level Layout
 
-| Path        | Role                                                       | Placement rule                                                                                   |
-| ----------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `.github/`  | GitHub workflows、PR/Issue templates、Copilot instructions | GitHub 上の運用・自動化・AI 指示だけを置く                                                       |
-| `docs/`     | 利用者/開発者/設計ドキュメント                             | 仕様、運用、ADR、配布手順を置く。新規 docs は `docs/README.md` に掲載する                        |
-| `electron/` | Electron main / preload process                            | Node/Electron API、IPC handler、BrowserWindow、preload bridge を置く                             |
-| `public/`   | Vite/Electron に同梱する静的 assets                        | アイコン、静的テンプレート、同梱 runtime assets を置く。大型ローカル LLM model は git 管理しない |
-| `scripts/`  | 開発・CI 補助スクリプト                                    | architecture check、preload check、report など repo 全体の検査・生成を置く                       |
-| `src/`      | React renderer application                                 | UI、features、shared domain、renderer 型を置く。Electron の直接 import は置かない                |
-| root files  | package/config/community health                            | `package.json`、TS/ESLint/Vite 設定、README、LICENSE、CONTRIBUTING など repo 入口を置く          |
+| Path | Role | Placement rule |
+| --- | --- | --- |
+| `.github/` | GitHub workflows / templates / AI instructions | GitHub上の運用・CI・Copilot指示 |
+| `docs/` | user / developer / architecture docs | 仕様、ADR、配布・運用手順。新規docsは`docs/README.md`へ掲載 |
+| `electron/` | Electron main / preload | Node/Electron API、IPC、BrowserWindow、local process管理 |
+| `public/` | static bundled assets | icon、static template、同梱assets。大型modelはgit管理しない |
+| `research/` | offline model research | 学習・ベンチマーク・dataset manifest生成。アプリruntimeへ直接importしない |
+| `resources/` | optional packaged runtime assets | 検証済みruntime/model pack等。配布工程で用意するasset |
+| `scripts/` | repo-level automation | architecture/preload/ADR check、evaluation、report、E2E |
+| `src/` | React renderer | UI、feature、shared domain、shared type。Electron direct import禁止 |
+| root | package/config/community entry | package.json、TS/Vite/ESLint、README、LICENSE等 |
 
 ## Renderer Layout
 
-Renderer は Feature-First です。依存方向は `pages -> features -> shared` を維持します。
+依存方向は `pages -> features -> shared` です。
 
-| Path                      | Role                         | Put here                                                                                      |
-| ------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/pages/`              | top-level page wrapper       | routing / entry composition だけ。feature deep import はせず public index 経由にする          |
-| `src/features/<feature>/` | feature implementation       | feature 固有の Screen、Controller/Hook、View、Gateway、domain logic                           |
-| `src/components/ui/`      | shared UI design-system      | feature 非依存の primitives / composites / patterns。実行・編集で共有するbutton surfaceも置く |
-| `src/components/`         | legacy/shared components     | 複数 feature で使う UI。新規 shared UI は可能なら `src/components/ui/` へ寄せる               |
-| `src/hooks/`              | truly shared hooks           | feature 固有 state を持たない cross-feature hook                                              |
-| `src/contexts/`           | truly shared contexts        | アプリ横断の状態だけ。feature 専用 context は feature 配下へ置く                              |
-| `src/shared/`             | shared domain / gateway      | feature 非依存の domain service、shared gateway、cross-feature contract                       |
-| `src/types/`              | shared type contracts        | analysis / ipc / package / playlist / settings / timeline / video など use-case 単位の共有型  |
-| `src/utils/`              | shared pure helpers          | Electron、URL、永続化に直接触れない pure helper                                               |
-| `src/report/`             | report-specific shared logic | analysis report data / print layout など report 横断処理                                      |
+| Path | Role |
+| --- | --- |
+| `src/pages/` | routing / entry composition only |
+| `src/features/<feature>/` | feature固有 Screen / Controller / Hook / View / Gateway / domain |
+| `src/components/ui/` | feature非依存 shared UI primitives / composites / patterns |
+| `src/components/` | legacy/shared UI |
+| `src/hooks/` | truly shared hooks |
+| `src/contexts/` | app-wide context only |
+| `src/shared/` | shared domain/service/contract |
+| `src/types/` | shared type contracts |
+| `src/report/` | report DTO / renderer-independent report contracts |
 
-## Feature Layout
+### Feature placement rule
 
-feature 配下は機能責務で分割します。Atomic Design の分類を feature フォルダへ持ち込まないでください。
+新しい機能は原則:
 
-パッケージ作成の映像選択 UI は `src/features/videoPlayer/components/Setup/VideoPathSelector/steps/` に Controller / View を置き、アングル一覧とクリップシーケンスの2ペイン描画部品は `steps/videoSelection/` に配置します。`VideoSelectionStepView` はYouTube URL入力だけを必要時にダイアログ表示し、同期位置は作成画面で扱いません。クリップ単位シンクの状態制御は `src/features/videoPlayer/app/hooks/sync/useClipTimelineSyncController.ts`、描画は `src/features/videoPlayer/app/components/ClipSyncControlsView.tsx` に分離します。描画部品は props と callback のみに依存し、IPC と file dialog は gateway / hook に閉じ込めます。
+```text
+src/features/<feature>/
+├── index.ts
+├── <Feature>Screen.tsx
+├── components/
+│   └── <Feature>View.tsx
+├── hooks/
+├── controllers/
+├── gateway/
+├── domain/
+└── testing/
+```
 
-独立タイムラインは `src/features/videoPlayer/app/TimelineWindowScreen.tsx` を入口とし、描画を `components/TimelineWindowView.tsx`、状態同期と command 変換を `hooks/useTimelineWindowController.ts`、Electron 境界を `gateways/timelineWindowGateway.ts` に分離します。共有 IPC 契約は `src/types/ipc/timelineWindow.ts`、main process の lifecycle は `electron/src/timelineWindow.ts` に置きます。
+全featureが全folderを持つ必要はありません。外部依存・UI描画・domain計算の責務が混ざらないことを優先します。
 
-| Path                      | Role                                                               |
-| ------------------------- | ------------------------------------------------------------------ |
-| `index.ts`                | feature 外へ公開する API。feature 外からの import はここに限定する |
-| `*Screen.tsx`             | feature entry。画面構成と Controller/View 合成を担当               |
-| `components/`             | feature 固有 UI。複雑な UI は View と Controller/Hook を分ける     |
-| `controllers/`            | feature 固有の controller hooks / state orchestration              |
-| `hooks/`                  | feature 内で再利用する hook                                        |
-| `gateways/` or `gateway/` | Electron、URL、localStorage、file dialog など外部境界              |
-| `utils/`                  | feature 固有 pure helper / domain calculation                      |
-| `shared/`                 | 同一 feature 内の sub-domain 共有。feature 外 shared と混同しない  |
-| `testing/`, `fixtures/`   | feature 固有 fixture / mock data。必要になった時点で追加する       |
+Feature外から参照する場合は `src/features/<feature>/index.ts` を公開面にします。
 
-### Current Features
+## Video Player Feature
 
-| Feature                        | Responsibility                                                                             |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
-| `src/features/videoPlayer/`    | package loading、video playback、timeline editing、analysis panel、AI analysis integration |
-| `src/features/playlist/`       | playlist window、playlist state、annotations、clip export integration                      |
-| `src/features/settings/`       | app settings、hotkeys、code window editor primitives                                       |
-| `src/features/analysisReport/` | printable/exportable analysis report screen and report gateway                             |
+Video runtimeは `src/features/videoPlayer/` にまとまります。
+
+```text
+src/features/videoPlayer/
+├── app/                         # main video Screen/runtime composition
+├── analysis/                    # renderer-side statistics/domain
+├── components/                  # player/coding/analysis feature UI
+├── eventDetection/              # verified automatic event coding
+│   ├── components/
+│   │   └── EventDetectionDialogView.tsx
+│   ├── hooks/
+│   │   └── useEventDetectionController.ts
+│   ├── gateway/
+│   │   └── eventDetectionGateway.ts
+│   └── domain/
+│       ├── candidatesToTimeline.ts
+│       └── candidatesToTimeline.test.ts
+└── shared/
+```
+
+`eventDetection` を別app/pageへしない理由は、検出結果を確定するTimeline authorityがmain video runtimeにあり、結果を通常Timelineへ直接追加するためです。モデル実行自体はElectron側へ分離します。
+
+## Coding Range Domain
+
+手動Codingと自動Codingで共通のrange計算:
+
+```text
+src/features/videoPlayer/components/Controls/domain/
+├── recordingRange.ts
+└── recordingRange.test.ts
+```
+
+`recordingRange.ts` はReact/Electron非依存のpure domain functionです。
+
+Code Windowの保存型は:
+
+```text
+src/types/settings/
+├── coreTypes.ts
+├── codingPanelNormalizers.ts
+└── ...
+```
+
+`leadTimeSeconds` / `lagTimeSeconds` のmigration/validationは `codingPanelNormalizers.ts` で行います。
+
+## Shared Event Detection Contracts
+
+```text
+src/types/eventDetection/
+└── core.ts
+
+src/types/ipc/
+└── eventDetection.ts
+
+src/shared/eventDetection/
+├── modelQualityGate.ts
+└── modelQualityGate.test.ts
+```
+
+役割:
+
+- `types/eventDetection/core.ts`: model/event/request/result/mappingのrenderer-main共有domain型
+- `types/ipc/eventDetection.ts`: channel、preload API、payload guard
+- `shared/eventDetection/modelQualityGate.ts`: product promotion gateのpure判定
+
+ML framework固有typeはここへ置きません。ONNX/PyTorch等はrunner内部の実装詳細です。
 
 ## Electron Layout
 
-| Path                                                 | Role                                  | Placement rule                                                          |
-| ---------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------- |
-| `electron/src/main.ts`                               | app startup / top-level assembly      | 詳細な domain logic を増やさず、登録・組み立てに留める                  |
-| `electron/src/ipc/`                                  | main process IPC handlers             | domain ごとに handler を分け、payload guard と sender validation を行う |
-| `electron/src/ipc/packageMediaCompositionService.ts` | package media materialization         | ローカル元クリップの検査・コピー、書き出し用の一時FFmpeg合成            |
-| `electron/src/mediaTools.ts`                         | media binary resolution               | 配布版同梱binaryと開発用binaryの解決、共通H.264 encoder設定             |
-| `electron/src/ipc/mediaProcessRunner.ts`             | bounded native process execution      | FFmpeg/FFprobeのtimeout・出力量制限とprocess終了                        |
-| `scripts/build-media-tools.mjs`                      | reproducible media tool build         | 固定hashのFFmpeg sourceからmacOS architecture別binaryを生成             |
-| `electron/src/ipc/packageClipTimelineService.ts`     | clip timeline application             | 配置・重複・範囲の検証、configの原子的更新                              |
-| `electron/src/ipc/exportVirtualTimelineSource.ts`    | export timeline adapter               | 仮想ローカルタイムラインを書き出し時だけOS一時領域へ実体化              |
-| `electron/src/loopbackAudioCapture.ts`               | macOS loopback capture authorization  | 対応OS判定、ユーザー操作単位の許可、display media requestの制限         |
-| `electron/src/preload.ts`                            | preload bridge assembly               | domain bridge を合成する entry に留める                                 |
-| `electron/src/preload/`                              | preload domain bridges                | `contextBridge` で公開する明示 API と typed listener store              |
-| `electron/tsconfig.json`                             | Electron typecheck                    | no emit。AGENTSの品質ゲートから実行する                                 |
-| `electron/tsconfig.build.json`                       | Electron main process build           | preloadを除外し、Viteの単一bundleを上書きしない                         |
-| `electron/src/menu/`                                 | application menu helpers              | menu section、recent package menu、window action helpers                |
-| `electron/src/playlistWindow/`                       | playlist sub-window main-side runtime | playlist window handler、storage、window manager                        |
-| `electron/src/llama/`                                | local LLM process helpers             | model discovery、process runner、request registry、output normalization |
-| `electron/src/templates/`                            | generated platform templates          | Info.plist など build/package 用 template                               |
-
-## Documentation Layout
-
-| Path                                                                        | Role                           |
-| --------------------------------------------------------------------------- | ------------------------------ |
-| `docs/README.md`                                                            | docs index。新規 docs の掲載先 |
-| `docs/documentation-guide.md`                                               | docs 運用ルール                |
-| `docs/testing.md`                                                           | テストと品質ゲート             |
-| `docs/system-overview.md`                                                   | 現行アーキテクチャ要約         |
-| `docs/project-structure.md`                                                 | ディレクトリ構成と配置判断     |
-| `docs/adr/`                                                                 | Architecture Decision Records  |
-| `docs/*-features.md`, `docs/*-implementation.md`, `docs/*-specification.md` | feature/spec note              |
-| `docs/privacy-and-data-handling.md`                                         | privacy / local data handling  |
-| `docs/homebrew-*`                                                           | 配布・導入手順                 |
-
-## Placement Decisions
-
-新しいファイルを追加する時は、次の順で判断します。
-
-1. ユーザー操作や feature 固有の状態に関わるなら `src/features/<feature>/`。
-2. 複数 feature で使う純粋な計算なら `src/shared/<domain>/` または `src/utils/`。
-3. 複数 feature で使う共有型なら `src/types/<domain>/`。
-4. Electron / filesystem / window / menu / native process に触るなら `electron/src/` または renderer gateway。
-5. Renderer から Electron API を呼ぶなら feature/shared の `gateways/` に閉じ込め、View から直接呼ばない。
-6. ユーザー向け説明、開発手順、設計判断なら `docs/`。
-7. GitHub issue / PR / workflow / Copilot 運用なら `.github/`。
-
-## Do Not Put Here
-
-- `src/pages/`: business logic、state orchestration、Electron access。
-- `src/components/ui/`: feature 固有 hook、feature 固有 state、Electron access。
-- `src/shared/`, `src/utils/`: feature import、Electron direct import、file dialog、window access。
-- `electron/src/main.ts`: 大きな domain logic、個別 feature の詳細処理。
-- `.github/instructions/*.instructions.md`: 一般規約の重複本文。差分ルールだけを書く。
-- `docs/adr/`: 実装差分の羅列、一時メモ、作業ログ。ADR には長期的な判断背景だけを書く。
-
-## Generated / Local Artifacts
-
-| Path                           | Handling                           |
-| ------------------------------ | ---------------------------------- |
-| `build/`, `dist/`, `coverage/` | generated output。git 管理しない   |
-| `.tmp_llama/`                  | local LLM 作業領域。git 管理しない |
-| `public/llama/models/*.gguf`   | large local model。git 管理しない  |
-| `.DS_Store`, local env files   | git 管理しない                     |
-
-## Checks
-
-構成変更後は最低限以下を実行します。
-
-```bash
-pnpm run check:architecture
-pnpm run report:architecture-health
-pnpm run report:large-files
+```text
+electron/src/
+├── main.ts
+├── ipc/
+├── preload/
+├── menu/
+├── eventDetection/
+├── llama/
+├── mediaTools/
+└── *Window.ts
 ```
 
-PR では `AGENTS.md` の品質ゲート 5 コマンドを通してください。
+### Event Detection Main Process
+
+```text
+electron/src/eventDetection/
+├── eventDetectionManager.ts
+├── modelDiscovery.ts
+├── processRunner.ts
+├── requestRegistry.ts
+└── types.ts
+
+electron/src/ipc/
+└── eventDetectionHandlers.ts
+
+electron/src/preload/
+└── eventDetectionBridge.ts
+```
+
+責務:
+
+- `modelDiscovery`: verified manifest / event quality / platform runner / SHA-256検証
+- `eventDetectionManager`: model解決とrequest support確認
+- `processRunner`: bounded child process execution
+- `requestRegistry`: cancel対象process管理
+- `eventDetectionHandlers`: sender/payload validation
+- `eventDetectionBridge`: rendererへ用途限定API公開
+
+Rendererから `child_process`, filesystem, ML runtimeを直接使用しません。
+
+## Timeline Contracts
+
+```text
+src/types/timeline/
+├── core.ts
+└── ...
+```
+
+- `TimelineData`: persisted instance
+- `TimelineRow`: row-owned name/color/order
+- `TimelineDocument`: versioned rows + instances
+- `NewTimelineData`: id採番前のbulk insert input
+
+Timeline編集runtime:
+
+```text
+src/features/videoPlayer/app/hooks/
+├── useTimelineEditing.ts
+├── useTimelineHistory.ts
+├── useTimelinePersistence.ts
+└── useTimelineSessionController.ts
+```
+
+複数eventの自動追加は `addTimelineDatas()` で1回のstate updateにします。
+
+## Dedicated Windows
+
+Window-specific BrowserWindow / IPC contractはmainとshared typeを分けます。
+
+| Window | Main | Shared IPC contract |
+| --- | --- | --- |
+| Analysis | `electron/src/analysisWindow.ts` | `src/types/ipc/analysisWindow.ts` |
+| Coding Panel | `electron/src/codingPanelWindow.ts` | `src/types/ipc/codingPanelWindow.ts` |
+| Timeline | `electron/src/timelineWindow.ts` | `src/types/ipc/timelineWindow.ts` |
+| Playlist | `electron/src/playlistWindow.ts` | playlist IPC contracts |
+| Export Progress | `electron/src/exportProgressWindow.ts` | `src/types/ipc/exportProgressWindow.ts` |
+
+## Scripts
+
+Repo全体へ作用する検査・評価は `scripts/` です。
+
+代表例:
+
+```text
+scripts/
+├── check-architecture.js
+├── check-adr.js
+├── check-preload-bundle.js
+├── report-architecture-health.js
+├── report-large-files.js
+├── evaluate-event-detection.mjs
+└── e2e-*.mjs
+```
+
+`evaluate-event-detection.mjs` はmatch-level unseen ground truthとpredictionを比較し、verified model manifestへ転記可能なclass別metricsを出力します。
+
+## Research Layout
+
+学習・fine-tuning・pretrained model比較はアプリ本体や `scripts/` へ混在させず、`research/` に隔離します。
+
+```text
+research/rugby-event-detection/
+├── README.md
+├── pyproject.toml
+├── run.py
+├── config/
+│   ├── dataset-spec.example.json
+│   ├── event-aliases.json
+│   └── model-benchmarks.json
+├── src/sportaglytics_rugby_events/
+│   ├── manifest.py
+│   ├── dataset.py
+│   ├── models.py
+│   ├── training.py
+│   ├── spotting.py
+│   ├── metrics.py
+│   └── benchmark.py
+└── tests/
+```
+
+役割:
+
+- SporTagLytics package/Timelineからmatch-level dataset manifestを作る
+- pretrained backboneを同じsplitでfine-tuneする
+- validationだけでconfidence thresholdを選ぶ
+- unseen testへ固定thresholdを適用する
+- 精度、時間誤差、local inference速度、license適格性を同じreportへ出す
+
+`research/` はproduction dependencyではありません。Renderer/Electronからimportせず、生成checkpoint、映像、frame、`runs/` はgit管理しません。品質ゲートを通過した結果だけを、別工程でverified model packのrunner contractへ変換します。
+
+## Documentation Placement
+
+```text
+docs/
+├── README.md
+├── user-guide.md
+├── development.md
+├── testing.md
+├── system-overview.md
+├── project-structure.md
+├── event-detection.md
+└── adr/
+```
+
+長期判断を新規追加・変更する場合はADRへ記録します。自動イベント検出の実行境界・品質ゲートは [ADR 0022](adr/0022-verified-local-rugby-event-detection.md) を正とします。
+
+## Placement Checklist
+
+新規ファイル追加前に確認:
+
+1. feature固有かsharedか、offline researchか。
+2. UI描画と外部依存が分離されているか。
+3. Viewから `window.electronAPI` を呼んでいないか。
+4. feature外参照が `index.ts` 経由か。
+5. Electron APIはmain/preload/gateway境界内か。
+6. IPC contractは `src/types/ipc/` にあるか。
+7. pure domain logicをHook/Viewへ埋め込んでいないか。
+8. ML学習コードをproduction runtimeへ直接依存させていないか。
+9. 新しい設計判断ならADR/docs indexを更新したか。

@@ -2,7 +2,7 @@ name: quality-check
 
 on:
   pull_request:
-    branches: [main, "feat**"]
+    branches: [main, develop, "feat**"]
 
 jobs:
   check:
@@ -16,6 +16,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22.12.0"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -48,6 +53,12 @@ jobs:
 
       - name: Architecture check
         run: pnpm run check:architecture
+
+      - name: ADR check
+        run: pnpm run check:adr
+
+      - name: Research Python check
+        run: pnpm run research:events:check
 
       - name: Test
         run: pnpm run test:ci

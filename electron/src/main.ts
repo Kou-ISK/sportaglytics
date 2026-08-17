@@ -33,6 +33,7 @@ import {
   setPendingCodeWindowExternalOpen,
 } from './ipc/codeWindowHandlers';
 import { registerDashboardHandlers } from './ipc/dashboardHandlers';
+import { registerEventDetectionHandlers } from './ipc/eventDetectionHandlers';
 import { registerExportHandlers } from './ipc/exportHandlers';
 import { registerExportProgressWindowHandlers } from './exportProgressWindow';
 import { registerFileHandlers } from './ipc/fileHandlers';
@@ -124,6 +125,7 @@ const registerMainIpcHandlers = (): void => {
     getMainWindow: () => mainWindow,
     getFfmpegPath: getResolvedFfmpegPath,
   });
+  registerEventDetectionHandlers();
   registerLlamaHandlers();
 };
 

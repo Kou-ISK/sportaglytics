@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
 import { ulid } from 'ulid';
-import type { TimelineData } from '../../../../types/timeline/core';
+import type {
+  NewTimelineData,
+  TimelineData,
+} from '../../../../types/timeline/core';
 import { migrateLegacyTimelineLabels } from '../../../../utils/timelineLabelMigration';
 
 interface TimelineEditingHandlers {
@@ -14,6 +17,7 @@ interface TimelineEditingHandlers {
     labels?: Array<{ name: string; group: string }>,
     color?: string,
   ) => void;
+  addTimelineDatas: (items: NewTimelineData[]) => string[];
   deleteTimelineDatas: (idList: string[]) => void;
   updateMemo: (id: string, memo: string) => void;
   updateTimelineRange: (id: string, startTime: number, endTime: number) => void;
@@ -101,6 +105,27 @@ export const useTimelineEditing = (
         };
         return [...prev, newTimelineInstance];
       });
+    },
+    [setTimeline],
+  );
+
+  const addTimelineDatas = useCallback(
+    (items: NewTimelineData[]): string[] => {
+      if (items.length === 0) return [];
+      const ids = items.map(() => ulid());
+      const instances = items.map((item, index): TimelineData => {
+        const labels = item.labels?.map((label) => ({ ...label }));
+        return {
+          ...item,
+          id: ids[index],
+          ...(labels ? { labels } : {}),
+        };
+      });
+
+      // One state update means one history entry. Automatic detection can therefore
+      // be rolled back with a single Undo even when it adds many events.
+      setTimeline((prev) => [...prev, ...instances]);
+      return ids;
     },
     [setTimeline],
   );
@@ -219,6 +244,7 @@ export const useTimelineEditing = (
 
   return {
     addTimelineData,
+    addTimelineDatas,
     deleteTimelineDatas,
     updateMemo,
     updateTimelineRange,

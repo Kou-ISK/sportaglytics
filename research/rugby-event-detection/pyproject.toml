@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sportaglytics-rugby-event-research"
+version = "0.1.0"
+description = "Local research pipeline for rugby event spotting benchmarks"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+  "av>=14,<16",
+  "numpy>=1.26,<3",
+  "torch>=2.4",
+  "torchvision>=0.19",
+  "transformers>=4.53,<6",
+  "fvcore>=0.1.5.post20221221",
+  "iopath>=0.1.10",
+  "pytorchvideo @ git+https://github.com/facebookresearch/pytorchvideo.git@f3142bb05cdb56af0704ab6f0adfb0c7bbafe4a0",
+]
+
+[project.scripts]
+sportaglytics-rugby-events = "sportaglytics_rugby_events.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

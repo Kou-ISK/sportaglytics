@@ -1,693 +1,328 @@
 # 開発ガイド
 
-## 目次
+実装規約の正本はリポジトリルートの `AGENTS.md` です。本書は開発環境、日常ワークフロー、品質ゲート、ローカルevent detection研究手順の実務ガイドです。
 
-1. [開発環境のセットアップ](#開発環境のセットアップ)
-2. [プロジェクト構造](#プロジェクト構造)
-3. [技術スタック](#技術スタック)
-4. [ビルドと実行](#ビルドと実行)
-5. [開発ワークフロー](#開発ワークフロー)
-6. [コーディング規約](#コーディング規約)
-7. [アーキテクチャ](#アーキテクチャ)
-8. [テストとデバッグ](#テストとデバッグ)
-9. [リリースプロセス](#リリースプロセス)
-10. [ドキュメント運用](#ドキュメント運用)
+## 開発環境
 
----
+| ツール | バージョン |
+| --- | --- |
+| Node.js | 22.12以上 |
+| pnpm | 9.1.0以上 |
+| Git | 最新版 |
 
-## 開発環境のセットアップ
-
-### 必須要件
-
-| ツール  | バージョン |
-| ------- | ---------- |
-| Node.js | 22.12 以上 |
-| pnpm    | 9.1.0 以上 |
-| Git     | 最新版     |
-
-### セットアップ手順
+自動イベント検出のoffline model研究を行う場合だけPython 3.10〜3.12を追加で使用します。通常のElectron開発・配布にPython runtimeは不要です。
 
 ```bash
-# リポジトリをクローン
-git clone https://github.com/Kou-ISK/SporTagLytics.git
-cd SporTagLytics
-
-# 依存関係をインストール
-pnpm install
-
-# Electronアプリを開発モードで起動
+git clone <repository-url>
+cd sportaglytics
+pnpm install --frozen-lockfile
 pnpm run electron:dev
 ```
-
-### エディタ設定（VS Code推奨）
-
-**推奨拡張機能**:
-
-- ESLint
-- Prettier
-- TypeScript and JavaScript Language Features
-
----
-
-## プロジェクト構造
-
-```
-SporTagLytics/
-├── .github/                  # GitHub設定とCopilot指示
-├── docs/                     # ドキュメント
-│   └── adr/                  # Architecture Decision Records
-├── electron/                 # Electronメインプロセス
-│   └── src/
-│       ├── main.ts          # 起動/組み立て
-│       ├── preload.ts       # ドメインブリッジ合成
-│       ├── ipc/             # IPCハンドラ登録（files/report/export等）
-│       ├── preload/         # preloadドメインモジュール
-│       ├── windowSecurity.ts
-│       ├── menuBar.ts
-│       └── ...
-├── public/                   # 静的ファイル
-├── src/                      # Reactアプリケーション
-│   ├── main.tsx             # エントリーポイント
-│   ├── App.tsx              # ルートコンポーネント
-│   ├── components/          # 共通コンポーネント
-│   │   └── ui/              # design-system（primitives/composites/patterns）
-│   ├── contexts/            # Reactコンテキスト
-│   ├── features/            # 機能別モジュール
-│   │   ├── analysisReport/
-│   │   ├── settings/
-│   │   ├── playlist/
-│   │   └── videoPlayer/
-│   ├── hooks/               # 共通カスタムフックのみ
-│   ├── pages/               # 薄い page wrapper のみ
-│   ├── types/               # 型定義
-│   └── utils/               # ユーティリティ関数
-├── index.html
-├── package.json
-├── tsconfig.json
-└── vite.config.ts
-```
-
-### ディレクトリ責務
-
-| ディレクトリ              | 責務                                       |
-| ------------------------- | ------------------------------------------ |
-| `electron/src/`           | Electronメインプロセス、IPC、ネイティブAPI |
-| `src/components/`         | 共通UIコンポーネント                       |
-| `src/components/ui/`      | 共通UI design-system（Shared UI限定）      |
-| `src/contexts/`           | truly shared なグローバル状態のみ          |
-| `src/features/<Feature>/` | 機能単位の UI / hook / context / domain    |
-| `src/hooks/`              | truly shared な共通カスタムフックのみ      |
-| `src/pages/`              | feature を呼び出す top-level wrapper のみ  |
-| `src/types/`              | 共有型定義                                 |
-| `src/utils/`              | 共通ユーティリティ関数（pure helper優先）  |
-
----
 
 ## 技術スタック
 
-### フロントエンド
+- React 19 / TypeScript / Material UI 7
+- Electron 43 / Video.js 8 / Vite 7 / Vitest 4
+- local-first desktop application
+- RendererはNode/Electron APIを直接使用せずtyped preload APIを経由
+- event detection researchだけ `research/rugby-event-detection/` の独立Python環境でPyTorch / Transformers / PyTorchVideoを利用
 
-| 技術        | バージョン | 用途                     |
-| ----------- | ---------- | ------------------------ |
-| React       | 19.2.3     | UIライブラリ             |
-| TypeScript  | 5.4.5      | 型安全な開発             |
-| Material-UI | 7.3.7      | UIコンポーネント         |
-| Recharts    | 3.6.0      | グラフ・チャート         |
-| Vite        | 7.3.x      | renderer / preload build |
-
-### 映像処理
-
-| 技術            | バージョン | 用途                                          |
-| --------------- | ---------- | --------------------------------------------- |
-| Video.js        | 8.23.4     | 映像プレイヤー                                |
-| FFmpeg/FFprobe  | 8.1.2      | probe・同期・書き出し（source buildして同梱） |
-| videojs-youtube | 3.0.1      | YouTube 再生 tech                             |
-| Web Audio API   | -          | 音声同期分析                                  |
-
-複数クリップのパッケージ作成は main process の FFmpeg/FFprobe 境界で行います。Renderer からプロセスを起動せず、`package:create` の型付き IPC と payload guard を通してください。
-配布ビルドでは、固定SHA-256を検証したFFmpeg 8.1.2 sourceから`x64` / `arm64`を別々にbuildし、対象architectureの両バイナリを`Resources/media-tools`へ含めます。
-複数ファイル選択は `files:open-video-files` / `openVideoFiles()` の専用 IPC・preload API を利用します。汎用 dialog API を Renderer へ公開せず、選択順の反映と16クリップ上限の適用は `useWizardSelection` に閉じ込めます。
-パッケージ作成は基本情報・映像の2ステップで構成し、保存先は最終作成操作で `selectPackageDirectory()` を呼び出します。Finderドロップは `resolveDroppedVideoFilePath(file)` から `webUtils.getPathForFile` を使い、Rendererから廃止済みの `File.path` を参照しません。同期位置は作成画面から除外し、`applyClipTimeline(configPath, placements)` はconfig内の絶対配置と派生gapだけを原子的に保存します。再生時は元クリップを仮想タイムラインで切り替え、書き出しで連続入力が必要な場合だけ `exportVirtualTimelineSource.ts` がOS一時領域へ合成します。
-
-`convertConfigToRelativePath()` は、`tightViewPath` / `wideViewPath` だけの旧configを1アングル1クリップの `angles[].clips[]` へ移行します。元クリップとアングル単位の再生用コピーが併存する場合は、ロード前に各アングルの互換パスを先頭の元クリップへ原子的に更新します。再生用コピーは自動削除しません。容量整理を行う場合は、元クリップとの内容一致を確認してから回収可能な方法で削除します。
-
-YouTube音声アシストはmacOS 13以降のloopback captureを使用します。`beginLoopbackAudioCapture()` はユーザー操作からだけ呼び、15秒のMediaStreamをメモリ上で解析した後に全trackを停止して `endLoopbackAudioCapture()` を呼びます。URLから音声を取得したり、一時ファイルへ保存したりしてはいけません。
-
-アングル単位の再生offsetは `.metadata/config.json` の `syncData.angleOffsets[]` をアングルindexに対応させます。`angleOffsets[index]` がない旧データでは `syncOffset` へフォールバックします。符号と加算契約、IPC上限は [音声同期オフセット仕様](audio-sync-offset-specification.md) と [ADR 0016](adr/0016-multi-angle-audio-sync-offset-persistence.md) を正本とします。
-
-YouTube 再生では、配布版の `file://` Renderer に通常の Referer がないことを前提に、`src/types/video/youtubeEmbed.ts` のアプリ識別 URL を Video.js の `widget_referrer` と Electron Session の YouTube `/embed/` Referer に使用します。IFrame API の制御通信を壊すため、実際の親画面と一致しない HTTPS `origin` parameter は指定しません。Error 153 対策として証明書検証や `webSecurity` を無効化してはいけません。
-
-**FFmpeg / FFprobe toolchain**:
-
-- `pnpm run media:build`で開発マシン向け、`pnpm run media:build:all-mac`で配布用の両architectureをbuild
-- source archiveはversionとSHA-256を固定し、checksum不一致時はbuildを停止
-- 文字overlay用のFreeType 2.14.3 / HarfBuzz 14.3.0も固定hashから静的buildし、license noticeを配布物へ含める
-- 開発時だけ`SPORTAGLYTICS_FFMPEG_PATH` / `SPORTAGLYTICS_FFPROBE_PATH`またはPATH上のbinaryを利用可能。配布版は同梱binaryだけを利用
-- クリップ書き出し機能（単一/複数アングル、オーバーレイ付き）で使用
-- probeは30秒・1 MiB、合成は有限時間・有限出力のprocess guardを適用
-- `-progress pipe:1` の `out_time` を工程durationで正規化し、IPC経由で専用の書き出し進捗ウィンドウへ通知する
-- 進捗ウィンドウは非モーダルとし、初回表示・更新のどちらでもメインウィンドウからフォーカスを奪わない
-
-### デスクトップアプリケーション
-
-| 技術             | バージョン | 用途                 |
-| ---------------- | ---------- | -------------------- |
-| Electron         | 43.x       | デスクトップアプリ化 |
-| electron-builder | 26.15.x    | アプリパッケージング |
-
-### 開発ツール
-
-| 技術   | バージョン | 用途                   |
-| ------ | ---------- | ---------------------- |
-| pnpm   | 9.1.0+     | パッケージマネージャー |
-| Vite   | 7.x        | バンドラー             |
-| ESLint | 9.39.2     | 静的解析               |
-| Vitest | 4.x        | テスト                 |
-
----
+Research dependencyはElectron packageへ含めません。
 
 ## ビルドと実行
-
-### 開発モード
-
-```bash
-pnpm run electron:dev
-```
-
-内部的に以下が実行されます:
-
-1. `vite` で React アプリをホット起動
-2. Vite の起動を待つ
-3. React / Electron / preload を build して `electron .` でアプリを起動
-
-Electronのビルドは、型検査、main process emit、sandbox preload bundleを分離しています。
-
-- `pnpm exec tsc -p electron/tsconfig.json`: 型検査のみ（no emit）
-- `pnpm run build:electron-main`: main processを`build/electron/`へemit（preloadは対象外）
-- `pnpm run bundle:preload`: sandboxで動く単一`preload.js`を生成
-- `pnpm run check:preload`: 相対`require()`や公開API欠落がないことを検査
-
-main process用のTypeScript emitへpreloadを含めると、Vite bundleが分割`require()`を含むファイルで上書きされ、全ウィンドウの`window.electronAPI`が利用不能になります。buildには必ず上記の分離したコマンドを使用してください。
-
-Renderer のみ確認する場合は `pnpm start` を使用できます。
-
-### 本番ビルド
-
-```bash
-# Reactアプリのビルド
-pnpm run build
-
-# Electronアプリのパッケージング（macOS）
-pnpm run electron:package:mac
-```
-
-### テスト
-
-```bash
-# ユニットテスト
-pnpm run test:run
-```
-
-### リンター
-
-```bash
-# ESLint実行
-pnpm run lint
-
-# TypeScript型チェック
-pnpm run typecheck
-
-# Electron側型チェック
-pnpm run typecheck:electron
-
-# アーキテクチャ境界チェック
-pnpm run check:architecture
-
-# ADR 命名・索引チェック
-pnpm run check:adr
-
-# アーキテクチャ健全性レポート（準拠率）
-pnpm run report:architecture-health
-
-# 大規模ファイル残件レポート（Warn Only）
-pnpm run report:large-files
-```
-
----
-
-## 開発ワークフロー
-
-### ブランチ戦略
-
-```
-main         ← 本番環境（リリースタグ）
-  ↑
-develop      ← 開発統合ブランチ（リリース時は PR で main へ統合）
-  ↑
-feature/* / fix/* / refactor/* ... ← 作業ブランチ
-```
-
-### ブランチ命名規則
-
-AI agent 向けの正本は `AGENTS.md` の Git / ブランチ / コミット運用です。
-通常の作業ブランチは `develop` 最新から作成し、`<prefix>/<short-kebab-description>` 形式にします。
-ブランチ prefix と Conventional Commits の type は別物です。新機能ブランチは既存運用に合わせて `feature/` を使い、コミット type は `feat` を使います。
-
-| Prefix      | 用途                             | 例                             |
-| ----------- | -------------------------------- | ------------------------------ |
-| `feature/`  | 新機能開発                       | `feature/timeline-zoom`        |
-| `fix/`      | バグ修正                         | `fix/audio-sync-crash`         |
-| `refactor/` | リファクタリング                 | `refactor/timeline-components` |
-| `docs/`     | ドキュメント                     | `docs/update-readme`           |
-| `test/`     | テスト追加・修正                 | `test/timeline-duplicate`      |
-| `chore/`    | ビルド設定・依存関係・雑務       | `chore/update-dependencies`    |
-| `perf/`     | パフォーマンス改善               | `perf/timeline-rendering`      |
-| `release/`  | リリース作業。明示された場合のみ | `release/0.6.0`                |
-| `hotfix/`   | 緊急修正。明示された場合のみ     | `hotfix/package-crash`         |
-
-### コミットメッセージ規約（Conventional Commits）
-
-AI agent は Conventional Commits を必須として扱います。
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-**Type一覧**:
-
-- `feat`: 新機能
-- `fix`: バグ修正
-- `refactor`: リファクタリング
-- `docs`: ドキュメント
-- `style`: コードフォーマット
-- `test`: テスト追加・修正
-- `chore`: ビルド設定・依存関係
-- `perf`: パフォーマンス改善
-- `build`: build / package 設定
-- `ci`: CI / GitHub Actions
-- `revert`: 変更の取り消し
-
-**例**:
-
-```
-feat(timeline): タイムライン範囲選択機能を追加
-
-Shiftキー + ドラッグで複数イベントを範囲選択可能に。
-選択範囲はハイライト表示される。
-
-Closes #123
-```
-
-### プルリクエスト
-
-1. `develop` から目的に合う prefix の作業ブランチを作成
-2. 機能開発・テスト・ドキュメント更新
-3. `pnpm run lint` / `pnpm run typecheck` / `pnpm run typecheck:electron` / `pnpm run check:architecture` を通す
-4. `develop` へのプルリクエストを作成
-5. レビュー後にマージ
-
-### リリース統合
-
-1. release 準備コミット（version / CHANGELOG / 必要な docs）を `develop` に統合
-2. `develop` から `main` へのプルリクエストを作成
-3. CI / レビュー / branch protection を通して PR をマージ
-4. マージ後の `main` を pull し、その commit に `v<version>` tag を作成
-5. tag を push して release workflow を起動
-
-`main` への直接 merge / push は行いません。緊急 hotfix で明示承認がある場合のみ例外とし、理由を PR または release note に残します。
-
----
-
-## コーディング規約
-
-### TypeScript
-
-- **strict mode有効**: `tsconfig.json` で `"strict": true`
-- **`any` の使用禁止**: やむを得ない場合はTODOコメント
-- **型の明示**: 関数の戻り値は型を明示
-- **型定義の共有**: `src/types/` に集約
-
-**例**:
-
-```typescript
-// ❌ Bad
-function processData(data: any) {
-  return data.map((item: any) => item.value);
-}
-
-// ✅ Good
-function processData(data: TimelineData[]): number[] {
-  return data.map((item) => item.value);
-}
-```
-
-### React
-
-- **関数コンポーネントのみ**: クラスコンポーネント禁止
-- **責務の分離**: ビュー（JSX）とロジック（hooks）を分離
-- **useEffect依存配列**: 完全な依存配列を指定
-- **クリーンアップ**: useEffectには必ずクリーンアップ関数
-
-**例**:
-
-```typescript
-// ❌ Bad
-useEffect(() => {
-  const timer = setInterval(() => console.log('tick'), 1000);
-}); // 依存配列なし、クリーンアップなし
-
-// ✅ Good
-useEffect(() => {
-  const timer = setInterval(() => console.log('tick'), 1000);
-  return () => clearInterval(timer);
-}, []);
-```
-
-### Material-UI
-
-- **`sx` プロパティ**: インラインスタイルは `sx` を使用
-- **テーマの活用**: `theme.palette`, `theme.spacing`
-- **レスポンシブ**: `theme.breakpoints`
-
-### ファイル分割ポリシー
-
-- **Soft Budget（Warn Only）**:
-  `TSX <= 300行`, `TS <= 450行` は目安
-- **必須**:
-  行数に関係なく `UI描画` と `IPC/永続化` と `ドメイン計算` の責務混在を避ける
-- **例外管理**:
-  例外は `docs/architecture-exceptions.md` に記録する
-
-### 命名規則
-
-| 対象                | 規則        | 例                                   |
-| ------------------- | ----------- | ------------------------------------ |
-| Reactコンポーネント | PascalCase  | `TimelineEditor`, `AnalysisCard`     |
-| カスタムフック      | camelCase   | `useTimelineViewport`, `useSettings` |
-| ユーティリティ関数  | camelCase   | `formatTime`, `calculateOffset`      |
-| 型定義              | PascalCase  | `TimelineData`, `VideoSyncState`     |
-| 定数                | UPPER_SNAKE | `MAX_ZOOM_LEVEL`                     |
-
----
-
-## アーキテクチャ
-
-### Electron IPC通信
-
-現行構成は「main は組み立て」「IPCはドメイン登録関数」「preload は型付きブリッジ合成」です。
-
-**フロー**:
-
-```
-Renderer (React)
-  ↓ window.electronAPI.<explicit method>
-Preload (domain bridge)
-  ↓ ipcRenderer.invoke/send
-Main IPC handlers (domain modules)
-  ↓ native APIs / filesystem
-```
-
-**Main側の分割例**:
-
-- `electron/src/ipc/fileHandlers.ts`
-- `electron/src/ipc/reportHandlers.ts`
-- `electron/src/ipc/dashboardHandlers.ts`
-- `electron/src/ipc/codeWindowHandlers.ts`
-- `electron/src/ipc/exportHandlers.ts`
-- `electron/src/ipc/llamaHandlers.ts`
-
-**Preload側の分割例**:
-
-- `electron/src/preload/appBridge.ts`
-- `electron/src/preload/eventBridge.ts`
-- `electron/src/preload/settingsBridge.ts`
-- `electron/src/preload/analysisBridge.ts`
-- `electron/src/preload/playlistBridge.ts`
-- `electron/src/preload/codeWindowBridge.ts`
-
-**Renderer API方針**:
-
-- `window.electronAPI` から汎用 `on/off/send` は提供しない
-- `onTimelineUndo`, `onMenuShowStats`, `notifyHotkeysUpdated` など用途別メソッドのみ公開
-- `src` 側で `electron` / `ipcRenderer` の直接 import は禁止
-- playlist / analysis / coding panel window の IPC 契約は `src/types/ipc/playlistWindow.ts` / `src/types/ipc/analysisWindow.ts` / `src/types/ipc/codingPanelWindow.ts` を正本とし、channel 名・payload 型・型ガードを main / preload / renderer で共有する
-- playlist / analysis / coding panel window の renderer 側入口は `window.electronAPI.playlist` / `window.electronAPI.analysis` / `window.electronAPI.codingPanelWindow` に限定し、window 専用イベントを top-level API へ散らさない
-- settings の正規化は `src/types/settings/normalizers.ts` の `normalizeAppSettings` を正本とし、main / renderer で同じ補完ロジックを重複させない
-- settings の正規化ロジックは `src/types/settings/normalizerUtils.ts` / `dashboardNormalizers.ts` / `codingPanelNormalizers.ts` に責務分割し、公開窓口は `normalizers.ts` に維持する
-- playlist の共有契約は `src/types/playlist/core.ts` / `window.ts` / `api.ts` に分け、`src/types/Playlist.ts` は公開 facade に留める
-- `src/types` の下位構成は `analysis/`, `timeline/`, `video/`, `package/`, `playlist/`, `settings/`, `ipc/` のようにユースケースで切る
-- `analysis/core.ts` のような抽象ディレクトリ名は優先しない。`view.ts`, `momentum.ts`, `matrix.ts` のように実際の契約名をそのままファイル名に使う
-- root 直下の `src/types/*.ts` は互換 facade とみなし、新規の実体は use-case 配下へ追加する
-- Renderer の複雑な hook は `Controller/Hook -> Gateway/Helper -> View/Domain` に分け、IPC 登録・payload 正規化・state 適用を同一関数へ詰め込まない
-- 例: playlist window は gateway + data/interaction runtime、audio sync は stage helper + orchestration に分割する
-- coding panel window では別ウィンドウ側で映像時刻を採番しない。別ウィンドウはクリック command を送信し、メイン動画ウィンドウ側 controller が現在時刻を読み取って既存のタグ付け処理を実行する
-- coding panel window にフォーカスがあるときの hotkey は `CodingPanelWindowScreen` が受け取り、hotkey id command としてメイン動画ウィンドウへ転送する。実際の再生制御・タグ付け処理はメイン動画ウィンドウ側の既存 handler で実行する
-- `.stcw` の runtime 切り替えは OS file association だけに依存しない。`menu-open-code-window-file` から起動中アプリの renderer が file dialog を開き、読み込んだ layout を `EnhancedCodePanel` controller の session layout として反映する
-- coding panel window の編集モードは、別ウィンドウ上の `CodingPanelWindowEditPane` で表示する。ボタン詳細編集は右側常設ペインではなく Inspector ダイアログで開く。layout 更新と保存要求は `codingPanelWindow` command としてメイン動画ウィンドウ側 controller に戻し、runtime layout と `.stcw` の file path は controller が保持する
-- `App.tsx` は app shell の view switch のみに留め、hash / Electron event / external open は shared hook に抽出する
-- `localStorage` や Electron menu sync は feature hook へ直書きせず、gateway / storage helper に寄せる
-- コードウィンドウ新規作成は `menu-create-code-window-file` / `onCreateCodeWindowFile()` の専用イベントで runtime controller へ渡す。controllerは空の layout を `.stcw` として保存した後、設定画面を経由せず独立 coding panel window で開く
-- コード／ラベル／編集モードは独立コードウィンドウ内のtyped commandで切り替える。アプリ全体のmenu stateとして公開しない
-- コードボタンの実行・編集表示は `CodeWindowButtonSurface` を共有し、View propsだけで描画する。編集モードやBrowserWindow resizeを保存キャンバス寸法へ暗黙反映しない
-- メニュー、コードウィンドウ、設定、ヘルプを変更した場合は `pnpm run test:e2e:code-window-menu` を実行し、検索と狭幅layoutを含むsub-window動線を確認する。コマンドは必要なbuildとpreload検査を先に自動実行する
-- menu barのドキュメント操作は「ファイル > 新規 / 開く」へ集約する。`menu-create-video-package` / `onCreateVideoPackage()` は `menuEventGateway` から動画プレイヤーcontrollerへ渡し、映像表示中でも作成ウィザードへ遷移できるようにする。コードウィンドウの作成・選択を「コーディング」または「ウィンドウ」へ重複配置しない（ADR: [0018](adr/0018-document-oriented-menu-structure.md)）
-- preload の `on/off` ペアは typed listener store を介して wrapper を管理し、`as unknown as Function` に依存しない
-- menu 系 listener も cleanup 関数を返す typed 登録 API に統一し、`removeAllListeners` を使った singleton listener 上書きは行わない
-- preload の playlist / analysis bridge は outbound / inbound の両方向で payload guard を通し、無効 payload を main / renderer に流さない
-- main process の window 系 handler は `electron/src/ipc/windowSenderGuards.ts` を通して sender を検証し、main window / sub window の送信元境界を明確に分ける
-- shared domain の大きい集計関数は facade と builder 群に分け、stat family 単位で責務を切り出す
-- timeline import/export は gateway と pure service に分け、menu 購読・dialog・serialize/deserialize を 1 hook に詰め込まない
-- clip export の共通契約は `src/shared/clipExport/` に置き、playlist / timeline 両方の source 解決・multi/all-angles 実行・payload 型をそこへ集約する
-- clip export の進捗ウィンドウ契約は `src/types/ipc/exportProgressWindow.ts` を正本とし、main 側は `exportFfmpegProcess.ts` で実時間進捗を算出して `electron/src/exportProgressWindow.ts` から状態を送る。設定ダイアログは書き出し開始前に閉じ、進捗更新でウィンドウをactivateしない
-- analysis dashboard import/export は controller 直下で I/O しない。dialog / read-write は gateway、JSON parse / 正規化 / ID 重複解消は pure service に分離する
-- Video.js の既存 player 参照と時刻操作は feature 内 adapter に寄せ、hook ごとに独自 cast を持ち込まない
-
-**ローカルファイルアクセス方針**:
-
-- `fetch(filePath)` は使用しない
-- `readJsonFile` / `readTextFile` / `readBinaryFile` を利用
-- `src/utils` は pure function / pure helper に限定し、Electron I/O は feature の controller / gateway 側へ置く
-
-**セキュリティ既定**:
-
-- 全 BrowserWindow: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `webSecurity: true`
-- `electron/src/windowSecurity.ts` で `window.open` 拒否と不要ナビゲーション拒否を適用
-- IPC handler で payload/sender 検証を実施
-
-### 運用補助
-
-- 月次の巨大ファイル残件レポート:
-  `pnpm run report:large-files`
-- アーキテクチャ準拠率レポート:
-  `pnpm run report:architecture-health`
-- 長期的な設計判断:
-  `docs/adr/`
-
-### 状態管理
-
-**React Context**:
-
-- `ActionPresetContext`: アクションプリセット
-- `NotificationContext`: 通知システム
-- `ThemeModeContext`: テーマ切替
-
-**カスタムフック**:
-
-- `useSettings`: Electron設定の読み書き
-- `useVideoPlayerScreenController`: 映像プレイヤー全体の状態管理
-- `useTimelineViewport`: タイムラインのズーム・スクロール
-- `useTimelineInteractions`: タイムラインのインタラクション
-- `useTimelineRowInteractions`: 行の選択、ドラッグ並べ替え、コンテキストメニュー、削除確認
-- `timelineDocument`: package内の旧配列形式とversion 2（`rows[]` / `instances[]`）のロード時移行・直列化
-- `useGlobalHotkeys`: グローバルホットキー
-
-`useGlobalHotkeys` は物理キー1回の押下を1操作として扱い、OSが送る `KeyboardEvent.repeat` は無視します。再生/停止のようなトグル状態は関数形式のstate updaterで反転し、短時間に別ウィンドウから入力されても古いrender時点の状態を使いません。押下中だけ有効な再生速度と連続逆再生は最初のkeydownとkeyupで開始・解除し、ウィンドウのblurでも解除します。逆再生は `useContinuousReversePlayback` が `requestAnimationFrame` の経過時間から再生位置を戻し、長いframe停止後の飛びを抑制します。
-
-### コンポーネント設計（責務分離）
-
-- `Screen`: feature の入口。画面構成と feature 合成を担当
-- `Controller/Hook`: 状態管理、ユースケース、外部連携、副作用を担当
-- `View`: props と callback だけで描画できる UI。`window.electronAPI` / URL / 永続化へ直接依存しない
-- `Gateway`: Electron・URL・永続化など外部境界の薄い抽象化
-
-```typescript
-// ❌ Bad: ビューとロジックが混在
-function TimelineEditor() {
-  const [zoom, setZoom] = useState(1);
-  const handleWheel = (e: WheelEvent) => { /* ... */ };
-
-  useEffect(() => {
-    window.addEventListener('wheel', handleWheel);
-    return () => window.removeEventListener('wheel', handleWheel);
-  }, [handleWheel]);
-
-  return <div>{/* JSX */}</div>;
-}
-
-// ✅ Good: フックとビューを分離
-function useTimelineZoom() {
-  const [zoom, setZoom] = useState(1);
-  const handleWheel = useCallback((e: WheelEvent) => { /* ... */ }, []);
-
-  useEffect(() => {
-    window.addEventListener('wheel', handleWheel);
-    return () => window.removeEventListener('wheel', handleWheel);
-  }, [handleWheel]);
-
-  return { zoom, setZoom };
-}
-
-function TimelineEditorView({ zoom }: { zoom: number }) {
-  return <div>{/* JSX */}</div>;
-}
-
-function TimelineEditor() {
-  const { zoom } = useTimelineZoom();
-  return <TimelineEditorView zoom={zoom} />;
-}
-```
-
-### 主要カスタムフック一覧
-
-プロジェクト全体で使用される主要なカスタムフックと役割:
-
-| フック名                         | ファイルパス                                                           | 用途                                         |
-| -------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------- |
-| `useVideoPlayerScreenController` | `src/features/videoPlayer/app/hooks/useVideoPlayerScreenController.ts` | video player 画面の状態管理                  |
-| `useSettings`                    | `src/hooks/useSettings.ts`                                             | Electron設定の読み書き                       |
-| `useGlobalHotkeys`               | `src/hooks/useGlobalHotkeys.ts`                                        | グローバルホットキー登録・解除               |
-| `useTimelineHistory`             | `src/features/videoPlayer/app/hooks/useTimelineHistory.ts`             | Undo/Redo履歴管理                            |
-| `useTimelinePersistence`         | `src/features/videoPlayer/app/hooks/useTimelinePersistence.ts`         | タイムラインの永続化（自動保存）             |
-| `useSyncActions`                 | `src/features/videoPlayer/app/hooks/useSyncActions.ts`                 | 音声同期操作（再実行・リセット・手動同期等） |
-| `useUnsavedTabSwitch`            | `src/features/settings/hooks/useUnsavedTabSwitch.ts`                   | 未保存変更検知とタブ切り替え確認             |
-| `useHotkeySettingsController`    | `src/features/settings/components/useHotkeySettingsController.ts`      | ホットキー設定の管理と競合チェック           |
-
-### 主要ユーティリティ関数一覧
-
-共通処理の主な配置は次の通りです。古い root-level utility 名を前提にせず、現行の domain / feature 配置を確認してください。
-
-| Domain                 | Current location                                                    | Notes                                       |
-| ---------------------- | ------------------------------------------------------------------- | ------------------------------------------- |
-| timeline import/export | `src/features/videoPlayer/app/utils/timelineImportExportService.ts` | UI hook から serialize / deserialize を分離 |
-| SCTimeline conversion  | `src/utils/scTimelineConverter.ts`                                  | Sportscode 互換変換                         |
-| timeline CSV / JSON    | `src/utils/timelineExport.ts`                                       | app timeline format / CSV                   |
-| label extraction       | `src/utils/labelExtractors.ts`                                      | labels 中心モデルの抽出                     |
-| matrix build/export    | `src/utils/matrixBuilder.ts`, `src/utils/matrixExport.ts`           | クロス集計と CSV/XLSX 出力                  |
-| clip export            | `src/shared/clipExport/`                                            | source validation / execution plan          |
-| analysis shared domain | `src/shared/analysis/`                                              | event insights / AI context / chart data    |
-| report generation      | `src/report/`                                                       | analysis report data and pagination         |
-| audio sync             | `src/utils/AudioSyncAnalyzer.ts`, `src/utils/audioSync/`            | waveform decode / sync analysis             |
-
----
-
-## テストとデバッグ
-
-テスト運用の詳細は [Testing and Quality Gates](testing.md) を参照してください。
-
-現行 test runner は Vitest です。新規 test は `vitest` から `describe`, `it`, `expect`, `vi` を import します。React hook / component test では `@testing-library/react` を使い、DOM が必要な場合は `/* @vitest-environment jsdom */` を付けます。
-
-### デバッグ
-
-**React DevTools**:
-
-- コンポーネント階層の確認
-- State/Propsの監視
-
-**Electron DevTools**:
-
-- メインウィンドウで `Cmd+Option+I`
-- Console, Network, Performanceタブを活用
-
----
-
-## リリースプロセス
-
-リリース手順の正本は [.github/RELEASE.md](../.github/RELEASE.md) です。Homebrew Cask の詳細は [homebrew-distribution.md](homebrew-distribution.md) を参照してください。
-
-ローカル確認の最低限:
 
 ```bash
 pnpm run build
 pnpm run build:electron-main
 pnpm run bundle:preload
 pnpm run check:preload
+pnpm run electron:start
+```
+
+macOS package:
+
+```bash
 pnpm run electron:package:mac
 ```
 
----
+配布版media toolchainは `scripts/build-media-tools.mjs` と ADR 0020 に従います。
+
+## 開発ワークフロー
+
+1. `develop` 最新からbranchを作る。
+2. `<prefix>/<short-kebab-description>` を使う。
+3. 実装と同じPRでtest/doc/ADRを更新する。
+4. 全品質ゲートを実行する。
+5. `develop` 宛てPRを作る。
+6. CI結果を確認して失敗を修正する。
+
+通常prefix: `feature`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`。
+CommitはConventional Commitsを使います。
+
+## 品質ゲート
+
+PR merge前に必須:
+
+```bash
+pnpm exec tsc --noEmit
+pnpm exec tsc -p electron/tsconfig.json
+pnpm run lint
+pnpm run check:architecture
+pnpm run test:run
+```
+
+Event detection research codeを変更した場合:
+
+```bash
+pnpm run research:events:check
+```
+
+このcheckはheavy model weightを取得せず、Python source compileとstdlibだけで動くthreshold / schema / quality-gate unit testを実行します。
+
+ADR変更時:
+
+```bash
+pnpm run check:adr
+```
+
+Preload / packaged Electron変更時:
+
+```bash
+pnpm run build:electron-main
+pnpm run bundle:preload
+pnpm run check:preload
+```
+
+E2E:
+
+```bash
+pnpm run test:e2e
+```
+
+GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Python research check、Vitestを実行します。
+
+## アーキテクチャ
+
+詳細は [System Overview](system-overview.md) と [Project Structure](project-structure.md) を参照してください。
+
+依存方向:
+
+```text
+pages -> features -> shared
+```
+
+Renderer / Electron boundary:
+
+```text
+View
+  ↑ props/callback
+Controller / Hook
+  ↓
+Gateway
+  ↓
+window.electronAPI
+  ↓
+typed preload / IPC
+  ↓
+Electron main manager / child process
+```
+
+`src` から `electron` / `ipcRenderer` を直接importしません。
+
+## 自動イベント検出の開発
+
+- 詳細仕様: [自動イベント検出](event-detection.md)
+- 設計判断: [ADR 0022](adr/0022-verified-local-rugby-event-detection.md)
+- 研究pipeline: [`research/rugby-event-detection/README.md`](../research/rugby-event-detection/README.md)
+
+### Product policy
+
+自動イベント検出は通常Timelineを初期Codingする補助機能です。未検証modelをproduction UIへ露出させません。
+
+初期対象はKickoff / Scrum / Lineoutです。Player tracking、ball tracking、player identity、高度なtackle判定は現在の対象外です。
+
+### Model packとアプリ本体を分離する
+
+```text
+Renderer
+  ↓ window.electronAPI.eventDetection
+Preload
+  ↓ typed IPC
+Electron main
+  ↓ verified child process
+Model-pack runner
+  ↓
+ML runtime / model files
+```
+
+Runner内部はONNX Runtime等へ交換できますがrenderer contractは変えません。
+
+探索先:
+
+```text
+resources/event-detection-models/<model>/
+<Resources>/event-detection-models/<model>/
+<Electron userData>/event-detection-models/<model>/
+```
+
+Model manifestにはschema/version/id、supported events、class別metrics、評価時confidence threshold、platform runner relative path、runner SHA-256を含めます。`status: verified` だけでは有効にならず、アプリが品質指標とrunner hashを再検証します。
+
+### Product quality gate
+
+Event class単位:
+
+| Metric | Minimum |
+| --- | ---: |
+| Precision | 0.95 |
+| Recall | 0.90 |
+| unseen test matches | 5 |
+| TP timestamp within ±2 sec | 0.90 |
+
+通常event matching toleranceは±5秒です。
+
+### Pretrained model research
+
+巨大なvideo backboneをゼロから学習せず、既存pretrained representationへラグビーevent classifierをfine-tuneします。
+
+初期candidate:
+
+| Model | 役割 | Production eligibility |
+| --- | --- | --- |
+| VideoMAE Base Kinetics | research baseline | 公開checkpointがCC BY-NC 4.0のため不可 |
+| X3D-S Kinetics-400 | primary candidate | Apache-2.0、品質ゲート通過時のみ |
+| SlowFast R50 Kinetics-400 | primary candidate | Apache-2.0、品質ゲート通過時のみ |
+
+PyTorchVideo sourceはresearch `pyproject.toml` でcommit SHAを固定します。License適格性は精度とは独立して管理し、非商用checkpointをproductionへ昇格させません。
+
+### Dataset preparation
+
+既存human Codingからmatch-level dataset manifestを生成します。
+
+```bash
+pnpm run research:events:prepare -- \
+  --spec /path/to/dataset-spec.json \
+  --output research/rugby-event-detection/runs/rugby-v1/manifest.json
+```
+
+同一試合の隣接clip/frameを別splitへ分けず、`train` / `validation` / `test` をmatch ID単位で完全分離します。
+
+Code Window leadを含んだTimelineを教師データにする場合、dataset specの `eventAnchorOffsetsSeconds` に元lead秒数を指定し、`Timeline startTime + offset` で実際のevent anchorへ戻します。
+
+### Validation-only screening
+
+まずclassifier headだけを比較します。
+
+```bash
+pnpm run research:events:benchmark -- \
+  --manifest /path/to/manifest.json \
+  --output-dir /path/to/head-screen \
+  --strategy head
+```
+
+`benchmark` が触るのは `train` と `validation` だけです。
+
+1. Trainでfine-tuning
+2. Validation全体をsliding-window spotting
+3. Validationだけでclass別confidence thresholdを選択
+4. Validation precision / recall / timestamp accuracy / runtimeでcandidateを比較
+5. License適格modelだけのproduction rankingを別途作成
+
+**Held-out Testはdecodeも評価もしません。**
+
+有望なproduction-eligible candidateだけを必要に応じてfull fine-tuningします。
+
+```bash
+pnpm run research:events:benchmark -- \
+  --manifest /path/to/manifest.json \
+  --output-dir /path/to/full-finetune \
+  --models x3d-s-kinetics400 \
+  --strategy full
+```
+
+Head/fullの比較もValidationだけで完結させます。
+
+### Held-out qualification
+
+Model family、training strategy、stride/NMS、checkpoint、validation-selected thresholdsを凍結した後、1つのproduction-eligible modelだけをTestへ通します。
+
+```bash
+pnpm run research:events:qualify -- \
+  --manifest /path/to/manifest.json \
+  --model-id x3d-s-kinetics400 \
+  --checkpoint /path/to/checkpoint.pt \
+  --thresholds /path/to/thresholds.json \
+  --output-dir /path/to/qualification \
+  --strategy full
+```
+
+Qualificationはcheckpoint model ID / strategy / labelsを検証し、research-only licenseのmodelを拒否します。出力にはcheckpoint/threshold SHA-256、locked thresholds、unseen-test metrics、`productGatePassed` を含めます。
+
+Independent evaluator:
+
+```bash
+pnpm run research:events:evaluate -- \
+  qualification/test-ground-truth.json \
+  qualification/test-predictions.json \
+  qualification/thresholds.json
+```
+
+Test結果を見てmodel、strategy、NMS、stride、thresholdを変更した場合、そのTest setは次のproduction claimへ再利用しません。
+
+### Runner protocol
+
+Electronから:
+
+```text
+runner --request <request.json> --output <result.json> --model-dir <model-directory>
+```
+
+Main process側は `shell: false`、finite timeout、output/stderr cap、cancel、request/result cleanup、path traversal、runner SHA-256、result payload validationを担当します。
+
+### Timeline integration
+
+Model outputは直接persisted `timeline.json` を書き換えません。Renderer domainでverified threshold、enabled event、lead/lag、duplicate suppressionを適用して `NewTimelineData[]` へ変換し、`addTimelineDatas()` で1 state updateとして追加します。
+
+自動追加後は通常の `TimelineData` として扱います。
+
+## テストとデバッグ
+
+```bash
+pnpm run test:run
+pnpm run research:events:check
+```
+
+Event detection関連ではrecording range、confidence filter、duplicate suppression、model quality gate、settings migration、validation threshold selection、unseen match count、research schemaをtestします。
+
+Model packがUIへ出ない場合:
+
+1. manifest JSON
+2. `status: verified`
+3. class metrics
+4. current platform/architecture runner
+5. runner SHA-256
+6. runner path traversal
+
+を確認します。
+
+Research実行失敗時はdataset manifestのlocal path、split別event数、Python virtualenv、checkpoint download、device memoryを確認します。
+
+## リリースプロセス
+
+1. release準備変更を `develop` へ統合
+2. `develop -> main` PR
+3. main PR品質ゲート
+4. merge後のmain commitへrelease tag
+5. package/release assets作成
+
+`main` への直接push/mergeは行いません。Event detection model packはアプリreleaseと独立できますが、verified化前にqualification artifactsとrunner hashを固定します。
 
 ## ドキュメント運用
 
-- ドキュメント入口は [docs/README.md](README.md)。
-- ドキュメント運用ルールは [docs/documentation-guide.md](documentation-guide.md)。
-- 実装変更時の更新先は [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix) に従う。
-- ディレクトリ構成と配置判断は [docs/project-structure.md](project-structure.md)。
-- 長期的な設計判断は [docs/adr/README.md](adr/README.md) に ADR として記録する。
-- ADR の採番、命名、更新 lifecycle は [ADR Operations](documentation-guide.md#adr-operations) に従う。
-- ADR を追加、リネーム、状態変更した場合は `pnpm run check:adr` を実行する。
-- 実装規約の正本は [AGENTS.md](../AGENTS.md)。`.github/instructions/*.instructions.md` には差分ルールだけを書く。
-- ユーザー影響または設計変更がある PR では、`docs/system-overview.md` と `docs/development.md` の同期要否を確認する。
-- docs 更新不要の場合も PR に理由を記載する。
-- 新規ドキュメントを追加した場合は `docs/README.md` に掲載する。
+変更時は [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix) に従います。
 
----
-
-## トラブルシューティング
-
-### ビルドエラー: `Module not found`
-
-```bash
-rm -rf node_modules pnpm-lock.yaml
-pnpm install
-```
-
-### Electron起動エラー
-
-```bash
-pnpm remove electron
-pnpm add -D electron
-```
-
-### 型エラー
-
-1. `src/renderer.d.ts` でElectron APIの型定義を確認
-2. `tsconfig.json` の `include` に該当ファイルが含まれているか確認
-
----
-
-## 内部ドキュメント
-
-- [ドキュメント索引](README.md)
-- [システム概要](system-overview.md)
-- [プロジェクト構成](project-structure.md)
-- [ADR](adr/README.md)
-- [ドキュメント運用ガイド](documentation-guide.md)
-- [Testing and Quality Gates](testing.md)
-- [技術仕様](requirement.md)
-- [設計ガイド](design-system.md)
-- [AI Analysis and Local LLM Setup](ai-analysis.md)
-- [Analysis Report Export](analysis-report.md)
-- [Privacy and Data Handling](privacy-and-data-handling.md)
-- [プレイリスト機能実装](playlist-features.md)
-- [コードウィンドウ編集実装](code-window-settings.md)
-- [音声同期オフセット仕様](audio-sync-offset-specification.md)
-- [SCTimeline実装](sctimeline-implementation.md)
-
----
-
-## 参考資料
-
-- [Electron公式ドキュメント](https://www.electronjs.org/docs)
-- [React公式ドキュメント](https://react.dev/)
-- [Material-UI公式ドキュメント](https://mui.com/)
-- [Video.js公式ドキュメント](https://videojs.com/)
-
----
-
-## コントリビューション
-
-詳細は [CONTRIBUTING.md](../CONTRIBUTING.md) を参照してください。
+- user behavior → `user-guide.md`, `requirement.md`
+- IPC/architecture → `system-overview.md`
+- directory配置 → `project-structure.md`
+- build/script → `development.md`, `testing.md`
+- 長期判断 → `docs/adr/`
+- user/contributor visible → `CHANGELOG.md`

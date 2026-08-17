@@ -40,6 +40,7 @@
 
 - [技術仕様書](requirement.md): 機能要件と仕様メモ。
 - [AI Analysis and Local LLM Setup](ai-analysis.md): ローカル llama.cpp / GGUF model のセットアップと運用。
+- [自動イベント検出](event-detection.md): 検証済みローカルモデル、品質ゲート、Timelineへの自動Coding、runner contract。
 - [Analysis Report Export](analysis-report.md): 分析レポート PDF / PNG / summary export の境界。
 - [音声同期オフセット仕様](audio-sync-offset-specification.md): 音声同期 offset の計算・適用とマルチアングル保存契約（関連 ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）。
 - [コードウィンドウ編集](code-window-settings.md): `.stcw` ドキュメントと独立編集ウィンドウ。

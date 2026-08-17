@@ -406,16 +406,30 @@ export const useEnhancedCodePanelController = ({
           results: [],
           groups: [],
         } as ActionDefinition);
+      const configuredButton = customLayout?.buttons.find(
+        (entry) =>
+          entry.id === buttonId ||
+          replaceTeamPlaceholderAliases(entry.name, teamContext) === actionName,
+      );
 
       handleActionClick(
         matchingTeam ?? teamName,
         action,
         actionName,
-        getButtonColorByName(actionName),
+        configuredButton?.color ?? getButtonColorByName(actionName),
         buttonId,
+        configuredButton?.leadTimeSeconds,
+        configuredButton?.lagTimeSeconds,
       );
     },
-    [activeActions, getButtonColorByName, handleActionClick, teamNames],
+    [
+      activeActions,
+      customLayout?.buttons,
+      getButtonColorByName,
+      handleActionClick,
+      teamContext,
+      teamNames,
+    ],
   );
 
   return {

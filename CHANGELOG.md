@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Code WindowのAction buttonごとにSportscode方式の開始前・終了後の記録秒数を設定でき、クリックとhotkeyの両方で同じrangeを適用
+- Kickoff / Scrum / Lineoutを中心としたローカル自動イベント検出のtyped IPC、検証済みmodel pack、runner SHA-256、progress/cancel、Timeline一括追加基盤を追加
+- 既存の手動Coding済みpackageを教師データへ変換し、VideoMAE / X3D-S / SlowFast R50をmatch-level splitでfine-tune・event spotting比較するoffline research pipelineを追加
+- Train/Validationだけでpretrained model・fine-tuning strategy・confidence thresholdを選定し、凍結した1つのproduction-eligible modelだけをheld-out Testへ通すqualification workflowを追加
+- Code Windowのleadを含んだTimelineから教師event onsetを復元する`eventAnchorOffsetsSeconds`をdataset specへ追加
+
+### Changed
+
+- 映像上の「タイムラインを表示」floating buttonを削除し、閉じたTimelineの再表示をOSの「ウィンドウ」メニューへ統一
+- `develop` 宛てPRでもquality-checkを実行し、ADR checkと軽量なPython research compile/unit testをCI品質ゲートへ追加
+- Event detection model比較ではTest setをmodel/threshold選定に使用せず、qualification後に設計変更した場合は新しいheld-out Test setを要求する方針へ統一
+
+### Documentation
+
+- 自動イベント検出の製品品質ゲート、pretrained model研究、dataset split、fine-tuning、license gate、Validation-only screening、held-out qualification、verified model pack昇格手順を同期
+
 ## [0.8.4] - 2026-08-15
 
 ### Added

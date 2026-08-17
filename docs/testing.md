@@ -1,10 +1,10 @@
 # Testing and Quality Gates
 
-このドキュメントは SporTagLytics のテストと品質ゲートの運用ガイドです。必須コマンドの正本は `AGENTS.md` です。本書は、どの変更でどのテストを追加・実行するかの判断材料を提供します。
+このドキュメントは SporTagLytics のテストと品質ゲート運用ガイドです。必須コマンドの正本は `AGENTS.md` です。
 
 ## Required Quality Gate
 
-PR 前に以下を通します。
+PR前に以下を通します。
 
 ```bash
 pnpm exec tsc --noEmit
@@ -14,118 +14,198 @@ pnpm run check:architecture
 pnpm run test:run
 ```
 
-| Command                                   | Purpose                                      |
-| ----------------------------------------- | -------------------------------------------- |
-| `pnpm exec tsc --noEmit`                  | renderer / shared TypeScript typecheck       |
-| `pnpm exec tsc -p electron/tsconfig.json` | Electron main / preload typecheck（no emit） |
-| `pnpm run lint`                           | ESLint with zero warnings                    |
-| `pnpm run check:architecture`             | Feature-First / Electron boundary            |
-| `pnpm run check:adr`                      | ADR filename / index consistency             |
-| `pnpm run test:run`                       | Vitest one-shot test run                     |
-| `pnpm run report:architecture-health`     | architecture compliance report               |
-| `pnpm run report:large-files`             | large file soft-budget report                |
-| `pnpm run check:preload`                  | preload bundle sanity check                  |
+Event detection research code変更時:
 
-`check:adr` は ADR を追加、リネーム、状態変更した場合に実行します。`check:preload` は preload bridge、Electron API surface、release/package 周辺を触る場合に実行します。`report:*` は docs-only でも branch 状態を確認したい場合に実行します。
+```bash
+pnpm run research:events:check
+```
 
-## Test Stack
+ADR変更時:
 
-- Test runner: Vitest
-- React hooks / components: `@testing-library/react`
-- DOM が必要な test: `/* @vitest-environment jsdom */`
-- Electron main / preload: Electron API を mock し、実 BrowserWindow を起動しない unit test を優先
-- 実Electron E2E: PlaywrightのElectron driver
-- Pure domain / converter / guard: colocated `*.test.ts`
+```bash
+pnpm run check:adr
+```
 
-Jest ではなく Vitest を使います。`@types/jest` は互換型として依存に残っている場合がありますが、新規 test は `vitest` から `describe`, `it`, `expect`, `vi` を import してください。
+| Command | Purpose |
+| --- | --- |
+| `pnpm exec tsc --noEmit` | renderer/shared TypeScript |
+| `pnpm exec tsc -p electron/tsconfig.json` | Electron main/preload TypeScript |
+| `pnpm run lint` | ESLint zero warnings |
+| `pnpm run check:architecture` | Feature-First / Electron boundary |
+| `pnpm run check:adr` | ADR filename/index consistency |
+| `pnpm run test:run` | Vitest one-shot |
+| `pnpm run test:ci` | serialized Vitest CI run |
+| `pnpm run research:events:check` | Python research source compile + lightweight unit tests |
+| `pnpm run check:preload` | preload bundle sanity |
+| `pnpm run report:architecture-health` | architecture report |
+| `pnpm run report:large-files` | soft file-size report |
 
-## When to Add Tests
-
-| Change type                               | Expected tests                                            |
-| ----------------------------------------- | --------------------------------------------------------- |
-| Pure calculation / converter / normalizer | direct unit test in the same domain                       |
-| IPC payload guard / shared type contract  | guard test under `src/types/ipc` or related domain        |
-| Electron handler                          | mocked handler test under `electron/src/**`               |
-| Preload bridge listener cleanup           | bridge or listener-store unit test                        |
-| Feature hook with state orchestration     | `renderHook` test with mocked gateway                     |
-| Import/export, migration, file format     | valid, legacy, invalid, and round-trip cases              |
-| Package creation / clip synchronization   | unit tests plus real Electron E2E for package persistence |
-| Clip export planning / validation         | source selection and mode matrix tests                    |
-| Analysis report / dashboard output        | report data builder and pagination tests                  |
-| Bug fix                                   | regression test that fails before the fix when practical  |
-
-UI snapshot tests are not the default. Prefer behavior, state, type guard, converter, and boundary tests that fail for real regressions.
+GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Python research check、Vitestを実行します。
 
 ## Test Placement
 
-- Feature-specific tests stay near the feature file they cover.
-- Shared domain tests stay under `src/shared/<domain>/` or `src/utils/`.
-- Electron tests stay under `electron/src/`.
-- Report generation tests stay under `src/report/`.
-- Test fixtures that become large or reused should go under `testing/` or `fixtures/` in the owning feature.
+- pure domain logic → 同ディレクトリの `*.test.ts`
+- React behavior → `*.test.tsx`
+- shared contract / normalizer → contract近傍のtest
+- Electron menu/manager pure behavior → `electron/src/**.test.ts`
+- real BrowserWindow / file association / preload bundling → E2E
+- offline model researchのpure metric/schema logic → `research/rugby-event-detection/tests/`
 
-Follow [project-structure.md](project-structure.md) when adding new test support files.
+Heavy model weightをunit testで取得せず、process/model境界より内側のpure logicを分離してtestします。
 
-## Clip Timeline Electron E2E
+## Settings / Timeline / IPC
 
-複数クリップの登録、絶対タイムライン配置、実行時の黒画面・無音、YouTubeクリップ切替、再起動後の復元は、実Electronと短いFFmpeg fixtureを使って検証します。各E2EコマンドはRenderer、Electron main、preloadのbuildとpreload検査を先に自動実行します。全Electron E2Eをまとめて実行する場合は `pnpm run test:e2e` を使います。
+Settingsやmigrationでは新fieldの保存読込、legacy default、invalid value正規化を検証します。Code Windowの `leadTimeSeconds` / `lagTimeSeconds` は未設定時0秒相当を維持します。
+
+Timeline変更ではrange normalization、row ownership、history/Undo単位、duplicate/copy semanticsを検証します。自動Codingは `addTimelineDatas()` の1 state updateで追加するため、一括Undoを前提にします。
+
+IPC / preload変更ではpayload guard、sender validation、explicit API、listener cleanup、invalid result rejectionを確認します。
+
+```bash
+pnpm run bundle:preload
+pnpm run check:preload
+```
+
+## Automatic Event Detection Tests
+
+自動イベント検出には3段階の品質確認があります。
+
+### 1. Application code gate
+
+Vitestで:
+
+- recording lead/lag range
+- confidence filter
+- lead/lag Timeline変換
+- existing/same-run duplicate suppression
+- model quality gate
+- settings migration
+- Timeline reopen menu
+
+を確認します。
+
+### 2. Research code gate
+
+```bash
+pnpm run research:events:check
+```
+
+Heavy dependency/modelをCIへ毎回installせず、以下を確認します。
+
+- Python source / entrypoint / testsのsyntax compile
+- validation threshold selection
+- Precision / Recall / timestamp gate
+- unseen match count gate
+- dataset/model metadata schema
+- `productionEligible` の厳密なboolean validation
+
+実modelのdownload/fine-tuningはローカルresearch環境で行います。
+
+### 3. Model screening and promotion gate
+
+#### Validation-only screening
+
+```bash
+pnpm run research:events:prepare -- \
+  --spec /path/to/dataset-spec.json \
+  --output /path/to/manifest.json
+
+pnpm run research:events:benchmark -- \
+  --manifest /path/to/manifest.json \
+  --output-dir /path/to/benchmark \
+  --strategy head
+```
+
+`benchmark` はTrainでfine-tuningし、Validationでmodel family / strategy / confidence thresholdを比較します。**Test splitをscanしてはいけません。**
+
+Screeningで確認するもの:
+
+- event class別Validation Precision / Recall
+- timestamp accuracy
+- local scan runtime
+- checkpoint/threshold SHA-256
+- licenseによるproduction eligibility
+
+必要なら有望な1候補を `--strategy full` で再度Train/Validation比較します。
+
+#### Held-out qualification
+
+Model family、strategy、stride/NMS、checkpoint、Validation thresholdを凍結してから、1つのproduction-eligible modelだけをTestへ通します。
+
+```bash
+pnpm run research:events:qualify -- \
+  --manifest /path/to/manifest.json \
+  --model-id x3d-s-kinetics400 \
+  --checkpoint /path/to/checkpoint.pt \
+  --thresholds /path/to/thresholds.json \
+  --output-dir /path/to/qualification \
+  --strategy full
+```
+
+独立evaluator:
+
+```bash
+pnpm run research:events:evaluate -- \
+  qualification/test-ground-truth.json \
+  qualification/test-predictions.json \
+  qualification/thresholds.json
+```
+
+Product minimum per event class:
+
+| Metric | Gate |
+| --- | ---: |
+| Precision | >= 0.95 |
+| Recall | >= 0.90 |
+| unseen matches | >= 5 |
+| TP within ±2 sec | >= 0.90 |
+
+通常matching toleranceは±5秒です。Evaluatorはdevelopment側match IDsとtest `matchId` の重複を拒否します。
+
+Test結果を見た後でmodel family、training strategy、NMS、stride、confidence thresholdを変更した場合、そのTest setを次のproduction claimへ再利用してはいけません。新しいheld-out Test setを用意します。
+
+Production候補はlicense条件も満たす必要があります。非商用checkpointは精度ゲートを通ってもverified production modelへ昇格させません。
+
+Model packを `verified` にする前にqualificationの `productGatePassed`、independent evaluator、各class metrics、license、runner SHA-256を確認します。
+
+## E2E
+
+```bash
+pnpm run test:e2e
+```
+
+個別:
 
 ```bash
 pnpm run test:e2e:clip-sync
-```
-
-`test:e2e:clip-sync` は一時的な `.stpkg` と映像fixtureをOSのtemp directoryへ作成し、終了時に削除します。テストは次を確認します。
-
-- 複数ローカル映像の登録、配置、空白中の黒表示、パッケージ内に再生用複製が増えないこと
-- 書き出し時だけ仮想タイムラインを一時合成し、FFprobeで最終durationとパッケージ不変性を確認
-- 重複配置の拒否と、失敗時にconfig・従来再生映像が維持されること
-- 同一アングルの複数YouTube URL、共通ホットキーによるクリップ切替
-- アプリ再起動後の `timelineStartSeconds` とクリップ構成の復元
-- 物理キー長押し時のrepeatイベントで再生/停止などのトグル操作が再実行されないこと
-- コードウィンドウにフォーカスした状態の再生ホットキーが750ms以内にメイン映像へ反映されること
-- 旧パッケージのアングル再生パスが元クリップ参照へ移行され、旧再生用ファイルを暗黙に削除しないこと
-- loopback権限を取得できない場合に手動配置が維持されること
-
-## Export Progress Electron E2E
-
-書き出し中のウィンドウ操作と実進捗の連動は、30秒のFFmpeg fixtureを使う専用E2Eで検証します。
-
-```bash
-pnpm run test:e2e:export-progress
-```
-
-`test:e2e:export-progress` は、進捗ウィンドウがフォーカスを奪わないこと、書き出し中にメインウィンドウで新規パッケージ画面へ遷移できること、FFmpeg由来の0%と100%の間の進捗が単調増加すること、出力ファイルが生成されることを確認します。
-
-release前は`pnpm audit`と`pnpm audit --prod`がともに既知脆弱性0件であることを確認します。`pnpm run media:build:all-mac`後に、`file`と`ffmpeg -version` / `ffprobe -version`で`x64` / `arm64`、FFmpeg 8.1.2の一致を確認します。probe processのtimeout・出力量上限は`mediaProcessRunner.test.ts`で検証します。
-
-macOSのシステム音声取得許可ダイアログを伴う成功経路は、CIの権限拒否テストと分離します。署名・配布候補では、macOS 13以降の実機で許可済みプロファイルを使い、15秒取得、解析終了後のtrack停止、外部アプリ音声の混入警告を確認してください。
-
-## Code Window Menu Electron E2E
-
-メニューバーのドキュメント操作は、実Electronで「ファイル > 新規 / 開く」の構造、重複する「コードウィンドウを開く」とトップレベル「コーディング」が存在しないこと、`Command+N`相当のパッケージ作成ウィザード表示を検証します。コードウィンドウは空の `.stcw` 作成、選択した `.stcw` の表示、ウィンドウ内モード切替、実行・編集表示の一致、編集開始時にキャンバス寸法が変わらないことを確認します。設定画面を経由しないこと、「別名保存」1回につきnative save dialogが1回だけ開くこと、設定の検索・responsive layout、ヘルプの検索・responsive layoutも検証対象です。
-
-```bash
 pnpm run test:e2e:code-window-menu
-```
-
-## Timeline Rows and Resize Electron E2E
-
-タイムライン行の追加・名称/色編集・行選択・ドラッグ並べ替え・削除、修飾キーなしのインスタンス行間移動、`Command+C/V`による選択行への貼り付け、`Option+Command`による長さ調整と手動インスタンス作成を検証します。加えて、ウィンドウを複数サイズへ変更した後も全映像とタイムラインが表示領域内に残ることを実Electronで確認します。
-
-```bash
+pnpm run test:e2e:export-progress
 pnpm run test:e2e:timeline-rows
 ```
 
-## Architecture Reports
+自動event detectionのreal model inference E2Eは、verified model packをCI artifactとして安全に供給できるまで通常CIへ含めません。Modelなし状態は正常系であり、UIは「検証済みモデルなし」を表示します。
 
-Architecture checks intentionally separate hard violations from soft budget reporting.
+## Debugging Failed CI
 
-- `pnpm run check:architecture`: CI fail condition.
-- `pnpm run report:architecture-health`: compliance summary.
-- `pnpm run report:large-files`: Warn Only; use the result to plan future refactors.
+推奨順:
 
-Current policy: file length budget is not a CI failure by itself. Responsibility mixing remains a MUST violation regardless of line count.
+1. Install / lockfile
+2. Lint
+3. Renderer typecheck
+4. Electron typecheck
+5. Architecture
+6. ADR check
+7. Research Python check
+8. Unit tests
 
-## Known Warnings
+最初の失敗stepを修正し、後続stepのskipを別の失敗と誤認しないようにします。
 
-`pnpm run test:run` may emit Node `ExperimentalWarning` messages from toolchain dependencies that load ESM from CommonJS. Treat the command exit code and Vitest summary as authoritative unless the warning points to project code or a failing test.
+## Regression Policy
+
+- 新機能のために既存testを無効化しない
+- flaky testを単純skipしない
+- legacy behaviorを変える場合はmigration testを追加
+- security boundaryを緩めてtestを通さない
+- event detection品質閾値を機能を見せるために下げない
+- Test setをmodel/threshold選定へ利用しない
+- license不適格modelを精度だけでproduction昇格させない

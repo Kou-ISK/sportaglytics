@@ -15,4 +15,10 @@ export interface ButtonBasicTabProps {
   setCapturedHotkey: (value: string) => void;
   onChange: (field: keyof CodeWindowButton, value: unknown) => void;
   onInsertPlaceholder: (placeholder: string) => void;
+  onNumberChange: (
+    field: keyof CodeWindowButton,
+    value: string,
+    min: number,
+    max: number,
+  ) => void;
 }

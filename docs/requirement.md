@@ -1,12 +1,10 @@
 # SporTagLytics - 技術仕様書
 
----
-
 ## 1. プロジェクト概要
 
 ### 1.1 目的
 
-スポーツ映像（特にラグビー）を分析するためのビデオタグ付けアプリケーション。映像の特定の瞬間にイベントをタグ付けし、統計分析を行うことで、戦術分析やパフォーマンス向上を支援する。
+スポーツ映像、特にラグビーの映像Codingと分析を効率化するdesktop application。映像中のイベントをTimelineへ記録し、ラベル、統計、プレイリスト、レポートへつなげることで、分析者が映像探索ではなく判断へ時間を使える状態を目指す。
 
 ### 1.2 対象ユーザー
 
@@ -15,1066 +13,424 @@
 - 選手
 - ビデオ分析担当者
 
-### 1.3 技術スタック
+### 1.3 技術基準
 
-| カテゴリ               | 技術        | バージョン |
-| ---------------------- | ----------- | ---------- |
-| フロントエンド         | React       | 19.2.3     |
-| 言語                   | TypeScript  | 5.9.3      |
-| デスクトップ           | Electron    | 40.0.0     |
-| UI                     | Material-UI | 7.3.7      |
-| ビデオ                 | Video.js    | 8.23.4     |
-| パッケージマネージャー | pnpm        | 9.1.0+     |
-| ビルドツール           | Vite        | 7.x        |
+| Category | Technology |
+| --- | --- |
+| Frontend | React 19 |
+| Language | TypeScript 5.4 strict |
+| Desktop | Electron 43 |
+| UI | Material UI 7 |
+| Video | Video.js 8 |
+| Package manager | pnpm 9 |
+| Build | Vite |
+
+実装規約の正本は `AGENTS.md` とする。
 
 ---
 
 ## 2. 機能要件
 
-### 2.1 映像再生機能
+## 2.1 映像再生
 
-#### 2.1.1 マルチアングル映像再生
+### マルチアングル
 
-- **要件**: 最大8アングルを同時に再生
-- **複数クリップ**: 各アングル最大16本。`timelineStartSeconds` を絶対開始位置の正本とし、クリップ間の空白区間は再生時に黒画面・無音として扱う。空白のための再生用映像は生成しない
-- **YouTube**: 同一アングルへ複数URLを登録可能。ダウンロードやストリームURL解決は行わない。ローカル映像との同一アングル内混在は対象外
-- **登録操作**: 各アングルの「＋」からローカル映像またはYouTubeを選択する。ローカル映像の複数選択・Finderからの複数ドロップ、ドラッグおよびボタンによる順序変更に対応
-- **段階的開示**: 作成画面では同期設定を求めず、再生画面のシンクモードで基準クリップと対象クリップを個別配置する
-- **対応フォーマット**: MP4、MOV
-- **推奨コーデック**: H.264/AVC、AAC音声
-- **表示レイアウト**: アングル数に応じた1〜3列グリッド
+- 最大8アングル
+- 各アングル最大16クリップ
+- local video / YouTube source
+- 同一アングル内でlocal/YouTubeを混在させない
+- `timelineStartSeconds` をclipのglobal timeline絶対開始位置とする
+- clip間空白は再生時に黒画面・無音として扱う
+- 空白のための常設再生用動画は生成しない
+- 旧packageはload-time migrationで現行angles/clipsへ変換する
 
-#### 2.1.2 音声同期機能
+### 同期
 
-**自動同期**:
+- local videoは音声解析による自動同期を提供する
+- YouTubeを含む場合の音声補助は対応platformで表示中音声だけを一時解析する
+- 手動同期を必ず残す
+- angle offsetはpackage metadataへ保存する
 
-- 音声波形の相互相関分析による自動オフセット検出
-- FFT（高速フーリエ変換）を用いた特徴量計算
-- ファイル名ベースのカメラ種別ヒント検出（寄り/引き、tight/wide）
-- 同期信頼度スコア（0-100%）の算出と色分け表示
-- 分析プログレスバーの表示
+### Playback control
 
-**手動調整**:
+- 再生/一時停止
+- forward/reverse variable-speed playback
+- seek
+- multi-angle view切替
+- 主な操作はshortcut keyを中心とする
+- 再生Toolbarは補助操作とし、機能を過剰に集約しない
 
-- 基準クリップと対象クリップの現在位置から絶対開始位置を計算
-- 同一アングル内の重複を拒否し、最大タイムライン長を24時間に制限
-- macOS 13以降では表示中のYouTube再生音を15秒だけloopback captureして精密補正。信頼度0.35未満、権限拒否、非対応環境では手動位置を維持
-- 現在位置で同期（`Cmd+Shift+M`）
-- 手動同期モード切替（`Cmd+Shift+T`）
-- 同期リセット機能（`Cmd+Shift+R`）
-- 同期再実行（`Cmd+Shift+S`）
+---
 
-**データ保存**:
+## 2.2 Code Window / Manual Coding
 
-- パッケージ内の `.metadata/config.json` の `syncData` に保存
-- 後方互換の `syncOffset`、アングル別の `angleOffsets`、信頼度、解析状態を記録
+### Action / Label button
 
-#### 2.1.3 共通シークバー
+Code Window buttonは少なくとも次を持つ。
 
-- 1つのスライダーで複数映像を同時制御
-- 同期オフセットを考慮した時刻調整
-- 同期状態の視覚的表示（オフセット値・信頼度）
-- NaN防止の多層防護（型チェック、範囲検証）
-- 連続入力を描画フレーム単位で集約し、固定遅延を挟まず複数映像へ反映
-- 独立タイムラインウィンドウの再生ヘッドは映像側の時刻を authority として滑らかに補間
+- action / label type
+- display name
+- position / size
+- color / text style
+- hotkey
+- team/group metadata
+- button link
 
-#### 2.1.4 映像制御
+### Recording range
 
-- 映像とタイムラインは独立ウィンドウで表示し、映像側が再生状態の唯一の authority となる
-- 映像操作ホットキーは映像・タイムラインのどちらにフォーカスがある場合も同じ再生 runtime へ作用する
+Action buttonごとにSportscode型のrecording rangeを持てること。
 
-**再生/停止**:
-
-- UIボタン、`↑`キー
-
-**再生速度**:
-
-- 0.5倍速: `→`キー
-- 1.0倍速: デフォルト
-- 2.0倍速: `Shift + →`
-- 4.0倍速: `Cmd + →`
-- 6.0倍速: `Option + →`
-
-**シーク**:
-
-- 0.5倍速逆再生: `←`キー（押下中）
-- 2倍速逆再生: `Shift + ←`（押下中）
-- 4倍速逆再生: `Option + ←`（押下中）
-- 6倍速逆再生: `Command + ←`（押下中）
-- スライダーによる任意位置ジャンプ
-
-**編集操作**:
-
-- 削除: `Delete`/`Backspace`（選択したタイムラインまたはコーディングパネル要素）
-- 元に戻す: `Cmd + Z`
-- やり直し: `Cmd + Shift + Z` または `Cmd + Y`
-
-### 2.2 イベントタグ付け機能
-
-#### 2.2.1 リアルタイムタグ付け
-
-- **1回目ボタン押下**: イベント開始時刻を記録（ボタンがアクティブ状態に変化）
-- **2回目ボタン押下**: イベント終了時刻を記録（タイムラインデータ生成）
-- **自動保存**: 明示的な保存ボタン操作による
-
-#### 2.2.2 対応アクション（ラグビー）
-
-| アクション   | 主な結果                            | 主な種別                                  |
-| ------------ | ----------------------------------- | ----------------------------------------- |
-| ポゼッション | Try, Drop Goal, Pen Won, Turnover   | Kick Return, Turnover Won, Lineout, Scrum |
-| スクラム     | Won Outright, Won PK, Lost Outright | Positive, Neutral, Negative               |
-| ラインアウト | Won, Won & Maul, Lost               | Front, Middle, Back                       |
-| キック       | Touch(Bounce), Touch(Full), Error   | Bomb, Chip, Territorial, Box              |
-| PK           | Not Releasing, Offside, Foul Play   | Offence, Defence                          |
-| トライ       | Conversion Success/Missed           | BK, FW                                    |
-| ショット     | Success, Missed                     | -                                         |
-| チェック     | Good, Bad                           | Offence, Defence                          |
-
-詳細は `src/ActionList.ts` 参照。
-
-#### 2.2.3 チーム別タグ付け
-
-- 2チーム設定可能
-- チーム別ボタン色分け（チーム1: 赤系統、チーム2: 青系統）
-- アクション名に自動的にチーム名を付加
-
-#### 2.2.4 コーディングパネル編集機能
-
-**自由配置エディタ（FreeCanvasEditor）**:
-
-- **ボタンの自由配置**: ドラッグ&ドロップでボタンを任意の位置に配置
-- **リンク作成**: 右クリック+ドラッグでボタン間のリンクを作成
-- **リンク種別**:
-  - `exclusive`（赤矢印）: 排他的遷移
-  - `activate`（緑矢印）: アクティベート
-  - `deactivate`（オレンジ矢印）: ディアクティベート
-  - `sequence`（青矢印）: シーケンス
-- **リンク選択**: クリックでリンクを選択（青い円でハイライト表示）
-- **削除操作**: `Delete`/`Backspace` キーで選択中のリンクまたはボタンを削除
-- **Undo/Redo**: `Cmd+Z` で元に戻す、`Cmd+Shift+Z`/`Cmd+Y` でやり直し（最大50件の履歴）
-
-### 2.3 タイムライン管理機能
-
-#### 2.3.1 データ構造
-
-```typescript
-TimelineData = {
-  id: string;           // ユニークID（ULID）
-  actionName: string;   // アクション名（チーム名 + アクション種別）
-  startTime: number;    // 開始時刻（秒）
-  endTime: number;      // 終了時刻（秒）
-  memo: string;         // メモ
-  labels?: Array<{ name: string; group?: string }>; // ラベルグループ構造
-  color?: string;       // 旧形式・外部出力互換用（表示色の正本ではない）
-}
-
-TimelineRow = {
-  id: string;
-  name: string;
-  color: string;        // 行背景と所属インスタンスの表示色
-}
-
-TimelineDocument = {
-  version: 2;
-  rows: TimelineRow[];  // 空行を含む表示順
-  instances: TimelineData[];
-}
+```ts
+leadTimeSeconds?: number;
+lagTimeSeconds?: number;
 ```
 
-旧 `actionResult` / `actionType` は読み込み時のみ互換入力として受け付け、`Result` / `Type` ラベルグループへ移行する。
+UI表現:
 
-#### 2.3.2 テーブル表示・編集機能
+- `開始前に含める秒数`
+- `終了後に含める秒数`
 
-- **テーブル表示**: 時系列での一覧表示
-- **ソート**: アクション名、開始時刻、終了時刻でソート可能
-- **インライン編集**:
-  - アクション結果: ドロップダウン選択
-  - アクション種別: ドロップダウン選択
-  - 修飾子: テキスト入力
-- **映像ジャンプ**: 開始/終了時刻ボタンで該当位置に移動
-- **複数選択削除**: チェックボックス + 削除ボタン、または `Delete`/`Backspace` キー
-- **Undo/Redo**: `Cmd+Z` で元に戻す、`Cmd+Shift+Z`/`Cmd+Y` でやり直し（最大50件の履歴）
+挙動:
 
-#### 2.3.3 ビジュアルタイムライン（VisualTimeline）
-
-**概要**:
-
-横型波形表示で直感的にイベントを確認・編集できるタイムラインUI。
-
-**主要コンポーネント**:
-
-| コンポーネント      | 機能                                                |
-| ------------------- | --------------------------------------------------- |
-| VisualTimeline      | メインコンテナ、タブ切り替え（テーブル/ビジュアル） |
-| TimelineLane        | レーン描画、エッジドラッグでの時間調整              |
-| TimelineAxis        | 時間軸の目盛り表示                                  |
-| ZoomIndicator       | ズーム倍率のインジケーター                          |
-| TimelineContextMenu | 右クリックメニュー                                  |
-| TimelineEditDialog  | インライン編集ダイアログ                            |
-| BulkMoveDialog      | 複数選択時の一括移動ダイアログ                      |
-| TimelineHeader      | ヘッダー（ツールバー、フィルタ）                    |
-
-**ズーム機能**:
-
-- `Cmd/Ctrl + ホイール`でズームイン/アウト
-- ZoomIndicatorで現在のズーム倍率を表示
-- ビューポート管理（useTimelineViewport）で効率的な描画
-
-**範囲選択機能**:
-
-- Shiftキー + ドラッグで複数イベントを範囲選択
-- 選択範囲のハイライト表示
-- useTimelineRangeSelectionフックで状態管理
-
-**インタラクション**:
-
-- クリック: イベントを選択、該当映像位置にジャンプ
-- ダブルクリック: 編集ダイアログを開く
-- 右クリック: コンテキストメニュー（編集/削除/ジャンプ/ラベル編集）
-- Enterキー: 選択中のイベントを編集
-- Delete/Backspaceキー: 選択中のイベントを削除
-- 左下の`＋`: 空の行を追加
-- 行ヘッダーをクリック: 行を単一選択。`Command`クリックで複数選択
-- 行ヘッダーをドラッグ、またはコンテキストメニューの上下移動: 行を並べ替え
-- 選択行で`Delete`/`Backspace`、またはコンテキストメニュー: 確認後に行と所属インスタンスを削除
-- 行ヘッダーで`Enter`、ダブルクリック、またはコンテキスト操作: 行名と色を編集
-- インスタンスを別行へ通常ドラッグ: 移動先の行名と色を適用。`Option`ドラッグではコピー
-- `Command+C`で選択インスタンスをコピーし、貼り付け先の行を選択して`Command+V`: 元の時間位置を保って当該行へ貼り付け
-- `Option+Command`を押しながら赤い再生ヘッドをドラッグ: 現在の行へインスタンスを作成
-- `Option+Command`を押しながらインスタンス端をドラッグ: 開始・終了位置を調整
-
-**ラベル付与機能**:
-
-- ラベル選択ダイアログ（labelDialogOpen）
-- 複数ラベルグループに対応
-- ラベルのチップ表示
-
-**クリップ書き出し機能**:
-
-- 選択したイベントを映像クリップとして書き出し
-- テキストオーバーレイオプション（clipDialogOpen）
-- アクション名、インデックス、ラベル、修飾子の表示設定
-
-**関連カスタムフック**:
-
-| フック                    | 責務                                     |
-| ------------------------- | ---------------------------------------- |
-| useTimelineViewport       | ズーム・ビューポート管理                 |
-| useTimelineInteractions   | 選択、コンテキストメニュー、編集ハンドラ |
-| useTimelineEditDraft      | 編集ダイアログの入力状態管理             |
-| useTimelineValidation     | 入力値のバリデーション                   |
-| useTimelineRangeSelection | 範囲選択の状態管理                       |
-
-#### 2.3.4 検索・フィルタリング
-
-- **テキスト検索**: アクション名、修飾子、結果、種別の横断検索
-- **チーム別フィルタ**: ドロップダウンで特定チームのみ表示
-- **アクション種別フィルタ**: 種別による絞り込み
-- **リアルタイム件数表示**: フィルタ適用後の件数表示
-
-#### 2.3.5 データ永続化
-
-- **ファイル形式**: JSON
-- **保存場所**: `<パッケージディレクトリ>/timeline.json`
-- **保存タイミング**: 自動保存（数百msデバウンス）
-
-### 2.4 パッケージ管理機能
-
-#### 2.4.1 パッケージ構造
-
-```
-PackageName/
-├── .metadata/
-│   └── config.json          # チーム名、映像構成、同期データ
-├── timeline.json            # タイムラインデータ
-└── videos/
-    └── sources/
-        ├── angle-1/         # アングルごとの元クリップコピー
-        └── angle-2/
+```text
+finalStart = min(startPress, endPress) - lead
+finalEnd   = max(startPress, endPress) + lag
 ```
 
-#### 2.4.2 パッケージ作成
+- startは0未満にしない
+- media durationが既知ならendをduration以内にclamp可能
+- field未設定のlegacy設定は0秒として従来挙動を維持
+- click codingとhotkey codingで同一ロジックを使う
+- recording開始時に設定値をsessionへcopyし、記録中の設定変更でrangeを変えない
+- Activate link targetはsource actionと同じ確定rangeを使用する
 
-**2ステップウィザード**:
+複雑なrecording mode名は導入せず、ユーザーが前後秒数を直接設定する。
 
-1. **基本情報入力**: パッケージ名、チーム1名、チーム2名
-2. **映像選択**: 最大8アングル・各16ローカルクリップまたはYouTubeクリップ。同一アングル内でローカル映像とYouTubeは混在不可
+---
 
-保存先は最終の「パッケージを作成…」操作時にネイティブのディレクトリ選択で指定し、独立した確認ステップは設けない。同期位置は作成時に入力せず、作成後のシンクモードで設定する。
+## 2.3 Timeline
 
-**自動処理**:
+### Data model
 
-- 映像ファイルのコピー＆リネーム
-- `.metadata/config.json` の生成
-- 複数ローカルクリップは元ファイルを保持し、絶対開始位置から再生対象とクリップ内時刻を実行時に解決。空白中は黒画面・無音を表示し、書き出し時だけ一時的に連続映像へ合成
+Current persisted format:
 
-#### 2.4.3 パッケージ読み込み
-
-- ディレクトリ選択による一括読み込み
-- ドラッグ&ドロップ対応
-- チーム名、アクションリスト、タイムラインデータの自動復元
-
-### 2.5 統計分析・可視化機能
-
-#### 2.5.1 分析ウィンドウ（v0.4.0以降、`Cmd+Shift+A`）
-
-v0.4.0より、統計・分析機能は独立したウィンドウ（`AnalysisWindowApp`）で表示されます。
-
-関連 ADR: [0008 Dedicated Sub-Window Runtime and Synchronization](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)
-
-**表示タブ（v0.5.0現在）**:
-
-| タブ           | 内容                                                 | バージョン |
-| -------------- | ---------------------------------------------------- | ---------- |
-| ダッシュボード | カスタマイズ可能なウィジェット配置、テンプレート管理 | v0.4.0     |
-| モメンタム     | ポゼッションの流れを棒グラフで可視化                 | v0.2.0     |
-| クロス集計     | 任意の軸でヒートマップ表示、ドリルダウン             | v0.2.0     |
-| AI分析         | ローカルLLMによる映像分析、推奨クリップ生成          | v0.5.0     |
-
-**旧タブ（v0.4.0で統合）**:
-
-以下のタブはv0.4.0でダッシュボード機能に統合されました：
-
-- **ポゼッション** → ダッシュボードのデフォルトウィジェット
-- **アクション結果** → カスタムチャート機能で再現可能
-- **アクション種別** → カスタムチャート機能で再現可能
-
-**ウィンドウ機能**:
-
-- メインウィンドウとの双方向同期
-- タイムラインデータの自動反映
-- チャート要素クリックで該当映像位置にジャンプ
-
-**モメンタムチャート**:
-
-- ポゼッション時間の棒グラフ
-- チーム別色分け（赤/青）
-- 結果による色分け（Try: オレンジ、Positive: 緑、Negative: 紫、Neutral: グレー）
-- バークリックで該当映像位置にジャンプ
-
-**クロス集計（MatrixTab）**:
-
-- 任意の行軸・列軸を選択可能（チーム、アクション、ラベルグループ、all_labels）
-- ヒートマップ形式でセル値を色の濃さで表示
-- チーム/アクション/ラベルによるフィルタリング
-- セルクリックで該当イベントへジャンプ
-- ドリルダウンダイアログで詳細一覧表示
-
-#### 2.5.2 ダッシュボード機能（v0.4.0以降）
-
-関連 ADR: [0011 Dashboard Widget System and Analysis Consolidation](adr/0011-dashboard-widget-system-and-analysis-consolidation.md)
-
-**概要**:
-
-- カスタマイズ可能なウィジェットシステム
-- ドラッグ&ドロップによる配置変更
-- .stadパッケージ形式でテンプレート保存・読み込み
-
-**ウィジェット種別**:
-
-- チャート（円グラフ、棒グラフ、カスタムチャート）
-- 統計カード
-- フィルタコンポーネント
-
-**テンプレート管理**:
-
-- デフォルトテンプレート
-- カスタムテンプレートの保存・読み込み
-- .stadパッケージのインポート/エクスポート
-
-#### 2.5.3 カスタムチャート機能（v0.4.0以降）
-
-**機能**:
-
-- カスタム軸制御（X軸、Y軸、グループ化）
-- カスタムバーチャート
-- カスタム円グラフ
-- シリーズ比較機能
-
-**データソース**:
-
-- タイムラインデータから自動集計
-- 任意のフィールド組み合わせによる分析
-
-#### 2.5.4 AI分析機能（v0.5.0以降）
-
-**概要**:
-
-AI分析タブでは、ローカルLLM（llama.cpp）を使用して映像を自動分析し、質問に対する回答や推奨クリップを生成します。
-
-セットアップ詳細: [AI Analysis and Local LLM Setup](ai-analysis.md)
-
-**UIレイアウト**:
-
-- 2カラムグリッドレイアウト（1.6fr : 1fr）
-  - 左ペイン: AI会話（質問入力、テンプレート、応答表示）
-  - 右ペイン: プレイリスト作成（スクロール可能、maxHeight: 100vh）
-- 質問入力フィールド: maxRows 2行
-- ボタン: 「実行」「プレイリスト作成」
-
-**機能**:
-
-1. **ハイブリッド根拠検索**（`src/features/videoPlayer/analysis/ai/retriever.ts`）
-   - テキスト検索（アクション名、メモ）
-   - ラベル検索（完全一致、部分一致）
-   - 時間範囲検索
-   - レアラベル検索（統計的に珍しいイベント）
-   - 複数検索結果のマージとスコアリング
-
-2. **LLMプロンプト生成**（`llmPrompt.ts`）
-   - システムプロンプト: スポーツ分析特化の指示
-   - コンテキスト: タイムラインサマリー、チーム統計
-   - 根拠: 検索で抽出されたイベント詳細
-   - 質問: ユーザー入力
-
-3. **AI応答生成**（`llmProvider.ts`）
-   - llama.cppバイナリとの統合
-   - ストリーミング応答（進捗表示）
-   - エラーハンドリング
-   - 応答パース（要約、仮説、根拠ID、推奨クリップ）
-
-4. **クリップ推奨**（`clipGenerator.ts`）
-   - AIが選んだ重要シーンのリスト生成
-   - タイムラインデータとの紐付け
-
-5. **プレイリスト自動生成**
-   - 「プレイリスト作成」ボタンで推奨クリップからプレイリストを作成
-   - `window.electronAPI.playlist.addItemToAllWindows()` を使用（v0.5.0で統一）
-   - 各PlaylistItemに`videoSource`/`videoSource2`を設定
-
-**技術仕様**:
-
-- llama.cppバイナリとライブラリ: `public/llama/darwin/`（macOS版のみv0.5.0で同梱）
-- GGUFモデルファイル: `public/llama/models/`に配置（ユーザーが手動ダウンロード）
-- Electron IPC: メインプロセス（`llamaManager.ts`）とレンダラー間通信
-- タイプ定義: `src/types/ipc/` と `src/renderer.d.ts`
-
-**データフロー**:
-
-```
-ユーザー質問 → ハイブリッド検索 → 根拠抽出 → プロンプト生成 → llama.cpp実行 → 応答パース → UI更新 → プレイリスト生成
+```text
+TimelineDocument v2
+├ rows[]
+└ instances[]
 ```
 
-**制限事項**:
+`TimelineData`:
 
-- v0.5.0ではmacOSのみサポート（Windows/Linux版llama.cppバイナリは未同梱）
-- モデルファイルは別途ダウンロードが必要
-- ローカル処理のため、モデルサイズとマシン性能に依存
+- id
+- actionName
+- startTime
+- endTime
+- memo
+- labels
+- color
 
-#### 2.5.5 チャートインタラクション
+Timelineへ追加されたeventは、manual/autodetectedを問わず同一data modelとして扱う。
 
-- チャート要素クリックで該当映像位置にジャンプ
-- スクロール対応の統計情報表示
-- タブ切り替えで各ビューを表示
+### Editing
 
-### 2.6 設定機能（SettingsPage）
+- create/update/delete
+- range edit
+- row create/rename/color/reorder/delete
+- instance move/copy
+- multi-select
+- memo/label edit
+- Undo/Redo
+- playlist追加
+- import/export
 
-設定画面は `Cmd + ,` で開く。現行UIは「一般」と「ホットキー」の2タブで構成し、`.stcw` は設定画面で管理しない。狭いウィンドウでも横方向へ欠落せず、変更がない保存操作は無効化する。
+### Detached Timeline window
 
-#### 2.6.1 一般設定（GeneralSettings）
+- package open時に専用Timeline BrowserWindowを自動表示
+- playback/timeline/history authorityはmain video runtime
+- Timeline windowを閉じた場合は `ウィンドウ > タイムラインを表示` で再表示
+- video surface上に常設の「タイムラインを表示」buttonを置かない
 
-- **テーマ**: ライト/ダーク/システム連動の切替
-- 設定はアプリ全体に即時反映
+### Bulk insert
 
-#### 2.6.2 アクションプリセット設定（ActionPresetSettings）
+複数eventを1操作で追加するAPIを持つ。
 
-**プリセット管理**:
+```ts
+addTimelineDatas(items: NewTimelineData[]): string[]
+```
 
-- 複数プリセットの作成・編集・削除
-- アクティブプリセットの切替
-- プリセットのインポート/エクスポート（JSON形式）
+自動イベント検出による多数event追加は1 history entryとし、直後なら1回のUndoでまとめて戻せること。
 
-**アクション定義**:
+---
 
-- アクション名、ラベルグループ、ホットキーの設定
-- ラベルグループ構造（name + group）でのカテゴリ化
-- アクションごとの色設定
+## 2.4 自動イベント検出
 
-**ホットキー設定**:
+### 目的
 
-- アクションごとにホットキーを割り当て
-- Shift+キーで2チーム目のアクションを起動
+自動イベント検出は戦術判断を自動化する機能ではない。映像中の明確なラグビーイベントを検出して通常Timelineを初期Codingし、その後の手動分析を早く開始できるようにする。
 
-#### 2.6.3 ホットキー設定（HotkeySettings）
+### Initial target classes
 
-再生制御、同期操作、分析機能のホットキーをカスタマイズ。
+優先:
 
-機能名または現在のキーで一覧を検索でき、該当件数と空状態を表示する。
+1. Kickoff
+2. Scrum
+3. Lineout
 
-物理キー長押しで発生するOSのrepeat keydownは同一操作として再実行しない。再生/停止などのトグル操作は最新状態に対して反転する。早送りはkeydownからkeyupまで指定速度で再生し、逆再生はHTML Mediaの負の再生速度に依存せず、描画フレーム単位の連続シークで戻してkeyup時に停止する。フォーカス喪失時も押下状態を解除する。
+Contract上の拡張候補:
 
-| ID                    | デフォルト     | 説明             |
-| --------------------- | -------------- | ---------------- |
-| resync-audio          | `Cmd+Shift+S`  | 音声同期を再実行 |
-| reset-sync            | `Cmd+Shift+R`  | 同期をリセット   |
-| manual-sync           | `Cmd+Shift+M`  | 今の位置で同期   |
-| toggle-manual-mode    | `Cmd+Shift+T`  | 手動モード切替   |
-| analyze               | `Cmd+Shift+A`  | 分析開始         |
-| undo                  | `Cmd+Z`        | 元に戻す         |
-| redo                  | `Cmd+Shift+Z`  | やり直す         |
-| skip-forward-small    | `Right`        | 0.5倍速再生      |
-| skip-forward-medium   | `Shift+Right`  | 2倍速再生        |
-| skip-forward-large    | `Cmd+Right`    | 4倍速再生        |
-| skip-forward-xlarge   | `Option+Right` | 6倍速再生        |
-| reverse-playback-slow | `Left`         | 0.5倍速逆再生    |
-| reverse-playback-2x   | `Shift+Left`   | 2倍速逆再生      |
-| reverse-playback-4x   | `Option+Left`  | 4倍速逆再生      |
-| reverse-playback-6x   | `Cmd+Left`     | 6倍速逆再生      |
-| play-pause            | `Space`        | 再生/停止        |
+- Maul
+- Goal Kick
 
-#### 2.6.4 コードウィンドウドキュメント編集
+以下は現在のproduction対象外:
 
-- メニューバーの「ファイル > 新規 > コードウィンドウ…」から保存先を選び、空の `.stcw` を作成して独立コードウィンドウで開ける
-- 「ファイル > 開く > コードウィンドウ…」では対象の `.stcw` を必ず選択し、対象が不明な「コードウィンドウを開く」は表示しない
-- `.stcw` の作成・編集・保存・別名保存は独立コードウィンドウで行い、設定画面でファイル管理を行わない
-- コードボタンのリンクによる自動活性化・非活性化はボタン状態で示し、操作を妨げる情報通知は表示しない
-- コード／ラベル／編集モードは対象の独立コードウィンドウ内で切り替え、アプリ全体の「コーディング」メニューは設けない
-- 編集表示は実行表示と同一のボタンsurfaceを使い、選択輪郭と編集handleだけを重ねる
-- 編集モードへの切替やウィンドウresizeによってキャンバス寸法を暗黙に変更しない
+- player trackingを前提としたheatmap / width / depth
+- ball tracking
+- jersey/player identity
+- contact pose estimation
+- tackle quality / dangerous tackle自動判定
+- LLM/VLMによるvisual event recognition
 
-**自由配置エディタ（FreeCanvasEditor）**:
+### User flow
 
-- キャンバス上にボタンを自由配置
-- ドラッグ&ドロップでボタン移動
-- ボタンのリサイズ
-- キャンバスサイズの調整（幅400-2000px、高さ30 0-1500px）
-- グリッドスナップ（10px）
-- 複数ボタンの同時選択（Shift/Cmd+クリック）
-- 選択ボタンのまとめ移動・サイズ変更
+1. packageを開く
+2. `分析 > 自動イベント検出…`
+3. installed verified modelを選択
+4. local video angleを選択
+5. event type / Timeline action name / before-after secondsを確認
+6. local detectionを実行
+7. confidence filter / duplicate suppression
+8. accepted eventsを通常Timelineへ一括追加
+9. 通常のmanual edit / labeling / dashboard / playlistへ進む
 
-**ボタン設定（ButtonPropertiesEditorNew）**:
+専用AI Timelineやreview queueは必須としない。
 
-- ボタン名（プレースホルダー対応: `${Team1}`, `${Team2}`）
-- ボタン色の設定
-- テキスト色の設定
-- フォントサイズ調整
-- 角丸設定
-- ホットキー設定（例: "a", "1", "Shift+B"）
-- プレースホルダー挿入ボタン（ワンクリックで挿入）
+### Verified-only policy
 
-**リンク設定**:
+Product UIへ出るmodel/event classは品質基準を満たすものだけとする。
 
-- ボタン間のリンク作成（右クリック+ドラッグ）
-- リンク種別:
-  - `exclusive`（赤）: 排他的遷移（矢印なし、双方向）
-  - `activate`（緑矢印）: アクティベート
-  - `deactivate`（オレンジ矢印）: ディアクティベート
-  - `sequence`（青矢印）: シーケンス
-- リンクの選択・削除（クリックで選択、Delete/Backspaceで削除）
-- リンク端点の最適化（getButtonEdge関数）
+Minimum per class:
 
-**Undo/Redo機能**:
+| Metric | Requirement |
+| --- | ---: |
+| Precision | >= 0.95 |
+| Recall | >= 0.90 |
+| unseen evaluation matches | >= 5 |
+| TP timestamp within ±2 sec | >= 0.90 |
 
-- 配置・リンク編集の履歴管理（最大50件）
-- `Cmd+Z`: 元に戻す
-- `Cmd+Shift+Z`/`Cmd+Y`: やり直し
-- isUndoRedoRef でループ防止
+さらにevaluation時の `confidenceThreshold` をmanifestへ保存し、production runtimeではその値未満へ下げない。
 
-**レイアウト管理**:
+Model packが `status: verified` を名乗るだけでは利用可能にしない。Applicationはmetricsを再検証する。
 
-- 複数レイアウトの保存・切替
-- アクティブレイアウトの設定
-- レイアウトの新規作成/複製/削除
-- レイアウトのエクスポート/インポート（.codewindow形式）
+### Evaluation split
 
-### 2.7 ユーザーサポート機能
+- frame-level random split禁止
+- match ID単位でtrain / validation / testを分離
+- test matchが `trainingMatchIds` と重複した場合はevaluationを失敗させる
 
-#### 2.7.1 ヘルプウィンドウ
+Evaluation command:
 
-- 独立したBrowserWindowとして実装
-- メニュー「ヘルプ」または `Cmd+?` / `Ctrl+?` で開く
-- HTML/CSS/JavaScriptで構築された自己完結型UI
-- トピックのタイトル、概要、手順を対象に検索できる
-- system appearanceと狭いウィンドウ幅に適応する
+```bash
+pnpm run research:events:evaluate -- \
+  <ground-truth.json> \
+  <predictions.json> \
+  <thresholds.json>
+```
 
-**含まれるセクション**:
+### Local execution boundary
 
-1. パッケージ管理
-2. 映像再生と同期
-3. タグ付け（コードウィンドウ）
-4. タイムライン編集
-5. 統計ダッシュボード
-6. エクスポート/インポート
-7. プレイリスト
-8. 設定とコードウィンドウ管理
-9. キーボードショートカット
-10. トラブルシューティング
+Renderer:
 
-各セクションはステップバイステップの手順と具体的な操作方法を提供し、最初のトピックを初期表示する。
+```text
+EventDetectionDialogView
+  ↑ props
+useEventDetectionController
+  ↓
+eventDetectionGateway
+  ↓
+window.electronAPI.eventDetection
+```
 
-#### 2.7.2 オンボーディングチュートリアル
+Electron:
 
-- 初回起動時に自動表示
-- 4ステップのウィザード形式
-- LocalStorageで完了フラグを管理
-- スキップ機能
+```text
+preload bridge
+  ↓ typed IPC
+eventDetectionHandlers
+  ↓
+eventDetectionManager
+  ↓
+verified child-process runner
+```
 
-#### 2.7.3 ショートカットガイド
+Runner constraints:
 
-- コントローラー右上の「?」アイコンから表示
-- カテゴリ別一覧（再生制御、音声同期、統計・分析）
-- モーダル形式での表示
+- local execution
+- `shell: false`
+- finite timeout
+- cancel
+- bounded stderr/result output
+- temporary request/result file cleanup
+- runner path traversal prevention
+- platform/architecture-specific runner
+- SHA-256 verification before execution
 
-#### 2.7.4 エラーハンドリング
+ML frameworkはrunner内部のimplementation detailとし、rendererを特定runtimeへ直接依存させない。
 
-- 統一エラーステート（useVideoPlayerScreenController）
-- エラータイプ分類: file, network, sync, playback, general
-- Snackbar通知（6秒自動非表示）
-- エラー種別による色分け
+### Detection result -> Timeline
 
-### 2.8 タイムラインエクスポート/インポート
+Candidateごとに:
 
-関連 ADR: [0009 Timeline Import/Export Interoperability](adr/0009-timeline-import-export-interoperability.md)
+1. enabled eventのみ残す
+2. verified confidence threshold未満を除外
+3. detector rangeまたはanchor timeを取得
+4. configured lead/lagを適用
+5. same action nameで近接/高overlapのexisting eventをduplicateとして除外
+6. `NewTimelineData`へ変換
+7. bulk insert
 
-#### 2.8.1 対応フォーマット
+Timelineへ入った後はmanual eventと区別しない。
 
-| フォーマット | 用途                                                          |
-| ------------ | ------------------------------------------------------------- |
-| JSON         | アプリ内部形式（完全な情報保持）                              |
-| CSV          | YouTube用（時刻, 終了時刻, アクション名, タイプ, 結果, 備考） |
-| SCTimeline   | Sportscode互換JSON（行/インスタンス形式）                     |
+---
 
-#### 2.8.2 操作方法
+## 2.5 分析
 
-- メニュー「ファイル」→エクスポート/インポート
-- インポート時はJSON優先、失敗時にSCTimeline自動判定
+Analysis window:
 
-### 2.9 プレイリスト機能
+- Dashboard
+- Momentum
+- Matrix / cross-tab
+- AI Analysis
 
-#### 2.9.1 プレイリスト管理
+Dashboard/MatrixはTimeline/labelsを基礎dataとする。
 
-**アイテム追加**:
+AI Analysis:
 
-- タイムラインから複数選択でプレイリストに追加（右クリックメニュー、ツールバーボタン、`Cmd+Shift+P`）
-- 開いている全てのプレイリストウィンドウに追加（ウィンドウが無い場合は自動で新規作成）
+- local llama.cpp
+- Timeline / labels / memo / statisticsを根拠とする
+- visual frameをLLMへ直接理解させる機能ではない
+- automatic event detectionとは別機能
 
-**複数プレイリスト管理**:
+---
 
-- 複数のプレイリストウィンドウを同時に開いて独立管理
-- `.stpl` パッケージ（playlist.json + videos/）として保存/読み込み
+## 2.6 Playlist
 
-**順序管理**:
+- dedicated BrowserWindow
+- Timeline selected eventsから追加
+- AI Analysis suggested clipsから追加
+- `.stpl` document
+- reference / embedded storage
+- drawing / freeze frame / memo
+- clip export
+- multi-window support
 
-- ドラッグ&ドロップで順序変更（@dnd-kit使用）
-- アイテムの削除・編集
+---
 
-#### 2.9.2 プレイリスト専用ウィンドウ
+## 2.7 Import / Export
 
-**基本再生機能**:
+Timeline:
 
-- 連続再生: 自動的に次のアイテムへ移動（autoAdvance）
-- ループ再生: プレイリスト全体を繰り返し再生（loopPlaylist）
-- 前/次アイテムジャンプ、再生/一時停止、音量調整
+- JSON
+- CSV
+- Sportscode SCTimeline XML
 
-**フリーズフレーム機能**:
+Clip export:
 
-- 描画のタイムスタンプに到達すると自動停止
-- フリーズ解除は再生ボタン/Spaceで手動
-- 停止秒数は書き出し時のフリーズ長として利用
+- selected/all instances
+- instance/action/combined modes
+- overlay
+- single/multi angle
+- dedicated progress window
 
-**簡易描画機能**:
+---
 
-- 描画モード切替（Brush アイコン）
-- 図形描画: 矩形、円、線、矢印、ペン
-- テキスト描画: フォントサイズ、色調整可能
-- 描画履歴: 描画オブジェクトの選択・移動・削除（選択ツール）
-- アイテムごとに描画データを保持（ItemAnnotation）
-- 書き出し時に描画オーバーレイPNGを生成して合成
+## 2.8 Settings
 
-**デュアルビュー機能**:
+- theme
+- hotkeys
+- clip overlay
+- Code Window settings
+- analysis dashboard settings
+- local AI analysis settings
 
-- 1映像/2映像並列表示の切替
-- 各映像への個別描画対応
-- プライマリ/セカンダリ映像の切替
-
-**メモ編集**:
-
-- 各アイテムに個別のメモを追加/編集
-- タイムラインのメモとは独立に管理
-
-**クリップ書き出し**:
-
-関連 ADR: [0010 FFmpeg Clip Export Execution Boundary](adr/0010-ffmpeg-clip-export-execution-boundary.md)
-
-- 書き出しモード: 1ファイル/インスタンスごと/アクションごと
-- 書き出し範囲: 全体/選択中
-- アングル選択: 全アングル/単一/マルチ
-- オーバーレイ設定: アクション名、インデックス、ラベル、メモの表示切替
-- FFmpeg統合（固定SHA-256で検証したsourceからCPU architecture別にbuild）
-- 書き出し進捗は専用ウィンドウに表示し、メインウィンドウ側の操作はブロックしない
-
-#### 2.9.3 メインウィンドウとの連携
-
-**双方向通信**:
-
-- メイン → プレイリスト: PlaylistSyncDataで状態同期
-- プレイリスト → メイン: PlaylistCommandでシーク/再生要求
-
-**ウィンドウ管理**:
-
-- Electron IPC経由でウィンドウ開閉管理
-- playlistWindow.ts でウィンドウライフサイクル管理
-- Hash routingで #/playlist ルートを表示
+Legacy compatible fieldはdomain typeへ残し続けずload-time normalizerで吸収する。
 
 ---
 
 ## 3. 非機能要件
 
-### 3.1 パフォーマンス
+## 3.1 Local-first / Privacy
 
-- 映像再生のスムーズさ（60fps目標）
-- タグ付け操作の即座の反応（100ms以内）
-- 長時間映像ファイルの安定処理
+- source videoをcloudへ自動uploadしない
+- automatic event detectionはlocal process
+- AI Analysisはlocal llama.cpp
+- telemetry / cloud analyticsを前提にしない
 
-### 3.2 ユーザビリティ
+## 3.2 Security
 
-- 直感的操作（専門知識を持つユーザーが迷わず操作可能）
-- キーボードショートカットによる効率的な操作
-- 映像とコントロールパネルの適切な配置
-- レスポンシブ対応（xs: 40vh, sm: 50vh, md: 55vh, lg: 60vh）
+All BrowserWindow:
 
-### 3.3 信頼性
+- `contextIsolation: true`
+- `sandbox: true`
+- `nodeIntegration: false`
+- `webSecurity: true`
+- unsafe navigation/window.open拒否
 
-- タイムラインデータの確実な保存
-- ファイル読み込みエラー・映像再生エラーの適切な処理
-- プレイヤー健全性チェック（`player.el()`, `player.error()`, ビデオ要素存在確認）
-- プレイヤーエラーからの自動回復機能
+IPC:
 
-### 3.4 拡張性
+- typed explicit APIs
+- sender validation
+- payload guards
+- generic event busをpreloadへ公開しない
 
-- 新しいスポーツ・分析項目への対応（ActionList.tsの拡張）
-- 新しい映像フォーマットのサポート
-- エクスポート機能（CSV、Excel）への拡張可能性
+External process:
 
----
+- rendererから直接spawnしない
+- main process manager境界
+- timeout/output limits
+- path/hash validation where applicable
 
-## 4. 技術的制約
+## 3.3 Compatibility
 
-### 4.1 プラットフォーム
+- old package/settings/timelineはload-time migration
+- saveは最新modelへ統一
+- deprecated route/old duplicate implementationは残さない
 
-- **優先対応**: macOS（dmgファイルでの配布）
-- **将来対応**: Windows、Linux
+## 3.4 Performance
 
-### 4.2 映像フォーマット
+- playback UIをheavy inferenceでblockしない
+- event detectionはchild processへ分離
+- Timeline high-frequency clock syncとdocument syncを分離
+- bulk event追加はsingle state update
 
-- **対応**: MP4、MOV
-- **推奨コーデック**: H.264/AVC（映像）、AAC（音声）
-- **同時映像数**: 最大2つ
+## 3.5 Quality
 
-### 4.3 開発環境
-
-- **Node.js**: 22.12.0以上
-- **pnpm**: 9.0.0以上
-- **TypeScript**: strict mode有効
-- **React**: 関数コンポーネントのみ
-
----
-
-## 5. アーキテクチャ設計
-
-### 5.1 ディレクトリ構成
-
-```
-src/
-├── features/                      # 機能単位のモジュール
-│   └── videoPlayer/
-│       ├── analysis/              # 統計分析ロジック
-│       │   ├── hooks/             # 分析用カスタムフック
-│       │   └── utils/             # 分析ユーティリティ
-│       └── components/
-│           ├── Analytics/         # 統計分析UI
-│           │   └── AnalysisPanel/    # 分析パネル
-│           │       └── view/      # 各ビュー（Possession/Results/Types/Momentum/Matrix）
-│           ├── Controls/          # コントロールパネル
-│           │   └── VideoController/
-│           ├── Player/            # ビデオプレイヤー
-│           │   ├── SingleVideo/   # 単体プレイヤー
-│           │   └── SyncedVideo/   # 同期プレイヤー
-│           ├── Setup/             # 初期設定
-│           │   └── VideoPathSelector/  # パッケージ選択
-│           │       ├── components/     # UIコンポーネント
-│           │       ├── hooks/          # カスタムフック
-│           │       └── steps/          # ウィザードステップ
-│           └── Timeline/          # タイムライン
-│               └── VisualTimeline/    # ビジュアルタイムライン
-│                   └── hooks/         # タイムライン用フック
-├── pages/                         # ページコンポーネント
-│   ├── settings/                  # 設定画面
-│   │   └── components/            # 設定タブコンポーネント
-│   │       └── CodeWindowSettings/  # コードウィンドウ編集プリミティブ
-│   └── videoPlayer/               # ビデオプレイヤーページ
-│       ├── components/            # ページ固有コンポーネント
-│       └── hooks/                 # ページ固有フック
-├── hooks/                         # 共通カスタムフック
-│   └── videoPlayer/               # ビデオプレイヤー用共通フック
-├── types/                         # 型定義
-├── utils/                         # ユーティリティ
-├── contexts/                      # Context API
-└── components/                    # 共通コンポーネント
-
-electron/
-└── src/
-    ├── main.ts                    # メインプロセス
-    ├── preload.ts                 # プリロードスクリプト
-    ├── menuBar.ts                 # メニューバー定義
-    ├── settingsManager.ts         # 設定管理
-    ├── shortCutKey.ts             # グローバルショートカット
-    └── utils.ts                   # ユーティリティ
-```
-
-### 5.2 主要コンポーネント一覧
-
-| コンポーネント      | パス                                           | 責務                     |
-| ------------------- | ---------------------------------------------- | ------------------------ |
-| VideoPlayerApp      | pages/VideoPlayerApp.tsx                       | メインページ             |
-| SettingsPage        | pages/SettingsPage.tsx                         | 設定画面（2タブ）        |
-| VisualTimeline      | features/.../Timeline/VisualTimeline/          | ビジュアルタイムライン   |
-| AnalysisPanel       | features/.../Analytics/AnalysisPanel/          | 分析パネル               |
-| EnhancedCodePanel   | features/.../Controls/                         | コーディングパネル       |
-| SyncedVideoPlayer   | features/.../Player/SyncedVideo/               | 同期ビデオプレイヤー     |
-| VideoPathSelector   | features/.../Setup/VideoPathSelector/          | パッケージ選択・作成     |
-| CreatePackageWizard | features/.../Setup/.../CreatePackageWizard.tsx | パッケージ作成ウィザード |
-| FreeCanvasEditor    | features/settings/.../CodeWindowSettings/      | 独立コードウィンドウ編集 |
-
-### 5.3 主要カスタムフック一覧
-
-| フック                         | パス                                                             | 責務                 |
-| ------------------------------ | ---------------------------------------------------------------- | -------------------- |
-| useVideoPlayerScreenController | features/videoPlayer/app/hooks/useVideoPlayerScreenController.ts | アプリ全体の状態管理 |
-| useSettings                    | hooks/useSettings.ts                                             | 設定の読み書き       |
-| useGlobalHotkeys               | hooks/useGlobalHotkeys.ts                                        | グローバルホットキー |
-| useSyncActions                 | features/videoPlayer/app/hooks/useSyncActions.ts                 | 同期操作             |
-| useTimelineEditing             | features/videoPlayer/app/hooks/useTimelineEditing.ts             | タイムライン編集     |
-| useTimelineHistory             | features/videoPlayer/app/hooks/useTimelineHistory.ts             | Undo/Redo履歴        |
-| useTimelinePersistence         | features/videoPlayer/app/hooks/useTimelinePersistence.ts         | 永続化               |
-| useTimelineSelection           | features/videoPlayer/app/hooks/useTimelineSelection.ts           | 選択状態             |
-| useTimelineViewport            | features/.../VisualTimeline/hooks/                               | ズーム・ビューポート |
-| useTimelineInteractions        | features/.../VisualTimeline/hooks/                               | インタラクション     |
-| useTimelineEditDraft           | features/.../VisualTimeline/hooks/                               | 編集ドラフト         |
-| useTimelineValidation          | features/.../VisualTimeline/hooks/                               | バリデーション       |
-| useTimelineRangeSelection      | features/.../VisualTimeline/hooks/                               | 範囲選択             |
-| useMatrixAxes                  | features/.../AnalysisPanel/controllers/                          | クロス集計軸         |
-| useMatrixFilters               | features/.../AnalysisPanel/controllers/                          | クロス集計フィルタ   |
-
-### 5.4 設計原則
-
-1. **関数コンポーネントのみ**: React 19の関数コンポーネント + Hooks
-2. **責務分離**: `Screen / Controller(or Hook) / View / Gateway` を分離し、`View` に外部依存を持ち込まない
-3. **型安全性**: TypeScript strict mode、`any`の最小化
-4. **Feature-based構造**: 機能単位でコード整理、依存関係の明確化
-5. **Material UI標準**: `sx`プロパティでスタイリング統一
-
-### 5.5 命名規則
-
-- **Reactコンポーネント**: PascalCase（ファイル・ディレクトリ含む）
-- **ロジックモジュール**: camelCase
-- **カスタムHook**: `useXxx.ts`形式
-- **型定義**: PascalCase
-
-### 5.6 状態管理
-
-- **ローカル状態**: useState
-- **副作用**: useEffect（完全な依存配列 + クリーンアップ必須）
-- **メモ化**: useMemo、useCallback
-- **Context**: NotificationContext（通知管理）、ActionPresetContext（プリセット管理）、ThemeModeContext（テーマ管理）
-
----
-
-## 6. 実装済み改善履歴
-
-### 6.1 パッケージ作成UX改善（2025年10月）
-
-- 基本情報と映像の2ステップ形式
-- 保存先は作成時に選択し、映像数と保存先をフッターへ要約
-- 映像追加方法と同期調整を段階的に開示
-- リアルタイム入力バリデーション
-- 視覚的フィードバック（進捗インジケーター）
-
-### 6.2 デザインシステム（NEON, Dark-first, 2025年12月）
-
-最新のデザインシステム仕様は `docs/design-system.md` を参照してください。テーマ実装は `src/theme.ts` をソースオブトゥルースとし、画面は MUI テーマ経由で色/タイポ/余白を取得する方針です。
-
-### 6.3 キーボードショートカット可視化（2025年10月）
-
-- ショートカットガイドコンポーネント
-- カテゴリ別一覧表示
-
-### 6.4 エラーハンドリング強化（2025年10月）
-
-- 統一エラーステート
-- エラータイプ分類
-- Snackbar通知
-
-### 6.5 タイムライン検索・フィルタリング強化（2025年10月）
-
-- 複合検索機能
-- リアルタイム件数表示
-
-### 6.6 プレイヤー安定性改善（2025年10月）
-
-- 共通シークバーNaN表示問題の修正
-- 2つ目の映像消失問題の修正
-- プレイヤー健全性チェック強化
-
-### 6.7 タイムライン操作UX改善（2025年）
-
-- **Undo/Redo機能**: タイムライン編集履歴の管理（最大50件）
-  - `Cmd+Z`: 元に戻す
-  - `Cmd+Shift+Z`/`Cmd+Y`: やり直し
-- **削除ホットキー**: `Delete`/`Backspace` キーで選択したタイムラインを削除
-- **設定ファイル後方互換性**: 新しいホットキー設定が自動的にマージされる
-
-### 6.8 コーディングパネル編集改善（2025年）
-
-- **リンク矢印表示改善**: リンク種別ごとの色付きマーカー
-  - `exclusive`: 赤（矢印なし、双方向の排他関係を表現）
-  - `activate`: 緑矢印
-  - `deactivate`: オレンジ矢印
-  - `sequence`: 青矢印
-- **リンク端点改善**: 矢印がボタン端で終わるように調整（getButtonEdge関数）
-- **リンク選択機能**: クリックでリンクを選択、青い円でハイライト表示
-- **削除操作**: `Delete`/`Backspace` キーで選択中のリンクまたはボタンを削除
-- **Undo/Redo機能**: 配置・リンク編集の履歴管理（最大50件）
-  - `Cmd+Z`: 元に戻す
-  - `Cmd+Shift+Z`/`Cmd+Y`: やり直し
-- **プレースホルダー挿入UI**: `${Team1}`, `${Team2}`, スペースをワンクリックで挿入
-
-### 6.9 ビジュアルタイムライン機能（2025年）
-
-- **横型波形タイムライン**: TimelineLaneコンポーネントでイベントを視覚的に表示
-- **ズーム機能**: `Cmd+ホイール`でズームイン/アウト、ZoomIndicatorで倍率表示
-- **範囲選択**: Shift+ドラッグで複数イベントを選択
-- **エッジドラッグ**: イベントの開始/終了時刻をドラッグで調整
-- **コンテキストメニュー**: 右クリックで編集/削除/ジャンプ/ラベル編集
-- **編集ダイアログ**: Enter キーで時刻・メモ・ラベルをまとめて編集
-- **ラベル付与**: 複数ラベルグループに対応したラベル選択ダイアログ
-- **クリップ書き出し**: 選択イベントを映像クリップとして書き出し
-
-### 6.10 クロス集計機能（2025年）
-
-- **MatrixTab**: 統計モーダルに追加された5番目のビュー
-- **カスタム軸設定**: 行軸・列軸を任意に選択（チーム、アクション、ラベルグループ）
-- **フィルタリング**: チーム/アクション/ラベルでフィルタ
-- **ヒートマップ表示**: セル値を色の濃さで視覚化
-- **ドリルダウン**: セルクリックで詳細一覧を表示
-
-### 6.11 タイムラインエクスポート/インポート（2025年）
-
-- **JSON形式**: アプリ内部形式（完全な情報保持）
-- **CSV形式**: YouTube用に時刻・アクション情報を出力
-- **SCTimeline形式**: Sportscode互換JSON（行/インスタンス形式）
-
----
-
-## 7. 今後の拡張予定
-
-### 7.1 機能拡張
-
-- **複数試合比較**: 複数パッケージ間の比較分析
-- **クリップ書き出し改善**: バッチ書き出し、透かし設定
-
-### 7.2 分析機能拡張
-
-- **時系列分析**: 試合の流れの詳細分析
-- **ヒートマップ**: アクション発生位置の可視化（フィールド上）
-- **高度な統計**: 勝率予測、パフォーマンス指標
-
-### 7.3 UI/UX改善
-
-- **多言語対応**: 英語UI対応
-- **クラウド同期**: パッケージデータのクラウドバックアップ
-
----
-
-## 8. セキュリティ・プライバシー
-
-### 8.1 データ保存
-
-- **ローカルストレージのみ**: すべてのデータはユーザーのローカルディスクに保存
-- **外部送信なし**: 映像・タイムラインデータは外部に送信されない
-- 詳細: [Privacy and Data Handling](privacy-and-data-handling.md)
-
-### 8.2 権限
-
-- **ファイルシステム**: ユーザーが選択したディレクトリのみアクセス
-- **macOS権限**: ファイルアクセス権限の適切な要求
-
----
-
-## 9. テスト戦略
-
-### 9.1 型チェック
+Required PR gate:
 
 ```bash
-pnpm exec tsc --noEmit          # React側
-pnpm exec tsc -p electron/tsconfig.json  # Electron側
+pnpm exec tsc --noEmit
+pnpm exec tsc -p electron/tsconfig.json
+pnpm run lint
+pnpm run check:architecture
+pnpm run test:run
 ```
 
-### 9.2 ユニットテスト
-
-- `pnpm run test:run` で Vitest を実行
-- 重要なユーティリティ関数のテスト
-- 詳細: [Testing and Quality Gates](testing.md)
-
-### 9.3 手動テスト
-
-- タイムライン永続化機能の動作確認
-- 音声同期機能の精度確認
-- 長時間映像での安定性確認
-
----
-
-## 10. ビルド・デプロイ
-
-### 10.1 開発環境
+ADR変更時:
 
 ```bash
-pnpm run electron:dev  # React + Electron同時起動
+pnpm run check:adr
 ```
 
-### 10.2 本番ビルド
-
-```bash
-pnpm run electron:start  # 最適化ビルド + 起動
-```
-
-### 10.3 配布用ビルド
-
-```bash
-pnpm run electron:build  # dmgファイル生成（dist/配下）
-```
+Pull request CIは `develop` を含む通常統合先で実行する。
 
 ---
 
-## 11. 依存関係管理
+## 4. 関連資料
 
-### 11.1 主要ライブラリ
-
-- **React**: UI構築
-- **TypeScript**: 型安全性
-- **Electron**: デスクトップアプリケーション化
-- **Material-UI**: UIコンポーネント
-- **Video.js**: ビデオプレイヤー
-- **Recharts**: グラフ可視化
-- **ulid**: ユニークID生成
-
-### 11.2 アップデート方針
-
-- **メジャーバージョン**: 慎重に検証後アップデート
-- **マイナー/パッチ**: 定期的にアップデート
-- **セキュリティパッチ**: 即座にアップデート
-
----
-
-## 12. ライセンス
-
-MIT
-
----
-
-## 13. 参考資料
-
-- [プロジェクトリポジトリ](https://github.com/Kou-ISK/sportaglytics)
-- [Copilot基本指示](../.github/copilot-instructions.md)
-- [TypeScript指示](../.github/instructions/typescript.instructions.md)
-- [TSX指示](../.github/instructions/tsx.instructions.md)
+- [ユーザーガイド](user-guide.md)
+- [システム概要](system-overview.md)
+- [Project Structure](project-structure.md)
+- [Testing and Quality Gates](testing.md)
+- [自動イベント検出](event-detection.md)
+- [ADR 0021 Detached Timeline and Playback Authority](adr/0021-detached-timeline-playback-authority.md)
+- [ADR 0022 Verified Local Rugby Event Detection](adr/0022-verified-local-rugby-event-detection.md)

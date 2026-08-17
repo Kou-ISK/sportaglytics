@@ -5,6 +5,7 @@ import { createAppBridge } from './preload/appBridge';
 import { createCodeWindowBridge } from './preload/codeWindowBridge';
 import { createCodingPanelWindowBridge } from './preload/codingPanelWindowBridge';
 import { createEventBridge } from './preload/eventBridge';
+import { createEventDetectionBridge } from './preload/eventDetectionBridge';
 import {
   createListenerStore,
   createRegisterListener,
@@ -33,6 +34,7 @@ const electronAPI = {
   ...createEventBridge(registerListener, listenerStore),
   ...createSettingsBridge(ipcRenderer, listenerStore),
   ...createAnalysisBridge(ipcRenderer, listenerStore),
+  ...createEventDetectionBridge(ipcRenderer, listenerStore),
   ...createPlaylistBridge(ipcRenderer, listenerStore),
   ...createCodeWindowBridge(ipcRenderer),
   codingPanelWindow: createCodingPanelWindowBridge(ipcRenderer, listenerStore),

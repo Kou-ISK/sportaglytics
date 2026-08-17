@@ -11,131 +11,297 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - [ADR](adr/README.md)
 - [Testing and Quality Gates](testing.md)
 - [Privacy and Data Handling](privacy-and-data-handling.md)
+- [自動イベント検出](event-detection.md)
 
 ## レイヤー構成
 
 - 依存方向: `pages -> features -> shared`
-- `pages` は `src/pages/*.tsx` のみを許可し、ルーティングと feature 合成だけを担当
-- `features` は `src/features/<feature>/` 配下に `Screen / Controller(or Hook) / View / Gateway / domain` を内包する
-- `shared` 相当: `src/components`, `src/hooks`, `src/utils`, `src/types`, `src/contexts`, `src/shared`, `src/report`
-- `src/utils` は pure helper を優先し、Electron・URL・永続化の直接依存は置かない
-- `src/hooks` と `src/contexts` には feature 専用サブディレクトリを置かない
-- 共通 UI design-system: `src/components/ui`（Shared UI 限定）
+- `pages` はルーティングと feature 合成のみ担当
+- `features` は `Screen / Controller(or Hook) / View / Gateway / domain` を機能単位で内包
+- shared 相当は `src/components`, `src/hooks`, `src/utils`, `src/types`, `src/contexts`, `src/shared`, `src/report`
 - feature 外から feature を参照する場合は `src/features/<feature>/index.ts` の公開 API のみ利用
-- Atomic Design はアプリ全体のフォルダ規約としては採用せず、Shared UI 設計のメンタルモデルとして限定運用
-- Storybook 対象は `pages` や `Screen` ではなく、shared UI と feature 配下の `View` コンポーネントに限定する
+- Electron、URL、永続化、OS file dialog などの外部依存は Gateway / Controller / Hook に閉じ込める
+- Storybook 対象は描画専用 `View` と `src/components/ui`。View は `window.electronAPI` を直接使用しない
+- Atomic Design はアプリ全体のフォルダ規約ではなく、shared UI 設計時のメンタルモデルとしてのみ利用
 
 ## Electron 構成
 
-- `electron/src/main.ts`: 起動とウィンドウ組み立てに集中
-- IPC 登録はドメインごとに分割
-  - `electron/src/ipc/fileHandlers.ts`
-  - `electron/src/ipc/reportHandlers.ts`
-  - `electron/src/ipc/dashboardHandlers.ts`
-  - `electron/src/ipc/codeWindowHandlers.ts`
-  - `electron/src/ipc/exportHandlers.ts`
-  - `electron/src/ipc/llamaHandlers.ts`
-- `electron/src/preload.ts`: ドメインブリッジを合成
-  - `electron/src/preload/appBridge.ts`
-  - `electron/src/preload/eventBridge.ts`
-  - `electron/src/preload/settingsBridge.ts`
-  - `electron/src/preload/analysisBridge.ts`
-  - `electron/src/preload/playlistBridge.ts`
-  - `electron/src/preload/codeWindowBridge.ts`
-  - `electron/src/preload/timelineWindowBridge.ts`
-- Electronの型検査は`electron/tsconfig.json`（no emit）、main process生成は`electron/tsconfig.build.json`、sandbox preload生成は`vite.preload.config.ts`に分離する。preload bundleの生成後に品質ゲートを実行しても、main process用TypeScript emitが`build/electron/src/preload.js`を上書きしない（ADR: [0002](adr/0002-typed-electron-ipc-and-renderer-gateways.md)）
-- playlist / analysis / coding panel / timeline window の IPC 契約は `src/types/ipc/playlistWindow.ts`、`src/types/ipc/analysisWindow.ts`、`src/types/ipc/codingPanelWindow.ts`、`src/types/ipc/timelineWindow.ts` を正本にし、channel 名・payload 型・型ガードを main / preload / renderer で共有する（ADR: [0008](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)、[0021](adr/0021-detached-timeline-playback-authority.md)）
-- main process の sender 検証は `electron/src/ipc/windowSenderGuards.ts` を共通利用し、`BrowserWindow.fromWebContents(...)` で live な sender window を確認する
+### Main process
 
-## セキュリティ基準
+`electron/src/main.ts` は起動と各handler/windowの組み立てに集中します。実処理はドメインごとに分割します。
 
-全 BrowserWindow で以下を適用:
+代表例:
+
+- `electron/src/ipc/fileHandlers.ts`
+- `electron/src/ipc/reportHandlers.ts`
+- `electron/src/ipc/dashboardHandlers.ts`
+- `electron/src/ipc/codeWindowHandlers.ts`
+- `electron/src/ipc/exportHandlers.ts`
+- `electron/src/ipc/llamaHandlers.ts`
+- `electron/src/ipc/eventDetectionHandlers.ts`
+
+Window runtime:
+
+- `electron/src/analysisWindow.ts`
+- `electron/src/codingPanelWindow.ts`
+- `electron/src/playlistWindow.ts`
+- `electron/src/timelineWindow.ts`
+- `electron/src/settingsWindow.ts`
+- `electron/src/exportProgressWindow.ts`
+
+### Preload
+
+`electron/src/preload.ts` は用途別bridgeを合成します。
+
+- `appBridge.ts`
+- `eventBridge.ts`
+- `settingsBridge.ts`
+- `analysisBridge.ts`
+- `playlistBridge.ts`
+- `codeWindowBridge.ts`
+- `codingPanelWindowBridge.ts`
+- `timelineWindowBridge.ts`
+- `eventDetectionBridge.ts`
+
+Renderer は `window.electronAPI` のみ使用し、`electron` / `ipcRenderer` を直接 import しません。
+
+### Typed IPC
+
+IPC contract の正本は `src/types/ipc/` です。
+
+- `analysisWindow.ts`
+- `codingPanelWindow.ts`
+- `timelineWindow.ts`
+- `exportProgressWindow.ts`
+- `eventDetection.ts`
+
+Main process は sender window と payload を検証します。preload も inbound payload を guard し、汎用 `send/on/off` API は増やしません。
+
+## BrowserWindow セキュリティ
+
+全 BrowserWindow で以下を適用します。
 
 - `contextIsolation: true`
 - `sandbox: true`
 - `nodeIntegration: false`
 - `webSecurity: true`
-
-加えて `electron/src/windowSecurity.ts` で以下を標準化:
-
 - `window.open` を拒否
-- 許可されないナビゲーションを拒否
+- 許可されないnavigationを拒否
 
-配布版のFFmpeg/FFprobeは、固定SHA-256で検証したFFmpeg 8.1.2 sourceからmacOSのCPU architectureごとにbuildします。npmのprebuilt binaryへ依存せず、配布版は`Resources/media-tools`以外へfallbackしません。FFprobeは30秒・1 MiB、長時間のFFmpeg処理も有限時間・有限出力で実行し、上限超過時はchild processを終了します（ADR: [0020](adr/0020-verified-media-toolchain-and-process-containment.md)）。
+外部binaryはrendererから直接起動せず、main process配下のmanager/runner境界で管理します。
 
-## Renderer API 方針
+## パッケージ / 映像モデル
 
-- Renderer は `window.electronAPI` のみを利用
-- 汎用 `on/off/send` は廃止し、用途別の明示 API に統一
-- playlist / analysis / coding panel / timeline window の公開面は `window.electronAPI.playlist` / `window.electronAPI.analysis` / `window.electronAPI.codingPanelWindow` / `window.electronAPI.timelineWindow` に閉じ込め、top-level に window 専用イベント API を増やさない
-- settings の正規化は `src/types/settings/normalizers.ts` の `normalizeAppSettings` を正本とし、main / renderer で重複実装しない
-- settings 正規化の実装詳細は `src/types/settings/normalizerUtils.ts` / `dashboardNormalizers.ts` / `codingPanelNormalizers.ts` に分割し、`normalizers.ts` は facade を維持する
-- playlist の共有契約は `src/types/playlist/` 配下で `core` / `window` / `api` に分割し、`src/types/Playlist.ts` は facade として維持する
-- root 直下の shared type は徐々に廃止し、`src/types/analysis/`, `timeline/`, `video/`, `package/`, `playlist/`, `settings/`, `ipc/` のようにユースケース単位で配置する
-- `analysis/core.ts` のような抽象名は避け、`view.ts`, `momentum.ts`, `matrix.ts` のように実際の概念名で分割する
-- preload は outbound / inbound の両方向で payload guard を通し、無効 payload を main / renderer に流さない
-- menu 系の preload listener も typed listener store を使って cleanup 可能な登録 API に揃え、`removeAllListeners` 前提の singleton listener を置かない
-- ローカルファイル読込で `fetch(filePath)` は使用しない
-  - `readJsonFile`
-  - `readTextFile`
-  - `readBinaryFile`
-- パッケージ作成の複数映像選択は、明示 API `openVideoFiles(): Promise<string[]>` と `files:open-video-files` IPC に閉じ込める。Renderer の Controller が結果を選択順で state へ反映し、描画専用 View は Electron API に依存しない
+`.metadata/config.json` の `angles[] -> clips[]` を現行の映像構成正本とします。
 
-## 主要データモデル
+- 最大8アングル
+- 各アングル最大16クリップ
+- local / YouTube source
+- 各clipに `timelineStartSeconds`
+- optional `durationSeconds`
+- アングル単位の同期補正は `syncData.angleOffsets[]`
 
-- package media は `.metadata/config.json` の `angles[] -> clips[]` と各クリップの `timelineStartSeconds` を正本とし、最大8アングル・各16クリップを扱う。ローカル映像も元クリップを仮想タイムライン上で切り替え、空白は再生時に黒画面・無音として扱う。`packageClipTimelineService.ts` はconfigだけを原子的に更新し、書き出し時だけ一時領域へ連続映像を合成する。`gapBeforeSeconds` は後方互換の派生値である（ADR: [0015](adr/0015-clip-timeline-placement-and-audio-assisted-sync.md)）
-- アングル単位の再生補正は `.metadata/config.json` の `syncData.angleOffsets[]` を正本とし、アングルindexごとに `globalTime + offset` を適用する。`syncOffset` は配列要素がない旧パッケージの後方互換値として維持する（ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）
-- YouTube 埋め込みは shared のアプリ識別 URL を Video.js の `widget_referrer` と YouTube `/embed/` リクエストの Referer に使用する。`file://` と不一致になる HTTPS `origin` parameter は指定せず、IFrame API の共通再生制御を維持する。main process の `youtubeEmbedIdentity.ts` が Session 単位で対象リクエストだけを補正し、証明書検証と `webSecurity` は維持する（ADR: [0014](adr/0014-youtube-embed-client-identity.md)）
-- 複数クリップまたは先頭空白を持つローカル・YouTubeアングルは、共通タイムライン時計から現在クリップとクリップ内時刻を解決する。既知のクリップ終了から次の開始位置まではプレイヤーを外して黒表示を維持し、共通コントローラーとホットキーはタイムライン時計を操作する
-- 連続逆再生はHTML Mediaの負の `playbackRate` に依存せず、共通の `useContinuousReversePlayback` が経過時間に応じてタイムライン時計を戻す。メイン映像、分離タイムライン、コードウィンドウ、プレイリストのどこにフォーカスがあっても同じhotkey commandを開始・停止し、blur時には押下状態を解除する
-- `tightViewPath` / `wideViewPath` だけの旧パッケージは、ロード前のconfig migrationで1アングル1クリップの `angles[].clips[]` へ移行する。`angles[].clips` とアングル単位の再生用コピーが併存する形式は、互換パスを元クリップ参照へ切り替える。既存映像の自動削除は行わず、重複ファイルの整理は内容一致を確認した明示的な移行作業とする
-- パッケージ作成は基本情報・映像の2ステップとし、保存先は作成時に選択する。各アングルの「＋」から映像種別を選択し、同期位置は作成画面では扱わず再生画面のシンクモードへ集約する
-- `tightViewPath` / `wideViewPath` は旧パッケージ互換の派生フィールドであり、新規処理は `angles[]` を優先する
-- `TimelineData` は `labels` 中心モデル
-- 旧フィールド `actionType` / `actionResult` は型から削除
-- 旧データは読込時に `Type` / `Result` ラベルへマイグレーションし、保存時は新形式のみ出力
-- `AnalysisView` など analysis 系 shared contract は `src/types/analysis/` 配下を正本にし、root の `src/types/AnalysisView.ts` は互換 facade として扱う
-- playlist 同期は `PlaylistSyncData` を正とし、playlist 画面・hooks の契約を統一
-- playlist / analysis / coding panel window まわりの renderer 側直接依存は gateway に閉じ込め、`src/features/playlist/gateway/playlistWindowGateway.ts`、`src/features/videoPlayer/app/gateways/analysisWindowGateway.ts`、`src/features/videoPlayer/components/Controls/gateways/codingPanelWindowGateway.ts` を入口に統一する
-- timeline import/export は `src/features/videoPlayer/app/gateways/timelineImportExportGateway.ts` と `src/features/videoPlayer/app/utils/timelineImportExportService.ts` に分離し、menu 購読・file dialog・serialize/deserialize を hook に同居させない（ADR: [0009](adr/0009-timeline-import-export-interoperability.md)）
-- package内の `timeline.json` はversion 2で `rows[]` と `instances[]` を分離し、名称・色・順序は行が所有する。旧配列形式はロード時に行を導出し、編集されるまで書き換えない。行の選択・並べ替え・削除、通常ドラッグによるインスタンス移動、`Option`ドラッグまたは`Command+C/V`による行間コピーをサポートする（ADR: [0017](adr/0017-row-owned-timeline-presentation.md)）
-- clip export は `src/shared/clipExport/` に型・gateway・pure service を集約し、playlist / timeline 側では clip builder と UI state だけを持つ（ADR: [0010](adr/0010-ffmpeg-clip-export-execution-boundary.md)）
-- clip export の実行進捗は `electron/src/exportProgressWindow.ts` と `src/types/ipc/exportProgressWindow.ts` を境界にし、main 側で FFmpeg の `out_time` を工程durationに対する割合へ変換して専用進捗ウィンドウへ送信する。進捗ウィンドウは非モーダルかつ更新時にactivateせず、playlist / timeline 側は `progressId` を渡した後もメイン画面の操作を継続できる（ADR: [0010](adr/0010-ffmpeg-clip-export-execution-boundary.md)）
-- analysis dashboard import/export は `analysisDashboardGateway.ts` と `analysisDashboardImportExportService.ts` に分離し、controller に JSON parse / dialog / read-write を同居させない（ADR: [0011](adr/0011-dashboard-widget-system-and-analysis-consolidation.md)）
-- analysis report export は `src/report/` と `src/features/analysisReport/` に分離し、PDF 出力境界は [analysis-report.md](analysis-report.md) に従う
-- Video.js 参照は `src/features/videoPlayer/shared/videojs/videoJsAdapter.ts` に集約し、feature 内に `videojs as unknown as ...` を散在させない
-- playlist window の同期 hook は IPC 登録・open state 監視・window open を gateway helper に分離し、hook 本体では state 適用だけを扱う
-- playlist window の runtime は `data runtime` と `interaction runtime` に分け、state 合成と playback/hotkey 合成を分離する
-- プレイリスト追加は `src/features/playlist` の公開 API に集約し、renderer からの個別 IPC 呼び出しを分散させない
-- coding panel window は表示状態 sync とクリック command のみを扱い、タグ付け時刻・押下状態・タイムライン更新はメイン動画ウィンドウの `EnhancedCodePanel` controller で確定する
-- timeline window は document/選択の snapshot、高頻度かつ固定サイズの playback clock、編集 command を分離し、Video.js player、再生時計、タイムライン document、Undo/Redo 履歴はメイン動画ウィンドウを唯一の authority とする。再生ヘッドは短い clock 間を compositor-friendly な linear transition で補間し、シーク入力はフレーム単位で main runtime へ集約する（ADR: [0021](adr/0021-detached-timeline-playback-authority.md)）
-- coding panel window のsync/command IPCは各channelにつきrenderer subscriberを1つに限定する。contextBridge越しのcallback同一性へ解除を依存させず、再購読時に従来のwrapped listenerを除去する
-- 新規コードウィンドウのメニュー要求は `menu-create-code-window-file` / `onCreateCodeWindowFile()` の専用契約でメイン動画ウィンドウの runtime controller へ渡す。controllerは空の `.stcw` を保存し、ファイルパスと layout を独立 coding panel window へ同期する
-- メニューはドキュメント指向で分類し、映像パッケージとコードウィンドウの作成・選択は「ファイル」、既存ウィンドウ管理は「ウィンドウ」に限定する。コード／ラベル／編集モードは対象のコードウィンドウ内だけで変更し、対象を選ばない表示・モード変更経路は持たない（ADR: [0019](adr/0019-code-window-owned-modes-and-direct-visual-editing.md)）
-- 映像パッケージ作成のメニュー要求は `menu-create-video-package` / `onCreateVideoPackage()` をgateway経由で動画プレイヤーcontrollerへ渡し、現在の映像表示を終了して作成ウィザードを開く
-- coding panel window の編集モードは別ウィンドウ内で動作し、編集 UI は `CodingPanelWindowEditPane` に分離する。ボタン詳細編集は右側常設ペインではなく Inspector ダイアログで表示する。layout 更新と `.stcw` 保存要求は command としてメイン動画ウィンドウ側 controller に戻し、runtime layout / file path を controller が保持する
-- coding panel window の実行・編集ボタンは `src/components/ui/composites/CodeWindowButtonSurface.tsx` を共有し、編集時は選択状態とhandleだけを追加する。ウィンドウresizeは保存キャンバス寸法を変更しない
-- 音声同期の相関解析は `src/utils/audioSync/` 配下で stage helper に分割し、探索ロジックと orchestration を分離する。offset contract は ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md) に従う
-- event insights の shared domain は facade と builder 群に分け、summary/stat family ごとの集計責務を分離する
-- `src/App.tsx` は app shell view switch のみを持ち、hash / Electron shell event / external open は `src/hooks/useAppShellController.ts` に閉じ込める
-- recent packages は state hook と storage/menu gateway を分離し、`localStorage` と Electron menu sync を hook 本体へ直書きしない
+ローカル映像は元クリップを仮想timeline上で切り替えます。クリップ間空白は再生時に黒画面・無音で扱い、書き出し時だけ必要な一時合成を行います。
 
-## 品質ゲート
+旧 `tightViewPath` / `wideViewPath` だけのpackageはロード時migrationで現行 `angles[].clips[]` へ吸収します。
 
-- `pnpm run typecheck`
-- `pnpm run typecheck:electron`
-- `pnpm run lint`
-- `pnpm run test:run`
-- `pnpm run check:architecture`
-- `pnpm run report:architecture-health`（準拠率の可視化）
+関連ADR:
 
-## ファイル分割運用
+- [0014 YouTube Embed Client Identity](adr/0014-youtube-embed-client-identity.md)
+- [0015 Clip Timeline Placement and Audio-Assisted Sync](adr/0015-clip-timeline-placement-and-audio-assisted-sync.md)
+- [0016 Multi-Angle Audio Sync Offset Persistence](adr/0016-multi-angle-audio-sync-offset-persistence.md)
 
-- 行数は Soft Budget（Warn Only）:
-  `TSX <= 300行`, `TS <= 450行`
-- CI fail 条件は行数ではなく、境界違反・型・テスト
-- 規約例外は `docs/architecture-exceptions.md` で管理
-- 月次レポートは `pnpm run report:large-files` で生成
-- 長期的な設計判断は `docs/adr/` に ADR として記録
-- ディレクトリ構成と配置判断は `docs/project-structure.md` を更新
-- 実装変更時の docs 同期は `docs/documentation-guide.md` の Docs Impact Matrix に従う
+## Playback authority と分離Timeline
+
+Video.js player、再生時計、Timeline document、Undo/Redo履歴はメイン動画windowを唯一のauthorityとします。
+
+Timelineはsingletonの専用BrowserWindowです。
+
+- packageを開いた時に自動表示
+- 閉じた後は `ウィンドウ > タイムラインを表示` で再表示
+- 映像面に常設の「タイムラインを表示」overlay buttonは置かない
+- document/selection sync、高頻度clock sync、編集commandを別payloadにする
+- Timeline window側のhotkey commandもmain video runtimeへ戻す
+
+関連ADR: [0021 Detached Timeline and Playback Authority](adr/0021-detached-timeline-playback-authority.md)
+
+## Timeline model
+
+`timeline.json` の現行formatはversion 2です。
+
+```text
+TimelineDocument
+├ rows[]
+└ instances[]
+```
+
+- 行が名称・色・表示順を所有
+- `TimelineData` は `actionName / startTime / endTime / memo / labels / color`
+- 旧 `actionType` / `actionResult` はロード時に `Type` / `Result` labelへmigration
+- 保存は現行formatのみ
+
+`NewTimelineData = Omit<TimelineData, 'id'>` を一括追加入力に使用します。`addTimelineDatas()` は複数eventを1回のstate updateで追加するため、自動Codingで多数eventを追加しても1回のUndoで戻せます。
+
+関連ADR: [0017 Row-Owned Timeline Presentation](adr/0017-row-owned-timeline-presentation.md)
+
+## Code Window / Coding runtime
+
+`.stcw` は独立ドキュメントとして扱います。コード／ラベル／編集モードは対象Code Window内で切り替え、アプリ全体のmodeにはしません。
+
+Action buttonには以下を保存できます。
+
+```ts
+leadTimeSeconds?: number;
+lagTimeSeconds?: number;
+```
+
+意味:
+
+- `leadTimeSeconds`: Action開始操作より前にTimelineへ含める秒数
+- `lagTimeSeconds`: Action終了操作より後にTimelineへ含める秒数
+
+未設定は0秒です。Button clickとhotkey codingは同じ `resolveRecordingRange()` を通ります。記録開始時にrange設定を `ActiveRecordingSession` へcopyし、記録中の設定変更でactive eventのrangeが変わらないようにします。
+
+Activate linkのtargetはsource actionと同じ最終rangeを使用します。
+
+関連ADR: [0019 Code-Window-Owned Modes and Direct Visual Editing](adr/0019-code-window-owned-modes-and-direct-visual-editing.md)
+
+## 分析
+
+分析windowの主要view:
+
+- Dashboard
+- Momentum
+- Matrix
+- AI Analysis
+
+AI Analysisはローカル `llama.cpp` を使い、Timeline / labels / memo / statistics を根拠として分析文と推奨clipを生成します。映像frameそのものをLLMへ解釈させる機能ではありません。
+
+関連ADR:
+
+- [0005 Local LLM Analysis Boundary](adr/0005-local-llm-analysis-boundary.md)
+- [0011 Dashboard Widget System and Analysis Consolidation](adr/0011-dashboard-widget-system-and-analysis-consolidation.md)
+- [0012 LLM Model Artifact Distribution Boundary](adr/0012-llm-model-artifact-distribution-boundary.md)
+
+## 自動イベント検出
+
+自動イベント検出はLLM分析とは別のローカル映像処理です。目的は「分析判断の自動化」ではなく、通常Timelineを自動で初期Codingして手動分析開始を早めることです。
+
+### Renderer
+
+`src/features/videoPlayer/eventDetection/`:
+
+- `components/EventDetectionDialogView.tsx`: props-only View
+- `hooks/useEventDetectionController.ts`: model/angle選択、実行、Timeline反映
+- `gateway/eventDetectionGateway.ts`: `window.electronAPI.eventDetection` のみ使用
+- `domain/candidatesToTimeline.ts`: confidence filter、lead/lag、重複除外、Timeline変換
+
+UIは `分析 > 自動イベント検出…` から開きます。検出後のeventは通常 `TimelineData` になり、専用AI Timelineやreview queueは持ちません。
+
+### Shared contracts
+
+- `src/types/eventDetection/core.ts`
+- `src/types/ipc/eventDetection.ts`
+- `src/shared/eventDetection/modelQualityGate.ts`
+
+初期event type:
+
+- `kickoff`
+- `scrum`
+- `lineout`
+- `maul`
+- `goalKick`
+
+ただしproduct UIへ出るのはevent classごとの品質ゲートを通過したものだけです。
+
+### Electron / local runner
+
+`electron/src/eventDetection/`:
+
+- `modelDiscovery.ts`: model pack / manifest探索
+- `eventDetectionManager.ts`: verified model解決
+- `processRunner.ts`: child process実行
+- `requestRegistry.ts`: cancel管理
+- `types.ts`: internal manifest型
+
+Runner contract:
+
+```text
+runner --request <request.json> --output <result.json> --model-dir <model-directory>
+```
+
+制約:
+
+- `shell: false`
+- finite timeout
+- bounded stderr/result size
+- cancel可能
+- request/result temporary fileは完了後削除
+- runner executableはmanifestのSHA-256と一致必須
+- path traversal拒否
+- main IPC sender/payload validation
+
+ML runtime（ONNX Runtime等）はrunner内部の実装詳細として交換可能にし、rendererを特定ML frameworkへ直接依存させません。
+
+### Product quality gate
+
+`verified` model packでもclass単位で以下をすべて満たす必要があります。
+
+- Precision >= 0.95
+- Recall >= 0.90
+- unseen evaluation matches >= 5
+- true positiveの90%以上が正解時刻±2秒以内
+- 評価時 `confidenceThreshold` をmanifestへ保存
+
+runtime thresholdは検証済みthreshold未満へ下げません。未検証modelはUIに表示しません。
+
+評価script: `scripts/evaluate-event-detection.mjs`
+
+詳細: [自動イベント検出](event-detection.md)、[ADR 0022](adr/0022-verified-local-rugby-event-detection.md)
+
+## Playlist / Clip export
+
+Playlistは独立BrowserWindowで扱い、`.stpl` documentを正本とします。Timelineからの追加とAI Analysisからの追加は共通playlist APIを利用します。
+
+Clip exportは `src/shared/clipExport/` にpure service / contractを集約し、main processのFFmpeg runnerで実行します。進捗は専用export progress windowへ通知し、main app操作をblockしません。
+
+配布版FFmpeg/FFprobeは固定source/hashからbuildしたverified toolchainのみ利用し、main processでtimeout/output上限を適用します。
+
+関連ADR:
+
+- [0008 Dedicated Sub-Window Runtime and Synchronization](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)
+- [0010 FFmpeg Clip Export Execution Boundary](adr/0010-ffmpeg-clip-export-execution-boundary.md)
+- [0020 Verified Media Toolchain and Process Containment](adr/0020-verified-media-toolchain-and-process-containment.md)
+
+## Persistence / migration
+
+互換性は最新domain型へlegacy fieldを残すのではなくロード時migrationで吸収します。
+
+- settings: `src/types/settings/normalizers.ts`
+- coding panel: `src/types/settings/codingPanelNormalizers.ts`
+- timeline labels: load-time migration
+- package config: legacy media model migration
+
+保存時は最新formatへ統一します。
+
+## Quality gates
+
+通常PRで必須:
+
+```bash
+pnpm exec tsc --noEmit
+pnpm exec tsc -p electron/tsconfig.json
+pnpm run lint
+pnpm run check:architecture
+pnpm run test:run
+```
+
+ADR変更時:
+
+```bash
+pnpm run check:adr
+```
+
+GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestで上記相当の検証を実行します。
+
+自動イベント検出modelのproduction promotionは通常unit testとは別に、match-level unseen evaluationを通過する必要があります。
