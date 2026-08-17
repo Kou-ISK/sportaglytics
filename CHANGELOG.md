@@ -7,23 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-18
+
 ### Added
 
 - Code WindowのAction buttonごとにSportscode方式の開始前・終了後の記録秒数を設定でき、クリックとhotkeyの両方で同じrangeを適用
-- Kickoff / Scrum / Lineoutを中心としたローカル自動イベント検出のtyped IPC、検証済みmodel pack、runner SHA-256、progress/cancel、Timeline一括追加基盤を追加
-- 既存の手動Coding済みpackageを教師データへ変換し、VideoMAE / X3D-S / SlowFast R50をmatch-level splitでfine-tune・event spotting比較するoffline research pipelineを追加
-- Train/Validationだけでpretrained model・fine-tuning strategy・confidence thresholdを選定し、凍結した1つのproduction-eligible modelだけをheld-out Testへ通すqualification workflowを追加
-- Code Windowのleadを含んだTimelineから教師event onsetを復元する`eventAnchorOffsetsSeconds`をdataset specへ追加
+- 検証済みmodel packが導入されている環境で、Restart / Scrum / Lineout等をローカル解析し、progress/cancel、重複除外、Lead/Lag適用を経て通常のTimelineへ一括追加できる自動イベント検出runtime基盤を追加
 
 ### Changed
 
 - 映像上の「タイムラインを表示」floating buttonを削除し、閉じたTimelineの再表示をOSの「ウィンドウ」メニューへ統一
-- `develop` 宛てPRでもquality-checkを実行し、ADR checkと軽量なPython research compile/unit testをCI品質ゲートへ追加
-- Event detection model比較ではTest setをmodel/threshold選定に使用せず、qualification後に設計変更した場合は新しいheld-out Test setを要求する方針へ統一
+- ラグビーイベント検出の学習・評価・dataset preparationをアプリ本体から分離し、SporTagLytics側は検証済みmodel packの安全な実行とTimeline統合だけを担当する構成へ変更
+- 自動イベント検出の最低品質条件をRecall重視へ見直し、実際の製品採用は推論時間と人間の修正負荷を含めて判断する方針へ変更
+
+### Privacy
+
+- 学習データ、Coding元情報、checkpoint、研究run artifactをSporTagLyticsの公開repositoryと配布物から分離し、製品runtimeに不要な研究メタデータを持ち込まない境界を明確化
 
 ### Documentation
 
-- 自動イベント検出の製品品質ゲート、pretrained model研究、dataset split、fine-tuning、license gate、Validation-only screening、held-out qualification、verified model pack昇格手順を同期
+- 自動イベント検出のverified model runtime、Model Pack契約、外部R&D境界、品質判定方針をADRと開発ドキュメントへ反映
 
 ## [0.8.4] - 2026-08-15
 
