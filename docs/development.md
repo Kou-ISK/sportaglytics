@@ -1,6 +1,6 @@
 # 開発ガイド
 
-実装規約の正本はリポジトリルートの `AGENTS.md` です。本書は開発環境、日常ワークフロー、品質ゲート、ローカルevent detection研究手順の実務ガイドです。
+実装規約の正本はリポジトリルートの `AGENTS.md` です。本書はSporTagLyticsアプリ本体の開発環境、日常ワークフロー、品質ゲート、event detection runtime境界の実務ガイドです。
 
 ## 開発環境
 
@@ -10,7 +10,7 @@
 | pnpm | 9.1.0以上 |
 | Git | 最新版 |
 
-自動イベント検出のoffline model研究を行う場合だけPython 3.10〜3.12を追加で使用します。通常のElectron開発・配布にPython runtimeは不要です。
+通常のElectron開発・配布にPython runtimeは不要です。Event modelのtraining/evaluationは別private R&D repositoryで管理します。
 
 ```bash
 git clone <repository-url>
@@ -25,9 +25,9 @@ pnpm run electron:dev
 - Electron 43 / Video.js 8 / Vite 7 / Vitest 4
 - local-first desktop application
 - RendererはNode/Electron APIを直接使用せずtyped preload APIを経由
-- event detection researchだけ `research/rugby-event-detection/` の独立Python環境でPyTorch / Transformers / PyTorchVideoを利用
+- event detectionはverified model packをbounded child processとして実行
 
-Research dependencyはElectron packageへ含めません。
+Training frameworkやdataset preparation dependencyはSporTagLytics packageへ含めません。
 
 ## ビルドと実行
 
@@ -71,14 +71,6 @@ pnpm run check:architecture
 pnpm run test:run
 ```
 
-Event detection research codeを変更した場合:
-
-```bash
-pnpm run research:events:check
-```
-
-このcheckはheavy model weightを取得せず、Python source compileとstdlibだけで動くthreshold / schema / quality-gate unit testを実行します。
-
 ADR変更時:
 
 ```bash
@@ -99,7 +91,7 @@ E2E:
 pnpm run test:e2e
 ```
 
-GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Python research check、Vitestを実行します。
+GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Vitestを実行します。
 
 ## アーキテクチャ
 
@@ -132,14 +124,13 @@ Electron main manager / child process
 ## 自動イベント検出の開発
 
 - 詳細仕様: [自動イベント検出](event-detection.md)
-- 設計判断: [ADR 0022](adr/0022-verified-local-rugby-event-detection.md)
-- 研究pipeline: [`research/rugby-event-detection/README.md`](../research/rugby-event-detection/README.md)
+- 現行設計判断: [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)
 
 ### Product policy
 
 自動イベント検出は通常Timelineを初期Codingする補助機能です。未検証modelをproduction UIへ露出させません。
 
-初期対象はKickoff / Scrum / Lineoutです。Player tracking、ball tracking、player identity、高度なtackle判定は現在の対象外です。
+実作業では、少数の高Precision候補だけを出すより、**ほぼ全イベントを候補として出して不要なものを削除する**workflowを優先します。そのためruntime minimumはRecall優先で、model採用時にはprivate R&D側でfalse positives per match、処理時間、manual edit operations、手Coding比の作業時間削減まで確認します。
 
 ### Model packとアプリ本体を分離する
 
@@ -165,108 +156,35 @@ resources/event-detection-models/<model>/
 <Electron userData>/event-detection-models/<model>/
 ```
 
-Model manifestにはschema/version/id、supported events、class別metrics、評価時confidence threshold、platform runner relative path、runner SHA-256を含めます。`status: verified` だけでは有効にならず、アプリが品質指標とrunner hashを再検証します。
+Model manifestにはschema/version/id、supported events、class別metrics、評価時confidence threshold、platform runner relative path、runner SHA-256を含めます。`status: verified` だけでは有効にならず、アプリがminimum runtime gateとrunner hashを再検証します。
 
-### Product quality gate
+### Product runtime gate
 
 Event class単位:
 
 | Metric | Minimum |
 | --- | ---: |
-| Precision | 0.95 |
-| Recall | 0.90 |
-| unseen test matches | 5 |
-| TP timestamp within ±2 sec | 0.90 |
+| Recall | 0.95 |
+| unseen evaluation matches | 5 |
+| Precision | 0〜1の有限値 |
+| confidence threshold | 0〜1の有限値 |
 
-通常event matching toleranceは±5秒です。
+Precision単独でmodelを昇格させません。秒単位の厳密なevent onsetも主目的ではありません。
 
-### Pretrained model research
+### Private R&D boundary
 
-巨大なvideo backboneをゼロから学習せず、既存pretrained representationへラグビーevent classifierをfine-tuneします。
+次はSporTagLytics repositoryの責務ではありません。
 
-初期candidate:
+- dataset discovery / preparation
+- training / fine-tuning
+- hard-negative mining
+- model family比較
+- threshold / NMS / stride探索
+- held-out qualification
+- private source diagnostics
+- model export
 
-| Model | 役割 | Production eligibility |
-| --- | --- | --- |
-| VideoMAE Base Kinetics | research baseline | 公開checkpointがCC BY-NC 4.0のため不可 |
-| X3D-S Kinetics-400 | primary candidate | Apache-2.0、品質ゲート通過時のみ |
-| SlowFast R50 Kinetics-400 | primary candidate | Apache-2.0、品質ゲート通過時のみ |
-
-PyTorchVideo sourceはresearch `pyproject.toml` でcommit SHAを固定します。License適格性は精度とは独立して管理し、非商用checkpointをproductionへ昇格させません。
-
-### Dataset preparation
-
-既存human Codingからmatch-level dataset manifestを生成します。
-
-```bash
-pnpm run research:events:prepare -- \
-  --spec /path/to/dataset-spec.json \
-  --output research/rugby-event-detection/runs/rugby-v1/manifest.json
-```
-
-同一試合の隣接clip/frameを別splitへ分けず、`train` / `validation` / `test` をmatch ID単位で完全分離します。
-
-Code Window leadを含んだTimelineを教師データにする場合、dataset specの `eventAnchorOffsetsSeconds` に元lead秒数を指定し、`Timeline startTime + offset` で実際のevent anchorへ戻します。
-
-### Validation-only screening
-
-まずclassifier headだけを比較します。
-
-```bash
-pnpm run research:events:benchmark -- \
-  --manifest /path/to/manifest.json \
-  --output-dir /path/to/head-screen \
-  --strategy head
-```
-
-`benchmark` が触るのは `train` と `validation` だけです。
-
-1. Trainでfine-tuning
-2. Validation全体をsliding-window spotting
-3. Validationだけでclass別confidence thresholdを選択
-4. Validation precision / recall / timestamp accuracy / runtimeでcandidateを比較
-5. License適格modelだけのproduction rankingを別途作成
-
-**Held-out Testはdecodeも評価もしません。**
-
-有望なproduction-eligible candidateだけを必要に応じてfull fine-tuningします。
-
-```bash
-pnpm run research:events:benchmark -- \
-  --manifest /path/to/manifest.json \
-  --output-dir /path/to/full-finetune \
-  --models x3d-s-kinetics400 \
-  --strategy full
-```
-
-Head/fullの比較もValidationだけで完結させます。
-
-### Held-out qualification
-
-Model family、training strategy、stride/NMS、checkpoint、validation-selected thresholdsを凍結した後、1つのproduction-eligible modelだけをTestへ通します。
-
-```bash
-pnpm run research:events:qualify -- \
-  --manifest /path/to/manifest.json \
-  --model-id x3d-s-kinetics400 \
-  --checkpoint /path/to/checkpoint.pt \
-  --thresholds /path/to/thresholds.json \
-  --output-dir /path/to/qualification \
-  --strategy full
-```
-
-Qualificationはcheckpoint model ID / strategy / labelsを検証し、research-only licenseのmodelを拒否します。出力にはcheckpoint/threshold SHA-256、locked thresholds、unseen-test metrics、`productGatePassed` を含めます。
-
-Independent evaluator:
-
-```bash
-pnpm run research:events:evaluate -- \
-  qualification/test-ground-truth.json \
-  qualification/test-predictions.json \
-  qualification/thresholds.json
-```
-
-Test結果を見てmodel、strategy、NMS、stride、thresholdを変更した場合、そのTest setは次のproduction claimへ再利用しません。
+元動画、`.stpkg`、Timeline Coding、frames、checkpoints、runsをpublic repositoryへcommitしません。一般ユーザーPCごとの自動fine-tuningも初期製品では行いません。
 
 ### Runner protocol
 
@@ -288,23 +206,23 @@ Model outputは直接persisted `timeline.json` を書き換えません。Render
 
 ```bash
 pnpm run test:run
-pnpm run research:events:check
 ```
 
-Event detection関連ではrecording range、confidence filter、duplicate suppression、model quality gate、settings migration、validation threshold selection、unseen match count、research schemaをtestします。
+Event detection関連ではrecording range、confidence filter、duplicate suppression、Recall優先model quality gate、settings migration、verified manifest、runner SHA-256、IPC/process boundaryをtestします。
 
 Model packがUIへ出ない場合:
 
 1. manifest JSON
 2. `status: verified`
-3. class metrics
-4. current platform/architecture runner
-5. runner SHA-256
-6. runner path traversal
+3. class recall / evaluated match count
+4. confidence threshold
+5. current platform/architecture runner
+6. runner SHA-256
+7. runner path traversal
 
 を確認します。
 
-Research実行失敗時はdataset manifestのlocal path、split別event数、Python virtualenv、checkpoint download、device memoryを確認します。
+Model training/evaluationのdebuggingはprivate R&D repositoryで行います。
 
 ## リリースプロセス
 
@@ -314,7 +232,7 @@ Research実行失敗時はdataset manifestのlocal path、split別event数、Pyt
 4. merge後のmain commitへrelease tag
 5. package/release assets作成
 
-`main` への直接push/mergeは行いません。Event detection model packはアプリreleaseと独立できますが、verified化前にqualification artifactsとrunner hashを固定します。
+`main` への直接push/mergeは行いません。Event detection model packはアプリreleaseと独立できます。
 
 ## ドキュメント運用
 
