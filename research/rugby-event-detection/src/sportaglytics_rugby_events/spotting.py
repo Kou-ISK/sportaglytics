@@ -177,8 +177,8 @@ def scan_matches(
     for group_index, group in enumerate(groups, start=1):
         first = group[0]
         _progress(
-            f"decoding segment {group_index}/{len(groups)} once: "
-            f"{first.segment.video_path.name}, windows={len(group)}"
+            f"decoding anonymous segment {group_index}/{len(groups)} once: "
+            f"windows={len(group)}"
         )
         ranges = [
             (window.local_start_seconds, window.local_end_seconds)
