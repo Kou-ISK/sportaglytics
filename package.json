@@ -46,13 +46,6 @@
     "test:e2e:timeline-rows": "pnpm run e2e:prepare && node scripts/e2e-timeline-rows.mjs",
     "media:build": "node scripts/build-media-tools.mjs",
     "media:build:all-mac": "node scripts/build-media-tools.mjs --all-mac",
-    "research:events:inspect": "python3 research/rugby-event-detection/run.py inspect",
-    "research:events:prepare": "python3 research/rugby-event-detection/run.py prepare",
-    "research:events:train": "python3 research/rugby-event-detection/run.py train --stride-seconds 2.0",
-    "research:events:benchmark": "python3 research/rugby-event-detection/run.py benchmark",
-    "research:events:qualify": "python3 research/rugby-event-detection/run.py qualify",
-    "research:events:check": "python3 -m compileall -q research/rugby-event-detection/src research/rugby-event-detection/run.py research/rugby-event-detection/tests && python3 -m unittest discover -s research/rugby-event-detection/tests -p 'test_*.py'",
-    "research:events:evaluate": "node scripts/evaluate-event-detection.mjs",
     "typecheck": "tsc --noEmit",
     "typecheck:electron": "tsc -p electron/tsconfig.json",
     "build:electron-main": "tsc -p electron/tsconfig.build.json",
@@ -100,7 +93,7 @@
     "typescript": "^5.4.5",
     "vite": "^7.3.6",
     "vitest": "^4.1.10",
-    "wait-on": "^9.1.0"
+    "wait-on": "^8.0.1"
   },
   "repository": "https://github.com/Kou-ISK/sportaglytics.git",
   "license": "MIT",
