@@ -1,47 +1,58 @@
 from __future__ import annotations
 
 from collections import Counter
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
+from .privacy import root_fingerprint, source_id, source_id_from_relative
 from .sources import _auto_split_names
 
 VALID_SPLITS = {"train", "validation", "test"}
 
 
 def source_key(root: Path, package_root: Path) -> str:
-    root = root.expanduser().resolve()
-    package_root = package_root.expanduser().resolve()
-    return package_root.relative_to(root).as_posix()
+    return source_id(root, package_root)
 
 
 def default_split_lock_path(root: Path) -> Path:
     root = root.expanduser().resolve()
     research_root = Path(__file__).resolve().parents[2]
-    digest = hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:16]
-    readable = root.name or "rugby-events"
-    return research_root / "runs" / ".split-locks" / f"{readable}-{digest}.json"
+    lock_dir = research_root / "runs" / ".split-locks"
+    digest = root_fingerprint(root)
+    anonymous_path = lock_dir / f"{digest}.json"
+    legacy_path = lock_dir / f"{root.name or 'rugby-events'}-{digest}.json"
+    if not anonymous_path.exists() and legacy_path.exists():
+        lock_dir.mkdir(parents=True, exist_ok=True)
+        legacy_path.replace(anonymous_path)
+    return anonymous_path
 
 
 def _stable_new_key_order(keys: list[str], seed: int) -> list[str]:
+    import hashlib
+
     return sorted(
         keys,
         key=lambda key: hashlib.sha256(f"{seed}\0{key}".encode("utf-8")).hexdigest(),
     )
 
 
-def _read_lock(path: Path, root: Path, seed: int) -> dict[str, str]:
+def _validate_assignment(key: object, split: object) -> tuple[str, str]:
+    if not isinstance(key, str) or not key:
+        raise ValueError("split lock contains an invalid source key")
+    if split not in VALID_SPLITS:
+        raise ValueError(f"split lock contains invalid split for an anonymous source: {split!r}")
+    return key, str(split)
+
+
+def _read_lock(path: Path, root: Path, seed: int) -> tuple[dict[str, str], bool]:
     with path.open("r", encoding="utf-8") as handle:
         raw: Any = json.load(handle)
-    if not isinstance(raw, dict) or raw.get("version") != 1:
+    if not isinstance(raw, dict):
         raise ValueError(f"split lock has unsupported format: {path}")
-    if raw.get("sourceRoot") != str(root):
-        raise ValueError(
-            "split lock sourceRoot does not match the requested dataset root; "
-            f"lock={raw.get('sourceRoot')!r}, requested={str(root)!r}"
-        )
+    version = raw.get("version")
+    if version not in (1, 2):
+        raise ValueError(f"split lock has unsupported format: {path}")
     if raw.get("seed") != seed:
         raise ValueError(
             "split lock seed does not match the requested seed; changing the seed after "
@@ -50,14 +61,25 @@ def _read_lock(path: Path, root: Path, seed: int) -> dict[str, str]:
     assignments_raw = raw.get("assignments")
     if not isinstance(assignments_raw, dict):
         raise ValueError("split lock assignments must be an object")
+
+    migrated = version == 1
     assignments: dict[str, str] = {}
-    for key, split in assignments_raw.items():
-        if not isinstance(key, str) or not key:
-            raise ValueError("split lock contains an invalid source key")
-        if split not in VALID_SPLITS:
-            raise ValueError(f"split lock contains invalid split for {key}: {split!r}")
+    if version == 1:
+        if raw.get("sourceRoot") != str(root):
+            raise ValueError("legacy split lock sourceRoot does not match the requested dataset")
+        for raw_key, raw_split in assignments_raw.items():
+            key, split = _validate_assignment(raw_key, raw_split)
+            assignments[source_id_from_relative(root, key)] = split
+        return assignments, migrated
+
+    if raw.get("rootFingerprint") != root_fingerprint(root):
+        raise ValueError("split lock root fingerprint does not match the requested dataset")
+    for raw_key, raw_split in assignments_raw.items():
+        key, split = _validate_assignment(raw_key, raw_split)
+        if not key.startswith("source-"):
+            raise ValueError("split lock v2 source keys must be anonymous")
         assignments[key] = split
-    return assignments
+    return assignments, migrated
 
 
 def _write_lock(
@@ -68,9 +90,10 @@ def _write_lock(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "version": 1,
-        "sourceRoot": str(root),
+        "version": 2,
+        "rootFingerprint": root_fingerprint(root),
         "seed": seed,
+        "privacy": "Source paths and names are intentionally excluded.",
         "policy": (
             "Existing source assignments are immutable. When safely coded matches are added, "
             "only new sources are assigned to Test/Validation deficits; remaining new sources "
@@ -93,11 +116,17 @@ def assign_locked_splits(
         raise ValueError("split source keys must be unique")
     if len(source_keys) < 3:
         raise ValueError("automatic dataset preparation requires at least 3 usable matches")
+    if any(not key.startswith("source-") for key in source_keys):
+        raise ValueError("split source keys must be anonymous source ids")
 
     root = root.expanduser().resolve()
     lock_path = lock_path.expanduser().resolve()
     lock_existed = lock_path.is_file()
-    assignments = _read_lock(lock_path, root, seed) if lock_existed else {}
+    if lock_existed:
+        assignments, migrated = _read_lock(lock_path, root, seed)
+    else:
+        assignments = {}
+        migrated = False
 
     current_locked = {
         key: assignments[key]
@@ -107,9 +136,6 @@ def assign_locked_splits(
     new_keys = [key for key in source_keys if key not in assignments]
 
     if not lock_existed:
-        # The first lock deliberately reproduces the pre-lock splitter exactly. Running
-        # prepare once on an already-used dataset therefore freezes the same assignments
-        # rather than silently moving an old Train/Validation match into Test.
         initial_splits = _auto_split_names(len(source_keys), seed)
         for key, split in zip(source_keys, initial_splits, strict=True):
             assignments[key] = split
@@ -135,13 +161,16 @@ def assign_locked_splits(
                 split = "train"
             assignments[key] = split
             new_assignments[key] = split
-        status = "updated" if new_assignments else "reused"
+        if migrated:
+            status = "migrated"
+        else:
+            status = "updated" if new_assignments else "reused"
 
     _write_lock(lock_path, root, seed, assignments)
     resolved = [assignments[key] for key in source_keys]
     counts = Counter(resolved)
     report: dict[str, object] = {
-        "path": str(lock_path),
+        "file": lock_path.name,
         "status": status,
         "preservedCurrentMatches": len(current_locked),
         "newAssignments": dict(sorted(new_assignments.items())),
@@ -150,5 +179,6 @@ def assign_locked_splits(
             "validation": counts["validation"],
             "test": counts["test"],
         },
+        "sourceMetadataAnonymized": True,
     }
     return resolved, report

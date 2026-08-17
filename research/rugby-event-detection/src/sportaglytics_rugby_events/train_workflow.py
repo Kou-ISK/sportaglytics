@@ -36,14 +36,14 @@ def run_training_workflow(
     output_root = output_root.expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
 
-    _progress(f"source discovery start: {root}")
+    _progress("source discovery start (source identity redacted)")
     manifest_path = output_root / "manifest.json"
     split_lock_path = default_split_lock_path(root)
     manifest, source_report = build_manifest_from_root(
         root=root,
         aliases_path=aliases_path.expanduser().resolve(),
         output_path=manifest_path,
-        dataset_id=f"{root.name}-rugby-events",
+        dataset_id=None,
         seed=seed,
         split_lock_path=split_lock_path,
     )
@@ -62,7 +62,7 @@ def run_training_workflow(
     if split_lock:
         _progress(
             f"split lock: status={split_lock.get('status')}, "
-            f"path={split_lock.get('path')}, "
+            f"file={split_lock.get('file')}, "
             f"preserved={split_lock.get('preservedCurrentMatches')}"
         )
     _progress(f"prepared event counts: {prepared_event_counts}")
@@ -74,7 +74,7 @@ def run_training_workflow(
             "development-only dataset: fewer than 5 held-out Test matches; "
             "do not use this run for production qualification"
         )
-    _progress(f"manifest saved: {manifest_path}")
+    _progress("manifest saved with anonymous source metadata")
     _progress(
         f"development training start: model={model_id}, strategy={strategy}, "
         f"epochs={epochs}, validationStride={stride_seconds:.2f}s"
@@ -97,12 +97,12 @@ def run_training_workflow(
         nms_seconds=nms_seconds,
         seed=seed,
     )
-    _progress(f"development run complete: output={benchmark_root}")
+    _progress("development run complete")
 
     return {
         "mode": "prepare-and-train",
         "datasetId": manifest.dataset_id,
-        "sourceRoot": str(root),
+        "sourceIdentity": "anonymized",
         "usableMatches": len(manifest.matches),
         "split": split,
         "splitLock": split_lock,
@@ -111,18 +111,18 @@ def run_training_workflow(
         "skippedSources": len(source_report.get("preparationFailures", [])),
         "skippedSourceReasons": failure_summary,
         "productionQualificationReadyByMatchCount": qualification_ready,
-        "manifest": str(manifest_path),
-        "sourceReport": source_report.get("reportPath"),
+        "manifestFile": manifest_path.name,
+        "sourceReportFile": source_report.get("reportFile"),
         "modelId": model_id,
         "strategy": strategy,
-        "benchmarkOutput": str(benchmark_root),
+        "benchmarkDirectory": benchmark_root.name,
         "screeningWinner": benchmark_report.get("screeningWinner"),
         "results": benchmark_report.get("results", []),
         "testPolicy": (
             "The held-out test split was not decoded or evaluated. Existing split assignments "
             "are locked across dataset growth so a previously used development match cannot "
-            "silently become Test. Use qualify only after the model, strategy, stride, NMS and "
-            "validation thresholds are frozen, and only when at least five held-out Test matches "
-            "are available."
+            "silently become Test. Source identities are excluded from persisted training "
+            "metadata. Use qualify only after the model, strategy, stride, NMS and validation "
+            "thresholds are frozen, and only when at least five held-out Test matches are available."
         ),
     }
