@@ -9,6 +9,7 @@ from .arguments import normalize_forwarded_args
 from .auto_prepare import build_manifest_from_root
 from .benchmark import run_benchmark, run_qualification
 from .manifest import build_manifest
+from .privacy import root_fingerprint
 from .sources import write_inspection_report
 from .split_lock import default_split_lock_path
 from .train_workflow import run_training_workflow
@@ -58,8 +59,8 @@ def _build_parser() -> argparse.ArgumentParser:
     inspect = subparsers.add_parser(
         "inspect",
         help=(
-            "Recursively find timeline.json files and report current/legacy package layouts, "
-            "action names and nearby video candidates without changing source data."
+            "Private local diagnostic: recursively inspect package layouts, raw action names "
+            "and video candidates. Inspect output can contain source-identifying metadata."
         ),
     )
     inspect.add_argument("--root", type=Path, required=True)
@@ -68,8 +69,8 @@ def _build_parser() -> argparse.ArgumentParser:
     prepare = subparsers.add_parser(
         "prepare",
         help=(
-            "Create a match-level dataset manifest. Use --root for automatic recursive "
-            "discovery or --spec for an explicitly curated dataset."
+            "Create a match-level dataset manifest. Automatic --root mode anonymizes source "
+            "identity in persisted research artifacts."
         ),
     )
     source_group = prepare.add_mutually_exclusive_group(required=True)
@@ -85,7 +86,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--dataset-id",
         type=str,
         default=None,
-        help="Optional dataset id for --root mode. Defaults to <root-name>-rugby-events.",
+        help="Optional explicit dataset id for --root mode. The default is anonymous.",
     )
     prepare.add_argument(
         "--seed",
@@ -100,8 +101,8 @@ def _build_parser() -> argparse.ArgumentParser:
     train = subparsers.add_parser(
         "train",
         help=(
-            "One-command workflow: discover coded matches, create a leakage-safe manifest "
-            "and train one pretrained development candidate on train/validation only."
+            "One-command workflow: discover coded matches, create an anonymized leakage-safe "
+            "manifest and train one pretrained development candidate on train/validation only."
         ),
     )
     train.add_argument(
@@ -114,7 +115,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--output-dir",
         type=Path,
         default=None,
-        help="Run directory. Defaults to research/rugby-event-detection/runs/<root-name>-x3d-head.",
+        help="Run directory. Defaults to an anonymous dataset fingerprint plus model/strategy.",
     )
     train.add_argument("--aliases", type=Path, default=DEFAULT_ALIASES)
     train.add_argument("--models-config", type=Path, default=DEFAULT_MODELS)
@@ -167,9 +168,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _default_train_output(root: Path, strategy: str) -> Path:
-    root_name = root.expanduser().resolve().name or "rugby-events"
+    dataset_name = f"dataset-{root_fingerprint(root)[:12]}"
     model_name = "x3d" if DEFAULT_TRAIN_MODEL.startswith("x3d") else "model"
-    return RESEARCH_ROOT / "runs" / f"{root_name}-{model_name}-{strategy}"
+    return RESEARCH_ROOT / "runs" / f"{dataset_name}-{model_name}-{strategy}"
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -187,11 +188,11 @@ def main(argv: list[str] | None = None) -> None:
             payload = report
         else:
             payload = {
-                "root": report["root"],
+                "privacyWarning": "inspect output contains private source metadata; do not publish it",
                 "timelineFilesFound": report["timelineFilesFound"],
                 "usableSources": report["usableSources"],
                 "unresolvedSources": report["unresolvedSources"],
-                "output": str(resolved_output),
+                "outputFile": resolved_output.name,
             }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
@@ -213,10 +214,11 @@ def main(argv: list[str] | None = None) -> None:
                 json.dumps(
                     {
                         "datasetId": manifest.dataset_id,
+                        "sourceIdentity": "anonymized",
                         "matches": len(manifest.matches),
-                        "output": str(output_path),
-                        "sourceReport": report.get("reportPath"),
-                        "generatedSpec": report.get("generatedSpecPath"),
+                        "outputFile": output_path.name,
+                        "sourceReportFile": report.get("reportFile"),
+                        "generatedSpecFile": report.get("generatedSpecFile"),
                         "automaticSplit": report.get("automaticSplit"),
                         "splitLock": report.get("splitLock"),
                         "preparedEventCounts": report.get("preparedEventCounts"),
@@ -243,7 +245,11 @@ def main(argv: list[str] | None = None) -> None:
                 {
                     "datasetId": manifest.dataset_id,
                     "matches": len(manifest.matches),
-                    "output": str(output_path),
+                    "outputFile": output_path.name,
+                    "privacyWarning": (
+                        "explicit --spec mode preserves caller-provided identifiers and paths; "
+                        "do not publish its manifest unless the spec is already anonymized"
+                    ),
                 },
                 ensure_ascii=False,
                 indent=2,
