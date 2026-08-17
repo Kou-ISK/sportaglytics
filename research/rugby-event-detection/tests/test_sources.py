@@ -29,9 +29,9 @@ class SourceDiscoveryTest(unittest.TestCase):
             (current / "timeline.json").write_text(
                 json.dumps(
                     [
-                        {"actionName": "帝京 スクラム", "startTime": 12.0},
-                        {"actionName": "帝京 スクラム", "startTime": 40.0},
-                        {"actionName": "相手 ラインアウト", "startTime": 65.0},
+                        {"actionName": "team-a スクラム", "startTime": 12.0},
+                        {"actionName": "team-a スクラム", "startTime": 40.0},
+                        {"actionName": "opponent ラインアウト", "startTime": 65.0},
                     ],
                     ensure_ascii=False,
                 ),
@@ -77,7 +77,7 @@ class SourceDiscoveryTest(unittest.TestCase):
             self.assertEqual(report["timelineFilesFound"], 3)
             self.assertEqual(report["usableSources"], 2)
             self.assertEqual(report["unresolvedSources"], 1)
-            self.assertEqual(report["actionNameCounts"]["帝京 スクラム"], 2)
+            self.assertEqual(report["actionNameCounts"]["team-a スクラム"], 2)
 
     def test_automatic_split_is_deterministic_and_match_level(self) -> None:
         first = _auto_split_names(8, 42)
