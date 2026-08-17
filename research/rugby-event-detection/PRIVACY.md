@@ -17,6 +17,12 @@ Automatic `prepare` / `train` mode:
 
 The symlink targets remain local filesystem implementation details and are under gitignored research output. Video files, frames, model checkpoints and research runs must not be committed.
 
+## Repository-history rule
+
+Never use real team names, fixture names, local user names, absolute home-directory paths, or source filenames in committed examples, tests, PR descriptions, issue bodies, or commit messages. Privacy regression tests must use synthetic identifiers such as `private-team-alpha` and `match-private-alpha-v-beta`.
+
+If source-identifying text is accidentally pushed to a public repository, removing it in a later commit is not sufficient because prior Git objects and PR discussions may remain accessible. Perform a history audit and, when warranted, rewrite affected Git history and request cache cleanup from the hosting provider.
+
 ## Private diagnostics
 
 `research:events:inspect` intentionally remains a private troubleshooting command. It may show raw local paths, fixture names, Coding action names and nearby video filenames so malformed historical packages can be diagnosed. Its output must not be published or committed.
