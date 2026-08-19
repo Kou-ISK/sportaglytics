@@ -1,12 +1,8 @@
-import type { TimelineData, TimelineRow } from '../../../types/timeline/core';
-
-export type TimelineRowSortCriterion = 'color' | 'name' | 'instanceCount';
-export type TimelineRowSortDirection = 'asc' | 'desc';
-
-export interface TimelineRowSortSpec {
-  criterion: TimelineRowSortCriterion;
-  direction?: TimelineRowSortDirection;
-}
+import type {
+  TimelineData,
+  TimelineRow,
+  TimelineRowSortSpec,
+} from '../../../types/timeline/core';
 
 const compareText = (left: string, right: string): number =>
   left.localeCompare(right, undefined, {
