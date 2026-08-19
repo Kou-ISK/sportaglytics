@@ -1,86 +1,179 @@
 import type { AudioAnalysisResult, WaveformData } from '../../types/video/sync';
-import { noopCorrelationLogger } from './correlationLogger';
 import {
-  runCoarseCorrelationSearch,
-  runFineCorrelationSearch,
-  runUltraFineCorrelationSearch,
+  buildCoarseAudioFeature,
+  runBroadFeatureCorrelationSearch,
+  runFineFeatureCorrelationSearch,
+  runRawCorrelationRefinement,
+  selectCorrelationWindows,
+  type FeatureCorrelationCandidate,
 } from './correlationSearchStages';
 
-const calculateCorrelation = (
+const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
+
+const EMPTY_RESULT: AudioAnalysisResult = {
+  offsetSeconds: 0,
+  confidence: 0,
+  correlationPeak: 0,
+  secondBestCorrelation: 0,
+  consistencyScore: 0,
+  usableWindowCount: 0,
+};
+
+const selectSecondSeparatedCandidate = (
+  candidates: FeatureCorrelationCandidate[],
+  best: FeatureCorrelationCandidate,
+  frameRate: number,
+): FeatureCorrelationCandidate | undefined => {
+  const minimumSeparation = Math.max(1, Math.round(frameRate));
+  return candidates.find(
+    (candidate) =>
+      candidate !== best &&
+      Math.abs(candidate.offsetFrames - best.offsetFrames) >= minimumSeparation,
+  );
+};
+
+const calculateConfidence = ({
+  best,
+  second,
+  rawCorrelation,
+  totalWindows,
+}: {
+  best: FeatureCorrelationCandidate;
+  second?: FeatureCorrelationCandidate;
+  rawCorrelation: number;
+  totalWindows: number;
+}): number => {
+  const peakScore = clamp01((best.correlation - 0.15) / 0.75);
+  const rawScore = clamp01((rawCorrelation - 0.15) / 0.75);
+  const secondCorrelation = second?.correlation ?? -1;
+  const marginScore = clamp01((best.correlation - secondCorrelation) / 0.2);
+  const coverage = clamp01(
+    best.usableWindowCount / Math.max(1, Math.min(4, totalWindows)),
+  );
+  const weighted =
+    peakScore * 0.3 +
+    rawScore * 0.25 +
+    marginScore * 0.25 +
+    best.consistencyScore * 0.15 +
+    coverage * 0.05;
+  const coveragePenalty = 0.4 + coverage * 0.6;
+  const sparsePenalty = best.usableWindowCount >= 2 ? 1 : 0.6;
+  return clamp01(weighted * coveragePenalty * sparsePenalty);
+};
+
+export const analyzePcmSyncByCorrelation = async (
   data1: Float32Array,
   data2: Float32Array,
-  offset: number,
-): number => {
-  const length = Math.min(data1.length, data2.length - Math.abs(offset));
-  const sampleCount = Math.min(length, 44100 * 5);
-
-  if (sampleCount <= 0) return 0;
-
-  let sum1 = 0;
-  let sum2 = 0;
-  let sum1Sq = 0;
-  let sum2Sq = 0;
-  let productSum = 0;
-
-  for (let i = 0; i < sampleCount; i += 1) {
-    const idx1 = offset >= 0 ? i : i - offset;
-    const idx2 = offset >= 0 ? i + offset : i;
-
-    if (idx1 < 0 || idx1 >= data1.length || idx2 < 0 || idx2 >= data2.length) {
-      continue;
-    }
-
-    const val1 = data1[idx1];
-    const val2 = data2[idx2];
-
-    sum1 += val1;
-    sum2 += val2;
-    sum1Sq += val1 * val1;
-    sum2Sq += val2 * val2;
-    productSum += val1 * val2;
+  sampleRate: number,
+  onProgress?: (progress: number) => void,
+  maxOffsetSeconds?: number,
+): Promise<AudioAnalysisResult> => {
+  if (
+    data1.length === 0 ||
+    data2.length === 0 ||
+    !Number.isFinite(sampleRate) ||
+    sampleRate <= 0
+  ) {
+    return { ...EMPTY_RESULT };
   }
 
-  const num = productSum - (sum1 * sum2) / sampleCount;
-  const den = Math.sqrt(
-    (sum1Sq - (sum1 * sum1) / sampleCount) *
-      (sum2Sq - (sum2 * sum2) / sampleCount),
-  );
+  let lastProgress = 0;
+  const reportProgress = (progress: number): void => {
+    const next = Math.max(lastProgress, clamp01(progress));
+    lastProgress = next;
+    onProgress?.(next);
+  };
 
-  return den === 0 ? 0 : num / den;
+  reportProgress(0);
+  const firstFeature = buildCoarseAudioFeature(data1, sampleRate);
+  const secondFeature = buildCoarseAudioFeature(data2, sampleRate);
+  const windows = [
+    ...selectCorrelationWindows(firstFeature, 'first'),
+    ...selectCorrelationWindows(secondFeature, 'second'),
+  ];
+  if (windows.length === 0) {
+    reportProgress(1);
+    return { ...EMPTY_RESULT };
+  }
+
+  const coarseCandidates = await runBroadFeatureCorrelationSearch({
+    first: firstFeature,
+    second: secondFeature,
+    windows,
+    maxOffsetSeconds,
+    onProgress: (progress) => reportProgress(progress * 0.6),
+  });
+  if (coarseCandidates.length === 0) {
+    reportProgress(1);
+    return { ...EMPTY_RESULT };
+  }
+
+  reportProgress(0.62);
+  const fineCandidates = runFineFeatureCorrelationSearch({
+    first: firstFeature,
+    second: secondFeature,
+    windows,
+    coarseCandidates,
+  });
+  const candidates = fineCandidates.length > 0 ? fineCandidates : coarseCandidates;
+  const best = candidates[0];
+  if (!best) {
+    reportProgress(1);
+    return { ...EMPTY_RESULT };
+  }
+  const second = selectSecondSeparatedCandidate(
+    candidates,
+    best,
+    firstFeature.frameRate,
+  );
+  reportProgress(0.72);
+
+  const featureOffsetSeconds = best.offsetFrames / firstFeature.frameRate;
+  const anchorBaseSeconds = best.anchorBaseFrame / firstFeature.frameRate;
+  const rawResult = await runRawCorrelationRefinement({
+    first: data1,
+    second: data2,
+    sampleRate,
+    initialOffsetSeconds: featureOffsetSeconds,
+    anchorBaseSeconds,
+    onProgress: (progress) => reportProgress(0.72 + progress * 0.28),
+  });
+  const refinedOffsetSeconds = rawResult.offsetSamples / sampleRate;
+  const rawCorrelation = Number.isFinite(rawResult.correlation)
+    ? rawResult.correlation
+    : best.correlation;
+  const confidence = calculateConfidence({
+    best,
+    second,
+    rawCorrelation,
+    totalWindows: windows.length,
+  });
+
+  reportProgress(1);
+  return {
+    offsetSeconds: refinedOffsetSeconds,
+    confidence,
+    correlationPeak: Math.max(best.correlation, rawCorrelation),
+    secondBestCorrelation: second?.correlation ?? 0,
+    consistencyScore: best.consistencyScore,
+    usableWindowCount: best.usableWindowCount,
+  };
 };
 
 export const analyzeSyncOffsetByCorrelation = async (
   waveform1: WaveformData,
   waveform2: WaveformData,
-  maxOffsetSeconds = 30,
+  maxOffsetSeconds?: number,
 ): Promise<AudioAnalysisResult> => {
-  const maxOffsetSamples = Math.floor(maxOffsetSeconds * waveform1.sampleRate);
   const data1 = waveform1.audioBuffer.getChannelData(0);
   const data2 = waveform2.audioBuffer.getChannelData(0);
-
-  let bestOffset = 0;
-  let bestCorrelation = -1;
-
-  for (
-    let offset = -maxOffsetSamples;
-    offset <= maxOffsetSamples;
-    offset += 100
-  ) {
-    const correlation = calculateCorrelation(data1, data2, offset);
-    if (correlation > bestCorrelation) {
-      bestCorrelation = correlation;
-      bestOffset = offset;
-    }
-  }
-
-  const offsetSeconds = bestOffset / waveform1.sampleRate;
-  const confidence = Math.min(bestCorrelation * 2, 1);
-
-  return {
-    offsetSeconds,
-    confidence,
-    correlationPeak: bestCorrelation,
-  };
+  return analyzePcmSyncByCorrelation(
+    data1,
+    data2,
+    waveform1.sampleRate,
+    undefined,
+    maxOffsetSeconds,
+  );
 };
 
 export const runQuickCorrelationAnalysis = async (
@@ -90,54 +183,10 @@ export const runQuickCorrelationAnalysis = async (
 ): Promise<AudioAnalysisResult> => {
   const data1 = waveform1.audioBuffer.getChannelData(0);
   const data2 = waveform2.audioBuffer.getChannelData(0);
-  const sampleRate = waveform1.sampleRate;
-  const maxOffsetSamples = Math.floor(30 * sampleRate);
-  const analysisLengthSamples = Math.floor(20 * sampleRate);
-  const logger = noopCorrelationLogger;
-
-  const coarseResult = runCoarseCorrelationSearch({
+  return analyzePcmSyncByCorrelation(
     data1,
     data2,
-    analysisLengthSamples,
-    sampleRate,
-    maxOffsetSamples,
-    logger,
+    waveform1.sampleRate,
     onProgress,
-  });
-
-  onProgress?.(0.5);
-
-  const fineResult = runFineCorrelationSearch({
-    data1,
-    data2,
-    analysisLengthSamples,
-    sampleRate,
-    initial: coarseResult,
-    logger,
-  });
-
-  onProgress?.(0.8);
-
-  const finalResult = runUltraFineCorrelationSearch({
-    data1,
-    data2,
-    analysisLengthSamples,
-    sampleRate,
-    initial: fineResult,
-    logger,
-  });
-
-  onProgress?.(1);
-
-  const offsetSeconds = finalResult.offset / sampleRate;
-  const confidence = Math.max(
-    0,
-    Math.min(1, (finalResult.correlation + 1) / 2),
   );
-
-  return {
-    offsetSeconds,
-    confidence,
-    correlationPeak: finalResult.correlation,
-  };
 };

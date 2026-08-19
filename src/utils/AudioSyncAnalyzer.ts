@@ -43,7 +43,7 @@ export const extractAudioWaveform = async (
 export const analyzeAudioSyncOffset = async (
   waveform1: WaveformData,
   waveform2: WaveformData,
-  maxOffsetSeconds = 30,
+  maxOffsetSeconds?: number,
 ): Promise<AudioAnalysisResult> => {
   return analyzeSyncOffsetByCorrelation(waveform1, waveform2, maxOffsetSeconds);
 };
@@ -65,12 +65,12 @@ export const runAudioSyncAnalysis = async ({
     const source2 = await readFileAsArrayBuffer(videoPath2);
     const waveform2 = await extractAudioWaveform(context, source2);
 
-    onProgress?.('同期点を計算中...', 50);
+    onProgress?.('同期候補を広域探索中...', 50);
     const result = await runQuickCorrelationAnalysis(
       waveform1,
       waveform2,
       (progress) => {
-        onProgress?.('同期点を計算中...', 50 + progress * 0.5);
+        onProgress?.('同期候補を広域探索中...', 50 + progress * 50);
       },
     );
 
