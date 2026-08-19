@@ -29,10 +29,7 @@ const createSignal = (
 
   for (let index = 0; index < length; index += 1) {
     const time = index / SAMPLE_RATE;
-    const block = Math.min(
-      amplitudes.length - 1,
-      Math.floor(time * 2),
-    );
+    const block = Math.min(amplitudes.length - 1, Math.floor(time * 2));
     const amplitude = amplitudes[block] ?? 0.1;
     const noise = (random() * 2 - 1) * 0.025;
     output[index] =
@@ -55,6 +52,15 @@ const addIndependentNoise = (
   );
 };
 
+const createFiller = (length: number, seed: number): Float32Array => {
+  const random = createRandom(seed);
+  const filler = new Float32Array(length);
+  for (let index = 0; index < length; index += 1) {
+    filler[index] = (random() * 2 - 1) * 0.01;
+  }
+  return filler;
+};
+
 const createShiftedPair = ({
   offsetSeconds,
   signalDurationSeconds = 70,
@@ -74,9 +80,6 @@ const createShiftedPair = ({
     signal[index] = 0;
   }
   const shiftSamples = Math.round(Math.abs(offsetSeconds) * SAMPLE_RATE);
-  const fillerRandom = createRandom(811);
-  const createFiller = (length: number): Float32Array =>
-    Float32Array.from({ length }, () => (fillerRandom() * 2 - 1) * 0.01);
   const transformed = Float32Array.from(signal, (value) => value * gain);
   const noisyTransformed =
     noiseAmplitude > 0
@@ -85,13 +88,13 @@ const createShiftedPair = ({
 
   if (offsetSeconds >= 0) {
     const second = new Float32Array(shiftSamples + noisyTransformed.length);
-    second.set(createFiller(shiftSamples), 0);
+    second.set(createFiller(shiftSamples, 811), 0);
     second.set(noisyTransformed, shiftSamples);
     return { first: signal, second };
   }
 
   const first = new Float32Array(shiftSamples + signal.length);
-  first.set(createFiller(shiftSamples), 0);
+  first.set(createFiller(shiftSamples, 811), 0);
   first.set(signal, shiftSamples);
   return { first, second: noisyTransformed };
 };
@@ -168,6 +171,6 @@ describe('analyzePcmSyncByCorrelation', () => {
         progressValues[index - 1] ?? 0,
       );
     }
-    expect(progressValues.at(-1)).toBe(1);
+    expect(progressValues[progressValues.length - 1]).toBe(1);
   });
 });

@@ -44,7 +44,7 @@ export interface IElectronAPI {
     }>,
     metaDataConfig: unknown,
   ) => Promise<PackageDatas>;
-  preparePackageForOpen: (
+  preparePackageForOpen?: (
     packagePath: string,
     destinationPath?: string,
   ) => Promise<PackageOpenPreparationResult>;

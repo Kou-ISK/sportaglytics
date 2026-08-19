@@ -79,6 +79,8 @@ const preparePackagePathForOpen = async (
   packagePath: string,
 ): Promise<string> => {
   const api = getElectronApi();
+  if (!api.preparePackageForOpen) return packagePath;
+
   let preparation = await api.preparePackageForOpen(packagePath);
   if (preparation.status === 'needs-destination') {
     const destination = await api.saveFileDialog(preparation.suggestedPath, [

@@ -115,7 +115,16 @@ export const analyzePcmSyncByCorrelation = async (
     windows,
     coarseCandidates,
   });
-  const candidates = fineCandidates.length > 0 ? fineCandidates : coarseCandidates;
+  const unconstrainedCandidates =
+    fineCandidates.length > 0 ? fineCandidates : coarseCandidates;
+  const candidates =
+    maxOffsetSeconds !== undefined && Number.isFinite(maxOffsetSeconds)
+      ? unconstrainedCandidates.filter(
+          (candidate) =>
+            Math.abs(candidate.offsetFrames / firstFeature.frameRate) <=
+            maxOffsetSeconds,
+        )
+      : unconstrainedCandidates;
   const best = candidates[0];
   if (!best) {
     reportProgress(1);
@@ -138,10 +147,18 @@ export const analyzePcmSyncByCorrelation = async (
     anchorBaseSeconds,
     onProgress: (progress) => reportProgress(0.72 + progress * 0.28),
   });
-  const refinedOffsetSeconds = rawResult.offsetSamples / sampleRate;
-  const rawCorrelation = Number.isFinite(rawResult.correlation)
-    ? rawResult.correlation
-    : best.correlation;
+  const rawOffsetSeconds = rawResult.offsetSamples / sampleRate;
+  const rawWithinExplicitLimit =
+    maxOffsetSeconds === undefined ||
+    !Number.isFinite(maxOffsetSeconds) ||
+    Math.abs(rawOffsetSeconds) <= maxOffsetSeconds;
+  const refinedOffsetSeconds = rawWithinExplicitLimit
+    ? rawOffsetSeconds
+    : featureOffsetSeconds;
+  const rawCorrelation =
+    rawWithinExplicitLimit && Number.isFinite(rawResult.correlation)
+      ? rawResult.correlation
+      : best.correlation;
   const confidence = calculateConfidence({
     best,
     second,
