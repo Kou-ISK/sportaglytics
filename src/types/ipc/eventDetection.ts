@@ -56,8 +56,8 @@ const isEventDetectionMetric = (value: unknown): value is EventDetectionMetric =
     isFiniteNumber(value.recall) &&
     value.recall >= 0 &&
     value.recall <= 1 &&
-    Number.isInteger(value.evaluatedMatches) &&
     typeof value.evaluatedMatches === 'number' &&
+    Number.isInteger(value.evaluatedMatches) &&
     value.evaluatedMatches >= 0 &&
     isFiniteNumber(value.confidenceThreshold) &&
     value.confidenceThreshold >= 0 &&
