@@ -15,6 +15,11 @@
       "from": "public/llama",
       "to": "llama",
       "filter": ["**/*", "!**/*.gguf"]
+    },
+    {
+      "from": "resources/event-detection-models",
+      "to": "event-detection-models",
+      "filter": ["**/*", "!.gitkeep"]
     }
   ],
   "compression": "maximum",
@@ -187,7 +192,8 @@
         "ext": "stad",
         "name": "SporTagLytics Dashboard",
         "description": "SporTagLytics ダッシュボード",
-        "role": "Viewer"
+        "role": "Viewer",
+        "isPackage": true
       }
     ],
     "artifactName": "${productName}-${version}.${ext}"

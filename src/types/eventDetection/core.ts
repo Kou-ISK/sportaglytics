@@ -8,6 +8,11 @@ export const RUGBY_EVENT_TYPES = [
 
 export type RugbyEventType = (typeof RUGBY_EVENT_TYPES)[number];
 
+export const EVENT_DETECTION_MODEL_STATUSES = ['verified', 'experimental'] as const;
+
+export type EventDetectionModelStatus =
+  (typeof EVENT_DETECTION_MODEL_STATUSES)[number];
+
 export interface EventDetectionMetric {
   precision: number;
   recall: number;
@@ -22,7 +27,7 @@ export interface EventDetectionModelInfo {
   version: string;
   displayName: string;
   events: RugbyEventType[];
-  status: 'verified';
+  status: EventDetectionModelStatus;
   metrics: Partial<Record<RugbyEventType, EventDetectionMetric>>;
 }
 

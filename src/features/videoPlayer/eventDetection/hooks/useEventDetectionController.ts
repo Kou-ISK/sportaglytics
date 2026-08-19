@@ -18,6 +18,10 @@ import type {
 } from '../components/EventDetectionDialogView';
 import { convertCandidatesToTimeline } from '../domain/candidatesToTimeline';
 import {
+  applyEventTimelineMappingUpdates,
+  buildEventDetectionMappings,
+} from '../domain/eventDetectionMappings';
+import {
   cancelEventDetection,
   listEventDetectionModels,
   runEventDetection,
@@ -37,29 +41,6 @@ interface UseEventDetectionControllerResult {
   viewProps: EventDetectionDialogViewProps;
 }
 
-const EVENT_NAMES: Record<RugbyEventType, string> = {
-  restart: 'リスタート',
-  scrum: 'Scrum',
-  lineout: 'Lineout',
-  maul: 'Maul',
-  goalKick: 'Goal Kick',
-};
-
-const EVENT_NAME_ALIASES: Partial<Record<RugbyEventType, readonly string[]>> = {
-  restart: ['リスタート', 'Restart', 'Kickoff', 'Kick Off', 'キックオフ'],
-};
-
-const DEFAULT_RANGES: Record<
-  RugbyEventType,
-  { leadTimeSeconds: number; lagTimeSeconds: number }
-> = {
-  restart: { leadTimeSeconds: 5, lagTimeSeconds: 15 },
-  scrum: { leadTimeSeconds: 5, lagTimeSeconds: 10 },
-  lineout: { leadTimeSeconds: 5, lagTimeSeconds: 10 },
-  maul: { leadTimeSeconds: 5, lagTimeSeconds: 10 },
-  goalKick: { leadTimeSeconds: 5, lagTimeSeconds: 10 },
-};
-
 const getModelKey = (model: EventDetectionModelInfo): string =>
   `${model.id}@${model.version}`;
 
@@ -68,37 +49,6 @@ const createRequestId = (): string => {
     return globalThis.crypto.randomUUID();
   }
   return `event-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-};
-
-const normalizeEventName = (value: string): string =>
-  value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
-
-const buildMappings = (
-  model: EventDetectionModelInfo,
-  activeCodeWindow?: CodeWindowLayout,
-): EventTimelineMapping[] => {
-  return model.events.map((eventType) => {
-    const defaultName = EVENT_NAMES[eventType];
-    const aliases = EVENT_NAME_ALIASES[eventType] ?? [defaultName];
-    const normalizedAliases = new Set(aliases.map(normalizeEventName));
-    const configuredButton = activeCodeWindow?.buttons.find(
-      (button) =>
-        button.type === 'action' && normalizedAliases.has(normalizeEventName(button.name)),
-    );
-    const defaultRange = DEFAULT_RANGES[eventType];
-    const metric = model.metrics[eventType];
-
-    return {
-      eventType,
-      actionName: configuredButton?.name ?? defaultName,
-      enabled: true,
-      minConfidence: metric?.confidenceThreshold ?? 1,
-      leadTimeSeconds:
-        configuredButton?.leadTimeSeconds ?? defaultRange.leadTimeSeconds,
-      lagTimeSeconds:
-        configuredButton?.lagTimeSeconds ?? defaultRange.lagTimeSeconds,
-    };
-  });
 };
 
 export const useEventDetectionController = ({
@@ -157,7 +107,7 @@ export const useEventDetectionController = ({
         const firstModel = availableModels[0];
         if (firstModel) {
           setSelectedModelKey(getModelKey(firstModel));
-          setMappings(buildMappings(firstModel, activeCodeWindow));
+          setMappings(buildEventDetectionMappings(firstModel, activeCodeWindow));
         } else {
           setSelectedModelKey('');
           setMappings([]);
@@ -198,7 +148,9 @@ export const useEventDetectionController = ({
       if (running) return;
       setSelectedModelKey(modelKey);
       const model = models.find((candidate) => getModelKey(candidate) === modelKey);
-      setMappings(model ? buildMappings(model, activeCodeWindow) : []);
+      setMappings(
+        model ? buildEventDetectionMappings(model, activeCodeWindow) : [],
+      );
       setSummary(null);
       setError(null);
     },
@@ -214,11 +166,7 @@ export const useEventDetectionController = ({
       setMappings((current) =>
         current.map((mapping) =>
           mapping.eventType === eventType
-            ? {
-                ...mapping,
-                ...updates,
-                minConfidence: mapping.minConfidence,
-              }
+            ? applyEventTimelineMappingUpdates(mapping, updates)
             : mapping,
         ),
       );
@@ -284,6 +232,7 @@ export const useEventDetectionController = ({
           added: converted.items.length,
           duplicates: converted.skippedDuplicate,
           lowConfidence: converted.skippedLowConfidence,
+          modelStatus: selectedModel.status,
         });
       })
       .catch((runError: unknown) => {

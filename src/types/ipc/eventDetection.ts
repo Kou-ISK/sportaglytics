@@ -1,11 +1,16 @@
 import type {
+  EventDetectionMetric,
   EventDetectionModelInfo,
+  EventDetectionModelStatus,
   EventDetectionProgress,
   EventDetectionRequest,
   EventDetectionResult,
   RugbyEventType,
 } from '../eventDetection/core';
-import { RUGBY_EVENT_TYPES } from '../eventDetection/core';
+import {
+  EVENT_DETECTION_MODEL_STATUSES,
+  RUGBY_EVENT_TYPES,
+} from '../eventDetection/core';
 import {
   isArrayOf,
   isFiniteNumber,
@@ -23,6 +28,7 @@ export const EVENT_DETECTION_CHANNELS = {
 } as const;
 
 const EVENT_TYPE_SET = new Set<string>(RUGBY_EVENT_TYPES);
+const MODEL_STATUS_SET = new Set<string>(EVENT_DETECTION_MODEL_STATUSES);
 
 export interface IEventDetectionAPI {
   listModels: () => Promise<EventDetectionModelInfo[]>;
@@ -35,6 +41,64 @@ export interface IEventDetectionAPI {
 
 export const isRugbyEventType = (value: unknown): value is RugbyEventType =>
   typeof value === 'string' && EVENT_TYPE_SET.has(value);
+
+export const isEventDetectionModelStatus = (
+  value: unknown,
+): value is EventDetectionModelStatus =>
+  typeof value === 'string' && MODEL_STATUS_SET.has(value);
+
+const isEventDetectionMetric = (value: unknown): value is EventDetectionMetric => {
+  if (!isPlainObject(value)) return false;
+  return (
+    isFiniteNumber(value.precision) &&
+    value.precision >= 0 &&
+    value.precision <= 1 &&
+    isFiniteNumber(value.recall) &&
+    value.recall >= 0 &&
+    value.recall <= 1 &&
+    typeof value.evaluatedMatches === 'number' &&
+    Number.isInteger(value.evaluatedMatches) &&
+    value.evaluatedMatches >= 0 &&
+    isFiniteNumber(value.confidenceThreshold) &&
+    value.confidenceThreshold >= 0 &&
+    value.confidenceThreshold <= 1 &&
+    isOptional(
+      value.timestampWithinTwoSecondsRate,
+      (candidate): candidate is number =>
+        isFiniteNumber(candidate) && candidate >= 0 && candidate <= 1,
+    )
+  );
+};
+
+export const isEventDetectionModelInfo = (
+  value: unknown,
+): value is EventDetectionModelInfo => {
+  if (!isPlainObject(value)) return false;
+  if (
+    !isString(value.id) ||
+    value.id.length === 0 ||
+    !isString(value.version) ||
+    value.version.length === 0 ||
+    !isString(value.displayName) ||
+    value.displayName.length === 0 ||
+    !isEventDetectionModelStatus(value.status) ||
+    !isArrayOf(value.events, isRugbyEventType) ||
+    value.events.length === 0 ||
+    !isPlainObject(value.metrics)
+  ) {
+    return false;
+  }
+
+  return Object.entries(value.metrics).every(
+    ([eventType, metric]) =>
+      isRugbyEventType(eventType) && isEventDetectionMetric(metric),
+  );
+};
+
+export const isEventDetectionModelInfoList = (
+  value: unknown,
+): value is EventDetectionModelInfo[] =>
+  isArrayOf(value, isEventDetectionModelInfo);
 
 const isClipInput = (
   value: unknown,

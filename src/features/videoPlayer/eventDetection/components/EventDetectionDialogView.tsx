@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -20,6 +21,7 @@ import {
 } from '@mui/material';
 import type {
   EventDetectionModelInfo,
+  EventDetectionModelStatus,
   EventDetectionProgress,
   EventTimelineMapping,
   RugbyEventType,
@@ -35,6 +37,7 @@ export interface EventDetectionSummary {
   added: number;
   duplicates: number;
   lowConfidence: number;
+  modelStatus: EventDetectionModelStatus;
 }
 
 export interface EventDetectionDialogViewProps {
@@ -71,6 +74,8 @@ const EVENT_LABELS: Record<RugbyEventType, string> = {
 const modelKey = (model: EventDetectionModelInfo): string =>
   `${model.id}@${model.version}`;
 
+const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
+
 export const EventDetectionDialogView = ({
   open,
   loadingModels,
@@ -90,10 +95,12 @@ export const EventDetectionDialogView = ({
   onRun,
   onCancel,
 }: EventDetectionDialogViewProps) => {
+  const selectedModel = models.find(
+    (model) => modelKey(model) === selectedModelKey,
+  );
   const canRun =
     !running &&
-    models.length > 0 &&
-    Boolean(selectedModelKey) &&
+    Boolean(selectedModel) &&
     Boolean(selectedAngleId) &&
     mappings.some((mapping) => mapping.enabled);
 
@@ -103,7 +110,7 @@ export const EventDetectionDialogView = ({
       <DialogContent dividers>
         <Stack spacing={2.5}>
           <Typography variant="body2" color="text.secondary">
-            検証済みのローカルモデルでイベントを検出し、通常のタイムラインへ直接追加します。追加後は手動で編集・ラベル付けできます。
+            ローカルモデルでイベント候補を検出し、通常のタイムラインへ直接追加します。追加後は手動で削除・範囲修正・ラベル付けできます。
           </Typography>
 
           {loadingModels ? (
@@ -112,7 +119,7 @@ export const EventDetectionDialogView = ({
             </Box>
           ) : models.length === 0 ? (
             <Alert severity="info">
-              現在、この環境には品質基準を満たした自動イベント検出モデルがありません。未検証モデルは使用できません。
+              現在、この環境には利用可能な自動イベント検出モデルがありません。
             </Alert>
           ) : (
             <>
@@ -133,7 +140,19 @@ export const EventDetectionDialogView = ({
                   >
                     {models.map((model) => (
                       <MenuItem key={modelKey(model)} value={modelKey(model)}>
-                        {model.displayName} / {model.version}
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          alignItems="center"
+                          sx={{ minWidth: 0 }}
+                        >
+                          <Typography variant="body2" noWrap>
+                            {model.displayName} / {model.version}
+                          </Typography>
+                          {model.status === 'experimental' && (
+                            <Chip label="試験" size="small" color="warning" />
+                          )}
+                        </Stack>
                       </MenuItem>
                     ))}
                   </Select>
@@ -156,6 +175,56 @@ export const EventDetectionDialogView = ({
                 </FormControl>
               </Box>
 
+              {selectedModel?.status === 'experimental' && (
+                <Alert severity="warning">
+                  <Typography variant="subtitle2" component="div" sx={{ mb: 0.5 }}>
+                    試験的な自動検出機能
+                  </Typography>
+                  このモデルは現在評価中です。誤検出や見逃しが発生します。追加された候補を確認・修正してから分析に使用してください。
+                </Alert>
+              )}
+
+              {selectedModel && (
+                <Box
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1.5,
+                    p: 1.5,
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    モデル評価
+                  </Typography>
+                  <Stack spacing={0.75}>
+                    {selectedModel.events.map((eventType) => {
+                      const metric = selectedModel.metrics[eventType];
+                      if (!metric) return null;
+                      return (
+                        <Box
+                          key={eventType}
+                          sx={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: 1,
+                            alignItems: 'baseline',
+                          }}
+                        >
+                          <Typography variant="body2" sx={{ minWidth: 88 }}>
+                            {EVENT_LABELS[eventType]}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Recall {formatPercent(metric.recall)} / Precision{' '}
+                            {formatPercent(metric.precision)} / 評価 {metric.evaluatedMatches}
+                            試合 / 基準しきい値 {metric.confidenceThreshold.toFixed(2)}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                </Box>
+              )}
+
               <Stack spacing={1.25}>
                 <Typography variant="subtitle2">検出して追加するイベント</Typography>
                 {mappings.map((mapping) => (
@@ -169,7 +238,7 @@ export const EventDetectionDialogView = ({
                       display: 'grid',
                       gridTemplateColumns: {
                         xs: '1fr',
-                        sm: '180px minmax(180px, 1fr) 130px 130px',
+                        sm: '150px minmax(160px, 1fr) 115px 110px 110px',
                       },
                       gap: 1.25,
                       alignItems: 'center',
@@ -203,16 +272,26 @@ export const EventDetectionDialogView = ({
                     <TextField
                       size="small"
                       type="number"
+                      label="検出しきい値"
+                      value={mapping.minConfidence}
+                      disabled={running || !mapping.enabled}
+                      slotProps={{ htmlInput: { min: 0, max: 1, step: 0.01 } }}
+                      onChange={(event) =>
+                        onMappingChange(mapping.eventType, {
+                          minConfidence: Number.parseFloat(event.target.value),
+                        })
+                      }
+                    />
+                    <TextField
+                      size="small"
+                      type="number"
                       label="開始前（秒）"
                       value={mapping.leadTimeSeconds}
                       disabled={running || !mapping.enabled}
                       slotProps={{ htmlInput: { min: 0, max: 600, step: 1 } }}
                       onChange={(event) =>
                         onMappingChange(mapping.eventType, {
-                          leadTimeSeconds: Math.max(
-                            0,
-                            Math.min(600, Number(event.target.value) || 0),
-                          ),
+                          leadTimeSeconds: Number(event.target.value),
                         })
                       }
                     />
@@ -225,10 +304,7 @@ export const EventDetectionDialogView = ({
                       slotProps={{ htmlInput: { min: 0, max: 600, step: 1 } }}
                       onChange={(event) =>
                         onMappingChange(mapping.eventType, {
-                          lagTimeSeconds: Math.max(
-                            0,
-                            Math.min(600, Number(event.target.value) || 0),
-                          ),
+                          lagTimeSeconds: Number(event.target.value),
                         })
                       }
                     />
@@ -237,8 +313,7 @@ export const EventDetectionDialogView = ({
                       color="text.secondary"
                       sx={{ gridColumn: { xs: '1', sm: '2 / -1' } }}
                     >
-                      検出confidenceは検証時の閾値 {Math.round(mapping.minConfidence * 100)}%
-                      未満には下げません。
+                      検出しきい値は0.00〜1.00。低いほど見逃しが減る代わりに誤検出が増えます。
                     </Typography>
                   </Box>
                 ))}
@@ -269,6 +344,9 @@ export const EventDetectionDialogView = ({
                 : ''}
               {summary.lowConfidence > 0
                 ? ` 閾値未満 ${summary.lowConfidence}件は除外しました。`
+                : ''}
+              {summary.modelStatus === 'experimental'
+                ? ' 試験モデルによる候補です。タイムラインを確認してください。'
                 : ''}
             </Alert>
           )}

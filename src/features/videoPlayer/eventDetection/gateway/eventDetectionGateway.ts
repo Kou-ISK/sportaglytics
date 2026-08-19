@@ -4,6 +4,7 @@ import type {
   EventDetectionRequest,
   EventDetectionResult,
 } from '../../../../types/eventDetection/core';
+import { isEventDetectionModelInfoList } from '../../../../types/ipc/eventDetection';
 
 const getApi = () => window.electronAPI?.eventDetection;
 
@@ -11,7 +12,12 @@ export const listEventDetectionModels = async (): Promise<
   EventDetectionModelInfo[]
 > => {
   const api = getApi();
-  return api ? api.listModels() : [];
+  if (!api) return [];
+  const models: unknown = await api.listModels();
+  if (!isEventDetectionModelInfoList(models)) {
+    throw new Error('自動イベント検出モデル情報が不正です。');
+  }
+  return models;
 };
 
 export const runEventDetection = async (
