@@ -4,6 +4,8 @@ import type {
   TimelineRowSortSpec,
 } from '../../../types/timeline/core';
 
+export type { TimelineRowSortSpec } from '../../../types/timeline/core';
+
 const compareText = (left: string, right: string): number =>
   left.localeCompare(right, undefined, {
     numeric: true,
