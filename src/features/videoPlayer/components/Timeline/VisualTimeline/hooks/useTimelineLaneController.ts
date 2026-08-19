@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TimelineData } from '../../../../../../types/timeline/core';
+import { MIN_TIMELINE_INSTANCE_DURATION_SECONDS } from '../domain/timelineCoordinateMapper';
 import type {
   TimelineLaneProps,
   TimelineLaneViewProps,
 } from '../TimelineLane.types';
 
 const parseTimelineDragIds = (rawIds: string): string[] => {
-  if (!rawIds) {
-    return [];
-  }
+  if (!rawIds) return [];
 
   try {
     const parsed = JSON.parse(rawIds) as unknown;
@@ -43,6 +42,7 @@ export const useTimelineLaneController = ({
   onRowDrop,
   timeToPosition,
   positionToTime,
+  clientXToContentX,
   currentTimePosition,
   formatTime,
   firstTeamName,
@@ -53,6 +53,7 @@ export const useTimelineLaneController = ({
   zoomScale,
 }: TimelineLaneProps): TimelineLaneViewProps => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const activeEdgeDragCleanupRef = useRef<(() => void) | null>(null);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
   const [isEditModifierPressed, setIsEditModifierPressed] = useState(false);
   const [draftRange, setDraftRange] = useState<{
@@ -68,17 +69,22 @@ export const useTimelineLaneController = ({
     const handleKeyDown = (event: KeyboardEvent): void => {
       setIsEditModifierPressed(event.altKey && event.metaKey);
     };
-
     const handleKeyUp = (event: KeyboardEvent): void => {
-      setIsEditModifierPressed(event.altKey && event.metaKey);
+      const modifierStillPressed = event.altKey && event.metaKey;
+      setIsEditModifierPressed(modifierStillPressed);
+      if (!modifierStillPressed) activeEdgeDragCleanupRef.current?.();
     };
-    const handleBlur = (): void => setIsEditModifierPressed(false);
+    const handleBlur = (): void => {
+      setIsEditModifierPressed(false);
+      activeEdgeDragCleanupRef.current?.();
+    };
 
     globalThis.addEventListener('keydown', handleKeyDown);
     globalThis.addEventListener('keyup', handleKeyUp);
     globalThis.addEventListener('blur', handleBlur);
 
     return () => {
+      activeEdgeDragCleanupRef.current?.();
       globalThis.removeEventListener('keydown', handleKeyDown);
       globalThis.removeEventListener('keyup', handleKeyUp);
       globalThis.removeEventListener('blur', handleBlur);
@@ -95,43 +101,61 @@ export const useTimelineLaneController = ({
       item: TimelineData,
       edge: 'start' | 'end',
     ): void => {
-      if (!event.altKey || !event.metaKey) {
+      if (
+        !event.altKey ||
+        !event.metaKey ||
+        !selectedIds.includes(item.id) ||
+        !onUpdateTimeRange
+      ) {
         return;
       }
 
       event.stopPropagation();
       event.preventDefault();
+      activeEdgeDragCleanupRef.current?.();
 
       const handleMouseMove = (mouseEvent: MouseEvent): void => {
-        if (!containerRef.current || !onUpdateTimeRange) {
-          return;
-        }
-
-        const rect = containerRef.current.getBoundingClientRect();
-        const mouseX = mouseEvent.clientX - rect.left;
-        const newTime = Math.max(0, Math.min(positionToTime(mouseX), maxSec));
+        const newTime = positionToTime(clientXToContentX(mouseEvent.clientX));
 
         if (edge === 'start') {
-          const adjustedStart = Math.min(newTime, item.endTime - 0.1);
-          onUpdateTimeRange(item.id, adjustedStart, item.endTime);
-          onSeek(adjustedStart);
+          const adjustedStart = Math.min(
+            newTime,
+            item.endTime - MIN_TIMELINE_INSTANCE_DURATION_SECONDS,
+          );
+          onUpdateTimeRange(item.id, Math.max(0, adjustedStart), item.endTime);
+          onSeek(Math.max(0, adjustedStart));
           return;
         }
 
-        const adjustedEnd = Math.max(newTime, item.startTime + 0.1);
-        onUpdateTimeRange(item.id, item.startTime, adjustedEnd);
-        onSeek(adjustedEnd);
+        const adjustedEnd = Math.max(
+          newTime,
+          item.startTime + MIN_TIMELINE_INSTANCE_DURATION_SECONDS,
+        );
+        const clampedEnd = Math.min(maxSec, adjustedEnd);
+        onUpdateTimeRange(item.id, item.startTime, clampedEnd);
+        onSeek(clampedEnd);
       };
 
-      const handleMouseUp = (): void => {
+      const cleanup = (): void => {
         document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('mouseup', cleanup);
+        if (activeEdgeDragCleanupRef.current === cleanup) {
+          activeEdgeDragCleanupRef.current = null;
+        }
       };
 
+      activeEdgeDragCleanupRef.current = cleanup;
       document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mouseup', cleanup);
     },
-    [maxSec, onSeek, onUpdateTimeRange, positionToTime],
+    [
+      clientXToContentX,
+      maxSec,
+      onSeek,
+      onUpdateTimeRange,
+      positionToTime,
+      selectedIds,
+    ],
   );
 
   const handlePlayheadMouseDown = useCallback(
@@ -139,10 +163,7 @@ export const useTimelineLaneController = ({
       event.stopPropagation();
       setIsDraggingPlayhead(true);
       const isCreating = event.altKey && event.metaKey && Boolean(onCreateItem);
-      const anchorTime =
-        currentTimePosition > 0
-          ? Math.max(0, Math.min(positionToTime(currentTimePosition), maxSec))
-          : 0;
+      const anchorTime = positionToTime(currentTimePosition);
       if (isCreating) {
         setDraftRange({ startTime: anchorTime, endTime: anchorTime });
       }
@@ -150,16 +171,7 @@ export const useTimelineLaneController = ({
       let lastTime = anchorTime;
 
       const handleMouseMove = (mouseEvent: MouseEvent): void => {
-        if (!containerRef.current) {
-          return;
-        }
-
-        const rect = containerRef.current.getBoundingClientRect();
-        const clickX = Math.max(
-          0,
-          Math.min(mouseEvent.clientX - rect.left, rect.width),
-        );
-        const time = (clickX / rect.width) * maxSec;
+        const time = positionToTime(clientXToContentX(mouseEvent.clientX));
         lastTime = time;
         onSeek(time);
         if (isCreating) {
@@ -172,7 +184,11 @@ export const useTimelineLaneController = ({
 
       const handleMouseUp = (): void => {
         setIsDraggingPlayhead(false);
-        if (isCreating && Math.abs(lastTime - anchorTime) >= 0.1) {
+        if (
+          isCreating &&
+          Math.abs(lastTime - anchorTime) >=
+            MIN_TIMELINE_INSTANCE_DURATION_SECONDS
+        ) {
           onCreateItem?.(
             actionName,
             Math.min(anchorTime, lastTime),
@@ -190,8 +206,8 @@ export const useTimelineLaneController = ({
     },
     [
       actionName,
+      clientXToContentX,
       currentTimePosition,
-      maxSec,
       onCreateItem,
       onSeek,
       positionToTime,
@@ -201,10 +217,7 @@ export const useTimelineLaneController = ({
 
   const handleLaneDragOver = useCallback(
     (event: React.DragEvent<HTMLDivElement>): void => {
-      if (!onMoveItem) {
-        return;
-      }
-
+      if (!onMoveItem) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = event.altKey ? 'copy' : 'move';
     },
@@ -213,10 +226,7 @@ export const useTimelineLaneController = ({
 
   const handleLaneDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>): void => {
-      if (!onMoveItem) {
-        return;
-      }
-
+      if (!onMoveItem) return;
       event.preventDefault();
       const ids = parseTimelineDragIds(
         event.dataTransfer.getData('text/timeline-ids'),
