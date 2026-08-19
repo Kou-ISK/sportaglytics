@@ -3,6 +3,7 @@ import type { HotkeyConfig } from '../../../../types/settings/coreTypes';
 import type {
   TimelineData,
   TimelineRow,
+  TimelineRowSortSpec,
 } from '../../../../types/timeline/core';
 import type { TimelineWindowCommand } from '../../../../types/ipc/timelineWindow';
 import {
@@ -53,6 +54,7 @@ interface UseTimelineWindowIntegrationParams {
     updates: Pick<TimelineRow, 'name' | 'color'>,
   ) => void;
   onMoveRow: (sourceId: string, targetId: string) => void;
+  onSortRows: (spec: TimelineRowSortSpec) => void;
   onDeleteRows: (ids: string[]) => void;
   onPasteItems: (items: TimelineData[], targetRowId: string) => string[];
   onUndo: () => void;
@@ -223,6 +225,9 @@ export const useTimelineWindowIntegration = (
             break;
           case 'move-row':
             current.onMoveRow(command.sourceId, command.targetId);
+            break;
+          case 'sort-rows':
+            current.onSortRows(command.spec);
             break;
           case 'delete-rows':
             current.onDeleteRows(command.ids);
