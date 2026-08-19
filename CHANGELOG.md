@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-19
+
+### Added
+
+- Timeline row を Sportscode の公開仕様にある色・名前・インスタンス数で並べ替え、並び順を project state として保存できる機能を追加
+- Code Window editor で複数選択した button と内部 link をまとめてコピー＆ペーストし、相対配置・link関係を維持したまま新規IDへ複製できる機能を追加
+- 検証済みモデルとは品質レーンを分離した experimental event-detection model を本番アプリで「試験」表示付きで利用でき、run単位で confidence threshold を調整できる仕組みを追加
+- `.stpkg` 導入前の legacy project folder を元データ非破壊で sibling `.stpkg` へ自動移行し、同一sourceの再移行を防ぐ provenance / conflict-safe migration を追加
+
+### Changed
+
+- Timeline の time ↔ pixel 変換を共通 coordinate mapper へ集約し、instance の可視幅を実durationとzoomに完全比例させ、短いinstanceの操作領域だけを描画幅と分離して確保する構成へ変更
+- active Code Window の Action button color を通常coding workflowにおける Timeline row / instance のpresentation color正本とし、色変更を既存Timelineへ同期
+- Code Window 上部 toolbar をcompact化し、canvasの可視領域を拡大
+- ローカル音声同期を固定 ±30秒・先頭20秒中心の探索から、低レートenergy featureによる広域Top-K探索、複数energy window検証、局所raw PCM refine、複合confidenceへ変更し、数十秒〜数分の開始差と先頭無音への耐性を改善
+- Release workflow で macOS Electron E2E をDMG packagingより前の必須ゲートとし、失敗時はGitHub ReleaseとHomebrew Tap更新を行わないように変更
+
+### Fixed
+
+- Timeline で選択中の単一・複数instanceを `Delete` / `Backspace` で削除できない問題を修正し、text input / dialog等の編集面では誤削除しないようガード
+- Timeline のrange selection矩形と実際のhit-testがzoom / horizontal・vertical scroll時にずれる問題を修正
+- 選択済みinstanceの `Command + Option` edge drag による開始・終了時刻変更を共通座標系へ統一し、modifier release / blur / mouseup時にdrag stateが残る問題を修正
+- 低confidenceまたは非有限値の自動音声同期結果が、正しい手動・保存済み同期offsetを上書きし得る問題を修正
+
+### Privacy
+
+- experimental event-detection model も verified model と同じpath containment、SHA-256、IPC validation、process timeout/cancel境界を通し、学習データ・checkpoint等の研究artifactを公開repositoryへ含めない配布境界を維持
+
+### Documentation
+
+- experimental event detection、Timeline操作、legacy `.stpkg` migration、広域audio sync / confidence guard、release E2E gate の設計判断と運用をADR・仕様書・release runbookへ反映
+
 ## [0.9.0] - 2026-08-18
 
 ### Added
