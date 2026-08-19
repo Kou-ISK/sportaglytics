@@ -5,6 +5,7 @@ import { access, readFile, readdir } from 'fs/promises';
 import * as path from 'path';
 import type {
   EventDetectionMetric,
+  EventDetectionModelStatus,
   RugbyEventType,
 } from '../../../src/types/eventDetection/core';
 import { getVerifiedEventTypes } from '../../../src/shared/eventDetection/modelQualityGate';
@@ -13,29 +14,41 @@ import { isPlainObject } from '../../../src/types/ipc/shared';
 import type {
   EventDetectionModelManifest,
   EventDetectionRunnerManifest,
-  VerifiedEventDetectionModel,
+  RunnableEventDetectionModel,
 } from './types';
 
 const MANIFEST_FILENAME = 'manifest.json';
 
 const getPlatformRunnerKey = (): string => `${process.platform}-${process.arch}`;
 
+const isEventDetectionModelStatus = (
+  value: unknown,
+): value is EventDetectionModelStatus =>
+  value === 'verified' || value === 'experimental';
+
 const isMetric = (value: unknown): value is EventDetectionMetric => {
   if (!isPlainObject(value)) return false;
   return (
     typeof value.precision === 'number' &&
     Number.isFinite(value.precision) &&
+    value.precision >= 0 &&
+    value.precision <= 1 &&
     typeof value.recall === 'number' &&
     Number.isFinite(value.recall) &&
+    value.recall >= 0 &&
+    value.recall <= 1 &&
     typeof value.evaluatedMatches === 'number' &&
     Number.isInteger(value.evaluatedMatches) &&
+    value.evaluatedMatches >= 0 &&
     typeof value.confidenceThreshold === 'number' &&
     Number.isFinite(value.confidenceThreshold) &&
     value.confidenceThreshold >= 0 &&
     value.confidenceThreshold <= 1 &&
     (value.timestampWithinTwoSecondsRate === undefined ||
       (typeof value.timestampWithinTwoSecondsRate === 'number' &&
-        Number.isFinite(value.timestampWithinTwoSecondsRate)))
+        Number.isFinite(value.timestampWithinTwoSecondsRate) &&
+        value.timestampWithinTwoSecondsRate >= 0 &&
+        value.timestampWithinTwoSecondsRate <= 1))
   );
 };
 
@@ -73,8 +86,9 @@ const parseManifest = (value: unknown): EventDetectionModelManifest | null => {
     !value.version.trim() ||
     typeof value.displayName !== 'string' ||
     !value.displayName.trim() ||
-    (value.status !== 'verified' && value.status !== 'experimental') ||
+    !isEventDetectionModelStatus(value.status) ||
     !Array.isArray(value.events) ||
+    value.events.length === 0 ||
     !value.events.every(isRugbyEventType) ||
     !isPlainObject(value.runners)
   ) {
@@ -142,17 +156,28 @@ const discoverModelDirectories = async (): Promise<string[]> => {
   return directories;
 };
 
-const loadVerifiedModel = async (
+const resolveRunnableEvents = (
+  manifest: EventDetectionModelManifest,
+): RugbyEventType[] | null => {
+  if (manifest.status === 'experimental') {
+    const allEventsHaveMetrics = manifest.events.every(
+      (eventType) => manifest.metrics[eventType] !== undefined,
+    );
+    return allEventsHaveMetrics ? [...manifest.events] : null;
+  }
+
+  const verifiedEvents = getVerifiedEventTypes(manifest.events, manifest.metrics);
+  return verifiedEvents.length > 0 ? verifiedEvents : null;
+};
+
+const loadEventDetectionModel = async (
   modelDirectory: string,
-): Promise<VerifiedEventDetectionModel | null> => {
+): Promise<RunnableEventDetectionModel | null> => {
   try {
     const raw = await readFile(path.join(modelDirectory, MANIFEST_FILENAME), 'utf-8');
     const parsed: unknown = JSON.parse(raw);
     const manifest = parseManifest(parsed);
-    if (!manifest || manifest.status !== 'verified') return null;
-
-    const verifiedEvents = getVerifiedEventTypes(manifest.events, manifest.metrics);
-    if (verifiedEvents.length === 0) return null;
+    if (!manifest) return null;
 
     const runner = manifest.runners[getPlatformRunnerKey()];
     if (!runner) return null;
@@ -163,8 +188,11 @@ const loadVerifiedModel = async (
     const actualHash = await hashFile(runnerPath);
     if (actualHash.toLowerCase() !== runner.sha256.toLowerCase()) return null;
 
+    const runnableEvents = resolveRunnableEvents(manifest);
+    if (!runnableEvents) return null;
+
     const metrics: Partial<Record<RugbyEventType, EventDetectionMetric>> = {};
-    verifiedEvents.forEach((eventType) => {
+    runnableEvents.forEach((eventType) => {
       const metric = manifest.metrics[eventType];
       if (metric) metrics[eventType] = metric;
     });
@@ -174,8 +202,8 @@ const loadVerifiedModel = async (
         id: manifest.id,
         version: manifest.version,
         displayName: manifest.displayName,
-        events: verifiedEvents,
-        status: 'verified',
+        events: runnableEvents,
+        status: manifest.status,
         metrics,
       },
       modelDirectory,
@@ -187,21 +215,21 @@ const loadVerifiedModel = async (
   }
 };
 
-export const listVerifiedEventDetectionModels = async (): Promise<
-  VerifiedEventDetectionModel[]
+export const listEventDetectionModels = async (): Promise<
+  RunnableEventDetectionModel[]
 > => {
   const directories = await discoverModelDirectories();
-  const models = await Promise.all(directories.map(loadVerifiedModel));
+  const models = await Promise.all(directories.map(loadEventDetectionModel));
   return models
-    .filter((model): model is VerifiedEventDetectionModel => model !== null)
+    .filter((model): model is RunnableEventDetectionModel => model !== null)
     .sort((left, right) => left.info.displayName.localeCompare(right.info.displayName));
 };
 
-export const findVerifiedEventDetectionModel = async (
+export const findEventDetectionModel = async (
   modelId: string,
   modelVersion: string,
-): Promise<VerifiedEventDetectionModel | null> => {
-  const models = await listVerifiedEventDetectionModels();
+): Promise<RunnableEventDetectionModel | null> => {
+  const models = await listEventDetectionModels();
   return (
     models.find(
       (model) =>
