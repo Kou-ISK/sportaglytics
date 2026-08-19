@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { TimelineData, TimelineRow } from '../../../types/timeline/core';
-import { sortTimelineRows } from './timelineRowSort';
+import { moveTimelineRowInList } from './timelineRows';
+import {
+  buildTimelineRowSortMoves,
+  sortTimelineRows,
+} from './timelineRowSort';
 
 const rows: TimelineRow[] = [
   { id: 'row-b', name: 'Breakdown 2', color: '#222222' },
@@ -54,5 +58,17 @@ describe('sortTimelineRows', () => {
     const original = rows.map((row) => row.id);
     sortTimelineRows(rows, timeline, { criterion: 'name', direction: 'asc' });
     expect(rows.map((row) => row.id)).toEqual(original);
+  });
+
+  it('builds move operations that reproduce the desired persisted order', () => {
+    const spec = { criterion: 'name', direction: 'asc' } as const;
+    const moves = buildTimelineRowSortMoves(rows, timeline, spec);
+    const reordered = moves.reduce(
+      (current, move) =>
+        moveTimelineRowInList(current, move.sourceId, move.targetId),
+      rows,
+    );
+
+    expect(reordered).toEqual(sortTimelineRows(rows, timeline, spec));
   });
 });
