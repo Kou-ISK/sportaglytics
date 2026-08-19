@@ -1,7 +1,10 @@
 import React from 'react';
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { TimelineData } from '../../../../../types/timeline/core';
+import type { TimelineData } from '../../../../../types/timeline/core';
+
+const MIN_INSTANCE_HIT_WIDTH_PX = 10;
+const EDGE_HIT_WIDTH_PX = 8;
 
 interface TimelineLaneItemProps {
   item: TimelineData;
@@ -24,9 +27,6 @@ interface TimelineLaneItemProps {
   ) => void;
   timeToPosition: (time: number) => number;
   formatTime: (seconds: number) => string;
-  maxSec: number;
-  contentWidth?: number;
-  zoomScale: number;
   isTeam1: boolean;
   rowColor: string;
   isEditModifierPressed: boolean;
@@ -45,30 +45,21 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
   onEdgeMouseDown,
   timeToPosition,
   formatTime,
-  maxSec,
-  contentWidth,
-  zoomScale,
   isTeam1,
   rowColor,
   isEditModifierPressed,
 }) => {
   const theme = useTheme();
-  const totalWidth =
-    contentWidth !== undefined
-      ? contentWidth * zoomScale
-      : Math.max(timeToPosition(maxSec), 0);
-  const left = Math.max(
-    0,
-    Math.min(timeToPosition(item.startTime), totalWidth),
-  );
-  const right = Math.max(0, Math.min(timeToPosition(item.endTime), totalWidth));
-  const width = Math.max(4, right - left);
+  const left = timeToPosition(item.startTime);
+  const right = timeToPosition(item.endTime);
+  const width = Math.max(0, right - left);
+  const hitWidth = Math.max(width, MIN_INSTANCE_HIT_WIDTH_PX);
+  const hitOffset = (width - hitWidth) / 2;
   const isSelected = selectedIds.includes(item.id);
   const isHovered = hoveredItemId === item.id;
   const isFocused = focusedItemId === item.id;
 
-  // バー背景色の決定（item.colorがあればそれを使用、なければチーム色）
-  const barBgColor = rowColor;
+  const barBgColor = item.color ?? rowColor;
   void isTeam1;
 
   let barOpacity = 0.7;
@@ -97,18 +88,14 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           <Typography variant="caption">
             {formatTime(item.startTime)} - {formatTime(item.endTime)}
           </Typography>
-          {item.labels && item.labels.length > 0 && (
-            <>
-              {item.labels.map((label) => (
-                <Typography
-                  key={`${label.group}-${label.name}`}
-                  variant="caption"
-                >
-                  {label.group}: {label.name}
-                </Typography>
-              ))}
-            </>
-          )}
+          {item.labels?.map((label) => (
+            <Typography
+              key={`${label.group}-${label.name}`}
+              variant="caption"
+            >
+              {label.group}: {label.name}
+            </Typography>
+          ))}
           {item.memo && (
             <Typography variant="caption">備考: {item.memo}</Typography>
           )}
@@ -125,9 +112,7 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
         draggable={Boolean(onMoveItem) && !isEditModifierPressed}
         onDragStart={(event) => {
           if (!onMoveItem) return;
-          const dragIds = selectedIds.includes(item.id)
-            ? selectedIds
-            : [item.id];
+          const dragIds = selectedIds.includes(item.id) ? selectedIds : [item.id];
           event.dataTransfer.setData(
             'text/timeline-ids',
             JSON.stringify(dragIds),
@@ -135,16 +120,18 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           event.dataTransfer.effectAllowed = 'copyMove';
         }}
         onDragOver={(event) => {
-          if (onMoveItem) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = event.altKey ? 'copy' : 'move';
-          }
+          if (!onMoveItem) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = event.altKey ? 'copy' : 'move';
         }}
         onDrop={(event) => {
           if (!onMoveItem) return;
           event.preventDefault();
           const data = event.dataTransfer.getData('text/timeline-ids');
-          const ids: string[] = data ? JSON.parse(data) : [];
+          const parsed: unknown = data ? JSON.parse(data) : [];
+          const ids = Array.isArray(parsed)
+            ? parsed.filter((value): value is string => typeof value === 'string')
+            : [];
           if (ids.length > 0) {
             onMoveItem(ids, actionName, event.altKey ? 'copy' : 'move');
           }
@@ -157,6 +144,8 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           width: `${width}px`,
           top: 1,
           bottom: 1,
+          boxSizing: 'border-box',
+          overflow: 'visible',
           backgroundColor: barBgColor,
           opacity: barOpacity,
           filter: isSelected ? 'brightness(0.86)' : 'none',
@@ -165,7 +154,7 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          px: 0.5,
+          px: width >= 8 ? 0.5 : 0,
           border: isSelected || isFocused ? 3 : 1,
           borderColor,
           boxShadow: isSelected
@@ -176,23 +165,35 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
             : 'none',
           outlineOffset: 2,
           zIndex: 2,
-          transition: 'all 0.2s',
+          transition: 'opacity 0.2s, filter 0.2s, transform 0.2s',
           '&:hover': {
             transform: 'scaleY(1.1)',
             zIndex: 5,
           },
         }}
       >
-        {/* 左エッジ（開始時刻調整） */}
+        <Box
+          aria-hidden="true"
+          sx={{
+            position: 'absolute',
+            left: hitOffset,
+            width: hitWidth,
+            top: 0,
+            bottom: 0,
+            backgroundColor: 'transparent',
+            zIndex: 1,
+          }}
+        />
+
         <Box
           onMouseDown={(event) => onEdgeMouseDown(event, item, 'start')}
           aria-label="開始位置を調整"
           sx={{
             position: 'absolute',
-            left: 0,
+            left: -EDGE_HIT_WIDTH_PX / 2,
             top: 0,
             bottom: 0,
-            width: 8,
+            width: EDGE_HIT_WIDTH_PX,
             cursor: isEditModifierPressed ? 'ew-resize' : 'pointer',
             zIndex: 15,
             '&:hover': {
@@ -203,32 +204,34 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           }}
         />
 
-        {/* 中央テキスト: ラベル優先で表示、なければ時間 */}
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'white',
-            fontSize: '0.65rem',
-            fontWeight: 'bold',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {labelText ||
-            `${formatTime(item.startTime)} - ${formatTime(item.endTime)}`}
-        </Typography>
+        {width >= 16 && (
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'white',
+              fontSize: '0.65rem',
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              pointerEvents: 'none',
+              zIndex: 2,
+            }}
+          >
+            {labelText ||
+              `${formatTime(item.startTime)} - ${formatTime(item.endTime)}`}
+          </Typography>
+        )}
 
-        {/* 右エッジ（終了時刻調整） */}
         <Box
           onMouseDown={(event) => onEdgeMouseDown(event, item, 'end')}
           aria-label="終了位置を調整"
           sx={{
             position: 'absolute',
-            right: 0,
+            right: -EDGE_HIT_WIDTH_PX / 2,
             top: 0,
             bottom: 0,
-            width: 8,
+            width: EDGE_HIT_WIDTH_PX,
             cursor: isEditModifierPressed ? 'ew-resize' : 'pointer',
             zIndex: 15,
             '&:hover': {
