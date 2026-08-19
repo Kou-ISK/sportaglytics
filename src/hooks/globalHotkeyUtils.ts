@@ -13,13 +13,9 @@ type HotkeyKeyboardEvent = Pick<
   'altKey' | 'code' | 'ctrlKey' | 'key' | 'metaKey' | 'shiftKey'
 >;
 
-const getNormalizedPart = (part: string): string => {
-  return part.trim().toLowerCase();
-};
-
-const normalizeEventKey = (key: string): string => {
-  return key === ' ' ? ' ' : key.toLowerCase();
-};
+const getNormalizedPart = (part: string): string => part.trim().toLowerCase();
+const normalizeEventKey = (key: string): string =>
+  key === ' ' ? ' ' : key.toLowerCase();
 
 export const parseElectronKey = (electronKey: string): KeyboardModifiers => {
   const modifiers: KeyboardModifiers = {
@@ -42,37 +38,30 @@ export const parseElectronKey = (electronKey: string): KeyboardModifiers => {
       modifiers.metaKey = true;
       continue;
     }
-
     if (normalized === 'control' || normalized === 'ctrl') {
       modifiers.ctrlKey = true;
       continue;
     }
-
     if (normalized === 'shift') {
       modifiers.shiftKey = true;
       continue;
     }
-
     if (normalized === 'alt' || normalized === 'option') {
       modifiers.altKey = true;
       continue;
     }
-
     if (normalized === 'right') {
       modifiers.key = 'arrowright';
       continue;
     }
-
     if (normalized === 'left') {
       modifiers.key = 'arrowleft';
       continue;
     }
-
     if (normalized === 'up') {
       modifiers.key = 'arrowup';
       continue;
     }
-
     if (normalized === 'down') {
       modifiers.key = 'arrowdown';
       continue;
@@ -95,69 +84,58 @@ export const matchesHotkeyEvent = (
     event.metaKey === modifiers.metaKey;
 
   let keyMatch = normalizeEventKey(event.key) === modifiers.key;
-
   if (!keyMatch && modifiers.shiftKey && /^\d$/.test(modifiers.key)) {
     keyMatch = event.code === `Digit${modifiers.key}`;
   }
-
   return modifiersMatch && keyMatch;
 };
 
-export const countHotkeyModifiers = (key: string): number => {
-  return key.split('+').length - 1;
-};
+export const countHotkeyModifiers = (key: string): number =>
+  key.split('+').length - 1;
 
 export const sortHotkeysBySpecificity = (
   hotkeys: HotkeyConfig[],
-): HotkeyConfig[] => {
-  return [...hotkeys]
+): HotkeyConfig[] =>
+  [...hotkeys]
     .filter((hotkey) => !hotkey.disabled)
     .sort(
       (left, right) =>
         countHotkeyModifiers(right.key) - countHotkeyModifiers(left.key),
     );
-};
 
 export const shouldIgnoreHotkeyTarget = (
   target: EventTarget | null,
 ): boolean => {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
+  if (!(target instanceof HTMLElement)) return false;
 
-  return (
-    target.tagName === 'INPUT' ||
-    target.tagName === 'TEXTAREA' ||
-    target.isContentEditable ||
-    target.getAttribute('contenteditable') === 'true'
+  const editableAncestor = target.closest(
+    'input, textarea, select, [contenteditable="true"], [role="textbox"]',
   );
+  return Boolean(editableAncestor) || Boolean(target.isContentEditable);
 };
 
 export const findMatchingHotkey = (
   event: HotkeyKeyboardEvent,
   hotkeys: HotkeyConfig[],
-): HotkeyConfig | undefined => {
-  return hotkeys.find((hotkey) =>
+): HotkeyConfig | undefined =>
+  hotkeys.find((hotkey) =>
     matchesHotkeyEvent(event, parseElectronKey(hotkey.key)),
   );
-};
 
 export const findFallbackKeyUpHotkey = (
   event: Pick<KeyboardEvent, 'key'>,
   hotkeys: HotkeyConfig[],
 ): HotkeyConfig | undefined => {
   const plainKey = normalizeEventKey(event.key);
-
-  return hotkeys.find((hotkey) => {
-    return parseElectronKey(hotkey.key).key === plainKey;
-  });
+  return hotkeys.find(
+    (hotkey) => parseElectronKey(hotkey.key).key === plainKey,
+  );
 };
 
 export const shouldResetPlaybackHotkeyState = (
   event: Pick<KeyboardEvent, 'code' | 'key'>,
 ): boolean => {
   const plainKey = normalizeEventKey(event.key);
-
   return (
     plainKey === 'arrowright' ||
     plainKey === 'right' ||

@@ -29,6 +29,7 @@ import { TimelineLane } from './TimelineLane';
 import { TimelineSelectionOverlay } from './TimelineSelectionOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
 import { TimelineRowEditorDialog } from './TimelineRowEditorDialog';
+import { TIMELINE_ROW_HEADER_WIDTH_PX } from './domain/timelineCoordinateMapper';
 
 export interface VisualTimelineViewProps {
   zoomScale: number;
@@ -40,6 +41,7 @@ export interface VisualTimelineViewProps {
   timeMarkers: number[];
   timeToPosition: (time: number) => number;
   positionToTime: (positionPx: number) => number;
+  clientXToContentX: (clientX: number) => number;
   onSeek: (time: number) => void;
   formatTime: (seconds: number) => string;
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -51,7 +53,7 @@ export interface VisualTimelineViewProps {
   focusedItemId: string | null;
   setHoveredItemId: (id: string | null) => void;
   handleItemClick: React.ComponentProps<typeof TimelineLane>['onItemClick'];
-  handleItemContextMenu: (e: React.MouseEvent, id: string) => void;
+  handleItemContextMenu: (event: React.MouseEvent, id: string) => void;
   firstTeamName?: string;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
   handleMoveItems: (
@@ -93,10 +95,10 @@ export interface VisualTimelineViewProps {
   onCancelDeleteRows: () => void;
   onConfirmDeleteRows: () => void;
   laneRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
-  onMouseDown: (e: React.MouseEvent) => void;
-  onMouseMove: (e: React.MouseEvent) => void;
-  onMouseUp: (e: React.MouseEvent) => void;
-  onBackgroundClick: (e: React.MouseEvent) => void;
+  onMouseDown: (event: React.MouseEvent) => void;
+  onMouseMove: (event: React.MouseEvent) => void;
+  onMouseUp: (event: React.MouseEvent) => void;
+  onBackgroundClick: (event: React.MouseEvent) => void;
   isSelecting: boolean;
   selectionBox:
     | React.ComponentProps<typeof TimelineSelectionOverlay>['selectionBox']
@@ -114,6 +116,7 @@ export const VisualTimelineView = ({
   timeMarkers,
   timeToPosition,
   positionToTime,
+  clientXToContentX,
   onSeek,
   formatTime,
   scrollContainerRef,
@@ -233,13 +236,14 @@ export const VisualTimelineView = ({
         >
           <Box
             sx={{
+              position: 'relative',
               width:
                 containerWidth > 0
-                  ? `${120 + containerWidth * zoomScale}px`
+                  ? `${TIMELINE_ROW_HEADER_WIDTH_PX + containerWidth * zoomScale}px`
                   : '100%',
               minWidth:
                 containerWidth > 0
-                  ? `${120 + containerWidth * zoomScale}px`
+                  ? `${TIMELINE_ROW_HEADER_WIDTH_PX + containerWidth * zoomScale}px`
                   : '100%',
               flexShrink: 0,
             }}
@@ -261,6 +265,7 @@ export const VisualTimelineView = ({
                 onItemContextMenu={handleItemContextMenu}
                 timeToPosition={timeToPosition}
                 positionToTime={positionToTime}
+                clientXToContentX={clientXToContentX}
                 currentTimePosition={currentTimePosition}
                 formatTime={formatTime}
                 firstTeamName={firstTeamName}
@@ -275,8 +280,8 @@ export const VisualTimelineView = ({
                 onRowDragStart={onRowDragStart}
                 onRowDragOver={onRowDragOver}
                 onRowDrop={onRowDrop}
-                laneRef={(el) => {
-                  laneRefs.current[row.name] = el;
+                laneRef={(element) => {
+                  laneRefs.current[row.name] = element;
                 }}
                 contentWidth={containerWidth}
                 zoomScale={zoomScale}
@@ -292,7 +297,7 @@ export const VisualTimelineView = ({
                 sx={{
                   position: 'sticky',
                   left: 0,
-                  width: 120,
+                  width: TIMELINE_ROW_HEADER_WIDTH_PX,
                   display: 'flex',
                   justifyContent: 'flex-end',
                   pt: 0.5,
@@ -312,11 +317,11 @@ export const VisualTimelineView = ({
                 </Tooltip>
               </Box>
             )}
-          </Box>
 
-          {isSelecting && selectionBox && (
-            <TimelineSelectionOverlay selectionBox={selectionBox} />
-          )}
+            {isSelecting && selectionBox && (
+              <TimelineSelectionOverlay selectionBox={selectionBox} />
+            )}
+          </Box>
         </Box>
       </Box>
 
