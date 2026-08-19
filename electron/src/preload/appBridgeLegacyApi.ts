@@ -1,5 +1,6 @@
 import type { IpcRenderer } from 'electron';
 import type { IElectronAPI, PackageDatas } from '../../../src/renderer';
+import type { PackageOpenPreparationResult } from '../../../src/types/package/migration';
 import { isStringArray } from '../../../src/types/ipc/shared';
 import { invokeWithFallback } from './appBridge.compat';
 
@@ -9,6 +10,7 @@ export type AppBridgeLegacyKeys =
   | 'openDirectory'
   | 'exportTimeline'
   | 'createPackage'
+  | 'preparePackageForOpen'
   | 'saveSyncData'
   | 'extractAudioWavForSync'
   | 'extractLocalAudioWindow'
@@ -105,6 +107,16 @@ export const createAppBridgeLegacyApi = (
         console.error('Error creating package:', error);
         throw error;
       }
+    },
+    preparePackageForOpen: async (
+      packagePath: string,
+      destinationPath?: string,
+    ): Promise<PackageOpenPreparationResult> => {
+      return ipcRenderer.invoke(
+        'package:prepare-open',
+        packagePath,
+        destinationPath,
+      );
     },
     saveSyncData: async (
       configPath: string,

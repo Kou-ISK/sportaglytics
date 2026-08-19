@@ -10,6 +10,9 @@ export interface AudioAnalysisResult {
   offsetSeconds: number;
   confidence: number;
   correlationPeak: number;
+  secondBestCorrelation?: number;
+  consistencyScore?: number;
+  usableWindowCount?: number;
 }
 
 export interface WaveformData {
