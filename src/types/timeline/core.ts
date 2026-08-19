@@ -19,6 +19,14 @@ export interface TimelineRow {
   color: string;
 }
 
+export type TimelineRowSortCriterion = 'color' | 'name' | 'instanceCount';
+export type TimelineRowSortDirection = 'asc' | 'desc';
+
+export interface TimelineRowSortSpec {
+  criterion: TimelineRowSortCriterion;
+  direction?: TimelineRowSortDirection;
+}
+
 export interface TimelineDocument {
   version: 2;
   rows: TimelineRow[];

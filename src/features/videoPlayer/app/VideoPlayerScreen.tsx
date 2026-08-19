@@ -26,6 +26,7 @@ import type { CodeWindowLayout } from '../../../types/settings/coreTypes';
 import type { SCLabel } from '../../../types/timeline/sportscode';
 import { subscribeCreateVideoPackageMenu } from './gateways/menuEventGateway';
 import { useTimelineWindowIntegration } from './hooks/useTimelineWindowIntegration';
+import { useTimelineActionPresentationSync } from './hooks/useTimelineActionPresentationSync';
 import { useContinuousReversePlayback } from '../../../hooks/useContinuousReversePlayback';
 import { getMinAllowedGlobalTime } from './hooks/useVideoTimeController';
 import { EventDetectionDialogView } from '../eventDetection/components/EventDetectionDialogView';
@@ -70,6 +71,7 @@ export const VideoPlayerScreen = () => {
     moveTimelineRow,
     deleteTimelineRows,
     pasteTimelineItemsToRow,
+    synchronizeTimelineActionColors,
     deleteTimelineDatas,
     updateMemo,
     updateTimelineRange,
@@ -116,6 +118,13 @@ export const VideoPlayerScreen = () => {
         (l) => l.id === settings.codingPanel?.activeCodeWindowId,
       )) ||
     settings.codingPanel?.codeWindows?.[0];
+
+  useTimelineActionPresentationSync({
+    activeCodeWindow,
+    timeline,
+    rows: timelineRows,
+    onSynchronize: synchronizeTimelineActionColors,
+  });
 
   const { viewProps: eventDetectionViewProps } = useEventDetectionController({
     mediaAngles,

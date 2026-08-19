@@ -4,7 +4,9 @@ import { VisualTimeline } from '../..';
 import type {
   TimelineData,
   TimelineRow,
+  TimelineRowSortSpec,
 } from '../../../../types/timeline/core';
+import { TimelineRowSortControl } from '../../components/Timeline/VisualTimeline/TimelineRowSortControl';
 
 interface TimelineActionSectionProps {
   timeline: TimelineData[];
@@ -42,6 +44,7 @@ interface TimelineActionSectionProps {
     updates: Pick<TimelineRow, 'name' | 'color'>,
   ) => void;
   moveTimelineRow: (sourceId: string, targetId: string) => void;
+  sortTimelineRows: (spec: TimelineRowSortSpec) => void;
   deleteTimelineRows: (ids: string[]) => void;
   pasteTimelineItemsToRow: (
     items: TimelineData[],
@@ -76,6 +79,7 @@ export const TimelineActionSection = ({
   addTimelineRow,
   updateTimelineRow,
   moveTimelineRow,
+  sortTimelineRows,
   deleteTimelineRows,
   pasteTimelineItemsToRow,
   videoList,
@@ -109,48 +113,64 @@ export const TimelineActionSection = ({
           minWidth: 0,
         }}
       >
-        <VisualTimeline
-          timeline={timeline}
-          rows={timelineRows}
-          maxSec={maxSec}
-          currentTime={currentTime}
-          onSeek={(time: number) => {
-            const event = new Event('visual-timeline-seek');
-            handleCurrentTime(event, time);
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            minHeight: 32,
+            px: 0.5,
+            borderBottom: 1,
+            borderColor: 'divider',
+            flexShrink: 0,
           }}
-          onDelete={deleteTimelineDatas}
-          selectedIds={selectedTimelineIdList}
-          onSelectionChange={(ids: string[]) => {
-            setSelectedTimelineIdList(ids);
-          }}
-          onUpdateMemo={updateMemo}
-          onUpdateTimeRange={updateTimelineRange}
-          onUpdateTimelineItem={updateTimelineItem}
-          bulkUpdateTimelineItems={bulkUpdateTimelineItems}
-          onDuplicateTimelineItem={duplicateTimelineItem}
-          onCreateTimelineItem={(actionName, startTime, endTime, color) =>
-            addTimelineData(
-              actionName,
-              startTime,
-              endTime,
-              '',
-              undefined,
-              undefined,
-              undefined,
-              color,
-            )
-          }
-          onAddRow={addTimelineRow}
-          onUpdateRow={updateTimelineRow}
-          onMoveRow={moveTimelineRow}
-          onDeleteRows={deleteTimelineRows}
-          onPasteTimelineItemsToRow={pasteTimelineItemsToRow}
-          teamNames={teamNames}
-          videoSources={videoList}
-          onUndo={performUndo}
-          onRedo={performRedo}
-          onAddToPlaylist={onAddToPlaylist}
-        />
+        >
+          <TimelineRowSortControl onSort={sortTimelineRows} />
+        </Box>
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          <VisualTimeline
+            timeline={timeline}
+            rows={timelineRows}
+            maxSec={maxSec}
+            currentTime={currentTime}
+            onSeek={(time: number) => {
+              const event = new Event('visual-timeline-seek');
+              handleCurrentTime(event, time);
+            }}
+            onDelete={deleteTimelineDatas}
+            selectedIds={selectedTimelineIdList}
+            onSelectionChange={(ids: string[]) => {
+              setSelectedTimelineIdList(ids);
+            }}
+            onUpdateMemo={updateMemo}
+            onUpdateTimeRange={updateTimelineRange}
+            onUpdateTimelineItem={updateTimelineItem}
+            bulkUpdateTimelineItems={bulkUpdateTimelineItems}
+            onDuplicateTimelineItem={duplicateTimelineItem}
+            onCreateTimelineItem={(actionName, startTime, endTime, color) =>
+              addTimelineData(
+                actionName,
+                startTime,
+                endTime,
+                '',
+                undefined,
+                undefined,
+                undefined,
+                color,
+              )
+            }
+            onAddRow={addTimelineRow}
+            onUpdateRow={updateTimelineRow}
+            onMoveRow={moveTimelineRow}
+            onDeleteRows={deleteTimelineRows}
+            onPasteTimelineItemsToRow={pasteTimelineItemsToRow}
+            teamNames={teamNames}
+            videoSources={videoList}
+            onUndo={performUndo}
+            onRedo={performRedo}
+            onAddToPlaylist={onAddToPlaylist}
+          />
+        </Box>
       </Paper>
     </Box>
   );
