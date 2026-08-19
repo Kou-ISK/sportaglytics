@@ -56,6 +56,7 @@ interface UseTimelineSessionControllerResult {
     items: TimelineData[],
     targetRowId: string,
   ) => string[];
+  synchronizeTimelineActionColors: (colors: ReadonlyMap<string, string>) => void;
   deleteTimelineDatas: (idList: string[]) => void;
   updateMemo: (id: string, memo: string) => void;
   updateTimelineRange: (id: string, startTime: number, endTime: number) => void;
@@ -214,6 +215,34 @@ export const useTimelineSessionController =
       [setTimeline, timelineRows],
     );
 
+    const synchronizeTimelineActionColors = useCallback(
+      (colors: ReadonlyMap<string, string>): void => {
+        if (colors.size === 0) return;
+
+        setTimelineRows((current) => {
+          let changed = false;
+          const next = current.map((row) => {
+            const color = colors.get(row.name);
+            if (!color || color === row.color) return row;
+            changed = true;
+            return { ...row, color };
+          });
+          return changed ? next : current;
+        });
+
+        const currentTimeline = timelineRef.current;
+        let timelineChanged = false;
+        const nextTimeline = currentTimeline.map((item) => {
+          const color = colors.get(item.actionName);
+          if (!color || color === item.color) return item;
+          timelineChanged = true;
+          return { ...item, color };
+        });
+        if (timelineChanged) setTimeline(nextTimeline);
+      },
+      [setTimeline, setTimelineRows],
+    );
+
     const addTimelineData = useCallback<
       UseTimelineSessionControllerResult['addTimelineData']
     >(
@@ -228,8 +257,9 @@ export const useTimelineSessionController =
           labels,
           color,
         ] = args;
-        const rowColor =
-          timelineRows.find((row) => row.name === actionName)?.color ?? color;
+        const rowColor = timelineRows.find(
+          (row) => row.name === actionName,
+        )?.color;
         editing.addTimelineData(
           actionName,
           startTime,
@@ -238,7 +268,7 @@ export const useTimelineSessionController =
           actionType,
           actionResult,
           labels,
-          rowColor,
+          color ?? rowColor,
         );
       },
       [editing, timelineRows],
@@ -252,7 +282,7 @@ export const useTimelineSessionController =
           )?.color;
           return {
             ...item,
-            color: rowColor ?? item.color,
+            color: item.color ?? rowColor,
           };
         });
         return editing.addTimelineDatas(resolvedItems);
@@ -280,6 +310,7 @@ export const useTimelineSessionController =
       moveTimelineRow,
       deleteTimelineRows,
       pasteTimelineItemsToRow,
+      synchronizeTimelineActionColors,
       performUndo,
       performRedo,
     };
