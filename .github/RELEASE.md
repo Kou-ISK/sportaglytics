@@ -18,6 +18,8 @@
 
 `<version>` は `package.json` の `version` を正とします。手動実行時も、入力 version と `package.json` の version を一致させてください。
 
+Release workflow は source quality gates と build/preload/media tool 検証後、macOS runner 上で `pnpm run test:e2e` を実行します。Electron E2E が1件でも失敗した場合は DMG packaging、GitHub Release 作成、Homebrew Tap 更新へ進みません。
+
 ## Required Secrets
 
 | Secret                        | Required for                         |
@@ -43,18 +45,23 @@ If `HOMEBREW_TAP_TOKEN` is missing, the Homebrew update step fails. If signing /
    pnpm exec tsc -p electron/tsconfig.json
    pnpm run lint
    pnpm run check:architecture
-   pnpm run test:run
+   pnpm run check:adr
+   pnpm run test:ci
    ```
 
-4. Run build/package checks when release files or Electron boundary changed:
+4. Run build / Electron / package checks when release files or Electron boundary changed:
 
    ```bash
    pnpm run build
    pnpm run build:electron-main
    pnpm run bundle:preload
    pnpm run check:preload
+   pnpm run media:build:all-mac
+   pnpm run test:e2e
    pnpm run electron:package:mac
    ```
+
+   `test:e2e` は verified media tools の build 後に macOS 上で実行し、成功するまで packaging / public release / Homebrew update を行いません。
 
 5. Confirm docs affected by the release are updated:
    - `README.md`
@@ -94,7 +101,7 @@ The workflow creates or replaces `v<version>` release assets based on `package.j
 2. Select `Release`.
 3. Click `Run workflow`.
 4. Enter a version matching `package.json`.
-5. Watch the macOS package, SHA256, release, and Homebrew update steps.
+5. Watch security audit, quality gates, build/preload/media-tool verification, Electron E2E, macOS package, SHA256, release, and Homebrew update steps.
 
 ## Post-Release Verification
 
@@ -118,6 +125,12 @@ The workflow creates or replaces `v<version>` release assets based on `package.j
 - Confirm tag name starts with `v`.
 - Confirm the tag was pushed to GitHub.
 - Confirm Actions are enabled for the repository.
+
+### Electron E2E failed
+
+- DMG / GitHub Release / Homebrew update は実行されません。
+- failing script (`e2e-clip-sync`, `e2e-code-window-menu`, `e2e-export-progress`, `e2e-timeline-rows`) とその前段の build/preload/media-tool log を確認します。
+- 修正は通常の work branch → `develop` PR で行い、release preparation をやり直します。
 
 ### Artifact names do not match
 
