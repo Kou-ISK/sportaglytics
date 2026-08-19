@@ -3,7 +3,10 @@ import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { signModelDirectory } from './sign-event-detection-runners-after-pack.mjs';
+import {
+  selectDeveloperIdApplicationIdentity,
+  signModelDirectory,
+} from './sign-event-detection-runners-after-pack.mjs';
 
 const roots = [];
 afterAll(async () => {
@@ -38,6 +41,34 @@ const makeModel = async (runnerPath = 'runner/test-runner') => {
   );
   return { modelDirectory, executable };
 };
+
+describe('selectDeveloperIdApplicationIdentity', () => {
+  const securityOutput = `
+  1) AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA "Apple Development: Example User (TEAMAAAAAA)"
+  2) BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB "Developer ID Application: Example User (TEAMBBBBBB)"
+     2 valid identities found
+`;
+
+  it('selects a Developer ID Application identity', () => {
+    expect(selectDeveloperIdApplicationIdentity(securityOutput)).toBe(
+      'Developer ID Application: Example User (TEAMBBBBBB)',
+    );
+  });
+
+  it('supports an explicit identity qualifier', () => {
+    const output = `${securityOutput}  3) CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC "Developer ID Application: Other User (TEAMCCCCCC)"\n`;
+    expect(selectDeveloperIdApplicationIdentity(output, 'TEAMCCCCCC')).toBe(
+      'Developer ID Application: Other User (TEAMCCCCCC)',
+    );
+  });
+
+  it('rejects ambiguous Developer ID Application identities', () => {
+    const output = `${securityOutput}  3) CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC "Developer ID Application: Other User (TEAMCCCCCC)"\n`;
+    expect(() => selectDeveloperIdApplicationIdentity(output)).toThrow(
+      'multiple Developer ID Application identities are available',
+    );
+  });
+});
 
 describe('signModelDirectory', () => {
   it('stores the SHA-256 of the runner after signing', async () => {
