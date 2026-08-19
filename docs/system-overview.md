@@ -134,7 +134,7 @@ AI Analysisはローカル `llama.cpp` を使い、Timeline / labels / memo / st
 
 ## 自動イベント検出
 
-自動イベント検出はLLM分析とは別のローカル映像処理です。SporTagLyticsは**完成したverified model packを利用するconsumer**であり、model training/evaluationは別private R&D repositoryの責務です。
+自動イベント検出はLLM分析とは別のローカル映像処理です。SporTagLyticsは**配布済みmodel packを安全に実行するconsumer**であり、model training/evaluationは別private R&D repositoryの責務です。
 
 目的は、通常Timelineを初期Codingして手動分析開始を早めることです。実作業では高Precisionな一部候補だけを出すのではなく、**実イベントをほぼすべて候補として出し、人間が不要候補を削除する**workflowを優先します。
 
@@ -142,12 +142,15 @@ AI Analysisはローカル `llama.cpp` を使い、Timeline / labels / memo / st
 
 `src/features/videoPlayer/eventDetection/`:
 
-- `components/EventDetectionDialogView.tsx`: props-only View
-- `hooks/useEventDetectionController.ts`: model/angle選択、実行、Timeline反映
-- `gateway/eventDetectionGateway.ts`: `window.electronAPI.eventDetection` のみ使用
+- `components/EventDetectionDialogView.tsx`: props-only View。model status、評価値、experimental warningを表示
+- `hooks/useEventDetectionController.ts`: model/angle選択、confidence設定、実行、Timeline反映
+- `gateway/eventDetectionGateway.ts`: `window.electronAPI.eventDetection` のみ使用し、model listをruntime guardで再検証
+- `domain/eventDetectionMappings.ts`: event mapping、manifest初期threshold、ユーザー入力の正規化
 - `domain/candidatesToTimeline.ts`: confidence filter、lead/lag、重複除外、Timeline変換
 
 UIは `分析 > 自動イベント検出…` から開きます。検出後のeventは通常 `TimelineData` になり、専用AI Timelineやreview queueは持ちません。
+
+model statusは `verified | experimental` の2状態です。experimentalを選ぶと`試験` badge、誤検出・見逃しの警告、Recall / Precision / evaluated matches / baseline confidence thresholdを表示します。confidence thresholdは0.00〜1.00でrunごとに変更できます。
 
 ### Shared contracts
 
@@ -161,17 +164,17 @@ UIは `分析 > 自動イベント検出…` から開きます。検出後のev
 - `scrum`
 - `lineout`
 
-`maul` / `goalKick` はshared contractには定義できますが、verified model packで独立にqualificationされた場合だけproduct UIへ出します。
+`maul` / `goalKick` はshared contractには定義できますが、model packで独立に評価され、statusごとのeligibilityを満たした場合だけproduct UIへ出します。
 
 ### Electron / local runner
 
 `electron/src/eventDetection/`:
 
-- `modelDiscovery.ts`: model pack / manifest探索
-- `eventDetectionManager.ts`: verified model解決
+- `modelDiscovery.ts`: model pack / manifest探索、status別eligibility、runner integrity検証
+- `eventDetectionManager.ts`: runnable model解決
 - `processRunner.ts`: child process実行
 - `requestRegistry.ts`: cancel管理
-- `types.ts`: internal manifest型
+- `types.ts`: internal manifest / runnable model型
 
 Runner contract:
 
@@ -179,7 +182,7 @@ Runner contract:
 runner --request <request.json> --output <result.json> --model-dir <model-directory>
 ```
 
-制約:
+verified/experimental共通制約:
 
 - `shell: false`
 - finite timeout
@@ -189,21 +192,28 @@ runner --request <request.json> --output <result.json> --model-dir <model-direct
 - runner executableはmanifestのSHA-256と一致必須
 - path traversal拒否
 - main IPC sender/payload validation
+- renderer gatewayでmodel metadata validation
 
 ML runtime（ONNX Runtime等）はrunner内部の実装詳細として交換可能にし、rendererを特定ML frameworkへ直接依存させません。
 
-### Runtime quality gate
+### Status別 eligibility
 
-`verified` model packでもclass単位で最低限以下を満たす必要があります。
+`verified` model packはclass単位で最低限以下を満たす必要があります。experimental対応でこの基準は緩和しません。
 
 - Recall >= 0.95
 - unseen evaluation matches >= 5
 - Precisionは0〜1の有限値として記録
 - confidence thresholdは0〜1の有限値
 
+`experimental`はverified gate通過扱いにせず、宣言eventごとのmetricsが有効で、current platform runnerが共通セキュリティ検証を通過した場合だけ別statusのまま利用可能にします。
+
 高Recall operating pointでのfalse positives per match、処理時間、manual edit operations、手Coding比の作業時間削減はprivate R&D qualificationで確認します。秒単位の厳密なevent onsetは主目的ではありません。
 
-詳細: [自動イベント検出](event-detection.md)、[ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)
+### Model pack staging
+
+`resources/event-detection-models/` はrelease/local build用の任意staging pointです。model pack本体は`.gitignore`で除外し、`electron-builder`が存在するpackだけを`event-detection-models`へ`extraResources`として配置します。stagingが空でも通常buildは成立します。
+
+詳細: [自動イベント検出](event-detection.md)、[ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)、[ADR 0024](adr/0024-experimental-event-detection-production-lane.md)
 
 ## Event Model R&D boundary
 
@@ -217,6 +227,7 @@ SporTagLytics public repositoryには以下を置きません。
 - held-out qualification
 - private source diagnostics
 - frames / checkpoints / runs
+- deployable model binary / checkpoint
 
 一般ユーザーPCごとの自動fine-tuningや暗黙のtraining data uploadも初期製品では行いません。
 
