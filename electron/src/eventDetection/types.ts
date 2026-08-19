@@ -1,6 +1,7 @@
 import type {
   EventDetectionMetric,
   EventDetectionModelInfo,
+  EventDetectionModelStatus,
   RugbyEventType,
 } from '../../../src/types/eventDetection/core';
 
@@ -14,13 +15,13 @@ export interface EventDetectionModelManifest {
   id: string;
   version: string;
   displayName: string;
-  status: 'verified' | 'experimental';
+  status: EventDetectionModelStatus;
   events: RugbyEventType[];
   metrics: Partial<Record<RugbyEventType, EventDetectionMetric>>;
   runners: Record<string, EventDetectionRunnerManifest>;
 }
 
-export interface VerifiedEventDetectionModel {
+export interface RunnableEventDetectionModel {
   info: EventDetectionModelInfo;
   modelDirectory: string;
   runnerPath: string;
