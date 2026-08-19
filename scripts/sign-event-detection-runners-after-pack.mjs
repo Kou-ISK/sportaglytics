@@ -36,34 +36,92 @@ const run = async (command, args) => {
   });
 };
 
-const resolveSigningContext = async (packager) => {
-  const signConfig = packager.getPlatformConfig('mac').config.sign;
-  if (signConfig === null) {
-    throw new Error('event-detection model packs require macOS code signing');
-  }
-  if (typeof signConfig === 'string' || typeof signConfig === 'function') {
-    throw new Error('custom macOS signing is not supported for event-detection model packs');
-  }
+const capture = async (command, args) => {
+  return await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false,
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      if (code === 0) {
+        resolve(stdout);
+        return;
+      }
+      reject(
+        new Error(
+          `${command} failed with code ${code ?? 'null'} signal ${signal ?? 'null'}${stderr ? `: ${stderr.trim()}` : ''}`,
+        ),
+      );
+    });
+  });
+};
 
-  const signOptions = signConfig && typeof signConfig === 'object' ? signConfig : undefined;
-  if (signOptions?.identity === null) {
+export const selectDeveloperIdApplicationIdentity = (securityOutput, qualifier = null) => {
+  const identities = securityOutput
+    .split('\n')
+    .map((line) =>
+      line.match(/^\s*\d+\)\s+([0-9A-F]{40})\s+"([^"]+)"\s*$/i),
+    )
+    .filter(Boolean)
+    .map((match) => ({ hash: match[1], name: match[2] }))
+    .filter(({ name }) => name.startsWith('Developer ID Application:'));
+
+  const normalizedQualifier = qualifier?.trim() || null;
+  const matches = normalizedQualifier
+    ? identities.filter(
+        ({ hash, name }) =>
+          hash.toLowerCase() === normalizedQualifier.toLowerCase() ||
+          name === normalizedQualifier ||
+          name.includes(normalizedQualifier),
+      )
+    : identities;
+
+  if (matches.length === 0) {
+    throw new Error(
+      normalizedQualifier
+        ? `no Developer ID Application identity matches: ${normalizedQualifier}`
+        : 'no Developer ID Application signing identity is available for event-detection runners',
+    );
+  }
+  if (matches.length > 1) {
+    throw new Error(
+      `multiple Developer ID Application identities are available; set CSC_NAME or mac.identity explicitly: ${matches
+        .map(({ name }) => name)
+        .join(', ')}`,
+    );
+  }
+  return matches[0].name;
+};
+
+const resolveSigningContext = async (packager) => {
+  const macOptions = packager.platformSpecificBuildOptions ?? {};
+  if (macOptions.identity === null) {
     throw new Error('event-detection model packs require a macOS signing identity');
+  }
+  if (typeof macOptions.sign === 'string' || typeof macOptions.sign === 'function') {
+    throw new Error('custom macOS signing is not supported for event-detection model packs');
   }
 
   const signingInfo = await packager.codeSigningInfo.value;
   const keychainFile = signingInfo?.keychainFile ?? null;
-  const identity = await packager.helper.findSigningIdentity(
-    'mac',
-    signOptions?.identity,
-    keychainFile,
-    false,
-    signOptions,
-  );
-  if (!identity) {
-    throw new Error('no Developer ID signing identity is available for event-detection runners');
-  }
+  const securityArgs = ['find-identity', '-v', '-p', 'codesigning'];
+  if (keychainFile) securityArgs.push(keychainFile);
+  const identityOutput = await capture('security', securityArgs);
+  const qualifier = macOptions.identity ?? process.env.CSC_NAME ?? null;
+  const identityName = selectDeveloperIdApplicationIdentity(identityOutput, qualifier);
 
-  return { identityName: identity.name, keychainFile };
+  return { identityName, keychainFile };
 };
 
 const signRunner = async ({ runnerPath, identityName, keychainFile, entitlementsPath }) => {
