@@ -16,6 +16,7 @@ const makeModel = async (runnerPath = 'runner/test-runner') => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'sportaglytics-sign-runner-'));
   roots.push(root);
   const modelDirectory = path.join(root, 'model');
+  await mkdir(modelDirectory, { recursive: true });
   const executable = path.join(modelDirectory, runnerPath);
   await mkdir(path.dirname(executable), { recursive: true });
   await writeFile(executable, 'unsigned-runner');
