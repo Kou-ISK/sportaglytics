@@ -54,7 +54,6 @@ export const FreeCanvasEditor: React.FC<FreeCanvasEditorProps> = ({
     useFreeCanvasHistoryAndShortcuts({
       layout,
       selectedButtonIds,
-      selectedPrimaryId,
       onLayoutChange,
       onSelectButtons,
     });
