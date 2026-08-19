@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { HotkeyConfig } from '../../../../types/settings/coreTypes';
-import type {
-  TimelineData,
-  TimelineRow,
-  TimelineRowSortSpec,
-} from '../../../../types/timeline/core';
+import type { TimelineData, TimelineRow } from '../../../../types/timeline/core';
 import type { TimelineWindowCommand } from '../../../../types/ipc/timelineWindow';
+import { buildTimelineRowSortMoves } from '../../shared/timelineRowSort';
 import {
   closeTimelineWindow,
   openTimelineWindow,
@@ -54,7 +51,6 @@ interface UseTimelineWindowIntegrationParams {
     updates: Pick<TimelineRow, 'name' | 'color'>,
   ) => void;
   onMoveRow: (sourceId: string, targetId: string) => void;
-  onSortRows: (spec: TimelineRowSortSpec) => void;
   onDeleteRows: (ids: string[]) => void;
   onPasteItems: (items: TimelineData[], targetRowId: string) => string[];
   onUndo: () => void;
@@ -227,7 +223,11 @@ export const useTimelineWindowIntegration = (
             current.onMoveRow(command.sourceId, command.targetId);
             break;
           case 'sort-rows':
-            current.onSortRows(command.spec);
+            buildTimelineRowSortMoves(
+              current.rows,
+              current.timeline,
+              command.spec,
+            ).forEach((move) => current.onMoveRow(move.sourceId, move.targetId));
             break;
           case 'delete-rows':
             current.onDeleteRows(command.ids);
