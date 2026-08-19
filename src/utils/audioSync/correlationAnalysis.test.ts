@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { AUTO_AUDIO_SYNC_MIN_CONFIDENCE } from '../../features/videoPlayer/shared/audioSyncDecision';
 import { analyzePcmSyncByCorrelation } from './correlationAnalysis';
 
 const SAMPLE_RATE = 200;
+const AUTO_APPLY_CONFIDENCE_THRESHOLD = 0.35;
 
 const createRandom = (seed: number): (() => number) => {
   let state = seed >>> 0;
@@ -111,7 +111,7 @@ const expectOffset = async (
   );
   expect(result.offsetSeconds).toBeCloseTo(offsetSeconds, 1);
   expect(result.confidence).toBeGreaterThanOrEqual(
-    AUTO_AUDIO_SYNC_MIN_CONFIDENCE,
+    AUTO_APPLY_CONFIDENCE_THRESHOLD,
   );
 };
 
@@ -153,7 +153,7 @@ describe('analyzePcmSyncByCorrelation', () => {
       second,
       SAMPLE_RATE,
     );
-    expect(result.confidence).toBeLessThan(AUTO_AUDIO_SYNC_MIN_CONFIDENCE);
+    expect(result.confidence).toBeLessThan(AUTO_APPLY_CONFIDENCE_THRESHOLD);
   });
 
   it('reports monotonically increasing progress', async () => {
