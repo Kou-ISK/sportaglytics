@@ -155,7 +155,7 @@
       {
         "ext": "stad",
         "name": "SporTagLytics Dashboard",
-        "description": "SporTagLytics ダッシュボードファイル",
+        "description": "SporTagLytics ダッシュボード",
         "role": "Viewer",
         "icon": "public/icons/stad.ico",
         "isPackage": true
@@ -193,7 +193,7 @@
       {
         "ext": "stad",
         "name": "SporTagLytics Dashboard",
-        "description": "SporTagLytics ダッシュボードファイル",
+        "description": "SporTagLytics ダッシュボード",
         "role": "Viewer",
         "isPackage": true
       }
