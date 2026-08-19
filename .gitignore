@@ -32,6 +32,10 @@ yarn-error.log*
 .tmp_llama/
 public/llama/models/*.gguf
 
+# deployable event detection model packs are injected at build time
+resources/event-detection-models/*
+!resources/event-detection-models/.gitkeep
+
 # Apple certificates (never commit these!)
 *.p12
 *.cer
