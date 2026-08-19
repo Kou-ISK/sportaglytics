@@ -3,8 +3,14 @@ import type {
   TimelineRow,
   TimelineRowSortSpec,
 } from '../../../types/timeline/core';
+import { moveTimelineRowInList } from './timelineRows';
 
 export type { TimelineRowSortSpec } from '../../../types/timeline/core';
+
+export interface TimelineRowMoveOperation {
+  sourceId: string;
+  targetId: string;
+}
 
 const compareText = (left: string, right: string): number =>
   left.localeCompare(right, undefined, {
@@ -41,8 +47,6 @@ export const sortTimelineRows = (
   const currentIndex = new Map(rows.map((row, index) => [row.id, index]));
 
   if (spec.criterion === 'color') {
-    // Hudl documents "sort by color" but not a canonical color-order contract.
-    // Group identical colors while preserving the current first-seen color order.
     const colorRank = new Map<string, number>();
     rows.forEach((row) => {
       if (!colorRank.has(row.color)) colorRank.set(row.color, colorRank.size);
@@ -65,4 +69,28 @@ export const sortTimelineRows = (
         : (counts.get(left.name) ?? 0) - (counts.get(right.name) ?? 0);
     return direction * compareWithStableFallback(primary, left, right);
   });
+};
+
+export const buildTimelineRowSortMoves = (
+  rows: TimelineRow[],
+  timeline: TimelineData[],
+  spec: TimelineRowSortSpec,
+): TimelineRowMoveOperation[] => {
+  const desired = sortTimelineRows(rows, timeline, spec);
+  let working = [...rows];
+  const moves: TimelineRowMoveOperation[] = [];
+
+  desired.forEach((desiredRow, index) => {
+    const currentRow = working[index];
+    if (!currentRow || currentRow.id === desiredRow.id) return;
+    const operation = { sourceId: desiredRow.id, targetId: currentRow.id };
+    moves.push(operation);
+    working = moveTimelineRowInList(
+      working,
+      operation.sourceId,
+      operation.targetId,
+    );
+  });
+
+  return moves;
 };
