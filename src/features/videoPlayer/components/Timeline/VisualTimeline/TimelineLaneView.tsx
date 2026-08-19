@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { TimelineLaneItem } from './TimelineLaneItem';
 import type { TimelineLaneViewProps } from './TimelineLane.types';
+import { TIMELINE_ROW_HEADER_WIDTH_PX } from './domain/timelineCoordinateMapper';
 
 export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
   rowId,
@@ -26,7 +27,6 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
   timeToPosition,
   currentTimePosition,
   formatTime,
-  maxSec,
   contentWidth,
   zoomScale,
   containerRef,
@@ -74,7 +74,7 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
           color: laneLabelColor,
           fontWeight: 'bold',
           fontSize: '0.7rem',
-          width: 120,
+          width: TIMELINE_ROW_HEADER_WIDTH_PX,
           flexShrink: 0,
           textAlign: 'right',
           userSelect: 'none',
@@ -118,6 +118,7 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
           borderRadius: 1,
           border: 1,
           borderColor: 'divider',
+          boxSizing: 'border-box',
           userSelect: 'none',
           mb: 0,
           width:
@@ -128,7 +129,7 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
             contentWidth !== undefined
               ? `${contentWidth * zoomScale}px`
               : '100%',
-          overflow: 'hidden',
+          overflow: 'visible',
         }}
         onDragOver={onLaneDragOver}
         onDrop={onLaneDrop}
@@ -148,9 +149,6 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
             onEdgeMouseDown={onEdgeMouseDown}
             timeToPosition={timeToPosition}
             formatTime={formatTime}
-            maxSec={maxSec}
-            contentWidth={contentWidth}
-            zoomScale={zoomScale}
             isTeam1={isTeam1}
             rowColor={rowColor}
             isEditModifierPressed={isEditModifierPressed}
@@ -164,12 +162,13 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
               position: 'absolute',
               left: `${timeToPosition(draftRange.startTime)}px`,
               width: `${Math.max(
-                2,
+                0,
                 timeToPosition(draftRange.endTime) -
                   timeToPosition(draftRange.startTime),
               )}px`,
               top: 1,
               bottom: 1,
+              boxSizing: 'border-box',
               bgcolor: alpha(rowColor, 0.72),
               border: `1px dashed ${rowColor}`,
               borderRadius: 1,
