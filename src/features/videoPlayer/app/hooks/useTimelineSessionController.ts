@@ -6,6 +6,8 @@ import type {
   TimelineData,
   TimelineRow,
 } from '../../../../types/timeline/core';
+import type { TimelineRowSortSpec } from '../../shared/timelineRowSort';
+import { sortTimelineRows } from '../../shared/timelineRowSort';
 import {
   ensureTimelineRows,
   getDefaultTimelineRowColor,
@@ -51,6 +53,7 @@ interface UseTimelineSessionControllerResult {
     updates: Pick<TimelineRow, 'name' | 'color'>,
   ) => void;
   moveTimelineRow: (sourceId: string, targetId: string) => void;
+  sortTimelineRows: (spec: TimelineRowSortSpec) => void;
   deleteTimelineRows: (ids: string[]) => void;
   pasteTimelineItemsToRow: (
     items: TimelineData[],
@@ -183,6 +186,15 @@ export const useTimelineSessionController =
       [setTimelineRows],
     );
 
+    const sortRows = useCallback(
+      (spec: TimelineRowSortSpec): void => {
+        setTimelineRows((current) =>
+          sortTimelineRows(current, timelineRef.current, spec),
+        );
+      },
+      [setTimelineRows],
+    );
+
     const deleteTimelineRows = useCallback(
       (ids: string[]): void => {
         if (ids.length === 0) return;
@@ -308,6 +320,7 @@ export const useTimelineSessionController =
       addTimelineRow,
       updateTimelineRow,
       moveTimelineRow,
+      sortTimelineRows: sortRows,
       deleteTimelineRows,
       pasteTimelineItemsToRow,
       synchronizeTimelineActionColors,
