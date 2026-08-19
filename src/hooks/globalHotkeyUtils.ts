@@ -111,7 +111,7 @@ export const shouldIgnoreHotkeyTarget = (
   const editableAncestor = target.closest(
     'input, textarea, select, [contenteditable="true"], [role="textbox"]',
   );
-  return Boolean(editableAncestor) || target.isContentEditable;
+  return Boolean(editableAncestor) || Boolean(target.isContentEditable);
 };
 
 export const findMatchingHotkey = (
