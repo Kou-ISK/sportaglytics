@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CodeWindowLayout } from '../../../../../types/settings/coreTypes';
-import { shouldIgnoreHotkeyTarget } from '../../../../../hooks/globalHotkeyUtils';
 import {
   copyCodeWindowSelection,
   pasteCodeWindowSelection,
@@ -13,6 +12,15 @@ interface UseFreeCanvasHistoryAndShortcutsParams {
   onLayoutChange: (layout: CodeWindowLayout) => void;
   onSelectButtons: (ids: string[]) => void;
 }
+
+const isEditableTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(
+    target.closest(
+      'input, textarea, select, [contenteditable="true"], [role="textbox"]',
+    ),
+  );
+};
 
 export const useFreeCanvasHistoryAndShortcuts = ({
   layout,
@@ -61,7 +69,7 @@ export const useFreeCanvasHistoryAndShortcuts = ({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if (shouldIgnoreHotkeyTarget(event.target)) return;
+      if (isEditableTarget(event.target)) return;
       const primary = event.metaKey || event.ctrlKey;
       const key = event.key.toLowerCase();
 
