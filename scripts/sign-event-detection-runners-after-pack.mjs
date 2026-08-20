@@ -68,7 +68,7 @@ const capture = async (command, args) => {
 };
 
 export const selectDeveloperIdApplicationIdentity = (securityOutput, qualifier = null) => {
-  const identities = securityOutput
+  const parsed = securityOutput
     .split('\n')
     .map((line) =>
       line.match(/^\s*\d+\)\s+([0-9A-F]{40})\s+"([^"]+)"\s*$/i),
@@ -76,6 +76,17 @@ export const selectDeveloperIdApplicationIdentity = (securityOutput, qualifier =
     .filter(Boolean)
     .map((match) => ({ hash: match[1], name: match[2] }))
     .filter(({ name }) => name.startsWith('Developer ID Application:'));
+
+  // `security find-identity` can surface the exact same certificate more than
+  // once when it is reachable through multiple keychain search-list entries.
+  // Treat identical hash+name pairs as one identity, while still rejecting
+  // genuinely distinct certificates that happen to share a display name.
+  const identitiesByKey = new Map();
+  for (const identity of parsed) {
+    const key = `${identity.hash.toLowerCase()}\u0000${identity.name}`;
+    if (!identitiesByKey.has(key)) identitiesByKey.set(key, identity);
+  }
+  const identities = [...identitiesByKey.values()];
 
   const normalizedQualifier = qualifier?.trim() || null;
   const matches = normalizedQualifier
