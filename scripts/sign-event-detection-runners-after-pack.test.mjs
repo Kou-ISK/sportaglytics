@@ -55,6 +55,13 @@ describe('selectDeveloperIdApplicationIdentity', () => {
     );
   });
 
+  it('deduplicates the same certificate listed more than once', () => {
+    const output = `${securityOutput}  3) BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB "Developer ID Application: Example User (TEAMBBBBBB)"\n`;
+    expect(selectDeveloperIdApplicationIdentity(output)).toBe(
+      'Developer ID Application: Example User (TEAMBBBBBB)',
+    );
+  });
+
   it('supports an explicit identity qualifier', () => {
     const output = `${securityOutput}  3) CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC "Developer ID Application: Other User (TEAMCCCCCC)"\n`;
     expect(selectDeveloperIdApplicationIdentity(output, 'TEAMCCCCCC')).toBe(
@@ -62,7 +69,7 @@ describe('selectDeveloperIdApplicationIdentity', () => {
     );
   });
 
-  it('rejects ambiguous Developer ID Application identities', () => {
+  it('rejects genuinely distinct Developer ID Application identities', () => {
     const output = `${securityOutput}  3) CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC "Developer ID Application: Other User (TEAMCCCCCC)"\n`;
     expect(() => selectDeveloperIdApplicationIdentity(output)).toThrow(
       'multiple Developer ID Application identities are available',
