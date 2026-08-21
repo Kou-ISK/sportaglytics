@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import Add from '@mui/icons-material/Add';
 import Remove from '@mui/icons-material/Remove';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
@@ -18,7 +19,7 @@ export const TimelineFooter = ({
   onZoomOut,
   onZoomIn,
   onAddRow,
-}: TimelineFooterProps): React.ReactElement => {
+}: TimelineFooterProps): ReactElement => {
   return (
     <Box
       sx={{
@@ -35,11 +36,7 @@ export const TimelineFooter = ({
     >
       {onAddRow && (
         <Tooltip title="行を追加">
-          <IconButton
-            size="small"
-            aria-label="行を追加"
-            onClick={onAddRow}
-          >
+          <IconButton size="small" aria-label="行を追加" onClick={onAddRow}>
             <Add fontSize="small" />
           </IconButton>
         </Tooltip>
