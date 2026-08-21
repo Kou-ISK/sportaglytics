@@ -41,12 +41,12 @@ export const RecentPackageCard: React.FC<RecentPackageCardProps> = ({
   onOpen,
   onRemove,
 }) => {
-  const handleClick = () => {
+  const handleClick = (): void => {
     onOpen(pkg.path);
   };
 
-  const handleRemove = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleRemove = (event: React.MouseEvent): void => {
+    event.stopPropagation();
     onRemove(pkg.path);
   };
 
@@ -56,11 +56,9 @@ export const RecentPackageCard: React.FC<RecentPackageCardProps> = ({
       sx={{
         position: 'relative',
         height: '100%',
-        transition: 'all 0.2s ease-in-out',
+        transition: 'border-color 0.2s ease-in-out',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: (theme) =>
-            `0 8px 24px ${alpha(theme.palette.primary.main, 0.25)}`,
+          borderColor: 'primary.main',
         },
       }}
     >
@@ -162,6 +160,7 @@ export const RecentPackageCard: React.FC<RecentPackageCardProps> = ({
 
       <IconButton
         size="small"
+        aria-label={`${pkg.name}を最近開いたパッケージから削除`}
         onClick={handleRemove}
         sx={{
           position: 'absolute',
