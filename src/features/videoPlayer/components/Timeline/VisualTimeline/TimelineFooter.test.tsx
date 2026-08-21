@@ -1,8 +1,8 @@
 /* @vitest-environment jsdom */
 import type { ComponentProps } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getAppTheme } from '../../../../../theme';
 import { TimelineFooter } from './TimelineFooter';
 
@@ -25,6 +25,8 @@ const renderFooter = (
 };
 
 describe('TimelineFooter', () => {
+  afterEach(cleanup);
+
   it('shows the current zoom percentage and disables zoom out at 100%', () => {
     renderFooter();
 
