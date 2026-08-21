@@ -28,7 +28,7 @@ afterEach(() => {
 });
 
 describe('VideoPathSelectorView', () => {
-  it('shows balanced entry points for creating and opening packages', () => {
+  it('prioritizes opening an existing package over creating a new one', () => {
     renderWithProviders(
       <VideoPathSelectorView
         showWelcome
@@ -45,9 +45,10 @@ describe('VideoPathSelectorView', () => {
       />,
     );
 
-    expect(screen.getByText('新規パッケージ')).toBeTruthy();
-    expect(screen.getByText('開く')).toBeTruthy();
-    expect(screen.queryByText('1. 映像を開く')).toBeNull();
+    expect(screen.getByText('パッケージを開く')).toBeTruthy();
+    expect(screen.getByText('新しいパッケージを作成')).toBeTruthy();
+    expect(screen.queryByText('Package workspace')).toBeNull();
+    expect(screen.queryByText('Drop .stpkg')).toBeNull();
   });
 
   it('opens the package wizard from the create entry point', () => {
@@ -69,7 +70,7 @@ describe('VideoPathSelectorView', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('新規パッケージ'));
+    fireEvent.click(screen.getByText('新しいパッケージを作成'));
 
     expect(handleOpenWizard).toHaveBeenCalledTimes(1);
   });

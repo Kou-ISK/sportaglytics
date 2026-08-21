@@ -40,6 +40,10 @@ export const useVisualTimelineController = ({
     containerRef,
     scrollContainerRef,
     zoomScale,
+    canZoomOut,
+    canZoomIn,
+    zoomIn,
+    zoomOut,
     containerWidth,
     timeToPosition,
     positionToTime,
@@ -342,6 +346,10 @@ export const useVisualTimelineController = ({
 
   return {
     zoomScale,
+    canZoomOut,
+    canZoomIn,
+    onZoomIn: zoomIn,
+    onZoomOut: zoomOut,
     scrollLeft,
     axisRef,
     maxSec,

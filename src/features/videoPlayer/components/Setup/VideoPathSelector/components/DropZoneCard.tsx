@@ -26,8 +26,7 @@ export const DropZoneCard: React.FC<DropZoneCardProps> = ({ dragState }) => {
             : theme.palette.error.main;
           return alpha(baseColor, 0.08);
         },
-        transition: 'all 0.2s ease-in-out',
-        cursor: 'pointer',
+        transition: 'border-color 0.2s ease-in-out, background-color 0.2s ease-in-out',
       }}
     >
       <CloudUploadIcon
@@ -39,7 +38,9 @@ export const DropZoneCard: React.FC<DropZoneCardProps> = ({ dragState }) => {
         }}
       />
       <Typography component="span" variant="body2" color="text.secondary">
-        {dragState.isDragging ? 'Drop package' : 'Drop .stpkg'}
+        {dragState.isDragging
+          ? 'ここにパッケージをドロップ'
+          : '.stpkg をここにドロップして開く'}
       </Typography>
     </Paper>
   );

@@ -134,8 +134,10 @@ export const useAutoAudioResync = ({
       console.error('音声同期エラー:', error);
       onSyncError?.({
         type: 'sync',
-        message:
-          '音声同期に失敗しました。映像ファイルに音声が含まれているか確認してください。',
+        message: '音声同期に失敗しました。',
+        recoveryHint:
+          '映像ファイルに音声が含まれているか確認し、問題がなければもう一度自動同期を実行してください。',
+        detail: error instanceof Error ? error.message : String(error),
       });
     } finally {
       setIsAnalyzing(false);

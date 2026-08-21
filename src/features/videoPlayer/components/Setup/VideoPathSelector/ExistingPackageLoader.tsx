@@ -27,8 +27,8 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
     <Card
       variant="outlined"
       sx={{
-        flex: 1,
-        minHeight: 150,
+        width: '100%',
+        minHeight: 132,
         bgcolor: 'background.paper',
       }}
     >
@@ -39,24 +39,25 @@ export const ExistingPackageLoader: React.FC<ExistingPackageLoaderProps> = ({
         sx={{ height: '100%' }}
       >
         <CardContent sx={{ height: '100%', p: 2.5 }}>
-          <Stack spacing={2} sx={{ height: '100%' }}>
+          <Stack direction="row" spacing={2} alignItems="center">
             <Box
               sx={{
-                width: 42,
-                height: 42,
+                width: 44,
+                height: 44,
                 borderRadius: 2,
+                flexShrink: 0,
                 display: 'grid',
                 placeItems: 'center',
-                color: 'secondary.main',
-                bgcolor: (theme) => alpha(theme.palette.secondary.main, 0.12),
+                color: 'primary.main',
+                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12),
               }}
             >
               <FolderOpenIcon />
             </Box>
-            <Box sx={{ mt: 'auto' }}>
-              <Typography variant="h6">開く</Typography>
+            <Box>
+              <Typography variant="h6">パッケージを開く</Typography>
               <Typography variant="body2" color="text.secondary">
-                .stpkg
+                既存の .stpkg を選択して分析を再開します
               </Typography>
             </Box>
           </Stack>

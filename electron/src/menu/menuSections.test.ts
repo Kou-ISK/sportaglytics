@@ -30,7 +30,11 @@ vi.mock('./menuWindowActions', () => ({
   sendToFocusedWindow: vi.fn(),
 }));
 
-import { buildFileMenuItems, buildWindowMenuItems } from './menuSections';
+import {
+  buildFileMenuItems,
+  buildHelpMenuItems,
+  buildWindowMenuItems,
+} from './menuSections';
 
 const getSubmenuItems = (
   item: Electron.MenuItemConstructorOptions | undefined,
@@ -84,7 +88,7 @@ describe('document menus', () => {
 
   it('reopens the detached timeline from Window', () => {
     const timelineItem = buildWindowMenuItems().find(
-      (item) => item.label === 'タイムラインを表示',
+      (item) => item.label === 'タイムラインを開く',
     );
 
     expect(timelineItem?.click).toBeTypeOf('function');
@@ -92,6 +96,22 @@ describe('document menus', () => {
       Reflect.apply(timelineItem.click, undefined, []);
     }
     expect(openTimelineWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('assigns Help a unique accelerator', () => {
+    const accelerators = [
+      ...buildFileMenuItems(),
+      ...buildWindowMenuItems(),
+      ...buildHelpMenuItems(false),
+    ]
+      .flatMap((item) => [item, ...getSubmenuItems(item)])
+      .map((item) => item.accelerator)
+      .filter((accelerator): accelerator is string =>
+        typeof accelerator === 'string',
+      );
+
+    expect(accelerators).toContain('CmdOrCtrl+Shift+/');
+    expect(new Set(accelerators).size).toBe(accelerators.length);
   });
 
   it('keeps document lifecycle actions out of Window', () => {

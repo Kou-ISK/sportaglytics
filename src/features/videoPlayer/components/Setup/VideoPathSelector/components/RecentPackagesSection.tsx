@@ -20,7 +20,7 @@ export const RecentPackagesSection: React.FC<RecentPackagesSectionProps> = ({
   return (
     <Stack spacing={1.5}>
       <Typography variant="overline" color="text.secondary">
-        Recent
+        最近開いたパッケージ
       </Typography>
 
       <Grid container spacing={1.5}>

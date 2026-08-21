@@ -8,4 +8,6 @@ export type VideoPlayerErrorType =
 export interface VideoPlayerError {
   type: VideoPlayerErrorType;
   message: string;
+  recoveryHint?: string;
+  detail?: string;
 }

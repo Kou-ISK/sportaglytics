@@ -48,7 +48,6 @@ export const VideoPathSelectorView: React.FC<VideoPathSelectorViewProps> = ({
         bgcolor: 'background.paper',
         borderRadius: 2,
         border: (theme) => `1px solid ${theme.palette.divider}`,
-        boxShadow: '0 10px 32px rgba(0,0,0,0.35)',
         color: 'text.primary',
         fontFamily: 'inherit',
       }}
@@ -57,18 +56,18 @@ export const VideoPathSelectorView: React.FC<VideoPathSelectorViewProps> = ({
       <Stack spacing={2.5}>
         <WelcomeHeader show={showWelcome} />
 
+        <RecentPackagesSection
+          packages={recentPackages}
+          onOpen={onOpenRecentPackage}
+          onRemove={onRemoveRecentPackage}
+        />
+
         <ActionButtonsRow
           onPackageLoaded={onPackageLoaded}
           onOpenWizard={onOpenWizard}
         />
 
         <DropZoneCard dragState={dragState} />
-
-        <RecentPackagesSection
-          packages={recentPackages}
-          onOpen={onOpenRecentPackage}
-          onRemove={onRemoveRecentPackage}
-        />
       </Stack>
 
       <CreatePackageWizard
