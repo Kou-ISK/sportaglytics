@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-08-21
+
+### Fixed
+
+- パッケージ作成画面の現行ラベルにElectron E2Eを同期し、公開リリースで作成ワークフローを継続して検証できるよう修正
+
 ## [0.10.1] - 2026-08-21
 
 ### Added
