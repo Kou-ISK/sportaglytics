@@ -69,7 +69,7 @@ describe('preparePackageForOpen', () => {
 
     expect(result.status).toBe('ready');
     if (result.status !== 'ready') throw new Error('Expected ready result');
-    expect(result.packagePath).toBe(`${sourcePath}.stpkg`);
+    expect(result.packagePath).toBe(await fs.realpath(`${sourcePath}.stpkg`));
     expect(result.migrated).toBe(true);
     expect(result.reused).toBe(false);
     await expect(fs.readFile(sourceConfigPath, 'utf-8')).resolves.toBe(
@@ -136,7 +136,9 @@ describe('preparePackageForOpen', () => {
 
     expect(result.status).toBe('ready');
     if (result.status !== 'ready') throw new Error('Expected ready result');
-    expect(result.packagePath).toBe(`${sourcePath}-2.stpkg`);
+    expect(result.packagePath).toBe(
+      await fs.realpath(`${sourcePath}-2.stpkg`),
+    );
     await expect(fs.readFile(`${sourcePath}.stpkg/unrelated.txt`, 'utf-8')).resolves.toBe(
       'keep',
     );
