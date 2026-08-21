@@ -1,4 +1,5 @@
 /* @vitest-environment jsdom */
+import type { ComponentProps } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -6,7 +7,7 @@ import { getAppTheme } from '../../../../../theme';
 import { TimelineFooter } from './TimelineFooter';
 
 const renderFooter = (
-  overrides: Partial<React.ComponentProps<typeof TimelineFooter>> = {},
+  overrides: Partial<ComponentProps<typeof TimelineFooter>> = {},
 ): void => {
   render(
     <ThemeProvider theme={getAppTheme('dark')}>
