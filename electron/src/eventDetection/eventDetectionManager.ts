@@ -5,8 +5,8 @@ import type {
   EventDetectionResult,
 } from '../../../src/types/eventDetection/core';
 import {
-  findVerifiedEventDetectionModel,
-  listVerifiedEventDetectionModels,
+  findEventDetectionModel,
+  listEventDetectionModels as listRunnableEventDetectionModels,
 } from './modelDiscovery';
 import { runEventDetectionProcess } from './processRunner';
 import { cancelEventDetectionProcess } from './requestRegistry';
@@ -14,7 +14,7 @@ import { cancelEventDetectionProcess } from './requestRegistry';
 export const listEventDetectionModels = async (): Promise<
   EventDetectionModelInfo[]
 > => {
-  const models = await listVerifiedEventDetectionModels();
+  const models = await listRunnableEventDetectionModels();
   return models.map((model) => model.info);
 };
 
@@ -26,12 +26,9 @@ export const runEventDetection = async (
   request: EventDetectionRequest,
   options?: { onProgress?: (progress: EventDetectionProgress) => void },
 ): Promise<EventDetectionResult> => {
-  const model = await findVerifiedEventDetectionModel(
-    request.modelId,
-    request.modelVersion,
-  );
+  const model = await findEventDetectionModel(request.modelId, request.modelVersion);
   if (!model) {
-    throw new Error('検証済みの自動イベント検出モデルが見つかりません。');
+    throw new Error('利用可能な自動イベント検出モデルが見つかりません。');
   }
 
   const supportedEvents = new Set(model.info.events);

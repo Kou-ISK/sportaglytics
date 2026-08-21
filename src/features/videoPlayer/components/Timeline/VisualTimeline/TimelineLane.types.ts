@@ -32,6 +32,7 @@ export interface TimelineLaneProps {
   onRowDrop: (event: React.DragEvent<HTMLElement>, rowId: string) => void;
   timeToPosition: (time: number) => number;
   positionToTime: (positionPx: number) => number;
+  clientXToContentX: (clientX: number) => number;
   currentTimePosition: number;
   formatTime: (seconds: number) => string;
   firstTeamName: string | undefined;
@@ -45,7 +46,7 @@ export interface TimelineLaneProps {
 
 export interface TimelineLaneViewProps extends Omit<
   TimelineLaneProps,
-  'laneRef'
+  'laneRef' | 'clientXToContentX'
 > {
   containerRef: React.RefObject<HTMLDivElement | null>;
   isDraggingPlayhead: boolean;

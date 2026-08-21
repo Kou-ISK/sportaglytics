@@ -1,5 +1,9 @@
 import type { HotkeyConfig } from '../settings/coreTypes';
-import type { TimelineData, TimelineRow } from '../timeline/core';
+import type {
+  TimelineData,
+  TimelineRow,
+  TimelineRowSortSpec,
+} from '../timeline/core';
 
 export const TIMELINE_WINDOW_CHANNELS = {
   openWindow: 'timeline-window:open',
@@ -66,6 +70,7 @@ export type TimelineWindowCommand =
       updates: Pick<TimelineRow, 'name' | 'color'>;
     }
   | { type: 'move-row'; sourceId: string; targetId: string }
+  | { type: 'sort-rows'; spec: TimelineRowSortSpec }
   | { type: 'delete-rows'; ids: string[] }
   | { type: 'paste-items'; items: TimelineData[]; targetRowId: string }
   | { type: 'undo' }
@@ -153,6 +158,21 @@ const isHotkey = (value: unknown): value is HotkeyConfig =>
   isString(value.key) &&
   (value.disabled === undefined || typeof value.disabled === 'boolean');
 
+const isTimelineRowSortSpec = (value: unknown): value is TimelineRowSortSpec => {
+  if (!isObject(value)) return false;
+  if (
+    value.criterion !== 'color' &&
+    value.criterion !== 'name' &&
+    value.criterion !== 'instanceCount'
+  ) {
+    return false;
+  }
+  if (value.criterion === 'color') {
+    return value.direction === undefined;
+  }
+  return value.direction === 'asc' || value.direction === 'desc';
+};
+
 export const isTimelineWindowSyncPayload = (
   value: unknown,
 ): value is TimelineWindowSyncPayload =>
@@ -232,6 +252,8 @@ export const isTimelineWindowCommand = (
       );
     case 'move-row':
       return isString(value.sourceId) && isString(value.targetId);
+    case 'sort-rows':
+      return isTimelineRowSortSpec(value.spec);
     case 'paste-items':
       return (
         Array.isArray(value.items) &&

@@ -11,6 +11,7 @@ import type {
 } from './shared/clipExport/clipExportTypes';
 import type { ExportProgressWindowState } from './types/ipc/exportProgressWindow';
 import type { ITimelineWindowAPI } from './types/ipc/timelineWindow';
+import type { PackageOpenPreparationResult } from './types/package/migration';
 
 export interface LlamaModelInfo {
   name: string;
@@ -43,6 +44,10 @@ export interface IElectronAPI {
     }>,
     metaDataConfig: unknown,
   ) => Promise<PackageDatas>;
+  preparePackageForOpen?: (
+    packagePath: string,
+    destinationPath?: string,
+  ) => Promise<PackageOpenPreparationResult>;
   onMenuShowStats: (
     callback: (requestedView?: AnalysisView) => void,
   ) => () => void;
@@ -59,18 +64,15 @@ export interface IElectronAPI {
     }) => void,
   ) => () => void;
   notifyAnalysisReportRenderReady: (requestId: string) => void;
-  // メニューからの音声同期イベント
   onResyncAudio: (callback: () => void) => void;
   onResetSync: (callback: () => void) => void;
-  onManualSync: (callback: () => void) => void; // 追加
-  offResyncAudio: (callback: () => void) => void; // 追加
-  offResetSync: (callback: () => void) => void; // 追加
-  offManualSync: (callback: () => void) => void; // 追加
-  onSetSyncMode: (callback: (mode: 'auto' | 'manual') => void) => void; // 追加
-  offSetSyncMode: (callback: (mode: 'auto' | 'manual') => void) => void; // 追加
-  // ファイル存在確認
+  onManualSync: (callback: () => void) => void;
+  offResyncAudio: (callback: () => void) => void;
+  offResetSync: (callback: () => void) => void;
+  offManualSync: (callback: () => void) => void;
+  onSetSyncMode: (callback: (mode: 'auto' | 'manual') => void) => void;
+  offSetSyncMode: (callback: (mode: 'auto' | 'manual') => void) => void;
   checkFileExists: (filePath: string) => Promise<boolean>;
-  // JSONファイル読み込み
   readJsonFile: (filePath: string) => Promise<unknown>;
   saveSyncData: (
     configPath: string,
@@ -103,7 +105,6 @@ export interface IElectronAPI {
     config?: Record<string, unknown>;
     error?: string;
   }>;
-  // 設定管理API
   loadSettings: () => Promise<AppSettings>;
   saveSettings: (settings: AppSettings) => Promise<boolean>;
   resetSettings: () => Promise<AppSettings>;
@@ -194,9 +195,7 @@ export interface IElectronAPI {
   onOpenPackage: (callback: () => void) => () => void;
   onOpenRecentPackage: (callback: (path: string) => void) => () => void;
   updateRecentPackages: (paths: string[]) => void;
-  // プレイリストAPI
   playlist: IPlaylistAPI;
-  // コードウィンドウファイルAPI
   codeWindow: {
     saveFile: (
       codeWindow: unknown,
@@ -209,7 +208,6 @@ export interface IElectronAPI {
     peekExternalOpen: () => Promise<string | null>;
     consumeExternalOpen: (expectedPath?: string) => Promise<string | null>;
   };
-  // パッケージディレクトリが外部から開かれたときの通知
   onPackageDirectoryOpen: (callback: (dirPath: string) => void) => () => void;
 }
 

@@ -2,6 +2,7 @@
   "extends": null,
   "appId": "com.kouisk.sportaglytics",
   "productName": "SporTagLytics",
+  "afterPack": "./scripts/sign-event-detection-runners-after-pack.mjs",
   "files": [
     "build/**/*",
     "!build/**/*.map",
@@ -15,6 +16,11 @@
       "from": "public/llama",
       "to": "llama",
       "filter": ["**/*", "!**/*.gguf"]
+    },
+    {
+      "from": "resources/event-detection-models",
+      "to": "event-detection-models",
+      "filter": ["**/*", "!.gitkeep"]
     }
   ],
   "compression": "maximum",
@@ -25,6 +31,7 @@
   "mac": {
     "target": "dmg",
     "icon": "public/icon.icns",
+    "signIgnore": ["event-detection-models/.*/runner/[^/]+$"],
     "extraResources": [
       {
         "from": "public/icons",
@@ -187,7 +194,8 @@
         "ext": "stad",
         "name": "SporTagLytics Dashboard",
         "description": "SporTagLytics ダッシュボード",
-        "role": "Viewer"
+        "role": "Viewer",
+        "isPackage": true
       }
     ],
     "artifactName": "${productName}-${version}.${ext}"

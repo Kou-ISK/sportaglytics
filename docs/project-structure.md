@@ -10,12 +10,22 @@
 | `docs/` | user / developer / architecture docs | 仕様、ADR、配布・運用手順。新規docsは`docs/README.md`へ掲載 |
 | `electron/` | Electron main / preload | Node/Electron API、IPC、BrowserWindow、local process管理 |
 | `public/` | static bundled assets | icon、static template、同梱assets。大型modelはgit管理しない |
-| `resources/` | optional packaged runtime assets | 検証済みruntime/model pack等。配布工程で用意するasset |
+| `resources/` | optional packaged runtime assets | release/local build時に注入するruntime asset。model binaryはgit管理しない |
 | `scripts/` | repo-level automation | architecture/preload/ADR check、report、E2E |
 | `src/` | React renderer | UI、feature、shared domain、shared type。Electron direct import禁止 |
 | root | package/config/community entry | package.json、TS/Vite/ESLint、README、LICENSE等 |
 
-Model training / evaluation / dataset preparationはSporTagLytics repositoryの責務ではありません。別private R&D repositoryで管理し、public appにはverified model packのconsumer contractだけを置きます。
+Model training / evaluation / dataset preparationはSporTagLytics repositoryの責務ではありません。別private R&D repositoryで管理し、public appにはmodel packのconsumer contractだけを置きます。
+
+### Optional runtime resource staging
+
+```text
+resources/
+└── event-detection-models/
+    └── .gitkeep
+```
+
+`resources/event-detection-models/` はsanitized deployable model packをbuild時に一時配置するstaging pointです。`.gitignore`は`.gitkeep`以外を除外し、`electron-builder`がstaged contentをpackaged appの`event-detection-models`へ配置します。model binary、checkpoint、private manifestをsource treeへcommitしません。
 
 ## Renderer Layout
 
@@ -63,16 +73,19 @@ src/features/videoPlayer/
 ├── app/                         # main video Screen/runtime composition
 ├── analysis/                    # renderer-side statistics/domain
 ├── components/                  # player/coding/analysis feature UI
-├── eventDetection/              # verified automatic event coding
+├── eventDetection/              # automatic event coding
 │   ├── components/
-│   │   └── EventDetectionDialogView.tsx
+│   │   ├── EventDetectionDialogView.tsx
+│   │   └── EventDetectionDialogView.test.tsx
 │   ├── hooks/
 │   │   └── useEventDetectionController.ts
 │   ├── gateway/
 │   │   └── eventDetectionGateway.ts
 │   └── domain/
 │       ├── candidatesToTimeline.ts
-│       └── candidatesToTimeline.test.ts
+│       ├── candidatesToTimeline.test.ts
+│       ├── eventDetectionMappings.ts
+│       └── eventDetectionMappings.test.ts
 └── shared/
 ```
 
@@ -108,7 +121,8 @@ src/types/eventDetection/
 └── core.ts
 
 src/types/ipc/
-└── eventDetection.ts
+├── eventDetection.ts
+└── eventDetection.test.ts
 
 src/shared/eventDetection/
 ├── modelQualityGate.ts
@@ -117,8 +131,8 @@ src/shared/eventDetection/
 
 役割:
 
-- `types/eventDetection/core.ts`: model/event/request/result/mappingのrenderer-main共有domain型
-- `types/ipc/eventDetection.ts`: channel、preload API、payload guard
+- `types/eventDetection/core.ts`: model/event/request/result/mappingのrenderer-main共有domain型。model statusは`verified | experimental`
+- `types/ipc/eventDetection.ts`: channel、preload API、payload/model metadata guard
 - `shared/eventDetection/modelQualityGate.ts`: verified model packのminimum runtime gate
 
 ML framework固有typeやtraining/evaluation codeはここへ置きません。ONNX/PyTorch等はrunnerまたは外部R&Dの実装詳細です。
@@ -143,6 +157,7 @@ electron/src/
 electron/src/eventDetection/
 ├── eventDetectionManager.ts
 ├── modelDiscovery.ts
+├── modelDiscovery.test.ts
 ├── processRunner.ts
 ├── requestRegistry.ts
 └── types.ts
@@ -156,8 +171,8 @@ electron/src/preload/
 
 責務:
 
-- `modelDiscovery`: verified manifest / event quality / platform runner / SHA-256検証
-- `eventDetectionManager`: model解決とrequest support確認
+- `modelDiscovery`: status-aware manifest / event eligibility / platform runner / SHA-256検証
+- `eventDetectionManager`: runnable model解決とrequest support確認
 - `processRunner`: bounded child process execution
 - `requestRegistry`: cancel対象process管理
 - `eventDetectionHandlers`: sender/payload validation
@@ -226,20 +241,22 @@ SporTagLyticsはevent modelの**consumer**です。別private R&D repositoryが�
 
 Public repositoryへ持ち込めるもの:
 
-- model pack schemaに適合したmanifest
-- verified runner contract
-- compatibility/quality metadata
+- model pack schema / runtime contract
+- verified/experimental status contract
+- compatibility/quality metadata contract
 - synthetic fixtureを使ったruntime test
+- ignored staging directory
 
 Public repositoryへ持ち込まないもの:
 
 - 元動画 / `.stpkg` / Coding dataset
 - source-identifying manifest/path
 - frames / checkpoints / training runs
+- deployable model binary
 - model family比較やfine-tuning script
 - private diagnostic output
 
-詳細は [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md) を正とします。
+詳細は [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md) と [ADR 0024](adr/0024-experimental-event-detection-production-lane.md) を正とします。
 
 ## Documentation Placement
 
@@ -255,7 +272,7 @@ docs/
 └── adr/
 ```
 
-長期判断を新規追加・変更する場合はADRへ記録します。自動イベント検出の実行境界・R&D分離・品質方針は [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md) を正とします。
+長期判断を新規追加・変更する場合はADRへ記録します。自動イベント検出のR&D分離はADR 0023、experimental production laneはADR 0024を正とします。
 
 ## Placement Checklist
 
@@ -268,5 +285,5 @@ docs/
 5. Electron APIはmain/preload/gateway境界内か。
 6. IPC contractは `src/types/ipc/` にあるか。
 7. pure domain logicをHook/Viewへ埋め込んでいないか。
-8. ML学習・評価コードをSporTagLytics runtime repositoryへ戻していないか。
+8. ML学習・評価コードやdeployable model binaryをSporTagLytics runtime repositoryへ戻していないか。
 9. 新しい設計判断ならADR/docs indexを更新したか。

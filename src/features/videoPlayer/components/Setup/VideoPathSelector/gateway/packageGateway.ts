@@ -7,6 +7,8 @@ const ELECTRON_API_UNAVAILABLE = 'ELECTRON_API_UNAVAILABLE';
 const PACKAGE_CONFIG_NOT_FOUND = 'PACKAGE_CONFIG_NOT_FOUND';
 const PACKAGE_CONFIG_INVALID = 'PACKAGE_CONFIG_INVALID';
 const PACKAGE_VIDEO_MISSING = 'PACKAGE_VIDEO_MISSING';
+const PACKAGE_MIGRATION_CANCELLED = 'PACKAGE_MIGRATION_CANCELLED';
+const PACKAGE_MIGRATION_FAILED = 'PACKAGE_MIGRATION_FAILED';
 
 interface PackageTeamNames {
   team1Name: string;
@@ -73,6 +75,29 @@ const normalizePackagePath = (value: unknown): string | null => {
   return null;
 };
 
+const preparePackagePathForOpen = async (
+  packagePath: string,
+): Promise<string> => {
+  const api = getElectronApi();
+  if (!api.preparePackageForOpen) return packagePath;
+
+  let preparation = await api.preparePackageForOpen(packagePath);
+  if (preparation.status === 'needs-destination') {
+    const destination = await api.saveFileDialog(preparation.suggestedPath, [
+      { name: 'SporTagLytics Package', extensions: ['stpkg'] },
+    ]);
+    if (!destination) {
+      throw new Error(PACKAGE_MIGRATION_CANCELLED);
+    }
+    preparation = await api.preparePackageForOpen(packagePath, destination);
+  }
+
+  if (preparation.status !== 'ready') {
+    throw new Error(PACKAGE_MIGRATION_FAILED);
+  }
+  return preparation.packagePath;
+};
+
 export const pickPackagePath = async (
   preselectedPath?: unknown,
 ): Promise<string | null> => {
@@ -117,14 +142,13 @@ export const loadPackageDirectory = async (
   packagePath: string,
 ): Promise<LoadedPackageData> => {
   const api = getElectronApi();
-  const configFilePath = `${packagePath}/.metadata/config.json`;
+  const preparedPackagePath = await preparePackagePathForOpen(packagePath);
+  const configFilePath = `${preparedPackagePath}/.metadata/config.json`;
 
-  if (api.convertConfigToRelativePath) {
-    try {
-      await api.convertConfigToRelativePath(packagePath);
-    } catch (error) {
-      console.warn('config.json変換をスキップ:', error);
-    }
+  try {
+    await api.convertConfigToRelativePath(preparedPackagePath);
+  } catch (error) {
+    console.warn('config.json変換をスキップ:', error);
   }
 
   const exists = await api.checkFileExists?.(configFilePath);
@@ -137,7 +161,10 @@ export const loadPackageDirectory = async (
     throw new Error(PACKAGE_CONFIG_INVALID);
   }
 
-  const { videoList, angles } = buildVideoListFromConfig(config, packagePath);
+  const { videoList, angles } = buildVideoListFromConfig(
+    config,
+    preparedPackagePath,
+  );
   if (videoList.length === 0) {
     throw new Error(PACKAGE_VIDEO_MISSING);
   }
@@ -157,7 +184,7 @@ export const loadPackageDirectory = async (
       : undefined;
 
   return {
-    packagePath,
+    packagePath: preparedPackagePath,
     configFilePath,
     team1Name: readTeamName(config.team1Name, 'Team 1'),
     team2Name: readTeamName(config.team2Name, 'Team 2'),
@@ -165,9 +192,9 @@ export const loadPackageDirectory = async (
     result: {
       videoList,
       syncData,
-      timelinePath: `${packagePath}/timeline.json`,
+      timelinePath: `${preparedPackagePath}/timeline.json`,
       metaDataConfigFilePath: configFilePath,
-      packagePath,
+      packagePath: preparedPackagePath,
       mediaAngles: angles.map((angle) => ({
         id: angle.id,
         name: angle.name,
@@ -234,6 +261,10 @@ export const toPackageLoadErrorMessage = (error: unknown): string => {
       return 'アングルに映像が割り当てられていません。';
     case PACKAGE_CONFIG_INVALID:
       return 'パッケージ設定の読み込みに失敗しました。';
+    case PACKAGE_MIGRATION_CANCELLED:
+      return '旧形式パッケージの移行をキャンセルしました。';
+    case PACKAGE_MIGRATION_FAILED:
+      return '旧形式パッケージを .stpkg へ移行できませんでした。';
     default:
       return 'パッケージの読み込み中にエラーが発生しました。';
   }

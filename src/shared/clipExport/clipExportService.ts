@@ -1,7 +1,4 @@
-import type {
-  ClipExportAngleOption,
-  ClipExportExecutionResult,
-} from './clipExportTypes';
+import type { ClipExportAngleOption } from './clipExportTypes';
 import type {
   ClipExportExecutor,
   ClipExportItem,
@@ -144,13 +141,6 @@ const buildExportFileName = (
   return suffix ? `${baseName}_${suffix}` : baseName;
 };
 
-const buildFailureMessage = (
-  result: ClipExportExecutionResult,
-  fallbackMessage: string,
-): string => {
-  return result.error || fallbackMessage;
-};
-
 export const executeClipExport = async ({
   executeExport,
   progressId,
@@ -191,10 +181,7 @@ export const executeClipExport = async ({
         onProgress?.(null);
         return {
           success: false,
-          message: buildFailureMessage(
-            result,
-            `アングル${i + 1}の書き出しに失敗しました`,
-          ),
+          message: `アングル${i + 1}の書き出しに失敗しました`,
         };
       }
     }
@@ -250,6 +237,6 @@ export const executeClipExport = async ({
 
   return {
     success: false,
-    message: buildFailureMessage(result, '書き出しに失敗しました'),
+    message: '書き出しに失敗しました',
   };
 };

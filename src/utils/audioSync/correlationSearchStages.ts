@@ -1,235 +1,552 @@
-import type { CorrelationLogger } from './correlationLogger';
+export interface AudioFeatureSeries {
+  values: Float32Array;
+  energies: Float32Array;
+  frameRate: number;
+  blockSize: number;
+}
 
-export interface CorrelationSearchResult {
-  offset: number;
+export interface CorrelationWindow {
+  source: 'first' | 'second';
+  startFrame: number;
+  lengthFrames: number;
+  quality: number;
+}
+
+export interface FeatureCorrelationCandidate {
+  offsetFrames: number;
+  correlation: number;
+  rankScore: number;
+  windowScores: number[];
+  usableWindowCount: number;
+  consistencyScore: number;
+  anchorBaseFrame: number;
+}
+
+export interface RawCorrelationResult {
+  offsetSamples: number;
   correlation: number;
 }
 
-interface CorrelationStageParams {
-  data1: Float32Array;
-  data2: Float32Array;
-  analysisLengthSamples: number;
-  sampleRate: number;
-  logger: CorrelationLogger;
-}
+const TARGET_FEATURE_RATE = 20;
+const WINDOW_SECONDS = 4;
+const MIN_WINDOW_SECONDS = 1.5;
+const BROAD_STEP_SECONDS = 0.25;
+const CANDIDATE_SEPARATION_SECONDS = 1;
+const MAX_WINDOWS_PER_SOURCE = 4;
+const MAX_COARSE_CANDIDATES = 8;
 
-const calculateSimpleCorrelation = (
-  data1: Float32Array,
-  data2: Float32Array,
-  offset: number,
-  analysisLength: number,
-  logger: CorrelationLogger,
+const clamp = (value: number, minimum: number, maximum: number): number =>
+  Math.min(maximum, Math.max(minimum, value));
+
+const yieldToEventLoop = async (): Promise<void> => {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+};
+
+const calculatePearson = (
+  first: Float32Array,
+  second: Float32Array,
+  firstStart: number,
+  secondStart: number,
+  length: number,
 ): number => {
-  let sum1 = 0;
-  let sum2 = 0;
-  let sum1Sq = 0;
-  let sum2Sq = 0;
+  if (length <= 1) return -1;
+  let firstSum = 0;
+  let secondSum = 0;
+  let firstSquareSum = 0;
+  let secondSquareSum = 0;
   let productSum = 0;
-  let validSamples = 0;
 
-  const start1 = Math.max(0, -offset);
-  const start2 = Math.max(0, offset);
-  const maxLength = Math.min(
-    analysisLength,
-    data1.length - start1,
-    data2.length - start2,
-  );
-
-  if (maxLength <= 0) {
-    if (offset === 0 || Math.abs(offset) < 100) {
-      logger.warn('相関計算: 範囲不正', {
-        offset,
-        start1,
-        start2,
-        maxLength,
-        data1Length: data1.length,
-        data2Length: data2.length,
-      });
-    }
-    return -1;
+  for (let index = 0; index < length; index += 1) {
+    const firstValue = first[firstStart + index] ?? 0;
+    const secondValue = second[secondStart + index] ?? 0;
+    firstSum += firstValue;
+    secondSum += secondValue;
+    firstSquareSum += firstValue * firstValue;
+    secondSquareSum += secondValue * secondValue;
+    productSum += firstValue * secondValue;
   }
 
-  for (let i = 0; i < maxLength; i += 1) {
-    const idx1 = start1 + i;
-    const idx2 = start2 + i;
-
-    if (idx1 >= data1.length || idx2 >= data2.length) {
-      break;
-    }
-
-    const val1 = data1[idx1];
-    const val2 = data2[idx2];
-    sum1 += val1;
-    sum2 += val2;
-    sum1Sq += val1 * val1;
-    sum2Sq += val2 * val2;
-    productSum += val1 * val2;
-    validSamples += 1;
-  }
-
-  if (validSamples === 0) return -1;
-
-  const mean1 = sum1 / validSamples;
-  const mean2 = sum2 / validSamples;
-  const variance1 = sum1Sq / validSamples - mean1 * mean1;
-  const variance2 = sum2Sq / validSamples - mean2 * mean2;
-
-  if (variance1 <= 0 || variance2 <= 0) return -1;
-
-  const covariance = productSum / validSamples - mean1 * mean2;
-  return covariance / Math.sqrt(variance1 * variance2);
+  const numerator = productSum - (firstSum * secondSum) / length;
+  const firstVariance = firstSquareSum - (firstSum * firstSum) / length;
+  const secondVariance = secondSquareSum - (secondSum * secondSum) / length;
+  const denominator = Math.sqrt(firstVariance * secondVariance);
+  if (!Number.isFinite(denominator) || denominator <= 1e-12) return -1;
+  return clamp(numerator / denominator, -1, 1);
 };
 
-export const runCoarseCorrelationSearch = (
-  params: CorrelationStageParams & {
-    maxOffsetSamples: number;
-    onProgress?: (progress: number) => void;
-  },
-): CorrelationSearchResult => {
-  const {
-    data1,
-    data2,
-    analysisLengthSamples,
-    sampleRate,
-    maxOffsetSamples,
-    logger,
-    onProgress,
-  } = params;
-  const coarseStep = Math.floor(sampleRate * 0.02);
-  let bestOffset = 0;
-  let bestCorrelation = -Infinity;
-  let searchCount = 0;
-  const totalSearches = Math.max(
+export const buildCoarseAudioFeature = (
+  data: Float32Array,
+  sampleRate: number,
+): AudioFeatureSeries => {
+  const safeSampleRate = Math.max(1, sampleRate);
+  const blockSize = Math.max(1, Math.round(safeSampleRate / TARGET_FEATURE_RATE));
+  const frameCount = Math.floor(data.length / blockSize);
+  const energies = new Float32Array(frameCount);
+  const transformed = new Float32Array(frameCount);
+
+  let transformedSum = 0;
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const start = frame * blockSize;
+    let sum = 0;
+    let squareSum = 0;
+    for (let sample = 0; sample < blockSize; sample += 1) {
+      const value = data[start + sample] ?? 0;
+      sum += value;
+      squareSum += value * value;
+    }
+    const mean = sum / blockSize;
+    const variance = Math.max(0, squareSum / blockSize - mean * mean);
+    const rms = Math.sqrt(variance);
+    energies[frame] = rms;
+    const compressed = Math.log1p(rms * 100);
+    transformed[frame] = compressed;
+    transformedSum += compressed;
+  }
+
+  const values = new Float32Array(frameCount);
+  if (frameCount > 0) {
+    const mean = transformedSum / frameCount;
+    let varianceSum = 0;
+    for (let frame = 0; frame < frameCount; frame += 1) {
+      const delta = (transformed[frame] ?? 0) - mean;
+      varianceSum += delta * delta;
+    }
+    const standardDeviation = Math.sqrt(varianceSum / frameCount);
+    if (standardDeviation > 1e-6) {
+      for (let frame = 0; frame < frameCount; frame += 1) {
+        values[frame] = ((transformed[frame] ?? 0) - mean) / standardDeviation;
+      }
+    }
+  }
+
+  return {
+    values,
+    energies,
+    frameRate: safeSampleRate / blockSize,
+    blockSize,
+  };
+};
+
+const calculateWindowQuality = (
+  feature: AudioFeatureSeries,
+  startFrame: number,
+  lengthFrames: number,
+): number => {
+  if (lengthFrames <= 1) return 0;
+  let valueSum = 0;
+  let valueSquareSum = 0;
+  let energySum = 0;
+  for (let index = 0; index < lengthFrames; index += 1) {
+    const value = feature.values[startFrame + index] ?? 0;
+    valueSum += value;
+    valueSquareSum += value * value;
+    energySum += feature.energies[startFrame + index] ?? 0;
+  }
+  const mean = valueSum / lengthFrames;
+  const variance = Math.max(
+    0,
+    valueSquareSum / lengthFrames - mean * mean,
+  );
+  const meanEnergy = energySum / lengthFrames;
+  if (meanEnergy <= 1e-7 || variance <= 0.01) return 0;
+  return variance * Math.log1p(meanEnergy * 1000);
+};
+
+export const selectCorrelationWindows = (
+  feature: AudioFeatureSeries,
+  source: CorrelationWindow['source'],
+): CorrelationWindow[] => {
+  const preferredLength = Math.max(
+    12,
+    Math.round(feature.frameRate * WINDOW_SECONDS),
+  );
+  const minimumLength = Math.max(
+    8,
+    Math.round(feature.frameRate * MIN_WINDOW_SECONDS),
+  );
+  if (feature.values.length < minimumLength) return [];
+  const step = Math.max(1, Math.floor(preferredLength / 2));
+  const candidates: CorrelationWindow[] = [];
+
+  for (
+    let startFrame = 0;
+    startFrame + minimumLength <= feature.values.length;
+    startFrame += step
+  ) {
+    const lengthFrames = Math.min(
+      preferredLength,
+      feature.values.length - startFrame,
+    );
+    const quality = calculateWindowQuality(feature, startFrame, lengthFrames);
+    if (quality <= 0) continue;
+    candidates.push({ source, startFrame, lengthFrames, quality });
+  }
+
+  candidates.sort((left, right) => right.quality - left.quality);
+  const selected: CorrelationWindow[] = [];
+  const minimumSeparation = Math.max(1, Math.floor(preferredLength / 2));
+  for (const candidate of candidates) {
+    if (
+      selected.some(
+        (existing) =>
+          Math.abs(existing.startFrame - candidate.startFrame) <
+          minimumSeparation,
+      )
+    ) {
+      continue;
+    }
+    selected.push(candidate);
+    if (selected.length >= MAX_WINDOWS_PER_SOURCE) break;
+  }
+  return selected;
+};
+
+const scoreWindowAtOffset = ({
+  first,
+  second,
+  window,
+  offsetFrames,
+  minimumFrames,
+}: {
+  first: AudioFeatureSeries;
+  second: AudioFeatureSeries;
+  window: CorrelationWindow;
+  offsetFrames: number;
+  minimumFrames: number;
+}): { score: number; baseStartFrame: number } | null => {
+  let baseStart =
+    window.source === 'first'
+      ? window.startFrame
+      : window.startFrame - offsetFrames;
+  let baseEnd = baseStart + window.lengthFrames;
+  baseStart = Math.max(baseStart, 0, -offsetFrames);
+  baseEnd = Math.min(
+    baseEnd,
+    first.values.length,
+    second.values.length - offsetFrames,
+  );
+  const length = baseEnd - baseStart;
+  if (length < minimumFrames) return null;
+
+  const score = calculatePearson(
+    first.values,
+    second.values,
+    baseStart,
+    baseStart + offsetFrames,
+    length,
+  );
+  if (!Number.isFinite(score) || score <= -1) return null;
+  return { score, baseStartFrame: baseStart };
+};
+
+const scoreFeatureOffset = ({
+  first,
+  second,
+  windows,
+  offsetFrames,
+}: {
+  first: AudioFeatureSeries;
+  second: AudioFeatureSeries;
+  windows: CorrelationWindow[];
+  offsetFrames: number;
+}): FeatureCorrelationCandidate | null => {
+  const minimumFrames = Math.max(
+    6,
+    Math.round(first.frameRate * MIN_WINDOW_SECONDS),
+  );
+  const windowScores: number[] = [];
+  let bestWindowScore = -Infinity;
+  let anchorBaseFrame = Math.max(0, -offsetFrames);
+
+  for (const window of windows) {
+    const scored = scoreWindowAtOffset({
+      first,
+      second,
+      window,
+      offsetFrames,
+      minimumFrames,
+    });
+    if (!scored) continue;
+    windowScores.push(scored.score);
+    if (scored.score > bestWindowScore) {
+      bestWindowScore = scored.score;
+      anchorBaseFrame = scored.baseStartFrame;
+    }
+  }
+  if (windowScores.length === 0) return null;
+
+  const correlation =
+    windowScores.reduce((sum, score) => sum + score, 0) / windowScores.length;
+  const coverage = Math.min(
     1,
-    Math.floor((maxOffsetSamples * 2) / coarseStep),
+    windowScores.length / Math.max(1, Math.min(4, windows.length)),
   );
+  const rankScore =
+    correlation >= 0
+      ? correlation * (0.65 + 0.35 * coverage)
+      : correlation;
+  const consistencyThreshold = Math.max(0.15, correlation - 0.2);
+  const consistencyScore =
+    windowScores.filter((score) => score >= consistencyThreshold).length /
+    windowScores.length;
 
-  logger.debug('粗探索開始', {
-    coarseStep,
-    coarseStepMs: Number(((coarseStep / sampleRate) * 1000).toFixed(1)),
-  });
+  return {
+    offsetFrames,
+    correlation,
+    rankScore,
+    windowScores,
+    usableWindowCount: windowScores.length,
+    consistencyScore,
+    anchorBaseFrame,
+  };
+};
+
+const insertSeparatedCandidate = (
+  candidates: FeatureCorrelationCandidate[],
+  candidate: FeatureCorrelationCandidate,
+  separationFrames: number,
+): void => {
+  const nearbyIndex = candidates.findIndex(
+    (existing) =>
+      Math.abs(existing.offsetFrames - candidate.offsetFrames) <
+      separationFrames,
+  );
+  if (nearbyIndex >= 0) {
+    const existing = candidates[nearbyIndex];
+    if (existing && existing.rankScore >= candidate.rankScore) return;
+    candidates.splice(nearbyIndex, 1);
+  }
+  candidates.push(candidate);
+  candidates.sort((left, right) => right.rankScore - left.rankScore);
+  if (candidates.length > MAX_COARSE_CANDIDATES) {
+    candidates.length = MAX_COARSE_CANDIDATES;
+  }
+};
+
+export const runBroadFeatureCorrelationSearch = async ({
+  first,
+  second,
+  windows,
+  maxOffsetSeconds,
+  onProgress,
+}: {
+  first: AudioFeatureSeries;
+  second: AudioFeatureSeries;
+  windows: CorrelationWindow[];
+  maxOffsetSeconds?: number;
+  onProgress?: (progress: number) => void;
+}): Promise<FeatureCorrelationCandidate[]> => {
+  if (windows.length === 0 || first.values.length === 0 || second.values.length === 0) {
+    return [];
+  }
+  const minimumOverlap = Math.max(
+    6,
+    Math.round(first.frameRate * MIN_WINDOW_SECONDS),
+  );
+  let minimumOffset = -first.values.length + minimumOverlap;
+  let maximumOffset = second.values.length - minimumOverlap;
+  if (
+    maxOffsetSeconds !== undefined &&
+    Number.isFinite(maxOffsetSeconds) &&
+    maxOffsetSeconds >= 0
+  ) {
+    const explicitLimit = Math.round(maxOffsetSeconds * first.frameRate);
+    minimumOffset = Math.max(minimumOffset, -explicitLimit);
+    maximumOffset = Math.min(maximumOffset, explicitLimit);
+  }
+  if (minimumOffset > maximumOffset) return [];
+
+  const step = Math.max(1, Math.round(first.frameRate * BROAD_STEP_SECONDS));
+  const separation = Math.max(
+    1,
+    Math.round(first.frameRate * CANDIDATE_SEPARATION_SECONDS),
+  );
+  const total = Math.max(
+    1,
+    Math.floor((maximumOffset - minimumOffset) / step) + 1,
+  );
+  const candidates: FeatureCorrelationCandidate[] = [];
+  let completed = 0;
+
   onProgress?.(0);
-
   for (
-    let offset = -maxOffsetSamples;
-    offset <= maxOffsetSamples;
-    offset += coarseStep
+    let offsetFrames = minimumOffset;
+    offsetFrames <= maximumOffset;
+    offsetFrames += step
   ) {
-    const correlation = calculateSimpleCorrelation(
-      data1,
-      data2,
-      offset,
-      analysisLengthSamples,
-      logger,
-    );
-
-    if (correlation > bestCorrelation) {
-      bestCorrelation = correlation;
-      bestOffset = offset;
+    const candidate = scoreFeatureOffset({
+      first,
+      second,
+      windows,
+      offsetFrames,
+    });
+    if (candidate) {
+      insertSeparatedCandidate(candidates, candidate, separation);
     }
-
-    searchCount += 1;
-    if (searchCount % 100 === 0) {
-      onProgress?.((searchCount / totalSearches) * 0.4);
+    completed += 1;
+    if (completed % 64 === 0) {
+      onProgress?.(completed / total);
+      await yieldToEventLoop();
     }
   }
-
-  logger.debug('粗探索完了', {
-    offsetSamples: bestOffset,
-    offsetSeconds: Number((bestOffset / sampleRate).toFixed(3)),
-    correlation: Number(bestCorrelation.toFixed(4)),
-    searchCount,
-  });
-
-  return { offset: bestOffset, correlation: bestCorrelation };
+  onProgress?.(1);
+  return candidates;
 };
 
-export const runFineCorrelationSearch = (
-  params: CorrelationStageParams & {
-    initial: CorrelationSearchResult;
-  },
-): CorrelationSearchResult => {
-  const { data1, data2, analysisLengthSamples, sampleRate, initial, logger } =
-    params;
-  const fineStep = Math.floor(sampleRate / 30);
-  const fineRange = Math.floor(sampleRate * 2);
-  let bestOffset = initial.offset;
-  let bestCorrelation = initial.correlation;
+export const runFineFeatureCorrelationSearch = ({
+  first,
+  second,
+  windows,
+  coarseCandidates,
+}: {
+  first: AudioFeatureSeries;
+  second: AudioFeatureSeries;
+  windows: CorrelationWindow[];
+  coarseCandidates: FeatureCorrelationCandidate[];
+}): FeatureCorrelationCandidate[] => {
+  if (coarseCandidates.length === 0) return [];
+  const rangeFrames = Math.max(
+    2,
+    Math.round(first.frameRate * BROAD_STEP_SECONDS * 1.5),
+  );
+  const separation = Math.max(
+    1,
+    Math.round(first.frameRate * CANDIDATE_SEPARATION_SECONDS),
+  );
+  const results: FeatureCorrelationCandidate[] = [];
+  const seen = new Set<number>();
 
-  logger.debug('精密探索開始', {
-    centerOffset: initial.offset,
-    fineStep,
-    fineRange,
-  });
-
-  for (
-    let offset = initial.offset - fineRange;
-    offset <= initial.offset + fineRange;
-    offset += fineStep
-  ) {
-    const correlation = calculateSimpleCorrelation(
-      data1,
-      data2,
-      offset,
-      analysisLengthSamples,
-      logger,
-    );
-
-    if (correlation > bestCorrelation) {
-      bestCorrelation = correlation;
-      bestOffset = offset;
+  for (const coarse of coarseCandidates.slice(0, 5)) {
+    for (
+      let offsetFrames = coarse.offsetFrames - rangeFrames;
+      offsetFrames <= coarse.offsetFrames + rangeFrames;
+      offsetFrames += 1
+    ) {
+      if (seen.has(offsetFrames)) continue;
+      seen.add(offsetFrames);
+      const candidate = scoreFeatureOffset({
+        first,
+        second,
+        windows,
+        offsetFrames,
+      });
+      if (candidate) {
+        insertSeparatedCandidate(results, candidate, separation);
+      }
     }
   }
-
-  logger.debug('精密探索完了', {
-    offsetSamples: bestOffset,
-    offsetSeconds: Number((bestOffset / sampleRate).toFixed(3)),
-    correlation: Number(bestCorrelation.toFixed(4)),
-  });
-
-  return { offset: bestOffset, correlation: bestCorrelation };
+  return results;
 };
 
-export const runUltraFineCorrelationSearch = (
-  params: CorrelationStageParams & {
-    initial: CorrelationSearchResult;
-  },
-): CorrelationSearchResult => {
-  const { data1, data2, analysisLengthSamples, sampleRate, initial, logger } =
-    params;
-  const ultraFineRange = Math.floor(sampleRate * 0.2);
-  let bestOffset = initial.offset;
-  let bestCorrelation = initial.correlation;
+const calculateRawCorrelationAtOffset = ({
+  first,
+  second,
+  offsetSamples,
+  anchorBaseSample,
+  windowLengthSamples,
+}: {
+  first: Float32Array;
+  second: Float32Array;
+  offsetSamples: number;
+  anchorBaseSample: number;
+  windowLengthSamples: number;
+}): number => {
+  const minimumStart = Math.max(0, -offsetSamples);
+  const maximumEnd = Math.min(first.length, second.length - offsetSamples);
+  const availableLength = maximumEnd - minimumStart;
+  if (availableLength < 16) return -1;
+  const length = Math.min(windowLengthSamples, availableLength);
+  const maximumStart = maximumEnd - length;
+  const firstStart = Math.round(
+    clamp(anchorBaseSample, minimumStart, maximumStart),
+  );
+  return calculatePearson(
+    first,
+    second,
+    firstStart,
+    firstStart + offsetSamples,
+    length,
+  );
+};
 
-  logger.debug('超精密探索開始', {
-    centerOffset: initial.offset,
-    ultraFineRange,
+export const runRawCorrelationRefinement = async ({
+  first,
+  second,
+  sampleRate,
+  initialOffsetSeconds,
+  anchorBaseSeconds,
+  onProgress,
+}: {
+  first: Float32Array;
+  second: Float32Array;
+  sampleRate: number;
+  initialOffsetSeconds: number;
+  anchorBaseSeconds: number;
+  onProgress?: (progress: number) => void;
+}): Promise<RawCorrelationResult> => {
+  const initialOffset = Math.round(initialOffsetSeconds * sampleRate);
+  const anchorBaseSample = Math.round(anchorBaseSeconds * sampleRate);
+  const windowLength = Math.max(32, Math.round(sampleRate * 0.4));
+  const broadRange = Math.max(1, Math.round(sampleRate * 0.12));
+  const broadStep = Math.max(1, Math.round(sampleRate / 1000));
+  let bestOffset = initialOffset;
+  let bestCorrelation = calculateRawCorrelationAtOffset({
+    first,
+    second,
+    offsetSamples: initialOffset,
+    anchorBaseSample,
+    windowLengthSamples: windowLength,
   });
 
+  const totalBroad = Math.max(1, Math.floor((broadRange * 2) / broadStep) + 1);
+  let completed = 0;
   for (
-    let offset = initial.offset - ultraFineRange;
-    offset <= initial.offset + ultraFineRange;
-    offset += 1
+    let offset = initialOffset - broadRange;
+    offset <= initialOffset + broadRange;
+    offset += broadStep
   ) {
-    const correlation = calculateSimpleCorrelation(
-      data1,
-      data2,
-      offset,
-      analysisLengthSamples,
-      logger,
-    );
-
+    const correlation = calculateRawCorrelationAtOffset({
+      first,
+      second,
+      offsetSamples: offset,
+      anchorBaseSample,
+      windowLengthSamples: windowLength,
+    });
     if (correlation > bestCorrelation) {
       bestCorrelation = correlation;
       bestOffset = offset;
     }
+    completed += 1;
+    if (completed % 24 === 0) {
+      onProgress?.((completed / totalBroad) * 0.75);
+      await yieldToEventLoop();
+    }
   }
 
-  logger.debug('超精密探索完了', {
-    offsetSamples: bestOffset,
-    offsetSeconds: Number((bestOffset / sampleRate).toFixed(6)),
-    correlation: Number(bestCorrelation.toFixed(6)),
-  });
-
-  return { offset: bestOffset, correlation: bestCorrelation };
+  const ultraRange = Math.max(1, Math.round(sampleRate * 0.004));
+  const ultraTotal = ultraRange * 2 + 1;
+  let ultraCompleted = 0;
+  const center = bestOffset;
+  for (let offset = center - ultraRange; offset <= center + ultraRange; offset += 1) {
+    const correlation = calculateRawCorrelationAtOffset({
+      first,
+      second,
+      offsetSamples: offset,
+      anchorBaseSample,
+      windowLengthSamples: windowLength,
+    });
+    if (correlation > bestCorrelation) {
+      bestCorrelation = correlation;
+      bestOffset = offset;
+    }
+    ultraCompleted += 1;
+    if (ultraCompleted % 32 === 0) {
+      onProgress?.(0.75 + (ultraCompleted / ultraTotal) * 0.25);
+      await yieldToEventLoop();
+    }
+  }
+  onProgress?.(1);
+  return { offsetSamples: bestOffset, correlation: bestCorrelation };
 };

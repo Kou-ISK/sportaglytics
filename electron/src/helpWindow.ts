@@ -14,106 +14,106 @@ const sections: HelpSection[] = [
   {
     id: 'packages',
     title: 'パッケージ管理',
-    summary: '新規作成・既存パッケージを開く・最近開いたパッケージへ再アクセス',
+    summary: '最近の作業を再開・既存パッケージを開く・新規作成',
     steps: [
-      'ホーム画面または ファイル > 新規 > 映像パッケージ… からウィザードを開始し、映像・角度・チーム名を登録すると .metadata/config.json と timeline.json が生成されます。',
-      '既存パッケージはホーム画面の「既存パッケージを開く」または ファイル > 開く > 映像パッケージ… で選択。メニューの「最近開いた映像パッケージ」から再開することもできます。',
-      'パッケージフォルダをドラッグ&ドロップしても開けます。映像パスは相対パスで保存されるためフォルダ移動に強い構造です。',
+      'ホーム画面では、最近開いたパッケージがある場合は最初に表示されます。続きから作業するときは対象のカードを選択してください。',
+      '別の既存パッケージは「パッケージを開く」または ファイル > 開く > パッケージ… から選択できます。.stpkg をホーム画面へドラッグ&ドロップして開くこともできます。',
+      '新しい分析を始める場合は「新しいパッケージを作成」または ファイル > 新規 > パッケージ… から、映像・アングル・チーム名を登録します。',
     ],
   },
   {
     id: 'playback',
     title: '映像再生と同期',
-    summary: '2映像の同期再生とオフセット調整',
+    summary: '複数アングルの再生と同期位置の調整',
     steps: [
-      'パッケージ読込時に角度情報からプライマリ/セカンダリを自動割り当て。再生はプレイヤーのコントロール、Space、矢印キー（スロー/戻し/高速）で操作できます。',
-      '音声同期コマンド: Cmd/Ctrl+Shift+S 再実行、Cmd/Ctrl+Shift+R リセット、Cmd/Ctrl+Shift+M 現在位置を採用。メニュー（同期）またはホットキーから呼び出します。',
-      '手動モード (Cmd/Ctrl+Shift+T) をオンにすると各プレイヤーを個別シークでき、細かなオフセット調整が可能です。',
+      'パッケージ読込後は共通タイムライン上で各アングルを再生します。Spaceで再生/停止、左右の矢印キーと修飾キーで低速・高速・逆再生を操作できます。',
+      '同期メニューでは、自動同期（Cmd/Ctrl+Shift+S）、手動同期モード（Cmd/Ctrl+Shift+T）、同期オフセットのリセット（Cmd/Ctrl+Shift+R）を実行できます。',
+      '「今の位置で同期」は既定で Cmd/Ctrl+Shift+M です。設定 > ホットキー で現在の割り当てを確認・変更できます。',
     ],
   },
   {
     id: 'tagging',
     title: 'タグ付け（コードウィンドウ）',
-    summary: 'アクション記録とラベル付け、コードウィンドウのホットキー操作',
+    summary: 'アクション記録・ラベル付け・コードウィンドウの編集',
     steps: [
-      'メイン画面右側のコードウィンドウでボタンを押すと録画開始/終了。同時に複数アクションを記録できます（プレースホルダー ${Team1}/${Team2} はチーム名に置換されます）。',
-      'ホットキーは各コードウィンドウのボタンに設定したものが有効です（デフォルト例では2チーム目に Shift+キーを割り当てていますが任意に設定可能）。',
-      'レイアウトは独立コードウィンドウの編集モードで編集します。複数ボタンのまとめ移動・サイズ調整、フォントサイズ変更、色やリンク（排他/連動/無効化）も行えます。',
+      'コードウィンドウのアクションボタンを押すと記録を開始し、同じアクションをもう一度実行すると終了します。ボタンに割り当てたホットキーからも同じ処理を実行できます。',
+      'コードウィンドウは映像画面とは独立したウィンドウです。コード / ラベルを切り替えながら操作し、必要な場合だけ編集モードへ切り替えます。',
+      '編集モードではボタンの位置・サイズ・文字サイズ・色・ホットキー・リンクを変更できます。編集モード中は通常のコーディング用ホットキーを無効化します。',
     ],
   },
   {
     id: 'timeline',
     title: 'タイムライン編集',
-    summary: 'イベントの編集・移動・複製・プレイリスト追加',
+    summary: '行・インスタンス・表示倍率を編集する',
     steps: [
-      '画面下部のビジュアルタイムラインでクリックジャンプ、ホイールズーム、ドラッグ範囲選択が可能。範囲選択後に一括操作できます。',
-      'イベントを右クリックして編集/削除/重複/移動/ラベル付与/プレイリスト追加を実行。選択中のイベントは Cmd/Ctrl+Shift+P でもプレイリストに追加できます。',
-      '編集ダイアログで時間・メモ・ラベルをまとめて更新。Undo/Redo は Cmd/Ctrl+Z / Cmd/Ctrl+Shift+Z で呼び出します。',
+      'ウィンドウ > タイムラインを開く で独立タイムラインを表示します。下部フッター左の「＋」で行を追加し、右側の「− 100% ＋」で表示倍率を変更できます。Cmd/Ctrlを押しながらホイール操作でも拡大・縮小できます。',
+      'インスタンスをクリックすると選択し、ドラッグすると別の行へ移動できます。Option/Altを押しながらドラッグするとコピーします。複数選択した状態では選択中のインスタンスをまとめて移動・コピーできます。',
+      '空いている範囲をドラッグすると範囲選択できます。インスタンスを右クリックすると、編集・削除・複製・ジャンプ・プレイリスト追加などの操作を開けます。Delete/Backspaceでは選択中のインスタンスを削除します。',
+      'macOSでは、選択中のインスタンスに対して Command+Option を押しながら左右端をドラッグすると開始・終了位置を調整できます。同じ修飾キーを押しながら再生ヘッドからドラッグすると、その行に新しい区間を作成できます。',
+      '行はドラッグまたは右クリックで並べ替え・編集できます。上部の並べ替えメニューでは、色・名前・インスタンス数で行をまとめて並べ替えられます。Undo/Redo は Cmd/Ctrl+Z / Cmd/Ctrl+Shift+Z です。',
     ],
   },
   {
     id: 'stats',
-    title: '統計ダッシュボード',
-    summary: 'ポゼッション・結果・種別・モメンタム・クロス集計の可視化',
+    title: '分析',
+    summary: 'ダッシュボード・モメンタム・クロス集計を確認する',
     steps: [
-      'メニュー（分析）またはショートカット Cmd/Ctrl + Shift + A で開きます。',
-      'ダッシュボード・モメンタム・クロス集計・AI分析を切り替え、チーム/アクション/ラベルでフィルタできます。',
-      'クロス集計では軸を自由に切り替えられ、セルをクリックすると該当イベントへジャンプします。',
+      'ウィンドウ > 分析を開く、または既定の Cmd/Ctrl+Shift+A で分析を開きます。',
+      'ダッシュボード・モメンタム・クロス集計を切り替え、チーム / アクション / ラベルで対象を絞り込めます。',
+      'クロス集計では軸を切り替えられ、セルから該当インスタンスへ移動できます。',
     ],
   },
   {
     id: 'export',
     title: 'エクスポート / インポート',
-    summary: 'タイムラインとクリップの入出力',
+    summary: 'タイムラインと映像クリップを入出力する',
     steps: [
-      'ファイル > エクスポート から、タイムラインを JSON / CSV（YouTube） / Raw CSV / SCTimeline 形式で出力できます。',
-      'クリップ書き出しは ファイル > エクスポート > 映像クリップ から。単一/インスタンスごと/行ごと、1-2アングル結合、オーバーレイ表示の有無を選択して FFmpeg で出力します。書き出し中は実処理に連動する専用進捗ウィンドウで状態を確認でき、メインウィンドウの操作も継続できます。',
-      '分析ウィンドウのエクスポートメニューでは、構造化サマリーをコピー / 現在タブをPNGで保存（全内容） / 分析レポートをPDFで保存 を実行できます。',
-      'クロス集計タブでは、現在表示中の表のみをCSV / XLSXで出力できます（異なる種類の表は同じファイルに混在しません）。',
-      'ファイル > インポート から JSON/SCTimeline を読み込みタイムラインへ反映（JSON優先で自動判定）します。取り込み後はタイムラインで内容を確認してください。',
+      'ファイル > エクスポート から、タイムラインを JSON / YouTube用CSV / 分析用CSV / Sportscode XML（SCTimeline）で出力できます。',
+      '映像クリップは ファイル > エクスポート > 映像クリップ（オーバーレイ付き）から書き出します。書き出し中は専用進捗ウィンドウで進行状況を確認できます。',
+      '書き出しに失敗した場合は、まず元映像の場所、保存先の書き込み権限、空き容量を確認してください。進捗ウィンドウの「エラー詳細を表示」から技術情報も確認できます。',
+      'ファイル > インポート から JSON / Sportscode XML（SCTimeline）を読み込み、通常のタイムラインとして編集できます。',
     ],
   },
   {
     id: 'playlist',
     title: 'プレイリスト',
-    summary: 'プレイリスト専用ウィンドウで再生・メモ・描画',
+    summary: '選択した映像区間をまとめて再生・提示する',
     steps: [
-      'タイムラインでイベントを複数選択し、右クリック、ツールバーのプレイリストボタン、または Cmd/Ctrl+Shift+P から追加。追加後はドラッグで順序を並べ替えできます。',
-      'メニュー「ウィンドウ > プレイリストウィンドウを開く」で専用ウィンドウを表示し、再生/フリーズフレーム/簡易描画/ノート編集、ループ設定（なし/単一/全体）が可能です。',
-      'プレイリストからメインプレイヤーへシーク・再生できます。ウィンドウを閉じてもメニューから再度開き直せます。',
+      'タイムラインでインスタンスを選択し、右クリックまたは既定の Cmd/Ctrl+Shift+P からプレイリストへ追加します。',
+      'ウィンドウ > プレイリストを開く で専用ウィンドウを表示し、再生順の並べ替え、フリーズフレーム、描画、ノート編集、ループ設定を行えます。',
+      'プレイリストからメインプレイヤーへ再生位置を連携できます。',
     ],
   },
   {
     id: 'settings',
     title: '設定とコードウィンドウ',
-    summary: 'テーマ・オーバーレイ・ホットキーの設定と .stcw の編集',
+    summary: 'テーマ・オーバーレイ・ホットキー・コードウィンドウを管理する',
     steps: [
-      'メニューの「設定...」または Cmd/Ctrl + , で開きます（未保存検知あり）。',
-      '一般: テーマ（ライト/ダーク/システム）、クリップオーバーレイの表示項目・テンプレートを編集できます。',
-      'ホットキー: 再生/同期/分析/Undo/Redoなどのグローバルキーを編集。',
-      'コードウィンドウ: ファイル > 新規 > コードウィンドウ… から空の .stcw を作成し、ファイル > 開く > コードウィンドウ… から既存ファイルを選択します。ボタン配置・色・フォントサイズ・ホットキー・リンクの編集と保存は独立コードウィンドウで行います。',
-      '設定ファイルの保存先: macOS は ~/Library/Application Support/sportaglytics/settings.json（アプリ側で自動保存・読込）。',
+      'SporTagLytics > 設定… または Cmd/Ctrl+, で設定を開きます。未保存の変更がある状態でタブを切り替える場合は確認が表示されます。',
+      '一般ではテーマとクリップオーバーレイ、ホットキーでは再生・同期・分析・Undo/Redoなどの割り当てを編集できます。',
+      'コードウィンドウは ファイル > 新規 > コードウィンドウ… で作成し、ファイル > 開く > コードウィンドウ… から既存の .stcw を開きます。レイアウトの編集・保存はコードウィンドウ内の編集モードで行います。',
     ],
   },
   {
     id: 'shortcuts',
     title: 'キーボードショートカット',
-    summary: '再生・同期・分析・Undo/Redoなどの主要ショートカット',
+    summary: '高速に分析するための主要操作を確認する',
     steps: [
-      'Space: 再生/停止、Right/Left: スロー/戻し、Cmd/Ctrl+Right: 高速再生（押下中）。',
-      'Cmd/Ctrl+Shift+S/R/M/T: 音声同期再実行 / リセット / 現在位置で手動同期 / 手動モード切替。',
-      'Cmd/Ctrl+Shift+A: 統計ダッシュボードを開く。Cmd/Ctrl+Z / Cmd/Ctrl+Shift+Z: Undo / Redo。タグ付けのホットキーは 設定 > ホットキー で確認・変更できます。',
-      'コードウィンドウのボタンに割り当てたホットキーは任意に設定できます（2チーム目に Shift+キーを使うのはデフォルト例）。',
+      'Space: 再生/停止。Right / Left: 0.5倍速の順再生 / 逆再生。Shift、Command/Ctrl、Option/Altとの組み合わせで速度を切り替えます。',
+      '既定では Cmd/Ctrl+Shift+S: 自動同期、Cmd/Ctrl+Shift+R: 同期リセット、Cmd/Ctrl+Shift+M: 今の位置で同期、Cmd/Ctrl+Shift+T: 手動同期モードです。',
+      'Cmd/Ctrl+Shift+A: 分析、Cmd/Ctrl+Z / Cmd/Ctrl+Shift+Z: Undo / Redo。実際の割り当ては 設定 > ホットキー が正本です。',
+      'コードウィンドウのボタン用ホットキーはレイアウトごとに設定できます。チームやアクションごとの割り当てもコードウィンドウ設定に従います。',
     ],
   },
   {
     id: 'troubleshooting',
     title: 'トラブルシューティング',
-    summary: '再生・同期・保存周りのヒント',
+    summary: '再生・同期・書き出し・保存の問題を切り分ける',
     steps: [
-      '映像再生不可: MP4/MOV (H.264/AAC) を推奨。権限とファイルパス、コーデックを確認してください。',
-      '同期ずれ: 音声有無を確認後、同期リセット→再実行。必要なら手動同期や手動モードで微調整します。',
-      '書き出し/保存エラー: 保存先の権限と空き容量を確認し、別ディレクトリで再試行。クリップ書き出し失敗時は元映像のパス存在も確認してください。',
+      '映像を再生できない場合は、元ファイルが移動・削除されていないか、アプリから参照できる場所にあるかを確認してください。',
+      '同期が合わない場合は、自動同期を再実行し、必要に応じて同期オフセットをリセットしてから手動同期を行います。',
+      '画面下部にエラーが表示された場合、対処方法を先に確認してください。「エラー詳細を表示」がある場合は、原因調査に必要な技術情報を展開できます。エラー表示は内容を確認して閉じるまで残ります。',
+      '映像書き出しに失敗した場合は、元映像の場所、保存先の権限、空き容量を確認します。FFmpeg等の詳細は進捗ウィンドウの詳細表示から確認してください。',
     ],
   },
 ];
@@ -129,22 +129,22 @@ const escapeHtml = (value: string): string =>
 export const buildHelpHtml = (): string => {
   const navItems = sections
     .map(
-      (s) =>
-        `<button class="nav-item" type="button" role="tab" aria-selected="false" aria-controls="${escapeHtml(s.id)}" data-target="${escapeHtml(s.id)}" data-search="${escapeHtml(`${s.title} ${s.summary} ${s.steps.join(' ')}`)}">
-          <span class="nav-title">${escapeHtml(s.title)}</span>
-          <span class="nav-summary">${escapeHtml(s.summary)}</span>
+      (section) =>
+        `<button class="nav-item" type="button" role="tab" aria-selected="false" aria-controls="${escapeHtml(section.id)}" data-target="${escapeHtml(section.id)}" data-search="${escapeHtml(`${section.title} ${section.summary} ${section.steps.join(' ')}`)}">
+          <span class="nav-title">${escapeHtml(section.title)}</span>
+          <span class="nav-summary">${escapeHtml(section.summary)}</span>
         </button>`,
     )
     .join('');
 
   const contentItems = sections
     .map(
-      (s) => `
-        <section id="${escapeHtml(s.id)}" class="content-section" role="tabpanel">
-          <h2>${escapeHtml(s.title)}</h2>
-          <p class="summary">${escapeHtml(s.summary)}</p>
+      (section) => `
+        <section id="${escapeHtml(section.id)}" class="content-section" role="tabpanel" tabindex="-1">
+          <h2>${escapeHtml(section.title)}</h2>
+          <p class="summary">${escapeHtml(section.summary)}</p>
           <ol>
-            ${s.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join('')}
+            ${section.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join('')}
           </ol>
         </section>
       `,
@@ -156,28 +156,58 @@ export const buildHelpHtml = (): string => {
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>ヘルプ</title>
+      <title>SporTagLytics ヘルプ</title>
       <style>
-        :root { color-scheme: light dark; --bg: #f5f5f7; --sidebar: rgba(246,246,248,.92); --surface: #fff; --text: #1d1d1f; --secondary: #6e6e73; --divider: rgba(0,0,0,.12); --accent: #0066cc; --selected: rgba(0,102,204,.12); }
-        @media (prefers-color-scheme: dark) { :root { --bg: #1e1e1e; --sidebar: rgba(38,38,40,.94); --surface: #2b2b2d; --text: #f5f5f7; --secondary: #a1a1a6; --divider: rgba(255,255,255,.14); --accent: #64a8ff; --selected: rgba(100,168,255,.18); } }
+        :root {
+          color-scheme: light dark;
+          --bg: #f5f5f5;
+          --sidebar: #ffffff;
+          --surface: #ffffff;
+          --text: #000000;
+          --secondary: #666666;
+          --divider: rgba(0,0,0,.12);
+          --accent: #1e90ff;
+          --selected: rgba(30,144,255,.12);
+          --hover: rgba(0,0,0,.05);
+        }
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --bg: #0d0d0d;
+            --sidebar: #121212;
+            --surface: #121212;
+            --text: #ffffff;
+            --secondary: #e0e0e0;
+            --divider: rgba(255,255,255,.12);
+            --accent: #1e90ff;
+            --selected: rgba(30,144,255,.16);
+            --hover: rgba(255,255,255,.08);
+          }
+        }
         * { box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: var(--bg); color: var(--text); font-size: 14px; }
+        body {
+          font-family: Inter, "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          margin: 0;
+          background: var(--bg);
+          color: var(--text);
+          font-size: 14px;
+        }
         h1, h2 { margin: 0; letter-spacing: -.015em; }
         h1 { font-size: 22px; }
         h2 { font-size: 24px; }
         .layout { display: grid; grid-template-columns: minmax(250px, 310px) minmax(0, 1fr); min-height: 100vh; }
         .sidebar { border-right: 1px solid var(--divider); background: var(--sidebar); min-width: 0; }
-        .sidebar-header { position: sticky; top: 0; z-index: 2; padding: 20px 16px 12px; background: var(--sidebar); backdrop-filter: blur(18px); }
+        .sidebar-header { position: sticky; top: 0; z-index: 2; padding: 20px 16px 12px; background: var(--sidebar); }
         .subtitle { margin: 3px 0 14px; color: var(--secondary); font-size: 12px; }
-        .search { width: 100%; min-height: 32px; padding: 6px 10px; border: 1px solid var(--divider); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
-        .search:focus { outline: 3px solid color-mix(in srgb, var(--accent) 28%, transparent); border-color: var(--accent); }
+        .search { width: 100%; min-height: 36px; padding: 7px 11px; border: 1px solid var(--divider); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; }
+        .search:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
         .nav { padding: 4px 8px 20px; }
-        .nav-item { width: 100%; display: block; text-align: left; background: transparent; color: var(--text); border: 0; border-radius: 7px; padding: 9px 10px; margin: 1px 0; cursor: default; }
-        .nav-item:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+        .nav-item { width: 100%; display: block; text-align: left; background: transparent; color: var(--text); border: 0; border-radius: 12px; padding: 9px 10px; margin: 1px 0; cursor: pointer; }
+        .nav-item:hover { background: var(--hover); }
+        .nav-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
         .nav-item[aria-selected="true"] { background: var(--selected); color: var(--accent); }
         .nav-item[hidden] { display: none; }
         .nav-title, .nav-summary { display: block; }
-        .nav-title { font-weight: 600; }
+        .nav-title { font-weight: 700; }
         .nav-summary { margin-top: 2px; font-size: 12px; color: var(--secondary); line-height: 1.35; }
         .content { min-width: 0; padding: clamp(24px, 5vw, 54px); }
         .content-section { display: none; max-width: 760px; }
@@ -187,7 +217,13 @@ export const buildHelpHtml = (): string => {
         li { margin-bottom: 16px; padding-left: 4px; line-height: 1.65; }
         .empty { display: none; padding: 18px 10px; color: var(--secondary); text-align: center; }
         .empty.active { display: block; }
-        @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } .sidebar { border-right: 0; border-bottom: 1px solid var(--divider); } .sidebar-header { padding-top: 14px; } .nav { max-height: 210px; overflow: auto; } .content { padding: 24px 20px 40px; } }
+        @media (max-width: 720px) {
+          .layout { grid-template-columns: 1fr; }
+          .sidebar { border-right: 0; border-bottom: 1px solid var(--divider); }
+          .sidebar-header { padding-top: 14px; }
+          .nav { max-height: 210px; overflow: auto; }
+          .content { padding: 24px 20px 40px; }
+        }
         @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
       </style>
     </head>
@@ -196,7 +232,7 @@ export const buildHelpHtml = (): string => {
         <aside class="sidebar">
           <div class="sidebar-header">
             <h1>ヘルプ</h1>
-            <p class="subtitle">操作や機能を検索できます</p>
+            <p class="subtitle">機能名・操作・ショートカットを検索できます</p>
             <input id="help-search" class="search" type="search" placeholder="機能や操作を検索" aria-label="ヘルプを検索" autocomplete="off" />
           </div>
           <nav class="nav" role="tablist" aria-label="ヘルプトピック">
@@ -235,14 +271,19 @@ export const buildHelpHtml = (): string => {
 
         search.addEventListener('input', () => {
           const query = search.value.trim().toLocaleLowerCase();
-          navButtons.forEach((button) => { button.hidden = !button.dataset.search.toLocaleLowerCase().includes(query); });
+          navButtons.forEach((button) => {
+            button.hidden = !button.dataset.search.toLocaleLowerCase().includes(query);
+          });
           const firstVisible = navButtons.find((button) => !button.hidden);
           empty.classList.toggle('active', !firstVisible);
           if (firstVisible) showSection(firstVisible.dataset.target);
           else contentSections.forEach((section) => section.classList.remove('active'));
         });
         search.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape' && search.value) { search.value = ''; search.dispatchEvent(new Event('input')); }
+          if (event.key === 'Escape' && search.value) {
+            search.value = '';
+            search.dispatchEvent(new Event('input'));
+          }
         });
         showSection(navButtons[0]?.dataset.target);
       </script>
@@ -263,7 +304,7 @@ export const openHelpWindow = (): void => {
     minWidth: 620,
     minHeight: 480,
     autoHideMenuBar: true,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: '#0d0d0d',
     webPreferences: {
       contextIsolation: true,
       sandbox: true,

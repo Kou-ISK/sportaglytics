@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { HotkeyConfig } from '../../../../types/settings/coreTypes';
-import type {
-  TimelineData,
-  TimelineRow,
-} from '../../../../types/timeline/core';
+import type { TimelineData, TimelineRow } from '../../../../types/timeline/core';
 import type { TimelineWindowCommand } from '../../../../types/ipc/timelineWindow';
+import { buildTimelineRowSortMoves } from '../../shared/timelineRowSort';
 import {
   closeTimelineWindow,
   openTimelineWindow,
@@ -223,6 +221,13 @@ export const useTimelineWindowIntegration = (
             break;
           case 'move-row':
             current.onMoveRow(command.sourceId, command.targetId);
+            break;
+          case 'sort-rows':
+            buildTimelineRowSortMoves(
+              current.rows,
+              current.timeline,
+              command.spec,
+            ).forEach((move) => current.onMoveRow(move.sourceId, move.targetId));
             break;
           case 'delete-rows':
             current.onDeleteRows(command.ids);

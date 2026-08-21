@@ -30,6 +30,12 @@ interface CodingPanelWindowToolbarProps {
   onSaveAs: () => void;
 }
 
+const compactIconButtonSx = {
+  width: 30,
+  height: 30,
+  p: 0.5,
+} as const;
+
 export const CodingPanelWindowToolbar = ({
   mode,
   title,
@@ -41,11 +47,12 @@ export const CodingPanelWindowToolbar = ({
   return (
     <Stack
       direction="row"
-      spacing={1}
+      spacing={0.5}
       alignItems="center"
       sx={{
-        px: 1,
-        py: 0.75,
+        minHeight: 36,
+        px: 0.5,
+        py: 0.25,
         borderBottom: '1px solid',
         borderColor: 'divider',
       }}
@@ -55,29 +62,50 @@ export const CodingPanelWindowToolbar = ({
         size="small"
         value={mode}
         onChange={onModeChange}
+        sx={{
+          flexShrink: 0,
+          '& .MuiToggleButton-root': {
+            minWidth: 30,
+            width: 30,
+            height: 30,
+            p: 0.5,
+          },
+        }}
       >
-        <ToggleButton value="code" aria-label="コード">
-          <PlayArrowIcon fontSize="small" />
-        </ToggleButton>
-        <ToggleButton value="label" aria-label="ラベル">
-          <LabelIcon fontSize="small" />
-        </ToggleButton>
-        <ToggleButton value="edit" aria-label="編集">
-          <EditIcon fontSize="small" />
-        </ToggleButton>
+        <Tooltip title="コードモード">
+          <ToggleButton value="code" aria-label="コード">
+            <PlayArrowIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
+        <Tooltip title="ラベルモード">
+          <ToggleButton value="label" aria-label="ラベル">
+            <LabelIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
+        <Tooltip title="編集モード">
+          <ToggleButton value="edit" aria-label="編集">
+            <EditIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
       </ToggleButtonGroup>
-      <Typography variant="body2" color="text.secondary" noWrap>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        noWrap
+        sx={{ minWidth: 0 }}
+      >
         {title}
       </Typography>
       {mode === 'edit' && (
         <Stack
           id={CODING_PANEL_WINDOW_CREATION_ACTIONS_ID}
           direction="row"
-          spacing={0.25}
+          spacing={0}
           alignItems="center"
+          sx={{ flexShrink: 0 }}
         />
       )}
-      <Box sx={{ flex: 1 }} />
+      <Box sx={{ flex: 1, minWidth: 0 }} />
       {mode === 'edit' && (
         <>
           <Tooltip title="保存">
@@ -87,6 +115,7 @@ export const CodingPanelWindowToolbar = ({
                 disabled={!canSave}
                 onClick={onSave}
                 aria-label="保存"
+                sx={compactIconButtonSx}
               >
                 <SaveIcon fontSize="small" />
               </IconButton>
@@ -99,6 +128,7 @@ export const CodingPanelWindowToolbar = ({
                 disabled={!canSave}
                 onClick={onSaveAs}
                 aria-label="別名保存"
+                sx={compactIconButtonSx}
               >
                 <SaveAsIcon fontSize="small" />
               </IconButton>

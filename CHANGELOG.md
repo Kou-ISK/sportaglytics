@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Timeline下部Footerに、Sportscodeに近い行追加操作と `− 100% ＋` の表示倍率コントロールを追加し、既存のCmd/Ctrl+wheel zoomも維持
+
+### Changed
+
+- ホーム画面を「最近開いたパッケージ → 既存パッケージを開く → 新規作成」の日常利用優先順へ整理し、一般UI文言を日本語へ統一
+- Timelineの行追加を行一覧末尾から固定Footerへ移動し、表示倍率とdocument操作を同じ下部chromeへ整理
+- エラー表示を自動消去せず、ユーザー向け説明・対処方法・展開可能な技術詳細の順で確認できるrecovery UXへ変更
+- 映像書き出し失敗時のFFmpeg等のraw errorを詳細表示へ移し、元映像・保存先権限・空き容量の確認を先に案内
+- native menuの命名を「パッケージ」「〜を開く」「ウィンドウを拡大/縮小」へ統一し、Timelineの表示倍率とnative window zoomを明確に区別
+- アプリ内Helpを現行の独立Timeline / Code Window構成へ同期し、modifier + drag等の高度操作を検索可能な説明として追加
+- design systemにDesktop Toolbar/Footer、Surface hierarchy、用語、menu、error recovery、Help as discovery layerの原則を追加
+
+### Documentation
+
+- `docs/user-guide.md` を初期画面、Timeline Footer/zoom、高度操作、menu terminology、error recoveryの現行UIへ同期
+- `docs/design-system.md` にDesktop分析アプリとしてのUI・用語・Help運用規約を明文化
+
+## [0.10.0] - 2026-08-19
+
+### Added
+
+- Timeline row を Sportscode の公開仕様にある色・名前・インスタンス数で並べ替え、並び順を project state として保存できる機能を追加
+- Code Window editor で複数選択した button と内部 link をまとめてコピー＆ペーストし、相対配置・link関係を維持したまま新規IDへ複製できる機能を追加
+- 検証済みモデルとは品質レーンを分離した experimental event-detection model を本番アプリで「試験」表示付きで利用でき、run単位で confidence threshold を調整できる仕組みを追加
+- `.stpkg` 導入前の legacy project folder を元データ非破壊で sibling `.stpkg` へ自動移行し、同一sourceの再移行を防ぐ provenance / conflict-safe migration を追加
+
+### Changed
+
+- Timeline の time ↔ pixel 変換を共通 coordinate mapper へ集約し、instance の可視幅を実durationとzoomに完全比例させ、短いinstanceの操作領域だけを描画幅と分離して確保する構成へ変更
+- active Code Window の Action button color を通常coding workflowにおける Timeline row / instance のpresentation color正本とし、色変更を既存Timelineへ同期
+- Code Window 上部 toolbar をcompact化し、canvasの可視領域を拡大
+- ローカル音声同期を固定 ±30秒・先頭20秒中心の探索から、低レートenergy featureによる広域Top-K探索、複数energy window検証、局所raw PCM refine、複合confidenceへ変更し、数十秒〜数分の開始差と先頭無音への耐性を改善
+- Release workflow で macOS Electron E2E をDMG packagingより前の必須ゲートとし、失敗時はGitHub ReleaseとHomebrew Tap更新を行わないように変更
+
+### Fixed
+
+- Timeline で選択中の単一・複数instanceを `Delete` / `Backspace` で削除できない問題を修正し、text input / dialog等の編集面では誤削除しないようガード
+- Timeline のrange selection矩形と実際のhit-testがzoom / horizontal・vertical scroll時にずれる問題を修正
+- 選択済みinstanceの `Command + Option` edge drag による開始・終了時刻変更を共通座標系へ統一し、modifier release / blur / mouseup時にdrag stateが残る問題を修正
+- 低confidenceまたは非有限値の自動音声同期結果が、正しい手動・保存済み同期offsetを上書きし得る問題を修正
+
+### Privacy
+
+- experimental event-detection model も verified model と同じpath containment、SHA-256、IPC validation、process timeout/cancel境界を通し、学習データ・checkpoint等の研究artifactを公開repositoryへ含めない配布境界を維持
+
+### Documentation
+
+- experimental event detection、Timeline操作、legacy `.stpkg` migration、広域audio sync / confidence guard、release E2E gate の設計判断と運用をADR・仕様書・release runbookへ反映
+
 ## [0.9.0] - 2026-08-18
 
 ### Added
@@ -46,17 +97,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - プレイリストの終端処理が複数回発火する問題、範囲外シーク、フリーズ注釈から自動復帰しない問題を修正
 - プレイリストの複数削除・並べ替え・Undo/Redo後に再生中アイテム、注釈、未保存判定がずれる問題を修正
 - 再生時計のリスナーが時刻更新ごとに再登録され、シークと再生ヘッドが引っ掛かる問題を修正
-
-## [0.8.2] - 2026-08-03
-
-### Security
-
-- Electronをサポート中の43.2へ更新し、production / development dependencyの既知脆弱性を解消
-- FFmpeg/FFprobeの古いnpm binaryを廃止し、固定SHA-256で検証したFFmpeg 8.1.2 sourceからCPU architecture別にbuildする方式へ変更
-- 映像probeに30秒・1 MiB、合成processに有限時間・有限出力の上限を追加
-
-### Fixed
-
 - タイムラインの再生ヘッドを見た目の太さを変えずに掴みやすくし、インスタンス操作と重なる場合はインスタンスを優先するよう修正
 
 ## [0.8.1] - 2026-08-02

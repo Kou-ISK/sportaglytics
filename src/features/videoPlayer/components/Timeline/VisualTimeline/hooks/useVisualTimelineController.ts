@@ -1,15 +1,15 @@
 import React, { useCallback } from 'react';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
-import { useTimelineViewport } from './useTimelineViewport';
-import { useTimelineInteractions } from './useTimelineInteractions';
-import { useTimelineRangeSelection } from './useTimelineRangeSelection';
-import { useTimelineExportDialogs } from './useTimelineExportDialogs';
-import { useTimelineDerivedData } from './useTimelineDerivedData';
-import { useTimelineGlobalShortcuts } from './useTimelineGlobalShortcuts';
-import { useTimelineRowInteractions } from './useTimelineRowInteractions';
+import { buildTimelineRowMoveUpdates } from '../../../../shared/timelineRows';
 import type { VisualTimelineProps } from '../VisualTimeline.types';
 import type { VisualTimelineViewProps } from '../VisualTimelineView';
-import { buildTimelineRowMoveUpdates } from '../../../../shared/timelineRows';
+import { useTimelineDerivedData } from './useTimelineDerivedData';
+import { useTimelineExportDialogs } from './useTimelineExportDialogs';
+import { useTimelineGlobalShortcuts } from './useTimelineGlobalShortcuts';
+import { useTimelineInteractions } from './useTimelineInteractions';
+import { useTimelineRangeSelection } from './useTimelineRangeSelection';
+import { useTimelineRowInteractions } from './useTimelineRowInteractions';
+import { useTimelineViewport } from './useTimelineViewport';
 
 export const useVisualTimelineController = ({
   timeline,
@@ -40,9 +40,15 @@ export const useVisualTimelineController = ({
     containerRef,
     scrollContainerRef,
     zoomScale,
+    canZoomOut,
+    canZoomIn,
+    zoomIn,
+    zoomOut,
     containerWidth,
     timeToPosition,
     positionToTime,
+    clientXToContentX,
+    clientPointToContainerPoint,
     currentTimePosition,
     scrollLeft,
   } = useTimelineViewport({ maxSec, currentTime });
@@ -60,6 +66,7 @@ export const useVisualTimelineController = ({
     editingDraft,
     contextMenu,
     setHoveredItemId,
+    setFocusedItemId,
     handleItemClick,
     handleItemContextMenu,
     handleCloseContextMenu,
@@ -82,6 +89,7 @@ export const useVisualTimelineController = ({
     onUpdateTimeRange,
     onDuplicateTimelineItem,
   });
+
   const handleTimelineItemClick = useCallback(
     (event: React.MouseEvent, id: string): void => {
       rowInteractions.clearRowSelection();
@@ -91,15 +99,10 @@ export const useVisualTimelineController = ({
   );
 
   const { groupedByAction, firstTeamName, formatTime, timeMarkers } =
-    useTimelineDerivedData({
-      timeline,
-      rows,
-      maxSec,
-      zoomScale,
-    });
+    useTimelineDerivedData({ timeline, rows, maxSec, zoomScale });
 
   const suppressClearRef = React.useRef(false);
-  const handleSelectionApplied = useCallback(() => {
+  const handleSelectionApplied = useCallback((): void => {
     suppressClearRef.current = true;
     globalThis.setTimeout(() => {
       suppressClearRef.current = false;
@@ -108,17 +111,25 @@ export const useVisualTimelineController = ({
 
   const laneRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
   const getLaneBounds = useCallback(
-    (actionName: string) => {
+    (actionName: string): { top: number; bottom: number } => {
       const laneElement = laneRefs.current[actionName];
-      const scrollRect = scrollContainerRef.current?.getBoundingClientRect();
-      if (!laneElement || !scrollRect) return { top: 0, bottom: 0 };
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (!laneElement || !containerRect) return { top: 0, bottom: 0 };
       const rect = laneElement.getBoundingClientRect();
-      const scrollTop = scrollContainerRef.current?.scrollTop ?? 0;
-      const top = rect.top - scrollRect.top + scrollTop;
-      const bottom = rect.bottom - scrollRect.top + scrollTop;
-      return { top, bottom };
+      return {
+        top: rect.top - containerRect.top,
+        bottom: rect.bottom - containerRect.top,
+      };
     },
-    [scrollContainerRef],
+    [containerRef],
+  );
+
+  const getContainerSize = useCallback(
+    (): { width: number; height: number } => ({
+      width: containerRef.current?.clientWidth ?? 0,
+      height: containerRef.current?.clientHeight ?? 0,
+    }),
+    [containerRef],
   );
 
   const {
@@ -130,26 +141,10 @@ export const useVisualTimelineController = ({
   } = useTimelineRangeSelection({
     timeline,
     selectedIds,
-    getSelectionMetrics: () => ({
-      rectLeft: scrollContainerRef.current?.getBoundingClientRect().left ?? 0,
-      rectTop: scrollContainerRef.current?.getBoundingClientRect().top ?? 0,
-      scrollLeft: scrollContainerRef.current?.scrollLeft ?? 0,
-      scrollTop: scrollContainerRef.current?.scrollTop ?? 0,
-      laneOffset: (() => {
-        const scrollRect = scrollContainerRef.current?.getBoundingClientRect();
-        if (!scrollRect) return 0;
-
-        const firstLane = Object.values(laneRefs.current).find(Boolean);
-        if (firstLane) {
-          return firstLane.getBoundingClientRect().left - scrollRect.left;
-        }
-
-        const containerRect = containerRef.current?.getBoundingClientRect();
-        return containerRect ? containerRect.left - scrollRect.left : 0;
-      })(),
-      containerHeight: scrollContainerRef.current?.clientHeight ?? undefined,
-    }),
+    getContainerPoint: clientPointToContainerPoint,
+    getContainerSize,
     getLaneBounds,
+    contentXToTime: positionToTime,
     onSelectionChange,
     onSelectionApplied: handleSelectionApplied,
   });
@@ -239,6 +234,7 @@ export const useVisualTimelineController = ({
     },
     [info],
   );
+
   const handlePasteTimelineItems = useCallback(
     (targetRowId: string): void => {
       const copiedItems = copiedItemsRef.current;
@@ -250,6 +246,34 @@ export const useVisualTimelineController = ({
       info(`${pastedIds.length}件のインスタンスを貼り付けました`);
     },
     [info, onPasteTimelineItemsToRow, onSelectionChange, rowInteractions],
+  );
+
+  const handleDeleteSelectedItems = useCallback(
+    (ids: string[]): void => {
+      if (ids.length === 0) return;
+      const deletedIds = new Set(ids);
+      onDelete(ids);
+      onSelectionChange([]);
+      if (focusedItemId && deletedIds.has(focusedItemId)) {
+        setFocusedItemId(null);
+      }
+      if (hoveredItemId && deletedIds.has(hoveredItemId)) {
+        setHoveredItemId(null);
+      }
+      if (contextMenu && deletedIds.has(contextMenu.itemId)) {
+        handleCloseContextMenu();
+      }
+    },
+    [
+      contextMenu,
+      focusedItemId,
+      handleCloseContextMenu,
+      hoveredItemId,
+      onDelete,
+      onSelectionChange,
+      setFocusedItemId,
+      setHoveredItemId,
+    ],
   );
 
   useTimelineGlobalShortcuts({
@@ -264,14 +288,14 @@ export const useVisualTimelineController = ({
     selectedRowIds: rowInteractions.selectedRowIds,
     onCopyItems: handleCopyTimelineItems,
     onPasteItems: handlePasteTimelineItems,
+    onDeleteItems: handleDeleteSelectedItems,
     onRequestDeleteRows: rowInteractions.onRequestDeleteRows,
   });
 
   const handleBackgroundClick = useCallback(
-    (event: React.MouseEvent) => {
+    (event: React.MouseEvent): void => {
       if (event.defaultPrevented || event.button !== 0) return;
-      if (isSelecting || selectionBox) return;
-      if (suppressClearRef.current) return;
+      if (isSelecting || selectionBox || suppressClearRef.current) return;
       onSelectionChange([]);
       rowInteractions.clearRowSelection();
     },
@@ -322,6 +346,10 @@ export const useVisualTimelineController = ({
 
   return {
     zoomScale,
+    canZoomOut,
+    canZoomIn,
+    onZoomIn: zoomIn,
+    onZoomOut: zoomOut,
     scrollLeft,
     axisRef,
     maxSec,
@@ -330,6 +358,7 @@ export const useVisualTimelineController = ({
     timeMarkers,
     timeToPosition,
     positionToTime,
+    clientXToContentX,
     onSeek,
     formatTime,
     scrollContainerRef,
@@ -373,7 +402,7 @@ export const useVisualTimelineController = ({
     laneRefs,
     onMouseDown: handleMouseDown,
     onMouseMove: handleMouseMove,
-    onMouseUp: (event) => handleMouseUp(event, positionToTime),
+    onMouseUp: handleMouseUp,
     onBackgroundClick: handleBackgroundClick,
     isSelecting,
     selectionBox,

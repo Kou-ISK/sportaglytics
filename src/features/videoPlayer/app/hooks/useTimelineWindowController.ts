@@ -3,6 +3,7 @@ import { useGlobalHotkeys } from '../../../../hooks/useGlobalHotkeys';
 import type {
   TimelineData,
   TimelineRow,
+  TimelineRowSortSpec,
 } from '../../../../types/timeline/core';
 import type { TimelineWindowSyncPayload } from '../../../../types/ipc/timelineWindow';
 import {
@@ -86,6 +87,9 @@ export const useTimelineWindowController = () => {
       send({ type: 'update-row', id, updates }),
     [],
   );
+  const onSortRows = useCallback((spec: TimelineRowSortSpec): void => {
+    send({ type: 'sort-rows', spec });
+  }, []);
 
   if (!snapshot) return null;
   return {
@@ -128,6 +132,7 @@ export const useTimelineWindowController = () => {
     updateTimelineRow: onUpdateRow,
     moveTimelineRow: (sourceId: string, targetId: string): void =>
       send({ type: 'move-row', sourceId, targetId }),
+    sortTimelineRows: onSortRows,
     deleteTimelineRows: (ids: string[]): void =>
       send({ type: 'delete-rows', ids }),
     pasteTimelineItemsToRow: (

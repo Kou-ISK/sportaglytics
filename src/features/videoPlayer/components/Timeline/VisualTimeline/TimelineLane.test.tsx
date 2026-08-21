@@ -18,7 +18,7 @@ const timelineItem: TimelineData = {
   color: '#ff0000',
 };
 
-const renderLane = (overrides: Record<string, unknown> = {}) => {
+const renderLane = (overrides: Record<string, unknown> = {}): void => {
   const props = {
     rowId: 'row-attack',
     actionName: 'Attack',
@@ -38,6 +38,7 @@ const renderLane = (overrides: Record<string, unknown> = {}) => {
     onRowDrop: vi.fn(),
     timeToPosition: (time: number) => time * 10,
     positionToTime: (position: number) => position / 10,
+    clientXToContentX: (clientX: number) => clientX,
     currentTimePosition: 100,
     formatTime: (seconds: number) => String(seconds),
     firstTeamName: 'Attack',
@@ -61,18 +62,25 @@ afterEach(() => {
 });
 
 describe('TimelineLane', () => {
-  it('creates an instance by dragging the playhead with Option + Command', () => {
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-      x: 0,
-      y: 0,
-      top: 0,
-      left: 0,
-      right: 1000,
-      bottom: 30,
-      width: 1000,
-      height: 30,
-      toJSON: () => ({}),
+  it('renders the visible instance body at the exact time-proportional width', () => {
+    renderLane();
+
+    const instance = screen.getByTestId('timeline-instance-instance-1');
+    expect(getComputedStyle(instance).left).toBe('100px');
+    expect(getComputedStyle(instance).width).toBe('100px');
+    expect(getComputedStyle(instance).boxSizing).toBe('border-box');
+  });
+
+  it('does not inflate the visible body of a very short instance', () => {
+    renderLane({
+      items: [{ ...timelineItem, startTime: 10, endTime: 10.2 }],
     });
+
+    const instance = screen.getByTestId('timeline-instance-instance-1');
+    expect(Number.parseFloat(getComputedStyle(instance).width)).toBeCloseTo(2);
+  });
+
+  it('creates an instance by dragging the playhead with Option + Command', () => {
     const onCreateItem = vi.fn();
     renderLane({ onCreateItem });
 
@@ -87,21 +95,23 @@ describe('TimelineLane', () => {
     expect(onCreateItem).toHaveBeenCalledWith('Attack', 10, 60, '#123456');
   });
 
-  it('requires Option + Command to resize an instance edge', () => {
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-      x: 0,
-      y: 0,
-      top: 0,
-      left: 0,
-      right: 1000,
-      bottom: 30,
-      width: 1000,
-      height: 30,
-      toJSON: () => ({}),
-    });
+  it('requires a selected instance plus Option + Command to resize an edge', () => {
     const onUpdateTimeRange = vi.fn();
     renderLane({ onUpdateTimeRange });
 
+    fireEvent.mouseDown(screen.getByLabelText('開始位置を調整'), {
+      altKey: true,
+      metaKey: true,
+    });
+    fireEvent.mouseMove(document, { clientX: 50 });
+    fireEvent.mouseUp(document);
+    expect(onUpdateTimeRange).not.toHaveBeenCalled();
+
+    cleanup();
+    renderLane({
+      onUpdateTimeRange,
+      selectedIds: ['instance-1'],
+    });
     fireEvent.mouseDown(screen.getByLabelText('開始位置を調整'), {
       altKey: true,
       metaKey: false,
@@ -117,5 +127,25 @@ describe('TimelineLane', () => {
     fireEvent.mouseMove(document, { clientX: 50 });
     fireEvent.mouseUp(document);
     expect(onUpdateTimeRange).toHaveBeenCalledWith('instance-1', 5, 20);
+  });
+
+  it('stops an active edge drag when the edit modifier is released', () => {
+    const onUpdateTimeRange = vi.fn();
+    renderLane({
+      onUpdateTimeRange,
+      selectedIds: ['instance-1'],
+    });
+
+    fireEvent.keyDown(window, { key: 'Meta', metaKey: true, altKey: true });
+    fireEvent.mouseDown(screen.getByLabelText('終了位置を調整'), {
+      altKey: true,
+      metaKey: true,
+    });
+    fireEvent.mouseMove(document, { clientX: 250 });
+    expect(onUpdateTimeRange).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyUp(window, { key: 'Alt', altKey: false, metaKey: true });
+    fireEvent.mouseMove(document, { clientX: 300 });
+    expect(onUpdateTimeRange).toHaveBeenCalledTimes(1);
   });
 });

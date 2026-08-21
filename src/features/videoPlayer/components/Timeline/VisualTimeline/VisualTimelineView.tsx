@@ -1,5 +1,4 @@
 import React from 'react';
-import Add from '@mui/icons-material/Add';
 import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import EditOutlined from '@mui/icons-material/EditOutlined';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
@@ -12,11 +11,9 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  IconButton,
   ListItemIcon,
   Menu,
   MenuItem,
-  Tooltip,
 } from '@mui/material';
 import type {
   TimelineData,
@@ -25,13 +22,18 @@ import type {
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineDialogs } from './TimelineDialogs';
 import { TimelineEmptyState } from './TimelineEmptyState';
+import { TimelineFooter } from './TimelineFooter';
 import { TimelineLane } from './TimelineLane';
 import { TimelineSelectionOverlay } from './TimelineSelectionOverlay';
-import { ZoomIndicator } from './ZoomIndicator';
 import { TimelineRowEditorDialog } from './TimelineRowEditorDialog';
+import { TIMELINE_ROW_HEADER_WIDTH_PX } from './domain/timelineCoordinateMapper';
 
 export interface VisualTimelineViewProps {
   zoomScale: number;
+  canZoomOut: boolean;
+  canZoomIn: boolean;
+  onZoomOut: () => void;
+  onZoomIn: () => void;
   scrollLeft: number;
   axisRef: React.RefObject<HTMLDivElement | null>;
   maxSec: number;
@@ -40,6 +42,7 @@ export interface VisualTimelineViewProps {
   timeMarkers: number[];
   timeToPosition: (time: number) => number;
   positionToTime: (positionPx: number) => number;
+  clientXToContentX: (clientX: number) => number;
   onSeek: (time: number) => void;
   formatTime: (seconds: number) => string;
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -51,7 +54,7 @@ export interface VisualTimelineViewProps {
   focusedItemId: string | null;
   setHoveredItemId: (id: string | null) => void;
   handleItemClick: React.ComponentProps<typeof TimelineLane>['onItemClick'];
-  handleItemContextMenu: (e: React.MouseEvent, id: string) => void;
+  handleItemContextMenu: (event: React.MouseEvent, id: string) => void;
   firstTeamName?: string;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
   handleMoveItems: (
@@ -93,10 +96,10 @@ export interface VisualTimelineViewProps {
   onCancelDeleteRows: () => void;
   onConfirmDeleteRows: () => void;
   laneRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
-  onMouseDown: (e: React.MouseEvent) => void;
-  onMouseMove: (e: React.MouseEvent) => void;
-  onMouseUp: (e: React.MouseEvent) => void;
-  onBackgroundClick: (e: React.MouseEvent) => void;
+  onMouseDown: (event: React.MouseEvent) => void;
+  onMouseMove: (event: React.MouseEvent) => void;
+  onMouseUp: (event: React.MouseEvent) => void;
+  onBackgroundClick: (event: React.MouseEvent) => void;
   isSelecting: boolean;
   selectionBox:
     | React.ComponentProps<typeof TimelineSelectionOverlay>['selectionBox']
@@ -106,6 +109,10 @@ export interface VisualTimelineViewProps {
 
 export const VisualTimelineView = ({
   zoomScale,
+  canZoomOut,
+  canZoomIn,
+  onZoomOut,
+  onZoomIn,
   scrollLeft,
   axisRef,
   maxSec,
@@ -114,6 +121,7 @@ export const VisualTimelineView = ({
   timeMarkers,
   timeToPosition,
   positionToTime,
+  clientXToContentX,
   onSeek,
   formatTime,
   scrollContainerRef,
@@ -173,7 +181,6 @@ export const VisualTimelineView = ({
         position: 'relative',
       }}
     >
-      <ZoomIndicator zoomScale={zoomScale} />
       <Box
         sx={{
           position: 'relative',
@@ -222,7 +229,7 @@ export const VisualTimelineView = ({
             overflowX: 'auto',
             px: 1.5,
             pt: 0,
-            pb: 3.5,
+            pb: 1,
             display: 'flex',
             flexDirection: 'column',
           }}
@@ -233,13 +240,14 @@ export const VisualTimelineView = ({
         >
           <Box
             sx={{
+              position: 'relative',
               width:
                 containerWidth > 0
-                  ? `${120 + containerWidth * zoomScale}px`
+                  ? `${TIMELINE_ROW_HEADER_WIDTH_PX + containerWidth * zoomScale}px`
                   : '100%',
               minWidth:
                 containerWidth > 0
-                  ? `${120 + containerWidth * zoomScale}px`
+                  ? `${TIMELINE_ROW_HEADER_WIDTH_PX + containerWidth * zoomScale}px`
                   : '100%',
               flexShrink: 0,
             }}
@@ -261,6 +269,7 @@ export const VisualTimelineView = ({
                 onItemContextMenu={handleItemContextMenu}
                 timeToPosition={timeToPosition}
                 positionToTime={positionToTime}
+                clientXToContentX={clientXToContentX}
                 currentTimePosition={currentTimePosition}
                 formatTime={formatTime}
                 firstTeamName={firstTeamName}
@@ -275,8 +284,8 @@ export const VisualTimelineView = ({
                 onRowDragStart={onRowDragStart}
                 onRowDragOver={onRowDragOver}
                 onRowDrop={onRowDrop}
-                laneRef={(el) => {
-                  laneRefs.current[row.name] = el;
+                laneRef={(element) => {
+                  laneRefs.current[row.name] = element;
                 }}
                 contentWidth={containerWidth}
                 zoomScale={zoomScale}
@@ -287,38 +296,21 @@ export const VisualTimelineView = ({
               <TimelineEmptyState message="タイムラインが空です。アクションボタンでタグ付けを開始してください。" />
             )}
 
-            {onAddRow && (
-              <Box
-                sx={{
-                  position: 'sticky',
-                  left: 0,
-                  width: 120,
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  pt: 0.5,
-                }}
-              >
-                <Tooltip title="行を追加">
-                  <IconButton
-                    size="small"
-                    aria-label="行を追加"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onAddRow();
-                    }}
-                  >
-                    <Add fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
+            {isSelecting && selectionBox && (
+              <TimelineSelectionOverlay selectionBox={selectionBox} />
             )}
           </Box>
-
-          {isSelecting && selectionBox && (
-            <TimelineSelectionOverlay selectionBox={selectionBox} />
-          )}
         </Box>
       </Box>
+
+      <TimelineFooter
+        zoomScale={zoomScale}
+        canZoomOut={canZoomOut}
+        canZoomIn={canZoomIn}
+        onZoomOut={onZoomOut}
+        onZoomIn={onZoomIn}
+        onAddRow={onAddRow}
+      />
 
       <TimelineDialogs {...dialogsProps} />
       <TimelineRowEditorDialog

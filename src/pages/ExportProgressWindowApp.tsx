@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
+  AlertTitle,
   Box,
   Button,
   LinearProgress,
@@ -79,19 +81,16 @@ export const ExportProgressWindowApp = (): React.ReactElement => {
     <Box
       sx={{
         minHeight: '100vh',
-        bgcolor: '#111',
-        color: '#fff',
+        bgcolor: 'background.default',
+        color: 'text.primary',
         p: 2,
         boxSizing: 'border-box',
       }}
     >
       <Paper
-        elevation={0}
+        variant="outlined"
         sx={{
-          bgcolor: '#1c1c1c',
-          color: '#fff',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 2,
+          bgcolor: 'background.paper',
           p: 2,
           height: '100%',
         }}
@@ -99,7 +98,7 @@ export const ExportProgressWindowApp = (): React.ReactElement => {
         <Stack spacing={2}>
           <Stack spacing={0.5}>
             <Typography variant="h6">{title}</Typography>
-            <Typography variant="body2" color="rgba(255,255,255,0.72)">
+            <Typography variant="body2" color="text.secondary">
               {state?.message ?? '準備中...'}
             </Typography>
           </Stack>
@@ -111,7 +110,7 @@ export const ExportProgressWindowApp = (): React.ReactElement => {
               value={Math.min(100, Math.max(0, progress))}
               sx={{
                 height: 10,
-                borderRadius: 5,
+                borderRadius: 1,
                 '& .MuiLinearProgress-bar': {
                   transition:
                     state?.status === 'running'
@@ -125,13 +124,13 @@ export const ExportProgressWindowApp = (): React.ReactElement => {
               justifyContent="space-between"
               sx={{ mt: 1 }}
             >
-              <Typography variant="caption" color="rgba(255,255,255,0.72)">
+              <Typography variant="caption" color="text.secondary">
                 {state ? '映像時間ベース' : '-'}
               </Typography>
               <Typography
                 data-testid="export-progress-percent"
                 variant="caption"
-                color="rgba(255,255,255,0.72)"
+                color="text.secondary"
               >
                 {state ? `${Math.round(progress)}%` : ''}
               </Typography>
@@ -139,10 +138,49 @@ export const ExportProgressWindowApp = (): React.ReactElement => {
           </Box>
 
           <Typography variant="body2">{remainingLabel}</Typography>
-          {state?.error && (
-            <Typography variant="caption" color="#ff8a80">
-              {state.error}
-            </Typography>
+
+          {state?.status === 'failed' && (
+            <Alert severity="error" variant="outlined">
+              <AlertTitle>書き出しを完了できませんでした</AlertTitle>
+              <Typography variant="body2">
+                元映像の場所、保存先の書き込み権限と空き容量を確認し、メイン画面からもう一度書き出してください。
+              </Typography>
+              {state.error && (
+                <Box
+                  component="details"
+                  sx={{
+                    mt: 1,
+                    '& summary': {
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                    },
+                  }}
+                >
+                  <Box component="summary">エラー詳細を表示</Box>
+                  <Box
+                    component="pre"
+                    sx={{
+                      mt: 1,
+                      mb: 0,
+                      p: 1,
+                      maxHeight: 160,
+                      overflow: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      overflowWrap: 'anywhere',
+                      fontFamily:
+                        'ui-monospace, SFMono-Regular, Menlo, monospace',
+                      fontSize: '0.7rem',
+                      bgcolor: 'action.hover',
+                      borderRadius: 1,
+                      userSelect: 'text',
+                    }}
+                  >
+                    {state.error}
+                  </Box>
+                </Box>
+              )}
+            </Alert>
           )}
 
           {state?.status !== 'running' && (

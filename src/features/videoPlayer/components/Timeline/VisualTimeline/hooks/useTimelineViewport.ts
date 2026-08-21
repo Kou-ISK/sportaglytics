@@ -1,41 +1,78 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  createTimelineCoordinateMapper,
+  TIMELINE_ROW_HEADER_WIDTH_PX,
+} from '../domain/timelineCoordinateMapper';
+
+const MIN_ZOOM_SCALE = 1;
+const MAX_ZOOM_SCALE = 10;
+const ZOOM_BUTTON_STEP = 0.25;
+
+const clampZoomScale = (value: number): number =>
+  Math.max(MIN_ZOOM_SCALE, Math.min(MAX_ZOOM_SCALE, value));
+
+export const calculateAnchoredScrollLeft = ({
+  anchorTime,
+  viewportWidth,
+  scrollWidth,
+  timeToPosition,
+}: {
+  anchorTime: number;
+  viewportWidth: number;
+  scrollWidth: number;
+  timeToPosition: (time: number) => number;
+}): number => {
+  const maxScrollLeft = Math.max(0, scrollWidth - viewportWidth);
+  const desiredScrollLeft = timeToPosition(anchorTime) - viewportWidth / 2;
+  return Math.max(0, Math.min(maxScrollLeft, desiredScrollLeft));
+};
 
 interface UseTimelineViewportParams {
   maxSec: number;
   currentTime: number;
 }
 
+export interface TimelineContainerPoint {
+  x: number;
+  y: number;
+}
+
 export const useTimelineViewport = ({
   maxSec,
   currentTime,
 }: UseTimelineViewportParams) => {
-  // バー描画領域（実際にバーを置く要素）
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null); // スクロール領域全体（ラベル含む）
-  const [baseWidth, setBaseWidth] = useState(0); // バー描画領域幅のみ
-
-  // ズームスケール（1 = 等倍、2 = 2倍拡大）
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [baseWidth, setBaseWidth] = useState(0);
   const [zoomScale, setZoomScale] = useState(1);
   const [scrollLeft, setScrollLeft] = useState(0);
-  const LABEL_WIDTH = 120;
+  const zoomAnchorTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     const target = scrollContainerRef.current;
     if (!target) return;
-    const computeWidth = () => {
+    const computeWidth = (): void => {
       const style = getComputedStyle(target);
       const paddingLeft = parseFloat(style.paddingLeft) || 0;
       const paddingRight = parseFloat(style.paddingRight) || 0;
-      // パネル内に収まるように余白を考慮した幅を計算
-      // ズーム100%時に映像全体が表示される
-      // タイムライン軸の右端 = 映像の終端位置
-      const raw = target.clientWidth - LABEL_WIDTH - paddingLeft - paddingRight;
+      const raw =
+        target.clientWidth -
+        TIMELINE_ROW_HEADER_WIDTH_PX -
+        paddingLeft -
+        paddingRight;
       if (raw > 0) {
         setBaseWidth(raw);
       }
     };
     computeWidth();
-    const resizeObserver = new ResizeObserver(() => computeWidth());
+    const resizeObserver = new ResizeObserver(computeWidth);
     resizeObserver.observe(target);
     return () => resizeObserver.disconnect();
   }, []);
@@ -43,63 +80,119 @@ export const useTimelineViewport = ({
   useEffect(() => {
     const target = scrollContainerRef.current;
     if (!target) return;
-    const handleScroll = () => setScrollLeft(target.scrollLeft);
+    const handleScroll = (): void => setScrollLeft(target.scrollLeft);
     target.addEventListener('scroll', handleScroll);
     return () => target.removeEventListener('scroll', handleScroll);
-  }, [scrollContainerRef]);
+  }, []);
 
-  // ホイールイベントでズーム
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
     if (!scrollContainer) return;
 
-    const handleWheel = (event: WheelEvent) => {
-      // Ctrl/Cmd + ホイールまたはピンチジェスチャーでズーム
-      if (event.ctrlKey || event.metaKey) {
-        event.preventDefault();
-
-        const delta = -event.deltaY;
-        const zoomFactor = 1 + delta * 0.001;
-
-        setZoomScale((prev) => {
-          const newScale = Math.max(1, Math.min(10, prev * zoomFactor));
-          return newScale;
-        });
-      }
+    const handleWheel = (event: WheelEvent): void => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const delta = -event.deltaY;
+      const zoomFactor = 1 + delta * 0.001;
+      setZoomScale((previous) => clampZoomScale(previous * zoomFactor));
     };
 
     scrollContainer.addEventListener('wheel', handleWheel, { passive: false });
     return () => scrollContainer.removeEventListener('wheel', handleWheel);
   }, []);
 
-  const timeToPosition = useCallback(
-    (time: number) => {
-      if (maxSec <= 0 || baseWidth <= 0) return 0;
-      return (time / maxSec) * baseWidth * zoomScale;
-    },
+  const coordinateMapper = useMemo(
+    () =>
+      createTimelineCoordinateMapper({
+        maxSec,
+        baseContentWidth: baseWidth,
+        zoomScale,
+      }),
     [baseWidth, maxSec, zoomScale],
   );
 
-  const positionToTime = useCallback(
-    (positionPx: number) => {
-      if (maxSec <= 0 || baseWidth <= 0 || zoomScale <= 0) return 0;
-      return (positionPx / (baseWidth * zoomScale)) * maxSec;
+  const changeZoom = useCallback(
+    (delta: number): void => {
+      const scrollContainer = scrollContainerRef.current;
+      if (scrollContainer) {
+        const viewportCenter =
+          scrollContainer.scrollLeft + scrollContainer.clientWidth / 2;
+        zoomAnchorTimeRef.current = coordinateMapper.contentXToTime(viewportCenter);
+      }
+      setZoomScale((previous) =>
+        clampZoomScale(Math.round((previous + delta) * 100) / 100),
+      );
     },
-    [baseWidth, maxSec, zoomScale],
+    [coordinateMapper],
   );
 
-  const currentTimePosition = useMemo(() => {
-    if (maxSec <= 0) return 0;
-    return timeToPosition(currentTime);
-  }, [currentTime, maxSec, timeToPosition]);
+  const zoomIn = useCallback(
+    (): void => changeZoom(ZOOM_BUTTON_STEP),
+    [changeZoom],
+  );
+
+  const zoomOut = useCallback(
+    (): void => changeZoom(-ZOOM_BUTTON_STEP),
+    [changeZoom],
+  );
+
+  useLayoutEffect(() => {
+    const anchorTime = zoomAnchorTimeRef.current;
+    const scrollContainer = scrollContainerRef.current;
+    if (anchorTime === null || !scrollContainer) {
+      return;
+    }
+
+    zoomAnchorTimeRef.current = null;
+    const nextScrollLeft = calculateAnchoredScrollLeft({
+      anchorTime,
+      viewportWidth: scrollContainer.clientWidth,
+      scrollWidth: scrollContainer.scrollWidth,
+      timeToPosition: coordinateMapper.timeToContentX,
+    });
+    scrollContainer.scrollLeft = nextScrollLeft;
+    setScrollLeft(nextScrollLeft);
+  }, [coordinateMapper]);
+
+  const clientXToContentX = useCallback(
+    (clientX: number): number => {
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (!containerRect) return 0;
+      return coordinateMapper.clientXToContentX(clientX, containerRect.left);
+    },
+    [coordinateMapper],
+  );
+
+  const clientPointToContainerPoint = useCallback(
+    (clientX: number, clientY: number): TimelineContainerPoint => {
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (!containerRect) return { x: 0, y: 0 };
+      return {
+        x: clientX - containerRect.left,
+        y: clientY - containerRect.top,
+      };
+    },
+    [],
+  );
+
+  const currentTimePosition = useMemo(
+    () => coordinateMapper.timeToContentX(currentTime),
+    [coordinateMapper, currentTime],
+  );
 
   return {
     containerRef,
     scrollContainerRef,
     zoomScale,
+    canZoomOut: zoomScale > MIN_ZOOM_SCALE,
+    canZoomIn: zoomScale < MAX_ZOOM_SCALE,
+    zoomIn,
+    zoomOut,
     containerWidth: baseWidth,
-    timeToPosition,
-    positionToTime,
+    timeToPosition: coordinateMapper.timeToContentX,
+    positionToTime: coordinateMapper.contentXToTime,
+    clientXToContentX,
+    clientPointToContainerPoint,
     currentTimePosition,
     scrollLeft,
   };

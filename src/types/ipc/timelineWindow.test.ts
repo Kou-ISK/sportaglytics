@@ -41,6 +41,39 @@ describe('timeline window IPC guards', () => {
     ).toBe(false);
   });
 
+  it('accepts explicit row sort commands and rejects ambiguous variants', () => {
+    expect(
+      isTimelineWindowCommand({
+        type: 'sort-rows',
+        spec: { criterion: 'name', direction: 'asc' },
+      }),
+    ).toBe(true);
+    expect(
+      isTimelineWindowCommand({
+        type: 'sort-rows',
+        spec: { criterion: 'instanceCount', direction: 'desc' },
+      }),
+    ).toBe(true);
+    expect(
+      isTimelineWindowCommand({
+        type: 'sort-rows',
+        spec: { criterion: 'color' },
+      }),
+    ).toBe(true);
+    expect(
+      isTimelineWindowCommand({
+        type: 'sort-rows',
+        spec: { criterion: 'color', direction: 'asc' },
+      }),
+    ).toBe(false);
+    expect(
+      isTimelineWindowCommand({
+        type: 'sort-rows',
+        spec: { criterion: 'unknown', direction: 'asc' },
+      }),
+    ).toBe(false);
+  });
+
   it('accepts only finite lightweight playback clocks', () => {
     expect(
       isTimelineWindowClockPayload({

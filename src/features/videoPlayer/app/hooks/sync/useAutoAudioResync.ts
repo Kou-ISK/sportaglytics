@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { VideoPlayerError } from '../../../../../types/video/error';
 import type { VideoSyncData } from '../../../../../types/video/sync';
+import { shouldApplyAutoAudioSync } from '../../../shared/audioSyncDecision';
 import {
   extractAudioWavForSyncBase64,
   readBinaryFileBase64,
@@ -112,30 +113,31 @@ export const useAutoAudioResync = ({
         },
       });
 
+      setSyncProgress(100);
+      if (!shouldApplyAutoAudioSync(result)) {
+        notifyWarning(
+          '音声同期の信頼度が低いため自動配置を変更しませんでした。手動同期で確認してください。',
+        );
+        return;
+      }
+
       const newSyncData: VideoSyncData = {
         ...syncData,
         syncOffset: result.offsetSeconds,
         isAnalyzed: true,
         confidenceScore: result.confidence,
       };
-
       setSyncData(newSyncData);
-      setSyncProgress(100);
-      if (result.confidence < 0.35) {
-        notifyWarning(
-          '音声同期の信頼度が低いです。手動同期で確認してください。',
-        );
-      } else {
-        notifyInfo('音声同期完了');
-      }
-
+      notifyInfo('音声同期完了');
       await forceUpdateVideoPlayers(newSyncData);
     } catch (error) {
       console.error('音声同期エラー:', error);
       onSyncError?.({
         type: 'sync',
-        message:
-          '音声同期に失敗しました。映像ファイルに音声が含まれているか確認してください。',
+        message: '音声同期に失敗しました。',
+        recoveryHint:
+          '映像ファイルに音声が含まれているか確認し、問題がなければもう一度自動同期を実行してください。',
+        detail: error instanceof Error ? error.message : String(error),
       });
     } finally {
       setIsAnalyzing(false);

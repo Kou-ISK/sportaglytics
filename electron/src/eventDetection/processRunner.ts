@@ -8,7 +8,7 @@ import type {
   EventDetectionResult,
 } from '../../../src/types/eventDetection/core';
 import { isEventDetectionResult } from '../../../src/types/ipc/eventDetection';
-import type { VerifiedEventDetectionModel } from './types';
+import type { RunnableEventDetectionModel } from './types';
 import {
   registerEventDetectionProcess,
   unregisterEventDetectionProcess,
@@ -19,7 +19,7 @@ const MAX_STDERR_BYTES = 64 * 1024;
 const MAX_RESULT_BYTES = 20 * 1024 * 1024;
 
 interface RunEventDetectionParams {
-  model: VerifiedEventDetectionModel;
+  model: RunnableEventDetectionModel;
   request: EventDetectionRequest;
   timeoutMs?: number;
   onProgress?: (progress: EventDetectionProgress) => void;
@@ -32,7 +32,7 @@ const removeFile = async (filePath: string): Promise<void> => {
 const validateResultForRequest = (
   result: EventDetectionResult,
   request: EventDetectionRequest,
-  model: VerifiedEventDetectionModel,
+  model: RunnableEventDetectionModel,
 ): void => {
   if (
     result.requestId !== request.requestId ||

@@ -27,7 +27,7 @@ export const buildAppMenuItems = (
     : [{ label: 'バージョン情報', click: openVersionInfoWindow }]),
   { type: 'separator' },
   {
-    label: '設定...',
+    label: '設定…',
     accelerator: 'CmdOrCtrl+,',
     click: () => {
       openSettingsWindow();
@@ -49,7 +49,7 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
     submenu: [
       {
         id: 'create-video-package',
-        label: '映像パッケージ…',
+        label: 'パッケージ…',
         accelerator: 'CmdOrCtrl+N',
         click: () => {
           sendToAllWindows('menu-create-video-package');
@@ -70,7 +70,7 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
     submenu: [
       {
         id: 'open-video-package',
-        label: '映像パッケージ…',
+        label: 'パッケージ…',
         accelerator: 'CmdOrCtrl+O',
         click: () => {
           sendToAllWindows('menu-open-package');
@@ -87,7 +87,7 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
     ],
   },
   {
-    label: '最近開いた映像パッケージ',
+    label: '最近開いたパッケージ',
     submenu: buildRecentPackageItems(),
   },
   { type: 'separator' },
@@ -122,7 +122,7 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
     label: 'エクスポート',
     submenu: [
       {
-        label: '映像クリップ（オーバーレイ）',
+        label: '映像クリップ（オーバーレイ付き）',
         click: (_menuItem, browserWindow) => {
           if (browserWindow && 'webContents' in browserWindow) {
             (browserWindow as BrowserWindow).webContents.send(
@@ -150,7 +150,7 @@ function buildTimelineExportItems(): Electron.MenuItemConstructorOptions[] {
       },
     },
     {
-      label: 'タイムライン（CSV / YouTube）',
+      label: 'タイムライン（YouTube用CSV）',
       click: (_menuItem, browserWindow) => {
         if (browserWindow && 'webContents' in browserWindow) {
           (browserWindow as BrowserWindow).webContents.send(
@@ -161,7 +161,7 @@ function buildTimelineExportItems(): Electron.MenuItemConstructorOptions[] {
       },
     },
     {
-      label: 'タイムライン（Raw CSV）',
+      label: 'タイムライン（分析用CSV）',
       click: (_menuItem, browserWindow) => {
         if (browserWindow && 'webContents' in browserWindow) {
           (browserWindow as BrowserWindow).webContents.send(
@@ -229,28 +229,28 @@ export const buildAnalysisMenuItems =
 export const buildWindowMenuItems =
   (): Electron.MenuItemConstructorOptions[] => [
     {
-      label: 'タイムラインを表示',
+      label: 'タイムラインを開く',
       click: () => {
         void openTimelineWindow();
       },
     },
     {
-      label: '分析ウィンドウを表示',
+      label: '分析を開く',
       click: () => {
         openAnalysisWindow();
       },
     },
     {
-      label: 'プレイリストウィンドウを表示',
+      label: 'プレイリストを開く',
       click: () => {
         createPlaylistWindow();
       },
     },
     { type: 'separator' },
     { role: 'minimize' as const, label: '最小化' },
-    { role: 'zoom' as const, label: '拡大/縮小' },
+    { role: 'zoom' as const, label: 'ウィンドウを拡大/縮小' },
     { type: 'separator' },
-    { role: 'front' as const, label: '全てを前面に出す' },
+    { role: 'front' as const, label: 'すべてを前面に表示' },
   ];
 
 export const buildHelpMenuItems = (
@@ -259,20 +259,24 @@ export const buildHelpMenuItems = (
   const helpMenuItems: Electron.MenuItemConstructorOptions[] = [
     {
       id: 'open-help',
-      label: 'ヘルプ / 機能一覧を開く',
+      label: 'SporTagLytics ヘルプ',
+      accelerator: 'CmdOrCtrl+Shift+/',
       click: () => openHelpWindow(),
     },
   ];
   if (isDevEnv) {
-    helpMenuItems.push({
-      label: '開発者ツール',
-      click: () => {
-        const focusedWindow = BrowserWindow.getFocusedWindow();
-        if (focusedWindow) {
-          focusedWindow.webContents.toggleDevTools();
-        }
+    helpMenuItems.push(
+      { type: 'separator' },
+      {
+        label: '開発者ツール',
+        click: () => {
+          const focusedWindow = BrowserWindow.getFocusedWindow();
+          if (focusedWindow) {
+            focusedWindow.webContents.toggleDevTools();
+          }
+        },
       },
-    });
+    );
   }
   return helpMenuItems;
 };

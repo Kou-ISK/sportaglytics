@@ -1,6 +1,7 @@
 import { createPackage } from './packageCreationService';
 import { applyClipTimeline } from './packageClipTimelineService';
 import { convertConfigToRelativePath } from './packageConfigMigrationService';
+import { preparePackageForOpen } from './legacyPackageMigrationService';
 import {
   isNonEmptyString,
   isPackageAnglePayloadArray,
@@ -40,6 +41,23 @@ export const registerPackageHandlers = (): void => {
       }
 
       return createPackage(directoryName, packageName, angles, metaDataConfig);
+    },
+  );
+
+  registerHandleWithAliases(
+    'package:prepare-open',
+    [],
+    async (event, packagePath: unknown, destinationPath?: unknown) => {
+      if (!getValidatedEventSenderWindow(event)) {
+        throw new Error('Invalid package open preparation sender');
+      }
+      if (!isNonEmptyString(packagePath)) {
+        throw new Error('Invalid package path');
+      }
+      if (destinationPath !== undefined && !isNonEmptyString(destinationPath)) {
+        throw new Error('Invalid package migration destination');
+      }
+      return preparePackageForOpen(packagePath, destinationPath);
     },
   );
 
