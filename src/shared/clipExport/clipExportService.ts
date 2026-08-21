@@ -145,11 +145,9 @@ const buildExportFileName = (
 };
 
 const buildFailureMessage = (
-  result: ClipExportExecutionResult,
+  _result: ClipExportExecutionResult,
   fallbackMessage: string,
-): string => {
-  return result.error || fallbackMessage;
-};
+): string => fallbackMessage;
 
 export const executeClipExport = async ({
   executeExport,
