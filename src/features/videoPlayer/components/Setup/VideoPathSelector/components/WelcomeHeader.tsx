@@ -14,7 +14,7 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({ show }) => {
         SporTagLytics
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-        Package workspace
+        分析するパッケージを開くか、新しく作成します
       </Typography>
     </Box>
   );
