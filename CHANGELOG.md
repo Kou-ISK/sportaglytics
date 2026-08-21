@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-08-21
+
 ### Added
 
 - Timeline下部Footerに、Sportscodeに近い行追加操作と `− 100% ＋` の表示倍率コントロールを追加し、既存のCmd/Ctrl+wheel zoomも維持
