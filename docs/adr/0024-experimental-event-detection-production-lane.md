@@ -33,6 +33,7 @@ The security properties of a model runner are independent from its statistical q
 - Accepted candidates continue to become ordinary `TimelineData`. No AI provenance field or parallel Timeline model is introduced. Experimental candidates are expected to be reviewed, deleted, or range-adjusted using the same editing workflow as manual Coding.
 - Model execution remains local. Video paths, video content, inference inputs, and private training information are not uploaded by this feature.
 - Deployable model packs are build artifacts, not source artifacts. The repository contains only an ignored staging directory and packaging contract. Raw videos, `.stpkg` data, frames, research runs, checkpoints, private source metadata, and deployable model binaries are not committed.
+- On macOS, packaged model runners are finalized during `electron-builder`'s `afterPack` phase: each declared Darwin runner is Developer ID signed first, its post-sign SHA-256 is written into the packaged copy of `manifest.json`, and the runner path is excluded from electron-builder's later recursive re-sign pass. The surrounding `.app` is then signed and notarized normally. Runtime SHA verification therefore covers the exact executable bytes that ship to users rather than the pre-sign export artifact.
 - A release may contain no event-detection model pack. In that case the application and all unrelated features continue to work; model discovery simply returns no runnable model for that platform.
 
 ## Consequences
@@ -41,4 +42,5 @@ The security properties of a model runner are independent from its statistical q
 - Users can see the statistical limitations of an experimental model instead of receiving a misleading quality signal.
 - The same runner security boundary is maintained for both statuses, reducing the chance that an experimental path becomes a privileged bypass.
 - Release automation gains an optional staging point for sanitized deployable model packs while preserving the R&D/privacy boundary defined by ADR 0023.
+- macOS signing no longer invalidates the manifest integrity contract: the manifest records the signed runner bytes that are actually distributed, while the outer app signature/notarization still seals the final bundle.
 - Experimental results require human review and may create substantially more Timeline instances than a verified model. This is intentional for Recall-first workflow validation and is communicated in the UI.
