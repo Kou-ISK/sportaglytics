@@ -4,6 +4,13 @@ import {
   TIMELINE_ROW_HEADER_WIDTH_PX,
 } from '../domain/timelineCoordinateMapper';
 
+const MIN_ZOOM_SCALE = 1;
+const MAX_ZOOM_SCALE = 10;
+const ZOOM_BUTTON_STEP = 0.25;
+
+const clampZoomScale = (value: number): number =>
+  Math.max(MIN_ZOOM_SCALE, Math.min(MAX_ZOOM_SCALE, value));
+
 interface UseTimelineViewportParams {
   maxSec: number;
   currentTime: number;
@@ -63,13 +70,27 @@ export const useTimelineViewport = ({
       event.preventDefault();
       const delta = -event.deltaY;
       const zoomFactor = 1 + delta * 0.001;
-      setZoomScale((previous) =>
-        Math.max(1, Math.min(10, previous * zoomFactor)),
-      );
+      setZoomScale((previous) => clampZoomScale(previous * zoomFactor));
     };
 
     scrollContainer.addEventListener('wheel', handleWheel, { passive: false });
     return () => scrollContainer.removeEventListener('wheel', handleWheel);
+  }, []);
+
+  const zoomIn = useCallback((): void => {
+    setZoomScale((previous) =>
+      clampZoomScale(
+        Math.round((previous + ZOOM_BUTTON_STEP) * 100) / 100,
+      ),
+    );
+  }, []);
+
+  const zoomOut = useCallback((): void => {
+    setZoomScale((previous) =>
+      clampZoomScale(
+        Math.round((previous - ZOOM_BUTTON_STEP) * 100) / 100,
+      ),
+    );
   }, []);
 
   const coordinateMapper = useMemo(
@@ -112,6 +133,10 @@ export const useTimelineViewport = ({
     containerRef,
     scrollContainerRef,
     zoomScale,
+    canZoomOut: zoomScale > MIN_ZOOM_SCALE,
+    canZoomIn: zoomScale < MAX_ZOOM_SCALE,
+    zoomIn,
+    zoomOut,
     containerWidth: baseWidth,
     timeToPosition: coordinateMapper.timeToContentX,
     positionToTime: coordinateMapper.contentXToTime,
