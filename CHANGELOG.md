@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Timeline下部Footerに、Sportscodeに近い行追加操作と `− 100% ＋` の表示倍率コントロールを追加し、既存のCmd/Ctrl+wheel zoomも維持
+
+### Changed
+
+- ホーム画面を「最近開いたパッケージ → 既存パッケージを開く → 新規作成」の日常利用優先順へ整理し、一般UI文言を日本語へ統一
+- Timelineの行追加を行一覧末尾から固定Footerへ移動し、表示倍率とdocument操作を同じ下部chromeへ整理
+- エラー表示を自動消去せず、ユーザー向け説明・対処方法・展開可能な技術詳細の順で確認できるrecovery UXへ変更
+- 映像書き出し失敗時のFFmpeg等のraw errorを詳細表示へ移し、元映像・保存先権限・空き容量の確認を先に案内
+- native menuの命名を「パッケージ」「〜を開く」「ウィンドウを拡大/縮小」へ統一し、Timelineの表示倍率とnative window zoomを明確に区別
+- アプリ内Helpを現行の独立Timeline / Code Window構成へ同期し、modifier + drag等の高度操作を検索可能な説明として追加
+- design systemにDesktop Toolbar/Footer、Surface hierarchy、用語、menu、error recovery、Help as discovery layerの原則を追加
+
+### Documentation
+
+- `docs/user-guide.md` を初期画面、Timeline Footer/zoom、高度操作、menu terminology、error recoveryの現行UIへ同期
+- `docs/design-system.md` にDesktop分析アプリとしてのUI・用語・Help運用規約を明文化
+
 ## [0.10.0] - 2026-08-19
 
 ### Added
@@ -78,17 +97,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - プレイリストの終端処理が複数回発火する問題、範囲外シーク、フリーズ注釈から自動復帰しない問題を修正
 - プレイリストの複数削除・並べ替え・Undo/Redo後に再生中アイテム、注釈、未保存判定がずれる問題を修正
 - 再生時計のリスナーが時刻更新ごとに再登録され、シークと再生ヘッドが引っ掛かる問題を修正
-
-## [0.8.2] - 2026-08-03
-
-### Security
-
-- Electronをサポート中の43.2へ更新し、production / development dependencyの既知脆弱性を解消
-- FFmpeg/FFprobeの古いnpm binaryを廃止し、固定SHA-256で検証したFFmpeg 8.1.2 sourceからCPU architecture別にbuildする方式へ変更
-- 映像probeに30秒・1 MiB、合成processに有限時間・有限出力の上限を追加
-
-### Fixed
-
 - タイムラインの再生ヘッドを見た目の太さを変えずに掴みやすくし、インスタンス操作と重なる場合はインスタンスを優先するよう修正
 
 ## [0.8.1] - 2026-08-02
