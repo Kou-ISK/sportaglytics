@@ -211,7 +211,7 @@ try {
   );
   console.log('Local package persistence passed');
 
-  await page.getByText('新規パッケージ', { exact: true }).click();
+  await page.getByText('新しいパッケージを作成', { exact: true }).click();
   await page.getByLabel('パッケージ').fill('e2e-sync');
   await page.getByLabel('Team 1').fill('Red');
   await page.getByLabel('Team 2').fill('Blue');
@@ -243,9 +243,7 @@ try {
   await addYoutube('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
 
   await page.getByRole('button', { name: 'パッケージを作成…' }).click();
-  await page.getByRole('button', { name: 'タイムラインを表示' }).waitFor({
-    timeout: 30_000,
-  });
+  await page.locator('#video_0').waitFor({ timeout: 30_000 });
   await page.keyboard.press('Meta+Shift+T');
   await page.getByText('クリップ単位シンク').waitFor();
   assert.equal(
@@ -286,9 +284,7 @@ try {
   console.log('Launching local virtual timeline');
   electronApp = await launch([path.join(workPath, 'local-sync.stpkg')]);
   page = await electronApp.firstWindow();
-  await page.getByRole('button', { name: 'タイムラインを表示' }).waitFor({
-    timeout: 30_000,
-  });
+  await page.locator('#video_0').waitFor({ timeout: 30_000 });
   await page.locator('#video_0').waitFor({ timeout: 30_000 });
   await page.evaluate(() => window.electronAPI.codingPanelWindow.openWindow());
   const codingPanelPage = await waitForWindowHash(
@@ -376,9 +372,7 @@ try {
   console.log('Launching persisted YouTube timeline');
   electronApp = await launch([packagePath]);
   page = await electronApp.firstWindow();
-  await page.getByRole('button', { name: 'タイムラインを表示' }).waitFor({
-    timeout: 30_000,
-  });
+  await page.locator('#video_0').waitFor({ timeout: 30_000 });
   await page.locator('iframe[src*="M7lc1UVf-VE"]').waitFor({
     timeout: 30_000,
   });

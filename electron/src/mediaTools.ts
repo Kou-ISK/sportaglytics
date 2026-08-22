@@ -104,11 +104,48 @@ export const getMediaToolPath = (tool: MediaToolName): string => {
 export const getFfmpegPath = (): string => getMediaToolPath('ffmpeg');
 export const getFfprobePath = (): string => getMediaToolPath('ffprobe');
 
-export const H264_ENCODER_ARGS: readonly string[] = [
-  '-c:v',
-  'libx264',
-  '-preset',
-  'fast',
-  '-crf',
-  '20',
-];
+export type H264EncoderBackend = 'videotoolbox' | 'libx264';
+
+export interface H264EncoderConfiguration {
+  backend: H264EncoderBackend;
+  args: readonly string[];
+}
+
+/**
+ * Resolve the encoder to match the media toolchain available on the target.
+ *
+ * The packaged macOS FFmpeg is deliberately built without external codec
+ * libraries (including libx264), so VideoToolbox is the only supported H.264
+ * encoder there. Keeping libx264 for non-macOS development environments
+ * preserves the existing local workflow until another verified toolchain is
+ * introduced for those platforms.
+ */
+export const resolveH264Encoder = (
+  platform: NodeJS.Platform = process.platform,
+): H264EncoderConfiguration => {
+  if (platform === 'darwin') {
+    return {
+      backend: 'videotoolbox',
+      // VideoToolbox does not use libx264's preset/crf options. Use a stable
+      // bitrate policy and an MP4-compatible pixel format instead.
+      args: [
+        '-c:v',
+        'h264_videotoolbox',
+        '-b:v',
+        '5M',
+        '-profile:v',
+        'main',
+        '-pix_fmt',
+        'yuv420p',
+      ],
+    };
+  }
+
+  return {
+    backend: 'libx264',
+    args: ['-c:v', 'libx264', '-preset', 'fast', '-crf', '20'],
+  };
+};
+
+export const H264_ENCODER_ARGS: readonly string[] =
+  resolveH264Encoder().args;
