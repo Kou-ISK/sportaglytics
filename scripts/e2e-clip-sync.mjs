@@ -272,7 +272,9 @@ try {
   assert.equal(config.angles[0].clips[0].timelineStartSeconds, 0);
   config.angles[0].clips[0].durationSeconds = 1;
   config.angles[0].clips[1].timelineStartSeconds = 2;
-  config.angles[0].clips[1].durationSeconds = 1;
+  // Keep the second clip active long enough for the external YouTube tech to
+  // become ready on slower CI runners while still testing a real source switch.
+  config.angles[0].clips[1].durationSeconds = 30;
   config.angles[0].clips[1].gapBeforeSeconds = 1;
   await fs.writeFile(
     path.join(packagePath, '.metadata', 'config.json'),
@@ -383,7 +385,7 @@ try {
   });
   await page.keyboard.press('Space');
   await page.locator('iframe[src*="dQw4w9WgXcQ"]').waitFor({
-    timeout: 10_000,
+    timeout: 30_000,
   });
   await page.keyboard.press('Meta+Shift+T');
   await page.getByText('クリップ単位シンク').waitFor();
