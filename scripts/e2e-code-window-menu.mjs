@@ -48,7 +48,7 @@ try {
     localStorage.setItem('sportaglytics-onboarding-completed', 'true');
   });
   await mainPage.reload();
-  await mainPage.getByText('新規パッケージ', { exact: true }).waitFor({
+  await mainPage.getByText('新しいパッケージを作成', { exact: true }).waitFor({
     timeout: 10_000,
   });
 
@@ -73,7 +73,7 @@ try {
   assert.deepEqual(menuSnapshot.fileLabels.slice(0, 3), [
     '新規',
     '開く',
-    '最近開いた映像パッケージ',
+    '最近開いたパッケージ',
   ]);
   assert.equal(menuSnapshot.hasCodingMenu, false);
   assert.equal(menuSnapshot.topLevelLabels.includes('コーディング'), false);

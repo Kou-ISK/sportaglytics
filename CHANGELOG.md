@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-08-22
+
+### Fixed
+
+- 現行のパッケージ作成・最近開いたパッケージの表示文言へ Electron E2E を同期し、release workflow の E2E gate が旧UI文言で停止しないよう修正
+
 ## [0.10.2] - 2026-08-21
 
 ### Fixed
