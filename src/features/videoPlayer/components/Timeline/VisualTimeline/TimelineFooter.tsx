@@ -36,7 +36,11 @@ export const TimelineFooter = ({
     >
       {onAddRow && (
         <Tooltip title="行を追加">
-          <IconButton size="small" aria-label="行を追加" onClick={onAddRow}>
+          <IconButton
+            size="small"
+            aria-label="行を追加"
+            onClick={() => onAddRow()}
+          >
             <Add fontSize="small" />
           </IconButton>
         </Tooltip>
