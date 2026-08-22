@@ -24,6 +24,11 @@ jobs:
           gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/runs?branch=main&event=push&per_page=5" \
             --jq '.workflow_runs[] | [.id, .run_number, .status, .conclusion, .head_sha, .created_at, .updated_at, .html_url] | @tsv'
 
+      - name: Inspect failed Release log
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run view 32573060208 --repo "$GITHUB_REPOSITORY" --log-failed
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
