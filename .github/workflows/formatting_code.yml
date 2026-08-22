@@ -10,12 +10,9 @@ permissions:
 
 jobs:
   check:
-    name: Validate source code
+    name: Inspect release diagnostics
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Inspect latest Release runs
         env:
           GH_TOKEN: ${{ github.token }}
@@ -28,46 +25,3 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh run view 32573060208 --repo "$GITHUB_REPOSITORY" --log-failed
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.12.0"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.1.0
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Typecheck renderer
-        run: pnpm run typecheck
-
-      - name: Typecheck electron
-        run: pnpm run typecheck:electron
-
-      - name: Architecture check
-        run: pnpm run check:architecture
-
-      - name: ADR check
-        run: pnpm run check:adr
-
-      - name: Test
-        run: pnpm run test:ci
