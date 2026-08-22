@@ -4,10 +4,39 @@ import * as os from 'os';
 import * as path from 'path';
 import { H264_ENCODER_ARGS } from '../mediaTools';
 
+export const MAX_FFMPEG_STDERR_BYTES = 64 * 1024;
+
 export interface FfmpegProcessProgressOptions {
   durationSeconds: number;
   onProgress: (progress: number) => void;
 }
+
+export interface FfmpegExecutionErrorDetails {
+  exitCode: number | null;
+  signal: NodeJS.Signals | null;
+  stderrTail: string;
+  executablePath: string;
+  commandSummary: string;
+}
+
+export class FfmpegExecutionError extends Error {
+  public readonly details: FfmpegExecutionErrorDetails;
+
+  public constructor(details: FfmpegExecutionErrorDetails) {
+    const status = details.signal
+      ? `terminated by ${details.signal}`
+      : `exited with code ${details.exitCode ?? 'unknown'}`;
+    super(`ffmpeg ${status}`);
+    this.name = 'FfmpegExecutionError';
+    this.details = details;
+  }
+}
+
+const buildCommandSummary = (executablePath: string, args: string[]): string => {
+  const executableName = path.basename(executablePath);
+  const redactedArgs = args.map((arg) => (arg.startsWith('-') ? arg : '<value>'));
+  return `${executableName} ${redactedArgs.join(' ')}`.slice(0, 1024);
+};
 
 export const parseFfmpegProgressLine = (
   line: string,
@@ -34,7 +63,9 @@ export const runFfmpegProcess = (
     const ffmpegArgs = progressOptions
       ? ['-progress', 'pipe:1', '-nostats', ...args]
       : args;
-    const ff = spawn(getFfmpegPath(), ffmpegArgs, {
+    const executablePath = getFfmpegPath();
+    const commandSummary = buildCommandSummary(executablePath, ffmpegArgs);
+    const ff = spawn(executablePath, ffmpegArgs, {
       shell: false,
       windowsHide: true,
     });
@@ -42,6 +73,27 @@ export const runFfmpegProcess = (
     timeout.unref();
     let progressBuffer = '';
     let lastProgress = -1;
+    let stderrTail = Buffer.alloc(0);
+
+    const appendStderr = (data: Buffer): void => {
+      stderrTail = Buffer.concat([stderrTail, data]);
+      if (stderrTail.byteLength > MAX_FFMPEG_STDERR_BYTES) {
+        stderrTail = stderrTail.subarray(-MAX_FFMPEG_STDERR_BYTES);
+      }
+    };
+
+    const buildError = (
+      exitCode: number | null,
+      signal: NodeJS.Signals | null,
+    ): FfmpegExecutionError =>
+      new FfmpegExecutionError({
+        exitCode,
+        signal,
+        stderrTail: stderrTail.toString('utf8').trim(),
+        executablePath,
+        commandSummary,
+      });
+
     ff.stdout.on('data', (data) => {
       if (!progressOptions) return;
       progressBuffer += data.toString();
@@ -58,13 +110,15 @@ export const runFfmpegProcess = (
       }
     });
     ff.stderr.on('data', (data) => {
-      console.log('[ffmpeg]', data.toString());
+      appendStderr(Buffer.isBuffer(data) ? data : Buffer.from(data));
     });
     ff.once('error', (error) => {
       clearTimeout(timeout);
-      reject(error);
+      const executionError = buildError(null, null);
+      console.error('[ffmpeg] failed to start', executionError.details, error);
+      reject(executionError);
     });
-    ff.on('close', (code) => {
+    ff.on('close', (code, signal) => {
       clearTimeout(timeout);
       if (code === 0) {
         if (progressOptions && lastProgress < 1) {
@@ -72,7 +126,9 @@ export const runFfmpegProcess = (
         }
         resolve();
       } else {
-        reject(new Error(`ffmpeg exited with code ${code}`));
+        const executionError = buildError(code, signal);
+        console.error('[ffmpeg] process failed', executionError.details);
+        reject(executionError);
       }
     });
   });
