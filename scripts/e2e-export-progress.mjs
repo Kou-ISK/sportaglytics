@@ -60,7 +60,9 @@ try {
     localStorage.setItem('sportaglytics-onboarding-completed', 'true');
   });
   await mainPage.reload();
-  await mainPage.getByText('新規パッケージ', { exact: true }).waitFor();
+  await mainPage
+    .getByText('新しいパッケージを作成', { exact: true })
+    .waitFor();
 
   const progressWindowPromise = electronApp.waitForEvent('window', {
     timeout: 10_000,
@@ -112,7 +114,9 @@ try {
     'the progress window must not take focus when export starts',
   );
 
-  await mainPage.getByText('新規パッケージ', { exact: true }).click();
+  await mainPage
+    .getByText('新しいパッケージを作成', { exact: true })
+    .click();
   await mainPage.getByLabel('パッケージ').waitFor({ timeout: 5_000 });
   await mainPage.waitForTimeout(800);
   const focusedUrlAfterProgressUpdate = await electronApp.evaluate(
