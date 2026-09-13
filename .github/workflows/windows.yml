@@ -55,6 +55,8 @@ jobs:
           key: windows-x64-llama-${{ hashFiles('scripts/build-windows-llama.mjs') }}
       - name: Build self-contained Windows AI runtime
         run: pnpm run llama:build:windows
+      - name: Verify native runtime dependencies
+        run: node scripts/windows/verify-native-dependencies.mjs .cache/media-tools/win32-x64/ffmpeg.exe .cache/media-tools/win32-x64/ffprobe.exe .cache/llama/win32-x64/llama-completion.exe
       - name: Save verified AI runtime
         uses: actions/cache/save@v4
         with:

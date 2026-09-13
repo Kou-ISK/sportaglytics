@@ -20,7 +20,7 @@ const version = 'b7849';
 const sourceHash =
   '6a18527b93c78af01f8efd41f3e5703b5c3bddf22f68abfae1fd743f0fd26e29';
 const output = resolve('.cache/llama/win32-x64');
-const identity = { version, sourceHash, revision: 2, target: 'win32-x64' };
+const identity = { version, sourceHash, revision: 3, target: 'win32-x64' };
 try {
   const manifest = JSON.parse(
     await readFile(join(output, 'build.json'), 'utf8'),
@@ -63,7 +63,8 @@ try {
     '-DGGML_AVX2=OFF',
     '-DGGML_FMA=OFF',
     '-DGGML_F16C=OFF',
-    '-DLLAMA_CURL=OFF',
+    '-DLLAMA_HTTPLIB=OFF',
+    '-DLLAMA_OPENSSL=OFF',
     '-DLLAMA_BUILD_TESTS=OFF',
     '-DLLAMA_BUILD_SERVER=OFF',
   ]);
