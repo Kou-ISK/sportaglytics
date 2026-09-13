@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 自動イベント検出の[学習・評価手順](docs/event-detection.md#検出精度の改善と評価)を更新。既存Codingの確認と再Codingを区別し、同期した引き映像による学習比較、実イベントの見逃しチェック、比較用モデルと配布モデルの境界を明記。
+
 ### Fixed
 
 - 自動イベント検出で、重複する低confidenceの候補が先着順で残り、より強い候補の時刻が失われる問題を修正。採用結果は時刻順とし、既存の手動編集を保持する。
