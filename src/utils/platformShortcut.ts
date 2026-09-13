@@ -19,10 +19,13 @@ export const getKeyboardPlatform = (): string =>
   typeof navigator === 'undefined' ? '' : navigator.platform;
 
 export const capturePortableShortcut = (
-  event: Pick<
-    KeyboardEvent,
-    'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'
-  >,
+  event: {
+    key: string;
+    metaKey: boolean;
+    ctrlKey: boolean;
+    altKey: boolean;
+    shiftKey: boolean;
+  },
   platform: string,
 ): string => {
   const keys: string[] = [];

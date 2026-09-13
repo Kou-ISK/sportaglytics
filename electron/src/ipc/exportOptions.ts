@@ -50,11 +50,14 @@ export const getJapaneseFontPath = (isBold = false): string => {
       : '/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc';
   }
   if (platform === 'win32') {
+    const fontName = isBold
+      ? 'NotoSansCJKjp-Bold.otf'
+      : 'NotoSansCJKjp-Regular.otf';
     const candidates = [
       ...(typeof process.resourcesPath === 'string'
-        ? [join(process.resourcesPath, 'fonts', 'NotoSansCJKjp-Regular.otf')]
+        ? [join(process.resourcesPath, 'fonts', fontName)]
         : []),
-      resolve('.cache/fonts/NotoSansCJKjp-Regular.otf'),
+      resolve('.cache/fonts', fontName),
     ];
     const font = candidates.find((candidate) => existsSync(candidate));
     if (!font)
