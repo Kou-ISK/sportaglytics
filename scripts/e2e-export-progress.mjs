@@ -134,6 +134,15 @@ try {
   }
 
   await progressPage.getByText('書き出し完了').waitFor({ timeout: 5_000 });
+  const closeButtonVisible = await progressPage
+    .getByRole('button', { name: '閉じる', exact: true })
+    .evaluate(
+      (button) => button.getBoundingClientRect().bottom <= window.innerHeight,
+    );
+  assert.ok(
+    closeButtonVisible,
+    'the completed export close button must fit the initial window',
+  );
   const completedBarRatio = await progressPage
     .getByTestId('export-progress-bar')
     .evaluate((element) => {
