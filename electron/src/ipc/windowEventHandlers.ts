@@ -1,3 +1,4 @@
+import { setVideoWindowAspect } from '../videoWindowAspect';
 import { BrowserWindow, ipcMain, screen } from 'electron';
 import { isStringArray, isStringPayload } from './ipcPayloadGuards';
 import { getValidatedEventSenderWindow } from './windowSenderGuards';
@@ -24,7 +25,7 @@ export const registerWindowEventHandlers = ({
     const window = getValidatedEventSenderWindow(event);
     if (!window || window.isDestroyed()) return;
     if (value === null) {
-      window.setAspectRatio(0);
+      setVideoWindowAspect(window, null);
       return;
     }
     if (
@@ -51,7 +52,7 @@ export const registerWindowEventHandlers = ({
       height > 4096
     )
       return;
-    window.setAspectRatio(aspectRatio, { width, height });
+    setVideoWindowAspect(window, { aspectRatio, width, height });
     if (window.isFullScreen() || window.isMaximized()) return;
     const [currentWidth, currentHeight] = window.getContentSize();
     const [outerWidth, outerHeight] = window.getSize();

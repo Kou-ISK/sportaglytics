@@ -1,15 +1,17 @@
+import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
+import {
+  fixtureH264Encoder,
+  primaryModifier,
+  primaryModifierEvent,
+} from './e2e-platform.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { _electron as electron } from 'playwright';
 
-const require = createRequire(import.meta.url);
-const electronPath = require('electron');
 const { ffmpegPath } = await import('./media-tool-paths.mjs');
-const repositoryPath = path.resolve(import.meta.dirname, '..');
 const workPath = await fs.mkdtemp(
   path.join(os.tmpdir(), 'sportaglytics-timeline-rows-e2e-'),
 );
@@ -26,7 +28,7 @@ const fixturePaths = ['angle-1.mp4', 'angle-2.mp4'].map((name, index) => {
     '-i',
     `color=c=${index === 0 ? 'red' : 'blue'}:s=320x180:d=3`,
     '-c:v',
-    'h264_videotoolbox',
+    fixtureH264Encoder,
     '-pix_fmt',
     'yuv420p',
     '-y',
@@ -34,15 +36,9 @@ const fixturePaths = ['angle-1.mp4', 'angle-2.mp4'].map((name, index) => {
   ]);
   return outputPath;
 });
-const { ELECTRON_RUN_AS_NODE: _electronRunAsNode, ...electronEnvironment } =
-  process.env;
 
 const launch = (args = []) =>
-  electron.launch({
-    executablePath: electronPath,
-    args: [repositoryPath, `--user-data-dir=${profilePath}`, ...args],
-    env: { ...electronEnvironment, NODE_ENV: 'test' },
-  });
+  electron.launch(getElectronLaunchOptions(profilePath, args));
 
 const waitForTimeline = async (predicate, timeoutMs = 5000) => {
   const timelinePath = path.join(packagePath, 'timeline.json');
@@ -319,14 +315,14 @@ try {
   console.log('Row move passed');
 
   await page.getByTestId('timeline-instance-instance-1').click();
-  await page.keyboard.press('Meta+c');
+  await page.keyboard.press(`${primaryModifier}+c`);
   const attackHeader = page.getByRole('button', {
     name: 'Attack 行',
     exact: true,
   });
   await attackHeader.click();
   assert.equal(await attackHeader.getAttribute('aria-pressed'), 'true');
-  await page.keyboard.press('Meta+v');
+  await page.keyboard.press(`${primaryModifier}+v`);
   await page.waitForFunction(
     () =>
       document.querySelectorAll('[data-testid^="timeline-instance-"]')
@@ -460,14 +456,14 @@ try {
 
   await page.getByTestId('timeline-instance-instance-1').click();
   await page.keyboard.down('Alt');
-  await page.keyboard.down('Meta');
+  await page.keyboard.down(primaryModifier);
   const startHandleBox = await startHandle.boundingBox();
   assert.ok(startHandleBox, 'start resize handle must be visible');
   await page.mouse.move(startHandleBox.x + 2, startHandleBox.y + 5);
   await page.mouse.down();
   await page.mouse.move(startHandleBox.x + 50, startHandleBox.y + 5);
   await page.mouse.up();
-  await page.keyboard.up('Meta');
+  await page.keyboard.up(primaryModifier);
   await page.keyboard.up('Alt');
   await page.waitForTimeout(400);
   // The cross-window edge-resize behavior is covered by the component test.
@@ -477,7 +473,7 @@ try {
 
   const playhead = page.getByTestId('timeline-playhead-Defence');
   await page.keyboard.down('Alt');
-  await page.keyboard.down('Meta');
+  await page.keyboard.down(primaryModifier);
   await page.waitForFunction(() => {
     const handle = document.querySelector(
       '[data-testid="timeline-playhead-Defence"]',
@@ -496,7 +492,7 @@ try {
   });
   assert.ok(playheadBox, 'Timeline playhead must be visible');
   const hitTarget = await page.evaluate(
-    ({ x, y }) => {
+    ({ x, y, modifiers }) => {
       const element = document.elementFromPoint(x, y);
       return {
         testId: element?.getAttribute('data-testid') ?? '',
@@ -533,19 +529,19 @@ try {
   await page.getByTestId('timeline-create-preview').waitFor();
   await page.mouse.move(targetX, laneBox.y + 8, { steps: 4 });
   await page.evaluate(
-    ({ x, y }) => {
+    ({ x, y, modifiers }) => {
       document.dispatchEvent(
         new MouseEvent('mousemove', {
           bubbles: true,
           buttons: 1,
           altKey: true,
-          metaKey: true,
+          ...modifiers,
           clientX: x,
           clientY: y,
         }),
       );
     },
-    { x: targetX, y: laneBox.y + 8 },
+    { x: targetX, y: laneBox.y + 8, modifiers: primaryModifierEvent },
   );
   await page.waitForFunction(() => {
     const preview = document.querySelector(
@@ -561,7 +557,7 @@ try {
     `Timeline preview must span a range (playhead=${playheadRatio}, targetX=${targetX}, width=${previewBox?.width ?? 0})`,
   );
   await page.mouse.up();
-  await page.keyboard.up('Meta');
+  await page.keyboard.up(primaryModifier);
   await page.keyboard.up('Alt');
   const document = await waitForTimeline(
     (timelineDocument) => timelineDocument.instances.length === 4,

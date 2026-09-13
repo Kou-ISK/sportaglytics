@@ -78,7 +78,7 @@ describe('normalizeAppSettings', () => {
     expect(normalized.hotkeys.find((hotkey) => hotkey.id === 'undo')).toEqual({
       id: 'undo',
       label: 'Custom Undo',
-      key: 'Ctrl+Z',
+      key: 'Control+Z',
     });
     expect(
       normalized.hotkeys.some((hotkey) => hotkey.id === 'unknown-hotkey'),
@@ -207,8 +207,8 @@ describe('normalizeAppSettings', () => {
     ).toEqual([
       { id: 'reverse-playback-slow', key: 'Left' },
       { id: 'reverse-playback-2x', key: 'Shift+Left' },
-      { id: 'reverse-playback-4x', key: 'Option+Left' },
-      { id: 'reverse-playback-6x', key: 'Command+Left' },
+      { id: 'reverse-playback-4x', key: 'Alt+Left' },
+      { id: 'reverse-playback-6x', key: 'CommandOrControl+Left' },
     ]);
   });
 });

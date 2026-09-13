@@ -25,6 +25,7 @@ import {
 } from './shared';
 
 export const PLAYLIST_WINDOW_CHANNELS = {
+  ready: 'playlist:ready',
   openWindow: 'playlist:open-window',
   closeWindow: 'playlist:close-window',
   isWindowOpen: 'playlist:is-window-open',

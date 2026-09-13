@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 import * as os from 'os';
 
 export type NormalizedAngleOption =
@@ -48,9 +50,21 @@ export const getJapaneseFontPath = (isBold = false): string => {
       : '/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc';
   }
   if (platform === 'win32') {
-    return isBold
-      ? 'C:\\Windows\\Fonts\\meiryob.ttc'
-      : 'C:\\Windows\\Fonts\\meiryo.ttc';
+    const fontName = isBold
+      ? 'NotoSansCJKjp-Bold.otf'
+      : 'NotoSansCJKjp-Regular.otf';
+    const candidates = [
+      ...(typeof process.resourcesPath === 'string'
+        ? [join(process.resourcesPath, 'fonts', fontName)]
+        : []),
+      resolve('.cache/fonts', fontName),
+    ];
+    const font = candidates.find((candidate) => existsSync(candidate));
+    if (!font)
+      throw new Error(
+        'Bundled Japanese font is missing. Run pnpm run fonts:prepare.',
+      );
+    return font;
   }
   return isBold
     ? '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'

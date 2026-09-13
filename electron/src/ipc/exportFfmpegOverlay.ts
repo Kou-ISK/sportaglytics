@@ -1,3 +1,4 @@
+import { escapeFilterOption } from './ffmpegFilterEscaping';
 import type { OverlayLine } from './exportFfmpegRunners';
 
 interface OverlayLineConfig {
@@ -102,7 +103,7 @@ export const buildOverlayFilters = ({
     let fontParam = '';
     try {
       const fontPath = getJapaneseFontPath(line.isBold);
-      fontParam = `fontfile='${fontPath}':`;
+      fontParam = `fontfile=${escapeFilterOption(fontPath.replace(/\\/g, '/'))}:`;
     } catch {
       fontParam = '';
     }

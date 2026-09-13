@@ -1,13 +1,10 @@
+import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { _electron as electron } from 'playwright';
 
-const require = createRequire(import.meta.url);
-const electronPath = require('electron');
-const repositoryPath = path.resolve(import.meta.dirname, '..');
 const workPath = await fs.mkdtemp(
   path.join(os.tmpdir(), 'sportaglytics-code-window-menu-e2e-'),
 );
@@ -15,17 +12,8 @@ const profilePath = path.join(workPath, 'profile');
 const codeWindowPath = path.join(workPath, 'Empty Code Window.stcw');
 const codeWindowSaveAsPath = path.join(workPath, 'Renamed Code Window.stcw');
 const selectedCodeWindowPath = path.join(workPath, 'Selected Code Window.stcw');
-const { ELECTRON_RUN_AS_NODE: _electronRunAsNode, ...electronEnvironment } =
-  process.env;
 
-const electronApp = await electron.launch({
-  executablePath: electronPath,
-  args: [repositoryPath, `--user-data-dir=${profilePath}`],
-  env: {
-    ...electronEnvironment,
-    NODE_ENV: 'test',
-  },
-});
+const electronApp = await electron.launch(getElectronLaunchOptions(profilePath));
 
 const clickMenuItem = async (menuItemId) => {
   await electronApp.evaluate(async ({ Menu }, id) => {

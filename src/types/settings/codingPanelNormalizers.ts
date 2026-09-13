@@ -1,3 +1,4 @@
+import { normalizePortableShortcut } from '../../utils/platformShortcut';
 import type {
   ActionLink,
   AppSettings,
@@ -142,7 +143,7 @@ const normalizeCodeWindowButton = (value: unknown): CodeWindowButton | null => {
 
   const hotkey = asNonEmptyString(value.hotkey);
   if (hotkey) {
-    normalized.hotkey = hotkey;
+    normalized.hotkey = normalizePortableShortcut(hotkey);
   }
 
   if (typeof value.showHotkey === 'boolean') {

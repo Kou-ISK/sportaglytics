@@ -1,17 +1,15 @@
+import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
+import { fixtureH264Encoder } from './e2e-platform.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { _electron as electron } from 'playwright';
 
-const require = createRequire(import.meta.url);
-const electronPath = require('electron');
 const { ffmpegPath } = await import('./media-tool-paths.mjs');
-const repositoryPath = path.resolve(import.meta.dirname, '..');
 const workPath = await fs.mkdtemp(
-  path.join(os.tmpdir(), 'sportaglytics-export-progress-e2e-'),
+  path.join(os.tmpdir(), 'sportaglytics-export-日本語 #50%-'),
 );
 const profilePath = path.join(workPath, 'profile');
 const sourcePath = path.join(workPath, 'source.mp4');
@@ -31,7 +29,7 @@ execFileSync(ffmpegPath, [
   '-i',
   'sine=frequency=880:sample_rate=48000:duration=30',
   '-c:v',
-  'h264_videotoolbox',
+  fixtureH264Encoder,
   '-b:v',
   '8M',
   '-pix_fmt',
@@ -43,15 +41,12 @@ execFileSync(ffmpegPath, [
   sourcePath,
 ]);
 
-const { ELECTRON_RUN_AS_NODE: _electronRunAsNode, ...electronEnvironment } =
-  process.env;
-const electronApp = await electron.launch({
-  executablePath: electronPath,
-  args: [repositoryPath, `--user-data-dir=${profilePath}`],
-  env: {
-    ...electronEnvironment,
-    NODE_ENV: 'test',
-  },
+const electronApp = await electron.launch(
+  getElectronLaunchOptions(profilePath),
+);
+let nativeDiagnostics = '';
+electronApp.process().stderr?.on('data', (data) => {
+  nativeDiagnostics = (nativeDiagnostics + data.toString()).slice(-64 * 1024);
 });
 
 try {
@@ -60,9 +55,7 @@ try {
     localStorage.setItem('sportaglytics-onboarding-completed', 'true');
   });
   await mainPage.reload();
-  await mainPage
-    .getByText('新しいパッケージを作成', { exact: true })
-    .waitFor();
+  await mainPage.getByText('新しいパッケージを作成', { exact: true }).waitFor();
 
   const progressWindowPromise = electronApp.waitForEvent('window', {
     timeout: 10_000,
@@ -82,7 +75,7 @@ try {
           clips: [
             {
               id: 'progress-clip',
-              actionName: 'Progress clip',
+              actionName: '得点シーン #1 — 日本語字幕',
               startTime: 0,
               endTime: 30,
             },
@@ -114,9 +107,7 @@ try {
     'the progress window must not take focus when export starts',
   );
 
-  await mainPage
-    .getByText('新しいパッケージを作成', { exact: true })
-    .click();
+  await mainPage.getByText('新しいパッケージを作成', { exact: true }).click();
   await mainPage.getByLabel('パッケージ').waitFor({ timeout: 5_000 });
   await mainPage.waitForTimeout(800);
   const focusedUrlAfterProgressUpdate = await electronApp.evaluate(
@@ -185,6 +176,28 @@ try {
     });
   }
   console.log('Non-modal export progress E2E passed');
+} catch (error) {
+  console.error('Export native diagnostics:', nativeDiagnostics);
+  for (const page of electronApp.windows()) {
+    console.error(
+      'Export window state:',
+      page.url(),
+      await page
+        .locator('body')
+        .innerText({ timeout: 1000 })
+        .catch(() => 'unavailable'),
+    );
+    if (
+      process.env.E2E_SCREENSHOT_DIR &&
+      page.url().endsWith('#/export-progress')
+    ) {
+      await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({
+        path: path.join(process.env.E2E_SCREENSHOT_DIR, 'export-failed.png'),
+      });
+    }
+  }
+  throw error;
 } finally {
   await electronApp.close().catch(() => undefined);
 }

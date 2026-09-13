@@ -1,3 +1,4 @@
+import { getRendererUrl } from './rendererUrl';
 /**
  * 設定ウィンドウ管理モジュール
  */
@@ -8,7 +9,7 @@ import { getValidatedEventSenderWindow } from './ipc/windowSenderGuards';
 
 let settingsWindow: BrowserWindow | null = null;
 
-const SETTINGS_HASH_URL = `file:${path.join(__dirname, '../../index.html')}#/settings`;
+const SETTINGS_HASH_URL = getRendererUrl('/settings');
 
 const focusOrCreate = () => {
   if (settingsWindow && !settingsWindow.isDestroyed()) {

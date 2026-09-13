@@ -1,3 +1,4 @@
+import { getRendererUrl } from './rendererUrl';
 import { BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import {
@@ -10,10 +11,7 @@ import { applyWindowSecurity } from './windowSecurity';
 let progressWindow: BrowserWindow | null = null;
 const progressStates = new Map<string, ExportProgressWindowState>();
 
-const EXPORT_PROGRESS_HASH_URL = `file:${path.join(
-  __dirname,
-  '../../index.html',
-)}#/export-progress`;
+const EXPORT_PROGRESS_HASH_URL = getRendererUrl('/export-progress');
 
 const getOrCreate = (): BrowserWindow => {
   if (progressWindow && !progressWindow.isDestroyed()) {

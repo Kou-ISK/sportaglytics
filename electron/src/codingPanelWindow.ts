@@ -1,3 +1,4 @@
+import { getRendererUrl } from './rendererUrl';
 import { BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import type {
@@ -27,10 +28,7 @@ interface CodingSessionState { codingPanelWindow: BrowserWindow | null }
 const states = new Map<string, CodingSessionState>();
 let defaultMainWindow: BrowserWindow | null = null;
 
-const CODING_PANEL_HASH_URL = `file:${path.join(
-  __dirname,
-  '../../index.html',
-)}#/coding-panel`;
+const CODING_PANEL_HASH_URL = getRendererUrl('/coding-panel');
 
 export const setCodingPanelMainWindowRef = (window: BrowserWindow): void => {
   defaultMainWindow = window;

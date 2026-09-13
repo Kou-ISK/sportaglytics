@@ -1,3 +1,7 @@
+import {
+  portableExportStem,
+  createExportNameAllocator,
+} from './exportFileNames';
 import { isExportChroma } from './exportChroma';
 import { isExportMotionOverlays } from './exportMotionValidation';
 import { isExportFreezeFrames } from './exportFreezeFramesValidation';
@@ -386,8 +390,9 @@ export const registerExportHandlers = ({
           }
         };
 
+        const allocateName = createExportNameAllocator();
         const baseName = outputFileName
-          ? outputFileName.replace(/\.mp4$/i, '')
+          ? portableExportStem(outputFileName.replace(/\.mp4$/i, ''))
           : '';
         if (exportMode === 'perInstance') {
           for (let i = 0; i < clips.length; i += 1) {
@@ -395,7 +400,7 @@ export const registerExportHandlers = ({
             updateProgress(
               `${i + 1} / ${clips.length} クリップを書き出し中...`,
             );
-            const safeAction = clip.actionName.replace(/[\s/\\:*?"<>|]/g, '_');
+            const safeAction = portableExportStem(clip.actionName);
             const instanceNum = String(i + 1).padStart(3, '0');
             let suffix = '';
             if (useDual) suffix = '_multi';
@@ -405,7 +410,7 @@ export const registerExportHandlers = ({
             const outName = baseName
               ? ensureMp4(`${baseName}_${instanceNum}_${safeAction}${suffix}`)
               : ensureMp4(`${instanceNum}_${safeAction}${suffix}`);
-            const outPath = path.join(targetDir, outName);
+            const outPath = path.join(targetDir, allocateName(outName));
             const clipDuration = getClipOutputDuration(clip);
             await renderClip(clip, outPath, (fraction) => {
               updateStageProgress(
@@ -450,7 +455,7 @@ export const registerExportHandlers = ({
               );
             }
 
-            const safeAction = actionName.replace(/\s+/g, '_');
+            const safeAction = portableExportStem(actionName);
             let angleSuffix = '';
             if (useDual) angleSuffix = '_multi';
             else if (normalizedAngleOption === 'angle2')
@@ -461,7 +466,7 @@ export const registerExportHandlers = ({
             const outName = baseName
               ? ensureMp4(`${baseName}_${fileName}`)
               : ensureMp4(fileName);
-            const outPath = path.join(targetDir, outName);
+            const outPath = path.join(targetDir, allocateName(outName));
 
             updateProgress(`${actionName} を結合中...`);
             const groupDuration = group.reduce(
@@ -513,7 +518,7 @@ export const registerExportHandlers = ({
           const outName = outputFileName
             ? ensureMp4(`${baseName}${angleSuffix}`)
             : defaultName;
-          const outPath = path.join(targetDir, outName);
+          const outPath = path.join(targetDir, allocateName(outName));
 
           updateProgress('クリップを結合中...');
           await concatFiles(getFfmpegPath, temps, outPath, {

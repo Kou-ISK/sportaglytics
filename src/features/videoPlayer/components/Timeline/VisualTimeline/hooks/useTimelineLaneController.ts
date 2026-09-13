@@ -70,7 +70,9 @@ export const useTimelineLaneController = ({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
-      setIsEditModifierPressed(event.altKey && event.metaKey);
+      setIsEditModifierPressed(
+        event.altKey && (event.metaKey || event.ctrlKey),
+      );
       if (event.key === 'Escape' && activeDragCleanupRef.current) {
         event.preventDefault();
         event.stopPropagation();
@@ -78,7 +80,8 @@ export const useTimelineLaneController = ({
       }
     };
     const handleKeyUp = (event: KeyboardEvent): void => {
-      const modifierStillPressed = event.altKey && event.metaKey;
+      const modifierStillPressed =
+        event.altKey && (event.metaKey || event.ctrlKey);
       setIsEditModifierPressed(modifierStillPressed);
       if (!modifierStillPressed) activeDragCleanupRef.current?.();
     };
@@ -125,7 +128,7 @@ export const useTimelineLaneController = ({
       if (
         event.button !== 0 ||
         !event.altKey ||
-        !event.metaKey ||
+        !(event.metaKey || event.ctrlKey) ||
         !selectedIds.includes(item.id) ||
         !onUpdateTimeRange
       ) {
@@ -187,7 +190,7 @@ export const useTimelineLaneController = ({
       if (
         event.button !== 0 ||
         !event.altKey ||
-        !event.metaKey ||
+        !(event.metaKey || event.ctrlKey) ||
         !onCreateItem
       )
         return;

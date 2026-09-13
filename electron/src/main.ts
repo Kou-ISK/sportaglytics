@@ -1,3 +1,4 @@
+import { getRendererUrl } from './rendererUrl';
 import {
   app,
   BrowserWindow,
@@ -86,7 +87,7 @@ const getResolvedFfmpegPath = (): string => {
   return ffmpegPath;
 };
 
-const mainURL = `file:${__dirname}/../../index.html`;
+const mainURL = getRendererUrl('');
 const preloadPath = path.join(__dirname, 'preload.js');
 
 const pendingFiles: string[] = process.argv

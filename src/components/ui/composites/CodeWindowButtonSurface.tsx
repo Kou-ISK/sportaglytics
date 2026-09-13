@@ -1,3 +1,4 @@
+import { formatShortcutLabel } from '../../../utils/platformShortcut';
 import React from 'react';
 import { Box } from '@mui/material';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
@@ -133,7 +134,7 @@ export const CodeWindowButtonSurface = ({
             pointerEvents: 'none',
           }}
         >
-          {button.hotkey}
+          {formatShortcutLabel(button.hotkey ?? '', 'portable')}
         </Box>
       )}
       {children}

@@ -29,7 +29,7 @@ const windowManagerMocks = vi.hoisted(() => ({
   closePlaylistWindow: vi.fn(),
   createPlaylistWindow: vi.fn(),
   getOpenWindowCount: vi.fn(() => 0),
-  getWindowInfoBySender: vi.fn(() => null),
+  getWindowInfoBySender: vi.fn<() => { filePath: string } | null>(() => null),
   isPlaylistWindowOpen: vi.fn(() => false),
   isSenderPlaylistWindow: vi.fn(() => false),
   setPlaylistWindowTitleForSender: vi.fn(() => false),
@@ -85,6 +85,21 @@ describe('playlistWindow handlers', () => {
     senderGuardMocks.getValidatedEventSenderWindow.mockReturnValue({
       isDestroyed: () => false,
     });
+  });
+
+  it('delivers the initial document only after a playlist renderer is ready', async () => {
+    const { registerPlaylistHandlers } = await import('./handlers');
+    registerPlaylistHandlers();
+    const ready = electronMocks.onHandlers.get(PLAYLIST_WINDOW_CHANNELS.ready);
+    const send = vi.fn();
+    windowManagerMocks.isSenderPlaylistWindow.mockReturnValue(true);
+    windowManagerMocks.getWindowInfoBySender.mockReturnValue({ filePath: '/tmp/review.stpl' });
+    ready?.({ sender: { send } });
+    expect(send).toHaveBeenCalledWith(PLAYLIST_WINDOW_CHANNELS.externalOpen, '/tmp/review.stpl');
+    send.mockClear();
+    windowManagerMocks.isSenderPlaylistWindow.mockReturnValue(false);
+    ready?.({ sender: { send } });
+    expect(send).not.toHaveBeenCalled();
   });
 
   it('rejects invalid playlist sync payloads before dispatching to windowManager', async () => {

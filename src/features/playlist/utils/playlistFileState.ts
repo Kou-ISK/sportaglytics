@@ -83,7 +83,7 @@ export const buildPlaylistPayload = ({
       ...item,
       videoSource: item.videoSource ?? videoSources[0] ?? undefined,
       videoSource2: item.videoSource2 ?? videoSources[1] ?? undefined,
-      annotation: itemAnnotations[item.id] ?? item.annotation,
+      annotation: item.annotation ?? itemAnnotations[item.id],
     })),
     sourcePackagePath: packagePath ?? undefined,
     createdAt: timestamp,

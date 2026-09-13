@@ -1,3 +1,4 @@
+import { getRendererUrl } from './rendererUrl';
 import { BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import {
@@ -28,7 +29,7 @@ interface TimelineSessionState {
 const states = new Map<string, TimelineSessionState>();
 let defaultMainWindow: BrowserWindow | null = null;
 
-const TIMELINE_URL = `file:${path.join(__dirname, '../../index.html')}#/timeline`;
+const TIMELINE_URL = getRendererUrl('/timeline');
 
 export const setTimelineMainWindowRef = (window: BrowserWindow): void => {
   defaultMainWindow = window;

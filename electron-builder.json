@@ -9,14 +9,10 @@
     "!build/**/*.LICENSE.txt",
     "!build/**/llama/models/*.gguf",
     "!build/**/llama/models/**/*.gguf",
-    "!node_modules/**/*"
+    "!node_modules/**/*",
+    "!build/llama/**/*"
   ],
   "extraResources": [
-    {
-      "from": "public/llama",
-      "to": "llama",
-      "filter": ["**/*", "!**/*.gguf"]
-    },
     {
       "from": "resources/event-detection-models",
       "to": "event-detection-models",
@@ -42,6 +38,11 @@
         "from": ".cache/media-tools/darwin-${arch}",
         "to": "media-tools",
         "filter": ["ffmpeg", "ffprobe", "build.json", "licenses/**/*"]
+      },
+      {
+        "from": ".cache/llama/darwin-${arch}",
+        "to": "llama/darwin",
+        "filter": ["**/*", "!**/*.gguf"]
       }
     ],
     "category": "public.app-category.sports",
@@ -161,10 +162,31 @@
         "isPackage": true
       }
     ],
-    "artifactName": "${productName}-Setup-${version}.${ext}"
+    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}",
+    "extraResources": [
+      {
+        "from": ".cache/media-tools/win32-${arch}",
+        "to": "media-tools",
+        "filter": ["ffmpeg.exe", "ffprobe.exe", "build.json", "licenses/**/*"]
+      },
+      {
+        "from": ".cache/llama/win32-${arch}",
+        "to": "llama/win32",
+        "filter": ["llama-completion.exe", "build.json", "licenses/**/*"]
+      },
+      {
+        "from": ".cache/fonts",
+        "to": "fonts",
+        "filter": ["*.otf", "OFL.txt"]
+      }
+    ]
   },
   "nsis": {
-    "include": "build/installer.nsh"
+    "include": "scripts/windows/installer.nsh",
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false
   },
   "linux": {
     "target": "AppImage",
@@ -198,6 +220,13 @@
         "isPackage": true
       }
     ],
-    "artifactName": "${productName}-${version}.${ext}"
+    "artifactName": "${productName}-${version}.${ext}",
+    "extraResources": [
+      {
+        "from": "public/llama/linux",
+        "to": "llama/linux",
+        "filter": ["**/*", "!**/*.gguf"]
+      }
+    ]
   }
 }

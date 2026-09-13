@@ -13,8 +13,8 @@ describe('usePlaylistHotkeys', () => {
 
     expect(byId.get('reverse-playback-slow')).toBe('Left');
     expect(byId.get('reverse-playback-2x')).toBe('Shift+Left');
-    expect(byId.get('reverse-playback-4x')).toBe('Option+Left');
-    expect(byId.get('reverse-playback-6x')).toBe('Command+Left');
-    expect(byId.get('previous-item')).toBe('Command+Option+Left');
+    expect(byId.get('reverse-playback-4x')).toBe('Alt+Left');
+    expect(byId.get('reverse-playback-6x')).toBe('CommandOrControl+Left');
+    expect(byId.get('previous-item')).toBe('CommandOrControl+Alt+Left');
   });
 });

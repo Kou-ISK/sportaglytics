@@ -330,3 +330,7 @@ PaintのlinkedDiscLayoutは選手リンクの配置計算、StudioPlayerCountVie
 StudioInspectorHeaderViewはPaint編集パネルの開閉と履歴操作のみを描画する。開閉状態はuseStudioEditor、本文と幅の切替はStudioSidebarViewが担当する。studioControlLayoutはPaint内の操作ラベルを一行に保つ共通レイアウト規則で、操作群の改行は各Viewが担当する。
 
 Paintの数値入力は `studio/StudioNumberFieldView.tsx` が入力中のdraftだけを持ち、確定callbackで `useStudioKeyframes` に渡します。保存とキーの順序制約をViewへ持ち込みません。
+
+## プラットフォーム配布
+
+`scripts/media-tools/` は共通source pin・process runnerとmacOS/Windowsのビルド手順を分割する。`scripts/prepare-mac-llama.mjs` はMac CPU別の検証済みAI実行ファイルを `.cache/llama/darwin-<arch>` へ配置する。`scripts/windows/` はNSIS拡張・Windowsネイティブ依存検査・インストール試験。生成物は `.cache/`、配布物は `dist/` に置きgitへ追加しない。機能ViewへOS分岐を散らさず `src/utils/platformShortcut.ts` とElectronの境界で吸収する。

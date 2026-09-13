@@ -1,15 +1,13 @@
+import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
+import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { _electron as electron } from 'playwright';
 
-const require = createRequire(import.meta.url);
-const electronPath = require('electron');
 const { ffmpegPath, ffprobePath } = await import('./media-tool-paths.mjs');
-const repositoryPath = path.resolve(import.meta.dirname, '..');
 const workPath = await fs.mkdtemp(path.join(os.tmpdir(), 'sportaglytics-e2e-'));
 const profilePath = path.join(workPath, 'profile');
 const packagePath = path.join(workPath, 'e2e-sync.stpkg');
@@ -24,7 +22,7 @@ const fixturePaths = ['a.mp4', 'b.mp4', 'c.mp4'].map((name, index) => {
     '-i',
     `color=c=${['red', 'blue', 'green'][index]}:s=160x90:d=0.5`,
     '-c:v',
-    'h264_videotoolbox',
+    fixtureH264Encoder,
     '-pix_fmt',
     'yuv420p',
     '-y',
@@ -32,18 +30,9 @@ const fixturePaths = ['a.mp4', 'b.mp4', 'c.mp4'].map((name, index) => {
   ]);
   return outputPath;
 });
-const { ELECTRON_RUN_AS_NODE: _electronRunAsNode, ...electronEnvironment } =
-  process.env;
 
 const launch = async (extraArgs = []) =>
-  electron.launch({
-    executablePath: electronPath,
-    args: [repositoryPath, `--user-data-dir=${profilePath}`, ...extraArgs],
-    env: {
-      ...electronEnvironment,
-      NODE_ENV: 'test',
-    },
-  });
+  electron.launch(getElectronLaunchOptions(profilePath, extraArgs));
 
 const waitForWindowHash = async (app, hash, timeoutMs = 10_000) => {
   const deadline = Date.now() + timeoutMs;
@@ -244,7 +233,7 @@ try {
 
   await page.getByRole('button', { name: 'パッケージを作成…' }).click();
   await page.locator('#video_0').waitFor({ timeout: 30_000 });
-  await page.keyboard.press('Meta+Shift+T');
+  await page.keyboard.press(`${primaryModifier}+Shift+T`);
   await page.getByText('クリップ単位シンク').waitFor();
   assert.equal(
     await page.getByRole('combobox').count(),
@@ -387,7 +376,7 @@ try {
   await page.locator('iframe[src*="dQw4w9WgXcQ"]').waitFor({
     timeout: 30_000,
   });
-  await page.keyboard.press('Meta+Shift+T');
+  await page.keyboard.press(`${primaryModifier}+Shift+T`);
   await page.getByText('クリップ単位シンク').waitFor();
   assert.equal(await page.getByRole('combobox').count(), 2);
 
