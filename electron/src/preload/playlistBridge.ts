@@ -178,6 +178,7 @@ export const createPlaylistBridge = (
       onExternalOpen: (callback: (filePath: string) => void) => {
         const wrapped = (_: unknown, path: string) => callback(path);
         ipcRenderer.on(PLAYLIST_WINDOW_CHANNELS.externalOpen, wrapped);
+        ipcRenderer.send(PLAYLIST_WINDOW_CHANNELS.ready);
         return () =>
           ipcRenderer.removeListener(PLAYLIST_WINDOW_CHANNELS.externalOpen, wrapped);
       },

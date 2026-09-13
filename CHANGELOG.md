@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-13
+
+### Added
+
+- Windows 11 x64向け映像・音声同期・AI実行環境、日本語字幕フォント、NSIS導入とインストール済みElectronの検証。[Windows版](docs/windows.md)を正本とする。
+
+### Fixed
+
+- プレイリストを別ウィンドウで開いた直後の読込競合と、PaintでUndo直後に保存すると描画が古い状態になる問題を修正。
+- Intel MacのAI実行ファイルをx64版へ修正し、両Mac版の同梱時にCPU種別と依存ライブラリを検証。
+- WindowsのCtrl操作、file URL、日本語・予約文字を含むパス、操作欄を除いた映像ウィンドウの縦横比固定。既存Mac設定のショートカットを読込時に共通形式へ変換。
+
 ## [0.12.1] - 2026-09-13
 
 ### Fixed

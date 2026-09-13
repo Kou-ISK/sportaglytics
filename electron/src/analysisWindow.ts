@@ -1,3 +1,4 @@
+import { getRendererUrl } from './rendererUrl';
 /**
  * 分析ウィンドウ管理モジュール
  */
@@ -28,7 +29,7 @@ interface AnalysisSessionState {
 const states = new Map<string, AnalysisSessionState>();
 let defaultMainWindow: BrowserWindow | null = null;
 
-const ANALYSIS_HASH_URL = `file:${path.join(__dirname, '../../index.html')}#/analysis`;
+const ANALYSIS_HASH_URL = getRendererUrl('/analysis');
 
 export const setAnalysisMainWindowRef = (window: BrowserWindow): void => {
   defaultMainWindow = window;

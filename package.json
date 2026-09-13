@@ -1,6 +1,6 @@
 {
   "name": "sportaglytics",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "description": "Sports video tagging and analytics application",
   "private": true,
   "packageManager": "pnpm@9.1.0",
@@ -40,7 +40,7 @@
     "test:run": "vitest --run",
     "test:ci": "vitest --run --no-file-parallelism",
     "e2e:prepare": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload",
-    "test:e2e": "pnpm run e2e:prepare && node scripts/e2e-clip-sync.mjs && node scripts/e2e-code-window-menu.mjs && node scripts/e2e-export-progress.mjs && node scripts/e2e-timeline-rows.mjs",
+    "test:e2e": "pnpm run e2e:prepare && node scripts/e2e-clip-sync.mjs && node scripts/e2e-code-window-menu.mjs && node scripts/e2e-export-progress.mjs && node scripts/e2e-timeline-rows.mjs && node scripts/e2e-paint.mjs",
     "test:e2e:clip-sync": "pnpm run e2e:prepare && node scripts/e2e-clip-sync.mjs",
     "test:e2e:code-window-menu": "pnpm run e2e:prepare && node scripts/e2e-code-window-menu.mjs",
     "test:e2e:export-progress": "pnpm run e2e:prepare && node scripts/e2e-export-progress.mjs",
@@ -60,10 +60,14 @@
     "bundle:preload": "vite build --config vite.preload.config.ts",
     "check:preload": "node scripts/check-preload-bundle.js",
     "preview": "vite preview",
-    "electron:start": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && env -u ELECTRON_RUN_AS_NODE electron .",
+    "electron:start": "pnpm run e2e:prepare && node scripts/start-electron.mjs",
     "electron:build": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && electron-builder",
-    "electron:package:mac": "pnpm run media:build:all-mac && pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && electron-builder --mac --x64 --arm64",
-    "electron:dev": "concurrently \"pnpm start\" \"wait-on http://localhost:3000 && pnpm run electron:start\""
+    "electron:package:mac": "pnpm run media:build:all-mac && pnpm run llama:prepare:mac && pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && electron-builder --mac --x64 --arm64",
+    "electron:dev": "concurrently \"pnpm start\" \"wait-on http://localhost:3000 && pnpm run electron:start\"",
+    "fonts:prepare": "node scripts/prepare-fonts.mjs",
+    "llama:build:windows": "node scripts/build-windows-llama.mjs",
+    "electron:package:windows": "pnpm run fonts:prepare && pnpm run llama:build:windows && pnpm run e2e:prepare && electron-builder --win nsis --x64 --publish never",
+    "llama:prepare:mac": "node scripts/prepare-mac-llama.mjs"
   },
   "browserslist": {
     "production": [

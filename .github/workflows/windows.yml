@@ -1,0 +1,91 @@
+name: Windows desktop
+
+on:
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows media and desktop
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      E2E_LLAMA_MODEL: .cache/testing/qwen-test.gguf
+      E2E_SCREENSHOT_DIR: output/playwright/windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+      - run: pnpm install --frozen-lockfile
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          path-type: inherit
+          install: >-
+            make tar curl
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-nasm
+      - uses: actions/cache@v4
+        with:
+          path: .cache/media-tools
+          key: windows-x64-media-${{ hashFiles('scripts/build-media-tools.mjs', 'scripts/media-tools/**') }}
+      - name: Build verified Windows media tools
+        shell: msys2 {0}
+        run: node scripts/build-media-tools.mjs
+      - name: Save verified media tools
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/media-tools
+          key: windows-x64-media-${{ hashFiles('scripts/build-media-tools.mjs', 'scripts/media-tools/**') }}
+      - uses: actions/cache@v4
+        with:
+          path: .cache/llama
+          key: windows-x64-llama-${{ hashFiles('scripts/build-windows-llama.mjs') }}
+      - name: Build self-contained Windows AI runtime
+        run: pnpm run llama:build:windows
+      - name: Verify native runtime dependencies
+        run: node scripts/windows/verify-native-dependencies.mjs .cache/media-tools/win32-x64/ffmpeg.exe .cache/media-tools/win32-x64/ffprobe.exe .cache/llama/win32-x64/llama-completion.exe
+      - name: Save verified AI runtime
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/llama
+          key: windows-x64-llama-${{ hashFiles('scripts/build-windows-llama.mjs') }}
+      - name: Prepare Japanese font
+        run: pnpm run fonts:prepare
+      - name: Prepare test-only AI model
+        run: node scripts/prepare-test-model.mjs
+      - name: Windows quality gates
+        run: |
+          pnpm run typecheck
+          pnpm run typecheck:electron
+          pnpm run test:ci
+      - name: Windows Electron E2E
+        run: pnpm run test:e2e
+      - name: Windows installer
+        run: pnpm exec electron-builder --win nsis --x64 --publish never
+      - name: Installed Windows desktop E2E
+        run: ./scripts/windows/test-installed-app.ps1
+      - name: Upload Windows screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-screenshots
+          path: output/playwright/windows
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-installer
+          path: dist/*Setup*.exe
+          if-no-files-found: error

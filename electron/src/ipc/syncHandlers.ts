@@ -67,6 +67,7 @@ const extractAudioWavBase64 = async (
         tempWavPath,
       ],
       {
+        windowsHide: true,
         maxBuffer: 1024 * 1024,
         timeout: 2 * 60 * 1000,
         killSignal: 'SIGKILL',

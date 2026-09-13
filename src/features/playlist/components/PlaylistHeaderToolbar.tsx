@@ -146,7 +146,7 @@ export const PlaylistHeaderToolbar = ({
         </Tooltip>
 
         <Tooltip
-          title={`保存 (Cmd+S)${hasUnsavedChanges ? ' - 未保存の変更あり' : ''}`}
+          title={`保存 (⌘/Ctrl+S)${hasUnsavedChanges ? ' - 未保存の変更あり' : ''}`}
         >
           <IconButton
             size="small"
@@ -163,7 +163,7 @@ export const PlaylistHeaderToolbar = ({
           </IconButton>
         </Tooltip>
 
-        <Tooltip title="エクスポート (Cmd+E)">
+        <Tooltip title="エクスポート (⌘/Ctrl+E)">
           <IconButton
             size="small"
             onClick={onExportClick}

@@ -11,16 +11,20 @@
 
 配布jobはタグまたは手動実行だけを受け付けます。main側にbranch push triggerが残っていても、タグ作成前のpushではjobをskipします。
 
-現行 workflow は macOS runner で macOS DMG を作成します。Windows / Linux artifacts は `electron-builder.json` に設定がありますが、現行 release workflow では生成していません。
+Windows runnerでNSISインストーラーとインストール後の操作を検証し、成功後にmacOS runnerで署名・公証済みDMGを作成します。両OSの生成・検証が成功した場合にまとめてGitHub Releaseへ公開します。Linux artifactは公開しません。
 
 生成される artifact:
 
 - `SporTagLytics-<version>-arm64.dmg`
 - `SporTagLytics-<version>-x64.dmg`
+- `SporTagLytics-Setup-<version>-x64.exe`
+- `SHA256SUMS.txt`
 
 `<version>` は `package.json` の `version` を正とします。手動実行時も、入力 version と `package.json` の version を一致させてください。
 
 Release workflow は source quality gates と build/preload/media tool 検証後、macOS runner 上で `pnpm run test:e2e` を実行します。Electron E2E が1件でも失敗した場合は DMG packaging、GitHub Release 作成、Homebrew Tap 更新へ進みません。
+
+Windows CIは[Windows版](../docs/windows.md)の手順でFFmpeg、AIランタイム、フォントを用意します。Windowsの署名証明書は現在設定されておらず、NSISは未署名です。Release noteではWindowsの署名状態を明示してください。macOS用の `CSC_LINK` をWindowsへ流用しません。後日署名を導入する際は専用のcredential境界を追加し、新しいバージョンのartifactとして公開します。
 
 ## Required Secrets
 
@@ -59,6 +63,7 @@ If `HOMEBREW_TAP_TOKEN` is missing, the Homebrew update step fails. If signing /
    pnpm run bundle:preload
    pnpm run check:preload
    pnpm run media:build:all-mac
+   pnpm run llama:prepare:mac
    pnpm run test:e2e
    pnpm run electron:package:mac
    ```
@@ -107,7 +112,8 @@ The workflow validates that the version/tag agree and the tagged commit belongs 
 
 ## Post-Release Verification
 
-- GitHub Release exists and includes both `arm64` and `x64` DMGs.
+- GitHub Release includes both Mac DMGs, the Windows x64 installer, and `SHA256SUMS.txt`.
+- Windows installed-app E2E and native dependency checks passed for the released commit.
 - SHA256 values in `Kou-ISK/homebrew-tap` match generated artifacts.
 - Homebrew install works:
 
@@ -131,7 +137,7 @@ The workflow validates that the version/tag agree and the tagged commit belongs 
 ### Electron E2E failed
 
 - DMG / GitHub Release / Homebrew update は実行されません。
-- failing script (`e2e-clip-sync`, `e2e-code-window-menu`, `e2e-export-progress`, `e2e-timeline-rows`) とその前段の build/preload/media-tool log を確認します。
+- failing script (`e2e-clip-sync`, `e2e-code-window-menu`, `e2e-export-progress`, `e2e-timeline-rows`, `e2e-paint`) とその前段の build/preload/media-tool log を確認します。
 - 修正は通常の work branch → `develop` PR で行い、release preparation をやり直します。
 
 ### macOS signing keychain unlock failed

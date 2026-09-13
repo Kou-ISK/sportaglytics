@@ -40,6 +40,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 
 | [0031](0031-tracking-target-selection.md) | Tracking target selection | Accepted | 2026-09-11 |
 | [0032](0032-immutable-release-artifacts.md) | Immutable release artifacts | Accepted | 2026-09-13 |
+| [0033](0033-windows-desktop-runtime.md) | Windows desktop runtime | Accepted | 2026-09-13 |
 
 ## Status Values
 

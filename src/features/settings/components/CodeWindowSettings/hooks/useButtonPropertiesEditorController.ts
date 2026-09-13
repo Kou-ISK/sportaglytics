@@ -1,24 +1,12 @@
+import {
+  capturePortableShortcut,
+  getKeyboardPlatform,
+  formatShortcutLabel,
+} from '../../../../../utils/platformShortcut';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CodeWindowButton } from '../../../../../types/settings/coreTypes';
 import type { ButtonPropertiesEditorProps } from '../ButtonPropertiesEditor.types';
 import type { ButtonPropertiesEditorViewProps } from '../ButtonPropertiesEditor.types';
-
-const formatKeyCombo = (event: KeyboardEvent): string => {
-  const keys: string[] = [];
-
-  if (event.metaKey) keys.push('Command');
-  if (event.ctrlKey) keys.push('Control');
-  if (event.altKey) keys.push('Option');
-  if (event.shiftKey) keys.push('Shift');
-
-  if (event.key && !['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) {
-    const keyName =
-      event.key.length === 1 ? event.key.toUpperCase() : event.key;
-    keys.push(keyName);
-  }
-
-  return keys.join('+');
-};
 
 export const useButtonPropertiesEditorController = ({
   button,
@@ -60,7 +48,7 @@ export const useButtonPropertiesEditorController = ({
         return;
       }
 
-      const keyCombo = formatKeyCombo(event);
+      const keyCombo = capturePortableShortcut(event, getKeyboardPlatform());
       setCapturedHotkey(keyCombo);
       setIsCapturingHotkey(false);
 
@@ -163,7 +151,7 @@ export const useButtonPropertiesEditorController = ({
     tabIndex,
     currentLabelGroup,
     nameInputRef,
-    capturedHotkey,
+    capturedHotkey: formatShortcutLabel(capturedHotkey, getKeyboardPlatform()),
     isCapturingHotkey,
     onTabChange: setTabIndex,
     setLocalColor,

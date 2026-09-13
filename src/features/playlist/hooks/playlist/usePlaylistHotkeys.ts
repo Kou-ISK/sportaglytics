@@ -21,13 +21,13 @@ export const usePlaylistHotkeys = (paint = false): HotkeyConfig[] => {
         {
           id: 'reverse-playback-4x',
           label: '4倍速逆再生',
-          key: 'Option+Left',
+          key: 'Alt+Left',
           disabled: false,
         },
         {
           id: 'reverse-playback-6x',
           label: '6倍速逆再生',
-          key: 'Command+Left',
+          key: 'CommandOrControl+Left',
           disabled: false,
         },
         {
@@ -45,25 +45,25 @@ export const usePlaylistHotkeys = (paint = false): HotkeyConfig[] => {
         {
           id: 'skip-forward-large',
           label: '4倍速再生',
-          key: 'Command+Right',
+          key: 'CommandOrControl+Right',
           disabled: false,
         },
         {
           id: 'skip-forward-xlarge',
           label: '6倍速再生',
-          key: 'Option+Right',
+          key: 'Alt+Right',
           disabled: false,
         },
         {
           id: 'previous-item',
           label: '前のアイテム',
-          key: 'Command+Option+Left',
+          key: 'CommandOrControl+Alt+Left',
           disabled: false,
         },
         {
           id: 'next-item',
           label: '次のアイテム',
-          key: 'Command+Option+Right',
+          key: 'CommandOrControl+Alt+Right',
           disabled: false,
         },
         {
@@ -72,15 +72,30 @@ export const usePlaylistHotkeys = (paint = false): HotkeyConfig[] => {
           key: 'Backspace',
           disabled: false,
         },
-        { id: 'undo', label: '元に戻す', key: 'Command+Z', disabled: false },
+        {
+          id: 'undo',
+          label: '元に戻す',
+          key: 'CommandOrControl+Z',
+          disabled: false,
+        },
         {
           id: 'redo',
           label: 'やり直す',
-          key: 'Command+Shift+Z',
+          key: 'CommandOrControl+Shift+Z',
           disabled: false,
         },
-        { id: 'save', label: '保存', key: 'Command+S', disabled: false },
-        { id: 'export', label: '書き出し', key: 'Command+E', disabled: false },
+        {
+          id: 'save',
+          label: '保存',
+          key: 'CommandOrControl+S',
+          disabled: false,
+        },
+        {
+          id: 'export',
+          label: '書き出し',
+          key: 'CommandOrControl+E',
+          disabled: false,
+        },
         {
           id: 'toggle-angle1',
           label: 'アングル1切替',

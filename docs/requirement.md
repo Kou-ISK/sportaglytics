@@ -467,3 +467,7 @@ Pull request CIは `develop` を含む通常統合先で実行する。Model R&D
 - [自動イベント検出](event-detection.md)
 - [ADR 0021 Detached Timeline and Playback Authority](adr/0021-detached-timeline-playback-authority.md)
 - [ADR 0023 External Rugby Event Model R&D Boundary](adr/0023-external-rugby-event-model-rd-boundary.md)
+
+## デスクトップ対応OS
+
+macOSに加えWindows 11 x64を配布対象とする。映像・音声同期・Timeline・Playlist/Paint・Code Window・分析・レポート・ローカルAIは共通機能モデルを用いる。Windowsの導入条件、model packのプラットフォーム条件、操作差と配布検証は[Windows版](windows.md)を正本とする。

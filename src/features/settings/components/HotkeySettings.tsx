@@ -1,3 +1,7 @@
+import {
+  formatShortcutLabel,
+  getKeyboardPlatform,
+} from '../../../utils/platformShortcut';
 import React, {
   forwardRef,
   useImperativeHandle,
@@ -116,8 +120,15 @@ export const HotkeySettings = forwardRef<
           <HotkeySettingsListItem
             key={hotkey.id}
             hotkey={hotkey}
+            shortcutLabel={formatShortcutLabel(
+              hotkey.key,
+              getKeyboardPlatform(),
+            )}
             isEditing={editingId === hotkey.id}
-            capturedKey={capturedKey}
+            capturedKey={formatShortcutLabel(
+              capturedKey,
+              getKeyboardPlatform(),
+            )}
             conflictWarning={conflictWarning}
             onEditStart={handleEditStart}
             onEditSave={handleEditSave}

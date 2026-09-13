@@ -13,6 +13,7 @@ import type { HotkeyConfig } from '../../../types/settings/coreTypes';
 
 interface HotkeySettingsListItemProps {
   hotkey: HotkeyConfig;
+  shortcutLabel?: string;
   isEditing: boolean;
   capturedKey: string;
   conflictWarning: string | null;
@@ -23,6 +24,7 @@ interface HotkeySettingsListItemProps {
 
 export const HotkeySettingsListItem = ({
   hotkey,
+  shortcutLabel = hotkey.key,
   isEditing,
   capturedKey,
   conflictWarning,
@@ -96,7 +98,7 @@ export const HotkeySettingsListItem = ({
             flex: '0 0 auto',
           }}
         >
-          <Chip label={hotkey.key} size="small" variant="outlined" />
+          <Chip label={shortcutLabel} size="small" variant="outlined" />
           <Button
             size="small"
             variant="text"

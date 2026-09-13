@@ -14,15 +14,37 @@ const listModelCandidates = (model: string): string[] => {
   const platformFolder = process.platform;
   if (app.isPackaged) {
     return [
+      path.join(app.getPath('userData'), 'llama', 'models', model),
       path.join(process.resourcesPath, 'llama', 'models', model),
-      path.join(process.resourcesPath, 'llama', platformFolder, 'models', model),
+      path.join(
+        process.resourcesPath,
+        'llama',
+        platformFolder,
+        'models',
+        model,
+      ),
     ];
   }
   return [
+    path.join(app.getPath('userData'), 'llama', 'models', model),
     path.join(app.getAppPath(), 'public', 'llama', 'models', model),
-    path.join(app.getAppPath(), 'public', 'llama', platformFolder, 'models', model),
+    path.join(
+      app.getAppPath(),
+      'public',
+      'llama',
+      platformFolder,
+      'models',
+      model,
+    ),
     path.join(process.cwd(), 'public', 'llama', 'models', model),
-    path.join(process.cwd(), 'public', 'llama', platformFolder, 'models', model),
+    path.join(
+      process.cwd(),
+      'public',
+      'llama',
+      platformFolder,
+      'models',
+      model,
+    ),
   ];
 };
 
@@ -30,11 +52,13 @@ const getModelSearchFolders = (): string[] => {
   const platformFolder = process.platform;
   if (app.isPackaged) {
     return [
+      path.join(app.getPath('userData'), 'llama', 'models'),
       path.join(process.resourcesPath, 'llama', 'models'),
       path.join(process.resourcesPath, 'llama', platformFolder, 'models'),
     ];
   }
   return [
+    path.join(app.getPath('userData'), 'llama', 'models'),
     path.join(app.getAppPath(), 'public', 'llama', 'models'),
     path.join(app.getAppPath(), 'public', 'llama', platformFolder, 'models'),
     path.join(process.cwd(), 'public', 'llama', 'models'),
@@ -91,7 +115,8 @@ const pickBestModel = (models: LlamaModelInfo[]): LlamaModelInfo | null => {
 };
 
 export const resolveLlamaBinaryPath = (): string | null => {
-  const envPath = process.env.SPORTAGLYTICS_LLAMA_PATH || process.env.LLAMA_CPP_PATH;
+  const envPath =
+    process.env.SPORTAGLYTICS_LLAMA_PATH || process.env.LLAMA_CPP_PATH;
   if (envPath && fs.existsSync(envPath)) {
     return envPath;
   }
@@ -99,12 +124,26 @@ export const resolveLlamaBinaryPath = (): string | null => {
   const platformFolder = process.platform;
   const baseCandidates: string[] = [];
   if (app.isPackaged) {
-    baseCandidates.push(path.join(process.resourcesPath, 'llama', platformFolder));
+    baseCandidates.push(
+      path.join(process.resourcesPath, 'llama', platformFolder),
+    );
     baseCandidates.push(path.join(process.resourcesPath, 'llama'));
   } else {
-    baseCandidates.push(path.join(app.getAppPath(), 'public', 'llama', platformFolder));
+    baseCandidates.push(
+      path.join(
+        app.getAppPath(),
+        '.cache',
+        'llama',
+        `${process.platform}-${process.arch}`,
+      ),
+    );
+    baseCandidates.push(
+      path.join(app.getAppPath(), 'public', 'llama', platformFolder),
+    );
     baseCandidates.push(path.join(app.getAppPath(), 'public', 'llama'));
-    baseCandidates.push(path.join(process.cwd(), 'public', 'llama', platformFolder));
+    baseCandidates.push(
+      path.join(process.cwd(), 'public', 'llama', platformFolder),
+    );
     baseCandidates.push(path.join(process.cwd(), 'public', 'llama'));
   }
 
@@ -127,7 +166,12 @@ export const resolveModelPath = (model: string): string | null => {
   const normalized = model?.trim();
   const isAuto = !normalized || normalized.toLowerCase() === 'auto';
 
-  if (!isAuto && normalized && path.isAbsolute(normalized) && fs.existsSync(normalized)) {
+  if (
+    !isAuto &&
+    normalized &&
+    path.isAbsolute(normalized) &&
+    fs.existsSync(normalized)
+  ) {
     return normalized;
   }
 

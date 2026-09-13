@@ -4,7 +4,9 @@ This directory is for local llama.cpp binaries and GGUF models used by SporTagLy
 
 Full setup and troubleshooting: [docs/ai-analysis.md](../../docs/ai-analysis.md)
 
-Place platform-specific binaries in one of these paths:
+Official macOS runtimes are prepared with `pnpm run llama:prepare:mac`; Windows uses `pnpm run llama:build:windows`. Verified binaries live in `.cache/llama/<platform>-<arch>` and are copied into package resources. Do not commit generated native binaries here.
+
+For a custom development runtime, place platform-specific binaries in one of these paths:
 
 - public/llama/darwin/llama-completion (preferred) or llama-cli (or llama)
 - public/llama/win32/llama-completion.exe (preferred) or llama-cli.exe (or llama.exe / main.exe)

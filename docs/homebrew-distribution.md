@@ -204,3 +204,7 @@ brew install --cask sportaglytics
 - [Homebrew Cask Documentation](https://docs.brew.sh/Cask-Cookbook)
 - [electron-builder Documentation](https://www.electron.build/)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
+
+## Windowsとの同時リリース
+
+ReleaseはWindows NSISの検証成功を条件にmacOS DMGと一括公開します。Homebrew CaskはmacOS DMGのみを参照し、Windowsの導入は[Windows版](windows.md)を参照してください。

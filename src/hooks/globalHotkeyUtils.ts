@@ -1,3 +1,7 @@
+import {
+  getKeyboardPlatform,
+  usesAppleKeyboard,
+} from '../utils/platformShortcut';
 import type { HotkeyConfig } from '../types/settings/coreTypes';
 
 export interface KeyboardModifiers {
@@ -17,7 +21,10 @@ const getNormalizedPart = (part: string): string => part.trim().toLowerCase();
 const normalizeEventKey = (key: string): string =>
   key === ' ' ? ' ' : key.toLowerCase();
 
-export const parseElectronKey = (electronKey: string): KeyboardModifiers => {
+export const parseElectronKey = (
+  electronKey: string,
+  platform = getKeyboardPlatform(),
+): KeyboardModifiers => {
   const modifiers: KeyboardModifiers = {
     ctrlKey: false,
     shiftKey: false,
@@ -30,6 +37,11 @@ export const parseElectronKey = (electronKey: string): KeyboardModifiers => {
     const trimmed = part.trim();
     const normalized = getNormalizedPart(part);
 
+    if (normalized === 'commandorcontrol' || normalized === 'cmdorctrl') {
+      if (usesAppleKeyboard(platform)) modifiers.metaKey = true;
+      else modifiers.ctrlKey = true;
+      continue;
+    }
     if (
       normalized === 'command' ||
       normalized === 'cmd' ||
@@ -144,6 +156,9 @@ export const shouldResetPlaybackHotkeyState = (
     plainKey === 'shift' ||
     plainKey === 'alt' ||
     plainKey === 'meta' ||
+    plainKey === 'control' ||
+    event.code === 'ControlLeft' ||
+    event.code === 'ControlRight' ||
     event.code === 'ShiftLeft' ||
     event.code === 'ShiftRight' ||
     event.code === 'AltLeft' ||

@@ -3,9 +3,13 @@ import * as os from 'node:os';
 
 const authorizedWebContentsIds = new Set<number>();
 
-export const isLoopbackAudioCaptureSupported = (): boolean => {
-  if (process.platform !== 'darwin') return false;
-  const darwinMajor = Number.parseInt(os.release().split('.')[0] ?? '', 10);
+export const isLoopbackAudioCaptureSupported = (
+  platform: NodeJS.Platform = process.platform,
+  release = os.release(),
+): boolean => {
+  if (platform === 'win32') return true;
+  if (platform !== 'darwin') return false;
+  const darwinMajor = Number.parseInt(release.split('.')[0] ?? '', 10);
   return Number.isFinite(darwinMajor) && darwinMajor >= 22;
 };
 
@@ -34,14 +38,14 @@ export const registerLoopbackAudioCapture = (
         callback({});
         return;
       }
-      const sources = await desktopCapturer.getSources({ types: ['screen'] });
-      const source = sources[0];
-      if (!source) {
+      try {
+        const sources = await desktopCapturer.getSources({ types: ['screen'] });
+        const source = sources[0];
+        callback(source ? { video: source, audio: 'loopback' } : {});
+      } catch {
         callback({});
-        return;
       }
-      callback({ video: source, audio: 'loopback' });
     },
-    { useSystemPicker: true },
+    { useSystemPicker: process.platform === 'darwin' },
   );
 };

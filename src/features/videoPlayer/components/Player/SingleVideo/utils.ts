@@ -1,4 +1,4 @@
-export const formatSource = (src: string) => {
+export const formatSource = (src: string): string => {
   const trimmed = src.trim();
   if (!trimmed) return '';
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
@@ -6,16 +6,18 @@ export const formatSource = (src: string) => {
 
   if (/^\\\\/.test(trimmed)) {
     const replaced = trimmed.replace(/\\/g, '/').replace(/^\/+/g, '');
-    return `file://${encodeURI(replaced)}`;
+    const [server, ...parts] = replaced.split('/');
+    return `file://${server}/${parts.map(encodeURIComponent).join('/')}`;
   }
 
   if (/^[a-zA-Z]:[\\/]/.test(trimmed)) {
     const replaced = trimmed.replace(/\\/g, '/');
-    return `file:///${encodeURI(replaced)}`;
+    const [drive, ...parts] = replaced.split('/');
+    return `file:///${drive}/${parts.map(encodeURIComponent).join('/')}`;
   }
 
-  const normalised = trimmed.replace(/\\/g, '/').replace(/^\/+/g, '');
-  return `file:///${encodeURI(normalised)}`;
+  const normalised = trimmed.replace(/^\/+/g, '');
+  return `file:///${normalised.split('/').map(encodeURIComponent).join('/')}`;
 };
 
 export const resolveVideoSource = (

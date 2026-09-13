@@ -69,7 +69,7 @@ const getDevelopmentToolPath = (tool: MediaToolName): string => {
     '.cache',
     'media-tools',
     `${process.platform}-${normalizeArch(process.arch)}`,
-    tool,
+    getExecutableName(tool),
   );
   if (fs.existsSync(cachedPath)) return cachedPath;
 
@@ -104,7 +104,7 @@ export const getMediaToolPath = (tool: MediaToolName): string => {
 export const getFfmpegPath = (): string => getMediaToolPath('ffmpeg');
 export const getFfprobePath = (): string => getMediaToolPath('ffprobe');
 
-export type H264EncoderBackend = 'videotoolbox' | 'libx264';
+export type H264EncoderBackend = 'videotoolbox' | 'openh264' | 'libx264';
 
 export interface H264EncoderConfiguration {
   backend: H264EncoderBackend;
@@ -116,9 +116,8 @@ export interface H264EncoderConfiguration {
  *
  * The packaged macOS FFmpeg is deliberately built without external codec
  * libraries (including libx264), so VideoToolbox is the only supported H.264
- * encoder there. Keeping libx264 for non-macOS development environments
- * preserves the existing local workflow until another verified toolchain is
- * introduced for those platforms.
+ * encoder there. Windows bundles OpenH264 for a CPU encoder that also works
+ * without a vendor GPU or an optional Windows media feature pack.
  */
 export const resolveH264Encoder = (
   platform: NodeJS.Platform = process.platform,
@@ -141,11 +140,26 @@ export const resolveH264Encoder = (
     };
   }
 
+  if (platform === 'win32') {
+    return {
+      backend: 'openh264',
+      args: [
+        '-c:v',
+        'libopenh264',
+        '-b:v',
+        '5M',
+        '-profile:v',
+        'main',
+        '-pix_fmt',
+        'yuv420p',
+      ],
+    };
+  }
+
   return {
     backend: 'libx264',
     args: ['-c:v', 'libx264', '-preset', 'fast', '-crf', '20'],
   };
 };
 
-export const H264_ENCODER_ARGS: readonly string[] =
-  resolveH264Encoder().args;
+export const H264_ENCODER_ARGS: readonly string[] = resolveH264Encoder().args;

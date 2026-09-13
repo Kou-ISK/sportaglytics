@@ -6,6 +6,15 @@ import {
 } from './playlistFileState';
 
 describe('playlistFileState', () => {
+  it('saves the current history annotation while the derived cache catches up after undo', () => {
+    const annotation = { objects: [], freezeAt: 2, freezeDuration: 3 };
+    const payload = buildPlaylistPayload({
+      items: [{ id: 'clip', timelineItemId: 'one', actionName: 'Pass', startTime: 0, endTime: 5, addedAt: 1, annotation }],
+      itemAnnotations: { clip: { ...annotation, freezeAt: 0 } },
+      videoSources: [], packagePath: null, name: 'Undo', type: 'reference',
+    });
+    expect(payload.items[0].annotation).toEqual(annotation);
+  });
   it('builds playlist payload with inherited sources and annotations', () => {
     const payload = buildPlaylistPayload({
       items: [

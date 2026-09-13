@@ -1,8 +1,5 @@
-import type {
-  AppSettings,
-  HotkeyConfig,
-  ThemeMode,
-} from './coreTypes';
+import { normalizePortableShortcut } from '../../utils/platformShortcut';
+import type { AppSettings, HotkeyConfig, ThemeMode } from './coreTypes';
 import { DEFAULT_SETTINGS } from './defaults';
 import { normalizeAnalysisDashboard } from './dashboardNormalizers';
 import {
@@ -62,7 +59,9 @@ const normalizeHotkeys = (value: unknown): HotkeyConfig[] => {
     normalized.push({
       id,
       label: asNonEmptyString(entry.label) ?? fallback.label,
-      key: asNonEmptyString(entry.key) ?? fallback.key,
+      key: normalizePortableShortcut(
+        asNonEmptyString(entry.key) ?? fallback.key,
+      ),
       ...(disabled != null
         ? { disabled }
         : fallback.disabled != null
