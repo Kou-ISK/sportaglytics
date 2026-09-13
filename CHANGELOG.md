@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 自動イベント検出で、重複する低confidenceの候補が先着順で残り、より強い候補の時刻が失われる問題を修正。採用結果は時刻順とし、既存の手動編集を保持する。
+
 ## [0.13.0] - 2026-09-13
 
 ### Added

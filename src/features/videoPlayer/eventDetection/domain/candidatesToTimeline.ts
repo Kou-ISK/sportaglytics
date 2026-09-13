@@ -99,7 +99,7 @@ const candidateToTimelineItem = (
 };
 
 /**
- * Converts verified detector output into ordinary timeline instances.
+ * Converts detector output into ordinary timeline instances.
  * Detector provenance intentionally stays outside TimelineData; after import,
  * detected events behave exactly like manually coded events.
  */
@@ -119,7 +119,8 @@ export const convertCandidatesToTimeline = ({
   let skippedDuplicate = 0;
 
   const sortedCandidates = [...candidates].sort(
-    (left, right) => left.anchorTime - right.anchorTime,
+    (left, right) =>
+      right.confidence - left.confidence || left.anchorTime - right.anchorTime,
   );
 
   for (const candidate of sortedCandidates) {
@@ -157,7 +158,7 @@ export const convertCandidatesToTimeline = ({
   }
 
   return {
-    items: accepted,
+    items: accepted.sort((left, right) => left.startTime - right.startTime),
     skippedDisabled,
     skippedLowConfidence,
     skippedDuplicate,
