@@ -71,7 +71,16 @@ const readDocument = async () =>
 const waitForSaved = async (objectCount) => {
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {
-    const document = await readDocument();
+    // The keyboard event starts an asynchronous save. A filesystem poll may
+    // observe writeFile between truncate and completion; retry until complete.
+    const document = await readDocument().catch((error) => {
+      if (error instanceof SyntaxError) return null;
+      throw error;
+    });
+    if (!document) {
+      await new Promise((done) => setTimeout(done, 100));
+      continue;
+    }
     if ((document.items[0]?.annotation?.objects?.length ?? 0) === objectCount) {
       assert.equal(
         document.items.length,
