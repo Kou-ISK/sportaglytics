@@ -199,6 +199,10 @@ UIはmanifestの`confidenceThreshold`を初期値として表示し、runごと�
 
 入力値はdomain層で有限値・範囲を正規化します。ユーザー変更はmanifestや保存済み評価metricsを書き換えません。
 
+`candidatesToTimeline`では同一runの重複についてconfidenceが高い候補を優先し、返却時だけ時刻順に並べます。配列の順序を逆転したケースと、手動編集した既存イベントを高confidence候補でも置き換えないケースを回帰テストに含めます。
+
+model packの精度検証ではcheckpointとthresholdに加え、評価時の前処理・走査間隔・重複抑制も一致させます。Validationだけで改善したモデルを`verified`と表示しません。モデル選択・再評価はprivate R&D側で実施し、元映像や評価用データを本体のテストfixtureへコピーしないでください。
+
 ### Private R&D boundary
 
 次はSporTagLytics repositoryの責務ではありません。

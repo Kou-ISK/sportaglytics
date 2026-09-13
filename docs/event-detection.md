@@ -92,12 +92,12 @@ SporTagLytics public repositoryは**完成したevent model packを利用する�
 
 `verified`へ昇格するevent classは最低限次を満たします。この基準はexperimental対応によって緩和しません。
 
-| 指標 | Runtime minimum |
-| --- | ---: |
-| Recall | 0.95 |
-| unseen evaluation matches | 5 |
-| Precision | 0〜1の有限値として記録 |
-| confidence threshold | 0〜1の有限値 |
+| 指標                      |        Runtime minimum |
+| ------------------------- | ---------------------: |
+| Recall                    |                   0.95 |
+| unseen evaluation matches |                      5 |
+| Precision                 | 0〜1の有限値として記録 |
+| confidence threshold      |           0〜1の有限値 |
 
 Precisionの固定最低値はruntime gateにしません。高Recallでのfalse positives per matchや処理時間、実作業削減はprivate qualification側で確認し、実用的でないmodelを`verified`へ昇格させない前提です。
 
@@ -170,9 +170,29 @@ verified/experimentalのどちらもこの境界を共有します。Runner内�
 
 `src/features/videoPlayer/eventDetection/domain/candidatesToTimeline.ts` はenabled event、現在のconfidence threshold、lead/lag、既存Timeline重複を処理した上で `NewTimelineData[]` へ変換し、`addTimelineDatas` で1回のstate updateとして追加します。
 
+同一runの候補が重複する場合は、confidenceが最も高い候補を残します。同点なら早い時刻を採用し、採用後の一覧は時刻順にします。Runnerが返した配列順や早い低confidence候補によって、より強い候補の位置が失われないようにします。既存Timelineの手動編集済みイベントは新しい候補で置き換えません。
+
 Runnerが検出区間 (`detectedStartTime` / `detectedEndTime`) を返せる場合はそのrangeを基準にし、返さないpoint detectorではanchorを基準にAction mappingのlead/lagを適用します。
 
 Timelineへ追加された後は自動検出由来かどうかを特別扱いせず、通常の手動eventとして編集できます。
+
+## 検出精度の改善と評価
+
+精度はモデルの重みだけで決まりません。映像の前処理、走査間隔、時間方向の重複抑制、クラス別confidence thresholdまで含めた同じ処理を評価・実行する必要があります。Model packの製作者は、評価したモデル定義と走査設定を評価レポートへ固定し、export時の別設定への変更を拒否します。設定記録のない古い評価は再評価が必要です。
+
+改善は次の順序で行います。
+
+1. Codingが両チーム・全対象イベントを網羅している区間を確認する。未記録の実イベントを「誤検出」や学習用の「背景」と扱わない。元映像とCodingのアングル・時間の対応も確認する。
+2. 同じValidation試合・同じcheckpointで、改善前後の候補を比較する。
+3. 同じ場面の重複を抑え、クラス別thresholdを再調整する。クラス別・試合別の見逃しが増える設定は採用しない。
+4. なお残る誤検出の場面をTrainデータの背景例として追加し、イベントの記録範囲・ラベルの揺れを確認して再学習する。
+5. 学習に使わない試合で、Recall、Precision、1試合当たりの誤検出・見逃し、実際の修正操作・処理時間を測定する。
+
+Validationで調整した後の改善率は未知試合への精度保証ではありません。5試合以上のheld-out評価と作業時間削減を確認するまでは`experimental`を維持します。Train/Validation/Testの分割を変更して評価値を良く見せることもしません。
+
+正解データの網羅性が未確認の場合、Precision/Recallは既存Codingとの一致度にすぎません。その数値だけでモデル更新を判断せず、R&D側で確認済み区間を記録してから負例学習・モデル配布へ進みます。
+
+製品は完成したmodel packを使う構成を維持し、映像・Codingを暗黙にアップロードしません。学習とモデル比較の実装はprivate R&D側で管理します。
 
 ## 対象外
 

@@ -145,4 +145,56 @@ describe('convertCandidatesToTimeline', () => {
       'Lineout',
     ]);
   });
+
+  it('keeps the strongest duplicate even when a weaker candidate occurs first', () => {
+    const candidates = [
+      {
+        id: 'weak',
+        eventType: 'scrum' as const,
+        confidence: 0.96,
+        anchorTime: 100,
+      },
+      {
+        id: 'strong',
+        eventType: 'scrum' as const,
+        confidence: 0.99,
+        anchorTime: 102,
+      },
+      {
+        id: 'earlier',
+        eventType: 'lineout' as const,
+        confidence: 0.97,
+        anchorTime: 50,
+      },
+    ];
+    for (const order of [candidates, [...candidates].reverse()]) {
+      const result = convertCandidatesToTimeline({
+        candidates: order,
+        mappings,
+        existingTimeline: [],
+      });
+      expect(
+        result.items.map(({ actionName, startTime }) => ({
+          actionName,
+          startTime,
+        })),
+      ).toEqual([
+        { actionName: 'Lineout', startTime: 46 },
+        { actionName: 'Scrum', startTime: 97 },
+      ]);
+      expect(result.skippedDuplicate).toBe(1);
+    }
+  });
+
+  it('preserves manually edited events over new high-confidence detections', () => {
+    const result = convertCandidatesToTimeline({
+      candidates: [
+        { id: 'new', eventType: 'scrum', confidence: 1, anchorTime: 102 },
+      ],
+      mappings,
+      existingTimeline: [existing('Scrum', 95, 110)],
+    });
+    expect(result.items).toEqual([]);
+    expect(result.skippedDuplicate).toBe(1);
+  });
 });
