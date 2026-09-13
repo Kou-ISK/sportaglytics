@@ -85,3 +85,7 @@ Storybookの `Workspace/Playlist` 配下でOrganizer/Sorter、Inspector、Paint�
 - [ADR 0008: Dedicated Sub-Window Runtime and Synchronization](adr/0008-dedicated-sub-window-runtime-and-synchronization.md)
 - [ADR 0010: FFmpeg Clip Export Execution Boundary](adr/0010-ffmpeg-clip-export-execution-boundary.md)
 - [ADR 0025: Playlist Document Presentation Order](adr/0025-playlist-document-presentation-order.md)
+
+## 外部から開くときの準備完了
+
+プレイリストの新規ウィンドウはpreloadで外部オープン通知を購読してから専用ready IPCを送信し、mainが保持する文書パスを受け取ります。画面の初期化より先に通知を送って文書が空になる競合を避けます。この境界はMac/Windows共通です。

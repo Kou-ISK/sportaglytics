@@ -25,6 +25,12 @@ import { loadPlaylistFromPath, savePlaylistToPath } from './storage';
 import { getPackageSessionForSender } from '../packageSessionRegistry';
 
 export const registerPlaylistHandlers = (): void => {
+  ipcMain.on(PLAYLIST_WINDOW_CHANNELS.ready, (event) => {
+    if (!getValidatedEventSenderWindow(event) || !isSenderPlaylistWindow(event.sender)) return;
+    const info = getWindowInfoBySender(event.sender);
+    if (info?.filePath) event.sender.send(PLAYLIST_WINDOW_CHANNELS.externalOpen, info.filePath);
+  });
+
   ipcMain.handle(
     PLAYLIST_WINDOW_CHANNELS.openWindow,
     (event, filePath?: unknown) => {

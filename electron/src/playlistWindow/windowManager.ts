@@ -130,11 +130,8 @@ export const sendPlaylistFileToWindow = (
   const win = createPlaylistWindow(filePath, owner);
   const send = () =>
     win.webContents.send(PLAYLIST_WINDOW_CHANNELS.externalOpen, filePath);
-  if (win.webContents.isLoading()) {
-    win.webContents.once('did-finish-load', send);
-  } else {
-    send();
-  }
+  // New renderers request their document after subscribing in preload.
+  if (!win.webContents.isLoading()) send();
 };
 
 export const closeAllPlaylistWindows = (): void => {
