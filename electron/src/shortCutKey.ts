@@ -11,7 +11,7 @@ import { createPlaylistWindow } from './playlistWindow';
 export const registerShortcuts = (
   mainWindow: BrowserWindow,
   hotkeys: HotkeyConfig[],
-) => {
+): void => {
   // 従来の挙動を残しつつ、プレイリスト用ホットキーだけグローバル登録
   if (!hotkeys || hotkeys.length === 0) return;
   const playlistKey =
@@ -24,4 +24,3 @@ export const registerShortcuts = (
     console.warn('Failed to register playlist hotkey', e);
   }
 };
-

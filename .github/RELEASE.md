@@ -63,6 +63,7 @@ If `HOMEBREW_TAP_TOKEN` is missing, the Homebrew update step fails. If signing /
    pnpm run bundle:preload
    pnpm run check:preload
    pnpm run media:build:all-mac
+   pnpm run llama:prepare:mac
    pnpm run test:e2e
    pnpm run electron:package:mac
    ```
@@ -111,7 +112,8 @@ The workflow validates that the version/tag agree and the tagged commit belongs 
 
 ## Post-Release Verification
 
-- GitHub Release exists and includes both `arm64` and `x64` DMGs.
+- GitHub Release includes both Mac DMGs, the Windows x64 installer, and `SHA256SUMS.txt`.
+- Windows installed-app E2E and native dependency checks passed for the released commit.
 - SHA256 values in `Kou-ISK/homebrew-tap` match generated artifacts.
 - Homebrew install works:
 
@@ -135,7 +137,7 @@ The workflow validates that the version/tag agree and the tagged commit belongs 
 ### Electron E2E failed
 
 - DMG / GitHub Release / Homebrew update は実行されません。
-- failing script (`e2e-clip-sync`, `e2e-code-window-menu`, `e2e-export-progress`, `e2e-timeline-rows`) とその前段の build/preload/media-tool log を確認します。
+- failing script (`e2e-clip-sync`, `e2e-code-window-menu`, `e2e-export-progress`, `e2e-timeline-rows`, `e2e-paint`) とその前段の build/preload/media-tool log を確認します。
 - 修正は通常の work branch → `develop` PR で行い、release preparation をやり直します。
 
 ### macOS signing keychain unlock failed
