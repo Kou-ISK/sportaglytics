@@ -43,6 +43,8 @@ brew install --cask sportaglytics
 4. **タグ付け** - コードパネルのボタンまたはホットキーでイベントを記録
 5. **分析** - `Cmd+Shift+A` で統計ダッシュボードを表示
 
+**Windows 11 x64**: インストーラーとセットアップ条件は [Windows版](docs/windows.md) を参照してください。
+
 詳細な使い方は [ユーザーガイド](docs/user-guide.md) を参照してください。
 
 ## ドキュメント

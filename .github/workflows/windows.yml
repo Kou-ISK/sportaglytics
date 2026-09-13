@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -13,6 +14,9 @@ jobs:
     name: Windows media and desktop
     runs-on: windows-2025
     timeout-minutes: 90
+    env:
+      E2E_LLAMA_MODEL: .cache/testing/stories15M.gguf
+      E2E_SCREENSHOT_DIR: output/playwright/windows
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,6 +57,8 @@ jobs:
         run: pnpm run llama:build:windows
       - name: Prepare Japanese font
         run: pnpm run fonts:prepare
+      - name: Prepare test-only AI model
+        run: node scripts/prepare-test-model.mjs
       - name: Windows quality gates
         run: |
           pnpm run typecheck
@@ -62,6 +68,14 @@ jobs:
         run: pnpm run test:e2e
       - name: Windows installer
         run: pnpm exec electron-builder --win nsis --x64 --publish never
+      - name: Installed Windows desktop E2E
+        run: ./scripts/windows/test-installed-app.ps1
+      - name: Upload Windows screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-screenshots
+          path: output/playwright/windows
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:

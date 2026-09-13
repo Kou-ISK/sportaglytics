@@ -38,11 +38,7 @@ const fixturePaths = ['angle-1.mp4', 'angle-2.mp4'].map((name, index) => {
 });
 
 const launch = (args = []) =>
-  electron.launch({
-    executablePath: electronPath,
-    args: [repositoryPath, `--user-data-dir=${profilePath}`, ...args],
-    env: { ...electronEnvironment, NODE_ENV: 'test' },
-  });
+  electron.launch(getElectronLaunchOptions(profilePath, args));
 
 const waitForTimeline = async (predicate, timeoutMs = 5000) => {
   const timelinePath = path.join(packagePath, 'timeline.json');

@@ -53,6 +53,7 @@ try {
     build,
     '-A',
     'x64',
+    '-DCMAKE_POLICY_DEFAULT_CMP0091=NEW',
     '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded',
     '-DBUILD_SHARED_LIBS=OFF',
     '-DGGML_STATIC=ON',

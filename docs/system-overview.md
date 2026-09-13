@@ -287,3 +287,7 @@ Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツ�
 追尾は独立デコーダーで解析し、成功時に自動適用、部分結果は明示的に適用/破棄します。開始後の編集を古い結果で上書きしません。表示図形と独立した追尾範囲の判断は[ADR 0031](adr/0031-tracking-target-selection.md)、保存契約は[ADR 0029](adr/0029-tactics-motion-and-plane-contract.md)です。
 
 通常再生・編集・PNGで共通レンダラーを使用し、動画出力ではソース時刻上のmotion overlayとアングル別の芝色処理を静止挿入より前に合成します。[Paint仕様](tactics.md)に型・上限・実装入口を、[Playlist仕様](playlist-features.md)に文書・順序・Sessionをまとめます。
+
+## Windowsの実行境界
+
+[Windows版](windows.md)と[ADR 0033](adr/0033-windows-desktop-runtime.md)に従い、描画・保存・追尾は共通実装、OS差分はElectronの映像処理・縦横比・loopback音声とshared shortcutへ集約する。file URLはNodeの変換またはパス成分のエンコードを通し、Windowsドライブや予約文字を壊さない。

@@ -19,6 +19,8 @@
 
 ## User Documentation
 
+- [Windows版](windows.md): 導入、OS間の操作・文書互換、ランタイムと検証。
+
 - [起動画面とパッケージを開く操作](start-workspace.md): 履歴検索、ドロップ、読み込み状態と復旧。
 - [Paint](tactics.md): 描画、追尾範囲、位置キー、ホットキー、芝色・平面・素材、保存と制約。
 

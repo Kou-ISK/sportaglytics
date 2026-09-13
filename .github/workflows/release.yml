@@ -15,7 +15,11 @@ permissions:
   contents: write
 
 jobs:
+  windows:
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/windows.yml
   release:
+    needs: windows
     if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
 
@@ -168,6 +172,15 @@ jobs:
               exit 1
           fi
 
+      - name: Download verified Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-x64-installer
+          path: dist/
+
+      - name: Record release checksums
+        run: shasum -a 256 dist/*.dmg dist/*Setup*.exe > dist/SHA256SUMS.txt
+
       - name: Create immutable release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -176,7 +189,9 @@ jobs:
           gh release create "v$RELEASE_VERSION" --verify-tag \
             --title "v$RELEASE_VERSION" --generate-notes \
             "./dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" \
-            "./dist/SporTagLytics-$RELEASE_VERSION-x64.dmg"
+            "./dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" \
+            "./dist/SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" \
+            "./dist/SHA256SUMS.txt"
 
       - name: Update Homebrew Tap
         run: |

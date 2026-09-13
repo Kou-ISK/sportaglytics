@@ -15,6 +15,8 @@ SporTagLytics の AI 分析は、タイムライン、ラベル、メモ、統�
 - GGUF model files are local assets and are not committed to git or bundled into official packages by default.
 - Cloud LLM / external API provider is not part of the current contract.
 
+macOS / Windows配布版はllama.cpp実行ファイルを同梱します。Windowsは追加DLLを要求しないx64 CPUビルドです。Windowsの導入は[Windows版](windows.md)を参照してください。
+
 ## Binary Resolution
 
 The app searches for the llama.cpp binary in this order.
@@ -26,6 +28,7 @@ The app searches for the llama.cpp binary in this order.
    - `<resources>/llama/<platform>/`
    - `<resources>/llama/`
 3. Development paths:
+   - `.cache/llama/<platform>-<arch>/` (verified Windows build)
    - `public/llama/<platform>/`
    - `public/llama/`
 
@@ -49,7 +52,7 @@ pnpm run electron:dev
 
 Model files must use the `.gguf` extension.
 
-The app searches these model folders:
+最初に `<userData>/llama/models/` を検索します。Windowsは `%APPDATA%/sportaglytics/llama/models/`、macOSは `~/Library/Application Support/sportaglytics/llama/models/` です。その後、次の既存の配置を検索します。
 
 | Runtime     | Search folders                                                      |
 | ----------- | ------------------------------------------------------------------- |
@@ -78,7 +81,7 @@ Official Electron packages also exclude local `*.gguf` files. For packaged app u
 
 ## User Flow
 
-1. Open the analysis window with `Cmd+Shift+A`.
+1. Open the analysis window with `Cmd+Shift+A` / `Ctrl+Shift+A`.
 2. Select the `AI分析` tab.
 3. Confirm the model summary in the AI settings accordion.
 4. Choose a template question or enter a custom question.

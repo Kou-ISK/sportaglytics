@@ -145,7 +145,7 @@ describe('settingsManager', () => {
     ).toEqual({
       id: 'undo',
       label: 'Custom Undo',
-      key: 'Ctrl+Shift+Z',
+      key: 'Control+Shift+Z',
     });
     expect(writtenSettings.codingPanel?.activeCodeWindowId).toBe('default');
     expect(
