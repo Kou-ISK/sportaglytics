@@ -67,6 +67,8 @@ const systemLibraries = new Set([
   'psapi.dll',
   'version.dll',
   'avrt.dll',
+  // Windows Video for Windows capture API (vfw.h).
+  'avicap32.dll',
 ]);
 for (const name of process.argv.slice(2)) {
   const file = resolve(name);
