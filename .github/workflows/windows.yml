@@ -15,7 +15,7 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 90
     env:
-      E2E_LLAMA_MODEL: .cache/testing/stories15M.gguf
+      E2E_LLAMA_MODEL: .cache/testing/qwen-test.gguf
       E2E_SCREENSHOT_DIR: output/playwright/windows
     steps:
       - uses: actions/checkout@v4

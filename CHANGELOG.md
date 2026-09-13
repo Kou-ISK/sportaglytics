@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-13
+
 ### Added
 
 - Windows 11 x64向け映像・音声同期・AI実行環境、日本語字幕フォント、NSIS導入とインストール済みElectronの検証。[Windows版](docs/windows.md)を正本とする。

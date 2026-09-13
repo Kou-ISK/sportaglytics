@@ -106,7 +106,9 @@ try {
     ),
   ]);
   assert.equal(loaded?.playlist.items.length, 1, JSON.stringify(loaded));
-  await (await app.browserWindow(page)).evaluate((window) => window.setContentSize(1200, 800));
+  await (
+    await app.browserWindow(page)
+  ).evaluate((window) => window.setContentSize(1200, 800));
   await page.getByTestId('organizer-clip-clip-one').waitFor();
   await page.getByRole('button', { name: 'Paint', exact: true }).click();
   await page.getByLabel('Paint クリップ').getByRole('button').first().click();
@@ -128,7 +130,10 @@ try {
   await page.keyboard.press(`${primaryModifier}+S`);
   await waitForSaved(0);
   await page.keyboard.press(`${primaryModifier}+Z`);
-  await page.getByLabel('Paint クリップ').getByText(/1 図形/).waitFor();
+  await page
+    .getByLabel('Paint クリップ')
+    .getByText(/1 図形/)
+    .waitFor();
   await page.keyboard.press(`${primaryModifier}+S`);
   await waitForSaved(1);
   await page
@@ -142,8 +147,8 @@ try {
         window.electronAPI.llama.generate({
           model,
           prompt:
-            'Return a JSON object with summary "test" and empty hypotheses, evidenceHighlights and recommendedClips arrays.',
-          maxTokens: 2048,
+            '<|im_start|>system\nReturn only a JSON object.\n<|im_end|>\n<|im_start|>user\nReturn summary "test" and empty hypotheses, evidenceHighlights and recommendedClips arrays.\n<|im_end|>\n<|im_start|>assistant\n',
+          maxTokens: 512,
           temperature: 0,
           timeoutMs: 120000,
           requestId: 'e2e-ai-generation',

@@ -1,6 +1,6 @@
 import {
   getKeyboardPlatform,
-  usesAppleKeyboard,
+  capturePortableShortcut,
   formatShortcutLabel,
 } from '../../../utils/platformShortcut';
 import { parseElectronKey } from '../../../hooks/globalHotkeyUtils';
@@ -10,23 +10,7 @@ import { FORBIDDEN_HOTKEYS } from './hotkeySettings.constants';
 export const formatKeyCombo = (
   event: KeyboardEvent,
   platform = getKeyboardPlatform(),
-): string => {
-  const keys: string[] = [];
-  if (event.metaKey)
-    keys.push(usesAppleKeyboard(platform) ? 'CommandOrControl' : 'Meta');
-  if (event.ctrlKey)
-    keys.push(usesAppleKeyboard(platform) ? 'Control' : 'CommandOrControl');
-  if (event.altKey) keys.push('Alt');
-  if (event.shiftKey) keys.push('Shift');
-
-  if (event.key && !['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) {
-    const keyName =
-      event.key.length === 1 ? event.key.toUpperCase() : event.key;
-    keys.push(keyName);
-  }
-
-  return keys.join('+');
-};
+): string => capturePortableShortcut(event, platform);
 
 export const getHotkeyConflictWarning = (params: {
   keyCombo: string;

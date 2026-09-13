@@ -1,9 +1,9 @@
 import { resolve } from 'node:path';
 import { downloadVerified } from './download-verified.mjs';
 
-// Tiny public llama.cpp test model, used only by CI. Never ship model weights.
+// Small official instruction model, used only by CI. Never ship model weights.
 await downloadVerified(
-  'https://huggingface.co/ggml-org/models/resolve/499bc8821c6b12b4e53c5bffcb21ec206f212d81/tinyllamas/stories15M-q4_0.gguf',
-  resolve('.cache/testing/stories15M.gguf'),
-  '66967fbece6dbe97886593fdbb73589584927e29119ec31f08090732d1861739',
+  'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf',
+  resolve('.cache/testing/qwen-test.gguf'),
+  '74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db',
 );
