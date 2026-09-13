@@ -188,6 +188,7 @@ jobs:
         run: |
           gh release create "v$RELEASE_VERSION" --verify-tag \
             --title "v$RELEASE_VERSION" --generate-notes \
+            --notes "Windows 11 x64版のインストーラーは未署名です。macOS版DMGは署名・公証済みです。AIのGGUFモデルと自動検出用model packは別途必要です。対応条件と操作はdocs/windows.mdを参照してください。" \
             "./dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" \
             "./dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" \
             "./dist/SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" \
