@@ -21,6 +21,7 @@ const getOrCreate = (): BrowserWindow => {
   progressWindow = new BrowserWindow({
     width: 420,
     height: 260,
+    useContentSize: true,
     minWidth: 360,
     minHeight: 220,
     title: '映像書き出し',
