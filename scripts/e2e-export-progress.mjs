@@ -41,7 +41,13 @@ execFileSync(ffmpegPath, [
   sourcePath,
 ]);
 
-const electronApp = await electron.launch(getElectronLaunchOptions(profilePath));
+const electronApp = await electron.launch(
+  getElectronLaunchOptions(profilePath),
+);
+let nativeDiagnostics = '';
+electronApp.process().stderr?.on('data', (data) => {
+  nativeDiagnostics = (nativeDiagnostics + data.toString()).slice(-64 * 1024);
+});
 
 try {
   const mainPage = await electronApp.firstWindow();
@@ -49,9 +55,7 @@ try {
     localStorage.setItem('sportaglytics-onboarding-completed', 'true');
   });
   await mainPage.reload();
-  await mainPage
-    .getByText('新しいパッケージを作成', { exact: true })
-    .waitFor();
+  await mainPage.getByText('新しいパッケージを作成', { exact: true }).waitFor();
 
   const progressWindowPromise = electronApp.waitForEvent('window', {
     timeout: 10_000,
@@ -103,9 +107,7 @@ try {
     'the progress window must not take focus when export starts',
   );
 
-  await mainPage
-    .getByText('新しいパッケージを作成', { exact: true })
-    .click();
+  await mainPage.getByText('新しいパッケージを作成', { exact: true }).click();
   await mainPage.getByLabel('パッケージ').waitFor({ timeout: 5_000 });
   await mainPage.waitForTimeout(800);
   const focusedUrlAfterProgressUpdate = await electronApp.evaluate(
@@ -174,6 +176,28 @@ try {
     });
   }
   console.log('Non-modal export progress E2E passed');
+} catch (error) {
+  console.error('Export native diagnostics:', nativeDiagnostics);
+  for (const page of electronApp.windows()) {
+    console.error(
+      'Export window state:',
+      page.url(),
+      await page
+        .locator('body')
+        .innerText({ timeout: 1000 })
+        .catch(() => 'unavailable'),
+    );
+    if (
+      process.env.E2E_SCREENSHOT_DIR &&
+      page.url().endsWith('#/export-progress')
+    ) {
+      await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({
+        path: path.join(process.env.E2E_SCREENSHOT_DIR, 'export-failed.png'),
+      });
+    }
+  }
+  throw error;
 } finally {
   await electronApp.close().catch(() => undefined);
 }

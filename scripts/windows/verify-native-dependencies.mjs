@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 
 // Read the PE import table directly: a developer PC may already contain VC++
 // runtimes, so launching successfully alone does not prove portable packaging.
@@ -72,6 +72,13 @@ const systemLibraries = new Set([
 ]);
 for (const name of process.argv.slice(2)) {
   const file = resolve(name);
+  if (['ffmpeg.exe', 'ffprobe.exe'].includes(basename(file))) {
+    const binary = await readFile(file);
+    assert.ok(
+      binary.includes(Buffer.from('UTF-8</activeCodePage>')),
+      `${file} must enable UTF-8 for native font paths`,
+    );
+  }
   const imports = await importedLibraries(file);
   const external = imports.filter(
     (library) =>

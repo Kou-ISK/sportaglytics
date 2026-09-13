@@ -1,4 +1,4 @@
-import { copyFile, mkdir } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { run } from './process.mjs';
 
@@ -75,6 +75,20 @@ export const buildWindowsMediaTools = async ({
 
   const buildDirectory = join(sources.ffmpeg, 'build-windows');
   await mkdir(buildDirectory, { recursive: true });
+  // FreeType uses CreateFileA on Windows. Give every linked library the same
+  // UTF-8 code page as FFmpeg, including when the install path is Japanese.
+  const manifestPath = join(sources.ffmpeg, 'fftools', 'fftools.manifest');
+  const manifest = await readFile(manifestPath, 'utf8');
+  if (!manifest.includes('</asmv3:windowsSettings>')) {
+    throw new Error('Unexpected FFmpeg Windows manifest');
+  }
+  await writeFile(
+    manifestPath,
+    manifest.replace(
+      '</asmv3:windowsSettings>',
+      '<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>\n    </asmv3:windowsSettings>',
+    ),
+  );
   await run(
     'bash',
     [
@@ -83,6 +97,7 @@ export const buildWindowsMediaTools = async ({
       '--arch=x86_64',
       '--cc=gcc',
       '--cxx=g++',
+      '--windres=windres',
       '--disable-autodetect',
       '--disable-doc',
       '--disable-debug',

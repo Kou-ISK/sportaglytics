@@ -45,7 +45,7 @@ const hashFile = async (file) => {
 };
 const executableName = (name) => (platform === 'win32' ? `${name}.exe` : name);
 const buildIdentity = (architecture) => ({
-  revision: BUILD_REVISION,
+  revision: platform === 'win32' ? BUILD_REVISION + 1 : BUILD_REVISION,
   platform,
   architecture,
   sources: Object.fromEntries(

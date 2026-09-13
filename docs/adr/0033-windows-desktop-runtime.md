@@ -18,7 +18,7 @@ Accepted
 
 Windows 11 x64を明示的な配布対象とし、macOSと同じ機能モデル・View・保存形式を用いる。OS差分は共有のshortcut変換、Electron境界、ビルドスクリプトへ閉じ込める。
 
-0020の検証済みソースビルドをWindowsへ拡張する。WindowsのH.264はOpenH264のソフトウェアエンコーダーを静的に組み込み、GPUやOSの追加メディア機能に依存しない。日本語フォントはOFLライセンスと共に同梱する。llama.cppも出典・SHA256を固定してWindows x64 CPU向けにビルドし、C++ランタイムを静的にリンクする。macOSもIntel / Apple Silicon別の公式アーカイブをSHA256とMach-O CPU種別で検証し、対応するruntimeを同梱する。アーキテクチャ不一致を防ぐため生成バイナリはgitで共有せずcacheへ置く。モデル重みの非同梱契約は0012に従う。
+0020の検証済みソースビルドをWindowsへ拡張する。WindowsのH.264はOpenH264のソフトウェアエンコーダーを静的に組み込み、GPUやOSの追加メディア機能に依存しない。日本語フォントはOFLライセンスと共に同梱する。FFmpegのmanifestにUTF-8 code pageを宣言し、FreeTypeのWindows ANSIファイルAPIでも日本語の配置先を扱えるようにする。llama.cppも出典・SHA256を固定してWindows x64 CPU向けにビルドし、C++ランタイムを静的にリンクする。macOSもIntel / Apple Silicon別の公式アーカイブをSHA256とMach-O CPU種別で検証し、対応するruntimeを同梱する。アーキテクチャ不一致を防ぐため生成バイナリはgitで共有せずcacheへ置く。モデル重みの非同梱契約は0012に従う。
 
 0030の映像部分の縦横比契約をWindowsでは `will-resize` で実現する。Windowsで無視される `setAspectRatio` のextraSizeに依存しない。プレイリストは引き続き固定対象外とする。
 
