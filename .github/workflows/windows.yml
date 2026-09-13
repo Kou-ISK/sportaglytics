@@ -55,6 +55,11 @@ jobs:
           key: windows-x64-llama-${{ hashFiles('scripts/build-windows-llama.mjs') }}
       - name: Build self-contained Windows AI runtime
         run: pnpm run llama:build:windows
+      - name: Save verified AI runtime
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/llama
+          key: windows-x64-llama-${{ hashFiles('scripts/build-windows-llama.mjs') }}
       - name: Prepare Japanese font
         run: pnpm run fonts:prepare
       - name: Prepare test-only AI model

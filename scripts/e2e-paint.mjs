@@ -106,6 +106,7 @@ try {
     ),
   ]);
   assert.equal(loaded?.playlist.items.length, 1, JSON.stringify(loaded));
+  await (await app.browserWindow(page)).evaluate((window) => window.setContentSize(1200, 800));
   await page.getByTestId('organizer-clip-clip-one').waitFor();
   await page.getByRole('button', { name: 'Paint', exact: true }).click();
   await page.getByLabel('Paint クリップ').getByRole('button').first().click();
@@ -127,6 +128,7 @@ try {
   await page.keyboard.press(`${primaryModifier}+S`);
   await waitForSaved(0);
   await page.keyboard.press(`${primaryModifier}+Z`);
+  await page.getByLabel('Paint クリップ').getByText(/1 図形/).waitFor();
   await page.keyboard.press(`${primaryModifier}+S`);
   await waitForSaved(1);
   await page

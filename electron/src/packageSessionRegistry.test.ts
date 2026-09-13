@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { BrowserWindow } from 'electron';
 import {
@@ -59,7 +60,7 @@ describe('package session registry', () => {
     const main = createWindow('reserved-main');
     const session = reservePackageSession(main, '/tmp/queued/match.stpkg');
 
-    expect(session.packagePath).toBe('/tmp/queued/match.stpkg');
+    expect(session.packagePath).toBe(process.platform === 'win32' ? resolve('/tmp/queued/match.stpkg').toLowerCase() : resolve('/tmp/queued/match.stpkg'));
     expect(getEmptyPackageSession()).not.toBe(session);
     expect(reservePackageSession(createWindow('duplicate-main'), '/tmp/queued/match.stpkg')).toBe(
       session,

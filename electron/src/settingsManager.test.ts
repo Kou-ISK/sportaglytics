@@ -1,3 +1,4 @@
+import { normalize } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const electronMocks = vi.hoisted(() => {
@@ -120,7 +121,7 @@ describe('settingsManager', () => {
     );
 
     expect(result).toBe(true);
-    expect(fsMocks.mkdir).toHaveBeenCalledWith('/tmp/sportaglytics', {
+    expect(fsMocks.mkdir).toHaveBeenCalledWith(normalize('/tmp/sportaglytics'), {
       recursive: true,
     });
     expect(fsMocks.writeFile).toHaveBeenCalledTimes(1);

@@ -89,3 +89,5 @@ Storybookの `Workspace/Playlist` 配下でOrganizer/Sorter、Inspector、Paint�
 ## 外部から開くときの準備完了
 
 プレイリストの新規ウィンドウはpreloadで外部オープン通知を購読してから専用ready IPCを送信し、mainが保持する文書パスを受け取ります。画面の初期化より先に通知を送って文書が空になる競合を避けます。この境界はMac/Windows共通です。
+
+PaintのUndo直後に保存する場合も、履歴中のクリップに保存された描画を優先します。一時的な描画キャッシュの更新待ちによって、復元した図形を古い状態で保存しません。
