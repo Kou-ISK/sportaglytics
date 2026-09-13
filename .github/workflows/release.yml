@@ -184,7 +184,8 @@ jobs:
           path: dist/
 
       - name: Record release checksums
-        run: shasum -a 256 dist/*.dmg dist/*Setup*.exe > dist/SHA256SUMS.txt
+        working-directory: dist
+        run: shasum -a 256 *.dmg *Setup*.exe > SHA256SUMS.txt
 
       - name: Create immutable release
         env:
