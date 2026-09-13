@@ -134,7 +134,7 @@ Action buttonには `leadTimeSeconds` / `lagTimeSeconds` を保存できます�
 - Matrix
 - AI Analysis
 
-AI Analysisはローカル `llama.cpp` を使い、Timeline / labels / memo / statistics を根拠として分析文と推奨clipを生成します。映像frameそのものをLLMへ解釈させる機能ではありません。
+AI実行ファイルはOSとCPU種別ごとに検証して同梱します。モデル重みは別途指定します。AI Analysisはローカル `llama.cpp` を使い、Timeline / labels / memo / statistics を根拠として分析文と推奨clipを生成します。映像frameそのものをLLMへ解釈させる機能ではありません。
 
 ## 自動イベント検出
 

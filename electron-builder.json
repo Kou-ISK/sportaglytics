@@ -40,7 +40,7 @@
         "filter": ["ffmpeg", "ffprobe", "build.json", "licenses/**/*"]
       },
       {
-        "from": "public/llama/darwin",
+        "from": ".cache/llama/darwin-${arch}",
         "to": "llama/darwin",
         "filter": ["**/*", "!**/*.gguf"]
       }

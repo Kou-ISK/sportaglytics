@@ -309,4 +309,4 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 
 ## Windows開発
 
-[Windows版の開発・検証](windows.md#開発検証)を参照。`scripts/media-tools/` はプラットフォームごとの静的メディアビルド、`scripts/build-windows-llama.mjs` はAI実行ファイル、`scripts/prepare-fonts.mjs` は検証済み日本語フォントを用意する。`pnpm run electron:start` はOSに依存しないNodeラッパーから起動する。
+[Windows版の開発・検証](windows.md#開発検証)を参照。`scripts/media-tools/` はプラットフォームごとの静的メディアビルド、`scripts/build-windows-llama.mjs` はWindows AI実行ファイル、`scripts/prepare-mac-llama.mjs` は公式アーカイブの検証とMac CPU別のAI実行ファイル準備、`scripts/prepare-fonts.mjs` は検証済み日本語フォントを用意する。`pnpm run electron:start` はOSに依存しないNodeラッパーから起動する。

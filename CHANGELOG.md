@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Intel MacのAI実行ファイルをx64版へ修正し、両Mac版の同梱時にCPU種別と依存ライブラリを検証。
 - WindowsのCtrl操作、file URL、日本語・予約文字を含むパス、操作欄を除いた映像ウィンドウの縦横比固定。既存Mac設定のショートカットを読込時に共通形式へ変換。
 
 ## [0.12.1] - 2026-09-13

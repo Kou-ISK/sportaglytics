@@ -20,6 +20,7 @@ export const downloadVerified = async (url, file, sha256) => {
       '--location',
       '--retry',
       '3',
+      '--retry-all-errors',
       '--connect-timeout',
       '15',
       '--max-time',

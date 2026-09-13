@@ -62,11 +62,12 @@
     "preview": "vite preview",
     "electron:start": "pnpm run e2e:prepare && node scripts/start-electron.mjs",
     "electron:build": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && electron-builder",
-    "electron:package:mac": "pnpm run media:build:all-mac && pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && electron-builder --mac --x64 --arm64",
+    "electron:package:mac": "pnpm run media:build:all-mac && pnpm run llama:prepare:mac && pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload && electron-builder --mac --x64 --arm64",
     "electron:dev": "concurrently \"pnpm start\" \"wait-on http://localhost:3000 && pnpm run electron:start\"",
     "fonts:prepare": "node scripts/prepare-fonts.mjs",
     "llama:build:windows": "node scripts/build-windows-llama.mjs",
-    "electron:package:windows": "pnpm run fonts:prepare && pnpm run llama:build:windows && pnpm run e2e:prepare && electron-builder --win nsis --x64 --publish never"
+    "electron:package:windows": "pnpm run fonts:prepare && pnpm run llama:build:windows && pnpm run e2e:prepare && electron-builder --win nsis --x64 --publish never",
+    "llama:prepare:mac": "node scripts/prepare-mac-llama.mjs"
   },
   "browserslist": {
     "production": [

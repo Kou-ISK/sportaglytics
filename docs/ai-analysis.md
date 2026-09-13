@@ -15,7 +15,7 @@ SporTagLytics の AI 分析は、タイムライン、ラベル、メモ、統�
 - GGUF model files are local assets and are not committed to git or bundled into official packages by default.
 - Cloud LLM / external API provider is not part of the current contract.
 
-macOS / Windows配布版はllama.cpp実行ファイルを同梱します。Windowsは追加DLLを要求しないx64 CPUビルドです。Windowsの導入は[Windows版](windows.md)を参照してください。
+macOS / Windows配布版はCPU種別に対応したllama.cpp実行ファイルを同梱します。macOSは `pnpm run llama:prepare:mac` で公式b7849のIntel / Apple SiliconアーカイブをSHA256検証して用意します。AI実行環境はIntelでmacOS 13.3以降、Apple Siliconで14以降です。Windowsは追加DLLを要求しないx64 CPUビルドです。Windowsの導入は[Windows版](windows.md)を参照してください。
 
 ## Binary Resolution
 
@@ -28,7 +28,7 @@ The app searches for the llama.cpp binary in this order.
    - `<resources>/llama/<platform>/`
    - `<resources>/llama/`
 3. Development paths:
-   - `.cache/llama/<platform>-<arch>/` (verified Windows build)
+   - `.cache/llama/<platform>-<arch>/` (verified platform/architecture runtime)
    - `public/llama/<platform>/`
    - `public/llama/`
 

@@ -7,7 +7,7 @@ SporTagLytics は local-first の Electron desktop app です。このドキュ�
 - 映像、タイムライン、プレイリスト、分析データはユーザーのローカルディスクに保存されます。
 - 現行アプリは cloud sync、telemetry、remote analytics、cloud LLM provider を実装していません。
 - AI 分析はローカル llama.cpp 実行を標準境界とし、外部 API へ映像やタイムラインを送信しません。
-- YouTube音声アシストは、macOS 13以降でユーザーが明示的に開始した時だけ表示中のシステム再生音を取得し、メモリ上で解析します。取得音声はファイルへ保存しません。
+- YouTube音声アシストは、macOS 13以降またはWindowsでユーザーが明示的に開始した時だけ表示中のシステム再生音を取得し、メモリ上で解析します。取得音声はファイルへ保存しません。
 - 将来 cloud LLM や外部送信を追加する場合は、ADR とユーザー向け docs の更新を必須とします。
 
 関連 ADR:
@@ -40,7 +40,7 @@ YouTube映像を再生する場合は、入力されたURLに基づいてYouTube
 
 ## System Audio Capture
 
-- macOS 13以降で、ユーザーが「音声で微調整」を押した場合だけloopback captureを許可します。
+- macOS 13以降またはWindowsで、ユーザーが「音声で微調整」を押した場合だけloopback captureを許可します。
 - OSのシステム音声取得許可が必要です。拒否または非対応環境では通常の手動配置を維持します。
 - 取得中は対象外のアプリ音声が混入する可能性があります。解析前に他アプリの音声を停止してください。
 - MediaStreamの全trackは解析終了、キャンセル、エラー時に停止し、取得データを永続化しません。

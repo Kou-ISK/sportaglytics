@@ -6,7 +6,7 @@ Windows固有の導入・操作・互換性・検証の正本です。各機能�
 
 配布対象はWindows 11 x64です。GitHub Releaseの `SporTagLytics-Setup-<version>-x64.exe` からユーザー単位でインストールします。管理者権限、別途のFFmpeg、Python、Visual C++ランタイムを要求しない構成です。Windows ARMのネイティブ配布とLinux配布は対象外です。
 
-Windowsの署名証明書が設定されていないビルドは未署名です。SmartScreenや組織の実行ポリシーによって起動を制限される場合があります。macOSの署名・公証とWindowsのAuthenticode署名は別々に扱い、Windowsの未署名状態をmacOSにも適用しません。組織の制限を解除する手順は提供しません。
+Windowsの署名証明書が設定されていないビルドは未署名です。SmartScreenや組織の実行ポリシーによって起動を制限される場合があります。macOSの署名・公証とWindowsのAuthenticode署名は別々に扱い、Windowsの未署名状態をmacOSにも適用しません。
 
 ## 機能と操作
 

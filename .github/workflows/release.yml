@@ -99,7 +99,12 @@ jobs:
         run: pnpm run media:build:all-mac
 
       - name: Run Electron E2E
-        run: pnpm run test:e2e
+        env:
+          E2E_LLAMA_MODEL: .cache/testing/qwen-test.gguf
+        run: |
+          pnpm run llama:prepare:mac
+          node scripts/prepare-test-model.mjs
+          pnpm run test:e2e
 
       - name: Package for macOS (x64)
         timeout-minutes: 20
