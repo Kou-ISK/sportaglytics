@@ -75,6 +75,23 @@ const normalizePackagePath = (value: unknown): string | null => {
   return null;
 };
 
+const resolveExistingPackagePath = async (
+  packagePath: string,
+): Promise<string> => {
+  const api = getElectronApi();
+  // Older creation flows saved history without the extension added by main.
+  // Preserve any existing path; recover only when its .stpkg sibling exists.
+  if (
+    !packagePath.toLowerCase().endsWith('.stpkg') &&
+    api.checkFileExists &&
+    !(await api.checkFileExists(packagePath)) &&
+    (await api.checkFileExists(`${packagePath}.stpkg`))
+  ) {
+    return `${packagePath}.stpkg`;
+  }
+  return packagePath;
+};
+
 const preparePackagePathForOpen = async (
   packagePath: string,
 ): Promise<string> => {
@@ -103,11 +120,11 @@ export const pickPackagePath = async (
 ): Promise<string | null> => {
   const normalized = normalizePackagePath(preselectedPath);
   if (normalized) {
-    return normalized;
+    return resolveExistingPackagePath(normalized);
   }
 
   const selectedPath = await getElectronApi().openDirectory();
-  return selectedPath || null;
+  return selectedPath ? resolveExistingPackagePath(selectedPath) : null;
 };
 
 export const selectPackageDirectory = async (): Promise<string | null> => {

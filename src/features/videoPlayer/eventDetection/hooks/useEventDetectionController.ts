@@ -58,7 +58,12 @@ export const useEventDetectionController = ({
   activeCodeWindow,
   addTimelineDatas,
 }: UseEventDetectionControllerParams): UseEventDetectionControllerResult => {
-  const [open, setOpen] = useState(false);
+  // Initial mappings belong to this opening. Runtime metadata/code-window
+  // updates must not reload the catalog or replace a form being edited.
+  const [openContext, setOpenContext] = useState<{
+    codeWindow?: CodeWindowLayout;
+  } | null>(null);
+  const open = openContext !== null;
   const [loadingModels, setLoadingModels] = useState(false);
   const [models, setModels] = useState<EventDetectionModelInfo[]>([]);
   const [selectedModelKey, setSelectedModelKey] = useState('');
@@ -90,16 +95,17 @@ export const useEventDetectionController = ({
 
   useEffect(() => {
     return subscribeEventDetectionOpenRequest(() => {
-      setOpen(true);
+      setOpenContext((current) => current ?? { codeWindow: activeCodeWindow });
       setError(null);
       setSummary(null);
     });
-  }, []);
+  }, [activeCodeWindow]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!openContext) return;
     let active = true;
     setLoadingModels(true);
+    setSelectedModelKey('');
     void listEventDetectionModels()
       .then((availableModels) => {
         if (!active) return;
@@ -107,16 +113,13 @@ export const useEventDetectionController = ({
         const firstModel = availableModels[0];
         if (firstModel) {
           setSelectedModelKey(getModelKey(firstModel));
-          setMappings(buildEventDetectionMappings(firstModel, activeCodeWindow));
+          setMappings(
+            buildEventDetectionMappings(firstModel, openContext.codeWindow),
+          );
         } else {
           setSelectedModelKey('');
           setMappings([]);
         }
-        setSelectedAngleId((current) =>
-          angleOptions.some((angle) => angle.id === current)
-            ? current
-            : (angleOptions[0]?.id ?? ''),
-        );
       })
       .catch((loadError: unknown) => {
         if (!active) return;
@@ -133,7 +136,16 @@ export const useEventDetectionController = ({
     return () => {
       active = false;
     };
-  }, [activeCodeWindow, angleOptions, open]);
+  }, [openContext]);
+
+  useEffect(() => {
+    if (!open || running) return;
+    setSelectedAngleId((current) =>
+      angleOptions.some((angle) => angle.id === current)
+        ? current
+        : (angleOptions[0]?.id ?? ''),
+    );
+  }, [angleOptions, open, running]);
 
   useEffect(() => {
     return subscribeEventDetectionProgress((nextProgress) => {
@@ -147,7 +159,9 @@ export const useEventDetectionController = ({
     (modelKey: string): void => {
       if (running) return;
       setSelectedModelKey(modelKey);
-      const model = models.find((candidate) => getModelKey(candidate) === modelKey);
+      const model = models.find(
+        (candidate) => getModelKey(candidate) === modelKey,
+      );
       setMappings(
         model ? buildEventDetectionMappings(model, activeCodeWindow) : [],
       );
@@ -176,7 +190,9 @@ export const useEventDetectionController = ({
 
   const handleRun = useCallback((): void => {
     if (running || !selectedModel) return;
-    const angle = mediaAngles.find((candidate) => candidate.id === selectedAngleId);
+    const angle = mediaAngles.find(
+      (candidate) => candidate.id === selectedAngleId,
+    );
     if (!angle) {
       setError('解析するアングルを選択してください。');
       return;
@@ -269,7 +285,7 @@ export const useEventDetectionController = ({
 
   const handleClose = useCallback((): void => {
     if (running) return;
-    setOpen(false);
+    setOpenContext(null);
     setProgress(null);
   }, [running]);
 

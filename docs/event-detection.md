@@ -65,6 +65,8 @@ experimental候補は unattended な分析結果として扱わず、追加後�
 9. 候補を通常Timelineへ1回のhistory更新で追加する。
 10. 不要候補を削除し、必要に応じて範囲修正、見逃し追加、ラベル付け、Dashboard / Matrix / Playlistを行う。
 
+モデル一覧と初期設定はダイアログを開く時に読み込みます。開いている間の映像メタデータ・コードウィンドウ更新では再読み込みせず、編集中のしきい値や追加先を保持します。解析対象アングルがなくなった場合だけ、利用可能なアングルへ選択を更新します。
+
 自動検出専用Timelineや専用永続データモデルは持ちません。confidence thresholdのUI変更もmodel manifestや評価metricsを書き換えません。
 
 ## R&D境界
@@ -146,6 +148,14 @@ deployable model packはsource artifactではありません。
 raw videos、`.stpkg`、frames、research runs、checkpoints、private source metadataはここへ置かず、Gitにもcommitしません。
 
 ## Runner protocol
+
+### 映像パスと実行前検証
+
+新規作成直後のパッケージルートは、mainが返した`metaDataConfigFilePath`の保存先を正とします。入力名から組み立て直しません。mainが補う`.stpkg`、日本語・空白・`#`・`%`を含むパスを保ったまま、各クリップの`relativePath`を解決します。履歴にも同じパッケージルートを保存します。
+
+mainはランナー起動前に、要求された全クリップが読み取り可能な通常ファイルであることを確認します。欠落したクリップを黙って除外して部分的な検出結果を返しません。見つからないファイルやアクセスできないファイルは、対象パスと復旧方法を表示します。この検査はモデルの精度評価とは独立しています。
+
+### 実行契約
 
 Electron main processはrunnerを次の形で起動します。
 

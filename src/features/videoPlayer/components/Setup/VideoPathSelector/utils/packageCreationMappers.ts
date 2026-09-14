@@ -58,9 +58,15 @@ export const buildMetaDataConfig = (
 
 export const buildPackageLoadResult = (
   packageDatas: PackageDatas,
-  packageDirectory: string,
-  form: WizardFormState,
 ): PackageLoadResult => {
+  // Main adds the package extension. Use its persisted location, not the form name.
+  const packagePath = packageDatas.metaDataConfigFilePath.replace(
+    /[/\\]\.metadata[/\\]config\.json$/,
+    '',
+  );
+  if (packagePath === packageDatas.metaDataConfigFilePath || !packagePath) {
+    throw new Error('作成したパッケージの保存先を確認できませんでした。');
+  }
   const videoList = packageDatas.angles
     .map((angle) => angle.absolutePath)
     .filter((source) => source.trim().length > 0);
@@ -70,7 +76,7 @@ export const buildPackageLoadResult = (
     syncData: undefined,
     timelinePath: packageDatas.timelinePath,
     metaDataConfigFilePath: packageDatas.metaDataConfigFilePath,
-    packagePath: `${packageDirectory}/${form.packageName}`,
+    packagePath,
     mediaAngles: packageDatas.angles.map((angle) => ({
       id: angle.id,
       name: angle.name,
@@ -82,7 +88,7 @@ export const buildPackageLoadResult = (
           clip.sourceKind === 'youtube'
             ? (clip.sourceUrl ?? '')
             : clip.relativePath
-              ? `${packageDirectory}/${form.packageName}/${clip.relativePath}`
+              ? `${packagePath}/${clip.relativePath}`
               : '',
         gapBeforeSeconds: clip.gapBeforeSeconds,
         timelineStartSeconds: clip.timelineStartSeconds ?? 0,
