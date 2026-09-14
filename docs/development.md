@@ -149,7 +149,11 @@ Electron main manager / child process
 
 実作業では、少数の高Precision候補だけを出すより、**ほぼ全イベントを候補として出して不要なものを削除する**workflowを優先します。そのためruntime minimumはRecall優先で、model採用時にはprivate R&D側でfalse positives per match、処理時間、manual edit operations、手Coding比の作業時間削減まで確認します。
 
+モデル一覧の取得Effectは、ダイアログを開いた時のコンテキストだけに依存させます。頻繁に更新される映像・コードウィンドウの参照を取得条件に含めると、操作中のフォームが消えて入力値も初期化されます。アングル選択の整合性確認は一覧取得から分離し、Controllerの回帰テストで入力維持と閉じた画面への遅延応答の無視を確認します。
+
 ### Model packとアプリ本体を分離する
+
+映像参照の不具合はモデル更新と分けて検証します。`pnpm run test:e2e:event-detection`は、拡張子なしの入力名で複数クリップのパッケージを新規作成し、直後の検出要求・Timeline保存・履歴からの復帰を確認します。公開CIでは入力ファイルを検査する決定的なモデルstubを使い、モデル重みや実試合映像を取得しません。実モデルの動作確認を行う場合は、検証した映像区間と推論の完了を記録し、精度評価とは区別してください。
 
 ```text
 Renderer

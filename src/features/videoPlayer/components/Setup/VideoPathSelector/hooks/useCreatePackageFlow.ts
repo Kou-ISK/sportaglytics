@@ -105,7 +105,7 @@ export const useCreatePackageFlow = ({
           throw new Error('Failed to create package');
         }
 
-        onPackageCreated(buildPackageLoadResult(packageDatas, directory, form));
+        onPackageCreated(buildPackageLoadResult(packageDatas));
         onClose();
       } catch (error) {
         console.error('パッケージ作成に失敗しました:', error);

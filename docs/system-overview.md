@@ -154,7 +154,11 @@ AI実行ファイルはOSとCPU種別ごとに検証して同梱します。モ�
 - `domain/eventDetectionMappings.ts`: event mapping、manifest初期threshold、ユーザー入力の正規化
 - `domain/candidatesToTimeline.ts`: confidence filter、lead/lag、重複除外、Timeline変換
 
+モデル一覧取得と初期mappingの生成はダイアログを開く操作に紐づけます。背景の映像・コードウィンドウ更新でフォームを再読み込みせず、ユーザーが入力した設定を保持します。
+
 UIは `分析 > 自動イベント検出…` から開きます。検出後のeventは通常 `TimelineData` になり、専用AI Timelineやreview queueは持ちません。
+
+新規作成時のパッケージルートとクリップのパスは、mainが返したメタデータの実保存先から解決します。入力名とmainが補う拡張子の差をRendererへ持ち込みません。`electron/src/eventDetection/inputValidation.ts`で全入力ファイルの存在・種類・読み取り権限を確認し、失敗時はランナーや一時リクエストを作成する前に対象パス付きで通知します。
 
 同一run内の重複候補はconfidence順で選び、採用後に時刻順へ並べます。既存Timelineの編集内容は優先して保持します。モデル側の精度比較は前処理・走査間隔・重複抑制・thresholdを固定した評価に基づきます。詳細は[検出精度の改善と評価](event-detection.md#検出精度の改善と評価)を参照してください。
 

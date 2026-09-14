@@ -9,6 +9,7 @@ import type {
 } from '../../../src/types/eventDetection/core';
 import { isEventDetectionResult } from '../../../src/types/ipc/eventDetection';
 import type { RunnableEventDetectionModel } from './types';
+import { validateEventDetectionClips } from './inputValidation';
 import {
   registerEventDetectionProcess,
   unregisterEventDetectionProcess,
@@ -60,6 +61,7 @@ export const runEventDetectionProcess = async ({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   onProgress,
 }: RunEventDetectionParams): Promise<EventDetectionResult> => {
+  await validateEventDetectionClips(request.clips);
   const tempDirectory = app.getPath('temp');
   const safeRequestId = request.requestId.replace(/[^a-zA-Z0-9_-]/g, '_');
   const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
