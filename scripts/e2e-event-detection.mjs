@@ -53,23 +53,27 @@ try {
       // the wizard -> detection -> Timeline contract, not model accuracy.
       const fs = process.getBuiltinModule('fs');
       ipcMain.removeHandler('event-detection:list-models');
-      ipcMain.handle('event-detection:list-models', () => [
-        {
-          id: 'e2e-input-contract',
-          version: '1',
-          displayName: 'E2E Input Contract',
-          status: 'experimental',
-          events: ['lineout'],
-          metrics: {
-            lineout: {
-              precision: 1,
-              recall: 1,
-              evaluatedMatches: 1,
-              confidenceThreshold: 0.5,
+      globalThis.e2eEventModelLoads = 0;
+      ipcMain.handle('event-detection:list-models', () => {
+        globalThis.e2eEventModelLoads += 1;
+        return [
+          {
+            id: 'e2e-input-contract',
+            version: '1',
+            displayName: 'E2E Input Contract',
+            status: 'experimental',
+            events: ['lineout'],
+            metrics: {
+              lineout: {
+                precision: 1,
+                recall: 1,
+                evaluatedMatches: 1,
+                confidenceThreshold: 0.5,
+              },
             },
           },
-        },
-      ]);
+        ];
+      });
       ipcMain.removeHandler('event-detection:run');
       ipcMain.handle('event-detection:run', (_event, request) => {
         for (const clip of request.clips) {
@@ -144,6 +148,11 @@ try {
     .getByText(/1件をタイムラインに追加しました/)
     .waitFor({ timeout: 10000 });
 
+  assert.equal(
+    await app.evaluate(() => globalThis.e2eEventModelLoads),
+    1,
+    'Metadata and coding updates must not reload the open detection form',
+  );
   const request = await app.evaluate(() => globalThis.e2eEventRequest);
   const config = JSON.parse(
     await fs.readFile(
