@@ -103,6 +103,8 @@ E2E:
 pnpm run test:e2e
 ```
 
+Paintの入力変更では、pointermoveが省略される短いドラッグ、停止直後の時刻更新、明示的なシークによる取消を確認します。追尾表示は再生時計ではなく表示フレームの`mediaTime`で描画し、低速の端数移動を連続させても量子化誤差が蓄積しないことを検証します。`e2e-paint.mjs`は描画の再試行をせず、連続操作ごとの図形数と保存内容を確認します。
+
 GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Vitestを実行します。
 
 ## アーキテクチャ
@@ -198,6 +200,12 @@ UIはmanifestの`confidenceThreshold`を初期値として表示し、runごと�
 - 高くする: false positiveを減らしやすい一方、見逃しが増えやすい
 
 入力値はdomain層で有限値・範囲を正規化します。ユーザー変更はmanifestや保存済み評価metricsを書き換えません。
+
+`candidatesToTimeline`では同一runの重複についてconfidenceが高い候補を優先し、返却時だけ時刻順に並べます。配列の順序を逆転したケースと、手動編集した既存イベントを高confidence候補でも置き換えないケースを回帰テストに含めます。
+
+model packの精度検証ではcheckpointとthresholdに加え、評価時の前処理・走査間隔・重複抑制も一致させます。Validationだけで改善したモデルを`verified`と表示しません。モデル選択・再評価はprivate R&D側で実施し、元映像や評価用データを本体のテストfixtureへコピーしないでください。
+
+R&Dの`refine_head`は、既存Codingの区間内を優先する正例抽出と、同期したTrainの追加カメラを比較します。凍結したX3Dの特徴を再利用し、寄り映像だけの候補・引き映像を加えた候補・重複抑制だけの比較対象を記録します。既存の網羅性メタデータがないだけで再Codingを要求せず、完成版の出典と確認根拠を残してください。比較手順の正本はprivate R&D側の`docs/head-refinement.md`です。比較用checkpointを作っただけでは、本体の同梱model packは更新されません。
 
 ### Private R&D boundary
 

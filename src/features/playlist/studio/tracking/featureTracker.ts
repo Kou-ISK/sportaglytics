@@ -94,7 +94,11 @@ const trackFeatureScale = (
   }
   const median = (values: number[]): number => {
     values.sort((a, b) => a - b);
-    return values.length ? values[Math.floor(values.length / 2)] : 0;
+    if (!values.length) return 0;
+    const middle = Math.floor(values.length / 2);
+    return values.length % 2
+      ? values[middle]
+      : (values[middle - 1] + values[middle]) / 2;
   };
   return {
     points: inliers.map((match) => match.point),
