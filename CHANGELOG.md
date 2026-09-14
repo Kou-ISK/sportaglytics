@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-09-14
+
+### Fixed
+
+- 新規作成直後のパッケージ・クリップ参照から`.stpkg`が抜け、自動イベント検出が`video file is missing`で失敗する問題を修正。実際に作成された保存先を使い、旧版の拡張子なし履歴も実在確認後に開けるようにした。
+- 自動イベント検出の開始前に全映像ファイルの存在・種類・読み取り権限を確認し、失敗時は対象ファイルと対処方法を表示する。
+
 ## [0.13.2] - 2026-09-14
 
 ### Fixed

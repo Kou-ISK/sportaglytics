@@ -151,6 +151,8 @@ Electron main manager / child process
 
 ### Model packとアプリ本体を分離する
 
+映像参照の不具合はモデル更新と分けて検証します。`pnpm run test:e2e:event-detection`は、拡張子なしの入力名で複数クリップのパッケージを新規作成し、直後の検出要求・Timeline保存・履歴からの復帰を確認します。公開CIでは入力ファイルを検査する決定的なモデルstubを使い、モデル重みや実試合映像を取得しません。実モデルの動作確認を行う場合は、検証した映像区間と推論の完了を記録し、精度評価とは区別してください。
+
 ```text
 Renderer
   ↓ window.electronAPI.eventDetection

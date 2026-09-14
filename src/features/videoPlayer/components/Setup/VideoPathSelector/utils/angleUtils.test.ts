@@ -76,18 +76,14 @@ describe('multi-angle package mapping', () => {
     expect(result[0].clips[1].gapBeforeSeconds).toBe(4.5);
   });
 
-  it('uses the directory selected during the final create action', () => {
-    const result = buildPackageLoadResult(
-      {
-        timelinePath: '/chosen/match.stpkg/timeline.json',
-        tightViewPath: '',
-        wideViewPath: null,
-        angles: [],
-        metaDataConfigFilePath: '/chosen/match.stpkg/.metadata/config.json',
-      },
-      '/chosen',
-      { packageName: 'match.stpkg', team1Name: 'A', team2Name: 'B' },
-    );
+  it('uses the actual package directory when main adds the extension', () => {
+    const result = buildPackageLoadResult({
+      timelinePath: '/chosen/match.stpkg/timeline.json',
+      tightViewPath: '',
+      wideViewPath: null,
+      angles: [],
+      metaDataConfigFilePath: '/chosen/match.stpkg/.metadata/config.json',
+    });
 
     expect(result.packagePath).toBe('/chosen/match.stpkg');
   });

@@ -71,6 +71,8 @@ SporTagLytics側では次を確認します。
 - Timeline reopen menu
 - verified manifest / runner SHA-256 / path traversal validation
 - request/result IPC validation
+- 新規作成直後の全クリップの実パス、Windows/UNCのパス、拡張子なしで保存された旧履歴の復元
+- 欠落・ディレクトリ・読み取り不能の入力をランナー起動前に拒否し、対象ファイルを案内
 - cancel / timeout / bounded child process behavior
 
 Runtime quality gateはRecall優先です。最低条件はclassごとにRecall >= 0.95、match-level unseen evaluation >= 5で、Precisionは有限な0〜1の値として記録します。
@@ -89,10 +91,13 @@ Public repositoryのCIやtest fixtureへ、実チーム名、実試合名、ロ�
 pnpm run test:e2e
 ```
 
+`test:e2e:event-detection`は新規作成ウィザードから、ローカル映像2本の追加、直後の検出要求、通常Timelineへの保存、実パスでの履歴登録、旧履歴からの再オープンを検証します。OSの選択結果とモデルIPCだけをstub化し、パッケージ作成・入力ファイルの読み取り確認・Timeline永続化は実処理を使います。このE2Eは学習済みモデルの精度や全試合推論の証拠にはしません。Windowsではインストール後の検証にも含めます。
+
 個別:
 
 ```bash
 pnpm run test:e2e:clip-sync
+pnpm run test:e2e:event-detection
 pnpm run test:e2e:code-window-menu
 pnpm run test:e2e:export-progress
 pnpm run test:e2e:timeline-rows
