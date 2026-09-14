@@ -137,7 +137,7 @@ The workflow validates that the version/tag agree and the tagged commit belongs 
 ### Electron E2E failed
 
 - DMG / GitHub Release / Homebrew update は実行されません。
-- failing script (`e2e-clip-sync`, `e2e-code-window-menu`, `e2e-export-progress`, `e2e-timeline-rows`, `e2e-paint`) とその前段の build/preload/media-tool log を確認します。
+- failing script (`e2e-clip-sync`, `e2e-code-window-menu`, `e2e-export-progress`, `e2e-timeline-rows`, `e2e-paint`, `e2e-package-reopen`) とその前段の build/preload/media-tool log を確認します。
 - 修正は通常の work branch → `develop` PR で行い、release preparation をやり直します。
 
 ### macOS signing keychain unlock failed

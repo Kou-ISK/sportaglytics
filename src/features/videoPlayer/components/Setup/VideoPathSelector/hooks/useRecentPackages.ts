@@ -10,7 +10,14 @@ import {
 
 export type { RecentPackage } from '../types';
 
-export const useRecentPackages = () => {
+interface RecentPackagesState {
+  recentPackages: RecentPackage[];
+  addRecentPackage: (packageInfo: Omit<RecentPackage, 'lastOpened'>) => void;
+  removeRecentPackage: (path: string) => void;
+  clearRecentPackages: () => void;
+}
+
+export const useRecentPackages = (): RecentPackagesState => {
   const [recentPackages, setRecentPackages] = useState<RecentPackage[]>([]);
 
   useEffect(() => {
@@ -19,31 +26,28 @@ export const useRecentPackages = () => {
 
   const addRecentPackage = useCallback(
     (packageInfo: Omit<RecentPackage, 'lastOpened'>) => {
-      setRecentPackages((prev) => {
-        const filtered = prev.filter((p) => p.path !== packageInfo.path);
-        const updated = [
-          {
-            ...packageInfo,
-            lastOpened: Date.now(),
-          },
-          ...filtered,
-        ].slice(0, MAX_RECENT_PACKAGES);
-
-        saveRecentPackagesToStorage(updated);
-        syncRecentPackagesMenu(updated);
-        return updated;
-      });
+      // Metadata loading can finish after the launcher unmounts. Persist before
+      // updating React state, and merge against storage shared by live windows.
+      const updated = [
+        { ...packageInfo, lastOpened: Date.now() },
+        ...loadRecentPackagesFromStorage().filter(
+          (p) => p.path !== packageInfo.path,
+        ),
+      ].slice(0, MAX_RECENT_PACKAGES);
+      saveRecentPackagesToStorage(updated);
+      syncRecentPackagesMenu(updated);
+      setRecentPackages(updated);
     },
     [],
   );
 
   const removeRecentPackage = useCallback((path: string) => {
-    setRecentPackages((prev) => {
-      const updated = prev.filter((p) => p.path !== path);
-      saveRecentPackagesToStorage(updated);
-      syncRecentPackagesMenu(updated);
-      return updated;
-    });
+    const updated = loadRecentPackagesFromStorage().filter(
+      (p) => p.path !== path,
+    );
+    saveRecentPackagesToStorage(updated);
+    syncRecentPackagesMenu(updated);
+    setRecentPackages(updated);
   }, []);
 
   const clearRecentPackages = useCallback(() => {

@@ -152,6 +152,8 @@ const createWindow = async (): Promise<BrowserWindow> => {
 
   registerYoutubeEmbedClientIdentity(window.webContents.session);
   applyWindowSecurity(window);
+  // Capture ownership while the window is live: `closed` runs after destruction.
+  const packageSession = createPackageSession(window);
   const preloadReadyTimeout = setTimeout(() => {
     if (!window.isDestroyed()) {
       console.error(
@@ -172,14 +174,10 @@ const createWindow = async (): Promise<BrowserWindow> => {
     ipcMain.removeListener('preload:ready', handlePreloadReady);
     closeTimelineWindowForMainWindow(window);
     closePlaylistWindowsForMainWindow(window);
-    const packageSession = getPackageSessionForWindow(window);
-    if (packageSession) {
-      closePackageSessionWindows(packageSession);
-      removePackageSession(packageSession);
-    }
+    closePackageSessionWindows(packageSession);
+    removePackageSession(packageSession);
   });
   mainWindow = window;
-  createPackageSession(window);
   setMainWindowRef(window);
   setAnalysisMainWindowRef(window);
   setCodingPanelMainWindowRef(window);

@@ -107,13 +107,12 @@ export const useTimelineLaneController = ({
     const current = items.find((item) => item.id === edgeDraft.original.id);
     if (
       !current ||
-      !selectedIds.includes(current.id) ||
       current.startTime !== edgeDraft.original.startTime ||
       current.endTime !== edgeDraft.original.endTime
     ) {
       activeDragCleanupRef.current?.();
     }
-  }, [edgeDraft, items, selectedIds]);
+  }, [edgeDraft, items]);
 
   const teamName = actionName.split(' ')[0];
   const isTeam1 = teamName === firstTeamName;
@@ -129,7 +128,6 @@ export const useTimelineLaneController = ({
         event.button !== 0 ||
         !event.altKey ||
         !(event.metaKey || event.ctrlKey) ||
-        !selectedIds.includes(item.id) ||
         !onUpdateTimeRange
       ) {
         return;
@@ -182,7 +180,7 @@ export const useTimelineLaneController = ({
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', finish);
     },
-    [clientXToContentX, maxSec, onUpdateTimeRange, positionToTime, selectedIds],
+    [clientXToContentX, maxSec, onUpdateTimeRange, positionToTime],
   );
 
   const handleRangeCreateMouseDown = useCallback(
@@ -282,7 +280,7 @@ export const useTimelineLaneController = ({
     ),
     selectedIds,
     hoveredItemId,
-    focusedItemId,
+    focusedItemId: edgeDraft?.original.id ?? focusedItemId,
     onHoverChange,
     onItemClick,
     onItemContextMenu,

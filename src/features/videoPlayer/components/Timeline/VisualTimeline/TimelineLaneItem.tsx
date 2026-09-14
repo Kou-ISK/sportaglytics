@@ -103,7 +103,14 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
         role="button"
         tabIndex={0}
         aria-pressed={isSelected}
-        onClick={(event) => onItemClick(event, item.id)}
+        onClick={(event) => {
+          // A modified edge drag edits its target without toggling selection.
+          if (event.altKey && (event.metaKey || event.ctrlKey)) {
+            event.stopPropagation();
+            return;
+          }
+          onItemClick(event, item.id);
+        }}
         onContextMenu={(event) => onItemContextMenu(event, item.id)}
         draggable={Boolean(onMoveItem) && !isEditModifierPressed}
         onDragStart={(event) => {

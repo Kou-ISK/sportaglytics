@@ -306,12 +306,20 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | 起動画面 | `Workspace/Start`: 初回、履歴検索、空/該当なし、長い保存先、ロード中、エラー再試行、drop                                                                               | [起動画面](start-workspace.md)                   |
 | 再生操作 | `Design System/Composites/Movie Transport`、`Workspace/Transport`: 半透明、送り量のラベル、描画目印                                                                    | [デザインシステム](design-system.md)             |
-| Timeline | `Workspace/Timeline/Continuous`、Context Menu: ズーム・スクロール後のruler/行/再生線一致、つまみのみのシーク、端の編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
+| Timeline | `Workspace/Timeline/Continuous`、Context Menu: ズーム・スクロール後のruler/行/再生線一致、つまみのみのシーク、未選択の端編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
 | Paint    | `Workspace/Playlist/Paint`: Interactive、Empty、Player Graphics、Video Tracking、Keyframe Editing、Inspector Layout、Collapsed Inspector                               | [Paint](tactics.md)                              |
 
 共通してdark/light、600/800/1280px、長い名称、キーボード、空状態・失敗状態を確認します。Paintでは点/描画の削除とUndo、入力欄のBackspace、リンクの連続クリック、追尾の範囲指定→適用→手修正→再追尾、パネル開閉時の状態保持を確認します。時間目盛りの入力は `useStudioRulerInput` でRAFにまとめるため、連続入力と動画側の追従も確認します。
 
 実機のファイルダイアログ・Finder/Explorerドロップ・保存再読込・Package Session・FFmpeg出力はStorybookと別に確認します。追尾の合成WebMや公開人物映像での結果と、利用者の試合映像での精度は区別して報告します。
+
+同じパッケージの閉じる→再openは `pnpm run test:e2e:package-reopen` で確認します。履歴の登録は画面unmount後の完了も検証対象です。テストの概要とプラットフォームごとの範囲は[起動画面の検証](start-workspace.md#検証)を参照してください。
+
+### Sportscodeのインスタンス操作を参照する場合
+
+[現行の公式機能比較](https://www.hudl.com/products/sportscode/tiers)には、Timelineからのトリム・延長・結合、複数インスタンスの長さ調整と左右移動、複製、playheadへの整列が記載されています。[公式更新履歴](https://www.hudl.com/releases/sportscode)の12.2.30では、Command+Control+Zで全インスタンス、Command+Control+Xでplayheadより右側をドラッグ移動し、Align All / Align RightはOption+Z / Option+Xとしています。これは公開更新履歴に記載された割り当てであり、旧Sportscode 11のPDFを最新操作の根拠にはしません。
+
+本アプリの実装済み操作は[タイムライン編集](user-guide.md#タイムライン編集)が正本です。端の直接調整、Option/Altでの行間コピー、Cmd/Ctrl+C/V、削除、Undo/Redo、同じ行の前後へのジャンプは利用できます。上記の全体移動・右側一括移動・playhead整列の専用修飾キー操作とインスタンス結合は未実装です。採用する場合は、対象範囲、時間の上下限、複数件を1回で戻す履歴、既存Undo/Redoとのキー競合をまとめて扱います。
 
 ヘルプ本文のUIは `electron/src/helpDocument.ts`、ウィンドウ生成は `helpWindow.ts` に分離します。操作を変更したら該当する機能仕様とアプリ内ヘルプを同期し、変更履歴は正本への入口として要約します。
 

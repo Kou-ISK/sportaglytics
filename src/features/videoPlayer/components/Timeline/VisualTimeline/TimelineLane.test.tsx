@@ -122,26 +122,21 @@ describe('TimelineLane', () => {
     expect(onCreateItem).not.toHaveBeenCalled();
   });
 
-  it('requires a selected instance plus Option + Command to resize an edge', () => {
+  it('requires Option + Command but does not require prior selection to resize an edge', () => {
     const onUpdateTimeRange = vi.fn();
     renderLane({ onUpdateTimeRange });
 
     fireEvent.mouseDown(screen.getByLabelText('開始位置を調整'), {
       altKey: true,
-      metaKey: true,
+      metaKey: false,
     });
     fireEvent.mouseMove(document, { clientX: 50 });
     fireEvent.mouseUp(document);
     expect(onUpdateTimeRange).not.toHaveBeenCalled();
 
-    cleanup();
-    renderLane({
-      onUpdateTimeRange,
-      selectedIds: ['instance-1'],
-    });
     fireEvent.mouseDown(screen.getByLabelText('開始位置を調整'), {
-      altKey: true,
-      metaKey: false,
+      altKey: false,
+      metaKey: true,
     });
     fireEvent.mouseMove(document, { clientX: 50 });
     fireEvent.mouseUp(document);
@@ -154,6 +149,32 @@ describe('TimelineLane', () => {
     fireEvent.mouseMove(document, { clientX: 50 });
     fireEvent.mouseUp(document);
     expect(onUpdateTimeRange).toHaveBeenCalledWith('instance-1', 5, 20);
+  });
+
+  it('resizes an unselected instance with Alt + Ctrl without changing the other selection', () => {
+    const onUpdateTimeRange = vi.fn();
+    const onItemClick = vi.fn();
+    renderLane({
+      onUpdateTimeRange,
+      onItemClick,
+      selectedIds: ['other-instance'],
+    });
+    const edge = screen.getByLabelText('終了位置を調整');
+    fireEvent.mouseDown(edge, { altKey: true, ctrlKey: true });
+    fireEvent.mouseMove(document, { clientX: 250 });
+    expect(
+      getComputedStyle(screen.getByTestId('timeline-instance-instance-1'))
+        .width,
+    ).toBe('150px');
+    expect(onUpdateTimeRange).not.toHaveBeenCalled();
+    fireEvent.mouseUp(document);
+    fireEvent.click(edge, { altKey: true, ctrlKey: true });
+    expect(onUpdateTimeRange).toHaveBeenCalledExactlyOnceWith(
+      'instance-1',
+      10,
+      25,
+    );
+    expect(onItemClick).not.toHaveBeenCalled();
   });
 
   it('discards the resize preview when the edit modifier is released', () => {

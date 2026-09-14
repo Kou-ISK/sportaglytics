@@ -454,22 +454,67 @@ try {
     'Option alone must not resize an instance',
   );
 
-  await page.getByTestId('timeline-instance-instance-1').click();
+  await page
+    .getByTestId('timeline-lane-Defence')
+    .click({ position: { x: 3, y: 20 } });
+  assert.equal(
+    await page
+      .getByTestId('timeline-instance-instance-1')
+      .getAttribute('aria-pressed'),
+    'false',
+  );
   await page.keyboard.down('Alt');
   await page.keyboard.down(primaryModifier);
   const startHandleBox = await startHandle.boundingBox();
   assert.ok(startHandleBox, 'start resize handle must be visible');
-  await page.mouse.move(startHandleBox.x + 2, startHandleBox.y + 5);
-  await page.mouse.down();
-  await page.mouse.move(startHandleBox.x + 50, startHandleBox.y + 5);
-  await page.mouse.up();
+  // Explicit CDP modifiers also work when Electron's native key state belongs
+  // to the video window. The DOM still receives real browser mouse events.
+  const cdp = await page.context().newCDPSession(page);
+  const modifiers = process.platform === 'darwin' ? 5 : 3;
+  await cdp.send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    button: 'left',
+    buttons: 1,
+    clickCount: 1,
+    modifiers,
+    x: startHandleBox.x + 2,
+    y: startHandleBox.y + 5,
+  });
+  await cdp.send('Input.dispatchMouseEvent', {
+    type: 'mouseMoved',
+    buttons: 1,
+    modifiers,
+    x: startHandleBox.x + 50,
+    y: startHandleBox.y + 5,
+  });
+  await cdp.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    button: 'left',
+    buttons: 0,
+    clickCount: 1,
+    modifiers,
+    x: startHandleBox.x + 50,
+    y: startHandleBox.y + 5,
+  });
+  await cdp.detach();
   await page.keyboard.up(primaryModifier);
   await page.keyboard.up('Alt');
-  await page.waitForTimeout(400);
-  // The cross-window edge-resize behavior is covered by the component test.
-  // The native modifier state is not reliably observable through synthetic
-  // mouse events in Electron's Playwright harness.
-  console.log('Timeline edge modifier input dispatched');
+  const resizedDocument = await waitForTimeline(
+    (doc) =>
+      doc.instances.find((item) => item.id === 'instance-1')?.startTime > 0.5,
+  );
+  const resized = resizedDocument.instances.find(
+    (item) => item.id === 'instance-1',
+  );
+  assert.ok(resized.startTime > 0.5 && resized.startTime < resized.endTime);
+  assert.equal(resized.endTime, 1.5);
+  assert.equal(
+    await page
+      .getByTestId('timeline-instance-instance-1')
+      .getAttribute('aria-pressed'),
+    'false',
+  );
+  console.log('Unselected timeline edge resize persisted');
 
   const playhead = page.getByTestId('timeline-playhead-Defence');
   await page.keyboard.down('Alt');

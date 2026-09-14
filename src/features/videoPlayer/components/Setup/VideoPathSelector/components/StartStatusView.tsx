@@ -12,6 +12,7 @@ export interface StartStatusProps {
   busy?: boolean;
   error?: string;
   errorDetails?: string;
+  invalidDrop?: boolean;
   onRetry?: () => void;
   onDismissError?: () => void;
 }
@@ -19,6 +20,7 @@ export const StartStatusView = ({
   busy,
   error,
   errorDetails,
+  invalidDrop = false,
   onRetry,
   onDismissError,
 }: StartStatusProps): ReactElement | null => {
@@ -39,11 +41,17 @@ export const StartStatusView = ({
       onClose={onDismissError}
       sx={{ '& .MuiAlert-message': { minWidth: 0, width: '100%' } }}
     >
-      <AlertTitle>パッケージを開けませんでした</AlertTitle>
+      <AlertTitle>
+        {invalidDrop
+          ? 'ドロップしたファイルを確認してください'
+          : 'パッケージを開けませんでした'}
+      </AlertTitle>
       {error}
-      <Typography variant="body2" sx={{ mt: 1 }}>
-        ファイルの移動や外付けドライブの接続を確認し、もう一度お試しください。別の場所から開き直すこともできます。
-      </Typography>
+      {!invalidDrop && (
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          ファイルの移動や外付けドライブの接続を確認し、もう一度お試しください。別の場所から開き直すこともできます。
+        </Typography>
+      )}
       {errorDetails && (
         <Box
           component="details"
@@ -61,7 +69,7 @@ export const StartStatusView = ({
       )}
       <Stack direction="row" sx={{ mt: 1 }}>
         <Button color="inherit" onClick={onRetry}>
-          もう一度開く
+          {invalidDrop ? 'パッケージを選んで開く' : 'もう一度開く'}
         </Button>
       </Stack>
     </Alert>
