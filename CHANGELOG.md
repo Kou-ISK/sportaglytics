@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-09-14
+
+### Fixed
+
+- Timelineの端をOption+Command（WindowsはAlt+Ctrl）で直接ドラッグし、未選択のインスタンスも伸縮できるように修正。既存の選択と再生位置を維持する。
+- 映像ウィンドウを閉じた後にSessionとパス予約が残り、同じパッケージを再度開けなくなる問題を修正。ファイルを含まないドラッグを無視し、ドロップ形式の案内と読み込み失敗の復旧案内を分離。
+- 起動画面を離れた後にメタデータ取得が完了すると、最近開いたパッケージの履歴が保存されない問題を修正。
+
 ## [0.13.1] - 2026-09-14
 
 ### Changed

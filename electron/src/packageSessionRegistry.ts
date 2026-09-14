@@ -64,6 +64,7 @@ export const getPackageSessionForSender = (
   sender: unknown,
 ): PackageSession | null => {
   for (const session of sessions.values()) {
+    if (session.mainWindow.isDestroyed()) continue;
     if (getLiveWebContents(session.mainWindow) === sender) return session;
     for (const window of session.auxiliaryWindows) {
       if (getLiveWebContents(window) === sender) return session;
@@ -81,7 +82,8 @@ export const getPackageSessionForPackagePath = (
 ): PackageSession | null => {
   const normalized = normalizePackagePath(packagePath);
   for (const session of sessions.values()) {
-    if (session.packagePath === normalized) return session;
+    if (!session.mainWindow.isDestroyed() && session.packagePath === normalized)
+      return session;
   }
   return null;
 };

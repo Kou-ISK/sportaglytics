@@ -66,17 +66,18 @@ describe('timeline editing and seeking', () => {
     expect(getComputedStyle(item).borderColor).toBe(unselectedBorder);
   });
   it.each(['開始位置を調整', '終了位置を調整'])(
-    'changes %s while keeping playback fixed',
+    'changes unselected %s while keeping playback and selection fixed',
     (label) => {
       const item = screen.getByTestId('timeline-instance-row-0-1');
-      fireEvent.click(item);
       const edge = item.querySelector(`[aria-label="${label}"]`);
       if (!edge) throw new Error('Missing resize handle');
       fireEvent.mouseDown(edge, { button: 0, metaKey: true, altKey: true });
       fireEvent.mouseMove(document, { clientX: 250 });
       fireEvent.mouseUp(document);
+      fireEvent.click(edge, { metaKey: true, altKey: true });
       expect(update).toHaveBeenCalled();
       expect(seek).not.toHaveBeenCalled();
+      expect(item.getAttribute('aria-pressed')).toBe('false');
     },
   );
   it('does not seek from the ruler, while the top handle supports keyboard seeking', () => {

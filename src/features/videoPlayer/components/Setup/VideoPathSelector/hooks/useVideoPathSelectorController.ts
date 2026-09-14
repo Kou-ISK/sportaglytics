@@ -121,6 +121,7 @@ export const useVideoPathSelectorController = ({
     busy: opener.busy,
     error: opener.error,
     errorDetails: opener.errorDetails,
+    invalidDrop: opener.invalidDrop,
     onRetry: opener.retry,
     onDismissError: opener.dismissError,
     handleOpenPackage: () => void opener.open(),
