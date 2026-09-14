@@ -154,6 +154,10 @@ AI実行ファイルはOSとCPU種別ごとに検証して同梱します。モ�
 
 UIは `分析 > 自動イベント検出…` から開きます。検出後のeventは通常 `TimelineData` になり、専用AI Timelineやreview queueは持ちません。
 
+同一run内の重複候補はconfidence順で選び、採用後に時刻順へ並べます。既存Timelineの編集内容は優先して保持します。モデル側の精度比較は前処理・走査間隔・重複抑制・thresholdを固定した評価に基づきます。詳細は[検出精度の改善と評価](event-detection.md#検出精度の改善と評価)を参照してください。
+
+再学習では既存Codingの出典・時間軸と、追加Trainカメラの同期を確認します。メタデータ未記録をCoding不足とは扱いません。R&Dの比較用checkpoint、本体に採用したmodel pack、配布済みモデルの状態を区別し、Validation上の一致度改善だけで配布モデルを置き換えない運用です。
+
 model statusは `verified | experimental` の2状態です。experimentalを選ぶと`試験` badge、誤検出・見逃しの警告、Recall / Precision / evaluated matches / baseline confidence thresholdを表示します。confidence thresholdは0.00〜1.00でrunごとに変更できます。
 
 ### Shared contracts
@@ -283,6 +287,8 @@ UIの正本は `src/design-system/` のsemantic tokenとprops-only Viewです。
 Timelineの `useTimelineSeek` は上部つまみだけが使用し、行の区間編集・作成と単独選択は再生時刻を更新しません。伸縮中はlane hook内でプレビューし、確定時だけ永続化・履歴へ渡します。履歴のUndo/RedoはReactの描画待ちに依存せず保存対象を同期的に返します。明示的なジャンプと再生ホットキーは既存の経路を使います。空白クリックは選択IDとフォーカス枠を同時に解除し、範囲選択直後のclickでは選択結果を消さないよう抑止します。
 
 Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツール・パネル状態と、保存する注釈を分離します。`useStudioEditor` は編集の合成、`useStudioGesture` は描画ジェスチャー、`useStudioKeyframes` は位置キーの選択・時刻編集を所有します。ViewはIPC・永続化・URLを参照しません。
+
+描画ジェスチャーは開始時刻とpointer IDを保持し、明示的なシークのrevisionを再生時計と分離します。`useVideoFrameDrawing` は各映像のフレームcallbackから`mediaTime`を受け、その場でCanvasを更新します。再生時計のReact更新で表示中のフレーム位置を上書きせず、停止中は編集時刻を使います。保存する時刻・座標・キーフレームの形式は共通です。
 
 追尾は独立デコーダーで解析し、成功時に自動適用、部分結果は明示的に適用/破棄します。開始後の編集を古い結果で上書きしません。表示図形と独立した追尾範囲の判断は[ADR 0031](adr/0031-tracking-target-selection.md)、保存契約は[ADR 0029](adr/0029-tactics-motion-and-plane-contract.md)です。
 

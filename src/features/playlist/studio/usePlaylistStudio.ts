@@ -5,7 +5,6 @@ import { usePitchCalibration } from './usePitchCalibration';
 import type { PitchCalibrationControls } from './usePitchCalibration';
 import type { StudioContentRect } from './useStudioGesture';
 import { useTacticsTracking } from './tracking/useTacticsTracking';
-import { useAnnotationFrameClock } from '../hooks/playlist/useAnnotationFrameClock';
 import type { TacticsTimelineProps } from './TacticsTimelineView';
 import { useMemo, useRef, useState } from 'react';
 import type { AnnotationTarget } from '../../../types/playlist/core';
@@ -41,6 +40,7 @@ export const usePlaylistStudio = (
   const [grassError, setGrassError] = useState('');
   const [panel, setPanel] = useState<TacticsInspectorPanel>('draw');
   const [coachMode, setCoachMode] = useState(false);
+  const [seekRevision, setSeekRevision] = useState(0);
   const previousView = useRef(core.viewMode);
   const active = core.workspaceMode === 'studio';
   const target = core.drawingTarget;
@@ -54,6 +54,7 @@ export const usePlaylistStudio = (
     [annotations.currentAnnotation, target],
   );
   const seek = (time: number): void => {
+    setSeekRevision((value) => value + 1);
     if (core.isPlaying) core.setIsPlaying(false);
     playback.handleSeek(new Event('studio-seek'), time);
   };
@@ -67,6 +68,7 @@ export const usePlaylistStudio = (
     else playback.handleTogglePlay();
   };
   const editor = useStudioEditor({
+    seekRevision,
     onToolSelected: () => setPanel('draw'),
     onTogglePlayback: togglePlayback,
     chromaKey: annotations.currentAnnotation?.chromaKey?.[target],
@@ -117,19 +119,6 @@ export const usePlaylistStudio = (
     canUndo: history.canUndo,
     canRedo: history.canRedo,
   });
-  useAnnotationFrameClock(
-    core.videoRef,
-    core.isPlaying &&
-      !core.isFrozen &&
-      Boolean(
-        annotations.currentAnnotation?.objects.some(
-          (object) => object.motion,
-        ) ||
-        annotations.currentAnnotation?.chromaKey?.primary ||
-        annotations.currentAnnotation?.chromaKey?.secondary,
-      ),
-    core.setCurrentTime,
-  );
   const contentRect = secondary
     ? core.secondaryContentRect
     : core.primaryContentRect;

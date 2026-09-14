@@ -22,6 +22,93 @@ const pointer = (x: number, y: number): PointerEvent<HTMLCanvasElement> =>
     stopPropagation: vi.fn(),
   }) as unknown as PointerEvent<HTMLCanvasElement>; // Minimal synthetic event for the hook's pointer boundary.
 
+const drawingParams = {
+  documentKey: 'first-gesture',
+  enabled: true,
+  canvasRef: { current: canvas },
+  contentRect: { width: 800, height: 450, offsetX: 0, offsetY: 0 },
+  objects: [],
+  tool: 'arrow' as const,
+  color: '#ffffff',
+  strokeWidth: 4,
+  opacity: 1,
+  fill: false,
+  dashed: false,
+  time: 10,
+  target: 'primary' as const,
+  selectedId: null,
+  onSelect: vi.fn(),
+};
+
+it('commits a fast drag even when the browser only delivers down and up', () => {
+  const onCommit = vi.fn();
+  const { result } = renderHook(() =>
+    useStudioGesture({ ...drawingParams, onCommit }),
+  );
+  act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+  act(() => result.current.handlers.onPointerUp(pointer(240, 190)));
+  expect(onCommit).toHaveBeenCalledOnce();
+  expect(onCommit.mock.calls[0][0][0]).toMatchObject({ endX: 240, endY: 190 });
+});
+
+it('keeps a paused-frame gesture through a late playback clock update', () => {
+  const onCommit = vi.fn();
+  const { result, rerender } = renderHook(
+    ({ time }) => useStudioGesture({ ...drawingParams, time, onCommit }),
+    { initialProps: { time: 10 } },
+  );
+  act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+  act(() => result.current.handlers.onPointerMove(pointer(240, 190)));
+  rerender({ time: 10.000001 });
+  act(() => result.current.handlers.onPointerUp(pointer(250, 200)));
+  expect(onCommit).toHaveBeenCalledOnce();
+  expect(onCommit.mock.calls[0][0][0]).toMatchObject({
+    timestamp: 10,
+    endX: 250,
+    endY: 200,
+  });
+});
+
+it('cancels an explicit seek even within the same frame and ignores a second pointer', () => {
+  const onCommit = vi.fn();
+  const { result, rerender } = renderHook(
+    ({ seekRevision }) =>
+      useStudioGesture({ ...drawingParams, seekRevision, onCommit }),
+    { initialProps: { seekRevision: 0 } },
+  );
+  act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+  act(() =>
+    result.current.handlers.onPointerMove({
+      ...pointer(240, 190),
+      pointerId: 2,
+    }),
+  );
+  act(() =>
+    result.current.handlers.onPointerUp({ ...pointer(240, 190), pointerId: 2 }),
+  );
+  expect(onCommit).not.toHaveBeenCalled();
+  act(() => result.current.handlers.onPointerMove(pointer(200, 180)));
+  rerender({ seekRevision: 1 });
+  act(() => result.current.handlers.onPointerUp(pointer(240, 190)));
+  expect(onCommit).not.toHaveBeenCalled();
+});
+
+it('does not create an invisible shape from a click or save a gesture after a time jump', () => {
+  const onCommit = vi.fn();
+  const { result, rerender } = renderHook(
+    ({ time }) => useStudioGesture({ ...drawingParams, time, onCommit }),
+    { initialProps: { time: 10 } },
+  );
+  act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+  act(() => result.current.handlers.onPointerUp(pointer(100, 100)));
+  expect(onCommit).not.toHaveBeenCalled();
+  act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+  act(() => result.current.handlers.onPointerMove(pointer(200, 180)));
+  rerender({ time: 11 });
+  act(() => result.current.handlers.onPointerUp(pointer(240, 190)));
+  expect(onCommit).not.toHaveBeenCalled();
+});
+
 describe('Studio gesture transactions', () => {
   it('commits one history entry per drag using content coordinates', () => {
     const commit = vi.fn();
@@ -175,14 +262,16 @@ it('places players with individual clicks and commits the whole link once', () =
   );
   for (let index = 0; index < 6; index++) {
     act(() =>
-      result.current.handlers.onPointerDown(
-        pointer(100 + index * 35, 100 + index * 10),
-      ),
+      result.current.handlers.onPointerDown({
+        ...pointer(100 + index * 35, 100 + index * 10),
+        pointerId: index + 1,
+      }),
     );
     act(() =>
-      result.current.handlers.onPointerUp(
-        pointer(100 + index * 35, 100 + index * 10),
-      ),
+      result.current.handlers.onPointerUp({
+        ...pointer(100 + index * 35, 100 + index * 10),
+        pointerId: index + 1,
+      }),
     );
     act(() => result.current.handlers.onLostPointerCapture());
   }
