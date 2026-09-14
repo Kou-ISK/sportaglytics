@@ -110,4 +110,15 @@ describe('useStartPackageOpen', () => {
       expect(vi.mocked(subscribe).mock.results[0].value).toHaveBeenCalledOnce();
     }
   });
+  it('reports an invalid drop separately and lets the user choose a package to recover', async () => {
+    const onLoaded = vi.fn();
+    const { result } = renderHook(() => useStartPackageOpen(onLoaded));
+    act(() => result.current.reportInvalidDrop());
+    expect(result.current.invalidDrop).toBe(true);
+    expect(gateway.loadPackageDirectory).not.toHaveBeenCalled();
+    act(() => result.current.retry());
+    await waitFor(() => expect(onLoaded).toHaveBeenCalledWith(loaded.result));
+    expect(gateway.pickPackagePath).toHaveBeenLastCalledWith(undefined);
+    expect(result.current.invalidDrop).toBe(false);
+  });
 });

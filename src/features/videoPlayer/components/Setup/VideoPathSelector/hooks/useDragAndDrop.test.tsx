@@ -56,4 +56,16 @@ describe('package drop', () => {
     expect(open).not.toHaveBeenCalled();
     expect(invalid).not.toHaveBeenCalled();
   });
+  it('ignores text dragged within the launcher without reporting a package error', () => {
+    render(<Harness />);
+    fireEvent.dragEnter(screen.getByTestId('drop'), {
+      dataTransfer: { items: [{ kind: 'string' }], types: ['text/plain'] },
+    });
+    fireEvent.drop(screen.getByTestId('drop'), {
+      dataTransfer: { files: [], types: ['text/plain'] },
+    });
+    expect(open).not.toHaveBeenCalled();
+    expect(invalid).not.toHaveBeenCalled();
+    expect(resolveDroppedPackagePath).not.toHaveBeenCalled();
+  });
 });

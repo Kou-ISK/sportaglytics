@@ -24,6 +24,12 @@ export const useDragAndDrop = (
       event.preventDefault();
       event.stopPropagation();
       if (disabled) return;
+      if (
+        !Array.from(event.dataTransfer.items).some(
+          (item) => item.kind === 'file',
+        )
+      )
+        return;
       setDragState({
         isDragging: true,
         isValidDrop:
@@ -60,6 +66,12 @@ export const useDragAndDrop = (
         reset();
         if (disabled) return;
         const files = event.dataTransfer.files;
+        // Text dragged from a recent-package row is not an attempt to open a file.
+        if (
+          files.length === 0 &&
+          !Array.from(event.dataTransfer.types ?? []).includes('Files')
+        )
+          return;
         const path =
           files.length === 1 ? resolveDroppedPackagePath(files[0]) : '';
         if (path) onPackageDrop(path);

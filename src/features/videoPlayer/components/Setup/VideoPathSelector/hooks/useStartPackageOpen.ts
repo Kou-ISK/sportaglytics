@@ -14,6 +14,7 @@ export interface StartPackageOpen {
   busy: boolean;
   error: string;
   errorDetails: string;
+  invalidDrop: boolean;
   open: (path?: string) => Promise<void>;
   retry: () => void;
   dismissError: () => void;
@@ -28,6 +29,7 @@ export const useStartPackageOpen = (
     path?: string;
     message: string;
     details: string;
+    invalidDrop?: boolean;
   } | null>(null);
   const opening = useRef(false);
   const { info } = useNotification();
@@ -75,6 +77,7 @@ export const useStartPackageOpen = (
     busy,
     error: failure?.message ?? '',
     errorDetails: failure?.details ?? '',
+    invalidDrop: failure?.invalidDrop ?? false,
     open,
     retry: () => void open(failure?.path),
     dismissError: () => setFailure(null),
@@ -83,6 +86,7 @@ export const useStartPackageOpen = (
         message:
           '.stpkg パッケージを1つドロップしてください。映像ファイルは「新しいパッケージを作成」から追加できます。',
         details: '',
+        invalidDrop: true,
       }),
   };
 };

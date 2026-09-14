@@ -87,6 +87,16 @@ export const OpenError: Story = {
     onDismissError: () => {},
   },
 };
+export const UnsupportedDrop: Story = {
+  args: {
+    ...RecentMatches.args,
+    invalidDrop: true,
+    error:
+      '.stpkg パッケージを1つドロップしてください。映像ファイルは「新しいパッケージを作成」から追加できます。',
+    onRetry: () => {},
+    onDismissError: () => {},
+  },
+};
 export const SearchNoResults: Story = {
   args: { ...RecentMatches.args, searchQuery: '見つからない試合' },
 };

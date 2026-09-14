@@ -13,19 +13,21 @@ import {
   reservePackageSession,
 } from './packageSessionRegistry';
 
-const createWindow = (id: string): BrowserWindow => ({
-  id,
-  webContents: { id },
-  isDestroyed: () => false,
-}) as unknown as BrowserWindow;
+const createWindow = (id: string): BrowserWindow =>
+  ({
+    id,
+    webContents: { id },
+    isDestroyed: () => false,
+  }) as unknown as BrowserWindow;
 
-const createDestroyedWindow = (id: string): BrowserWindow => ({
-  id,
-  get webContents(): never {
-    throw new TypeError('Object has been destroyed');
-  },
-  isDestroyed: () => true,
-}) as unknown as BrowserWindow;
+const createDestroyedWindow = (id: string): BrowserWindow =>
+  ({
+    id,
+    get webContents(): never {
+      throw new TypeError('Object has been destroyed');
+    },
+    isDestroyed: () => true,
+  }) as unknown as BrowserWindow;
 
 describe('package session registry', () => {
   it('binds a canonical package path and detects duplicate sessions', () => {
@@ -33,7 +35,9 @@ describe('package session registry', () => {
     const mainB = createWindow('main-b');
     const sessionA = createPackageSession(mainA);
 
-    expect(bindPackageSession(mainA, './matches/../matches/a.stpkg')).toBe(sessionA);
+    expect(bindPackageSession(mainA, './matches/../matches/a.stpkg')).toBe(
+      sessionA,
+    );
     expect(getPackageSessionForPackagePath('matches/a.stpkg')).toBe(sessionA);
     expect(bindPackageSession(mainB, 'matches/a.stpkg')).toBe(sessionA);
   });
@@ -50,8 +54,13 @@ describe('package session registry', () => {
   });
 
   it('ignores destroyed main and auxiliary windows while resolving a sender', () => {
-    const session = createPackageSession(createDestroyedWindow('destroyed-main'));
-    registerAuxiliaryWindow(session, createDestroyedWindow('destroyed-timeline'));
+    const session = createPackageSession(
+      createDestroyedWindow('destroyed-main'),
+    );
+    registerAuxiliaryWindow(
+      session,
+      createDestroyedWindow('destroyed-timeline'),
+    );
 
     expect(getPackageSessionForSender({ id: 'late-ipc' })).toBeNull();
   });
@@ -60,11 +69,18 @@ describe('package session registry', () => {
     const main = createWindow('reserved-main');
     const session = reservePackageSession(main, '/tmp/queued/match.stpkg');
 
-    expect(session.packagePath).toBe(process.platform === 'win32' ? resolve('/tmp/queued/match.stpkg').toLowerCase() : resolve('/tmp/queued/match.stpkg'));
-    expect(getEmptyPackageSession()).not.toBe(session);
-    expect(reservePackageSession(createWindow('duplicate-main'), '/tmp/queued/match.stpkg')).toBe(
-      session,
+    expect(session.packagePath).toBe(
+      process.platform === 'win32'
+        ? resolve('/tmp/queued/match.stpkg').toLowerCase()
+        : resolve('/tmp/queued/match.stpkg'),
     );
+    expect(getEmptyPackageSession()).not.toBe(session);
+    expect(
+      reservePackageSession(
+        createWindow('duplicate-main'),
+        '/tmp/queued/match.stpkg',
+      ),
+    ).toBe(session);
 
     expect(releasePackageSession(main, '/tmp/queued/match.stpkg')).toBe(true);
     expect(session.packagePath).toBeNull();
@@ -91,5 +107,22 @@ describe('package session registry', () => {
     expect(restore).toHaveBeenCalledOnce();
     expect(show).toHaveBeenCalledOnce();
     expect(focus).toHaveBeenCalledOnce();
+  });
+
+  it('does not reserve a package or accept auxiliary IPC for a destroyed owner', () => {
+    let destroyed = false;
+    const main = createWindow('closing-owner');
+    main.isDestroyed = () => destroyed;
+    const session = reservePackageSession(main, 'matches/reopen.stpkg');
+    const auxiliary = createWindow('closing-auxiliary');
+    registerAuxiliaryWindow(session, auxiliary);
+    destroyed = true;
+
+    expect(getPackageSessionForPackagePath('matches/reopen.stpkg')).toBeNull();
+    expect(getPackageSessionForSender(auxiliary.webContents)).toBeNull();
+    const next = createWindow('reopened-owner');
+    expect(bindPackageSession(next, 'matches/reopen.stpkg')?.mainWindow).toBe(
+      next,
+    );
   });
 });
