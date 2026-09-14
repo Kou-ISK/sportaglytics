@@ -123,7 +123,10 @@ try {
   await page.getByLabel('Paint クリップ').getByRole('button').first().click();
   const canvas = page.getByLabel('Paint 描画キャンバス').first();
   await canvas.waitFor();
-  await page.getByRole('button', { name: '矢印', exact: true }).click();
+  await page
+    .getByLabel('Paint 描画ツール')
+    .getByRole('button', { name: '矢印', exact: true })
+    .click();
   const box = await canvas.boundingBox();
   assert.ok(box && box.width > 100 && box.height > 100);
   await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5);
@@ -135,6 +138,31 @@ try {
   await canvas.focus();
   await page.keyboard.press(`${primaryModifier}+S`);
   await waitForSaved(1);
+  // Do not retry drawing: each quick gesture must create exactly one object.
+  for (let index = 0; index < 5; index++) {
+    await page
+      .getByLabel('Paint 描画ツール')
+      .getByRole('button', { name: '矢印', exact: true })
+      .click();
+    await page.mouse.move(
+      box.x + box.width * 0.2,
+      box.y + box.height * (0.2 + index * 0.08),
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      box.x + box.width * 0.6,
+      box.y + box.height * (0.24 + index * 0.08),
+    );
+    await page.mouse.up();
+    await page.keyboard.press(`${primaryModifier}+S`);
+    await waitForSaved(index + 2);
+  }
+  for (let index = 0; index < 5; index++)
+    await page.keyboard.press(`${primaryModifier}+Z`);
+  await page.keyboard.press(`${primaryModifier}+S`);
+  await waitForSaved(1);
+  // Re-select the original annotation after undo before testing Delete.
+  await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.4 } });
   await page.keyboard.press('Backspace');
   await page.keyboard.press(`${primaryModifier}+S`);
   await waitForSaved(0);
@@ -178,7 +206,15 @@ try {
   console.log(
     'Paint drawing, Backspace, undo, save and local audio sync E2E passed',
   );
+} catch (error) {
+  console.error('Paint E2E failed:', error);
+  throw error;
 } finally {
+  // This app owns only temporary fixtures. A failed save assertion must not
+  // leave the test waiting forever on the unsaved-document quit dialog.
+  await app
+    .evaluate(({ app: application }) => application.exit(0))
+    .catch(() => {});
   await app.close();
   await fs.rm(workPath, { recursive: true, force: true });
 }

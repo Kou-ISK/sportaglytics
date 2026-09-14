@@ -118,15 +118,20 @@ export const matchTemplate = (
     best.confidence >= minimumConfidence &&
     best.confidence < 0.99999
   ) {
-    for (let dy = -0.75; dy <= 0.75; dy += 0.25)
-      for (let dx = -0.75; dx <= 0.75; dx += 0.25) {
-        const x = best.x + dx,
-          y = best.y + dy;
-        if (!inside(next, x, y, patchRadius)) continue;
-        const confidence = scoreAt(x, y);
-        if (confidence > refined.confidence)
-          refined = { x, y, confidence, reliable: false };
-      }
+    // A fixed quarter-pixel grid accumulates its rounding error on every frame.
+    // Refine only around the winning peak, down to 0.01 analysis pixels.
+    for (const spacing of [0.25, 0.05, 0.01]) {
+      const center = refined;
+      for (let row = -3; row <= 3; row++)
+        for (let column = -3; column <= 3; column++) {
+          const x = center.x + column * spacing,
+            y = center.y + row * spacing;
+          if (!inside(next, x, y, patchRadius)) continue;
+          const confidence = scoreAt(x, y);
+          if (confidence > refined.confidence)
+            refined = { x, y, confidence, reliable: false };
+        }
+    }
   }
   return {
     ...refined,

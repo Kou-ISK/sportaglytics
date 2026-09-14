@@ -22,6 +22,7 @@ import { useStudioGesture } from './useStudioGesture';
 import type { StudioContentRect, StudioGesture } from './useStudioGesture';
 
 export interface StudioEditorParams {
+  seekRevision?: number;
   onTogglePlayback?: () => void;
   onToolSelected?: () => void;
   chromaKey?: ChromaKey;

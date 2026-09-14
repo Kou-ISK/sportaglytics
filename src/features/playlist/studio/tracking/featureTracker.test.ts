@@ -103,3 +103,25 @@ it('preserves slow subpixel movement over successive frames', () => {
   }
   expect(Math.abs(travel - 4)).toBeLessThan(0.6);
 });
+
+it('does not round repeated fractional motion to a quarter-pixel grid', () => {
+  let points = [
+    { x: 50, y: 40 },
+    { x: 62, y: 45 },
+    { x: 56, y: 60 },
+    { x: 72, y: 65 },
+  ];
+  let travel = 0;
+  for (let step = 1; step <= 20; step++) {
+    const motion = trackFeatures(
+      smoothFrame((step - 1) * 0.3),
+      smoothFrame(step * 0.3),
+      points,
+      { x: 0.3, y: 0 },
+    );
+    expect(motion.reliable).toBe(true);
+    travel += motion.dx;
+    points = motion.points;
+  }
+  expect(Math.abs(travel - 6)).toBeLessThan(0.4);
+});

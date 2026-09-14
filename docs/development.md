@@ -103,6 +103,8 @@ E2E:
 pnpm run test:e2e
 ```
 
+Paintの入力変更では、pointermoveが省略される短いドラッグ、停止直後の時刻更新、明示的なシークによる取消を確認します。追尾表示は再生時計ではなく表示フレームの`mediaTime`で描画し、低速の端数移動を連続させても量子化誤差が蓄積しないことを検証します。`e2e-paint.mjs`は描画の再試行をせず、連続操作ごとの図形数と保存内容を確認します。
+
 GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Vitestを実行します。
 
 ## アーキテクチャ

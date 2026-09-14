@@ -27,6 +27,7 @@ export interface StudioContentRect {
 }
 interface Params {
   enabled: boolean;
+  seekRevision?: number;
   documentKey: string;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   contentRect: StudioContentRect;
@@ -46,6 +47,8 @@ interface Params {
 }
 interface Gesture {
   key: string;
+  time: number;
+  pointerId: number;
   kind: 'draw' | 'move' | 'resize' | 'node';
   nodeIndex?: number;
   start: { x: number; y: number };
@@ -68,7 +71,7 @@ export interface StudioGesture {
   cancel: () => void;
 }
 export const useStudioGesture = (params: Params): StudioGesture => {
-  const gestureKey = `${params.documentKey}:${params.time}:${params.enabled}`;
+  const gestureKey = `${params.documentKey}:${params.seekRevision ?? 0}:${params.enabled}`;
   const gesture = useRef<Gesture | null>(null);
   const [preview, setPreview] = useState<{
     key: string;
@@ -81,6 +84,19 @@ export const useStudioGesture = (params: Params): StudioGesture => {
     },
     [gestureKey],
   );
+  // pause/timeupdate can settle a fraction of a frame after pointerdown.
+  // Explicit seeks use their own revision; a clock discontinuity still cancels.
+  const isCurrent = (current: Gesture): boolean =>
+    current.key === gestureKey && Math.abs(params.time - current.time) <= 0.12;
+  useEffect(() => {
+    if (
+      gesture.current &&
+      Math.abs(params.time - gesture.current.time) > 0.12
+    ) {
+      gesture.current = null;
+      setPreview(null);
+    }
+  }, [params.time]);
   const point = (
     event: PointerEvent<HTMLCanvasElement>,
   ): { x: number; y: number } => {
@@ -110,6 +126,12 @@ export const useStudioGesture = (params: Params): StudioGesture => {
   const onPointerDown = (event: PointerEvent<HTMLCanvasElement>): void => {
     if (!params.enabled || event.button !== 0 || params.contentRect.width <= 0)
       return;
+    if (
+      gesture.current &&
+      gesture.current.pointerId >= 0 &&
+      gesture.current.pointerId !== event.pointerId
+    )
+      return;
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.focus();
@@ -118,9 +140,11 @@ export const useStudioGesture = (params: Params): StudioGesture => {
     const pending = gesture.current;
     if (
       params.tool === 'linkedDiscs' &&
-      pending?.key === gestureKey &&
+      pending &&
+      isCurrent(pending) &&
       pending.kind === 'draw'
     ) {
+      pending.pointerId = event.pointerId;
       const path = pending.latest.path ?? [];
       if (
         path.length < 15 &&
@@ -173,6 +197,8 @@ export const useStudioGesture = (params: Params): StudioGesture => {
       if (!original) return;
       gesture.current = {
         key: gestureKey,
+        time: params.time,
+        pointerId: event.pointerId,
         kind: nodeIndex >= 0 ? 'node' : resize ? 'resize' : 'move',
         nodeIndex,
         start,
@@ -208,6 +234,8 @@ export const useStudioGesture = (params: Params): StudioGesture => {
       };
       gesture.current = {
         key: gestureKey,
+        time: params.time,
+        pointerId: event.pointerId,
         kind: 'draw',
         start,
         original: object,
@@ -225,7 +253,8 @@ export const useStudioGesture = (params: Params): StudioGesture => {
     const current = gesture.current;
     if (
       !current ||
-      current.key !== gestureKey ||
+      !isCurrent(current) ||
+      current.pointerId !== event.pointerId ||
       !event.currentTarget.hasPointerCapture(event.pointerId)
     )
       return;
@@ -267,12 +296,12 @@ export const useStudioGesture = (params: Params): StudioGesture => {
                 bounds.maxY - bounds.minY + baseDy,
               )
             : current.original.motion
-              ? setAnnotationKeyframe(current.original, params.time, {
+              ? setAnnotationKeyframe(current.original, current.time, {
                   x:
-                    annotationOffsetAt(current.original, params.time).x +
+                    annotationOffsetAt(current.original, current.time).x +
                     baseDx,
                   y:
-                    annotationOffsetAt(current.original, params.time).y +
+                    annotationOffsetAt(current.original, current.time).y +
                     baseDy,
                 })
               : shiftObject(current.original, baseDx, baseDy);
@@ -289,25 +318,24 @@ export const useStudioGesture = (params: Params): StudioGesture => {
   };
   const onPointerUp = (event: PointerEvent<HTMLCanvasElement>): void => {
     const current = gesture.current;
+    if (!current || current.pointerId !== event.pointerId) return;
     if (
       current?.kind === 'draw' &&
       current.latest.type === 'linkedDiscs' &&
-      current.key === gestureKey
+      isCurrent(current)
     ) {
+      current.pointerId = -1;
       if (event.currentTarget.hasPointerCapture(event.pointerId))
         event.currentTarget.releasePointerCapture(event.pointerId);
       return;
     }
+    // pointermove can be coalesced or omitted during a quick drag.
+    onPointerMove(event);
     gesture.current = null;
     setPreview(null);
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
-    if (
-      !params.enabled ||
-      !current ||
-      current.key !== gestureKey ||
-      !current.changed
-    )
+    if (!params.enabled || !current || !isCurrent(current) || !current.changed)
       return;
     params.onCommit(
       current.kind === 'draw'
@@ -327,7 +355,8 @@ export const useStudioGesture = (params: Params): StudioGesture => {
     const current = gesture.current;
     if (
       !params.enabled ||
-      current?.key !== gestureKey ||
+      !current ||
+      !isCurrent(current) ||
       current.latest.type !== 'linkedDiscs' ||
       (current.latest.path?.length ?? 0) < 2
     )

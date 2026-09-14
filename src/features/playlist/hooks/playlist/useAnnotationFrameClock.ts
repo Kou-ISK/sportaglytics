@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { RefObject } from 'react';
-/** 時間更新イベントの頻度に依存せず、動く描画を映像フレームへ合わせる。 */
+/** Storybook playback controls share the presented video's timestamp. Canvas drawing has its own synchronous frame callback. */
 export const useAnnotationFrameClock = (
   videoRef: RefObject<HTMLVideoElement | null>,
   enabled: boolean,
@@ -11,9 +11,9 @@ export const useAnnotationFrameClock = (
     if (!video || !enabled) return;
     let id = 0;
     let cancelled = false;
-    const update = (): void => {
+    const update: VideoFrameRequestCallback = (_now, frame) => {
       if (cancelled) return;
-      onTime(video.currentTime);
+      onTime(frame.mediaTime);
       id = video.requestVideoFrameCallback(update);
     };
     id = video.requestVideoFrameCallback(update);

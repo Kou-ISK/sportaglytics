@@ -288,6 +288,8 @@ Timelineの `useTimelineSeek` は上部つまみだけが使用し、行の区�
 
 Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツール・パネル状態と、保存する注釈を分離します。`useStudioEditor` は編集の合成、`useStudioGesture` は描画ジェスチャー、`useStudioKeyframes` は位置キーの選択・時刻編集を所有します。ViewはIPC・永続化・URLを参照しません。
 
+描画ジェスチャーは開始時刻とpointer IDを保持し、明示的なシークのrevisionを再生時計と分離します。`useVideoFrameDrawing` は各映像のフレームcallbackから`mediaTime`を受け、その場でCanvasを更新します。再生時計のReact更新で表示中のフレーム位置を上書きせず、停止中は編集時刻を使います。保存する時刻・座標・キーフレームの形式は共通です。
+
 追尾は独立デコーダーで解析し、成功時に自動適用、部分結果は明示的に適用/破棄します。開始後の編集を古い結果で上書きしません。表示図形と独立した追尾範囲の判断は[ADR 0031](adr/0031-tracking-target-selection.md)、保存契約は[ADR 0029](adr/0029-tactics-motion-and-plane-contract.md)です。
 
 通常再生・編集・PNGで共通レンダラーを使用し、動画出力ではソース時刻上のmotion overlayとアングル別の芝色処理を静止挿入より前に合成します。[Paint仕様](tactics.md)に型・上限・実装入口を、[Playlist仕様](playlist-features.md)に文書・順序・Sessionをまとめます。
