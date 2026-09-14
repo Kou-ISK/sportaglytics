@@ -114,6 +114,12 @@ try {
   await page.getByText('後半.mp4', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'パッケージを作成…' }).click();
   await page.locator('#video_0').waitFor({ timeout: 30000 });
+  // Metadata loading updates the angle and window layout. Wait for playable
+  // media before clicking the detection dialog so it cannot move mid-click.
+  await page.waitForFunction(() => {
+    const video = document.querySelector('#video_0_html5_api');
+    return video instanceof HTMLVideoElement && video.readyState >= 2;
+  });
   await app.evaluate(({ Menu }) => {
     const find = (items) => {
       for (const item of items) {
@@ -160,10 +166,6 @@ try {
     JSON.parse(localStorage.getItem('sportaglytics-recent-packages')),
   );
   assert.equal(path.normalize(recent[0].path), packagePath);
-  await page.waitForFunction(() => {
-    const video = document.querySelector('#video_0_html5_api');
-    return video instanceof HTMLVideoElement && video.readyState >= 2;
-  });
   const deadline = Date.now() + 5000;
   let timeline;
   do {
