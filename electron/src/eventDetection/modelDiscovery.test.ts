@@ -28,6 +28,8 @@ interface MetricFixture {
 }
 
 interface ModelFixtureOptions {
+  schemaVersion?: number;
+  evaluationBasis?: string;
   id?: string;
   status?: string;
   metric?: Partial<MetricFixture>;
@@ -49,6 +51,8 @@ const sha256 = (content: string): string =>
   createHash('sha256').update(content).digest('hex');
 
 const createModelFixture = async ({
+  schemaVersion = 1,
+  evaluationBasis,
   id = 'model-a',
   status = 'verified',
   metric = {},
@@ -72,7 +76,8 @@ const createModelFixture = async ({
   }
 
   const manifest = {
-    schemaVersion: 1,
+    schemaVersion,
+    ...(evaluationBasis ? { evaluationBasis } : {}),
     id,
     version: '1.0.0',
     displayName: id,
@@ -114,6 +119,48 @@ afterEach(async () => {
 });
 
 describe('event detection model discovery', () => {
+  it('loads reference Coding only as an explicitly marked schema-2 trial', async () => {
+    await createModelFixture({
+      status: 'experimental',
+      schemaVersion: 2,
+      evaluationBasis: 'reference-coding',
+    });
+    const models = await listModels();
+    expect(models[0]?.info.evaluationBasis).toBe('reference-coding');
+    expect(models[0]?.info.status).toBe('experimental');
+  });
+
+  it.each([
+    {
+      schemaVersion: 2,
+      status: 'verified',
+      evaluationBasis: 'reference-coding',
+    },
+    { schemaVersion: 2, status: 'experimental' },
+    { schemaVersion: 2, status: 'experimental', evaluationBasis: 'unknown' },
+    {
+      schemaVersion: 1,
+      status: 'experimental',
+      evaluationBasis: 'reference-coding',
+    },
+  ])(
+    'rejects an ambiguous or promoted reference comparison: %j',
+    async (options) => {
+      await createModelFixture(options);
+      expect(await listModels()).toEqual([]);
+    },
+  );
+
+  it('still verifies the executable hash for reference comparisons', async () => {
+    await createModelFixture({
+      status: 'experimental',
+      schemaVersion: 2,
+      evaluationBasis: 'reference-coding',
+      runnerHash: '0'.repeat(64),
+    });
+    expect(await listModels()).toEqual([]);
+  });
+
   it('keeps the verified quality gate unchanged', async () => {
     await createModelFixture({ id: 'verified-pass' });
     await createModelFixture({

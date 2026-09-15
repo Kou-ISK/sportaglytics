@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded
+
+Superseded by [ADR 0034](0034-reference-coding-model-evaluation.md).
 
 ## Date
 

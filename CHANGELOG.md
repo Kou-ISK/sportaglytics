@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 自動イベント検出の試験モデルで、既存Codingとの比較値を実際の精度と区別して表示。比較用model packの読み込み契約は[仕様](docs/event-detection.md)を参照。
+
 ## [0.13.3] - 2026-09-14
 
 ### Fixed

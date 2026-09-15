@@ -75,3 +75,5 @@ AI agent は次の順で参照してください。
 
 - [Paintの機能範囲と公式調査](tactics.md)
 - [Tactics motion and plane contract (ADR 0029)](adr/0029-tactics-motion-and-plane-contract.md)
+
+- [ADR 0034: 既存Codingとの比較用モデル](adr/0034-reference-coding-model-evaluation.md)
