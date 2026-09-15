@@ -137,6 +137,8 @@ Electron main manager / child process
 
 ## 自動イベント検出の開発
 
+Codingの網羅範囲を断定できない比較用packはschema 2 / `experimental` / `evaluationBasis: reference-coding`として扱います。model discoveryとIPCはこの組み合わせを検証し、旧schema 1はロード時に `reported-metrics`へ変換します。新packは対応するこのブランチのアプリで検証してください。旧版アプリはschema 2を拒否します。Storybookの `Features/VideoPlayer/EventDetection/ModelEvaluation` とmodel discovery / IPC / Dialog Viewテストで、比較値を精度と誤表示しないことを確認します。
+
 - 詳細仕様: [自動イベント検出](event-detection.md)
 - R&D境界: [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)
 - experimental production lane: [ADR 0024](adr/0024-experimental-event-detection-production-lane.md)
@@ -243,6 +245,8 @@ Model outputは直接persisted `timeline.json` を書き換えません。Render
 自動追加後は通常の `TimelineData` として扱います。experimental provenanceをTimeline schemaへ保存しません。
 
 ## テストとデバッグ
+
+再生プレイヤーの生成・破棄は映像sourceと設定の変更に従います。複数クリップの経過時間通知でcallbackの参照が変わっても、読み込み中のplayerを再生成しません。通知先は最新callbackへ更新し、source変更・unmountでは従来どおり破棄します。`useVideoJsInitialization`の回帰テストと実映像での読み込み完了を確認してください。
 
 ```bash
 pnpm run test:run

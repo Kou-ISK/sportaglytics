@@ -1,3 +1,6 @@
+import type { JSX } from 'react';
+import { EVENT_DETECTION_EVENT_NAMES } from '../domain/eventDetectionMappings';
+import { EventDetectionModelEvaluationView } from './EventDetectionModelEvaluationView';
 import {
   Alert,
   Box,
@@ -63,18 +66,8 @@ export interface EventDetectionDialogViewProps {
   onCancel: () => void;
 }
 
-const EVENT_LABELS: Record<RugbyEventType, string> = {
-  restart: 'リスタート',
-  scrum: 'Scrum',
-  lineout: 'Lineout',
-  maul: 'Maul',
-  goalKick: 'Goal Kick',
-};
-
 const modelKey = (model: EventDetectionModelInfo): string =>
   `${model.id}@${model.version}`;
-
-const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
 
 export const EventDetectionDialogView = ({
   open,
@@ -94,7 +87,7 @@ export const EventDetectionDialogView = ({
   onMappingChange,
   onRun,
   onCancel,
-}: EventDetectionDialogViewProps) => {
+}: EventDetectionDialogViewProps): JSX.Element => {
   const selectedModel = models.find(
     (model) => modelKey(model) === selectedModelKey,
   );
@@ -105,7 +98,12 @@ export const EventDetectionDialogView = ({
     mappings.some((mapping) => mapping.enabled);
 
   return (
-    <Dialog open={open} onClose={running ? undefined : onClose} fullWidth maxWidth="md">
+    <Dialog
+      open={open}
+      onClose={running ? undefined : onClose}
+      fullWidth
+      maxWidth="md"
+    >
       <DialogTitle>自動イベント検出</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2.5}>
@@ -175,58 +173,14 @@ export const EventDetectionDialogView = ({
                 </FormControl>
               </Box>
 
-              {selectedModel?.status === 'experimental' && (
-                <Alert severity="warning">
-                  <Typography variant="subtitle2" component="div" sx={{ mb: 0.5 }}>
-                    試験的な自動検出機能
-                  </Typography>
-                  このモデルは現在評価中です。誤検出や見逃しが発生します。追加された候補を確認・修正してから分析に使用してください。
-                </Alert>
-              )}
-
               {selectedModel && (
-                <Box
-                  sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1.5,
-                    p: 1.5,
-                  }}
-                >
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    モデル評価
-                  </Typography>
-                  <Stack spacing={0.75}>
-                    {selectedModel.events.map((eventType) => {
-                      const metric = selectedModel.metrics[eventType];
-                      if (!metric) return null;
-                      return (
-                        <Box
-                          key={eventType}
-                          sx={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: 1,
-                            alignItems: 'baseline',
-                          }}
-                        >
-                          <Typography variant="body2" sx={{ minWidth: 88 }}>
-                            {EVENT_LABELS[eventType]}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Recall {formatPercent(metric.recall)} / Precision{' '}
-                            {formatPercent(metric.precision)} / 評価 {metric.evaluatedMatches}
-                            試合 / 基準しきい値 {metric.confidenceThreshold.toFixed(2)}
-                          </Typography>
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-                </Box>
+                <EventDetectionModelEvaluationView model={selectedModel} />
               )}
 
               <Stack spacing={1.25}>
-                <Typography variant="subtitle2">検出して追加するイベント</Typography>
+                <Typography variant="subtitle2">
+                  検出して追加するイベント
+                </Typography>
                 {mappings.map((mapping) => (
                   <Box
                     key={mapping.eventType}
@@ -256,7 +210,7 @@ export const EventDetectionDialogView = ({
                           }
                         />
                       }
-                      label={EVENT_LABELS[mapping.eventType]}
+                      label={EVENT_DETECTION_EVENT_NAMES[mapping.eventType]}
                     />
                     <TextField
                       size="small"
@@ -323,7 +277,10 @@ export const EventDetectionDialogView = ({
 
           {running && progress && (
             <Stack spacing={0.75}>
-              <LinearProgress variant="determinate" value={progress.progress * 100} />
+              <LinearProgress
+                variant="determinate"
+                value={progress.progress * 100}
+              />
               <Typography variant="caption" color="text.secondary">
                 {progress.message ??
                   (progress.stage === 'preparing'

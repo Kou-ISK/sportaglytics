@@ -39,6 +39,14 @@ production qualification済みのモデルです。event classごとにProduct r
 
 ### `experimental`
 
+検出するイベントはチームを区別しない共通イベントです。チーム情報はモデル選択・評価の前提条件にしません。
+
+schema 2の比較用packは `evaluationBasis: reference-coding` を宣言します。UIは一般的なRecall/Precisionの代わりに「既存Codingとの比較」と表示し、「記録済みプレーの再検出」「Codingと一致した候補」の割合と比較試合数を示します。Codingと対応しない候補を、そのまま誤検出とはみなしません。このpackは `experimental` 専用で、数値が高くても `verified` にはできません。
+
+schema 1は既存の報告値の表示を維持し、ロード時に `reported-metrics` として正規化します。schema 2は古いアプリで受理されないため、比較値が精度として誤表示されることを防ぎます。checkpoint/threshold/前処理/走査間隔の整合、試合・クラスごとの既存Codingの取りこぼし非増加、確認済み実プレーの保持はR&D側の出力条件です。全試合を確認済みへ書き換えて出力することは禁止します。
+
+背景と互換性は [ADR 0034](adr/0034-reference-coding-model-evaluation.md) を参照してください。
+
 品質評価中のモデルです。`verified`のquality gateを通過したことを意味しません。manifestの構造・metrics・platform runner・runner hashなどが正しく、verifiedと同じ実行セキュリティ境界を満たす場合のみ利用候補へ表示します。
 
 experimental modelを選択した場合、UIは常に次を表示します。

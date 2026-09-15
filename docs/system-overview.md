@@ -95,6 +95,8 @@ Rendererへ公開するIPC contractの正本は `src/renderer.d.ts` です。用
 
 Video.js player、再生時計、Timeline document、Undo/Redo履歴はメイン動画windowを唯一のauthorityとします。
 
+複数クリップの時間通知callbackの更新は、映像プレイヤーのライフサイクルから分離します。画面の再描画中も映像の読み込みを継続します。
+
 TimelineはPackage Sessionごとに1つの専用BrowserWindowです。
 
 - packageを開いた時に自動表示
@@ -139,6 +141,8 @@ Action buttonには `leadTimeSeconds` / `lagTimeSeconds` を保存できます�
 AI実行ファイルはOSとCPU種別ごとに検証して同梱します。モデル重みは別途指定します。AI Analysisはローカル `llama.cpp` を使い、Timeline / labels / memo / statistics を根拠として分析文と推奨clipを生成します。映像frameそのものをLLMへ解釈させる機能ではありません。
 
 ## 自動イベント検出
+
+比較用model pack（schema 2）は `evaluationBasis: reference-coding` を必須とし、既存Codingとの一致・再検出として表示します。`verified`にはできず、schema 1の旧consumerはこのpackを読み込みません。評価表示はpropsだけを受け取る `EventDetectionModelEvaluationView` に分離しています。契約は [ADR 0034](adr/0034-reference-coding-model-evaluation.md) を参照してください。
 
 自動イベント検出はLLM分析とは別のローカル映像処理です。SporTagLyticsは**配布済みmodel packを安全に実行するconsumer**であり、model training/evaluationは別private R&D repositoryの責務です。
 

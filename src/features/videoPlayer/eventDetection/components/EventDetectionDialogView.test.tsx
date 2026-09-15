@@ -12,6 +12,7 @@ const experimentalModel: EventDetectionModelInfo = {
   version: '0.1.0-experimental.1',
   displayName: 'Rugby Event Detection',
   status: 'experimental',
+  evaluationBasis: 'reported-metrics',
   events: ['restart'],
   metrics: {
     restart: {
@@ -66,6 +67,18 @@ afterEach(() => {
 });
 
 describe('EventDetectionDialogView', () => {
+  it('presents Coding correspondence without implying measured real-world precision', () => {
+    renderDialog({ ...experimentalModel, evaluationBasis: 'reference-coding' });
+    expect(screen.getByText('既存Codingとの比較')).toBeTruthy();
+    expect(screen.getByText(/記録済みプレーの再検出 100%/)).toBeTruthy();
+    expect(screen.getByText(/Codingと一致した候補 8%/)).toBeTruthy();
+    expect(
+      screen.getByText(/実際の検出精度を示すものではありません/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Precision/)).toBeNull();
+    expect(screen.queryByText(/Recall/)).toBeNull();
+  });
+
   it('shows an experimental badge, warning, and measured quality information', () => {
     renderDialog(experimentalModel);
 

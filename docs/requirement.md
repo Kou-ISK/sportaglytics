@@ -170,6 +170,8 @@ addTimelineDatas(items: NewTimelineData[]): string[]
 
 ## 2.4 自動イベント検出
 
+比較用model packは既存Codingとの一致率を一般的な精度として表示しないこと。schema 2 / `reference-coding` は試験モデル専用とし、検証済みモデルへの偽装と旧アプリでの誤表示を拒否すること。
+
 ### 目的
 
 自動イベント検出は戦術判断を自動化する機能ではない。映像中の明確なラグビーイベントを検出して通常Timelineを初期Codingし、その後の手動分析を早く開始できるようにする。

@@ -1,5 +1,6 @@
 import type {
   EventDetectionMetric,
+  EventDetectionEvaluationBasis,
   EventDetectionModelInfo,
   EventDetectionModelStatus,
   RugbyEventType,
@@ -11,11 +12,12 @@ export interface EventDetectionRunnerManifest {
 }
 
 export interface EventDetectionModelManifest {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   id: string;
   version: string;
   displayName: string;
   status: EventDetectionModelStatus;
+  evaluationBasis: EventDetectionEvaluationBasis;
   events: RugbyEventType[];
   metrics: Partial<Record<RugbyEventType, EventDetectionMetric>>;
   runners: Record<string, EventDetectionRunnerManifest>;
