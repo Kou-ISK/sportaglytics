@@ -246,6 +246,8 @@ Model outputは直接persisted `timeline.json` を書き換えません。Render
 
 ## テストとデバッグ
 
+再生プレイヤーの生成・破棄は映像sourceと設定の変更に従います。複数クリップの経過時間通知でcallbackの参照が変わっても、読み込み中のplayerを再生成しません。通知先は最新callbackへ更新し、source変更・unmountでは従来どおり破棄します。`useVideoJsInitialization`の回帰テストと実映像での読み込み完了を確認してください。
+
 ```bash
 pnpm run test:run
 ```

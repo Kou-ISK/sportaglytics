@@ -95,6 +95,8 @@ Rendererへ公開するIPC contractの正本は `src/renderer.d.ts` です。用
 
 Video.js player、再生時計、Timeline document、Undo/Redo履歴はメイン動画windowを唯一のauthorityとします。
 
+複数クリップの時間通知callbackの更新は、映像プレイヤーのライフサイクルから分離します。画面の再描画中も映像の読み込みを継続します。
+
 TimelineはPackage Sessionごとに1つの専用BrowserWindowです。
 
 - packageを開いた時に自動表示
