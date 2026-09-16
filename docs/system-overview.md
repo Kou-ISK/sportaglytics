@@ -148,6 +148,8 @@ AI実行ファイルはOSとCPU種別ごとに検証して同梱します。モ�
 
 目的は、通常Timelineを初期Codingして手動分析開始を早めることです。実作業では高Precisionな一部候補だけを出すのではなく、**実イベントをほぼすべて候補として出し、人間が不要候補を削除する**workflowを優先します。
 
+Mainの `eventDetection/resultCache.ts` は正常終了した検出候補だけを有効期限付きで再利用します。映像・モデルのmetadataと解析条件で無効化し、ディスクへの追加保存は行いません。
+
 ### Renderer
 
 `src/features/videoPlayer/eventDetection/`:
