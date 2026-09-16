@@ -81,3 +81,4 @@ AI agent は次の順で参照してください。
 - [ADR 0035: 自動検出結果の再利用](adr/0035-event-detection-result-reuse.md)
 
 - [ADR 0036: 持続するイベントの区間判定](adr/0036-event-episode-consolidation.md)
+- [ADR 0037: 確認済み映像による補正モデル](adr/0037-reviewed-model-refinement.md)
