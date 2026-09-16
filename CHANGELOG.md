@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 過去の学習映像と確認済み例を保持した補正モデルの採用条件・実pack検証を文書化。同一Codingの保持、別スクラムの分離、確認済み誤検知の改善を評価。
+
 - 自動検出の同じ映像・モデルでの再実行時に解析済み候補を再利用し、しきい値調整時の待ち時間を短縮。
 - 同一プレーの反復検出を区間へまとめるmodel packの契約・評価・試験手順を文書化。既存Timelineは保持し、モデル重みの更新と区間判定の改善を区別。
 
