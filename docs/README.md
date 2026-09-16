@@ -79,3 +79,5 @@ AI agent は次の順で参照してください。
 - [ADR 0034: 既存Codingとの比較用モデル](adr/0034-reference-coding-model-evaluation.md)
 
 - [ADR 0035: 自動検出結果の再利用](adr/0035-event-detection-result-reuse.md)
+
+- [ADR 0036: 持続するイベントの区間判定](adr/0036-event-episode-consolidation.md)

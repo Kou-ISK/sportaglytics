@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - 自動検出の同じ映像・モデルでの再実行時に解析済み候補を再利用し、しきい値調整時の待ち時間を短縮。
+- 同一プレーの反復検出を区間へまとめるmodel packの契約・評価・試験手順を文書化。既存Timelineは保持し、モデル重みの更新と区間判定の改善を区別。
 
 - 自動イベント検出の試験モデルで、既存Codingとの比較値を実際の精度と区別して表示。比較用model packの読み込み契約は[仕様](docs/event-detection.md)を参照。
 

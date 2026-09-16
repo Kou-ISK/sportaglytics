@@ -43,6 +43,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0033](0033-windows-desktop-runtime.md) | Windows desktop runtime | Accepted | 2026-09-13 |
 | [0034](0034-reference-coding-model-evaluation.md) | Reference Coding Model Evaluation | Accepted | 2026-09-15 |
 | [0035](0035-event-detection-result-reuse.md) | Event detection result reuse | Accepted | 2026-09-16 |
+| [0036](0036-event-episode-consolidation.md) | Event Episode Consolidation | Accepted | 2026-09-16 |
 
 ## Status Values
 
