@@ -36,6 +36,11 @@
 - [ ] `pnpm run check:architecture`
 - [ ] `pnpm run test:run`
 
+## Public Data Review
+
+- [ ] [公開時のデータ取り扱い](../docs/privacy-and-data-handling.md#sharing-and-issue-reports)に従い、差分・PR本文・添付ログ/画像・コミット情報を確認した
+- [ ] 公開許可のない個人情報、実試合の識別情報、ローカルパス、私的なアカウント状態を含めていない
+
 ## UI / Design System Impact
 
 - [ ] UI変更なし

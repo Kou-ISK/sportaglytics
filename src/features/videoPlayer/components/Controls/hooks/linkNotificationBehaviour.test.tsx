@@ -44,7 +44,7 @@ describe('code window link notifications', () => {
       }),
     );
 
-    result.current.handleActionClick('帝京', {
+    result.current.handleActionClick('Team A', {
       action: 'タックル',
       types: [],
       results: [],
@@ -80,7 +80,7 @@ describe('code window link notifications', () => {
       useLabelButtonInteractions({
         activeMode: 'code',
         hasSelectedTimelineItems: false,
-        teamNames: ['帝京', '筑波'],
+        teamNames: ['Team A', 'Team B'],
         effectiveLinks: [
           { from: '結果', to: 'ポゼッション', type: 'activate' },
         ],

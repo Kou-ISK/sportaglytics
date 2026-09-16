@@ -37,6 +37,8 @@ GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requ
 
 ## Test Placement
 
+すべてのfixture・検証ログ・スクリーンショットは [公開時のデータ取り扱い](privacy-and-data-handling.md#sharing-and-issue-reports) に従います。実データでのみ確認できる検証はローカルで行い、公開する再現例には架空の識別情報と合成データを使います。
+
 - pure domain logic → 同ディレクトリの `*.test.ts`
 - React behavior → `*.test.tsx`
 - shared contract / normalizer → contract近傍のtest

@@ -9,6 +9,9 @@ node_modules/
 /coverage
 /output/playwright/
 
+# Local research data and artifacts must stay outside the public repository.
+/research/
+
 # production
 /build
 /dist

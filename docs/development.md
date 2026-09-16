@@ -71,6 +71,8 @@ stagingへ置くのはsanitized deployable model packだけです。raw video、
 通常prefix: `feature`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`。
 CommitはConventional Commitsを使います。
 
+公開前に [Sharing and Issue Reports](privacy-and-data-handling.md#sharing-and-issue-reports) に沿って、差分・PR本文・添付物とコミットの著者情報を確認します。Gitの著者設定はリポジトリ単位で公開用の名前とGitHubのnoreplyメールにし、実データを使った調査結果は匿名化して記載します。`research/` と `output/playwright/` のローカル成果物は公開対象に含めません。
+
 ## 品質ゲート
 
 PR merge前に必須:
