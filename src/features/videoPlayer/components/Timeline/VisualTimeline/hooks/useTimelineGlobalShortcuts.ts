@@ -14,6 +14,9 @@ interface UseTimelineGlobalShortcutsParams {
   selectedRowIds: string[];
   onCopyItems?: (items: TimelineData[]) => void;
   onPasteItems?: (targetRowId: string) => void;
+  onEditItem?: (id: string) => void;
+  onClearSelection?: () => void;
+  onSelectAll?: () => void;
   onDeleteItems?: (ids: string[]) => void;
   onRequestDeleteRows?: (ids?: string[]) => void;
 }
@@ -33,9 +36,12 @@ export const useTimelineGlobalShortcuts = ({
   selectedRowIds,
   onCopyItems,
   onPasteItems,
+  onEditItem,
+  onClearSelection,
+  onSelectAll,
   onDeleteItems,
   onRequestDeleteRows,
-}: UseTimelineGlobalShortcutsParams) => {
+}: UseTimelineGlobalShortcutsParams): void => {
   useEffect(() => {
     const handleKeyDownGlobal = (event: KeyboardEvent): void => {
       const target = event.target instanceof HTMLElement ? event.target : null;
@@ -52,13 +58,48 @@ export const useTimelineGlobalShortcuts = ({
         target instanceof Node &&
         Boolean(scrollContainerRef.current?.contains(target));
 
+      if (!isInsideTimeline || shouldIgnore || event.defaultPrevented) return;
+
+      const command = (event.metaKey || event.ctrlKey) && !event.altKey;
+      if (event.key === 'Escape' && onClearSelection) {
+        event.preventDefault();
+        event.stopPropagation();
+        onClearSelection();
+        return;
+      }
       if (
-        isInsideTimeline &&
-        !shouldIgnore &&
-        (event.metaKey || event.ctrlKey) &&
+        command &&
         !event.shiftKey &&
-        event.key.toLowerCase() === 'c'
+        event.key.toLowerCase() === 'a' &&
+        onSelectAll
       ) {
+        event.preventDefault();
+        event.stopPropagation();
+        onSelectAll();
+        return;
+      }
+      if (
+        event.key === 'Enter' &&
+        !command &&
+        !event.altKey &&
+        !event.shiftKey &&
+        !isTimelineRowHeader &&
+        onEditItem
+      ) {
+        const focusedId = target
+          ?.closest('[data-timeline-item-id]')
+          ?.getAttribute('data-timeline-item-id');
+        const id =
+          focusedId ?? (selectedIds.length === 1 ? selectedIds[0] : undefined);
+        if (id && timeline.some((item) => item.id === id)) {
+          event.preventDefault();
+          event.stopPropagation();
+          onEditItem(id);
+        }
+        return;
+      }
+
+      if (command && !event.shiftKey && event.key.toLowerCase() === 'c') {
         const selectedItems = timeline.filter((item) =>
           selectedIds.includes(item.id),
         );
@@ -70,13 +111,7 @@ export const useTimelineGlobalShortcuts = ({
         return;
       }
 
-      if (
-        isInsideTimeline &&
-        !shouldIgnore &&
-        (event.metaKey || event.ctrlKey) &&
-        !event.shiftKey &&
-        event.key.toLowerCase() === 'v'
-      ) {
+      if (command && !event.shiftKey && event.key.toLowerCase() === 'v') {
         const targetRowId = selectedRowIds.length === 1 && selectedRowIds[0];
         if (targetRowId && onPasteItems) {
           event.preventDefault();
@@ -92,7 +127,7 @@ export const useTimelineGlobalShortcuts = ({
         !event.altKey &&
         (event.key === 'Delete' || event.key === 'Backspace');
 
-      if (isInsideTimeline && !shouldIgnore && isPlainDelete) {
+      if (isPlainDelete) {
         if (selectedRowIds.length > 0 && onRequestDeleteRows) {
           event.preventDefault();
           event.stopPropagation();
@@ -114,6 +149,7 @@ export const useTimelineGlobalShortcuts = ({
         (event.altKey && event.key === 'ArrowUp');
 
       if (isJumpNext || isJumpPrev) {
+        if (selectedIds.length === 0) return;
         if (event.key === 'Tab') {
           event.preventDefault();
           event.stopPropagation();
@@ -150,12 +186,7 @@ export const useTimelineGlobalShortcuts = ({
         return;
       }
 
-      if (
-        isInsideTimeline &&
-        !shouldIgnore &&
-        (event.metaKey || event.ctrlKey) &&
-        event.key.toLowerCase() === 'z'
-      ) {
+      if (command && event.key.toLowerCase() === 'z') {
         event.preventDefault();
         event.stopPropagation();
         if (event.shiftKey) {
@@ -165,12 +196,7 @@ export const useTimelineGlobalShortcuts = ({
         }
       }
 
-      if (
-        !shouldIgnore &&
-        (event.metaKey || event.ctrlKey) &&
-        event.shiftKey &&
-        event.key.toLowerCase() === 'p'
-      ) {
+      if (command && event.shiftKey && event.key.toLowerCase() === 'p') {
         const selectedItems = timeline.filter((item) =>
           selectedIds.includes(item.id),
         );
@@ -182,11 +208,15 @@ export const useTimelineGlobalShortcuts = ({
     };
 
     window.addEventListener('keydown', handleKeyDownGlobal, true);
-    return () => window.removeEventListener('keydown', handleKeyDownGlobal, true);
+    return () =>
+      window.removeEventListener('keydown', handleKeyDownGlobal, true);
   }, [
     onAddToPlaylist,
     onCopyItems,
     onDeleteItems,
+    onEditItem,
+    onClearSelection,
+    onSelectAll,
     onPasteItems,
     onRedo,
     onRequestDeleteRows,

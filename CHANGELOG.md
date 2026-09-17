@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Timelineの範囲選択後の削除対象とキー操作のフォーカスを修正。Enter／ダブルクリック編集、右クリックでの複数削除、行内の全インスタンス選択を統一。[操作説明](docs/user-guide.md#タイムライン編集)を更新。
+- Paint動画出力で各クリップの選択アングルと描画を保持し、開始前から続く追尾を補間。異なる解像度の2画面合成と描画生成失敗の通知に対応。[出力仕様](docs/tactics.md#映像への書き出し)を更新。
+
 - 複数クリップの再描画でプレイヤーが繰り返し初期化され、実映像の読み込みが完了しない問題を修正。
 
 ### Changed

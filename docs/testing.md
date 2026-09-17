@@ -89,6 +89,10 @@ Public repositoryのCIやtest fixtureへ、実チーム名、実試合名、ロ�
 
 ## E2E
 
+- `pnpm run test:e2e:timeline-rows`: 分離Timelineの行・インスタンス操作、削除とUndo、フォーカスと入力欄の保護。
+- `pnpm run test:e2e:paint-export`: 実Canvas・IPC・FFmpegによるPaint映像出力。生成映像の画素・音声・尺を検査し、単画面／全アングル／異解像度の2画面と複数フリーズを確認。
+
+
 ```bash
 pnpm run test:e2e
 ```

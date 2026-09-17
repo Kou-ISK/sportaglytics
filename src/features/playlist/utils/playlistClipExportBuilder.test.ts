@@ -179,3 +179,91 @@ it('keeps moving/still layer order and keyframe offsets across embedded/referenc
   ]);
   expect(create(true).motionOverlays).toEqual(reference.motionOverlays);
 });
+
+it('retains a moving object that starts before a trimmed clip, interpolating its initial position', () => {
+  const first = sampleItems[0];
+  const clip = buildPlaylistExportClips({
+    sourceItems: [
+      {
+        ...first,
+        startTime: 12,
+        endTime: 14,
+        annotation: {
+          ...first.annotation!,
+          objects: [
+            {
+              ...first.annotation!.objects[0],
+              timestamp: 10,
+              motion: {
+                duration: 6,
+                keyframes: [
+                  { time: 0, x: 0, y: 0 },
+                  { time: 3, x: 60, y: 30 },
+                  { time: 6, x: 0, y: 0 },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ],
+    itemAnnotations: {},
+    minFreezeDuration: 2,
+    primaryContentRect: { width: 100, height: 50, offsetX: 0, offsetY: 0 },
+    secondaryContentRect: { width: 100, height: 50, offsetX: 0, offsetY: 0 },
+    primarySourceSize: { width: 100, height: 50 },
+    secondarySourceSize: { width: 100, height: 50 },
+    renderAnnotationPng: () => 'png',
+  })[0];
+  expect(clip.motionOverlays).toEqual([
+    expect.objectContaining({
+      start: 0,
+      end: 2,
+      keyframes: [
+        { time: 0, x: 40, y: 20 },
+        { time: 1, x: 60, y: 30 },
+        { time: 2, x: 40, y: 20 },
+      ],
+    }),
+  ]);
+  expect(clip.freezeFrames).toEqual([]);
+});
+
+it.each([false, true])(
+  'reports a Paint render failure instead of silently exporting without it (motion=%s)',
+  (moving) => {
+    const first = sampleItems[0];
+    expect(() =>
+      buildPlaylistExportClips({
+        sourceItems: [
+          {
+            ...first,
+            annotation: {
+              ...first.annotation!,
+              objects: [
+                {
+                  ...first.annotation!.objects[0],
+                  motion: moving
+                    ? { duration: 2, keyframes: [{ time: 0, x: 0, y: 0 }] }
+                    : undefined,
+                },
+              ],
+            },
+          },
+        ],
+        itemAnnotations: {},
+        minFreezeDuration: 2,
+        primaryContentRect: { width: 100, height: 50, offsetX: 0, offsetY: 0 },
+        secondaryContentRect: {
+          width: 100,
+          height: 50,
+          offsetX: 0,
+          offsetY: 0,
+        },
+        primarySourceSize: { width: 100, height: 50 },
+        secondarySourceSize: { width: 100, height: 50 },
+        renderAnnotationPng: () => null,
+      }),
+    ).toThrow('Paintの描画');
+  },
+);

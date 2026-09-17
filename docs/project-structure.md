@@ -313,6 +313,7 @@ feature固有の `*.stories.tsx` は対象のprops-only Viewと同じディレ�
 - `src/features/playlist/studio/tracking/`: 動画フレーム読取・テンプレート追跡・結果適用hook。
 - `src/features/playlist/studio/Tactics*View.tsx` / `PitchCalibration*View.tsx`: props-onlyの区間・追跡・較正・プリセットUI。
 - `src/features/playlist/studio/tacticsPreferencesGateway.ts`: 端末設定の読込検証と保存。
+- `electron/src/ipc/exportFfmpegRunners.ts` / `exportFfmpegDual.ts` / `exportFfmpegCommon.ts`: 単画面・2画面の組立と共通の型／実行処理。
 - `electron/src/ipc/exportMotionOverlays.ts` / `exportChroma.ts`: 検証済みの動画描画を静止挿入前のFFmpeg filterへ変換。
 
 利用者向けの名称はPaint。`studio/` と既存内部モード値は互換性のため維持する。

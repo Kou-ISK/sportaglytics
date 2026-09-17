@@ -123,6 +123,8 @@ TimelineDocument
 
 `NewTimelineData = Omit<TimelineData, 'id'>` を一括追加入力に使用します。`addTimelineDatas()` は複数eventを1回のstate updateで追加するため、自動Codingで多数eventを追加しても1回のUndoで戻せます。
 
+タイムラインの行選択とインスタンス選択は操作対象を切り替える状態です。キー操作はタイムライン内に限定し、入力欄・ダイアログを除外します。行内全選択や範囲選択後はインスタンス選択へ切り替えます。操作コマンドは`useTimelineInstanceCommands`、行のメニュー／確認表示はprops-onlyの`TimelineRowActionsView`へ分離します。
+
 ## Code Window / Coding runtime
 
 `.stcw` は独立ドキュメントとして扱います。コード／ラベル／編集モードは対象Code Window内で切り替え、アプリ全体のmodeにはしません。
@@ -262,6 +264,8 @@ SporTagLytics public repositoryには以下を置きません。
 Playlistは独立BrowserWindowで扱い、`.stpl` documentを正本とします。Timelineからの追加とAI Analysisからの追加は共通playlist APIを利用します。
 
 Clip exportは `src/shared/clipExport/` にpure service / contractを集約し、main processのFFmpeg runnerで実行します。進捗は専用export progress windowへ通知し、main app操作をblockしません。
+
+Paint動画出力は、Rendererがクリップとの表示区間の交差とソース時刻の補間を計算し、アングルごとの描画を検証済みIPCへ渡します。Mainの単画面／2画面FFmpeg runnerが図形合成、芝色処理、静止挿入を行い、2画面は合成後に高さを揃えます。[Paint書き出し](tactics.md#映像への書き出し)を参照してください。
 
 配布版FFmpeg/FFprobeは固定source/hashからbuildしたverified toolchainのみ利用し、main processでtimeout/output上限を適用します。
 

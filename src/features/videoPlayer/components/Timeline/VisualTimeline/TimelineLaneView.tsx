@@ -17,6 +17,7 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
   onHoverChange,
   onItemClick,
   onItemContextMenu,
+  onEditItem,
   onMoveItem,
   onEditRow,
   onRowClick,
@@ -152,6 +153,7 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
             onHoverChange={onHoverChange}
             onItemClick={onItemClick}
             onItemContextMenu={onItemContextMenu}
+            onEditItem={onEditItem}
             onMoveItem={onMoveItem}
             onEdgeMouseDown={onEdgeMouseDown}
             timeToPosition={timeToPosition}

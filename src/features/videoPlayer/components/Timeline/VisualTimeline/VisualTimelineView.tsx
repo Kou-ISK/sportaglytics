@@ -1,20 +1,6 @@
 import React from 'react';
-import DeleteOutline from '@mui/icons-material/DeleteOutline';
-import EditOutlined from '@mui/icons-material/EditOutlined';
-import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUp from '@mui/icons-material/KeyboardArrowUp';
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  ListItemIcon,
-  Menu,
-  MenuItem,
-} from '@mui/material';
+import { Box } from '@mui/material';
+import { TimelineRowActionsView } from './TimelineRowActionsView';
 import type {
   TimelineData,
   TimelineRow,
@@ -57,6 +43,8 @@ export interface VisualTimelineViewProps {
   focusedItemId: string | null;
   setHoveredItemId: (id: string | null) => void;
   handleItemClick: React.ComponentProps<typeof TimelineLane>['onItemClick'];
+  onEditItem?: (id: string) => void;
+  onSelectRowItems?: () => void;
   handleItemContextMenu: (event: React.MouseEvent, id: string) => void;
   firstTeamName?: string;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
@@ -138,6 +126,8 @@ export const VisualTimelineView = ({
   setHoveredItemId,
   handleItemClick,
   handleItemContextMenu,
+  onEditItem,
+  onSelectRowItems,
   firstTeamName,
   onUpdateTimeRange,
   handleMoveItems,
@@ -197,6 +187,9 @@ export const VisualTimelineView = ({
       >
         <Box
           ref={scrollContainerRef}
+          tabIndex={0}
+          role="region"
+          aria-label="タイムライン"
           sx={{
             position: 'relative',
             flex: 1,
@@ -252,6 +245,7 @@ export const VisualTimelineView = ({
                 onHoverChange={setHoveredItemId}
                 onItemClick={handleItemClick}
                 onItemContextMenu={handleItemContextMenu}
+                onEditItem={onEditItem}
                 timeToPosition={timeToPosition}
                 positionToTime={positionToTime}
                 clientXToContentX={clientXToContentX}
@@ -317,81 +311,18 @@ export const VisualTimelineView = ({
         onClose={onCloseRowEditor}
         onSave={onSaveRow}
       />
-      <Menu
-        open={rowContextMenu !== null}
-        onClose={onCloseRowContextMenu}
-        anchorReference="anchorPosition"
-        anchorPosition={
-          rowContextMenu
-            ? { top: rowContextMenu.mouseY, left: rowContextMenu.mouseX }
-            : undefined
-        }
-      >
-        <MenuItem onClick={onEditContextRow}>
-          <ListItemIcon>
-            <EditOutlined fontSize="small" />
-          </ListItemIcon>
-          行を編集
-        </MenuItem>
-        <MenuItem
-          onClick={() => onMoveSelectedRow(-1)}
-          disabled={
-            !rowContextMenu ||
-            rows.findIndex((row) => row.id === rowContextMenu.rowId) <= 0
-          }
-        >
-          <ListItemIcon>
-            <KeyboardArrowUp fontSize="small" />
-          </ListItemIcon>
-          上へ移動
-        </MenuItem>
-        <MenuItem
-          onClick={() => onMoveSelectedRow(1)}
-          disabled={
-            !rowContextMenu ||
-            rows.findIndex((row) => row.id === rowContextMenu.rowId) >=
-              rows.length - 1
-          }
-        >
-          <ListItemIcon>
-            <KeyboardArrowDown fontSize="small" />
-          </ListItemIcon>
-          下へ移動
-        </MenuItem>
-        <MenuItem onClick={() => onRequestDeleteRows()}>
-          <ListItemIcon>
-            <DeleteOutline fontSize="small" color="error" />
-          </ListItemIcon>
-          行を削除
-        </MenuItem>
-      </Menu>
-      <Dialog
-        open={rowsPendingDeletion.length > 0}
-        onClose={onCancelDeleteRows}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>
-          {rowsPendingDeletion.length === 1
-            ? `「${rowsPendingDeletion[0]?.name}」を削除しますか？`
-            : `${rowsPendingDeletion.length}行を削除しますか？`}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            行に含まれるインスタンスも削除されます。この操作は取り消せません。
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onCancelDeleteRows}>キャンセル</Button>
-          <Button
-            onClick={onConfirmDeleteRows}
-            color="error"
-            variant="contained"
-          >
-            削除
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <TimelineRowActionsView
+        rows={rows}
+        rowContextMenu={rowContextMenu}
+        rowsPendingDeletion={rowsPendingDeletion}
+        onCloseRowContextMenu={onCloseRowContextMenu}
+        onEditContextRow={onEditContextRow}
+        onMoveSelectedRow={onMoveSelectedRow}
+        onRequestDeleteRows={onRequestDeleteRows}
+        onCancelDeleteRows={onCancelDeleteRows}
+        onConfirmDeleteRows={onConfirmDeleteRows}
+        onSelectRowItems={onSelectRowItems}
+      />
     </Box>
   );
 };

@@ -141,6 +141,22 @@ const buildExportFileName = (
   return suffix ? `${baseName}_${suffix}` : baseName;
 };
 
+// Playlist clips carry their own sources (possibly from different packages).
+// A chosen angle must apply to every clip, not just the fallback source.
+const selectClipAngle = (
+  clips: ClipExportItem[],
+  index: number,
+): ClipExportItem[] =>
+  clips.map((clip) => {
+    if (!clip.videoSource && !clip.videoSource2) return clip;
+    if (index === 0) return { ...clip, angleType: 'angle1' };
+    if (index === 1 && clip.videoSource2)
+      return { ...clip, angleType: 'angle2' };
+    throw new Error(
+      '選択したアングルがないクリップがあります。各クリップの映像ソースを確認してください。',
+    );
+  });
+
 export const executeClipExport = async ({
   executeExport,
   progressId,
@@ -156,87 +172,104 @@ export const executeClipExport = async ({
   buildAllAnglesSuccessMessage = DEFAULT_ALL_ANGLES_SUCCESS_MESSAGE,
   onProgress,
 }: ExecuteClipExportOptions): Promise<ClipExportActionResult> => {
-  if (angleOption === 'allAngles') {
-    const availableSources = getAvailableVideoSources(videoSources);
-    for (let i = 0; i < availableSources.length; i += 1) {
-      onProgress?.({
-        current: i + 1,
-        total: availableSources.length,
-        message: `アングル${i + 1} / ${availableSources.length} を書き出し中...`,
-      });
+  try {
+    if (angleOption === 'multi') selectClipAngle(clips, 1);
+    if (angleOption === 'allAngles') {
+      const availableSources = getAvailableVideoSources(videoSources);
+      const clipsByAngle = availableSources.map((_, index) =>
+        selectClipAngle(clips, index),
+      );
+      for (let i = 0; i < availableSources.length; i += 1) {
+        onProgress?.({
+          current: i + 1,
+          total: availableSources.length,
+          message: `アングル${i + 1} / ${availableSources.length} を書き出し中...`,
+        });
 
-      const result = await executeExport({
-        sourcePath: availableSources[i],
-        progressId,
-        sourcePath2: undefined,
-        mode: 'single',
-        exportMode,
-        angleOption: 'single',
-        outputFileName: buildExportFileName(exportFileName, `angle${i + 1}`),
-        clips,
-        overlay,
-      });
+        const result = await executeExport({
+          sourcePath: availableSources[i],
+          progressId,
+          sourcePath2: undefined,
+          mode: 'single',
+          exportMode,
+          angleOption: 'single',
+          outputFileName: buildExportFileName(exportFileName, `angle${i + 1}`),
+          clips: clipsByAngle[i],
+          overlay,
+        });
 
-      if (!result.success) {
-        onProgress?.(null);
-        return {
-          success: false,
-          message: `アングル${i + 1}の書き出しに失敗しました`,
-        };
+        if (!result.success) {
+          onProgress?.(null);
+          return {
+            success: false,
+            message: result.error || `アングル${i + 1}の書き出しに失敗しました`,
+          };
+        }
       }
+
+      onProgress?.(null);
+      return {
+        success: true,
+        message: buildAllAnglesSuccessMessage(availableSources.length),
+      };
     }
 
-    onProgress?.(null);
-    return {
-      success: true,
-      message: buildAllAnglesSuccessMessage(availableSources.length),
-    };
-  }
+    const sourcePath = resolveClipExportPrimarySource({
+      angleOption,
+      videoSources,
+      selectedAngleIndex,
+      resolvedSources,
+    });
+    if (!sourcePath) {
+      return {
+        success: false,
+        message: '書き出し対象の映像ソースが見つかりません',
+      };
+    }
 
-  const sourcePath = resolveClipExportPrimarySource({
-    angleOption,
-    videoSources,
-    selectedAngleIndex,
-    resolvedSources,
-  });
-  if (!sourcePath) {
+    onProgress?.({
+      current: 0,
+      total: 1,
+      message: '書き出し中...',
+    });
+
+    const result = await executeExport({
+      sourcePath,
+      progressId,
+      sourcePath2:
+        angleOption === 'multi'
+          ? normalizeClipExportSource(resolvedSources.sourcePath2)
+          : undefined,
+      mode: angleOption === 'multi' ? 'dual' : 'single',
+      exportMode,
+      angleOption,
+      outputFileName: buildExportFileName(exportFileName),
+      clips:
+        angleOption === 'single'
+          ? selectClipAngle(clips, selectedAngleIndex)
+          : clips,
+      overlay,
+    });
+
+    onProgress?.(null);
+    if (result.success) {
+      return {
+        success: true,
+        message: successMessage,
+      };
+    }
+
     return {
       success: false,
-      message: '書き出し対象の映像ソースが見つかりません',
+      message: result.error || '書き出しに失敗しました',
     };
-  }
-
-  onProgress?.({
-    current: 0,
-    total: 1,
-    message: '書き出し中...',
-  });
-
-  const result = await executeExport({
-    sourcePath,
-    progressId,
-    sourcePath2:
-      angleOption === 'multi'
-        ? normalizeClipExportSource(resolvedSources.sourcePath2)
-        : undefined,
-    mode: angleOption === 'multi' ? 'dual' : 'single',
-    exportMode,
-    angleOption,
-    outputFileName: buildExportFileName(exportFileName),
-    clips,
-    overlay,
-  });
-
-  onProgress?.(null);
-  if (result.success) {
+  } catch (error) {
     return {
-      success: true,
-      message: successMessage,
+      success: false,
+      message:
+        error instanceof Error ? error.message : '書き出しに失敗しました',
     };
+  } finally {
+    onProgress?.(null);
   }
-
-  return {
-    success: false,
-    message: '書き出しに失敗しました',
-  };
 };
