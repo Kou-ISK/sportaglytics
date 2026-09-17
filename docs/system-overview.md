@@ -172,6 +172,8 @@ UIは `分析 > 自動イベント検出…` から開きます。検出後のev
 
 確認済み映像から学習する補正重みもmodel pack内に閉じ込めます。過去のTrain特徴を使って既存判定を保ち、補正後の区間判定と同一Codingイベントの保持を評価します。製品側のIPC・Timeline保存契約は共通です（[ADR 0037](adr/0037-reviewed-model-refinement.md)）。
 
+クラスを限定した時間方向の補正もpack内で実行します。前後8秒の特徴を使う`reviewed-temporal`はスクラムを保持してリスタート・ラインアウトだけを補正し、特徴抽出は共用します。公開画像の比較結果と採用判断は[モデル改善の仕様](event-detection.md#前後の映像と公開画像を使う補正)を正本とします。
+
 再学習では既存Codingの出典・時間軸と、追加Trainカメラの同期を確認します。メタデータ未記録をCoding不足とは扱いません。R&Dの比較用checkpoint、本体に採用したmodel pack、配布済みモデルの状態を区別し、Validation上の一致度改善だけで配布モデルを置き換えない運用です。
 
 model statusは `verified | experimental` の2状態です。experimentalを選ぶと`試験` badge、誤検出・見逃しの警告、Recall / Precision / evaluated matches / baseline confidence thresholdを表示します。confidence thresholdは0.00〜1.00でrunごとに変更できます。

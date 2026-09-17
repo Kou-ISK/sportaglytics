@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- リスタート・ラインアウトを時間文脈で補正し、スクラムの判定を保持する試験model packの契約・公開画像比較・採用条件を[仕様](docs/event-detection.md#前後の映像と公開画像を使う補正)へ追加。
+
 - 公開用のfixture・ドキュメント例を匿名化し、PR・ログ・コミット情報を含む公開時のプライバシー確認手順を明文化。
 
 - 過去の学習映像と確認済み例を保持した補正モデルの採用条件・実pack検証を文書化。同一Codingの保持、別スクラムの分離、確認済み誤検知の改善を評価。

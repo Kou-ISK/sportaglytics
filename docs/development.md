@@ -143,6 +143,8 @@ Electron main manager / child process
 
 Codingの網羅範囲を断定できない比較用packはschema 2 / `experimental` / `evaluationBasis: reference-coding`として扱います。model discoveryとIPCはこの組み合わせを検証し、旧schema 1はロード時に `reported-metrics`へ変換します。新packは対応するこのブランチのアプリで検証してください。旧版アプリはschema 2を拒否します。Storybookの `Features/VideoPlayer/EventDetection/ModelEvaluation` とmodel discovery / IPC / Dialog Viewテストで、比較値を精度と誤表示しないことを確認します。
 
+時間文脈による補正packでは、学習時とランナーでclip端の扱いを一致させ、保護対象クラスのスコアが基準packと完全に同じことを確認します。公開画像を比較する場合は、画像なし候補から学習行と中心特徴の両方を除外します。比較対象・教師データのhash・採用しなかった候補もR&Dに記録し、確認済みValidationの見逃し・重複を採用条件に含めます。実アプリでは新しいpackの発見、実映像の解析、Timeline保存、再実行キャッシュを確認します。学習・比較手順の正本はprivate R&Dの`docs/targeted-temporal.md`、製品契約は[前後の映像と公開画像を使う補正](event-detection.md#前後の映像と公開画像を使う補正)を参照してください。
+
 - 詳細仕様: [自動イベント検出](event-detection.md)
 - R&D境界: [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)
 - experimental production lane: [ADR 0024](adr/0024-experimental-event-detection-production-lane.md)
