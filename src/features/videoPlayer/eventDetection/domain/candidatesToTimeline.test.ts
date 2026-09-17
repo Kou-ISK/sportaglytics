@@ -197,4 +197,54 @@ describe('convertCandidatesToTimeline', () => {
     expect(result.items).toEqual([]);
     expect(result.skippedDuplicate).toBe(1);
   });
+
+  it('adds a consolidated episode using its full range and preserves a separate play', () => {
+    const result = convertCandidatesToTimeline({
+      candidates: [
+        {
+          id: 'episode-one',
+          eventType: 'scrum',
+          confidence: 0.99,
+          anchorTime: 112,
+          detectedStartTime: 100,
+          detectedEndTime: 130,
+        },
+        {
+          id: 'episode-two',
+          eventType: 'scrum',
+          confidence: 0.98,
+          anchorTime: 165,
+          detectedStartTime: 158,
+          detectedEndTime: 179,
+        },
+      ],
+      mappings,
+      existingTimeline: [],
+      maxTime: 200,
+    });
+    expect(result.items).toEqual([
+      { actionName: 'Scrum', startTime: 95, endTime: 140, memo: '' },
+      { actionName: 'Scrum', startTime: 153, endTime: 189, memo: '' },
+    ]);
+    expect(result.skippedDuplicate).toBe(0);
+  });
+
+  it('does not append a consolidated interval again after a cached rerun', () => {
+    const result = convertCandidatesToTimeline({
+      candidates: [
+        {
+          id: 'episode-one',
+          eventType: 'scrum',
+          confidence: 0.99,
+          anchorTime: 112,
+          detectedStartTime: 100,
+          detectedEndTime: 130,
+        },
+      ],
+      mappings,
+      existingTimeline: [existing('Scrum', 95, 140)],
+    });
+    expect(result.items).toEqual([]);
+    expect(result.skippedDuplicate).toBe(1);
+  });
 });

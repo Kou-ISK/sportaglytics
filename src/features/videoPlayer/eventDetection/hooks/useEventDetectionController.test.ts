@@ -18,6 +18,7 @@ const model: EventDetectionModelInfo = {
   version: '1',
   displayName: 'Test',
   status: 'experimental',
+  evaluationBasis: 'reported-metrics',
   events: ['lineout'],
   metrics: {
     lineout: {

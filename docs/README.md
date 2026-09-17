@@ -75,3 +75,10 @@ AI agent は次の順で参照してください。
 
 - [Paintの機能範囲と公式調査](tactics.md)
 - [Tactics motion and plane contract (ADR 0029)](adr/0029-tactics-motion-and-plane-contract.md)
+
+- [ADR 0034: 既存Codingとの比較用モデル](adr/0034-reference-coding-model-evaluation.md)
+
+- [ADR 0035: 自動検出結果の再利用](adr/0035-event-detection-result-reuse.md)
+
+- [ADR 0036: 持続するイベントの区間判定](adr/0036-event-episode-consolidation.md)
+- [ADR 0037: 確認済み映像による補正モデル](adr/0037-reviewed-model-refinement.md)

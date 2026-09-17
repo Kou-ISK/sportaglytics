@@ -160,6 +160,12 @@
 - `SHOULD`: `scope` は feature / domain / tooling 名を短く指定する（例: `fix(timeline): enable duplicate action`）。
 - `SHOULD`: 1 コミットはレビュー可能な意味単位にし、無関係な変更を混ぜない。
 
+## 公開情報とプライバシー
+
+- `MUST`: 本リポジトリは公開OSSとして扱い、[公開時のデータ取り扱い](docs/privacy-and-data-handling.md#sharing-and-issue-reports)に従う。コード・docs・fixture・PR・Issue・ログ・画像・コミット情報を公開前に確認する。
+- `MUST`: ローカルデータの調査・学習・検証への利用許可を公開許可と解釈しない。個人情報、実試合を特定する情報、私的なアカウント状態は含めず、再現例には架空の名前と相対パスを使う。
+- `MUST`: 公開済みの問題は通常の修正で対応し、履歴の書換え・force-pushは別途明示的な承認なしに行わない。
+
 ## 品質ゲート（CI fail 条件）
 
 ```bash
@@ -185,6 +191,7 @@ pnpm run test:run
 
 ## PR チェックリスト
 
+- [ ] 公開内容とコミット情報に、公開許可のない個人情報・実データ由来の識別情報を含めていない。
 - [ ] 依存方向違反がない（`pages -> features -> shared`）。
 - [ ] feature 公開面（`src/features/<feature>/index.ts`）経由 import に統一されている。
 - [ ] Renderer の Electron 呼び出しが `window.electronAPI` 経由のみ。

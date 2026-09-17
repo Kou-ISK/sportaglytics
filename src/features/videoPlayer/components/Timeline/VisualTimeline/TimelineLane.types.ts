@@ -12,6 +12,7 @@ export interface TimelineLaneProps {
   focusedItemId: string | null;
   onHoverChange: (id: string | null) => void;
   onItemClick: (event: React.MouseEvent, id: string) => void;
+  onEditItem?: (id: string) => void;
   onItemContextMenu: (event: React.MouseEvent, id: string) => void;
   onMoveItem?: (
     ids: string[],

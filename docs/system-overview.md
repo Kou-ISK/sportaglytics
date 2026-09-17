@@ -95,6 +95,8 @@ Rendererへ公開するIPC contractの正本は `src/renderer.d.ts` です。用
 
 Video.js player、再生時計、Timeline document、Undo/Redo履歴はメイン動画windowを唯一のauthorityとします。
 
+複数クリップの時間通知callbackの更新は、映像プレイヤーのライフサイクルから分離します。画面の再描画中も映像の読み込みを継続します。
+
 TimelineはPackage Sessionごとに1つの専用BrowserWindowです。
 
 - packageを開いた時に自動表示
@@ -121,6 +123,8 @@ TimelineDocument
 
 `NewTimelineData = Omit<TimelineData, 'id'>` を一括追加入力に使用します。`addTimelineDatas()` は複数eventを1回のstate updateで追加するため、自動Codingで多数eventを追加しても1回のUndoで戻せます。
 
+タイムラインの行選択とインスタンス選択は操作対象を切り替える状態です。キー操作はタイムライン内に限定し、入力欄・ダイアログを除外します。行内全選択や範囲選択後はインスタンス選択へ切り替えます。操作コマンドは`useTimelineInstanceCommands`、行のメニュー／確認表示はprops-onlyの`TimelineRowActionsView`へ分離します。
+
 ## Code Window / Coding runtime
 
 `.stcw` は独立ドキュメントとして扱います。コード／ラベル／編集モードは対象Code Window内で切り替え、アプリ全体のmodeにはしません。
@@ -140,9 +144,13 @@ AI実行ファイルはOSとCPU種別ごとに検証して同梱します。モ�
 
 ## 自動イベント検出
 
+比較用model pack（schema 2）は `evaluationBasis: reference-coding` を必須とし、既存Codingとの一致・再検出として表示します。`verified`にはできず、schema 1の旧consumerはこのpackを読み込みません。評価表示はpropsだけを受け取る `EventDetectionModelEvaluationView` に分離しています。契約は [ADR 0034](adr/0034-reference-coding-model-evaluation.md) を参照してください。
+
 自動イベント検出はLLM分析とは別のローカル映像処理です。SporTagLyticsは**配布済みmodel packを安全に実行するconsumer**であり、model training/evaluationは別private R&D repositoryの責務です。
 
 目的は、通常Timelineを初期Codingして手動分析開始を早めることです。実作業では高Precisionな一部候補だけを出すのではなく、**実イベントをほぼすべて候補として出し、人間が不要候補を削除する**workflowを優先します。
+
+Mainの `eventDetection/resultCache.ts` は正常終了した検出候補だけを有効期限付きで再利用します。映像・モデルのmetadataと解析条件で無効化し、ディスクへの追加保存は行いません。
 
 ### Renderer
 
@@ -161,6 +169,12 @@ UIは `分析 > 自動イベント検出…` から開きます。検出後のev
 新規作成時のパッケージルートとクリップのパスは、mainが返したメタデータの実保存先から解決します。入力名とmainが補う拡張子の差をRendererへ持ち込みません。`electron/src/eventDetection/inputValidation.ts`で全入力ファイルの存在・種類・読み取り権限を確認し、失敗時はランナーや一時リクエストを作成する前に対象パス付きで通知します。
 
 同一run内の重複候補はconfidence順で選び、採用後に時刻順へ並べます。既存Timelineの編集内容は優先して保持します。モデル側の精度比較は前処理・走査間隔・重複抑制・thresholdを固定した評価に基づきます。詳細は[検出精度の改善と評価](event-detection.md#検出精度の改善と評価)を参照してください。
+
+持続する1プレーの区間判定はmodel runnerが所有し、既存の任意フィールド `detectedStartTime` / `detectedEndTime` で返します。Rendererはその区間にlead/lagを適用します。clip境界・信頼度の谷・最大長を使う判定と評価設定はmodel packへ固定し、手動Timelineの結合処理に置き換えません（[ADR 0036](adr/0036-event-episode-consolidation.md)）。
+
+確認済み映像から学習する補正重みもmodel pack内に閉じ込めます。過去のTrain特徴を使って既存判定を保ち、補正後の区間判定と同一Codingイベントの保持を評価します。製品側のIPC・Timeline保存契約は共通です（[ADR 0037](adr/0037-reviewed-model-refinement.md)）。
+
+クラスを限定した時間方向の補正もpack内で実行します。前後8秒の特徴を使う`reviewed-temporal`はスクラムを保持してリスタート・ラインアウトだけを補正し、特徴抽出は共用します。公開画像の比較結果と採用判断は[モデル改善の仕様](event-detection.md#前後の映像と公開画像を使う補正)を正本とします。
 
 再学習では既存Codingの出典・時間軸と、追加Trainカメラの同期を確認します。メタデータ未記録をCoding不足とは扱いません。R&Dの比較用checkpoint、本体に採用したmodel pack、配布済みモデルの状態を区別し、Validation上の一致度改善だけで配布モデルを置き換えない運用です。
 
@@ -250,6 +264,8 @@ SporTagLytics public repositoryには以下を置きません。
 Playlistは独立BrowserWindowで扱い、`.stpl` documentを正本とします。Timelineからの追加とAI Analysisからの追加は共通playlist APIを利用します。
 
 Clip exportは `src/shared/clipExport/` にpure service / contractを集約し、main processのFFmpeg runnerで実行します。進捗は専用export progress windowへ通知し、main app操作をblockしません。
+
+Paint動画出力は、Rendererがクリップとの表示区間の交差とソース時刻の補間を計算し、アングルごとの描画を検証済みIPCへ渡します。Mainの単画面／2画面FFmpeg runnerが図形合成、芝色処理、静止挿入を行い、2画面は合成後に高さを揃えます。[Paint書き出し](tactics.md#映像への書き出し)を参照してください。
 
 配布版FFmpeg/FFprobeは固定source/hashからbuildしたverified toolchainのみ利用し、main processでtimeout/output上限を適用します。
 

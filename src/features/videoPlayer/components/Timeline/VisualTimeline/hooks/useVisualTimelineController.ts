@@ -1,3 +1,4 @@
+import { useTimelineInstanceCommands } from './useTimelineInstanceCommands';
 import React, { useCallback } from 'react';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
 import { buildTimelineRowMoveUpdates } from '../../../../shared/timelineRows';
@@ -74,6 +75,7 @@ export const useVisualTimelineController = ({
     setHoveredItemId,
     setFocusedItemId,
     handleItemClick,
+    openDraftFromItemId,
     handleItemContextMenu,
     handleCloseContextMenu,
     handleContextMenuEdit,
@@ -110,11 +112,13 @@ export const useVisualTimelineController = ({
   const suppressClearRef = React.useRef(false);
   const handleSelectionApplied = useCallback((): void => {
     setFocusedItemId(null);
+    rowInteractions.clearRowSelection();
+    scrollContainerRef.current?.focus({ preventScroll: true });
     suppressClearRef.current = true;
     globalThis.setTimeout(() => {
       suppressClearRef.current = false;
     }, 0);
-  }, [setFocusedItemId]);
+  }, [rowInteractions, scrollContainerRef, setFocusedItemId]);
 
   const laneRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
   const getLaneBounds = useCallback(
@@ -203,8 +207,14 @@ export const useVisualTimelineController = ({
         )
           return;
         const pastedIds = onPasteTimelineItemsToRow(sourceItems, targetRow.id);
-        onSelectionChange(pastedIds);
-        info(`${pastedIds.length}件を ${targetActionName} にコピーしました`);
+        if (pastedIds.length > 0) onSelectionChange(pastedIds);
+        rowInteractions.clearRowSelection();
+        scrollContainerRef.current?.focus({ preventScroll: true });
+        info(
+          pastedIds.length > 0
+            ? `${pastedIds.length}件を ${targetActionName} にコピーしました`
+            : `${sourceItems.length}件を ${targetActionName} にコピーします`,
+        );
         return;
       }
       const isAlreadyInTarget = timeline
@@ -226,62 +236,34 @@ export const useVisualTimelineController = ({
       onSelectionChange,
       onUpdateTimelineItem,
       rows,
+      rowInteractions,
+      scrollContainerRef,
       timeline,
     ],
   );
 
-  const copiedItemsRef = React.useRef<typeof timeline>([]);
-  const handleCopyTimelineItems = useCallback(
-    (items: typeof timeline): void => {
-      copiedItemsRef.current = items.map((item) => ({
-        ...item,
-        labels: item.labels?.map((label) => ({ ...label })),
-      }));
-      info(`${items.length}件のインスタンスをコピーしました`);
-    },
-    [info],
-  );
-
-  const handlePasteTimelineItems = useCallback(
-    (targetRowId: string): void => {
-      const copiedItems = copiedItemsRef.current;
-      if (copiedItems.length === 0 || !onPasteTimelineItemsToRow) return;
-      const pastedIds = onPasteTimelineItemsToRow(copiedItems, targetRowId);
-      if (pastedIds.length === 0) return;
-      onSelectionChange(pastedIds);
-      rowInteractions.clearRowSelection();
-      info(`${pastedIds.length}件のインスタンスを貼り付けました`);
-    },
-    [info, onPasteTimelineItemsToRow, onSelectionChange, rowInteractions],
-  );
-
-  const handleDeleteSelectedItems = useCallback(
-    (ids: string[]): void => {
-      if (ids.length === 0) return;
-      const deletedIds = new Set(ids);
-      onDelete(ids);
-      onSelectionChange([]);
-      if (focusedItemId && deletedIds.has(focusedItemId)) {
-        setFocusedItemId(null);
-      }
-      if (hoveredItemId && deletedIds.has(hoveredItemId)) {
-        setHoveredItemId(null);
-      }
-      if (contextMenu && deletedIds.has(contextMenu.itemId)) {
-        handleCloseContextMenu();
-      }
-    },
-    [
-      contextMenu,
-      focusedItemId,
-      handleCloseContextMenu,
-      hoveredItemId,
-      onDelete,
-      onSelectionChange,
-      setFocusedItemId,
-      setHoveredItemId,
-    ],
-  );
+  const {
+    handleCopyTimelineItems,
+    handlePasteTimelineItems,
+    handleDeleteSelectedItems,
+    clearSelection,
+    selectAllItems,
+  } = useTimelineInstanceCommands({
+    timeline,
+    rows,
+    onDelete,
+    onSelectionChange,
+    onPasteTimelineItemsToRow,
+    rowInteractions,
+    scrollContainerRef,
+    focusedItemId,
+    hoveredItemId,
+    contextMenu,
+    setFocusedItemId,
+    setHoveredItemId,
+    handleCloseContextMenu,
+    info,
+  });
 
   useTimelineGlobalShortcuts({
     selectedIds,
@@ -297,6 +279,9 @@ export const useVisualTimelineController = ({
     onPasteItems: handlePasteTimelineItems,
     onDeleteItems: handleDeleteSelectedItems,
     onRequestDeleteRows: rowInteractions.onRequestDeleteRows,
+    onEditItem: openDraftFromItemId,
+    onClearSelection: clearSelection,
+    onSelectAll: selectAllItems,
   });
 
   const handleBackgroundClick = useCallback(
@@ -307,12 +292,14 @@ export const useVisualTimelineController = ({
       setFocusedItemId(null);
       setHoveredItemId(null);
       rowInteractions.clearRowSelection();
+      scrollContainerRef.current?.focus({ preventScroll: true });
     },
     [
       isSelecting,
       onSelectionChange,
       rowInteractions,
       selectionBox,
+      scrollContainerRef,
       setFocusedItemId,
       setHoveredItemId,
     ],
@@ -327,7 +314,12 @@ export const useVisualTimelineController = ({
     contextMenu,
     onCloseContextMenu: handleCloseContextMenu,
     onContextMenuEdit: handleContextMenuEdit,
-    onContextMenuDelete: handleContextMenuDelete,
+    onContextMenuDelete: () => {
+      handleContextMenuDelete();
+      requestAnimationFrame(() =>
+        scrollContainerRef.current?.focus({ preventScroll: true }),
+      );
+    },
     onContextMenuJumpTo: handleContextMenuJumpTo,
     onContextMenuDuplicate: handleContextMenuDuplicate,
     onAddToPlaylist,
@@ -387,7 +379,12 @@ export const useVisualTimelineController = ({
     focusedItemId,
     setHoveredItemId,
     handleItemClick: handleTimelineItemClick,
-    handleItemContextMenu,
+    handleItemContextMenu: (event, id) => {
+      rowInteractions.clearRowSelection();
+      handleItemContextMenu(event, id);
+    },
+    onEditItem: openDraftFromItemId,
+    onSelectRowItems: selectAllItems,
     firstTeamName,
     onUpdateTimeRange,
     handleMoveItems,

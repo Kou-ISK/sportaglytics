@@ -74,7 +74,7 @@ export const buildPlaylistExportClips = ({
         : object.timestamp - item.startTime;
       return (
         Number.isFinite(time) &&
-        time >= 0 &&
+        time + (object.motion?.duration ?? 0) >= 0 &&
         time <= item.endTime - item.startTime
       );
     });
@@ -120,6 +120,25 @@ export const buildPlaylistExportClips = ({
       if (!frames.some((time) => Math.abs(time - timestamp) <= 0.12))
         frames.push(timestamp);
     }
+    const renderFrame = (
+      entries: DrawingObject[],
+      target: AnnotationTarget,
+    ): string | null => {
+      const png = renderAnnotationPng(
+        entries,
+        target,
+        target === 'primary' ? primaryContentRect : secondaryContentRect,
+        target === 'primary' ? primarySourceSize : secondarySourceSize,
+      );
+      if (
+        !png &&
+        entries.some((object) => (object.target ?? 'primary') === target)
+      )
+        throw new Error(
+          'Paintの描画を画像に変換できませんでした。書き出しを再試行してください。',
+        );
+      return png;
+    };
     const freezeFrames = frames.map((timestamp) => {
       const frameObjects = objects.filter(
         (object) => Math.abs(object.timestamp - timestamp) <= 0.12,
@@ -129,20 +148,10 @@ export const buildPlaylistExportClips = ({
         duration: freezeDuration,
         annotationPngPrimary: hasMotion
           ? null
-          : renderAnnotationPng(
-              frameObjects,
-              'primary',
-              primaryContentRect,
-              primarySourceSize,
-            ),
+          : renderFrame(frameObjects, 'primary'),
         annotationPngSecondary: hasMotion
           ? null
-          : renderAnnotationPng(
-              frameObjects,
-              'secondary',
-              secondaryContentRect,
-              secondarySourceSize,
-            ),
+          : renderFrame(frameObjects, 'secondary'),
       };
     });
     return {

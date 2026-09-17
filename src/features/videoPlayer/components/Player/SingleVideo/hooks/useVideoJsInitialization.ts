@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import videojs from 'video.js';
 import 'videojs-youtube';
 import type Player from 'video.js/dist/types/player';
@@ -123,7 +123,14 @@ export const useVideoJsInitialization = ({
   resizeHandlerRef,
   aspectRatioCallbackRef,
   lastReportedAspectRatioRef,
-}: UseVideoJsInitializationParams) => {
+}: UseVideoJsInitializationParams): void => {
+  // Reporting callbacks can change on every timeline tick. Their identity must
+  // not dispose a player that is still reading its media source.
+  const callbacksRef = useRef({ setMaxSec, setIsReady, setDurationSec });
+  useEffect(() => {
+    callbacksRef.current = { setMaxSec, setIsReady, setDurationSec };
+  }, [setMaxSec, setIsReady, setDurationSec]);
+
   useEffect(() => {
     aspectRatioCallbackRef.current = onAspectRatioChange;
   }, [aspectRatioCallbackRef, onAspectRatioChange]);
@@ -200,7 +207,7 @@ export const useVideoJsInitialization = ({
         // YouTube tech の play() は iframe 準備前でも再生要求をキューできる。
         // HTMLMediaElement の metadata を待つと初回 play と相互待ちになるため、
         // 共通コントローラーは source 設定直後から有効にする。
-        setIsReady(true);
+        callbacksRef.current.setIsReady(true);
       }
 
       const reportMetadata = (): number => {
@@ -210,11 +217,11 @@ export const useVideoJsInitialization = ({
             ? rawDuration
             : 0;
         if (mediaDuration > 0) {
-          setDurationSec(mediaDuration);
-          setMaxSec(mediaDuration);
+          callbacksRef.current.setDurationSec(mediaDuration);
+          callbacksRef.current.setMaxSec(mediaDuration);
           stopYoutubeDurationPolling();
         }
-        setIsReady(true);
+        callbacksRef.current.setIsReady(true);
         reportAspectRatio(playerInstance);
         return mediaDuration;
       };
@@ -238,7 +245,7 @@ export const useVideoJsInitialization = ({
         // 初期状態では loadedmetadata が発火しない場合がある。
         // 共通コントローラーは tech の ready から利用可能にし、duration は
         // YouTube IFrame API が公開するまで短時間だけ追跡する。
-        setIsReady(true);
+        callbacksRef.current.setIsReady(true);
         if (reportMetadata() > 0 || youtubeDurationPollId !== undefined) {
           return;
         }
@@ -317,8 +324,8 @@ export const useVideoJsInitialization = ({
       techErrorHandlerRef.current = null;
       metadataHandlerRef.current = null;
       resizeHandlerRef.current = null;
-      setIsReady(false);
-      setDurationSec(0);
+      callbacksRef.current.setIsReady(false);
+      callbacksRef.current.setDurationSec(0);
       lastReportedAspectRatioRef.current = null;
     };
   }, [
@@ -331,9 +338,6 @@ export const useVideoJsInitialization = ({
     metadataHandlerRef,
     playerRef,
     resizeHandlerRef,
-    setDurationSec,
-    setIsReady,
-    setMaxSec,
     techErrorHandlerRef,
     videoRef,
     videoSrc,

@@ -338,7 +338,27 @@ try {
   assert.equal(pastedDocument.instances[1].color, '#ff5500');
   assert.equal(pastedDocument.instances[1].startTime, 0.5);
   assert.equal(pastedDocument.instances[1].endTime, 1.5);
-  console.log('Row selection and Command+V paste passed');
+  assert.equal(
+    await attackHeader.getAttribute('aria-pressed'),
+    'false',
+    'paste must clear row selection',
+  );
+  await page.keyboard.press('Delete');
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-timeline-item-id]').length === 1,
+  );
+  assert.equal(
+    await page.getByRole('dialog').count(),
+    0,
+    'Delete after paste targets the new instance',
+  );
+  await page.keyboard.press(`${primaryModifier}+z`);
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-timeline-item-id]').length === 2,
+  );
+  console.log(
+    'Row selection, paste, immediate instance delete and Undo passed',
+  );
 
   await page.evaluate(() => {
     const item = document.querySelector(
@@ -379,7 +399,20 @@ try {
   assert.equal(optionCopiedDocument.instances.length, 3);
   assert.equal(optionCopiedDocument.instances[2].actionName, 'Attack');
   assert.equal(optionCopiedDocument.instances[2].color, '#ff5500');
-  console.log('Option-drag row copy passed');
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('[data-timeline-item-id][aria-pressed="true"]')
+        .length === 1,
+  );
+  await page.keyboard.press('Delete');
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-timeline-item-id]').length === 2,
+  );
+  await page.keyboard.press(`${primaryModifier}+z`);
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-timeline-item-id]').length === 3,
+  );
+  console.log('Option-drag row copy, immediate delete and Undo passed');
 
   await page.evaluate(() => {
     const source = document.querySelector(
@@ -623,6 +656,119 @@ try {
   assert.equal(document.instances[1].color, '#ff5500');
   assert.equal(document.instances[2].color, '#ff5500');
   assert.equal(document.instances[3].color, '#00aa00');
+
+  // Keyboard targets must follow item/row selection and never escape into forms.
+  const instanceCount = () => page.locator('[data-timeline-item-id]').count();
+  const waitForCount = (count) =>
+    page.waitForFunction(
+      (expected) =>
+        document.querySelectorAll('[data-timeline-item-id]').length ===
+        expected,
+      count,
+    );
+  const firstInstance = page.getByTestId('timeline-instance-instance-1');
+  await firstInstance.click();
+  await page.keyboard.press('Enter');
+  await page.getByRole('dialog', { name: 'アクション編集' }).waitFor();
+  await page.getByLabel('メモ').fill('keyboard fixture');
+  await page.keyboard.press('Backspace');
+  assert.equal(
+    await instanceCount(),
+    4,
+    'text Backspace must not delete an instance',
+  );
+  await page.keyboard.press('Tab');
+  await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  await firstInstance.dblclick();
+  await page.getByRole('dialog', { name: 'アクション編集' }).waitFor();
+  await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  await firstInstance.click();
+  await page.keyboard.press('Delete');
+  await waitForCount(3);
+  await page.keyboard.press(`${primaryModifier}+z`);
+  await waitForCount(4);
+
+  // Select every instance in a row while retaining the row itself on deletion.
+  const attackRow = page.getByRole('button', {
+    name: 'Attack 行',
+    exact: true,
+  });
+  await attackRow.click({ button: 'right' });
+  await page
+    .getByRole('menuitem', { name: '行内のインスタンスを選択' })
+    .click();
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('[data-timeline-item-id][aria-pressed="true"]')
+        .length === 2,
+  );
+  assert.equal(await attackRow.getAttribute('aria-pressed'), 'false');
+  await page.keyboard.press('Backspace');
+  await waitForCount(2);
+  assert.equal(
+    await page.getByRole('dialog').count(),
+    0,
+    'instance deletion must not request row deletion',
+  );
+  await attackRow.waitFor();
+  await page.keyboard.press(`${primaryModifier}+z`);
+  await waitForCount(4);
+
+  // Context-menu deletion has the same multi-selection semantics as Delete.
+  await page.getByRole('region', { name: 'タイムライン', exact: true }).focus();
+  await page.keyboard.press(`${primaryModifier}+a`);
+  await page
+    .getByTestId('timeline-instance-instance-1')
+    .click({ button: 'right' });
+  await page.getByRole('menuitem', { name: '選択した4件を削除' }).click();
+  await waitForCount(0);
+  await page.keyboard.press(`${primaryModifier}+z`);
+  await waitForCount(4);
+  await page.keyboard.press('Escape');
+  assert.equal(
+    await page.locator('[data-timeline-item-id][aria-pressed="true"]').count(),
+    0,
+  );
+
+  // Marquee after a row selection must target instances, not that stale row.
+  await attackRow.click();
+  const attackItems = await page
+    .locator('[data-timeline-item-id]')
+    .evaluateAll((items) =>
+      items
+        .filter((item) => item.closest('[data-testid="timeline-lane-Attack"]'))
+        .map((item) => {
+          const box = item.getBoundingClientRect();
+          return { x: box.x, y: box.y, width: box.width, height: box.height };
+        }),
+    );
+  assert.equal(attackItems.length, 2);
+  const box = attackItems[0];
+  await page.mouse.move(box.x - 5, box.y + 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width + 5, box.y + box.height - 2, {
+    steps: 6,
+  });
+  await page.mouse.up();
+  assert.equal(await attackRow.getAttribute('aria-pressed'), 'false');
+  await page.keyboard.press('Delete');
+  await waitForCount(2);
+  assert.equal(await page.getByRole('dialog').count(), 0);
+  await page.keyboard.press(`${primaryModifier}+z`);
+  await waitForCount(4);
+
+  // Multi-row deletion requires confirmation and can be cancelled safely.
+  await attackRow.click();
+  await page
+    .getByRole('button', { name: 'Defence 行', exact: true })
+    .click({ modifiers: [primaryModifier] });
+  await page.keyboard.press('Delete');
+  await page.getByRole('dialog', { name: '2行を削除しますか？' }).waitFor();
+  await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  assert.equal(await instanceCount(), 4);
+  console.log(
+    'Timeline edit, input isolation, bulk delete/undo, row contents, marquee and row confirmation passed',
+  );
 
   const screenshotDirectory = process.env.E2E_SCREENSHOT_DIR;
   if (screenshotDirectory) {

@@ -140,9 +140,10 @@ Timelineへ追加されたeventは、manual/autodetectedを問わず同一data m
 
 - create/update/delete
 - range edit（再生位置を移動せず、確定時に1操作1履歴。Escで未確定の変更を取消）
-- row create/rename/color/reorder/delete
+- row create/rename/color/reorder/delete（行削除は確認必須、取消対象外）
 - instance move/copy
-- multi-select、空白クリックで選択とフォーカス枠を解除
+- multi-select、行内の全インスタンス選択、空白クリック／Escapeで選択とフォーカス枠を解除
+- Delete/Backspaceの削除対象を行／インスタンスの選択に一致させ、入力欄・ダイアログを保護
 - タイムラインのドラッグによるシークは上部のつまみだけで受け付ける
 - memo/label edit
 - Undo/Redo
@@ -169,6 +170,8 @@ addTimelineDatas(items: NewTimelineData[]): string[]
 ---
 
 ## 2.4 自動イベント検出
+
+比較用model packは既存Codingとの一致率を一般的な精度として表示しないこと。schema 2 / `reference-coding` は試験モデル専用とし、検証済みモデルへの偽装と旧アプリでの誤表示を拒否すること。
 
 ### 目的
 
@@ -372,6 +375,7 @@ Clip export:
 - overlay
 - single/multi angle
 - dedicated progress window
+- Paintのアングル別描画・区間途中の追尾・複数フリーズと音声同期を保持。異解像度の2画面は縦横比を保って高さを統一し、描画生成失敗や欠落アングルを通知
 
 ---
 

@@ -62,6 +62,7 @@ try {
             version: '1',
             displayName: 'E2E Input Contract',
             status: 'experimental',
+            evaluationBasis: 'reference-coding',
             events: ['lineout'],
             metrics: {
               lineout: {
@@ -141,6 +142,8 @@ try {
     exact: true,
   });
   await detection.getByText(/E2E Input Contract/).waitFor();
+  await detection.getByText('既存Codingとの比較', { exact: true }).waitFor();
+  assert.equal(await detection.getByText(/Precision/).count(), 0);
   await detection
     .getByRole('button', { name: '検出してタイムラインへ追加' })
     .click();

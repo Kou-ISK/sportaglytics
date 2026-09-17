@@ -19,7 +19,8 @@ import type {
 
 const MANIFEST_FILENAME = 'manifest.json';
 
-const getPlatformRunnerKey = (): string => `${process.platform}-${process.arch}`;
+const getPlatformRunnerKey = (): string =>
+  `${process.platform}-${process.arch}`;
 
 const isEventDetectionModelStatus = (
   value: unknown,
@@ -79,7 +80,7 @@ const parseMetrics = (
 const parseManifest = (value: unknown): EventDetectionModelManifest | null => {
   if (!isPlainObject(value)) return null;
   if (
-    value.schemaVersion !== 1 ||
+    (value.schemaVersion !== 1 && value.schemaVersion !== 2) ||
     typeof value.id !== 'string' ||
     !value.id.trim() ||
     typeof value.version !== 'string' ||
@@ -95,6 +96,16 @@ const parseManifest = (value: unknown): EventDetectionModelManifest | null => {
     return null;
   }
 
+  // Version 2 prevents older apps from presenting reference-only comparisons
+  // as measured precision/recall. Reference Coding never qualifies a model.
+  if (
+    (value.schemaVersion === 2 &&
+      (value.evaluationBasis !== 'reference-coding' ||
+        value.status !== 'experimental')) ||
+    (value.schemaVersion === 1 && value.evaluationBasis !== undefined)
+  )
+    return null;
+
   const metrics = parseMetrics(value.metrics);
   if (!metrics) return null;
 
@@ -105,11 +116,13 @@ const parseManifest = (value: unknown): EventDetectionModelManifest | null => {
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: value.schemaVersion,
     id: value.id,
     version: value.version,
     displayName: value.displayName,
     status: value.status,
+    evaluationBasis:
+      value.schemaVersion === 2 ? 'reference-coding' : 'reported-metrics',
     events: value.events,
     metrics,
     runners,
@@ -126,9 +139,16 @@ const hashFile = (filePath: string): Promise<string> => {
   });
 };
 
-const isPathInsideDirectory = (directory: string, filePath: string): boolean => {
+const isPathInsideDirectory = (
+  directory: string,
+  filePath: string,
+): boolean => {
   const relative = path.relative(directory, filePath);
-  return relative.length > 0 && !relative.startsWith('..') && !path.isAbsolute(relative);
+  return (
+    relative.length > 0 &&
+    !relative.startsWith('..') &&
+    !path.isAbsolute(relative)
+  );
 };
 
 const getModelRoots = (): string[] => {
@@ -136,7 +156,9 @@ const getModelRoots = (): string[] => {
   if (app.isPackaged) {
     roots.unshift(path.join(process.resourcesPath, 'event-detection-models'));
   } else {
-    roots.unshift(path.join(app.getAppPath(), 'resources', 'event-detection-models'));
+    roots.unshift(
+      path.join(app.getAppPath(), 'resources', 'event-detection-models'),
+    );
   }
   return roots;
 };
@@ -166,7 +188,10 @@ const resolveRunnableEvents = (
     return allEventsHaveMetrics ? [...manifest.events] : null;
   }
 
-  const verifiedEvents = getVerifiedEventTypes(manifest.events, manifest.metrics);
+  const verifiedEvents = getVerifiedEventTypes(
+    manifest.events,
+    manifest.metrics,
+  );
   return verifiedEvents.length > 0 ? verifiedEvents : null;
 };
 
@@ -174,7 +199,10 @@ const loadEventDetectionModel = async (
   modelDirectory: string,
 ): Promise<RunnableEventDetectionModel | null> => {
   try {
-    const raw = await readFile(path.join(modelDirectory, MANIFEST_FILENAME), 'utf-8');
+    const raw = await readFile(
+      path.join(modelDirectory, MANIFEST_FILENAME),
+      'utf-8',
+    );
     const parsed: unknown = JSON.parse(raw);
     const manifest = parseManifest(parsed);
     if (!manifest) return null;
@@ -204,6 +232,7 @@ const loadEventDetectionModel = async (
         displayName: manifest.displayName,
         events: runnableEvents,
         status: manifest.status,
+        evaluationBasis: manifest.evaluationBasis,
         metrics,
       },
       modelDirectory,
@@ -222,7 +251,9 @@ export const listEventDetectionModels = async (): Promise<
   const models = await Promise.all(directories.map(loadEventDetectionModel));
   return models
     .filter((model): model is RunnableEventDetectionModel => model !== null)
-    .sort((left, right) => left.info.displayName.localeCompare(right.info.displayName));
+    .sort((left, right) =>
+      left.info.displayName.localeCompare(right.info.displayName),
+    );
 };
 
 export const findEventDetectionModel = async (

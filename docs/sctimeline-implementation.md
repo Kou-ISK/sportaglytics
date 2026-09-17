@@ -197,13 +197,15 @@ const timelineData = convertFromSCTimeline(scTimelineData);
 - groupが存在しない場合も正しく処理
 - 最小限の必須フィールドのみで動作
 
-## テスト済みのSCTimelineファイル
+## 確認したSCTimeline構造
 
-1. **230409 NEC 17 v 45 Canon.SCVideo/SportscodeXML.SCTimeline**
+実ファイル名は公開せず、確認した構造のみを記載します。以下の名前は説明用の架空名です。
+
+1. **`match-with-label-groups.SCVideo/SportscodeXML.SCTimeline` 相当**
    - labels配列あり（複数のgroup）
    - 詳細な分類情報
 
-2. **20230513 帝京v学習院vオーバー.SCVideo/SportscodeXML.SCTimeline**
+2. **`match-with-empty-labels.SCVideo/SportscodeXML.SCTimeline` 相当**
    - labels配列が空
    - シンプルな構造
 

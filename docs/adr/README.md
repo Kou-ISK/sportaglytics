@@ -29,7 +29,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0021](0021-detached-timeline-playback-authority.md)               | Detached timeline and playback authority           | Accepted   | 2026-08-15 |
 | [0022](0022-verified-local-rugby-event-detection.md)               | Verified local rugby event detection               | Superseded | 2026-08-15 |
 | [0023](0023-external-rugby-event-model-rd-boundary.md)             | External rugby event model R&D boundary            | Accepted   | 2026-08-18 |
-| [0024](0024-experimental-event-detection-production-lane.md)       | Experimental event detection production lane       | Accepted   | 2026-08-19 |
+| [0024](0024-experimental-event-detection-production-lane.md)       | Experimental event detection production lane       | Superseded | 2026-08-19 |
 | [0025](0025-playlist-document-presentation-order.md)               | Playlist document presentation order               | Accepted   | 2026-08-25 |
 | [0026](0026-package-session-window-ownership.md)                   | Package session window ownership                   | Accepted   | 2026-08-30 |
 | [0027](0027-enforced-design-system-foundation.md)                  | Enforced design system foundation                  | Accepted   | 2026-08-30 |
@@ -41,6 +41,10 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0031](0031-tracking-target-selection.md) | Tracking target selection | Accepted | 2026-09-11 |
 | [0032](0032-immutable-release-artifacts.md) | Immutable release artifacts | Accepted | 2026-09-13 |
 | [0033](0033-windows-desktop-runtime.md) | Windows desktop runtime | Accepted | 2026-09-13 |
+| [0034](0034-reference-coding-model-evaluation.md) | Reference Coding Model Evaluation | Accepted | 2026-09-15 |
+| [0035](0035-event-detection-result-reuse.md) | Event detection result reuse | Accepted | 2026-09-16 |
+| [0036](0036-event-episode-consolidation.md) | Event Episode Consolidation | Accepted | 2026-09-16 |
+| [0037](0037-reviewed-model-refinement.md) | Reviewed Model Refinement（クラスを保持した時間文脈補正・公開画像比較を追記） | Accepted | 2026-09-16 |
 
 ## Status Values
 

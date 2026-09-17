@@ -122,7 +122,11 @@ export const TimelineContextMenu: React.FC<TimelineContextMenuProps> = ({
         <ListItemIcon>
           <DeleteIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText primary="削除" />
+        <ListItemText
+          primary={
+            selectedCount > 1 ? `選択した${selectedCount}件を削除` : '削除'
+          }
+        />
       </MenuItem>
     </Menu>
   );

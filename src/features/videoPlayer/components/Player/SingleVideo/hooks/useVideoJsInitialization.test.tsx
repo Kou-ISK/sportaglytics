@@ -16,12 +16,18 @@ vi.mock('videojs-youtube', () => ({}));
 import { useVideoJsInitialization } from './useVideoJsInitialization';
 
 interface HarnessProps {
+  videoSrc?: string;
   setIsReady: (value: boolean) => void;
   setDurationSec: (value: number) => void;
   setMaxSec: (value: number) => void;
 }
 
-const Harness = ({ setIsReady, setDurationSec, setMaxSec }: HarnessProps) => {
+const Harness = ({
+  setIsReady,
+  setDurationSec,
+  setMaxSec,
+  videoSrc = 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
+}: HarnessProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<Player | null>(null);
@@ -36,7 +42,7 @@ const Harness = ({ setIsReady, setDurationSec, setMaxSec }: HarnessProps) => {
 
   useVideoJsInitialization({
     id: 'video_0',
-    videoSrc: 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
+    videoSrc,
     allowSeek: false,
     setMaxSec,
     setIsReady,
@@ -62,23 +68,29 @@ const Harness = ({ setIsReady, setDurationSec, setMaxSec }: HarnessProps) => {
 describe('useVideoJsInitialization YouTube readiness', () => {
   let readyCallback: (() => void) | undefined;
   let durationValue: number;
+  let metadataCallback: (() => void) | undefined;
+  let disposeMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.useFakeTimers();
     videojsMock.mockReset();
     durationValue = 0;
     readyCallback = undefined;
+    metadataCallback = undefined;
+    disposeMock = vi.fn();
 
     videojsMock.mockImplementation((element) => {
       const player = {
         currentTime: vi.fn(() => 0),
-        dispose: vi.fn(),
+        dispose: disposeMock,
         duration: vi.fn(() => durationValue),
         el: vi.fn(() => element.parentElement),
         isDisposed: vi.fn(() => false),
         muted: vi.fn(),
         off: vi.fn(),
-        on: vi.fn(),
+        on: vi.fn((event: string, callback: () => void) => {
+          if (event === 'loadedmetadata') metadataCallback = callback;
+        }),
         ready: vi.fn((callback: () => void) => {
           readyCallback = callback;
         }),
@@ -86,6 +98,39 @@ describe('useVideoJsInitialization YouTube readiness', () => {
       };
       return player;
     });
+  });
+
+  it('keeps a loading player across reporting callback changes and reports to the latest callback', () => {
+    const initial = {
+      setIsReady: vi.fn(),
+      setDurationSec: vi.fn(),
+      setMaxSec: vi.fn(),
+    };
+    const latest = {
+      setIsReady: vi.fn(),
+      setDurationSec: vi.fn(),
+      setMaxSec: vi.fn(),
+    };
+    const view = render(
+      <Harness {...initial} videoSrc="file:///match-a.mp4" />,
+    );
+    view.rerender(<Harness {...latest} videoSrc="file:///match-a.mp4" />);
+    expect(videojsMock).toHaveBeenCalledTimes(1);
+    expect(disposeMock).not.toHaveBeenCalled();
+
+    durationValue = 120;
+    act(() => metadataCallback?.());
+    expect(latest.setMaxSec).toHaveBeenCalledWith(120);
+    expect(latest.setDurationSec).toHaveBeenCalledWith(120);
+    expect(latest.setIsReady).toHaveBeenCalledWith(true);
+    expect(initial.setMaxSec).not.toHaveBeenCalled();
+
+    view.rerender(<Harness {...latest} videoSrc="file:///match-b.mp4" />);
+    expect(videojsMock).toHaveBeenCalledTimes(2);
+    expect(disposeMock).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(disposeMock).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 
   it('enables shared controls at tech ready and publishes duration after cue', () => {

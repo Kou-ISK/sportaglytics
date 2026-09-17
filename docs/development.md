@@ -71,6 +71,8 @@ stagingへ置くのはsanitized deployable model packだけです。raw video、
 通常prefix: `feature`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`。
 CommitはConventional Commitsを使います。
 
+公開前に [Sharing and Issue Reports](privacy-and-data-handling.md#sharing-and-issue-reports) に沿って、差分・PR本文・添付物とコミットの著者情報を確認します。Gitの著者設定はリポジトリ単位で公開用の名前とGitHubのnoreplyメールにし、実データを使った調査結果は匿名化して記載します。`research/` と `output/playwright/` のローカル成果物は公開対象に含めません。
+
 ## 品質ゲート
 
 PR merge前に必須:
@@ -136,6 +138,12 @@ Electron main manager / child process
 `src` から `electron` / `ipcRenderer` を直接importしません。
 
 ## 自動イベント検出の開発
+
+しきい値変更で同じ映像を再解析しないよう、Mainで検証済み結果をキャッシュします。`resultCache` のテストではrequest ID更新、候補のコピー、期限・容量制限、映像・model pack・時刻・イベント変更の無効化を確認します。実モデルE2Eでは同じ入力を再実行し、最新しきい値と既存Timelineの重複除去が適用されることを確認します。
+
+Codingの網羅範囲を断定できない比較用packはschema 2 / `experimental` / `evaluationBasis: reference-coding`として扱います。model discoveryとIPCはこの組み合わせを検証し、旧schema 1はロード時に `reported-metrics`へ変換します。新packは対応するこのブランチのアプリで検証してください。旧版アプリはschema 2を拒否します。Storybookの `Features/VideoPlayer/EventDetection/ModelEvaluation` とmodel discovery / IPC / Dialog Viewテストで、比較値を精度と誤表示しないことを確認します。
+
+時間文脈による補正packでは、学習時とランナーでclip端の扱いを一致させ、保護対象クラスのスコアが基準packと完全に同じことを確認します。公開画像を比較する場合は、画像なし候補から学習行と中心特徴の両方を除外します。比較対象・教師データのhash・採用しなかった候補もR&Dに記録し、確認済みValidationの見逃し・重複を採用条件に含めます。実アプリでは新しいpackの発見、実映像の解析、Timeline保存、再実行キャッシュを確認します。学習・比較手順の正本はprivate R&Dの`docs/targeted-temporal.md`、製品契約は[前後の映像と公開画像を使う補正](event-detection.md#前後の映像と公開画像を使う補正)を参照してください。
 
 - 詳細仕様: [自動イベント検出](event-detection.md)
 - R&D境界: [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)
@@ -209,6 +217,10 @@ UIはmanifestの`confidenceThreshold`を初期値として表示し、runごと�
 
 model packの精度検証ではcheckpointとthresholdに加え、評価時の前処理・走査間隔・重複抑制も一致させます。Validationだけで改善したモデルを`verified`と表示しません。モデル選択・再評価はprivate R&D側で実施し、元映像や評価用データを本体のテストfixtureへコピーしないでください。
 
+補正重みを学習する場合はprivate R&Dの `docs/reviewed-kernel.md` を参照します。過去の学習データ・追加カメラ・以前のレビューの継承と特徴cacheの出典を検証し、同数の検出でも別のCodingを失った候補は採用しません。新checkpointのhashと学習結果を記録し、未使用Testによる資格評価とは区別します。実packでは報告された見逃し区間も別の試験パッケージへコピーして検証します。
+
+区間判定を含むpackでは `scanConfig.episodeDecoder` も評価・export・runtimeで一致させます。private R&Dの `docs/episode-calibration.md` が教師データ・特徴cache・調整手順の正本です。ニューラル重みが同じ場合もpack versionを更新し、旧packをrollback用に保存します。実packの検証では同一プレーの統合、別プレーとclip境界の分離、検出区間＋lead/lagのTimeline保存、再実行cacheを確認します。既存パッケージを直接書き換えず、別の検証パッケージを使用してください。
+
 R&Dの`refine_head`は、既存Codingの区間内を優先する正例抽出と、同期したTrainの追加カメラを比較します。凍結したX3Dの特徴を再利用し、寄り映像だけの候補・引き映像を加えた候補・重複抑制だけの比較対象を記録します。既存の網羅性メタデータがないだけで再Codingを要求せず、完成版の出典と確認根拠を残してください。比較手順の正本はprivate R&D側の`docs/head-refinement.md`です。比較用checkpointを作っただけでは、本体の同梱model packは更新されません。
 
 ### Private R&D boundary
@@ -243,6 +255,8 @@ Model outputは直接persisted `timeline.json` を書き換えません。Render
 自動追加後は通常の `TimelineData` として扱います。experimental provenanceをTimeline schemaへ保存しません。
 
 ## テストとデバッグ
+
+再生プレイヤーの生成・破棄は映像sourceと設定の変更に従います。複数クリップの経過時間通知でcallbackの参照が変わっても、読み込み中のplayerを再生成しません。通知先は最新callbackへ更新し、source変更・unmountでは従来どおり破棄します。`useVideoJsInitialization`の回帰テストと実映像での読み込み完了を確認してください。
 
 ```bash
 pnpm run test:run
@@ -310,7 +324,7 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | 起動画面 | `Workspace/Start`: 初回、履歴検索、空/該当なし、長い保存先、ロード中、エラー再試行、drop                                                                               | [起動画面](start-workspace.md)                   |
 | 再生操作 | `Design System/Composites/Movie Transport`、`Workspace/Transport`: 半透明、送り量のラベル、描画目印                                                                    | [デザインシステム](design-system.md)             |
-| Timeline | `Workspace/Timeline/Continuous`、Context Menu: ズーム・スクロール後のruler/行/再生線一致、つまみのみのシーク、未選択の端編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
+| Timeline | `Workspace/Timeline/Continuous`、Context Menu / Row Actions: ズーム・スクロール後のruler/行/再生線一致、つまみのみのシーク、未選択の端編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
 | Paint    | `Workspace/Playlist/Paint`: Interactive、Empty、Player Graphics、Video Tracking、Keyframe Editing、Inspector Layout、Collapsed Inspector                               | [Paint](tactics.md)                              |
 
 共通してdark/light、600/800/1280px、長い名称、キーボード、空状態・失敗状態を確認します。Paintでは点/描画の削除とUndo、入力欄のBackspace、リンクの連続クリック、追尾の範囲指定→適用→手修正→再追尾、パネル開閉時の状態保持を確認します。時間目盛りの入力は `useStudioRulerInput` でRAFにまとめるため、連続入力と動画側の追従も確認します。
@@ -318,6 +332,10 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 実機のファイルダイアログ・Finder/Explorerドロップ・保存再読込・Package Session・FFmpeg出力はStorybookと別に確認します。追尾の合成WebMや公開人物映像での結果と、利用者の試合映像での精度は区別して報告します。
 
 同じパッケージの閉じる→再openは `pnpm run test:e2e:package-reopen` で確認します。履歴の登録は画面unmount後の完了も検証対象です。テストの概要とプラットフォームごとの範囲は[起動画面の検証](start-workspace.md#検証)を参照してください。
+
+`pnpm run test:e2e:timeline-rows`は、単体／複数インスタンスの削除・Undo、行内選択、行削除の確認、範囲選択後の対象切替、Enter／ダブルクリック編集、入力欄のBackspaceを実機で確認します。
+
+`pnpm run test:e2e:paint-export`は、合成映像と実Canvas描画を使ってRendererの書き出し組立・共通サービス・実IPC・FFmpegまで検証します。出力映像の画素、寸法、尺、音声から、クリップ途中の追尾、芝色による前景復元、静止挿入、別アングル、異なる解像度の2画面を確認します。アーティファクトを残す場合は`E2E_SCREENSHOT_DIR=output/playwright/paint-export`を指定します。これらは実試合の追尾精度やWindows実機検証の代替ではありません。
 
 ### Sportscodeのインスタンス操作を参照する場合
 

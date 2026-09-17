@@ -118,42 +118,54 @@ export const usePlaylistExport = ({
       return { success: false, message: '書き出すアイテムがありません' };
     }
 
-    const clips = buildPlaylistExportClips({
-      sourceItems,
-      itemAnnotations,
-      minFreezeDuration,
-      primaryContentRect,
-      secondaryContentRect,
-      primarySourceSize,
-      secondarySourceSize,
-      renderAnnotationPng,
-    });
-    const progressId =
-      typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : `export-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const initialProgress = {
-      current: 0,
-      total: Math.max(1, clips.length),
-      message: '書き出し準備中...',
-    };
+    try {
+      const clips = buildPlaylistExportClips({
+        sourceItems,
+        itemAnnotations,
+        minFreezeDuration,
+        primaryContentRect,
+        secondaryContentRect,
+        primarySourceSize,
+        secondarySourceSize,
+        renderAnnotationPng,
+      });
+      const progressId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `export-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const initialProgress = {
+        current: 0,
+        total: Math.max(1, clips.length),
+        message: '書き出し準備中...',
+      };
 
-    setExportProgress(initialProgress);
+      setExportProgress(initialProgress);
 
-    return await executeClipExport({
-      progressId,
-      executeExport: exportClipsWithOverlay,
-      clips,
-      videoSources,
-      angleOption,
-      selectedAngleIndex,
-      resolvedSources,
-      exportMode,
-      exportFileName,
-      overlay: overlaySettings,
-      successMessage: 'プレイリストを書き出しました',
-      onProgress: setExportProgress,
-    });
+      return await executeClipExport({
+        progressId,
+        executeExport: exportClipsWithOverlay,
+        clips,
+        videoSources,
+        angleOption,
+        selectedAngleIndex,
+        resolvedSources,
+        exportMode,
+        exportFileName,
+        overlay: overlaySettings,
+        successMessage: 'プレイリストを書き出しました',
+        onProgress: setExportProgress,
+      });
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : '書き出しの準備に失敗しました',
+      };
+    } finally {
+      setExportProgress(null);
+    }
   }, [
     angleOption,
     exportFileName,

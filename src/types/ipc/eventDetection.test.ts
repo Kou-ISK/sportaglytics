@@ -8,6 +8,7 @@ const modelInfo = {
   id: 'rugby-event-test',
   version: '0.1.0',
   displayName: 'Rugby Event Detection',
+  evaluationBasis: 'reported-metrics',
   events: ['restart'],
   metrics: {
     restart: {
@@ -20,6 +21,24 @@ const modelInfo = {
 };
 
 describe('event detection model IPC guards', () => {
+  it('preserves reference comparison semantics and refuses verified promotion', () => {
+    const comparison = {
+      ...modelInfo,
+      status: 'experimental',
+      evaluationBasis: 'reference-coding',
+    };
+    expect(isEventDetectionModelInfo(comparison)).toBe(true);
+    expect(
+      isEventDetectionModelInfo({ ...comparison, status: 'verified' }),
+    ).toBe(false);
+    expect(
+      isEventDetectionModelInfo({ ...comparison, evaluationBasis: undefined }),
+    ).toBe(false);
+    expect(
+      isEventDetectionModelInfo({ ...comparison, evaluationBasis: 'unknown' }),
+    ).toBe(false);
+  });
+
   it('accepts both supported model statuses', () => {
     expect(isEventDetectionModelStatus('verified')).toBe(true);
     expect(isEventDetectionModelStatus('experimental')).toBe(true);
@@ -27,7 +46,9 @@ describe('event detection model IPC guards', () => {
 
   it('rejects an unknown model status', () => {
     expect(isEventDetectionModelStatus('beta')).toBe(false);
-    expect(isEventDetectionModelInfo({ ...modelInfo, status: 'beta' })).toBe(false);
+    expect(isEventDetectionModelInfo({ ...modelInfo, status: 'beta' })).toBe(
+      false,
+    );
   });
 
   it('round-trips a structurally valid experimental model', () => {

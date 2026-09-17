@@ -37,6 +37,8 @@ GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requ
 
 ## Test Placement
 
+すべてのfixture・検証ログ・スクリーンショットは [公開時のデータ取り扱い](privacy-and-data-handling.md#sharing-and-issue-reports) に従います。実データでのみ確認できる検証はローカルで行い、公開する再現例には架空の識別情報と合成データを使います。
+
 - pure domain logic → 同ディレクトリの `*.test.ts`
 - React behavior → `*.test.tsx`
 - shared contract / normalizer → contract近傍のtest
@@ -86,6 +88,10 @@ Dataset preparation、training、hard-negative mining、threshold/NMS/stride探�
 Public repositoryのCIやtest fixtureへ、実チーム名、実試合名、ローカル絶対path、実動画file名、private diagnostic outputを持ち込みません。
 
 ## E2E
+
+- `pnpm run test:e2e:timeline-rows`: 分離Timelineの行・インスタンス操作、削除とUndo、フォーカスと入力欄の保護。
+- `pnpm run test:e2e:paint-export`: 実Canvas・IPC・FFmpegによるPaint映像出力。生成映像の画素・音声・尺を検査し、単画面／全アングル／異解像度の2画面と複数フリーズを確認。
+
 
 ```bash
 pnpm run test:e2e
