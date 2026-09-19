@@ -47,3 +47,6 @@ resources/event-detection-models/*
 *.p12
 *.cer
 *.certSigningRequest
+
+# Local browser inspection snapshots and logs
+.playwright-cli/
