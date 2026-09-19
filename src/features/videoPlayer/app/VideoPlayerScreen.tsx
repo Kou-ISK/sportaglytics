@@ -29,7 +29,7 @@ import { useTimelineWindowIntegration } from './hooks/useTimelineWindowIntegrati
 import { useTimelineActionPresentationSync } from './hooks/useTimelineActionPresentationSync';
 import { useContinuousReversePlayback } from '../../../hooks/useContinuousReversePlayback';
 import { getMinAllowedGlobalTime } from './hooks/useVideoTimeController';
-import { EventDetectionDialogView } from '../eventDetection/components/EventDetectionDialogView';
+import { useEventDetectionWindowHost } from '../eventDetection/hooks/useEventDetectionWindowHost';
 import { useEventDetectionController } from '../eventDetection/hooks/useEventDetectionController';
 import { useNotification } from '../../../contexts/NotificationContext';
 import {
@@ -184,6 +184,7 @@ export const VideoPlayerScreen = () => {
     activeCodeWindow,
     addTimelineDatas,
   });
+  useEventDetectionWindowHost(eventDetectionViewProps);
 
   const codingPanelRuntimeRef = useRef<EnhancedCodePanelHandle | null>(null);
 
@@ -423,7 +424,6 @@ export const VideoPlayerScreen = () => {
         onJumpToSegment={handleJumpToSegment}
         onCreateAiPlaylist={handleCreateAiPlaylist}
       />
-      <EventDetectionDialogView {...eventDetectionViewProps} />
 
       <ErrorSnackbar error={error} onClose={() => setError(null)} />
       <SyncAnalysisBackdrop

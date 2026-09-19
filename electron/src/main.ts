@@ -1,3 +1,5 @@
+import { registerEventDetectionWindowHandlers } from './eventDetectionWindow';
+import { registerApplicationWindowActivation } from './applicationWindowActivation';
 import { getRendererUrl } from './rendererUrl';
 import {
   app,
@@ -208,6 +210,7 @@ registerSettingsWindowHandlers();
 registerAnalysisWindowHandlers();
 registerCodingPanelWindowHandlers();
 registerExportProgressWindowHandlers();
+registerEventDetectionWindowHandlers();
 registerTimelineWindowHandlers();
 registerMainIpcHandlers();
 
@@ -349,6 +352,8 @@ if (hasSingleInstanceLock) {
 
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
+  const disposeActivation = registerApplicationWindowActivation();
+  app.once('will-quit', disposeActivation);
   registerLoopbackAudioCapture(session.defaultSession);
   initialWindowPromise = createWindow();
   await initialWindowPromise;

@@ -171,6 +171,8 @@ addTimelineDatas(items: NewTimelineData[]): string[]
 
 ## 2.4 自動イベント検出
 
+設定・進捗・結果はPackage Sessionごとの独立ウィンドウへ表示し、映像の比率に依存させない。背景実行・再表示・取消の契約は[解析ウィンドウ](event-detection.md#解析ウィンドウ)に従う。
+
 比較用model packは既存Codingとの一致率を一般的な精度として表示しないこと。schema 2 / `reference-coding` は試験モデル専用とし、検証済みモデルへの偽装と旧アプリでの誤表示を拒否すること。
 
 ### 目的

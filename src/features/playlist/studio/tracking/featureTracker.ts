@@ -1,3 +1,5 @@
+import { fitFeatureMotion } from './featureMotionModel';
+import type { SimilarityMotion } from './featureMotionModel';
 import { halfFrame } from './framePyramid';
 import { matchTemplate } from './templateTracker';
 import type { GrayFrame, TrackPoint } from './templateTracker';
@@ -7,6 +9,7 @@ export interface FeatureMotion {
   dy: number;
   confidence: number;
   reliable: boolean;
+  transform?: SimilarityMotion;
 }
 /** 複数の局所特徴を往復照合し、同じ移動を支持する点だけで変位を求める。 */
 const trackFeatureScale = (
@@ -102,6 +105,9 @@ const trackFeatureScale = (
   };
   return {
     points: inliers.map((match) => match.point),
+    transform: fitFeatureMotion(
+      inliers.map((match) => ({ from: points[match.index], to: match.point })),
+    ),
     dx: median(inliers.map((match) => match.dx)),
     dy: median(inliers.map((match) => match.dy)),
     confidence: inliers.length

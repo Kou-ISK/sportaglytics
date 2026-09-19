@@ -37,10 +37,25 @@ let app = await electron.launch(
 );
 try {
   const page = await app.firstWindow();
+  const mainHandle = await app.browserWindow(page);
+  const mainWindowId = await mainHandle.evaluate((window) => window.id);
+  await mainHandle.dispose();
   await page.evaluate(() =>
     localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
   );
   await page.reload();
+  await page.getByRole('img', { name: 'SporTagLytics アプリロゴ' }).waitFor();
+  assert.equal(
+    await page
+      .getByRole('img', { name: 'SporTagLytics アプリロゴ' })
+      .evaluate(
+        (image) =>
+          image.complete &&
+          image.naturalWidth > 0 &&
+          image.src.endsWith('/icon.png'),
+      ),
+    true,
+  );
   await app.evaluate(
     ({ dialog, ipcMain }, { sources, workPath }) => {
       dialog.showOpenDialog = async (_window, options) => ({
@@ -54,6 +69,7 @@ try {
       const fs = process.getBuiltinModule('fs');
       ipcMain.removeHandler('event-detection:list-models');
       globalThis.e2eEventModelLoads = 0;
+
       ipcMain.handle('event-detection:list-models', () => {
         globalThis.e2eEventModelLoads += 1;
         return [
@@ -76,7 +92,7 @@ try {
         ];
       });
       ipcMain.removeHandler('event-detection:run');
-      ipcMain.handle('event-detection:run', (_event, request) => {
+      ipcMain.handle('event-detection:run', async (_event, request) => {
         for (const clip of request.clips) {
           if (!fs.existsSync(clip.videoPath))
             throw new Error(`video file is missing for clip ${clip.clipId}`);
@@ -85,6 +101,9 @@ try {
           fs.accessSync(clip.videoPath, fs.constants.R_OK);
         }
         globalThis.e2eEventRequest = request;
+        await new Promise((resolve) => {
+          globalThis.e2eFinishDetection = resolve;
+        });
         const clip = request.clips.at(-1);
         return {
           requestId: request.requestId,
@@ -125,28 +144,96 @@ try {
     const video = document.querySelector('#video_0_html5_api');
     return video instanceof HTMLVideoElement && video.readyState >= 2;
   });
-  await app.evaluate(({ Menu }) => {
-    const find = (items) => {
-      for (const item of items) {
-        if (item.label === '自動イベント検出…') return item;
-        const found = item.submenu && find(item.submenu.items);
-        if (found) return found;
+  const openDetection = () =>
+    app.evaluate(({ BrowserWindow, Menu }, windowId) => {
+      const main = BrowserWindow.fromId(windowId);
+      main?.focus();
+      const find = (items) => {
+        for (const item of items) {
+          if (item.label === '自動イベント検出…') return item;
+          const found = item.submenu && find(item.submenu.items);
+          if (found) return found;
+        }
+      };
+      const item = find(Menu.getApplicationMenu().items);
+      if (!item) throw new Error('Event detection menu is missing');
+      item.click(item, main);
+    }, mainWindowId);
+  // Playback readiness can precede the final single-angle layout and native
+  // aspect update. Compare the settled video window, not its startup geometry.
+  const beforeBounds = await app.evaluate(
+    async ({ BrowserWindow, app: application }, windowId) => {
+      const main = BrowserWindow.fromId(windowId);
+      application.focus({ steal: true });
+      main.focus();
+      let bounds = main.getBounds(),
+        stableSince = Date.now();
+      const deadline = Date.now() + 10000;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const current = main.getBounds();
+        if (JSON.stringify(current) !== JSON.stringify(bounds)) {
+          bounds = current;
+          stableSince = Date.now();
+        }
+        const [width, height] = main.getContentSize();
+        if (
+          Math.abs(width / height - 16 / 9) < 0.01 &&
+          Date.now() - stableSince >= 600
+        )
+          return bounds;
       }
-    };
-    const item = find(Menu.getApplicationMenu().items);
-    if (!item) throw new Error('Event detection menu is missing');
-    item.click();
-  });
-  const detection = page.getByRole('dialog', {
+      throw new Error('Video window geometry did not settle');
+    },
+    mainWindowId,
+  );
+  const detectionPromise = app.waitForEvent('window', (window) =>
+    window.url().includes('/event-detection'),
+  );
+  await openDetection();
+  const detectionPage = await detectionPromise;
+  const detection = detectionPage.getByRole('main', {
     name: '自動イベント検出',
     exact: true,
   });
   await detection.getByText(/E2E Input Contract/).waitFor();
+  await detection.getByText('モデルの評価・注意点', { exact: true }).click();
   await detection.getByText('既存Codingとの比較', { exact: true }).waitFor();
   assert.equal(await detection.getByText(/Precision/).count(), 0);
   await detection
     .getByRole('button', { name: '検出してタイムラインへ追加' })
     .click();
+  await detection
+    .getByRole('button', { name: 'バックグラウンドで続行' })
+    .waitFor();
+  // Closing the native surface preserves the in-flight operation and its form.
+  await app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()
+      .find((window) =>
+        window.webContents.getURL().includes('/event-detection'),
+      )
+      .close(),
+  );
+  assert.equal(
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()
+        .find((window) =>
+          window.webContents.getURL().includes('/event-detection'),
+        )
+        .isVisible(),
+    ),
+    false,
+  );
+  await openDetection();
+  await detection
+    .getByRole('button', { name: 'バックグラウンドで続行' })
+    .waitFor();
+  assert.equal(
+    app.windows().filter((window) => window.url().includes('/event-detection'))
+      .length,
+    1,
+  );
+  await app.evaluate(() => globalThis.e2eFinishDetection());
   await detection
     .getByText(/1件をタイムラインに追加しました/)
     .waitFor({ timeout: 10000 });
@@ -195,13 +282,82 @@ try {
   assert.equal(timeline.instances[0].actionName, 'Lineout');
   if (process.env.E2E_SCREENSHOT_DIR) {
     await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
-    await page.screenshot({
+    await detectionPage.screenshot({
       path: path.join(
         process.env.E2E_SCREENSHOT_DIR,
         'event-detection-created-package.png',
       ),
     });
   }
+  assert.deepEqual(
+    await app.evaluate(
+      ({ BrowserWindow }, windowId) =>
+        BrowserWindow.fromId(windowId).getBounds(),
+      mainWindowId,
+    ),
+    beforeBounds,
+  );
+  await app.evaluate(({ BrowserWindow }) => {
+    const child = BrowserWindow.getAllWindows().find((window) =>
+      window.webContents.getURL().includes('/event-detection'),
+    );
+    child.setSize(680, 480);
+  });
+  await detectionPage.waitForFunction(() => window.innerWidth <= 680);
+  const runBounds = await detection
+    .getByRole('button', { name: '検出してタイムラインへ追加' })
+    .boundingBox();
+  assert.ok(
+    runBounds &&
+      runBounds.y + runBounds.height <=
+        (await detectionPage.evaluate(() => window.innerHeight)),
+  );
+  assert.equal(
+    await detectionPage.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+    true,
+  );
+  // Headless desktop runners may expose no OS-focused window. Dispatch at
+  // Electron's app boundary and exercise the production handler + native moveTop.
+  // This verifies raising order and no focus mutation, not the desktop compositor.
+  const activation = await app.evaluate(
+    ({ BrowserWindow, app: application }) => {
+      const raised = [];
+      const focusedBefore = BrowserWindow.getFocusedWindow()?.id;
+      for (const window of BrowserWindow.getAllWindows()) {
+        const moveTop = window.moveTop.bind(window);
+        window.moveTop = () => {
+          raised.push(window.id);
+          moveTop();
+        };
+      }
+      const target = BrowserWindow.getAllWindows().find((window) =>
+        window.webContents.getURL().includes('/timeline'),
+      );
+      if (!target) throw new Error('Timeline window is missing');
+      application.emit('browser-window-focus', {}, target);
+      return {
+        raised,
+        visible: BrowserWindow.getAllWindows()
+          .filter((window) => window.isVisible() && !window.isMinimized())
+          .map((window) => window.id),
+        target: target.id,
+        focusedBefore,
+        focusedAfter: BrowserWindow.getFocusedWindow()?.id,
+        alwaysOnTop: BrowserWindow.getAllWindows().some((window) =>
+          window.isAlwaysOnTop(),
+        ),
+      };
+    },
+  );
+  assert.ok(
+    activation.visible.every((id) => activation.raised.includes(id)),
+    JSON.stringify(activation),
+  );
+  assert.equal(activation.raised.at(-1), activation.target);
+  assert.equal(activation.focusedAfter, activation.focusedBefore);
+  assert.equal(activation.alwaysOnTop, false);
   console.log(
     'New package video paths, detection input, history and Timeline persistence passed',
   );

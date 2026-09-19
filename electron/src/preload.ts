@@ -1,3 +1,4 @@
+import { createEventDetectionWindowBridge } from './preload/eventDetectionWindowBridge';
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IElectronAPI } from '../../src/renderer';
 import { createAnalysisBridge } from './preload/analysisBridge';
@@ -34,6 +35,7 @@ const electronAPI = {
   ...createEventBridge(registerListener, listenerStore),
   ...createSettingsBridge(ipcRenderer, listenerStore),
   ...createAnalysisBridge(ipcRenderer, listenerStore),
+  eventDetectionWindow: createEventDetectionWindowBridge(ipcRenderer),
   ...createEventDetectionBridge(ipcRenderer, listenerStore),
   ...createPlaylistBridge(ipcRenderer, listenerStore),
   ...createCodeWindowBridge(ipcRenderer),

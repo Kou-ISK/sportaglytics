@@ -1,22 +1,19 @@
 import type { ReactElement } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
-import SportsRugbyOutlined from '@mui/icons-material/SportsRugbyOutlined';
 export const WelcomeHeader = ({ show }: { show: boolean }): ReactElement => (
   <Stack direction="row" spacing={1.5} alignItems="center">
     <Box
+      component="img"
+      src={`${import.meta.env.BASE_URL}icon.png`}
+      alt="SporTagLytics アプリロゴ"
       sx={{
-        display: 'grid',
-        placeItems: 'center',
+        objectFit: 'contain',
         width: 44,
         height: 44,
         flexShrink: 0,
-        bgcolor: 'action.selected',
         borderRadius: 1.5,
-        color: 'primary.main',
       }}
-    >
-      <SportsRugbyOutlined />
-    </Box>
+    />
     <Box sx={{ minWidth: 0 }}>
       <Typography
         variant="h5"

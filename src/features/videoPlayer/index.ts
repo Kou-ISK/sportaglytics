@@ -20,3 +20,5 @@ export { CustomPieChart } from './components/Analytics/AnalysisPanel/components/
 export { MomentumChart } from './components/Analytics/MomentumChart';
 export { NoDataPlaceholder } from './components/Analytics/AnalysisPanel/components/NoDataPlaceholder';
 export { MatrixSection } from './components/Analytics/AnalysisPanel/components/MatrixSection';
+
+export { EventDetectionWindowScreen } from './eventDetection/EventDetectionWindowScreen';

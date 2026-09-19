@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- 表示中のアプリウィンドウをまとめて前面へ移し、起動画面のロゴを正式アイコンへ統一。
+- 自動検出の設定・進捗・結果を独立ウィンドウ化。背景実行、再表示、最新Timelineとの重複判定に対応。
+- Paintの追尾に描画位置での拡大・回転補正と短期基準画像の再照合を追加。Windows同梱FFmpegのPNG対応を修正。
+- [市場価値を高める改善案](docs/reports/2026-09-product-value.md)を追加。
+
 ### Fixed
 
 - Timelineの範囲選択後の削除対象とキー操作のフォーカスを修正。Enter／ダブルクリック編集、右クリックでの複数削除、行内の全インスタンス選択を統一。[操作説明](docs/user-guide.md#タイムライン編集)を更新。

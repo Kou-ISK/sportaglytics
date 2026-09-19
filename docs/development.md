@@ -157,7 +157,7 @@ Codingの網羅範囲を断定できない比較用packはschema 2 / `experiment
 
 実作業では、少数の高Precision候補だけを出すより、**ほぼ全イベントを候補として出して不要なものを削除する**workflowを優先します。そのためruntime minimumはRecall優先で、model採用時にはprivate R&D側でfalse positives per match、処理時間、manual edit operations、手Coding比の作業時間削減まで確認します。
 
-モデル一覧の取得Effectは、ダイアログを開いた時のコンテキストだけに依存させます。頻繁に更新される映像・コードウィンドウの参照を取得条件に含めると、操作中のフォームが消えて入力値も初期化されます。アングル選択の整合性確認は一覧取得から分離し、Controllerの回帰テストで入力維持と閉じた画面への遅延応答の無視を確認します。
+モデル一覧の取得Effectは、解析画面を最初に開いた時のコンテキストだけに依存させます。頻繁に更新される映像・コードウィンドウの参照を取得条件に含めると、操作中のフォームが消えて入力値も初期化されます。アングル選択の整合性確認は一覧取得から分離し、Controllerの回帰テストで入力維持と閉じた画面への遅延応答の無視を確認します。
 
 ### Model packとアプリ本体を分離する
 
@@ -350,3 +350,11 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 書き出し進捗の初期サイズは内容領域基準とし、完了時の「閉じる」がviewport内に収まることをE2Eで検証します。
 
 [Windows版の開発・検証](windows.md#開発検証)を参照。`scripts/media-tools/` はプラットフォームごとの静的メディアビルド、`scripts/build-windows-llama.mjs` はWindows AI実行ファイル、`scripts/prepare-mac-llama.mjs` は公式アーカイブの検証とMac CPU別のAI実行ファイル準備、`scripts/prepare-fonts.mjs` は検証済み日本語フォントを用意する。`pnpm run electron:start` はOSに依存しないNodeラッパーから起動する。
+
+### ウィンドウ連携と追尾の変更時
+
+`e2e-event-detection.mjs`は合成パッケージを使い、正式ロゴ、解析画面の独立、閉じて再表示した実行状態、狭幅での操作、映像ウィンドウのサイズ維持、ウィンドウ群の前面表示ハンドラーを確認します。前面表示はElectronのfocusイベントを注入して実native APIの呼出順とfocus維持を検査するもので、OSの実際の重なり順・仮想デスクトップを自動保証する試験ではありません。`eventDetectionWindow.test.ts`はSession境界、Controllerのテストは背景実行中のTimeline編集と所有元終了を検証します。
+
+追尾は`anchoredFeatureTracker.test.ts`で既知の端数移動・拡大と足元座標を使い、従来の平行移動積算と比較します。合成映像の誤差を実試合の精度として扱いません。
+
+WindowsのFFmpegはzlibを静的リンクしてPNGのエンコード/デコードを有効にします。media-toolsビルドはPNG生成と読込の往復検証を通してから成功manifestを書きます。依存ソースのchecksumとライセンスを同梱し、DLL検査とPaint出力E2Eも維持します。

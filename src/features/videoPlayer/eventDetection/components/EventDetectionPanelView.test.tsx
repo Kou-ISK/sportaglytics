@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getAppTheme } from '../../../../theme';
 import type { EventDetectionModelInfo } from '../../../../types/eventDetection/core';
-import { EventDetectionDialogView } from './EventDetectionDialogView';
+import { EventDetectionPanelView } from './EventDetectionPanelView';
 
 const experimentalModel: EventDetectionModelInfo = {
   id: 'rugby-event-test',
@@ -30,7 +30,7 @@ const renderDialog = (
 ): void => {
   render(
     <ThemeProvider theme={getAppTheme('dark')}>
-      <EventDetectionDialogView
+      <EventDetectionPanelView
         open
         loadingModels={false}
         models={[model]}
@@ -66,7 +66,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe('EventDetectionDialogView', () => {
+describe('EventDetectionPanelView', () => {
   it('presents Coding correspondence without implying measured real-world precision', () => {
     renderDialog({ ...experimentalModel, evaluationBasis: 'reference-coding' });
     expect(screen.getByText('既存Codingとの比較')).toBeTruthy();

@@ -46,6 +46,8 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0036](0036-event-episode-consolidation.md) | Event Episode Consolidation | Accepted | 2026-09-16 |
 | [0037](0037-reviewed-model-refinement.md) | Reviewed Model Refinement（クラスを保持した時間文脈補正・公開画像比較を追記） | Accepted | 2026-09-16 |
 
+| [0038](0038-detached-event-detection-window.md) | Detached event detection window | Accepted | 2026-09-20 |
+
 ## Status Values
 
 - `Proposed`: 提案中。実装前または合意前。

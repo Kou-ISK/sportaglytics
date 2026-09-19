@@ -83,13 +83,14 @@ src/features/videoPlayer/
 ├── analysis/                    # renderer-side statistics/domain
 ├── components/                  # player/coding/analysis feature UI
 ├── eventDetection/              # automatic event coding
-│   ├── components/
-│   │   ├── EventDetectionDialogView.tsx
-│   │   └── EventDetectionDialogView.test.tsx
+│   ├── EventDetectionWindowScreen.tsx
+│   ├── components/              # Panel / Mappings / ModelEvaluation Views + stories
 │   ├── hooks/
-│   │   └── useEventDetectionController.ts
+│   │   ├── useEventDetectionController.ts
+│   │   └── useEventDetectionWindowHost.ts
 │   ├── gateway/
-│   │   └── eventDetectionGateway.ts
+│   │   ├── eventDetectionGateway.ts
+│   │   └── eventDetectionWindowGateway.ts
 │   └── domain/
 │       ├── candidatesToTimeline.ts
 │       ├── candidatesToTimeline.test.ts
@@ -335,3 +336,7 @@ Paintの数値入力は `studio/StudioNumberFieldView.tsx` が入力中のdraft�
 ## プラットフォーム配布
 
 `scripts/media-tools/` は共通source pin・process runnerとmacOS/Windowsのビルド手順を分割する。`scripts/prepare-mac-llama.mjs` はMac CPU別の検証済みAI実行ファイルを `.cache/llama/darwin-<arch>` へ配置する。`scripts/windows/` はNSIS拡張・Windowsネイティブ依存検査・インストール試験。生成物は `.cache/`、配布物は `dist/` に置きgitへ追加しない。機能ViewへOS分岐を散らさず `src/utils/platformShortcut.ts` とElectronの境界で吸収する。
+
+## 自動検出の独立画面
+
+`src/features/videoPlayer/eventDetection/`にPanel/Mappingsのprops-only View、子のScreen、所有元のController/Host Hook、Gatewayを配置する。`electron/src/eventDetectionWindow.ts`はPackage Sessionの所有権とウィンドウ、`src/types/ipc/eventDetectionWindow.ts`はsnapshot/command契約を所有する。アプリ全体の前面表示は`electron/src/applicationWindowActivation.ts`へ分離する。

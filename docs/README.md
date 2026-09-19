@@ -29,6 +29,10 @@
 - [Homebrew quickstart](homebrew-quickstart.md): Homebrew Cask での導入。
 - [プレイリスト機能](playlist-features.md): プレイリスト画面と関連操作（関連 ADR: [0008](adr/0008-dedicated-sub-window-runtime-and-synchronization.md), [0010](adr/0010-ffmpeg-clip-export-execution-boundary.md), [0025](adr/0025-playlist-document-presentation-order.md)）。
 
+## Product Research
+
+- [市場価値を高める改善案（2026-09）](reports/2026-09-product-value.md): 現行競合との比較、改善の優先順位、検証指標。
+
 ## Developer Documentation
 
 - [開発ガイド](development.md): セットアップ、品質ゲート、開発ワークフロー。

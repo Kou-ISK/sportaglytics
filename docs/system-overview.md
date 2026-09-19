@@ -156,15 +156,15 @@ Mainの `eventDetection/resultCache.ts` は正常終了した検出候補だけ�
 
 `src/features/videoPlayer/eventDetection/`:
 
-- `components/EventDetectionDialogView.tsx`: props-only View。model status、評価値、experimental warningを表示
+- `components/EventDetectionPanelView.tsx`: props-only View。model status、評価値、experimental warningを表示
 - `hooks/useEventDetectionController.ts`: model/angle選択、confidence設定、実行、Timeline反映
 - `gateway/eventDetectionGateway.ts`: `window.electronAPI.eventDetection` のみ使用し、model listをruntime guardで再検証
 - `domain/eventDetectionMappings.ts`: event mapping、manifest初期threshold、ユーザー入力の正規化
 - `domain/candidatesToTimeline.ts`: confidence filter、lead/lag、重複除外、Timeline変換
 
-モデル一覧取得と初期mappingの生成はダイアログを開く操作に紐づけます。背景の映像・コードウィンドウ更新でフォームを再読み込みせず、ユーザーが入力した設定を保持します。
+モデル一覧取得と初期mappingの生成は解析画面の初回表示に紐づけます。背景の映像・コードウィンドウ更新でフォームを再読み込みせず、ユーザーが入力した設定を保持します。
 
-UIは `分析 > 自動イベント検出…` から開きます。検出後のeventは通常 `TimelineData` になり、専用AI Timelineやreview queueは持ちません。
+UIは `分析 > 自動イベント検出…` からSession別の独立ウィンドウを開きます。`useEventDetectionWindowHost`が所有元のsnapshotとコマンドを橋渡しし、`EventDetectionWindowScreen`が表示を合成します。Mainは`eventDetectionWindow.ts`で所有関係と送信元を検証します。終了・背景実行・再表示の契約は[ADR 0038](adr/0038-detached-event-detection-window.md)を参照してください。検出後のeventは通常 `TimelineData` になり、専用AI Timelineやreview queueは持ちません。
 
 新規作成時のパッケージルートとクリップのパスは、mainが返したメタデータの実保存先から解決します。入力名とmainが補う拡張子の差をRendererへ持ち込みません。`electron/src/eventDetection/inputValidation.ts`で全入力ファイルの存在・種類・読み取り権限を確認し、失敗時はランナーや一時リクエストを作成する前に対象パス付きで通知します。
 
@@ -303,6 +303,8 @@ GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requ
 ## 開始画面・再生UI・Paintの境界
 
 UIの正本は `src/design-system/` のsemantic tokenとprops-only Viewです。開始画面の構成は `VideoPathSelector`、開く操作の単一状態源は `useStartPackageOpen`、IPCとロード時移行は `packageGateway` に置きます。初回・履歴・検索・ロード・エラーは[起動画面の仕様](start-workspace.md)を参照してください。
+
+`applicationWindowActivation.ts`はアプリ内のフォーカス変更時に表示中のウィンドウを`moveTop()`でまとめて前面へ移し、操作対象を最後に上げます。常時最前面や別ウィンドウへのfocusは使わず、非表示・最小化ウィンドウはその状態を保ちます。
 
 `MovieTransportView` は再生・送りのcallbackとラベルだけを受け取り、メイン映像・Playlist・Paintから合成します。メイン映像のウィンドウ比率は[ADR 0030](adr/0030-video-window-aspect.md)、Playlistは自由リサイズです。Timelineはrulerと行でスクロール座標を共有し、再生線を1本描画します。初期行色はアクションボタンから引き継ぎ、既存行の色は行モデルが所有します。
 

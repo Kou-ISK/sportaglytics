@@ -1,3 +1,4 @@
+import type { IEventDetectionWindowAPI } from './types/ipc/eventDetectionWindow';
 import type { IPlaylistAPI } from './types/playlist/api';
 import type { AnalysisView } from './types/analysis/view';
 import type { AnalysisReportPayload } from './report/types';
@@ -121,6 +122,7 @@ export interface IElectronAPI {
   codingPanelWindow: ICodingPanelWindowAPI;
   timelineWindow: ITimelineWindowAPI;
   eventDetection: IEventDetectionAPI;
+  eventDetectionWindow: IEventDetectionWindowAPI;
   llama: {
     generate: (payload: {
       prompt: string;
