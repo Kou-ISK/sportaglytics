@@ -35,7 +35,7 @@ if (
 }
 const selectedSources = Object.fromEntries(
   Object.entries(SOURCES).filter(
-    ([name]) => name !== 'openh264' || platform === 'win32',
+    ([name]) => !['openh264', 'zlib'].includes(name) || platform === 'win32',
   ),
 );
 const hashFile = async (file) => {
@@ -45,7 +45,7 @@ const hashFile = async (file) => {
 };
 const executableName = (name) => (platform === 'win32' ? `${name}.exe` : name);
 const buildIdentity = (architecture) => ({
-  revision: platform === 'win32' ? BUILD_REVISION + 1 : BUILD_REVISION,
+  revision: platform === 'win32' ? BUILD_REVISION + 2 : BUILD_REVISION,
   platform,
   architecture,
   sources: Object.fromEntries(
@@ -139,13 +139,44 @@ if (pending.length > 0) {
         ['ffmpeg', 'COPYING.LGPLv2.1'],
         ['freetype', 'LICENSE.TXT'],
         ['harfbuzz', 'COPYING'],
-        ...(platform === 'win32' ? [['openh264', 'LICENSE']] : []),
+        ...(platform === 'win32'
+          ? [
+              ['openh264', 'LICENSE'],
+              ['zlib', 'LICENSE'],
+            ]
+          : []),
       ]) {
         await copyFile(
           join(sources[name], file),
           join(licenses, `${name}-${file}`),
         );
       }
+      const png = join(outputDirectory, 'paint-overlay-smoke.png');
+      const ffmpeg = join(outputDirectory, executableName('ffmpeg'));
+      await run(ffmpeg, [
+        '-v',
+        'error',
+        '-f',
+        'lavfi',
+        '-i',
+        'color=red:s=32x32',
+        '-frames:v',
+        '1',
+        '-y',
+        png,
+      ]);
+      await run(ffmpeg, [
+        '-v',
+        'error',
+        '-i',
+        png,
+        '-frames:v',
+        '1',
+        '-f',
+        'null',
+        '-',
+      ]);
+      await rm(png);
       const binaries = {};
       for (const tool of ['ffmpeg', 'ffprobe']) {
         const executable = join(outputDirectory, executableName(tool));
