@@ -254,7 +254,7 @@ try {
   });
   const syncTimeline = await getSyncTimeline(electronApp);
   for (const key of ['1', '2']) {
-    await syncTimeline.keyboard.press(key);
+    await syncTimeline.keyboard.press(`Shift+${key}`);
     await syncTimeline
       .getByRole('button', { name: '同期点を設定', exact: true })
       .click();
@@ -264,13 +264,21 @@ try {
       Number(key),
     );
   }
-  await syncTimeline.getByRole('button', { name: '音声で微調整' }).click();
+  await syncTimeline
+    .getByRole('button', { name: '同期のその他の操作' })
+    .click();
+  await syncTimeline.getByRole('menuitem', { name: '音声で微調整' }).click();
   await syncTimeline
     .getByText(
       '音声を解析できませんでした。同期点と手動調整は維持されています。',
     )
     .waitFor();
-  await syncTimeline.getByRole('button', { name: 'キャンセル' }).click();
+  await syncTimeline
+    .getByRole('button', { name: '同期のその他の操作' })
+    .click();
+  await syncTimeline
+    .getByRole('menuitem', { name: '変更を破棄して終了' })
+    .click();
 
   const config = JSON.parse(
     await fs.readFile(

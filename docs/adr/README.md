@@ -97,4 +97,3 @@ YYYY-MM-DD
 
 ## Consequences
 ```
-
