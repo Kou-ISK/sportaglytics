@@ -12,6 +12,7 @@ import {
   createRegisterListener,
 } from './preload/listenerStore';
 import { createPlaylistBridge } from './preload/playlistBridge';
+import { createPackageOpenBridge } from './preload/packageOpenBridge';
 import { createSettingsBridge } from './preload/settingsBridge';
 import { createTimelineWindowBridge } from './preload/timelineWindowBridge';
 
@@ -39,6 +40,7 @@ const electronAPI = {
   ...createEventDetectionBridge(ipcRenderer, listenerStore),
   ...createPlaylistBridge(ipcRenderer, listenerStore),
   ...createCodeWindowBridge(ipcRenderer),
+  ...createPackageOpenBridge(ipcRenderer),
   codingPanelWindow: createCodingPanelWindowBridge(ipcRenderer, listenerStore),
   timelineWindow: createTimelineWindowBridge(ipcRenderer, listenerStore),
   resolveDroppedPackagePath: (file: File): string => {

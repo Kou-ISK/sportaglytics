@@ -65,6 +65,8 @@ Main Window作成時にSessionを保持し、`closed` では破棄済みWindow�
 
 `electron/src/preload.ts` は用途別bridgeを合成します。Renderer は `window.electronAPI` のみ使用し、`electron` / `ipcRenderer` を直接 import しません。
 
+起動時のパッケージ通知は `packageOpenBridge` がpreload開始時から受信します。画面が購読する前の最新1件をウィンドウ内で保持し、現在の購読者へ一度だけ渡します。画面の再購読で消費済みの通知を再生しません。Main側のパッケージ別ウィンドウ振り分けと既存の用途限定APIを維持します。[ADR 0045](adr/0045-buffer-startup-package-open.md)。
+
 ### ローカル編集と書き出しの検査
 
 Timelineの分割・結合は`shared/timelineRangeEditing.ts`の純粋関数で全体を計算し、`useTimelineRangeEditing`が所有runtimeへ1回だけcommitする。独立Timelineは`split-item` / `merge-items` commandを送り、結果の選択IDも所有runtimeから同期する。文書形式・履歴の所有者は変えない。

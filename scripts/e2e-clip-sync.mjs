@@ -1,4 +1,5 @@
 import { getSyncTimeline } from './e2e-angle-sync-workspace.mjs';
+import { assertBufferedPackageOpen } from './e2e-package-open-buffer.mjs';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 import assert from 'node:assert/strict';
@@ -40,7 +41,8 @@ const waitForWindowHash = async (app, hash, timeoutMs = 10_000) => {
   while (Date.now() < deadline) {
     const matched = app.windows().find((candidate) => {
       try {
-        return new URL(candidate.url()).hash === hash;
+        const url = new URL(candidate.url());
+        return url.protocol === 'file:' && url.hash === hash;
       } catch {
         return false;
       }
@@ -66,6 +68,7 @@ const listMediaFiles = async (directoryPath) => {
 
 let electronApp = await launch();
 try {
+  await assertBufferedPackageOpen(electronApp);
   await electronApp.evaluate(({ dialog }, outputPath) => {
     dialog.showOpenDialog = async () => ({
       canceled: false,
@@ -73,7 +76,7 @@ try {
     });
   }, workPath);
 
-  let page = await electronApp.firstWindow();
+  let page = await waitForWindowHash(electronApp, '');
   await page.evaluate(() => {
     localStorage.setItem('sportaglytics-onboarding-completed', 'true');
   });
@@ -303,8 +306,7 @@ try {
   await electronApp.close();
   console.log('Launching local virtual timeline');
   electronApp = await launch([path.join(workPath, 'local-sync.stpkg')]);
-  page = await electronApp.firstWindow();
-  await page.locator('#video_0').waitFor({ timeout: 30_000 });
+  page = await waitForWindowHash(electronApp, '');
   await page.locator('#video_0').waitFor({ timeout: 30_000 });
   await page.evaluate(() => window.electronAPI.codingPanelWindow.openWindow());
   const codingPanelPage = await waitForWindowHash(
@@ -396,7 +398,7 @@ try {
   await electronApp.close();
   console.log('Launching persisted YouTube timeline');
   electronApp = await launch([packagePath]);
-  page = await electronApp.firstWindow();
+  page = await waitForWindowHash(electronApp, '');
   await page.locator('#video_0').waitFor({ timeout: 30_000 });
   await page.locator('#video_0 iframe[src*="M7lc1UVf-VE"]').waitFor({
     timeout: 30_000,
@@ -412,6 +414,18 @@ try {
   assert.equal(await page.getByRole('combobox').count(), 0);
 
   console.log(`Electron E2E passed: ${packagePath}`);
+} catch (error) {
+  console.error(
+    'Synthetic package window state',
+    await Promise.all(
+      electronApp.windows().map(async (candidate) => ({
+        route: new URL(candidate.url()).hash || '(main)',
+        videos: await candidate.locator('video').count(),
+        title: await candidate.title(),
+      })),
+    ).catch(() => []),
+  );
+  throw error;
 } finally {
   await electronApp.close().catch(() => undefined);
   await fs.rm(workPath, { recursive: true, force: true });
