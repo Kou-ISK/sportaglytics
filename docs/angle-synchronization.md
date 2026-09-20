@@ -56,6 +56,8 @@ YouTubeの埋め込みAPIは実フレーム時刻を公開しないため、正�
 
 通常の映像面をアングル同期面に置き換え、背後に重複した動画を残しません。映像ウィンドウはプレビューだけを表示します。同期点・コマ送り・保存は通常のタイムラインの既存ツールバーへ配置し、同期専用のアングル行や別のシークバーを追加しません。音声微調整・同期点解除・リセット・破棄は「同期のその他の操作」にまとめます。1アングルはその映像比率、2アングルは横並び、3〜4アングルは2×2の合成比率を用います。OSのウィンドウ比率は映像面だけを基準とし、ウィンドウの装飾部分を除外します。同期中も縦横比を管理し、固定の420px最低高さを要求しません。
 
+元動画の切替でデコーダーが時計を先頭へ戻した場合は、loadeddata / canplay / seekedでも最新の要求時刻を反映します。シーク完了前のフレームを同期点として記録しません。
+
 読込中は進捗バー、元映像がない位置は空白、ファイル読込失敗はエラーを映像面に表示します。操作はコンパクトな1行にまとめ、選択アングル名を省略表示します。処理結果やエラーはタイムラインのツールバー直下に表示します。映像面の高さは奪いません。ボタン内の文字を折り返しません。画面最大化・異なる映像比率では余白が残ることがあります。Playlistウィンドウを比率固定する変更はありません。
 
 ## Hudl Sportscodeとの対応
@@ -71,7 +73,7 @@ YouTubeの埋め込みAPIは実フレーム時刻を公開しないため、正�
 ## 実装と検証
 
 - props-only UI: `AngleSyncWorkspaceView`, `AngleSyncPreviewView`, `AngleSyncTransportView`, `SyncTimecodeView`, `TimelineSyncMarkersView`。
-- Controller: `useAngleSyncSession` が映像とタイムラインの状態源を共有し、既存の型付きTimeline IPCで操作と表示を同期します。`useAngleSyncDraft`（同期点・配置・保存）、`useAngleSyncTransport`（アングル時計）、`useAngleSyncHotkeys`（両ウィンドウのキー）、`useAngleSyncPreview`（元動画の切替）。計算は `angleSync.ts`。
+- Controller: `useAngleSyncSession` が映像とタイムラインの状態源を共有し、既存の型付きTimeline IPCで操作と表示を同期します。`useAngleSyncDraft`（同期点・配置・保存）、`useAngleSyncTransport`（アングル時計）、`useAngleSyncHotkeys`（両ウィンドウのキー）、`useAngleSyncPreview`（元動画の切替）と`useAngleSyncPreviewClock`（読み込み後の指定時刻への再同期）。計算は `angleSync.ts`。
 - Main: `mediaFrameService` の読み取り専用 `media:frame-window`。絶対メディアパス・時刻・senderを検証し、近傍の取得範囲、15秒の実行時間、4MBの出力、キャッシュ件数を制限します。PTSの扱いは[FFprobe公式仕様](https://ffmpeg.org/ffprobe.html#Main-options)に従います。
 - Storybook: `Features/VideoPlayer/AngleSync` の単一・2・4アングル、狭幅、空、エラー、保存中。
 - `angleSync.test.ts` / `useAngleSyncDraft.test.tsx`: 前後半、4アングル、先頭補正、重複拒否、メタデータ通知、キャンセル。

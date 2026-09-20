@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { PackageMediaAngle } from '../../../../../types/package/metadata';
 import { resolveAngleSyncTime } from './angleSync';
 import { useClipSyncPreview } from './useClipSyncPreview';
+import { useAngleSyncPreviewClock } from './useAngleSyncPreviewClock';
 
 export interface AnglePreviewStatus {
   clipId: string;
@@ -32,31 +33,16 @@ export const useAngleSyncPreview = (props: {
   );
   const current = useRef({ props, resolved, media });
   current.current = { props, resolved, media };
-  useEffect(() => {
-    if (!media.isReady || props.suspended) return;
-    const player = media.playerRef.current;
-    if (!player || player.isDisposed()) return;
-    if (!resolved || media.error) {
-      player.pause();
-      return;
-    }
-    const time = player.currentTime() ?? 0;
-    const local = resolved.sourceTime;
-    if (Math.abs(time - local) > (props.playing ? 0.08 : 0.00005))
-      player.currentTime(local);
-    if (props.playing && player.paused()) media.play();
-    else if (!props.playing && !player.paused()) player.pause();
-  }, [
-    props.time,
-    props.playing,
-    props.suspended,
-    resolved?.clip.id,
-    media.isReady,
-    media.error,
-    media.playerRef,
-    resolved,
-    media.play,
-  ]);
+  useAngleSyncPreviewClock({
+    playerRef: media.playerRef,
+    source: media.source,
+    time: resolved?.sourceTime ?? null,
+    ready: media.isReady,
+    playing: props.playing,
+    suspended: props.suspended,
+    error: media.error,
+    play: media.play,
+  });
   useEffect(() => {
     const player = media.playerRef.current;
     if (!player || !clip) return;
@@ -67,7 +53,7 @@ export const useAngleSyncPreview = (props: {
         state.media.isReady &&
         !state.media.error &&
         (props.angle.sourceKind === 'youtube' ||
-          (player.readyState() ?? 0) >= 2);
+          ((player.readyState() ?? 0) >= 2 && !player.seeking()));
       state.props.onStatus(state.props.index, { clipId: clip.id, ready });
       const video = state.media.containerRef.current?.querySelector('video');
       if (video?.videoWidth && video.videoHeight)
@@ -77,7 +63,14 @@ export const useAngleSyncPreview = (props: {
         );
     };
     update();
-    const events = ['loadeddata', 'canplay', 'waiting', 'error', 'seeked'];
+    const events = [
+      'loadeddata',
+      'canplay',
+      'waiting',
+      'seeking',
+      'error',
+      'seeked',
+    ];
     events.forEach((name) => player.on(name, update));
     return () => {
       if (!player.isDisposed())
