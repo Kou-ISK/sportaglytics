@@ -56,6 +56,12 @@ app.process().stderr.on('data', (data) => {
   diagnostics = (diagnostics + data.toString()).slice(-5000);
 });
 try {
+  // Neither recognition code, models nor footage may be fetched from a server.
+  const remote = [];
+  await app.context().route(/^https?:\/\//, (route) => {
+    remote.push(route.request().url());
+    return route.abort();
+  });
   const main = await app.firstWindow();
   console.log('Application ready');
   await main.evaluate(() =>
@@ -70,12 +76,6 @@ try {
     ),
   ]);
   page.setDefaultTimeout(15000);
-  // Neither recognition code, models nor footage may be fetched from a server.
-  const remote = [];
-  await page.route(/^https?:\/\//, (route) => {
-    remote.push(route.request().url());
-    return route.abort();
-  });
   await (
     await app.browserWindow(page)
   ).evaluate((window) => window.setContentSize(1200, 900));
@@ -89,6 +89,10 @@ try {
   await page.getByRole('button', { name: '戦術盤を開く' }).click();
   const dialog = page.getByRole('dialog', { name: /戦術盤/ });
   await dialog.waitFor();
+  // Video.js initializes its YouTube adapter when a window loads. Block that
+  // too, then measure only the explicit recognition operation, not startup.
+  await page.waitForLoadState('networkidle');
+  remote.length = 0;
   console.log('Board open; running bundled model');
   await dialog.getByRole('button', { name: '映像から配置候補を認識' }).click();
   await dialog
@@ -102,7 +106,7 @@ try {
     'Bundled recognition must complete successfully',
   );
   assert.equal(
-    remote.filter((url) => url !== 'https://www.youtube.com/iframe_api').length,
+    remote.length,
     0,
     `Recognition must work with all HTTP requests blocked: ${JSON.stringify(remote)}`,
   );
