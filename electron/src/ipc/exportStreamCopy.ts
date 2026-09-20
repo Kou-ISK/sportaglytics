@@ -1,11 +1,8 @@
-import { z } from 'zod';
 import { getFfprobePath } from '../mediaTools';
 import { runMediaProcess } from './mediaProcessRunner';
 
-const metadataSchema = z.object({
-  format: z.object({ duration: z.string(), start_time: z.string().optional() }),
-  streams: z.array(z.record(z.unknown())),
-});
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 const signatureFields = [
   'codec_type',
   'codec_name',
@@ -56,9 +53,18 @@ export const readStreamCopyMetadata = async (
       ],
       { timeoutMs: 30000, maxOutputBytes: 1024 * 1024 },
     );
-    const parsed = metadataSchema.safeParse(JSON.parse(result.stdout));
-    if (!parsed.success) return null;
-    const { streams, format } = parsed.data;
+    const parsed: unknown = JSON.parse(result.stdout);
+    if (
+      !isRecord(parsed) ||
+      !isRecord(parsed.format) ||
+      typeof parsed.format.duration !== 'string' ||
+      (parsed.format.start_time !== undefined &&
+        typeof parsed.format.start_time !== 'string') ||
+      !Array.isArray(parsed.streams) ||
+      !parsed.streams.every(isRecord)
+    )
+      return null;
+    const { streams, format } = parsed;
     const video = streams.filter((stream) => stream.codec_type === 'video');
     const audio = streams.filter((stream) => stream.codec_type === 'audio');
     const duration = Number(format.duration);
@@ -130,20 +136,20 @@ const isKeyframeAt = async (file: string, time: number): Promise<boolean> => {
     ],
     { timeoutMs: 30000, maxOutputBytes: 256 * 1024 },
   );
-  const data = z
-    .object({
-      frames: z.array(
-        z.object({
-          key_frame: z.number(),
-          best_effort_timestamp_time: z.string().optional(),
-        }),
-      ),
-    })
-    .safeParse(JSON.parse(result.stdout));
+  const data: unknown = JSON.parse(result.stdout);
+  if (!isRecord(data) || !Array.isArray(data.frames)) return false;
+  const frames: unknown[] = data.frames;
   return (
-    data.success &&
-    data.data.frames.some(
+    frames.every(
       (frame) =>
+        isRecord(frame) &&
+        typeof frame.key_frame === 'number' &&
+        (frame.best_effort_timestamp_time === undefined ||
+          typeof frame.best_effort_timestamp_time === 'string'),
+    ) &&
+    frames.some(
+      (frame) =>
+        isRecord(frame) &&
         frame.key_frame === 1 &&
         Math.abs(Number(frame.best_effort_timestamp_time) - time) < 0.0001,
     )

@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- 高速書き出しの検証処理が未同梱ライブラリを要求して配布版を起動できない問題を修正。Mainの外部依存をビルド時に検査。
+
 - Windowsで同期中に前後半の元動画を切り替えると、映像が先頭に戻って指定フレームへ移動しない問題を修正。
 
 - 映像ウィンドウからエクスポートを選んでも設定が開かない問題を修正。Timelineの再表示・最小化復帰と、操作中のPlaylistへの書き出し通知に対応。[操作説明](docs/user-guide.md#タイムラインのクリップ書き出し)。

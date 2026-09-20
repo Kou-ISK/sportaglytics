@@ -81,4 +81,31 @@ describe('lossless export eligibility', () => {
     expect(await canConcatenateWithoutEncoding(['a.mp4', 'b.mp4'])).toBe(false);
     expect(await resolveMediaCopyMode('a.mp4', 0, 2)).toBeNull();
   });
+  it.each([
+    null,
+    { format: { duration: 60 }, streams: [stream] },
+    { format: { duration: '60', start_time: 0 }, streams: [stream] },
+    { format: { duration: '60' }, streams: [null] },
+    { format: { duration: '60' }, streams: 'video' },
+  ])(
+    'rejects malformed metadata without enabling stream copy (%o)',
+    async (data) => {
+      vi.mocked(runMediaProcess).mockResolvedValue({
+        stdout: JSON.stringify(data),
+        stderr: '',
+      });
+      expect(await resolveMediaCopyMode('a.mp4', 0, 60)).toBeNull();
+    },
+  );
+  it('rejects malformed keyframe responses instead of trusting a partial match', async () => {
+    vi.mocked(runMediaProcess)
+      .mockResolvedValueOnce(probe())
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          frames: [{ key_frame: 1, best_effort_timestamp_time: '10' }, null],
+        }),
+        stderr: '',
+      });
+    expect(await resolveMediaCopyMode('a.mp4', 10, 2)).toBeNull();
+  });
 });

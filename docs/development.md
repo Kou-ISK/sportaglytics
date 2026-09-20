@@ -37,7 +37,6 @@ Training frameworkやdataset preparation dependencyはSporTagLytics packageへ�
 
 高速経路は `pnpm run test:e2e:export-fast` で確認します。合成した互換映像を実IPCで連結し、FFmpegの処理種別、全フレームのハッシュ、音声先頭補正による映像時計のずれ、尺、黒画面区間、後半の切り出し、準備中の進捗を確認します。速度計測は同一の合成素材で参考値を出し、機種依存の倍率を合否条件にはしません。要求区間と素材原点の変換・コピー条件は `exportTimelineRange.test.ts` / `exportSourcePreparation.test.ts` / `exportStreamCopy.test.ts` を入口とします。準備も `runFfmpegProcess` の進捗付き経路を通し、試合全長の無条件再生成を戻さないでください。
 
-
 メニューの回帰確認は `pnpm run test:e2e:export-menu` を使います。実Electron MenuItemから、映像側の操作、Timelineの再作成・最小化復帰、Playlist固有の設定、保存先選択、FFmpegの実出力と尺まで確認します。直接export APIを呼ぶ試験だけでは、メニュー通知先やrenderer準備前の取りこぼしを検出できません。
 
 区間編集は`timelineRangeEditing`のドメイン検証、`useTimelineRangeEditing`の履歴・選択検証、Timeline IPC guardを同時に確認します。複数の更新APIを続けて呼び、分割・結合が複数回のUndoになる実装は避けます。詳細な操作は[ユーザーガイド](user-guide.md#ビジュアルタイムライン)を参照してください。
@@ -59,6 +58,8 @@ macOS package:
 ```bash
 pnpm run electron:package:mac
 ```
+
+`build:electron-main`はコンパイル後に`scripts/check-electron-runtime.mjs`を実行します。配布設定は`node_modules`を含めないため、Mainの実行時依存はNode組込・Electron・同梱の相対moduleに限定します。外部npm依存が出力JavaScriptへ残ると検査を失敗させます。Rendererとpreloadの依存は各bundleへ含めます。開発起動だけでなく、インストール版のE2Eも公開条件です。
 
 配布版media toolchainは `scripts/build-media-tools.mjs` と ADR 0020 に従います。
 

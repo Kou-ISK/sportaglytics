@@ -245,6 +245,7 @@ Repo全体へ作用する検査・report・E2Eは `scripts/` です。
 scripts/
 ├── check-architecture.js
 ├── check-adr.js
+├── check-electron-runtime.mjs
 ├── check-preload-bundle.js
 ├── report-architecture-health.js
 ├── report-large-files.js

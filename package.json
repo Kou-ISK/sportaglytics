@@ -52,7 +52,7 @@
     "media:build:all-mac": "node scripts/build-media-tools.mjs --all-mac",
     "typecheck": "tsc --noEmit",
     "typecheck:electron": "tsc -p electron/tsconfig.json",
-    "build:electron-main": "tsc -p electron/tsconfig.build.json",
+    "build:electron-main": "tsc -p electron/tsconfig.build.json && node scripts/check-electron-runtime.mjs",
     "check:architecture": "node scripts/check-architecture.js",
     "check:design-system": "node scripts/check-design-system.cjs",
     "check:adr": "node scripts/check-adr.js",

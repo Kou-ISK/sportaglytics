@@ -57,6 +57,8 @@ Packageを扱うWindowは `electron/src/packageSessionRegistry.ts` のPackage Se
 
 Main Window作成時にSessionを保持し、`closed` では破棄済みWindowから再検索せず、そのSessionの補助Windowを閉じて登録とパス予約を解放する。Registryのパス検索とsender検索も、所有Main Windowが破棄済みのSessionを返さない。同じファイルの再openと遅延IPCの両方で生存する所有者だけを扱う。
 
+配布版はMainの外部npm依存を同梱しません。`build:electron-main`で未同梱依存を検査し、FFprobe応答などのMain側の入力は型ガードで検証します。Renderer/preloadのライブラリはbundle内で解決します。
+
 ### Preload
 
 映像書き出しメニューはPackage Sessionから対象Timelineを解決し、PlaylistではそのWindow自身へ通知します。Timelineを新規表示する場合、Reactの書き出し購読が準備できるまで要求をMainに保持します。`clip-export-ready`は型と送信元を検証してMainで消費し、映像側へ転送しません。[ADR 0042](adr/0042-document-owned-export-menu.md)。
