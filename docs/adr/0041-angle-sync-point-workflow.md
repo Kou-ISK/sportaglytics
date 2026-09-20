@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded
+
+Superseded by: [0044 Sync in the Coding toolbar](0044-sync-in-coding-toolbar.md)
 
 ## Date
 

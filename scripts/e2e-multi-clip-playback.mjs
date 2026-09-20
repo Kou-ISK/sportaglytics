@@ -1,4 +1,7 @@
-import { exerciseAngleSync } from './e2e-angle-sync-workspace.mjs';
+import {
+  exerciseAngleSync,
+  getSyncTimeline,
+} from './e2e-angle-sync-workspace.mjs';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import os from 'node:os';
@@ -87,6 +90,26 @@ try {
   );
   config.syncData = { syncOffset: 0, angleOffsets: [0, 0], isAnalyzed: true };
   await fs.writeFile(data.metaDataConfigFilePath, JSON.stringify(config));
+  await fs.writeFile(
+    path.join(dir, 'pair-check.stpkg', 'timeline.json'),
+    JSON.stringify({
+      version: 2,
+      rows: [
+        { id: 'attack', name: 'Attack', color: '#2878d0' },
+        { id: 'defence', name: 'Defence', color: '#b24d36' },
+      ],
+      instances: [
+        {
+          id: 'play-1',
+          actionName: 'Attack',
+          startTime: 1,
+          endTime: 4,
+          memo: '',
+          color: '#2878d0',
+        },
+      ],
+    }),
+  );
   console.log('Reopening package');
   await app.close();
   app = await electron.launch(
@@ -98,6 +121,59 @@ try {
   page.setDefaultTimeout(15000);
   console.log('Package window opened');
   await page.locator('#video_0 video').waitFor({ timeout: 30000 });
+  // A real settings round trip: both ordinary playback and sync use these keys.
+  assert.equal(
+    await page.evaluate(async () => {
+      const settings = await window.electronAPI.loadSettings();
+      settings.hotkeys = settings.hotkeys.map((key) =>
+        key.id === 'toggle-angle1'
+          ? { ...key, key: 'Control+Shift+K' }
+          : key.id === 'toggle-angle2'
+            ? { ...key, key: 'Control+Shift+L' }
+            : key,
+      );
+      return window.electronAPI.saveSettings(settings);
+    }),
+    true,
+  );
+  await page.evaluate(() => window.electronAPI.timelineWindow.openWindow());
+  const settingsTimeline = await getSyncTimeline(app);
+  await settingsTimeline.getByTestId('timeline-ruler').waitFor();
+  await settingsTimeline.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          off();
+          reject(new Error('Customized angle keys did not reach Timeline'));
+        }, 10000);
+        const off = window.electronAPI.timelineWindow.onSync((snapshot) => {
+          if (
+            snapshot.hotkeys.some(
+              (key) =>
+                key.id === 'toggle-angle1' && key.key === 'Control+Shift+K',
+            )
+          ) {
+            clearTimeout(timeout);
+            off();
+            resolve();
+          }
+        });
+        window.electronAPI.timelineWindow.sendCommand({ type: 'request-sync' });
+      }),
+  );
+  await page.bringToFront();
+  await page.keyboard.press('Control+Shift+K');
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#video_0')?.getBoundingClientRect().width >
+      innerWidth * 0.85,
+  );
+  await page.keyboard.press('Control+Shift+K');
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#video_0')?.getBoundingClientRect().width <
+      innerWidth * 0.6,
+  );
 
   await page
     .getByRole('button', { name: '再生', exact: true })
@@ -135,7 +211,7 @@ try {
   await page
     .getByRole('button', { name: '一時停止', exact: true })
     .click({ force: true });
-  await exerciseAngleSync(page, app);
+  await exerciseAngleSync(page, app, ['Control+Shift+K', 'Control+Shift+L']);
   // Closing the sync surface precedes the async config write. Read only a completed document.
   let applied;
   for (let attempt = 0; attempt < 50; attempt++) {
@@ -329,6 +405,21 @@ try {
       .screenshot({ path: 'output/playwright/angle-sync-failure.png' })
       .catch(() => undefined);
     console.log(await main.locator('body').innerText());
+    console.error(
+      'Synthetic media state',
+      await main.evaluate(() =>
+        [...document.querySelectorAll('video')].map((v) => ({
+          source: v.currentSrc.split(/[\\/]/).pop(),
+          time: v.currentTime,
+          seeking: v.seeking,
+          ready: v.readyState,
+          network: v.networkState,
+          paused: v.paused,
+          error: v.error?.code,
+          visible: document.visibilityState,
+        })),
+      ),
+    );
   }
   throw error;
 } finally {

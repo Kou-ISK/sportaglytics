@@ -48,9 +48,10 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0038](0038-detached-event-detection-window.md) | Detached event detection window | Accepted | 2026-09-20 |
 | [0039](0039-local-tactical-board.md) | Local tactical board and frame-scoped pitch calibration | Accepted | 2026-09-20 |
 | [0040](0040-shared-media-timeline-clock.md) | Shared media timeline clock | Superseded | 2026-09-20 |
-| [0041](0041-angle-sync-point-workflow.md) | Angle sync point workflow | Accepted | 2026-09-20 |
+| [0041](0041-angle-sync-point-workflow.md) | Angle sync point workflow | Superseded | 2026-09-20 |
 | [0042](0042-document-owned-export-menu.md) | Document-Owned Export Menu | Accepted | 2026-09-21 |
 | [0043](0043-bounded-lossless-export.md) | Bounded Lossless Export | Accepted | 2026-09-21 |
+| [0044](0044-sync-in-coding-toolbar.md) | Sync in the Coding toolbar | Accepted | 2026-09-21 |
 
 ## Status Values
 
@@ -96,3 +97,4 @@ YYYY-MM-DD
 
 ## Consequences
 ```
+

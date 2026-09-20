@@ -1,3 +1,8 @@
+import {
+  angleIndexForHotkey,
+  angleIndexForView,
+} from '../../../shared/media/angleView';
+import type { VideoViewMode } from '../../../shared/media/angleView';
 import React, {
   useState,
   useRef,
@@ -109,9 +114,7 @@ export const VideoPlayerScreen = () => {
   } = useVideoPlayerScreenController();
   const { notify } = useNotification();
 
-  const [viewMode, setViewMode] = useState<'dual' | 'angle1' | 'angle2'>(
-    'dual',
-  );
+  const [viewMode, setViewMode] = useState<VideoViewMode>('dual');
   const [openWizardRequestKey, setOpenWizardRequestKey] = useState(0);
 
   // This listener belongs to the screen lifecycle, not the setup selector.
@@ -266,8 +269,10 @@ export const VideoPlayerScreen = () => {
   const workspaceHotkeys = useMemo(
     () =>
       syncMode === 'manual'
-        ? combinedHotkeys.filter((hotkey) =>
-            ['manual-sync', 'toggle-manual-mode'].includes(hotkey.id),
+        ? combinedHotkeys.filter(
+            (hotkey) =>
+              ['manual-sync', 'toggle-manual-mode'].includes(hotkey.id) ||
+              angleIndexForHotkey(hotkey.id) !== null,
           )
         : combinedHotkeys,
     [combinedHotkeys, syncMode],
@@ -306,6 +311,8 @@ export const VideoPlayerScreen = () => {
       },
     },
     syncMode === 'manual',
+    settings.hotkeys,
+    angleIndexForView(viewMode),
   );
 
   useTimelineWindowIntegration({

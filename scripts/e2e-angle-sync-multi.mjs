@@ -102,7 +102,7 @@ try {
     }, count);
     assert.equal(await page.getByRole('combobox').count(), 0);
     for (let index = 0; index < count; index++) {
-      await timeline.keyboard.press(String(index + 1));
+      await timeline.keyboard.press(`Shift+${index + 1}`);
       const input = timeline.getByRole('textbox', { name: '再生タイムコード' });
       await input.fill('6.08');
       await input.press('Enter');
@@ -141,7 +141,7 @@ try {
         .getByLabel(`Angle ${index + 1}の同期点`, { exact: true })
         .waitFor();
     }
-    await timeline.keyboard.press('0');
+    await timeline.keyboard.press(`Shift+${count}`);
     await timeline
       .getByRole('button', { name: 'アングルを同期', exact: true })
       .click();

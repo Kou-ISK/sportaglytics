@@ -1,30 +1,38 @@
 import { useEffect, useRef } from 'react';
+import type { HotkeyConfig } from '../../../../../types/settings/coreTypes';
+import {
+  findMatchingHotkey,
+  sortHotkeysBySpecificity,
+} from '../../../../../hooks/globalHotkeyUtils';
+import { angleIndexForHotkey } from '../../../../../shared/media/angleView';
 import type { AngleSyncCommand } from '../../../../../types/ipc/angleSync';
 
 /** Identical capture-phase shortcuts in the video and detached timeline windows. */
 export const useAngleSyncHotkeys = (
   enabled: boolean,
   send: (command: AngleSyncCommand) => void,
+  hotkeys: HotkeyConfig[],
 ): void => {
-  const current = useRef(send);
-  current.current = send;
+  const current = useRef({ send, hotkeys });
+  current.current = { send, hotkeys };
   useEffect(() => {
     if (!enabled) return;
     const key = (event: KeyboardEvent): void => {
       if (
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        (event.target instanceof HTMLElement &&
-          event.target.closest(
-            'input, textarea, select, [contenteditable="true"], [role="combobox"], [role="menu"]',
-          ))
+        event.target instanceof HTMLElement &&
+        event.target.closest(
+          'input, textarea, select, [contenteditable="true"], [role="combobox"], [role="menu"]',
+        )
       )
         return;
       let command: AngleSyncCommand | undefined;
-      if (/^[1-8]$/.test(event.key))
-        command = { action: 'select', index: Number(event.key) - 1 };
-      else if (event.key === '0') command = { action: 'select', index: null };
+      const binding = findMatchingHotkey(
+        event,
+        sortHotkeysBySpecificity(current.current.hotkeys),
+      );
+      const index = binding ? angleIndexForHotkey(binding.id) : null;
+      if (index !== null) command = { action: 'select', index };
+      else if (event.metaKey || event.ctrlKey || event.altKey) return;
       else if (event.key === 'Escape') command = { action: 'cancel' };
       else if (event.key.toLowerCase() === 's') command = { action: 'mark' };
       else if (event.key === ' ') {
@@ -48,7 +56,7 @@ export const useAngleSyncHotkeys = (
         command.action === 'step' ||
         command.action === 'skip'
       )
-        current.current(command);
+        current.current.send(command);
     };
     window.addEventListener('keydown', key, true);
     return () => window.removeEventListener('keydown', key, true);

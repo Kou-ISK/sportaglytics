@@ -1,3 +1,4 @@
+import type { VideoViewMode } from '../../../../shared/media/angleView';
 import React from 'react';
 import { Box } from '@mui/material';
 import { VideoPlayer, VideoController } from '../..';
@@ -25,7 +26,7 @@ interface PlayerSurfaceProps {
   syncData?: VideoSyncData;
   syncMode: 'auto' | 'manual';
   playerForceUpdateKey: number;
-  viewMode: 'dual' | 'angle1' | 'angle2';
+  viewMode: VideoViewMode;
   mediaAngles: PackageMediaAngle[];
   setMediaAngles: React.Dispatch<React.SetStateAction<PackageMediaAngle[]>>;
 }

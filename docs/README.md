@@ -19,6 +19,7 @@
 
 ## User Documentation
 
+- [通常のCodingタイムラインでの同期](adr/0044-sync-in-coding-toolbar.md): 同期ボタンと設定済みホットキーの共用。
 - [アングル同期](angle-synchronization.md): Sync Point、コマ送り、前後半、ウィンドウ比率、保存契約。
 
 - [Windows版](windows.md): 導入、OS間の操作・文書互換、ランタイムと検証。

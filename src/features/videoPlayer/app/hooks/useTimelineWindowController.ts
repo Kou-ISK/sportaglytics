@@ -62,7 +62,11 @@ export const useTimelineWindowController = () => {
   const onAngleSyncCommand = useCallback((command: AngleSyncCommand): void => {
     sendTimelineWindowCommand({ type: 'angle-sync', command });
   }, []);
-  useAngleSyncHotkeys(!!snapshot?.angleSync, onAngleSyncCommand);
+  useAngleSyncHotkeys(
+    !!snapshot?.angleSync,
+    onAngleSyncCommand,
+    snapshot?.hotkeys ?? [],
+  );
   const send = sendTimelineWindowCommand;
   const onSeek = useCallback((time: number) => {
     setSnapshot((current) =>
@@ -100,6 +104,10 @@ export const useTimelineWindowController = () => {
   if (!snapshot) return null;
   return {
     angleSync: snapshot.angleSync,
+    hotkeys: snapshot.hotkeys,
+    canSync: snapshot.videoSources.length > 1,
+    onStartSync: (): void =>
+      send({ type: 'hotkey-key-down', hotkeyId: 'toggle-manual-mode' }),
     isPlaying: snapshot.isPlaying,
     onAngleSyncCommand,
     timeline: snapshot.timeline,

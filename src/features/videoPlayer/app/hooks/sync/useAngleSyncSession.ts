@@ -1,3 +1,4 @@
+import type { HotkeyConfig } from '../../../../../types/settings/coreTypes';
 import { useMemo } from 'react';
 import type {
   AngleSyncCommand,
@@ -16,6 +17,8 @@ import {
 export const useAngleSyncSession = (
   props: AngleSyncParams,
   enabled: boolean,
+  hotkeys: HotkeyConfig[],
+  initialAngle: number | null,
 ): {
   controller: ReturnType<typeof useAngleSyncDraft>;
   transport: ReturnType<typeof useAngleSyncTransport>;
@@ -29,6 +32,7 @@ export const useAngleSyncSession = (
     controller,
     props.initialTime,
     enabled,
+    initialAngle,
   );
   const { draft, points } = controller;
   const index = transport.selected ?? 0;
@@ -49,13 +53,6 @@ export const useAngleSyncSession = (
                 draft.offsets[i] ?? 0,
                 points[item.id],
               ),
-              clips: item.clips.map((clip) => ({
-                start: clip.timelineStartSeconds - (draft.offsets[i] ?? 0),
-                end:
-                  clip.timelineStartSeconds +
-                  (clip.durationSeconds ?? 0) -
-                  (draft.offsets[i] ?? 0),
-              })),
             })),
             selected: transport.selected,
             busy: controller.busy || transport.stepping,
@@ -129,7 +126,7 @@ export const useAngleSyncSession = (
         break;
     }
   };
-  useAngleSyncHotkeys(enabled, command);
+  useAngleSyncHotkeys(enabled, command, hotkeys);
   return {
     controller,
     transport,

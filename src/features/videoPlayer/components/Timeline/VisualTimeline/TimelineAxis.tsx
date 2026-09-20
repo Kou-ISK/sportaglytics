@@ -1,8 +1,9 @@
-import type { ReactElement, RefObject } from 'react';
+import type { ReactElement, ReactNode, RefObject } from 'react';
 import { Box, Typography } from '@mui/material';
 import { TIMELINE_ROW_HEADER_WIDTH_PX } from './domain/timelineCoordinateMapper';
 
 export interface TimelineAxisProps {
+  children?: ReactNode;
   axisRef: RefObject<HTMLDivElement | null>;
   contentWidth: number;
   timeMarkers: number[];
@@ -11,6 +12,7 @@ export interface TimelineAxisProps {
 }
 
 export const TimelineAxis = ({
+  children,
   axisRef,
   contentWidth,
   timeMarkers,
@@ -61,6 +63,7 @@ export const TimelineAxis = ({
         overflow: 'hidden',
       }}
     >
+      {children}
       {timeMarkers.map((time) => (
         <Box
           key={time}

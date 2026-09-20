@@ -44,19 +44,6 @@ export const AngleSyncWorkspaceView = (
           同期するアングルをパッケージに追加してください。
         </Typography>
       )}
-      <Typography
-        variant="caption"
-        noWrap
-        sx={{
-          px: 1,
-          lineHeight: '24px',
-          flexShrink: 0,
-          color: 'text.secondary',
-        }}
-      >
-        アングル同期 · 1〜8で切替（同じキーで全表示）·
-        タイムラインの再生ヘッドで位置を合わせ、Sで同期点
-      </Typography>
     </Box>
   );
 };

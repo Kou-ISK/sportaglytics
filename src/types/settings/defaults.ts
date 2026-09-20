@@ -269,6 +269,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     { id: 'play-pause', label: '再生/停止', key: 'Space' },
     { id: 'toggle-angle1', label: 'アングル1切替', key: 'Shift+1' },
     { id: 'toggle-angle2', label: 'アングル2切替', key: 'Shift+2' },
+    { id: 'toggle-angle3', label: 'アングル3切替', key: 'Shift+3' },
+    { id: 'toggle-angle4', label: 'アングル4切替', key: 'Shift+4' },
+    { id: 'toggle-angle5', label: 'アングル5切替', key: 'Shift+5' },
+    { id: 'toggle-angle6', label: 'アングル6切替', key: 'Shift+6' },
+    { id: 'toggle-angle7', label: 'アングル7切替', key: 'Shift+7' },
+    { id: 'toggle-angle8', label: 'アングル8切替', key: 'Shift+8' },
   ],
   language: 'ja',
   overlayClip: {

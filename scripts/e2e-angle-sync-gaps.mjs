@@ -58,14 +58,12 @@ try {
           {
             id: 'two',
             name: 'Angle 2',
-            clips: sources
-              .slice(1)
-              .map((source, i) => ({
-                id: ['C', 'D'][i],
-                sourceKind: 'local',
-                source,
-                gapBeforeSeconds: 0,
-              })),
+            clips: sources.slice(1).map((source, i) => ({
+              id: ['C', 'D'][i],
+              sourceKind: 'local',
+              source,
+              gapBeforeSeconds: 0,
+            })),
           },
         ],
         { team1Name: 'Red', team2Name: 'Blue' },
@@ -89,7 +87,7 @@ try {
   const timeline = await getSyncTimeline(app);
   timeline.setDefaultTimeout(20000);
   assert.equal(await page.getByRole('slider').count(), 0);
-  await timeline.keyboard.press('1');
+  await timeline.keyboard.press('Shift+1');
   await seekSyncTime(timeline, 26);
   await page.waitForFunction(() => {
     const video = document.querySelector('#sync_angle_0 video');
@@ -97,13 +95,13 @@ try {
   });
   await timeline.keyboard.press('s');
   await timeline.getByLabel('Angle 1の同期点', { exact: true }).waitFor();
-  await timeline.keyboard.press('2');
+  await timeline.keyboard.press('Shift+2');
   // Drag the existing timeline playhead; do not bypass the window command route.
   const handle = timeline.getByRole('slider', {
     name: 'タイムラインの再生位置',
   });
   const firstClip = await timeline
-    .locator('[data-angle-track="0"] [data-angle-clip="0"]')
+    .getByTestId('timeline-time-origin')
     .boundingBox();
   const handleRect = await handle.boundingBox();
   await timeline.mouse.move(

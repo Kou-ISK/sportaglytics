@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-21
+
+### Added
+
 - 映像書き出しの同期準備を選択範囲へ限定し、互換映像の無再圧縮連結と完成ファイルのコピー保存に対応。準備中の進捗を表示し、Timelineでも情報表示を切り替え可能に。[高速書き出し仕様](docs/user-guide.md#元の画質を保つ高速書き出し)。
 
-- 同期操作を独立タイムラインのSync Point / Align Anglesへ更新。既存の再生ヘッドと数字キーによるアングル切替を使い、本数が異なる映像も任意の場面で同期し、欠落区間を黒表示。実フレームのコマ送り、前後半の連続操作、映像配置に応じたウィンドウ比率、配置と補正の同時保存に対応。[操作仕様](docs/angle-synchronization.md)。Video.js内部UIの露出とメタデータ読込による未保存調整の消失を修正。
+- 通常のCodingタイムライン上部にSync Point / Align Anglesを統合。専用アングル行・案内バーを削除し、同期点を時間目盛りに表示。既存の再生ヘッドと設定済みホットキーによるアングル切替を使い、本数が異なる映像も任意の場面で同期し、欠落区間を黒表示。実フレームのコマ送り、前後半の連続操作、映像配置に応じたウィンドウ比率、配置と補正の同時保存に対応。[操作仕様](docs/angle-synchronization.md)。Video.js内部UIの露出とメタデータ読込による未保存調整の消失を修正。
 
 - 複数映像・アングルの配置と同期補正をPlaylist/Paint/書き出しへ統一し、後半の元映像切替と正負オフセットの出力を修正。[操作仕様](docs/user-guide.md#マルチアングル同期)。
 
@@ -19,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 自動検出の設定・進捗・結果を独立ウィンドウ化。背景実行、再表示、最新Timelineとの重複判定に対応。
 - Paintの追尾に描画位置での拡大・回転補正と短期基準画像の再照合を追加。Windows同梱FFmpegのPNG対応を修正。
 - [市場価値を高める改善案](docs/reports/2026-09-product-value.md)を追加。
+
+### Distribution
+
+- macOSのApple Silicon / Intel向けDMGとWindows x64向けNSISインストーラーを配布。Windows版は未署名です。
 
 ### Fixed
 

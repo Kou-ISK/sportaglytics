@@ -11,6 +11,7 @@ export const useAngleSyncTransport = (
   controller: DraftController,
   initialTime: number,
   enabled = true,
+  initialAngle: number | null = null,
 ): {
   selected: number | null;
   times: number[];
@@ -279,12 +280,23 @@ export const useAngleSyncTransport = (
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [enabled, playing, controller.busy]);
-  const initialRef = useRef({ initialTime, count: draft.angles.length });
-  initialRef.current = { initialTime, count: draft.angles.length };
+  const initialRef = useRef({
+    initialAngle,
+    initialTime,
+    count: draft.angles.length,
+  });
+  initialRef.current = {
+    initialAngle,
+    initialTime,
+    count: draft.angles.length,
+  };
   useEffect(() => {
     generation.current++;
     setPlaying(false);
-    setSelected(null);
+    const initial = initialRef.current.initialAngle;
+    setSelected(
+      initial !== null && initial < initialRef.current.count ? initial : null,
+    );
     const next = Array.from(
       { length: initialRef.current.count },
       () => initialRef.current.initialTime,

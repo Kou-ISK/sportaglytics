@@ -1,3 +1,4 @@
+import { angleIndexForView } from '../../../../../shared/media/angleView';
 import { withClipDuration } from '../../../../../shared/media/withClipDuration';
 import {
   getAngleOffset,
@@ -92,30 +93,15 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
       },
     [mediaAngles, setMaxSec, setMediaAngles],
   );
-  const hasPrimary = Boolean(safeVideoList[0]?.trim());
-  const hasSecondary = Boolean(safeVideoList[1]?.trim());
-
-  const effectiveViewMode = React.useMemo(() => {
-    if (viewMode === 'dual') {
-      if (!hasSecondary && hasPrimary) return 'angle1';
-      if (!hasPrimary && hasSecondary) return 'angle2';
-    }
-    if (viewMode === 'angle1' && !hasPrimary && hasSecondary) return 'angle2';
-    if (viewMode === 'angle2' && !hasSecondary && hasPrimary) return 'angle1';
-    return viewMode;
-  }, [hasPrimary, hasSecondary, viewMode]);
-
+  const requestedIndex = angleIndexForView(viewMode);
+  const selectedIndex =
+    requestedIndex !== null && safeVideoList[requestedIndex]?.trim()
+      ? requestedIndex
+      : null;
   const visibleVideoCount =
-    effectiveViewMode === 'dual'
-      ? safeVideoList.filter((filePath) => filePath && filePath.trim() !== '')
-          .length
-      : effectiveViewMode === 'angle1'
-        ? hasPrimary
-          ? 1
-          : 0
-        : hasSecondary
-          ? 1
-          : 0;
+    selectedIndex === null
+      ? safeVideoList.filter((source) => source?.trim()).length
+      : 1;
   const gridColumnCount =
     visibleVideoCount <= 1 ? 1 : visibleVideoCount <= 4 ? 2 : 3;
   const gridRows = Math.max(1, Math.ceil(visibleVideoCount / gridColumnCount));
@@ -133,21 +119,14 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
     });
 
   // 手動モードでは同期処理を完全にバイパスし、各プレイヤーを独立させる
-  const isIndexVisible = (index: number) => {
-    if (effectiveViewMode === 'dual') return true;
-    if (effectiveViewMode === 'angle1') return index === 0;
-    return index === 1;
-  };
+  const isIndexVisible = (index: number): boolean =>
+    selectedIndex === null || index === selectedIndex;
 
   const mediaRef = React.useRef<HTMLDivElement>(null);
   const visibleRatios = safeVideoList.flatMap((path, index) =>
     path && isIndexVisible(index) ? [aspectRatios[index] ?? 16 / 9] : [],
   );
-  useVideoWindowAspect(
-    mediaRef,
-    effectiveViewMode,
-    videoGridAspect(visibleRatios),
-  );
+  useVideoWindowAspect(mediaRef, viewMode, videoGridAspect(visibleRatios));
 
   const hiddenItemSx = {
     position: 'absolute' as const,

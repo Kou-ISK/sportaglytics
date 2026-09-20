@@ -12,8 +12,8 @@ const meta = {
       style={{
         height:
           args.angleCount === 2 && args.selected === null
-            ? 'calc(100vw * 9 / 32 + 24px)'
-            : 'calc(100vw * 9 / 16 + 24px)',
+            ? 'calc(100vw * 9 / 32)'
+            : 'calc(100vw * 9 / 16)',
       }}
     >
       <AngleSyncWorkspaceView

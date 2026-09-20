@@ -7,21 +7,17 @@ const meta = {
   component: AngleSyncTransportView,
   parameters: { layout: 'fullscreen' },
   args: {
+    hotkeys: [{ id: 'toggle-angle1', label: 'アングル1切替', key: 'Shift+1' }],
+    canSync: true,
+    onStart: fn(),
     time: 25,
     playing: false,
     onSeek: fn(),
     onCommand: fn(),
     state: {
       angles: [
-        { name: 'Angle 1', point: 25, clips: [{ start: 0, end: 30 }] },
-        {
-          name: 'Angle 2',
-          point: 10,
-          clips: [
-            { start: 0, end: 10 },
-            { start: 10, end: 15 },
-          ],
-        },
+        { name: 'Angle 1', point: 25 },
+        { name: 'Angle 2', point: 10 },
       ],
       selected: 1,
       busy: false,
@@ -38,6 +34,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Ready: Story = {};
+export const NormalTimeline: Story = { args: { state: undefined } };
 export const Compact: Story = {
   decorators: [
     (Story) => (

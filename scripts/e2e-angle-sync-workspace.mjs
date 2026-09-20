@@ -1,16 +1,14 @@
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
-import { primaryModifier } from './e2e-platform.mjs';
 
 export const getSyncTimeline = async (app) => {
-  let timeline = app
-    .windows()
-    .find((item) => item.url().includes('#/timeline'));
-  if (!timeline)
-    timeline = await app.waitForEvent('window', {
-      predicate: (item) => item.url().includes('#/timeline'),
-      timeout: 15000,
-    });
+  let timeline;
+  const deadline = Date.now() + 15000;
+  while (!timeline && Date.now() < deadline) {
+    timeline = app.windows().find((item) => item.url().includes('#/timeline'));
+    if (!timeline) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.ok(timeline, 'Timeline window opened and navigated');
   await timeline
     .getByLabel('タイムラインのアングル同期', { exact: true })
     .waitFor();
@@ -23,12 +21,43 @@ export const seekSyncTime = async (timeline, value) => {
   await input.press('Enter');
 };
 
-export const exerciseAngleSync = async (page, app) => {
-  await page.keyboard.press(`${primaryModifier}+Shift+T`);
+export const exerciseAngleSync = async (
+  page,
+  app,
+  angleKeys = ['Shift+1', 'Shift+2'],
+) => {
+  const normalTimeline = app
+    .windows()
+    .find((item) => item.url().includes('#/timeline'));
+  const codingRowsBefore = await normalTimeline
+    .locator('[data-testid^="timeline-lane-"]')
+    .count();
+  assert.ok(codingRowsBefore > 0, 'fixture includes ordinary Coding rows');
+  const rulerBefore = await normalTimeline
+    .getByTestId('timeline-ruler')
+    .boundingBox();
+  await normalTimeline
+    .getByRole('button', { name: 'アングル同期', exact: true })
+    .click();
   await page
     .getByLabel('アングル同期ワークスペース', { exact: true })
     .waitFor();
   const timeline = await getSyncTimeline(app);
+  assert.equal(
+    await timeline.locator('[data-testid^="timeline-lane-"]').count(),
+    codingRowsBefore,
+  );
+  const rulerAfter = await timeline.getByTestId('timeline-ruler').boundingBox();
+  assert.equal(
+    rulerAfter.y,
+    rulerBefore.y,
+    'sync uses the ordinary timeline toolbar without shifting the ruler',
+  );
+  assert.equal(
+    await timeline.locator('[data-angle-track]').count(),
+    0,
+    'no separate sync lanes',
+  );
   assert.equal(
     await page.getByRole('slider').count(),
     0,
@@ -94,7 +123,7 @@ export const exerciseAngleSync = async (page, app) => {
     { reference: 9, target: 9 },
   ]) {
     console.log('Aligning period', pair.reference);
-    await timeline.keyboard.press('1');
+    await timeline.keyboard.press(angleKeys[0]);
     await assertLayout(16 / 9);
     await seekSync(pair.reference);
     await page.waitForFunction((time) => {
@@ -110,7 +139,7 @@ export const exerciseAngleSync = async (page, app) => {
       .getByRole('button', { name: '同期点を設定', exact: true })
       .click();
     await timeline.getByLabel('Angle 1の同期点', { exact: true }).waitFor();
-    await timeline.keyboard.press('2');
+    await timeline.keyboard.press(angleKeys[1]);
     await seekSync(pair.target);
     await page.waitForFunction((time) => {
       const v = document.querySelector('#sync_angle_1 video');
@@ -150,7 +179,7 @@ export const exerciseAngleSync = async (page, app) => {
     [1, 25],
     [2, 50],
   ]) {
-    await timeline.keyboard.press(String(angle));
+    await timeline.keyboard.press(angleKeys[angle - 1]);
     await seekSync(angle === 1 ? 9 : 9);
     await page.waitForFunction((index) => {
       const v = document.querySelector(`#sync_angle_${index} video`);
@@ -191,11 +220,12 @@ export const exerciseAngleSync = async (page, app) => {
   await page.waitForFunction(() =>
     /D\.mp4$/.test(document.querySelector('#sync_angle_1 video').currentSrc),
   );
-  await timeline.keyboard.press('2'); // same angle key returns to all angles
+  await timeline.keyboard.press(angleKeys[1]); // same angle key returns to all angles
   await assertLayout(32 / 9);
   await fs.mkdir('output/playwright', { recursive: true });
   await page.mouse.move(4, 4);
   await page.emulateMedia({ colorScheme: 'dark' });
+  await timeline.emulateMedia({ colorScheme: 'dark' });
   await page.screenshot({ path: 'output/playwright/angle-sync-workspace.png' });
   await timeline.screenshot({
     path: 'output/playwright/angle-sync-timeline.png',
@@ -210,6 +240,16 @@ export const exerciseAngleSync = async (page, app) => {
   await assertLayout(32 / 9);
   await page.screenshot({
     path: 'output/playwright/angle-sync-workspace-compact.png',
+  });
+  await app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows().find((item) =>
+      item.webContents.getURL().includes('#/timeline'),
+    );
+    window.setSize(720, 320);
+  });
+  await assertLayout(32 / 9);
+  await timeline.screenshot({
+    path: 'output/playwright/angle-sync-timeline-compact.png',
   });
   await timeline
     .getByRole('button', { name: '保存して閉じる', exact: true })

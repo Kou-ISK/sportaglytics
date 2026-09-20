@@ -32,7 +32,7 @@ it('validates angle sync commands and detached timeline snapshots', () => {
     hotkeys: [],
     updatedAt: 1,
     angleSync: {
-      angles: [{ name: 'Angle 1', point: 26, clips: [{ start: 0, end: 30 }] }],
+      angles: [{ name: 'Angle 1', point: 26 }],
       selected: 0,
       busy: false,
       saving: false,
@@ -56,7 +56,7 @@ it('validates angle sync commands and detached timeline snapshots', () => {
       ...snapshot,
       angleSync: {
         ...snapshot.angleSync,
-        angles: [{ name: 'Invalid', point: NaN, clips: [] }],
+        angles: [{ name: 'Invalid', point: NaN }],
       },
     }),
   ).toBe(false);

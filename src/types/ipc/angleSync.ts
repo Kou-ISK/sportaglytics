@@ -1,7 +1,6 @@
 export interface AngleSyncTrack {
   name: string;
   point: number | null;
-  clips: { start: number; end: number }[];
 }
 
 export interface AngleSyncSnapshot {
@@ -50,15 +49,7 @@ export const isAngleSyncSnapshot = (
     (angle: unknown) =>
       object(angle) &&
       typeof angle.name === 'string' &&
-      (angle.point === null || time(angle.point)) &&
-      Array.isArray(angle.clips) &&
-      angle.clips.every(
-        (clip: unknown) =>
-          object(clip) &&
-          time(clip.start) &&
-          time(clip.end) &&
-          clip.end >= clip.start,
-      ),
+      (angle.point === null || time(angle.point)),
   ) &&
   (value.selected === null ||
     (Number.isInteger(value.selected) &&

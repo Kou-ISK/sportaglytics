@@ -1,3 +1,4 @@
+import type { VideoViewMode } from '../../../../shared/media/angleView';
 import type { AngleSyncSession } from '../hooks/sync/useAngleSyncSession';
 import { Box } from '@mui/material';
 import type { useVideoPlayerScreenController } from '../hooks/useVideoPlayerScreenController';
@@ -34,7 +35,7 @@ type VideoPlayerLayoutProps = Pick<
 > & {
   openWizardRequestKey: number;
   angleSync: AngleSyncSession;
-  viewMode: 'dual' | 'angle1' | 'angle2';
+  viewMode: VideoViewMode;
 };
 
 export const VideoPlayerLayout = ({

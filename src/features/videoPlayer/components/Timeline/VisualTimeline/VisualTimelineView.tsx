@@ -1,5 +1,5 @@
 import type { AngleSyncSnapshot } from '../../../../../types/ipc/angleSync';
-import { TimelineAngleTracksView } from './TimelineAngleTracksView';
+import { TimelineSyncMarkersView } from './TimelineSyncMarkersView';
 import React from 'react';
 import { Box } from '@mui/material';
 import { TimelineRowActionsView } from './TimelineRowActionsView';
@@ -234,13 +234,14 @@ export const VisualTimelineView = ({
               timeMarkers={timeMarkers}
               timeToPosition={timeToPosition}
               formatTime={formatTime}
-            />
-            {angleSync && (
-              <TimelineAngleTracksView
-                state={angleSync}
-                timeToPosition={timeToPosition}
-              />
-            )}
+            >
+              {angleSync && (
+                <TimelineSyncMarkersView
+                  state={angleSync}
+                  timeToPosition={timeToPosition}
+                />
+              )}
+            </TimelineAxis>
             {rows.map((row) => (
               <TimelineLane
                 key={row.id}
@@ -280,7 +281,7 @@ export const VisualTimelineView = ({
               />
             ))}
 
-            {rows.length === 0 && !angleSync && (
+            {rows.length === 0 && (
               <TimelineEmptyState message="タイムラインが空です。アクションボタンでタグ付けを開始してください。" />
             )}
 
