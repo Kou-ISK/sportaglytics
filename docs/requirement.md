@@ -384,6 +384,8 @@ Timeline:
 
 Clip export:
 
+- 情報表示をダイアログで切り替え、安全に元の圧縮データを保持できる場合はコピーで出力する。フレーム境界・描画・同期空白を保つ必要がある場合は再エンコードする。準備範囲と進捗は[高速書き出し仕様](user-guide.md#元の画質を保つ高速書き出し)に従う
+
 - selected/all instances
 - instance/action/combined modes
 - overlay

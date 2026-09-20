@@ -72,6 +72,34 @@ describe('useTimelineClipExportDialog', () => {
     });
   });
 
+  it('keeps the user overlay choice when saved settings arrive late', async () => {
+    let complete: ((value: { enabled: boolean }) => void) | undefined;
+    gatewayMocks.loadClipOverlaySettings.mockReturnValue(
+      new Promise((resolve) => {
+        complete = resolve;
+      }),
+    );
+    const { result } = renderHook(() =>
+      useTimelineClipExportDialog({
+        timeline: [],
+        selectedIds: [],
+        videoSources: ['/source.mp4'],
+        info: vi.fn(),
+      }),
+    );
+    act(() => gatewayMocks.subscribeClipExportMenuRequest.mock.calls[0][0]());
+    act(() =>
+      result.current.setOverlaySettings((current) => ({
+        ...current,
+        enabled: false,
+      })),
+    );
+    await act(async () => {
+      complete?.({ enabled: true });
+    });
+    expect(result.current.overlaySettings.enabled).toBe(false);
+  });
+
   it('closes the modal before the background export finishes', async () => {
     let resolveExport:
       | ((value: { success: boolean; message: string }) => void)

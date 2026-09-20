@@ -7,7 +7,6 @@ import { readMediaTimeline } from './mediaTimelineSource';
 import { planExportSource } from './exportVirtualTimelineSource';
 vi.mock('./packageMediaCompositionService', () => ({
   probeMedia: vi.fn(async () => ({ durationSeconds: 6 })),
-  recomposeLocalTimeline: vi.fn(),
 }));
 const directories: string[] = [];
 afterEach(async () => {

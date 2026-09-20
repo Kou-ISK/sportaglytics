@@ -41,7 +41,9 @@ type PlaylistExportDialogProps = {
   selectedAngleIndex: number;
   setSelectedAngleIndex: (value: number) => void;
   overlaySettings: OverlaySettings;
-  setOverlaySettings: (updater: (prev: OverlaySettings) => OverlaySettings) => void;
+  setOverlaySettings: (
+    updater: (prev: OverlaySettings) => OverlaySettings,
+  ) => void;
   disableExport: boolean;
 };
 
@@ -121,7 +123,10 @@ export const PlaylistExportDialog = ({
                 value && setAngleOption(value as AngleOption)
               }
             >
-              <ToggleButton value="allAngles" disabled={videoSources.length < 2}>
+              <ToggleButton
+                value="allAngles"
+                disabled={videoSources.length < 2}
+              >
                 全アングル
               </ToggleButton>
               <ToggleButton value="single">単一アングル</ToggleButton>
@@ -139,7 +144,9 @@ export const PlaylistExportDialog = ({
                 exclusive
                 size="small"
                 value={selectedAngleIndex}
-                onChange={(_, value) => value !== null && setSelectedAngleIndex(value)}
+                onChange={(_, value) =>
+                  value !== null && setSelectedAngleIndex(value)
+                }
               >
                 {videoSources.map((_, index) => (
                   <ToggleButton key={index} value={index}>
@@ -170,7 +177,9 @@ export const PlaylistExportDialog = ({
           <Stack direction="row" spacing={1} flexWrap="wrap">
             <Button
               size="small"
-              variant={overlaySettings.showActionName ? 'contained' : 'outlined'}
+              variant={
+                overlaySettings.showActionName ? 'contained' : 'outlined'
+              }
               onClick={() =>
                 setOverlaySettings((prev) => ({
                   ...prev,
@@ -182,7 +191,9 @@ export const PlaylistExportDialog = ({
             </Button>
             <Button
               size="small"
-              variant={overlaySettings.showActionIndex ? 'contained' : 'outlined'}
+              variant={
+                overlaySettings.showActionIndex ? 'contained' : 'outlined'
+              }
               onClick={() =>
                 setOverlaySettings((prev) => ({
                   ...prev,
@@ -218,7 +229,7 @@ export const PlaylistExportDialog = ({
             </Button>
           </Stack>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-            形式: 1行目=通番+アクション名（太字）、2行目=ラベル、3行目=メモ
+            非表示にすると、変換不要な区間は元画質のまま高速に書き出します。Paint・フリーズ・2画面合成や正確な切り出しには変換が必要です。
           </Typography>
         </Stack>
       </DialogContent>

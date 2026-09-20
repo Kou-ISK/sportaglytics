@@ -118,10 +118,16 @@ export const exerciseAngleSync = async (page, app) => {
         v &&
         v.readyState >= 2 &&
         !v.seeking &&
+        (time < 6 ? /C\.mp4$/ : /D\.mp4$/).test(v.currentSrc) &&
         Math.abs(v.currentTime - 1) < 0.005
       );
     }, pair.target);
+    // The media frame can settle before its readiness reaches the detached Timeline.
+    await timeline
+      .getByRole('button', { name: '同期点を設定', exact: true })
+      .click({ trial: true });
     await timeline.keyboard.press('s');
+    await timeline.getByLabel('Angle 2の同期点', { exact: true }).waitFor();
     await timeline
       .getByRole('button', { name: 'アングルを同期', exact: true })
       .waitFor();

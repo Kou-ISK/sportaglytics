@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { sendTimelineWindowCommand } from '../../../../app/gateways/timelineWindowGateway';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import {
@@ -62,8 +62,15 @@ export const useTimelineClipExportDialog = ({
   info,
 }: UseTimelineClipExportDialogParams): UseTimelineClipExportDialogResult => {
   const [clipDialogOpen, setClipDialogOpen] = useState(false);
-  const [overlaySettings, setOverlaySettings] =
+  const [overlaySettings, updateOverlaySettings] =
     useState<ClipExportOverlaySettings>(DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS);
+  const settingsRevision = useRef(0);
+  const setOverlaySettings = useCallback<
+    React.Dispatch<React.SetStateAction<ClipExportOverlaySettings>>
+  >((value) => {
+    settingsRevision.current++;
+    updateOverlaySettings(value);
+  }, []);
   const [primarySource, setPrimarySource] = useState<string | undefined>(
     videoSources?.[0],
   );
@@ -101,9 +108,10 @@ export const useTimelineClipExportDialog = ({
 
   const handleOpenClipDialog = useCallback(async () => {
     setClipDialogOpen(true);
+    const revision = ++settingsRevision.current;
     const settings = await loadClipOverlaySettings();
-    if (settings) {
-      setOverlaySettings(settings);
+    if (settings && revision === settingsRevision.current) {
+      updateOverlaySettings(settings);
     }
   }, []);
 

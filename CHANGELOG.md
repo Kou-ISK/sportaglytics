@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- 映像書き出しの同期準備を選択範囲へ限定し、互換映像の無再圧縮連結と完成ファイルのコピー保存に対応。準備中の進捗を表示し、Timelineでも情報表示を切り替え可能に。[高速書き出し仕様](docs/user-guide.md#元の画質を保つ高速書き出し)。
+
 - 同期操作を独立タイムラインのSync Point / Align Anglesへ更新。既存の再生ヘッドと数字キーによるアングル切替を使い、本数が異なる映像も任意の場面で同期し、欠落区間を黒表示。実フレームのコマ送り、前後半の連続操作、映像配置に応じたウィンドウ比率、配置と補正の同時保存に対応。[操作仕様](docs/angle-synchronization.md)。Video.js内部UIの露出とメタデータ読込による未保存調整の消失を修正。
 
 - 複数映像・アングルの配置と同期補正をPlaylist/Paint/書き出しへ統一し、後半の元映像切替と正負オフセットの出力を修正。[操作仕様](docs/user-guide.md#マルチアングル同期)。

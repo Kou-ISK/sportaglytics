@@ -72,6 +72,7 @@ interface RenderClipWithFfmpegParams {
   secondarySource?: string | null;
   useDual: boolean;
   tempFiles: string[];
+  sourceTimeOrigins?: ReadonlyMap<string, number>;
   outputPath?: string;
   onProgress?: (progress: number) => void;
 }
@@ -84,6 +85,7 @@ export const renderClipWithFfmpeg = async ({
   secondarySource,
   useDual,
   tempFiles,
+  sourceTimeOrigins,
   outputPath,
   onProgress,
 }: RenderClipWithFfmpegParams): Promise<string> => {
@@ -150,6 +152,13 @@ export const renderClipWithFfmpeg = async ({
         })),
       )
     : undefined;
+  const selectedSource =
+    clip.angleType === 'angle2'
+      ? clipSecondarySource || clipMainSource
+      : clipMainSource;
+  const primaryOrigin = sourceTimeOrigins?.get(selectedSource) ?? 0;
+  const secondaryOrigin =
+    sourceTimeOrigins?.get(clipSecondarySource ?? '') ?? 0;
   const ffmpegClip: ExportClipForFfmpeg = {
     chromaKey: clip.chromaKey,
     hasAudio: await hasExportAudio(
@@ -159,8 +168,9 @@ export const renderClipWithFfmpeg = async ({
     ),
     motionOverlays,
     freezeFrames,
-    startTime: clip.startTime,
-    endTime: clip.endTime,
+    startTime: clip.startTime - primaryOrigin,
+    endTime: clip.endTime - primaryOrigin,
+    secondaryStartTime: clip.startTime - secondaryOrigin,
     freezeAt: clip.freezeAt,
     freezeDuration: clip.freezeDuration,
   };

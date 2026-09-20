@@ -172,6 +172,8 @@ export const useVisualTimelineController = ({
     labelName,
     setLabelName,
     handleApplyLabel,
+    overlaySettings,
+    setOverlaySettings,
     clipDialogOpen,
     setClipDialogOpen,
     primarySource,
@@ -353,6 +355,9 @@ export const useVisualTimelineController = ({
     clipDialogOpen,
     onCloseClipDialog: () => setClipDialogOpen(false),
     onExportClips: handleExportClips,
+    overlayEnabled: overlaySettings.enabled,
+    onOverlayEnabledChange: (enabled: boolean) =>
+      setOverlaySettings((previous) => ({ ...previous, enabled })),
     exportScope,
     setExportScope,
     exportMode,

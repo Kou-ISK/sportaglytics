@@ -8,6 +8,8 @@ export interface ExportClipForFfmpeg {
   motionOverlays?: ExportMotionOverlay[];
   freezeFrames?: ExportFreezeFrame[];
   startTime: number;
+  /** Local start of the second input when virtual timelines have different origins. */
+  secondaryStartTime?: number;
   endTime: number;
   freezeAt?: number | null;
   freezeDuration?: number;

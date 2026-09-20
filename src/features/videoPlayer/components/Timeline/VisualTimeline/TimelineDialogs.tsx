@@ -40,6 +40,8 @@ interface TimelineDialogsProps {
   onCloseLabelDialog: () => void;
   onApplyLabel: () => void;
   clipDialogOpen: boolean;
+  overlayEnabled: boolean;
+  onOverlayEnabledChange: (enabled: boolean) => void;
   onCloseClipDialog: () => void;
   onExportClips: () => void;
   exportScope: ClipExportScope;
@@ -86,6 +88,8 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
   onCloseLabelDialog,
   onApplyLabel,
   clipDialogOpen,
+  overlayEnabled,
+  onOverlayEnabledChange,
   onCloseClipDialog,
   onExportClips,
   exportScope,
@@ -153,6 +157,8 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
 
       <TimelineClipExportDialog
         open={clipDialogOpen}
+        overlayEnabled={overlayEnabled}
+        onOverlayEnabledChange={onOverlayEnabledChange}
         onClose={onCloseClipDialog}
         onExport={onExportClips}
         exportScope={exportScope}

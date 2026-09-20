@@ -39,19 +39,33 @@ export const runFfmpegDual = ({
     let subLabel = '[1:v]';
     let audioMap = '0:a?';
     const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
-    const inputs = ['-n', '-i', actualMainSource, '-i', actualSecondarySource];
+    const inputs = [
+      '-n',
+      '-ss',
+      String(clip.startTime),
+      '-t',
+      String(clipDuration),
+      '-i',
+      actualMainSource,
+      '-ss',
+      String(clip.secondaryStartTime ?? clip.startTime),
+      '-t',
+      String(clipDuration),
+      '-i',
+      actualSecondarySource,
+    ];
     let currentInputIndex = 2;
 
     filterSteps.push(
-      `[0:v]trim=start=${clip.startTime}:end=${clip.endTime},setpts=PTS-STARTPTS[mtrim]`,
+      `[0:v]trim=duration=${clipDuration},setpts=PTS-STARTPTS[mtrim]`,
     );
     filterSteps.push(
       clip.hasAudio === false
         ? `anullsrc=r=48000:cl=stereo,atrim=duration=${clipDuration}[atrim]`
-        : `[0:a]atrim=start=${clip.startTime}:end=${clip.endTime},asetpts=PTS-STARTPTS[atrim]`,
+        : `[0:a]atrim=duration=${clipDuration},asetpts=PTS-STARTPTS[atrim]`,
     );
     filterSteps.push(
-      `[1:v]trim=start=${clip.startTime}:end=${clip.endTime},setpts=PTS-STARTPTS[strim]`,
+      `[1:v]trim=duration=${clipDuration},setpts=PTS-STARTPTS[strim]`,
     );
 
     mainLabel = '[mtrim]';

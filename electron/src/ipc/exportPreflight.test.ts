@@ -4,9 +4,9 @@ import * as os from 'node:os';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ExportClipsPayload } from './exportHandlers.types';
 import { preflightClipExport } from './exportPreflight';
-import { recomposeLocalTimeline } from './packageMediaCompositionService';
-vi.mock('./packageMediaCompositionService', () => ({
-  recomposeLocalTimeline: vi.fn(),
+import { runFfmpegProcess } from './exportFfmpegProcess';
+vi.mock('./exportFfmpegProcess', () => ({
+  runFfmpegProcess: vi.fn(),
 }));
 let directory: string;
 let source: string;
@@ -58,7 +58,7 @@ it('reports missing files across the batch without creating output or encoding',
   expect(failure.message).toContain('missing-b.mp4');
   expect(failure.message).not.toContain(directory);
   expect(await fs.readdir(directory)).toEqual(['video.mp4']);
-  expect(recomposeLocalTimeline).not.toHaveBeenCalled();
+  expect(runFfmpegProcess).not.toHaveBeenCalled();
 });
 it('checks only the angle and clip sources actually used', async () => {
   payload.sourcePath = path.join(directory, 'unused-fallback.mp4');
@@ -104,11 +104,11 @@ it('checks all physical clips in a virtual timeline before composition', async (
   await expect(preflightClipExport(payload, directory)).rejects.toThrow(
     'missing.mp4',
   );
-  expect(recomposeLocalTimeline).not.toHaveBeenCalled();
+  expect(runFfmpegProcess).not.toHaveBeenCalled();
   await fs.copyFile(source, path.join(packagePath, 'missing.mp4'));
   const plans = await preflightClipExport(payload, directory);
   expect(plans[0].clips).toHaveLength(2);
-  expect(recomposeLocalTimeline).not.toHaveBeenCalled();
+  expect(runFfmpegProcess).not.toHaveBeenCalled();
 });
 it('rejects an invalid range, empty media, missing dual source and unwritable destination', async () => {
   payload.clips[0].endTime = 0;

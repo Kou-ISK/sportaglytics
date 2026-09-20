@@ -136,9 +136,19 @@ try {
     .getByRole('button', { name: '一時停止', exact: true })
     .click({ force: true });
   await exerciseAngleSync(page, app);
-  const applied = JSON.parse(
-    await fs.readFile(data.metaDataConfigFilePath, 'utf8'),
-  );
+  // Closing the sync surface precedes the async config write. Read only a completed document.
+  let applied;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    try {
+      applied = JSON.parse(
+        await fs.readFile(data.metaDataConfigFilePath, 'utf8'),
+      );
+      break;
+    } catch (error) {
+      if (!(error instanceof SyntaxError) || attempt === 49) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
   assert.deepEqual(
     applied.angles[1].clips.map((clip) => clip.timelineStartSeconds),
     [1, 8],

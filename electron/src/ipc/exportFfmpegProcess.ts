@@ -1,8 +1,10 @@
 import { spawn } from 'child_process';
 import * as fs from 'node:fs/promises';
+import { constants } from 'node:fs';
 import * as os from 'os';
 import * as path from 'path';
 import { H264_ENCODER_ARGS } from '../mediaTools';
+import { canConcatenateWithoutEncoding } from './exportStreamCopy';
 
 export const MAX_FFMPEG_STDERR_BYTES = 64 * 1024;
 
@@ -73,6 +75,10 @@ export const runFfmpegProcess = (
     const ff = spawn(executablePath, ffmpegArgs, {
       shell: false,
       windowsHide: true,
+    });
+    console.info('[export] FFmpeg started', {
+      operation: args.includes('copy') ? 'stream-copy' : 'encode',
+      durationSeconds: progressOptions?.durationSeconds,
     });
     const timeout = setTimeout(() => ff.kill('SIGKILL'), 6 * 60 * 60 * 1000);
     timeout.unref();
@@ -145,6 +151,12 @@ export const concatFfmpegFiles = async (
   outputPath: string,
   progressOptions?: FfmpegProcessProgressOptions,
 ): Promise<void> => {
+  if (files.length === 1) {
+    // The rendered clip is already final; do not encode a long match again just to rename it.
+    await fs.copyFile(files[0], outputPath, constants.COPYFILE_EXCL);
+    progressOptions?.onProgress(1);
+    return;
+  }
   const listPath = path.join(
     os.tmpdir(),
     `concat_${Date.now()}_${Math.random()}.txt`,
@@ -155,10 +167,13 @@ export const concatFfmpegFiles = async (
   await fs.writeFile(listPath, content, 'utf-8');
 
   try {
+    const streamCopy = await canConcatenateWithoutEncoding(files);
     await runFfmpegProcess(
       getFfmpegPath,
       [
         '-n',
+        // Keep the concat demuxer clock: AAC priming must not shift the video origin.
+        ...(streamCopy ? ['-copyts'] : []),
         '-f',
         'concat',
         '-safe',
@@ -167,9 +182,9 @@ export const concatFfmpegFiles = async (
         listPath,
         '-fflags',
         '+genpts',
-        ...H264_ENCODER_ARGS,
-        '-c:a',
-        'aac',
+        ...(streamCopy
+          ? ['-c', 'copy', '-avoid_negative_ts', 'disabled']
+          : [...H264_ENCODER_ARGS, '-c:a', 'aac']),
         outputPath,
       ],
       progressOptions,

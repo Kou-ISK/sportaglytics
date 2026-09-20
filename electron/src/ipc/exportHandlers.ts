@@ -9,10 +9,16 @@ import { concatFiles } from './exportFfmpegRunners';
 import { ensureMp4, normalizeAngleOption } from './exportOptions';
 import { renderClipWithFfmpeg } from './exportClipRender';
 import type { ExportClipsPayload } from './exportHandlers.types';
-import { updateExportProgressWindow } from '../exportProgressWindow';
+import {
+  updateExportProgressWindow,
+  openExportProgressWindow,
+} from '../exportProgressWindow';
 import type { ExportProgressWindowState } from '../../../src/types/ipc/exportProgressWindow';
 import { getValidatedEventSenderWindow } from './windowSenderGuards';
-import { materializeExportSource } from './exportVirtualTimelineSource';
+import {
+  buildExportPreparationJobs,
+  prepareExportSources,
+} from './exportSourcePreparation';
 import { preflightClipExport } from './exportPreflight';
 import { resolveExportSourceSelection } from './exportSourceSelection';
 import { isExportClipsPayload } from './exportPayloadValidation';
@@ -129,7 +135,7 @@ export const registerExportHandlers = ({
         );
         let completedProgressWeight = 0;
         let reportedProgressCurrent = 0;
-        const progressTotal =
+        let progressTotal =
           exportMode === 'perInstance'
             ? renderDurationTotal
             : renderDurationTotal * 2;
@@ -204,19 +210,18 @@ export const registerExportHandlers = ({
         }
 
         updateProgress('映像と保存先を確認中...');
+        // The native folder picker can cover this window. Reveal once without stealing focus.
+        if (progressId) void openExportProgressWindow(false, true);
         const sourcePlans = await preflightClipExport(payload, targetDir);
-        const resolvedSourceMap = new Map<string, string>();
-        for (const plan of sourcePlans) {
-          updateProgress('書き出し用の映像を準備中...');
-          resolvedSourceMap.set(
-            plan.sourcePath,
-            await materializeExportSource(
-              plan,
-              tempFiles,
-              Math.max(...clips.map((clip) => clip.endTime)),
-            ),
+        const jobs = buildExportPreparationJobs(payload, sourcePlans);
+        progressTotal += jobs.reduce((total, job) => total + job.weight, 0);
+        const { sources: resolvedSourceMap, timeOrigins } =
+          await prepareExportSources(
+            jobs,
+            tempFiles,
+            updateStageProgress,
+            advanceProgress,
           );
-        }
         const resolveSource = (
           source: string | null | undefined,
         ): string | undefined =>
@@ -246,6 +251,7 @@ export const registerExportHandlers = ({
               secondarySource,
               useDual,
               tempFiles,
+              sourceTimeOrigins: timeOrigins,
               outputPath,
               onProgress,
             });
