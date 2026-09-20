@@ -6,6 +6,18 @@ import {
 } from './timelineWindow';
 
 describe('timeline window IPC guards', () => {
+  it('requires an explicit boolean for export subscription readiness', () => {
+    expect(
+      isTimelineWindowCommand({ type: 'clip-export-ready', ready: true }),
+    ).toBe(true);
+    expect(
+      isTimelineWindowCommand({ type: 'clip-export-ready', ready: false }),
+    ).toBe(true);
+    expect(isTimelineWindowCommand({ type: 'clip-export-ready' })).toBe(false);
+    expect(
+      isTimelineWindowCommand({ type: 'clip-export-ready', ready: 'true' }),
+    ).toBe(false);
+  });
   it('accepts a valid snapshot and rejects non-finite playback time', () => {
     const snapshot = {
       timeline: [],

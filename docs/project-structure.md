@@ -8,6 +8,8 @@
 
 ## Top-Level Layout
 
+映像書き出しのメニュー通知先は `electron/src/menu/clipExportMenuAction.ts`、Timelineの表示と準備待ちは `electron/src/timelineWindow.ts`、ダイアログ状態は各featureのHookが担当します。メニュー定義にWindow所有者の判断やFFmpeg処理を埋め込みません。
+
 | Path         | Role                                           | Placement rule                                                            |
 | ------------ | ---------------------------------------------- | ------------------------------------------------------------------------- |
 | `.github/`   | GitHub workflows / templates / AI instructions | GitHub上の運用・CI・Copilot指示                                           |

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { sendTimelineWindowCommand } from '../../../../app/gateways/timelineWindowGateway';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import {
   canExportClipsWithOverlay,
@@ -99,11 +100,11 @@ export const useTimelineClipExportDialog = ({
   }, [videoSources]);
 
   const handleOpenClipDialog = useCallback(async () => {
+    setClipDialogOpen(true);
     const settings = await loadClipOverlaySettings();
     if (settings) {
       setOverlaySettings(settings);
     }
-    setClipDialogOpen(true);
   }, []);
 
   const handleExportClips = useCallback(async () => {
@@ -186,9 +187,15 @@ export const useTimelineClipExportDialog = ({
   ]);
 
   useEffect(() => {
-    return subscribeClipExportMenuRequest(() => {
-      handleOpenClipDialog();
+    const unsubscribe = subscribeClipExportMenuRequest(() => {
+      void handleOpenClipDialog();
     });
+    // did-finish-load precedes React/data readiness; announce only after subscribing.
+    sendTimelineWindowCommand({ type: 'clip-export-ready', ready: true });
+    return () => {
+      sendTimelineWindowCommand({ type: 'clip-export-ready', ready: false });
+      unsubscribe();
+    };
   }, [handleOpenClipDialog]);
 
   return {

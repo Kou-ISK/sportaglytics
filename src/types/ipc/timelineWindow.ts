@@ -42,6 +42,7 @@ export interface TimelineWindowClockPayload {
 }
 
 export type TimelineWindowCommand =
+  | { type: 'clip-export-ready'; ready: boolean }
   | { type: 'angle-sync'; command: AngleSyncCommand }
   | { type: 'request-sync' }
   | { type: 'seek'; time: number }
@@ -215,6 +216,8 @@ export const isTimelineWindowCommand = (
 ): value is TimelineWindowCommand => {
   if (!isObject(value) || !isString(value.type)) return false;
   switch (value.type) {
+    case 'clip-export-ready':
+      return typeof value.ready === 'boolean';
     case 'angle-sync':
       return isAngleSyncCommand(value.command);
     case 'request-sync':

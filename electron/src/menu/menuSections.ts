@@ -7,6 +7,7 @@ import { openHelpWindow } from '../helpWindow';
 import { openSettingsWindow } from '../settingsWindow';
 import { openTimelineWindow } from '../timelineWindow';
 import { buildRecentPackageItems } from './recentPackageMenu';
+import { openClipExportFromMenu } from './clipExportMenuAction';
 import {
   openVersionInfoWindow,
   sendToFocusedWindow,
@@ -132,13 +133,10 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
     label: 'エクスポート',
     submenu: [
       {
+        id: 'export-video-clips',
         label: '映像クリップ（オーバーレイ付き）',
         click: (_menuItem, browserWindow) => {
-          if (browserWindow && 'webContents' in browserWindow) {
-            (browserWindow as BrowserWindow).webContents.send(
-              'menu-export-clips',
-            );
-          }
+          void openClipExportFromMenu(browserWindow);
         },
       },
       ...buildTimelineExportItems(),

@@ -107,11 +107,14 @@ pnpm run test:e2e:clip-sync
 pnpm run test:e2e:event-detection
 pnpm run test:e2e:code-window-menu
 pnpm run test:e2e:export-progress
+pnpm run test:e2e:export-menu
 pnpm run test:e2e:timeline-rows
 pnpm run test:e2e:package-reopen
 ```
 
 Package再openは実ファイルのドロップ、映像と補助Windowの終了、同じパスをOSから再openする流れを検証します。macOSではアプリを終了せずに起動画面へ戻り、履歴・drop・ファイル選択で繰り返し再openします。Timelineの端編集は未選択の状態で修飾キー付きのブラウザー入力を送信し、保存された開始・終了時刻と選択維持まで確認します。
+
+`export-menu`は実MenuItemのcallbackを呼び、Timeline/Playlistの設定UIを操作して合成映像を書き出します。OSの保存先選択結果と案内ダイアログだけをstub化し、実IPC・FFmpegと出力の尺を確認します。OSメニューバー自体のクリック試験ではありません。複数Package Sessionの分離、不正sender、購読解除と再ロードは `clipExportMenuAction.test.ts` で確認します。
 
 自動event detectionのreal model inference E2Eは、verified model packをCI artifactとして安全に供給できるまで通常CIへ含めません。Modelなし状態は正常系であり、UIは「検証済みモデルなし」を表示します。
 

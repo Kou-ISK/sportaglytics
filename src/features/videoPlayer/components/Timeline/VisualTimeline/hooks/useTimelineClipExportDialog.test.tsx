@@ -7,6 +7,10 @@ const gatewayMocks = vi.hoisted(() => ({
   exportClipsWithOverlay: vi.fn(),
   loadClipOverlaySettings: vi.fn(),
   subscribeClipExportMenuRequest: vi.fn(),
+  sendTimelineWindowCommand: vi.fn(),
+}));
+vi.mock('../../../../app/gateways/timelineWindowGateway', () => ({
+  sendTimelineWindowCommand: gatewayMocks.sendTimelineWindowCommand,
 }));
 const serviceMocks = vi.hoisted(() => ({
   executeClipExport: vi.fn(),
@@ -36,6 +40,36 @@ describe('useTimelineClipExportDialog', () => {
     gatewayMocks.subscribeClipExportMenuRequest.mockReturnValue(
       () => undefined,
     );
+  });
+
+  it('opens immediately even while optional overlay settings are loading', () => {
+    gatewayMocks.loadClipOverlaySettings.mockReturnValue(
+      new Promise(() => undefined),
+    );
+    const { result, unmount } = renderHook(() =>
+      useTimelineClipExportDialog({
+        timeline: [],
+        selectedIds: [],
+        videoSources: ['/source.mp4'],
+        info: vi.fn(),
+      }),
+    );
+    expect(
+      gatewayMocks.subscribeClipExportMenuRequest.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      gatewayMocks.sendTimelineWindowCommand.mock.invocationCallOrder[0],
+    );
+    expect(gatewayMocks.sendTimelineWindowCommand).toHaveBeenCalledWith({
+      type: 'clip-export-ready',
+      ready: true,
+    });
+    act(() => gatewayMocks.subscribeClipExportMenuRequest.mock.calls[0][0]());
+    expect(result.current.clipDialogOpen).toBe(true);
+    unmount();
+    expect(gatewayMocks.sendTimelineWindowCommand).toHaveBeenLastCalledWith({
+      type: 'clip-export-ready',
+      ready: false,
+    });
   });
 
   it('closes the modal before the background export finishes', async () => {
