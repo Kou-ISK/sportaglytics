@@ -26,6 +26,8 @@ Release workflow は source quality gates と build/preload/media tool 検証後
 
 Windows CIは[Windows版](../docs/windows.md)の手順でFFmpeg、AIランタイム、フォントを用意します。Windowsの署名証明書は現在設定されておらず、NSISは未署名です。Release noteではWindowsの署名状態を明示してください。macOS用の `CSC_LINK` をWindowsへ流用しません。後日署名を導入する際は専用のcredential境界を追加し、新しいバージョンのartifactとして公開します。
 
+Paintの俯瞰配置用モデル・WASMは `pnpm run build` の `vision:prepare` で準備し、`build/pitch-vision/` と権利表示をアプリへ同梱します。モデルのSHA-256不一致やダウンロード失敗はbuildを失敗させます。配布後にネットワーク取得へフォールバックさせません。`e2e-tactical-board.mjs` をmacOS / Windows / installed Windowsで実行し、HTTP遮断下の推論と保存・画像出力を確認します。詳細は[開発手順](../docs/development.md#戦術盤の端末内認識)を参照してください。
+
 ## Required Secrets
 
 | Secret                        | Required for                         |

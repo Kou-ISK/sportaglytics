@@ -5,6 +5,7 @@
 SporTagLytics における音声同期オフセット（`offsetSeconds`）の符号、探索、confidence、適用、保存形式を定義します。
 
 関連 ADR:
+
 - [0015 Clip timeline placement and audio-assisted sync](adr/0015-clip-timeline-placement-and-audio-assisted-sync.md)
 - [0016 Multi-angle audio sync offset persistence](adr/0016-multi-angle-audio-sync-offset-persistence.md)
 
@@ -48,6 +49,8 @@ confidence は単純な `(correlation + 1) / 2` ではありません。以下�
 `confidence < 0.35` または offset が非有限の場合、自動同期結果は **適用しません**。現在の `syncData` と手動配置を維持し、ユーザーへ手動確認を促します。
 
 ## 保存形式
+
+[アングル同期](angle-synchronization.md)では、先頭の切詰めを非負の配置とアングル補正へ正規化し、`package:apply-clip-timeline` で両方を同時に保存します。保存成功後にのみ再生側の状態を更新します。
 
 同期データは `.metadata/config.json` の `syncData` に保存します。
 

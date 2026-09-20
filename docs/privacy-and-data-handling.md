@@ -53,14 +53,21 @@ AI analysis builds prompts from local timeline data, labels, memo fields, statis
 
 Cloud LLM providers, remote embedding services, or any network transport for AI analysis are not part of the current contract. Adding them requires a new ADR or an update to ADR 0005, plus explicit user-facing privacy documentation and settings UI.
 
+## Tactical Board Recognition
+
+Paintの戦術盤は明示操作で停止した映像フレームを端末内のMediaPipe / EfficientDet-Lite2 INT8へ渡します。実行コードとモデルはアプリ同梱で、実行時のCDN取得、画像送信、遠隔推論、クラウド保存はありません。COCO 2017で学習された汎用モデルを使い、利用者の映像で追加学習しません。認識候補は一時メモリ、確定した位置と分類はローカルPlaylist文書へ保存します。
+
 ## Sharing and Issue Reports
 
-When opening public issues or PRs:
+このリポジトリのコード、ドキュメント、fixture、コミット、PR、Issue、添付画像・ログは公開情報として扱います。利用者がローカルの映像やCodingを調査・学習・検証に使うことを許可しても、それらの公開を許可したことにはなりません。
 
-- Do not attach real match footage unless you have permission to publish it.
-- Redact team names, athlete names, file paths, and private notes when they are not needed.
-- Prefer minimal synthetic `.stpkg`, `.stpl`, `.stad`, or JSON snippets for reproduction.
-- Security-sensitive reports should follow [SECURITY.md](../SECURITY.md), not public issues.
+- 公開許可のない氏名・連絡先・端末のユーザー名・ホームディレクトリ・私的なメモ・アカウントの請求状態を含めません。CIの結果は成功・失敗・未実行と技術的な影響を記載し、私的なアカウント事情は転載しません。
+- 実試合の映像、スクリーンショット、Coding、日付・対戦カード・得点を含むファイル名は、公開許可なしに掲載しません。再現例は `Team A` / `Team B`、`fixtures/sample-match.stpkg` などの架空名・相対パスと合成データを使います。確認した構造や匿名化した集計値は、元データを特定できない範囲で説明します。
+- 生の調査・学習データは別の非公開領域に保持します。ローカルの `research/` と `output/playwright/` はGitの対象外です。無視設定は事故の予防であり、添付ファイルの安全性や既存のGit履歴からの削除を保証しません。
+- 公開前に、差分だけでなくPR本文、コメント、ログ、画像、ファイル名、コミットの著者名・メールを確認します。ログや画像は合成データで取り直すか、必要な箇所だけを匿名化して共有します。コミットには公開用の名前とGitHubのnoreplyメールを使用し、個人用メールを追加しません。
+- 既に公開した本文や現行ファイルは修正します。Git履歴・PRの差分・外部のコピーに情報が残る場合があるため、通常の削除コミットを完全削除とは扱いません。公開履歴の書換えは共同作業への影響を確認し、明示的な承認を得てから行います。
+
+プロジェクトの公開URL・公開ハンドル、ライセンス表記、第三者の権利表示は維持します。セキュリティに関する報告は公開Issueではなく [SECURITY.md](../SECURITY.md) に従ってください。
 
 ## Removing Local Data
 

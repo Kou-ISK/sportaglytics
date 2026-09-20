@@ -29,6 +29,11 @@ export const usePlaylistWindowController = () => {
   const studio = usePlaylistStudio(runtime);
 
   return {
+    mediaStatus: {
+      loading: runtime.playback.mediaTimeline.loading,
+      error: runtime.playback.mediaTimeline.error,
+      onRetry: runtime.playback.mediaTimeline.retry,
+    },
     studio,
     containerRef: runtime.core.containerRef,
     header: { ...header, onWorkspaceModeChange: studio.onModeChange },

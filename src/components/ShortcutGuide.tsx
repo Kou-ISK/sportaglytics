@@ -66,6 +66,8 @@ const shortcuts: ShortcutItem[] = [
       { key: 'Enter', action: '選択したアイテムを編集' },
       { key: 'Delete/Backspace', action: '選択したアイテムを削除' },
       { key: 'Command + Shift + P', action: '選択項目をプレイリストに追加' },
+      { key: 'Command + Shift + K', action: '選択した1区間を再生位置で分割' },
+      { key: 'Command + Shift + J', action: '同じ行の選択区間を1つに結合' },
       { key: 'Command + Z', action: '元に戻す' },
       { key: 'Command + Shift + Z', action: 'やり直し' },
     ],

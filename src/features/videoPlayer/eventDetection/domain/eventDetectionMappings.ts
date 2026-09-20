@@ -5,7 +5,7 @@ import type {
 } from '../../../../types/eventDetection/core';
 import type { CodeWindowLayout } from '../../../../types/settings/coreTypes';
 
-const EVENT_NAMES: Record<RugbyEventType, string> = {
+export const EVENT_DETECTION_EVENT_NAMES: Record<RugbyEventType, string> = {
   restart: 'リスタート',
   scrum: 'Scrum',
   lineout: 'Lineout',
@@ -51,12 +51,13 @@ export const buildEventDetectionMappings = (
   activeCodeWindow?: CodeWindowLayout,
 ): EventTimelineMapping[] => {
   return model.events.map((eventType) => {
-    const defaultName = EVENT_NAMES[eventType];
+    const defaultName = EVENT_DETECTION_EVENT_NAMES[eventType];
     const aliases = EVENT_NAME_ALIASES[eventType] ?? [defaultName];
     const normalizedAliases = new Set(aliases.map(normalizeEventName));
     const configuredButton = activeCodeWindow?.buttons.find(
       (button) =>
-        button.type === 'action' && normalizedAliases.has(normalizeEventName(button.name)),
+        button.type === 'action' &&
+        normalizedAliases.has(normalizeEventName(button.name)),
     );
     const defaultRange = DEFAULT_RANGES[eventType];
     const metric = model.metrics[eventType];
@@ -65,7 +66,10 @@ export const buildEventDetectionMappings = (
       eventType,
       actionName: configuredButton?.name ?? defaultName,
       enabled: true,
-      minConfidence: normalizeConfidenceThreshold(metric?.confidenceThreshold ?? 1, 1),
+      minConfidence: normalizeConfidenceThreshold(
+        metric?.confidenceThreshold ?? 1,
+        1,
+      ),
       leadTimeSeconds:
         configuredButton?.leadTimeSeconds ?? defaultRange.leadTimeSeconds,
       lagTimeSeconds:

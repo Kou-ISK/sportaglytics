@@ -1,3 +1,4 @@
+import type { VideoViewMode } from '../../../../../shared/media/angleView';
 import type { Dispatch, SetStateAction } from 'react';
 import type { VideoSyncData } from '../../../../../types/video/sync';
 import type { PackageMediaAngle } from '../../../../../types/package/metadata';
@@ -10,7 +11,7 @@ export interface SyncedVideoPlayerProps {
   syncData?: VideoSyncData;
   syncMode?: 'auto' | 'manual';
   forceUpdateKey?: number;
-  viewMode?: 'dual' | 'angle1' | 'angle2';
+  viewMode?: VideoViewMode;
   currentTime?: number;
   mediaAngles?: PackageMediaAngle[];
   setMediaAngles?: Dispatch<SetStateAction<PackageMediaAngle[]>>;

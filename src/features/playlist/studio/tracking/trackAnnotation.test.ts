@@ -126,3 +126,20 @@ it('tracks the explicit player region independently of a distant decorative disc
   expect(result.object.endY).toBe(160);
   expect(result.object.motion?.keyframes.at(-1)?.x).toBeGreaterThan(42);
 });
+
+it('reads the selected source clock while preserving global annotation timestamps', async () => {
+  const result = await trackAnnotation(
+    'second-half',
+    object,
+    14,
+    new AbortController().signal,
+    () => undefined,
+    12,
+    undefined,
+    -10,
+  );
+  expect(mock.read.mock.calls[0][0]).toBe(2);
+  expect(mock.read.mock.calls.at(-1)?.[0]).toBe(4);
+  expect(result.object.timestamp).toBe(10);
+  expect(result.object.motion?.keyframes.at(-1)?.time).toBe(4);
+});

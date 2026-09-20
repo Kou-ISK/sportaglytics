@@ -1,3 +1,9 @@
+import { angleIndexForView } from '../../../../../shared/media/angleView';
+import { withClipDuration } from '../../../../../shared/media/withClipDuration';
+import {
+  getAngleOffset,
+  resolveMediaTime,
+} from '../../../../../shared/media/mediaTimeline';
 import { videoGridAspect } from '../../../../../shared/hooks/videoGridAspect';
 import { useVideoWindowAspect } from '../../../../../shared/hooks/useVideoWindowAspect';
 import React from 'react';
@@ -5,10 +11,6 @@ import { Box } from '@mui/material';
 import { MemoizedSingleVideoPlayer } from '../SingleVideoPlayer';
 import { useSyncedVideoPlayer } from './hooks/useSyncedVideoPlayer';
 import type { SyncedVideoPlayerProps } from './types';
-import {
-  resolveTimelineClip,
-  usesVirtualClipTimeline,
-} from '../../../../../types/package/clipTimeline';
 
 const noopSetMax: React.Dispatch<React.SetStateAction<number>> = (value) => {
   void value;
@@ -30,30 +32,30 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
   const isManualMode = props.syncMode === 'manual';
   const safeVideoList = Array.isArray(videoList) ? videoList : [];
   const allowSeek = isManualMode;
-  const offset = syncData?.syncOffset ?? 0;
   const resolveOffset = React.useCallback(
-    (index: number): number =>
-      index === 0 ? 0 : (syncData?.angleOffsets?.[index] ?? offset),
-    [offset, syncData?.angleOffsets],
+    (index: number): number => getAngleOffset(syncData, index),
+    [syncData],
   );
   const timelineClips = React.useMemo(
     () =>
       safeVideoList.map((fallbackSource, index) => {
         const angle = mediaAngles[index];
-        if (!angle || !usesVirtualClipTimeline(angle.clips)) {
+        if (!angle || !angle.clips.length) {
           return {
             source: fallbackSource,
             clipId: undefined,
             clipTimeSeconds: currentTime,
           };
         }
-        const angleTime = currentTime + resolveOffset(index);
-        const active = resolveTimelineClip(angle.clips, angleTime);
+        const active = resolveMediaTime(
+          { clips: angle.clips, offsetSeconds: resolveOffset(index) },
+          currentTime,
+        );
         return active
           ? {
               source: active.clip.source,
               clipId: active.clip.id,
-              clipTimeSeconds: active.clipTimeSeconds,
+              clipTimeSeconds: active.sourceTime,
             }
           : { source: '', clipId: undefined, clipTimeSeconds: 0 };
       }),
@@ -84,42 +86,22 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
               ? angle
               : {
                   ...angle,
-                  clips: angle.clips.map((clip) =>
-                    clip.id === clipId &&
-                    Math.abs((clip.durationSeconds ?? 0) - value) > 0.01
-                      ? { ...clip, durationSeconds: value }
-                      : clip,
-                  ),
+                  clips: withClipDuration(angle.clips, clipId, value),
                 },
           ),
         );
       },
     [mediaAngles, setMaxSec, setMediaAngles],
   );
-  const hasPrimary = Boolean(safeVideoList[0]?.trim());
-  const hasSecondary = Boolean(safeVideoList[1]?.trim());
-
-  const effectiveViewMode = React.useMemo(() => {
-    if (viewMode === 'dual') {
-      if (!hasSecondary && hasPrimary) return 'angle1';
-      if (!hasPrimary && hasSecondary) return 'angle2';
-    }
-    if (viewMode === 'angle1' && !hasPrimary && hasSecondary) return 'angle2';
-    if (viewMode === 'angle2' && !hasSecondary && hasPrimary) return 'angle1';
-    return viewMode;
-  }, [hasPrimary, hasSecondary, viewMode]);
-
+  const requestedIndex = angleIndexForView(viewMode);
+  const selectedIndex =
+    requestedIndex !== null && safeVideoList[requestedIndex]?.trim()
+      ? requestedIndex
+      : null;
   const visibleVideoCount =
-    effectiveViewMode === 'dual'
-      ? safeVideoList.filter((filePath) => filePath && filePath.trim() !== '')
-          .length
-      : effectiveViewMode === 'angle1'
-        ? hasPrimary
-          ? 1
-          : 0
-        : hasSecondary
-          ? 1
-          : 0;
+    selectedIndex === null
+      ? safeVideoList.filter((source) => source?.trim()).length
+      : 1;
   const gridColumnCount =
     visibleVideoCount <= 1 ? 1 : visibleVideoCount <= 4 ? 2 : 3;
   const gridRows = Math.max(1, Math.ceil(visibleVideoCount / gridColumnCount));
@@ -137,21 +119,14 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
     });
 
   // 手動モードでは同期処理を完全にバイパスし、各プレイヤーを独立させる
-  const isIndexVisible = (index: number) => {
-    if (effectiveViewMode === 'dual') return true;
-    if (effectiveViewMode === 'angle1') return index === 0;
-    return index === 1;
-  };
+  const isIndexVisible = (index: number): boolean =>
+    selectedIndex === null || index === selectedIndex;
 
   const mediaRef = React.useRef<HTMLDivElement>(null);
   const visibleRatios = safeVideoList.flatMap((path, index) =>
     path && isIndexVisible(index) ? [aspectRatios[index] ?? 16 / 9] : [],
   );
-  useVideoWindowAspect(
-    mediaRef,
-    effectiveViewMode,
-    videoGridAspect(visibleRatios),
-  );
+  useVideoWindowAspect(mediaRef, viewMode, videoGridAspect(visibleRatios));
 
   const hiddenItemSx = {
     position: 'absolute' as const,
@@ -223,10 +198,17 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
                         : noopSetMax
                   }
                   blockPlay={
-                    isManualMode ? false : (blockPlayStates[index] ?? false)
+                    isManualMode || mediaAngles[index]?.clips.length
+                      ? false
+                      : (blockPlayStates[index] ?? false)
                   }
                   allowSeek={allowSeek}
                   forceUpdate={forceUpdateKey}
+                  timelineTimeSeconds={
+                    isManualMode
+                      ? undefined
+                      : timelineClips[index]?.clipTimeSeconds
+                  }
                   initialTimeSeconds={
                     timelineClips[index]?.clipTimeSeconds ?? 0
                   }

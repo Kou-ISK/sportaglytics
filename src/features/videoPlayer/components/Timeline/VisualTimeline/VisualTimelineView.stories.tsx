@@ -27,7 +27,14 @@ const TimelineFixture = (): ReactElement => {
     maxSec: 120,
     currentTime: time,
     onSeek: setTime,
-    onDelete: () => {},
+    onDelete: (ids) =>
+      setTimeline(timeline.filter((item) => !ids.includes(item.id))),
+    onUpdateTimelineItem: (id, updates) =>
+      setTimeline(
+        timeline.map((item) =>
+          item.id === id ? { ...item, ...updates } : item,
+        ),
+      ),
     selectedIds: selected,
     onSelectionChange: setSelected,
     teamNames: ['ホーム', 'アウェイ'],

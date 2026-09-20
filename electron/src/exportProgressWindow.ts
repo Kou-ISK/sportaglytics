@@ -57,6 +57,7 @@ const sendState = (state: ExportProgressWindowState): void => {
 
 export const openExportProgressWindow = async (
   activate = true,
+  reveal = false,
 ): Promise<void> => {
   const window = getOrCreate();
   if (window.webContents.isLoading()) {
@@ -64,11 +65,15 @@ export const openExportProgressWindow = async (
       window.webContents.once('did-finish-load', () => resolve());
     });
   }
+  if (window.isDestroyed()) return;
   if (!window.isVisible()) {
     window.showInactive();
   }
   if (activate) {
     window.focus();
+  } else if (reveal && !window.isDestroyed()) {
+    if (window.isMinimized()) window.restore();
+    window.moveTop();
   }
 };
 

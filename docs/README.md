@@ -19,6 +19,9 @@
 
 ## User Documentation
 
+- [通常のCodingタイムラインでの同期](adr/0044-sync-in-coding-toolbar.md): 同期ボタンと設定済みホットキーの共用。
+- [アングル同期](angle-synchronization.md): Sync Point、コマ送り、前後半、ウィンドウ比率、保存契約。
+
 - [Windows版](windows.md): 導入、OS間の操作・文書互換、ランタイムと検証。
 
 - [起動画面とパッケージを開く操作](start-workspace.md): 履歴検索、ドロップ、読み込み状態と復旧。
@@ -29,6 +32,10 @@
 - [Homebrew quickstart](homebrew-quickstart.md): Homebrew Cask での導入。
 - [プレイリスト機能](playlist-features.md): プレイリスト画面と関連操作（関連 ADR: [0008](adr/0008-dedicated-sub-window-runtime-and-synchronization.md), [0010](adr/0010-ffmpeg-clip-export-execution-boundary.md), [0025](adr/0025-playlist-document-presentation-order.md)）。
 
+## Product Research
+
+- [市場価値を高める改善案（2026-09）](reports/2026-09-product-value.md): 現行競合との比較、改善の優先順位、検証指標。
+
 ## Developer Documentation
 
 - [開発ガイド](development.md): セットアップ、品質ゲート、開発ワークフロー。
@@ -38,6 +45,8 @@
 - [デザインシステム](design-system.md): MUI theme と shared UI の運用。
 - [Architecture exceptions](architecture-exceptions.md): `AGENTS.md` からの一時例外台帳。
 - [ADR](adr/README.md): 長期的な設計判断。
+- [選択範囲の準備と無再圧縮書き出し](adr/0043-bounded-lossless-export.md): 共通時計を保つ高速コピー条件と進捗。
+- [映像書き出しメニューの所有者と準備待ち](adr/0042-document-owned-export-menu.md): Package Sessionによる通知先とTimelineの購読準備。
 - [Release artifactの不変性](adr/0032-immutable-release-artifacts.md): 公開済みタグとDMGを保持する配布契約。
 - [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix): 実装変更時に同時更新する docs の対応表。
 - [ADR Operations](documentation-guide.md#adr-operations): ADR の採番、命名、更新 lifecycle。
@@ -75,3 +84,14 @@ AI agent は次の順で参照してください。
 
 - [Paintの機能範囲と公式調査](tactics.md)
 - [Tactics motion and plane contract (ADR 0029)](adr/0029-tactics-motion-and-plane-contract.md)
+
+- [ADR 0034: 既存Codingとの比較用モデル](adr/0034-reference-coding-model-evaluation.md)
+
+- [ADR 0035: 自動検出結果の再利用](adr/0035-event-detection-result-reuse.md)
+
+- [ADR 0036: 持続するイベントの区間判定](adr/0036-event-episode-consolidation.md)
+- [ADR 0037: 確認済み映像による補正モデル](adr/0037-reviewed-model-refinement.md)
+
+- [ADR 0039: 端末内戦術盤とフレーム単位の較正](adr/0039-local-tactical-board.md) — 保存契約、モデル同梱、認識候補の確認。
+
+- [複数クリップの共通時刻契約（ADR 0040）](adr/0040-shared-media-timeline-clock.md)

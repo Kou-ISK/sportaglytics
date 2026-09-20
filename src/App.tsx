@@ -8,6 +8,7 @@ import { AnalysisReportPage } from './pages/AnalysisReportPage';
 import { ExportProgressWindowApp } from './pages/ExportProgressWindowApp';
 import { useAppShellController } from './hooks/useAppShellController';
 import {
+  EventDetectionWindowScreen,
   CodingPanelWindowScreen,
   TimelineWindowScreen,
 } from './features/videoPlayer';
@@ -16,6 +17,8 @@ function App() {
   const currentView = useAppShellController();
 
   // プレイリストウィンドウ（別ウィンドウで開かれた場合）
+  if (currentView === 'event-detection') return <EventDetectionWindowScreen />;
+
   if (currentView === 'playlist') {
     return <PlaylistWindowApp />;
   }

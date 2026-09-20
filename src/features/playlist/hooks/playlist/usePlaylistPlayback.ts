@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { usePlaylistMediaTimeline } from '../../media/usePlaylistMediaTimeline';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { usePlaylistPlaybackActions } from './usePlaylistPlaybackActions';
 import { usePlaylistPlaybackEffects } from './usePlaylistPlaybackEffects';
 import type { UsePlaylistPlaybackParams } from './usePlaylistPlayback.types';
@@ -14,7 +15,13 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     [],
   );
 
+  const timelineCallbacks = useRef({
+    onTime: (_time: number): void => undefined,
+    onEnd: (): void => undefined,
+  });
+  const mediaTimeline = usePlaylistMediaTimeline(params, timelineCallbacks);
   const actions = usePlaylistPlaybackActions({
+    seekMedia: mediaTimeline.seek,
     items: params.items,
     currentItem: params.currentItem,
     currentIndex: params.currentIndex,
@@ -38,7 +45,41 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     freezeTimeoutRef,
   });
 
+  useLayoutEffect(() => {
+    timelineCallbacks.current = {
+      onEnd: actions.handleItemEnd,
+      onTime: (time) => {
+        params.setCurrentTime(time);
+        const annotation = params.currentAnnotation;
+        if (!annotation || params.isFrozen || !params.isPlaying) return;
+        const recent = lastFreezeTimestampRef.current;
+        if (
+          recent !== null &&
+          Math.abs(time - recent) < params.freezeRetriggerGuard
+        )
+          return;
+        if (
+          annotation.objects.some(
+            (object) =>
+              !object.motion &&
+              Math.abs(time - object.timestamp) <
+                params.annotationTimeTolerance,
+          )
+        ) {
+          lastFreezeTimestampRef.current = time;
+          actions.triggerFreezeFrame(
+            Math.max(
+              params.minFreezeDuration,
+              annotation.freezeDuration || params.defaultFreezeDuration,
+            ),
+          );
+        }
+      },
+    };
+  }, [actions.handleItemEnd, actions.triggerFreezeFrame, params]);
+
   usePlaylistPlaybackEffects({
+    disabled: mediaTimeline.active,
     isFrozen: params.isFrozen,
     setIsFrozen: params.setIsFrozen,
     currentItem: params.currentItem,
@@ -63,6 +104,7 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
   });
 
   return {
+    mediaTimeline,
     handlePlayItem: actions.handlePlayItem,
     handleTogglePlay: actions.handleTogglePlay,
     handlePrevious: actions.handlePrevious,

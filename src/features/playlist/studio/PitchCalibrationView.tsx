@@ -1,19 +1,21 @@
 import type { ReactElement } from 'react';
 import { Button, Stack, TextField, Typography } from '@mui/material';
 import type { PitchCalibrationControls } from './usePitchCalibration';
+import { PitchRegionView } from './PitchRegionView';
 export const PitchCalibrationView = (
   props: PitchCalibrationControls & { disabled: boolean },
 ): ReactElement => (
   <Stack spacing={1}>
     <Typography variant="subtitle2">平面較正</Typography>
     <Typography variant="caption" color="text.secondary">
-      映像内の既知の長方形を4点で指定します。カメラが動いた場合は、その場面で較正し直してください。
+      ピッチ上の範囲を選び、同じ4つの交点に映像の番号を合わせます。芝の平面を指定してください。
     </Typography>
     {props.editing ? (
       <>
         <Stack direction="row" spacing={1}>
           <TextField
-            label="横の実寸（m）"
+            fullWidth
+            label="ピッチ幅（m）"
             type="number"
             value={props.draft.widthMeters}
             slotProps={{ htmlInput: { min: 0.1, max: 200 } }}
@@ -25,7 +27,8 @@ export const PitchCalibrationView = (
             }
           />
           <TextField
-            label="縦の実寸（m）"
+            fullWidth
+            label="ピッチ長（m）"
             type="number"
             value={props.draft.lengthMeters}
             slotProps={{ htmlInput: { min: 0.1, max: 200 } }}
@@ -37,6 +40,12 @@ export const PitchCalibrationView = (
             }
           />
         </Stack>
+        {props.onRegionChange && (
+          <PitchRegionView
+            value={props.draft}
+            onChange={props.onRegionChange}
+          />
+        )}
         <Typography variant="caption">
           映像上の1→2→3→4を長方形の角へ合わせてください。横は1–2、縦は2–3です。
         </Typography>
@@ -69,9 +78,22 @@ export const PitchCalibrationView = (
           </Button>
         </Stack>
         {props.calibrated && (
-          <Button disabled={props.disabled} onClick={props.onAddZone}>
+          <Button
+            disabled={props.disabled || props.needsConfirmation}
+            onClick={props.onAddZone}
+          >
             平面に領域を追加
           </Button>
+        )}
+        {props.calibrated && props.needsConfirmation && (
+          <>
+            <Typography color="warning.main" variant="caption">
+              別のフレームです。カメラが動いた場合は較正を編集してください。
+            </Typography>
+            <Button disabled={props.disabled} onClick={props.onConfirmFrame}>
+              現在の映像でも4点が一致
+            </Button>
+          </>
         )}
         {props.distance !== null && (
           <Typography role="status" variant="body2">

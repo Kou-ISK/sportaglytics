@@ -1,5 +1,10 @@
 import React from 'react';
-import { Box, Paper } from '@mui/material';
+import type {
+  AngleSyncCommand,
+  AngleSyncSnapshot,
+} from '../../../../types/ipc/angleSync';
+import type { HotkeyConfig } from '../../../../types/settings/coreTypes';
+import { Box, Paper, Typography } from '@mui/material';
 import { VisualTimeline } from '../..';
 import type {
   TimelineData,
@@ -7,8 +12,15 @@ import type {
   TimelineRowSortSpec,
 } from '../../../../types/timeline/core';
 import { TimelineRowSortControl } from '../../components/Timeline/VisualTimeline/TimelineRowSortControl';
+import { AngleSyncTransportView } from './AngleSyncTransportView';
 
 interface TimelineActionSectionProps {
+  angleSync?: AngleSyncSnapshot;
+  isPlaying: boolean;
+  hotkeys: HotkeyConfig[];
+  canSync: boolean;
+  onStartSync: () => void;
+  onAngleSyncCommand: (command: AngleSyncCommand) => void;
   timeline: TimelineData[];
   timelineRows: TimelineRow[];
   maxSec: number;
@@ -27,6 +39,8 @@ interface TimelineActionSectionProps {
     ids: string[],
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  splitTimelineItem: (id: string, time: number) => void;
+  mergeTimelineItems: (ids: string[]) => void;
   duplicateTimelineItem: (id: string) => string | null;
   addTimelineData: (
     actionName: string,
@@ -62,6 +76,12 @@ interface TimelineActionSectionProps {
 }
 
 export const TimelineActionSection = ({
+  angleSync,
+  isPlaying,
+  hotkeys,
+  canSync,
+  onStartSync,
+  onAngleSyncCommand,
   timeline,
   timelineRows,
   maxSec,
@@ -75,6 +95,8 @@ export const TimelineActionSection = ({
   updateTimelineItem,
   bulkUpdateTimelineItems,
   duplicateTimelineItem,
+  splitTimelineItem,
+  mergeTimelineItems,
   addTimelineData,
   addTimelineRow,
   updateTimelineRow,
@@ -116,7 +138,7 @@ export const TimelineActionSection = ({
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'flex-end',
+            gap: 0.5,
             alignItems: 'center',
             minHeight: 32,
             px: 0.5,
@@ -125,10 +147,30 @@ export const TimelineActionSection = ({
             flexShrink: 0,
           }}
         >
+          <AngleSyncTransportView
+            state={angleSync}
+            time={currentTime}
+            playing={isPlaying}
+            hotkeys={hotkeys}
+            canSync={canSync}
+            onStart={onStartSync}
+            onSeek={(time) => handleCurrentTime(new Event('sync-seek'), time)}
+            onCommand={onAngleSyncCommand}
+          />
           <TimelineRowSortControl onSort={sortTimelineRows} />
         </Box>
+        {angleSync?.message && (
+          <Typography
+            role="status"
+            variant="caption"
+            sx={{ px: 1, py: 0.25, flexShrink: 0 }}
+          >
+            {angleSync.message}
+          </Typography>
+        )}
         <Box sx={{ flex: 1, minHeight: 0 }}>
           <VisualTimeline
+            angleSync={angleSync}
             timeline={timeline}
             rows={timelineRows}
             maxSec={maxSec}
@@ -147,6 +189,8 @@ export const TimelineActionSection = ({
             onUpdateTimelineItem={updateTimelineItem}
             bulkUpdateTimelineItems={bulkUpdateTimelineItems}
             onDuplicateTimelineItem={duplicateTimelineItem}
+            onSplitTimelineItem={splitTimelineItem}
+            onMergeTimelineItems={mergeTimelineItems}
             onCreateTimelineItem={(actionName, startTime, endTime, color) =>
               addTimelineData(
                 actionName,

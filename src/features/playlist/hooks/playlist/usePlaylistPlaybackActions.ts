@@ -26,6 +26,7 @@ interface UsePlaylistPlaybackActionsParams extends Pick<
   | 'setIsFullscreen'
   | 'minFreezeDuration'
 > {
+  seekMedia?: (time: number) => boolean;
   setCurrentTime?: React.Dispatch<React.SetStateAction<number>>;
   lastFreezeTimestampRef: React.MutableRefObject<number | null>;
   freezeTimeoutRef: React.MutableRefObject<ReturnType<
@@ -64,6 +65,7 @@ export const usePlaylistPlaybackActions = ({
   lastFreezeTimestampRef,
   freezeTimeoutRef,
   setCurrentTime,
+  seekMedia,
 }: UsePlaylistPlaybackActionsParams): PlaylistPlaybackActions => {
   const clearFreezeTimer = useCallback((): void => {
     if (freezeTimeoutRef.current) {
@@ -137,9 +139,10 @@ export const usePlaylistPlaybackActions = ({
         if (index !== -1) {
           clearFreezeTimer();
           const item = items[index];
-          if (videoRef.current) videoRef.current.currentTime = item.startTime;
-          if (videoRef2.current && currentVideoSource2) {
-            videoRef2.current.currentTime = item.startTime;
+          if (!seekMedia?.(item.startTime)) {
+            if (videoRef.current) videoRef.current.currentTime = item.startTime;
+            if (videoRef2.current && currentVideoSource2)
+              videoRef2.current.currentTime = item.startTime;
           }
           setCurrentIndex(index);
           setCurrentTime?.(item.startTime);
@@ -162,6 +165,7 @@ export const usePlaylistPlaybackActions = ({
       items,
       setCurrentIndex,
       setCurrentTime,
+      seekMedia,
       setIsFrozen,
       setIsPlaying,
       videoRef,
@@ -236,11 +240,10 @@ export const usePlaylistPlaybackActions = ({
       const clampedTime = currentItem
         ? Math.min(currentItem.endTime, Math.max(currentItem.startTime, time))
         : Math.max(0, time);
-      if (videoRef.current) {
-        videoRef.current.currentTime = clampedTime;
-      }
-      if (videoRef2.current && currentVideoSource2) {
-        videoRef2.current.currentTime = clampedTime;
+      if (!seekMedia?.(clampedTime)) {
+        if (videoRef.current) videoRef.current.currentTime = clampedTime;
+        if (videoRef2.current && currentVideoSource2)
+          videoRef2.current.currentTime = clampedTime;
       }
       lastFreezeTimestampRef.current = null;
       setCurrentTime?.(clampedTime);
@@ -255,6 +258,7 @@ export const usePlaylistPlaybackActions = ({
       lastFreezeTimestampRef,
       setIsFrozen,
       setCurrentTime,
+      seekMedia,
       videoRef,
       videoRef2,
     ],

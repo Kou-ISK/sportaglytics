@@ -26,6 +26,7 @@ export const primitiveColors = {
   warning: '#ED6C02',
   info: '#0288D1',
   success: '#2E7D32',
+  pitchGreen: '#244B3C',
   momentumTry: '#FF5722',
   momentumPositive: '#4CAF50',
   momentumNegative: '#9C27B0',

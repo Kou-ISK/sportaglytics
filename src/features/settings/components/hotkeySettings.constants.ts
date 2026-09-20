@@ -22,6 +22,8 @@ export const FORBIDDEN_HOTKEYS = new Set([
   'CommandOrControl+M',
   'CommandOrControl+Tab',
   'CommandOrControl+Space',
+  'CommandOrControl+Shift+K',
+  'CommandOrControl+Shift+J',
   'Control+Space',
   'Alt+F4',
   'Alt+Tab',

@@ -18,6 +18,7 @@ const model: EventDetectionModelInfo = {
   version: '1',
   displayName: 'Test',
   status: 'experimental',
+  evaluationBasis: 'reported-metrics',
   events: ['lineout'],
   metrics: {
     lineout: {
@@ -170,4 +171,74 @@ describe('event detection dialog lifecycle', () => {
     expect(result.current.viewProps.mappings[0].minConfidence).toBe(0.8);
     expect(gateway.listEventDetectionModels).toHaveBeenCalledTimes(1);
   });
+});
+
+it('uses current Timeline edits when a background run completes', async () => {
+  const params = createParams();
+  const implementation = vi
+    .mocked(gateway.runEventDetection)
+    .getMockImplementation();
+  if (!implementation) throw new Error('Missing runner');
+  let finish: (() => void) | undefined;
+  vi.mocked(gateway.runEventDetection).mockImplementation(async (request) => {
+    await new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    return implementation(request);
+  });
+  const { result, rerender } = renderHook(useEventDetectionController, {
+    initialProps: params,
+  });
+  await act(async () => openDialog());
+  act(() => result.current.viewProps.onRun());
+  rerender({
+    ...params,
+    timeline: [
+      {
+        id: 'manual',
+        actionName: 'Lineout',
+        startTime: 0,
+        endTime: 10,
+        memo: '',
+      },
+    ],
+  });
+  await act(async () => finish?.());
+  expect(params.addTimelineDatas).toHaveBeenCalledWith([]);
+  expect(result.current.viewProps.summary?.duplicates).toBe(1);
+  await act(async () => openDialog());
+  expect(result.current.viewProps.summary?.duplicates).toBe(1);
+  expect(gateway.listEventDetectionModels).toHaveBeenCalledTimes(1);
+});
+
+it('cancels and ignores an old run after the source changes or its owner unmounts', async () => {
+  const params = createParams();
+  const implementation = vi
+    .mocked(gateway.runEventDetection)
+    .getMockImplementation();
+  if (!implementation) throw new Error('Missing runner');
+  let finish: (() => void) | undefined;
+  vi.mocked(gateway.runEventDetection).mockImplementation(async (request) => {
+    await new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    return implementation(request);
+  });
+  const { result, rerender, unmount } = renderHook(
+    useEventDetectionController,
+    { initialProps: params },
+  );
+  await act(async () => openDialog());
+  act(() => result.current.viewProps.onRun());
+  rerender({ ...params, mediaAngles: [] });
+  expect(gateway.cancelEventDetection).toHaveBeenCalledTimes(1);
+  await act(async () => finish?.());
+  expect(params.addTimelineDatas).not.toHaveBeenCalled();
+  rerender(params);
+  await act(async () => {});
+  act(() => result.current.viewProps.onRun());
+  unmount();
+  expect(gateway.cancelEventDetection).toHaveBeenCalledTimes(2);
+  await act(async () => finish?.());
+  expect(params.addTimelineDatas).not.toHaveBeenCalled();
 });

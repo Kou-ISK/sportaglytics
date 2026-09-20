@@ -1,3 +1,5 @@
+import { PlaylistMediaStatusView } from '../media/PlaylistMediaStatusView';
+import { TacticalBoardView } from '../studio/board/TacticalBoardView';
 import { StudioToolsView } from '../studio/StudioToolsView';
 import { PitchCalibrationOverlayView } from '../studio/PitchCalibrationOverlayView';
 import { TacticsTimelineView } from '../studio/TacticsTimelineView';
@@ -40,6 +42,7 @@ export const PlaylistWindowView = ({ controller }: PlaylistWindowViewProps) => {
       }}
     >
       <PlaylistHeaderToolbar {...controller.header} />
+      <PlaylistMediaStatusView {...controller.mediaStatus} />
 
       <Box
         data-testid="playlist-review-area"
@@ -75,12 +78,14 @@ export const PlaylistWindowView = ({ controller }: PlaylistWindowViewProps) => {
                 controller.studio.active ? (
                   <>
                     <StudioCanvasView {...controller.studio.canvas} />
-                    <PitchCalibrationOverlayView
-                      pitch={controller.studio.pitch}
-                      width={controller.studio.canvas.width}
-                      height={controller.studio.canvas.height}
-                      contentRect={controller.studio.contentRect}
-                    />
+                    {controller.studio.sidebar.panel === 'pitch' && (
+                      <PitchCalibrationOverlayView
+                        pitch={controller.studio.pitch}
+                        width={controller.studio.canvas.width}
+                        height={controller.studio.canvas.height}
+                        contentRect={controller.studio.contentRect}
+                      />
+                    )}
                   </>
                 ) : undefined
               }
@@ -139,6 +144,7 @@ export const PlaylistWindowView = ({ controller }: PlaylistWindowViewProps) => {
         )}
       </Box>
 
+      <TacticalBoardView {...controller.studio.board} />
       <PlaylistWindowDialogs {...controller.dialogs} />
     </Box>
   );

@@ -1,9 +1,13 @@
+import type { VideoViewMode } from '../../../../shared/media/angleView';
 import React from 'react';
 import { Box } from '@mui/material';
 import { VideoPlayer, VideoController } from '../..';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
-import { usesVirtualClipTimeline } from '../../../../types/package/clipTimeline';
+import {
+  getAngleOffset,
+  getMediaTimelineEnd,
+} from '../../../../shared/media/mediaTimeline';
 
 interface PlayerSurfaceProps {
   videoList: string[];
@@ -22,7 +26,7 @@ interface PlayerSurfaceProps {
   syncData?: VideoSyncData;
   syncMode: 'auto' | 'manual';
   playerForceUpdateKey: number;
-  viewMode: 'dual' | 'angle1' | 'angle2';
+  viewMode: VideoViewMode;
   mediaAngles: PackageMediaAngle[];
   setMediaAngles: React.Dispatch<React.SetStateAction<PackageMediaAngle[]>>;
 }
@@ -46,29 +50,29 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   setMediaAngles,
 }) => {
   const useTimelineClock =
-    syncMode === 'auto' && usesVirtualClipTimeline(mediaAngles[0]?.clips ?? []);
-  const primaryTimelineEnd = React.useMemo(
+    syncMode === 'auto' && mediaAngles.some((angle) => angle.clips.length > 0);
+  const timelineEnd = React.useMemo(
     () =>
-      mediaAngles[0]?.clips.reduce(
-        (maximum, clip) =>
-          Math.max(
-            maximum,
-            clip.timelineStartSeconds + (clip.durationSeconds ?? 0),
-          ),
+      Math.max(
         0,
-      ) ?? 0,
-    [mediaAngles],
+        ...mediaAngles.map((angle, index) =>
+          getMediaTimelineEnd({
+            clips: angle.clips,
+            offsetSeconds: getAngleOffset(syncData, index),
+          }),
+        ),
+      ),
+    [mediaAngles, syncData],
   );
-  const primaryTimelineDurationsKnown =
-    mediaAngles[0]?.clips.every(
-      (clip) => typeof clip.durationSeconds === 'number',
-    ) ?? false;
+  const timelineDurationsKnown = mediaAngles.every((angle) =>
+    angle.clips.every((clip) => typeof clip.durationSeconds === 'number'),
+  );
 
   React.useEffect(() => {
-    if (useTimelineClock && primaryTimelineEnd > 0) {
-      setMaxSec((current) => Math.max(current, primaryTimelineEnd));
+    if (useTimelineClock && timelineEnd > 0) {
+      setMaxSec(timelineEnd);
     }
-  }, [primaryTimelineEnd, setMaxSec, useTimelineClock]);
+  }, [timelineEnd, setMaxSec, useTimelineClock]);
 
   React.useEffect(() => {
     if (!useTimelineClock || !isVideoPlaying) return;
@@ -80,12 +84,12 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
         setCurrentTime((value) => {
           const next = Math.min(86_400, value + elapsed * videoPlayBackRate);
           if (
-            primaryTimelineDurationsKnown &&
-            primaryTimelineEnd > 0 &&
-            next >= primaryTimelineEnd
+            timelineDurationsKnown &&
+            timelineEnd > 0 &&
+            next >= timelineEnd
           ) {
             setIsVideoPlaying(false);
-            return primaryTimelineEnd;
+            return timelineEnd;
           }
           return next;
         });
@@ -99,8 +103,8 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
     isVideoPlaying,
     setCurrentTime,
     setIsVideoPlaying,
-    primaryTimelineDurationsKnown,
-    primaryTimelineEnd,
+    timelineDurationsKnown,
+    timelineEnd,
     useTimelineClock,
     videoPlayBackRate,
   ]);

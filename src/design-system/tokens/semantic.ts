@@ -44,6 +44,8 @@ export interface SemanticTokens {
     info: string;
   };
   data: {
+    pitchSurface: string;
+    pitchLine: string;
     team1: string;
     team2: string;
     positive: string;
@@ -128,6 +130,8 @@ export const createSemanticTokens = (
       info: primitiveColors.info,
     },
     data: {
+      pitchSurface: primitiveColors.pitchGreen,
+      pitchLine: primitiveColors.textCool,
       team1: primitiveColors.neonBlue,
       team2: primitiveColors.warmCoral,
       positive: primitiveColors.success,

@@ -235,3 +235,15 @@ Paintは左にツール、右に設定、映像下部に再生→目盛り→描
 2026-09-10に確認した[Hudl Sportscode製品ページ](https://www.hudl.com/products/sportscode)の `HSC_explainer_video_202603` と[Hudl Studio製品ページ](https://www.hudl.com/products/studio)は操作配置の参考資料です。公開画像を特定版の実行画面と断定せず、その後のユーザー指定（角丸・半透明、クリックによるリンク作成）を現行仕様へ反映しています。参照時の試行過程や旧デザインを実装規約として併記しません。
 
 映像操作面の `mediaChromeSx` は、ライトテーマでも子のボタン・文字・入力に `media.foreground` を明示します。中間のMUIコンポーネントが持つ通常画面用の文字色を継承させず、暗い半透明面上の可読性を保ちます。
+
+### 戦術盤
+
+ピッチ面・白線には `data.pitchSurface` / `data.pitchLine` を使用します。選手の所属は `team1` / `team2`、未分類は通常surface、選択はprimaryで表します。周囲のダイアログ・ツールバーは既存surfaceとdividerを共有し、操作ラベルは折り返さず、必要な場合は操作群を折り返します。
+
+## アングル同期ワークスペース
+
+- [アングル同期仕様](angle-synchronization.md)を操作の正本とします。映像面はプレビューのみとし、Sync Point / Align Anglesとコマ送り・保存を独立タイムラインへ置きます。既存の再生ヘッドを使い、アングル表示は再生時と同じ設定済みホットキーで切り替えます。元ファイルのセレクターや配置カードを置きません。
+- 同期中も映像面の比率を管理します。1アングル、2アングル横並び、3〜4アングル2×2へ切り替え、操作バーの実寸を除外してOSウィンドウを調整します。固定の最低420pxや、検証時にウィンドウを縦へ広げる前提を置きません。
+- `AngleSyncWorkspaceView` / `AngleSyncPreviewView` / `AngleSyncTransportView` / `SyncTimecodeView`はpropsで描画します。動画の時計・IPC・保存はhook/Screenへ分離します。native controlsは無効にし、Video.js公式CSSで内部ダイアログの露出を防ぎます。
+- 時刻はtabular numerals、同期点は◆とラベル、選択アングルはタイムライン上部の名前で示します。ボタンの文字は折り返さず、副操作はメニューにまとめ、選択名は省略表示します。同期専用の行を増やさず、同期点は既存の時間目盛りに重ねます。
+- Storybook `Features/VideoPlayer/AngleSync`で単一・2・4アングル、空、エラー、保存中、狭幅を確認します。公式資料との対応と確認限界は同期仕様に記録します。

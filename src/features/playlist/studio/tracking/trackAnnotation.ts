@@ -10,7 +10,7 @@ import type {
   DrawingObject,
 } from '../../../../types/playlist/core';
 import { getObjectBounds } from '../../components/annotationCanvasUtils';
-import { trackFeatures } from './featureTracker';
+import { createAnchoredFeatureTracker } from './anchoredFeatureTracker';
 import { openVideoFrameReader } from './videoFrameReader';
 export interface TrackingResult {
   object: DrawingObject;
@@ -26,6 +26,7 @@ export const trackAnnotation = async (
   onProgress: (progress: number) => void,
   fromTime = object.timestamp,
   targetRegion?: TrackingRegion,
+  sourceTimeOffset = 0,
 ): Promise<TrackingResult> => {
   const start = Math.max(object.timestamp, fromTime);
   const startingOffset = annotationOffsetAt(object, start);
@@ -46,6 +47,11 @@ export const trackAnnotation = async (
               : 0.5)) *
           scaleY,
       ),
+    };
+    // Attachment belongs to the drawing, not the selected upper-body search region.
+    const attachment = {
+      x: ((bounds.minX + bounds.maxX) / 2) * scaleX,
+      y: ((bounds.minY + bounds.maxY) / 2) * scaleY,
     };
     const region = targetRegion
       ? {
@@ -71,7 +77,7 @@ export const trackAnnotation = async (
             maxY: region.maxY + offset.y,
           }
         : undefined;
-    let frame = await reader.read(start);
+    let frame = await reader.read(start + sourceTimeOffset);
     const radius = Math.max(
       8,
       region
@@ -86,7 +92,9 @@ export const trackAnnotation = async (
       preferAbove,
       region,
     );
+    const tracker = createAnchoredFeatureTracker(frame, points, attachment);
     let travel = { x: 0, y: 0 };
+    let targetTravel = { x: 0, y: 0 };
     let prediction = { x: 0, y: 0 };
     const duration = Math.min(
       20,
@@ -99,24 +107,28 @@ export const trackAnnotation = async (
     const steps = Math.ceil(duration * 30);
     for (let step = 1; step <= steps; step++) {
       const time = Math.min(duration, step / 30);
-      const next = await reader.read(start + time);
-      let match = trackFeatures(frame, next, points, prediction);
+      const next = await reader.read(start + time + sourceTimeOffset);
+      let match = tracker.advance(frame, next, points, prediction);
       if (!match.reliable) {
         points = findTrackingAnchors(
           frame,
-          { x: center.x + travel.x, y: center.y + travel.y },
+          { x: center.x + targetTravel.x, y: center.y + targetTravel.y },
           radius,
           preferAbove,
-          movedRegion(travel),
+          movedRegion(targetTravel),
         );
-        match = trackFeatures(frame, next, points, prediction);
+        match = tracker.advance(frame, next, points, prediction);
       }
       confidence = Math.min(confidence, match.confidence);
       if (!match.reliable) {
         lost = true;
         break;
       }
-      travel = { x: travel.x + match.dx, y: travel.y + match.dy };
+      travel = tracker.position();
+      targetTravel = {
+        x: targetTravel.x + match.dx,
+        y: targetTravel.y + match.dy,
+      };
       if (match.dx || match.dy) prediction = { x: match.dx, y: match.dy };
       keys.push({
         time: localStart + time,
@@ -127,10 +139,10 @@ export const trackAnnotation = async (
       if (points.length < 4)
         points = findTrackingAnchors(
           next,
-          { x: center.x + travel.x, y: center.y + travel.y },
+          { x: center.x + targetTravel.x, y: center.y + targetTravel.y },
           radius,
           preferAbove,
-          movedRegion(travel),
+          movedRegion(targetTravel),
         );
       frame = next;
       onProgress(step / steps);

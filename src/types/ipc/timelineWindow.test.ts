@@ -6,6 +6,18 @@ import {
 } from './timelineWindow';
 
 describe('timeline window IPC guards', () => {
+  it('requires an explicit boolean for export subscription readiness', () => {
+    expect(
+      isTimelineWindowCommand({ type: 'clip-export-ready', ready: true }),
+    ).toBe(true);
+    expect(
+      isTimelineWindowCommand({ type: 'clip-export-ready', ready: false }),
+    ).toBe(true);
+    expect(isTimelineWindowCommand({ type: 'clip-export-ready' })).toBe(false);
+    expect(
+      isTimelineWindowCommand({ type: 'clip-export-ready', ready: 'true' }),
+    ).toBe(false);
+  });
   it('accepts a valid snapshot and rejects non-finite playback time', () => {
     const snapshot = {
       timeline: [],
@@ -92,4 +104,19 @@ describe('timeline window IPC guards', () => {
       }),
     ).toBe(false);
   });
+});
+
+it('validates split and merge commands before routing them to the owner', () => {
+  expect(
+    isTimelineWindowCommand({ type: 'split-item', id: 'one', time: 2 }),
+  ).toBe(true);
+  expect(
+    isTimelineWindowCommand({ type: 'merge-items', ids: ['one', 'two'] }),
+  ).toBe(true);
+  for (const time of [NaN, Infinity, -1, '2'])
+    expect(
+      isTimelineWindowCommand({ type: 'split-item', id: 'one', time }),
+    ).toBe(false);
+  for (const ids of [[], ['one'], ['one', 'one'], [1, 2], ['', 'two']])
+    expect(isTimelineWindowCommand({ type: 'merge-items', ids })).toBe(false);
 });

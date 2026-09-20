@@ -1,3 +1,5 @@
+import { ANGLE_VIEW_MODES } from '../../../../shared/media/angleView';
+import type { VideoViewMode } from '../../../../shared/media/angleView';
 import { useMemo, RefObject } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type {
@@ -14,7 +16,7 @@ interface UseHotkeyBindingsParams {
   timelineActionRef: RefObject<EnhancedCodePanelHandle | null>;
   setVideoPlayBackRate: (rate: number) => void;
   setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
-  setViewMode: Dispatch<SetStateAction<'dual' | 'angle1' | 'angle2'>>;
+  setViewMode: Dispatch<SetStateAction<VideoViewMode>>;
   startReversePlayback: (rate: 0.5 | 2 | 4 | 6) => void;
   stopReversePlayback: () => void;
   performUndo: () => void;
@@ -82,22 +84,12 @@ export const useHotkeyBindings = ({
       'reverse-playback-2x': () => startReversePlayback(2),
       'reverse-playback-4x': () => startReversePlayback(4),
       'reverse-playback-6x': () => startReversePlayback(6),
-      'toggle-angle1': () => {
-        setViewMode((prev) => {
-          if (prev === 'dual') return 'angle1';
-          if (prev === 'angle1') return 'dual';
-          if (prev === 'angle2') return 'angle1';
-          return 'angle1';
-        });
-      },
-      'toggle-angle2': () => {
-        setViewMode((prev) => {
-          if (prev === 'dual') return 'angle2';
-          if (prev === 'angle2') return 'dual';
-          if (prev === 'angle1') return 'angle2';
-          return 'angle2';
-        });
-      },
+      ...Object.fromEntries(
+        ANGLE_VIEW_MODES.map((mode) => [
+          `toggle-${mode}`,
+          () => setViewMode((previous) => (previous === mode ? 'dual' : mode)),
+        ]),
+      ),
       analyze: onAnalyze,
       undo: performUndo,
       redo: performRedo,

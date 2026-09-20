@@ -105,7 +105,7 @@ export const useVideoControllerController = ({
   });
 
   useEffect(() => {
-    if (!isVideoPlaying || videoList.length === 0) {
+    if (useTimelineClock || !isVideoPlaying || videoList.length === 0) {
       return;
     }
 
@@ -220,6 +220,7 @@ export const useVideoControllerController = ({
     };
   }, [
     getExistingPlayer,
+    useTimelineClock,
     isVideoPlaying,
     syncData?.isAnalyzed,
     syncData?.syncOffset,

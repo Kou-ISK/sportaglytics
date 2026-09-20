@@ -7,6 +7,7 @@ import {
 } from '../shared/appShell/appShellGateway';
 
 export type AppView =
+  | 'event-detection'
   | 'main'
   | 'settings'
   | 'playlist'
@@ -18,6 +19,7 @@ export type AppView =
 
 const getViewFromHash = (): AppView => {
   const hash = getCurrentLocationHash();
+  if (hash === '#/event-detection') return 'event-detection';
   if (hash === '#/playlist') return 'playlist';
   if (hash === '#/settings') return 'settings';
   if (hash === '#/analysis') return 'analysis';

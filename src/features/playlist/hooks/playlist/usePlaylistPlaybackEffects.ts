@@ -24,6 +24,7 @@ interface UsePlaylistPlaybackEffectsParams extends Pick<
   | 'volume'
   | 'isMuted'
 > {
+  disabled?: boolean;
   lastFreezeTimestampRef: React.MutableRefObject<number | null>;
   triggerFreezeFrame: (freezeDuration: number) => void;
   handleItemEnd: () => void;
@@ -51,6 +52,7 @@ const syncDualViewTimes = (params: {
 };
 
 export const usePlaylistPlaybackEffects = ({
+  disabled = false,
   isFrozen,
   setIsFrozen,
   currentItem,
@@ -81,15 +83,18 @@ export const usePlaylistPlaybackEffects = ({
   const currentItemEndTime = currentItem?.endTime;
 
   useEffect(() => {
+    if (disabled) return;
     isPlayingRef.current = isPlaying;
     isFrozenRef.current = isFrozen;
-  }, [isFrozen, isPlaying]);
+  }, [disabled, isFrozen, isPlaying]);
 
   useEffect(() => {
+    if (disabled) return;
     endedItemIdRef.current = null;
-  }, [currentItemId]);
+  }, [disabled, currentItemId]);
 
   useEffect(() => {
+    if (disabled) return;
     const video = videoRef.current;
     if (!video) return;
 
@@ -164,6 +169,7 @@ export const usePlaylistPlaybackEffects = ({
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, [
+    disabled,
     annotationTimeTolerance,
     currentAnnotation,
     currentItemEndTime,
@@ -182,6 +188,7 @@ export const usePlaylistPlaybackEffects = ({
   ]);
 
   useEffect(() => {
+    if (disabled) return;
     const mainVideo = videoRef.current;
     const subVideo = videoRef2.current;
     if (!mainVideo || !currentVideoSource) return;
@@ -199,6 +206,7 @@ export const usePlaylistPlaybackEffects = ({
     mainVideo.pause();
     subVideo?.pause();
   }, [
+    disabled,
     currentVideoSource,
     currentVideoSource2,
     isFrozen,
@@ -209,6 +217,7 @@ export const usePlaylistPlaybackEffects = ({
   ]);
 
   useEffect(() => {
+    if (disabled) return;
     const mainVideo = videoRef.current;
     const subVideo = videoRef2.current;
     if (!mainVideo) return;
@@ -216,9 +225,10 @@ export const usePlaylistPlaybackEffects = ({
     if (subVideo) {
       subVideo.volume = 0;
     }
-  }, [isMuted, videoRef, videoRef2, volume]);
+  }, [disabled, isMuted, videoRef, videoRef2, volume]);
 
   useEffect(() => {
+    if (disabled) return;
     const mainVideo = videoRef.current;
     if (
       !mainVideo ||
@@ -243,6 +253,7 @@ export const usePlaylistPlaybackEffects = ({
     mainVideo.addEventListener('canplay', playWhenReady, { once: true });
     return () => mainVideo.removeEventListener('canplay', playWhenReady);
   }, [
+    disabled,
     currentItemId,
     currentItemStartTime,
     currentVideoSource,
@@ -253,6 +264,7 @@ export const usePlaylistPlaybackEffects = ({
   ]);
 
   useEffect(() => {
+    if (disabled) return;
     const subVideo = videoRef2.current;
     if (
       !subVideo ||
@@ -274,14 +286,28 @@ export const usePlaylistPlaybackEffects = ({
     };
     subVideo.addEventListener('canplay', playWhenReady, { once: true });
     return () => subVideo.removeEventListener('canplay', playWhenReady);
-  }, [currentItemId, currentItemStartTime, currentVideoSource2, videoRef2]);
+  }, [
+    disabled,
+    currentItemId,
+    currentItemStartTime,
+    currentVideoSource2,
+    videoRef2,
+  ]);
 
   useEffect(() => {
+    if (disabled) return;
     const mainVideo = videoRef.current;
     const subVideo = videoRef2.current;
     if (!mainVideo || !subVideo) return;
     if (!currentVideoSource || !currentVideoSource2) return;
 
     syncDualViewTimes({ viewMode, mainVideo, subVideo });
-  }, [currentVideoSource, currentVideoSource2, viewMode, videoRef, videoRef2]);
+  }, [
+    disabled,
+    currentVideoSource,
+    currentVideoSource2,
+    viewMode,
+    videoRef,
+    videoRef2,
+  ]);
 };

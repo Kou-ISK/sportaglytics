@@ -1,3 +1,5 @@
+import { useTacticalBoard } from './board/useTacticalBoard';
+import type { TacticalBoardViewProps } from './board/TacticalBoardView';
 import { readVideoGrassKey } from './readVideoGrassKey';
 import { useTacticsPresets } from './useTacticsPresets';
 import { useTacticsChroma } from './useTacticsChroma';
@@ -22,6 +24,7 @@ import type { StudioClipsViewProps } from './StudioClipsView';
 
 interface PlaylistStudio {
   active: boolean;
+  board: TacticalBoardViewProps;
   pitch: PitchCalibrationControls;
   contentRect: StudioContentRect;
   timeline: TacticsTimelineProps;
@@ -78,7 +81,10 @@ export const usePlaylistStudio = (
       active &&
       Boolean(item && currentItemState.currentVideoSource) &&
       !core.isPlaying &&
-      !core.isFrozen,
+      !core.isFrozen &&
+      !playback.mediaTimeline.loading &&
+      !playback.mediaTimeline.error &&
+      playback.mediaTimeline.resolve(core.currentTime, secondary) !== null,
     objects,
     time: core.currentTime,
     maxTime: currentItemState.sliderMax,
@@ -129,13 +135,23 @@ export const usePlaylistStudio = (
         baseHeight: editor.inspector.selected.baseHeight ?? contentRect.height,
       }
     : null;
+  const trackingMedia = playback.mediaTimeline.resolve(
+    core.currentTime,
+    secondary,
+  );
   const tracking = useTacticsTracking({
     documentKey: `${core.loadedFilePath}:${item?.id}:${target}`,
     source: () =>
-      (secondary ? core.videoRef2 : core.videoRef).current?.currentSrc,
+      trackingMedia === null
+        ? undefined
+        : (secondary ? core.videoRef2 : core.videoRef).current?.currentSrc,
+    sourceTimeOffset: trackingMedia?.sourceTimeOffset ?? 0,
     selected: trackingSelection,
     time: core.currentTime,
-    endTime: currentItemState.sliderMax,
+    endTime: Math.min(
+      currentItemState.sliderMax,
+      trackingMedia?.globalEnd ?? Infinity,
+    ),
     enabled: editor.inspector.enabled,
     onApply: editor.inspector.onUpdate,
   });
@@ -143,6 +159,7 @@ export const usePlaylistStudio = (
     documentKey: `${core.loadedFilePath}:${item?.id}:${target}`,
     enabled: editor.inspector.enabled,
     calibration: annotations.currentAnnotation?.pitchCalibration?.[target],
+    clipStart: currentItemState.sliderMin,
     selected: editor.inspector.selected,
     contentRect,
     time: core.currentTime,
@@ -152,6 +169,17 @@ export const usePlaylistStudio = (
         [...objects, { ...object, target }],
         target,
       ),
+  });
+  const board = useTacticalBoard({
+    documentKey: `${core.loadedFilePath}:${item?.id}:${target}:${active}`,
+    enabled: editor.inspector.enabled,
+    saved: annotations.currentAnnotation?.tacticalBoard?.[target],
+    calibration: annotations.currentAnnotation?.pitchCalibration?.[target],
+    time: core.currentTime,
+    clipStart: currentItemState.sliderMin,
+    video: () => (secondary ? core.videoRef2 : core.videoRef).current,
+    onSave: (value) => annotations.handleTacticalBoardChange(value, target),
+    onSeek: seek,
   });
   const chroma = useTacticsChroma(
     annotations.currentAnnotation?.chromaKey?.[target],
@@ -177,6 +205,7 @@ export const usePlaylistStudio = (
   };
   return {
     active,
+    board: board.view,
     pitch,
     contentRect,
     timeline: {
@@ -213,7 +242,11 @@ export const usePlaylistStudio = (
     },
     sidebar: {
       panel,
-      onPanelChange: setPanel,
+      onPanelChange: (next) => {
+        if (next !== 'pitch') pitch.onCancel();
+        setPanel(next);
+      },
+      onOpenBoard: board.onOpen,
       ...editor.inspector,
       renderError: editor.inspector.renderError || grassError,
       tracking,

@@ -1,3 +1,5 @@
+import type { AngleSyncCommand } from '../../../../types/ipc/angleSync';
+import { useAngleSyncHotkeys } from './sync/useAngleSyncHotkeys';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useGlobalHotkeys } from '../../../../hooks/useGlobalHotkeys';
 import type {
@@ -57,6 +59,14 @@ export const useTimelineWindowController = () => {
   }, [snapshot]);
   useGlobalHotkeys(snapshot?.hotkeys ?? [], hotkeyHandlers, keyUpHandlers);
 
+  const onAngleSyncCommand = useCallback((command: AngleSyncCommand): void => {
+    sendTimelineWindowCommand({ type: 'angle-sync', command });
+  }, []);
+  useAngleSyncHotkeys(
+    !!snapshot?.angleSync,
+    onAngleSyncCommand,
+    snapshot?.hotkeys ?? [],
+  );
   const send = sendTimelineWindowCommand;
   const onSeek = useCallback((time: number) => {
     setSnapshot((current) =>
@@ -93,6 +103,13 @@ export const useTimelineWindowController = () => {
 
   if (!snapshot) return null;
   return {
+    angleSync: snapshot.angleSync,
+    hotkeys: snapshot.hotkeys,
+    canSync: snapshot.videoSources.length > 1,
+    onStartSync: (): void =>
+      send({ type: 'hotkey-key-down', hotkeyId: 'toggle-manual-mode' }),
+    isPlaying: snapshot.isPlaying,
+    onAngleSyncCommand,
     timeline: snapshot.timeline,
     timelineRows: snapshot.rows,
     maxSec: snapshot.maxSec,
@@ -112,6 +129,10 @@ export const useTimelineWindowController = () => {
     ): void => send({ type: 'update-range', id, startTime, endTime }),
     updateTimelineItem: onUpdateItem,
     bulkUpdateTimelineItems: onBulkUpdateItems,
+    splitTimelineItem: (id: string, time: number): void =>
+      send({ type: 'split-item', id, time }),
+    mergeTimelineItems: (ids: string[]): void =>
+      send({ type: 'merge-items', ids }),
     duplicateTimelineItem: (id: string): string | null => {
       send({ type: 'duplicate-item', id });
       return null;

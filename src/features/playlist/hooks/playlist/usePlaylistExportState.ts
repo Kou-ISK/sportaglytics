@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { subscribeClipExportMenuRequest } from '../../../../shared/clipExport/clipExportGateway';
 import {
   DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
   type ClipExportAngleOption,
@@ -37,6 +38,11 @@ export const usePlaylistExportState = (): UsePlaylistExportStateResult => {
   const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
   const [exportScope, setExportScope] = useState<ClipExportScope>('all');
+
+  useEffect(
+    () => subscribeClipExportMenuRequest(() => setExportDialogOpen(true)),
+    [],
+  );
 
   return {
     exportDialogOpen,

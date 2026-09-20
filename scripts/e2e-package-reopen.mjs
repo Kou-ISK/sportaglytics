@@ -80,6 +80,23 @@ const dropPackage = async (page, files = [packagePath], items = []) => {
     await cdp.detach();
   }
 };
+// Auxiliary windows can finish opening while a previous package is closing.
+// Select the launcher by its navigated route, not the next raw window event.
+const waitForMainWindow = () =>
+  app.waitForEvent('window', {
+    timeout: 20000,
+    predicate: async (candidate) => {
+      try {
+        await candidate.waitForURL((url) => url.protocol !== 'about:', {
+          timeout: 10000,
+        });
+        return new URL(candidate.url()).hash === '';
+      } catch {
+        return false;
+      }
+    },
+  });
+
 const waitForVideo = async (page) => {
   await page.locator('#video_0_html5_api').waitFor({ timeout: 20000 });
   await page.waitForFunction(() => {
@@ -154,7 +171,7 @@ try {
     1,
     'Closing the video must dispose its owned windows as well',
   );
-  const reopenedPromise = app.waitForEvent('window', { timeout: 20000 });
+  const reopenedPromise = waitForMainWindow();
   await app.evaluate(({ app: application }, filePath) => {
     application.emit('open-file', { preventDefault() {} }, filePath);
   }, packagePath);
@@ -185,7 +202,7 @@ try {
         if (BrowserWindow.getAllWindows().length)
           throw new Error('Owned windows did not close');
       });
-      const launcherPromise = app.waitForEvent('window');
+      const launcherPromise = waitForMainWindow();
       await app.evaluate(({ app: application }) =>
         application.emit('activate'),
       );

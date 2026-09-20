@@ -10,6 +10,13 @@ import {
 } from './modelDiscovery';
 import { runEventDetectionProcess } from './processRunner';
 import { cancelEventDetectionProcess } from './requestRegistry';
+import { validateEventDetectionClips } from './inputValidation';
+import {
+  eventDetectionCacheKey,
+  EventDetectionResultCache,
+} from './resultCache';
+
+const resultCache = new EventDetectionResultCache();
 
 export const listEventDetectionModels = async (): Promise<
   EventDetectionModelInfo[]
@@ -26,7 +33,10 @@ export const runEventDetection = async (
   request: EventDetectionRequest,
   options?: { onProgress?: (progress: EventDetectionProgress) => void },
 ): Promise<EventDetectionResult> => {
-  const model = await findEventDetectionModel(request.modelId, request.modelVersion);
+  const model = await findEventDetectionModel(
+    request.modelId,
+    request.modelVersion,
+  );
   if (!model) {
     throw new Error('利用可能な自動イベント検出モデルが見つかりません。');
   }
@@ -36,9 +46,26 @@ export const runEventDetection = async (
     throw new Error('選択したモデルが対応していないイベントが含まれています。');
   }
 
-  return runEventDetectionProcess({
+  await validateEventDetectionClips(request.clips);
+  const key = await eventDetectionCacheKey(model, request);
+  const cached = resultCache.get(key, request.requestId);
+  if (cached) {
+    options?.onProgress?.({
+      requestId: request.requestId,
+      stage: 'finalizing',
+      progress: 1,
+      message: '保存済みの解析結果を再利用しました。',
+    });
+    return cached;
+  }
+  const result = await runEventDetectionProcess({
     model,
     request,
     onProgress: options?.onProgress,
   });
+  // An external video/model edit during inference must not create a stale hit.
+  if (key && key === (await eventDetectionCacheKey(model, request))) {
+    resultCache.set(key, result);
+  }
+  return result;
 };

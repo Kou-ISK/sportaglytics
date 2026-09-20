@@ -10,6 +10,7 @@ const experimentalModel: EventDetectionModelInfo = {
   version: '0.1.0-experimental.1',
   displayName: 'Rugby Event Detection',
   status: 'experimental',
+  evaluationBasis: 'reported-metrics',
   events: ['restart', 'scrum', 'lineout'],
   metrics: {
     restart: {

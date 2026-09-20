@@ -82,9 +82,23 @@ export const useTimelineInteractions = ({
 
   const handleContextMenuDelete = useCallback(() => {
     if (!contextMenu) return;
-    onDelete([contextMenu.itemId]);
+    const ids = selectedIds.includes(contextMenu.itemId)
+      ? selectedIds
+      : [contextMenu.itemId];
+    onDelete(ids);
+    onSelectionChange([]);
+    setFocusedItemId(null);
+    setHoveredItemId(null);
     setContextMenu(null);
-  }, [contextMenu, onDelete, setContextMenu]);
+  }, [
+    contextMenu,
+    onDelete,
+    onSelectionChange,
+    selectedIds,
+    setContextMenu,
+    setFocusedItemId,
+    setHoveredItemId,
+  ]);
 
   const handleContextMenuJumpToWrapped = useCallback(() => {
     if (!contextMenu) return;
@@ -108,49 +122,6 @@ export const useTimelineInteractions = ({
     setFocusedItemId,
   ]);
 
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent) => {
-      if (!focusedItemId) return;
-      const currentIndex = timeline.findIndex(
-        (item) => item.id === focusedItemId,
-      );
-      if (currentIndex === -1) return;
-
-      switch (event.key) {
-        case 'Enter': {
-          event.preventDefault();
-          openDraftFromItemId(focusedItemId);
-          break;
-        }
-        case 'Delete':
-        case 'Backspace': {
-          event.preventDefault();
-          onDelete([focusedItemId]);
-          if (currentIndex < timeline.length - 1) {
-            setFocusedItemId(timeline[currentIndex + 1].id);
-            onSelectionChange([timeline[currentIndex + 1].id]);
-          } else if (currentIndex > 0) {
-            setFocusedItemId(timeline[currentIndex - 1].id);
-            onSelectionChange([timeline[currentIndex - 1].id]);
-          } else {
-            setFocusedItemId(null);
-          }
-          break;
-        }
-        default:
-          break;
-      }
-    },
-    [
-      focusedItemId,
-      timeline,
-      onSelectionChange,
-      onDelete,
-      openDraftFromItemId,
-      setFocusedItemId,
-    ],
-  );
-
   return {
     hoveredItemId,
     focusedItemId,
@@ -165,7 +136,7 @@ export const useTimelineInteractions = ({
     handleContextMenuDelete,
     handleContextMenuJumpTo: handleContextMenuJumpToWrapped,
     handleContextMenuDuplicate: handleContextMenuDuplicateWrapped,
-    handleKeyDown,
+    openDraftFromItemId,
     handleDialogChange,
     handleCloseDialog,
     handleDeleteSingle,

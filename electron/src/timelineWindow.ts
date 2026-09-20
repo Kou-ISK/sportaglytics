@@ -24,6 +24,8 @@ import {
 interface TimelineSessionState {
   timelineWindow: BrowserWindow | null;
   lastBounds: Electron.Rectangle | null;
+  clipExportReady: boolean;
+  clipExportPending: boolean;
 }
 
 const states = new Map<string, TimelineSessionState>();
@@ -48,7 +50,12 @@ const getSenderSession = (sender: Electron.WebContents): PackageSession | null =
 const getState = (session: PackageSession): TimelineSessionState => {
   const current = states.get(session.id);
   if (current) return current;
-  const next: TimelineSessionState = { timelineWindow: null, lastBounds: null };
+  const next: TimelineSessionState = {
+    timelineWindow: null,
+    lastBounds: null,
+    clipExportReady: false,
+    clipExportPending: false,
+  };
   states.set(session.id, next);
   return next;
 };
@@ -66,6 +73,8 @@ export const openTimelineWindow = async (
   if (!session) return;
   const state = getState(session);
   if (state.timelineWindow && !state.timelineWindow.isDestroyed()) {
+    if (state.timelineWindow.isMinimized()) state.timelineWindow.restore();
+    state.timelineWindow.show();
     state.timelineWindow.focus();
     return;
   }
@@ -87,8 +96,12 @@ export const openTimelineWindow = async (
     },
   });
   state.timelineWindow = timelineWindow;
+  state.clipExportReady = false;
   registerAuxiliaryWindow(session, timelineWindow);
   applyWindowSecurity(timelineWindow);
+  timelineWindow.webContents.on('did-start-loading', () => {
+    state.clipExportReady = false;
+  });
   timelineWindow.loadURL(TIMELINE_URL);
   timelineWindow.on('close', () => {
     if (!timelineWindow.isDestroyed()) {
@@ -97,6 +110,8 @@ export const openTimelineWindow = async (
   });
   timelineWindow.on('closed', () => {
     state.timelineWindow = null;
+    state.clipExportReady = false;
+    state.clipExportPending = false;
     unregisterAuxiliaryWindow(session, timelineWindow);
     sendVisibility(session, false);
   });
@@ -108,6 +123,24 @@ export const openTimelineWindow = async (
       } satisfies TimelineWindowCommand);
     }
   });
+};
+
+const deliverClipExportRequest = (state: TimelineSessionState): void => {
+  const window = state.timelineWindow;
+  if (!state.clipExportPending || !state.clipExportReady ||
+      !window || window.isDestroyed() || window.webContents.isDestroyed()) return;
+  state.clipExportPending = false;
+  window.webContents.send('menu-export-clips');
+};
+
+export const requestTimelineClipExport = async (owner: BrowserWindow): Promise<void> => {
+  const session = getPackageSessionForWindow(owner);
+  if (!session?.packagePath) return;
+  const state = getState(session);
+  // A closed/new Timeline must first mount its export listener and receive data.
+  state.clipExportPending = true;
+  await openTimelineWindow(session.mainWindow);
+  deliverClipExportRequest(state);
 };
 
 export const closeTimelineWindow = (): void => {
@@ -191,6 +224,12 @@ export const registerTimelineWindowHandlers = (): void => {
     const timelineWindow = session ? getState(session).timelineWindow : null;
     if (!session || !isEventFromWindow(event, timelineWindow) ||
         !isTimelineWindowCommand(command)) {
+      return;
+    }
+    if (command.type === 'clip-export-ready') {
+      const state = getState(session);
+      state.clipExportReady = command.ready;
+      deliverClipExportRequest(state);
       return;
     }
     if (!session.mainWindow.isDestroyed()) {
