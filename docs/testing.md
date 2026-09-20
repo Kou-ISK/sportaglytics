@@ -2,6 +2,8 @@
 
 このドキュメントは SporTagLytics のテストと品質ゲート運用ガイドです。必須コマンドの正本は `AGENTS.md` です。
 
+複数クリップの同期は `scripts/e2e-multi-clip-playback.mjs` で検証します。架空のA/B/C/D映像を生成し、クリップ単位シンクUI（背景プレイヤーの非重複、Video.js内部UIの非表示、初期アングル、独立シーク、連動再生、コマ送り）、メイン再生、参照PlaylistとPaintの境界シーク、正負オフセットの出力画素・尺を確認します。実試合の映像は不要です。時刻計算とMainの構成検証は `mediaTimeline.test.ts` / `mediaTimelineSource.test.ts`、読み込み待機と空白は `TimelineVideoAdapter.test.ts` が担当します。`useClipTimelineSyncController.test.tsx` はメタデータ読込・組合せ変更後も未保存配置を維持する回帰を検証します。
+
 ## Required Quality Gate
 
 PR前に以下を通します。
@@ -91,7 +93,6 @@ Public repositoryのCIやtest fixtureへ、実チーム名、実試合名、ロ�
 
 - `pnpm run test:e2e:timeline-rows`: 分離Timelineの行・インスタンス操作、削除とUndo、フォーカスと入力欄の保護。
 - `pnpm run test:e2e:paint-export`: 実Canvas・IPC・FFmpegによるPaint映像出力。生成映像の画素・音声・尺を検査し、単画面／全アングル／異解像度の2画面と複数フリーズを確認。
-
 
 ```bash
 pnpm run test:e2e

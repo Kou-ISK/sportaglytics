@@ -124,6 +124,7 @@ const composeLocalClips = async (
     }
   >,
   outputPath: string,
+  presentation?: { offsetSeconds: number; minimumDuration: number },
 ): Promise<void> => {
   const probes = await Promise.all(
     clips.map((clip) => probeMedia(clip.copiedPath)),
@@ -155,7 +156,25 @@ const composeLocalClips = async (
   const concatInputs = clips
     .map((_, index) => `[v${index}][a${index}]`)
     .join('');
-  filters.push(`${concatInputs}concat=n=${clips.length}:v=1:a=1[outv][outa]`);
+  filters.push(
+    `${concatInputs}concat=n=${clips.length}:v=1:a=1[joinedv][joineda]`,
+  );
+  const offset = presentation?.offsetSeconds ?? 0;
+  const end = Math.max(
+    ...clips.map((clip) => clip.timelineStartSeconds + clip.durationSeconds),
+  );
+  const tail = Math.max(
+    0,
+    (presentation?.minimumDuration ?? 0) + offset - end,
+    offset - end + 0.04,
+  );
+  const head = Math.max(0, -offset);
+  filters.push(
+    `[joinedv]tpad=stop_mode=add:stop_duration=${tail},trim=start=${Math.max(0, offset)},setpts=PTS-STARTPTS,tpad=start_mode=add:start_duration=${head}[outv]`,
+  );
+  filters.push(
+    `[joineda]apad=pad_dur=${tail},atrim=start=${Math.max(0, offset)},asetpts=PTS-STARTPTS,adelay=${Math.round(head * 1000)}:all=1[outa]`,
+  );
 
   const inputArgs = clips.flatMap((clip) => ['-i', clip.copiedPath]);
   await runMediaProcess(
@@ -188,6 +207,7 @@ export const recomposeLocalTimeline = async (
     gapBeforeSeconds?: number;
   }>,
   outputPath: string,
+  presentation?: { offsetSeconds: number; minimumDuration: number },
 ): Promise<
   Array<{
     id: string;
@@ -233,7 +253,7 @@ export const recomposeLocalTimeline = async (
       gapBeforeSeconds: clip.gapBeforeSeconds,
     };
   });
-  await composeLocalClips(placed, outputPath);
+  await composeLocalClips(placed, outputPath, presentation);
   return placed.map(
     ({ copiedPath: _copiedPath, source: _source, ...clip }) => ({
       id: clip.id,

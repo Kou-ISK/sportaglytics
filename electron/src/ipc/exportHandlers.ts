@@ -210,7 +210,11 @@ export const registerExportHandlers = ({
           updateProgress('書き出し用の映像を準備中...');
           resolvedSourceMap.set(
             plan.sourcePath,
-            await materializeExportSource(plan, tempFiles),
+            await materializeExportSource(
+              plan,
+              tempFiles,
+              Math.max(...clips.map((clip) => clip.endTime)),
+            ),
           );
         }
         const resolveSource = (

@@ -1,3 +1,4 @@
+import { readMediaTimeline } from './mediaTimelineSource';
 import { createPackage } from './packageCreationService';
 import { applyClipTimeline } from './packageClipTimelineService';
 import { convertConfigToRelativePath } from './packageConfigMigrationService';
@@ -17,6 +18,29 @@ export const registerPackageHandlers = (): void => {
     return;
   }
   isRegistered = true;
+
+  registerHandleWithAliases(
+    'media:resolve-timelines',
+    [],
+    async (event, sources: unknown) => {
+      if (!getValidatedEventSenderWindow(event))
+        throw new Error('Invalid media timeline sender');
+      if (
+        !Array.isArray(sources) ||
+        sources.length > 8 ||
+        !sources.every(
+          (source) =>
+            typeof source === 'string' &&
+            source.length > 0 &&
+            source.length <= 32768,
+        )
+      )
+        throw new Error('Invalid media timeline payload');
+      return Promise.all(
+        sources.map((source) => readMediaTimeline(source, true)),
+      );
+    },
+  );
 
   registerHandleWithAliases(
     'package:create',

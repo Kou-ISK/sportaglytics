@@ -84,51 +84,35 @@ export const VideoPlayerLayout = ({
         overflowX: 'hidden',
       }}
     >
-      <PlayerSurface
-        videoList={videoList}
-        isVideoPlaying={isVideoPlaying}
-        videoPlayBackRate={videoPlayBackRate}
-        currentTime={currentTime}
-        setCurrentTime={setCurrentTime}
-        setIsVideoPlaying={setisVideoPlaying}
-        setVideoPlayBackRate={setVideoPlayBackRate}
-        setMaxSec={setMaxSec}
-        handleCurrentTime={handleCurrentTime}
-        maxSec={maxSec}
-        syncData={syncData}
-        syncMode={syncMode}
-        mediaAngles={mediaAngles}
-        setMediaAngles={setMediaAngles}
-        playerForceUpdateKey={playerForceUpdateKey}
-        viewMode={viewMode}
-      />
-
-      {syncMode === 'manual' && (
-        <Box
-          sx={{
-            gridColumn: '1',
-            gridRow: '1',
-            position: 'relative',
-            zIndex: 1100,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'flex-start',
-            pt: 2,
-            pointerEvents: 'none',
-            '& > *': {
-              pointerEvents: 'auto',
-            },
-          }}
-        >
-          <ManualSyncControls
-            onApplySync={onApplyManualSync}
-            onCancel={onCancelManualSync}
-            mediaAngles={mediaAngles}
-            metaDataConfigFilePath={metaDataConfigFilePath}
-            setMediaAngles={setMediaAngles}
-            setVideoList={setVideoList}
-          />
-        </Box>
+      {syncMode === 'manual' ? (
+        <ManualSyncControls
+          syncData={syncData}
+          onApplySync={onApplyManualSync}
+          onCancel={onCancelManualSync}
+          mediaAngles={mediaAngles}
+          metaDataConfigFilePath={metaDataConfigFilePath}
+          setMediaAngles={setMediaAngles}
+          setVideoList={setVideoList}
+        />
+      ) : (
+        <PlayerSurface
+          videoList={videoList}
+          isVideoPlaying={isVideoPlaying}
+          videoPlayBackRate={videoPlayBackRate}
+          currentTime={currentTime}
+          setCurrentTime={setCurrentTime}
+          setIsVideoPlaying={setisVideoPlaying}
+          setVideoPlayBackRate={setVideoPlayBackRate}
+          setMaxSec={setMaxSec}
+          handleCurrentTime={handleCurrentTime}
+          maxSec={maxSec}
+          syncData={syncData}
+          syncMode={syncMode}
+          mediaAngles={mediaAngles}
+          setMediaAngles={setMediaAngles}
+          playerForceUpdateKey={playerForceUpdateKey}
+          viewMode={viewMode}
+        />
       )}
     </Box>
   ) : (

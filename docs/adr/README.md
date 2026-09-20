@@ -47,6 +47,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0037](0037-reviewed-model-refinement.md) | Reviewed Model Refinement（クラスを保持した時間文脈補正・公開画像比較を追記） | Accepted | 2026-09-16 |
 | [0038](0038-detached-event-detection-window.md) | Detached event detection window | Accepted | 2026-09-20 |
 | [0039](0039-local-tactical-board.md) | Local tactical board and frame-scoped pitch calibration | Accepted | 2026-09-20 |
+| [0040](0040-shared-media-timeline-clock.md) | Shared media timeline clock | Accepted | 2026-09-20 |
 
 ## Status Values
 

@@ -1,3 +1,4 @@
+import type { MediaTimeline } from './shared/media/mediaTimeline';
 import type { IEventDetectionWindowAPI } from './types/ipc/eventDetectionWindow';
 import type { IPlaylistAPI } from './types/playlist/api';
 import type { AnalysisView } from './types/analysis/view';
@@ -85,6 +86,9 @@ export interface IElectronAPI {
       angleOffsets?: number[];
     },
   ) => Promise<boolean>;
+  resolveMediaTimelines: (
+    sources: string[],
+  ) => Promise<Array<MediaTimeline | null>>;
   applyClipTimeline: (
     configPath: string,
     placements: Array<{

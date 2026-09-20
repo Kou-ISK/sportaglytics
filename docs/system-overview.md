@@ -13,6 +13,8 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - [Privacy and Data Handling](privacy-and-data-handling.md)
 - [自動イベント検出](event-detection.md)
 
+メイン・参照Playlist・書き出しは `shared/media/mediaTimeline` の共通時刻変換を使います。Mainの `mediaTimelineSource` がパッケージの現行配置とアングル補正を読み、型付き `media:resolve-timelines` でPlaylistへ渡します。Playlistの `media/` はソース切替・読込待機・共通時計を担当し、Paintの表示フレームも元ファイル内の時刻から変換します。[ADR 0040](adr/0040-shared-media-timeline-clock.md)。同期編集は専用ワークスペース内で元映像を独立操作し、共通時刻の配置タイムラインと連動プレビューで確認してから保存します。映像の長さの読込は未保存配置をリセットしません。
+
 ## レイヤー構成
 
 - 依存方向: `pages -> features -> shared`

@@ -1,4 +1,10 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+} from 'react';
 import { Box } from '@mui/material';
 import {
   AnalysisPanel,
@@ -16,7 +22,7 @@ import { useTimelineExportImport } from './hooks/useTimelineExportImport';
 import { useRawTimelineCsvExport } from '../analysis/hooks/useRawTimelineCsvExport';
 import { OnboardingTutorial } from '../../../components/OnboardingTutorial';
 import { useHotkeyBindings } from './hooks/useHotkeyBindings';
-import { useManualSyncSeek } from './hooks/useManualSyncSeek';
+import { useClipSyncCommands } from './hooks/sync/useClipSyncCommands';
 import { usePlaylistIntegration } from './hooks/usePlaylistIntegration';
 import { VideoPlayerLayout } from './components/VideoPlayerLayout';
 import { useAnalysisIntegration } from './hooks/useAnalysisIntegration';
@@ -158,7 +164,6 @@ export const VideoPlayerScreen = () => {
   }, [setIsFileSelected]);
 
   useMetadataTeamNames({ metaDataConfigFilePath, setTeamNames });
-  useManualSyncSeek({ syncMode, syncData, videoList });
 
   // ホットキー設定を読み込み
   const { settings } = useSettings();
@@ -201,10 +206,18 @@ export const VideoPlayerScreen = () => {
       onSeek: (time) => handleCurrentTime(new Event('reverse-playback'), time),
     });
 
+  const { requestClipSync, changeSyncMode } = useClipSyncCommands({
+    mediaAngles,
+    syncMode,
+    setSyncMode,
+    setIsVideoPlaying: setisVideoPlaying,
+    manualSyncFromPlayers,
+  });
+
   // 手動同期適用ハンドラ
   const handleApplyManualSync = useCallback(async () => {
-    await manualSyncFromPlayers();
-  }, [manualSyncFromPlayers]);
+    await cancelManualSync();
+  }, [cancelManualSync]);
 
   const {
     analysisOpen,
@@ -238,8 +251,8 @@ export const VideoPlayerScreen = () => {
       performRedo,
       resyncAudio,
       resetSync,
-      manualSyncFromPlayers,
-      setSyncMode,
+      manualSyncFromPlayers: requestClipSync,
+      setSyncMode: changeSyncMode,
       onAnalyze: () => {
         void openAnalysisWindow();
       },
@@ -249,13 +262,22 @@ export const VideoPlayerScreen = () => {
     });
 
   // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）
-  useGlobalHotkeys(combinedHotkeys, combinedHandlers, keyUpHandlers);
+  const workspaceHotkeys = useMemo(
+    () =>
+      syncMode === 'manual'
+        ? combinedHotkeys.filter((hotkey) =>
+            ['manual-sync', 'toggle-manual-mode'].includes(hotkey.id),
+          )
+        : combinedHotkeys,
+    [combinedHotkeys, syncMode],
+  );
+  useGlobalHotkeys(workspaceHotkeys, combinedHandlers, keyUpHandlers);
 
   useSyncMenuHandlers({
     onResyncAudio: resyncAudio,
     onResetSync: resetSync,
-    onManualSync: manualSyncFromPlayers,
-    onSetSyncMode: setSyncMode,
+    onManualSync: requestClipSync,
+    onSetSyncMode: changeSyncMode,
   });
 
   useTimelineExportImport({ timeline, setTimeline });
@@ -279,7 +301,7 @@ export const VideoPlayerScreen = () => {
     selectedIds: selectedTimelineIdList,
     teamNames,
     videoSources: videoList,
-    hotkeys: combinedHotkeys,
+    hotkeys: workspaceHotkeys,
     hotkeyHandlers: combinedHandlers,
     hotkeyKeyUpHandlers: keyUpHandlers,
     onSeek: (time) =>

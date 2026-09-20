@@ -236,7 +236,7 @@ try {
   await page.keyboard.press(`${primaryModifier}+Shift+T`);
   await page.getByText('クリップ単位シンク').waitFor();
   assert.equal(
-    await page.getByRole('combobox').count(),
+    await page.getByRole('combobox', { name: /クリップ$/ }).count(),
     2,
     'reference and target clip selectors must be visible',
   );
@@ -378,7 +378,10 @@ try {
   });
   await page.keyboard.press(`${primaryModifier}+Shift+T`);
   await page.getByText('クリップ単位シンク').waitFor();
-  assert.equal(await page.getByRole('combobox').count(), 2);
+  assert.equal(
+    await page.getByRole('combobox', { name: /クリップ$/ }).count(),
+    2,
+  );
 
   console.log(`Electron E2E passed: ${packagePath}`);
 } finally {

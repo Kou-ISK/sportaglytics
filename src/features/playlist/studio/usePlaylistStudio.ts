@@ -81,7 +81,10 @@ export const usePlaylistStudio = (
       active &&
       Boolean(item && currentItemState.currentVideoSource) &&
       !core.isPlaying &&
-      !core.isFrozen,
+      !core.isFrozen &&
+      !playback.mediaTimeline.loading &&
+      !playback.mediaTimeline.error &&
+      playback.mediaTimeline.resolve(core.currentTime, secondary) !== null,
     objects,
     time: core.currentTime,
     maxTime: currentItemState.sliderMax,
@@ -132,13 +135,23 @@ export const usePlaylistStudio = (
         baseHeight: editor.inspector.selected.baseHeight ?? contentRect.height,
       }
     : null;
+  const trackingMedia = playback.mediaTimeline.resolve(
+    core.currentTime,
+    secondary,
+  );
   const tracking = useTacticsTracking({
     documentKey: `${core.loadedFilePath}:${item?.id}:${target}`,
     source: () =>
-      (secondary ? core.videoRef2 : core.videoRef).current?.currentSrc,
+      trackingMedia === null
+        ? undefined
+        : (secondary ? core.videoRef2 : core.videoRef).current?.currentSrc,
+    sourceTimeOffset: trackingMedia?.sourceTimeOffset ?? 0,
     selected: trackingSelection,
     time: core.currentTime,
-    endTime: currentItemState.sliderMax,
+    endTime: Math.min(
+      currentItemState.sliderMax,
+      trackingMedia?.globalEnd ?? Infinity,
+    ),
     enabled: editor.inspector.enabled,
     onApply: editor.inspector.onUpdate,
   });

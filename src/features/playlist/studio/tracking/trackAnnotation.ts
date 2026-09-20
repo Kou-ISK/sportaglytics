@@ -26,6 +26,7 @@ export const trackAnnotation = async (
   onProgress: (progress: number) => void,
   fromTime = object.timestamp,
   targetRegion?: TrackingRegion,
+  sourceTimeOffset = 0,
 ): Promise<TrackingResult> => {
   const start = Math.max(object.timestamp, fromTime);
   const startingOffset = annotationOffsetAt(object, start);
@@ -76,7 +77,7 @@ export const trackAnnotation = async (
             maxY: region.maxY + offset.y,
           }
         : undefined;
-    let frame = await reader.read(start);
+    let frame = await reader.read(start + sourceTimeOffset);
     const radius = Math.max(
       8,
       region
@@ -106,7 +107,7 @@ export const trackAnnotation = async (
     const steps = Math.ceil(duration * 30);
     for (let step = 1; step <= steps; step++) {
       const time = Math.min(duration, step / 30);
-      const next = await reader.read(start + time);
+      const next = await reader.read(start + time + sourceTimeOffset);
       let match = tracker.advance(frame, next, points, prediction);
       if (!match.reliable) {
         points = findTrackingAnchors(

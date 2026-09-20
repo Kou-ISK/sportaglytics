@@ -66,12 +66,20 @@ export const calculateTimelineStart = ({
   referenceStartSeconds,
   referenceCurrentSeconds,
   targetCurrentSeconds,
+  referenceOffsetSeconds = 0,
+  targetOffsetSeconds = 0,
 }: {
   referenceStartSeconds: number;
   referenceCurrentSeconds: number;
   targetCurrentSeconds: number;
+  referenceOffsetSeconds?: number;
+  targetOffsetSeconds?: number;
 }): number =>
-  referenceStartSeconds + referenceCurrentSeconds - targetCurrentSeconds;
+  referenceStartSeconds +
+  referenceCurrentSeconds -
+  referenceOffsetSeconds -
+  targetCurrentSeconds +
+  targetOffsetSeconds;
 
 export const usesVirtualClipTimeline = (
   clips: Array<{ timelineStartSeconds: number }>,

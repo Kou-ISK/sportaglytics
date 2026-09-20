@@ -2,6 +2,10 @@
 
 このドキュメントは SporTagLytics のディレクトリ構成と配置判断ルールです。アーキテクチャ規約の正本は `AGENTS.md`、現行アーキテクチャ要約は [system-overview.md](system-overview.md) です。本書は「新しいファイルをどこに置くか」を判断するための実務ガイドです。
 
+複数クリップの時刻契約は `src/shared/media/`、パッケージ参照の解決は `electron/src/ipc/mediaTimelineSource.ts`、Playlistの映像切替・読込状態は `src/features/playlist/media/` に置きます。`videoFrameClock` は映像要素に結び付いたアダプターメタデータだけを保持し、アプリの状態源や保存形式にはしません。
+
+クリップ同期のprops-only Viewは `features/videoPlayer/app/components/ClipSync*View`、再生・連動・音声・保存のcontrollerは `app/hooks/sync/useClipSync*` / `useClipTimelineSyncController` に分離します。
+
 ## Top-Level Layout
 
 | Path         | Role                                           | Placement rule                                                            |

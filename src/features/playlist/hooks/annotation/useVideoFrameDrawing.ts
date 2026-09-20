@@ -1,3 +1,4 @@
+import { globalVideoFrameTime } from '../../../../shared/media/videoFrameClock';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 
@@ -42,9 +43,9 @@ export const useVideoFrameDrawing = (
       presented.current = {
         video,
         source: video.currentSrc,
-        time: frame.mediaTime,
+        time: globalVideoFrameTime(video, frame.mediaTime),
       };
-      latestDraw.current(frame.mediaTime);
+      latestDraw.current(globalVideoFrameTime(video, frame.mediaTime));
       id = video.requestVideoFrameCallback(update);
     };
     id = video.requestVideoFrameCallback(update);

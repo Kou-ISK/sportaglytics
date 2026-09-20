@@ -1,3 +1,4 @@
+import { PlaylistMediaStatusView } from '../media/PlaylistMediaStatusView';
 import { TacticalBoardView } from '../studio/board/TacticalBoardView';
 import { StudioToolsView } from '../studio/StudioToolsView';
 import { PitchCalibrationOverlayView } from '../studio/PitchCalibrationOverlayView';
@@ -41,6 +42,7 @@ export const PlaylistWindowView = ({ controller }: PlaylistWindowViewProps) => {
       }}
     >
       <PlaylistHeaderToolbar {...controller.header} />
+      <PlaylistMediaStatusView {...controller.mediaStatus} />
 
       <Box
         data-testid="playlist-review-area"

@@ -88,3 +88,5 @@ AI agent は次の順で参照してください。
 - [ADR 0037: 確認済み映像による補正モデル](adr/0037-reviewed-model-refinement.md)
 
 - [ADR 0039: 端末内戦術盤とフレーム単位の較正](adr/0039-local-tactical-board.md) — 保存契約、モデル同梱、認識候補の確認。
+
+- [複数クリップの共通時刻契約（ADR 0040）](adr/0040-shared-media-timeline-clock.md)
