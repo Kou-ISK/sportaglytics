@@ -1,5 +1,6 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import type { TimelineWindowController } from '../hooks/useTimelineWindowController';
+import { AngleSyncTransportView } from './AngleSyncTransportView';
 import { TimelineActionSection } from './TimelineActionSection';
 
 interface TimelineWindowViewProps {
@@ -19,8 +20,29 @@ export const TimelineWindowView = ({ controller }: TimelineWindowViewProps) => {
   }
 
   return (
-    <Box sx={{ height: '100vh', minHeight: 0, bgcolor: 'background.default' }}>
-      <TimelineActionSection {...controller} />
+    <Box
+      sx={{
+        height: '100vh',
+        minHeight: 0,
+        bgcolor: 'background.default',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {controller.angleSync && (
+        <AngleSyncTransportView
+          state={controller.angleSync}
+          time={controller.currentTime}
+          playing={controller.isPlaying}
+          onSeek={(time) =>
+            controller.handleCurrentTime(new Event('sync-seek'), time)
+          }
+          onCommand={controller.onAngleSyncCommand}
+        />
+      )}
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        <TimelineActionSection {...controller} />
+      </Box>
     </Box>
   );
 };

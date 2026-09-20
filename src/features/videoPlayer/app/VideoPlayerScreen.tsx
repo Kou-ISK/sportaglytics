@@ -22,6 +22,7 @@ import { useTimelineExportImport } from './hooks/useTimelineExportImport';
 import { useRawTimelineCsvExport } from '../analysis/hooks/useRawTimelineCsvExport';
 import { OnboardingTutorial } from '../../../components/OnboardingTutorial';
 import { useHotkeyBindings } from './hooks/useHotkeyBindings';
+import { useAngleSyncSession } from './hooks/sync/useAngleSyncSession';
 import { useClipSyncCommands } from './hooks/sync/useClipSyncCommands';
 import { usePlaylistIntegration } from './hooks/usePlaylistIntegration';
 import { VideoPlayerLayout } from './components/VideoPlayerLayout';
@@ -290,13 +291,34 @@ export const VideoPlayerScreen = () => {
     setIsVideoPlaying: setisVideoPlaying,
   });
 
+  const angleSync = useAngleSyncSession(
+    {
+      mediaAngles,
+      syncData,
+      initialTime: currentTime,
+      metaDataConfigFilePath,
+      setMediaAngles,
+      setVideoList,
+      setSyncData,
+      onApplySync: handleApplyManualSync,
+      onCancel: () => {
+        void cancelManualSync();
+      },
+    },
+    syncMode === 'manual',
+  );
+
   useTimelineWindowIntegration({
     isFileSelected,
     timeline,
     rows: timelineRows,
-    maxSec,
-    currentTime,
-    isPlaying: isVideoPlaying,
+    angleSync: angleSync.snapshot,
+    onAngleSyncCommand: angleSync.command,
+    maxSec: angleSync.snapshot ? angleSync.maxSec : maxSec,
+    currentTime: angleSync.snapshot ? angleSync.currentTime : currentTime,
+    isPlaying: angleSync.snapshot
+      ? angleSync.transport.playing
+      : isVideoPlaying,
     playbackRate: videoPlayBackRate,
     selectedIds: selectedTimelineIdList,
     teamNames,
@@ -305,7 +327,9 @@ export const VideoPlayerScreen = () => {
     hotkeyHandlers: combinedHandlers,
     hotkeyKeyUpHandlers: keyUpHandlers,
     onSeek: (time) =>
-      handleCurrentTime(new Event('timeline-window-seek'), time),
+      angleSync.snapshot
+        ? angleSync.transport.seek(time)
+        : handleCurrentTime(new Event('timeline-window-seek'), time),
     onSelectionChange: setSelectedTimelineIdList,
     onDeleteItems: deleteTimelineDatas,
     onUpdateMemo: updateMemo,
@@ -417,15 +441,11 @@ export const VideoPlayerScreen = () => {
         setIsFileSelected={setIsFileSelected}
         setTimelineFilePath={setTimelineFilePath}
         setPackagePath={setPackagePath}
-        metaDataConfigFilePath={metaDataConfigFilePath}
         setMetaDataConfigFilePath={setMetaDataConfigFilePath}
         setSyncData={setSyncData}
         mediaAngles={mediaAngles}
         setMediaAngles={setMediaAngles}
-        onApplyManualSync={handleApplyManualSync}
-        onCancelManualSync={() => {
-          void cancelManualSync();
-        }}
+        angleSync={angleSync}
       />
       <CodingPanelRuntime
         ref={codingPanelRuntimeRef}

@@ -240,10 +240,10 @@ Paintは左にツール、右に設定、映像下部に再生→目盛り→描
 
 ピッチ面・白線には `data.pitchSurface` / `data.pitchLine` を使用します。選手の所属は `team1` / `team2`、未分類は通常surface、選択はprimaryで表します。周囲のダイアログ・ツールバーは既存surfaceとdividerを共有し、操作ラベルは折り返さず、必要な場合は操作群を折り返します。
 
-## クリップ同期ワークスペース
+## アングル同期ワークスペース
 
-- 同期は通常再生面を置き換え、大きな基準・対象プレビューを横に並べます。通常映像の上に同じ映像を重ねるモーダルは使いません。同期中は通常再生のウィンドウ縦横比制約を解放します。
-- 上部にキャンセルと保存、各映像の直下に独立したtransport、下部に共通時刻のクリップ配置を置きます。現在の操作対象をprimaryの境界で示し、時刻はミリ秒・tabular numeralsで表示します。操作ボタンの文字を折り返さず、狭い幅では操作群ごとに次の行へ送ります。
-- `ClipSyncControlsView` / `ClipSyncPreviewView` / `ClipSyncTimelineView`はpropsで描画します。Video.jsの生成と時計、音声解析、保存は各hookに分離します。Video.js公式CSSは初期化層で必ず読み込み、内部ダイアログやaccessibility textの露出を防ぎます。同期プレビューのnative controlsは無効にします。
-- Storybook `VideoPlayer/ClipSyncWorkspace`で2アングル、連動、読込失敗、空状態、保存中、狭幅を確認します。
-- 参考: [Hudl Sportscode現行製品比較](https://www.hudl.com/products/sportscode/tiers)のImport in Sequence / Import and Stack / Align Angles。公開資料で確認できたのは機能の役割です。非公開の現行同期画面とのピクセル一致や、旧Sportscodeマニュアルに基づく同一UIを主張しません。
+- [アングル同期仕様](angle-synchronization.md)を操作の正本とします。映像面はプレビューのみとし、Sync Point / Align Anglesとコマ送り・保存を独立タイムラインへ置きます。既存の再生ヘッドを使い、アングル表示は数字キーで切り替えます。元ファイルのセレクターや配置カードを置きません。
+- 同期中も映像面の比率を管理します。1アングル、2アングル横並び、3〜4アングル2×2へ切り替え、操作バーの実寸を除外してOSウィンドウを調整します。固定の最低420pxや、検証時にウィンドウを縦へ広げる前提を置きません。
+- `AngleSyncWorkspaceView` / `AngleSyncPreviewView` / `AngleSyncTransportView` / `SyncTimecodeView`はpropsで描画します。動画の時計・IPC・保存はhook/Screenへ分離します。native controlsは無効にし、Video.js公式CSSで内部ダイアログの露出を防ぎます。
+- 時刻はtabular numerals、同期点は◆とラベル、選択アングルはタイムライン上部の名前とアングル行の強調で示します。ボタンの文字は折り返さず、狭いタイムラインでは操作群と状態文の高さを増やします。
+- Storybook `Features/VideoPlayer/AngleSync`で単一・2・4アングル、空、エラー、保存中、狭幅を確認します。公式資料との対応と確認限界は同期仕様に記録します。

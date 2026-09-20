@@ -2,14 +2,15 @@ import { useEffect, useRef } from 'react';
 import { getVideoJsPlayer } from '../../../shared/videojs/videoJsAdapter';
 import { decodeBase64ToArrayBuffer } from '../../../../../utils/audioSync/audioDecode';
 import { runAudioSyncAnalysis } from '../../../../../utils/AudioSyncAnalyzer';
-import type { RuntimeSyncClip } from './useClipTimelineSyncController';
+import type { PackageMediaClip } from '../../../../../types/package/metadata';
 
 interface ClipSyncAudio {
   analyze: (
-    reference: RuntimeSyncClip,
-    target: RuntimeSyncClip,
+    reference: PackageMediaClip,
+    target: PackageMediaClip,
     referenceTime: number,
     targetTime: number,
+    playerIds: [string, string],
   ) => Promise<Awaited<ReturnType<typeof runAudioSyncAnalysis>>>;
   cancel: () => void;
 }
@@ -42,8 +43,7 @@ export const useClipSyncAudio = (): ClipSyncAudio => {
       };
       [
         ...Array.from({ length: 8 }, (_, index) => `video_${index}`),
-        'sync_reference_clip',
-        'sync_target_clip',
+        ...Array.from({ length: 8 }, (_, index) => `sync_angle_${index}`),
       ].forEach((id) => {
         const player = getVideoJsPlayer(id);
         player?.pause?.();
@@ -89,21 +89,24 @@ export const useClipSyncAudio = (): ClipSyncAudio => {
   };
 
   const analyze = async (
-    reference: RuntimeSyncClip,
-    target: RuntimeSyncClip,
+    reference: PackageMediaClip,
+    target: PackageMediaClip,
     referenceTime: number,
     targetTime: number,
+    playerIds: [string, string],
   ) => {
     audioAnalysisCancelledRef.current = false;
+    getVideoJsPlayer(playerIds[0])?.currentTime?.(referenceTime);
+    getVideoJsPlayer(playerIds[1])?.currentTime?.(targetTime);
     const referenceAudio =
       reference.sourceKind === 'youtube'
-        ? await captureLoopback('sync_reference_clip')
+        ? await captureLoopback(playerIds[0])
         : await readLocalWindow(reference.source, referenceTime);
     if (audioAnalysisCancelledRef.current)
       throw new Error('AUDIO_ANALYSIS_CANCELLED');
     const targetAudio =
       target.sourceKind === 'youtube'
-        ? await captureLoopback('sync_target_clip')
+        ? await captureLoopback(playerIds[1])
         : await readLocalWindow(target.source, targetTime);
     if (audioAnalysisCancelledRef.current)
       throw new Error('AUDIO_ANALYSIS_CANCELLED');

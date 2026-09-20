@@ -1,3 +1,5 @@
+import { isAngleSyncCommand, isAngleSyncSnapshot } from './angleSync';
+import type { AngleSyncCommand, AngleSyncSnapshot } from './angleSync';
 import type { HotkeyConfig } from '../settings/coreTypes';
 import type {
   TimelineData,
@@ -18,6 +20,7 @@ export const TIMELINE_WINDOW_CHANNELS = {
 } as const;
 
 export interface TimelineWindowSyncPayload {
+  angleSync?: AngleSyncSnapshot;
   timeline: TimelineData[];
   rows: TimelineRow[];
   maxSec: number;
@@ -39,6 +42,7 @@ export interface TimelineWindowClockPayload {
 }
 
 export type TimelineWindowCommand =
+  | { type: 'angle-sync'; command: AngleSyncCommand }
   | { type: 'request-sync' }
   | { type: 'seek'; time: number }
   | { type: 'selection-change'; ids: string[] }
@@ -181,6 +185,7 @@ export const isTimelineWindowSyncPayload = (
   value: unknown,
 ): value is TimelineWindowSyncPayload =>
   isObject(value) &&
+  (value.angleSync === undefined || isAngleSyncSnapshot(value.angleSync)) &&
   Array.isArray(value.timeline) &&
   value.timeline.every(isTimelineItem) &&
   Array.isArray(value.rows) &&
@@ -210,6 +215,8 @@ export const isTimelineWindowCommand = (
 ): value is TimelineWindowCommand => {
   if (!isObject(value) || !isString(value.type)) return false;
   switch (value.type) {
+    case 'angle-sync':
+      return isAngleSyncCommand(value.command);
     case 'request-sync':
     case 'undo':
     case 'redo':

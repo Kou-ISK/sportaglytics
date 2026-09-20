@@ -1,3 +1,4 @@
+import { withClipDuration } from '../../../../../shared/media/withClipDuration';
 import {
   getAngleOffset,
   resolveMediaTime,
@@ -84,12 +85,7 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
               ? angle
               : {
                   ...angle,
-                  clips: angle.clips.map((clip) =>
-                    clip.id === clipId &&
-                    Math.abs((clip.durationSeconds ?? 0) - value) > 0.01
-                      ? { ...clip, durationSeconds: value }
-                      : clip,
-                  ),
+                  clips: withClipDuration(angle.clips, clipId, value),
                 },
           ),
         );

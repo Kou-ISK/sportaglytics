@@ -1,3 +1,4 @@
+import type { AngleSyncSession } from '../hooks/sync/useAngleSyncSession';
 import { Box } from '@mui/material';
 import type { useVideoPlayerScreenController } from '../hooks/useVideoPlayerScreenController';
 import { ManualSyncControls } from './ManualSyncControls';
@@ -26,15 +27,13 @@ type VideoPlayerLayoutProps = Pick<
   | 'setIsFileSelected'
   | 'setTimelineFilePath'
   | 'setPackagePath'
-  | 'metaDataConfigFilePath'
   | 'setMetaDataConfigFilePath'
   | 'setSyncData'
   | 'mediaAngles'
   | 'setMediaAngles'
 > & {
   openWizardRequestKey: number;
-  onApplyManualSync: () => void;
-  onCancelManualSync: () => void;
+  angleSync: AngleSyncSession;
   viewMode: 'dual' | 'angle1' | 'angle2';
 };
 
@@ -57,13 +56,11 @@ export const VideoPlayerLayout = ({
   setIsFileSelected,
   setTimelineFilePath,
   setPackagePath,
-  metaDataConfigFilePath,
   setMetaDataConfigFilePath,
   setSyncData,
   mediaAngles,
   setMediaAngles,
-  onApplyManualSync,
-  onCancelManualSync,
+  angleSync,
   viewMode,
   openWizardRequestKey,
 }: VideoPlayerLayoutProps) => {
@@ -85,15 +82,7 @@ export const VideoPlayerLayout = ({
       }}
     >
       {syncMode === 'manual' ? (
-        <ManualSyncControls
-          syncData={syncData}
-          onApplySync={onApplyManualSync}
-          onCancel={onCancelManualSync}
-          mediaAngles={mediaAngles}
-          metaDataConfigFilePath={metaDataConfigFilePath}
-          setMediaAngles={setMediaAngles}
-          setVideoList={setVideoList}
-        />
+        <ManualSyncControls session={angleSync} />
       ) : (
         <PlayerSurface
           videoList={videoList}

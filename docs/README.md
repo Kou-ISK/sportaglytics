@@ -19,6 +19,8 @@
 
 ## User Documentation
 
+- [アングル同期](angle-synchronization.md): Sync Point、コマ送り、前後半、ウィンドウ比率、保存契約。
+
 - [Windows版](windows.md): 導入、OS間の操作・文書互換、ランタイムと検証。
 
 - [起動画面とパッケージを開く操作](start-workspace.md): 履歴検索、ドロップ、読み込み状態と復旧。

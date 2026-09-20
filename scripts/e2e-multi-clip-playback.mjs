@@ -1,3 +1,4 @@
+import { exerciseAngleSync } from './e2e-angle-sync-workspace.mjs';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import os from 'node:os';
@@ -6,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { _electron as electron } from 'playwright';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { ffmpegPath, ffprobePath } from './media-tool-paths.mjs';
-import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
+import { fixtureH264Encoder } from './e2e-platform.mjs';
 const dir = await fs.mkdtemp(
   path.join(os.tmpdir(), 'sportaglytics-multiclip-'),
 );
@@ -18,7 +19,7 @@ const sources = ['A', 'B', 'C', 'D'].map((name, i) => {
     '-f',
     'lavfi',
     '-i',
-    `color=c=${['red', 'blue', 'green', 'yellow'][i]}:s=160x90:r=30:d=6`,
+    `color=c=${['red', 'blue', 'green', 'yellow'][i]}:s=160x90:r=${[25, 25, 50, 50][i]}:d=6`,
     '-c:v',
     fixtureH264Encoder,
     '-pix_fmt',
@@ -33,10 +34,12 @@ try {
   app = await electron.launch(
     getElectronLaunchOptions(path.join(dir, 'profile')),
   );
+  console.log('Fixture Electron launched');
   let page = await app.firstWindow();
   await page.evaluate(() =>
     localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
   );
+  console.log('Creating synthetic package');
   const data = await page.evaluate(
     async ({ dir, sources }) => {
       const created = await window.electronAPI.createPackage(
@@ -78,11 +81,13 @@ try {
     },
     { dir, sources },
   );
+  console.log('Synthetic package created');
   const config = JSON.parse(
     await fs.readFile(data.metaDataConfigFilePath, 'utf8'),
   );
   config.syncData = { syncOffset: 0, angleOffsets: [0, 0], isAnalyzed: true };
   await fs.writeFile(data.metaDataConfigFilePath, JSON.stringify(config));
+  console.log('Reopening package');
   await app.close();
   app = await electron.launch(
     getElectronLaunchOptions(path.join(dir, 'profile'), [
@@ -90,6 +95,8 @@ try {
     ]),
   );
   page = await app.firstWindow();
+  page.setDefaultTimeout(15000);
+  console.log('Package window opened');
   await page.locator('#video_0 video').waitFor({ timeout: 30000 });
 
   await page
@@ -128,137 +135,7 @@ try {
   await page
     .getByRole('button', { name: '一時停止', exact: true })
     .click({ force: true });
-  await page.keyboard.press(`${primaryModifier}+Shift+T`);
-  await page.getByText('クリップ単位シンク').waitFor();
-  await app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()
-      .find((window) => !window.webContents.getURL().includes('#/'))
-      ?.setSize(1280, 740);
-  });
-  assert.equal(
-    await page.locator('video').count(),
-    2,
-    'alignment replaces the background players',
-  );
-  assert.equal(
-    await page.locator('video[controls]').count(),
-    0,
-    'use explicit source transport controls',
-  );
-  assert.match(
-    await page
-      .getByRole('combobox', { name: '配置対象クリップ', exact: true })
-      .textContent(),
-    /Angle 2 — .*C\.mp4$/,
-  );
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll('.vjs-modal-dialog')].every(
-      (element) => getComputedStyle(element).display === 'none',
-    ),
-  );
-
-  for (const pair of [
-    { reference: 'A', target: 'C', time: 2 },
-    { reference: 'B', target: 'D', time: 3 },
-  ]) {
-    for (const [index, name] of [pair.reference, pair.target].entries()) {
-      await page.getByRole('combobox').nth(index).click();
-      await page
-        .getByRole('option', { name: new RegExp(name + '\\.mp4$') })
-        .click();
-    }
-    await page.waitForFunction(() =>
-      ['sync_reference_clip', 'sync_target_clip'].every(
-        (id) => document.querySelector(`#${id} video`)?.readyState >= 1,
-      ),
-    );
-    await page.evaluate(({ time }) => {
-      document.querySelector('#sync_reference_clip video').currentTime = time;
-      document.querySelector('#sync_target_clip video').currentTime = 1;
-    }, pair);
-    await page.getByRole('button', { name: 'この位置で配置' }).click();
-    await page.getByRole('button', { name: '連動プレビュー' }).click();
-    await page.getByRole('button', { name: '基準: 再生', exact: true }).click();
-    await page.waitForFunction(() => {
-      const a = document.querySelector('#sync_reference_clip video');
-      const b = document.querySelector('#sync_target_clip video');
-      return !a.paused && !b.paused && b.currentTime > 1.2;
-    });
-    await page
-      .getByRole('button', { name: '基準: 一時停止', exact: true })
-      .click();
-    const aligned = await page.evaluate(() => [
-      document.querySelector('#sync_reference_clip video').currentTime,
-      document.querySelector('#sync_target_clip video').currentTime,
-    ]);
-    assert.ok(
-      Math.abs(aligned[0] - aligned[1] - (pair.time - 1)) < 0.08,
-      'linked preview follows independent clip placement',
-    );
-    await page.getByRole('button', { name: '連動プレビュー' }).click();
-  }
-  const targetBar = page.getByRole('button', {
-    name: /Angle 2 .*D\.mp4の配置/,
-  });
-  const beforeDrag = await targetBar.boundingBox();
-  await page.mouse.move(
-    beforeDrag.x + 20,
-    beforeDrag.y + beforeDrag.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    beforeDrag.x + 50,
-    beforeDrag.y + beforeDrag.height / 2,
-    { steps: 4 },
-  );
-  await page.mouse.up();
-  assert.ok(
-    (await targetBar.boundingBox()).x > beforeDrag.x + 2,
-    'target clip can be placed directly on the angle timeline',
-  );
-  // Re-align the same pair to the intended source-local frame after the drag.
-  await page.evaluate(() => {
-    document.querySelector('#sync_reference_clip video').currentTime = 3;
-    document.querySelector('#sync_target_clip video').currentTime = 1;
-  });
-  await page.getByRole('button', { name: 'この位置で配置' }).click();
-  await page.getByRole('button', { name: '配置対象: 1コマ進む' }).click();
-  const beforeKey = await page.evaluate(
-    () => document.querySelector('#sync_target_clip video').currentTime,
-  );
-  await page.getByRole('region', { name: '配置対象プレビュー' }).focus();
-  await page.keyboard.press('ArrowRight');
-  const afterKey = await page.evaluate(
-    () => document.querySelector('#sync_target_clip video').currentTime,
-  );
-  assert.ok(
-    Math.abs(afterKey - beforeKey - 1 / 30) < 0.005,
-    'frame key targets the focused source',
-  );
-  await fs.mkdir('output/playwright', { recursive: true });
-  await page.mouse.move(4, 4);
-  await page.emulateMedia({ colorScheme: 'dark' });
-  await page.screenshot({ path: 'output/playwright/clip-sync-workspace.png' });
-  await app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()
-      .find((window) => !window.webContents.getURL().includes('#/'))
-      ?.setSize(920, 620);
-  });
-  await page
-    .getByRole('button', { name: '同期を適用', exact: true })
-    .waitFor({ state: 'visible' });
-  assert.equal(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth > innerWidth,
-    ),
-    false,
-    'compact sync workspace must not overflow horizontally',
-  );
-  await page.screenshot({
-    path: 'output/playwright/clip-sync-workspace-compact.png',
-  });
-  await page.getByRole('button', { name: '同期を適用', exact: true }).click();
-  await page.getByText('クリップ単位シンク').waitFor({ state: 'hidden' });
+  await exerciseAngleSync(page, app);
   const applied = JSON.parse(
     await fs.readFile(data.metaDataConfigFilePath, 'utf8'),
   );
@@ -434,6 +311,16 @@ try {
   console.log(
     'Playlist crossing, Paint seek and signed synchronization passed',
   );
+} catch (error) {
+  if (app) {
+    const main = (await app.windows())[0];
+    await fs.mkdir('output/playwright', { recursive: true });
+    await main
+      .screenshot({ path: 'output/playwright/angle-sync-failure.png' })
+      .catch(() => undefined);
+    console.log(await main.locator('body').innerText());
+  }
+  throw error;
 } finally {
   if (app) await app.close().catch(() => {});
   await fs.rm(dir, { recursive: true, force: true });

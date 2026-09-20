@@ -1,3 +1,5 @@
+import type { AngleSyncSnapshot } from '../../../../../types/ipc/angleSync';
+import { TimelineAngleTracksView } from './TimelineAngleTracksView';
 import React from 'react';
 import { Box } from '@mui/material';
 import { TimelineRowActionsView } from './TimelineRowActionsView';
@@ -17,6 +19,7 @@ import { TimelineRowEditorDialog } from './TimelineRowEditorDialog';
 import { TIMELINE_ROW_HEADER_WIDTH_PX } from './domain/timelineCoordinateMapper';
 
 export interface VisualTimelineViewProps {
+  angleSync?: AngleSyncSnapshot;
   seekHandlers: ReturnType<typeof useTimelineSeek>;
   zoomScale: number;
   canZoomOut: boolean;
@@ -99,6 +102,7 @@ export interface VisualTimelineViewProps {
 }
 
 export const VisualTimelineView = ({
+  angleSync,
   seekHandlers,
   scrollLeft,
   zoomScale,
@@ -231,6 +235,12 @@ export const VisualTimelineView = ({
               timeToPosition={timeToPosition}
               formatTime={formatTime}
             />
+            {angleSync && (
+              <TimelineAngleTracksView
+                state={angleSync}
+                timeToPosition={timeToPosition}
+              />
+            )}
             {rows.map((row) => (
               <TimelineLane
                 key={row.id}
@@ -270,7 +280,7 @@ export const VisualTimelineView = ({
               />
             ))}
 
-            {rows.length === 0 && (
+            {rows.length === 0 && !angleSync && (
               <TimelineEmptyState message="タイムラインが空です。アクションボタンでタグ付けを開始してください。" />
             )}
 

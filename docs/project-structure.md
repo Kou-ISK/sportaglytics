@@ -4,7 +4,7 @@
 
 複数クリップの時刻契約は `src/shared/media/`、パッケージ参照の解決は `electron/src/ipc/mediaTimelineSource.ts`、Playlistの映像切替・読込状態は `src/features/playlist/media/` に置きます。`videoFrameClock` は映像要素に結び付いたアダプターメタデータだけを保持し、アプリの状態源や保存形式にはしません。
 
-クリップ同期のprops-only Viewは `features/videoPlayer/app/components/ClipSync*View`、再生・連動・音声・保存のcontrollerは `app/hooks/sync/useClipSync*` / `useClipTimelineSyncController` に分離します。
+アングル同期のprops-only UIは `features/videoPlayer/app/components/AngleSync*View`、動画への接続は `AngleSyncPreviewScreen`、時計・同期点・保存は `app/hooks/sync/useAngleSync*` に配置します。タイムラインのアングル配置行は `components/Timeline/VisualTimeline/TimelineAngleTracksView`、ウィンドウ間の契約は `types/ipc/angleSync.ts` と既存Timeline IPC、計算は `angleSync.ts`、Mainの制限付きフレーム取得は `electron/src/ipc/mediaFrameService.ts` に分離します。
 
 ## Top-Level Layout
 

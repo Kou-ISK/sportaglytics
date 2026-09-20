@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded
+
+Superseded by: [0041 Angle sync point workflow](0041-angle-sync-point-workflow.md)（共通時計の判断は継承し、同期編集の操作単位を更新）
 
 ## Date
 

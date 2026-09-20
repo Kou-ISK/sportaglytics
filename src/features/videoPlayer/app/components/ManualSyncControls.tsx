@@ -1,104 +1,65 @@
+import { useCallback, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import type { VideoSyncData } from '../../../../types/video/sync';
-import type { Dispatch, SetStateAction } from 'react';
-import type { PackageMediaAngle } from '../../../../types/package/metadata';
-import { useClipTimelineSyncController } from '../hooks/sync/useClipTimelineSyncController';
-import { ClipSyncControlsView } from './ClipSyncControlsView';
-import { ClipSyncPreviewView } from './ClipSyncPreviewView';
-import { useClipSyncTransport } from '../hooks/sync/useClipSyncTransport';
+import { useVideoWindowAspect } from '../../../../shared/hooks/useVideoWindowAspect';
+import { videoGridAspect } from '../../../../shared/hooks/videoGridAspect';
+import type { AngleSyncSession } from '../hooks/sync/useAngleSyncSession';
+import { syncPointTime } from '../hooks/sync/angleSync';
+import { AngleSyncWorkspaceView } from './AngleSyncWorkspaceView';
+import { AngleSyncPreviewScreen } from './AngleSyncPreviewScreen';
 
-interface ManualSyncControlsProps {
-  onApplySync: () => void | Promise<void>;
-  onCancel: () => void;
-  mediaAngles: PackageMediaAngle[];
-  syncData?: VideoSyncData;
-  metaDataConfigFilePath: string;
-  setMediaAngles: Dispatch<SetStateAction<PackageMediaAngle[]>>;
-  setVideoList: Dispatch<SetStateAction<string[]>>;
-}
-
-export const ManualSyncControls = (
-  props: ManualSyncControlsProps,
-): ReactElement => {
-  const controller = useClipTimelineSyncController(props);
-  const transport = useClipSyncTransport(controller);
-  const previews = (['reference', 'target'] as const).map((side) => {
-    const media = side === 'reference' ? transport.first : transport.second;
-    const clip =
-      side === 'reference' ? controller.reference : controller.target;
-    return (
-      <ClipSyncPreviewView
-        key={side}
-        label={side === 'reference' ? '基準' : '配置対象'}
-        id={media.id}
-        clipId={clip?.id ?? ''}
-        clips={controller.clips}
-        containerRef={media.containerRef}
-        videoRef={media.videoRef}
-        active={transport.active === side}
-        busy={transport.busy}
-        ready={media.isReady && !media.error}
-        playing={media.playing}
-        time={media.time}
-        duration={media.durationSec}
-        error={media.error}
-        frameRate={transport.frameRate}
-        onActivate={() => transport.setActive(side)}
-        onSelect={(id) => transport.select(side, id)}
-        onToggle={() => transport.toggle(side)}
-        onSeek={(time) => transport.seek(side, time)}
-        onStep={(seconds) => transport.step(side, seconds)}
-      />
+export const ManualSyncControls = ({
+  session,
+}: {
+  session: AngleSyncSession;
+}): ReactElement => {
+  const { controller, transport } = session;
+  const { draft, points } = controller;
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [ratios, setRatios] = useState<Record<number, number>>({});
+  const onAspect = useCallback((index: number, ratio: number): void => {
+    setRatios((current) =>
+      current[index] === ratio ? current : { ...current, [index]: ratio },
     );
-  });
+  }, []);
+  const visibleRatios = draft.angles.flatMap((_, index) =>
+    transport.selected === null || transport.selected === index
+      ? [ratios[index] ?? 16 / 9]
+      : [],
+  );
+  useVideoWindowAspect(
+    rootRef,
+    `angle-sync-${draft.angles.length}-${transport.selected ?? 'all'}`,
+    videoGridAspect(visibleRatios),
+  );
   return (
-    <ClipSyncControlsView
-      {...controller}
-      {...transport}
-      referencePreview={previews[0]}
-      targetPreview={previews[1]}
-      clips={controller.clips.map((clip) => ({
-        id: clip.id,
-        angleId: clip.angleId,
-        angleName: clip.angleName,
-        name: clip.source.split(/[\\/]/).pop() ?? '',
-        start:
-          (controller.placements[clip.id] ?? clip.timelineStartSeconds) -
-          controller.offsetFor(clip),
-        duration: clip.durationSeconds ?? 0,
-        changed: controller.placements[clip.id] !== undefined,
-      }))}
-      onFrameRate={transport.setFrameRate}
-      onPlace={() => {
-        transport.beforeEdit();
-        controller.placeAtCurrentPositions();
-      }}
-      onRefineAudio={() => {
-        transport.beforeEdit();
-        void controller.refineWithAudio();
-      }}
-      onApply={() => {
-        transport.beforeEdit();
-        void controller.applyTimeline();
-      }}
-      onCancel={controller.cancel}
-      onReset={() => {
-        transport.beforeEdit();
-        controller.resetPlacements();
-      }}
-      onSelect={(id) => {
-        const clip = controller.clips.find((item) => item.id === id);
-        transport.select(
-          clip?.angleId === controller.reference?.angleId
-            ? 'reference'
-            : 'target',
-          id,
-        );
-      }}
-      onMoveTarget={(seconds) => {
-        transport.beforeEdit();
-        controller.moveTarget(seconds);
-      }}
+    <AngleSyncWorkspaceView
+      rootRef={rootRef}
+      angleCount={draft.angles.length}
+      selected={transport.selected}
+      previews={draft.angles.map((item, i) => (
+        <AngleSyncPreviewScreen
+          key={item.id}
+          index={i}
+          angle={item}
+          offset={draft.offsets[i] ?? 0}
+          time={transport.times[i] ?? 0}
+          playing={
+            !controller.busy &&
+            transport.playing &&
+            (transport.selected === null || transport.selected === i)
+          }
+          suspended={controller.analyzing}
+          hidden={transport.selected !== null && transport.selected !== i}
+          pointTime={syncPointTime(
+            item,
+            draft.offsets[i] ?? 0,
+            points[item.id],
+          )}
+          onDuration={controller.recordDuration}
+          onStatus={transport.onStatus}
+          onAspect={onAspect}
+        />
+      ))}
     />
   );
 };

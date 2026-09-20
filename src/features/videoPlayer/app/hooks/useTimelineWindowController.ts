@@ -1,3 +1,5 @@
+import type { AngleSyncCommand } from '../../../../types/ipc/angleSync';
+import { useAngleSyncHotkeys } from './sync/useAngleSyncHotkeys';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useGlobalHotkeys } from '../../../../hooks/useGlobalHotkeys';
 import type {
@@ -57,6 +59,10 @@ export const useTimelineWindowController = () => {
   }, [snapshot]);
   useGlobalHotkeys(snapshot?.hotkeys ?? [], hotkeyHandlers, keyUpHandlers);
 
+  const onAngleSyncCommand = useCallback((command: AngleSyncCommand): void => {
+    sendTimelineWindowCommand({ type: 'angle-sync', command });
+  }, []);
+  useAngleSyncHotkeys(!!snapshot?.angleSync, onAngleSyncCommand);
   const send = sendTimelineWindowCommand;
   const onSeek = useCallback((time: number) => {
     setSnapshot((current) =>
@@ -93,6 +99,9 @@ export const useTimelineWindowController = () => {
 
   if (!snapshot) return null;
   return {
+    angleSync: snapshot.angleSync,
+    isPlaying: snapshot.isPlaying,
+    onAngleSyncCommand,
     timeline: snapshot.timeline,
     timelineRows: snapshot.rows,
     maxSec: snapshot.maxSec,

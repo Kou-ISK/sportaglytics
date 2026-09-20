@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- クリップ同期を大きな2画面、独立した再生・コマ送り、配置タイムラインのドラッグ、連動プレビューを持つ専用画面へ更新。Video.js内部UIが露出する表示崩れと、映像の長さの読込で未保存配置が消える問題を修正。
+- 同期操作を独立タイムラインのSync Point / Align Anglesへ更新。既存の再生ヘッドと数字キーによるアングル切替を使い、本数が異なる映像も任意の場面で同期し、欠落区間を黒表示。実フレームのコマ送り、前後半の連続操作、映像配置に応じたウィンドウ比率、配置と補正の同時保存に対応。[操作仕様](docs/angle-synchronization.md)。Video.js内部UIの露出とメタデータ読込による未保存調整の消失を修正。
 
 - 複数映像・アングルの配置と同期補正をPlaylist/Paint/書き出しへ統一し、後半の元映像切替と正負オフセットの出力を修正。[操作仕様](docs/user-guide.md#マルチアングル同期)。
 

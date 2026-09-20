@@ -2,7 +2,7 @@
 
 このドキュメントは SporTagLytics のテストと品質ゲート運用ガイドです。必須コマンドの正本は `AGENTS.md` です。
 
-複数クリップの同期は `scripts/e2e-multi-clip-playback.mjs` で検証します。架空のA/B/C/D映像を生成し、クリップ単位シンクUI（背景プレイヤーの非重複、Video.js内部UIの非表示、初期アングル、独立シーク、連動再生、コマ送り）、メイン再生、参照PlaylistとPaintの境界シーク、正負オフセットの出力画素・尺を確認します。実試合の映像は不要です。時刻計算とMainの構成検証は `mediaTimeline.test.ts` / `mediaTimelineSource.test.ts`、読み込み待機と空白は `TimelineVideoAdapter.test.ts` が担当します。`useClipTimelineSyncController.test.tsx` はメタデータ読込・組合せ変更後も未保存配置を維持する回帰を検証します。
+複数アングル同期の必須検証は[アングル同期仕様](angle-synchronization.md#実装と検証)を参照してください。`scripts/e2e-multi-clip-playback.mjs` は25/50fpsの架空映像で、アングルの連続操作、同期点、コマ送り、実ウィンドウ比率、Playlist/Paintの境界シーク、正負オフセットの出力画素・尺を確認します。`e2e-angle-sync-gaps.mjs`は30秒/10秒/5秒でタイムラインのつまみ操作、本数の異なる同期、途中の黒表示、再読込と出力画素を確認します。`e2e-angle-sync-multi.mjs`は3/4アングルと可変フレーム間隔を確認します。実試合の映像は不要です。
 
 ## Required Quality Gate
 

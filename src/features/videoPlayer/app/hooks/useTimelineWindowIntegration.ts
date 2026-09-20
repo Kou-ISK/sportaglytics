@@ -1,3 +1,7 @@
+import type {
+  AngleSyncSnapshot,
+  AngleSyncCommand,
+} from '../../../../types/ipc/angleSync';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { HotkeyConfig } from '../../../../types/settings/coreTypes';
 import type {
@@ -15,6 +19,8 @@ import {
 } from '../gateways/timelineWindowGateway';
 
 interface UseTimelineWindowIntegrationParams {
+  angleSync?: AngleSyncSnapshot;
+  onAngleSyncCommand: (command: AngleSyncCommand) => void;
   isFileSelected: boolean;
   timeline: TimelineData[];
   rows: TimelineRow[];
@@ -71,6 +77,7 @@ export const useTimelineWindowIntegration = (
 
   const payload = useMemo(
     () => ({
+      angleSync: params.angleSync,
       timeline: params.timeline,
       rows: params.rows,
       maxSec: params.maxSec,
@@ -84,6 +91,7 @@ export const useTimelineWindowIntegration = (
       updatedAt: Date.now(),
     }),
     [
+      params.angleSync,
       params.currentTime,
       params.hotkeys,
       params.isPlaying,
@@ -134,6 +142,7 @@ export const useTimelineWindowIntegration = (
   useEffect(() => {
     syncLatest();
   }, [
+    params.angleSync,
     params.hotkeys,
     params.isFileSelected,
     params.isPlaying,
@@ -177,6 +186,9 @@ export const useTimelineWindowIntegration = (
       subscribeTimelineWindowCommand((command: TimelineWindowCommand) => {
         const current = paramsRef.current;
         switch (command.type) {
+          case 'angle-sync':
+            current.onAngleSyncCommand(command.command);
+            break;
           case 'request-sync':
             syncTimelineWindow(payloadRef.current);
             break;

@@ -1,4 +1,5 @@
 import React from 'react';
+import type { AngleSyncSnapshot } from '../../../../types/ipc/angleSync';
 import { Box, Paper } from '@mui/material';
 import { VisualTimeline } from '../..';
 import type {
@@ -9,6 +10,7 @@ import type {
 import { TimelineRowSortControl } from '../../components/Timeline/VisualTimeline/TimelineRowSortControl';
 
 interface TimelineActionSectionProps {
+  angleSync?: AngleSyncSnapshot;
   timeline: TimelineData[];
   timelineRows: TimelineRow[];
   maxSec: number;
@@ -64,6 +66,7 @@ interface TimelineActionSectionProps {
 }
 
 export const TimelineActionSection = ({
+  angleSync,
   timeline,
   timelineRows,
   maxSec,
@@ -133,6 +136,7 @@ export const TimelineActionSection = ({
         </Box>
         <Box sx={{ flex: 1, minHeight: 0 }}>
           <VisualTimeline
+            angleSync={angleSync}
             timeline={timeline}
             rows={timelineRows}
             maxSec={maxSec}

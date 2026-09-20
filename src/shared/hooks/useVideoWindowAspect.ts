@@ -51,7 +51,12 @@ export const useVideoWindowAspect = (
           height: Math.max(0, Math.round(innerHeight - rect.height)),
         };
         const key = JSON.stringify(value);
-        if (key !== previous) {
+        // Programmatic resizes (including restoring window bounds) can bypass
+        // the OS aspect lock without changing the measured chrome dimensions.
+        const needsFit =
+          rect.height > 0 &&
+          Math.abs(rect.height - rect.width / aspectRatio) > 1;
+        if (key !== previous || needsFit) {
           previous = key;
           update(value);
         }
