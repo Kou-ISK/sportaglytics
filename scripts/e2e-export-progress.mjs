@@ -185,6 +185,66 @@ try {
     });
   }
   console.log('Non-modal export progress E2E passed');
+
+  const preflightDir = path.join(workPath, 'preflight-output');
+  await fs.mkdir(preflightDir);
+  const runExport = (missing) =>
+    mainPage.evaluate(
+      async ({ source, output, missing }) =>
+        window.electronAPI.exportClipsWithOverlay({
+          sourcePath: source,
+          outputDir: output,
+          outputFileName: 'repeat-review',
+          mode: 'single',
+          exportMode: 'perInstance',
+          angleOption: 'single',
+          clips: [
+            { id: 'first', actionName: 'Review', startTime: 0, endTime: 0.5 },
+            ...(missing
+              ? [
+                  {
+                    id: 'later',
+                    actionName: 'Review',
+                    startTime: 0,
+                    endTime: 0.5,
+                    videoSource: `${source}.missing`,
+                  },
+                ]
+              : []),
+          ],
+          overlay: {
+            enabled: false,
+            showActionName: false,
+            showActionIndex: false,
+            showLabels: false,
+            showMemo: false,
+          },
+        }),
+      { source: sourcePath, output: preflightDir, missing },
+    );
+  const missingResult = await runExport(true);
+  assert.equal(missingResult.success, false);
+  assert.match(missingResult.error, /映像を読み込めません/);
+  assert.deepEqual(
+    await fs.readdir(preflightDir),
+    [],
+    'even the valid first clip must not render when a later source is missing',
+  );
+  const firstResult = await runExport(false);
+  assert.equal(firstResult.success, true, firstResult.error);
+  const firstName = (await fs.readdir(preflightDir))[0];
+  const firstBytes = await fs.readFile(path.join(preflightDir, firstName));
+  const repeatResult = await runExport(false);
+  assert.equal(repeatResult.success, true, repeatResult.error);
+  assert.equal((await fs.readdir(preflightDir)).length, 2);
+  assert.deepEqual(
+    await fs.readFile(path.join(preflightDir, firstName)),
+    firstBytes,
+    'a repeated export must preserve the earlier video',
+  );
+  console.log(
+    'Batch media preflight and repeated export preservation E2E passed',
+  );
 } catch (error) {
   console.error('Export native diagnostics:', nativeDiagnostics);
   for (const page of electronApp.windows()) {

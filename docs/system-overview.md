@@ -59,6 +59,12 @@ Main Window作成時にSessionを保持し、`closed` では破棄済みWindow�
 
 `electron/src/preload.ts` は用途別bridgeを合成します。Renderer は `window.electronAPI` のみ使用し、`electron` / `ipcRenderer` を直接 import しません。
 
+### ローカル編集と書き出しの検査
+
+Timelineの分割・結合は`shared/timelineRangeEditing.ts`の純粋関数で全体を計算し、`useTimelineRangeEditing`が所有runtimeへ1回だけcommitする。独立Timelineは`split-item` / `merge-items` commandを送り、結果の選択IDも所有runtimeから同期する。文書形式・履歴の所有者は変えない。
+
+書き出しは`exportPayloadValidation.ts`でIPCの型、`exportSourceSelection.ts`で使用映像、`exportPreflight.ts`でローカルファイルと保存先を確認する。仮想Timelineは`exportVirtualTimelineSource.ts`で構成を読み、全必要ファイルの確認後に合成する。`exportHandlers.ts`は進捗と実行の組み立てを担当する。クラウド・追加runtime依存はない。
+
 ### Typed IPC
 
 Rendererへ公開するIPC contractの正本は `src/renderer.d.ts` です。用途別のpayload型は `src/types/ipc/` などで定義し、公開APIから参照します。Main process は sender window と payload を検証し、preload も inbound payload を guard します。

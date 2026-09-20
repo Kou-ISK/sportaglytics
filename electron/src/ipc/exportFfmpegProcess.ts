@@ -32,9 +32,14 @@ export class FfmpegExecutionError extends Error {
   }
 }
 
-const buildCommandSummary = (executablePath: string, args: string[]): string => {
+const buildCommandSummary = (
+  executablePath: string,
+  args: string[],
+): string => {
   const executableName = path.basename(executablePath);
-  const redactedArgs = args.map((arg) => (arg.startsWith('-') ? arg : '<value>'));
+  const redactedArgs = args.map((arg) =>
+    arg.startsWith('-') ? arg : '<value>',
+  );
   return `${executableName} ${redactedArgs.join(' ')}`.slice(0, 1024);
 };
 
@@ -153,7 +158,7 @@ export const concatFfmpegFiles = async (
     await runFfmpegProcess(
       getFfmpegPath,
       [
-        '-y',
+        '-n',
         '-f',
         'concat',
         '-safe',

@@ -20,8 +20,12 @@ export const portableExportStem = (value: string): string => {
     : name;
 };
 
-export const createExportNameAllocator = (): ((name: string) => string) => {
-  const used = new Set<string>();
+export const createExportNameAllocator = (
+  existingNames: Iterable<string> = [],
+): ((name: string) => string) => {
+  const used = new Set(
+    Array.from(existingNames, (name) => name.toLocaleLowerCase()),
+  );
   return (name) => {
     let candidate = name;
     let suffix = 2;

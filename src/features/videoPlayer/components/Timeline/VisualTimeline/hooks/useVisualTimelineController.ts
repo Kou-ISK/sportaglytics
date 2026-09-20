@@ -1,3 +1,4 @@
+import { useTimelineRangeCommands } from './useTimelineRangeCommands';
 import { useTimelineInstanceCommands } from './useTimelineInstanceCommands';
 import React, { useCallback } from 'react';
 import { useNotification } from '../../../../../../contexts/NotificationContext';
@@ -27,6 +28,8 @@ export const useVisualTimelineController = ({
   onUpdateTimelineItem,
   bulkUpdateTimelineItems,
   onDuplicateTimelineItem,
+  onSplitTimelineItem,
+  onMergeTimelineItems,
   onCreateTimelineItem,
   onAddRow,
   onUpdateRow,
@@ -265,6 +268,15 @@ export const useVisualTimelineController = ({
     info,
   });
 
+  const rangeCommands = useTimelineRangeCommands({
+    timeline,
+    selectedIds,
+    currentTime,
+    onSplitTimelineItem,
+    onMergeTimelineItems,
+    scrollContainerRef,
+  });
+
   useTimelineGlobalShortcuts({
     selectedIds,
     timeline,
@@ -282,6 +294,8 @@ export const useVisualTimelineController = ({
     onEditItem: openDraftFromItemId,
     onClearSelection: clearSelection,
     onSelectAll: selectAllItems,
+    onSplit: rangeCommands.canSplit ? rangeCommands.split : undefined,
+    onMerge: rangeCommands.canMerge ? rangeCommands.merge : undefined,
   });
 
   const handleBackgroundClick = useCallback(
@@ -306,6 +320,10 @@ export const useVisualTimelineController = ({
   );
 
   const dialogsProps = {
+    onSplit: onSplitTimelineItem ? rangeCommands.split : undefined,
+    onMerge: onMergeTimelineItems ? rangeCommands.merge : undefined,
+    canSplit: rangeCommands.canSplit,
+    canMerge: rangeCommands.canMerge,
     editingDraft,
     onDialogChange: handleDialogChange,
     onCloseDialog: handleCloseDialog,

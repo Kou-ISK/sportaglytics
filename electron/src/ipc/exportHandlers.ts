@@ -2,25 +2,20 @@ import {
   portableExportStem,
   createExportNameAllocator,
 } from './exportFileNames';
-import { isExportChroma } from './exportChroma';
-import { isExportMotionOverlays } from './exportMotionValidation';
-import { isExportFreezeFrames } from './exportFreezeFramesValidation';
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'path';
 import { concatFiles } from './exportFfmpegRunners';
-import {
-  ensureMp4,
-  normalizeAngleOption,
-  resolveDualSourceError,
-} from './exportOptions';
+import { ensureMp4, normalizeAngleOption } from './exportOptions';
 import { renderClipWithFfmpeg } from './exportClipRender';
 import type { ExportClipsPayload } from './exportHandlers.types';
 import { updateExportProgressWindow } from '../exportProgressWindow';
 import type { ExportProgressWindowState } from '../../../src/types/ipc/exportProgressWindow';
-import { isNonEmptyString, isPlainObject } from './ipcPayloadGuards';
 import { getValidatedEventSenderWindow } from './windowSenderGuards';
-import { materializeVirtualTimelineForExport } from './exportVirtualTimelineSource';
+import { materializeExportSource } from './exportVirtualTimelineSource';
+import { preflightClipExport } from './exportPreflight';
+import { resolveExportSourceSelection } from './exportSourceSelection';
+import { isExportClipsPayload } from './exportPayloadValidation';
 
 interface RegisterExportHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
@@ -28,97 +23,6 @@ interface RegisterExportHandlersOptions {
 }
 
 let isRegistered = false;
-
-const isOptionalString = (value: unknown): boolean => {
-  return value === undefined || typeof value === 'string';
-};
-
-const isOptionalNumber = (value: unknown): boolean => {
-  return (
-    value === undefined || (typeof value === 'number' && Number.isFinite(value))
-  );
-};
-
-const isClipExportOverlay = (value: unknown): boolean => {
-  return (
-    isPlainObject(value) &&
-    typeof value.enabled === 'boolean' &&
-    typeof value.showActionName === 'boolean' &&
-    typeof value.showActionIndex === 'boolean' &&
-    typeof value.showLabels === 'boolean' &&
-    typeof value.showMemo === 'boolean'
-  );
-};
-
-const isExportMode = (value: unknown): boolean => {
-  return (
-    value === undefined ||
-    value === 'single' ||
-    value === 'perInstance' ||
-    value === 'perRow'
-  );
-};
-
-const isAngleOption = (value: unknown): boolean => {
-  return (
-    value === undefined ||
-    value === 'all' ||
-    value === 'allAngles' ||
-    value === 'single' ||
-    value === 'multi' ||
-    value === 'angle1' ||
-    value === 'angle2'
-  );
-};
-
-const isClipExportItem = (value: unknown): boolean => {
-  if (
-    !isPlainObject(value) ||
-    typeof value.startTime !== 'number' ||
-    typeof value.endTime !== 'number'
-  )
-    return false;
-  const duration = value.endTime - value.startTime;
-  return (
-    isPlainObject(value) &&
-    isNonEmptyString(value.id) &&
-    typeof value.actionName === 'string' &&
-    typeof value.startTime === 'number' &&
-    Number.isFinite(value.startTime) &&
-    typeof value.endTime === 'number' &&
-    Number.isFinite(value.endTime) &&
-    isExportFreezeFrames(value.freezeFrames, duration) &&
-    isExportMotionOverlays(value.motionOverlays, duration) &&
-    isExportChroma(value.chromaKey) &&
-    (value.freezeAt === null || isOptionalNumber(value.freezeAt)) &&
-    isOptionalNumber(value.freezeDuration) &&
-    isOptionalString(value.memo) &&
-    isOptionalString(value.videoSource) &&
-    isOptionalString(value.videoSource2) &&
-    (value.angleType === undefined ||
-      value.angleType === 'angle1' ||
-      value.angleType === 'angle2')
-  );
-};
-
-const isExportClipsPayload = (value: unknown): value is ExportClipsPayload => {
-  return (
-    isPlainObject(value) &&
-    isOptionalString(value.progressId) &&
-    isNonEmptyString(value.sourcePath) &&
-    isOptionalString(value.sourcePath2) &&
-    (value.mode === undefined ||
-      value.mode === 'single' ||
-      value.mode === 'dual') &&
-    isExportMode(value.exportMode) &&
-    isAngleOption(value.angleOption) &&
-    Array.isArray(value.clips) &&
-    value.clips.every(isClipExportItem) &&
-    isClipExportOverlay(value.overlay) &&
-    isOptionalString(value.outputDir) &&
-    isOptionalString(value.outputFileName)
-  );
-};
 
 const resolveOutputDir = async (
   event: Electron.IpcMainInvokeEvent,
@@ -299,54 +203,26 @@ export const registerExportHandlers = ({
           }
         }
 
-        const requestedSources = [
-          sourcePath,
-          sourcePath2,
-          ...clips.flatMap((clip) => [clip.videoSource, clip.videoSource2]),
-        ].filter((source): source is string => Boolean(source));
+        updateProgress('映像と保存先を確認中...');
+        const sourcePlans = await preflightClipExport(payload, targetDir);
         const resolvedSourceMap = new Map<string, string>();
-        for (const source of new Set(requestedSources)) {
+        for (const plan of sourcePlans) {
           updateProgress('書き出し用の映像を準備中...');
           resolvedSourceMap.set(
-            source,
-            await materializeVirtualTimelineForExport(source, tempFiles),
+            plan.sourcePath,
+            await materializeExportSource(plan, tempFiles),
           );
         }
         const resolveSource = (
-          source: string | undefined,
+          source: string | null | undefined,
         ): string | undefined =>
           source ? (resolvedSourceMap.get(source) ?? source) : undefined;
-
-        const normalizedAngleOption = normalizeAngleOption(angleOption, mode);
+        const selection = resolveExportSourceSelection(payload);
         const mainSource =
-          normalizedAngleOption === 'angle2'
-            ? resolveSource(sourcePath2) ||
-              resolveSource(sourcePath) ||
-              sourcePath
-            : resolveSource(sourcePath) || sourcePath;
-        const secondarySource =
-          normalizedAngleOption === 'allAngles' ||
-          normalizedAngleOption === 'multi' ||
-          mode === 'dual'
-            ? resolveSource(sourcePath2) || null
-            : null;
-        const useDual = mode === 'dual' || Boolean(secondarySource);
-
-        if (useDual) {
-          const dualError = resolveDualSourceError(mainSource, secondarySource);
-          if (dualError) {
-            console.error('export-clips-with-overlay dual preflight failed', {
-              sourcePath,
-              sourcePath2,
-              angleOption,
-              mode,
-              mainSource,
-              secondarySource,
-            });
-            failProgress(dualError);
-            return { success: false, error: dualError };
-          }
-        }
+          resolveSource(selection.mainSource) || selection.mainSource;
+        const secondarySource = resolveSource(selection.secondarySource);
+        const useDual = selection.useDual;
+        const normalizedAngleOption = normalizeAngleOption(angleOption, mode);
 
         const renderClip = async (
           clip: ExportClipsPayload['clips'][number],
@@ -390,7 +266,9 @@ export const registerExportHandlers = ({
           }
         };
 
-        const allocateName = createExportNameAllocator();
+        const allocateName = createExportNameAllocator(
+          await fs.readdir(targetDir),
+        );
         const baseName = outputFileName
           ? portableExportStem(outputFileName.replace(/\.mp4$/i, ''))
           : '';

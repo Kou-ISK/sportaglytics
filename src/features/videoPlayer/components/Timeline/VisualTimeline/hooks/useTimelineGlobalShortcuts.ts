@@ -8,6 +8,8 @@ interface UseTimelineGlobalShortcutsParams {
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
   onSelectionChange: (ids: string[]) => void;
   onSeek: (time: number) => void;
+  onSplit?: () => void;
+  onMerge?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
   onAddToPlaylist?: (items: TimelineData[]) => void;
@@ -30,6 +32,8 @@ export const useTimelineGlobalShortcuts = ({
   scrollContainerRef,
   onSelectionChange,
   onSeek,
+  onSplit,
+  onMerge,
   onUndo,
   onRedo,
   onAddToPlaylist,
@@ -61,6 +65,17 @@ export const useTimelineGlobalShortcuts = ({
       if (!isInsideTimeline || shouldIgnore || event.defaultPrevented) return;
 
       const command = (event.metaKey || event.ctrlKey) && !event.altKey;
+      if (
+        command &&
+        event.shiftKey &&
+        ['k', 'j'].includes(event.key.toLowerCase())
+      ) {
+        const run = event.key.toLowerCase() === 'k' ? onSplit : onMerge;
+        event.preventDefault();
+        event.stopPropagation();
+        if (run && !event.repeat) run();
+        return;
+      }
       if (event.key === 'Escape' && onClearSelection) {
         event.preventDefault();
         event.stopPropagation();
@@ -223,6 +238,8 @@ export const useTimelineGlobalShortcuts = ({
     onSeek,
     onSelectionChange,
     onUndo,
+    onSplit,
+    onMerge,
     scrollContainerRef,
     selectedIds,
     selectedRowIds,

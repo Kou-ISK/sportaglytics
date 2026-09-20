@@ -93,3 +93,18 @@ describe('timeline window IPC guards', () => {
     ).toBe(false);
   });
 });
+
+it('validates split and merge commands before routing them to the owner', () => {
+  expect(
+    isTimelineWindowCommand({ type: 'split-item', id: 'one', time: 2 }),
+  ).toBe(true);
+  expect(
+    isTimelineWindowCommand({ type: 'merge-items', ids: ['one', 'two'] }),
+  ).toBe(true);
+  for (const time of [NaN, Infinity, -1, '2'])
+    expect(
+      isTimelineWindowCommand({ type: 'split-item', id: 'one', time }),
+    ).toBe(false);
+  for (const ids of [[], ['one'], ['one', 'one'], [1, 2], ['', 'two']])
+    expect(isTimelineWindowCommand({ type: 'merge-items', ids })).toBe(false);
+});

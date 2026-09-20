@@ -150,6 +150,12 @@ Timelineへ追加されたeventは、manual/autodetectedを問わず同一data m
 - playlist追加
 - import/export
 
+### 区間の分割・結合
+
+- 再生位置が選択した1件の内側にある場合に2分割し、同じ行の複数区間は間の空白を含めて1つに結合する
+- ラベル・メモを保持し、1操作につき1履歴でUndo/Redoする。保存形式はTimelineDocument v2を維持する
+- 右クリックとTimeline内の`Cmd/Ctrl+Shift+K`（分割）/`Cmd/Ctrl+Shift+J`（結合）を提供する。入力欄・ダイアログでは実行しない
+
 ### Detached Timeline window
 
 - package open時に専用Timeline BrowserWindowを自動表示
@@ -377,6 +383,7 @@ Clip export:
 - overlay
 - single/multi angle
 - dedicated progress window
+- 書き出し時は各出力アングルの必要なローカル映像・仮想Timelineの元クリップ・時刻範囲・保存先権限をエンコード前に確認し、既存出力と同名なら連番を付ける。容量見積もりと自動再試行は対象外
 - Paintのアングル別描画・区間途中の追尾・複数フリーズと音声同期を保持。異解像度の2画面は縦横比を保って高さを統一し、描画生成失敗や欠落アングルを通知
 
 ---

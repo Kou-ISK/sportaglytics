@@ -33,7 +33,7 @@ describe('runFfmpegSingle', () => {
     });
 
     expect(mockedRunFfmpegProcess).toHaveBeenCalledWith(getFfmpegPath, [
-      '-y',
+      '-n',
       '-ss',
       '10',
       '-i',

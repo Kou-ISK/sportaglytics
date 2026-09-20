@@ -29,6 +29,12 @@ pnpm run electron:dev
 
 Training frameworkやdataset preparation dependencyはSporTagLytics packageへ含めません。
 
+## Timelineの区間編集と書き出しを変更するとき
+
+区間編集は`timelineRangeEditing`のドメイン検証、`useTimelineRangeEditing`の履歴・選択検証、Timeline IPC guardを同時に確認します。複数の更新APIを続けて呼び、分割・結合が複数回のUndoになる実装は避けます。詳細な操作は[ユーザーガイド](user-guide.md#ビジュアルタイムライン)を参照してください。
+
+書き出しでは実際に選択したソースだけを事前確認し、未使用アングルの欠落で出力を止めないことを確認します。`exportPreflight.test.ts`は合成前の欠落検出、`scripts/e2e-export-progress.mjs`は実IPCで後続クリップ欠落時の出力ゼロと同名再出力時の既存ファイル保持を確認します。サーバーや新しい依存の導入は不要です。
+
 ## ビルドと実行
 
 ```bash

@@ -43,6 +43,8 @@ export type TimelineWindowCommand =
   | { type: 'seek'; time: number }
   | { type: 'selection-change'; ids: string[] }
   | { type: 'delete-items'; ids: string[] }
+  | { type: 'split-item'; id: string; time: number }
+  | { type: 'merge-items'; ids: string[] }
   | { type: 'update-memo'; id: string; memo: string }
   | { type: 'update-range'; id: string; startTime: number; endTime: number }
   | {
@@ -158,7 +160,9 @@ const isHotkey = (value: unknown): value is HotkeyConfig =>
   isString(value.key) &&
   (value.disabled === undefined || typeof value.disabled === 'boolean');
 
-const isTimelineRowSortSpec = (value: unknown): value is TimelineRowSortSpec => {
+const isTimelineRowSortSpec = (
+  value: unknown,
+): value is TimelineRowSortSpec => {
   if (!isObject(value)) return false;
   if (
     value.criterion !== 'color' &&
@@ -217,6 +221,19 @@ export const isTimelineWindowCommand = (
     case 'delete-rows':
     case 'add-to-playlist':
       return isStringArray(value.ids);
+    case 'split-item':
+      return (
+        isString(value.id) &&
+        value.id.length > 0 &&
+        isNumber(value.time) &&
+        value.time >= 0
+      );
+    case 'merge-items':
+      return (
+        isStringArray(value.ids) &&
+        new Set(value.ids).size >= 2 &&
+        value.ids.every((id) => id.length > 0)
+      );
     case 'update-memo':
       return isString(value.id) && isString(value.memo);
     case 'update-range':

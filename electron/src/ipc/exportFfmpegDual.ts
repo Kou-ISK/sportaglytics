@@ -39,7 +39,7 @@ export const runFfmpegDual = ({
     let subLabel = '[1:v]';
     let audioMap = '0:a?';
     const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
-    const inputs = ['-y', '-i', actualMainSource, '-i', actualSecondarySource];
+    const inputs = ['-n', '-i', actualMainSource, '-i', actualSecondarySource];
     let currentInputIndex = 2;
 
     filterSteps.push(

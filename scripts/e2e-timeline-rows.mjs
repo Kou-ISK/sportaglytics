@@ -273,6 +273,77 @@ try {
   );
   console.log('Code-window-owned color check passed');
 
+  const splitPlayhead = page.getByRole('slider', {
+    name: 'タイムラインの再生位置',
+  });
+  await splitPlayhead.focus();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForFunction(
+    () =>
+      Number(
+        document
+          .querySelector('[aria-label="タイムラインの再生位置"]')
+          ?.getAttribute('aria-valuenow'),
+      ) === 1,
+  );
+  const originalInstance = page.getByTestId('timeline-instance-instance-1');
+  await originalInstance.click({ button: 'right' });
+  if (process.env.E2E_SCREENSHOT_DIR) {
+    await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
+    await page.screenshot({
+      animations: 'disabled',
+      path: path.join(
+        process.env.E2E_SCREENSHOT_DIR,
+        'timeline-range-menu.png',
+      ),
+    });
+  }
+  await page.getByRole('menuitem', { name: /再生位置で分割/ }).click();
+  const splitDocument = await waitForTimeline(
+    (document) => document.instances.length === 2,
+  );
+  assert.deepEqual(
+    splitDocument.instances.map(({ startTime, endTime }) => [
+      startTime,
+      endTime,
+    ]),
+    [
+      [0.5, 1],
+      [1, 1.5],
+    ],
+  );
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('[data-timeline-item-id][aria-pressed="true"]')
+        .length === 2,
+  );
+  await page.getByRole('region', { name: 'タイムライン', exact: true }).focus();
+  await page.keyboard.press(`${primaryModifier}+Shift+j`);
+  const mergedDocument = await waitForTimeline(
+    (document) => document.instances.length === 1,
+  );
+  assert.equal(mergedDocument.instances[0].id, 'instance-1');
+  assert.equal(mergedDocument.instances[0].endTime, 1.5);
+  await page.keyboard.press(`${primaryModifier}+z`);
+  const restoredSplit = await waitForTimeline(
+    (document) => document.instances.length === 2,
+  );
+  assert.deepEqual(
+    restoredSplit.instances,
+    splitDocument.instances,
+    'one Undo must restore both ranges',
+  );
+  await page.keyboard.press(`${primaryModifier}+z`);
+  const restoredOriginal = await waitForTimeline(
+    (document) => document.instances.length === 1,
+  );
+  assert.equal(restoredOriginal.instances[0].startTime, 0.5);
+  assert.equal(restoredOriginal.instances[0].endTime, 1.5);
+  console.log(
+    'Detached Timeline split, merge, saved ranges and one-step Undo passed',
+  );
+
   await page.getByRole('button', { name: '行を追加' }).click();
   const newRowButton = page.getByRole('button', {
     name: '新しい行 行',
@@ -549,6 +620,26 @@ try {
   );
   console.log('Unselected timeline edge resize persisted');
 
+  // Create a range in empty space; the earlier split scenario deliberately sought inside an item.
+  await splitPlayhead.focus();
+  await page.keyboard.press('End');
+  await page.waitForFunction(
+    () =>
+      Number(
+        document
+          .querySelector('[aria-label="タイムラインの再生位置"]')
+          ?.getAttribute('aria-valuenow'),
+      ) === 3,
+  );
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForFunction(
+    () =>
+      Number(
+        document
+          .querySelector('[aria-label="タイムラインの再生位置"]')
+          ?.getAttribute('aria-valuenow'),
+      ) === 2,
+  );
   const playhead = page.getByTestId('timeline-playhead-Defence');
   await page.keyboard.down('Alt');
   await page.keyboard.down(primaryModifier);

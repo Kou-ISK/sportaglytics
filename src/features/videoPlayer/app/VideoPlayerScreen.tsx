@@ -85,6 +85,8 @@ export const VideoPlayerScreen = () => {
     updateTimelineItem,
     bulkUpdateTimelineItems,
     duplicateTimelineItem,
+    splitTimelineItem,
+    mergeTimelineItems,
     resyncAudio,
     resetSync,
     manualSyncFromPlayers,
@@ -289,6 +291,8 @@ export const VideoPlayerScreen = () => {
     onUpdateItem: updateTimelineItem,
     onBulkUpdateItems: bulkUpdateTimelineItems,
     onDuplicateItem: duplicateTimelineItem,
+    onSplitItem: splitTimelineItem,
+    onMergeItems: mergeTimelineItems,
     onCreateItem: (actionName, startTime, endTime, color) =>
       addTimelineData(
         actionName,

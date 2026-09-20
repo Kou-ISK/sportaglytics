@@ -59,7 +59,7 @@ export const runFfmpegSingle = ({
       runWithOptionalProgress(
         getFfmpegPath,
         [
-          '-y',
+          '-n',
           '-ss',
           String(clip.startTime),
           '-i',
@@ -97,7 +97,7 @@ export const runFfmpegSingle = ({
     let baseLabel = '[0:v]';
     let mapLabel = '0:v';
     let audioMap = '0:a?';
-    const inputArgs = ['-y', '-i', actualSource];
+    const inputArgs = ['-n', '-i', actualSource];
 
     filterSteps.push(
       `[0:v]trim=start=${clip.startTime}:end=${clip.endTime},setpts=PTS-STARTPTS[vtrim]`,

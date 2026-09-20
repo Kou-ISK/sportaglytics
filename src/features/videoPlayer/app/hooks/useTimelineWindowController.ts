@@ -112,6 +112,10 @@ export const useTimelineWindowController = () => {
     ): void => send({ type: 'update-range', id, startTime, endTime }),
     updateTimelineItem: onUpdateItem,
     bulkUpdateTimelineItems: onBulkUpdateItems,
+    splitTimelineItem: (id: string, time: number): void =>
+      send({ type: 'split-item', id, time }),
+    mergeTimelineItems: (ids: string[]): void =>
+      send({ type: 'merge-items', ids }),
     duplicateTimelineItem: (id: string): string | null => {
       send({ type: 'duplicate-item', id });
       return null;

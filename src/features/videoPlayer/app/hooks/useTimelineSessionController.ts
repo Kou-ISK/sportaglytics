@@ -14,6 +14,8 @@ import {
   moveTimelineRowInList,
   pasteTimelineItemsInRow,
 } from '../../shared/timelineRows';
+import { useTimelineRangeEditing } from './useTimelineRangeEditing';
+import type { TimelineRangeEditing } from './useTimelineRangeEditing';
 import { useTimelineEditing } from './useTimelineEditing';
 import { useTimelineHistory } from './useTimelineHistory';
 import { useTimelinePersistence } from './useTimelinePersistence';
@@ -24,7 +26,7 @@ type TimelineSelectionHandler = (
   id: string,
 ) => void;
 
-interface UseTimelineSessionControllerResult {
+interface UseTimelineSessionControllerResult extends TimelineRangeEditing {
   timeline: TimelineData[];
   timelineRows: TimelineRow[];
   setTimeline: Dispatch<SetStateAction<TimelineData[]>>;
@@ -122,6 +124,11 @@ export const useTimelineSessionController =
     );
 
     const editing = useTimelineEditing(setTimeline);
+    const rangeEditing = useTimelineRangeEditing(
+      timelineRef,
+      setTimeline,
+      setSelectedTimelineIdList,
+    );
 
     useEffect(() => {
       setTimelineRows((current) =>
@@ -324,6 +331,7 @@ export const useTimelineSessionController =
       setSelectedTimelineIdList,
       getSelectedTimelineId,
       ...editing,
+      ...rangeEditing,
       addTimelineData,
       addTimelineDatas,
       addTimelineRow,

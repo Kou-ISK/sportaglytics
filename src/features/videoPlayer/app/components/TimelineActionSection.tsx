@@ -27,6 +27,8 @@ interface TimelineActionSectionProps {
     ids: string[],
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  splitTimelineItem: (id: string, time: number) => void;
+  mergeTimelineItems: (ids: string[]) => void;
   duplicateTimelineItem: (id: string) => string | null;
   addTimelineData: (
     actionName: string,
@@ -75,6 +77,8 @@ export const TimelineActionSection = ({
   updateTimelineItem,
   bulkUpdateTimelineItems,
   duplicateTimelineItem,
+  splitTimelineItem,
+  mergeTimelineItems,
   addTimelineData,
   addTimelineRow,
   updateTimelineRow,
@@ -147,6 +151,8 @@ export const TimelineActionSection = ({
             onUpdateTimelineItem={updateTimelineItem}
             bulkUpdateTimelineItems={bulkUpdateTimelineItems}
             onDuplicateTimelineItem={duplicateTimelineItem}
+            onSplitTimelineItem={splitTimelineItem}
+            onMergeTimelineItems={mergeTimelineItems}
             onCreateTimelineItem={(actionName, startTime, endTime, color) =>
               addTimelineData(
                 actionName,

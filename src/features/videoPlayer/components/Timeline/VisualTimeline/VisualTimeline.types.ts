@@ -22,6 +22,8 @@ export interface VisualTimelineProps {
     ids: string[],
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  onSplitTimelineItem?: (id: string, time: number) => void;
+  onMergeTimelineItems?: (ids: string[]) => void;
   onDuplicateTimelineItem?: (id: string) => string | null;
   onCreateTimelineItem?: (
     actionName: string,

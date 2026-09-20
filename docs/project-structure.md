@@ -340,3 +340,9 @@ Paintの数値入力は `studio/StudioNumberFieldView.tsx` が入力中のdraft�
 ## 自動検出の独立画面
 
 `src/features/videoPlayer/eventDetection/`にPanel/Mappingsのprops-only View、子のScreen、所有元のController/Host Hook、Gatewayを配置する。`electron/src/eventDetectionWindow.ts`はPackage Sessionの所有権とウィンドウ、`src/types/ipc/eventDetectionWindow.ts`はsnapshot/command契約を所有する。アプリ全体の前面表示は`electron/src/applicationWindowActivation.ts`へ分離する。
+
+### Timeline区間編集・書き出し事前確認の配置
+
+- `src/features/videoPlayer/shared/timelineRangeEditing.ts`: TimelineData配列の分割・結合。View、IPC、永続化に依存しない。
+- `src/features/videoPlayer/app/hooks/useTimelineRangeEditing.ts`: 編集結果の一括commitと選択。`components/Timeline/VisualTimeline/hooks/useTimelineRangeCommands.ts`は操作可否とフォーカスを扱う。
+- `electron/src/ipc/exportPayloadValidation.ts` / `exportSourceSelection.ts` / `exportPreflight.ts`: payload検証、使用ソース選択、ファイル事前確認。`exportVirtualTimelineSource.ts`は検査用計画と合成処理を分ける。

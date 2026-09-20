@@ -64,6 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Timelineに再生位置での分割と同一行の結合を追加。ラベル・メモを保持し、1回のUndoで戻せます。[操作説明](docs/user-guide.md#タイムライン編集)。
+- Timeline / Playlistの書き出しに、必要なローカル映像・元クリップ・保存先の事前確認を追加。同名の既存動画は連番で保持します。
+
 - Windows 11 x64向け映像・音声同期・AI実行環境、日本語字幕フォント、NSIS導入とインストール済みElectronの検証。[Windows版](docs/windows.md)を正本とする。
 
 ### Fixed

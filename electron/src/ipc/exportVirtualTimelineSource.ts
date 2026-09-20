@@ -28,13 +28,17 @@ const resolveInsidePackage = (
   return resolved;
 };
 
-export const materializeVirtualTimelineForExport = async (
+export interface ExportSourcePlan {
+  sourcePath: string;
+  clips?: Parameters<typeof recomposeLocalTimeline>[0];
+}
+
+export const planExportSource = async (
   sourcePath: string,
-  tempFiles: string[],
-): Promise<string> => {
-  if (/^https?:\/\//i.test(sourcePath)) return sourcePath;
+): Promise<ExportSourcePlan> => {
+  if (/^https?:\/\//i.test(sourcePath)) return { sourcePath };
   const packagePath = findPackageRoot(sourcePath);
-  if (!packagePath) return sourcePath;
+  if (!packagePath) return { sourcePath };
 
   let parsed: unknown;
   try {
@@ -45,10 +49,10 @@ export const materializeVirtualTimelineForExport = async (
       ),
     );
   } catch {
-    return sourcePath;
+    return { sourcePath };
   }
   if (!isPlainObject(parsed) || !Array.isArray(parsed.angles)) {
-    return sourcePath;
+    return { sourcePath };
   }
   const normalizedSource = path.resolve(sourcePath);
   const angle = parsed.angles.find((value) => {
@@ -69,7 +73,8 @@ export const materializeVirtualTimelineForExport = async (
       )
     );
   });
-  if (!isPlainObject(angle) || !Array.isArray(angle.clips)) return sourcePath;
+  if (!isPlainObject(angle) || !Array.isArray(angle.clips))
+    return { sourcePath };
 
   const clips = angle.clips.map((clip) => {
     if (
@@ -97,14 +102,23 @@ export const materializeVirtualTimelineForExport = async (
       })),
     )
   ) {
-    return sourcePath;
+    return { sourcePath };
   }
 
+  return { sourcePath, clips };
+};
+
+export const materializeExportSource = async (
+  plan: ExportSourcePlan,
+  tempFiles: string[],
+): Promise<string> => {
+  if (!plan.clips) return plan.sourcePath;
   const outputPath = path.join(
     os.tmpdir(),
     `sportaglytics-export-timeline-${randomUUID()}.mp4`,
   );
-  await recomposeLocalTimeline(clips, outputPath);
+  // Register before encoding so interrupted/failed compositions are cleaned up too.
   tempFiles.push(outputPath);
+  await recomposeLocalTimeline(plan.clips, outputPath);
   return outputPath;
 };

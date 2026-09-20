@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { HotkeyConfig } from '../../../../types/settings/coreTypes';
-import type { TimelineData, TimelineRow } from '../../../../types/timeline/core';
+import type {
+  TimelineData,
+  TimelineRow,
+} from '../../../../types/timeline/core';
 import type { TimelineWindowCommand } from '../../../../types/ipc/timelineWindow';
 import { buildTimelineRowSortMoves } from '../../shared/timelineRowSort';
 import {
@@ -38,6 +41,8 @@ interface UseTimelineWindowIntegrationParams {
     ids: string[],
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  onSplitItem: (id: string, time: number) => void;
+  onMergeItems: (ids: string[]) => void;
   onDuplicateItem: (id: string) => string | null;
   onCreateItem: (
     actionName: string,
@@ -200,6 +205,12 @@ export const useTimelineWindowIntegration = (
           case 'bulk-update-items':
             current.onBulkUpdateItems(command.ids, command.updates);
             break;
+          case 'split-item':
+            current.onSplitItem(command.id, command.time);
+            break;
+          case 'merge-items':
+            current.onMergeItems(command.ids);
+            break;
           case 'duplicate-item': {
             const id = current.onDuplicateItem(command.id);
             if (id) current.onSelectionChange([id]);
@@ -227,7 +238,9 @@ export const useTimelineWindowIntegration = (
               current.rows,
               current.timeline,
               command.spec,
-            ).forEach((move) => current.onMoveRow(move.sourceId, move.targetId));
+            ).forEach((move) =>
+              current.onMoveRow(move.sourceId, move.targetId),
+            );
             break;
           case 'delete-rows':
             current.onDeleteRows(command.ids);

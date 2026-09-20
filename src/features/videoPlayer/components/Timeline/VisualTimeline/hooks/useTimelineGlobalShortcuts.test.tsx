@@ -292,3 +292,41 @@ it('supports editing, select all and escape without trapping Tab when no item is
   expect(onSelectAll).toHaveBeenCalledOnce();
   expect(onClearSelection).toHaveBeenCalledOnce();
 });
+
+it.each(['metaKey', 'ctrlKey'])(
+  'routes range edits only from the timeline with %s',
+  (modifier) => {
+    const container = createTimelineContainer();
+    const input = document.createElement('input');
+    container.append(input);
+    const onSplit = vi.fn();
+    const onMerge = vi.fn();
+    renderHook(() =>
+      useTimelineGlobalShortcuts({
+        selectedIds: ['item-1'],
+        selectedRowIds: [],
+        timeline,
+        scrollContainerRef: { current: container },
+        onSelectionChange: vi.fn(),
+        onSeek: vi.fn(),
+        onSplit,
+        onMerge,
+      }),
+    );
+    for (const target of [input, document.body]) {
+      dispatchKey(target, 'K', { [modifier]: true, shiftKey: true });
+      dispatchKey(target, 'J', { [modifier]: true, shiftKey: true });
+    }
+    expect(onSplit).not.toHaveBeenCalled();
+    expect(onMerge).not.toHaveBeenCalled();
+    dispatchKey(container, 'K', { [modifier]: true, shiftKey: true });
+    dispatchKey(container, 'J', { [modifier]: true, shiftKey: true });
+    dispatchKey(container, 'K', {
+      [modifier]: true,
+      shiftKey: true,
+      repeat: true,
+    });
+    expect(onSplit).toHaveBeenCalledOnce();
+    expect(onMerge).toHaveBeenCalledOnce();
+  },
+);
