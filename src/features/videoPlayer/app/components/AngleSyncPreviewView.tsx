@@ -21,10 +21,22 @@ export const AngleSyncPreviewView = (
   <Box
     component="section"
     aria-label={`${props.name}プレビュー`}
-    hidden={props.hidden}
+    aria-hidden={props.hidden}
+    inert={props.hidden}
     sx={{
-      display: props.hidden ? 'none' : 'block',
-      position: 'relative',
+      // Keep paused sources drawable: display:none can suspend a pending seek on Windows.
+      display: 'block',
+      position: props.hidden ? 'absolute' : 'relative',
+      ...(props.hidden
+        ? {
+            left: 0,
+            top: 0,
+            width: 1,
+            height: 1,
+            opacity: 0,
+            pointerEvents: 'none',
+          }
+        : {}),
       minHeight: 0,
       minWidth: 0,
       bgcolor: (theme) => theme.custom.tokens.media.surface,

@@ -149,6 +149,8 @@ const createWindow = async (): Promise<BrowserWindow> => {
       sandbox: true,
       nodeIntegration: false,
       webSecurity: true,
+      // Timeline remains interactive while this window owns media decoding and RAF clocks.
+      backgroundThrottling: false,
     },
   });
 

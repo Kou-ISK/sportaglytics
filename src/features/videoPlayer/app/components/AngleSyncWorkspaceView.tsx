@@ -18,6 +18,7 @@ export const AngleSyncWorkspaceView = (
       ref={props.rootRef}
       aria-label="アングル同期ワークスペース"
       sx={{
+        position: 'relative',
         height: '100%',
         minHeight: 0,
         minWidth: 0,

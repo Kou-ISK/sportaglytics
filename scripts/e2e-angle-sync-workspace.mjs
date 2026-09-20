@@ -43,6 +43,33 @@ export const exerciseAngleSync = async (
     .getByLabel('アングル同期ワークスペース', { exact: true })
     .waitFor();
   const timeline = await getSyncTimeline(app);
+  await page.evaluate(() => {
+    const events = [];
+    window.__angleSyncMediaEvents = events;
+    document.querySelectorAll('video').forEach((video) => {
+      for (const name of [
+        'emptied',
+        'loadedmetadata',
+        'loadeddata',
+        'canplay',
+        'seeking',
+        'seeked',
+        'error',
+      ]) {
+        video.addEventListener(name, () => {
+          events.push({
+            event: name,
+            id: video.id,
+            source: video.currentSrc.split(/[\\/]/).pop(),
+            time: video.currentTime,
+            ready: video.readyState,
+            seeking: video.seeking,
+          });
+          if (events.length > 100) events.shift();
+        });
+      }
+    });
+  });
   assert.equal(
     await timeline.locator('[data-testid^="timeline-lane-"]').count(),
     codingRowsBefore,

@@ -406,6 +406,10 @@ try {
       .catch(() => undefined);
     console.log(await main.locator('body').innerText());
     console.error(
+      'Synthetic media events',
+      await main.evaluate(() => window.__angleSyncMediaEvents ?? []),
+    );
+    console.error(
       'Synthetic media state',
       await main.evaluate(() =>
         [...document.querySelectorAll('video')].map((v) => ({
