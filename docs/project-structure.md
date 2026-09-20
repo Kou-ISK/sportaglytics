@@ -198,6 +198,8 @@ electron/src/preload/
 
 Rendererから `child_process`, filesystem, ML runtimeを直接使用しません。
 
+パッケージを開く通知の配送は `electron/src/preload/packageOpenBridge.ts` に分離しています。preloadの生存期間で受信し、画面準備中の保留と購読者の所有権だけを管理します。コードウィンドウ操作は `codeWindowBridge.ts` に残します。Mainのセッション振り分けやRendererのパッケージ読込をこのbridgeへ移しません。
+
 ## Timeline Contracts
 
 ```text

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.14.0] - 2026-09-21
+## [0.14.1] - 2026-09-21
 
 ### Added
 
@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOSのApple Silicon / Intel向けDMGとWindows x64向けNSISインストーラーを配布。Windows版は未署名です。
 
 ### Fixed
+
+- 起動直後に開いたパッケージが表示されない競合を修正。画面の受信準備前に届いた通知をウィンドウ内で保持し、一度だけ引き渡す。
 
 - 高速書き出しの検証処理が未同梱ライブラリを要求して配布版を起動できない問題を修正。Mainの外部依存をビルド時に検査。
 
@@ -52,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 同一プレーの反復検出を区間へまとめるmodel packの契約・評価・試験手順を文書化。既存Timelineは保持し、モデル重みの更新と区間判定の改善を区別。
 
 - 自動イベント検出の試験モデルで、既存Codingとの比較値を実際の精度と区別して表示。比較用model packの読み込み契約は[仕様](docs/event-detection.md)を参照。
+
+## [0.14.0] - 2026-09-21
+
+配布前のElectron E2Eで起動時の問題を検出したため、タグのみ作成し、インストーラーは公開していません。この版の変更は修正を加えて0.14.1へ含めています。
 
 ## [0.13.3] - 2026-09-14
 
