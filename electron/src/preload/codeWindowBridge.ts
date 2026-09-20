@@ -1,7 +1,7 @@
 import type { IpcRenderer } from 'electron';
 import type { IElectronAPI } from '../../../src/renderer';
 
-type CodeWindowBridgeKeys = 'codeWindow' | 'onPackageDirectoryOpen';
+type CodeWindowBridgeKeys = 'codeWindow';
 
 export const createCodeWindowBridge = (
   ipcRenderer: IpcRenderer,
@@ -40,12 +40,6 @@ export const createCodeWindowBridge = (
           expectedPath,
         );
       },
-    },
-    onPackageDirectoryOpen: (callback: (dirPath: string) => void) => {
-      const wrapped = (_: unknown, path: string) => callback(path);
-      ipcRenderer.on('open-package-directory', wrapped);
-      return () =>
-        ipcRenderer.removeListener('open-package-directory', wrapped);
     },
   } satisfies Pick<IElectronAPI, CodeWindowBridgeKeys>;
 

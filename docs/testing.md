@@ -102,6 +102,8 @@ pnpm run test:e2e
 
 個別:
 
+`test:e2e:clip-sync`は最初に専用の非表示BrowserWindowを作り、実際のsandbox preloadへRenderer購読前のパッケージ通知を送信します。`scripts/e2e-package-open-buffer.mjs`で通知が一度だけ届き、購読し直しても再生されないことを確認します。package openを含むメイン画面の待機は生成順ではなくfile URLとrouteで識別します。
+
 ```bash
 pnpm run test:e2e:clip-sync
 pnpm run test:e2e:event-detection

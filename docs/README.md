@@ -45,6 +45,7 @@
 - [デザインシステム](design-system.md): MUI theme と shared UI の運用。
 - [Architecture exceptions](architecture-exceptions.md): `AGENTS.md` からの一時例外台帳。
 - [ADR](adr/README.md): 長期的な設計判断。
+- [起動時のパッケージ通知](adr/0045-buffer-startup-package-open.md): 画面の準備前に届いた通知の保持と一度だけの配送。
 - [選択範囲の準備と無再圧縮書き出し](adr/0043-bounded-lossless-export.md): 共通時計を保つ高速コピー条件と進捗。
 - [映像書き出しメニューの所有者と準備待ち](adr/0042-document-owned-export-menu.md): Package Sessionによる通知先とTimelineの購読準備。
 - [Release artifactの不変性](adr/0032-immutable-release-artifacts.md): 公開済みタグとDMGを保持する配布契約。
