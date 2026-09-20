@@ -5,6 +5,7 @@ interface PreviewClockPlayer {
   currentTime: (seconds?: number) => number | undefined;
   isDisposed: () => boolean;
   paused: () => boolean;
+  readyState: () => number;
   pause: () => void;
   on: (event: string, listener: () => void) => void;
   off: (event: string, listener: () => void) => void;
@@ -15,6 +16,7 @@ interface PreviewClockParams {
   source: string;
   time: number | null;
   ready: boolean;
+  waitForDecodedFrame: boolean;
   playing: boolean;
   suspended: boolean;
   error: string;
@@ -34,13 +36,18 @@ export const useAngleSyncPreviewClock = (params: PreviewClockParams): void => {
       player.pause();
       return;
     }
+    if (!state.playing && !player.paused()) player.pause();
+    // Metadata does not mean the replacement file has a decoded frame yet.
+    // Seeking here can interrupt initial decoding on Windows and leave the
+    // player indefinitely at HAVE_METADATA. loadeddata/canplay retry the latest
+    // requested time; YouTube has its own readiness contract.
+    if (state.waitForDecodedFrame && player.readyState() < 2) return;
     if (
       Math.abs((player.currentTime() ?? 0) - state.time) >
       (state.playing ? 0.08 : 0.00005)
     )
       player.currentTime(state.time);
     if (state.playing && player.paused()) state.play();
-    else if (!state.playing && !player.paused()) player.pause();
   }, []);
 
   useEffect(apply, [
@@ -49,6 +56,7 @@ export const useAngleSyncPreviewClock = (params: PreviewClockParams): void => {
     params.playing,
     params.suspended,
     params.ready,
+    params.waitForDecodedFrame,
     params.error,
     params.source,
   ]);

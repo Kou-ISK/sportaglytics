@@ -38,6 +38,7 @@ export const useAngleSyncPreview = (props: {
     source: media.source,
     time: resolved?.sourceTime ?? null,
     ready: media.isReady,
+    waitForDecodedFrame: props.angle.sourceKind === 'local',
     playing: props.playing,
     suspended: props.suspended,
     error: media.error,

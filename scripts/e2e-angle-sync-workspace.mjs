@@ -46,17 +46,22 @@ export const exerciseAngleSync = async (
   await page.evaluate(() => {
     const events = [];
     window.__angleSyncMediaEvents = events;
-    document.querySelectorAll('video').forEach((video) => {
-      for (const name of [
-        'emptied',
-        'loadedmetadata',
-        'loadeddata',
-        'canplay',
-        'seeking',
-        'seeked',
-        'error',
-      ]) {
-        video.addEventListener(name, () => {
+    for (const name of [
+      'emptied',
+      'loadedmetadata',
+      'loadeddata',
+      'canplay',
+      'seeking',
+      'seeked',
+      'error',
+      'stalled',
+      'waiting',
+    ]) {
+      document.addEventListener(
+        name,
+        (event) => {
+          const video = event.target;
+          if (!(video instanceof HTMLVideoElement)) return;
           events.push({
             event: name,
             id: video.id,
@@ -66,9 +71,10 @@ export const exerciseAngleSync = async (
             seeking: video.seeking,
           });
           if (events.length > 100) events.shift();
-        });
-      }
-    });
+        },
+        true,
+      );
+    }
   });
   assert.equal(
     await timeline.locator('[data-testid^="timeline-lane-"]').count(),

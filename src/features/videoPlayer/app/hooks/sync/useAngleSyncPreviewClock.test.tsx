@@ -13,6 +13,7 @@ const fixture = () => {
     }),
     isDisposed: () => false,
     paused: () => true,
+    readyState: vi.fn(() => 4),
     pause: vi.fn(),
     on: (event: string, listener: () => void): void => {
       if (!events.has(event)) events.set(event, new Set());
@@ -29,6 +30,7 @@ const fixture = () => {
       source: 'A.mp4',
       time: 2 as number | null,
       ready: true,
+      waitForDecodedFrame: true,
       playing: false,
       suspended: false,
       error: '',
@@ -62,6 +64,30 @@ it('reapplies the latest requested frame when source readiness resets the media 
   f.resetSource();
   f.emit('canplay');
   expect(f.player.currentTime()).toBe(0);
+});
+it('waits for a decoded frame after a source switch and then seeks the latest requested time', () => {
+  const f = fixture();
+  f.player.readyState.mockReturnValue(1);
+  const { rerender, unmount } = renderHook(useAngleSyncPreviewClock, {
+    initialProps: f.params,
+  });
+  f.emit('loadedmetadata');
+  expect(f.player.currentTime()).toBe(0);
+  rerender({ ...f.params, time: 3 });
+  expect(f.player.currentTime()).toBe(0);
+  f.player.readyState.mockReturnValue(2);
+  f.emit('loadeddata');
+  expect(f.player.currentTime()).toBe(3);
+  unmount();
+});
+it('uses the YouTube readiness contract without waiting for an HTML video frame', () => {
+  const f = fixture();
+  f.player.readyState.mockReturnValue(0);
+  const { unmount } = renderHook(useAngleSyncPreviewClock, {
+    initialProps: { ...f.params, waitForDecodedFrame: false },
+  });
+  expect(f.player.currentTime()).toBe(2);
+  unmount();
 });
 it('does not seek into a gap or interfere with audio analysis and defers unready media', () => {
   const f = fixture();
