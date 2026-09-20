@@ -2,6 +2,7 @@ import {
   exerciseAngleSync,
   getSyncTimeline,
 } from './e2e-angle-sync-workspace.mjs';
+import { exerciseMultiClipCoding } from './e2e-multi-clip-coding.mjs';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import os from 'node:os';
@@ -211,6 +212,12 @@ try {
   await page
     .getByRole('button', { name: '一時停止', exact: true })
     .click({ force: true });
+  await exerciseMultiClipCoding(
+    app,
+    page,
+    settingsTimeline,
+    path.join(dir, 'pair-check.stpkg', 'timeline.json'),
+  );
   await exerciseAngleSync(page, app, ['Control+Shift+K', 'Control+Shift+L']);
   // Closing the sync surface precedes the async config write. Read only a completed document.
   let applied;

@@ -15,6 +15,8 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 
 メイン・参照Playlist・書き出しは `shared/media/mediaTimeline` の共通時刻変換を使います。Mainの `mediaTimelineSource` がパッケージの現行配置とアングル補正を読み、型付き `media:resolve-timelines` でPlaylistへ渡します。Playlistの `media/` はソース切替・読込待機・共通時計を担当し、Paintの表示フレームも元ファイル内の時刻から変換します。[ADR 0040](adr/0040-shared-media-timeline-clock.md)。同期編集は`useAngleSyncSession`を状態源とし、型付きTimeline IPCを介して独立タイムラインの既存再生ヘッドと映像を接続します。通常のCodingツールバーに同期操作を統合し、再生用Settingsのアングル切替キーを両ウィンドウで共用します。アングルごとの連続時計を使い、Sync Pointを揃えてから配置と補正を一緒に保存します。映像Windowの背景描画制限を無効化し、Timeline操作中も時計を進める。選択外の同期プレビューも描画可能な最小領域を保つ。映像の読み込みイベントでも最新の要求時刻を反映し、シーク中のフレームを同期点に使用しません。実フレームの近傍PTSは型付き `media:frame-window` でMainから取得し、UIと分離します。[アングル同期仕様](angle-synchronization.md) / [ADR 0041](adr/0041-angle-sync-point-workflow.md)。
 
+Codingの記録時刻も共通時計を使います。`VideoPlayerScreen`が`CodingPanelRuntime`へ渡す`codingTime`を`useCodingTime`が読み、開始・終了・リンク処理へ同じgetterを供給します。getterの参照を固定し、毎フレームの更新で別ウィンドウのIPC購読を張り直しません。元動画の`currentTime`やアングル1の存在から時刻を推定せず、パッケージ未選択・同期調整中は`null`として記録を保留します。保存形式は既存の共通時刻のままです。
+
 ## レイヤー構成
 
 - 依存方向: `pages -> features -> shared`

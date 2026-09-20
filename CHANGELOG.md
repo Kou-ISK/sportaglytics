@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 同じアングルの2本目以降でコーディングすると、タグが映像ファイル内の時刻で前半側へ記録される問題を修正。開始・終了を試合全体の共通時刻へ統一し、映像の切替をまたぐ記録にも対応。[記録時刻の仕様](docs/user-guide.md#イベントタグ付け)。
+
 ## [0.14.1] - 2026-09-21
 
 ### Added

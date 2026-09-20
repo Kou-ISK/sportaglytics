@@ -456,6 +456,7 @@ export const VideoPlayerScreen = () => {
       />
       <CodingPanelRuntime
         ref={codingPanelRuntimeRef}
+        codingTime={isFileSelected && !angleSync.snapshot ? currentTime : null}
         addTimelineData={addTimelineData}
         teamNames={teamNames}
         firstTeamName={firstTeamName}

@@ -6,6 +6,8 @@
 
 アングル同期のprops-only UIは `features/videoPlayer/app/components/AngleSync*View`、動画への接続は `AngleSyncPreviewScreen`、時計・同期点・保存は `app/hooks/sync/useAngleSync*` に配置します。既存時間目盛り上の同期点は `components/Timeline/VisualTimeline/TimelineSyncMarkersView`、ウィンドウ間の契約は `types/ipc/angleSync.ts` と既存Timeline IPC、計算は `angleSync.ts`、Mainの制限付きフレーム取得は `electron/src/ipc/mediaFrameService.ts` に分離します。
 
+Codingの時刻読み取りは `features/videoPlayer/components/Controls/hooks/useCodingTime.ts` に置き、Screenから注入された共通時計を使います。実ウィンドウでの記録・保存の検証は `scripts/e2e-multi-clip-coding.mjs` に分離し、既存の複数クリップE2Eから呼び出します。
+
 ## Top-Level Layout
 
 書き出しの範囲計算は `electron/src/ipc/exportTimelineRange.ts`、必要素材と進捗は `exportSourcePreparation.ts`、一時映像の合成は `exportTimelineComposition.ts`、無再圧縮の適合判定は `exportStreamCopy.ts` が担当します。WindowやViewへFFmpeg条件を持ち込みません。
