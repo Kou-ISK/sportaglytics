@@ -1,5 +1,6 @@
 import type { ItemAnnotation } from '../../types/playlist/core';
 import { isValidPitchCalibration } from './pitchProjection';
+import { isValidTacticalBoard } from './tacticalBoard';
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const finite = (value: unknown): value is number =>
@@ -42,6 +43,16 @@ export const validateTacticsAnnotation = (
 ): void => {
   if (!annotation) return;
   if (
+    annotation.tacticalBoard !== undefined &&
+    (!record(annotation.tacticalBoard) ||
+      !Object.entries(annotation.tacticalBoard).every(
+        ([target, board]) =>
+          ['primary', 'secondary'].includes(target) &&
+          (board === undefined || isValidTacticalBoard(board)),
+      ))
+  )
+    throw new Error('戦術盤のデータが不正です。');
+  if (
     annotation.objects?.some(
       (object) => object.motion !== undefined && !validMotion(object.motion),
     )
@@ -61,10 +72,39 @@ export const validateTacticsAnnotation = (
           !finite(value.lengthMeters)
         )
           return false;
+        const region = value.region;
+        if (
+          region !== undefined &&
+          (!record(region) ||
+            !finite(region.x) ||
+            !finite(region.y) ||
+            !finite(region.width) ||
+            !finite(region.length))
+        )
+          return false;
+        if (value.referenceTime !== undefined && !finite(value.referenceTime))
+          return false;
         return isValidPitchCalibration({
           corners: value.corners,
           widthMeters: value.widthMeters,
           lengthMeters: value.lengthMeters,
+          ...(record(region) &&
+          finite(region.x) &&
+          finite(region.y) &&
+          finite(region.width) &&
+          finite(region.length)
+            ? {
+                region: {
+                  x: region.x,
+                  y: region.y,
+                  width: region.width,
+                  length: region.length,
+                },
+              }
+            : {}),
+          ...(finite(value.referenceTime)
+            ? { referenceTime: value.referenceTime }
+            : {}),
         });
       })
     )

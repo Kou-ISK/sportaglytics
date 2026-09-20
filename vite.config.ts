@@ -15,6 +15,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
+          if (id.includes('@mediapipe')) return 'vendor-pitch-vision';
           if (id.includes('react')) return 'vendor-react';
           if (id.includes('@mui')) return 'vendor-mui';
           if (id.includes('video.js')) return 'vendor-videojs';

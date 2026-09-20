@@ -1,3 +1,4 @@
+import type { TacticalBoard } from '../../../../types/playlist/tacticalBoard';
 import type { ChromaKey } from '../../../../shared/tactics/chromaKey';
 import { useCallback, useMemo } from 'react';
 import type {
@@ -22,6 +23,10 @@ interface UsePlaylistAnnotationsParams {
 
 interface UsePlaylistAnnotationsResult {
   currentAnnotation: ItemAnnotation | null;
+  handleTacticalBoardChange: (
+    board: TacticalBoard,
+    target: AnnotationTarget,
+  ) => void;
   handleChromaKeyChange: (
     key: ChromaKey | undefined,
     target: AnnotationTarget,
@@ -190,10 +195,7 @@ export const usePlaylistAnnotations = ({
     ],
   );
 
-  const handlePitchCalibrationChange = (
-    calibration: PitchCalibration | undefined,
-    target: AnnotationTarget,
-  ): void => {
+  const commitAnnotation = (patch: Partial<ItemAnnotation>): void => {
     if (!currentItem) return;
     const currentAnn = itemAnnotations[currentItem.id] ||
       currentItem.annotation || {
@@ -201,13 +203,7 @@ export const usePlaylistAnnotations = ({
         freezeDuration: defaultFreezeDuration,
         freezeAt: 0,
       };
-    const annotation = {
-      ...currentAnn,
-      pitchCalibration: {
-        ...currentAnn.pitchCalibration,
-        [target]: calibration,
-      },
-    };
+    const annotation = { ...currentAnn, ...patch };
     setItemAnnotations((previous) => ({
       ...previous,
       [currentItem.id]: annotation,
@@ -219,38 +215,39 @@ export const usePlaylistAnnotations = ({
     );
     setHasUnsavedChanges(true);
   };
-
+  const handlePitchCalibrationChange = (
+    calibration: PitchCalibration | undefined,
+    target: AnnotationTarget,
+  ): void => {
+    commitAnnotation({
+      pitchCalibration: {
+        ...currentAnnotation?.pitchCalibration,
+        [target]: calibration,
+      },
+    });
+  };
   const handleChromaKeyChange = (
     key: ChromaKey | undefined,
     target: AnnotationTarget,
   ): void => {
-    if (!currentItem) return;
-    const currentAnn = itemAnnotations[currentItem.id] ||
-      currentItem.annotation || {
-        objects: [],
-        freezeDuration: defaultFreezeDuration,
-        freezeAt: 0,
-      };
-    const annotation = {
-      ...currentAnn,
-      chromaKey: { ...currentAnn.chromaKey, [target]: key },
-    };
-    setItemAnnotations((previous) => ({
-      ...previous,
-      [currentItem.id]: annotation,
-    }));
-    setItemsWithHistory((previous) =>
-      previous.map((item) =>
-        item.id === currentItem.id ? { ...item, annotation } : item,
-      ),
-    );
-    setHasUnsavedChanges(true);
+    commitAnnotation({
+      chromaKey: { ...currentAnnotation?.chromaKey, [target]: key },
+    });
+  };
+  const handleTacticalBoardChange = (
+    board: TacticalBoard,
+    target: AnnotationTarget,
+  ): void => {
+    commitAnnotation({
+      tacticalBoard: { ...currentAnnotation?.tacticalBoard, [target]: board },
+    });
   };
 
   return {
     currentAnnotation,
     handleChromaKeyChange,
     handlePitchCalibrationChange,
+    handleTacticalBoardChange,
     handleAnnotationObjectsChange,
     handleFreezeDurationChange,
   };

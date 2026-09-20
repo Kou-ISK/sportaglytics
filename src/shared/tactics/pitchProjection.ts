@@ -10,6 +10,19 @@ const unit = [
   { x: 0, y: 1 },
 ];
 export const isValidPitchCalibration = (value: PitchCalibration): boolean => {
+  const region = calibrationRegion(value);
+  if (
+    ![region.x, region.y, region.width, region.length].every(Number.isFinite) ||
+    region.x < 0 ||
+    region.y < 0 ||
+    region.width <= 0 ||
+    region.length <= 0 ||
+    region.x + region.width > value.widthMeters ||
+    region.y + region.length > value.lengthMeters ||
+    (value.referenceTime !== undefined &&
+      (!Number.isFinite(value.referenceTime) || value.referenceTime < 0))
+  )
+    return false;
   if (
     !Number.isFinite(value.widthMeters) ||
     !Number.isFinite(value.lengthMeters) ||
@@ -42,6 +55,15 @@ export const isValidPitchCalibration = (value: PitchCalibration): boolean => {
     signs.every((cross) => cross < -0.0001)
   );
 };
+export const calibrationRegion = (
+  value: PitchCalibration,
+): NonNullable<PitchCalibration['region']> =>
+  value.region ?? {
+    x: 0,
+    y: 0,
+    width: value.widthMeters,
+    length: value.lengthMeters,
+  };
 const homography = (
   source: Point2D[],
   destination: Point2D[],
@@ -87,8 +109,12 @@ export const pitchToImage = (
 ): Point2D | null =>
   isValidPitchCalibration(calibration)
     ? transform(homography(unit, calibration.corners), {
-        x: point.x / calibration.widthMeters,
-        y: point.y / calibration.lengthMeters,
+        x:
+          (point.x - calibrationRegion(calibration).x) /
+          calibrationRegion(calibration).width,
+        y:
+          (point.y - calibrationRegion(calibration).y) /
+          calibrationRegion(calibration).length,
       })
     : null;
 export const imageToPitch = (
@@ -99,8 +125,12 @@ export const imageToPitch = (
   const result = transform(homography(calibration.corners, unit), point);
   return result
     ? {
-        x: result.x * calibration.widthMeters,
-        y: result.y * calibration.lengthMeters,
+        x:
+          calibrationRegion(calibration).x +
+          result.x * calibrationRegion(calibration).width,
+        y:
+          calibrationRegion(calibration).y +
+          result.y * calibrationRegion(calibration).length,
       }
     : null;
 };

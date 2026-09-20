@@ -53,6 +53,10 @@ AI analysis builds prompts from local timeline data, labels, memo fields, statis
 
 Cloud LLM providers, remote embedding services, or any network transport for AI analysis are not part of the current contract. Adding them requires a new ADR or an update to ADR 0005, plus explicit user-facing privacy documentation and settings UI.
 
+## Tactical Board Recognition
+
+Paintの戦術盤は明示操作で停止した映像フレームを端末内のMediaPipe / EfficientDet-Lite2 INT8へ渡します。実行コードとモデルはアプリ同梱で、実行時のCDN取得、画像送信、遠隔推論、クラウド保存はありません。COCO 2017で学習された汎用モデルを使い、利用者の映像で追加学習しません。認識候補は一時メモリ、確定した位置と分類はローカルPlaylist文書へ保存します。
+
 ## Sharing and Issue Reports
 
 このリポジトリのコード、ドキュメント、fixture、コミット、PR、Issue、添付画像・ログは公開情報として扱います。利用者がローカルの映像やCodingを調査・学習・検証に使うことを許可しても、それらの公開を許可したことにはなりません。

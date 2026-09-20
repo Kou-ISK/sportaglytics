@@ -38,6 +38,7 @@ import { STUDIO_TOOLS } from './studioGeometry';
 export type TacticsInspectorPanel = 'draw' | 'motion' | 'pitch' | 'presets';
 export type StudioSidebarViewProps = StudioEditor['inspector'] & {
   panel: TacticsInspectorPanel;
+  onOpenBoard?: () => void;
   onPanelChange: (panel: TacticsInspectorPanel) => void;
   tracking?: TacticsTrackingProps;
   pitch?: PitchCalibrationControls;
@@ -165,6 +166,15 @@ export const StudioSidebarView = (
         )}
         {props.panel === 'presets' && props.presets && (
           <TacticsPresetsView {...props.presets} />
+        )}
+        {props.panel === 'pitch' && props.onOpenBoard && (
+          <Button
+            variant="outlined"
+            disabled={!props.enabled || props.pitch?.editing}
+            onClick={props.onOpenBoard}
+          >
+            戦術盤を開く
+          </Button>
         )}
         {props.panel === 'pitch' && props.chroma && (
           <TacticsChromaView {...props.chroma} />

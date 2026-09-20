@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Paintに選手・ボール・矢印を編集できる戦術盤とPNG出力を追加。部分ピッチの4点較正、フレーム確認、同梱モデルによる停止映像からの俯瞰配置候補に対応。保存・制約は[Paint](docs/tactics.md#戦術盤と映像からの配置)を参照。
+
 - 表示中のアプリウィンドウをまとめて前面へ移し、起動画面のロゴを正式アイコンへ統一。
 - 自動検出の設定・進捗・結果を独立ウィンドウ化。背景実行、再表示、最新Timelineとの重複判定に対応。
 - Paintの追尾に描画位置での拡大・回転補正と短期基準画像の再照合を追加。Windows同梱FFmpegのPNG対応を修正。

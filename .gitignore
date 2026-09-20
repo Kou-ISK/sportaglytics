@@ -20,6 +20,7 @@ node_modules/
 /.cache/llama
 /.cache/fonts
 /.cache/testing
+/public/pitch-vision/
 
 # misc
 .DS_Store

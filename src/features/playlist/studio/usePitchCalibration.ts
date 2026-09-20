@@ -5,6 +5,7 @@ import type {
 } from '../../../types/playlist/core';
 import {
   imageToPitch,
+  calibrationRegion,
   isValidPitchCalibration,
   pitchToImage,
 } from '../../../shared/tactics/pitchProjection';
@@ -15,6 +16,9 @@ export interface PitchCalibrationControls {
   valid: boolean;
   draft: PitchCalibration;
   distance: number | null;
+  needsConfirmation?: boolean;
+  onConfirmFrame?: () => void;
+  onRegionChange?: (region: NonNullable<PitchCalibration['region']>) => void;
   onBegin: () => void;
   onCancel: () => void;
   onApply: () => void;
@@ -30,8 +34,8 @@ const initial: PitchCalibration = {
     { x: 0.9, y: 0.8 },
     { x: 0.1, y: 0.8 },
   ],
-  widthMeters: 10,
-  lengthMeters: 10,
+  widthMeters: 70,
+  lengthMeters: 100,
 };
 export const usePitchCalibration = (params: {
   documentKey: string;
@@ -42,6 +46,7 @@ export const usePitchCalibration = (params: {
   onSave: (calibration: PitchCalibration | undefined) => void;
   onAdd: (object: DrawingObject) => void;
   time: number;
+  clipStart?: number;
 }): PitchCalibrationControls => {
   const [edit, setEdit] = useState<{
     key: string;
@@ -51,9 +56,14 @@ export const usePitchCalibration = (params: {
   const draft = editing ? edit.draft : (params.calibration ?? initial);
   const selected = params.selected;
   const calibration = params.calibration;
+  const relativeTime = Math.max(0, params.time - (params.clipStart ?? 0));
+  const needsConfirmation =
+    calibration?.referenceTime === undefined ||
+    Math.abs(calibration.referenceTime - relativeTime) > 0.12;
   let distance: number | null = null;
   if (
     calibration &&
+    !needsConfirmation &&
     selected &&
     !selected.motion &&
     ['line', 'arrow'].includes(selected.type) &&
@@ -78,6 +88,13 @@ export const usePitchCalibration = (params: {
     valid: isValidPitchCalibration(draft),
     draft,
     distance,
+    needsConfirmation,
+    onConfirmFrame: () => {
+      if (params.enabled && calibration)
+        params.onSave({ ...calibration, referenceTime: relativeTime });
+    },
+    onRegionChange: (region) =>
+      setEdit({ key: params.documentKey, draft: { ...draft, region } }),
     onBegin: () => {
       if (params.enabled)
         setEdit({ key: params.documentKey, draft: calibration ?? initial });
@@ -85,7 +102,7 @@ export const usePitchCalibration = (params: {
     onCancel: () => setEdit(null),
     onApply: () => {
       if (params.enabled && isValidPitchCalibration(draft)) {
-        params.onSave(draft);
+        params.onSave({ ...draft, referenceTime: relativeTime });
         setEdit(null);
       }
     },
@@ -110,10 +127,11 @@ export const usePitchCalibration = (params: {
     onSizeChange: (widthMeters, lengthMeters) =>
       setEdit({
         key: params.documentKey,
-        draft: { ...draft, widthMeters, lengthMeters },
+        draft: { ...draft, widthMeters, lengthMeters, region: undefined },
       }),
     onAddZone: () => {
-      if (!params.enabled || !calibration) return;
+      if (!params.enabled || !calibration || needsConfirmation) return;
+      const region = calibrationRegion(calibration);
       const points = [
         [0.25, 0.25],
         [0.75, 0.25],
@@ -121,8 +139,8 @@ export const usePitchCalibration = (params: {
         [0.25, 0.75],
       ].map(([x, y]) =>
         pitchToImage(calibration, {
-          x: x * calibration.widthMeters,
-          y: y * calibration.lengthMeters,
+          x: region.x + x * region.width,
+          y: region.y + y * region.length,
         }),
       );
       if (points.some((point) => !point)) return;

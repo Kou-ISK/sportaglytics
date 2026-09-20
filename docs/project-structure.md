@@ -346,3 +346,9 @@ Paintの数値入力は `studio/StudioNumberFieldView.tsx` が入力中のdraft�
 - `src/features/videoPlayer/shared/timelineRangeEditing.ts`: TimelineData配列の分割・結合。View、IPC、永続化に依存しない。
 - `src/features/videoPlayer/app/hooks/useTimelineRangeEditing.ts`: 編集結果の一括commitと選択。`components/Timeline/VisualTimeline/hooks/useTimelineRangeCommands.ts`は操作可否とフォーカスを扱う。
 - `electron/src/ipc/exportPayloadValidation.ts` / `exportSourceSelection.ts` / `exportPreflight.ts`: payload検証、使用ソース選択、ファイル事前確認。`exportVirtualTimelineSource.ts`は検査用計画と合成処理を分ける。
+
+### 戦術盤の配置
+
+- `src/features/playlist/studio/board/`: 戦術盤のView、編集/認識Controller Hook、モデル実行/画像保存Gateway。
+- `src/types/playlist/tacticalBoard.ts`: 保存型。`src/shared/tactics/tacticalBoard.ts` と `pitchProjection.ts`: 検証・射影計算。
+- `scripts/prepare-pitch-vision.mjs`: 固定資産の準備。`resources/pitch-vision/`: 出典・権利表示。生成先 `public/pitch-vision/` はGit対象外。

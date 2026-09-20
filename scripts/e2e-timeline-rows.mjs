@@ -44,8 +44,13 @@ const waitForTimeline = async (predicate, timeoutMs = 5000) => {
   const timelinePath = path.join(packagePath, 'timeline.json');
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const document = JSON.parse(await fs.readFile(timelinePath, 'utf8'));
-    if (predicate(document)) return document;
+    try {
+      const document = JSON.parse(await fs.readFile(timelinePath, 'utf8'));
+      if (predicate(document)) return document;
+    } catch (error) {
+      // The renderer can still be writing this snapshot, particularly on Windows.
+      if (!(error instanceof SyntaxError)) throw error;
+    }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   return JSON.parse(await fs.readFile(timelinePath, 'utf8'));

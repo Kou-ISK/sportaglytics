@@ -235,3 +235,7 @@ Paintは左にツール、右に設定、映像下部に再生→目盛り→描
 2026-09-10に確認した[Hudl Sportscode製品ページ](https://www.hudl.com/products/sportscode)の `HSC_explainer_video_202603` と[Hudl Studio製品ページ](https://www.hudl.com/products/studio)は操作配置の参考資料です。公開画像を特定版の実行画面と断定せず、その後のユーザー指定（角丸・半透明、クリックによるリンク作成）を現行仕様へ反映しています。参照時の試行過程や旧デザインを実装規約として併記しません。
 
 映像操作面の `mediaChromeSx` は、ライトテーマでも子のボタン・文字・入力に `media.foreground` を明示します。中間のMUIコンポーネントが持つ通常画面用の文字色を継承させず、暗い半透明面上の可読性を保ちます。
+
+### 戦術盤
+
+ピッチ面・白線には `data.pitchSurface` / `data.pitchLine` を使用します。選手の所属は `team1` / `team2`、未分類は通常surface、選択はprimaryで表します。周囲のダイアログ・ツールバーは既存surfaceとdividerを共有し、操作ラベルは折り返さず、必要な場合は操作群を折り返します。

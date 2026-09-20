@@ -86,3 +86,53 @@ it('stores Studio edits with embedded timestamps and preserves the other angle t
     initial[0].annotation?.objects,
   );
 });
+
+it('commits a tactical board without shifting clip-relative time or losing opposite-angle metadata', () => {
+  const board = {
+    widthMeters: 70,
+    lengthMeters: 100,
+    time: 2,
+    markers: [],
+    arrows: [],
+  };
+  const { result } = renderHook(() => {
+    const history = usePlaylistHistory([
+      {
+        ...initial[0],
+        annotation: {
+          ...initial[0].annotation!,
+          tacticalBoard: { secondary: { ...board, time: 1 } },
+        },
+      },
+    ]);
+    const [annotations, setAnnotations] = useState<
+      Record<string, ItemAnnotation>
+    >({});
+    const [, setDirty] = useState(false);
+    const editor = usePlaylistAnnotations({
+      currentItem: history.items[0],
+      itemAnnotations: annotations,
+      setItemAnnotations: setAnnotations,
+      setItemsWithHistory: history.setItems,
+      setHasUnsavedChanges: setDirty,
+      minFreezeDuration: 1,
+      defaultFreezeDuration: 3,
+    });
+    return { history, editor };
+  });
+  act(() => result.current.editor.handleTacticalBoardChange(board, 'primary'));
+  expect(result.current.history.items[0].annotation?.tacticalBoard).toEqual({
+    primary: board,
+    secondary: { ...board, time: 1 },
+  });
+  expect(
+    result.current.editor.currentAnnotation?.tacticalBoard?.primary?.time,
+  ).toBe(2);
+  act(() => result.current.history.undo());
+  expect(
+    result.current.history.items[0].annotation?.tacticalBoard?.primary,
+  ).toBeUndefined();
+  expect(
+    result.current.history.items[0].annotation?.tacticalBoard?.secondary?.time,
+  ).toBe(1);
+});
