@@ -14,6 +14,7 @@ export const PitchCalibrationView = (
       <>
         <Stack direction="row" spacing={1}>
           <TextField
+            fullWidth
             label="ピッチ幅（m）"
             type="number"
             value={props.draft.widthMeters}
@@ -26,6 +27,7 @@ export const PitchCalibrationView = (
             }
           />
           <TextField
+            fullWidth
             label="ピッチ長（m）"
             type="number"
             value={props.draft.lengthMeters}

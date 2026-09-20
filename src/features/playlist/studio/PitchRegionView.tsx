@@ -15,6 +15,7 @@ export const PitchRegionView = ({
   const region = calibrationRegion(value);
   const width = value.widthMeters > 0 ? value.widthMeters : 70;
   const length = value.lengthMeters > 0 ? value.lengthMeters : 100;
+  const unitsPerPixel = Math.max((width + 10) / 240, (length + 10) / 200);
   const points = [
     [region.x, region.y],
     [region.x + region.width, region.y],
@@ -30,7 +31,7 @@ export const PitchRegionView = ({
           ['手前ハーフ', length / 2, length / 2],
           ['奥ハーフ', 0, length / 2],
           [
-            '22m〜中央',
+            length >= 88 ? '22m〜中央' : '1/4〜中央',
             Math.min(22, length / 4),
             length / 2 - Math.min(22, length / 4),
           ],
@@ -49,7 +50,7 @@ export const PitchRegionView = ({
       <svg
         aria-label="較正範囲の俯瞰図"
         viewBox={`-5 -5 ${width + 10} ${length + 10}`}
-        style={{ width: '100%', height: 168 }}
+        style={{ width: '100%', height: 200 }}
       >
         <PitchMarkingsView width={width} length={length} />
         <rect
@@ -65,11 +66,17 @@ export const PitchRegionView = ({
         />
         {points.map(([x, y], i) => (
           <g key={i}>
-            <circle cx={x} cy={y} r={3} fill={theme.palette.primary.main} />
+            <circle
+              cx={x}
+              cy={y}
+              r={7 * unitsPerPixel}
+              fill={theme.palette.primary.main}
+            />
             <text
               x={x}
-              y={y + 1.2}
-              fontSize={3.5}
+              y={y + 3.5 * unitsPerPixel}
+              fontSize={11 * unitsPerPixel}
+              fontWeight={700}
               textAnchor="middle"
               fill={theme.palette.primary.contrastText}
             >
