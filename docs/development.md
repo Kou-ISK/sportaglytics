@@ -314,6 +314,8 @@ Model training/evaluationのdebuggingはprivate R&D repositoryで行います。
 5. merge後のmain commitへrelease tag
 6. package/release assets作成。同じバージョンの公開済みタグ・DMGを上書きしません（[ADR 0032](adr/0032-immutable-release-artifacts.md)）。
 
+Electron E2Eは `scripts/run-electron-e2e.mjs` で全シナリオの成否を収集し、1件でも失敗すると配布へ進みません。詳細は[テスト手順](testing.md)を参照してください。
+
 配布前に `pnpm audit` / `pnpm audit --prod` も確認します。lockfileを固定してインストールし、UIのゲートとStorybook buildをReleaseでも実行します。
 
 macOS署名はキーチェーン修正版のelectron-builder 26.16.1で行います。builder関連パッケージとlockfileを揃えて更新し、署名・公証の障害は[Release手順](../.github/RELEASE.md#macos-signing-keychain-unlock-failed)に沿って切り分けます。

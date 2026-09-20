@@ -96,6 +96,8 @@ try {
   await timeline.keyboard.press('s');
   await timeline.getByLabel('Angle 1の同期点', { exact: true }).waitFor();
   await timeline.keyboard.press('Shift+2');
+  // The selected angle and its playhead arrive through IPC before the drag target moves.
+  await timeline.getByText('Angle 2', { exact: true }).waitFor();
   // Drag the existing timeline playhead; do not bypass the window command route.
   const handle = timeline.getByRole('slider', {
     name: 'タイムラインの再生位置',
@@ -272,8 +274,27 @@ try {
 } catch (error) {
   if (app)
     for (const page of app.windows()) {
-      if (page.url().includes('#/timeline'))
+      if (page.url().includes('#/timeline')) {
         console.log(await page.locator('body').innerText());
+        console.log(
+          'Timeline time',
+          await page
+            .getByRole('textbox', { name: '再生タイムコード' })
+            .inputValue(),
+        );
+      } else {
+        console.log(
+          'Synthetic media',
+          await page.evaluate(() =>
+            [...document.querySelectorAll('video')].map((v) => ({
+              source: v.currentSrc.split(/[\\/]/).pop(),
+              time: v.currentTime,
+              seeking: v.seeking,
+              ready: v.readyState,
+            })),
+          ),
+        );
+      }
     }
   throw error;
 } finally {
