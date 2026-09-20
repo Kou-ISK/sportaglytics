@@ -13,9 +13,9 @@ import type {
 } from '../../../../types/timeline/core';
 import type {
   EventDetectionAngleOption,
-  EventDetectionDialogViewProps,
+  EventDetectionPanelViewProps,
   EventDetectionSummary,
-} from '../components/EventDetectionDialogView';
+} from '../components/EventDetectionPanelView';
 import { convertCandidatesToTimeline } from '../domain/candidatesToTimeline';
 import {
   applyEventTimelineMappingUpdates,
@@ -38,7 +38,7 @@ interface UseEventDetectionControllerParams {
 }
 
 interface UseEventDetectionControllerResult {
-  viewProps: EventDetectionDialogViewProps;
+  viewProps: EventDetectionPanelViewProps;
 }
 
 const getModelKey = (model: EventDetectionModelInfo): string =>
@@ -75,6 +75,27 @@ export const useEventDetectionController = ({
   const [summary, setSummary] = useState<EventDetectionSummary | null>(null);
   const activeRequestIdRef = useRef<string | null>(null);
   const cancelRequestedRef = useRef(false);
+  const latestTimeline = useRef({ timeline, maxTime, addTimelineDatas });
+  latestTimeline.current = { timeline, maxTime, addTimelineDatas };
+  const sourceIdentity = JSON.stringify(
+    mediaAngles.map((angle) => [
+      angle.id,
+      angle.clips.map((clip) => [
+        clip.id,
+        clip.source,
+        clip.timelineStartSeconds,
+      ]),
+    ]),
+  );
+  useEffect(() => {
+    setRunning(false);
+    setProgress(null);
+    return () => {
+      const requestId = activeRequestIdRef.current;
+      activeRequestIdRef.current = null;
+      if (requestId) void cancelEventDetection(requestId);
+    };
+  }, [sourceIdentity]);
 
   const angleOptions = useMemo<EventDetectionAngleOption[]>(() => {
     return mediaAngles
@@ -96,14 +117,14 @@ export const useEventDetectionController = ({
   useEffect(() => {
     return subscribeEventDetectionOpenRequest(() => {
       setOpenContext((current) => current ?? { codeWindow: activeCodeWindow });
-      setError(null);
-      setSummary(null);
     });
   }, [activeCodeWindow]);
 
   useEffect(() => {
     if (!openContext) return;
     let active = true;
+    setError(null);
+    setSummary(null);
     setLoadingModels(true);
     setSelectedModelKey('');
     void listEventDetectionModels()
@@ -189,7 +210,7 @@ export const useEventDetectionController = ({
   );
 
   const handleRun = useCallback((): void => {
-    if (running || !selectedModel) return;
+    if (activeRequestIdRef.current || running || !selectedModel) return;
     const angle = mediaAngles.find(
       (candidate) => candidate.id === selectedAngleId,
     );
@@ -236,14 +257,19 @@ export const useEventDetectionController = ({
       clips,
     })
       .then((result) => {
-        if (cancelRequestedRef.current) return;
+        if (
+          cancelRequestedRef.current ||
+          activeRequestIdRef.current !== requestId
+        )
+          return;
+        const current = latestTimeline.current;
         const converted = convertCandidatesToTimeline({
           candidates: result.candidates,
           mappings: enabledMappings,
-          existingTimeline: timeline,
-          maxTime: maxTime > 0 ? maxTime : undefined,
+          existingTimeline: current.timeline,
+          maxTime: current.maxTime > 0 ? current.maxTime : undefined,
         });
-        addTimelineDatas(converted.items);
+        current.addTimelineDatas(converted.items);
         setSummary({
           added: converted.items.length,
           duplicates: converted.skippedDuplicate,
@@ -252,7 +278,11 @@ export const useEventDetectionController = ({
         });
       })
       .catch((runError: unknown) => {
-        if (cancelRequestedRef.current) return;
+        if (
+          cancelRequestedRef.current ||
+          activeRequestIdRef.current !== requestId
+        )
+          return;
         setError(
           runError instanceof Error
             ? runError.message
@@ -262,19 +292,10 @@ export const useEventDetectionController = ({
       .finally(() => {
         if (activeRequestIdRef.current === requestId) {
           activeRequestIdRef.current = null;
+          setRunning(false);
         }
-        setRunning(false);
       });
-  }, [
-    addTimelineDatas,
-    mappings,
-    maxTime,
-    mediaAngles,
-    running,
-    selectedAngleId,
-    selectedModel,
-    timeline,
-  ]);
+  }, [mappings, mediaAngles, running, selectedAngleId, selectedModel]);
 
   const handleCancel = useCallback((): void => {
     const requestId = activeRequestIdRef.current;

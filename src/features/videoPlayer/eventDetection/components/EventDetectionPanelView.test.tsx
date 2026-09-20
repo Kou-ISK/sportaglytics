@@ -5,13 +5,14 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getAppTheme } from '../../../../theme';
 import type { EventDetectionModelInfo } from '../../../../types/eventDetection/core';
-import { EventDetectionDialogView } from './EventDetectionDialogView';
+import { EventDetectionPanelView } from './EventDetectionPanelView';
 
 const experimentalModel: EventDetectionModelInfo = {
   id: 'rugby-event-test',
   version: '0.1.0-experimental.1',
   displayName: 'Rugby Event Detection',
   status: 'experimental',
+  evaluationBasis: 'reported-metrics',
   events: ['restart'],
   metrics: {
     restart: {
@@ -29,7 +30,7 @@ const renderDialog = (
 ): void => {
   render(
     <ThemeProvider theme={getAppTheme('dark')}>
-      <EventDetectionDialogView
+      <EventDetectionPanelView
         open
         loadingModels={false}
         models={[model]}
@@ -65,7 +66,19 @@ afterEach(() => {
   cleanup();
 });
 
-describe('EventDetectionDialogView', () => {
+describe('EventDetectionPanelView', () => {
+  it('presents Coding correspondence without implying measured real-world precision', () => {
+    renderDialog({ ...experimentalModel, evaluationBasis: 'reference-coding' });
+    expect(screen.getByText('既存Codingとの比較')).toBeTruthy();
+    expect(screen.getByText(/記録済みプレーの再検出 100%/)).toBeTruthy();
+    expect(screen.getByText(/Codingと一致した候補 8%/)).toBeTruthy();
+    expect(
+      screen.getByText(/実際の検出精度を示すものではありません/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Precision/)).toBeNull();
+    expect(screen.queryByText(/Recall/)).toBeNull();
+  });
+
   it('shows an experimental badge, warning, and measured quality information', () => {
     renderDialog(experimentalModel);
 

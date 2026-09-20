@@ -23,6 +23,7 @@ vi.mock('../settingsWindow', () => ({
 vi.mock('../playlistWindow', () => ({ createPlaylistWindow: vi.fn() }));
 vi.mock('../analysisWindow', () => ({ openAnalysisWindow: vi.fn() }));
 vi.mock('../timelineWindow', () => ({ openTimelineWindow }));
+vi.mock('./clipExportMenuAction', () => ({ openClipExportFromMenu: vi.fn() }));
 vi.mock('../helpWindow', () => ({ openHelpWindow: vi.fn() }));
 vi.mock('./recentPackageMenu', () => ({ buildRecentPackageItems: () => [] }));
 vi.mock('./menuWindowActions', () => ({

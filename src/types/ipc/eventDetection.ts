@@ -47,7 +47,9 @@ export const isEventDetectionModelStatus = (
 ): value is EventDetectionModelStatus =>
   typeof value === 'string' && MODEL_STATUS_SET.has(value);
 
-const isEventDetectionMetric = (value: unknown): value is EventDetectionMetric => {
+const isEventDetectionMetric = (
+  value: unknown,
+): value is EventDetectionMetric => {
   if (!isPlainObject(value)) return false;
   return (
     isFiniteNumber(value.precision) &&
@@ -82,6 +84,10 @@ export const isEventDetectionModelInfo = (
     !isString(value.displayName) ||
     value.displayName.length === 0 ||
     !isEventDetectionModelStatus(value.status) ||
+    (value.evaluationBasis !== 'reported-metrics' &&
+      value.evaluationBasis !== 'reference-coding') ||
+    (value.evaluationBasis === 'reference-coding' &&
+      value.status !== 'experimental') ||
     !isArrayOf(value.events, isRugbyEventType) ||
     value.events.length === 0 ||
     !isPlainObject(value.metrics)

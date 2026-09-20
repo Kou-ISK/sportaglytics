@@ -1,3 +1,5 @@
+import { readMediaFrameWindow } from './mediaFrameService';
+import { readMediaTimeline } from './mediaTimelineSource';
 import { createPackage } from './packageCreationService';
 import { applyClipTimeline } from './packageClipTimelineService';
 import { convertConfigToRelativePath } from './packageConfigMigrationService';
@@ -17,6 +19,45 @@ export const registerPackageHandlers = (): void => {
     return;
   }
   isRegistered = true;
+
+  registerHandleWithAliases(
+    'media:frame-window',
+    [],
+    async (event, source: unknown, time: unknown) => {
+      if (!getValidatedEventSenderWindow(event))
+        throw new Error('Invalid frame sender');
+      if (
+        typeof source !== 'string' ||
+        source.length > 32768 ||
+        typeof time !== 'number'
+      )
+        throw new Error('Invalid frame payload');
+      return readMediaFrameWindow(source, time);
+    },
+  );
+
+  registerHandleWithAliases(
+    'media:resolve-timelines',
+    [],
+    async (event, sources: unknown) => {
+      if (!getValidatedEventSenderWindow(event))
+        throw new Error('Invalid media timeline sender');
+      if (
+        !Array.isArray(sources) ||
+        sources.length > 8 ||
+        !sources.every(
+          (source) =>
+            typeof source === 'string' &&
+            source.length > 0 &&
+            source.length <= 32768,
+        )
+      )
+        throw new Error('Invalid media timeline payload');
+      return Promise.all(
+        sources.map((source) => readMediaTimeline(source, true)),
+      );
+    },
+  );
 
   registerHandleWithAliases(
     'package:create',
@@ -64,7 +105,12 @@ export const registerPackageHandlers = (): void => {
   registerHandleWithAliases(
     'package:apply-clip-timeline',
     [],
-    async (event, configPath: unknown, placements: unknown) => {
+    async (
+      event,
+      configPath: unknown,
+      placements: unknown,
+      angleOffsets: unknown,
+    ) => {
       if (!getValidatedEventSenderWindow(event)) {
         throw new Error('Invalid clip timeline sender');
       }
@@ -93,7 +139,21 @@ export const registerPackageHandlers = (): void => {
         throw new Error('Invalid clip timeline payload');
       }
 
-      return applyClipTimeline(configPath, placements);
+      if (
+        angleOffsets !== undefined &&
+        (!Array.isArray(angleOffsets) ||
+          angleOffsets.length < 1 ||
+          angleOffsets.length > 8 ||
+          angleOffsets[0] !== 0 ||
+          !angleOffsets.every(
+            (value) =>
+              typeof value === 'number' &&
+              Number.isFinite(value) &&
+              Math.abs(value) <= 86_400,
+          ))
+      )
+        throw new Error('Invalid angle offsets');
+      return applyClipTimeline(configPath, placements, angleOffsets);
     },
   );
 

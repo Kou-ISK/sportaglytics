@@ -1,3 +1,7 @@
+import {
+  bindVideoFrameClock,
+  releaseVideoFrameClock,
+} from '../../../../shared/media/videoFrameClock';
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
@@ -28,6 +32,14 @@ it('draws the presented video time synchronously and keeps React clock updates f
     presentedFrames: 30,
     processingDuration: 0,
   };
+  Object.defineProperty(video, 'currentSrc', {
+    value: 'file:///D.mp4',
+    configurable: true,
+  });
+  bindVideoFrameClock(video, 'file:///D.mp4', -8);
+  act(() => callback?.(0, metadata));
+  expect(first).toHaveBeenLastCalledWith(9);
+  releaseVideoFrameClock(video);
   act(() => callback?.(0, metadata));
   expect(first).toHaveBeenLastCalledWith(1);
   const updated = vi.fn();

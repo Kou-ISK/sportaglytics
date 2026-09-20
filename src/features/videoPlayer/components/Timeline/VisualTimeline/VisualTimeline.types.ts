@@ -1,9 +1,11 @@
+import type { AngleSyncSnapshot } from '../../../../../types/ipc/angleSync';
 import type {
   TimelineData,
   TimelineRow,
 } from '../../../../../types/timeline/core';
 
 export interface VisualTimelineProps {
+  angleSync?: AngleSyncSnapshot;
   timeline: TimelineData[];
   rows: TimelineRow[];
   maxSec: number;
@@ -22,6 +24,8 @@ export interface VisualTimelineProps {
     ids: string[],
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  onSplitTimelineItem?: (id: string, time: number) => void;
+  onMergeTimelineItems?: (ids: string[]) => void;
   onDuplicateTimelineItem?: (id: string) => string | null;
   onCreateTimelineItem?: (
     actionName: string,

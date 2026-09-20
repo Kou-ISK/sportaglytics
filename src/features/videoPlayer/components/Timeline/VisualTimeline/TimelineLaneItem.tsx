@@ -14,6 +14,7 @@ interface TimelineLaneItemProps {
   focusedItemId: string | null;
   onHoverChange: (id: string | null) => void;
   onItemClick: (event: React.MouseEvent, id: string) => void;
+  onEditItem?: (id: string) => void;
   onItemContextMenu: (event: React.MouseEvent, id: string) => void;
   onMoveItem?: (
     ids: string[],
@@ -41,6 +42,7 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
   onHoverChange,
   onItemClick,
   onItemContextMenu,
+  onEditItem,
   onMoveItem,
   onEdgeMouseDown,
   timeToPosition,
@@ -100,6 +102,7 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
     >
       <Box
         data-testid={`timeline-instance-${item.id}`}
+        data-timeline-item-id={item.id}
         role="button"
         tabIndex={0}
         aria-pressed={isSelected}
@@ -110,6 +113,10 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
             return;
           }
           onItemClick(event, item.id);
+        }}
+        onDoubleClick={(event) => {
+          event.stopPropagation();
+          onEditItem?.(item.id);
         }}
         onContextMenu={(event) => onItemContextMenu(event, item.id)}
         draggable={Boolean(onMoveItem) && !isEditModifierPressed}

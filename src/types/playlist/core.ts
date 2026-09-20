@@ -1,4 +1,5 @@
 import type { ChromaKey } from '../../shared/tactics/chromaKey';
+import type { TacticalBoard } from './tacticalBoard';
 import type { SCLabel } from '../timeline/sportscode';
 
 export type PlaylistType = 'reference' | 'embedded';
@@ -70,11 +71,16 @@ export interface PitchCalibration {
   corners: Array<{ x: number; y: number }>;
   widthMeters: number;
   lengthMeters: number;
+  /** 4点に対応するピッチ内の長方形（m）。省略時は平面全体。 */
+  region?: { x: number; y: number; width: number; length: number };
+  /** 較正を確認したフレーム。クリップの開始からの秒数。 */
+  referenceTime?: number;
 }
 
 export interface ItemAnnotation {
   chromaKey?: Partial<Record<AnnotationTarget, ChromaKey>>;
   pitchCalibration?: Partial<Record<AnnotationTarget, PitchCalibration>>;
+  tacticalBoard?: Partial<Record<AnnotationTarget, TacticalBoard>>;
   objects: DrawingObject[];
   freezeDuration: number;
   freezeAt: number;

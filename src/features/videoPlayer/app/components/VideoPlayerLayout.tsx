@@ -1,3 +1,5 @@
+import type { VideoViewMode } from '../../../../shared/media/angleView';
+import type { AngleSyncSession } from '../hooks/sync/useAngleSyncSession';
 import { Box } from '@mui/material';
 import type { useVideoPlayerScreenController } from '../hooks/useVideoPlayerScreenController';
 import { ManualSyncControls } from './ManualSyncControls';
@@ -26,16 +28,14 @@ type VideoPlayerLayoutProps = Pick<
   | 'setIsFileSelected'
   | 'setTimelineFilePath'
   | 'setPackagePath'
-  | 'metaDataConfigFilePath'
   | 'setMetaDataConfigFilePath'
   | 'setSyncData'
   | 'mediaAngles'
   | 'setMediaAngles'
 > & {
   openWizardRequestKey: number;
-  onApplyManualSync: () => void;
-  onCancelManualSync: () => void;
-  viewMode: 'dual' | 'angle1' | 'angle2';
+  angleSync: AngleSyncSession;
+  viewMode: VideoViewMode;
 };
 
 export const VideoPlayerLayout = ({
@@ -57,13 +57,11 @@ export const VideoPlayerLayout = ({
   setIsFileSelected,
   setTimelineFilePath,
   setPackagePath,
-  metaDataConfigFilePath,
   setMetaDataConfigFilePath,
   setSyncData,
   mediaAngles,
   setMediaAngles,
-  onApplyManualSync,
-  onCancelManualSync,
+  angleSync,
   viewMode,
   openWizardRequestKey,
 }: VideoPlayerLayoutProps) => {
@@ -84,51 +82,27 @@ export const VideoPlayerLayout = ({
         overflowX: 'hidden',
       }}
     >
-      <PlayerSurface
-        videoList={videoList}
-        isVideoPlaying={isVideoPlaying}
-        videoPlayBackRate={videoPlayBackRate}
-        currentTime={currentTime}
-        setCurrentTime={setCurrentTime}
-        setIsVideoPlaying={setisVideoPlaying}
-        setVideoPlayBackRate={setVideoPlayBackRate}
-        setMaxSec={setMaxSec}
-        handleCurrentTime={handleCurrentTime}
-        maxSec={maxSec}
-        syncData={syncData}
-        syncMode={syncMode}
-        mediaAngles={mediaAngles}
-        setMediaAngles={setMediaAngles}
-        playerForceUpdateKey={playerForceUpdateKey}
-        viewMode={viewMode}
-      />
-
-      {syncMode === 'manual' && (
-        <Box
-          sx={{
-            gridColumn: '1',
-            gridRow: '1',
-            position: 'relative',
-            zIndex: 1100,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'flex-start',
-            pt: 2,
-            pointerEvents: 'none',
-            '& > *': {
-              pointerEvents: 'auto',
-            },
-          }}
-        >
-          <ManualSyncControls
-            onApplySync={onApplyManualSync}
-            onCancel={onCancelManualSync}
-            mediaAngles={mediaAngles}
-            metaDataConfigFilePath={metaDataConfigFilePath}
-            setMediaAngles={setMediaAngles}
-            setVideoList={setVideoList}
-          />
-        </Box>
+      {syncMode === 'manual' ? (
+        <ManualSyncControls session={angleSync} />
+      ) : (
+        <PlayerSurface
+          videoList={videoList}
+          isVideoPlaying={isVideoPlaying}
+          videoPlayBackRate={videoPlayBackRate}
+          currentTime={currentTime}
+          setCurrentTime={setCurrentTime}
+          setIsVideoPlaying={setisVideoPlaying}
+          setVideoPlayBackRate={setVideoPlayBackRate}
+          setMaxSec={setMaxSec}
+          handleCurrentTime={handleCurrentTime}
+          maxSec={maxSec}
+          syncData={syncData}
+          syncMode={syncMode}
+          mediaAngles={mediaAngles}
+          setMediaAngles={setMediaAngles}
+          playerForceUpdateKey={playerForceUpdateKey}
+          viewMode={viewMode}
+        />
       )}
     </Box>
   ) : (

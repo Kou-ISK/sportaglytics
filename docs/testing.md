@@ -2,6 +2,8 @@
 
 このドキュメントは SporTagLytics のテストと品質ゲート運用ガイドです。必須コマンドの正本は `AGENTS.md` です。
 
+複数アングル同期の必須検証は[アングル同期仕様](angle-synchronization.md#実装と検証)を参照してください。`scripts/e2e-multi-clip-playback.mjs` は25/50fpsの架空映像で、アングルの連続操作、同期点、コマ送り、実ウィンドウ比率、Playlist/Paintの境界シーク、正負オフセットの出力画素・尺を確認します。`e2e-angle-sync-gaps.mjs`は30秒/10秒/5秒でタイムラインのつまみ操作、本数の異なる同期、途中の黒表示、再読込と出力画素を確認します。`e2e-angle-sync-multi.mjs`は3/4アングルと可変フレーム間隔を確認します。実試合の映像は不要です。
+
 ## Required Quality Gate
 
 PR前に以下を通します。
@@ -36,6 +38,8 @@ pnpm run check:adr
 GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Vitestを実行します。Model training/evaluationのCIは別private R&D repositoryの責務です。
 
 ## Test Placement
+
+すべてのfixture・検証ログ・スクリーンショットは [公開時のデータ取り扱い](privacy-and-data-handling.md#sharing-and-issue-reports) に従います。実データでのみ確認できる検証はローカルで行い、公開する再現例には架空の識別情報と合成データを使います。
 
 - pure domain logic → 同ディレクトリの `*.test.ts`
 - React behavior → `*.test.tsx`
@@ -87,6 +91,9 @@ Public repositoryのCIやtest fixtureへ、実チーム名、実試合名、ロ�
 
 ## E2E
 
+- `pnpm run test:e2e:timeline-rows`: 分離Timelineの行・インスタンス操作、削除とUndo、フォーカスと入力欄の保護。
+- `pnpm run test:e2e:paint-export`: 実Canvas・IPC・FFmpegによるPaint映像出力。生成映像の画素・音声・尺を検査し、単画面／全アングル／異解像度の2画面と複数フリーズを確認。
+
 ```bash
 pnpm run test:e2e
 ```
@@ -100,11 +107,17 @@ pnpm run test:e2e:clip-sync
 pnpm run test:e2e:event-detection
 pnpm run test:e2e:code-window-menu
 pnpm run test:e2e:export-progress
+pnpm run test:e2e:export-menu
+pnpm run test:e2e:export-fast
 pnpm run test:e2e:timeline-rows
 pnpm run test:e2e:package-reopen
 ```
 
 Package再openは実ファイルのドロップ、映像と補助Windowの終了、同じパスをOSから再openする流れを検証します。macOSではアプリを終了せずに起動画面へ戻り、履歴・drop・ファイル選択で繰り返し再openします。Timelineの端編集は未選択の状態で修飾キー付きのブラウザー入力を送信し、保存された開始・終了時刻と選択維持まで確認します。
+
+`export-menu`は実MenuItemのcallbackを呼び、Timeline/Playlistの設定UIを操作して合成映像を書き出します。OSの保存先選択結果と案内ダイアログだけをstub化し、実IPC・FFmpegと出力の尺を確認します。OSメニューバー自体のクリック試験ではありません。複数Package Sessionの分離、不正sender、購読解除と再ロードは `clipExportMenuAction.test.ts` で確認します。
+
+`export-fast`は合成素材による無再圧縮連結とフレーム保存、映像時計、途中区間・空白・準備進捗を確認します。Paint・静止挿入・2画面は既存の `paint-export` と `multi-clip-playback` を併用します。
 
 自動event detectionのreal model inference E2Eは、verified model packをCI artifactとして安全に供給できるまで通常CIへ含めません。Modelなし状態は正常系であり、UIは「検証済みモデルなし」を表示します。
 
@@ -155,3 +168,20 @@ Paint入力の回帰テストはpointerdown/upだけの短いドラッグ、停�
 ## Windowsの配布検証
 
 [Windows CI](../.github/workflows/windows.yml)はWindows x64上でunitとElectron操作を検証する。`scripts/e2e-electron-launch.mjs` は `E2E_APP_PATH` を指定した場合にインストール済みアプリを起動する。NSISの導入・Explorer登録・アンインストール、同梱FFmpeg/llama.cppの依存DLL、予約文字と日本語を含む保存先を検査する。検証範囲とOS条件は[Windows版](windows.md)。
+
+### 解析画面と追尾の回帰確認
+
+`pnpm run test:e2e:event-detection`は独立ウィンドウの開閉・背景実行・再表示・Timelineへの保存までを通します。モデルは決定的なstubを使うため検出精度の証明にはなりません。`anchoredFeatureTracker.test.ts`は合成テクスチャの既知の足元移動を旧方式と比較し、平均誤差の削減・最大誤差・特徴消失時の停止を確認します。
+
+### ローカルレビューの修正・配布
+
+- `timelineRangeEditing.test.ts` / `useTimelineRangeEditing.test.tsx`: 分割の端点拒否、結合の同一行制約、メタデータ保持、1回のUndo/Redoを検証。
+- `scripts/e2e-timeline-rows.mjs`: 独立Timelineの右クリック分割、ショートカット結合、保存された区間とUndoを合成映像で確認。
+- `exportPreflight.test.ts`: 欠落ファイルの一括通知、選択アングルだけの検査、仮想Timelineの元映像検査、無効範囲・保存先を確認。
+- `scripts/e2e-export-progress.mjs`: 後続クリップが欠落した場合、先頭の正常クリップも出力しないことと、同名再出力で既存動画の内容が変わらないことを実IPC / FFmpegで確認。
+
+### 戦術盤
+
+`node scripts/e2e-tactical-board.mjs` は実Electronで部分較正、HTTPを遮断した同梱モデル推論、配置・削除・Undo、PNG保存、Playlist再読込を確認します。PNGはファイルの存在だけで判定せず、末尾のIENDチャンクまで書き終わるのを待ち、FFmpegでデコードした画素を検証します。描画位置・重複抑制・不正データ拒否はunit testで既知座標から検証します。自動認識の人数精度はこの合成映像試験の評価対象に含めません。
+
+`pnpm run test:e2e` はビルド後に `scripts/run-electron-e2e.mjs` で独立した14シナリオを順番に実行します。途中の失敗も収集して残りを検証し、1件でも失敗した場合は終了コード1を返します。各シナリオは専用の一時profileとpackageを破棄します。既に検証済みのapp/main/preloadを再利用する場合は `node scripts/run-electron-e2e.mjs` を使用できます。

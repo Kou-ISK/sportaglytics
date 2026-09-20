@@ -1,6 +1,13 @@
+import type {
+  AngleSyncSnapshot,
+  AngleSyncCommand,
+} from '../../../../types/ipc/angleSync';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { HotkeyConfig } from '../../../../types/settings/coreTypes';
-import type { TimelineData, TimelineRow } from '../../../../types/timeline/core';
+import type {
+  TimelineData,
+  TimelineRow,
+} from '../../../../types/timeline/core';
 import type { TimelineWindowCommand } from '../../../../types/ipc/timelineWindow';
 import { buildTimelineRowSortMoves } from '../../shared/timelineRowSort';
 import {
@@ -12,6 +19,8 @@ import {
 } from '../gateways/timelineWindowGateway';
 
 interface UseTimelineWindowIntegrationParams {
+  angleSync?: AngleSyncSnapshot;
+  onAngleSyncCommand: (command: AngleSyncCommand) => void;
   isFileSelected: boolean;
   timeline: TimelineData[];
   rows: TimelineRow[];
@@ -38,6 +47,8 @@ interface UseTimelineWindowIntegrationParams {
     ids: string[],
     updates: Partial<Omit<TimelineData, 'id'>>,
   ) => void;
+  onSplitItem: (id: string, time: number) => void;
+  onMergeItems: (ids: string[]) => void;
   onDuplicateItem: (id: string) => string | null;
   onCreateItem: (
     actionName: string,
@@ -66,6 +77,7 @@ export const useTimelineWindowIntegration = (
 
   const payload = useMemo(
     () => ({
+      angleSync: params.angleSync,
       timeline: params.timeline,
       rows: params.rows,
       maxSec: params.maxSec,
@@ -79,6 +91,7 @@ export const useTimelineWindowIntegration = (
       updatedAt: Date.now(),
     }),
     [
+      params.angleSync,
       params.currentTime,
       params.hotkeys,
       params.isPlaying,
@@ -129,6 +142,7 @@ export const useTimelineWindowIntegration = (
   useEffect(() => {
     syncLatest();
   }, [
+    params.angleSync,
     params.hotkeys,
     params.isFileSelected,
     params.isPlaying,
@@ -172,6 +186,9 @@ export const useTimelineWindowIntegration = (
       subscribeTimelineWindowCommand((command: TimelineWindowCommand) => {
         const current = paramsRef.current;
         switch (command.type) {
+          case 'angle-sync':
+            current.onAngleSyncCommand(command.command);
+            break;
           case 'request-sync':
             syncTimelineWindow(payloadRef.current);
             break;
@@ -200,6 +217,12 @@ export const useTimelineWindowIntegration = (
           case 'bulk-update-items':
             current.onBulkUpdateItems(command.ids, command.updates);
             break;
+          case 'split-item':
+            current.onSplitItem(command.id, command.time);
+            break;
+          case 'merge-items':
+            current.onMergeItems(command.ids);
+            break;
           case 'duplicate-item': {
             const id = current.onDuplicateItem(command.id);
             if (id) current.onSelectionChange([id]);
@@ -227,7 +250,9 @@ export const useTimelineWindowIntegration = (
               current.rows,
               current.timeline,
               command.spec,
-            ).forEach((move) => current.onMoveRow(move.sourceId, move.targetId));
+            ).forEach((move) =>
+              current.onMoveRow(move.sourceId, move.targetId),
+            );
             break;
           case 'delete-rows':
             current.onDeleteRows(command.ids);

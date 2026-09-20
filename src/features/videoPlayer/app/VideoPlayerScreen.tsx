@@ -1,4 +1,15 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import {
+  angleIndexForHotkey,
+  angleIndexForView,
+} from '../../../shared/media/angleView';
+import type { VideoViewMode } from '../../../shared/media/angleView';
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+} from 'react';
 import { Box } from '@mui/material';
 import {
   AnalysisPanel,
@@ -16,7 +27,8 @@ import { useTimelineExportImport } from './hooks/useTimelineExportImport';
 import { useRawTimelineCsvExport } from '../analysis/hooks/useRawTimelineCsvExport';
 import { OnboardingTutorial } from '../../../components/OnboardingTutorial';
 import { useHotkeyBindings } from './hooks/useHotkeyBindings';
-import { useManualSyncSeek } from './hooks/useManualSyncSeek';
+import { useAngleSyncSession } from './hooks/sync/useAngleSyncSession';
+import { useClipSyncCommands } from './hooks/sync/useClipSyncCommands';
 import { usePlaylistIntegration } from './hooks/usePlaylistIntegration';
 import { VideoPlayerLayout } from './components/VideoPlayerLayout';
 import { useAnalysisIntegration } from './hooks/useAnalysisIntegration';
@@ -29,7 +41,7 @@ import { useTimelineWindowIntegration } from './hooks/useTimelineWindowIntegrati
 import { useTimelineActionPresentationSync } from './hooks/useTimelineActionPresentationSync';
 import { useContinuousReversePlayback } from '../../../hooks/useContinuousReversePlayback';
 import { getMinAllowedGlobalTime } from './hooks/useVideoTimeController';
-import { EventDetectionDialogView } from '../eventDetection/components/EventDetectionDialogView';
+import { useEventDetectionWindowHost } from '../eventDetection/hooks/useEventDetectionWindowHost';
 import { useEventDetectionController } from '../eventDetection/hooks/useEventDetectionController';
 import { useNotification } from '../../../contexts/NotificationContext';
 import {
@@ -85,6 +97,8 @@ export const VideoPlayerScreen = () => {
     updateTimelineItem,
     bulkUpdateTimelineItems,
     duplicateTimelineItem,
+    splitTimelineItem,
+    mergeTimelineItems,
     resyncAudio,
     resetSync,
     manualSyncFromPlayers,
@@ -100,9 +114,7 @@ export const VideoPlayerScreen = () => {
   } = useVideoPlayerScreenController();
   const { notify } = useNotification();
 
-  const [viewMode, setViewMode] = useState<'dual' | 'angle1' | 'angle2'>(
-    'dual',
-  );
+  const [viewMode, setViewMode] = useState<VideoViewMode>('dual');
   const [openWizardRequestKey, setOpenWizardRequestKey] = useState(0);
 
   // This listener belongs to the screen lifecycle, not the setup selector.
@@ -156,7 +168,6 @@ export const VideoPlayerScreen = () => {
   }, [setIsFileSelected]);
 
   useMetadataTeamNames({ metaDataConfigFilePath, setTeamNames });
-  useManualSyncSeek({ syncMode, syncData, videoList });
 
   // ホットキー設定を読み込み
   const { settings } = useSettings();
@@ -184,6 +195,7 @@ export const VideoPlayerScreen = () => {
     activeCodeWindow,
     addTimelineDatas,
   });
+  useEventDetectionWindowHost(eventDetectionViewProps);
 
   const codingPanelRuntimeRef = useRef<EnhancedCodePanelHandle | null>(null);
 
@@ -198,10 +210,18 @@ export const VideoPlayerScreen = () => {
       onSeek: (time) => handleCurrentTime(new Event('reverse-playback'), time),
     });
 
+  const { requestClipSync, changeSyncMode } = useClipSyncCommands({
+    mediaAngles,
+    syncMode,
+    setSyncMode,
+    setIsVideoPlaying: setisVideoPlaying,
+    manualSyncFromPlayers,
+  });
+
   // 手動同期適用ハンドラ
   const handleApplyManualSync = useCallback(async () => {
-    await manualSyncFromPlayers();
-  }, [manualSyncFromPlayers]);
+    await cancelManualSync();
+  }, [cancelManualSync]);
 
   const {
     analysisOpen,
@@ -235,8 +255,8 @@ export const VideoPlayerScreen = () => {
       performRedo,
       resyncAudio,
       resetSync,
-      manualSyncFromPlayers,
-      setSyncMode,
+      manualSyncFromPlayers: requestClipSync,
+      setSyncMode: changeSyncMode,
       onAnalyze: () => {
         void openAnalysisWindow();
       },
@@ -246,13 +266,24 @@ export const VideoPlayerScreen = () => {
     });
 
   // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）
-  useGlobalHotkeys(combinedHotkeys, combinedHandlers, keyUpHandlers);
+  const workspaceHotkeys = useMemo(
+    () =>
+      syncMode === 'manual'
+        ? combinedHotkeys.filter(
+            (hotkey) =>
+              ['manual-sync', 'toggle-manual-mode'].includes(hotkey.id) ||
+              angleIndexForHotkey(hotkey.id) !== null,
+          )
+        : combinedHotkeys,
+    [combinedHotkeys, syncMode],
+  );
+  useGlobalHotkeys(workspaceHotkeys, combinedHandlers, keyUpHandlers);
 
   useSyncMenuHandlers({
     onResyncAudio: resyncAudio,
     onResetSync: resetSync,
-    onManualSync: manualSyncFromPlayers,
-    onSetSyncMode: setSyncMode,
+    onManualSync: requestClipSync,
+    onSetSyncMode: changeSyncMode,
   });
 
   useTimelineExportImport({ timeline, setTimeline });
@@ -265,22 +296,47 @@ export const VideoPlayerScreen = () => {
     setIsVideoPlaying: setisVideoPlaying,
   });
 
+  const angleSync = useAngleSyncSession(
+    {
+      mediaAngles,
+      syncData,
+      initialTime: currentTime,
+      metaDataConfigFilePath,
+      setMediaAngles,
+      setVideoList,
+      setSyncData,
+      onApplySync: handleApplyManualSync,
+      onCancel: () => {
+        void cancelManualSync();
+      },
+    },
+    syncMode === 'manual',
+    settings.hotkeys,
+    angleIndexForView(viewMode),
+  );
+
   useTimelineWindowIntegration({
     isFileSelected,
     timeline,
     rows: timelineRows,
-    maxSec,
-    currentTime,
-    isPlaying: isVideoPlaying,
+    angleSync: angleSync.snapshot,
+    onAngleSyncCommand: angleSync.command,
+    maxSec: angleSync.snapshot ? angleSync.maxSec : maxSec,
+    currentTime: angleSync.snapshot ? angleSync.currentTime : currentTime,
+    isPlaying: angleSync.snapshot
+      ? angleSync.transport.playing
+      : isVideoPlaying,
     playbackRate: videoPlayBackRate,
     selectedIds: selectedTimelineIdList,
     teamNames,
     videoSources: videoList,
-    hotkeys: combinedHotkeys,
+    hotkeys: workspaceHotkeys,
     hotkeyHandlers: combinedHandlers,
     hotkeyKeyUpHandlers: keyUpHandlers,
     onSeek: (time) =>
-      handleCurrentTime(new Event('timeline-window-seek'), time),
+      angleSync.snapshot
+        ? angleSync.transport.seek(time)
+        : handleCurrentTime(new Event('timeline-window-seek'), time),
     onSelectionChange: setSelectedTimelineIdList,
     onDeleteItems: deleteTimelineDatas,
     onUpdateMemo: updateMemo,
@@ -288,6 +344,8 @@ export const VideoPlayerScreen = () => {
     onUpdateItem: updateTimelineItem,
     onBulkUpdateItems: bulkUpdateTimelineItems,
     onDuplicateItem: duplicateTimelineItem,
+    onSplitItem: splitTimelineItem,
+    onMergeItems: mergeTimelineItems,
     onCreateItem: (actionName, startTime, endTime, color) =>
       addTimelineData(
         actionName,
@@ -390,15 +448,11 @@ export const VideoPlayerScreen = () => {
         setIsFileSelected={setIsFileSelected}
         setTimelineFilePath={setTimelineFilePath}
         setPackagePath={setPackagePath}
-        metaDataConfigFilePath={metaDataConfigFilePath}
         setMetaDataConfigFilePath={setMetaDataConfigFilePath}
         setSyncData={setSyncData}
         mediaAngles={mediaAngles}
         setMediaAngles={setMediaAngles}
-        onApplyManualSync={handleApplyManualSync}
-        onCancelManualSync={() => {
-          void cancelManualSync();
-        }}
+        angleSync={angleSync}
       />
       <CodingPanelRuntime
         ref={codingPanelRuntimeRef}
@@ -423,7 +477,6 @@ export const VideoPlayerScreen = () => {
         onJumpToSegment={handleJumpToSegment}
         onCreateAiPlaylist={handleCreateAiPlaylist}
       />
-      <EventDetectionDialogView {...eventDetectionViewProps} />
 
       <ErrorSnackbar error={error} onClose={() => setError(null)} />
       <SyncAnalysisBackdrop

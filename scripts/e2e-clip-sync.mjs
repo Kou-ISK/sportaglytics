@@ -1,3 +1,4 @@
+import { getSyncTimeline } from './e2e-angle-sync-workspace.mjs';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 import assert from 'node:assert/strict';
@@ -230,26 +231,54 @@ try {
   };
   await addYoutube('https://www.youtube.com/watch?v=M7lc1UVf-VE');
   await addYoutube('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+  await page
+    .getByRole('button', { name: 'アングルを追加', exact: true })
+    .click();
+  await addYoutube('https://www.youtube.com/watch?v=M7lc1UVf-VE');
 
   await page.getByRole('button', { name: 'パッケージを作成…' }).click();
   await page.locator('#video_0').waitFor({ timeout: 30_000 });
   await page.keyboard.press(`${primaryModifier}+Shift+T`);
-  await page.getByText('クリップ単位シンク').waitFor();
+  await page
+    .getByLabel('アングル同期ワークスペース', { exact: true })
+    .waitFor();
   assert.equal(
     await page.getByRole('combobox').count(),
-    2,
-    'reference and target clip selectors must be visible',
+    0,
+    'sync operates on angles without source selectors',
   );
   await electronApp.evaluate(({ session }) => {
     session.defaultSession.setDisplayMediaRequestHandler((_request, callback) =>
       callback({}),
     );
   });
-  await page.getByRole('button', { name: '音声で微調整' }).click();
-  await page
-    .getByText('音声を解析できませんでした。手動配置は維持されています。')
+  const syncTimeline = await getSyncTimeline(electronApp);
+  for (const key of ['1', '2']) {
+    await syncTimeline.keyboard.press(`Shift+${key}`);
+    await syncTimeline
+      .getByRole('button', { name: '同期点を設定', exact: true })
+      .click();
+    await syncTimeline.waitForFunction(
+      (count) =>
+        document.querySelectorAll('[aria-label$="の同期点"]').length === count,
+      Number(key),
+    );
+  }
+  await syncTimeline
+    .getByRole('button', { name: '同期のその他の操作' })
+    .click();
+  await syncTimeline.getByRole('menuitem', { name: '音声で微調整' }).click();
+  await syncTimeline
+    .getByText(
+      '音声を解析できませんでした。同期点と手動調整は維持されています。',
+    )
     .waitFor();
-  await page.getByRole('button', { name: 'キャンセル' }).click();
+  await syncTimeline
+    .getByRole('button', { name: '同期のその他の操作' })
+    .click();
+  await syncTimeline
+    .getByRole('menuitem', { name: '変更を破棄して終了' })
+    .click();
 
   const config = JSON.parse(
     await fs.readFile(
@@ -369,7 +398,7 @@ try {
   electronApp = await launch([packagePath]);
   page = await electronApp.firstWindow();
   await page.locator('#video_0').waitFor({ timeout: 30_000 });
-  await page.locator('iframe[src*="M7lc1UVf-VE"]').waitFor({
+  await page.locator('#video_0 iframe[src*="M7lc1UVf-VE"]').waitFor({
     timeout: 30_000,
   });
   await page.keyboard.press('Space');
@@ -377,8 +406,10 @@ try {
     timeout: 30_000,
   });
   await page.keyboard.press(`${primaryModifier}+Shift+T`);
-  await page.getByText('クリップ単位シンク').waitFor();
-  assert.equal(await page.getByRole('combobox').count(), 2);
+  await page
+    .getByLabel('アングル同期ワークスペース', { exact: true })
+    .waitFor();
+  assert.equal(await page.getByRole('combobox').count(), 0);
 
   console.log(`Electron E2E passed: ${packagePath}`);
 } finally {

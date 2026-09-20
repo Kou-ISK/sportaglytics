@@ -2,7 +2,15 @@
 
 このドキュメントは SporTagLytics のディレクトリ構成と配置判断ルールです。アーキテクチャ規約の正本は `AGENTS.md`、現行アーキテクチャ要約は [system-overview.md](system-overview.md) です。本書は「新しいファイルをどこに置くか」を判断するための実務ガイドです。
 
+複数クリップの時刻契約は `src/shared/media/`、パッケージ参照の解決は `electron/src/ipc/mediaTimelineSource.ts`、Playlistの映像切替・読込状態は `src/features/playlist/media/` に置きます。`videoFrameClock` は映像要素に結び付いたアダプターメタデータだけを保持し、アプリの状態源や保存形式にはしません。
+
+アングル同期のprops-only UIは `features/videoPlayer/app/components/AngleSync*View`、動画への接続は `AngleSyncPreviewScreen`、時計・同期点・保存は `app/hooks/sync/useAngleSync*` に配置します。既存時間目盛り上の同期点は `components/Timeline/VisualTimeline/TimelineSyncMarkersView`、ウィンドウ間の契約は `types/ipc/angleSync.ts` と既存Timeline IPC、計算は `angleSync.ts`、Mainの制限付きフレーム取得は `electron/src/ipc/mediaFrameService.ts` に分離します。
+
 ## Top-Level Layout
+
+書き出しの範囲計算は `electron/src/ipc/exportTimelineRange.ts`、必要素材と進捗は `exportSourcePreparation.ts`、一時映像の合成は `exportTimelineComposition.ts`、無再圧縮の適合判定は `exportStreamCopy.ts` が担当します。WindowやViewへFFmpeg条件を持ち込みません。
+
+映像書き出しのメニュー通知先は `electron/src/menu/clipExportMenuAction.ts`、Timelineの表示と準備待ちは `electron/src/timelineWindow.ts`、ダイアログ状態は各featureのHookが担当します。メニュー定義にWindow所有者の判断やFFmpeg処理を埋め込みません。
 
 | Path         | Role                                           | Placement rule                                                            |
 | ------------ | ---------------------------------------------- | ------------------------------------------------------------------------- |
@@ -83,13 +91,14 @@ src/features/videoPlayer/
 ├── analysis/                    # renderer-side statistics/domain
 ├── components/                  # player/coding/analysis feature UI
 ├── eventDetection/              # automatic event coding
-│   ├── components/
-│   │   ├── EventDetectionDialogView.tsx
-│   │   └── EventDetectionDialogView.test.tsx
+│   ├── EventDetectionWindowScreen.tsx
+│   ├── components/              # Panel / Mappings / ModelEvaluation Views + stories
 │   ├── hooks/
-│   │   └── useEventDetectionController.ts
+│   │   ├── useEventDetectionController.ts
+│   │   └── useEventDetectionWindowHost.ts
 │   ├── gateway/
-│   │   └── eventDetectionGateway.ts
+│   │   ├── eventDetectionGateway.ts
+│   │   └── eventDetectionWindowGateway.ts
 │   └── domain/
 │       ├── candidatesToTimeline.ts
 │       ├── candidatesToTimeline.test.ts
@@ -236,6 +245,7 @@ Repo全体へ作用する検査・report・E2Eは `scripts/` です。
 scripts/
 ├── check-architecture.js
 ├── check-adr.js
+├── check-electron-runtime.mjs
 ├── check-preload-bundle.js
 ├── report-architecture-health.js
 ├── report-large-files.js
@@ -313,6 +323,7 @@ feature固有の `*.stories.tsx` は対象のprops-only Viewと同じディレ�
 - `src/features/playlist/studio/tracking/`: 動画フレーム読取・テンプレート追跡・結果適用hook。
 - `src/features/playlist/studio/Tactics*View.tsx` / `PitchCalibration*View.tsx`: props-onlyの区間・追跡・較正・プリセットUI。
 - `src/features/playlist/studio/tacticsPreferencesGateway.ts`: 端末設定の読込検証と保存。
+- `electron/src/ipc/exportFfmpegRunners.ts` / `exportFfmpegDual.ts` / `exportFfmpegCommon.ts`: 単画面・2画面の組立と共通の型／実行処理。
 - `electron/src/ipc/exportMotionOverlays.ts` / `exportChroma.ts`: 検証済みの動画描画を静止挿入前のFFmpeg filterへ変換。
 
 利用者向けの名称はPaint。`studio/` と既存内部モード値は互換性のため維持する。
@@ -334,3 +345,21 @@ Paintの数値入力は `studio/StudioNumberFieldView.tsx` が入力中のdraft�
 ## プラットフォーム配布
 
 `scripts/media-tools/` は共通source pin・process runnerとmacOS/Windowsのビルド手順を分割する。`scripts/prepare-mac-llama.mjs` はMac CPU別の検証済みAI実行ファイルを `.cache/llama/darwin-<arch>` へ配置する。`scripts/windows/` はNSIS拡張・Windowsネイティブ依存検査・インストール試験。生成物は `.cache/`、配布物は `dist/` に置きgitへ追加しない。機能ViewへOS分岐を散らさず `src/utils/platformShortcut.ts` とElectronの境界で吸収する。
+
+## 自動検出の独立画面
+
+`src/features/videoPlayer/eventDetection/`にPanel/Mappingsのprops-only View、子のScreen、所有元のController/Host Hook、Gatewayを配置する。`electron/src/eventDetectionWindow.ts`はPackage Sessionの所有権とウィンドウ、`src/types/ipc/eventDetectionWindow.ts`はsnapshot/command契約を所有する。アプリ全体の前面表示は`electron/src/applicationWindowActivation.ts`へ分離する。
+
+### Timeline区間編集・書き出し事前確認の配置
+
+- `src/features/videoPlayer/shared/timelineRangeEditing.ts`: TimelineData配列の分割・結合。View、IPC、永続化に依存しない。
+- `src/features/videoPlayer/app/hooks/useTimelineRangeEditing.ts`: 編集結果の一括commitと選択。`components/Timeline/VisualTimeline/hooks/useTimelineRangeCommands.ts`は操作可否とフォーカスを扱う。
+- `electron/src/ipc/exportPayloadValidation.ts` / `exportSourceSelection.ts` / `exportPreflight.ts`: payload検証、使用ソース選択、ファイル事前確認。`exportVirtualTimelineSource.ts`は検査用計画と合成処理を分ける。
+
+### 戦術盤の配置
+
+- `src/features/playlist/studio/board/`: 戦術盤のView、編集/認識Controller Hook、モデル実行/画像保存Gateway。
+- `src/types/playlist/tacticalBoard.ts`: 保存型。`src/shared/tactics/tacticalBoard.ts` と `pitchProjection.ts`: 検証・射影計算。
+- `scripts/prepare-pitch-vision.mjs`: 固定資産の準備。`resources/pitch-vision/`: 出典・権利表示。生成先 `public/pitch-vision/` はGit対象外。
+
+再生・同期で共用するアングルIDと表示モードは `shared/media/angleView.ts`、キー割り当ては既存のSettingsを正本とします。

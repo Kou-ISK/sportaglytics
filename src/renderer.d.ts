@@ -1,3 +1,5 @@
+import type { MediaTimeline } from './shared/media/mediaTimeline';
+import type { IEventDetectionWindowAPI } from './types/ipc/eventDetectionWindow';
 import type { IPlaylistAPI } from './types/playlist/api';
 import type { AnalysisView } from './types/analysis/view';
 import type { AnalysisReportPayload } from './report/types';
@@ -84,6 +86,13 @@ export interface IElectronAPI {
       angleOffsets?: number[];
     },
   ) => Promise<boolean>;
+  readMediaFrameWindow: (
+    source: string,
+    time: number,
+  ) => Promise<{ times: number[]; start: number; end: number }>;
+  resolveMediaTimelines: (
+    sources: string[],
+  ) => Promise<Array<MediaTimeline | null>>;
   applyClipTimeline: (
     configPath: string,
     placements: Array<{
@@ -91,6 +100,7 @@ export interface IElectronAPI {
       timelineStartSeconds: number;
       durationSeconds?: number;
     }>,
+    angleOffsets?: number[],
   ) => Promise<PackageDatas>;
   extractLocalAudioWindow: (
     videoPath: string,
@@ -121,6 +131,7 @@ export interface IElectronAPI {
   codingPanelWindow: ICodingPanelWindowAPI;
   timelineWindow: ITimelineWindowAPI;
   eventDetection: IEventDetectionAPI;
+  eventDetectionWindow: IEventDetectionWindowAPI;
   llama: {
     generate: (payload: {
       prompt: string;

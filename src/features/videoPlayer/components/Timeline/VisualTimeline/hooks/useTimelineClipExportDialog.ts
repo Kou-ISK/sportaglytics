@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { sendTimelineWindowCommand } from '../../../../app/gateways/timelineWindowGateway';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import {
   canExportClipsWithOverlay,
@@ -61,8 +62,15 @@ export const useTimelineClipExportDialog = ({
   info,
 }: UseTimelineClipExportDialogParams): UseTimelineClipExportDialogResult => {
   const [clipDialogOpen, setClipDialogOpen] = useState(false);
-  const [overlaySettings, setOverlaySettings] =
+  const [overlaySettings, updateOverlaySettings] =
     useState<ClipExportOverlaySettings>(DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS);
+  const settingsRevision = useRef(0);
+  const setOverlaySettings = useCallback<
+    React.Dispatch<React.SetStateAction<ClipExportOverlaySettings>>
+  >((value) => {
+    settingsRevision.current++;
+    updateOverlaySettings(value);
+  }, []);
   const [primarySource, setPrimarySource] = useState<string | undefined>(
     videoSources?.[0],
   );
@@ -99,11 +107,12 @@ export const useTimelineClipExportDialog = ({
   }, [videoSources]);
 
   const handleOpenClipDialog = useCallback(async () => {
-    const settings = await loadClipOverlaySettings();
-    if (settings) {
-      setOverlaySettings(settings);
-    }
     setClipDialogOpen(true);
+    const revision = ++settingsRevision.current;
+    const settings = await loadClipOverlaySettings();
+    if (settings && revision === settingsRevision.current) {
+      updateOverlaySettings(settings);
+    }
   }, []);
 
   const handleExportClips = useCallback(async () => {
@@ -186,9 +195,15 @@ export const useTimelineClipExportDialog = ({
   ]);
 
   useEffect(() => {
-    return subscribeClipExportMenuRequest(() => {
-      handleOpenClipDialog();
+    const unsubscribe = subscribeClipExportMenuRequest(() => {
+      void handleOpenClipDialog();
     });
+    // did-finish-load precedes React/data readiness; announce only after subscribing.
+    sendTimelineWindowCommand({ type: 'clip-export-ready', ready: true });
+    return () => {
+      sendTimelineWindowCommand({ type: 'clip-export-ready', ready: false });
+      unsubscribe();
+    };
   }, [handleOpenClipDialog]);
 
   return {

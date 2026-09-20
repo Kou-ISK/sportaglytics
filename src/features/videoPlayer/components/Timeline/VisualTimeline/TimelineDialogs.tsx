@@ -25,6 +25,10 @@ interface TimelineDialogsProps {
   onContextMenuDelete: () => void;
   onContextMenuJumpTo: () => void;
   onContextMenuDuplicate: () => void;
+  onSplit?: () => void;
+  onMerge?: () => void;
+  canSplit?: boolean;
+  canMerge?: boolean;
   onAddToPlaylist?: (items: TimelineData[]) => void;
   timeline: TimelineData[];
   selectedIds: string[];
@@ -36,6 +40,8 @@ interface TimelineDialogsProps {
   onCloseLabelDialog: () => void;
   onApplyLabel: () => void;
   clipDialogOpen: boolean;
+  overlayEnabled: boolean;
+  onOverlayEnabledChange: (enabled: boolean) => void;
   onCloseClipDialog: () => void;
   onExportClips: () => void;
   exportScope: ClipExportScope;
@@ -67,6 +73,10 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
   onContextMenuDelete,
   onContextMenuJumpTo,
   onContextMenuDuplicate,
+  onSplit,
+  onMerge,
+  canSplit,
+  canMerge,
   onAddToPlaylist,
   timeline,
   selectedIds,
@@ -78,6 +88,8 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
   onCloseLabelDialog,
   onApplyLabel,
   clipDialogOpen,
+  overlayEnabled,
+  onOverlayEnabledChange,
   onCloseClipDialog,
   onExportClips,
   exportScope,
@@ -124,6 +136,10 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
         onDelete={onContextMenuDelete}
         onJumpTo={onContextMenuJumpTo}
         onDuplicate={onContextMenuDuplicate}
+        onSplit={onSplit}
+        onMerge={onMerge}
+        canSplit={canSplit}
+        canMerge={canMerge}
         onAddToPlaylist={handleAddToPlaylist}
         selectedCount={selectedIds.length}
       />
@@ -141,6 +157,8 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
 
       <TimelineClipExportDialog
         open={clipDialogOpen}
+        overlayEnabled={overlayEnabled}
+        onOverlayEnabledChange={onOverlayEnabledChange}
         onClose={onCloseClipDialog}
         onExport={onExportClips}
         exportScope={exportScope}

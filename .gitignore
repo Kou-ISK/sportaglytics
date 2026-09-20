@@ -9,6 +9,9 @@ node_modules/
 /coverage
 /output/playwright/
 
+# Local research data and artifacts must stay outside the public repository.
+/research/
+
 # production
 /build
 /dist
@@ -17,6 +20,7 @@ node_modules/
 /.cache/llama
 /.cache/fonts
 /.cache/testing
+/public/pitch-vision/
 
 # misc
 .DS_Store
@@ -44,3 +48,6 @@ resources/event-detection-models/*
 *.p12
 *.cer
 *.certSigningRequest
+
+# Local browser inspection snapshots and logs
+.playwright-cli/

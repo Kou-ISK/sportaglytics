@@ -1,5 +1,9 @@
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  concatFfmpegFiles,
   FfmpegExecutionError,
   parseFfmpegProgressLine,
 } from './exportFfmpegProcess';
@@ -59,4 +63,29 @@ describe('FfmpegExecutionError', () => {
     expect(error.details.stderrTail).toBe('Unknown encoder');
     expect(error.details.commandSummary).not.toContain('/private/path');
   });
+});
+
+it('copies a single completed file byte-for-byte and never overwrites an existing output', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'export-copy-test-'));
+  try {
+    const source = path.join(dir, 'source.mp4');
+    const output = path.join(dir, 'output.mp4');
+    const data = Buffer.from([0, 1, 2, 3]);
+    await fs.writeFile(source, data);
+    await concatFfmpegFiles(
+      () => {
+        throw new Error('FFmpeg must not run');
+      },
+      [source],
+      output,
+    );
+    expect(await fs.readFile(output)).toEqual(data);
+    await fs.writeFile(source, 'replacement');
+    await expect(
+      concatFfmpegFiles(() => '', [source], output),
+    ).rejects.toMatchObject({ code: 'EEXIST' });
+    expect(await fs.readFile(output)).toEqual(data);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
 });

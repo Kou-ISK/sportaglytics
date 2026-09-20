@@ -76,7 +76,7 @@ describe('useTimelineGlobalShortcuts', () => {
       }),
     );
 
-    dispatchKey(window, 'p', { metaKey: true, shiftKey: true });
+    dispatchKey(container, 'p', { metaKey: true, shiftKey: true });
 
     expect(onAddToPlaylist).toHaveBeenCalledWith([timeline[0], timeline[2]]);
   });
@@ -169,7 +169,8 @@ describe('useTimelineGlobalShortcuts', () => {
     const onDeleteItems = vi.fn();
     const container = createTimelineContainer();
     const target = document.createElement(tagName);
-    if (kind === 'contenteditable') target.setAttribute('contenteditable', 'true');
+    if (kind === 'contenteditable')
+      target.setAttribute('contenteditable', 'true');
     if (kind === 'role textbox') target.setAttribute('role', 'textbox');
     container.appendChild(target);
 
@@ -220,3 +221,112 @@ describe('useTimelineGlobalShortcuts', () => {
     expect(onDeleteItems).not.toHaveBeenCalled();
   });
 });
+
+it('leaves navigation and playlist shortcuts alone outside the timeline or in inputs', () => {
+  const container = createTimelineContainer();
+  const input = document.createElement('input');
+  container.append(input);
+  const onSelectionChange = vi.fn();
+  const onAddToPlaylist = vi.fn();
+  renderHook(() =>
+    useTimelineGlobalShortcuts({
+      selectedIds: ['item-1'],
+      selectedRowIds: [],
+      timeline,
+      scrollContainerRef: { current: container },
+      onSelectionChange,
+      onSeek: vi.fn(),
+      onAddToPlaylist,
+    }),
+  );
+  for (const target of [input, document.body]) {
+    for (const key of ['Tab', 'ArrowDown', 'p']) {
+      const event = new KeyboardEvent('keydown', {
+        key,
+        bubbles: true,
+        cancelable: true,
+        altKey: key === 'ArrowDown',
+        metaKey: key === 'p',
+        shiftKey: key === 'p',
+      });
+      target.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+  }
+  expect(onSelectionChange).not.toHaveBeenCalled();
+  expect(onAddToPlaylist).not.toHaveBeenCalled();
+});
+
+it('supports editing, select all and escape without trapping Tab when no item is selected', () => {
+  const container = createTimelineContainer();
+  const item = document.createElement('div');
+  item.dataset.timelineItemId = 'item-2';
+  container.append(item);
+  const onEditItem = vi.fn(),
+    onSelectAll = vi.fn(),
+    onClearSelection = vi.fn();
+  renderHook(() =>
+    useTimelineGlobalShortcuts({
+      selectedIds: [],
+      selectedRowIds: [],
+      timeline,
+      scrollContainerRef: { current: container },
+      onSelectionChange: vi.fn(),
+      onSeek: vi.fn(),
+      onEditItem,
+      onSelectAll,
+      onClearSelection,
+    }),
+  );
+  dispatchKey(item, 'Enter');
+  dispatchKey(container, 'a', { ctrlKey: true });
+  dispatchKey(container, 'Escape');
+  const tab = new KeyboardEvent('keydown', {
+    key: 'Tab',
+    bubbles: true,
+    cancelable: true,
+  });
+  container.dispatchEvent(tab);
+  expect(tab.defaultPrevented).toBe(false);
+  expect(onEditItem).toHaveBeenCalledWith('item-2');
+  expect(onSelectAll).toHaveBeenCalledOnce();
+  expect(onClearSelection).toHaveBeenCalledOnce();
+});
+
+it.each(['metaKey', 'ctrlKey'])(
+  'routes range edits only from the timeline with %s',
+  (modifier) => {
+    const container = createTimelineContainer();
+    const input = document.createElement('input');
+    container.append(input);
+    const onSplit = vi.fn();
+    const onMerge = vi.fn();
+    renderHook(() =>
+      useTimelineGlobalShortcuts({
+        selectedIds: ['item-1'],
+        selectedRowIds: [],
+        timeline,
+        scrollContainerRef: { current: container },
+        onSelectionChange: vi.fn(),
+        onSeek: vi.fn(),
+        onSplit,
+        onMerge,
+      }),
+    );
+    for (const target of [input, document.body]) {
+      dispatchKey(target, 'K', { [modifier]: true, shiftKey: true });
+      dispatchKey(target, 'J', { [modifier]: true, shiftKey: true });
+    }
+    expect(onSplit).not.toHaveBeenCalled();
+    expect(onMerge).not.toHaveBeenCalled();
+    dispatchKey(container, 'K', { [modifier]: true, shiftKey: true });
+    dispatchKey(container, 'J', { [modifier]: true, shiftKey: true });
+    dispatchKey(container, 'K', {
+      [modifier]: true,
+      shiftKey: true,
+      repeat: true,
+    });
+    expect(onSplit).toHaveBeenCalledOnce();
+    expect(onMerge).toHaveBeenCalledOnce();
+  },
+);

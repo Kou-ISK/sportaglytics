@@ -1,11 +1,13 @@
 import { app, BrowserWindow } from 'electron';
 import { EVENT_DETECTION_CHANNELS } from '../../../src/types/ipc/eventDetection';
+import { getPackageSessionForWindow } from '../packageSessionRegistry';
 import { createPlaylistWindow } from '../playlistWindow';
 import { openAnalysisWindow } from '../analysisWindow';
 import { openHelpWindow } from '../helpWindow';
 import { openSettingsWindow } from '../settingsWindow';
 import { openTimelineWindow } from '../timelineWindow';
 import { buildRecentPackageItems } from './recentPackageMenu';
+import { openClipExportFromMenu } from './clipExportMenuAction';
 import {
   openVersionInfoWindow,
   sendToFocusedWindow,
@@ -15,7 +17,9 @@ const getBrowserWindowOwner = (
   window: Electron.BaseWindow | undefined,
 ): BrowserWindow | undefined =>
   window
-    ? BrowserWindow.getAllWindows().find((candidate) => candidate.id === window.id)
+    ? BrowserWindow.getAllWindows().find(
+        (candidate) => candidate.id === window.id,
+      )
     : undefined;
 
 const sendToAllWindows = (channel: string, ...args: unknown[]): void => {
@@ -129,13 +133,10 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
     label: 'エクスポート',
     submenu: [
       {
+        id: 'export-video-clips',
         label: '映像クリップ（オーバーレイ付き）',
         click: (_menuItem, browserWindow) => {
-          if (browserWindow && 'webContents' in browserWindow) {
-            (browserWindow as BrowserWindow).webContents.send(
-              'menu-export-clips',
-            );
-          }
+          void openClipExportFromMenu(browserWindow);
         },
       },
       ...buildTimelineExportItems(),
@@ -227,8 +228,16 @@ export const buildAnalysisMenuItems =
   (): Electron.MenuItemConstructorOptions[] => [
     {
       label: '自動イベント検出…',
-      click: () => {
-        sendToAllWindows(EVENT_DETECTION_CHANNELS.openRequested);
+      click: (_menuItem, browserWindow) => {
+        const owner = getPackageSessionForWindow(
+          getBrowserWindowOwner(browserWindow) ??
+            BrowserWindow.getFocusedWindow(),
+        );
+        if (owner && !owner.mainWindow.isDestroyed()) {
+          owner.mainWindow.webContents.send(
+            EVENT_DETECTION_CHANNELS.openRequested,
+          );
+        }
       },
     },
   ];

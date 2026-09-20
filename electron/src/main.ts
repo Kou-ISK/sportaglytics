@@ -1,3 +1,5 @@
+import { registerEventDetectionWindowHandlers } from './eventDetectionWindow';
+import { registerApplicationWindowActivation } from './applicationWindowActivation';
 import { getRendererUrl } from './rendererUrl';
 import {
   app,
@@ -147,6 +149,8 @@ const createWindow = async (): Promise<BrowserWindow> => {
       sandbox: true,
       nodeIntegration: false,
       webSecurity: true,
+      // Timeline remains interactive while this window owns media decoding and RAF clocks.
+      backgroundThrottling: false,
     },
   });
 
@@ -208,6 +212,7 @@ registerSettingsWindowHandlers();
 registerAnalysisWindowHandlers();
 registerCodingPanelWindowHandlers();
 registerExportProgressWindowHandlers();
+registerEventDetectionWindowHandlers();
 registerTimelineWindowHandlers();
 registerMainIpcHandlers();
 
@@ -349,6 +354,8 @@ if (hasSingleInstanceLock) {
 
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
+  const disposeActivation = registerApplicationWindowActivation();
+  app.once('will-quit', disposeActivation);
   registerLoopbackAudioCapture(session.defaultSession);
   initialWindowPromise = createWindow();
   await initialWindowPromise;

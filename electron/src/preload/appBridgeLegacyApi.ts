@@ -15,6 +15,8 @@ export type AppBridgeLegacyKeys =
   | 'extractAudioWavForSync'
   | 'extractLocalAudioWindow'
   | 'applyClipTimeline'
+  | 'resolveMediaTimelines'
+  | 'readMediaFrameWindow'
   | 'beginLoopbackAudioCapture'
   | 'endLoopbackAudioCapture'
   | 'checkFileExists'
@@ -170,11 +172,16 @@ export const createAppBridgeLegacyApi = (
         return null;
       }
     },
-    applyClipTimeline: async (configPath, placements) => {
+    readMediaFrameWindow: async (source, time) =>
+      ipcRenderer.invoke('media:frame-window', source, time),
+    resolveMediaTimelines: async (sources) =>
+      ipcRenderer.invoke('media:resolve-timelines', sources),
+    applyClipTimeline: async (configPath, placements, angleOffsets) => {
       return ipcRenderer.invoke(
         'package:apply-clip-timeline',
         configPath,
         placements,
+        angleOffsets,
       );
     },
     beginLoopbackAudioCapture: async () => {

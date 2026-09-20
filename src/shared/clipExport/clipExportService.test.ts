@@ -113,3 +113,74 @@ describe('clipExportService', () => {
     expect(onProgress).toHaveBeenLastCalledWith(null);
   });
 });
+
+it('selects each playlist item’s own secondary source and Paint layers for single and all-angle exports', async () => {
+  const clips = [
+    {
+      ...sampleClips[0],
+      videoSource: 'first-main.mp4',
+      videoSource2: 'first-sub.mp4',
+    },
+    {
+      ...sampleClips[0],
+      id: 'clip-2',
+      videoSource: 'second-main.mp4',
+      videoSource2: 'second-sub.mp4',
+    },
+  ];
+  for (const angleOption of ['single', 'allAngles'] as const) {
+    const executeExport = vi.fn().mockResolvedValue({ success: true });
+    const result = await executeClipExport({
+      executeExport,
+      clips,
+      videoSources: ['first-main.mp4', 'first-sub.mp4'],
+      angleOption,
+      selectedAngleIndex: 1,
+      resolvedSources: {},
+      exportMode: 'single',
+      exportFileName: 'paint',
+      overlay: {
+        enabled: false,
+        showActionName: false,
+        showActionIndex: false,
+        showLabels: false,
+        showMemo: false,
+      },
+      successMessage: 'done',
+    });
+    expect(result.success).toBe(true);
+    expect(executeExport.mock.lastCall?.[0].clips).toEqual(
+      clips.map((clip) => ({ ...clip, angleType: 'angle2' })),
+    );
+    if (angleOption === 'allAngles')
+      expect(executeExport.mock.calls[0][0].clips[0].angleType).toBe('angle1');
+  }
+});
+
+it.each(['single', 'allAngles', 'multi'] as const)(
+  'fails before exporting if one playlist item lacks the chosen angle (%s)',
+  async (angleOption) => {
+    const executeExport = vi.fn();
+    const result = await executeClipExport({
+      executeExport,
+      clips: [{ ...sampleClips[0], videoSource: 'main.mp4' }],
+      videoSources: ['main.mp4', 'sub.mp4'],
+      angleOption,
+      selectedAngleIndex: 1,
+      resolvedSources: { sourcePath: 'main.mp4', sourcePath2: 'sub.mp4' },
+      exportMode: 'single',
+      exportFileName: '',
+      overlay: {
+        enabled: false,
+        showActionName: false,
+        showActionIndex: false,
+        showLabels: false,
+        showMemo: false,
+      },
+      successMessage: 'done',
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('アングルがない');
+    expect(executeExport).not.toHaveBeenCalled();
+  },
+);

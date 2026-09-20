@@ -1,5 +1,9 @@
 # SporTagLytics - 技術仕様書
 
+手動同期の操作・フレーム精度・前後半・ウィンドウ比率の要件は[アングル同期仕様](angle-synchronization.md)を正本とします。
+
+複数クリップはアングルごとに順次再生し、共通時刻から `globalTime + angleOffset - timelineStartSeconds` で元映像内の時刻を求める。メイン、参照Playlist、Paint、単一/全アングル/2画面出力で同じ契約を用いる。空白と不足する末尾は黒画面・無音で保持する。組合せの自動判定、重複部分の自動トリム、録画クロックの時間伸縮補正は対象外。操作は[マルチアングル同期](user-guide.md#マルチアングル同期)を参照。
+
 ## 1. プロジェクト概要
 
 ### 1.1 目的
@@ -140,14 +144,21 @@ Timelineへ追加されたeventは、manual/autodetectedを問わず同一data m
 
 - create/update/delete
 - range edit（再生位置を移動せず、確定時に1操作1履歴。Escで未確定の変更を取消）
-- row create/rename/color/reorder/delete
+- row create/rename/color/reorder/delete（行削除は確認必須、取消対象外）
 - instance move/copy
-- multi-select、空白クリックで選択とフォーカス枠を解除
+- multi-select、行内の全インスタンス選択、空白クリック／Escapeで選択とフォーカス枠を解除
+- Delete/Backspaceの削除対象を行／インスタンスの選択に一致させ、入力欄・ダイアログを保護
 - タイムラインのドラッグによるシークは上部のつまみだけで受け付ける
 - memo/label edit
 - Undo/Redo
 - playlist追加
 - import/export
+
+### 区間の分割・結合
+
+- 再生位置が選択した1件の内側にある場合に2分割し、同じ行の複数区間は間の空白を含めて1つに結合する
+- ラベル・メモを保持し、1操作につき1履歴でUndo/Redoする。保存形式はTimelineDocument v2を維持する
+- 右クリックとTimeline内の`Cmd/Ctrl+Shift+K`（分割）/`Cmd/Ctrl+Shift+J`（結合）を提供する。入力欄・ダイアログでは実行しない
 
 ### Detached Timeline window
 
@@ -169,6 +180,10 @@ addTimelineDatas(items: NewTimelineData[]): string[]
 ---
 
 ## 2.4 自動イベント検出
+
+設定・進捗・結果はPackage Sessionごとの独立ウィンドウへ表示し、映像の比率に依存させない。背景実行・再表示・取消の契約は[解析ウィンドウ](event-detection.md#解析ウィンドウ)に従う。
+
+比較用model packは既存Codingとの一致率を一般的な精度として表示しないこと。schema 2 / `reference-coding` は試験モデル専用とし、検証済みモデルへの偽装と旧アプリでの誤表示を拒否すること。
 
 ### 目的
 
@@ -351,7 +366,9 @@ AI Analysis:
 - Organizer / Sorter / Paintの切替と共通の文書順序
 - Paintの位置キー編集、範囲指定による追尾、クリックによる2〜15点の選手リンク
 - Paint内でBackspace/Deleteの対象を点/描画に限定し、クリップ削除を防ぐ
-- 芝色のアングル別合成、手動平面較正、端末内プリセット
+- 芝色のアングル別合成、部分ピッチを指定する4点較正、フレーム再確認、端末内プリセット
+- クリップ・アングル別の静止戦術盤、選手・ボール・矢印の直接編集、PNG保存
+- 同梱モデルによる端末内の人物・ボール候補検出と俯瞰投影。チーム識別・自動カメラ追従・空中位置推定は対象外
 
 制限と保存契約は[Playlist](playlist-features.md)と[Paint](tactics.md)を正本とする。
 
@@ -367,11 +384,15 @@ Timeline:
 
 Clip export:
 
+- 情報表示をダイアログで切り替え、安全に元の圧縮データを保持できる場合はコピーで出力する。フレーム境界・描画・同期空白を保つ必要がある場合は再エンコードする。準備範囲と進捗は[高速書き出し仕様](user-guide.md#元の画質を保つ高速書き出し)に従う
+
 - selected/all instances
 - instance/action/combined modes
 - overlay
 - single/multi angle
 - dedicated progress window
+- 書き出し時は各出力アングルの必要なローカル映像・仮想Timelineの元クリップ・時刻範囲・保存先権限をエンコード前に確認し、既存出力と同名なら連番を付ける。容量見積もりと自動再試行は対象外
+- Paintのアングル別描画・区間途中の追尾・複数フリーズと音声同期を保持。異解像度の2画面は縦横比を保って高さを統一し、描画生成失敗や欠落アングルを通知
 
 ---
 

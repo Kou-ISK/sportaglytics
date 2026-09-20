@@ -2,6 +2,10 @@ import type { ReactElement, PointerEvent } from 'react';
 import { useTheme } from '@mui/material';
 import type { PitchCalibrationControls } from './usePitchCalibration';
 import type { StudioContentRect } from './useStudioGesture';
+import {
+  calibrationRegion,
+  pitchToImage,
+} from '../../../shared/tactics/pitchProjection';
 export const PitchCalibrationOverlayView = ({
   pitch,
   width,
@@ -14,7 +18,20 @@ export const PitchCalibrationOverlayView = ({
   contentRect: StudioContentRect;
 }): ReactElement | null => {
   const theme = useTheme();
-  if (!pitch.editing) return null;
+  if (!pitch.editing && !pitch.calibrated) return null;
+  const region = calibrationRegion(pitch.draft);
+  const grid = [0.25, 0.5, 0.75]
+    .flatMap((fraction) => [
+      [
+        { x: region.x + region.width * fraction, y: region.y },
+        { x: region.x + region.width * fraction, y: region.y + region.length },
+      ],
+      [
+        { x: region.x, y: region.y + region.length * fraction },
+        { x: region.x + region.width, y: region.y + region.length * fraction },
+      ],
+    ])
+    .map((line) => line.map((point) => pitchToImage(pitch.draft, point)));
   const move = (event: PointerEvent<SVGCircleElement>, index: number): void => {
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
     const rect = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
@@ -57,12 +74,27 @@ export const PitchCalibrationOverlayView = ({
         stroke={theme.palette.primary.main}
         strokeWidth={2}
       />
+      {grid.map(([a, b], i) =>
+        a && b ? (
+          <line
+            key={i}
+            x1={a.x * contentRect.width + contentRect.offsetX}
+            y1={a.y * contentRect.height + contentRect.offsetY}
+            x2={b.x * contentRect.width + contentRect.offsetX}
+            y2={b.y * contentRect.height + contentRect.offsetY}
+            stroke={theme.palette.primary.main}
+            strokeWidth={1}
+            opacity={0.6}
+            strokeDasharray="5 4"
+          />
+        ) : null,
+      )}
       {points.map((point, index) => (
         <g key={index}>
           <circle
             aria-label={`較正点${index + 1}`}
-            role="slider"
-            tabIndex={0}
+            role={pitch.editing ? 'slider' : undefined}
+            tabIndex={pitch.editing ? 0 : undefined}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(pitch.draft.corners[index].x * 100)}
@@ -74,7 +106,7 @@ export const PitchCalibrationOverlayView = ({
             stroke={theme.palette.primary.main}
             strokeWidth={2}
             style={{
-              pointerEvents: 'auto',
+              pointerEvents: pitch.editing ? 'auto' : 'none',
               touchAction: 'none',
               cursor: 'move',
             }}

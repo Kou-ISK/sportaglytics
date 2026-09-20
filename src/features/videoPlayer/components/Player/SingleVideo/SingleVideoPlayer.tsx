@@ -1,3 +1,4 @@
+import { useMediaTimeSync } from './hooks/useMediaTimeSync';
 import { Box, Typography, IconButton, Tooltip } from '@mui/material';
 import Fullscreen from '@mui/icons-material/Fullscreen';
 import FullscreenExit from '@mui/icons-material/FullscreenExit';
@@ -18,6 +19,7 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
   allowSeek = true,
   onAspectRatioChange,
   initialTimeSeconds = 0,
+  timelineTimeSeconds,
 }) => {
   const { containerRef, videoRef, playerRef, isReady, durationSec } =
     useVideoJsPlayer({
@@ -27,6 +29,8 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
       setMaxSec,
       onAspectRatioChange,
     });
+
+  useMediaTimeSync(playerRef, isReady, timelineTimeSeconds, isVideoPlaying);
 
   const [showEndMask, setShowEndMask] = useState(false);
   const [isHovered, setIsHovered] = useState(false);

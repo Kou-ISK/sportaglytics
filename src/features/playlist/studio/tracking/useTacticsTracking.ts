@@ -24,6 +24,7 @@ export interface TacticsTrackingProps {
 export const useTacticsTracking = ({
   documentKey,
   source,
+  sourceTimeOffset = 0,
   selected,
   endTime,
   time,
@@ -32,6 +33,7 @@ export const useTacticsTracking = ({
 }: {
   documentKey: string;
   source: () => string | undefined;
+  sourceTimeOffset?: number;
   selected: DrawingObject | null;
   endTime: number;
   time: number;
@@ -117,6 +119,7 @@ export const useTacticsTracking = ({
         ),
       time,
       region,
+      sourceTimeOffset,
     )
       .then((result) => {
         if (controller.signal.aborted) return;

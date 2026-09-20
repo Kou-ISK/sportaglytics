@@ -6,5 +6,5 @@ import type { VisualTimelineProps } from './VisualTimeline.types';
 export const VisualTimeline: React.FC<VisualTimelineProps> = (props) => {
   const viewProps = useVisualTimelineController(props);
 
-  return <VisualTimelineView {...viewProps} />;
+  return <VisualTimelineView {...viewProps} angleSync={props.angleSync} />;
 };

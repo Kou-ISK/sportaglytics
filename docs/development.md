@@ -2,6 +2,10 @@
 
 実装規約の正本はリポジトリルートの `AGENTS.md` です。本書はSporTagLyticsアプリ本体の開発環境、日常ワークフロー、品質ゲート、event detection runtime境界の実務ガイドです。
 
+複数クリップの同期を変更する場合は、`shared/media/mediaTimeline` とMainの `mediaTimelineSource` を確認してください。保存時刻はアングル内の配置、画面・注釈・書き出し区間は共通時刻です。`pnpm run e2e:prepare && node scripts/e2e-multi-clip-playback.mjs` は4本の合成映像で、前半/後半の別々の同期、正負のアングル補正、Playlistの境界通過、Paintのシークと出力画素を確認します。Windows CIとインストール版試験にも同じシナリオを含めます。
+
+アングル同期のView、連続時計、同期点、フレーム取得、保存の責務と検証入口は[アングル同期仕様](angle-synchronization.md#実装と検証)を参照してください。`useAngleSyncSession`を状態源とし、Timeline IPCで再生ヘッドと同期操作を接続します。同期中も通常のCoding行・時間目盛りの位置を保ち、`useAngleSyncHotkeys`はSettingsの割り当てを共通のキー照合関数で解決します。Windowsの元動画切替で読み込み完了後に時計が0へ戻るケースは`useAngleSyncPreviewClock.test.tsx`と実Electronの前後半同期で検証します。Timelineにフォーカスしたまま表示アングルを切り替えてシーク完了を待ち、映像Windowを前面へ戻して問題を隠さないようにします。既定キーだけでなく、変更済み・無効化済みの割り当てと修飾キーを単体テスト・Electron E2Eで確認します。Video.jsの公式CSSを維持し、実ウィンドウの1/2/4アングル比率と操作ボタンの可視性を確認します。
+
 ## 開発環境
 
 | ツール  | バージョン |
@@ -29,6 +33,16 @@ pnpm run electron:dev
 
 Training frameworkやdataset preparation dependencyはSporTagLytics packageへ含めません。
 
+## Timelineの区間編集と書き出しを変更するとき
+
+高速経路は `pnpm run test:e2e:export-fast` で確認します。合成した互換映像を実IPCで連結し、FFmpegの処理種別、全フレームのハッシュ、音声先頭補正による映像時計のずれ、尺、黒画面区間、後半の切り出し、準備中の進捗を確認します。速度計測は同一の合成素材で参考値を出し、機種依存の倍率を合否条件にはしません。要求区間と素材原点の変換・コピー条件は `exportTimelineRange.test.ts` / `exportSourcePreparation.test.ts` / `exportStreamCopy.test.ts` を入口とします。準備も `runFfmpegProcess` の進捗付き経路を通し、試合全長の無条件再生成を戻さないでください。
+
+メニューの回帰確認は `pnpm run test:e2e:export-menu` を使います。実Electron MenuItemから、映像側の操作、Timelineの再作成・最小化復帰、Playlist固有の設定、保存先選択、FFmpegの実出力と尺まで確認します。直接export APIを呼ぶ試験だけでは、メニュー通知先やrenderer準備前の取りこぼしを検出できません。
+
+区間編集は`timelineRangeEditing`のドメイン検証、`useTimelineRangeEditing`の履歴・選択検証、Timeline IPC guardを同時に確認します。複数の更新APIを続けて呼び、分割・結合が複数回のUndoになる実装は避けます。詳細な操作は[ユーザーガイド](user-guide.md#ビジュアルタイムライン)を参照してください。
+
+書き出しでは実際に選択したソースだけを事前確認し、未使用アングルの欠落で出力を止めないことを確認します。`exportPreflight.test.ts`は合成前の欠落検出、`scripts/e2e-export-progress.mjs`は実IPCで後続クリップ欠落時の出力ゼロと同名再出力時の既存ファイル保持を確認します。サーバーや新しい依存の導入は不要です。
+
 ## ビルドと実行
 
 ```bash
@@ -44,6 +58,8 @@ macOS package:
 ```bash
 pnpm run electron:package:mac
 ```
+
+`build:electron-main`はコンパイル後に`scripts/check-electron-runtime.mjs`を実行します。配布設定は`node_modules`を含めないため、Mainの実行時依存はNode組込・Electron・同梱の相対moduleに限定します。外部npm依存が出力JavaScriptへ残ると検査を失敗させます。Rendererとpreloadの依存は各bundleへ含めます。開発起動だけでなく、インストール版のE2Eも公開条件です。
 
 配布版media toolchainは `scripts/build-media-tools.mjs` と ADR 0020 に従います。
 
@@ -70,6 +86,8 @@ stagingへ置くのはsanitized deployable model packだけです。raw video、
 
 通常prefix: `feature`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`。
 CommitはConventional Commitsを使います。
+
+公開前に [Sharing and Issue Reports](privacy-and-data-handling.md#sharing-and-issue-reports) に沿って、差分・PR本文・添付物とコミットの著者情報を確認します。Gitの著者設定はリポジトリ単位で公開用の名前とGitHubのnoreplyメールにし、実データを使った調査結果は匿名化して記載します。`research/` と `output/playwright/` のローカル成果物は公開対象に含めません。
 
 ## 品質ゲート
 
@@ -137,6 +155,12 @@ Electron main manager / child process
 
 ## 自動イベント検出の開発
 
+しきい値変更で同じ映像を再解析しないよう、Mainで検証済み結果をキャッシュします。`resultCache` のテストではrequest ID更新、候補のコピー、期限・容量制限、映像・model pack・時刻・イベント変更の無効化を確認します。実モデルE2Eでは同じ入力を再実行し、最新しきい値と既存Timelineの重複除去が適用されることを確認します。
+
+Codingの網羅範囲を断定できない比較用packはschema 2 / `experimental` / `evaluationBasis: reference-coding`として扱います。model discoveryとIPCはこの組み合わせを検証し、旧schema 1はロード時に `reported-metrics`へ変換します。新packは対応するこのブランチのアプリで検証してください。旧版アプリはschema 2を拒否します。Storybookの `Features/VideoPlayer/EventDetection/ModelEvaluation` とmodel discovery / IPC / Dialog Viewテストで、比較値を精度と誤表示しないことを確認します。
+
+時間文脈による補正packでは、学習時とランナーでclip端の扱いを一致させ、保護対象クラスのスコアが基準packと完全に同じことを確認します。公開画像を比較する場合は、画像なし候補から学習行と中心特徴の両方を除外します。比較対象・教師データのhash・採用しなかった候補もR&Dに記録し、確認済みValidationの見逃し・重複を採用条件に含めます。実アプリでは新しいpackの発見、実映像の解析、Timeline保存、再実行キャッシュを確認します。学習・比較手順の正本はprivate R&Dの`docs/targeted-temporal.md`、製品契約は[前後の映像と公開画像を使う補正](event-detection.md#前後の映像と公開画像を使う補正)を参照してください。
+
 - 詳細仕様: [自動イベント検出](event-detection.md)
 - R&D境界: [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)
 - experimental production lane: [ADR 0024](adr/0024-experimental-event-detection-production-lane.md)
@@ -149,7 +173,7 @@ Electron main manager / child process
 
 実作業では、少数の高Precision候補だけを出すより、**ほぼ全イベントを候補として出して不要なものを削除する**workflowを優先します。そのためruntime minimumはRecall優先で、model採用時にはprivate R&D側でfalse positives per match、処理時間、manual edit operations、手Coding比の作業時間削減まで確認します。
 
-モデル一覧の取得Effectは、ダイアログを開いた時のコンテキストだけに依存させます。頻繁に更新される映像・コードウィンドウの参照を取得条件に含めると、操作中のフォームが消えて入力値も初期化されます。アングル選択の整合性確認は一覧取得から分離し、Controllerの回帰テストで入力維持と閉じた画面への遅延応答の無視を確認します。
+モデル一覧の取得Effectは、解析画面を最初に開いた時のコンテキストだけに依存させます。頻繁に更新される映像・コードウィンドウの参照を取得条件に含めると、操作中のフォームが消えて入力値も初期化されます。アングル選択の整合性確認は一覧取得から分離し、Controllerの回帰テストで入力維持と閉じた画面への遅延応答の無視を確認します。
 
 ### Model packとアプリ本体を分離する
 
@@ -209,6 +233,10 @@ UIはmanifestの`confidenceThreshold`を初期値として表示し、runごと�
 
 model packの精度検証ではcheckpointとthresholdに加え、評価時の前処理・走査間隔・重複抑制も一致させます。Validationだけで改善したモデルを`verified`と表示しません。モデル選択・再評価はprivate R&D側で実施し、元映像や評価用データを本体のテストfixtureへコピーしないでください。
 
+補正重みを学習する場合はprivate R&Dの `docs/reviewed-kernel.md` を参照します。過去の学習データ・追加カメラ・以前のレビューの継承と特徴cacheの出典を検証し、同数の検出でも別のCodingを失った候補は採用しません。新checkpointのhashと学習結果を記録し、未使用Testによる資格評価とは区別します。実packでは報告された見逃し区間も別の試験パッケージへコピーして検証します。
+
+区間判定を含むpackでは `scanConfig.episodeDecoder` も評価・export・runtimeで一致させます。private R&Dの `docs/episode-calibration.md` が教師データ・特徴cache・調整手順の正本です。ニューラル重みが同じ場合もpack versionを更新し、旧packをrollback用に保存します。実packの検証では同一プレーの統合、別プレーとclip境界の分離、検出区間＋lead/lagのTimeline保存、再実行cacheを確認します。既存パッケージを直接書き換えず、別の検証パッケージを使用してください。
+
 R&Dの`refine_head`は、既存Codingの区間内を優先する正例抽出と、同期したTrainの追加カメラを比較します。凍結したX3Dの特徴を再利用し、寄り映像だけの候補・引き映像を加えた候補・重複抑制だけの比較対象を記録します。既存の網羅性メタデータがないだけで再Codingを要求せず、完成版の出典と確認根拠を残してください。比較手順の正本はprivate R&D側の`docs/head-refinement.md`です。比較用checkpointを作っただけでは、本体の同梱model packは更新されません。
 
 ### Private R&D boundary
@@ -243,6 +271,8 @@ Model outputは直接persisted `timeline.json` を書き換えません。Render
 自動追加後は通常の `TimelineData` として扱います。experimental provenanceをTimeline schemaへ保存しません。
 
 ## テストとデバッグ
+
+再生プレイヤーの生成・破棄は映像sourceと設定の変更に従います。複数クリップの経過時間通知でcallbackの参照が変わっても、読み込み中のplayerを再生成しません。通知先は最新callbackへ更新し、source変更・unmountでは従来どおり破棄します。`useVideoJsInitialization`の回帰テストと実映像での読み込み完了を確認してください。
 
 ```bash
 pnpm run test:run
@@ -285,6 +315,8 @@ Model training/evaluationのdebuggingはprivate R&D repositoryで行います。
 5. merge後のmain commitへrelease tag
 6. package/release assets作成。同じバージョンの公開済みタグ・DMGを上書きしません（[ADR 0032](adr/0032-immutable-release-artifacts.md)）。
 
+Electron E2Eは `scripts/run-electron-e2e.mjs` で全シナリオの成否を収集し、1件でも失敗すると配布へ進みません。詳細は[テスト手順](testing.md)を参照してください。
+
 配布前に `pnpm audit` / `pnpm audit --prod` も確認します。lockfileを固定してインストールし、UIのゲートとStorybook buildをReleaseでも実行します。
 
 macOS署名はキーチェーン修正版のelectron-builder 26.16.1で行います。builder関連パッケージとlockfileを揃えて更新し、署名・公証の障害は[Release手順](../.github/RELEASE.md#macos-signing-keychain-unlock-failed)に沿って切り分けます。
@@ -306,18 +338,22 @@ macOS署名はキーチェーン修正版のelectron-builder 26.16.1で行いま
 
 UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architecture/design-system/ADR検査、テスト、アプリbuild、Storybook buildを実行します。品質ゲートの正本は[testing.md](testing.md)です。
 
-| 対象     | Storybook / 確認事項                                                                                                                                                   | 機能の正本                                       |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 起動画面 | `Workspace/Start`: 初回、履歴検索、空/該当なし、長い保存先、ロード中、エラー再試行、drop                                                                               | [起動画面](start-workspace.md)                   |
-| 再生操作 | `Design System/Composites/Movie Transport`、`Workspace/Transport`: 半透明、送り量のラベル、描画目印                                                                    | [デザインシステム](design-system.md)             |
-| Timeline | `Workspace/Timeline/Continuous`、Context Menu: ズーム・スクロール後のruler/行/再生線一致、つまみのみのシーク、未選択の端編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
-| Paint    | `Workspace/Playlist/Paint`: Interactive、Empty、Player Graphics、Video Tracking、Keyframe Editing、Inspector Layout、Collapsed Inspector                               | [Paint](tactics.md)                              |
+| 対象     | Storybook / 確認事項                                                                                                                                                                       | 機能の正本                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| 起動画面 | `Workspace/Start`: 初回、履歴検索、空/該当なし、長い保存先、ロード中、エラー再試行、drop                                                                                                   | [起動画面](start-workspace.md)                   |
+| 再生操作 | `Design System/Composites/Movie Transport`、`Workspace/Transport`: 半透明、送り量のラベル、描画目印                                                                                        | [デザインシステム](design-system.md)             |
+| Timeline | `Workspace/Timeline/Continuous`、Context Menu / Row Actions: ズーム・スクロール後のruler/行/再生線一致、つまみのみのシーク、未選択の端編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
+| Paint    | `Workspace/Playlist/Paint`: Interactive、Empty、Player Graphics、Video Tracking、Keyframe Editing、Inspector Layout、Collapsed Inspector                                                   | [Paint](tactics.md)                              |
 
 共通してdark/light、600/800/1280px、長い名称、キーボード、空状態・失敗状態を確認します。Paintでは点/描画の削除とUndo、入力欄のBackspace、リンクの連続クリック、追尾の範囲指定→適用→手修正→再追尾、パネル開閉時の状態保持を確認します。時間目盛りの入力は `useStudioRulerInput` でRAFにまとめるため、連続入力と動画側の追従も確認します。
 
 実機のファイルダイアログ・Finder/Explorerドロップ・保存再読込・Package Session・FFmpeg出力はStorybookと別に確認します。追尾の合成WebMや公開人物映像での結果と、利用者の試合映像での精度は区別して報告します。
 
 同じパッケージの閉じる→再openは `pnpm run test:e2e:package-reopen` で確認します。履歴の登録は画面unmount後の完了も検証対象です。テストの概要とプラットフォームごとの範囲は[起動画面の検証](start-workspace.md#検証)を参照してください。
+
+`pnpm run test:e2e:timeline-rows`は、単体／複数インスタンスの削除・Undo、行内選択、行削除の確認、範囲選択後の対象切替、Enter／ダブルクリック編集、入力欄のBackspaceを実機で確認します。
+
+`pnpm run test:e2e:paint-export`は、合成映像と実Canvas描画を使ってRendererの書き出し組立・共通サービス・実IPC・FFmpegまで検証します。出力映像の画素、寸法、尺、音声から、クリップ途中の追尾、芝色による前景復元、静止挿入、別アングル、異なる解像度の2画面を確認します。アーティファクトを残す場合は`E2E_SCREENSHOT_DIR=output/playwright/paint-export`を指定します。これらは実試合の追尾精度やWindows実機検証の代替ではありません。
 
 ### Sportscodeのインスタンス操作を参照する場合
 
@@ -332,3 +368,17 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 書き出し進捗の初期サイズは内容領域基準とし、完了時の「閉じる」がviewport内に収まることをE2Eで検証します。
 
 [Windows版の開発・検証](windows.md#開発検証)を参照。`scripts/media-tools/` はプラットフォームごとの静的メディアビルド、`scripts/build-windows-llama.mjs` はWindows AI実行ファイル、`scripts/prepare-mac-llama.mjs` は公式アーカイブの検証とMac CPU別のAI実行ファイル準備、`scripts/prepare-fonts.mjs` は検証済み日本語フォントを用意する。`pnpm run electron:start` はOSに依存しないNodeラッパーから起動する。
+
+### ウィンドウ連携と追尾の変更時
+
+`e2e-event-detection.mjs`は合成パッケージを使い、正式ロゴ、解析画面の独立、閉じて再表示した実行状態、狭幅での操作、映像ウィンドウのサイズ維持、ウィンドウ群の前面表示ハンドラーを確認します。前面表示はElectronのfocusイベントを注入して実native APIの呼出順とfocus維持を検査するもので、OSの実際の重なり順・仮想デスクトップを自動保証する試験ではありません。`eventDetectionWindow.test.ts`はSession境界、Controllerのテストは背景実行中のTimeline編集と所有元終了を検証します。
+
+追尾は`anchoredFeatureTracker.test.ts`で既知の端数移動・拡大と足元座標を使い、従来の平行移動積算と比較します。合成映像の誤差を実試合の精度として扱いません。
+
+WindowsのFFmpegはzlibを静的リンクしてPNGのエンコード/デコードを有効にします。media-toolsビルドはPNG生成と読込の往復検証を通してから成功manifestを書きます。依存ソースのchecksumとライセンスを同梱し、DLL検査とPaint出力E2Eも維持します。
+
+### 戦術盤の端末内認識
+
+`pnpm run vision:prepare` はMediaPipe Tasks Vision 0.10.21（外部統計送信なし）の固定npm版と、SHA-256で検証するEfficientDet-Lite2 INT8 revision 1を `public/pitch-vision/` に準備します。start/build/Storybookコマンドに組み込み済みです。初回の開発・ビルドではモデル取得にネットワークが必要で、ハッシュ一致の資産があれば再取得しません。実行時には同梱資産のみを使います。SDKのfile URLフォールバックを避け、同梱WASMをBlob URL、モデルをバッファとして渡します。ElectronのwebSecurityは緩和しません。モデル・WASMはGitに含めず、配布ビルドとライセンスを同梱します。モデルの出典とハッシュは `resources/pitch-vision/NOTICE.md` が正本です。
+
+較正・戦術盤のStorybookは `Playlist/Paint/Pitch Calibration` と `Playlist/Paint/Tactical Board`。E2Eは `pnpm run e2e:prepare` 後に `node scripts/e2e-tactical-board.mjs` を実行します。合成映像でHTTP通信を拒否し、実モデルのロード・推論、部分較正、削除/Undo、PNG、保存/再読込を確認します。人物検出の実試合精度を保証する試験ではありません。

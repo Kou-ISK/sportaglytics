@@ -13,6 +13,8 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - [Privacy and Data Handling](privacy-and-data-handling.md)
 - [自動イベント検出](event-detection.md)
 
+メイン・参照Playlist・書き出しは `shared/media/mediaTimeline` の共通時刻変換を使います。Mainの `mediaTimelineSource` がパッケージの現行配置とアングル補正を読み、型付き `media:resolve-timelines` でPlaylistへ渡します。Playlistの `media/` はソース切替・読込待機・共通時計を担当し、Paintの表示フレームも元ファイル内の時刻から変換します。[ADR 0040](adr/0040-shared-media-timeline-clock.md)。同期編集は`useAngleSyncSession`を状態源とし、型付きTimeline IPCを介して独立タイムラインの既存再生ヘッドと映像を接続します。通常のCodingツールバーに同期操作を統合し、再生用Settingsのアングル切替キーを両ウィンドウで共用します。アングルごとの連続時計を使い、Sync Pointを揃えてから配置と補正を一緒に保存します。映像Windowの背景描画制限を無効化し、Timeline操作中も時計を進める。選択外の同期プレビューも描画可能な最小領域を保つ。映像の読み込みイベントでも最新の要求時刻を反映し、シーク中のフレームを同期点に使用しません。実フレームの近傍PTSは型付き `media:frame-window` でMainから取得し、UIと分離します。[アングル同期仕様](angle-synchronization.md) / [ADR 0041](adr/0041-angle-sync-point-workflow.md)。
+
 ## レイヤー構成
 
 - 依存方向: `pages -> features -> shared`
@@ -55,9 +57,19 @@ Packageを扱うWindowは `electron/src/packageSessionRegistry.ts` のPackage Se
 
 Main Window作成時にSessionを保持し、`closed` では破棄済みWindowから再検索せず、そのSessionの補助Windowを閉じて登録とパス予約を解放する。Registryのパス検索とsender検索も、所有Main Windowが破棄済みのSessionを返さない。同じファイルの再openと遅延IPCの両方で生存する所有者だけを扱う。
 
+配布版はMainの外部npm依存を同梱しません。`build:electron-main`で未同梱依存を検査し、FFprobe応答などのMain側の入力は型ガードで検証します。Renderer/preloadのライブラリはbundle内で解決します。
+
 ### Preload
 
+映像書き出しメニューはPackage Sessionから対象Timelineを解決し、PlaylistではそのWindow自身へ通知します。Timelineを新規表示する場合、Reactの書き出し購読が準備できるまで要求をMainに保持します。`clip-export-ready`は型と送信元を検証してMainで消費し、映像側へ転送しません。[ADR 0042](adr/0042-document-owned-export-menu.md)。
+
 `electron/src/preload.ts` は用途別bridgeを合成します。Renderer は `window.electronAPI` のみ使用し、`electron` / `ipcRenderer` を直接 import しません。
+
+### ローカル編集と書き出しの検査
+
+Timelineの分割・結合は`shared/timelineRangeEditing.ts`の純粋関数で全体を計算し、`useTimelineRangeEditing`が所有runtimeへ1回だけcommitする。独立Timelineは`split-item` / `merge-items` commandを送り、結果の選択IDも所有runtimeから同期する。文書形式・履歴の所有者は変えない。
+
+書き出しは`exportPayloadValidation.ts`でIPCの型、`exportSourceSelection.ts`で使用映像、`exportPreflight.ts`でローカルファイルと保存先を確認する。仮想Timelineは`exportVirtualTimelineSource.ts`で構成を読み、全必要ファイルの確認後に要求範囲だけを準備する。`exportSourcePreparation`がアングル別の範囲と進捗を管理し、`exportTimelineRange`の共通時刻から`exportTimelineComposition`が必要な合成を行う。素材の原点をFFmpeg実行層へ渡し、単画面・2画面とも同じ時計を保持する。`exportStreamCopy`がコーデック・時刻基準・切断境界を確認し、可能な場合だけ無再圧縮でコピーする。[ADR 0043](adr/0043-bounded-lossless-export.md)。`exportHandlers.ts`は進捗と実行の組み立てを担当する。クラウド・追加runtime依存はない。
 
 ### Typed IPC
 
@@ -95,6 +107,8 @@ Rendererへ公開するIPC contractの正本は `src/renderer.d.ts` です。用
 
 Video.js player、再生時計、Timeline document、Undo/Redo履歴はメイン動画windowを唯一のauthorityとします。
 
+複数クリップの時間通知callbackの更新は、映像プレイヤーのライフサイクルから分離します。画面の再描画中も映像の読み込みを継続します。
+
 TimelineはPackage Sessionごとに1つの専用BrowserWindowです。
 
 - packageを開いた時に自動表示
@@ -121,6 +135,8 @@ TimelineDocument
 
 `NewTimelineData = Omit<TimelineData, 'id'>` を一括追加入力に使用します。`addTimelineDatas()` は複数eventを1回のstate updateで追加するため、自動Codingで多数eventを追加しても1回のUndoで戻せます。
 
+タイムラインの行選択とインスタンス選択は操作対象を切り替える状態です。キー操作はタイムライン内に限定し、入力欄・ダイアログを除外します。行内全選択や範囲選択後はインスタンス選択へ切り替えます。操作コマンドは`useTimelineInstanceCommands`、行のメニュー／確認表示はprops-onlyの`TimelineRowActionsView`へ分離します。
+
 ## Code Window / Coding runtime
 
 `.stcw` は独立ドキュメントとして扱います。コード／ラベル／編集モードは対象Code Window内で切り替え、アプリ全体のmodeにはしません。
@@ -140,27 +156,37 @@ AI実行ファイルはOSとCPU種別ごとに検証して同梱します。モ�
 
 ## 自動イベント検出
 
+比較用model pack（schema 2）は `evaluationBasis: reference-coding` を必須とし、既存Codingとの一致・再検出として表示します。`verified`にはできず、schema 1の旧consumerはこのpackを読み込みません。評価表示はpropsだけを受け取る `EventDetectionModelEvaluationView` に分離しています。契約は [ADR 0034](adr/0034-reference-coding-model-evaluation.md) を参照してください。
+
 自動イベント検出はLLM分析とは別のローカル映像処理です。SporTagLyticsは**配布済みmodel packを安全に実行するconsumer**であり、model training/evaluationは別private R&D repositoryの責務です。
 
 目的は、通常Timelineを初期Codingして手動分析開始を早めることです。実作業では高Precisionな一部候補だけを出すのではなく、**実イベントをほぼすべて候補として出し、人間が不要候補を削除する**workflowを優先します。
+
+Mainの `eventDetection/resultCache.ts` は正常終了した検出候補だけを有効期限付きで再利用します。映像・モデルのmetadataと解析条件で無効化し、ディスクへの追加保存は行いません。
 
 ### Renderer
 
 `src/features/videoPlayer/eventDetection/`:
 
-- `components/EventDetectionDialogView.tsx`: props-only View。model status、評価値、experimental warningを表示
+- `components/EventDetectionPanelView.tsx`: props-only View。model status、評価値、experimental warningを表示
 - `hooks/useEventDetectionController.ts`: model/angle選択、confidence設定、実行、Timeline反映
 - `gateway/eventDetectionGateway.ts`: `window.electronAPI.eventDetection` のみ使用し、model listをruntime guardで再検証
 - `domain/eventDetectionMappings.ts`: event mapping、manifest初期threshold、ユーザー入力の正規化
 - `domain/candidatesToTimeline.ts`: confidence filter、lead/lag、重複除外、Timeline変換
 
-モデル一覧取得と初期mappingの生成はダイアログを開く操作に紐づけます。背景の映像・コードウィンドウ更新でフォームを再読み込みせず、ユーザーが入力した設定を保持します。
+モデル一覧取得と初期mappingの生成は解析画面の初回表示に紐づけます。背景の映像・コードウィンドウ更新でフォームを再読み込みせず、ユーザーが入力した設定を保持します。
 
-UIは `分析 > 自動イベント検出…` から開きます。検出後のeventは通常 `TimelineData` になり、専用AI Timelineやreview queueは持ちません。
+UIは `分析 > 自動イベント検出…` からSession別の独立ウィンドウを開きます。`useEventDetectionWindowHost`が所有元のsnapshotとコマンドを橋渡しし、`EventDetectionWindowScreen`が表示を合成します。Mainは`eventDetectionWindow.ts`で所有関係と送信元を検証します。終了・背景実行・再表示の契約は[ADR 0038](adr/0038-detached-event-detection-window.md)を参照してください。検出後のeventは通常 `TimelineData` になり、専用AI Timelineやreview queueは持ちません。
 
 新規作成時のパッケージルートとクリップのパスは、mainが返したメタデータの実保存先から解決します。入力名とmainが補う拡張子の差をRendererへ持ち込みません。`electron/src/eventDetection/inputValidation.ts`で全入力ファイルの存在・種類・読み取り権限を確認し、失敗時はランナーや一時リクエストを作成する前に対象パス付きで通知します。
 
 同一run内の重複候補はconfidence順で選び、採用後に時刻順へ並べます。既存Timelineの編集内容は優先して保持します。モデル側の精度比較は前処理・走査間隔・重複抑制・thresholdを固定した評価に基づきます。詳細は[検出精度の改善と評価](event-detection.md#検出精度の改善と評価)を参照してください。
+
+持続する1プレーの区間判定はmodel runnerが所有し、既存の任意フィールド `detectedStartTime` / `detectedEndTime` で返します。Rendererはその区間にlead/lagを適用します。clip境界・信頼度の谷・最大長を使う判定と評価設定はmodel packへ固定し、手動Timelineの結合処理に置き換えません（[ADR 0036](adr/0036-event-episode-consolidation.md)）。
+
+確認済み映像から学習する補正重みもmodel pack内に閉じ込めます。過去のTrain特徴を使って既存判定を保ち、補正後の区間判定と同一Codingイベントの保持を評価します。製品側のIPC・Timeline保存契約は共通です（[ADR 0037](adr/0037-reviewed-model-refinement.md)）。
+
+クラスを限定した時間方向の補正もpack内で実行します。前後8秒の特徴を使う`reviewed-temporal`はスクラムを保持してリスタート・ラインアウトだけを補正し、特徴抽出は共用します。公開画像の比較結果と採用判断は[モデル改善の仕様](event-detection.md#前後の映像と公開画像を使う補正)を正本とします。
 
 再学習では既存Codingの出典・時間軸と、追加Trainカメラの同期を確認します。メタデータ未記録をCoding不足とは扱いません。R&Dの比較用checkpoint、本体に採用したmodel pack、配布済みモデルの状態を区別し、Validation上の一致度改善だけで配布モデルを置き換えない運用です。
 
@@ -251,6 +277,8 @@ Playlistは独立BrowserWindowで扱い、`.stpl` documentを正本とします�
 
 Clip exportは `src/shared/clipExport/` にpure service / contractを集約し、main processのFFmpeg runnerで実行します。進捗は専用export progress windowへ通知し、main app操作をblockしません。
 
+Paint動画出力は、Rendererがクリップとの表示区間の交差とソース時刻の補間を計算し、アングルごとの描画を検証済みIPCへ渡します。Mainの単画面／2画面FFmpeg runnerが図形合成、芝色処理、静止挿入を行い、2画面は合成後に高さを揃えます。[Paint書き出し](tactics.md#映像への書き出し)を参照してください。
+
 配布版FFmpeg/FFprobeは固定source/hashからbuildしたverified toolchainのみ利用し、main processでtimeout/output上限を適用します。
 
 ## Persistence / migration
@@ -288,6 +316,8 @@ GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requ
 
 UIの正本は `src/design-system/` のsemantic tokenとprops-only Viewです。開始画面の構成は `VideoPathSelector`、開く操作の単一状態源は `useStartPackageOpen`、IPCとロード時移行は `packageGateway` に置きます。初回・履歴・検索・ロード・エラーは[起動画面の仕様](start-workspace.md)を参照してください。
 
+`applicationWindowActivation.ts`はアプリ内のフォーカス変更時に表示中のウィンドウを`moveTop()`でまとめて前面へ移し、操作対象を最後に上げます。常時最前面や別ウィンドウへのfocusは使わず、非表示・最小化ウィンドウはその状態を保ちます。
+
 `MovieTransportView` は再生・送りのcallbackとラベルだけを受け取り、メイン映像・Playlist・Paintから合成します。メイン映像のウィンドウ比率は[ADR 0030](adr/0030-video-window-aspect.md)、Playlistは自由リサイズです。Timelineはrulerと行でスクロール座標を共有し、再生線を1本描画します。初期行色はアクションボタンから引き継ぎ、既存行の色は行モデルが所有します。
 
 Timelineの `useTimelineSeek` は上部つまみだけが使用し、行の区間編集・作成と単独選択は再生時刻を更新しません。伸縮中はlane hook内でプレビューし、確定時だけ永続化・履歴へ渡します。履歴のUndo/RedoはReactの描画待ちに依存せず保存対象を同期的に返します。明示的なジャンプと再生ホットキーは既存の経路を使います。空白クリックは選択IDとフォーカス枠を同時に解除し、範囲選択直後のclickでは選択結果を消さないよう抑止します。
@@ -307,3 +337,7 @@ Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツ�
 [Windows版](windows.md)と[ADR 0033](adr/0033-windows-desktop-runtime.md)に従い、描画・保存・追尾は共通実装、OS差分はElectronの映像処理・縦横比・loopback音声とshared shortcutへ集約する。file URLはNodeの変換またはパス成分のエンコードを通し、Windowsドライブや予約文字を壊さない。
 
 書き出し進捗ウィンドウは内容領域基準の初期サイズを持ち、Windowsのタイトルバーが加わっても完了時の「閉じる」を見切れさせません。
+
+### Paintの俯瞰図
+
+戦術盤は[Paintの保存契約](tactics.md#戦術盤と映像からの配置)に従うクリップ・アングル別メタデータです。Viewはpropsのみ、編集履歴はHook、動画の読取・同梱モデル実行・PNG保存はGatewayに分離します。認識は明示操作時の停止フレームだけを対象とし、サーバー・新しいIPC・クラウドAPIを追加しません。[ADR 0039](adr/0039-local-tactical-board.md)を参照してください。

@@ -19,8 +19,18 @@ export const TimelineWindowView = ({ controller }: TimelineWindowViewProps) => {
   }
 
   return (
-    <Box sx={{ height: '100vh', minHeight: 0, bgcolor: 'background.default' }}>
-      <TimelineActionSection {...controller} />
+    <Box
+      sx={{
+        height: '100vh',
+        minHeight: 0,
+        bgcolor: 'background.default',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        <TimelineActionSection {...controller} />
+      </Box>
     </Box>
   );
 };

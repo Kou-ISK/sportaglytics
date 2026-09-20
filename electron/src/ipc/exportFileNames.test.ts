@@ -19,3 +19,9 @@ it('preserves different rows whose sanitized or case-folded names collide', () =
   expect(allocate('attack_1.mp4')).toBe('attack_1_2.mp4');
   expect(allocate('attack_1.mp4')).toBe('attack_1_3.mp4');
 });
+
+it('keeps existing exports when a review is exported again', () => {
+  const allocate = createExportNameAllocator(['Review.mp4', 'review_2.mp4']);
+  expect(allocate('review.mp4')).toBe('review_3.mp4');
+  expect(allocate('review.mp4')).toBe('review_4.mp4');
+});

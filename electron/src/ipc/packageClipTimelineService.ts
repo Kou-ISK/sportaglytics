@@ -24,6 +24,7 @@ const resolveInsidePackage = (
 export const applyClipTimeline = async (
   configPath: string,
   placements: ClipTimelinePlacement[],
+  angleOffsets?: number[],
 ): Promise<PackageDatas> => {
   const normalizedConfigPath = path.resolve(configPath);
   if (
@@ -51,6 +52,21 @@ export const applyClipTimeline = async (
   }
   const nextConfig = structuredClone(parsed);
   if (!Array.isArray(nextConfig.angles)) throw new Error('INVALID_ANGLES');
+  if (angleOffsets) {
+    if (
+      angleOffsets.length !== nextConfig.angles.length ||
+      angleOffsets[0] !== 0 ||
+      !angleOffsets.every(
+        (offset) => Number.isFinite(offset) && Math.abs(offset) <= 86_400,
+      )
+    )
+      throw new Error('INVALID_ANGLE_OFFSETS');
+    nextConfig.syncData = {
+      syncOffset: angleOffsets[1] ?? 0,
+      angleOffsets,
+      isAnalyzed: true,
+    };
+  }
   const knownClipIds = new Set(
     nextConfig.angles.flatMap((angleValue) =>
       isPlainObject(angleValue) && Array.isArray(angleValue.clips)

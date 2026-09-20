@@ -44,6 +44,13 @@ export const buildWindowsMediaTools = async ({
     });
     await run('cmake', ['--install', directory], { env: environment });
   };
+  await cmakeBuild('zlib', [
+    '-DZLIB_BUILD_SHARED=OFF',
+    '-DZLIB_BUILD_STATIC=ON',
+    '-DZLIB_BUILD_TESTING=OFF',
+  ]);
+  // zlib names its Windows static archive libzs.a, while its .pc file uses -lz.
+  await copyFile(join(prefix, 'lib', 'libzs.a'), join(prefix, 'lib', 'libz.a'));
   await cmakeBuild('freetype', [
     '-DFT_DISABLE_ZLIB=ON',
     '-DFT_DISABLE_BZIP2=ON',
@@ -105,6 +112,7 @@ export const buildWindowsMediaTools = async ({
       '--disable-network',
       '--disable-shared',
       '--enable-static',
+      '--enable-zlib',
       '--enable-libfreetype',
       '--enable-libharfbuzz',
       '--enable-libopenh264',
