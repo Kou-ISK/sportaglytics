@@ -166,11 +166,22 @@ try {
   }, png);
   await dialog.getByRole('button', { name: 'PNG画像を書き出す' }).click();
   const deadline = Date.now() + 15000;
+  // fs.writeFile creates/truncates the file before writing its data. Existence
+  // alone can expose an empty/partial PNG, especially on Windows. IEND is the
+  // final complete PNG chunk; the subsequent FFmpeg decode validates the image.
+  const pngEnd = Buffer.from('0000000049454e44ae426082', 'hex');
+  let pngData = Buffer.alloc(0);
   while (Date.now() < deadline) {
-    if (await fs.stat(png).catch(() => null)) break;
+    pngData = await fs.readFile(png).catch(() => Buffer.alloc(0));
+    if (pngData.subarray(-12).equals(pngEnd)) break;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  assert.equal((await fs.readFile(png)).subarray(1, 4).toString(), 'PNG');
+  assert.equal(
+    pngData.subarray(-12).equals(pngEnd),
+    true,
+    'PNG write completed',
+  );
+  assert.equal(pngData.subarray(1, 4).toString(), 'PNG');
   const pixels = execFileSync(
     ffmpegPath,
     ['-v', 'error', '-i', png, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'],
