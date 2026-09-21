@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-21
+
 ### Added
 
 - Playlist Sorterに項目選択・昇順/降順の操作を追加。ソート結果を再生・書き出し・保存順へ反映し、所属行とPaintを維持したままUndo可能に。旧文書は従来の順序を引き継いで移行。[Playlist仕様](docs/playlist-features.md)。

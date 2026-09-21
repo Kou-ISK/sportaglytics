@@ -169,7 +169,7 @@ Package再openは実ファイルのドロップ、映像と補助Windowの終了
 
 仕様を変えたときは[起動](start-workspace.md)・[Playlist](playlist-features.md)・[Paint](tactics.md)の該当正本とアプリ内Helpを更新する。CHANGELOGへの追記だけでは仕様同期を完了しない。コードの型・IPC定義を文書へ丸写しせず、実装参照が存在すること、旧UI名と廃止経路の説明が残っていないこともレビューする。
 
-Timelineの伸縮は連続mousemove中に保存せず、mouseupで1回確定し、1回のUndo/Redoで範囲全体を復元することを確認します。Esc・modifier release・blurでは元の範囲へ戻し、再生ヘッドを移動させません。Paintでは位置数値の空欄、Enter、Esc、未変更blurと、◆ドラッグのEsc取消を確認します。
+Timelineの伸縮は連続mousemove中に保存せず、mouseupで1回確定し、1回のUndo/Redoで範囲全体を復元することを確認します。Esc・blurでは未確定の範囲を元に戻します。修飾キーを先に離してもmouseupまで継続し、端編集中は再生ヘッドが境界へ追従します。Paintでは位置数値の空欄、Enter、Esc、未変更blurと、◆ドラッグのEsc取消を確認します。
 
 Paint入力の回帰テストはpointerdown/upだけの短いドラッグ、停止後の微小な時刻更新、シーク取消、別pointerの混入を含みます。フレーム描画では`video.currentTime`と表示フレームの`mediaTime`が異なる状態を用い、React再描画後も表示フレームに位置が一致することを確認します。追尾では整数移動だけでなく0.3ピクセルずつの連続移動を使用します。
 
