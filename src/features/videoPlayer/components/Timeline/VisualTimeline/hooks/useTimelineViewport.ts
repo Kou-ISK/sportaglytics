@@ -57,6 +57,13 @@ export const useTimelineViewport = ({
   const zoomAnchorRef = useRef<{ time: number; viewportX: number } | null>(
     null,
   );
+  const appliedAnchorRef = useRef<{
+    time: number;
+    viewportX: number;
+    scrollLeft: number;
+    baseWidth: number;
+    maxSec: number;
+  } | null>(null);
 
   useEffect(() => {
     const target = scrollContainerRef.current;
@@ -101,14 +108,25 @@ export const useTimelineViewport = ({
     (viewportX: number): void => {
       const target = scrollContainerRef.current;
       if (!target) return;
+      const previous = appliedAnchorRef.current;
+      // Retain the logical time: reading rounded scrollLeft at every pinch
+      // event would magnify a subpixel error with each successive zoom.
+      const reuseAnchor =
+        previous !== null &&
+        previous.viewportX === viewportX &&
+        previous.scrollLeft === target.scrollLeft &&
+        previous.baseWidth === baseWidth &&
+        previous.maxSec === maxSec;
       zoomAnchorRef.current = {
-        time: coordinateMapper.contentXToTime(
-          target.scrollLeft + viewportX - TIMELINE_ROW_HEADER_WIDTH_PX,
-        ),
+        time: reuseAnchor
+          ? previous.time
+          : coordinateMapper.contentXToTime(
+              target.scrollLeft + viewportX - TIMELINE_ROW_HEADER_WIDTH_PX,
+            ),
         viewportX,
       };
     },
-    [coordinateMapper],
+    [baseWidth, coordinateMapper, maxSec],
   );
 
   useEffect(() => {
@@ -165,8 +183,19 @@ export const useTimelineViewport = ({
       timeToPosition: coordinateMapper.timeToContentX,
     });
     scrollContainer.scrollLeft = nextScrollLeft;
-    setScrollLeft(nextScrollLeft);
-  }, [coordinateMapper]);
+    const actualScrollLeft = scrollContainer.scrollLeft;
+    const requestedScrollLeft =
+      TIMELINE_ROW_HEADER_WIDTH_PX +
+      coordinateMapper.timeToContentX(anchor.time) -
+      anchor.viewportX;
+    // At a scroll boundary the original point cannot remain under the cursor.
+    // The next gesture must anchor to the position actually visible there.
+    appliedAnchorRef.current =
+      Math.abs(nextScrollLeft - requestedScrollLeft) < 0.001
+        ? { ...anchor, scrollLeft: actualScrollLeft, baseWidth, maxSec }
+        : null;
+    setScrollLeft(actualScrollLeft);
+  }, [baseWidth, coordinateMapper, maxSec]);
 
   const clientXToContentX = useCallback(
     (clientX: number): number => {

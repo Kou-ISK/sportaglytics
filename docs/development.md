@@ -16,6 +16,8 @@ Codingへ時刻を渡す場合も、`VideoPlayerScreen`の共通時計を使っ�
 
 再生の修正は`useMediaTimeSync.test.tsx`（デコード中の要求集約・高速再生）、`usePlaybackBehaviour.test.tsx`（停止後の遅延canplay）、`useHeldPlayback.test.tsx`（停止状態の復元・修飾キー切替）を確認してください。`e2e-multi-clip-playback.mjs`内の`e2e-playback-interactions.mjs`が実Timelineの目盛り、行、ピンチ、右キーの解除と6倍速での元動画切替を検証します。重い映像のデコード性能自体は機種・コーデック・ストレージに依存するため、一律の速度倍率は保証しません。
 
+Timelineのピンチは`useTimelineViewport.gesture.test.ts`で整数ピクセルに丸めるスクロールを再現し、連続拡大のアンカー維持、手動スクロール・ポインター移動・端到達後の再取得を確認します。E2Eの許容差を広げて丸め誤差を隠さないでください。
+
 参照したHudl公式の[現行リリースノート](https://www.hudl.com/releases/sportscode)と[トラックパッド操作の説明](https://www.hudl.com/blog/new-trackpad-controls-added-to-sportscode-workflow)には、Timelineの倍率上限・ピンチ係数の具体値は見当たりませんでした。本アプリの1〜100倍・指数的なピンチ感度は独自の操作調整値です。2023年の記事は映像のズームについての説明であり、Timelineの数値仕様としては扱いません。
 
 ## 開発環境

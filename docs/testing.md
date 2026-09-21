@@ -10,6 +10,8 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 複数クリップE2Eの`e2e-playback-interactions.mjs`は、目盛りクリックと行クリックの区別、10倍を超えるピンチと時刻アンカー、停止中の右キー解除、6倍速での元動画境界通過とシーク回数を確認します。`timeline-rows`は未選択の端編集でも再生ヘッドが境界へ追従することを確認します。
 
+`useTimelineViewport.gesture.test.ts`は1倍表示密度の整数スクロールを再現し、3回の連続拡大でも丸め誤差が累積しないことと、スクロール・ポインター移動・境界到達後のアンカー更新を確認します。
+
 ## Required Quality Gate
 
 PR前に以下を通します。
