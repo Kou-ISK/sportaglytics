@@ -1,7 +1,9 @@
+import { exercisePlaybackInteractions } from './e2e-playback-interactions.mjs';
 import {
   exerciseAngleSync,
   getSyncTimeline,
 } from './e2e-angle-sync-workspace.mjs';
+import { exerciseMultiClipCoding } from './e2e-multi-clip-coding.mjs';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import os from 'node:os';
@@ -211,6 +213,13 @@ try {
   await page
     .getByRole('button', { name: '一時停止', exact: true })
     .click({ force: true });
+  await exercisePlaybackInteractions(page, settingsTimeline);
+  await exerciseMultiClipCoding(
+    app,
+    page,
+    settingsTimeline,
+    path.join(dir, 'pair-check.stpkg', 'timeline.json'),
+  );
   await exerciseAngleSync(page, app, ['Control+Shift+K', 'Control+Shift+L']);
   // Closing the sync surface precedes the async config write. Read only a completed document.
   let applied;
@@ -375,6 +384,21 @@ try {
     'Playlist must apply the two-second correction after crossing both source boundaries',
   );
   await review.keyboard.press('Space');
+  await review.waitForFunction(() =>
+    [...document.querySelectorAll('video')].every((video) => video.paused),
+  );
+  await review.keyboard.down('ArrowRight');
+  await review.waitForFunction(() =>
+    [...document.querySelectorAll('video')].every(
+      (video) => !video.paused && video.playbackRate === 0.5,
+    ),
+  );
+  await review.keyboard.up('ArrowRight');
+  await review.waitForFunction(() =>
+    [...document.querySelectorAll('video')].every(
+      (video) => video.paused && video.playbackRate === 1,
+    ),
+  );
   await review.getByRole('button', { name: 'Paint', exact: true }).click();
   await review.getByLabel('Paint クリップ').getByRole('button').first().click();
   // Jump through the common timeline slider, rather than seeking a raw source video.

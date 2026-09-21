@@ -41,7 +41,7 @@ export const useTimelineSelection = ({
         return;
       }
 
-      // 単独選択。再生位置の操作は上部つまみまたは明示的なジャンプに限定する。
+      // 単独選択。再生位置の操作は上部目盛り・つまみまたは明示的なジャンプに限定する。
       const item = timeline.find((entry) => entry.id === id);
       if (!item) return;
       onSelectionChange([id]);

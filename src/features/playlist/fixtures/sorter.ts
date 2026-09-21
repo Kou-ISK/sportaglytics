@@ -1,0 +1,36 @@
+import type { PlaylistItem } from '../../../types/playlist/core';
+export const sorterFixture: PlaylistItem[] = [
+  {
+    id: 'a',
+    timelineItemId: null,
+    actionName: 'Scrum 10',
+    startTime: 30,
+    endTime: 42,
+    addedAt: 1,
+    rowId: 'phase',
+    rowOrder: 0,
+    labels: [{ group: 'Result', name: 'Keep' }],
+  },
+  {
+    id: 'b',
+    timelineItemId: null,
+    actionName: 'Scrum 2',
+    startTime: 10,
+    endTime: 14,
+    addedAt: 2,
+    rowId: 'other',
+    rowOrder: 0,
+    labels: [{ group: 'Result', name: 'Hide' }],
+  },
+  {
+    id: 'c',
+    timelineItemId: null,
+    actionName: 'Lineout',
+    startTime: 20,
+    endTime: 28,
+    addedAt: 3,
+    rowId: 'phase',
+    rowOrder: 1,
+    labels: [{ group: 'Result', name: 'Keep' }],
+  },
+];

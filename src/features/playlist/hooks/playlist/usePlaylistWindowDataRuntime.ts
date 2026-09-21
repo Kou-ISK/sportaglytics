@@ -134,6 +134,8 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
 
   const { handleUndo, handleRedo } = usePlaylistHistorySync({
     undo: history.undo,
+    currentIndex: core.currentIndex,
+    setCurrentIndex: core.setCurrentIndex,
     redo: history.redo,
     setItemAnnotations: core.setItemAnnotations,
     items: history.items,

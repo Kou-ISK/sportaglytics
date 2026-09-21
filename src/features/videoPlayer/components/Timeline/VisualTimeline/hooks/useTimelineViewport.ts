@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import {
   useCallback,
   useEffect,
@@ -11,28 +12,13 @@ import {
   TIMELINE_ROW_HEADER_WIDTH_PX,
 } from '../domain/timelineCoordinateMapper';
 
-const MIN_ZOOM_SCALE = 1;
-const MAX_ZOOM_SCALE = 10;
-const ZOOM_BUTTON_STEP = 0.25;
-
-const clampZoomScale = (value: number): number =>
-  Math.max(MIN_ZOOM_SCALE, Math.min(MAX_ZOOM_SCALE, value));
-
-export const calculateAnchoredScrollLeft = ({
-  anchorTime,
-  viewportWidth,
-  scrollWidth,
-  timeToPosition,
-}: {
-  anchorTime: number;
-  viewportWidth: number;
-  scrollWidth: number;
-  timeToPosition: (time: number) => number;
-}): number => {
-  const maxScrollLeft = Math.max(0, scrollWidth - viewportWidth);
-  const desiredScrollLeft = timeToPosition(anchorTime) - viewportWidth / 2;
-  return Math.max(0, Math.min(maxScrollLeft, desiredScrollLeft));
-};
+import {
+  MIN_ZOOM_SCALE,
+  MAX_ZOOM_SCALE,
+  clampZoomScale,
+  wheelZoomFactor,
+  calculateAnchoredScrollLeft,
+} from '../domain/timelineZoom';
 
 interface UseTimelineViewportParams {
   maxSec: number;
@@ -47,13 +33,30 @@ export interface TimelineContainerPoint {
 export const useTimelineViewport = ({
   maxSec,
   currentTime,
-}: UseTimelineViewportParams) => {
+}: UseTimelineViewportParams): {
+  containerRef: RefObject<HTMLDivElement | null>;
+  scrollContainerRef: RefObject<HTMLDivElement | null>;
+  zoomScale: number;
+  canZoomOut: boolean;
+  canZoomIn: boolean;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  containerWidth: number;
+  timeToPosition: (time: number) => number;
+  positionToTime: (position: number) => number;
+  clientXToContentX: (clientX: number) => number;
+  clientPointToContainerPoint: (x: number, y: number) => TimelineContainerPoint;
+  currentTimePosition: number;
+  scrollLeft: number;
+} => {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [baseWidth, setBaseWidth] = useState(0);
   const [zoomScale, setZoomScale] = useState(1);
   const [scrollLeft, setScrollLeft] = useState(0);
-  const zoomAnchorTimeRef = useRef<number | null>(null);
+  const zoomAnchorRef = useRef<{ time: number; viewportX: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     const target = scrollContainerRef.current;
@@ -85,22 +88,6 @@ export const useTimelineViewport = ({
     return () => target.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer) return;
-
-    const handleWheel = (event: WheelEvent): void => {
-      if (!event.ctrlKey && !event.metaKey) return;
-      event.preventDefault();
-      const delta = -event.deltaY;
-      const zoomFactor = 1 + delta * 0.001;
-      setZoomScale((previous) => clampZoomScale(previous * zoomFactor));
-    };
-
-    scrollContainer.addEventListener('wheel', handleWheel, { passive: false });
-    return () => scrollContainer.removeEventListener('wheel', handleWheel);
-  }, []);
-
   const coordinateMapper = useMemo(
     () =>
       createTimelineCoordinateMapper({
@@ -110,42 +97,69 @@ export const useTimelineViewport = ({
       }),
     [baseWidth, maxSec, zoomScale],
   );
-
-  const changeZoom = useCallback(
-    (delta: number): void => {
-      const scrollContainer = scrollContainerRef.current;
-      if (scrollContainer) {
-        const viewportCenter =
-          scrollContainer.scrollLeft + scrollContainer.clientWidth / 2;
-        zoomAnchorTimeRef.current = coordinateMapper.contentXToTime(viewportCenter);
-      }
-      setZoomScale((previous) =>
-        clampZoomScale(Math.round((previous + delta) * 100) / 100),
-      );
+  const setAnchor = useCallback(
+    (viewportX: number): void => {
+      const target = scrollContainerRef.current;
+      if (!target) return;
+      zoomAnchorRef.current = {
+        time: coordinateMapper.contentXToTime(
+          target.scrollLeft + viewportX - TIMELINE_ROW_HEADER_WIDTH_PX,
+        ),
+        viewportX,
+      };
     },
     [coordinateMapper],
   );
 
-  const zoomIn = useCallback(
-    (): void => changeZoom(ZOOM_BUTTON_STEP),
-    [changeZoom],
-  );
+  useEffect(() => {
+    const target = scrollContainerRef.current;
+    if (!target) return;
+    const handleWheel = (event: WheelEvent): void => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      setAnchor(
+        Math.max(
+          TIMELINE_ROW_HEADER_WIDTH_PX,
+          Math.min(
+            target.clientWidth,
+            event.clientX - target.getBoundingClientRect().left,
+          ),
+        ),
+      );
+      setZoomScale((previous) =>
+        clampZoomScale(
+          previous * wheelZoomFactor(event.deltaY, event.deltaMode),
+        ),
+      );
+    };
+    target.addEventListener('wheel', handleWheel, { passive: false });
+    return () => target.removeEventListener('wheel', handleWheel);
+  }, [setAnchor]);
 
-  const zoomOut = useCallback(
-    (): void => changeZoom(-ZOOM_BUTTON_STEP),
-    [changeZoom],
+  const changeZoom = useCallback(
+    (factor: number): void => {
+      const target = scrollContainerRef.current;
+      if (target)
+        setAnchor((target.clientWidth + TIMELINE_ROW_HEADER_WIDTH_PX) / 2);
+      setZoomScale((previous) => clampZoomScale(previous * factor));
+    },
+    [setAnchor],
   );
+  const zoomIn = useCallback((): void => changeZoom(1.5), [changeZoom]);
+  const zoomOut = useCallback((): void => changeZoom(1 / 1.5), [changeZoom]);
 
   useLayoutEffect(() => {
-    const anchorTime = zoomAnchorTimeRef.current;
+    const anchor = zoomAnchorRef.current;
     const scrollContainer = scrollContainerRef.current;
-    if (anchorTime === null || !scrollContainer) {
+    if (anchor === null || !scrollContainer) {
       return;
     }
 
-    zoomAnchorTimeRef.current = null;
+    zoomAnchorRef.current = null;
     const nextScrollLeft = calculateAnchoredScrollLeft({
-      anchorTime,
+      anchorTime: anchor.time,
+      anchorViewportX: anchor.viewportX,
+      headerWidth: TIMELINE_ROW_HEADER_WIDTH_PX,
       viewportWidth: scrollContainer.clientWidth,
       scrollWidth: scrollContainer.scrollWidth,
       timeToPosition: coordinateMapper.timeToContentX,

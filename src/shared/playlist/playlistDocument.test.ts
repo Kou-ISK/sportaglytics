@@ -12,8 +12,22 @@ const legacyPlaylist = (): Playlist => ({
   name: 'Legacy',
   type: 'reference',
   items: [
-    { id: 'a', timelineItemId: null, actionName: 'A', startTime: 0, endTime: 1, addedAt: 1 },
-    { id: 'b', timelineItemId: null, actionName: 'B', startTime: 1, endTime: 2, addedAt: 1 },
+    {
+      id: 'a',
+      timelineItemId: null,
+      actionName: 'A',
+      startTime: 0,
+      endTime: 1,
+      addedAt: 1,
+    },
+    {
+      id: 'b',
+      timelineItemId: null,
+      actionName: 'B',
+      startTime: 1,
+      endTime: 2,
+      addedAt: 1,
+    },
   ],
   createdAt: 1,
   updatedAt: 1,
@@ -23,7 +37,7 @@ describe('playlist document model', () => {
   it('migrates a flat legacy playlist without changing item order', () => {
     const migrated = normalizePlaylistDocument(legacyPlaylist());
 
-    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.schemaVersion).toBe(3);
     expect(migrated.rows).toHaveLength(1);
     expect(migrated.items.map((item) => item.id)).toEqual(['a', 'b']);
     expect(migrated.items.map((item) => item.rowOrder)).toEqual([0, 1]);
@@ -43,7 +57,10 @@ describe('playlist document model', () => {
     });
 
     expect(normalizePlaylistDocument(playlist)).toEqual(playlist);
-    expect(getPresentationItems(playlist).map((item) => item.id)).toEqual(['b', 'a']);
+    expect(getPresentationItems(playlist).map((item) => item.id)).toEqual([
+      'b',
+      'a',
+    ]);
   });
 
   it('moves and reorders items without changing sorter/source metadata', () => {
@@ -56,7 +73,12 @@ describe('playlist document model', () => {
     const moved = moveItemsToRow(withRow, ['a'], 'second');
     const reordered = reorderItemsWithinRow(moved, 'second', 0, 0);
 
-    expect(reordered.items.find((item) => item.id === 'a')?.rowId).toBe('second');
-    expect(getPresentationItems(reordered).map((item) => item.id)).toEqual(['b', 'a']);
+    expect(reordered.items.find((item) => item.id === 'a')?.rowId).toBe(
+      'second',
+    );
+    expect(getPresentationItems(reordered).map((item) => item.id)).toEqual([
+      'b',
+      'a',
+    ]);
   });
 });

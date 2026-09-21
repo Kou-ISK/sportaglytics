@@ -1,10 +1,16 @@
 # Project Structure
 
+Playlistのソート値・安定比較・検索は`features/playlist/domain/playlistSorter`、UI状態と文書編集の接続は`hooks/playlist/usePlaylistSorter`、描画は`PlaylistSorterView`と`PlaylistSorterToolbarView`へ分離します。保存される再生順の正規化・移行はRenderer/Main共通の`shared/playlist/playlistPresentationOrder`が担当します。
+
 このドキュメントは SporTagLytics のディレクトリ構成と配置判断ルールです。アーキテクチャ規約の正本は `AGENTS.md`、現行アーキテクチャ要約は [system-overview.md](system-overview.md) です。本書は「新しいファイルをどこに置くか」を判断するための実務ガイドです。
 
 複数クリップの時刻契約は `src/shared/media/`、パッケージ参照の解決は `electron/src/ipc/mediaTimelineSource.ts`、Playlistの映像切替・読込状態は `src/features/playlist/media/` に置きます。`videoFrameClock` は映像要素に結び付いたアダプターメタデータだけを保持し、アプリの状態源や保存形式にはしません。
 
 アングル同期のprops-only UIは `features/videoPlayer/app/components/AngleSync*View`、動画への接続は `AngleSyncPreviewScreen`、時計・同期点・保存は `app/hooks/sync/useAngleSync*` に配置します。既存時間目盛り上の同期点は `components/Timeline/VisualTimeline/TimelineSyncMarkersView`、ウィンドウ間の契約は `types/ipc/angleSync.ts` と既存Timeline IPC、計算は `angleSync.ts`、Mainの制限付きフレーム取得は `electron/src/ipc/mediaFrameService.ts` に分離します。
+
+Codingの時刻読み取りは `features/videoPlayer/components/Controls/hooks/useCodingTime.ts` に置き、Screenから注入された共通時計を使います。実ウィンドウでの記録・保存の検証は `scripts/e2e-multi-clip-coding.mjs` に分離し、既存の複数クリップE2Eから呼び出します。
+
+再生キーの一時状態は`shared/hooks/useHeldPlayback`、Timelineの倍率・アンカー・可視目盛りの計算は`VisualTimeline/domain/timelineZoom`へ分離します。動画への時刻適用と待機解除は`SingleVideo/hooks/useMediaTimeSync`と`usePlaybackBehaviour`が担当します。
 
 ## Top-Level Layout
 

@@ -34,102 +34,62 @@ export function usePlaylistHistory(
     future: [],
   });
 
-  // 初回マウントフラグ（ファイル読み込み時のみ履歴をリセット）
-  const isInitialMount = useRef(true);
-  // 前回のinitialItemsを保持（無限ループを防ぐため）
-  const prevInitialItemsJSON = useRef<string>(JSON.stringify(initialItems));
-
-  // 外部からのアイテム更新を検知（ファイル読み込み時など）
+  const stateRef = useRef(state);
+  const previousInput = useRef(JSON.stringify(initialItems));
+  const commit = useCallback((next: PlaylistHistoryState): void => {
+    stateRef.current = next;
+    setState(next);
+  }, []);
   useEffect(() => {
-    const newJSON = JSON.stringify(initialItems);
-
-    // initialItemsが変更された場合
-    if (prevInitialItemsJSON.current !== newJSON) {
-      // 初回マウント時、または現在のpresentと異なる場合のみ履歴をリセット
-      const currentPresentJSON = JSON.stringify(state.present);
-      if (isInitialMount.current || newJSON !== currentPresentJSON) {
-        setState({
-          past: [],
-          present: initialItems,
-          future: [],
-        });
-      }
-      prevInitialItemsJSON.current = newJSON;
-      isInitialMount.current = false;
+    const serialized = JSON.stringify(initialItems);
+    if (previousInput.current === serialized) return;
+    previousInput.current = serialized;
+    if (serialized !== JSON.stringify(stateRef.current.present)) {
+      commit({ past: [], present: initialItems, future: [] });
     }
-  }, [initialItems, state.present]);
+  }, [initialItems, commit]);
 
   const setItems = useCallback(
-    (items: PlaylistItem[] | ((prev: PlaylistItem[]) => PlaylistItem[])) => {
-      setState((prev) => {
-        const newItems =
-          typeof items === 'function' ? items(prev.present) : items;
-        const newPast = [...prev.past, prev.present].slice(-MAX_HISTORY_SIZE);
-        return {
-          past: newPast,
-          present: newItems,
-          future: [], // 新しい変更を加えたらfutureはクリア
-        };
+    (
+      update: PlaylistItem[] | ((prev: PlaylistItem[]) => PlaylistItem[]),
+    ): void => {
+      const previous = stateRef.current;
+      const present =
+        typeof update === 'function' ? update(previous.present) : update;
+      if (present === previous.present) return;
+      commit({
+        past: [...previous.past, previous.present].slice(-MAX_HISTORY_SIZE),
+        present,
+        future: [],
       });
     },
-    [],
+    [commit],
   );
-
   const undo = useCallback((): PlaylistItem[] | null => {
-    let result: PlaylistItem[] | null = null;
-
-    setState((prev) => {
-      if (prev.past.length === 0) {
-        return prev;
-      }
-
-      const previous = prev.past.at(-1);
-      if (!previous) return prev;
-
-      const newPast = prev.past.slice(0, -1);
-
-      result = previous;
-
-      return {
-        past: newPast,
-        present: previous,
-        future: [prev.present, ...prev.future],
-      };
+    const previous = stateRef.current;
+    const present = previous.past.at(-1);
+    if (!present) return null;
+    commit({
+      past: previous.past.slice(0, -1),
+      present,
+      future: [previous.present, ...previous.future],
     });
-
-    return result;
-  }, []);
-
+    return present;
+  }, [commit]);
   const redo = useCallback((): PlaylistItem[] | null => {
-    let result: PlaylistItem[] | null = null;
-
-    setState((prev) => {
-      if (prev.future.length === 0) {
-        return prev;
-      }
-
-      const next = prev.future[0];
-      const newFuture = prev.future.slice(1);
-
-      result = next;
-
-      return {
-        past: [...prev.past, prev.present],
-        present: next,
-        future: newFuture,
-      };
+    const previous = stateRef.current;
+    const present = previous.future[0];
+    if (!present) return null;
+    commit({
+      past: [...previous.past, previous.present],
+      present,
+      future: previous.future.slice(1),
     });
-
-    return result;
-  }, []);
-
-  const clearHistory = useCallback(() => {
-    setState((prev) => ({
-      past: [],
-      present: prev.present,
-      future: [],
-    }));
-  }, []);
+    return present;
+  }, [commit]);
+  const clearHistory = useCallback((): void => {
+    commit({ past: [], present: stateRef.current.present, future: [] });
+  }, [commit]);
 
   return {
     items: state.present,

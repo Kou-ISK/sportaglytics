@@ -5,10 +5,7 @@ interface PlaybackRefs {
   secondary: React.RefObject<HTMLVideoElement | null>;
 }
 
-export const applyPlaybackRate = (
-  refs: PlaybackRefs,
-  rate: number,
-): void => {
+export const applyPlaybackRate = (refs: PlaybackRefs, rate: number): void => {
   if (refs.primary.current) {
     refs.primary.current.playbackRate = rate;
   }
@@ -24,25 +21,6 @@ export const buildSeekHandler = (
 ): (() => void) => {
   return () => {
     handleSeek(new Event('hotkey'), currentTime + deltaSeconds);
-  };
-};
-
-export const buildPlaybackRateHandler = (
-  refs: PlaybackRefs,
-  setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>,
-  rate: number,
-): (() => void) => {
-  return () => {
-    applyPlaybackRate(refs, rate);
-    setIsPlaying(true);
-  };
-};
-
-export const buildResetPlaybackRateHandler = (
-  refs: PlaybackRefs,
-): (() => void) => {
-  return () => {
-    applyPlaybackRate(refs, 1);
   };
 };
 

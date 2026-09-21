@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import { getContrastRatio, useTheme } from '@mui/material/styles';
 import type { TimelineData } from '../../../../../types/timeline/core';
@@ -52,6 +52,12 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
   isEditModifierPressed,
 }) => {
   const theme = useTheme();
+  const suppressEdgeClick = useRef(false);
+  const beginEdge = (event: React.MouseEvent, edge: 'start' | 'end'): void => {
+    suppressEdgeClick.current =
+      event.button === 0 && event.altKey && (event.metaKey || event.ctrlKey);
+    onEdgeMouseDown(event, item, edge);
+  };
   const left = timeToPosition(item.startTime);
   const right = timeToPosition(item.endTime);
   const width = Math.max(0, right - left);
@@ -106,9 +112,16 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
         role="button"
         tabIndex={0}
         aria-pressed={isSelected}
+        onMouseDownCapture={() => {
+          suppressEdgeClick.current = false;
+        }}
         onClick={(event) => {
           // A modified edge drag edits its target without toggling selection.
-          if (event.altKey && (event.metaKey || event.ctrlKey)) {
+          if (
+            suppressEdgeClick.current ||
+            (event.altKey && (event.metaKey || event.ctrlKey))
+          ) {
+            suppressEdgeClick.current = false;
             event.stopPropagation();
             return;
           }
@@ -196,7 +209,7 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
         />
 
         <Box
-          onMouseDown={(event) => onEdgeMouseDown(event, item, 'start')}
+          onMouseDown={(event) => beginEdge(event, 'start')}
           aria-label="開始位置を調整"
           sx={{
             position: 'absolute',
@@ -237,7 +250,7 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
         )}
 
         <Box
-          onMouseDown={(event) => onEdgeMouseDown(event, item, 'end')}
+          onMouseDown={(event) => beginEdge(event, 'end')}
           aria-label="終了位置を調整"
           sx={{
             position: 'absolute',

@@ -1,3 +1,7 @@
+import {
+  applyPresentationOrder,
+  normalizePresentationOrder,
+} from './playlistPresentationOrder';
 import { validateTacticsAnnotation } from '../tactics/annotationValidation';
 import type {
   Playlist,
@@ -106,7 +110,10 @@ const normalizeItems = (
 export const normalizePlaylistDocument = (playlist: Playlist): Playlist => {
   const rows = normalizeRows(playlist.id, playlist.rows);
   playlist.items.forEach((item) => validateTacticsAnnotation(item.annotation));
-  const items = normalizeItems(playlist.items, rows);
+  const items = normalizePresentationOrder(
+    normalizeItems(playlist.items, rows),
+    rows,
+  );
   return {
     ...playlist,
     rows,
@@ -121,23 +128,9 @@ export const migratePlaylistDocument = normalizePlaylistDocument;
 /** Returns the only order used by playback, Organizer and export. */
 export const getPresentationItems = (playlist: Playlist): PlaylistItem[] => {
   const normalized = normalizePlaylistDocument(playlist);
-  const rowOrder = new Map(
-    normalized.rows?.map((row) => [row.id, row.order]) ?? [],
+  return [...normalized.items].sort(
+    (a, b) => (a.presentationOrder ?? 0) - (b.presentationOrder ?? 0),
   );
-  return normalized.items
-    .map((item, index) => ({ item, index }))
-    .sort((a, b) => {
-      const rowDelta =
-        (rowOrder.get(a.item.rowId ?? '') ?? Number.MAX_SAFE_INTEGER) -
-        (rowOrder.get(b.item.rowId ?? '') ?? Number.MAX_SAFE_INTEGER);
-      return (
-        rowDelta ||
-        (a.item.rowOrder ?? Number.MAX_SAFE_INTEGER) -
-          (b.item.rowOrder ?? Number.MAX_SAFE_INTEGER) ||
-        a.index - b.index
-      );
-    })
-    .map(({ item }) => item);
 };
 
 export const getPresentationItemIds = (playlist: Playlist): string[] =>
@@ -219,6 +212,9 @@ export const reorderPlaylistRows = (
   return {
     ...normalized,
     rows: rows.map((entry, order) => ({ ...entry, order })),
+    items: normalized.items.map(
+      ({ presentationOrder: _rank, ...item }) => item,
+    ),
   };
 };
 
@@ -236,7 +232,7 @@ export const moveItemsToRow = (
   let order = nextOrder;
   return {
     ...normalized,
-    items: normalized.items.map((item) =>
+    items: normalized.items.map(({ presentationOrder: _rank, ...item }) =>
       moved.has(item.id) ? { ...item, rowId, rowOrder: order++ } : item,
     ),
   };
@@ -262,13 +258,13 @@ export const reorderItemsWithinRow = (
     return normalized;
   const [item] = rowItems.splice(fromIndex, 1);
   rowItems.splice(toIndex, 0, item);
-  const orderById = new Map(rowItems.map((entry, order) => [entry.id, order]));
+  const currentOrder = getPresentationItems(normalized);
+  let index = 0;
+  const nextOrder = currentOrder.map((entry) =>
+    entry.rowId === rowId ? rowItems[index++].id : entry.id,
+  );
   return {
     ...normalized,
-    items: normalized.items.map((entry) =>
-      orderById.has(entry.id)
-        ? { ...entry, rowOrder: orderById.get(entry.id) }
-        : entry,
-    ),
+    items: applyPresentationOrder(currentOrder, nextOrder),
   };
 };

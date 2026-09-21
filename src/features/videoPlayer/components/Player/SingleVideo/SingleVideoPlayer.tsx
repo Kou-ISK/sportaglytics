@@ -30,7 +30,13 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
       onAspectRatioChange,
     });
 
-  useMediaTimeSync(playerRef, isReady, timelineTimeSeconds, isVideoPlaying);
+  useMediaTimeSync(
+    playerRef,
+    isReady,
+    timelineTimeSeconds,
+    isVideoPlaying,
+    videoPlayBackRate,
+  );
 
   const [showEndMask, setShowEndMask] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -38,9 +44,15 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
 
   useEffect(() => {
     const player = playerRef.current;
-    if (!isReady || !player || initialTimeRef.current <= 0) return;
+    if (
+      timelineTimeSeconds !== undefined ||
+      !isReady ||
+      !player ||
+      initialTimeRef.current <= 0
+    )
+      return;
     player.currentTime(initialTimeRef.current);
-  }, [isReady, playerRef]);
+  }, [isReady, playerRef, timelineTimeSeconds]);
 
   const { isFullscreen, handleToggleFullscreen } = useFullscreen({
     playerRef,

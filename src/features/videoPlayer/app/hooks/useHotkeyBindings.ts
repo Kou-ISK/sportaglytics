@@ -1,7 +1,8 @@
+import { useHeldPlayback } from '../../../../shared/hooks/useHeldPlayback';
 import { ANGLE_VIEW_MODES } from '../../../../shared/media/angleView';
 import type { VideoViewMode } from '../../../../shared/media/angleView';
-import { useMemo, RefObject } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import { useMemo } from 'react';
+import type { Dispatch, SetStateAction, RefObject } from 'react';
 import type {
   ActionDefinition,
   HotkeyConfig,
@@ -14,6 +15,8 @@ interface UseHotkeyBindingsParams {
   activeActions: ActionDefinition[];
   codeWindowButtons?: { id: string; name: string; hotkey?: string }[];
   timelineActionRef: RefObject<EnhancedCodePanelHandle | null>;
+  isVideoPlaying: boolean;
+  videoPlayBackRate: number;
   setVideoPlayBackRate: (rate: number) => void;
   setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
   setViewMode: Dispatch<SetStateAction<VideoViewMode>>;
@@ -38,6 +41,8 @@ export const useHotkeyBindings = ({
   activeActions,
   codeWindowButtons = [],
   timelineActionRef,
+  isVideoPlaying,
+  videoPlayBackRate,
   setVideoPlayBackRate,
   setIsVideoPlaying,
   setViewMode,
@@ -53,37 +58,57 @@ export const useHotkeyBindings = ({
   selectedTimelineIdList,
   deleteTimelineDatas,
   clearSelection,
-}: UseHotkeyBindingsParams) => {
+}: UseHotkeyBindingsParams): {
+  combinedHotkeys: HotkeyConfig[];
+  combinedHandlers: Record<string, () => void>;
+  keyUpHandlers: Record<string, () => void>;
+} => {
+  const { start, stop, cancel } = useHeldPlayback(
+    () => ({ playing: isVideoPlaying, rate: videoPlayBackRate }),
+    ({ playing, rate }) => {
+      setVideoPlayBackRate(rate);
+      setIsVideoPlaying(playing);
+    },
+  );
   const hotkeyHandlers = useMemo<Record<string, () => void>>(
     () => ({
       'skip-forward-small': () => {
         stopReversePlayback();
-        setVideoPlayBackRate(0.5);
-        setIsVideoPlaying(true);
+        start('skip-forward-small', 0.5);
       },
       'skip-forward-medium': () => {
         stopReversePlayback();
-        setVideoPlayBackRate(2);
-        setIsVideoPlaying(true);
+        start('skip-forward-medium', 2);
       },
       'skip-forward-large': () => {
         stopReversePlayback();
-        setVideoPlayBackRate(4);
-        setIsVideoPlaying(true);
+        start('skip-forward-large', 4);
       },
       'skip-forward-xlarge': () => {
         stopReversePlayback();
-        setVideoPlayBackRate(6);
-        setIsVideoPlaying(true);
+        start('skip-forward-xlarge', 6);
       },
       'play-pause': () => {
+        cancel();
         stopReversePlayback();
         setIsVideoPlaying((playing) => !playing);
       },
-      'reverse-playback-slow': () => startReversePlayback(0.5),
-      'reverse-playback-2x': () => startReversePlayback(2),
-      'reverse-playback-4x': () => startReversePlayback(4),
-      'reverse-playback-6x': () => startReversePlayback(6),
+      'reverse-playback-slow': () => {
+        cancel();
+        startReversePlayback(0.5);
+      },
+      'reverse-playback-2x': () => {
+        cancel();
+        startReversePlayback(2);
+      },
+      'reverse-playback-4x': () => {
+        cancel();
+        startReversePlayback(4);
+      },
+      'reverse-playback-6x': () => {
+        cancel();
+        startReversePlayback(6);
+      },
       ...Object.fromEntries(
         ANGLE_VIEW_MODES.map((mode) => [
           `toggle-${mode}`,
@@ -111,6 +136,8 @@ export const useHotkeyBindings = ({
       },
     }),
     [
+      start,
+      cancel,
       manualSyncFromPlayers,
       performRedo,
       performUndo,
@@ -131,24 +158,16 @@ export const useHotkeyBindings = ({
 
   const keyUpHandlers = useMemo<Record<string, () => void>>(
     () => ({
-      'skip-forward-small': () => {
-        setVideoPlayBackRate(1);
-      },
-      'skip-forward-medium': () => {
-        setVideoPlayBackRate(1);
-      },
-      'skip-forward-large': () => {
-        setVideoPlayBackRate(1);
-      },
-      'skip-forward-xlarge': () => {
-        setVideoPlayBackRate(1);
-      },
+      'skip-forward-small': () => stop('skip-forward-small'),
+      'skip-forward-medium': () => stop('skip-forward-medium'),
+      'skip-forward-large': () => stop('skip-forward-large'),
+      'skip-forward-xlarge': () => stop('skip-forward-xlarge'),
       'reverse-playback-slow': stopReversePlayback,
       'reverse-playback-2x': stopReversePlayback,
       'reverse-playback-4x': stopReversePlayback,
       'reverse-playback-6x': stopReversePlayback,
     }),
-    [setVideoPlayBackRate, stopReversePlayback],
+    [stop, stopReversePlayback],
   );
 
   const actionHotkeys = useMemo(() => {

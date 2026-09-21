@@ -21,7 +21,7 @@ import { useCodePanelSettings } from './useCodePanelSettings';
 import { useCodePanelInteractions } from './useCodePanelInteractions';
 import type { EnhancedCodePanelProps } from '../EnhancedCodePanel.types';
 import type { EnhancedCodePanelViewProps } from '../EnhancedCodePanelView';
-import { getVideoJsPlayerCurrentTime } from '../../../shared/videojs/videoJsAdapter';
+import { useCodingTime } from './useCodingTime';
 import {
   openCodingPanelWindow,
   subscribeCodingPanelWindowCommand,
@@ -51,6 +51,7 @@ interface UseEnhancedCodePanelControllerResult {
 }
 
 export const useEnhancedCodePanelController = ({
+  codingTime,
   addTimelineData,
   teamNames,
   firstTeamName,
@@ -185,9 +186,7 @@ export const useEnhancedCodePanelController = ({
   >({});
   const layoutContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const getCurrentTime = useCallback((): number | null => {
-    return getVideoJsPlayerCurrentTime('video_0');
-  }, []);
+  const getCurrentTime = useCodingTime(codingTime);
 
   const completeRecording = useRecordingCompletion({
     addTimelineData,

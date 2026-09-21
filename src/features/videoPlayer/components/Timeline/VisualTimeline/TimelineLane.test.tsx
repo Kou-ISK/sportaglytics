@@ -90,7 +90,7 @@ describe('TimelineLane', () => {
       clientX: 100,
     });
     fireEvent.mouseMove(document, { clientX: 600 });
-    fireEvent.mouseUp(document);
+    fireEvent.mouseUp(document, { clientX: 600 });
 
     expect(onCreateItem).toHaveBeenCalledWith('Attack', 10, 60, '#123456');
   });
@@ -102,11 +102,11 @@ describe('TimelineLane', () => {
     expect(getComputedStyle(line).pointerEvents).toBe('none');
     fireEvent.mouseDown(line, { clientX: 100 });
     fireEvent.mouseMove(document, { clientX: 600 });
-    fireEvent.mouseUp(document);
+    fireEvent.mouseUp(document, { clientX: 600 });
     expect(onCreateItem).not.toHaveBeenCalled();
   });
 
-  it('cancels a range draft when the edit modifier is released', () => {
+  it('commits a range even when modifiers are released before the mouse', () => {
     const onCreateItem = vi.fn();
     renderLane({ onCreateItem });
     fireEvent.mouseDown(screen.getByTestId('timeline-playhead-Attack'), {
@@ -117,9 +117,14 @@ describe('TimelineLane', () => {
     fireEvent.mouseMove(document, { clientX: 600 });
     expect(screen.getByTestId('timeline-create-preview')).toBeTruthy();
     fireEvent.keyUp(window, { key: 'Alt', altKey: false, metaKey: true });
-    fireEvent.mouseUp(document);
+    fireEvent.mouseUp(document, { clientX: 600 });
     expect(screen.queryByTestId('timeline-create-preview')).toBeNull();
-    expect(onCreateItem).not.toHaveBeenCalled();
+    expect(onCreateItem).toHaveBeenCalledExactlyOnceWith(
+      'Attack',
+      10,
+      60,
+      '#123456',
+    );
   });
 
   it('requires Option + Command but does not require prior selection to resize an edge', () => {
@@ -131,7 +136,7 @@ describe('TimelineLane', () => {
       metaKey: false,
     });
     fireEvent.mouseMove(document, { clientX: 50 });
-    fireEvent.mouseUp(document);
+    fireEvent.mouseUp(document, { clientX: 50 });
     expect(onUpdateTimeRange).not.toHaveBeenCalled();
 
     fireEvent.mouseDown(screen.getByLabelText('開始位置を調整'), {
@@ -139,7 +144,7 @@ describe('TimelineLane', () => {
       metaKey: true,
     });
     fireEvent.mouseMove(document, { clientX: 50 });
-    fireEvent.mouseUp(document);
+    fireEvent.mouseUp(document, { clientX: 50 });
     expect(onUpdateTimeRange).not.toHaveBeenCalled();
 
     fireEvent.mouseDown(screen.getByLabelText('開始位置を調整'), {
@@ -147,7 +152,7 @@ describe('TimelineLane', () => {
       metaKey: true,
     });
     fireEvent.mouseMove(document, { clientX: 50 });
-    fireEvent.mouseUp(document);
+    fireEvent.mouseUp(document, { clientX: 50 });
     expect(onUpdateTimeRange).toHaveBeenCalledWith('instance-1', 5, 20);
   });
 
@@ -167,7 +172,7 @@ describe('TimelineLane', () => {
         .width,
     ).toBe('150px');
     expect(onUpdateTimeRange).not.toHaveBeenCalled();
-    fireEvent.mouseUp(document);
+    fireEvent.mouseUp(document, { clientX: 250 });
     fireEvent.click(edge, { altKey: true, ctrlKey: true });
     expect(onUpdateTimeRange).toHaveBeenCalledExactlyOnceWith(
       'instance-1',
@@ -177,10 +182,12 @@ describe('TimelineLane', () => {
     expect(onItemClick).not.toHaveBeenCalled();
   });
 
-  it('discards the resize preview when the edit modifier is released', () => {
+  it('commits the resize when modifiers are released before the mouse', () => {
     const onUpdateTimeRange = vi.fn();
+    const onItemClick = vi.fn();
     renderLane({
       onUpdateTimeRange,
+      onItemClick,
       selectedIds: ['instance-1'],
     });
 
@@ -198,12 +205,14 @@ describe('TimelineLane', () => {
 
     fireEvent.keyUp(window, { key: 'Alt', altKey: false, metaKey: true });
     fireEvent.mouseMove(document, { clientX: 300 });
-    fireEvent.mouseUp(document);
-    expect(onUpdateTimeRange).not.toHaveBeenCalled();
-    expect(
-      getComputedStyle(screen.getByTestId('timeline-instance-instance-1'))
-        .width,
-    ).toBe('100px');
+    fireEvent.mouseUp(document, { clientX: 300 });
+    fireEvent.click(screen.getByLabelText('終了位置を調整'));
+    expect(onUpdateTimeRange).toHaveBeenCalledExactlyOnceWith(
+      'instance-1',
+      10,
+      30,
+    );
+    expect(onItemClick).not.toHaveBeenCalled();
   });
   it('commits a whole resize once and cancels the next gesture with Escape', () => {
     const onUpdateTimeRange = vi.fn();
@@ -213,7 +222,7 @@ describe('TimelineLane', () => {
     for (const clientX of [210, 230, 250])
       fireEvent.mouseMove(document, { clientX });
     expect(onUpdateTimeRange).not.toHaveBeenCalled();
-    fireEvent.mouseUp(document);
+    fireEvent.mouseUp(document, { clientX: 250 });
     expect(onUpdateTimeRange).toHaveBeenCalledExactlyOnceWith(
       'instance-1',
       10,
@@ -223,12 +232,30 @@ describe('TimelineLane', () => {
     fireEvent.mouseDown(edge, { altKey: true, metaKey: true });
     fireEvent.mouseMove(document, { clientX: 300 });
     fireEvent.keyDown(window, { key: 'Escape' });
-    fireEvent.mouseUp(document);
+    fireEvent.mouseUp(document, { clientX: 300 });
     expect(onUpdateTimeRange).not.toHaveBeenCalled();
     expect(
       getComputedStyle(screen.getByTestId('timeline-instance-instance-1'))
         .width,
     ).toBe('100px');
+  });
+  it('uses the final mouse-up coordinate and ignores a non-primary button release', () => {
+    const onUpdateTimeRange = vi.fn();
+    renderLane({ onUpdateTimeRange });
+    fireEvent.mouseDown(screen.getByLabelText('終了位置を調整'), {
+      altKey: true,
+      metaKey: true,
+      clientX: 200,
+    });
+    fireEvent.mouseMove(document, { clientX: 250 });
+    fireEvent.mouseUp(document, { button: 2, clientX: 260 });
+    expect(onUpdateTimeRange).not.toHaveBeenCalled();
+    fireEvent.mouseUp(document, { button: 0, clientX: 280 });
+    expect(onUpdateTimeRange).toHaveBeenCalledExactlyOnceWith(
+      'instance-1',
+      10,
+      28,
+    );
   });
   it('does not create history for a resize without movement', () => {
     const onUpdateTimeRange = vi.fn();
@@ -237,7 +264,7 @@ describe('TimelineLane', () => {
       altKey: true,
       metaKey: true,
     });
-    fireEvent.mouseUp(document);
+    fireEvent.mouseUp(document, { clientX: 0 });
     expect(onUpdateTimeRange).not.toHaveBeenCalled();
   });
 });

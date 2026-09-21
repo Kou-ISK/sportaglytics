@@ -8,10 +8,7 @@ import type {
   PlaylistSaveProgressPayload,
   PlaylistState,
 } from '../playlist/core';
-import type {
-  PlaylistCommand,
-  PlaylistSyncData,
-} from '../playlist/window';
+import type { PlaylistCommand, PlaylistSyncData } from '../playlist/window';
 import type { SCLabel } from '../timeline/sportscode';
 import {
   isArrayOf,
@@ -89,13 +86,16 @@ const isDrawingObject = (
     isOptional(
       value.path,
       (candidate): candidate is Array<{ x: number; y: number }> => {
-        return isArrayOf(candidate, (point): point is { x: number; y: number } => {
-          return (
-            isPlainObject(point) &&
-            isFiniteNumber(point.x) &&
-            isFiniteNumber(point.y)
-          );
-        });
+        return isArrayOf(
+          candidate,
+          (point): point is { x: number; y: number } => {
+            return (
+              isPlainObject(point) &&
+              isFiniteNumber(point.x) &&
+              isFiniteNumber(point.y)
+            );
+          },
+        );
       },
     ) &&
     isOptional(value.text, isString) &&
@@ -119,9 +119,7 @@ const isItemAnnotation = (value: unknown): value is ItemAnnotation => {
   );
 };
 
-const isPlaylistAiMeta = (
-  value: unknown,
-): value is PlaylistAiMeta => {
+const isPlaylistAiMeta = (value: unknown): value is PlaylistAiMeta => {
   if (!isPlainObject(value)) {
     return false;
   }
@@ -168,7 +166,8 @@ export const isPlaylistItem = (value: unknown): value is PlaylistItem => {
     isOptional(value.annotation, isItemAnnotation) &&
     isOptional(value.aiMeta, isPlaylistAiMeta) &&
     isOptional(value.rowId, isString) &&
-    isOptional(value.rowOrder, isFiniteNumber)
+    isOptional(value.rowOrder, isFiniteNumber) &&
+    isOptional(value.presentationOrder, isFiniteNumber)
   );
 };
 
@@ -208,7 +207,9 @@ export const isPlaylistState = (value: unknown): value is PlaylistState => {
   );
 };
 
-export const isPlaylistSyncData = (value: unknown): value is PlaylistSyncData => {
+export const isPlaylistSyncData = (
+  value: unknown,
+): value is PlaylistSyncData => {
   if (!isPlainObject(value)) {
     return false;
   }
@@ -223,9 +224,7 @@ export const isPlaylistSyncData = (value: unknown): value is PlaylistSyncData =>
   );
 };
 
-export const isPlaylistCommand = (
-  value: unknown,
-): value is PlaylistCommand => {
+export const isPlaylistCommand = (value: unknown): value is PlaylistCommand => {
   if (!isPlainObject(value) || !isString(value.type)) {
     return false;
   }
