@@ -21,6 +21,8 @@ Codingの記録時刻も共通時計を使います。`VideoPlayerScreen`が`Cod
 
 複数クリップの再生位置は`useMediaTimeSync`が元動画へ適用します。デコード中の要求は最新位置へまとめ、再生中のずれ補正は最低250ms間隔・再生速度を考慮した許容差で行います。停止時と明示的なシークは精密に合わせます。`useVideoTimeController`から同じプレイヤーへ二重にシークしません。速度キーはsharedの`useHeldPlayback`で操作前の再生状態・速度を保持し、MainとPlaylistがそれぞれの再生APIへ適用します。[ADR 0046](adr/0046-coalesced-playback-corrections.md)。
 
+Timelineの`useTimelineViewport`は、同じポインター位置での連続拡大中に論理時刻のアンカーを保持し、OSのスクロール位置の丸め誤差を累積させません。手動スクロール・ポインター移動・表示幅変更・端への到達時は表示位置からアンカーを取り直します。
+
 ## レイヤー構成
 
 - 依存方向: `pages -> features -> shared`
