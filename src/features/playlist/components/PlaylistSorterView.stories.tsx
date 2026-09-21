@@ -22,6 +22,10 @@ const Fixture = ({
     onSelectItem: (id) => setSelected(new Set([id])),
     onPlayItem: () => undefined,
     onDeleteSelected: () => undefined,
+    onUpdateNote: (id, note) =>
+      history.setItems((items) =>
+        items.map((item) => (item.id === id ? { ...item, note } : item)),
+      ),
     onReorder: (ids) =>
       history.setItems((items) => applyPresentationOrder(items, ids)),
   });

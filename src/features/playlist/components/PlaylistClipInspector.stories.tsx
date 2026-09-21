@@ -11,7 +11,13 @@ const meta = {
       </Box>
     ),
   ],
-  args: { item: null, width: 300, onEditNote: () => {}, onPlay: () => {} },
+  args: {
+    item: null,
+    width: 300,
+    onEditNote: () => {},
+    onPlay: () => {},
+    onUpdateNote: () => {},
+  },
 } satisfies Meta<typeof PlaylistClipInspector>;
 export default meta;
 type Story = StoryObj<typeof meta>;

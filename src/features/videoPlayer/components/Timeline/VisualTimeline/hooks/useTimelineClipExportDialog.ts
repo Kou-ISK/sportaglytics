@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useClipExportDialogState } from '../../../../../../shared/clipExport/useClipExportDialogState';
+import { useCallback, useEffect, useState } from 'react';
 import { sendTimelineWindowCommand } from '../../../../app/gateways/timelineWindowGateway';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import {
   canExportClipsWithOverlay,
   exportClipsWithOverlay,
-  loadClipOverlaySettings,
   subscribeClipExportMenuRequest,
 } from '../../../../../../shared/clipExport/clipExportGateway';
 import {
@@ -13,7 +13,6 @@ import {
   validateClipExportSources,
 } from '../../../../../../shared/clipExport/clipExportService';
 import {
-  DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
   type ClipExportAngleOption,
   type ClipExportMode,
   type ClipExportOverlaySettings,
@@ -33,6 +32,8 @@ interface UseTimelineClipExportDialogParams {
 
 interface UseTimelineClipExportDialogResult {
   clipDialogOpen: boolean;
+  overlayChoice: boolean | null;
+  chooseOverlay: (enabled: boolean) => void;
   setClipDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   overlaySettings: ClipExportOverlaySettings;
   setOverlaySettings: React.Dispatch<
@@ -61,16 +62,14 @@ export const useTimelineClipExportDialog = ({
   videoSources,
   info,
 }: UseTimelineClipExportDialogParams): UseTimelineClipExportDialogResult => {
-  const [clipDialogOpen, setClipDialogOpen] = useState(false);
-  const [overlaySettings, updateOverlaySettings] =
-    useState<ClipExportOverlaySettings>(DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS);
-  const settingsRevision = useRef(0);
-  const setOverlaySettings = useCallback<
-    React.Dispatch<React.SetStateAction<ClipExportOverlaySettings>>
-  >((value) => {
-    settingsRevision.current++;
-    updateOverlaySettings(value);
-  }, []);
+  const {
+    open: clipDialogOpen,
+    setOpen: setClipDialogOpen,
+    overlaySettings,
+    setOverlaySettings,
+    overlayChoice,
+    chooseOverlay,
+  } = useClipExportDialogState();
   const [primarySource, setPrimarySource] = useState<string | undefined>(
     videoSources?.[0],
   );
@@ -106,16 +105,15 @@ export const useTimelineClipExportDialog = ({
     );
   }, [videoSources]);
 
-  const handleOpenClipDialog = useCallback(async () => {
+  const handleOpenClipDialog = useCallback(() => {
     setClipDialogOpen(true);
-    const revision = ++settingsRevision.current;
-    const settings = await loadClipOverlaySettings();
-    if (settings && revision === settingsRevision.current) {
-      updateOverlaySettings(settings);
-    }
-  }, []);
+  }, [setClipDialogOpen]);
 
   const handleExportClips = useCallback(async () => {
+    if (overlayChoice === null) {
+      info('オーバーレイテキストを含めるか選択してください');
+      return;
+    }
     if (!canExportClipsWithOverlay()) {
       info('クリップ書き出しAPIが利用できません');
       setClipDialogOpen(false);
@@ -186,6 +184,8 @@ export const useTimelineClipExportDialog = ({
     exportScope,
     info,
     overlaySettings,
+    overlayChoice,
+    setClipDialogOpen,
     primarySource,
     secondarySource,
     selectedAngleIndex,
@@ -208,6 +208,8 @@ export const useTimelineClipExportDialog = ({
 
   return {
     clipDialogOpen,
+    overlayChoice,
+    chooseOverlay,
     setClipDialogOpen,
     overlaySettings,
     setOverlaySettings,

@@ -25,6 +25,7 @@ interface Params {
   onPlayItem: (id: string) => void;
   onDeleteSelected: () => void;
   onReorder: (ids: string[]) => void;
+  onUpdateNote: (itemId: string, note: string) => void;
 }
 export const usePlaylistSorter = ({
   items,
@@ -34,7 +35,9 @@ export const usePlaylistSorter = ({
   onPlayItem,
   onDeleteSelected,
   onReorder,
+  onUpdateNote,
 }: Params): PlaylistSorterViewProps => {
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [columns, setColumns] = useState(DEFAULT_SORTER_COLUMNS);
   const [sort, setSort] = useState<SorterSort | null>(null);
@@ -74,6 +77,20 @@ export const usePlaylistSorter = ({
     );
   }, []);
   return {
+    editingNoteId,
+    onEditNote: setEditingNoteId,
+    onCommitNote: (note, direction) => {
+      const item = displayItems.find((entry) => entry.id === editingNoteId);
+      if (!item) {
+        setEditingNoteId(null);
+        return;
+      }
+      const next = direction
+        ? displayItems[displayItems.indexOf(item) + direction]
+        : undefined;
+      if (note !== (item.note ?? '')) onUpdateNote(item.id, note);
+      setEditingNoteId(next?.id ?? null);
+    },
     items: displayItems,
     totalCount: items.length,
     positions,

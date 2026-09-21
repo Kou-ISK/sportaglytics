@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Playlistの自由記述を「ノート」に統一し、Sorter・Inspectorから直接編集した文章を映像へ書き出す。旧メモとノートは内容を保持して文書v4へ移行する。
+- 映像書き出しのたびにオーバーレイテキストの有無を確認し、一般設定の固定値を廃止。複数行のノートのはみ出しと、通番の非表示設定が反映されない問題を修正。操作は[Playlist仕様](docs/playlist-features.md#ノートの編集と映像出力)を参照。
+
 ## [0.15.1] - 2026-09-21
 
 ### Fixed

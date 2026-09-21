@@ -355,6 +355,9 @@ AI Analysis:
 
 ## 2.6 Playlist
 
+- 自由記述はノートに統一し、Sorter/Inspectorでの直接編集・Undo/Redo・保存・映像出力を共通化する。旧メモはロード時に内容を保持して文書v4へ移行する。
+- Timeline/Playlistの映像書き出しは、毎回テキストを含めるか明示確認する。常設のオーバーレイ設定は持たず、Paint/フリーズとは独立して扱う。
+
 - dedicated BrowserWindow
 - Timeline selected eventsから追加
 - AI Analysis suggested clipsから追加

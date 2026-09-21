@@ -100,3 +100,4 @@ YYYY-MM-DD
 ## Consequences
 ```
 | [0047](0047-playlist-sorter-presentation-order.md) | Playlist Sorter presentation order | Accepted | 2026-09-21 |
+| [0048](0048-playlist-instance-notes.md) | Playlist instance notes | Accepted | 2026-09-21 |

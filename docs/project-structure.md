@@ -1,5 +1,7 @@
 # Project Structure
 
+Playlistのノート移行はshared/playlist/playlistNote、入力ドラフトと確定処理はfeatures/playlist/hooks/playlist/usePlaylistNoteDraft、表示はPlaylistNoteEditorViewへ分離します。TimelineとPlaylistが共有する書き出し確認状態はshared/clipExport/useClipExportDialogState、props-onlyの確認UIはcomponents/ui/composites/ClipExportTextOptionsViewに置きます。
+
 Playlistのソート値・安定比較・検索は`features/playlist/domain/playlistSorter`、UI状態と文書編集の接続は`hooks/playlist/usePlaylistSorter`、描画は`PlaylistSorterView`と`PlaylistSorterToolbarView`へ分離します。保存される再生順の正規化・移行はRenderer/Main共通の`shared/playlist/playlistPresentationOrder`が担当します。
 
 このドキュメントは SporTagLytics のディレクトリ構成と配置判断ルールです。アーキテクチャ規約の正本は `AGENTS.md`、現行アーキテクチャ要約は [system-overview.md](system-overview.md) です。本書は「新しいファイルをどこに置くか」を判断するための実務ガイドです。

@@ -27,7 +27,7 @@ export const buildPlaylistItemsFromTimeline = (
     startTime: item.startTime,
     endTime: item.endTime,
     labels: item.labels,
-    memo: item.memo,
+    note: item.memo,
     addedAt,
     videoSource: options.videoSources?.primary ?? undefined,
     videoSource2: options.videoSources?.secondary ?? undefined,

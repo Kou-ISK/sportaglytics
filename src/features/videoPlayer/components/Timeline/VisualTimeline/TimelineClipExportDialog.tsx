@@ -1,3 +1,7 @@
+import {
+  type ClipExportTextOptionsProps,
+  ClipExportTextOptionsView,
+} from '../../../../../components/ui/composites/ClipExportTextOptionsView';
 import React from 'react';
 import {
   Button,
@@ -10,7 +14,6 @@ import {
   Radio,
   RadioGroup,
   Select,
-  Switch,
   TextField,
   Typography,
 } from '@mui/material';
@@ -20,10 +23,8 @@ import type {
   ClipExportScope,
 } from '../../../../../shared/clipExport/clipExportTypes';
 
-type TimelineClipExportDialogProps = {
+type TimelineClipExportDialogProps = ClipExportTextOptionsProps & {
   open: boolean;
-  overlayEnabled: boolean;
-  onOverlayEnabledChange: (enabled: boolean) => void;
   onClose: () => void;
   onExport: () => void;
   exportScope: ClipExportScope;
@@ -53,8 +54,11 @@ const renderSourceLabel = (src: string) => {
 
 export const TimelineClipExportDialog = ({
   open,
-  overlayEnabled,
-  onOverlayEnabledChange,
+  overlayChoice,
+  onOverlayChoice,
+  overlaySettings,
+  setOverlaySettings,
+  notePreview,
   onClose,
   onExport,
   exportScope,
@@ -83,18 +87,13 @@ export const TimelineClipExportDialog = ({
         <Typography variant="body2" color="text.secondary">
           書き出し対象と出力モードを選択してください。
         </Typography>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={overlayEnabled}
-              onChange={(_, checked) => onOverlayEnabledChange(checked)}
-            />
-          }
-          label="アクション名・ラベル・メモを映像に重ねる"
+        <ClipExportTextOptionsView
+          overlayChoice={overlayChoice}
+          onOverlayChoice={onOverlayChoice}
+          overlaySettings={overlaySettings}
+          setOverlaySettings={setOverlaySettings}
+          notePreview={notePreview}
         />
-        <Typography variant="caption" color="text.secondary">
-          オフにすると、変換不要な区間は元画質のまま高速に書き出します。正確な切り出しや2画面合成には変換が必要な場合があります。
-        </Typography>
         <Typography variant="subtitle2">Exporting:</Typography>
         <RadioGroup
           value={exportScope}
@@ -212,7 +211,11 @@ export const TimelineClipExportDialog = ({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>キャンセル</Button>
-        <Button variant="contained" onClick={onExport}>
+        <Button
+          variant="contained"
+          onClick={onExport}
+          disabled={overlayChoice === null}
+        >
           書き出し
         </Button>
       </DialogActions>

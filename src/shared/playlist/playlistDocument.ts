@@ -1,3 +1,4 @@
+import { normalizePlaylistNote } from './playlistNote';
 import {
   applyPresentationOrder,
   normalizePresentationOrder,
@@ -99,7 +100,7 @@ const normalizeItems = (
     const rowId =
       item.rowId && validRowIds.has(item.rowId) ? item.rowId : fallbackRowId;
     const itemOrder = orderById.get(item.id) ?? counters.get(rowId) ?? 0;
-    return { ...item, rowId, rowOrder: itemOrder };
+    return { ...normalizePlaylistNote(item), rowId, rowOrder: itemOrder };
   });
 };
 

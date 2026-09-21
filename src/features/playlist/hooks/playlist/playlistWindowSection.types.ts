@@ -137,6 +137,9 @@ export interface BuildDialogsSectionParams {
   videoSources: string[];
   selectedAngleIndex: number;
   setSelectedAngleIndex: React.Dispatch<React.SetStateAction<number>>;
+  overlayChoice: boolean | null;
+  onOverlayChoice: (enabled: boolean) => void;
+  notePreview: string;
   overlaySettings: OverlaySettings;
   setOverlaySettings: React.Dispatch<React.SetStateAction<OverlaySettings>>;
   exportInProgress: boolean;

@@ -1,7 +1,7 @@
+import { useClipExportDialogState } from '../../../../shared/clipExport/useClipExportDialogState';
 import { useEffect, useState } from 'react';
 import { subscribeClipExportMenuRequest } from '../../../../shared/clipExport/clipExportGateway';
 import {
-  DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
   type ClipExportAngleOption,
   type ClipExportMode,
   type ClipExportOverlaySettings,
@@ -10,6 +10,8 @@ import {
 
 interface UsePlaylistExportStateResult {
   exportDialogOpen: boolean;
+  overlayChoice: boolean | null;
+  chooseOverlay: (enabled: boolean) => void;
   setExportDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   overlaySettings: ClipExportOverlaySettings;
   setOverlaySettings: React.Dispatch<
@@ -28,24 +30,30 @@ interface UsePlaylistExportStateResult {
 }
 
 export const usePlaylistExportState = (): UsePlaylistExportStateResult => {
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [overlaySettings, setOverlaySettings] =
-    useState<ClipExportOverlaySettings>(
-      DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
-    );
+  const {
+    open: exportDialogOpen,
+    setOpen: setExportDialogOpen,
+    overlaySettings,
+    setOverlaySettings,
+    overlayChoice,
+    chooseOverlay,
+  } = useClipExportDialogState();
   const [exportMode, setExportMode] = useState<ClipExportMode>('single');
-  const [angleOption, setAngleOption] = useState<ClipExportAngleOption>('single');
+  const [angleOption, setAngleOption] =
+    useState<ClipExportAngleOption>('single');
   const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
   const [exportScope, setExportScope] = useState<ClipExportScope>('all');
 
   useEffect(
     () => subscribeClipExportMenuRequest(() => setExportDialogOpen(true)),
-    [],
+    [setExportDialogOpen],
   );
 
   return {
     exportDialogOpen,
+    overlayChoice,
+    chooseOverlay,
     setExportDialogOpen,
     overlaySettings,
     setOverlaySettings,

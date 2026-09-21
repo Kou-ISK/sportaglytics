@@ -39,6 +39,9 @@ type PlaylistWindowDialogsProps = {
     videoSources: string[];
     selectedAngleIndex: number;
     setSelectedAngleIndex: (value: number) => void;
+    overlayChoice: boolean | null;
+    onOverlayChoice: (enabled: boolean) => void;
+    notePreview: string;
     overlaySettings: OverlaySettings;
     setOverlaySettings: (
       updater: (prev: OverlaySettings) => OverlaySettings,
@@ -89,6 +92,9 @@ export const PlaylistWindowDialogs = ({
         videoSources={exportDialog.videoSources}
         selectedAngleIndex={exportDialog.selectedAngleIndex}
         setSelectedAngleIndex={exportDialog.setSelectedAngleIndex}
+        overlayChoice={exportDialog.overlayChoice}
+        onOverlayChoice={exportDialog.onOverlayChoice}
+        notePreview={exportDialog.notePreview}
         overlaySettings={exportDialog.overlaySettings}
         setOverlaySettings={exportDialog.setOverlaySettings}
         disableExport={exportDialog.disableExport}

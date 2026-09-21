@@ -168,7 +168,7 @@ export const buildPlaylistExportClips = ({
         group: label.group || '',
         name: label.name,
       })),
-      memo: item.memo || undefined,
+      memo: item.note || undefined,
       actionIndex: actionIndexLookup.get(item.id) ?? 1,
       annotationPngPrimary: freezeFrames[0]?.annotationPngPrimary ?? null,
       annotationPngSecondary: freezeFrames[0]?.annotationPngSecondary ?? null,

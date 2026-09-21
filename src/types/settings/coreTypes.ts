@@ -148,13 +148,6 @@ export interface AppSettings {
   themeMode: ThemeMode;
   hotkeys: HotkeyConfig[];
   language: string;
-  overlayClip: {
-    enabled: boolean;
-    showActionName: boolean;
-    showActionIndex: boolean;
-    showLabels: boolean;
-    showMemo: boolean;
-  };
   codingPanel?: {
     defaultMode: 'code' | 'label';
     toolbars: Array<{

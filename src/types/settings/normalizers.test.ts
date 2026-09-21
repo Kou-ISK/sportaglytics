@@ -85,13 +85,7 @@ describe('normalizeAppSettings', () => {
     ).toBe(false);
     expect(normalized.hotkeys).toHaveLength(DEFAULT_SETTINGS.hotkeys.length);
 
-    expect(normalized.overlayClip).toMatchObject({
-      enabled: false,
-      showActionName: true,
-      showActionIndex: true,
-      showLabels: true,
-      showMemo: true,
-    });
+    expect(normalized).not.toHaveProperty('overlayClip');
 
     expect(normalized.aiAnalysis?.model).toBe(
       DEFAULT_SETTINGS.aiAnalysis?.model,

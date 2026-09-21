@@ -180,6 +180,8 @@ export const useVisualTimelineController = ({
     setLabelName,
     handleApplyLabel,
     overlaySettings,
+    overlayChoice,
+    chooseOverlay,
     setOverlaySettings,
     clipDialogOpen,
     setClipDialogOpen,
@@ -362,9 +364,15 @@ export const useVisualTimelineController = ({
     clipDialogOpen,
     onCloseClipDialog: () => setClipDialogOpen(false),
     onExportClips: handleExportClips,
-    overlayEnabled: overlaySettings.enabled,
-    onOverlayEnabledChange: (enabled: boolean) =>
-      setOverlaySettings((previous) => ({ ...previous, enabled })),
+    overlayChoice,
+    onOverlayChoice: chooseOverlay,
+    overlaySettings,
+    setOverlaySettings,
+    notePreview: timeline
+      .filter((item) => exportScope === 'all' || selectedIds.includes(item.id))
+      .filter((item) => item.memo)
+      .map((item) => `${item.actionName}: ${item.memo}`)
+      .join('\n\n'),
     exportScope,
     setExportScope,
     exportMode,

@@ -1,12 +1,6 @@
 import { escapeFilterOption } from './ffmpegFilterEscaping';
 import type { OverlayLine } from './exportFfmpegRunners';
 
-interface OverlayLineConfig {
-  color: string;
-  size: number | string;
-  y: string;
-}
-
 interface BuildOverlayFiltersParams {
   overlayLines: OverlayLine[];
   getJapaneseFontPath: (isBold?: boolean) => string;
@@ -14,74 +8,33 @@ interface BuildOverlayFiltersParams {
   variant: 'single' | 'dual';
 }
 
-const SINGLE_ANGLE_BOX_HEIGHT_EXPR = 'ih*0.14';
-const SINGLE_ANGLE_TEXT_BOX_HEIGHT_EXPR = 'main_h*0.14';
+const characterWidth = (character: string): number =>
+  character.codePointAt(0)! > 0xff ? 2 : 1;
 
-const formatExprValue = (value: number | string): string => {
-  return typeof value === 'number' ? String(value) : `(${value})`;
-};
-
-const buildBoxHeight = (
-  overlayLines: OverlayLine[],
-  variant: 'single' | 'dual',
-): number | string => {
-  if (variant === 'single') {
-    return SINGLE_ANGLE_BOX_HEIGHT_EXPR;
-  }
-
-  const totalDisplayLines = overlayLines.reduce((acc, line) => {
-    const lineCount = (line.text.match(/\n/g) || []).length + 1;
-    return acc + lineCount;
-  }, 0);
-  return Math.max(60, 60 + (totalDisplayLines - 1) * 35);
-};
-
-const buildLineConfigs = (
-  boxHeight: number | string,
-  variant: 'single' | 'dual',
-): OverlayLineConfig[] => {
-  if (variant === 'single') {
-    const boxHeightExpr = formatExprValue(SINGLE_ANGLE_TEXT_BOX_HEIGHT_EXPR);
-    return [
-      {
-        color: 'white',
-        size: 'h*0.04',
-        y: `main_h-${boxHeightExpr}+main_h*0.013`,
-      },
-      {
-        color: '#dcdcdc',
-        size: 'h*0.033',
-        y: `main_h-${boxHeightExpr}+main_h*0.059`,
-      },
-      {
-        color: '#bbbbbb',
-        size: 'h*0.029',
-        y: `main_h-${boxHeightExpr}+main_h*0.104`,
-      },
-    ];
-  }
-
-  const dualBoxHeight =
-    typeof boxHeight === 'number' ? boxHeight : Number.parseFloat(boxHeight);
-
-  return [
-    {
-      color: 'white',
-      size: 34,
-      y: `h-${dualBoxHeight - 25}`,
-    },
-    {
-      color: '#dcdcdc',
-      size: 28,
-      y: `h-${Math.max(30, dualBoxHeight - 60)}`,
-    },
-    {
-      color: '#bbbbbb',
-      size: 24,
-      y: `h-${Math.max(30, dualBoxHeight - 90)}`,
-    },
-  ];
-};
+/** Keep explicit newlines and wrap wide Japanese text before placing each line. */
+const wrapLines = (lines: OverlayLine[], limit: number): OverlayLine[] =>
+  lines.flatMap((line) =>
+    line.text
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .flatMap((paragraph) => {
+        const wrapped: OverlayLine[] = [];
+        let text = '';
+        let width = 0;
+        for (const character of paragraph) {
+          const next = characterWidth(character);
+          if (width + next > limit && text) {
+            wrapped.push({ ...line, text });
+            text = '';
+            width = 0;
+          }
+          text += character;
+          width += next;
+        }
+        wrapped.push({ ...line, text });
+        return wrapped;
+      }),
+  );
 
 export const buildOverlayFilters = ({
   overlayLines,
@@ -89,33 +42,36 @@ export const buildOverlayFilters = ({
   escapeDrawtext,
   variant,
 }: BuildOverlayFiltersParams): string[] => {
-  const boxHeight = buildBoxHeight(overlayLines, variant);
-  const boxHeightExpr = formatExprValue(boxHeight);
-  const filters: string[] = [
-    `drawbox=x=0:y=ih-${boxHeightExpr}:w=iw:h=${boxHeightExpr}:color=black@0.7:t=fill`,
+  if (!overlayLines.length) return [];
+  const lines = wrapLines(overlayLines, variant === 'single' ? 78 : 150);
+  // Fit every line in at most half the picture instead of clipping a long note.
+  const fontRatio = Math.min(0.033, 0.46 / (lines.length * 1.35));
+  const lineRatio = fontRatio * 1.35;
+  const boxRatio = Math.max(0.14, lines.length * lineRatio + 0.026);
+  const maxWidth = Math.max(
+    1,
+    ...lines.map((line) =>
+      Array.from(line.text).reduce(
+        (width, character) => width + characterWidth(character),
+        0,
+      ),
+    ),
+  );
+  const filters = [
+    `drawbox=x=0:y=ih-ih*${boxRatio}:w=iw:h=ih*${boxRatio}:color=black@0.7:t=fill`,
   ];
-  const lineConfigs = buildLineConfigs(boxHeight, variant);
-
-  overlayLines.forEach((line, idx) => {
-    const safeText = escapeDrawtext(line.text);
-    const config = lineConfigs[idx] ?? lineConfigs[lineConfigs.length - 1];
-
+  lines.forEach((line, index) => {
     let fontParam = '';
     try {
       const fontPath = getJapaneseFontPath(line.isBold);
       fontParam = `fontfile=${escapeFilterOption(fontPath.replace(/\\/g, '/'))}:`;
     } catch {
-      fontParam = '';
+      /* FFmpeg may use its default font when no bundled font is available. */
     }
-
-    const style =
-      variant === 'single'
-        ? 'borderw=0:shadowcolor=black@0.55:shadowx=1:shadowy=1'
-        : 'borderw=0:bordercolor=black@0.0';
+    const yRatio = 1 - boxRatio + 0.013 + index * lineRatio;
     filters.push(
-      `drawtext=${fontParam}text='${safeText}':fontcolor=${config.color}:fontsize=${config.size}:${style}:x=20:y=${config.y}`,
+      `drawtext=${fontParam}text='${escapeDrawtext(line.text)}':fontcolor=white:fontsize='min(h*${fontRatio},w*0.94/${maxWidth * 0.65})':borderw=0:shadowcolor=black@0.55:shadowx=1:shadowy=1:x=w*0.015:y=h*${yRatio}`,
     );
   });
-
   return filters;
 };

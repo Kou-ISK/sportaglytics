@@ -43,10 +43,13 @@ export const formatOverlayLines = (
 ): OverlayLine[] => {
   const lines: OverlayLine[] = [];
 
-  if (overlay.showActionName) {
-    const index = clip.actionIndex ?? 1;
-    lines.push({ text: `#${index} ${clip.actionName}`, isBold: true });
-  }
+  const title = [
+    overlay.showActionIndex ? `#${clip.actionIndex ?? 1}` : '',
+    overlay.showActionName ? clip.actionName : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  if (title) lines.push({ text: title, isBold: true });
 
   if (overlay.showLabels && clip.labels && clip.labels.length > 0) {
     const labelText = clip.labels
@@ -192,7 +195,7 @@ export const renderClipWithFfmpeg = async ({
         })),
       },
       outputPath: target,
-      overlayEnabled: overlay.enabled,
+      overlayEnabled: overlay.enabled && overlayLines.length > 0,
       overlayLines,
       annotationPath: annSecondaryPath,
       getJapaneseFontPath,
@@ -208,7 +211,7 @@ export const renderClipWithFfmpeg = async ({
       sourcePath: clipMainSource,
       clip: ffmpegClip,
       outputPath: target,
-      overlayEnabled: overlay.enabled,
+      overlayEnabled: overlay.enabled && overlayLines.length > 0,
       overlayLines,
       annotationPath: annPrimaryPath,
       getJapaneseFontPath,
@@ -232,7 +235,7 @@ export const renderClipWithFfmpeg = async ({
       secondarySource: clipSecondarySource,
       clip: ffmpegClip,
       outputPath: target,
-      overlayEnabled: overlay.enabled,
+      overlayEnabled: overlay.enabled && overlayLines.length > 0,
       overlayLines,
       annotationPrimary: annPrimaryPath,
       annotationSecondary: annSecondaryPath,
@@ -248,7 +251,7 @@ export const renderClipWithFfmpeg = async ({
     sourcePath: clipMainSource,
     clip: ffmpegClip,
     outputPath: target,
-    overlayEnabled: overlay.enabled,
+    overlayEnabled: overlay.enabled && overlayLines.length > 0,
     overlayLines,
     annotationPath: annPrimaryPath,
     getJapaneseFontPath,
