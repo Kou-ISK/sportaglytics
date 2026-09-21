@@ -374,6 +374,25 @@ export async function exercisePlaylistSorter({
         ?.disabled,
   );
   await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  // Persist the deliberately long test note before app.close(), otherwise the
+  // normal unsaved-document prompt prevents Electron from quitting.
+  await page.keyboard.press(`${primaryModifier}+s`);
+  const saveDeadline = Date.now() + 10000;
+  let savedLongNote = false;
+  while (Date.now() < saveDeadline) {
+    const document = JSON.parse(
+      await fs.readFile(path.join(folder, 'playlist.json'), 'utf8'),
+    );
+    if (
+      document.items.find((item) => item.id === 'b')?.note ===
+      '長文の確認\n'.repeat(9)
+    ) {
+      savedLongNote = true;
+      break;
+    }
+    await delay(100);
+  }
+  assert.ok(savedLongNote, 'save the overflow fixture before closing');
   console.log(
     'Preview, overflow blocking, main-process guard and recovery passed',
   );

@@ -22,7 +22,7 @@ export const inspectExportText = async (
   const plans = new Map<string, ReturnType<typeof planExportSource>>();
   const probes = new Map<string, ReturnType<typeof probeMedia>>();
   const results: ClipExportTextInspection[] = [];
-  for (const payload of payloads) {
+  for (const [angleIndex, payload] of payloads.entries()) {
     const selection = resolveExportSourceSelection(payload);
     for (const [index, clip] of payload.clips.entries()) {
       const sizes = [];
@@ -64,7 +64,7 @@ export const inspectExportText = async (
         width / height,
       );
       results.push({
-        title: `${index + 1}. ${clip.actionName}`,
+        title: `${payloads.length > 1 ? `アングル${angleIndex + 1} — ` : ''}${index + 1}. ${clip.actionName}`,
         width,
         height,
         layout,
