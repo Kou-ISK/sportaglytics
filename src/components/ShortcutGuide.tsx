@@ -25,6 +25,23 @@ interface ShortcutItem {
 
 const shortcuts: ShortcutItem[] = [
   {
+    category: 'プレイリストのノート',
+    items: [
+      {
+        key: 'ダブルクリック / Enter / F2',
+        action: 'Sorterのノートセルを編集',
+      },
+      { key: 'Enter / 外側をクリック', action: 'ノートを確定（Sorter）' },
+      {
+        key: 'Control + Enter / Shift + Enter',
+        action: 'ノートを改行（Sorter）',
+      },
+      { key: 'Control + Tab', action: '確定して次のノートへ' },
+      { key: 'Shift + Control + Tab', action: '確定して前のノートへ' },
+      { key: 'Esc', action: 'ノート編集を取り消す' },
+    ],
+  },
+  {
     category: '再生制御',
     items: [
       { key: 'Space', action: '再生/停止' },

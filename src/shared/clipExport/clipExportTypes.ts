@@ -94,3 +94,19 @@ export interface ClipExportProgressState {
 export type ClipExportExecutor = (
   payload: ClipExportPayload,
 ) => Promise<ClipExportExecutionResult>;
+
+export interface ClipExportTextInspection {
+  title: string;
+  width: number;
+  height: number;
+  layout: import('./clipExportTextLayout').ClipExportTextLayout;
+}
+export interface ClipExportTextPreviewRequest {
+  exports: ClipExportPayload[];
+  previewIndex: number;
+}
+export interface ClipExportTextPreviewResult {
+  clips: ClipExportTextInspection[];
+  image?: string;
+  error?: string;
+}

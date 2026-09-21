@@ -85,6 +85,8 @@ AI agent は次の順で参照してください。
 
 設計・ユーザー影響・ドキュメント運用が変わる変更では、[Docs Impact Matrix](documentation-guide.md#docs-impact-matrix) に従って同期してください。
 
+- [Playlist instance notes (ADR 0048)](adr/0048-playlist-instance-notes.md)
+- [映像出力テキストの高さ・文字サイズ制限](adr/0049-bounded-export-text.md)
 - [Playlist Studio annotation contract (ADR 0028)](adr/0028-playlist-studio-annotation-contract.md)
 
 - [Paintの機能範囲と公式調査](tactics.md)

@@ -2,6 +2,7 @@ import type { ClipExportAngleOption } from './clipExportTypes';
 import type {
   ClipExportExecutor,
   ClipExportItem,
+  ClipExportPayload,
   ClipExportMode,
   ClipExportOverlaySettings,
   ClipExportProgressState,
@@ -157,8 +158,7 @@ const selectClipAngle = (
     );
   });
 
-export const executeClipExport = async ({
-  executeExport,
+export const buildClipExportRequests = ({
   progressId,
   clips,
   videoSources,
@@ -168,72 +168,39 @@ export const executeClipExport = async ({
   exportMode,
   exportFileName,
   overlay,
-  successMessage,
-  buildAllAnglesSuccessMessage = DEFAULT_ALL_ANGLES_SUCCESS_MESSAGE,
-  onProgress,
-}: ExecuteClipExportOptions): Promise<ClipExportActionResult> => {
-  try {
-    if (angleOption === 'multi') selectClipAngle(clips, 1);
-    if (angleOption === 'allAngles') {
-      const availableSources = getAvailableVideoSources(videoSources);
-      const clipsByAngle = availableSources.map((_, index) =>
-        selectClipAngle(clips, index),
-      );
-      for (let i = 0; i < availableSources.length; i += 1) {
-        onProgress?.({
-          current: i + 1,
-          total: availableSources.length,
-          message: `アングル${i + 1} / ${availableSources.length} を書き出し中...`,
-        });
-
-        const result = await executeExport({
-          sourcePath: availableSources[i],
-          progressId,
-          sourcePath2: undefined,
-          mode: 'single',
-          exportMode,
-          angleOption: 'single',
-          outputFileName: buildExportFileName(exportFileName, `angle${i + 1}`),
-          clips: clipsByAngle[i],
-          overlay,
-        });
-
-        if (!result.success) {
-          onProgress?.(null);
-          return {
-            success: false,
-            message: result.error || `アングル${i + 1}の書き出しに失敗しました`,
-          };
-        }
-      }
-
-      onProgress?.(null);
-      return {
-        success: true,
-        message: buildAllAnglesSuccessMessage(availableSources.length),
-      };
-    }
-
-    const sourcePath = resolveClipExportPrimarySource({
-      angleOption,
-      videoSources,
-      selectedAngleIndex,
-      resolvedSources,
-    });
-    if (!sourcePath) {
-      return {
-        success: false,
-        message: '書き出し対象の映像ソースが見つかりません',
-      };
-    }
-
-    onProgress?.({
-      current: 0,
-      total: 1,
-      message: '書き出し中...',
-    });
-
-    const result = await executeExport({
+}: Pick<
+  ExecuteClipExportOptions,
+  | 'progressId'
+  | 'clips'
+  | 'videoSources'
+  | 'angleOption'
+  | 'selectedAngleIndex'
+  | 'resolvedSources'
+  | 'exportMode'
+  | 'exportFileName'
+  | 'overlay'
+>): ClipExportPayload[] => {
+  if (angleOption === 'multi') selectClipAngle(clips, 1);
+  if (angleOption === 'allAngles')
+    return getAvailableVideoSources(videoSources).map((sourcePath, index) => ({
+      sourcePath,
+      progressId,
+      mode: 'single',
+      exportMode,
+      angleOption: 'single',
+      outputFileName: buildExportFileName(exportFileName, `angle${index + 1}`),
+      clips: selectClipAngle(clips, index),
+      overlay,
+    }));
+  const sourcePath = resolveClipExportPrimarySource({
+    angleOption,
+    videoSources,
+    selectedAngleIndex,
+    resolvedSources,
+  });
+  if (!sourcePath) throw new Error('書き出し対象の映像ソースが見つかりません');
+  return [
+    {
       sourcePath,
       progressId,
       sourcePath2:
@@ -249,19 +216,45 @@ export const executeClipExport = async ({
           ? selectClipAngle(clips, selectedAngleIndex)
           : clips,
       overlay,
-    });
+    },
+  ];
+};
 
-    onProgress?.(null);
-    if (result.success) {
-      return {
-        success: true,
-        message: successMessage,
-      };
+export const executeClipExport = async (
+  options: ExecuteClipExportOptions,
+): Promise<ClipExportActionResult> => {
+  const {
+    executeExport,
+    angleOption,
+    onProgress,
+    successMessage,
+    buildAllAnglesSuccessMessage = DEFAULT_ALL_ANGLES_SUCCESS_MESSAGE,
+  } = options;
+  try {
+    const requests = buildClipExportRequests(options);
+    for (const [index, request] of requests.entries()) {
+      onProgress?.(
+        angleOption === 'allAngles'
+          ? {
+              current: index + 1,
+              total: requests.length,
+              message: `アングル${index + 1} / ${requests.length} を書き出し中...`,
+            }
+          : { current: 0, total: 1, message: '書き出し中...' },
+      );
+      const result = await executeExport(request);
+      if (!result.success)
+        return {
+          success: false,
+          message: result.error || '書き出しに失敗しました',
+        };
     }
-
     return {
-      success: false,
-      message: result.error || '書き出しに失敗しました',
+      success: true,
+      message:
+        angleOption === 'allAngles'
+          ? buildAllAnglesSuccessMessage(requests.length)
+          : successMessage,
     };
   } catch (error) {
     return {

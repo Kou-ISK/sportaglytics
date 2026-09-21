@@ -1,3 +1,4 @@
+import { probeMedia } from './packageMediaCompositionService';
 import {
   prepareChromaForeground,
   restoreChromaForeground,
@@ -11,7 +12,7 @@ import {
   type RunDualParams,
 } from './exportFfmpegCommon';
 
-export const runFfmpegDual = ({
+export const runFfmpegDual = async ({
   getFfmpegPath,
   mainSource,
   secondarySource,
@@ -25,6 +26,21 @@ export const runFfmpegDual = ({
   escapeDrawtext,
   onProgress,
 }: RunDualParams): Promise<void> => {
+  const sizes = overlayEnabled
+    ? await Promise.all([
+        probeMedia(clip.sourceOverride || mainSource),
+        probeMedia(
+          clip.secondarySourceOverride || secondarySource || mainSource,
+        ),
+      ])
+    : [];
+  const outputHeight = sizes[0] ? sizes[0].height - (sizes[0].height % 2) : 1;
+  const aspectRatio =
+    sizes.reduce(
+      (sum, size) =>
+        sum + 2 * Math.floor((outputHeight * size.width) / size.height / 2),
+      0,
+    ) / outputHeight;
   return new Promise<void>((resolve, reject) => {
     const actualMainSource = clip.sourceOverride || mainSource;
     const actualSecondarySource =
@@ -225,6 +241,7 @@ export const runFfmpegDual = ({
         getJapaneseFontPath,
         escapeDrawtext,
         variant: 'dual',
+        aspectRatio,
       });
       filterSteps.push(`[vbase]${overlayFilters.join(',')}[vout]`);
     } else {

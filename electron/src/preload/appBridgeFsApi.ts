@@ -12,6 +12,7 @@ export type AppBridgeFsKeys =
   | 'bindPackageSession'
   | 'releasePackageSession'
   | 'exportClipsWithOverlay'
+  | 'previewClipExportText'
   | 'onExportProgressWindowState'
   | 'requestExportProgressWindowState'
   | 'saveFileDialog'
@@ -52,6 +53,8 @@ export const createAppBridgeFsApi = (
         return false;
       }
     },
+    previewClipExportText: (request) =>
+      ipcRenderer.invoke('clip-export:text-preview', request),
     exportClipsWithOverlay: async (payload: unknown) => {
       try {
         return await ipcRenderer.invoke('export-clips-with-overlay', payload);

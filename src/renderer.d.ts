@@ -161,6 +161,11 @@ export interface IElectronAPI {
   setWindowTitle: (title: string) => void;
   bindPackageSession?: (packagePath: string) => Promise<boolean>;
   releasePackageSession?: (packagePath: string) => Promise<boolean>;
+  previewClipExportText?: (
+    request: import('./shared/clipExport/clipExportTypes').ClipExportTextPreviewRequest,
+  ) => Promise<
+    import('./shared/clipExport/clipExportTypes').ClipExportTextPreviewResult
+  >;
   exportClipsWithOverlay?: (
     payload: ClipExportPayload,
   ) => Promise<ClipExportExecutionResult>;

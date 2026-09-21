@@ -1,5 +1,7 @@
 # SporTagLytics - 技術仕様書
 
+映像へのノート焼き込みは、全表示項目を合わせて高さ20%以内、1080p換算30〜24pxとする。各出力の実映像プレビューと全クリップの超過検査を行い、読み込み・エラー・超過中は書き出しを開始しない。詳細は[Playlist](playlist-features.md#ノートの編集と映像出力)。
+
 手動同期の操作・フレーム精度・前後半・ウィンドウ比率の要件は[アングル同期仕様](angle-synchronization.md)を正本とします。
 
 複数クリップはアングルごとに順次再生し、共通時刻から `globalTime + angleOffset - timelineStartSeconds` で元映像内の時刻を求める。メイン、参照Playlist、Paint、単一/全アングル/2画面出力で同じ契約を用いる。空白と不足する末尾は黒画面・無音で保持する。組合せの自動判定、重複部分の自動トリム、録画クロックの時間伸縮補正は対象外。操作は[マルチアングル同期](user-guide.md#マルチアングル同期)を参照。
@@ -354,6 +356,9 @@ AI Analysis:
 ---
 
 ## 2.6 Playlist
+
+- 自由記述はノートに統一し、Sorter/Inspectorでの直接編集・Undo/Redo・保存・映像出力を共通化する。旧メモはロード時に内容を保持して文書v4へ移行する。
+- Timeline/Playlistの映像書き出しは、毎回テキストを含めるか明示確認する。常設のオーバーレイ設定は持たず、Paint/フリーズとは独立して扱う。
 
 - dedicated BrowserWindow
 - Timeline selected eventsから追加

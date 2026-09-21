@@ -1,3 +1,7 @@
+import {
+  ClipExportTextOptionsView,
+  type ClipExportTextOptionsProps,
+} from '../../../components/ui/composites/ClipExportTextOptionsView';
 import React from 'react';
 import {
   Button,
@@ -24,7 +28,7 @@ import type {
 
 export type { AngleOption, ExportMode, OverlaySettings };
 
-type PlaylistExportDialogProps = {
+type PlaylistExportDialogProps = ClipExportTextOptionsProps & {
   open: boolean;
   onClose: () => void;
   onExport: () => void;
@@ -66,11 +70,15 @@ export const PlaylistExportDialog = ({
   overlaySettings,
   setOverlaySettings,
   disableExport,
+  overlayChoice,
+  onOverlayChoice,
+  notePreview,
+  textPreview,
 }: PlaylistExportDialogProps) => {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>プレイリストを書き出し</DialogTitle>
-      <DialogContent sx={{ display: 'grid', gap: 1.5, pt: 1 }}>
+      <DialogContent dividers sx={{ display: 'grid', gap: 1.5 }}>
         <TextField
           label="ファイル名 (拡張子不要)"
           fullWidth
@@ -81,6 +89,7 @@ export const PlaylistExportDialog = ({
         <Stack spacing={1}>
           <Typography variant="body2">書き出し範囲</Typography>
           <RadioGroup
+            row
             value={exportScope}
             onChange={(event) =>
               setExportScope(event.target.value as ClipExportScope)
@@ -99,11 +108,20 @@ export const PlaylistExportDialog = ({
           </RadioGroup>
         </Stack>
         <Divider />
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2">出力モード</Typography>
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          flexWrap="wrap"
+          alignItems="center"
+        >
+          <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+            出力モード
+          </Typography>
           <ToggleButtonGroup
             exclusive
             size="small"
+            sx={{ '& .MuiToggleButton-root': { whiteSpace: 'nowrap' } }}
             value={exportMode}
             onChange={(_, value) => value && setExportMode(value)}
           >
@@ -113,8 +131,16 @@ export const PlaylistExportDialog = ({
           </ToggleButtonGroup>
         </Stack>
         <Stack spacing={2}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2">アングル</Typography>
+          <Stack
+            direction="row"
+            spacing={1}
+            useFlexGap
+            flexWrap="wrap"
+            alignItems="center"
+          >
+            <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+              アングル
+            </Typography>
             <ToggleButtonGroup
               exclusive
               size="small"
@@ -136,7 +162,13 @@ export const PlaylistExportDialog = ({
             </ToggleButtonGroup>
           </Stack>
           {angleOption === 'single' && (
-            <Stack direction="row" spacing={1} alignItems="center" pl={2}>
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              flexWrap="wrap"
+              alignItems="center"
+            >
               <Typography variant="body2" sx={{ minWidth: 80 }}>
                 選択アングル
               </Typography>
@@ -158,84 +190,24 @@ export const PlaylistExportDialog = ({
           )}
         </Stack>
         <Divider />
-        <Stack spacing={1}>
-          <Typography variant="body2">オーバーレイ</Typography>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={overlaySettings.enabled ? 'on' : 'off'}
-            onChange={(_, value) =>
-              setOverlaySettings((prev) => ({
-                ...prev,
-                enabled: value === 'on',
-              }))
-            }
-          >
-            <ToggleButton value="on">表示</ToggleButton>
-            <ToggleButton value="off">非表示</ToggleButton>
-          </ToggleButtonGroup>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            <Button
-              size="small"
-              variant={
-                overlaySettings.showActionName ? 'contained' : 'outlined'
-              }
-              onClick={() =>
-                setOverlaySettings((prev) => ({
-                  ...prev,
-                  showActionName: !prev.showActionName,
-                }))
-              }
-            >
-              アクション名
-            </Button>
-            <Button
-              size="small"
-              variant={
-                overlaySettings.showActionIndex ? 'contained' : 'outlined'
-              }
-              onClick={() =>
-                setOverlaySettings((prev) => ({
-                  ...prev,
-                  showActionIndex: !prev.showActionIndex,
-                }))
-              }
-            >
-              通番
-            </Button>
-            <Button
-              size="small"
-              variant={overlaySettings.showLabels ? 'contained' : 'outlined'}
-              onClick={() =>
-                setOverlaySettings((prev) => ({
-                  ...prev,
-                  showLabels: !prev.showLabels,
-                }))
-              }
-            >
-              ラベル
-            </Button>
-            <Button
-              size="small"
-              variant={overlaySettings.showMemo ? 'contained' : 'outlined'}
-              onClick={() =>
-                setOverlaySettings((prev) => ({
-                  ...prev,
-                  showMemo: !prev.showMemo,
-                }))
-              }
-            >
-              メモ
-            </Button>
-          </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-            非表示にすると、変換不要な区間は元画質のまま高速に書き出します。Paint・フリーズ・2画面合成や正確な切り出しには変換が必要です。
-          </Typography>
-        </Stack>
+        <ClipExportTextOptionsView
+          overlayChoice={overlayChoice}
+          onOverlayChoice={onOverlayChoice}
+          overlaySettings={overlaySettings}
+          setOverlaySettings={setOverlaySettings}
+          notePreview={notePreview}
+          textPreview={textPreview}
+        />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>キャンセル</Button>
-        <Button onClick={onExport} variant="contained" disabled={disableExport}>
+        <Button
+          onClick={onExport}
+          variant="contained"
+          disabled={
+            disableExport || overlayChoice === null || textPreview?.blocked
+          }
+        >
           書き出す
         </Button>
       </DialogActions>

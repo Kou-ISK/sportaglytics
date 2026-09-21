@@ -277,13 +277,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     { id: 'toggle-angle8', label: 'アングル8切替', key: 'Shift+8' },
   ],
   language: 'ja',
-  overlayClip: {
-    enabled: true,
-    showActionName: true,
-    showActionIndex: true,
-    showLabels: true,
-    showMemo: true,
-  },
   codingPanel: {
     defaultMode: 'code',
     toolbars: [

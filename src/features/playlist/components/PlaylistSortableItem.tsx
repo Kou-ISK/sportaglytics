@@ -226,7 +226,7 @@ export const PlaylistSortableItem = ({
         }}
       >
         <Stack direction="row" spacing={0}>
-          <Tooltip title="メモを編集">
+          <Tooltip title="ノートを編集">
             <IconButton
               size="small"
               onClick={(event) => {

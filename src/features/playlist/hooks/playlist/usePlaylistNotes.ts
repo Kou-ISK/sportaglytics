@@ -13,6 +13,7 @@ interface UsePlaylistNotesResult {
   setEditingItemId: React.Dispatch<React.SetStateAction<string | null>>;
   handleEditNote: (itemId: string) => void;
   handleSaveNote: (note: string) => void;
+  updateNote: (itemId: string, note: string) => void;
 }
 
 export const usePlaylistNotes = ({
@@ -27,19 +28,28 @@ export const usePlaylistNotes = ({
     setNoteDialogOpen(true);
   }, []);
 
-  const handleSaveNote = useCallback(
-    (note: string) => {
-      if (!editingItemId) return;
-      setItemsWithHistory((prev) =>
-        prev.map((item) =>
-          item.id === editingItemId ? { ...item, note } : item,
-        ),
-      );
-      setNoteDialogOpen(false);
-      setEditingItemId(null);
+  const updateNote = useCallback(
+    (itemId: string, note: string): void => {
+      setItemsWithHistory((previous) => {
+        const current = previous.find((item) => item.id === itemId);
+        if (!current || (current.note ?? '') === note) return previous;
+        return previous.map((item) =>
+          item.id === itemId ? { ...item, note } : item,
+        );
+      });
       setHasUnsavedChanges(true);
     },
-    [editingItemId, setHasUnsavedChanges, setItemsWithHistory],
+    [setItemsWithHistory, setHasUnsavedChanges],
+  );
+
+  const handleSaveNote = useCallback(
+    (note: string): void => {
+      if (!editingItemId) return;
+      updateNote(editingItemId, note);
+      setNoteDialogOpen(false);
+      setEditingItemId(null);
+    },
+    [editingItemId, updateNote],
   );
 
   return {
@@ -48,6 +58,7 @@ export const usePlaylistNotes = ({
     setNoteDialogOpen,
     setEditingItemId,
     handleEditNote,
+    updateNote,
     handleSaveNote,
   };
 };

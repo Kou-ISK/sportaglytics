@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useClipExportTextPreview,
+  type ClipExportTextPreviewState,
+} from '../../../../../../shared/clipExport/useClipExportTextPreview';
+import { useClipExportDialogState } from '../../../../../../shared/clipExport/useClipExportDialogState';
+import { useCallback, useEffect, useState } from 'react';
 import { sendTimelineWindowCommand } from '../../../../app/gateways/timelineWindowGateway';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import {
   canExportClipsWithOverlay,
   exportClipsWithOverlay,
-  loadClipOverlaySettings,
   subscribeClipExportMenuRequest,
 } from '../../../../../../shared/clipExport/clipExportGateway';
 import {
@@ -13,7 +17,6 @@ import {
   validateClipExportSources,
 } from '../../../../../../shared/clipExport/clipExportService';
 import {
-  DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
   type ClipExportAngleOption,
   type ClipExportMode,
   type ClipExportOverlaySettings,
@@ -33,6 +36,9 @@ interface UseTimelineClipExportDialogParams {
 
 interface UseTimelineClipExportDialogResult {
   clipDialogOpen: boolean;
+  textPreview: ClipExportTextPreviewState;
+  overlayChoice: boolean | null;
+  chooseOverlay: (enabled: boolean) => void;
   setClipDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   overlaySettings: ClipExportOverlaySettings;
   setOverlaySettings: React.Dispatch<
@@ -61,16 +67,14 @@ export const useTimelineClipExportDialog = ({
   videoSources,
   info,
 }: UseTimelineClipExportDialogParams): UseTimelineClipExportDialogResult => {
-  const [clipDialogOpen, setClipDialogOpen] = useState(false);
-  const [overlaySettings, updateOverlaySettings] =
-    useState<ClipExportOverlaySettings>(DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS);
-  const settingsRevision = useRef(0);
-  const setOverlaySettings = useCallback<
-    React.Dispatch<React.SetStateAction<ClipExportOverlaySettings>>
-  >((value) => {
-    settingsRevision.current++;
-    updateOverlaySettings(value);
-  }, []);
+  const {
+    open: clipDialogOpen,
+    setOpen: setClipDialogOpen,
+    overlaySettings,
+    setOverlaySettings,
+    overlayChoice,
+    chooseOverlay,
+  } = useClipExportDialogState();
   const [primarySource, setPrimarySource] = useState<string | undefined>(
     videoSources?.[0],
   );
@@ -106,16 +110,38 @@ export const useTimelineClipExportDialog = ({
     );
   }, [videoSources]);
 
-  const handleOpenClipDialog = useCallback(async () => {
+  const handleOpenClipDialog = useCallback(() => {
     setClipDialogOpen(true);
-    const revision = ++settingsRevision.current;
-    const settings = await loadClipOverlaySettings();
-    if (settings && revision === settingsRevision.current) {
-      updateOverlaySettings(settings);
-    }
-  }, []);
+  }, [setClipDialogOpen]);
+
+  const textPreview = useClipExportTextPreview({
+    open: clipDialogOpen,
+    overlayChoice,
+    overlaySettings,
+    angleOption,
+    selectedAngleIndex,
+    videoSources,
+    primarySource,
+    secondarySource,
+    clips: buildExportClips({
+      timeline,
+      sourceItems: resolveExportSourceItems({
+        timeline,
+        selectedIds,
+        exportScope,
+      }),
+    }),
+  });
 
   const handleExportClips = useCallback(async () => {
+    if (textPreview.blocked) {
+      info('テキストのプレビューと高さ超過の表示を確認してください');
+      return;
+    }
+    if (overlayChoice === null) {
+      info('オーバーレイテキストを含めるか選択してください');
+      return;
+    }
     if (!canExportClipsWithOverlay()) {
       info('クリップ書き出しAPIが利用できません');
       setClipDialogOpen(false);
@@ -180,12 +206,15 @@ export const useTimelineClipExportDialog = ({
 
     info(result.message);
   }, [
+    textPreview.blocked,
     angleOption,
     exportFileName,
     exportMode,
     exportScope,
     info,
     overlaySettings,
+    overlayChoice,
+    setClipDialogOpen,
     primarySource,
     secondarySource,
     selectedAngleIndex,
@@ -208,6 +237,9 @@ export const useTimelineClipExportDialog = ({
 
   return {
     clipDialogOpen,
+    textPreview,
+    overlayChoice,
+    chooseOverlay,
     setClipDialogOpen,
     overlaySettings,
     setOverlaySettings,

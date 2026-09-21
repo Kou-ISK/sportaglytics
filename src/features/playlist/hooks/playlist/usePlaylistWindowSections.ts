@@ -1,3 +1,5 @@
+import { useClipExportTextPreview } from '../../../../shared/clipExport/useClipExportTextPreview';
+import { buildPlaylistTextClips } from '../../utils/playlistClipExportBuilder';
 import { usePlaylistSorter } from './usePlaylistSorter';
 import {
   buildPlaylistDialogsSection,
@@ -158,6 +160,7 @@ export const usePlaylistWindowSections = ({
     onPlayItem: playback.handlePlayItem,
     onDeleteSelected: selection.deleteSelected,
     onReorder: itemOperations.handleReorder,
+    onUpdateNote: notes.updateNote,
   });
 
   const organizer = buildPlaylistOrganizerSection({
@@ -169,7 +172,21 @@ export const usePlaylistWindowSections = ({
     onPlayItem: playback.handlePlayItem,
   });
 
+  const textPreview = useClipExportTextPreview({
+    open: exportState.exportDialogOpen,
+    clips: buildPlaylistTextClips(
+      exportState.exportScope === 'selected'
+        ? selection.selectedItems
+        : history.items,
+    ),
+    videoSources: core.videoSources,
+    angleOption: exportState.angleOption,
+    selectedAngleIndex: exportState.selectedAngleIndex,
+    overlayChoice: exportState.overlayChoice,
+    overlaySettings: exportState.overlaySettings,
+  });
   const dialogs = buildPlaylistDialogsSection({
+    textPreview,
     saveDialogOpen: core.saveDialogOpen,
     onCloseSaveDialog: dialogHandlers.handleCloseSaveDialog,
     onSavePlaylistAs: saveFlow.handleSavePlaylistAs,
@@ -191,16 +208,22 @@ export const usePlaylistWindowSections = ({
     videoSources: core.videoSources,
     selectedAngleIndex: exportState.selectedAngleIndex,
     setSelectedAngleIndex: exportState.setSelectedAngleIndex,
+    overlayChoice: exportState.overlayChoice,
+    onOverlayChoice: exportState.chooseOverlay,
+    notePreview: (exportState.exportScope === 'selected'
+      ? selection.selectedItems
+      : history.items
+    )
+      .filter((item) => item.note)
+      .map((item) => `${item.actionName}: ${item.note}`)
+      .join('\n\n'),
     overlaySettings: exportState.overlaySettings,
     setOverlaySettings: exportState.setOverlaySettings,
     exportInProgress: Boolean(exportFlow.exportProgress),
     noteDialogOpen: notes.noteDialogOpen,
     onCloseNoteDialog: dialogHandlers.handleCloseNoteDialog,
     onSaveNote: notes.handleSaveNote,
-    initialNote:
-      currentItemState.editingItem?.note ??
-      currentItemState.editingItem?.memo ??
-      '',
+    initialNote: currentItemState.editingItem?.note ?? '',
     itemName: currentItemState.editingItem?.actionName || '',
     saveProgress: core.saveProgress,
   });
@@ -217,6 +240,7 @@ export const usePlaylistWindowSections = ({
       annotation: annotations.currentAnnotation,
       width: core.inspectorWidth,
       onEditNote: notes.handleEditNote,
+      onUpdateNote: notes.updateNote,
       onPlay: (itemId: string) => playback.handlePlayItem(itemId),
     },
     shell: {

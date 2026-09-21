@@ -37,7 +37,7 @@ export const PlaylistNoteDialog = ({
       <DialogTitle>
         <Stack direction="row" spacing={1} alignItems="center">
           <Notes />
-          <Typography>メモを編集: {itemName}</Typography>
+          <Typography>ノートを編集: {itemName}</Typography>
         </Stack>
       </DialogTitle>
       <DialogContent>
@@ -47,7 +47,7 @@ export const PlaylistNoteDialog = ({
           value={note}
           onChange={(event) => setNote(event.target.value)}
           fullWidth
-          placeholder="映像出力時に表示されるメモを入力..."
+          placeholder="映像出力時に表示されるノートを入力..."
           sx={{ mt: 1 }}
         />
         <Typography
@@ -56,7 +56,7 @@ export const PlaylistNoteDialog = ({
           sx={{ mt: 1, display: 'block' }}
         >
           ※
-          このメモはプレイリスト内でのみ有効で、タイムラインには反映されません。
+          このノートはプレイリスト内でのみ有効で、タイムラインには反映されません。
         </Typography>
       </DialogContent>
       <DialogActions>

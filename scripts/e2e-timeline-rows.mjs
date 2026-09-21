@@ -782,7 +782,7 @@ try {
   await firstInstance.click();
   await page.keyboard.press('Enter');
   await page.getByRole('dialog', { name: 'アクション編集' }).waitFor();
-  await page.getByLabel('メモ').fill('keyboard fixture');
+  await page.getByLabel('ノート').fill('keyboard fixture');
   await page.keyboard.press('Backspace');
   assert.equal(
     await instanceCount(),

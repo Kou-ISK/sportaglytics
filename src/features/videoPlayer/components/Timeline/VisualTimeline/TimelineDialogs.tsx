@@ -1,3 +1,4 @@
+import type { ClipExportTextOptionsProps } from '../../../../../components/ui/composites/ClipExportTextOptionsView';
 import React from 'react';
 import { TimelineData } from '../../../../../types/timeline/core';
 import type {
@@ -10,7 +11,7 @@ import { TimelineContextMenu } from './TimelineContextMenu';
 import { TimelineLabelDialog } from './TimelineLabelDialog';
 import { TimelineClipExportDialog } from './TimelineClipExportDialog';
 
-interface TimelineDialogsProps {
+interface TimelineDialogsProps extends ClipExportTextOptionsProps {
   editingDraft: TimelineEditDraft | null;
   onDialogChange: (changes: Partial<TimelineEditDraft>) => void;
   onCloseDialog: () => void;
@@ -40,8 +41,6 @@ interface TimelineDialogsProps {
   onCloseLabelDialog: () => void;
   onApplyLabel: () => void;
   clipDialogOpen: boolean;
-  overlayEnabled: boolean;
-  onOverlayEnabledChange: (enabled: boolean) => void;
   onCloseClipDialog: () => void;
   onExportClips: () => void;
   exportScope: ClipExportScope;
@@ -88,8 +87,12 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
   onCloseLabelDialog,
   onApplyLabel,
   clipDialogOpen,
-  overlayEnabled,
-  onOverlayEnabledChange,
+  overlayChoice,
+  onOverlayChoice,
+  overlaySettings,
+  setOverlaySettings,
+  notePreview,
+  textPreview,
   onCloseClipDialog,
   onExportClips,
   exportScope,
@@ -157,8 +160,12 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
 
       <TimelineClipExportDialog
         open={clipDialogOpen}
-        overlayEnabled={overlayEnabled}
-        onOverlayEnabledChange={onOverlayEnabledChange}
+        overlayChoice={overlayChoice}
+        onOverlayChoice={onOverlayChoice}
+        overlaySettings={overlaySettings}
+        setOverlaySettings={setOverlaySettings}
+        notePreview={notePreview}
+        textPreview={textPreview}
         onClose={onCloseClipDialog}
         onExport={onExportClips}
         exportScope={exportScope}

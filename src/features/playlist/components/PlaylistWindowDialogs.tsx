@@ -1,3 +1,4 @@
+import type { ClipExportTextPreviewState } from '../../../shared/clipExport/useClipExportTextPreview';
 import React from 'react';
 import type { PlaylistType } from '../../../types/playlist/core';
 import { PlaylistSaveDialog } from './PlaylistSaveDialog';
@@ -39,6 +40,10 @@ type PlaylistWindowDialogsProps = {
     videoSources: string[];
     selectedAngleIndex: number;
     setSelectedAngleIndex: (value: number) => void;
+    overlayChoice: boolean | null;
+    onOverlayChoice: (enabled: boolean) => void;
+    notePreview: string;
+    textPreview?: ClipExportTextPreviewState;
     overlaySettings: OverlaySettings;
     setOverlaySettings: (
       updater: (prev: OverlaySettings) => OverlaySettings,
@@ -89,6 +94,10 @@ export const PlaylistWindowDialogs = ({
         videoSources={exportDialog.videoSources}
         selectedAngleIndex={exportDialog.selectedAngleIndex}
         setSelectedAngleIndex={exportDialog.setSelectedAngleIndex}
+        overlayChoice={exportDialog.overlayChoice}
+        onOverlayChoice={exportDialog.onOverlayChoice}
+        notePreview={exportDialog.notePreview}
+        textPreview={exportDialog.textPreview}
         overlaySettings={exportDialog.overlaySettings}
         setOverlaySettings={exportDialog.setOverlaySettings}
         disableExport={exportDialog.disableExport}

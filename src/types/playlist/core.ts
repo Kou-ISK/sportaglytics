@@ -22,7 +22,7 @@ export type AnnotationTarget = 'primary' | 'secondary';
 export type PlaylistLoopMode = 'none' | 'single' | 'all';
 
 /** Current version of the on-disk Playlist Document contract. */
-export const PLAYLIST_DOCUMENT_SCHEMA_VERSION = 3;
+export const PLAYLIST_DOCUMENT_SCHEMA_VERSION = 4;
 
 export interface PlaylistRow {
   id: string;
@@ -101,7 +101,6 @@ export interface PlaylistItem {
   startTime: number;
   endTime: number;
   labels?: SCLabel[];
-  memo?: string;
   note?: string;
   addedAt: number;
   videoSource?: string;
