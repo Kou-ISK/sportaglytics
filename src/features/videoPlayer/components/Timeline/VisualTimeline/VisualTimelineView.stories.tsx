@@ -72,4 +72,13 @@ const meta: Meta<typeof VisualTimelineView> = {
 };
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Interactive: Story = {};
+export const Interactive: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '目盛りのクリック・ドラッグでシーク。行内クリックは選択解除。Cmd/Ctrl + Option/Altで端を調整すると再生ヘッドが追従し、Undoは一操作単位です。ピンチまたはCtrl + wheelでポインター位置を保って1〜100倍に拡大できます。',
+      },
+    },
+  },
+};

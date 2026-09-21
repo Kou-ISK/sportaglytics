@@ -1,4 +1,11 @@
-import type { BuildDialogsSectionParams, BuildHeaderSectionParams, BuildItemSectionParams, BuildNowPlayingSectionParams, BuildOrganizerSectionParams, BuildSorterSectionParams, BuildVideoAreaSectionParams } from './playlistWindowSection.types';
+import type {
+  BuildDialogsSectionParams,
+  BuildHeaderSectionParams,
+  BuildItemSectionParams,
+  BuildNowPlayingSectionParams,
+  BuildOrganizerSectionParams,
+  BuildVideoAreaSectionParams,
+} from './playlistWindowSection.types';
 
 export const buildPlaylistHeaderSection = ({
   playlistName,
@@ -159,7 +166,9 @@ export const buildPlaylistItemSection = ({
   };
 };
 
-export const buildPlaylistNowPlayingSection = (params: BuildNowPlayingSectionParams) => {
+export const buildPlaylistNowPlayingSection = (
+  params: BuildNowPlayingSectionParams,
+) => {
   if (!params.currentItem) {
     return null;
   }
@@ -172,22 +181,6 @@ export const buildPlaylistNowPlayingSection = (params: BuildNowPlayingSectionPar
     annotation: params.currentAnnotation ?? undefined,
   };
 };
-
-export const buildPlaylistSorterSection = ({
-  items,
-  currentIndex,
-  selectedItemIds,
-  onSelectItem,
-  onPlayItem,
-  onDeleteSelected,
-}: BuildSorterSectionParams) => ({
-  items,
-  currentIndex,
-  selectedItemIds,
-  onSelectItem,
-  onPlayItem,
-  onDeleteSelected,
-});
 
 export const buildPlaylistOrganizerSection = ({
   items,

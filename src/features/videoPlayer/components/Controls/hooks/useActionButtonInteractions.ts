@@ -48,7 +48,17 @@ export const useActionButtonInteractions = ({
   completeRecording,
   recentActionsRef,
   getButtonColorByName,
-}: UseActionButtonInteractionsParams) => {
+}: UseActionButtonInteractionsParams): {
+  handleActionClick: (
+    teamName: string,
+    action: ActionDefinition,
+    originalButtonName?: string,
+    buttonColor?: string,
+    buttonId?: string,
+    leadTimeSeconds?: number,
+    lagTimeSeconds?: number,
+  ) => void;
+} => {
   const handleActionClick = useCallback(
     (
       teamName: string,
@@ -64,6 +74,15 @@ export const useActionButtonInteractions = ({
       }
 
       const clickedButtonName = originalButtonName || action.action;
+
+      // Link effects belong to the source button's activation edge only.
+      const activeKey = resolveRecordingKey(clickedButtonName);
+      if (activeKey) {
+        completeRecording(activeKey);
+        return;
+      }
+      const time = getCurrentTime();
+      if (time === null) return;
 
       const relatedLinks = findRelatedLinks(
         effectiveLinks,
@@ -89,14 +108,6 @@ export const useActionButtonInteractions = ({
         completeRecording(targetKey);
       });
 
-      const activeKey = resolveRecordingKey(clickedButtonName);
-      if (activeKey) {
-        completeRecording(activeKey);
-        return;
-      }
-
-      const time = getCurrentTime();
-      if (time === null) return;
       setPrimaryAction(clickedButtonName);
 
       const targetColors: Record<string, string | undefined> = {};

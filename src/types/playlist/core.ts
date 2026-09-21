@@ -22,7 +22,7 @@ export type AnnotationTarget = 'primary' | 'secondary';
 export type PlaylistLoopMode = 'none' | 'single' | 'all';
 
 /** Current version of the on-disk Playlist Document contract. */
-export const PLAYLIST_DOCUMENT_SCHEMA_VERSION = 2;
+export const PLAYLIST_DOCUMENT_SCHEMA_VERSION = 3;
 
 export interface PlaylistRow {
   id: string;
@@ -110,6 +110,8 @@ export interface PlaylistItem {
   aiMeta?: PlaylistAiMeta;
   /** Organizer row membership. Optional for source compatibility with v1 files. */
   rowId?: string;
+  /** Global playback/export order, independent of Organizer row membership. */
+  presentationOrder?: number;
   /** Zero-based order within the Organizer row. */
   rowOrder?: number;
 }

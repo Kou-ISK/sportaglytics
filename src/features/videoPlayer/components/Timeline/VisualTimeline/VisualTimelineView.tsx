@@ -230,6 +230,7 @@ export const VisualTimelineView = ({
           >
             <TimelineAxis
               axisRef={axisRef}
+              seekHandlers={seekHandlers}
               contentWidth={containerWidth * zoomScale}
               timeMarkers={timeMarkers}
               timeToPosition={timeToPosition}
@@ -265,6 +266,7 @@ export const VisualTimelineView = ({
                 firstTeamName={firstTeamName}
                 maxSec={maxSec}
                 onUpdateTimeRange={onUpdateTimeRange}
+                onPreviewTime={onSeek}
                 onMoveItem={handleMoveItems}
                 onCreateItem={onCreateTimelineItem}
                 onEditRow={() => onOpenRowEditor(row)}

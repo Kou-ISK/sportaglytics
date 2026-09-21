@@ -39,6 +39,7 @@ export interface TimelineLaneProps {
   firstTeamName: string | undefined;
   maxSec: number;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
+  onPreviewTime?: (time: number) => void;
   laneRef?: (el: HTMLDivElement | null) => void;
   contentWidth?: number;
   zoomScale: number;

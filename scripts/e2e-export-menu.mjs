@@ -7,6 +7,7 @@ import { _electron as electron } from 'playwright';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder } from './e2e-platform.mjs';
 import { ffmpegPath, ffprobePath } from './media-tool-paths.mjs';
+import { exercisePlaylistSorter } from './e2e-playlist-sorter.mjs';
 
 const dir = await fs.mkdtemp(
   path.join(os.tmpdir(), 'sportaglytics-export-menu-'),
@@ -316,6 +317,7 @@ try {
     'Playlist export must use its own clip range',
   );
   console.log('Playlist native menu -> its own dialog -> FFmpeg output passed');
+  await exercisePlaylistSorter({ app, main, dir, output, clickExportMenu });
 } finally {
   await app.close().catch(() => undefined);
   await fs.rm(dir, { recursive: true, force: true });

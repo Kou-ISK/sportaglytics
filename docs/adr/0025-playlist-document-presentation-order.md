@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded
 
 ## Date
 
@@ -11,7 +11,7 @@ Accepted
 ## Related ADRs
 
 - Supersedes: N/A
-- Superseded by: N/A
+- Superseded by: [0047](0047-playlist-sorter-presentation-order.md)
 
 ## Context
 

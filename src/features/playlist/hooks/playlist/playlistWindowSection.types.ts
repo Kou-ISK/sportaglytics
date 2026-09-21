@@ -156,18 +156,6 @@ export interface BuildNowPlayingSectionParams {
   currentAnnotation: ItemAnnotation | null;
 }
 
-export interface BuildSorterSectionParams {
-  items: PlaylistItem[];
-  currentIndex: number;
-  selectedItemIds: Set<string>;
-  onSelectItem: (
-    id: string,
-    modifiers: { additive: boolean; range: boolean },
-  ) => void;
-  onPlayItem: (id: string) => void;
-  onDeleteSelected: () => void;
-}
-
 export interface BuildOrganizerSectionParams {
   items: PlaylistItem[];
   rows: PlaylistRow[];

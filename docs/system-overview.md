@@ -1,5 +1,7 @@
 # SporTagLytics System Overview
 
+Playlistの再生順は文書の`presentationOrder`を正本とし、Sorterのソートを保存・Undo・再生・書き出しへ共通反映します。`rows`はOrganizerの所属を保ち、検索や列表示はウィンドウ状態へ分離します。旧文書の再生順をロード時に移行します。[Playlist仕様](playlist-features.md#文書の正規順序) / [ADR 0047](adr/0047-playlist-sorter-presentation-order.md)。
+
 SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGENTS.md` を正とし、本書は実装トレース用の要約に限定します。
 
 関連する入口:
@@ -14,6 +16,10 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 - [自動イベント検出](event-detection.md)
 
 メイン・参照Playlist・書き出しは `shared/media/mediaTimeline` の共通時刻変換を使います。Mainの `mediaTimelineSource` がパッケージの現行配置とアングル補正を読み、型付き `media:resolve-timelines` でPlaylistへ渡します。Playlistの `media/` はソース切替・読込待機・共通時計を担当し、Paintの表示フレームも元ファイル内の時刻から変換します。[ADR 0040](adr/0040-shared-media-timeline-clock.md)。同期編集は`useAngleSyncSession`を状態源とし、型付きTimeline IPCを介して独立タイムラインの既存再生ヘッドと映像を接続します。通常のCodingツールバーに同期操作を統合し、再生用Settingsのアングル切替キーを両ウィンドウで共用します。アングルごとの連続時計を使い、Sync Pointを揃えてから配置と補正を一緒に保存します。映像Windowの背景描画制限を無効化し、Timeline操作中も時計を進める。選択外の同期プレビューも描画可能な最小領域を保つ。映像の読み込みイベントでも最新の要求時刻を反映し、シーク中のフレームを同期点に使用しません。実フレームの近傍PTSは型付き `media:frame-window` でMainから取得し、UIと分離します。[アングル同期仕様](angle-synchronization.md) / [ADR 0041](adr/0041-angle-sync-point-workflow.md)。
+
+Codingの記録時刻も共通時計を使います。`VideoPlayerScreen`が`CodingPanelRuntime`へ渡す`codingTime`を`useCodingTime`が読み、開始・終了・リンク処理へ同じgetterを供給します。getterの参照を固定し、毎フレームの更新で別ウィンドウのIPC購読を張り直しません。元動画の`currentTime`やアングル1の存在から時刻を推定せず、パッケージ未選択・同期調整中は`null`として記録を保留します。保存形式は既存の共通時刻のままです。
+
+複数クリップの再生位置は`useMediaTimeSync`が元動画へ適用します。デコード中の要求は最新位置へまとめ、再生中のずれ補正は最低250ms間隔・再生速度を考慮した許容差で行います。停止時と明示的なシークは精密に合わせます。`useVideoTimeController`から同じプレイヤーへ二重にシークしません。速度キーはsharedの`useHeldPlayback`で操作前の再生状態・速度を保持し、MainとPlaylistがそれぞれの再生APIへ適用します。[ADR 0046](adr/0046-coalesced-playback-corrections.md)。
 
 ## レイヤー構成
 
@@ -322,9 +328,9 @@ UIの正本は `src/design-system/` のsemantic tokenとprops-only Viewです。
 
 `MovieTransportView` は再生・送りのcallbackとラベルだけを受け取り、メイン映像・Playlist・Paintから合成します。メイン映像のウィンドウ比率は[ADR 0030](adr/0030-video-window-aspect.md)、Playlistは自由リサイズです。Timelineはrulerと行でスクロール座標を共有し、再生線を1本描画します。初期行色はアクションボタンから引き継ぎ、既存行の色は行モデルが所有します。
 
-Timelineの `useTimelineSeek` は上部つまみだけが使用し、行の区間編集・作成と単独選択は再生時刻を更新しません。伸縮中はlane hook内でプレビューし、確定時だけ永続化・履歴へ渡します。履歴のUndo/RedoはReactの描画待ちに依存せず保存対象を同期的に返します。明示的なジャンプと再生ホットキーは既存の経路を使います。空白クリックは選択IDとフォーカス枠を同時に解除し、範囲選択直後のclickでは選択結果を消さないよう抑止します。
+Timelineの `useTimelineSeek` は上部つまみと時間目盛りが使用します。行内の通常クリック・区間作成はシークせず、修飾キーによる端の伸縮だけが共通時計へプレビュー時刻を通知します。区間の変更はlane hook内でプレビューし、確定時だけ永続化・履歴へ渡します。履歴のUndo/RedoはReactの描画待ちに依存せず保存対象を同期的に返します。明示的なジャンプと再生ホットキーは既存の経路を使います。空白クリックは選択IDとフォーカス枠を同時に解除し、範囲選択直後のclickでは選択結果を消さないよう抑止します。
 
-端の編集対象は押下したインスタンスIDで決まり、選択IDに依存しません。操作中は対象を一時的に強調し、修飾キー付きのclickで既存の複数選択を変更しません。対象の削除や他経路からの時刻変更、Esc・修飾キー解除・blurで未確定の編集を取り消します。
+端の編集対象は押下したインスタンスIDで決まり、選択IDに依存しません。操作中は対象を一時的に強調し、修飾キー付きのclickで既存の複数選択を変更しません。対象の削除や他経路からの時刻変更、Esc・blurで未確定の編集を取り消します。修飾キーは押下時に操作を決定し、途中で解除してもマウスの左ボタンを離すまで継続します。最後のmouseup座標を反映して確定し、直後のclickによる選択変更を抑止します。
 
 Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツール・パネル状態と、保存する注釈を分離します。`useStudioEditor` は編集の合成、`useStudioGesture` は描画ジェスチャー、`useStudioKeyframes` は位置キーの選択・時刻編集を所有します。ViewはIPC・永続化・URLを参照しません。
 

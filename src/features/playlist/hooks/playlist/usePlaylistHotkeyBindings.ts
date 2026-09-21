@@ -1,12 +1,13 @@
+import { useHeldPlayback } from '../../../../shared/hooks/useHeldPlayback';
 import { useCallback, useMemo } from 'react';
 import {
-  buildPlaybackRateHandler,
-  buildResetPlaybackRateHandler,
+  applyPlaybackRate,
   buildSaveHandler,
   togglePlaylistViewMode,
 } from './playlistHotkeyUtils';
 
 interface UsePlaylistHotkeyBindingsParams {
+  isPlaying: boolean;
   handleTogglePlay: () => void;
   startReversePlayback: (rate: 0.5 | 2 | 4 | 6) => void;
   stopReversePlayback: () => void;
@@ -33,6 +34,7 @@ interface UsePlaylistHotkeyBindingsResult {
 }
 
 export const usePlaylistHotkeyBindings = ({
+  isPlaying,
   handleTogglePlay,
   startReversePlayback,
   stopReversePlayback,
@@ -58,32 +60,49 @@ export const usePlaylistHotkeyBindings = ({
     [videoRef, videoRef2],
   );
 
-  const resetPlaybackRate = buildResetPlaybackRateHandler(playbackRefs);
-  const startForwardPlayback = useCallback(
-    (rate: 0.5 | 2 | 4 | 6): (() => void) => {
-      const start = buildPlaybackRateHandler(playbackRefs, setIsPlaying, rate);
-      return () => {
-        stopReversePlayback();
-        start();
-      };
+  const { start, stop, cancel } = useHeldPlayback(
+    () => ({ playing: isPlaying, rate: videoRef.current?.playbackRate ?? 1 }),
+    ({ playing, rate }) => {
+      applyPlaybackRate(playbackRefs, rate);
+      setIsPlaying(playing);
     },
-    [playbackRefs, setIsPlaying, stopReversePlayback],
+  );
+  const startForwardPlayback = useCallback(
+    (id: string, rate: number): (() => void) =>
+      () => {
+        stopReversePlayback();
+        start(id, rate);
+      },
+    [start, stopReversePlayback],
   );
 
   const hotkeyHandlers = useMemo(
     () => ({
       'play-pause': () => {
+        cancel();
         stopReversePlayback();
         handleTogglePlay();
       },
-      'reverse-playback-slow': () => startReversePlayback(0.5),
-      'reverse-playback-2x': () => startReversePlayback(2),
-      'reverse-playback-4x': () => startReversePlayback(4),
-      'reverse-playback-6x': () => startReversePlayback(6),
-      'skip-forward-small': startForwardPlayback(0.5),
-      'skip-forward-medium': startForwardPlayback(2),
-      'skip-forward-large': startForwardPlayback(4),
-      'skip-forward-xlarge': startForwardPlayback(6),
+      'reverse-playback-slow': () => {
+        cancel();
+        startReversePlayback(0.5);
+      },
+      'reverse-playback-2x': () => {
+        cancel();
+        startReversePlayback(2);
+      },
+      'reverse-playback-4x': () => {
+        cancel();
+        startReversePlayback(4);
+      },
+      'reverse-playback-6x': () => {
+        cancel();
+        startReversePlayback(6);
+      },
+      'skip-forward-small': startForwardPlayback('skip-forward-small', 0.5),
+      'skip-forward-medium': startForwardPlayback('skip-forward-medium', 2),
+      'skip-forward-large': startForwardPlayback('skip-forward-large', 4),
+      'skip-forward-xlarge': startForwardPlayback('skip-forward-xlarge', 6),
       'previous-item': handlePrevious,
       'next-item': handleNext,
       'delete-item': handleDeleteSelected,
@@ -103,6 +122,7 @@ export const usePlaylistHotkeyBindings = ({
       },
     }),
     [
+      cancel,
       handleDeleteSelected,
       handleNext,
       handlePrevious,
@@ -124,16 +144,16 @@ export const usePlaylistHotkeyBindings = ({
 
   const keyUpHandlers = useMemo(
     () => ({
-      'skip-forward-small': resetPlaybackRate,
-      'skip-forward-medium': resetPlaybackRate,
-      'skip-forward-large': resetPlaybackRate,
-      'skip-forward-xlarge': resetPlaybackRate,
+      'skip-forward-small': () => stop('skip-forward-small'),
+      'skip-forward-medium': () => stop('skip-forward-medium'),
+      'skip-forward-large': () => stop('skip-forward-large'),
+      'skip-forward-xlarge': () => stop('skip-forward-xlarge'),
       'reverse-playback-slow': stopReversePlayback,
       'reverse-playback-2x': stopReversePlayback,
       'reverse-playback-4x': stopReversePlayback,
       'reverse-playback-6x': stopReversePlayback,
     }),
-    [resetPlaybackRate, stopReversePlayback],
+    [stop, stopReversePlayback],
   );
 
   return { hotkeyHandlers, keyUpHandlers };

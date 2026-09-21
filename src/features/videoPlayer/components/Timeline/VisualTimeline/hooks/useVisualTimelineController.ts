@@ -110,7 +110,14 @@ export const useVisualTimelineController = ({
   );
 
   const { groupedByAction, firstTeamName, formatTime, timeMarkers } =
-    useTimelineDerivedData({ timeline, rows, maxSec, zoomScale });
+    useTimelineDerivedData({
+      timeline,
+      rows,
+      maxSec,
+      zoomScale,
+      containerWidth,
+      scrollLeft,
+    });
 
   const suppressClearRef = React.useRef(false);
   const handleSelectionApplied = useCallback((): void => {

@@ -53,25 +53,32 @@ export const usePlaylistSelection = ({
   }, []);
 
   const selectWithModifiers = useCallback(
-    (id: string, modifiers: { additive: boolean; range: boolean }): void => {
+    (
+      id: string,
+      modifiers: { additive: boolean; range: boolean },
+      visibleIds?: string[],
+    ): void => {
       const itemIndex = items.findIndex((item) => item.id === id);
       if (itemIndex < 0) return;
       setCurrentIndex(itemIndex);
       setIsPlaying(false);
       setSelectedItemIds((previous) => {
         if (modifiers.range && selectionAnchorId) {
-          const anchorIndex = items.findIndex(
-            (item) => item.id === selectionAnchorId,
-          );
-          if (anchorIndex >= 0) {
-            const start = Math.min(anchorIndex, itemIndex);
-            const end = Math.max(anchorIndex, itemIndex);
+          const validIds = new Set(items.map((item) => item.id));
+          const orderedIds =
+            visibleIds?.filter((id) => validIds.has(id)) ??
+            items.map((item) => item.id);
+          const visibleIndex = orderedIds.indexOf(id);
+          const anchorIndex = orderedIds.indexOf(selectionAnchorId);
+          if (anchorIndex >= 0 && visibleIndex >= 0) {
+            const start = Math.min(anchorIndex, visibleIndex);
+            const end = Math.max(anchorIndex, visibleIndex);
             const next = modifiers.additive
               ? new Set(previous)
               : new Set<string>();
             for (let index = start; index <= end; index += 1) {
-              const rangeItem = items[index];
-              if (rangeItem) next.add(rangeItem.id);
+              const rangeId = orderedIds[index];
+              if (rangeId) next.add(rangeId);
             }
             return next;
           }

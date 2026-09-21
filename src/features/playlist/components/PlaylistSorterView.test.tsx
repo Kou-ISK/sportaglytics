@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { getSorterCellValue, sortSorterItems } from './PlaylistSorterView';
+import { getSorterCellValue, sortSorterItems } from '../domain/playlistSorter';
 import type { PlaylistItem } from '../../../types/playlist/core';
 
-const item = (id: string, duration: number, actionName: string): PlaylistItem => ({
+const item = (
+  id: string,
+  duration: number,
+  actionName: string,
+): PlaylistItem => ({
   id,
   timelineItemId: null,
   actionName,
@@ -20,4 +24,18 @@ describe('PlaylistSorterView sorting', () => {
     expect(presentation.map((entry) => entry.id)).toEqual(['a', 'b']);
     expect(getSorterCellValue(presentation[0]!, 'duration')).toBe(8);
   });
+});
+
+it('uses numeric-aware text sorting and stable ties', () => {
+  const items = [
+    item('a', 8, 'Play 10'),
+    item('b', 2, 'Play 2'),
+    item('c', 2, 'Play 2'),
+  ];
+  expect(
+    sortSorterItems(items, 'action', 'asc').map((entry) => entry.id),
+  ).toEqual(['b', 'c', 'a']);
+  expect(
+    sortSorterItems(items, 'action', 'desc').map((entry) => entry.id),
+  ).toEqual(['a', 'b', 'c']);
 });

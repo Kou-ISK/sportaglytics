@@ -1,10 +1,22 @@
 # 開発ガイド
 
+Sorter変更時は`playlistPresentationOrder.test.ts`でv1/v2移行と行をまたぐ順序、`usePlaylistSorter.test.tsx`で文書編集とUndo、`usePlaylistSelection.test.tsx`で検索中の範囲選択を確認します。`test:e2e:export-menu`内の`e2e-playlist-sorter.mjs`は実UIのソート・再生・Undo/Redo・保存再読込と、FFmpeg出力の色の順序を確認します。Playlist履歴は更新直後のUndo結果を同期的に返し、選択中のクリップをIDで維持します。
+
+Timelineの修飾キーはドラッグ開始時に操作を選びます。キーを先に離しても取消にせず、最後の左mouseup座標で確定します。`TimelineLane.test.tsx`と`test:e2e:timeline-rows`でキー解除→マウス解除の順序、未選択での伸縮、選択と保存時刻を確認してください。
+
 実装規約の正本はリポジトリルートの `AGENTS.md` です。本書はSporTagLyticsアプリ本体の開発環境、日常ワークフロー、品質ゲート、event detection runtime境界の実務ガイドです。
 
 複数クリップの同期を変更する場合は、`shared/media/mediaTimeline` とMainの `mediaTimelineSource` を確認してください。保存時刻はアングル内の配置、画面・注釈・書き出し区間は共通時刻です。`pnpm run e2e:prepare && node scripts/e2e-multi-clip-playback.mjs` は4本の合成映像で、前半/後半の別々の同期、正負のアングル補正、Playlistの境界通過、Paintのシークと出力画素を確認します。Windows CIとインストール版試験にも同じシナリオを含めます。
 
 アングル同期のView、連続時計、同期点、フレーム取得、保存の責務と検証入口は[アングル同期仕様](angle-synchronization.md#実装と検証)を参照してください。`useAngleSyncSession`を状態源とし、Timeline IPCで再生ヘッドと同期操作を接続します。同期中も通常のCoding行・時間目盛りの位置を保ち、`useAngleSyncHotkeys`はSettingsの割り当てを共通のキー照合関数で解決します。Windowsの元動画切替で読み込み完了後に時計が0へ戻るケースは`useAngleSyncPreviewClock.test.tsx`と実Electronの前後半同期で検証します。Timelineにフォーカスしたまま表示アングルを切り替えてシーク完了を待ち、映像Windowを前面へ戻して問題を隠さないようにします。既定キーだけでなく、変更済み・無効化済みの割り当てと修飾キーを単体テスト・Electron E2Eで確認します。Video.jsの公式CSSを維持し、実ウィンドウの1/2/4アングル比率と操作ボタンの可視性を確認します。
+
+Codingへ時刻を渡す場合も、`VideoPlayerScreen`の共通時計を使ってください。`video_0.currentTime`は元動画内の時刻であり、2本目以降の配置やアングルの空白を表せません。`useCodingTime`はIPCハンドラーの参照を保ったまま最新時刻を読みます。複数クリップE2E内の`e2e-multi-clip-coding.mjs`が実際のコードウィンドウを操作し、保存されたタグ時刻とTimeline表示を確認します。
+
+リンクの停止作用は`useActionButtonInteractions`でリンク元が未記録から記録中へ変わる時だけ評価します。リンク元の終了時には自身の記録だけを完了します。`useActionButtonInteractions.test.tsx`はB→A→B→Aの順で操作し、最後のBが停止しないことを確認します。
+
+再生の修正は`useMediaTimeSync.test.tsx`（デコード中の要求集約・高速再生）、`usePlaybackBehaviour.test.tsx`（停止後の遅延canplay）、`useHeldPlayback.test.tsx`（停止状態の復元・修飾キー切替）を確認してください。`e2e-multi-clip-playback.mjs`内の`e2e-playback-interactions.mjs`が実Timelineの目盛り、行、ピンチ、右キーの解除と6倍速での元動画切替を検証します。重い映像のデコード性能自体は機種・コーデック・ストレージに依存するため、一律の速度倍率は保証しません。
+
+参照したHudl公式の[現行リリースノート](https://www.hudl.com/releases/sportscode)と[トラックパッド操作の説明](https://www.hudl.com/blog/new-trackpad-controls-added-to-sportscode-workflow)には、Timelineの倍率上限・ピンチ係数の具体値は見当たりませんでした。本アプリの1〜100倍・指数的なピンチ感度は独自の操作調整値です。2023年の記事は映像のズームについての説明であり、Timelineの数値仕様としては扱いません。
 
 ## 開発環境
 
@@ -342,7 +354,7 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | 起動画面 | `Workspace/Start`: 初回、履歴検索、空/該当なし、長い保存先、ロード中、エラー再試行、drop                                                                                                   | [起動画面](start-workspace.md)                   |
 | 再生操作 | `Design System/Composites/Movie Transport`、`Workspace/Transport`: 半透明、送り量のラベル、描画目印                                                                                        | [デザインシステム](design-system.md)             |
-| Timeline | `Workspace/Timeline/Continuous`、Context Menu / Row Actions: ズーム・スクロール後のruler/行/再生線一致、つまみのみのシーク、未選択の端編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
+| Timeline | `Workspace/Timeline/Continuous`、Context Menu / Row Actions: ズーム・スクロール後のruler/行/再生線一致、最上段だけの通常シークと端編集時の映像プレビュー、未選択の端編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
 | Paint    | `Workspace/Playlist/Paint`: Interactive、Empty、Player Graphics、Video Tracking、Keyframe Editing、Inspector Layout、Collapsed Inspector                                                   | [Paint](tactics.md)                              |
 
 共通してdark/light、600/800/1280px、長い名称、キーボード、空状態・失敗状態を確認します。Paintでは点/描画の削除とUndo、入力欄のBackspace、リンクの連続クリック、追尾の範囲指定→適用→手修正→再追尾、パネル開閉時の状態保持を確認します。時間目盛りの入力は `useStudioRulerInput` でRAFにまとめるため、連続入力と動画側の追従も確認します。
@@ -358,6 +370,10 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 `pnpm run test:e2e:paint-export`は、合成映像と実Canvas描画を使ってRendererの書き出し組立・共通サービス・実IPC・FFmpegまで検証します。出力映像の画素、寸法、尺、音声から、クリップ途中の追尾、芝色による前景復元、静止挿入、別アングル、異なる解像度の2画面を確認します。アーティファクトを残す場合は`E2E_SCREENSHOT_DIR=output/playwright/paint-export`を指定します。これらは実試合の追尾精度やWindows実機検証の代替ではありません。
 
 ### Sportscodeのインスタンス操作を参照する場合
+
+2026-09-21確認: Hudl Japanの[インスタンス追加解説](https://note.hudl.jp/n/nd471a88abdf5)ではOption+Commandで赤い再生ヘッドからドラッグして作成し、[12.2.37の更新情報](https://note.hudl.jp/n/n9e0e496cf384)では同じキーで既存端を伸縮します。同じ修飾キーでもドラッグ開始場所が操作を決めます。記事の対象版と現行版は区別します。
+
+Sorterは[Hudlの2024年の公式説明](https://www.hudl.com/blog/databases-in-hudl-sportscode-are-now-more-flexible-efficient)でクリップの並べ替えを別ビューにも反映する機能として扱われています。この方針とユーザー要求に合わせ、ソートを文書の再生順へ反映します。列操作の細部まで現行Sportscodeと同一と実機確認したものではありません。
 
 [現行の公式機能比較](https://www.hudl.com/products/sportscode/tiers)には、Timelineからのトリム・延長・結合、複数インスタンスの長さ調整と左右移動、複製、playheadへの整列が記載されています。[公式更新履歴](https://www.hudl.com/releases/sportscode)の12.2.30では、Command+Control+Zで全インスタンス、Command+Control+Xでplayheadより右側をドラッグ移動し、Align All / Align RightはOption+Z / Option+Xとしています。これは公開更新履歴に記載された割り当てであり、旧Sportscode 11のPDFを最新操作の根拠にはしません。
 

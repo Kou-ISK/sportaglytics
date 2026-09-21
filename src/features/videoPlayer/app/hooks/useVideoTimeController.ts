@@ -6,10 +6,6 @@ import {
   setVideoJsPlayerCurrentTime,
 } from '../../shared/videojs/videoJsAdapter';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
-import {
-  resolveTimelineClip,
-  usesVirtualClipTimeline,
-} from '../../../../types/package/clipTimeline';
 
 type UseVideoTimeControllerParams = {
   videoList: string[];
@@ -61,6 +57,8 @@ const seekEachPlayer = ({
   mediaAngles: PackageMediaAngle[];
 }): void => {
   videoList.forEach((_, index) => {
+    // Clip-aware players own source resolution and coalesced seeks after React commits.
+    if (!isManualMode && mediaAngles[index]?.clips.length) return;
     try {
       const player = getVideoJsPlayer(`video_${index}`);
       if (
@@ -77,18 +75,6 @@ const seekEachPlayer = ({
         index > 0 && syncData?.isAnalyzed && !isManualMode
           ? (syncData.angleOffsets?.[index] ?? syncData.syncOffset ?? 0)
           : 0;
-      const angle = mediaAngles[index];
-      const usesVirtualTimeline =
-        !isManualMode && usesVirtualClipTimeline(angle?.clips ?? []);
-      if (usesVirtualTimeline && angle) {
-        const active = resolveTimelineClip(angle.clips, timeClamped + offset);
-        if (!active) {
-          player.pause?.();
-          return;
-        }
-        targetTime = active.clipTimeSeconds;
-      }
-
       const durationCandidate = player.duration?.();
       const duration =
         typeof durationCandidate === 'number' &&
@@ -101,17 +87,10 @@ const seekEachPlayer = ({
       }
 
       if (index === 0) {
-        targetTime = usesVirtualTimeline
-          ? targetTime
-          : Math.max(getMinAllowedGlobalTime(syncData), timeClamped);
+        targetTime = Math.max(getMinAllowedGlobalTime(syncData), timeClamped);
       }
 
-      if (
-        index > 0 &&
-        syncData?.isAnalyzed &&
-        !isManualMode &&
-        !usesVirtualTimeline
-      ) {
+      if (index > 0 && syncData?.isAnalyzed && !isManualMode) {
         targetTime = Math.max(0, timeClamped + offset);
       }
 

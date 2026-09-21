@@ -11,6 +11,8 @@ interface UsePlaylistHistorySyncParams {
     React.SetStateAction<Record<string, ItemAnnotation>>
   >;
   items: PlaylistItem[];
+  currentIndex: number;
+  setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
   canUndo: boolean;
   canRedo: boolean;
   onDirtyChange: (dirty: boolean) => void;
@@ -26,6 +28,8 @@ export const usePlaylistHistorySync = ({
   redo,
   setItemAnnotations,
   items,
+  currentIndex,
+  setCurrentIndex,
   canUndo,
   canRedo,
   onDirtyChange,
@@ -47,17 +51,26 @@ export const usePlaylistHistorySync = ({
     rebuildAnnotations(items);
   }, [items, rebuildAnnotations]);
 
+  const preserveCurrentItem = useCallback(
+    (restored: PlaylistItem[] | null): void => {
+      if (!restored) return;
+      const id = items[currentIndex]?.id;
+      if (id) setCurrentIndex(restored.findIndex((item) => item.id === id));
+    },
+    [items, currentIndex, setCurrentIndex],
+  );
+
   const handleUndo = useCallback(() => {
     if (!canUndo) return;
-    undo();
+    preserveCurrentItem(undo());
     onDirtyChange(true);
-  }, [canUndo, onDirtyChange, undo]);
+  }, [canUndo, onDirtyChange, undo, preserveCurrentItem]);
 
   const handleRedo = useCallback(() => {
     if (!canRedo) return;
-    redo();
+    preserveCurrentItem(redo());
     onDirtyChange(true);
-  }, [canRedo, onDirtyChange, redo]);
+  }, [canRedo, onDirtyChange, redo, preserveCurrentItem]);
 
   return { handleUndo, handleRedo };
 };

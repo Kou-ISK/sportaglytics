@@ -1,10 +1,10 @@
+import { usePlaylistSorter } from './usePlaylistSorter';
 import {
   buildPlaylistDialogsSection,
   buildPlaylistHeaderSection,
   buildPlaylistItemSection,
   buildPlaylistNowPlayingSection,
   buildPlaylistOrganizerSection,
-  buildPlaylistSorterSection,
   buildPlaylistVideoAreaSection,
 } from './playlistWindowControllerSections';
 import type { usePlaylistAnnotations } from './usePlaylistAnnotations';
@@ -150,13 +150,14 @@ export const usePlaylistWindowSections = ({
     currentAnnotation: annotations.currentAnnotation,
   });
 
-  const sorter = buildPlaylistSorterSection({
+  const sorter = usePlaylistSorter({
     items: history.items,
     currentIndex: core.currentIndex,
     selectedItemIds: selection.selectedItemIds,
     onSelectItem: selection.selectWithModifiers,
     onPlayItem: playback.handlePlayItem,
     onDeleteSelected: selection.deleteSelected,
+    onReorder: itemOperations.handleReorder,
   });
 
   const organizer = buildPlaylistOrganizerSection({

@@ -143,12 +143,12 @@ Timelineへ追加されたeventは、manual/autodetectedを問わず同一data m
 ### Editing
 
 - create/update/delete
-- range edit（再生位置を移動せず、確定時に1操作1履歴。Escで未確定の変更を取消）
+- range edit（修飾キーによる端編集では映像をプレビューし、確定時に1操作1履歴。Escで未確定の区間変更を取消）
 - row create/rename/color/reorder/delete（行削除は確認必須、取消対象外）
 - instance move/copy
 - multi-select、行内の全インスタンス選択、空白クリック／Escapeで選択とフォーカス枠を解除
 - Delete/Backspaceの削除対象を行／インスタンスの選択に一致させ、入力欄・ダイアログを保護
-- タイムラインのドラッグによるシークは上部のつまみだけで受け付ける
+- 通常シークは最上段の目盛りクリック・ドラッグとつまみ操作で受け付ける。行内の通常クリックではシークせず、Cmd/Ctrl + Option/Altによる端編集では調整位置を映像でプレビューする
 - memo/label edit
 - Undo/Redo
 - playlist追加

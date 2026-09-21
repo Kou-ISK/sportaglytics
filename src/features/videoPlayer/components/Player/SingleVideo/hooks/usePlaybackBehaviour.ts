@@ -29,7 +29,7 @@ export const usePlaybackBehaviour = ({
   durationSec,
   setShowEndMask,
   allowSeek,
-}: UsePlaybackBehaviourParams) => {
+}: UsePlaybackBehaviourParams): void => {
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !isReady) {
@@ -46,61 +46,51 @@ export const usePlaybackBehaviour = ({
       return;
     }
 
-    const tryPlay = () => {
-      const targetPlayer = playerRef.current;
-      if (!targetPlayer || targetPlayer.paused() === false) {
+    let cancelled = false;
+    let waiting = false;
+    const clearReadyListener = (): void => {
+      player.off('canplay', handleReady);
+      waiting = false;
+    };
+    const handleReady = (): void => {
+      clearReadyListener();
+      tryPlay();
+    };
+    const waitForData = (): void => {
+      if (cancelled || waiting) return;
+      waiting = true;
+      player.on('canplay', handleReady);
+    };
+    const tryPlay = (): void => {
+      if (cancelled || player.isDisposed() || !player.paused()) return;
+      const tech = getVideoElement(player);
+      if (tech && tech.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        waitForData();
         return;
       }
-
-      const techEl = getVideoElement(targetPlayer);
-      if (techEl && techEl.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-        const handleCanPlay = () => {
-          techEl?.removeEventListener('canplay', handleCanPlay);
-          tryPlay();
-        };
-
-        techEl.addEventListener('canplay', handleCanPlay, { once: true });
-        return;
-      }
-
-      const playAttempt = targetPlayer.play();
-      if (
-        playAttempt &&
-        typeof (playAttempt as Promise<unknown>).then === 'function' &&
-        typeof (playAttempt as Promise<unknown>).catch === 'function'
-      ) {
-        (playAttempt as Promise<unknown>)
+      const attempt = player.play();
+      if (attempt)
+        void attempt
           .then(() => {
-            // 音声同期: video_0のみ音声再生、video_1以降は常にミュート
-            // これにより音の重複（エコー）を防ぐ
-            if (id !== 'video_0') {
-              targetPlayer.muted(true);
-            }
+            if (!cancelled && !player.isDisposed() && id !== 'video_0')
+              player.muted(true);
           })
           .catch(() => {
-            const retryTech = getVideoElement(targetPlayer);
-            if (
-              !retryTech ||
-              retryTech.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
-            ) {
-              const handleCanPlayRetry = () => {
-                retryTech?.removeEventListener('canplay', handleCanPlayRetry);
-                tryPlay();
-              };
-
-              if (retryTech) {
-                retryTech.addEventListener('canplay', handleCanPlayRetry, {
-                  once: true,
-                });
-              } else {
-                targetPlayer.one?.('canplay', () => tryPlay());
-              }
+            if (!cancelled && !player.isDisposed()) {
+              const current = getVideoElement(player);
+              if (
+                current &&
+                current.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
+              )
+                waitForData();
             }
           });
-      }
     };
-
     tryPlay();
+    return () => {
+      cancelled = true;
+      clearReadyListener();
+    };
   }, [playerRef, isReady, blockPlay, isVideoPlaying, id]);
 
   useEffect(() => {
