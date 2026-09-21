@@ -1,3 +1,4 @@
+import { applyPresentationOrder } from '../../../../shared/playlist/playlistPresentationOrder';
 import { useCallback } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -20,6 +21,7 @@ interface UsePlaylistItemOperationsParams {
 interface UsePlaylistItemOperationsResult {
   handleRemoveItem: (id: string) => void;
   handleDragEnd: (event: DragEndEvent) => void;
+  handleReorder: (ids: string[]) => void;
 }
 
 export const usePlaylistItemOperations = ({
@@ -74,7 +76,10 @@ export const usePlaylistItemOperations = ({
         const oldIndex = prev.findIndex((item) => item.id === active.id);
         const newIndex = prev.findIndex((item) => item.id === over.id);
         if (oldIndex === -1 || newIndex === -1) return prev;
-        const newItems = arrayMove(prev, oldIndex, newIndex);
+        const newItems = applyPresentationOrder(
+          prev,
+          arrayMove(prev, oldIndex, newIndex).map((item) => item.id),
+        );
 
         if (oldIndex === currentIndex) {
           setCurrentIndex(newIndex);
@@ -91,5 +96,25 @@ export const usePlaylistItemOperations = ({
     [currentIndex, setCurrentIndex, setHasUnsavedChanges, setItemsWithHistory],
   );
 
-  return { handleRemoveItem, handleDragEnd };
+  const handleReorder = useCallback(
+    (ids: string[]): void => {
+      setIsPlaying(false);
+      setItemsWithHistory((previous) => {
+        const currentId = previous[currentIndex]?.id;
+        const next = applyPresentationOrder(previous, ids);
+        if (currentId)
+          setCurrentIndex(next.findIndex((item) => item.id === currentId));
+        return next;
+      });
+      setHasUnsavedChanges(true);
+    },
+    [
+      currentIndex,
+      setCurrentIndex,
+      setHasUnsavedChanges,
+      setIsPlaying,
+      setItemsWithHistory,
+    ],
+  );
+  return { handleRemoveItem, handleDragEnd, handleReorder };
 };

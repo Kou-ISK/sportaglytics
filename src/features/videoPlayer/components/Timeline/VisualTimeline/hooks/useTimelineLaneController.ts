@@ -85,7 +85,7 @@ export const useTimelineLaneController = ({
       const modifierStillPressed =
         event.altKey && (event.metaKey || event.ctrlKey);
       setIsEditModifierPressed(modifierStillPressed);
-      if (!modifierStillPressed) activeDragCleanupRef.current?.();
+      // The modifiers choose the gesture at mouse-down; release order must not discard it.
     };
     const handleBlur = (): void => {
       setIsEditModifierPressed(false);
@@ -142,8 +142,10 @@ export const useTimelineLaneController = ({
       let startTime = item.startTime;
       let endTime = item.endTime;
       setEdgeDraft({ original: item, startTime, endTime });
-      const handleMouseMove = (mouseEvent: MouseEvent): void => {
-        const newTime = positionToTime(clientXToContentX(mouseEvent.clientX));
+      let lastClientX = event.clientX;
+      const updatePosition = (clientX: number): void => {
+        lastClientX = clientX;
+        const newTime = positionToTime(clientXToContentX(clientX));
         if (edge === 'start') {
           startTime = Math.max(
             0,
@@ -164,6 +166,8 @@ export const useTimelineLaneController = ({
         setEdgeDraft({ original: item, startTime, endTime });
         onPreviewTime?.(edge === 'start' ? startTime : endTime);
       };
+      const handleMouseMove = (mouseEvent: MouseEvent): void =>
+        updatePosition(mouseEvent.clientX);
       const cleanup = (): void => {
         setEdgeDraft(null);
         document.removeEventListener('mousemove', handleMouseMove);
@@ -172,7 +176,11 @@ export const useTimelineLaneController = ({
           activeDragCleanupRef.current = null;
         }
       };
-      const finish = (): void => {
+      const finish = (mouseEvent: MouseEvent): void => {
+        if (mouseEvent.button !== 0) return;
+        // Mouse-up can carry a newer position than the last delivered move.
+        if (mouseEvent.clientX !== lastClientX)
+          updatePosition(mouseEvent.clientX);
         cleanup();
         // 1 gesture = 1 persistence update / Undo entry. Preview stays local.
         if (startTime !== item.startTime || endTime !== item.endTime) {
@@ -312,7 +320,8 @@ export const useTimelineLaneController = ({
     contentWidth,
     zoomScale,
     containerRef,
-    isEditModifierPressed,
+    isEditModifierPressed:
+      isEditModifierPressed || edgeDraft !== null || draftRange !== null,
     isTeam1,
     laneLabelColor,
     draftRange,

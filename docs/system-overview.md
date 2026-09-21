@@ -1,5 +1,7 @@
 # SporTagLytics System Overview
 
+Playlistの再生順は文書の`presentationOrder`を正本とし、Sorterのソートを保存・Undo・再生・書き出しへ共通反映します。`rows`はOrganizerの所属を保ち、検索や列表示はウィンドウ状態へ分離します。旧文書の再生順をロード時に移行します。[Playlist仕様](playlist-features.md#文書の正規順序) / [ADR 0047](adr/0047-playlist-sorter-presentation-order.md)。
+
 SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGENTS.md` を正とし、本書は実装トレース用の要約に限定します。
 
 関連する入口:
@@ -328,7 +330,7 @@ UIの正本は `src/design-system/` のsemantic tokenとprops-only Viewです。
 
 Timelineの `useTimelineSeek` は上部つまみと時間目盛りが使用します。行内の通常クリック・区間作成はシークせず、修飾キーによる端の伸縮だけが共通時計へプレビュー時刻を通知します。区間の変更はlane hook内でプレビューし、確定時だけ永続化・履歴へ渡します。履歴のUndo/RedoはReactの描画待ちに依存せず保存対象を同期的に返します。明示的なジャンプと再生ホットキーは既存の経路を使います。空白クリックは選択IDとフォーカス枠を同時に解除し、範囲選択直後のclickでは選択結果を消さないよう抑止します。
 
-端の編集対象は押下したインスタンスIDで決まり、選択IDに依存しません。操作中は対象を一時的に強調し、修飾キー付きのclickで既存の複数選択を変更しません。対象の削除や他経路からの時刻変更、Esc・修飾キー解除・blurで未確定の編集を取り消します。
+端の編集対象は押下したインスタンスIDで決まり、選択IDに依存しません。操作中は対象を一時的に強調し、修飾キー付きのclickで既存の複数選択を変更しません。対象の削除や他経路からの時刻変更、Esc・blurで未確定の編集を取り消します。修飾キーは押下時に操作を決定し、途中で解除してもマウスの左ボタンを離すまで継続します。最後のmouseup座標を反映して確定し、直後のclickによる選択変更を抑止します。
 
 Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツール・パネル状態と、保存する注釈を分離します。`useStudioEditor` は編集の合成、`useStudioGesture` は描画ジェスチャー、`useStudioKeyframes` は位置キーの選択・時刻編集を所有します。ViewはIPC・永続化・URLを参照しません。
 

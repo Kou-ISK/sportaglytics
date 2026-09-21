@@ -1,5 +1,7 @@
 # SporTagLytics Documentation
 
+Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter-presentation-order.md)を参照してください。
+
 このディレクトリは SporTagLytics のドキュメント入口です。実装規約の正本はリポジトリルートの `AGENTS.md` です。本ページは、利用者、開発者、AI contributor が必要な情報へ最短で辿れるように整理します。
 
 再生時刻の補正方針は[ADR 0046](adr/0046-coalesced-playback-corrections.md)を参照してください。

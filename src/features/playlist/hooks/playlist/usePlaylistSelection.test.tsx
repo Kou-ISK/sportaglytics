@@ -73,3 +73,29 @@ describe('usePlaylistSelection', () => {
     expect(setIsPlaying).toHaveBeenCalledWith(false);
   });
 });
+
+it('selects only the visible range after filtering or sorting', () => {
+  const items = [makeItem('a'), makeItem('hidden'), makeItem('c')];
+  const { result } = renderHook(() =>
+    usePlaylistSelection({
+      items,
+      setItems: vi.fn(),
+      currentIndex: -1,
+      setCurrentIndex: vi.fn(),
+      setIsPlaying: vi.fn(),
+    }),
+  );
+  act(() =>
+    result.current.selectWithModifiers('c', { additive: false, range: false }, [
+      'c',
+      'a',
+    ]),
+  );
+  act(() =>
+    result.current.selectWithModifiers('a', { additive: false, range: true }, [
+      'c',
+      'a',
+    ]),
+  );
+  expect([...result.current.selectedItemIds]).toEqual(['c', 'a']);
+});

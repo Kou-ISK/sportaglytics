@@ -8,14 +8,16 @@ const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
 const createTemporaryDirectory = async (): Promise<string> => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'sportaglytics-playlist-'));
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'sportaglytics-playlist-'),
+  );
   temporaryDirectories.push(directory);
   return directory;
 };
@@ -54,7 +56,7 @@ describe('playlist package storage', () => {
     );
 
     const loaded = await loadPlaylistFromPath(directory);
-    expect(loaded.schemaVersion).toBe(2);
+    expect(loaded.schemaVersion).toBe(3);
     expect(loaded.items.map((item) => item.id)).toEqual(['first', 'second']);
     expect(loaded.rows).toHaveLength(1);
 

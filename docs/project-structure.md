@@ -1,5 +1,7 @@
 # Project Structure
 
+Playlistのソート値・安定比較・検索は`features/playlist/domain/playlistSorter`、UI状態と文書編集の接続は`hooks/playlist/usePlaylistSorter`、描画は`PlaylistSorterView`と`PlaylistSorterToolbarView`へ分離します。保存される再生順の正規化・移行はRenderer/Main共通の`shared/playlist/playlistPresentationOrder`が担当します。
+
 このドキュメントは SporTagLytics のディレクトリ構成と配置判断ルールです。アーキテクチャ規約の正本は `AGENTS.md`、現行アーキテクチャ要約は [system-overview.md](system-overview.md) です。本書は「新しいファイルをどこに置くか」を判断するための実務ガイドです。
 
 複数クリップの時刻契約は `src/shared/media/`、パッケージ参照の解決は `electron/src/ipc/mediaTimelineSource.ts`、Playlistの映像切替・読込状態は `src/features/playlist/media/` に置きます。`videoFrameClock` は映像要素に結び付いたアダプターメタデータだけを保持し、アプリの状態源や保存形式にはしません。

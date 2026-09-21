@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Playlist Sorterに項目選択・昇順/降順の操作を追加。ソート結果を再生・書き出し・保存順へ反映し、所属行とPaintを維持したままUndo可能に。旧文書は従来の順序を引き継いで移行。[Playlist仕様](docs/playlist-features.md)。
+
 ### Fixed
+
+- Timelineの端編集で修飾キーを先に離すと変更が消える問題を修正。最後のマウス位置で確定し、選択を維持。Sorter検索中の範囲選択も表示行に限定。
 
 - Code Windowの停止リンクを記録開始時だけ発火するよう修正。Timeline最上段のクリックシーク、端編集中の映像プレビュー、最大100倍のポインター位置を保つズームに対応。右向き速度キーを離した時の再生状態を復元し、複数クリップの二重シーク・デコード中の連続シークと停止後の遅延再生を抑制。[操作仕様](docs/user-guide.md)。
 

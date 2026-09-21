@@ -596,13 +596,16 @@ try {
     x: startHandleBox.x + 50,
     y: startHandleBox.y + 5,
   });
+  // Releasing modifiers first must preserve the draft until mouse-up.
+  await page.keyboard.up(primaryModifier);
+  await page.keyboard.up('Alt');
   await cdp.send('Input.dispatchMouseEvent', {
     type: 'mouseReleased',
     button: 'left',
     buttons: 0,
     clickCount: 1,
-    modifiers,
-    x: startHandleBox.x + 50,
+    modifiers: 0,
+    x: startHandleBox.x + 60,
     y: startHandleBox.y + 5,
   });
   await cdp.detach();

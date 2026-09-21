@@ -1,5 +1,9 @@
 # 開発ガイド
 
+Sorter変更時は`playlistPresentationOrder.test.ts`でv1/v2移行と行をまたぐ順序、`usePlaylistSorter.test.tsx`で文書編集とUndo、`usePlaylistSelection.test.tsx`で検索中の範囲選択を確認します。`test:e2e:export-menu`内の`e2e-playlist-sorter.mjs`は実UIのソート・再生・Undo/Redo・保存再読込と、FFmpeg出力の色の順序を確認します。Playlist履歴は更新直後のUndo結果を同期的に返し、選択中のクリップをIDで維持します。
+
+Timelineの修飾キーはドラッグ開始時に操作を選びます。キーを先に離しても取消にせず、最後の左mouseup座標で確定します。`TimelineLane.test.tsx`と`test:e2e:timeline-rows`でキー解除→マウス解除の順序、未選択での伸縮、選択と保存時刻を確認してください。
+
 実装規約の正本はリポジトリルートの `AGENTS.md` です。本書はSporTagLyticsアプリ本体の開発環境、日常ワークフロー、品質ゲート、event detection runtime境界の実務ガイドです。
 
 複数クリップの同期を変更する場合は、`shared/media/mediaTimeline` とMainの `mediaTimelineSource` を確認してください。保存時刻はアングル内の配置、画面・注釈・書き出し区間は共通時刻です。`pnpm run e2e:prepare && node scripts/e2e-multi-clip-playback.mjs` は4本の合成映像で、前半/後半の別々の同期、正負のアングル補正、Playlistの境界通過、Paintのシークと出力画素を確認します。Windows CIとインストール版試験にも同じシナリオを含めます。
@@ -366,6 +370,10 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 `pnpm run test:e2e:paint-export`は、合成映像と実Canvas描画を使ってRendererの書き出し組立・共通サービス・実IPC・FFmpegまで検証します。出力映像の画素、寸法、尺、音声から、クリップ途中の追尾、芝色による前景復元、静止挿入、別アングル、異なる解像度の2画面を確認します。アーティファクトを残す場合は`E2E_SCREENSHOT_DIR=output/playwright/paint-export`を指定します。これらは実試合の追尾精度やWindows実機検証の代替ではありません。
 
 ### Sportscodeのインスタンス操作を参照する場合
+
+2026-09-21確認: Hudl Japanの[インスタンス追加解説](https://note.hudl.jp/n/nd471a88abdf5)ではOption+Commandで赤い再生ヘッドからドラッグして作成し、[12.2.37の更新情報](https://note.hudl.jp/n/n9e0e496cf384)では同じキーで既存端を伸縮します。同じ修飾キーでもドラッグ開始場所が操作を決めます。記事の対象版と現行版は区別します。
+
+Sorterは[Hudlの2024年の公式説明](https://www.hudl.com/blog/databases-in-hudl-sportscode-are-now-more-flexible-efficient)でクリップの並べ替えを別ビューにも反映する機能として扱われています。この方針とユーザー要求に合わせ、ソートを文書の再生順へ反映します。列操作の細部まで現行Sportscodeと同一と実機確認したものではありません。
 
 [現行の公式機能比較](https://www.hudl.com/products/sportscode/tiers)には、Timelineからのトリム・延長・結合、複数インスタンスの長さ調整と左右移動、複製、playheadへの整列が記載されています。[公式更新履歴](https://www.hudl.com/releases/sportscode)の12.2.30では、Command+Control+Zで全インスタンス、Command+Control+Xでplayheadより右側をドラッグ移動し、Align All / Align RightはOption+Z / Option+Xとしています。これは公開更新履歴に記載された割り当てであり、旧Sportscode 11のPDFを最新操作の根拠にはしません。
 

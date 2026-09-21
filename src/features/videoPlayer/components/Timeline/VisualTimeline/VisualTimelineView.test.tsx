@@ -73,7 +73,7 @@ describe('timeline editing and seeking', () => {
       if (!edge) throw new Error('Missing resize handle');
       fireEvent.mouseDown(edge, { button: 0, metaKey: true, altKey: true });
       fireEvent.mouseMove(document, { clientX: 250 });
-      fireEvent.mouseUp(document);
+      fireEvent.mouseUp(document, { clientX: 250 });
       fireEvent.click(edge, { metaKey: true, altKey: true });
       expect(update).toHaveBeenCalled();
       const [, start, end] = update.mock.lastCall ?? [];
