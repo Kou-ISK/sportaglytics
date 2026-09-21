@@ -3,8 +3,12 @@ import { existsSync } from 'fs';
 import * as path from 'path';
 import type { Playlist } from '../../../src/types/playlist/core';
 import { normalizePlaylistDocument } from '../../../src/shared/playlist/playlistDocument';
-import { PLAYLIST_WINDOW_CHANNELS } from '../../../src/types/ipc/playlistWindow';
+import {
+  PLAYLIST_WINDOW_CHANNELS,
+  isPlaylist,
+} from '../../../src/types/ipc/playlistWindow';
 import { runMediaProcess } from '../ipc/mediaProcessRunner';
+import { resolvePlaylistMediaReferences } from './mediaReferences';
 
 const extractVideoSegment = async (
   ffmpegPath: string,
@@ -46,7 +50,14 @@ export const savePlaylistToPath = async (
   event: Electron.IpcMainInvokeEvent,
   ffmpegPath: string,
 ): Promise<void> => {
-  const document = normalizePlaylistDocument(playlist);
+  let document = normalizePlaylistDocument(playlist);
+  if (document.type === 'reference') {
+    document = {
+      ...document,
+      items: (await resolvePlaylistMediaReferences(document.items, targetPath))
+        .items,
+    };
+  }
   const isOverwrite = existsSync(path.join(targetPath, 'playlist.json'));
   await fs.mkdir(targetPath, { recursive: true });
 
@@ -134,6 +145,8 @@ export const savePlaylistToPath = async (
           ...item,
           videoSource: newVideoSource,
           videoSource2: newVideoSource2,
+          mediaReference: undefined,
+          mediaReference2: undefined,
           startTime,
           endTime: isAlreadyProcessed ? item.endTime : duration,
         };
@@ -161,7 +174,7 @@ const resolvePackageVideoPath = (
     const resolved = path.join(targetPath, relativePath);
     if (!existsSync(resolved)) {
       console.warn(`[Playlist] Video file not found: ${resolved}`);
-      return undefined;
+      return resolved;
     }
     return resolved;
   }
@@ -169,13 +182,13 @@ const resolvePackageVideoPath = (
   if (path.isAbsolute(videoPath)) {
     if (!existsSync(videoPath)) {
       console.warn(`[Playlist] Referenced video not found: ${videoPath}`);
-      return undefined;
+      return videoPath;
     }
     return videoPath;
   }
 
   const resolved = path.join(targetPath, videoPath);
-  return existsSync(resolved) ? resolved : undefined;
+  return resolved;
 };
 
 export const loadPlaylistFromPath = async (
@@ -190,28 +203,23 @@ export const loadPlaylistFromPath = async (
   }
 
   const content = await fs.readFile(playlistJsonPath, 'utf-8');
-  let playlist: Playlist;
+  let parsed: unknown;
 
   try {
-    playlist = JSON.parse(content) as Playlist;
+    parsed = JSON.parse(content);
   } catch {
     throw new Error(
       'プレイリストファイルが破損しています。JSONの解析に失敗しました。',
     );
   }
 
-  if (
-    !playlist.id ||
-    !playlist.name ||
-    !playlist.type ||
-    !Array.isArray(playlist.items)
-  ) {
+  if (!isPlaylist(parsed)) {
     throw new Error(
       'プレイリストファイルの形式が不正です。必須フィールドが欠落しています。',
     );
   }
 
-  playlist = normalizePlaylistDocument(playlist);
+  const playlist = normalizePlaylistDocument(parsed);
 
   const resolvedItems = playlist.items.map((item) => {
     return {
@@ -220,6 +228,14 @@ export const loadPlaylistFromPath = async (
       videoSource2: resolvePackageVideoPath(targetPath, item.videoSource2),
     };
   });
+
+  if (playlist.type === 'reference') {
+    return {
+      ...playlist,
+      items: (await resolvePlaylistMediaReferences(resolvedItems, targetPath))
+        .items,
+    };
+  }
 
   return { ...playlist, items: resolvedItems };
 };

@@ -103,3 +103,58 @@ describe('usePlaylistPlaybackEffects', () => {
   });
 });
 // @vitest-environment jsdom
+
+it('uses angle 2 for clock, end and audio, and preserves time across preview switches', () => {
+  vi.stubGlobal(
+    'requestAnimationFrame',
+    vi.fn(() => 1),
+  );
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  const videos = [
+    document.createElement('video'),
+    document.createElement('video'),
+  ];
+  for (const video of videos) {
+    vi.spyOn(video, 'load').mockImplementation(() => undefined);
+    vi.spyOn(video, 'play').mockResolvedValue(undefined);
+    vi.spyOn(video, 'pause').mockImplementation(() => undefined);
+  }
+  const options = {
+    isFrozen: false,
+    setIsFrozen: vi.fn(),
+    currentItem: item,
+    minFreezeDuration: 0.2,
+    defaultFreezeDuration: 2,
+    annotationTimeTolerance: 0.05,
+    freezeRetriggerGuard: 0.5,
+    videoRef: { current: videos[0] },
+    videoRef2: { current: videos[1] },
+    setCurrentTime: vi.fn(),
+    setDuration: vi.fn(),
+    isPlaying: true,
+    currentVideoSource: 'one.mp4',
+    currentVideoSource2: 'two.mp4',
+    volume: 0.7,
+    isMuted: false,
+    lastFreezeTimestampRef: { current: null },
+    triggerFreezeFrame: vi.fn(),
+    handleItemEnd: vi.fn(),
+  };
+  const { rerender } = renderHook(
+    ({ viewMode }: { viewMode: 'angle1' | 'angle2' }) =>
+      usePlaylistPlaybackEffects({ ...options, viewMode }),
+    { initialProps: { viewMode: 'angle2' } },
+  );
+  expect(videos[1].volume).toBe(0.7);
+  expect(videos[0].volume).toBe(0);
+  videos[1].currentTime = 16;
+  videos[1].dispatchEvent(new Event('timeupdate'));
+  expect(options.setCurrentTime).toHaveBeenLastCalledWith(16);
+  rerender({ viewMode: 'angle1' });
+  expect(videos[0].currentTime).toBe(16);
+  expect(videos[0].volume).toBe(0.7);
+  rerender({ viewMode: 'angle2' });
+  videos[1].currentTime = 18;
+  videos[1].dispatchEvent(new Event('timeupdate'));
+  expect(options.handleItemEnd).toHaveBeenCalledOnce();
+});

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PlaylistItem } from '../../../../types/playlist/core';
+import { reconcilePlaylistMedia } from '../../../../shared/playlist/playlistMediaReconciliation';
 
 interface PlaylistHistoryState {
   past: PlaylistItem[][];
@@ -17,6 +18,10 @@ interface UsePlaylistHistoryReturn {
   undo: () => PlaylistItem[] | null;
   redo: () => PlaylistItem[] | null;
   clearHistory: () => void;
+  reconcileMedia: (
+    requested: PlaylistItem[],
+    resolved: PlaylistItem[],
+  ) => boolean;
 }
 
 const MAX_HISTORY_SIZE = 50;
@@ -91,6 +96,23 @@ export function usePlaylistHistory(
     commit({ past: [], present: stateRef.current.present, future: [] });
   }, [commit]);
 
+  const reconcileMedia = useCallback(
+    (requested: PlaylistItem[], resolved: PlaylistItem[]): boolean => {
+      const previous = stateRef.current;
+      const reconcile = (items: PlaylistItem[]): PlaylistItem[] =>
+        reconcilePlaylistMedia(items, requested, resolved);
+      const present = reconcile(previous.present);
+      if (present === previous.present) return false;
+      commit({
+        past: previous.past.map(reconcile),
+        present,
+        future: previous.future.map(reconcile),
+      });
+      return true;
+    },
+    [commit],
+  );
+
   return {
     items: state.present,
     canUndo: state.past.length > 0,
@@ -99,5 +121,6 @@ export function usePlaylistHistory(
     undo,
     redo,
     clearHistory,
+    reconcileMedia,
   };
 }

@@ -365,6 +365,9 @@ try {
   ]);
   await review.getByTestId('organizer-clip-second-half').waitFor();
   await review.getByTestId('organizer-clip-second-half').dblclick();
+  // New clips start at their saved angle; explicitly request the dual-view sync check.
+  await review.getByRole('button', { name: 'その他の操作' }).click();
+  await review.getByRole('menuitem', { name: 'デュアルビュー' }).click();
   await review.waitForFunction(
     () =>
       [...document.querySelectorAll('video')].every(

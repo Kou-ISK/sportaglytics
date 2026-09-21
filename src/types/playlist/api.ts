@@ -3,13 +3,19 @@ import type {
   PlaylistFileLoadResult,
   PlaylistItem,
   PlaylistSaveProgressPayload,
+  PlaylistMediaResolution,
 } from './core';
-import type {
-  PlaylistCommand,
-  PlaylistSyncData,
-} from './window';
+import type { PlaylistCommand, PlaylistSyncData } from './window';
 
 export interface IPlaylistAPI {
+  resolveMediaReferences: (
+    items: PlaylistItem[],
+  ) => Promise<PlaylistMediaResolution>;
+  relinkPackage: (
+    items: PlaylistItem[],
+    itemId: string,
+    target: 'primary' | 'secondary',
+  ) => Promise<PlaylistMediaResolution | null>;
   openWindow: () => Promise<void>;
   closeWindow: () => Promise<void>;
   isWindowOpen: () => Promise<boolean>;

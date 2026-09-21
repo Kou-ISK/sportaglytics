@@ -145,10 +145,17 @@ export const PlaylistExportDialog = ({
               exclusive
               size="small"
               value={angleOption}
+              sx={{
+                flexWrap: 'wrap',
+                '& .MuiToggleButton-root': { whiteSpace: 'nowrap' },
+              }}
               onChange={(_, value) =>
                 value && setAngleOption(value as AngleOption)
               }
             >
+              <ToggleButton value="defaultAngles">
+                各クリップの既定アングル
+              </ToggleButton>
               <ToggleButton
                 value="allAngles"
                 disabled={videoSources.length < 2}
@@ -161,6 +168,11 @@ export const PlaylistExportDialog = ({
               </ToggleButton>
             </ToggleButtonGroup>
           </Stack>
+          {angleOption === 'defaultAngles' && (
+            <Typography variant="body2" color="text.secondary">
+              クリップ詳細で設定したアングルを使い、再生順に書き出します。「1ファイル」なら異なるアングルも1本の映像にまとまります。
+            </Typography>
+          )}
           {angleOption === 'single' && (
             <Stack
               direction="row"

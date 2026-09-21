@@ -81,8 +81,11 @@ export const buildPlaylistPayload = ({
     type,
     items: items.map((item) => ({
       ...item,
-      videoSource: item.videoSource ?? videoSources[0] ?? undefined,
-      videoSource2: item.videoSource2 ?? videoSources[1] ?? undefined,
+      videoSource:
+        item.videoSource ?? (item.mediaReference ? undefined : videoSources[0]),
+      videoSource2:
+        item.videoSource2 ??
+        (item.mediaReference2 ? undefined : videoSources[1]),
       annotation: item.annotation ?? itemAnnotations[item.id],
     })),
     sourcePackagePath: packagePath ?? undefined,
@@ -90,7 +93,11 @@ export const buildPlaylistPayload = ({
     updatedAt: timestamp,
     ...(rows ? { rows } : {}),
   };
-  if (normalizeDocument || rows || items.some((item) => item.rowId !== undefined)) {
+  if (
+    normalizeDocument ||
+    rows ||
+    items.some((item) => item.rowId !== undefined)
+  ) {
     return normalizePlaylistDocument(payload);
   }
   return payload;

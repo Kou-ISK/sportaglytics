@@ -41,8 +41,14 @@ export const SORTER_SORT_OPTIONS: Array<{ id: SorterSortKey; label: string }> =
   ];
 export const sorterLabels = (item: PlaylistItem): string =>
   item.labels?.map((label) => label.name).join(' / ') ?? '';
-export const sorterVideoName = (item: PlaylistItem): string =>
-  (item.videoSource ?? '').split(/[\\/]/).at(-1) ?? '';
+export const sorterVideoName = (item: PlaylistItem): string => {
+  const secondary = item.defaultAngle === 'angle2';
+  const source = secondary ? item.videoSource2 : item.videoSource;
+  const name = (source ?? '').split(/[\\/]/).at(-1) ?? '';
+  return item.videoSource2 || item.mediaReference2
+    ? `アングル${secondary ? 2 : 1} · ${name || '未接続'}`
+    : name;
+};
 export const getSorterCellValue = (
   item: PlaylistItem,
   column: SorterSortKey,

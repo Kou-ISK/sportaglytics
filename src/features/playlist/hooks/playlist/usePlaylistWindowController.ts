@@ -30,9 +30,15 @@ export const usePlaylistWindowController = () => {
 
   return {
     mediaStatus: {
-      loading: runtime.playback.mediaTimeline.loading,
-      error: runtime.playback.mediaTimeline.error,
-      onRetry: runtime.playback.mediaTimeline.retry,
+      loading:
+        runtime.mediaReferences.loading ||
+        runtime.playback.mediaTimeline.loading,
+      error:
+        runtime.mediaReferences.error || runtime.playback.mediaTimeline.error,
+      onRetry: () => {
+        runtime.mediaReferences.retry();
+        runtime.playback.mediaTimeline.retry();
+      },
     },
     studio,
     containerRef: runtime.core.containerRef,
@@ -42,7 +48,7 @@ export const usePlaylistWindowController = () => {
     nowPlaying,
     sorter,
     organizer,
-    inspector,
+    inspector: { ...inspector, onRelink: runtime.mediaReferences.relink },
     shell,
     dialogs,
   };

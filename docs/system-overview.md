@@ -1,5 +1,7 @@
 # SporTagLytics System Overview
 
+Playlist v5は参照元package ID・相対位置と各クリップのdefaultAngleを保存します。MainのmediaReferences AdapterがOS bookmarkと端末内の登録先から移動を解決し、Rendererへ型付きIPCで渡します。既定アングルはクリップ進入時と単一ファイル書き出しで共用します。[参照・アングル仕様](playlist-features.md#参照先の移動と再接続)。
+
 出力テキストのレイアウトはsharedの純粋関数を正本とし、Mainの映像サイズ検査・FFmpeg書き出し・静止画プレビューで共有します。専用IPCはsenderとpayloadを検証し、上限超過は保存先選択前に拒否します。[ADR 0049](adr/0049-bounded-export-text.md)。
 
 Playlistの自由記述は文書v4のnoteに統一します。Timelineの保存フィールドは維持し、旧Playlistのメモは共有の読込境界で移行します。書き出しテキストの有無はウィンドウ内の一時状態で、毎回明示選択します。[ノート仕様](playlist-features.md#ノートの編集と映像出力) / [ADR 0048](adr/0048-playlist-instance-notes.md)。

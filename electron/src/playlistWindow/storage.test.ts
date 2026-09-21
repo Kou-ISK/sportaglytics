@@ -58,7 +58,7 @@ describe('playlist package storage', () => {
     );
 
     const loaded = await loadPlaylistFromPath(directory);
-    expect(loaded.schemaVersion).toBe(4);
+    expect(loaded.schemaVersion).toBe(5);
     expect(loaded.items.map((item) => item.id)).toEqual(['first', 'second']);
     expect(loaded.rows).toHaveLength(1);
     expect(loaded.items[0].note).toBe('Playlist note\n\nSource note');

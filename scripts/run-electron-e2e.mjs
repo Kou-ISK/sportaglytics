@@ -17,6 +17,7 @@ const scenarios = [
   'paint-export',
   'package-reopen',
   'playlist-open-menu',
+  'playlist-references-angles',
   'event-detection',
 ];
 const failed = [];

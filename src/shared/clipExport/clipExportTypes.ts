@@ -1,7 +1,11 @@
 import type { ChromaKey } from '../tactics/chromaKey';
 export type ClipExportScope = 'all' | 'selected';
 export type ClipExportMode = 'single' | 'perInstance' | 'perRow';
-export type ClipExportAngleOption = 'allAngles' | 'single' | 'multi';
+export type ClipExportAngleOption =
+  | 'allAngles'
+  | 'single'
+  | 'multi'
+  | 'defaultAngles';
 export type ClipExportAngleType = 'angle1' | 'angle2';
 
 export interface ClipExportLabel {
@@ -68,7 +72,10 @@ export interface ClipExportPayload {
   sourcePath2?: string;
   mode?: 'single' | 'dual';
   exportMode?: ClipExportMode;
-  angleOption?: 'all' | ClipExportAngleType | ClipExportAngleOption;
+  angleOption?:
+    | 'all'
+    | ClipExportAngleType
+    | Exclude<ClipExportAngleOption, 'defaultAngles'>;
   outputDir?: string;
   outputFileName?: string;
   clips: ClipExportItem[];

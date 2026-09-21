@@ -100,7 +100,12 @@ const normalizeItems = (
     const rowId =
       item.rowId && validRowIds.has(item.rowId) ? item.rowId : fallbackRowId;
     const itemOrder = orderById.get(item.id) ?? counters.get(rowId) ?? 0;
-    return { ...normalizePlaylistNote(item), rowId, rowOrder: itemOrder };
+    return {
+      ...normalizePlaylistNote(item),
+      defaultAngle: item.defaultAngle === 'angle2' ? 'angle2' : 'angle1',
+      rowId,
+      rowOrder: itemOrder,
+    };
   });
 };
 

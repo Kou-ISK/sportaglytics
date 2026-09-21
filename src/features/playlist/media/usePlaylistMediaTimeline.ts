@@ -33,8 +33,10 @@ export const usePlaylistMediaTimeline = (
     secondary: boolean,
   ) => ReturnType<typeof resolveMediaTime> | undefined;
 } => {
-  const { currentVideoSource: primary, currentVideoSource2: secondary } =
-    params;
+  const primary =
+    params.viewMode === 'angle2' ? null : params.currentVideoSource;
+  const secondary =
+    params.viewMode === 'angle1' ? null : params.currentVideoSource2;
   const active = [primary, secondary].some(
     (source) => source && /\.stpkg[/\\]/i.test(source),
   );
@@ -164,7 +166,11 @@ export const usePlaylistMediaTimeline = (
         const ready = players.length > 0 && readiness.every(Boolean);
         if (!ready) players.forEach((adapter) => adapter?.video.pause());
         if (ready && playing) {
-          const rate = current.videoRef.current?.playbackRate ?? 1;
+          const rate =
+            (current.viewMode === 'angle2'
+              ? current.videoRef2
+              : current.videoRef
+            ).current?.playbackRate ?? 1;
           time.current = Math.min(
             current.currentItem?.endTime ?? Infinity,
             time.current + elapsed * rate,
@@ -183,7 +189,10 @@ export const usePlaylistMediaTimeline = (
         players.forEach((adapter, index) => {
           if (adapter)
             adapter.video.volume =
-              index === 0 && !current.isMuted ? current.volume : 0;
+              index === (current.viewMode === 'angle2' ? 1 : 0) &&
+              !current.isMuted
+                ? current.volume
+                : 0;
         });
       } catch (cause) {
         players.forEach((adapter) => adapter?.video.pause());

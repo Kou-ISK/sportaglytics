@@ -149,8 +149,9 @@ const selectClipAngle = (
   index: number,
 ): ClipExportItem[] =>
   clips.map((clip) => {
-    if (!clip.videoSource && !clip.videoSource2) return clip;
-    if (index === 0) return { ...clip, angleType: 'angle1' };
+    if (!('videoSource' in clip) && !('videoSource2' in clip)) return clip;
+    if (index === 0 && clip.videoSource)
+      return { ...clip, angleType: 'angle1' };
     if (index === 1 && clip.videoSource2)
       return { ...clip, angleType: 'angle2' };
     throw new Error(
@@ -180,6 +181,29 @@ export const buildClipExportRequests = ({
   | 'exportFileName'
   | 'overlay'
 >): ClipExportPayload[] => {
+  if (angleOption === 'defaultAngles') {
+    if (!clips.length) throw new Error('書き出すクリップがありません');
+    for (const clip of clips) {
+      const source =
+        clip.angleType === 'angle2' ? clip.videoSource2 : clip.videoSource;
+      if (!source)
+        throw new Error(
+          '既定アングルの映像がないクリップがあります。参照先を再接続してください。',
+        );
+    }
+    return [
+      {
+        progressId,
+        sourcePath: clips[0].videoSource || clips[0].videoSource2 || '',
+        mode: 'single',
+        exportMode,
+        angleOption: 'single',
+        outputFileName: buildExportFileName(exportFileName),
+        clips,
+        overlay,
+      },
+    ];
+  }
   if (angleOption === 'multi') selectClipAngle(clips, 1);
   if (angleOption === 'allAngles')
     return getAvailableVideoSources(videoSources).map((sourcePath, index) => ({
@@ -214,7 +238,7 @@ export const buildClipExportRequests = ({
       clips:
         angleOption === 'single'
           ? selectClipAngle(clips, selectedAngleIndex)
-          : clips,
+          : clips.map(({ angleType: _angle, ...clip }) => clip),
       overlay,
     },
   ];

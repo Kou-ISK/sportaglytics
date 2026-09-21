@@ -1,4 +1,5 @@
 import { readMediaFrameWindow } from './mediaFrameService';
+import { registerPackageLocation } from '../mediaReferences/packageLocationRegistry';
 import { readMediaTimeline } from './mediaTimelineSource';
 import { createPackage } from './packageCreationService';
 import { applyClipTimeline } from './packageClipTimelineService';
@@ -98,7 +99,10 @@ export const registerPackageHandlers = (): void => {
       if (destinationPath !== undefined && !isNonEmptyString(destinationPath)) {
         throw new Error('Invalid package migration destination');
       }
-      return preparePackageForOpen(packagePath, destinationPath);
+      const result = await preparePackageForOpen(packagePath, destinationPath);
+      if (result.status === 'ready')
+        await registerPackageLocation(result.packagePath);
+      return result;
     },
   );
 
