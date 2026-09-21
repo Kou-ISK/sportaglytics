@@ -55,6 +55,10 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0045](0045-buffer-startup-package-open.md) | Buffer startup package open | Accepted | 2026-09-21 |
 | [0046](0046-coalesced-playback-corrections.md) | Coalesced playback corrections | Accepted | 2026-09-21 |
 
+| [0047](0047-playlist-sorter-presentation-order.md) | Playlist Sorter presentation order | Accepted | 2026-09-21 |
+| [0048](0048-playlist-instance-notes.md) | Playlist instance notes | Accepted | 2026-09-21 |
+| [0049](0049-bounded-export-text.md) | Bounded export text | Accepted | 2026-09-21 |
+
 ## Status Values
 
 - `Proposed`: 提案中。実装前または合意前。
@@ -99,5 +103,3 @@ YYYY-MM-DD
 
 ## Consequences
 ```
-| [0047](0047-playlist-sorter-presentation-order.md) | Playlist Sorter presentation order | Accepted | 2026-09-21 |
-| [0048](0048-playlist-instance-notes.md) | Playlist instance notes | Accepted | 2026-09-21 |

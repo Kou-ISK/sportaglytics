@@ -28,7 +28,7 @@ export async function exercisePlaylistSorter({
       '-f',
       'lavfi',
       '-i',
-      `color=c=${clip.color}:s=320x180:r=25:d=10`,
+      `color=c=${clip.color}:s=1280x720:r=25:d=10`,
       '-c:v',
       fixtureH264Encoder,
       '-pix_fmt',
@@ -162,7 +162,11 @@ export async function exercisePlaylistSorter({
   page = await open();
   await assertOrder(['b', 'c', 'a']);
   assert.equal(
-    await page.getByTestId('sorter-row-b').getByRole('cell').nth(5).textContent(),
+    await page
+      .getByTestId('sorter-row-b')
+      .getByRole('cell')
+      .nth(5)
+      .textContent(),
     note,
   );
   if (process.env.E2E_SCREENSHOT_DIR) {
@@ -255,7 +259,18 @@ export async function exercisePlaylistSorter({
     await dialog.getByRole('checkbox', { name, exact: true }).uncheck();
   }
   await dialog.getByLabel('ファイル名 (拡張子不要)').fill('sorter-notes');
+  await dialog
+    .getByRole('img', { name: '書き出し映像のテキスト配置' })
+    .waitFor();
+  await page.waitForFunction(
+    () =>
+      !document.querySelector('[role=dialog] button.MuiButton-contained')
+        ?.disabled,
+  );
   if (process.env.E2E_SCREENSHOT_DIR) {
+    await dialog
+      .getByRole('img', { name: '書き出し映像のテキスト配置' })
+      .scrollIntoViewIfNeeded();
     await page.screenshot({
       path: path.join(
         process.env.E2E_SCREENSHOT_DIR,
@@ -273,32 +288,36 @@ export async function exercisePlaylistSorter({
     (name) => name.startsWith('sorter-notes') && name.endsWith('.mp4'),
   );
   assert.ok(notesFile);
-  const pixels = execFileSync(ffmpegPath, [
-    '-v',
-    'error',
-    '-ss',
-    '1',
-    '-i',
-    path.join(output, notesFile),
-    '-frames:v',
-    '1',
-    '-pix_fmt',
-    'rgb24',
-    '-f',
-    'rawvideo',
-    'pipe:1',
-  ]);
-  assert.equal(pixels.length, 320 * 180 * 3);
+  const pixels = execFileSync(
+    ffmpegPath,
+    [
+      '-v',
+      'error',
+      '-ss',
+      '1',
+      '-i',
+      path.join(output, notesFile),
+      '-frames:v',
+      '1',
+      '-pix_fmt',
+      'rgb24',
+      '-f',
+      'rawvideo',
+      'pipe:1',
+    ],
+    { maxBuffer: 8 * 1024 * 1024 },
+  );
+  assert.equal(pixels.length, 1280 * 720 * 3);
   // Each of the three Japanese note lines must be visible inside the actual output frame.
   for (const [start, end] of [
-    [154, 161],
-    [162, 169],
-    [170, 178],
+    [637, 662],
+    [662, 687],
+    [687, 714],
   ]) {
     let white = 0;
     for (let y = start; y < end; y++)
-      for (let x = 2; x < 250; x++) {
-        const i = (y * 320 + x) * 3;
+      for (let x = 2; x < 1000; x++) {
+        const i = (y * 1280 + x) * 3;
         if (pixels[i] > 150 && pixels[i + 1] > 150 && pixels[i + 2] > 150)
           white++;
       }
@@ -306,5 +325,56 @@ export async function exercisePlaylistSorter({
   }
   console.log(
     'Playlist notes -> inline Control+Tab -> save/reopen -> per-export choice -> Japanese multiline FFmpeg output passed',
+  );
+  await (
+    await app.browserWindow(notesProgress)
+  ).evaluate((window) => window.close());
+  await page.getByTestId('sorter-row-b').getByRole('cell').nth(5).dblclick();
+  const longEditor = page.getByTestId('sorter-row-b').getByRole('textbox');
+  await longEditor.fill('長文の確認\n'.repeat(9));
+  await longEditor.press('Enter');
+  await clickExportMenu(page);
+  await dialog.getByRole('radio', { name: '含める', exact: true }).check();
+  await dialog.getByText(/テキストが映像の高さ20%に収まりません/).waitFor();
+  assert.equal(
+    await dialog
+      .getByRole('button', { name: '書き出す', exact: true })
+      .isDisabled(),
+    true,
+  );
+  const directResult = await page.evaluate(
+    async (source) =>
+      window.electronAPI.exportClipsWithOverlay({
+        sourcePath: source,
+        clips: [
+          {
+            id: 'too-long',
+            actionName: 'Fixture',
+            startTime: 0,
+            endTime: 1,
+            memo: 'line\n'.repeat(9),
+          },
+        ],
+        overlay: {
+          enabled: true,
+          showActionName: true,
+          showActionIndex: true,
+          showLabels: true,
+          showMemo: true,
+        },
+      }),
+    path.join(dir, 'b.mp4'),
+  );
+  assert.equal(directResult.success, false);
+  assert.match(directResult.error, /20%/);
+  await dialog.getByRole('checkbox', { name: 'ノート', exact: true }).uncheck();
+  await page.waitForFunction(
+    () =>
+      !document.querySelector('[role=dialog] button.MuiButton-contained')
+        ?.disabled,
+  );
+  await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  console.log(
+    'Preview, overflow blocking, main-process guard and recovery passed',
   );
 }

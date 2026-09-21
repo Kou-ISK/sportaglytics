@@ -92,6 +92,7 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
   overlaySettings,
   setOverlaySettings,
   notePreview,
+  textPreview,
   onCloseClipDialog,
   onExportClips,
   exportScope,
@@ -164,6 +165,7 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
         overlaySettings={overlaySettings}
         setOverlaySettings={setOverlaySettings}
         notePreview={notePreview}
+        textPreview={textPreview}
         onClose={onCloseClipDialog}
         onExport={onExportClips}
         exportScope={exportScope}

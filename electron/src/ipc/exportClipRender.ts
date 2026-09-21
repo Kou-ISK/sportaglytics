@@ -6,7 +6,6 @@ import {
   runFfmpegDual,
   runFfmpegSingle,
   type ExportClipForFfmpeg,
-  type OverlayLine,
 } from './exportFfmpegRunners';
 import {
   escapeDrawtext,
@@ -37,35 +36,8 @@ const dataUrlToTempFile = async (
   return tempPath;
 };
 
-export const formatOverlayLines = (
-  clip: ClipExportItem,
-  overlay: ExportOverlayOptions,
-): OverlayLine[] => {
-  const lines: OverlayLine[] = [];
-
-  const title = [
-    overlay.showActionIndex ? `#${clip.actionIndex ?? 1}` : '',
-    overlay.showActionName ? clip.actionName : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-  if (title) lines.push({ text: title, isBold: true });
-
-  if (overlay.showLabels && clip.labels && clip.labels.length > 0) {
-    const labelText = clip.labels
-      .map((label) =>
-        label.group ? `${label.group}: ${label.name}` : label.name,
-      )
-      .join(', ');
-    lines.push({ text: labelText, isBold: false });
-  }
-
-  if (overlay.showMemo && clip.memo) {
-    lines.push({ text: clip.memo, isBold: false });
-  }
-
-  return lines;
-};
+import { formatOverlayLines } from '../../../src/shared/clipExport/clipExportTextLayout';
+export { formatOverlayLines } from '../../../src/shared/clipExport/clipExportTextLayout';
 
 interface RenderClipWithFfmpegParams {
   getFfmpegPath: () => string;

@@ -67,6 +67,15 @@ const isClipExportItem = (value: unknown): boolean => {
     isExportChroma(value.chromaKey) &&
     (value.freezeAt === null || isOptionalNumber(value.freezeAt)) &&
     isOptionalNumber(value.freezeDuration) &&
+    (value.labels === undefined ||
+      (Array.isArray(value.labels) &&
+        value.labels.every(
+          (label) =>
+            isPlainObject(label) &&
+            typeof label.group === 'string' &&
+            typeof label.name === 'string',
+        ))) &&
+    isOptionalNumber(value.actionIndex) &&
     isOptionalString(value.memo) &&
     isOptionalString(value.videoSource) &&
     isOptionalString(value.videoSource2) &&

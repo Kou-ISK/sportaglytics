@@ -48,6 +48,26 @@ const buildActionIndexLookup = (items: PlaylistItem[]): Map<string, number> => {
   return actionIndexLookup;
 };
 
+export const buildPlaylistTextClips = (
+  sourceItems: PlaylistItem[],
+): ClipExportItem[] => {
+  const indices = buildActionIndexLookup(sourceItems);
+  return sourceItems.map((item) => ({
+    id: item.id,
+    actionName: item.actionName,
+    startTime: item.startTime,
+    endTime: item.endTime,
+    labels: item.labels?.map((label) => ({
+      group: label.group || '',
+      name: label.name,
+    })),
+    memo: item.note,
+    actionIndex: indices.get(item.id),
+    videoSource: item.videoSource,
+    videoSource2: item.videoSource2,
+  }));
+};
+
 export const buildPlaylistExportClips = ({
   sourceItems,
   itemAnnotations,

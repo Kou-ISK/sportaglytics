@@ -59,6 +59,7 @@ export const TimelineClipExportDialog = ({
   overlaySettings,
   setOverlaySettings,
   notePreview,
+  textPreview,
   onClose,
   onExport,
   exportScope,
@@ -93,6 +94,7 @@ export const TimelineClipExportDialog = ({
           overlaySettings={overlaySettings}
           setOverlaySettings={setOverlaySettings}
           notePreview={notePreview}
+          textPreview={textPreview}
         />
         <Typography variant="subtitle2">Exporting:</Typography>
         <RadioGroup
@@ -214,7 +216,7 @@ export const TimelineClipExportDialog = ({
         <Button
           variant="contained"
           onClick={onExport}
-          disabled={overlayChoice === null}
+          disabled={overlayChoice === null || textPreview?.blocked}
         >
           書き出し
         </Button>

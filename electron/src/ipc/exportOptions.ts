@@ -71,27 +71,9 @@ export const getJapaneseFontPath = (isBold = false): string => {
     : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc';
 };
 
-const wrapText = (text: string, maxChars = 60): string => {
-  if (text.length <= maxChars) return text;
-  const lines: string[] = [];
-  let currentLine = '';
-  const words = text.split(' ');
-
-  for (const word of words) {
-    if (currentLine.length + word.length + 1 > maxChars) {
-      if (currentLine) lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = currentLine ? `${currentLine} ${word}` : word;
-    }
-  }
-  if (currentLine) lines.push(currentLine);
-  return lines.join('\n');
-};
-
 export const escapeDrawtext = (text: string): string => {
-  const wrapped = wrapText(text, 60);
-  return wrapped
+  // Line breaking belongs exclusively to clipExportTextLayout.
+  return text
     .replace(/\\/g, '\\\\')
     .replace(/:/g, '\\:')
     .replace(/'/g, "'\\''")

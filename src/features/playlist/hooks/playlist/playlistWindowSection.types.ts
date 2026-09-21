@@ -1,3 +1,4 @@
+import type { ClipExportTextPreviewState } from '../../../../shared/clipExport/useClipExportTextPreview';
 import type {
   DrawingObject,
   ItemAnnotation,
@@ -140,6 +141,7 @@ export interface BuildDialogsSectionParams {
   overlayChoice: boolean | null;
   onOverlayChoice: (enabled: boolean) => void;
   notePreview: string;
+  textPreview?: ClipExportTextPreviewState;
   overlaySettings: OverlaySettings;
   setOverlaySettings: React.Dispatch<React.SetStateAction<OverlaySettings>>;
   exportInProgress: boolean;

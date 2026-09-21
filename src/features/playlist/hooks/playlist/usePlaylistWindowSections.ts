@@ -1,3 +1,5 @@
+import { useClipExportTextPreview } from '../../../../shared/clipExport/useClipExportTextPreview';
+import { buildPlaylistTextClips } from '../../utils/playlistClipExportBuilder';
 import { usePlaylistSorter } from './usePlaylistSorter';
 import {
   buildPlaylistDialogsSection,
@@ -170,7 +172,21 @@ export const usePlaylistWindowSections = ({
     onPlayItem: playback.handlePlayItem,
   });
 
+  const textPreview = useClipExportTextPreview({
+    open: exportState.exportDialogOpen,
+    clips: buildPlaylistTextClips(
+      exportState.exportScope === 'selected'
+        ? selection.selectedItems
+        : history.items,
+    ),
+    videoSources: core.videoSources,
+    angleOption: exportState.angleOption,
+    selectedAngleIndex: exportState.selectedAngleIndex,
+    overlayChoice: exportState.overlayChoice,
+    overlaySettings: exportState.overlaySettings,
+  });
   const dialogs = buildPlaylistDialogsSection({
+    textPreview,
     saveDialogOpen: core.saveDialogOpen,
     onCloseSaveDialog: dialogHandlers.handleCloseSaveDialog,
     onSavePlaylistAs: saveFlow.handleSavePlaylistAs,

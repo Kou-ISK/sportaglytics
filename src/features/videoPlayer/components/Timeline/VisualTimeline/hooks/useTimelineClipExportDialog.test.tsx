@@ -118,7 +118,7 @@ describe('useTimelineClipExportDialog', () => {
     );
 
     act(() => result.current.setClipDialogOpen(true));
-    act(() => result.current.chooseOverlay(true));
+    act(() => result.current.chooseOverlay(false));
     let exportPromise: Promise<void> | null = null;
     act(() => {
       exportPromise = result.current.handleExportClips();

@@ -1,3 +1,7 @@
+import {
+  useClipExportTextPreview,
+  type ClipExportTextPreviewState,
+} from '../../../../../../shared/clipExport/useClipExportTextPreview';
 import { useClipExportDialogState } from '../../../../../../shared/clipExport/useClipExportDialogState';
 import { useCallback, useEffect, useState } from 'react';
 import { sendTimelineWindowCommand } from '../../../../app/gateways/timelineWindowGateway';
@@ -32,6 +36,7 @@ interface UseTimelineClipExportDialogParams {
 
 interface UseTimelineClipExportDialogResult {
   clipDialogOpen: boolean;
+  textPreview: ClipExportTextPreviewState;
   overlayChoice: boolean | null;
   chooseOverlay: (enabled: boolean) => void;
   setClipDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -109,7 +114,30 @@ export const useTimelineClipExportDialog = ({
     setClipDialogOpen(true);
   }, [setClipDialogOpen]);
 
+  const textPreview = useClipExportTextPreview({
+    open: clipDialogOpen,
+    overlayChoice,
+    overlaySettings,
+    angleOption,
+    selectedAngleIndex,
+    videoSources,
+    primarySource,
+    secondarySource,
+    clips: buildExportClips({
+      timeline,
+      sourceItems: resolveExportSourceItems({
+        timeline,
+        selectedIds,
+        exportScope,
+      }),
+    }),
+  });
+
   const handleExportClips = useCallback(async () => {
+    if (textPreview.blocked) {
+      info('テキストのプレビューと高さ超過の表示を確認してください');
+      return;
+    }
     if (overlayChoice === null) {
       info('オーバーレイテキストを含めるか選択してください');
       return;
@@ -178,6 +206,7 @@ export const useTimelineClipExportDialog = ({
 
     info(result.message);
   }, [
+    textPreview.blocked,
     angleOption,
     exportFileName,
     exportMode,
@@ -208,6 +237,7 @@ export const useTimelineClipExportDialog = ({
 
   return {
     clipDialogOpen,
+    textPreview,
     overlayChoice,
     chooseOverlay,
     setClipDialogOpen,

@@ -1,5 +1,7 @@
 # 開発ガイド
 
+書き出しノートの変更時は`clipExportTextLayout.test.ts`、`exportTextInspection.test.ts`、`exportFfmpegOverlay.test.ts`と`e2e-export-menu.mjs`で高さ上限・最低文字サイズ・実映像プレビュー・超過時の拒否を確認します。Playwrightの映像fixtureは720pとして日本語の描画を確認します。仕様は[Playlist](playlist-features.md#ノートの編集と映像出力)を参照してください。
+
 ノートの変更では、旧文書の統合・空欄・再読込の冪等性と、Sorter入力中の削除・IME・確定・取消を確認します。pnpm run test:e2e:export-menu は、直接編集→保存・再読込→毎回のテキスト選択→実FFmpeg出力の日本語3行を確認します。StorybookのWorkspace/Playlist/NoteEditorとWorkspace/Export/TextConfirmationで狭幅・空欄・確認待ちを確認できます。
 
 Sorter変更時は`playlistPresentationOrder.test.ts`でv1/v2移行と行をまたぐ順序、`usePlaylistSorter.test.tsx`で文書編集とUndo、`usePlaylistSelection.test.tsx`で検索中の範囲選択を確認します。`test:e2e:export-menu`内の`e2e-playlist-sorter.mjs`は実UIのソート・再生・Undo/Redo・保存再読込と、FFmpeg出力の色の順序を確認します。Playlist履歴は更新直後のUndo結果を同期的に返し、選択中のクリップをIDで維持します。

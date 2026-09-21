@@ -73,6 +73,7 @@ export const PlaylistExportDialog = ({
   overlayChoice,
   onOverlayChoice,
   notePreview,
+  textPreview,
 }: PlaylistExportDialogProps) => {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -195,6 +196,7 @@ export const PlaylistExportDialog = ({
           overlaySettings={overlaySettings}
           setOverlaySettings={setOverlaySettings}
           notePreview={notePreview}
+          textPreview={textPreview}
         />
       </DialogContent>
       <DialogActions>
@@ -202,7 +204,9 @@ export const PlaylistExportDialog = ({
         <Button
           onClick={onExport}
           variant="contained"
-          disabled={disableExport || overlayChoice === null}
+          disabled={
+            disableExport || overlayChoice === null || textPreview?.blocked
+          }
         >
           書き出す
         </Button>

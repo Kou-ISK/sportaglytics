@@ -1,3 +1,5 @@
+import { ClipExportTextPreviewView } from './ClipExportTextPreviewView';
+import type { ClipExportTextPreviewState } from '../../../shared/clipExport/useClipExportTextPreview';
 import type { ReactElement } from 'react';
 import {
   Checkbox,
@@ -19,6 +21,7 @@ export interface ClipExportTextOptionsProps {
     update: (previous: ClipExportOverlaySettings) => ClipExportOverlaySettings,
   ) => void;
   notePreview?: string;
+  textPreview?: ClipExportTextPreviewState;
 }
 
 export const ClipExportTextOptionsView = ({
@@ -27,6 +30,7 @@ export const ClipExportTextOptionsView = ({
   overlaySettings,
   setOverlaySettings,
   notePreview,
+  textPreview,
 }: ClipExportTextOptionsProps): ReactElement => (
   <Stack spacing={1}>
     <FormControl component="fieldset" required>
@@ -82,6 +86,7 @@ export const ClipExportTextOptionsView = ({
             />
           ))}
         </Stack>
+        {textPreview && <ClipExportTextPreviewView preview={textPreview} />}
         {overlaySettings.showMemo && notePreview !== undefined && (
           <Typography
             variant="body2"
