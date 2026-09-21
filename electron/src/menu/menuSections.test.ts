@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { send, openTimelineWindow } = vi.hoisted(() => ({
+const { send, openTimelineWindow, openPlaylistFile } = vi.hoisted(() => ({
   send: vi.fn(),
   openTimelineWindow: vi.fn(),
+  openPlaylistFile: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -20,7 +21,10 @@ vi.mock('electron', () => ({
 vi.mock('../settingsWindow', () => ({
   openSettingsWindow: vi.fn(),
 }));
-vi.mock('../playlistWindow', () => ({ createPlaylistWindow: vi.fn() }));
+vi.mock('../playlistWindow', () => ({
+  createPlaylistWindow: vi.fn(),
+  openPlaylistFile,
+}));
 vi.mock('../analysisWindow', () => ({ openAnalysisWindow: vi.fn() }));
 vi.mock('../timelineWindow', () => ({ openTimelineWindow }));
 vi.mock('./clipExportMenuAction', () => ({ openClipExportFromMenu: vi.fn() }));
@@ -47,6 +51,7 @@ describe('document menus', () => {
   beforeEach(() => {
     send.mockClear();
     openTimelineWindow.mockClear();
+    openPlaylistFile.mockClear();
   });
 
   it('groups document creation and opening under File', () => {
@@ -99,6 +104,17 @@ describe('document menus', () => {
     expect(openTimelineWindow).toHaveBeenCalledTimes(1);
   });
 
+  it('opens a playlist file from File without broadcasting to other documents', () => {
+    const item = getSubmenuItems(
+      buildFileMenuItems().find((entry) => entry.label === '開く'),
+    ).find((entry) => entry.id === 'open-playlist-file');
+    expect(item?.label).toBe('プレイリスト…');
+    expect(item?.click).toBeTypeOf('function');
+    if (item?.click) Reflect.apply(item.click, undefined, []);
+    expect(openPlaylistFile).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('assigns Help a unique accelerator', () => {
     const accelerators = [
       ...buildFileMenuItems(),
@@ -107,8 +123,8 @@ describe('document menus', () => {
     ]
       .flatMap((item) => [item, ...getSubmenuItems(item)])
       .map((item) => item.accelerator)
-      .filter((accelerator): accelerator is string =>
-        typeof accelerator === 'string',
+      .filter(
+        (accelerator): accelerator is string => typeof accelerator === 'string',
       );
 
     expect(accelerators).toContain('CmdOrCtrl+Shift+/');

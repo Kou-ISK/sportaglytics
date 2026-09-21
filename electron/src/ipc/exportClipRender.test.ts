@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderClipWithFfmpeg } from './exportClipRender';
-import { runFfmpegSingle } from './exportFfmpegRunners';
+import { runFfmpegDual, runFfmpegSingle } from './exportFfmpegRunners';
 
 vi.mock('./exportAudioProbe', () => ({
   hasExportAudio: vi.fn(async () => true),
@@ -26,6 +26,7 @@ describe('renderClipWithFfmpeg', () => {
 
   beforeEach(() => {
     mockedRunFfmpegSingle.mockClear();
+    vi.mocked(runFfmpegDual).mockClear();
     tempFiles.length = 0;
   });
 
@@ -68,6 +69,52 @@ describe('renderClipWithFfmpeg', () => {
     expect(params?.annotationPath).toEqual(expect.stringContaining('.png'));
     expect(params?.outputPath).toBe('/out.mp4');
     expect(params?.overlayEnabled).toBe(false);
+  });
+
+  it('translates both angle clocks without shifting relative Paint and freeze timing', async () => {
+    const base = {
+      getFfmpegPath: () => '/ffmpeg',
+      clip: {
+        id: 'clock',
+        actionName: 'Review',
+        startTime: 124,
+        endTime: 128,
+        freezeAt: 2,
+        freezeDuration: 1,
+      },
+      overlay: {
+        enabled: false,
+        showActionName: false,
+        showActionIndex: false,
+        showMemo: false,
+        showLabels: false,
+      },
+      mainSource: '/main.mp4',
+      secondarySource: '/secondary.mp4',
+      useDual: true,
+      tempFiles,
+      outputPath: '/out.mp4',
+      primaryTimeOrigin: 120,
+      secondaryTimeOrigin: 122,
+    };
+    await renderClipWithFfmpeg(base);
+    expect(vi.mocked(runFfmpegDual).mock.calls[0]?.[0].clip).toMatchObject({
+      startTime: 4,
+      endTime: 8,
+      secondaryStartTime: 2,
+      freezeAt: 2,
+      freezeDuration: 1,
+    });
+    await renderClipWithFfmpeg({
+      ...base,
+      clip: { ...base.clip, angleType: 'angle2' },
+    });
+    expect(mockedRunFfmpegSingle.mock.calls[0]?.[0].clip).toMatchObject({
+      startTime: 2,
+      endTime: 6,
+      freezeAt: 2,
+      freezeDuration: 1,
+    });
   });
 });
 

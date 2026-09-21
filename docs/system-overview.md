@@ -83,7 +83,7 @@ Main Window作成時にSessionを保持し、`closed` では破棄済みWindow�
 
 Timelineの分割・結合は`shared/timelineRangeEditing.ts`の純粋関数で全体を計算し、`useTimelineRangeEditing`が所有runtimeへ1回だけcommitする。独立Timelineは`split-item` / `merge-items` commandを送り、結果の選択IDも所有runtimeから同期する。文書形式・履歴の所有者は変えない。
 
-書き出しは`exportPayloadValidation.ts`でIPCの型、`exportSourceSelection.ts`で使用映像、`exportPreflight.ts`でローカルファイルと保存先を確認する。仮想Timelineは`exportVirtualTimelineSource.ts`で構成を読み、全必要ファイルの確認後に要求範囲だけを準備する。`exportSourcePreparation`がアングル別の範囲と進捗を管理し、`exportTimelineRange`の共通時刻から`exportTimelineComposition`が必要な合成を行う。素材の原点をFFmpeg実行層へ渡し、単画面・2画面とも同じ時計を保持する。`exportStreamCopy`がコーデック・時刻基準・切断境界を確認し、可能な場合だけ無再圧縮でコピーする。[ADR 0043](adr/0043-bounded-lossless-export.md)。`exportHandlers.ts`は進捗と実行の組み立てを担当する。クラウド・追加runtime依存はない。
+書き出しは`exportPayloadValidation.ts`でIPCの型、`exportSourceSelection.ts`で使用映像、`exportPreflight.ts`でローカルファイルと保存先を確認する。仮想Timelineは`exportVirtualTimelineSource.ts`で構成を読み、全必要ファイルの確認後に要求範囲だけを準備する。`exportSourcePreparation`がインスタンス・アングルごとの範囲と進捗を管理し、`exportTimelineRange`の共通時刻から`exportTimelineComposition`が必要な合成を行う。`exportPreparedClipRenderer`が各インスタンス・アングルの素材と原点をFFmpeg実行層へ渡し、単画面・2画面とも同じ時計を保持する。`exportStreamCopy`がコーデック・時刻基準・切断境界を確認し、可能な場合だけ無再圧縮でコピーする。[ADR 0050](adr/0050-instance-scoped-export-preparation.md)。`exportHandlers.ts`は進捗と実行の組み立てを担当する。クラウド・追加runtime依存はない。
 
 ### Typed IPC
 
@@ -288,6 +288,8 @@ SporTagLytics public repositoryには以下を置きません。
 ## Playlist / Clip export
 
 Playlistは独立BrowserWindowで扱い、`.stpl` documentを正本とします。Timelineからの追加とAI Analysisからの追加は共通playlist APIを利用します。
+
+「ファイル > 開く > プレイリスト…」はMainの`playlistWindow/fileOpen.ts`でネイティブ選択・文書検証を行い、既存のWindow管理へ渡します。IPCのロード操作も同じパッケージ選択を使います。メニュー要求を全Rendererへ配信せず、操作元のPackage Sessionと編集中の文書を保持します。
 
 Clip exportは `src/shared/clipExport/` にpure service / contractを集約し、main processのFFmpeg runnerで実行します。進捗は専用export progress windowへ通知し、main app操作をblockしません。
 

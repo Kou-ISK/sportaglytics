@@ -22,6 +22,7 @@ import {
 } from './windowManager';
 import { getFfmpegPathRef, getMainWindowRef, getPlaylistWindows } from './state';
 import { loadPlaylistFromPath, savePlaylistToPath } from './storage';
+import { selectPlaylistPath } from './fileOpen';
 import { getPackageSessionForSender } from '../packageSessionRegistry';
 
 export const registerPlaylistHandlers = (): void => {
@@ -256,13 +257,9 @@ export const registerPlaylistHandlers = (): void => {
 
         let targetPath = typeof givenPath === 'string' ? givenPath : undefined;
         if (!targetPath) {
-          const { filePaths } = await dialog.showOpenDialog({
-            title: 'プレイリストを開く',
-            filters: [{ name: 'SporTagLytics Playlist', extensions: ['stpl'] }],
-            properties: ['openFile', 'openDirectory'],
-          });
-          if (filePaths.length === 0) return null;
-          targetPath = filePaths[0];
+          targetPath =
+            (await selectPlaylistPath(getValidatedEventSenderWindow(event))) ??
+            undefined;
         }
         if (!targetPath) return null;
 

@@ -77,6 +77,102 @@ describe('export source preparation', () => {
       expect.stringContaining('2 / 2'),
     );
     expect(complete).toHaveBeenCalledWith(2, expect.any(String));
-    expect(result.timeOrigins.get('second.mp4.prepared')).toBe(10);
+    expect(result.get(1)?.get('second.mp4')?.timeOrigin).toBe(10);
+  });
+
+  it('does not prepare the unselected interval between periods, even when ids repeat', () => {
+    const payload: ExportClipsPayload = {
+      sourcePath: 'package-primary.mp4',
+      clips: [
+        { id: 'same', actionName: 'Review', startTime: 20, endTime: 30 },
+        { id: 'same', actionName: 'Review', startTime: 3620, endTime: 3630 },
+      ],
+      overlay: {
+        enabled: true,
+        showActionName: true,
+        showActionIndex: false,
+        showMemo: true,
+        showLabels: false,
+      },
+    };
+    const jobs = buildExportPreparationJobs(payload, [
+      {
+        sourcePath: payload.sourcePath,
+        clips: [
+          {
+            id: 'first',
+            sourcePath: 'first.mp4',
+            timelineStartSeconds: 0,
+            durationSeconds: 1800,
+          },
+          {
+            id: 'second',
+            sourcePath: 'second.mp4',
+            timelineStartSeconds: 3600,
+            durationSeconds: 1800,
+          },
+        ],
+      },
+    ]);
+    expect(
+      jobs.map(({ range, weight, clipIndexes }) => ({
+        range,
+        weight,
+        clipIndexes,
+      })),
+    ).toEqual([
+      { range: { start: 20, end: 30 }, weight: 0, clipIndexes: [0] },
+      { range: { start: 3620, end: 3630 }, weight: 0, clipIndexes: [1] },
+    ]);
+  });
+
+  it('shares identical crossing ranges but retains each instance binding and selected gaps', async () => {
+    const clip = { id: 'one', actionName: 'Review', startTime: 8, endTime: 14 };
+    const payload: ExportClipsPayload = {
+      sourcePath: 'primary.mp4',
+      clips: [clip, { ...clip, id: 'two' }],
+      overlay: {
+        enabled: false,
+        showActionName: false,
+        showActionIndex: false,
+        showMemo: false,
+        showLabels: false,
+      },
+    };
+    const jobs = buildExportPreparationJobs(payload, [
+      {
+        sourcePath: payload.sourcePath,
+        clips: [
+          {
+            id: 'first',
+            sourcePath: 'first.mp4',
+            timelineStartSeconds: 0,
+            durationSeconds: 10,
+          },
+          {
+            id: 'second',
+            sourcePath: 'second.mp4',
+            timelineStartSeconds: 12,
+            durationSeconds: 10,
+          },
+        ],
+      },
+    ]);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]).toMatchObject({
+      range: { start: 8, end: 14 },
+      weight: 6,
+      clipIndexes: [0, 1],
+    });
+    vi.mocked(materializeExportSource).mockClear();
+    vi.mocked(materializeExportSource).mockResolvedValue({
+      sourcePath: 'prepared.mp4',
+      timeOrigin: 8,
+    });
+    const result = await prepareExportSources(jobs, [], vi.fn(), vi.fn());
+    expect(materializeExportSource).toHaveBeenCalledTimes(1);
+    expect(result.get(0)?.get(payload.sourcePath)).toEqual(
+      result.get(1)?.get(payload.sourcePath),
+    );
   });
 });

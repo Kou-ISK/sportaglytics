@@ -8,6 +8,7 @@ node_modules/
 # testing
 /coverage
 /output/playwright/
+/output/benchmarks/
 
 # Local research data and artifacts must stay outside the public repository.
 /research/

@@ -47,7 +47,8 @@ interface RenderClipWithFfmpegParams {
   secondarySource?: string | null;
   useDual: boolean;
   tempFiles: string[];
-  sourceTimeOrigins?: ReadonlyMap<string, number>;
+  primaryTimeOrigin?: number;
+  secondaryTimeOrigin?: number;
   outputPath?: string;
   onProgress?: (progress: number) => void;
 }
@@ -60,7 +61,8 @@ export const renderClipWithFfmpeg = async ({
   secondarySource,
   useDual,
   tempFiles,
-  sourceTimeOrigins,
+  primaryTimeOrigin = 0,
+  secondaryTimeOrigin = 0,
   outputPath,
   onProgress,
 }: RenderClipWithFfmpegParams): Promise<string> => {
@@ -71,6 +73,8 @@ export const renderClipWithFfmpeg = async ({
       os.tmpdir(),
       `clip_${clip.id}_${Date.now()}_${Math.random()}.mp4`,
     );
+  // Intermediate clips must also be removed when a later encode or concat fails.
+  if (!outputPath) tempFiles.push(target);
 
   let annPrimaryPath: string | null = null;
   let annSecondaryPath: string | null = null;
@@ -127,13 +131,10 @@ export const renderClipWithFfmpeg = async ({
         })),
       )
     : undefined;
-  const selectedSource =
-    clip.angleType === 'angle2'
-      ? clipSecondarySource || clipMainSource
-      : clipMainSource;
-  const primaryOrigin = sourceTimeOrigins?.get(selectedSource) ?? 0;
-  const secondaryOrigin =
-    sourceTimeOrigins?.get(clipSecondarySource ?? '') ?? 0;
+  const selectedOrigin =
+    clip.angleType === 'angle2' && clipSecondarySource
+      ? secondaryTimeOrigin
+      : primaryTimeOrigin;
   const ffmpegClip: ExportClipForFfmpeg = {
     chromaKey: clip.chromaKey,
     hasAudio: await hasExportAudio(
@@ -143,9 +144,9 @@ export const renderClipWithFfmpeg = async ({
     ),
     motionOverlays,
     freezeFrames,
-    startTime: clip.startTime - primaryOrigin,
-    endTime: clip.endTime - primaryOrigin,
-    secondaryStartTime: clip.startTime - secondaryOrigin,
+    startTime: clip.startTime - selectedOrigin,
+    endTime: clip.endTime - selectedOrigin,
+    secondaryStartTime: clip.startTime - secondaryTimeOrigin,
     freezeAt: clip.freezeAt,
     freezeDuration: clip.freezeDuration,
   };

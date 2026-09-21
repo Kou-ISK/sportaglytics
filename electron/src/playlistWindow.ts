@@ -5,8 +5,12 @@
  * while implementation details live in dedicated modules.
  */
 import type { BrowserWindow } from 'electron';
+export { openPlaylistFile } from './playlistWindow/fileOpen';
 import { registerPlaylistHandlers as registerHandlers } from './playlistWindow/handlers';
-import { setFfmpegPathRef, setMainWindowRefState } from './playlistWindow/state';
+import {
+  setFfmpegPathRef,
+  setMainWindowRefState,
+} from './playlistWindow/state';
 import {
   addItemToAllWindows,
   closeAllPlaylistWindows,

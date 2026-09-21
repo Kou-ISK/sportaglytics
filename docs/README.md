@@ -50,7 +50,8 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 - [Architecture exceptions](architecture-exceptions.md): `AGENTS.md` からの一時例外台帳。
 - [ADR](adr/README.md): 長期的な設計判断。
 - [起動時のパッケージ通知](adr/0045-buffer-startup-package-open.md): 画面の準備前に届いた通知の保持と一度だけの配送。
-- [選択範囲の準備と無再圧縮書き出し](adr/0043-bounded-lossless-export.md): 共通時計を保つ高速コピー条件と進捗。
+- [インスタンス単位の書き出し準備](adr/0050-instance-scoped-export-preparation.md): 不要区間と中間圧縮の削減、共通時計とコピー条件。
+- [オーバーレイ付き書き出し性能](reports/2026-09-export-performance.md): Sportscode公式調査、再現可能な合成素材での比較と品質上の制約。
 - [映像書き出しメニューの所有者と準備待ち](adr/0042-document-owned-export-menu.md): Package Sessionによる通知先とTimelineの購読準備。
 - [Release artifactの不変性](adr/0032-immutable-release-artifacts.md): 公開済みタグとDMGを保持する配布契約。
 - [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix): 実装変更時に同時更新する docs の対応表。

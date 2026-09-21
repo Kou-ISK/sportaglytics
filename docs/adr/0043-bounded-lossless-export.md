@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded
 
 ## Date
 
@@ -10,6 +10,7 @@ Accepted
 
 ## Related ADRs
 
+- Superseded by: [0050 Instance-scoped export preparation](0050-instance-scoped-export-preparation.md)
 - Extends: [0040 Shared Media Timeline Clock](0040-shared-media-timeline-clock.md)
 
 ## Context

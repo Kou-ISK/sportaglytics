@@ -9,7 +9,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'path';
 import { concatFiles } from './exportFfmpegRunners';
 import { ensureMp4, normalizeAngleOption } from './exportOptions';
-import { renderClipWithFfmpeg } from './exportClipRender';
+import { createPreparedClipRenderer } from './exportPreparedClipRenderer';
 import type { ExportClipsPayload } from './exportHandlers.types';
 import {
   updateExportProgressWindow,
@@ -116,13 +116,11 @@ export const registerExportHandlers = ({
       try {
         const {
           sourcePath,
-          sourcePath2,
           mode = 'single',
           exportMode = 'single',
           angleOption,
           outputDir,
           clips,
-          overlay,
           outputFileName,
           progressId,
         } = payload;
@@ -219,66 +217,20 @@ export const registerExportHandlers = ({
         const sourcePlans = await preflightClipExport(payload, targetDir);
         const jobs = buildExportPreparationJobs(payload, sourcePlans);
         progressTotal += jobs.reduce((total, job) => total + job.weight, 0);
-        const { sources: resolvedSourceMap, timeOrigins } =
-          await prepareExportSources(
-            jobs,
-            tempFiles,
-            updateStageProgress,
-            advanceProgress,
-          );
-        const resolveSource = (
-          source: string | null | undefined,
-        ): string | undefined =>
-          source ? (resolvedSourceMap.get(source) ?? source) : undefined;
-        const selection = resolveExportSourceSelection(payload);
-        const mainSource =
-          resolveSource(selection.mainSource) || selection.mainSource;
-        const secondarySource = resolveSource(selection.secondarySource);
-        const useDual = selection.useDual;
+        const preparedSources = await prepareExportSources(
+          jobs,
+          tempFiles,
+          updateStageProgress,
+          advanceProgress,
+        );
+        const { useDual } = resolveExportSourceSelection(payload);
         const normalizedAngleOption = normalizeAngleOption(angleOption, mode);
-
-        const renderClip = async (
-          clip: ExportClipsPayload['clips'][number],
-          outputPath?: string,
-          onProgress?: (progress: number) => void,
-        ): Promise<string> => {
-          try {
-            return await renderClipWithFfmpeg({
-              getFfmpegPath,
-              clip: {
-                ...clip,
-                videoSource: resolveSource(clip.videoSource),
-                videoSource2: resolveSource(clip.videoSource2),
-              },
-              overlay,
-              mainSource,
-              secondarySource,
-              useDual,
-              tempFiles,
-              sourceTimeOrigins: timeOrigins,
-              outputPath,
-              onProgress,
-            });
-          } catch (error) {
-            if (useDual) {
-              const clipMainSource = clip.videoSource || mainSource;
-              const clipSecondarySource = clip.videoSource2 || secondarySource;
-              console.error(
-                'export-clips-with-overlay clip dual source error',
-                {
-                  clipId: clip.id,
-                  sourcePath,
-                  sourcePath2,
-                  angleOption,
-                  mode,
-                  clipMainSource,
-                  clipSecondarySource,
-                },
-              );
-            }
-            throw error;
-          }
-        };
+        const renderClip = createPreparedClipRenderer(
+          payload,
+          preparedSources,
+          tempFiles,
+          getFfmpegPath,
+        );
 
         const allocateName = createExportNameAllocator(
           await fs.readdir(targetDir),
