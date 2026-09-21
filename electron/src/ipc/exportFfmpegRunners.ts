@@ -1,3 +1,4 @@
+import { probeMedia } from './packageMediaCompositionService';
 import { resolveMediaCopyMode } from './exportStreamCopy';
 import {
   prepareChromaForeground,
@@ -113,12 +114,14 @@ export const runFfmpegSingle = async ({
     return;
   }
 
+  const size = overlayEnabled ? await probeMedia(actualSource) : null;
   const vfTexts = overlayEnabled
     ? buildOverlayFilters({
         overlayLines,
         getJapaneseFontPath,
         escapeDrawtext,
         variant: 'single',
+        aspectRatio: size ? size.width / size.height : undefined,
       })
     : [];
 

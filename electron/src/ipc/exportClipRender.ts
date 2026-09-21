@@ -6,7 +6,6 @@ import {
   runFfmpegDual,
   runFfmpegSingle,
   type ExportClipForFfmpeg,
-  type OverlayLine,
 } from './exportFfmpegRunners';
 import {
   escapeDrawtext,
@@ -37,32 +36,8 @@ const dataUrlToTempFile = async (
   return tempPath;
 };
 
-export const formatOverlayLines = (
-  clip: ClipExportItem,
-  overlay: ExportOverlayOptions,
-): OverlayLine[] => {
-  const lines: OverlayLine[] = [];
-
-  if (overlay.showActionName) {
-    const index = clip.actionIndex ?? 1;
-    lines.push({ text: `#${index} ${clip.actionName}`, isBold: true });
-  }
-
-  if (overlay.showLabels && clip.labels && clip.labels.length > 0) {
-    const labelText = clip.labels
-      .map((label) =>
-        label.group ? `${label.group}: ${label.name}` : label.name,
-      )
-      .join(', ');
-    lines.push({ text: labelText, isBold: false });
-  }
-
-  if (overlay.showMemo && clip.memo) {
-    lines.push({ text: clip.memo, isBold: false });
-  }
-
-  return lines;
-};
+import { formatOverlayLines } from '../../../src/shared/clipExport/clipExportTextLayout';
+export { formatOverlayLines } from '../../../src/shared/clipExport/clipExportTextLayout';
 
 interface RenderClipWithFfmpegParams {
   getFfmpegPath: () => string;
@@ -192,7 +167,7 @@ export const renderClipWithFfmpeg = async ({
         })),
       },
       outputPath: target,
-      overlayEnabled: overlay.enabled,
+      overlayEnabled: overlay.enabled && overlayLines.length > 0,
       overlayLines,
       annotationPath: annSecondaryPath,
       getJapaneseFontPath,
@@ -208,7 +183,7 @@ export const renderClipWithFfmpeg = async ({
       sourcePath: clipMainSource,
       clip: ffmpegClip,
       outputPath: target,
-      overlayEnabled: overlay.enabled,
+      overlayEnabled: overlay.enabled && overlayLines.length > 0,
       overlayLines,
       annotationPath: annPrimaryPath,
       getJapaneseFontPath,
@@ -232,7 +207,7 @@ export const renderClipWithFfmpeg = async ({
       secondarySource: clipSecondarySource,
       clip: ffmpegClip,
       outputPath: target,
-      overlayEnabled: overlay.enabled,
+      overlayEnabled: overlay.enabled && overlayLines.length > 0,
       overlayLines,
       annotationPrimary: annPrimaryPath,
       annotationSecondary: annSecondaryPath,
@@ -248,7 +223,7 @@ export const renderClipWithFfmpeg = async ({
     sourcePath: clipMainSource,
     clip: ffmpegClip,
     outputPath: target,
-    overlayEnabled: overlay.enabled,
+    overlayEnabled: overlay.enabled && overlayLines.length > 0,
     overlayLines,
     annotationPath: annPrimaryPath,
     getJapaneseFontPath,

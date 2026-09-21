@@ -1,3 +1,4 @@
+import { DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS } from '../../../../../shared/clipExport/clipExportTypes';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TimelineClipExportDialog } from './TimelineClipExportDialog';
 
@@ -9,8 +10,11 @@ const meta = {
     open: true,
     onClose: noop,
     onExport: noop,
-    overlayEnabled: false,
-    onOverlayEnabledChange: noop,
+    overlayChoice: null,
+    onOverlayChoice: noop,
+    overlaySettings: DEFAULT_CLIP_EXPORT_OVERLAY_SETTINGS,
+    setOverlaySettings: noop,
+    notePreview: '外側のスペースを確認\nサポートの位置を修正',
     exportScope: 'all',
     setExportScope: noop,
     selectedCount: 2,
@@ -31,5 +35,6 @@ const meta = {
 } satisfies Meta<typeof TimelineClipExportDialog>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const OriginalPicture: Story = {};
-export const WithOverlay: Story = { args: { overlayEnabled: true } };
+export const AwaitingChoice: Story = {};
+export const OriginalPicture: Story = { args: { overlayChoice: false } };
+export const WithOverlay: Story = { args: { overlayChoice: true } };

@@ -5,7 +5,6 @@ import { useTimelineClipExportDialog } from './useTimelineClipExportDialog';
 
 const gatewayMocks = vi.hoisted(() => ({
   exportClipsWithOverlay: vi.fn(),
-  loadClipOverlaySettings: vi.fn(),
   subscribeClipExportMenuRequest: vi.fn(),
   sendTimelineWindowCommand: vi.fn(),
 }));
@@ -19,7 +18,6 @@ const serviceMocks = vi.hoisted(() => ({
 vi.mock('../../../../../../shared/clipExport/clipExportGateway', () => ({
   canExportClipsWithOverlay: () => true,
   exportClipsWithOverlay: gatewayMocks.exportClipsWithOverlay,
-  loadClipOverlaySettings: gatewayMocks.loadClipOverlaySettings,
   subscribeClipExportMenuRequest: gatewayMocks.subscribeClipExportMenuRequest,
 }));
 
@@ -36,16 +34,12 @@ vi.mock('../../../../../../shared/clipExport/clipExportService', async () => {
 describe('useTimelineClipExportDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    gatewayMocks.loadClipOverlaySettings.mockResolvedValue(null);
     gatewayMocks.subscribeClipExportMenuRequest.mockReturnValue(
       () => undefined,
     );
   });
 
-  it('opens immediately even while optional overlay settings are loading', () => {
-    gatewayMocks.loadClipOverlaySettings.mockReturnValue(
-      new Promise(() => undefined),
-    );
+  it('opens without loading application settings', () => {
     const { result, unmount } = renderHook(() =>
       useTimelineClipExportDialog({
         timeline: [],
@@ -72,32 +66,27 @@ describe('useTimelineClipExportDialog', () => {
     });
   });
 
-  it('keeps the user overlay choice when saved settings arrive late', async () => {
-    let complete: ((value: { enabled: boolean }) => void) | undefined;
-    gatewayMocks.loadClipOverlaySettings.mockReturnValue(
-      new Promise((resolve) => {
-        complete = resolve;
-      }),
-    );
+  it('requires a new overlay choice each time the dialog opens', async () => {
+    const info = vi.fn();
     const { result } = renderHook(() =>
       useTimelineClipExportDialog({
         timeline: [],
         selectedIds: [],
         videoSources: ['/source.mp4'],
-        info: vi.fn(),
+        info,
       }),
     );
-    act(() => gatewayMocks.subscribeClipExportMenuRequest.mock.calls[0][0]());
-    act(() =>
-      result.current.setOverlaySettings((current) => ({
-        ...current,
-        enabled: false,
-      })),
+    act(() => result.current.setClipDialogOpen(true));
+    await act(async () => result.current.handleExportClips());
+    expect(serviceMocks.executeClipExport).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith(
+      'オーバーレイテキストを含めるか選択してください',
     );
-    await act(async () => {
-      complete?.({ enabled: true });
-    });
-    expect(result.current.overlaySettings.enabled).toBe(false);
+    act(() => result.current.chooseOverlay(false));
+    expect(result.current.overlayChoice).toBe(false);
+    act(() => result.current.setClipDialogOpen(false));
+    act(() => result.current.setClipDialogOpen(true));
+    expect(result.current.overlayChoice).toBeNull();
   });
 
   it('closes the modal before the background export finishes', async () => {
@@ -129,6 +118,7 @@ describe('useTimelineClipExportDialog', () => {
     );
 
     act(() => result.current.setClipDialogOpen(true));
+    act(() => result.current.chooseOverlay(false));
     let exportPromise: Promise<void> | null = null;
     act(() => {
       exportPromise = result.current.handleExportClips();

@@ -318,7 +318,7 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
           </Stack>
 
           <TextField
-            label="メモ"
+            label="ノート"
             type="text"
             fullWidth
             size="small"
@@ -327,7 +327,7 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
             rows={2}
             value={memo}
             onChange={(event) => setMemo(event.target.value)}
-            placeholder="任意のメモ"
+            placeholder="任意のノート"
           />
         </Stack>
       </DialogContent>

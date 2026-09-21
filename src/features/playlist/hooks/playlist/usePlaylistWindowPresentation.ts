@@ -38,6 +38,7 @@ export const usePlaylistWindowPresentation = ({
     selectedAngleIndex: runtime.exportState.selectedAngleIndex,
     exportMode: runtime.exportState.exportMode,
     exportFileName: runtime.exportState.exportFileName,
+    overlayChoice: runtime.exportState.overlayChoice,
     overlaySettings: runtime.exportState.overlaySettings,
     itemAnnotations: runtime.core.itemAnnotations,
     minFreezeDuration: MIN_FREEZE_DURATION,

@@ -22,6 +22,7 @@ interface UsePlaylistWindowExportFlowParams {
   selectedAngleIndex: number;
   exportMode: ClipExportMode;
   exportFileName: string;
+  overlayChoice: boolean | null;
   overlaySettings: ClipExportOverlaySettings;
   itemAnnotations: Record<string, ItemAnnotation>;
   minFreezeDuration: number;
@@ -66,6 +67,7 @@ export const usePlaylistWindowExportFlow = ({
   selectedAngleIndex,
   exportMode,
   exportFileName,
+  overlayChoice,
   overlaySettings,
   itemAnnotations,
   minFreezeDuration,
@@ -104,6 +106,10 @@ export const usePlaylistWindowExportFlow = ({
   });
 
   const handleExportPlaylist = useCallback(() => {
+    if (overlayChoice === null) {
+      onError('オーバーレイテキストを含めるか選択してください');
+      return;
+    }
     setExportDialogOpen(false);
     void exportPlaylist().then((result) => {
       if (!result) return;
@@ -113,7 +119,7 @@ export const usePlaylistWindowExportFlow = ({
         onError(result.message);
       }
     });
-  }, [exportPlaylist, onError, onSuccess, setExportDialogOpen]);
+  }, [exportPlaylist, onError, onSuccess, overlayChoice, setExportDialogOpen]);
 
   return {
     exportProgress,

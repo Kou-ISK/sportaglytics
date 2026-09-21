@@ -27,14 +27,15 @@ describe('PlaylistClipInspector', () => {
         width={280}
         onEditNote={onEditNote}
         onPlay={onPlay}
+        onUpdateNote={vi.fn()}
       />,
     );
 
     expect(screen.getByText('Scrum')).toBeTruthy();
-    expect(screen.getByText('Good initial hit')).toBeTruthy();
+    expect(screen.getByDisplayValue('Good initial hit')).toBeTruthy();
     expect(screen.getByText(/Freeze 3.0s/)).toBeTruthy();
     fireEvent.click(screen.getByLabelText('クリップを再生'));
-    fireEvent.click(screen.getByLabelText('メモを編集'));
+    fireEvent.click(screen.getByLabelText('ノートを編集'));
     expect(onPlay).toHaveBeenCalledWith('clip-1');
     expect(onEditNote).toHaveBeenCalledWith('clip-1');
   });
@@ -46,8 +47,11 @@ describe('PlaylistClipInspector', () => {
         width={280}
         onEditNote={vi.fn()}
         onPlay={vi.fn()}
+        onUpdateNote={vi.fn()}
       />,
     );
-    expect(screen.getByText('クリップを選択すると詳細を表示します。')).toBeTruthy();
+    expect(
+      screen.getByText('クリップを選択すると詳細を表示します。'),
+    ).toBeTruthy();
   });
 });

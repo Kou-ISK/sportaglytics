@@ -1,3 +1,4 @@
+import { PlaylistNoteEditor } from './PlaylistNoteEditor';
 import React from 'react';
 import {
   Box,
@@ -23,6 +24,7 @@ type PlaylistClipInspectorProps = {
   width: number;
   onEditNote: (itemId: string) => void;
   onPlay: (itemId: string) => void;
+  onUpdateNote: (itemId: string, note: string) => void;
 };
 
 const formatTime = (value: number): string => {
@@ -38,6 +40,7 @@ export const PlaylistClipInspector = ({
   width,
   onEditNote,
   onPlay,
+  onUpdateNote,
 }: PlaylistClipInspectorProps): React.ReactElement => {
   const theme = useTheme();
   const annotationCount = annotation?.objects.length ?? 0;
@@ -75,10 +78,10 @@ export const PlaylistClipInspector = ({
                 <PlayArrow fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="メモを編集">
+            <Tooltip title="ノートを編集">
               <IconButton
                 size="small"
-                aria-label="メモを編集"
+                aria-label="ノートを編集"
                 onClick={() => onEditNote(item.id)}
               >
                 <Edit fontSize="small" />
@@ -133,22 +136,13 @@ export const PlaylistClipInspector = ({
               </Typography>
             )}
           </InspectorField>
-          <InspectorField label="ノート">
-            <Typography
-              variant="body2"
-              sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
-            >
-              {item.note || 'なし'}
-            </Typography>
-          </InspectorField>
-          <InspectorField label="メモ">
-            <Typography
-              variant="body2"
-              sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
-            >
-              {item.memo || 'なし'}
-            </Typography>
-          </InspectorField>
+          <PlaylistNoteEditor
+            key={`${item.id}:${item.note ?? ''}`}
+            note={item.note ?? ''}
+            onCommit={(note) => {
+              if (note !== (item.note ?? '')) onUpdateNote(item.id, note);
+            }}
+          />
           <InspectorField label="プレゼンテーション">
             <Typography variant="body2">
               Freeze {annotation?.freezeDuration?.toFixed(1) ?? '0.0'}s

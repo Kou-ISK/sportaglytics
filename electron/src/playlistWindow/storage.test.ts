@@ -36,6 +36,8 @@ describe('playlist package storage', () => {
             id: 'first',
             timelineItemId: null,
             actionName: 'A',
+            memo: 'Source note',
+            note: 'Playlist note',
             startTime: 0,
             endTime: 1,
             addedAt: 1,
@@ -56,9 +58,11 @@ describe('playlist package storage', () => {
     );
 
     const loaded = await loadPlaylistFromPath(directory);
-    expect(loaded.schemaVersion).toBe(3);
+    expect(loaded.schemaVersion).toBe(4);
     expect(loaded.items.map((item) => item.id)).toEqual(['first', 'second']);
     expect(loaded.rows).toHaveLength(1);
+    expect(loaded.items[0].note).toBe('Playlist note\n\nSource note');
+    expect(loaded.items[0]).not.toHaveProperty('memo');
 
     const event = {
       sender: { isDestroyed: () => true },
@@ -67,5 +71,7 @@ describe('playlist package storage', () => {
     const saved = await loadPlaylistFromPath(directory);
     expect(saved.items.map((item) => item.id)).toEqual(['first', 'second']);
     expect(saved.rows).toEqual(loaded.rows);
+    expect(saved.items[0].note).toBe(loaded.items[0].note);
+    expect(saved.items[0]).not.toHaveProperty('memo');
   });
 });

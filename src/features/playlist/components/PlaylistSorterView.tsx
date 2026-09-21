@@ -1,3 +1,4 @@
+import { PlaylistNoteEditor } from './PlaylistNoteEditor';
 import type { ReactElement } from 'react';
 import {
   Box,
@@ -27,6 +28,9 @@ import { PlaylistSorterToolbarView } from './PlaylistSorterToolbarView';
 
 export interface PlaylistSorterViewProps {
   items: PlaylistItem[];
+  editingNoteId: string | null;
+  onEditNote: (id: string | null) => void;
+  onCommitNote: (note: string, direction?: -1 | 1) => void;
   totalCount: number;
   positions: ReadonlyMap<string, number>;
   currentItemId: string | null;
@@ -200,7 +204,7 @@ export const PlaylistSorterView = (
                       value = sorterLabels(item);
                       break;
                     case 'note':
-                      value = item.note ?? item.memo ?? '';
+                      value = item.note ?? '';
                       break;
                     case 'annotation':
                       value = item.annotation ? '●' : '';
@@ -212,6 +216,26 @@ export const PlaylistSorterView = (
                   return (
                     <TableCell
                       key={column.id}
+                      tabIndex={column.id === 'note' ? 0 : undefined}
+                      onDoubleClick={
+                        column.id === 'note'
+                          ? (event) => {
+                              event.stopPropagation();
+                              props.onEditNote(item.id);
+                            }
+                          : undefined
+                      }
+                      onKeyDown={
+                        column.id === 'note'
+                          ? (event) => {
+                              if (event.key === 'Enter' || event.key === 'F2') {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                props.onEditNote(item.id);
+                              }
+                            }
+                          : undefined
+                      }
                       title={String(value)}
                       sx={{
                         fontVariantNumeric: 'tabular-nums',
@@ -227,7 +251,22 @@ export const PlaylistSorterView = (
                             : undefined,
                       }}
                     >
-                      {value}
+                      {column.id === 'note' &&
+                      props.editingNoteId === item.id ? (
+                        <PlaylistNoteEditor
+                          key={`${item.id}:${item.note ?? ''}`}
+                          note={item.note ?? ''}
+                          autoFocus
+                          compact
+                          onCommit={props.onCommitNote}
+                          onCancel={() => props.onEditNote(null)}
+                        />
+                      ) : (
+                        value ||
+                        (column.id === 'note'
+                          ? 'ダブルクリックでノートを入力'
+                          : '')
+                      )}
                     </TableCell>
                   );
                 })}

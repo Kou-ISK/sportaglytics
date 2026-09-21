@@ -70,3 +70,44 @@ describe('renderClipWithFfmpeg', () => {
     expect(params?.overlayEnabled).toBe(false);
   });
 });
+
+describe('export text selection', () => {
+  it('includes exactly the requested note and honors the index toggle', async () => {
+    const { formatOverlayLines } = await import('./exportClipRender');
+    const clip = {
+      id: 'a',
+      actionName: 'Scrum',
+      actionIndex: 2,
+      startTime: 0,
+      endTime: 1,
+      memo: 'Edited note\nSecond line',
+    };
+    const options = {
+      enabled: true,
+      showActionName: false,
+      showActionIndex: false,
+      showLabels: false,
+      showMemo: true,
+    };
+    expect(formatOverlayLines(clip, options)).toEqual([
+      { text: 'Edited note\nSecond line', isBold: false },
+    ]);
+    expect(formatOverlayLines(clip, { ...options, showMemo: false })).toEqual(
+      [],
+    );
+    expect(
+      formatOverlayLines(clip, {
+        ...options,
+        showMemo: false,
+        showActionName: true,
+      }),
+    ).toEqual([{ text: 'Scrum', isBold: true }]);
+    expect(
+      formatOverlayLines(clip, {
+        ...options,
+        showMemo: false,
+        showActionIndex: true,
+      }),
+    ).toEqual([{ text: '#2', isBold: true }]);
+  });
+});

@@ -10,7 +10,7 @@ const sampleItems: PlaylistItem[] = [
     startTime: 10,
     endTime: 14,
     labels: [{ group: 'Result', name: 'Positive' }],
-    memo: 'first memo',
+    note: 'first note\nsecond line',
     addedAt: 1,
     annotation: {
       objects: [
@@ -63,6 +63,7 @@ describe('playlistClipExportBuilder', () => {
     expect(clips[0]).toMatchObject({
       id: 'item-1',
       actionIndex: 1,
+      memo: 'first note\nsecond line',
       freezeAt: 1,
       freezeDuration: 3,
       annotationPngPrimary: 'data:image/png;base64,primary',

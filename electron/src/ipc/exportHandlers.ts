@@ -1,3 +1,5 @@
+import { assertExportTextFits } from './exportTextInspection';
+import { registerExportTextPreview } from './exportTextPreview';
 import {
   portableExportStem,
   createExportNameAllocator,
@@ -98,6 +100,7 @@ export const registerExportHandlers = ({
     return;
   }
   isRegistered = true;
+  registerExportTextPreview(getFfmpegPath);
 
   ipcMain.handle(
     'export-clips-with-overlay',
@@ -200,6 +203,7 @@ export const registerExportHandlers = ({
           return { success: false, error: 'ソースまたはクリップがありません' };
         }
 
+        await assertExportTextFits(payload);
         let targetDir = outputDir;
         if (!targetDir) {
           targetDir = await resolveOutputDir(event, getMainWindow);

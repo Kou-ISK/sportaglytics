@@ -1,5 +1,9 @@
 # SporTagLytics System Overview
 
+出力テキストのレイアウトはsharedの純粋関数を正本とし、Mainの映像サイズ検査・FFmpeg書き出し・静止画プレビューで共有します。専用IPCはsenderとpayloadを検証し、上限超過は保存先選択前に拒否します。[ADR 0049](adr/0049-bounded-export-text.md)。
+
+Playlistの自由記述は文書v4のnoteに統一します。Timelineの保存フィールドは維持し、旧Playlistのメモは共有の読込境界で移行します。書き出しテキストの有無はウィンドウ内の一時状態で、毎回明示選択します。[ノート仕様](playlist-features.md#ノートの編集と映像出力) / [ADR 0048](adr/0048-playlist-instance-notes.md)。
+
 Playlistの再生順は文書の`presentationOrder`を正本とし、Sorterのソートを保存・Undo・再生・書き出しへ共通反映します。`rows`はOrganizerの所属を保ち、検索や列表示はウィンドウ状態へ分離します。旧文書の再生順をロード時に移行します。[Playlist仕様](playlist-features.md#文書の正規順序) / [ADR 0047](adr/0047-playlist-sorter-presentation-order.md)。
 
 SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGENTS.md` を正とし、本書は実装トレース用の要約に限定します。

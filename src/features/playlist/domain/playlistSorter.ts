@@ -27,7 +27,7 @@ export const DEFAULT_SORTER_COLUMNS: SorterColumn[] = [
   { id: 'start', label: '開始', width: 100, visible: true },
   { id: 'duration', label: '長さ', width: 88, visible: true },
   { id: 'labels', label: 'ラベル', width: 180, visible: true },
-  { id: 'note', label: 'メモ', width: 180, visible: true },
+  { id: 'note', label: 'ノート', width: 180, visible: true },
   { id: 'annotation', label: '注釈', width: 88, visible: true },
   { id: 'video', label: '映像', width: 140, visible: true },
 ];
@@ -59,7 +59,7 @@ export const getSorterCellValue = (
     case 'labels':
       return sorterLabels(item);
     case 'note':
-      return item.note ?? item.memo ?? '';
+      return item.note ?? '';
     case 'annotation':
       return item.annotation ? 1 : 0;
     case 'video':
@@ -94,13 +94,7 @@ export const filterSorterItems = (
   const normalized = query.trim().toLocaleLowerCase();
   return normalized
     ? items.filter((item) =>
-        [
-          item.actionName,
-          sorterLabels(item),
-          item.note,
-          item.memo,
-          sorterVideoName(item),
-        ]
+        [item.actionName, sorterLabels(item), item.note, sorterVideoName(item)]
           .filter(Boolean)
           .join(' ')
           .toLocaleLowerCase()

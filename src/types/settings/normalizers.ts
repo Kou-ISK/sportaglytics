@@ -75,22 +75,6 @@ const normalizeHotkeys = (value: unknown): HotkeyConfig[] => {
   return normalized.length > 0 ? [...normalized, ...missingDefaults] : defaults;
 };
 
-const normalizeOverlayClip = (value: unknown): AppSettings['overlayClip'] => {
-  const defaults = DEFAULT_SETTINGS.overlayClip;
-  if (!isPlainObject(value)) {
-    return { ...defaults };
-  }
-
-  return {
-    enabled: asBoolean(value.enabled) ?? defaults.enabled,
-    showActionName: asBoolean(value.showActionName) ?? defaults.showActionName,
-    showActionIndex:
-      asBoolean(value.showActionIndex) ?? defaults.showActionIndex,
-    showLabels: asBoolean(value.showLabels) ?? defaults.showLabels,
-    showMemo: asBoolean(value.showMemo) ?? defaults.showMemo,
-  };
-};
-
 const normalizeAiAnalysis = (
   value: unknown,
 ): NonNullable<AppSettings['aiAnalysis']> => {
@@ -128,7 +112,6 @@ export const normalizeAppSettings = (value: unknown): AppSettings => {
     themeMode: normalizeThemeMode(settings.themeMode),
     hotkeys: normalizeHotkeys(settings.hotkeys),
     language: asNonEmptyString(settings.language) ?? DEFAULT_SETTINGS.language,
-    overlayClip: normalizeOverlayClip(settings.overlayClip),
     codingPanel: normalizeCodingPanel(settings.codingPanel),
     analysisDashboard: normalizeAnalysisDashboard(settings.analysisDashboard),
     aiAnalysis: normalizeAiAnalysis(settings.aiAnalysis),

@@ -91,7 +91,7 @@ export const usePlaylistStateActions = ({
         startTime: item.startTime,
         endTime: item.endTime,
         labels: item.labels,
-        memo: item.memo,
+        note: item.memo,
         addedAt: now,
         videoSource: videoPath || undefined,
         videoSource2: videoPath2 || undefined,

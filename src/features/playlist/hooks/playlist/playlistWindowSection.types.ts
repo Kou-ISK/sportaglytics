@@ -1,3 +1,4 @@
+import type { ClipExportTextPreviewState } from '../../../../shared/clipExport/useClipExportTextPreview';
 import type {
   DrawingObject,
   ItemAnnotation,
@@ -137,6 +138,10 @@ export interface BuildDialogsSectionParams {
   videoSources: string[];
   selectedAngleIndex: number;
   setSelectedAngleIndex: React.Dispatch<React.SetStateAction<number>>;
+  overlayChoice: boolean | null;
+  onOverlayChoice: (enabled: boolean) => void;
+  notePreview: string;
+  textPreview?: ClipExportTextPreviewState;
   overlaySettings: OverlaySettings;
   setOverlaySettings: React.Dispatch<React.SetStateAction<OverlaySettings>>;
   exportInProgress: boolean;

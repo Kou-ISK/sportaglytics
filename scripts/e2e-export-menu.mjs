@@ -200,6 +200,15 @@ try {
       filePaths: [folder],
     });
   }, output);
+  assert.equal(
+    await exportDialog(timeline)
+      .getByRole('button', { name: '書き出し', exact: true })
+      .isDisabled(),
+    true,
+  );
+  await exportDialog(timeline)
+    .getByRole('radio', { name: '含める', exact: true })
+    .check();
   const progressPromise = app.waitForEvent('window');
   await exportDialog(timeline)
     .getByRole('button', { name: '書き出し', exact: true })
@@ -285,6 +294,15 @@ try {
     await app.browserWindow(progress)
   ).evaluate((window) => window.close());
   await oldProgressClosed;
+  assert.equal(
+    await playlistDialog
+      .getByRole('button', { name: '書き出す', exact: true })
+      .isDisabled(),
+    true,
+  );
+  await playlistDialog
+    .getByRole('radio', { name: '含める', exact: true })
+    .check();
   const playlistProgressPromise = app.waitForEvent('window');
   await playlistDialog
     .getByRole('button', { name: '書き出す', exact: true })

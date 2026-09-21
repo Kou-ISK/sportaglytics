@@ -21,6 +21,7 @@ it('sorts the document once, filters without reordering, and supports immediate 
       onSelectItem,
       onPlayItem: vi.fn(),
       onDeleteSelected: vi.fn(),
+      onUpdateNote: vi.fn(),
       onReorder: (ids) =>
         history.setItems((items) => applyPresentationOrder(items, ids)),
     });

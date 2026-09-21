@@ -31,7 +31,7 @@ describe('buildPlaylistItemsFromTimeline', () => {
         actionName: 'TeamA Pass',
         startTime: 12,
         endTime: 15,
-        memo: 'switch play',
+        note: 'switch play',
         labels: [{ name: 'success', group: 'result' }],
         addedAt: 100,
         videoSource: '/video/a.mp4',

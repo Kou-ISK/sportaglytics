@@ -1,3 +1,6 @@
+vi.mock('./packageMediaCompositionService', () => ({
+  probeMedia: vi.fn(async () => ({ width: 1920, height: 1080 })),
+}));
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runFfmpegSingle } from './exportFfmpegRunners';
 import { runFfmpegProcess } from './exportFfmpegProcess';
