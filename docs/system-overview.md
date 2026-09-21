@@ -289,6 +289,8 @@ SporTagLytics public repositoryには以下を置きません。
 
 Playlistは独立BrowserWindowで扱い、`.stpl` documentを正本とします。Timelineからの追加とAI Analysisからの追加は共通playlist APIを利用します。
 
+「ファイル > 開く > プレイリスト…」はMainの`playlistWindow/fileOpen.ts`でネイティブ選択・文書検証を行い、既存のWindow管理へ渡します。IPCのロード操作も同じパッケージ選択を使います。メニュー要求を全Rendererへ配信せず、操作元のPackage Sessionと編集中の文書を保持します。
+
 Clip exportは `src/shared/clipExport/` にpure service / contractを集約し、main processのFFmpeg runnerで実行します。進捗は専用export progress windowへ通知し、main app操作をblockしません。
 
 Paint動画出力は、Rendererがクリップとの表示区間の交差とソース時刻の補間を計算し、アングルごとの描画を検証済みIPCへ渡します。Mainの単画面／2画面FFmpeg runnerが図形合成、芝色処理、静止挿入を行い、2画面は合成後に高さを揃えます。[Paint書き出し](tactics.md#映像への書き出し)を参照してください。

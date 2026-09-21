@@ -324,6 +324,10 @@ Model packがUIへ出ない場合:
 
 Model training/evaluationのdebuggingはprivate R&D repositoryで行います。
 
+## Playlistを開くメニューを変更するとき
+
+Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-open-menu.mjs`を使います。実メニューのcallbackから`.stpl`のロード・再生、選択取消、不正パッケージ、未保存文書の保持、既存Windowの再利用を確認します。このシナリオは通常のE2EとWindowsインストール後のE2Eにも含めます。
+
 ## リリースプロセス
 
 1. release準備変更を `develop` へ統合

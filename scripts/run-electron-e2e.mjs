@@ -16,6 +16,7 @@ const scenarios = [
   'tactical-board',
   'paint-export',
   'package-reopen',
+  'playlist-open-menu',
   'event-detection',
 ];
 const failed = [];

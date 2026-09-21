@@ -18,6 +18,8 @@ Codingの時刻読み取りは `features/videoPlayer/components/Controls/hooks/u
 
 ## Top-Level Layout
 
+Playlistファイル選択は`electron/src/playlistWindow/fileOpen.ts`に置き、メニューは公開facadeの`playlistWindow.ts`を使います。文書検証は`storage.ts`、Windowの再利用とSession管理は`windowManager.ts`へ委ねます。
+
 書き出しの範囲計算は `electron/src/ipc/exportTimelineRange.ts`、インスタンス別の必要素材と進捗は `exportSourcePreparation.ts`、素材とアングル別時刻原点の結合は `exportPreparedClipRenderer.ts`、一時映像の合成は `exportTimelineComposition.ts`、無再圧縮の適合判定は `exportStreamCopy.ts` が担当します。WindowやViewへFFmpeg条件を持ち込みません。
 
 映像書き出しのメニュー通知先は `electron/src/menu/clipExportMenuAction.ts`、Timelineの表示と準備待ちは `electron/src/timelineWindow.ts`、ダイアログ状態は各featureのHookが担当します。メニュー定義にWindow所有者の判断やFFmpeg処理を埋め込みません。
