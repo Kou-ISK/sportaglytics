@@ -53,7 +53,7 @@ Training frameworkやdataset preparation dependencyはSporTagLytics packageへ�
 
 ## Timelineの区間編集と書き出しを変更するとき
 
-高速経路は `pnpm run test:e2e:export-fast` で確認します。合成した互換映像を実IPCで連結し、FFmpegの処理種別、全フレームのハッシュ、音声先頭補正による映像時計のずれ、尺、黒画面区間、後半の切り出し、準備中の進捗を確認します。速度計測は同一の合成素材で参考値を出し、機種依存の倍率を合否条件にはしません。要求区間と素材原点の変換・コピー条件は `exportTimelineRange.test.ts` / `exportSourcePreparation.test.ts` / `exportStreamCopy.test.ts` を入口とします。準備も `runFfmpegProcess` の進捗付き経路を通し、試合全長の無条件再生成を戻さないでください。
+高速経路は `pnpm run test:e2e:export-fast` で確認します。合成した互換映像を実IPCで連結し、FFmpegの処理種別、全フレームのハッシュ、音声先頭補正による映像時計のずれ、尺、黒画面区間、後半の切り出し、準備中の進捗を確認します。速度計測は同一の合成素材で参考値を出し、機種依存の倍率を合否条件にはしません。離れた2場面の文字付き出力が中間区間を生成せず、エンコードが2回であることも確認します。要求区間と素材原点の変換・コピー条件は `exportTimelineRange.test.ts` / `exportSourcePreparation.test.ts` / `exportStreamCopy.test.ts` を入口とします。準備も `runFfmpegProcess` の進捗付き経路を通し、インスタンス間の未選択区間の生成を戻さないでください。性能比較の手順・素材・品質上の制約は[書き出し性能レポート](reports/2026-09-export-performance.md)を参照してください。
 
 メニューの回帰確認は `pnpm run test:e2e:export-menu` を使います。実Electron MenuItemから、映像側の操作、Timelineの再作成・最小化復帰、Playlist固有の設定、保存先選択、FFmpegの実出力と尺まで確認します。直接export APIを呼ぶ試験だけでは、メニュー通知先やrenderer準備前の取りこぼしを検出できません。
 

@@ -50,7 +50,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0040](0040-shared-media-timeline-clock.md) | Shared media timeline clock | Superseded | 2026-09-20 |
 | [0041](0041-angle-sync-point-workflow.md) | Angle sync point workflow | Superseded | 2026-09-20 |
 | [0042](0042-document-owned-export-menu.md) | Document-Owned Export Menu | Accepted | 2026-09-21 |
-| [0043](0043-bounded-lossless-export.md) | Bounded Lossless Export | Accepted | 2026-09-21 |
+| [0043](0043-bounded-lossless-export.md) | Bounded Lossless Export | Superseded | 2026-09-21 |
 | [0044](0044-sync-in-coding-toolbar.md) | Sync in the Coding toolbar | Accepted | 2026-09-21 |
 | [0045](0045-buffer-startup-package-open.md) | Buffer startup package open | Accepted | 2026-09-21 |
 | [0046](0046-coalesced-playback-corrections.md) | Coalesced playback corrections | Accepted | 2026-09-21 |
@@ -58,6 +58,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0047](0047-playlist-sorter-presentation-order.md) | Playlist Sorter presentation order | Accepted | 2026-09-21 |
 | [0048](0048-playlist-instance-notes.md) | Playlist instance notes | Accepted | 2026-09-21 |
 | [0049](0049-bounded-export-text.md) | Bounded export text | Accepted | 2026-09-21 |
+| [0050](0050-instance-scoped-export-preparation.md) | Instance-scoped export preparation | Accepted | 2026-09-22 |
 
 ## Status Values
 

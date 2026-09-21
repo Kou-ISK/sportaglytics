@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- 複数映像から選んだ場面ごとに元ファイルを直接使い、未選択区間の合成と不要な再圧縮を削減。文字・Paint・同期位置を保ち、解像度や圧縮設定を下げずに書き出しを高速化する。[適用条件](docs/user-guide.md#元の画質を保つ高速書き出し)。
+
 ## [0.16.0] - 2026-09-21
 
 ### Fixed

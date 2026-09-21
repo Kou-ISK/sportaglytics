@@ -12,29 +12,54 @@ export interface ExportPreparationJob {
   plan: ExportSourcePlan;
   range: ExportTimeRange;
   weight: number;
+  clipIndexes: number[];
 }
+
+export interface PreparedExportSource {
+  sourcePath: string;
+  timeOrigin: number;
+}
+
+export type PreparedExportSources = ReadonlyMap<
+  number,
+  ReadonlyMap<string, PreparedExportSource>
+>;
 
 export const buildExportPreparationJobs = (
   payload: ExportClipsPayload,
   plans: ExportSourcePlan[],
 ): ExportPreparationJob[] => {
   const selection = resolveExportSourceSelection(payload);
-  return plans.map((plan) => {
-    const relevant = payload.clips.filter((clip) =>
-      getClipExportSources(clip, selection).includes(plan.sourcePath),
-    );
-    const range = relevant.reduce(
-      (current, clip) => ({
-        start: Math.min(current.start, clip.startTime),
-        end: Math.max(current.end, clip.endTime, clip.startTime + 0.5),
-      }),
-      { start: Infinity, end: 0 },
-    );
-    const direct =
-      !plan.clips ||
-      findDirectExportSource(plan.clips, plan.offsetSeconds ?? 0, range);
-    return { plan, range, weight: direct ? 0 : range.end - range.start };
-  });
+  const jobs: ExportPreparationJob[] = [];
+  for (const plan of plans) {
+    const ranges = new Map<string, ExportPreparationJob>();
+    for (const [clipIndex, clip] of payload.clips.entries()) {
+      if (!getClipExportSources(clip, selection).includes(plan.sourcePath))
+        continue;
+      const range = {
+        start: clip.startTime,
+        end: Math.max(clip.endTime, clip.startTime + 0.5),
+      };
+      const key = JSON.stringify(range);
+      const previous = ranges.get(key);
+      if (previous) {
+        previous.clipIndexes.push(clipIndex);
+        continue;
+      }
+      const direct =
+        !plan.clips ||
+        findDirectExportSource(plan.clips, plan.offsetSeconds ?? 0, range);
+      const job = {
+        plan,
+        range,
+        weight: direct ? 0 : range.end - range.start,
+        clipIndexes: [clipIndex],
+      };
+      ranges.set(key, job);
+      jobs.push(job);
+    }
+  }
+  return jobs;
 };
 
 export const prepareExportSources = async (
@@ -42,12 +67,8 @@ export const prepareExportSources = async (
   tempFiles: string[],
   onStage: (fraction: number, weight: number, message: string) => void,
   onComplete: (weight: number, message: string) => void,
-): Promise<{
-  sources: Map<string, string>;
-  timeOrigins: Map<string, number>;
-}> => {
-  const sources = new Map<string, string>();
-  const timeOrigins = new Map<string, number>();
+): Promise<PreparedExportSources> => {
+  const clips = new Map<number, Map<string, PreparedExportSource>>();
   for (const [index, job] of jobs.entries()) {
     const message = `映像 ${index + 1} / ${jobs.length} の同期区間を準備中...`;
     onStage(0, job.weight, message);
@@ -57,9 +78,13 @@ export const prepareExportSources = async (
       job.range,
       (fraction) => onStage(fraction, job.weight, message),
     );
-    sources.set(job.plan.sourcePath, result.sourcePath);
-    timeOrigins.set(result.sourcePath, result.timeOrigin);
+    for (const clipIndex of job.clipIndexes) {
+      const sources =
+        clips.get(clipIndex) ?? new Map<string, PreparedExportSource>();
+      sources.set(job.plan.sourcePath, result);
+      clips.set(clipIndex, sources);
+    }
     onComplete(job.weight, message);
   }
-  return { sources, timeOrigins };
+  return clips;
 };

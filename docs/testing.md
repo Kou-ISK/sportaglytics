@@ -195,3 +195,7 @@ Paint入力の回帰テストはpointerdown/upだけの短いドラッグ、停�
 `node scripts/e2e-tactical-board.mjs` は実Electronで部分較正、HTTPを遮断した同梱モデル推論、配置・削除・Undo、PNG保存、Playlist再読込を確認します。PNGはファイルの存在だけで判定せず、末尾のIENDチャンクまで書き終わるのを待ち、FFmpegでデコードした画素を検証します。描画位置・重複抑制・不正データ拒否はunit testで既知座標から検証します。自動認識の人数精度はこの合成映像試験の評価対象に含めません。
 
 `pnpm run test:e2e` はビルド後に `scripts/run-electron-e2e.mjs` で独立した14シナリオを順番に実行します。途中の失敗も収集して残りを検証し、1件でも失敗した場合は終了コード1を返します。各シナリオは専用の一時profileとpackageを破棄します。既に検証済みのapp/main/preloadを再利用する場合は `node scripts/run-electron-e2e.mjs` を使用できます。
+
+## オーバーレイ書き出しの性能回帰
+
+`e2e-export-fast.mjs`は離れた複数インスタンスで未選択区間を生成しないことをFFmpegのエンコード回数・出力尺・画素で確認します。`exportPreparedClipRenderer.test.ts`は同じIDの再登場、同じ物理ファイルの別時刻での再利用、主・副アングルの異なる原点を確認します。秒数と変更領域外のSSIMは[性能レポート](reports/2026-09-export-performance.md)の専用benchmarkで測定し、機種依存の速度をCI合否には使用しません。
