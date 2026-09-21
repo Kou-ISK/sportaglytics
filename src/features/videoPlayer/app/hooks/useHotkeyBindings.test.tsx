@@ -12,6 +12,8 @@ describe('useHotkeyBindings reverse playback', () => {
     const stopReversePlayback = vi.fn();
     const { result } = renderHook(() =>
       useHotkeyBindings({
+        isVideoPlaying: false,
+        videoPlayBackRate: 1,
         teamNames: [],
         settingsHotkeys: [],
         activeActions: [],

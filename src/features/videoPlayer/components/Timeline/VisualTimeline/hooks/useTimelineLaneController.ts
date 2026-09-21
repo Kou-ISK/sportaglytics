@@ -49,6 +49,7 @@ export const useTimelineLaneController = ({
   firstTeamName,
   maxSec,
   onUpdateTimeRange,
+  onPreviewTime,
   contentWidth,
   zoomScale,
 }: TimelineLaneProps): TimelineLaneViewProps => {
@@ -161,6 +162,7 @@ export const useTimelineLaneController = ({
           );
         }
         setEdgeDraft({ original: item, startTime, endTime });
+        onPreviewTime?.(edge === 'start' ? startTime : endTime);
       };
       const cleanup = (): void => {
         setEdgeDraft(null);
@@ -181,7 +183,13 @@ export const useTimelineLaneController = ({
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', finish);
     },
-    [clientXToContentX, maxSec, onUpdateTimeRange, positionToTime],
+    [
+      clientXToContentX,
+      maxSec,
+      onUpdateTimeRange,
+      onPreviewTime,
+      positionToTime,
+    ],
   );
 
   const handleRangeCreateMouseDown = useCallback(

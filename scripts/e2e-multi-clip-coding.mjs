@@ -36,6 +36,23 @@ export const exerciseMultiClipCoding = async (
             height: 60,
             hotkey: 'Q',
           },
+          {
+            id: 'secondary',
+            type: 'action',
+            name: 'Secondary',
+            x: 200,
+            y: 20,
+            width: 140,
+            height: 60,
+          },
+        ],
+        buttonLinks: [
+          {
+            id: 'stop-secondary',
+            fromButtonId: 'record',
+            toButtonId: 'secondary',
+            type: 'deactivate',
+          },
         ],
       },
     });
@@ -131,6 +148,43 @@ export const exerciseMultiClipCoding = async (
     console.log(
       'Cross-clip, second-half, hotkey and missing-primary coding persisted on the common Timeline',
     );
+    const secondary = panel.locator('[data-code-window-button="secondary"]');
+    await seek(8);
+    await secondary.click();
+    await secondary.locator('svg').waitFor();
+    await seek(9);
+    await toggle(false, true);
+    await secondary.locator('svg').waitFor({ state: 'detached' });
+    await seek(9.5);
+    await secondary.click();
+    await secondary.locator('svg').waitFor();
+    await seek(10);
+    await toggle(false, false);
+    assert.equal(
+      await secondary.locator('svg').count(),
+      1,
+      'stopping the source must leave the reactivated target recording',
+    );
+    await seek(11);
+    await secondary.click();
+    await secondary.locator('svg').waitFor({ state: 'detached' });
+    let linkedIntervals;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      linkedIntervals = JSON.parse(
+        await fs.readFile(timelinePath, 'utf8'),
+      ).instances.filter((instance) => instance.actionName === 'Secondary');
+      if (linkedIntervals.length === 2) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.deepEqual(
+      linkedIntervals.map(({ startTime, endTime }) => [startTime, endTime]),
+      [
+        [8, 9],
+        [9.5, 11],
+      ],
+      'deactivate links fire only on source activation',
+    );
+    console.log('Detached Code Window deactivate link activation edge passed');
   } finally {
     // Invoke from the owner so the closing panel cannot destroy the reply context.
     await main.evaluate(() =>

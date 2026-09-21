@@ -623,7 +623,20 @@ try {
       .getAttribute('aria-pressed'),
     'false',
   );
-  console.log('Unselected timeline edge resize persisted');
+  await page.waitForFunction(
+    (time) =>
+      Math.abs(
+        Number(
+          document
+            .querySelector('[aria-label="タイムラインの再生位置"]')
+            .getAttribute('aria-valuenow'),
+        ) - time,
+      ) < 0.02,
+    resized.startTime,
+  );
+  console.log(
+    'Unselected timeline edge resize persisted and playhead follows the boundary',
+  );
 
   // Create a range in empty space; the earlier split scenario deliberately sought inside an item.
   await splitPlayhead.focus();

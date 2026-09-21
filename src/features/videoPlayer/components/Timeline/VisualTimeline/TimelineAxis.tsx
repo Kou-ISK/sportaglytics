@@ -1,9 +1,11 @@
 import type { ReactElement, ReactNode, RefObject } from 'react';
 import { Box, Typography } from '@mui/material';
+import type { useTimelineSeek } from './hooks/useTimelineSeek';
 import { TIMELINE_ROW_HEADER_WIDTH_PX } from './domain/timelineCoordinateMapper';
 
 export interface TimelineAxisProps {
   children?: ReactNode;
+  seekHandlers?: ReturnType<typeof useTimelineSeek>;
   axisRef: RefObject<HTMLDivElement | null>;
   contentWidth: number;
   timeMarkers: number[];
@@ -13,6 +15,7 @@ export interface TimelineAxisProps {
 
 export const TimelineAxis = ({
   children,
+  seekHandlers,
   axisRef,
   contentWidth,
   timeMarkers,
@@ -53,13 +56,14 @@ export const TimelineAxis = ({
     </Box>
     <Box
       ref={axisRef}
+      {...seekHandlers}
       data-testid="timeline-time-origin"
       sx={{
         width: contentWidth,
         flexShrink: 0,
         position: 'relative',
         touchAction: 'none',
-        cursor: 'default',
+        cursor: 'pointer',
         overflow: 'hidden',
       }}
     >

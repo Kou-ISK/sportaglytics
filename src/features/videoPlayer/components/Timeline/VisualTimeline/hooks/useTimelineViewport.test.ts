@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateAnchoredScrollLeft } from './useTimelineViewport';
+import { calculateAnchoredScrollLeft } from '../domain/timelineZoom';
 
 describe('calculateAnchoredScrollLeft', () => {
   it('keeps the anchored time at the viewport center after zooming', () => {

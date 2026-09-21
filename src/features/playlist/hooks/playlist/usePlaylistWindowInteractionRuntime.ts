@@ -112,6 +112,7 @@ export const usePlaylistWindowInteractionRuntime = (
     });
 
   const hotkeyBindings = usePlaylistHotkeyBindings({
+    isPlaying: core.isPlaying,
     handleTogglePlay: playback.handleTogglePlay,
     startReversePlayback,
     stopReversePlayback,

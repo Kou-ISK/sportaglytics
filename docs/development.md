@@ -8,6 +8,12 @@
 
 Codingへ時刻を渡す場合も、`VideoPlayerScreen`の共通時計を使ってください。`video_0.currentTime`は元動画内の時刻であり、2本目以降の配置やアングルの空白を表せません。`useCodingTime`はIPCハンドラーの参照を保ったまま最新時刻を読みます。複数クリップE2E内の`e2e-multi-clip-coding.mjs`が実際のコードウィンドウを操作し、保存されたタグ時刻とTimeline表示を確認します。
 
+リンクの停止作用は`useActionButtonInteractions`でリンク元が未記録から記録中へ変わる時だけ評価します。リンク元の終了時には自身の記録だけを完了します。`useActionButtonInteractions.test.tsx`はB→A→B→Aの順で操作し、最後のBが停止しないことを確認します。
+
+再生の修正は`useMediaTimeSync.test.tsx`（デコード中の要求集約・高速再生）、`usePlaybackBehaviour.test.tsx`（停止後の遅延canplay）、`useHeldPlayback.test.tsx`（停止状態の復元・修飾キー切替）を確認してください。`e2e-multi-clip-playback.mjs`内の`e2e-playback-interactions.mjs`が実Timelineの目盛り、行、ピンチ、右キーの解除と6倍速での元動画切替を検証します。重い映像のデコード性能自体は機種・コーデック・ストレージに依存するため、一律の速度倍率は保証しません。
+
+参照したHudl公式の[現行リリースノート](https://www.hudl.com/releases/sportscode)と[トラックパッド操作の説明](https://www.hudl.com/blog/new-trackpad-controls-added-to-sportscode-workflow)には、Timelineの倍率上限・ピンチ係数の具体値は見当たりませんでした。本アプリの1〜100倍・指数的なピンチ感度は独自の操作調整値です。2023年の記事は映像のズームについての説明であり、Timelineの数値仕様としては扱いません。
+
 ## 開発環境
 
 | ツール  | バージョン |
@@ -344,7 +350,7 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | 起動画面 | `Workspace/Start`: 初回、履歴検索、空/該当なし、長い保存先、ロード中、エラー再試行、drop                                                                                                   | [起動画面](start-workspace.md)                   |
 | 再生操作 | `Design System/Composites/Movie Transport`、`Workspace/Transport`: 半透明、送り量のラベル、描画目印                                                                                        | [デザインシステム](design-system.md)             |
-| Timeline | `Workspace/Timeline/Continuous`、Context Menu / Row Actions: ズーム・スクロール後のruler/行/再生線一致、つまみのみのシーク、未選択の端編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
+| Timeline | `Workspace/Timeline/Continuous`、Context Menu / Row Actions: ズーム・スクロール後のruler/行/再生線一致、最上段だけの通常シークと端編集時の映像プレビュー、未選択の端編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
 | Paint    | `Workspace/Playlist/Paint`: Interactive、Empty、Player Graphics、Video Tracking、Keyframe Editing、Inspector Layout、Collapsed Inspector                                                   | [Paint](tactics.md)                              |
 
 共通してdark/light、600/800/1280px、長い名称、キーボード、空状態・失敗状態を確認します。Paintでは点/描画の削除とUndo、入力欄のBackspace、リンクの連続クリック、追尾の範囲指定→適用→手修正→再追尾、パネル開閉時の状態保持を確認します。時間目盛りの入力は `useStudioRulerInput` でRAFにまとめるため、連続入力と動画側の追従も確認します。

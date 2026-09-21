@@ -8,6 +8,8 @@
 
 Codingの時刻読み取りは `features/videoPlayer/components/Controls/hooks/useCodingTime.ts` に置き、Screenから注入された共通時計を使います。実ウィンドウでの記録・保存の検証は `scripts/e2e-multi-clip-coding.mjs` に分離し、既存の複数クリップE2Eから呼び出します。
 
+再生キーの一時状態は`shared/hooks/useHeldPlayback`、Timelineの倍率・アンカー・可視目盛りの計算は`VisualTimeline/domain/timelineZoom`へ分離します。動画への時刻適用と待機解除は`SingleVideo/hooks/useMediaTimeSync`と`usePlaybackBehaviour`が担当します。
+
 ## Top-Level Layout
 
 書き出しの範囲計算は `electron/src/ipc/exportTimelineRange.ts`、必要素材と進捗は `exportSourcePreparation.ts`、一時映像の合成は `exportTimelineComposition.ts`、無再圧縮の適合判定は `exportStreamCopy.ts` が担当します。WindowやViewへFFmpeg条件を持ち込みません。

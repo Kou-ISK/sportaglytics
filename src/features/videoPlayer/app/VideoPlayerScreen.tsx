@@ -246,6 +246,8 @@ export const VideoPlayerScreen = () => {
       activeActions,
       codeWindowButtons: activeCodeWindow?.buttons,
       timelineActionRef: codingPanelRuntimeRef,
+      isVideoPlaying,
+      videoPlayBackRate,
       setVideoPlayBackRate,
       setIsVideoPlaying: setisVideoPlaying,
       setViewMode,

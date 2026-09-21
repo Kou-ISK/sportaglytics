@@ -66,7 +66,7 @@ describe('timeline editing and seeking', () => {
     expect(getComputedStyle(item).borderColor).toBe(unselectedBorder);
   });
   it.each(['開始位置を調整', '終了位置を調整'])(
-    'changes unselected %s while keeping playback and selection fixed',
+    'previews an unselected %s at the changed boundary without selecting it',
     (label) => {
       const item = screen.getByTestId('timeline-instance-row-0-1');
       const edge = item.querySelector(`[aria-label="${label}"]`);
@@ -76,15 +76,28 @@ describe('timeline editing and seeking', () => {
       fireEvent.mouseUp(document);
       fireEvent.click(edge, { metaKey: true, altKey: true });
       expect(update).toHaveBeenCalled();
-      expect(seek).not.toHaveBeenCalled();
+      const [, start, end] = update.mock.lastCall ?? [];
+      expect(seek).toHaveBeenLastCalledWith(
+        label === '開始位置を調整' ? start : end,
+      );
       expect(item.getAttribute('aria-pressed')).toBe('false');
     },
   );
-  it('does not seek from the ruler, while the top handle supports keyboard seeking', () => {
+  it('seeks from the ruler and supports keyboard seeking on the top handle', () => {
+    vi.stubGlobal('PointerEvent', MouseEvent);
     const ruler = screen.getByTestId('timeline-time-origin');
+    ruler.setPointerCapture = vi.fn();
+    ruler.hasPointerCapture = () => true;
+    ruler.releasePointerCapture = vi.fn();
     fireEvent.pointerDown(ruler, { button: 0, clientX: 200 });
     fireEvent.pointerMove(ruler, { clientX: 300 });
     fireEvent.pointerUp(ruler, { clientX: 300 });
+    expect(seek).toHaveBeenCalled();
+    seek.mockClear();
+    fireEvent.pointerDown(screen.getByTestId('timeline-lane-アタック'), {
+      button: 0,
+      clientX: 200,
+    });
     expect(seek).not.toHaveBeenCalled();
     fireEvent.keyDown(
       screen.getByRole('slider', { name: 'タイムラインの再生位置' }),
