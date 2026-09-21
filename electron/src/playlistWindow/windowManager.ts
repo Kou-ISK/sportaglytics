@@ -26,7 +26,7 @@ const generateWindowId = (): string => {
 
 const resolveSession = (owner?: BrowserWindow | null): PackageSession | null => {
   const mainWindow = owner ?? getMainWindowRef();
-  if (!mainWindow) return null;
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
   return getPackageSessionForWindow(mainWindow) ?? createPackageSession(mainWindow);
 };
 

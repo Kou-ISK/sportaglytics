@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import { EVENT_DETECTION_CHANNELS } from '../../../src/types/ipc/eventDetection';
 import { getPackageSessionForWindow } from '../packageSessionRegistry';
-import { createPlaylistWindow } from '../playlistWindow';
+import { createPlaylistWindow, openPlaylistFile } from '../playlistWindow';
 import { openAnalysisWindow } from '../analysisWindow';
 import { openHelpWindow } from '../helpWindow';
 import { openSettingsWindow } from '../settingsWindow';
@@ -93,6 +93,13 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
         accelerator: 'CmdOrCtrl+Option+O',
         click: () => {
           sendToAllWindows('menu-open-code-window-file');
+        },
+      },
+      {
+        id: 'open-playlist-file',
+        label: 'プレイリスト…',
+        click: (_menuItem, browserWindow) => {
+          void openPlaylistFile(getBrowserWindowOwner(browserWindow));
         },
       },
     ],

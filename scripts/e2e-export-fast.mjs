@@ -116,10 +116,16 @@ const pixel = (file, time) => [
 ];
 try {
   const page = await app.firstWindow();
-  const run = async (name, start, end, overlay = false) => {
+  const run = async (
+    name,
+    start,
+    end,
+    overlay = false,
+    ranges = [[start, end]],
+  ) => {
     const begun = performance.now();
     const result = await page.evaluate(
-      async ({ source, output, name, start, end, overlay }) =>
+      async ({ source, output, name, ranges, overlay }) =>
         window.electronAPI.exportClipsWithOverlay({
           progressId: name,
           sourcePath: source,
@@ -128,9 +134,12 @@ try {
           mode: 'single',
           exportMode: 'single',
           angleOption: 'single',
-          clips: [
-            { id: name, actionName: 'Review', startTime: start, endTime: end },
-          ],
+          clips: ranges.map(([startTime, endTime], index) => ({
+            id: `${name}-${index}`,
+            actionName: 'Review',
+            startTime,
+            endTime,
+          })),
           overlay: {
             enabled: overlay,
             showActionName: true,
@@ -139,7 +148,7 @@ try {
             showMemo: false,
           },
         }),
-      { source: sources[0], output, name, start, end, overlay },
+      { source: sources[0], output, name, ranges, overlay },
     );
     assert.equal(result.success, true, result.error);
     return {
@@ -234,6 +243,23 @@ try {
   assert.ok(
     pixel(late.file, 0.5)[0] > 200,
     'a late clip must use the second source local clock',
+  );
+  const logStart = diagnostics.length;
+  const sparse = await run('sparse', 0.5, 1.5, true, [
+    [0.5, 1.5],
+    [14, 15],
+  ]);
+  const sparseLog = diagnostics.slice(logStart);
+  assert.equal(
+    (sparseLog.match(/operation: 'encode'/g) ?? []).length,
+    2,
+    'encode only the two selected clips, not the unselected middle interval',
+  );
+  assert.ok(Math.abs(duration(sparse.file) - 2) < 0.1);
+  assert.ok(pixel(sparse.file, 0.4)[2] > 190);
+  assert.ok(pixel(sparse.file, 1.4)[0] > 190);
+  console.log(
+    'Sparse overlay clips bypass preparation and preserve order, source clocks and duration',
   );
   console.log(
     'Lossless concat, exact late trims, black gaps and preparation progress passed',
