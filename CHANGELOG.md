@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-21
+
 ### Fixed
 
 - 書き出しノートの背景を映像高の最大20%に制限し、1080p換算24px未満への縮小を防止。実映像のテキストプレビューと全クリップの長文チェックを追加。
