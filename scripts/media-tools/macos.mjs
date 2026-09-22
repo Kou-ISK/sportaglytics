@@ -92,7 +92,7 @@ export const buildMacMediaTools = async ({
     '--disable-doc',
     '--disable-debug',
     '--disable-ffplay',
-    '--disable-network',
+    '--enable-network',
     '--disable-shared',
     '--enable-static',
     '--enable-audiotoolbox',

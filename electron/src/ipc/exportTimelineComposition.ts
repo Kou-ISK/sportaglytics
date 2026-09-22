@@ -15,22 +15,43 @@ export const composeExportTimelineRange = async (
   output: string,
   onProgress: (fraction: number) => void,
 ): Promise<void> => {
-  const probes = new Map(
+  const relevant = clips.filter((clip) => {
+    const start = clip.timelineStartSeconds - offset;
+    return (
+      start < range.end &&
+      (clip.durationSeconds === undefined ||
+        start + clip.durationSeconds > range.start)
+    );
+  });
+  // Preserve the angle's output dimensions, but do not probe every two-second
+  // capture segment when exporting a short interval from a long recording.
+  const sources = [
+    ...new Set([
+      ...(clips[0] ? [clips[0].sourcePath] : []),
+      ...relevant.map((clip) => clip.sourcePath),
+    ]),
+  ];
+  const probes = new Map<string, Awaited<ReturnType<typeof probeMedia>>>();
+  for (let index = 0; index < sources.length; index += 4) {
     await Promise.all(
-      clips.map(
-        async (clip) =>
-          [clip.sourcePath, await probeMedia(clip.sourcePath)] as const,
-      ),
-    ),
-  );
+      sources.slice(index, index + 4).map(async (source) => {
+        probes.set(source, await probeMedia(source));
+      }),
+    );
+  }
   const first = probes.get(clips[0]?.sourcePath);
   if (!first) throw new Error('書き出し元の映像がありません');
   const width = Math.max(2, first.width - (first.width % 2));
   const height = Math.max(2, first.height - (first.height % 2));
   const segments = buildExportTimelineSegments(
-    clips.map((clip) => ({
+    relevant.map((clip) => ({
       ...clip,
-      durationSeconds: probes.get(clip.sourcePath)?.durationSeconds ?? 0,
+      // AAC padding can extend a file beyond its assigned package interval.
+      // Never extend that interval into the next clip when probing the file.
+      durationSeconds: Math.min(
+        clip.durationSeconds ?? Infinity,
+        probes.get(clip.sourcePath)?.durationSeconds ?? 0,
+      ),
     })),
     offset,
     range,

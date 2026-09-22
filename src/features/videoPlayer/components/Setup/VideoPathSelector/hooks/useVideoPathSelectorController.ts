@@ -12,6 +12,7 @@ interface VideoPathSelectorController extends StartStatusProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   handleOpenPackage: () => void;
+  onOpenCapture: () => void;
   showWelcome: boolean;
   wizardOpen: boolean;
   dragState: ReturnType<typeof useDragAndDrop>['dragState'];
@@ -125,6 +126,16 @@ export const useVideoPathSelectorController = ({
     onRetry: opener.retry,
     onDismissError: opener.dismissError,
     handleOpenPackage: () => void opener.open(),
+    onOpenCapture: () => {
+      void window.electronAPI?.liveCapture
+        .open()
+        .catch(() =>
+          notify({
+            message: 'ライブキャプチャを開けませんでした',
+            severity: 'error',
+          }),
+        );
+    },
     showWelcome,
     wizardOpen,
     dragState,

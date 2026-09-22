@@ -1,3 +1,4 @@
+import { assertCaptureConfigEditable } from '../liveCapture/captureRegistry';
 import * as fs from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import * as os from 'node:os';
@@ -101,6 +102,7 @@ export const registerSyncHandlers = (): void => {
       }
 
       try {
+        assertCaptureConfigEditable(configPath);
         const raw = await fs.readFile(configPath, 'utf-8');
         const parsed = JSON.parse(raw || '{}') as unknown;
         const json = isPlainObject(parsed) ? parsed : {};

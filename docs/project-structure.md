@@ -1,5 +1,7 @@
 # Project Structure
 
+ライブ取り込みは`features/liveCapture`のScreen / Hook / Viewと、`electron/src/liveCapture`のWindow / IPC / Session / Process / Packageへ分離します。入力とIPCの検証は`shared/liveCapture`、純粋なメディア型は`types/package/media.ts`、再生中の追記はvideoPlayerの`useLiveCapturePlayback`が所有します。パッケージ共通時計と録画末尾での待機は`usePackagePlaybackClock`へ分離します。
+
 `electron/src/mediaReferences/`はpackage ID・OS bookmark・端末内登録のAdapterです。`playlistWindow/mediaReferences.ts`がPlaylistの参照解決と再接続、`mediaReferenceHandlers.ts`が専用IPCを担当します。Rendererの`playlist/media/usePlaylistMediaReferences`が再試行と既存編集を保った適用を担当し、共有の`playlistMediaReconciliation`が履歴にも同じ参照更新を適用します。既定アングルの編集は`usePlaylistInstanceAngles`、props-onlyの選択UIは`PlaylistAnglePickerView`です。
 
 書き出しテキストの計算は`src/shared/clipExport/clipExportTextLayout.ts`、非同期取得は`useClipExportTextPreview.ts`、propsだけで描画するUIは`src/components/ui/composites/ClipExportTextPreviewView.tsx`へ分離する。Mainの`exportTextInspection.ts`がサイズ検査、`exportTextPreview.ts`が専用IPCと静止画生成を担当する。

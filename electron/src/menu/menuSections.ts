@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from 'electron';
+import { openLiveCaptureWindow } from '../liveCapture/captureWindow';
 import { EVENT_DETECTION_CHANNELS } from '../../../src/types/ipc/eventDetection';
 import { getPackageSessionForWindow } from '../packageSessionRegistry';
 import { createPlaylistWindow, openPlaylistFile } from '../playlistWindow';
@@ -107,6 +108,11 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   {
     label: '最近開いたパッケージ',
     submenu: buildRecentPackageItems(),
+  },
+  {
+    id: 'live-capture',
+    label: 'ライブキャプチャ…',
+    click: openLiveCaptureWindow,
   },
   { type: 'separator' },
   { role: 'close' as const, label: 'ウィンドウを閉じる' },

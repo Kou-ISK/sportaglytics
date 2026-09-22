@@ -4,13 +4,11 @@ import { Box } from '@mui/material';
 import { VideoPlayer, VideoController } from '../..';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
-import {
-  getAngleOffset,
-  getMediaTimelineEnd,
-} from '../../../../shared/media/mediaTimeline';
+import { usePackagePlaybackClock } from '../hooks/usePackagePlaybackClock';
 
 interface PlayerSurfaceProps {
   videoList: string[];
+  livePlaybackEnd?: number;
   isVideoPlaying: boolean;
   videoPlayBackRate: number;
   currentTime: number;
@@ -33,6 +31,7 @@ interface PlayerSurfaceProps {
 
 export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   videoList,
+  livePlaybackEnd,
   isVideoPlaying,
   videoPlayBackRate,
   currentTime,
@@ -49,65 +48,18 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   mediaAngles,
   setMediaAngles,
 }) => {
-  const useTimelineClock =
-    syncMode === 'auto' && mediaAngles.some((angle) => angle.clips.length > 0);
-  const timelineEnd = React.useMemo(
-    () =>
-      Math.max(
-        0,
-        ...mediaAngles.map((angle, index) =>
-          getMediaTimelineEnd({
-            clips: angle.clips,
-            offsetSeconds: getAngleOffset(syncData, index),
-          }),
-        ),
-      ),
-    [mediaAngles, syncData],
-  );
-  const timelineDurationsKnown = mediaAngles.every((angle) =>
-    angle.clips.every((clip) => typeof clip.durationSeconds === 'number'),
-  );
-
-  React.useEffect(() => {
-    if (useTimelineClock && timelineEnd > 0) {
-      setMaxSec(timelineEnd);
-    }
-  }, [timelineEnd, setMaxSec, useTimelineClock]);
-
-  React.useEffect(() => {
-    if (!useTimelineClock || !isVideoPlaying) return;
-    let animationFrameId = 0;
-    let previousTimestamp: number | undefined;
-    const updateClock = (timestamp: number): void => {
-      if (previousTimestamp !== undefined) {
-        const elapsed = Math.max(0, timestamp - previousTimestamp) / 1000;
-        setCurrentTime((value) => {
-          const next = Math.min(86_400, value + elapsed * videoPlayBackRate);
-          if (
-            timelineDurationsKnown &&
-            timelineEnd > 0 &&
-            next >= timelineEnd
-          ) {
-            setIsVideoPlaying(false);
-            return timelineEnd;
-          }
-          return next;
-        });
-      }
-      previousTimestamp = timestamp;
-      animationFrameId = globalThis.requestAnimationFrame(updateClock);
-    };
-    animationFrameId = globalThis.requestAnimationFrame(updateClock);
-    return () => globalThis.cancelAnimationFrame(animationFrameId);
-  }, [
+  const { useTimelineClock } = usePackagePlaybackClock({
+    mediaAngles,
+    syncData,
+    syncMode,
     isVideoPlaying,
+    videoPlayBackRate,
+    currentTime,
     setCurrentTime,
     setIsVideoPlaying,
-    timelineDurationsKnown,
-    timelineEnd,
-    useTimelineClock,
-    videoPlayBackRate,
-  ]);
+    setMaxSec,
+    livePlaybackEnd,
+  });
 
   return (
     <Box

@@ -9,7 +9,7 @@ try {
   if (-not (Test-Path $env:E2E_APP_PATH)) { throw 'Installed application is missing' }
   node scripts/windows/verify-native-dependencies.mjs "$target/resources/media-tools/ffmpeg.exe" "$target/resources/media-tools/ffprobe.exe" "$target/resources/llama/win32/llama-completion.exe"
   if ($LASTEXITCODE -ne 0) { throw 'Native runtime has missing dependencies' }
-  foreach ($scenario in @('clip-sync', 'multi-clip-playback', 'code-window-menu', 'export-progress', 'timeline-rows', 'paint', 'tactical-board', 'package-reopen', 'playlist-open-menu', 'playlist-references-angles', 'event-detection')) {
+  foreach ($scenario in @('live-capture', 'clip-sync', 'multi-clip-playback', 'code-window-menu', 'export-progress', 'timeline-rows', 'paint', 'tactical-board', 'package-reopen', 'playlist-open-menu', 'playlist-references-angles', 'event-detection')) {
     node "scripts/e2e-$scenario.mjs"
     if ($LASTEXITCODE -ne 0) { throw "Installed application failed: $scenario" }
   }

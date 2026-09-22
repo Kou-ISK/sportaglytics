@@ -1,3 +1,4 @@
+import { MAX_PACKAGE_TIMELINE_CLIPS } from '../../../src/shared/media/packageMediaLimits';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type {
@@ -77,7 +78,8 @@ export const readMediaTimeline = async (
             timelineStartSeconds: 0,
           },
         ];
-  if (rawClips.length > 16) throw new Error('INVALID_MEDIA_TIMELINE');
+  if (rawClips.length > MAX_PACKAGE_TIMELINE_CLIPS)
+    throw new Error('INVALID_MEDIA_TIMELINE');
   const clips: MediaTimelineClip[] = [];
   const ids = new Set<string>();
   let previousEnd = 0;

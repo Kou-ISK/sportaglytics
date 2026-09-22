@@ -1,4 +1,6 @@
 import React from 'react';
+import type { CaptureTimelineState } from '../../../../types/liveCapture';
+import { LiveCaptureTimelineView } from './LiveCaptureTimelineView';
 import type {
   AngleSyncCommand,
   AngleSyncSnapshot,
@@ -15,6 +17,8 @@ import { TimelineRowSortControl } from '../../components/Timeline/VisualTimeline
 import { AngleSyncTransportView } from './AngleSyncTransportView';
 
 interface TimelineActionSectionProps {
+  liveCapture?: CaptureTimelineState;
+  onGoLive?: () => void;
   angleSync?: AngleSyncSnapshot;
   isPlaying: boolean;
   hotkeys: HotkeyConfig[];
@@ -76,6 +80,8 @@ interface TimelineActionSectionProps {
 }
 
 export const TimelineActionSection = ({
+  liveCapture,
+  onGoLive,
   angleSync,
   isPlaying,
   hotkeys,
@@ -158,6 +164,9 @@ export const TimelineActionSection = ({
             onCommand={onAngleSyncCommand}
           />
           <TimelineRowSortControl onSort={sortTimelineRows} />
+          {liveCapture && onGoLive && (
+            <LiveCaptureTimelineView state={liveCapture} onGoLive={onGoLive} />
+          )}
         </Box>
         {angleSync?.message && (
           <Typography

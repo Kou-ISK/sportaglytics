@@ -17,6 +17,7 @@ import {
   type EnhancedCodePanelHandle,
 } from '..';
 import { useVideoPlayerScreenController } from './hooks/useVideoPlayerScreenController';
+import { useLiveCapturePlayback } from './hooks/useLiveCapturePlayback';
 import { useSettings } from '../../../hooks/useSettings';
 import { useGlobalHotkeys } from '../../../hooks/useGlobalHotkeys';
 import { useActionPreset } from '../../../contexts/ActionPresetContext';
@@ -83,6 +84,7 @@ export const VideoPlayerScreen = () => {
     setSyncMode,
     handleCurrentTime,
     setPackagePath,
+    packagePath,
     addTimelineData,
     addTimelineDatas,
     addTimelineRow,
@@ -113,6 +115,17 @@ export const VideoPlayerScreen = () => {
     performRedo,
   } = useVideoPlayerScreenController();
   const { notify } = useNotification();
+  const liveCapture = useLiveCapturePlayback({
+    packagePath,
+    currentTime,
+    isPlaying: isVideoPlaying,
+    maxSec,
+    setMediaAngles,
+    setVideoList,
+    onSeek: handleCurrentTime,
+    setPlaying: setisVideoPlaying,
+    setRate: setVideoPlayBackRate,
+  });
 
   const [viewMode, setViewMode] = useState<VideoViewMode>('dual');
   const [openWizardRequestKey, setOpenWizardRequestKey] = useState(0);
@@ -211,6 +224,7 @@ export const VideoPlayerScreen = () => {
     });
 
   const { requestClipSync, changeSyncMode } = useClipSyncCommands({
+    captureActive: Boolean(liveCapture.timelineState),
     mediaAngles,
     syncMode,
     setSyncMode,
@@ -241,6 +255,7 @@ export const VideoPlayerScreen = () => {
 
   const { combinedHotkeys, combinedHandlers, keyUpHandlers } =
     useHotkeyBindings({
+      onGoLive: liveCapture.goLive,
       teamNames,
       settingsHotkeys: settings.hotkeys,
       activeActions,
@@ -318,6 +333,8 @@ export const VideoPlayerScreen = () => {
   );
 
   useTimelineWindowIntegration({
+    liveCapture: liveCapture.timelineState,
+    onGoLive: liveCapture.goLive,
     isFileSelected,
     timeline,
     rows: timelineRows,
@@ -430,6 +447,7 @@ export const VideoPlayerScreen = () => {
       }}
     >
       <VideoPlayerLayout
+        livePlaybackEnd={liveCapture.timelineState?.availableEndSeconds}
         openWizardRequestKey={openWizardRequestKey}
         isFileSelected={isFileSelected}
         videoList={videoList}

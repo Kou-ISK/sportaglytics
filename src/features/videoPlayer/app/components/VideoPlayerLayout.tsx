@@ -34,12 +34,14 @@ type VideoPlayerLayoutProps = Pick<
   | 'setMediaAngles'
 > & {
   openWizardRequestKey: number;
+  livePlaybackEnd?: number;
   angleSync: AngleSyncSession;
   viewMode: VideoViewMode;
 };
 
 export const VideoPlayerLayout = ({
   isFileSelected,
+  livePlaybackEnd,
   videoList,
   isVideoPlaying,
   videoPlayBackRate,
@@ -86,6 +88,7 @@ export const VideoPlayerLayout = ({
         <ManualSyncControls session={angleSync} />
       ) : (
         <PlayerSurface
+          livePlaybackEnd={livePlaybackEnd}
           videoList={videoList}
           isVideoPlaying={isVideoPlaying}
           videoPlayBackRate={videoPlayBackRate}

@@ -228,6 +228,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   themeMode: 'system',
   hotkeys: [
     {
+      id: 'go-live',
+      label: 'ライブ位置 / タイムライン末尾',
+      key: 'Alt+Shift+L',
+    },
+    {
       id: 'resync-audio',
       label: '音声同期を再実行',
       key: 'CommandOrControl+Shift+S',

@@ -1,4 +1,5 @@
 import { createEventDetectionWindowBridge } from './preload/eventDetectionWindowBridge';
+import { createLiveCaptureBridge } from './preload/liveCaptureBridge';
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IElectronAPI } from '../../src/renderer';
 import { createAnalysisBridge } from './preload/analysisBridge';
@@ -32,6 +33,7 @@ try {
 }
 
 const electronAPI = {
+  liveCapture: createLiveCaptureBridge(ipcRenderer),
   ...createAppBridge(ipcRenderer, registerListener),
   ...createEventBridge(registerListener, listenerStore),
   ...createSettingsBridge(ipcRenderer, listenerStore),
