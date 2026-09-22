@@ -258,3 +258,16 @@ it('rejects a missing default angle instead of substituting a different clip or 
     }),
   ).toThrow('既定アングルの映像がない');
 });
+
+it.each(['single', 'multi'] as const)(
+  'rejects a disconnected primary angle instead of a different clip fallback (%s)',
+  (angleOption) => {
+    expect(() =>
+      buildClipExportRequests({
+        ...angleRequest,
+        angleOption,
+        clips: [{ ...mixedClips[0], videoSource: undefined }],
+      }),
+    ).toThrow('アングルがない');
+  },
+);

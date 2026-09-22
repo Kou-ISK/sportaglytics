@@ -204,7 +204,10 @@ export const buildClipExportRequests = ({
       },
     ];
   }
-  if (angleOption === 'multi') selectClipAngle(clips, 1);
+  if (angleOption === 'multi') {
+    selectClipAngle(clips, 0);
+    selectClipAngle(clips, 1);
+  }
   if (angleOption === 'allAngles')
     return getAvailableVideoSources(videoSources).map((sourcePath, index) => ({
       sourcePath,
