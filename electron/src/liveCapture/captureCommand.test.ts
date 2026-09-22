@@ -38,6 +38,8 @@ describe('live capture encoding', () => {
     expect(protocols).not.toContain('file');
     expect(protocols).not.toContain('pipe');
     expect(args[args.indexOf('-rtsp_transport') + 1]).toBe('tcp');
+    expect(args[args.indexOf('-timeout') + 1]).toBe('15000000');
+    expect(args).not.toContain('-rw_timeout');
     expect(() =>
       buildCaptureCommand(
         { id: 'one', name: 'Angle', kind: 'network', url: 'file:///outside' },
@@ -45,6 +47,22 @@ describe('live capture encoding', () => {
       ),
     ).toThrow();
   });
+  it.each(['rtmp', 'rtmps', 'http', 'https'])(
+    'uses protocol I/O timeout for %s streams',
+    (protocol) => {
+      const args = buildCaptureCommand(
+        {
+          id: 'one',
+          name: 'Angle',
+          kind: 'network',
+          url: `${protocol}://camera.example/live`,
+        },
+        '720p',
+      );
+      expect(args[args.indexOf('-rw_timeout') + 1]).toBe('15000000');
+      expect(args).not.toContain('-rtsp_transport');
+    },
+  );
   it('publishes only complete CSV rows with safe paths and valid timestamps', () => {
     const csv =
       'segment-000000.mp4,0.000000,2.000000\n../outside.mp4,2,4\nsegment-000001.mp4,2,4\nsegment-000002.mp4,4,3\nsegment-000003.mp4,4,Infinity\nsegment-000004.mp4,4,90\nsegment-000005.mp4,4,6';

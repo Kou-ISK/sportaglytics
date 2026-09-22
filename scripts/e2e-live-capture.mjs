@@ -55,7 +55,11 @@ execFileSync(ffmpegPath, [
   fixture,
 ]);
 const feeds = new Map();
-const server = createServer((_request, response) => {
+const server = createServer((request, response) => {
+  if (request.url === '/unavailable.ts') {
+    response.writeHead(503).end();
+    return;
+  }
   response.writeHead(200, { 'Content-Type': 'video/mp2t' });
   const process = spawn(
     ffmpegPath,
@@ -135,6 +139,13 @@ try {
   await capture
     .getByRole('button', { name: '録画を開始', exact: true })
     .waitFor();
+  await capture
+    .getByRole('button', { name: 'カメラ・音声を確認', exact: true })
+    .click();
+  await capture.getByLabel('音声入力', { exact: true }).click();
+  await capture
+    .getByRole('option', { name: '既定の音声入力', exact: true })
+    .click();
   assert.equal(
     await main.evaluate(() => window.electronAPI.liveCapture.getState()),
     null,
@@ -159,6 +170,17 @@ try {
     .nth(1)
     .click();
   await capture.getByLabel('配信URL').fill(url);
+  await capture
+    .getByRole('button', { name: '映像入力を追加', exact: true })
+    .click();
+  await capture
+    .getByRole('button', { name: 'IP映像', exact: true })
+    .nth(2)
+    .click();
+  await capture
+    .getByLabel('配信URL')
+    .nth(1)
+    .fill(`http://127.0.0.1:${address.port}/unavailable.ts`);
   assert.equal(
     await capture.evaluate(
       async () => (await window.electronAPI.liveCapture.capabilities()).network,
@@ -170,11 +192,12 @@ try {
     .click();
   await waitForCapture(
     (state) =>
-      state?.inputs.length === 2 &&
-      state.inputs.every((input) => input.segmentCount >= 5),
+      state?.inputs.length === 3 &&
+      state.inputs.slice(0, 2).every((input) => input.segmentCount >= 5) &&
+      state.inputs[2].phase === 'disconnected',
   );
   console.log(
-    'USB fake camera and HTTP input are simultaneously recording finalized media',
+    'USB fake camera and HTTP input record with audio; an unavailable input does not block coding',
   );
   await main.locator('#video_0 video').waitFor({ timeout: 20000 });
   timeline = await findWindow('#/timeline');
@@ -291,7 +314,10 @@ try {
     25000,
   );
   await delay(1500);
-  await capture.getByRole('button', { name: '再接続', exact: true }).click();
+  await capture
+    .getByRole('button', { name: '再接続', exact: true })
+    .first()
+    .click();
   await waitForCapture(
     (state) =>
       state?.mediaAngles[1].clips.some((clip) =>
@@ -344,6 +370,7 @@ try {
         ),
       );
       assert.ok(media.streams.some((stream) => stream.codec_name === 'h264'));
+      assert.ok(media.streams.some((stream) => stream.codec_name === 'aac'));
       assert.ok(Number(media.format.duration) > 0);
     }
   }

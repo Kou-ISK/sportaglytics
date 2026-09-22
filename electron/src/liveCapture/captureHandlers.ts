@@ -73,8 +73,12 @@ export const registerLiveCaptureHandlers = (options: {
       target.webContents.send(channels.state, state);
     const hasMedia = state.mediaAngles.some((angle) => angle.clips.length > 0);
     const ready =
-      state.mediaAngles.every((angle) => angle.clips.length > 0) ||
-      ['completed', 'error'].includes(state.phase);
+      state.inputs.every(
+        (input) =>
+          input.segmentCount > 0 ||
+          input.phase === 'disconnected' ||
+          input.phase === 'stopped',
+      ) || ['completed', 'error'].includes(state.phase);
     if (!opened && hasMedia && ready) {
       opened = true;
       void options.openPackage(state.packagePath).catch(() => {

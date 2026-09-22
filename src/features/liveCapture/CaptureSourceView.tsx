@@ -165,8 +165,12 @@ export const CaptureSourceView = ({
               }
             >
               <MenuItem value="">音声なし</MenuItem>
+              <MenuItem value="default">既定の音声入力</MenuItem>
               {devices
-                .filter((device) => device.kind === 'audio')
+                .filter(
+                  (device) =>
+                    device.kind === 'audio' && device.id !== 'default',
+                )
                 .map((device) => (
                   <MenuItem key={device.id} value={device.id}>
                     {device.name}

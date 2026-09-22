@@ -16,6 +16,7 @@ import type {
   CaptureSourceDraft,
 } from './captureViewTypes';
 import type { CaptureSetupViewProps } from './CaptureSetupView';
+import { discoverCaptureDevices } from './captureDevices';
 
 const captureAPI = (): ILiveCaptureAPI => {
   const api = window.electronAPI?.liveCapture;
@@ -118,13 +119,19 @@ export const useCaptureController = (): CaptureController => {
         setStreams({});
       }
     };
-    const unsubscribe = api.onState(receive);
+    let receivedState = false;
+    const unsubscribe = api.onState((state) => {
+      receivedState = true;
+      receive(state);
+    });
     const unsubscribeStop = api.onStopRequest(() => {
       void stop();
     });
     void api
       .getState()
-      .then(receive)
+      .then((state) => {
+        if (!receivedState) receive(state);
+      })
       .catch(() => reportError('録画の状態を読み込めませんでした。'));
     void api
       .capabilities()
@@ -151,26 +158,8 @@ export const useCaptureController = (): CaptureController => {
     setError('');
     try {
       await captureAPI().authorizeDevices();
-      const probe = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
-      try {
-        const found = await navigator.mediaDevices.enumerateDevices();
-        setDevices(
-          found
-            .filter((device) =>
-              ['videoinput', 'audioinput'].includes(device.kind),
-            )
-            .map((device, index) => ({
-              id: device.deviceId,
-              name: device.label || `デバイス ${index + 1}`,
-              kind: device.kind === 'videoinput' ? 'video' : 'audio',
-            })),
-        );
-      } finally {
-        for (const track of probe.getTracks()) track.stop();
-      }
+      const found = await discoverCaptureDevices();
+      if (mounted.current) setDevices(found);
     } catch {
       reportError(
         'カメラを確認できません。接続とOSのカメラ権限を確認してください。',

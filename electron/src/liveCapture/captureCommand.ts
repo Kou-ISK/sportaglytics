@@ -29,11 +29,12 @@ export const buildCaptureCommand = (
     args.push(
       '-protocol_whitelist',
       'http,https,tcp,tls,udp,rtp,rtmp,rtmps,crypto',
-      '-rw_timeout',
-      '15000000',
     );
-    if (input.url.startsWith('rtsp'))
+    // RTSP is a demuxer with its own timeout option; rw_timeout is rejected.
+    const protocol = new URL(input.url).protocol;
+    if (protocol === 'rtsp:' || protocol === 'rtsps:')
       args.push('-rtsp_transport', 'tcp', '-timeout', '15000000');
+    else args.push('-rw_timeout', '15000000');
     args.push('-i', input.url);
   } else {
     args.push('-protocol_whitelist', 'pipe', '-f', 'matroska', '-i', 'pipe:0');

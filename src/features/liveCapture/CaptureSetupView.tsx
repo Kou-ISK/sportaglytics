@@ -148,7 +148,7 @@ export const CaptureSetupView = (
             onClick={props.onRefreshDevices}
             disabled={active || busy}
           >
-            カメラを確認
+            カメラ・音声を確認
           </Button>
         </Stack>
         {networkAvailable === false && (
