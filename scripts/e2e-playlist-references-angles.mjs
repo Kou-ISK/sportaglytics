@@ -110,13 +110,16 @@ try {
       playlist,
     );
     const window = await pending;
+    await (
+      await app.browserWindow(window)
+    ).evaluate((nativeWindow) => nativeWindow.setSize(1100, 800));
     await window.getByRole('button', { name: 'Sorter', exact: true }).click();
     await window.getByTestId('sorter-row-first').waitFor();
     return window;
   };
   page = await open();
   const inspector = () => page.getByTestId('playlist-clip-inspector');
-  await page.getByTestId('sorter-row-second').click();
+  await page.getByTestId('sorter-row-second').getByRole('cell').nth(1).click();
   await inspector()
     .getByRole('radio', { name: 'アングル2', exact: true })
     .check();
@@ -164,7 +167,11 @@ try {
   assert.ok(!JSON.stringify(saved).includes('bookmark'));
 
   // Real continuous playback changes the displayed angle at the instance boundary.
-  await page.getByTestId('sorter-row-first').dblclick();
+  await page
+    .getByTestId('sorter-row-first')
+    .getByRole('cell')
+    .nth(1)
+    .dblclick();
   await page.waitForFunction(() =>
     [...document.querySelectorAll('video')].some(
       (v) => v.currentSrc.endsWith('/blue.mp4') && !v.paused,
@@ -178,7 +185,7 @@ try {
       (v) => v.currentSrc.endsWith('/red.mp4') && !v.paused && v.volume > 0,
     ),
   );
-  await page.getByTestId('sorter-row-second').click();
+  await page.getByTestId('sorter-row-second').getByRole('cell').nth(1).click();
 
   const closing = page.waitForEvent('close');
   await (await app.browserWindow(page)).evaluate((window) => window.close());
@@ -204,14 +211,18 @@ try {
   assert.ok(
     resolved.items.every((item) => item.videoSource.includes('renamed.stpkg')),
   );
-  await page.getByTestId('sorter-row-second').click();
+  await page.getByTestId('sorter-row-second').getByRole('cell').nth(1).click();
   assert.equal(
     await inspector()
       .getByRole('radio', { name: 'アングル2', exact: true })
       .isChecked(),
     true,
   );
-  await page.getByTestId('sorter-row-second').dblclick();
+  await page
+    .getByTestId('sorter-row-second')
+    .getByRole('cell')
+    .nth(1)
+    .dblclick();
   await page.waitForFunction(() =>
     [...document.querySelectorAll('video')].some(
       (v) =>
@@ -220,7 +231,7 @@ try {
         v.readyState >= 2,
     ),
   );
-  await page.getByTestId('sorter-row-second').click();
+  await page.getByTestId('sorter-row-second').getByRole('cell').nth(1).click();
   if (process.env.E2E_SCREENSHOT_DIR) {
     await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
     await page.screenshot({
