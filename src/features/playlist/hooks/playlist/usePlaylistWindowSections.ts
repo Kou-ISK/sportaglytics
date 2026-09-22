@@ -1,6 +1,7 @@
 import { useClipExportTextPreview } from '../../../../shared/clipExport/useClipExportTextPreview';
 import { buildPlaylistTextClips } from '../../utils/playlistClipExportBuilder';
 import { usePlaylistSorter } from './usePlaylistSorter';
+import { usePlaylistInstanceAngles } from './usePlaylistInstanceAngles';
 import {
   buildPlaylistDialogsSection,
   buildPlaylistHeaderSection,
@@ -64,6 +65,12 @@ export const usePlaylistWindowSections = ({
   handleToggleDrawingMode,
   defaultFreezeDuration,
 }: UsePlaylistWindowSectionsParams) => {
+  const instanceAngles = usePlaylistInstanceAngles({
+    currentItem: currentItemState.currentItem,
+    setItems: history.setItems,
+    setViewMode: core.setViewMode,
+    setDirty: core.setHasUnsavedChanges,
+  });
   const header = buildPlaylistHeaderSection({
     playlistName: core.playlistName,
     hasUnsavedChanges: core.hasUnsavedChanges,
@@ -236,6 +243,7 @@ export const usePlaylistWindowSections = ({
     sorter,
     organizer,
     inspector: {
+      onDefaultAngleChange: instanceAngles.setDefaultAngle,
       item: currentItemState.currentItem,
       annotation: annotations.currentAnnotation,
       width: core.inspectorWidth,

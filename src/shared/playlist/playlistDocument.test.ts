@@ -37,7 +37,7 @@ describe('playlist document model', () => {
   it('migrates a flat legacy playlist without changing item order', () => {
     const migrated = normalizePlaylistDocument(legacyPlaylist());
 
-    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.schemaVersion).toBe(5);
     expect(migrated.rows).toHaveLength(1);
     expect(migrated.items.map((item) => item.id)).toEqual(['a', 'b']);
     expect(migrated.items.map((item) => item.rowOrder)).toEqual([0, 1]);

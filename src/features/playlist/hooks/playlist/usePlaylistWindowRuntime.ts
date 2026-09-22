@@ -2,6 +2,9 @@ import { usePlaylistWindowDataRuntime } from './usePlaylistWindowDataRuntime';
 import { usePlaylistWindowInteractionRuntime } from './usePlaylistWindowInteractionRuntime';
 
 export interface PlaylistWindowRuntime {
+  mediaReferences: ReturnType<
+    typeof usePlaylistWindowDataRuntime
+  >['mediaReferences'];
   core: ReturnType<typeof usePlaylistWindowDataRuntime>['core'];
   history: ReturnType<typeof usePlaylistWindowDataRuntime>['history'];
   selection: ReturnType<typeof usePlaylistWindowDataRuntime>['selection'];
@@ -19,9 +22,7 @@ export interface PlaylistWindowRuntime {
     typeof usePlaylistWindowDataRuntime
   >['itemOperations'];
   loader: ReturnType<typeof usePlaylistWindowDataRuntime>['loader'];
-  playback: ReturnType<
-    typeof usePlaylistWindowInteractionRuntime
-  >['playback'];
+  playback: ReturnType<typeof usePlaylistWindowInteractionRuntime>['playback'];
   handleUndo: ReturnType<typeof usePlaylistWindowDataRuntime>['handleUndo'];
   handleRedo: ReturnType<typeof usePlaylistWindowDataRuntime>['handleRedo'];
   saveFlow: ReturnType<typeof usePlaylistWindowDataRuntime>['saveFlow'];

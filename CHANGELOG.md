@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Playlistのクリップごとに既定アングルを保存し、連続再生と単一ファイルの書き出しへ反映。
+- 参照PlaylistをパッケージID・相対位置・Macのファイル追跡で再接続。見つからない場合の移動先指定は同じ元パッケージの全クリップへ適用。[操作仕様](docs/playlist-features.md#参照先の移動と再接続)。
+
 ## [0.16.1] - 2026-09-22
 
 ### Fixed
