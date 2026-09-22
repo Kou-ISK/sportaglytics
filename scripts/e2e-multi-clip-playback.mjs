@@ -414,6 +414,15 @@ try {
     /A\.mp4$/.test(document.querySelector('video')?.currentSrc ?? ''),
   );
   await review.keyboard.press('End');
+  // Paint decodes its selected angle. Switching targets must keep the common clock.
+  await review.waitForFunction(() => {
+    const video = document.querySelector('video');
+    return (
+      /B\.mp4$/.test(video?.currentSrc ?? '') &&
+      Math.abs((video?.currentTime ?? 0) - 5) < 0.12
+    );
+  });
+  await review.getByRole('button', { name: 'アングル2', exact: true }).click();
   await review.waitForFunction(() =>
     [...document.querySelectorAll('video')].every(
       (video) =>
