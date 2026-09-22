@@ -13,7 +13,9 @@ const codeWindowPath = path.join(workPath, 'Empty Code Window.stcw');
 const codeWindowSaveAsPath = path.join(workPath, 'Renamed Code Window.stcw');
 const selectedCodeWindowPath = path.join(workPath, 'Selected Code Window.stcw');
 
-const electronApp = await electron.launch(getElectronLaunchOptions(profilePath));
+const electronApp = await electron.launch(
+  getElectronLaunchOptions(profilePath),
+);
 
 const clickMenuItem = async (menuItemId) => {
   await electronApp.evaluate(async ({ Menu }, id) => {
@@ -70,6 +72,17 @@ try {
     false,
   );
   console.log('Menu structure assertions passed');
+
+  assert.ok(menuSnapshot.fileLabels.includes('ライブキャプチャ…'));
+  const captureWindowPromise = electronApp.waitForEvent('window');
+  await clickMenuItem('live-capture');
+  const capturePage = await captureWindowPromise;
+  await capturePage
+    .getByRole('heading', { name: 'ライブキャプチャ', exact: true })
+    .waitFor();
+  assert.equal(new URL(capturePage.url()).hash, '#/live-capture');
+  await capturePage.close();
+  console.log('Live capture native menu flow passed');
 
   await clickMenuItem('create-video-package');
   await mainPage

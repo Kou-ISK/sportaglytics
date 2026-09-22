@@ -57,11 +57,6 @@ export const buildAppMenuItems = (
 
 export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   {
-    id: 'live-capture',
-    label: 'ライブキャプチャ…',
-    click: openLiveCaptureWindow,
-  },
-  {
     label: '新規',
     submenu: [
       {
@@ -113,6 +108,11 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   {
     label: '最近開いたパッケージ',
     submenu: buildRecentPackageItems(),
+  },
+  {
+    id: 'live-capture',
+    label: 'ライブキャプチャ…',
+    click: openLiveCaptureWindow,
   },
   { type: 'separator' },
   { role: 'close' as const, label: 'ウィンドウを閉じる' },
