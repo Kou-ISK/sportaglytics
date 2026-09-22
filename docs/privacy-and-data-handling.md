@@ -1,5 +1,7 @@
 # Privacy and Data Handling
 
+ライブキャプチャの配信URL・認証情報・デバイスIDはパッケージやログに保存しません。FFmpeg stderrを公開せず、再現には模擬カメラ・localhost上の合成映像を使います。OSプロセス情報には接続URLが現れ得るため公開しません。[詳細](live-coding.md#プライバシーと境界)。
+
 SporTagLytics は local-first の Electron desktop app です。このドキュメントは、アプリが扱うデータ、保存場所、外部送信の有無を説明します。
 
 ## 参照プレイリストのローカル位置情報

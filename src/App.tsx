@@ -1,6 +1,7 @@
 import React from 'react';
 import './App.css';
 import { VideoPlayerApp } from './pages/VideoPlayerApp';
+import { CaptureScreen } from './features/liveCapture';
 import { SettingsPage } from './pages/SettingsPage';
 import { PlaylistWindowApp } from './features/playlist';
 import { AnalysisWindowApp } from './pages/AnalysisWindowApp';
@@ -15,6 +16,7 @@ import {
 
 function App() {
   const currentView = useAppShellController();
+  if (currentView === 'live-capture') return <CaptureScreen />;
 
   // プレイリストウィンドウ（別ウィンドウで開かれた場合）
   if (currentView === 'event-detection') return <EventDetectionWindowScreen />;

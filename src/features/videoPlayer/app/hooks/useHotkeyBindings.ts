@@ -10,6 +10,7 @@ import type {
 import type { EnhancedCodePanelHandle } from '../../components/Controls/EnhancedCodePanel';
 
 interface UseHotkeyBindingsParams {
+  onGoLive?: () => void;
   teamNames: string[];
   settingsHotkeys: HotkeyConfig[];
   activeActions: ActionDefinition[];
@@ -36,6 +37,7 @@ interface UseHotkeyBindingsParams {
 }
 
 export const useHotkeyBindings = ({
+  onGoLive,
   teamNames,
   settingsHotkeys,
   activeActions,
@@ -72,6 +74,7 @@ export const useHotkeyBindings = ({
   );
   const hotkeyHandlers = useMemo<Record<string, () => void>>(
     () => ({
+      'go-live': () => onGoLive?.(),
       'skip-forward-small': () => {
         stopReversePlayback();
         start('skip-forward-small', 0.5);
@@ -136,6 +139,7 @@ export const useHotkeyBindings = ({
       },
     }),
     [
+      onGoLive,
       start,
       cancel,
       manualSyncFromPlayers,

@@ -1,4 +1,5 @@
 import type { VideoSyncData } from '../video/sync';
+export type { PackageMediaAngle, PackageMediaClip } from './media';
 
 export interface VideoAngleConfig {
   id: string;
@@ -18,22 +19,6 @@ export interface VideoClipConfig {
   gapBeforeSeconds: number;
   timelineStartSeconds?: number;
   durationSeconds?: number;
-}
-
-export interface PackageMediaClip {
-  id: string;
-  sourceKind: 'local' | 'youtube';
-  source: string;
-  gapBeforeSeconds: number;
-  timelineStartSeconds: number;
-  durationSeconds?: number;
-}
-
-export interface PackageMediaAngle {
-  id: string;
-  name: string;
-  sourceKind: 'local' | 'youtube';
-  clips: PackageMediaClip[];
 }
 
 export interface MetaData {

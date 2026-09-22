@@ -1,3 +1,4 @@
+import { assertCaptureConfigEditable } from '../liveCapture/captureRegistry';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { PackageDatas } from '../../../src/renderer';
@@ -26,6 +27,7 @@ export const applyClipTimeline = async (
   placements: ClipTimelinePlacement[],
   angleOffsets?: number[],
 ): Promise<PackageDatas> => {
+  assertCaptureConfigEditable(configPath);
   const normalizedConfigPath = path.resolve(configPath);
   if (
     path.basename(normalizedConfigPath) !== 'config.json' ||

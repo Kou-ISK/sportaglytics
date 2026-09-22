@@ -1,3 +1,4 @@
+import { isPackageCaptureActive } from '../liveCapture/captureRegistry';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { ConvertConfigResult } from './packageTypes';
@@ -110,6 +111,7 @@ export const convertConfigToRelativePath = async (
   packagePath: string,
 ): Promise<ConvertConfigResult> => {
   try {
+    if (isPackageCaptureActive(packagePath)) return { success: true };
     const configPath = path.join(packagePath, '.metadata', 'config.json');
 
     try {

@@ -1,4 +1,5 @@
 import type { MediaTimeline } from './shared/media/mediaTimeline';
+import type { ILiveCaptureAPI } from './types/liveCapture';
 import type { IEventDetectionWindowAPI } from './types/ipc/eventDetectionWindow';
 import type { IPlaylistAPI } from './types/playlist/api';
 import type { AnalysisView } from './types/analysis/view';
@@ -23,6 +24,7 @@ export interface LlamaModelInfo {
 }
 
 export interface IElectronAPI {
+  liveCapture: ILiveCaptureAPI;
   openFile: () => Promise<string>;
   openVideoFiles: () => Promise<string[]>;
   resolveDroppedVideoFilePath: (file: File) => string;

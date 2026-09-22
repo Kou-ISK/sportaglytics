@@ -1,6 +1,7 @@
 import { isAngleSyncCommand, isAngleSyncSnapshot } from './angleSync';
 import type { AngleSyncCommand, AngleSyncSnapshot } from './angleSync';
 import type { HotkeyConfig } from '../settings/coreTypes';
+import type { CaptureTimelineState } from '../liveCapture';
 import type {
   TimelineData,
   TimelineRow,
@@ -20,6 +21,7 @@ export const TIMELINE_WINDOW_CHANNELS = {
 } as const;
 
 export interface TimelineWindowSyncPayload {
+  liveCapture?: CaptureTimelineState;
   angleSync?: AngleSyncSnapshot;
   timeline: TimelineData[];
   rows: TimelineRow[];
@@ -42,6 +44,7 @@ export interface TimelineWindowClockPayload {
 }
 
 export type TimelineWindowCommand =
+  | { type: 'go-live' }
   | { type: 'clip-export-ready'; ready: boolean }
   | { type: 'angle-sync'; command: AngleSyncCommand }
   | { type: 'request-sync' }
@@ -187,6 +190,12 @@ export const isTimelineWindowSyncPayload = (
 ): value is TimelineWindowSyncPayload =>
   isObject(value) &&
   (value.angleSync === undefined || isAngleSyncSnapshot(value.angleSync)) &&
+  (value.liveCapture === undefined ||
+    (isObject(value.liveCapture) &&
+      isNumber(value.liveCapture.availableEndSeconds) &&
+      value.liveCapture.availableEndSeconds >= 0 &&
+      typeof value.liveCapture.following === 'boolean' &&
+      typeof value.liveCapture.interrupted === 'boolean')) &&
   Array.isArray(value.timeline) &&
   value.timeline.every(isTimelineItem) &&
   Array.isArray(value.rows) &&
@@ -221,6 +230,7 @@ export const isTimelineWindowCommand = (
     case 'angle-sync':
       return isAngleSyncCommand(value.command);
     case 'request-sync':
+    case 'go-live':
     case 'undo':
     case 'redo':
       return true;

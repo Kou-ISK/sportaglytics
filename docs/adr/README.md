@@ -62,6 +62,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 
 | [0051](0051-portable-playlist-references.md) | Portable playlist references | Accepted | 2026-09-22 |
 | [0052](0052-playlist-default-angles.md) | Playlist default angles | Accepted | 2026-09-22 |
+| [0053](0053-live-capture-package-timeline.md) | Live capture on the package timeline | Accepted | 2026-09-22 |
 
 ## Status Values
 
