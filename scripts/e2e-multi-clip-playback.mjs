@@ -463,6 +463,14 @@ try {
   }
   throw error;
 } finally {
-  if (app) await app.close().catch(() => {});
+  if (app) {
+    // The fixture is disposable. Unsaved Paint state must not block process teardown.
+    await app
+      .evaluate(({ BrowserWindow }) => {
+        for (const window of BrowserWindow.getAllWindows()) window.destroy();
+      })
+      .catch(() => {});
+    await app.close().catch(() => {});
+  }
   await fs.rm(dir, { recursive: true, force: true });
 }

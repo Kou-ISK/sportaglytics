@@ -86,6 +86,7 @@ await fs.writeFile(
 const app = await electron.launch(
   getElectronLaunchOptions(path.join(root, 'profile')),
 );
+app.context().setDefaultTimeout(15000);
 let page;
 try {
   const main = await app.firstWindow();
@@ -340,6 +341,12 @@ try {
     );
   throw error;
 } finally {
+  // After assertions, discard only these synthetic windows without a save prompt.
+  await app
+    .evaluate(({ BrowserWindow }) => {
+      for (const window of BrowserWindow.getAllWindows()) window.destroy();
+    })
+    .catch(() => {});
   await app.close();
   await fs.rm(root, { recursive: true, force: true });
 }
