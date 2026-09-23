@@ -1,13 +1,14 @@
 # SporTagLytics
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.16.1-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
+[![Version](https://img.shields.io/badge/version-0.17.0-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
 
 スポーツ映像のタグ付け、同期再生、統計可視化、プレイリスト作成を行う Electron デスクトップアプリケーションです。現在の主な利用想定はラグビー分析ですが、タイムラインとラベルを中心にした設計のため、他競技への応用も見込んでいます。
 
 ## 主な機能
 
 - **マルチアングル同期再生**: 最大8アングル・各16クリップのローカル映像またはYouTube映像を共通タイムラインで再生
+- **ライブキャプチャ**: USB/HDMI・OS対応のiPhone・IP映像を最大4入力まで録画し、通常のタイムラインでコーディング（[接続条件と操作](docs/live-coding.md)）
 - **カスタマイズ可能なタグ付け**: 自由配置のボタンレイアウトとホットキー
 - **リアルタイム統計分析**: ダッシュボード、モメンタム、クロス集計
 - **AI 分析機能**: ローカル LLM による映像分析と推奨クリップ生成
