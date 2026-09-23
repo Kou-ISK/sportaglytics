@@ -70,6 +70,7 @@ const meta = {
     onAddSource: () => {},
     onStart: () => {},
     onStop: () => {},
+    onHide: () => {},
     onRetry: () => {},
   },
 } satisfies Meta<typeof CaptureSetupView>;
@@ -127,4 +128,9 @@ export const PermissionError: Story = {
   args: {
     error: 'カメラを確認できません。接続とOSのカメラ権限を確認してください。',
   },
+};
+
+export const RecordingLight: Story = {
+  args: Recording.args,
+  globals: { themeMode: 'light' },
 };

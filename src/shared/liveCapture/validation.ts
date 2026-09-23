@@ -42,7 +42,10 @@ const isInput = (value: unknown): value is CaptureInput =>
   typeof value.name === 'string' &&
   value.name.trim().length > 0 &&
   value.name.length <= 80 &&
-  (value.kind === 'device' ||
+  ((value.kind === 'device' &&
+    (value.videoCodec === undefined ||
+      value.videoCodec === 'h264' ||
+      value.videoCodec === 'vp8')) ||
     (value.kind === 'network' && isCaptureUrl(value.url)));
 
 export const isCaptureStartRequest = (

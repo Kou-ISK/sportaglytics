@@ -2,7 +2,7 @@
 import { Blob as NodeBlob } from 'node:buffer';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { ILiveCaptureAPI } from '../../types/liveCapture';
-import { recordCaptureDevice } from './deviceRecorder';
+import { getDeviceRecordingCodec, recordCaptureDevice } from './deviceRecorder';
 
 const devices: FakeRecorder[] = [];
 class FakeRecorder extends EventTarget {
@@ -47,6 +47,7 @@ it('splits large chunks, preserves acknowledgement order, and flushes final data
     append,
     endInput: vi.fn(),
     open: vi.fn(),
+    hide: vi.fn(),
     authorizeDevices: vi.fn(),
     capabilities: vi.fn(),
     start: vi.fn(),
@@ -72,4 +73,15 @@ it('splits large chunks, preserves acknowledgement order, and flushes final data
   ]);
   expect(track.stop).toHaveBeenCalledTimes(1);
   expect(onError).not.toHaveBeenCalled();
+});
+
+it('prefers direct H.264 and retains VP8 for unsupported environments', () => {
+  vi.stubGlobal('MediaRecorder', {
+    isTypeSupported: (type: string) => type.includes('h264'),
+  });
+  expect(getDeviceRecordingCodec()).toBe('h264');
+  vi.stubGlobal('MediaRecorder', {
+    isTypeSupported: (type: string) => type.includes('vp8'),
+  });
+  expect(getDeviceRecordingCodec()).toBe('vp8');
 });

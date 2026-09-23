@@ -1,7 +1,7 @@
 import type { PackageMediaAngle } from './package/media';
 
 export type CaptureInput =
-  | { id: string; name: string; kind: 'device' }
+  | { id: string; name: string; kind: 'device'; videoCodec?: 'h264' | 'vp8' }
   | { id: string; name: string; kind: 'network'; url: string };
 
 export interface CaptureStartRequest {
@@ -54,6 +54,7 @@ export interface CaptureTimelineState {
 
 export interface ILiveCaptureAPI {
   open: () => Promise<void>;
+  hide: () => Promise<void>;
   authorizeDevices: () => Promise<void>;
   capabilities: () => Promise<{ network: boolean }>;
   start: (request: CaptureStartRequest) => Promise<CaptureSnapshot | null>;

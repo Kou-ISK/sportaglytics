@@ -192,6 +192,9 @@ export const useTimelineWindowIntegration = (
       subscribeTimelineWindowCommand((command: TimelineWindowCommand) => {
         const current = paramsRef.current;
         switch (command.type) {
+          case 'show-capture-controls':
+            void window.electronAPI?.liveCapture.open();
+            return;
           case 'go-live':
             current.onGoLive?.();
             break;

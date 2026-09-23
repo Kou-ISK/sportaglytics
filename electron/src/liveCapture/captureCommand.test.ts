@@ -12,7 +12,9 @@ describe('live capture encoding', () => {
       );
       expect(args[args.indexOf('-protocol_whitelist') + 1]).toBe('pipe');
       expect(args).toContain('pipe:0');
-      expect(args).toContain('movflags=+faststart');
+      expect(args).toContain(
+        'movflags=+frag_keyframe+empty_moov+default_base_moof',
+      );
       expect(args[args.indexOf('-bf') + 1]).toBe('0');
       expect(args[args.indexOf('-segment_time') + 1]).toBe('2');
       expect(args).toContain(
@@ -71,4 +73,18 @@ describe('live capture encoding', () => {
       { file: 'segment-000001.mp4', start: 2, end: 4 },
     ]);
   });
+});
+
+it('remuxes browser H.264 without a second video encode, retaining the VP8 compatibility path', () => {
+  const copied = buildCaptureCommand(
+    { id: 'one', name: 'Camera', kind: 'device', videoCodec: 'h264' },
+    '1080p',
+  );
+  expect(copied[copied.indexOf('-c:v') + 1]).toBe('copy');
+  expect(copied).not.toContain('-vf');
+  const fallback = buildCaptureCommand(
+    { id: 'one', name: 'Camera', kind: 'device', videoCodec: 'vp8' },
+    '1080p',
+  );
+  expect(fallback).toContain('-vf');
 });

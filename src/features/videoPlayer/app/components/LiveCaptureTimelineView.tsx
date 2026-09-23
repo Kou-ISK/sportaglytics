@@ -6,9 +6,11 @@ import type { CaptureTimelineState } from '../../../../types/liveCapture';
 export const LiveCaptureTimelineView = ({
   state,
   onGoLive,
+  onShowCapture,
 }: {
   state: CaptureTimelineState;
   onGoLive: () => void;
+  onShowCapture?: () => void;
 }): ReactElement => (
   <Stack
     direction="row"
@@ -16,10 +18,14 @@ export const LiveCaptureTimelineView = ({
     alignItems="center"
     sx={{ ml: 'auto', flexShrink: 0 }}
   >
+    <Button size="small" onClick={onShowCapture} sx={{ whiteSpace: 'nowrap' }}>
+      録画の操作
+    </Button>
     <Chip
       size="small"
       color={state.interrupted ? 'warning' : 'error'}
       variant="outlined"
+      sx={{ color: 'text.primary' }}
       label={state.interrupted ? '入力切断あり' : '録画中'}
     />
     <Tooltip

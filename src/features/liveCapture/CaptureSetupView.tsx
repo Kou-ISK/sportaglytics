@@ -40,6 +40,7 @@ export interface CaptureSetupViewProps {
   onAddSource: () => void;
   onStart: () => void;
   onStop: () => void;
+  onHide?: () => void;
   onRetry: (id: string) => void;
 }
 
@@ -94,6 +95,9 @@ export const CaptureSetupView = (
         )}
       </Stack>
       <Stack
+        role="region"
+        aria-label="録画入力の設定"
+        tabIndex={0}
         spacing={2.5}
         sx={{ p: 3, flex: 1, overflowY: 'auto', minHeight: 0 }}
       >
@@ -140,7 +144,7 @@ export const CaptureSetupView = (
           justifyContent="space-between"
           alignItems="center"
         >
-          <Typography variant="subtitle2">
+          <Typography variant="subtitle2" component="h2">
             映像入力 · {sources.length} / 4
           </Typography>
           <Button
@@ -229,6 +233,11 @@ export const CaptureSetupView = (
             ? '映像とコードをローカルのパッケージに保存しています'
             : '保存先は録画開始時に選択します'}
         </Typography>
+        {active && (
+          <Button onClick={props.onHide} sx={{ whiteSpace: 'nowrap' }}>
+            録画を続けて閉じる
+          </Button>
+        )}
         {active ? (
           <Button
             variant="contained"

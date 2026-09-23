@@ -9,10 +9,13 @@ import { openSettingsWindow } from '../settingsWindow';
 import { openTimelineWindow } from '../timelineWindow';
 import { buildRecentPackageItems } from './recentPackageMenu';
 import { openClipExportFromMenu } from './clipExportMenuAction';
+import { openVersionInfoWindow } from './menuWindowActions';
 import {
-  openVersionInfoWindow,
+  sendCodeWindowCommand,
+  sendMenuCommand,
+  sendToAllWindows,
   sendToFocusedWindow,
-} from './menuWindowActions';
+} from './menuCommandDelivery';
 
 const getBrowserWindowOwner = (
   window: Electron.BaseWindow | undefined,
@@ -22,14 +25,6 @@ const getBrowserWindowOwner = (
         (candidate) => candidate.id === window.id,
       )
     : undefined;
-
-const sendToAllWindows = (channel: string, ...args: unknown[]): void => {
-  BrowserWindow.getAllWindows().forEach((window) => {
-    if (!window.isDestroyed()) {
-      window.webContents.send(channel, ...args);
-    }
-  });
-};
 
 export const buildAppMenuItems = (
   isMac: boolean,
@@ -72,7 +67,7 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
         label: 'コードウィンドウ…',
         accelerator: 'CmdOrCtrl+Shift+N',
         click: () => {
-          sendToAllWindows('menu-create-code-window-file');
+          sendCodeWindowCommand('menu-create-code-window-file');
         },
       },
     ],
@@ -93,7 +88,7 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
         label: 'コードウィンドウ…',
         accelerator: 'CmdOrCtrl+Option+O',
         click: () => {
-          sendToAllWindows('menu-open-code-window-file');
+          sendCodeWindowCommand('menu-open-code-window-file');
         },
       },
       {
@@ -123,21 +118,19 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
       {
         label: 'タイムライン（JSON）',
         click: (_menuItem, browserWindow) => {
-          if (browserWindow && 'webContents' in browserWindow) {
-            (browserWindow as BrowserWindow).webContents.send(
-              'menu-import-timeline',
-            );
-          }
+          sendMenuCommand(
+            getBrowserWindowOwner(browserWindow),
+            'menu-import-timeline',
+          );
         },
       },
       {
         label: 'Sportscode XML（SCTimeline）',
         click: (_menuItem, browserWindow) => {
-          if (browserWindow && 'webContents' in browserWindow) {
-            (browserWindow as BrowserWindow).webContents.send(
-              'menu-import-timeline',
-            );
-          }
+          sendMenuCommand(
+            getBrowserWindowOwner(browserWindow),
+            'menu-import-timeline',
+          );
         },
       },
     ],
@@ -162,44 +155,40 @@ function buildTimelineExportItems(): Electron.MenuItemConstructorOptions[] {
     {
       label: 'タイムライン（JSON）',
       click: (_menuItem, browserWindow) => {
-        if (browserWindow && 'webContents' in browserWindow) {
-          (browserWindow as BrowserWindow).webContents.send(
-            'menu-export-timeline',
-            'json',
-          );
-        }
+        sendMenuCommand(
+          getBrowserWindowOwner(browserWindow),
+          'menu-export-timeline',
+          'json',
+        );
       },
     },
     {
       label: 'タイムライン（YouTube用CSV）',
       click: (_menuItem, browserWindow) => {
-        if (browserWindow && 'webContents' in browserWindow) {
-          (browserWindow as BrowserWindow).webContents.send(
-            'menu-export-timeline',
-            'csv',
-          );
-        }
+        sendMenuCommand(
+          getBrowserWindowOwner(browserWindow),
+          'menu-export-timeline',
+          'csv',
+        );
       },
     },
     {
       label: 'タイムライン（分析用CSV）',
       click: (_menuItem, browserWindow) => {
-        if (browserWindow && 'webContents' in browserWindow) {
-          (browserWindow as BrowserWindow).webContents.send(
-            'menu-export-analysis-raw-csv',
-          );
-        }
+        sendMenuCommand(
+          getBrowserWindowOwner(browserWindow),
+          'menu-export-analysis-raw-csv',
+        );
       },
     },
     {
       label: 'Sportscode XML（SCTimeline）',
       click: (_menuItem, browserWindow) => {
-        if (browserWindow && 'webContents' in browserWindow) {
-          (browserWindow as BrowserWindow).webContents.send(
-            'menu-export-timeline',
-            'sctimeline',
-          );
-        }
+        sendMenuCommand(
+          getBrowserWindowOwner(browserWindow),
+          'menu-export-timeline',
+          'sctimeline',
+        );
       },
     },
   ];
@@ -246,11 +235,10 @@ export const buildAnalysisMenuItems =
           getBrowserWindowOwner(browserWindow) ??
             BrowserWindow.getFocusedWindow(),
         );
-        if (owner && !owner.mainWindow.isDestroyed()) {
-          owner.mainWindow.webContents.send(
-            EVENT_DETECTION_CHANNELS.openRequested,
-          );
-        }
+        sendMenuCommand(
+          owner?.mainWindow,
+          EVENT_DETECTION_CHANNELS.openRequested,
+        );
       },
     },
   ];

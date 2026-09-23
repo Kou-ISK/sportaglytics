@@ -1,6 +1,6 @@
 # SporTagLytics Documentation
 
-ライブ撮影中の分析は[ライブキャプチャとコーディング](live-coding.md)を参照してください。設計判断は[ADR 0053](adr/0053-live-capture-package-timeline.md)です。
+ライブ撮影中の分析は[ライブキャプチャとコーディング](live-coding.md)を参照してください。設計判断は[ADR 0053](adr/0053-live-capture-package-timeline.md) / [ADR 0054](adr/0054-continuous-capture-playback.md)です。
 
 Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter-presentation-order.md)を参照してください。
 

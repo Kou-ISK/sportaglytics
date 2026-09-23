@@ -40,22 +40,28 @@ export const buildCaptureCommand = (
     args.push('-protocol_whitelist', 'pipe', '-f', 'matroska', '-i', 'pipe:0');
   }
   const height = quality === '1080p' ? 1080 : 720;
+  const videoArgs =
+    input.kind === 'device' && input.videoCodec === 'h264'
+      ? ['-c:v', 'copy']
+      : [
+          '-vf',
+          `scale=w='min(iw,${(height * 16) / 9})':h='min(ih,${height})':force_original_aspect_ratio=decrease:force_divisible_by=2,fps=30`,
+          ...resolveH264Encoder(platform).args,
+          '-b:v',
+          quality === '1080p' ? '8M' : '5M',
+          '-g',
+          '60',
+          '-bf',
+          '0',
+          '-force_key_frames',
+          `expr:gte(t,n_forced*${CAPTURE_SEGMENT_SECONDS})`,
+        ];
   args.push(
     '-map',
     '0:v:0',
     '-map',
     '0:a:0?',
-    '-vf',
-    `scale=w='min(iw,${(height * 16) / 9})':h='min(ih,${height})':force_original_aspect_ratio=decrease:force_divisible_by=2,fps=30`,
-    ...resolveH264Encoder(platform).args,
-    '-b:v',
-    quality === '1080p' ? '8M' : '5M',
-    '-g',
-    '60',
-    '-bf',
-    '0',
-    '-force_key_frames',
-    `expr:gte(t,n_forced*${CAPTURE_SEGMENT_SECONDS})`,
+    ...videoArgs,
     '-c:a',
     'aac',
     '-b:a',
@@ -71,7 +77,7 @@ export const buildCaptureCommand = (
     '-reset_timestamps',
     '1',
     '-segment_format_options',
-    'movflags=+faststart',
+    'movflags=+frag_keyframe+empty_moov+default_base_moof',
     '-segment_list',
     'segments.csv',
     '-segment_list_type',

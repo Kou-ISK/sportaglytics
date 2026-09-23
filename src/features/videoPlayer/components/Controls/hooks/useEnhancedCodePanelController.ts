@@ -1,3 +1,4 @@
+import { useCodingPanelCommands } from './useCodingPanelCommands';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
 import type {
@@ -24,7 +25,6 @@ import type { EnhancedCodePanelViewProps } from '../EnhancedCodePanelView';
 import { useCodingTime } from './useCodingTime';
 import {
   openCodingPanelWindow,
-  subscribeCodingPanelWindowCommand,
   syncCodingPanelWindow,
 } from '../gateways/codingPanelWindowGateway';
 import {
@@ -364,9 +364,7 @@ export const useEnhancedCodePanelController = ({
     ],
   );
 
-  useEffect(() => {
-    return subscribeCodingPanelWindowCommand(handleCodingPanelWindowCommand);
-  }, [handleCodingPanelWindowCommand]);
+  useCodingPanelCommands(handleCodingPanelWindowCommand);
 
   const handleOpenDetachedWindow = useCallback((): void => {
     void openCodingPanelWindow().then((opened) => {

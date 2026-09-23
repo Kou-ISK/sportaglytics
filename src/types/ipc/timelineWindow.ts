@@ -45,6 +45,7 @@ export interface TimelineWindowClockPayload {
 
 export type TimelineWindowCommand =
   | { type: 'go-live' }
+  | { type: 'show-capture-controls' }
   | { type: 'clip-export-ready'; ready: boolean }
   | { type: 'angle-sync'; command: AngleSyncCommand }
   | { type: 'request-sync' }
@@ -230,6 +231,7 @@ export const isTimelineWindowCommand = (
     case 'angle-sync':
       return isAngleSyncCommand(value.command);
     case 'request-sync':
+    case 'show-capture-controls':
     case 'go-live':
     case 'undo':
     case 'redo':

@@ -2,6 +2,8 @@
 
 ライブキャプチャは専用RendererのUSB取り込みとMainのIP入力を、確定済みMP4区間へ統一し、通常パッケージのアングルへ追記します。コードは既存の共通時計を使います。[ライブ仕様](live-coding.md) / [ADR 0053](adr/0053-live-capture-package-timeline.md)。
 
+録画の所有ウィンドウは非表示で存続し、パッケージとコマンドの接続先だけを共有します。fragmented MP4をMediaSourceへ先読み追記し、区間境界で再生成しません。録画中の映像ウィンドウはバックグラウンドでの時計抑制を無効にします。
+
 Playlist v5は参照元package ID・相対位置と各クリップのdefaultAngleを保存します。MainのmediaReferences AdapterがOS bookmarkと端末内の登録先から移動を解決し、Rendererへ型付きIPCで渡します。既定アングルはクリップ進入時と単一ファイル書き出しで共用します。[参照・アングル仕様](playlist-features.md#参照先の移動と再接続)。
 
 出力テキストのレイアウトはsharedの純粋関数を正本とし、Mainの映像サイズ検査・FFmpeg書き出し・静止画プレビューで共有します。専用IPCはsenderとpayloadを検証し、上限超過は保存先選択前に拒否します。[ADR 0049](adr/0049-bounded-export-text.md)。
@@ -72,6 +74,8 @@ Window runtime:
 Packageを扱うWindowは `electron/src/packageSessionRegistry.ts` のPackage Sessionに所属する。Main Window、Timeline、Analysis、Coding Panel、Playlistはpackage単位で所有・IPC送信先を分離する。Settings、Help、Export Progressはapplication-globalとして扱う。OSからの `.stpkg` openはMain Processのキューで処理し、既存Sessionをfocusするか、空Sessionの再利用または新規Main Windowを選ぶ。
 
 Main Window作成時にSessionを保持し、`closed` では破棄済みWindowから再検索せず、そのSessionの補助Windowを閉じて登録とパス予約を解放する。Registryのパス検索とsender検索も、所有Main Windowが破棄済みのSessionを返さない。同じファイルの再openと遅延IPCの両方で生存する所有者だけを扱う。
+
+通常メニューの通知は`menuCommandDelivery.ts`へ集約し、BrowserWindowとWebContentsの両方の生存を確認する。WindowsでWebContentsが先に閉じる場合や送信直前の破棄も無視し、他のWindowへの通知を継続する。破棄以外のIPC例外は隠さない。
 
 配布版はMainの外部npm依存を同梱しません。`build:electron-main`で未同梱依存を検査し、FFprobe応答などのMain側の入力は型ガードで検証します。Renderer/preloadのライブラリはbundle内で解決します。
 

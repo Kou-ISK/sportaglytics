@@ -49,6 +49,7 @@ export const persistCapturePackage = async (
     .filter((angle) => angle.clips.length > 0)
     .map((angle, index) => ({
       id: angle.id,
+      playbackFormat: angle.playbackFormat,
       name: angle.name,
       role: index === 0 ? 'primary' : index === 1 ? 'secondary' : undefined,
       sourceKind: 'local',

@@ -2,6 +2,7 @@ import type { VideoSyncData } from '../video/sync';
 export type { PackageMediaAngle, PackageMediaClip } from './media';
 
 export interface VideoAngleConfig {
+  playbackFormat?: 'fragmented-mp4';
   id: string;
   name: string;
   relativePath?: string;

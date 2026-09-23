@@ -22,6 +22,7 @@ describe('legacy creation history recovery', () => {
           {
             id: 'main',
             name: 'Main',
+            playbackFormat: 'fragmented-mp4',
             sourceKind: 'local',
             relativePath: 'videos/first.mp4',
             clips: [
@@ -52,6 +53,9 @@ describe('legacy creation history recovery', () => {
       '/matches/試合 #50%.stpkg',
     );
     expect(loaded.result.packagePath).toBe('/matches/試合 #50%.stpkg');
+    expect(loaded.result.mediaAngles?.[0].playbackFormat).toBe(
+      'fragmented-mp4',
+    );
     expect(loaded.result.mediaAngles?.[0].clips[0].source).toBe(
       '/matches/試合 #50%.stpkg/videos/first.mp4',
     );

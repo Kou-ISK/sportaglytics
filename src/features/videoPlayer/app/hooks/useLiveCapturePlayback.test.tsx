@@ -78,6 +78,7 @@ it('appends segments, ignores stale snapshots, and leaves a reviewed clock alone
   const hook = renderHook((params) => useLiveCapturePlayback(params), {
     initialProps: args,
   });
+  act(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' })));
   act(() => receive(snapshot(8)));
   expect(onSeek).toHaveBeenLastCalledWith(expect.any(Event), 4);
   expect(setPlaying).toHaveBeenLastCalledWith(true);

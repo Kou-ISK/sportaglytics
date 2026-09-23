@@ -10,6 +10,7 @@ export interface PackageSession {
 }
 
 const sessions = new Map<string, PackageSession>();
+const contextsBySender = new WeakMap<object, PackageSession>();
 const sessionsByWindow = new WeakMap<BrowserWindow, PackageSession>();
 let nextSessionId = 1;
 
@@ -46,7 +47,12 @@ export const getPackageSessionForWindow = (
   window: BrowserWindow | null | undefined,
 ): PackageSession | null => {
   if (!window || window.isDestroyed()) return null;
-  return sessionsByWindow.get(window) ?? null;
+  const session = sessionsByWindow.get(window);
+  return session &&
+    sessions.has(session.id) &&
+    !session.mainWindow.isDestroyed()
+    ? session
+    : null;
 };
 
 const getLiveWebContents = (window: BrowserWindow): unknown | null => {
@@ -63,6 +69,15 @@ const getLiveWebContents = (window: BrowserWindow): unknown | null => {
 export const getPackageSessionForSender = (
   sender: unknown,
 ): PackageSession | null => {
+  if (typeof sender === 'object' && sender !== null) {
+    const context = contextsBySender.get(sender);
+    if (
+      context &&
+      sessions.has(context.id) &&
+      !context.mainWindow.isDestroyed()
+    )
+      return context;
+  }
   for (const session of sessions.values()) {
     if (session.mainWindow.isDestroyed()) continue;
     if (getLiveWebContents(session.mainWindow) === sender) return session;
@@ -182,4 +197,13 @@ export const closePackageSessionWindows = (session: PackageSession): void => {
   for (const window of [...session.auxiliaryWindows]) {
     if (!window.isDestroyed()) window.close();
   }
+};
+
+/** A recording owner shares command context, but outlives the package's UI windows. */
+export const setPackageWindowContext = (
+  window: BrowserWindow,
+  session: PackageSession,
+): void => {
+  sessionsByWindow.set(window, session);
+  contextsBySender.set(window.webContents, session);
 };

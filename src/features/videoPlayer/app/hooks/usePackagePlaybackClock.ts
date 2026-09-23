@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { PackageMediaAngle } from '../../../../types/package/media';
 import type { VideoSyncData } from '../../../../types/video/sync';
@@ -51,11 +51,33 @@ export const usePackagePlaybackClock = ({
       ),
     [mediaAngles, syncData],
   );
-  const durationsKnown = mediaAngles.every((angle) =>
-    angle.clips.every((clip) => typeof clip.durationSeconds === 'number'),
+  const durationsKnown = useMemo(
+    () =>
+      mediaAngles.every((angle) =>
+        angle.clips.every((clip) => typeof clip.durationSeconds === 'number'),
+      ),
+    [mediaAngles],
   );
+  const bounds = useRef({ livePlaybackEnd, timelineEnd, durationsKnown });
+  bounds.current = { livePlaybackEnd, timelineEnd, durationsKnown };
   const clock = useRef(currentTime);
-  clock.current = currentTime;
+  // A delayed React commit may still contain an older tick. Never feed it back
+  // into the running clock: that slows playback and forces repeated video seeks.
+  useLayoutEffect(() => {
+    if (!isVideoPlaying || !useTimelineClock) clock.current = currentTime;
+  }, [currentTime, isVideoPlaying, useTimelineClock]);
+  useEffect(() => {
+    const seek = (event: Event): void => {
+      const detail: unknown =
+        event instanceof CustomEvent ? event.detail : null;
+      if (typeof detail !== 'object' || detail === null || !('time' in detail))
+        return;
+      if (typeof detail.time === 'number' && Number.isFinite(detail.time))
+        clock.current = Math.max(-86400, Math.min(86400, detail.time));
+    };
+    window.addEventListener('video-seek-start', seek);
+    return () => window.removeEventListener('video-seek-start', seek);
+  }, []);
   useEffect(() => {
     if (useTimelineClock && timelineEnd > 0) setMaxSec(timelineEnd);
   }, [useTimelineClock, timelineEnd, setMaxSec]);
@@ -65,6 +87,7 @@ export const usePackagePlaybackClock = ({
     let previous: number | undefined;
     const advance = (timestamp: number): void => {
       if (previous !== undefined) {
+        const { livePlaybackEnd, timelineEnd, durationsKnown } = bounds.current;
         const next = Math.min(
           86400,
           clock.current +
@@ -89,12 +112,9 @@ export const usePackagePlaybackClock = ({
     frame = requestAnimationFrame(advance);
     return () => cancelAnimationFrame(frame);
   }, [
-    durationsKnown,
     isVideoPlaying,
-    livePlaybackEnd,
     setCurrentTime,
     setIsVideoPlaying,
-    timelineEnd,
     useTimelineClock,
     videoPlayBackRate,
   ]);

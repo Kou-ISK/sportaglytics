@@ -19,6 +19,7 @@ import { AngleSyncTransportView } from './AngleSyncTransportView';
 interface TimelineActionSectionProps {
   liveCapture?: CaptureTimelineState;
   onGoLive?: () => void;
+  onShowCapture?: () => void;
   angleSync?: AngleSyncSnapshot;
   isPlaying: boolean;
   hotkeys: HotkeyConfig[];
@@ -82,6 +83,7 @@ interface TimelineActionSectionProps {
 export const TimelineActionSection = ({
   liveCapture,
   onGoLive,
+  onShowCapture,
   angleSync,
   isPlaying,
   hotkeys,
@@ -165,7 +167,11 @@ export const TimelineActionSection = ({
           />
           <TimelineRowSortControl onSort={sortTimelineRows} />
           {liveCapture && onGoLive && (
-            <LiveCaptureTimelineView state={liveCapture} onGoLive={onGoLive} />
+            <LiveCaptureTimelineView
+              state={liveCapture}
+              onGoLive={onGoLive}
+              onShowCapture={onShowCapture}
+            />
           )}
         </Box>
         {angleSync?.message && (

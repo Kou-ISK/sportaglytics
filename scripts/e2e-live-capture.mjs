@@ -25,7 +25,7 @@ execFileSync(ffmpegPath, [
   '-f',
   'lavfi',
   '-i',
-  'testsrc2=size=320x180:rate=30',
+  'testsrc2=size=1280x720:rate=30',
   '-t',
   '2',
   '-pix_fmt',
@@ -40,7 +40,7 @@ execFileSync(ffmpegPath, [
   '-f',
   'lavfi',
   '-i',
-  'color=c=blue:s=320x180:r=30:d=12',
+  'color=c=blue:s=1280x720:r=30:d=12',
   '-f',
   'lavfi',
   '-i',
@@ -142,6 +142,10 @@ try {
   await capture
     .getByRole('button', { name: 'カメラ・音声を確認', exact: true })
     .click();
+  await capture.getByLabel('録画画質', { exact: true }).click();
+  await capture
+    .getByRole('option', { name: '最大720p / 30fps', exact: true })
+    .click();
   await capture.getByLabel('音声入力', { exact: true }).click();
   await capture
     .getByRole('option', { name: '既定の音声入力', exact: true })
@@ -187,6 +191,30 @@ try {
     ),
     true,
   );
+  await capture.evaluate(() => {
+    const Original = window.MediaRecorder;
+    globalThis.captureRecorderStats = [];
+    window.MediaRecorder = class extends Original {
+      constructor(stream, options) {
+        super(stream, options);
+        const stats = {
+          mime: this.mimeType,
+          chunks: 0,
+          bytes: 0,
+          settings: stream.getVideoTracks().map((track) => ({
+            width: track.getSettings().width,
+            height: track.getSettings().height,
+            frameRate: track.getSettings().frameRate,
+          })),
+        };
+        globalThis.captureRecorderStats.push(stats);
+        this.addEventListener('dataavailable', (event) => {
+          stats.chunks++;
+          stats.bytes += event.data.size;
+        });
+      }
+    };
+  });
   await capture
     .getByRole('button', { name: '録画を開始', exact: true })
     .click();
@@ -245,7 +273,9 @@ try {
     ) < 0.05,
     'recording growth must not move a paused review cursor',
   );
-  await main.evaluate(() => window.electronAPI.codingPanelWindow.openWindow());
+  await capture.evaluate(() =>
+    window.electronAPI.codingPanelWindow.openWindow(),
+  );
   const code = await findWindow('#/coding-panel');
   await code.getByRole('button', { name: 'コード', exact: true }).waitFor();
   await code.evaluate(() => {
@@ -277,6 +307,122 @@ try {
   });
   const button = code.locator('[data-code-window-button="event"]');
   await button.waitFor();
+  await timeline
+    .getByRole('button', { name: 'ライブ位置', exact: true })
+    .click();
+  await timeline.waitForFunction(() => globalThis.captureClock?.isPlaying);
+  await main.waitForFunction(() => {
+    const video = document.querySelector('#video_0 video');
+    return video?.readyState >= 3 && !video.seeking && !video.paused;
+  });
+  await delay(750);
+  await main.evaluate(() => {
+    globalThis.initialCaptureVideo = document.querySelector('#video_0 video');
+    globalThis.initialCaptureTime = globalThis.initialCaptureVideo.currentTime;
+    globalThis.captureWaiting = 0;
+    globalThis.captureWaits = [];
+    globalThis.captureEmptied = 0;
+    globalThis.initialCaptureVideo?.addEventListener('waiting', () => {
+      globalThis.captureWaiting++;
+      globalThis.captureWaits.push({
+        time: globalThis.initialCaptureVideo.currentTime,
+        seeking: globalThis.initialCaptureVideo.seeking,
+        ranges: Array.from(
+          { length: globalThis.initialCaptureVideo.buffered.length },
+          (_, i) => [
+            globalThis.initialCaptureVideo.buffered.start(i),
+            globalThis.initialCaptureVideo.buffered.end(i),
+          ],
+        ),
+      });
+    });
+    globalThis.initialCaptureVideo?.addEventListener(
+      'emptied',
+      () => globalThis.captureEmptied++,
+    );
+  });
+  await code.bringToFront();
+  await button.click();
+  await button.locator('svg').waitFor();
+  assert.equal(
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()
+        .find((window) =>
+          window.webContents.getURL().includes('#/live-capture'),
+        )
+        ?.isVisible(),
+    ),
+    false,
+    'capture controls stay hidden while coding',
+  );
+  await app.evaluate(({ BrowserWindow }, url) => {
+    BrowserWindow.getAllWindows()
+      .find((window) => window.webContents.getURL() === url)
+      ?.hide();
+  }, main.url());
+  const liveStart = await timeline.evaluate(
+    () => globalThis.captureClock.currentTime,
+  );
+  await delay(25000);
+  await code.keyboard.press('q');
+  await button.locator('svg').waitFor({ state: 'detached' });
+  await app.evaluate(({ BrowserWindow }, url) => {
+    BrowserWindow.getAllWindows()
+      .find((window) => window.webContents.getURL() === url)
+      ?.showInactive();
+  }, main.url());
+  const liveEnd = await timeline.evaluate(
+    () => globalThis.captureClock.currentTime,
+  );
+  const playback = await main.evaluate(() => ({
+    sameElement:
+      globalThis.initialCaptureVideo ===
+      document.querySelector('#video_0 video'),
+    source: document
+      .querySelector('#video_0 video')
+      ?.currentSrc?.startsWith('blob:'),
+    emptied: globalThis.captureEmptied,
+    waiting: globalThis.captureWaiting,
+    playedSeconds:
+      document.querySelector('#video_0 video').currentTime -
+      globalThis.initialCaptureTime,
+    waits: globalThis.captureWaits,
+    error: document.querySelector('#video_0 video')?.error?.message,
+  }));
+  console.log('Continuous live playback:', JSON.stringify(playback));
+  assert.ok(
+    liveEnd - liveStart > 20,
+    'package clock advances while coding is focused',
+  );
+  assert.equal(
+    playback.sameElement,
+    true,
+    'a segment boundary must not recreate the decoder',
+  );
+  assert.equal(
+    playback.source,
+    true,
+    'live recording uses one continuous MediaSource',
+  );
+  assert.equal(playback.emptied, 0);
+  assert.equal(
+    playback.waits.filter((wait) => !wait.seeking).length,
+    0,
+    'buffered live playback must not starve at segment boundaries (clock corrections seek intentionally)',
+  );
+  assert.ok(
+    playback.playedSeconds > 20,
+    'the video advances while its window is hidden',
+  );
+  assert.equal(playback.error, undefined);
+  // Keep the live regression instance, then verify exact paused review timestamps.
+  await timeline.evaluate(() =>
+    window.electronAPI.timelineWindow.sendCommand({ type: 'request-sync' }),
+  );
+  await main
+    .getByRole('button', { name: '一時停止', exact: true })
+    .click({ force: true });
+  await seek(3);
   await code.bringToFront();
   await code.keyboard.press('q');
   await button.locator('svg').waitFor();
@@ -288,12 +434,12 @@ try {
     document = JSON.parse(
       await fs.readFile(path.join(pkg, 'timeline.json'), 'utf8'),
     );
-    if (document.instances?.length) break;
+    if (document.instances?.length === 2) break;
     await delay(100);
   }
-  assert.equal(document.instances.length, 1);
-  assert.equal(document.instances[0].startTime, 3);
-  assert.equal(document.instances[0].endTime, 8);
+  assert.equal(document.instances.length, 2);
+  assert.equal(document.instances[1].startTime, 3);
+  assert.equal(document.instances[1].endTime, 8);
   console.log(
     'Live Code Window persisted a cross-segment instance on the standard Timeline clock',
   );
@@ -314,6 +460,33 @@ try {
     25000,
   );
   await delay(1500);
+  await timeline
+    .getByRole('button', { name: '録画の操作', exact: true })
+    .click();
+  const countBeforeHide = (
+    await capture.evaluate(() => window.electronAPI.liveCapture.getState())
+  ).inputs[0].segmentCount;
+  await app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()
+      .find((window) => window.webContents.getURL().includes('#/live-capture'))
+      ?.close(),
+  );
+  await waitForCapture(
+    (state) => state?.inputs[0].segmentCount > countBeforeHide,
+  );
+  assert.equal(
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()
+        .find((window) =>
+          window.webContents.getURL().includes('#/live-capture'),
+        )
+        ?.isVisible(),
+    ),
+    false,
+  );
+  await timeline
+    .getByRole('button', { name: '録画の操作', exact: true })
+    .click();
   await capture
     .getByRole('button', { name: '再接続', exact: true })
     .first()
@@ -509,6 +682,12 @@ try {
       .catch(() => undefined);
   }
   if (capture) {
+    console.error(
+      'Recorder stats:',
+      await capture
+        .evaluate(() => globalThis.captureRecorderStats)
+        .catch(() => null),
+    );
     const state = await capture
       .evaluate(() => window.electronAPI.liveCapture.getState())
       .catch(() => null);

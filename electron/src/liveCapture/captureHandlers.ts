@@ -17,6 +17,8 @@ import {
 } from '../../../src/shared/liveCapture/validation';
 import { getFfmpegPath } from '../mediaTools';
 import {
+  setPackageWindowContext,
+  focusPackageSession,
   getPackageSessionForPackagePath,
   getPackageSessionForSender,
 } from '../packageSessionRegistry';
@@ -66,11 +68,16 @@ export const registerLiveCaptureHandlers = (options: {
       releaseSleepBlocker();
     const captureWindow = getCaptureWindow();
     captureWindow?.webContents.send(channels.state, state);
-    const target = getPackageSessionForPackagePath(
-      state.packagePath,
-    )?.mainWindow;
-    if (target && !target.isDestroyed())
+    const packageSession = getPackageSessionForPackagePath(state.packagePath);
+    if (captureWindow && packageSession)
+      setPackageWindowContext(captureWindow, packageSession);
+    const target = packageSession?.mainWindow;
+    if (target && !target.isDestroyed()) {
+      target.webContents.setBackgroundThrottling(
+        !['recording', 'stopping'].includes(state.phase),
+      );
       target.webContents.send(channels.state, state);
+    }
     const hasMedia = state.mediaAngles.some((angle) => angle.clips.length > 0);
     const ready =
       state.inputs.every(
@@ -81,9 +88,21 @@ export const registerLiveCaptureHandlers = (options: {
       ) || ['completed', 'error'].includes(state.phase);
     if (!opened && hasMedia && ready) {
       opened = true;
-      void options.openPackage(state.packagePath).catch(() => {
-        opened = false;
-      });
+      void options
+        .openPackage(state.packagePath)
+        .then(() => {
+          if (current?.id !== state.id) return;
+          const session = getPackageSessionForPackagePath(state.packagePath);
+          const window = getCaptureWindow();
+          if (session && window) {
+            setPackageWindowContext(window, session);
+            if (current.snapshot.phase === 'recording') window.hide();
+            focusPackageSession(session);
+          }
+        })
+        .catch(() => {
+          if (current?.id === state.id) opened = false;
+        });
     }
   };
   const stopSafely = async (): Promise<void> => {
@@ -115,6 +134,15 @@ export const registerLiveCaptureHandlers = (options: {
     )
       throw new Error('Invalid capture sender');
     openLiveCaptureWindow();
+  });
+  ipcMain.handle(channels.hide, (event) => {
+    if (!isOwner(event)) throw new Error('Invalid capture sender');
+    if (!active()) return;
+    getCaptureWindow()?.hide();
+    if (current) {
+      const session = getPackageSessionForPackagePath(current.packagePath);
+      if (session) focusPackageSession(session);
+    }
   });
   ipcMain.handle(channels.authorize, (event) => {
     if (!isOwner(event)) throw new Error('Invalid capture sender');

@@ -1,3 +1,4 @@
+import { getDeviceRecordingCodec } from './deviceRecorder';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   CaptureSnapshot,
@@ -41,6 +42,7 @@ type CaptureController = Omit<CaptureSetupViewProps, `on${string}`> & {
   refreshDevices: () => Promise<void>;
   start: () => Promise<void>;
   stop: () => Promise<void>;
+  hide: () => void;
   retry: (id: string) => Promise<void>;
   addSource: () => void;
 };
@@ -181,7 +183,12 @@ export const useCaptureController = (): CaptureController => {
               kind: 'network',
               url: source.url.trim(),
             }
-          : { id: source.id, name: source.name, kind: 'device' },
+          : {
+              id: source.id,
+              name: source.name,
+              kind: 'device',
+              videoCodec: getDeviceRecordingCodec(),
+            },
       ),
     };
     if (!isCaptureStartRequest(request)) {
@@ -238,6 +245,7 @@ export const useCaptureController = (): CaptureController => {
             id,
             captureAPI(),
             reportError,
+            quality,
           ),
         );
       setStreams(Object.fromEntries(prepared));
@@ -278,6 +286,7 @@ export const useCaptureController = (): CaptureController => {
               id,
               captureAPI(),
               reportError,
+              quality,
             ),
           );
           const recordedStream = stream;
@@ -310,6 +319,11 @@ export const useCaptureController = (): CaptureController => {
     start,
     stop,
     retry,
+    hide: (): void => {
+      void window.electronAPI?.liveCapture
+        .hide()
+        .catch(() => reportError('キャプチャ画面を閉じられませんでした。'));
+    },
     addSource: (): void =>
       setSources((previous) =>
         previous.length < 4

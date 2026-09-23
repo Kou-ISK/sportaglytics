@@ -7,6 +7,7 @@ import { LIVE_CAPTURE_CHANNELS as channels } from '../../../src/types/ipc/liveCa
 
 export const createLiveCaptureBridge = (ipc: IpcRenderer): ILiveCaptureAPI => ({
   open: () => ipc.invoke(channels.open),
+  hide: () => ipc.invoke(channels.hide),
   authorizeDevices: () => ipc.invoke(channels.authorize),
   capabilities: () => ipc.invoke(channels.capabilities),
   start: (request) => ipc.invoke(channels.start, request),
