@@ -19,6 +19,8 @@ Mainはウィンドウの読み込み後にパッケージを開く通知を送�
 
 ## Decision
 
+- Mainでロード中の通知を保留する場合は`did-stop-loading`で配送する（2026-09-23補足）。Electronは`did-finish-load`発火時と`loadURL`のPromise解決時にも`isLoading()`がtrueの期間を持つ。ロード状態を見てから次の`did-finish-load`を待つ実装では、この期間の通知が届かない。
+
 - 用途専用の `packageOpenBridge` をpreload初期化時に作り、通知を直ちに受信する。
 - 購読者がいない間はウィンドウ内で最新1件のみ保持する。Mainのパッケージ別ウィンドウ振り分けは維持する。
 - 購読後のmicrotaskで現在の購読者へ配送する。消費時に保留を消し、StrictModeの再購読で二重処理しない。
