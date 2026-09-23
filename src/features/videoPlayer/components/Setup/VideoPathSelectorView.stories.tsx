@@ -31,6 +31,7 @@ const meta = {
     recentPackages: [],
     onOpenPackage: () => {},
     onOpenWizard: () => {},
+    onOpenCapture: () => {},
     onOpenRecentPackage: () => {},
     onRemoveRecentPackage: () => {},
   },

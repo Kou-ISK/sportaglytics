@@ -40,7 +40,7 @@ export const usePlaylistExportState = (): UsePlaylistExportStateResult => {
   } = useClipExportDialogState();
   const [exportMode, setExportMode] = useState<ClipExportMode>('single');
   const [angleOption, setAngleOption] =
-    useState<ClipExportAngleOption>('single');
+    useState<ClipExportAngleOption>('defaultAngles');
   const [selectedAngleIndex, setSelectedAngleIndex] = useState<number>(0);
   const [exportFileName, setExportFileName] = useState('');
   const [exportScope, setExportScope] = useState<ClipExportScope>('all');

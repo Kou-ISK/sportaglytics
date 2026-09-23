@@ -140,13 +140,13 @@ export async function exercisePlaylistSorter({
     const saved = JSON.parse(
       await fs.readFile(path.join(folder, 'playlist.json'), 'utf8'),
     );
-    if (saved.schemaVersion === 4) break;
+    if (saved.schemaVersion === 5) break;
     await delay(100);
   }
   const saved = JSON.parse(
     await fs.readFile(path.join(folder, 'playlist.json'), 'utf8'),
   );
-  assert.equal(saved.schemaVersion, 4);
+  assert.equal(saved.schemaVersion, 5);
   assert.equal(saved.items.find((item) => item.id === 'b').note, note);
   assert.ok(saved.items.every((item) => !('memo' in item)));
   assert.deepEqual(

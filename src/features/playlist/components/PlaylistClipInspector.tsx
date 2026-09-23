@@ -1,7 +1,9 @@
 import { PlaylistNoteEditor } from './PlaylistNoteEditor';
+import { PlaylistAnglePickerView } from './PlaylistAnglePickerView';
 import React from 'react';
 import {
   Box,
+  Button,
   Chip,
   Divider,
   IconButton,
@@ -16,6 +18,7 @@ import { useTheme } from '@mui/material/styles';
 import type {
   ItemAnnotation,
   PlaylistItem,
+  PlaylistAngle,
 } from '../../../types/playlist/core';
 
 type PlaylistClipInspectorProps = {
@@ -25,6 +28,8 @@ type PlaylistClipInspectorProps = {
   onEditNote: (itemId: string) => void;
   onPlay: (itemId: string) => void;
   onUpdateNote: (itemId: string, note: string) => void;
+  onDefaultAngleChange?: (itemId: string, angle: PlaylistAngle) => void;
+  onRelink?: (target: 'primary' | 'secondary') => void;
 };
 
 const formatTime = (value: number): string => {
@@ -41,6 +46,8 @@ export const PlaylistClipInspector = ({
   onEditNote,
   onPlay,
   onUpdateNote,
+  onDefaultAngleChange,
+  onRelink,
 }: PlaylistClipInspectorProps): React.ReactElement => {
   const theme = useTheme();
   const annotationCount = annotation?.objects.length ?? 0;
@@ -119,6 +126,13 @@ export const PlaylistClipInspector = ({
           </Box>
 
           <Divider />
+          {onDefaultAngleChange && (
+            <PlaylistAnglePickerView
+              value={item.defaultAngle ?? 'angle1'}
+              hasSecondary={Boolean(item.videoSource2)}
+              onChange={(angle) => onDefaultAngleChange(item.id, angle)}
+            />
+          )}
           <InspectorField label="ラベル">
             {item.labels?.length ? (
               <Stack direction="row" flexWrap="wrap" gap={0.5}>
@@ -154,6 +168,20 @@ export const PlaylistClipInspector = ({
               Angle 1: {item.videoSource || '未指定'}
               {item.videoSource2 ? ` · Angle 2: ${item.videoSource2}` : ''}
             </Typography>
+            {onRelink &&
+              (item.mediaReference ||
+                /\.stpkg[/\\]/i.test(item.videoSource ?? '')) && (
+                <Button size="small" onClick={() => onRelink('primary')}>
+                  元パッケージを再接続…
+                </Button>
+              )}
+            {onRelink &&
+              (item.mediaReference2 ||
+                /\.stpkg[/\\]/i.test(item.videoSource2 ?? '')) && (
+                <Button size="small" onClick={() => onRelink('secondary')}>
+                  アングル2の元パッケージを再接続…
+                </Button>
+              )}
           </InspectorField>
         </Stack>
       )}

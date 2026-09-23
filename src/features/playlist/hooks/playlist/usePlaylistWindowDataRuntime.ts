@@ -18,9 +18,11 @@ import { usePlaylistVideoControlsState } from './usePlaylistVideoControlsState';
 import { usePlaylistVideoSourcesSync } from './usePlaylistVideoSourcesSync';
 import { usePlaylistWindowCoreState } from './usePlaylistWindowCoreState';
 import { usePlaylistWindowSync } from './usePlaylistWindowSync';
+import { usePlaylistMediaReferences } from '../../media/usePlaylistMediaReferences';
 
 export interface PlaylistWindowDataRuntime {
   core: ReturnType<typeof usePlaylistWindowCoreState>;
+  mediaReferences: ReturnType<typeof usePlaylistMediaReferences>;
   history: ReturnType<typeof usePlaylistHistory>;
   selection: ReturnType<typeof usePlaylistSelection>;
   exportState: ReturnType<typeof usePlaylistExportState>;
@@ -68,6 +70,13 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
     setHasUnsavedChanges: core.setHasUnsavedChanges,
     minFreezeDuration: MIN_FREEZE_DURATION,
     defaultFreezeDuration: DEFAULT_FREEZE_DURATION,
+  });
+
+  const mediaReferences = usePlaylistMediaReferences({
+    items: history.items,
+    currentItem: currentItemState.currentItem,
+    reconcile: history.reconcileMedia,
+    setDirty: core.setHasUnsavedChanges,
   });
 
   usePlaylistVideoSourcesSync({
@@ -162,6 +171,7 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
   });
 
   return {
+    mediaReferences,
     core,
     history,
     selection,

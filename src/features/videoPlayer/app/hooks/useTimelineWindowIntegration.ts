@@ -4,6 +4,7 @@ import type {
 } from '../../../../types/ipc/angleSync';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { HotkeyConfig } from '../../../../types/settings/coreTypes';
+import type { CaptureTimelineState } from '../../../../types/liveCapture';
 import type {
   TimelineData,
   TimelineRow,
@@ -19,6 +20,8 @@ import {
 } from '../gateways/timelineWindowGateway';
 
 interface UseTimelineWindowIntegrationParams {
+  liveCapture?: CaptureTimelineState;
+  onGoLive?: () => void;
   angleSync?: AngleSyncSnapshot;
   onAngleSyncCommand: (command: AngleSyncCommand) => void;
   isFileSelected: boolean;
@@ -77,6 +80,7 @@ export const useTimelineWindowIntegration = (
 
   const payload = useMemo(
     () => ({
+      liveCapture: params.liveCapture,
       angleSync: params.angleSync,
       timeline: params.timeline,
       rows: params.rows,
@@ -91,6 +95,7 @@ export const useTimelineWindowIntegration = (
       updatedAt: Date.now(),
     }),
     [
+      params.liveCapture,
       params.angleSync,
       params.currentTime,
       params.hotkeys,
@@ -142,6 +147,7 @@ export const useTimelineWindowIntegration = (
   useEffect(() => {
     syncLatest();
   }, [
+    params.liveCapture,
     params.angleSync,
     params.hotkeys,
     params.isFileSelected,
@@ -186,6 +192,12 @@ export const useTimelineWindowIntegration = (
       subscribeTimelineWindowCommand((command: TimelineWindowCommand) => {
         const current = paramsRef.current;
         switch (command.type) {
+          case 'show-capture-controls':
+            void window.electronAPI?.liveCapture.open();
+            return;
+          case 'go-live':
+            current.onGoLive?.();
+            break;
           case 'angle-sync':
             current.onAngleSyncCommand(command.command);
             break;

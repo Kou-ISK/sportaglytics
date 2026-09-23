@@ -1,5 +1,9 @@
 # Testing and Quality Gates
 
+ライブキャプチャの回帰は`node scripts/e2e-live-capture.mjs`で行います（事前にmedia:build / e2e:prepare）。USB模擬入力と合成HTTP配信の同時録画、過去レビュー中のコード保存、再接続時の空白、停止・複数区間の書き出しを検証します。実機別のドライバ・連係カメラ・RTSP配信は別途ハードウェア検証が必要です。
+
+720pの模擬入力で録画画面と映像ウィンドウを隠し、Code Windowのクリック/ホットキーを混用して25秒間連続記録します。区間をまたいでもvideo要素が同一で、emptied・バッファ不足によるwaitingが発生せず映像時刻が進むことを確認します。共通時計への補正シーク中のwaitingは区別してログに残します。可変フレーム時刻の区間重複は保存時に補正し、書き出しと再オープンも検査します。
+
 Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含みます。複数行の旧文書を読み、実UIでソートして再生・Undo/Redo・保存再読込を確認し、色の異なる合成映像のFFmpeg出力を復号して順序を検証します。Storybookの`Workspace/Playlist/Sorter`ではInteractive、Narrow、Emptyとdark/lightを確認します。
 
 このドキュメントは SporTagLytics のテストと品質ゲート運用ガイドです。必須コマンドの正本は `AGENTS.md` です。

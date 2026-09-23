@@ -126,3 +126,23 @@ describe('package session registry', () => {
     );
   });
 });
+
+it('routes capture controls to the package without closing its independent recording owner', async () => {
+  const {
+    setPackageWindowContext,
+    getPackageSessionForWindow,
+    closePackageSessionWindows,
+    removePackageSession,
+  } = await import('./packageSessionRegistry');
+  const main = createWindow('capture-package');
+  const owner = createWindow('capture-controls');
+  const session = createPackageSession(main);
+  setPackageWindowContext(owner, session);
+  expect(getPackageSessionForSender(owner.webContents)).toBe(session);
+  expect(getPackageSessionForWindow(owner)).toBe(session);
+  expect(session.auxiliaryWindows.has(owner)).toBe(false);
+  expect(() => closePackageSessionWindows(session)).not.toThrow();
+  removePackageSession(session);
+  expect(getPackageSessionForSender(owner.webContents)).toBeNull();
+  expect(getPackageSessionForWindow(owner)).toBeNull();
+});

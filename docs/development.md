@@ -1,5 +1,13 @@
 # 開発ガイド
 
+ライブキャプチャの開発ではネットワーク有効の同梱FFmpegが必要です。`pnpm run media:build`後に`pnpm run e2e:prepare`、`node scripts/e2e-live-capture.mjs`で模擬カメラと合成IP映像を検証します。実カメラを自動テストで起動しません。[入力・保存契約](live-coding.md)。
+
+ライブ回帰では録画ウィンドウの非表示中・Code Windowのフォーカス中にコードを開始/終了し、タグ保存と映像要素の継続を確認します。連続再生用の録画は`playbackFormat: fragmented-mp4`付きで、既存MP4との互換性は通常再生・書き出し・再オープンでも検証します。
+
+パッケージ時計の進行を、遅れてcommitされた描画時刻で巻き戻さないでください。再生中の明示的な移動は既存の`video-seek-start`イベントの時刻を使い、一時停止中は表示時刻を反映します。遅延renderと明示seekの回帰は`usePackagePlaybackClock.test.tsx`にあります。
+
+Playlistの参照・既定アングル変更時は`mediaReferences.test.ts`、`playlistMediaReconciliation.test.ts`、`playlistDefaultAngles.test.ts`と`node scripts/e2e-playlist-references-angles.mjs`を実行します。合成映像の2アングル×2ファイルを使い、既定値のUndo/Redo・保存再読込・境界での表示切替・移動したパッケージ・単一出力の実画素を確認します。Macでは実NSURL bookmarkで移動を確認し、WindowsのCIとインストール版も共通シナリオを使います。
+
 書き出しノートの変更時は`clipExportTextLayout.test.ts`、`exportTextInspection.test.ts`、`exportFfmpegOverlay.test.ts`と`e2e-export-menu.mjs`で高さ上限・最低文字サイズ・実映像プレビュー・超過時の拒否を確認します。Playwrightの映像fixtureは720pとして日本語の描画を確認します。仕様は[Playlist](playlist-features.md#ノートの編集と映像出力)を参照してください。
 
 ノートの変更では、旧文書の統合・空欄・再読込の冪等性と、Sorter入力中の削除・IME・確定・取消を確認します。pnpm run test:e2e:export-menu は、直接編集→保存・再読込→毎回のテキスト選択→実FFmpeg出力の日本語3行を確認します。StorybookのWorkspace/Playlist/NoteEditorとWorkspace/Export/TextConfirmationで狭幅・空欄・確認待ちを確認できます。
@@ -326,6 +334,8 @@ Model training/evaluationのdebuggingはprivate R&D repositoryで行います。
 
 ## Playlistを開くメニューを変更するとき
 
+メニュー通知の生存確認は`menuCommandDelivery.test.ts`で、Windowより先に閉じたWebContents、getter/送信時の破棄、残りのWindowへの通知継続を検査します。`e2e-code-window-menu.mjs`はライブキャプチャ画面を閉じた直後の「新規パッケージ」操作をmacOS/Windowsで確認します。
+
 Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-open-menu.mjs`を使います。実メニューのcallbackから`.stpl`のロード・再生、選択取消、不正パッケージ、未保存文書の保持、既存Windowの再利用を確認します。このシナリオは通常のE2EとWindowsインストール後のE2Eにも含めます。
 
 ## リリースプロセス
@@ -360,12 +370,12 @@ macOS署名はキーチェーン修正版のelectron-builder 26.16.1で行いま
 
 UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architecture/design-system/ADR検査、テスト、アプリbuild、Storybook buildを実行します。品質ゲートの正本は[testing.md](testing.md)です。
 
-| 対象     | Storybook / 確認事項                                                                                                                                                                       | 機能の正本                                       |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| 起動画面 | `Workspace/Start`: 初回、履歴検索、空/該当なし、長い保存先、ロード中、エラー再試行、drop                                                                                                   | [起動画面](start-workspace.md)                   |
-| 再生操作 | `Design System/Composites/Movie Transport`、`Workspace/Transport`: 半透明、送り量のラベル、描画目印                                                                                        | [デザインシステム](design-system.md)             |
+| 対象     | Storybook / 確認事項                                                                                                                                                                                                     | 機能の正本                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| 起動画面 | `Workspace/Start`: 初回、履歴検索、空/該当なし、長い保存先、ロード中、エラー再試行、drop                                                                                                                                 | [起動画面](start-workspace.md)                   |
+| 再生操作 | `Design System/Composites/Movie Transport`、`Workspace/Transport`: 半透明、送り量のラベル、描画目印                                                                                                                      | [デザインシステム](design-system.md)             |
 | Timeline | `Workspace/Timeline/Continuous`、Context Menu / Row Actions: ズーム・スクロール後のruler/行/再生線一致、最上段だけの通常シークと端編集時の映像プレビュー、未選択の端編集・空白クリック・範囲選択、右クリックとキーボード | [ユーザーガイド](user-guide.md#タイムライン編集) |
-| Paint    | `Workspace/Playlist/Paint`: Interactive、Empty、Player Graphics、Video Tracking、Keyframe Editing、Inspector Layout、Collapsed Inspector                                                   | [Paint](tactics.md)                              |
+| Paint    | `Workspace/Playlist/Paint`: Interactive、Empty、Player Graphics、Video Tracking、Keyframe Editing、Inspector Layout、Collapsed Inspector                                                                                 | [Paint](tactics.md)                              |
 
 共通してdark/light、600/800/1280px、長い名称、キーボード、空状態・失敗状態を確認します。Paintでは点/描画の削除とUndo、入力欄のBackspace、リンクの連続クリック、追尾の範囲指定→適用→手修正→再追尾、パネル開閉時の状態保持を確認します。時間目盛りの入力は `useStudioRulerInput` でRAFにまとめるため、連続入力と動画側の追従も確認します。
 

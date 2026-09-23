@@ -142,6 +142,7 @@ export const useVideoTimeController = ({
       if (Number.isNaN(time) || time < minAllowed) {
         console.warn('Invalid time value:', time);
         setCurrentTime(minAllowed);
+        dispatchSeekEvent('video-seek-start', minAllowed);
         return;
       }
 

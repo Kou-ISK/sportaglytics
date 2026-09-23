@@ -1,5 +1,7 @@
 # SporTagLytics Documentation
 
+ライブ撮影中の分析は[ライブキャプチャとコーディング](live-coding.md)を参照してください。設計判断は[ADR 0053](adr/0053-live-capture-package-timeline.md) / [ADR 0054](adr/0054-continuous-capture-playback.md)です。
+
 Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter-presentation-order.md)を参照してください。
 
 このディレクトリは SporTagLytics のドキュメント入口です。実装規約の正本はリポジトリルートの `AGENTS.md` です。本ページは、利用者、開発者、AI contributor が必要な情報へ最短で辿れるように整理します。
@@ -103,3 +105,6 @@ AI agent は次の順で参照してください。
 - [ADR 0039: 端末内戦術盤とフレーム単位の較正](adr/0039-local-tactical-board.md) — 保存契約、モデル同梱、認識候補の確認。
 
 - [複数クリップの共通時刻契約（ADR 0040）](adr/0040-shared-media-timeline-clock.md)
+
+- [Portable playlist references (ADR 0051)](adr/0051-portable-playlist-references.md)
+- [Playlist default angles (ADR 0052)](adr/0052-playlist-default-angles.md)

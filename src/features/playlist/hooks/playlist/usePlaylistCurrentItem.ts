@@ -33,12 +33,20 @@ export const usePlaylistCurrentItem = ({
 
   const currentVideoSource = useMemo(() => {
     if (!currentItem) return null;
-    return currentItem.videoSource || videoSources[0] || null;
+    return (
+      currentItem.videoSource ||
+      (currentItem.mediaReference ? null : videoSources[0]) ||
+      null
+    );
   }, [currentItem, videoSources]);
 
   const currentVideoSource2 = useMemo(() => {
     if (!currentItem) return null;
-    return currentItem.videoSource2 || videoSources[1] || null;
+    return (
+      currentItem.videoSource2 ||
+      (currentItem.mediaReference2 ? null : videoSources[1]) ||
+      null
+    );
   }, [currentItem, videoSources]);
 
   const sliderMin = currentItem?.startTime ?? 0;

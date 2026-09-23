@@ -17,6 +17,7 @@ export interface VideoPathSelectorViewProps extends StartStatusProps {
   onSearchChange?: (value: string) => void;
   onOpenPackage: () => void;
   onOpenWizard: () => void;
+  onOpenCapture?: () => void;
   onOpenRecentPackage: (path: string) => void;
   onRemoveRecentPackage: (path: string) => void;
 }
@@ -65,6 +66,7 @@ export const VideoPathSelectorView = (
           <ActionButtonsRow
             onOpenPackage={props.onOpenPackage}
             onOpenWizard={props.onOpenWizard}
+            onOpenCapture={props.onOpenCapture}
             disabled={props.busy}
           />
           <DropZoneCard dragState={props.dragState} />

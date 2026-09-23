@@ -53,6 +53,9 @@ const systemLibraries = new Set([
   'gdi32.dll',
   'advapi32.dll',
   'bcrypt.dll',
+  // Windows CNG key storage used by Schannel (available since Windows Vista).
+  // https://learn.microsoft.com/windows/win32/api/ncrypt/nf-ncrypt-ncryptopenstorageprovider
+  'ncrypt.dll',
   'ole32.dll',
   'oleaut32.dll',
   'shell32.dll',

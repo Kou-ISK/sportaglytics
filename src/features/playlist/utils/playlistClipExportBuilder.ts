@@ -65,6 +65,7 @@ export const buildPlaylistTextClips = (
     actionIndex: indices.get(item.id),
     videoSource: item.videoSource,
     videoSource2: item.videoSource2,
+    angleType: item.defaultAngle ?? 'angle1',
   }));
 };
 
@@ -194,6 +195,7 @@ export const buildPlaylistExportClips = ({
       annotationPngSecondary: freezeFrames[0]?.annotationPngSecondary ?? null,
       videoSource: item.videoSource || undefined,
       videoSource2: item.videoSource2 || undefined,
+      angleType: item.defaultAngle ?? 'angle1',
     };
   });
 };

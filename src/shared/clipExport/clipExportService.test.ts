@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ClipExportItem } from './clipExportTypes';
 import {
   executeClipExport,
+  buildClipExportRequests,
   resolveClipExportSourceSelection,
   validateClipExportSources,
 } from './clipExportService';
@@ -182,5 +183,91 @@ it.each(['single', 'allAngles', 'multi'] as const)(
     expect(result.success).toBe(false);
     expect(result.message).toContain('アングルがない');
     expect(executeExport).not.toHaveBeenCalled();
+  },
+);
+
+const angleRequest = {
+  videoSources: ['one.mp4', 'two.mp4'],
+  selectedAngleIndex: 0,
+  resolvedSources: { sourcePath: 'one.mp4', sourcePath2: 'two.mp4' },
+  exportMode: 'single' as const,
+  exportFileName: 'review',
+  overlay: {
+    enabled: false,
+    showActionName: false,
+    showActionIndex: false,
+    showLabels: false,
+    showMemo: false,
+  },
+};
+const mixedClips: ClipExportItem[] = [
+  {
+    ...sampleClips[0],
+    videoSource: 'first-one.mp4',
+    videoSource2: 'first-two.mp4',
+    angleType: 'angle1',
+  },
+  {
+    ...sampleClips[0],
+    id: 'second',
+    videoSource: 'second-one.mp4',
+    videoSource2: 'second-two.mp4',
+    angleType: 'angle2',
+    annotationPngSecondary: 'secondary-paint',
+  },
+];
+it('keeps per-instance angles and Paint in one single-file export request', () => {
+  const requests = buildClipExportRequests({
+    ...angleRequest,
+    angleOption: 'defaultAngles',
+    clips: mixedClips,
+  });
+  expect(requests).toHaveLength(1);
+  expect(requests[0]).toMatchObject({
+    mode: 'single',
+    exportMode: 'single',
+    clips: mixedClips,
+  });
+});
+it('allows an explicit fixed-angle override, and removes single-angle hints for dual export', () => {
+  const fixed = buildClipExportRequests({
+    ...angleRequest,
+    angleOption: 'single',
+    clips: mixedClips,
+  });
+  expect(fixed[0].clips.map((clip) => clip.angleType)).toEqual([
+    'angle1',
+    'angle1',
+  ]);
+  const dual = buildClipExportRequests({
+    ...angleRequest,
+    angleOption: 'multi',
+    clips: mixedClips,
+  });
+  expect(dual[0].mode).toBe('dual');
+  expect(dual[0].clips.every((clip) => clip.angleType === undefined)).toBe(
+    true,
+  );
+});
+it('rejects a missing default angle instead of substituting a different clip or angle', () => {
+  expect(() =>
+    buildClipExportRequests({
+      ...angleRequest,
+      angleOption: 'defaultAngles',
+      clips: [{ ...mixedClips[1], videoSource2: undefined }],
+    }),
+  ).toThrow('既定アングルの映像がない');
+});
+
+it.each(['single', 'multi'] as const)(
+  'rejects a disconnected primary angle instead of a different clip fallback (%s)',
+  (angleOption) => {
+    expect(() =>
+      buildClipExportRequests({
+        ...angleRequest,
+        angleOption,
+        clips: [{ ...mixedClips[0], videoSource: undefined }],
+      }),
+    ).toThrow('アングルがない');
   },
 );

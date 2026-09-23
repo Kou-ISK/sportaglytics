@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
 import {
@@ -16,7 +18,7 @@ import { run } from './media-tools/process.mjs';
 import { buildMacMediaTools } from './media-tools/macos.mjs';
 import { buildWindowsMediaTools } from './media-tools/windows.mjs';
 
-const BUILD_REVISION = 3;
+const BUILD_REVISION = 4;
 const outputRoot = resolve('.cache/media-tools');
 const platform = process.platform;
 const parallelism = String(Math.max(2, Math.min(12, cpus().length)));
@@ -177,6 +179,15 @@ if (pending.length > 0) {
         '-',
       ]);
       await rm(png);
+      const { stdout: protocols } = await promisify(execFile)(
+        ffmpeg,
+        ['-hide_banner', '-protocols'],
+        { windowsHide: true },
+      );
+      for (const protocol of ['http', 'https', 'tcp', 'rtmp', 'tls', 'pipe']) {
+        if (!protocols.split(/\s+/).includes(protocol))
+          throw new Error(`Missing capture protocol: ${protocol}`);
+      }
       const binaries = {};
       for (const tool of ['ffmpeg', 'ffprobe']) {
         const executable = join(outputDirectory, executableName(tool));

@@ -30,27 +30,6 @@ interface UsePlaylistPlaybackEffectsParams extends Pick<
   handleItemEnd: () => void;
 }
 
-const syncDualViewTimes = (params: {
-  viewMode: 'dual' | 'angle1' | 'angle2';
-  mainVideo: HTMLVideoElement;
-  subVideo: HTMLVideoElement;
-}) => {
-  if (params.viewMode === 'angle2') {
-    params.mainVideo.currentTime = params.subVideo.currentTime;
-    return;
-  }
-  if (params.viewMode === 'angle1') {
-    params.subVideo.currentTime = params.mainVideo.currentTime;
-    return;
-  }
-  const timeDiff = Math.abs(
-    params.mainVideo.currentTime - params.subVideo.currentTime,
-  );
-  if (timeDiff > 0.1) {
-    params.subVideo.currentTime = params.mainVideo.currentTime;
-  }
-};
-
 export const usePlaylistPlaybackEffects = ({
   disabled = false,
   isFrozen,
@@ -77,6 +56,9 @@ export const usePlaylistPlaybackEffects = ({
 }: UsePlaylistPlaybackEffectsParams): void => {
   const isPlayingRef = useRef(isPlaying);
   const isFrozenRef = useRef(isFrozen);
+  const previousViewMode = useRef(viewMode);
+  const viewModeRef = useRef(viewMode);
+  viewModeRef.current = viewMode;
   const endedItemIdRef = useRef<string | null>(null);
   const currentItemId = currentItem?.id;
   const currentItemStartTime = currentItem?.startTime;
@@ -95,7 +77,7 @@ export const usePlaylistPlaybackEffects = ({
 
   useEffect(() => {
     if (disabled) return;
-    const video = videoRef.current;
+    const video = viewMode === 'angle2' ? videoRef2.current : videoRef.current;
     if (!video) return;
 
     const finishCurrentItem = (): void => {
@@ -185,21 +167,23 @@ export const usePlaylistPlaybackEffects = ({
     setDuration,
     triggerFreezeFrame,
     videoRef,
+    videoRef2,
+    viewMode,
   ]);
 
   useEffect(() => {
     if (disabled) return;
     const mainVideo = videoRef.current;
     const subVideo = videoRef2.current;
-    if (!mainVideo || !currentVideoSource) return;
+    if (!mainVideo) return;
 
     if (isPlaying && !isFrozen) {
-      if (viewMode !== 'angle2') {
+      if (viewMode !== 'angle2' && currentVideoSource) {
         mainVideo.play().catch(console.error);
-      }
+      } else mainVideo.pause();
       if (subVideo && currentVideoSource2 && viewMode !== 'angle1') {
         subVideo.play().catch(console.error);
-      }
+      } else subVideo?.pause();
       return;
     }
 
@@ -221,11 +205,11 @@ export const usePlaylistPlaybackEffects = ({
     const mainVideo = videoRef.current;
     const subVideo = videoRef2.current;
     if (!mainVideo) return;
-    mainVideo.volume = isMuted ? 0 : volume;
+    mainVideo.volume = isMuted || viewMode === 'angle2' ? 0 : volume;
     if (subVideo) {
-      subVideo.volume = 0;
+      subVideo.volume = !isMuted && viewMode === 'angle2' ? volume : 0;
     }
-  }, [disabled, isMuted, videoRef, videoRef2, volume]);
+  }, [disabled, isMuted, videoRef, videoRef2, volume, viewMode]);
 
   useEffect(() => {
     if (disabled) return;
@@ -246,7 +230,11 @@ export const usePlaylistPlaybackEffects = ({
     setCurrentTime(currentItemStartTime);
 
     const playWhenReady = (): void => {
-      if (isPlayingRef.current && !isFrozenRef.current) {
+      if (
+        isPlayingRef.current &&
+        !isFrozenRef.current &&
+        viewModeRef.current !== 'angle2'
+      ) {
         mainVideo.play().catch(console.error);
       }
     };
@@ -277,10 +265,13 @@ export const usePlaylistPlaybackEffects = ({
     subVideo.src = formatSource(currentVideoSource2);
     subVideo.load();
     subVideo.currentTime = currentItemStartTime;
-    subVideo.volume = 0;
 
     const playWhenReady = (): void => {
-      if (isPlayingRef.current && !isFrozenRef.current) {
+      if (
+        isPlayingRef.current &&
+        !isFrozenRef.current &&
+        viewModeRef.current !== 'angle1'
+      ) {
         subVideo.play().catch(console.error);
       }
     };
@@ -301,7 +292,13 @@ export const usePlaylistPlaybackEffects = ({
     if (!mainVideo || !subVideo) return;
     if (!currentVideoSource || !currentVideoSource2) return;
 
-    syncDualViewTimes({ viewMode, mainVideo, subVideo });
+    // Carry the visible angle's clock across a temporary angle switch.
+    const previous = previousViewMode.current;
+    previousViewMode.current = viewMode;
+    const time =
+      previous === 'angle2' ? subVideo.currentTime : mainVideo.currentTime;
+    mainVideo.currentTime = time;
+    subVideo.currentTime = time;
   }, [
     disabled,
     currentVideoSource,

@@ -3,6 +3,20 @@ import type { TacticalBoard } from './tacticalBoard';
 import type { SCLabel } from '../timeline/sportscode';
 
 export type PlaylistType = 'reference' | 'embedded';
+export type PlaylistAngle = 'angle1' | 'angle2';
+
+/** Portable package identity; OS bookmarks remain in local application data. */
+export interface PlaylistMediaReference {
+  packageId: string;
+  packagePath: string;
+  relativePackagePath?: string;
+  mediaPath: string;
+}
+
+export interface PlaylistMediaResolution {
+  items: PlaylistItem[];
+  missingItemIds: string[];
+}
 export type DrawingToolType =
   | 'beam'
   | 'disc'
@@ -22,7 +36,7 @@ export type AnnotationTarget = 'primary' | 'secondary';
 export type PlaylistLoopMode = 'none' | 'single' | 'all';
 
 /** Current version of the on-disk Playlist Document contract. */
-export const PLAYLIST_DOCUMENT_SCHEMA_VERSION = 4;
+export const PLAYLIST_DOCUMENT_SCHEMA_VERSION = 5;
 
 export interface PlaylistRow {
   id: string;
@@ -105,6 +119,9 @@ export interface PlaylistItem {
   addedAt: number;
   videoSource?: string;
   videoSource2?: string;
+  defaultAngle?: PlaylistAngle;
+  mediaReference?: PlaylistMediaReference;
+  mediaReference2?: PlaylistMediaReference;
   annotation?: ItemAnnotation;
   aiMeta?: PlaylistAiMeta;
   /** Organizer row membership. Optional for source compatibility with v1 files. */

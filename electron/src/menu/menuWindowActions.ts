@@ -21,15 +21,9 @@ export const openVersionInfoWindow = () => {
   );
 };
 
-export const sendToFocusedWindow = (channel: string, ...args: unknown[]) => {
-  const target =
-    BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
-  if (target && !target.isDestroyed()) {
-    target.webContents.send(channel, ...args);
-  }
-};
-
-export const applyBuiltMenu = (template: Electron.MenuItemConstructorOptions[]) => {
+export const applyBuiltMenu = (
+  template: Electron.MenuItemConstructorOptions[],
+) => {
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
   return menu;

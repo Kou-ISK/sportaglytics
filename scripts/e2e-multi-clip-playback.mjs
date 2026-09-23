@@ -365,6 +365,9 @@ try {
   ]);
   await review.getByTestId('organizer-clip-second-half').waitFor();
   await review.getByTestId('organizer-clip-second-half').dblclick();
+  // New clips start at their saved angle; explicitly request the dual-view sync check.
+  await review.getByRole('button', { name: 'その他の操作' }).click();
+  await review.getByRole('menuitem', { name: 'デュアルビュー' }).click();
   await review.waitForFunction(
     () =>
       [...document.querySelectorAll('video')].every(
@@ -411,6 +414,15 @@ try {
     /A\.mp4$/.test(document.querySelector('video')?.currentSrc ?? ''),
   );
   await review.keyboard.press('End');
+  // Paint decodes its selected angle. Switching targets must keep the common clock.
+  await review.waitForFunction(() => {
+    const video = document.querySelector('video');
+    return (
+      /B\.mp4$/.test(video?.currentSrc ?? '') &&
+      Math.abs((video?.currentTime ?? 0) - 5) < 0.12
+    );
+  });
+  await review.getByRole('button', { name: 'アングル2', exact: true }).click();
   await review.waitForFunction(() =>
     [...document.querySelectorAll('video')].every(
       (video) =>
@@ -451,6 +463,14 @@ try {
   }
   throw error;
 } finally {
-  if (app) await app.close().catch(() => {});
+  if (app) {
+    // The fixture is disposable. Unsaved Paint state must not block process teardown.
+    await app
+      .evaluate(({ BrowserWindow }) => {
+        for (const window of BrowserWindow.getAllWindows()) window.destroy();
+      })
+      .catch(() => {});
+    await app.close().catch(() => {});
+  }
   await fs.rm(dir, { recursive: true, force: true });
 }

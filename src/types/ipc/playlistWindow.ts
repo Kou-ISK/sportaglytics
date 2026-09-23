@@ -1,5 +1,7 @@
 import type {
   PlaylistAiMeta,
+  PlaylistMediaReference,
+  PlaylistMediaResolution,
   ItemAnnotation,
   Playlist,
   PlaylistFileLoadResult,
@@ -23,6 +25,8 @@ import {
 
 export const PLAYLIST_WINDOW_CHANNELS = {
   ready: 'playlist:ready',
+  resolveMedia: 'playlist:resolve-media',
+  relinkPackage: 'playlist:relink-package',
   openWindow: 'playlist:open-window',
   closeWindow: 'playlist:close-window',
   isWindowOpen: 'playlist:is-window-open',
@@ -46,6 +50,13 @@ export const PLAYLIST_WINDOW_CHANNELS = {
 const PLAYLIST_TYPES = new Set(['reference', 'embedded']);
 const PLAYLIST_LOOP_MODES = new Set(['none', 'single', 'all']);
 const DRAWING_TOOL_TYPES = new Set([
+  'beam',
+  'disc',
+  'linkedDiscs',
+  'curvedArrow',
+  'ring',
+  'spotlight',
+  'polygon',
   'pen',
   'line',
   'arrow',
@@ -144,6 +155,23 @@ const isPlaylistRow = (value: unknown): value is PlaylistRow => {
   );
 };
 
+const isMediaReference = (value: unknown): value is PlaylistMediaReference => {
+  if (!isPlainObject(value)) return false;
+  return (
+    typeof value.packageId === 'string' &&
+    /^[a-f0-9-]{36}$/i.test(value.packageId) &&
+    typeof value.packagePath === 'string' &&
+    value.packagePath.length > 0 &&
+    value.packagePath.length <= 32768 &&
+    typeof value.mediaPath === 'string' &&
+    value.mediaPath.length > 0 &&
+    value.mediaPath.length <= 32768 &&
+    !/^(?:[a-z]:|[/\\])/i.test(value.mediaPath) &&
+    !value.mediaPath.split(/[/\\]/).includes('..') &&
+    isOptional(value.relativePackagePath, isString)
+  );
+};
+
 export const isPlaylistItem = (value: unknown): value is PlaylistItem => {
   if (!isPlainObject(value)) {
     return false;
@@ -163,6 +191,11 @@ export const isPlaylistItem = (value: unknown): value is PlaylistItem => {
     isOptional(value.note, isString) &&
     isOptional(value.videoSource, isString) &&
     isOptional(value.videoSource2, isString) &&
+    (value.defaultAngle === undefined ||
+      value.defaultAngle === 'angle1' ||
+      value.defaultAngle === 'angle2') &&
+    isOptional(value.mediaReference, isMediaReference) &&
+    isOptional(value.mediaReference2, isMediaReference) &&
     isOptional(value.annotation, isItemAnnotation) &&
     isOptional(value.aiMeta, isPlaylistAiMeta) &&
     isOptional(value.rowId, isString) &&
@@ -170,6 +203,13 @@ export const isPlaylistItem = (value: unknown): value is PlaylistItem => {
     isOptional(value.presentationOrder, isFiniteNumber)
   );
 };
+
+export const isPlaylistMediaResolution = (
+  value: unknown,
+): value is PlaylistMediaResolution =>
+  isPlainObject(value) &&
+  isArrayOf(value.items, isPlaylistItem) &&
+  isStringArray(value.missingItemIds);
 
 export const isPlaylist = (value: unknown): value is Playlist => {
   if (!isPlainObject(value)) {

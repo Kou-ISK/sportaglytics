@@ -8,7 +8,10 @@ import {
   isPlaylistItem,
   isPlaylistSyncData,
 } from '../../../src/types/ipc/playlistWindow';
-import { getValidatedEventSenderWindow, isEventFromWindow } from '../ipc/windowSenderGuards';
+import {
+  getValidatedEventSenderWindow,
+  isEventFromWindow,
+} from '../ipc/windowSenderGuards';
 import {
   addItemToAllWindows,
   closePlaylistWindow,
@@ -20,16 +23,27 @@ import {
   setPlaylistWindowTitleForSender,
   syncToPlaylistWindow,
 } from './windowManager';
-import { getFfmpegPathRef, getMainWindowRef, getPlaylistWindows } from './state';
+import {
+  getFfmpegPathRef,
+  getMainWindowRef,
+  getPlaylistWindows,
+} from './state';
 import { loadPlaylistFromPath, savePlaylistToPath } from './storage';
 import { selectPlaylistPath } from './fileOpen';
 import { getPackageSessionForSender } from '../packageSessionRegistry';
+import { registerPlaylistMediaReferenceHandlers } from './mediaReferenceHandlers';
 
 export const registerPlaylistHandlers = (): void => {
+  registerPlaylistMediaReferenceHandlers();
   ipcMain.on(PLAYLIST_WINDOW_CHANNELS.ready, (event) => {
-    if (!getValidatedEventSenderWindow(event) || !isSenderPlaylistWindow(event.sender)) return;
+    if (
+      !getValidatedEventSenderWindow(event) ||
+      !isSenderPlaylistWindow(event.sender)
+    )
+      return;
     const info = getWindowInfoBySender(event.sender);
-    if (info?.filePath) event.sender.send(PLAYLIST_WINDOW_CHANNELS.externalOpen, info.filePath);
+    if (info?.filePath)
+      event.sender.send(PLAYLIST_WINDOW_CHANNELS.externalOpen, info.filePath);
   });
 
   ipcMain.handle(
@@ -71,7 +85,10 @@ export const registerPlaylistHandlers = (): void => {
   ipcMain.handle(
     PLAYLIST_WINDOW_CHANNELS.addItemToAllWindows,
     (event, item: unknown) => {
-      if (!isEventFromWindow(event, getMainWindowRef()) || !isPlaylistItem(item)) {
+      if (
+        !isEventFromWindow(event, getMainWindowRef()) ||
+        !isPlaylistItem(item)
+      ) {
         return;
       }
 
@@ -82,7 +99,10 @@ export const registerPlaylistHandlers = (): void => {
   );
 
   ipcMain.on(PLAYLIST_WINDOW_CHANNELS.syncToWindow, (event, data: unknown) => {
-    if (!isEventFromWindow(event, getMainWindowRef()) || !isPlaylistSyncData(data)) {
+    if (
+      !isEventFromWindow(event, getMainWindowRef()) ||
+      !isPlaylistSyncData(data)
+    ) {
       return;
     }
 
@@ -268,13 +288,19 @@ export const registerPlaylistHandlers = (): void => {
         console.log('[Playlist] Loaded from:', targetPath);
 
         if (!isSenderPlaylistWindow(event.sender)) {
-          createPlaylistWindow(targetPath, getValidatedEventSenderWindow(event));
+          createPlaylistWindow(
+            targetPath,
+            getValidatedEventSenderWindow(event),
+          );
         } else {
           const windowInfo = getWindowInfoBySender(event.sender);
           if (windowInfo) {
             windowInfo.filePath = targetPath;
             windowInfo.isDirty = false;
-            console.log('[Playlist] Updated window info with filePath:', targetPath);
+            console.log(
+              '[Playlist] Updated window info with filePath:',
+              targetPath,
+            );
           }
         }
 

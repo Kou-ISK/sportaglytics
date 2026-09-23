@@ -1,0 +1,47 @@
+import type { ReactElement } from 'react';
+import { Button, Chip, Stack, Tooltip } from '@mui/material';
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import type { CaptureTimelineState } from '../../../../types/liveCapture';
+
+export const LiveCaptureTimelineView = ({
+  state,
+  onGoLive,
+  onShowCapture,
+}: {
+  state: CaptureTimelineState;
+  onGoLive: () => void;
+  onShowCapture?: () => void;
+}): ReactElement => (
+  <Stack
+    direction="row"
+    spacing={0.75}
+    alignItems="center"
+    sx={{ ml: 'auto', flexShrink: 0 }}
+  >
+    <Button size="small" onClick={onShowCapture} sx={{ whiteSpace: 'nowrap' }}>
+      録画の操作
+    </Button>
+    <Chip
+      size="small"
+      color={state.interrupted ? 'warning' : 'error'}
+      variant="outlined"
+      sx={{ color: 'text.primary' }}
+      label={state.interrupted ? '入力切断あり' : '録画中'}
+    />
+    <Tooltip
+      describeChild
+      title="最新の保存済み映像へ戻る（標準: Shift + Option/Alt + L）"
+    >
+      <Button
+        size="small"
+        variant={state.following ? 'contained' : 'outlined'}
+        startIcon={<FiberManualRecordIcon fontSize="small" />}
+        onClick={onGoLive}
+        disabled={state.availableEndSeconds <= 0}
+        sx={{ whiteSpace: 'nowrap' }}
+      >
+        ライブ位置
+      </Button>
+    </Tooltip>
+  </Stack>
+);

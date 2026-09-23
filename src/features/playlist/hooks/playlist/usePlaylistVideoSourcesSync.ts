@@ -18,10 +18,18 @@ export const usePlaylistVideoSourcesSync = ({
     const merged: string[] = [];
     if (currentItem.videoSource) merged.push(currentItem.videoSource);
     if (currentItem.videoSource2) merged.push(currentItem.videoSource2);
-    if (!currentItem.videoSource && videoSources[0]) {
+    if (
+      !currentItem.videoSource &&
+      !currentItem.mediaReference &&
+      videoSources[0]
+    ) {
       merged.unshift(videoSources[0]);
     }
-    if (!currentItem.videoSource2 && videoSources[1]) {
+    if (
+      !currentItem.videoSource2 &&
+      !currentItem.mediaReference2 &&
+      videoSources[1]
+    ) {
       if (merged.length === 0) merged.push('');
       merged[1] = videoSources[1];
     }

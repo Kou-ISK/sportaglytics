@@ -5,6 +5,7 @@ import type {
 } from '../../../../../../types/package/metadata';
 
 type LoadedAngle = {
+  playbackFormat?: 'fragmented-mp4';
   id: string;
   name: string;
   relativePath?: string;
@@ -172,6 +173,10 @@ const resolveAnglesFromConfig = (
             (angle as { name?: unknown }).name,
           index,
         ),
+        playbackFormat:
+          angle.playbackFormat === 'fragmented-mp4'
+            ? 'fragmented-mp4'
+            : undefined,
         relativePath,
         absolutePath: sourceUrl || `${packagePath}/${relativePath}`,
         sourceKind: sourceUrl ? 'youtube' : 'local',

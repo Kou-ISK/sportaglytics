@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-23
+
+### Fixed
+
+- Windowsでライブキャプチャ画面を閉じた直後のメニュー操作が失敗する問題を修正。
+
+- ライブ録画の操作画面を非表示で維持し、タイムラインから再表示できるようにしました。録画パッケージへのコードウィンドウ接続と背景での時刻更新を修正し、fragmented MP4の先読みで区間境界のプレイヤー再生成を解消しました。[ライブ仕様](docs/live-coding.md)。
+
+### Added
+
+- USB/HDMIキャプチャ・OS対応のiPhoneカメラ・IP映像を最大4入力まで取り込み、録画中に標準タイムラインでコーディングするライブキャプチャを追加。[対応条件と操作](docs/live-coding.md)。
+
+- Playlistのクリップごとに既定アングルを保存し、連続再生と単一ファイルの書き出しへ反映。
+- 参照PlaylistをパッケージID・相対位置・Macのファイル追跡で再接続。見つからない場合の移動先指定は同じ元パッケージの全クリップへ適用。[操作仕様](docs/playlist-features.md#参照先の移動と再接続)。
+
 ## [0.16.1] - 2026-09-22
 
 ### Fixed

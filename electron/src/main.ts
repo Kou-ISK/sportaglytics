@@ -1,4 +1,5 @@
 import { registerEventDetectionWindowHandlers } from './eventDetectionWindow';
+import { registerLiveCaptureHandlers } from './liveCapture/captureHandlers';
 import { registerApplicationWindowActivation } from './applicationWindowActivation';
 import { getRendererUrl } from './rendererUrl';
 import {
@@ -293,6 +294,8 @@ const openPackageInSession = createPackageOpenRouter({
     if (!window.isDestroyed()) window.close();
   },
 });
+
+registerLiveCaptureHandlers({ openPackage: openPackageInSession });
 
 const routeExternalOpen = async (filePath: string): Promise<void> => {
   const extension = path.extname(filePath).toLowerCase();
