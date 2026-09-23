@@ -85,6 +85,8 @@ Main Window作成時にSessionを保持し、`closed` では破棄済みWindow�
 
 `electron/src/preload.ts` は用途別bridgeを合成します。Renderer は `window.electronAPI` のみ使用し、`electron` / `ipcRenderer` を直接 import しません。
 
+Mainの`packageOpenDelivery`は`isLoading()`がtrueの場合に`did-stop-loading`でパッケージ通知を送ります。`did-finish-load`直後もロード状態がtrueの期間があるため、次の`did-finish-load`を待ちません。閉じたWindow/WebContentsには通知しません。
+
 起動時のパッケージ通知は `packageOpenBridge` がpreload開始時から受信します。画面が購読する前の最新1件をウィンドウ内で保持し、現在の購読者へ一度だけ渡します。画面の再購読で消費済みの通知を再生しません。Main側のパッケージ別ウィンドウ振り分けと既存の用途限定APIを維持します。[ADR 0045](adr/0045-buffer-startup-package-open.md)。
 
 ### ローカル編集と書き出しの検査

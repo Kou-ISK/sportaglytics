@@ -52,7 +52,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0042](0042-document-owned-export-menu.md) | Document-Owned Export Menu | Accepted | 2026-09-21 |
 | [0043](0043-bounded-lossless-export.md) | Bounded Lossless Export | Superseded | 2026-09-21 |
 | [0044](0044-sync-in-coding-toolbar.md) | Sync in the Coding toolbar | Accepted | 2026-09-21 |
-| [0045](0045-buffer-startup-package-open.md) | Buffer startup package open | Accepted | 2026-09-21 |
+| [0045](0045-buffer-startup-package-open.md) | Buffer startup package open（Mainのロード完了待機を補足） | Accepted | 2026-09-21 |
 | [0046](0046-coalesced-playback-corrections.md) | Coalesced playback corrections | Accepted | 2026-09-21 |
 
 | [0047](0047-playlist-sorter-presentation-order.md) | Playlist Sorter presentation order | Accepted | 2026-09-21 |

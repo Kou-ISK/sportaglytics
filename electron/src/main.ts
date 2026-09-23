@@ -2,6 +2,7 @@ import { registerEventDetectionWindowHandlers } from './eventDetectionWindow';
 import { registerLiveCaptureHandlers } from './liveCapture/captureHandlers';
 import { registerApplicationWindowActivation } from './applicationWindowActivation';
 import { getRendererUrl } from './rendererUrl';
+import { sendPackageOpenWhenReady } from './packageOpenDelivery';
 import {
   app,
   BrowserWindow,
@@ -243,16 +244,7 @@ const handleFileOpen = (
     void openCodingPanelWindow(targetWindow);
     targetWindow.webContents.send('open-code-window-file', filePath);
   } else if (ext === '.stpkg' || !ext) {
-    const send = (): void => {
-      if (!targetWindow.isDestroyed()) {
-        targetWindow.webContents.send('open-package-directory', filePath);
-      }
-    };
-    if (targetWindow.webContents.isLoading()) {
-      targetWindow.webContents.once('did-finish-load', send);
-    } else {
-      send();
-    }
+    sendPackageOpenWhenReady(targetWindow, filePath);
   }
 };
 
