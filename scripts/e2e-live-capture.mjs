@@ -406,9 +406,9 @@ try {
   );
   assert.equal(playback.emptied, 0);
   assert.equal(
-    playback.waiting,
+    playback.waits.filter((wait) => !wait.seeking).length,
     0,
-    'buffered live playback must not stall at segment boundaries',
+    'buffered live playback must not starve at segment boundaries (clock corrections seek intentionally)',
   );
   assert.ok(
     playback.playedSeconds > 20,

@@ -4,6 +4,8 @@
 
 ライブ回帰では録画ウィンドウの非表示中・Code Windowのフォーカス中にコードを開始/終了し、タグ保存と映像要素の継続を確認します。連続再生用の録画は`playbackFormat: fragmented-mp4`付きで、既存MP4との互換性は通常再生・書き出し・再オープンでも検証します。
 
+パッケージ時計の進行を、遅れてcommitされた描画時刻で巻き戻さないでください。再生中の明示的な移動は既存の`video-seek-start`イベントの時刻を使い、一時停止中は表示時刻を反映します。遅延renderと明示seekの回帰は`usePackagePlaybackClock.test.tsx`にあります。
+
 Playlistの参照・既定アングル変更時は`mediaReferences.test.ts`、`playlistMediaReconciliation.test.ts`、`playlistDefaultAngles.test.ts`と`node scripts/e2e-playlist-references-angles.mjs`を実行します。合成映像の2アングル×2ファイルを使い、既定値のUndo/Redo・保存再読込・境界での表示切替・移動したパッケージ・単一出力の実画素を確認します。Macでは実NSURL bookmarkで移動を確認し、WindowsのCIとインストール版も共通シナリオを使います。
 
 書き出しノートの変更時は`clipExportTextLayout.test.ts`、`exportTextInspection.test.ts`、`exportFfmpegOverlay.test.ts`と`e2e-export-menu.mjs`で高さ上限・最低文字サイズ・実映像プレビュー・超過時の拒否を確認します。Playwrightの映像fixtureは720pとして日本語の描画を確認します。仕様は[Playlist](playlist-features.md#ノートの編集と映像出力)を参照してください。
