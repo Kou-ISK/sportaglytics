@@ -15,9 +15,12 @@ vi.mock('electron', () => ({
     getAllWindows: () => [
       {
         isDestroyed: () => false,
-        webContents: { send },
+        webContents: { send, isDestroyed: () => false },
       },
-      { isDestroyed: () => false, webContents: { send: otherSend } },
+      {
+        isDestroyed: () => false,
+        webContents: { send: otherSend, isDestroyed: () => false },
+      },
     ],
     getFocusedWindow: () => null,
   },
@@ -40,7 +43,6 @@ vi.mock('../helpWindow', () => ({ openHelpWindow: vi.fn() }));
 vi.mock('./recentPackageMenu', () => ({ buildRecentPackageItems: () => [] }));
 vi.mock('./menuWindowActions', () => ({
   openVersionInfoWindow: vi.fn(),
-  sendToFocusedWindow: vi.fn(),
 }));
 
 import {

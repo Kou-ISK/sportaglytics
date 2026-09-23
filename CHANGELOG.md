@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Windowsでライブキャプチャ画面を閉じた直後のメニュー操作が失敗する問題を修正。
+
 - ライブ録画の操作画面を非表示で維持し、タイムラインから再表示できるようにしました。録画パッケージへのコードウィンドウ接続と背景での時刻更新を修正し、fragmented MP4の先読みで区間境界のプレイヤー再生成を解消しました。[ライブ仕様](docs/live-coding.md)。
 
 ### Added

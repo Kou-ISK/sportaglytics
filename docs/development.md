@@ -334,6 +334,8 @@ Model training/evaluationのdebuggingはprivate R&D repositoryで行います。
 
 ## Playlistを開くメニューを変更するとき
 
+メニュー通知の生存確認は`menuCommandDelivery.test.ts`で、Windowより先に閉じたWebContents、getter/送信時の破棄、残りのWindowへの通知継続を検査します。`e2e-code-window-menu.mjs`はライブキャプチャ画面を閉じた直後の「新規パッケージ」操作をmacOS/Windowsで確認します。
+
 Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-open-menu.mjs`を使います。実メニューのcallbackから`.stpl`のロード・再生、選択取消、不正パッケージ、未保存文書の保持、既存Windowの再利用を確認します。このシナリオは通常のE2EとWindowsインストール後のE2Eにも含めます。
 
 ## リリースプロセス

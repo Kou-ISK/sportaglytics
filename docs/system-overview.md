@@ -75,6 +75,8 @@ Packageを扱うWindowは `electron/src/packageSessionRegistry.ts` のPackage Se
 
 Main Window作成時にSessionを保持し、`closed` では破棄済みWindowから再検索せず、そのSessionの補助Windowを閉じて登録とパス予約を解放する。Registryのパス検索とsender検索も、所有Main Windowが破棄済みのSessionを返さない。同じファイルの再openと遅延IPCの両方で生存する所有者だけを扱う。
 
+通常メニューの通知は`menuCommandDelivery.ts`へ集約し、BrowserWindowとWebContentsの両方の生存を確認する。WindowsでWebContentsが先に閉じる場合や送信直前の破棄も無視し、他のWindowへの通知を継続する。破棄以外のIPC例外は隠さない。
+
 配布版はMainの外部npm依存を同梱しません。`build:electron-main`で未同梱依存を検査し、FFprobe応答などのMain側の入力は型ガードで検証します。Renderer/preloadのライブラリはbundle内で解決します。
 
 ### Preload
