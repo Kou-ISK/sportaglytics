@@ -87,6 +87,11 @@ export const usesVirtualClipTimeline = (
   clips.length > 1 ||
   clips.some((clip) => clip.timelineStartSeconds > TIMELINE_EPSILON_SECONDS);
 
+const orderedTimelineClips = new WeakMap<
+  object,
+  Array<{ timelineStartSeconds: number; durationSeconds?: number }>
+>();
+
 export const resolveTimelineClip = <
   TClip extends {
     timelineStartSeconds: number;
@@ -96,31 +101,31 @@ export const resolveTimelineClip = <
   clips: TClip[],
   timelineSeconds: number,
 ): { clip: TClip; clipTimeSeconds: number } | null => {
-  const ordered = [...clips].sort(
-    (left, right) => left.timelineStartSeconds - right.timelineStartSeconds,
-  );
-  const candidate = ordered.reduce<TClip | undefined>((selected, clip) => {
-    if (clip.timelineStartSeconds > timelineSeconds) return selected;
-    if (
-      !selected ||
-      clip.timelineStartSeconds > selected.timelineStartSeconds
-    ) {
-      return clip;
-    }
-    return selected;
-  }, undefined);
+  // Inputs are immutable. Cache their order once per snapshot rather than sorting
+  // every rendered frame of every angle during a long recording.
+  let ordered = orderedTimelineClips.get(clips);
+  if (!ordered || ordered.length !== clips.length) {
+    ordered = [...clips].sort(
+      (a, b) => a.timelineStartSeconds - b.timelineStartSeconds,
+    );
+    orderedTimelineClips.set(clips, ordered);
+  }
+  let low = 0,
+    high = ordered.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (ordered[middle].timelineStartSeconds <= timelineSeconds)
+      low = middle + 1;
+    else high = middle;
+  }
+  // The index refers to an element of the original generic array.
+  const candidate = ordered[low - 1] as TClip | undefined;
   if (!candidate) return null;
   const clipTimeSeconds = timelineSeconds - candidate.timelineStartSeconds;
   if (
     typeof candidate.durationSeconds === 'number' &&
     clipTimeSeconds >= candidate.durationSeconds
   ) {
-    return null;
-  }
-  const nextClip = ordered.find(
-    (clip) => clip.timelineStartSeconds > candidate.timelineStartSeconds,
-  );
-  if (nextClip && timelineSeconds >= nextClip.timelineStartSeconds) {
     return null;
   }
   return { clip: candidate, clipTimeSeconds };

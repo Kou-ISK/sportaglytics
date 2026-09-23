@@ -105,6 +105,7 @@ export const useTimelineWindowController = () => {
   return {
     liveCapture: snapshot.liveCapture,
     onGoLive: (): void => send({ type: 'go-live' }),
+    onShowCapture: (): void => send({ type: 'show-capture-controls' }),
     angleSync: snapshot.angleSync,
     hotkeys: snapshot.hotkeys,
     canSync: !snapshot.liveCapture && snapshot.videoSources.length > 1,

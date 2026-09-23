@@ -2,6 +2,7 @@ export const formatSource = (src: string): string => {
   const trimmed = src.trim();
   if (!trimmed) return '';
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('blob:')) return trimmed;
   if (trimmed.startsWith('file://')) return trimmed;
 
   if (/^\\\\/.test(trimmed)) {

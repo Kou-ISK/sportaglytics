@@ -1,3 +1,4 @@
+import { CaptureAnglePlayer } from '../CaptureAnglePlayer';
 import { angleIndexForView } from '../../../../../shared/media/angleView';
 import { withClipDuration } from '../../../../../shared/media/withClipDuration';
 import {
@@ -76,6 +77,8 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
         ) {
           return;
         }
+        if (mediaAngles[angleIndex]?.playbackFormat === 'fragmented-mp4')
+          return;
         const clipStart =
           mediaAngles[angleIndex]?.clips.find((clip) => clip.id === clipId)
             ?.timelineStartSeconds ?? 0;
@@ -159,10 +162,16 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
         const filePath = timelineClips[index]?.source ?? fallbackPath;
 
         const isVisible = isIndexVisible(index);
+        const continuous =
+          !isManualMode &&
+          mediaAngles[index]?.playbackFormat === 'fragmented-mp4';
+        const AnglePlayer = continuous
+          ? CaptureAnglePlayer
+          : MemoizedSingleVideoPlayer;
 
         return (
           <Box
-            key={`${filePath}-${index}`}
+            key={mediaAngles[index]?.id ?? index}
             sx={{
               padding: 0,
               width: '100%',
@@ -181,8 +190,10 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
                 backgroundColor: '#000',
               }}
             >
-              {filePath ? (
-                <MemoizedSingleVideoPlayer
+              {filePath || continuous ? (
+                <AnglePlayer
+                  angle={mediaAngles[index]}
+                  angleTime={currentTime + resolveOffset(index)}
                   videoSrc={filePath}
                   id={`video_${index}`}
                   isVideoPlaying={isVideoPlaying}

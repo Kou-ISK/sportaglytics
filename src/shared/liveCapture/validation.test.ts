@@ -37,6 +37,20 @@ describe('capture IPC validation', () => {
       inputs: [{ id: 'camera', name: 'Angle 1', kind: 'device' }],
     };
     expect(isCaptureStartRequest(request)).toBe(true);
+    for (const videoCodec of ['h264', 'vp8']) {
+      expect(
+        isCaptureStartRequest({
+          ...request,
+          inputs: [{ ...request.inputs[0], videoCodec }],
+        }),
+      ).toBe(true);
+    }
+    expect(
+      isCaptureStartRequest({
+        ...request,
+        inputs: [{ ...request.inputs[0], videoCodec: 'other' }],
+      }),
+    ).toBe(false);
     expect(
       isCaptureStartRequest({
         ...request,

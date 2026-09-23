@@ -20,8 +20,14 @@ export const openCaptureDevice = async (options: {
       ...(options.videoDeviceId
         ? { deviceId: { exact: options.videoDeviceId } }
         : {}),
-      width: { ideal: options.quality === '1080p' ? 1920 : 1280 },
-      height: { ideal: options.quality === '1080p' ? 1080 : 720 },
+      width: {
+        ideal: options.quality === '1080p' ? 1920 : 1280,
+        max: options.quality === '1080p' ? 1920 : 1280,
+      },
+      height: {
+        ideal: options.quality === '1080p' ? 1080 : 720,
+        max: options.quality === '1080p' ? 1080 : 720,
+      },
       frameRate: { ideal: 30, max: 30 },
     },
     audio: options.audioDeviceId
@@ -34,6 +40,11 @@ export const openCaptureDevice = async (options: {
       : false,
   });
 
+const H264_MIME = 'video/webm;codecs=h264,opus';
+
+export const getDeviceRecordingCodec = (): 'h264' | 'vp8' =>
+  MediaRecorder.isTypeSupported(H264_MIME) ? 'h264' : 'vp8';
+
 /** Stream chunks in order, with bounded memory and acknowledgement from the disk writer. */
 export const recordCaptureDevice = (
   stream: MediaStream,
@@ -41,18 +52,24 @@ export const recordCaptureDevice = (
   inputId: string,
   api: ILiveCaptureAPI,
   onError: (message: string) => void,
+  quality: '1080p' | '720p' = '1080p',
 ): DeviceRecording => {
   const mimeType = [
+    H264_MIME,
     'video/webm;codecs=vp8,opus',
     'video/webm;codecs=vp8',
     'video/webm',
   ].find((value) => MediaRecorder.isTypeSupported(value));
   if (!mimeType) throw new Error('この環境ではカメラ録画に対応していません。');
-  const recorder = new MediaRecorder(stream, {
+  const options: MediaRecorderOptions & {
+    videoKeyFrameIntervalDuration: number;
+  } = {
     mimeType,
-    videoBitsPerSecond: 10000000,
+    videoBitsPerSecond: quality === '1080p' ? 8000000 : 5000000,
     audioBitsPerSecond: 160000,
-  });
+    videoKeyFrameIntervalDuration: 2000,
+  };
+  const recorder = new MediaRecorder(stream, options);
   let sequence = 0;
   let queuedBytes = 0;
   let failed = false;

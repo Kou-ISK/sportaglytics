@@ -24,6 +24,7 @@ interface InputRuntime {
   process?: CaptureProcess;
   baseTime: number;
   attempt: number;
+  connectingAt: number;
 }
 
 export class CaptureSession {
@@ -56,6 +57,7 @@ export class CaptureSession {
         segmentCount: 0,
       },
       media: {
+        playbackFormat: 'fragmented-mp4',
         id: source.id,
         name: source.name,
         sourceKind: 'local',
@@ -63,6 +65,7 @@ export class CaptureSession {
       },
       baseTime: 0,
       attempt: 0,
+      connectingAt: 0,
     }));
   }
 
@@ -156,6 +159,7 @@ export class CaptureSession {
     );
     await fs.mkdir(directory, { recursive: true });
     if (this.phase !== 'recording') throw new Error('録画は取り消されました。');
+    input.connectingAt = performance.now();
     input.status.phase = 'connecting';
     input.status.message = undefined;
     input.process = new CaptureProcess(
@@ -193,6 +197,28 @@ export class CaptureSession {
           segment.end - segment.start,
           MAX_PACKAGE_TIMELINE_SECONDS - start,
         );
+        const previousIndex = input.media.clips.length - 1;
+        const previous = input.media.clips[previousIndex];
+        if (previous) {
+          if (start <= previous.timelineStartSeconds)
+            throw new Error('Non-monotonic capture timestamps');
+          // Variable-rate packet ends can overlap or fall just short of the next
+          // keyframe. Segments from one take share that boundary; separate takes
+          // keep their reconnect gap. Never move a coding timestamp.
+          const previousDuration = previous.durationSeconds ?? 0;
+          const boundaryDuration = start - previous.timelineStartSeconds;
+          const clippedDuration =
+            path.dirname(previous.source) === input.process.directory
+              ? boundaryDuration
+              : Math.min(previousDuration, boundaryDuration);
+          if (clippedDuration !== previousDuration) {
+            input.media.clips[previousIndex] = {
+              ...previous,
+              durationSeconds: clippedDuration,
+            };
+            input.status.recordedSeconds -= previousDuration - clippedDuration;
+          }
+        }
         input.media.clips.push({
           id: `${input.source.id}-${input.attempt}-${segment.file.slice(8, 14)}`,
           sourceKind: 'local',
@@ -205,6 +231,17 @@ export class CaptureSession {
         input.status.segmentCount++;
         if (input.status.phase === 'connecting')
           input.status.phase = 'recording';
+        changed = true;
+      }
+      if (
+        this.phase === 'recording' &&
+        input.status.phase === 'connecting' &&
+        performance.now() - input.connectingAt > 30000
+      ) {
+        await input.process.stop();
+        input.status.phase = 'disconnected';
+        input.status.message =
+          '映像が届かないため入力を停止しました。画質・機器・接続を確認して再接続してください。';
         changed = true;
       }
     }

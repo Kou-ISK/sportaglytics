@@ -218,6 +218,7 @@ export const loadPackageDirectory = async (
       packagePath: preparedPackagePath,
       mediaAngles: angles.map((angle) => ({
         id: angle.id,
+        playbackFormat: angle.playbackFormat,
         name: angle.name,
         sourceKind: angle.sourceKind,
         clips: angle.clips,

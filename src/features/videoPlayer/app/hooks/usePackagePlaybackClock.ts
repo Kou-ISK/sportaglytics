@@ -51,9 +51,15 @@ export const usePackagePlaybackClock = ({
       ),
     [mediaAngles, syncData],
   );
-  const durationsKnown = mediaAngles.every((angle) =>
-    angle.clips.every((clip) => typeof clip.durationSeconds === 'number'),
+  const durationsKnown = useMemo(
+    () =>
+      mediaAngles.every((angle) =>
+        angle.clips.every((clip) => typeof clip.durationSeconds === 'number'),
+      ),
+    [mediaAngles],
   );
+  const bounds = useRef({ livePlaybackEnd, timelineEnd, durationsKnown });
+  bounds.current = { livePlaybackEnd, timelineEnd, durationsKnown };
   const clock = useRef(currentTime);
   clock.current = currentTime;
   useEffect(() => {
@@ -65,6 +71,7 @@ export const usePackagePlaybackClock = ({
     let previous: number | undefined;
     const advance = (timestamp: number): void => {
       if (previous !== undefined) {
+        const { livePlaybackEnd, timelineEnd, durationsKnown } = bounds.current;
         const next = Math.min(
           86400,
           clock.current +
@@ -89,12 +96,9 @@ export const usePackagePlaybackClock = ({
     frame = requestAnimationFrame(advance);
     return () => cancelAnimationFrame(frame);
   }, [
-    durationsKnown,
     isVideoPlaying,
-    livePlaybackEnd,
     setCurrentTime,
     setIsVideoPlaying,
-    timelineEnd,
     useTimelineClock,
     videoPlayBackRate,
   ]);

@@ -145,6 +145,44 @@ describe('capture durability and lifecycle', () => {
     ).toEqual([0, 2]);
     expect(capture.snapshot.availableEndSeconds).toBe(4);
   });
+  it('trims packet duration overlap without shifting segment starts or mutating published clips', async () => {
+    const capture = await setup(vi.fn());
+    processes[0].segments.push({
+      file: 'segment-000000.mp4',
+      start: 0,
+      end: 2.035,
+    });
+    await vi.waitFor(
+      () => expect(capture.snapshot.inputs[0].segmentCount).toBe(1),
+      { timeout: 2000 },
+    );
+    const published = capture.snapshot.mediaAngles[0].clips[0];
+    processes[0].segments.push({
+      file: 'segment-000001.mp4',
+      start: 2.02,
+      end: 4.04,
+    });
+    processes[0].segments.push({
+      file: 'segment-000002.mp4',
+      start: 4.05,
+      end: 6.05,
+    });
+    await capture.stop();
+    const clips = capture.snapshot.mediaAngles[0].clips;
+    expect(clips[0].durationSeconds).toBe(2.02);
+    expect(clips[1].timelineStartSeconds).toBe(2.02);
+    expect(clips[1].durationSeconds).toBeCloseTo(2.03);
+    expect(clips[2].timelineStartSeconds).toBe(4.05);
+    expect(capture.snapshot.inputs[0].recordedSeconds).toBeCloseTo(6.05);
+    expect(published.durationSeconds).toBe(2.035);
+    const saved = JSON.parse(
+      await fs.readFile(
+        path.join(capture.packagePath, '.metadata/config.json'),
+        'utf8',
+      ),
+    );
+    expect(saved.angles[0].clips[0].durationSeconds).toBe(2.02);
+  });
   it('never overwrites an existing package', async () => {
     const capture = await setup(vi.fn());
     const duplicate = new CaptureSession(
@@ -194,4 +232,19 @@ describe('capture durability and lifecycle', () => {
       code: 'ENOENT',
     });
   });
+});
+
+it('does not leave an input connecting indefinitely while no recorded media arrives', async () => {
+  const capture = await setup(vi.fn());
+  const now = performance.now();
+  const clock = vi.spyOn(performance, 'now').mockReturnValue(now + 31000);
+  try {
+    await vi.waitFor(
+      () => expect(capture.snapshot.inputs[0].phase).toBe('disconnected'),
+      { timeout: 2500 },
+    );
+    expect(capture.snapshot.inputs[0].message).toContain('映像が届かない');
+  } finally {
+    clock.mockRestore();
+  }
 });

@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, session } from 'electron';
+import { BrowserWindow, session } from 'electron';
 import * as path from 'node:path';
 import { getRendererUrl } from '../rendererUrl';
 import { applyWindowSecurity } from '../windowSecurity';
@@ -83,32 +83,11 @@ export const openLiveCaptureWindow = (): void => {
   created.once('ready-to-show', () => {
     if (!created.isDestroyed()) created.show();
   });
-  let closing = false;
   created.on('close', (event) => {
     if (canClose()) return;
     event.preventDefault();
-    if (closing) return;
-    closing = true;
-    void dialog
-      .showMessageBox(created, {
-        type: 'question',
-        message: '録画を停止して保存しますか？',
-        detail:
-          'コーディングした内容と、これまでの録画をパッケージに残します。',
-        buttons: ['録画を続ける', '停止して保存'],
-        defaultId: 0,
-        cancelId: 0,
-      })
-      .then(async ({ response }) => {
-        if (response === 1) {
-          await stopCapture();
-          if (!created.isDestroyed()) created.close();
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        closing = false;
-      });
+    // Closing the controls is not a request to stop the recording owner.
+    created.hide();
   });
   created.on('closed', () => {
     window = null;

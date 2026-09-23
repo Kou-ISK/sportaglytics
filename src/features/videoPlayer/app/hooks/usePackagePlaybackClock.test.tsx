@@ -58,7 +58,7 @@ it('holds at the captured edge, resumes when media arrives, and honors manual pa
     callback(3000);
     callback(4000);
   });
-  expect(setCurrentTime).toHaveBeenLastCalledWith(4.9);
+  expect(setCurrentTime).toHaveBeenLastCalledWith(5.9);
   request.mockClear();
   hook.rerender({
     ...params,

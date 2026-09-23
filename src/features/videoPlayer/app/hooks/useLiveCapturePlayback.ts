@@ -37,12 +37,6 @@ export const useLiveCapturePlayback = (
     let mediaKey = '';
     let latestElapsed = -1;
     let latestSession = '';
-    let interacted = false;
-    const markInteraction = (): void => {
-      interacted = true;
-    };
-    window.addEventListener('pointerdown', markInteraction);
-    window.addEventListener('keydown', markInteraction);
     const receive = (state: CaptureSnapshot | null): void => {
       if (!mounted || !state) return;
       if (state.id === latestSession && state.elapsedSeconds < latestElapsed)
@@ -70,7 +64,7 @@ export const useLiveCapturePlayback = (
         state.availableEndSeconds >= 6
       ) {
         startedSession.current = state.id;
-        if (interacted || paramsRef.current.currentTime > 0.1) return;
+        if (paramsRef.current.currentTime > 0.1) return;
         paramsRef.current.onSeek(
           new Event('capture-live'),
           Math.max(0, state.availableEndSeconds - 4),
@@ -87,8 +81,6 @@ export const useLiveCapturePlayback = (
     return () => {
       mounted = false;
       unsubscribe();
-      window.removeEventListener('pointerdown', markInteraction);
-      window.removeEventListener('keydown', markInteraction);
     };
   }, [params.packagePath]);
 

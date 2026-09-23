@@ -23,6 +23,17 @@ const getBrowserWindowOwner = (
       )
     : undefined;
 
+const sendCodeWindowCommand = (channel: string): void => {
+  const focused = BrowserWindow.getFocusedWindow();
+  const session = getPackageSessionForWindow(focused);
+  const target =
+    session?.mainWindow ??
+    BrowserWindow.getAllWindows().find(
+      (window) => getPackageSessionForWindow(window)?.mainWindow === window,
+    );
+  if (target && !target.isDestroyed()) target.webContents.send(channel);
+};
+
 const sendToAllWindows = (channel: string, ...args: unknown[]): void => {
   BrowserWindow.getAllWindows().forEach((window) => {
     if (!window.isDestroyed()) {
@@ -72,7 +83,7 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
         label: 'コードウィンドウ…',
         accelerator: 'CmdOrCtrl+Shift+N',
         click: () => {
-          sendToAllWindows('menu-create-code-window-file');
+          sendCodeWindowCommand('menu-create-code-window-file');
         },
       },
     ],
@@ -93,7 +104,7 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
         label: 'コードウィンドウ…',
         accelerator: 'CmdOrCtrl+Option+O',
         click: () => {
-          sendToAllWindows('menu-open-code-window-file');
+          sendCodeWindowCommand('menu-open-code-window-file');
         },
       },
       {

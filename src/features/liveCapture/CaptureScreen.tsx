@@ -7,6 +7,7 @@ export const CaptureScreen = (): ReactElement => {
   return (
     <CaptureSetupView
       {...controller}
+      onHide={controller.hide}
       onNameChange={controller.setName}
       onSourcesChange={controller.setSources}
       onQualityChange={controller.setQuality}

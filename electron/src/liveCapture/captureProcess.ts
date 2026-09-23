@@ -42,7 +42,12 @@ export class CaptureProcess {
       const finish = (): void => {
         if (this.exited) return;
         this.exited = true;
-        this.onExit(this.stopping);
+        // A closing renderer must not keep process shutdown waiting forever.
+        try {
+          this.onExit(this.stopping);
+        } catch {
+          /* The owner may have closed. */
+        }
         resolve();
       };
       this.child.once('error', finish);
@@ -111,9 +116,19 @@ export class CaptureProcess {
     this.stopping = true;
     if (this.input.kind === 'device') this.child.stdin.end();
     else this.child.stdin.write('q\n');
-    const timer = setTimeout(() => this.child.kill('SIGKILL'), 10000);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        this.child.kill('SIGKILL');
+        reject(
+          new Error(
+            '録画処理の終了がタイムアウトしました。保存済み区間を確認してください。',
+          ),
+        );
+      }, 10000);
+    });
     try {
-      await this.closed;
+      await Promise.race([this.closed, deadline]);
     } finally {
       clearTimeout(timer);
     }

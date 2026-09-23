@@ -9,6 +9,7 @@ export interface PackageMediaClip {
 }
 
 export interface PackageMediaAngle {
+  playbackFormat?: 'fragmented-mp4';
   id: string;
   name: string;
   sourceKind: 'local' | 'youtube';

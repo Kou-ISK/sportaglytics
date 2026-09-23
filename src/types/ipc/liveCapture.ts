@@ -1,5 +1,6 @@
 export const LIVE_CAPTURE_CHANNELS = {
   open: 'live-capture:open',
+  hide: 'live-capture:hide',
   authorize: 'live-capture:authorize-devices',
   capabilities: 'live-capture:capabilities',
   start: 'live-capture:start',

@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { send, openTimelineWindow, openPlaylistFile } = vi.hoisted(() => ({
-  send: vi.fn(),
-  openTimelineWindow: vi.fn(),
-  openPlaylistFile: vi.fn(),
-}));
+const { send, otherSend, openTimelineWindow, openPlaylistFile } = vi.hoisted(
+  () => ({
+    send: vi.fn(),
+    otherSend: vi.fn(),
+    openTimelineWindow: vi.fn(),
+    openPlaylistFile: vi.fn(),
+  }),
+);
 
 vi.mock('electron', () => ({
   app: { name: 'SporTagLytics' },
@@ -14,9 +17,14 @@ vi.mock('electron', () => ({
         isDestroyed: () => false,
         webContents: { send },
       },
+      { isDestroyed: () => false, webContents: { send: otherSend } },
     ],
     getFocusedWindow: () => null,
   },
+}));
+vi.mock('../packageSessionRegistry', () => ({
+  getPackageSessionForWindow: (window: unknown) =>
+    window ? { mainWindow: window } : null,
 }));
 vi.mock('../settingsWindow', () => ({
   openSettingsWindow: vi.fn(),
@@ -50,6 +58,7 @@ const getSubmenuItems = (
 describe('document menus', () => {
   beforeEach(() => {
     send.mockClear();
+    otherSend.mockClear();
     openTimelineWindow.mockClear();
     openPlaylistFile.mockClear();
   });
@@ -90,6 +99,8 @@ describe('document menus', () => {
     expect(send).toHaveBeenCalledWith('menu-create-video-package');
     expect(send).toHaveBeenCalledWith('menu-create-code-window-file');
     expect(send).toHaveBeenCalledWith('menu-open-code-window-file');
+    expect(otherSend).not.toHaveBeenCalledWith('menu-create-code-window-file');
+    expect(otherSend).not.toHaveBeenCalledWith('menu-open-code-window-file');
   });
 
   it('reopens the detached timeline from Window', () => {

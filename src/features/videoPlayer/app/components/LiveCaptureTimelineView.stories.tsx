@@ -6,6 +6,7 @@ const meta = {
   args: {
     state: { availableEndSeconds: 120, following: true, interrupted: false },
     onGoLive: () => {},
+    onShowCapture: () => {},
   },
 } satisfies Meta<typeof LiveCaptureTimelineView>;
 export default meta;
