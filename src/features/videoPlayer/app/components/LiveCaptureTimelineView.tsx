@@ -25,6 +25,7 @@ export const LiveCaptureTimelineView = ({
       size="small"
       color={state.interrupted ? 'warning' : 'error'}
       variant="outlined"
+      sx={{ color: 'text.primary' }}
       label={state.interrupted ? '入力切断あり' : '録画中'}
     />
     <Tooltip

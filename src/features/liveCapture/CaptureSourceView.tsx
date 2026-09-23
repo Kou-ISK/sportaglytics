@@ -88,6 +88,8 @@ export const CaptureSourceView = ({
           {status && (
             <Chip
               size="small"
+              variant="outlined"
+              sx={{ color: 'text.primary' }}
               label={phaseLabels[status.phase]}
               color={
                 status.phase === 'recording'
