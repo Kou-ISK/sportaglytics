@@ -140,6 +140,32 @@ try {
   await waitForVideo(first);
   console.log('Native .stpkg directory drop passed');
 
+  // did-finish-load can precede isLoading() becoming false. An OS open in
+  // that interval must not wait for a second did-finish-load notification.
+  await first.evaluate(
+    (filePath) => window.electronAPI.releasePackageSession(filePath),
+    packagePath,
+  );
+  const firstWindowId = await (await app.browserWindow(first)).evaluate(
+    (window) => window.id,
+  );
+  const loadingAtFinish = await app.evaluate(
+    ({ BrowserWindow, app: application }, { id, filePath }) =>
+      new Promise((resolve, reject) => {
+        const window = BrowserWindow.fromId(id);
+        if (!window) return reject(new Error('Package window is missing'));
+        window.webContents.once('did-finish-load', () => {
+          const loading = window.webContents.isLoading();
+          application.emit('open-file', { preventDefault() {} }, filePath);
+          resolve(loading);
+        });
+        window.reload();
+      }),
+    { id: firstWindowId, filePath: packagePath },
+  );
+  await waitForVideo(first);
+  console.log(`Native open at did-finish-load passed (loading=${loadingAtFinish})`);
+
   // Keep an independent window so this lifecycle also runs on Windows without quitting.
   const keeperPagePromise = app.waitForEvent('window');
   const keeperId = await app.evaluate(async ({ BrowserWindow }) => {

@@ -381,6 +381,8 @@ UI変更後は `pnpm run verify` でRenderer/Electron型検査、lint、architec
 
 実機のファイルダイアログ・Finder/Explorerドロップ・保存再読込・Package Session・FFmpeg出力はStorybookと別に確認します。追尾の合成WebMや公開人物映像での結果と、利用者の試合映像での精度は区別して報告します。
 
+Mainのパッケージ通知を変更する場合は`packageOpenDelivery.test.ts`と`test:e2e:package-reopen`で、`did-finish-load`が発生しても`isLoading()`がtrueの間にOSから開く競合を確認します。タイムアウトの延長で回避せず、`did-stop-loading`後の配送を検証します。
+
 同じパッケージの閉じる→再openは `pnpm run test:e2e:package-reopen` で確認します。履歴の登録は画面unmount後の完了も検証対象です。テストの概要とプラットフォームごとの範囲は[起動画面の検証](start-workspace.md#検証)を参照してください。
 
 `did-finish-load`はReactの購読完了を保証しません。起動通知は `packageOpenBridge` で保持し、React側では既存の `onPackageDirectoryOpen` を購読・解除します。単体テストでStrictModeと購読者交代を確認し、`test:e2e:clip-sync`で本物のsandbox preloadへ購読前に通知を送って配送と再購読時の非再生を検証します。ウィンドウ取得は生成順に頼らず、file URLとrouteで対象を特定します。
