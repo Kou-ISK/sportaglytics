@@ -471,6 +471,7 @@ try {
       clamped[1] >= 300,
       'Old 260px outer-height request must clamp to the supported native minimum',
     );
+    await settle(timeline);
     metrics.minimum = {
       requested: [720, 260],
       actual: clamped,

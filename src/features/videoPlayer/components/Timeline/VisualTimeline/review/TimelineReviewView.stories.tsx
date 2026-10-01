@@ -18,10 +18,12 @@ const Fixture = ({
   data = many,
   initialQuery = '',
   width = 960,
+  height = 180,
 }: {
   data?: TimelineData[];
   initialQuery?: string;
   width?: number;
+  height?: number;
 }): ReactElement => {
   const [selected, setSelected] = useState<string[]>(
     data[0] ? [data[0].id] : [],
@@ -31,7 +33,7 @@ const Fixture = ({
     review.onToggle();
   }, []);
   return (
-    <Box sx={{ height: 180, width, border: 1, borderColor: 'divider' }}>
+    <Box sx={{ height, width, border: 1, borderColor: 'divider' }}>
       <TimelineReviewView
         {...review}
         onActivate={(id) => setSelected([id])}
@@ -57,3 +59,7 @@ export const NoMatches: Story = {
   render: () => <Fixture initialQuery="一致しない検索" />,
 };
 export const Compact: Story = { render: () => <Fixture width={720} /> };
+
+export const SupportedMinimumDock: Story = {
+  render: () => <Fixture width={702} height={76} />,
+};

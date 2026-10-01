@@ -25,3 +25,5 @@ Tabを場面巡回に使わず、通常focus移動へ戻す。既存のOption/Al
 ## 2026-10-01 layout revision
 
 検索を左へ固定すると時間軸の横幅を短くし、狭幅の切替では比較対象が消える。全幅を維持する下部dockを採用し、検索・件数・page・操作menuを1行へ、結果と全文詳細を左右へ配置する。表示行数は減るため、既定は閉じる。overlayでタグを覆う方法と、追加windowへfocusを移す方法を避け、closeで面積とfocusを戻す。最小高さは全文を同時に読める保証ではなくscrollのtradeoffとし、実pixel評価を技術gateと分ける。
+
+Native最小外寸は720×300とする。Windowsでは旧260px外寸のclientが195pxとなり、軸・32px行・32px操作と検索の完全1行の空間予算が足りなかった。native最小を上げてresizeを制限し、最小時の検証では実client領域と外側scroll位置を使う。Storyの最小dockは32px結果1行を含む74px内寸相当を提示し、OSのframe付きwindowはElectron E2Eで別途確認する。260px要求のclampは成功時の実外寸/client寸法を記録する。
