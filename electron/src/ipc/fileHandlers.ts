@@ -11,6 +11,7 @@ import {
   isStringPayload,
 } from './ipcPayloadGuards';
 import { getValidatedEventSenderWindow } from './windowSenderGuards';
+import { writeTextFileAtomically } from './atomicTextFile';
 
 interface RegisterFileHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
@@ -79,7 +80,7 @@ export const registerFileHandlers = ({
       }
 
       try {
-        await fs.writeFile(filePath, content, 'utf-8');
+        await writeTextFileAtomically(filePath, content);
         return true;
       } catch (error) {
         console.error('Failed to write file:', error);

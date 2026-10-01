@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Timeline読み込み失敗で空の文書を自動保存する経路を抑止し、映像・独立Timelineのエラー表示と再試行、順序付きの原子的テキスト置換を追加。
+- 既知の旧SporTag `.stpkg` / 拡張子なしフォルダを原本保持のコピー移行へ統一。未知version、参照不在、権限・容量・途中失敗を検査。目的別のファイル選択を分離。
+
+### Added
+
+- Sportscode Edit List XMLと明示映像・秒数補正から、別の新規`.stpkg`を作成する操作を追加。ネイティブSportscode形式は未対応。[対応と制限](docs/package-compatibility.md)。
+
 ## [0.17.1] - 2026-09-23
 
 ### Fixed

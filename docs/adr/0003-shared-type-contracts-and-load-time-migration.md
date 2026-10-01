@@ -24,6 +24,10 @@ SporTagLytics は timeline、playlist、settings、analysis、package metadata �
 - 保存時は最新モデルに統一する。
 - IPC や file import では `unknown` を受け、型ガードまたは正規化関数で絞り込む。
 
+入力を正規化する前に、既知の形・version・ID・有限時刻・ラベルを検証します。未知versionや読み込み失敗を空の有効文書へ変換しません。Timelineのload完了は「読取と検証に成功した」場合だけとし、成功前は変更・autosaveを抑止します。保存失敗ではdirty snapshotと持続するerror/retryを保持し、補助Timelineにも同期します。
+
+ファイル単位の順序付きtext writeは、同じディレクトリの一時ファイルへ書込・sync・close後にrenameします。これで途中の空/部分ファイルを読者へ見せる期間をなくします。終了時のdebounce flush、全形式のtransaction、電源断後の耐久性とは別の契約です。[原本保護と制限](../package-compatibility.md)。
+
 ## Consequences
 
 - 主要な domain logic は最新 contract 前提で実装でき、分岐が減る。

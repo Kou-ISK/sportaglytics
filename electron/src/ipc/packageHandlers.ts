@@ -1,3 +1,5 @@
+import { app } from 'electron';
+import { refreshAppMenu } from '../menuBar';
 import { readMediaFrameWindow } from './mediaFrameService';
 import { registerPackageLocation } from '../mediaReferences/packageLocationRegistry';
 import { readMediaTimeline } from './mediaTimelineSource';
@@ -12,6 +14,11 @@ import {
 } from './ipcPayloadGuards';
 import { registerHandleWithAliases } from './registerHandleWithAliases';
 import { getValidatedEventSenderWindow } from './windowSenderGuards';
+import {
+  importSportscodePackage,
+  isSportscodeImportRequest,
+  readSportscodeXmlSource,
+} from './sportscodeImportService';
 
 let isRegistered = false;
 
@@ -20,6 +27,28 @@ export const registerPackageHandlers = (): void => {
     return;
   }
   isRegistered = true;
+
+  registerHandleWithAliases(
+    'sportscode:read-xml',
+    [],
+    async (event, source: unknown) => {
+      if (!getValidatedEventSenderWindow(event) || !isNonEmptyString(source))
+        throw new Error('Invalid Sportscode XML sender or source');
+      return readSportscodeXmlSource(source);
+    },
+  );
+  registerHandleWithAliases(
+    'sportscode:import-package',
+    [],
+    async (event, request: unknown) => {
+      if (
+        !getValidatedEventSenderWindow(event) ||
+        !isSportscodeImportRequest(request)
+      )
+        throw new Error('Invalid Sportscode import sender or payload');
+      return importSportscodePackage(request);
+    },
+  );
 
   registerHandleWithAliases(
     'media:frame-window',
@@ -100,8 +129,15 @@ export const registerPackageHandlers = (): void => {
         throw new Error('Invalid package migration destination');
       }
       const result = await preparePackageForOpen(packagePath, destinationPath);
-      if (result.status === 'ready')
+      if (result.status === 'ready') {
         await registerPackageLocation(result.packagePath);
+        try {
+          app.addRecentDocument(result.packagePath);
+          refreshAppMenu();
+        } catch (error) {
+          console.warn('Package recent-document update failed', error);
+        }
+      }
       return result;
     },
   );

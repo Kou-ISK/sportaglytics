@@ -39,6 +39,7 @@ import type { CodeWindowLayout } from '../../../types/settings/coreTypes';
 import type { SCLabel } from '../../../types/timeline/sportscode';
 import { subscribeCreateVideoPackageMenu } from './gateways/menuEventGateway';
 import { useTimelineWindowIntegration } from './hooks/useTimelineWindowIntegration';
+import { TimelinePersistenceStatusView } from './components/TimelinePersistenceStatusView';
 import { useTimelineActionPresentationSync } from './hooks/useTimelineActionPresentationSync';
 import { useContinuousReversePlayback } from '../../../hooks/useContinuousReversePlayback';
 import { getMinAllowedGlobalTime } from './hooks/useVideoTimeController';
@@ -54,6 +55,7 @@ import {
 
 export const VideoPlayerScreen = () => {
   const {
+    persistenceFeedback,
     timeline,
     timelineRows,
     setTimeline,
@@ -333,6 +335,7 @@ export const VideoPlayerScreen = () => {
   );
 
   useTimelineWindowIntegration({
+    persistenceFeedback,
     liveCapture: liveCapture.timelineState,
     onGoLive: liveCapture.goLive,
     isFileSelected,
@@ -446,6 +449,7 @@ export const VideoPlayerScreen = () => {
         overflow: 'hidden',
       }}
     >
+      <TimelinePersistenceStatusView feedback={persistenceFeedback} />
       <VideoPlayerLayout
         livePlaybackEnd={liveCapture.timelineState?.availableEndSeconds}
         openWizardRequestKey={openWizardRequestKey}

@@ -5,6 +5,7 @@ import type {
 } from '../../../../types/timeline/core';
 import { normalizeTimelineData } from '../../../../utils/scTimelineConverter';
 import { deriveTimelineRows, isTimelineRow } from '../../shared/timelineRows';
+import { validateTimelineDocumentData } from '../../../../shared/timeline/timelineValidation';
 
 export interface ParsedTimelineDocument {
   timeline: TimelineData[];
@@ -24,6 +25,7 @@ export const serializeTimelineDocument = (
 
 export const parseTimelineDocument = (text: string): ParsedTimelineDocument => {
   const raw = JSON.parse(text) as unknown;
+  validateTimelineDocumentData(raw);
   const rawDocument =
     typeof raw === 'object' && raw !== null
       ? (raw as Record<string, unknown>)

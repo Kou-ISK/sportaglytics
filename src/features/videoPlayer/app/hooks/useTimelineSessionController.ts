@@ -19,6 +19,7 @@ import type { TimelineRangeEditing } from './useTimelineRangeEditing';
 import { useTimelineEditing } from './useTimelineEditing';
 import { useTimelineHistory } from './useTimelineHistory';
 import { useTimelinePersistence } from './useTimelinePersistence';
+import type { TimelinePersistenceFeedback } from './useTimelinePersistence';
 import { useTimelineSelection } from './useTimelineSelection';
 
 type TimelineSelectionHandler = (
@@ -27,6 +28,7 @@ type TimelineSelectionHandler = (
 ) => void;
 
 interface UseTimelineSessionControllerResult extends TimelineRangeEditing {
+  persistenceFeedback: TimelinePersistenceFeedback | null;
   timeline: TimelineData[];
   timelineRows: TimelineRow[];
   setTimeline: Dispatch<SetStateAction<TimelineData[]>>;
@@ -84,6 +86,7 @@ interface UseTimelineSessionControllerResult extends TimelineRangeEditing {
 export const useTimelineSessionController =
   (): UseTimelineSessionControllerResult => {
     const {
+      persistenceFeedback,
       timeline: persistedTimeline,
       setTimeline: setPersistedTimeline,
       timelineRows,
@@ -319,6 +322,7 @@ export const useTimelineSessionController =
     );
 
     return {
+      persistenceFeedback,
       timeline,
       timelineRows,
       setTimeline,

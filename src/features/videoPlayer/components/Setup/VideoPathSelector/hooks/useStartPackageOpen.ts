@@ -15,7 +15,7 @@ export interface StartPackageOpen {
   error: string;
   errorDetails: string;
   invalidDrop: boolean;
-  open: (path?: string) => Promise<void>;
+  open: (path?: string, legacyFolder?: boolean) => Promise<void>;
   retry: () => void;
   dismissError: () => void;
   reportInvalidDrop: () => void;
@@ -34,14 +34,14 @@ export const useStartPackageOpen = (
   const opening = useRef(false);
   const { info } = useNotification();
   const open = useCallback(
-    async (path?: string): Promise<void> => {
+    async (path?: string, legacyFolder = false): Promise<void> => {
       if (opening.current) return;
       opening.current = true;
       setBusy(true);
       setFailure(null);
       let selectedPath = path;
       try {
-        selectedPath = (await pickPackagePath(path)) ?? undefined;
+        selectedPath = (await pickPackagePath(path, legacyFolder)) ?? undefined;
         if (!selectedPath) return;
         const loaded = await loadPackageDirectory(selectedPath);
         if (loaded.missingSyncData)

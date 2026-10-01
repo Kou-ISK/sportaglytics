@@ -80,10 +80,7 @@ export const registerCodeWindowHandlers = ({
           window && !window.isDestroyed() ? window : senderWindow;
         const result = await dialog.showOpenDialog(parentWindow, {
           properties: ['openFile'],
-          filters: [
-            { name: 'コードウィンドウファイル', extensions: ['stcw'] },
-            { name: 'すべてのファイル', extensions: ['*'] },
-          ],
+          filters: [{ name: 'コードウィンドウファイル', extensions: ['stcw'] }],
         });
         if (result.canceled || result.filePaths.length === 0) return null;
         targetPath = result.filePaths[0];

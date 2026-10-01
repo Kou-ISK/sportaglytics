@@ -22,13 +22,17 @@ SporTagLytics は project package、playlist、code window、dashboard をユー
 - `.stpl` は playlist package とし、playlist data と必要に応じた video assets を含む。
 - `.stcw` は code window layout document とし、JSON document として扱う。
 - `.stad` は analysis dashboard package とし、dashboard import/export の document format として扱う。
-- `.metadata/config.json` と `timeline.json` を持つ拡張子なしの legacy project folder を開いた場合は、その folder を直接更新しない。内容を検証して sibling の `.stpkg` へ一時 copy し、copy 側だけを現行構造へ migration した後、atomic rename で完成を確定する。
-- legacy source の real path と config/timeline fingerprint を `.metadata/legacy-migration.json` に記録する。同じ source が未変更のまま再度開かれた場合は既存 migration target を再利用し、同名の無関係な `.stpkg` は上書きしない。
+- `.metadata/config.json` と `timeline.json` を持つ既知の旧 `.stpkg` または拡張子なしの legacy project folder を開いた場合は、その folder を直接更新しない。内容を検証して sibling の `.stpkg` へ一時 copy し、copy 側だけを現行構造へ migration した後、atomic rename で完成を確定する。
+- legacy source の real path と 全エントリーのmetadataと小さな文書内容のfingerprint を `.metadata/legacy-migration.json` に記録する。同じ source が未変更のまま再度開かれた場合は既存 migration target を再利用し、同名の無関係な `.stpkg` は上書きしない。
 - sibling location に書き込めない場合は Save As で明示的な保存先を選び、source は成功・失敗・キャンセルを問わず変更・削除しない。
 - package picker、recent package、Finder/OS open、drag/drop は renderer の package load gateway で同じ preparation service を通す。
 - macOS では UTI / document type / icon / package directory の扱いを `electron-builder.json` と `public/icons` で維持する。
 - Windows / Linux では `electron-builder.json` の file association を維持する。
 - 拡張子、内部構造、document role、package directory 扱いを変更する場合は user guide、custom file icon docs、requirement、必要なら migration docs を同じ PR で更新する。
+
+互換性は拡張子より内容を正とし、未知の明示version・壊れたTimeline・参照不在・symlinkを拒否します。コピー先の容量と権限を確認し、コピーの現行構造と参照、完了前の原本fingerprintを再検証します。大きな映像の全バイトhash、停電・共有filesystem・別プロセス競合の完全保護はこの判断に含めません。
+
+package、旧フォルダ、XML、映像、保存先のpickerを目的別に分けます。Windowsではディレクトリpickerに拡張子filterが効かないため、説明とstructural validationを使います。汎用保存先選択をrecent projectへ登録しません。実Finder/Explorerの表示はadapter testとは別に検証します。[対応形式・失敗時の契約](../package-compatibility.md)。
 
 ## Consequences
 

@@ -31,33 +31,6 @@ const tryResolveRelativePath = async (
     return toPosixPath(relativeFromPackage);
   }
 
-  const baseName = path.basename(resolved);
-  const directCandidate = path.join(videosDir, baseName);
-
-  try {
-    await fs.promises.access(directCandidate, fs.constants.F_OK);
-    const relative = path.relative(packageRoot, directCandidate);
-    console.warn(`[convert-config] ${resolved} を ${relative} に更新します`);
-    return toPosixPath(relative);
-  } catch {
-    // noop
-  }
-
-  try {
-    const entries = await fs.promises.readdir(videosDir);
-    const matched = entries.find(
-      (entry) => entry.toLowerCase() === baseName.toLowerCase(),
-    );
-    if (matched) {
-      const fallback = path.join(videosDir, matched);
-      const relative = path.relative(packageRoot, fallback);
-      console.warn(`[convert-config] ${resolved} を ${relative} に更新します`);
-      return toPosixPath(relative);
-    }
-  } catch (scanError) {
-    console.debug('videosフォルダの走査に失敗:', scanError);
-  }
-
   console.warn(
     `[convert-config] ${resolved} はパッケージ外のため絶対パスのまま保持します`,
   );
@@ -206,8 +179,33 @@ export const convertConfigToRelativePath = async (
             value: angleRecord.relativePath,
           });
         }
-        if (!Array.isArray(angleRecord.clips)) continue;
-        for (const clip of angleRecord.clips) {
+        if (
+          !Array.isArray(angleRecord.clips) ||
+          angleRecord.clips.length === 0
+        ) {
+          const sourceKind =
+            angleRecord.sourceKind === 'youtube' ? 'youtube' : 'local';
+          const source =
+            sourceKind === 'youtube'
+              ? angleRecord.sourceUrl
+              : angleRecord.relativePath;
+          if (typeof source !== 'string' || !source.trim())
+            throw new Error('PACKAGE_MEDIA_REFERENCE_INVALID');
+          angleRecord.clips = [
+            {
+              id: `${String(angleRecord.id)}-legacy-clip`,
+              sourceKind,
+              ...(sourceKind === 'youtube'
+                ? { sourceUrl: source }
+                : { relativePath: source }),
+              gapBeforeSeconds: 0,
+              timelineStartSeconds: 0,
+            },
+          ];
+        }
+        const clips = angleRecord.clips;
+        if (!Array.isArray(clips)) throw new Error('PACKAGE_CLIPS_INVALID');
+        for (const clip of clips) {
           if (!isPlainObject(clip)) {
             continue;
           }
@@ -227,7 +225,7 @@ export const convertConfigToRelativePath = async (
         // runtime contract as newly created packages. The redundant file is
         // deliberately left in place; cleanup requires an explicit migration.
         if (angleRecord.sourceKind !== 'youtube') {
-          const firstLocalClip = angleRecord.clips.find(
+          const firstLocalClip = clips.find(
             (clip) =>
               isPlainObject(clip) &&
               clip.sourceKind !== 'youtube' &&

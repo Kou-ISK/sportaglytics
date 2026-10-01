@@ -8,6 +8,9 @@ export type AppBridgeLegacyKeys =
   | 'openFile'
   | 'openVideoFiles'
   | 'openDirectory'
+  | 'selectPackagePath'
+  | 'readSportscodeXml'
+  | 'importSportscodePackage'
   | 'exportTimeline'
   | 'createPackage'
   | 'preparePackageForOpen'
@@ -28,6 +31,12 @@ export const createAppBridgeLegacyApi = (
   ipcRenderer: IpcRenderer,
 ): Pick<IElectronAPI, AppBridgeLegacyKeys> => {
   return {
+    selectPackagePath: (legacyFolder = false) =>
+      ipcRenderer.invoke('package:select-path', legacyFolder),
+    readSportscodeXml: (file) =>
+      ipcRenderer.invoke('sportscode:read-xml', file),
+    importSportscodePackage: (request) =>
+      ipcRenderer.invoke('sportscode:import-package', request),
     openFile: async () => {
       try {
         const filePath = await invokeWithFallback<string>(
