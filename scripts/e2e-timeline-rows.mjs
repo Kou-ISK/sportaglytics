@@ -509,9 +509,13 @@ try {
       new DragEvent('drop', { bubbles: true, dataTransfer }),
     );
   });
-  await page.waitForTimeout(400);
-  const reorderedDocument = JSON.parse(
-    await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
+  await page.waitForFunction(() => {
+    const defence = document.querySelector('[aria-label="Defence 行"]');
+    const attack = document.querySelector('[aria-label="Attack 行"]');
+    return defence && attack && defence.getBoundingClientRect().top < attack.getBoundingClientRect().top;
+  });
+  const reorderedDocument = await waitForTimeline((document) =>
+    JSON.stringify(document.rows.map((row) => row.name)) === JSON.stringify(['Defence', 'Attack']),
   );
   assert.deepEqual(
     reorderedDocument.rows.map((row) => row.name),

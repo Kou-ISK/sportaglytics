@@ -182,6 +182,7 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           justifyContent: 'center',
           px: width >= 8 ? 0.5 : 0,
           border: isSelected || isFocused ? 3 : 1,
+          scrollMarginBlock: (theme) => theme.spacing(0.5),
           borderColor,
           outline:
             isFocused || isHovered
