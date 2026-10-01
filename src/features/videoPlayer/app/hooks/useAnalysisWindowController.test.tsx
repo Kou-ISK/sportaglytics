@@ -38,6 +38,36 @@ describe('useAnalysisWindowController', () => {
     vi.clearAllMocks();
   });
 
+  it('receives the initial document even when the owner sent it before the listener mounted', () => {
+    let receiver: ((payload: AnalysisWindowSyncPayload) => void) | undefined;
+    const cached: AnalysisWindowSyncPayload = {
+      timeline: [timelineItem],
+      teamNames: ['Alpha', 'Beta'],
+      view: 'matrix',
+    };
+    const requestSync = vi.fn(() => {
+      expect(receiver).toBeTypeOf('function');
+      receiver?.(cached);
+    });
+    const offSync = vi.fn();
+    globalThis.window.electronAPI = {
+      analysis: {
+        onSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => {
+          receiver = callback;
+        },
+        offSync,
+        requestSync,
+      },
+    } as unknown as typeof globalThis.window.electronAPI;
+    const { result, unmount } = renderHook(() => useAnalysisWindowController());
+    expect(result.current.timeline).toEqual([timelineItem]);
+    expect(requestSync).toHaveBeenCalledOnce();
+    expect(result.current.analysisView).toBe('matrix');
+    expect(result.current.isSyncing).toBe(false);
+    unmount();
+    expect(offSync).toHaveBeenCalledWith(receiver);
+  });
+
   it('handles sync messages and forwards jump/create actions through the controller', async () => {
     let syncHandler: ((payload: AnalysisWindowSyncPayload) => void) | null =
       null;

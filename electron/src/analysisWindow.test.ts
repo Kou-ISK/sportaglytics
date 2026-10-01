@@ -41,9 +41,11 @@ const electronMocks = vi.hoisted(() => {
     createdWindows,
     handleHandlers,
     onHandlers,
-    handle: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
-      handleHandlers.set(channel, handler);
-    }),
+    handle: vi.fn(
+      (channel: string, handler: (...args: unknown[]) => unknown) => {
+        handleHandlers.set(channel, handler);
+      },
+    ),
     on: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
       onHandlers.set(channel, handler);
     }),
@@ -80,6 +82,7 @@ describe('analysisWindow handlers', () => {
     const mainSend = vi.fn();
     const mainWindow = {
       isDestroyed: () => false,
+      once: vi.fn(),
       webContents: { send: mainSend },
     };
 
@@ -119,11 +122,90 @@ describe('analysisWindow handlers', () => {
     );
   });
 
+  it('replays the latest owner snapshot to a ready analysis window, without cross-session access', async () => {
+    const module = await import('./analysisWindow');
+    const mainWindow = {
+      isDestroyed: () => false,
+      once: vi.fn(),
+      webContents: { send: vi.fn() },
+    };
+    const otherMain = {
+      isDestroyed: () => false,
+      once: vi.fn(),
+      webContents: { send: vi.fn() },
+    };
+    module.setAnalysisMainWindowRef(
+      mainWindow as unknown as Electron.BrowserWindow,
+    );
+    const payload: AnalysisWindowSyncPayload = {
+      timeline: [
+        {
+          id: 'scene',
+          actionName: 'Try',
+          startTime: 1,
+          endTime: 2,
+          memo: 'latest',
+        },
+      ],
+      teamNames: ['Alpha', 'Beta'],
+      view: 'matrix',
+    };
+    // No analysis window exists when its owner publishes the initial document.
+    module.sendAnalysisSync(
+      payload,
+      mainWindow as unknown as Electron.BrowserWindow,
+    );
+    await module.openAnalysisWindow(
+      mainWindow as unknown as Electron.BrowserWindow,
+    );
+    await module.openAnalysisWindow(
+      otherMain as unknown as Electron.BrowserWindow,
+    );
+    module.registerAnalysisWindowHandlers();
+    const analysis = electronMocks.createdWindows[0];
+    const otherAnalysis = electronMocks.createdWindows[1];
+    const windows = [mainWindow, otherMain, analysis, otherAnalysis];
+    electronMocks.browserWindowFromWebContents.mockImplementation(
+      (sender) =>
+        windows.find((window) => window?.webContents === sender) ?? null,
+    );
+    const request = electronMocks.onHandlers.get(
+      ANALYSIS_WINDOW_CHANNELS.requestSync,
+    );
+    expect(request).toBeTypeOf('function');
+    request?.({ sender: mainWindow.webContents });
+    request?.({ sender: {} });
+    request?.({ sender: otherAnalysis?.webContents });
+    expect(analysis?.webContents.send).not.toHaveBeenCalled();
+    expect(otherAnalysis?.webContents.send).not.toHaveBeenCalled();
+    request?.({ sender: analysis?.webContents });
+    expect(analysis?.webContents.send).toHaveBeenLastCalledWith(
+      ANALYSIS_WINDOW_CHANNELS.sync,
+      payload,
+    );
+    const latest = {
+      timeline: [{ ...payload.timeline[0], memo: 'edited' }],
+      teamNames: payload.teamNames,
+    };
+    module.sendAnalysisSync(
+      latest,
+      mainWindow as unknown as Electron.BrowserWindow,
+    );
+    analysis?.webContents.send.mockClear();
+    // A reload has no new owner edit or open command to trigger a fresh send.
+    request?.({ sender: analysis?.webContents });
+    expect(analysis?.webContents.send).toHaveBeenCalledExactlyOnceWith(
+      ANALYSIS_WINDOW_CHANNELS.sync,
+      { ...latest, view: 'matrix' },
+    );
+  });
+
   it('forwards AI playlist creation only from the analysis window with a valid payload', async () => {
     const analysisWindowModule = await import('./analysisWindow');
     const mainSend = vi.fn();
     const mainWindow = {
       isDestroyed: () => false,
+      once: vi.fn(),
       webContents: { send: mainSend },
     };
 

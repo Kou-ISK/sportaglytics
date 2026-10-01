@@ -454,6 +454,37 @@ try {
   await analysis
     .getByText('対象データ数: 240 / 240', { exact: true })
     .waitFor();
+  // Real renderer reload discards its listener while the owner document remains
+  // unchanged. It must recover the same 240 scenes through the ready handshake.
+  await analysis.reload();
+  await analysis
+    .getByRole('button', { name: 'クロス集計', exact: true })
+    .click();
+  await analysis
+    .getByText('対象データ数: 240 / 240', { exact: true })
+    .waitFor();
+  const analysisSnapshot = await analysis.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const api = window.electronAPI.analysis;
+        const timeout = setTimeout(() => {
+          api.offSync(receive);
+          reject(new Error('Analysis ready sync missing'));
+        }, 10000);
+        const receive = (payload) => {
+          clearTimeout(timeout);
+          api.offSync(receive);
+          resolve(payload);
+        };
+        api.onSync(receive);
+        api.requestSync();
+      }),
+  );
+  assert.equal(analysisSnapshot.timeline.length, 240);
+  assert.equal(
+    analysisSnapshot.timeline.find((item) => item.id === 'instance-239').memo,
+    '確認済み・終盤',
+  );
   await screenshot(analysis, 'ux-review-analysis');
   console.log('Analysis menu initial sync verified');
   await stopApp();

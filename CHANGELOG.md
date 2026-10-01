@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- 分析ウィンドウの受信準備後に最新snapshotを同期し、初回表示とreload時にデータが失われる競合を修正しました。
+
 - 選択中のTimelineでTabが場面巡回を優先し、通常focus移動を妨げる問題を修正。巡回はOption/Alt+上下を使用。
 - ウィンドウメニューから分析を開いた時に初回Timeline同期が届かず「同期中」に留まる問題を修正。
 - Timeline読み込み失敗で空の文書を自動保存する経路を抑止し、映像・独立Timelineのエラー表示と再試行、順序付きの原子的テキスト置換を追加。

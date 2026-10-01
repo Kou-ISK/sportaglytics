@@ -373,3 +373,5 @@ Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツ�
 ### Paintの俯瞰図
 
 戦術盤は[Paintの保存契約](tactics.md#戦術盤と映像からの配置)に従うクリップ・アングル別メタデータです。Viewはpropsのみ、編集履歴はHook、動画の読取・同梱モデル実行・PNG保存はGatewayに分離します。認識は明示操作時の停止フレームだけを対象とし、サーバー・新しいIPC・クラウドAPIを追加しません。[ADR 0039](adr/0039-local-tactical-board.md)を参照してください。
+
+分析窓の初期データは所有sessionでcacheし、Rendererの受信listener登録後のready requestで再送します。希望viewはopen前に確保し、実reloadでも同じ手順を使います。別sessionの要求は拒否し、Main終了時にcacheを除去します。[ADR0055](adr/0055-timeline-review-without-document-filtering.md)。

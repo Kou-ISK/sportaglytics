@@ -55,6 +55,9 @@ export const createAnalysisBridge = (
         }
         ipcRenderer.send(ANALYSIS_WINDOW_CHANNELS.syncToWindow, data);
       },
+      requestSync: () => {
+        ipcRenderer.send(ANALYSIS_WINDOW_CHANNELS.requestSync);
+      },
       onSync: (callback: (data: AnalysisWindowSyncPayload) => void) => {
         const wrapped = (...rawArgs: unknown[]) => {
           const [, data] = rawArgs as [
