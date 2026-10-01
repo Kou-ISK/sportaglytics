@@ -5,7 +5,6 @@ import { registerPackageLocation } from '../mediaReferences/packageLocationRegis
 import { readMediaTimeline } from './mediaTimelineSource';
 import { createPackage } from './packageCreationService';
 import { applyClipTimeline } from './packageClipTimelineService';
-import { convertConfigToRelativePath } from './packageConfigMigrationService';
 import { preparePackageForOpen } from './legacyPackageMigrationService';
 import {
   isNonEmptyString,
@@ -194,21 +193,6 @@ export const registerPackageHandlers = (): void => {
       )
         throw new Error('Invalid angle offsets');
       return applyClipTimeline(configPath, placements, angleOffsets);
-    },
-  );
-
-  registerHandleWithAliases(
-    'package:convert-config-to-relative-path',
-    ['convert-config-to-relative-path'],
-    async (event, packagePath: unknown) => {
-      if (!getValidatedEventSenderWindow(event)) {
-        throw new Error('Invalid package conversion sender');
-      }
-      if (!isNonEmptyString(packagePath)) {
-        return { success: false, error: 'Invalid package path' };
-      }
-
-      return convertConfigToRelativePath(packagePath);
     },
   );
 };

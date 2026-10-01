@@ -122,11 +122,7 @@ export interface IElectronAPI {
   endLoopbackAudioCapture: () => Promise<void>;
   extractAudioWavForSync: (videoPath: string) => Promise<string | null>;
   setManualModeChecked: (checked: boolean) => Promise<boolean>;
-  convertConfigToRelativePath: (packagePath: string) => Promise<{
-    success: boolean;
-    config?: Record<string, unknown>;
-    error?: string;
-  }>;
+
   loadSettings: () => Promise<AppSettings>;
   saveSettings: (settings: AppSettings) => Promise<boolean>;
   resetSettings: () => Promise<AppSettings>;

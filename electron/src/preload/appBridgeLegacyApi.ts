@@ -24,8 +24,7 @@ export type AppBridgeLegacyKeys =
   | 'endLoopbackAudioCapture'
   | 'checkFileExists'
   | 'readJsonFile'
-  | 'setManualModeChecked'
-  | 'convertConfigToRelativePath';
+  | 'setManualModeChecked';
 
 export const createAppBridgeLegacyApi = (
   ipcRenderer: IpcRenderer,
@@ -236,23 +235,6 @@ export const createAppBridgeLegacyApi = (
       } catch (error) {
         console.error('setManualModeChecked error:', error);
         return false;
-      }
-    },
-    convertConfigToRelativePath: async (packagePath: string) => {
-      try {
-        return await invokeWithFallback<{
-          success: boolean;
-          config?: Record<string, unknown>;
-          error?: string;
-        }>(
-          ipcRenderer,
-          'package:convert-config-to-relative-path',
-          'convert-config-to-relative-path',
-          packagePath,
-        );
-      } catch (error) {
-        console.error('convertConfigToRelativePath error:', error);
-        return { success: false, error: String(error) };
       }
     },
   };

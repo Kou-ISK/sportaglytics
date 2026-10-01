@@ -30,6 +30,8 @@ SporTagLytics は project package、playlist、code window、dashboard をユー
 - Windows / Linux では `electron-builder.json` の file association を維持する。
 - 拡張子、内部構造、document role、package directory 扱いを変更する場合は user guide、custom file icon docs、requirement、必要なら migration docs を同じ PR で更新する。
 
+原本をその場で変換する旧Renderer向けIPCは廃止し、変換関数はMainのコピー移行内部だけで使います。
+
 互換性は拡張子より内容を正とし、未知の明示version・壊れたTimeline・参照不在・symlinkを拒否します。コピー先の容量と権限を確認し、コピーの現行構造と参照、完了前の原本fingerprintを再検証します。大きな映像の全バイトhash、停電・共有filesystem・別プロセス競合の完全保護はこの判断に含めません。
 
 package、旧フォルダ、XML、映像、保存先のpickerを目的別に分けます。Windowsではディレクトリpickerに拡張子filterが効かないため、説明とstructural validationを使います。汎用保存先選択をrecent projectへ登録しません。実Finder/Explorerの表示はadapter testとは別に検証します。[対応形式・失敗時の契約](../package-compatibility.md)。
