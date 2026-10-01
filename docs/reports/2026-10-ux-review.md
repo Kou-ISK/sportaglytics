@@ -65,7 +65,7 @@
 
 ## 検証と再現
 
-typecheck（renderer/Electron）、lint、architecture、design-system、ADR、renderer build、Electron main/preload buildとpreload check、Storybook buildが成功した。全unitは213ファイル/703テストが成功した。補助窓menu回帰を含む。buildの既存chunk-size警告は残る。
+typecheck（renderer/Electron）、lint、architecture、design-system、ADR、renderer build、Electron main/preload buildとpreload check、Storybook buildが成功した。全unitは214ファイル/705テストが成功した。補助窓menu回帰とWindows/POSIXの履歴名回帰を含む。Windowsの初回新UXシナリオは再起動後の履歴名で失敗し、登録時にbackslashをbasenameへ分割していなかった既存不具合を修正した。buildの既存chunk-size警告は残る。
 
 | Electron実行                          | 結果/対象                                                                                                               |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
