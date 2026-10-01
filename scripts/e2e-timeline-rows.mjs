@@ -538,20 +538,28 @@ try {
       await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
     ).rows.map((row) => row.name),
   );
-  const captureRowOrder = async () => ({
-    ui: await page.evaluate(() =>
-      [
-        ...document.querySelectorAll('[data-testid^="timeline-row-header-"]'),
-      ].map((row) => ({
-        name: row.textContent,
-        rect: row.getBoundingClientRect().toJSON(),
-        draggable: row.draggable,
-      })),
-    ),
-    disk: JSON.parse(
-      await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
-    ).rows,
-  });
+  const captureRowOrder = async () => {
+    let disk;
+    try {
+      disk = JSON.parse(
+        await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
+      ).rows;
+    } catch (error) {
+      disk = { readError: String(error) };
+    }
+    return {
+      ui: await page.evaluate(() =>
+        [
+          ...document.querySelectorAll('[data-testid^="timeline-row-header-"]'),
+        ].map((row) => ({
+          name: row.textContent,
+          rect: row.getBoundingClientRect().toJSON(),
+          draggable: row.draggable,
+        })),
+      ),
+      disk,
+    };
+  };
   try {
     await page.waitForFunction(() => {
       const defence = document.querySelector('[aria-label="Defence 行"]');
