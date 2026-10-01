@@ -11,7 +11,10 @@ import {
   isAnalysisWindowSyncPayload,
   isTimelineData,
 } from '../../src/types/ipc/analysisWindow';
-import { getValidatedEventSenderWindow, isEventFromWindow } from './ipc/windowSenderGuards';
+import {
+  getValidatedEventSenderWindow,
+  isEventFromWindow,
+} from './ipc/windowSenderGuards';
 import { applyWindowSecurity } from './windowSecurity';
 import {
   createPackageSession,
@@ -24,6 +27,7 @@ import {
 
 interface AnalysisSessionState {
   analysisWindow: BrowserWindow | null;
+  lastSyncPayload: AnalysisWindowSyncPayload | null;
 }
 
 const states = new Map<string, AnalysisSessionState>();
@@ -36,25 +40,36 @@ export const setAnalysisMainWindowRef = (window: BrowserWindow): void => {
   createPackageSession(window);
 };
 
-const resolveSession = (window?: BrowserWindow | null): PackageSession | null => {
+const resolveSession = (
+  window?: BrowserWindow | null,
+): PackageSession | null => {
   const owner = window ?? defaultMainWindow;
   return owner
-    ? getPackageSessionForWindow(owner) ?? createPackageSession(owner)
+    ? (getPackageSessionForWindow(owner) ?? createPackageSession(owner))
     : null;
 };
 
-const resolveSenderSession = (sender: Electron.WebContents): PackageSession | null =>
-  getPackageSessionForSender(sender) ?? resolveSession(BrowserWindow.fromWebContents(sender));
+const resolveSenderSession = (
+  sender: Electron.WebContents,
+): PackageSession | null =>
+  getPackageSessionForSender(sender) ??
+  resolveSession(BrowserWindow.fromWebContents(sender));
 
 const getState = (session: PackageSession): AnalysisSessionState => {
   const current = states.get(session.id);
   if (current) return current;
-  const next = { analysisWindow: null };
+  const next: AnalysisSessionState = {
+    analysisWindow: null,
+    lastSyncPayload: null,
+  };
   states.set(session.id, next);
+  session.mainWindow.once('closed', () => states.delete(session.id));
   return next;
 };
 
-const focusOrCreate = (mainWindow?: BrowserWindow | null): BrowserWindow | null => {
+const focusOrCreate = (
+  mainWindow?: BrowserWindow | null,
+): BrowserWindow | null => {
   const session = resolveSession(mainWindow);
   if (!session) return null;
   const state = getState(session);
@@ -103,22 +118,33 @@ export const openAnalysisWindow = async (
   }
 };
 
-export const closeAnalysisWindow = (mainWindow?: BrowserWindow | null): void => {
+export const closeAnalysisWindow = (
+  mainWindow?: BrowserWindow | null,
+): void => {
   if (mainWindow) {
     getState(resolveSession(mainWindow)!).analysisWindow?.close();
     return;
   }
   for (const state of states.values()) {
-    if (state.analysisWindow && !state.analysisWindow.isDestroyed()) state.analysisWindow.close();
+    if (state.analysisWindow && !state.analysisWindow.isDestroyed())
+      state.analysisWindow.close();
   }
 };
 
-export const isAnalysisWindowOpen = (mainWindow?: BrowserWindow | null): boolean => {
+export const isAnalysisWindowOpen = (
+  mainWindow?: BrowserWindow | null,
+): boolean => {
   if (mainWindow) {
     const session = resolveSession(mainWindow);
-    return Boolean(session && getState(session).analysisWindow && !getState(session).analysisWindow?.isDestroyed());
+    return Boolean(
+      session &&
+      getState(session).analysisWindow &&
+      !getState(session).analysisWindow?.isDestroyed(),
+    );
   }
-  return [...states.values()].some(({ analysisWindow }) => analysisWindow && !analysisWindow.isDestroyed());
+  return [...states.values()].some(
+    ({ analysisWindow }) => analysisWindow && !analysisWindow.isDestroyed(),
+  );
 };
 
 export const sendAnalysisSync = (
@@ -126,7 +152,15 @@ export const sendAnalysisSync = (
   mainWindow?: BrowserWindow | null,
 ): void => {
   const session = resolveSession(mainWindow);
-  const analysisWindow = session ? getState(session).analysisWindow : null;
+  if (!session || session.mainWindow.isDestroyed()) return;
+  const state = getState(session);
+  // Window load completion can precede the renderer's subscription. Retain the
+  // owner's latest payload so a ready analysis renderer can request it.
+  state.lastSyncPayload = {
+    ...payload,
+    view: payload.view ?? state.lastSyncPayload?.view,
+  };
+  const analysisWindow = state.analysisWindow;
   if (analysisWindow && !analysisWindow.isDestroyed()) {
     analysisWindow.webContents.send(ANALYSIS_WINDOW_CHANNELS.sync, payload);
   }
@@ -170,7 +204,8 @@ export const registerAnalysisWindowHandlers = (): void => {
       senderWindow.close();
       return;
     }
-    if (senderWindow !== session.mainWindow) throw new Error('Invalid analysis close sender');
+    if (senderWindow !== session.mainWindow)
+      throw new Error('Invalid analysis close sender');
     state.analysisWindow?.close();
   });
 
@@ -181,39 +216,76 @@ export const registerAnalysisWindowHandlers = (): void => {
       throw new Error('Invalid analysis state sender');
     }
     const state = getState(session);
-    if (senderWindow !== session.mainWindow && senderWindow !== state.analysisWindow) {
+    if (
+      senderWindow !== session.mainWindow &&
+      senderWindow !== state.analysisWindow
+    ) {
       throw new Error('Invalid analysis state sender');
     }
     return Boolean(state.analysisWindow && !state.analysisWindow.isDestroyed());
   });
 
-  ipcMain.on(ANALYSIS_WINDOW_CHANNELS.syncToWindow, (event, payload: unknown) => {
-    const session = resolveSenderSession(event.sender);
-    if (!session || !isEventFromWindow(event, session.mainWindow) || !isAnalysisWindowSyncPayload(payload)) {
-      return;
-    }
-    sendAnalysisSync(payload, session.mainWindow);
+  ipcMain.on(ANALYSIS_WINDOW_CHANNELS.requestSync, (event) => {
+    const senderWindow = getValidatedEventSenderWindow(event);
+    const session = senderWindow
+      ? getPackageSessionForWindow(senderWindow)
+      : null;
+    if (!session || !senderWindow) return;
+    const state = getState(session);
+    if (senderWindow !== state.analysisWindow || !state.lastSyncPayload) return;
+    senderWindow.webContents.send(
+      ANALYSIS_WINDOW_CHANNELS.sync,
+      state.lastSyncPayload,
+    );
   });
 
-  ipcMain.on(ANALYSIS_WINDOW_CHANNELS.jumpToSegment, (event, segment: unknown) => {
-    const session = resolveSenderSession(event.sender);
-    const analysisWindow = session ? getState(session).analysisWindow : null;
-    if (!session || !isEventFromWindow(event, analysisWindow) || !isTimelineData(segment)) {
-      return;
-    }
+  ipcMain.on(
+    ANALYSIS_WINDOW_CHANNELS.syncToWindow,
+    (event, payload: unknown) => {
+      const session = resolveSenderSession(event.sender);
+      if (
+        !session ||
+        !isEventFromWindow(event, session.mainWindow) ||
+        !isAnalysisWindowSyncPayload(payload)
+      ) {
+        return;
+      }
+      sendAnalysisSync(payload, session.mainWindow);
+    },
+  );
 
-    if (!session.mainWindow.isDestroyed()) {
-      session.mainWindow.webContents.send(ANALYSIS_WINDOW_CHANNELS.jumpToSegment, segment);
-    }
-  });
+  ipcMain.on(
+    ANALYSIS_WINDOW_CHANNELS.jumpToSegment,
+    (event, segment: unknown) => {
+      const session = resolveSenderSession(event.sender);
+      const analysisWindow = session ? getState(session).analysisWindow : null;
+      if (
+        !session ||
+        !isEventFromWindow(event, analysisWindow) ||
+        !isTimelineData(segment)
+      ) {
+        return;
+      }
+
+      if (!session.mainWindow.isDestroyed()) {
+        session.mainWindow.webContents.send(
+          ANALYSIS_WINDOW_CHANNELS.jumpToSegment,
+          segment,
+        );
+      }
+    },
+  );
 
   ipcMain.on(
     ANALYSIS_WINDOW_CHANNELS.createAiPlaylist,
     (event, payload: unknown) => {
       const session = resolveSenderSession(event.sender);
       const analysisWindow = session ? getState(session).analysisWindow : null;
-      if (!session || !isEventFromWindow(event, analysisWindow) ||
-          !isAnalysisAiPlaylistPayload(payload)) {
+      if (
+        !session ||
+        !isEventFromWindow(event, analysisWindow) ||
+        !isAnalysisAiPlaylistPayload(payload)
+      ) {
         return;
       }
 

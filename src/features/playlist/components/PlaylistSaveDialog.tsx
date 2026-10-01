@@ -48,7 +48,7 @@ export const PlaylistSaveDialog = ({
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>プレイリストを保存</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
+        <Stack spacing={1.5} sx={{ mt: 1 }}>
           <TextField
             label="プレイリスト名"
             value={name}

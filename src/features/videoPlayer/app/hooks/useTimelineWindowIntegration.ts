@@ -1,3 +1,4 @@
+import type { TimelinePersistenceFeedback } from './useTimelinePersistence';
 import type {
   AngleSyncSnapshot,
   AngleSyncCommand,
@@ -20,6 +21,7 @@ import {
 } from '../gateways/timelineWindowGateway';
 
 interface UseTimelineWindowIntegrationParams {
+  persistenceFeedback?: TimelinePersistenceFeedback | null;
   liveCapture?: CaptureTimelineState;
   onGoLive?: () => void;
   angleSync?: AngleSyncSnapshot;
@@ -80,6 +82,12 @@ export const useTimelineWindowIntegration = (
 
   const payload = useMemo(
     () => ({
+      persistence: params.persistenceFeedback
+        ? {
+            kind: params.persistenceFeedback.kind,
+            message: params.persistenceFeedback.message,
+          }
+        : undefined,
       liveCapture: params.liveCapture,
       angleSync: params.angleSync,
       timeline: params.timeline,
@@ -95,6 +103,7 @@ export const useTimelineWindowIntegration = (
       updatedAt: Date.now(),
     }),
     [
+      params.persistenceFeedback,
       params.liveCapture,
       params.angleSync,
       params.currentTime,
@@ -147,6 +156,7 @@ export const useTimelineWindowIntegration = (
   useEffect(() => {
     syncLatest();
   }, [
+    params.persistenceFeedback,
     params.liveCapture,
     params.angleSync,
     params.hotkeys,
@@ -200,6 +210,9 @@ export const useTimelineWindowIntegration = (
             break;
           case 'angle-sync':
             current.onAngleSyncCommand(command.command);
+            break;
+          case 'retry-persistence':
+            current.persistenceFeedback?.onRetry();
             break;
           case 'request-sync':
             syncTimelineWindow(payloadRef.current);

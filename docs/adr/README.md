@@ -2,6 +2,8 @@
 
 ADR は長期的な設計判断を残すための記録です。実装規約の正本は `AGENTS.md`、現行構造の要約は `docs/system-overview.md` です。ADR は「なぜその方針を選んだか」を補足します。
 
+原本保持の旧パッケージコピー、load成功を条件とした保存、SCTimeline JSONと公式XML新規取り込みの区別は[0006](0006-application-document-formats-and-file-associations.md)・[0003](0003-shared-type-contracts-and-load-time-migration.md)・[0009](0009-timeline-import-export-interoperability.md)に反映しています。
+
 ## Records
 
 | ID                                                                 | Title                                              | Status     | Date       |
@@ -109,3 +111,5 @@ YYYY-MM-DD
 
 ## Consequences
 ```
+
+| [0055](0055-timeline-review-without-document-filtering.md) | Timeline review without document filtering | Accepted | 2026-10-01 |

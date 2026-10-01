@@ -1,11 +1,27 @@
 # Changelog
 
+- Draft UX candidate: Timelineの全幅を保つ検索dock、操作menu、共通small入力/ボタン/表/dialog、基本情報wizardの内容高、Hotkeyのcompact区切り行。実機4サイズの結果と追加未完の検証を区別。
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- Timelineの行名・ラベル・ノートを検索し、時刻順の結果から映像・全文確認・編集・Playlist追加へ進む開閉式レビュー欄を追加。[操作](docs/timeline-review.md)。
+- Sportscode Edit List XMLと明示映像・秒数補正から、別の新規`.stpkg`を作成する操作を追加。ネイティブSportscode形式は未対応。[対応と制限](docs/package-compatibility.md)。
+
+### Fixed
+
+- 分析ウィンドウの受信準備後に最新snapshotを同期し、初回表示とreload時にデータが失われる競合を修正しました。
+
+- 選択中のTimelineでTabが場面巡回を優先し、通常focus移動を妨げる問題を修正。巡回はOption/Alt+上下を使用。
+- ウィンドウメニューから分析を開いた時に初回Timeline同期が届かず「同期中」に留まる問題を修正。
+- Timeline読み込み失敗で空の文書を自動保存する経路を抑止し、映像・独立Timelineのエラー表示と再試行、順序付きの原子的テキスト置換を追加。
+- 既知の旧SporTag `.stpkg` / 拡張子なしフォルダを原本保持のコピー移行へ統一。未知version、参照不在、権限・容量・途中失敗を検査。目的別のファイル選択を分離。
 
 ## [0.17.1] - 2026-09-23
 

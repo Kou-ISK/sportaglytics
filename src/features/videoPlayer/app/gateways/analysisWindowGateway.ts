@@ -52,6 +52,14 @@ export const syncAnalysisWindow = (
   }
 };
 
+const requestAnalysisWindowSync = (): void => {
+  try {
+    getAnalysisApi()?.requestSync?.();
+  } catch (error: unknown) {
+    console.debug('[AnalysisWindowGateway] requestSync failed', error);
+  }
+};
+
 export const subscribeAnalysisWindowSync = (
   callback: (payload: AnalysisWindowSyncPayload) => void,
 ): (() => void) => {
@@ -62,6 +70,7 @@ export const subscribeAnalysisWindowSync = (
 
   try {
     api.onSync(callback);
+    requestAnalysisWindowSync();
     return () => {
       try {
         api.offSync(callback);

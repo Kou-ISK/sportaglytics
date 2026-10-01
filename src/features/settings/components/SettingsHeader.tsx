@@ -19,7 +19,7 @@ export const SettingsHeader = ({
         bgcolor: 'background.paper',
       }}
     >
-      <Toolbar sx={{ minHeight: '56px !important', gap: 1 }}>
+      <Toolbar sx={{ minHeight: '48px !important', gap: 1 }}>
         <TuneIcon sx={{ color: 'primary.main', mr: 1 }} />
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
           <Typography variant="h6" noWrap>

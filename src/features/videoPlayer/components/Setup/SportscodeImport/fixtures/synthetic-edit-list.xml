@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<file>
+  <SESSION_INFO><start_time>2026-01-02 10:00:00.00 +0000</start_time></SESSION_INFO>
+  <SORT_INFO><sort_type>sort order</sort_type></SORT_INFO>
+  <ALL_INSTANCES>
+    <instance><ID>1</ID><start>4.25</start><end>8.75</end><code>Coral 攻撃</code>
+      <label><group>位置</group><text>中央</text></label>
+      <label><group>方向</group><text>中央</text></label>
+      <label><text>日本語 🙂 &amp; &lt;確認&gt;</text></label>
+      <free_text>架空の場面。#50% &amp; 長いノート。&#10;2行目。</free_text>
+    </instance>
+    <instance><ID>2</ID><start>9.125</start><end>12.625</end><code>Falcon 守備</code><free_text></free_text></instance>
+  </ALL_INSTANCES>
+  <ROWS>
+    <row><sort_order>2</sort_order><code>Coral 攻撃</code><R>65535</R><G>32768</G><B>0</B></row>
+    <row><sort_order>1</sort_order><code>Falcon 守備</code><R>0</R><G>0</G><B>65535</B></row>
+    <row><sort_order>3</sort_order><code>空行</code><R>0</R><G>65535</G><B>0</B></row>
+  </ROWS>
+</file>

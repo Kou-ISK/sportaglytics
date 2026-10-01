@@ -391,7 +391,8 @@ Timeline:
 
 - JSON
 - CSV
-- Sportscode SCTimeline XML
+- SCTimeline JSON（既存場面の入出力。XML形式とは別）
+- 公式Sportscode Edit List XML + 明示動画 + 明示秒補正から新規プロジェクト作成。ネイティブ`.scpkg` / `.sczip`とXML出力は対象外
 
 Clip export:
 
@@ -456,7 +457,9 @@ External process:
 
 ## 3.3 Compatibility
 
-- old package/settings/timelineはload-time migration
+- 既知の旧SporTag packageは原本を保持してcopy migration。未知version・不正Timeline・参照不在は拒否（[互換仕様](package-compatibility.md)）
+- Timelineのload失敗中は自動保存/変更を抑止。保存失敗は変更とエラーを保持してretry可能
+- settingsの既知旧形式はload-time migration
 - saveは最新modelへ統一
 - deprecated route/old duplicate implementationは残さない
 

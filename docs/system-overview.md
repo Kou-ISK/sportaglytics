@@ -1,4 +1,10 @@
+Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop compact密度と新候補の検証限界は[評価記録](reports/2026-10-compact-density.md)を参照してください。
+
 # SporTagLytics System Overview
+
+Timeline reviewは既存文書を読み取る派生表示です。検索・ページ・開閉はhook、描画はprops-only Viewへ分離し、既存Timeline controllerの選択・シーク・編集とPlaylist callbackへ接続します。Windowメニューの分析もRendererの既存分析open/snapshot経路を使用します。[操作](timeline-review.md) / [ADR 0055](adr/0055-timeline-review-without-document-filtering.md)。
+
+パッケージを開くGatewayはMainの互換preflightを通し、既知の旧SporTag構造を別の`.stpkg`へコピーしてからSessionを確保します。原本は更新しません。Timeline保存は検証済みloadを条件とし、失敗状態とretryを映像・独立Timelineへ同期します。テキスト保存は同じディレクトリの一時ファイルと順序付きrenameを使います。Sportscode XMLは専用Controller/Domain/GatewayとMain serviceで、明示映像・秒補正から別プロジェクトを作ります。[互換・原本保護の契約](package-compatibility.md)。
 
 ライブキャプチャは専用RendererのUSB取り込みとMainのIP入力を、確定済みMP4区間へ統一し、通常パッケージのアングルへ追記します。コードは既存の共通時計を使います。[ライブ仕様](live-coding.md) / [ADR 0053](adr/0053-live-capture-package-timeline.md)。
 
@@ -367,3 +373,5 @@ Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツ�
 ### Paintの俯瞰図
 
 戦術盤は[Paintの保存契約](tactics.md#戦術盤と映像からの配置)に従うクリップ・アングル別メタデータです。Viewはpropsのみ、編集履歴はHook、動画の読取・同梱モデル実行・PNG保存はGatewayに分離します。認識は明示操作時の停止フレームだけを対象とし、サーバー・新しいIPC・クラウドAPIを追加しません。[ADR 0039](adr/0039-local-tactical-board.md)を参照してください。
+
+分析窓の初期データは所有sessionでcacheし、Rendererの受信listener登録後のready requestで再送します。希望viewはopen前に確保し、実reloadでも同じ手順を使います。別sessionの要求は拒否し、Main終了時にcacheを除去します。[ADR0055](adr/0055-timeline-review-without-document-filtering.md)。

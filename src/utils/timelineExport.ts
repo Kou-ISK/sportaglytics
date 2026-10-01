@@ -1,4 +1,5 @@
 import type { TimelineData } from '../types/timeline/core';
+import { validateTimelineDocumentData } from '../shared/timeline/timelineValidation';
 import { normalizeTimelineData } from './scTimelineConverter';
 
 /**
@@ -66,6 +67,9 @@ export const importFromJSON = (jsonString: string): TimelineData[] => {
   if (!Array.isArray(parsed)) {
     throw new TypeError('Invalid JSON format: Expected an array');
   }
+
+  // Reject malformed time ranges, duplicate IDs and labels before normalization.
+  validateTimelineDocumentData(parsed);
 
   // 型チェックとバリデーション
   const result: TimelineData[] = [];

@@ -1,4 +1,6 @@
+import { TimelinePersistenceStatusView } from './TimelinePersistenceStatusView';
 import { Box, CircularProgress, Typography } from '@mui/material';
+import type { ReactElement } from 'react';
 import type { TimelineWindowController } from '../hooks/useTimelineWindowController';
 import { TimelineActionSection } from './TimelineActionSection';
 
@@ -6,7 +8,9 @@ interface TimelineWindowViewProps {
   controller: TimelineWindowController | null;
 }
 
-export const TimelineWindowView = ({ controller }: TimelineWindowViewProps) => {
+export const TimelineWindowView = ({
+  controller,
+}: TimelineWindowViewProps): ReactElement => {
   if (!controller) {
     return (
       <Box sx={{ height: '100vh', display: 'grid', placeItems: 'center' }}>
@@ -23,12 +27,20 @@ export const TimelineWindowView = ({ controller }: TimelineWindowViewProps) => {
       sx={{
         height: '100vh',
         minHeight: 0,
+        minWidth: 0,
+        overflow: 'hidden',
         bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
-      <Box sx={{ flex: 1, minHeight: 0 }}>
+      <TimelinePersistenceStatusView
+        feedback={controller.persistenceFeedback}
+      />
+      <Box
+        inert={controller.persistenceFeedback?.kind === 'load-error'}
+        sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }}
+      >
         <TimelineActionSection {...controller} />
       </Box>
     </Box>

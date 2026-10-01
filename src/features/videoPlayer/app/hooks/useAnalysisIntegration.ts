@@ -44,13 +44,11 @@ export const useAnalysisIntegration = ({
     async (nextView?: AnalysisView) => {
       const resolvedView = nextView ?? analysisView;
       setAnalysisView(resolvedView);
+      // Prime the owner's snapshot before creating the window. The analysis
+      // renderer requests it after attaching its listener, without a load race.
+      syncAnalysisWindow({ timeline, teamNames, view: resolvedView });
       const opened = await openAnalysisWindowGateway();
       if (opened) {
-        syncAnalysisWindow({
-          timeline,
-          teamNames,
-          view: resolvedView,
-        });
         setAnalysisOpen(false);
         return;
       }

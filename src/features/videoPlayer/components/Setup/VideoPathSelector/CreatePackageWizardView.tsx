@@ -93,11 +93,12 @@ export const CreatePackageWizardView: React.FC<
       open={open}
       onClose={isCreating ? undefined : onClose}
       fullWidth
-      maxWidth="lg"
+      maxWidth={activeStep === 0 ? 'sm' : 'lg'}
       PaperProps={{
         sx: {
-          height: { xs: '100%', md: 'min(720px, 92vh)' },
-          m: { xs: 0, md: 3 },
+          height: activeStep === 1 ? 'min(720px, 92vh)' : 'auto',
+          maxHeight: '92vh',
+          m: { xs: 1, md: 2 },
           borderRadius: { xs: 0, md: 2 },
           overflow: 'hidden',
         },
@@ -105,13 +106,13 @@ export const CreatePackageWizardView: React.FC<
     >
       <Box
         sx={{
-          px: { xs: 2, md: 3 },
-          py: 2,
+          px: 2,
+          py: 1.5,
           borderBottom: (dialogTheme) =>
             `1px solid ${dialogTheme.palette.divider}`,
         }}
       >
-        <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+        <Stack direction="row" spacing={1} alignItems="center">
           <VideoFileIcon color="primary" />
           <Typography variant="h6">新規パッケージ</Typography>
         </Stack>
@@ -127,17 +128,13 @@ export const CreatePackageWizardView: React.FC<
       >
         <Box
           sx={{
-            px: { xs: 2, md: 3 },
+            px: 2,
             py: 1.5,
             borderBottom: (contentTheme) =>
               `1px solid ${contentTheme.palette.divider}`,
           }}
         >
-          <Stepper
-            activeStep={activeStep}
-            orientation="horizontal"
-            alternativeLabel
-          >
+          <Stepper activeStep={activeStep} orientation="horizontal">
             {STEP_LABELS.map((label) => (
               <Step key={label}>
                 <StepLabel>{label}</StepLabel>
@@ -146,9 +143,7 @@ export const CreatePackageWizardView: React.FC<
           </Stepper>
         </Box>
 
-        <Box
-          sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: { xs: 2, md: 3 } }}
-        >
+        <Box sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: 2 }}>
           {activeStep === 0 && (
             <BasicInfoStep
               form={form}
@@ -178,7 +173,7 @@ export const CreatePackageWizardView: React.FC<
       </DialogContent>
 
       <Divider />
-      <DialogActions sx={{ px: { xs: 2, md: 3 }, py: 1.5 }}>
+      <DialogActions sx={{ px: 2, py: 1.5 }}>
         <Stack spacing={0.75} sx={{ width: '100%' }}>
           {activeStep === 1 && (
             <Typography variant="caption" color="text.secondary">

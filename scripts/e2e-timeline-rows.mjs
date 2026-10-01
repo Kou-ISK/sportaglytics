@@ -490,7 +490,7 @@ try {
   );
   console.log('Option-drag row copy, immediate delete and Undo passed');
 
-  await page.evaluate(() => {
+  const rowMoveEvents = await page.evaluate(() => {
     const source = document.querySelector(
       '[data-testid="timeline-row-header-row-attack"]',
     );
@@ -505,19 +505,105 @@ try {
     target.dispatchEvent(
       new DragEvent('dragover', { bubbles: true, dataTransfer }),
     );
-    target.dispatchEvent(
-      new DragEvent('drop', { bubbles: true, dataTransfer }),
-    );
+    const drop = new DragEvent('drop', {
+      bubbles: true,
+      dataTransfer,
+      cancelable: true,
+    });
+    target.dispatchEvent(drop);
+    return {
+      sourceRect: source.getBoundingClientRect().toJSON(),
+      targetRect: target.getBoundingClientRect().toJSON(),
+      sourceDraggable: source.draggable,
+      targetInert: Boolean(target.closest('[inert]')),
+      transferTypes: [...dataTransfer.types],
+      transferData: [...dataTransfer.types].map((type) => [
+        type,
+        dataTransfer.getData(type),
+      ]),
+      dropPrevented: drop.defaultPrevented,
+      trustedEvent: drop.isTrusted,
+      rowsAfterDrop: [
+        ...document.querySelectorAll('[data-testid^="timeline-row-header-"]'),
+      ].map((row) => row.textContent),
+    };
   });
-  await page.waitForTimeout(400);
-  const reorderedDocument = JSON.parse(
-    await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
+  console.log(
+    'Electron synthetic row drag evidence:',
+    JSON.stringify(rowMoveEvents),
   );
-  assert.deepEqual(
-    reorderedDocument.rows.map((row) => row.name),
-    ['Defence', 'Attack'],
+  console.log(
+    'Rows on disk immediately after drop:',
+    JSON.parse(
+      await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
+    ).rows.map((row) => row.name),
   );
-  console.log('Row drag reorder passed');
+  const captureRowOrder = async () => {
+    let disk;
+    try {
+      disk = JSON.parse(
+        await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
+      ).rows;
+    } catch (error) {
+      disk = { readError: String(error) };
+    }
+    return {
+      ui: await page.evaluate(() =>
+        [
+          ...document.querySelectorAll('[data-testid^="timeline-row-header-"]'),
+        ].map((row) => ({
+          name: row.textContent,
+          rect: row.getBoundingClientRect().toJSON(),
+          draggable: row.draggable,
+        })),
+      ),
+      disk,
+    };
+  };
+  try {
+    await page.waitForFunction(() => {
+      const defence = document.querySelector('[aria-label="Defence 行"]');
+      const attack = document.querySelector('[aria-label="Attack 行"]');
+      return (
+        defence &&
+        attack &&
+        defence.getBoundingClientRect().top < attack.getBoundingClientRect().top
+      );
+    });
+    const reorderedDocument = await waitForTimeline(
+      (document) =>
+        JSON.stringify(document.rows.map((row) => row.name)) ===
+        JSON.stringify(['Defence', 'Attack']),
+    );
+    assert.deepEqual(
+      reorderedDocument.rows.map((row) => row.name),
+      ['Defence', 'Attack'],
+    );
+    console.log(
+      'Row drag reorder passed:',
+      JSON.stringify(await captureRowOrder()),
+    );
+  } catch (error) {
+    const evidence = await captureRowOrder();
+    console.error(
+      'Row reorder failure, UI and disk:',
+      JSON.stringify(evidence),
+    );
+    if (process.env.E2E_SCREENSHOT_DIR) {
+      await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
+      await fs.writeFile(
+        path.join(process.env.E2E_SCREENSHOT_DIR, 'row-reorder-failure.json'),
+        JSON.stringify({ events: rowMoveEvents, ...evidence }, null, 2),
+      );
+      await page.screenshot({
+        path: path.join(
+          process.env.E2E_SCREENSHOT_DIR,
+          'row-reorder-failure.png',
+        ),
+      });
+    }
+    throw error;
+  }
 
   await page.getByRole('button', { name: '行を追加' }).click();
   const emptyRowHeader = page.getByRole('button', {
