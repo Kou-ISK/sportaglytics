@@ -1,3 +1,4 @@
+import { resolveVideoSource } from './videoSource';
 import { expect, it } from 'vitest';
 import { resolvePackageMediaPath } from './packageMediaPath';
 it.each([
@@ -18,3 +19,24 @@ it.each([
 ])('rejects ambiguous local media reference %s', (reference) => {
   expect(() => resolvePackageMediaPath('/copy.stpkg', reference)).toThrow();
 });
+
+it.each([
+  ['C:/copy.stpkg', 'D:\\outside #%.mp4', 'file:///D:/outside%20%23%25.mp4'],
+  [
+    'C:/copy.stpkg',
+    '\\\\server\\share\\outside #%.mp4',
+    'file://server/share/outside%20%23%25.mp4',
+  ],
+  [
+    '/copy.stpkg',
+    'file://server/share/outside%20%23%25.mp4',
+    'file://server/share/outside%20%23%25.mp4',
+  ],
+])(
+  'formats the resolved native playback URL for %s %s',
+  (root, reference, expected) => {
+    expect(
+      resolveVideoSource(resolvePackageMediaPath(root, reference)).src,
+    ).toBe(expected);
+  },
+);
