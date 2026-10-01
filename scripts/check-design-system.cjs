@@ -4,6 +4,7 @@ const { resolve } = require('node:path');
 const targets = [
   'src/features/videoPlayer/components/Timeline/VisualTimeline/review/TimelineReviewView.tsx',
   'src/features/videoPlayer/components/Timeline/VisualTimeline/review/TimelineWorkspaceView.tsx',
+  'src/features/videoPlayer/components/Timeline/VisualTimeline/review/TimelineReviewSearchControlsView.tsx',
   'src/features/videoPlayer/components/Timeline/VisualTimeline/TimelineAxis.tsx',
   'src/features/videoPlayer/components/Timeline/VisualTimeline/TimelinePlayhead.tsx',
   'src/features/playlist/components/PlaylistReviewView.tsx',

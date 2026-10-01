@@ -15,6 +15,10 @@ export const VisualTimeline: React.FC<VisualTimelineProps> = (props) => {
         ...review,
         formatTime: viewProps.formatTime,
         onActivate: viewProps.onRevealItem,
+        onRevealInTimeline: (id) => {
+          review.onClose();
+          viewProps.onRevealItem(id);
+        },
         onEdit: viewProps.onEditItem,
         onAddToPlaylist: props.onAddToPlaylist,
       }}

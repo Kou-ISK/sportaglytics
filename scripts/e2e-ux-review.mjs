@@ -131,11 +131,17 @@ const clickMenu = async (label, page) => {
 };
 const waitForSavedNote = async () => {
   for (let n = 0; n < 100; n++) {
-    const saved = JSON.parse(
-      await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
-    );
+    let saved;
+    try {
+      saved = JSON.parse(
+        await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
+      );
+    } catch (error) {
+      // A poll can observe writeFile's brief truncation before its complete JSON arrives.
+      if (!(error instanceof SyntaxError)) throw error;
+    }
     if (
-      saved.instances.find((item) => item.id === 'instance-239')?.memo ===
+      saved?.instances.find((item) => item.id === 'instance-239')?.memo ===
       '確認済み・終盤'
     )
       return;
@@ -215,6 +221,27 @@ try {
   );
   const searchMs = Math.round(performance.now() - start);
   await timeline.getByRole('status').filter({ hasText: '1 / 240' }).waitFor();
+  const targetClip = timeline.getByTestId('timeline-instance-instance-239');
+  await timeline.waitForFunction(() => {
+    const item = document.querySelector(
+      '[data-timeline-item-id="instance-239"]',
+    );
+    const pane = document.querySelector(
+      '[role="region"][aria-label="タイムライン"]',
+    );
+    if (!item || !pane) return false;
+    const lane = item.getBoundingClientRect(),
+      viewport = pane.getBoundingClientRect();
+    return lane.y >= viewport.y && lane.bottom <= viewport.bottom;
+  });
+  const lane = await targetClip.boundingBox();
+  const viewport = await timeline
+    .getByRole('region', { name: 'タイムライン', exact: true })
+    .boundingBox();
+  assert.ok(
+    lane.y >= viewport.y &&
+      lane.y + lane.height <= viewport.y + viewport.height,
+  );
   const detail = timeline.getByRole('region', { name: '選択した場面の詳細' });
   assert.ok((await detail.innerText()).includes(document.instances[239].memo));
   assert.equal(
@@ -235,9 +262,30 @@ try {
   await timeline
     .getByText('一致する場面がありません', { exact: true })
     .waitFor();
+  assert.equal(
+    await detail.getByRole('button', { name: '編集', exact: true }).count(),
+    0,
+  );
+  assert.equal(await targetClip.getAttribute('aria-pressed'), 'true');
   await screenshot(timeline, 'ux-review-no-match');
   await timeline.keyboard.press('Escape');
   assert.equal(await search.inputValue(), '');
+  await timeline
+    .getByRole('button', { name: '詳細へ移動', exact: true })
+    .click();
+  assert.equal(
+    await detail.evaluate((element) => element === document.activeElement),
+    true,
+  );
+  assert.ok(
+    (
+      await timeline
+        .getByRole('list', { name: '場面検索の結果' })
+        .getByRole('button')
+        .first()
+        .getAttribute('aria-description')
+    ).includes('結果:'),
+  );
   await timeline.getByRole('button', { name: '次の40件', exact: true }).click();
   await timeline.getByRole('button', { name: '前の40件', exact: true }).click();
   await search.focus();
@@ -298,7 +346,18 @@ try {
     .getByRole('button', { name: '編集', exact: true })
     .scrollIntoViewIfNeeded();
   await screenshot(timeline, 'ux-review-min-height');
-  await timeline.getByRole('button', { name: '場面検索を閉じる' }).click();
+  const closeBounds = await timeline
+    .getByRole('button', { name: '場面検索を閉じる' })
+    .boundingBox();
+  const inputBounds = await search.boundingBox();
+  const paneBounds = await reviewPane.boundingBox();
+  assert.ok(closeBounds.y >= paneBounds.y && inputBounds.y >= paneBounds.y);
+  assert.ok(
+    inputBounds.y + inputBounds.height <= paneBounds.y + paneBounds.height,
+  );
+  await detail
+    .getByRole('button', { name: 'Timelineで表示', exact: true })
+    .click();
   await timeline.waitForFunction(
     () => document.activeElement?.getAttribute('aria-expanded') === 'false',
   );
@@ -320,6 +379,20 @@ try {
   await timeline.keyboard.press(`${primaryModifier}+f`);
   await search.fill('終盤');
   await timeline.keyboard.press('Enter');
+  await detail.getByRole('button', { name: '編集', exact: true }).click();
+  await timeline
+    .getByRole('dialog')
+    .getByRole('textbox', { name: 'ノート', exact: true })
+    .fill('Escで破棄する変更');
+  await timeline.keyboard.press('Escape');
+  await timeline.getByRole('dialog').waitFor({ state: 'hidden' });
+  assert.equal(await search.inputValue(), '終盤');
+  assert.deepEqual(
+    JSON.parse(
+      await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
+    ),
+    beforeSearch,
+  );
   await detail.getByRole('button', { name: '編集', exact: true }).click();
   await timeline
     .getByRole('dialog')
@@ -479,6 +552,10 @@ try {
         'composition guard and saved document/video path preservation',
         'missing package and retry after restoration',
         'empty tags and Coding guidance',
+        'matched-only detail without document selection change',
+        'detail skip and accessible result descriptions',
+        'sticky controls and Timeline reveal',
+        'dialog Escape preserves review query',
       ],
     }),
   );

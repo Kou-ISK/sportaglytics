@@ -1,3 +1,5 @@
+`e2e-ux-review`は標準Electron runnerに登録し、Mac/Windowsの`test:e2e`でも実行します。単独の導線検証と、標準runner全18シナリオの結果は区別して報告します。
+
 # Testing and Quality Gates
 
 Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を使用します。ローカル合成映像・24行240件で、読み取りによる文書不変、閉じた高さ、狭幅、取消、保存再開、分析メニューの初回同期を検証します。品質ゲートの成功だけを快適さの根拠とせず、[UX評価記録](reports/2026-10-ux-review.md)の画像・操作負担・制限も確認します。

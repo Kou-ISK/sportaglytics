@@ -402,8 +402,22 @@ export const useVisualTimelineController = ({
       onSelectionChange([id]);
       setFocusedItemId(id);
       onSeek(item.startTime);
+      requestAnimationFrame(() => {
+        scrollContainerRef.current
+          ?.querySelector<HTMLElement>(
+            `[data-timeline-item-id="${CSS.escape(id)}"]`,
+          )
+          ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      });
     },
-    [timeline, rowInteractions, onSelectionChange, setFocusedItemId, onSeek],
+    [
+      timeline,
+      rowInteractions,
+      onSelectionChange,
+      setFocusedItemId,
+      onSeek,
+      scrollContainerRef,
+    ],
   );
 
   return {

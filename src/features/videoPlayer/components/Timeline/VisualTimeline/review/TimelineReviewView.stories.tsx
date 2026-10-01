@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Box } from '@mui/material';
@@ -27,6 +27,9 @@ const Fixture = ({
     data[0] ? [data[0].id] : [],
   );
   const review = useTimelineReview(data, selected, initialQuery);
+  useEffect(() => {
+    review.onToggle();
+  }, []);
   return (
     <Box sx={{ height: 450, width, border: 1, borderColor: 'divider' }}>
       <TimelineReviewView

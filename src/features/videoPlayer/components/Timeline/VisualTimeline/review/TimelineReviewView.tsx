@@ -2,17 +2,13 @@ import type { ReactElement, RefObject } from 'react';
 import {
   Box,
   Button,
-  IconButton,
-  InputAdornment,
   List,
   ListItem,
   ListItemButton,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
-import Close from '@mui/icons-material/Close';
-import Search from '@mui/icons-material/Search';
+import { TimelineReviewSearchControlsView } from './TimelineReviewSearchControlsView';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 
 export interface TimelineReviewViewProps {
@@ -20,6 +16,9 @@ export interface TimelineReviewViewProps {
   query: string;
   inputRef: RefObject<HTMLInputElement | null>;
   toggleRef: RefObject<HTMLButtonElement | null>;
+  detailRef: RefObject<HTMLDivElement | null>;
+  onFocusDetails: () => void;
+  onRevealInTimeline?: (id: string) => void;
   totalCount: number;
   matchCount: number;
   results: TimelineData[];
@@ -39,6 +38,9 @@ export interface TimelineReviewViewProps {
 export const TimelineReviewView = ({
   query,
   inputRef,
+  detailRef,
+  onFocusDetails,
+  onRevealInTimeline,
   totalCount,
   matchCount,
   results,
@@ -66,64 +68,20 @@ export const TimelineReviewView = ({
       bgcolor: 'background.paper',
     }}
   >
-    <Stack
-      direction="row"
-      alignItems="center"
-      justifyContent="space-between"
-      sx={{ px: 1, py: 0.5 }}
-    >
-      <Typography variant="subtitle2">場面を検索</Typography>
-      <IconButton size="small" aria-label="場面検索を閉じる" onClick={onClose}>
-        <Close fontSize="small" />
-      </IconButton>
-    </Stack>
-    <TextField
-      label="行名・ラベル・ノートを検索"
-      size="small"
-      inputRef={inputRef}
-      value={query}
-      onChange={(event) => onQueryChange(event.target.value)}
-      onKeyDown={(event) => {
-        if (event.nativeEvent.isComposing) return;
-        if (event.key === 'Enter' && results[0]) {
-          event.preventDefault();
-          onActivate(results[0].id);
-          return;
-        }
-        if (event.key !== 'Escape') return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (query) onQueryChange('');
-        else onClose();
+    <TimelineReviewSearchControlsView
+      {...{
+        query,
+        inputRef,
+        totalCount,
+        matchCount,
+        results,
+        selectedItem,
+        onQueryChange,
+        onClose,
+        onActivate,
+        onFocusDetails,
       }}
-      slotProps={{
-        input: {
-          startAdornment: (
-            <InputAdornment position="start">
-              <Search fontSize="small" />
-            </InputAdornment>
-          ),
-          endAdornment: query ? (
-            <InputAdornment position="end">
-              <IconButton
-                size="small"
-                aria-label="検索をクリア"
-                onClick={() => {
-                  onQueryChange('');
-                  inputRef.current?.focus();
-                }}
-              >
-                <Close fontSize="small" />
-              </IconButton>
-            </InputAdornment>
-          ) : null,
-        },
-      }}
-      sx={{ mx: 1 }}
     />
-    <Typography variant="caption" role="status" sx={{ px: 1, py: 0.5 }}>
-      {matchCount} / {totalCount} 件 · 時刻順 · Enterで先頭へ
-    </Typography>
     <Box sx={{ flex: 1, minHeight: 64, overflowY: 'auto' }}>
       {results.length ? (
         <List dense disablePadding aria-label="場面検索の結果">
@@ -133,6 +91,14 @@ export const TimelineReviewView = ({
                 component="button"
                 type="button"
                 aria-pressed={selectedItem?.id === item.id}
+                aria-description={[
+                  item.labels
+                    ?.map((label) => `${label.group}: ${label.name}`)
+                    .join(' · '),
+                  item.memo || 'ノートなし',
+                ]
+                  .filter(Boolean)
+                  .join('。')}
                 selected={selectedItem?.id === item.id}
                 onClick={() => onActivate(item.id)}
                 aria-label={`${item.actionName} ${formatTime(item.startTime)}へ移動`}
@@ -223,6 +189,7 @@ export const TimelineReviewView = ({
       aria-label="選択した場面の詳細"
       role="region"
       tabIndex={0}
+      ref={detailRef}
       sx={{
         borderTop: 1,
         borderColor: 'divider',
@@ -244,7 +211,28 @@ export const TimelineReviewView = ({
             {formatTime(selectedItem.startTime)} –{' '}
             {formatTime(selectedItem.endTime)}
           </Typography>
-          <Stack direction="row" spacing={1}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            useFlexGap
+            flexWrap="wrap"
+            sx={{
+              '& .MuiButton-root': {
+                minWidth: 0,
+                px: 0.75,
+                fontSize: (theme) =>
+                  theme.custom.typography.labelCompact.fontSize,
+              },
+            }}
+          >
+            {onRevealInTimeline && (
+              <Button
+                size="small"
+                onClick={() => onRevealInTimeline(selectedItem.id)}
+              >
+                Timelineで表示
+              </Button>
+            )}
             {onEdit && (
               <Button
                 size="small"
