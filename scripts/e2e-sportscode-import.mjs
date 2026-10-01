@@ -133,10 +133,19 @@ try {
     .fill('15');
   await confirm.check();
   await create.click();
-  await dialog
+  const rangeError = dialog
     .getByRole('alert')
-    .filter({ hasText: '映像の長さを超えています' })
-    .waitFor();
+    .filter({ hasText: '映像の長さを超えています' });
+  await rangeError.waitFor();
+  const errorBounds = await rangeError.boundingBox();
+  const dialogBounds = await dialog.boundingBox();
+  assert.ok(errorBounds && dialogBounds);
+  assert.ok(
+    errorBounds.y >= dialogBounds.y &&
+      errorBounds.y + errorBounds.height <=
+        dialogBounds.y + dialogBounds.height,
+    'Import failure must remain visible inside the dialog without extra scrolling',
+  );
   assert.deepEqual(
     await fs.readdir(destination),
     [],

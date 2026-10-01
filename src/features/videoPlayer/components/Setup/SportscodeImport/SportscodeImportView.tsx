@@ -113,11 +113,6 @@ export const SportscodeImportView = (
           }
           label="選んだ映像と秒数補正、読み込めない項目を確認しました"
         />
-        {props.error && (
-          <Alert severity="error">
-            {props.error} 元ファイルは変更していません。
-          </Alert>
-        )}
         {props.busy && (
           <Typography role="status" variant="body2">
             映像をコピーし、時刻とプロジェクトを検証しています…
@@ -125,6 +120,11 @@ export const SportscodeImportView = (
         )}
       </Stack>
     </DialogContent>
+    {props.error && (
+      <Alert severity="error" sx={{ mx: 3, mt: 1 }}>
+        {props.error} 元ファイルは変更していません。
+      </Alert>
+    )}
     <DialogActions>
       <Button disabled={props.busy} onClick={props.onClose}>
         キャンセル

@@ -134,7 +134,8 @@ it.each(['EACCES', 'ENOSPC', 'EIO'])(
   async (code) => {
     const request = await fixture();
     const original = await fs.readFile(request.videoPath);
-    vi.spyOn(fs, 'rename').mockRejectedValueOnce(
+    // This failure is persistent; a single Windows denial may recover.
+    vi.spyOn(fs, 'rename').mockRejectedValue(
       Object.assign(new Error(code), { code }),
     );
     await expect(importSportscodePackage(request)).rejects.toThrow(code);
