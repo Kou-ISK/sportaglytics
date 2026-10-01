@@ -490,7 +490,7 @@ try {
   );
   console.log('Option-drag row copy, immediate delete and Undo passed');
 
-  await page.evaluate(() => {
+  const rowMoveEvents = await page.evaluate(() => {
     const source = document.querySelector(
       '[data-testid="timeline-row-header-row-attack"]',
     );
@@ -505,10 +505,12 @@ try {
     target.dispatchEvent(
       new DragEvent('dragover', { bubbles: true, dataTransfer }),
     );
-    target.dispatchEvent(
-      new DragEvent('drop', { bubbles: true, dataTransfer }),
-    );
+    const drop = new DragEvent('drop', { bubbles: true, dataTransfer, cancelable: true });
+    target.dispatchEvent(drop);
+    return { sourceRect: source.getBoundingClientRect().toJSON(), targetRect: target.getBoundingClientRect().toJSON(), sourceDraggable: source.draggable, targetInert: Boolean(target.closest('[inert]')), transferTypes: [...dataTransfer.types], transferData: [...dataTransfer.types].map((type) => [type, dataTransfer.getData(type)]), dropPrevented: drop.defaultPrevented, rowsAfterDrop: [...document.querySelectorAll('[data-testid^="timeline-row-header-"]')].map((row) => row.textContent) };
   });
+  console.log('Native row drag evidence:', JSON.stringify(rowMoveEvents));
+  console.log('Rows on disk immediately after drop:', JSON.parse(await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8')).rows.map((row) => row.name));
   await page.waitForFunction(() => {
     const defence = document.querySelector('[aria-label="Defence 行"]');
     const attack = document.querySelector('[aria-label="Attack 行"]');
