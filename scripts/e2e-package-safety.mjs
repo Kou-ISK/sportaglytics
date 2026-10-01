@@ -490,16 +490,17 @@ try {
     () =>
       new Promise((resolve, reject) => {
         const api = window.electronAPI.timelineWindow;
+        let unsubscribe = () => {};
         const callback = (payload) => {
           clearTimeout(timeout);
-          api.offSync(callback);
+          unsubscribe();
           resolve(payload.timeline);
         };
         const timeout = setTimeout(() => {
-          api.offSync(callback);
+          unsubscribe();
           reject(new Error('Cold Timeline sync did not arrive'));
         }, 10000);
-        api.onSync(callback);
+        unsubscribe = api.onSync(callback);
         api.sendCommand({ type: 'request-sync' });
       }),
   );
