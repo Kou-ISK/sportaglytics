@@ -98,3 +98,30 @@ it('opens search with command F and leaves dialogs to their existing shortcuts',
   expect(find.defaultPrevented).toBe(true);
   dialog.remove();
 });
+
+it('keeps menu Escape separate from search and clears a stale action anchor when searching', () => {
+  const { result } = renderHook(() => useTimelineReview(items, ['84']));
+  act(() => result.current.onToggle());
+  act(() => result.current.onQueryChange('終盤'));
+  const anchor = document.createElement('button');
+  const menu = document.createElement('div');
+  menu.role = 'menu';
+  document.body.append(anchor, menu);
+  act(() => result.current.onOpenActions(anchor));
+  act(() =>
+    menu.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    ),
+  );
+  expect(result.current.query).toBe('終盤');
+  expect(result.current.open).toBe(true);
+  act(() => result.current.onQueryChange('該当しない'));
+  expect(result.current.actionsAnchor).toBeNull();
+  expect(result.current.selectedItem).toBeNull();
+  anchor.remove();
+  menu.remove();
+});

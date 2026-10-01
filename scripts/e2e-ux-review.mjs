@@ -92,6 +92,10 @@ const stopApp = async () => {
     .catch(() => {});
   await app?.close().catch(() => {});
 };
+const clickReviewAction = async (page, name) => {
+  await page.getByRole('button', { name: '場面の操作', exact: true }).click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
+};
 const screenshot = async (page, name) => {
   if (!process.env.E2E_SCREENSHOT_DIR) return;
   await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
@@ -263,8 +267,10 @@ try {
     .getByText('一致する場面がありません', { exact: true })
     .waitFor();
   assert.equal(
-    await detail.getByRole('button', { name: '編集', exact: true }).count(),
-    0,
+    await timeline
+      .getByRole('button', { name: '場面の操作', exact: true })
+      .isDisabled(),
+    true,
   );
   assert.equal(await targetClip.getAttribute('aria-pressed'), 'true');
   await screenshot(timeline, 'ux-review-no-match');
@@ -323,7 +329,7 @@ try {
     await timeline
       .getByRole('region', { name: 'タイムライン', exact: true })
       .isVisible(),
-    false,
+    true,
   );
   assert.equal(
     await timeline.evaluate(
@@ -340,11 +346,9 @@ try {
   });
   assert.equal(
     await reviewPane.evaluate((element) => getComputedStyle(element).overflowY),
-    'auto',
+    'hidden',
   );
-  await detail
-    .getByRole('button', { name: '編集', exact: true })
-    .scrollIntoViewIfNeeded();
+
   await screenshot(timeline, 'ux-review-min-height');
   const closeBounds = await timeline
     .getByRole('button', { name: '場面検索を閉じる' })
@@ -355,9 +359,7 @@ try {
   assert.ok(
     inputBounds.y + inputBounds.height <= paneBounds.y + paneBounds.height,
   );
-  await detail
-    .getByRole('button', { name: 'Timelineで表示', exact: true })
-    .click();
+  await clickReviewAction(timeline, 'Timelineで表示');
   await timeline.waitForFunction(
     () => document.activeElement?.getAttribute('aria-expanded') === 'false',
   );
@@ -379,7 +381,7 @@ try {
   await timeline.keyboard.press(`${primaryModifier}+f`);
   await search.fill('終盤');
   await timeline.keyboard.press('Enter');
-  await detail.getByRole('button', { name: '編集', exact: true }).click();
+  await clickReviewAction(timeline, '編集');
   await timeline
     .getByRole('dialog')
     .getByRole('textbox', { name: 'ノート', exact: true })
@@ -393,7 +395,7 @@ try {
     ),
     beforeSearch,
   );
-  await detail.getByRole('button', { name: '編集', exact: true }).click();
+  await clickReviewAction(timeline, '編集');
   await timeline
     .getByRole('dialog')
     .getByRole('textbox', { name: 'ノート', exact: true })
@@ -408,7 +410,7 @@ try {
     ),
     beforeSearch,
   );
-  await detail.getByRole('button', { name: '編集', exact: true }).click();
+  await clickReviewAction(timeline, '編集');
   await timeline
     .getByRole('dialog')
     .getByRole('textbox', { name: 'ノート', exact: true })
@@ -429,9 +431,7 @@ try {
   );
   console.log('Edited note saved');
   await detail.getByText('確認済み・終盤', { exact: true }).waitFor();
-  await detail
-    .getByRole('button', { name: 'Playlistに追加', exact: true })
-    .click();
+  await clickReviewAction(timeline, 'Playlistに追加');
   const playlist = await route('#/playlist');
   await playlist
     .getByTestId(/^organizer-clip-/)
@@ -544,7 +544,7 @@ try {
         'pagination',
         'Tab escape',
         'compact close',
-        'minimum-height scroll access',
+        'minimum-height dock access',
         'edit cancel and save',
         'Playlist handoff',
         'analysis menu initial sync',

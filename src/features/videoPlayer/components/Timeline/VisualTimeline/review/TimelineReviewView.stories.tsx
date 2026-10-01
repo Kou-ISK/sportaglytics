@@ -17,7 +17,7 @@ const many = Array.from({ length: 240 }, (_, i) => ({
 const Fixture = ({
   data = many,
   initialQuery = '',
-  width = 320,
+  width = 960,
 }: {
   data?: TimelineData[];
   initialQuery?: string;
@@ -31,7 +31,7 @@ const Fixture = ({
     review.onToggle();
   }, []);
   return (
-    <Box sx={{ height: 450, width, border: 1, borderColor: 'divider' }}>
+    <Box sx={{ height: 180, width, border: 1, borderColor: 'divider' }}>
       <TimelineReviewView
         {...review}
         onActivate={(id) => setSelected([id])}
@@ -56,4 +56,4 @@ export const Empty: Story = { render: () => <Fixture data={[]} /> };
 export const NoMatches: Story = {
   render: () => <Fixture initialQuery="一致しない検索" />,
 };
-export const Compact: Story = { render: () => <Fixture width={260} /> };
+export const Compact: Story = { render: () => <Fixture width={720} /> };

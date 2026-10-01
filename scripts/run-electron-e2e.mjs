@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 // Collect failures so one platform-specific regression cannot hide later scenarios.
 const scenarios = [
   'ux-review',
+  'ux-density',
   'live-capture',
   'clip-sync',
   'multi-clip-playback',

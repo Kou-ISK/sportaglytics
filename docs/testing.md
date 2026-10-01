@@ -1,3 +1,5 @@
+Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
+
 `e2e-ux-review`は標準Electron runnerに登録し、Mac/Windowsの`test:e2e`でも実行します。単独の導線検証と、標準runner全18シナリオの結果は区別して報告します。
 
 # Testing and Quality Gates

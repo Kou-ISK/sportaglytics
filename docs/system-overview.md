@@ -1,3 +1,5 @@
+Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop compact密度と新候補の検証限界は[評価記録](reports/2026-10-compact-density.md)を参照してください。
+
 # SporTagLytics System Overview
 
 Timeline reviewは既存文書を読み取る派生表示です。検索・ページ・開閉はhook、描画はprops-only Viewへ分離し、既存Timeline controllerの選択・シーク・編集とPlaylist callbackへ接続します。Windowメニューの分析もRendererの既存分析open/snapshot経路を使用します。[操作](timeline-review.md) / [ADR 0055](adr/0055-timeline-review-without-document-filtering.md)。

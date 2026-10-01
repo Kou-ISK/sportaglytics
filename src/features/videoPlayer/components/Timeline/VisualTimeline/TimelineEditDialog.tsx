@@ -187,7 +187,9 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
         (label) => label.group === groupName && label.name === value,
       )
     ) {
-      onChange({ labels: [...draft.labels, { name: value, group: groupName }] });
+      onChange({
+        labels: [...draft.labels, { name: value, group: groupName }],
+      });
     }
     setCustomLabel('');
   };
@@ -200,10 +202,8 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
       fullWidth
       PaperProps={{
         sx: {
-          position: 'fixed',
-          bottom: 80,
-          top: 'auto',
-          m: 2,
+          m: 1.5,
+          maxHeight: 'calc(100% - 24px)',
         },
       }}
     >
@@ -258,8 +258,12 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     <Button
                       size="small"
-                      variant={selectedValues.length === 0 ? 'contained' : 'outlined'}
-                      color={selectedValues.length === 0 ? 'inherit' : 'primary'}
+                      variant={
+                        selectedValues.length === 0 ? 'contained' : 'outlined'
+                      }
+                      color={
+                        selectedValues.length === 0 ? 'inherit' : 'primary'
+                      }
                       onClick={() => handleClearGroup(group.groupName)}
                       sx={{ minWidth: 56, px: 1, py: 0.25 }}
                     >
@@ -270,9 +274,13 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
                         key={option}
                         size="small"
                         variant={
-                          selectedValueSet.has(option) ? 'contained' : 'outlined'
+                          selectedValueSet.has(option)
+                            ? 'contained'
+                            : 'outlined'
                         }
-                        onClick={() => handleToggleLabel(group.groupName, option)}
+                        onClick={() =>
+                          handleToggleLabel(group.groupName, option)
+                        }
                         sx={{
                           minWidth: 72,
                           px: 1,

@@ -9,7 +9,7 @@ export const DashboardWidgetPresetSection = ({
   onApplyPreset,
 }: DashboardWidgetPresetSectionProps) => {
   return (
-    <Paper variant="outlined" sx={{ p: 2 }}>
+    <Paper variant="outlined" sx={{ p: 1.5 }}>
       <Stack spacing={1.5}>
         <Stack spacing={0.5}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -20,13 +20,25 @@ export const DashboardWidgetPresetSection = ({
           </Typography>
         </Stack>
         <Stack direction="row" spacing={1} flexWrap="wrap">
-          <Button variant="outlined" size="small" onClick={() => onApplyPreset('labelPie')}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => onApplyPreset('labelPie')}
+          >
             ラベル比率（円）
           </Button>
-          <Button variant="outlined" size="small" onClick={() => onApplyPreset('compareBar')}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => onApplyPreset('compareBar')}
+          >
             件数比較（バー）
           </Button>
-          <Button variant="outlined" size="small" onClick={() => onApplyPreset('seriesPie')}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => onApplyPreset('seriesPie')}
+          >
             条件比較（円）
           </Button>
         </Stack>

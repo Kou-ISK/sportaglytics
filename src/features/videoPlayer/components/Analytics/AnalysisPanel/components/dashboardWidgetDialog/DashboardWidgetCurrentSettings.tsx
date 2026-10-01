@@ -31,7 +31,7 @@ export const DashboardWidgetCurrentSettings = ({
   getChartLabel,
 }: DashboardWidgetCurrentSettingsProps) => {
   return (
-    <Paper variant="outlined" sx={{ p: 2 }}>
+    <Paper variant="outlined" sx={{ p: 1.5 }}>
       <Stack spacing={1}>
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
           現在の設定

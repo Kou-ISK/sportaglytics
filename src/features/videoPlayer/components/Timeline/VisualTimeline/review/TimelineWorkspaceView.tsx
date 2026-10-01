@@ -15,35 +15,26 @@ export const TimelineWorkspaceView = ({
       height: '100%',
       minHeight: 0,
       display: 'flex',
+      flexDirection: 'column',
       containerType: 'inline-size',
     }}
   >
+    <Box sx={{ flex: 1, minWidth: 0, minHeight: review.open ? 100 : 0 }}>
+      {children}
+    </Box>
     {review.open && (
       <Box
         sx={{
-          width: 320,
-          maxWidth: '42%',
-          flexShrink: 0,
-          minHeight: 0,
-          borderRight: 1,
+          height: '48%',
+          maxHeight: 220,
+          minHeight: 76,
+          flexShrink: 1,
+          borderTop: 1,
           borderColor: 'divider',
-          '@container (max-width: 880px)': { width: '100%', maxWidth: '100%' },
         }}
       >
         <TimelineReviewView {...review} />
       </Box>
     )}
-    <Box
-      sx={{
-        flex: 1,
-        minWidth: 0,
-        minHeight: 0,
-        '@container (max-width: 880px)': {
-          display: review.open ? 'none' : 'block',
-        },
-      }}
-    >
-      {children}
-    </Box>
   </Box>
 );

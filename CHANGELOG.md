@@ -1,5 +1,7 @@
 # Changelog
 
+- Draft UX candidate: Timelineの全幅を保つ検索dock、操作menu、共通small入力/ボタン/表/dialog、基本情報wizardの内容高、Hotkeyのcompact区切り行。実機4サイズの結果と追加未完の検証を区別。
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

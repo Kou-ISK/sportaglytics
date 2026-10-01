@@ -20,6 +20,7 @@ export const useTimelineReview = (
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [page, setPage] = useState(0);
+  const [actionsAnchor, setActionsAnchor] = useState<HTMLElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const detailRef = useRef<HTMLDivElement>(null);
@@ -36,6 +37,7 @@ export const useTimelineReview = (
       : null;
   const close = useCallback((): void => {
     restoreFocusRef.current = true;
+    setActionsAnchor(null);
     setOpen(false);
   }, []);
   useEffect(() => {
@@ -52,7 +54,7 @@ export const useTimelineReview = (
       if (event.isComposing || event.defaultPrevented) return;
       if (
         event.target instanceof Element &&
-        event.target.closest('[role="dialog"]')
+        event.target.closest('[role="dialog"], [role="menu"]')
       )
         return;
       if (event.key === 'Escape' && open) {
@@ -81,6 +83,9 @@ export const useTimelineReview = (
   }, [open, query, close]);
   return {
     open,
+    actionsAnchor,
+    onOpenActions: setActionsAnchor,
+    onCloseActions: () => setActionsAnchor(null),
     query,
     inputRef,
     toggleRef,
@@ -100,6 +105,7 @@ export const useTimelineReview = (
     pageCount,
     onPageChange: setPage,
     onQueryChange: (value) => {
+      setActionsAnchor(null);
       setQuery(value);
       setPage(0);
     },

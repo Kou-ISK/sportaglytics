@@ -1,3 +1,5 @@
+Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
+
 # SporTagLytics ユーザーガイド
 
 撮影しながら分析するには、起動画面またはファイルメニューの「ライブキャプチャ」を使います。USB/HDMI/iPhone/IP入力の条件、コーディング、ライブ位置への移動と停止は[ライブキャプチャとコーディング](live-coding.md)を参照してください。

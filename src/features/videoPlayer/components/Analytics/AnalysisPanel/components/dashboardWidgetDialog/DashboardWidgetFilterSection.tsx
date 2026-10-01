@@ -35,7 +35,7 @@ export const DashboardWidgetFilterSection = ({
   availableLabelValues,
 }: DashboardWidgetFilterSectionProps) => {
   return (
-    <Paper variant="outlined" sx={{ p: 2 }}>
+    <Paper variant="outlined" sx={{ p: 1.5 }}>
       <Stack spacing={1.5}>
         <Stack
           direction="row"

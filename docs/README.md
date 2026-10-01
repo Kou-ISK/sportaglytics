@@ -1,3 +1,5 @@
+Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
+
 # SporTagLytics Documentation
 
 - [Timelineの場面検索とレビュー](timeline-review.md): 検索、全文確認、編集・Playlistへの移動。

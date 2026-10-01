@@ -1,6 +1,12 @@
+## Desktop compact density
+
+共通TextField / FormControl / Select / Buttonはsmallを既定とし、入力と操作の最小targetは32px、読ませる本文は13/14px、時刻・件数は12pxを使います。TableCellは6px×10px、Dialogのtitle/content/actionsは10×16 /12×16 /8×16pxを基準とします。長文noteは複数行を保ち、最大高さ内のスクロールで全文を読めるようにします。
+
+画面面積は用途で決めます。基本情報3項目のwizardはsm/内容高とし、多角度・複数clip編集のstepで広い編集面を使います。Hotkeysは36pxの区切り行に32px操作を配置し、行ごとのcardと空白を重ねません。Timeline編集dialogはviewport内に収め、内容だけをスクロールしてCancel/Saveへ到達できるようにします。
+
 # SporTagLytics Design System (Native Analysis / Dark-first)
 
-Timelineのレビュー欄は既存のsurface/divider/text/primaryを共有し、検索・時刻順結果・全文詳細を分けます。既定は閉じ、フッターに入口を置いて行表示の高さを維持します。狭幅では編集面と切り替え、閉じる操作とfocus復帰を常時提供します。Tabは通常の移動を優先します。[操作の正本](timeline-review.md)。
+Timelineのレビュー欄は既存のsurface/divider/text/primaryを共有し、検索・時刻順結果・全文詳細を分けます。既定は閉じ、フッターに入口を置いて行表示の高さを維持します。検索ドックは時間軸の全幅を保ち、結果と全文詳細を並列表示します。狭幅でもTimelineを残し、閉じる操作とfocus復帰を常時提供します。Tabは通常の移動を優先します。[操作の正本](timeline-review.md)。
 
 このドキュメントは SporTagLytics の UI 実装における単一の参照点です。実装上の色・タイポグラフィ・spacing の正本は semantic token と MUI theme (`src/design-system/`; `src/theme.ts` は互換export) とし、本書は「どのトークンを、どの意味で使うか」を定義します。
 

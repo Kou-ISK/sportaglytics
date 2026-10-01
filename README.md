@@ -1,3 +1,5 @@
+Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](docs/reports/2026-10-compact-density.md)を参照してください。
+
 # SporTagLytics
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
