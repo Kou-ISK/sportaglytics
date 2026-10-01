@@ -40,7 +40,9 @@ export const useVisualTimelineController = ({
   onUndo,
   onRedo,
   onAddToPlaylist,
-}: VisualTimelineProps): VisualTimelineViewProps => {
+}: VisualTimelineProps): VisualTimelineViewProps & {
+  onRevealItem: (id: string) => void;
+} => {
   const {
     containerRef,
     scrollContainerRef,
@@ -392,7 +394,20 @@ export const useVisualTimelineController = ({
     setSecondarySource,
   } satisfies VisualTimelineViewProps['dialogsProps'];
 
+  const revealItem = useCallback(
+    (id: string): void => {
+      const item = timeline.find((entry) => entry.id === id);
+      if (!item) return;
+      rowInteractions.clearRowSelection();
+      onSelectionChange([id]);
+      setFocusedItemId(id);
+      onSeek(item.startTime);
+    },
+    [timeline, rowInteractions, onSelectionChange, setFocusedItemId, onSeek],
+  );
+
   return {
+    onRevealItem: revealItem,
     seekHandlers,
     zoomScale,
     canZoomOut,

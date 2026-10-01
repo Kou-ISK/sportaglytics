@@ -1,5 +1,7 @@
 # Project Structure
 
+Timelineの場面検索は`features/videoPlayer/components/Timeline/VisualTimeline/review/`へ置きます。`timelineReviewSearch`は純粋計算、`useTimelineReview`はウィンドウ内状態とfocus、`TimelineReviewView` / `TimelineWorkspaceView`はprops-only表示です。既存の`useVisualTimelineController`が結果からの選択・シーク・編集を担当します。
+
 ライブ取り込みは`features/liveCapture`のScreen / Hook / Viewと、`electron/src/liveCapture`のWindow / IPC / Session / Process / Packageへ分離します。入力とIPCの検証は`shared/liveCapture`、純粋なメディア型は`types/package/media.ts`、再生中の追記はvideoPlayerの`useLiveCapturePlayback`が所有します。パッケージ共通時計と録画末尾での待機は`usePackagePlaybackClock`へ分離します。
 
 連続再生は`videoPlayer/shared/capture`のMediaSource管理とMP4 codec読取に分離し、`CaptureAnglePlayer`が既存プレイヤーへ接続します。キャプチャ操作用のパッケージ文脈はWindow寿命の所有関係から分離します。

@@ -1,5 +1,7 @@
 # SporTagLytics Design System (Native Analysis / Dark-first)
 
+Timelineのレビュー欄は既存のsurface/divider/text/primaryを共有し、検索・時刻順結果・全文詳細を分けます。既定は閉じ、フッターに入口を置いて行表示の高さを維持します。狭幅では編集面と切り替え、閉じる操作とfocus復帰を常時提供します。Tabは通常の移動を優先します。[操作の正本](timeline-review.md)。
+
 このドキュメントは SporTagLytics の UI 実装における単一の参照点です。実装上の色・タイポグラフィ・spacing の正本は semantic token と MUI theme (`src/design-system/`; `src/theme.ts` は互換export) とし、本書は「どのトークンを、どの意味で使うか」を定義します。
 
 SporTagLytics はスポーツ分析者が長時間操作する desktop application です。装飾性よりも、映像・Timeline・Code Window といった作業対象の視認性、情報密度、操作の安定性を優先します。

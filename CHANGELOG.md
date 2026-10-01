@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Timelineの行名・ラベル・ノートを検索し、時刻順の結果から映像・全文確認・編集・Playlist追加へ進む開閉式レビュー欄を追加。[操作](docs/timeline-review.md)。
+
+### Fixed
+
+- 選択中のTimelineでTabが場面巡回を優先し、通常focus移動を妨げる問題を修正。巡回はOption/Alt+上下を使用。
+- ウィンドウメニューから分析を開いた時に初回Timeline同期が届かず「同期中」に留まる問題を修正。
+
 ## [0.17.1] - 2026-09-23
 
 ### Fixed

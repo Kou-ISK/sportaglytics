@@ -17,8 +17,13 @@ import { TimelineLane } from './TimelineLane';
 import { TimelineSelectionOverlay } from './TimelineSelectionOverlay';
 import { TimelineRowEditorDialog } from './TimelineRowEditorDialog';
 import { TIMELINE_ROW_HEADER_WIDTH_PX } from './domain/timelineCoordinateMapper';
+import type { TimelineReviewViewProps } from './review/TimelineReviewView';
 
 export interface VisualTimelineViewProps {
+  review?: Pick<
+    TimelineReviewViewProps,
+    'open' | 'onToggle' | 'toggleRef' | 'totalCount'
+  >;
   angleSync?: AngleSyncSnapshot;
   seekHandlers: ReturnType<typeof useTimelineSeek>;
   zoomScale: number;
@@ -102,6 +107,7 @@ export interface VisualTimelineViewProps {
 }
 
 export const VisualTimelineView = ({
+  review,
   angleSync,
   seekHandlers,
   scrollLeft,
@@ -304,6 +310,7 @@ export const VisualTimelineView = ({
       </Box>
 
       <TimelineFooter
+        review={review}
         rowCount={rows.length}
         selectedCount={selectedIds.length}
         zoomScale={zoomScale}

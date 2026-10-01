@@ -109,3 +109,5 @@ YYYY-MM-DD
 
 ## Consequences
 ```
+
+| [0055](0055-timeline-review-without-document-filtering.md) | Timeline review without document filtering | Accepted | 2026-10-01 |

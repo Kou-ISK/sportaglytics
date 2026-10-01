@@ -1,9 +1,15 @@
 import type { ReactElement } from 'react';
 import Add from '@mui/icons-material/Add';
 import Remove from '@mui/icons-material/Remove';
-import { Box, IconButton, Tooltip, Typography } from '@mui/material';
+import Search from '@mui/icons-material/Search';
+import { Box, Button, IconButton, Tooltip, Typography } from '@mui/material';
+import type { TimelineReviewViewProps } from './review/TimelineReviewView';
 
 interface TimelineFooterProps {
+  review?: Pick<
+    TimelineReviewViewProps,
+    'open' | 'onToggle' | 'toggleRef' | 'totalCount'
+  >;
   rowCount?: number;
   selectedCount?: number;
   zoomScale: number;
@@ -15,6 +21,7 @@ interface TimelineFooterProps {
 }
 
 export const TimelineFooter = ({
+  review,
   rowCount,
   selectedCount,
   zoomScale,
@@ -53,6 +60,24 @@ export const TimelineFooter = ({
       {rowCount !== undefined && (
         <Typography variant="caption" color="text.secondary">
           {rowCount} 行
+        </Typography>
+      )}
+      {review && (
+        <Button
+          size="small"
+          startIcon={<Search fontSize="small" />}
+          ref={review.toggleRef}
+          aria-expanded={review.open}
+          aria-controls={review.open ? 'timeline-review' : undefined}
+          onClick={review.onToggle}
+          sx={{ whiteSpace: 'nowrap' }}
+        >
+          場面を検索
+        </Button>
+      )}
+      {review && (
+        <Typography variant="caption" color="text.secondary">
+          {review.totalCount} 件
         </Typography>
       )}
       {!!selectedCount && (

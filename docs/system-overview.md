@@ -1,5 +1,7 @@
 # SporTagLytics System Overview
 
+Timeline reviewは既存文書を読み取る派生表示です。検索・ページ・開閉はhook、描画はprops-only Viewへ分離し、既存Timeline controllerの選択・シーク・編集とPlaylist callbackへ接続します。Windowメニューの分析もRendererの既存分析open/snapshot経路を使用します。[操作](timeline-review.md) / [ADR 0055](adr/0055-timeline-review-without-document-filtering.md)。
+
 ライブキャプチャは専用RendererのUSB取り込みとMainのIP入力を、確定済みMP4区間へ統一し、通常パッケージのアングルへ追記します。コードは既存の共通時計を使います。[ライブ仕様](live-coding.md) / [ADR 0053](adr/0053-live-capture-package-timeline.md)。
 
 録画の所有ウィンドウは非表示で存続し、パッケージとコマンドの接続先だけを共有します。fragmented MP4をMediaSourceへ先読み追記し、区間境界で再生成しません。録画中の映像ウィンドウはバックグラウンドでの時計抑制を無効にします。
