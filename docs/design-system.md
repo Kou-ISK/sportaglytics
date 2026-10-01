@@ -8,6 +8,8 @@
 
 Timelineのレビュー欄は既存のsurface/divider/text/primaryを共有し、検索・時刻順結果・全文詳細を分けます。既定は閉じ、フッターに入口を置いて行表示の高さを維持します。検索ドックは時間軸の全幅を保ち、結果と全文詳細を並列表示します。狭幅でもTimelineを残し、閉じる操作とfocus復帰を常時提供します。Tabは通常の移動を優先します。[操作の正本](timeline-review.md)。
 
+文書の読込/保存に失敗した場合は、操作対象の画面内にsemantic errorのAlertと明示的なretryを残します。通知の時間切れで消さず、映像と独立Timelineの両方へ表示します。読み込み不能の文書は編集を抑止します。XML取り込みフォームは小さなDialogで映像・秒数補正・確認を順に提示し、警告を確認する前に新規作成できない構造にします。Viewは外部I/Oへ依存しません。
+
 このドキュメントは SporTagLytics の UI 実装における単一の参照点です。実装上の色・タイポグラフィ・spacing の正本は semantic token と MUI theme (`src/design-system/`; `src/theme.ts` は互換export) とし、本書は「どのトークンを、どの意味で使うか」を定義します。
 
 SporTagLytics はスポーツ分析者が長時間操作する desktop application です。装飾性よりも、映像・Timeline・Code Window といった作業対象の視認性、情報密度、操作の安定性を優先します。

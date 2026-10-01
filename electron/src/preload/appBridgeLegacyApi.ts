@@ -8,6 +8,9 @@ export type AppBridgeLegacyKeys =
   | 'openFile'
   | 'openVideoFiles'
   | 'openDirectory'
+  | 'selectPackagePath'
+  | 'readSportscodeXml'
+  | 'importSportscodePackage'
   | 'exportTimeline'
   | 'createPackage'
   | 'preparePackageForOpen'
@@ -21,13 +24,18 @@ export type AppBridgeLegacyKeys =
   | 'endLoopbackAudioCapture'
   | 'checkFileExists'
   | 'readJsonFile'
-  | 'setManualModeChecked'
-  | 'convertConfigToRelativePath';
+  | 'setManualModeChecked';
 
 export const createAppBridgeLegacyApi = (
   ipcRenderer: IpcRenderer,
 ): Pick<IElectronAPI, AppBridgeLegacyKeys> => {
   return {
+    selectPackagePath: (legacyFolder = false) =>
+      ipcRenderer.invoke('package:select-path', legacyFolder),
+    readSportscodeXml: (file) =>
+      ipcRenderer.invoke('sportscode:read-xml', file),
+    importSportscodePackage: (request) =>
+      ipcRenderer.invoke('sportscode:import-package', request),
     openFile: async () => {
       try {
         const filePath = await invokeWithFallback<string>(
@@ -227,23 +235,6 @@ export const createAppBridgeLegacyApi = (
       } catch (error) {
         console.error('setManualModeChecked error:', error);
         return false;
-      }
-    },
-    convertConfigToRelativePath: async (packagePath: string) => {
-      try {
-        return await invokeWithFallback<{
-          success: boolean;
-          config?: Record<string, unknown>;
-          error?: string;
-        }>(
-          ipcRenderer,
-          'package:convert-config-to-relative-path',
-          'convert-config-to-relative-path',
-          packagePath,
-        );
-      } catch (error) {
-        console.error('convertConfigToRelativePath error:', error);
-        return { success: false, error: String(error) };
       }
     },
   };

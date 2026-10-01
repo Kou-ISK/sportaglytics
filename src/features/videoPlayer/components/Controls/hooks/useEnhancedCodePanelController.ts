@@ -1,5 +1,12 @@
 import { useCodingPanelCommands } from './useCodingPanelCommands';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useActionPreset } from '../../../../../contexts/ActionPresetContext';
 import type {
   CodingPanelWindowCommand,
@@ -52,6 +59,8 @@ interface UseEnhancedCodePanelControllerResult {
 
 export const useEnhancedCodePanelController = ({
   codingTime,
+  documentEditable = true,
+  documentRevision = 0,
   addTimelineData,
   teamNames,
   firstTeamName,
@@ -186,7 +195,25 @@ export const useEnhancedCodePanelController = ({
   >({});
   const layoutContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const getCurrentTime = useCodingTime(codingTime);
+  const getCurrentTime = useCodingTime(documentEditable ? codingTime : null);
+  useLayoutEffect(() => {
+    // Pending recordings and labels belong to the successfully loaded document.
+    activeRecordingsRef.current = {};
+    setActiveRecordings({});
+    labelSelectionsRef.current = {};
+    updateLabelSelections({});
+    recentActionsRef.current = [];
+    setActiveLabelButtons({});
+    setPrimaryAction(null);
+  }, [
+    documentEditable,
+    documentRevision,
+    activeRecordingsRef,
+    setActiveRecordings,
+    labelSelectionsRef,
+    updateLabelSelections,
+    setPrimaryAction,
+  ]);
 
   const completeRecording = useRecordingCompletion({
     addTimelineData,
@@ -243,7 +270,10 @@ export const useEnhancedCodePanelController = ({
       isRecording,
       labelSelections,
       selectedTimelineLabels,
-      statusMessage,
+      statusMessage: documentEditable
+        ? statusMessage
+        : 'タイムラインの読み込みが完了するまでタグ付けを停止しています。',
+      documentEditable,
       hotkeys: windowHotkeys,
       codeWindowFilePath: sessionFilePath ?? undefined,
     }),
@@ -253,6 +283,7 @@ export const useEnhancedCodePanelController = ({
       activeMode,
       activeRecordings,
       customLayout,
+      documentEditable,
       firstTeamName,
       isRecording,
       labelSelections,
@@ -325,6 +356,8 @@ export const useEnhancedCodePanelController = ({
         return;
       }
 
+      if (!documentEditable) return;
+
       if (command.type === 'custom-button-click') {
         const button = customLayout?.buttons.find(
           (entry) => entry.id === command.buttonId,
@@ -354,6 +387,7 @@ export const useEnhancedCodePanelController = ({
       activeActions,
       codingPanelWindowPayload,
       customLayout?.buttons,
+      documentEditable,
       handleActionClick,
       handleCustomButtonClick,
       handleLabelSelect,
@@ -388,6 +422,7 @@ export const useEnhancedCodePanelController = ({
 
   const triggerAction = useCallback(
     (teamName: string, actionName: string, buttonId?: string) => {
+      if (!documentEditable) return;
       const matchingTeam = teamNames.find((team) =>
         actionName.startsWith(`${team} `),
       );
@@ -423,6 +458,7 @@ export const useEnhancedCodePanelController = ({
       activeActions,
       customLayout?.buttons,
       getButtonColorByName,
+      documentEditable,
       handleActionClick,
       teamContext,
       teamNames,
@@ -432,6 +468,7 @@ export const useEnhancedCodePanelController = ({
   return {
     triggerAction,
     viewProps: {
+      documentEditable,
       activeMode,
       customLayout,
       teamContext,
@@ -446,10 +483,18 @@ export const useEnhancedCodePanelController = ({
       getActionLabels,
       labelSelections,
       selectedTimelineLabels,
-      statusMessage,
-      handleLabelSelect,
-      handleCustomButtonClick,
-      handleActionClick,
+      statusMessage: documentEditable
+        ? statusMessage
+        : 'タイムラインの読み込みが完了するまでタグ付けを停止しています。',
+      handleLabelSelect: (...args) => {
+        if (documentEditable) handleLabelSelect(...args);
+      },
+      handleCustomButtonClick: (...args) => {
+        if (documentEditable) handleCustomButtonClick(...args);
+      },
+      handleActionClick: (...args) => {
+        if (documentEditable) handleActionClick(...args);
+      },
       onOpenDetachedWindow: handleOpenDetachedWindow,
     },
   };

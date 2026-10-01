@@ -26,7 +26,7 @@ export const createCapturePackage = async (
   );
   await fs.writeFile(
     path.join(directory, '.metadata/config.json'),
-    JSON.stringify({ angles: [] }),
+    JSON.stringify({ packageFormatVersion: 1, angles: [] }),
     { flag: 'wx' },
   );
   await registerPackageLocation(directory).catch(() => undefined);

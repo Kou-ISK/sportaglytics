@@ -4,6 +4,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 Timelineの場面検索は`features/videoPlayer/components/Timeline/VisualTimeline/review/`へ置きます。`timelineReviewSearch`は純粋計算、`useTimelineReview`はウィンドウ内状態とfocus、`TimelineReviewView` / `TimelineWorkspaceView`はprops-only表示です。既存の`useVisualTimelineController`が結果からの選択・シーク・編集を担当します。
 
+Timelineの未知入力検証とXML request型は`src/shared/timeline/`に置き、Renderer/Mainで共有します。Mainの`packageCompatibilityValidation.ts`、`packageSourceSnapshot.ts`、`legacyPackageMigrationService.ts`が検証・fingerprint/容量・コピー完成を分担し、`atomicTextFile.ts`が順序付きテキスト置換を所有します。XMLの新規取り込みは`Setup/SportscodeImport/`のDomain/Hook/Gateway/View、Mainの`sportscodeImportService.ts`に分離します。保存エラーUIはprops-onlyの`TimelinePersistenceStatusView`で、永続化HookとTimeline同期から渡します。
+
 ライブ取り込みは`features/liveCapture`のScreen / Hook / Viewと、`electron/src/liveCapture`のWindow / IPC / Session / Process / Packageへ分離します。入力とIPCの検証は`shared/liveCapture`、純粋なメディア型は`types/package/media.ts`、再生中の追記はvideoPlayerの`useLiveCapturePlayback`が所有します。パッケージ共通時計と録画末尾での待機は`usePackagePlaybackClock`へ分離します。
 
 連続再生は`videoPlayer/shared/capture`のMediaSource管理とMP4 codec読取に分離し、`CaptureAnglePlayer`が既存プレイヤーへ接続します。キャプチャ操作用のパッケージ文脈はWindow寿命の所有関係から分離します。

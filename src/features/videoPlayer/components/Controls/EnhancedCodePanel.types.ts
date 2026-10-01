@@ -3,6 +3,8 @@ import type { SCLabel } from '../../../../types/timeline/sportscode';
 export interface EnhancedCodePanelProps {
   /** Common package time, never a source file's currentTime; null when unavailable. */
   codingTime: number | null;
+  documentEditable?: boolean;
+  documentRevision?: number;
   addTimelineData: (
     actionName: string,
     startTime: number,

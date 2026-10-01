@@ -124,7 +124,7 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
         },
       },
       {
-        label: 'Sportscode XML（SCTimeline）',
+        label: 'SCTimeline（JSON）',
         click: (_menuItem, browserWindow) => {
           sendMenuCommand(
             getBrowserWindowOwner(browserWindow),
@@ -181,7 +181,7 @@ function buildTimelineExportItems(): Electron.MenuItemConstructorOptions[] {
       },
     },
     {
-      label: 'Sportscode XML（SCTimeline）',
+      label: 'SCTimeline（JSON）',
       click: (_menuItem, browserWindow) => {
         sendMenuCommand(
           getBrowserWindowOwner(browserWindow),

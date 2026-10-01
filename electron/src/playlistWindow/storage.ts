@@ -1,3 +1,4 @@
+import { writeTextFileAtomically } from '../ipc/atomicTextFile';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import * as path from 'path';
@@ -158,7 +159,7 @@ export const savePlaylistToPath = async (
 
   const playlistJsonPath = path.join(targetPath, 'playlist.json');
   const content = JSON.stringify(processedPlaylist, null, 2);
-  await fs.writeFile(playlistJsonPath, content, 'utf-8');
+  await writeTextFileAtomically(playlistJsonPath, content);
 
   console.log('[Playlist] Saved package to:', targetPath);
 };

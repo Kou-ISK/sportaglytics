@@ -47,6 +47,52 @@ describe('multi-angle package mapping', () => {
     expect(result.angles[3].playbackOffsetSeconds).toBe(-2);
   });
 
+  it.each([
+    ['/tmp/copy.stpkg', '/tmp/outside #%.mp4', '/tmp/outside #%.mp4'],
+    ['C:\\copy.stpkg', 'D:\\outside #%.mp4', 'D:/outside #%.mp4'],
+    [
+      'C:\\copy.stpkg',
+      '\\\\server\\share\\outside #%.mp4',
+      '//server/share/outside #%.mp4',
+    ],
+    [
+      '/tmp/copy.stpkg',
+      'file:///tmp/outside%20%23%25.mp4',
+      '/tmp/outside #%.mp4',
+    ],
+    [
+      'C:\\copy.stpkg',
+      'videos\\inside #%.mp4',
+      'C:/copy.stpkg/videos/inside #%.mp4',
+    ],
+  ])(
+    'resolves external or relative media without prefixing absolute paths: %s %s',
+    (packagePath, reference, expected) => {
+      const result = buildVideoListFromConfig(
+        {
+          angles: [
+            {
+              id: 'a',
+              name: 'Main',
+              relativePath: reference,
+              clips: [
+                {
+                  id: 'c',
+                  relativePath: reference,
+                  gapBeforeSeconds: 0,
+                  durationSeconds: 3,
+                },
+              ],
+            },
+          ],
+        },
+        packagePath,
+      );
+      expect(result.videoList).toEqual([expected]);
+      expect(result.angles[0].clips[0].source).toBe(expected);
+    },
+  );
+
   it('keeps ordered clips and their black-gap duration in the IPC payload', () => {
     const result = buildAnglePayloads({
       selectedDirectory: '/tmp',

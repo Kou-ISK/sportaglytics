@@ -2,6 +2,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # SporTagLytics
 
+旧SporTagプロジェクトは原本を保持して移行コピーします。SportscodeのEdit List XMLは明示映像・秒数補正から別プロジェクトへ取り込めます（ネイティブパッケージは未対応）。[対応形式と復旧手順](docs/package-compatibility.md)。
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-0.17.1-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
 

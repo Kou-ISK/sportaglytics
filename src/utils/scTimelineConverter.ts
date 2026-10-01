@@ -45,7 +45,7 @@ const generateUUID = (): string => {
 const extractLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
   const legacyActionType = getLegacyTimelineLabel(item, 'actionType');
   const legacyActionResult = getLegacyTimelineLabel(item, 'actionResult');
-  const labels = migrateLegacyTimelineLabels(item.labels);
+  const labels = item.labels?.map((label) => ({ ...label })) ?? [];
 
   if (
     legacyActionType &&
@@ -152,7 +152,7 @@ export const convertFromSCTimeline = (
 
   for (const row of scTimeline.timeline.rows) {
     for (const instance of row.instances) {
-      const labels = migrateLegacyTimelineLabels(instance.labels);
+      const labels = instance.labels?.map((label) => ({ ...label })) ?? [];
 
       // TimelineDataに変換
       const item: TimelineData = {
@@ -181,7 +181,10 @@ export const convertFromSCTimeline = (
  * labels配列が存在しない古い形式のTimelineDataに対して、
  * actionType/actionResultからType/Resultラベルを生成します。
  */
-export const normalizeTimelineData = (data: unknown): TimelineData => {
+export const normalizeTimelineData = (
+  data: unknown,
+  labelMode: 'legacy' | 'preserve' = 'legacy',
+): TimelineData => {
   const raw = data as TimelineData & {
     actionType?: unknown;
     actionResult?: unknown;
@@ -208,14 +211,19 @@ export const normalizeTimelineData = (data: unknown): TimelineData => {
         return acc;
       }, [])
     : [];
-  const normalizedLabels = migrateLegacyTimelineLabels(rawLabels);
+  const normalizedLabels =
+    labelMode === 'legacy' ? migrateLegacyTimelineLabels(rawLabels) : rawLabels;
 
   const legacyActionType =
-    typeof raw.actionType === 'string' && raw.actionType.trim()
+    labelMode === 'legacy' &&
+    typeof raw.actionType === 'string' &&
+    raw.actionType.trim()
       ? raw.actionType
       : undefined;
   const legacyActionResult =
-    typeof raw.actionResult === 'string' && raw.actionResult.trim()
+    labelMode === 'legacy' &&
+    typeof raw.actionResult === 'string' &&
+    raw.actionResult.trim()
       ? raw.actionResult
       : undefined;
 
@@ -229,8 +237,7 @@ export const normalizeTimelineData = (data: unknown): TimelineData => {
   }
   if (
     !normalizedLabels.some(
-      (label) =>
-        label.group === 'Result' && label.name === legacyActionResult,
+      (label) => label.group === 'Result' && label.name === legacyActionResult,
     ) &&
     legacyActionResult
   ) {
