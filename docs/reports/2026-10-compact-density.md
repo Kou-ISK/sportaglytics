@@ -2,7 +2,7 @@
 
 # SporTagLytics compact candidate — native evidence (2026-10-01)
 
-Base draft PR189 head e9cd7092a441c2e98de9382be3b064fbc3fb8ad0. New candidate remains uncommitted. Mac Electron43.3, own ephemeral profile and synthetic60s H.264/24 rows240tags. No actual project/video/private paths included; original checkout and user data unchanged.
+Base draft PR189 head e9cd7092a441c2e98de9382be3b064fbc3fb8ad0; compact source committed at4ca2cc2af06fca2b603665868dea977081f18be1. Mac Electron43.3, own ephemeral profile and synthetic60s H.264/24 rows240tags. No actual project/video/private paths included; original checkout and user data unchanged.
 
 ## Source correspondence
 
@@ -31,7 +31,9 @@ Four search images have been visually inspected. The Hotkey screenshot contains 
 
 Unfiltered240items/6pages at88px dock;90minute+decimal timecode;599/600/601px component widths; short720x260 editor with invalid start/end, many labels, long note, Cancel/Save access; new action-menu Escape/keyboard focus; latest candidate22UX rerun; full unit/Storybook/Windows latest-head CI; dark mode/screenreader/OS IME/multiple monitors/long continuous work. Supported native minimum width remains720;599..601 checks temporarily lower only the harness window minimum to test responsive component boundaries. The long timecode fixture is display-only and never seeks beyond its60s synthetic video.
 
-All known previous e9cd7092 technical gates passed, but they do not cover this new visual candidate. Mac heavy/native slot ended17:35UTC. No new full suite or release/main merge/tag is performed.
+Latest4ca2cc2 quality-check36902331283 passed, including full unit tests and Storybook. Windows desktop36902331309 passed all19 ordinary Electron scenarios, then failed installed-desktop live-capture while parsing timeline.json during a save. The harness read observed incomplete JSON; the application currently writes text in place. A bounded SyntaxError-only polling repair preserves the existing2-instance/3-second/8-second assertions and reports incomplete-read counts. Application atomic writes are being fixed and fault-tested in a separate compatibility/safety branch; a polling repair alone does not prove save safety. New-head Windows verification is pending.
+
+Mac heavy/native slot ended17:35UTC. No additional local full suite or release/main merge/tag is performed. The latest Windows screenshot artifact is reviewed separately; Mac launch limits above remain.
 
 ## Stable native images
 

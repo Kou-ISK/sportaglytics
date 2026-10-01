@@ -430,13 +430,30 @@ try {
   await button.click();
   await button.locator('svg').waitFor({ state: 'detached' });
   let document;
+  let incompleteReads = 0;
   for (let attempt = 0; attempt < 100; attempt++) {
-    document = JSON.parse(
-      await fs.readFile(path.join(pkg, 'timeline.json'), 'utf8'),
-    );
+    try {
+      document = JSON.parse(
+        await fs.readFile(path.join(pkg, 'timeline.json'), 'utf8'),
+      );
+    } catch (error) {
+      // The current application writes in place. Polling must wait for its
+      // complete document; this does not establish atomic application saves.
+      if (!(error instanceof SyntaxError) || attempt === 99) throw error;
+      incompleteReads++;
+      await delay(100);
+      continue;
+    }
     if (document.instances?.length === 2) break;
     await delay(100);
   }
+  console.log(
+    `Timeline save polling observed ${incompleteReads} incomplete JSON reads`,
+  );
+  assert.ok(
+    document,
+    'a complete Timeline document must be persisted within 10 seconds',
+  );
   assert.equal(document.instances.length, 2);
   assert.equal(document.instances[1].startTime, 3);
   assert.equal(document.instances[1].endTime, 8);
