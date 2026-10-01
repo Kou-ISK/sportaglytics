@@ -111,6 +111,7 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
         data-timeline-item-id={item.id}
         role="button"
         tabIndex={0}
+        aria-label={`${item.actionName} ${formatTime(item.startTime)}〜${formatTime(item.endTime)}${labelText ? ` ${labelText}` : ''}`}
         aria-pressed={isSelected}
         onMouseDownCapture={() => {
           suppressEdgeClick.current = false;
@@ -192,6 +193,10 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           '&:hover': {
             outline: `1px solid ${theme.palette.primary.main}`,
             zIndex: theme.custom.zIndex.timelineItem,
+          },
+          '&:focus-visible': {
+            outline: `2px solid ${theme.palette.primary.main}`,
+            outlineOffset: 2,
           },
         }}
       >

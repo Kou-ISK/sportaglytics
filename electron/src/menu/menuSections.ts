@@ -3,7 +3,6 @@ import { openLiveCaptureWindow } from '../liveCapture/captureWindow';
 import { EVENT_DETECTION_CHANNELS } from '../../../src/types/ipc/eventDetection';
 import { getPackageSessionForWindow } from '../packageSessionRegistry';
 import { createPlaylistWindow, openPlaylistFile } from '../playlistWindow';
-import { openAnalysisWindow } from '../analysisWindow';
 import { openHelpWindow } from '../helpWindow';
 import { openSettingsWindow } from '../settingsWindow';
 import { openTimelineWindow } from '../timelineWindow';
@@ -254,7 +253,16 @@ export const buildWindowMenuItems =
     {
       label: '分析を開く',
       click: (_menuItem, browserWindow) => {
-        void openAnalysisWindow(getBrowserWindowOwner(browserWindow));
+        const owner =
+          getBrowserWindowOwner(browserWindow) ??
+          BrowserWindow.getFocusedWindow() ??
+          BrowserWindow.getAllWindows()[0];
+        sendMenuCommand(
+          owner
+            ? (getPackageSessionForWindow(owner)?.mainWindow ?? owner)
+            : undefined,
+          'menu-show-stats',
+        );
       },
     },
     {

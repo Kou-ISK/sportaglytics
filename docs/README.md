@@ -1,4 +1,9 @@
+Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
+
 # SporTagLytics Documentation
+
+- [Timelineの場面検索とレビュー](timeline-review.md): 検索、全文確認、編集・Playlistへの移動。
+- [UX評価と改善の検証記録](reports/2026-10-ux-review.md): 実Electronの代表導線、before/after、測定と未評価範囲。
 
 ライブ撮影中の分析は[ライブキャプチャとコーディング](live-coding.md)を参照してください。設計判断は[ADR 0053](adr/0053-live-capture-package-timeline.md) / [ADR 0054](adr/0054-continuous-capture-playback.md)です。
 

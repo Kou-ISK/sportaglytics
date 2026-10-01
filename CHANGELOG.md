@@ -1,11 +1,22 @@
 # Changelog
 
+- Draft UX candidate: Timelineの全幅を保つ検索dock、操作menu、共通small入力/ボタン/表/dialog、基本情報wizardの内容高、Hotkeyのcompact区切り行。実機4サイズの結果と追加未完の検証を区別。
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- Timelineの行名・ラベル・ノートを検索し、時刻順の結果から映像・全文確認・編集・Playlist追加へ進む開閉式レビュー欄を追加。[操作](docs/timeline-review.md)。
+
+### Fixed
+
+- 選択中のTimelineでTabが場面巡回を優先し、通常focus移動を妨げる問題を修正。巡回はOption/Alt+上下を使用。
+- ウィンドウメニューから分析を開いた時に初回Timeline同期が届かず「同期中」に留まる問題を修正。
 
 ## [0.17.1] - 2026-09-23
 

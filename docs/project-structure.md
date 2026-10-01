@@ -1,4 +1,8 @@
+Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
+
 # Project Structure
+
+Timelineの場面検索は`features/videoPlayer/components/Timeline/VisualTimeline/review/`へ置きます。`timelineReviewSearch`は純粋計算、`useTimelineReview`はウィンドウ内状態とfocus、`TimelineReviewView` / `TimelineWorkspaceView`はprops-only表示です。既存の`useVisualTimelineController`が結果からの選択・シーク・編集を担当します。
 
 ライブ取り込みは`features/liveCapture`のScreen / Hook / Viewと、`electron/src/liveCapture`のWindow / IPC / Session / Process / Packageへ分離します。入力とIPCの検証は`shared/liveCapture`、純粋なメディア型は`types/package/media.ts`、再生中の追記はvideoPlayerの`useLiveCapturePlayback`が所有します。パッケージ共通時計と録画末尾での待機は`usePackagePlaybackClock`へ分離します。
 
