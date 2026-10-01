@@ -16,7 +16,6 @@ describe('legacy creation history recovery', () => {
         packagePath,
       })),
       bindPackageSession: vi.fn(async () => true),
-      convertConfigToRelativePath: vi.fn(async () => undefined),
       readJsonFile: vi.fn(async () => ({
         angles: [
           {

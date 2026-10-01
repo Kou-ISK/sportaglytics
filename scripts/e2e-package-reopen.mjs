@@ -32,6 +32,7 @@ execFileSync(ffmpegPath, [
 await fs.writeFile(
   path.join(packagePath, '.metadata/config.json'),
   JSON.stringify({
+    packageFormatVersion: 1,
     team1Name: 'Red',
     team2Name: 'Blue',
     primaryAngleId: 'angle-1',
@@ -41,6 +42,16 @@ await fs.writeFile(
         name: 'Angle 1',
         sourceKind: 'local',
         relativePath: 'videos/video.mp4',
+        clips: [
+          {
+            id: 'clip-1',
+            sourceKind: 'local',
+            relativePath: 'videos/video.mp4',
+            gapBeforeSeconds: 0,
+            timelineStartSeconds: 0,
+            durationSeconds: 3,
+          },
+        ],
       },
     ],
   }),
@@ -146,9 +157,9 @@ try {
     (filePath) => window.electronAPI.releasePackageSession(filePath),
     packagePath,
   );
-  const firstWindowId = await (await app.browserWindow(first)).evaluate(
-    (window) => window.id,
-  );
+  const firstWindowId = await (
+    await app.browserWindow(first)
+  ).evaluate((window) => window.id);
   const loadingAtFinish = await app.evaluate(
     ({ BrowserWindow, app: application }, { id, filePath }) =>
       new Promise((resolve, reject) => {
@@ -164,7 +175,9 @@ try {
     { id: firstWindowId, filePath: packagePath },
   );
   await waitForVideo(first);
-  console.log(`Native open at did-finish-load passed (loading=${loadingAtFinish})`);
+  console.log(
+    `Native open at did-finish-load passed (loading=${loadingAtFinish})`,
+  );
 
   // Keep an independent window so this lifecycle also runs on Windows without quitting.
   const keeperPagePromise = app.waitForEvent('window');

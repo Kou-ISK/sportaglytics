@@ -1,5 +1,7 @@
 # SporTagLytics System Overview
 
+パッケージを開くGatewayはMainの互換preflightを通し、既知の旧SporTag構造を別の`.stpkg`へコピーしてからSessionを確保します。原本は更新しません。Timeline保存は検証済みloadを条件とし、失敗状態とretryを映像・独立Timelineへ同期します。テキスト保存は同じディレクトリの一時ファイルと順序付きrenameを使います。Sportscode XMLは専用Controller/Domain/GatewayとMain serviceで、明示映像・秒補正から別プロジェクトを作ります。[互換・原本保護の契約](package-compatibility.md)。
+
 ライブキャプチャは専用RendererのUSB取り込みとMainのIP入力を、確定済みMP4区間へ統一し、通常パッケージのアングルへ追記します。コードは既存の共通時計を使います。[ライブ仕様](live-coding.md) / [ADR 0053](adr/0053-live-capture-package-timeline.md)。
 
 録画の所有ウィンドウは非表示で存続し、パッケージとコマンドの接続先だけを共有します。fragmented MP4をMediaSourceへ先読み追記し、区間境界で再生成しません。録画中の映像ウィンドウはバックグラウンドでの時計抑制を無効にします。

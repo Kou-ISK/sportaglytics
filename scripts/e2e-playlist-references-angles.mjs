@@ -42,6 +42,7 @@ for (const [index, color] of sources.entries()) {
 await fs.writeFile(
   path.join(pkg, '.metadata/config.json'),
   JSON.stringify({
+    packageFormatVersion: 1,
     primaryAngleId: 'one',
     angles: [
       ['blue', 'green'],
@@ -56,12 +57,16 @@ await fs.writeFile(
         sourceKind: 'local',
         relativePath: `${color}.mp4`,
         durationSeconds: 6,
+        gapBeforeSeconds: 0,
         timelineStartSeconds: position * 6,
       })),
     })),
   }),
 );
-await fs.writeFile(path.join(pkg, 'timeline.json'), JSON.stringify([]));
+await fs.writeFile(
+  path.join(pkg, 'timeline.json'),
+  JSON.stringify({ version: 2, rows: [], instances: [] }),
+);
 await fs.writeFile(
   path.join(playlist, 'playlist.json'),
   JSON.stringify({

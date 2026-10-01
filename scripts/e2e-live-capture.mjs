@@ -6,7 +6,10 @@ import { createServer } from 'node:http';
 import { execFileSync, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { _electron as electron } from 'playwright';
-import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
+import {
+  getElectronLaunchOptions,
+  observeElectronErrors,
+} from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder } from './e2e-platform.mjs';
 import { ffmpegPath, ffprobePath } from './media-tool-paths.mjs';
 
@@ -97,6 +100,7 @@ let app = await electron.launch(
     `--use-file-for-fake-video-capture=${cameraFixture}`,
   ]),
 );
+observeElectronErrors(app);
 app.context().setDefaultTimeout(15000);
 let capture;
 let main;
@@ -626,6 +630,7 @@ try {
   app = await electron.launch(
     getElectronLaunchOptions(path.join(root, 'profile'), [pkg]),
   );
+  observeElectronErrors(app);
   app.context().setDefaultTimeout(15000);
   main = await app.firstWindow();
   await main.locator('#video_0 video').waitFor({ timeout: 30000 });
@@ -656,6 +661,48 @@ try {
       .catch(() => undefined);
   }
   if (main) {
+    const details = main.getByRole('button', {
+      name: '詳細を表示',
+      exact: true,
+    });
+    if (await details.count()) await details.click().catch(() => {});
+    console.error(
+      'Synthetic package validation:',
+      await main
+        .evaluate(async (file) => {
+          try {
+            const result = await window.electronAPI.preparePackageForOpen(file);
+            return { status: result.status, migrated: result.migrated };
+          } catch (error) {
+            return String(error);
+          }
+        }, pkg)
+        .catch(() => 'closed'),
+    );
+    try {
+      const savedConfig = JSON.parse(
+        await fs.readFile(path.join(pkg, '.metadata/config.json'), 'utf8'),
+      );
+      console.error('Synthetic stored capture contract:', {
+        packageFormatVersion: savedConfig.packageFormatVersion,
+        angles: savedConfig.angles.map((angle) => ({
+          clips: angle.clips.length,
+          invalidDuration: angle.clips.filter(
+            (clip) =>
+              !Number.isFinite(clip.durationSeconds) ||
+              clip.durationSeconds <= 0,
+          ).length,
+          duplicateIds:
+            angle.clips.length -
+            new Set(angle.clips.map((clip) => clip.id)).size,
+        })),
+      });
+    } catch (error) {
+      console.error(
+        'Synthetic stored capture metadata unavailable:',
+        String(error),
+      );
+    }
     console.error(
       'Package view:',
       await main

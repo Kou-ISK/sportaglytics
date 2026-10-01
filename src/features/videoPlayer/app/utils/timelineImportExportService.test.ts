@@ -36,6 +36,19 @@ describe('timelineImportExportService', () => {
     expect(result.message).toContain('1件');
   });
 
+  it.each([
+    [{ ...sampleTimeline[0], startTime: -1 }],
+    [{ ...sampleTimeline[0], endTime: 1 }],
+    [{ ...sampleTimeline[0], labels: [{ name: 3 }] }],
+    [sampleTimeline[0], sampleTimeline[0]],
+    { version: 99, rows: [], instances: [] },
+  ])(
+    'rejects invalid or unknown imports before replacing a timeline: %j',
+    (value) => {
+      expect(() => parseTimelineImportContent(JSON.stringify(value))).toThrow();
+    },
+  );
+
   it('falls back to SCTimeline content', () => {
     const content = JSON.stringify(convertToSCTimeline(sampleTimeline));
     const result = parseTimelineImportContent(content);

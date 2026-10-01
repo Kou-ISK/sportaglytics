@@ -1,3 +1,4 @@
+import { TimelinePersistenceStatusView } from './TimelinePersistenceStatusView';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import type { TimelineWindowController } from '../hooks/useTimelineWindowController';
 import { TimelineActionSection } from './TimelineActionSection';
@@ -28,7 +29,13 @@ export const TimelineWindowView = ({ controller }: TimelineWindowViewProps) => {
         flexDirection: 'column',
       }}
     >
-      <Box sx={{ flex: 1, minHeight: 0 }}>
+      <TimelinePersistenceStatusView
+        feedback={controller.persistenceFeedback}
+      />
+      <Box
+        inert={controller.persistenceFeedback?.kind === 'load-error'}
+        sx={{ flex: 1, minHeight: 0 }}
+      >
         <TimelineActionSection {...controller} />
       </Box>
     </Box>

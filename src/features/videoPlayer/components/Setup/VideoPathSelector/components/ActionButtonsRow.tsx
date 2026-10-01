@@ -7,11 +7,15 @@ export const ActionButtonsRow = ({
   onOpenPackage,
   onOpenWizard,
   onOpenCapture,
+  onOpenLegacyPackage,
+  onOpenSportscode,
   disabled = false,
 }: {
   onOpenPackage: () => void;
   onOpenWizard: () => void;
   onOpenCapture?: () => void;
+  onOpenLegacyPackage?: () => void;
+  onOpenSportscode?: () => void;
   disabled?: boolean;
 }): ReactElement => (
   <Stack spacing={1.5}>
@@ -49,6 +53,26 @@ export const ActionButtonsRow = ({
           sx={{ justifyContent: 'flex-start', whiteSpace: 'nowrap', py: 1.25 }}
         >
           ライブキャプチャ
+        </Button>
+      )}
+      {onOpenLegacyPackage && (
+        <Button
+          onClick={onOpenLegacyPackage}
+          disabled={disabled}
+          fullWidth
+          sx={{ justifyContent: 'flex-start' }}
+        >
+          旧SporTagフォルダを開く
+        </Button>
+      )}
+      {onOpenSportscode && (
+        <Button
+          onClick={onOpenSportscode}
+          disabled={disabled}
+          fullWidth
+          sx={{ justifyContent: 'flex-start' }}
+        >
+          Sportscode XMLから作成
         </Button>
       )}
     </Stack>

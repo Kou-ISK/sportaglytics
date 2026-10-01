@@ -1,9 +1,23 @@
-import { createHash } from 'node:crypto';
-import * as fs from 'node:fs/promises';
+import {
+  isAbsoluteMediaReference,
+  resolvePackageMediaPath,
+} from '../../../src/shared/media/packageMediaPath';
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { PackageOpenPreparationResult } from '../../../src/types/package/migration';
 import { isPlainObject } from './ipcPayloadGuards';
 import { convertConfigToRelativePath } from './packageConfigMigrationService';
+import {
+  inspectPackageCompatibility,
+  PACKAGE_FORMAT_VERSION,
+  readPackageJson,
+} from './packageCompatibilityValidation';
+import {
+  snapshotPackageSource,
+  checkMigrationCapacity,
+} from './packageSourceSnapshot';
+import { normalizeTimelineData } from '../../../src/utils/scTimelineConverter';
 
 const MIGRATION_MARKER_FILE = 'legacy-migration.json';
 const MIGRATION_SCHEMA_VERSION = 1;
@@ -31,40 +45,11 @@ const normalizeStpkgPath = (targetPath: string): string =>
     ? targetPath
     : `${targetPath}.stpkg`;
 
-const readJson = async (filePath: string): Promise<unknown> => {
-  const raw = await fs.readFile(filePath, 'utf-8');
-  return JSON.parse(raw) as unknown;
-};
-
-const validatePackageFolder = async (packagePath: string): Promise<void> => {
-  const stat = await fs.stat(packagePath);
-  if (!stat.isDirectory()) {
-    throw new Error('PACKAGE_SOURCE_NOT_DIRECTORY');
-  }
-
-  const configPath = path.join(packagePath, '.metadata', 'config.json');
-  const timelinePath = path.join(packagePath, 'timeline.json');
-  const config = await readJson(configPath);
-  if (!isPlainObject(config)) {
-    throw new Error('PACKAGE_CONFIG_INVALID');
-  }
-  await readJson(timelinePath);
-};
-
+const readJson = readPackageJson;
+const validatePackageFolder = inspectPackageCompatibility;
 const calculateSourceFingerprint = async (
   sourcePath: string,
-): Promise<string> => {
-  const [config, timeline] = await Promise.all([
-    fs.readFile(path.join(sourcePath, '.metadata', 'config.json')),
-    fs.readFile(path.join(sourcePath, 'timeline.json')),
-  ]);
-  const hash = createHash('sha256');
-  hash.update('config\0');
-  hash.update(config);
-  hash.update('\0timeline\0');
-  hash.update(timeline);
-  return hash.digest('hex');
-};
+): Promise<string> => (await snapshotPackageSource(sourcePath)).fingerprint;
 
 const readMigrationMarker = async (
   packagePath: string,
@@ -173,9 +158,11 @@ const rewriteCopiedPath = async ({
 }): Promise<unknown> => {
   if (typeof value !== 'string' || value.trim().length === 0) return value;
   if (/^https?:\/\//i.test(value)) return value;
-  if (!path.isAbsolute(value)) return value;
+  if (!isAbsoluteMediaReference(value)) return value;
 
-  const resolved = path.resolve(value);
+  const resolved = await fs.realpath(
+    resolvePackageMediaPath(sourceRoot, value),
+  );
   if (!isPathInside(sourceRoot, resolved)) return value;
   const relative = path.relative(sourceRoot, resolved);
   const copiedCandidate = path.join(copiedRoot, relative);
@@ -224,12 +211,15 @@ const rewriteCopiedConfigReferences = async (
     }
   }
 
+  config.packageFormatVersion = PACKAGE_FORMAT_VERSION;
   await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
 };
 
 const isPermissionError = (error: unknown): boolean => {
   if (!isPlainObject(error) || typeof error.code !== 'string') return false;
-  return error.code === 'EACCES' || error.code === 'EPERM' || error.code === 'EROFS';
+  return (
+    error.code === 'EACCES' || error.code === 'EPERM' || error.code === 'EROFS'
+  );
 };
 
 const migrateLegacyFolder = async ({
@@ -241,13 +231,32 @@ const migrateLegacyFolder = async ({
   sourceFingerprint: string;
   targetPath: string;
 }): Promise<void> => {
-  const temporaryPath = `${targetPath}.migrating-${process.pid}-${Date.now()}`;
+  const temporaryPath = `${targetPath}.migrating-${randomUUID()}.stpkg`;
+  const sourceSnapshot = await snapshotPackageSource(sourceRealPath);
+  await checkMigrationCapacity(path.dirname(targetPath), sourceSnapshot.bytes);
+  const parentRealPath = await fs.realpath(path.dirname(targetPath));
+  if (isPathInside(sourceRealPath, parentRealPath))
+    throw new Error('PACKAGE_MIGRATION_TARGET_INSIDE_SOURCE');
   try {
     await fs.cp(sourceRealPath, temporaryPath, {
       recursive: true,
       force: false,
       errorOnExist: true,
     });
+    for (const copied of [
+      temporaryPath,
+      path.join(temporaryPath, '.metadata'),
+    ]) {
+      const stat = await fs.stat(copied);
+      await fs.chmod(copied, stat.mode | 0o700);
+    }
+    for (const copied of [
+      path.join(temporaryPath, '.metadata/config.json'),
+      path.join(temporaryPath, 'timeline.json'),
+    ]) {
+      const stat = await fs.stat(copied);
+      await fs.chmod(copied, stat.mode | 0o600);
+    }
     await rewriteCopiedConfigReferences(sourceRealPath, temporaryPath);
 
     const configMigration = await convertConfigToRelativePath(temporaryPath);
@@ -257,7 +266,29 @@ const migrateLegacyFolder = async ({
       );
     }
 
-    await validatePackageFolder(temporaryPath);
+    const timelinePath = path.join(temporaryPath, 'timeline.json');
+    const timeline = await readJson(timelinePath);
+    if (Array.isArray(timeline)) {
+      const instances = timeline.map((item) =>
+        normalizeTimelineData(item, 'legacy'),
+      );
+      const rowNames = [...new Set(instances.map((item) => item.actionName))];
+      const rows = rowNames.map((name, index) => ({
+        id: `legacy-row-${index + 1}`,
+        name,
+        color:
+          instances.find((item) => item.actionName === name)?.color ??
+          '#4D8DFF',
+      }));
+      await fs.writeFile(
+        timelinePath,
+        JSON.stringify({ version: 2, rows, instances }),
+        'utf8',
+      );
+    }
+    const converted = await validatePackageFolder(temporaryPath);
+    if (converted.needsMigration || converted.missingMedia.length)
+      throw new Error('PACKAGE_MIGRATION_COPY_INVALID');
     const marker: LegacyMigrationMarker = {
       schemaVersion: MIGRATION_SCHEMA_VERSION,
       sourceRealPath,
@@ -269,6 +300,12 @@ const migrateLegacyFolder = async ({
       JSON.stringify(marker, null, 2),
       'utf-8',
     );
+    if (
+      (await calculateSourceFingerprint(sourceRealPath)) !== sourceFingerprint
+    )
+      throw new Error('PACKAGE_SOURCE_CHANGED');
+    if (await pathExists(targetPath))
+      throw new Error('PACKAGE_MIGRATION_TARGET_EXISTS');
     await fs.rename(temporaryPath, targetPath);
   } catch (error) {
     await fs.rm(temporaryPath, { recursive: true, force: true });
@@ -276,14 +313,16 @@ const migrateLegacyFolder = async ({
   }
 };
 
-export const preparePackageForOpen = async (
+const preparePackage = async (
   sourcePath: string,
   destinationPath?: string,
 ): Promise<PackageOpenPreparationResult> => {
   const resolvedSource = path.resolve(sourcePath);
-  await validatePackageFolder(resolvedSource);
+  const compatibility = await validatePackageFolder(resolvedSource);
+  if (compatibility.missingMedia.length > 0)
+    throw new Error('PACKAGE_MEDIA_MISSING');
 
-  if (path.extname(resolvedSource).toLowerCase() === '.stpkg') {
+  if (!compatibility.needsMigration) {
     return {
       status: 'ready',
       packagePath: resolvedSource,
@@ -296,7 +335,9 @@ export const preparePackageForOpen = async (
   const sourceFingerprint = await calculateSourceFingerprint(sourceRealPath);
   const defaultTarget = path.join(
     path.dirname(sourceRealPath),
-    `${path.basename(sourceRealPath)}.stpkg`,
+    path.extname(sourceRealPath).toLowerCase() === '.stpkg'
+      ? `${path.parse(sourceRealPath).name}-migrated.stpkg`
+      : `${path.basename(sourceRealPath)}.stpkg`,
   );
 
   const resolvedTarget = destinationPath
@@ -312,7 +353,9 @@ export const preparePackageForOpen = async (
       });
 
   if (resolvedTarget.reusable) {
-    await validatePackageFolder(resolvedTarget.targetPath);
+    const reused = await validatePackageFolder(resolvedTarget.targetPath);
+    if (reused.needsMigration || reused.missingMedia.length)
+      throw new Error('PACKAGE_MIGRATION_COPY_INVALID');
     return {
       status: 'ready',
       packagePath: resolvedTarget.targetPath,
@@ -346,4 +389,22 @@ export const preparePackageForOpen = async (
     reused: false,
     sourcePath: sourceRealPath,
   };
+};
+
+const preparations = new Map<string, Promise<PackageOpenPreparationResult>>();
+
+export const preparePackageForOpen = async (
+  sourcePath: string,
+  destinationPath?: string,
+): Promise<PackageOpenPreparationResult> => {
+  const key = await fs.realpath(path.resolve(sourcePath));
+  const preparation = (preparations.get(key) ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(() => preparePackage(sourcePath, destinationPath));
+  preparations.set(key, preparation);
+  try {
+    return await preparation;
+  } finally {
+    if (preparations.get(key) === preparation) preparations.delete(key);
+  }
 };
