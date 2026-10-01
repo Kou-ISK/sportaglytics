@@ -92,11 +92,15 @@ const capture = async (page, name) => {
     animations: 'disabled',
   });
 };
-const waitForTimeline = async () => {
+const waitForTimeline = async (previousWindows = new Set()) => {
   for (let attempt = 0; attempt < 400; attempt++) {
     const page = app
       .windows()
-      .find((page) => new URL(page.url()).hash === '#/timeline');
+      .find(
+        (page) =>
+          !previousWindows.has(page) &&
+          new URL(page.url()).hash === '#/timeline',
+      );
     if (page) return page;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
@@ -109,7 +113,7 @@ try {
     timeout: 60000,
   });
   observeElectronErrors(app);
-  const main = await app.firstWindow();
+  let main = await app.firstWindow();
   await main.evaluate(() =>
     localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
   );
@@ -125,14 +129,19 @@ try {
     globalThis.safetyWriteFails = false;
     globalThis.safetyWrites = 0;
     globalThis.safetyCommits = 0;
+    globalThis.safetyReadHits = 0;
     ipcMain.removeHandler('read-text-file');
-    ipcMain.handle('read-text-file', async (_event, file) =>
-      typeof file === 'string' &&
-      path.resolve(file) === path.resolve(globalThis.safetyTargetPath) &&
-      globalThis.safetyReadFails
-        ? '{broken'
-        : fs.readFile(file, 'utf8').catch(() => null),
-    );
+    ipcMain.handle('read-text-file', async (_event, file) => {
+      if (
+        typeof file === 'string' &&
+        path.resolve(file) === path.resolve(globalThis.safetyTargetPath) &&
+        globalThis.safetyReadFails
+      ) {
+        globalThis.safetyReadHits++;
+        return '{broken';
+      }
+      return fs.readFile(file, 'utf8').catch(() => null);
+    });
     // Fault only the synthetic destination at the filesystem boundary; retain
     // the application's real IPC write handler and atomic writer.
     const rename = fs.rename.bind(fs);
@@ -284,6 +293,7 @@ try {
     );
   }
   // Failed reads of an empty project must not seed history or pending coding.
+  const savedFirstProject = await fs.readFile(timelinePath, 'utf8');
   const emptyProject = path.join(root, 'Empty retry.stpkg');
   await fs.cp(packagePath, emptyProject, { recursive: true });
   await fs.writeFile(
@@ -328,13 +338,47 @@ try {
     function assertSave(success) {
       if (!success) throw new Error('Could not save synthetic settings');
     }
-    await window.electronAPI.codingPanelWindow.openWindow();
   });
+  const previousWindows = new Set(app.windows());
+  await app.evaluate((_electron, target) => {
+    globalThis.safetyTargetPath = target;
+    globalThis.safetyReadFails = true;
+    globalThis.safetyWrites = 0;
+    globalThis.safetyReadHits = 0;
+  }, emptyPath);
+  // Opening another package deliberately creates a separate session. Select
+  // that session's Main and auxiliary windows, keeping the first project open.
+  const nextMain = app.waitForEvent('window', {
+    timeout: 20000,
+    predicate: async (candidate) => {
+      await candidate.waitForURL((url) => url.protocol !== 'about:', {
+        timeout: 10000,
+      });
+      return new URL(candidate.url()).hash === '';
+    },
+  });
+  await app.evaluate(
+    ({ app }, file) => app.emit('open-file', { preventDefault() {} }, file),
+    emptyProject,
+  );
+  main = await nextMain;
+  assert.equal(previousWindows.has(main), false);
+  await main.getByRole('button', { name: '再読み込み', exact: true }).waitFor();
+  assert.ok(await app.evaluate(() => globalThis.safetyReadHits > 0));
+  timeline = await waitForTimeline(previousWindows);
+  await timeline
+    .getByRole('button', { name: '再読み込み', exact: true })
+    .waitFor();
+  await main.evaluate(() => window.electronAPI.codingPanelWindow.openWindow());
   let coding;
   for (let attempt = 0; attempt < 200; attempt++) {
     coding = app
       .windows()
-      .find((page) => new URL(page.url()).hash === '#/coding-panel');
+      .find(
+        (page) =>
+          !previousWindows.has(page) &&
+          new URL(page.url()).hash === '#/coding-panel',
+      );
     if (coding) break;
     await delay(50);
   }
@@ -343,16 +387,6 @@ try {
     '[data-code-window-button="synthetic-code"]',
   );
   await codeButton.waitFor();
-  await app.evaluate((_electron, target) => {
-    globalThis.safetyTargetPath = target;
-    globalThis.safetyReadFails = true;
-    globalThis.safetyWrites = 0;
-  }, emptyPath);
-  await app.evaluate(
-    ({ app }, file) => app.emit('open-file', { preventDefault() {} }, file),
-    emptyProject,
-  );
-  await main.getByRole('button', { name: '再読み込み', exact: true }).waitFor();
   await coding
     .getByText(
       'タイムラインの読み込みが完了するまでタグ付けを停止しています。',
@@ -449,6 +483,11 @@ try {
     if (attempt === 99) assert.fail('Fresh post-retry coding did not save');
     await delay(50);
   }
+  assert.equal(
+    await fs.readFile(timelinePath, 'utf8'),
+    savedFirstProject,
+    'The other project session must remain unchanged',
+  );
   const probe = path.join(root, 'atomic.json');
   await fs.writeFile(probe, '{"sequence":-1}');
   const writes = main.evaluate(async (file) => {
