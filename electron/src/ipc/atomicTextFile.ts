@@ -1,8 +1,33 @@
+import { setTimeout as delay } from 'node:timers/promises';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 const pendingWrites = new Map<string, Promise<void>>();
+
+/** Windows can briefly deny replacing a file that another reader holds. */
+export const renameTextFileWithRetry = async (
+  from: string,
+  to: string,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await fs.rename(from, to);
+      return;
+    } catch (error: unknown) {
+      if (
+        platform !== 'win32' ||
+        attempt >= 4 ||
+        !(error instanceof Error) ||
+        !('code' in error) ||
+        !['EPERM', 'EACCES', 'EBUSY'].includes(String(error.code))
+      )
+        throw error;
+      await delay(25 * 2 ** attempt);
+    }
+  }
+};
 
 const replaceText = async (
   filePath: string,
@@ -32,7 +57,7 @@ const replaceText = async (
       await handle.close();
     }
     // Same-directory rename keeps the previous complete file until commit.
-    await fs.rename(temporary, filePath);
+    await renameTextFileWithRetry(temporary, filePath);
   } finally {
     await fs.rm(temporary, { force: true }).catch(() => undefined);
   }

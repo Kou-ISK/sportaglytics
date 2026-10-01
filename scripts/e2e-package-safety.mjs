@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -123,6 +124,7 @@ try {
     globalThis.safetyReadFails = true;
     globalThis.safetyWriteFails = false;
     globalThis.safetyWrites = 0;
+    globalThis.safetyCommits = 0;
     ipcMain.removeHandler('read-text-file');
     ipcMain.handle('read-text-file', async (_event, file) =>
       typeof file === 'string' &&
@@ -152,7 +154,12 @@ try {
             code: 'EACCES',
           });
       }
-      return rename(from, to);
+      const result = await rename(from, to);
+      if (
+        path.resolve(String(to)) === path.resolve(globalThis.safetyTargetPath)
+      )
+        globalThis.safetyCommits++;
+      return result;
     };
   }, timelinePath);
   await app.evaluate(
@@ -236,6 +243,7 @@ try {
   assert.equal(saved.instances[0].endTime, 3.5);
   // Exercise Undo while the real atomic writer is at its final rename.
   for (const queuedBeforeRelease of [false, true]) {
+    const commitsBefore = await app.evaluate(() => globalThis.safetyCommits);
     await app.evaluate(() => {
       globalThis.safetyHoldWrite = true;
     });
@@ -260,7 +268,12 @@ try {
     await app.evaluate(() => globalThis.safetyReleaseWrite());
     for (let attempt = 0; attempt < 100; attempt++) {
       const restored = JSON.parse(await fs.readFile(timelinePath, 'utf8'));
-      if (restored.instances[0].memo === '未保存の変更 🙂') break;
+      if (
+        (await app.evaluate(() => globalThis.safetyCommits)) >=
+          commitsBefore + 2 &&
+        restored.instances[0].memo === '未保存の変更 🙂'
+      )
+        break;
       if (attempt === 99)
         assert.fail('Undo left disk at the in-flight B snapshot');
       await delay(50);
@@ -273,6 +286,10 @@ try {
   // Failed reads of an empty project must not seed history or pending coding.
   const emptyProject = path.join(root, 'Empty retry.stpkg');
   await fs.cp(packagePath, emptyProject, { recursive: true });
+  await fs.writeFile(
+    path.join(emptyProject, '.metadata/package-id.json'),
+    JSON.stringify({ version: 1, id: randomUUID() }),
+  );
   const emptyPath = path.join(emptyProject, 'timeline.json');
   const emptyDocument = JSON.stringify({ version: 2, rows: [], instances: [] });
   await fs.writeFile(emptyPath, emptyDocument);
@@ -359,7 +376,11 @@ try {
       buttonId: 'synthetic-code',
     });
   });
+  await main.bringToFront();
+  await main.waitForFunction(() => document.hasFocus());
   await main.keyboard.press('Q');
+  await main.bringToFront();
+  await main.waitForFunction(() => document.hasFocus());
   await main.keyboard.press('Q');
   await timeline.evaluate(() =>
     window.electronAPI.timelineWindow.sendCommand({
@@ -400,6 +421,8 @@ try {
   await main.waitForFunction(
     () => Math.abs(document.querySelector('video').currentTime - 6) < 0.1,
   );
+  await main.bringToFront();
+  await main.waitForFunction(() => document.hasFocus());
   await main.keyboard.press('Q');
   await timeline.evaluate(() =>
     window.electronAPI.timelineWindow.sendCommand({ type: 'seek', time: 7 }),
@@ -407,6 +430,8 @@ try {
   await main.waitForFunction(
     () => Math.abs(document.querySelector('video').currentTime - 7) < 0.1,
   );
+  await main.bringToFront();
+  await main.waitForFunction(() => document.hasFocus());
   await main.keyboard.press('Q');
   for (let attempt = 0; attempt < 100; attempt++) {
     const fresh = JSON.parse(await fs.readFile(emptyPath, 'utf8'));
@@ -461,6 +486,27 @@ try {
   await reopenedTimeline
     .getByRole('button', { name: 'Coral Synthetic coding 行', exact: true })
     .waitFor();
+  const loadedInstances = await reopenedTimeline.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const api = window.electronAPI.timelineWindow;
+        const callback = (payload) => {
+          clearTimeout(timeout);
+          api.offSync(callback);
+          resolve(payload.timeline);
+        };
+        const timeout = setTimeout(() => {
+          api.offSync(callback);
+          reject(new Error('Cold Timeline sync did not arrive'));
+        }, 10000);
+        api.onSync(callback);
+        api.sendCommand({ type: 'request-sync' });
+      }),
+  );
+  assert.deepEqual(
+    loadedInstances.map((item) => item.actionName),
+    ['Coral Synthetic coding'],
+  );
   await capture(reopenedTimeline, 'retry-empty-reopened');
   console.log(
     `Package safety: failed read retained original, errors/retries reached both windows, atomic concurrent writes remained valid across ${reads} reads`,

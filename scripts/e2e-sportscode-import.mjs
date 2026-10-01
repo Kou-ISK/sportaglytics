@@ -237,6 +237,25 @@ try {
   await reopenedTimeline
     .getByRole('button', { name: 'Coral 攻撃 行', exact: true })
     .waitFor();
+  const loadedInstances = await reopenedTimeline.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const api = window.electronAPI.timelineWindow;
+        const callback = (payload) => {
+          clearTimeout(timeout);
+          api.offSync(callback);
+          resolve(payload.timeline);
+        };
+        const timeout = setTimeout(() => {
+          api.offSync(callback);
+          reject(new Error('Cold Timeline sync did not arrive'));
+        }, 10000);
+        api.onSync(callback);
+        api.sendCommand({ type: 'request-sync' });
+      }),
+  );
+  assert.deepEqual(loadedInstances[0].labels, timeline.instances[0].labels);
+  assert.equal(loadedInstances[0].memo, '再保存した合成ノート 🙂');
   const reopenedDocument = JSON.parse(
     await fs.readFile(path.join(project, 'timeline.json'), 'utf8'),
   );

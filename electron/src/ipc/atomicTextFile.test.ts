@@ -2,7 +2,10 @@ import fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
-import { writeTextFileAtomically } from './atomicTextFile';
+import {
+  renameTextFileWithRetry,
+  writeTextFileAtomically,
+} from './atomicTextFile';
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -25,7 +28,7 @@ it.each(['EACCES', 'ENOSPC', 'EIO'])(
   'keeps the original after a failed commit: %s',
   async (code) => {
     const { dir, file } = await fixture();
-    vi.spyOn(fs, 'rename').mockRejectedValueOnce(
+    vi.spyOn(fs, 'rename').mockRejectedValue(
       Object.assign(new Error('synthetic failure'), { code }),
     );
     await expect(
@@ -69,4 +72,37 @@ it('respects a read-only destination even when its parent could be replaced', as
   );
   expect(await fs.readFile(file, 'utf8')).toBe('{"original":true}');
   expect(await fs.readdir(dir)).toEqual([path.basename(file)]);
+});
+
+it.each(['EPERM', 'EACCES', 'EBUSY'])(
+  'retries a transient Windows replacement denial without deleting the original: %s',
+  async (code) => {
+    const { dir, file } = await fixture();
+    const temporary = path.join(dir, 'prepared.json');
+    await fs.writeFile(temporary, '{"replacement":true}');
+    const rename = vi
+      .spyOn(fs, 'rename')
+      .mockRejectedValueOnce(
+        Object.assign(new Error('transient reader lock'), { code }),
+      );
+    await renameTextFileWithRetry(temporary, file, 'win32');
+    expect(rename).toHaveBeenCalledTimes(2);
+    expect(await fs.readFile(file, 'utf8')).toBe('{"replacement":true}');
+  },
+);
+it('bounds a persistent Windows denial and retains both complete files for the caller to clean up', async () => {
+  const { dir, file } = await fixture();
+  const temporary = path.join(dir, 'prepared.json');
+  await fs.writeFile(temporary, '{"replacement":true}');
+  const rename = vi
+    .spyOn(fs, 'rename')
+    .mockRejectedValue(
+      Object.assign(new Error('persistent denial'), { code: 'EPERM' }),
+    );
+  await expect(
+    renameTextFileWithRetry(temporary, file, 'win32'),
+  ).rejects.toThrow('persistent denial');
+  expect(rename).toHaveBeenCalledTimes(5);
+  expect(await fs.readFile(file, 'utf8')).toBe('{"original":true}');
+  expect(await fs.readFile(temporary, 'utf8')).toBe('{"replacement":true}');
 });
