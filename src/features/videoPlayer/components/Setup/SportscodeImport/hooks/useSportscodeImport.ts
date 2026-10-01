@@ -13,6 +13,18 @@ import {
 import { parseSportscodeXml } from '../domain/parseSportscodeXml';
 import type { SportscodeImportViewProps } from '../SportscodeImportView';
 
+const importErrorMessage = (failure: unknown, fallback: string): string => {
+  if (!(failure instanceof Error)) return fallback;
+  // Electron prepends its IPC channel name to rejections. Keep the cause that
+  // helps the user correct their input, rather than exposing that transport.
+  return (
+    failure.message.replace(
+      /^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/,
+      '',
+    ) || fallback
+  );
+};
+
 export const useSportscodeImport = ({
   open,
   onClose,
@@ -51,8 +63,7 @@ export const useSportscodeImport = ({
     } catch (failure) {
       return {
         result: null,
-        error:
-          failure instanceof Error ? failure.message : 'XMLを読み込めません。',
+        error: importErrorMessage(failure, 'XMLを読み込めません。'),
       };
     }
   }, [source, offset]);
@@ -70,9 +81,7 @@ export const useSportscodeImport = ({
           ?.replace(/\.xml$/i, '') ?? 'Imported project',
       );
     } catch (failure) {
-      setError(
-        failure instanceof Error ? failure.message : 'XMLを選択できません。',
-      );
+      setError(importErrorMessage(failure, 'XMLを選択できません。'));
     }
   }, []);
   const pickVideo = useCallback(async (): Promise<void> => {
@@ -84,9 +93,7 @@ export const useSportscodeImport = ({
         setError('');
       }
     } catch (failure) {
-      setError(
-        failure instanceof Error ? failure.message : '映像を選択できません。',
-      );
+      setError(importErrorMessage(failure, '映像を選択できません。'));
     }
   }, []);
   const canImport = Boolean(
@@ -116,9 +123,7 @@ export const useSportscodeImport = ({
       onClose();
     } catch (failure) {
       setError(
-        failure instanceof Error
-          ? failure.message
-          : 'プロジェクトの作成に失敗しました。',
+        importErrorMessage(failure, 'プロジェクトの作成に失敗しました。'),
       );
     } finally {
       operation.current = false;

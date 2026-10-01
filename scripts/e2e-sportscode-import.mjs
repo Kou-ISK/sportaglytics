@@ -137,6 +137,11 @@ try {
     .getByRole('alert')
     .filter({ hasText: '映像の長さを超えています' });
   await rangeError.waitFor();
+  assert.doesNotMatch(
+    await rangeError.innerText(),
+    /Error invoking remote method|sportscode:import-package/,
+    'The visible failure must explain the input problem without an internal IPC channel',
+  );
   const errorBounds = await rangeError.boundingBox();
   const dialogBounds = await dialog.boundingBox();
   assert.ok(errorBounds && dialogBounds);

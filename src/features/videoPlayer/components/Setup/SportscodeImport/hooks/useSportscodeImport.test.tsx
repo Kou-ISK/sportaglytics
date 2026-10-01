@@ -92,7 +92,13 @@ it('accepts one creation request and preserves explicit times and separate label
     { group: '位置', name: '中央' },
     { group: '方向', name: '中央' },
   ]);
-  await act(async () => reject?.(new Error('Synthetic permission failure')));
+  await act(async () =>
+    reject?.(
+      new Error(
+        "Error invoking remote method 'sportscode:import-package': Error: Synthetic permission failure",
+      ),
+    ),
+  );
   expect(hook.result.current.busy).toBe(false);
   expect(hook.result.current.error).toBe('Synthetic permission failure');
   expect(hook.result.current.preview?.document.instances.length).toBe(2);
