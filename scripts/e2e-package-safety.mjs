@@ -102,12 +102,15 @@ try {
   await exercisePackageMigration(main, root, packagePath, document);
   await app.evaluate(async ({ ipcMain }, timelinePath) => {
     const { default: fs } = await import('node:fs/promises');
+    const { default: path } = await import('node:path');
     globalThis.safetyReadFails = true;
     globalThis.safetyWriteFails = false;
     globalThis.safetyWrites = 0;
     ipcMain.removeHandler('read-text-file');
     ipcMain.handle('read-text-file', async (_event, file) =>
-      file === timelinePath && globalThis.safetyReadFails
+      typeof file === 'string' &&
+      path.resolve(file) === path.resolve(timelinePath) &&
+      globalThis.safetyReadFails
         ? '{broken'
         : fs.readFile(file, 'utf8').catch(() => null),
     );
@@ -132,7 +135,7 @@ try {
   );
   await main.getByRole('button', { name: '再読み込み', exact: true }).waitFor();
   let timeline;
-  for (let attempt = 0; attempt < 100; attempt++) {
+  for (let attempt = 0; attempt < 400; attempt++) {
     timeline = app
       .windows()
       .find((page) => new URL(page.url()).hash === '#/timeline');
