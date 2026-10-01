@@ -96,4 +96,10 @@ it('accepts one creation request and preserves explicit times and separate label
   expect(hook.result.current.busy).toBe(false);
   expect(hook.result.current.error).toBe('Synthetic permission failure');
   expect(hook.result.current.preview?.document.instances.length).toBe(2);
+  act(() => hook.result.current.onOffsetChange('1'));
+  expect(hook.result.current.error).toBe('');
+  expect(hook.result.current.confirmed).toBe(false);
+  expect(hook.result.current.preview?.document.instances[0].startTime).toBe(
+    5.25,
+  );
 });

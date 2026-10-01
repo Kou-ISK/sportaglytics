@@ -82,7 +82,7 @@ try {
     { xmlPath, videoPath, destination },
   );
   await main
-    .getByRole('button', { name: 'Sportscode XMLを読み込む', exact: true })
+    .getByRole('button', { name: 'Sportscode XMLから作成', exact: true })
     .click();
   const dialog = main.getByRole('dialog');
   await dialog.getByRole('button', { name: 'XMLを選択', exact: true }).click();

@@ -72,7 +72,7 @@ export const ActionButtonsRow = ({
           fullWidth
           sx={{ justifyContent: 'flex-start' }}
         >
-          Sportscode XMLを読み込む
+          Sportscode XMLから作成
         </Button>
       )}
     </Stack>

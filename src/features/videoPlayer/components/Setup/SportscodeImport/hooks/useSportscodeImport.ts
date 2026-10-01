@@ -151,6 +151,7 @@ export const useSportscodeImport = ({
     onOffsetChange: (value) => {
       setOffset(value);
       setConfirmed(false);
+      setError('');
     },
     onConfirm: setConfirmed,
     onImport: () => void importProject(),
