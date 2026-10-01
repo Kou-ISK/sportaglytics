@@ -14,12 +14,14 @@ export const TimelineWorkspaceView = ({
     sx={{
       height: '100%',
       minHeight: 0,
+      minWidth: 0,
+      overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
       containerType: 'inline-size',
     }}
   >
-    <Box sx={{ flex: 1, minWidth: 0, minHeight: review.open ? 100 : 0 }}>
+    <Box sx={{ flex: 1, minWidth: 0, minHeight: review.open ? 112 : 0 }}>
       {children}
     </Box>
     {review.open && (
@@ -27,7 +29,7 @@ export const TimelineWorkspaceView = ({
         sx={{
           height: '48%',
           maxHeight: 220,
-          minHeight: 76,
+          minHeight: 74,
           flexShrink: 1,
           borderTop: 1,
           borderColor: 'divider',

@@ -209,7 +209,7 @@ export const TimelineEditDialog: React.FC<TimelineEditDialogProps> = ({
     >
       <DialogTitle sx={{ pb: 1 }}>アクション編集</DialogTitle>
       <DialogContent sx={{ py: 1.5 }}>
-        <Stack spacing={1.5} sx={{ mt: 0.5 }}>
+        <Stack spacing={1.5} sx={{ pt: 1.5 }}>
           <Stack direction="row" spacing={1}>
             <TextField
               label="開始秒"

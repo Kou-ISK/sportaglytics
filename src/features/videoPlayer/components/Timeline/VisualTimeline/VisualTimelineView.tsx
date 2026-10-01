@@ -207,6 +207,7 @@ export const VisualTimelineView = ({
             maxHeight: '100%',
             overflowY: 'auto',
             overflowX: 'auto',
+            scrollbarGutter: 'stable',
             px: 0,
             pt: 0,
             pb: 0,

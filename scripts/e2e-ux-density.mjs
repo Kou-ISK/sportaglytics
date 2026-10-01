@@ -187,6 +187,79 @@ const settle = async (page) => {
       ),
   );
 };
+const assertCompleteTimelineRow = async (page) => {
+  const visible = await page
+    .getByRole('region', { name: 'タイムライン', exact: true })
+    .evaluate((region) => {
+      const viewport = region.getBoundingClientRect();
+      const ruler = region.querySelector('[data-testid="timeline-ruler"]');
+      const rowHeaders = [
+        ...region.querySelectorAll('[data-testid^="timeline-row-header-"]'),
+      ];
+      const fits = (element, minimumHeight) => {
+        if (!element) return false;
+        const bounds = element.getBoundingClientRect();
+        return (
+          bounds.top >= Math.max(0, viewport.top + region.clientTop) &&
+          bounds.bottom <=
+            Math.min(
+              innerHeight,
+              viewport.top + region.clientTop + region.clientHeight,
+            ) &&
+          bounds.height >= minimumHeight
+        );
+      };
+      return {
+        axis: fits(ruler, 28),
+        row: rowHeaders.some((header) => fits(header.parentElement, 32)),
+        clientHeight: region.clientHeight,
+        scrollX,
+        scrollY,
+        innerHeight,
+      };
+    });
+  assert.equal(
+    visible.axis,
+    true,
+    'The complete ruler must be inside the real client viewport',
+  );
+  assert.equal(
+    visible.row,
+    true,
+    'One complete 32px Timeline row must be inside the real client viewport, excluding scrollbars',
+  );
+  return visible;
+};
+const assertTimeLabelsVisible = async (page) => {
+  await page.getByRole('dialog').evaluate((dialog) => {
+    dialog.querySelector('.MuiDialogContent-root').scrollTop = 0;
+  });
+  await settle(page);
+  const visible = await page.getByRole('dialog').evaluate((dialog) => {
+    const content = dialog.querySelector('.MuiDialogContent-root');
+    const bounds = content.getBoundingClientRect();
+    return [...content.querySelectorAll('label')]
+      .filter((label) => ['開始秒', '終了秒'].includes(label.textContent))
+      .map((label) => {
+        const rect = label.getBoundingClientRect();
+        return {
+          text: label.textContent,
+          fits:
+            rect.top >= Math.max(0, bounds.top + content.clientTop) &&
+            rect.bottom <=
+              Math.min(
+                innerHeight,
+                bounds.top + content.clientTop + content.clientHeight,
+              ),
+        };
+      });
+  });
+  assert.equal(visible.length, 2);
+  assert.ok(
+    visible.every((label) => label.fits),
+    'Both complete floating time labels must be visible inside DialogContent',
+  );
+};
 try {
   app = await electron.launch({
     ...getElectronLaunchOptions(profile),
@@ -249,6 +322,10 @@ try {
     await settle(timeline);
     console.log('Density window', width, height);
     const closed = await region.boundingBox();
+    const outerScroll = await timeline.evaluate(() => ({
+      x: scrollX,
+      y: scrollY,
+    }));
     await timeline.keyboard.press(`${primaryModifier}+f`);
     const search = timeline.getByRole('textbox', {
       name: '行名・ラベル・ノートを検索',
@@ -269,6 +346,7 @@ try {
       ? await region.boundingBox()
       : null;
     if (dockRequired) {
+      await assertCompleteTimelineRow(timeline);
       assert.ok(
         opened && opened.height >= 60,
         'Timeline must retain its axis and one complete row (60px minimum)',
@@ -298,6 +376,24 @@ try {
         .first();
       const firstBounds = await first.boundingBox();
       assert.ok(firstBounds.height >= 32);
+      const firstVisible = await first.evaluate((el) => {
+        const row = el.getBoundingClientRect();
+        const viewport = el.closest('ul').parentElement;
+        const bounds = viewport.getBoundingClientRect();
+        return (
+          row.top >= Math.max(0, bounds.top + viewport.clientTop) &&
+          row.bottom <=
+            Math.min(
+              innerHeight,
+              bounds.top + viewport.clientTop + viewport.clientHeight,
+            )
+        );
+      });
+      assert.equal(
+        firstVisible,
+        true,
+        'The complete result row must fit the actual scrolling client viewport',
+      );
       const listBounds = await timeline
         .getByRole('list', { name: '場面検索の結果' })
         .evaluate((el) => el.parentElement.getBoundingClientRect().height);
@@ -313,6 +409,12 @@ try {
         .getByRole('list', { name: '場面検索の結果' })
         .getByText('90:12.3–90:48.4', { exact: true });
       await timecode.scrollIntoViewIfNeeded();
+      await assertCompleteTimelineRow(timeline);
+      assert.deepEqual(
+        await timeline.evaluate(() => ({ x: scrollX, y: scrollY })),
+        outerScroll,
+        'Paging and timecode scrolling must not move the outer window',
+      );
       assert.equal(
         await timecode.evaluate((el) => el.scrollWidth <= el.clientWidth),
         true,
@@ -322,6 +424,14 @@ try {
     await search.fill('終盤');
     await timeline.keyboard.press('Enter');
     await screenshot(timeline, `density-search-${width}x${height}`);
+    if (dockRequired) {
+      await assertCompleteTimelineRow(timeline);
+      assert.deepEqual(
+        await timeline.evaluate(() => ({ x: scrollX, y: scrollY })),
+        outerScroll,
+        'Selection and screenshots must retain outer scroll position',
+      );
+    }
     const pane = await timeline
       .getByRole('complementary', { name: '場面を検索', exact: true })
       .boundingBox();
@@ -355,6 +465,7 @@ try {
   const detail = timeline.getByRole('region', { name: '選択した場面の詳細' });
   await clickReviewAction(timeline, '編集');
   await timeline.getByRole('dialog').waitFor();
+  await assertTimeLabelsVisible(timeline);
   metrics.controls.timelineEdit = await measure(timeline);
   await screenshot(timeline, 'density-timeline-edit');
   const note = timeline
@@ -382,6 +493,7 @@ try {
     await smallDialog
       .getByRole('spinbutton', { name: '終了秒', exact: true })
       .fill('1');
+    await assertTimeLabelsVisible(timeline);
     assert.equal(
       await smallDialog
         .getByRole('button', { name: '保存', exact: true })

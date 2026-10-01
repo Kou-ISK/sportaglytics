@@ -35,6 +35,7 @@ export const TimelineFooter = ({
     <Box
       sx={{
         minHeight: 36,
+        '@media (max-height: 360px)': { minHeight: 32, gap: 0.5 },
         flexShrink: 0,
         display: 'flex',
         alignItems: 'center',

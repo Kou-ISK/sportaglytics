@@ -129,6 +129,7 @@ export const TimelineActionSection = ({
         minWidth: 0,
         overflow: 'hidden',
         p: 1,
+        '@media (max-height: 360px)': { p: 0 },
       }}
     >
       <Paper
