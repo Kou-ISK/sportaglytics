@@ -821,3 +821,5 @@ GitHub Issues: https://github.com/Kou-ISK/SporTagLytics/issues
 - [開発ガイド](development.md)
 - [プレイリスト機能実装](playlist-features.md)
 - [コードウィンドウ編集実装](code-window-settings.md)
+
+Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実client高195pxとなり、32pxの行と操作を保持して検索とTimelineを同時表示できませんでした。旧260pxのresize要求は新最小外寸へ制限されます。短いclientでは外側余白を削り、32px footer・軸・完全1行と検索の完全1行を残し、一覧/詳細だけを内部スクロールします。検証は要求外寸・実外寸・innerHeightを別記し、外側scroll位置と実clientviewport内の行/ラベル全体を確認します。最小サイズで長時間のレビューが快適との保証はしません。

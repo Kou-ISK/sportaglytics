@@ -339,7 +339,7 @@ try {
   );
   await (
     await app.browserWindow(timeline)
-  ).evaluate((window) => window.setSize(720, 260));
+  ).evaluate((window) => window.setSize(720, 300));
   const reviewPane = timeline.getByRole('complementary', {
     name: '場面を検索',
     exact: true,

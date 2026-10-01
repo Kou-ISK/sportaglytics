@@ -301,12 +301,12 @@ try {
     [1280, 700],
     [1000, 460],
     [720, 380],
-    [720, 260],
+    [720, dockRequired ? 300 : 260],
     ...(dockRequired
       ? [
-          [599, 260],
-          [600, 260],
-          [601, 260],
+          [599, 300],
+          [600, 300],
+          [601, 300],
         ]
       : []),
   ]) {
@@ -314,13 +314,17 @@ try {
       await app.browserWindow(timeline)
     ).evaluate(
       (window, size) => {
-        window.setMinimumSize(480, 260);
+        window.setMinimumSize(480, size[1] >= 300 ? 300 : 260);
         window.setSize(...size);
       },
       [width, height],
     );
     await settle(timeline);
     console.log('Density window', width, height);
+    const clientSize = await timeline.evaluate(() => ({
+      width: innerWidth,
+      height: innerHeight,
+    }));
     const closed = await region.boundingBox();
     const outerScroll = await timeline.evaluate(() => ({
       x: scrollX,
@@ -439,6 +443,7 @@ try {
     metrics.windows.push({
       width,
       height,
+      clientSize,
       closed,
       opened,
       pane,
@@ -453,6 +458,29 @@ try {
       closed,
       'Close must restore timeline bounds',
     );
+  }
+  if (dockRequired) {
+    const clamped = await (
+      await app.browserWindow(timeline)
+    ).evaluate((window) => {
+      window.setMinimumSize(720, 300);
+      window.setSize(720, 260);
+      return window.getSize();
+    });
+    assert.ok(
+      clamped[1] >= 300,
+      'Old 260px outer-height request must clamp to the supported native minimum',
+    );
+    metrics.minimum = {
+      requested: [720, 260],
+      actual: clamped,
+      client: await timeline.evaluate(() => ({
+        width: innerWidth,
+        height: innerHeight,
+      })),
+    };
+    await assertCompleteTimelineRow(timeline);
+    await screenshot(timeline, 'density-minimum-clamped');
   }
   await (
     await app.browserWindow(timeline)
@@ -484,7 +512,7 @@ try {
   if (dockRequired) {
     await (
       await app.browserWindow(timeline)
-    ).evaluate((window) => window.setSize(720, 260));
+    ).evaluate((window) => window.setSize(720, 300));
     await clickReviewAction(timeline, '編集');
     const smallDialog = timeline.getByRole('dialog');
     await smallDialog

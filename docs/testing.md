@@ -211,3 +211,5 @@ Paint入力の回帰テストはpointerdown/upだけの短いドラッグ、停�
 ## オーバーレイ書き出しの性能回帰
 
 `e2e-export-fast.mjs`は離れた複数インスタンスで未選択区間を生成しないことをFFmpegのエンコード回数・出力尺・画素で確認します。`exportPreparedClipRenderer.test.ts`は同じIDの再登場、同じ物理ファイルの別時刻での再利用、主・副アングルの異なる原点を確認します。秒数と変更領域外のSSIMは[性能レポート](reports/2026-09-export-performance.md)の専用benchmarkで測定し、機種依存の速度をCI合否には使用しません。
+
+Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実client高195pxとなり、32pxの行と操作を保持して検索とTimelineを同時表示できませんでした。旧260pxのresize要求は新最小外寸へ制限されます。短いclientでは外側余白を削り、32px footer・軸・完全1行と検索の完全1行を残し、一覧/詳細だけを内部スクロールします。検証は要求外寸・実外寸・innerHeightを別記し、外側scroll位置と実clientviewport内の行/ラベル全体を確認します。最小サイズで長時間のレビューが快適との保証はしません。
