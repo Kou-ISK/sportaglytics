@@ -559,3 +559,36 @@ it('preserves prototype-like groups in a legacy copy and retains a file URI for 
     migrated: false,
   });
 });
+
+it('accepts stored capture projects beyond the import wizard source-file limit', async () => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'sportaglytics-capture-compat-'),
+  );
+  temporaryPaths.push(root);
+  const source = await createLegacyFixture(root, 'capture.stpkg');
+  await fs.writeFile(
+    path.join(source, '.metadata/config.json'),
+    JSON.stringify({
+      packageFormatVersion: 1,
+      angles: [
+        {
+          id: 'a',
+          name: 'Capture',
+          relativePath: 'videos/match.mp4',
+          clips: Array.from({ length: 32 }, (_, index) => ({
+            id: `segment-${index}`,
+            relativePath: 'videos/match.mp4',
+            gapBeforeSeconds: 0,
+            timelineStartSeconds: index,
+            durationSeconds: 1,
+          })),
+        },
+      ],
+    }),
+  );
+  expect(await preparePackageForOpen(source)).toMatchObject({
+    status: 'ready',
+    migrated: false,
+    packagePath: source,
+  });
+});

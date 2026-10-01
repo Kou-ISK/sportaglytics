@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { _electron as electron } from 'playwright';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
@@ -96,7 +96,11 @@ try {
       source: document.querySelector('video').currentSrc,
       duration: document.querySelector('video').duration,
     }));
-    assert.equal(new URL(actual.source).href, pathToFileURL(videoPath).href);
+    assert.equal(new URL(actual.source).protocol, 'file:');
+    assert.equal(
+      await fs.realpath(fileURLToPath(actual.source)),
+      await fs.realpath(videoPath),
+    );
     assert.ok(actual.duration >= 19.9 && actual.duration <= 20.1);
     await main.evaluate(async () => {
       const video = document.querySelector('video');

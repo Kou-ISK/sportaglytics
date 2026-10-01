@@ -5,7 +5,10 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { _electron as electron } from 'playwright';
-import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
+import {
+  getElectronLaunchOptions,
+  observeElectronErrors,
+} from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder } from './e2e-platform.mjs';
 import { exercisePackageMigration } from './e2e-package-migration.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
@@ -104,6 +107,7 @@ try {
     ...getElectronLaunchOptions(path.join(root, 'profile')),
     timeout: 60000,
   });
+  observeElectronErrors(app);
   const main = await app.firstWindow();
   await main.evaluate(() =>
     localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
@@ -111,8 +115,8 @@ try {
   await main.reload();
   await exercisePackageMigration(main, root, packagePath, document);
   await app.evaluate(async ({ ipcMain }, timelinePath) => {
-    const { default: fs } = await import('node:fs/promises');
-    const { default: path } = await import('node:path');
+    const fs = process.getBuiltinModule('fs/promises');
+    const path = process.getBuiltinModule('path');
     globalThis.safetyTargetPath = timelinePath;
     globalThis.safetyHoldWrite = false;
     globalThis.safetyHeldWrite = false;

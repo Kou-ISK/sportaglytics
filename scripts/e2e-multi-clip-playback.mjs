@@ -10,7 +10,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { _electron as electron } from 'playwright';
-import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
+import {
+  getElectronLaunchOptions,
+  observeElectronErrors,
+} from './e2e-electron-launch.mjs';
 import { ffmpegPath, ffprobePath } from './media-tool-paths.mjs';
 import { fixtureH264Encoder } from './e2e-platform.mjs';
 const dir = await fs.mkdtemp(
@@ -39,6 +42,7 @@ try {
   app = await electron.launch(
     getElectronLaunchOptions(path.join(dir, 'profile')),
   );
+  observeElectronErrors(app);
   console.log('Fixture Electron launched');
   let page = await app.firstWindow();
   await page.evaluate(() =>
@@ -119,6 +123,7 @@ try {
       path.join(dir, 'pair-check.stpkg'),
     ]),
   );
+  observeElectronErrors(app);
   page = await app.firstWindow();
   page.setDefaultTimeout(15000);
   console.log('Package window opened');

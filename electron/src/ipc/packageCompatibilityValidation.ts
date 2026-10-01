@@ -1,3 +1,4 @@
+import { MAX_PACKAGE_TIMELINE_CLIPS } from '../../../src/shared/media/packageMediaLimits';
 import {
   isAbsoluteMediaReference,
   resolvePackageMediaPath,
@@ -98,7 +99,7 @@ export const inspectPackageCompatibility = async (
         if (
           !Array.isArray(angle.clips) ||
           angle.clips.length === 0 ||
-          angle.clips.length > 16
+          angle.clips.length > MAX_PACKAGE_TIMELINE_CLIPS
         )
           throw new Error('PACKAGE_CLIPS_INVALID');
         const clipIds = new Set<string>();
