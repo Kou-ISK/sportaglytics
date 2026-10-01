@@ -88,6 +88,16 @@ const capture = async (page, name) => {
     animations: 'disabled',
   });
 };
+const waitForTimeline = async () => {
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const page = app
+      .windows()
+      .find((page) => new URL(page.url()).hash === '#/timeline');
+    if (page) return page;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error('The native Timeline window did not open');
+};
 let app;
 try {
   app = await electron.launch({
@@ -103,13 +113,16 @@ try {
   await app.evaluate(async ({ ipcMain }, timelinePath) => {
     const { default: fs } = await import('node:fs/promises');
     const { default: path } = await import('node:path');
+    globalThis.safetyTargetPath = timelinePath;
+    globalThis.safetyHoldWrite = false;
+    globalThis.safetyHeldWrite = false;
     globalThis.safetyReadFails = true;
     globalThis.safetyWriteFails = false;
     globalThis.safetyWrites = 0;
     ipcMain.removeHandler('read-text-file');
     ipcMain.handle('read-text-file', async (_event, file) =>
       typeof file === 'string' &&
-      path.resolve(file) === path.resolve(timelinePath) &&
+      path.resolve(file) === path.resolve(globalThis.safetyTargetPath) &&
       globalThis.safetyReadFails
         ? '{broken'
         : fs.readFile(file, 'utf8').catch(() => null),
@@ -118,8 +131,18 @@ try {
     // the application's real IPC write handler and atomic writer.
     const rename = fs.rename.bind(fs);
     fs.rename = async (from, to) => {
-      if (String(to) === timelinePath) {
+      if (
+        path.resolve(String(to)) === path.resolve(globalThis.safetyTargetPath)
+      ) {
         globalThis.safetyWrites++;
+        if (globalThis.safetyHoldWrite) {
+          globalThis.safetyHoldWrite = false;
+          globalThis.safetyHeldWrite = true;
+          await new Promise((resolve) => {
+            globalThis.safetyReleaseWrite = resolve;
+          });
+          globalThis.safetyHeldWrite = false;
+        }
         if (globalThis.safetyWriteFails)
           throw Object.assign(new Error('synthetic EACCES'), {
             code: 'EACCES',
@@ -207,6 +230,196 @@ try {
   assert.deepEqual(saved.instances[0].labels, document.instances[0].labels);
   assert.equal(saved.instances[0].startTime, 1.25);
   assert.equal(saved.instances[0].endTime, 3.5);
+  // Exercise Undo while the real atomic writer is at its final rename.
+  for (const queuedBeforeRelease of [false, true]) {
+    await app.evaluate(() => {
+      globalThis.safetyHoldWrite = true;
+    });
+    await timeline.evaluate(
+      (memo) =>
+        window.electronAPI.timelineWindow.sendCommand({
+          type: 'update-memo',
+          id: 'scene',
+          memo,
+        }),
+      `In-flight B ${queuedBeforeRelease}`,
+    );
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (await app.evaluate(() => globalThis.safetyHeldWrite)) break;
+      if (attempt === 99) assert.fail('Synthetic held rename did not start');
+      await delay(50);
+    }
+    await timeline.evaluate(() =>
+      window.electronAPI.timelineWindow.sendCommand({ type: 'undo' }),
+    );
+    await delay(queuedBeforeRelease ? 400 : 50);
+    await app.evaluate(() => globalThis.safetyReleaseWrite());
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const restored = JSON.parse(await fs.readFile(timelinePath, 'utf8'));
+      if (restored.instances[0].memo === '未保存の変更 🙂') break;
+      if (attempt === 99)
+        assert.fail('Undo left disk at the in-flight B snapshot');
+      await delay(50);
+    }
+    assert.deepEqual(
+      JSON.parse(await fs.readFile(timelinePath, 'utf8')).instances[0].labels,
+      document.instances[0].labels,
+    );
+  }
+  // Failed reads of an empty project must not seed history or pending coding.
+  const emptyProject = path.join(root, 'Empty retry.stpkg');
+  await fs.cp(packagePath, emptyProject, { recursive: true });
+  const emptyPath = path.join(emptyProject, 'timeline.json');
+  const emptyDocument = JSON.stringify({ version: 2, rows: [], instances: [] });
+  await fs.writeFile(emptyPath, emptyDocument);
+  await main.evaluate(async () => {
+    const settings = await window.electronAPI.loadSettings();
+    const layout = {
+      id: 'safety-coding',
+      name: 'Synthetic safety coding',
+      canvasWidth: 800,
+      canvasHeight: 600,
+      buttons: [
+        {
+          id: 'synthetic-code',
+          type: 'action',
+          name: 'Coral Synthetic coding',
+          x: 20,
+          y: 20,
+          width: 180,
+          height: 50,
+          hotkey: 'Q',
+          leadTimeSeconds: 0,
+          lagTimeSeconds: 0,
+        },
+      ],
+    };
+    assertSave(
+      await window.electronAPI.saveSettings({
+        ...settings,
+        codingPanel: {
+          ...settings.codingPanel,
+          codeWindows: [layout],
+          activeCodeWindowId: layout.id,
+        },
+      }),
+    );
+    function assertSave(success) {
+      if (!success) throw new Error('Could not save synthetic settings');
+    }
+    await window.electronAPI.codingPanelWindow.openWindow();
+  });
+  let coding;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    coding = app
+      .windows()
+      .find((page) => new URL(page.url()).hash === '#/coding-panel');
+    if (coding) break;
+    await delay(50);
+  }
+  assert.ok(coding);
+  const codeButton = coding.locator(
+    '[data-code-window-button="synthetic-code"]',
+  );
+  await codeButton.waitFor();
+  await app.evaluate((_electron, target) => {
+    globalThis.safetyTargetPath = target;
+    globalThis.safetyReadFails = true;
+    globalThis.safetyWrites = 0;
+  }, emptyPath);
+  await app.evaluate(
+    ({ app }, file) => app.emit('open-file', { preventDefault() {} }, file),
+    emptyProject,
+  );
+  await main.getByRole('button', { name: '再読み込み', exact: true }).waitFor();
+  await coding
+    .getByText(
+      'タイムラインの読み込みが完了するまでタグ付けを停止しています。',
+      { exact: true },
+    )
+    .waitFor();
+  assert.equal(
+    await codeButton.evaluate((element) =>
+      element.closest('fieldset').hasAttribute('inert'),
+    ),
+    true,
+  );
+  await coding.evaluate(() => {
+    window.electronAPI.codingPanelWindow.sendCommand({
+      type: 'action-click',
+      teamName: 'Coral',
+      actionName: 'Synthetic coding',
+    });
+    window.electronAPI.codingPanelWindow.sendCommand({
+      type: 'custom-button-click',
+      buttonId: 'synthetic-code',
+    });
+  });
+  await main.keyboard.press('Q');
+  await main.keyboard.press('Q');
+  await timeline.evaluate(() =>
+    window.electronAPI.timelineWindow.sendCommand({
+      type: 'create-item',
+      actionName: 'Ghost',
+      startTime: 1,
+      endTime: 2,
+      color: '#123456',
+    }),
+  );
+  await delay(600);
+  assert.equal(await app.evaluate(() => globalThis.safetyWrites), 0);
+  assert.equal(await fs.readFile(emptyPath, 'utf8'), emptyDocument);
+  await capture(coding, 'read-error-coding');
+  await app.evaluate(() => {
+    globalThis.safetyReadFails = false;
+  });
+  await main.getByRole('button', { name: '再読み込み', exact: true }).click();
+  await main
+    .getByRole('button', { name: '再読み込み', exact: true })
+    .waitFor({ state: 'hidden' });
+  await coding
+    .getByText(
+      'タイムラインの読み込みが完了するまでタグ付けを停止しています。',
+      { exact: true },
+    )
+    .waitFor({ state: 'hidden' });
+  assert.equal(
+    await codeButton.evaluate((element) =>
+      element.closest('fieldset').hasAttribute('inert'),
+    ),
+    false,
+  );
+  assert.equal(await fs.readFile(emptyPath, 'utf8'), emptyDocument);
+  await timeline.evaluate(() =>
+    window.electronAPI.timelineWindow.sendCommand({ type: 'seek', time: 6 }),
+  );
+  await main.waitForFunction(
+    () => Math.abs(document.querySelector('video').currentTime - 6) < 0.1,
+  );
+  await main.keyboard.press('Q');
+  await timeline.evaluate(() =>
+    window.electronAPI.timelineWindow.sendCommand({ type: 'seek', time: 7 }),
+  );
+  await main.waitForFunction(
+    () => Math.abs(document.querySelector('video').currentTime - 7) < 0.1,
+  );
+  await main.keyboard.press('Q');
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const fresh = JSON.parse(await fs.readFile(emptyPath, 'utf8'));
+    if (fresh.instances.length) {
+      assert.equal(fresh.instances.length, 1);
+      assert.equal(fresh.instances[0].actionName, 'Coral Synthetic coding');
+      assert.ok(Math.abs(fresh.instances[0].startTime - 6) < 0.1);
+      assert.ok(Math.abs(fresh.instances[0].endTime - 7) < 0.1);
+      assert.deepEqual(
+        fresh.rows.map((row) => row.name),
+        ['Coral Synthetic coding'],
+      );
+      break;
+    }
+    if (attempt === 99) assert.fail('Fresh post-retry coding did not save');
+    await delay(50);
+  }
   const probe = path.join(root, 'atomic.json');
   await fs.writeFile(probe, '{"sequence":-1}');
   const writes = main.evaluate(async (file) => {
@@ -227,6 +440,24 @@ try {
   }
   await writes;
   assert.equal(JSON.parse(await fs.readFile(probe, 'utf8')).sequence, 11);
+  await app.evaluate(({ BrowserWindow }) => {
+    for (const window of BrowserWindow.getAllWindows()) window.destroy();
+  });
+  await app.close();
+  app = await electron.launch({
+    ...getElectronLaunchOptions(path.join(root, 'profile'), [emptyProject]),
+    timeout: 60000,
+  });
+  const reopened = await app.firstWindow();
+  await reopened.waitForFunction(
+    () => document.querySelector('video')?.readyState >= 2,
+  );
+  const reopenedTimeline = await waitForTimeline();
+  assert.ok(reopenedTimeline);
+  await reopenedTimeline
+    .getByRole('button', { name: 'Coral Synthetic coding 行', exact: true })
+    .waitFor();
+  await capture(reopenedTimeline, 'retry-empty-reopened');
   console.log(
     `Package safety: failed read retained original, errors/retries reached both windows, atomic concurrent writes remained valid across ${reads} reads`,
   );

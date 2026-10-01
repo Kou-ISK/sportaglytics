@@ -1,3 +1,4 @@
+import { resolvePackageMediaPath } from '../../../../../../shared/media/packageMediaPath';
 import type {
   MetaData,
   PackageMediaClip,
@@ -112,7 +113,7 @@ const normalizeClips = (
       sourceKind === 'youtube'
         ? sourceUrl
         : relativePath
-          ? `${packagePath}/${relativePath}`
+          ? resolvePackageMediaPath(packagePath, relativePath)
           : undefined;
     if (!source) return [];
     const gapBeforeSeconds =
@@ -178,7 +179,8 @@ const resolveAnglesFromConfig = (
             ? 'fragmented-mp4'
             : undefined,
         relativePath,
-        absolutePath: sourceUrl || `${packagePath}/${relativePath}`,
+        absolutePath:
+          sourceUrl || resolvePackageMediaPath(packagePath, relativePath ?? ''),
         sourceKind: sourceUrl ? 'youtube' : 'local',
         playbackOffsetSeconds: sourceUrl
           ? normalizeYoutubePlaybackOffset(angle)
@@ -240,7 +242,7 @@ export const buildVideoListFromConfig = (
             id: 'tight',
             name: 'Angle 1',
             relativePath: tightRelative,
-            absolutePath: `${packagePath}/${tightRelative}`,
+            absolutePath: resolvePackageMediaPath(packagePath, tightRelative),
             sourceKind: 'local' as const,
             playbackOffsetSeconds: 0,
             clips: [],
@@ -251,7 +253,10 @@ export const buildVideoListFromConfig = (
                   id: 'wide',
                   name: 'Angle 2',
                   relativePath: wideRelative,
-                  absolutePath: `${packagePath}/${wideRelative}`,
+                  absolutePath: resolvePackageMediaPath(
+                    packagePath,
+                    wideRelative,
+                  ),
                   sourceKind: 'local' as const,
                   playbackOffsetSeconds: 0,
                   clips: [],

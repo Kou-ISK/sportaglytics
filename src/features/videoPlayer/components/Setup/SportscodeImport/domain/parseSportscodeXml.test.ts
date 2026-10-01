@@ -40,6 +40,28 @@ describe('official Sportscode XML edit-list subset', () => {
         .replaceAll('<file>', '<timeline>')
         .replaceAll('</file>', '</timeline>'),
     ],
+    [
+      'scalar units',
+      fixture.replace(
+        '<start>4.25</start>',
+        '<start unit="frames">4.25</start>',
+      ),
+    ],
+    [
+      'scalar version',
+      fixture.replace('<end>8.75</end>', '<end version="99">8.75</end>'),
+    ],
+    [
+      'label attributes',
+      fixture.replace('<text>中央</text>', '<text unit="future">中央</text>'),
+    ],
+    [
+      'memo attributes',
+      fixture.replace(
+        '<free_text></free_text>',
+        '<free_text format="html"></free_text>',
+      ),
+    ],
     ['future version', fixture.replace('<file>', '<file version="99">')],
     ['namespace', fixture.replace('<file>', '<file xmlns="urn:future">')],
     [

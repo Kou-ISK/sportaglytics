@@ -68,6 +68,10 @@ export const parseSportscodeXml = (
   const root = xml.documentElement;
   if (root.tagName !== 'file' || root.namespaceURI)
     throw new Error('Sportscode XML edit list の file 形式ではありません。');
+  for (const element of [root, ...Array.from(root.getElementsByTagName('*'))]) {
+    if (element.namespaceURI || element.attributes.length)
+      throw new Error('未対応の属性・バージョン・名前空間を含むXMLです。');
+  }
   const warnings = new Set<string>();
   const inspectFields = (parent: Element, allowed: string[]): void => {
     if (parent.attributes.length)

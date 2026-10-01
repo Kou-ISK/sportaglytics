@@ -1,3 +1,7 @@
+import {
+  isAbsoluteMediaReference,
+  resolvePackageMediaPath,
+} from '../../../src/shared/media/packageMediaPath';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -154,9 +158,11 @@ const rewriteCopiedPath = async ({
 }): Promise<unknown> => {
   if (typeof value !== 'string' || value.trim().length === 0) return value;
   if (/^https?:\/\//i.test(value)) return value;
-  if (!path.isAbsolute(value)) return value;
+  if (!isAbsoluteMediaReference(value)) return value;
 
-  const resolved = await fs.realpath(value);
+  const resolved = await fs.realpath(
+    resolvePackageMediaPath(sourceRoot, value),
+  );
   if (!isPathInside(sourceRoot, resolved)) return value;
   const relative = path.relative(sourceRoot, resolved);
   const copiedCandidate = path.join(copiedRoot, relative);
@@ -263,7 +269,9 @@ const migrateLegacyFolder = async ({
     const timelinePath = path.join(temporaryPath, 'timeline.json');
     const timeline = await readJson(timelinePath);
     if (Array.isArray(timeline)) {
-      const instances = timeline.map(normalizeTimelineData);
+      const instances = timeline.map((item) =>
+        normalizeTimelineData(item, 'legacy'),
+      );
       const rowNames = [...new Set(instances.map((item) => item.actionName))];
       const rows = rowNames.map((name, index) => ({
         id: `legacy-row-${index + 1}`,

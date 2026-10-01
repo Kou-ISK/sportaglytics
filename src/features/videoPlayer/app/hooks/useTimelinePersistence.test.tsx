@@ -108,3 +108,39 @@ it('serializes writes and prevents a late edit from replacing the newer document
     expect.stringContaining('Second'),
   );
 });
+
+it.each([false, true])(
+  'persists Undo to A while B is in flight (completion before debounce: %s)',
+  async (completeBeforeDebounce) => {
+    let disk = initial;
+    let release: (() => void) | undefined;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let writes = 0;
+    vi.mocked(readTimelineFile).mockImplementation(async () => disk);
+    vi.mocked(writeTimelineFile).mockImplementation(async (_file, snapshot) => {
+      if (++writes === 1) await pending;
+      disk = snapshot;
+      return true;
+    });
+    const hook = await load();
+    act(() =>
+      hook.result.current.setTimelineRows([
+        { id: 'r', name: 'Edit B', color: '#123456' },
+      ]),
+    );
+    await act(async () => vi.advanceTimersByTimeAsync(301));
+    expect(writes).toBe(1);
+    act(() => hook.result.current.setTimelineRows([]));
+    if (completeBeforeDebounce) await act(async () => release?.());
+    await act(async () => vi.advanceTimersByTimeAsync(301));
+    if (!completeBeforeDebounce) await act(async () => release?.());
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(hook.result.current.timelineRows).toEqual([]);
+    expect(JSON.parse(disk)).toEqual(JSON.parse(initial));
+    hook.unmount();
+    const reopened = await load();
+    expect(reopened.result.current.timelineRows).toEqual([]);
+  },
+);

@@ -35,7 +35,9 @@ export const parseTimelineDocument = (text: string): ParsedTimelineDocument => {
     : Array.isArray(rawDocument?.instances)
       ? rawDocument.instances
       : [];
-  const timeline = rawInstances.map((item) => normalizeTimelineData(item));
+  const timeline = rawInstances.map((item) =>
+    normalizeTimelineData(item, Array.isArray(raw) ? 'legacy' : 'preserve'),
+  );
   const rows = Array.isArray(rawDocument?.rows)
     ? rawDocument.rows.filter(isTimelineRow)
     : deriveTimelineRows(timeline);

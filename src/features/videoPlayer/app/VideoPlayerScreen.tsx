@@ -115,6 +115,8 @@ export const VideoPlayerScreen = () => {
     syncStage,
     performUndo,
     performRedo,
+    timelineEditable,
+    loadRevision,
   } = useVideoPlayerScreenController();
   const { notify } = useNotification();
   const liveCapture = useLiveCapturePlayback({
@@ -480,7 +482,13 @@ export const VideoPlayerScreen = () => {
       />
       <CodingPanelRuntime
         ref={codingPanelRuntimeRef}
-        codingTime={isFileSelected && !angleSync.snapshot ? currentTime : null}
+        codingTime={
+          isFileSelected && timelineEditable && !angleSync.snapshot
+            ? currentTime
+            : null
+        }
+        documentEditable={timelineEditable}
+        documentRevision={loadRevision}
         addTimelineData={addTimelineData}
         teamNames={teamNames}
         firstTeamName={firstTeamName}

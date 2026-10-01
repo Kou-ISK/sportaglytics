@@ -506,3 +506,56 @@ it('does not reuse a migration whose media is now missing', async () => {
     'PACKAGE_MIGRATION_COPY_INVALID',
   );
 });
+
+it('preserves prototype-like groups in a legacy copy and retains a file URI for an external video', async () => {
+  const { pathToFileURL } = await import('node:url');
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'sportaglytics-uri-groups-'),
+  );
+  temporaryPaths.push(root);
+  const source = path.join(root, 'legacy');
+  await fs.mkdir(path.join(source, '.metadata'), { recursive: true });
+  const external = path.join(root, 'external #%.mp4');
+  await fs.writeFile(external, 'synthetic media');
+  const reference = pathToFileURL(external).href;
+  const labels = [
+    { name: 'one', group: '__proto__' },
+    { name: 'two', group: '__proto__' },
+    { name: 'value', group: 'constructor' },
+  ];
+  const original = JSON.stringify([
+    {
+      id: 'one',
+      actionName: 'Coral',
+      startTime: 1,
+      endTime: 2,
+      memo: '',
+      labels,
+    },
+  ]);
+  await fs.writeFile(path.join(source, 'timeline.json'), original);
+  await fs.writeFile(
+    path.join(source, '.metadata/config.json'),
+    JSON.stringify({ tightViewPath: reference }),
+  );
+  const result = await preparePackageForOpen(source);
+  if (result.status !== 'ready') throw new Error('Expected ready');
+  const timeline = JSON.parse(
+    await fs.readFile(path.join(result.packagePath, 'timeline.json'), 'utf8'),
+  );
+  expect(timeline.instances[0].labels).toEqual(labels);
+  const config = JSON.parse(
+    await fs.readFile(
+      path.join(result.packagePath, '.metadata/config.json'),
+      'utf8',
+    ),
+  );
+  expect(config.angles[0].clips[0].relativePath).toBe(reference);
+  expect(await fs.readFile(path.join(source, 'timeline.json'), 'utf8')).toBe(
+    original,
+  );
+  expect(await preparePackageForOpen(result.packagePath)).toMatchObject({
+    status: 'ready',
+    migrated: false,
+  });
+});

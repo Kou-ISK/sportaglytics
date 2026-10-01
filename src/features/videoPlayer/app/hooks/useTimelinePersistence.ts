@@ -20,6 +20,9 @@ export interface TimelinePersistenceFeedback {
 
 interface UseTimelinePersistenceResult {
   persistenceFeedback: TimelinePersistenceFeedback | null;
+  timelineEditable: boolean;
+  loadRevision: number;
+  canEditTimeline: () => boolean;
   timeline: TimelineData[];
   setTimeline: React.Dispatch<React.SetStateAction<TimelineData[]>>;
   timelineRows: TimelineRow[];
@@ -31,7 +34,10 @@ interface UseTimelinePersistenceResult {
 export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
   const [timeline, updateTimeline] = useState<TimelineData[]>([]);
   const [timelineRows, updateTimelineRows] = useState<TimelineRow[]>([]);
-  const [timelineFilePath, setTimelineFilePath] = useState('');
+  const [timelineFilePath, updateTimelineFilePath] = useState('');
+  const filePathRef = useRef('');
+  const [timelineEditable, setTimelineEditable] = useState(false);
+  const [loadRevision, setLoadRevision] = useState(0);
   const timelineLoadedRef = useRef(false);
   const timelinePersistedSnapshotRef = useRef('[]');
   const saveTimerRef = useRef<number | null>(null);
@@ -41,7 +47,26 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
   const [retrySaveKey, setRetrySaveKey] = useState(0);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const generationRef = useRef(0);
-  const retryRead = useCallback(() => setReloadKey((key) => key + 1), []);
+  const pendingWritesRef = useRef(0);
+  const canEditTimeline = useCallback(
+    () => Boolean(filePathRef.current) && timelineLoadedRef.current,
+    [],
+  );
+  const setTimelineFilePath: UseTimelinePersistenceResult['setTimelineFilePath'] =
+    useCallback((value) => {
+      const next =
+        typeof value === 'function' ? value(filePathRef.current) : value;
+      if (next === filePathRef.current) return;
+      filePathRef.current = next;
+      timelineLoadedRef.current = false;
+      setTimelineEditable(false);
+      updateTimelineFilePath(next);
+    }, []);
+  const retryRead = useCallback(() => {
+    timelineLoadedRef.current = false;
+    setTimelineEditable(false);
+    setReloadKey((key) => key + 1);
+  }, []);
   const retrySave = useCallback(() => setRetrySaveKey((key) => key + 1), []);
 
   const setTimeline: UseTimelinePersistenceResult['setTimeline'] = useCallback(
@@ -58,6 +83,8 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
   useEffect(() => {
     timelineLoadedRef.current = false;
     generationRef.current += 1;
+    setLoadRevision((revision) => revision + 1);
+    setTimelineEditable(false);
     setLoadError(null);
     setSaveError(null);
     timelinePersistedSnapshotRef.current = '[]';
@@ -81,6 +108,7 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
         // 旧配列形式は読み込み時だけ移行し、ユーザーが編集するまでは書き換えない。
         timelinePersistedSnapshotRef.current = parsed.snapshot;
         timelineLoadedRef.current = true;
+        setTimelineEditable(true);
         updateTimeline(parsed.timeline);
         updateTimelineRows(parsed.rows);
       } catch (error) {
@@ -109,7 +137,11 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
     }
 
     const nextSnapshot = serializeTimelineDocument(timeline, timelineRows);
-    if (nextSnapshot === timelinePersistedSnapshotRef.current) {
+    if (
+      nextSnapshot === timelinePersistedSnapshotRef.current &&
+      pendingWritesRef.current === 0
+    ) {
+      setSaveError(null);
       return;
     }
 
@@ -121,10 +153,18 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
     saveTimerRef.current = window.setTimeout(() => {
       saveTimerRef.current = null;
       // Serialize writes so an older edit cannot finish after a newer document.
+      pendingWritesRef.current += 1;
       writeQueueRef.current = writeQueueRef.current.then(async () => {
-        if (generation !== generationRef.current || !timelineLoadedRef.current)
-          return;
         try {
+          if (
+            generation !== generationRef.current ||
+            !timelineLoadedRef.current
+          )
+            return;
+          if (nextSnapshot === timelinePersistedSnapshotRef.current) {
+            setSaveError(null);
+            return;
+          }
           if (!(await writeTimelineFile(timelineFilePath, nextSnapshot)))
             throw new Error('Timeline write failed');
           if (generation === generationRef.current) {
@@ -137,6 +177,8 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
             setSaveError(
               'タイムラインの変更を保存できませんでした。変更は画面に残っています。保存先の接続・空き容量・アクセス権を確認し、保存を再試行してください。',
             );
+        } finally {
+          pendingWritesRef.current -= 1;
         }
       });
     }, 300);
@@ -160,6 +202,9 @@ export const useTimelinePersistence = (): UseTimelinePersistenceResult => {
   );
   return {
     persistenceFeedback,
+    timelineEditable,
+    loadRevision,
+    canEditTimeline,
     timeline,
     setTimeline,
     timelineRows,

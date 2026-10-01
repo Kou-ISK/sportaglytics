@@ -30,3 +30,5 @@ Timelineの場面、行、ラベルを外部形式で扱う際は、保持でき
 - XMLとSCTimeline JSONの操作と責務が明確になり、既存分析と原本を保持できる。
 - 意図した映像・秒数補正を確認する操作が増えるが、時刻の推測による誤Codingを避ける。
 - 合成XML/映像のunit・Electron回帰を整備できる。全歴代Sportscode版やネイティブ形式の互換、実OS picker、強制終了・停電時の耐久性は追加検証が必要となる。
+
+Sportscode XMLのscalar leafに付いた単位・version等の属性は推測しない。秒数として受け付ける既知構造に属性があれば拒否する。取り込んだラベルのgroup名はcanonical文書で保持し、旧SporTagのgroup名変換へ渡さない。

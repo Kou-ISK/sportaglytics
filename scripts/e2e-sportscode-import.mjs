@@ -17,10 +17,25 @@ await fs.mkdir(sources);
 await fs.mkdir(destination);
 const xmlPath = path.join(sources, 'Synthetic #%.xml');
 const videoPath = path.join(sources, 'Synthetic #%.mp4');
-const xml = await fs.readFile(
+const baseXml = await fs.readFile(
   'src/features/videoPlayer/components/Setup/SportscodeImport/fixtures/synthetic-edit-list.xml',
   'utf8',
 );
+const preservedLabels = [
+  { group: 'actionType', name: 'same' },
+  { group: 'Type', name: 'same' },
+  { group: '__proto__', name: 'one' },
+  { group: '__proto__', name: 'two' },
+  { group: 'constructor', name: 'value' },
+  { group: 'toString', name: 'value' },
+];
+const extraLabels = preservedLabels
+  .map(
+    ({ group, name }) =>
+      `<label><group>${group}</group><text>${name}</text></label>`,
+  )
+  .join('');
+const xml = baseXml.replace('</instance>', `${extraLabels}</instance>`);
 await fs.writeFile(xmlPath, xml);
 execFileSync(ffmpegPath, [
   '-v',
@@ -51,6 +66,16 @@ const screenshot = async (page, name) => {
     path: path.join(artifacts, `${name}.png`),
     animations: 'disabled',
   });
+};
+const waitForTimeline = async () => {
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const page = app
+      .windows()
+      .find((page) => new URL(page.url()).hash === '#/timeline');
+    if (page) return page;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error('The native Timeline window did not open');
 };
 let app;
 try {
@@ -165,7 +190,64 @@ try {
   assert.equal(calls[2].filters, undefined);
   assert.equal(await fs.readFile(xmlPath, 'utf8'), xml);
   assert.deepEqual(await fs.readFile(videoPath), originalVideo);
+  assert.deepEqual(
+    timeline.instances[0].labels.slice(-preservedLabels.length),
+    preservedLabels,
+  );
+  const timelineWindow = await waitForTimeline();
+  assert.ok(timelineWindow);
+  await timelineWindow
+    .getByRole('button', { name: 'Coral 攻撃 行', exact: true })
+    .waitFor();
+  await timelineWindow.evaluate(
+    (id) =>
+      window.electronAPI.timelineWindow.sendCommand({
+        type: 'update-memo',
+        id,
+        memo: '再保存した合成ノート 🙂',
+      }),
+    timeline.instances[0].id,
+  );
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const saved = JSON.parse(
+      await fs.readFile(path.join(project, 'timeline.json'), 'utf8'),
+    );
+    if (saved.instances[0].memo === '再保存した合成ノート 🙂') {
+      assert.deepEqual(saved.instances[0].labels, timeline.instances[0].labels);
+      break;
+    }
+    if (attempt === 99) assert.fail('Actual renderer memo edit was not saved');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
   await screenshot(main, 'created');
+  await app.evaluate(({ BrowserWindow }) => {
+    for (const window of BrowserWindow.getAllWindows()) window.destroy();
+  });
+  await app.close();
+  app = await electron.launch({
+    ...getElectronLaunchOptions(path.join(root, 'profile'), [project]),
+    timeout: 60000,
+  });
+  const reopened = await app.firstWindow();
+  await reopened.waitForFunction(
+    () => document.querySelector('video')?.readyState >= 2,
+  );
+  const reopenedTimeline = await waitForTimeline();
+  assert.ok(reopenedTimeline);
+  await reopenedTimeline
+    .getByRole('button', { name: 'Coral 攻撃 行', exact: true })
+    .waitFor();
+  const reopenedDocument = JSON.parse(
+    await fs.readFile(path.join(project, 'timeline.json'), 'utf8'),
+  );
+  assert.deepEqual(
+    reopenedDocument.instances[0].labels,
+    timeline.instances[0].labels,
+  );
+  assert.equal(reopenedDocument.instances[0].memo, '再保存した合成ノート 🙂');
+  assert.equal(await fs.readFile(xmlPath, 'utf8'), xml);
+  assert.deepEqual(await fs.readFile(videoPath), originalVideo);
+  await screenshot(reopenedTimeline, 'reopened-label-groups');
   console.log(
     'Sportscode XML: explicit video, preserved groups/notes/colors/decimal times, cancelled picker, rejected out-of-range times, separate validated project; native picker options verified through adapter',
   );

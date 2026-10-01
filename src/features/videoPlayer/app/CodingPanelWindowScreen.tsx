@@ -221,6 +221,7 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
       ) : (
         <Box sx={{ minHeight: 0, flex: 1, p: 1.5, boxSizing: 'border-box' }}>
           <EnhancedCodePanelView
+            documentEditable={payload.documentEditable}
             activeMode={windowMode}
             customLayout={payload.customLayout}
             teamContext={teamContext}

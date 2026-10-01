@@ -15,6 +15,7 @@ export const CODING_PANEL_WINDOW_CHANNELS = {
 } as const;
 
 export interface CodingPanelWindowSyncPayload {
+  documentEditable?: boolean;
   activeMode: 'code' | 'label';
   customLayout: CodeWindowLayout | null;
   teamNames: string[];
@@ -179,6 +180,8 @@ export const isCodingPanelWindowSyncPayload = (
 ): value is CodingPanelWindowSyncPayload => {
   if (!isPlainObject(value)) return false;
   return (
+    (value.documentEditable === undefined ||
+      typeof value.documentEditable === 'boolean') &&
     (value.activeMode === 'code' || value.activeMode === 'label') &&
     (value.customLayout === null || isCodeWindowLayout(value.customLayout)) &&
     isStringArray(value.teamNames) &&

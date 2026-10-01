@@ -29,6 +29,8 @@ type TimelineSelectionHandler = (
 
 interface UseTimelineSessionControllerResult extends TimelineRangeEditing {
   persistenceFeedback: TimelinePersistenceFeedback | null;
+  timelineEditable: boolean;
+  loadRevision: number;
   timeline: TimelineData[];
   timelineRows: TimelineRow[];
   setTimeline: Dispatch<SetStateAction<TimelineData[]>>;
@@ -87,6 +89,9 @@ export const useTimelineSessionController =
   (): UseTimelineSessionControllerResult => {
     const {
       persistenceFeedback,
+      timelineEditable,
+      loadRevision,
+      canEditTimeline,
       timeline: persistedTimeline,
       setTimeline: setPersistedTimeline,
       timelineRows,
@@ -99,9 +104,9 @@ export const useTimelineSessionController =
       canUndo,
       canRedo,
       setTimeline: setTimelineWithHistory,
-      undo: performUndo,
-      redo: performRedo,
-    } = useTimelineHistory(persistedTimeline);
+      undo: undoHistory,
+      redo: redoHistory,
+    } = useTimelineHistory(persistedTimeline, loadRevision);
     const {
       selectedTimelineIdList,
       setSelectedTimelineIdList,
@@ -117,15 +122,24 @@ export const useTimelineSessionController =
 
     const setTimeline = useCallback<Dispatch<SetStateAction<TimelineData[]>>>(
       (value) => {
+        if (!canEditTimeline()) return;
         const next =
           typeof value === 'function' ? value(timelineRef.current) : value;
         timelineRef.current = next;
         setTimelineWithHistory(next);
         setPersistedTimeline(next);
       },
-      [setPersistedTimeline, setTimelineWithHistory],
+      [canEditTimeline, setPersistedTimeline, setTimelineWithHistory],
     );
 
+    const performUndo = useCallback(
+      () => (canEditTimeline() ? undoHistory() : null),
+      [canEditTimeline, undoHistory],
+    );
+    const performRedo = useCallback(
+      () => (canEditTimeline() ? redoHistory() : null),
+      [canEditTimeline, redoHistory],
+    );
     const editing = useTimelineEditing(setTimeline);
     const rangeEditing = useTimelineRangeEditing(
       timelineRef,
@@ -307,6 +321,7 @@ export const useTimelineSessionController =
 
     const addTimelineDatas = useCallback(
       (items: NewTimelineData[]): string[] => {
+        if (!canEditTimeline()) return [];
         const resolvedItems = items.map((item) => {
           const rowColor = timelineRows.find(
             (row) => row.name === item.actionName,
@@ -318,16 +333,18 @@ export const useTimelineSessionController =
         });
         return editing.addTimelineDatas(resolvedItems);
       },
-      [editing, timelineRows],
+      [canEditTimeline, editing, timelineRows],
     );
 
     return {
       persistenceFeedback,
+      timelineEditable,
+      loadRevision,
       timeline,
       timelineRows,
       setTimeline,
-      canUndo,
-      canRedo,
+      canUndo: timelineEditable && canUndo,
+      canRedo: timelineEditable && canRedo,
       timelineFilePath,
       setTimelineFilePath,
       setPersistedTimeline,

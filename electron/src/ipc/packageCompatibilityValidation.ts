@@ -1,3 +1,7 @@
+import {
+  isAbsoluteMediaReference,
+  resolvePackageMediaPath,
+} from '../../../src/shared/media/packageMediaPath';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { validateTimelineDocumentData } from '../../../src/shared/timeline/timelineValidation';
@@ -135,25 +139,26 @@ export const inspectPackageCompatibility = async (
         throw new Error('PACKAGE_MEDIA_KIND_UNSUPPORTED');
       continue;
     }
-    const resolved = path.isAbsolute(reference)
-      ? reference
-      : path.resolve(packagePath, reference);
+    const absoluteReference = isAbsoluteMediaReference(reference);
+    const resolved = path.resolve(
+      resolvePackageMediaPath(packagePath, reference),
+    );
     const relative = path.relative(packagePath, resolved);
     // External absolute references are retained exactly; no basename guessing.
     if (
-      !path.isAbsolute(reference) &&
+      !absoluteReference &&
       (relative.startsWith('..') || path.isAbsolute(relative))
     )
       throw new Error('PACKAGE_MEDIA_REFERENCE_OUTSIDE');
     if (
-      path.isAbsolute(reference) &&
+      absoluteReference &&
       !relative.startsWith('..') &&
       !path.isAbsolute(relative)
     )
       legacy = true;
     try {
       const mediaStat = await fs.lstat(resolved);
-      if (!path.isAbsolute(reference)) {
+      if (!absoluteReference) {
         const actual = await fs.realpath(resolved);
         const inside = path.relative(rootRealPath, actual);
         if (inside.startsWith('..') || path.isAbsolute(inside))

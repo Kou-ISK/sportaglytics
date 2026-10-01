@@ -1,3 +1,7 @@
+import {
+  isAbsoluteMediaReference,
+  resolvePackageMediaPath,
+} from '../../../src/shared/media/packageMediaPath';
 import { isPackageCaptureActive } from '../liveCapture/captureRegistry';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -11,10 +15,7 @@ const tryResolveRelativePath = async (
   videosDir: string,
   value: string,
 ): Promise<string> => {
-  const normalized = path.normalize(value);
-  const resolved = path.isAbsolute(normalized)
-    ? normalized
-    : path.resolve(packageRoot, normalized);
+  const resolved = path.resolve(resolvePackageMediaPath(packageRoot, value));
 
   const relativeFromPackage = path.relative(packageRoot, resolved);
   const isInsidePackage =
@@ -34,7 +35,7 @@ const tryResolveRelativePath = async (
   console.warn(
     `[convert-config] ${resolved} はパッケージ外のため絶対パスのまま保持します`,
   );
-  return toPosixPath(resolved);
+  return isAbsoluteMediaReference(value) ? value : toPosixPath(resolved);
 };
 
 const ensureRelativeVideoPath = async ({

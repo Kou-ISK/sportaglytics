@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 const scenarios = [
   'package-safety',
   'sportscode-import',
+  'legacy-external',
   'live-capture',
   'clip-sync',
   'multi-clip-playback',
