@@ -1,10 +1,11 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, Ref } from 'react';
 import { Button, Stack, Typography } from '@mui/material';
 import VideocamOutlined from '@mui/icons-material/VideocamOutlined';
 import Add from '@mui/icons-material/Add';
 import FolderOpenOutlined from '@mui/icons-material/FolderOpenOutlined';
 export const ActionButtonsRow = ({
   onOpenPackage,
+  openButtonRef,
   onOpenWizard,
   onOpenCapture,
   onOpenLegacyPackage,
@@ -12,6 +13,7 @@ export const ActionButtonsRow = ({
   disabled = false,
 }: {
   onOpenPackage: () => void;
+  openButtonRef?: Ref<HTMLButtonElement>;
   onOpenWizard: () => void;
   onOpenCapture?: () => void;
   onOpenLegacyPackage?: () => void;
@@ -24,6 +26,7 @@ export const ActionButtonsRow = ({
     </Typography>
     <Stack spacing={1}>
       <Button
+        ref={openButtonRef}
         variant="contained"
         startIcon={<FolderOpenOutlined />}
         onClick={onOpenPackage}

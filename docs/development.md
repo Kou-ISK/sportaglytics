@@ -40,6 +40,8 @@ Timelineのピンチは`useTimelineViewport.gesture.test.ts`で整数ピクセ�
 
 開始UIの表示確認はStorybookの`Workspace/Start`（5入口・履歴・busy・エラー・drop）と`Workspace/CreatePackage`（基本情報・入力エラー・映像・作成中）を使います。新規作成storyのファイル選択・保存はcallback fixtureであり、native I/Oの検証ではありません。Macでは同一候補に合成パッケージを使い、1440×775と800×420、dark/lightで切れ・折返し・Tab移動・取消/復旧を確認します。ブラウザ描画不能な環境の型チェックやStorybook buildを視覚QAの合格とは扱いません。
 
+小窓の開始状態は履歴下端からbusy→失敗→再試行と、失敗を閉じる・選択取消後のOpenへのfocus復帰を確認します。`VideoPathSelectorStatus.test.tsx`はDOM順序・focus・scroll要求を検証しますが、実際の座標や文字切れは検証しません。`Workspace/CreatePackage/EightAngles`では800×420でアングル名・本数・メイン表示、一覧内の最終行選択、本文scroll後のclip操作と固定footerを確認します。
+
 分析表示は`Workspace/Analysis/Dashboard`の適合データ・テンプレート不一致・フィルタ不一致・真の0件を分けて確認します。`fixtures/reviewTimeline.ts`は6行24場面の合成データです。`AIInput` / `AIResult`は未実行・生成中・失敗・根拠ありのprops-only fixture、`Momentum`はポゼッション適合/不適合、`Workspace/Onboarding`は案内の移動・終了を確認します。LLM実行やnative I/OをStorybookのcallbackで代替した結果を、それらの動作保証としません。
 
 ## 開発環境

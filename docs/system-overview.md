@@ -1,5 +1,7 @@
 Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop compact密度と新候補の検証限界は[評価記録](reports/2026-10-compact-density.md)を参照してください。
 
+開始画面の状態表示とfocus/scrollはprops駆動View内のDOM操作に限定します。読み込み・再試行・取消の状態源は既存の`useStartPackageOpen`を維持します。映像選択の最低高とoverflowはView側で扱い、選択・作成・同期のデータ契約は変更しません。
+
 # SporTagLytics System Overview
 
 分析UIは既存の集計とcallbackを維持し、データに一致しないチャートの表示だけを縮めます。初回案内のprops-only Viewは共通UI patternsへ配置し、完了状態の保存・外部イベントは従来のControllerが所有します。

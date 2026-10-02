@@ -95,3 +95,24 @@ export const ValidationErrors: Story = {
 };
 export const VideoSelection: Story = { args: { activeStep: 1 } };
 export const Creating: Story = { args: { activeStep: 1, isCreating: true } };
+
+export const EightAngles: Story = {
+  args: {
+    activeStep: 1,
+    selection: {
+      selectedDirectory: '',
+      angles: Array.from({ length: 8 }, (_, index) => ({
+        id: `angle-${index + 1}`,
+        name: `アングル ${index + 1}`,
+        clips: [
+          {
+            id: `clip-${index + 1}`,
+            sourceKind: 'local',
+            source: `fixtures/synthetic-${index + 1}.mp4`,
+            gapBeforeSeconds: 0,
+          },
+        ],
+      })),
+    },
+  },
+};

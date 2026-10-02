@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- 狭い開始画面で読み込み状態・失敗が操作欄の下に隠れる問題と、新規映像選択のアングル一覧が潰れる問題を修正。失敗時の表示位置とキーボードによる再試行への復帰を追加。
+
 - 分析ウィンドウの受信準備後に最新snapshotを同期し、初回表示とreload時にデータが失われる競合を修正しました。
 
 - 選択中のTimelineでTabが場面巡回を優先し、通常focus移動を妨げる問題を修正。巡回はOption/Alt+上下を使用。

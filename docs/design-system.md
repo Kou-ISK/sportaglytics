@@ -4,6 +4,8 @@
 
 画面面積は用途で決めます。基本情報3項目のwizardはsm/内容高とし、多角度・複数clip編集のstepで広い編集面を使います。Hotkeysは36pxの区切り行に32px操作を配置し、行ごとのcardと空白を重ねません。Timeline編集dialogはviewport内に収め、内容だけをスクロールしてCancel/Saveへ到達できるようにします。
 
+開始画面では処理状態をヘッダー直下に置き、操作・履歴より先に確認できるようにします。エラーはfocus可能なAlertとし、busyのlive regionをaria-busyな操作領域の外に置きます。狭幅の映像選択はアングル一覧とclip編集の最低高さを共に確保し、短いwindowでは本文をスクロールさせます。
+
 # SporTagLytics Design System (Native Analysis / Dark-first)
 
 Timelineのレビュー欄は既存のsurface/divider/text/primaryを共有し、検索・時刻順結果・全文詳細を分けます。既定は閉じ、フッターに入口を置いて行表示の高さを維持します。検索ドックは時間軸の全幅を保ち、結果と全文詳細を並列表示します。狭幅でもTimelineを残し、閉じる操作とfocus復帰を常時提供します。Tabは通常の移動を優先します。[操作の正本](timeline-review.md)。
