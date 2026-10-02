@@ -5,8 +5,8 @@ import {
   ListItemText,
   Menu,
   MenuItem,
-  ToggleButton,
-  ToggleButtonGroup,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import GridOnIcon from '@mui/icons-material/GridOn';
@@ -40,44 +40,62 @@ export const AnalysisPanelToolbar = ({
   onCopySummary,
   onExportPng,
   onExportPdf,
-}: AnalysisPanelToolbarProps) => {
+}: AnalysisPanelToolbarProps): React.JSX.Element => {
   return (
     <>
-      <ToggleButtonGroup
+      <Tabs
         aria-label="分析表示"
+        variant="scrollable"
+        scrollButtons="auto"
         sx={{
           maxWidth: '100%',
-          overflowX: 'auto',
-          '& .MuiToggleButton-root': { whiteSpace: 'nowrap' },
+          minWidth: 0,
+          '& .MuiTab-root': {
+            typography: 'body1',
+            fontWeight: 600,
+            minWidth: 0,
+            whiteSpace: 'nowrap',
+          },
         }}
         value={currentView}
-        exclusive
         onChange={(_event, value) => {
           if (value && !isExporting) onChangeView(value);
         }}
-        size="small"
       >
-        <ToggleButton value="dashboard" disabled={isExporting}>
-          <DashboardIcon fontSize="small" sx={{ mr: 0.5 }} />
-          ダッシュボード
-        </ToggleButton>
-        <ToggleButton value="momentum" disabled={isExporting}>
-          <TrendingUpIcon fontSize="small" sx={{ mr: 0.5 }} />
-          モメンタム
-        </ToggleButton>
-        <ToggleButton value="matrix" disabled={isExporting}>
-          <GridOnIcon fontSize="small" sx={{ mr: 0.5 }} />
-          クロス集計
-        </ToggleButton>
-        <ToggleButton value="ai" disabled={isExporting}>
-          <AutoAwesomeIcon fontSize="small" sx={{ mr: 0.5 }} />
-          AI分析
-        </ToggleButton>
-      </ToggleButtonGroup>
+        <Tab
+          value="dashboard"
+          label="ダッシュボード"
+          icon={<DashboardIcon fontSize="small" />}
+          iconPosition="start"
+          disabled={isExporting}
+        />
+        <Tab
+          value="momentum"
+          label="モメンタム"
+          icon={<TrendingUpIcon fontSize="small" />}
+          iconPosition="start"
+          disabled={isExporting}
+        />
+        <Tab
+          value="matrix"
+          label="クロス集計"
+          icon={<GridOnIcon fontSize="small" />}
+          iconPosition="start"
+          disabled={isExporting}
+        />
+        <Tab
+          value="ai"
+          label="AI分析"
+          icon={<AutoAwesomeIcon fontSize="small" />}
+          iconPosition="start"
+          disabled={isExporting}
+        />
+      </Tabs>
 
       <Button
         size="small"
-        variant="outlined"
+        variant="text"
+        sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
         startIcon={<OutboxIcon />}
         onClick={(event) => setExportAnchor(event.currentTarget)}
         disabled={isExporting}

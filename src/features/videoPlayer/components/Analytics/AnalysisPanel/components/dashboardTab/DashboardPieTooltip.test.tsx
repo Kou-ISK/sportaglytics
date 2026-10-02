@@ -102,4 +102,35 @@ describe('dashboard pie tooltip', () => {
     expect(await screen.findByText('25.0%')).toBeTruthy();
     expect(screen.queryByText(/件/)).toBeNull();
   });
+
+  it('retains scene drilldown from the resized semicircle', () => {
+    const select = vi.fn();
+    render(
+      <ThemeProvider theme={getAppTheme('dark')}>
+        <CustomPieChart
+          data={[
+            {
+              name: 'Synthetic',
+              value: 100,
+              rawValue: 4,
+              __entryIds: ['synthetic-1', 'synthetic-7'],
+            },
+          ]}
+          seriesKeys={['value']}
+          metric="count"
+          unitLabel="%"
+          calcMode="percentTotal"
+          onPointSelect={select}
+          disableAnimation
+        />
+      </ThemeProvider>,
+    );
+    const sector = document.querySelector('.recharts-pie-sector');
+    expect(sector?.querySelector('path')).toBeTruthy();
+    if (sector) fireEvent.click(sector);
+    expect(select).toHaveBeenCalledWith({
+      title: 'Synthetic',
+      entryIds: ['synthetic-1', 'synthetic-7'],
+    });
+  });
 });

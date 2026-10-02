@@ -63,3 +63,27 @@ export const NoTimeline: Story = {
   ),
 };
 export const NoWidgets: Story = { args: { widgets: [] } };
+export const NarrowCharts: Story = {
+  decorators: [
+    (Story) => (
+      <Box sx={{ width: 400, maxWidth: '100%' }}>
+        <Story />
+      </Box>
+    ),
+  ],
+};
+export const LongTeamNames: Story = {
+  args: {
+    timeline: reviewTimeline.map((entry) => ({
+      ...entry,
+      actionName: entry.actionName
+        .replace('Red ', '合成レッドチーム ')
+        .replace('Blue ', '合成ブルーチーム '),
+    })),
+    teamRoleMap: { team1: '合成レッドチーム', team2: '合成ブルーチーム' },
+    teamContext: {
+      team1Name: '合成レッドチーム',
+      team2Name: '合成ブルーチーム',
+    },
+  },
+};

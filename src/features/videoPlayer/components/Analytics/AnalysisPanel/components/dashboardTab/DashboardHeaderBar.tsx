@@ -9,10 +9,10 @@ import {
   Button,
   Chip,
   FormControl,
-  InputLabel,
   MenuItem,
   Select,
   Stack,
+  Typography,
 } from '@mui/material';
 import type { AnalysisDashboard } from '../../../../../../../types/settings/coreTypes';
 
@@ -25,6 +25,7 @@ interface DashboardHeaderBarProps {
   dashboards: AnalysisDashboard[];
   isEditing: boolean;
   isSaving: boolean;
+  filterControl?: React.ReactNode;
   onDashboardChange: (nextId: string) => void;
   onStartEdit: () => void;
   onAddWidget: () => void;
@@ -39,6 +40,7 @@ export const DashboardHeaderBar = ({
   dashboards,
   isEditing,
   isSaving,
+  filterControl,
   onDashboardChange,
   onStartEdit,
   onAddWidget,
@@ -54,16 +56,37 @@ export const DashboardHeaderBar = ({
       alignItems="center"
       flexWrap="wrap"
       gap={1}
+      sx={{ '& .MuiButton-root': { whiteSpace: 'nowrap' } }}
     >
       <FormControl
         size="small"
-        sx={{ minWidth: 200, maxWidth: '100%', ...compactControlSx }}
+        sx={{
+          minWidth: 0,
+          width: { xs: '100%', sm: 340 },
+          maxWidth: '100%',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 1,
+          ...compactControlSx,
+        }}
       >
-        <InputLabel id="dashboard-select-label">ダッシュボード</InputLabel>
+        <Typography
+          id="dashboard-select-label"
+          variant="body2"
+          color="text.secondary"
+          sx={{ flexShrink: 0 }}
+        >
+          ダッシュボード
+        </Typography>
         <Select
+          id="dashboard-select"
           labelId="dashboard-select-label"
           value={activeDashboardId}
-          label="ダッシュボード"
+          sx={{ minWidth: 0, flex: 1 }}
+          title={
+            dashboards.find((dashboard) => dashboard.id === activeDashboardId)
+              ?.name
+          }
           disabled={isEditing || isSaving}
           onChange={(event) => onDashboardChange(event.target.value as string)}
         >
@@ -81,6 +104,7 @@ export const DashboardHeaderBar = ({
         flexWrap="wrap"
         useFlexGap
       >
+        {filterControl}
         {isTemplate && (
           <Chip label="読み取り専用" size="small" variant="outlined" />
         )}
@@ -139,7 +163,7 @@ export const DashboardHeaderBar = ({
             <Button
               disabled={isSaving}
               size="small"
-              variant="outlined"
+              variant="text"
               startIcon={<DashboardIcon />}
               onClick={(event) => onOpenManagementMenu(event.currentTarget)}
             >

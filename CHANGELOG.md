@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 分析上部をタブと折返し可能な操作欄へ整理。Dashboardの選択ラベルの上端切れを防ぐ配置とし、フィルター入口を操作欄へ統合。半円グラフを描画領域に合わせて拡大。[分析操作](docs/user-guide.md#ダッシュボードv040以降)。
+
 - 分析の空チャートを状態行へ整理し、AIの入力と結果を操作順に配置。初回案内を共通Dialogへ統一。条件不一致とTimeline自体の0件を区別し、既存の編集・生成・出力操作を保持。
 
 - 起動画面の操作・履歴の余白と枠を整理し、新規パッケージの見出しと進行表示を統合。5つの開始操作と履歴検索・削除・復旧は保持。[操作](docs/start-workspace.md)。

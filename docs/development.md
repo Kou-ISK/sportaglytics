@@ -48,6 +48,8 @@ Timelineのピンチは`useTimelineViewport.gesture.test.ts`で整数ピクセ�
 
 `DashboardPieTooltip.test.tsx`は合成Timelineを実集計し、固定寸法のRechartsでhover表示を確認します。割合の件数・秒数、明示シリーズの元値、通常値、元値なしを検証します。jsdomでは寸法の供給だけを置換しており、実画素・tooltip位置は`Workspace/Analysis/Dashboard/MatchingData`をMacで別途確認します。
 
+分析上部の変更は`AnalysisPanelToolbar.test.tsx`（4タブ・キー移動・3出力・処理中）、`DashboardHeaderBar.test.tsx`（選択と編集制約）、`DashboardFilterControl.test.tsx`（編集・reset・閉じる・focus復帰）で確認します。Storybookの`DashboardHeader/NarrowLongName`、`Dashboard/NarrowCharts`・`LongTeamNames`を使い、Macでは1440×775と800×420のdark/lightでselect上端・折返し・適用条件の解除・グラフラベルとtooltipを確認します。レポートの240px半円も同じ表示部品を使うためPDF/PNGを別途確認します。
+
 ## 開発環境
 
 | ツール  | バージョン |

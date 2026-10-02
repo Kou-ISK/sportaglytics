@@ -55,4 +55,15 @@ it('keeps edit/save/cancel controls disabled during persistence', () => {
   }
   expect(props.onSave).not.toHaveBeenCalled();
   expect(props.onCancelEdit).not.toHaveBeenCalled();
+  expect(screen.getByRole('combobox').getAttribute('aria-disabled')).toBe(
+    'true',
+  );
+});
+
+it('keeps an accessible dashboard selector and the existing switch callback', () => {
+  render(<DashboardHeaderBar {...props} />);
+  const select = screen.getByRole('combobox', { name: /ダッシュボード/ });
+  fireEvent.mouseDown(select);
+  fireEvent.click(screen.getByRole('option', { name: '合成コピー' }));
+  expect(props.onDashboardChange).toHaveBeenCalledWith('template-basic-1');
 });
