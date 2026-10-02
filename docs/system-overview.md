@@ -8,6 +8,8 @@ Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop 
 
 分析UIは既存の集計とcallbackを維持し、データに一致しないチャートの表示だけを縮めます。初回案内のprops-only Viewは共通UI patternsへ配置し、完了状態の保存・外部イベントは従来のControllerが所有します。
 
+Dashboardのpieとbarは集計結果の`calcMode`を受け取り、割合tooltipには集計済みの元値を件数・秒数で併記します。元値のない場合は割合から推定しません。
+
 起動画面・新規作成の表示は既存のprops-only Viewで構成し、開始操作・履歴・ロード復旧のcallback境界を保ちます。[起動画面](start-workspace.md)に表示と操作をまとめています。
 
 Timeline reviewは既存文書を読み取る派生表示です。検索・ページ・開閉はhook、描画はprops-only Viewへ分離し、既存Timeline controllerの選択・シーク・編集とPlaylist callbackへ接続します。Windowメニューの分析もRendererの既存分析open/snapshot経路を使用します。[操作](timeline-review.md) / [ADR 0055](adr/0055-timeline-review-without-document-filtering.md)。

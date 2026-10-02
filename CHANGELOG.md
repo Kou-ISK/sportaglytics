@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Dashboardの割合円グラフでtooltipが割合を重複表示する問題を修正し、集計元の件数・秒数を併記。[表示](docs/user-guide.md#ダッシュボードv040以降)。
+
 - 固定の基本分析テンプレートに「複製して編集」を設け、保存時に編集が失われる入口を解消。保存失敗時はdraftと入力を維持し、有効なcount集計がコピー・importの正規化でdurationへ変わる問題を修正。
 
 - 狭い開始画面で読み込み状態・失敗が操作欄の下に隠れる問題と、新規映像選択のアングル一覧が潰れる問題を修正。失敗時の表示位置とキーボードによる再試行への復帰を追加。

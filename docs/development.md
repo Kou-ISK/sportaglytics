@@ -46,6 +46,8 @@ Timelineのピンチは`useTimelineViewport.gesture.test.ts`で整数ピクセ�
 
 ダッシュボードの保存契約は`useDashboardTabController.test.tsx`で実`useSettings`と合成のメモリ保存gatewayを接続し、コピー・新規・編集・保存・再mount・キャンセル・保存失敗・外部import拒否を確認します。`dashboardNormalizers.test.ts`は固定template復元、count/duration保持、旧設定移行を検証します。`Workspace/Analysis/DashboardHeader`で固定/コピー/編集中/保存中を描画確認し、Macでは合成プロファイルの設定再読込と`.stad`往復を別途確認します。[保存契約](adr/0056-built-in-dashboard-editing-contract.md)。
 
+`DashboardPieTooltip.test.tsx`は合成Timelineを実集計し、固定寸法のRechartsでhover表示を確認します。割合の件数・秒数、明示シリーズの元値、通常値、元値なしを検証します。jsdomでは寸法の供給だけを置換しており、実画素・tooltip位置は`Workspace/Analysis/Dashboard/MatchingData`をMacで別途確認します。
+
 ## 開発環境
 
 | ツール  | バージョン |

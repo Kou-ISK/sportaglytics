@@ -165,6 +165,7 @@ export const DashboardWidgetGrid = ({
                   seriesKeys={chart.seriesKeys}
                   unitLabel={chart.unitLabel}
                   metric={widget.metric}
+                  calcMode={chart.calcMode}
                   height={260}
                   teamColorMap={teamColorMap}
                   onPointSelect={(payload) =>
