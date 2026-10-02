@@ -36,26 +36,12 @@ const matchesProof = (
   )
     return false;
   const pixels = image.crop(marker).toBitmap();
-  const sample = (
-    x: number,
-    y: number,
-    white: boolean,
-    locator = false,
-  ): boolean => {
+  const sample = (x: number, y: number, white: boolean): boolean => {
     const index = (y * marker.width + x) * 4;
     if (pixels[index + 3] !== 255) return false;
     for (let channel = 0; channel < 3; channel += 1) {
       const value = pixels[index + channel];
-      if (
-        locator
-          ? white
-            ? value < 128
-            : value >= 128
-          : white
-            ? value < 224
-            : value > 31
-      )
-        return false;
+      if (white ? value < 224 : value > 31) return false;
     }
     return true;
   };
@@ -77,21 +63,36 @@ const matchesProof = (
         }
     }
   }
-  // Interiors alone accept a one-pixel translation. On two scanlines per axis,
-  // require every locator transition to straddle its intended pixel boundary.
-  // This permits antialiased edge colors without accepting a shifted barcode.
-  for (let cell = 1; cell < 10; cell += 1) {
-    const edge = cell * CAPTURE_CELL_PIXELS;
-    const beforeWhite = (cell - 1) % 2 === 0;
+  // A single AA edge can cross mid-grey without moving the whole locator.
+  // Compare its two complete scanlines with the ideal barcode at 0 and +/-1
+  // physical pixels. Only a uniquely best zero displacement is accepted.
+  const alignmentError = (axis: 'x' | 'y', shift: number): number => {
+    let error = 0;
     for (const line of [1, 2]) {
-      if (
-        !sample(edge - 1, line, beforeWhite, true) ||
-        !sample(edge, line, !beforeWhite, true) ||
-        !sample(line, edge - 1, beforeWhite, true) ||
-        !sample(line, edge, !beforeWhite, true)
-      )
-        return false;
+      for (let position = 1; position < CAPTURE_MARKER_PIXELS - 1; position++) {
+        const x = axis === 'x' ? position : line;
+        const y = axis === 'y' ? position : line;
+        const index = (y * marker.width + x) * 4;
+        if (pixels[index + 3] !== 255) return Infinity;
+        const expected =
+          Math.floor((position - shift) / CAPTURE_CELL_PIXELS) % 2 === 0
+            ? 255
+            : 0;
+        for (let channel = 0; channel < 3; channel++)
+          error += Math.abs(pixels[index + channel] - expected);
+      }
     }
+    return error;
+  };
+  for (const axis of ['x', 'y'] as const) {
+    const atOrigin = alignmentError(axis, 0);
+    if (
+      !(
+        atOrigin < alignmentError(axis, -1) &&
+        atOrigin < alignmentError(axis, 1)
+      )
+    )
+      return false;
   }
   return true;
 };

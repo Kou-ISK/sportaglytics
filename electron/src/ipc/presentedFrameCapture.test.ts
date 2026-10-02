@@ -58,6 +58,7 @@ const frame = (
   shift = 0,
   shiftY = 0,
   blur = false,
+  measuredEdges = false,
 ): NativeImage => {
   const width = Math.round(100 * scale);
   const data = Buffer.alloc(width * width * 4, 77);
@@ -98,6 +99,16 @@ const frame = (
         }
     }
   }
+  if (measuredEdges) {
+    // Synthetic locator profile containing the observed DPR1 value 158. Eight
+    // boundary samples cross mid-grey; this is not a copy of the native PNG.
+    for (const cell of [2, 4, 6, 8])
+      for (const line of [1, 2]) {
+        const index =
+          ((4 + cell * 4 - 1 + shiftY) * width + 4 + line + shift) * 4;
+        data.fill(158, index, index + 3);
+      }
+  }
   // Only the image boundary methods used by the adapter are supplied.
   return new RasterImage(width, width, data) as unknown as NativeImage;
 };
@@ -135,7 +146,10 @@ describe('verified presentation capture', () => {
         scale,
       );
       h.emitFrame(frame(scale, 'ffffffffffffffff'));
-      h.emitFrame(frame(scale, request.proof.nonce, 1));
+      for (const shift of [-1, 1]) {
+        h.emitFrame(frame(scale, request.proof.nonce, shift));
+        h.emitFrame(frame(scale, request.proof.nonce, 0, shift));
+      }
       expect(h.value.endFrameSubscription).not.toHaveBeenCalled();
       h.emitFrame(frame(scale));
       const captured = await result;
@@ -172,6 +186,45 @@ describe('verified presentation capture', () => {
       expect(h.value.eventNames()).toEqual([]);
     },
   );
+
+  it.each([1, 1.25, 1.5, 2])(
+    'accepts the measured 158 edge profile only at its original position (%sx)',
+    async (scale) => {
+      const h = host();
+      const result = capturePresentedFrame(
+        h.contents,
+        makeRequest(scale),
+        scale,
+      );
+      h.emitFrame(frame(scale, '1123456789abcdef', 0, 0, true, true));
+      for (const shift of [-1, 1]) {
+        h.emitFrame(frame(scale, request.proof.nonce, shift, 0, true, true));
+        h.emitFrame(frame(scale, request.proof.nonce, 0, shift, true, true));
+      }
+      expect(h.value.endFrameSubscription).not.toHaveBeenCalled();
+      h.emitFrame(frame(scale, request.proof.nonce, 0, 0, true, true));
+      expect(await result).not.toBeNull();
+      expect(h.value.endFrameSubscription).toHaveBeenCalledOnce();
+      expect(h.value.eventNames()).toEqual([]);
+    },
+  );
+
+  it('rejects an ambiguous half-pixel locator instead of choosing its requested position', async () => {
+    const h = host();
+    const result = capturePresentedFrame(h.contents, request, 1);
+    const ambiguous = frame(1);
+    // Mutate the raster boundary double: 0 and +1 have exactly equal error.
+    const bytes = ambiguous.toBitmap();
+    for (let cell = 1; cell < 10; cell++)
+      for (const line of [1, 2]) {
+        const index = ((4 + line) * 100 + 4 + cell * 4) * 4;
+        bytes.fill(line === 1 ? 127 : 128, index, index + 3);
+      }
+    h.emitFrame(ambiguous);
+    expect(h.value.endFrameSubscription).not.toHaveBeenCalled();
+    h.emitFrame(frame(1));
+    expect(await result).not.toBeNull();
+  });
 
   it('times out without saving an old frame and releases the slot', async () => {
     vi.useFakeTimers();
