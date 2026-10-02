@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { MomentumChart } from '../../MomentumChart';
 import { NoDataPlaceholder } from './NoDataPlaceholder';
-import { CreateMomentumDataFn } from '../../../../../../types/analysis/momentum';
+import type { CreateMomentumDataFn } from '../../../../../../types/analysis/momentum';
 import { AnalysisCard } from './AnalysisCard';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import { DrilldownDialog } from './DrilldownDialog';
 
 interface MomentumTabProps {
+  disableAnimation?: boolean;
   hasData: boolean;
   createMomentumData: CreateMomentumDataFn;
   teamNames: string[];
@@ -16,13 +17,14 @@ interface MomentumTabProps {
 }
 
 export const MomentumTab = ({
+  disableAnimation = false,
   hasData,
   createMomentumData,
   teamNames,
   timeline,
   emptyMessage,
   onJumpToSegment,
-}: MomentumTabProps) => {
+}: MomentumTabProps): React.JSX.Element => {
   const [detail, setDetail] = useState<{
     title: string;
     entries: TimelineData[];
@@ -45,6 +47,7 @@ export const MomentumTab = ({
     <>
       <AnalysisCard title="モメンタムチャート">
         <MomentumChart
+          disableAnimation={disableAnimation}
           createMomentumData={createMomentumData}
           teamNames={teamNames}
           onPointSelect={({ title, entryIds }) => {

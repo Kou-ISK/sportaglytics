@@ -107,11 +107,21 @@ export const withExportLayoutOverrides = async <T>(
   fn: () => Promise<T>,
 ): Promise<T> => {
   const previousStyleMap = new Map<HTMLElement, string>();
+  const previousScrollMap = new Map<
+    HTMLElement,
+    { top: number; left: number }
+  >();
   const register = (element: HTMLElement) => {
     if (!previousStyleMap.has(element)) {
       previousStyleMap.set(element, element.style.cssText);
+      previousScrollMap.set(element, {
+        top: element.scrollTop,
+        left: element.scrollLeft,
+      });
     }
   };
+  // Layout expansion can also move the root via scroll anchoring or clamping.
+  register(container);
 
   const nodes = [
     container,
@@ -139,7 +149,7 @@ export const withExportLayoutOverrides = async <T>(
       element.scrollHeight > element.clientHeight + 1 &&
       (computed.overflowY === 'auto' || computed.overflowY === 'scroll');
 
-    if (isTableContainer || isNestedScrollable) {
+    if (element !== container && (isTableContainer || isNestedScrollable)) {
       register(element);
       element.style.maxHeight = 'none';
       element.style.height = 'auto';
@@ -149,11 +159,24 @@ export const withExportLayoutOverrides = async <T>(
       if (isTableContainer) {
         element.style.width = 'max-content';
         element.style.minWidth = '100%';
+        element.style.maxWidth = 'none';
+        // Let wide tables contribute their full overflow to the root viewport.
+        // Their work-surface ancestors normally clip content on screen.
+        let parent = element.parentElement;
+        while (parent && parent !== container) {
+          register(parent);
+          parent.style.overflow = 'visible';
+          parent.style.overflowX = 'visible';
+          parent.style.overflowY = 'visible';
+          parent.style.maxWidth = 'none';
+          parent = parent.parentElement;
+        }
       }
     }
   }
 
   try {
+    await document.fonts?.ready;
     await waitForPaint();
     return await fn();
   } finally {
@@ -161,6 +184,10 @@ export const withExportLayoutOverrides = async <T>(
       previousStyleMap.entries(),
     ).reverse()) {
       element.style.cssText = cssText;
+    }
+    for (const [element, scroll] of previousScrollMap) {
+      element.scrollTop = scroll.top;
+      element.scrollLeft = scroll.left;
     }
     await waitForPaint();
   }
@@ -173,11 +200,19 @@ export const captureScrollableContent = async (
 ): Promise<FullCaptureSlice[]> => {
   const { horizontal = 'force' } = options;
   const rect = container.getBoundingClientRect();
-  const width = Math.max(1, Math.ceil(rect.width));
-  const height = Math.max(1, Math.ceil(rect.height));
+  const width = Math.ceil(rect.width);
+  const height = Math.ceil(rect.height);
 
   if (width <= 0 || height <= 0) {
     return [];
+  }
+  if (
+    rect.left < 0 ||
+    rect.top < 0 ||
+    rect.left + width > window.innerWidth + 1 ||
+    rect.top + height > window.innerHeight + 1
+  ) {
+    throw new Error('Capture viewport is outside the window');
   }
 
   const originalScrollTop = container.scrollTop;
@@ -199,6 +234,15 @@ export const captureScrollableContent = async (
       for (const offsetLeft of horizontalOffsets) {
         container.scrollLeft = offsetLeft;
         await waitForPaint();
+        const currentRect = container.getBoundingClientRect();
+        if (
+          Math.abs(currentRect.left - rect.left) > 1 ||
+          Math.abs(currentRect.top - rect.top) > 1 ||
+          Math.abs(currentRect.width - rect.width) > 1 ||
+          Math.abs(currentRect.height - rect.height) > 1
+        ) {
+          throw new Error('Capture viewport changed during export');
+        }
 
         const captured = await captureRegionFn({
           x: Math.floor(rect.left),
@@ -212,8 +256,8 @@ export const captureScrollableContent = async (
           );
         }
         slices.push({
-          offsetLeft,
-          offsetTop,
+          offsetLeft: container.scrollLeft,
+          offsetTop: container.scrollTop,
           width,
           height,
           dataUrl: toDataUrl(captured),
@@ -242,17 +286,38 @@ export const stitchCapturedSlicesIntoParts = async (
     })),
   );
 
+  // Scroll positions are CSS pixels; Electron PNGs may contain Retina pixels.
+  // Derive the actual capture scale from the decoded image, not the display DPR.
+  const scaleX = loaded[0].image.width / loaded[0].width;
+  const scaleY = loaded[0].image.height / loaded[0].height;
+  if (
+    !Number.isFinite(scaleX) ||
+    !Number.isFinite(scaleY) ||
+    scaleX <= 0 ||
+    scaleY <= 0
+  ) {
+    throw new Error('Invalid captured image dimensions');
+  }
+  const positioned = loaded.map((slice) => {
+    if (
+      Math.abs(slice.image.width - slice.width * scaleX) > 1 ||
+      Math.abs(slice.image.height - slice.height * scaleY) > 1
+    ) {
+      throw new Error('Capture scale changed during export');
+    }
+    return {
+      ...slice,
+      pixelLeft: Math.round(slice.offsetLeft * scaleX),
+      pixelTop: Math.round(slice.offsetTop * scaleY),
+    };
+  });
+
   const width = Math.max(
     1,
-    ...loaded.map((slice) =>
-      Math.max(
-        slice.offsetLeft + slice.width,
-        slice.offsetLeft + slice.image.width,
-      ),
-    ),
+    ...positioned.map((slice) => slice.pixelLeft + slice.image.width),
   );
-  const totalHeight = loaded.reduce(
-    (max, slice) => Math.max(max, slice.offsetTop + slice.image.height),
+  const totalHeight = positioned.reduce(
+    (max, slice) => Math.max(max, slice.pixelTop + slice.image.height),
     0,
   );
 
@@ -267,15 +332,15 @@ export const stitchCapturedSlicesIntoParts = async (
     canvas.width = width;
     canvas.height = Math.max(1, currentHeight);
     const ctx = canvas.getContext('2d');
-    if (!ctx) continue;
+    if (!ctx) throw new Error('Canvas context unavailable for PNG export');
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    for (const slice of loaded) {
-      const drawY = slice.offsetTop - startY;
+    for (const slice of positioned) {
+      const drawY = slice.pixelTop - startY;
       if (drawY <= -slice.image.height || drawY >= currentHeight) continue;
-      ctx.drawImage(slice.image, slice.offsetLeft, drawY);
+      ctx.drawImage(slice.image, slice.pixelLeft, drawY);
     }
 
     parts.push(canvas.toDataURL('image/png'));

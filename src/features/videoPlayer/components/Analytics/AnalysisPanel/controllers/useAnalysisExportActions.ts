@@ -98,11 +98,9 @@ export const useAnalysisExportActions = ({
     }
 
     const horizontalMode = currentView === 'matrix' ? 'auto' : 'off';
-    const target =
-      currentView === 'matrix'
-        ? rootTarget.querySelector<HTMLElement>('.MuiTableContainer-root') ||
-          rootTarget
-        : rootTarget;
+    // Keep the visible viewport as the capture target. Nested tables may expand
+    // inside it, but must not become an off-screen capture rectangle themselves.
+    const target = rootTarget;
 
     try {
       const slices = await withExportLayoutOverrides(target, async () => {

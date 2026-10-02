@@ -81,9 +81,12 @@ export const AnalysisPanelView = ({
 
       <Box
         ref={exportTargetRef}
+        inert={isExporting}
+        aria-busy={isExporting}
         sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}
       >
         <AnalysisPanelContent
+          disableAnimation={isExporting}
           currentView={currentView}
           isSyncing={isSyncing}
           hasTimelineData={hasTimelineData}

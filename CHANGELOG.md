@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Retinaなどの高DPI環境で分析の全内容PNGが継ぎ目を上書きし、チャートや見出しを欠落させる問題を修正。メニューを除去し、チャートのアニメーションを停止してから撮影・合成するよう変更。
+
 - Dashboardの割合円グラフでtooltipが割合を重複表示する問題を修正し、集計元の件数・秒数を併記。[表示](docs/user-guide.md#ダッシュボードv040以降)。
 
 - 固定の基本分析テンプレートに「複製して編集」を設け、保存時に編集が失われる入口を解消。保存失敗時はdraftと入力を維持し、有効なcount集計がコピー・importの正規化でdurationへ変わる問題を修正。

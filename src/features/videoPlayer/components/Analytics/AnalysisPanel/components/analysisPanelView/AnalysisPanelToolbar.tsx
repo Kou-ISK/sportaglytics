@@ -104,6 +104,7 @@ export const AnalysisPanelToolbar = ({
       </Button>
 
       <Menu
+        transitionDuration={isExporting ? 0 : 'auto'}
         anchorEl={exportAnchor}
         open={Boolean(exportAnchor)}
         onClose={onCloseExportMenu}

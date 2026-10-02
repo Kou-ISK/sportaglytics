@@ -14,6 +14,7 @@ import { CustomPieChart } from '../CustomPieChart';
 import { CustomBarChart } from '../CustomBarChart';
 
 interface DashboardWidgetGridProps {
+  disableAnimation?: boolean;
   widgets: AnalysisDashboardWidget[];
   isEditing: boolean;
   onAddWidget: () => void;
@@ -37,6 +38,7 @@ interface DashboardWidgetGridProps {
 }
 
 export const DashboardWidgetGrid = ({
+  disableAnimation = false,
   widgets,
   isEditing,
   onAddWidget,
@@ -161,6 +163,7 @@ export const DashboardWidgetGrid = ({
             <DashboardCard title={resolvedWidgetTitle} actions={actions}>
               {widget.chartType === 'pie' ? (
                 <CustomPieChart
+                  disableAnimation={disableAnimation}
                   data={chart.data}
                   seriesKeys={chart.seriesKeys}
                   unitLabel={chart.unitLabel}
@@ -174,6 +177,7 @@ export const DashboardWidgetGrid = ({
                 />
               ) : (
                 <CustomBarChart
+                  disableAnimation={disableAnimation}
                   data={chart.data}
                   seriesKeys={chart.seriesKeys}
                   stacked={widget.chartType === 'stacked'}

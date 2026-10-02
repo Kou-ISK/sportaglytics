@@ -6,6 +6,7 @@ import { useDashboardTabController } from '../controllers/useDashboardTabControl
 import { DashboardTabView } from './DashboardTabView';
 
 interface DashboardTabProps {
+  disableAnimation?: boolean;
   hasData: boolean;
   timeline: TimelineData[];
   teamNames: string[];
@@ -59,6 +60,7 @@ const toDashboardFilterChips = (
 };
 
 export const DashboardTab = ({
+  disableAnimation = false,
   hasData,
   timeline,
   teamNames,
@@ -148,6 +150,7 @@ export const DashboardTab = ({
   }, [orderedTeams, theme.palette.team1.main, theme.palette.team2.main]);
   return (
     <DashboardTabView
+      disableAnimation={disableAnimation}
       hasData={hasData}
       timeline={timeline}
       emptyMessage={emptyMessage}

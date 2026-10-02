@@ -50,6 +50,8 @@ Timelineのピンチは`useTimelineViewport.gesture.test.ts`で整数ピクセ�
 
 分析上部の変更は`AnalysisPanelToolbar.test.tsx`（4タブ・キー移動・3出力・処理中）、`DashboardHeaderBar.test.tsx`（選択と編集制約）、`DashboardFilterControl.test.tsx`（編集・reset・閉じる・focus復帰）で確認します。Storybookの`DashboardHeader/NarrowLongName`、`Dashboard/NarrowCharts`・`LongTeamNames`を使い、Macでは1440×775と800×420のdark/lightでselect上端・折返し・適用条件の解除・グラフラベルとtooltipを確認します。レポートの240px半円も同じ表示部品を使うためPDF/PNGを別途確認します。
 
+全内容PNGは`fullContentCapture.pixels.test.ts`で座標ごとに異なる合成画素を使い、実stitchループの1x/2x・縦横末尾重複・15,000px境界を全画素比較します。canvas/Imageは小さなラスタ実装へ置換しており、PNGのcodecやnative撮影の画素保証ではありません。`fullContentCapture.test.ts`はスクロール・style復元とviewport境界、`useAnalysisExportActions.test.tsx`は実Menu/Pieの描画を通し最初のcapture時のmenu消失・ラベル完成と失敗時の未保存を確認します。Macでは合成21widgetを静止後と表示直後に出力し、先頭・各継ぎ目・末尾の見出し/ラベル/円弧と期待画像高（CSS全高×実capture倍率）を確認します。横スクロール表、元のスクロール位置への復帰、PDFの別経路も受入対象です。
+
 ## 開発環境
 
 | ツール  | バージョン |

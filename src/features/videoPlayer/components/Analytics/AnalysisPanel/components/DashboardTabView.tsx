@@ -13,6 +13,7 @@ import { DashboardManagementMenu } from './dashboardTab/DashboardManagementMenu'
 import { DashboardWidgetGrid } from './dashboardTab/DashboardWidgetGrid';
 
 interface DashboardTabViewProps extends DashboardTabController {
+  disableAnimation?: boolean;
   hasData: boolean;
   timeline: TimelineData[];
   emptyMessage: string;
@@ -22,6 +23,7 @@ interface DashboardTabViewProps extends DashboardTabController {
 }
 
 export const DashboardTabView = ({
+  disableAnimation = false,
   hasData,
   timeline,
   emptyMessage,
@@ -177,6 +179,7 @@ export const DashboardTabView = ({
       />
 
       <DashboardWidgetGrid
+        disableAnimation={disableAnimation}
         widgets={widgets}
         isEditing={isEditing && !isSaving}
         onAddWidget={handleAddWidget}
