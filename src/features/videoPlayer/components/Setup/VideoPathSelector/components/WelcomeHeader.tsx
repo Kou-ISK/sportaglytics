@@ -8,25 +8,25 @@ export const WelcomeHeader = ({ show }: { show: boolean }): ReactElement => (
       alt="SporTagLytics アプリロゴ"
       sx={{
         objectFit: 'contain',
-        width: 44,
-        height: 44,
+        width: 32,
+        height: 32,
         flexShrink: 0,
-        borderRadius: 1.5,
+        borderRadius: 1,
       }}
     />
     <Box sx={{ minWidth: 0 }}>
       <Typography
-        variant="h5"
+        variant="h6"
         component="h1"
         sx={{ fontWeight: 650, overflowWrap: 'anywhere' }}
       >
         SporTagLytics
       </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {show
-          ? '試合映像から、分析を始めましょう。'
-          : '分析の続きを、ここから。'}
-      </Typography>
+      {show && (
+        <Typography variant="body2" color="text.secondary">
+          映像を開いて、場面を記録・分析
+        </Typography>
+      )}
     </Box>
   </Stack>
 );

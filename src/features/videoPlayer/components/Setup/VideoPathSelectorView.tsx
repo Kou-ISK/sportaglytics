@@ -33,10 +33,10 @@ export const VideoPathSelectorView = (
     {...props.dragHandlers}
     sx={{
       width: '100%',
-      maxWidth: 1100,
+      maxWidth: 1040,
       mx: 'auto',
-      my: { xs: 1, md: 4 },
-      p: { xs: 1.5, sm: 3 },
+      my: { xs: 1, md: 2 },
+      p: { xs: 1.5, sm: 2 },
       color: 'text.primary',
     }}
   >
@@ -47,20 +47,17 @@ export const VideoPathSelectorView = (
           display: 'grid',
           gridTemplateColumns: {
             xs: 'minmax(0,1fr)',
-            md: '280px minmax(0,1fr)',
+            md: '240px minmax(0,1fr)',
           },
-          border: 1,
+          borderTop: 1,
           borderColor: 'divider',
-          borderRadius: 2,
-          overflow: 'hidden',
-          bgcolor: 'background.paper',
         }}
       >
         <Stack
-          spacing={3}
+          spacing={2}
           sx={(theme) => ({
-            p: { xs: 2, sm: 3 },
-            bgcolor: 'background.default',
+            py: 2,
+            pr: { md: 2 },
             borderRight: { md: `1px solid ${theme.palette.divider}` },
             borderBottom: { xs: `1px solid ${theme.palette.divider}`, md: 0 },
           })}
@@ -75,7 +72,7 @@ export const VideoPathSelectorView = (
           />
           <DropZoneCard dragState={props.dragState} />
         </Stack>
-        <Stack spacing={2} sx={{ p: { xs: 2, sm: 3 }, minWidth: 0 }}>
+        <Stack spacing={2} sx={{ py: 2, pl: { md: 3 }, minWidth: 0 }}>
           <StartStatusView {...props} />
           <RecentPackagesSection
             packages={props.recentPackages}

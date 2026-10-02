@@ -2,6 +2,8 @@ Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop 
 
 # SporTagLytics System Overview
 
+起動画面・新規作成の表示は既存のprops-only Viewで構成し、開始操作・履歴・ロード復旧のcallback境界を保ちます。[起動画面](start-workspace.md)に表示と操作をまとめています。
+
 Timeline reviewは既存文書を読み取る派生表示です。検索・ページ・開閉はhook、描画はprops-only Viewへ分離し、既存Timeline controllerの選択・シーク・編集とPlaylist callbackへ接続します。Windowメニューの分析もRendererの既存分析open/snapshot経路を使用します。[操作](timeline-review.md) / [ADR 0055](adr/0055-timeline-review-without-document-filtering.md)。
 
 パッケージを開くGatewayはMainの互換preflightを通し、既知の旧SporTag構造を別の`.stpkg`へコピーしてからSessionを確保します。原本は更新しません。Timeline保存は検証済みloadを条件とし、失敗状態とretryを映像・独立Timelineへ同期します。テキスト保存は同じディレクトリの一時ファイルと順序付きrenameを使います。Sportscode XMLは専用Controller/Domain/GatewayとMain serviceで、明示映像・秒補正から別プロジェクトを作ります。[互換・原本保護の契約](package-compatibility.md)。

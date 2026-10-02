@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Stack, TextField, Typography } from '@mui/material';
+import { Box, Stack, TextField } from '@mui/material';
 import type { WizardFormState } from '../types';
 
 interface BasicInfoStepProps {
@@ -17,18 +17,15 @@ export const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
   onChange,
 }) => {
   return (
-    <Stack spacing={1.5}>
-      <Typography variant="subtitle1" fontWeight={700}>
-        詳細
-      </Typography>
-
+    <Stack spacing={2}>
       <TextField
         fullWidth
         label="パッケージ"
         value={form.packageName}
         onChange={(event) => onChange({ packageName: event.target.value })}
         error={!!errors.packageName}
-        helperText={errors.packageName || '例: 2024_final'}
+        placeholder="例: 決勝・前半"
+        helperText={errors.packageName}
         required
       />
 
@@ -45,7 +42,7 @@ export const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
           value={form.team1Name}
           onChange={(event) => onChange({ team1Name: event.target.value })}
           error={!!errors.team1Name}
-          helperText={errors.team1Name || ' '}
+          helperText={errors.team1Name}
           required
         />
 
@@ -55,7 +52,7 @@ export const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
           value={form.team2Name}
           onChange={(event) => onChange({ team2Name: event.target.value })}
           error={!!errors.team2Name}
-          helperText={errors.team2Name || ' '}
+          helperText={errors.team2Name}
           required
         />
       </Box>

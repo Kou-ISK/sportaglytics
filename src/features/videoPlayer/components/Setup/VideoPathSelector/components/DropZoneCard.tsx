@@ -13,15 +13,16 @@ export const DropZoneCard: React.FC<DropZoneCardProps> = ({ dragState }) => {
       role="status"
       variant="outlined"
       sx={{
-        px: 2,
+        px: 1.5,
         py: 1.5,
         borderStyle: 'dashed',
+        borderRadius: 1,
         borderColor: (() => {
           if (!dragState.isDragging) return 'divider';
           return dragState.isValidDrop ? 'primary.main' : 'error.main';
         })(),
         bgcolor: (theme) => {
-          if (!dragState.isDragging) return 'background.paper';
+          if (!dragState.isDragging) return 'transparent';
           const baseColor = dragState.isValidDrop
             ? theme.palette.primary.main
             : theme.palette.error.main;

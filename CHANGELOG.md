@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 起動画面の操作・履歴の余白と枠を整理し、新規パッケージの見出しと進行表示を統合。5つの開始操作と履歴検索・削除・復旧は保持。[操作](docs/start-workspace.md)。
+
 ### Added
 
 - Timelineの行名・ラベル・ノートを検索し、時刻順の結果から映像・全文確認・編集・Playlist追加へ進む開閉式レビュー欄を追加。[操作](docs/timeline-review.md)。

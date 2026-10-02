@@ -1,5 +1,7 @@
 Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
 
+開始画面には開く・新規作成・ライブキャプチャ・旧フォルダ・Sportscode XMLの入口と、検索できる履歴を表示します。履歴の削除はファイル本体に影響しません。[開始画面と新規作成](start-workspace.md)。
+
 # SporTagLytics ユーザーガイド
 
 Sportscodeの公式Edit List XMLは起動画面の「Sportscode XMLから作成」から、映像1本と明示的な秒数補正を確認して別プロジェクトへ取り込めます。ネイティブ`.scpkg` / `.sczip`は未対応です。[XML取り込み手順と限界](package-compatibility.md#sportscode-xmlから新規作成)。

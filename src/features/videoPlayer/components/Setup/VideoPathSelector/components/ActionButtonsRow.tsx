@@ -18,18 +18,18 @@ export const ActionButtonsRow = ({
   onOpenSportscode?: () => void;
   disabled?: boolean;
 }): ReactElement => (
-  <Stack spacing={1.5}>
-    <Typography variant="overline" color="text.secondary">
+  <Stack spacing={1}>
+    <Typography variant="subtitle2" color="text.secondary">
       分析を始める
     </Typography>
-    <Stack direction={{ xs: 'column', sm: 'row', md: 'column' }} spacing={1.5}>
+    <Stack spacing={1}>
       <Button
         variant="contained"
         startIcon={<FolderOpenOutlined />}
         onClick={onOpenPackage}
         disabled={disabled}
         fullWidth
-        sx={{ justifyContent: 'flex-start', whiteSpace: 'nowrap', py: 1.25 }}
+        sx={{ justifyContent: 'flex-start', whiteSpace: 'nowrap' }}
       >
         パッケージを開く
       </Button>
@@ -39,18 +39,18 @@ export const ActionButtonsRow = ({
         onClick={onOpenWizard}
         disabled={disabled}
         fullWidth
-        sx={{ justifyContent: 'flex-start', whiteSpace: 'nowrap', py: 1.25 }}
+        sx={{ justifyContent: 'flex-start', whiteSpace: 'nowrap' }}
       >
         新しいパッケージを作成
       </Button>
       {onOpenCapture && (
         <Button
-          variant="outlined"
+          variant="text"
           startIcon={<VideocamOutlined />}
           onClick={onOpenCapture}
           disabled={disabled}
           fullWidth
-          sx={{ justifyContent: 'flex-start', whiteSpace: 'nowrap', py: 1.25 }}
+          sx={{ justifyContent: 'flex-start', whiteSpace: 'nowrap' }}
         >
           ライブキャプチャ
         </Button>
@@ -76,8 +76,5 @@ export const ActionButtonsRow = ({
         </Button>
       )}
     </Stack>
-    <Typography variant="body2" color="text.secondary">
-      初めて使う映像は「新しいパッケージを作成」から。試合映像とタグをまとめて管理できます。
-    </Typography>
   </Stack>
 );

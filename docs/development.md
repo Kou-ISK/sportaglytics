@@ -38,6 +38,8 @@ Timelineのピンチは`useTimelineViewport.gesture.test.ts`で整数ピクセ�
 
 参照したHudl公式の[現行リリースノート](https://www.hudl.com/releases/sportscode)と[トラックパッド操作の説明](https://www.hudl.com/blog/new-trackpad-controls-added-to-sportscode-workflow)には、Timelineの倍率上限・ピンチ係数の具体値は見当たりませんでした。本アプリの1〜100倍・指数的なピンチ感度は独自の操作調整値です。2023年の記事は映像のズームについての説明であり、Timelineの数値仕様としては扱いません。
 
+開始UIの表示確認はStorybookの`Workspace/Start`（5入口・履歴・busy・エラー・drop）と`Workspace/CreatePackage`（基本情報・入力エラー・映像・作成中）を使います。新規作成storyのファイル選択・保存はcallback fixtureであり、native I/Oの検証ではありません。Macでは同一候補に合成パッケージを使い、1440×775と800×420、dark/lightで切れ・折返し・Tab移動・取消/復旧を確認します。ブラウザ描画不能な環境の型チェックやStorybook buildを視覚QAの合格とは扱いません。
+
 ## 開発環境
 
 | ツール  | バージョン |
