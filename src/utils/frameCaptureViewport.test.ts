@@ -16,23 +16,35 @@ it.each([1, 1.25, 1.5, 2])(
     vi.stubGlobal('devicePixelRatio', scale);
     const root = document.createElement('div');
     document.body.append(root);
-    const original = new DOMRect(12, 59.390625, 1416, 703.609375);
+    const original = new DOMRect(12.234375, 59.390625, 1416, 703.609375);
     vi.stubGlobal('innerWidth', 1440);
     vi.stubGlobal('innerHeight', 775);
+    const x = Math.ceil(original.left * scale) / scale;
     const y = Math.ceil(original.top * scale) / scale;
+    const width = Math.floor(original.right * scale) / scale - x;
     const height = Math.floor(original.bottom * scale) / scale - y;
     root.getBoundingClientRect = () =>
-      root.style.width ? new DOMRect(12, y, 1416, height) : original;
+      root.style.width
+        ? new DOMRect(
+            original.x + Number.parseFloat(root.style.left || '0'),
+            original.y + Number.parseFloat(root.style.top || '0'),
+            Number.parseFloat(root.style.width),
+            Number.parseFloat(root.style.height),
+          )
+        : original;
     root.scrollTop = 400;
     const style = root.style.cssText;
     await withFrameCaptureViewport(root, async (viewport) => {
       expect(viewport.rect).toEqual({
-        x: 12,
+        x,
         y: y + 48 / scale,
-        width: 1416,
+        width,
         height: height - 48 / scale,
       });
       expect(parseFloat(root.style.paddingTop)).toBeCloseTo(48 / scale);
+      expect(root.style.translate).toBe('');
+      expect(root.style.left).toBe(`${x - original.left}px`);
+      expect(root.style.top).toBe(`${y - original.top}px`);
       root.scrollTop = 679;
       root.scrollLeft = 38;
       const proof = viewport.proof();
@@ -42,7 +54,7 @@ it.each([1, 1.25, 1.5, 2])(
         679 + proof.marker.y - y,
       );
       expect(Number.parseFloat(marker?.style.left ?? '')).toBeCloseTo(
-        38 + proof.marker.x - 12,
+        38 + proof.marker.x - x,
       );
       expect(proof.marker.y + proof.marker.height).toBeLessThan(
         viewport.rect.y,

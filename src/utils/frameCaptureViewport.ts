@@ -58,7 +58,10 @@ export const withFrameCaptureViewport = async <T>(
   try {
     Object.assign(container.style, {
       position: 'relative',
-      translate: `${x - bounds.left}px ${y - bounds.top}px`,
+      // Move the layout origin before painting. A fractional CSS translation
+      // can resample an already-painted layer despite an aligned client rect.
+      left: `${x - bounds.left}px`,
+      top: `${y - bounds.top}px`,
       boxSizing: 'border-box',
       width: `${width}px`,
       height: `${height}px`,

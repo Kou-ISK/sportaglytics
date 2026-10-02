@@ -12,7 +12,7 @@ Dashboardのpieとbarは集計結果の`calcMode`を受け取り、割合tooltip
 
 分析上部のタブとDashboard操作欄は表示層で構成し、`DashboardFilterControl`は既存フィルターEditorの開閉だけを所有します。半円のレイアウトはRechartsの描画領域に合わせ、本体とレポートで共用します。集計値・指標・保存モデルには関与しません。
 
-分析PNGは入れ子のスクロール領域と表を一時展開し、横長の表の祖先の幅・overflow制限とスクロールバーを一時解除します。同じscroll rootに撮影ごとに異なる検証模様を配置し、既存`capture-window-region-png`でMainの`beginFrameSubscription`が受け取った画像内の模様・位置・倍率を確認します。一致したcallback画像そのものから検証帯を除いて切り出し、別の`capturePage`は呼びません。root原点・検証帯・cropをnative pixel境界へ揃え、実際にclampされたscroll末尾まで合成します。出力中はメニューの終了遷移とチャートのJSアニメーションを無効化し、失敗・閉じる・保存取消でも一時styleとscrollを復元します。PDFは従来の別window/printToPDF経路です。[ADR 0057](adr/0057-verified-analysis-frame-capture.md)。
+分析PNGは入れ子のスクロール領域と表を一時展開し、横長の表の祖先の幅・overflow制限とスクロールバーを一時解除します。同じscroll rootに撮影ごとに異なる検証模様を配置し、既存`capture-window-region-png`でMainの`beginFrameSubscription`が受け取った画像内の模様・位置・倍率を確認します。一致したcallback画像そのものから検証帯を除いて切り出し、別の`capturePage`は呼びません。rootをrelative配置でnative pixel原点へ移し、検証帯・cropもpixel境界へ揃え、実際にclampされたscroll末尾まで合成します。出力中はメニューの終了遷移とチャートのJSアニメーションを無効化し、失敗・閉じる・保存取消でも一時styleとscrollを復元します。PDFは従来の別window/printToPDF経路です。[ADR 0057](adr/0057-verified-analysis-frame-capture.md)。
 
 起動画面・新規作成の表示は既存のprops-only Viewで構成し、開始操作・履歴・ロード復旧のcallback境界を保ちます。[起動画面](start-workspace.md)に表示と操作をまとめています。
 

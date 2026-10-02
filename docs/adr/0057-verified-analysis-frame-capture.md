@@ -18,7 +18,7 @@ Accepted
 - Rendererは同じscroll rootの先頭に一時paddingを加えて元の内容を保護し、scroll位置に追従する64bit nonceとlocator枠の模様を置く。各模様の位置はそのtileの実scroll値から計算する。検証帯は切り出しから除外する。
 - Mainは`beginFrameSubscription(false)`の画像で、nonceの全セル内部とlocator枠の遷移位置・viewport寸法を照合する。一致したcallback画像自体をcropする。最初のcallback、2回の同じhash、`invalidate`、一定時間経過だけを成功条件にせず、照合後に別の`capturePage`も呼ばない。
 - 2.5秒は失敗deadlineである。一致しなければ保存しない。同じWebContentsの同時要求を拒否し、成功・timeout・navigation・renderer終了・Window破棄でtimer/listener/subscriptionを解除する。
-- root原点・crop両端・検証帯をnative pixel境界へ揃え、適用後の実矩形のpixel edgesを確認する。通常offsetは整数画像ピクセルからCSSへ変換し、最終offsetはブラウザーでclampされた実値を使う。撮影前後と各tile間でroot矩形・extent・scroll・倍率を検証する。
+- root原点・crop両端・検証帯をnative pixel境界へ揃え、適用後の実矩形のpixel edgesを確認する。原点の補正はrelative配置の`left`/`top`で行い、原点補正用のCSS `translate`を追加しない。通常offsetは整数画像ピクセルからCSSへ変換し、最終offsetはブラウザーでclampされた実値を使う。撮影前後と各tile間でroot矩形・extent・scroll・倍率を検証する。
 - 一時style、検証帯、root/入れ子scrollはfinallyで復元する。保存dialogより前に復元を終え、失敗時は部分画像を保存しない。PDF経路と保存データ形式は変更しない。
 
 ## Consequences
