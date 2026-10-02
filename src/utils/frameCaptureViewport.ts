@@ -1,6 +1,7 @@
 import {
-  CAPTURE_MARKER_SIZE,
-  CAPTURE_STRIP_HEIGHT,
+  CAPTURE_CELL_PIXELS,
+  CAPTURE_MARKER_PIXELS,
+  CAPTURE_STRIP_PIXELS,
   captureMarkerIsWhite,
   scaleCaptureRect,
   type CaptureRect,
@@ -49,10 +50,10 @@ export const withFrameCaptureViewport = async <T>(
   const y = Math.ceil(bounds.top * scale) / scale;
   const width = Math.floor(bounds.right * scale) / scale - x;
   const height = Math.floor(bounds.bottom * scale) / scale - y;
-  const stripHeight = Math.ceil(CAPTURE_STRIP_HEIGHT * scale) / scale;
+  const stripHeight = CAPTURE_STRIP_PIXELS / scale;
   if (x < 0 || y < 0 || x + width > innerWidth || y + height > innerHeight)
     throw new Error('Capture viewport is outside the window');
-  if (width < CAPTURE_MARKER_SIZE + 4 || height <= stripHeight)
+  if (width < CAPTURE_STRIP_PIXELS / scale || height <= stripHeight)
     throw new Error('Capture viewport is too small');
   try {
     Object.assign(container.style, {
@@ -92,13 +93,13 @@ export const withFrameCaptureViewport = async <T>(
       Math.abs(aligned.height - height) > 0.02
     )
       throw new Error('Capture viewport could not be aligned');
-    const markerX = Math.round((x + 2) * scale) / scale;
-    const markerY = Math.round((y + 2) * scale) / scale;
+    const markerX = x + 4 / scale;
+    const markerY = y + 4 / scale;
     const markerRect = {
       x: markerX,
       y: markerY,
-      width: Math.round(CAPTURE_MARKER_SIZE * scale) / scale,
-      height: Math.round(CAPTURE_MARKER_SIZE * scale) / scale,
+      width: CAPTURE_MARKER_PIXELS / scale,
+      height: CAPTURE_MARKER_PIXELS / scale,
     };
     return await fn({
       rect: {
@@ -122,15 +123,15 @@ export const withFrameCaptureViewport = async <T>(
         for (let row = 0; row < 10; row += 1)
           for (let col = 0; col < 10; col += 1) {
             const cell = document.createElement('div');
-            const left = Math.round(col * 2 * scale) / scale;
-            const top = Math.round(row * 2 * scale) / scale;
+            const left = (col * CAPTURE_CELL_PIXELS) / scale;
+            const top = (row * CAPTURE_CELL_PIXELS) / scale;
             // These black/white cells are a machine-read capture proof, not UI chrome.
             Object.assign(cell.style, {
               position: 'absolute',
               left: `${left}px`,
               top: `${top}px`,
-              width: `${Math.round((col + 1) * 2 * scale) / scale - left}px`,
-              height: `${Math.round((row + 1) * 2 * scale) / scale - top}px`,
+              width: `${CAPTURE_CELL_PIXELS / scale}px`,
+              height: `${CAPTURE_CELL_PIXELS / scale}px`,
               backgroundColor: captureMarkerIsWhite(nonce, col, row)
                 ? '#ffffff'
                 : '#000000',

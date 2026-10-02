@@ -114,11 +114,11 @@ describe('PNG stitch pixel coverage', () => {
       vi.stubGlobal('devicePixelRatio', scale);
       const root = document.createElement('div');
       document.body.append(root);
-      const original = new DOMRect(0, 5.375, 40, 54);
+      const original = new DOMRect(0, 5.375, 48, 78);
       const y = Math.ceil(original.top * scale) / scale;
       const alignedHeight = Math.floor(original.bottom * scale) / scale - y;
       root.getBoundingClientRect = () =>
-        root.style.width ? new DOMRect(0, y, 40, alignedHeight) : original;
+        root.style.width ? new DOMRect(0, y, 48, alignedHeight) : original;
       let scrollTop = 0;
       let scrollLeft = 0;
       Object.defineProperties(root, {
@@ -129,9 +129,9 @@ describe('PNG stitch pixel coverage', () => {
               0,
               Math.min(
                 value,
-                80 +
+                120 +
                   parseFloat(root.style.paddingTop || '0') -
-                  (root.style.height ? alignedHeight : 54),
+                  (root.style.height ? alignedHeight : 78),
               ),
             );
           },
@@ -139,24 +139,24 @@ describe('PNG stitch pixel coverage', () => {
         scrollLeft: {
           get: () => scrollLeft,
           set: (value: number) => {
-            scrollLeft = Math.max(0, Math.min(value, 30));
+            scrollLeft = Math.max(0, Math.min(value, 22));
           },
         },
         scrollHeight: {
-          get: () => Math.round(80 + parseFloat(root.style.paddingTop || '0')),
+          get: () => Math.round(120 + parseFloat(root.style.paddingTop || '0')),
         },
         clientHeight: {
-          get: () => Math.round(root.style.height ? alignedHeight : 54),
+          get: () => Math.round(root.style.height ? alignedHeight : 78),
         },
         scrollWidth: { value: 70 },
-        clientWidth: { value: 40 },
+        clientWidth: { value: 48 },
       });
       root.scrollTop = 7;
       root.scrollLeft = 5;
       const slices = await captureScrollableContent(root, async (rect) => {
         expect(root.querySelector('[data-capture-proof]')).not.toBeNull();
-        expect(rect.y).toBe(y + 24);
-        expect(rect.height).toBe(alignedHeight - 24);
+        expect(rect.y).toBe(y + 48 / scale);
+        expect(rect.height).toBe(alignedHeight - 48 / scale);
         const { width, height } = scaleCaptureRect(rect, scale);
         const left = Math.round(root.scrollLeft * scale);
         const top = Math.round(root.scrollTop * scale);
@@ -172,7 +172,7 @@ describe('PNG stitch pixel coverage', () => {
       });
       await stitchCapturedSlicesIntoParts(slices, 37);
       const width = Math.round(70 * scale);
-      const height = Math.round(80 * scale);
+      const height = Math.round(120 * scale);
       expect(outputs.reduce((sum, part) => sum + part.height, 0)).toBe(height);
       expect(outputs.flatMap((part) => part.values)).toEqual(
         Array.from({ length: width * height }, (_, i) =>

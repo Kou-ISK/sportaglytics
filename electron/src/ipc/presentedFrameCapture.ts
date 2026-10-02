@@ -1,6 +1,7 @@
 import type { NativeImage, WebContents } from 'electron';
 import {
-  CAPTURE_MARKER_SIZE,
+  CAPTURE_CELL_PIXELS,
+  CAPTURE_MARKER_PIXELS,
   captureMarkerIsWhite,
   scaleCaptureRect,
   type FrameCaptureRequest,
@@ -16,7 +17,7 @@ const matchesProof = (
 ): boolean => {
   const size = image.getSize();
   const { proof } = request;
-  const markerSize = Math.round(CAPTURE_MARKER_SIZE * scale) / scale;
+  const markerSize = CAPTURE_MARKER_PIXELS / scale;
   if (
     Math.abs(proof.marker.width - markerSize) > 0.000001 ||
     Math.abs(proof.marker.height - markerSize) > 0.000001 ||
@@ -26,6 +27,8 @@ const matchesProof = (
     return false;
   const marker = scaleCaptureRect(proof.marker, scale);
   if (
+    marker.width !== CAPTURE_MARKER_PIXELS ||
+    marker.height !== CAPTURE_MARKER_PIXELS ||
     marker.x < 0 ||
     marker.y < 0 ||
     marker.x + marker.width > size.width ||
@@ -33,30 +36,61 @@ const matchesProof = (
   )
     return false;
   const pixels = image.crop(marker).toBitmap();
-  // Check every interior pixel of every cell, including the locator border.
-  // Centre-only checks can accept a marker shifted by one native pixel.
+  const sample = (
+    x: number,
+    y: number,
+    white: boolean,
+    locator = false,
+  ): boolean => {
+    const index = (y * marker.width + x) * 4;
+    if (pixels[index + 3] !== 255) return false;
+    for (let channel = 0; channel < 3; channel += 1) {
+      const value = pixels[index + channel];
+      if (
+        locator
+          ? white
+            ? value < 128
+            : value >= 128
+          : white
+            ? value < 224
+            : value > 31
+      )
+        return false;
+    }
+    return true;
+  };
+  // The 2x2 interior must retain the original strict black/white levels.
+  // Four physical pixels per cell leave this interior even at DPR1.
   for (let row = 0; row < 10; row += 1) {
     for (let col = 0; col < 10; col += 1) {
-      const cell = scaleCaptureRect(
-        {
-          x: proof.marker.x + col * 2,
-          y: proof.marker.y + row * 2,
-          width: 2,
-          height: 2,
-        },
-        scale,
-      );
       const white = captureMarkerIsWhite(proof.nonce, col, row);
-      for (let y = cell.y; y < cell.y + cell.height; y += 1) {
-        for (let x = cell.x; x < cell.x + cell.width; x += 1) {
-          const index = ((y - marker.y) * marker.width + x - marker.x) * 4;
-          if (pixels[index + 3] !== 255) return false;
-          for (let channel = 0; channel < 3; channel += 1) {
-            const value = pixels[index + channel];
-            if (white ? value < 224 : value > 31) return false;
-          }
+      for (const dy of [1, 2])
+        for (const dx of [1, 2]) {
+          if (
+            !sample(
+              col * CAPTURE_CELL_PIXELS + dx,
+              row * CAPTURE_CELL_PIXELS + dy,
+              white,
+            )
+          )
+            return false;
         }
-      }
+    }
+  }
+  // Interiors alone accept a one-pixel translation. On two scanlines per axis,
+  // require every locator transition to straddle its intended pixel boundary.
+  // This permits antialiased edge colors without accepting a shifted barcode.
+  for (let cell = 1; cell < 10; cell += 1) {
+    const edge = cell * CAPTURE_CELL_PIXELS;
+    const beforeWhite = (cell - 1) % 2 === 0;
+    for (const line of [1, 2]) {
+      if (
+        !sample(edge - 1, line, beforeWhite, true) ||
+        !sample(edge, line, !beforeWhite, true) ||
+        !sample(line, edge - 1, beforeWhite, true) ||
+        !sample(line, edge, !beforeWhite, true)
+      )
+        return false;
     }
   }
   return true;

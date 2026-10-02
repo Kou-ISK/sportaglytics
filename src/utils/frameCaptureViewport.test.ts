@@ -28,11 +28,11 @@ it.each([1, 1.25, 1.5, 2])(
     await withFrameCaptureViewport(root, async (viewport) => {
       expect(viewport.rect).toEqual({
         x: 12,
-        y: y + 24,
+        y: y + 48 / scale,
         width: 1416,
-        height: height - 24,
+        height: height - 48 / scale,
       });
-      expect(root.style.paddingTop).toBe('24px');
+      expect(parseFloat(root.style.paddingTop)).toBeCloseTo(48 / scale);
       root.scrollTop = 679;
       root.scrollLeft = 38;
       const proof = viewport.proof();
@@ -44,7 +44,9 @@ it.each([1, 1.25, 1.5, 2])(
       expect(Number.parseFloat(marker?.style.left ?? '')).toBeCloseTo(
         38 + proof.marker.x - 12,
       );
-      expect(proof.marker.y + 20).toBeLessThan(viewport.rect.y);
+      expect(proof.marker.y + proof.marker.height).toBeLessThan(
+        viewport.rect.y,
+      );
       expect(proof.nonce).toMatch(/^[a-f0-9]{16}$/);
       expect(viewport.proof().nonce).not.toBe(proof.nonce);
     });

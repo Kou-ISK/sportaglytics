@@ -155,7 +155,7 @@ describe('withExportLayoutOverrides', () => {
 describe('captureScrollableContent', () => {
   const makeViewport = (): HTMLDivElement => {
     const element = document.createElement('div');
-    element.getBoundingClientRect = () => new DOMRect(0, 0, 40, 54);
+    element.getBoundingClientRect = () => new DOMRect(0, 0, 48, 78);
     document.body.append(element);
     let top = 0;
     let left = 0;
@@ -163,7 +163,7 @@ describe('captureScrollableContent', () => {
       scrollTop: {
         get: () => top,
         set: (value: number) => {
-          top = Math.max(0, Math.min(value, element.scrollHeight - 54));
+          top = Math.max(0, Math.min(value, element.scrollHeight - 78));
         },
       },
       scrollLeft: {
@@ -172,10 +172,10 @@ describe('captureScrollableContent', () => {
           left = Math.max(0, Math.min(value, 30));
         },
       },
-      scrollHeight: { get: () => 80 + (element.style.paddingTop ? 24 : 0) },
-      clientHeight: { value: 54 },
-      scrollWidth: { value: 70 },
-      clientWidth: { value: 40 },
+      scrollHeight: { get: () => 80 + (element.style.paddingTop ? 48 : 0) },
+      clientHeight: { value: 78 },
+      scrollWidth: { value: 78 },
+      clientWidth: { value: 48 },
     });
     element.scrollTop = 2;
     element.scrollLeft = 1;
@@ -228,7 +228,7 @@ describe('captureScrollableContent', () => {
     const element = makeViewport();
     await expect(
       captureScrollableContent(element, async () => {
-        element.getBoundingClientRect = () => new DOMRect(0, 0.4, 40, 54);
+        element.getBoundingClientRect = () => new DOMRect(0, 0.4, 48, 78);
         return { png: 'synthetic', scale: 1 };
       }),
     ).rejects.toThrow('changed during native capture');
@@ -253,7 +253,7 @@ describe('captureScrollableContent', () => {
       captureScrollableContent(element, async (request) => {
         expect(element.querySelector('[data-capture-proof]')).not.toBeNull();
         expect(element.style.scrollbarWidth).toBe('none');
-        expect(request.y).toBe(24);
+        expect(request.y).toBe(48);
         expect(request.height).toBe(30);
         expect(
           request.proof.marker.y + request.proof.marker.height,

@@ -114,8 +114,7 @@ export const isCaptureRegionPayload = (
   return (
     inside(value) &&
     inside(marker) &&
-    Math.abs(marker.width - 20) <= 1 &&
-    Math.abs(marker.height - 20) <= 1 &&
+    marker.width === marker.height &&
     marker.y + marker.height <= value.y
   );
 };

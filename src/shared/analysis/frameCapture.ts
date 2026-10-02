@@ -6,8 +6,9 @@ export interface CaptureRect {
   height: number;
 }
 
-export const CAPTURE_MARKER_SIZE = 20;
-export const CAPTURE_STRIP_HEIGHT = 24;
+export const CAPTURE_CELL_PIXELS = 4;
+export const CAPTURE_MARKER_PIXELS = CAPTURE_CELL_PIXELS * 10;
+export const CAPTURE_STRIP_PIXELS = CAPTURE_MARKER_PIXELS + 8;
 
 export interface FrameCaptureRequest extends CaptureRect {
   proof: {
@@ -23,7 +24,7 @@ export interface FrameCaptureResult {
   scale: number;
 }
 
-/** Opaque two-pixel cells, with an alternating border to verify location. */
+/** Opaque cells on the native pixel grid, with an alternating border to verify location. */
 export const captureMarkerIsWhite = (
   nonce: string,
   column: number,
