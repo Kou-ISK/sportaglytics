@@ -1,5 +1,7 @@
 Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
 
+初回案内の描画は`src/components/ui/patterns/OnboardingTutorialView.tsx`、完了状態と外部イベントは`src/components/useOnboardingTutorialController.tsx`が所有します。分析の表示確認用データはfeature内`Analytics/AnalysisPanel/fixtures/`に置き、実データやElectron I/Oへ依存させません。
+
 # Project Structure
 
 Timelineの場面検索は`features/videoPlayer/components/Timeline/VisualTimeline/review/`へ置きます。`timelineReviewSearch`は純粋計算、`useTimelineReview`はウィンドウ内状態とfocus、`TimelineReviewView` / `TimelineWorkspaceView`はprops-only表示です。既存の`useVisualTimelineController`が結果からの選択・シーク・編集を担当します。

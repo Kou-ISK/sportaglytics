@@ -42,10 +42,19 @@ export const DashboardHeaderBar = ({
   onCancelEdit,
   onSave,
   onOpenManagementMenu,
-}: DashboardHeaderBarProps) => {
+}: DashboardHeaderBarProps): React.JSX.Element => {
   return (
-    <Box display="flex" justifyContent="space-between" alignItems="center">
-      <FormControl size="small" sx={{ minWidth: 220, ...compactControlSx }}>
+    <Box
+      display="flex"
+      justifyContent="space-between"
+      alignItems="center"
+      flexWrap="wrap"
+      gap={1}
+    >
+      <FormControl
+        size="small"
+        sx={{ minWidth: 200, maxWidth: '100%', ...compactControlSx }}
+      >
         <InputLabel id="dashboard-select-label">ダッシュボード</InputLabel>
         <Select
           labelId="dashboard-select-label"
@@ -61,7 +70,13 @@ export const DashboardHeaderBar = ({
           ))}
         </Select>
       </FormControl>
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        flexWrap="wrap"
+        useFlexGap
+      >
         {isEditing && <Chip label="編集モード" color="warning" size="small" />}
         {isEditing ? (
           <>

@@ -5,7 +5,6 @@ import {
   Button,
   CircularProgress,
   Divider,
-  Paper,
   Stack,
   Typography,
 } from '@mui/material';
@@ -62,18 +61,17 @@ export const AIAnalysisConversationPanel = ({
   onJumpToSegment,
   formatSeconds,
   formatElapsed,
-}: AIAnalysisConversationPanelProps) => {
+}: AIAnalysisConversationPanelProps): React.JSX.Element => {
+  const hasResult = Boolean(aiResponse) || generationStatus === 'running';
   return (
-    <Paper
-      variant="outlined"
+    <Box
+      role="region"
+      aria-label="AI分析結果"
       sx={{
-        borderRadius: 3,
-        bgcolor: 'background.default',
-        p: 2,
-        height: {
-          xs: 'clamp(240px, 44vh, 420px)',
-          md: 'clamp(280px, 40vh, 520px)',
-        },
+        borderTop: 1,
+        borderColor: 'divider',
+        pt: 1.5,
+        maxHeight: hasResult ? 'min(520px, 60vh)' : undefined,
         overflowY: 'auto',
       }}
     >
@@ -81,17 +79,13 @@ export const AIAnalysisConversationPanel = ({
         {(displayQuestion || aiResponse || generationStatus === 'running') && (
           <Box
             sx={{
-              alignSelf: 'flex-end',
-              bgcolor: 'success.main',
-              color: 'success.contrastText',
-              px: 2,
-              py: 1.5,
-              borderRadius: 2,
-              maxWidth: { xs: '100%', md: '85%' },
+              borderLeft: 2,
+              borderColor: 'divider',
+              pl: 1.5,
             }}
           >
-            <Typography variant="caption" sx={{ opacity: 0.8 }}>
-              あなた
+            <Typography variant="caption" color="text.secondary">
+              質問
             </Typography>
             <Typography variant="body2">
               {displayQuestion || '（インサイト自動生成）'}
@@ -100,19 +94,13 @@ export const AIAnalysisConversationPanel = ({
         )}
         <Box
           sx={{
-            alignSelf: 'flex-start',
-            bgcolor: 'background.paper',
-            border: '1px solid',
-            borderColor: 'divider',
-            px: 2,
-            py: 1.5,
-            borderRadius: 2,
-            maxWidth: { xs: '100%', md: '90%' },
+            minWidth: 0,
+            overflowWrap: 'anywhere',
           }}
         >
           <Stack spacing={1.5}>
             <Typography variant="caption" color="text.secondary">
-              AI
+              分析結果
             </Typography>
             {generationStatus === 'running' && (
               <Stack spacing={0.5}>
@@ -144,7 +132,7 @@ export const AIAnalysisConversationPanel = ({
             {llmWarning && <Alert severity="warning">{llmWarning}</Alert>}
             {!aiResponse && generationStatus !== 'running' && (
               <Typography variant="body2" color="text.secondary">
-                まだAI出力がありません。
+                質問を入力して実行すると、ここに分析結果を表示します。
               </Typography>
             )}
             {aiResponse && (
@@ -193,10 +181,9 @@ export const AIAnalysisConversationPanel = ({
                         <Box
                           key={highlight.id}
                           sx={{
-                            border: '1px solid',
+                            borderTop: 1,
                             borderColor: 'divider',
-                            p: 2,
-                            borderRadius: 2,
+                            py: 1.5,
                             cursor: item ? 'pointer' : 'default',
                           }}
                           onClick={() => {
@@ -219,7 +206,10 @@ export const AIAnalysisConversationPanel = ({
                               <Button
                                 size="small"
                                 variant="outlined"
-                                onClick={() => onJumpToSegment?.(item)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onJumpToSegment?.(item);
+                                }}
                               >
                                 映像へジャンプ
                               </Button>
@@ -249,6 +239,6 @@ export const AIAnalysisConversationPanel = ({
           </Stack>
         </Box>
       </Stack>
-    </Paper>
+    </Box>
   );
 };
