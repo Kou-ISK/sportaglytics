@@ -1,3 +1,7 @@
+import type {
+  FrameCaptureRequest,
+  FrameCaptureResult,
+} from './shared/analysis/frameCapture';
 import type { MediaTimeline } from './shared/media/mediaTimeline';
 import type { ILiveCaptureAPI } from './types/liveCapture';
 import type { IEventDetectionWindowAPI } from './types/ipc/eventDetectionWindow';
@@ -195,12 +199,9 @@ export interface IElectronAPI {
     filePath: string,
     base64Content: string,
   ) => Promise<boolean>;
-  captureWindowRegionAsPng: (rect: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }) => Promise<string | null>;
+  captureWindowRegionAsPng: (
+    rect: FrameCaptureRequest,
+  ) => Promise<FrameCaptureResult | null>;
   writePdfFileFromHtml: (filePath: string, html: string) => Promise<boolean>;
   printAnalysisReportPdf: (
     filePath: string,

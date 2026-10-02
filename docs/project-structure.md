@@ -393,3 +393,5 @@ Paintの数値入力は `studio/StudioNumberFieldView.tsx` が入力中のdraft�
 再生・同期で共用するアングルIDと表示モードは `shared/media/angleView.ts`、キー割り当ては既存のSettingsを正本とします。
 
 Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/components/Analytics/AnalysisPanel/controllers/useDashboardPersistence.ts`に置き、画面遷移は同階層の`useDashboardTabActions.ts`、設定正規化は`types/settings/dashboardNormalizers.ts`を正本とします。実I/Oは既存`useSettings`/settings gatewayに残します。
+
+分析PNGの共通撮影契約と画素座標変換は`src/shared/analysis/frameCapture.ts`、一時DOM/検証帯の寿命は`src/utils/frameCaptureViewport.ts`、scroll走査と合成は`src/utils/fullContentCapture.ts`に置きます。Electronのフレーム照合・購読解除は`electron/src/ipc/presentedFrameCapture.ts`へ分離し、既存のfile handlerとanalysis gatewayを通します。

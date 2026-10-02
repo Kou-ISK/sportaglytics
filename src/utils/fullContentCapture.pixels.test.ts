@@ -1,9 +1,12 @@
 /* @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  captureScrollableContent,
   computeScrollOffsets,
   stitchCapturedSlicesIntoParts,
 } from './fullContentCapture';
+
+import { scaleCaptureRect } from '../shared/analysis/frameCapture';
 
 interface Pixels {
   width: number;
@@ -78,32 +81,117 @@ const makeSlices = (scale: number) => {
   // The last viewport overlaps both the preceding row and column.
   for (const offsetTop of computeScrollOffsets(8, 3)) {
     for (const offsetLeft of computeScrollOffsets(7, 4)) {
-      const width = 4 * scale;
-      const height = 3 * scale;
+      const width = Math.round(4 * scale);
+      const height = Math.round(3 * scale);
       const dataUrl = `slice-${offsetLeft}-${offsetTop}`;
       images.set(dataUrl, {
         width,
         height,
         values: Array.from({ length: width * height }, (_, i) =>
           marker(
-            offsetLeft * scale + (i % width),
-            offsetTop * scale + Math.floor(i / width),
+            Math.round(offsetLeft * scale) + (i % width),
+            Math.round(offsetTop * scale) + Math.floor(i / width),
           ),
         ),
       });
-      slices.push({ offsetLeft, offsetTop, width: 4, height: 3, dataUrl });
+      slices.push({
+        offsetLeft,
+        offsetTop,
+        width: 4,
+        height: 3,
+        dataUrl,
+        scale,
+      });
     }
   }
   return slices;
 };
 
 describe('PNG stitch pixel coverage', () => {
-  it.each([1, 2])(
+  it.each([1, 1.25, 1.5, 2])(
+    'keeps all original content after proof-strip capture at %sx',
+    async (scale) => {
+      vi.stubGlobal('devicePixelRatio', scale);
+      const root = document.createElement('div');
+      document.body.append(root);
+      const original = new DOMRect(0, 5.375, 40, 54);
+      const y = Math.ceil(original.top * scale) / scale;
+      const alignedHeight = Math.floor(original.bottom * scale) / scale - y;
+      root.getBoundingClientRect = () =>
+        root.style.width ? new DOMRect(0, y, 40, alignedHeight) : original;
+      let scrollTop = 0;
+      let scrollLeft = 0;
+      Object.defineProperties(root, {
+        scrollTop: {
+          get: () => scrollTop,
+          set: (value: number) => {
+            scrollTop = Math.max(
+              0,
+              Math.min(
+                value,
+                80 +
+                  parseFloat(root.style.paddingTop || '0') -
+                  (root.style.height ? alignedHeight : 54),
+              ),
+            );
+          },
+        },
+        scrollLeft: {
+          get: () => scrollLeft,
+          set: (value: number) => {
+            scrollLeft = Math.max(0, Math.min(value, 30));
+          },
+        },
+        scrollHeight: {
+          get: () => Math.round(80 + parseFloat(root.style.paddingTop || '0')),
+        },
+        clientHeight: {
+          get: () => Math.round(root.style.height ? alignedHeight : 54),
+        },
+        scrollWidth: { value: 70 },
+        clientWidth: { value: 40 },
+      });
+      root.scrollTop = 7;
+      root.scrollLeft = 5;
+      const slices = await captureScrollableContent(root, async (rect) => {
+        expect(root.querySelector('[data-capture-proof]')).not.toBeNull();
+        expect(rect.y).toBe(y + 24);
+        expect(rect.height).toBe(alignedHeight - 24);
+        const { width, height } = scaleCaptureRect(rect, scale);
+        const left = Math.round(root.scrollLeft * scale);
+        const top = Math.round(root.scrollTop * scale);
+        const png = `native-${left}-${top}`;
+        images.set(`data:image/png;base64,${png}`, {
+          width,
+          height,
+          values: Array.from({ length: width * height }, (_, i) =>
+            marker(left + (i % width), top + Math.floor(i / width)),
+          ),
+        });
+        return { png, scale };
+      });
+      await stitchCapturedSlicesIntoParts(slices, 37);
+      const width = Math.round(70 * scale);
+      const height = Math.round(80 * scale);
+      expect(outputs.reduce((sum, part) => sum + part.height, 0)).toBe(height);
+      expect(outputs.flatMap((part) => part.values)).toEqual(
+        Array.from({ length: width * height }, (_, i) =>
+          marker(i % width, Math.floor(i / width)),
+        ),
+      );
+      expect([root.scrollLeft, root.scrollTop]).toEqual([5, 7]);
+      expect(root.querySelector('[data-capture-proof]')).toBeNull();
+      expect(root.style.cssText).toBe('');
+      root.remove();
+    },
+  );
+
+  it.each([1, 1.25, 1.5, 2])(
     'preserves every pixel at %sx across overlapping tails and output parts',
     async (scale) => {
       const parts = await stitchCapturedSlicesIntoParts(makeSlices(scale), 5);
-      const width = 7 * scale;
-      const height = 8 * scale;
+      const width = Math.round(7 * scale);
+      const height = Math.round(8 * scale);
       expect(outputs.every((part) => part.width === width)).toBe(true);
       expect(outputs.reduce((sum, part) => sum + part.height, 0)).toBe(height);
       expect(parts).toHaveLength(Math.ceil(height / 5));
@@ -132,7 +220,14 @@ describe('PNG stitch pixel coverage', () => {
           marker(i % 2, offsetTop * 2 + Math.floor(i / 2)),
         ),
       });
-      return { offsetLeft: 0, offsetTop, width: 1, height: 5000, dataUrl };
+      return {
+        offsetLeft: 0,
+        offsetTop,
+        width: 1,
+        height: 5000,
+        dataUrl,
+        scale: 2,
+      };
     });
     await stitchCapturedSlicesIntoParts(slices);
     expect(outputs.map(({ height }) => height)).toEqual([15000, 3000]);

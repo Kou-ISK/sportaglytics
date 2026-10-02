@@ -1,15 +1,12 @@
+import type {
+  CaptureRect,
+  FrameCaptureRequest,
+} from '../../../src/shared/analysis/frameCapture';
 export type UnknownRecord = Record<string, unknown>;
 
 export interface FileDialogFilterPayload {
   name: string;
   extensions: string[];
-}
-
-export interface CaptureRegionPayload {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
 }
 
 export interface SyncDataPayload {
@@ -68,15 +65,58 @@ export const isFileDialogFilterArray = (
   );
 };
 
+const isCaptureRect = (value: unknown): value is CaptureRect =>
+  isPlainObject(value) &&
+  typeof value.x === 'number' &&
+  Number.isFinite(value.x) &&
+  typeof value.y === 'number' &&
+  Number.isFinite(value.y) &&
+  typeof value.width === 'number' &&
+  Number.isFinite(value.width) &&
+  typeof value.height === 'number' &&
+  Number.isFinite(value.height);
+
 export const isCaptureRegionPayload = (
   value: unknown,
-): value is CaptureRegionPayload => {
+): value is FrameCaptureRequest => {
+  if (
+    !isPlainObject(value) ||
+    !isCaptureRect(value) ||
+    !isPlainObject(value.proof)
+  )
+    return false;
+  const proof = value.proof;
+  if (
+    !isCaptureRect(proof.marker) ||
+    typeof proof.nonce !== 'string' ||
+    !/^[0-9a-f]{16}$/.test(proof.nonce)
+  )
+    return false;
+  const { viewportWidth, viewportHeight, marker } = proof;
+  if (
+    typeof viewportWidth !== 'number' ||
+    !Number.isFinite(viewportWidth) ||
+    viewportWidth <= 0 ||
+    viewportWidth > 16384 ||
+    typeof viewportHeight !== 'number' ||
+    !Number.isFinite(viewportHeight) ||
+    viewportHeight <= 0 ||
+    viewportHeight > 16384
+  )
+    return false;
+  const inside = (r: CaptureRect): boolean =>
+    r.x >= 0 &&
+    r.y >= 0 &&
+    r.width > 0 &&
+    r.height > 0 &&
+    r.x + r.width <= viewportWidth &&
+    r.y + r.height <= viewportHeight;
   return (
-    isPlainObject(value) &&
-    Number.isFinite(value.x) &&
-    Number.isFinite(value.y) &&
-    Number.isFinite(value.width) &&
-    Number.isFinite(value.height)
+    inside(value) &&
+    inside(marker) &&
+    Math.abs(marker.width - 20) <= 1 &&
+    Math.abs(marker.height - 20) <= 1 &&
+    marker.y + marker.height <= value.y
   );
 };
 

@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   computeA4PageCount,
   computeHorizontalScrollOffsets,
@@ -8,6 +8,10 @@ import {
   withExportLayoutOverrides,
   captureScrollableContent,
 } from './fullContentCapture';
+
+afterEach(() => {
+  document.body.replaceChildren();
+});
 
 const ensureRaf = () => {
   if (typeof globalThis.requestAnimationFrame !== 'function') {
@@ -151,12 +155,27 @@ describe('withExportLayoutOverrides', () => {
 describe('captureScrollableContent', () => {
   const makeViewport = (): HTMLDivElement => {
     const element = document.createElement('div');
-    element.getBoundingClientRect = () => new DOMRect(0, 0, 4, 3);
+    element.getBoundingClientRect = () => new DOMRect(0, 0, 40, 54);
+    document.body.append(element);
+    let top = 0;
+    let left = 0;
     Object.defineProperties(element, {
-      scrollHeight: { value: 8 },
-      clientHeight: { value: 3 },
-      scrollWidth: { value: 7 },
-      clientWidth: { value: 4 },
+      scrollTop: {
+        get: () => top,
+        set: (value: number) => {
+          top = Math.max(0, Math.min(value, element.scrollHeight - 54));
+        },
+      },
+      scrollLeft: {
+        get: () => left,
+        set: (value: number) => {
+          left = Math.max(0, Math.min(value, 30));
+        },
+      },
+      scrollHeight: { get: () => 80 + (element.style.paddingTop ? 24 : 0) },
+      clientHeight: { value: 54 },
+      scrollWidth: { value: 70 },
+      clientWidth: { value: 40 },
     });
     element.scrollTop = 2;
     element.scrollLeft = 1;
@@ -166,17 +185,17 @@ describe('captureScrollableContent', () => {
   it('captures the final overlapping viewport and restores the original scroll', async () => {
     ensureRaf();
     const element = makeViewport();
-    const capture = vi.fn(async () => 'synthetic');
+    const capture = vi.fn(async () => ({ png: 'synthetic', scale: 1 }));
     const slices = await captureScrollableContent(element, capture);
     expect(
       slices.map(({ offsetLeft, offsetTop }) => [offsetLeft, offsetTop]),
     ).toEqual([
       [0, 0],
-      [3, 0],
-      [0, 3],
-      [3, 3],
-      [0, 5],
-      [3, 5],
+      [30, 0],
+      [0, 30],
+      [30, 30],
+      [0, 50],
+      [30, 50],
     ]);
     expect([element.scrollLeft, element.scrollTop]).toEqual([1, 2]);
   });
@@ -192,14 +211,72 @@ describe('captureScrollableContent', () => {
     expect([element.scrollLeft, element.scrollTop]).toEqual([1, 2]);
   });
 
+  it('rejects scroll changes during native capture instead of relabeling stale pixels', async () => {
+    ensureRaf();
+    const element = makeViewport();
+    await expect(
+      captureScrollableContent(element, async () => {
+        element.scrollTop = 3;
+        return { png: 'synthetic', scale: 1 };
+      }),
+    ).rejects.toThrow('changed during native capture');
+    expect([element.scrollLeft, element.scrollTop]).toEqual([1, 2]);
+  });
+
+  it('rejects layout changes during native capture and restores scroll', async () => {
+    ensureRaf();
+    const element = makeViewport();
+    await expect(
+      captureScrollableContent(element, async () => {
+        element.getBoundingClientRect = () => new DOMRect(0, 0.4, 40, 54);
+        return { png: 'synthetic', scale: 1 };
+      }),
+    ).rejects.toThrow('changed during native capture');
+    expect([element.scrollLeft, element.scrollTop]).toEqual([1, 2]);
+  });
+
   it('rejects an off-screen target before using a clipped image as the pixel scale', async () => {
     const element = makeViewport();
     element.getBoundingClientRect = () =>
       new DOMRect(0, 0, 4, window.innerHeight + 10);
-    const capture = vi.fn(async () => 'synthetic');
+    const capture = vi.fn(async () => ({ png: 'synthetic', scale: 1 }));
     await expect(captureScrollableContent(element, capture)).rejects.toThrow(
       'outside the window',
     );
     expect(capture).not.toHaveBeenCalled();
+  });
+
+  it('removes proof and restores style/scroll after an unmatched native frame', async () => {
+    const element = makeViewport();
+    const style = element.style.cssText;
+    await expect(
+      captureScrollableContent(element, async (request) => {
+        expect(element.querySelector('[data-capture-proof]')).not.toBeNull();
+        expect(element.style.scrollbarWidth).toBe('none');
+        expect(request.y).toBe(24);
+        expect(request.height).toBe(30);
+        expect(
+          request.proof.marker.y + request.proof.marker.height,
+        ).toBeLessThan(request.y);
+        return null;
+      }),
+    ).rejects.toThrow('Failed to capture');
+    expect(element.querySelector('[data-capture-proof]')).toBeNull();
+    expect(element.style.cssText).toBe(style);
+    expect([element.scrollLeft, element.scrollTop]).toEqual([1, 2]);
+  });
+
+  it('does not accept a frame when the capture root was unmounted', async () => {
+    const element = makeViewport();
+    const style = element.style.cssText;
+    await expect(
+      captureScrollableContent(element, async () => {
+        element.remove();
+        return { png: 'synthetic', scale: 1 };
+      }),
+    ).rejects.toThrow('changed during native capture');
+    expect(element.querySelector('[data-capture-proof]')).toBeNull();
+    expect(element.style.cssText).toBe(style);
+    expect([element.scrollLeft, element.scrollTop]).toEqual([1, 2]);
   });
 });

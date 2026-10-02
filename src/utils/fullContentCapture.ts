@@ -2,12 +2,14 @@
  * スクロール領域を分割キャプチャして、PNG エクスポート用の
  * 連結可能なスナップショット群へ変換する utility。
  */
-interface CaptureRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+import type {
+  FrameCaptureRequest,
+  FrameCaptureResult,
+} from '../shared/analysis/frameCapture';
+import {
+  withFrameCaptureViewport,
+  waitForCapturePaint,
+} from './frameCaptureViewport';
 
 interface FullCaptureSlice {
   offsetLeft: number;
@@ -15,9 +17,12 @@ interface FullCaptureSlice {
   width: number;
   height: number;
   dataUrl: string;
+  scale: number;
 }
 
-type CaptureRegionFn = (rect: CaptureRect) => Promise<string | null>;
+type CaptureRegionFn = (
+  rect: FrameCaptureRequest,
+) => Promise<FrameCaptureResult | null>;
 
 type HorizontalCaptureMode = 'off' | 'auto' | 'force';
 
@@ -25,12 +30,7 @@ interface CaptureScrollableContentOptions {
   horizontal?: HorizontalCaptureMode;
 }
 
-const waitForPaint = () =>
-  new Promise<void>((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => resolve());
-    });
-  });
+const waitForPaint = waitForCapturePaint;
 
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -46,9 +46,10 @@ const toDataUrl = (base64: string) =>
 export const computeScrollOffsets = (
   scrollHeight: number,
   viewportHeight: number,
+  scale = 1,
 ): number[] => {
-  const total = Math.max(0, Math.floor(scrollHeight));
-  const viewport = Math.max(1, Math.floor(viewportHeight));
+  const total = Math.max(0, scrollHeight);
+  const viewport = Math.max(1, viewportHeight);
   const maxOffset = Math.max(0, total - viewport);
 
   if (maxOffset === 0) {
@@ -56,8 +57,9 @@ export const computeScrollOffsets = (
   }
 
   const offsets: number[] = [];
-  for (let offset = 0; offset < maxOffset; offset += viewport) {
-    offsets.push(offset);
+  const stepPixels = Math.max(1, Math.round(viewport * scale));
+  for (let pixel = 0; pixel / scale < maxOffset; pixel += stepPixels) {
+    offsets.push(pixel / scale);
   }
 
   const last = offsets[offsets.length - 1];
@@ -72,6 +74,7 @@ export const computeHorizontalScrollOffsets = (
   scrollWidth: number,
   viewportWidth: number,
   mode: HorizontalCaptureMode = 'force',
+  scale = 1,
 ): number[] => {
   if (mode === 'off') {
     return [0];
@@ -81,7 +84,7 @@ export const computeHorizontalScrollOffsets = (
     return [0];
   }
 
-  return computeScrollOffsets(scrollWidth, viewportWidth);
+  return computeScrollOffsets(scrollWidth, viewportWidth, scale);
 };
 
 export const computeA4PageCount = (
@@ -130,6 +133,14 @@ export const withExportLayoutOverrides = async <T>(
 
   for (const element of nodes) {
     const computed = window.getComputedStyle(element);
+    if (
+      ['auto', 'scroll'].includes(computed.overflowX) ||
+      ['auto', 'scroll'].includes(computed.overflowY)
+    ) {
+      register(element);
+      element.style.scrollbarWidth = 'none';
+      element.style.scrollbarGutter = 'auto';
+    }
 
     if (computed.position === 'sticky') {
       register(element);
@@ -198,79 +209,112 @@ export const captureScrollableContent = async (
   captureRegionFn: CaptureRegionFn,
   options: CaptureScrollableContentOptions = {},
 ): Promise<FullCaptureSlice[]> => {
-  const { horizontal = 'force' } = options;
-  const rect = container.getBoundingClientRect();
-  const width = Math.ceil(rect.width);
-  const height = Math.ceil(rect.height);
+  return withFrameCaptureViewport(container, async (viewport) => {
+    const { horizontal = 'force' } = options;
+    const rect = container.getBoundingClientRect();
+    const width = viewport.rect.width;
+    const height = viewport.rect.height;
 
-  if (width <= 0 || height <= 0) {
-    return [];
-  }
-  if (
-    rect.left < 0 ||
-    rect.top < 0 ||
-    rect.left + width > window.innerWidth + 1 ||
-    rect.top + height > window.innerHeight + 1
-  ) {
-    throw new Error('Capture viewport is outside the window');
-  }
-
-  const originalScrollTop = container.scrollTop;
-  const originalScrollLeft = container.scrollLeft;
-  const verticalOffsets = computeScrollOffsets(
-    container.scrollHeight,
-    container.clientHeight,
-  );
-  const horizontalOffsets = computeHorizontalScrollOffsets(
-    container.scrollWidth,
-    container.clientWidth,
-    horizontal,
-  );
-  const slices: FullCaptureSlice[] = [];
-
-  try {
-    for (const offsetTop of verticalOffsets) {
-      container.scrollTop = offsetTop;
-      for (const offsetLeft of horizontalOffsets) {
-        container.scrollLeft = offsetLeft;
-        await waitForPaint();
-        const currentRect = container.getBoundingClientRect();
-        if (
-          Math.abs(currentRect.left - rect.left) > 1 ||
-          Math.abs(currentRect.top - rect.top) > 1 ||
-          Math.abs(currentRect.width - rect.width) > 1 ||
-          Math.abs(currentRect.height - rect.height) > 1
-        ) {
-          throw new Error('Capture viewport changed during export');
-        }
-
-        const captured = await captureRegionFn({
-          x: Math.floor(rect.left),
-          y: Math.floor(rect.top),
-          width,
-          height,
-        });
-        if (!captured) {
-          throw new Error(
-            `Failed to capture region at offset (${offsetLeft}, ${offsetTop})`,
-          );
-        }
-        slices.push({
-          offsetLeft: container.scrollLeft,
-          offsetTop: container.scrollTop,
-          width,
-          height,
-          dataUrl: toDataUrl(captured),
-        });
-      }
+    if (width <= 0 || height <= 0) {
+      return [];
     }
-  } finally {
-    container.scrollLeft = originalScrollLeft;
-    container.scrollTop = originalScrollTop;
-    await waitForPaint();
-  }
+    if (
+      rect.left < 0 ||
+      rect.top < 0 ||
+      rect.left + width > window.innerWidth + 1 ||
+      rect.top + height > window.innerHeight + 1
+    ) {
+      throw new Error('Capture viewport is outside the window');
+    }
 
-  return slices;
+    const initialScale = devicePixelRatio;
+    const originalScrollTop = container.scrollTop;
+    const originalScrollLeft = container.scrollLeft;
+    const initialScrollHeight = container.scrollHeight;
+    const initialScrollWidth = container.scrollWidth;
+    // scrollHeight/clientHeight are integer CSS pixels. Read the browser's real
+    // clamped endpoint to retain fractional viewport/tail coverage.
+    container.scrollTop = initialScrollHeight;
+    container.scrollLeft = initialScrollWidth;
+    const verticalOffsets = computeScrollOffsets(
+      container.scrollTop + height,
+      height,
+      initialScale,
+    );
+    const horizontalOffsets = computeHorizontalScrollOffsets(
+      container.scrollLeft + width,
+      width,
+      horizontal,
+      initialScale,
+    );
+    const slices: FullCaptureSlice[] = [];
+
+    try {
+      for (const offsetTop of verticalOffsets) {
+        container.scrollTop = offsetTop;
+        for (const offsetLeft of horizontalOffsets) {
+          container.scrollLeft = offsetLeft;
+          const proof = viewport.proof();
+          await waitForPaint();
+          if (!container.isConnected) throw new Error('Capture target removed');
+          const currentRect = container.getBoundingClientRect();
+          if (
+            container.scrollHeight !== initialScrollHeight ||
+            container.scrollWidth !== initialScrollWidth ||
+            devicePixelRatio !== initialScale ||
+            currentRect.left !== rect.left ||
+            currentRect.top !== rect.top ||
+            currentRect.width !== rect.width ||
+            currentRect.height !== rect.height
+          ) {
+            throw new Error('Capture viewport changed during export');
+          }
+
+          // Bind the image to the viewport that requested it, not a later scroll.
+          const capturedScrollLeft = container.scrollLeft;
+          const capturedScrollTop = container.scrollTop;
+          const capturedScrollHeight = container.scrollHeight;
+          const capturedScrollWidth = container.scrollWidth;
+          const captured = await captureRegionFn({ ...viewport.rect, proof });
+          if (!captured) {
+            throw new Error(
+              `Failed to capture region at offset (${offsetLeft}, ${offsetTop})`,
+            );
+          }
+          const capturedRect = container.getBoundingClientRect();
+          if (
+            !container.isConnected ||
+            devicePixelRatio !== initialScale ||
+            Math.abs(captured.scale - initialScale) > 0.000001 ||
+            container.scrollHeight !== capturedScrollHeight ||
+            container.scrollWidth !== capturedScrollWidth ||
+            container.scrollLeft !== capturedScrollLeft ||
+            container.scrollTop !== capturedScrollTop ||
+            capturedRect.left !== currentRect.left ||
+            capturedRect.top !== currentRect.top ||
+            capturedRect.width !== currentRect.width ||
+            capturedRect.height !== currentRect.height
+          ) {
+            throw new Error('Capture viewport changed during native capture');
+          }
+          slices.push({
+            offsetLeft: capturedScrollLeft,
+            offsetTop: capturedScrollTop,
+            width,
+            height,
+            dataUrl: toDataUrl(captured.png),
+            scale: captured.scale,
+          });
+        }
+      }
+    } finally {
+      container.scrollLeft = originalScrollLeft;
+      container.scrollTop = originalScrollTop;
+      await waitForPaint();
+    }
+
+    return slices;
+  });
 };
 
 export const stitchCapturedSlicesIntoParts = async (
@@ -286,10 +330,10 @@ export const stitchCapturedSlicesIntoParts = async (
     })),
   );
 
-  // Scroll positions are CSS pixels; Electron PNGs may contain Retina pixels.
-  // Derive the actual capture scale from the decoded image, not the display DPR.
-  const scaleX = loaded[0].image.width / loaded[0].width;
-  const scaleY = loaded[0].image.height / loaded[0].height;
+  // The native frame's scale avoids inferring a fractional scale from a rounded
+  // tile dimension; validate the decoded dimensions against that same mapping.
+  const scaleX = loaded[0].scale;
+  const scaleY = loaded[0].scale;
   if (
     !Number.isFinite(scaleX) ||
     !Number.isFinite(scaleY) ||
@@ -300,6 +344,7 @@ export const stitchCapturedSlicesIntoParts = async (
   }
   const positioned = loaded.map((slice) => {
     if (
+      slice.scale !== scaleX ||
       Math.abs(slice.image.width - slice.width * scaleX) > 1 ||
       Math.abs(slice.image.height - slice.height * scaleY) > 1
     ) {
@@ -314,10 +359,13 @@ export const stitchCapturedSlicesIntoParts = async (
 
   const width = Math.max(
     1,
-    ...positioned.map((slice) => slice.pixelLeft + slice.image.width),
+    ...positioned.map((slice) =>
+      Math.round((slice.offsetLeft + slice.width) * scaleX),
+    ),
   );
   const totalHeight = positioned.reduce(
-    (max, slice) => Math.max(max, slice.pixelTop + slice.image.height),
+    (max, slice) =>
+      Math.max(max, Math.round((slice.offsetTop + slice.height) * scaleY)),
     0,
   );
 

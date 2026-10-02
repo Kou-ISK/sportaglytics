@@ -107,7 +107,7 @@ it('removes the real menu and finishes pie labels before the first native captur
       expect(
         document.querySelector('.recharts-pie-label-text')?.textContent,
       ).toBe('Synthetic: 100.0%');
-      return 'synthetic';
+      return { png: 'synthetic', scale: 1 };
     },
   );
   render(<Harness />);
@@ -154,4 +154,36 @@ it('does not save a partial image or claim success after a capture failure', asy
       .getByRole('button', { name: 'エクスポート' })
       .hasAttribute('disabled'),
   ).toBe(false);
+});
+
+it('restores the viewport and proof before a canceled save dialog', async () => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
+    new DOMRect(0, 0, 600, 260),
+  );
+  vi.mocked(gateway.captureAnalysisWindowRegionAsPng).mockResolvedValue({
+    png: 'synthetic',
+    scale: 1,
+  });
+  vi.mocked(gateway.exportAnalysisPngParts).mockImplementationOnce(async () => {
+    expect(document.querySelector('[data-capture-proof]')).toBeNull();
+    expect(screen.getByTestId('capture-root').style.paddingTop).toBe('');
+    return { success: false, canceled: true, partCount: 0 };
+  });
+  render(<Harness />);
+  fireEvent.click(screen.getByRole('button', { name: 'エクスポート' }));
+  fireEvent.click(
+    screen.getByRole('menuitem', { name: '現在タブをPNGで保存（全内容）' }),
+  );
+  await waitFor(() =>
+    expect(gateway.exportAnalysisPngParts).toHaveBeenCalledOnce(),
+  );
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole('button', { name: 'エクスポート' })
+        .hasAttribute('disabled'),
+    ).toBe(false),
+  );
+  expect(notification.success).not.toHaveBeenCalled();
+  expect(notification.error).not.toHaveBeenCalled();
 });

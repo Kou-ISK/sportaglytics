@@ -116,3 +116,5 @@ AI agent は次の順で参照してください。
 
 - [Portable playlist references (ADR 0051)](adr/0051-portable-playlist-references.md)
 - [Playlist default angles (ADR 0052)](adr/0052-playlist-default-angles.md)
+
+分析PNGのフレーム同期と画素境界の判断は[ADR 0057](adr/0057-verified-analysis-frame-capture.md)を参照してください。
