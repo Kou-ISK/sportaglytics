@@ -13,6 +13,8 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 再生時刻の補正方針は[ADR 0046](adr/0046-coalesced-playback-corrections.md)を参照してください。
 
+ダッシュボードの固定テンプレートと複製・保存の契約は[ADR 0056](adr/0056-built-in-dashboard-editing-contract.md)を参照してください。
+
 ## Start Here
 
 | 目的                           | 読むもの                                                                                         |

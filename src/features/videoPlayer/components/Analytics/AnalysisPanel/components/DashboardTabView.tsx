@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Stack } from '@mui/material';
+import { Alert, Box, Stack } from '@mui/material';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import type { DashboardTabController } from '../controllers/dashboardTabController.types';
 import { FilterSummaryBar } from './FilterSummaryBar';
@@ -34,6 +34,8 @@ export const DashboardTabView = ({
   teamContext,
   compactControlSx,
   isEditing,
+  isSaving,
+  saveError,
   editorOpen,
   editingWidget,
   dashboardFilters,
@@ -99,15 +101,17 @@ export const DashboardTabView = ({
         }}
       >
         <Stack spacing={1.5}>
+          {saveError && <Alert severity="error">{saveError}</Alert>}
           <DashboardHeaderBar
             compactControlSx={compactControlSx}
             activeDashboardId={activeDashboardId}
             dashboards={dashboards}
             isEditing={isEditing}
+            isSaving={isSaving}
             onDashboardChange={(nextId) => {
               void handleDashboardChange(nextId);
             }}
-            onStartEdit={handleStartEdit}
+            onStartEdit={() => void handleStartEdit()}
             onAddWidget={handleAddWidget}
             onCancelEdit={handleCancelEdit}
             onSave={() => {
@@ -157,7 +161,7 @@ export const DashboardTabView = ({
 
       <DashboardWidgetGrid
         widgets={widgets}
-        isEditing={isEditing}
+        isEditing={isEditing && !isSaving}
         onAddWidget={handleAddWidget}
         onEditWidget={openEditor}
         onDuplicateWidget={handleDuplicate}
@@ -183,6 +187,8 @@ export const DashboardTabView = ({
       />
 
       <DashboardManagementDialogs
+        isSaving={isSaving}
+        saveError={saveError}
         createDialogOpen={createDialogOpen}
         onCreateDialogClose={() => {
           setCreateDialogOpen(false);

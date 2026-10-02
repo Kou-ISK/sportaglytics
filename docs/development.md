@@ -44,6 +44,8 @@ Timelineのピンチは`useTimelineViewport.gesture.test.ts`で整数ピクセ�
 
 分析表示は`Workspace/Analysis/Dashboard`の適合データ・テンプレート不一致・フィルタ不一致・真の0件を分けて確認します。`fixtures/reviewTimeline.ts`は6行24場面の合成データです。`AIInput` / `AIResult`は未実行・生成中・失敗・根拠ありのprops-only fixture、`Momentum`はポゼッション適合/不適合、`Workspace/Onboarding`は案内の移動・終了を確認します。LLM実行やnative I/OをStorybookのcallbackで代替した結果を、それらの動作保証としません。
 
+ダッシュボードの保存契約は`useDashboardTabController.test.tsx`で実`useSettings`と合成のメモリ保存gatewayを接続し、コピー・新規・編集・保存・再mount・キャンセル・保存失敗・外部import拒否を確認します。`dashboardNormalizers.test.ts`は固定template復元、count/duration保持、旧設定移行を検証します。`Workspace/Analysis/DashboardHeader`で固定/コピー/編集中/保存中を描画確認し、Macでは合成プロファイルの設定再読込と`.stad`往復を別途確認します。[保存契約](adr/0056-built-in-dashboard-editing-contract.md)。
+
 ## 開発環境
 
 | ツール  | バージョン |

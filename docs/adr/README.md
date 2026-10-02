@@ -113,3 +113,4 @@ YYYY-MM-DD
 ```
 
 | [0055](0055-timeline-review-without-document-filtering.md) | Timeline review without document filtering | Accepted | 2026-10-01 |
+| [0056](0056-built-in-dashboard-editing-contract.md) | Built-in dashboard editing contract | Accepted | 2026-10-02 |

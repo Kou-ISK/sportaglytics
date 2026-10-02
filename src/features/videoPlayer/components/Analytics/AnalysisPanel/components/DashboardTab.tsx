@@ -66,7 +66,7 @@ export const DashboardTab = ({
   onJumpToSegment,
   dashboardFilters: controlledDashboardFilters,
   onDashboardFiltersChange,
-}: DashboardTabProps) => {
+}: DashboardTabProps): React.JSX.Element => {
   const theme = useTheme();
   const {
     availableGroups,
@@ -78,6 +78,8 @@ export const DashboardTab = ({
     teamContext,
     compactControlSx,
     isEditing,
+    isSaving,
+    saveError,
     draftWidgets,
     editorOpen,
     editingWidget,
@@ -159,6 +161,8 @@ export const DashboardTab = ({
       teamContext={teamContext}
       compactControlSx={compactControlSx}
       isEditing={isEditing}
+      isSaving={isSaving}
+      saveError={saveError}
       draftWidgets={draftWidgets}
       editorOpen={editorOpen}
       editingWidget={editingWidget}

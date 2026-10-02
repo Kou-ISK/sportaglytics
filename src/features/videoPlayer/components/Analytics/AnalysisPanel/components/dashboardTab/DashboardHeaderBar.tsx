@@ -2,6 +2,7 @@ import React from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import EditIcon from '@mui/icons-material/Edit';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import SaveIcon from '@mui/icons-material/Save';
 import {
   Box,
@@ -23,6 +24,7 @@ interface DashboardHeaderBarProps {
   activeDashboardId: string;
   dashboards: AnalysisDashboard[];
   isEditing: boolean;
+  isSaving: boolean;
   onDashboardChange: (nextId: string) => void;
   onStartEdit: () => void;
   onAddWidget: () => void;
@@ -36,6 +38,7 @@ export const DashboardHeaderBar = ({
   activeDashboardId,
   dashboards,
   isEditing,
+  isSaving,
   onDashboardChange,
   onStartEdit,
   onAddWidget,
@@ -43,6 +46,7 @@ export const DashboardHeaderBar = ({
   onSave,
   onOpenManagementMenu,
 }: DashboardHeaderBarProps): React.JSX.Element => {
+  const isTemplate = activeDashboardId === 'template-basic';
   return (
     <Box
       display="flex"
@@ -60,7 +64,7 @@ export const DashboardHeaderBar = ({
           labelId="dashboard-select-label"
           value={activeDashboardId}
           label="ダッシュボード"
-          disabled={isEditing}
+          disabled={isEditing || isSaving}
           onChange={(event) => onDashboardChange(event.target.value as string)}
         >
           {dashboards.map((dashboard) => (
@@ -77,10 +81,14 @@ export const DashboardHeaderBar = ({
         flexWrap="wrap"
         useFlexGap
       >
+        {isTemplate && (
+          <Chip label="読み取り専用" size="small" variant="outlined" />
+        )}
         {isEditing && <Chip label="編集モード" color="warning" size="small" />}
         {isEditing ? (
           <>
             <Button
+              disabled={isSaving}
               size="small"
               variant="outlined"
               startIcon={<AddIcon />}
@@ -88,37 +96,48 @@ export const DashboardHeaderBar = ({
             >
               チャートを追加
             </Button>
-            <Button size="small" variant="outlined" onClick={onCancelEdit}>
+            <Button
+              disabled={isSaving}
+              size="small"
+              variant="outlined"
+              onClick={onCancelEdit}
+            >
               キャンセル
             </Button>
             <Button
+              disabled={isSaving}
               size="small"
               variant="contained"
               startIcon={<SaveIcon />}
               onClick={onSave}
             >
-              保存
+              {isSaving ? '保存中…' : '保存'}
             </Button>
           </>
         ) : (
           <>
             <Button
+              disabled={isSaving}
               size="small"
               variant="outlined"
-              startIcon={<EditIcon />}
+              startIcon={isTemplate ? <ContentCopyIcon /> : <EditIcon />}
               onClick={onStartEdit}
             >
-              編集
+              {isTemplate ? '複製して編集' : '編集'}
             </Button>
+            {!isTemplate && (
+              <Button
+                disabled={isSaving}
+                size="small"
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={onAddWidget}
+              >
+                チャートを追加
+              </Button>
+            )}
             <Button
-              size="small"
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={onAddWidget}
-            >
-              チャートを追加
-            </Button>
-            <Button
+              disabled={isSaving}
               size="small"
               variant="outlined"
               startIcon={<DashboardIcon />}

@@ -4,6 +4,8 @@ Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop 
 
 # SporTagLytics System Overview
 
+組み込みdashboardは固定IDを維持し、利用者の編集は新IDのコピーへ保存します。`useDashboardPersistence`は既存`useSettings`のboolean結果と進行状態を扱い、Controllerは成功後にのみ編集終了・切替を反映します。正規化はcount/durationを保持し、既存移行は継続します。[ADR 0056](adr/0056-built-in-dashboard-editing-contract.md)。
+
 分析UIは既存の集計とcallbackを維持し、データに一致しないチャートの表示だけを縮めます。初回案内のprops-only Viewは共通UI patternsへ配置し、完了状態の保存・外部イベントは従来のControllerが所有します。
 
 起動画面・新規作成の表示は既存のprops-only Viewで構成し、開始操作・履歴・ロード復旧のcallback境界を保ちます。[起動画面](start-workspace.md)に表示と操作をまとめています。

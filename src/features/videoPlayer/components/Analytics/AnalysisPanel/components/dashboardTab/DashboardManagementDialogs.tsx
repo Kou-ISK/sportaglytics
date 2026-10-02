@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   Button,
   Dialog,
   DialogActions,
@@ -11,6 +12,8 @@ import {
 import type { AnalysisDashboard } from '../../../../../../../types/settings/coreTypes';
 
 interface DashboardManagementDialogsProps {
+  isSaving: boolean;
+  saveError: string | null;
   createDialogOpen: boolean;
   onCreateDialogClose: () => void;
   newDashboardName: string;
@@ -26,6 +29,8 @@ interface DashboardManagementDialogsProps {
 }
 
 export const DashboardManagementDialogs = ({
+  isSaving,
+  saveError,
   createDialogOpen,
   onCreateDialogClose,
   newDashboardName,
@@ -38,21 +43,27 @@ export const DashboardManagementDialogs = ({
   onDeleteDialogClose,
   activeDashboard,
   onDeleteDashboard,
-}: DashboardManagementDialogsProps) => {
+}: DashboardManagementDialogsProps): React.JSX.Element => {
   return (
     <>
       <Dialog
         open={createDialogOpen}
-        onClose={onCreateDialogClose}
+        onClose={isSaving ? undefined : onCreateDialogClose}
         fullWidth
         maxWidth="sm"
       >
         <DialogTitle>ダッシュボードを新規作成</DialogTitle>
         <DialogContent>
+          {saveError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {saveError}
+            </Alert>
+          )}
           <DialogContentText sx={{ mb: 2 }}>
             名前を入力して新しいダッシュボードを作成します。
           </DialogContentText>
           <TextField
+            disabled={isSaving}
             autoFocus
             fullWidth
             size="small"
@@ -68,8 +79,14 @@ export const DashboardManagementDialogs = ({
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={onCreateDialogClose}>キャンセル</Button>
-          <Button variant="contained" onClick={() => void onCreateDashboard()}>
+          <Button disabled={isSaving} onClick={onCreateDialogClose}>
+            キャンセル
+          </Button>
+          <Button
+            disabled={isSaving}
+            variant="contained"
+            onClick={() => void onCreateDashboard()}
+          >
             作成
           </Button>
         </DialogActions>
@@ -77,19 +94,27 @@ export const DashboardManagementDialogs = ({
 
       <Dialog
         open={discardDialogOpen}
-        onClose={onDiscardDialogClose}
+        onClose={isSaving ? undefined : onDiscardDialogClose}
         fullWidth
         maxWidth="xs"
       >
         <DialogTitle>編集中の変更を破棄しますか？</DialogTitle>
         <DialogContent>
+          {saveError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {saveError}
+            </Alert>
+          )}
           <DialogContentText>
             保存していない変更は失われます。ダッシュボードを切り替えますか。
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onDiscardDialogClose}>キャンセル</Button>
+          <Button disabled={isSaving} onClick={onDiscardDialogClose}>
+            キャンセル
+          </Button>
           <Button
+            disabled={isSaving}
             color="warning"
             variant="contained"
             onClick={() => void onConfirmDiscardAndSwitch()}
@@ -101,20 +126,28 @@ export const DashboardManagementDialogs = ({
 
       <Dialog
         open={deleteDialogOpen}
-        onClose={onDeleteDialogClose}
+        onClose={isSaving ? undefined : onDeleteDialogClose}
         fullWidth
         maxWidth="xs"
       >
         <DialogTitle>ダッシュボードを削除</DialogTitle>
         <DialogContent>
+          {saveError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {saveError}
+            </Alert>
+          )}
           <DialogContentText>
             「{activeDashboard?.name ?? ''}
             」を削除します。この操作は元に戻せません。
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onDeleteDialogClose}>キャンセル</Button>
+          <Button disabled={isSaving} onClick={onDeleteDialogClose}>
+            キャンセル
+          </Button>
           <Button
+            disabled={isSaving}
             color="error"
             variant="contained"
             onClick={() => void onDeleteDashboard()}

@@ -6,6 +6,8 @@
 
 開始画面では処理状態をヘッダー直下に置き、操作・履歴より先に確認できるようにします。エラーはfocus可能なAlertとし、busyのlive regionをaria-busyな操作領域の外に置きます。狭幅の映像選択はアングル一覧とclip編集の最低高さを共に確保し、短いwindowでは本文をスクロールさせます。
 
+固定dashboardは読み取り専用表示と「複製して編集」の入口を併記します。保存待ちでは変更操作を無効にし、失敗は操作中のheaderまたはdialog内にAlertを残します。保存成功前に編集終了へ切り替えません。
+
 # SporTagLytics Design System (Native Analysis / Dark-first)
 
 Timelineのレビュー欄は既存のsurface/divider/text/primaryを共有し、検索・時刻順結果・全文詳細を分けます。既定は閉じ、フッターに入口を置いて行表示の高さを維持します。検索ドックは時間軸の全幅を保ち、結果と全文詳細を並列表示します。狭幅でもTimelineを残し、閉じる操作とfocus復帰を常時提供します。Tabは通常の移動を優先します。[操作の正本](timeline-review.md)。
