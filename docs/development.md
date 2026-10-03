@@ -2,6 +2,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # 開発ガイド
 
+Electronは43.5.1へ固定します。[公式advisory](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)は43.4.2を修正版とし、[GitHub Advisory Database](https://github.com/advisories/GHSA-qmv3-fv6v-rmhq)は43.5.0を境界としています。npmに43.4.2の公開版がないため、両方の条件を満たす[正式patch版43.5.1](https://github.com/electron/electron/releases/tag/v43.5.1)を採用します。lockfile固定でinstallし、packaged appの実runtime versionを確認してください。runtime更新後はsandbox preload・YouTube埋込の起動と分析PNGのcold初回DPR1/2をMacで再確認し、旧runtimeの合格を流用しません。署名・公証は別の配布条件です。Joi18.2.6 overrideはwait-on9.1.0の開発依存への対応で、配布runtime更新とは分けて扱います。
+
 Timeline reviewを変更する場合は`Workspace/Timeline/Review` storiesと`node scripts/e2e-ux-review.mjs`を確認してください。E2Eは一時profileと合成240件・24行を使い、検索→映像→編集→Playlist→分析→再開を検証します。OSファイルダイアログの取消結果はadapterを置換し、Finder自体の操作は検証しません。スクリーンショットは`E2E_SCREENSHOT_DIR=output/playwright/ux-review`で保存できます。[評価範囲と手順](reports/2026-10-ux-review.md)。
 
 パッケージ互換を変更するときは、[互換・原本保護の仕様](package-compatibility.md)に従って既知構造と未知versionを分け、原本へのin-place migrationを追加しないでください。Mainのvalidation/snapshot/copyとRendererのload-gated persistenceを別々に検証します。Sportscode XMLのDomain・Hook・View・Gatewayを分離し、通常TimelineへのJSON置換と混ぜません。`e2e-package-safety.mjs` / `e2e-sportscode-import.mjs`は合成データと独立profileだけを使います。重いbuild/Electron/full suiteは同じ端末で並列に起動しないでください。

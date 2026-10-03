@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Electron runtimeを43.3.0から43.5.1へ更新し、信頼できない内容を読み込むsandboxed preloadのcode cacheに関する[GHSA-qmv3-fv6v-rmhq](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)へ対応。同じ43 major内の正式版に固定し、既存UI・IPC・保存形式・署名設定は維持。
+
+- 開発用wait-onのJoi overrideを[GHSA-6h2x-m376-mqjq](https://github.com/hapijs/joi/security/advisories/GHSA-6h2x-m376-mqjq)の修正版18.2.6へ更新。配布runtimeには含めません。
+
 - Retinaなどの高DPI環境で分析の全内容PNGが継ぎ目を上書きし、チャートや見出しを欠落させる問題を修正。メニューを除去し、チャートのアニメーションを停止してから撮影・合成するよう変更。 撮影ごとの検証模様と位置が一致したフレームだけを保存し、スクロールバーを除去、分数倍率でも切り出しと合成の画素境界を統一。
 
 - Dashboardの割合円グラフでtooltipが割合を重複表示する問題を修正し、集計元の件数・秒数を併記。[表示](docs/user-guide.md#ダッシュボードv040以降)。

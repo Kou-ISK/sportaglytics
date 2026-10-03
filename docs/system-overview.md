@@ -4,6 +4,8 @@ Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop 
 
 # SporTagLytics System Overview
 
+配布runtimeは同じ43 majorのElectron43.5.1へ固定し、sandboxed preloadのcode cacheに関する[GHSA-qmv3-fv6v-rmhq](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)の修正版を使用します。既存のsandbox・contextIsolation・webSecurity、IPC公開面、protocolと署名設定は維持します。開発用wait-onのJoi18.2.6 overrideは配布runtimeに含めません。
+
 組み込みdashboardは固定IDを維持し、利用者の編集は新IDのコピーへ保存します。`useDashboardPersistence`は既存`useSettings`のboolean結果と進行状態を扱い、Controllerは成功後にのみ編集終了・切替を反映します。正規化はcount/durationを保持し、既存移行は継続します。[ADR 0056](adr/0056-built-in-dashboard-editing-contract.md)。
 
 分析UIは既存の集計とcallbackを維持し、データに一致しないチャートの表示だけを縮めます。初回案内のprops-only Viewは共通UI patternsへ配置し、完了状態の保存・外部イベントは従来のControllerが所有します。
