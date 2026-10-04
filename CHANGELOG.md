@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 初回Playlistの描画が遅い場合も、受信listenerの準備完了までMainがclip追加と同期を保持し、順番に届ける。固定時間の待機に依存しない。[受信契約](docs/adr/0059-playlist-renderer-delivery-readiness.md)。
 
+### Changed
+
+- Electron E2EのTimelineコピー保存と戦術盤準備を操作の完了条件で待機し、ライブキャプチャのbuffer不足診断を追加。件数・保存内容・オフライン認識・非seek waiting=0の検査を維持。[検証契約](docs/testing.md)。
+
 ## [0.17.2] - 未公開
 
 リリース準備中です。配布物とHomebrewの更新は、品質ゲート・Windows検証・macOS署名と公証・レビューの通過後に行います。[Release手順](.github/RELEASE.md)。

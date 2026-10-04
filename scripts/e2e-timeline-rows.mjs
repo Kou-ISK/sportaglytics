@@ -468,9 +468,8 @@ try {
       document.querySelectorAll('[data-testid^="timeline-instance-"]')
         .length === 3,
   );
-  await page.waitForTimeout(400);
-  const optionCopiedDocument = JSON.parse(
-    await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
+  const optionCopiedDocument = await waitForTimeline(
+    (document) => document.instances.length === 3,
   );
   assert.equal(optionCopiedDocument.instances.length, 3);
   assert.equal(optionCopiedDocument.instances[2].actionName, 'Attack');

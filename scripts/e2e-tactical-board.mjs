@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { _electron as electron } from 'playwright';
+import { _electron as electron, expect } from 'playwright';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
@@ -52,16 +52,27 @@ const app = await electron.launch(
   getElectronLaunchOptions(path.join(work, 'profile')),
 );
 let diagnostics = '';
+const remote = [];
+const pending = new Set();
+let recognitionStarted = false;
+app.context().on('request', (request) => {
+  pending.add(request);
+  if (/^https?:\/\//.test(request.url())) {
+    remote.push({
+      url: request.url(),
+      type: request.resourceType(),
+      phase: recognitionStarted ? 'recognition' : 'startup',
+    });
+  }
+});
+app.context().on('requestfinished', (request) => pending.delete(request));
+app.context().on('requestfailed', (request) => pending.delete(request));
 app.process().stderr.on('data', (data) => {
   diagnostics = (diagnostics + data.toString()).slice(-5000);
 });
 try {
   // Neither recognition code, models nor footage may be fetched from a server.
-  const remote = [];
-  await app.context().route(/^https?:\/\//, (route) => {
-    remote.push(route.request().url());
-    return route.abort();
-  });
+  await app.context().route(/^https?:\/\//, (route) => route.abort());
   const main = await app.firstWindow();
   console.log('Application ready');
   await main.evaluate(() =>
@@ -89,12 +100,35 @@ try {
   await page.getByRole('button', { name: '戦術盤を開く' }).click();
   const dialog = page.getByRole('dialog', { name: /戦術盤/ });
   await dialog.waitFor();
-  // Video.js initializes its YouTube adapter when a window loads. Block that
-  // too, then measure only the explicit recognition operation, not startup.
-  await page.waitForLoadState('networkidle');
-  remote.length = 0;
+  // The enabled action proves the stopped frame and calibration are ready.
+  // Streaming/local media need not reach page-wide network idle. The one known
+  // adapter startup script is still blocked; every recognition HTTP request fails.
+  const recognize = dialog.getByRole('button', {
+    name: '映像から配置候補を認識',
+  });
+  await expect(recognize).toBeEnabled({ timeout: 15000 });
+  assert.ok(
+    remote.every(
+      (request) =>
+        request.phase === 'startup' &&
+        request.type === 'script' &&
+        request.url === 'https://www.youtube.com/iframe_api',
+    ),
+    `Unexpected startup HTTP request: ${JSON.stringify(remote)}`,
+  );
+  console.log(
+    'Board ready; active requests:',
+    JSON.stringify(
+      [...pending].map((request) => ({
+        url: request.url(),
+        type: request.resourceType(),
+      })),
+    ),
+  );
+  const startupRequestCount = remote.length;
+  recognitionStarted = true;
   console.log('Board open; running bundled model');
-  await dialog.getByRole('button', { name: '映像から配置候補を認識' }).click();
+  await recognize.click();
   await dialog
     .getByText(/ピッチ内の候補がありません。|映像の認識に失敗しました。/)
     .waitFor({ timeout: 120000 });
@@ -106,7 +140,7 @@ try {
     'Bundled recognition must complete successfully',
   );
   assert.equal(
-    remote.length,
+    remote.length - startupRequestCount,
     0,
     `Recognition must work with all HTTP requests blocked: ${JSON.stringify(remote)}`,
   );
@@ -251,6 +285,16 @@ try {
 } catch (error) {
   console.error(error);
   console.error(diagnostics);
+  console.error('HTTP requests:', JSON.stringify(remote));
+  console.error(
+    'Active requests:',
+    JSON.stringify(
+      [...pending].map((request) => ({
+        url: request.url(),
+        type: request.resourceType(),
+      })),
+    ),
+  );
   throw error;
 } finally {
   await app.evaluate(({ app }) => app.exit(0)).catch(() => {});
