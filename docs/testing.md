@@ -10,6 +10,8 @@ Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を�
 
 `usePlaylistLoadDelivery.test.tsx`はreadを保留し、ロード後の追加FIFO・重複ID、編集中/既にdirtyのsnapshot拒否、ロードとsyncの世代、取消/破棄、Window間の分離、次のReact描画より前の行所属を確認します。`e2e-ux-review`から呼ぶ`e2e-playlist-load-delivery.mjs`は専用の合成`.stpl`のread結果だけを保留し、別observerで追加の到達を確認してからreadを解放します。初回ロードと実Renderer reloadの両方でdiskのclip・追加clip・ノートを検査し、本番writerと既存の受信listenerは置換しません。
 
+同じpathの有効なロード中にexternal-openが重複した場合は同じ処理へ集約し、保留追加を別世代として失わないことも確認します。別path、syncで置き換えられた世代、破棄後のロードとは区別します。
+
 ライブキャプチャの回帰は`node scripts/e2e-live-capture.mjs`で行います（事前にmedia:build / e2e:prepare）。USB模擬入力と合成HTTP配信の同時録画、過去レビュー中のコード保存、再接続時の空白、停止・複数区間の書き出しを検証します。実機別のドライバ・連係カメラ・RTSP配信は別途ハードウェア検証が必要です。
 
 720pの模擬入力で録画画面と映像ウィンドウを隠し、Code Windowのクリック/ホットキーを混用して25秒間連続記録します。区間をまたいでもvideo要素が同一で、emptied・バッファ不足によるwaitingが発生せず映像時刻が進むことを確認します。共通時計への補正シーク中のwaitingは区別してログに残します。可変フレーム時刻の区間重複は保存時に補正し、書き出しと再オープンも検査します。

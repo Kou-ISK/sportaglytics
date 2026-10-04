@@ -305,3 +305,33 @@ it('protects another edit while the document was already dirty at load start', a
   expect(result.current.history.items[0].note).toBe('edited while loading');
   expect(result.current.dirty).toBe(true);
 });
+
+it('coalesces duplicate external-open notifications for the same active document', async () => {
+  const held = deferred();
+  ipc.load.mockReturnValue(held.promise);
+  const { result } = renderHook(useHarness);
+  act(() => {
+    ipc.external[0]('./saved.stpl');
+    ipc.add[0](item('first'));
+    ipc.external[0]('./saved.stpl');
+    ipc.add[0](item('second'));
+  });
+  await act(async () => {
+    held.resolve(document('saved'));
+    await held.promise;
+  });
+  expect(result.current.history.items.map((clip) => clip.id)).toEqual([
+    'saved',
+    'first',
+    'second',
+  ]);
+  expect(ipc.load).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the optional file-picker call usable when no document is loading', async () => {
+  ipc.load.mockResolvedValue(null);
+  const { result } = renderHook(useHarness);
+  await act(async () => result.current.loader.loadPlaylistFromPath());
+  expect(ipc.load).toHaveBeenCalledWith(undefined);
+  expect(result.current.history.items[0].id).toBe('current');
+});

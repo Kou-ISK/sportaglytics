@@ -1,4 +1,4 @@
-interface LoadToken {
+export interface PlaylistLoadToken {
   generation: number;
   revision: number;
 }
@@ -10,7 +10,7 @@ export class PlaylistLoadQueue {
   private loading = false;
   private pending: Array<() => void> = [];
 
-  begin(): LoadToken {
+  begin(): PlaylistLoadToken {
     this.finishPending();
     this.loading = true;
     return { generation: ++this.generation, revision: this.revision };
@@ -31,14 +31,18 @@ export class PlaylistLoadQueue {
     deliver();
   }
 
-  complete(token: LoadToken, applySnapshot: () => void): void {
-    if (token.generation !== this.generation) return;
+  isCurrent(token: PlaylistLoadToken): boolean {
+    return this.loading && token.generation === this.generation;
+  }
+
+  complete(token: PlaylistLoadToken, applySnapshot: () => void): void {
+    if (!this.isCurrent(token)) return;
     if (token.revision === this.revision) applySnapshot();
     this.finishPending();
   }
 
-  finish(token: LoadToken): void {
-    if (token.generation === this.generation) this.finishPending();
+  finish(token: PlaylistLoadToken): void {
+    if (this.isCurrent(token)) this.finishPending();
   }
 
   cancel(): void {

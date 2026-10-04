@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type {
   ItemAnnotation,
   PlaylistItem,
@@ -10,7 +10,7 @@ import {
   subscribePlaylistExternalOpen,
 } from '../../gateway/playlistWindowGateway';
 import { buildLoadedPlaylistSnapshot } from '../../utils/playlistFileState';
-import type { PlaylistLoadQueue } from './PlaylistLoadQueue';
+import type { PlaylistLoadQueue, PlaylistLoadToken } from './PlaylistLoadQueue';
 
 interface UsePlaylistLoaderParams {
   loadQueue: PlaylistLoadQueue;
@@ -51,35 +51,53 @@ export const usePlaylistLoader = ({
   setViewMode,
   setCurrentIndex,
 }: UsePlaylistLoaderParams): UsePlaylistLoaderResult => {
+  const inFlight = useRef<{
+    filePath?: string;
+    token: PlaylistLoadToken;
+    promise: Promise<void>;
+  } | null>(null);
   const loadPlaylistFromPath = useCallback(
-    async (filePath?: string): Promise<void> => {
+    (filePath?: string): Promise<void> => {
+      const current = inFlight.current;
+      if (
+        current &&
+        current.filePath === filePath &&
+        loadQueue.isCurrent(current.token)
+      )
+        return current.promise;
       const token = loadQueue.begin();
-      try {
-        const loaded = await loadPlaylistFile(filePath);
-        if (!loaded) return;
+      const request = { filePath, token, promise: Promise.resolve() };
+      inFlight.current = request;
+      request.promise = (async (): Promise<void> => {
+        try {
+          const loaded = await loadPlaylistFile(filePath);
+          if (!loaded) return;
 
-        const snapshot = buildLoadedPlaylistSnapshot(
-          loaded.playlist,
-          loaded.filePath,
-        );
+          const snapshot = buildLoadedPlaylistSnapshot(
+            loaded.playlist,
+            loaded.filePath,
+          );
 
-        loadQueue.complete(token, () => {
-          setItemsWithHistory(snapshot.items);
-          setHasUnsavedChanges(snapshot.hasUnsavedChanges);
-          setPlaylistName(snapshot.playlistName);
-          setPlaylistType(snapshot.playlistType);
-          setPlaylistRows(snapshot.rows ?? []);
-          setPackagePath(snapshot.packagePath);
-          setLoadedFilePath(snapshot.loadedFilePath);
-          setIsDirty(snapshot.isDirty);
-          setItemAnnotations(snapshot.itemAnnotations);
-          setVideoSources(snapshot.videoSources);
-          setViewMode(snapshot.viewMode);
-          setCurrentIndex(snapshot.currentIndex);
-        });
-      } finally {
-        loadQueue.finish(token);
-      }
+          loadQueue.complete(token, () => {
+            setItemsWithHistory(snapshot.items);
+            setHasUnsavedChanges(snapshot.hasUnsavedChanges);
+            setPlaylistName(snapshot.playlistName);
+            setPlaylistType(snapshot.playlistType);
+            setPlaylistRows(snapshot.rows ?? []);
+            setPackagePath(snapshot.packagePath);
+            setLoadedFilePath(snapshot.loadedFilePath);
+            setIsDirty(snapshot.isDirty);
+            setItemAnnotations(snapshot.itemAnnotations);
+            setVideoSources(snapshot.videoSources);
+            setViewMode(snapshot.viewMode);
+            setCurrentIndex(snapshot.currentIndex);
+          });
+        } finally {
+          loadQueue.finish(token);
+          if (inFlight.current === request) inFlight.current = null;
+        }
+      })();
+      return request.promise;
     },
     [
       loadQueue,
@@ -105,6 +123,7 @@ export const usePlaylistLoader = ({
     return () => {
       unsubscribe();
       loadQueue.cancel();
+      inFlight.current = null;
     };
   }, [loadPlaylistFromPath, loadQueue]);
 
