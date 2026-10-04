@@ -1,5 +1,3 @@
-Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](docs/reports/2026-10-compact-density.md)を参照してください。
-
 # SporTagLytics
 
 旧SporTagプロジェクトは原本を保持して移行コピーします。SportscodeのEdit List XMLは明示映像・秒数補正から別プロジェクトへ取り込めます（ネイティブパッケージは未対応）。[対応形式と復旧手順](docs/package-compatibility.md)。
@@ -8,6 +6,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 [![Version](https://img.shields.io/badge/version-0.17.1-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
 
 スポーツ映像のタグ付け、同期再生、統計可視化、プレイリスト作成を行う Electron デスクトップアプリケーションです。現在の主な利用想定はラグビー分析ですが、タイムラインとラベルを中心にした設計のため、他競技への応用も見込んでいます。
+
+ソースの **0.17.2 は未公開のリリース候補**です。上のバッジは公開済みの0.17.1を示します。候補の変更は[CHANGELOG](CHANGELOG.md#0172---未公開)、Timeline・共通フォームの変更と検証範囲は[compact density評価](docs/reports/2026-10-compact-density.md)、公開までの確認項目は[Release手順](.github/RELEASE.md)を参照してください。
 
 ## 主な機能
 

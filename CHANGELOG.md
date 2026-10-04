@@ -1,7 +1,5 @@
 # Changelog
 
-- Draft UX candidate: Timelineの全幅を保つ検索dock、操作menu、共通small入力/ボタン/表/dialog、基本情報wizardの内容高、Hotkeyのcompact区切り行。実機4サイズの結果と追加未完の検証を区別。
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -9,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.2] - 未公開
+
+リリース準備中です。配布物とHomebrewの更新は、品質ゲート・Windows検証・macOS署名と公証・レビューの通過後に行います。[Release手順](.github/RELEASE.md)。
+
 ### Changed
+
+- Timelineの全幅を保つ下部検索dockと操作menuへ整理し、入力・ボタン・表・Dialogの密度を統一。新規作成の基本情報を内容に合わせた高さにし、Hotkey一覧を区切り行へ整理。[変更と検証範囲](docs/reports/2026-10-compact-density.md)。
 
 - 分析上部をタブと折返し可能な操作欄へ整理。Dashboardの選択ラベルの上端切れを防ぐ配置とし、フィルター入口を操作欄へ統合。半円グラフを描画領域に合わせて拡大。[分析操作](docs/user-guide.md#ダッシュボードv040以降)。
 
