@@ -1,14 +1,10 @@
 import React from 'react';
-import { OnboardingTutorialView } from './OnboardingTutorialView';
+import { OnboardingTutorialView } from './ui';
 import { useOnboardingTutorialController } from './useOnboardingTutorialController';
 
 export const OnboardingTutorial: React.FC = () => {
-  const {
-    handleBack,
-    handleNext,
-    handleSkip,
-    ...viewProps
-  } = useOnboardingTutorialController();
+  const { handleBack, handleNext, handleSkip, ...viewProps } =
+    useOnboardingTutorialController();
 
   return (
     <OnboardingTutorialView

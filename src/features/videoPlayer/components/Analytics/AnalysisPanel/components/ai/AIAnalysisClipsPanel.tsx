@@ -1,6 +1,9 @@
 import React from 'react';
 import { Alert, Box, Button, Stack, Typography } from '@mui/material';
-import type { AiRecommendedClip, EvidenceItem } from '../../../../../analysis/ai';
+import type {
+  AiRecommendedClip,
+  EvidenceItem,
+} from '../../../../../analysis/ai';
 
 interface AIAnalysisClipsPanelProps {
   onCreateAiPlaylist?: () => void;
@@ -24,25 +27,36 @@ export const AIAnalysisClipsPanel = ({
   evidenceMap,
   stripEvidenceIds,
   formatSeconds,
-}: AIAnalysisClipsPanelProps) => {
+}: AIAnalysisClipsPanelProps): React.JSX.Element => {
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1.5}>
       <Button
         variant="contained"
         onClick={onCreateAiPlaylist}
-        disabled={!onCreateAiPlaylist || clipSegmentsCount === 0 || !hasGroundedOutput}
+        disabled={
+          !onCreateAiPlaylist || clipSegmentsCount === 0 || !hasGroundedOutput
+        }
         size="small"
+        sx={{ alignSelf: 'flex-start' }}
       >
         プレイリスト作成
       </Button>
       {playlistMessage && <Alert severity="info">{playlistMessage}</Alert>}
       {!aiResponseExists && (
-        <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
-          結果がありません。
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ fontSize: 12 }}
+        >
+          分析結果のクリップ候補から作成できます。
         </Typography>
       )}
       {aiResponseExists && clipSegmentsCount === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ fontSize: 12 }}
+        >
           クリップが見つかりませんでした。
         </Typography>
       ) : (
@@ -57,10 +71,9 @@ export const AIAnalysisClipsPanel = ({
               <Box
                 key={`${clip.centerId}-${index}`}
                 sx={{
-                  border: '1px solid',
+                  borderTop: 1,
                   borderColor: 'divider',
-                  p: 2,
-                  borderRadius: 2,
+                  py: 1.5,
                 }}
               >
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -68,8 +81,8 @@ export const AIAnalysisClipsPanel = ({
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {centerLabel}
-                  {centerTime ? ` / ${centerTime}` : ''} / pre {clip.preSeconds}s / post{' '}
-                  {clip.postSeconds}s
+                  {centerTime ? ` / ${centerTime}` : ''} / pre {clip.preSeconds}
+                  s / post {clip.postSeconds}s
                 </Typography>
                 <Typography variant="body2" color="text.secondary" mt={1}>
                   理由: {stripEvidenceIds(clip.reason)}

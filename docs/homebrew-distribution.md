@@ -62,22 +62,27 @@ brew install --cask sportaglytics
 
 ## リリース手順（完全自動化）
 
-以降は**タグをプッシュするだけ**で全て自動化されます！
+候補の検証とレビューを完了し、`develop`から`main`へのPRを統合した後、タグpushで配布を開始します。現在の0.17.2は未公開の候補です。
 
 ### 1. バージョン番号を更新
 
 ```bash
-# package.jsonのversionを更新（例: 0.2.6）
+# develop最新からrelease作業ブランチを作成してversionを更新
+git checkout develop
+git pull --ff-only origin develop
+git checkout -b release/prepare-<version-with-hyphens>
 vim package.json  # "version": "<version>" に変更
 ```
 
-### 2. develop へコミットして main へ PR で統合
+### 2. 作業ブランチから develop、develop から main へ PR で統合
 
 ```bash
-git add package.json CHANGELOG.md
-git commit -m "chore: bump version to <version>"
-git push origin develop
+git add package.json CHANGELOG.md README.md docs .github/RELEASE.md
+git commit -m "chore(release): prepare <version>"
+git push -u origin HEAD
+gh pr create --draft --base develop --title "chore(release): prepare <version>" --body-file <candidate-review-file>
 
+# 候補のaudit / 品質ゲート / Windows CI / macOS検証とレビューを通し、developへ統合
 gh pr create --base main --head develop --title "Release v<version>" --body "Release v<version>"
 
 # CI / レビュー / branch protection 通過後
@@ -95,28 +100,24 @@ git tag v<version>
 git push origin v<version>
 ```
 
-### 4. 自動実行される処理（5-10分）
+### 4. 自動実行される処理
 
-GitHub Actionsが以下を自動実行します:
+GitHub Actionsが以下を順に実行します。所要時間はWindows検証、ビルド、公証の状況によって変わります。タグpush後に同じReleaseを手動dispatchしません。dry-runやdraft公開のモードはありません。
 
 ```
-1. ビルド環境の準備
-   ├─ Node.js 22.12セットアップ
-   ├─ pnpm 9インストール（キャッシュ利用）
-   └─ 依存関係インストール
+1. Windows検証
+   ├─ native依存と品質ゲート、Electron E2E
+   └─ NSIS生成とインストール後のE2E
 
-2. アプリケーションのビルド
-   ├─ React アプリをビルド
-   ├─ Electron TypeScriptコンパイル
-   └─ Intel & Apple Silicon 両対応でDMGを生成
+2. macOS検証とビルド
+   ├─ audit / 品質ゲート / build / Electron E2E
+   └─ Intel & Apple Siliconの署名・公証済みDMGを生成
 
 3. SHA256ハッシュの計算
-   ├─ arm64版のSHA256を自動計算
-   └─ x64版のSHA256を自動計算
+   └─ 両DMGとWindowsインストーラーのSHA256を計算
 
 4. GitHubリリースの作成
-   ├─ リリースノート自動生成
-   └─ DMGファイルをアップロード
+   └─ 両DMG、Windowsインストーラー、SHA256SUMS.txtを公開
 
 5. Homebrew Tapの自動更新 ⭐
    ├─ homebrew-tapリポジトリをクローン
@@ -136,7 +137,7 @@ GitHub Actionsが以下を自動実行します:
 brew upgrade --cask sportaglytics
 ```
 
-**これだけ！手動作業は一切不要です。**
+公開後はReleaseの全artifact、Homebrewの両アーキテクチャのURLとSHA256、インストールと起動を確認します。
 
 ## ユーザーのインストール方法
 

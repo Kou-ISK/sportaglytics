@@ -40,10 +40,12 @@ const sources = ['blue', 'red'].map((color) => {
   return file;
 });
 const config = {
+  packageFormatVersion: 1,
   primaryAngleId: 'one',
   angles: [
     {
       id: 'one',
+      name: 'Synthetic angle',
       sourceKind: 'local',
       relativePath: 'blue.mp4',
       clips: sources.map((file, i) => ({
@@ -51,6 +53,7 @@ const config = {
         sourceKind: 'local',
         relativePath: path.basename(file),
         durationSeconds: 8,
+        gapBeforeSeconds: 0,
         timelineStartSeconds: i * 8,
       })),
     },

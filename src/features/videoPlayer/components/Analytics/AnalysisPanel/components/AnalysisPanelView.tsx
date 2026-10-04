@@ -31,20 +31,26 @@ export const AnalysisPanelView = ({
   onCopySummary,
   onExportPng,
   onExportPdf,
-}: AnalysisPanelViewProps) => {
+}: AnalysisPanelViewProps): React.JSX.Element => {
   const content = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box
+      sx={{
+        height: '100%',
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <Box
         sx={{
           position: 'sticky',
           top: 0,
           zIndex: (theme) => theme.custom.zIndex.stickyChrome,
           bgcolor: 'background.paper',
-          p: 1,
-          mb: 2,
-          border: 1,
+          flexShrink: 0,
+          mb: 1,
+          borderBottom: 1,
           borderColor: 'divider',
-          borderRadius: 1,
         }}
       >
         <Box
@@ -73,8 +79,14 @@ export const AnalysisPanelView = ({
         </Box>
       </Box>
 
-      <Box ref={exportTargetRef} sx={{ flex: 1, overflow: 'auto' }}>
+      <Box
+        ref={exportTargetRef}
+        inert={isExporting}
+        aria-busy={isExporting}
+        sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}
+      >
         <AnalysisPanelContent
+          disableAnimation={isExporting}
           currentView={currentView}
           isSyncing={isSyncing}
           hasTimelineData={hasTimelineData}
@@ -98,8 +110,9 @@ export const AnalysisPanelView = ({
     return (
       <Box
         sx={{
-          p: { xs: 1, md: 2 },
+          p: { xs: 1, md: 1.5 },
           height: '100%',
+          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
         }}

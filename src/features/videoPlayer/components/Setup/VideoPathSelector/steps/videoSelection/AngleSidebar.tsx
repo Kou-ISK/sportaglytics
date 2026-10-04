@@ -53,7 +53,7 @@ export const AngleSidebar: React.FC<AngleSidebarProps> = ({
         direction="row"
         alignItems="center"
         justifyContent="space-between"
-        sx={{ px: 1.5, py: 1 }}
+        sx={{ px: 1.5, py: 1, flexShrink: 0 }}
       >
         <Typography variant="overline" color="text.secondary">
           アングル
@@ -71,10 +71,11 @@ export const AngleSidebar: React.FC<AngleSidebarProps> = ({
           </span>
         </Tooltip>
       </Stack>
-      <Divider />
+      <Divider sx={{ flexShrink: 0 }} />
       <List
         dense
         disablePadding
+        aria-label="アングル一覧"
         sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
       >
         {angles.map((angle, index) => (
@@ -82,8 +83,9 @@ export const AngleSidebar: React.FC<AngleSidebarProps> = ({
             key={angle.id}
             ref={angle.id === selectedAngleId ? selectedItemRef : undefined}
             selected={angle.id === selectedAngleId}
+            aria-current={angle.id === selectedAngleId ? true : undefined}
             onClick={() => onSelectAngle(angle.id)}
-            sx={{ py: 1 }}
+            sx={{ py: 1, minHeight: 64 }}
           >
             <ListItemIcon sx={{ minWidth: 32 }}>
               <VideocamOutlinedIcon fontSize="small" />

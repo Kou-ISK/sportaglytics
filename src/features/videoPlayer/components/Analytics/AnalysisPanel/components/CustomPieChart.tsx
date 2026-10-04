@@ -1,6 +1,13 @@
 import React from 'react';
 import { useTheme } from '@mui/material/styles';
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  usePlotArea,
+} from 'recharts';
 import {
   DASHBOARD_ENTRY_IDS_KEY,
   type CustomChartDatumValue,
@@ -37,6 +44,24 @@ interface CustomPieChartProps {
   disableAnimation?: boolean;
 }
 
+const SemicirclePie = (
+  props: React.ComponentProps<typeof Pie>,
+): React.JSX.Element => {
+  const plot = usePlotArea();
+  // A half circle can use the plot height, while its diameter must fit the width.
+  const radius = plot
+    ? Math.max(0, Math.min(plot.width / 2, plot.height - 12))
+    : 0;
+  return (
+    <Pie
+      {...props}
+      outerRadius={radius}
+      innerRadius={radius * 0.625}
+      cy={plot ? (plot.height + radius) / 2 : 0}
+    />
+  );
+};
+
 export const CustomPieChart = ({
   data,
   seriesKeys,
@@ -47,7 +72,7 @@ export const CustomPieChart = ({
   teamColorMap,
   onPointSelect,
   disableAnimation = false,
-}: CustomPieChartProps) => {
+}: CustomPieChartProps): React.JSX.Element => {
   const theme = useTheme();
   const normalizedSeriesKeys = seriesKeys.length > 0 ? seriesKeys : ['value'];
   const toEntryIds = (value: unknown): string[] => {
@@ -144,18 +169,15 @@ export const CustomPieChart = ({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <PieChart margin={{ top: 8, right: 40, bottom: 32, left: 40 }}>
-        <Pie
+      <PieChart margin={{ top: 24, right: 64, bottom: 32, left: 64 }}>
+        <SemicirclePie
           data={pieData}
           dataKey="value"
           nameKey="name"
           isAnimationActive={!disableAnimation}
-          outerRadius="96%"
-          innerRadius="60%"
           startAngle={180}
           endAngle={0}
           cx="50%"
-          cy="80%"
           paddingAngle={1}
           labelLine={{ stroke: theme.palette.divider, strokeWidth: 1 }}
           onClick={(entry: {
@@ -187,7 +209,7 @@ export const CustomPieChart = ({
               }
             />
           ))}
-        </Pie>
+        </SemicirclePie>
         <Tooltip content={renderTooltip} />
       </PieChart>
     </ResponsiveContainer>

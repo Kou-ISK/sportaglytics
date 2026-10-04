@@ -1,4 +1,10 @@
+Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
+
+`e2e-ux-review`は標準Electron runnerに登録し、Mac/Windowsの`test:e2e`でも実行します。単独の導線検証と、標準runner全18シナリオの結果は区別して報告します。
+
 # Testing and Quality Gates
+
+Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を使用します。ローカル合成映像・24行240件で、読み取りによる文書不変、閉じた高さ、狭幅、取消、保存再開、分析メニューの初回同期、実Renderer reload後の240件/編集済みノート復旧を検証します。品質ゲートの成功だけを快適さの根拠とせず、[UX評価記録](reports/2026-10-ux-review.md)の画像・操作負担・制限も確認します。
 
 ライブキャプチャの回帰は`node scripts/e2e-live-capture.mjs`で行います（事前にmedia:build / e2e:prepare）。USB模擬入力と合成HTTP配信の同時録画、過去レビュー中のコード保存、再接続時の空白、停止・複数区間の書き出しを検証します。実機別のドライバ・連係カメラ・RTSP配信は別途ハードウェア検証が必要です。
 
@@ -16,7 +22,24 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 `useTimelineViewport.gesture.test.ts`は1倍表示密度の整数スクロールを再現し、3回の連続拡大でも丸め誤差が累積しないことと、スクロール・ポインター移動・境界到達後のアンカー更新を確認します。
 
+## パッケージ互換と保存保護
+
+- `legacyPackageMigrationService.test.ts`: 旧配列・tight/wide・旧アングル・旧`.stpkg`、コピー検証、未知version、symlink、参照不在、再利用、衝突、権限・容量不足・コピー/rename中断、原本変化を検証する。
+- `useTimelinePersistence.test.tsx` / `timelineValidation.test.ts`: 読込失敗・壊れたJSON・未知versionでwriteを0回に保ち、retry後の復旧、保存失敗時の変更保持と順序を確認する。
+- `atomicTextFile.test.ts`: commit faultのEACCES/ENOSPC/EIO、symlink、read-only destination、同時writeと一時ファイルcleanupを確認する。
+- `SportscodeImport/domain/*.test.ts` / Hook / `sportscodeImportService.test.ts`: 公式subsetの秒数・group・ノート・色/空行、未知構造拒否、明示映像・補正・取消・二重実行抑止、Main payload/hash・容量・範囲・完成rename失敗を検証する。Main unitのmedia作成/probeはmockなので実動画の証拠にしない。
+- `node scripts/e2e-package-safety.mjs`: 実preload/Mainによるread-only旧形式コピーと再利用、未知/未来/native/映像不在拒否、Renderer read fault中の原本保持と両Window retry、書き込み中のUndo、読込失敗中のコードボタン/ホットキー、空文書への再読込後の正常なタグ付けと別processでの再開を確認する。実アプリのtext writerは置換せず、合成保存先のfs.renameへfaultを入れる。12同時write/80回JSON読取で部分ファイルが見えないことも確認する。
+- `node scripts/e2e-sportscode-import.mjs`: 合成XML・合成動画で取消、実動画尺超過の拒否、秒数補正、コピー作成、タグ/ラベル/色/ノート/空行、原本bytes保持を本番IPC/probeで確認する。`actionType`/`Type`/`__proto__`/`constructor`などのgroupを含め、実Rendererでmemo編集・保存・新process再開を行いラベル保持を確認する。
+
+- `node scripts/e2e-legacy-external.mjs`: パッケージ外のreadonly合成映像を絶対パスとfile URIで参照する旧フォルダを移行し、別コピーの実video要素で再生/seekと原本保持を確認する。
+
+保存済みcaptureの16超clipは共通の50,000上限を使うunit負例/正例とlive-captureの再開で検証します。Playlistの途中JSONは既存export-menuの読取条件を維持し、metadata置換に同じatomic writerを使います。Windows renameの一時/恒久拒否はbounded retryの回帰を持ち、nativeの実置換で再確認します。Undoの故障注入はB/A両方のrename完了を待ってから判定し、別文書のempty retryは別package IDを使い、open-fileで作られる新sessionのMain/Timeline/コードパネルを取得し直します。対象read faultの到達と元sessionの文書不変も検査します。新processのTimeline同期へ通常listenerを追加し、既存subscriptionを置換せずに実メモリ中のlabelsを確認します。multi-clipの保存件数assertionは緩和せず、synthetic Main stderrの実filesystem errorを残します。
+
+保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常22シナリオとWindowsインストール後17シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
+
 ## Required Quality Gate
+
+`test:run` / `test:ci`は既存Vitestの後に`check:build-downloads`と同じNode検査も実行します。`scripts/tests/build-downloader.mjs`は実際のbuilder/get/got依存を読み、loopbackの合成bytesでダウンロード・checksum・ファイルキャッシュと通信の回帰を検証します。外部モデルやElectron GUIを起動しません。依存境界の判断は[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に記録しています。
 
 PR前に以下を通します。
 
@@ -41,8 +64,9 @@ pnpm run check:adr
 | `pnpm run lint`                           | ESLint zero warnings              |
 | `pnpm run check:architecture`             | Feature-First / Electron boundary |
 | `pnpm run check:adr`                      | ADR filename/index consistency    |
-| `pnpm run test:run`                       | Vitest one-shot                   |
-| `pnpm run test:ci`                        | serialized Vitest CI run          |
+| `pnpm run test:run`                       | Vitest one-shot + build downloads |
+| `pnpm run test:ci`                        | serialized Vitest + build downloads |
+| `pnpm run check:build-downloads`          | build download and cache boundary |
 | `pnpm run check:preload`                  | preload bundle sanity             |
 | `pnpm run report:architecture-health`     | architecture report               |
 | `pnpm run report:large-files`             | soft file-size report             |
@@ -205,3 +229,9 @@ Paint入力の回帰テストはpointerdown/upだけの短いドラッグ、停�
 ## オーバーレイ書き出しの性能回帰
 
 `e2e-export-fast.mjs`は離れた複数インスタンスで未選択区間を生成しないことをFFmpegのエンコード回数・出力尺・画素で確認します。`exportPreparedClipRenderer.test.ts`は同じIDの再登場、同じ物理ファイルの別時刻での再利用、主・副アングルの異なる原点を確認します。秒数と変更領域外のSSIMは[性能レポート](reports/2026-09-export-performance.md)の専用benchmarkで測定し、機種依存の速度をCI合否には使用しません。
+
+Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実client高195pxとなり、32pxの行と操作を保持して検索とTimelineを同時表示できませんでした。旧260pxのresize要求は新最小外寸へ制限されます。短いclientでは外側余白を削り、32px footer・軸・完全1行と検索の完全1行を残し、一覧/詳細だけを内部スクロールします。検証は要求外寸・実外寸・innerHeightを別記し、外側scroll位置と実clientviewport内の行/ラベル全体を確認します。最小サイズで長時間のレビューが快適との保証はしません。
+
+分析ready同期は`analysisWindow.test.ts`と`useAnalysisWindowController.test.tsx`で、窓作成前に送られた最新snapshot・listener後の受信・別session拒否を確認します。窓のdid-finish-loadとReact listenerの登録を同一視せず、native側でも実reloadを行います。
+
+統合Macではreveal対象の下端がviewportを0.055px越えるnative負例を得たため、tagのscroll marginを4px確保して完全表示を検査します。Windows installedの行入替はUIの順序と実保存の順序を別々に待ち、固定400msを保存完了と扱いません。期待順序・件数・表示条件は緩和しません。

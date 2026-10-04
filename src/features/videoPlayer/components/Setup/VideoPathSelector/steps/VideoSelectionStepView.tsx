@@ -60,7 +60,10 @@ export const VideoSelectionStepView: React.FC<VideoSelectionStepViewProps> = (
   };
 
   return (
-    <Stack spacing={1.5} sx={{ height: '100%', minHeight: 430 }}>
+    <Stack
+      spacing={1.5}
+      sx={{ height: { xs: 'auto', md: '100%' }, minHeight: 430 }}
+    >
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         alignItems={{ sm: 'center' }}
@@ -82,10 +85,11 @@ export const VideoSelectionStepView: React.FC<VideoSelectionStepViewProps> = (
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: '210px minmax(360px, 1fr)' },
           gridTemplateRows: {
-            xs: 'auto minmax(300px, 1fr)',
+            xs: '128px minmax(300px, 1fr)',
             md: 'minmax(390px, 1fr)',
           },
-          minHeight: 0,
+          // Both rows must fit inside the grid; the dialog scrolls on short windows.
+          minHeight: { xs: 430, md: 390 },
           flex: 1,
           border: '1px solid',
           borderColor: 'divider',

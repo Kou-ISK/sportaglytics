@@ -23,6 +23,8 @@ export const AIAnalysisTabView = ({
       display="grid"
       gridTemplateColumns={{ xs: '1fr', lg: 'minmax(0, 1.6fr) minmax(0, 1fr)' }}
       gap={2}
+      alignItems="start"
+      sx={{ '& > *': { minWidth: 0 } }}
     >
       <AIAnalysisMainColumn
         hasData={hasData}

@@ -1,6 +1,5 @@
 import type { TimelineData } from '../types/timeline/core';
 import type { SCLabel } from '../types/timeline/sportscode';
-import { migrateLegacyTimelineLabels } from './timelineLabelMigration';
 
 const normalizeActionName = (value: string): string => {
   if (!value) return '';
@@ -42,40 +41,15 @@ const getLegacyLabelValue = (
  * labels配列が存在しない場合は、旧actionType/actionResultからType/Resultを生成
  */
 export const getLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
-  const labels: SCLabel[] = migrateLegacyTimelineLabels(item.labels).map(
-    (label) => {
-      const group = normalizeLabelGroupName(label.group);
-      return group ? { ...label, group } : { name: label.name };
-    },
-  );
+  // Current documents own their group identity; only input loaders migrate legacy groups.
+  if (item.labels) return item.labels.map((label) => ({ ...label }));
+  const labels: SCLabel[] = [];
   const legacyActionType = getLegacyLabelValue(item, 'actionType');
   const legacyActionResult = getLegacyLabelValue(item, 'actionResult');
 
-  // 後方互換性: labels配列が存在しない場合は旧フィールドから生成
-  if (labels.length === 0) {
-    if (legacyActionType) {
-      labels.push({ name: legacyActionType, group: 'Type' });
-    }
-    if (legacyActionResult) {
-      labels.push({ name: legacyActionResult, group: 'Result' });
-    }
-    return labels;
-  }
-
-  // labels配列がある場合でも、旧フィールド値があれば補完する
-  const hasActionType = labels.some((label) =>
-    isSameLabelGroup(label.group, 'Type'),
-  );
-  if (!hasActionType && legacyActionType) {
-    labels.push({ name: legacyActionType, group: 'Type' });
-  }
-  const hasActionResult = labels.some((label) =>
-    isSameLabelGroup(label.group, 'Result'),
-  );
-  if (!hasActionResult && legacyActionResult) {
+  if (legacyActionType) labels.push({ name: legacyActionType, group: 'Type' });
+  if (legacyActionResult)
     labels.push({ name: legacyActionResult, group: 'Result' });
-  }
-
   return labels;
 };
 

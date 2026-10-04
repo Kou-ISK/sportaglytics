@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import type {
   AnalysisDashboard,
@@ -10,6 +10,8 @@ import type { useNotification } from '../../../../../../contexts/NotificationCon
 import { generateDashboardId } from './dashboardTabController.utils';
 import { useDashboardImportExport } from './useDashboardImportExport';
 import { useDashboardWidgetDraftActions } from './useDashboardWidgetDraftActions';
+import type { DashboardTabController } from './dashboardTabController.types';
+import { useDashboardPersistence } from './useDashboardPersistence';
 
 interface UseDashboardTabActionsParams {
   settings: AppSettings;
@@ -52,6 +54,33 @@ interface UseDashboardTabActionsParams {
   };
 }
 
+type DashboardTabActions = Pick<
+  DashboardTabController,
+  | 'isSaving'
+  | 'saveError'
+  | 'compactControlSx'
+  | 'updateDashboardFilters'
+  | 'handleResetFilters'
+  | 'handleStartEdit'
+  | 'handleAddWidget'
+  | 'handleCancelEdit'
+  | 'handleSave'
+  | 'handleDashboardChange'
+  | 'handleConfirmDiscardAndSwitch'
+  | 'handleCreateDashboard'
+  | 'handleDuplicateDashboard'
+  | 'handleRequestDeleteDashboard'
+  | 'handleDeleteDashboard'
+  | 'handleExportDashboard'
+  | 'handleImportDashboard'
+  | 'openEditor'
+  | 'handleEditorSave'
+  | 'handleDelete'
+  | 'handleDuplicate'
+  | 'handleMove'
+  | 'handleChartPointSelect'
+>;
+
 export const useDashboardTabActions = ({
   settings,
   saveSettings,
@@ -64,23 +93,20 @@ export const useDashboardTabActions = ({
   onDashboardFiltersChange,
   timelineMap,
   state,
-}: UseDashboardTabActionsParams) => {
+}: UseDashboardTabActionsParams): DashboardTabActions => {
+  const isTemplate = activeDashboard?.id === 'template-basic';
   const compactControlSx = {
     '& .MuiInputBase-input': { py: 0.75 },
     '& .MuiSelect-select': { py: 0.75 },
   };
 
-  const saveDashboards = useCallback(
-    async (nextDashboards: AnalysisDashboard[], nextActiveId: string) => {
-      await saveSettings({
-        ...settings,
-        analysisDashboard: {
-          dashboards: nextDashboards,
-          activeDashboardId: nextActiveId,
-        },
-      });
-    },
-    [saveSettings, settings],
+  const { isSaving, saveError, isSavePending, saveDashboards } =
+    useDashboardPersistence({ settings, saveSettings });
+  const editingRef = useRef(state.isEditing);
+  editingRef.current = state.isEditing;
+  const isImportBlocked = useCallback(
+    (): boolean => editingRef.current || isSavePending(),
+    [isSavePending],
   );
 
   const updateDashboardFilters = useCallback(
@@ -97,39 +123,110 @@ export const useDashboardTabActions = ({
 
   const openEditor = useCallback(
     (widget?: AnalysisDashboardWidget) => {
+      if (isSavePending()) return;
+      if (isTemplate) {
+        notification.warning(
+          '基本分析テンプレートは複製してから編集してください。',
+        );
+        return;
+      }
       state.setEditingWidget(widget ?? null);
       state.setEditorOpen(true);
     },
-    [state],
+    [isSavePending, isTemplate, notification, state],
   );
 
-  const handleStartEdit = useCallback(() => {
+  const duplicateDashboard = useCallback(
+    async (startEditing: boolean): Promise<void> => {
+      if (!activeDashboard) return;
+      const newDashboard: AnalysisDashboard = {
+        id: generateDashboardId(),
+        name: `${activeDashboard.name} (コピー)`,
+        widgets: activeDashboard.widgets ?? [],
+      };
+      if (
+        !(await saveDashboards([...dashboards, newDashboard], newDashboard.id))
+      )
+        return;
+      state.setDraftWidgets(newDashboard.widgets);
+      state.setIsEditing(startEditing);
+      notification.success('ダッシュボードを複製しました。');
+    },
+    [activeDashboard, dashboards, notification, saveDashboards, state],
+  );
+
+  const handleDuplicateDashboard = useCallback(
+    (): Promise<void> => duplicateDashboard(false),
+    [duplicateDashboard],
+  );
+
+  const handleStartEdit = useCallback(async (): Promise<void> => {
+    if (isSavePending()) return;
+    if (isTemplate) {
+      await duplicateDashboard(true);
+      return;
+    }
     state.setDraftWidgets(activeDashboardWidgets);
     state.setIsEditing(true);
-  }, [activeDashboardWidgets, state]);
+  }, [
+    activeDashboardWidgets,
+    duplicateDashboard,
+    isSavePending,
+    isTemplate,
+    state,
+  ]);
 
   const handleAddWidget = useCallback(() => {
+    if (isSavePending()) return;
+    if (isTemplate) {
+      notification.warning(
+        '基本分析テンプレートは複製してから編集してください。',
+      );
+      return;
+    }
     if (!state.isEditing) {
       state.setDraftWidgets(activeDashboardWidgets);
       state.setIsEditing(true);
     }
     openEditor();
-  }, [activeDashboardWidgets, openEditor, state]);
+  }, [
+    activeDashboardWidgets,
+    isSavePending,
+    isTemplate,
+    notification,
+    openEditor,
+    state,
+  ]);
 
   const handleCancelEdit = useCallback(() => {
+    if (isSavePending()) return;
     state.setDraftWidgets(activeDashboardWidgets);
     state.setIsEditing(false);
-  }, [activeDashboardWidgets, state]);
+  }, [activeDashboardWidgets, isSavePending, state]);
 
   const handleSave = useCallback(async () => {
+    if (isTemplate) {
+      notification.warning(
+        '基本分析テンプレートは複製してから編集してください。',
+      );
+      return;
+    }
     const nextDashboards = dashboards.map((item) =>
       item.id === activeDashboardId
         ? { ...item, widgets: state.draftWidgets }
         : item,
     );
-    await saveDashboards(nextDashboards, activeDashboardId);
+    if (!(await saveDashboards(nextDashboards, activeDashboardId))) return;
     state.setIsEditing(false);
-  }, [activeDashboardId, dashboards, saveDashboards, state]);
+    notification.success('ダッシュボードを保存しました。');
+  }, [
+    activeDashboardId,
+    dashboards,
+    isTemplate,
+    notification,
+    saveDashboards,
+    state,
+  ]);
 
   const handleDashboardChange = useCallback(
     async (nextId: string) => {
@@ -139,8 +236,8 @@ export const useDashboardTabActions = ({
         state.setDiscardDialogOpen(true);
         return;
       }
+      if (!(await saveDashboards(dashboards, nextId))) return;
       state.setIsEditing(false);
-      await saveDashboards(dashboards, nextId);
     },
     [activeDashboardId, dashboards, saveDashboards, state],
   );
@@ -151,10 +248,10 @@ export const useDashboardTabActions = ({
       return;
     }
     const nextId = state.pendingDashboardId;
+    if (!(await saveDashboards(dashboards, nextId))) return;
     state.setPendingDashboardId(null);
     state.setDiscardDialogOpen(false);
     state.setIsEditing(false);
-    await saveDashboards(dashboards, nextId);
   }, [dashboards, saveDashboards, state]);
 
   const handleCreateDashboard = useCallback(async () => {
@@ -177,24 +274,13 @@ export const useDashboardTabActions = ({
       name,
       widgets: [],
     };
-    await saveDashboards([...dashboards, newDashboard], newDashboard.id);
+    if (!(await saveDashboards([...dashboards, newDashboard], newDashboard.id)))
+      return;
     state.setDraftWidgets([]);
     state.setIsEditing(true);
     state.setCreateDialogOpen(false);
     state.setNewDashboardName('新規ダッシュボード');
   }, [dashboards, notification, saveDashboards, state]);
-
-  const handleDuplicateDashboard = useCallback(async () => {
-    if (!activeDashboard) return;
-    const newDashboard: AnalysisDashboard = {
-      id: generateDashboardId(),
-      name: `${activeDashboard.name} (コピー)`,
-      widgets: activeDashboard.widgets ?? [],
-    };
-    await saveDashboards([...dashboards, newDashboard], newDashboard.id);
-    state.setDraftWidgets(newDashboard.widgets);
-    state.setIsEditing(false);
-  }, [activeDashboard, dashboards, saveDashboards, state]);
 
   const handleRequestDeleteDashboard = useCallback(() => {
     if (!activeDashboard) return;
@@ -216,9 +302,9 @@ export const useDashboardTabActions = ({
       (item) => item.id !== activeDashboard.id,
     );
     const nextActiveId = nextDashboards[0]?.id ?? '';
+    if (!(await saveDashboards(nextDashboards, nextActiveId))) return;
     state.setDeleteDialogOpen(false);
     state.setIsEditing(false);
-    await saveDashboards(nextDashboards, nextActiveId);
   }, [activeDashboard, dashboards, saveDashboards, state]);
 
   const { handleExportDashboard, handleImportDashboard } =
@@ -227,6 +313,7 @@ export const useDashboardTabActions = ({
       dashboards,
       notification,
       saveDashboards,
+      isImportBlocked,
     });
 
   const { handleEditorSave, handleDelete, handleDuplicate, handleMove } =
@@ -265,6 +352,8 @@ export const useDashboardTabActions = ({
   );
 
   return {
+    isSaving,
+    saveError,
     compactControlSx,
     updateDashboardFilters,
     handleResetFilters,

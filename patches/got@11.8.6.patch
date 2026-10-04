@@ -1,0 +1,165 @@
+diff --git a/dist/source/core/index.js b/dist/source/core/index.js
+index c6cebd594dc3c6cf92ed7aa466b28113ae99f72b..e8ae7d454aa41a7c87f63f5f10b637f944eb1586 100644
+--- a/dist/source/core/index.js
++++ b/dist/source/core/index.js
+@@ -10,7 +10,6 @@ const http_1 = require("http");
+ const https = require("https");
+ const http_timer_1 = require("@szmarczak/http-timer");
+ const cacheable_lookup_1 = require("cacheable-lookup");
+-const CacheableRequest = require("cacheable-request");
+ const decompressResponse = require("decompress-response");
+ // @ts-expect-error Missing types
+ const http2wrapper = require("http2-wrapper");
+@@ -20,9 +19,7 @@ const get_body_size_1 = require("./utils/get-body-size");
+ const is_form_data_1 = require("./utils/is-form-data");
+ const proxy_events_1 = require("./utils/proxy-events");
+ const timed_out_1 = require("./utils/timed-out");
+-const url_to_options_1 = require("./utils/url-to-options");
+ const options_to_url_1 = require("./utils/options-to-url");
+-const weakable_map_1 = require("./utils/weakable-map");
+ const get_buffer_1 = require("./utils/get-buffer");
+ const dns_ip_version_1 = require("./utils/dns-ip-version");
+ const is_response_ok_1 = require("./utils/is-response-ok");
+@@ -71,7 +68,6 @@ function validateSearchParameters(searchParameters) {
+ function isClientRequest(clientRequest) {
+     return is_1.default.object(clientRequest) && !('statusCode' in clientRequest);
+ }
+-const cacheableStore = new weakable_map_1.default();
+ const waitForOpenFile = async (file) => new Promise((resolve, reject) => {
+     const onError = (error) => {
+         reject(error);
+@@ -379,6 +375,11 @@ class Request extends stream_1.Duplex {
+         if (options.cache === false) {
+             options.cache = undefined;
+         }
++        // This build-only Got instance has no HTTP response-cache dependency.
++        // Electron artifact files retain @electron/get's checksum-verified cache.
++        if (options.cache !== undefined) {
++            throw new TypeError('HTTP response caching is disabled in the build downloader');
++        }
+         if (options.dnsCache === false) {
+             options.dnsCache = undefined;
+         }
+@@ -551,43 +552,6 @@ class Request extends stream_1.Duplex {
+                 };
+             }
+         }
+-        // `options.cache`
+-        const { cache } = options;
+-        if (cache) {
+-            if (!cacheableStore.has(cache)) {
+-                cacheableStore.set(cache, new CacheableRequest(((requestOptions, handler) => {
+-                    const result = requestOptions[kRequest](requestOptions, handler);
+-                    // TODO: remove this when `cacheable-request` supports async request functions.
+-                    if (is_1.default.promise(result)) {
+-                        // @ts-expect-error
+-                        // We only need to implement the error handler in order to support HTTP2 caching.
+-                        // The result will be a promise anyway.
+-                        result.once = (event, handler) => {
+-                            if (event === 'error') {
+-                                result.catch(handler);
+-                            }
+-                            else if (event === 'abort') {
+-                                // The empty catch is needed here in case when
+-                                // it rejects before it's `await`ed in `_makeRequest`.
+-                                (async () => {
+-                                    try {
+-                                        const request = (await result);
+-                                        request.once('abort', handler);
+-                                    }
+-                                    catch (_a) { }
+-                                })();
+-                            }
+-                            else {
+-                                /* istanbul ignore next: safety check */
+-                                throw new Error(`Unknown HTTP2 promise event: ${event}`);
+-                            }
+-                            return result;
+-                        };
+-                    }
+-                    return result;
+-                }), cache));
+-            }
+-        }
+         // `options.cacheOptions`
+         options.cacheOptions = { ...options.cacheOptions };
+         // `options.dnsCache`
+@@ -957,7 +921,7 @@ class Request extends stream_1.Duplex {
+         const { timeout, url } = options;
+         http_timer_1.default(request);
+         this[kCancelTimeouts] = timed_out_1.default(request, timeout, url);
+-        const responseEventName = options.cache ? 'cacheableResponse' : 'response';
++        const responseEventName = 'response';
+         request.once(responseEventName, (response) => {
+             void this._onResponse(response);
+         });
+@@ -996,33 +960,6 @@ class Request extends stream_1.Duplex {
+         }
+         this.emit('request', request);
+     }
+-    async _createCacheableRequest(url, options) {
+-        return new Promise((resolve, reject) => {
+-            // TODO: Remove `utils/url-to-options.ts` when `cacheable-request` is fixed
+-            Object.assign(options, url_to_options_1.default(url));
+-            // `http-cache-semantics` checks this
+-            // TODO: Fix this ignore.
+-            // @ts-expect-error
+-            delete options.url;
+-            let request;
+-            // This is ugly
+-            const cacheRequest = cacheableStore.get(options.cache)(options, async (response) => {
+-                // TODO: Fix `cacheable-response`
+-                response._readableState.autoDestroy = false;
+-                if (request) {
+-                    (await request).emit('cacheableResponse', response);
+-                }
+-                resolve(response);
+-            });
+-            // Restore options
+-            options.url = url;
+-            cacheRequest.once('error', reject);
+-            cacheRequest.once('request', async (requestOrPromise) => {
+-                request = requestOrPromise;
+-                resolve(request);
+-            });
+-        });
+-    }
+     async _makeRequest() {
+         var _a, _b, _c, _d, _e;
+         const { options } = this;
+@@ -1084,8 +1021,11 @@ class Request extends stream_1.Duplex {
+             fallbackFn = isHttps ? https.request : http.request;
+         }
+         const realFn = (_a = options.request) !== null && _a !== void 0 ? _a : fallbackFn;
+-        // Cache support
+-        const fn = options.cache ? this._createCacheableRequest : realFn;
++        // A beforeRequest hook must not re-enable the removed cache path.
++        if (options.cache !== undefined && options.cache !== false) {
++            throw new TypeError('HTTP response caching is disabled in the build downloader');
++        }
++        const fn = realFn;
+         // Pass an agent directly when HTTP2 is disabled
+         if (agent && !options.http2) {
+             options.agent = agent[isHttps ? 'https' : 'http'];
+@@ -1185,9 +1125,6 @@ class Request extends stream_1.Duplex {
+             }
+         }
+         catch (error) {
+-            if (error instanceof CacheableRequest.CacheError) {
+-                throw new CacheError(error, this);
+-            }
+             throw new RequestError(error.message, error, this);
+         }
+     }
+diff --git a/package.json b/package.json
+index c1b8f4cfab4c9f3e7d5b54b1bf4633c43efc015b..da0e56a9a8ed03e677dedf08182543c15784e7de 100644
+--- a/package.json
++++ b/package.json
+@@ -48,7 +48,6 @@
+ 		"@types/cacheable-request": "^6.0.1",
+ 		"@types/responselike": "^1.0.0",
+ 		"cacheable-lookup": "^5.0.3",
+-		"cacheable-request": "^7.0.2",
+ 		"decompress-response": "^6.0.0",
+ 		"http2-wrapper": "^1.0.0-beta.5.2",
+ 		"lowercase-keys": "^2.0.0",

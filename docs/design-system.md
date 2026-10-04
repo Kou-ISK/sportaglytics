@@ -1,4 +1,18 @@
+## Desktop compact density
+
+共通TextField / FormControl / Select / Buttonはsmallを既定とし、入力と操作の最小targetは32px、読ませる本文は13/14px、時刻・件数は12pxを使います。TableCellは6px×10px、Dialogのtitle/content/actionsは10×16 /12×16 /8×16pxを基準とします。長文noteは複数行を保ち、最大高さ内のスクロールで全文を読めるようにします。
+
+画面面積は用途で決めます。基本情報3項目のwizardはsm/内容高とし、多角度・複数clip編集のstepで広い編集面を使います。Hotkeysは36pxの区切り行に32px操作を配置し、行ごとのcardと空白を重ねません。Timeline編集dialogはviewport内に収め、内容だけをスクロールしてCancel/Saveへ到達できるようにします。
+
+開始画面では処理状態をヘッダー直下に置き、操作・履歴より先に確認できるようにします。エラーはfocus可能なAlertとし、busyのlive regionをaria-busyな操作領域の外に置きます。狭幅の映像選択はアングル一覧とclip編集の最低高さを共に確保し、短いwindowでは本文をスクロールさせます。
+
+固定dashboardは読み取り専用表示と「複製して編集」の入口を併記します。保存待ちでは変更操作を無効にし、失敗は操作中のheaderまたはdialog内にAlertを残します。保存成功前に編集終了へ切り替えません。
+
 # SporTagLytics Design System (Native Analysis / Dark-first)
+
+Timelineのレビュー欄は既存のsurface/divider/text/primaryを共有し、検索・時刻順結果・全文詳細を分けます。既定は閉じ、フッターに入口を置いて行表示の高さを維持します。検索ドックは時間軸の全幅を保ち、結果と全文詳細を並列表示します。狭幅でもTimelineを残し、閉じる操作とfocus復帰を常時提供します。Tabは通常の移動を優先します。[操作の正本](timeline-review.md)。
+
+文書の読込/保存に失敗した場合は、操作対象の画面内にsemantic errorのAlertと明示的なretryを残します。通知の時間切れで消さず、映像と独立Timelineの両方へ表示します。読み込み不能の文書は編集を抑止します。XML取り込みフォームは小さなDialogで映像・秒数補正・確認を順に提示し、警告を確認する前に新規作成できない構造にします。Viewは外部I/Oへ依存しません。
 
 このドキュメントは SporTagLytics の UI 実装における単一の参照点です。実装上の色・タイポグラフィ・spacing の正本は semantic token と MUI theme (`src/design-system/`; `src/theme.ts` は互換export) とし、本書は「どのトークンを、どの意味で使うか」を定義します。
 
@@ -134,6 +148,12 @@ Top level:
 
 英語を使う場合も `Recent`, `Package workspace`, `Drop package` のような一般UI文言を理由なく混在させない。
 
+## 分析と初回案内
+
+分析の4モードは下線付きタブで示し、出力は同じ行の末尾に置きます。Dashboardは選択・フィルター・編集・管理を折返し可能な操作欄にまとめ、適用中の条件だけを次の行に表示します。選択欄のラベルは行内に配置し、スクロール領域の上端へ張り出させません。半円グラフは横幅の半分と描画高の両方で半径を制限し、ラベルの余白を残してデータ面を使います。
+
+分析の操作・結果は見出しと境界で分け、結果の内側にカードを重ねません。チャートは8px radiusのwork surfaceを使い、条件・軸に一致する場面がないチャートは名称と状態の短い行へ縮めます。未実行のAI結果に固定高を確保せず、質問入力・実行を結果より前に置きます。初回案内は共通Dialogに見出し・本文・進行番号・操作を配置し、装飾的な丸いアイコン背景やTipsカードを重ねません。
+
 ## Error and recovery UX
 
 Error UI は次の順序で情報を出します。
@@ -228,6 +248,8 @@ Paintは左にツール、右に設定、映像下部に再生→目盛り→描
 
 ### 起動画面
 
+起動操作と履歴は1本の境界で分け、履歴一覧や空状態に追加のカード枠を重ねません。履歴のファイルアイコンはニュートラルな色、青は主要操作とfocusに限定します。新規作成は見出しとStepperを同じ領域へまとめ、入力の補足は必要なエラーとplaceholderで示します。
+
 製品名は初回案内の完了後も表示します。開く・新規作成・dropの操作面と、検索可能な履歴を分け、狭い幅では縦に並べます。履歴はコンパクトな行に名称・チーム・保存場所・最終利用を示します。読み込み中と再試行可能なエラーは同じ画面に表示します。状態と操作の正本は[起動画面](start-workspace.md)です。
 
 ### 参照資料の扱い
@@ -247,3 +269,5 @@ Paintは左にツール、右に設定、映像下部に再生→目盛り→描
 - `AngleSyncWorkspaceView` / `AngleSyncPreviewView` / `AngleSyncTransportView` / `SyncTimecodeView`はpropsで描画します。動画の時計・IPC・保存はhook/Screenへ分離します。native controlsは無効にし、Video.js公式CSSで内部ダイアログの露出を防ぎます。
 - 時刻はtabular numerals、同期点は◆とラベル、選択アングルはタイムライン上部の名前で示します。ボタンの文字は折り返さず、副操作はメニューにまとめ、選択名は省略表示します。同期専用の行を増やさず、同期点は既存の時間目盛りに重ねます。
 - Storybook `Features/VideoPlayer/AngleSync`で単一・2・4アングル、空、エラー、保存中、狭幅を確認します。公式資料との対応と確認限界は同期仕様に記録します。
+
+Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実client高195pxとなり、32pxの行と操作を保持して検索とTimelineを同時表示できませんでした。旧260pxのresize要求は新最小外寸へ制限されます。短いclientでは外側余白を削り、32px footer・軸・完全1行と検索の完全1行を残し、一覧/詳細だけを内部スクロールします。検証は要求外寸・実外寸・innerHeightを別記し、外側scroll位置と実clientviewport内の行/ラベル全体を確認します。最小サイズで長時間のレビューが快適との保証はしません。

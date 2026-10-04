@@ -21,6 +21,7 @@ export const TIMELINE_WINDOW_CHANNELS = {
 } as const;
 
 export interface TimelineWindowSyncPayload {
+  persistence?: { kind: 'load-error' | 'save-error'; message: string };
   liveCapture?: CaptureTimelineState;
   angleSync?: AngleSyncSnapshot;
   timeline: TimelineData[];
@@ -49,6 +50,7 @@ export type TimelineWindowCommand =
   | { type: 'clip-export-ready'; ready: boolean }
   | { type: 'angle-sync'; command: AngleSyncCommand }
   | { type: 'request-sync' }
+  | { type: 'retry-persistence' }
   | { type: 'seek'; time: number }
   | { type: 'selection-change'; ids: string[] }
   | { type: 'delete-items'; ids: string[] }
@@ -190,6 +192,11 @@ export const isTimelineWindowSyncPayload = (
   value: unknown,
 ): value is TimelineWindowSyncPayload =>
   isObject(value) &&
+  (value.persistence === undefined ||
+    (isObject(value.persistence) &&
+      (value.persistence.kind === 'load-error' ||
+        value.persistence.kind === 'save-error') &&
+      isString(value.persistence.message))) &&
   (value.angleSync === undefined || isAngleSyncSnapshot(value.angleSync)) &&
   (value.liveCapture === undefined ||
     (isObject(value.liveCapture) &&
@@ -230,6 +237,7 @@ export const isTimelineWindowCommand = (
       return typeof value.ready === 'boolean';
     case 'angle-sync':
       return isAngleSyncCommand(value.command);
+    case 'retry-persistence':
     case 'request-sync':
     case 'show-capture-controls':
     case 'go-live':

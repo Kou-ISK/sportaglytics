@@ -5,6 +5,8 @@ import {
   Chip,
   CircularProgress,
   InputBase,
+  MenuItem,
+  TextField,
   Paper,
   Stack,
   Typography,
@@ -51,52 +53,14 @@ export const AIAnalysisControlsPanel = ({
   llmDebug,
   showDebug,
   setShowDebug,
-}: AIAnalysisControlsPanelProps) => {
+}: AIAnalysisControlsPanelProps): React.JSX.Element => {
   return (
     <>
-      <Stack spacing={1}>
-        <Typography variant="caption" color="text.secondary">
-          質問テンプレート
-        </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap">
-          {questionTemplates.map((template) => (
-            <Chip
-              key={template}
-              label={template}
-              size="small"
-              variant="outlined"
-              onClick={() => setQuestion(template)}
-            />
-          ))}
-        </Stack>
-      </Stack>
-
-      <Stack spacing={1}>
-        <Typography variant="caption" color="text.secondary">
-          検索プリセット
-        </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap">
-          {retrieverPresets.map((preset) => (
-            <Chip
-              key={preset.value}
-              label={preset.label}
-              size="small"
-              color={retrieverPreset === preset.value ? 'primary' : 'default'}
-              variant={retrieverPreset === preset.value ? 'filled' : 'outlined'}
-              onClick={() => onRetrieverPresetChange(preset.value)}
-            />
-          ))}
-        </Stack>
-        <Typography variant="caption" color="text.secondary">
-          {retrieverPresets.find((preset) => preset.value === retrieverPreset)?.helper ?? ''}
-        </Typography>
-      </Stack>
-
       <Paper
         variant="outlined"
         sx={{
-          borderRadius: 999,
-          px: 2,
+          borderRadius: 1,
+          px: 1.5,
           py: 1,
           display: 'flex',
           alignItems: 'flex-end',
@@ -105,6 +69,7 @@ export const AIAnalysisControlsPanel = ({
         }}
       >
         <InputBase
+          inputProps={{ 'aria-label': '分析する質問' }}
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
           placeholder="質問を入力..."
@@ -118,6 +83,7 @@ export const AIAnalysisControlsPanel = ({
             px: 1,
           }}
           onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
               if (
@@ -138,28 +104,72 @@ export const AIAnalysisControlsPanel = ({
             retrievalStatus === 'running' ||
             !question.trim()
           }
-          sx={{ borderRadius: 999, px: 2, minWidth: 60 }}
+          sx={{ borderRadius: 1, px: 2, minWidth: 60 }}
           size="small"
         >
           {generationStatus === 'running' ? '実行中...' : '実行'}
         </Button>
       </Paper>
-      <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>
+      <Typography variant="caption" color="text.secondary">
         Enter で実行、Shift+Enter で改行
       </Typography>
 
-      <Stack direction="row" spacing={1} flexWrap="wrap">
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <TextField
+          select
+          label="質問テンプレート"
+          value=""
+          onChange={(event) => setQuestion(event.target.value)}
+          sx={{ flex: 1, minWidth: 0 }}
+        >
+          {questionTemplates.map((template) => (
+            <MenuItem
+              key={template}
+              value={template}
+              sx={{ whiteSpace: 'normal' }}
+            >
+              {template}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="検索プリセット"
+          value={retrieverPreset}
+          onChange={(event) => {
+            const preset = retrieverPresets.find(
+              (item) => item.value === event.target.value,
+            );
+            if (preset) onRetrieverPresetChange(preset.value);
+          }}
+          helperText={
+            retrieverPresets.find((preset) => preset.value === retrieverPreset)
+              ?.helper
+          }
+          sx={{ flex: 1, minWidth: 0 }}
+        >
+          {retrieverPresets.map((preset) => (
+            <MenuItem key={preset.value} value={preset.value}>
+              {preset.label}
+            </MenuItem>
+          ))}
+        </TextField>
+      </Stack>
+
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
         <Button
           size="small"
           variant="outlined"
           onClick={() => void handleRetrieveEvidence()}
-          disabled={retrievalStatus === 'running' || generationStatus === 'running'}
+          disabled={
+            retrievalStatus === 'running' || generationStatus === 'running'
+          }
         >
           {retrievalStatus === 'running' ? '検索中...' : '根拠だけ取得'}
         </Button>
         <Button
           size="small"
-          variant="contained"
+          variant="outlined"
           onClick={() => void handleGenerate({ reuseEvidence: true })}
           disabled={
             generationStatus === 'running' ||
@@ -180,17 +190,26 @@ export const AIAnalysisControlsPanel = ({
         <Button
           size="small"
           variant="text"
+          aria-expanded={showFilters}
           onClick={() => setShowFilters(!showFilters)}
         >
           {showFilters ? 'フィルタを閉じる' : 'フィルタを開く'}
         </Button>
         {generationStatus === 'running' && (
-          <Button size="small" variant="text" onClick={() => void handleCancelGeneration()}>
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => void handleCancelGeneration()}
+          >
             生成をキャンセル
           </Button>
         )}
         {evidenceItemsCount > 0 && (
-          <Chip label={`根拠 ${evidenceItemsCount}件`} size="small" variant="outlined" />
+          <Chip
+            label={`根拠 ${evidenceItemsCount}件`}
+            size="small"
+            variant="outlined"
+          />
         )}
         {(retrievalStatus === 'running' || generationStatus === 'running') && (
           <CircularProgress size={18} thickness={5} />

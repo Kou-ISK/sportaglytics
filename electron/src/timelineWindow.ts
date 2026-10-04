@@ -44,8 +44,11 @@ const getSession = (window?: BrowserWindow | null): PackageSession | null => {
   return getPackageSessionForWindow(target) ?? createPackageSession(target);
 };
 
-const getSenderSession = (sender: Electron.WebContents): PackageSession | null =>
-  getPackageSessionForSender(sender) ?? getSession(BrowserWindow.fromWebContents(sender));
+const getSenderSession = (
+  sender: Electron.WebContents,
+): PackageSession | null =>
+  getPackageSessionForSender(sender) ??
+  getSession(BrowserWindow.fromWebContents(sender));
 
 const getState = (session: PackageSession): TimelineSessionState => {
   const current = states.get(session.id);
@@ -62,7 +65,10 @@ const getState = (session: PackageSession): TimelineSessionState => {
 
 const sendVisibility = (session: PackageSession, isOpen: boolean): void => {
   if (!session.mainWindow.isDestroyed()) {
-    session.mainWindow.webContents.send(TIMELINE_WINDOW_CHANNELS.visibility, isOpen);
+    session.mainWindow.webContents.send(
+      TIMELINE_WINDOW_CHANNELS.visibility,
+      isOpen,
+    );
   }
 };
 
@@ -81,11 +87,11 @@ export const openTimelineWindow = async (
 
   const timelineWindow = new BrowserWindow({
     width: state.lastBounds?.width ?? 1280,
-    height: state.lastBounds?.height ?? 430,
+    height: Math.max(300, state.lastBounds?.height ?? 430),
     x: state.lastBounds?.x,
     y: state.lastBounds?.y,
     minWidth: 720,
-    minHeight: 260,
+    minHeight: 300,
     title: 'タイムライン',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -127,13 +133,21 @@ export const openTimelineWindow = async (
 
 const deliverClipExportRequest = (state: TimelineSessionState): void => {
   const window = state.timelineWindow;
-  if (!state.clipExportPending || !state.clipExportReady ||
-      !window || window.isDestroyed() || window.webContents.isDestroyed()) return;
+  if (
+    !state.clipExportPending ||
+    !state.clipExportReady ||
+    !window ||
+    window.isDestroyed() ||
+    window.webContents.isDestroyed()
+  )
+    return;
   state.clipExportPending = false;
   window.webContents.send('menu-export-clips');
 };
 
-export const requestTimelineClipExport = async (owner: BrowserWindow): Promise<void> => {
+export const requestTimelineClipExport = async (
+  owner: BrowserWindow,
+): Promise<void> => {
   const session = getPackageSessionForWindow(owner);
   if (!session?.packagePath) return;
   const state = getState(session);
@@ -147,7 +161,9 @@ export const closeTimelineWindow = (): void => {
   for (const state of states.values()) state.timelineWindow?.close();
 };
 
-export const closeTimelineWindowForMainWindow = (window: BrowserWindow): void => {
+export const closeTimelineWindowForMainWindow = (
+  window: BrowserWindow,
+): void => {
   const session = getSession(window);
   if (session) getState(session).timelineWindow?.close();
 };
@@ -164,9 +180,12 @@ export const registerTimelineWindowHandlers = (): void => {
   ipcMain.handle(TIMELINE_WINDOW_CHANNELS.closeWindow, (event) => {
     const session = getSenderSession(event.sender);
     const state = session ? getState(session) : null;
-    if (!session || !state ||
-        (!isEventFromWindow(event, state.timelineWindow) &&
-          !isEventFromWindow(event, session.mainWindow))) {
+    if (
+      !session ||
+      !state ||
+      (!isEventFromWindow(event, state.timelineWindow) &&
+        !isEventFromWindow(event, session.mainWindow))
+    ) {
       throw new Error('Invalid timeline window close sender');
     }
     state.timelineWindow?.close();
@@ -175,9 +194,12 @@ export const registerTimelineWindowHandlers = (): void => {
   ipcMain.handle(TIMELINE_WINDOW_CHANNELS.isWindowOpen, (event) => {
     const session = getSenderSession(event.sender);
     const state = session ? getState(session) : null;
-    if (!session || !state ||
-        (!isEventFromWindow(event, session.mainWindow) &&
-          !isEventFromWindow(event, state.timelineWindow))) {
+    if (
+      !session ||
+      !state ||
+      (!isEventFromWindow(event, session.mainWindow) &&
+        !isEventFromWindow(event, state.timelineWindow))
+    ) {
       throw new Error('Invalid timeline window state sender');
     }
     return Boolean(state.timelineWindow && !state.timelineWindow.isDestroyed());
@@ -187,8 +209,11 @@ export const registerTimelineWindowHandlers = (): void => {
     TIMELINE_WINDOW_CHANNELS.syncToWindow,
     (event, payload: unknown) => {
       const session = getSenderSession(event.sender);
-      if (!session || !isEventFromWindow(event, session.mainWindow) ||
-          !isTimelineWindowSyncPayload(payload)) {
+      if (
+        !session ||
+        !isEventFromWindow(event, session.mainWindow) ||
+        !isTimelineWindowSyncPayload(payload)
+      ) {
         return;
       }
       const timelineWindow = getState(session).timelineWindow;
@@ -205,8 +230,11 @@ export const registerTimelineWindowHandlers = (): void => {
     TIMELINE_WINDOW_CHANNELS.clockToWindow,
     (event, payload: unknown) => {
       const session = getSenderSession(event.sender);
-      if (!session || !isEventFromWindow(event, session.mainWindow) ||
-          !isTimelineWindowClockPayload(payload)) {
+      if (
+        !session ||
+        !isEventFromWindow(event, session.mainWindow) ||
+        !isTimelineWindowClockPayload(payload)
+      ) {
         return;
       }
       const timelineWindow = getState(session).timelineWindow;
@@ -222,8 +250,11 @@ export const registerTimelineWindowHandlers = (): void => {
   ipcMain.on(TIMELINE_WINDOW_CHANNELS.command, (event, command: unknown) => {
     const session = getSenderSession(event.sender);
     const timelineWindow = session ? getState(session).timelineWindow : null;
-    if (!session || !isEventFromWindow(event, timelineWindow) ||
-        !isTimelineWindowCommand(command)) {
+    if (
+      !session ||
+      !isEventFromWindow(event, timelineWindow) ||
+      !isTimelineWindowCommand(command)
+    ) {
       return;
     }
     if (command.type === 'clip-export-ready') {
@@ -233,7 +264,10 @@ export const registerTimelineWindowHandlers = (): void => {
       return;
     }
     if (!session.mainWindow.isDestroyed()) {
-      session.mainWindow.webContents.send(TIMELINE_WINDOW_CHANNELS.command, command);
+      session.mainWindow.webContents.send(
+        TIMELINE_WINDOW_CHANNELS.command,
+        command,
+      );
     }
   });
 };

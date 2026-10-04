@@ -1,4 +1,26 @@
+Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop compact密度と新候補の検証限界は[評価記録](reports/2026-10-compact-density.md)を参照してください。
+
+開始画面の状態表示とfocus/scrollはprops駆動View内のDOM操作に限定します。読み込み・再試行・取消の状態源は既存の`useStartPackageOpen`を維持します。映像選択の最低高とoverflowはView側で扱い、選択・作成・同期のデータ契約は変更しません。
+
 # SporTagLytics System Overview
+
+配布runtimeは同じ43 majorのElectron43.5.1へ固定し、sandboxed preloadのcode cacheに関する[GHSA-qmv3-fv6v-rmhq](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)の修正版を使用します。既存のsandbox・contextIsolation・webSecurity、IPC公開面、protocolと署名設定は維持します。開発用wait-onのJoi18.2.6 overrideは配布runtimeに含めません。ビルド用gotの未使用HTTP response cacheは[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に従って依存・実行経路から除去し、checksum付きファイルキャッシュと必須auditを維持します。
+
+組み込みdashboardは固定IDを維持し、利用者の編集は新IDのコピーへ保存します。`useDashboardPersistence`は既存`useSettings`のboolean結果と進行状態を扱い、Controllerは成功後にのみ編集終了・切替を反映します。正規化はcount/durationを保持し、既存移行は継続します。[ADR 0056](adr/0056-built-in-dashboard-editing-contract.md)。
+
+分析UIは既存の集計とcallbackを維持し、データに一致しないチャートの表示だけを縮めます。初回案内のprops-only Viewは共通UI patternsへ配置し、完了状態の保存・外部イベントは従来のControllerが所有します。
+
+Dashboardのpieとbarは集計結果の`calcMode`を受け取り、割合tooltipには集計済みの元値を件数・秒数で併記します。元値のない場合は割合から推定しません。
+
+分析上部のタブとDashboard操作欄は表示層で構成し、`DashboardFilterControl`は既存フィルターEditorの開閉だけを所有します。半円のレイアウトはRechartsの描画領域に合わせ、本体とレポートで共用します。集計値・指標・保存モデルには関与しません。
+
+分析PNGは入れ子のスクロール領域と表を一時展開し、横長の表の祖先の幅・overflow制限とスクロールバーを一時解除します。同じscroll rootに撮影ごとに異なる検証模様を配置し、既存`capture-window-region-png`でMainの`beginFrameSubscription`が受け取った画像内の模様・位置・倍率を確認します。一致したcallback画像そのものから検証帯を除いて切り出し、別の`capturePage`は呼びません。rootをrelative配置でnative pixel原点へ移し、検証帯・cropもpixel境界へ揃え、実際にclampされたscroll末尾まで合成します。出力中はメニューの終了遷移とチャートのJSアニメーションを無効化し、失敗・閉じる・保存取消でも一時styleとscrollを復元します。PDFは従来の別window/printToPDF経路です。[ADR 0057](adr/0057-verified-analysis-frame-capture.md)。
+
+起動画面・新規作成の表示は既存のprops-only Viewで構成し、開始操作・履歴・ロード復旧のcallback境界を保ちます。[起動画面](start-workspace.md)に表示と操作をまとめています。
+
+Timeline reviewは既存文書を読み取る派生表示です。検索・ページ・開閉はhook、描画はprops-only Viewへ分離し、既存Timeline controllerの選択・シーク・編集とPlaylist callbackへ接続します。Windowメニューの分析もRendererの既存分析open/snapshot経路を使用します。[操作](timeline-review.md) / [ADR 0055](adr/0055-timeline-review-without-document-filtering.md)。
+
+パッケージを開くGatewayはMainの互換preflightを通し、既知の旧SporTag構造を別の`.stpkg`へコピーしてからSessionを確保します。原本は更新しません。Timeline保存は検証済みloadを条件とし、失敗状態とretryを映像・独立Timelineへ同期します。テキスト保存は同じディレクトリの一時ファイルと順序付きrenameを使います。Sportscode XMLは専用Controller/Domain/GatewayとMain serviceで、明示映像・秒補正から別プロジェクトを作ります。[互換・原本保護の契約](package-compatibility.md)。
 
 ライブキャプチャは専用RendererのUSB取り込みとMainのIP入力を、確定済みMP4区間へ統一し、通常パッケージのアングルへ追記します。コードは既存の共通時計を使います。[ライブ仕様](live-coding.md) / [ADR 0053](adr/0053-live-capture-package-timeline.md)。
 
@@ -367,3 +389,5 @@ Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツ�
 ### Paintの俯瞰図
 
 戦術盤は[Paintの保存契約](tactics.md#戦術盤と映像からの配置)に従うクリップ・アングル別メタデータです。Viewはpropsのみ、編集履歴はHook、動画の読取・同梱モデル実行・PNG保存はGatewayに分離します。認識は明示操作時の停止フレームだけを対象とし、サーバー・新しいIPC・クラウドAPIを追加しません。[ADR 0039](adr/0039-local-tactical-board.md)を参照してください。
+
+分析窓の初期データは所有sessionでcacheし、Rendererの受信listener登録後のready requestで再送します。希望viewはopen前に確保し、実reloadでも同じ手順を使います。別sessionの要求は拒否し、Main終了時にcacheを除去します。[ADR0055](adr/0055-timeline-review-without-document-filtering.md)。

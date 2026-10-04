@@ -1,24 +1,22 @@
 import React from 'react';
-import { Paper, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 
 interface NoDataPlaceholderProps {
   message: string;
 }
 
-export const NoDataPlaceholder = ({ message }: NoDataPlaceholderProps) => (
-  <Paper
-    elevation={0}
+export const NoDataPlaceholder = ({
+  message,
+}: NoDataPlaceholderProps): React.JSX.Element => (
+  <Box
     sx={{
-      borderRadius: 2,
-      border: '1px dashed',
-      borderColor: 'divider',
-      p: 6,
-      textAlign: 'center',
-      bgcolor: 'background.default',
+      py: 2,
+      px: 0,
+      minWidth: 0,
     }}
   >
-    <Typography variant="body1" color="text.secondary">
+    <Typography variant="body2" color="text.secondary">
       {message}
     </Typography>
-  </Paper>
+  </Box>
 );

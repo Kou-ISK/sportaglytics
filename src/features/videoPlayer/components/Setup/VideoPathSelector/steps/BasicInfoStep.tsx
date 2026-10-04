@@ -1,5 +1,5 @@
 import React from 'react';
-import { Stack, TextField, Typography } from '@mui/material';
+import { Box, Stack, TextField } from '@mui/material';
 import type { WizardFormState } from '../types';
 
 interface BasicInfoStepProps {
@@ -17,40 +17,45 @@ export const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
   onChange,
 }) => {
   return (
-    <Stack spacing={2.5}>
-      <Typography variant="subtitle1" fontWeight={700}>
-        詳細
-      </Typography>
-
+    <Stack spacing={2}>
       <TextField
         fullWidth
         label="パッケージ"
         value={form.packageName}
         onChange={(event) => onChange({ packageName: event.target.value })}
         error={!!errors.packageName}
-        helperText={errors.packageName || '例: 2024_final'}
+        placeholder="例: 決勝・前半"
+        helperText={errors.packageName}
         required
       />
 
-      <TextField
-        fullWidth
-        label="Team 1"
-        value={form.team1Name}
-        onChange={(event) => onChange({ team1Name: event.target.value })}
-        error={!!errors.team1Name}
-        helperText={errors.team1Name || ' '}
-        required
-      />
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gap: 1.5,
+        }}
+      >
+        <TextField
+          fullWidth
+          label="Team 1"
+          value={form.team1Name}
+          onChange={(event) => onChange({ team1Name: event.target.value })}
+          error={!!errors.team1Name}
+          helperText={errors.team1Name}
+          required
+        />
 
-      <TextField
-        fullWidth
-        label="Team 2"
-        value={form.team2Name}
-        onChange={(event) => onChange({ team2Name: event.target.value })}
-        error={!!errors.team2Name}
-        helperText={errors.team2Name || ' '}
-        required
-      />
+        <TextField
+          fullWidth
+          label="Team 2"
+          value={form.team2Name}
+          onChange={(event) => onChange({ team2Name: event.target.value })}
+          error={!!errors.team2Name}
+          helperText={errors.team2Name}
+          required
+        />
+      </Box>
     </Stack>
   );
 };

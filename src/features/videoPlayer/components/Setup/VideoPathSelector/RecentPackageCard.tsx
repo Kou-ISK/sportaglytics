@@ -40,7 +40,8 @@ export const RecentPackageCard = ({
       onClick={() => onOpen(pkg.path)}
       aria-label={`${pkg.name}を開く`}
       sx={{
-        p: 1.5,
+        py: 1.25,
+        px: 0.5,
         gap: 1.5,
         flex: 1,
         minWidth: 0,
@@ -53,20 +54,13 @@ export const RecentPackageCard = ({
         },
       }}
     >
-      <Box
+      <FolderOutlined
         sx={{
-          width: 40,
-          height: 44,
           flexShrink: 0,
-          display: 'grid',
-          placeItems: 'center',
-          bgcolor: 'action.selected',
-          borderRadius: 1,
-          color: 'primary.main',
+          fontSize: 22,
+          color: 'text.secondary',
         }}
-      >
-        <FolderOutlined />
-      </Box>
+      />
       <Stack spacing={0.4} sx={{ flex: 1, minWidth: 0 }}>
         <Typography
           component="span"
@@ -82,20 +76,26 @@ export const RecentPackageCard = ({
           noWrap
           title={`${pkg.team1Name} / ${pkg.team2Name}`}
         >
-          {pkg.team1Name} / {pkg.team2Name}
+          {pkg.team1Name} / {pkg.team2Name} · {pkg.videoCount}映像
         </Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          noWrap
-          title={pkg.path}
-        >
-          {pkg.path}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {pkg.videoCount}映像 · 最終利用{' '}
-          {new Date(pkg.lastOpened).toLocaleDateString('ja-JP')}
-        </Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} columnGap={2}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            noWrap
+            title={pkg.path}
+            sx={{ flex: 1, minWidth: 0 }}
+          >
+            {pkg.path}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}
+          >
+            最終利用 {new Date(pkg.lastOpened).toLocaleDateString('ja-JP')}
+          </Typography>
+        </Stack>
       </Stack>
       <ChevronRight
         sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0 }}

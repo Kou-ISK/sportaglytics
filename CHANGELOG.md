@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.2] - 未公開
+
+リリース準備中です。配布物とHomebrewの更新は、品質ゲート・Windows検証・macOS署名と公証・レビューの通過後に行います。[Release手順](.github/RELEASE.md)。
+
+### Changed
+
+- Timelineの全幅を保つ下部検索dockと操作menuへ整理し、入力・ボタン・表・Dialogの密度を統一。新規作成の基本情報を内容に合わせた高さにし、Hotkey一覧を区切り行へ整理。[変更と検証範囲](docs/reports/2026-10-compact-density.md)。
+
+- 分析上部をタブと折返し可能な操作欄へ整理。Dashboardの選択ラベルの上端切れを防ぐ配置とし、フィルター入口を操作欄へ統合。半円グラフを描画領域に合わせて拡大。[分析操作](docs/user-guide.md#ダッシュボードv040以降)。
+
+- 分析の空チャートを状態行へ整理し、AIの入力と結果を操作順に配置。初回案内を共通Dialogへ統一。条件不一致とTimeline自体の0件を区別し、既存の編集・生成・出力操作を保持。
+
+- 起動画面の操作・履歴の余白と枠を整理し、新規パッケージの見出しと進行表示を統合。5つの開始操作と履歴検索・削除・復旧は保持。[操作](docs/start-workspace.md)。
+
+### Added
+
+- Timelineの行名・ラベル・ノートを検索し、時刻順の結果から映像・全文確認・編集・Playlist追加へ進む開閉式レビュー欄を追加。[操作](docs/timeline-review.md)。
+- Sportscode Edit List XMLと明示映像・秒数補正から、別の新規`.stpkg`を作成する操作を追加。ネイティブSportscode形式は未対応。[対応と制限](docs/package-compatibility.md)。
+
+### Fixed
+
+- Electron runtimeを43.3.0から43.5.1へ更新し、信頼できない内容を読み込むsandboxed preloadのcode cacheに関する[GHSA-qmv3-fv6v-rmhq](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)へ対応。同じ43 major内の正式版に固定し、既存UI・IPC・保存形式・署名設定は維持。
+
+- 開発用wait-onのJoi overrideを[GHSA-6h2x-m376-mqjq](https://github.com/hapijs/joi/security/advisories/GHSA-6h2x-m376-mqjq)の修正版18.2.6へ更新。配布runtimeには含めません。
+
+- 開発・ビルド依存の監査対応として同majorの修正版へ固定し、未使用Jest型依存とbuilderの未使用HTTP response cache経路を除去。checksum付きファイルキャッシュとproxy・timeoutを維持し、合成ダウンロードの回帰を品質ゲートに追加。[判断と保守条件](docs/adr/0058-build-downloads-without-response-cache.md)。
+
+- Retinaなどの高DPI環境で分析の全内容PNGが継ぎ目を上書きし、チャートや見出しを欠落させる問題を修正。メニューを除去し、チャートのアニメーションを停止してから撮影・合成するよう変更。 撮影ごとの検証模様と位置が一致したフレームだけを保存し、スクロールバーを除去、分数倍率でも切り出しと合成の画素境界を統一。
+
+- Dashboardの割合円グラフでtooltipが割合を重複表示する問題を修正し、集計元の件数・秒数を併記。[表示](docs/user-guide.md#ダッシュボードv040以降)。
+
+- 固定の基本分析テンプレートに「複製して編集」を設け、保存時に編集が失われる入口を解消。保存失敗時はdraftと入力を維持し、有効なcount集計がコピー・importの正規化でdurationへ変わる問題を修正。
+
+- 狭い開始画面で読み込み状態・失敗が操作欄の下に隠れる問題と、新規映像選択のアングル一覧が潰れる問題を修正。失敗時の表示位置とキーボードによる再試行への復帰を追加。
+
+- 分析ウィンドウの受信準備後に最新snapshotを同期し、初回表示とreload時にデータが失われる競合を修正しました。
+
+- 選択中のTimelineでTabが場面巡回を優先し、通常focus移動を妨げる問題を修正。巡回はOption/Alt+上下を使用。
+- ウィンドウメニューから分析を開いた時に初回Timeline同期が届かず「同期中」に留まる問題を修正。
+- Timeline読み込み失敗で空の文書を自動保存する経路を抑止し、映像・独立Timelineのエラー表示と再試行、順序付きの原子的テキスト置換を追加。
+- 既知の旧SporTag `.stpkg` / 拡張子なしフォルダを原本保持のコピー移行へ統一。未知version、参照不在、権限・容量・途中失敗を検査。目的別のファイル選択を分離。
+
 ## [0.17.1] - 2026-09-23
 
 ### Fixed

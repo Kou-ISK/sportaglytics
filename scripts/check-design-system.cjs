@@ -2,6 +2,9 @@ const { readFile } = require('node:fs/promises');
 const { resolve } = require('node:path');
 
 const targets = [
+  'src/features/videoPlayer/components/Timeline/VisualTimeline/review/TimelineReviewView.tsx',
+  'src/features/videoPlayer/components/Timeline/VisualTimeline/review/TimelineWorkspaceView.tsx',
+  'src/features/videoPlayer/components/Timeline/VisualTimeline/review/TimelineReviewSearchControlsView.tsx',
   'src/features/videoPlayer/components/Timeline/VisualTimeline/TimelineAxis.tsx',
   'src/features/videoPlayer/components/Timeline/VisualTimeline/TimelinePlayhead.tsx',
   'src/features/playlist/components/PlaylistReviewView.tsx',
@@ -24,7 +27,15 @@ const targets = [
   'src/features/videoPlayer/components/Timeline/VisualTimeline/TimelineFooter.tsx',
   'src/features/playlist/components/PlaylistHeaderToolbar.tsx',
   'src/features/playlist/components/PlaylistClipInspector.tsx',
-  'src/components/OnboardingTutorialView.tsx',
+  'src/components/ui/patterns/OnboardingTutorialView.tsx',
+  'src/features/videoPlayer/components/Analytics/AnalysisPanel/components/AnalysisCard.tsx',
+  'src/features/videoPlayer/components/Analytics/AnalysisPanel/components/DashboardCard.tsx',
+  'src/features/videoPlayer/components/Analytics/AnalysisPanel/components/NoDataPlaceholder.tsx',
+  'src/features/videoPlayer/components/Analytics/AnalysisPanel/components/ai/AIAnalysisControlsPanel.tsx',
+  'src/features/videoPlayer/components/Analytics/AnalysisPanel/components/ai/AIAnalysisConversationPanel.tsx',
+  'src/features/videoPlayer/components/Analytics/AnalysisPanel/components/ai/AIAnalysisClipsPanel.tsx',
+  'src/features/videoPlayer/components/Analytics/AnalysisPanel/components/dashboardTab/DashboardWidgetGrid.tsx',
+  'src/features/videoPlayer/components/Analytics/AnalysisPanel/components/dashboardTab/DashboardWidgetActionsView.tsx',
   'src/features/playlist/components/AnnotationToolbar.tsx',
 ];
 const forbidden = [

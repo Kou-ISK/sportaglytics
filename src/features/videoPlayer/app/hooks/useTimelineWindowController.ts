@@ -103,6 +103,12 @@ export const useTimelineWindowController = () => {
 
   if (!snapshot) return null;
   return {
+    persistenceFeedback: snapshot.persistence
+      ? {
+          ...snapshot.persistence,
+          onRetry: (): void => send({ type: 'retry-persistence' }),
+        }
+      : null,
     liveCapture: snapshot.liveCapture,
     onGoLive: (): void => send({ type: 'go-live' }),
     onShowCapture: (): void => send({ type: 'show-capture-controls' }),

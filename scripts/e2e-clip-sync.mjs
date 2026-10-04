@@ -205,7 +205,9 @@ try {
   console.log('Local package persistence passed');
 
   await page.getByText('新しいパッケージを作成', { exact: true }).click();
-  await page.getByLabel('パッケージ').fill('e2e-sync');
+  await page
+    .getByRole('textbox', { name: 'パッケージ', exact: true })
+    .fill('e2e-sync');
   await page.getByLabel('Team 1').fill('Red');
   await page.getByLabel('Team 2').fill('Blue');
   await page.getByRole('button', { name: '次へ' }).click();

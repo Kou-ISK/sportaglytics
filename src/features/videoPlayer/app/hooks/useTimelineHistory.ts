@@ -19,6 +19,7 @@ const MAX_HISTORY_SIZE = 50;
 
 export function useTimelineHistory(
   initialTimeline: TimelineData[] = [],
+  resetKey = 0,
 ): UseTimelineHistoryReturn {
   const [state, setState] = useState<TimelineHistoryState>({
     past: [],
@@ -29,6 +30,7 @@ export function useTimelineHistory(
   // batches rendering. Never obtain that result from a deferred state updater.
   const current = useRef(state);
   const previousInput = useRef(JSON.stringify(initialTimeline));
+  const previousResetKey = useRef(resetKey);
   const apply = useCallback((next: TimelineHistoryState): void => {
     current.current = next;
     setState(next);
@@ -36,6 +38,12 @@ export function useTimelineHistory(
 
   useEffect(() => {
     const input = JSON.stringify(initialTimeline);
+    if (resetKey !== previousResetKey.current) {
+      previousResetKey.current = resetKey;
+      previousInput.current = input;
+      apply({ past: [], present: initialTimeline, future: [] });
+      return;
+    }
     if (input === previousInput.current) return;
     previousInput.current = input;
     // A persistence echo of our own edit/Undo keeps history. A loaded document
@@ -43,7 +51,7 @@ export function useTimelineHistory(
     if (input !== JSON.stringify(current.current.present)) {
       apply({ past: [], present: initialTimeline, future: [] });
     }
-  }, [initialTimeline, apply]);
+  }, [initialTimeline, resetKey, apply]);
 
   const setTimeline = useCallback(
     (next: TimelineData[]): void => {
