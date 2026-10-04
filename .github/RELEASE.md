@@ -2,11 +2,13 @@
 
 このドキュメントは SporTagLytics の GitHub Release 運用手順です。Homebrew Tap の詳細は [docs/homebrew-distribution.md](../docs/homebrew-distribution.md) を参照してください。
 
-## 0.17.2 Candidate
+## 0.17.3 Release
 
-`package.json` の0.17.2は未公開の候補です。作業ブランチから`develop`へのDraft PRで検証とレビューを行います。候補準備だけではタグ作成、Release公開、Homebrew更新を行いません。
+`package.json` の0.17.3を配布対象とします。正式検証で停止した0.17.2はタグを保持し、配布物を公開せず、修正を0.17.3へ含めます。作業ブランチから`develop`へのPR、`develop`から`main`へのPRを通し、統合後のmainに新しいタグを作成します。公開済みの版と配布物は[Releases](https://github.com/Kou-ISK/sportaglytics/releases)で確認してください。
 
 既存候補で確認したmacOSの操作・分析PNGは、アプリコードの同一性を確認した場合に引き継げます。版番号を変更した配布物の検証、同じ候補のWindows CI、署名・公証は別途必要です。full auditを含む未通過のゲートがある間は正式Releaseを起動しません。
+
+ローカルE2EのPaint内native AI検査は`E2E_LLAMA_MODEL`設定時だけ実行します。正式Release CIはこの変数と検証済みテストモデルの準備を常に設定するため、native AIを含む全E2Eの成功が必要です。変数なしのローカル22シナリオ成功を、正式CIと同じ検証範囲とは扱いません。テスト用GGUFの重みは配布物に含めません。
 
 ## Current Workflow
 

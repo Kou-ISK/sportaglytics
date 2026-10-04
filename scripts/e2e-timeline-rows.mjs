@@ -404,9 +404,8 @@ try {
       document.querySelectorAll('[data-testid^="timeline-instance-"]')
         .length === 2,
   );
-  await page.waitForTimeout(400);
-  const pastedDocument = JSON.parse(
-    await fs.readFile(path.join(packagePath, 'timeline.json'), 'utf8'),
+  const pastedDocument = await waitForTimeline(
+    (document) => document.instances.length === 2,
   );
   assert.equal(pastedDocument.instances.length, 2);
   assert.match(pastedDocument.instances[1].id, /^[0-9A-HJKMNP-TV-Z]{26}$/);
