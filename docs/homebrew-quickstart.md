@@ -44,7 +44,7 @@
 
 ## ✅ セットアップ完了！
 
-候補の検証・レビューを完了した後、タグpushでWindowsとmacOSの配布、Homebrew更新を起動します。現在の0.17.2は未公開の候補です。
+候補の検証・レビューを完了した後、タグpushでWindowsとmacOSの配布、Homebrew更新を起動します。0.17.2は[GitHub Release](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.2)で公開済みで、Homebrew Tapも同じ版へ更新済みです。
 
 ## 📦 リリース手順
 
