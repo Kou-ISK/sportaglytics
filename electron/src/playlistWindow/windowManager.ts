@@ -1,15 +1,15 @@
 import { getRendererUrl } from '../rendererUrl';
 import { BrowserWindow, dialog } from 'electron';
 import * as path from 'path';
-import type {
-  PlaylistItem,
-} from '../../../src/types/playlist/core';
+import type { PlaylistItem } from '../../../src/types/playlist/core';
 import type { PlaylistSyncData } from '../../../src/types/playlist/window';
 import { PLAYLIST_WINDOW_CHANNELS } from '../../../src/types/ipc/playlistWindow';
 import { applyWindowSecurity } from '../windowSecurity';
+import { cancelPlaylistDocumentLoad } from './documentLoad';
 import {
   getMainWindowRef,
   getPlaylistWindows,
+  type PlaylistDelivery,
   type PlaylistWindowInfo,
 } from './state';
 import {
@@ -24,10 +24,14 @@ const generateWindowId = (): string => {
   return `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
-const resolveSession = (owner?: BrowserWindow | null): PackageSession | null => {
+const resolveSession = (
+  owner?: BrowserWindow | null,
+): PackageSession | null => {
   const mainWindow = owner ?? getMainWindowRef();
   if (!mainWindow || mainWindow.isDestroyed()) return null;
-  return getPackageSessionForWindow(mainWindow) ?? createPackageSession(mainWindow);
+  return (
+    getPackageSessionForWindow(mainWindow) ?? createPackageSession(mainWindow)
+  );
 };
 
 export const createPlaylistWindow = (
@@ -71,12 +75,20 @@ export const createPlaylistWindow = (
   window.loadURL(mainURL);
   window.setMenuBarVisibility(false);
 
-  playlistWindows.set(windowId, {
+  const info: PlaylistWindowInfo = {
     window,
-    filePath: filePath || null,
+    filePath: null,
+    initialFilePath: filePath,
     isDirty: false,
     sessionId: session?.id ?? null,
     session,
+    rendererReady: false,
+    pendingDeliveries: [],
+  };
+  playlistWindows.set(windowId, info);
+  window.webContents.on('did-start-loading', () => {
+    info.rendererReady = false;
+    cancelPlaylistDocumentLoad(info);
   });
   if (session) registerAuxiliaryWindow(session, window);
 
@@ -113,10 +125,14 @@ export const createPlaylistWindow = (
   });
 
   window.on('closed', () => {
+    cancelPlaylistDocumentLoad(info);
     playlistWindows.delete(windowId);
     if (session) unregisterAuxiliaryWindow(session, window);
     if (session && !session.mainWindow.isDestroyed()) {
-      session.mainWindow.webContents.send(PLAYLIST_WINDOW_CHANNELS.windowClosed, windowId);
+      session.mainWindow.webContents.send(
+        PLAYLIST_WINDOW_CHANNELS.windowClosed,
+        windowId,
+      );
     }
   });
 
@@ -144,11 +160,14 @@ export const closeAllPlaylistWindows = (): void => {
   playlistWindows.clear();
 };
 
-export const closePlaylistWindowsForMainWindow = (owner: BrowserWindow): void => {
+export const closePlaylistWindowsForMainWindow = (
+  owner: BrowserWindow,
+): void => {
   const session = resolveSession(owner);
   if (!session) return;
   for (const info of getPlaylistWindows().values()) {
-    if (info.sessionId === session.id && !info.window.isDestroyed()) info.window.close();
+    if (info.sessionId === session.id && !info.window.isDestroyed())
+      info.window.close();
   }
 };
 
@@ -167,7 +186,10 @@ export const isPlaylistWindowOpen = (owner?: BrowserWindow | null): boolean => {
   const playlistWindows = getPlaylistWindows();
   const session = resolveSession(owner);
   for (const [, info] of playlistWindows) {
-    if (!info.window.isDestroyed() && (!session || info.sessionId === session.id)) {
+    if (
+      !info.window.isDestroyed() &&
+      (!session || info.sessionId === session.id)
+    ) {
       return true;
     }
   }
@@ -179,19 +201,28 @@ export const getOpenWindowCount = (owner?: BrowserWindow | null): number => {
   const session = resolveSession(owner);
   let count = 0;
   for (const [, info] of playlistWindows) {
-    if (!info.window.isDestroyed() && (!session || info.sessionId === session.id)) {
+    if (
+      !info.window.isDestroyed() &&
+      (!session || info.sessionId === session.id)
+    ) {
       count += 1;
     }
   }
   return count;
 };
 
-export const addItemToAllWindows = (item: PlaylistItem, owner?: BrowserWindow | null): void => {
+export const addItemToAllWindows = (
+  item: PlaylistItem,
+  owner?: BrowserWindow | null,
+): void => {
   const playlistWindows = getPlaylistWindows();
   const session = resolveSession(owner);
   for (const [, info] of playlistWindows) {
-    if (!info.window.isDestroyed() && (!session || info.sessionId === session.id)) {
-      info.window.webContents.send(PLAYLIST_WINDOW_CHANNELS.addItem, item);
+    if (
+      !info.window.isDestroyed() &&
+      (!session || info.sessionId === session.id)
+    ) {
+      deliverToPlaylistWindow(info, { type: 'add-item', item });
       info.isDirty = true;
     }
   }
@@ -204,14 +235,47 @@ export const setWindowDirty = (windowId: string, isDirty: boolean): void => {
   }
 };
 
-export const syncToPlaylistWindow = (data: PlaylistSyncData, owner?: BrowserWindow | null): void => {
+export const syncToPlaylistWindow = (
+  data: PlaylistSyncData,
+  owner?: BrowserWindow | null,
+): void => {
   const playlistWindows = getPlaylistWindows();
   const session = resolveSession(owner);
   const firstWindow = [...playlistWindows.values()].find(
     (info) => !session || info.sessionId === session.id,
   );
   if (firstWindow && !firstWindow.window.isDestroyed()) {
-    firstWindow.window.webContents.send(PLAYLIST_WINDOW_CHANNELS.sync, data);
+    deliverToPlaylistWindow(firstWindow, { type: 'sync', data });
+  }
+};
+
+const deliverToPlaylistWindow = (
+  info: PlaylistWindowInfo,
+  delivery: PlaylistDelivery,
+): void => {
+  if (!info.rendererReady) {
+    info.pendingDeliveries.push(delivery);
+    return;
+  }
+  if (delivery.type === 'add-item') {
+    info.window.webContents.send(
+      PLAYLIST_WINDOW_CHANNELS.addItem,
+      delivery.item,
+    );
+  } else {
+    info.window.webContents.send(PLAYLIST_WINDOW_CHANNELS.sync, delivery.data);
+  }
+};
+
+/** request-sync is sent only after the renderer registers every item/sync listener. */
+export const markPlaylistRendererReady = (
+  sender: Electron.WebContents,
+): void => {
+  const info = getWindowInfoBySender(sender);
+  if (!info || info.window.isDestroyed()) return;
+  info.rendererReady = true;
+  for (const delivery of info.pendingDeliveries.splice(0)) {
+    deliverToPlaylistWindow(info, delivery);
   }
 };
 
@@ -230,7 +294,9 @@ export const getWindowInfoBySender = (
   return null;
 };
 
-export const isSenderPlaylistWindow = (sender: Electron.WebContents): boolean => {
+export const isSenderPlaylistWindow = (
+  sender: Electron.WebContents,
+): boolean => {
   const senderWindow = BrowserWindow.fromWebContents(sender);
   if (!senderWindow) return false;
   const playlistWindows = getPlaylistWindows();

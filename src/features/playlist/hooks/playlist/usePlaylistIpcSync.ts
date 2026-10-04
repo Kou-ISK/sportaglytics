@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
-import { getPresentationItems, normalizePlaylistDocument } from '../../../../shared/playlist/playlistDocument';
+import {
+  getPresentationItems,
+  normalizePlaylistDocument,
+} from '../../../../shared/playlist/playlistDocument';
 import type {
   ItemAnnotation,
   PlaylistItem,
@@ -8,8 +11,10 @@ import type {
 } from '../../../../types/playlist/core';
 import { registerPlaylistIpcHandlers } from './playlistIpcGateway';
 import { buildPlaylistSyncSnapshot } from './playlistSyncSnapshot';
+import type { PlaylistLoadQueue } from './PlaylistLoadQueue';
 
 interface UsePlaylistIpcSyncParams {
+  loadQueue: PlaylistLoadQueue;
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
   setPlaylistName: React.Dispatch<React.SetStateAction<string>>;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
@@ -18,7 +23,7 @@ interface UsePlaylistIpcSyncParams {
   >;
   setPlaylistType: React.Dispatch<React.SetStateAction<PlaylistType>>;
   setPlaylistRows: React.Dispatch<React.SetStateAction<PlaylistRow[]>>;
-  playlistRows: PlaylistRow[];
+  getPlaylistRows: () => PlaylistRow[];
   setPackagePath: React.Dispatch<React.SetStateAction<string | null>>;
   setVideoSources: React.Dispatch<React.SetStateAction<string[]>>;
   setViewMode: React.Dispatch<
@@ -31,13 +36,14 @@ interface UsePlaylistIpcSyncParams {
 }
 
 export const usePlaylistIpcSync = ({
+  loadQueue,
   setItemsWithHistory,
   setPlaylistName,
   setHasUnsavedChanges,
   setItemAnnotations,
   setPlaylistType,
   setPlaylistRows,
-  playlistRows,
+  getPlaylistRows,
   setPackagePath,
   setVideoSources,
   setViewMode,
@@ -53,15 +59,17 @@ export const usePlaylistIpcSync = ({
         return;
       }
 
-      setItemsWithHistory(snapshot.items);
-      setPlaylistName(snapshot.playlistName);
-      setHasUnsavedChanges(snapshot.hasUnsavedChanges);
-      setItemAnnotations(snapshot.itemAnnotations);
-      setPlaylistType(snapshot.playlistType);
-      setPlaylistRows(snapshot.rows ?? []);
-      setPackagePath(snapshot.packagePath);
-      setVideoSources(snapshot.videoSources);
-      setViewMode(snapshot.viewMode);
+      loadQueue.replace(() => {
+        setItemsWithHistory(snapshot.items);
+        setPlaylistName(snapshot.playlistName);
+        setHasUnsavedChanges(snapshot.hasUnsavedChanges);
+        setItemAnnotations(snapshot.itemAnnotations);
+        setPlaylistType(snapshot.playlistType);
+        setPlaylistRows(snapshot.rows ?? []);
+        setPackagePath(snapshot.packagePath);
+        setVideoSources(snapshot.videoSources);
+        setViewMode(snapshot.viewMode);
+      });
     };
 
     const handleSaveProgress = (data: {
@@ -72,20 +80,23 @@ export const usePlaylistIpcSync = ({
     };
 
     const handleAddItem = (item: PlaylistItem): void => {
-      setItemsWithHistory((prev: PlaylistItem[]) => {
-        const normalized = normalizePlaylistDocument({
-          id: 'playlist-window',
-          name: 'Playlist Window',
-          type: 'embedded',
-          rows: playlistRows,
-          items: [...prev, item],
-          createdAt: 0,
-          updatedAt: 0,
+      loadQueue.add(() => {
+        setItemsWithHistory((prev: PlaylistItem[]) => {
+          if (prev.some((existing) => existing.id === item.id)) return prev;
+          const normalized = normalizePlaylistDocument({
+            id: 'playlist-window',
+            name: 'Playlist Window',
+            type: 'embedded',
+            rows: getPlaylistRows(),
+            items: [...prev, item],
+            createdAt: 0,
+            updatedAt: 0,
+          });
+          return getPresentationItems(normalized);
         });
-        return getPresentationItems(normalized);
+        setHasUnsavedChanges(true);
+        setIsDirty(true);
       });
-      setHasUnsavedChanges(true);
-      setIsDirty(true);
     };
 
     let cleanup = (): void => {};
@@ -113,6 +124,7 @@ export const usePlaylistIpcSync = ({
       }
     };
   }, [
+    loadQueue,
     setHasUnsavedChanges,
     setIsDirty,
     setItemAnnotations,
@@ -121,7 +133,7 @@ export const usePlaylistIpcSync = ({
     setPlaylistName,
     setPlaylistType,
     setPlaylistRows,
-    playlistRows,
+    getPlaylistRows,
     setSaveProgress,
     setVideoSources,
     setViewMode,

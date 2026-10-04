@@ -326,6 +326,41 @@ try {
     globalThis.captureWaiting = 0;
     globalThis.captureWaits = [];
     globalThis.captureEmptied = 0;
+    globalThis.captureTrace = [];
+    const receive = (state) => {
+      if (state) globalThis.captureSnapshot = state;
+    };
+    globalThis.stopCaptureTraceState =
+      window.electronAPI.liveCapture.onState(receive);
+    void window.electronAPI.liveCapture
+      .getState()
+      .then(receive)
+      .catch(() => undefined);
+    const sample = () => {
+      const video = globalThis.initialCaptureVideo;
+      const state = globalThis.captureSnapshot;
+      const end = video.buffered.length
+        ? video.buffered.end(video.buffered.length - 1)
+        : null;
+      return {
+        wallMs: Math.round(performance.now()),
+        videoTime: video.currentTime,
+        bufferedEnd: end,
+        readyState: video.readyState,
+        seeking: video.seeking,
+        availableEnd: state?.availableEndSeconds,
+        elapsed: state?.elapsedSeconds,
+        inputs: state?.inputs.map((input) => ({
+          id: input.id,
+          phase: input.phase,
+          segments: input.segmentCount,
+          recordedSeconds: input.recordedSeconds,
+        })),
+      };
+    };
+    globalThis.captureTraceTimer = setInterval(() => {
+      globalThis.captureTrace.push(sample());
+    }, 500);
     globalThis.initialCaptureVideo?.addEventListener('waiting', () => {
       globalThis.captureWaiting++;
       globalThis.captureWaits.push({
@@ -338,6 +373,7 @@ try {
             globalThis.initialCaptureVideo.buffered.end(i),
           ],
         ),
+        producer: sample(),
       });
     });
     globalThis.initialCaptureVideo?.addEventListener(
@@ -378,22 +414,31 @@ try {
   const liveEnd = await timeline.evaluate(
     () => globalThis.captureClock.currentTime,
   );
-  const playback = await main.evaluate(() => ({
-    sameElement:
-      globalThis.initialCaptureVideo ===
-      document.querySelector('#video_0 video'),
-    source: document
-      .querySelector('#video_0 video')
-      ?.currentSrc?.startsWith('blob:'),
-    emptied: globalThis.captureEmptied,
-    waiting: globalThis.captureWaiting,
-    playedSeconds:
-      document.querySelector('#video_0 video').currentTime -
-      globalThis.initialCaptureTime,
-    waits: globalThis.captureWaits,
-    error: document.querySelector('#video_0 video')?.error?.message,
-  }));
-  console.log('Continuous live playback:', JSON.stringify(playback));
+  const playback = await main.evaluate(() => {
+    clearInterval(globalThis.captureTraceTimer);
+    globalThis.stopCaptureTraceState?.();
+    return {
+      sameElement:
+        globalThis.initialCaptureVideo ===
+        document.querySelector('#video_0 video'),
+      source: document
+        .querySelector('#video_0 video')
+        ?.currentSrc?.startsWith('blob:'),
+      emptied: globalThis.captureEmptied,
+      waiting: globalThis.captureWaiting,
+      playedSeconds:
+        document.querySelector('#video_0 video').currentTime -
+        globalThis.initialCaptureTime,
+      waits: globalThis.captureWaits,
+      trace: globalThis.captureTrace,
+      error: document.querySelector('#video_0 video')?.error?.message,
+    };
+  });
+  const { trace, ...playbackSummary } = playback;
+  console.log('Continuous live playback:', JSON.stringify(playbackSummary));
+  if (playback.waits.some((wait) => !wait.seeking)) {
+    console.log('Live capture producer/buffer trace:', JSON.stringify(trace));
+  }
   assert.ok(
     liveEnd - liveStart > 20,
     'package clock advances while coding is focused',

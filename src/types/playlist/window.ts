@@ -44,5 +44,6 @@ export type PlaylistCommand =
   | { type: 'request-sync' }
   | { type: 'save-playlist'; playlist: Playlist; filePath?: string }
   | { type: 'load-playlist'; filePath: string }
+  | { type: 'accept-loaded-document'; loadId: string }
   | { type: 'set-dirty'; isDirty: boolean }
   | { type: 'get-dirty' };

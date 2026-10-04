@@ -162,4 +162,6 @@ export interface PlaylistSaveProgressPayload {
 export interface PlaylistFileLoadResult {
   playlist: Playlist;
   filePath: string;
+  /** Main-issued, window-bound read ticket; null when opening a new window. */
+  loadId: string | null;
 }
