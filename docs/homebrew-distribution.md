@@ -62,7 +62,7 @@ brew install --cask sportaglytics
 
 ## リリース手順（完全自動化）
 
-候補の検証とレビューを完了し、`develop`から`main`へのPRを統合した後、タグpushで配布を開始します。現在の0.17.2は未公開の候補です。
+候補の検証とレビューを完了し、`develop`から`main`へのPRを統合した後、タグpushで配布を開始します。0.17.2は[GitHub Release](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.2)で公開済みで、Homebrew Tapの版番号と各DMGのSHA256も更新済みです。
 
 ### 1. バージョン番号を更新
 

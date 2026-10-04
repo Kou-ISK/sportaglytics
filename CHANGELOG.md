@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.17.2] - 未公開
+### Documentation
 
-リリース準備中です。配布物とHomebrewの更新は、品質ゲート・Windows検証・macOS署名と公証・レビューの通過後に行います。[Release手順](.github/RELEASE.md)。
+- 0.17.2の公開状況、ダウンロード入口とHomebrewの案内を同期。
+
+## [0.17.2] - 2026-10-04
+
+[GitHub Release](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.2)でmacOS x64/arm64の署名・公証済みDMG、Windows x64の未署名インストーラーとSHA256SUMS.txtを公開しました。Homebrew Tapも同じ版とDMGのSHA256へ更新済みです。[Release手順](.github/RELEASE.md)。
 
 ### Changed
 

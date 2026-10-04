@@ -2,11 +2,11 @@
 
 このドキュメントは SporTagLytics の GitHub Release 運用手順です。Homebrew Tap の詳細は [docs/homebrew-distribution.md](../docs/homebrew-distribution.md) を参照してください。
 
-## 0.17.2 Candidate
+## 0.17.2 Release
 
-`package.json` の0.17.2は未公開の候補です。作業ブランチから`develop`へのDraft PRで検証とレビューを行います。候補準備だけではタグ作成、Release公開、Homebrew更新を行いません。
+0.17.2は[GitHub Release](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.2)で公開済みです。macOS x64/arm64 DMG、Windows x64インストーラーとSHA256SUMS.txtを配布し、Homebrew Tapも同じ版とDMGのSHA256へ更新しました。署名状態と対応条件はRelease noteと[Windows版](../docs/windows.md)を参照してください。
 
-既存候補で確認したmacOSの操作・分析PNGは、アプリコードの同一性を確認した場合に引き継げます。版番号を変更した配布物の検証、同じ候補のWindows CI、署名・公証は別途必要です。full auditを含む未通過のゲートがある間は正式Releaseを起動しません。
+次の版も作業ブランチから`develop`へのDraft PRで候補を検証します。候補準備だけではタグ作成、Release公開、Homebrew更新を行いません。版番号を変更した配布物の検証、同じ候補のWindows CI、署名・公証を確認し、full auditを含む未通過のゲートがある間は正式Releaseを起動しません。
 
 ## Current Workflow
 
