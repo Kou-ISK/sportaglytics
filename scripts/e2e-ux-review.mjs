@@ -8,6 +8,7 @@ import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
 import { verifySavedPlaylistLoadDelivery } from './e2e-playlist-load-delivery.mjs';
+import { verifyPlaylistDocumentIdentity } from './e2e-playlist-document-identity.mjs';
 
 const work = await fs.mkdtemp(path.join(os.tmpdir(), 'sportaglytics-ux-'));
 const packagePath = path.join(work, 'Synthetic-review.stpkg');
@@ -466,6 +467,13 @@ try {
     main,
     work,
     path.join(packagePath, 'videos/synthetic.mp4'),
+  );
+  await verifyPlaylistDocumentIdentity(
+    app,
+    main,
+    work,
+    path.join(packagePath, 'videos/synthetic.mp4'),
+    screenshot,
   );
   await clickMenu('分析を開く', timeline);
   const analysis = await route('#/analysis');

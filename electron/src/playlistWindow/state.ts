@@ -10,6 +10,8 @@ export type PlaylistDelivery =
 export interface PlaylistWindowInfo {
   window: BrowserWindow;
   filePath: string | null;
+  /** Open intent until the first renderer snapshot is accepted. Never a save target. */
+  initialFilePath?: string;
   isDirty: boolean;
   sessionId: string | null;
   session: PackageSession | null;

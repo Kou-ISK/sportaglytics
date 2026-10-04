@@ -19,6 +19,8 @@ Accepted
 - 外部文書購読の`playlist:ready`とは責務を分け、新しい汎用IPCやpreload APIを追加しない。送信側の固定500ms待機は除去する。
 - Rendererは外部文書listenerをitem/syncの`request-sync`より先に登録する。保存済み文書のロード中はWindow内の追加をFIFOで保留し、disk snapshotの適用後に処理する。新しいロード・sync・編集があれば古いsnapshotを適用しない。取消時は保留追加を現在の文書へ処理し、Renderer破棄時は破棄する。
 - 行定義はsnapshot適用時に同期的に更新し、Reactの次の描画より前の追加でも既存の行所属を維持する。同じitem IDの再配送ではitemを重複させない。
+- MainはWindowごとの読込ticketを発行し、読込完了だけでは保存先・dirtyを変更しない。Rendererが世代と編集revisionを検査してsnapshotを採用する同じ同期処理から、既存command経路で`accept-loaded-document`を返す。Mainはそのsenderの最新ticketだけを一度受理して保存先を確定する。ticketは別Window・重複受理・reload・closeでは使えない。初回のopen intentも、採用前は保存先と分けて保持する。
+- dirtyはsnapshotと保留追加を反映したRendererの既存`set-dirty`に従う。read/受理ackでMainのdirtyを解除しないため、既にdirtyのまま編集が続く場合もCloseの確認を失わない。文書にticketを保存せず、Mainが保持するpathをRendererから自由に指定できるAPIは追加しない。
 
 ## Consequences
 
@@ -27,3 +29,5 @@ Accepted
 遅い初回ロードを実E2Eで制御し、単体テストで配送順序、重複ready、reloadとSessionの分離を確認する。受信準備の合図を送る位置は全item/sync listener登録後に保つ必要がある。
 
 保存済み文書の非同期ロードは基点から存在する別の競合経路だった。Mainの配送準備だけではdisk snapshotによる後続追加の置換を防げないため、受信側の文書境界も検証する。deferred loadのhook回帰と、合成`.stpl`のread結果を保留する初回ロード・実reload E2Eで確認する。本番writerを置換せず、追加の到達を別observerで確認してからreadを解放する。
+
+Rendererだけの古い結果拒否ではMainの保存先とdirtyの変更を止められない。`documentIdentity.test.tsx`は実Main handler・preload bridge・Renderer hookを接続し、合成A/Bの実read/writeで逆順完了・別文書ロード中の編集・同文書の編集とClose確認を検証する。通信とBrowserWindowを模擬するunitの範囲に加え、`e2e-playlist-document-identity.mjs`はnative Mainの保存先/dirty、実UIの保存先bytes、stale完了後のClose dialogを確認する。

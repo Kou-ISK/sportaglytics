@@ -33,6 +33,13 @@ import { loadPlaylistFromPath, savePlaylistToPath } from './storage';
 import { selectPlaylistPath } from './fileOpen';
 import { getPackageSessionForSender } from '../packageSessionRegistry';
 import { registerPlaylistMediaReferenceHandlers } from './mediaReferenceHandlers';
+import {
+  acceptPlaylistDocumentLoad,
+  beginPlaylistDocumentLoad,
+  cancelPlaylistDocumentLoad,
+  isCurrentPlaylistDocumentLoad,
+  resolvePlaylistDocumentLoad,
+} from './documentLoad';
 
 export const registerPlaylistHandlers = (): void => {
   registerPlaylistMediaReferenceHandlers();
@@ -43,8 +50,9 @@ export const registerPlaylistHandlers = (): void => {
     )
       return;
     const info = getWindowInfoBySender(event.sender);
-    if (info?.filePath)
-      event.sender.send(PLAYLIST_WINDOW_CHANNELS.externalOpen, info.filePath);
+    const openPath = info?.initialFilePath ?? info?.filePath;
+    if (openPath)
+      event.sender.send(PLAYLIST_WINDOW_CHANNELS.externalOpen, openPath);
   });
 
   ipcMain.handle(
@@ -119,6 +127,13 @@ export const registerPlaylistHandlers = (): void => {
 
     if (command.type === 'request-sync') {
       markPlaylistRendererReady(event.sender);
+    }
+
+    if (command.type === 'accept-loaded-document') {
+      if (!getValidatedEventSenderWindow(event)) return;
+      const info = getWindowInfoBySender(event.sender);
+      if (info) acceptPlaylistDocumentLoad(info, command.loadId);
+      return;
     }
 
     if (command?.type === 'set-dirty') {
@@ -275,42 +290,51 @@ export const registerPlaylistHandlers = (): void => {
       event,
       givenPath?: unknown,
     ): Promise<PlaylistFileLoadResult | null> => {
+      const senderWindow = getValidatedEventSenderWindow(event);
+      if (!senderWindow) return null;
+      const windowInfo = isSenderPlaylistWindow(event.sender)
+        ? getWindowInfoBySender(event.sender)
+        : null;
+      const loadId = windowInfo ? beginPlaylistDocumentLoad(windowInfo) : null;
       try {
-        if (!getValidatedEventSenderWindow(event)) {
-          return null;
-        }
-
         let targetPath = typeof givenPath === 'string' ? givenPath : undefined;
         if (!targetPath) {
           targetPath =
             (await selectPlaylistPath(getValidatedEventSenderWindow(event))) ??
             undefined;
         }
-        if (!targetPath) return null;
+        if (!targetPath) {
+          if (
+            windowInfo &&
+            loadId &&
+            isCurrentPlaylistDocumentLoad(windowInfo, loadId)
+          )
+            cancelPlaylistDocumentLoad(windowInfo);
+          return null;
+        }
 
         const resolvedPlaylist = await loadPlaylistFromPath(targetPath);
 
         console.log('[Playlist] Loaded from:', targetPath);
 
-        if (!isSenderPlaylistWindow(event.sender)) {
-          createPlaylistWindow(
-            targetPath,
-            getValidatedEventSenderWindow(event),
-          );
+        if (windowInfo && loadId) {
+          if (
+            getWindowInfoBySender(event.sender) !== windowInfo ||
+            !resolvePlaylistDocumentLoad(windowInfo, loadId, targetPath)
+          )
+            return null;
+        } else if (!senderWindow.isDestroyed()) {
+          createPlaylistWindow(targetPath, senderWindow);
         } else {
-          const windowInfo = getWindowInfoBySender(event.sender);
-          if (windowInfo) {
-            windowInfo.filePath = targetPath;
-            windowInfo.isDirty = false;
-            console.log(
-              '[Playlist] Updated window info with filePath:',
-              targetPath,
-            );
-          }
+          return null;
         }
 
-        return { playlist: resolvedPlaylist, filePath: targetPath };
+        return { playlist: resolvedPlaylist, filePath: targetPath, loadId };
       } catch (error) {
+        if (windowInfo && loadId) {
+          if (!isCurrentPlaylistDocumentLoad(windowInfo, loadId)) return null;
+          cancelPlaylistDocumentLoad(windowInfo);
+        }
         console.error('[Playlist] Load error:', error);
         await dialog.showErrorBox(
           '読み込みエラー',

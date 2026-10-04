@@ -287,6 +287,12 @@ export const isPlaylistCommand = (value: unknown): value is PlaylistCommand => {
       return isString(value.filePath);
     case 'set-dirty':
       return isBoolean(value.isDirty);
+    case 'accept-loaded-document':
+      return (
+        isString(value.loadId) &&
+        value.loadId.length > 0 &&
+        value.loadId.length <= 128
+      );
     default:
       return false;
   }
@@ -308,6 +314,7 @@ export const isPlaylistFileLoadResult = (
   return (
     isPlainObject(value) &&
     isPlaylist(value.playlist) &&
-    isString(value.filePath)
+    isString(value.filePath) &&
+    isStringOrNull(value.loadId)
   );
 };

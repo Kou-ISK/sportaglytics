@@ -6,6 +6,7 @@ import type {
   PlaylistType,
 } from '../../../../types/playlist/core';
 import {
+  acceptLoadedPlaylistDocument,
   loadPlaylistFile,
   subscribePlaylistExternalOpen,
 } from '../../gateway/playlistWindowGateway';
@@ -79,6 +80,7 @@ export const usePlaylistLoader = ({
           );
 
           loadQueue.complete(token, () => {
+            if (!acceptLoadedPlaylistDocument(loaded.loadId)) return;
             setItemsWithHistory(snapshot.items);
             setHasUnsavedChanges(snapshot.hasUnsavedChanges);
             setPlaylistName(snapshot.playlistName);

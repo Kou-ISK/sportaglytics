@@ -4,7 +4,7 @@ import path from 'node:path';
 import { expect } from 'playwright/test';
 
 /** Hold only this synthetic document's disk result, never the production writer. */
-const holdDocumentRead = async (app, target, skipReads) => {
+export const holdDocumentRead = async (app, target, skipReads) => {
   await app.evaluate(
     async (_electron, options) => {
       const fileSystem = process.getBuiltinModule('fs/promises');

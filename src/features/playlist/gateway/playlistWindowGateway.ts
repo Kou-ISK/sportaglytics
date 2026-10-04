@@ -12,6 +12,24 @@ import type {
 const getPlaylistApi = () => globalThis.window.electronAPI?.playlist;
 const noop = (): void => undefined;
 
+/** Acknowledge only a snapshot accepted by this renderer's load/edit generation. */
+export const acceptLoadedPlaylistDocument = (
+  loadId: string | null,
+): boolean => {
+  const api = getPlaylistApi();
+  if (!loadId || !api?.sendCommand) return false;
+  try {
+    api.sendCommand({ type: 'accept-loaded-document', loadId });
+    return true;
+  } catch (error: unknown) {
+    console.debug(
+      '[PlaylistWindowGateway] accept loaded document failed',
+      error,
+    );
+    return false;
+  }
+};
+
 export const loadPlaylistFile = async (
   filePath?: string,
 ): Promise<PlaylistFileLoadResult | null> => {

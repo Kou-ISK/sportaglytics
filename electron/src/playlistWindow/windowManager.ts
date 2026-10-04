@@ -5,6 +5,7 @@ import type { PlaylistItem } from '../../../src/types/playlist/core';
 import type { PlaylistSyncData } from '../../../src/types/playlist/window';
 import { PLAYLIST_WINDOW_CHANNELS } from '../../../src/types/ipc/playlistWindow';
 import { applyWindowSecurity } from '../windowSecurity';
+import { cancelPlaylistDocumentLoad } from './documentLoad';
 import {
   getMainWindowRef,
   getPlaylistWindows,
@@ -76,7 +77,8 @@ export const createPlaylistWindow = (
 
   const info: PlaylistWindowInfo = {
     window,
-    filePath: filePath || null,
+    filePath: null,
+    initialFilePath: filePath,
     isDirty: false,
     sessionId: session?.id ?? null,
     session,
@@ -86,6 +88,7 @@ export const createPlaylistWindow = (
   playlistWindows.set(windowId, info);
   window.webContents.on('did-start-loading', () => {
     info.rendererReady = false;
+    cancelPlaylistDocumentLoad(info);
   });
   if (session) registerAuxiliaryWindow(session, window);
 
@@ -122,6 +125,7 @@ export const createPlaylistWindow = (
   });
 
   window.on('closed', () => {
+    cancelPlaylistDocumentLoad(info);
     playlistWindows.delete(windowId);
     if (session) unregisterAuxiliaryWindow(session, window);
     if (session && !session.mainWindow.isDestroyed()) {

@@ -20,6 +20,7 @@ const ipc = vi.hoisted(() => ({
 }));
 vi.mock('../../gateway/playlistWindowGateway', () => ({
   loadPlaylistFile: ipc.load,
+  acceptLoadedPlaylistDocument: vi.fn(() => true),
   subscribePlaylistExternalOpen: (callback: (path: string) => void) => {
     ipc.external.push(callback);
     return () => {};
@@ -46,6 +47,7 @@ const item = (id: string): PlaylistItem => ({
   note: 'original',
 });
 const document = (id: string): PlaylistFileLoadResult => ({
+  loadId: `load-${id}`,
   filePath: `./${id}.stpl`,
   playlist: {
     id,

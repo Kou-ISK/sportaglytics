@@ -12,6 +12,10 @@ Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を�
 
 同じpathの有効なロード中にexternal-openが重複した場合は同じ処理へ集約し、保留追加を別世代として失わないことも確認します。別path、syncで置き換えられた世代、破棄後のロードとは区別します。
 
+`playlistWindow/documentIdentity.test.tsx`は実Main handler・preload bridge・Renderer hookと合成A/Bの実atomic writerを接続します。A→Bの要求がB→Aの順に完了してもSaveはBだけへ書き、Bロード中のA編集でsnapshotを拒否した場合はAだけへ書くこと、同文書のstale完了がdirtyとClose確認を消さないことを確認します。WindowとIPC transportは模擬です。未知/他Window/重複/reload後ticketの拒否も検査します。
+
+同じ保存先・dirty・Close確認は`e2e-ux-review`内の`e2e-playlist-document-identity.mjs`でも合成A/Bで検査します。専用read結果のみを保留し、実Mainの完了ログを観測してから古い結果を評価します。既存UI、MainのfilePath/dirty、Ctrl/Cmd+Sによる実書込と他文書bytes、実Close dialog呼出しを検査します。dialogは当該Windowの「キャンセル」応答だけをstub化し、writerやIPC handlerは置換しません。
+
 ライブキャプチャの回帰は`node scripts/e2e-live-capture.mjs`で行います（事前にmedia:build / e2e:prepare）。USB模擬入力と合成HTTP配信の同時録画、過去レビュー中のコード保存、再接続時の空白、停止・複数区間の書き出しを検証します。実機別のドライバ・連係カメラ・RTSP配信は別途ハードウェア検証が必要です。
 
 720pの模擬入力で録画画面と映像ウィンドウを隠し、Code Windowのクリック/ホットキーを混用して25秒間連続記録します。区間をまたいでもvideo要素が同一で、emptied・バッファ不足によるwaitingが発生せず映像時刻が進むことを確認します。共通時計への補正シーク中のwaitingは区別してログに残します。可変フレーム時刻の区間重複は保存時に補正し、書き出しと再オープンも検査します。
