@@ -1,5 +1,11 @@
 import type { BrowserWindow } from 'electron';
 import type { PackageSession } from '../packageSessionRegistry';
+import type { PlaylistItem } from '../../../src/types/playlist/core';
+import type { PlaylistSyncData } from '../../../src/types/playlist/window';
+
+export type PlaylistDelivery =
+  | { type: 'add-item'; item: PlaylistItem }
+  | { type: 'sync'; data: PlaylistSyncData };
 
 export interface PlaylistWindowInfo {
   window: BrowserWindow;
@@ -7,6 +13,8 @@ export interface PlaylistWindowInfo {
   isDirty: boolean;
   sessionId: string | null;
   session: PackageSession | null;
+  rendererReady: boolean;
+  pendingDeliveries: PlaylistDelivery[];
 }
 
 const playlistWindows = new Map<string, PlaylistWindowInfo>();

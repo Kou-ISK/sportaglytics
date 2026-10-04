@@ -12,12 +12,6 @@ import type {
 const getPlaylistApi = () => globalThis.window.electronAPI?.playlist;
 const noop = (): void => undefined;
 
-const waitFor = async (ms: number): Promise<void> => {
-  await new Promise<void>((resolve) => {
-    globalThis.setTimeout(resolve, ms);
-  });
-};
-
 export const loadPlaylistFile = async (
   filePath?: string,
 ): Promise<PlaylistFileLoadResult | null> => {
@@ -106,7 +100,6 @@ export const ensurePlaylistWindowOpen = async (): Promise<boolean> => {
     return false;
   }
 
-  await waitFor(500);
   return true;
 };
 

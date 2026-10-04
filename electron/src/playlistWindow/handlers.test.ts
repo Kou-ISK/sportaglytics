@@ -11,9 +11,11 @@ const electronMocks = vi.hoisted(() => {
   return {
     handleHandlers,
     onHandlers,
-    handle: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
-      handleHandlers.set(channel, handler);
-    }),
+    handle: vi.fn(
+      (channel: string, handler: (...args: unknown[]) => unknown) => {
+        handleHandlers.set(channel, handler);
+      },
+    ),
     on: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
       onHandlers.set(channel, handler);
     }),
@@ -32,6 +34,7 @@ const windowManagerMocks = vi.hoisted(() => ({
   getWindowInfoBySender: vi.fn<() => { filePath: string } | null>(() => null),
   isPlaylistWindowOpen: vi.fn(() => false),
   isSenderPlaylistWindow: vi.fn(() => false),
+  markPlaylistRendererReady: vi.fn(),
   setPlaylistWindowTitleForSender: vi.fn(() => false),
   syncToPlaylistWindow: vi.fn(),
 }));
@@ -79,6 +82,7 @@ describe('playlistWindow handlers', () => {
     electronMocks.on.mockClear();
     windowManagerMocks.syncToPlaylistWindow.mockReset();
     windowManagerMocks.isSenderPlaylistWindow.mockReset();
+    windowManagerMocks.markPlaylistRendererReady.mockReset();
     windowManagerMocks.setPlaylistWindowTitleForSender.mockReset();
     senderGuardMocks.getValidatedEventSenderWindow.mockReset();
     senderGuardMocks.isEventFromWindow.mockReset();
@@ -93,9 +97,14 @@ describe('playlistWindow handlers', () => {
     const ready = electronMocks.onHandlers.get(PLAYLIST_WINDOW_CHANNELS.ready);
     const send = vi.fn();
     windowManagerMocks.isSenderPlaylistWindow.mockReturnValue(true);
-    windowManagerMocks.getWindowInfoBySender.mockReturnValue({ filePath: '/tmp/review.stpl' });
+    windowManagerMocks.getWindowInfoBySender.mockReturnValue({
+      filePath: '/tmp/review.stpl',
+    });
     ready?.({ sender: { send } });
-    expect(send).toHaveBeenCalledWith(PLAYLIST_WINDOW_CHANNELS.externalOpen, '/tmp/review.stpl');
+    expect(send).toHaveBeenCalledWith(
+      PLAYLIST_WINDOW_CHANNELS.externalOpen,
+      '/tmp/review.stpl',
+    );
     send.mockClear();
     windowManagerMocks.isSenderPlaylistWindow.mockReturnValue(false);
     ready?.({ sender: { send } });
@@ -112,7 +121,10 @@ describe('playlistWindow handlers', () => {
     };
     stateMocks.getMainWindowRef.mockReturnValue(mainWindow);
     senderGuardMocks.isEventFromWindow.mockImplementation(
-      (event: { sender: unknown }, expectedWindow: { webContents: unknown } | null) =>
+      (
+        event: { sender: unknown },
+        expectedWindow: { webContents: unknown } | null,
+      ) =>
         Boolean(expectedWindow) && event.sender === expectedWindow.webContents,
     );
 
@@ -162,12 +174,17 @@ describe('playlistWindow handlers', () => {
     windowManagerMocks.isSenderPlaylistWindow.mockReturnValue(false);
     commandHandler?.({ sender: {} }, { type: 'request-sync' });
     expect(send).not.toHaveBeenCalled();
+    expect(windowManagerMocks.markPlaylistRendererReady).not.toHaveBeenCalled();
 
     windowManagerMocks.isSenderPlaylistWindow.mockReturnValue(true);
     commandHandler?.({ sender: {} }, { type: 'seek', time: 'broken' });
     expect(send).not.toHaveBeenCalled();
+    expect(windowManagerMocks.markPlaylistRendererReady).not.toHaveBeenCalled();
 
     commandHandler?.({ sender: {} }, { type: 'request-sync' });
+    expect(windowManagerMocks.markPlaylistRendererReady).toHaveBeenCalledTimes(
+      1,
+    );
     expect(send).toHaveBeenCalledWith(
       PLAYLIST_WINDOW_CHANNELS.command,
       expect.objectContaining({ type: 'request-sync' }),

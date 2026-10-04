@@ -321,6 +321,8 @@ SporTagLytics public repositoryには以下を置きません。
 
 Playlistは独立BrowserWindowで扱い、`.stpl` documentを正本とします。Timelineからの追加とAI Analysisからの追加は共通playlist APIを利用します。
 
+初回表示とreloadでは、Mainがclip追加と同期をWindowごとに保持します。Rendererは全item/sync listenerを登録した後に既存の`request-sync`を送信し、Mainは検証済みの送信元Windowの保留通知だけを送信順に届けます。文書ロード用の`playlist:ready`は外部ファイル購読の準備を表し、item listenerの準備とは分けます。[ADR 0059](adr/0059-playlist-renderer-delivery-readiness.md)。
+
 「ファイル > 開く > プレイリスト…」はMainの`playlistWindow/fileOpen.ts`でネイティブ選択・文書検証を行い、既存のWindow管理へ渡します。IPCのロード操作も同じパッケージ選択を使います。メニュー要求を全Rendererへ配信せず、操作元のPackage Sessionと編集中の文書を保持します。
 
 Clip exportは `src/shared/clipExport/` にpure service / contractを集約し、main processのFFmpeg runnerで実行します。進捗は専用export progress windowへ通知し、main app操作をblockしません。

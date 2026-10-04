@@ -20,6 +20,7 @@ import {
   getWindowInfoBySender,
   isPlaylistWindowOpen,
   isSenderPlaylistWindow,
+  markPlaylistRendererReady,
   setPlaylistWindowTitleForSender,
   syncToPlaylistWindow,
 } from './windowManager';
@@ -114,6 +115,10 @@ export const registerPlaylistHandlers = (): void => {
   ipcMain.on(PLAYLIST_WINDOW_CHANNELS.command, (event, command: unknown) => {
     if (!isSenderPlaylistWindow(event.sender) || !isPlaylistCommand(command)) {
       return;
+    }
+
+    if (command.type === 'request-sync') {
+      markPlaylistRendererReady(event.sender);
     }
 
     if (command?.type === 'set-dirty') {
