@@ -12,6 +12,8 @@ Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を�
 
 720pの模擬入力で録画画面と映像ウィンドウを隠し、Code Windowのクリック/ホットキーを混用して25秒間連続記録します。区間をまたいでもvideo要素が同一で、emptied・バッファ不足によるwaitingが発生せず映像時刻が進むことを確認します。共通時計への補正シーク中のwaitingは区別してログに残します。可変フレーム時刻の区間重複は保存時に補正し、書き出しと再オープンも検査します。
 
+`CaptureMediaBuffer.test.ts`はreadを明示的に保留し、その間に追加された保存済みfragmentがread/append完了直後に次のtimerを待たず処理されること、複数更新の集約、同時readの禁止、dispose後の保留破棄を確認します。時計・seek・初回buffer量を変えてwaitingを隠さず、実Electronの非seek waiting=0の検査は引き続き必要です。
+
 非seekのwaitingが起きた場合は、500msごとの映像時刻・buffer終端・入力別の保存済み秒数/区間数・Mainの保存済み終端をログに残します。生産側の遅延とRendererへのappend遅延を区別するための診断で、waiting=0の合否基準は維持します。TimelineのOption/Altコピーも固定400msではなく、保存されたJSONが3件になる条件を既存のbounded pollで待ち、件数・行名・色を厳密に検査します。
 
 Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含みます。複数行の旧文書を読み、実UIでソートして再生・Undo/Redo・保存再読込を確認し、色の異なる合成映像のFFmpeg出力を復号して順序を検証します。Storybookの`Workspace/Playlist/Sorter`ではInteractive、Narrow、Emptyとdark/lightを確認します。

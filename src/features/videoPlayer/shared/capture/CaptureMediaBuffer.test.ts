@@ -85,3 +85,81 @@ it('reports read/append failure once without continuing allocation', async () =>
   controller.update(clips, 20);
   expect(read).toHaveBeenCalledTimes(1);
 });
+
+it('drains a newer saved fragment immediately when it arrives during an in-flight read', async () => {
+  const { source, buffer } = setup();
+  let release: (data: ArrayBuffer) => void = () => {};
+  const read = vi.fn(
+    (_path: string, _signal: AbortSignal) =>
+      new Promise<ArrayBuffer>((resolve) => {
+        release = resolve;
+      }),
+  );
+  const controller = new CaptureMediaBuffer(source, read, vi.fn());
+  controller.update(clips.slice(0, 1), 0);
+  expect(read).toHaveBeenCalledTimes(1);
+  // The producer has already saved the next segment; no additional timer tick follows.
+  controller.update(clips.slice(0, 2), 1.82);
+  release(new ArrayBuffer(8));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(buffer.end).toBe(2);
+  expect(read.mock.calls.map((call) => call[0])).toEqual([
+    'media/0.mp4',
+    'media/1.mp4',
+  ]);
+  release(new ArrayBuffer(8));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(buffer.end).toBe(4);
+  controller.dispose();
+});
+
+it('coalesces updates during a read and never starts a second read concurrently', async () => {
+  const { source, buffer } = setup();
+  let release: (data: ArrayBuffer) => void = () => {};
+  const read = vi.fn(
+    (_path: string, _signal: AbortSignal) =>
+      new Promise<ArrayBuffer>((resolve) => {
+        release = resolve;
+      }),
+  );
+  const controller = new CaptureMediaBuffer(source, read, vi.fn());
+  controller.update(clips.slice(0, 1), 0);
+  controller.update(clips.slice(0, 2), 0.5);
+  controller.update(clips.slice(0, 3), 1.82);
+  expect(read).toHaveBeenCalledTimes(1);
+  release(new ArrayBuffer(8));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(read).toHaveBeenCalledTimes(2);
+  release(new ArrayBuffer(8));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(read.mock.calls.map((call) => call[0])).toEqual([
+    'media/0.mp4',
+    'media/1.mp4',
+    'media/2.mp4',
+  ]);
+  release(new ArrayBuffer(8));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(buffer.end).toBe(6);
+  controller.dispose();
+});
+
+it('discards pending updates when disposed during an in-flight read', async () => {
+  const { source, buffer } = setup();
+  let release: (data: ArrayBuffer) => void = () => {};
+  const read = vi.fn(
+    (_path: string, _signal: AbortSignal) =>
+      new Promise<ArrayBuffer>((resolve) => {
+        release = resolve;
+      }),
+  );
+  const error = vi.fn();
+  const controller = new CaptureMediaBuffer(source, read, error);
+  controller.update(clips.slice(0, 1), 0);
+  controller.update(clips.slice(0, 2), 1.82);
+  controller.dispose();
+  release(new ArrayBuffer(8));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(buffer.end).toBe(0);
+  expect(error).not.toHaveBeenCalled();
+});
