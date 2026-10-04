@@ -8,6 +8,11 @@ import { expect } from 'playwright/test';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
+import {
+  inspectLoadedYouTubeBootstrap,
+  isClassifiedStartupRequest,
+  OBSERVED_WIDGET_URL,
+} from './e2e-tactical-startup-http.mjs';
 
 const work = await fs.mkdtemp(path.join(os.tmpdir(), 'sportaglytics-board-'));
 const bundle = path.join(work, 'tactics.stpl');
@@ -102,18 +107,29 @@ try {
   const dialog = page.getByRole('dialog', { name: /戦術盤/ });
   await dialog.waitFor();
   // The enabled action proves the stopped frame and calibration are ready.
-  // Streaming/local media need not reach page-wide network idle. The one known
-  // adapter startup script is still blocked; every recognition HTTP request fails.
+  // Streaming/local media need not reach page-wide network idle. The abort route
+  // stays installed and every HTTP request after recognition starts still fails.
   const recognize = dialog.getByRole('button', {
     name: '映像から配置候補を認識',
   });
   await expect(recognize).toBeEnabled({ timeout: 15000 });
+  let bootstrapVerified = false;
+  if (remote.some((request) => request.url === OBSERVED_WIDGET_URL)) {
+    const evidence = [
+      ...(await inspectLoadedYouTubeBootstrap(main)),
+      ...(await inspectLoadedYouTubeBootstrap(page)),
+    ];
+    console.log(
+      'Loaded YouTube startup bootstrap evidence:',
+      JSON.stringify(evidence),
+    );
+    bootstrapVerified = evidence.some(
+      (script) => script.declaresObservedWidget,
+    );
+  }
   assert.ok(
-    remote.every(
-      (request) =>
-        request.phase === 'startup' &&
-        request.type === 'script' &&
-        request.url === 'https://www.youtube.com/iframe_api',
+    remote.every((request) =>
+      isClassifiedStartupRequest(request, bootstrapVerified),
     ),
     `Unexpected startup HTTP request: ${JSON.stringify(remote)}`,
   );
