@@ -108,7 +108,9 @@ try {
   );
 
   await mainPage.getByText('新しいパッケージを作成', { exact: true }).click();
-  await mainPage.getByLabel('パッケージ').waitFor({ timeout: 5_000 });
+  await mainPage
+    .getByRole('textbox', { name: 'パッケージ', exact: true })
+    .waitFor({ timeout: 5_000 });
   await mainPage.waitForTimeout(800);
   const focusedUrlAfterProgressUpdate = await electronApp.evaluate(
     ({ BrowserWindow }) =>

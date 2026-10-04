@@ -449,7 +449,7 @@ try {
   await clickMenu('分析を開く', timeline);
   const analysis = await route('#/analysis');
   await analysis
-    .getByRole('button', { name: 'クロス集計', exact: true })
+    .getByRole('tab', { name: 'クロス集計', exact: true })
     .click();
   await analysis
     .getByText('対象データ数: 240 / 240', { exact: true })
@@ -458,7 +458,7 @@ try {
   // unchanged. It must recover the same 240 scenes through the ready handshake.
   await analysis.reload();
   await analysis
-    .getByRole('button', { name: 'クロス集計', exact: true })
+    .getByRole('tab', { name: 'クロス集計', exact: true })
     .click();
   await analysis
     .getByText('対象データ数: 240 / 240', { exact: true })
