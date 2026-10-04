@@ -17,9 +17,13 @@ Accepted
 - MainはWindowごとにitem追加と同期を送信順に保持する。Rendererが既存のitem/sync listenerを全て登録してから送る`request-sync`を受信準備の合図として使い、検証済みPlaylist senderに対応するWindowの通知だけを一度配送する。
 - 準備完了後の通知は直接配送し、reload開始時は再び保留する。Window破棄とともにその保留状態も破棄する。送信元のPackage Sessionによる宛先制限を維持する。
 - 外部文書購読の`playlist:ready`とは責務を分け、新しい汎用IPCやpreload APIを追加しない。送信側の固定500ms待機は除去する。
+- Rendererは外部文書listenerをitem/syncの`request-sync`より先に登録する。保存済み文書のロード中はWindow内の追加をFIFOで保留し、disk snapshotの適用後に処理する。新しいロード・sync・編集があれば古いsnapshotを適用しない。取消時は保留追加を現在の文書へ処理し、Renderer破棄時は破棄する。
+- 行定義はsnapshot適用時に同期的に更新し、Reactの次の描画より前の追加でも既存の行所属を維持する。同じitem IDの再配送ではitemを重複させない。
 
 ## Consequences
 
 最初のclip追加はRendererの起動速度に依存しなくなる。保留通知はWindowの生存期間だけMainのメモリに存在し、アプリ終了後まで保存するキューではない。文書形式、保存先、sandbox設定と既存のpayload/sender検証は変えない。
 
 遅い初回ロードを実E2Eで制御し、単体テストで配送順序、重複ready、reloadとSessionの分離を確認する。受信準備の合図を送る位置は全item/sync listener登録後に保つ必要がある。
+
+保存済み文書の非同期ロードは基点から存在する別の競合経路だった。Mainの配送準備だけではdisk snapshotによる後続追加の置換を防げないため、受信側の文書境界も検証する。deferred loadのhook回帰と、合成`.stpl`のread結果を保留する初回ロード・実reload E2Eで確認する。本番writerを置換せず、追加の到達を別observerで確認してからreadを解放する。

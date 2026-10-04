@@ -133,6 +133,35 @@ describe('playlist renderer delivery', () => {
     expect(mocks.instances[1].webContents.send).toHaveBeenCalledTimes(1);
   });
 
+  it('flushes additions once and in order after a successful renderer reload', () => {
+    const window = manager.createPlaylistWindow();
+    manager.markPlaylistRendererReady(window.webContents);
+    mocks.instances[0].webContents.listeners.get('did-start-loading')?.();
+    manager.addItemToAllWindows(clip);
+    manager.addItemToAllWindows({ ...clip, id: 'after-reload' });
+    expect(mocks.instances[0].webContents.send).not.toHaveBeenCalled();
+    manager.markPlaylistRendererReady(window.webContents);
+    manager.markPlaylistRendererReady(window.webContents);
+    expect(mocks.instances[0].webContents.send.mock.calls).toEqual([
+      [PLAYLIST_WINDOW_CHANNELS.addItem, clip],
+      [PLAYLIST_WINDOW_CHANNELS.addItem, { ...clip, id: 'after-reload' }],
+    ]);
+  });
+
+  it('removes a closed window and its delivery queue from the registry', () => {
+    const window = manager.createPlaylistWindow();
+    manager.addItemToAllWindows(clip);
+    expect(
+      [...getPlaylistWindows().values()][0].pendingDeliveries,
+    ).toHaveLength(1);
+    mocks.instances[0].destroyed = true;
+    mocks.instances[0].listeners.get('closed')?.();
+    expect(getPlaylistWindows().size).toBe(0);
+    manager.markPlaylistRendererReady(window.webContents);
+    manager.addItemToAllWindows({ ...clip, id: 'later' });
+    expect(mocks.instances[0].webContents.send).not.toHaveBeenCalled();
+  });
+
   it('queues additions only for windows belonging to the sending package session', () => {
     const ownerA = new BrowserWindow();
     const ownerB = new BrowserWindow();

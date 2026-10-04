@@ -106,27 +106,10 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
     setHasUnsavedChanges: core.setHasUnsavedChanges,
   });
 
-  usePlaylistIpcSync({
-    setItemsWithHistory: history.setItems,
-    setPlaylistName: core.setPlaylistName,
-    setHasUnsavedChanges: core.setHasUnsavedChanges,
-    setItemAnnotations: core.setItemAnnotations,
-    setPlaylistType: core.setPlaylistType,
-    setPlaylistRows: core.setPlaylistRows,
-    playlistRows: core.playlistRows,
-    setPackagePath: core.setPackagePath,
-    setVideoSources: core.setVideoSources,
-    setViewMode: core.setViewMode,
-    setSaveProgress: core.setSaveProgress,
-    setIsDirty: core.setIsDirty,
-  });
-
-  usePlaylistWindowSync({
-    playlistName: core.playlistName,
-    isDirty: core.hasUnsavedChanges,
-  });
-
+  // Register external-open first: Main sends that document boundary before the
+  // request-sync response can flush queued additions to this renderer.
   const loader = usePlaylistLoader({
+    loadQueue: core.loadQueue,
     setItemsWithHistory: history.setItems,
     setHasUnsavedChanges: core.setHasUnsavedChanges,
     setPlaylistName: core.setPlaylistName,
@@ -139,6 +122,27 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
     setVideoSources: core.setVideoSources,
     setViewMode: core.setViewMode,
     setCurrentIndex: core.setCurrentIndex,
+  });
+
+  usePlaylistIpcSync({
+    loadQueue: core.loadQueue,
+    setItemsWithHistory: history.setItems,
+    setPlaylistName: core.setPlaylistName,
+    setHasUnsavedChanges: core.setHasUnsavedChanges,
+    setItemAnnotations: core.setItemAnnotations,
+    setPlaylistType: core.setPlaylistType,
+    setPlaylistRows: core.setPlaylistRows,
+    getPlaylistRows: core.getPlaylistRows,
+    setPackagePath: core.setPackagePath,
+    setVideoSources: core.setVideoSources,
+    setViewMode: core.setViewMode,
+    setSaveProgress: core.setSaveProgress,
+    setIsDirty: core.setIsDirty,
+  });
+
+  usePlaylistWindowSync({
+    playlistName: core.playlistName,
+    isDirty: core.hasUnsavedChanges,
   });
 
   const { handleUndo, handleRedo } = usePlaylistHistorySync({

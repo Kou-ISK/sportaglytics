@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - 初回Playlistの描画が遅い場合も、受信listenerの準備完了までMainがclip追加と同期を保持し、順番に届ける。固定時間の待機に依存しない。[受信契約](docs/adr/0059-playlist-renderer-delivery-readiness.md)。
+- 保存済みPlaylistのロード中に届いたclipをロード後にFIFOで追加し、古いdisk snapshotが新しい編集・文書世代を置き換える競合を防ぐ。行所属と重複IDの扱いを維持。[受信側の検証](docs/testing.md)。
 - 録画fragmentのread/append中に届いた更新を保持し、処理完了直後に最新の保存済み区間を読む。次の200ms周期までの余分な待機を除き、再生時計・seek・録画区間を維持。[検証](docs/testing.md)。
 
 ### Changed

@@ -8,11 +8,15 @@ Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を�
 
 同E2Eは初回Playlistの実Rendererロードを1.5秒遅延し、受信listenerの登録前に追加されたclipと編集済みノートが届くことを確認します。`playlistWindow/windowManager.test.ts`は初回の保留、送信順序、重複ready、reload、破棄済み/未知sender、Package Session別の配送を検証します。timeoutを延長して待ち時間への依存を隠さないでください。
 
+`usePlaylistLoadDelivery.test.tsx`はreadを保留し、ロード後の追加FIFO・重複ID、編集中/既にdirtyのsnapshot拒否、ロードとsyncの世代、取消/破棄、Window間の分離、次のReact描画より前の行所属を確認します。`e2e-ux-review`から呼ぶ`e2e-playlist-load-delivery.mjs`は専用の合成`.stpl`のread結果だけを保留し、別observerで追加の到達を確認してからreadを解放します。初回ロードと実Renderer reloadの両方でdiskのclip・追加clip・ノートを検査し、本番writerと既存の受信listenerは置換しません。
+
 ライブキャプチャの回帰は`node scripts/e2e-live-capture.mjs`で行います（事前にmedia:build / e2e:prepare）。USB模擬入力と合成HTTP配信の同時録画、過去レビュー中のコード保存、再接続時の空白、停止・複数区間の書き出しを検証します。実機別のドライバ・連係カメラ・RTSP配信は別途ハードウェア検証が必要です。
 
 720pの模擬入力で録画画面と映像ウィンドウを隠し、Code Windowのクリック/ホットキーを混用して25秒間連続記録します。区間をまたいでもvideo要素が同一で、emptied・バッファ不足によるwaitingが発生せず映像時刻が進むことを確認します。共通時計への補正シーク中のwaitingは区別してログに残します。可変フレーム時刻の区間重複は保存時に補正し、書き出しと再オープンも検査します。
 
 `CaptureMediaBuffer.test.ts`はreadを明示的に保留し、その間に追加された保存済みfragmentがread/append完了直後に次のtimerを待たず処理されること、複数更新の集約、同時readの禁止、dispose後の保留破棄を確認します。時計・seek・初回buffer量を変えてwaitingを隠さず、実Electronの非seek waiting=0の検査は引き続き必要です。
+
+同回帰はSourceBufferの`updateend`も保留し、append完了前に次のread/appendを開始せず、完了後は追加のtimerを待たず最新fragmentを処理することを確認します。Main配送のunitでは正常reload後の一度だけのFIFO再配送とclosed Windowのregistry/配送queueの除去を確認します。
 
 非seekのwaitingが起きた場合は、500msごとの映像時刻・buffer終端・入力別の保存済み秒数/区間数・Mainの保存済み終端をログに残します。生産側の遅延とRendererへのappend遅延を区別するための診断で、waiting=0の合否基準は維持します。TimelineのOption/Altコピーも固定400msではなく、保存されたJSONが3件になる条件を既存のbounded pollで待ち、件数・行名・色を厳密に検査します。
 

@@ -163,3 +163,26 @@ it('discards pending updates when disposed during an in-flight read', async () =
   expect(buffer.end).toBe(0);
   expect(error).not.toHaveBeenCalled();
 });
+
+it('drains a saved fragment after a held SourceBuffer updateend without overlapping appends', async () => {
+  const { source, buffer } = setup();
+  const append = vi.spyOn(buffer, 'appendBuffer').mockImplementationOnce(() => {
+    buffer.end = 2;
+    buffer.updating = true;
+  });
+  const read = vi.fn(async () => new ArrayBuffer(8));
+  const error = vi.fn();
+  const controller = new CaptureMediaBuffer(source, read, error);
+  controller.update(clips.slice(0, 1), 0);
+  await vi.waitFor(() => expect(append).toHaveBeenCalledTimes(1));
+  controller.update(clips.slice(0, 2), 1.82);
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(append).toHaveBeenCalledTimes(1);
+  buffer.updating = false;
+  buffer.dispatchEvent(new Event('updateend'));
+  await vi.waitFor(() => expect(append).toHaveBeenCalledTimes(2));
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(buffer.end).toBe(4);
+  expect(error).not.toHaveBeenCalled();
+  controller.dispose();
+});

@@ -10,8 +10,10 @@ import {
   subscribePlaylistExternalOpen,
 } from '../../gateway/playlistWindowGateway';
 import { buildLoadedPlaylistSnapshot } from '../../utils/playlistFileState';
+import type { PlaylistLoadQueue } from './PlaylistLoadQueue';
 
 interface UsePlaylistLoaderParams {
+  loadQueue: PlaylistLoadQueue;
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
   setPlaylistName: React.Dispatch<React.SetStateAction<string>>;
@@ -35,6 +37,7 @@ interface UsePlaylistLoaderResult {
 }
 
 export const usePlaylistLoader = ({
+  loadQueue,
   setItemsWithHistory,
   setHasUnsavedChanges,
   setPlaylistName,
@@ -50,28 +53,36 @@ export const usePlaylistLoader = ({
 }: UsePlaylistLoaderParams): UsePlaylistLoaderResult => {
   const loadPlaylistFromPath = useCallback(
     async (filePath?: string): Promise<void> => {
-      const loaded = await loadPlaylistFile(filePath);
-      if (!loaded) return;
+      const token = loadQueue.begin();
+      try {
+        const loaded = await loadPlaylistFile(filePath);
+        if (!loaded) return;
 
-      const snapshot = buildLoadedPlaylistSnapshot(
-        loaded.playlist,
-        loaded.filePath,
-      );
+        const snapshot = buildLoadedPlaylistSnapshot(
+          loaded.playlist,
+          loaded.filePath,
+        );
 
-      setItemsWithHistory(snapshot.items);
-      setHasUnsavedChanges(snapshot.hasUnsavedChanges);
-      setPlaylistName(snapshot.playlistName);
-      setPlaylistType(snapshot.playlistType);
-      setPlaylistRows(snapshot.rows ?? []);
-      setPackagePath(snapshot.packagePath);
-      setLoadedFilePath(snapshot.loadedFilePath);
-      setIsDirty(snapshot.isDirty);
-      setItemAnnotations(snapshot.itemAnnotations);
-      setVideoSources(snapshot.videoSources);
-      setViewMode(snapshot.viewMode);
-      setCurrentIndex(snapshot.currentIndex);
+        loadQueue.complete(token, () => {
+          setItemsWithHistory(snapshot.items);
+          setHasUnsavedChanges(snapshot.hasUnsavedChanges);
+          setPlaylistName(snapshot.playlistName);
+          setPlaylistType(snapshot.playlistType);
+          setPlaylistRows(snapshot.rows ?? []);
+          setPackagePath(snapshot.packagePath);
+          setLoadedFilePath(snapshot.loadedFilePath);
+          setIsDirty(snapshot.isDirty);
+          setItemAnnotations(snapshot.itemAnnotations);
+          setVideoSources(snapshot.videoSources);
+          setViewMode(snapshot.viewMode);
+          setCurrentIndex(snapshot.currentIndex);
+        });
+      } finally {
+        loadQueue.finish(token);
+      }
     },
     [
+      loadQueue,
       setCurrentIndex,
       setHasUnsavedChanges,
       setIsDirty,
@@ -88,10 +99,14 @@ export const usePlaylistLoader = ({
   );
 
   useEffect(() => {
-    return subscribePlaylistExternalOpen((filePath: string) => {
+    const unsubscribe = subscribePlaylistExternalOpen((filePath: string) => {
       void loadPlaylistFromPath(filePath);
     });
-  }, [loadPlaylistFromPath]);
+    return () => {
+      unsubscribe();
+      loadQueue.cancel();
+    };
+  }, [loadPlaylistFromPath, loadQueue]);
 
   return { loadPlaylistFromPath };
 };

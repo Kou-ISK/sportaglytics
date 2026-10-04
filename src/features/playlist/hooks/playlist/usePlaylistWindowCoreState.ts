@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type {
   AnnotationTarget,
   ItemAnnotation,
@@ -8,9 +8,21 @@ import type {
 import type { AnnotationCanvasRef } from '../../components/AnnotationCanvas';
 import type { PlaylistWorkspaceMode } from '../../../../types/playlist/window';
 import { usePlaylistSaveDialogState } from './usePlaylistSaveDialogState';
+import { PlaylistLoadQueue } from './PlaylistLoadQueue';
 
 export const usePlaylistWindowCoreState = () => {
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const loadQueueRef = useRef<PlaylistLoadQueue | null>(null);
+  if (!loadQueueRef.current) loadQueueRef.current = new PlaylistLoadQueue();
+  const loadQueue = loadQueueRef.current;
+  const [hasUnsavedChanges, setHasUnsavedChangesState] = useState(false);
+  const setHasUnsavedChanges = useCallback(
+    (update: React.SetStateAction<boolean>): void => {
+      // Track repeated edits even when the document was already dirty.
+      if (update !== false) loadQueue.markEdited();
+      setHasUnsavedChangesState(update);
+    },
+    [loadQueue],
+  );
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -26,7 +38,20 @@ export const usePlaylistWindowCoreState = () => {
   );
   const [playlistName, setPlaylistName] = useState('プレイリスト');
   const [playlistType, setPlaylistType] = useState<PlaylistType>('embedded');
-  const [playlistRows, setPlaylistRows] = useState<PlaylistRow[]>([]);
+  const [playlistRows, setPlaylistRowsState] = useState<PlaylistRow[]>([]);
+  const playlistRowsRef = useRef(playlistRows);
+  const setPlaylistRows = useCallback(
+    (update: React.SetStateAction<PlaylistRow[]>): void => {
+      playlistRowsRef.current =
+        typeof update === 'function' ? update(playlistRowsRef.current) : update;
+      setPlaylistRowsState(playlistRowsRef.current);
+    },
+    [],
+  );
+  const getPlaylistRows = useCallback(
+    (): PlaylistRow[] => playlistRowsRef.current,
+    [],
+  );
   const [packagePath, setPackagePath] = useState<string | null>(null);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [itemAnnotations, setItemAnnotations] = useState<
@@ -95,6 +120,7 @@ export const usePlaylistWindowCoreState = () => {
   const [loadedFilePath, setLoadedFilePath] = useState<string | null>(null);
 
   return {
+    loadQueue,
     hasUnsavedChanges,
     setHasUnsavedChanges,
     currentIndex,
@@ -125,6 +151,7 @@ export const usePlaylistWindowCoreState = () => {
     setPlaylistType,
     playlistRows,
     setPlaylistRows,
+    getPlaylistRows,
     packagePath,
     setPackagePath,
     isDrawingMode,

@@ -4,6 +4,8 @@ Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop 
 
 # SporTagLytics System Overview
 
+Playlistの保存済み文書ロードと追加配送はRendererごとの文書境界で処理します。外部文書listenerを先に登録し、ロード中の追加はsnapshot適用後にFIFOで処理します。新しい編集・ロード・syncがあれば古いdisk snapshotは適用しません。IPC公開面・Session宛先・文書形式は維持します。[ADR0059](adr/0059-playlist-renderer-delivery-readiness.md)。
+
 配布runtimeは同じ43 majorのElectron43.5.1へ固定し、sandboxed preloadのcode cacheに関する[GHSA-qmv3-fv6v-rmhq](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)の修正版を使用します。既存のsandbox・contextIsolation・webSecurity、IPC公開面、protocolと署名設定は維持します。開発用wait-onのJoi18.2.6 overrideは配布runtimeに含めません。ビルド用gotの未使用HTTP response cacheは[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に従って依存・実行経路から除去し、checksum付きファイルキャッシュと必須auditを維持します。
 
 組み込みdashboardは固定IDを維持し、利用者の編集は新IDのコピーへ保存します。`useDashboardPersistence`は既存`useSettings`のboolean結果と進行状態を扱い、Controllerは成功後にのみ編集終了・切替を反映します。正規化はcount/durationを保持し、既存移行は継続します。[ADR 0056](adr/0056-built-in-dashboard-editing-contract.md)。
