@@ -1,5 +1,11 @@
 # SporTagLytics Documentation
 
+0.17.2は未公開のリリース候補です。[変更履歴](../CHANGELOG.md#0172---未公開)と[Release手順](../.github/RELEASE.md)を参照してください。
+
+- [compact density評価](reports/2026-10-compact-density.md): Timelineの下部検索ドック・共通フォームの変更と検証範囲。
+- [Timelineの場面検索とレビュー](timeline-review.md): 検索、全文確認、編集・Playlistへの移動。
+- [UX評価と改善の検証記録](reports/2026-10-ux-review.md): 実Electronの代表導線、before/after、測定と未評価範囲。
+
 ライブ撮影中の分析は[ライブキャプチャとコーディング](live-coding.md)を参照してください。設計判断は[ADR 0053](adr/0053-live-capture-package-timeline.md) / [ADR 0054](adr/0054-continuous-capture-playback.md)です。
 
 Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter-presentation-order.md)を参照してください。
@@ -7,6 +13,8 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 このディレクトリは SporTagLytics のドキュメント入口です。実装規約の正本はリポジトリルートの `AGENTS.md` です。本ページは、利用者、開発者、AI contributor が必要な情報へ最短で辿れるように整理します。
 
 再生時刻の補正方針は[ADR 0046](adr/0046-coalesced-playback-corrections.md)を参照してください。
+
+ダッシュボードの固定テンプレートと複製・保存の契約は[ADR 0056](adr/0056-built-in-dashboard-editing-contract.md)を参照してください。
 
 ## Start Here
 
@@ -30,6 +38,7 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 - [Windows版](windows.md): 導入、OS間の操作・文書互換、ランタイムと検証。
 
+- [パッケージ互換・原本保護・Sportscode XML取り込み](package-compatibility.md): 対応形式、コピー移行、保存エラー復旧と検証限界。
 - [起動画面とパッケージを開く操作](start-workspace.md): 履歴検索、ドロップ、読み込み状態と復旧。
 - [Paint](tactics.md): 描画、追尾範囲、位置キー、ホットキー、芝色・平面・素材、保存と制約。
 
@@ -44,6 +53,7 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 ## Developer Documentation
 
+- [ビルド用ダウンロードの依存境界](adr/0058-build-downloads-without-response-cache.md): HTTP response cacheを除去し、監査・checksum・ファイルキャッシュを維持する判断。
 - [開発ガイド](development.md): セットアップ、品質ゲート、開発ワークフロー。
 - [Testing and Quality Gates](testing.md): Vitest、品質ゲート、テスト追加判断。
 - [システム概要](system-overview.md): Feature-First、Electron IPC、shared contracts の現行構造。
@@ -56,6 +66,7 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 - [オーバーレイ付き書き出し性能](reports/2026-09-export-performance.md): Sportscode公式調査、再現可能な合成素材での比較と品質上の制約。
 - [映像書き出しメニューの所有者と準備待ち](adr/0042-document-owned-export-menu.md): Package Sessionによる通知先とTimelineの購読準備。
 - [Release artifactの不変性](adr/0032-immutable-release-artifacts.md): 公開済みタグとDMGを保持する配布契約。
+- [Release手順](../.github/RELEASE.md): 作業ブランチからの候補準備、Windows/macOSの検証、タグによる公開と公開後の確認。
 - [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix): 実装変更時に同時更新する docs の対応表。
 - [ADR Operations](documentation-guide.md#adr-operations): ADR の採番、命名、更新 lifecycle。
 
@@ -67,7 +78,7 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 - [Analysis Report Export](analysis-report.md): 分析レポート PDF / PNG / summary export の境界。
 - [音声同期オフセット仕様](audio-sync-offset-specification.md): 音声同期 offset の計算・適用とマルチアングル保存契約（関連 ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）。
 - [コードウィンドウ編集](code-window-settings.md): `.stcw` ドキュメントと独立編集ウィンドウ。
-- [SCTimeline 実装](sctimeline-implementation.md): SCTimeline 形式対応（関連 ADR: [0009](adr/0009-timeline-import-export-interoperability.md)）。
+- [SCTimeline 実装](sctimeline-implementation.md): SCTimeline JSONと専用XML取り込みの区別（関連 ADR: [0009](adr/0009-timeline-import-export-interoperability.md)）。
 - [タイムライン行モデル](adr/0017-row-owned-timeline-presentation.md): 行が名称・色・順序を所有する保存形式とSportscode準拠の編集操作。
 - [カスタムファイルアイコン](custom-file-icons.md): 独自ファイル形式と icon / bundle 設定。
 - [Homebrew distribution](homebrew-distribution.md): Homebrew Cask 配布手順。
@@ -108,3 +119,5 @@ AI agent は次の順で参照してください。
 
 - [Portable playlist references (ADR 0051)](adr/0051-portable-playlist-references.md)
 - [Playlist default angles (ADR 0052)](adr/0052-playlist-default-angles.md)
+
+分析PNGのフレーム同期と画素境界の判断は[ADR 0057](adr/0057-verified-analysis-frame-capture.md)を参照してください。

@@ -78,7 +78,7 @@ export const HotkeySettings = forwardRef<
   );
 
   return (
-    <Stack spacing={2.5}>
+    <Stack spacing={1.5}>
       <Box>
         <Typography variant="h6">ホットキー</Typography>
         <Typography variant="body2" color="text.secondary">

@@ -1,12 +1,14 @@
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import filesystem from 'node:fs/promises';
 import { loadPlaylistFromPath, savePlaylistToPath } from './storage';
 
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(
     temporaryDirectories
       .splice(0)
@@ -74,4 +76,39 @@ describe('playlist package storage', () => {
     expect(saved.items[0].note).toBe(loaded.items[0].note);
     expect(saved.items[0]).not.toHaveProperty('memo');
   });
+});
+
+it('preserves a saved Playlist document when committing its replacement fails', async () => {
+  const directory = await createTemporaryDirectory();
+  const file = path.join(directory, 'playlist.json');
+  const original = JSON.stringify({
+    id: 'playlist',
+    name: 'Synthetic',
+    type: 'reference',
+    items: [],
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  await fs.writeFile(file, original);
+  const loaded = await loadPlaylistFromPath(directory);
+  vi.spyOn(filesystem, 'rename').mockRejectedValue(
+    Object.assign(new Error('Synthetic playlist commit failure'), {
+      code: 'EIO',
+    }),
+  );
+  const event = {
+    sender: { isDestroyed: () => true },
+  } as unknown as Electron.IpcMainInvokeEvent;
+  await expect(
+    savePlaylistToPath(
+      directory,
+      { ...loaded, name: 'Unsaved change' },
+      event,
+      'ffmpeg',
+    ),
+  ).rejects.toThrow('Synthetic playlist commit failure');
+  expect(await fs.readFile(file, 'utf8')).toBe(original);
+  expect(
+    (await fs.readdir(directory)).some((entry) => entry.endsWith('.writing')),
+  ).toBe(false);
 });

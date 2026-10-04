@@ -32,6 +32,8 @@ const meta = {
     onOpenPackage: () => {},
     onOpenWizard: () => {},
     onOpenCapture: () => {},
+    onOpenLegacyPackage: () => {},
+    onOpenSportscode: () => {},
     onOpenRecentPackage: () => {},
     onRemoveRecentPackage: () => {},
   },

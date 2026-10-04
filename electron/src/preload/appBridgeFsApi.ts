@@ -167,12 +167,7 @@ export const createAppBridgeFsApi = (
         return false;
       }
     },
-    captureWindowRegionAsPng: async (rect: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }) => {
+    captureWindowRegionAsPng: async (rect) => {
       try {
         return await ipcRenderer.invoke('capture-window-region-png', rect);
       } catch (error) {

@@ -257,7 +257,7 @@ it('leaves navigation and playlist shortcuts alone outside the timeline or in in
   expect(onAddToPlaylist).not.toHaveBeenCalled();
 });
 
-it('supports editing, select all and escape without trapping Tab when no item is selected', () => {
+it('supports editing, select all and escape without trapping Tab even when an item is selected', () => {
   const container = createTimelineContainer();
   const item = document.createElement('div');
   item.dataset.timelineItemId = 'item-2';
@@ -267,7 +267,7 @@ it('supports editing, select all and escape without trapping Tab when no item is
     onClearSelection = vi.fn();
   renderHook(() =>
     useTimelineGlobalShortcuts({
-      selectedIds: [],
+      selectedIds: ['item-1'],
       selectedRowIds: [],
       timeline,
       scrollContainerRef: { current: container },

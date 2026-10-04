@@ -1,6 +1,6 @@
 {
   "name": "sportaglytics",
-  "version": "0.17.1",
+  "version": "0.17.2",
   "description": "Sports video tagging and analytics application",
   "private": true,
   "packageManager": "pnpm@9.1.0",
@@ -38,8 +38,8 @@
     "start": "pnpm run vision:prepare && vite",
     "build": "pnpm run vision:prepare && vite build",
     "test": "vitest",
-    "test:run": "vitest --run",
-    "test:ci": "vitest --run --no-file-parallelism",
+    "test:run": "vitest --run && node --test scripts/tests/build-downloader.mjs",
+    "test:ci": "vitest --run --no-file-parallelism && node --test scripts/tests/build-downloader.mjs",
     "e2e:prepare": "pnpm run build && pnpm run build:electron-main && pnpm run bundle:preload && pnpm run check:preload",
     "test:e2e": "pnpm run e2e:prepare && node scripts/run-electron-e2e.mjs",
     "test:e2e:event-detection": "pnpm run e2e:prepare && node scripts/e2e-event-detection.mjs",
@@ -74,7 +74,8 @@
     "test:e2e:package-reopen": "pnpm run e2e:prepare && node scripts/e2e-package-reopen.mjs",
     "vision:prepare": "node scripts/prepare-pitch-vision.mjs",
     "test:e2e:export-fast": "pnpm run e2e:prepare && node scripts/e2e-export-fast.mjs",
-    "test:e2e:export-menu": "pnpm run e2e:prepare && node scripts/e2e-export-menu.mjs"
+    "test:e2e:export-menu": "pnpm run e2e:prepare && node scripts/e2e-export-menu.mjs",
+    "check:build-downloads": "node --test scripts/tests/build-downloader.mjs"
   },
   "browserslist": {
     "production": [
@@ -92,7 +93,6 @@
     "@storybook/addon-a11y": "10.5.10",
     "@storybook/react-vite": "10.5.10",
     "@testing-library/react": "^16.3.1",
-    "@types/jest": "^30.0.0",
     "@types/node": "^25.0.9",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
@@ -100,7 +100,7 @@
     "@typescript-eslint/parser": "^8.53.0",
     "@vitejs/plugin-react": "^5.1.2",
     "concurrently": "^9.2.1",
-    "electron": "^43.2.0",
+    "electron": "43.5.1",
     "electron-builder": "^26.16.1",
     "electron-builder-squirrel-windows": "26.16.1",
     "eslint": "^9.39.2",
@@ -118,9 +118,9 @@
   "pnpm": {
     "overrides": {
       "@babel/core": "7.29.6",
-      "brace-expansion@1": "1.1.18",
-      "brace-expansion@2": "2.1.4",
-      "brace-expansion@5": "5.0.9",
+      "brace-expansion@1": "1.1.21",
+      "brace-expansion@2": "2.1.7",
+      "brace-expansion@5": "5.0.12",
       "esbuild": "0.28.1",
       "form-data": "4.0.6",
       "js-yaml": "4.3.2",
@@ -129,15 +129,19 @@
       "shell-quote": "1.9.0",
       "tar": "7.5.21",
       "tmp": "0.2.7",
-      "undici": "6.28.0",
+      "undici": "6.28.1",
       "ws": "8.21.0",
       "browserslist": "4.28.9",
       "baseline-browser-mapping": "2.11.0",
       "@humanfs/node": "0.16.8",
       "@xmldom/xmldom@0.8": "0.8.15",
       "@xmldom/xmldom@0.9": "0.9.12",
-      "fast-uri": "3.1.6",
-      "joi@18": "18.2.5"
+      "fast-uri": "3.1.8",
+      "joi@18": "18.2.6",
+      "wait-on>axios": "1.20.0"
+    },
+    "patchedDependencies": {
+      "got@11.8.6": "patches/got@11.8.6.patch"
     }
   }
 }

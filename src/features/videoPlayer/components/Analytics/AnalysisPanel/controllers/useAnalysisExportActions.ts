@@ -98,11 +98,9 @@ export const useAnalysisExportActions = ({
     }
 
     const horizontalMode = currentView === 'matrix' ? 'auto' : 'off';
-    const target =
-      currentView === 'matrix'
-        ? rootTarget.querySelector<HTMLElement>('.MuiTableContainer-root') ||
-          rootTarget
-        : rootTarget;
+    // Keep the visible viewport as the capture target. Nested tables may expand
+    // inside it, but must not become an off-screen capture rectangle themselves.
+    const target = rootTarget;
 
     try {
       const slices = await withExportLayoutOverrides(target, async () => {
@@ -122,6 +120,7 @@ export const useAnalysisExportActions = ({
         slices,
         MAX_PNG_PART_HEIGHT,
       );
+      if (!target.isConnected) return null;
       if (parts.length === 0) {
         notification.error('画像の連結に失敗しました。');
         return null;
@@ -164,6 +163,7 @@ export const useAnalysisExportActions = ({
     try {
       const parts = await captureCurrentViewPngParts();
       if (!parts || parts.length === 0) return;
+      if (!exportTargetRef.current?.isConnected) return;
 
       const result = await exportAnalysisPngParts({
         defaultFileName: `analysis-${currentView}-${new Date().toISOString().slice(0, 10)}.png`,
@@ -187,7 +187,7 @@ export const useAnalysisExportActions = ({
     } finally {
       setIsExporting(false);
     }
-  }, [captureCurrentViewPngParts, currentView, notification]);
+  }, [captureCurrentViewPngParts, currentView, notification, exportTargetRef]);
 
   const handleExportPdf = useCallback(async (): Promise<void> => {
     closeExportMenu();

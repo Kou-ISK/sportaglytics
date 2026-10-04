@@ -1,5 +1,5 @@
 import React from 'react';
-import { Paper, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 
 interface AnalysisCardProps {
   title: string;
@@ -11,11 +11,15 @@ export const AnalysisCard: React.FC<AnalysisCardProps> = ({
   children,
 }) => {
   return (
-    <Paper elevation={1} sx={{ p: 1.5, borderRadius: 2 }}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+    <Box component="section" sx={{ minWidth: 0 }}>
+      <Typography
+        component="h3"
+        variant="subtitle2"
+        sx={{ fontWeight: 600, mb: 1 }}
+      >
         {title}
       </Typography>
       {children}
-    </Paper>
+    </Box>
   );
 };

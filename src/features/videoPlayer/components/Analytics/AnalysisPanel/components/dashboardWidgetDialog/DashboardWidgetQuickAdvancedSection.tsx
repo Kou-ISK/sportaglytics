@@ -51,9 +51,13 @@ export const DashboardWidgetQuickAdvancedSection = ({
 }: DashboardWidgetQuickAdvancedSectionProps) => {
   return (
     <>
-      <Paper variant="outlined" sx={{ p: 2 }}>
+      <Paper variant="outlined" sx={{ p: 1.5 }}>
         <Stack spacing={1.5}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
               6. クイック設定
             </Typography>
@@ -113,9 +117,13 @@ export const DashboardWidgetQuickAdvancedSection = ({
         </Stack>
       </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2 }}>
+      <Paper variant="outlined" sx={{ p: 1.5 }}>
         <Stack spacing={1.5}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
               7. 詳細設定
             </Typography>
@@ -141,7 +149,9 @@ export const DashboardWidgetQuickAdvancedSection = ({
                     labelId="col-span-label"
                     value={colSpan}
                     label="カード幅"
-                    onChange={(event) => setColSpan(event.target.value as 4 | 6 | 12)}
+                    onChange={(event) =>
+                      setColSpan(event.target.value as 4 | 6 | 12)
+                    }
                   >
                     <MenuItem value={4}>1/3</MenuItem>
                     <MenuItem value={6}>1/2</MenuItem>

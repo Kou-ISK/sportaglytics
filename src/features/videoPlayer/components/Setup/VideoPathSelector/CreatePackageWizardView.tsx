@@ -11,13 +11,12 @@ import {
   Stepper,
   Typography,
 } from '@mui/material';
-import VideoFileIcon from '@mui/icons-material/VideoFile';
 import { BasicInfoStep } from './steps/BasicInfoStep';
 import { VideoSelectionStep } from './steps/VideoSelectionStep';
 import { WizardFooter } from './WizardFooter';
 import type { WizardFormState, WizardSelectionState } from './types';
 
-interface CreatePackageWizardViewProps {
+export interface CreatePackageWizardViewProps {
   open: boolean;
   activeStep: number;
   form: WizardFormState;
@@ -82,6 +81,7 @@ export const CreatePackageWizardView: React.FC<
   onReorderClip,
   onMoveClip,
 }) => {
+  const titleId = React.useId();
   const assignedClipCount = selection.angles.reduce(
     (count, angle) =>
       count + angle.clips.filter((clip) => clip.source.trim()).length,
@@ -91,29 +91,53 @@ export const CreatePackageWizardView: React.FC<
   return (
     <Dialog
       open={open}
+      aria-labelledby={titleId}
       onClose={isCreating ? undefined : onClose}
       fullWidth
-      maxWidth="lg"
+      maxWidth={activeStep === 0 ? 'sm' : 'lg'}
       PaperProps={{
         sx: {
-          height: { xs: '100%', md: 'min(720px, 92vh)' },
-          m: { xs: 0, md: 3 },
-          borderRadius: { xs: 0, md: 2 },
+          height: activeStep === 1 ? 'min(720px, 92vh)' : 'auto',
+          maxHeight: '92vh',
+          m: { xs: 1, md: 2 },
+          borderRadius: 1,
           overflow: 'hidden',
         },
       }}
     >
       <Box
         sx={{
-          px: { xs: 2, md: 3 },
-          py: 2,
+          px: 2,
+          py: 1.5,
           borderBottom: (dialogTheme) =>
             `1px solid ${dialogTheme.palette.divider}`,
         }}
       >
-        <Stack direction="row" spacing={1} alignItems="center" mb={2}>
-          <VideoFileIcon color="primary" />
-          <Typography variant="h6">新規パッケージ</Typography>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          alignItems={{ sm: 'center' }}
+        >
+          <Typography
+            id={titleId}
+            component="h2"
+            variant="subtitle1"
+            fontWeight={700}
+            sx={{ flexShrink: 0 }}
+          >
+            新規パッケージ
+          </Typography>
+          <Stepper
+            activeStep={activeStep}
+            orientation="horizontal"
+            sx={{ flex: 1, minWidth: 0 }}
+          >
+            {STEP_LABELS.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
         </Stack>
       </Box>
 
@@ -125,30 +149,7 @@ export const CreatePackageWizardView: React.FC<
           minHeight: 0,
         }}
       >
-        <Box
-          sx={{
-            px: { xs: 2, md: 3 },
-            py: 1.5,
-            borderBottom: (contentTheme) =>
-              `1px solid ${contentTheme.palette.divider}`,
-          }}
-        >
-          <Stepper
-            activeStep={activeStep}
-            orientation="horizontal"
-            alternativeLabel
-          >
-            {STEP_LABELS.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-        </Box>
-
-        <Box
-          sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: { xs: 2, md: 3 } }}
-        >
+        <Box sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: 2 }}>
           {activeStep === 0 && (
             <BasicInfoStep
               form={form}
@@ -178,7 +179,7 @@ export const CreatePackageWizardView: React.FC<
       </DialogContent>
 
       <Divider />
-      <DialogActions sx={{ px: { xs: 2, md: 3 }, py: 1.5 }}>
+      <DialogActions sx={{ px: 2, py: 1 }}>
         <Stack spacing={0.75} sx={{ width: '100%' }}>
           {activeStep === 1 && (
             <Typography variant="caption" color="text.secondary">

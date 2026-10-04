@@ -13,6 +13,7 @@ import { MatrixTab } from '../MatrixTab';
 import { MomentumTab } from '../MomentumTab';
 
 interface AnalysisPanelContentProps {
+  disableAnimation?: boolean;
   currentView: AnalysisView;
   isSyncing: boolean;
   hasTimelineData: boolean;
@@ -39,6 +40,7 @@ interface AnalysisPanelContentProps {
 }
 
 export const AnalysisPanelContent = ({
+  disableAnimation = false,
   currentView,
   isSyncing,
   hasTimelineData,
@@ -53,7 +55,7 @@ export const AnalysisPanelContent = ({
   matrixFilters,
   onMatrixFiltersChange,
   createMomentumData,
-}: AnalysisPanelContentProps) => {
+}: AnalysisPanelContentProps): React.JSX.Element => {
   return (
     <>
       {isSyncing && !hasTimelineData && (
@@ -74,6 +76,7 @@ export const AnalysisPanelContent = ({
 
       {!isSyncing && currentView === 'dashboard' && (
         <DashboardTab
+          disableAnimation={disableAnimation}
           hasData={hasTimelineData}
           timeline={timeline}
           teamNames={resolvedTeamNames}
@@ -101,6 +104,7 @@ export const AnalysisPanelContent = ({
 
       {!isSyncing && currentView === 'momentum' && (
         <MomentumTab
+          disableAnimation={disableAnimation}
           hasData={hasTimelineData}
           createMomentumData={createMomentumData}
           teamNames={resolvedTeamNames}

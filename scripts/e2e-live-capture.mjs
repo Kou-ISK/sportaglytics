@@ -6,7 +6,10 @@ import { createServer } from 'node:http';
 import { execFileSync, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { _electron as electron } from 'playwright';
-import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
+import {
+  getElectronLaunchOptions,
+  observeElectronErrors,
+} from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder } from './e2e-platform.mjs';
 import { ffmpegPath, ffprobePath } from './media-tool-paths.mjs';
 
@@ -97,6 +100,7 @@ let app = await electron.launch(
     `--use-file-for-fake-video-capture=${cameraFixture}`,
   ]),
 );
+observeElectronErrors(app);
 app.context().setDefaultTimeout(15000);
 let capture;
 let main;
@@ -430,13 +434,30 @@ try {
   await button.click();
   await button.locator('svg').waitFor({ state: 'detached' });
   let document;
+  let incompleteReads = 0;
   for (let attempt = 0; attempt < 100; attempt++) {
-    document = JSON.parse(
-      await fs.readFile(path.join(pkg, 'timeline.json'), 'utf8'),
-    );
+    try {
+      document = JSON.parse(
+        await fs.readFile(path.join(pkg, 'timeline.json'), 'utf8'),
+      );
+    } catch (error) {
+      // The current application writes in place. Polling must wait for its
+      // complete document; this does not establish atomic application saves.
+      if (!(error instanceof SyntaxError) || attempt === 99) throw error;
+      incompleteReads++;
+      await delay(100);
+      continue;
+    }
     if (document.instances?.length === 2) break;
     await delay(100);
   }
+  console.log(
+    `Timeline save polling observed ${incompleteReads} incomplete JSON reads`,
+  );
+  assert.ok(
+    document,
+    'a complete Timeline document must be persisted within 10 seconds',
+  );
   assert.equal(document.instances.length, 2);
   assert.equal(document.instances[1].startTime, 3);
   assert.equal(document.instances[1].endTime, 8);
@@ -626,6 +647,7 @@ try {
   app = await electron.launch(
     getElectronLaunchOptions(path.join(root, 'profile'), [pkg]),
   );
+  observeElectronErrors(app);
   app.context().setDefaultTimeout(15000);
   main = await app.firstWindow();
   await main.locator('#video_0 video').waitFor({ timeout: 30000 });
@@ -656,6 +678,48 @@ try {
       .catch(() => undefined);
   }
   if (main) {
+    const details = main.getByRole('button', {
+      name: '詳細を表示',
+      exact: true,
+    });
+    if (await details.count()) await details.click().catch(() => {});
+    console.error(
+      'Synthetic package validation:',
+      await main
+        .evaluate(async (file) => {
+          try {
+            const result = await window.electronAPI.preparePackageForOpen(file);
+            return { status: result.status, migrated: result.migrated };
+          } catch (error) {
+            return String(error);
+          }
+        }, pkg)
+        .catch(() => 'closed'),
+    );
+    try {
+      const savedConfig = JSON.parse(
+        await fs.readFile(path.join(pkg, '.metadata/config.json'), 'utf8'),
+      );
+      console.error('Synthetic stored capture contract:', {
+        packageFormatVersion: savedConfig.packageFormatVersion,
+        angles: savedConfig.angles.map((angle) => ({
+          clips: angle.clips.length,
+          invalidDuration: angle.clips.filter(
+            (clip) =>
+              !Number.isFinite(clip.durationSeconds) ||
+              clip.durationSeconds <= 0,
+          ).length,
+          duplicateIds:
+            angle.clips.length -
+            new Set(angle.clips.map((clip) => clip.id)).size,
+        })),
+      });
+    } catch (error) {
+      console.error(
+        'Synthetic stored capture metadata unavailable:',
+        String(error),
+      );
+    }
     console.error(
       'Package view:',
       await main

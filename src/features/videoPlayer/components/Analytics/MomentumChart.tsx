@@ -50,7 +50,13 @@ const LegendComponent = ({ theme }: { theme: Theme }) => {
   const legendData = getLegendData(theme);
 
   return (
-    <Stack direction="row" spacing={2} alignItems="center">
+    <Stack
+      direction="row"
+      spacing={2}
+      alignItems="center"
+      flexWrap="wrap"
+      useFlexGap
+    >
       {legendData.map((item) => (
         <Stack key={item.label} direction="row" spacing={1} alignItems="center">
           <Box
@@ -158,21 +164,13 @@ export const MomentumChart: React.FC<MomentumChartProps> = ({
 
   if (chartData.length === 0) {
     return (
-      <Paper
-        elevation={0}
-        sx={{
-          p: 4,
-          textAlign: 'center',
-          borderRadius: 2,
-          border: '1px dashed',
-          borderColor: 'divider',
-          bgcolor: 'background.default',
-        }}
-      >
+      <Box sx={{ py: 2 }}>
         <Typography variant="body2" color="text.secondary">
-          モメンタムを計算するタイムラインがまだありません。
+          {!teamA || !teamB
+            ? 'モメンタムには2チームの情報が必要です。'
+            : 'モメンタムの対象となる「ポゼッション」の場面がありません。'}
         </Typography>
-      </Paper>
+      </Box>
     );
   }
 

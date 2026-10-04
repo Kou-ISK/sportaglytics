@@ -15,14 +15,14 @@ export const DashboardCard = ({
   actions,
   chips,
   children,
-}: DashboardCardProps) => {
+}: DashboardCardProps): React.JSX.Element => {
   return (
     <Paper
       elevation={0}
       variant="outlined"
       sx={{
-        p: 2,
-        borderRadius: 2,
+        p: 1.5,
+        borderRadius: 1,
         height: '100%',
         borderColor: 'divider',
         bgcolor: 'background.paper',
@@ -32,9 +32,15 @@ export const DashboardCard = ({
         display="flex"
         alignItems="flex-start"
         justifyContent="space-between"
+        gap={1}
+        flexWrap="wrap"
       >
-        <Stack spacing={0.5}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+        <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+          <Typography
+            component="h3"
+            variant="subtitle2"
+            sx={{ fontWeight: 600 }}
+          >
             {title}
           </Typography>
           {subtitle && (
@@ -43,7 +49,7 @@ export const DashboardCard = ({
             </Typography>
           )}
           {chips && chips.length > 0 && (
-            <Stack direction="row" spacing={0.5} flexWrap="wrap">
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
               {chips.map((chip) => (
                 <Typography
                   key={chip}
@@ -51,7 +57,7 @@ export const DashboardCard = ({
                   sx={{
                     px: 0.75,
                     py: 0.2,
-                    borderRadius: 999,
+                    borderRadius: 1,
                     bgcolor: 'action.hover',
                   }}
                 >
@@ -63,7 +69,7 @@ export const DashboardCard = ({
         </Stack>
         {actions && <Box>{actions}</Box>}
       </Box>
-      <Box sx={{ mt: 1.5 }}>{children}</Box>
+      <Box sx={{ mt: 1 }}>{children}</Box>
     </Paper>
   );
 };

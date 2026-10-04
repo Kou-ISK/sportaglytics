@@ -35,21 +35,25 @@ export const HotkeySettingsListItem = ({
   return (
     <ListItem
       sx={{
-        border: '1px solid',
+        borderBottom: '1px solid',
         borderColor: 'divider',
-        borderRadius: 1.5,
-        mb: 1,
-        px: { xs: 1.25, sm: 2 },
+        minHeight: 36,
+        py: 0.25,
+        px: 1.25,
       }}
     >
       <ListItemText
         primary={hotkey.label}
+        slotProps={{
+          primary: { variant: 'body2' },
+          secondary: { component: 'div' },
+        }}
         secondary={
           isEditing ? (
             <Box sx={{ mt: 1 }}>
               <Paper
                 sx={{
-                  p: 2,
+                  p: 1.5,
                   mb: 1,
                   bgcolor: 'action.hover',
                   border: '2px dashed',

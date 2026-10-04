@@ -1,3 +1,7 @@
+import type {
+  FrameCaptureRequest,
+  FrameCaptureResult,
+} from '../../../../../../shared/analysis/frameCapture';
 const toBase64FromDataUrl = (dataUrl: string): string => {
   return dataUrl.split(',')[1] || '';
 };
@@ -32,12 +36,9 @@ export const canCaptureAnalysisWindowRegion = (): boolean => {
   return Boolean(getAnalysisExportApi()?.captureWindowRegionAsPng);
 };
 
-export const captureAnalysisWindowRegionAsPng = async (rect: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}): Promise<string | null> => {
+export const captureAnalysisWindowRegionAsPng = async (
+  rect: FrameCaptureRequest,
+): Promise<FrameCaptureResult | null> => {
   const api = getAnalysisExportApi();
   if (!api?.captureWindowRegionAsPng) {
     return null;

@@ -6,3 +6,9 @@ export { CodeWindowButtonSurface } from './composites/CodeWindowButtonSurface';
 
 export { MovieTransportView } from './composites/MovieTransportView';
 export type { MovieTransportViewProps } from './composites/MovieTransportView';
+
+export { OnboardingTutorialView } from './patterns/OnboardingTutorialView';
+export type {
+  TutorialStep,
+  OnboardingTutorialViewProps,
+} from './patterns/OnboardingTutorialView';

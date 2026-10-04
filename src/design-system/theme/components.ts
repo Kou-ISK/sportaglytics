@@ -3,6 +3,8 @@ import type { SemanticTokens } from '../tokens/semantic';
 import { elevationTokens } from '../tokens/elevation';
 import { motionTokens } from '../tokens/motion';
 import { primitiveShape } from '../tokens/primitive';
+import { densityTokens } from '../tokens/density';
+import { typographyScale } from '../tokens/typography';
 import { zIndexTokens } from '../tokens/zIndex';
 
 export const buildComponents = (
@@ -43,12 +45,14 @@ export const buildComponents = (
     },
   },
   MuiButton: {
-    defaultProps: { disableElevation: true },
+    defaultProps: { disableElevation: true, size: 'small' },
     styleOverrides: {
       root: {
         borderRadius: primitiveShape.radiusLg,
-        paddingInline: 16,
-        paddingBlock: 6,
+        minHeight: densityTokens.compact.interactiveTarget,
+        paddingInline: 10,
+        paddingBlock: 4,
+        fontSize: typographyScale.bodyCompact.fontSize,
         transition: motionTokens.transitionInteractive,
       },
       containedPrimary: {
@@ -87,15 +91,24 @@ export const buildComponents = (
       arrow: { color: tokens.surface.overlay },
     },
   },
+  MuiTextField: { defaultProps: { size: 'small' } },
+  MuiFormControl: { defaultProps: { size: 'small' } },
+  MuiSelect: { defaultProps: { size: 'small' } },
   MuiOutlinedInput: {
     defaultProps: { size: 'small' },
     styleOverrides: {
       root: {
         backgroundColor: tokens.surface.work,
         borderRadius: primitiveShape.radiusMd,
+        minHeight: densityTokens.compact.interactiveTarget,
+        fontSize: typographyScale.bodyCompact.fontSize,
+        '&.MuiInputBase-multiline': { padding: '6px 10px' },
       },
       notchedOutline: { borderColor: tokens.border.strong },
-      input: { paddingBlock: 9 },
+      input: {
+        paddingBlock: 6,
+        '&.MuiInputBase-inputMultiline': { padding: 0 },
+      },
     },
   },
   MuiTabs: {
@@ -131,7 +144,7 @@ export const buildComponents = (
     styleOverrides: {
       root: {
         borderColor: tokens.border.subtle,
-        padding: '9px 12px',
+        padding: '6px 10px',
         fontVariantNumeric: 'tabular-nums',
       },
       head: {
@@ -164,17 +177,18 @@ export const buildComponents = (
   MuiDialogTitle: {
     styleOverrides: {
       root: {
-        padding: '16px 20px',
+        padding: '10px 16px',
         borderBottom: `1px solid ${tokens.border.subtle}`,
         fontSize: '1rem',
         fontWeight: 700,
       },
     },
   },
+  MuiDialogContent: { styleOverrides: { root: { padding: '12px 16px' } } },
   MuiDialogActions: {
     styleOverrides: {
       root: {
-        padding: '12px 20px',
+        padding: '8px 16px',
         borderTop: `1px solid ${tokens.border.subtle}`,
         gap: 4,
       },

@@ -31,7 +31,7 @@ describe('timeline label group migration', () => {
     ]);
   });
 
-  it('does not treat Result and actionResult as the same group', () => {
+  it('preserves distinct groups in the current model', () => {
     const timeline: TimelineData[] = [
       {
         id: 'entry-1',
@@ -49,13 +49,18 @@ describe('timeline label group migration', () => {
     ];
 
     expect(getLabelByGroup(timeline[0], 'Result')).toBe('Won');
-    expect(getLabelByGroup(timeline[0], 'actionResult')).toBeUndefined();
-    expect(extractUniqueGroups(timeline)).toEqual(['Result', 'Type']);
+    expect(getLabelByGroup(timeline[0], 'actionResult')).toBe('Legacy Won');
+    expect(extractUniqueGroups(timeline)).toEqual([
+      'actionResult',
+      'actionType',
+      'Result',
+      'Type',
+    ]);
     expect(getLabelsFromTimelineData(timeline[0])).toEqual([
       { group: 'Result', name: 'Won' },
-      { group: 'Result', name: 'Legacy Won' },
+      { group: 'actionResult', name: 'Legacy Won' },
       { group: 'Type', name: 'Positive' },
-      { group: 'Type', name: 'Legacy Positive' },
+      { group: 'actionType', name: 'Legacy Positive' },
     ]);
   });
 });

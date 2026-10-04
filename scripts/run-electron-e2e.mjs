@@ -3,6 +3,11 @@ import { spawnSync } from 'node:child_process';
 // Each scenario owns a temporary profile/package and closes its Electron process.
 // Collect failures so one platform-specific regression cannot hide later scenarios.
 const scenarios = [
+  'ux-review',
+  'ux-density',
+  'package-safety',
+  'sportscode-import',
+  'legacy-external',
   'live-capture',
   'clip-sync',
   'multi-clip-playback',

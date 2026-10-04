@@ -50,7 +50,7 @@ export const SettingsScreen = (): React.ReactElement => {
           flexGrow: 1,
           minHeight: 0,
           overflow: 'auto',
-          py: { xs: 1.5, sm: 2.5 },
+          py: 1.5,
         }}
       >
         <SettingsTabs

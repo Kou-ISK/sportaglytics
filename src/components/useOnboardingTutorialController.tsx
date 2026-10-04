@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import type { TutorialStep } from './OnboardingTutorialView';
+import type { TutorialStep } from './ui';
 import {
   isOnboardingCompleted,
   markOnboardingCompleted,
@@ -12,7 +12,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     title: 'SporTagLyticsへようこそ',
     description:
-      '映像分析を効率化するための強力なツールです。このチュートリアルでは、主要な機能を簡単にご紹介します。',
+      '試合映像を開き、場面を記録して分析します。基本の操作を確認しましょう。',
     icon: <TimelineIcon sx={{ fontSize: 80, color: 'primary.main' }} />,
   },
   {

@@ -33,6 +33,7 @@ execFileSync(ffmpegPath, [
 await fs.writeFile(
   path.join(packagePath, '.metadata/config.json'),
   JSON.stringify({
+    packageFormatVersion: 1,
     team1Name: 'Red',
     team2Name: 'Blue',
     primaryAngleId: 'angle-1',
@@ -42,6 +43,16 @@ await fs.writeFile(
         name: 'Angle 1',
         sourceKind: 'local',
         relativePath: 'videos/video.mp4',
+        clips: [
+          {
+            id: 'clip-1',
+            sourceKind: 'local',
+            relativePath: 'videos/video.mp4',
+            gapBeforeSeconds: 0,
+            timelineStartSeconds: 0,
+            durationSeconds: 4,
+          },
+        ],
       },
     ],
   }),

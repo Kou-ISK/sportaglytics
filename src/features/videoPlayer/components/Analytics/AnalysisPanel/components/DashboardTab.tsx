@@ -6,6 +6,7 @@ import { useDashboardTabController } from '../controllers/useDashboardTabControl
 import { DashboardTabView } from './DashboardTabView';
 
 interface DashboardTabProps {
+  disableAnimation?: boolean;
   hasData: boolean;
   timeline: TimelineData[];
   teamNames: string[];
@@ -59,6 +60,7 @@ const toDashboardFilterChips = (
 };
 
 export const DashboardTab = ({
+  disableAnimation = false,
   hasData,
   timeline,
   teamNames,
@@ -66,7 +68,7 @@ export const DashboardTab = ({
   onJumpToSegment,
   dashboardFilters: controlledDashboardFilters,
   onDashboardFiltersChange,
-}: DashboardTabProps) => {
+}: DashboardTabProps): React.JSX.Element => {
   const theme = useTheme();
   const {
     availableGroups,
@@ -78,6 +80,8 @@ export const DashboardTab = ({
     teamContext,
     compactControlSx,
     isEditing,
+    isSaving,
+    saveError,
     draftWidgets,
     editorOpen,
     editingWidget,
@@ -146,6 +150,7 @@ export const DashboardTab = ({
   }, [orderedTeams, theme.palette.team1.main, theme.palette.team2.main]);
   return (
     <DashboardTabView
+      disableAnimation={disableAnimation}
       hasData={hasData}
       timeline={timeline}
       emptyMessage={emptyMessage}
@@ -159,6 +164,8 @@ export const DashboardTab = ({
       teamContext={teamContext}
       compactControlSx={compactControlSx}
       isEditing={isEditing}
+      isSaving={isSaving}
+      saveError={saveError}
       draftWidgets={draftWidgets}
       editorOpen={editorOpen}
       editingWidget={editingWidget}

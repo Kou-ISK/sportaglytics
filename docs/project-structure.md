@@ -1,4 +1,12 @@
+Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
+
+初回案内の描画は`src/components/ui/patterns/OnboardingTutorialView.tsx`、完了状態と外部イベントは`src/components/useOnboardingTutorialController.tsx`が所有します。分析の表示確認用データはfeature内`Analytics/AnalysisPanel/fixtures/`に置き、実データやElectron I/Oへ依存させません。
+
 # Project Structure
+
+Timelineの場面検索は`features/videoPlayer/components/Timeline/VisualTimeline/review/`へ置きます。`timelineReviewSearch`は純粋計算、`useTimelineReview`はウィンドウ内状態とfocus、`TimelineReviewView` / `TimelineWorkspaceView`はprops-only表示です。既存の`useVisualTimelineController`が結果からの選択・シーク・編集を担当します。
+
+Timelineの未知入力検証とXML request型は`src/shared/timeline/`に置き、Renderer/Mainで共有します。Mainの`packageCompatibilityValidation.ts`、`packageSourceSnapshot.ts`、`legacyPackageMigrationService.ts`が検証・fingerprint/容量・コピー完成を分担し、`atomicTextFile.ts`が順序付きテキスト置換を所有します。XMLの新規取り込みは`Setup/SportscodeImport/`のDomain/Hook/Gateway/View、Mainの`sportscodeImportService.ts`に分離します。保存エラーUIはprops-onlyの`TimelinePersistenceStatusView`で、永続化HookとTimeline同期から渡します。
 
 ライブ取り込みは`features/liveCapture`のScreen / Hook / Viewと、`electron/src/liveCapture`のWindow / IPC / Session / Process / Packageへ分離します。入力とIPCの検証は`shared/liveCapture`、純粋なメディア型は`types/package/media.ts`、再生中の追記はvideoPlayerの`useLiveCapturePlayback`が所有します。パッケージ共通時計と録画末尾での待機は`usePackagePlaybackClock`へ分離します。
 
@@ -259,6 +267,8 @@ Window-specific BrowserWindow / IPC contractはmainとshared typeを分けます
 
 Repo全体へ作用する検査・report・E2Eは `scripts/` です。
 
+ビルド依存のloopback回帰は`scripts/tests/build-downloader.mjs`へ置きます。第三者のversion固定パッチは`patches/`、pnpm 9のmanifest補正はルート`.pnpmfile.cjs`へ置き、[ADR 0058](adr/0058-build-downloads-without-response-cache.md)と一緒に保守します。アプリのruntime処理へ混ぜません。
+
 代表例:
 
 ```text
@@ -383,3 +393,7 @@ Paintの数値入力は `studio/StudioNumberFieldView.tsx` が入力中のdraft�
 - `scripts/prepare-pitch-vision.mjs`: 固定資産の準備。`resources/pitch-vision/`: 出典・権利表示。生成先 `public/pitch-vision/` はGit対象外。
 
 再生・同期で共用するアングルIDと表示モードは `shared/media/angleView.ts`、キー割り当ては既存のSettingsを正本とします。
+
+Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/components/Analytics/AnalysisPanel/controllers/useDashboardPersistence.ts`に置き、画面遷移は同階層の`useDashboardTabActions.ts`、設定正規化は`types/settings/dashboardNormalizers.ts`を正本とします。実I/Oは既存`useSettings`/settings gatewayに残します。
+
+分析PNGの共通撮影契約と画素座標変換は`src/shared/analysis/frameCapture.ts`、一時DOM/検証帯の寿命は`src/utils/frameCaptureViewport.ts`、scroll走査と合成は`src/utils/fullContentCapture.ts`に置きます。Electronのフレーム照合・購読解除は`electron/src/ipc/presentedFrameCapture.ts`へ分離し、既存のfile handlerとanalysis gatewayを通します。

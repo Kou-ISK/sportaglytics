@@ -2,12 +2,20 @@
 
 このドキュメントは SporTagLytics の GitHub Release 運用手順です。Homebrew Tap の詳細は [docs/homebrew-distribution.md](../docs/homebrew-distribution.md) を参照してください。
 
+## 0.17.2 Candidate
+
+`package.json` の0.17.2は未公開の候補です。作業ブランチから`develop`へのDraft PRで検証とレビューを行います。候補準備だけではタグ作成、Release公開、Homebrew更新を行いません。
+
+既存候補で確認したmacOSの操作・分析PNGは、アプリコードの同一性を確認した場合に引き継げます。版番号を変更した配布物の検証、同じ候補のWindows CI、署名・公証は別途必要です。full auditを含む未通過のゲートがある間は正式Releaseを起動しません。
+
 ## Current Workflow
 
 `.github/workflows/release.yml` は次の方法で起動します。
 
 - `v*` tag push
-- GitHub Actions の `workflow_dispatch`
+- 承認済みの復旧時に限るGitHub Actions の `workflow_dispatch`
+
+タグpushが通常の起動方法です。タグpush後に同じReleaseを手動dispatchしません。workflowにはdry-runやdraft公開の選択肢がなく、成功するとGitHub Releaseを公開しHomebrew Tapを更新します。
 
 配布jobはタグまたは手動実行だけを受け付けます。main側にbranch push triggerが残っていても、タグ作成前のpushではjobをskipします。
 
@@ -49,12 +57,17 @@ If `HOMEBREW_TAP_TOKEN` is missing, the Homebrew update step fails. If signing /
 3. Run quality gates:
 
    ```bash
+   pnpm install --frozen-lockfile
+   pnpm audit
+   pnpm audit --prod
    pnpm exec tsc --noEmit
    pnpm exec tsc -p electron/tsconfig.json
    pnpm run lint
    pnpm run check:architecture
+   pnpm run check:design-system
    pnpm run check:adr
    pnpm run test:ci
+   pnpm run build:storybook
    ```
 
 4. Run build / Electron / package checks when release files or Electron boundary changed:
@@ -72,7 +85,8 @@ If `HOMEBREW_TAP_TOKEN` is missing, the Homebrew update step fails. If signing /
 
    `test:e2e` は verified media tools の build 後に macOS 上で実行し、成功するまで packaging / public release / Homebrew update を行いません。
 
-5. Confirm docs affected by the release are updated:
+5. Confirm Windows CI passes on the same release candidate, including native dependency checks, Electron E2E, NSIS packaging and installed-app E2E. Preserve the run URL and artifact evidence with the candidate SHA.
+6. Confirm docs affected by the release are updated:
    - `README.md`
    - `docs/README.md`
    - `docs/homebrew-distribution.md`
@@ -84,10 +98,15 @@ If `HOMEBREW_TAP_TOKEN` is missing, the Homebrew update step fails. If signing /
 ```bash
 git checkout develop
 git pull --ff-only origin develop
+git checkout -b release/prepare-<version-with-hyphens>
 
-# after version/changelog commit is created on develop
-git push origin develop
+# update version/changelog/docs and complete candidate checks
+git add package.json CHANGELOG.md README.md docs .github/RELEASE.md
+git commit -m "chore(release): prepare <version>"
+git push -u origin HEAD
+gh pr create --draft --base develop --title "chore(release): prepare <version>" --body-file <candidate-review-file>
 
+# after candidate CI / review passes, merge the preparation PR into develop
 # create and merge a GitHub PR: develop => main
 gh pr create --base main --head develop --title "Release v<version>" --body "Release v<version>"
 
@@ -105,6 +124,8 @@ git push origin v<version>
 The workflow validates that the version/tag agree and the tagged commit belongs to `main`. Releases are immutable: publication uses `gh release create --verify-tag` and fails if that release already exists. Never delete or replace published tags/DMGs; corrections use a new version. See [ADR 0032](../docs/adr/0032-immutable-release-artifacts.md).
 
 ## Manual Release Dispatch
+
+手動dispatchは承認済みの復旧に限ります。同じタグのrunが進行中の場合やReleaseが公開済みの場合は起動しません。既存artifactやタグを差し替えず、ソース修正が必要なら新しいバージョンで準備をやり直します。
 
 1. Open GitHub Actions.
 2. Select `Release`.

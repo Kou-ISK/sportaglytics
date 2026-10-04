@@ -1,5 +1,6 @@
 import {
   BrowserWindow,
+  screen,
   dialog,
   ipcMain,
   type IpcMainInvokeEvent,
@@ -11,6 +12,8 @@ import {
   isStringPayload,
 } from './ipcPayloadGuards';
 import { getValidatedEventSenderWindow } from './windowSenderGuards';
+import { writeTextFileAtomically } from './atomicTextFile';
+import { capturePresentedFrame } from './presentedFrameCapture';
 
 interface RegisterFileHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
@@ -79,7 +82,7 @@ export const registerFileHandlers = ({
       }
 
       try {
-        await fs.writeFile(filePath, content, 'utf-8');
+        await writeTextFileAtomically(filePath, content);
         return true;
       } catch (error) {
         console.error('Failed to write file:', error);
@@ -119,18 +122,10 @@ export const registerFileHandlers = ({
     }
 
     try {
-      const x = Math.max(0, Math.round(rect.x));
-      const y = Math.max(0, Math.round(rect.y));
-      const width = Math.max(1, Math.round(rect.width));
-      const height = Math.max(1, Math.round(rect.height));
-      const image = await senderWindow.webContents.capturePage({
-        x,
-        y,
-        width,
-        height,
-      });
-      if (!image || image.isEmpty()) return null;
-      return image.toPNG().toString('base64');
+      const scale =
+        screen.getDisplayMatching(senderWindow.getBounds()).scaleFactor *
+        senderWindow.webContents.getZoomFactor();
+      return await capturePresentedFrame(senderWindow.webContents, rect, scale);
     } catch (error) {
       console.error('Failed to capture window region as PNG:', error);
       return null;

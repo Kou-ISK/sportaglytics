@@ -1,33 +1,44 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { send, otherSend, openTimelineWindow, openPlaylistFile } = vi.hoisted(
-  () => ({
-    send: vi.fn(),
-    otherSend: vi.fn(),
+const {
+  send,
+  otherSend,
+  mainWindow,
+  otherWindow,
+  auxiliaryWindow,
+  openTimelineWindow,
+  openPlaylistFile,
+} = vi.hoisted(() => {
+  const send = vi.fn();
+  const otherSend = vi.fn();
+  const window = (id: number, delivery: typeof send) => ({
+    id,
+    isDestroyed: () => false,
+    webContents: { send: delivery, isDestroyed: () => false },
+  });
+  return {
+    send,
+    otherSend,
+    mainWindow: window(1, send),
+    otherWindow: window(2, otherSend),
+    auxiliaryWindow: window(3, vi.fn()),
     openTimelineWindow: vi.fn(),
     openPlaylistFile: vi.fn(),
-  }),
-);
+  };
+});
 
 vi.mock('electron', () => ({
   app: { name: 'SporTagLytics' },
   BrowserWindow: {
-    getAllWindows: () => [
-      {
-        isDestroyed: () => false,
-        webContents: { send, isDestroyed: () => false },
-      },
-      {
-        isDestroyed: () => false,
-        webContents: { send: otherSend, isDestroyed: () => false },
-      },
-    ],
+    getAllWindows: () => [mainWindow, otherWindow, auxiliaryWindow],
     getFocusedWindow: () => null,
   },
 }));
 vi.mock('../packageSessionRegistry', () => ({
   getPackageSessionForWindow: (window: unknown) =>
-    window ? { mainWindow: window } : null,
+    window
+      ? { mainWindow: window === auxiliaryWindow ? mainWindow : window }
+      : null,
 }));
 vi.mock('../settingsWindow', () => ({
   openSettingsWindow: vi.fn(),
@@ -61,6 +72,7 @@ describe('document menus', () => {
   beforeEach(() => {
     send.mockClear();
     otherSend.mockClear();
+    auxiliaryWindow.webContents.send.mockClear();
     openTimelineWindow.mockClear();
     openPlaylistFile.mockClear();
   });
@@ -115,6 +127,26 @@ describe('document menus', () => {
       Reflect.apply(timelineItem.click, undefined, []);
     }
     expect(openTimelineWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens analysis through the owner renderer so the initial snapshot is delivered', () => {
+    const item = buildWindowMenuItems().find(
+      (entry) => entry.label === '分析を開く',
+    );
+    if (item?.click) Reflect.apply(item.click, undefined, []);
+    expect(send).toHaveBeenCalledWith('menu-show-stats');
+    expect(otherSend).not.toHaveBeenCalled();
+  });
+
+  it('routes analysis from an auxiliary window to its package, without broadcasting', () => {
+    const item = buildWindowMenuItems().find(
+      (entry) => entry.label === '分析を開く',
+    );
+    if (item?.click)
+      Reflect.apply(item.click, undefined, [{}, auxiliaryWindow]);
+    expect(send).toHaveBeenCalledWith('menu-show-stats');
+    expect(otherSend).not.toHaveBeenCalled();
+    expect(auxiliaryWindow.webContents.send).not.toHaveBeenCalled();
   });
 
   it('opens a playlist file from File without broadcasting to other documents', () => {

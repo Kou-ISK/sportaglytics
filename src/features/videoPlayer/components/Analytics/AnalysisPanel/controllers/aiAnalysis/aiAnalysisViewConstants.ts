@@ -1,5 +1,5 @@
 export const AI_ANALYSIS_ACCORDION_SX = {
-  borderRadius: 2,
+  borderRadius: 1,
   border: '1px solid',
   borderColor: 'divider',
   boxShadow: 'none',
