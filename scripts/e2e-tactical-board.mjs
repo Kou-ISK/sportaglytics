@@ -11,7 +11,6 @@ import { ffmpegPath } from './media-tool-paths.mjs';
 import {
   inspectLoadedYouTubeBootstrap,
   isClassifiedStartupRequest,
-  OBSERVED_WIDGET_URL,
 } from './e2e-tactical-startup-http.mjs';
 
 const work = await fs.mkdtemp(path.join(os.tmpdir(), 'sportaglytics-board-'));
@@ -113,20 +112,17 @@ try {
     name: '映像から配置候補を認識',
   });
   await expect(recognize).toBeEnabled({ timeout: 15000 });
-  let bootstrapVerified = false;
-  if (remote.some((request) => request.url === OBSERVED_WIDGET_URL)) {
-    const evidence = [
-      ...(await inspectLoadedYouTubeBootstrap(main)),
-      ...(await inspectLoadedYouTubeBootstrap(page)),
-    ];
-    console.log(
-      'Loaded YouTube startup bootstrap evidence:',
-      JSON.stringify(evidence),
-    );
-    bootstrapVerified = evidence.some(
-      (script) => script.declaresObservedWidget,
-    );
-  }
+  const evidence = [
+    ...(await inspectLoadedYouTubeBootstrap(main)),
+    ...(await inspectLoadedYouTubeBootstrap(page)),
+  ];
+  console.log(
+    'Loaded YouTube startup bootstrap evidence:',
+    JSON.stringify(evidence),
+  );
+  const bootstrapVerified = evidence.some(
+    (script) => script.declaresObservedWidget,
+  );
   assert.ok(
     remote.every((request) =>
       isClassifiedStartupRequest(request, bootstrapVerified),
