@@ -26,7 +26,7 @@ A/B競合用の動画は同じ合成clipをパッケージ外の専用ファイ�
 
 同回帰はSourceBufferの`updateend`も保留し、append完了前に次のread/appendを開始せず、完了後は追加のtimerを待たず最新fragmentを処理することを確認します。Main配送のunitでは正常reload後の一度だけのFIFO再配送とclosed Windowのregistry/配送queueの除去を確認します。
 
-非seekのwaitingが起きた場合は、500msごとの映像時刻・buffer終端・入力別の保存済み秒数/区間数・Mainの保存済み終端をログに残します。生産側の遅延とRendererへのappend遅延を区別するための診断で、waiting=0の合否基準は維持します。TimelineのOption/Altコピーも固定400msではなく、保存されたJSONが3件になる条件を既存のbounded pollで待ち、件数・行名・色を厳密に検査します。
+非seekのwaitingが起きた場合は、500msごとの映像時刻・buffer終端・入力別の保存済み秒数/区間数・Mainの保存済み終端をログに残します。生産側の遅延とRendererへのappend遅延を区別するための診断で、waiting=0の合否基準は維持します。Timelineの貼り付けとOption/Altコピーは固定400msではなく、保存されたJSONがそれぞれ2件・3件になる条件を既存のbounded pollで待ち、件数・ID・行名・色・時刻を厳密に検査します。画面の件数が更新されても、300ms遅延と非同期の実保存が完了したとは扱いません。
 
 Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含みます。複数行の旧文書を読み、実UIでソートして再生・Undo/Redo・保存再読込を確認し、色の異なる合成映像のFFmpeg出力を復号して順序を検証します。Storybookの`Workspace/Playlist/Sorter`ではInteractive、Narrow、Emptyとdark/lightを確認します。
 
