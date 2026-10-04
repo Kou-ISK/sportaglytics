@@ -53,6 +53,7 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 ## Developer Documentation
 
+- [ビルド用ダウンロードの依存境界](adr/0058-build-downloads-without-response-cache.md): HTTP response cacheを除去し、監査・checksum・ファイルキャッシュを維持する判断。
 - [開発ガイド](development.md): セットアップ、品質ゲート、開発ワークフロー。
 - [Testing and Quality Gates](testing.md): Vitest、品質ゲート、テスト追加判断。
 - [システム概要](system-overview.md): Feature-First、Electron IPC、shared contracts の現行構造。

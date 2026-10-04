@@ -141,6 +141,8 @@ CommitはConventional Commitsを使います。
 
 ## 品質ゲート
 
+`test:run` / `test:ci`はVitestに加えて`check:build-downloads`を実行します。builderの合成ダウンロード、checksum拒否、ファイルキャッシュ、agent・redirect・progress・timeout、HTTP response cacheの再有効化拒否をloopbackで確認します。ビルド依存の限定パッチとpnpm 9 manifest hookは[ADR 0058](adr/0058-build-downloads-without-response-cache.md)を参照してください。`electronDownload.cache`のファイル保存先は維持し、gotの`downloadOptions.cache`は使用しません。
+
 PR merge前に必須:
 
 ```bash

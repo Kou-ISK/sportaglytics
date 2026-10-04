@@ -39,6 +39,8 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 ## Required Quality Gate
 
+`test:run` / `test:ci`は既存Vitestの後に`check:build-downloads`と同じNode検査も実行します。`scripts/tests/build-downloader.mjs`は実際のbuilder/get/got依存を読み、loopbackの合成bytesでダウンロード・checksum・ファイルキャッシュと通信の回帰を検証します。外部モデルやElectron GUIを起動しません。依存境界の判断は[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に記録しています。
+
 PR前に以下を通します。
 
 ```bash
@@ -62,8 +64,9 @@ pnpm run check:adr
 | `pnpm run lint`                           | ESLint zero warnings              |
 | `pnpm run check:architecture`             | Feature-First / Electron boundary |
 | `pnpm run check:adr`                      | ADR filename/index consistency    |
-| `pnpm run test:run`                       | Vitest one-shot                   |
-| `pnpm run test:ci`                        | serialized Vitest CI run          |
+| `pnpm run test:run`                       | Vitest one-shot + build downloads |
+| `pnpm run test:ci`                        | serialized Vitest + build downloads |
+| `pnpm run check:build-downloads`          | build download and cache boundary |
 | `pnpm run check:preload`                  | preload bundle sanity             |
 | `pnpm run report:architecture-health`     | architecture report               |
 | `pnpm run report:large-files`             | soft file-size report             |

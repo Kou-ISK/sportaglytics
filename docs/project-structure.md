@@ -267,6 +267,8 @@ Window-specific BrowserWindow / IPC contractはmainとshared typeを分けます
 
 Repo全体へ作用する検査・report・E2Eは `scripts/` です。
 
+ビルド依存のloopback回帰は`scripts/tests/build-downloader.mjs`へ置きます。第三者のversion固定パッチは`patches/`、pnpm 9のmanifest補正はルート`.pnpmfile.cjs`へ置き、[ADR 0058](adr/0058-build-downloads-without-response-cache.md)と一緒に保守します。アプリのruntime処理へ混ぜません。
+
 代表例:
 
 ```text

@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 開発用wait-onのJoi overrideを[GHSA-6h2x-m376-mqjq](https://github.com/hapijs/joi/security/advisories/GHSA-6h2x-m376-mqjq)の修正版18.2.6へ更新。配布runtimeには含めません。
 
+- 開発・ビルド依存の監査対応として同majorの修正版へ固定し、未使用Jest型依存とbuilderの未使用HTTP response cache経路を除去。checksum付きファイルキャッシュとproxy・timeoutを維持し、合成ダウンロードの回帰を品質ゲートに追加。[判断と保守条件](docs/adr/0058-build-downloads-without-response-cache.md)。
+
 - Retinaなどの高DPI環境で分析の全内容PNGが継ぎ目を上書きし、チャートや見出しを欠落させる問題を修正。メニューを除去し、チャートのアニメーションを停止してから撮影・合成するよう変更。 撮影ごとの検証模様と位置が一致したフレームだけを保存し、スクロールバーを除去、分数倍率でも切り出しと合成の画素境界を統一。
 
 - Dashboardの割合円グラフでtooltipが割合を重複表示する問題を修正し、集計元の件数・秒数を併記。[表示](docs/user-guide.md#ダッシュボードv040以降)。
