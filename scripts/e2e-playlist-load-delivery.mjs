@@ -7,7 +7,7 @@ import { expect } from 'playwright/test';
 const holdDocumentRead = async (app, target, skipReads) => {
   await app.evaluate(
     async (_electron, options) => {
-      const fileSystem = (await import('node:fs')).default.promises;
+      const fileSystem = process.getBuiltinModule('fs/promises');
       const readFile = fileSystem.readFile;
       let remaining = options.skipReads;
       const probe = {
