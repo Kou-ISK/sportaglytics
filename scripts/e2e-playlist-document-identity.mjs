@@ -71,6 +71,11 @@ export const verifyPlaylistDocumentIdentity = async (
   videoSource,
   screenshot,
 ) => {
+  // A package reference may acquire portable metadata during hydration (on
+  // Windows its path representation changes). Keep this document-race fixture
+  // clean from the start with the same real clip outside the source package.
+  const identityVideo = path.join(work, 'identity-source.mp4');
+  await fs.copyFile(videoSource, identityVideo);
   const files = Object.fromEntries(
     ['A', 'B'].map((name) => [name, path.join(work, `Identity-${name}.stpl`)]),
   );
@@ -92,7 +97,7 @@ export const verifyPlaylistDocumentIdentity = async (
             startTime: 0,
             endTime: 5,
             addedAt: 1,
-            videoSource,
+            videoSource: identityVideo,
             note: `Original ${name}`,
           },
         ],

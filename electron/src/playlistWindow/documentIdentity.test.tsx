@@ -12,6 +12,7 @@ import { usePlaylistLoader } from '../../../src/features/playlist/hooks/playlist
 import { usePlaylistHistory } from '../../../src/features/playlist/hooks/playlist/usePlaylistHistory';
 import { usePlaylistWindowCoreState } from '../../../src/features/playlist/hooks/playlist/usePlaylistWindowCoreState';
 import { usePlaylistWindowSync } from '../../../src/features/playlist/hooks/playlist/usePlaylistWindowSync';
+import { usePlaylistMediaReferences } from '../../../src/features/playlist/media/usePlaylistMediaReferences';
 import { registerPlaylistHandlers } from './handlers';
 import { createPlaylistWindow, getWindowInfoBySender } from './windowManager';
 import { getPlaylistWindows, setFfmpegPathRef } from './state';
@@ -120,9 +121,6 @@ vi.mock('../ipc/windowSenderGuards', () => ({
     transport.Window.fromWebContents(event.sender),
   isEventFromWindow: vi.fn(),
 }));
-vi.mock('./mediaReferenceHandlers', () => ({
-  registerPlaylistMediaReferenceHandlers: vi.fn(),
-}));
 // Read real A/B fixtures first, then control only their result delivery.
 // The production atomic writer remains untouched.
 vi.mock('./storage', async (importOriginal) => {
@@ -156,6 +154,7 @@ const fixture = (name: string): Playlist => ({
       startTime: 0,
       endTime: 5,
       addedAt: 1,
+      videoSource: path.join(root, 'identity-source.mp4'),
       note: 'original',
     },
   ],
@@ -178,6 +177,12 @@ const useHarness = () => {
     ...core,
     setItemsWithHistory: history.setItems,
   });
+  const media = usePlaylistMediaReferences({
+    items: history.items,
+    currentItem: history.items[core.currentIndex] ?? null,
+    reconcile: history.reconcileMedia,
+    setDirty: core.setHasUnsavedChanges,
+  });
   usePlaylistWindowSync({
     playlistName: core.playlistName,
     isDirty: core.hasUnsavedChanges,
@@ -186,6 +191,7 @@ const useHarness = () => {
     core,
     history,
     loader,
+    media,
     edit: (): void => {
       history.setItems((items) =>
         items.map((item) => ({ ...item, note: 'new edit' })),
@@ -209,6 +215,10 @@ beforeEach(async () => {
   transport.showMessageBox.mockClear();
   getPlaylistWindows().clear();
   root = await fs.mkdtemp(path.join(os.tmpdir(), 'playlist-document-'));
+  await fs.writeFile(
+    path.join(root, 'identity-source.mp4'),
+    'synthetic media metadata fixture',
+  );
   for (const name of ['A', 'B']) {
     await fs.mkdir(file(name));
     await fs.writeFile(
@@ -233,6 +243,8 @@ afterEach(async () => {
 it('keeps a same-document edit dirty after held load completion and still prompts on Close', async () => {
   const { result } = renderHook(useHarness);
   await act(() => result.current.loader.loadPlaylistFromPath(file('A')));
+  await vi.waitFor(() => expect(result.current.media.loading).toBe(false));
+  expect(info()?.isDirty).toBe(false);
   const release = hold('A');
   let load: Promise<void> = Promise.resolve();
   act(() => {

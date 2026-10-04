@@ -16,6 +16,8 @@ Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を�
 
 同じ保存先・dirty・Close確認は`e2e-ux-review`内の`e2e-playlist-document-identity.mjs`でも合成A/Bで検査します。専用read結果のみを保留し、実Mainの完了ログを観測してから古い結果を評価します。既存UI、MainのfilePath/dirty、Ctrl/Cmd+Sによる実書込と他文書bytes、実Close dialog呼出しを検査します。dialogは当該Windowの「キャンセル」応答だけをstub化し、writerやIPC handlerは置換しません。
 
+A/B競合用の動画は同じ合成clipをパッケージ外の専用ファイルへコピーします。パッケージ参照は初回のportable metadata解決でdirtyになる場合があるため、その変換を競合試験のclean前提へ混ぜません。接続unitにも実メディア参照handler/hookを含めて初期cleanを確認し、nativeのdirty=false/true・保存先・Closeのassertは維持します。パッケージ参照・移動・既定アングルは既存の専用回帰で検査します。
+
 ライブキャプチャの回帰は`node scripts/e2e-live-capture.mjs`で行います（事前にmedia:build / e2e:prepare）。USB模擬入力と合成HTTP配信の同時録画、過去レビュー中のコード保存、再接続時の空白、停止・複数区間の書き出しを検証します。実機別のドライバ・連係カメラ・RTSP配信は別途ハードウェア検証が必要です。
 
 720pの模擬入力で録画画面と映像ウィンドウを隠し、Code Windowのクリック/ホットキーを混用して25秒間連続記録します。区間をまたいでもvideo要素が同一で、emptied・バッファ不足によるwaitingが発生せず映像時刻が進むことを確認します。共通時計への補正シーク中のwaitingは区別してログに残します。可変フレーム時刻の区間重複は保存時に補正し、書き出しと再オープンも検査します。
