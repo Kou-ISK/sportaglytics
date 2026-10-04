@@ -1,9 +1,13 @@
 # SporTagLytics
 
+旧SporTagプロジェクトは原本を保持して移行コピーします。SportscodeのEdit List XMLは明示映像・秒数補正から別プロジェクトへ取り込めます（ネイティブパッケージは未対応）。[対応形式と復旧手順](docs/package-compatibility.md)。
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-0.17.1-blue.svg)](https://github.com/Kou-ISK/sportaglytics/releases)
 
 スポーツ映像のタグ付け、同期再生、統計可視化、プレイリスト作成を行う Electron デスクトップアプリケーションです。現在の主な利用想定はラグビー分析ですが、タイムラインとラベルを中心にした設計のため、他競技への応用も見込んでいます。
+
+ソースの **0.17.2 は未公開のリリース候補**です。上のバッジは公開済みの0.17.1を示します。候補の変更は[CHANGELOG](CHANGELOG.md#0172---未公開)、Timeline・共通フォームの変更と検証範囲は[compact density評価](docs/reports/2026-10-compact-density.md)、公開までの確認項目は[Release手順](.github/RELEASE.md)を参照してください。
 
 ## 主な機能
 
@@ -13,7 +17,7 @@
 - **リアルタイム統計分析**: ダッシュボード、モメンタム、クロス集計
 - **AI 分析機能**: ローカル LLM による映像分析と推奨クリップ生成
 - **プレイリスト・Paint**: フリーズフレーム、選手図形・位置キー編集・対象指定による追尾、描画を含むクリップ書き出し（[操作と制約](docs/tactics.md)）
-- **ビジュアルタイムライン**: ズーム、範囲選択、ドラッグ編集
+- **ビジュアルタイムライン**: ズーム、範囲選択、ドラッグ編集、行名・ラベル・ノートからの[場面検索と全文確認](docs/timeline-review.md)
 - **多形式エクスポート**: JSON / CSV / SCTimeline
 - **独自ファイル形式**: `.stpkg` パッケージ、`.stpl` プレイリスト、`.stcw` コードウィンドウ
 
@@ -55,6 +59,7 @@ brew install --cask sportaglytics
 - [Privacy and Data Handling](docs/privacy-and-data-handling.md): ローカル保存、外部送信、AI 分析時のデータ境界
 - [開発ガイド](docs/development.md): 開発環境、ワークフロー、品質ゲート
 - [Testing and Quality Gates](docs/testing.md): テスト方針と品質ゲート
+- [UX実機評価と比較画像](docs/reports/2026-10-ux-review.md): 合成データで確認した用途、改善、未検証範囲
 - [システム概要](docs/system-overview.md): 現行アーキテクチャの要約
 - [プロジェクト構成](docs/project-structure.md): ディレクトリ構成と新規ファイルの配置判断
 - [ADR](docs/adr/README.md): 長期的な設計判断の記録

@@ -44,19 +44,24 @@
 
 ## ✅ セットアップ完了！
 
-以降は**タグをプッシュするだけ**で全て自動化されます。
+候補の検証・レビューを完了した後、タグpushでWindowsとmacOSの配布、Homebrew更新を起動します。現在の0.17.2は未公開の候補です。
 
-## 📦 リリース手順（超シンプル）
+## 📦 リリース手順
 
 ```bash
-# 1. バージョンを更新（例: 0.2.6）
+# 1. develop最新からrelease作業ブランチを作成してバージョンを更新
+git checkout develop
+git pull --ff-only origin develop
+git checkout -b release/prepare-<version-with-hyphens>
 vim package.json  # "version": "<version>" に変更
 
-# 2. develop へコミットして main へ PR で統合
-git add package.json CHANGELOG.md
-git commit -m "chore: bump version to <version>"
-git push origin develop
+# 2. 作業ブランチからdevelopへのDraft PRで候補を検証
+git add package.json CHANGELOG.md README.md docs .github/RELEASE.md
+git commit -m "chore(release): prepare <version>"
+git push -u origin HEAD
+gh pr create --draft --base develop --title "chore(release): prepare <version>" --body-file <candidate-review-file>
 
+# audit / 品質ゲート / Windows CI / macOS検証とレビューを通し、developへ統合
 gh pr create --base main --head develop --title "Release v<version>" --body "Release v<version>"
 
 # CI / レビュー / branch protection 通過後
@@ -70,9 +75,10 @@ git tag v<version>
 git push origin v<version>
 ```
 
-**これだけで完了！** 5-10分後、以下が自動実行されます:
+タグpush後、以下が順に実行されます。所要時間は検証と公証の状況によって変わります。同じReleaseを手動dispatchしません。dry-runやdraft公開のモードはありません。
 
-- ✅ アプリのビルド（Intel & Apple Silicon）
+- ✅ Windowsのnative依存・Electron E2E・NSIS・インストール後のE2E
+- ✅ macOSのaudit・品質ゲート・Electron E2E・署名と公証（Intel & Apple Silicon）
 - ✅ GitHubリリースの作成
 - ✅ SHA256ハッシュの計算
 - ✅ **Homebrew Tapの自動更新** ⭐
@@ -88,7 +94,7 @@ brew install --cask sportaglytics
 open -a "SporTagLytics"
 ```
 
-# homebrew/sportaglytics.rb を更新
+公開後は両DMG・Windowsインストーラー・`SHA256SUMS.txt`とHomebrewのURL・SHA256を確認します。[確認項目](../.github/RELEASE.md#post-release-verification)。
 
 ## 📚 詳細情報
 
@@ -126,4 +132,4 @@ pnpm run build
 pnpm run electron:package:mac
 ```
 
-エラーが出たら修正してから再度タグをプッシュしてください。
+ソース修正が必要なら、新しいバージョンで候補準備をやり直してください。既存のタグや公開artifactは差し替えません。

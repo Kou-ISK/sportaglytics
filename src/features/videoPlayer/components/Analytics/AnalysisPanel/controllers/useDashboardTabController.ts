@@ -66,6 +66,8 @@ export const useDashboardTabController = ({
     teamContext: derived.teamContext,
     compactControlSx: actions.compactControlSx,
     isEditing: state.isEditing,
+    isSaving: actions.isSaving,
+    saveError: actions.saveError,
     draftWidgets: state.draftWidgets,
     editorOpen: state.editorOpen,
     editingWidget: state.editingWidget,

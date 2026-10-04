@@ -52,7 +52,7 @@ const normalizeDashboardMetric = (
   value: unknown,
   fallback: DashboardMetric,
 ): DashboardMetric => {
-  return value === 'duration' ? 'duration' : fallback;
+  return value === 'count' || value === 'duration' ? value : fallback;
 };
 
 const normalizeDashboardChartType = (

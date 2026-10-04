@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { AnalysisDashboard } from '../../../../../../types/settings/coreTypes';
 import type { NotificationContextValue } from '../../../../../../contexts/NotificationContext';
 import { subscribeAnalysisDashboardExternalOpen } from '../../../../app/gateways/analysisWindowGateway';
@@ -20,10 +20,11 @@ interface UseDashboardImportExportParams {
   activeDashboard?: AnalysisDashboard;
   dashboards: AnalysisDashboard[];
   notification: NotificationContextValue;
+  isImportBlocked: () => boolean;
   saveDashboards: (
     nextDashboards: AnalysisDashboard[],
     nextActiveId: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 }
 
 interface DashboardImportExportActions {
@@ -36,7 +37,10 @@ export const useDashboardImportExport = ({
   dashboards,
   notification,
   saveDashboards,
+  isImportBlocked,
 }: UseDashboardImportExportParams): DashboardImportExportActions => {
+  const dashboardsRef = useRef(dashboards);
+  dashboardsRef.current = dashboards;
   const handleExportDashboard = useCallback(async () => {
     if (!activeDashboard) return;
     if (!canExportAnalysisDashboard()) {
@@ -61,6 +65,12 @@ export const useDashboardImportExport = ({
 
   const importDashboardFromPath = useCallback(
     async (filePath: string) => {
+      if (isImportBlocked()) {
+        notification.warning(
+          '編集を保存またはキャンセルしてからインポートしてください。',
+        );
+        return;
+      }
       if (!canImportAnalysisDashboard()) {
         notification.error('インポート機能が利用できません。');
         return;
@@ -72,15 +82,21 @@ export const useDashboardImportExport = ({
         return;
       }
 
+      if (isImportBlocked()) {
+        notification.warning(
+          '編集を保存またはキャンセルしてからインポートしてください。',
+        );
+        return;
+      }
       try {
         const { nextDashboards, nextActiveId } =
           parseAnalysisDashboardImportContent({
             content,
-            existingDashboards: dashboards,
+            existingDashboards: dashboardsRef.current,
             generateDashboardId,
           });
 
-        await saveDashboards(nextDashboards, nextActiveId);
+        if (!(await saveDashboards(nextDashboards, nextActiveId))) return;
         notification.success('ダッシュボードをインポートしました。');
       } catch (error: unknown) {
         console.error('Failed to import dashboard:', error);
@@ -89,7 +105,7 @@ export const useDashboardImportExport = ({
         );
       }
     },
-    [dashboards, notification, saveDashboards],
+    [isImportBlocked, notification, saveDashboards],
   );
 
   const handleImportDashboard = useCallback(async () => {

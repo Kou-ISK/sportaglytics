@@ -30,7 +30,7 @@ export const useRecentPackageRegistration = ({
 
         addRecentPackage({
           path: packagePath,
-          name: packagePath.split('/').pop() || 'Unknown',
+          name: packagePath.split(/[\\/]/).pop() || 'Unknown',
           team1Name: teamNames.team1Name,
           team2Name: teamNames.team2Name,
           videoCount: videoList.length,

@@ -17,6 +17,7 @@ export const ANALYSIS_WINDOW_CHANNELS = {
   isWindowOpen: 'analysis:is-window-open',
   syncToWindow: 'analysis:sync-to-window',
   sync: 'analysis:sync',
+  requestSync: 'analysis:request-sync',
   jumpToSegment: 'analysis:jump-to-segment',
   createAiPlaylist: 'analysis:create-ai-playlist',
   dashboardExternalOpen: 'analysis-dashboard:external-open',
@@ -45,6 +46,7 @@ export interface IAnalysisWindowAPI {
   closeWindow: () => Promise<void>;
   isWindowOpen: () => Promise<boolean>;
   syncToWindow: (payload: AnalysisWindowSyncPayload) => void;
+  requestSync: () => void;
   onSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
   offSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
   sendJumpToSegment: (segment: TimelineData) => void;
@@ -74,13 +76,16 @@ export const isTimelineData = (value: unknown): value is TimelineData => {
     isOptional(
       value.labels,
       (candidate): candidate is Array<{ name: string; group?: string }> => {
-        return isArrayOf(candidate, (label): label is { name: string; group?: string } => {
-          return (
-            isPlainObject(label) &&
-            isString(label.name) &&
-            isOptional(label.group, isString)
-          );
-        });
+        return isArrayOf(
+          candidate,
+          (label): label is { name: string; group?: string } => {
+            return (
+              isPlainObject(label) &&
+              isString(label.name) &&
+              isOptional(label.group, isString)
+            );
+          },
+        );
       },
     ) &&
     isOptional(value.color, isString)

@@ -1,6 +1,5 @@
-import { app, BrowserWindow, dialog } from 'electron';
+import { BrowserWindow, dialog } from 'electron';
 import * as fs from 'node:fs/promises';
-import { refreshAppMenu } from '../menuBar';
 import { isStringPayload } from './ipcPayloadGuards';
 import { registerHandleWithAliases } from './registerHandleWithAliases';
 import { getValidatedEventSenderWindow } from './windowSenderGuards';
@@ -16,13 +15,7 @@ const openDirectoryDialog = async (
 ): Promise<string | undefined> => {
   const options: Electron.OpenDialogOptions = {
     properties: ['openDirectory', 'treatPackageAsDirectory'],
-    message: 'パッケージを選択する',
-    filters: [
-      {
-        name: 'SporTagLytics Package',
-        extensions: ['stpkg'],
-      },
-    ],
+    message: '新しいプロジェクトの保存先フォルダを選択する',
   };
   const result = mainWindow
     ? await dialog.showOpenDialog(mainWindow, options)
@@ -30,16 +23,6 @@ const openDirectoryDialog = async (
   if (result.canceled) return undefined;
   const selected = result.filePaths[0];
   if (!selected) return undefined;
-  try {
-    app.addRecentDocument(selected);
-  } catch (error) {
-    console.warn('addRecentDocument failed', error);
-  }
-  try {
-    refreshAppMenu();
-  } catch (error) {
-    console.warn('refreshAppMenu failed', error);
-  }
   return selected;
 };
 
@@ -89,6 +72,42 @@ export const registerLegacyFileAccessHandlers = ({
     return;
   }
   isRegistered = true;
+
+  registerHandleWithAliases(
+    'package:select-path',
+    [],
+    async (event, legacyFolder: unknown) => {
+      const window = getValidatedEventSenderWindow(event);
+      if (!window || typeof legacyFolder !== 'boolean')
+        throw new Error('Invalid package selection sender or payload');
+      // Folder filters are ignored by Windows. Restriction is enforced by the
+      // structural preflight, and the old-folder entry has its own clear label.
+      const options: Electron.OpenDialogOptions = legacyFolder
+        ? {
+            properties: ['openDirectory', 'treatPackageAsDirectory'],
+            message:
+              '旧SporTagフォルダを選択する（原本を保ち、移行コピーを作成）',
+          }
+        : process.platform === 'darwin'
+          ? {
+              properties: ['openFile', 'openDirectory'],
+              message: '.stpkg パッケージを選択する',
+              filters: [
+                { name: 'SporTagLytics Package', extensions: ['stpkg'] },
+              ],
+            }
+          : {
+              properties: ['openDirectory'],
+              message: '.stpkg パッケージフォルダを選択する',
+            };
+      const main = getMainWindow();
+      const result = await dialog.showOpenDialog(
+        main && !main.isDestroyed() ? main : window,
+        options,
+      );
+      return result.canceled ? '' : (result.filePaths[0] ?? '');
+    },
+  );
 
   registerHandleWithAliases(
     'files:open-directory',

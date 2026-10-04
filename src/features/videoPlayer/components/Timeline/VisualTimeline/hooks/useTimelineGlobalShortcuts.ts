@@ -157,19 +157,11 @@ export const useTimelineGlobalShortcuts = ({
         }
       }
 
-      const isJumpNext =
-        event.key === 'Tab' || (event.altKey && event.key === 'ArrowDown');
-      const isJumpPrev =
-        (event.key === 'Tab' && event.shiftKey) ||
-        (event.altKey && event.key === 'ArrowUp');
+      const isJumpNext = event.altKey && event.key === 'ArrowDown';
+      const isJumpPrev = event.altKey && event.key === 'ArrowUp';
 
       if (isJumpNext || isJumpPrev) {
         if (selectedIds.length === 0) return;
-        if (event.key === 'Tab') {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-
         if (selectedIds.length > 0) {
           if (event.altKey) {
             event.preventDefault();

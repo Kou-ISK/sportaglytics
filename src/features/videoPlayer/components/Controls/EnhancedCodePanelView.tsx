@@ -14,6 +14,7 @@ import { CustomCodeLayout } from './CustomCodeLayout';
 import { DefaultCodeLayout } from './DefaultCodeLayout';
 
 export interface EnhancedCodePanelViewProps {
+  documentEditable?: boolean;
   activeMode: 'code' | 'label';
   customLayout: CodeWindowLayout | null;
   teamContext: TeamContext;
@@ -47,6 +48,7 @@ export interface EnhancedCodePanelViewProps {
 }
 
 export const EnhancedCodePanelView = ({
+  documentEditable = true,
   activeMode,
   customLayout,
   teamContext,
@@ -126,30 +128,38 @@ export const EnhancedCodePanelView = ({
         </Alert>
       )}
 
-      {customLayout ? (
-        <CustomCodeLayout
-          layout={customLayout}
-          teamContext={teamContext}
-          activeRecordings={activeRecordings}
-          primaryAction={primaryAction}
-          activeLabelButtons={activeLabelButtons}
-          isRecording={isRecording}
-          selectedTimelineLabels={selectedTimelineLabels}
-          layoutContainerRef={layoutContainerRef}
-          onButtonClick={handleCustomButtonClick}
-        />
-      ) : (
-        <DefaultCodeLayout
-          teamNames={teamNames}
-          referenceTeamName={referenceTeamName}
-          actions={activeActions}
-          primaryAction={primaryAction}
-          activeRecordings={activeRecordings}
-          getActionLabels={getActionLabels}
-          onActionClick={handleActionClick}
-          renderLabelGroup={renderLabelGroup}
-        />
-      )}
+      <Box
+        component="fieldset"
+        disabled={!documentEditable}
+        inert={!documentEditable}
+        aria-disabled={!documentEditable}
+        sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
+      >
+        {customLayout ? (
+          <CustomCodeLayout
+            layout={customLayout}
+            teamContext={teamContext}
+            activeRecordings={activeRecordings}
+            primaryAction={primaryAction}
+            activeLabelButtons={activeLabelButtons}
+            isRecording={isRecording}
+            selectedTimelineLabels={selectedTimelineLabels}
+            layoutContainerRef={layoutContainerRef}
+            onButtonClick={handleCustomButtonClick}
+          />
+        ) : (
+          <DefaultCodeLayout
+            teamNames={teamNames}
+            referenceTeamName={referenceTeamName}
+            actions={activeActions}
+            primaryAction={primaryAction}
+            activeRecordings={activeRecordings}
+            getActionLabels={getActionLabels}
+            onActionClick={handleActionClick}
+            renderLabelGroup={renderLabelGroup}
+          />
+        )}
+      </Box>
     </Box>
   );
 };

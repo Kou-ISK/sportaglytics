@@ -31,7 +31,7 @@ export const TimelineRowEditorDialog = ({
   <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
     <DialogTitle>行を編集</DialogTitle>
     <DialogContent>
-      <Stack spacing={2} sx={{ pt: 1 }}>
+      <Stack spacing={1.5} sx={{ pt: 1 }}>
         <TextField
           autoFocus
           label="行の名前"

@@ -13,7 +13,7 @@ interface TabPanelProps {
 }
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
-  <Box hidden={value !== index} sx={{ pt: 2 }}>
+  <Box hidden={value !== index} sx={{ pt: 1 }}>
     {value === index && children}
   </Box>
 );
@@ -47,7 +47,7 @@ export const ButtonPropertiesEditorView: React.FC<
       <Paper
         elevation={0}
         sx={{
-          p: 2,
+          p: 1.5,
           height: '100%',
           backgroundColor: 'background.default',
           border: '1px solid',
@@ -66,7 +66,7 @@ export const ButtonPropertiesEditorView: React.FC<
     <Paper
       elevation={0}
       sx={{
-        p: 2,
+        p: 1.5,
         height: '100%',
         backgroundColor: 'background.default',
         border: '1px solid',

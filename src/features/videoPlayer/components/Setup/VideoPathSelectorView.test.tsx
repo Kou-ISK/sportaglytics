@@ -28,6 +28,39 @@ afterEach(() => {
 });
 
 describe('VideoPathSelectorView', () => {
+  it('keeps all five startup entry points available', () => {
+    const callbacks = {
+      onOpenPackage: vi.fn(),
+      onOpenWizard: vi.fn(),
+      onOpenCapture: vi.fn(),
+      onOpenLegacyPackage: vi.fn(),
+      onOpenSportscode: vi.fn(),
+    };
+    renderWithProviders(
+      <VideoPathSelectorView
+        {...callbacks}
+        showWelcome={false}
+        dragState={dragState}
+        dragHandlers={{}}
+        recentPackages={[]}
+        onOpenRecentPackage={vi.fn()}
+        onRemoveRecentPackage={vi.fn()}
+      />,
+    );
+    for (const name of [
+      'パッケージを開く',
+      '新しいパッケージを作成',
+      'ライブキャプチャ',
+      '旧SporTagフォルダを開く',
+      'Sportscode XMLから作成',
+    ]) {
+      fireEvent.click(screen.getByRole('button', { name }));
+    }
+    for (const callback of Object.values(callbacks)) {
+      expect(callback).toHaveBeenCalledOnce();
+    }
+  });
+
   it('opens files through a callback without a notification or Electron provider', () => {
     const onOpenPackage = vi.fn();
     render(
@@ -117,6 +150,9 @@ describe('startup recent packages and recovery', () => {
     recentPackages: packages,
     onOpenPackage: vi.fn(),
     onOpenWizard: vi.fn(),
+    onOpenCapture: vi.fn(),
+    onOpenLegacyPackage: vi.fn(),
+    onOpenSportscode: vi.fn(),
     onOpenRecentPackage: vi.fn(),
     onRemoveRecentPackage: vi.fn(),
   };
@@ -165,6 +201,9 @@ describe('startup recent packages and recovery', () => {
     for (const name of [
       'パッケージを開く',
       '新しいパッケージを作成',
+      'ライブキャプチャ',
+      '旧SporTagフォルダを開く',
+      'Sportscode XMLから作成',
       '決勝を開く',
       '決勝を最近開いたパッケージから削除',
     ]) {

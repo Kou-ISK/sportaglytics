@@ -72,37 +72,9 @@ export const AIAnalysisMainColumn = (
   } = props;
 
   return (
-    <Stack spacing={2}>
-      <AnalysisCard title="AI分析">
-        <Stack spacing={2}>
-          <Stack spacing={1.5}>
-            {typeof totalTimelineCount === 'number' &&
-              totalTimelineCount > timeline.length && (
-                <Alert severity="info">
-                  対象タイムライン: {timeline.length}/{totalTimelineCount}
-                </Alert>
-              )}
-
-            <AIAnalysisConversationPanel
-              displayQuestion={displayQuestion}
-              aiResponse={aiResponse}
-              generationStatus={generationStatus}
-              llmAttempt={llmAttempt}
-              maxLlmRetries={MAX_LLM_RETRIES}
-              llmRetryInfo={llmRetryInfo}
-              llmProgress={llmProgress}
-              llmWarning={llmWarning}
-              hasGroundedOutput={hasGroundedOutput}
-              validatedHypotheses={validatedHypotheses}
-              validatedHighlights={validatedHighlights}
-              timelineMap={timelineMap}
-              stripEvidenceIds={stripEvidenceIds}
-              onJumpToSegment={onJumpToSegment}
-              formatSeconds={formatSeconds}
-              formatElapsed={formatElapsed}
-            />
-          </Stack>
-
+    <Stack spacing={1.5}>
+      <AnalysisCard title="質問と分析結果">
+        <Stack spacing={1.5}>
           <AIAnalysisControlsPanel
             questionTemplates={questionTemplates}
             question={question}
@@ -142,6 +114,33 @@ export const AIAnalysisMainColumn = (
             showDebug={showDebug}
             setShowDebug={setShowDebug}
           />
+          <Stack spacing={1.5}>
+            {typeof totalTimelineCount === 'number' &&
+              totalTimelineCount > timeline.length && (
+                <Alert severity="info">
+                  対象タイムライン: {timeline.length}/{totalTimelineCount}
+                </Alert>
+              )}
+
+            <AIAnalysisConversationPanel
+              displayQuestion={displayQuestion}
+              aiResponse={aiResponse}
+              generationStatus={generationStatus}
+              llmAttempt={llmAttempt}
+              maxLlmRetries={MAX_LLM_RETRIES}
+              llmRetryInfo={llmRetryInfo}
+              llmProgress={llmProgress}
+              llmWarning={llmWarning}
+              hasGroundedOutput={hasGroundedOutput}
+              validatedHypotheses={validatedHypotheses}
+              validatedHighlights={validatedHighlights}
+              timelineMap={timelineMap}
+              stripEvidenceIds={stripEvidenceIds}
+              onJumpToSegment={onJumpToSegment}
+              formatSeconds={formatSeconds}
+              formatElapsed={formatElapsed}
+            />
+          </Stack>
         </Stack>
       </AnalysisCard>
 

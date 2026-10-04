@@ -8,6 +8,8 @@ SporTagLytics の AI 分析は、タイムライン、ラベル、メモ、統�
 - [Privacy and Data Handling](privacy-and-data-handling.md)
 - [ADR 0005 Local LLM Analysis Boundary](adr/0005-local-llm-analysis-boundary.md)
 
+質問入力と実行を画面の先頭に置き、質問テンプレートと検索プリセットは選択欄から変更します。未実行時は短い案内だけを表示し、結果は入力の下に表示します。根拠だけの取得・再生成・キャンセル・設定・Playlist作成は同じ画面から使えます。日本語入力の変換確定Enterでは実行せず、変換後のEnterで実行、Shift+Enterで改行します。
+
 ## Runtime Boundary
 
 - Renderer は `window.electronAPI.llama` 経由で model discovery、generation、cancel、progress を呼びます。

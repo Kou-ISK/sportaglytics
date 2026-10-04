@@ -1,31 +1,20 @@
 import React from 'react';
-import {
-  Box,
-  Button,
-  IconButton,
-  Paper,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import type { TimelineData } from '../../../../../../../types/timeline/core';
 import type {
   AnalysisDashboardWidget,
   DashboardSeriesFilter,
 } from '../../../../../../../types/settings/coreTypes';
 import { replaceTeamPlaceholders } from '../../../../../../../utils/teamPlaceholder';
-import { NoDataPlaceholder } from '../NoDataPlaceholder';
+import { DashboardWidgetActionsView } from './DashboardWidgetActionsView';
 import { DashboardCard } from '../DashboardCard';
 import { buildCustomChartData } from '../../controllers/useCustomChartData';
 import { CustomPieChart } from '../CustomPieChart';
 import { CustomBarChart } from '../CustomBarChart';
 
 interface DashboardWidgetGridProps {
+  disableAnimation?: boolean;
   widgets: AnalysisDashboardWidget[];
   isEditing: boolean;
   onAddWidget: () => void;
@@ -49,6 +38,7 @@ interface DashboardWidgetGridProps {
 }
 
 export const DashboardWidgetGrid = ({
+  disableAnimation = false,
   widgets,
   isEditing,
   onAddWidget,
@@ -63,21 +53,17 @@ export const DashboardWidgetGrid = ({
   teamRoleMap,
   teamContext,
   teamColorMap,
-}: DashboardWidgetGridProps) => {
+}: DashboardWidgetGridProps): React.JSX.Element => {
   if (widgets.length === 0) {
     return (
-      <Paper
-        variant="outlined"
+      <Box
         sx={{
-          p: 4,
-          textAlign: 'center',
-          borderStyle: 'dashed',
-          bgcolor: 'action.hover',
+          py: 2,
         }}
       >
-        <Stack spacing={1.5} alignItems="center">
+        <Stack spacing={1.5} alignItems="flex-start">
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            チャートを追加してダッシュボードを作成しましょう
+            チャートはまだありません
           </Typography>
           <Typography variant="body2" color="text.secondary">
             フィルターや軸を使って、用途に合わせた可視化ができます。
@@ -90,7 +76,7 @@ export const DashboardWidgetGrid = ({
             チャートを追加
           </Button>
         </Stack>
-      </Paper>
+      </Box>
     );
   }
 
@@ -99,7 +85,7 @@ export const DashboardWidgetGrid = ({
       sx={{
         display: 'grid',
         gridTemplateColumns: 'repeat(12, 1fr)',
-        gap: 2,
+        gap: 1.5,
       }}
     >
       {widgets.map((widget) => {
@@ -125,55 +111,64 @@ export const DashboardWidgetGrid = ({
           outlierIqrMultiplier: widget.outlierIqrMultiplier,
         });
 
-        return (
-          <Box key={widget.id} sx={{ gridColumn: `span ${widget.colSpan}` }}>
-            <DashboardCard
-              title={resolvedWidgetTitle}
-              actions={
-                isEditing && (
-                  <Stack direction="row" spacing={0.5}>
-                    <IconButton
-                      size="small"
-                      onClick={() => onEditWidget(widget)}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => onDuplicateWidget(widget)}
-                    >
-                      <ContentCopyIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => onMoveWidget(widget.id, 'up')}
-                    >
-                      <ArrowUpwardIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => onMoveWidget(widget.id, 'down')}
-                    >
-                      <ArrowDownwardIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => onDeleteWidget(widget.id)}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                )
-              }
+        const actions = isEditing ? (
+          <DashboardWidgetActionsView
+            title={resolvedWidgetTitle}
+            onEdit={() => onEditWidget(widget)}
+            onDuplicate={() => onDuplicateWidget(widget)}
+            onMoveUp={() => onMoveWidget(widget.id, 'up')}
+            onMoveDown={() => onMoveWidget(widget.id, 'down')}
+            onDelete={() => onDeleteWidget(widget.id)}
+          />
+        ) : undefined;
+
+        if (chart.data.length === 0) {
+          return (
+            <Stack
+              key={widget.id}
+              direction={{ xs: 'column', sm: 'row' }}
+              alignItems={{ sm: 'center' }}
+              spacing={1}
+              sx={{
+                gridColumn: '1 / -1',
+                minWidth: 0,
+                py: 1,
+                borderBottom: 1,
+                borderColor: 'divider',
+              }}
             >
-              {chart.data.length === 0 ? (
-                <NoDataPlaceholder message="該当データがありません。" />
-              ) : widget.chartType === 'pie' ? (
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography component="h3" variant="subtitle2">
+                  {resolvedWidgetTitle}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {timeline.length === 0
+                    ? 'タイムラインに場面がありません。'
+                    : 'このチャートの条件・軸に一致する場面がありません。'}
+                </Typography>
+              </Box>
+              {actions}
+            </Stack>
+          );
+        }
+
+        return (
+          <Box
+            key={widget.id}
+            sx={{
+              gridColumn: { xs: 'span 12', md: `span ${widget.colSpan}` },
+              minWidth: 0,
+            }}
+          >
+            <DashboardCard title={resolvedWidgetTitle} actions={actions}>
+              {widget.chartType === 'pie' ? (
                 <CustomPieChart
+                  disableAnimation={disableAnimation}
                   data={chart.data}
                   seriesKeys={chart.seriesKeys}
                   unitLabel={chart.unitLabel}
                   metric={widget.metric}
+                  calcMode={chart.calcMode}
                   height={260}
                   teamColorMap={teamColorMap}
                   onPointSelect={(payload) =>
@@ -182,6 +177,7 @@ export const DashboardWidgetGrid = ({
                 />
               ) : (
                 <CustomBarChart
+                  disableAnimation={disableAnimation}
                   data={chart.data}
                   seriesKeys={chart.seriesKeys}
                   stacked={widget.chartType === 'stacked'}

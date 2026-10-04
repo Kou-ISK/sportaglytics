@@ -5,7 +5,7 @@ export const formatSource = (src: string): string => {
   if (trimmed.startsWith('blob:')) return trimmed;
   if (trimmed.startsWith('file://')) return trimmed;
 
-  if (/^\\\\/.test(trimmed)) {
+  if (/^(?:\\\\|\/\/)/.test(trimmed)) {
     const replaced = trimmed.replace(/\\/g, '/').replace(/^\/+/g, '');
     const [server, ...parts] = replaced.split('/');
     return `file://${server}/${parts.map(encodeURIComponent).join('/')}`;

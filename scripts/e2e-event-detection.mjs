@@ -128,7 +128,9 @@ try {
   await page
     .getByRole('button', { name: '新しいパッケージを作成', exact: true })
     .click();
-  await page.getByLabel('パッケージ').fill(packageName);
+  await page
+    .getByRole('textbox', { name: 'パッケージ', exact: true })
+    .fill(packageName);
   await page.getByLabel('Team 1').fill('Red');
   await page.getByLabel('Team 2').fill('Blue');
   await page.getByRole('button', { name: '次へ' }).click();

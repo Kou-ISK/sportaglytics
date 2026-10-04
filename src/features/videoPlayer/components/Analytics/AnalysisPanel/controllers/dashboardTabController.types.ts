@@ -30,6 +30,8 @@ export interface DashboardTabController {
     '& .MuiSelect-select': { py: number };
   };
   isEditing: boolean;
+  isSaving: boolean;
+  saveError: string | null;
   draftWidgets: AnalysisDashboardWidget[];
   editorOpen: boolean;
   editingWidget: AnalysisDashboardWidget | null;
@@ -50,7 +52,7 @@ export interface DashboardTabController {
   timelineMap: Map<string, TimelineData>;
   updateDashboardFilters: (patch: Partial<DashboardSeriesFilter>) => void;
   handleResetFilters: () => void;
-  handleStartEdit: () => void;
+  handleStartEdit: () => Promise<void>;
   handleAddWidget: () => void;
   handleCancelEdit: () => void;
   handleSave: () => Promise<void>;

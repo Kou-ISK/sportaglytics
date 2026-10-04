@@ -111,6 +111,7 @@ const writePackageMetadata = async (
   );
 
   fs.mkdirSync(path.join(newPackagePath, '.metadata'));
+  metaDataConfig.packageFormatVersion = 1;
   metaDataConfig.tightViewPath =
     primaryAngle?.relativePath || primaryAngle?.sourceUrl || '';
   metaDataConfig.wideViewPath = secondaryAngle

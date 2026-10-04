@@ -34,9 +34,7 @@ const TabPanel = ({
       id={`settings-tabpanel-${index}`}
       aria-labelledby={`settings-tab-${index}`}
     >
-      {value === index && (
-        <Box sx={{ p: { xs: 1.5, sm: 2.5 } }}>{children}</Box>
-      )}
+      {value === index && <Box sx={{ p: 1.5 }}>{children}</Box>}
     </div>
   );
 };

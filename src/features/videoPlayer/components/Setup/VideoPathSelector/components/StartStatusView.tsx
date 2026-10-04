@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { ReactElement } from 'react';
 import {
   Alert,
@@ -24,9 +25,17 @@ export const StartStatusView = ({
   onRetry,
   onDismissError,
 }: StartStatusProps): ReactElement | null => {
+  const statusRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const status = statusRef.current;
+    if (!status || (!busy && !error)) return;
+    if (!busy) status.focus({ preventScroll: true });
+    status.scrollIntoView?.({ block: 'nearest' });
+  }, [busy, error, errorDetails, invalidDrop]);
+
   if (busy)
     return (
-      <Box role="status" aria-live="polite">
+      <Box ref={statusRef} role="status" aria-live="polite">
         <Typography variant="body2" sx={{ mb: 1 }}>
           パッケージを読み込んでいます…
         </Typography>
@@ -36,6 +45,8 @@ export const StartStatusView = ({
   if (!error) return null;
   return (
     <Alert
+      ref={statusRef}
+      tabIndex={-1}
       severity="error"
       closeText="閉じる"
       onClose={onDismissError}

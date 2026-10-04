@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { ReactElement, HTMLAttributes } from 'react';
 import { Box, Stack } from '@mui/material';
 import { WelcomeHeader } from './VideoPathSelector/components/WelcomeHeader';
@@ -18,71 +19,85 @@ export interface VideoPathSelectorViewProps extends StartStatusProps {
   onOpenPackage: () => void;
   onOpenWizard: () => void;
   onOpenCapture?: () => void;
+  onOpenLegacyPackage?: () => void;
+  onOpenSportscode?: () => void;
   onOpenRecentPackage: (path: string) => void;
   onRemoveRecentPackage: (path: string) => void;
 }
 export const VideoPathSelectorView = (
   props: VideoPathSelectorViewProps,
-): ReactElement => (
-  <Box
-    component="main"
-    aria-label="分析を開始"
-    aria-busy={props.busy}
-    {...props.dragHandlers}
-    sx={{
-      width: '100%',
-      maxWidth: 1100,
-      mx: 'auto',
-      my: { xs: 1, md: 4 },
-      p: { xs: 1.5, sm: 3 },
-      color: 'text.primary',
-    }}
-  >
-    <Stack spacing={3}>
-      <WelcomeHeader show={props.showWelcome} />
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: 'minmax(0,1fr)',
-            md: '280px minmax(0,1fr)',
-          },
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 2,
-          overflow: 'hidden',
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Stack
-          spacing={3}
-          sx={(theme) => ({
-            p: { xs: 2, sm: 3 },
-            bgcolor: 'background.default',
-            borderRight: { md: `1px solid ${theme.palette.divider}` },
-            borderBottom: { xs: `1px solid ${theme.palette.divider}`, md: 0 },
-          })}
+): ReactElement => {
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const hadStatusRef = useRef(false);
+  const hasStatus = Boolean(props.busy || props.error);
+
+  useEffect(() => {
+    // Restore keyboard access when an error is dismissed or a picker is cancelled.
+    if (hadStatusRef.current && !hasStatus) openButtonRef.current?.focus();
+    hadStatusRef.current = hasStatus;
+  }, [hasStatus]);
+
+  return (
+    <Box
+      component="main"
+      aria-label="分析を開始"
+      {...props.dragHandlers}
+      sx={{
+        width: '100%',
+        maxWidth: 1040,
+        mx: 'auto',
+        my: { xs: 1, md: 2 },
+        p: { xs: 1.5, sm: 2 },
+        color: 'text.primary',
+      }}
+    >
+      <Stack spacing={3}>
+        <WelcomeHeader show={props.showWelcome} />
+        <StartStatusView {...props} />
+        <Box
+          aria-busy={props.busy}
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: 'minmax(0,1fr)',
+              md: '240px minmax(0,1fr)',
+            },
+            borderTop: 1,
+            borderColor: 'divider',
+          }}
         >
-          <ActionButtonsRow
-            onOpenPackage={props.onOpenPackage}
-            onOpenWizard={props.onOpenWizard}
-            onOpenCapture={props.onOpenCapture}
-            disabled={props.busy}
-          />
-          <DropZoneCard dragState={props.dragState} />
-        </Stack>
-        <Stack spacing={2} sx={{ p: { xs: 2, sm: 3 }, minWidth: 0 }}>
-          <StartStatusView {...props} />
-          <RecentPackagesSection
-            packages={props.recentPackages}
-            onOpen={props.onOpenRecentPackage}
-            onRemove={props.onRemoveRecentPackage}
-            searchQuery={props.searchQuery}
-            onSearchChange={props.onSearchChange}
-            disabled={props.busy}
-          />
-        </Stack>
-      </Box>
-    </Stack>
-  </Box>
-);
+          <Stack
+            spacing={2}
+            sx={(theme) => ({
+              py: 2,
+              pr: { md: 2 },
+              borderRight: { md: `1px solid ${theme.palette.divider}` },
+              borderBottom: { xs: `1px solid ${theme.palette.divider}`, md: 0 },
+            })}
+          >
+            <ActionButtonsRow
+              openButtonRef={openButtonRef}
+              onOpenPackage={props.onOpenPackage}
+              onOpenWizard={props.onOpenWizard}
+              onOpenCapture={props.onOpenCapture}
+              onOpenLegacyPackage={props.onOpenLegacyPackage}
+              onOpenSportscode={props.onOpenSportscode}
+              disabled={props.busy}
+            />
+            <DropZoneCard dragState={props.dragState} />
+          </Stack>
+          <Stack spacing={2} sx={{ py: 2, pl: { md: 3 }, minWidth: 0 }}>
+            <RecentPackagesSection
+              packages={props.recentPackages}
+              onOpen={props.onOpenRecentPackage}
+              onRemove={props.onRemoveRecentPackage}
+              searchQuery={props.searchQuery}
+              onSearchChange={props.onSearchChange}
+              disabled={props.busy}
+            />
+          </Stack>
+        </Box>
+      </Stack>
+    </Box>
+  );
+};

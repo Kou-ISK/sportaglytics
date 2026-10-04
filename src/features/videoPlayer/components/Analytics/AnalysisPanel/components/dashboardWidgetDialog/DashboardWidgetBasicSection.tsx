@@ -25,7 +25,7 @@ export const DashboardWidgetBasicSection = ({
   analysisMode,
 }: DashboardWidgetBasicSectionProps) => {
   return (
-    <Paper variant="outlined" sx={{ p: 2 }}>
+    <Paper variant="outlined" sx={{ p: 1.5 }}>
       <Stack spacing={1.5}>
         <Stack spacing={0.5}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>

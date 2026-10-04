@@ -1,3 +1,7 @@
+import type {
+  FrameCaptureRequest,
+  FrameCaptureResult,
+} from './shared/analysis/frameCapture';
 import type { MediaTimeline } from './shared/media/mediaTimeline';
 import type { ILiveCaptureAPI } from './types/liveCapture';
 import type { IEventDetectionWindowAPI } from './types/ipc/eventDetectionWindow';
@@ -15,6 +19,10 @@ import type {
 import type { ExportProgressWindowState } from './types/ipc/exportProgressWindow';
 import type { ITimelineWindowAPI } from './types/ipc/timelineWindow';
 import type { PackageOpenPreparationResult } from './types/package/migration';
+import type {
+  SportscodeImportRequest,
+  SportscodeXmlSource,
+} from './shared/timeline/sportscodeImport';
 
 export interface LlamaModelInfo {
   name: string;
@@ -30,6 +38,11 @@ export interface IElectronAPI {
   resolveDroppedVideoFilePath: (file: File) => string;
   resolveDroppedPackagePath: (file: File) => string;
   openDirectory: () => Promise<string>;
+  selectPackagePath: (legacyFolder?: boolean) => Promise<string>;
+  readSportscodeXml: (path: string) => Promise<SportscodeXmlSource>;
+  importSportscodePackage: (
+    request: SportscodeImportRequest,
+  ) => Promise<PackageDatas>;
   exportTimeline: (filePath: string, source: unknown) => Promise<void>;
   createPackage: (
     directoryName: string,
@@ -113,11 +126,7 @@ export interface IElectronAPI {
   endLoopbackAudioCapture: () => Promise<void>;
   extractAudioWavForSync: (videoPath: string) => Promise<string | null>;
   setManualModeChecked: (checked: boolean) => Promise<boolean>;
-  convertConfigToRelativePath: (packagePath: string) => Promise<{
-    success: boolean;
-    config?: Record<string, unknown>;
-    error?: string;
-  }>;
+
   loadSettings: () => Promise<AppSettings>;
   saveSettings: (settings: AppSettings) => Promise<boolean>;
   resetSettings: () => Promise<AppSettings>;
@@ -190,12 +199,9 @@ export interface IElectronAPI {
     filePath: string,
     base64Content: string,
   ) => Promise<boolean>;
-  captureWindowRegionAsPng: (rect: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }) => Promise<string | null>;
+  captureWindowRegionAsPng: (
+    rect: FrameCaptureRequest,
+  ) => Promise<FrameCaptureResult | null>;
   writePdfFileFromHtml: (filePath: string, html: string) => Promise<boolean>;
   printAnalysisReportPdf: (
     filePath: string,

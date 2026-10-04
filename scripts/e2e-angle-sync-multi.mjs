@@ -90,6 +90,10 @@ try {
     page = await app.firstWindow();
     page.setDefaultTimeout(15000);
     await page.locator('#video_0 video').waitFor();
+    // Global shortcuts are scoped to the focused native window. Opening the
+    // auxiliary Timeline may take focus after the first video becomes visible.
+    await (await app.browserWindow(page)).evaluate((window) => window.focus());
+    await page.waitForFunction(() => document.hasFocus());
     await page.keyboard.press(`${primaryModifier}+Shift+T`);
     const timeline = await getSyncTimeline(app);
     await page.waitForFunction((count) => {

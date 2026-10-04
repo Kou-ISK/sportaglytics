@@ -1,4 +1,12 @@
+Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
+
 # 開発ガイド
+
+Electronは43.5.1へ固定します。[公式advisory](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)は43.4.2を修正版とし、[GitHub Advisory Database](https://github.com/advisories/GHSA-qmv3-fv6v-rmhq)は43.5.0を境界としています。npmに43.4.2の公開版がないため、両方の条件を満たす[正式patch版43.5.1](https://github.com/electron/electron/releases/tag/v43.5.1)を採用します。lockfile固定でinstallし、packaged appの実runtime versionを確認してください。runtime更新後はsandbox preload・YouTube埋込の起動と分析PNGのcold初回DPR1/2をMacで再確認し、旧runtimeの合格を流用しません。署名・公証は別の配布条件です。Joi18.2.6 overrideはwait-on9.1.0の開発依存への対応で、配布runtime更新とは分けて扱います。
+
+Timeline reviewを変更する場合は`Workspace/Timeline/Review` storiesと`node scripts/e2e-ux-review.mjs`を確認してください。E2Eは一時profileと合成240件・24行を使い、検索→映像→編集→Playlist→分析→再開を検証します。OSファイルダイアログの取消結果はadapterを置換し、Finder自体の操作は検証しません。スクリーンショットは`E2E_SCREENSHOT_DIR=output/playwright/ux-review`で保存できます。[評価範囲と手順](reports/2026-10-ux-review.md)。
+
+パッケージ互換を変更するときは、[互換・原本保護の仕様](package-compatibility.md)に従って既知構造と未知versionを分け、原本へのin-place migrationを追加しないでください。Mainのvalidation/snapshot/copyとRendererのload-gated persistenceを別々に検証します。Sportscode XMLのDomain・Hook・View・Gatewayを分離し、通常TimelineへのJSON置換と混ぜません。`e2e-package-safety.mjs` / `e2e-sportscode-import.mjs`は合成データと独立profileだけを使います。重いbuild/Electron/full suiteは同じ端末で並列に起動しないでください。
 
 ライブキャプチャの開発ではネットワーク有効の同梱FFmpegが必要です。`pnpm run media:build`後に`pnpm run e2e:prepare`、`node scripts/e2e-live-capture.mjs`で模擬カメラと合成IP映像を検証します。実カメラを自動テストで起動しません。[入力・保存契約](live-coding.md)。
 
@@ -31,6 +39,22 @@ Codingへ時刻を渡す場合も、`VideoPlayerScreen`の共通時計を使っ�
 Timelineのピンチは`useTimelineViewport.gesture.test.ts`で整数ピクセルに丸めるスクロールを再現し、連続拡大のアンカー維持、手動スクロール・ポインター移動・端到達後の再取得を確認します。E2Eの許容差を広げて丸め誤差を隠さないでください。
 
 参照したHudl公式の[現行リリースノート](https://www.hudl.com/releases/sportscode)と[トラックパッド操作の説明](https://www.hudl.com/blog/new-trackpad-controls-added-to-sportscode-workflow)には、Timelineの倍率上限・ピンチ係数の具体値は見当たりませんでした。本アプリの1〜100倍・指数的なピンチ感度は独自の操作調整値です。2023年の記事は映像のズームについての説明であり、Timelineの数値仕様としては扱いません。
+
+開始UIの表示確認はStorybookの`Workspace/Start`（5入口・履歴・busy・エラー・drop）と`Workspace/CreatePackage`（基本情報・入力エラー・映像・作成中）を使います。新規作成storyのファイル選択・保存はcallback fixtureであり、native I/Oの検証ではありません。Macでは同一候補に合成パッケージを使い、1440×775と800×420、dark/lightで切れ・折返し・Tab移動・取消/復旧を確認します。ブラウザ描画不能な環境の型チェックやStorybook buildを視覚QAの合格とは扱いません。
+
+小窓の開始状態は履歴下端からbusy→失敗→再試行と、失敗を閉じる・選択取消後のOpenへのfocus復帰を確認します。`VideoPathSelectorStatus.test.tsx`はDOM順序・focus・scroll要求を検証しますが、実際の座標や文字切れは検証しません。`Workspace/CreatePackage/EightAngles`では800×420でアングル名・本数・メイン表示、一覧内の最終行選択、本文scroll後のclip操作と固定footerを確認します。
+
+分析表示は`Workspace/Analysis/Dashboard`の適合データ・テンプレート不一致・フィルタ不一致・真の0件を分けて確認します。`fixtures/reviewTimeline.ts`は6行24場面の合成データです。`AIInput` / `AIResult`は未実行・生成中・失敗・根拠ありのprops-only fixture、`Momentum`はポゼッション適合/不適合、`Workspace/Onboarding`は案内の移動・終了を確認します。LLM実行やnative I/OをStorybookのcallbackで代替した結果を、それらの動作保証としません。
+
+ダッシュボードの保存契約は`useDashboardTabController.test.tsx`で実`useSettings`と合成のメモリ保存gatewayを接続し、コピー・新規・編集・保存・再mount・キャンセル・保存失敗・外部import拒否を確認します。`dashboardNormalizers.test.ts`は固定template復元、count/duration保持、旧設定移行を検証します。`Workspace/Analysis/DashboardHeader`で固定/コピー/編集中/保存中を描画確認し、Macでは合成プロファイルの設定再読込と`.stad`往復を別途確認します。[保存契約](adr/0056-built-in-dashboard-editing-contract.md)。
+
+`DashboardPieTooltip.test.tsx`は合成Timelineを実集計し、固定寸法のRechartsでhover表示を確認します。割合の件数・秒数、明示シリーズの元値、通常値、元値なしを検証します。jsdomでは寸法の供給だけを置換しており、実画素・tooltip位置は`Workspace/Analysis/Dashboard/MatchingData`をMacで別途確認します。
+
+分析上部の変更は`AnalysisPanelToolbar.test.tsx`（4タブ・キー移動・3出力・処理中）、`DashboardHeaderBar.test.tsx`（選択と編集制約）、`DashboardFilterControl.test.tsx`（編集・reset・閉じる・focus復帰）で確認します。Storybookの`DashboardHeader/NarrowLongName`、`Dashboard/NarrowCharts`・`LongTeamNames`を使い、Macでは1440×775と800×420のdark/lightでselect上端・折返し・適用条件の解除・グラフラベルとtooltipを確認します。レポートの240px半円も同じ表示部品を使うためPDF/PNGを別途確認します。
+
+全内容PNGは`fullContentCapture.pixels.test.ts`で座標ごとに異なる合成画素を使い、1/1.25/1.5/2倍の分数root原点・実crop座標・縦横末尾重複・15,000px境界を全画素比較します。canvas/Imageは小さなラスタ実装へ置換しており、PNG codecやnative撮影の画素保証ではありません。`frameCaptureViewport.test.ts`は分数原点をCSS transformではなくrelative配置で揃えることと検証帯の配置・復元を確認します。DOM矩形stubはcompositor補間を再現しません。`presentedFrameCapture.test.ts`は境界の中間色を含む画像の受入と1bit違いのnonce・縦横1画像ピクセルずれの拒否、同callback画像からのcrop、timeout・競合・navigation・crash・破棄時の購読解除を確認します。`fullContentCapture.test.ts`は撮影中のscroll/extent変更・unmount時の拒否と復元、`useAnalysisExportActions.test.tsx`は実Menu/Pieと保存取消・失敗時の未保存を確認します。Main/preload/Rendererは同じ型契約で再buildしてください。
+
+Mac受入では一時profileと合成21widget・24×24表だけを使い、observerや追加待機を入れずcold起動後の最初のPNGを1倍/2倍・分数倍率で複数回確認します。先頭と全継ぎ目・末尾、21見出しと割合ラベル、表の全行列、検証帯/scrollbar混入の不在、scroll/style復元と保存取消・途中closeを確認します。同期の対応関係はnative画像での受入が必要です。PDFとdashboard保存/再読込も別経路として確認し、cloudのunit/compile成功をnative合格と扱いません。
 
 ## 開発環境
 
@@ -116,6 +140,8 @@ CommitはConventional Commitsを使います。
 公開前に [Sharing and Issue Reports](privacy-and-data-handling.md#sharing-and-issue-reports) に沿って、差分・PR本文・添付物とコミットの著者情報を確認します。Gitの著者設定はリポジトリ単位で公開用の名前とGitHubのnoreplyメールにし、実データを使った調査結果は匿名化して記載します。`research/` と `output/playwright/` のローカル成果物は公開対象に含めません。
 
 ## 品質ゲート
+
+`test:run` / `test:ci`はVitestに加えて`check:build-downloads`を実行します。builderの合成ダウンロード、checksum拒否、ファイルキャッシュ、agent・redirect・progress・timeout、HTTP response cacheの再有効化拒否をloopbackで確認します。ビルド依存の限定パッチとpnpm 9 manifest hookは[ADR 0058](adr/0058-build-downloads-without-response-cache.md)を参照してください。`electronDownload.cache`のファイル保存先は維持し、gotの`downloadOptions.cache`は使用しません。
 
 PR merge前に必須:
 

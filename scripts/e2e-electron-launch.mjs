@@ -16,3 +16,20 @@ export const getElectronLaunchOptions = (profilePath, extraArgs = []) => {
     env: environment,
   };
 };
+
+// All callers use their own synthetic profiles and fixtures. Keep actual Main
+// filesystem error codes visible when native regression checks fail.
+export const observeElectronErrors = (app) => {
+  let printed = 0;
+  app.process()?.stderr.on('data', (chunk) => {
+    const text = String(chunk);
+    if (
+      printed < 32000 &&
+      /Failed to write|Error|EACCES|EPERM|EBUSY|PACKAGE_|rename/.test(text)
+    ) {
+      const bounded = text.slice(0, 32000 - printed);
+      printed += bounded.length;
+      console.error('Synthetic Electron Main:', bounded);
+    }
+  });
+};

@@ -117,13 +117,17 @@ const preparePackagePathForOpen = async (
 
 export const pickPackagePath = async (
   preselectedPath?: unknown,
+  legacyFolder = false,
 ): Promise<string | null> => {
   const normalized = normalizePackagePath(preselectedPath);
   if (normalized) {
     return resolveExistingPackagePath(normalized);
   }
 
-  const selectedPath = await getElectronApi().openDirectory();
+  const api = getElectronApi();
+  const selectedPath = api.selectPackagePath
+    ? await api.selectPackagePath(legacyFolder)
+    : await api.openDirectory();
   return selectedPath ? resolveExistingPackagePath(selectedPath) : null;
 };
 
@@ -165,12 +169,6 @@ export const loadPackageDirectory = async (
     throw new Error('このパッケージは別のウィンドウで開かれています。');
   }
   const configFilePath = `${preparedPackagePath}/.metadata/config.json`;
-
-  try {
-    await api.convertConfigToRelativePath(preparedPackagePath);
-  } catch (error) {
-    console.warn('config.json変換をスキップ:', error);
-  }
 
   const exists = await api.checkFileExists?.(configFilePath);
   if (!exists) {
@@ -282,7 +280,9 @@ export const subscribeToOpenRecentPackage = (
 };
 
 export const toPackageLoadErrorMessage = (error: unknown): string => {
-  const errorCode = error instanceof Error ? error.message : '';
+  const errorMessage = error instanceof Error ? error.message : '';
+  const errorCode =
+    errorMessage.match(/\bPACKAGE_[A-Z_]+\b/)?.[0] ?? errorMessage;
 
   switch (errorCode) {
     case ELECTRON_API_UNAVAILABLE:
@@ -297,8 +297,18 @@ export const toPackageLoadErrorMessage = (error: unknown): string => {
       return '旧形式パッケージの移行をキャンセルしました。';
     case PACKAGE_MIGRATION_FAILED:
       return '旧形式パッケージを .stpkg へ移行できませんでした。';
+    case 'PACKAGE_VERSION_UNSUPPORTED':
+      return '対応していない新しいパッケージ形式です。原本は変更していません。対応版のSporTagLyticsで開いてください。';
+    case 'PACKAGE_SPORTSCODE_NATIVE_UNSUPPORTED':
+      return 'Sportscodeのnativeパッケージは直接開けません。SportscodeからXMLを書き出して、新しいプロジェクトへ読み込んでください。';
+    case 'PACKAGE_TIMELINE_INVALID':
+      return 'タイムラインの構成・時刻・バージョンに対応していません。原本は変更していません。形式を確認してください。';
+    case 'PACKAGE_MEDIA_MISSING':
+      return '参照する映像が見つかりません。元の映像・外付けドライブの接続を復元して再試行してください。原本は変更していません。';
+    case 'PACKAGE_MIGRATION_SPACE':
+      return '移行コピーに必要な空き容量がありません。空き容量を確保して再試行してください。原本は変更していません。';
     default:
-      return 'パッケージの読み込み中にエラーが発生しました。';
+      return 'パッケージの構成・参照・読み込みを確認できませんでした。原本は変更していません。詳細を確認して再試行してください。';
   }
 };
 
