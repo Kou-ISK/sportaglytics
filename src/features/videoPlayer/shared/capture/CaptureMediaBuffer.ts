@@ -10,6 +10,7 @@ export class CaptureMediaBuffer {
   private buffer: SourceBuffer | undefined;
   private disposed = false;
   private running = false;
+  private updatePending = false;
   private clips: PackageMediaClip[] = [];
   private time = 0;
   private loaded = new Map<string, { start: number; end: number }>();
@@ -29,6 +30,7 @@ export class CaptureMediaBuffer {
   update(clips: PackageMediaClip[], time: number): void {
     this.clips = clips;
     this.time = Math.max(0, time);
+    this.updatePending = true;
     this.pump();
   }
 
@@ -65,6 +67,7 @@ export class CaptureMediaBuffer {
     if (this.running || this.disposed || this.source.readyState !== 'open')
       return;
     this.running = true;
+    this.updatePending = false;
     void this.fill()
       .catch(() => {
         if (!this.disposed) {
@@ -74,6 +77,9 @@ export class CaptureMediaBuffer {
       })
       .finally(() => {
         this.running = false;
+        // A saved fragment or seek can arrive while read/append is awaiting I/O.
+        // Drain the latest request now instead of discarding it until the next timer.
+        if (this.updatePending) this.pump();
       });
   };
 

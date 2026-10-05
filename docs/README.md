@@ -1,6 +1,6 @@
 # SporTagLytics Documentation
 
-0.17.2は未公開のリリース候補です。[変更履歴](../CHANGELOG.md#0172---未公開)と[Release手順](../.github/RELEASE.md)を参照してください。
+0.17.3は、配布なしとなった0.17.2の変更を含む修正版です。[変更履歴](../CHANGELOG.md#0173---2026-10-04)、[公開済みの配布物](https://github.com/Kou-ISK/sportaglytics/releases)、[Release手順](../.github/RELEASE.md)を参照してください。
 
 - [compact density評価](reports/2026-10-compact-density.md): Timelineの下部検索ドック・共通フォームの変更と検証範囲。
 - [Timelineの場面検索とレビュー](timeline-review.md): 検索、全文確認、編集・Playlistへの移動。

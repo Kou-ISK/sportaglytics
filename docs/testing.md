@@ -6,9 +6,27 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を使用します。ローカル合成映像・24行240件で、読み取りによる文書不変、閉じた高さ、狭幅、取消、保存再開、分析メニューの初回同期、実Renderer reload後の240件/編集済みノート復旧を検証します。品質ゲートの成功だけを快適さの根拠とせず、[UX評価記録](reports/2026-10-ux-review.md)の画像・操作負担・制限も確認します。
 
+同E2Eは初回Playlistの実Rendererロードを1.5秒遅延し、受信listenerの登録前に追加されたclipと編集済みノートが届くことを確認します。`playlistWindow/windowManager.test.ts`は初回の保留、送信順序、重複ready、reload、破棄済み/未知sender、Package Session別の配送を検証します。timeoutを延長して待ち時間への依存を隠さないでください。
+
+`usePlaylistLoadDelivery.test.tsx`はreadを保留し、ロード後の追加FIFO・重複ID、編集中/既にdirtyのsnapshot拒否、ロードとsyncの世代、取消/破棄、Window間の分離、次のReact描画より前の行所属を確認します。`e2e-ux-review`から呼ぶ`e2e-playlist-load-delivery.mjs`は専用の合成`.stpl`のread結果だけを保留し、別observerで追加の到達を確認してからreadを解放します。初回ロードと実Renderer reloadの両方でdiskのclip・追加clip・ノートを検査し、本番writerと既存の受信listenerは置換しません。
+
+同じpathの有効なロード中にexternal-openが重複した場合は同じ処理へ集約し、保留追加を別世代として失わないことも確認します。別path、syncで置き換えられた世代、破棄後のロードとは区別します。
+
+`playlistWindow/documentIdentity.test.tsx`は実Main handler・preload bridge・Renderer hookと合成A/Bの実atomic writerを接続します。A→Bの要求がB→Aの順に完了してもSaveはBだけへ書き、Bロード中のA編集でsnapshotを拒否した場合はAだけへ書くこと、同文書のstale完了がdirtyとClose確認を消さないことを確認します。WindowとIPC transportは模擬です。未知/他Window/重複/reload後ticketの拒否も検査します。
+
+同じ保存先・dirty・Close確認は`e2e-ux-review`内の`e2e-playlist-document-identity.mjs`でも合成A/Bで検査します。専用read結果のみを保留し、実Mainの完了ログを観測してから古い結果を評価します。既存UI、MainのfilePath/dirty、Ctrl/Cmd+Sによる実書込と他文書bytes、実Close dialog呼出しを検査します。dialogは当該Windowの「キャンセル」応答だけをstub化し、writerやIPC handlerは置換しません。
+
+A/B競合用の動画は同じ合成clipをパッケージ外の専用ファイルへコピーします。パッケージ参照は初回のportable metadata解決でdirtyになる場合があるため、その変換を競合試験のclean前提へ混ぜません。接続unitにも実メディア参照handler/hookを含めて初期cleanを確認し、nativeのdirty=false/true・保存先・Closeのassertは維持します。パッケージ参照・移動・既定アングルは既存の専用回帰で検査します。
+
 ライブキャプチャの回帰は`node scripts/e2e-live-capture.mjs`で行います（事前にmedia:build / e2e:prepare）。USB模擬入力と合成HTTP配信の同時録画、過去レビュー中のコード保存、再接続時の空白、停止・複数区間の書き出しを検証します。実機別のドライバ・連係カメラ・RTSP配信は別途ハードウェア検証が必要です。
 
 720pの模擬入力で録画画面と映像ウィンドウを隠し、Code Windowのクリック/ホットキーを混用して25秒間連続記録します。区間をまたいでもvideo要素が同一で、emptied・バッファ不足によるwaitingが発生せず映像時刻が進むことを確認します。共通時計への補正シーク中のwaitingは区別してログに残します。可変フレーム時刻の区間重複は保存時に補正し、書き出しと再オープンも検査します。
+
+`CaptureMediaBuffer.test.ts`はreadを明示的に保留し、その間に追加された保存済みfragmentがread/append完了直後に次のtimerを待たず処理されること、複数更新の集約、同時readの禁止、dispose後の保留破棄を確認します。時計・seek・初回buffer量を変えてwaitingを隠さず、実Electronの非seek waiting=0の検査は引き続き必要です。
+
+同回帰はSourceBufferの`updateend`も保留し、append完了前に次のread/appendを開始せず、完了後は追加のtimerを待たず最新fragmentを処理することを確認します。Main配送のunitでは正常reload後の一度だけのFIFO再配送とclosed Windowのregistry/配送queueの除去を確認します。
+
+非seekのwaitingが起きた場合は、500msごとの映像時刻・buffer終端・入力別の保存済み秒数/区間数・Mainの保存済み終端をログに残します。生産側の遅延とRendererへのappend遅延を区別するための診断で、waiting=0の合否基準は維持します。Timelineの貼り付けとOption/Altコピーは固定400msではなく、保存されたJSONがそれぞれ2件・3件になる条件を既存のbounded pollで待ち、件数・ID・行名・色・時刻を厳密に検査します。画面の件数が更新されても、300ms遅延と非同期の実保存が完了したとは扱いません。
 
 Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含みます。複数行の旧文書を読み、実UIでソートして再生・Undo/Redo・保存再読込を確認し、色の異なる合成映像のFFmpeg出力を復号して順序を検証します。Storybookの`Workspace/Playlist/Sorter`ではInteractive、Narrow、Emptyとdark/lightを確認します。
 
@@ -21,6 +39,8 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 複数クリップE2Eの`e2e-playback-interactions.mjs`は、目盛りクリックと行クリックの区別、10倍を超えるピンチと時刻アンカー、停止中の右キー解除、6倍速での元動画境界通過とシーク回数を確認します。`timeline-rows`は未選択の端編集でも再生ヘッドが境界へ追従することを確認します。
 
 `useTimelineViewport.gesture.test.ts`は1倍表示密度の整数スクロールを再現し、3回の連続拡大でも丸め誤差が累積しないことと、スクロール・ポインター移動・境界到達後のアンカー更新を確認します。
+
+`e2e-angle-sync-multi.mjs`は起動時の通常Timelineとアングル同期ボタンの表示を待ってから、映像ウィンドウへフォーカスしてCmd/Ctrl+Shift+Tを送ります。最初のvideo要素の表示だけでは別ウィンドウの起動完了を保証できません。フォーカス・3/4画面・同期点・可変フレーム・保存結果の検証と既存の待機上限は維持し、失敗時は実際の操作対象ページと各native windowのURL/フォーカスを記録します。
 
 ## パッケージ互換と保存保護
 
@@ -223,6 +243,12 @@ Paint入力の回帰テストはpointerdown/upだけの短いドラッグ、停�
 ### 戦術盤
 
 `node scripts/e2e-tactical-board.mjs` は実Electronで部分較正、HTTPを遮断した同梱モデル推論、配置・削除・Undo、PNG保存、Playlist再読込を確認します。PNGはファイルの存在だけで判定せず、末尾のIENDチャンクまで書き終わるのを待ち、FFmpegでデコードした画素を検証します。描画位置・重複抑制・不正データ拒否はunit testで既知座標から検証します。自動認識の人数精度はこの合成映像試験の評価対象に含めません。
+
+戦術盤の準備は認識ボタンの有効状態で判定し、ページ全体の`networkidle`は使いません。`electron.launch`後に全HTTP(S)を遮断するrouteを設置し、観測できた起動時YouTube adapter scriptを正確なURLとrequest種別で区別します。それ以外の観測した起動時要求と認識開始後の全HTTP要求を失敗にし、未完了requestも診断ログへ残します。初回起動全体の完全なofflineを証明する試験ではなく、route設置後の認識が同梱モデルで成功し、認識開始後のHTTP要求が0件であることを検証します。[Playwrightの待機契約](https://playwright.dev/docs/api/class-page#page-wait-for-load-state)。
+
+起動時scriptの分類は`https://www.youtube.com/iframe_api`と、Windows run37208260762で観測した`https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js`だけに限定します。widgetは既にロードされたexact iframe_apiのscript sourceに同じURLの文字列宣言がある場合だけ分類します。CDPでそのcodeを読みSHA256と検証結果をログに残し、証明できなければ失敗します。この診断でURLを追加取得しません。host/pathのwildcardやquery違いは許可せず、将来URLが変わった場合も観測とレビューが必要です。分類は通信の許可ではなく、遮断routeは維持します。`e2e-tactical-startup-http.test.mjs`の14ケースで未検証widget、認識中要求、別host/path/query/type、CDP失敗時のcleanupを検査します。
+
+アプリはYouTube映像のtechを使用するため`useVideoJsInitialization.ts`でvideojs-youtube@3.0.1をimportします。その依存はmodule読込時にiframe_apiを要求します。ローカル戦術盤の合成MP4にはYouTube techが不要であり、ここでの分類は既存の起動副作用の範囲を示すものです。人物認識の必要な外部通信として扱いません。
 
 `pnpm run test:e2e` はビルド後に `scripts/run-electron-e2e.mjs` で独立した15シナリオを順番に実行します。途中の失敗も収集して残りを検証し、1件でも失敗した場合は終了コード1を返します。各シナリオは専用の一時profileとpackageを破棄します。既に検証済みのapp/main/preloadを再利用する場合は `node scripts/run-electron-e2e.mjs` を使用できます。
 

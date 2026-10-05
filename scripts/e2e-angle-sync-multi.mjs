@@ -1,4 +1,7 @@
-import { getSyncTimeline } from './e2e-angle-sync-workspace.mjs';
+import {
+  getSyncTimeline,
+  getTimelineWindow,
+} from './e2e-angle-sync-workspace.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -10,6 +13,7 @@ import { ffmpegPath } from './media-tool-paths.mjs';
 import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'angle-sync-multi-'));
 let app;
+let page;
 try {
   const source = path.join(dir, 'variable-frames.mp4');
   execFileSync(ffmpegPath, [
@@ -33,7 +37,7 @@ try {
   app = await electron.launch(
     getElectronLaunchOptions(path.join(dir, 'profile')),
   );
-  let page = await app.firstWindow();
+  page = await app.firstWindow();
   await page.evaluate(() =>
     localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
   );
@@ -90,10 +94,15 @@ try {
     page = await app.firstWindow();
     page.setDefaultTimeout(15000);
     await page.locator('#video_0 video').waitFor();
-    // Global shortcuts are scoped to the focused native window. Opening the
-    // auxiliary Timeline may take focus after the first video becomes visible.
+    // The first video can appear before the auxiliary Timeline opens and takes
+    // native focus. Finish that startup before focusing the shortcut's owner.
+    const normalTimeline = await getTimelineWindow(app);
+    await normalTimeline
+      .getByRole('button', { name: 'アングル同期', exact: true })
+      .waitFor();
     await (await app.browserWindow(page)).evaluate((window) => window.focus());
     await page.waitForFunction(() => document.hasFocus());
+    console.log(`${count}-angle startup Timeline ready; video window focused`);
     await page.keyboard.press(`${primaryModifier}+Shift+T`);
     const timeline = await getSyncTimeline(app);
     await page.waitForFunction((count) => {
@@ -178,11 +187,12 @@ try {
   );
 } catch (error) {
   if (app) {
-    const page = (await app.windows())[0];
     console.log(
       await app.evaluate(({ BrowserWindow, screen }) =>
         BrowserWindow.getAllWindows().map((w) => ({
           title: w.getTitle(),
+          url: w.webContents.getURL(),
+          focused: w.isFocused(),
           bounds: w.getBounds(),
           content: w.getContentBounds(),
           minimum: w.getMinimumSize(),
@@ -193,6 +203,7 @@ try {
     );
     console.log(
       await page.evaluate(() => ({
+        focused: document.hasFocus(),
         width: innerWidth,
         height: innerHeight,
         surface: document

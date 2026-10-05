@@ -7,6 +7,8 @@ import { _electron as electron } from 'playwright';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
+import { verifySavedPlaylistLoadDelivery } from './e2e-playlist-load-delivery.mjs';
+import { verifyPlaylistDocumentIdentity } from './e2e-playlist-document-identity.mjs';
 
 const work = await fs.mkdtemp(path.join(os.tmpdir(), 'sportaglytics-ux-'));
 const packagePath = path.join(work, 'Synthetic-review.stpkg');
@@ -431,6 +433,20 @@ try {
   );
   console.log('Edited note saved');
   await detail.getByText('確認済み・終盤', { exact: true }).waitFor();
+  // Force the first receiver to load after the former 500ms sender delay.
+  // This delays the real renderer; item delivery and all existing assertions stay real.
+  await app.evaluate(({ BrowserWindow }) => {
+    const loadURL = BrowserWindow.prototype.loadURL;
+    BrowserWindow.prototype.loadURL = function (url, ...options) {
+      if (url.includes('#/playlist')) {
+        BrowserWindow.prototype.loadURL = loadURL;
+        return new Promise((resolve) => setTimeout(resolve, 1500)).then(() =>
+          loadURL.call(this, url, ...options),
+        );
+      }
+      return loadURL.call(this, url, ...options);
+    };
+  });
   await clickReviewAction(timeline, 'Playlistに追加');
   const playlist = await route('#/playlist');
   await playlist
@@ -446,20 +462,29 @@ try {
   );
   console.log('Playlist handoff verified');
   await screenshot(playlist, 'ux-review-playlist');
+  await verifySavedPlaylistLoadDelivery(
+    app,
+    main,
+    work,
+    path.join(packagePath, 'videos/synthetic.mp4'),
+  );
+  await verifyPlaylistDocumentIdentity(
+    app,
+    main,
+    work,
+    path.join(packagePath, 'videos/synthetic.mp4'),
+    screenshot,
+  );
   await clickMenu('分析を開く', timeline);
   const analysis = await route('#/analysis');
-  await analysis
-    .getByRole('tab', { name: 'クロス集計', exact: true })
-    .click();
+  await analysis.getByRole('tab', { name: 'クロス集計', exact: true }).click();
   await analysis
     .getByText('対象データ数: 240 / 240', { exact: true })
     .waitFor();
   // Real renderer reload discards its listener while the owner document remains
   // unchanged. It must recover the same 240 scenes through the ready handshake.
   await analysis.reload();
-  await analysis
-    .getByRole('tab', { name: 'クロス集計', exact: true })
-    .click();
+  await analysis.getByRole('tab', { name: 'クロス集計', exact: true }).click();
   await analysis
     .getByText('対象データ数: 240 / 240', { exact: true })
     .waitFor();

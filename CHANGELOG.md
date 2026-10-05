@@ -7,9 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.17.2] - 未公開
+## [0.17.3] - 2026-10-04
 
-リリース準備中です。配布物とHomebrewの更新は、品質ゲート・Windows検証・macOS署名と公証・レビューの通過後に行います。[Release手順](.github/RELEASE.md)。
+配布なしとなった0.17.2の変更を含む修正版です。配布物の公開状況は[Releases](https://github.com/Kou-ISK/sportaglytics/releases)で確認してください。
+
+### Fixed
+
+- 初回Playlistの描画が遅い場合も、受信listenerの準備完了までMainがclip追加と同期を保持し、順番に届ける。固定時間の待機に依存しない。[受信契約](docs/adr/0059-playlist-renderer-delivery-readiness.md)。
+- 保存済みPlaylistのロード中に届いたclipをロード後にFIFOで追加し、古いdisk snapshotが新しい編集・文書世代を置き換える競合を防ぐ。行所属と重複IDの扱いを維持。[受信側の検証](docs/testing.md)。
+- Playlistの古いロード完了がMain側の保存先やdirtyを変えないよう、Window別ticketとRendererの採用応答で文書を確定する。A/B文書のSave先と未保存のClose確認を両processで検証。[採用契約](docs/adr/0059-playlist-renderer-delivery-readiness.md)。
+- 録画fragmentのread/append中に届いた更新を保持し、処理完了直後に最新の保存済み区間を読む。次の200ms周期までの余分な待機を除き、再生時計・seek・録画区間を維持。[検証](docs/testing.md)。
+
+### Changed
+
+- Electron E2EのTimelineコピー保存と戦術盤準備を操作の完了条件で待機し、ライブキャプチャのbuffer不足診断を追加。件数・保存内容・オフライン認識・非seek waiting=0の検査を維持。[検証契約](docs/testing.md)。
+
+## [0.17.2] - 2026-10-04（配布なし）
+
+正式リリース検証で問題を検出したため、タグを保持し、DMG・Windowsインストーラーは公開していません。修正版は0.17.3です。[Release手順](.github/RELEASE.md)。
 
 ### Changed
 
