@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
-export const getSyncTimeline = async (app) => {
+export const getTimelineWindow = async (app) => {
   let timeline;
   const deadline = Date.now() + 15000;
   while (!timeline && Date.now() < deadline) {
@@ -9,6 +9,11 @@ export const getSyncTimeline = async (app) => {
     if (!timeline) await new Promise((resolve) => setTimeout(resolve, 100));
   }
   assert.ok(timeline, 'Timeline window opened and navigated');
+  return timeline;
+};
+
+export const getSyncTimeline = async (app) => {
+  const timeline = await getTimelineWindow(app);
   await timeline
     .getByLabel('タイムラインのアングル同期', { exact: true })
     .waitFor();
