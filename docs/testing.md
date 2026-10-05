@@ -40,6 +40,8 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 `useTimelineViewport.gesture.test.ts`は1倍表示密度の整数スクロールを再現し、3回の連続拡大でも丸め誤差が累積しないことと、スクロール・ポインター移動・境界到達後のアンカー更新を確認します。
 
+`e2e-angle-sync-multi.mjs`は起動時の通常Timelineとアングル同期ボタンの表示を待ってから、映像ウィンドウへフォーカスしてCmd/Ctrl+Shift+Tを送ります。最初のvideo要素の表示だけでは別ウィンドウの起動完了を保証できません。フォーカス・3/4画面・同期点・可変フレーム・保存結果の検証と既存の待機上限は維持し、失敗時は実際の操作対象ページと各native windowのURL/フォーカスを記録します。
+
 ## パッケージ互換と保存保護
 
 - `legacyPackageMigrationService.test.ts`: 旧配列・tight/wide・旧アングル・旧`.stpkg`、コピー検証、未知version、symlink、参照不在、再利用、衝突、権限・容量不足・コピー/rename中断、原本変化を検証する。
