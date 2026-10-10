@@ -51,7 +51,12 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 - [市場価値を高める改善案（2026-09）](reports/2026-09-product-value.md): 現行競合との比較、改善の優先順位、検証指標。
 
+- [AIモデルの公開範囲・配布台帳](model-distribution.md): モデルカード、学習・評価の公開記録、取得先と不足情報。
+
 ## Developer Documentation
+
+- [第三者コンポーネントの配布](third-party-distribution.md): 告知inventory、FFmpeg対応ソースと既存Releaseの確認範囲。
+- [公開履歴の限定点検](reports/2026-10-oss-audit.md): 対象範囲、修正と未確認事項。
 
 - [ビルド用ダウンロードの依存境界](adr/0058-build-downloads-without-response-cache.md): HTTP response cacheを除去し、監査・checksum・ファイルキャッシュを維持する判断。
 - [開発ガイド](development.md): セットアップ、品質ゲート、開発ワークフロー。

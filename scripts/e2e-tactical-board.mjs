@@ -120,12 +120,12 @@ try {
     'Loaded YouTube startup bootstrap evidence:',
     JSON.stringify(evidence),
   );
-  const bootstrapVerified = evidence.some(
-    (script) => script.declaresObservedWidget,
+  const verifiedWidgetUrls = evidence.flatMap(
+    (script) => script.declaredWidgetUrls,
   );
   assert.ok(
     remote.every((request) =>
-      isClassifiedStartupRequest(request, bootstrapVerified),
+      isClassifiedStartupRequest(request, verifiedWidgetUrls),
     ),
     `Unexpected startup HTTP request: ${JSON.stringify(remote)}`,
   );

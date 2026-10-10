@@ -83,9 +83,15 @@ jobs:
         with:
           name: windows-desktop-screenshots
           path: output/playwright/windows
+      - name: Stage media build identity
+        run: |
+          New-Item -ItemType Directory -Force dist/media-builds | Out-Null
+          Copy-Item .cache/media-tools/win32-x64/build.json dist/media-builds/win32-x64.json
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: windows-x64-installer
-          path: dist/*Setup*.exe
+          path: |
+            dist/*Setup*.exe
+            dist/media-builds/win32-x64.json
           if-no-files-found: error

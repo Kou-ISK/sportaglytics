@@ -274,9 +274,11 @@ try {
     .click();
   await syncTimeline.getByRole('menuitem', { name: '音声で微調整' }).click();
   await syncTimeline
-    .getByText(
-      '音声を解析できませんでした。同期点と手動調整は維持されています。',
-    )
+    .getByRole('status')
+    .filter({
+      hasText:
+        '音声を解析できませんでした。同期点と手動調整は維持されています。',
+    })
     .waitFor();
   await syncTimeline
     .getByRole('button', { name: '同期のその他の操作' })
