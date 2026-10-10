@@ -2,9 +2,9 @@
 
 このドキュメントは SporTagLytics の GitHub Release 運用手順です。Homebrew Tap の詳細は [docs/homebrew-distribution.md](../docs/homebrew-distribution.md) を参照してください。
 
-## 0.17.3 Release
+## 0.17.4 Release
 
-`package.json` の0.17.3を配布対象とします。正式検証で停止した0.17.2はタグを保持し、配布物を公開せず、修正を0.17.3へ含めます。作業ブランチから`develop`へのPR、`develop`から`main`へのPRを通し、統合後のmainに新しいタグを作成します。公開済みの版と配布物は[Releases](https://github.com/Kou-ISK/sportaglytics/releases)で確認してください。
+`package.json` の0.17.4を配布対象とします。今回の変更はOSS公開境界、配布告知、対応source生成とRelease必須auditへの対応です。既存の0.17.3配布物を置換せず、新版として公開します。作業ブランチから`develop`へのPR、`develop`から`main`へのPRを通し、統合後のmainに新しいタグを作成します。公開済みの版と配布物は[Releases](https://github.com/Kou-ISK/sportaglytics/releases)で確認してください。
 
 既存候補で確認したmacOSの操作・分析PNGは、アプリコードの同一性を確認した場合に引き継げます。版番号を変更した配布物の検証、同じ候補のWindows CI、署名・公証は別途必要です。full auditを含む未通過のゲートがある間は正式Releaseを起動しません。
 
@@ -138,7 +138,7 @@ The workflow validates that the version/tag agree and the tagged commit belongs 
 
 ## Post-Release Verification
 
-- GitHub Release includes both Mac DMGs, the Windows x64 installer, and `SHA256SUMS.txt`.
+- GitHub Release includes both Mac DMGs, the Windows x64 installer, `media-tools-sources-<version>.tar.gz`, and `SHA256SUMS.txt`.
 - Windows installed-app E2E and native dependency checks passed for the released commit.
 - SHA256 values in `Kou-ISK/homebrew-tap` match generated artifacts.
 - Homebrew install works:

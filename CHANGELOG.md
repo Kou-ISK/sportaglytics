@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.4] - 2026-10-10
+
 ### Changed
 
-- 配布物へ実bundle由来の第三者告知とFreeType FTL本文を同梱し、次回ReleaseへFFmpeg等の固定対応source archiveとbuild manifestを添付する。[配布手順](docs/third-party-distribution.md)。
+- 配布物へ実bundle由来の第三者告知とFreeType FTL本文を同梱し、同版ReleaseへFFmpeg等の固定対応source archiveとbuild manifestを添付する。[配布手順](docs/third-party-distribution.md)。
 
 - アプリOSS・private R&D・モデル重み・学習データの公開境界と、3系統の[モデルカード・配布台帳](docs/model-distribution.md)を明文化。確認済みの比較記録と未確認の出所・許諾・recipeを区別。
 
