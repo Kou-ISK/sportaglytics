@@ -10,7 +10,8 @@ import { basename, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SOURCES } from './media-tools/sources.mjs';
 import { validateBuildManifest } from './media-tools/source-manifest.mjs';
-import { downloadVerified, hashFile } from './download-verified.mjs';
+import { hashFile } from './download-verified.mjs';
+import { downloadSourceArchive } from './media-tools/source-download.mjs';
 import { run } from './media-tools/process.mjs';
 
 // Only public, explicitly enumerated inputs. Never archive the workspace/cache wholesale.
@@ -24,18 +25,7 @@ try {
   for (const [name, source] of Object.entries(SOURCES)) {
     const file = `${source.directory}-${basename(source.url)}`;
     const cache = resolve('.cache/media-tools/source', file);
-    const urls = [source.url, ...(source.mirrors ?? [])];
-    for (const [index, url] of urls.entries()) {
-      try {
-        await downloadVerified(url, cache, source.sha256);
-        break;
-      } catch (error) {
-        if (index === urls.length - 1) throw error;
-        console.warn(
-          `Source download failed for ${name}; trying the next pinned mirror.`,
-        );
-      }
-    }
+    await downloadSourceArchive(source, cache);
     await copyFile(cache, join(root, 'upstream', file));
     sources[name] = { ...source, file: `upstream/${file}` };
   }
@@ -43,9 +33,14 @@ try {
     'scripts/build-media-tools.mjs',
     join(root, 'scripts/build-media-tools.mjs'),
   );
+  await copyFile(
+    'scripts/download-verified.mjs',
+    join(root, 'scripts/download-verified.mjs'),
+  );
   await mkdir(join(root, 'scripts/media-tools'), { recursive: true });
   for (const file of [
     'sources.mjs',
+    'source-download.mjs',
     'process.mjs',
     'macos.mjs',
     'windows.mjs',

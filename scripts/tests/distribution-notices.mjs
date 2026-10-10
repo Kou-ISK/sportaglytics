@@ -127,3 +127,45 @@ test('packaging fails when a generated notice is omitted from resources', async 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('source mirrors reject wrong bytes, accept the pinned archive and reuse it offline', async () => {
+  const { createServer } = await import('node:http');
+  const { createHash } = await import('node:crypto');
+  const { readFile } = await import('node:fs/promises');
+  const { downloadSourceArchive } =
+    await import('../media-tools/source-download.mjs');
+  const bytes = Buffer.from('synthetic public source archive');
+  const root = await mkdtemp(join(tmpdir(), 'source-mirror-test-'));
+  let requests = 0;
+  const server = createServer((request, response) => {
+    requests += 1;
+    response.end(
+      request.url === '/archive' ? bytes : '<html>not an archive</html>',
+    );
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const source = {
+    directory: 'fixture',
+    url: `${base}/bad`,
+    mirrors: [`${base}/archive`],
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+  };
+  try {
+    const file = join(root, 'source.tar');
+    await writeFile(file, 'incomplete old cache');
+    await downloadSourceArchive(source, file);
+    assert.deepEqual(await readFile(file), bytes);
+    assert.equal(requests, 2);
+    await downloadSourceArchive(source, file);
+    assert.equal(requests, 2);
+    await assert.rejects(
+      downloadSourceArchive({ ...source, mirrors: [] }, join(root, 'bad.tar')),
+      /Checksum mismatch/,
+    );
+    await assert.rejects(readFile(join(root, 'bad.tar')), /ENOENT/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await rm(root, { recursive: true, force: true });
+  }
+});

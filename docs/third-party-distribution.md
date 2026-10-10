@@ -19,7 +19,7 @@ source archiveに含むもの:
 - `manifest.json`のsource一覧と3 targetの`build.json`。署名・packaging前のbuild binary hashとsource version/hashを照合できる。署名後の配布ファイルのhashと同一とは限らない。
 - この手順とアプリ側build scriptのMIT License。上流のライセンス本文は各source archiveに含む。
 
-source-only準備は`pnpm run licenses:sources`です。これは固定source archiveを取得しますが、native toolの再ビルドはしません。取得量は各上流archiveに依存します。FreeTypeのSavannah mirrorがタイムアウトする場合は、[公式が案内するSourceForge mirror](https://freetype.org/download.html)へ切り替え、同じ固定SHA-256を必ず検証します。versionやsource bytesは変更しません。Releaseでは`node scripts/package-media-sources.mjs --require-builds`を実行し、Windows CIから受け取るmanifestとmacOS 2 targetのmanifestが揃わない場合や、source hashが違う場合は公開を止めます。
+source-only準備は`pnpm run licenses:sources`です。これは固定source archiveを取得しますが、native toolの再ビルドはしません。取得量は各上流archiveに依存します。FreeTypeのSavannah mirrorがタイムアウトする場合は、[公式が案内するSourceForge mirror](https://freetype.org/download.html)へ切り替え、同じ固定SHA-256を必ず検証します。versionやsource bytesは変更しません。zlibは同じSHA-256が公開された[公式GitHub Release](https://github.com/madler/zlib/releases/tag/v1.3.2)を優先します。native buildとsource-only準備は同じ検証付きdownloaderを使用し、不完全なcacheやHTML応答を採用しません。Releaseでは`node scripts/package-media-sources.mjs --require-builds`を実行し、Windows CIから受け取るmanifestとmacOS 2 targetのmanifestが揃わない場合や、source hashが違う場合は公開を止めます。
 
 再ビルドはarchiveを展開して次を行います。Node.js 22.12以上、tar/curlと各OSのcompilerが必要です。macOSはXcode command line tools、cmake、pkg-config、WindowsはMSYS2 UCRT64のgcc/cmake/ninja/pkgconf/nasm/makeを用います。CIの具体的な環境は同じRelease tagの`.github/workflows/windows.yml` / `release.yml`で確認できます。
 

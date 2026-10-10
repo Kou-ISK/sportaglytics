@@ -35,6 +35,8 @@ Storybookの開発用bundleがアプリのinventoryへ混入しないよう、St
 
 CIのsource-only検証でFreeTypeのSavannah mirrorが接続タイムアウトしたため、公式のSourceForge mirrorを同一SHA-256で利用するfallbackを追加しました。
 
+Windowsのcold buildではzlib取得が11,780 bytesの応答となりhash不一致で停止しました。固定hashは公式情報と一致しており、hashを変更せず同一bytesの公式GitHub assetを優先します。native/source-onlyのdownloaderを共通化して、公式mirrorと検証済みcacheのみを採用します。
+
 ## 確認待ち
 
 - v0.17.3の既存配布binaryに対応するsource補足の公開と、installer内部の全native告知の実査。
