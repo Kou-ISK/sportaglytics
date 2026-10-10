@@ -33,6 +33,8 @@ npmのVictory vendorはwrapperのMIT本文がtarballにないため、同じ上�
 
 Storybookの開発用bundleがアプリのinventoryへ混入しないよう、Storybook側で当該pluginを除外し、Storybook直接buildの成功を確認しました。
 
+CIのsource-only検証でFreeTypeのSavannah mirrorが接続タイムアウトしたため、公式のSourceForge mirrorを同一SHA-256で利用するfallbackを追加しました。
+
 ## 確認待ち
 
 - v0.17.3の既存配布binaryに対応するsource補足の公開と、installer内部の全native告知の実査。

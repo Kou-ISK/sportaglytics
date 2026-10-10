@@ -20,6 +20,10 @@ export const SOURCES = {
   freetype: {
     version: '2.14.3',
     url: 'https://download-mirror.savannah.gnu.org/releases/freetype/freetype-2.14.3.tar.xz',
+    // Both distribution sites are listed by https://freetype.org/download.html.
+    mirrors: [
+      'https://downloads.sourceforge.net/project/freetype/freetype2/2.14.3/freetype-2.14.3.tar.xz',
+    ],
     sha256: '36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f',
     directory: 'freetype-2.14.3',
   },

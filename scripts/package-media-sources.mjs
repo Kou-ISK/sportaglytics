@@ -24,7 +24,18 @@ try {
   for (const [name, source] of Object.entries(SOURCES)) {
     const file = `${source.directory}-${basename(source.url)}`;
     const cache = resolve('.cache/media-tools/source', file);
-    await downloadVerified(source.url, cache, source.sha256);
+    const urls = [source.url, ...(source.mirrors ?? [])];
+    for (const [index, url] of urls.entries()) {
+      try {
+        await downloadVerified(url, cache, source.sha256);
+        break;
+      } catch (error) {
+        if (index === urls.length - 1) throw error;
+        console.warn(
+          `Source download failed for ${name}; trying the next pinned mirror.`,
+        );
+      }
+    }
     await copyFile(cache, join(root, 'upstream', file));
     sources[name] = { ...source, file: `upstream/${file}` };
   }
