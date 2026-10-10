@@ -103,6 +103,8 @@ Main Window作成時にSessionを保持し、`closed` では破棄済みWindow�
 
 配布版はMainの外部npm依存を同梱しません。`build:electron-main`で未同梱依存を検査し、FFprobe応答などのMain側の入力は型ガードで検証します。Renderer/preloadのライブラリはbundle内で解決します。
 
+ビルド時のproxy bootstrapは、@electron/get 3.1.0経由のglobal-agent 4.1.3へ限定して固定します。配布runtimeの依存構成は変更しません。[監査と互換性検証](adr/0058-build-downloads-without-response-cache.md#2026-10-10-proxy-dependency-audit-update)。
+
 ### Preload
 
 映像書き出しメニューはPackage Sessionから対象Timelineを解決し、PlaylistではそのWindow自身へ通知します。Timelineを新規表示する場合、Reactの書き出し購読が準備できるまで要求をMainに保持します。`clip-export-ready`は型と送信元を検証してMainで消費し、映像側へ転送しません。[ADR 0042](adr/0042-document-owned-export-menu.md)。

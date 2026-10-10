@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 開発・ビルド依存のsource-map-js、Joi、shell-quoteを修正版へ固定し、Electron/getのproxy依存を上流global-agent 4.1.3へ限定更新。未修正のsprintf-js依存経路を除去し、proxy/NO_PROXYを含む回帰検査を追加。[判断](docs/adr/0058-build-downloads-without-response-cache.md#2026-10-10-proxy-dependency-audit-update)。
+
 ## [0.17.3] - 2026-10-04
 
 配布なしとなった0.17.2の変更を含む修正版です。配布物の公開状況は[Releases](https://github.com/Kou-ISK/sportaglytics/releases)で確認してください。
