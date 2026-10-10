@@ -2,7 +2,7 @@
 
 ## 告知の生成と配置
 
-アプリのMITと第三者のライセンスを区別する入口は[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)です。renderer/preload build時に`scripts/license-inventory.mjs`が、出力chunk内のnpm moduleを列挙し、package名・version・licenseとルートおよび使用moduleまでの経路上のLICENSE/COPYING/NOTICE全文をJSONへ保存します。開発専用依存やpnpm store全体は収録しません。ライセンス本文が見つからない依存を含むbuildは失敗します。npm配布で本文が欠ける既知の版に限り、[上流補足](../resources/third-party/README.md)、配布JS内の全文、既存のMediaPipe告知から補完します。
+アプリのMITと第三者のライセンスを区別する入口は[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)です。renderer/preload build時に`scripts/license-inventory.mjs`が、出力chunk内のnpm moduleを列挙し、package名・version・licenseとルートおよび使用moduleまでの経路上のLICENSE/COPYING/NOTICE全文をJSONへ保存します。開発専用依存やpnpm store全体は収録しません。Storybookは自身のVite設定でアプリ用inventory pluginを除外します。ライセンス本文が見つからない依存を含むbuildは失敗します。npm配布で本文が欠ける既知の版に限り、[上流補足](../resources/third-party/README.md)、配布JS内の全文、既存のMediaPipe告知から補完します。
 
 `electron-builder`はアプリのLICENSE、上記告知とJSONをResources直下へコピーし、従来の`build/**/*.LICENSE.txt`除外を行いません。`after-pack.mjs`はpackaging済みResourcesの告知とmedia licenseを確認してから既存のevent runner署名処理を呼びます。これらのJSONはJSのlicense inventoryであり、Electron内の依存・native tool・モデルを網羅したSBOMとは呼びません。
 
@@ -16,7 +16,7 @@ source archiveに含むもの:
 
 - FFmpeg、FreeType、HarfBuzz、Windows用OpenH264/zlibの上流source archive（version・URL・SHA-256固定）。
 - `scripts/build-media-tools.mjs`と`scripts/media-tools/`のビルド手順。FFmpeg Windows manifestへのUTF-8設定追加も`windows.mjs`に含む。
-- `manifest.json`のsource一覧と3 targetの`build.json`。配布binary hashとsource version/hashを照合できる。
+- `manifest.json`のsource一覧と3 targetの`build.json`。署名・packaging前のbuild binary hashとsource version/hashを照合できる。署名後の配布ファイルのhashと同一とは限らない。
 - この手順とアプリ側build scriptのMIT License。上流のライセンス本文は各source archiveに含む。
 
 source-only準備は`pnpm run licenses:sources`です。これは固定source archiveを取得しますが、native toolの再ビルドはしません。取得量は各上流archiveに依存します。Releaseでは`node scripts/package-media-sources.mjs --require-builds`を実行し、Windows CIから受け取るmanifestとmacOS 2 targetのmanifestが揃わない場合や、source hashが違う場合は公開を止めます。

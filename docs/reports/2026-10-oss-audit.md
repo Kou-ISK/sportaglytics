@@ -31,6 +31,8 @@ npmのVictory vendorはwrapperのMIT本文がtarballにないため、同じ上�
 - アプリのVitestは241ファイル・944成功・1 skip。既存のdownload回帰は環境の未適用patchで失敗したため、pnpm 9.1.0でlockfile固定の依存を再準備し、対象だけを再検証し、追加回帰を含む10件すべての成功を確認した。
 - renderer/Electron型検査、lint、architecture、ADR検査、追加した告知・source identity・packaging欠落の回帰はすべて成功。
 
+Storybookの開発用bundleがアプリのinventoryへ混入しないよう、Storybook側で当該pluginを除外し、Storybook直接buildの成功を確認しました。
+
 ## 確認待ち
 
 - v0.17.3の既存配布binaryに対応するsource補足の公開と、installer内部の全native告知の実査。
