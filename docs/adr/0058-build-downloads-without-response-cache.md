@@ -28,3 +28,11 @@ builderのダウンロードはgotのproxy agent・timeout・streamingを使う�
 限定した第三者パッチを保守する責任が増える。担当はKou-ISK、次回確認期限は2026-10-31。上流の正式修正版または互換性を保つbuilder/get移行が利用可能になったら、パッチとmanifest hookを一緒に除去し、full/prod audit、frozen install、合成ダウンロード、Windows/macOS packagingを再検証する。対象versionやpatch内容の変更はlockfileのhashとテストで検出し、未検証の別majorへ拡大しない。
 
 `@types/jest`はVitestのテスト・型設定から使われないため除去し、bracesへの唯一の経路も除去する。undici、fast-uri、brace-expansionとwait-onのaxiosは既存major内の修正版へ固定する。必要な監査を満たす実際の依存修正として扱い、dev依存であることを免除理由としない。
+
+## 2026-10-10: Proxy dependency audit update
+
+正式Releaseのfull auditで、global-agent 3.0.0 → roarr 2.15.4 → sprintf-js 1.1.3に[修正版のない指摘](https://github.com/advisories/GHSA-hp3w-g68c-fv3c)を確認した。`@electron/get@3.1.0>global-agent`だけを上流4.1.3へ固定し、roarr/sprintf-jsの依存経路を除去する。global-agent 4の[変更](https://github.com/gajus/global-agent/releases/tag/v4.0.0)は型の移行、TLS既定値・socket処理等を含む。getが利用するCommonJSの`bootstrap()`と環境変数契約を実packageで確認し、loopback proxyとNO_PROXYを子processで検証する。ログ実装は上流版へ移行する。未知のmajor全般を許容するoverrideにはしない。
+
+Electron/get/builder/Gotのversionと既存のGot patchは維持する。HTTP agent、timeout、redirect、checksum、progress、ファイルcacheの既存7ケースに、実際のget自動bootstrapを使うHTTP proxy/NO_PROXYの2ケースを加える。配布runtimeへglobal-agentを同梱しない。上流getが互換な更新へ移行したら、このscoped overrideも再確認する。
+
+同時に、[source-map-js](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)を1.2.2、[Joi](https://github.com/advisories/GHSA-wr44-6hxh-3jwq)を18.2.9、[shell-quote](https://github.com/advisories/GHSA-pqg4-j6r4-53mv)を1.11.0へ固定する。advisory除外やseverity変更でauditを通す方法は採らない。

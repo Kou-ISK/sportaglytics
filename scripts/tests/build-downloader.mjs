@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { Agent, createServer } from 'node:http';
@@ -6,6 +7,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
+import { promisify } from 'node:util';
 
 const require = createRequire(import.meta.url);
 const builderRequire = createRequire(
@@ -20,6 +22,7 @@ const getRequire = createRequire(
 const { downloadElectronArtifactZip } = libRequire('./out/util/electronGet.js');
 const { downloadArtifact } = libRequire('@electron/get');
 const got = getRequire('got');
+const execute = promisify(execFile);
 
 const payload = Buffer.alloc(256 * 1024, 73);
 const digest = createHash('sha256').update(payload).digest('hex');
@@ -151,6 +154,65 @@ test('Got retains request timeout and HTTP errors', async () => {
     (error) => error.name === 'HTTPError' && error.response.statusCode === 404,
   );
 });
+
+for (const bypass of [false, true]) {
+  test(`Electron/get proxy bootstrap retains ${bypass ? 'NO_PROXY bypass' : 'HTTP proxy routing'}`, async () => {
+    const proxied = [];
+    const proxy = createServer((request, response) => {
+      proxied.push(request.url);
+      response.writeHead(200, { 'content-length': payload.length });
+      response.end(payload);
+    });
+    await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+    try {
+      const mirror = bypass ? baseUrl : 'http://download.invalid/';
+      const proxyUrl = `http://127.0.0.1:${proxy.address().port}`;
+      const config = {
+        artifactName: 'electron',
+        version: '43.5.1',
+        platform: 'linux',
+        arch: 'x64',
+        cacheRoot: path.join(root, `proxy-${bypass}`),
+        checksums: { [filename]: digest },
+        mirrorOptions: { mirror, customDir: 'fixture' },
+        downloadOptions: { retry: { limit: 0 }, timeout: { request: 3000 } },
+      };
+      // Bootstrap patches global HTTP agents, so keep it in a separate process.
+      const { stdout } = await execute(
+        process.execPath,
+        [
+          '-e',
+          `
+        const { readFile } = require('node:fs/promises');
+        const { downloadArtifact } = require(process.env.TEST_ELECTRON_GET);
+        downloadArtifact(JSON.parse(process.env.TEST_DOWNLOAD_OPTIONS))
+          .then(readFile)
+          .then((bytes) => process.stdout.write(bytes))
+          .catch((error) => { console.error(error); process.exitCode = 1; });
+      `,
+        ],
+        {
+          encoding: 'buffer',
+          timeout: 10000,
+          env: {
+            ...process.env,
+            ELECTRON_GET_USE_PROXY: '1',
+            GLOBAL_AGENT_HTTP_PROXY: proxyUrl,
+            GLOBAL_AGENT_HTTPS_PROXY: proxyUrl,
+            GLOBAL_AGENT_NO_PROXY: bypass ? '127.0.0.1' : '',
+            TEST_ELECTRON_GET: libRequire.resolve('@electron/get'),
+            TEST_DOWNLOAD_OPTIONS: JSON.stringify(config),
+          },
+        },
+      );
+      assert.deepEqual(stdout, payload);
+      assert.deepEqual(proxied, bypass ? [] : [`${mirror}fixture/${filename}`]);
+    } finally {
+      proxy.closeAllConnections();
+      await new Promise((resolve) => proxy.close(resolve));
+    }
+  });
+}
 
 test('explicit HTTP response caching fails before any request', async () => {
   const beforeRequests = requests;
