@@ -7,7 +7,13 @@
 
 スポーツ映像のタグ付け、同期再生、統計可視化、プレイリスト作成を行う Electron デスクトップアプリケーションです。現在の主な利用想定はラグビー分析ですが、タイムラインとラベルを中心にした設計のため、他競技への応用も見込んでいます。
 
-このソースは **0.17.3** です。0.17.2はタグのみで配布せず、その変更を含む修正版として準備しました。公開済みの版と配布物は上のバッジと[Releases](https://github.com/Kou-ISK/sportaglytics/releases)で確認できます。変更は[CHANGELOG](CHANGELOG.md#0173---2026-10-04)、Timeline・共通フォームの変更と検証範囲は[compact density評価](docs/reports/2026-10-compact-density.md)、公開時の確認項目は[Release手順](.github/RELEASE.md)を参照してください。
+このソースは **0.17.4** です。アプリとモデルの公開境界、第三者告知の同梱、FFmpeg対応ソースの配布を整備しました。公開済みの版と配布物は上のバッジと[Releases](https://github.com/Kou-ISK/sportaglytics/releases)、変更は[CHANGELOG](CHANGELOG.md#0174---2026-10-10)、公開時の確認項目は[Release手順](.github/RELEASE.md)を参照してください。
+
+## OSSとAIモデルの公開範囲
+
+アプリ本体は[MIT License](LICENSE)のOSSです。イベント検出の学習・評価・exportはprivate R&Dに分離し、アプリは外部model packを利用します。Paintの既製モデルは別ライセンスで同梱し、文章AIのGGUFは利用者が用意します。アプリのMITは、これらの重みや学習動画へ一括適用されません。
+
+[モデルカード・配布台帳](docs/model-distribution.md)に、3系統の取得先、学習・評価の確認済み事項、未確認の出所・許諾・再現性をまとめています。コードOSSと全学習データの公開は別であり、学習素材の再配布を前提にしません。
 
 ## 主な機能
 
@@ -123,7 +129,7 @@ pnpm run test:run
 
 ## ライセンス
 
-[MIT License](LICENSE) です。
+アプリ本体は[MIT License](LICENSE)です。第三者ソフトウェア・モデルの条件は[配布告知](THIRD_PARTY_NOTICES.md)と[モデル台帳](docs/model-distribution.md)を参照してください。
 
 ## 謝辞
 

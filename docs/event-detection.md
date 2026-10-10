@@ -91,6 +91,8 @@ experimental候補は unattended な分析結果として扱わず、追加後�
 
 自動検出専用Timelineや専用永続データモデルは持ちません。confidence thresholdのUI変更もmodel manifestや評価metricsを書き換えません。
 
+出所・重みの許諾・学習概要の公開記録と未確認事項は[モデルカード・配布台帳](model-distribution.md)を参照してください。`verified`はライセンス確認済みという意味ではありません。
+
 ## R&D境界
 
 SporTagLytics public repositoryは**完成したevent model packを利用する側**です。

@@ -1,7 +1,5 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { createHash } from 'node:crypto';
-import { createReadStream, existsSync } from 'node:fs';
 import {
   chmod,
   copyFile,
@@ -12,8 +10,10 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { cpus, tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { SOURCES } from './media-tools/sources.mjs';
+import { downloadSourceArchive } from './media-tools/source-download.mjs';
+import { hashFile } from './download-verified.mjs';
 import { run } from './media-tools/process.mjs';
 import { buildMacMediaTools } from './media-tools/macos.mjs';
 import { buildWindowsMediaTools } from './media-tools/windows.mjs';
@@ -40,11 +40,6 @@ const selectedSources = Object.fromEntries(
     ([name]) => !['openh264', 'zlib'].includes(name) || platform === 'win32',
   ),
 );
-const hashFile = async (file) => {
-  const hash = createHash('sha256');
-  for await (const chunk of createReadStream(file)) hash.update(chunk);
-  return hash.digest('hex');
-};
 const executableName = (name) => (platform === 'win32' ? `${name}.exe` : name);
 const buildIdentity = (architecture) => ({
   revision: platform === 'win32' ? BUILD_REVISION + 2 : BUILD_REVISION,
@@ -75,6 +70,15 @@ const isCached = async (architecture) => {
       )
         return false;
     }
+    for (const file of [
+      'ffmpeg-COPYING.LGPLv2.1',
+      'freetype-LICENSE.TXT',
+      'freetype-FTL.TXT',
+      'harfbuzz-COPYING',
+    ]) {
+      if (!(await readFile(join(output, 'licenses', file), 'utf8')).trim())
+        return false;
+    }
     return true;
   } catch {
     return false;
@@ -86,26 +90,7 @@ const fetchAndExtract = async (source, temporaryDirectory) => {
     'source',
     `${source.directory}-${basename(source.url)}`,
   );
-  await mkdir(dirname(archive), { recursive: true });
-  if (!existsSync(archive)) {
-    await run('curl', [
-      '--fail',
-      '--location',
-      '--retry',
-      '3',
-      '--connect-timeout',
-      '15',
-      '--max-time',
-      '600',
-      '--output',
-      archive,
-      source.url,
-    ]);
-  }
-  if ((await hashFile(archive)) !== source.sha256) {
-    await rm(archive, { force: true });
-    throw new Error(`${source.directory} source checksum mismatch`);
-  }
+  await downloadSourceArchive(source, archive);
   await run('tar', [
     ...(platform === 'win32' ? ['--force-local'] : []),
     '-xf',
@@ -140,6 +125,7 @@ if (pending.length > 0) {
       for (const [name, file] of [
         ['ffmpeg', 'COPYING.LGPLv2.1'],
         ['freetype', 'LICENSE.TXT'],
+        ['freetype', 'docs/FTL.TXT'],
         ['harfbuzz', 'COPYING'],
         ...(platform === 'win32'
           ? [
@@ -150,7 +136,7 @@ if (pending.length > 0) {
       ]) {
         await copyFile(
           join(sources[name], file),
-          join(licenses, `${name}-${file}`),
+          join(licenses, `${name}-${basename(file)}`),
         );
       }
       const png = join(outputDirectory, 'paint-overlay-smoke.png');

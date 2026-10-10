@@ -7,6 +7,19 @@ const config: StorybookConfig = {
     name: '@storybook/react-vite',
     options: {},
   },
+  // App distribution inventories exclude Storybook's development-only bundle.
+  viteFinal: async (viteConfig) => ({
+    ...viteConfig,
+    plugins: viteConfig.plugins?.filter(
+      (plugin) =>
+        !(
+          plugin &&
+          typeof plugin === 'object' &&
+          'name' in plugin &&
+          plugin.name === 'sportaglytics-license-inventory'
+        ),
+    ),
+  }),
   docs: {
     autodocs: 'tag',
   },

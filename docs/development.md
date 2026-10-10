@@ -6,7 +6,9 @@ Playlistの配送・ロードを変更するときは`usePlaylistLoadDelivery.te
 
 文書採用の境界はMainとRendererの両方を検証します。`playlistWindow/documentIdentity.test.tsx`と`e2e-playlist-document-identity.mjs`で、A/Bロードの逆順完了、別文書ロード中の編集による拒否、同文書ロード中の編集後Closeを扱います。Rendererの見た目に加え、MainのfilePath/dirty・実Save先のbytes・未保存promptを確認します。read完了だけでMain状態を変更せず、最新ticketへの採用応答で保存先を確定してください。
 
-Electronは43.5.1へ固定します。[公式advisory](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)は43.4.2を修正版とし、[GitHub Advisory Database](https://github.com/advisories/GHSA-qmv3-fv6v-rmhq)は43.5.0を境界としています。npmに43.4.2の公開版がないため、両方の条件を満たす[正式patch版43.5.1](https://github.com/electron/electron/releases/tag/v43.5.1)を採用します。lockfile固定でinstallし、packaged appの実runtime versionを確認してください。runtime更新後はsandbox preload・YouTube埋込の起動と分析PNGのcold初回DPR1/2をMacで再確認し、旧runtimeの合格を流用しません。署名・公証は別の配布条件です。Joi18.2.6 overrideはwait-on9.1.0の開発依存への対応で、配布runtime更新とは分けて扱います。
+Electronは43.5.1へ固定します。[公式advisory](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)は43.4.2を修正版とし、[GitHub Advisory Database](https://github.com/advisories/GHSA-qmv3-fv6v-rmhq)は43.5.0を境界としています。npmに43.4.2の公開版がないため、両方の条件を満たす[正式patch版43.5.1](https://github.com/electron/electron/releases/tag/v43.5.1)を採用します。lockfile固定でinstallし、packaged appの実runtime versionを確認してください。runtime更新後はsandbox preload・YouTube埋込の起動と分析PNGのcold初回DPR1/2をMacで再確認し、旧runtimeの合格を流用しません。署名・公証は別の配布条件です。Joi18.2.9 overrideはwait-on9.1.0の開発依存への対応で、配布runtime更新とは分けて扱います。
+
+開発・ビルド依存の2026-10-10監査対応は[ADR 0058の追補](adr/0058-build-downloads-without-response-cache.md#2026-10-10-proxy-dependency-audit-update)を参照してください。Electron/get/Gotを維持し、scoped global-agent更新とproxy/NO_PROXY回帰を追加します。
 
 Timeline reviewを変更する場合は`Workspace/Timeline/Review` storiesと`node scripts/e2e-ux-review.mjs`を確認してください。E2Eは一時profileと合成240件・24行を使い、検索→映像→編集→Playlist→分析→再開を検証します。OSファイルダイアログの取消結果はadapterを置換し、Finder自体の操作は検証しません。スクリーンショットは`E2E_SCREENSHOT_DIR=output/playwright/ux-review`で保存できます。[評価範囲と手順](reports/2026-10-ux-review.md)。
 
@@ -452,3 +454,7 @@ WindowsのFFmpegはzlibを静的リンクしてPNGのエンコード/デコー�
 `pnpm run vision:prepare` はMediaPipe Tasks Vision 0.10.21（外部統計送信なし）の固定npm版と、SHA-256で検証するEfficientDet-Lite2 INT8 revision 1を `public/pitch-vision/` に準備します。start/build/Storybookコマンドに組み込み済みです。初回の開発・ビルドではモデル取得にネットワークが必要で、ハッシュ一致の資産があれば再取得しません。実行時には同梱資産のみを使います。SDKのfile URLフォールバックを避け、同梱WASMをBlob URL、モデルをバッファとして渡します。ElectronのwebSecurityは緩和しません。モデル・WASMはGitに含めず、配布ビルドとライセンスを同梱します。モデルの出典とハッシュは `resources/pitch-vision/NOTICE.md` が正本です。
 
 較正・戦術盤のStorybookは `Playlist/Paint/Pitch Calibration` と `Playlist/Paint/Tactical Board`。E2Eは `pnpm run e2e:prepare` 後に `node scripts/e2e-tactical-board.mjs` を実行します。合成映像でHTTP通信を拒否し、実モデルのロード・推論、部分較正、削除/Undo、PNG、保存/再読込を確認します。人物検出の実試合精度を保証する試験ではありません。
+
+## 第三者告知と対応ソース
+
+renderer/preload buildは実際の出力moduleからlicense inventoryを生成します。追加した依存にはlicense本文が必要です。`pnpm run licenses:sources`はnative再buildなしで固定source archiveを準備します。[配布手順と確認範囲](third-party-distribution.md)。

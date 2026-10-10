@@ -103,6 +103,8 @@ Main Window作成時にSessionを保持し、`closed` では破棄済みWindow�
 
 配布版はMainの外部npm依存を同梱しません。`build:electron-main`で未同梱依存を検査し、FFprobe応答などのMain側の入力は型ガードで検証します。Renderer/preloadのライブラリはbundle内で解決します。
 
+ビルド時のproxy bootstrapは、@electron/get 3.1.0経由のglobal-agent 4.1.3へ限定して固定します。配布runtimeの依存構成は変更しません。[監査と互換性検証](adr/0058-build-downloads-without-response-cache.md#2026-10-10-proxy-dependency-audit-update)。
+
 ### Preload
 
 映像書き出しメニューはPackage Sessionから対象Timelineを解決し、PlaylistではそのWindow自身へ通知します。Timelineを新規表示する場合、Reactの書き出し購読が準備できるまで要求をMainに保持します。`clip-export-ready`は型と送信元を検証してMainで消費し、映像側へ転送しません。[ADR 0042](adr/0042-document-owned-export-menu.md)。
@@ -395,3 +397,7 @@ Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツ�
 戦術盤は[Paintの保存契約](tactics.md#戦術盤と映像からの配置)に従うクリップ・アングル別メタデータです。Viewはpropsのみ、編集履歴はHook、動画の読取・同梱モデル実行・PNG保存はGatewayに分離します。認識は明示操作時の停止フレームだけを対象とし、サーバー・新しいIPC・クラウドAPIを追加しません。[ADR 0039](adr/0039-local-tactical-board.md)を参照してください。
 
 分析窓の初期データは所有sessionでcacheし、Rendererの受信listener登録後のready requestで再送します。希望viewはopen前に確保し、実reloadでも同じ手順を使います。別sessionの要求は拒否し、Main終了時にcacheを除去します。[ADR0055](adr/0055-timeline-review-without-document-filtering.md)。
+
+## OSSと配布物の境界
+
+アプリのMITとモデル・学習データの公開範囲は[モデル台帳](model-distribution.md)、第三者codeの告知と対応sourceは[配布手順](third-party-distribution.md)を正本とします。既存のprivate R&D / public consumer分離は維持します。

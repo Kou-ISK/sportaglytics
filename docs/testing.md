@@ -246,7 +246,7 @@ Paint入力の回帰テストはpointerdown/upだけの短いドラッグ、停�
 
 戦術盤の準備は認識ボタンの有効状態で判定し、ページ全体の`networkidle`は使いません。`electron.launch`後に全HTTP(S)を遮断するrouteを設置し、観測できた起動時YouTube adapter scriptを正確なURLとrequest種別で区別します。それ以外の観測した起動時要求と認識開始後の全HTTP要求を失敗にし、未完了requestも診断ログへ残します。初回起動全体の完全なofflineを証明する試験ではなく、route設置後の認識が同梱モデルで成功し、認識開始後のHTTP要求が0件であることを検証します。[Playwrightの待機契約](https://playwright.dev/docs/api/class-page#page-wait-for-load-state)。
 
-起動時scriptの分類は`https://www.youtube.com/iframe_api`と、Windows run37208260762で観測した`https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js`だけに限定します。widgetは既にロードされたexact iframe_apiのscript sourceに同じURLの文字列宣言がある場合だけ分類します。CDPでそのcodeを読みSHA256と検証結果をログに残し、証明できなければ失敗します。この診断でURLを追加取得しません。host/pathのwildcardやquery違いは許可せず、将来URLが変わった場合も観測とレビューが必要です。分類は通信の許可ではなく、遮断routeは維持します。`e2e-tactical-startup-http.test.mjs`の14ケースで未検証widget、認識中要求、別host/path/query/type、CDP失敗時のcleanupを検査します。
+起動時scriptの分類は`https://www.youtube.com/iframe_api`と、Windows run37208260762で観測した`https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js`、およびWindows run38030807357で観測した`https://www.youtube.com/s/player/5203c085/www-widgetapi.vflset/www-widgetapi.js`だけに限定します。widgetは既にロードされたexact iframe_apiのscript sourceに同じURLの文字列宣言がある場合だけ分類します。証拠はURLごとに保持し、旧版の宣言を根拠に新版を分類しません。CDPでそのcodeを読みSHA256と検証結果をログに残し、証明できなければ失敗します。この診断でURLを追加取得しません。host/pathのwildcardやquery違いは許可せず、将来URLが変わった場合も観測とレビューが必要です。分類は通信の許可ではなく、遮断routeは維持します。`e2e-tactical-startup-http.test.mjs`の20ケースで未検証widget、認識中要求、別host/path/query/type、CDP失敗時のcleanupを検査します。
 
 アプリはYouTube映像のtechを使用するため`useVideoJsInitialization.ts`でvideojs-youtube@3.0.1をimportします。その依存はmodule読込時にiframe_apiを要求します。ローカル戦術盤の合成MP4にはYouTube techが不要であり、ここでの分類は既存の起動副作用の範囲を示すものです。人物認識の必要な外部通信として扱いません。
 
@@ -261,3 +261,9 @@ Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実
 分析ready同期は`analysisWindow.test.ts`と`useAnalysisWindowController.test.tsx`で、窓作成前に送られた最新snapshot・listener後の受信・別session拒否を確認します。窓のdid-finish-loadとReact listenerの登録を同一視せず、native側でも実reloadを行います。
 
 統合Macではreveal対象の下端がviewportを0.055px越えるnative負例を得たため、tagのscroll marginを4px確保して完全表示を検査します。Windows installedの行入替はUIの順序と実保存の順序を別々に待ち、固定400msを保存完了と扱いません。期待順序・件数・表示条件は緩和しません。
+
+## 第三者告知の検証
+
+`node --test scripts/tests/distribution-notices.mjs`で告知本文・NOTICEの保持、未使用依存の除外、本文欠落時の失敗、配布sourceとbinary manifestの不一致拒否を確認します。通常の`test:run` / `test:ci`にも含みます。directory packageのResources/ASAR検査と各OS検証の境界は[配布手順](third-party-distribution.md)を参照してください。
+
+ビルドdownloaderの9ケースには、実際の@electron/getを別processで起動するHTTP proxy経由取得とNO_PROXY bypassを含みます。loopback serverと合成bytesで検証し、外部artifactを取得しません。既存のagent/timeout/redirect/checksum/progress/file-cache検査も維持します。

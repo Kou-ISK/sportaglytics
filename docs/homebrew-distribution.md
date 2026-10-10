@@ -62,7 +62,7 @@ brew install --cask sportaglytics
 
 ## リリース手順（完全自動化）
 
-候補の検証とレビューを完了し、`develop`から`main`へのPRを統合した後、タグpushで配布を開始します。0.17.2はタグのみで配布せず、修正版を0.17.3とします。公開されたDMGとSHA256を確認してからTapへ反映します。
+候補の検証とレビューを完了し、`develop`から`main`へのPRを統合した後、タグpushで配布を開始します。0.17.4は第三者告知と対応source配布を含む修正版です。既存の配布物を置換せず、新版として公開します。公開されたDMGとSHA256を確認してからTapへ反映します。
 
 ### 1. バージョン番号を更新
 
@@ -209,3 +209,7 @@ brew install --cask sportaglytics
 ## Windowsとの同時リリース
 
 ReleaseはWindows NSISの検証成功を条件にmacOS DMGと一括公開します。Homebrew CaskはmacOS DMGのみを参照し、Windowsの導入は[Windows版](windows.md)を参照してください。
+
+## 第三者告知とFFmpegソース
+
+次回のsource-bundle対応Releaseではinstallerと同じReleaseに`media-tools-sources-<version>.tar.gz`を添付し、SHA256SUMSへ含めます。[対応ソースの取得・再build手順](third-party-distribution.md)。既存v0.17.3のassetを上書きしません。
