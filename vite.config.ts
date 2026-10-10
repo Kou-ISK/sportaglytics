@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { licenseInventory } from './scripts/license-inventory.mjs';
 
 export default defineConfig({
   base: './',
-  plugins: [react()],
+  plugins: [react(), licenseInventory()],
   server: {
     port: 3000,
     strictPort: true,

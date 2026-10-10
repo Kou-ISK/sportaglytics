@@ -117,3 +117,5 @@ YYYY-MM-DD
 | [0057](0057-verified-analysis-frame-capture.md) | Verified analysis frame capture | Accepted | 2026-10-02 |
 | [0058](0058-build-downloads-without-response-cache.md) | Build downloads without HTTP response caching | Accepted | 2026-10-04 |
 | [0059](0059-playlist-renderer-delivery-readiness.md) | Playlist renderer delivery readiness | Accepted | 2026-10-04 |
+
+- [0060 Distribution License Evidence](0060-distribution-license-evidence.md): 実bundleの告知とRelease対応sourceの同梱。

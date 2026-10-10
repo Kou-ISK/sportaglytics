@@ -2,17 +2,23 @@
   "extends": null,
   "appId": "com.kouisk.sportaglytics",
   "productName": "SporTagLytics",
-  "afterPack": "./scripts/sign-event-detection-runners-after-pack.mjs",
+  "afterPack": "./scripts/after-pack.mjs",
   "files": [
     "build/**/*",
     "!build/**/*.map",
-    "!build/**/*.LICENSE.txt",
     "!build/**/llama/models/*.gguf",
     "!build/**/llama/models/**/*.gguf",
     "!node_modules/**/*",
     "!build/llama/**/*"
   ],
   "extraResources": [
+    { "from": "LICENSE", "to": "LICENSE" },
+    { "from": "THIRD_PARTY_NOTICES.md", "to": "THIRD_PARTY_NOTICES.md" },
+    { "from": "build/licenses", "to": "licenses" },
+    {
+      "from": "build/electron/src/licenses/preload.json",
+      "to": "licenses/preload.json"
+    },
     {
       "from": "resources/event-detection-models",
       "to": "event-detection-models",

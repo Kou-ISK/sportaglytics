@@ -209,3 +209,7 @@ brew install --cask sportaglytics
 ## Windowsとの同時リリース
 
 ReleaseはWindows NSISの検証成功を条件にmacOS DMGと一括公開します。Homebrew CaskはmacOS DMGのみを参照し、Windowsの導入は[Windows版](windows.md)を参照してください。
+
+## 第三者告知とFFmpegソース
+
+次回のsource-bundle対応Releaseではinstallerと同じReleaseに`media-tools-sources-<version>.tar.gz`を添付し、SHA256SUMSへ含めます。[対応ソースの取得・再build手順](third-party-distribution.md)。既存v0.17.3のassetを上書きしません。

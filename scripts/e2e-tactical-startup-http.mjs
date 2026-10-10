@@ -1,21 +1,24 @@
 import { createHash } from 'node:crypto';
 
 export const IFRAME_API_URL = 'https://www.youtube.com/iframe_api';
-export const OBSERVED_WIDGET_URL =
-  'https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js';
+export const OBSERVED_WIDGET_URLS = [
+  'https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js',
+  'https://www.youtube.com/s/player/5203c085/www-widgetapi.vflset/www-widgetapi.js',
+];
 
-export const declaresObservedWidget = (source) => {
+export const declaredObservedWidgets = (source) => {
   const normalized = source.replaceAll('\\/', '/');
-  return ["'", '"'].some((quote) =>
-    normalized.includes(`${quote}${OBSERVED_WIDGET_URL}${quote}`),
+  return OBSERVED_WIDGET_URLS.filter((url) =>
+    ["'", '"'].some((quote) => normalized.includes(`${quote}${url}${quote}`)),
   );
 };
 
-export const isClassifiedStartupRequest = (request, bootstrapVerified) =>
+export const isClassifiedStartupRequest = (request, verifiedWidgetUrls) =>
   request.phase === 'startup' &&
   request.type === 'script' &&
   (request.url === IFRAME_API_URL ||
-    (bootstrapVerified && request.url === OBSERVED_WIDGET_URL));
+    (OBSERVED_WIDGET_URLS.includes(request.url) &&
+      verifiedWidgetUrls.includes(request.url)));
 
 /** Read already-loaded scripts through CDP; this never fetches the remote URL. */
 export const inspectLoadedYouTubeBootstrap = async (page) => {
@@ -34,7 +37,7 @@ export const inspectLoadedYouTubeBootstrap = async (page) => {
       evidence.push({
         url: IFRAME_API_URL,
         sha256: createHash('sha256').update(scriptSource).digest('hex'),
-        declaresObservedWidget: declaresObservedWidget(scriptSource),
+        declaredWidgetUrls: declaredObservedWidgets(scriptSource),
       });
     }
     return evidence;

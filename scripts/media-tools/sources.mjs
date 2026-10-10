@@ -1,7 +1,8 @@
 export const SOURCES = {
   zlib: {
     version: '1.3.2',
-    url: 'https://zlib.net/zlib-1.3.2.tar.gz',
+    url: 'https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.gz',
+    mirrors: ['https://zlib.net/zlib-1.3.2.tar.gz'],
     sha256: 'bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16',
     directory: 'zlib-1.3.2',
   },
@@ -20,6 +21,10 @@ export const SOURCES = {
   freetype: {
     version: '2.14.3',
     url: 'https://download-mirror.savannah.gnu.org/releases/freetype/freetype-2.14.3.tar.xz',
+    // Both distribution sites are listed by https://freetype.org/download.html.
+    mirrors: [
+      'https://downloads.sourceforge.net/project/freetype/freetype2/2.14.3/freetype-2.14.3.tar.xz',
+    ],
     sha256: '36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f',
     directory: 'freetype-2.14.3',
   },

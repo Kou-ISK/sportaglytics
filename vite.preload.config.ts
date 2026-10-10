@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
+import { licenseInventory } from './scripts/license-inventory.mjs';
 
 export default defineConfig({
+  plugins: [licenseInventory('licenses/preload.json')],
   build: {
     target: 'es2020',
     minify: false,
