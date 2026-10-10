@@ -261,3 +261,7 @@ Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実
 分析ready同期は`analysisWindow.test.ts`と`useAnalysisWindowController.test.tsx`で、窓作成前に送られた最新snapshot・listener後の受信・別session拒否を確認します。窓のdid-finish-loadとReact listenerの登録を同一視せず、native側でも実reloadを行います。
 
 統合Macではreveal対象の下端がviewportを0.055px越えるnative負例を得たため、tagのscroll marginを4px確保して完全表示を検査します。Windows installedの行入替はUIの順序と実保存の順序を別々に待ち、固定400msを保存完了と扱いません。期待順序・件数・表示条件は緩和しません。
+
+## 第三者告知の検証
+
+`node --test scripts/tests/distribution-notices.mjs`で告知本文・NOTICEの保持、未使用依存の除外、本文欠落時の失敗、配布sourceとbinary manifestの不一致拒否を確認します。通常の`test:run` / `test:ci`にも含みます。directory packageのResources/ASAR検査と各OS検証の境界は[配布手順](third-party-distribution.md)を参照してください。

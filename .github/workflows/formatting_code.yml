@@ -58,5 +58,8 @@ jobs:
       - name: Test
         run: pnpm run test:ci
 
+      - name: Corresponding media source archive
+        run: pnpm run licenses:sources
+
       - name: Storybook build
         run: pnpm run build:storybook

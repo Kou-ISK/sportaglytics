@@ -28,6 +28,7 @@ Windows runnerでNSISインストーラーとインストール後の操作を�
 - `SporTagLytics-<version>-arm64.dmg`
 - `SporTagLytics-<version>-x64.dmg`
 - `SporTagLytics-Setup-<version>-x64.exe`
+- `media-tools-sources-<version>.tar.gz`（対応sourceとbuild manifest）
 - `SHA256SUMS.txt`
 
 `<version>` は `package.json` の `version` を正とします。手動実行時も、入力 version と `package.json` の version を一致させてください。
@@ -181,3 +182,7 @@ The workflow validates that the version/tag agree and the tagged commit belongs 
 - Confirm `HOMEBREW_TAP_TOKEN` is valid and has access to `Kou-ISK/homebrew-tap`.
 - Confirm the tap repository exists and has `Casks/` writable by the token.
 - Retry only the failed Homebrew step after fixing the secret, or update the cask using the published DMGs and their SHA256 values. Do not repackage or replace an already published release.
+
+## Third-party notices and corresponding source
+
+renderer/preloadのlicense inventoryとResourcesの告知検査を通過させます。Windows CIはinstallerとともにmedia build manifestを渡し、macOS jobは3 targetのmanifestと固定source archiveを照合して`media-tools-sources-<version>.tar.gz`を作成します。これを同じReleaseとSHA256SUMSへ含めます。source bundleが欠ける場合は公開しません。[内容・手順・過去版の不足](../docs/third-party-distribution.md)。

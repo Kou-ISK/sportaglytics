@@ -75,6 +75,15 @@ const isCached = async (architecture) => {
       )
         return false;
     }
+    for (const file of [
+      'ffmpeg-COPYING.LGPLv2.1',
+      'freetype-LICENSE.TXT',
+      'freetype-FTL.TXT',
+      'harfbuzz-COPYING',
+    ]) {
+      if (!(await readFile(join(output, 'licenses', file), 'utf8')).trim())
+        return false;
+    }
     return true;
   } catch {
     return false;
@@ -140,6 +149,7 @@ if (pending.length > 0) {
       for (const [name, file] of [
         ['ffmpeg', 'COPYING.LGPLv2.1'],
         ['freetype', 'LICENSE.TXT'],
+        ['freetype', 'docs/FTL.TXT'],
         ['harfbuzz', 'COPYING'],
         ...(platform === 'win32'
           ? [
@@ -150,7 +160,7 @@ if (pending.length > 0) {
       ]) {
         await copyFile(
           join(sources[name], file),
-          join(licenses, `${name}-${file}`),
+          join(licenses, `${name}-${basename(file)}`),
         );
       }
       const png = join(outputDirectory, 'paint-overlay-smoke.png');
