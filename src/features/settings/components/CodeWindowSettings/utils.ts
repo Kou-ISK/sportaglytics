@@ -91,7 +91,7 @@ export const createLayout = (
 
 /**
  * 新しいボタン間リンクを作成
- * Sportscodeでは右クリックドラッグで排他リンク（exclusive）を作成
+ * 修飾キー付きの右クリックドラッグで、ボタン間のリンクを作成する。
  */
 export const createButtonLink = (
   fromButtonId: string,

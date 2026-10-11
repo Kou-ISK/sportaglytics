@@ -26,12 +26,13 @@
 6. `docs/README.md` / `docs/documentation-guide.md`:
    ドキュメント索引と運用ルール。
 
-## 規約の優先順位
+## 適用範囲と競合の扱い
 
-1. `AGENTS.md`
-2. `.github/copilot-instructions.md`
-3. `.github/instructions/*.instructions.md`
-4. `.github/technical-instructions.md`
+- システム・ツール・ユーザーからの明示指示を前提に、このルート `AGENTS.md` をリポジトリ全体の共通規約とする。
+- 変更対象の親ディレクトリに階層 `AGENTS.md` がある場合は、その配下の差分規約も読む。現時点ではルートのみで、`.agents/skills` は配置していない。
+- 階層規約や `.github/instructions/*.instructions.md` は対象範囲の補足とする。`applyTo` が具体的という理由だけで共通規約を緩めない。意図した例外は「例外管理」に従って明示する。
+- `.github/copilot-instructions.md` はCopilotの入口、`.github/technical-instructions.md` は背景説明であり、共通規約を上書きしない。
+- ツールによって自動読込対象が異なるため、対象に適用される規約を明示的に確認する。矛盾を解消できない場合は該当箇所を報告し、実装判断を保留する。
 
 ## 規約の強度
 
@@ -39,14 +40,16 @@
 - `SHOULD`: 推奨。明確な理由がある場合のみ逸脱可。
 - `MAY`: 任意。
 
-## 技術基準（固定）
+## 技術基準
+
+依存の指定範囲と実行コマンドは `package.json`、解決済みの正確な版は `pnpm-lock.yaml` を正本とする。セットアップは [開発環境](docs/development.md#開発環境) に従う。
 
 - React 19（関数コンポーネントのみ）
-- TypeScript 5.4（`strict: true`）
+- TypeScript 5（`strict: true`。解決版はlockfile参照）
 - Electron 43
 - Material UI 7
 - Video.js 8
-- pnpm 9
+- pnpm 9.1.0（`packageManager` とCIに合わせる）
 
 ## アーキテクチャ方針
 
@@ -136,6 +139,7 @@
 - `MUST`: ADR ファイル名には 4 桁ゼロ埋め ID を含め、ADR 変更時は `pnpm run check:adr` を実行する。
 - `MUST`: 新規ドキュメントを追加する場合は `docs/README.md` から辿れるようにする。
 - `MUST`: ドキュメント運用は `docs/documentation-guide.md` に従う。
+- `MUST`: Docs Impact Matrixで更新先を判断し、ユーザー影響・設計変更時は `docs/system-overview.md` と `docs/development.md` も確認する。配置判断の変更は `docs/project-structure.md` へ反映する。
 - `MUST`: ドキュメント更新不要と判断する場合は、PR で理由を明示する。
 - `SHOULD`: ADR には `Context / Decision / Consequences` を含め、実装差分の羅列ではなく判断背景を残す。
 
@@ -166,28 +170,17 @@
 - `MUST`: ローカルデータの調査・学習・検証への利用許可を公開許可と解釈しない。個人情報、実試合を特定する情報、私的なアカウント状態は含めず、再現例には架空の名前と相対パスを使う。
 - `MUST`: 公開済みの問題は通常の修正で対応し、履歴の書換え・force-pushは別途明示的な承認なしに行わない。
 
-## 品質ゲート（CI fail 条件）
+## 品質ゲートと変更の検証
 
-```bash
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron/tsconfig.json
-pnpm run lint
-pnpm run check:architecture
-pnpm run test:run
-```
+- `MUST`: [Testing and Quality Gates](docs/testing.md#required-quality-gate) の共通ゲートと変更対象ごとの追加検証を実行する。`pnpm run verify` は型・lint・境界・design-system・ADR・unit・アプリbuild・Storybookをまとめて実行するが、OS別E2Eや配布検証は含まない。
+- `MUST`: PRに実行環境、実行したコマンド、結果、未実施範囲と理由を残す。実行できなかった検査を合格と扱わず、必要なCI/対応OSの検証をmerge前に確認する。
+- `MUST`: AI生成部分も提出者が差分・根拠・失敗経路をレビューする。コマンド成功だけで正しさ、権利、機密情報の不在を保証しない。
+- `MUST`: 追加・流用するコード、画像、フォント、fixture、モデル、binaryは出典・版/hash・license/NOTICE・配布範囲を確認する。未確認事項は [由来の確認台帳](docs/provenance-review.md) に従って明示し、権利確認済みと記載しない。
 
 ## レポート運用
 
 - `SHOULD`: 月次で巨大ファイル残件レポートを生成し、優先順位を更新する。
 - `SHOULD`: `pnpm run report:large-files` の結果をリファクタ計画へ反映する。
-
-## ドキュメント同期
-
-- `MUST`: `docs/documentation-guide.md` の Docs Impact Matrix に従って更新先を判断する。
-- `MUST`: ユーザー影響・設計変更がある場合は `docs/system-overview.md` と `docs/development.md` を更新する。
-- `MUST`: 長期的な設計判断がある場合は `docs/adr/` を更新する。
-- `MUST`: 新規ドキュメントを追加した場合は `docs/README.md` を更新する。
-- `MUST`: ディレクトリ構成・配置判断を変更した場合は `docs/project-structure.md` を更新する。
 
 ## PR チェックリスト
 
@@ -205,4 +198,6 @@ pnpm run test:run
 - [ ] 新規ドキュメントがある場合は `docs/README.md` に追加した。
 - [ ] ディレクトリ構成・配置判断が変わる場合は `docs/project-structure.md` を更新した。
 - [ ] ドキュメント更新不要の場合は PR に理由を記載した。
-- [ ] 品質ゲート 5 コマンドを全通過。
+- [ ] 共通ゲートと変更対象ごとの追加検証を実行し、結果・未実施範囲をPRに記載した。
+- [ ] AI生成部分を含めて人がレビューできる差分と検証根拠を用意した。
+- [ ] 追加資産の出典・license・配布範囲を確認し、未確認項目を明示した。

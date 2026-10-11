@@ -25,7 +25,7 @@ SporTagLyticsへのコントリビューションに興味を持っていただ�
 ### 必要な環境
 
 - Node.js 22.12.0以上
-- pnpm 9.0.0以上
+- pnpm 9.1.0（`package.json` の `packageManager` に固定）
 - Git
 
 ### セットアップ手順
@@ -36,10 +36,10 @@ git clone https://github.com/YOUR_USERNAME/sportaglytics.git
 cd sportaglytics
 
 # pnpmのインストール（未インストールの場合）
-npm install -g pnpm
+npm install -g pnpm@9.1.0
 
 # 依存関係のインストール
-pnpm install
+pnpm install --frozen-lockfile
 
 # 開発サーバー起動
 pnpm run electron:dev
@@ -53,25 +53,20 @@ pnpm run electron:dev
 
 2. **ブランチの作成**
 
+   `upstream` を `https://github.com/Kou-ISK/sportaglytics.git` に設定したforkでは、最新の `upstream/develop` から作成します。
+
    ```bash
-   git checkout -b feature/your-feature-name
+   git fetch upstream develop
+   git switch -c feature/your-feature-name upstream/develop
    # または
-   git checkout -b fix/bug-description
+   git switch -c fix/bug-description upstream/develop
    ```
 
 3. **変更の実装**
    - コーディング規約に従って実装
    - 必要に応じてテストを追加
    - ユーザー影響または設計変更がある場合はドキュメントを更新
-   - 品質ゲートを実行
-
-   ```bash
-   pnpm exec tsc --noEmit
-   pnpm exec tsc -p electron/tsconfig.json
-   pnpm run lint
-   pnpm run check:architecture
-   pnpm run test:run
-   ```
+   - [共通ゲートと変更対象ごとの追加検証](docs/testing.md#required-quality-gate)を実行し、結果・未実施範囲を記録
 
 4. **コミット**
    - 意味のある単位でコミット
@@ -83,7 +78,7 @@ pnpm run electron:dev
    git push origin feature/your-feature-name
    ```
 
-   - GitHub上でプルリクエストを作成
+   - GitHub上で `Kou-ISK/sportaglytics` の `develop` 宛てにプルリクエストを作成
    - テンプレートに従って説明を記入
 
 6. **レビュー対応**
@@ -98,7 +93,7 @@ pnpm run electron:dev
 
 - **strict mode**: 常に有効
 - **any の禁止**: やむを得ない場合のみ使用し、理由コメントを添える
-- **型定義**: `src/types/` に集約
+- **型定義**: feature固有型はfeature内、共有型は `src/types/` または `src/shared/` に配置
 - **命名規則**:
   - React コンポーネント: PascalCase
   - 関数・変数: camelCase
@@ -109,7 +104,7 @@ pnpm run electron:dev
 
 - **関数コンポーネントのみ**: クラスコンポーネントは使用しない
 - **Hooks**:
-  - `useEffect` には完全な依存配列とクリーンアップを必ず定義
+  - `useEffect` には完全な依存配列を定義し、必要なクリーンアップを実装
   - 複雑なロジックはカスタムフックに分離
 - **責務分離**: ビュー（JSX）とロジック（Hooks）を明確に分離
 
@@ -135,7 +130,7 @@ src/
 ### スタイリング
 
 - **Material-UI**: `sx` プロパティで統一
-- **テーマ**: `src/theme.ts` をソースオブトゥルースとする
+- **テーマ**: [design system](docs/design-system.md) と `src/design-system` のsemantic tokenを正本とする
 - **ハードコード禁止**: 色・余白は必ずテーマ経由で取得
 
 ### Linting & Formatting
@@ -163,7 +158,9 @@ AI agent / Copilot で変更する場合も、提出者が内容をレビュー�
 - 仕様・設計・ユーザー影響・開発手順・配置判断が変わる場合は [docs/documentation-guide.md](docs/documentation-guide.md) の Docs Impact Matrix に従って docs を同時更新する。
 - ドキュメントを追加する場合は [docs/README.md](docs/README.md) に掲載する。
 - ブランチ名とコミットメッセージは [AGENTS.md](AGENTS.md) の Git / ブランチ / コミット運用に従う。
-- AI 生成コードでも品質ゲート 5 コマンドを通す。
+- AI生成部分も [Testing](docs/testing.md#required-quality-gate) に従って検証し、実行環境・コマンド・結果・未実施範囲をPRに記載する。
+- 提出者が差分と失敗経路、引用・流用資産の出典/許諾、非公開情報の不在を確認する。AIの自己申告やテスト成功を権利確認の代わりにしない。
+- [由来の確認台帳](docs/provenance-review.md) の未確認項目へ根拠を追加する場合も、契約原本、会話ログ、私有モデル情報を公開PRに添付しない。再現用fixtureは架空名と相対パスを使う。
 
 ## ドキュメント更新
 

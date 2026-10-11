@@ -6,7 +6,7 @@
   "packageManager": "pnpm@9.1.0",
   "engines": {
     "node": ">=22.12.0",
-    "pnpm": ">=9.0.0"
+    "pnpm": "9.1.0"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

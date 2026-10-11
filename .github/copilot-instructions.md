@@ -13,7 +13,7 @@
 
 1. 実装・提案は常に `AGENTS.md` を基準に解釈する。
 2. 変更対象に一致する `.github/instructions/*.instructions.md` の `applyTo` 差分を適用する。
-3. ルールが重なる場合は、より具体的な `applyTo` を優先する。
+3. 階層 `AGENTS.md` があれば対象範囲の補足として読み、競合はルート `AGENTS.md` の「適用範囲と競合の扱い」に従う。`applyTo` の具体性だけで共通規約を緩めない。
 4. 一般規約を `.instructions.md` に再記述しない。
 5. 実装前後で品質ゲート通過を前提にする。
 6. 設計判断を変更する場合は `docs/adr/` を確認し、必要に応じて ADR を追加・更新する。
@@ -24,13 +24,7 @@
 
 ## 品質ゲート
 
-```bash
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron/tsconfig.json
-pnpm run lint
-pnpm run check:architecture
-pnpm run test:run
-```
+[docs/testing.md](../docs/testing.md#required-quality-gate) を参照する。実行環境、コマンド、結果、未実施範囲をPRに残し、AI生成部分も提出者がレビューする。
 
 ## 主要ドキュメント
 

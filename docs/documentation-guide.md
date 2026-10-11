@@ -17,8 +17,17 @@
 | 開発者向け手順                | `docs/development.md`                    |
 | テストと品質ゲート            | `docs/testing.md`                        |
 | privacy / local data handling | `docs/privacy-and-data-handling.md`      |
+| プロジェクト概要・利用者の入口 | `README.md` |
+| 人/AI共通の貢献手順・レビュー責任 | `CONTRIBUTING.md` |
+| 脆弱性の非公開報告手順 | `SECURITY.md` |
+| アプリ自身の利用許諾 | `LICENSE` |
+| 第三者告知と配布物への配置 | `THIRD_PARTY_NOTICES.md`, `docs/third-party-distribution.md` |
+| 資産の由来・未確認事項・旧配布物の照合 | `docs/provenance-review.md` |
+| 実行コマンド・依存の指定と解決版 | `package.json`, `pnpm-lock.yaml` |
 
 同じ規約本文を複数ファイルへ重複記載しないでください。別ドキュメントからは正本へリンクします。
+
+AGENTSは実装時の行動規約、CONTRIBUTINGは提出とレビューの手順を担当します。脆弱性の具体的な報告先はSECURITYへ、第三者license本文は元のLICENSE/NOTICEと配布用告知へ置き、AGENTSへ転記しません。由来の確認台帳は確認状態を示す資料であり、新しい許諾や契約同意を与えるものではありません。契約原本、個人情報、私有モデルの内部記録は公開文書へ追加しません。
 
 ## 現行仕様と変更履歴を分ける
 

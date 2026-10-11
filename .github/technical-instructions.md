@@ -7,11 +7,6 @@
 2. Copilot の適用範囲制御は `.github/instructions/*.instructions.md` の `applyTo` で行う。
 3. 行数ルールは Soft Budget（Warn Only）で運用し、境界違反・型・テストを優先して修正する。
 
-## 最低チェックコマンド
-```bash
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron/tsconfig.json
-pnpm run lint
-pnpm run check:architecture
-pnpm run test:run
-```
+## 実行手順の参照先
+
+セットアップは [開発環境](../docs/development.md#開発環境)、検証範囲と実行コマンドは [Testing and Quality Gates](../docs/testing.md#required-quality-gate) を参照する。版・コマンドをこの背景メモへ複製しない。

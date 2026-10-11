@@ -33,6 +33,8 @@ FFmpegへの変更はWindows用manifest設定のみで、無改変の上流archi
 
 2026-10-10時点のv0.17.3はDMG 2本、NSIS 1本、SHA256SUMSのみで、対応source attachmentはありません。タグのsource URL/hash/recipeは確認済みですが、上流URLの案内だけで対応完了とは扱いません。既存artifactを差し替えず、過去版の補足source提供は対象tagとbinary manifestを照合して扱います。
 
+2026-10-11の実配布物照合では、同版の3 targetでsource版/hash、Windowsでffmpeg/ffprobeのbinary hashを確認しました。macOSの署名後hashは別途検証が必要です。FreeType FTL本文と過去JS/native告知の不足・未確認範囲は [由来の確認台帳](provenance-review.md#過去配布物の補足状況) に記録します。旧版への補足公開はまだ行っていません。
+
 変更後の最小検証は、通常renderer/preload build、生成inventory内容、electron-builderのdirectory packageでResourcesと`app.asar`のnotice保持を確認します。macOS署名・公証やWindows installerの再検証は対応OSのCIが正本です。Linuxでのdirectory package成功をmacOS/Windows配布の検証へ読み替えません。
 
 モデル・GGUF・動画・private R&D・ローカルパスをsource archiveへ含めません。[モデル台帳](model-distribution.md)は別の公開境界を扱います。

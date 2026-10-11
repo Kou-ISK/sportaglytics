@@ -67,7 +67,7 @@ Mac受入では一時profileと合成21widget・24×24表だけを使い、obser
 | ツール  | バージョン |
 | ------- | ---------- |
 | Node.js | 22.12以上  |
-| pnpm    | 9.1.0以上  |
+| pnpm    | 9.1.0（`packageManager`と同じ版） |
 | Git     | 最新版     |
 
 通常のElectron開発・配布にPython runtimeは不要です。Event modelのtraining/evaluationは別private R&D repositoryで管理します。
@@ -75,9 +75,15 @@ Mac受入では一時profileと合成21widget・24×24表だけを使い、obser
 ```bash
 git clone <repository-url>
 cd sportaglytics
+npm install -g pnpm@9.1.0
+pnpm --version
 pnpm install --frozen-lockfile
 pnpm run electron:dev
 ```
+
+pnpmのglobal install先へ書けない環境では、利用環境のCorepack等で同じ9.1.0を選択してください。最新pnpmへの自動更新やlockfileの再生成をセットアップの代用にしません。依存版は `package.json` と `pnpm-lock.yaml`、コマンドは `package.json` のscriptsが正本です。
+
+公開ソースの型・unit・Storybook検証に私有R&D repositoryや学習データは不要です。初回installと `vision:prepare` を含むbuild/Storybookでは公開依存・固定モデルの取得にネットワークが必要です。Electron E2E・native packagingはOS別のツールと準備が必要で、Linuxのunit成功をmacOS/Windows実機成功と扱いません。fork PRで利用できない署名・公証・private packの確認はmaintainer側の工程として未実施範囲を記録します。
 
 ## 技術スタック
 
@@ -149,21 +155,7 @@ CommitはConventional Commitsを使います。
 
 `test:run` / `test:ci`はVitestに加えて`check:build-downloads`を実行します。builderの合成ダウンロード、checksum拒否、ファイルキャッシュ、agent・redirect・progress・timeout、HTTP response cacheの再有効化拒否をloopbackで確認します。ビルド依存の限定パッチとpnpm 9 manifest hookは[ADR 0058](adr/0058-build-downloads-without-response-cache.md)を参照してください。`electronDownload.cache`のファイル保存先は維持し、gotの`downloadOptions.cache`は使用しません。
 
-PR merge前に必須:
-
-```bash
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron/tsconfig.json
-pnpm run lint
-pnpm run check:architecture
-pnpm run test:run
-```
-
-ADR変更時:
-
-```bash
-pnpm run check:adr
-```
+共通ゲートと変更対象ごとの追加検証は [Testing](testing.md#required-quality-gate) を正本とします。UI変更は `pnpm run verify` を実行し、実行環境・コマンド・結果・未実施範囲をPRへ残します。
 
 Preload / packaged Electron変更時:
 
@@ -181,7 +173,7 @@ pnpm run test:e2e
 
 Paintの入力変更では、pointermoveが省略される短いドラッグ、停止直後の時刻更新、明示的なシークによる取消を確認します。追尾表示は再生時計ではなく表示フレームの`mediaTime`で描画し、低速の端数移動を連続させても量子化誤差が蓄積しないことを検証します。`e2e-paint.mjs`は描画の再試行をせず、連続操作ごとの図形数と保存内容を確認します。
 
-GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Vitestを実行します。
+CIの実施範囲は [Testing](testing.md#required-quality-gate) と `.github/workflows/formatting_code.yml` を参照してください。素材や外部仕様の出典、互換性の未検証範囲は [由来の確認台帳](provenance-review.md) へ集約します。
 
 ## アーキテクチャ
 

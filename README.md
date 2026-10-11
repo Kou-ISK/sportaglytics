@@ -75,43 +75,33 @@ brew install --cask sportaglytics
 
 ## 技術スタック
 
-- **フロントエンド**: React 19.2 + TypeScript 5.4
+- **フロントエンド**: React 19 + TypeScript 5（解決版はlockfile参照）
 - **デスクトップ**: Electron 43
 - **UI**: Material-UI 7
 - **映像**: Video.js 8
-- **パッケージ管理**: pnpm 9
+- **パッケージ管理**: pnpm 9.1.0
 
 ## 開発
 
 ### 必要な環境
 
 - Node.js 22.12.0+
-- pnpm 9.0.0+
+- pnpm 9.1.0（`package.json` の `packageManager`）
 
 ### セットアップ
 
 ```bash
 # pnpmのインストール（未インストールの場合）
-npm install -g pnpm
+npm install -g pnpm@9.1.0
 
 # 依存関係のインストール
-pnpm install
+pnpm install --frozen-lockfile
 
 # Electronアプリを開発モードで起動
 pnpm run electron:dev
 ```
 
-品質ゲート:
-
-```bash
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron/tsconfig.json
-pnpm run lint
-pnpm run check:architecture
-pnpm run test:run
-```
-
-詳細は [開発ガイド](docs/development.md) を参照してください。
+品質ゲートと変更別の検証は [Testing](docs/testing.md#required-quality-gate)、ネットワーク・OS別の準備は [開発ガイド](docs/development.md#開発環境) を参照してください。
 
 ## AI contributor 向け入口
 
