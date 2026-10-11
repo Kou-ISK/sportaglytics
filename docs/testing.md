@@ -61,37 +61,40 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 `test:run` / `test:ci`は既存Vitestの後に`check:build-downloads`と同じNode検査も実行します。`scripts/tests/build-downloader.mjs`は実際のbuilder/get/got依存を読み、loopbackの合成bytesでダウンロード・checksum・ファイルキャッシュと通信の回帰を検証します。外部モデルやElectron GUIを起動しません。依存境界の判断は[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に記録しています。
 
-PR前に以下を通します。
+PR前の共通ゲートは以下です。コマンドの定義は `package.json` を正本とします。
 
 ```bash
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron/tsconfig.json
+pnpm run typecheck
+pnpm run typecheck:electron
 pnpm run lint
 pnpm run check:architecture
 pnpm run test:run
 ```
 
-ADR変更時:
+UI変更時はdesign-systemとStorybookを含む以下の全体検証を実行します。ADR変更時には単独でも `pnpm run check:adr` を実行してください。
 
 ```bash
-pnpm run check:adr
+pnpm run verify
 ```
 
-| Command                                   | Purpose                           |
-| ----------------------------------------- | --------------------------------- |
-| `pnpm exec tsc --noEmit`                  | renderer/shared TypeScript        |
-| `pnpm exec tsc -p electron/tsconfig.json` | Electron main/preload TypeScript  |
-| `pnpm run lint`                           | ESLint zero warnings              |
-| `pnpm run check:architecture`             | Feature-First / Electron boundary |
-| `pnpm run check:adr`                      | ADR filename/index consistency    |
-| `pnpm run test:run`                       | Vitest one-shot + build downloads |
-| `pnpm run test:ci`                        | serialized Vitest + build downloads |
-| `pnpm run check:build-downloads`          | build download and cache boundary |
-| `pnpm run check:preload`                  | preload bundle sanity             |
-| `pnpm run report:architecture-health`     | architecture report               |
-| `pnpm run report:large-files`             | soft file-size report             |
+| Command | Purpose |
+| --- | --- |
+| `pnpm run typecheck` / `typecheck:electron` | renderer/shared とElectron main/preload TypeScript |
+| `pnpm run lint` | ESLint zero warnings |
+| `pnpm run check:architecture` | Feature-First / Electron boundary |
+| `pnpm run check:design-system` | semantic token / UI境界 |
+| `pnpm run check:adr` | ADR filename/index consistency |
+| `pnpm run test:run` | Vitest one-shot + build download / distribution notice tests |
+| `pnpm run test:ci` | 同じ検査をVitest file並列なしで実行 |
+| `pnpm run verify` | 共通ゲート + design-system / ADR + app build / Storybook build |
+| `pnpm run licenses:sources` | 公開された固定media sourceの取得・対応source archive準備 |
+| `pnpm run check:build-downloads` | build download and cache boundary |
+| `pnpm run check:preload` | preload bundle sanity |
+| `pnpm run report:architecture-health` / `report:large-files` | architecture / soft file-size report |
 
-GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Vitestを実行します。Model training/evaluationのCIは別private R&D repositoryの責務です。
+GitHub Actions [quality-check](../.github/workflows/formatting_code.yml) は `main` / `develop` / `feat**` 宛てpull requestで、Node 22.12.0 / pnpm 9.1.0のfrozen install、lint、renderer/electron typecheck、architecture、design-system、ADR、`test:ci`、`licenses:sources`、Storybook buildを実行します。`verify` とCIの工程は完全には同じでなく、いずれもOS別の実Electron E2E・署名・公証・installer検査を代替しません。
+
+実行環境、コマンド、結果、未実施の範囲と理由をPRに記載します。必要な検査が環境制限で実行できない場合は合格と扱わず、merge前にCIまたは対応OSで確認します。初回build/Storybookの `vision:prepare` と `licenses:sources` は公開資産のネットワーク取得を伴います。Model training/evaluationのCIは別private R&D repositoryの責務で、公開ソースの検査にその認証・映像・重みを要求しません。
 
 ## Test Placement
 

@@ -51,9 +51,8 @@ export const ButtonBasicTab = ({
             color="text.secondary"
             sx={{ display: 'block', mb: 1 }}
           >
-            ※Sportscode方式: チームを区別する場合は「チーム名
-            アクション名」形式で命名 （例: &quot;Team A ポゼッション&quot;,
-            &quot;Team B Attack&quot;）
+            チームを区別する場合は「チーム名 アクション名」形式で命名 （例:
+            &quot;Team A ポゼッション&quot;, &quot;Team B Attack&quot;）
           </Typography>
           <FormControl fullWidth size="small" sx={{ mb: 2 }}>
             <InputLabel>アクション（プリセットから）</InputLabel>

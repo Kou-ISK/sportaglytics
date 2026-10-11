@@ -70,7 +70,8 @@ const extractLabelsFromTimelineData = (item: TimelineData): SCLabel[] => {
 /**
  * TimelineData配列をSCTimeline形式に変換
  *
- * SporTagLyticsのTimelineData配列を、Sportscode SCTimeline形式のJSONに変換します。
+ * SporTagLyticsのTimelineData配列を、アプリが扱うSCTimeline JSONに変換します。
+ * 外部製品との互換性の検証範囲はdocs/sctimeline-implementation.mdを参照。
  * 各TimelineDataは個別のインスタンスとして、actionName別の行に振り分けられます。
  */
 export const convertToSCTimeline = (
@@ -142,7 +143,7 @@ export const convertToSCTimeline = (
 /**
  * SCTimeline形式からTimelineData配列に変換
  *
- * Sportscode SCTimeline形式のJSONを、SporTagLyticsのTimelineData配列に変換します。
+ * アプリが扱うSCTimeline JSONを、SporTagLyticsのTimelineData配列に変換します。
  * labels配列中心の TimelineData に変換します。
  */
 export const convertFromSCTimeline = (
@@ -266,7 +267,7 @@ export const normalizeTimelineData = (
  * SCTimelineでは各行に色が設定されているため、一貫性のある色を生成
  */
 const generateColorForAction = (actionName: string): string => {
-  // デフォルトのカラーパレット（Sportscodeっぽい色）
+  // 未指定の行へ割り当てるデフォルトのカラーパレット
   const colors = [
     '#E9E9E9', // グレー
     '#3890E0', // 青

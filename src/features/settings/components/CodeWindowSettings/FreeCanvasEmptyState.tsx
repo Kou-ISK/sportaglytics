@@ -15,15 +15,13 @@ export const FreeCanvasEmptyState = () => {
       }}
     >
       <AddIcon sx={{ fontSize: 48, opacity: 0.5 }} />
-      <Typography variant="body2">
-        空白を右クリック → ボタンを追加
-      </Typography>
+      <Typography variant="body2">空白を右クリック → ボタンを追加</Typography>
       <Typography
         variant="caption"
         display="block"
         sx={{ mt: 1, whiteSpace: 'pre-line' }}
       >
-        {`リンク作成（Sportscode準拠）:
+        {`ボタン間のリンク作成:
 Control + 右クリックドラッグ → 排他リンク（赤）
 Option + 右クリックドラッグ → 活性化（緑）
 Shift + 右クリックドラッグ → 非活性化（橙）`}

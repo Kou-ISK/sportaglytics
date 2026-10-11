@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- AI指示の適用範囲・例外管理と人によるレビュー責任を明確化し、pnpm固定版、開発手順、品質ゲートの参照先を整合。
+- Code Window等の「Sportscode準拠」表現を実際の操作説明へ変更し、SCTimeline JSONの外部往復未検証を明記。保存形式や動作は変更しない。
+- [由来の確認台帳](docs/provenance-review.md)に資産・旧配布物の確認状態を記録。旧Releaseの補足公開や権利確認の完了を意味しない。
+
 ## [0.17.4] - 2026-10-10
 
 ### Changed

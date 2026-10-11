@@ -36,10 +36,17 @@
 - [ ] `pnpm run check:architecture`
 - [ ] `pnpm run test:run`
 
+変更別の追加検証は [Testing](../docs/testing.md#required-quality-gate) を参照してください。UI変更は `pnpm run verify`、OS依存変更は対象のE2E/配布検証を記録します。
+
+- 実行環境 / source commit:
+- 追加コマンドと結果:
+- 未実施範囲・理由・merge前の確認先:
+
 ## Public Data Review
 
 - [ ] [公開時のデータ取り扱い](../docs/privacy-and-data-handling.md#sharing-and-issue-reports)に従い、差分・PR本文・添付ログ/画像・コミット情報を確認した
 - [ ] 公開許可のない個人情報、実試合の識別情報、ローカルパス、私的なアカウント状態を含めていない
+- [ ] AI生成部分も提出者が差分と根拠をレビューし、追加資産の出典・版・license/NOTICE・配布範囲を確認した（未確認項目は明記）
 
 ## UI / Design System Impact
 

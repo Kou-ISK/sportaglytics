@@ -5,6 +5,7 @@
 - [compact density評価](reports/2026-10-compact-density.md): Timelineの下部検索ドック・共通フォームの変更と検証範囲。
 - [Timelineの場面検索とレビュー](timeline-review.md): 検索、全文確認、編集・Playlistへの移動。
 - [UX評価と改善の検証記録](reports/2026-10-ux-review.md): 実Electronの代表導線、before/after、測定と未評価範囲。
+- [由来の確認台帳](provenance-review.md): コード・画像・モデル等の確認状態、互換性の限界、旧配布物の未解決事項。
 
 ライブ撮影中の分析は[ライブキャプチャとコーディング](live-coding.md)を参照してください。設計判断は[ADR 0053](adr/0053-live-capture-package-timeline.md) / [ADR 0054](adr/0054-continuous-capture-playback.md)です。
 
@@ -84,7 +85,7 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 - [音声同期オフセット仕様](audio-sync-offset-specification.md): 音声同期 offset の計算・適用とマルチアングル保存契約（関連 ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）。
 - [コードウィンドウ編集](code-window-settings.md): `.stcw` ドキュメントと独立編集ウィンドウ。
 - [SCTimeline 実装](sctimeline-implementation.md): SCTimeline JSONと専用XML取り込みの区別（関連 ADR: [0009](adr/0009-timeline-import-export-interoperability.md)）。
-- [タイムライン行モデル](adr/0017-row-owned-timeline-presentation.md): 行が名称・色・順序を所有する保存形式とSportscode準拠の編集操作。
+- [タイムライン行モデル](adr/0017-row-owned-timeline-presentation.md): 行が名称・色・順序を所有する保存形式と行・区間の編集操作。
 - [カスタムファイルアイコン](custom-file-icons.md): 独自ファイル形式と icon / bundle 設定。
 - [Homebrew distribution](homebrew-distribution.md): Homebrew Cask 配布手順。
 

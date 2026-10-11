@@ -28,11 +28,11 @@
 | Category        | Technology            |
 | --------------- | --------------------- |
 | Frontend        | React 19              |
-| Language        | TypeScript 5.4 strict |
+| Language        | TypeScript 5 strict（解決版はlockfile参照） |
 | Desktop         | Electron 43           |
 | UI              | Material UI 7         |
 | Video           | Video.js 8            |
-| Package manager | pnpm 9                |
+| Package manager | pnpm 9.1.0（packageManagerと同じ版） |
 | Build           | Vite                  |
 
 実装規約の正本は `AGENTS.md` とする。
@@ -92,7 +92,7 @@ Code Window buttonは少なくとも次を持つ。
 
 ### Recording range
 
-Action buttonごとにSportscode型のrecording rangeを持てること。
+Action buttonごとに開始前・終了後を含める秒数を設定できること。
 
 ```ts
 leadTimeSeconds?: number;
@@ -473,21 +473,7 @@ External process:
 
 ## 3.5 Quality
 
-Required PR gate:
-
-```bash
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron/tsconfig.json
-pnpm run lint
-pnpm run check:architecture
-pnpm run test:run
-```
-
-ADR変更時:
-
-```bash
-pnpm run check:adr
-```
+共通PRゲート、UI/ADR変更時の追加検証、CIとの差分は [Testing and Quality Gates](testing.md#required-quality-gate) を正本とする。実行環境・結果・未実施範囲をPRへ記録する。
 
 Pull request CIは `develop` を含む通常統合先で実行する。Model R&DのCIはprivate repository側で管理する。
 
