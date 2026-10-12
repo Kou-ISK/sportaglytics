@@ -8,6 +8,8 @@
 
 Paintは既存のApache LICENSE/NOTICE、llama.cppとWindowsのNotoフォントも既存の告知を保持します。FreeTypeの`LICENSE.TXT`はライセンス選択の説明なので、選択するFTLの本文`docs/FTL.TXT`も同梱します。Electron/Chromiumの告知はElectron配布に含まれ、プラットフォーム固有の配置を維持します。
 
+macOS llama.cpp b7849のJSON・cpp-httplib・BoringSSLの告知は、両archの固定上流実行ファイルに全文が埋め込まれ、`--license`で表示する構造です。2026-10-12に上流の固定source本文とのbytes一致を確認しました。専用ファイルとしてのコピーと検査がなかったため、次版から`llama/darwin/licenses/`にも同梱し、cacheと`afterPack`で全文hash・実行ファイル内の本文を検査します。[出典とhash](../resources/third-party/llama-b7849/README.md)。旧版に依存告知が完全に存在しなかったとは扱いません。全native依存やcompiler runtimeの権利確認を完了したという意味でもありません。
+
 event packを同梱する場合は、上記のアプリ告知とは別に[packの由来記録](event-pack-provenance.md)とLICENSE/NOTICEを検査します。`afterPack`は全packの検査完了後にrunnerを署名します。空stagingの配布は維持します。
 
 ## FFmpegの対応ソース

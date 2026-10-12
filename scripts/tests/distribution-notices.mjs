@@ -1,11 +1,76 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { licenseInventory } from '../license-inventory.mjs';
 import { validateBuildManifest } from '../media-tools/source-manifest.mjs';
 import { SOURCES } from '../media-tools/sources.mjs';
+import {
+  copyMacLlamaNotices,
+  verifyMacLlamaNotices,
+} from '../mac-llama-notices.mjs';
+
+const macLlamaFixture = async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'mac-llama-notices-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const texts = await Promise.all(
+    ['LICENSE-jsonhpp', 'LICENSE-cpp-httplib', 'LICENSE-BoringSSL'].map(
+      (name) =>
+        readFile(
+          new URL(
+            `../../resources/third-party/llama-b7849/${name}`,
+            import.meta.url,
+          ),
+        ),
+    ),
+  );
+  // Synthetic, non-executable fixture; no upstream runtime or model is run.
+  await writeFile(join(directory, 'llama-completion'), Buffer.concat(texts));
+  return directory;
+};
+
+test('macOS runtime gets the three exact reviewed dependency notices', async (t) => {
+  const directory = await macLlamaFixture(t);
+  const hashes = await copyMacLlamaNotices(directory, 'b7849');
+  assert.deepEqual(Object.keys(hashes).sort(), [
+    'licenses/LICENSE-BoringSSL',
+    'licenses/LICENSE-cpp-httplib',
+    'licenses/LICENSE-jsonhpp',
+  ]);
+  await verifyMacLlamaNotices(directory, 'b7849');
+});
+
+test('missing or changed cached/packaged notices and unbound binary fail closed', async (t) => {
+  const directory = await macLlamaFixture(t);
+  await copyMacLlamaNotices(directory, 'b7849');
+  const notice = join(directory, 'licenses/LICENSE-jsonhpp');
+  await rm(notice);
+  await assert.rejects(verifyMacLlamaNotices(directory, 'b7849'), /ENOENT/);
+  await writeFile(notice, 'MIT label without the full notice');
+  await assert.rejects(
+    verifyMacLlamaNotices(directory, 'b7849'),
+    /Invalid.*notice/,
+  );
+  await copyMacLlamaNotices(directory, 'b7849');
+  await writeFile(join(directory, 'llama-completion'), 'different runtime');
+  await assert.rejects(
+    verifyMacLlamaNotices(directory, 'b7849'),
+    /does not embed/,
+  );
+  await assert.rejects(
+    copyMacLlamaNotices(directory, 'b7849'),
+    /does not embed/,
+  );
+});
+
+test('a different llama version requires a new notice review', async (t) => {
+  const directory = await macLlamaFixture(t);
+  await assert.rejects(
+    copyMacLlamaNotices(directory, 'b7850'),
+    /Review.*version/,
+  );
+});
 
 test('rendered dependencies retain full license and NOTICE; unused packages stay out', async () => {
   const root = await mkdtemp(join(tmpdir(), 'notice-test-'));
