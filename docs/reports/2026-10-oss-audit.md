@@ -2,6 +2,10 @@
 
 確認日: 2026-10-10。基準はアプリ0.17.3の公開treeです。全履歴・全artifact・private R&Dの再監査ではありません。
 
+## 2026-10-12の追記
+
+v0.17.3の対応source/FreeType FTL補足と、v0.8.0のGit内llama.cpp binaryに対応するMIT本文・照合記録を、各専用checksumとともに旧Releaseへ追記公開しました。新4 downloadのbytes/hash、元asset・checksum・tagの保持を確認済みです。[公開物と残る確認範囲](../provenance-review.md#過去配布物の補足状況)を参照してください。以下は2026-10-10時点の限定点検記録であり、旧版の全JS/native告知や法的充足性が解消済みという意味ではありません。
+
 ## 公開境界
 
 [モデル台帳](../model-distribution.md)へ3系統のカード情報を整理しました。eventの学習・評価・exportはprivate、appはconsumerという既存設計を維持します。現行packのbase checkpoint、weight license、配布URL、再現可能なrecipe、独立Testの完全な記録は未照合です。CodeProcessor画像は比較候補として扱い、採用候補のtraining dataには数えません。

@@ -1,6 +1,6 @@
 # コード・資産の由来と公開前の確認
 
-この台帳は2026-10-11時点の確認状態です。基準は公開版 [v0.17.4](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.4)（commit `ab89af2a50721acf1a4183a3cf3d7a8de270f8fc`）。アプリのMIT Licenseだけで、第三者コード・画像・データ・モデル・binaryの権利が確認済みになるわけではありません。法的な適法性の保証や、他社との提携・許諾の表明ではありません。
+この台帳は2026-10-12時点の確認状態です。基準は公開版 [v0.17.4](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.4)（commit `ab89af2a50721acf1a4183a3cf3d7a8de270f8fc`）。アプリのMIT Licenseだけで、第三者コード・画像・データ・モデル・binaryの権利が確認済みになるわけではありません。法的な適法性の保証や、他社との提携・許諾の表明ではありません。
 
 ## 互換形式・参照資料・独自機能を区別する
 
@@ -33,25 +33,27 @@
 | 優先 | 対象 | 現状・実装済みの対策 | 完了条件・次の判断 |
 | --- | --- | --- | --- |
 | P0 | Event packの新規同梱 | 現行公開Git/v0.17.4にevent重みなし。[配布前ゲート](event-pack-provenance.md)で未記録・未承認・不整合を拒否 | 実packの基盤checkpoint→派生重み→runnerを照合し、利用条件・学習データ権限・依存告知を管理者が確認。公開可能な記録と最終配布hashが揃うまで同梱を保留 |
-| P1 | 既存Release | 下記のv0.17.3対応source/FTL、v0.8.0 llama.cpp告知の不足を特定。補足公開は未実施 | 対象tag・元artifact・source/告知の対応をレビューし、既存assetを保持して補足を追記。補足後も過去JS/native告知や法的充足性の未確認を残す |
+| P1 | 既存Release | v0.17.3対応source/FTL、v0.8.0 llama.cpp MIT告知と各専用checksumを2026-10-12に追記公開済み | 公開downloadのSHA-256/bytesを照合済み。過去JS/native推移依存の告知、全旧installerの網羅性、法的充足性は未確認 |
 | P1 | 画像・アイコン・fixture | 変換手順と一部の合成recipeを確認。原作者・入力素材・取得条件は未確認 | 各元素材の出典、取得/生成日・ツール条件、改変履歴、公開範囲を記録。確認できない素材は機能・外観への影響をレビューして置換等を判断 |
 | P1 | 互換形式・参照資料 | XML subset・SCTimeline変換と検証範囲を明記。全機能互換を表す文言を修正 | 使用資料・出力sampleの取得経路と適用契約を確認し、実在データを含まないfixtureで対応範囲を固定。契約解釈は専門家へ確認 |
 | P2 | コード・npm・native依存 | MIT、build由来npm告知、対応media source/manifestのゲートあり | 新規寄与の出典レビューを継続。native推移依存・compiler runtime・macOS署名差分まで配布単位で対応付け。ライセンス宣言だけを完全SBOMと扱わない |
 | P2 | 再現性・AI変更レビュー | AGENTSの優先関係、固定pnpm、共通ゲート、人の確認責任を整合 | 公開cloneで通常build/合成試験が再現でき、OS別配布検証を完了。私有R&Dなしでは再学習不能である境界を維持 |
 
-公開継続の技術的判断は、現在のアプリコード・モデルなし配布と、新たな重み/素材の公開を分けて行います。新たな権利侵害・秘密混入等の具体的証拠が出た場合は、その対象と影響範囲を確認して対応します。ここで公開の法的安全を保証せず、未確認を理由なく「問題なし」へ変更しません。
+公開継続の技術的判断は、現在のアプリコード・event packを同梱しない配布と、新たな重み/素材の公開を分けて行います。新たな権利侵害・秘密混入等の具体的証拠が出た場合は、その対象と影響範囲を確認して対応します。ここで公開の法的安全を保証せず、未確認を理由なく「問題なし」へ変更しません。
 
 ## 過去配布物の補足状況
 
-現在の告知生成を直しても、過去の配布物が自動的に補完されるわけではありません。既存Releaseやtagを書き換えず、対象commit、配布物のSHA-256、source版/hash、実際のbuild manifestを照合した補足物を準備します。公開前に対象・不足・補完範囲と残る制限をレビューします。
+現在の告知生成を直しても、過去の配布物が自動的に補完されるわけではありません。対象commit、配布物のSHA-256、source版/hash、実際のbuild manifestを照合した補足物を2026-10-12に追記公開しました。元installer・元checksum・tagを保持し、Release本文末尾に範囲と制限を追記しています。本文はWeb UIによるLF→CRLF変換があり、改行正規化後に旧本文＋承認済み追記との一致を確認しました。
 
 | 対象                                                                                                                                     | 確認した不足                                                                                                                                                                                              | 補完に必要な根拠・状態                                                                                                                                                                                                                  |
 | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [v0.17.3](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.3) / `a2daca8efc6c2753018e0df397b5b9d52427504c`                    | 公開assetはDMG 2本、NSIS 1本、SHA256SUMSのみ。media対応source attachmentなし。3配布物のmedia告知にFreeType FTL本文なし                                                                                    | 3配布物をchecksum照合し、埋込manifestのsource版/hashをtagのrecipeと照合。Windows ffmpeg/ffprobeはmanifestのbinary hashにも一致。macOSは署名前hashと配布hashが異なり、署名差分・再現buildは未検証。v0.17.4のmanifestを旧版の代用にしない |
+| [v0.17.3](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.3) / `a2daca8efc6c2753018e0df397b5b9d52427504c`                    | 元配布時はmedia対応source attachmentとmedia専用告知のFreeType FTL本文が不足。2026-10-12に対応source/FTLと専用checksumを追加。元installer自体は変更なし                                                                                    | 3配布物をchecksum照合し、埋込manifestのsource版/hashをtagのrecipeと照合。Windows ffmpeg/ffprobeはmanifestのbinary hashにも一致。macOSは署名前hashと配布hashが異なり、署名差分・再現buildは未検証。v0.17.4のmanifestを旧版の代用にしない |
 | 同v0.17.3のJS告知                                                                                                                        | [旧builder設定](https://github.com/Kou-ISK/sportaglytics/blob/a2daca8efc6c2753018e0df397b5b9d52427504c/electron-builder.json#L9)は `build/**/*.LICENSE.txt` を除外。現在のbundle由来inventory方式の導入前 | 当時のbundle・依存版・既存告知を個別照合する必要あり。現行inventoryをそのまま旧版の告知として公開しない                                                                                                                                 |
-| [v0.8.0](https://github.com/Kou-ISK/sportaglytics/tree/df1c551f685dd948b13a2e71a1c07d4bd4740373/public/llama/darwin) のGit内llama binary | CLI・dylibに対するllama由来のlicense/NOTICEを同tagのtreeに確認できない。アプリLICENSEとは別問題                                                                                                           | 26 path（10種のblob）が、SHA-256固定の公式b7849 macOS arm64 archive内の実ファイルと全件一致。同archiveからMIT本文を補足候補として準備。同archiveに依存別の告知はなく、推移依存の対応確認と補足公開は未実施                              |
+| [v0.8.0](https://github.com/Kou-ISK/sportaglytics/tree/df1c551f685dd948b13a2e71a1c07d4bd4740373/public/llama/darwin) のGit内llama binary | CLI・dylibに添える独立したllama由来のLICENSE/NOTICEファイルを同tagのtreeに確認できない。CLI内の埋込告知とは区別する                                                                                                           | 26 path（10種のblob）が、SHA-256固定の公式b7849 macOS arm64 archive内の実ファイルと全件一致。同archiveのMIT本文と照合記録・専用checksumを2026-10-12に追記公開済み。同archiveに独立した依存別LICENSEファイルはないが、CLIにはJSON・cpp-httplib・BoringSSLの告知全文を確認。全推移依存の完全性と全旧installerの実査は未確認                              |
 
-この文書の追加は旧Releaseへのsource/NOTICE添付、配布物の差替え、法的な対応完了を意味しません。
+公開補足は [v0.17.3 media source/FTL](https://github.com/Kou-ISK/sportaglytics/releases/download/v0.17.3/media-tools-sources-0.17.3-supplement-2026-10-12.tar.gz)（[専用SHA256SUMS](https://github.com/Kou-ISK/sportaglytics/releases/download/v0.17.3/SUPPLEMENT-SHA256SUMS-v0.17.3-2026-10-12.txt)）と [v0.8.0 llama.cpp MIT/照合記録](https://github.com/Kou-ISK/sportaglytics/releases/download/v0.8.0/llama-v0.8.0-notice-supplement-2026-10-12.tar.gz)（[専用SHA256SUMS](https://github.com/Kou-ISK/sportaglytics/releases/download/v0.8.0/SUPPLEMENT-SHA256SUMS-v0.8.0-2026-10-12.txt)）です。新4ファイルのdownload bytes/hash、旧6 assetのID・名前・size・digest、元v0.17.3 checksumのbytes、両tagのobject/commitを照合しました。
+
+この補足は、過去の全JS/native依存の告知、macOSのバイト再現build、compiler runtime/codec条件や法的な遡及充足性を確認したものではありません。v0.8.0の照合対象はGit内26 path（10 blob）で、全installerを代表しません。古い版はcomponent・recipe・artifact hashの変更単位で対象を絞って確認します。
 
 ## 管理者が非公開で確認する事項
 
