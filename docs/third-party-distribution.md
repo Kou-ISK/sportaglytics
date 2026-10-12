@@ -12,6 +12,16 @@ macOS llama.cpp b7849のJSON・cpp-httplib・BoringSSLの告知は、両archの�
 
 event packを同梱する場合は、上記のアプリ告知とは別に[packの由来記録](event-pack-provenance.md)とLICENSE/NOTICEを検査します。`afterPack`は全packの検査完了後にrunnerを署名します。空stagingの配布は維持します。
 
+## Windows compiler/runtimeの告知
+
+Windowsのmedia buildはGCC/C++ runtimeをstatic linkするため、アプリやFFmpegのLICENSEだけで告知を完了扱いにしません。`scripts/media-tools/toolchain-notices.mjs`は、実際にbuildへ使用するMSYS2 UCRT64環境の`libgcc`、`libstdc++`、`crt`、`headers`、`winpthreads`、`libwinpthread`の6 packageから13個の告知を読み取り、bytesを変えずに`media-tools/licenses/toolchain/`へ保存します。GCCは`COPYING3`と`COPYING.RUNTIME`を一緒に保持し、MinGW/winpthreadsは各packageのCOPYING類とheadersのddk説明を保持します。packageごとの全文には複数の条件を含むため、単一のlicense名やアプリのMITへ置き換えません。
+
+配置の根拠はMSYS2のpackage recipe（[GCC](https://github.com/msys2/MINGW-packages/blob/7c4b39d9bb2605b63a904a031b0aec309b4ac548/mingw-w64-gcc/PKGBUILD)、[CRT](https://github.com/msys2/MINGW-packages/blob/7c4b39d9bb2605b63a904a031b0aec309b4ac548/mingw-w64-crt/PKGBUILD)、[headers](https://github.com/msys2/MINGW-packages/blob/7c4b39d9bb2605b63a904a031b0aec309b4ac548/mingw-w64-headers/PKGBUILD)、[winpthreads](https://github.com/msys2/MINGW-packages/blob/7c4b39d9bb2605b63a904a031b0aec309b4ac548/mingw-w64-winpthreads/PKGBUILD)）です。実際のpackage versionは`pacman -Q`、compiler versionは`gcc -dumpfullversion`から記録します。固定したファイル集合に不足・空本文があればbuildを停止します。packageの更新により配置や条件が変わった場合は、recipeと実ファイルを再確認して更新します。
+
+`build.json`と告知側`manifest.json`にpackage version・本文SHA-256を対応付けます。cache再利用とpackagingは、この対応および本文hashを検証します。ローカルのインストールパス、環境変数、コマンド出力全体は配布manifestへ出しません。source bundleにはこの記録と取得・copy scriptを含めますが、GCC/MinGWの全sourceや全nativeリンク依存を網羅するSBOMではありません。runtime exceptionの適用条件や特許等の法的判断をhash一致で代替しません。
+
+v0.17.4のWindows配布物には、上記compiler/runtime専用の告知集合がありません。[当時のbuild log](https://github.com/Kou-ISK/sportaglytics/actions/runs/38041451515/job/114182358817)はGCC/libgcc/libstdc++ `16.2.0-4`、MinGWの上記4 package `14.0.0.r426.g4564ee4b5-1`を記録しています。今回のbuild修正は将来の配布向けで、既存installerの変更や旧版補足の公開ではありません。過去版への対応は当時のpackageと告知を別途照合して扱います。
+
 ## FFmpegの対応ソース
 
 [FFmpegの公式案内](https://ffmpeg.org/legal.html)を踏まえ、installerと同じReleaseに`media-tools-sources-<version>.tar.gz`を添付します。バイナリはappから別processで起動する構成です。FFmpeg内部のstatic linkとアプリ自身によるlibrary linkを混同しません。

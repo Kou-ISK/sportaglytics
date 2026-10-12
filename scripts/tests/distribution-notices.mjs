@@ -9,6 +9,13 @@ import { licenseInventory } from '../license-inventory.mjs';
 import { validateBuildManifest } from '../media-tools/source-manifest.mjs';
 import { SOURCES } from '../media-tools/sources.mjs';
 import {
+  TOOLCHAIN_NOTICES,
+  copyWindowsToolchainNotices,
+  validateToolchainRecord,
+  verifyWindowsToolchainNotices,
+} from '../media-tools/toolchain-notices.mjs';
+
+import {
   copyMacLlamaNotices,
   MAC_LLAMA_NOTICE_HASHES,
   verifyMacLlamaNotices,
@@ -114,6 +121,164 @@ test('a different llama version requires a new notice review', async (t) => {
   );
 });
 
+const toolchainFixtureRecord = () => ({
+  schemaVersion: 1,
+  compilerVersion: '16.2.0',
+  packages: Object.fromEntries(
+    Object.keys(TOOLCHAIN_NOTICES).map((name) => [
+      name,
+      ['libgcc', 'libstdc++'].includes(name)
+        ? '16.2.0-4'
+        : '14.0.0.r426.g4564ee4b5-1',
+    ]),
+  ),
+  files: Object.fromEntries(
+    Object.entries(TOOLCHAIN_NOTICES).flatMap(([pkg, files]) =>
+      files.map((name) => [`${pkg}/${name}`, 'c'.repeat(64)]),
+    ),
+  ),
+});
+
+const installedToolchainFixture = async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'toolchain-notices-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const licenses = join(root, 'installed-licenses');
+  const record = toolchainFixtureRecord();
+  for (const [pkg, files] of Object.entries(TOOLCHAIN_NOTICES)) {
+    await mkdir(join(licenses, pkg), { recursive: true });
+    for (const file of files)
+      await writeFile(
+        join(licenses, pkg, file),
+        `Synthetic notice for ${pkg}/${file}\n`,
+      );
+  }
+  const capture = async (command, args) => {
+    if (command === 'gcc' && args.join(' ') === '-dumpfullversion')
+      return '16.2.0';
+    if (command === 'cygpath' && args.join(' ') === '-w /ucrt64/share/licenses')
+      return licenses;
+    const name = args[1]?.replace('mingw-w64-ucrt-x86_64-', '');
+    assert.equal(command, 'pacman');
+    assert.equal(args[0], '-Q');
+    assert.ok(record.packages[name]);
+    return `${args[1]} ${record.packages[name]}`;
+  };
+  const output = join(root, 'media-tools');
+  return { output, licenses, capture };
+};
+
+test('Windows notices retain installed package bytes and match the binary build record', async (t) => {
+  const { output, licenses, capture } = await installedToolchainFixture(t);
+  const record = await copyWindowsToolchainNotices(output, { capture });
+  assert.equal(Object.keys(record.packages).length, 6);
+  assert.equal(Object.keys(record.files).length, 13);
+  for (const path of Object.keys(record.files))
+    assert.deepEqual(
+      await readFile(join(output, 'licenses/toolchain', path)),
+      await readFile(join(licenses, path)),
+    );
+  await writeFile(
+    join(output, 'build.json'),
+    JSON.stringify({ toolchain: record }),
+  );
+  assert.deepEqual(await verifyWindowsToolchainNotices(output), record);
+  await assert.rejects(
+    verifyWindowsToolchainNotices(output, toolchainFixtureRecord()),
+    /binary build record/,
+  );
+  await writeFile(
+    join(output, 'licenses/toolchain/libgcc/COPYING.RUNTIME'),
+    'changed',
+  );
+  await assert.rejects(
+    verifyWindowsToolchainNotices(output),
+    /Changed.*notice/,
+  );
+  await rm(join(output, 'licenses/toolchain/libgcc/COPYING.RUNTIME'));
+  await assert.rejects(verifyWindowsToolchainNotices(output), /ENOENT/);
+});
+
+test('Windows notice capture rejects missing or empty installed files and malformed package identity', async (t) => {
+  const { output, licenses, capture } = await installedToolchainFixture(t);
+  await writeFile(join(licenses, 'libgcc/COPYING.RUNTIME'), ' \n');
+  await assert.rejects(
+    copyWindowsToolchainNotices(output, { capture }),
+    /Empty toolchain notice/,
+  );
+  await rm(join(licenses, 'libgcc/COPYING.RUNTIME'));
+  await assert.rejects(
+    copyWindowsToolchainNotices(output, { capture }),
+    /ENOENT/,
+  );
+  await assert.rejects(
+    copyWindowsToolchainNotices(output, {
+      capture: async (command, args) =>
+        command === 'pacman'
+          ? 'unexpected-package 1.0'
+          : capture(command, args),
+    }),
+    /Cannot identify/,
+  );
+});
+
+test('source evidence rejects incomplete toolchains and exports only defined metadata', () => {
+  const record = toolchainFixtureRecord();
+  const sanitized = validateToolchainRecord({
+    ...record,
+    localPath: '/private/example',
+    diagnostic: 'not for publication',
+  });
+  assert.deepEqual(sanitized, record);
+  assert.throws(() => validateToolchainRecord(undefined), /Incomplete/);
+  const missing = structuredClone(record);
+  delete missing.files['libgcc/COPYING.RUNTIME'];
+  assert.throws(() => validateToolchainRecord(missing), /Incomplete/);
+  const changed = structuredClone(record);
+  changed.packages.libgcc = '15.2.0-1';
+  assert.throws(() => validateToolchainRecord(changed), /versions disagree/);
+});
+
+test('Windows packaging requires intact compiler notices matching build.json', async (t) => {
+  const { default: afterPack } = await import('../after-pack.mjs');
+  const { output, capture } = await installedToolchainFixture(t);
+  const resources = join(output, '..');
+  await mkdir(join(resources, 'licenses'), { recursive: true });
+  for (const [file, text] of Object.entries({
+    LICENSE: 'Synthetic app license',
+    'THIRD_PARTY_NOTICES.md': 'Synthetic inventory',
+    'licenses/renderer.json': '[{"name":"fixture"}]',
+    'licenses/preload.json': '[]',
+  }))
+    await writeFile(join(resources, file), text);
+  await mkdir(join(output, 'licenses'), { recursive: true });
+  for (const file of [
+    'ffmpeg-COPYING.LGPLv2.1',
+    'freetype-LICENSE.TXT',
+    'freetype-FTL.TXT',
+    'harfbuzz-COPYING',
+  ])
+    await writeFile(join(output, 'licenses', file), 'Synthetic media notice');
+  const context = {
+    appOutDir: resources,
+    electronPlatformName: 'win32',
+    packager: { getResourcesDir: () => resources },
+  };
+  await assert.rejects(afterPack(context), /ENOENT/);
+  const record = await copyWindowsToolchainNotices(output, { capture });
+  await writeFile(
+    join(output, 'build.json'),
+    JSON.stringify({ toolchain: record }),
+  );
+  await afterPack(context);
+  const otherBuild = structuredClone(record);
+  otherBuild.files['libgcc/COPYING.RUNTIME'] = 'a'.repeat(64);
+  await writeFile(
+    join(output, 'build.json'),
+    JSON.stringify({ toolchain: otherBuild }),
+  );
+  await assert.rejects(afterPack(context), /binary build record/);
+});
+
 test('rendered dependencies retain full license and NOTICE; unused packages stay out', async () => {
   const root = await mkdtemp(join(tmpdir(), 'notice-test-'));
   try {
@@ -183,11 +348,17 @@ test('source release rejects mismatched, incomplete, or wrong-target build evide
       ),
     },
     binaries: { ffmpeg: 'a'.repeat(64), ffprobe: 'b'.repeat(64) },
+    toolchain: toolchainFixtureRecord(),
     localDiagnostic: '/private/example',
   };
   assert.equal(
     validateBuildManifest(manifest, 'win32-x64').localDiagnostic,
     undefined,
+  );
+  assert.throws(
+    () =>
+      validateBuildManifest({ ...manifest, toolchain: undefined }, 'win32-x64'),
+    /Incomplete Windows/,
   );
   assert.throws(
     () => validateBuildManifest(manifest, 'darwin-x64'),

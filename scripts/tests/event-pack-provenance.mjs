@@ -15,6 +15,7 @@ import test from 'node:test';
 import afterPack from '../after-pack.mjs';
 import { validateEventPackDistribution } from '../event-pack-provenance.mjs';
 import { signModelDirectory } from '../sign-event-detection-runners-after-pack.mjs';
+import { TOOLCHAIN_NOTICES } from '../media-tools/toolchain-notices.mjs';
 import { copyMacLlamaNotices } from '../mac-llama-notices.mjs';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -134,6 +135,30 @@ const distributionNotices = async (resources) => {
       'Synthetic native notice',
     );
   }
+  // Keep this packaging fixture complete when Windows native notice gates run.
+  const toolchain = {
+    schemaVersion: 1,
+    compilerVersion: '16.2.0',
+    packages: {},
+    files: {},
+  };
+  const root = join(resources, 'media-tools/licenses/toolchain');
+  for (const [pkg, names] of Object.entries(TOOLCHAIN_NOTICES)) {
+    toolchain.packages[pkg] = ['libgcc', 'libstdc++'].includes(pkg)
+      ? '16.2.0-4'
+      : '14.0.0-1';
+    await mkdir(join(root, pkg), { recursive: true });
+    for (const name of names) {
+      const text = 'Synthetic compiler runtime notice';
+      toolchain.files[`${pkg}/${name}`] = hash(text);
+      await writeFile(join(root, pkg, name), text);
+    }
+  }
+  await writeFile(join(root, 'manifest.json'), json(toolchain));
+  await writeFile(
+    join(resources, 'media-tools/build.json'),
+    json({ toolchain }),
+  );
 };
 
 test('no model remains a supported package, including an empty staging placeholder', async (t) => {

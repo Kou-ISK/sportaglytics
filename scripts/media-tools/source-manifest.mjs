@@ -1,4 +1,5 @@
 import { SOURCES } from './sources.mjs';
+import { validateToolchainRecord } from './toolchain-notices.mjs';
 
 export const validateBuildManifest = (manifest, target) => {
   const [platform, architecture] = target.split('-');
@@ -45,5 +46,8 @@ export const validateBuildManifest = (manifest, target) => {
       ffmpeg: manifest.binaries.ffmpeg,
       ffprobe: manifest.binaries.ffprobe,
     },
+    ...(platform === 'win32'
+      ? { toolchain: validateToolchainRecord(manifest.toolchain) }
+      : {}),
   };
 };

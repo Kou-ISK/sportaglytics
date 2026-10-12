@@ -17,6 +17,10 @@ import { hashFile } from './download-verified.mjs';
 import { run } from './media-tools/process.mjs';
 import { buildMacMediaTools } from './media-tools/macos.mjs';
 import { buildWindowsMediaTools } from './media-tools/windows.mjs';
+import {
+  copyWindowsToolchainNotices,
+  verifyWindowsToolchainNotices,
+} from './media-tools/toolchain-notices.mjs';
 
 const BUILD_REVISION = 4;
 const outputRoot = resolve('.cache/media-tools');
@@ -42,7 +46,7 @@ const selectedSources = Object.fromEntries(
 );
 const executableName = (name) => (platform === 'win32' ? `${name}.exe` : name);
 const buildIdentity = (architecture) => ({
-  revision: platform === 'win32' ? BUILD_REVISION + 2 : BUILD_REVISION,
+  revision: platform === 'win32' ? BUILD_REVISION + 3 : BUILD_REVISION,
   platform,
   architecture,
   sources: Object.fromEntries(
@@ -78,6 +82,9 @@ const isCached = async (architecture) => {
     ]) {
       if (!(await readFile(join(output, 'licenses', file), 'utf8')).trim())
         return false;
+    }
+    if (platform === 'win32') {
+      await verifyWindowsToolchainNotices(output, manifest.toolchain);
     }
     return true;
   } catch {
@@ -139,6 +146,10 @@ if (pending.length > 0) {
           join(licenses, `${name}-${basename(file)}`),
         );
       }
+      const toolchain =
+        platform === 'win32'
+          ? await copyWindowsToolchainNotices(outputDirectory)
+          : undefined;
       const png = join(outputDirectory, 'paint-overlay-smoke.png');
       const ffmpeg = join(outputDirectory, executableName('ffmpeg'));
       await run(ffmpeg, [
@@ -187,6 +198,7 @@ if (pending.length > 0) {
           {
             identity: buildIdentity(architecture),
             binaries,
+            ...(toolchain ? { toolchain } : {}),
           },
           null,
           2,
