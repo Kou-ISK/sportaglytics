@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import signEventRunners from './sign-event-detection-runners-after-pack.mjs';
 import { validateEventPackDistribution } from './event-pack-provenance.mjs';
+import { verifyWindowsToolchainNotices } from './media-tools/toolchain-notices.mjs';
 
 export default async function afterPack(context) {
   const resources = context.packager.getResourcesDir(context.appOutDir);
@@ -37,6 +38,10 @@ export default async function afterPack(context) {
         throw new Error(`Empty media notice: ${file}`);
     }
   }
-  await validateEventPackDistribution(join(resources, 'event-detection-models'));
+  if (context.electronPlatformName === 'win32')
+    await verifyWindowsToolchainNotices(join(resources, 'media-tools'));
+  await validateEventPackDistribution(
+    join(resources, 'event-detection-models'),
+  );
   await signEventRunners(context);
 }

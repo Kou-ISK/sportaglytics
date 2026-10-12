@@ -44,6 +44,7 @@ try {
     'process.mjs',
     'macos.mjs',
     'windows.mjs',
+    'toolchain-notices.mjs',
   ]) {
     await copyFile(
       `scripts/media-tools/${file}`,

@@ -443,6 +443,8 @@ Sorterは[Hudlの2024年の公式説明](https://www.hudl.com/blog/databases-in-
 
 WindowsのFFmpegはzlibを静的リンクしてPNGのエンコード/デコードを有効にします。media-toolsビルドはPNG生成と読込の往復検証を通してから成功manifestを書きます。依存ソースのchecksumとライセンスを同梱し、DLL検査とPaint出力E2Eも維持します。
 
+Windows media buildにはMSYS2 UCRT64の`gcc`、`cygpath`、`pacman`と、使用packageが配置する告知全文も必要です。compiler/runtimeのpackage版・13告知のSHA-256を`build.json`へ記録し、cacheとpackagingで対応を確認します。告知不足を回避するためにhash検証を外さず、[配布手順](third-party-distribution.md#windows-compilerruntimeの告知)に従ってpackage更新を確認してください。
+
 ### 戦術盤の端末内認識
 
 `pnpm run vision:prepare` はMediaPipe Tasks Vision 0.10.21（外部統計送信なし）の固定npm版と、SHA-256で検証するEfficientDet-Lite2 INT8 revision 1を `public/pitch-vision/` に準備します。start/build/Storybookコマンドに組み込み済みです。初回の開発・ビルドではモデル取得にネットワークが必要で、ハッシュ一致の資産があれば再取得しません。実行時には同梱資産のみを使います。SDKのfile URLフォールバックを避け、同梱WASMをBlob URL、モデルをバッファとして渡します。ElectronのwebSecurityは緩和しません。モデル・WASMはGitに含めず、配布ビルドとライセンスを同梱します。モデルの出典とハッシュは `resources/pitch-vision/NOTICE.md` が正本です。

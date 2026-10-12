@@ -401,3 +401,5 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 ## 配布告知の配置
 
 `scripts/license-inventory.mjs`はbundleの告知生成、`scripts/after-pack.mjs`はResources検査と既存署名hookへの委譲、`scripts/package-media-sources.mjs`は公開sourceの明示的な収集を担当します。`resources/third-party/`はnpmで欠ける本文の固定上流補足を持ちます。出力はGit対象外の`build/`・`dist/`、方針は[第三者配布](third-party-distribution.md)です。
+
+`scripts/media-tools/toolchain-notices.mjs`はWindowsのインストール済みcompiler/runtime packageから告知を収集し、限定したversion/hash記録と配布時の整合検査を提供します。source bundleにも同scriptを含めます。
