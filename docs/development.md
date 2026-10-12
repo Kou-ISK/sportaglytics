@@ -135,6 +135,8 @@ resources/event-detection-models/<model>/
 
 `electron-builder`はこのdirectoryをpackaged appの`event-detection-models`へ`extraResources`として配置します。staging directoryが空でも通常buildは成立します。
 
+packを同梱する場合は[配布前レビューと由来記録](event-pack-provenance.md)に従って`distribution-provenance.json`と公開可能な根拠・LICENSE/NOTICEを用意します。`afterPack`は署名前のmanifestと全ファイルを照合し、未確認・不整合のpackがあれば失敗します。`verified`表示はこの配布レビューを代替しません。既存ローカルpackの実行時契約は維持します。
+
 stagingへ置くのはsanitized deployable model packだけです。raw video、`.stpkg`、frames、research runs、checkpoints、private source metadataは置きません。
 
 ## 開発ワークフロー

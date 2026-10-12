@@ -305,6 +305,8 @@ ML runtime（ONNX Runtime等）はrunner内部の実装詳細として交換可�
 
 `resources/event-detection-models/` はrelease/local build用の任意staging pointです。model pack本体は`.gitignore`で除外し、`electron-builder`が存在するpackだけを`event-detection-models`へ`extraResources`として配置します。stagingが空でも通常buildは成立します。
 
+配布用packは`afterPack`で[由来記録と全ファイル](event-pack-provenance.md)を照合してからmacOS runner署名へ進みます。sidecarの配布判断はruntime manifest schema 1/2の品質statusから独立し、既存ローカルpackの実行条件は変えません。[ADR 0061](adr/0061-event-pack-distribution-provenance.md)。
+
 詳細: [自動イベント検出](event-detection.md)、[ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)、[ADR 0024](adr/0024-experimental-event-detection-production-lane.md)
 
 ## Event Model R&D boundary

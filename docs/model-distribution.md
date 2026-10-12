@@ -62,6 +62,8 @@ Hugging Faceではモデルrepoの`README.md`が[Model Card](https://huggingface
 
 ## 配布前に残る確認
 
+同梱packには[配布前レビューと由来記録](event-pack-provenance.md)を必須とし、署名前に出典・LICENSE/NOTICE・レビュー記録・全ファイルhashを検査します。このゲートは記録の整合確認であり、以下の私有packに関する未確認事項を解消した証拠ではありません。
+
 1. 現行event packのID/version、全ファイルhash、base checkpoint・runner依存・重みの許諾と出典。
 2. データの利用範囲、匿名化した集計・split固定記録、完全なrecipeと独立評価。
 3. 配布用model card、license/NOTICE、取得先と公開承認。未承認の動画・重みを公開しない。

@@ -6,6 +6,7 @@
 - [Timelineの場面検索とレビュー](timeline-review.md): 検索、全文確認、編集・Playlistへの移動。
 - [UX評価と改善の検証記録](reports/2026-10-ux-review.md): 実Electronの代表導線、before/after、測定と未評価範囲。
 - [由来の確認台帳](provenance-review.md): コード・画像・モデル等の確認状態、互換性の限界、旧配布物の未解決事項。
+- [Event packの配布前レビューと由来記録](event-pack-provenance.md): 同梱packの出典、全ファイルhash、権利レビューと署名の境界。
 
 ライブ撮影中の分析は[ライブキャプチャとコーディング](live-coding.md)を参照してください。設計判断は[ADR 0053](adr/0053-live-capture-package-timeline.md) / [ADR 0054](adr/0054-continuous-capture-playback.md)です。
 

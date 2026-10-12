@@ -55,6 +55,8 @@ If `HOMEBREW_TAP_TOKEN` is missing, the Homebrew update step fails. If signing /
 
 ## Pre-Release Checklist
 
+event packを同梱する場合は[配布前レビューと由来記録](../docs/event-pack-provenance.md)を完了します。`afterPack`が実際のResources内の全packを署名前に検査し、未記録・未承認・不整合なら停止します。モデルなしのReleaseは引き続き可能です。署名前の記録、署名後manifest、最終installer checksumを区別して保管してください。
+
 1. Update `package.json` version.
 2. Move relevant `CHANGELOG.md` entries from `[Unreleased]` to the release version.
 3. Run quality gates:
