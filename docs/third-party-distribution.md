@@ -8,6 +8,8 @@
 
 Paintは既存のApache LICENSE/NOTICE、llama.cppとWindowsのNotoフォントも既存の告知を保持します。FreeTypeの`LICENSE.TXT`はライセンス選択の説明なので、選択するFTLの本文`docs/FTL.TXT`も同梱します。Electron/Chromiumの告知はElectron配布に含まれ、プラットフォーム固有の配置を維持します。
 
+event packを同梱する場合は、上記のアプリ告知とは別に[packの由来記録](event-pack-provenance.md)とLICENSE/NOTICEを検査します。`afterPack`は全packの検査完了後にrunnerを署名します。空stagingの配布は維持します。
+
 ## FFmpegの対応ソース
 
 [FFmpegの公式案内](https://ffmpeg.org/legal.html)を踏まえ、installerと同じReleaseに`media-tools-sources-<version>.tar.gz`を添付します。バイナリはappから別processで起動する構成です。FFmpeg内部のstatic linkとアプリ自身によるlibrary linkを混同しません。

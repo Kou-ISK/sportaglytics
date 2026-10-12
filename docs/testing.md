@@ -269,4 +269,6 @@ Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実
 
 `node --test scripts/tests/distribution-notices.mjs`で告知本文・NOTICEの保持、未使用依存の除外、本文欠落時の失敗、配布sourceとbinary manifestの不一致拒否を確認します。通常の`test:run` / `test:ci`にも含みます。directory packageのResources/ASAR検査と各OS検証の境界は[配布手順](third-party-distribution.md)を参照してください。
 
+`node --test scripts/tests/event-pack-provenance.mjs`は合成packだけで、由来・レビュー・利用条件の欠落、未申告ファイル、重み/runner/告知の改変、path境界、署名前の停止、署名後hashと署名前証拠の分離を検査します。`test:run` / `test:ci`に含まれます。モデルなしのdirectory packageも維持し、実packの権利確認やmacOS署名・公証はこの試験と区別します。
+
 ビルドdownloaderの9ケースには、実際の@electron/getを別processで起動するHTTP proxy経由取得とNO_PROXY bypassを含みます。loopback serverと合成bytesで検証し、外部artifactを取得しません。既存のagent/timeout/redirect/checksum/progress/file-cache検査も維持します。
