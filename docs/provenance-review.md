@@ -11,12 +11,14 @@
 
 ## 資産台帳
 
+画像・アイコン・fixtureの対象ファイルと出典の追確認は[素材の由来記録](asset-provenance.md)を参照してください。公開Gitで確認できる事実と、未確認の取得条件を分けて記録しています。
+
 | 対象                                       | 確認できる根拠                                                                                                                            | 未確認・次の対応                                                                                                                 |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | アプリコード                               | [MIT License](../LICENSE)、公開Gitの実装・変更履歴                                                                                        | 各寄与者の権原、第三者コード/資料の流用の有無を提出者が確認。AI生成という理由で独自性を認定しない                                |
 | renderer/preload npm依存・MUIアイコン      | [配布告知](../THIRD_PARTY_NOTICES.md)、build由来のlicense inventory。v0.17.4の3配布物でrenderer 76依存、preload 0依存の告知を確認         | npmの宣言と告知の存在を確認した範囲。全native依存を含むSBOMではない                                                              |
 | アプリ・ファイルアイコン                   | `public/icon.png` / `.svg` / `.icns` / `.ico`、`public/icons/`、[変換手順](custom-file-icons.md)                                          | 原作者、元素材、取得/生成ツール、適用条件、改変履歴は未確認。変換手順や見た目だけで許諾済みとしない                              |
-| Reactロゴ                                  | `src/logo.svg`                                                                                                                            | 正確な取得元・版・権利表示を確認。利用の必要性も別途判断                                                                         |
+| Reactロゴ                                  | 旧 `src/logo.svg`（初期テンプレートの未使用ファイル）                                                                                     | source/configに参照がないことを確認して現行treeから除去。過去tagは保持し、過去の権利確認を済んだとは扱わない                                                                         |
 | 文書画像・fixture動画                      | 現行の[UX評価](reports/2026-10-ux-review.md)は合成映像・架空名を記録。`src/features/playlist/fixtures/tactics-motion.webm` は合成パターン | 全素材の作者・生成recipeを台帳化。画像全pixelや過去添付物の確認は未完了                                                          |
 | 同梱フォント                               | [prepare-fonts.mjs](../scripts/prepare-fonts.mjs)のNoto Sans CJK JPとOFL。Windows配布のhashを照合                                         | OS提供フォントとは区別。追加フォントは個別に条件を確認                                                                           |
 | Paint用モデル・MediaPipe                   | [NOTICE](../resources/pitch-vision/NOTICE.md)の固定版/hashとApache告知、v0.17.4の3配布物の重みhashが一致                                  | 上流モデルの条件と学習画像の条件を同一視しない。詳細は[モデル台帳](model-distribution.md)                                        |
