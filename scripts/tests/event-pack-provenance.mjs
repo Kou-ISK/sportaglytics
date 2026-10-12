@@ -146,6 +146,50 @@ test('complete provenance and declared bytes pass packaging without executing th
   });
 });
 
+test('revision checks reject branch references and bind the SHA-256 fallback to source bytes', async (t) => {
+  const rejected = [
+    ' main ',
+    'refs/heads/main',
+    ' refs/heads/release/v1.2.3 ',
+    'refs/remotes/origin/main',
+    ' latest ',
+    `sha256:${'0'.repeat(64)}`,
+    'sha256:invalid',
+    'sha256:',
+  ];
+  for (const revision of rejected) {
+    await t.test(`reject ${revision.trim()}`, async (t) => {
+      const f = await fixture(t);
+      f.provenance.components[0].source.revision = revision;
+      await f.save();
+      await assert.rejects(
+        validateEventPackDistribution(f.modelsRoot),
+        /source.revision/,
+      );
+    });
+  }
+  const accepted = [
+    ['commit', () => '0123456789abcdef0123456789abcdef01234567'],
+    ['release', () => 'v1.2.3'],
+    ['explicit tag', () => 'refs/tags/v1.2.3'],
+    ['checkpoint version', () => ' synthetic-v1 '],
+    ['matching digest', (sha) => `sha256:${sha}`],
+    [
+      'matching digest with case and whitespace',
+      (sha) => ` SHA256:${sha.toUpperCase()} `,
+    ],
+  ];
+  for (const [name, revision] of accepted) {
+    await t.test(`accept ${name}`, async (t) => {
+      const f = await fixture(t);
+      const source = f.provenance.components[0].source;
+      source.revision = revision(source.sha256);
+      await f.save();
+      assert.equal(await validateEventPackDistribution(f.modelsRoot), 1);
+    });
+  }
+});
+
 test('unreviewed or incomplete provenance is rejected, regardless of runtime quality status', async (t) => {
   const cases = [
     [

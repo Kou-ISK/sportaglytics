@@ -49,6 +49,24 @@ const publicUrl = (value) => {
     return false;
   }
 };
+const isSourceRevision = (value, sourceHash) => {
+  if (!text(value)) return false;
+  const revision = value.trim();
+  if (
+    /^(main|master|develop|latest|HEAD)$/i.test(revision) ||
+    /^refs\/(heads|remotes)(\/|$)/i.test(revision)
+  )
+    return false;
+  if (/^sha256\s*:/i.test(revision)) {
+    const match = revision.match(/^sha256:([a-f0-9]{64})$/i);
+    return Boolean(
+      match && match[1].toLowerCase() === sourceHash.toLowerCase(),
+    );
+  }
+  // Opaque release/checkpoint versions and tags remain valid declarations.
+  // Their actual immutability is part of the human source review.
+  return true;
+};
 const hashFile = async (file) => {
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(file)) hash.update(chunk);
@@ -213,14 +231,13 @@ const validatePack = async (directory) => {
     keys(component.source, ['url', 'revision', 'sha256'], `${field}.source`);
     requireValue(publicUrl(component.source.url), `${field}.source.url`);
     requireValue(
-      text(component.source.revision) &&
-        !/^(main|master|develop|latest|HEAD)$/i.test(component.source.revision),
-      `${field}.source.revision`,
-    );
-    requireValue(
       typeof component.source.sha256 === 'string' &&
         SHA256.test(component.source.sha256),
       `${field}.source.sha256`,
+    );
+    requireValue(
+      isSourceRevision(component.source.revision, component.source.sha256),
+      `${field}.source.revision`,
     );
     requireValue(text(component.license), `${field}.license`);
     requireValue(

@@ -35,7 +35,7 @@ packなしの配布、既存のuserDataへのローカルpack配置、manifest s
 | --- | --- |
 | `id` / `kind` | 一意の英小文字・数字・ハイフンID、`model` / `runner` / `dependency` |
 | `source.url` | 公開可能なHTTPS出典URL。認証情報・query・fragmentを含めない。原bytesを識別できる場所を選ぶ |
-| `source.revision` | 固定commit、release版、checkpoint版等。無版の配布では`sha256:<source.sha256>`で内容を固定。`main`等の可変branchや`unknown`を使わない |
+| `source.revision` | 固定commit、release版、checkpoint版等。検査時は前後空白を除き、`main` / `master` / `develop` / `latest` / `HEAD`、明示的branch参照`refs/heads/…` / `refs/remotes/…`を拒否。無版の配布では`sha256:<64桁digest>`を使い、`source.sha256`との一致を必須とする（hexの大小文字は区別しない） |
 | `source.sha256` | 元checkpoint/ソースarchive等のSHA-256。出力packのhashやrepository commitとの代用不可 |
 | `license` | 確認したSPDX式または独自条件の識別子。`unknown`等の仮値不可 |
 | `licenseFiles` / `noticeFiles` | 同梱する全文のpath配列。LICENSEは1件以上、NOTICE不要の場合は明示的な空配列 |
@@ -44,7 +44,7 @@ packなしの配布、既存のuserDataへのローカルpack配置、manifest s
 
 `files`のすべてのpathは、componentのartifact/LICENSE/NOTICEまたはレビュー記録から参照します。全manifest runnerを`runner` componentへ対応付け、manifest内hashも実ファイルと一致させます。追加・欠落・変更ファイル、空の告知/記録、未知schema/field、絶対path・親directory参照・symlink・特殊ファイルを拒否します。pack rootにはpack directoryと空の`.gitkeep`だけを認めます。staging全体を無条件にhash登録して不要データを配布しないでください。
 
-ゲートは宣言・ファイル集合・bytesの整合を検査します。上流URLの到達性、license式の法的妥当性、レビュー内容や確認者の真実性、全依存・学習データの権利を自動認定しません。署名された権利証明でもありません。人のレビューとPRの確認を省略できません。
+ゲートは宣言・ファイル集合・bytesの整合を検査します。commit ID、通常のrelease/checkpoint版、`refs/tags/…`は有効なrevision表記として扱いますが、任意の略記がbranchではないことやtagの実際の固定性までは判定しません。出典レビューで確認してください。上流URLの到達性、license式の法的妥当性、レビュー内容や確認者の真実性、全依存・学習データの権利を自動認定しません。署名された権利証明でもありません。人のレビューとPRの確認を省略できません。
 
 ## 署名と検証
 
