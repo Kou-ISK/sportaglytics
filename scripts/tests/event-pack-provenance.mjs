@@ -15,6 +15,7 @@ import test from 'node:test';
 import afterPack from '../after-pack.mjs';
 import { validateEventPackDistribution } from '../event-pack-provenance.mjs';
 import { signModelDirectory } from '../sign-event-detection-runners-after-pack.mjs';
+import { copyMacLlamaNotices } from '../mac-llama-notices.mjs';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
@@ -95,6 +96,21 @@ const fixture = async (t) => {
 };
 
 const distributionNotices = async (resources) => {
+  const llama = join(resources, 'llama/darwin');
+  await mkdir(llama, { recursive: true });
+  const embedded = await Promise.all(
+    ['LICENSE-jsonhpp', 'LICENSE-cpp-httplib', 'LICENSE-BoringSSL'].map(
+      (name) =>
+        readFile(
+          new URL(
+            `../../resources/third-party/llama-b7849/${name}`,
+            import.meta.url,
+          ),
+        ),
+    ),
+  );
+  await writeFile(join(llama, 'llama-completion'), Buffer.concat(embedded));
+  await copyMacLlamaNotices(llama, 'b7849');
   await mkdir(join(resources, 'licenses'), { recursive: true });
   await writeFile(join(resources, 'LICENSE'), 'Synthetic application license');
   await writeFile(

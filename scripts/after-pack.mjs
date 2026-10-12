@@ -2,6 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import signEventRunners from './sign-event-detection-runners-after-pack.mjs';
 import { validateEventPackDistribution } from './event-pack-provenance.mjs';
+import {
+  MAC_LLAMA_VERSION,
+  verifyMacLlamaNotices,
+} from './mac-llama-notices.mjs';
 
 export default async function afterPack(context) {
   const resources = context.packager.getResourcesDir(context.appOutDir);
@@ -37,6 +41,13 @@ export default async function afterPack(context) {
         throw new Error(`Empty media notice: ${file}`);
     }
   }
-  await validateEventPackDistribution(join(resources, 'event-detection-models'));
+  if (context.electronPlatformName === 'darwin')
+    await verifyMacLlamaNotices(
+      join(resources, 'llama/darwin'),
+      MAC_LLAMA_VERSION,
+    );
+  await validateEventPackDistribution(
+    join(resources, 'event-detection-models'),
+  );
   await signEventRunners(context);
 }
