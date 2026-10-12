@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,8 +10,48 @@ import { validateBuildManifest } from '../media-tools/source-manifest.mjs';
 import { SOURCES } from '../media-tools/sources.mjs';
 import {
   copyMacLlamaNotices,
+  MAC_LLAMA_NOTICE_HASHES,
   verifyMacLlamaNotices,
 } from '../mac-llama-notices.mjs';
+
+test('Windows Git checkout preserves exact upstream license bytes', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'notice-checkout-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const relative = 'resources/third-party/llama-b7849';
+  await mkdir(join(root, relative), { recursive: true });
+  await writeFile(
+    join(root, '.gitattributes'),
+    await readFile(new URL('../../.gitattributes', import.meta.url)),
+  );
+  await writeFile(join(root, 'control.txt'), 'ordinary text\n');
+  for (const name of Object.keys(MAC_LLAMA_NOTICE_HASHES))
+    await writeFile(
+      join(root, relative, name),
+      await readFile(new URL(`../../${relative}/${name}`, import.meta.url)),
+    );
+  const git = (args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
+  git(['init', '--quiet']);
+  git(['-c', 'core.autocrlf=false', 'add', '.']);
+  const checkout = `${join(root, 'checkout').replaceAll('\\', '/')}/`;
+  git([
+    '-c',
+    'core.autocrlf=true',
+    'checkout-index',
+    '--all',
+    '--force',
+    `--prefix=${checkout}`,
+  ]);
+  // A control proves this checkout exercises CRLF conversion on every test OS.
+  assert.equal(
+    await readFile(join(checkout, 'control.txt'), 'utf8'),
+    'ordinary text\r\n',
+  );
+  for (const [name, expected] of Object.entries(MAC_LLAMA_NOTICE_HASHES)) {
+    const bytes = await readFile(join(checkout, relative, name));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), expected);
+    assert.ok(!bytes.includes(Buffer.from('\r\n')));
+  }
+});
 
 const macLlamaFixture = async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'mac-llama-notices-'));
