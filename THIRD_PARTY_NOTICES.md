@@ -17,6 +17,14 @@ SporTagLytics application code is MIT licensed; third-party components retain th
 
 Paths above are relative to the application's resources directory, except where noted. On macOS open the app bundle's `Contents/Resources`; on Windows use the installation's `resources` directory. `LICENSE` and this notice are also copied there. Electron's framework notices have platform-specific locations outside `app.asar`.
 
+The macOS llama.cpp b7849 runtime also includes nlohmann JSON (MIT), cpp-httplib
+(MIT), and BoringSSL (Apache-2.0 with the additional conditions in its full
+license). Their texts are available in `llama/darwin/licenses/` and are embedded
+in the runtime's `--license` output. Pinned source and text hashes are recorded in
+`resources/third-party/llama-b7849/README.md` in the source repository. Windows
+uses a different build with HTTP/OpenSSL disabled and retains its JSON notice
+under `llama/win32/licenses/`.
+
 ## FFmpeg corresponding source
 
 This software uses FFmpeg under LGPL-2.1-or-later. The media build also uses FreeType (FTL) and HarfBuzz; Windows additionally uses OpenH264 and zlib. FreeType is copyright its respective authors as recorded in the included `freetype-FTL.TXT`. macOS system libraries remain OS-provided.
