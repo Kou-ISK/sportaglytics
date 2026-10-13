@@ -7,10 +7,55 @@ import {
   isClassifiedStartupRequest,
 } from './e2e-tactical-startup-http.mjs';
 
-const [OBSERVED_WIDGET_URL, UPDATED_WIDGET_URL] = OBSERVED_WIDGET_URLS;
+const [OBSERVED_WIDGET_URL, UPDATED_WIDGET_URL, LATEST_WIDGET_URL] =
+  OBSERVED_WIDGET_URLS;
 
 describe('tactical board startup HTTP boundary', () => {
   it.each([
+    [
+      { phase: 'startup', type: 'script', url: LATEST_WIDGET_URL },
+      [LATEST_WIDGET_URL],
+      true,
+    ],
+    [{ phase: 'startup', type: 'script', url: LATEST_WIDGET_URL }, [], false],
+    [
+      {
+        phase: 'startup',
+        type: 'script',
+        url: LATEST_WIDGET_URL.replace('www.youtube.com', 'example.test'),
+      },
+      [LATEST_WIDGET_URL.replace('www.youtube.com', 'example.test')],
+      false,
+    ],
+    [
+      {
+        phase: 'startup',
+        type: 'script',
+        url: LATEST_WIDGET_URL.replace('22cb88bc', 'unobserved'),
+      },
+      [LATEST_WIDGET_URL.replace('22cb88bc', 'unobserved')],
+      false,
+    ],
+    [
+      { phase: 'startup', type: 'script', url: LATEST_WIDGET_URL },
+      [UPDATED_WIDGET_URL],
+      false,
+    ],
+    [
+      { phase: 'recognition', type: 'script', url: LATEST_WIDGET_URL },
+      [LATEST_WIDGET_URL],
+      false,
+    ],
+    [
+      { phase: 'startup', type: 'fetch', url: LATEST_WIDGET_URL },
+      [LATEST_WIDGET_URL],
+      false,
+    ],
+    [
+      { phase: 'startup', type: 'script', url: `${LATEST_WIDGET_URL}?x=1` },
+      [LATEST_WIDGET_URL],
+      false,
+    ],
     [{ phase: 'startup', type: 'script', url: IFRAME_API_URL }, [], true],
     [
       { phase: 'startup', type: 'script', url: OBSERVED_WIDGET_URL },
@@ -134,6 +179,18 @@ describe('tactical board startup HTTP boundary', () => {
     ).toEqual([]);
   });
 
+  it('requires new widget proof from its own loaded bootstrap', () => {
+    expect(
+      declaredObservedWidgets(`const url = '${LATEST_WIDGET_URL}';`),
+    ).toEqual([LATEST_WIDGET_URL]);
+    expect(
+      declaredObservedWidgets(`const url = '${UPDATED_WIDGET_URL}';`),
+    ).not.toContain(LATEST_WIDGET_URL);
+    expect(
+      declaredObservedWidgets(`const url = '${LATEST_WIDGET_URL}?x=1';`),
+    ).toEqual([]);
+  });
+
   it('keeps proof tied to each observed version instead of approving every known widget', () => {
     expect(
       declaredObservedWidgets(`const url = '${UPDATED_WIDGET_URL}';`),
@@ -142,7 +199,7 @@ describe('tactical board startup HTTP boundary', () => {
       declaredObservedWidgets(
         `const urls = ['${OBSERVED_WIDGET_URL}', '${UPDATED_WIDGET_URL}'];`,
       ),
-    ).toEqual(OBSERVED_WIDGET_URLS);
+    ).toEqual([OBSERVED_WIDGET_URL, UPDATED_WIDGET_URL]);
     expect(
       declaredObservedWidgets(`const url = '${UPDATED_WIDGET_URL}?x=1';`),
     ).toEqual([]);
