@@ -51,4 +51,6 @@ FFmpegへの変更はWindows用manifest設定のみで、無改変の上流archi
 
 変更後の最小検証は、通常renderer/preload build、生成inventory内容、electron-builderのdirectory packageでResourcesと`app.asar`のnotice保持を確認します。macOS署名・公証やWindows installerの再検証は対応OSのCIが正本です。Linuxでのdirectory package成功をmacOS/Windows配布の検証へ読み替えません。
 
+Windows CIの[installed配布report](windows.md#開発検証)は新しいinstallerの実bytesを同runのcheckout/buildと照合し、署名状態・最終binary hashと署名前build hashを区別して残します。NOTICE変更後は再packagingし、その候補のreportを確認してください。過去artifactの検査や素材の由来・許諾の確認完了は意味しません。
+
 モデル・GGUF・動画・private R&D・ローカルパスをsource archiveへ含めません。[モデル台帳](model-distribution.md)は別の公開境界を扱います。
