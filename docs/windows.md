@@ -48,4 +48,10 @@ pnpm run electron:package:windows
 
 CIは開発版のElectron E2Eに加え、NSISで日本語・空白・URL予約文字を含む場所へインストールしたアプリでも同じシナリオを実行します。FFmpegとllama.cppのPE import tableを検査し、開発環境にだけ存在するDLLへの依存を検出します。GUIを操作できるrunnerが必要です。CI結果はネイティブなWindowsビルド・操作の証拠であり、あらゆるGPU、音声機器、ネットワーク共有、管理ポリシーでの動作保証ではありません。
 
+インストール直後に `scripts/windows/test-installed-app.ps1` が同じrunのcheckout・build出力と実ファイルを照合し、`output/distribution/windows-installed.json` を作成します。root LICENSE/NOTICE、ResourcesとASAR内のrenderer/preload inventory、台帳の全source資産とASARに入るpublic資産、Paintモデルの固定hash・告知・WASM、media-toolsのbuild manifest・告知・compiler runtime本文を検査します。既定のモデルなし配布候補にGGUFやevent packが混入した場合は失敗します。この検査はpack同梱版の配布レビューを代替しません。
+
+installer・installed app・FFmpeg・FFprobeには `Get-AuthenticodeSignature` を実行し、実ファイルのSHA-256と `Valid` / `NotSigned` を記録します。その他の署名状態は失敗にし、未署名native binaryは署名前build hashとも照合します。署名済みnative binaryのhashは署名前manifestと別に記録します。証明書のsubjectやローカル絶対pathはreportへ出しません。未署名候補をこの検査で署名済みとして扱うことはありません。
+
+reportはCIログの `Installed distribution evidence:` 行と既存の `windows-x64-installer` artifactに保存します。`sourceCommit` はPRではCIのmerge commitです。NOTICEのhashはcheckoutの改行を含む実bytesとの比較で、Git blobのhashとは区別します。reportはそのrunの新しいinstallerだけの証拠で、過去artifact、macOS署名・公証、素材の由来や許諾の完了を証明しません。NOTICE変更後は必ず再packagingし、古いmanifestを新候補へ流用しないでください。
+
 実装の入口: `scripts/media-tools/windows.mjs`、`scripts/build-windows-llama.mjs`、`scripts/windows/`、`electron/src/mediaTools.ts`、`electron/src/videoWindowAspect.ts`、`src/utils/platformShortcut.ts`。

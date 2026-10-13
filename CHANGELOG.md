@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Windows CIでインストール後のNOTICE・同梱資産・モデル・native告知のbytesとAuthenticode状態を検査し、同じ候補のhash reportを保存。[検査範囲](docs/windows.md#開発検証)。
+
 - 同梱event packへ出典・固定revision/hash・LICENSE/NOTICE・利用制限・公開レビュー記録を必須化し、署名前の全ファイルと照合。未確認または不整合ならpackagingを停止する。モデルなし配布と既存ローカルpackの実行時互換は維持する。[配布記録](docs/event-pack-provenance.md)。
 
 - AI指示の適用範囲・例外管理と人によるレビュー責任を明確化し、pnpm固定版、開発手順、品質ゲートの参照先を整合。

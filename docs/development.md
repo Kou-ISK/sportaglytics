@@ -455,4 +455,6 @@ Windows media buildにはMSYS2 UCRT64の`gcc`、`cygpath`、`pacman`と、使用
 
 renderer/preload buildは実際の出力moduleからlicense inventoryを生成します。追加した依存にはlicense本文が必要です。`pnpm run licenses:sources`はnative再buildなしで固定source archiveを準備します。[配布手順と確認範囲](third-party-distribution.md)。
 
+Windows CIは同じrunで作成・インストールした成果物のNOTICE、資産・モデル・native告知のbytesと署名状態を検査し、hash reportを保存します。[実行手順と証拠の範囲](windows.md#開発検証)。
+
 macOS llamaの準備は固定版の依存告知を外部ファイルへコピーし、cacheと`afterPack`で本文hash・実行ファイル内の全文を検査します。版変更時は [告知の出典](../resources/third-party/llama-b7849/README.md) も更新し、両archの実ファイルで検証してください。`node --test scripts/tests/distribution-notices.mjs`は欠落・改変・別runtimeを拒否する合成試験で、macOS配布検証を代替しません。
