@@ -449,7 +449,7 @@ Windows media buildにはMSYS2 UCRT64の`gcc`、`cygpath`、`pacman`と、使用
 
 `pnpm run vision:prepare` はMediaPipe Tasks Vision 0.10.21（外部統計送信なし）の固定npm版と、SHA-256で検証するEfficientDet-Lite2 INT8 revision 1を `public/pitch-vision/` に準備します。start/build/Storybookコマンドに組み込み済みです。初回の開発・ビルドではモデル取得にネットワークが必要で、ハッシュ一致の資産があれば再取得しません。実行時には同梱資産のみを使います。SDKのfile URLフォールバックを避け、同梱WASMをBlob URL、モデルをバッファとして渡します。ElectronのwebSecurityは緩和しません。モデル・WASMはGitに含めず、配布ビルドとライセンスを同梱します。モデルの出典とハッシュは `resources/pitch-vision/NOTICE.md` が正本です。
 
-較正・戦術盤のStorybookは `Playlist/Paint/Pitch Calibration` と `Playlist/Paint/Tactical Board`。E2Eは `pnpm run e2e:prepare` 後に `node scripts/e2e-tactical-board.mjs` を実行します。合成映像でHTTP通信を拒否し、実モデルのロード・推論、部分較正、削除/Undo、PNG、保存/再読込を確認します。人物検出の実試合精度を保証する試験ではありません。
+較正・戦術盤のStorybookは `Playlist/Paint/Pitch Calibration` と `Playlist/Paint/Tactical Board`。E2Eは `pnpm run e2e:prepare` 後に `node scripts/e2e-tactical-board.mjs` を実行します。合成映像でHTTP通信を拒否し、実モデルのロード・推論、部分較正、削除/Undo、PNG、保存/再読込を確認します。人物検出の実試合精度を保証する試験ではありません。起動時の未分類YouTube widget要求で停止した場合は、[起動scriptの分類・証拠の条件](testing.md#戦術盤)に従い、観測したexact URLと同じ実行のbootstrap宣言を照合します。未分類要求の包括許可やHTTP遮断の解除は行いません。
 
 ## 第三者告知と対応ソース
 

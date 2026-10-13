@@ -1,6 +1,6 @@
 # AIモデルの公開範囲・配布台帳
 
-確認日: 2026-10-10。対象はアプリ0.17.3の公開ソースと公開Releaseの一覧です。この文書はモデルの公開宣言ではありません。個々の配布物の出所・重みの許諾を、アプリのMIT Licenseから推定しないでください。
+再確認日: 2026-10-13。公開配布物の基準はv0.17.4、次版sourceの基準はdevelop commit `36dfec8afa8ade78c52dd29bc16285c72ea161dc`です。sourceのstaging状態と実配布物を区別します。この文書はモデルの公開宣言ではありません。個々の配布物の出所・重みの許諾を、アプリのMIT Licenseから推定しないでください。
 
 ## 公開範囲
 
@@ -8,7 +8,7 @@
 | ------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | アプリ                   | UI、IPC、推論の呼出し、model pack検証、ビルド手順                                              | [MIT](../LICENSE)、[ソースとRelease](https://github.com/Kou-ISK/sportaglytics)                                                  |
 | イベント検出R&D          | データ準備・学習・評価・exportはprivate R&D。公開側はpack consumer                             | [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)。アプリだけでは再学習できない                                    |
-| イベント検出重み・runner | 外部packを利用。追跡対象のmodel directoryは`.gitkeep`のみ。0.17.3 Release noteも別途必要と記載 | 公開配布元、現行packのhash、基盤checkpointと重みlicenseは未確認。取得可能な公式pack URLを現時点では案内できない                 |
+| イベント検出重み・runner | 外部packを利用。追跡対象は`.gitkeep`のみ。[v0.17.4実配布物の確認](provenance-review.md)でもevent packなし | 公開配布元、現行packのhash、基盤checkpointと重みlicenseは未確認。取得可能な公式pack URLを現時点では案内できない                 |
 | Paintの俯瞰配置          | 既製EfficientDet-Lite2 INT8 revision 1とMediaPipe Tasks Vision 0.10.21をビルド時に同梱         | Apache-2.0、[NOTICEとモデルURL](../resources/pitch-vision/NOTICE.md)、[hash固定の取得手順](../scripts/prepare-pitch-vision.mjs) |
 | 文章AI                   | llama.cpp runtimeを配布し、GGUF重みは利用者が選択・配置                                        | runtimeはMIT。重みは配布元ごとの条件。[導入手順](ai-analysis.md)                                                                |
 | CIの文章AI               | Qwen2.5-0.5B-Instruct-GGUFの固定revision/量子化をテストだけに取得                              | [取得URL・revision・SHA-256](../scripts/prepare-test-model.mjs)。アプリ配布物へ含めない                                         |
