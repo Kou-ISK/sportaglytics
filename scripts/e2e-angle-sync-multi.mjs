@@ -29,6 +29,10 @@ try {
     'vfr',
     '-c:v',
     fixtureH264Encoder,
+    // This fixture tests exact VFR timestamps, not long-GOP decode performance.
+    // Keep every frame independently seekable, including its nonzero start PTS.
+    '-g',
+    '1',
     '-pix_fmt',
     'yuv420p',
     '-y',
