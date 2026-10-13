@@ -7,13 +7,15 @@
 
 スポーツ映像のタグ付け、同期再生、統計可視化、プレイリスト作成を行う Electron デスクトップアプリケーションです。現在の主な利用想定はラグビー分析ですが、タイムラインとラベルを中心にした設計のため、他競技への応用も見込んでいます。
 
-このソースは **0.17.4** です。アプリとモデルの公開境界、第三者告知の同梱、FFmpeg対応ソースの配布を整備しました。公開済みの版と配布物は上のバッジと[Releases](https://github.com/Kou-ISK/sportaglytics/releases)、変更は[CHANGELOG](CHANGELOG.md#0174---2026-10-10)、公開時の確認項目は[Release手順](.github/RELEASE.md)を参照してください。
+`package.json`の版番号は **0.17.4** です。developには公開済みv0.17.4以後の配布告知・検証修正も含まれます。現在のsourceの改善が、既存installerへ反映されたことを意味しません。公開済みの版と配布物は上のバッジと[Releases](https://github.com/Kou-ISK/sportaglytics/releases)、変更は[CHANGELOG](CHANGELOG.md#0174---2026-10-10)、公開時の確認項目は[Release手順](.github/RELEASE.md)を参照してください。
 
 ## OSSとAIモデルの公開範囲
 
 アプリ本体は[MIT License](LICENSE)のOSSです。イベント検出の学習・評価・exportはprivate R&Dに分離し、アプリは外部model packを利用します。Paintの既製モデルは別ライセンスで同梱し、文章AIのGGUFは利用者が用意します。アプリのMITは、これらの重みや学習動画へ一括適用されません。
 
 [モデルカード・配布台帳](docs/model-distribution.md)に、3系統の取得先、学習・評価の確認済み事項、未確認の出所・許諾・再現性をまとめています。コードOSSと全学習データの公開は別であり、学習素材の再配布を前提にしません。
+
+次版候補の告知修正と、素材・モデル・互換形式の由来に残る判断は[公開前の確認状態](docs/provenance-review.md#次版候補の確認状態)を参照してください。アイコンの取得条件、参照sampleや資料の適用条件、モデル重みの配布条件を、MIT表示やCI成功だけで確認済みとは扱いません。
 
 ## 主な機能
 

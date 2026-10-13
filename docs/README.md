@@ -57,7 +57,7 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 ## Developer Documentation
 
-- [画像・アイコン・fixtureの由来](asset-provenance.md): ファイルhash、合成素材の根拠、管理者申告と未確認事項。
+- [画像・アイコン・fixtureの由来](asset-provenance.md): ファイルhash、公開Gitと合成素材の根拠、未確認事項。
 
 - [第三者コンポーネントの配布](third-party-distribution.md): 告知inventory、FFmpeg対応ソースと既存Releaseの確認範囲。
 - [公開履歴の限定点検](reports/2026-10-oss-audit.md): 対象範囲、修正と未確認事項。

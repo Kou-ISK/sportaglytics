@@ -5,6 +5,11 @@
 [ファイルごとのSHA-256・導入commit](asset-inventory.json)を固定しました。
 これは権利の包括的承認ではなく、確認済みの出典と不足する証拠の区別です。
 
+2026-10-13にdevelop commit `36dfec8afa8ade78c52dd29bc16285c72ea161dc`の
+対象26ファイルを再照合し、inventoryの全hashと一致しました。
+この一致は過去の取得条件を補完しません。次版の判断は
+[由来台帳の候補確認](provenance-review.md#次版候補の確認状態)を参照してください。
+
 | 対象 | 確認できたこと | 残る確認 |
 | --- | --- | --- |
 | `public/icon.png/.svg/.icns/.ico` と `public/icons/` の12ファイル | 各bytesと公開Gitの導入/更新履歴を記録。SVGは1024px PNGの埋込みで、現行PNGは512px。元の編集可能なvectorや生成ログではない | 原作者、元素材、取得・生成方法と時期、適用される利用条件。変換履歴だけでこれらを埋めない |

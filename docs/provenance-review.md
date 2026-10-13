@@ -1,6 +1,6 @@
 # コード・資産の由来と公開前の確認
 
-この台帳は2026-10-12時点の確認状態です。基準は公開版 [v0.17.4](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.4)（commit `ab89af2a50721acf1a4183a3cf3d7a8de270f8fc`）。アプリのMIT Licenseだけで、第三者コード・画像・データ・モデル・binaryの権利が確認済みになるわけではありません。法的な適法性の保証や、他社との提携・許諾の表明ではありません。
+この台帳の再確認日は2026-10-13です。配布物の基準は公開版 [v0.17.4](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.4)（commit `ab89af2a50721acf1a4183a3cf3d7a8de270f8fc`）、次版準備のsource基準はdevelopの[`36dfec8`](https://github.com/Kou-ISK/sportaglytics/commit/36dfec8afa8ade78c52dd29bc16285c72ea161dc)です。sourceの変更と公開済みinstallerの状態を分けます。アプリのMIT Licenseだけで、第三者コード・画像・データ・モデル・binaryの権利が確認済みになるわけではありません。法的な適法性の保証や、他社との提携・許諾の表明ではありません。
 
 ## 互換形式・参照資料・独自機能を区別する
 
@@ -8,6 +8,20 @@
 - **SCTimeline JSON**: [converterの範囲](sctimeline-implementation.md)で扱うJSONです。外部Sportscode実機との往復は未検証で、完全なバックアップは `.stpkg` を使用します。
 - **自アプリの操作説明**: 図形描画、ボタン間のリンク、記録前後の秒数、行の名称・色・順序は実際の操作と保存内容で説明します。「準拠」「完全互換」等の表現で検証範囲を広げません。
 - **比較・参照の記録**: [design system](design-system.md)、[角度同期](angle-synchronization.md)、[Code Window](code-window-settings.md)、既存ADRの参照資料は設計の経緯として残します。用語を直しても過去の参照経緯や契約・権利の確認が済んだことにはなりません。
+
+## 次版候補の確認状態
+
+公開Gitと既存の配布記録から確認できる範囲です。私的申告、未提供の契約、アカウント状態を公開の根拠へ補いません。
+
+| 対象 | 次版sourceで確認できる事実 | 残る判断・完了条件 |
+| --- | --- | --- |
+| 独自アイコン・画像・fixture | [asset inventory](asset-inventory.json)の26ファイルは基準developでも同じhash。アイコン12個の変換記録は元素材の許諾を示さない | 元素材・生成入力・取得時期と適用条件の証拠を非公開で照合し、公開可能な出典だけを記録する。確認できなければ対象を限定した置換案をレビューする。元recipe不明の合成fixtureも、将来の再生成recipeと過去の由来を区別する |
+| 旧SCTimeline JSON exportと参照資料 | [2025-11-21の導入記録](https://github.com/Kou-ISK/sportaglytics/blob/d63f570a853dd008fa6093858e2d45ea8511fa61/docs/sctimeline-implementation.md#L188)に実ファイル構造を分析した記述がある。現行converterの対応範囲は[仕様](sctimeline-implementation.md)に限定される | 当時のsample・資料の取得経路と、実際に適用される条件の有無・版・主体を確認する。現時点のWeb規約を当時の契約と推定しない。必要な契約・複製/翻案・名称の判断は専門家へ確認する。古い識別情報を再掲載せず履歴は保持する |
+| Paintの同梱重み | [NOTICE](../resources/pitch-vision/NOTICE.md)にrevision 1、固定SHA-256とApache-2.0を記載。[Googleのモデル案内](https://developers.google.com/edge/mediapipe/solutions/vision/object_detector#efficientdet-lite2_model)もEfficientDet-Lite2とCOCO学習を説明する | アプリのMIT、ライブラリのApache本文、モデル重み、COCO画像の条件を区別する。次版で保持する重みの識別情報に対応した上流model card/配布条件の根拠を保存する。案内ページの文章・code sampleのlicenseを重みの許諾へ読み替えない |
+| event pack・GGUF | 追跡対象のevent stagingは`.gitkeep`のみ。GGUFは[builder filter](https://github.com/Kou-ISK/sportaglytics/blob/36dfec8afa8ade78c52dd29bc16285c72ea161dc/electron-builder.json)で除外する。Paint重みは同梱される | 通常候補はevent pack/GGUFなしとして実Resourcesを検査する。私有packの公開・Apple送信は、このアプリ候補とは別に由来・契約・送信対象を承認する。packを除外してもPaintの確認は残る |
+| native告知と対応source | [macOS llama告知修正](https://github.com/Kou-ISK/sportaglytics/pull/205)と[Windows compiler/runtime告知](https://github.com/Kou-ISK/sportaglytics/pull/207)はdevelopへ統合済み。告知の全文・hash・build manifest整合を検査する | 実際の次版Resources、署名前後のhash、3 targetのmanifestと同じ版のsource bundleを保存する。既存v0.17.4 installerのcompiler告知不足を修正済みとは扱わない。codec/runtime exception・全推移依存の条件確認は[配布手順](third-party-distribution.md)の限界を維持する |
+
+公開前の判断は、対象を上記のファイル・重み・形式・配布物へ限定して記録します。source/告知の整合確認、由来・適用条件の判断、対応OSのGUI/配布検証、署名・公証は別の確認です。未解決の対象について継続利用・置換・除外の判断が揃うまで、正式Releaseの起動へ進みません。署名や公証の成功も権利確認を代替しません。
 
 ## 資産台帳
 
