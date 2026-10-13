@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 戦術盤E2Eで観測したYouTube widget `ec429320`を起動scriptの分類対象に追加。同じ実行のbootstrapによる完全一致URLの証明、全HTTP遮断、認識開始後のHTTP要求0件の検査を維持。[検証条件](docs/testing.md#戦術盤)。
+
 ### Changed
 
 - 同梱event packへ出典・固定revision/hash・LICENSE/NOTICE・利用制限・公開レビュー記録を必須化し、署名前の全ファイルと照合。未確認または不整合ならpackagingを停止する。モデルなし配布と既存ローカルpackの実行時互換は維持する。[配布記録](docs/event-pack-provenance.md)。

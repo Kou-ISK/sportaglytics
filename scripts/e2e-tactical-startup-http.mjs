@@ -5,6 +5,7 @@ export const OBSERVED_WIDGET_URLS = [
   'https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js',
   'https://www.youtube.com/s/player/5203c085/www-widgetapi.vflset/www-widgetapi.js',
   'https://www.youtube.com/s/player/22cb88bc/www-widgetapi.vflset/www-widgetapi.js',
+  'https://www.youtube.com/s/player/ec429320/www-widgetapi.vflset/www-widgetapi.js',
 ];
 
 export const declaredObservedWidgets = (source) => {
