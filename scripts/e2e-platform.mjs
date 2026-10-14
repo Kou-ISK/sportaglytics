@@ -8,5 +8,5 @@ export const fixtureH264Encoder =
   process.platform === 'darwin'
     ? 'h264_videotoolbox'
     : process.platform === 'win32'
-      ? 'libopenh264'
+      ? 'h264_mf'
       : 'libx264';

@@ -459,4 +459,6 @@ Windows CIは同じrunで作成・インストールした成果物のNOTICE、�
 
 macOS llamaの準備は固定版の依存告知を外部ファイルへコピーし、cacheと`afterPack`で本文hash・実行ファイル内の全文を検査します。版変更時は [告知の出典](../resources/third-party/llama-b7849/README.md) も更新し、両archの実ファイルで検証してください。`node --test scripts/tests/distribution-notices.mjs`は欠落・改変・別runtimeを拒否する合成試験で、macOS配布検証を代替しません。
 
+Windows media toolchainはMedia FoundationのCPUエンコーダーを使用します。Windows NではMedia Feature Packを有効にしてください。native build、CPU MP4、全22シナリオのインストール後検査は[Windows開発・検証](windows.md#開発検証)を参照してください。
+
 Macの配布準備は[Release手順](../.github/RELEASE.md)に従います。`release.yml`は手動dispatchのみで、既存SecretsをCI内で利用します。`publish=false`もApple送信を含むため、未署名のローカル検査には使いません。Mac専用sourceは`node scripts/package-media-sources.mjs --platform macos --require-builds`で生成し、Python 3とMac 2 targetの既存manifestを使います。

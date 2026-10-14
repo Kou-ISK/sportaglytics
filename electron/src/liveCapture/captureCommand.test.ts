@@ -21,7 +21,7 @@ describe('live capture encoding', () => {
         platform === 'darwin'
           ? 'h264_videotoolbox'
           : platform === 'win32'
-            ? 'libopenh264'
+            ? 'h264_mf'
             : 'libx264',
       );
     },

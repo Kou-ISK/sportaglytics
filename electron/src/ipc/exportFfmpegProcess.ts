@@ -4,6 +4,7 @@ import { constants } from 'node:fs';
 import * as os from 'os';
 import * as path from 'path';
 import { H264_ENCODER_ARGS } from '../mediaTools';
+import { ensureWindowsH264Encoder } from '../windowsH264Capability';
 import { canConcatenateWithoutEncoding } from './exportStreamCopy';
 
 export const MAX_FFMPEG_STDERR_BYTES = 64 * 1024;
@@ -61,16 +62,17 @@ export const parseFfmpegProgressLine = (
   return Math.min(1, microseconds / 1_000_000 / durationSeconds);
 };
 
-export const runFfmpegProcess = (
+export const runFfmpegProcess = async (
   getFfmpegPath: () => string,
   args: string[],
   progressOptions?: FfmpegProcessProgressOptions,
 ): Promise<void> => {
+  const executablePath = getFfmpegPath();
+  if (args.includes('h264_mf')) await ensureWindowsH264Encoder(executablePath);
   return new Promise<void>((resolve, reject) => {
     const ffmpegArgs = progressOptions
       ? ['-progress', 'pipe:1', '-nostats', ...args]
       : args;
-    const executablePath = getFfmpegPath();
     const commandSummary = buildCommandSummary(executablePath, ffmpegArgs);
     const ff = spawn(executablePath, ffmpegArgs, {
       shell: false,

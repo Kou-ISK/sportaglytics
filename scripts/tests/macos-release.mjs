@@ -42,6 +42,12 @@ test('Mac source selection excludes Windows-only dependencies and requires both 
     'freetype',
     'harfbuzz',
   ]);
+  assert.deepEqual(Object.keys(sourcesForTargets(['win32-x64'])).sort(), [
+    'ffmpeg',
+    'freetype',
+    'harfbuzz',
+    'zlib',
+  ]);
   assert.equal(sourceBundleOptions([]).targets.length, 3);
   for (const args of [
     ['--platform'],

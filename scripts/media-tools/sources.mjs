@@ -6,12 +6,6 @@ export const SOURCES = {
     sha256: 'bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16',
     directory: 'zlib-1.3.2',
   },
-  openh264: {
-    version: '2.6.0',
-    url: 'https://github.com/cisco/openh264/archive/refs/tags/v2.6.0.tar.gz',
-    sha256: '558544ad358283a7ab2930d69a9ceddf913f4a51ee9bf1bfb9e377322af81a69',
-    directory: 'openh264-2.6.0',
-  },
   ffmpeg: {
     version: '8.1.2',
     url: 'https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz',

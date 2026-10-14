@@ -24,10 +24,20 @@ describe('parseFfmpegProgressLine', () => {
 });
 
 describe('resolveH264Encoder', () => {
-  it('uses the bundled software encoder on Windows without GPU prerequisites', () => {
+  it('uses the OS software encoder on Windows without GPU prerequisites', () => {
     const encoder = resolveH264Encoder('win32');
-    expect(encoder.backend).toBe('openh264');
-    expect(encoder.args).toContain('libopenh264');
+    expect(encoder.backend).toBe('mediafoundation');
+    expect(encoder.args).toContain('h264_mf');
+    expect(encoder.args).toEqual(
+      expect.arrayContaining([
+        '-hw_encoding',
+        '0',
+        '-profile:v',
+        '77',
+        '-pix_fmt',
+        'nv12',
+      ]),
+    );
     expect(encoder.args).not.toContain('h264_videotoolbox');
   });
   it('uses the bundled macOS VideoToolbox encoder without libx264 options', () => {

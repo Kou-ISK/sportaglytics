@@ -34,7 +34,7 @@ export const sourcesForTargets = (targets) => {
   const windows = targets.includes('win32-x64');
   return Object.fromEntries(
     Object.entries(SOURCES).filter(
-      ([name]) => windows || !['openh264', 'zlib'].includes(name),
+      ([name]) => windows || name !== 'zlib',
     ),
   );
 };

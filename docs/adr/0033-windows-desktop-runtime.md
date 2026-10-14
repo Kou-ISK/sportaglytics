@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded
+
+- Superseded by: [0062](0062-windows-media-foundation-h264.md)（Windows H.264の選択のみ。その他の判断は継続。）
 
 ## Date
 

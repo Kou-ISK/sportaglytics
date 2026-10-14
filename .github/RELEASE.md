@@ -1,6 +1,6 @@
 # Release Process
 
-Mac向けReleaseの正本です。配布方針は[ADR 0062](../docs/adr/0062-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
+Mac向けReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
 ## 0.17.5の準備と公開済み版
 
@@ -19,7 +19,7 @@ Mac Releaseの構成:
 - `media-tools-sources-<version>-macos.tar.gz`
 - `SHA256SUMS.txt`
 
-ソースbundleはMac 2 targetのmanifestと、FFmpeg / FreeType / HarfBuzzの固定sourceだけを要求します。Windows用OpenH264/zlibの取得やWindows manifestの待機はありません。署名後のnative hashと署名前build manifestのhashは別の値です。source bundleは規定のファイルだけを列挙し、uid/gid/mtimeを正規化し、既存出力を上書きしません。生成にはPython 3が必要です。
+ソースbundleはMac 2 targetのmanifestと、FFmpeg / FreeType / HarfBuzzの固定sourceだけを要求します。Windows用zlibの取得やWindows manifestの待機はありません。署名後のnative hashと署名前build manifestのhashは別の値です。source bundleは規定のファイルだけを列挙し、uid/gid/mtimeを正規化し、既存出力を上書きしません。生成にはPython 3が必要です。
 
 ## 起動方法
 

@@ -28,7 +28,7 @@ v0.17.4のWindows配布物には、上記compiler/runtime専用の告知集合�
 
 source archiveに含むもの:
 
-- FFmpeg、FreeType、HarfBuzz、Windows用OpenH264/zlibの上流source archive（version・URL・SHA-256固定）。
+- FFmpeg、FreeType、HarfBuzz、Windows用zlibの上流source archive（version・URL・SHA-256固定）。
 - `scripts/build-media-tools.mjs`と`scripts/media-tools/`のビルド手順。FFmpeg Windows manifestへのUTF-8設定追加も`windows.mjs`に含む。
 - `manifest.json`のsource一覧・対象target集合と各targetの`build.json`。署名・packaging前のbuild binary hashとsource version/hashを照合できる。署名後の配布ファイルのhashと同一とは限らない。
 - この手順とアプリ側build scriptのMIT License。上流のライセンス本文は各source archiveに含む。
@@ -54,3 +54,9 @@ FFmpegへの変更はWindows用manifest設定のみで、無改変の上流archi
 Windows CIの[installed配布report](windows.md#開発検証)は新しいinstallerの実bytesを同runのcheckout/buildと照合し、署名状態・最終binary hashと署名前build hashを区別して残します。NOTICE変更後は再packagingし、その候補のreportを確認してください。過去artifactの検査や素材の由来・許諾の確認完了は意味しません。
 
 モデル・GGUF・動画・private R&D・ローカルパスをsource archiveへ含めません。[モデル台帳](model-distribution.md)は別の公開境界を扱います。
+
+## Windows H.264 の変更
+
+Windows の新recipeは `--enable-mediafoundation` と `h264_mf -hw_encoding 0` を使用し、OpenH264 のソース・static library・binaryを含めません。Media FoundationはOS提供で、Microsoft DLLの再配布は行いません。Windows build revisionを8へ進め、旧cacheを再利用せず、再build時に旧license directoryを除去して現在の告知を作り直します。過去版のOpenH264告知・source補足はその版の記録として保持します。
+
+Ciscoの[公式binary license](https://www.openh264.org/BINARY_LICENSE.txt)は、Cisco提供binaryの個別downloadなどを特許料カバーの条件としています。従来の自前build・static同梱をその条件と同一視しないための変更です。過去配布を違法と判断したものではなく、OS codecの利用から個々の映像利用・配布について包括的な特許許諾を推定しません。[ADR 0062](adr/0062-windows-media-foundation-h264.md)。
