@@ -109,6 +109,12 @@ try {
   await timeline.keyboard.press('Shift+2');
   // Selection and playback position reach the detached Timeline through IPC.
   await timeline.getByText('Angle 2', { exact: true }).waitFor();
+  // The startup click leaves the pointer over Sync Point. Its interactive
+  // tooltip covers the zero-second handle, including the tooltip's margin.
+  await timeline
+    .getByText('タグ付けしたプレーを、ここに集約', { exact: true })
+    .hover();
+  await timeline.getByRole('tooltip').waitFor({ state: 'hidden' });
   // Drag the existing timeline playhead; do not bypass the window command route.
   const handle = timeline.getByRole('slider', {
     name: 'タイムラインの再生位置',
