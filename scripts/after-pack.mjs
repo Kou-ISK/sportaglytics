@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import signEventRunners from './sign-event-detection-runners-after-pack.mjs';
 import { validateEventPackDistribution } from './event-pack-provenance.mjs';
+import { validateBuildManifest } from './media-tools/source-manifest.mjs';
 import { verifyWindowsToolchainNotices } from './media-tools/toolchain-notices.mjs';
 import {
   MAC_LLAMA_VERSION,
@@ -42,8 +43,18 @@ export default async function afterPack(context) {
         throw new Error(`Empty media notice: ${file}`);
     }
   }
-  if (context.electronPlatformName === 'win32')
-    await verifyWindowsToolchainNotices(join(resources, 'media-tools'));
+  if (context.electronPlatformName === 'win32') {
+    const mediaRoot = join(resources, 'media-tools');
+    validateBuildManifest(
+      JSON.parse(await readFile(join(mediaRoot, 'build.json'), 'utf8')),
+      'win32-x64',
+    );
+    if (
+      !(await readFile(join(mediaRoot, 'licenses/zlib-LICENSE'), 'utf8')).trim()
+    )
+      throw new Error('Empty zlib notice');
+    await verifyWindowsToolchainNotices(mediaRoot);
+  }
   if (context.electronPlatformName === 'darwin')
     await verifyMacLlamaNotices(
       join(resources, 'llama/darwin'),

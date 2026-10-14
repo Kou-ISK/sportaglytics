@@ -14,6 +14,7 @@ interface MediaProbe {
   width: number;
   height: number;
   hasAudio: boolean;
+  frameRate: { numerator: number; denominator: number };
 }
 
 interface ProbeOutput {
@@ -22,8 +23,25 @@ interface ProbeOutput {
     codec_type?: string;
     width?: number;
     height?: number;
+    avg_frame_rate?: string;
+    r_frame_rate?: string;
   }>;
 }
+
+const readFrameRate = (...values: unknown[]): MediaProbe['frameRate'] => {
+  for (const value of values) {
+    if (typeof value !== 'string' || !/^\d+(?:\/\d+)?$/.test(value)) continue;
+    const [numerator, denominator = 1] = value.split('/').map(Number);
+    if (
+      Number.isSafeInteger(numerator) &&
+      numerator > 0 &&
+      Number.isSafeInteger(denominator) &&
+      denominator > 0
+    )
+      return { numerator, denominator };
+  }
+  return { numerator: 30, denominator: 1 };
+};
 
 const isProbeOutput = (value: unknown): value is ProbeOutput => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -56,6 +74,7 @@ export const probeMedia = async (filePath: string): Promise<MediaProbe> => {
     hasAudio: Boolean(
       output.streams?.some((stream) => stream.codec_type === 'audio'),
     ),
+    frameRate: readFrameRate(video.avg_frame_rate, video.r_frame_rate),
   };
 };
 

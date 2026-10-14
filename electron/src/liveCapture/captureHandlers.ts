@@ -1,3 +1,4 @@
+import { ensureWindowsH264Encoder } from '../windowsH264Capability';
 import {
   app,
   BrowserWindow,
@@ -167,6 +168,13 @@ export const registerLiveCaptureHandlers = (options: {
     if (starting || active()) throw new Error('別の録画が実行中です。');
     starting = true;
     try {
+      // Fail before creating a package or opening a device/network input.
+      if (
+        request.inputs.some(
+          (input) => input.kind !== 'device' || input.videoCodec !== 'h264',
+        )
+      )
+        await ensureWindowsH264Encoder(getFfmpegPath());
       const owner = getCaptureWindow();
       if (!owner) throw new Error('録画ウィンドウが閉じています。');
       const destination = await dialog.showSaveDialog(owner, {

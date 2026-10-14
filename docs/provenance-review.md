@@ -81,3 +81,5 @@
 契約原本、会話ログ、秘密、実試合名、ローカル絶対パス、私有モデルの内部台帳を公開Issue/PRへ貼りません。必要な公開再現例は架空のチーム名・相対パス・合成映像で作成します。脆弱性は [SECURITY.md](../SECURITY.md)、データ取扱いは [privacy guide](privacy-and-data-handling.md#sharing-and-issue-reports) に従います。
 
 弁護士へ確認する具体事項は、実際に適用される契約と参照行為の関係、表現・画面・資料の複製や翻案、名称の使い方、素材の許諾、native依存/codecと過去配布への是正方法です。この台帳はそのための技術的根拠を整理するもので、契約の適用や権利侵害の有無を判定しません。
+
+次版WindowsのH.264は[Media Foundationへ移行](adr/0062-windows-media-foundation-h264.md)します。上表のv0.17.4でのOpenH264照合は過去配布物についての記録です。自前buildにCisco提供binaryの特許料カバーが適用されるという確認ではありません。次版はsource/recipe/noticeを更新し、Windows Nの追加要件を明示します。

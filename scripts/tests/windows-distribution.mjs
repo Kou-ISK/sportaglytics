@@ -126,7 +126,7 @@ const fixture = async (t) => {
   );
   const manifest = {
     identity: {
-      revision: 1,
+      revision: 8,
       platform: 'win32',
       architecture: 'x64',
       sources: Object.fromEntries(

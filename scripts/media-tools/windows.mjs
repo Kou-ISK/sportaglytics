@@ -66,20 +66,6 @@ export const buildWindowsMediaTools = async ({
     '-DHB_BUILD_VECTOR=OFF',
     '-DHB_BUILD_GPU=OFF',
   ]);
-  await run(
-    'make',
-    [
-      '-j',
-      parallelism,
-      'install-static',
-      'OS=mingw_nt',
-      'ARCH=x86_64',
-      'BUILDTYPE=Release',
-      `PREFIX=${prefix}`,
-    ],
-    { cwd: sources.openh264, env: environment },
-  );
-
   const buildDirectory = join(sources.ffmpeg, 'build-windows');
   await mkdir(buildDirectory, { recursive: true });
   // FreeType uses CreateFileA on Windows. Give every linked library the same
@@ -116,7 +102,10 @@ export const buildWindowsMediaTools = async ({
       '--enable-zlib',
       '--enable-libfreetype',
       '--enable-libharfbuzz',
-      '--enable-libopenh264',
+      '--enable-mediafoundation',
+      // FFmpeg 8.1.2 mfenc uses D3D11 types even for software MFTs.
+      // This supplies the compile-time declarations; runtime uses hw_encoding=0.
+      '--enable-d3d11va',
       '--pkg-config-flags=--static',
       '--extra-libs=-lstdc++',
       `--extra-cflags=-I${prefix}/include`,

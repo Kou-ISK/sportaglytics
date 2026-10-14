@@ -1,7 +1,7 @@
 import { exercisePlaybackInteractions } from './e2e-playback-interactions.mjs';
 import {
   exerciseAngleSync,
-  getSyncTimeline,
+  getTimelineWindow,
 } from './e2e-angle-sync-workspace.mjs';
 import { exerciseMultiClipCoding } from './e2e-multi-clip-coding.mjs';
 import fs from 'node:fs/promises';
@@ -144,7 +144,7 @@ try {
     true,
   );
   await page.evaluate(() => window.electronAPI.timelineWindow.openWindow());
-  const settingsTimeline = await getSyncTimeline(app);
+  const settingsTimeline = await getTimelineWindow(app);
   await settingsTimeline.getByTestId('timeline-ruler').waitFor();
   await settingsTimeline.evaluate(
     () =>

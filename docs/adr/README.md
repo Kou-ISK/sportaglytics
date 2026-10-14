@@ -42,7 +42,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 
 | [0031](0031-tracking-target-selection.md) | Tracking target selection | Accepted | 2026-09-11 |
 | [0032](0032-immutable-release-artifacts.md) | Immutable release artifacts | Accepted | 2026-09-13 |
-| [0033](0033-windows-desktop-runtime.md) | Windows desktop runtime | Accepted | 2026-09-13 |
+| [0033](0033-windows-desktop-runtime.md) | Windows desktop runtime | Superseded | 2026-09-13 |
 | [0034](0034-reference-coding-model-evaluation.md) | Reference Coding Model Evaluation | Accepted | 2026-09-15 |
 | [0035](0035-event-detection-result-reuse.md) | Event detection result reuse | Accepted | 2026-09-16 |
 | [0036](0036-event-episode-consolidation.md) | Event Episode Consolidation | Accepted | 2026-09-16 |
@@ -120,3 +120,5 @@ YYYY-MM-DD
 
 - [0060 Distribution License Evidence](0060-distribution-license-evidence.md): 実bundleの告知とRelease対応sourceの同梱。
 - [0061 Event Pack Distribution Provenance](0061-event-pack-distribution-provenance.md): runtime互換を維持した配布前の由来・全ファイル検査。
+
+- [0062 Windows Media Foundation H.264](0062-windows-media-foundation-h264.md): WindowsのOS提供CPUエンコーダーと不足検出。0033のH.264判断を置換。

@@ -130,3 +130,5 @@ AI agent は次の順で参照してください。
 - [Playlist default angles (ADR 0052)](adr/0052-playlist-default-angles.md)
 
 分析PNGのフレーム同期と画素境界の判断は[ADR 0057](adr/0057-verified-analysis-frame-capture.md)を参照してください。
+
+Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-windows-media-foundation-h264.md)を参照してください。

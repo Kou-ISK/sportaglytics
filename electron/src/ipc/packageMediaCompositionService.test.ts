@@ -1,5 +1,41 @@
-import { describe, expect, it } from 'vitest';
-import { materializePackageAngle } from './packageMediaCompositionService';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  materializePackageAngle,
+  probeMedia,
+} from './packageMediaCompositionService';
+import { runMediaProcess } from './mediaProcessRunner';
+
+vi.mock('./mediaProcessRunner', () => ({ runMediaProcess: vi.fn() }));
+vi.mock('../mediaTools', () => ({
+  getFfprobePath: () => '/synthetic-ffprobe',
+}));
+
+it.each([
+  ['60000/1001', '60/1', { numerator: 60000, denominator: 1001 }],
+  ['0/0', '25/1', { numerator: 25, denominator: 1 }],
+  ['-25/1', '50/1', { numerator: 50, denominator: 1 }],
+  ['Infinity', '1/0', { numerator: 30, denominator: 1 }],
+])(
+  'reads a usable frame rate from %s / %s',
+  async (average, nominal, expected) => {
+    vi.mocked(runMediaProcess).mockResolvedValue({
+      stdout: JSON.stringify({
+        format: { duration: '2' },
+        streams: [
+          {
+            codec_type: 'video',
+            width: 160,
+            height: 90,
+            avg_frame_rate: average,
+            r_frame_rate: nominal,
+          },
+        ],
+      }),
+      stderr: '',
+    });
+    expect((await probeMedia('/synthetic.mp4')).frameRate).toEqual(expected);
+  },
+);
 
 describe('materializePackageAngle', () => {
   it('keeps a YouTube angle remote without writing a local file', async () => {
