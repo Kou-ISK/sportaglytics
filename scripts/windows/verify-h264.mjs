@@ -23,8 +23,16 @@ assert.match(configuration, /--enable-mediafoundation/);
 assert.doesNotMatch(configuration, /--enable-(?:libopenh264|gpl|nonfree)\b/);
 const work = await mkdtemp(join(tmpdir(), 'sportaglytics-h264-mf-'));
 try {
-  for (const size of ['1280x720', '1920x1080', '3840x1080']) {
-    const output = join(work, `${size}.mp4`);
+  for (const [size, rate, secondaryRate] of [
+    ['1280x720', 30],
+    ['1920x1080', 30],
+    ['3840x1080', 30],
+    ['160x90', 25, 30],
+    ['160x90', 60, 60],
+  ]) {
+    const outputRate = Math.max(rate, secondaryRate ?? rate);
+    const name = `${size}-${rate}-${secondaryRate ?? 'single'}`;
+    const output = join(work, `${name}.mp4`);
     exec(ffmpeg, [
       '-hide_banner',
       '-v',
@@ -33,11 +41,25 @@ try {
       '-f',
       'lavfi',
       '-i',
-      `testsrc2=s=${size}:r=30:d=2`,
+      `testsrc2=s=${size}:r=${rate}:d=2`,
       '-f',
       'lavfi',
       '-i',
       'sine=frequency=440:sample_rate=48000:duration=2',
+      ...(secondaryRate
+        ? [
+            '-f',
+            'lavfi',
+            '-i',
+            `testsrc2=s=${size}:r=${secondaryRate}:d=2`,
+            '-filter_complex',
+            `[0:v][2:v]hstack=inputs=2,setsar=1,fps=${outputRate}/1[v]`,
+            '-map',
+            '[v]',
+            '-map',
+            '1:a',
+          ]
+        : []),
       '-c:v',
       'h264_mf',
       '-hw_encoding',
@@ -71,7 +93,8 @@ try {
     assert.equal(video.codec_name, 'h264');
     assert.equal(video.profile, 'Main');
     assert.equal(video.pix_fmt, 'yuv420p'); // NV12 input is still H.264 4:2:0 output.
-    assert.equal(Number(video.nb_read_frames), 60);
+    assert.equal(Number(video.nb_read_frames), outputRate * 2);
+    assert.equal(video.avg_frame_rate, `${outputRate}/1`);
     assert.equal(audio.codec_name, 'aac');
     assert.ok(
       Math.abs(Number(video.start_time) - Number(audio.start_time)) < 0.05,
@@ -79,7 +102,7 @@ try {
     assert.ok(Math.abs(Number(video.duration) - Number(audio.duration)) < 0.05);
     assert.ok(Math.abs(Number(media.format.duration) - 2) < 0.1);
     console.log(
-      `Media Foundation CPU MP4: ${size}, 60 decoded frames, AAC clock aligned`,
+      `Media Foundation CPU MP4: ${name}, ${outputRate * 2} decoded frames, AAC clock aligned`,
     );
   }
 } finally {

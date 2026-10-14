@@ -25,8 +25,12 @@ Windows x64のFFmpegにMedia Foundationを明示的に有効化し、OpenH264の
 
 encoder一覧だけではOSの利用可否を判定できないため、再符号化の直前に小さい合成映像3フレームをCPUで符号化し、timeoutと出力量を制限する。成功と進行中の検査は実行ファイル単位で共有し、失敗は再試行できる。失敗時はWindows NのFeature Pack導入・再起動と通常版の修復案内を表示する。captureは入力開始・package作成より前に検査する。stream copyやdecodeだけにencoderを要求しない。
 
+異なるfpsの二画面をhstackで合成すると、FFmpegの出力frame rateが未定義になり、mfencがtime baseの逆数を採用してOS encoderに拒否される場合がある。Windowsの二画面合成後は、実際の両入力のうち高いfpsへ揃える。ffprobeの平均fps、公称fpsの順に正の有効値を採用し、両方が不明なら30fpsとする。60000/1001などの分数は保持し、60fps素材を一律30fpsへ落とさない。音声と映像の時刻・尺を維持し、Macの合成経路は変えない。
+
 ## Consequences
 
 Windows Nの追加機能不要という従来契約は変わる。OS機能の追加を自動実行せず、不足を明示する。source bundle、notice、cache identityを同じrecipeへ揃える。旧版の告知とsource補足は維持する。OS codecの採用を個々の利用に対する包括的な特許許諾保証とは扱わない。
 
 Windows CIでGPU無効指定の720p/1080p/3840×1080二画面相当のMP4を復号し、フレーム数・音声時刻・尺を検査する。既存の同期、overlay、二画面、結合、captureの実Electron検査を維持し、installed E2Eも全22シナリオへ揃える。Windows Nの不足状態はunitで模擬し、実OSでのFeature Pack未導入/導入後の確認は別の実機検証として記録する。
+
+CPU検査には25/30fps混在の実hstack出力と60fps維持も含める。同期E2Eは同期専用の入力が現れるまで待機し、通常Timelineの同名wrapperだけで同期開始済みと判断しない。

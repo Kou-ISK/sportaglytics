@@ -14,9 +14,7 @@ export const getTimelineWindow = async (app) => {
 
 export const getSyncTimeline = async (app) => {
   const timeline = await getTimelineWindow(app);
-  await timeline
-    .getByLabel('タイムラインのアングル同期', { exact: true })
-    .waitFor();
+  await timeline.getByRole('textbox', { name: '再生タイムコード' }).waitFor();
   return timeline;
 };
 

@@ -6,8 +6,12 @@ import { execFileSync } from 'node:child_process';
 import { _electron as electron } from 'playwright';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
-import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
-import { getSyncTimeline, seekSyncTime } from './e2e-angle-sync-workspace.mjs';
+import { fixtureH264Encoder } from './e2e-platform.mjs';
+import {
+  getTimelineWindow,
+  getSyncTimeline,
+  seekSyncTime,
+} from './e2e-angle-sync-workspace.mjs';
 
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'angle-sync-gaps-'));
 let app;
@@ -83,7 +87,14 @@ try {
   page = await app.firstWindow();
   page.setDefaultTimeout(20000);
   await page.locator('#video_0 video').waitFor();
-  await page.keyboard.press(`${primaryModifier}+Shift+T`);
+  // Startup can give the auxiliary window native focus. Use its real button.
+  const startupTimeline = await getTimelineWindow(app);
+  await startupTimeline
+    .getByRole('button', { name: 'アングル同期', exact: true })
+    .click();
+  await page
+    .getByLabel('アングル同期ワークスペース', { exact: true })
+    .waitFor();
   const timeline = await getSyncTimeline(app);
   timeline.setDefaultTimeout(20000);
   assert.equal(await page.getByRole('slider').count(), 0);
@@ -272,30 +283,35 @@ try {
     'Unequal clip counts, timeline playhead drag, cross-window frame shortcuts, contiguous import, 10–25 second gap, save/reopen and exported pixels passed',
   );
 } catch (error) {
-  if (app)
-    for (const page of app.windows()) {
-      if (page.url().includes('#/timeline')) {
-        console.log(await page.locator('body').innerText());
-        console.log(
-          'Timeline time',
-          await page
-            .getByRole('textbox', { name: '再生タイムコード' })
-            .inputValue(),
-        );
-      } else {
-        console.log(
-          'Synthetic media',
-          await page.evaluate(() =>
-            [...document.querySelectorAll('video')].map((v) => ({
-              source: v.currentSrc.split(/[\\/]/).pop(),
-              time: v.currentTime,
-              seeking: v.seeking,
-              ready: v.readyState,
-            })),
-          ),
-        );
+  console.error('Angle sync gaps failed:', error);
+  try {
+    if (app)
+      for (const page of app.windows()) {
+        if (page.url().includes('#/timeline')) {
+          console.log(await page.locator('body').innerText());
+          console.log(
+            'Timeline time',
+            await page
+              .getByRole('textbox', { name: '再生タイムコード' })
+              .evaluateAll((inputs) => inputs.map((input) => input.value)),
+          );
+        } else {
+          console.log(
+            'Synthetic media',
+            await page.evaluate(() =>
+              [...document.querySelectorAll('video')].map((v) => ({
+                source: v.currentSrc.split(/[\\/]/).pop(),
+                time: v.currentTime,
+                seeking: v.seeking,
+                ready: v.readyState,
+              })),
+            ),
+          );
+        }
       }
-    }
+  } catch (diagnosticError) {
+    console.error('Could not collect angle sync diagnostics:', diagnosticError);
+  }
   throw error;
 } finally {
   if (app) await app.close().catch(() => {});
