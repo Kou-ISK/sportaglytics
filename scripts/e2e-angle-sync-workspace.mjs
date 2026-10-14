@@ -15,6 +15,10 @@ export const getTimelineWindow = async (app) => {
 export const getSyncTimeline = async (app) => {
   const timeline = await getTimelineWindow(app);
   await timeline.getByRole('textbox', { name: '再生タイムコード' }).waitFor();
+  await (
+    await app.browserWindow(timeline)
+  ).evaluate((window) => window.focus());
+  await timeline.waitForFunction(() => document.hasFocus());
   return timeline;
 };
 

@@ -190,7 +190,26 @@ try {
     '3/4-angle layout, sync points and variable frame timestamps passed',
   );
 } catch (error) {
+  console.error('Multi-angle synchronization failed:', error);
   if (app) {
+    const timeline = app
+      .windows()
+      .find((item) => item.url().includes('#/timeline'));
+    if (timeline) {
+      console.log(
+        'Timeline input state:',
+        await timeline
+          .evaluate(() => ({
+            focused: document.hasFocus(),
+            activeElement: document.activeElement?.outerHTML,
+            input: document.querySelector(
+              'input[aria-label="再生タイムコード"]',
+            )?.outerHTML,
+            text: document.body.innerText,
+          }))
+          .catch((diagnosticError) => String(diagnosticError)),
+      );
+    }
     console.log(
       await app.evaluate(({ BrowserWindow, screen }) =>
         BrowserWindow.getAllWindows().map((w) => ({
@@ -226,6 +245,7 @@ try {
           ready: v.readyState,
           seeking: v.seeking,
           start: v.seekable.length ? v.seekable.start(0) : null,
+          end: v.seekable.length ? v.seekable.end(v.seekable.length - 1) : null,
         })),
       ),
     );

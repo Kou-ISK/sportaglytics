@@ -107,11 +107,29 @@ try {
   await timeline.keyboard.press('s');
   await timeline.getByLabel('Angle 1の同期点', { exact: true }).waitFor();
   await timeline.keyboard.press('Shift+2');
-  // The selected angle and its playhead arrive through IPC before the drag target moves.
+  // Selection and playback position reach the detached Timeline through IPC.
   await timeline.getByText('Angle 2', { exact: true }).waitFor();
   // Drag the existing timeline playhead; do not bypass the window command route.
   const handle = timeline.getByRole('slider', {
     name: 'タイムラインの再生位置',
+  });
+  await timeline.waitForFunction(() => {
+    const slider = document.querySelector(
+      '[role="slider"][aria-label="タイムラインの再生位置"]',
+    );
+    const origin = document.querySelector(
+      '[data-testid="timeline-time-origin"]',
+    );
+    if (!slider || !origin) return false;
+    const rect = slider.getBoundingClientRect();
+    return (
+      Math.abs(Number(slider.getAttribute('aria-valuenow'))) < 0.001 &&
+      Math.abs(rect.x + rect.width / 2 - origin.getBoundingClientRect().x) <
+        2 &&
+      slider.contains(
+        document.elementFromPoint(rect.x + rect.width / 2, rect.y + 8),
+      )
+    );
   });
   const firstClip = await timeline
     .getByTestId('timeline-time-origin')
@@ -128,6 +146,12 @@ try {
     { steps: 8 },
   );
   await timeline.mouse.up();
+  await timeline.waitForFunction(() => {
+    const slider = document.querySelector(
+      '[role="slider"][aria-label="タイムラインの再生位置"]',
+    );
+    return Math.abs(Number(slider?.getAttribute('aria-valuenow')) - 11) < 0.15;
+  });
   await page.waitForFunction(() => {
     const v = document.querySelector('#sync_angle_1 video');
     return (
