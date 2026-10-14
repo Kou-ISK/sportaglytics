@@ -365,3 +365,28 @@ describe('tactical board startup HTTP boundary', () => {
     ).toBe(false);
   });
 });
+
+describe('widget observed in installed Windows run 38597748824', () => {
+  const url =
+    'https://www.youtube.com/s/player/21090930/www-widgetapi.vflset/www-widgetapi.js';
+  it('requires its own exact loaded-bootstrap declaration and startup script phase', () => {
+    expect(declaredObservedWidgets(`const src = '${url}';`)).toEqual([url]);
+    const request = { phase: 'startup', type: 'script', url };
+    expect(isClassifiedStartupRequest(request, [url])).toBe(true);
+    expect(isClassifiedStartupRequest(request, [])).toBe(false);
+    expect(isClassifiedStartupRequest(request, [WINDOWS_WIDGET_URL])).toBe(
+      false,
+    );
+    expect(
+      isClassifiedStartupRequest({ ...request, phase: 'recognition' }, [url]),
+    ).toBe(false);
+    expect(
+      isClassifiedStartupRequest({ ...request, type: 'fetch' }, [url]),
+    ).toBe(false);
+    expect(
+      isClassifiedStartupRequest({ ...request, url: url + '?v=1' }, [
+        url + '?v=1',
+      ]),
+    ).toBe(false);
+  });
+});
