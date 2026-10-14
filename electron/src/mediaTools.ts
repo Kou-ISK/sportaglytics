@@ -151,7 +151,8 @@ export const resolveH264Encoder = (
         '-b:v',
         '5M',
         '-profile:v',
-        'main',
+        // mfenc uses the generic numeric AVProfile, without named constants.
+        '77',
         '-pix_fmt',
         'nv12',
       ],

@@ -29,7 +29,14 @@ describe('resolveH264Encoder', () => {
     expect(encoder.backend).toBe('mediafoundation');
     expect(encoder.args).toContain('h264_mf');
     expect(encoder.args).toEqual(
-      expect.arrayContaining(['-hw_encoding', '0', '-pix_fmt', 'nv12']),
+      expect.arrayContaining([
+        '-hw_encoding',
+        '0',
+        '-profile:v',
+        '77',
+        '-pix_fmt',
+        'nv12',
+      ]),
     );
     expect(encoder.args).not.toContain('h264_videotoolbox');
   });

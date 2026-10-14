@@ -45,7 +45,7 @@ try {
       '-b:v',
       '5M',
       '-profile:v',
-      'main',
+      '77',
       '-pix_fmt',
       'nv12',
       '-c:a',
@@ -69,6 +69,7 @@ try {
     const video = media.streams.find((stream) => stream.codec_type === 'video');
     const audio = media.streams.find((stream) => stream.codec_type === 'audio');
     assert.equal(video.codec_name, 'h264');
+    assert.equal(video.profile, 'Main');
     assert.equal(video.pix_fmt, 'yuv420p'); // NV12 input is still H.264 4:2:0 output.
     assert.equal(Number(video.nb_read_frames), 60);
     assert.equal(audio.codec_name, 'aac');
