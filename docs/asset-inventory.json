@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-12",
+  "referenceRelease": "v0.17.4",
+  "referenceCommit": "ab89af2a50721acf1a4183a3cf3d7a8de270f8fc",
+  "scope": "Tracked current independent icons, application screenshots and synthetic video fixture; not a blanket rights approval or full historical image inventory. See asset-provenance.md.",
+  "files": [
+    {
+      "path": "docs/reports/assets/2026-10-density/search-1000x460.png",
+      "category": "application_screenshot",
+      "bytes": 147828,
+      "sha256": "c945f34ba559f03f0b48d3174e152f0adafa435a6594690da5c6321ef3406c1a",
+      "introducedCommit": "4ca2cc2af06fca2b603665868dea977081f18be1",
+      "lastChangedCommit": "4ca2cc2af06fca2b603665868dea977081f18be1"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-density/search-1280x700.png",
+      "category": "application_screenshot",
+      "bytes": 251425,
+      "sha256": "35b626b76670baf79cc94f8ff1c4a7e40ddc3015ebffd458045e147433e324b9",
+      "introducedCommit": "4ca2cc2af06fca2b603665868dea977081f18be1",
+      "lastChangedCommit": "4ca2cc2af06fca2b603665868dea977081f18be1"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-density/search-720x260.png",
+      "category": "application_screenshot",
+      "bytes": 71670,
+      "sha256": "af10c5f0b236cd98a1a9845fbbe1b3451114eca97c5c3e9562fb4d2e1eb52d57",
+      "introducedCommit": "4ca2cc2af06fca2b603665868dea977081f18be1",
+      "lastChangedCommit": "4ca2cc2af06fca2b603665868dea977081f18be1"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-density/search-720x380.png",
+      "category": "application_screenshot",
+      "bytes": 100360,
+      "sha256": "c122306fa4aa08d69f78ffe96d4693a3661eafb7002fb59f064fb174c2fdb7c4",
+      "introducedCommit": "4ca2cc2af06fca2b603665868dea977081f18be1",
+      "lastChangedCommit": "4ca2cc2af06fca2b603665868dea977081f18be1"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-ux/analysis-after.png",
+      "category": "application_screenshot",
+      "bytes": 95213,
+      "sha256": "ce40edeacfe0e9d58ce6639eb133ab1e48096547bae0fe959738d6d6d410a978",
+      "introducedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76",
+      "lastChangedCommit": "0b1d09c35af79c72968187217f88e893e3109fde"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-ux/analysis-before.png",
+      "category": "application_screenshot",
+      "bytes": 42014,
+      "sha256": "f4995fab839fcf43aaf6dc476afe416c05289d6e124cf0558067bb7b998216d3",
+      "introducedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76",
+      "lastChangedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-ux/timeline-before.png",
+      "category": "application_screenshot",
+      "bytes": 113422,
+      "sha256": "968b92cff5c64f5a954086cb07a4383444a6dac8727cfe8bb595cd02a7ed3ed3",
+      "introducedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76",
+      "lastChangedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-ux/timeline-closed-after.png",
+      "category": "application_screenshot",
+      "bytes": 119528,
+      "sha256": "8531d6542e7f702a4ffcd97ae52e09878c83cf694dbe904522b2b450d07093f1",
+      "introducedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76",
+      "lastChangedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-ux/timeline-compact-after.png",
+      "category": "application_screenshot",
+      "bytes": 120902,
+      "sha256": "ea2674dc26781fa6e9ff7dce5557ec15f11af75a953e943fbd52085ab4b6e46e",
+      "introducedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76",
+      "lastChangedCommit": "0b1d09c35af79c72968187217f88e893e3109fde"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-ux/timeline-empty-after.png",
+      "category": "application_screenshot",
+      "bytes": 120243,
+      "sha256": "f6e3544eb4a7f046bea20a3ca6aa2d2d3bd93846b2dcd9961fb8e59035275efc",
+      "introducedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76",
+      "lastChangedCommit": "0b1d09c35af79c72968187217f88e893e3109fde"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-ux/timeline-min-height-after.png",
+      "category": "application_screenshot",
+      "bytes": 44151,
+      "sha256": "543c1590ac1a5845f70fd8ac5da51ed6d2a5d0217be23e7cc256d5c0c9049111",
+      "introducedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76",
+      "lastChangedCommit": "0b1d09c35af79c72968187217f88e893e3109fde"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-ux/timeline-no-match-after.png",
+      "category": "application_screenshot",
+      "bytes": 146119,
+      "sha256": "3de274e3cb61799a97a91d6b0cea2ed7b9312c238405ec7fdcc889469215cb4b",
+      "introducedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76",
+      "lastChangedCommit": "0b1d09c35af79c72968187217f88e893e3109fde"
+    },
+    {
+      "path": "docs/reports/assets/2026-10-ux/timeline-search-after.png",
+      "category": "application_screenshot",
+      "bytes": 168443,
+      "sha256": "8bc5d7c653157e47129748597b20ca46dd8e0874d92d5d3dbe8826b9ea53cc2c",
+      "introducedCommit": "5aabb8d17684284fc672f7d7bbb3ed9503e1df76",
+      "lastChangedCommit": "0b1d09c35af79c72968187217f88e893e3109fde"
+    },
+    {
+      "path": "public/icon.icns",
+      "category": "independent_icons",
+      "bytes": 2861458,
+      "sha256": "be9c8b7acebb1a32df23c9108ce9f9549a63d7427c2d2abc84ccd32d6451f7b9",
+      "introducedCommit": "f5b47acd8d699dc0f11812585ef0a6efbd340c4b",
+      "lastChangedCommit": "8fb963299b3bcd275b61118c073ccca373c7df17"
+    },
+    {
+      "path": "public/icon.ico",
+      "category": "independent_icons",
+      "bytes": 92427,
+      "sha256": "ebdfdeeb7d79c0ff96f43a1e301587ede6012c5b1a38b4ed47466513591fd045",
+      "introducedCommit": "8fb963299b3bcd275b61118c073ccca373c7df17",
+      "lastChangedCommit": "8fb963299b3bcd275b61118c073ccca373c7df17"
+    },
+    {
+      "path": "public/icon.png",
+      "category": "independent_icons",
+      "bytes": 419596,
+      "sha256": "83d605718decf169d1ae8ce8e935b38cacd2d4961906f35e2c5c5d41543db9cf",
+      "introducedCommit": "433b819912d91acbbb055537cf90942f43a42db3",
+      "lastChangedCommit": "8fb963299b3bcd275b61118c073ccca373c7df17"
+    },
+    {
+      "path": "public/icon.svg",
+      "category": "independent_icons",
+      "bytes": 2503726,
+      "sha256": "2a305d3ae0b2a04aae07232b4e6ba832514e3df2bec2b507528fa75a0e90fbe7",
+      "introducedCommit": "f5b47acd8d699dc0f11812585ef0a6efbd340c4b",
+      "lastChangedCommit": "f5b47acd8d699dc0f11812585ef0a6efbd340c4b"
+    },
+    {
+      "path": "public/icons/stad.icns",
+      "category": "independent_icons",
+      "bytes": 239675,
+      "sha256": "c9a063534cd2363e5f8846dfae9257ea1bf6330f0648aec54d8f87ac620b0c8b",
+      "introducedCommit": "6d131707ccf77c1c44b2bdf9d3096c62c5fd1857",
+      "lastChangedCommit": "192ee0ef80495f63f3ee95e59fbe8a2280b5e2de"
+    },
+    {
+      "path": "public/icons/stad.ico",
+      "category": "independent_icons",
+      "bytes": 112686,
+      "sha256": "6c9a680426d686c77bb456f86b73b1975ca5011f40046ce5043cffa3116a7f1c",
+      "introducedCommit": "6d131707ccf77c1c44b2bdf9d3096c62c5fd1857",
+      "lastChangedCommit": "192ee0ef80495f63f3ee95e59fbe8a2280b5e2de"
+    },
+    {
+      "path": "public/icons/stcw.icns",
+      "category": "independent_icons",
+      "bytes": 339646,
+      "sha256": "02a9466703d6c7d846422b86c1a7fef49a56b5f4e1c579251eefe56e9cb808df",
+      "introducedCommit": "8fb963299b3bcd275b61118c073ccca373c7df17",
+      "lastChangedCommit": "192ee0ef80495f63f3ee95e59fbe8a2280b5e2de"
+    },
+    {
+      "path": "public/icons/stcw.ico",
+      "category": "independent_icons",
+      "bytes": 120402,
+      "sha256": "50a0ab8065ece7ea2e6e363ee100096b9268ded56959a419d650b0dae93f4bd2",
+      "introducedCommit": "8fb963299b3bcd275b61118c073ccca373c7df17",
+      "lastChangedCommit": "192ee0ef80495f63f3ee95e59fbe8a2280b5e2de"
+    },
+    {
+      "path": "public/icons/stpkg.icns",
+      "category": "independent_icons",
+      "bytes": 245122,
+      "sha256": "0a9a20c1b48aceec7d19e2c37c21604811beae48665832c87218e1d9a838b975",
+      "introducedCommit": "8fb963299b3bcd275b61118c073ccca373c7df17",
+      "lastChangedCommit": "192ee0ef80495f63f3ee95e59fbe8a2280b5e2de"
+    },
+    {
+      "path": "public/icons/stpkg.ico",
+      "category": "independent_icons",
+      "bytes": 114406,
+      "sha256": "a362b28abf7e01b191b700b4536363408d06a6e8979f79befb633a6be116a22f",
+      "introducedCommit": "8fb963299b3bcd275b61118c073ccca373c7df17",
+      "lastChangedCommit": "192ee0ef80495f63f3ee95e59fbe8a2280b5e2de"
+    },
+    {
+      "path": "public/icons/stpl.icns",
+      "category": "independent_icons",
+      "bytes": 290022,
+      "sha256": "8e38501f42bbd7941cb52c9781fd08696d167241aa8f51f6bcf9746be1ff3cb3",
+      "introducedCommit": "8fb963299b3bcd275b61118c073ccca373c7df17",
+      "lastChangedCommit": "192ee0ef80495f63f3ee95e59fbe8a2280b5e2de"
+    },
+    {
+      "path": "public/icons/stpl.ico",
+      "category": "independent_icons",
+      "bytes": 116923,
+      "sha256": "a3384754877cd9da8eaf29c049478d131d4c4828a1bce1b39ba15cf1d6a88b97",
+      "introducedCommit": "8fb963299b3bcd275b61118c073ccca373c7df17",
+      "lastChangedCommit": "192ee0ef80495f63f3ee95e59fbe8a2280b5e2de"
+    },
+    {
+      "path": "src/features/playlist/fixtures/tactics-motion.webm",
+      "category": "synthetic_fixture",
+      "bytes": 3550,
+      "sha256": "f9c437315a7fba29432127d8152b8e36211d39cf7dc8027464f73247ff3938c0",
+      "introducedCommit": "dc112f6739909ebc1e67fb17e5915f82331722c7",
+      "lastChangedCommit": "dc112f6739909ebc1e67fb17e5915f82331722c7"
+    }
+  ],
+  "removedUnusedTemplateAsset": {
+    "path": "src/logo.svg",
+    "sha256": "6000b0e9b0b05b3f112de04f0d039768a1db63588ff9b6ef7099dbd71632f383",
+    "reason": "No source/config reference; removed from current tree only. Historical tags retained."
+  }
+}

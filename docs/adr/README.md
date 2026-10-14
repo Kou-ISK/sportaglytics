@@ -4,6 +4,8 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 
 原本保持の旧パッケージコピー、load成功を条件とした保存、SCTimeline JSONと公式XML新規取り込みの区別は[0006](0006-application-document-formats-and-file-associations.md)・[0003](0003-shared-type-contracts-and-load-time-migration.md)・[0009](0009-timeline-import-export-interoperability.md)に反映しています。
 
+停止中のシーク要求とデコーダーが返す実フレームのずれを再試行ループにしない判断は[0046](0046-coalesced-playback-corrections.md)に反映しています。
+
 ## Records
 
 | ID                                                                 | Title                                              | Status     | Date       |
@@ -42,7 +44,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 
 | [0031](0031-tracking-target-selection.md) | Tracking target selection | Accepted | 2026-09-11 |
 | [0032](0032-immutable-release-artifacts.md) | Immutable release artifacts | Accepted | 2026-09-13 |
-| [0033](0033-windows-desktop-runtime.md) | Windows desktop runtime | Accepted | 2026-09-13 |
+| [0033](0033-windows-desktop-runtime.md) | Windows desktop runtime | Superseded | 2026-09-13 |
 | [0034](0034-reference-coding-model-evaluation.md) | Reference Coding Model Evaluation | Accepted | 2026-09-15 |
 | [0035](0035-event-detection-result-reuse.md) | Event detection result reuse | Accepted | 2026-09-16 |
 | [0036](0036-event-episode-consolidation.md) | Event Episode Consolidation | Accepted | 2026-09-16 |
@@ -119,3 +121,8 @@ YYYY-MM-DD
 | [0059](0059-playlist-renderer-delivery-readiness.md) | Playlist renderer delivery readiness | Accepted | 2026-10-04 |
 
 - [0060 Distribution License Evidence](0060-distribution-license-evidence.md): 実bundleの告知とRelease対応sourceの同梱。
+- [0061 Event Pack Distribution Provenance](0061-event-pack-distribution-provenance.md): runtime互換を維持した配布前の由来・全ファイル検査。
+
+- [0062 Windows Media Foundation H.264](0062-windows-media-foundation-h264.md): WindowsのOS提供CPUエンコーダーと不足検出。0033のH.264判断を置換。
+
+- [0063 Independent macOS release](0063-independent-macos-release.md): Mac単独または両OSの手動dispatch、対象OS別の対応source、最終DMG検査（Accepted）。

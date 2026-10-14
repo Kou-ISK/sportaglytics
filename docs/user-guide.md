@@ -212,7 +212,7 @@ SporTagLyticsには検索可能なヘルプウィンドウが組み込まれて�
 
 旧バージョンで2本目以降のタグが前半側へ保存されていた場合、元の映像を特定する情報がタグに残っていないため、自動では移動しません。映像を確認し、タイムラインで対象の開始・終了時刻を修正してください。
 
-### 記録範囲（Sportscode方式）
+### 記録範囲（開始前・終了後の秒数）
 
 Action buttonごとに次の2値を設定できます。
 
@@ -639,7 +639,7 @@ Playlistでクリップを選び、ツールバーのPaintに切り替えて一�
 - JSON形式
 - YouTube用CSV
 - 分析用CSV
-- SCTimeline形式（Sportscode互換）
+- SCTimeline JSON（[対応範囲と制約](sctimeline-implementation.md)。Sportscode実機との往復は未検証）
 
 **項目**:
 

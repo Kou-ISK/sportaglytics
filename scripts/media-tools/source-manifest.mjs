@@ -1,4 +1,5 @@
 import { SOURCES } from './sources.mjs';
+import { validateToolchainRecord } from './toolchain-notices.mjs';
 
 export const validateBuildManifest = (manifest, target) => {
   const [platform, architecture] = target.split('-');
@@ -7,8 +8,12 @@ export const validateBuildManifest = (manifest, target) => {
     manifest.identity?.architecture !== architecture
   )
     throw new Error(`Build target mismatch: ${target}`);
+  if (platform === 'win32' && manifest.identity.revision !== 8)
+    throw new Error(
+      'Windows media recipe must use Media Foundation (revision 8)',
+    );
   const names = Object.keys(SOURCES).filter(
-    (name) => platform === 'win32' || !['zlib', 'openh264'].includes(name),
+    (name) => platform === 'win32' || name !== 'zlib',
   );
   if (
     Object.keys(manifest.identity.sources ?? {})
@@ -45,5 +50,8 @@ export const validateBuildManifest = (manifest, target) => {
       ffmpeg: manifest.binaries.ffmpeg,
       ffprobe: manifest.binaries.ffprobe,
     },
+    ...(platform === 'win32'
+      ? { toolchain: validateToolchainRecord(manifest.toolchain) }
+      : {}),
   };
 };

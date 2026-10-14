@@ -6,7 +6,7 @@ applyTo: 'src/features/**/*.ts,src/features/**/*.tsx'
 
 このファイルで定義するのは `applyTo` 対象の差分ルールのみです。一般規約は `AGENTS.md` を参照してください。
 
-1. feature から `pages` を import しない。
-2. 他 feature の内部実装へ直接 import しない（必要なら shared へ抽出する）。
-3. feature 外へ公開する要素は `src/features/<feature>/index.ts` に明示する。
-4. UI / hook / domain の責務を分離し、責務混在を避ける。
+依存方向・公開面・責務分離は [AGENTS.md](../../AGENTS.md#アーキテクチャ方針) を参照する。
+
+- 新しい公開要素を追加する際は、対象featureの `index.ts` と呼出側を同じ差分で確認する。
+- feature間で共有する必要がある契約の配置は [Project Structure](../../docs/project-structure.md) を参照する。

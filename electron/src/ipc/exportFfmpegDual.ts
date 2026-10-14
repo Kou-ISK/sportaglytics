@@ -26,14 +26,24 @@ export const runFfmpegDual = async ({
   escapeDrawtext,
   onProgress,
 }: RunDualParams): Promise<void> => {
-  const sizes = overlayEnabled
-    ? await Promise.all([
-        probeMedia(clip.sourceOverride || mainSource),
-        probeMedia(
-          clip.secondarySourceOverride || secondarySource || mainSource,
-        ),
-      ])
-    : [];
+  const normalizeFrameRate = process.platform === 'win32';
+  const sizes =
+    overlayEnabled || normalizeFrameRate
+      ? await Promise.all([
+          probeMedia(clip.sourceOverride || mainSource),
+          probeMedia(
+            clip.secondarySourceOverride || secondarySource || mainSource,
+          ),
+        ])
+      : [];
+  const outputFrameRate = (normalizeFrameRate ? sizes : []).reduce(
+    (rate, { frameRate }) =>
+      frameRate.numerator / frameRate.denominator >
+      rate.numerator / rate.denominator
+        ? frameRate
+        : rate,
+    sizes[0]?.frameRate ?? { numerator: 30, denominator: 1 },
+  );
   const outputHeight = sizes[0] ? sizes[0].height - (sizes[0].height % 2) : 1;
   const aspectRatio =
     sizes.reduce(
@@ -233,7 +243,18 @@ export const runFfmpegDual = async ({
     filterSteps.push(
       `${subLabel}[mnormal]scale2ref=w='trunc(oh*mdar/2)*2':h=ih[snormal][mref]`,
     );
-    filterSteps.push('[mref][snormal]hstack=inputs=2,setsar=1[vbase]');
+    // Normalize before hstack: mixed rates have no nominal rate for MF, while
+    // fps after hstack loses its last frame because the stack has no end duration.
+    let stackInputs = '[mref][snormal]';
+    if (normalizeFrameRate) {
+      const rate = `${outputFrameRate.numerator}/${outputFrameRate.denominator}`;
+      filterSteps.push(
+        `[mref]fps=${rate}[mrate]`,
+        `[snormal]fps=${rate}[srate]`,
+      );
+      stackInputs = '[mrate][srate]';
+    }
+    filterSteps.push(`${stackInputs}hstack=inputs=2,setsar=1[vbase]`);
 
     if (overlayEnabled) {
       const overlayFilters = buildOverlayFilters({

@@ -7,13 +7,15 @@
 
 スポーツ映像のタグ付け、同期再生、統計可視化、プレイリスト作成を行う Electron デスクトップアプリケーションです。現在の主な利用想定はラグビー分析ですが、タイムラインとラベルを中心にした設計のため、他競技への応用も見込んでいます。
 
-このソースは **0.17.4** です。アプリとモデルの公開境界、第三者告知の同梱、FFmpeg対応ソースの配布を整備しました。公開済みの版と配布物は上のバッジと[Releases](https://github.com/Kou-ISK/sportaglytics/releases)、変更は[CHANGELOG](CHANGELOG.md#0174---2026-10-10)、公開時の確認項目は[Release手順](.github/RELEASE.md)を参照してください。
+`package.json`の版番号は **0.17.5** です。developには公開済みv0.17.4以後の配布告知・検証修正も含まれます。現在のsourceの改善が、既存installerへ反映されたことを意味しません。公開済みの版と配布物は上のバッジと[Releases](https://github.com/Kou-ISK/sportaglytics/releases)、変更は[CHANGELOG](CHANGELOG.md)、公開時の確認項目は[Release手順](.github/RELEASE.md)を参照してください。
 
 ## OSSとAIモデルの公開範囲
 
 アプリ本体は[MIT License](LICENSE)のOSSです。イベント検出の学習・評価・exportはprivate R&Dに分離し、アプリは外部model packを利用します。Paintの既製モデルは別ライセンスで同梱し、文章AIのGGUFは利用者が用意します。アプリのMITは、これらの重みや学習動画へ一括適用されません。
 
 [モデルカード・配布台帳](docs/model-distribution.md)に、3系統の取得先、学習・評価の確認済み事項、未確認の出所・許諾・再現性をまとめています。コードOSSと全学習データの公開は別であり、学習素材の再配布を前提にしません。
+
+次版候補の告知修正と、素材・モデル・互換形式の由来に残る判断は[公開前の確認状態](docs/provenance-review.md#次版候補の確認状態)を参照してください。アイコンの取得条件、参照sampleや資料の適用条件、モデル重みの配布条件を、MIT表示やCI成功だけで確認済みとは扱いません。
 
 ## 主な機能
 
@@ -75,43 +77,33 @@ brew install --cask sportaglytics
 
 ## 技術スタック
 
-- **フロントエンド**: React 19.2 + TypeScript 5.4
+- **フロントエンド**: React 19 + TypeScript 5（解決版はlockfile参照）
 - **デスクトップ**: Electron 43
 - **UI**: Material-UI 7
 - **映像**: Video.js 8
-- **パッケージ管理**: pnpm 9
+- **パッケージ管理**: pnpm 9.1.0
 
 ## 開発
 
 ### 必要な環境
 
 - Node.js 22.12.0+
-- pnpm 9.0.0+
+- pnpm 9.1.0（`package.json` の `packageManager`）
 
 ### セットアップ
 
 ```bash
 # pnpmのインストール（未インストールの場合）
-npm install -g pnpm
+npm install -g pnpm@9.1.0
 
 # 依存関係のインストール
-pnpm install
+pnpm install --frozen-lockfile
 
 # Electronアプリを開発モードで起動
 pnpm run electron:dev
 ```
 
-品質ゲート:
-
-```bash
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron/tsconfig.json
-pnpm run lint
-pnpm run check:architecture
-pnpm run test:run
-```
-
-詳細は [開発ガイド](docs/development.md) を参照してください。
+品質ゲートと変更別の検証は [Testing](docs/testing.md#required-quality-gate)、ネットワーク・OS別の準備は [開発ガイド](docs/development.md#開発環境) を参照してください。
 
 ## AI contributor 向け入口
 

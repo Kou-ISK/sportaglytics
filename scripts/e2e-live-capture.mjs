@@ -6,6 +6,7 @@ import { createServer } from 'node:http';
 import { execFileSync, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { _electron as electron } from 'playwright';
+import { expect } from 'playwright/test';
 import {
   getElectronLaunchOptions,
   observeElectronErrors,
@@ -529,6 +530,19 @@ try {
   await timeline
     .getByRole('button', { name: '録画の操作', exact: true })
     .click();
+  // The renderer click sends an async IPC. Observe the native show before closing,
+  // otherwise a delayed open can arrive after close and make this check race.
+  await expect
+    .poll(() =>
+      app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()
+          .find((window) =>
+            window.webContents.getURL().includes('#/live-capture'),
+          )
+          ?.isVisible(),
+      ),
+    )
+    .toBe(true);
   const countBeforeHide = (
     await capture.evaluate(() => window.electronAPI.liveCapture.getState())
   ).inputs[0].segmentCount;

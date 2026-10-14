@@ -17,6 +17,10 @@ import { hashFile } from './download-verified.mjs';
 import { run } from './media-tools/process.mjs';
 import { buildMacMediaTools } from './media-tools/macos.mjs';
 import { buildWindowsMediaTools } from './media-tools/windows.mjs';
+import {
+  copyWindowsToolchainNotices,
+  verifyWindowsToolchainNotices,
+} from './media-tools/toolchain-notices.mjs';
 
 const BUILD_REVISION = 4;
 const outputRoot = resolve('.cache/media-tools');
@@ -37,12 +41,12 @@ if (
 }
 const selectedSources = Object.fromEntries(
   Object.entries(SOURCES).filter(
-    ([name]) => !['openh264', 'zlib'].includes(name) || platform === 'win32',
+    ([name]) => name !== 'zlib' || platform === 'win32',
   ),
 );
 const executableName = (name) => (platform === 'win32' ? `${name}.exe` : name);
 const buildIdentity = (architecture) => ({
-  revision: platform === 'win32' ? BUILD_REVISION + 2 : BUILD_REVISION,
+  revision: platform === 'win32' ? BUILD_REVISION + 4 : BUILD_REVISION,
   platform,
   architecture,
   sources: Object.fromEntries(
@@ -75,9 +79,13 @@ const isCached = async (architecture) => {
       'freetype-LICENSE.TXT',
       'freetype-FTL.TXT',
       'harfbuzz-COPYING',
+      ...(platform === 'win32' ? ['zlib-LICENSE'] : []),
     ]) {
       if (!(await readFile(join(output, 'licenses', file), 'utf8')).trim())
         return false;
+    }
+    if (platform === 'win32') {
+      await verifyWindowsToolchainNotices(output, manifest.toolchain);
     }
     return true;
   } catch {
@@ -121,24 +129,26 @@ if (pending.length > 0) {
         platform === 'win32' ? buildWindowsMediaTools : buildMacMediaTools;
       await builder({ sources, architecture, outputDirectory, parallelism });
       const licenses = join(outputDirectory, 'licenses');
+      // A rebuilt cache must not retain notices from an earlier codec recipe.
+      if (platform === 'win32')
+        await rm(licenses, { recursive: true, force: true });
       await mkdir(licenses, { recursive: true });
       for (const [name, file] of [
         ['ffmpeg', 'COPYING.LGPLv2.1'],
         ['freetype', 'LICENSE.TXT'],
         ['freetype', 'docs/FTL.TXT'],
         ['harfbuzz', 'COPYING'],
-        ...(platform === 'win32'
-          ? [
-              ['openh264', 'LICENSE'],
-              ['zlib', 'LICENSE'],
-            ]
-          : []),
+        ...(platform === 'win32' ? [['zlib', 'LICENSE']] : []),
       ]) {
         await copyFile(
           join(sources[name], file),
           join(licenses, `${name}-${basename(file)}`),
         );
       }
+      const toolchain =
+        platform === 'win32'
+          ? await copyWindowsToolchainNotices(outputDirectory)
+          : undefined;
       const png = join(outputDirectory, 'paint-overlay-smoke.png');
       const ffmpeg = join(outputDirectory, executableName('ffmpeg'));
       await run(ffmpeg, [
@@ -187,6 +197,7 @@ if (pending.length > 0) {
           {
             identity: buildIdentity(architecture),
             binaries,
+            ...(toolchain ? { toolchain } : {}),
           },
           null,
           2,

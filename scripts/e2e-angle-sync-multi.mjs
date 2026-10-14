@@ -14,6 +14,9 @@ import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'angle-sync-multi-'));
 let app;
 let page;
+let stage = 'fixture';
+let angleCount;
+const screenshotDir = process.env.E2E_SCREENSHOT_DIR || 'output/playwright';
 try {
   const source = path.join(dir, 'variable-frames.mp4');
   execFileSync(ffmpegPath, [
@@ -29,6 +32,10 @@ try {
     'vfr',
     '-c:v',
     fixtureH264Encoder,
+    // This fixture tests exact VFR timestamps, not long-GOP decode performance.
+    // Keep every frame independently seekable, including its nonzero start PTS.
+    '-g',
+    '1',
     '-pix_fmt',
     'yuv420p',
     '-y',
@@ -86,6 +93,8 @@ try {
   }
   await app.close();
   for (const count of [3, 4]) {
+    angleCount = count;
+    stage = 'launch';
     app = await electron.launch(
       getElectronLaunchOptions(path.join(dir, 'profile'), [
         path.join(dir, `angles-${count}.stpkg`),
@@ -94,15 +103,26 @@ try {
     page = await app.firstWindow();
     page.setDefaultTimeout(15000);
     await page.locator('#video_0 video').waitFor();
+    stage = 'initial-paused-decode';
+    await page.waitForFunction((count) => {
+      const videos = [...document.querySelectorAll('video')];
+      return (
+        videos.length === count &&
+        videos.every((video) => video.readyState >= 2 && !video.seeking)
+      );
+    }, count);
     // The first video can appear before the auxiliary Timeline opens and takes
     // native focus. Finish that startup before focusing the shortcut's owner.
     const normalTimeline = await getTimelineWindow(app);
+    stage = 'startup-timeline';
     await normalTimeline
       .getByRole('button', { name: 'アングル同期', exact: true })
       .waitFor();
+    stage = 'startup-video-focus';
     await (await app.browserWindow(page)).evaluate((window) => window.focus());
     await page.waitForFunction(() => document.hasFocus());
     console.log(`${count}-angle startup Timeline ready; video window focused`);
+    stage = 'enter-sync';
     await page.keyboard.press(`${primaryModifier}+Shift+T`);
     const timeline = await getSyncTimeline(app);
     await page.waitForFunction((count) => {
@@ -115,6 +135,7 @@ try {
     }, count);
     assert.equal(await page.getByRole('combobox').count(), 0);
     for (let index = 0; index < count; index++) {
+      stage = `sync-angle-${index + 1}`;
       await timeline.keyboard.press(`Shift+${index + 1}`);
       const input = timeline.getByRole('textbox', { name: '再生タイムコード' });
       await input.fill('6.08');
@@ -165,10 +186,11 @@ try {
     const rect = await save.boundingBox();
     const height = await timeline.evaluate(() => innerHeight);
     assert.ok(rect.y + rect.height <= height);
-    await fs.mkdir('output/playwright', { recursive: true });
+    await fs.mkdir(screenshotDir, { recursive: true });
     await page.screenshot({
-      path: `output/playwright/angle-sync-${count}-angles.png`,
+      path: path.join(screenshotDir, `angle-sync-${count}-angles.png`),
     });
+    stage = 'save';
     await save.click();
     await page
       .getByLabel('アングル同期ワークスペース', { exact: true })
@@ -186,7 +208,49 @@ try {
     '3/4-angle layout, sync points and variable frame timestamps passed',
   );
 } catch (error) {
+  console.error(
+    'Multi-angle synchronization failed:',
+    { angleCount, stage },
+    error,
+  );
   if (app) {
+    const timeline = app
+      .windows()
+      .find((item) => item.url().includes('#/timeline'));
+    if (timeline) {
+      console.log(
+        'Timeline input state:',
+        await timeline
+          .evaluate(() => ({
+            focused: document.hasFocus(),
+            visibility: document.visibilityState,
+            activeElement: document.activeElement?.outerHTML.slice(0, 500),
+            input: document.querySelector(
+              'input[aria-label="再生タイムコード"]',
+            )?.outerHTML,
+            text: document.body.innerText,
+          }))
+          .catch((diagnosticError) => String(diagnosticError)),
+      );
+    }
+    await fs.mkdir(screenshotDir, { recursive: true });
+    for (const [name, target] of [
+      ['video', page],
+      ['timeline', timeline],
+    ]) {
+      if (!target) continue;
+      await target
+        .screenshot({
+          path: path.join(
+            screenshotDir,
+            `angle-sync-${angleCount}-failure-${name}.png`,
+          ),
+          timeout: 5000,
+        })
+        .catch((diagnosticError) =>
+          console.error('Screenshot unavailable:', String(diagnosticError)),
+        );
+    }
     console.log(
       await app.evaluate(({ BrowserWindow, screen }) =>
         BrowserWindow.getAllWindows().map((w) => ({
@@ -222,6 +286,7 @@ try {
           ready: v.readyState,
           seeking: v.seeking,
           start: v.seekable.length ? v.seekable.start(0) : null,
+          end: v.seekable.length ? v.seekable.end(v.seekable.length - 1) : null,
         })),
       ),
     );

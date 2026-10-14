@@ -40,7 +40,7 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 `useTimelineViewport.gesture.test.ts`は1倍表示密度の整数スクロールを再現し、3回の連続拡大でも丸め誤差が累積しないことと、スクロール・ポインター移動・境界到達後のアンカー更新を確認します。
 
-`e2e-angle-sync-multi.mjs`は起動時の通常Timelineとアングル同期ボタンの表示を待ってから、映像ウィンドウへフォーカスしてCmd/Ctrl+Shift+Tを送ります。最初のvideo要素の表示だけでは別ウィンドウの起動完了を保証できません。フォーカス・3/4画面・同期点・可変フレーム・保存結果の検証と既存の待機上限は維持し、失敗時は実際の操作対象ページと各native windowのURL/フォーカスを記録します。
+`e2e-angle-sync-multi.mjs`は非ゼロ開始PTSの映像が停止状態でデコードを終えること、通常Timelineとアングル同期ボタンの表示を確認してから、映像ウィンドウへフォーカスしてCmd/Ctrl+Shift+Tを送ります。最初のvideo要素の表示だけではデコードや別ウィンドウの起動完了を保証できません。フォーカス・3/4画面・同期点・可変フレーム・保存結果の検証と既存の待機上限は維持し、失敗時はアングル数・工程・実際の操作対象ページと各native windowのURL/フォーカスを記録します。成功・失敗画像は`E2E_SCREENSHOT_DIR`へ保存し、Windows CIのartifactにも含めます。`useMediaTimeSync.test.tsx`は要求位置を最初のフレームへ補正するデコーダーを再現し、停止中の同じ要求でseeked/canplayが再シークを繰り返さないこと、位置変更・読み直しでは再要求できることを確認します。
 
 ## パッケージ互換と保存保護
 
@@ -51,47 +51,50 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 - `node scripts/e2e-package-safety.mjs`: 実preload/Mainによるread-only旧形式コピーと再利用、未知/未来/native/映像不在拒否、Renderer read fault中の原本保持と両Window retry、書き込み中のUndo、読込失敗中のコードボタン/ホットキー、空文書への再読込後の正常なタグ付けと別processでの再開を確認する。実アプリのtext writerは置換せず、合成保存先のfs.renameへfaultを入れる。12同時write/80回JSON読取で部分ファイルが見えないことも確認する。
 - `node scripts/e2e-sportscode-import.mjs`: 合成XML・合成動画で取消、実動画尺超過の拒否、秒数補正、コピー作成、タグ/ラベル/色/ノート/空行、原本bytes保持を本番IPC/probeで確認する。`actionType`/`Type`/`__proto__`/`constructor`などのgroupを含め、実Rendererでmemo編集・保存・新process再開を行いラベル保持を確認する。
 
-- `node scripts/e2e-legacy-external.mjs`: パッケージ外のreadonly合成映像を絶対パスとfile URIで参照する旧フォルダを移行し、別コピーの実video要素で再生/seekと原本保持を確認する。
+- `node scripts/e2e-legacy-external.mjs`: パッケージ外のreadonly合成映像を絶対パスとfile URIで参照する旧フォルダを移行し、別コピーのTimelineシーク経路と再生・停止ボタンで実video要素の位置・進行・停止と原本保持を確認する。再生状態と時計はアプリのcontrollerを通し、動画要素への直接play/pauseと競合させない。
 
 保存済みcaptureの16超clipは共通の50,000上限を使うunit負例/正例とlive-captureの再開で検証します。Playlistの途中JSONは既存export-menuの読取条件を維持し、metadata置換に同じatomic writerを使います。Windows renameの一時/恒久拒否はbounded retryの回帰を持ち、nativeの実置換で再確認します。Undoの故障注入はB/A両方のrename完了を待ってから判定し、別文書のempty retryは別package IDを使い、open-fileで作られる新sessionのMain/Timeline/コードパネルを取得し直します。対象read faultの到達と元sessionの文書不変も検査します。新processのTimeline同期へ通常listenerを追加し、既存subscriptionを置換せずに実メモリ中のlabelsを確認します。multi-clipの保存件数assertionは緩和せず、synthetic Main stderrの実filesystem errorを残します。
 
-保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常22シナリオとWindowsインストール後17シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
+保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常22シナリオとWindowsインストール後22シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
 
 ## Required Quality Gate
 
 `test:run` / `test:ci`は既存Vitestの後に`check:build-downloads`と同じNode検査も実行します。`scripts/tests/build-downloader.mjs`は実際のbuilder/get/got依存を読み、loopbackの合成bytesでダウンロード・checksum・ファイルキャッシュと通信の回帰を検証します。外部モデルやElectron GUIを起動しません。依存境界の判断は[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に記録しています。
 
-PR前に以下を通します。
+PR前の共通ゲートは以下です。コマンドの定義は `package.json` を正本とします。
 
 ```bash
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron/tsconfig.json
+pnpm run typecheck
+pnpm run typecheck:electron
 pnpm run lint
 pnpm run check:architecture
 pnpm run test:run
 ```
 
-ADR変更時:
+UI変更時はdesign-systemとStorybookを含む以下の全体検証を実行します。ADR変更時には単独でも `pnpm run check:adr` を実行してください。
 
 ```bash
-pnpm run check:adr
+pnpm run verify
 ```
 
-| Command                                   | Purpose                           |
-| ----------------------------------------- | --------------------------------- |
-| `pnpm exec tsc --noEmit`                  | renderer/shared TypeScript        |
-| `pnpm exec tsc -p electron/tsconfig.json` | Electron main/preload TypeScript  |
-| `pnpm run lint`                           | ESLint zero warnings              |
-| `pnpm run check:architecture`             | Feature-First / Electron boundary |
-| `pnpm run check:adr`                      | ADR filename/index consistency    |
-| `pnpm run test:run`                       | Vitest one-shot + build downloads |
-| `pnpm run test:ci`                        | serialized Vitest + build downloads |
-| `pnpm run check:build-downloads`          | build download and cache boundary |
-| `pnpm run check:preload`                  | preload bundle sanity             |
-| `pnpm run report:architecture-health`     | architecture report               |
-| `pnpm run report:large-files`             | soft file-size report             |
+| Command | Purpose |
+| --- | --- |
+| `pnpm run typecheck` / `typecheck:electron` | renderer/shared とElectron main/preload TypeScript |
+| `pnpm run lint` | ESLint zero warnings |
+| `pnpm run check:architecture` | Feature-First / Electron boundary |
+| `pnpm run check:design-system` | semantic token / UI境界 |
+| `pnpm run check:adr` | ADR filename/index consistency |
+| `pnpm run test:run` | Vitest one-shot + build download / distribution notice tests |
+| `pnpm run test:ci` | 同じ検査をVitest file並列なしで実行 |
+| `pnpm run verify` | 共通ゲート + design-system / ADR + app build / Storybook build |
+| `pnpm run licenses:sources` | 公開された固定media sourceの取得・対応source archive準備 |
+| `pnpm run check:build-downloads` | build download and cache boundary |
+| `pnpm run check:preload` | preload bundle sanity |
+| `pnpm run report:architecture-health` / `report:large-files` | architecture / soft file-size report |
 
-GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Vitestを実行します。Model training/evaluationのCIは別private R&D repositoryの責務です。
+GitHub Actions [quality-check](../.github/workflows/formatting_code.yml) は `main` / `develop` / `feat**` 宛てpull requestで、Node 22.12.0 / pnpm 9.1.0のfrozen install、lint、renderer/electron typecheck、architecture、design-system、ADR、`test:ci`、`licenses:sources`、Storybook buildを実行します。`verify` とCIの工程は完全には同じでなく、いずれもOS別の実Electron E2E・署名・公証・installer検査を代替しません。
+
+実行環境、コマンド、結果、未実施の範囲と理由をPRに記載します。必要な検査が環境制限で実行できない場合は合格と扱わず、merge前にCIまたは対応OSで確認します。初回build/Storybookの `vision:prepare` と `licenses:sources` は公開資産のネットワーク取得を伴います。Model training/evaluationのCIは別private R&D repositoryの責務で、公開ソースの検査にその認証・映像・重みを要求しません。
 
 ## Test Placement
 
@@ -246,7 +249,7 @@ Paint入力の回帰テストはpointerdown/upだけの短いドラッグ、停�
 
 戦術盤の準備は認識ボタンの有効状態で判定し、ページ全体の`networkidle`は使いません。`electron.launch`後に全HTTP(S)を遮断するrouteを設置し、観測できた起動時YouTube adapter scriptを正確なURLとrequest種別で区別します。それ以外の観測した起動時要求と認識開始後の全HTTP要求を失敗にし、未完了requestも診断ログへ残します。初回起動全体の完全なofflineを証明する試験ではなく、route設置後の認識が同梱モデルで成功し、認識開始後のHTTP要求が0件であることを検証します。[Playwrightの待機契約](https://playwright.dev/docs/api/class-page#page-wait-for-load-state)。
 
-起動時scriptの分類は`https://www.youtube.com/iframe_api`と、Windows run37208260762で観測した`https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js`、およびWindows run38030807357で観測した`https://www.youtube.com/s/player/5203c085/www-widgetapi.vflset/www-widgetapi.js`だけに限定します。widgetは既にロードされたexact iframe_apiのscript sourceに同じURLの文字列宣言がある場合だけ分類します。証拠はURLごとに保持し、旧版の宣言を根拠に新版を分類しません。CDPでそのcodeを読みSHA256と検証結果をログに残し、証明できなければ失敗します。この診断でURLを追加取得しません。host/pathのwildcardやquery違いは許可せず、将来URLが変わった場合も観測とレビューが必要です。分類は通信の許可ではなく、遮断routeは維持します。`e2e-tactical-startup-http.test.mjs`の20ケースで未検証widget、認識中要求、別host/path/query/type、CDP失敗時のcleanupを検査します。
+起動時scriptの分類は`https://www.youtube.com/iframe_api`と、Windows run37208260762で観測した`https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js`、Windows run38030807357で観測した`https://www.youtube.com/s/player/5203c085/www-widgetapi.vflset/www-widgetapi.js`、Windows run38331578286で観測した`https://www.youtube.com/s/player/22cb88bc/www-widgetapi.vflset/www-widgetapi.js`、および[Windows run38365031661](https://github.com/Kou-ISK/sportaglytics/actions/runs/38365031661)で観測した`https://www.youtube.com/s/player/ec429320/www-widgetapi.vflset/www-widgetapi.js`だけに限定します。widgetは既にロードされたexact iframe_apiのscript sourceに同じURLの文字列宣言がある場合だけ分類します。証拠はURLごとに保持し、旧版の宣言を根拠に新版を分類しません。CDPでそのcodeを読みSHA256と検証結果をログに残し、証明できなければ失敗します。ログの`declaredWidgetUrls`は既知URLとの照合結果であり、空配列はscript本文にwidget宣言がないことを意味しません。URLの追加後も、その実行でロードされたscriptからの証明が必要です。この診断でURLを追加取得しません。host/pathのwildcardやquery違いは許可せず、将来URLが変わった場合も観測とレビューが必要です。分類は通信の許可ではなく、遮断routeは維持します。`e2e-tactical-startup-http.test.mjs`の39ケースで未検証widget、認識中要求、別host/path/query/type、CDP失敗時のcleanupを検査します。
 
 アプリはYouTube映像のtechを使用するため`useVideoJsInitialization.ts`でvideojs-youtube@3.0.1をimportします。その依存はmodule読込時にiframe_apiを要求します。ローカル戦術盤の合成MP4にはYouTube techが不要であり、ここでの分類は既存の起動副作用の範囲を示すものです。人物認識の必要な外部通信として扱いません。
 
@@ -266,4 +269,16 @@ Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実
 
 `node --test scripts/tests/distribution-notices.mjs`で告知本文・NOTICEの保持、未使用依存の除外、本文欠落時の失敗、配布sourceとbinary manifestの不一致拒否を確認します。通常の`test:run` / `test:ci`にも含みます。directory packageのResources/ASAR検査と各OS検証の境界は[配布手順](third-party-distribution.md)を参照してください。
 
+`node --test scripts/tests/event-pack-provenance.mjs`は合成packだけで、由来・レビュー・利用条件の欠落、未申告ファイル、重み/runner/告知の改変、path境界、署名前の停止、署名後hashと署名前証拠の分離を検査します。`test:run` / `test:ci`に含まれます。モデルなしのdirectory packageも維持し、実packの権利確認やmacOS署名・公証はこの試験と区別します。
+
+`node --test scripts/tests/windows-distribution.mjs`は合成ASARと非実行binaryで、installed NOTICE/inventory/資産/model/WASM/compiler告知の欠落・改変、GGUF/event pack混入、path逸脱、署名reportの欠落・hash不一致・異常状態を拒否することを検査します。`test:run` / `test:ci`に含みます。署名状態はunitでは模擬値であり、実Authenticodeとinstaller bytesの検査は[Windows CIの配布report](windows.md#開発検証)で行います。
+
 ビルドdownloaderの9ケースには、実際の@electron/getを別processで起動するHTTP proxy経由取得とNO_PROXY bypassを含みます。loopback serverと合成bytesで検証し、外部artifactを取得しません。既存のagent/timeout/redirect/checksum/progress/file-cache検査も維持します。
+
+Windows H.264置換の追加検査は[Windows開発・検証](windows.md#開発検証)を参照してください。installed E2Eにも`export-menu`、`export-fast`、`paint-export`、`angle-sync-multi`、`angle-sync-gaps`を加え、通常runnerと同じ22シナリオを検査します。Media Foundation不足のunit負例とWindows N実機検証は区別します。
+
+## Mac最終DMGの配布検査
+
+`scripts/tests/macos-release.mjs`は対象OSのsource選択、必須manifest欠落、再現可能archive・既存出力保護、main/version/tag照合の失敗経路を検査します。`test:run`/`test:ci`へ含まれます。Release専用afterPackは署名前payloadを保存し、`scripts/macos/verify-dmg.mjs <dmg> <arm64|x64> <report.json>`が実DMG内のstrict署名・公証ticket・Gatekeeper・NOTICE/model/hashを検査します。未署名候補とローカルunit成功をこの最終検査の代替としません。[入力・認証・公開ゲート](../.github/RELEASE.md)。
+
+Windows同時公開の`release-evidence.mjs`は同一runのinstalled reportと最終installerを完全source commit/tree・version・hashで結び付けます。`scripts/tests/windows-distribution.mjs`は旧版・別commit/tree・改変installer・異常署名状態・manifest不一致・私有モデル混入の負例を検査します。Release workflowはWindows jobが成功してからartifactを取得し、公開直前にも再検査します。

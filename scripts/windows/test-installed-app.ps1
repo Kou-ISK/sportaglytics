@@ -1,15 +1,21 @@
 $ErrorActionPreference = 'Stop'
-$installer = Get-ChildItem dist/*Setup*x64.exe | Select-Object -First 1
-if (-not $installer) { throw 'Windows installer is missing' }
+$installers = @(Get-ChildItem dist/*Setup*x64.exe)
+if ($installers.Count -ne 1) { throw 'Expected exactly one Windows installer' }
+$installer = $installers[0]
 $target = Join-Path $env:TEMP 'SporTagLytics 日本語 #50%'
 $result = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$target") -Wait -PassThru
 if ($result.ExitCode -ne 0) { throw "Installer failed: $($result.ExitCode)" }
 try {
   $env:E2E_APP_PATH = Join-Path $target 'SporTagLytics.exe'
   if (-not (Test-Path $env:E2E_APP_PATH)) { throw 'Installed application is missing' }
+  ./scripts/windows/inspect-distribution-signatures.ps1 -Installation $target -Installer $installer.FullName -Output 'output/distribution/windows-signatures.json'
+  node scripts/windows/report-installed-distribution.mjs "$target" "$($installer.FullName)" output/distribution/windows-signatures.json output/distribution/windows-installed.json
+  if ($LASTEXITCODE -ne 0) { throw 'Installed distribution byte verification failed' }
   node scripts/windows/verify-native-dependencies.mjs "$target/resources/media-tools/ffmpeg.exe" "$target/resources/media-tools/ffprobe.exe" "$target/resources/llama/win32/llama-completion.exe"
   if ($LASTEXITCODE -ne 0) { throw 'Native runtime has missing dependencies' }
-  foreach ($scenario in @('ux-review', 'ux-density', 'package-safety', 'sportscode-import', 'legacy-external', 'live-capture', 'clip-sync', 'multi-clip-playback', 'code-window-menu', 'export-progress', 'timeline-rows', 'paint', 'tactical-board', 'package-reopen', 'playlist-open-menu', 'playlist-references-angles', 'event-detection')) {
+  node scripts/windows/verify-h264.mjs "$target/resources/media-tools"
+  if ($LASTEXITCODE -ne 0) { throw 'Installed CPU H.264 encoder failed' }
+  foreach ($scenario in @('ux-review', 'ux-density', 'package-safety', 'sportscode-import', 'legacy-external', 'live-capture', 'clip-sync', 'multi-clip-playback', 'code-window-menu', 'export-progress', 'export-menu', 'export-fast', 'paint-export', 'angle-sync-multi', 'angle-sync-gaps', 'timeline-rows', 'paint', 'tactical-board', 'package-reopen', 'playlist-open-menu', 'playlist-references-angles', 'event-detection')) {
     node "scripts/e2e-$scenario.mjs"
     if ($LASTEXITCODE -ne 0) { throw "Installed application failed: $scenario" }
   }

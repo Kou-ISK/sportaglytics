@@ -13,10 +13,15 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { downloadVerified, hashFile } from './download-verified.mjs';
 import { run } from './media-tools/process.mjs';
+import {
+  copyMacLlamaNotices,
+  MAC_LLAMA_VERSION,
+  verifyMacLlamaNotices,
+} from './mac-llama-notices.mjs';
 
 if (process.platform !== 'darwin')
   throw new Error('Prepare macOS runtimes on macOS.');
-const version = 'b7849';
+const version = MAC_LLAMA_VERSION;
 const archives = {
   x64: 'ab35f38e06e09168754efcc055dbd027d5ead678c7d8ca46486b5903563902d2',
   arm64: 'b5b8e2f544a2dbfd20a830291843fe3463152fef3999d170f5b00e91b671eb64',
@@ -26,7 +31,7 @@ for (const [arch, archiveHash] of Object.entries(archives)) {
   const identity = {
     version,
     archiveHash,
-    revision: 1,
+    revision: 2,
     target: `darwin-${arch}`,
   };
   try {
@@ -41,6 +46,7 @@ for (const [arch, archiveHash] of Object.entries(archives)) {
         ),
       );
       if (valid.length > 1 && valid.every(Boolean)) {
+        await verifyMacLlamaNotices(output, version);
         console.log(`Verified cached macOS ${arch} llama.cpp`);
         continue;
       }
@@ -99,6 +105,7 @@ for (const [arch, archiveHash] of Object.entries(archives)) {
     }
     if (!files['llama-completion'] || !files.LICENSE)
       throw new Error('Incomplete macOS AI runtime');
+    Object.assign(files, await copyMacLlamaNotices(staged, version));
     await writeFile(
       join(staged, 'build.json'),
       JSON.stringify({ identity, files }, null, 2),

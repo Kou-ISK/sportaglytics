@@ -32,7 +32,7 @@ Timelineの修飾キーはドラッグ開始時に操作を選びます。キー
 
 実装規約の正本はリポジトリルートの `AGENTS.md` です。本書はSporTagLyticsアプリ本体の開発環境、日常ワークフロー、品質ゲート、event detection runtime境界の実務ガイドです。
 
-複数クリップの同期を変更する場合は、`shared/media/mediaTimeline` とMainの `mediaTimelineSource` を確認してください。保存時刻はアングル内の配置、画面・注釈・書き出し区間は共通時刻です。`pnpm run e2e:prepare && node scripts/e2e-multi-clip-playback.mjs` は4本の合成映像で、前半/後半の別々の同期、正負のアングル補正、Playlistの境界通過、Paintのシークと出力画素を確認します。Windows CIとインストール版試験にも同じシナリオを含めます。
+複数クリップの同期を変更する場合は、`shared/media/mediaTimeline` とMainの `mediaTimelineSource` を確認してください。保存時刻はアングル内の配置、画面・注釈・書き出し区間は共通時刻です。`pnpm run e2e:prepare && node scripts/e2e-multi-clip-playback.mjs` は4本の合成映像で、前半/後半の別々の同期、正負のアングル補正、Playlistの境界通過、Paintのシークと出力画素を確認します。Windows CIとインストール版試験にも同じシナリオを含めます。`useMediaTimeSync.test.tsx`では非ゼロ開始PTSへの補正後に停止中の再シークが繰り返されないことを確認し、`e2e-angle-sync-multi.mjs`では3/4本の実映像が起動時にデコードを終えることを検証します。
 
 アングル同期のView、連続時計、同期点、フレーム取得、保存の責務と検証入口は[アングル同期仕様](angle-synchronization.md#実装と検証)を参照してください。`useAngleSyncSession`を状態源とし、Timeline IPCで再生ヘッドと同期操作を接続します。同期中も通常のCoding行・時間目盛りの位置を保ち、`useAngleSyncHotkeys`はSettingsの割り当てを共通のキー照合関数で解決します。Windowsの元動画切替で読み込み完了後に時計が0へ戻るケースは`useAngleSyncPreviewClock.test.tsx`と実Electronの前後半同期で検証します。Timelineにフォーカスしたまま表示アングルを切り替えてシーク完了を待ち、映像Windowを前面へ戻して問題を隠さないようにします。既定キーだけでなく、変更済み・無効化済みの割り当てと修飾キーを単体テスト・Electron E2Eで確認します。Video.jsの公式CSSを維持し、実ウィンドウの1/2/4アングル比率と操作ボタンの可視性を確認します。
 
@@ -67,7 +67,7 @@ Mac受入では一時profileと合成21widget・24×24表だけを使い、obser
 | ツール  | バージョン |
 | ------- | ---------- |
 | Node.js | 22.12以上  |
-| pnpm    | 9.1.0以上  |
+| pnpm    | 9.1.0（`packageManager`と同じ版） |
 | Git     | 最新版     |
 
 通常のElectron開発・配布にPython runtimeは不要です。Event modelのtraining/evaluationは別private R&D repositoryで管理します。
@@ -75,9 +75,15 @@ Mac受入では一時profileと合成21widget・24×24表だけを使い、obser
 ```bash
 git clone <repository-url>
 cd sportaglytics
+npm install -g pnpm@9.1.0
+pnpm --version
 pnpm install --frozen-lockfile
 pnpm run electron:dev
 ```
+
+pnpmのglobal install先へ書けない環境では、利用環境のCorepack等で同じ9.1.0を選択してください。最新pnpmへの自動更新やlockfileの再生成をセットアップの代用にしません。依存版は `package.json` と `pnpm-lock.yaml`、コマンドは `package.json` のscriptsが正本です。
+
+公開ソースの型・unit・Storybook検証に私有R&D repositoryや学習データは不要です。初回installと `vision:prepare` を含むbuild/Storybookでは公開依存・固定モデルの取得にネットワークが必要です。Electron E2E・native packagingはOS別のツールと準備が必要で、Linuxのunit成功をmacOS/Windows実機成功と扱いません。fork PRで利用できない署名・公証・private packの確認はmaintainer側の工程として未実施範囲を記録します。
 
 ## 技術スタック
 
@@ -129,6 +135,8 @@ resources/event-detection-models/<model>/
 
 `electron-builder`はこのdirectoryをpackaged appの`event-detection-models`へ`extraResources`として配置します。staging directoryが空でも通常buildは成立します。
 
+packを同梱する場合は[配布前レビューと由来記録](event-pack-provenance.md)に従って`distribution-provenance.json`と公開可能な根拠・LICENSE/NOTICEを用意します。`afterPack`は署名前のmanifestと全ファイルを照合し、未確認・不整合のpackがあれば失敗します。`verified`表示はこの配布レビューを代替しません。既存ローカルpackの実行時契約は維持します。
+
 stagingへ置くのはsanitized deployable model packだけです。raw video、`.stpkg`、frames、research runs、checkpoints、private source metadataは置きません。
 
 ## 開発ワークフロー
@@ -149,21 +157,7 @@ CommitはConventional Commitsを使います。
 
 `test:run` / `test:ci`はVitestに加えて`check:build-downloads`を実行します。builderの合成ダウンロード、checksum拒否、ファイルキャッシュ、agent・redirect・progress・timeout、HTTP response cacheの再有効化拒否をloopbackで確認します。ビルド依存の限定パッチとpnpm 9 manifest hookは[ADR 0058](adr/0058-build-downloads-without-response-cache.md)を参照してください。`electronDownload.cache`のファイル保存先は維持し、gotの`downloadOptions.cache`は使用しません。
 
-PR merge前に必須:
-
-```bash
-pnpm exec tsc --noEmit
-pnpm exec tsc -p electron/tsconfig.json
-pnpm run lint
-pnpm run check:architecture
-pnpm run test:run
-```
-
-ADR変更時:
-
-```bash
-pnpm run check:adr
-```
+共通ゲートと変更対象ごとの追加検証は [Testing](testing.md#required-quality-gate) を正本とします。UI変更は `pnpm run verify` を実行し、実行環境・コマンド・結果・未実施範囲をPRへ残します。
 
 Preload / packaged Electron変更時:
 
@@ -181,7 +175,7 @@ pnpm run test:e2e
 
 Paintの入力変更では、pointermoveが省略される短いドラッグ、停止直後の時刻更新、明示的なシークによる取消を確認します。追尾表示は再生時計ではなく表示フレームの`mediaTime`で描画し、低速の端数移動を連続させても量子化誤差が蓄積しないことを検証します。`e2e-paint.mjs`は描画の再試行をせず、連続操作ごとの図形数と保存内容を確認します。
 
-GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requestでfrozen install、lint、renderer/electron typecheck、architecture、ADR、Vitestを実行します。
+CIの実施範囲は [Testing](testing.md#required-quality-gate) と `.github/workflows/formatting_code.yml` を参照してください。素材や外部仕様の出典、互換性の未検証範囲は [由来の確認台帳](provenance-review.md) へ集約します。
 
 ## アーキテクチャ
 
@@ -373,17 +367,17 @@ Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-ope
 ## リリースプロセス
 
 1. release準備変更を `develop` へ統合
-2. 必要なsanitized event-detection model packをCI/local stagingへ配置
+2. Mac候補はevent packなしを確認し、同梱モデルと告知をレビュー
 3. `develop -> main` PR
 4. main PR品質ゲート
 5. merge後のmain commitへrelease tag
-6. package/release assets作成。同じバージョンの公開済みタグ・DMGを上書きしません（[ADR 0032](adr/0032-immutable-release-artifacts.md)）。
+6. Release desktopをmainから手動dispatchし、全ゲート後にpackage/release assets作成。同じバージョンの公開済みタグ・DMGを上書きしません（[ADR 0032](adr/0032-immutable-release-artifacts.md)）。
 
 Electron E2Eは `scripts/run-electron-e2e.mjs` で全シナリオの成否を収集し、1件でも失敗すると配布へ進みません。詳細は[テスト手順](testing.md)を参照してください。
 
 配布前に `pnpm audit` / `pnpm audit --prod` も確認します。lockfileを固定してインストールし、UIのゲートとStorybook buildをReleaseでも実行します。
 
-macOS署名はキーチェーン修正版のelectron-builder 26.16.1で行います。builder関連パッケージとlockfileを揃えて更新し、署名・公証の障害は[Release手順](../.github/RELEASE.md#macos-signing-keychain-unlock-failed)に沿って切り分けます。
+macOS署名はキーチェーン修正版のelectron-builder 26.16.1で行います。builder関連パッケージとlockfileを揃えて更新し、署名・公証の障害は[Release手順](../.github/RELEASE.md#公開後と復旧)に沿って切り分けます。
 
 `main` への直接push/mergeは行いません。Event detection model packはアプリreleaseと独立できます。
 
@@ -449,12 +443,22 @@ Sorterは[Hudlの2024年の公式説明](https://www.hudl.com/blog/databases-in-
 
 WindowsのFFmpegはzlibを静的リンクしてPNGのエンコード/デコードを有効にします。media-toolsビルドはPNG生成と読込の往復検証を通してから成功manifestを書きます。依存ソースのchecksumとライセンスを同梱し、DLL検査とPaint出力E2Eも維持します。
 
+Windows media buildにはMSYS2 UCRT64の`gcc`、`cygpath`、`pacman`と、使用packageが配置する告知全文も必要です。compiler/runtimeのpackage版・13告知のSHA-256を`build.json`へ記録し、cacheとpackagingで対応を確認します。告知不足を回避するためにhash検証を外さず、[配布手順](third-party-distribution.md#windows-compilerruntimeの告知)に従ってpackage更新を確認してください。
+
 ### 戦術盤の端末内認識
 
 `pnpm run vision:prepare` はMediaPipe Tasks Vision 0.10.21（外部統計送信なし）の固定npm版と、SHA-256で検証するEfficientDet-Lite2 INT8 revision 1を `public/pitch-vision/` に準備します。start/build/Storybookコマンドに組み込み済みです。初回の開発・ビルドではモデル取得にネットワークが必要で、ハッシュ一致の資産があれば再取得しません。実行時には同梱資産のみを使います。SDKのfile URLフォールバックを避け、同梱WASMをBlob URL、モデルをバッファとして渡します。ElectronのwebSecurityは緩和しません。モデル・WASMはGitに含めず、配布ビルドとライセンスを同梱します。モデルの出典とハッシュは `resources/pitch-vision/NOTICE.md` が正本です。
 
-較正・戦術盤のStorybookは `Playlist/Paint/Pitch Calibration` と `Playlist/Paint/Tactical Board`。E2Eは `pnpm run e2e:prepare` 後に `node scripts/e2e-tactical-board.mjs` を実行します。合成映像でHTTP通信を拒否し、実モデルのロード・推論、部分較正、削除/Undo、PNG、保存/再読込を確認します。人物検出の実試合精度を保証する試験ではありません。
+較正・戦術盤のStorybookは `Playlist/Paint/Pitch Calibration` と `Playlist/Paint/Tactical Board`。E2Eは `pnpm run e2e:prepare` 後に `node scripts/e2e-tactical-board.mjs` を実行します。合成映像でHTTP通信を拒否し、実モデルのロード・推論、部分較正、削除/Undo、PNG、保存/再読込を確認します。人物検出の実試合精度を保証する試験ではありません。起動時の未分類YouTube widget要求で停止した場合は、[起動scriptの分類・証拠の条件](testing.md#戦術盤)に従い、観測したexact URLと同じ実行のbootstrap宣言を照合します。未分類要求の包括許可やHTTP遮断の解除は行いません。
 
 ## 第三者告知と対応ソース
 
 renderer/preload buildは実際の出力moduleからlicense inventoryを生成します。追加した依存にはlicense本文が必要です。`pnpm run licenses:sources`はnative再buildなしで固定source archiveを準備します。[配布手順と確認範囲](third-party-distribution.md)。
+
+Windows CIは同じrunで作成・インストールした成果物のNOTICE、資産・モデル・native告知のbytesと署名状態を検査し、hash reportを保存します。[実行手順と証拠の範囲](windows.md#開発検証)。
+
+macOS llamaの準備は固定版の依存告知を外部ファイルへコピーし、cacheと`afterPack`で本文hash・実行ファイル内の全文を検査します。版変更時は [告知の出典](../resources/third-party/llama-b7849/README.md) も更新し、両archの実ファイルで検証してください。`node --test scripts/tests/distribution-notices.mjs`は欠落・改変・別runtimeを拒否する合成試験で、macOS配布検証を代替しません。
+
+Windows media toolchainはMedia FoundationのCPUエンコーダーを使用します。Windows NではMedia Feature Packを有効にしてください。native build、CPU MP4、全22シナリオのインストール後検査は[Windows開発・検証](windows.md#開発検証)を参照してください。
+
+Macの配布準備は[Release手順](../.github/RELEASE.md)に従います。`release.yml`は手動dispatchのみで、既存SecretsをCI内で利用します。`publish=false`もApple送信を含むため、未署名のローカル検査には使いません。Mac専用sourceは`node scripts/package-media-sources.mjs --platform macos --require-builds`で生成し、Python 3とMac 2 targetの既存manifestを使います。`include_windows=true`は同じrunで新規buildしたWindows installer・report・manifestを検査し、`--platform windows --require-builds`の対応sourceも同じ新規Releaseへ公開します。

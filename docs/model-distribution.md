@@ -1,6 +1,6 @@
 # AIモデルの公開範囲・配布台帳
 
-確認日: 2026-10-10。対象はアプリ0.17.3の公開ソースと公開Releaseの一覧です。この文書はモデルの公開宣言ではありません。個々の配布物の出所・重みの許諾を、アプリのMIT Licenseから推定しないでください。
+再確認日: 2026-10-13（Paintの固定重みと許諾根拠は2026-10-14に追加照合）。公開配布物の基準はv0.17.4、次版sourceの基準はdevelop commit `36dfec8afa8ade78c52dd29bc16285c72ea161dc`です。sourceのstaging状態と実配布物を区別します。この文書はモデルの公開宣言ではありません。個々の配布物の出所・重みの許諾を、アプリのMIT Licenseから推定しないでください。
 
 ## 公開範囲
 
@@ -8,7 +8,7 @@
 | ------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | アプリ                   | UI、IPC、推論の呼出し、model pack検証、ビルド手順                                              | [MIT](../LICENSE)、[ソースとRelease](https://github.com/Kou-ISK/sportaglytics)                                                  |
 | イベント検出R&D          | データ準備・学習・評価・exportはprivate R&D。公開側はpack consumer                             | [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)。アプリだけでは再学習できない                                    |
-| イベント検出重み・runner | 外部packを利用。追跡対象のmodel directoryは`.gitkeep`のみ。0.17.3 Release noteも別途必要と記載 | 公開配布元、現行packのhash、基盤checkpointと重みlicenseは未確認。取得可能な公式pack URLを現時点では案内できない                 |
+| イベント検出重み・runner | 外部packを利用。追跡対象は`.gitkeep`のみ。[v0.17.4実配布物の確認](provenance-review.md)でもevent packなし | 公開配布元、現行packのhash、基盤checkpointと重みlicenseは未確認。取得可能な公式pack URLを現時点では案内できない                 |
 | Paintの俯瞰配置          | 既製EfficientDet-Lite2 INT8 revision 1とMediaPipe Tasks Vision 0.10.21をビルド時に同梱         | Apache-2.0、[NOTICEとモデルURL](../resources/pitch-vision/NOTICE.md)、[hash固定の取得手順](../scripts/prepare-pitch-vision.mjs) |
 | 文章AI                   | llama.cpp runtimeを配布し、GGUF重みは利用者が選択・配置                                        | runtimeはMIT。重みは配布元ごとの条件。[導入手順](ai-analysis.md)                                                                |
 | CIの文章AI               | Qwen2.5-0.5B-Instruct-GGUFの固定revision/量子化をテストだけに取得                              | [取得URL・revision・SHA-256](../scripts/prepare-test-model.mjs)。アプリ配布物へ含めない                                         |
@@ -52,6 +52,16 @@ PaintのモデルはCOCO 2017で学習された既製モデルを無改変で使
 
 文章AIは利用者が選んだGGUFで動くため、アプリ共通の学習データ・精度・重みlicenseはありません。選択したモデルのカードで確認します。CIのQwen固定モデルは製品推奨モデルや同梱重みの指定ではありません。
 
+### Paintの固定重みと上流許諾の照合
+
+2026-10-14に、develop `40938dd887c26a6d6bddbc634a145d42021c5b76`の取得設定と既存Mac候補を次の公開根拠で照合しました。
+
+- [GoogleのEfficientDet-Lite2案内](https://developers.google.com/edge/mediapipe/solutions/vision/object_detector#efficientdet-lite2_model)から直接リンクされる[INT8 latest](https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/int8/latest/efficientdet_lite2.tflite)は、固定[INT8 revision 1](https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/int8/1/efficientdet_lite2.tflite)と同じ7,515,971 bytes、SHA-256 `b3f50554cb0ea559e90328845f7d9ba4d13c8bff372914d24e06bc8bb72fa896`でした。ビルドの取得先は引き続きrevision 1と固定hashを使用します。
+- [公式repoの回答](https://github.com/google-ai-edge/mediapipe/issues/6355#issuecomment-5997480830)は2026-10-05 15:21:19 UTC、GitHub上の`COLLABORATOR`によるもので、別記がなければsourceとmodelsにApache-2.0を適用すると説明しています。Face Landmarkerに関するissueでの一般説明であり、このINT8ファイルだけへの個別保証とは扱いません。
+- この一般説明と公式モデル案内からの配布物の一致を、固定重みのApache-2.0告知の根拠として記録します。確認した公式案内・配布導線には別条件を見つけていません。Kaggleの`lite2-metadata`等の別variantの表示を、このINT8 revision 1の直接の許諾根拠にはしません。
+- [既存NOTICEとApache本文](../resources/pitch-vision/NOTICE.md)を維持し、最終配布物でも重みhash・告知本文・event pack/GGUF不在を検査します。案内ページの文章・サンプルコードのライセンスを重みへ転用した判断ではありません。学習データ全体の権利や個々の用途の法的安全性を保証するものでもありません。
+
+
 ## コードOSSと学習データ公開の違い
 
 [OSIのソフトウェア定義](https://opensource.org/osd)はソフトウェアの利用・改変・再配布条件を扱います。アプリコードをMITで公開しても、学習映像すべてを公開したことにも、その再配布権を取得したことにもなりません。
@@ -61,6 +71,8 @@ PaintのモデルはCOCO 2017で学習された既製モデルを無改変で使
 Hugging Faceではモデルrepoの`README.md`が[Model Card](https://huggingface.co/docs/hub/model-cards)になり、データrepoには[Dataset Card](https://huggingface.co/docs/hub/datasets-cards)を置けます。カードを書くこと、重みを公開すること、動画を公開することは別々の行為です。このrepo内で不足情報を整理してから、公開可能なものだけを検討できます。カードの`license`や`datasets`欄へ未確認値を入力しないでください。
 
 ## 配布前に残る確認
+
+同梱packには[配布前レビューと由来記録](event-pack-provenance.md)を必須とし、署名前に出典・LICENSE/NOTICE・レビュー記録・全ファイルhashを検査します。このゲートは記録の整合確認であり、以下の私有packに関する未確認事項を解消した証拠ではありません。
 
 1. 現行event packのID/version、全ファイルhash、base checkpoint・runner依存・重みの許諾と出典。
 2. データの利用範囲、匿名化した集計・split固定記録、完全なrecipeと独立評価。

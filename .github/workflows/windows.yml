@@ -49,6 +49,8 @@ jobs:
         with:
           path: .cache/media-tools
           key: windows-x64-media-${{ hashFiles('scripts/build-media-tools.mjs', 'scripts/media-tools/**') }}
+      - name: Verify CPU H.264 MP4 without a GPU
+        run: node scripts/windows/verify-h264.mjs
       - uses: actions/cache@v4
         with:
           path: .cache/llama
@@ -87,6 +89,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force dist/media-builds | Out-Null
           Copy-Item .cache/media-tools/win32-x64/build.json dist/media-builds/win32-x64.json
+          New-Item -ItemType Directory -Force dist/distribution | Out-Null
+          Copy-Item output/distribution/windows-installed.json dist/distribution/windows-installed.json
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
@@ -94,4 +98,5 @@ jobs:
           path: |
             dist/*Setup*.exe
             dist/media-builds/win32-x64.json
+            dist/distribution/windows-installed.json
           if-no-files-found: error

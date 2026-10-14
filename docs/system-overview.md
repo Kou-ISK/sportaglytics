@@ -4,6 +4,8 @@ Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop 
 
 # SporTagLytics System Overview
 
+画面上のリンク作成・記録範囲はSporTagLytics自身の操作として説明します。Sportscode XMLの対応subsetとSCTimeline JSONの外部往復未検証は別の契約であり、[互換性](package-compatibility.md)と[由来の確認台帳](provenance-review.md)を参照してください。文言変更によってimport/export・保存形式や参照資料の由来は変更しません。
+
 Playlistの保存済み文書ロードと追加配送はRendererごとの文書境界で処理します。外部文書listenerを先に登録し、ロード中の追加はsnapshot適用後にFIFOで処理します。新しい編集・ロード・syncがあれば古いdisk snapshotは適用しません。MainはWindow別ticketに対するRendererの採用応答を受けて保存先を確定し、read完了では保存先やdirtyを変えません。初回open intentも採用前の保存先にはしません。既存commandに用途限定の応答を追加し、Session宛先・文書形式は維持します。[ADR0059](adr/0059-playlist-renderer-delivery-readiness.md)。
 
 配布runtimeは同じ43 majorのElectron43.5.1へ固定し、sandboxed preloadのcode cacheに関する[GHSA-qmv3-fv6v-rmhq](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)の修正版を使用します。既存のsandbox・contextIsolation・webSecurity、IPC公開面、protocolと署名設定は維持します。開発用wait-onのJoi18.2.6 overrideは配布runtimeに含めません。ビルド用gotの未使用HTTP response cacheは[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に従って依存・実行経路から除去し、checksum付きファイルキャッシュと必須auditを維持します。
@@ -53,7 +55,7 @@ SporTagLytics の現行アーキテクチャ概要です。詳細規約は `AGEN
 
 Codingの記録時刻も共通時計を使います。`VideoPlayerScreen`が`CodingPanelRuntime`へ渡す`codingTime`を`useCodingTime`が読み、開始・終了・リンク処理へ同じgetterを供給します。getterの参照を固定し、毎フレームの更新で別ウィンドウのIPC購読を張り直しません。元動画の`currentTime`やアングル1の存在から時刻を推定せず、パッケージ未選択・同期調整中は`null`として記録を保留します。保存形式は既存の共通時刻のままです。
 
-複数クリップの再生位置は`useMediaTimeSync`が元動画へ適用します。デコード中の要求は最新位置へまとめ、再生中のずれ補正は最低250ms間隔・再生速度を考慮した許容差で行います。停止時と明示的なシークは精密に合わせます。`useVideoTimeController`から同じプレイヤーへ二重にシークしません。速度キーはsharedの`useHeldPlayback`で操作前の再生状態・速度を保持し、MainとPlaylistがそれぞれの再生APIへ適用します。[ADR 0046](adr/0046-coalesced-playback-corrections.md)。
+複数クリップの再生位置は`useMediaTimeSync`が元動画へ適用します。デコード中の要求は最新位置へまとめ、再生中のずれ補正は最低250ms間隔・再生速度を考慮した許容差で行います。停止時と明示的なシークは精密に合わせます。デコーダーが停止位置を実フレームへ補正した場合、同じ要求を完了通知から繰り返さず、位置変更・読み直し・明示操作で再適用します。`useVideoTimeController`から同じプレイヤーへ二重にシークしません。速度キーはsharedの`useHeldPlayback`で操作前の再生状態・速度を保持し、MainとPlaylistがそれぞれの再生APIへ適用します。[ADR 0046](adr/0046-coalesced-playback-corrections.md)。
 
 Timelineの`useTimelineViewport`は、同じポインター位置での連続拡大中に論理時刻のアンカーを保持し、OSのスクロール位置の丸め誤差を累積させません。手動スクロール・ポインター移動・表示幅変更・端への到達時は表示位置からアンカーを取り直します。
 
@@ -303,6 +305,8 @@ ML runtime（ONNX Runtime等）はrunner内部の実装詳細として交換可�
 
 `resources/event-detection-models/` はrelease/local build用の任意staging pointです。model pack本体は`.gitignore`で除外し、`electron-builder`が存在するpackだけを`event-detection-models`へ`extraResources`として配置します。stagingが空でも通常buildは成立します。
 
+配布用packは`afterPack`で[由来記録と全ファイル](event-pack-provenance.md)を照合してからmacOS runner署名へ進みます。sidecarの配布判断はruntime manifest schema 1/2の品質statusから独立し、既存ローカルpackの実行条件は変えません。[ADR 0061](adr/0061-event-pack-distribution-provenance.md)。
+
 詳細: [自動イベント検出](event-detection.md)、[ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)、[ADR 0024](adr/0024-experimental-event-detection-production-lane.md)
 
 ## Event Model R&D boundary
@@ -333,7 +337,7 @@ Clip exportは `src/shared/clipExport/` にpure service / contractを集約し�
 
 Paint動画出力は、Rendererがクリップとの表示区間の交差とソース時刻の補間を計算し、アングルごとの描画を検証済みIPCへ渡します。Mainの単画面／2画面FFmpeg runnerが図形合成、芝色処理、静止挿入を行い、2画面は合成後に高さを揃えます。[Paint書き出し](tactics.md#映像への書き出し)を参照してください。
 
-配布版FFmpeg/FFprobeは固定source/hashからbuildしたverified toolchainのみ利用し、main processでtimeout/output上限を適用します。
+配布版FFmpeg/FFprobeは固定source/hashからbuildしたverified toolchainのみ利用し、main processでtimeout/output上限を適用します。WindowsのH.264はOS提供Media FoundationのCPU経路を使い、`windowsH264Capability.ts`が実フレームで不足を検出します。Windows NにはMedia Feature Packが必要です。[ADR 0062](adr/0062-windows-media-foundation-h264.md)。
 
 ## Persistence / migration
 
@@ -401,3 +405,7 @@ Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツ�
 ## OSSと配布物の境界
 
 アプリのMITとモデル・学習データの公開範囲は[モデル台帳](model-distribution.md)、第三者codeの告知と対応sourceは[配布手順](third-party-distribution.md)を正本とします。既存のprivate R&D / public consumer分離は維持します。
+
+## Macの公開境界
+
+Releaseは既存Mac署名・公証認証をCI内で消費する手動workflowです。Mac単独ではWindows CIから独立し、両OSを選んだ場合は同一commit・同一runのWindows新規buildとインストール後検査も公開条件になります。署名前payloadと最終DMG内アプリを検査し、明示した公開runだけが新しいReleaseとHomebrewを更新します。Macのsource archiveは同梱する2 targetのmanifestに対応します。[ADR 0063](adr/0063-independent-macos-release.md)と[手順](../.github/RELEASE.md)を参照してください。

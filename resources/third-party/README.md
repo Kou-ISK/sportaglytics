@@ -1,5 +1,8 @@
 # Supplemental upstream license texts
 
+macOS llama.cpp's standalone dependency notices and their source/binary bindings
+are recorded in [llama-b7849/README.md](llama-b7849/README.md).
+
 `victory-vendor@37.3.6` declares `MIT AND ISC` but its npm tarball omits the wrapper's MIT license file. Preserve that file verbatim from the matching Victory tag:
 
 - Source: https://raw.githubusercontent.com/FormidableLabs/victory/v37.3.6/LICENSE.txt

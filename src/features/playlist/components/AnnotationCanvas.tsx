@@ -1,6 +1,6 @@
 /**
  * アノテーション描画キャンバス
- * Sportscode風：図形（矩形、円、矢印、線）、フリーハンド、テキスト対応
+ * 図形（矩形、円、矢印、線）、フリーハンド、テキスト対応
  */
 import type { ChromaKey } from '../../../shared/tactics/chromaKey';
 import React, {
