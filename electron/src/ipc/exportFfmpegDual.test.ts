@@ -14,9 +14,9 @@ afterEach(() => {
 });
 
 it.each([
-  ['win32', [25, 1], [30, 1], ',fps=30/1'],
-  ['win32', [60, 1], [60, 1], ',fps=60/1'],
-  ['win32', [60000, 1001], [25, 1], ',fps=60000/1001'],
+  ['win32', [25, 1], [30, 1], '30/1'],
+  ['win32', [60, 1], [60, 1], '60/1'],
+  ['win32', [60000, 1001], [25, 1], '60000/1001'],
   ['darwin', [25, 1], [30, 1], ''],
 ] as const)(
   'keeps usable dual output timing on %s (%j, %j)',
@@ -43,9 +43,13 @@ it.each([
       escapeDrawtext: (text) => text,
     });
     const args = vi.mocked(runWithOptionalProgress).mock.calls[0][1];
-    expect(args[args.indexOf('-filter_complex') + 1]).toContain(
-      `hstack=inputs=2,setsar=1${expected}[vbase]`,
-    );
+    const filters = args[args.indexOf('-filter_complex') + 1];
+    expect(filters).toContain('hstack=inputs=2,setsar=1[vbase]');
+    if (expected) {
+      expect(filters).toContain(`[mref]fps=${expected}[mrate]`);
+      expect(filters).toContain(`[snormal]fps=${expected}[srate]`);
+      expect(filters).toContain('[mrate][srate]hstack');
+    } else expect(filters).not.toContain('fps=');
     expect(probeMedia).toHaveBeenCalledTimes(platform === 'win32' ? 2 : 0);
   },
 );

@@ -243,14 +243,18 @@ export const runFfmpegDual = async ({
     filterSteps.push(
       `${subLabel}[mnormal]scale2ref=w='trunc(oh*mdar/2)*2':h=ih[snormal][mref]`,
     );
-    // Mixed-rate hstack has no nominal frame rate. MF would infer an invalid
-    // rate from the filter time base; preserve the faster source's rational rate.
-    const rateFilter = normalizeFrameRate
-      ? `,fps=${outputFrameRate.numerator}/${outputFrameRate.denominator}`
-      : '';
-    filterSteps.push(
-      `[mref][snormal]hstack=inputs=2,setsar=1${rateFilter}[vbase]`,
-    );
+    // Normalize before hstack: mixed rates have no nominal rate for MF, while
+    // fps after hstack loses its last frame because the stack has no end duration.
+    let stackInputs = '[mref][snormal]';
+    if (normalizeFrameRate) {
+      const rate = `${outputFrameRate.numerator}/${outputFrameRate.denominator}`;
+      filterSteps.push(
+        `[mref]fps=${rate}[mrate]`,
+        `[snormal]fps=${rate}[srate]`,
+      );
+      stackInputs = '[mrate][srate]';
+    }
+    filterSteps.push(`${stackInputs}hstack=inputs=2,setsar=1[vbase]`);
 
     if (overlayEnabled) {
       const overlayFilters = buildOverlayFilters({

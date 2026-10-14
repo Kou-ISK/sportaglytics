@@ -53,7 +53,7 @@ try {
             '-i',
             `testsrc2=s=${size}:r=${secondaryRate}:d=2`,
             '-filter_complex',
-            `[0:v][2:v]hstack=inputs=2,setsar=1,fps=${outputRate}/1[v]`,
+            `[0:v]fps=${outputRate}/1[a];[2:v]fps=${outputRate}/1[b];[a][b]hstack=inputs=2,setsar=1[v]`,
             '-map',
             '[v]',
             '-map',
