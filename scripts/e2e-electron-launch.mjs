@@ -17,6 +17,20 @@ export const getElectronLaunchOptions = (profilePath, extraArgs = []) => {
   };
 };
 
+export const focusElectronWindow = async (app, page) => {
+  const window = await app.browserWindow(page);
+  await window.evaluate((nativeWindow) => {
+    nativeWindow.show();
+    nativeWindow.focus();
+    nativeWindow.webContents.focus();
+  });
+  // Native focus can change while an occluded Windows renderer is not painting.
+  // Observe the actual DOM state without depending on requestAnimationFrame.
+  await page.waitForFunction(() => document.hasFocus(), undefined, {
+    polling: 100,
+  });
+};
+
 // All callers use their own synthetic profiles and fixtures. Keep actual Main
 // filesystem error codes visible when native regression checks fail.
 export const observeElectronErrors = (app) => {

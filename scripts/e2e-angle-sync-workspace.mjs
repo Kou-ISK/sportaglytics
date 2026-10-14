@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import { focusElectronWindow } from './e2e-electron-launch.mjs';
 
 export const getTimelineWindow = async (app) => {
   let timeline;
@@ -14,11 +15,8 @@ export const getTimelineWindow = async (app) => {
 
 export const getSyncTimeline = async (app) => {
   const timeline = await getTimelineWindow(app);
+  await focusElectronWindow(app, timeline);
   await timeline.getByRole('textbox', { name: '再生タイムコード' }).waitFor();
-  await (
-    await app.browserWindow(timeline)
-  ).evaluate((window) => window.focus());
-  await timeline.waitForFunction(() => document.hasFocus());
   return timeline;
 };
 
