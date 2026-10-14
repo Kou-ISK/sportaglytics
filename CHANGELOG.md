@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Windowsインストール版E2Eで観測したYouTube起動widget `21090930`を分類候補に追加。同じ実行のbootstrapからの完全一致URLの証明、全HTTP遮断、認識開始後のHTTP要求0件を引き続き必須とする。
 - 停止したままクリップを切り替えた後、動画の遅い読み込みが位置を0秒へ戻した場合も、要求したフレームへ再補正する。最初のフレームより前への到達不能なseekを繰り返さない制御を維持する。
 - 最初の実フレームが0秒より後の映像で、停止seekの繰り返しによる起動・同期操作の停滞を防ぐ。
 
