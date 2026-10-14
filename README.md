@@ -7,7 +7,7 @@
 
 スポーツ映像のタグ付け、同期再生、統計可視化、プレイリスト作成を行う Electron デスクトップアプリケーションです。現在の主な利用想定はラグビー分析ですが、タイムラインとラベルを中心にした設計のため、他競技への応用も見込んでいます。
 
-`package.json`の版番号は次版候補の **0.17.5** です。developには公開済みv0.17.4以後の配布告知・検証修正も含まれます。現在のsourceの改善が、既存installerへ反映されたことを意味しません。公開済みの版と配布物は上のバッジと[Releases](https://github.com/Kou-ISK/sportaglytics/releases)、変更は[CHANGELOG](CHANGELOG.md)、公開時の確認項目は[Release手順](.github/RELEASE.md)を参照してください。
+`package.json`の版番号は **0.17.5** です。developには公開済みv0.17.4以後の配布告知・検証修正も含まれます。現在のsourceの改善が、既存installerへ反映されたことを意味しません。公開済みの版と配布物は上のバッジと[Releases](https://github.com/Kou-ISK/sportaglytics/releases)、変更は[CHANGELOG](CHANGELOG.md)、公開時の確認項目は[Release手順](.github/RELEASE.md)を参照してください。
 
 ## OSSとAIモデルの公開範囲
 

@@ -2,9 +2,9 @@
 
 Mac向けReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
-## 0.17.5の準備と公開済み版
+## 0.17.5と公開済み版
 
-0.17.5は次のMac向け候補です。この文書やversion更新だけでは公開済みを意味しません。[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の実際の状態を確認してください。公開済みv0.17.4のtag、DMG、Windows installer、対応sourceを削除・置換しません。修正は新しい版で公開します。
+0.17.5はMac向けの版です。この文書やversion更新だけでは公開済みを意味しません。[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の実際の状態を確認してください。公開済みv0.17.4のtag、DMG、Windows installer、対応sourceを削除・置換しません。修正は新しい版で公開します。
 
 通常の作業ブランチから`develop`へ準備PRを統合し、`develop`から`main`へのPRが通った後に、その`main` commitへ新しいtagを作成します。mainへの直接push、失敗したtagの付け替え、同じ公開版への後付けartifactは行いません。[ADR 0032](../docs/adr/0032-immutable-release-artifacts.md)の不変性を維持します。
 

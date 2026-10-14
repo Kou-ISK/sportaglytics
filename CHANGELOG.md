@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.17.5] - 未公開（macOS候補）
+### Changed
+
+- Windowsの次版候補は、同梱OpenH264をOS提供のMedia Foundation CPUエンコーダーへ置換。codec不足を検出し、Windows NではMedia Feature Packを案内する。新しいWindows installerの公開はMac 0.17.5と分けて準備する。[Windows版](docs/windows.md)。
+
+## [0.17.5] - macOS
+
+公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。この版のReleaseはMac向けで、Windows installerは含みません。
 
 ### Fixed
 
