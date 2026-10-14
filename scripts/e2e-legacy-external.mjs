@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { _electron as electron } from 'playwright';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
+import { getTimelineWindow } from './e2e-angle-sync-workspace.mjs';
 import { fixtureH264Encoder } from './e2e-platform.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
 const root = await fs.mkdtemp(
@@ -36,6 +37,7 @@ try {
     ['absolute', videoPath],
     ['file-uri', pathToFileURL(videoPath).href],
   ]) {
+    console.log(`Legacy external video reference: ${name}`);
     const source = path.join(root, `Legacy ${name}`);
     await fs.mkdir(path.join(source, '.metadata'), { recursive: true });
     const config = JSON.stringify({
@@ -102,15 +104,36 @@ try {
       await fs.realpath(videoPath),
     );
     assert.ok(actual.duration >= 19.9 && actual.duration <= 20.1);
-    await main.evaluate(async () => {
-      const video = document.querySelector('video');
-      video.currentTime = 6.25;
-      await video.play();
-    });
-    await main.waitForFunction(
-      () => document.querySelector('video').currentTime > 6.3,
+    const timelineWindow = await getTimelineWindow(app);
+    await timelineWindow
+      .getByRole('slider', { name: 'タイムラインの再生位置' })
+      .waitFor();
+    // The package controller owns playback and its clock. A direct video.play()
+    // would race its paused state instead of exercising the migrated project.
+    await timelineWindow.evaluate(() =>
+      window.electronAPI.timelineWindow.sendCommand({
+        type: 'seek',
+        time: 6.25,
+      }),
     );
-    await main.evaluate(() => document.querySelector('video').pause());
+    await main.waitForFunction(() => {
+      const video = document.querySelector('video');
+      return (
+        video.paused &&
+        !video.seeking &&
+        Math.abs(video.currentTime - 6.25) < 0.05
+      );
+    });
+    await main.getByRole('button', { name: '再生', exact: true }).click();
+    await main.waitForFunction(() => {
+      const video = document.querySelector('video');
+      return !video.paused && video.currentTime > 6.3;
+    });
+    await main.getByRole('button', { name: '一時停止', exact: true }).click();
+    await main.waitForFunction(() => {
+      const video = document.querySelector('video');
+      return video.paused && !video.seeking;
+    });
     assert.equal(
       await fs.readFile(path.join(source, '.metadata/config.json'), 'utf8'),
       config,

@@ -51,11 +51,11 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 - `node scripts/e2e-package-safety.mjs`: 実preload/Mainによるread-only旧形式コピーと再利用、未知/未来/native/映像不在拒否、Renderer read fault中の原本保持と両Window retry、書き込み中のUndo、読込失敗中のコードボタン/ホットキー、空文書への再読込後の正常なタグ付けと別processでの再開を確認する。実アプリのtext writerは置換せず、合成保存先のfs.renameへfaultを入れる。12同時write/80回JSON読取で部分ファイルが見えないことも確認する。
 - `node scripts/e2e-sportscode-import.mjs`: 合成XML・合成動画で取消、実動画尺超過の拒否、秒数補正、コピー作成、タグ/ラベル/色/ノート/空行、原本bytes保持を本番IPC/probeで確認する。`actionType`/`Type`/`__proto__`/`constructor`などのgroupを含め、実Rendererでmemo編集・保存・新process再開を行いラベル保持を確認する。
 
-- `node scripts/e2e-legacy-external.mjs`: パッケージ外のreadonly合成映像を絶対パスとfile URIで参照する旧フォルダを移行し、別コピーの実video要素で再生/seekと原本保持を確認する。
+- `node scripts/e2e-legacy-external.mjs`: パッケージ外のreadonly合成映像を絶対パスとfile URIで参照する旧フォルダを移行し、別コピーのTimelineシーク経路と再生・停止ボタンで実video要素の位置・進行・停止と原本保持を確認する。再生状態と時計はアプリのcontrollerを通し、動画要素への直接play/pauseと競合させない。
 
 保存済みcaptureの16超clipは共通の50,000上限を使うunit負例/正例とlive-captureの再開で検証します。Playlistの途中JSONは既存export-menuの読取条件を維持し、metadata置換に同じatomic writerを使います。Windows renameの一時/恒久拒否はbounded retryの回帰を持ち、nativeの実置換で再確認します。Undoの故障注入はB/A両方のrename完了を待ってから判定し、別文書のempty retryは別package IDを使い、open-fileで作られる新sessionのMain/Timeline/コードパネルを取得し直します。対象read faultの到達と元sessionの文書不変も検査します。新processのTimeline同期へ通常listenerを追加し、既存subscriptionを置換せずに実メモリ中のlabelsを確認します。multi-clipの保存件数assertionは緩和せず、synthetic Main stderrの実filesystem errorを残します。
 
-保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常22シナリオとWindowsインストール後17シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
+保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常22シナリオとWindowsインストール後22シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
 
 ## Required Quality Gate
 
