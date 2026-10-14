@@ -367,17 +367,17 @@ Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-ope
 ## リリースプロセス
 
 1. release準備変更を `develop` へ統合
-2. 必要なsanitized event-detection model packをCI/local stagingへ配置
+2. Mac候補はevent packなしを確認し、同梱モデルと告知をレビュー
 3. `develop -> main` PR
 4. main PR品質ゲート
 5. merge後のmain commitへrelease tag
-6. package/release assets作成。同じバージョンの公開済みタグ・DMGを上書きしません（[ADR 0032](adr/0032-immutable-release-artifacts.md)）。
+6. Release desktopをmainから手動dispatchし、全ゲート後にpackage/release assets作成。同じバージョンの公開済みタグ・DMGを上書きしません（[ADR 0032](adr/0032-immutable-release-artifacts.md)）。
 
 Electron E2Eは `scripts/run-electron-e2e.mjs` で全シナリオの成否を収集し、1件でも失敗すると配布へ進みません。詳細は[テスト手順](testing.md)を参照してください。
 
 配布前に `pnpm audit` / `pnpm audit --prod` も確認します。lockfileを固定してインストールし、UIのゲートとStorybook buildをReleaseでも実行します。
 
-macOS署名はキーチェーン修正版のelectron-builder 26.16.1で行います。builder関連パッケージとlockfileを揃えて更新し、署名・公証の障害は[Release手順](../.github/RELEASE.md#macos-signing-keychain-unlock-failed)に沿って切り分けます。
+macOS署名はキーチェーン修正版のelectron-builder 26.16.1で行います。builder関連パッケージとlockfileを揃えて更新し、署名・公証の障害は[Release手順](../.github/RELEASE.md#公開後と復旧)に沿って切り分けます。
 
 `main` への直接push/mergeは行いません。Event detection model packはアプリreleaseと独立できます。
 
@@ -460,3 +460,5 @@ Windows CIは同じrunで作成・インストールした成果物のNOTICE、�
 macOS llamaの準備は固定版の依存告知を外部ファイルへコピーし、cacheと`afterPack`で本文hash・実行ファイル内の全文を検査します。版変更時は [告知の出典](../resources/third-party/llama-b7849/README.md) も更新し、両archの実ファイルで検証してください。`node --test scripts/tests/distribution-notices.mjs`は欠落・改変・別runtimeを拒否する合成試験で、macOS配布検証を代替しません。
 
 Windows media toolchainはMedia FoundationのCPUエンコーダーを使用します。Windows NではMedia Feature Packを有効にしてください。native build、CPU MP4、全22シナリオのインストール後検査は[Windows開発・検証](windows.md#開発検証)を参照してください。
+
+Macの配布準備は[Release手順](../.github/RELEASE.md)に従います。`release.yml`は手動dispatchのみで、既存SecretsをCI内で利用します。`publish=false`もApple送信を含むため、未署名のローカル検査には使いません。Mac専用sourceは`node scripts/package-media-sources.mjs --platform macos --require-builds`で生成し、Python 3とMac 2 targetの既存manifestを使います。`include_windows=true`は同じrunで新規buildしたWindows installer・report・manifestを検査し、`--platform windows --require-builds`の対応sourceも同じ新規Releaseへ公開します。

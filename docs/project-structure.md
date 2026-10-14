@@ -403,3 +403,7 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 `scripts/license-inventory.mjs`はbundleの告知生成、`scripts/after-pack.mjs`はResources検査と既存署名hookへの委譲、`scripts/package-media-sources.mjs`は公開sourceの明示的な収集を担当します。`scripts/mac-llama-notices.mjs`はmacOS llamaの依存告知とruntime bytesの対応を検査します。`resources/third-party/`はnpm・nativeの固定上流告知と出典を持ちます。出力はGit対象外の`build/`・`dist/`、方針は[第三者配布](third-party-distribution.md)です。
 
 `scripts/media-tools/toolchain-notices.mjs`はWindowsのインストール済みcompiler/runtime packageから告知を収集し、限定したversion/hash記録と配布時の整合検査を提供します。source bundleにも同scriptを含めます。
+
+### Mac配布スクリプト
+
+`scripts/macos/`はRelease専用afterPack、純粋な同梱payload照合、read-only DMG検査、version/main/tag guard、Homebrew Cask生成を担当します。アプリruntimeへ依存させません。`scripts/windows/release-evidence.mjs`は同一runのWindows installed reportをsource commit/tree・version・実installer hashと結び付け、対応source用manifestをstageします。source bundleの対象選択とarchive metadataの正規化は`scripts/media-tools/source-bundle.mjs`と`archive-sources.py`に置き、対応sourceの列挙は`package-media-sources.mjs`が担当します。

@@ -7,11 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.5]
+
+公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。この版はMacとWindowsの同一commitからの配布を準備しています。
+
 ### Fixed
 
 - 戦術盤E2Eで観測したYouTube widget `ec429320`を起動scriptの分類対象に追加。同じ実行のbootstrapによる完全一致URLの証明、全HTTP遮断、認識開始後のHTTP要求0件の検査を維持。[検証条件](docs/testing.md#戦術盤)。
 
 ### Changed
+
+- Windowsの同梱OpenH264をOS提供のMedia Foundation CPUエンコーダーへ置換。codec不足を検出し、Windows NではMedia Feature Packを案内する。[Windows版](docs/windows.md)。
+
+- Macの配布を手動workflowへ分離し、既存Secretsによる署名・公証、最終DMG内のNOTICE・モデル・hash・Gatekeeper検査を公開の必須条件にする。両OS公開を指定した場合は同一commitのWindowsを新規build・インストール検査し、実hashとOS別対応sourceを一度に公開。[Release手順](.github/RELEASE.md)。
 
 - Windows CIでインストール後のNOTICE・同梱資産・モデル・native告知のbytesとAuthenticode状態を検査し、同じ候補のhash reportを保存。[検査範囲](docs/windows.md#開発検証)。
 

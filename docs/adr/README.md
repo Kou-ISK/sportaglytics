@@ -122,3 +122,5 @@ YYYY-MM-DD
 - [0061 Event Pack Distribution Provenance](0061-event-pack-distribution-provenance.md): runtime互換を維持した配布前の由来・全ファイル検査。
 
 - [0062 Windows Media Foundation H.264](0062-windows-media-foundation-h264.md): WindowsのOS提供CPUエンコーダーと不足検出。0033のH.264判断を置換。
+
+- [0063 Independent macOS release](0063-independent-macos-release.md): Mac単独または両OSの手動dispatch、対象OS別の対応source、最終DMG検査（Accepted）。

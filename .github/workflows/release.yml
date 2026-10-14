@@ -1,32 +1,50 @@
-name: Release
+name: Release desktop
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 0.1.0)'
+        description: 'New version matching package.json and its existing tag'
+        type: string
         required: true
-        default: '0.1.0'
+      expected_sha:
+        description: 'Reviewed main HEAD (full 40-character commit SHA)'
+        type: string
+        required: true
+      publish:
+        description: 'Publish verified DMGs and update Homebrew (false still signs and notarizes)'
+        type: boolean
+        default: false
+        required: true
+      include_windows:
+        description: 'Build and verify Windows from the same commit and publish both OS together'
+        type: boolean
+        default: false
+        required: true
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-macos
+  cancel-in-progress: false
+
 jobs:
   windows:
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' && inputs.include_windows
     uses: ./.github/workflows/windows.yml
+    permissions:
+      contents: read
+
   release:
     needs: windows
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    if: ${{ always() && !cancelled() && github.ref == 'refs/heads/main' && ((inputs.include_windows && needs.windows.result == 'success') || (!inputs.include_windows && needs.windows.result == 'skipped')) }}
     runs-on: macos-latest
-
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
     steps:
-      - name: Checkout code
+      - name: Checkout exact workflow commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -36,18 +54,12 @@ jobs:
         with:
           node-version: '22.12.0'
 
-      - name: Validate release version and main ancestry
+      - name: Validate new release and exact main HEAD
         env:
-          RELEASE_INPUT: ${{ github.event.inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASE_VERSION=$(node -p "require('./package.json').version")
-          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
-          else
-            test "$RELEASE_INPUT" = "$RELEASE_VERSION"
-          fi
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-          test "$(git rev-parse "v$RELEASE_VERSION^{commit}")" = "$GITHUB_SHA"
+          git fetch origin main --tags
+          node scripts/macos/release-guard.mjs
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -69,6 +81,17 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Download Windows candidate from this run
+        if: inputs.include_windows
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-x64-installer
+          path: dist/windows
+
+      - name: Verify exact Windows release identity
+        if: inputs.include_windows
+        run: node scripts/windows/release-evidence.mjs
 
       - name: Security audit
         run: pnpm audit && pnpm audit --prod
@@ -108,9 +131,8 @@ jobs:
           node scripts/prepare-test-model.mjs
           pnpm run test:e2e
 
-      - name: Package for macOS (x64)
-        timeout-minutes: 20
-        run: pnpm exec electron-builder --mac --x64 --publish never
+      - name: Package signed and notarized macOS DMGs
+        timeout-minutes: 45
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -118,138 +140,101 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          DEBUG: electron-builder
-
-      - name: Package for macOS (arm64)
-        timeout-minutes: 20
-        run: pnpm exec electron-builder --mac --arm64 --publish never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          DEBUG: electron-builder
-
-      - name: List generated files
         run: |
-          echo "=== Contents of dist directory ==="
-          ls -lah ./dist/
-          echo "=== Looking for dmg files ==="
-          find ./dist -name "*.dmg" -type f
-
-      - name: Clean up blockmap files
-        run: |
-          echo "Removing .blockmap files..."
-          rm -f ./dist/*.blockmap
-          echo "Remaining files:"
-          ls -lah ./dist/
-
-      - name: Get version from package.json
-        id: get_version
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Detected version: $VERSION"
-
-      - name: Calculate SHA256 for arm64
-        id: sha256_arm64
-        run: |
-          echo "Looking for: ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.dmg"
-          if [ -f "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.dmg" ]; then
-              SHA256=$(shasum -a 256 "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-arm64.dmg" | awk '{print $1}')
-              echo "SHA256_ARM64=$SHA256" >> $GITHUB_OUTPUT
-              echo "arm64 SHA256: $SHA256"
-          else
-              echo "ERROR: arm64 dmg file not found!"
+          for key in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [[ -z "${!key}" ]]; then
+              echo "::error::Missing existing secret: $key"
               exit 1
-          fi
+            fi
+          done
+          pnpm exec electron-builder --mac --x64 --publish never -c.forceCodeSigning=true -c.mac.notarize=true -c.afterPack=./scripts/macos/after-pack.mjs
+          pnpm exec electron-builder --mac --arm64 --publish never -c.forceCodeSigning=true -c.mac.notarize=true -c.afterPack=./scripts/macos/after-pack.mjs
 
-      - name: Calculate SHA256 for x64
-        id: sha256_x64
+      - name: Verify actual apps inside the final DMGs
         run: |
-          echo "Looking for: ./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.dmg"
-          if [ -f "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.dmg" ]; then
-              SHA256=$(shasum -a 256 "./dist/SporTagLytics-${{ steps.get_version.outputs.VERSION }}-x64.dmg" | awk '{print $1}')
-              echo "SHA256_X64=$SHA256" >> $GITHUB_OUTPUT
-              echo "x64 SHA256: $SHA256"
-          else
-              echo "ERROR: x64 dmg file not found!"
-              exit 1
-          fi
+          node scripts/macos/verify-dmg.mjs "dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" x64 dist/mac-verification/final-x64.json
+          node scripts/macos/verify-dmg.mjs "dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" arm64 dist/mac-verification/final-arm64.json
 
-      - name: Download verified Windows installer
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-x64-installer
-          path: dist/
+      - name: Package macOS corresponding media sources
+        run: node scripts/package-media-sources.mjs --platform macos --require-builds
 
-      - name: Package corresponding media sources
-        run: node scripts/package-media-sources.mjs --require-builds
+      - name: Package Windows corresponding media sources
+        if: inputs.include_windows
+        run: node scripts/package-media-sources.mjs --platform windows --require-builds
 
-      - name: Record release checksums
+      - name: Record exact release checksums
         working-directory: dist
-        run: shasum -a 256 *.dmg *Setup*.exe media-tools-sources-*.tar.gz > SHA256SUMS.txt
+        env:
+          INCLUDE_WINDOWS: ${{ inputs.include_windows }}
+        run: |
+          shasum -a 256 "SporTagLytics-$RELEASE_VERSION-arm64.dmg" "SporTagLytics-$RELEASE_VERSION-x64.dmg" "media-tools-sources-$RELEASE_VERSION-macos.tar.gz" > SHA256SUMS.txt
+          if [[ "$INCLUDE_WINDOWS" == true ]]; then
+            shasum -a 256 "SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" "media-tools-sources-$RELEASE_VERSION-windows.tar.gz" >> SHA256SUMS.txt
+          fi
 
-      - name: Create immutable release
+      - name: Preserve verified candidate and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ inputs.version }}-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          path: |
+            dist/SporTagLytics-${{ inputs.version }}-arm64.dmg
+            dist/SporTagLytics-${{ inputs.version }}-x64.dmg
+            dist/media-tools-sources-${{ inputs.version }}-macos.tar.gz
+            dist/SporTagLytics-Setup-${{ inputs.version }}-x64.exe
+            dist/media-tools-sources-${{ inputs.version }}-windows.tar.gz
+            dist/SHA256SUMS.txt
+            dist/mac-verification/*.json
+            dist/windows/distribution/windows-installed.json
+            dist/windows-release.json
+            dist/media-builds/win32-x64.json
+
+      - name: Recheck identity before publication
+        if: inputs.publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
-          gh release create "v$RELEASE_VERSION" --verify-tag \
-            --title "v$RELEASE_VERSION" --generate-notes \
-            --notes "Windows 11 x64版のインストーラーは未署名です。macOS版DMGは署名・公証済みです。AIのGGUFモデルと自動検出用model packは別途必要です。FFmpeg対応ソースは添付のmedia-tools-sources archiveに収録しています。対応条件と操作はdocs/windows.mdを参照してください。" \
-            "./dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" \
-            "./dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" \
-            "./dist/SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" \
-            "./dist/media-tools-sources-$RELEASE_VERSION.tar.gz" \
-            "./dist/SHA256SUMS.txt"
+          git fetch origin main --tags
+          node scripts/macos/release-guard.mjs
+          (cd dist && shasum -a 256 -c SHA256SUMS.txt)
 
-      - name: Update Homebrew Tap
-        run: |
-          # homebrew-tapリポジトリをクローン
-          git clone https://${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/Kou-ISK/homebrew-tap.git
-          cd homebrew-tap
-
-          # Casksディレクトリを作成（初回のみ）
-          mkdir -p Casks
-
-          # Cask formulaを生成
-          cat > Casks/sportaglytics.rb << 'EOF'
-          cask "sportaglytics" do
-            arch arm: "arm64", intel: "x64"
-
-            version "${{ steps.get_version.outputs.VERSION }}"
-            sha256 arm:   "${{ steps.sha256_arm64.outputs.SHA256_ARM64 }}",
-                   intel: "${{ steps.sha256_x64.outputs.SHA256_X64 }}"
-
-            url "https://github.com/Kou-ISK/sportaglytics/releases/download/v#{version}/SporTagLytics-#{version}-#{arch}.dmg",
-                verified: "github.com/Kou-ISK/sportaglytics/"
-            name "SporTagLytics"
-            desc "Video tagging application for sports analysis"
-            homepage "https://github.com/Kou-ISK/sportaglytics"
-
-            livecheck do
-              url :url
-              strategy :github_latest
-            end
-
-            app "SporTagLytics.app"
-
-            zap trash: [
-              "~/Library/Application Support/sportaglytics",
-              "~/Library/Preferences/com.kouisk.sportaglytics.plist",
-              "~/Library/Saved Application State/com.kouisk.sportaglytics.savedState",
-            ]
-          end
-          EOF
-
-          # Git設定とコミット
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/sportaglytics.rb
-          git diff --staged --quiet || git commit -m "Update sportaglytics to v${{ steps.get_version.outputs.VERSION }}"
-          git push
+      - name: Create immutable desktop release
+        if: inputs.publish
         env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INCLUDE_WINDOWS: ${{ inputs.include_windows }}
+        run: |
+          assets=("dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" "dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" "dist/media-tools-sources-$RELEASE_VERSION-macos.tar.gz" dist/SHA256SUMS.txt)
+          platform='macOS'
+          notes='macOS arm64 / Intel 向けです。DMG内のアプリは署名・公証済みで、最終DMGから検査しています。Windows installerはこのReleaseに含みません。'
+          if [[ "$INCLUDE_WINDOWS" == true ]]; then
+            node scripts/windows/release-evidence.mjs --verify-only
+            assets+=("dist/SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" "dist/media-tools-sources-$RELEASE_VERSION-windows.tar.gz")
+            platform='macOS / Windows'
+            windows_signature=$(node -p "JSON.parse(require('fs').readFileSync('dist/windows-release.json')).installerSignatureStatus")
+            notes="macOS arm64 / Intel とWindows x64向けです。Macアプリは署名・公証済みで最終DMGから検査しています。Windowsは同じcommitから新規buildし、インストール後の22 E2Eと同梱物を検査済みです。Windows installerのAuthenticode状態: $windows_signature。Windows Nと実カメラは未検証です。"
+          fi
+          gh release create "v$RELEASE_VERSION" --verify-tag \
+            --title "v$RELEASE_VERSION ($platform)" --generate-notes \
+            --notes "$notes GGUFと自動検出用model packは別途必要です。FFmpeg等の対応sourceとbuild manifestは対象OS別のsource archiveに収録しています。" \
+            "${assets[@]}"
+
+      - name: Checkout Homebrew Tap using its existing token
+        if: inputs.publish
+        uses: actions/checkout@v4
+        with:
+          repository: Kou-ISK/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update Homebrew Tap after publication
+        if: inputs.publish
+        run: |
+          node scripts/macos/write-cask.mjs
+          git -C homebrew-tap config user.name 'github-actions[bot]'
+          git -C homebrew-tap config user.email 'github-actions[bot]@users.noreply.github.com'
+          git -C homebrew-tap add Casks/sportaglytics.rb
+          git -C homebrew-tap diff --staged --quiet || git -C homebrew-tap commit -m "chore(cask): update sportaglytics to v$RELEASE_VERSION"
+          git -C homebrew-tap push

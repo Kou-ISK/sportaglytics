@@ -75,7 +75,7 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 - [オーバーレイ付き書き出し性能](reports/2026-09-export-performance.md): Sportscode公式調査、再現可能な合成素材での比較と品質上の制約。
 - [映像書き出しメニューの所有者と準備待ち](adr/0042-document-owned-export-menu.md): Package Sessionによる通知先とTimelineの購読準備。
 - [Release artifactの不変性](adr/0032-immutable-release-artifacts.md): 公開済みタグとDMGを保持する配布契約。
-- [Release手順](../.github/RELEASE.md): 作業ブランチからの候補準備、Windows/macOSの検証、タグによる公開と公開後の確認。
+- [Release手順](../.github/RELEASE.md): 作業ブランチからの候補準備、対象OSを選ぶ手動dispatch、署名・公証・最終DMG検査と公開後の確認。
 - [Docs Impact Matrix](documentation-guide.md#docs-impact-matrix): 実装変更時に同時更新する docs の対応表。
 - [ADR Operations](documentation-guide.md#adr-operations): ADR の採番、命名、更新 lifecycle。
 
@@ -132,3 +132,5 @@ AI agent は次の順で参照してください。
 分析PNGのフレーム同期と画素境界の判断は[ADR 0057](adr/0057-verified-analysis-frame-capture.md)を参照してください。
 
 Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-windows-media-foundation-h264.md)を参照してください。
+
+- [Macの独立リリース判断](adr/0063-independent-macos-release.md): 既存認証の利用とOS別の公開境界。
