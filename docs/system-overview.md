@@ -405,3 +405,7 @@ Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツ�
 ## OSSと配布物の境界
 
 アプリのMITとモデル・学習データの公開範囲は[モデル台帳](model-distribution.md)、第三者codeの告知と対応sourceは[配布手順](third-party-distribution.md)を正本とします。既存のprivate R&D / public consumer分離は維持します。
+
+## Macの公開境界
+
+Mac Releaseは既存署名・公証認証をCI内で消費する手動workflowで、Windows CIから独立しています。署名前payloadと最終DMG内アプリを検査し、明示した公開runだけが新しいReleaseとHomebrewを更新します。Macのsource archiveは同梱する2 targetのmanifestに対応します。[ADR 0062](adr/0062-independent-macos-release.md)と[手順](../.github/RELEASE.md)を参照してください。

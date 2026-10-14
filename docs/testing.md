@@ -274,3 +274,7 @@ Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実
 `node --test scripts/tests/windows-distribution.mjs`は合成ASARと非実行binaryで、installed NOTICE/inventory/資産/model/WASM/compiler告知の欠落・改変、GGUF/event pack混入、path逸脱、署名reportの欠落・hash不一致・異常状態を拒否することを検査します。`test:run` / `test:ci`に含みます。署名状態はunitでは模擬値であり、実Authenticodeとinstaller bytesの検査は[Windows CIの配布report](windows.md#開発検証)で行います。
 
 ビルドdownloaderの9ケースには、実際の@electron/getを別processで起動するHTTP proxy経由取得とNO_PROXY bypassを含みます。loopback serverと合成bytesで検証し、外部artifactを取得しません。既存のagent/timeout/redirect/checksum/progress/file-cache検査も維持します。
+
+## Mac最終DMGの配布検査
+
+`scripts/tests/macos-release.mjs`は対象OSのsource選択、必須manifest欠落、再現可能archive・既存出力保護、main/version/tag照合の失敗経路を検査します。`test:run`/`test:ci`へ含まれます。Release専用afterPackは署名前payloadを保存し、`scripts/macos/verify-dmg.mjs <dmg> <arm64|x64> <report.json>`が実DMG内のstrict署名・公証ticket・Gatekeeper・NOTICE/model/hashを検査します。未署名候補とローカルunit成功をこの最終検査の代替としません。[入力・認証・公開ゲート](../.github/RELEASE.md)。
