@@ -15,6 +15,7 @@ import test from 'node:test';
 import afterPack from '../after-pack.mjs';
 import { validateEventPackDistribution } from '../event-pack-provenance.mjs';
 import { signModelDirectory } from '../sign-event-detection-runners-after-pack.mjs';
+import { SOURCES } from '../media-tools/sources.mjs';
 import { TOOLCHAIN_NOTICES } from '../media-tools/toolchain-notices.mjs';
 import { copyMacLlamaNotices } from '../mac-llama-notices.mjs';
 
@@ -129,6 +130,7 @@ const distributionNotices = async (resources) => {
     'freetype-LICENSE.TXT',
     'freetype-FTL.TXT',
     'harfbuzz-COPYING',
+    'zlib-LICENSE',
   ]) {
     await writeFile(
       join(resources, 'media-tools/licenses', name),
@@ -157,7 +159,21 @@ const distributionNotices = async (resources) => {
   await writeFile(join(root, 'manifest.json'), json(toolchain));
   await writeFile(
     join(resources, 'media-tools/build.json'),
-    json({ toolchain }),
+    json({
+      identity: {
+        revision: 8,
+        platform: 'win32',
+        architecture: 'x64',
+        sources: Object.fromEntries(
+          Object.entries(SOURCES).map(([name, source]) => [
+            name,
+            { version: source.version, sha256: source.sha256 },
+          ]),
+        ),
+      },
+      binaries: { ffmpeg: 'a'.repeat(64), ffprobe: 'b'.repeat(64) },
+      toolchain,
+    }),
   );
 };
 
