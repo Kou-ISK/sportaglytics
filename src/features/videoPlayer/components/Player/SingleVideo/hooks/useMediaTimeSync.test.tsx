@@ -28,7 +28,8 @@ const fixture = () => {
     ref,
     seek,
     listeners,
-    settle: () => {
+    settle: (actualTime?: number) => {
+      if (actualTime !== undefined) time = actualTime;
       seeking = false;
       listeners.get('seeked')?.();
     },
@@ -80,4 +81,55 @@ it('restores the requested frame if decoding resets an initial seek', () => {
   player.advance(0);
   act(() => player.listeners.get('loadeddata')?.());
   expect(player.seek.mock.calls).toEqual([[5], [5]]);
+});
+
+it('does not repeatedly seek a paused target that the decoder clamps to its first frame', () => {
+  const player = fixture();
+  player.advance(5);
+  renderHook(() => useMediaTimeSync(player.ref, true, 0, false));
+  for (let index = 0; index < 10; index++) {
+    act(() => player.settle(5));
+    act(() => player.listeners.get('canplay')?.());
+  }
+  expect(player.seek.mock.calls).toEqual([[0]]);
+});
+
+it('allows a new paused request after visiting an already settled time or reloading', () => {
+  const player = fixture();
+  player.advance(5);
+  const { rerender } = renderHook(
+    ({ time, ready }) => useMediaTimeSync(player.ref, ready, time, false),
+    { initialProps: { time: 0, ready: true } },
+  );
+  act(() => player.settle(5));
+  rerender({ time: 5, ready: true });
+  rerender({ time: 0, ready: true });
+  expect(player.seek.mock.calls).toEqual([[0], [0]]);
+  act(() => player.settle(5));
+  rerender({ time: 0, ready: false });
+  rerender({ time: 0, ready: true });
+  expect(player.seek.mock.calls).toEqual([[0], [0], [0]]);
+});
+
+it('corrects tolerated playback drift precisely when pausing at the same target', () => {
+  const player = fixture();
+  const { rerender } = renderHook(
+    ({ playing }) => useMediaTimeSync(player.ref, true, 5, playing),
+    { initialProps: { playing: true } },
+  );
+  act(() => player.settle(5.1));
+  expect(player.seek.mock.calls).toEqual([[5]]);
+  rerender({ playing: false });
+  expect(player.seek.mock.calls).toEqual([[5], [5]]);
+});
+
+it('retries an explicit paused seek without restarting a seeked loop', () => {
+  const player = fixture();
+  player.advance(5);
+  renderHook(() => useMediaTimeSync(player.ref, true, 0, false));
+  act(() => player.settle(5));
+  act(() => window.dispatchEvent(new Event('video-seek-start')));
+  act(() => player.listeners.get('canplay')?.());
+  act(() => player.settle(5));
+  expect(player.seek.mock.calls).toEqual([[0], [0]]);
 });

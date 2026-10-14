@@ -16,7 +16,13 @@ export const useMediaTimeSync = (
   rate = 1,
 ): void => {
   const latest = useRef({ targetTime, playing, rate, ready });
+  const lastRequestedTime = useRef<number | undefined>(undefined);
   useLayoutEffect(() => {
+    if (
+      latest.current.targetTime !== targetTime ||
+      latest.current.playing !== playing
+    )
+      lastRequestedTime.current = undefined;
     latest.current = { targetTime, playing, rate, ready };
   }, [targetTime, playing, rate, ready]);
   const force = useRef(true);
@@ -33,13 +39,23 @@ export const useMediaTimeSync = (
     )
       return;
     const now = performance.now();
-    const precise = force.current || !state.playing;
+    const forced = force.current;
+    const precise = forced || !state.playing;
     const tolerance = precise ? 0.015 : 0.15 * Math.max(1, state.rate);
     if (!precise && now - lastSeekAt.current < 250) return;
     force.current = false;
     if (Math.abs((player.currentTime() ?? 0) - state.targetTime) <= tolerance)
       return;
+    // A decoder may clamp a target before its first frame. Repeating that
+    // unchanged paused request from seeked/canplay would restart decoding forever.
+    if (
+      !state.playing &&
+      !forced &&
+      lastRequestedTime.current === state.targetTime
+    )
+      return;
     lastSeekAt.current = now;
+    lastRequestedTime.current = state.targetTime;
     player.currentTime(Math.max(0, state.targetTime));
   }, [playerRef]);
 
@@ -48,6 +64,7 @@ export const useMediaTimeSync = (
     if (!ready || !player) return;
     force.current = true;
     lastSeekAt.current = -Infinity;
+    lastRequestedTime.current = undefined;
     const requestSeek = (): void => {
       force.current = true;
     };
