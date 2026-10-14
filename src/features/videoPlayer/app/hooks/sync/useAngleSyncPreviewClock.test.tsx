@@ -5,12 +5,17 @@ import { useAngleSyncPreviewClock } from './useAngleSyncPreviewClock';
 
 const fixture = () => {
   let time = 0;
+  let seeking = false;
   const events = new Map<string, Set<() => void>>();
   const player = {
     currentTime: vi.fn((seconds?: number): number => {
-      if (seconds !== undefined) time = seconds;
+      if (seconds !== undefined) {
+        time = seconds;
+        seeking = true;
+      }
       return time;
     }),
+    seeking: () => seeking,
     isDisposed: () => false,
     paused: () => true,
     readyState: vi.fn(() => 4),
@@ -36,7 +41,13 @@ const fixture = () => {
       error: '',
       play: vi.fn(),
     },
+    settle: (actualTime?: number) => {
+      if (actualTime !== undefined) time = actualTime;
+      seeking = false;
+      events.get('seeked')?.forEach((listener) => listener());
+    },
     resetSource: () => {
+      seeking = false;
       time = 0;
     },
     emit: (event: string) =>
@@ -49,14 +60,19 @@ it('reapplies the latest requested frame when source readiness resets the media 
     initialProps: f.params,
   });
   expect(f.player.currentTime()).toBe(2);
+  f.settle();
   rerender({ ...f.params, source: 'B.mp4', time: 3 });
+  f.settle();
   f.resetSource(); // Windows decoded the replacement source after the React update.
   f.emit('loadeddata');
   expect(f.player.currentTime()).toBe(3);
+  f.settle();
   f.resetSource();
   f.emit('canplay');
   expect(f.player.currentTime()).toBe(3);
+  f.settle();
   rerender({ ...f.params, source: 'B.mp4', time: 4 });
+  f.settle();
   f.resetSource();
   f.emit('seeked');
   expect(f.player.currentTime()).toBe(4);
@@ -107,4 +123,52 @@ it('does not seek into a gap or interfere with audio analysis and defers unready
   f.emit('seeked');
   expect(f.player.currentTime()).toBe(0);
   unmount();
+});
+
+it('does not restart a pending decode and applies the latest requested frame on completion', () => {
+  const f = fixture();
+  const { rerender } = renderHook(useAngleSyncPreviewClock, {
+    initialProps: f.params,
+  });
+  rerender({ ...f.params, time: 3 });
+  f.emit('canplay');
+  expect(
+    f.player.currentTime.mock.calls.filter(([time]) => time !== undefined),
+  ).toEqual([[2]]);
+  f.settle();
+  expect(
+    f.player.currentTime.mock.calls.filter(([time]) => time !== undefined),
+  ).toEqual([[2], [3]]);
+});
+it('does not repeat an unchanged paused request clamped to the first decodable frame', () => {
+  const f = fixture();
+  f.player.currentTime(5);
+  f.settle();
+  f.player.currentTime.mockClear();
+  const { rerender } = renderHook(useAngleSyncPreviewClock, {
+    initialProps: { ...f.params, time: 0 },
+  });
+  for (let i = 0; i < 10; i++) {
+    f.settle(5);
+    f.emit('canplay');
+  }
+  expect(
+    f.player.currentTime.mock.calls.filter(([time]) => time !== undefined),
+  ).toEqual([[0]]);
+  rerender({ ...f.params, time: 6.08 });
+  expect(
+    f.player.currentTime.mock.calls.filter(([time]) => time !== undefined),
+  ).toEqual([[0], [6.08]]);
+});
+
+it('allows a precise paused request after a clamped playing correction', () => {
+  const f = fixture();
+  const { rerender } = renderHook(useAngleSyncPreviewClock, {
+    initialProps: { ...f.params, playing: true },
+  });
+  f.settle(2.1); // Playback tolerance accepts this drift.
+  rerender(f.params);
+  expect(
+    f.player.currentTime.mock.calls.filter(([time]) => time !== undefined),
+  ).toEqual([[2], [2]]);
 });

@@ -32,7 +32,7 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 このドキュメントは SporTagLytics のテストと品質ゲート運用ガイドです。必須コマンドの正本は `AGENTS.md` です。
 
-複数アングル同期の必須検証は[アングル同期仕様](angle-synchronization.md#実装と検証)を参照してください。`scripts/e2e-multi-clip-playback.mjs` は25/50fpsの架空映像で、アングルの連続操作、同期点、コマ送り、実ウィンドウ比率、Playlist/Paintの境界シーク、正負オフセットの出力画素・尺を確認します。`e2e-angle-sync-gaps.mjs`は30秒/10秒/5秒でタイムラインのつまみ操作、本数の異なる同期、途中の黒表示、再読込と出力画素を確認します。`e2e-angle-sync-multi.mjs`は3/4アングルと可変フレーム間隔を確認します。実試合の映像は不要です。
+複数アングル同期の必須検証は[アングル同期仕様](angle-synchronization.md#実装と検証)を参照してください。`scripts/e2e-multi-clip-playback.mjs` は25/50fpsの架空映像で、アングルの連続操作、同期点、コマ送り、実ウィンドウ比率、Playlist/Paintの境界シーク、正負オフセットの出力画素・尺を確認します。`e2e-angle-sync-gaps.mjs`は30秒/10秒/5秒でタイムラインのつまみ操作、本数の異なる同期、途中の黒表示、再読込と出力画素を確認します。`e2e-angle-sync-multi.mjs`は3/4アングルと可変フレーム間隔を確認します。実試合の映像は不要です。アングル同期プレビューでもデコード中のseekを中断せず、未到達の同じ停止要求を繰り返さない。新しい時刻・元動画・再生から停止への変更は適用し、到達済みの位置が読み込みで戻された場合は再補正する。非ゼロ先頭PTSと遅延通知はHook試験と3/4アングルE2Eで確認する。
 
 同シナリオは`e2e-multi-clip-coding.mjs`で、1本目、映像の切替をまたぐ区間、2本目、別ウィンドウのホットキー、アングル1の終了後に残るアングル2の区間をコーディングします。保存した`timeline.json`の開始・終了が共通時計と一致すること、および実Timelineにタグが表示されることを検証します。コードウィンドウの`onSync`はUIの単一購読用なので、テスト用の購読で置き換えず、表示中の記録状態を確認してください。
 
@@ -40,7 +40,7 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 `useTimelineViewport.gesture.test.ts`は1倍表示密度の整数スクロールを再現し、3回の連続拡大でも丸め誤差が累積しないことと、スクロール・ポインター移動・境界到達後のアンカー更新を確認します。
 
-`e2e-angle-sync-multi.mjs`は非ゼロ開始PTSの映像が停止状態でデコードを終えること、通常Timelineとアングル同期ボタンの表示を確認してから、映像ウィンドウへフォーカスしてCmd/Ctrl+Shift+Tを送ります。最初のvideo要素の表示だけではデコードや別ウィンドウの起動完了を保証できません。フォーカス・3/4画面・同期点・可変フレーム・保存結果の検証と既存の待機上限は維持し、失敗時はアングル数・工程・実際の操作対象ページと各native windowのURL/フォーカスを記録します。成功・失敗画像は`E2E_SCREENSHOT_DIR`へ保存し、Windows CIのartifactにも含めます。`useMediaTimeSync.test.tsx`は要求位置を最初のフレームへ補正するデコーダーを再現し、停止中の同じ要求でseeked/canplayが再シークを繰り返さないこと、位置変更・読み直しでは再要求できることを確認します。
+`e2e-angle-sync-multi.mjs`は非ゼロ開始PTSの映像が停止状態でデコードを終えること、通常Timelineとアングル同期ボタンの表示を確認してから、映像ウィンドウへフォーカスしてCmd/Ctrl+Shift+Tを送ります。最初のvideo要素の表示だけではデコードや別ウィンドウの起動完了を保証できません。フォーカス・3/4画面・同期点・可変フレーム・保存結果の検証と既存の待機上限は維持し、失敗時はアングル数・工程・実際の操作対象ページと各native windowのURL/フォーカスを記録します。成功・失敗画像は`E2E_SCREENSHOT_DIR`へ保存し、Windows CIのartifactにも含めます。`useMediaTimeSync.test.tsx`は要求位置を最初のフレームへ補正するデコーダーを再現し、停止中の同じ要求でseeked/canplayが再シークを繰り返さないこと、位置変更・読み直しでは再要求できることを確認します。到達済みの停止位置が読み込み処理で後から0秒へ戻された場合にも、元の位置を復元する回帰を検査します。
 
 ## パッケージ互換と保存保護
 
@@ -249,7 +249,7 @@ Paint入力の回帰テストはpointerdown/upだけの短いドラッグ、停�
 
 戦術盤の準備は認識ボタンの有効状態で判定し、ページ全体の`networkidle`は使いません。`electron.launch`後に全HTTP(S)を遮断するrouteを設置し、観測できた起動時YouTube adapter scriptを正確なURLとrequest種別で区別します。それ以外の観測した起動時要求と認識開始後の全HTTP要求を失敗にし、未完了requestも診断ログへ残します。初回起動全体の完全なofflineを証明する試験ではなく、route設置後の認識が同梱モデルで成功し、認識開始後のHTTP要求が0件であることを検証します。[Playwrightの待機契約](https://playwright.dev/docs/api/class-page#page-wait-for-load-state)。
 
-起動時scriptの分類は`https://www.youtube.com/iframe_api`と、Windows run37208260762で観測した`https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js`、Windows run38030807357で観測した`https://www.youtube.com/s/player/5203c085/www-widgetapi.vflset/www-widgetapi.js`、Windows run38331578286で観測した`https://www.youtube.com/s/player/22cb88bc/www-widgetapi.vflset/www-widgetapi.js`、および[Windows run38365031661](https://github.com/Kou-ISK/sportaglytics/actions/runs/38365031661)で観測した`https://www.youtube.com/s/player/ec429320/www-widgetapi.vflset/www-widgetapi.js`だけに限定します。widgetは既にロードされたexact iframe_apiのscript sourceに同じURLの文字列宣言がある場合だけ分類します。証拠はURLごとに保持し、旧版の宣言を根拠に新版を分類しません。CDPでそのcodeを読みSHA256と検証結果をログに残し、証明できなければ失敗します。ログの`declaredWidgetUrls`は既知URLとの照合結果であり、空配列はscript本文にwidget宣言がないことを意味しません。URLの追加後も、その実行でロードされたscriptからの証明が必要です。この診断でURLを追加取得しません。host/pathのwildcardやquery違いは許可せず、将来URLが変わった場合も観測とレビューが必要です。分類は通信の許可ではなく、遮断routeは維持します。`e2e-tactical-startup-http.test.mjs`の39ケースで未検証widget、認識中要求、別host/path/query/type、CDP失敗時のcleanupを検査します。
+起動時scriptの分類は`https://www.youtube.com/iframe_api`と、Windows run37208260762で観測した`https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js`、Windows run38030807357で観測した`https://www.youtube.com/s/player/5203c085/www-widgetapi.vflset/www-widgetapi.js`、Windows run38331578286で観測した`https://www.youtube.com/s/player/22cb88bc/www-widgetapi.vflset/www-widgetapi.js`、および[Windows run38365031661](https://github.com/Kou-ISK/sportaglytics/actions/runs/38365031661)で観測した`https://www.youtube.com/s/player/ec429320 / 21090930/www-widgetapi.vflset/www-widgetapi.js`だけに限定します。widgetは既にロードされたexact iframe_apiのscript sourceに同じURLの文字列宣言がある場合だけ分類します。証拠はURLごとに保持し、旧版の宣言を根拠に新版を分類しません。CDPでそのcodeを読みSHA256と検証結果をログに残し、証明できなければ失敗します。ログの`declaredWidgetUrls`は既知URLとの照合結果であり、空配列はscript本文にwidget宣言がないことを意味しません。URLの追加後も、その実行でロードされたscriptからの証明が必要です。この診断でURLを追加取得しません。host/pathのwildcardやquery違いは許可せず、将来URLが変わった場合も観測とレビューが必要です。分類は通信の許可ではなく、遮断routeは維持します。`e2e-tactical-startup-http.test.mjs`の39ケースで未検証widget、認識中要求、別host/path/query/type、CDP失敗時のcleanupを検査します。
 
 アプリはYouTube映像のtechを使用するため`useVideoJsInitialization.ts`でvideojs-youtube@3.0.1をimportします。その依存はmodule読込時にiframe_apiを要求します。ローカル戦術盤の合成MP4にはYouTube techが不要であり、ここでの分類は既存の起動副作用の範囲を示すものです。人物認識の必要な外部通信として扱いません。
 

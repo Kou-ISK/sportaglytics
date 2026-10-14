@@ -4,7 +4,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 
 原本保持の旧パッケージコピー、load成功を条件とした保存、SCTimeline JSONと公式XML新規取り込みの区別は[0006](0006-application-document-formats-and-file-associations.md)・[0003](0003-shared-type-contracts-and-load-time-migration.md)・[0009](0009-timeline-import-export-interoperability.md)に反映しています。
 
-停止中のシーク要求とデコーダーが返す実フレームのずれを再試行ループにしない判断は[0046](0046-coalesced-playback-corrections.md)に反映しています。
+停止中の未到達要求を再試行ループにせず、到達済み位置の後発リセットは補正する判断とアングル同期プレビューへの適用は[0046](0046-coalesced-playback-corrections.md)に反映しています。
 
 ## Records
 

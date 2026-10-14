@@ -18,7 +18,7 @@ Timeline reviewを変更する場合は`Workspace/Timeline/Review` storiesと`no
 
 ライブ回帰では録画ウィンドウの非表示中・Code Windowのフォーカス中にコードを開始/終了し、タグ保存と映像要素の継続を確認します。連続再生用の録画は`playbackFormat: fragmented-mp4`付きで、既存MP4との互換性は通常再生・書き出し・再オープンでも検証します。
 
-パッケージ時計の進行を、遅れてcommitされた描画時刻で巻き戻さないでください。再生中の明示的な移動は既存の`video-seek-start`イベントの時刻を使い、一時停止中は表示時刻を反映します。遅延renderと明示seekの回帰は`usePackagePlaybackClock.test.tsx`にあります。
+パッケージ時計の進行を、遅れてcommitされた描画時刻で巻き戻さないでください。再生中の明示的な移動は既存の`video-seek-start`イベントの時刻を使い、一時停止中は表示時刻を反映します。遅延renderと明示seekの回帰は`usePackagePlaybackClock.test.tsx`にあります。停止中のシークが一度到達した後、ソースの読み込み復元で0秒へ戻る場合は同じ目標へ再補正します。未到達のクランプ要求を繰り返さない検査と、到達後のリセットを復元する検査を`useMediaTimeSync.test.tsx`で維持してください。
 
 Playlistの参照・既定アングル変更時は`mediaReferences.test.ts`、`playlistMediaReconciliation.test.ts`、`playlistDefaultAngles.test.ts`と`node scripts/e2e-playlist-references-angles.mjs`を実行します。合成映像の2アングル×2ファイルを使い、既定値のUndo/Redo・保存再読込・境界での表示切替・移動したパッケージ・単一出力の実画素を確認します。Macでは実NSURL bookmarkで移動を確認し、WindowsのCIとインストール版も共通シナリオを使います。
 
@@ -34,7 +34,7 @@ Timelineの修飾キーはドラッグ開始時に操作を選びます。キー
 
 複数クリップの同期を変更する場合は、`shared/media/mediaTimeline` とMainの `mediaTimelineSource` を確認してください。保存時刻はアングル内の配置、画面・注釈・書き出し区間は共通時刻です。`pnpm run e2e:prepare && node scripts/e2e-multi-clip-playback.mjs` は4本の合成映像で、前半/後半の別々の同期、正負のアングル補正、Playlistの境界通過、Paintのシークと出力画素を確認します。Windows CIとインストール版試験にも同じシナリオを含めます。`useMediaTimeSync.test.tsx`では非ゼロ開始PTSへの補正後に停止中の再シークが繰り返されないことを確認し、`e2e-angle-sync-multi.mjs`では3/4本の実映像が起動時にデコードを終えることを検証します。
 
-アングル同期のView、連続時計、同期点、フレーム取得、保存の責務と検証入口は[アングル同期仕様](angle-synchronization.md#実装と検証)を参照してください。`useAngleSyncSession`を状態源とし、Timeline IPCで再生ヘッドと同期操作を接続します。同期中も通常のCoding行・時間目盛りの位置を保ち、`useAngleSyncHotkeys`はSettingsの割り当てを共通のキー照合関数で解決します。Windowsの元動画切替で読み込み完了後に時計が0へ戻るケースは`useAngleSyncPreviewClock.test.tsx`と実Electronの前後半同期で検証します。Timelineにフォーカスしたまま表示アングルを切り替えてシーク完了を待ち、映像Windowを前面へ戻して問題を隠さないようにします。既定キーだけでなく、変更済み・無効化済みの割り当てと修飾キーを単体テスト・Electron E2Eで確認します。Video.jsの公式CSSを維持し、実ウィンドウの1/2/4アングル比率と操作ボタンの可視性を確認します。
+アングル同期のView、連続時計、同期点、フレーム取得、保存の責務と検証入口は[アングル同期仕様](angle-synchronization.md#実装と検証)を参照してください。`useAngleSyncSession`を状態源とし、Timeline IPCで再生ヘッドと同期操作を接続します。同期中も通常のCoding行・時間目盛りの位置を保ち、`useAngleSyncHotkeys`はSettingsの割り当てを共通のキー照合関数で解決します。Windowsの元動画切替で読み込み完了後に時計が0へ戻るケースは`useAngleSyncPreviewClock.test.tsx`と実Electronの前後半同期で検証します。Timelineにフォーカスしたまま表示アングルを切り替えてシーク完了を待ち、映像Windowを前面へ戻して問題を隠さないようにします。既定キーだけでなく、変更済み・無効化済みの割り当てと修飾キーを単体テスト・Electron E2Eで確認します。Video.jsの公式CSSを維持し、実ウィンドウの1/2/4アングル比率と操作ボタンの可視性を確認します。アングル同期プレビューでもデコード中のseekを中断せず、未到達の同じ停止要求を繰り返さない。新しい時刻・元動画・再生から停止への変更は適用し、到達済みの位置が読み込みで戻された場合は再補正する。非ゼロ先頭PTSと遅延通知はHook試験と3/4アングルE2Eで確認する。
 
 Codingへ時刻を渡す場合も、`VideoPlayerScreen`の共通時計を使ってください。`video_0.currentTime`は元動画内の時刻であり、2本目以降の配置やアングルの空白を表せません。`useCodingTime`はIPCハンドラーの参照を保ったまま最新時刻を読みます。複数クリップE2E内の`e2e-multi-clip-coding.mjs`が実際のコードウィンドウを操作し、保存されたタグ時刻とTimeline表示を確認します。
 

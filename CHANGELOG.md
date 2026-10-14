@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.6]
+
+公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。0.17.5の公開工程はMac E2Eで停止し、配布物は未公開です。既存のv0.17.5タグは維持します。
+
+### Fixed
+
+- Windowsインストール版E2Eで観測したYouTube起動widget `21090930`を分類候補に追加。同じ実行のbootstrapからの完全一致URLの証明、全HTTP遮断、認識開始後のHTTP要求0件を引き続き必須とする。
+- 停止したままクリップを切り替えた後、動画の遅い読み込みが位置を0秒へ戻した場合も、要求したフレームへ再補正する。最初のフレームより前への到達不能なseekを繰り返さない制御を維持する。
+- 最初の実フレームが0秒より後の映像で、停止seekの繰り返しによる起動・同期操作の停滞を防ぐ。
+
 ## [0.17.5]
 
 公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。この版はMacとWindowsの同一commitからの配布を準備しています。
