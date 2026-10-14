@@ -103,6 +103,9 @@ export const buildWindowsMediaTools = async ({
       '--enable-libfreetype',
       '--enable-libharfbuzz',
       '--enable-mediafoundation',
+      // FFmpeg 8.1.2 mfenc uses D3D11 types even for software MFTs.
+      // This supplies the compile-time declarations; runtime uses hw_encoding=0.
+      '--enable-d3d11va',
       '--pkg-config-flags=--static',
       '--extra-libs=-lstdc++',
       `--extra-cflags=-I${prefix}/include`,

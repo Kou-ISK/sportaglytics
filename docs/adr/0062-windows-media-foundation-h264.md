@@ -21,7 +21,7 @@ Accepted
 
 ## Decision
 
-Windows x64のFFmpegにMedia Foundationを明示的に有効化し、OpenH264のbuild/sourceを除く。H.264は `h264_mf -hw_encoding 0 -b:v 5M -profile:v main -pix_fmt nv12` を共通設定とする。NV12は入力形式で、MP4内のH.264 4:2:0互換性を維持する。captureのbitrate/GOP指定は維持する。GPU、vendor driver、外部codecのdownloadは不要で、OS DLLを再配布しない。macOSのVideoToolbox、署名、公証の判断は変更しない。
+Windows x64のFFmpegにMedia Foundationを明示的に有効化し、OpenH264のbuild/sourceを除く。自動検出を無効にした8.1.2のbuildではmfencの型定義にD3D11VAも明示的に有効化する。これはbuild要件であり、実行時のGPU選択とは分離する。H.264は `h264_mf -hw_encoding 0 -b:v 5M -profile:v main -pix_fmt nv12` を共通設定とする。NV12は入力形式で、MP4内のH.264 4:2:0互換性を維持する。captureのbitrate/GOP指定は維持する。GPU、vendor driver、外部codecのdownloadは不要で、OS DLLを再配布しない。macOSのVideoToolbox、署名、公証の判断は変更しない。
 
 encoder一覧だけではOSの利用可否を判定できないため、再符号化の直前に小さい合成映像3フレームをCPUで符号化し、timeoutと出力量を制限する。成功と進行中の検査は実行ファイル単位で共有し、失敗は再試行できる。失敗時はWindows NのFeature Pack導入・再起動と通常版の修復案内を表示する。captureは入力開始・package作成より前に検査する。stream copyやdecodeだけにencoderを要求しない。
 
