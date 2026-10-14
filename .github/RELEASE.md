@@ -45,12 +45,12 @@ workflowは入力version、package version、tag commit、checkout、workflow co
 
 ## 既存認証の利用
 
-| Secret | 用途 |
-| --- | --- |
-| `GITHUB_TOKEN` | Release存在確認と公開。Actionsが提供 |
-| `CSC_LINK`, `CSC_KEY_PASSWORD` | 既存Developer ID証明書をCIの一時keychainへ読み込み、アプリを署名 |
-| `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | builderからAppleのnotary serviceへ送信 |
-| `HOMEBREW_TAP_TOKEN` | 公開成功後の既存Tap更新 |
+| Secret                                                     | 用途                                                             |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| `GITHUB_TOKEN`                                             | Release存在確認と公開。Actionsが提供                             |
+| `CSC_LINK`, `CSC_KEY_PASSWORD`                             | 既存Developer ID証明書をCIの一時keychainへ読み込み、アプリを署名 |
+| `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | builderからAppleのnotary serviceへ送信                           |
+| `HOMEBREW_TAP_TOKEN`                                       | 公開成功後の既存Tap更新                                          |
 
 Windowsは既存CIと同じ認証なしのbuildを使用し、実Authenticode状態を検査reportとRelease noteへ記載します。`NotSigned`を署名済みと表現しません。新しいWindows署名証明書や契約はこの手順では取得しません。
 
