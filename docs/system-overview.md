@@ -408,4 +408,4 @@ Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツ�
 
 ## Macの公開境界
 
-Mac Releaseは既存署名・公証認証をCI内で消費する手動workflowで、Windows CIから独立しています。署名前payloadと最終DMG内アプリを検査し、明示した公開runだけが新しいReleaseとHomebrewを更新します。Macのsource archiveは同梱する2 targetのmanifestに対応します。[ADR 0063](adr/0063-independent-macos-release.md)と[手順](../.github/RELEASE.md)を参照してください。
+Releaseは既存Mac署名・公証認証をCI内で消費する手動workflowです。Mac単独ではWindows CIから独立し、両OSを選んだ場合は同一commit・同一runのWindows新規buildとインストール後検査も公開条件になります。署名前payloadと最終DMG内アプリを検査し、明示した公開runだけが新しいReleaseとHomebrewを更新します。Macのsource archiveは同梱する2 targetのmanifestに対応します。[ADR 0063](adr/0063-independent-macos-release.md)と[手順](../.github/RELEASE.md)を参照してください。

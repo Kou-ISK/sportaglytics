@@ -7,13 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+## [0.17.5]
 
-- Windowsの次版候補は、同梱OpenH264をOS提供のMedia Foundation CPUエンコーダーへ置換。codec不足を検出し、Windows NではMedia Feature Packを案内する。新しいWindows installerの公開はMac 0.17.5と分けて準備する。[Windows版](docs/windows.md)。
-
-## [0.17.5] - macOS
-
-公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。この版のReleaseはMac向けで、Windows installerは含みません。
+公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。この版はMacとWindowsの同一commitからの配布を準備しています。
 
 ### Fixed
 
@@ -21,7 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Macの配布を手動workflowへ分離し、既存Secretsによる署名・公証、最終DMG内のNOTICE・モデル・hash・Gatekeeper検査を公開の必須条件にする。Windows配布は別の新バージョンで準備。[Release手順](.github/RELEASE.md)。
+- Windowsの同梱OpenH264をOS提供のMedia Foundation CPUエンコーダーへ置換。codec不足を検出し、Windows NではMedia Feature Packを案内する。[Windows版](docs/windows.md)。
+
+- Macの配布を手動workflowへ分離し、既存Secretsによる署名・公証、最終DMG内のNOTICE・モデル・hash・Gatekeeper検査を公開の必須条件にする。両OS公開を指定した場合は同一commitのWindowsを新規build・インストール検査し、実hashとOS別対応sourceを一度に公開。[Release手順](.github/RELEASE.md)。
 
 - Windows CIでインストール後のNOTICE・同梱資産・モデル・native告知のbytesとAuthenticode状態を検査し、同じ候補のhash reportを保存。[検査範囲](docs/windows.md#開発検証)。
 

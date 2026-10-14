@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { createPackage, uncacheAll } from '@electron/asar';
 import { verifyInstalledDistribution } from '../windows/installed-distribution.mjs';
+import { validateWindowsRelease } from '../windows/release-evidence.mjs';
 import { SOURCES } from '../media-tools/sources.mjs';
 import { TOOLCHAIN_NOTICES } from '../media-tools/toolchain-notices.mjs';
 
@@ -174,6 +175,109 @@ test('reports installed byte identities with CRLF notices, and no private paths 
   assert.ok(!json(report).includes(data.project));
   assert.ok(
     report.files.some((f) => f.path === 'resources/THIRD_PARTY_NOTICES.md'),
+  );
+});
+
+test('release evidence binds the newly installed candidate to its source and actual installer bytes', async (t) => {
+  const data = await fixture(t);
+  const head = 'a'.repeat(40),
+    tree = 'b'.repeat(40);
+  const report = {
+    sourceCommit: head,
+    sourceTree: tree,
+    ...(await verifyInstalledDistribution(data)),
+  };
+  const input = {
+    report,
+    manifestBytes: await readFile(
+      join(data.resources, 'media-tools/build.json'),
+    ),
+    installerBytes: await readFile(data.installer),
+    version: '0.0.0',
+    head,
+    tree,
+    modelHash: report.models.pitchModelSha256,
+  };
+  assert.equal(
+    validateWindowsRelease(input).installerSha256,
+    hash(input.installerBytes),
+  );
+  assert.equal(
+    validateWindowsRelease(input).installerSignatureStatus,
+    'NotSigned',
+  );
+  const signed = structuredClone(report);
+  signed.binaries[0].signatureStatus = 'Valid';
+  assert.equal(
+    validateWindowsRelease({ ...input, report: signed })
+      .installerSignatureStatus,
+    'Valid',
+  );
+  for (const mutate of [
+    (r) => {
+      r.sourceCommit = 'c'.repeat(40);
+    },
+    (r) => {
+      r.sourceTree = 'c'.repeat(40);
+    },
+    (r) => {
+      r.version = '0.17.4';
+    },
+    (r) => {
+      r.models.ggufFiles = 1;
+    },
+    (r) => {
+      r.models.eventPackFiles = 1;
+    },
+    (r) => {
+      r.models.pitchModelSha256 = 'd'.repeat(64);
+    },
+    (r) => {
+      r.files = r.files.filter(
+        (f) => f.path !== 'resources/media-tools/build.json',
+      );
+    },
+    (r) => {
+      r.binaries[0].sha256 = 'd'.repeat(64);
+    },
+    (r) => {
+      r.binaries[0].bytes += 1;
+    },
+    (r) => {
+      r.binaries[0].signatureStatus = 'HashMismatch';
+    },
+    (r) => {
+      r.binaries[2].preSigningBuildSha256 = 'd'.repeat(64);
+    },
+    (r) => {
+      r.binaries[2].sha256 = 'd'.repeat(64);
+    },
+    (r) => {
+      r.binaries[2].role = 'installer';
+    },
+  ]) {
+    const invalid = structuredClone(report);
+    mutate(invalid);
+    assert.throws(
+      () => validateWindowsRelease({ ...input, report: invalid }),
+      /Windows release mismatch/,
+    );
+  }
+  assert.throws(
+    () =>
+      validateWindowsRelease({
+        ...input,
+        installerBytes: Buffer.from('different installer'),
+      }),
+    /installer bytes/,
+  );
+  assert.throws(
+    () =>
+      validateWindowsRelease({
+        ...input,
+        manifestBytes: Buffer.from(input.manifestBytes.toString() + '\n'),
+      }),
+    /installed media manifest/,
   );
 });
 

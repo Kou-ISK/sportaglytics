@@ -1,4 +1,4 @@
-name: Release macOS
+name: Release desktop
 
 on:
   workflow_dispatch:
@@ -16,6 +16,11 @@ on:
         type: boolean
         default: false
         required: true
+      include_windows:
+        description: 'Build and verify Windows from the same commit and publish both OS together'
+        type: boolean
+        default: false
+        required: true
 
 permissions:
   contents: write
@@ -25,8 +30,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  windows:
+    if: github.ref == 'refs/heads/main' && inputs.include_windows
+    uses: ./.github/workflows/windows.yml
+    permissions:
+      contents: read
+
   release:
-    if: github.ref == 'refs/heads/main'
+    needs: windows
+    if: ${{ always() && !cancelled() && github.ref == 'refs/heads/main' && ((inputs.include_windows && needs.windows.result == 'success') || (!inputs.include_windows && needs.windows.result == 'skipped')) }}
     runs-on: macos-latest
     env:
       RELEASE_VERSION: ${{ inputs.version }}
@@ -69,6 +81,17 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Download Windows candidate from this run
+        if: inputs.include_windows
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-x64-installer
+          path: dist/windows
+
+      - name: Verify exact Windows release identity
+        if: inputs.include_windows
+        run: node scripts/windows/release-evidence.mjs
 
       - name: Security audit
         run: pnpm audit && pnpm audit --prod
@@ -135,10 +158,19 @@ jobs:
       - name: Package macOS corresponding media sources
         run: node scripts/package-media-sources.mjs --platform macos --require-builds
 
+      - name: Package Windows corresponding media sources
+        if: inputs.include_windows
+        run: node scripts/package-media-sources.mjs --platform windows --require-builds
+
       - name: Record exact release checksums
         working-directory: dist
+        env:
+          INCLUDE_WINDOWS: ${{ inputs.include_windows }}
         run: |
           shasum -a 256 "SporTagLytics-$RELEASE_VERSION-arm64.dmg" "SporTagLytics-$RELEASE_VERSION-x64.dmg" "media-tools-sources-$RELEASE_VERSION-macos.tar.gz" > SHA256SUMS.txt
+          if [[ "$INCLUDE_WINDOWS" == true ]]; then
+            shasum -a 256 "SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" "media-tools-sources-$RELEASE_VERSION-windows.tar.gz" >> SHA256SUMS.txt
+          fi
 
       - name: Preserve verified candidate and evidence
         uses: actions/upload-artifact@v4
@@ -151,8 +183,13 @@ jobs:
             dist/SporTagLytics-${{ inputs.version }}-arm64.dmg
             dist/SporTagLytics-${{ inputs.version }}-x64.dmg
             dist/media-tools-sources-${{ inputs.version }}-macos.tar.gz
+            dist/SporTagLytics-Setup-${{ inputs.version }}-x64.exe
+            dist/media-tools-sources-${{ inputs.version }}-windows.tar.gz
             dist/SHA256SUMS.txt
             dist/mac-verification/*.json
+            dist/windows/distribution/windows-installed.json
+            dist/windows-release.json
+            dist/media-builds/win32-x64.json
 
       - name: Recheck identity before publication
         if: inputs.publish
@@ -163,18 +200,26 @@ jobs:
           node scripts/macos/release-guard.mjs
           (cd dist && shasum -a 256 -c SHA256SUMS.txt)
 
-      - name: Create immutable macOS release
+      - name: Create immutable desktop release
         if: inputs.publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INCLUDE_WINDOWS: ${{ inputs.include_windows }}
         run: |
+          assets=("dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" "dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" "dist/media-tools-sources-$RELEASE_VERSION-macos.tar.gz" dist/SHA256SUMS.txt)
+          platform='macOS'
+          notes='macOS arm64 / Intel 向けです。DMG内のアプリは署名・公証済みで、最終DMGから検査しています。Windows installerはこのReleaseに含みません。'
+          if [[ "$INCLUDE_WINDOWS" == true ]]; then
+            node scripts/windows/release-evidence.mjs --verify-only
+            assets+=("dist/SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" "dist/media-tools-sources-$RELEASE_VERSION-windows.tar.gz")
+            platform='macOS / Windows'
+            windows_signature=$(node -p "JSON.parse(require('fs').readFileSync('dist/windows-release.json')).installerSignatureStatus")
+            notes="macOS arm64 / Intel とWindows x64向けです。Macアプリは署名・公証済みで最終DMGから検査しています。Windowsは同じcommitから新規buildし、インストール後の22 E2Eと同梱物を検査済みです。Windows installerのAuthenticode状態: $windows_signature。Windows Nと実カメラは未検証です。"
+          fi
           gh release create "v$RELEASE_VERSION" --verify-tag \
-            --title "v$RELEASE_VERSION (macOS)" --generate-notes \
-            --notes "macOS arm64 / Intel 向けです。DMG内のアプリは署名・公証済みで、最終DMGから検査しています。Windows installerはこのReleaseに含みません。GGUFと自動検出用model packは別途必要です。FFmpeg等の対応sourceとbuild manifestはmacos source archiveに収録しています。" \
-            "dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" \
-            "dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" \
-            "dist/media-tools-sources-$RELEASE_VERSION-macos.tar.gz" \
-            dist/SHA256SUMS.txt
+            --title "v$RELEASE_VERSION ($platform)" --generate-notes \
+            --notes "$notes GGUFと自動検出用model packは別途必要です。FFmpeg等の対応sourceとbuild manifestは対象OS別のsource archiveに収録しています。" \
+            "${assets[@]}"
 
       - name: Checkout Homebrew Tap using its existing token
         if: inputs.publish

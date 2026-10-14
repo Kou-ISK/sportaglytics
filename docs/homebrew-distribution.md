@@ -20,7 +20,7 @@ Caskの`arch arm: "arm64", intel: "x64"`でCPUをDMG名へ対応付け、`#{arch
 ## Macの公開とTap更新
 
 1. 作業ブランチから`develop`、`develop`から`main`へPRで統合し、review済みmainへ新しいversion tagを作ります。
-2. [Release macOS](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml)をmainから手動実行します。version・mainの完全SHA・publishを入力します。tag pushだけでは起動しません。
+2. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml)をmainから手動実行します。version・mainの完全SHA・publishを入力します。0.17.5は`include_windows=true`を指定し、同一commitのWindows新規buildとインストール後検査も通します。tag pushだけでは起動しません。
 3. 既定の`publish=false`は署名・Apple公証・最終DMG検証を実行し、Actions artifactだけを保存します。公開承認済みの`publish=true`実行は全ゲートを改めて通し、そこで検査したDMGを新しいReleaseへ公開します。
 4. 公開成功後、既存`HOMEBREW_TAP_TOKEN`でTapをcheckoutし、`scripts/macos/write-cask.mjs`が最終DMG reportのversionとSHA256からCaskを生成してcommit/pushします。秘密の値をclone URLへ埋め込みません。
 5. 公開した両DMGのdownload bytes、ReleaseのSHA256SUMS、Actions検証report、Tapのarm64/x64 hashを照合します。clean macOSでインストール・起動・文書関連付けを確認します。
@@ -29,7 +29,7 @@ Caskの`arch arm: "arm64", intel: "x64"`でCPUをDMG名へ対応付け、`#{arch
 
 ## OS別Releaseと更新検出
 
-Mac ReleaseはWindows CIから独立し、Windows installerを同梱しません。Windows版の公開は別の新バージョンで準備します。導入方法は[Windows版](windows.md)を参照してください。
+既定のMac単独ReleaseはWindows CIから独立しています。`include_windows=true`では同じcommitからWindowsを新規build・インストール検査して両OSを一度に公開します。0.17.5は両OSを選択します。導入方法は[Windows版](windows.md)を参照してください。
 
 Homebrew livecheckは`github_releases`を使い、draft/prereleaseを除外した上で、tagのversionと一致するarm64/x64両DMGのassetがあるReleaseだけを返します。GitHubのLatestがWindows専用Releaseになっても、存在しないMac DMGを選びません。対象OSが異なるため、GitHubのLatest表示とMac Caskのversionが異なる場合があります。
 

@@ -24,7 +24,7 @@ v0.17.4のWindows配布物には、上記compiler/runtime専用の告知集合�
 
 ## FFmpegの対応ソース
 
-[FFmpegの公式案内](https://ffmpeg.org/legal.html)を踏まえ、対象OSのinstallerと同じReleaseに対応source archiveを添付します。Macは`media-tools-sources-<version>-macos.tar.gz`、全OSのsource-only準備は従来の`media-tools-sources-<version>.tar.gz`です。バイナリはappから別processで起動する構成です。FFmpeg内部のstatic linkとアプリ自身によるlibrary linkを混同しません。
+[FFmpegの公式案内](https://ffmpeg.org/legal.html)を踏まえ、対象OSのinstallerと同じReleaseに対応source archiveを添付します。Macは`media-tools-sources-<version>-macos.tar.gz`、Windowsは`media-tools-sources-<version>-windows.tar.gz`、全OSのsource-only準備は従来の`media-tools-sources-<version>.tar.gz`です。バイナリはappから別processで起動する構成です。FFmpeg内部のstatic linkとアプリ自身によるlibrary linkを混同しません。
 
 source archiveに含むもの:
 

@@ -371,7 +371,7 @@ Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-ope
 3. `develop -> main` PR
 4. main PR品質ゲート
 5. merge後のmain commitへrelease tag
-6. Release macOSをmainから手動dispatchし、全ゲート後にpackage/release assets作成。同じバージョンの公開済みタグ・DMGを上書きしません（[ADR 0032](adr/0032-immutable-release-artifacts.md)）。
+6. Release desktopをmainから手動dispatchし、全ゲート後にpackage/release assets作成。同じバージョンの公開済みタグ・DMGを上書きしません（[ADR 0032](adr/0032-immutable-release-artifacts.md)）。
 
 Electron E2Eは `scripts/run-electron-e2e.mjs` で全シナリオの成否を収集し、1件でも失敗すると配布へ進みません。詳細は[テスト手順](testing.md)を参照してください。
 
@@ -461,4 +461,4 @@ macOS llamaの準備は固定版の依存告知を外部ファイルへコピー
 
 Windows media toolchainはMedia FoundationのCPUエンコーダーを使用します。Windows NではMedia Feature Packを有効にしてください。native build、CPU MP4、全22シナリオのインストール後検査は[Windows開発・検証](windows.md#開発検証)を参照してください。
 
-Macの配布準備は[Release手順](../.github/RELEASE.md)に従います。`release.yml`は手動dispatchのみで、既存SecretsをCI内で利用します。`publish=false`もApple送信を含むため、未署名のローカル検査には使いません。Mac専用sourceは`node scripts/package-media-sources.mjs --platform macos --require-builds`で生成し、Python 3とMac 2 targetの既存manifestを使います。
+Macの配布準備は[Release手順](../.github/RELEASE.md)に従います。`release.yml`は手動dispatchのみで、既存SecretsをCI内で利用します。`publish=false`もApple送信を含むため、未署名のローカル検査には使いません。Mac専用sourceは`node scripts/package-media-sources.mjs --platform macos --require-builds`で生成し、Python 3とMac 2 targetの既存manifestを使います。`include_windows=true`は同じrunで新規buildしたWindows installer・report・manifestを検査し、`--platform windows --require-builds`の対応sourceも同じ新規Releaseへ公開します。

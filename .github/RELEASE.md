@@ -1,25 +1,27 @@
 # Release Process
 
-Mac向けReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
+デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
 ## 0.17.5と公開済み版
 
-0.17.5はMac向けの版です。この文書やversion更新だけでは公開済みを意味しません。[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の実際の状態を確認してください。公開済みv0.17.4のtag、DMG、Windows installer、対応sourceを削除・置換しません。修正は新しい版で公開します。
+0.17.5はMacとWindowsを同一commitから公開する版です。この文書やversion更新だけでは公開済みを意味しません。[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の実際の状態を確認してください。公開済みv0.17.4のtag、DMG、Windows installer、対応sourceを削除・置換しません。修正は新しい版で公開します。
 
 通常の作業ブランチから`develop`へ準備PRを統合し、`develop`から`main`へのPRが通った後に、その`main` commitへ新しいtagを作成します。mainへの直接push、失敗したtagの付け替え、同じ公開版への後付けartifactは行いません。[ADR 0032](../docs/adr/0032-immutable-release-artifacts.md)の不変性を維持します。
 
 ## MacとWindowsの実行境界
 
-`.github/workflows/release.yml`（**Release macOS**）はMacだけを生成します。Windows jobへの依存はなく、Windows installerも取得しません。Windowsの開発・CI・インストール後検査は引き続き[`windows.yml`](workflows/windows.yml)と[Windows版](../docs/windows.md)で行います。Windowsの次回公開は、その候補・対応sourceを検証した別の新バージョンで準備し、Mac Releaseへ後付けしません。このworkflowはWindows公開の入口ではありません。
+`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常22シナリオ・インストール後22シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.5の正式公開は`include_windows=true`を指定します。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
 
-Mac Releaseの構成:
+Macの必須assets:
 
 - `SporTagLytics-<version>-arm64.dmg`
 - `SporTagLytics-<version>-x64.dmg`
 - `media-tools-sources-<version>-macos.tar.gz`
 - `SHA256SUMS.txt`
 
-ソースbundleはMac 2 targetのmanifestと、FFmpeg / FreeType / HarfBuzzの固定sourceだけを要求します。Windows用zlibの取得やWindows manifestの待機はありません。署名後のnative hashと署名前build manifestのhashは別の値です。source bundleは規定のファイルだけを列挙し、uid/gid/mtimeを正規化し、既存出力を上書きしません。生成にはPython 3が必要です。
+`include_windows=true`では`SporTagLytics-Setup-<version>-x64.exe`と`media-tools-sources-<version>-windows.tar.gz`も含め、全配布物を同じSHA256SUMSに記録します。
+
+Mac source bundleは2 targetのmanifestとFFmpeg / FreeType / HarfBuzzの固定sourceを要求します。Windows source bundleは同じrunのインストール済みmedia manifestと、zlibを含む4 sourceを要求します。Macだけを選択した場合はWindows jobとWindows用sourceの取得を省略します。署名後のnative hashと署名前build manifestのhashは別の値です。source bundleは規定のファイルだけを列挙し、uid/gid/mtimeを正規化し、既存出力を上書きしません。生成にはPython 3が必要です。
 
 ## 起動方法
 
@@ -27,8 +29,8 @@ tag pushやmain pushでは起動しません。**GitHub Actionsの明示的なwo
 
 1. 準備PRと`develop`→`main` PRをレビューし、必要なCIを通して統合します。
 2. `main`の40文字SHAと`package.json`のversionを確認し、そのcommitへ`v<version>` tagを作成します。tag作成だけでは署名・Apple送信・公開を開始しません。
-3. [Release macOS](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml) → **Run workflow** → branch **main**を選びます。
-4. `version`に`0.17.5`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力します。現在の作業branchのSHAを入力しません。
+3. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml) → **Run workflow** → branch **main**を選びます。
+4. `version`に`0.17.5`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=true`を指定します。現在の作業branchのSHAを入力しません。
 5. `publish=false`（既定）は署名・公証・最終DMG検証まで行い、Actions artifactとして14日間保存します。GitHub ReleaseとHomebrewは更新しません。**これは未署名dry-runではなく、Appleへのアプリ送信を含みます。**
 6. 最終公開が承認された実行は`publish=true`を指定します。同じ品質・署名・公証・DMG検証を再実行し、その実行で検査したbytesだけを公開します。先行runのartifactを無検査で流用しません。
 
@@ -36,7 +38,7 @@ CLIでも同じ入力を使います。`<reviewed-main-sha>`を実際の40文字
 
 ```bash
 gh workflow run release.yml --ref main \
-  -f version=0.17.5 -f expected_sha=<reviewed-main-sha> -F publish=false
+  -f version=0.17.5 -f expected_sha=<reviewed-main-sha> -F include_windows=true -F publish=false
 ```
 
 workflowは入力version、package version、tag commit、checkout、workflow commit、現在のorigin/mainを照合します。省略・食い違い・既存Release・API読み取り失敗は停止条件です。公開直前にも再確認します。並行runは直列化し、実行中の署名・公証を新しいdispatchでcancelしません。
@@ -50,7 +52,9 @@ workflowは入力version、package version、tag commit、checkout、workflow co
 | `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | builderからAppleのnotary serviceへ送信 |
 | `HOMEBREW_TAP_TOKEN` | 公開成功後の既存Tap更新 |
 
-これは既存`release.yml`と同じ認証方式です。正規の本番実行権限がある担当者は既存Secretsをworkflow内で消費できます。秘密の値をチャット・ローカルMacへ抽出したり、新しく入力・送信したりする手順は不要です。秘密の有効性は実行結果で確認し、値をログへ出しません。Tapのtokenはcheckout actionへ渡し、clone URLへ埋め込みません。
+Windowsは既存CIと同じ認証なしのbuildを使用し、実Authenticode状態を検査reportとRelease noteへ記載します。`NotSigned`を署名済みと表現しません。新しいWindows署名証明書や契約はこの手順では取得しません。
+
+Macは既存`release.yml`と同じ認証方式です。正規の本番実行権限がある担当者は既存Secretsをworkflow内で消費できます。秘密の値をチャット・ローカルMacへ抽出したり、新しく入力・送信したりする手順は不要です。秘密の有効性は実行結果で確認し、値をログへ出しません。Tapのtokenはcheckout actionへ渡し、clone URLへ埋め込みません。
 
 既存Secretsが不足・失効している場合は失敗したstepとsecret名だけを報告します。新規credential、証明書発行、権限拡張、Apple契約への同意、ローカルkeychain ACL変更をこのworkflow準備の一部として追加しません。既存credentialを利用するCIの一時keychain操作と、利用者Macのcredential/security変更を混同しません。
 
@@ -74,7 +78,7 @@ workflowは入力version、package version、tag commit、checkout、workflow co
 
 ## 公開後と復旧
 
-- GitHub Releaseの2 DMG、Mac source archive、SHA256SUMSを取得し、公開bytesとActionsの検証reportのhashを照合します。
+- GitHub Releaseの全配布物とSHA256SUMSを取得し、公開bytesとActionsの検証reportのhashを照合します。両OS公開ではWindows installerとWindows source archiveも対象です。
 - Homebrew Caskのarm64/x64のhashを照合し、clean macOSでインストール・起動・`.stpkg`/`.stpl`/`.stcw`/`.stad`関連付けを確認します。
 - Homebrew livecheckは、draft/prereleaseを除き、両Mac DMGのassetがあるReleaseだけを選びます。後のWindows専用ReleaseをMacの最新版として選びません。
 - Homebrew更新だけ失敗した場合は、公開済みDMGと確認済みhashからTapを復旧します。workflow全体を再実行して既存Releaseを作り直しません。
