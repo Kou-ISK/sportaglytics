@@ -6,6 +6,8 @@ Windows固有の導入・操作・互換性・検証の正本です。各機能�
 
 配布対象はWindows 11 x64です。GitHub Releaseの `SporTagLytics-Setup-<version>-x64.exe` からユーザー単位でインストールします。管理者権限、別途のFFmpeg、Python、Visual C++ランタイムを要求しない構成です。Windows ARMのネイティブ配布とLinux配布は対象外です。
 
+H.264書き出し・再符号化を伴うライブ録画には、Windows組込みのMedia Foundationを使用します。GPUは不要です。Windows Nでは「設定 → アプリ → オプション機能」からMedia Feature Packを追加し、Windowsを再起動してください。アプリが不足を検出すると、この案内を表示して処理を停止します。OS機能の自動追加は行いません。[Microsoftの導入案内](https://support.microsoft.com/en-us/windows/experience/platform-variants/media-feature-pack-for-windows-n)。
+
 Windowsの署名証明書が設定されていないビルドは未署名です。SmartScreenや組織の実行ポリシーによって起動を制限される場合があります。macOSの署名・公証とWindowsのAuthenticode署名は別々に扱い、Windowsの未署名状態をmacOSにも適用しません。
 
 ## 機能と操作
@@ -55,3 +57,5 @@ installer・installed app・FFmpeg・FFprobeには `Get-AuthenticodeSignature` �
 reportはCIログの `Installed distribution evidence:` 行と既存の `windows-x64-installer` artifactに保存します。`sourceCommit` はPRではCIのmerge commitです。NOTICEのhashはcheckoutの改行を含む実bytesとの比較で、Git blobのhashとは区別します。reportはそのrunの新しいinstallerだけの証拠で、過去artifact、macOS署名・公証、素材の由来や許諾の完了を証明しません。NOTICE変更後は必ず再packagingし、古いmanifestを新候補へ流用しないでください。
 
 実装の入口: `scripts/media-tools/windows.mjs`、`scripts/build-windows-llama.mjs`、`scripts/windows/`、`electron/src/mediaTools.ts`、`electron/src/videoWindowAspect.ts`、`src/utils/platformShortcut.ts`。
+
+Media FoundationのCPU経路は `node scripts/windows/verify-h264.mjs` で720p/1080p/3840×1080二画面相当のMP4の60フレーム復号、H.264/AACと開始時刻・尺を検査します。インストール後にも同じ検査を行い、Paint overlay、二画面、同期、結合、captureを含む全22シナリオを実行します。不足検出unitはDLL不在・MFT不在・encoder不在・timeout・起動失敗を模擬します。Windows N実機のFeature Pack未導入/導入後の検証と、実機別GPU・カメラの検証はCIのCPU成功と区別します。

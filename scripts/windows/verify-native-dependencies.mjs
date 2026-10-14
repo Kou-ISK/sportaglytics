@@ -83,6 +83,17 @@ for (const name of process.argv.slice(2)) {
     );
   }
   const imports = await importedLibraries(file);
+  if (['ffmpeg.exe', 'ffprobe.exe'].includes(basename(file))) {
+    // FFmpeg loads MF dynamically so Windows N can still probe/decode media.
+    assert.ok(
+      !imports.includes('mfplat.dll'),
+      'Media Foundation must be loaded on demand',
+    );
+    assert.ok(
+      !imports.some((name) => name.includes('openh264')),
+      'OpenH264 must not ship',
+    );
+  }
   const external = imports.filter(
     (library) =>
       !systemLibraries.has(library) && !library.startsWith('api-ms-win-'),

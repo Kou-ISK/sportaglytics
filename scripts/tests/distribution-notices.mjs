@@ -256,6 +256,7 @@ test('Windows packaging requires intact compiler notices matching build.json', a
     'freetype-LICENSE.TXT',
     'freetype-FTL.TXT',
     'harfbuzz-COPYING',
+    'zlib-LICENSE',
   ])
     await writeFile(join(output, 'licenses', file), 'Synthetic media notice');
   const context = {
@@ -267,14 +268,31 @@ test('Windows packaging requires intact compiler notices matching build.json', a
   const record = await copyWindowsToolchainNotices(output, { capture });
   await writeFile(
     join(output, 'build.json'),
-    JSON.stringify({ toolchain: record }),
+    JSON.stringify({
+      identity: {
+        platform: 'win32',
+        architecture: 'x64',
+        revision: 8,
+        sources: Object.fromEntries(
+          Object.entries(SOURCES).map(([name, source]) => [
+            name,
+            { version: source.version, sha256: source.sha256 },
+          ]),
+        ),
+      },
+      binaries: { ffmpeg: 'a'.repeat(64), ffprobe: 'b'.repeat(64) },
+      toolchain: record,
+    }),
   );
   await afterPack(context);
   const otherBuild = structuredClone(record);
   otherBuild.files['libgcc/COPYING.RUNTIME'] = 'a'.repeat(64);
   await writeFile(
     join(output, 'build.json'),
-    JSON.stringify({ toolchain: otherBuild }),
+    JSON.stringify({
+      ...JSON.parse(await readFile(join(output, 'build.json'), 'utf8')),
+      toolchain: otherBuild,
+    }),
   );
   await assert.rejects(afterPack(context), /binary build record/);
 });
@@ -339,7 +357,7 @@ test('source release rejects mismatched, incomplete, or wrong-target build evide
     identity: {
       platform: 'win32',
       architecture: 'x64',
-      revision: 6,
+      revision: 8,
       sources: Object.fromEntries(
         Object.entries(SOURCES).map(([name, value]) => [
           name,
@@ -363,6 +381,21 @@ test('source release rejects mismatched, incomplete, or wrong-target build evide
   assert.throws(
     () => validateBuildManifest(manifest, 'darwin-x64'),
     /target mismatch/,
+  );
+  const legacy = structuredClone(manifest);
+  legacy.identity.revision = 7;
+  assert.throws(
+    () => validateBuildManifest(legacy, 'win32-x64'),
+    /Media Foundation/,
+  );
+  legacy.identity.revision = 8;
+  legacy.identity.sources.openh264 = {
+    version: '2.6.0',
+    sha256: 'c'.repeat(64),
+  };
+  assert.throws(
+    () => validateBuildManifest(legacy, 'win32-x64'),
+    /Incomplete source identity/,
   );
   const changed = structuredClone(manifest);
   changed.identity.sources.ffmpeg.sha256 = '0'.repeat(64);

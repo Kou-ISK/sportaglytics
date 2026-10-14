@@ -337,7 +337,7 @@ Clip exportは `src/shared/clipExport/` にpure service / contractを集約し�
 
 Paint動画出力は、Rendererがクリップとの表示区間の交差とソース時刻の補間を計算し、アングルごとの描画を検証済みIPCへ渡します。Mainの単画面／2画面FFmpeg runnerが図形合成、芝色処理、静止挿入を行い、2画面は合成後に高さを揃えます。[Paint書き出し](tactics.md#映像への書き出し)を参照してください。
 
-配布版FFmpeg/FFprobeは固定source/hashからbuildしたverified toolchainのみ利用し、main processでtimeout/output上限を適用します。
+配布版FFmpeg/FFprobeは固定source/hashからbuildしたverified toolchainのみ利用し、main processでtimeout/output上限を適用します。WindowsのH.264はOS提供Media FoundationのCPU経路を使い、`windowsH264Capability.ts`が実フレームで不足を検出します。Windows NにはMedia Feature Packが必要です。[ADR 0062](adr/0062-windows-media-foundation-h264.md)。
 
 ## Persistence / migration
 

@@ -44,6 +44,8 @@ jobs:
       - name: Build verified Windows media tools
         shell: msys2 {0}
         run: node scripts/build-media-tools.mjs
+      - name: Verify CPU H.264 MP4 without a GPU
+        run: node scripts/windows/verify-h264.mjs
       - name: Save verified media tools
         uses: actions/cache/save@v4
         with:
