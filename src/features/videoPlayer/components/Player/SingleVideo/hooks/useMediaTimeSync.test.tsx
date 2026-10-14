@@ -133,3 +133,12 @@ it('retries an explicit paused seek without restarting a seeked loop', () => {
   act(() => player.settle(5));
   expect(player.seek.mock.calls).toEqual([[0], [0]]);
 });
+
+it('restores a successfully settled paused target after a source resets its clock', () => {
+  const player = fixture();
+  renderHook(() => useMediaTimeSync(player.ref, true, 1.5, false));
+  act(player.settle);
+  // Video.js can restore the source start after the initial seek has completed.
+  act(() => player.settle(0));
+  expect(player.seek.mock.calls).toEqual([[1.5], [1.5]]);
+});

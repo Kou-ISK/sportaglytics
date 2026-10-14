@@ -44,8 +44,12 @@ export const useMediaTimeSync = (
     const tolerance = precise ? 0.015 : 0.15 * Math.max(1, state.rate);
     if (!precise && now - lastSeekAt.current < 250) return;
     force.current = false;
-    if (Math.abs((player.currentTime() ?? 0) - state.targetTime) <= tolerance)
+    if (Math.abs((player.currentTime() ?? 0) - state.targetTime) <= tolerance) {
+      // A completed seek may later be reset by the source's load restoration.
+      // Only an unresolved request is suppressed; an aligned frame can drift again.
+      lastRequestedTime.current = undefined;
       return;
+    }
     // A decoder may clamp a target before its first frame. Repeating that
     // unchanged paused request from seeked/canplay would restart decoding forever.
     if (
