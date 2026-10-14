@@ -40,7 +40,7 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 `useTimelineViewport.gesture.test.ts`は1倍表示密度の整数スクロールを再現し、3回の連続拡大でも丸め誤差が累積しないことと、スクロール・ポインター移動・境界到達後のアンカー更新を確認します。
 
-`e2e-angle-sync-multi.mjs`は起動時の通常Timelineを表示・フォーカスしてアングル同期ボタンを待ってから、映像ウィンドウへフォーカスしてCmd/Ctrl+Shift+Tを送ります。最初のvideo要素の表示だけでは別ウィンドウの起動完了を保証できません。共通の`focusElectronWindow`はnative windowとwebContentsへフォーカスを要求し、`document.hasFocus()`を100ms間隔で確認します。Playwrightの入力対象とOSの前面状態は一致しない場合があるため、OSフォーカスの有無だけでは合否を判定しません。[Playwrightの既定の待機](https://playwright.dev/docs/api/class-page#page-wait-for-function)は描画フレームに依存するため、起動中に隠れたWindows rendererのフォーカス確認には使いません。フォーカス・3/4画面・同期点・可変フレーム・保存結果の検証と既存の待機上限は維持し、失敗時はアングル数・工程・実際の操作対象ページと各native windowのURL/フォーカスを記録します。成功・失敗画像は`E2E_SCREENSHOT_DIR`へ保存し、Windows CIのartifactにも含めます。
+`e2e-angle-sync-multi.mjs`は非ゼロ開始PTSの映像が停止状態でデコードを終えること、通常Timelineとアングル同期ボタンの表示を確認してから、映像ウィンドウへフォーカスしてCmd/Ctrl+Shift+Tを送ります。最初のvideo要素の表示だけではデコードや別ウィンドウの起動完了を保証できません。フォーカス・3/4画面・同期点・可変フレーム・保存結果の検証と既存の待機上限は維持し、失敗時はアングル数・工程・実際の操作対象ページと各native windowのURL/フォーカスを記録します。成功・失敗画像は`E2E_SCREENSHOT_DIR`へ保存し、Windows CIのartifactにも含めます。`useMediaTimeSync.test.tsx`は要求位置を最初のフレームへ補正するデコーダーを再現し、停止中の同じ要求でseeked/canplayが再シークを繰り返さないこと、位置変更・読み直しでは再要求できることを確認します。
 
 ## パッケージ互換と保存保護
 

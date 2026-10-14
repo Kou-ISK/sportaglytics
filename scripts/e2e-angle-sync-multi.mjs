@@ -8,10 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { _electron as electron } from 'playwright';
-import {
-  focusElectronWindow,
-  getElectronLaunchOptions,
-} from './e2e-electron-launch.mjs';
+import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
 import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'angle-sync-multi-'));
@@ -106,16 +103,24 @@ try {
     page = await app.firstWindow();
     page.setDefaultTimeout(15000);
     await page.locator('#video_0 video').waitFor();
+    stage = 'initial-paused-decode';
+    await page.waitForFunction((count) => {
+      const videos = [...document.querySelectorAll('video')];
+      return (
+        videos.length === count &&
+        videos.every((video) => video.readyState >= 2 && !video.seeking)
+      );
+    }, count);
     // The first video can appear before the auxiliary Timeline opens and takes
     // native focus. Finish that startup before focusing the shortcut's owner.
     const normalTimeline = await getTimelineWindow(app);
     stage = 'startup-timeline';
-    await focusElectronWindow(app, normalTimeline);
     await normalTimeline
       .getByRole('button', { name: 'アングル同期', exact: true })
       .waitFor();
     stage = 'startup-video-focus';
-    await focusElectronWindow(app, page);
+    await (await app.browserWindow(page)).evaluate((window) => window.focus());
+    await page.waitForFunction(() => document.hasFocus());
     console.log(`${count}-angle startup Timeline ready; video window focused`);
     stage = 'enter-sync';
     await page.keyboard.press(`${primaryModifier}+Shift+T`);
