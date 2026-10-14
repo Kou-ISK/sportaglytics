@@ -17,6 +17,7 @@ import {
 } from '../media-tools/source-bundle.mjs';
 import { validateReleaseIdentity } from '../macos/release-guard.mjs';
 
+const python = process.platform === 'win32' ? 'python' : 'python3';
 const archiveScript = resolve('scripts/media-tools/archive-sources.py');
 const packageScript = resolve('scripts/package-media-sources.mjs');
 const fresh = async (t) => {
@@ -82,12 +83,12 @@ test('source archive is repeatable, portable, and cannot replace an existing art
   await writeFile(join(staging, 'scripts/build.mjs'), '// public recipe\n');
   const first = join(root, 'first.tar.gz'),
     second = join(root, 'second.tar.gz');
-  execFileSync('python3', [archiveScript, staging, first]);
-  execFileSync('python3', [archiveScript, staging, second]);
+  execFileSync(python, [archiveScript, staging, first]);
+  execFileSync(python, [archiveScript, staging, second]);
   assert.deepEqual(await readFile(first), await readFile(second));
   const inspection = JSON.parse(
     execFileSync(
-      'python3',
+      python,
       [
         '-c',
         `import json,sys,tarfile
@@ -117,10 +118,7 @@ with tarfile.open(sys.argv[1]) as a:
     ),
   );
   await writeFile(join(staging, 'manifest.json'), 'changed');
-  assert.notEqual(
-    spawnSync('python3', [archiveScript, staging, first]).status,
-    0,
-  );
+  assert.notEqual(spawnSync(python, [archiveScript, staging, first]).status, 0);
   assert.deepEqual(await readFile(first), await readFile(second));
 });
 
@@ -131,17 +129,20 @@ test('source archive rejects filesystem metadata and symlinks without publishing
   const output = join(root, 'invalid.tar.gz');
   await writeFile(join(staging, '._secret'), 'metadata');
   assert.notEqual(
-    spawnSync('python3', [archiveScript, staging, output]).status,
+    spawnSync(python, [archiveScript, staging, output]).status,
     0,
   );
   await assert.rejects(readFile(output), /ENOENT/);
   await rm(join(staging, '._secret'));
-  await symlink('../invalid.tar.gz', join(staging, 'link'));
-  assert.notEqual(
-    spawnSync('python3', [archiveScript, staging, output]).status,
-    0,
-  );
-  await assert.rejects(readFile(output), /ENOENT/);
+  // File symlinks require a Windows privilege; do not change it for unit tests.
+  if (process.platform !== 'win32') {
+    await symlink('../invalid.tar.gz', join(staging, 'link'));
+    assert.notEqual(
+      spawnSync(python, [archiveScript, staging, output]).status,
+      0,
+    );
+    await assert.rejects(readFile(output), /ENOENT/);
+  }
 });
 
 test('release requires an explicit main dispatch and the reviewed exact version/head/tag', () => {

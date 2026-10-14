@@ -14,6 +14,8 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
   if (!['arm64', 'x64'].includes(arch)) throw Error('Invalid target');
   const resources = join(app, 'Contents/Resources');
   const archive = join(resources, 'app.asar');
+  const readArchive = (name) =>
+    asar.extractFile(archive, join(...name.split('/')));
   const hash = (b) => createHash('sha256').update(b).digest('hex');
   const checks = [];
   const equal = (kind, path, actual, expected) => {
@@ -41,19 +43,19 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
   };
   const entries = [];
   for (const listed of asar.listPackage(archive)) {
-    const path = listed.replace(/^\//, '');
+    const path = listed.replace(/^[/\\]/, '').replaceAll('\\', '/');
     if (
       path.split('/').some((x) => !x || x === '.' || x === '..') ||
       path.includes('\\')
     )
       throw Error(`Unsafe ASAR name: ${path}`);
-    const info = asar.statFile(archive, path, false);
+    const info = asar.statFile(archive, join(...path.split('/')), false);
     if (info.files) {
       entries.push({ path, type: 'directory' });
       continue;
     }
     if (info.link) throw Error(`Unexpected ASAR link: ${path}`);
-    const bytes = asar.extractFile(archive, path);
+    const bytes = readArchive(path);
     if (bytes.length !== info.size) throw Error(`ASAR size: ${path}`);
     const record = {
       path,
@@ -156,12 +158,7 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
     });
     if (item.path.startsWith('public/')) {
       const path = `build/${item.path.slice(7)}`;
-      equal(
-        'packaged-public-asset',
-        path,
-        asar.extractFile(archive, path),
-        bytes,
-      );
+      equal('packaged-public-asset', path, readArchive(path), bytes);
       packagedAssetCount++;
     }
   }
@@ -180,7 +177,7 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
     'build/electron/src/pitch-vision',
   ]) {
     const path = `${prefix}/efficientdet-lite2.tflite`;
-    if (hash(asar.extractFile(archive, path)) !== modelHash)
+    if (hash(readArchive(path)) !== modelHash)
       throw Error(`Model hash: ${path}`);
     for (const name of await filesUnder(
       join(project, 'resources/pitch-vision'),
@@ -188,7 +185,7 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
       equal(
         'paint-notice',
         `${prefix}/licenses/${name}`,
-        asar.extractFile(archive, `${prefix}/licenses/${name}`),
+        readArchive(`${prefix}/licenses/${name}`),
         await readFile(join(project, 'resources/pitch-vision', name)),
       );
     for (const name of await filesUnder(
@@ -197,7 +194,7 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
       equal(
         'paint-wasm',
         `${prefix}/wasm/${name}`,
-        asar.extractFile(archive, `${prefix}/wasm/${name}`),
+        readArchive(`${prefix}/wasm/${name}`),
         await readFile(
           join(project, 'node_modules/@mediapipe/tasks-vision/wasm', name),
         ),

@@ -89,7 +89,7 @@ try {
     'dist',
     `media-tools-sources-${version}${suffix}.tar.gz`,
   );
-  await run('python3', [
+  await run(process.platform === 'win32' ? 'python' : 'python3', [
     fileURLToPath(new URL('./media-tools/archive-sources.py', import.meta.url)),
     root,
     archive,
