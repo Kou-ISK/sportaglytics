@@ -85,3 +85,5 @@ Macは既存`release.yml`と同じ認証方式です。正規の本番実行権�
 - version変更やsource修正が必要なら、新しい版を準備します。初回E2E/署名/公証の失敗を回避するための省略フラグは設けません。
 
 builderの一時keychain unlock失敗では、既存の証明書パスワードと一時keychainのパスワードを取り違えないよう実行ログと固定builder版を確認します。electron-builder 26.16.1は[upstream #10172](https://github.com/electron-userland/electron-builder/pull/10172)の修正版です。secret値を露出させたり、署名を省略したりして回避しません。
+
+Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。
