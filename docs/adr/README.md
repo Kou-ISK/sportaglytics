@@ -126,3 +126,5 @@ YYYY-MM-DD
 - [0062 Windows Media Foundation H.264](0062-windows-media-foundation-h264.md): WindowsのOS提供CPUエンコーダーと不足検出。0033のH.264判断を置換。
 
 - [0063 Independent macOS release](0063-independent-macos-release.md): Mac単独または両OSの手動dispatch、対象OS別の対応source、最終DMG検査（Accepted）。
+
+Mac配布時のpublisher自動検出を無効にする判断は[0063](0063-independent-macos-release.md)に記録しています。

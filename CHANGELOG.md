@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.7]
+
+公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。0.17.6の正式工程は署名前の同梱物検査で停止し、未公開です。既存のタグは維持します。
+
+### Fixed
+
+- Windowsインストール版E2Eで観測したYouTube起動widget `0229cd64`を分類候補に追加。同じ実行のbootstrapからの完全一致URLの証明、全HTTP遮断、認識開始後のHTTP要求0件は維持する。
+- Macのpublisher自動検出を明示的に無効化し、DMG生成時の不要な更新メタデータ混入を防ぐ。NOTICE・モデル・hashの許可条件、署名・公証・最終DMG検査は維持し、検証後のRelease工程だけで公開する。
+
 ## [0.17.6]
 
 公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。0.17.5の公開工程はMac E2Eで停止し、配布物は未公開です。既存のv0.17.5タグは維持します。

@@ -390,3 +390,26 @@ describe('widget observed in installed Windows run 38597748824', () => {
     ).toBe(false);
   });
 });
+
+describe('widget observed in installed Windows run 38670235788', () => {
+  const url =
+    'https://www.youtube.com/s/player/0229cd64/www-widgetapi.vflset/www-widgetapi.js';
+  it('requires its own exact bootstrap proof without allowing recognition or other requests', () => {
+    expect(declaredObservedWidgets(`const src = '${url}';`)).toEqual([url]);
+    const request = { phase: 'startup', type: 'script', url };
+    expect(isClassifiedStartupRequest(request, [url])).toBe(true);
+    for (const proof of [[], [WINDOWS_WIDGET_URL]])
+      expect(isClassifiedStartupRequest(request, proof)).toBe(false);
+    expect(
+      isClassifiedStartupRequest({ ...request, phase: 'recognition' }, [url]),
+    ).toBe(false);
+    expect(
+      isClassifiedStartupRequest({ ...request, type: 'fetch' }, [url]),
+    ).toBe(false);
+    expect(
+      isClassifiedStartupRequest({ ...request, url: url + '?x=1' }, [
+        url + '?x=1',
+      ]),
+    ).toBe(false);
+  });
+});

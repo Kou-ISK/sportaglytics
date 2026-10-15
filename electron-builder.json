@@ -31,6 +31,7 @@
     "output": "dist/"
   },
   "mac": {
+    "publish": null,
     "target": "dmg",
     "icon": "public/icon.icns",
     "signIgnore": ["event-detection-models/.*/runner/[^/]+$"],
