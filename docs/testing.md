@@ -282,3 +282,5 @@ Windows H.264置換の追加検査は[Windows開発・検証](windows.md#開発�
 `scripts/tests/macos-release.mjs`は対象OSのsource選択、必須manifest欠落、再現可能archive・既存出力保護、main/version/tag照合の失敗経路を検査します。`test:run`/`test:ci`へ含まれます。Release専用afterPackは署名前payloadを保存し、`scripts/macos/verify-dmg.mjs <dmg> <arm64|x64> <report.json>`が実DMG内のstrict署名・公証ticket・Gatekeeper・NOTICE/model/hashを検査します。未署名候補とローカルunit成功をこの最終検査の代替としません。[入力・認証・公開ゲート](../.github/RELEASE.md)。
 
 Windows同時公開の`release-evidence.mjs`は同一runのinstalled reportと最終installerを完全source commit/tree・version・hashで結び付けます。`scripts/tests/windows-distribution.mjs`は旧版・別commit/tree・改変installer・異常署名状態・manifest不一致・私有モデル混入の負例を検査します。Release workflowはWindows jobが成功してからartifactを取得し、公開直前にも再検査します。
+
+Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。

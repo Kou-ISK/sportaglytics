@@ -32,3 +32,5 @@ WindowsのCIは独立して継続する。`include_windows=true`では既存のr
 Macだけの公開はWindowsの配布準備を待たずに実行でき、両OSを選んだ場合はWindowsの成功も公開条件になる。Release title/noteとassetで対象OSを明示し、0.17.5は両OSを同一commitから公開する。publish=falseでもApple送信と署名が発生するため、未署名検査には専用のローカル手順を使う。各本番runは全ゲートを実行し、先行runの公証済みbytesをそのまま再利用しない。
 
 ADR 0032のtag・公開artifactの不変性は変更しない。本変更の初回本番検証はmainへの統合後に実施し、それまでは配布済み・公証済みとは記録しない。
+
+Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。
