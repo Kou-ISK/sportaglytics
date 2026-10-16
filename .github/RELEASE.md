@@ -2,15 +2,15 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
-## 0.17.7と公開済み版
+## 0.17.8と公開済み版
 
-0.17.7はMacとWindowsを同一commitから公開する版です。この文書やversion更新だけでは公開済みを意味しません。[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の実際の状態を確認してください。公開済みv0.17.4のtag、DMG、Windows installer、対応sourceを削除・置換しません。修正は新しい版で公開します。
+0.17.8はMacとWindowsを同一commitから公開する版です。この文書やversion更新だけでは公開済みを意味しません。[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の実際の状態を確認してください。公開済みv0.17.7のtag、DMG、Windows installer、対応sourceを削除・置換しません。修正は新しい版で公開します。
 
 通常の作業ブランチから`develop`へ準備PRを統合し、`develop`から`main`へのPRが通った後に、その`main` commitへ新しいtagを作成します。mainへの直接push、失敗したtagの付け替え、同じ公開版への後付けartifactは行いません。[ADR 0032](../docs/adr/0032-immutable-release-artifacts.md)の不変性を維持します。
 
 ## MacとWindowsの実行境界
 
-`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常22シナリオ・インストール後22シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.7の正式公開は`include_windows=true`を指定します。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
+`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常22シナリオ・インストール後22シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.8の正式公開は`include_windows=true`を指定します。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
 
 Macの必須assets:
 
@@ -30,7 +30,7 @@ tag pushやmain pushでは起動しません。**GitHub Actionsの明示的なwo
 1. 準備PRと`develop`→`main` PRをレビューし、必要なCIを通して統合します。
 2. `main`の40文字SHAと`package.json`のversionを確認し、そのcommitへ`v<version>` tagを作成します。tag作成だけでは署名・Apple送信・公開を開始しません。
 3. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml) → **Run workflow** → branch **main**を選びます。
-4. `version`に`0.17.7`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=true`を指定します。現在の作業branchのSHAを入力しません。
+4. `version`に`0.17.8`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=true`を指定します。現在の作業branchのSHAを入力しません。
 5. `publish=false`（既定）は署名・公証・最終DMG検証まで行い、Actions artifactとして14日間保存します。GitHub ReleaseとHomebrewは更新しません。**これは未署名dry-runではなく、Appleへのアプリ送信を含みます。**
 6. 最終公開が承認された実行は`publish=true`を指定します。同じ品質・署名・公証・DMG検証を再実行し、その実行で検査したbytesだけを公開します。先行runのartifactを無検査で流用しません。
 
@@ -38,7 +38,7 @@ CLIでも同じ入力を使います。`<reviewed-main-sha>`を実際の40文字
 
 ```bash
 gh workflow run release.yml --ref main \
-  -f version=0.17.7 -f expected_sha=<reviewed-main-sha> -F include_windows=true -F publish=false
+  -f version=0.17.8 -f expected_sha=<reviewed-main-sha> -F include_windows=true -F publish=false
 ```
 
 workflowは入力version、package version、tag commit、checkout、workflow commit、現在のorigin/mainを照合します。省略・食い違い・既存Release・API読み取り失敗は停止条件です。公開直前にも再確認します。並行runは直列化し、実行中の署名・公証を新しいdispatchでcancelしません。
