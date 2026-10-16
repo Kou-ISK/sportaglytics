@@ -296,6 +296,7 @@ export const useVisualTimelineController = ({
     timeline,
     scrollContainerRef,
     onSelectionChange,
+    onFocusItemChange: setFocusedItemId,
     onSeek,
     onUndo,
     onRedo,

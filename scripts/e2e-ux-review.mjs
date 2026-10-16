@@ -311,14 +311,91 @@ try {
     Math.round(initialBounds.height),
     Math.round(closedBounds.height),
   );
-  // Selected clips must not intercept ordinary keyboard focus movement.
+  // Restore legacy same-action Tab jumps without leaving DOM focus behind.
   await timeline.getByTestId('timeline-instance-instance-239').focus();
+  await timeline.keyboard.press('Tab');
+  await timeline.waitForFunction(() => {
+    const item = document.querySelector(
+      '[data-timeline-item-id="instance-71"]',
+    );
+    return (
+      item?.getAttribute('aria-pressed') === 'true' &&
+      item === document.activeElement
+    );
+  });
+  await main.waitForFunction(
+    () => Math.abs(document.querySelector('video').currentTime - 6) < 0.05,
+  );
+  await timeline.keyboard.press('Enter');
+  assert.equal(
+    await timeline
+      .getByRole('dialog')
+      .getByRole('textbox', { name: 'ノート', exact: true })
+      .inputValue(),
+    document.instances[71].memo,
+  );
+  await timeline
+    .getByRole('button', { name: 'キャンセル', exact: true })
+    .click();
+  await timeline.keyboard.press('Shift+Tab');
+  await timeline.waitForFunction(() => {
+    const item = document.querySelector(
+      '[data-timeline-item-id="instance-239"]',
+    );
+    return (
+      item?.getAttribute('aria-pressed') === 'true' &&
+      item === document.activeElement
+    );
+  });
+  await main.waitForFunction(
+    () => Math.abs(document.querySelector('video').currentTime - 46) < 0.05,
+  );
+  await timeline.keyboard.press('Alt+ArrowDown');
+  await timeline.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-timeline-item-id="instance-71"]')
+        ?.getAttribute('aria-pressed') === 'true',
+  );
+  await main.waitForFunction(
+    () => Math.abs(document.querySelector('video').currentTime - 6) < 0.05,
+  );
+  await timeline.keyboard.press('Alt+ArrowUp');
+  await timeline.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-timeline-item-id="instance-239"]')
+        ?.getAttribute('aria-pressed') === 'true',
+  );
+  await main.waitForFunction(
+    () => Math.abs(document.querySelector('video').currentTime - 46) < 0.05,
+  );
+  // Escape releases the action-navigation context for ordinary Tab movement.
+  await timeline.keyboard.press('Escape');
+  await timeline.waitForFunction(
+    () =>
+      !document.querySelector('[data-timeline-item-id][aria-pressed="true"]'),
+  );
   await timeline.keyboard.press('Tab');
   assert.notEqual(
     await timeline.evaluate(() =>
       document.activeElement?.getAttribute('data-timeline-item-id'),
     ),
     'instance-239',
+  );
+  await timeline.getByTestId('timeline-instance-instance-239').click();
+  await timeline.keyboard.press(`${primaryModifier}+f`);
+  await search.focus();
+  await timeline.keyboard.press('Tab');
+  assert.equal(
+    await search.evaluate((element) => element === document.activeElement),
+    false,
+  );
+  assert.equal(
+    await timeline
+      .getByTestId('timeline-instance-instance-239')
+      .getAttribute('aria-pressed'),
+    'true',
   );
   await timeline.keyboard.press(`${primaryModifier}+f`);
   await search.fill('終盤');
@@ -598,7 +675,7 @@ try {
         'no mutation',
         'no match and clear',
         'pagination',
-        'Tab escape',
+        'Tab/Shift+Tab action jumps, wrap, DOM focus, Alt aliases, Escape and native input focus',
         'compact close',
         'minimum-height dock access',
         'edit cancel and save',

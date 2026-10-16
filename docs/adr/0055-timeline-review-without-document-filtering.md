@@ -4,6 +4,8 @@
 
 Accepted
 
+Tabキーボード判断のみ Superseded by [0064 Scoped Tab action navigation](0064-scoped-tab-action-navigation.md)。それ以外の判断はAcceptedを維持する。
+
 ## Date
 
 2026-10-01

@@ -75,9 +75,9 @@ const shortcuts: ShortcutItem[] = [
     category: 'タイムライン編集',
     items: [
       { key: '↑/↓', action: 'タイムラインアイテムを移動' },
-      { key: 'Option / Alt + ↓', action: '同じアクションの次へジャンプ' },
+      { key: 'Tab / Option・Alt + ↓', action: '同じアクションの次へジャンプ' },
       {
-        key: 'Option / Alt + ↑',
+        key: 'Shift + Tab / Option・Alt + ↑',
         action: '同じアクションの前へジャンプ',
       },
       { key: 'Enter', action: '選択したアイテムを編集' },

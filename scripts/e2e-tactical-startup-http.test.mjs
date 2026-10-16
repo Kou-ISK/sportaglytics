@@ -413,3 +413,32 @@ describe('widget observed in installed Windows run 38670235788', () => {
     ).toBe(false);
   });
 });
+
+describe('widget observed in installed Windows run 38898095101', () => {
+  const url =
+    'https://www.youtube.com/s/player/c271e571/www-widgetapi.vflset/www-widgetapi.js';
+  it('requires its own exact bootstrap proof and preserves the HTTP boundary', () => {
+    for (const quote of ["'", '"']) {
+      expect(
+        declaredObservedWidgets(`const src = ${quote}${url}${quote};`),
+      ).toEqual([url]);
+    }
+    const request = { phase: 'startup', type: 'script', url };
+    expect(isClassifiedStartupRequest(request, [url])).toBe(true);
+    for (const proof of [[], [WINDOWS_WIDGET_URL]])
+      expect(isClassifiedStartupRequest(request, proof)).toBe(false);
+    for (const rejected of [
+      { ...request, phase: 'recognition' },
+      { ...request, type: 'fetch' },
+      { ...request, url: url + '?x=1' },
+      {
+        ...request,
+        url: url.replace('www.youtube.com', 'www.youtube.com.evil.test'),
+      },
+      { ...request, url: url.replace('c271e571', 'unobserved') },
+    ]) {
+      expect(isClassifiedStartupRequest(rejected, [rejected.url])).toBe(false);
+    }
+    expect(declaredObservedWidgets(`const src = '${url}?x=1';`)).toEqual([]);
+  });
+});

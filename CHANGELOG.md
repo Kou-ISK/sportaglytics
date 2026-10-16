@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.8]
+
+公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。Tabアクションジャンプの修正を含む版です。既存の公開版とタグは維持します。
+
+### Fixed
+
+- Timelineで選択中の同一アクションへ移動するTab／Shift+Tabを復元。開始時刻順の巡回と端の折り返しを維持し、ジャンプ先へDOMフォーカスも移す。入力・通常コントロール・OSのTab組合せを奪わず、Escapeで選択解除後は通常のTab移動へ戻る。[操作と適用範囲](docs/timeline-review.md)。
+- Windowsインストール版E2Eで観測したYouTube起動widget `c271e571`を分類候補に追加。同じ実行のbootstrapによる完全一致URLの証明、全HTTP遮断、認識開始後のHTTP要求0件を維持する。
+
 ## [0.17.7]
 
 公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。0.17.6の正式工程は署名前の同梱物検査で停止し、未公開です。既存のタグは維持します。
