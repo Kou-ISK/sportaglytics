@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Timelineで選択中の同一アクションへ移動するTab／Shift+Tabを復元。開始時刻順の巡回と端の折り返しを維持し、ジャンプ先へDOMフォーカスも移す。入力・通常コントロール・OSのTab組合せを奪わず、Escapeで選択解除後は通常のTab移動へ戻る。[操作と適用範囲](docs/timeline-review.md)。
+- Windowsインストール版E2Eで観測したYouTube起動widget `c271e571`を分類候補に追加。同じ実行のbootstrapによる完全一致URLの証明、全HTTP遮断、認識開始後のHTTP要求0件を維持する。
 
 ## [0.17.7]
 
