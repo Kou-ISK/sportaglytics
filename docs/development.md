@@ -2,6 +2,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # 開発ガイド
 
+Tabアクション巡回を変更するときは、[Timeline review](timeline-review.md)の適用範囲と[ADR 0064](adr/0064-scoped-tab-action-navigation.md)を確認します。選択・DOMフォーカス・実映像シークを隔離したElectron試験で同時に検証し、通常アプリや実試合データを使わないでください。
+
 Playlistの配送・ロードを変更するときは`usePlaylistLoadDelivery.test.tsx`、Mainの`windowManager.test.ts`と`e2e-ux-review`内の保存済み文書ロード/reloadを確認します。Rendererごとのqueueがsnapshotと追加の順序を保ち、新しい編集・文書世代を古いdisk結果が上書きしないことが受入条件です。[判断](adr/0059-playlist-renderer-delivery-readiness.md)。
 
 文書採用の境界はMainとRendererの両方を検証します。`playlistWindow/documentIdentity.test.tsx`と`e2e-playlist-document-identity.mjs`で、A/Bロードの逆順完了、別文書ロード中の編集による拒否、同文書ロード中の編集後Closeを扱います。Rendererの見た目に加え、MainのfilePath/dirty・実Save先のbytes・未保存promptを確認します。read完了だけでMain状態を変更せず、最新ticketへの採用応答で保存先を確定してください。

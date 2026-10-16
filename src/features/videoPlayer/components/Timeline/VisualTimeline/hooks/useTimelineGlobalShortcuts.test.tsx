@@ -57,6 +57,188 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+const navigationTimeline: TimelineData[] = [
+  { ...timeline[0], id: 'middle', startTime: 12, endTime: 14 },
+  { ...timeline[1], id: 'other', startTime: 4, endTime: 6 },
+  { ...timeline[0], id: 'last', startTime: 22, endTime: 24 },
+  { ...timeline[0], id: 'first', startTime: 2, endTime: 3 },
+];
+
+const setupNavigation = (selectedIds: string[] = ['first']) => {
+  const container = createTimelineContainer();
+  const elements = new Map<string, HTMLDivElement>();
+  for (const entry of navigationTimeline) {
+    const element = document.createElement('div');
+    element.dataset.timelineItemId = entry.id;
+    element.tabIndex = 0;
+    container.append(element);
+    elements.set(entry.id, element);
+  }
+  const onSelectionChange = vi.fn();
+  const onFocusItemChange = vi.fn();
+  const onSeek = vi.fn();
+  renderHook(() =>
+    useTimelineGlobalShortcuts({
+      selectedIds,
+      selectedRowIds: [],
+      timeline: navigationTimeline,
+      scrollContainerRef: { current: container },
+      onSelectionChange,
+      onFocusItemChange,
+      onSeek,
+    }),
+  );
+  return { container, elements, onSelectionChange, onFocusItemChange, onSeek };
+};
+
+describe('legacy Tab action navigation', () => {
+  it.each([
+    { selected: 'first', shiftKey: false, next: 'middle', time: 12 },
+    { selected: 'middle', shiftKey: true, next: 'first', time: 2 },
+    { selected: 'last', shiftKey: false, next: 'first', time: 2 },
+    { selected: 'first', shiftKey: true, next: 'last', time: 22 },
+    { selected: 'other', shiftKey: false, next: 'other', time: 4 },
+  ])(
+    'moves $selected to $next with Shift=$shiftKey and moves DOM focus',
+    ({ selected, shiftKey, next, time }) => {
+      const { elements, onSelectionChange, onFocusItemChange, onSeek } =
+        setupNavigation([selected]);
+      const element = elements.get(selected)!;
+      element.focus();
+      const event = new KeyboardEvent('keydown', {
+        key: 'Tab',
+        shiftKey,
+        bubbles: true,
+        cancelable: true,
+      });
+      element.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(onSelectionChange).toHaveBeenCalledExactlyOnceWith([next]);
+      expect(onFocusItemChange).toHaveBeenCalledExactlyOnceWith(next);
+      expect(onSeek).toHaveBeenCalledExactlyOnceWith(time);
+      expect(document.activeElement).toBe(elements.get(next));
+    },
+  );
+
+  it('supports Tab after mouse selection leaves focus on the timeline surface', () => {
+    const { container, elements, onSelectionChange } = setupNavigation();
+    dispatchKey(container, 'Tab');
+    expect(onSelectionChange).toHaveBeenCalledWith(['middle']);
+    expect(document.activeElement).toBe(elements.get('middle'));
+  });
+
+  it.each(['metaKey', 'ctrlKey', 'altKey'] as const)(
+    'does not consume OS or application %s+Tab combinations',
+    (modifier) => {
+      const { elements, onSelectionChange, onSeek } = setupNavigation();
+      for (const shiftKey of [false, true]) {
+        const event = new KeyboardEvent('keydown', {
+          key: 'Tab',
+          [modifier]: true,
+          shiftKey,
+          bubbles: true,
+          cancelable: true,
+        });
+        elements.get('first')!.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+      }
+      expect(onSelectionChange).not.toHaveBeenCalled();
+      expect(onSeek).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([{ selected: [] }, { selected: ['missing'] }])(
+    'keeps native Tab when there is no valid selection: %j',
+    ({ selected }) => {
+      const { container, onSelectionChange } = setupNavigation(selected);
+      const event = new KeyboardEvent('keydown', {
+        key: 'Tab',
+        bubbles: true,
+        cancelable: true,
+      });
+      container.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(onSelectionChange).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps native focus navigation in editable fields, controls, dialogs and outside the timeline', () => {
+    const { container, onSelectionChange, onSeek } = setupNavigation();
+    const targets: HTMLElement[] = [
+      'input',
+      'textarea',
+      'select',
+      'button',
+    ].map((tag) => document.createElement(tag));
+    const editable = document.createElement('div');
+    editable.setAttribute('contenteditable', 'true');
+    const text = document.createElement('span');
+    editable.append(text);
+    const textbox = document.createElement('div');
+    textbox.setAttribute('role', 'textbox');
+    const slider = document.createElement('div');
+    slider.setAttribute('role', 'slider');
+    const row = document.createElement('button');
+    row.dataset.testid = 'timeline-row-header-row';
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    const dialogItem = document.createElement('div');
+    dialogItem.dataset.timelineItemId = 'first';
+    dialog.append(dialogItem);
+    container.append(...targets, editable, textbox, slider, row, dialog);
+    for (const target of [
+      ...targets,
+      text,
+      textbox,
+      slider,
+      row,
+      dialogItem,
+      document.body,
+    ]) {
+      for (const shiftKey of [false, true]) {
+        const event = new KeyboardEvent('keydown', {
+          key: 'Tab',
+          shiftKey,
+          bubbles: true,
+          cancelable: true,
+        });
+        target.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+      }
+    }
+    expect(onSelectionChange).not.toHaveBeenCalled();
+    expect(onSeek).not.toHaveBeenCalled();
+  });
+
+  it('does not move selection during composition or after another handler consumes the key', () => {
+    const { elements, onSelectionChange } = setupNavigation();
+    for (const composing of [true, false]) {
+      const event = new KeyboardEvent('keydown', {
+        key: 'Tab',
+        isComposing: composing,
+        bubbles: true,
+        cancelable: true,
+      });
+      if (!composing) event.preventDefault();
+      elements.get('first')!.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(!composing);
+    }
+    expect(onSelectionChange).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ArrowDown', 'first', 'middle', 12],
+    ['ArrowUp', 'first', 'last', 22],
+  ] as const)('retains Alt+%s navigation', (key, selected, next, time) => {
+    const { container, onSelectionChange, onSeek } = setupNavigation([
+      selected,
+    ]);
+    dispatchKey(container, key, { altKey: true });
+    expect(onSelectionChange).toHaveBeenCalledWith([next]);
+    expect(onSeek).toHaveBeenCalledWith(time);
+  });
+});
+
 describe('useTimelineGlobalShortcuts', () => {
   it('adds selected timeline items to playlist with command shift p', () => {
     const onAddToPlaylist = vi.fn();
@@ -257,7 +439,7 @@ it('leaves navigation and playlist shortcuts alone outside the timeline or in in
   expect(onAddToPlaylist).not.toHaveBeenCalled();
 });
 
-it('supports editing, select all and escape without trapping Tab even when an item is selected', () => {
+it('supports editing, select all and native Tab after Escape clears selection', () => {
   const container = createTimelineContainer();
   const item = document.createElement('div');
   item.dataset.timelineItemId = 'item-2';
@@ -265,22 +447,25 @@ it('supports editing, select all and escape without trapping Tab even when an it
   const onEditItem = vi.fn(),
     onSelectAll = vi.fn(),
     onClearSelection = vi.fn();
-  renderHook(() =>
-    useTimelineGlobalShortcuts({
-      selectedIds: ['item-1'],
-      selectedRowIds: [],
-      timeline,
-      scrollContainerRef: { current: container },
-      onSelectionChange: vi.fn(),
-      onSeek: vi.fn(),
-      onEditItem,
-      onSelectAll,
-      onClearSelection,
-    }),
+  const { rerender } = renderHook(
+    ({ selectedIds }) =>
+      useTimelineGlobalShortcuts({
+        selectedIds,
+        selectedRowIds: [],
+        timeline,
+        scrollContainerRef: { current: container },
+        onSelectionChange: vi.fn(),
+        onSeek: vi.fn(),
+        onEditItem,
+        onSelectAll,
+        onClearSelection,
+      }),
+    { initialProps: { selectedIds: ['item-1'] } },
   );
   dispatchKey(item, 'Enter');
   dispatchKey(container, 'a', { ctrlKey: true });
   dispatchKey(container, 'Escape');
+  rerender({ selectedIds: [] });
   const tab = new KeyboardEvent('keydown', {
     key: 'Tab',
     bubbles: true,

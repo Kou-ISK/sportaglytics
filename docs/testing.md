@@ -110,6 +110,8 @@ Heavy model weightやtraining frameworkをSporTagLytics unit testで取得しま
 
 ## Settings / Timeline / IPC
 
+TimelineのTab回帰は`useTimelineGlobalShortcuts.test.tsx`で開始時刻順の前後巡回、折り返し、DOMフォーカス、未選択/無効選択、入力/通常コントロール/ダイアログ、IME、Cmd/Ctrl/Alt+Tabの除外を確認します。`node scripts/e2e-ux-review.mjs`は合成240件と映像を使い、Tab/Shift+Tabの選択・フォーカス・実映像シーク、Option/Alt別名、Escape後と検索入力中の通常Tab移動、文書を変更しないことを検証します。通常アプリのプロファイルや実試合データを使いません。
+
 Settingsやmigrationでは新fieldの保存読込、legacy default、invalid value正規化を検証します。Code Windowの `leadTimeSeconds` / `lagTimeSeconds` は未設定時0秒相当を維持します。
 
 Timeline変更ではrange normalization、row ownership、history/Undo単位、duplicate/copy semanticsを検証します。自動Codingは `addTimelineDatas()` の1 state updateで追加するため、一括Undoを前提にします。

@@ -376,6 +376,8 @@ UIの正本は `src/design-system/` のsemantic tokenとprops-only Viewです。
 
 `applicationWindowActivation.ts`はアプリ内のフォーカス変更時に表示中のウィンドウを`moveTop()`でまとめて前面へ移し、操作対象を最後に上げます。常時最前面や別ウィンドウへのfocusは使わず、非表示・最小化ウィンドウはその状態を保ちます。
 
+TimelineのTabアクション巡回は選択と本体/タグのフォーカスを条件にし、ジャンプ先のDOMフォーカスも揃えます。入力・検索・通常コントロールとOSのTab組合せを守る範囲は[Timeline review](timeline-review.md)を正本とします。
+
 `MovieTransportView` は再生・送りのcallbackとラベルだけを受け取り、メイン映像・Playlist・Paintから合成します。メイン映像のウィンドウ比率は[ADR 0030](adr/0030-video-window-aspect.md)、Playlistは自由リサイズです。Timelineはrulerと行でスクロール座標を共有し、再生線を1本描画します。初期行色はアクションボタンから引き継ぎ、既存行の色は行モデルが所有します。
 
 Timelineの `useTimelineSeek` は上部つまみと時間目盛りが使用します。行内の通常クリック・区間作成はシークせず、修飾キーによる端の伸縮だけが共通時計へプレビュー時刻を通知します。区間の変更はlane hook内でプレビューし、確定時だけ永続化・履歴へ渡します。履歴のUndo/RedoはReactの描画待ちに依存せず保存対象を同期的に返します。明示的なジャンプと再生ホットキーは既存の経路を使います。空白クリックは選択IDとフォーカス枠を同時に解除し、範囲選択直後のclickでは選択結果を消さないよう抑止します。
