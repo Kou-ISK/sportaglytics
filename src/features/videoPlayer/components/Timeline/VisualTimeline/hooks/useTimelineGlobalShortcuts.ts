@@ -7,6 +7,7 @@ interface UseTimelineGlobalShortcutsParams {
   timeline: TimelineData[];
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
   onSelectionChange: (ids: string[]) => void;
+  onFocusItemChange?: (id: string) => void;
   onSeek: (time: number) => void;
   onSplit?: () => void;
   onMerge?: () => void;
@@ -31,6 +32,7 @@ export const useTimelineGlobalShortcuts = ({
   timeline,
   scrollContainerRef,
   onSelectionChange,
+  onFocusItemChange,
   onSeek,
   onSplit,
   onMerge,
@@ -157,39 +159,52 @@ export const useTimelineGlobalShortcuts = ({
         }
       }
 
-      const isJumpNext = event.altKey && event.key === 'ArrowDown';
-      const isJumpPrev = event.altKey && event.key === 'ArrowUp';
+      const isTabActionTarget =
+        target === scrollContainerRef.current ||
+        Boolean(target?.closest('[data-timeline-item-id]'));
+      const isTabJump =
+        event.key === 'Tab' &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        isTabActionTarget;
+      const isJumpNext =
+        (isTabJump && !event.shiftKey) ||
+        (event.altKey && event.key === 'ArrowDown');
+      const isJumpPrev =
+        (isTabJump && event.shiftKey) ||
+        (event.altKey && event.key === 'ArrowUp');
 
       if (isJumpNext || isJumpPrev) {
-        if (selectedIds.length === 0) return;
-        if (selectedIds.length > 0) {
-          if (event.altKey) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
+        if (event.isComposing || selectedIds.length === 0) return;
+        const items = [...timeline].sort((a, b) => a.startTime - b.startTime);
+        const current = items.find((item) => selectedIds.includes(item.id));
+        if (!current) return;
 
-          const items = [...timeline].sort((a, b) => a.startTime - b.startTime);
-          const current = items.find((item) => selectedIds.includes(item.id));
-          if (!current) return;
+        const sameActionItems = items.filter(
+          (item) => item.actionName === current.actionName,
+        );
+        const currentIndex = sameActionItems.findIndex(
+          (item) => item.id === current.id,
+        );
+        const direction: 1 | -1 = isJumpPrev ? -1 : 1;
+        const nextIndex =
+          (currentIndex + direction + sameActionItems.length) %
+          sameActionItems.length;
+        const targetItem = sameActionItems[nextIndex];
+        if (!targetItem) return;
 
-          const sameActionItems = items.filter(
-            (item) => item.actionName === current.actionName,
-          );
-          const currentIndex = sameActionItems.findIndex(
-            (item) => item.id === current.id,
-          );
-          if (currentIndex === -1) return;
-
-          const direction: 1 | -1 = isJumpPrev ? -1 : 1;
-          const nextIndex =
-            (currentIndex + direction + sameActionItems.length) %
-            Math.max(sameActionItems.length, 1);
-          const targetItem = sameActionItems[nextIndex];
-          if (!targetItem) return;
-
-          onSelectionChange([targetItem.id]);
-          onSeek(targetItem.startTime);
-        }
+        event.preventDefault();
+        event.stopPropagation();
+        onSelectionChange([targetItem.id]);
+        onFocusItemChange?.(targetItem.id);
+        onSeek(targetItem.startTime);
+        const container = scrollContainerRef.current;
+        const nextElement = Array.from(
+          container?.querySelectorAll<HTMLElement>('[data-timeline-item-id]') ??
+            [],
+        ).find((element) => element.dataset.timelineItemId === targetItem.id);
+        (nextElement ?? container)?.focus({ preventScroll: true });
         return;
       }
 
@@ -229,6 +244,7 @@ export const useTimelineGlobalShortcuts = ({
     onRequestDeleteRows,
     onSeek,
     onSelectionChange,
+    onFocusItemChange,
     onUndo,
     onSplit,
     onMerge,

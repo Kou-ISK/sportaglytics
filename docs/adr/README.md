@@ -128,3 +128,5 @@ YYYY-MM-DD
 - [0063 Independent macOS release](0063-independent-macos-release.md): Mac単独または両OSの手動dispatch、対象OS別の対応source、最終DMG検査（Accepted）。
 
 Mac配布時のpublisher自動検出を無効にする判断は[0063](0063-independent-macos-release.md)に記録しています。
+
+- [0064 Scoped Tab action navigation](0064-scoped-tab-action-navigation.md): 選択したアクションのTab巡回を限定したフォーカス範囲で復元。0055のTab判断のみを置換（Accepted）。
