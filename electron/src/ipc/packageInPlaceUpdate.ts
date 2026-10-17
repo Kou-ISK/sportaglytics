@@ -196,6 +196,7 @@ const performPackageUpdate = async (
     schemaVersion: 1,
     id,
     source,
+    sourceReceiptId: (await readUpdateReceipt(source))?.id ?? null,
     adoptedFrom,
     adoptedRevision: adopted.revision,
     backupPath: path.join(paths.backup, 'original', path.basename(source)),

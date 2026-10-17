@@ -285,6 +285,8 @@ export const toPackageLoadErrorMessage = (error: unknown): string => {
     case 'PACKAGE_UPDATE_PATH_CONFLICT':
     case 'PACKAGE_UPDATE_RECEIPT_INVALID':
       return '更新途中のデータを保持しました。このファイルへの保存は開始していません。元の場所から再度開いて復旧を試すか、同じフォルダの作業フォルダとバックアップを保管してください。';
+    case 'PACKAGE_UPDATE_BACKUP_HISTORY_INVALID':
+      return '同じフォルダにあるバックアップの記録を確認できません。ファイルは変更せず、保存を開始していません。現在のファイルとバックアップを保管してください。';
     case 'PACKAGE_UPDATE_UNRELATED_COPY':
       return '選択したコピーがこのファイルに対応することを確認できませんでした。内容は変更していません。';
     case 'PACKAGE_UPDATE_REFERENCE_CONFLICT':
