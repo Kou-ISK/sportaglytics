@@ -64,6 +64,13 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0052](0052-playlist-default-angles.md) | Playlist default angles | Accepted | 2026-09-22 |
 | [0053](0053-live-capture-package-timeline.md) | Live capture on the package timeline | Accepted | 2026-09-22 |
 | [0054](0054-continuous-capture-playback.md) | Continuous capture playback | Accepted | 2026-09-23 |
+| [0055](0055-timeline-review-without-document-filtering.md) | Timeline review without document filtering | Accepted | 2026-10-01 |
+| [0056](0056-built-in-dashboard-editing-contract.md) | Built-in dashboard editing contract | Accepted | 2026-10-02 |
+| [0057](0057-verified-analysis-frame-capture.md) | Verified analysis frame capture | Accepted | 2026-10-02 |
+| [0058](0058-build-downloads-without-response-cache.md) | Build downloads without HTTP response caching（2026-10-10 proxy監査追補） | Accepted | 2026-10-04 |
+| [0059](0059-playlist-renderer-delivery-readiness.md) | Playlist renderer delivery readiness | Accepted | 2026-10-04 |
+| [0065](0065-unified-project-open.md) | Unified project open | Accepted | 2026-10-17 |
+| [0066](0066-capture-playback-bounds.md) | Capture playback bounds | Accepted | 2026-10-17 |
 
 ## Status Values
 
@@ -109,14 +116,6 @@ YYYY-MM-DD
 
 ## Consequences
 ```
-
-| [0055](0055-timeline-review-without-document-filtering.md) | Timeline review without document filtering | Accepted | 2026-10-01 |
-| [0056](0056-built-in-dashboard-editing-contract.md) | Built-in dashboard editing contract | Accepted | 2026-10-02 |
-| [0057](0057-verified-analysis-frame-capture.md) | Verified analysis frame capture | Accepted | 2026-10-02 |
-| [0058](0058-build-downloads-without-response-cache.md) | Build downloads without HTTP response caching（2026-10-10 proxy監査追補） | Accepted | 2026-10-04 |
-| [0059](0059-playlist-renderer-delivery-readiness.md) | Playlist renderer delivery readiness | Accepted | 2026-10-04 |
-| [0065](0065-unified-project-open.md) | Unified project open | Accepted | 2026-10-17 |
-| [0066](0066-capture-playback-bounds.md) | Capture playback bounds | Accepted | 2026-10-17 |
 
 - [0060 Distribution License Evidence](0060-distribution-license-evidence.md): 実bundleの告知とRelease対応sourceの同梱。
 - [0061 Event Pack Distribution Provenance](0061-event-pack-distribution-provenance.md): runtime互換を維持した配布前の由来・全ファイル検査。
