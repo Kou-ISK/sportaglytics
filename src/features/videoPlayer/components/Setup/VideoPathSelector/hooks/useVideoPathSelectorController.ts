@@ -111,7 +111,7 @@ export const useVideoPathSelectorController = ({
 
   const opener = useStartPackageOpen(handlePackageLoaded);
   const { dragState, handlers: dragHandlers } = useDragAndDrop(
-    (path) => void opener.open(path),
+    (path) => void opener.open(path, 'drop'),
     opener.reportInvalidDrop,
     opener.busy || wizardOpen,
   );

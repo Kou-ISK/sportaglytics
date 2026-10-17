@@ -15,7 +15,7 @@ export interface StartPackageOpen {
   error: string;
   errorDetails: string;
   invalidDrop: boolean;
-  open: (path?: string) => Promise<void>;
+  open: (path?: string, source?: 'open' | 'drop') => Promise<void>;
   retry: () => void;
   dismissError: () => void;
   reportInvalidDrop: () => void;
@@ -34,7 +34,7 @@ export const useStartPackageOpen = (
   const opening = useRef(false);
   const { info } = useNotification();
   const open = useCallback(
-    async (path?: string): Promise<void> => {
+    async (path?: string, source: 'open' | 'drop' = 'open'): Promise<void> => {
       if (opening.current) return;
       opening.current = true;
       setBusy(true);
@@ -53,9 +53,16 @@ export const useStartPackageOpen = (
       } catch (error: unknown) {
         // Native open routing may reserve the source before preparation starts.
         if (selectedPath) await releasePackageSessionReservation(selectedPath);
+        const invalidDrop =
+          source === 'drop' &&
+          error instanceof Error &&
+          error.message.includes('PACKAGE_SOURCE_NOT_DIRECTORY');
         setFailure({
-          path: selectedPath,
-          message: toPackageLoadErrorMessage(error),
+          path: invalidDrop ? undefined : selectedPath,
+          invalidDrop,
+          message: invalidDrop
+            ? 'プロジェクトのファイルまたはフォルダを選んでください。映像ファイルは「新しいパッケージを作成」から追加できます。'
+            : toPackageLoadErrorMessage(error),
           details: [selectedPath, error instanceof Error ? error.message : '']
             .filter(Boolean)
             .join('\n'),

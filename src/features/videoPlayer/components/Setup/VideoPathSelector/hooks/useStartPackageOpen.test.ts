@@ -42,6 +42,23 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('useStartPackageOpen', () => {
+  it('classifies a dropped media file after Main validation and retries with the picker', async () => {
+    vi.mocked(gateway.loadPackageDirectory).mockRejectedValueOnce(
+      new Error(
+        'Error invoking package:prepare-open: PACKAGE_SOURCE_NOT_DIRECTORY',
+      ),
+    );
+    const onLoaded = vi.fn();
+    const { result } = renderHook(() => useStartPackageOpen(onLoaded));
+    await act(async () => result.current.open('/video.mp4', 'drop'));
+    expect(result.current.invalidDrop).toBe(true);
+    expect(result.current.error).toContain('新しいパッケージを作成');
+    expect(result.current.busy).toBe(false);
+    expect(onLoaded).not.toHaveBeenCalled();
+    act(() => result.current.retry());
+    await waitFor(() => expect(onLoaded).toHaveBeenCalled());
+    expect(gateway.pickPackagePath).toHaveBeenLastCalledWith(undefined);
+  });
   it('accepts one open request until loading finishes', async () => {
     let finish: ((value: typeof loaded) => void) | undefined;
     vi.mocked(gateway.loadPackageDirectory).mockReturnValue(

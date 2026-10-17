@@ -111,6 +111,18 @@ const timelineDocument = JSON.stringify({
 await fs.writeFile(path.join(pkg, 'timeline.json'), timelineDocument);
 let app;
 try {
+  // Seed onboarding before startup-file delivery. Its async first-run dialog
+  // can otherwise appear after the video becomes ready and hide the controls.
+  app = await electron.launch(
+    getElectronLaunchOptions(path.join(root, 'profile')),
+  );
+  const setup = await app.firstWindow();
+  await setup.waitForLoadState();
+  await setup.evaluate(() =>
+    localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
+  );
+  await app.close();
+  app = undefined;
   for (let run = 0; run < 2; run++) {
     app = await electron.launch(
       getElectronLaunchOptions(path.join(root, 'profile'), [pkg]),
@@ -118,8 +130,6 @@ try {
     observeElectronErrors(app);
     const main = await app.firstWindow();
     await main.locator('#video_0 video').waitFor({ timeout: 30000 });
-    const skip = main.getByRole('button', { name: 'スキップ', exact: true });
-    if (await skip.count()) await skip.click();
     await main.waitForFunction(
       () => document.querySelector('#video_0 video')?.readyState >= 3,
     );
