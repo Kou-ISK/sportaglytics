@@ -55,7 +55,7 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 保存済みcaptureの16超clipは共通の50,000上限を使うunit負例/正例とlive-captureの再開で検証します。Playlistの途中JSONは既存export-menuの読取条件を維持し、metadata置換に同じatomic writerを使います。Windows renameの一時/恒久拒否はbounded retryの回帰を持ち、nativeの実置換で再確認します。Undoの故障注入はB/A両方のrename完了を待ってから判定し、別文書のempty retryは別package IDを使い、open-fileで作られる新sessionのMain/Timeline/コードパネルを取得し直します。対象read faultの到達と元sessionの文書不変も検査します。新processのTimeline同期へ通常listenerを追加し、既存subscriptionを置換せずに実メモリ中のlabelsを確認します。multi-clipの保存件数assertionは緩和せず、synthetic Main stderrの実filesystem errorを残します。
 
-保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常22シナリオとWindowsインストール後22シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
+保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常24シナリオとWindowsインストール後24シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
 
 ## Required Quality Gate
 
@@ -277,7 +277,7 @@ Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実
 
 ビルドdownloaderの9ケースには、実際の@electron/getを別processで起動するHTTP proxy経由取得とNO_PROXY bypassを含みます。loopback serverと合成bytesで検証し、外部artifactを取得しません。既存のagent/timeout/redirect/checksum/progress/file-cache検査も維持します。
 
-Windows H.264置換の追加検査は[Windows開発・検証](windows.md#開発検証)を参照してください。installed E2Eにも`export-menu`、`export-fast`、`paint-export`、`angle-sync-multi`、`angle-sync-gaps`を加え、通常runnerと同じ22シナリオを検査します。Media Foundation不足のunit負例とWindows N実機検証は区別します。
+Windows H.264置換の追加検査は[Windows開発・検証](windows.md#開発検証)を参照してください。installed E2Eにも`export-menu`、`export-fast`、`paint-export`、`angle-sync-multi`、`angle-sync-gaps`を加え、通常runnerと同じ24シナリオを検査します。Media Foundation不足のunit負例とWindows N実機検証は区別します。
 
 ## Mac最終DMGの配布検査
 
@@ -286,3 +286,5 @@ Windows H.264置換の追加検査は[Windows開発・検証](windows.md#開発�
 Windows同時公開の`release-evidence.mjs`は同一runのinstalled reportと最終installerを完全source commit/tree・version・hashで結び付けます。`scripts/tests/windows-distribution.mjs`は旧版・別commit/tree・改変installer・異常署名状態・manifest不一致・私有モデル混入の負例を検査します。Release workflowはWindows jobが成功してからartifactを取得し、公開直前にも再検査します。
 
 Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。
+
+`e2e-capture-reopen`は合成84秒の確定録画で全体duration、60秒へのシーク、逆方向・終端・終端からの戻り、同じvideo要素での連続再生、別process再開を検査する。`e2e-unified-open`はOS picker応答のみstub化し、共通UI→実Main→別保存先の再利用→実動画再生を新processでも検証する。両方を標準runnerにも登録する。unitはEOSによるduration再計算、録画sampleによるduration伸長、移行先オフライン・索引書込失敗・欠番・Finderメタデータ変更・予約解放を固定する。

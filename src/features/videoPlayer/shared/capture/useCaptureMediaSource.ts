@@ -6,11 +6,12 @@ import { CaptureMediaBuffer } from './CaptureMediaBuffer';
 export const useCaptureMediaSource = (
   angle: PackageMediaAngle | undefined,
   time: number,
+  complete = true,
 ): { source: string; failed: boolean } => {
   const [source, setSource] = useState('');
   const [failed, setFailed] = useState(false);
-  const latest = useRef({ angle, time });
-  latest.current = { angle, time };
+  const latest = useRef({ angle, time, complete });
+  latest.current = { angle, time, complete };
   const enabled = angle?.playbackFormat === 'fragmented-mp4';
   useEffect(() => {
     setSource('');
@@ -26,7 +27,11 @@ export const useCaptureMediaSource = (
       setFailed(true),
     );
     const update = (): void =>
-      buffer.update(latest.current.angle?.clips ?? [], latest.current.time);
+      buffer.update(
+        latest.current.angle?.clips ?? [],
+        latest.current.time,
+        latest.current.complete,
+      );
     update();
     const timer = setInterval(update, 200);
     setSource(url);

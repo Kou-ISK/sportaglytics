@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded
+
+Superseded by [0065](0065-unified-project-open.md).
 
 ## Date
 

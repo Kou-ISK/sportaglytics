@@ -11,12 +11,18 @@ const ignoreDuration = (): void => undefined;
 export const CaptureAnglePlayer = ({
   angle,
   angleTime,
+  captureActive = false,
   ...props
 }: SingleVideoPlayerProps & {
   angle: PackageMediaAngle;
   angleTime: number;
+  captureActive?: boolean;
 }): ReactElement => {
-  const { source, failed } = useCaptureMediaSource(angle, angleTime);
+  const { source, failed } = useCaptureMediaSource(
+    angle,
+    angleTime,
+    !captureActive,
+  );
   return (
     <>
       <Box

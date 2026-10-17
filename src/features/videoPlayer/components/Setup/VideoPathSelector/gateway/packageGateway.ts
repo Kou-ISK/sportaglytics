@@ -16,6 +16,7 @@ interface PackageTeamNames {
 }
 
 interface LoadedPackageData extends PackageTeamNames {
+  warning?: string;
   configFilePath: string;
   packagePath: string;
   missingSyncData: boolean;
@@ -94,9 +95,9 @@ const resolveExistingPackagePath = async (
 
 const preparePackagePathForOpen = async (
   packagePath: string,
-): Promise<string> => {
+): Promise<{ path: string; warning?: string }> => {
   const api = getElectronApi();
-  if (!api.preparePackageForOpen) return packagePath;
+  if (!api.preparePackageForOpen) return { path: packagePath };
 
   let preparation = await api.preparePackageForOpen(packagePath);
   if (preparation.status === 'needs-destination') {
@@ -112,12 +113,11 @@ const preparePackagePathForOpen = async (
   if (preparation.status !== 'ready') {
     throw new Error(PACKAGE_MIGRATION_FAILED);
   }
-  return preparation.packagePath;
+  return { path: preparation.packagePath, warning: preparation.warning };
 };
 
 export const pickPackagePath = async (
   preselectedPath?: unknown,
-  legacyFolder = false,
 ): Promise<string | null> => {
   const normalized = normalizePackagePath(preselectedPath);
   if (normalized) {
@@ -126,7 +126,7 @@ export const pickPackagePath = async (
 
   const api = getElectronApi();
   const selectedPath = api.selectPackagePath
-    ? await api.selectPackagePath(legacyFolder)
+    ? await api.selectPackagePath()
     : await api.openDirectory();
   return selectedPath ? resolveExistingPackagePath(selectedPath) : null;
 };
@@ -163,11 +163,27 @@ export const loadPackageDirectory = async (
   packagePath: string,
 ): Promise<LoadedPackageData> => {
   const api = getElectronApi();
-  const preparedPackagePath = await preparePackagePathForOpen(packagePath);
+  const prepared = await preparePackagePathForOpen(packagePath);
+  const preparedPackagePath = prepared.path;
   const sessionBound = await api.bindPackageSession?.(preparedPackagePath);
   if (sessionBound === false) {
     throw new Error('このパッケージは別のウィンドウで開かれています。');
   }
+  try {
+    return {
+      ...(await readPreparedPackage(preparedPackagePath)),
+      warning: prepared.warning,
+    };
+  } catch (error) {
+    await releasePackageSessionReservation(preparedPackagePath);
+    throw error;
+  }
+};
+
+const readPreparedPackage = async (
+  preparedPackagePath: string,
+): Promise<LoadedPackageData> => {
+  const api = getElectronApi();
   const configFilePath = `${preparedPackagePath}/.metadata/config.json`;
 
   const exists = await api.checkFileExists?.(configFilePath);
@@ -285,6 +301,8 @@ export const toPackageLoadErrorMessage = (error: unknown): string => {
     errorMessage.match(/\bPACKAGE_[A-Z_]+\b/)?.[0] ?? errorMessage;
 
   switch (errorCode) {
+    case 'PACKAGE_MIGRATION_DESTINATION_UNAVAILABLE':
+      return '前回準備したパッケージが見つかりません。保存先のドライブを接続するか、「パッケージを開く」から移動先を選んでください。';
     case ELECTRON_API_UNAVAILABLE:
       return 'この機能はElectronアプリケーション内でのみ利用できます。';
     case PACKAGE_CONFIG_NOT_FOUND:
@@ -294,9 +312,9 @@ export const toPackageLoadErrorMessage = (error: unknown): string => {
     case PACKAGE_CONFIG_INVALID:
       return 'パッケージ設定の読み込みに失敗しました。';
     case PACKAGE_MIGRATION_CANCELLED:
-      return '旧形式パッケージの移行をキャンセルしました。';
+      return '開くための準備をキャンセルしました。';
     case PACKAGE_MIGRATION_FAILED:
-      return '旧形式パッケージを .stpkg へ移行できませんでした。';
+      return 'ファイルを開くための準備に失敗しました。原本は保持されています。';
     case 'PACKAGE_VERSION_UNSUPPORTED':
       return '対応していない新しいパッケージ形式です。原本は変更していません。対応版のSporTagLyticsで開いてください。';
     case 'PACKAGE_SPORTSCODE_NATIVE_UNSUPPORTED':
@@ -315,5 +333,5 @@ export const toPackageLoadErrorMessage = (error: unknown): string => {
 export const resolveDroppedPackagePath = (file: File): string => {
   const path =
     globalThis.window.electronAPI?.resolveDroppedPackagePath?.(file) ?? '';
-  return /\.stpkg$/i.test(path) ? path : '';
+  return path;
 };

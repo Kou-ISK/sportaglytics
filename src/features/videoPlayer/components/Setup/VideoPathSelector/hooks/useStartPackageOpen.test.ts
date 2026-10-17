@@ -118,7 +118,7 @@ describe('useStartPackageOpen', () => {
     expect(gateway.loadPackageDirectory).not.toHaveBeenCalled();
     act(() => result.current.retry());
     await waitFor(() => expect(onLoaded).toHaveBeenCalledWith(loaded.result));
-    expect(gateway.pickPackagePath).toHaveBeenLastCalledWith(undefined, false);
+    expect(gateway.pickPackagePath).toHaveBeenLastCalledWith(undefined);
     expect(result.current.invalidDrop).toBe(false);
   });
 });

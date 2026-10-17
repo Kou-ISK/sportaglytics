@@ -87,6 +87,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
         }}
       >
         <VideoPlayer
+          captureActive={livePlaybackEnd !== undefined}
           key={videoList.join('|')}
           videoList={videoList}
           isVideoPlaying={isVideoPlaying}

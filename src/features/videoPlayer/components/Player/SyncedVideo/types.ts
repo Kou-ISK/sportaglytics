@@ -4,6 +4,7 @@ import type { VideoSyncData } from '../../../../../types/video/sync';
 import type { PackageMediaAngle } from '../../../../../types/package/metadata';
 
 export interface SyncedVideoPlayerProps {
+  captureActive?: boolean;
   videoList: string[];
   isVideoPlaying: boolean;
   videoPlayBackRate: number;

@@ -1,5 +1,6 @@
 export interface PackageOpenReadyResult {
   status: 'ready';
+  warning?: string;
   packagePath: string;
   migrated: boolean;
   reused: boolean;

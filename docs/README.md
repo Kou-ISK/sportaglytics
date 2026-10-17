@@ -134,3 +134,6 @@ AI agent は次の順で参照してください。
 Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-windows-media-foundation-h264.md)を参照してください。
 
 - [Macの独立リリース判断](adr/0063-independent-macos-release.md): 既存認証の利用とOS別の公開境界。
+
+- [共通の開くと移行先再利用](adr/0065-unified-project-open.md)
+- [ライブ録画の再生範囲と終了処理](adr/0066-capture-playback-bounds.md)

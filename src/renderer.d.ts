@@ -38,7 +38,7 @@ export interface IElectronAPI {
   resolveDroppedVideoFilePath: (file: File) => string;
   resolveDroppedPackagePath: (file: File) => string;
   openDirectory: () => Promise<string>;
-  selectPackagePath: (legacyFolder?: boolean) => Promise<string>;
+  selectPackagePath: () => Promise<string>;
   readSportscodeXml: (path: string) => Promise<SportscodeXmlSource>;
   importSportscodePackage: (
     request: SportscodeImportRequest,

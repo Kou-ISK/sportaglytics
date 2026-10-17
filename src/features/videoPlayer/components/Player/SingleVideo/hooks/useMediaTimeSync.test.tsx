@@ -142,3 +142,17 @@ it('restores a successfully settled paused target after a source resets its cloc
   act(() => player.settle(0));
   expect(player.seek.mock.calls).toEqual([[1.5], [1.5]]);
 });
+
+it('replaces an explicit seek whose old target was evicted by the capture buffer', () => {
+  const player = fixture();
+  const { rerender } = renderHook(
+    ({ time }) => useMediaTimeSync(player.ref, true, time, false),
+    { initialProps: { time: 1 } },
+  );
+  // No seeked event can arrive for the old target after its buffer was removed.
+  act(() => window.dispatchEvent(new Event('video-seek-start')));
+  rerender({ time: 60 });
+  expect(player.seek.mock.calls).toEqual([[1], [60]]);
+  act(player.settle);
+  expect(player.seek).toHaveBeenCalledTimes(2);
+});

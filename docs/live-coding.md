@@ -74,3 +74,9 @@ SRT、NDI、ONVIFによる自動探索、RTMP受信サーバー、専用iPhone�
 - [Hudl capture improvements](https://www.hudl.com/blog/9-ways-your-capture-experience-in-hudl-sportscode-has-improved): マルチアングル、プレビューと録画元の共用、コード時刻の整合性。
 - [Apple 連係カメラ](https://support.apple.com/en-us/102546): 対応機器と接続条件。
 - [FFmpeg segment muxer](https://ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment): 区間ファイルと完了リスト。
+
+## 停止・保存・再オープン
+
+停止要求は重複を集約し、入力末尾の排出、録画プロセスの終了、最終確定区間の収集、config保存が済んでから完了を通知します。失敗はerrorとなり、既に確定した区間を保持します。Timelineの保存は独立した状態として確認します。
+
+再オープンは録画Sessionを必要としません。全確定区間の尺と近傍バッファを分け、離れた位置へのシークでも全体尺を使います。保存完了後の最終区間appendでMediaSourceを終端処理し、末尾音声の長さの差で無限待機しないようにします。通常の補正シークは集約し、明示的な移動は未完了の古い要求を置き換えます。fragment読込とappend/removeが15秒以内に完了しない場合は警告付きの区間再生へ移ります。

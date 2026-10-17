@@ -4,6 +4,8 @@ import path from 'node:path';
 
 export interface PackageSourceSnapshot {
   fingerprint: string;
+  revision: string;
+  contentFingerprint: string;
   bytes: number;
 }
 
@@ -12,6 +14,8 @@ export const snapshotPackageSource = async (
   root: string,
 ): Promise<PackageSourceSnapshot> => {
   const hash = createHash('sha256');
+  const revision = createHash('sha256');
+  const contentHash = createHash('sha256');
   let bytes = 0;
   let count = 0;
   const walk = async (directory: string): Promise<void> => {
@@ -28,19 +32,44 @@ export const snapshotPackageSource = async (
       hash.update(
         JSON.stringify([relative, stat.size, stat.mtimeMs, stat.mode]),
       );
+      contentHash.update(
+        JSON.stringify([
+          relative,
+          stat.isDirectory() ? 'directory' : stat.size,
+        ]),
+      );
       if (stat.isDirectory()) await walk(file);
       else {
         bytes += stat.size;
-        if (
+        const metadata =
           /\.(json|xml|plist|txt)$/i.test(entry.name) &&
-          stat.size <= 16 * 1024 * 1024
-        )
-          hash.update(await fs.readFile(file));
+          stat.size <= 16 * 1024 * 1024;
+        const data = metadata ? await fs.readFile(file) : undefined;
+        if (data) {
+          hash.update(data);
+          contentHash.update(data);
+        }
+        // Finder metadata and directory mtime are not a document revision.
+        if (!['.DS_Store', '.localized'].includes(entry.name)) {
+          revision.update(
+            JSON.stringify([
+              relative,
+              stat.size,
+              metadata ? null : stat.mtimeMs,
+            ]),
+          );
+          if (data) revision.update(data);
+        }
       }
     }
   };
   await walk(root);
-  return { fingerprint: hash.digest('hex'), bytes };
+  return {
+    fingerprint: hash.digest('hex'),
+    revision: revision.digest('hex'),
+    contentFingerprint: contentHash.digest('hex'),
+    bytes,
+  };
 };
 
 export const checkMigrationCapacity = async (

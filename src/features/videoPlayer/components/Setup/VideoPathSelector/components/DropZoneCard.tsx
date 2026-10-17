@@ -48,8 +48,8 @@ export const DropZoneCard: React.FC<DropZoneCardProps> = ({ dragState }) => {
         {dragState.isDragging
           ? dragState.isValidDrop
             ? 'ここにパッケージをドロップ'
-            : '.stpkg パッケージをドロップしてください'
-          : '.stpkg をここにドロップして開く'}
+            : 'プロジェクトのファイルまたはフォルダを1つドロップしてください'
+          : 'プロジェクトのファイルまたはフォルダをドロップして開く'}
       </Typography>
     </Paper>
   );

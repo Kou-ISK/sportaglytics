@@ -5,6 +5,7 @@ import type { VideoSyncData } from '../../../../types/video/sync';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
 
 interface VideoPlayerProps {
+  captureActive?: boolean;
   videoList: string[];
   isVideoPlaying: boolean;
   videoPlayBackRate: number;
@@ -19,6 +20,7 @@ interface VideoPlayerProps {
 }
 
 export const VideoPlayer = ({
+  captureActive,
   videoList,
   isVideoPlaying,
   videoPlayBackRate,
@@ -33,6 +35,7 @@ export const VideoPlayer = ({
 }: VideoPlayerProps): React.JSX.Element => {
   return (
     <SyncedVideoPlayer
+      captureActive={captureActive}
       videoList={videoList}
       isVideoPlaying={isVideoPlaying}
       videoPlayBackRate={videoPlayBackRate}

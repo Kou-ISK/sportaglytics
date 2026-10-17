@@ -48,7 +48,7 @@ const electronAPI = {
   resolveDroppedPackagePath: (file: File): string => {
     try {
       const path = webUtils.getPathForFile(file);
-      return /\.stpkg$/i.test(path) ? path : '';
+      return path;
     } catch {
       return '';
     }

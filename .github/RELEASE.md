@@ -10,7 +10,7 @@
 
 ## MacとWindowsの実行境界
 
-`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常22シナリオ・インストール後22シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.8の正式公開は`include_windows=true`を指定します。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
+`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常24シナリオ・インストール後24シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.8の正式公開は`include_windows=true`を指定します。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
 
 Macの必須assets:
 

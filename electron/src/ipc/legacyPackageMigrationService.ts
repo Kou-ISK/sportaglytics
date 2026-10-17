@@ -1,4 +1,15 @@
 import {
+  MIGRATION_MARKER_FILE,
+  MIGRATION_SCHEMA_VERSION,
+  isPathInside,
+  readMigrationMarker,
+  pathExists,
+  findReusableOrAvailableTarget,
+  resolveExplicitTarget,
+} from './packageMigrationTargets';
+import type { LegacyMigrationMarker } from './packageMigrationTargets';
+import type { PackageMigrationIndex } from './packageMigrationIndex';
+import {
   isAbsoluteMediaReference,
   resolvePackageMediaPath,
 } from '../../../src/shared/media/packageMediaPath';
@@ -19,133 +30,11 @@ import {
 } from './packageSourceSnapshot';
 import { normalizeTimelineData } from '../../../src/utils/scTimelineConverter';
 
-const MIGRATION_MARKER_FILE = 'legacy-migration.json';
-const MIGRATION_SCHEMA_VERSION = 1;
-const MAX_CONFLICT_SUFFIX = 999;
-
-interface LegacyMigrationMarker {
-  schemaVersion: number;
-  sourceRealPath: string;
-  sourceFingerprint: string;
-  migratedAt: string;
-}
-
 const toPosixPath = (value: string): string => value.replace(/\\/g, '/');
-
-const isPathInside = (parentPath: string, candidatePath: string): boolean => {
-  const relative = path.relative(parentPath, candidatePath);
-  return (
-    relative === '' ||
-    (!relative.startsWith('..') && !path.isAbsolute(relative))
-  );
-};
-
-const normalizeStpkgPath = (targetPath: string): string =>
-  targetPath.toLowerCase().endsWith('.stpkg')
-    ? targetPath
-    : `${targetPath}.stpkg`;
-
 const readJson = readPackageJson;
 const validatePackageFolder = inspectPackageCompatibility;
-const calculateSourceFingerprint = async (
-  sourcePath: string,
-): Promise<string> => (await snapshotPackageSource(sourcePath)).fingerprint;
-
-const readMigrationMarker = async (
-  packagePath: string,
-): Promise<LegacyMigrationMarker | null> => {
-  try {
-    const value = await readJson(
-      path.join(packagePath, '.metadata', MIGRATION_MARKER_FILE),
-    );
-    if (
-      !isPlainObject(value) ||
-      value.schemaVersion !== MIGRATION_SCHEMA_VERSION ||
-      typeof value.sourceRealPath !== 'string' ||
-      typeof value.sourceFingerprint !== 'string' ||
-      typeof value.migratedAt !== 'string'
-    ) {
-      return null;
-    }
-    return {
-      schemaVersion: value.schemaVersion,
-      sourceRealPath: value.sourceRealPath,
-      sourceFingerprint: value.sourceFingerprint,
-      migratedAt: value.migratedAt,
-    };
-  } catch {
-    return null;
-  }
-};
-
-const pathExists = async (candidatePath: string): Promise<boolean> => {
-  try {
-    await fs.access(candidatePath);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const findReusableOrAvailableTarget = async ({
-  sourceRealPath,
-  sourceFingerprint,
-  preferredTarget,
-}: {
-  sourceRealPath: string;
-  sourceFingerprint: string;
-  preferredTarget: string;
-}): Promise<{ targetPath: string; reusable: boolean }> => {
-  const parsed = path.parse(preferredTarget);
-  const baseName = parsed.name;
-
-  for (let index = 0; index < MAX_CONFLICT_SUFFIX; index += 1) {
-    const candidate =
-      index === 0
-        ? preferredTarget
-        : path.join(parsed.dir, `${baseName}-${index + 1}.stpkg`);
-    if (!(await pathExists(candidate))) {
-      return { targetPath: candidate, reusable: false };
-    }
-
-    const marker = await readMigrationMarker(candidate);
-    if (
-      marker?.sourceRealPath === sourceRealPath &&
-      marker.sourceFingerprint === sourceFingerprint
-    ) {
-      return { targetPath: candidate, reusable: true };
-    }
-  }
-
-  throw new Error('PACKAGE_MIGRATION_TARGET_EXHAUSTED');
-};
-
-const resolveExplicitTarget = async ({
-  sourceRealPath,
-  sourceFingerprint,
-  destinationPath,
-}: {
-  sourceRealPath: string;
-  sourceFingerprint: string;
-  destinationPath: string;
-}): Promise<{ targetPath: string; reusable: boolean }> => {
-  const targetPath = path.resolve(normalizeStpkgPath(destinationPath));
-  if (isPathInside(sourceRealPath, targetPath)) {
-    throw new Error('PACKAGE_MIGRATION_TARGET_INSIDE_SOURCE');
-  }
-  if (!(await pathExists(targetPath))) {
-    return { targetPath, reusable: false };
-  }
-
-  const marker = await readMigrationMarker(targetPath);
-  if (
-    marker?.sourceRealPath === sourceRealPath &&
-    marker.sourceFingerprint === sourceFingerprint
-  ) {
-    return { targetPath, reusable: true };
-  }
-  throw new Error('PACKAGE_MIGRATION_TARGET_EXISTS');
-};
+const calculateSourceFingerprint = async (source: string): Promise<string> =>
+  (await snapshotPackageSource(source)).fingerprint;
 
 const rewriteCopiedPath = async ({
   sourceRoot,
@@ -225,13 +114,18 @@ const isPermissionError = (error: unknown): boolean => {
 const migrateLegacyFolder = async ({
   sourceRealPath,
   sourceFingerprint,
+  sourceRevision,
   targetPath,
 }: {
   sourceRealPath: string;
   sourceFingerprint: string;
+  sourceRevision?: string;
   targetPath: string;
 }): Promise<void> => {
-  const temporaryPath = `${targetPath}.migrating-${randomUUID()}.stpkg`;
+  const temporaryPath = path.join(
+    path.dirname(targetPath),
+    `.sportag-migrating-${randomUUID()}`,
+  );
   const sourceSnapshot = await snapshotPackageSource(sourceRealPath);
   await checkMigrationCapacity(path.dirname(targetPath), sourceSnapshot.bytes);
   const parentRealPath = await fs.realpath(path.dirname(targetPath));
@@ -243,6 +137,11 @@ const migrateLegacyFolder = async ({
       force: false,
       errorOnExist: true,
     });
+    if (
+      (await snapshotPackageSource(temporaryPath)).contentFingerprint !==
+      sourceSnapshot.contentFingerprint
+    )
+      throw new Error('PACKAGE_MIGRATION_COPY_INVALID');
     for (const copied of [
       temporaryPath,
       path.join(temporaryPath, '.metadata'),
@@ -286,13 +185,14 @@ const migrateLegacyFolder = async ({
         'utf8',
       );
     }
-    const converted = await validatePackageFolder(temporaryPath);
+    const converted = await validatePackageFolder(temporaryPath, true);
     if (converted.needsMigration || converted.missingMedia.length)
       throw new Error('PACKAGE_MIGRATION_COPY_INVALID');
     const marker: LegacyMigrationMarker = {
       schemaVersion: MIGRATION_SCHEMA_VERSION,
       sourceRealPath,
       sourceFingerprint,
+      sourceRevision,
       migratedAt: new Date().toISOString(),
     };
     await fs.writeFile(
@@ -313,9 +213,24 @@ const migrateLegacyFolder = async ({
   }
 };
 
+const rememberDestination = async (
+  index: PackageMigrationIndex | undefined,
+  source: string,
+  revision: string,
+  target: string,
+): Promise<string | undefined> => {
+  try {
+    await index?.remember(source, revision, target);
+    return undefined;
+  } catch {
+    return 'ファイルは開けましたが、この端末に保存先を記憶できませんでした。次回は完成したパッケージを直接開いてください。';
+  }
+};
+
 const preparePackage = async (
   sourcePath: string,
   destinationPath?: string,
+  index?: PackageMigrationIndex,
 ): Promise<PackageOpenPreparationResult> => {
   const resolvedSource = path.resolve(sourcePath);
   const compatibility = await validatePackageFolder(resolvedSource);
@@ -332,7 +247,9 @@ const preparePackage = async (
   }
 
   const sourceRealPath = await fs.realpath(resolvedSource);
-  const sourceFingerprint = await calculateSourceFingerprint(sourceRealPath);
+  const inventory = await snapshotPackageSource(sourceRealPath);
+  const sourceFingerprint = inventory.fingerprint;
+  const sourceRevision = inventory.revision;
   const defaultTarget = path.join(
     path.dirname(sourceRealPath),
     path.extname(sourceRealPath).toLowerCase() === '.stpkg'
@@ -340,25 +257,64 @@ const preparePackage = async (
       : `${path.basename(sourceRealPath)}.stpkg`,
   );
 
-  const resolvedTarget = destinationPath
-    ? await resolveExplicitTarget({
-        sourceRealPath,
-        sourceFingerprint,
-        destinationPath,
-      })
-    : await findReusableOrAvailableTarget({
-        sourceRealPath,
-        sourceFingerprint,
-        preferredTarget: defaultTarget,
-      });
+  const registered = !destinationPath
+    ? await index?.find(sourceRealPath, sourceRevision)
+    : undefined;
+  let rememberedTarget: { targetPath: string; reusable: boolean } | undefined;
+  if (registered) {
+    if (!(await pathExists(registered)))
+      throw new Error('PACKAGE_MIGRATION_DESTINATION_UNAVAILABLE');
+    const marker = await readMigrationMarker(registered);
+    if (
+      marker?.sourceRealPath !== sourceRealPath ||
+      !(marker.sourceRevision
+        ? marker.sourceRevision === sourceRevision
+        : marker.sourceFingerprint === sourceFingerprint)
+    )
+      throw new Error('PACKAGE_MIGRATION_COPY_INVALID');
+    rememberedTarget = { targetPath: registered, reusable: true };
+  }
+  let resolvedTarget: { targetPath: string; reusable: boolean };
+  try {
+    resolvedTarget =
+      rememberedTarget ??
+      (destinationPath
+        ? await resolveExplicitTarget({
+            sourceRealPath,
+            sourceFingerprint,
+            sourceRevision,
+            destinationPath,
+          })
+        : await findReusableOrAvailableTarget({
+            sourceRealPath,
+            sourceFingerprint,
+            sourceRevision,
+            preferredTarget: defaultTarget,
+          }));
+  } catch (error) {
+    if (!destinationPath && isPermissionError(error))
+      return {
+        status: 'needs-destination',
+        sourcePath: sourceRealPath,
+        suggestedPath: defaultTarget,
+      };
+    throw error;
+  }
 
   if (resolvedTarget.reusable) {
     const reused = await validatePackageFolder(resolvedTarget.targetPath);
     if (reused.needsMigration || reused.missingMedia.length)
       throw new Error('PACKAGE_MIGRATION_COPY_INVALID');
+    const warning = await rememberDestination(
+      index,
+      sourceRealPath,
+      sourceRevision,
+      resolvedTarget.targetPath,
+    );
     return {
       status: 'ready',
       packagePath: resolvedTarget.targetPath,
+      warning,
       migrated: true,
       reused: true,
       sourcePath: sourceRealPath,
@@ -369,6 +325,7 @@ const preparePackage = async (
     await migrateLegacyFolder({
       sourceRealPath,
       sourceFingerprint,
+      sourceRevision,
       targetPath: resolvedTarget.targetPath,
     });
   } catch (error) {
@@ -382,9 +339,16 @@ const preparePackage = async (
     throw error;
   }
 
+  const warning = await rememberDestination(
+    index,
+    sourceRealPath,
+    sourceRevision,
+    resolvedTarget.targetPath,
+  );
   return {
     status: 'ready',
     packagePath: resolvedTarget.targetPath,
+    warning,
     migrated: true,
     reused: false,
     sourcePath: sourceRealPath,
@@ -396,11 +360,12 @@ const preparations = new Map<string, Promise<PackageOpenPreparationResult>>();
 export const preparePackageForOpen = async (
   sourcePath: string,
   destinationPath?: string,
+  index?: PackageMigrationIndex,
 ): Promise<PackageOpenPreparationResult> => {
   const key = await fs.realpath(path.resolve(sourcePath));
   const preparation = (preparations.get(key) ?? Promise.resolve())
     .catch(() => undefined)
-    .then(() => preparePackage(sourcePath, destinationPath));
+    .then(() => preparePackage(sourcePath, destinationPath, index));
   preparations.set(key, preparation);
   try {
     return await preparation;
