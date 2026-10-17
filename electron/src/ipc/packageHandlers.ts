@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { PackageMigrationIndex } from './packageMigrationIndex';
 import { app } from 'electron';
 import { refreshAppMenu } from '../menuBar';
 import { readMediaFrameWindow } from './mediaFrameService';
@@ -26,6 +28,9 @@ export const registerPackageHandlers = (): void => {
     return;
   }
   isRegistered = true;
+  const migrationIndex = new PackageMigrationIndex(
+    path.join(app.getPath('userData'), 'package-migrations.json'),
+  );
 
   registerHandleWithAliases(
     'sportscode:read-xml',
@@ -127,7 +132,11 @@ export const registerPackageHandlers = (): void => {
       if (destinationPath !== undefined && !isNonEmptyString(destinationPath)) {
         throw new Error('Invalid package migration destination');
       }
-      const result = await preparePackageForOpen(packagePath, destinationPath);
+      const result = await preparePackageForOpen(
+        packagePath,
+        destinationPath,
+        migrationIndex,
+      );
       if (result.status === 'ready') {
         await registerPackageLocation(result.packagePath);
         try {

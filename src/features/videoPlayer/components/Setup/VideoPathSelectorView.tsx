@@ -19,7 +19,6 @@ export interface VideoPathSelectorViewProps extends StartStatusProps {
   onOpenPackage: () => void;
   onOpenWizard: () => void;
   onOpenCapture?: () => void;
-  onOpenLegacyPackage?: () => void;
   onOpenSportscode?: () => void;
   onOpenRecentPackage: (path: string) => void;
   onRemoveRecentPackage: (path: string) => void;
@@ -80,7 +79,6 @@ export const VideoPathSelectorView = (
               onOpenPackage={props.onOpenPackage}
               onOpenWizard={props.onOpenWizard}
               onOpenCapture={props.onOpenCapture}
-              onOpenLegacyPackage={props.onOpenLegacyPackage}
               onOpenSportscode={props.onOpenSportscode}
               disabled={props.busy}
             />

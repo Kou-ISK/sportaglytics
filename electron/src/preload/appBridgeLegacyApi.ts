@@ -30,8 +30,7 @@ export const createAppBridgeLegacyApi = (
   ipcRenderer: IpcRenderer,
 ): Pick<IElectronAPI, AppBridgeLegacyKeys> => {
   return {
-    selectPackagePath: (legacyFolder = false) =>
-      ipcRenderer.invoke('package:select-path', legacyFolder),
+    selectPackagePath: () => ipcRenderer.invoke('package:select-path'),
     readSportscodeXml: (file) =>
       ipcRenderer.invoke('sportscode:read-xml', file),
     importSportscodePackage: (request) =>

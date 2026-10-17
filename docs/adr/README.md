@@ -15,7 +15,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0003](0003-shared-type-contracts-and-load-time-migration.md)      | Shared type contracts and load-time migration      | Accepted   | 2026-05-04 |
 | [0004](0004-doc-sync-and-documentation-source-of-truth.md)         | Doc sync and documentation source of truth         | Accepted   | 2026-05-05 |
 | [0005](0005-local-llm-analysis-boundary.md)                        | Local LLM analysis boundary                        | Accepted   | 2026-05-05 |
-| [0006](0006-application-document-formats-and-file-associations.md) | Application document formats and file associations | Accepted   | 2026-05-05 |
+| [0006](0006-application-document-formats-and-file-associations.md) | Application document formats and file associations | Superseded   | 2026-05-05 |
 | [0007](0007-audio-sync-offset-contract.md)                         | Audio sync offset contract                         | Superseded | 2026-05-06 |
 | [0008](0008-dedicated-sub-window-runtime-and-synchronization.md)   | Dedicated sub-window runtime and synchronization   | Accepted   | 2026-05-06 |
 | [0009](0009-timeline-import-export-interoperability.md)            | Timeline import/export interoperability            | Accepted   | 2026-05-06 |
@@ -37,11 +37,9 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0025](0025-playlist-document-presentation-order.md)               | Playlist document presentation order               | Superseded | 2026-08-25 |
 | [0026](0026-package-session-window-ownership.md)                   | Package session window ownership                   | Accepted   | 2026-08-30 |
 | [0027](0027-enforced-design-system-foundation.md)                  | Enforced design system foundation                  | Accepted   | 2026-08-30 |
-
 | [0028](0028-playlist-studio-annotation-contract.md) | Playlist Studio annotation contract | Superseded | 2026-09-10 |
 | [0029](0029-tactics-motion-and-plane-contract.md) | Tactics motion and plane contract | Accepted | 2026-09-12 |
 | [0030](0030-video-window-aspect.md) | Video window aspect | Accepted | 2026-09-10 |
-
 | [0031](0031-tracking-target-selection.md) | Tracking target selection | Accepted | 2026-09-11 |
 | [0032](0032-immutable-release-artifacts.md) | Immutable release artifacts | Accepted | 2026-09-13 |
 | [0033](0033-windows-desktop-runtime.md) | Windows desktop runtime | Superseded | 2026-09-13 |
@@ -58,16 +56,21 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0044](0044-sync-in-coding-toolbar.md) | Sync in the Coding toolbar | Accepted | 2026-09-21 |
 | [0045](0045-buffer-startup-package-open.md) | Buffer startup package open（Mainのロード完了待機を補足） | Accepted | 2026-09-21 |
 | [0046](0046-coalesced-playback-corrections.md) | Coalesced playback corrections | Accepted | 2026-09-21 |
-
 | [0047](0047-playlist-sorter-presentation-order.md) | Playlist Sorter presentation order | Accepted | 2026-09-21 |
 | [0048](0048-playlist-instance-notes.md) | Playlist instance notes | Accepted | 2026-09-21 |
 | [0049](0049-bounded-export-text.md) | Bounded export text | Accepted | 2026-09-21 |
 | [0050](0050-instance-scoped-export-preparation.md) | Instance-scoped export preparation | Accepted | 2026-09-22 |
-
 | [0051](0051-portable-playlist-references.md) | Portable playlist references | Accepted | 2026-09-22 |
 | [0052](0052-playlist-default-angles.md) | Playlist default angles | Accepted | 2026-09-22 |
 | [0053](0053-live-capture-package-timeline.md) | Live capture on the package timeline | Accepted | 2026-09-22 |
 | [0054](0054-continuous-capture-playback.md) | Continuous capture playback | Accepted | 2026-09-23 |
+| [0055](0055-timeline-review-without-document-filtering.md) | Timeline review without document filtering | Accepted | 2026-10-01 |
+| [0056](0056-built-in-dashboard-editing-contract.md) | Built-in dashboard editing contract | Accepted | 2026-10-02 |
+| [0057](0057-verified-analysis-frame-capture.md) | Verified analysis frame capture | Accepted | 2026-10-02 |
+| [0058](0058-build-downloads-without-response-cache.md) | Build downloads without HTTP response caching（2026-10-10 proxy監査追補） | Accepted | 2026-10-04 |
+| [0059](0059-playlist-renderer-delivery-readiness.md) | Playlist renderer delivery readiness | Accepted | 2026-10-04 |
+| [0065](0065-unified-project-open.md) | Unified project open | Accepted | 2026-10-17 |
+| [0066](0066-capture-playback-bounds.md) | Capture playback bounds | Accepted | 2026-10-17 |
 
 ## Status Values
 
@@ -113,12 +116,6 @@ YYYY-MM-DD
 
 ## Consequences
 ```
-
-| [0055](0055-timeline-review-without-document-filtering.md) | Timeline review without document filtering | Accepted | 2026-10-01 |
-| [0056](0056-built-in-dashboard-editing-contract.md) | Built-in dashboard editing contract | Accepted | 2026-10-02 |
-| [0057](0057-verified-analysis-frame-capture.md) | Verified analysis frame capture | Accepted | 2026-10-02 |
-| [0058](0058-build-downloads-without-response-cache.md) | Build downloads without HTTP response caching（2026-10-10 proxy監査追補） | Accepted | 2026-10-04 |
-| [0059](0059-playlist-renderer-delivery-readiness.md) | Playlist renderer delivery readiness | Accepted | 2026-10-04 |
 
 - [0060 Distribution License Evidence](0060-distribution-license-evidence.md): 実bundleの告知とRelease対応sourceの同梱。
 - [0061 Event Pack Distribution Provenance](0061-event-pack-distribution-provenance.md): runtime互換を維持した配布前の由来・全ファイル検査。

@@ -9,6 +9,8 @@ const scenarios = [
   'sportscode-import',
   'legacy-external',
   'live-capture',
+  'capture-reopen',
+  'unified-open',
   'clip-sync',
   'multi-clip-playback',
   'angle-sync-multi',

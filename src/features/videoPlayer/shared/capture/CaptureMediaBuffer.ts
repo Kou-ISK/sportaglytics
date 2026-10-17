@@ -4,6 +4,7 @@ import { captureMp4MimeType } from './mp4Codec';
 
 const KEEP_BEHIND = 20;
 const KEEP_AHEAD = 10;
+const IO_TIMEOUT_MS = 15000;
 
 /** One decoder/source per angle. Only nearby saved fragments are read into memory. */
 export class CaptureMediaBuffer {
@@ -13,6 +14,7 @@ export class CaptureMediaBuffer {
   private updatePending = false;
   private clips: PackageMediaClip[] = [];
   private time = 0;
+  private complete = false;
   private loaded = new Map<string, { start: number; end: number }>();
   private abort = new AbortController();
 
@@ -27,7 +29,8 @@ export class CaptureMediaBuffer {
     source.addEventListener('sourceopen', this.pump);
   }
 
-  update(clips: PackageMediaClip[], time: number): void {
+  update(clips: PackageMediaClip[], time: number, complete = false): void {
+    this.complete = complete;
     this.clips = clips;
     this.time = Math.max(0, time);
     this.updatePending = true;
@@ -38,7 +41,9 @@ export class CaptureMediaBuffer {
     const buffer = this.buffer;
     if (!buffer || this.disposed) return Promise.resolve();
     return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => failure(), IO_TIMEOUT_MS);
       const cleanup = (): void => {
+        clearTimeout(timer);
         buffer.removeEventListener('updateend', success);
         buffer.removeEventListener('error', failure);
         this.abort.signal.removeEventListener('abort', failure);
@@ -64,7 +69,7 @@ export class CaptureMediaBuffer {
   }
 
   private pump = (): void => {
-    if (this.running || this.disposed || this.source.readyState !== 'open')
+    if (this.running || this.disposed || this.source.readyState === 'closed')
       return;
     this.running = true;
     this.updatePending = false;
@@ -85,6 +90,20 @@ export class CaptureMediaBuffer {
 
   private async fill(): Promise<void> {
     const time = this.time;
+    // Seeking must use the whole saved timeline, not only the nearby buffer.
+    // A truncated duration can clamp a seek to data that eviction then removes.
+    const duration = this.clips.reduce(
+      (end, clip) =>
+        Math.max(end, clip.timelineStartSeconds + (clip.durationSeconds ?? 2)),
+      0,
+    );
+    if (
+      this.source.readyState === 'open' &&
+      duration > 0 &&
+      (!Number.isFinite(this.source.duration) ||
+        this.source.duration < duration)
+    )
+      this.source.duration = duration;
     // A discontinuous seek releases old data before requesting another interval.
     if (this.buffer?.buffered.length) {
       const end = this.buffer.buffered.end(this.buffer.buffered.length - 1);
@@ -119,7 +138,16 @@ export class CaptureMediaBuffer {
     for (const clip of candidates) {
       if (this.disposed || Math.abs(this.time - time) > KEEP_AHEAD) return;
       if (this.loaded.has(clip.id)) continue;
-      const data = await this.read(clip.source, this.abort.signal);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const data = await Promise.race([
+        this.read(clip.source, this.abort.signal),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('Recorded fragment read timed out')),
+            IO_TIMEOUT_MS,
+          );
+        }),
+      ]).finally(() => clearTimeout(timer));
       if (this.disposed) return;
       if (!this.buffer) {
         const mime = captureMp4MimeType(data);
@@ -129,7 +157,6 @@ export class CaptureMediaBuffer {
       }
       const start = clip.timelineStartSeconds;
       const end = start + (clip.durationSeconds ?? 2);
-      this.source.duration = Math.max(this.source.duration || 0, end + 1);
       this.buffer.timestampOffset = start;
       this.buffer.appendWindowStart = 0;
       // CSV boundaries describe video packets. Cropping AAC at those timestamps
@@ -139,6 +166,14 @@ export class CaptureMediaBuffer {
       await this.operation(() => this.buffer?.appendBuffer(data));
       this.loaded.set(clip.id, { start, end });
     }
+    const last = this.clips.at(-1);
+    if (
+      this.complete &&
+      last &&
+      this.loaded.has(last.id) &&
+      this.source.readyState === 'open'
+    )
+      this.source.endOfStream();
   }
 
   dispose(): void {

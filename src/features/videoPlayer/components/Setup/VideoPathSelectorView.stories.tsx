@@ -32,7 +32,6 @@ const meta = {
     onOpenPackage: () => {},
     onOpenWizard: () => {},
     onOpenCapture: () => {},
-    onOpenLegacyPackage: () => {},
     onOpenSportscode: () => {},
     onOpenRecentPackage: () => {},
     onRemoveRecentPackage: () => {},
@@ -95,7 +94,7 @@ export const UnsupportedDrop: Story = {
     ...RecentMatches.args,
     invalidDrop: true,
     error:
-      '.stpkg パッケージを1つドロップしてください。映像ファイルは「新しいパッケージを作成」から追加できます。',
+      'プロジェクトのファイルまたはフォルダを1つドロップしてください。映像ファイルは「新しいパッケージを作成」から追加できます。',
     onRetry: () => {},
     onDismissError: () => {},
   },

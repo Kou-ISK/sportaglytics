@@ -18,16 +18,16 @@
 package picker、Recent Packages、Finder/OS file open、drag/drop はすべて renderer の `loadPackageDirectory()` 直前で `package:prepare-open` を通ります。
 
 1. legacy source を validation する
-2. source の real path と config/timeline fingerprint を計算する
-3. 同一 source の既存 migrated package があれば再利用する
+2. sourceのreal path、全ファイルの状態から厳密なfingerprint、再利用用revision、コピー検証用fingerprintを計算する
+3. 端末内索引と同じ親フォルダから、同一source/revisionの完成済みpackageを探索・検証して再利用する
 4. なければ sibling の `<folder>.stpkg`、競合時は `<folder>-2.stpkg` 以降を選ぶ
-5. target と同じ parent に temporary directory を作成し、legacy source 全体を recursive copy する
+5. targetと同じparentに、通常は開けない`.sportag-migrating-<uuid>`を作成し、legacy source全体をrecursive copyして内容を比較する
 6. source 内を指す旧 absolute media path を copied package 内の relative path へ変換する
 7. copied `.metadata/config.json` に既存 current-config migration を適用する
 8. copied package を再 validation する
 9. `.metadata/legacy-migration.json` を書く
-10. temporary directory を target へ rename し、完成を atomic に確定する
-11. 以降は生成された `.stpkg` を current project として開く
+10. 原本が変化していないことを確認し、temporary directoryをtargetへrenameして完成をatomicに確定する
+11. 端末内索引へ完成先を記録し、生成された`.stpkg`をcurrent projectとして開く
 
 source folder は成功・失敗・キャンセルのいずれでも変更・削除しません。
 
@@ -40,11 +40,12 @@ source folder は成功・失敗・キャンセルのいずれでも変更・削
   "schemaVersion": 1,
   "sourceRealPath": "/path/to/legacy-project",
   "sourceFingerprint": "sha256...",
+  "sourceRevision": "sha256...",
   "migratedAt": "2026-08-19T00:00:00.000Z"
 }
 ```
 
-source real path と fingerprint が一致する package を見つけた場合、同じ migration を繰り返さず既存 `.stpkg` を再利用します。同名 `.stpkg` が別 source のものなら上書きしません。
+source real pathとrevisionが一致するpackageを検証して再利用します。旧markerにrevisionがない場合だけ、厳密なfingerprintの一致を要求します。Finderの補助情報やフォルダmtimeだけの変化で移行し直しません。同名`.stpkg`が別sourceのものなら上書きしません。
 
 ## 書き込み権限がない場合
 
@@ -73,3 +74,5 @@ automated migration tests では次を固定します。
 - unrelated target を上書きしない
 - explicit destination migration が可能
 - malformed legacy source では target を作らない
+
+共通picker・端末内索引・staging拒否・失敗時の状態は[パッケージ互換](package-compatibility.md#開くと再試行の状態)を正本とします。別保存先と連番の欠番を含めて完成コピーを再利用します。
