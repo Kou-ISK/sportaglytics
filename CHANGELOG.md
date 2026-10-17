@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.9]
+
+公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。ライブ録画の再生待機と、共通の「開く」からの原本を保護する移行を改善する版です。既存の公開版とタグは維持します。
+
 ### Fixed
 
 - ライブ録画の全体尺と再生バッファを分離し、離れた位置へのシークや録画終端で待機が続く問題を修正。保存済み録画の終端・再オープンを検証する。[ライブ仕様](docs/live-coding.md)。
