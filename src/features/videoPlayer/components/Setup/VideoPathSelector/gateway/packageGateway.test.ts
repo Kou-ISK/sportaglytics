@@ -82,3 +82,32 @@ describe('legacy creation history recovery', () => {
     expect(api.bindPackageSession).not.toHaveBeenCalled();
   });
 });
+
+it('releases the prepared destination if reading fails, so another window can retry', async () => {
+  const release = vi.fn(async () => undefined);
+  const bind = vi.fn(async () => true);
+  vi.stubGlobal('window', {
+    electronAPI: {
+      preparePackageForOpen: async () => ({
+        status: 'ready',
+        packagePath: '/copies/converted.stpkg',
+      }),
+      bindPackageSession: bind,
+      releasePackageSession: release,
+      checkFileExists: async () => true,
+      readJsonFile: async () => {
+        throw new Error('read failed');
+      },
+    },
+  });
+  await expect(loadPackageDirectory('/original')).rejects.toThrow(
+    'read failed',
+  );
+  expect(bind).toHaveBeenCalledWith('/copies/converted.stpkg');
+  expect(release).toHaveBeenCalledExactlyOnceWith('/copies/converted.stpkg');
+  bind.mockResolvedValue(false);
+  await expect(loadPackageDirectory('/original')).rejects.toThrow(
+    '別のウィンドウ',
+  );
+  expect(release).toHaveBeenCalledTimes(1);
+});

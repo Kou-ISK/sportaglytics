@@ -407,3 +407,5 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 ### Mac配布スクリプト
 
 `scripts/macos/`はRelease専用afterPack、純粋な同梱payload照合、read-only DMG検査、version/main/tag guard、Homebrew Cask生成を担当します。アプリruntimeへ依存させません。`scripts/windows/release-evidence.mjs`は同一runのWindows installed reportをsource commit/tree・version・実installer hashと結び付け、対応source用manifestをstageします。source bundleの対象選択とarchive metadataの正規化は`scripts/media-tools/source-bundle.mjs`と`archive-sources.py`に置き、対応sourceの列挙は`package-media-sources.mjs`が担当します。
+
+`electron/src/ipc/packageMigrationTargets.ts`は完成先の探索とmarker、`packageMigrationIndex.ts`は端末内索引、`legacyPackageMigrationService.ts`はコピー移行のトランザクションを担当する。

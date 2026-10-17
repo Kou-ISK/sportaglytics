@@ -75,7 +75,7 @@ describe('legacy file access handlers', () => {
   });
 
   it.each(['darwin', 'win32'])(
-    'separates current package and legacy folder selection on %s',
+    'selects packages and project folders through one picker on %s',
     async (platform) => {
       const original = Object.getOwnPropertyDescriptor(process, 'platform');
       Object.defineProperty(process, 'platform', { value: platform });
@@ -88,32 +88,20 @@ describe('legacy file access handlers', () => {
           canceled: false,
           filePaths: ['/tmp/source'],
         });
-        expect(await handler?.({ sender: {} }, false)).toBe('/tmp/source');
-        const current = electronMocks.showOpenDialog.mock.calls[0]?.[1];
-        expect(current).toMatchObject(
-          platform === 'darwin'
-            ? {
-                properties: ['openFile', 'openDirectory'],
-                filters: [
-                  { name: 'SporTagLytics Package', extensions: ['stpkg'] },
-                ],
-              }
-            : { properties: ['openDirectory'] },
-        );
-        if (platform === 'win32') expect(current).not.toHaveProperty('filters');
-        await handler?.({ sender: {} }, true);
-        expect(electronMocks.showOpenDialog.mock.calls[1]?.[1]).toMatchObject({
-          properties: ['openDirectory', 'treatPackageAsDirectory'],
+        expect(await handler?.({ sender: {} })).toBe('/tmp/source');
+        expect(electronMocks.showOpenDialog.mock.calls[0]?.[1]).toEqual({
+          properties:
+            platform === 'darwin'
+              ? ['openFile', 'openDirectory']
+              : ['openDirectory'],
+          message: '開くファイルまたはフォルダを選択する',
         });
         electronMocks.showOpenDialog.mockResolvedValue({
           canceled: true,
           filePaths: [],
         });
-        expect(await handler?.({ sender: {} }, true)).toBe('');
+        expect(await handler?.({ sender: {} })).toBe('');
         expect(electronMocks.addRecentDocument).not.toHaveBeenCalled();
-        electronMocks.showOpenDialog.mockClear();
-        await expect(handler?.({ sender: {} }, 'legacy')).rejects.toThrow();
-        expect(electronMocks.showOpenDialog).not.toHaveBeenCalled();
       } finally {
         if (original) Object.defineProperty(process, 'platform', original);
       }

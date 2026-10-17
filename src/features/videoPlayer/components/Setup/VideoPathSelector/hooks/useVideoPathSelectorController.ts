@@ -12,7 +12,6 @@ interface VideoPathSelectorController extends StartStatusProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   handleOpenPackage: () => void;
-  onOpenLegacyPackage: () => void;
   onOpenCapture: () => void;
   showWelcome: boolean;
   wizardOpen: boolean;
@@ -112,7 +111,7 @@ export const useVideoPathSelectorController = ({
 
   const opener = useStartPackageOpen(handlePackageLoaded);
   const { dragState, handlers: dragHandlers } = useDragAndDrop(
-    (path) => void opener.open(path),
+    (path) => void opener.open(path, 'drop'),
     opener.reportInvalidDrop,
     opener.busy || wizardOpen,
   );
@@ -127,7 +126,6 @@ export const useVideoPathSelectorController = ({
     onRetry: opener.retry,
     onDismissError: opener.dismissError,
     handleOpenPackage: () => void opener.open(),
-    onOpenLegacyPackage: () => void opener.open(undefined, true),
     onOpenCapture: () => {
       void window.electronAPI?.liveCapture.open().catch(() =>
         notify({

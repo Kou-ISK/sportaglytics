@@ -15,7 +15,7 @@ export interface StartPackageOpen {
   error: string;
   errorDetails: string;
   invalidDrop: boolean;
-  open: (path?: string, legacyFolder?: boolean) => Promise<void>;
+  open: (path?: string, source?: 'open' | 'drop') => Promise<void>;
   retry: () => void;
   dismissError: () => void;
   reportInvalidDrop: () => void;
@@ -34,26 +34,35 @@ export const useStartPackageOpen = (
   const opening = useRef(false);
   const { info } = useNotification();
   const open = useCallback(
-    async (path?: string, legacyFolder = false): Promise<void> => {
+    async (path?: string, source: 'open' | 'drop' = 'open'): Promise<void> => {
       if (opening.current) return;
       opening.current = true;
       setBusy(true);
       setFailure(null);
       let selectedPath = path;
       try {
-        selectedPath = (await pickPackagePath(path, legacyFolder)) ?? undefined;
+        selectedPath = (await pickPackagePath(path)) ?? undefined;
         if (!selectedPath) return;
         const loaded = await loadPackageDirectory(selectedPath);
+        if (loaded.warning) info(loaded.warning);
         if (loaded.missingSyncData)
           info(
             '音声同期データがありません。必要に応じてメニューから同期を実行してください。',
           );
         onLoaded(loaded.result);
       } catch (error: unknown) {
+        // Native open routing may reserve the source before preparation starts.
         if (selectedPath) await releasePackageSessionReservation(selectedPath);
+        const invalidDrop =
+          source === 'drop' &&
+          error instanceof Error &&
+          error.message.includes('PACKAGE_SOURCE_NOT_DIRECTORY');
         setFailure({
-          path: selectedPath,
-          message: toPackageLoadErrorMessage(error),
+          path: invalidDrop ? undefined : selectedPath,
+          invalidDrop,
+          message: invalidDrop
+            ? 'プロジェクトのファイルまたはフォルダを選んでください。映像ファイルは「新しいパッケージを作成」から追加できます。'
+            : toPackageLoadErrorMessage(error),
           details: [selectedPath, error instanceof Error ? error.message : '']
             .filter(Boolean)
             .join('\n'),
@@ -84,7 +93,7 @@ export const useStartPackageOpen = (
     reportInvalidDrop: () =>
       setFailure({
         message:
-          '.stpkg パッケージを1つドロップしてください。映像ファイルは「新しいパッケージを作成」から追加できます。',
+          '開くファイルまたはフォルダを1つドロップしてください。映像ファイルは「新しいパッケージを作成」から追加できます。',
         details: '',
         invalidDrop: true,
       }),

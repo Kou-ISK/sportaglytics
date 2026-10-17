@@ -8,7 +8,6 @@ export const ActionButtonsRow = ({
   openButtonRef,
   onOpenWizard,
   onOpenCapture,
-  onOpenLegacyPackage,
   onOpenSportscode,
   disabled = false,
 }: {
@@ -16,7 +15,6 @@ export const ActionButtonsRow = ({
   openButtonRef?: Ref<HTMLButtonElement>;
   onOpenWizard: () => void;
   onOpenCapture?: () => void;
-  onOpenLegacyPackage?: () => void;
   onOpenSportscode?: () => void;
   disabled?: boolean;
 }): ReactElement => (
@@ -56,16 +54,6 @@ export const ActionButtonsRow = ({
           sx={{ justifyContent: 'flex-start', whiteSpace: 'nowrap' }}
         >
           ライブキャプチャ
-        </Button>
-      )}
-      {onOpenLegacyPackage && (
-        <Button
-          onClick={onOpenLegacyPackage}
-          disabled={disabled}
-          fullWidth
-          sx={{ justifyContent: 'flex-start' }}
-        >
-          旧SporTagフォルダを開く
         </Button>
       )}
       {onOpenSportscode && (

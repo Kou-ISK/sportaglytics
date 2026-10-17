@@ -49,7 +49,14 @@ export interface PackageCompatibility {
 /** Known structures are accepted independently of the filename extension. */
 export const inspectPackageCompatibility = async (
   packagePath: string,
+  staging = false,
 ): Promise<PackageCompatibility> => {
+  if (
+    !staging &&
+    (path.basename(packagePath).startsWith('.sportag-migrating-') ||
+      /\.migrating-[a-f0-9-]+\.stpkg$/i.test(packagePath))
+  )
+    throw new Error('PACKAGE_MIGRATION_INCOMPLETE');
   if (/\.(scpkg|sczip)$/i.test(packagePath))
     throw new Error('PACKAGE_SPORTSCODE_NATIVE_UNSUPPORTED');
   const stat = await fs.lstat(packagePath);
@@ -175,7 +182,8 @@ export const inspectPackageCompatibility = async (
   }
   return {
     needsMigration:
-      legacy || path.extname(packagePath).toLowerCase() !== '.stpkg',
+      legacy ||
+      (!staging && path.extname(packagePath).toLowerCase() !== '.stpkg'),
     missingMedia,
   };
 };

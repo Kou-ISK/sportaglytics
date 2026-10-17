@@ -492,3 +492,5 @@ Pull request CIは `develop` を含む通常統合先で実行する。Model R&D
 ## デスクトップ対応OS
 
 macOSに加えWindows 11 x64を配布対象とする。映像・音声同期・Timeline・Playlist/Paint・Code Window・分析・レポート・ローカルAIは共通機能モデルを用いる。Windowsの導入条件、model packのプラットフォーム条件、操作差と配布検証は[Windows版](windows.md)を正本とする。
+
+プロジェクトは共通の「開く」から内容判定し、安全な移行と完成先再利用を行う。保存済みライブ録画は全体尺へのシークと録画終端からの再開を可能にする。[互換契約](package-compatibility.md)、[ライブ契約](live-coding.md)。

@@ -1,3 +1,4 @@
+import { PackageMigrationIndex } from './packageMigrationIndex';
 import fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -591,4 +592,165 @@ it('accepts stored capture projects beyond the import wizard source-file limit',
     migrated: false,
     packagePath: source,
   });
+});
+
+it('reuses an edited migrated copy past a vacant earlier suffix', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'migration-hole-'));
+  temporaryPaths.push(root);
+  const source = await createLegacyFixture(root);
+  const occupied = `${source}.stpkg`;
+  await fs.mkdir(occupied);
+  const first = await preparePackageForOpen(source);
+  expect(first.status).toBe('ready');
+  if (first.status !== 'ready') throw new Error('not ready');
+  expect(first.packagePath).toBe(`${await fs.realpath(source)}-2.stpkg`);
+  await fs.rm(occupied, { recursive: true });
+  const timeline = path.join(first.packagePath, 'timeline.json');
+  const doc = JSON.parse(await fs.readFile(timeline, 'utf8'));
+  doc.instances[0].memo = 'Edited after migration';
+  await fs.writeFile(timeline, JSON.stringify(doc));
+  const reopened = await preparePackageForOpen(source);
+  expect(reopened).toMatchObject({
+    status: 'ready',
+    reused: true,
+    packagePath: first.packagePath,
+  });
+  expect(await fs.readFile(timeline, 'utf8')).toContain(
+    'Edited after migration',
+  );
+});
+
+it('persists an alternate destination and validates it on a fresh index instance', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'migration-index-'));
+  temporaryPaths.push(root);
+  const source = await createLegacyFixture(root);
+  const indexFile = path.join(root, 'profile', 'migrations.json');
+  const destination = path.join(root, 'elsewhere', 'saved.stpkg');
+  await fs.mkdir(path.dirname(destination));
+  await preparePackageForOpen(
+    source,
+    destination,
+    new PackageMigrationIndex(indexFile),
+  );
+  expect(
+    await preparePackageForOpen(
+      source,
+      undefined,
+      new PackageMigrationIndex(indexFile),
+    ),
+  ).toMatchObject({ status: 'ready', reused: true, packagePath: destination });
+  await fs.writeFile(path.join(destination, 'timeline.json'), '{');
+  await expect(
+    preparePackageForOpen(
+      source,
+      undefined,
+      new PackageMigrationIndex(indexFile),
+    ),
+  ).rejects.toThrow();
+  expect(await fs.readdir(root)).not.toContain('legacy-match.stpkg');
+});
+
+it('rejects both reserved staging names before opening or copying', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'migration-staging-'));
+  temporaryPaths.push(root);
+  for (const name of [
+    '.sportag-migrating-123',
+    'source.migrating-abcd.stpkg',
+  ]) {
+    const source = await createLegacyFixture(root, name);
+    await expect(preparePackageForOpen(source)).rejects.toThrow(
+      'PACKAGE_MIGRATION_INCOMPLETE',
+    );
+  }
+});
+
+it('reuses after Finder metadata changes but preserves strict in-flight source checks', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'migration-revision-'));
+  temporaryPaths.push(root);
+  const source = await createLegacyFixture(root);
+  const first = await preparePackageForOpen(source);
+  if (first.status !== 'ready') throw new Error('not ready');
+  await fs.writeFile(path.join(source, '.DS_Store'), 'finder metadata');
+  expect(await preparePackageForOpen(source)).toMatchObject({
+    status: 'ready',
+    reused: true,
+    packagePath: first.packagePath,
+  });
+  await fs.writeFile(
+    path.join(source, '.metadata/legacy-code-window.json'),
+    '{"name":"Changed"}',
+  );
+  const changed = await preparePackageForOpen(source);
+  expect(changed).toMatchObject({ status: 'ready', reused: false });
+});
+
+it('does not create a duplicate when the registered destination is disconnected', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'migration-offline-'));
+  temporaryPaths.push(root);
+  const source = await createLegacyFixture(root);
+  const destination = path.join(root, 'saved.stpkg');
+  const index = new PackageMigrationIndex(path.join(root, 'index.json'));
+  await preparePackageForOpen(source, destination, index);
+  await fs.rename(destination, `${destination}.offline`);
+  await expect(preparePackageForOpen(source, undefined, index)).rejects.toThrow(
+    'PACKAGE_MIGRATION_DESTINATION_UNAVAILABLE',
+  );
+  expect(await fs.readdir(root)).not.toContain('legacy-match.stpkg');
+});
+
+it('keeps a committed valid package usable if the private index cannot be written', async () => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'migration-index-fault-'),
+  );
+  temporaryPaths.push(root);
+  const source = await createLegacyFixture(root);
+  const index = new PackageMigrationIndex(path.join(root, 'index.json'));
+  vi.spyOn(index, 'remember').mockRejectedValue(new Error('EACCES'));
+  const result = await preparePackageForOpen(source, undefined, index);
+  expect(result).toMatchObject({
+    status: 'ready',
+    warning: expect.stringContaining('保存先を記憶できません'),
+  });
+  if (result.status === 'ready')
+    expect((await fs.stat(result.packagePath)).isDirectory()).toBe(true);
+});
+
+it('requests an alternate destination when only the parent listing is denied', async () => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'migration-list-denied-'),
+  );
+  temporaryPaths.push(root);
+  const source = await createLegacyFixture(root);
+  const parent = await fs.realpath(root);
+  const readdir = fs.readdir.bind(fs);
+  vi.spyOn(fs, 'readdir').mockImplementation(
+    async (...args: Parameters<typeof fs.readdir>) => {
+      if (String(args[0]) === parent)
+        throw Object.assign(new Error('denied'), { code: 'EACCES' });
+      return readdir(...args);
+    },
+  );
+  expect(await preparePackageForOpen(source)).toMatchObject({
+    status: 'needs-destination',
+  });
+});
+
+it('rejects a copy whose auxiliary metadata bytes differ before conversion', async () => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'migration-short-copy-'),
+  );
+  temporaryPaths.push(root);
+  const source = await createLegacyFixture(root);
+  const copy = fs.cp.bind(fs);
+  vi.spyOn(fs, 'cp').mockImplementation(async (from, to, options) => {
+    await copy(from, to, options);
+    await fs.writeFile(
+      path.join(String(to), '.metadata/legacy-code-window.json'),
+      '{}',
+    );
+  });
+  await expect(preparePackageForOpen(source)).rejects.toThrow(
+    'PACKAGE_MIGRATION_COPY_INVALID',
+  );
+  expect(await fs.readdir(root)).toEqual(['legacy-match']);
 });

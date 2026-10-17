@@ -15,7 +15,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Native runtime has missing dependencies' }
   node scripts/windows/verify-h264.mjs "$target/resources/media-tools"
   if ($LASTEXITCODE -ne 0) { throw 'Installed CPU H.264 encoder failed' }
-  foreach ($scenario in @('ux-review', 'ux-density', 'package-safety', 'sportscode-import', 'legacy-external', 'live-capture', 'clip-sync', 'multi-clip-playback', 'code-window-menu', 'export-progress', 'export-menu', 'export-fast', 'paint-export', 'angle-sync-multi', 'angle-sync-gaps', 'timeline-rows', 'paint', 'tactical-board', 'package-reopen', 'playlist-open-menu', 'playlist-references-angles', 'event-detection')) {
+  foreach ($scenario in @('ux-review', 'ux-density', 'package-safety', 'sportscode-import', 'legacy-external', 'live-capture', 'capture-reopen', 'unified-open', 'clip-sync', 'multi-clip-playback', 'code-window-menu', 'export-progress', 'export-menu', 'export-fast', 'paint-export', 'angle-sync-multi', 'angle-sync-gaps', 'timeline-rows', 'paint', 'tactical-board', 'package-reopen', 'playlist-open-menu', 'playlist-references-angles', 'event-detection')) {
     node "scripts/e2e-$scenario.mjs"
     if ($LASTEXITCODE -ne 0) { throw "Installed application failed: $scenario" }
   }

@@ -33,7 +33,6 @@ describe('VideoPathSelectorView', () => {
       onOpenPackage: vi.fn(),
       onOpenWizard: vi.fn(),
       onOpenCapture: vi.fn(),
-      onOpenLegacyPackage: vi.fn(),
       onOpenSportscode: vi.fn(),
     };
     renderWithProviders(
@@ -51,7 +50,6 @@ describe('VideoPathSelectorView', () => {
       'パッケージを開く',
       '新しいパッケージを作成',
       'ライブキャプチャ',
-      '旧SporTagフォルダを開く',
       'Sportscode XMLから作成',
     ]) {
       fireEvent.click(screen.getByRole('button', { name }));
@@ -151,7 +149,6 @@ describe('startup recent packages and recovery', () => {
     onOpenPackage: vi.fn(),
     onOpenWizard: vi.fn(),
     onOpenCapture: vi.fn(),
-    onOpenLegacyPackage: vi.fn(),
     onOpenSportscode: vi.fn(),
     onOpenRecentPackage: vi.fn(),
     onRemoveRecentPackage: vi.fn(),
@@ -202,7 +199,6 @@ describe('startup recent packages and recovery', () => {
       'パッケージを開く',
       '新しいパッケージを作成',
       'ライブキャプチャ',
-      '旧SporTagフォルダを開く',
       'Sportscode XMLから作成',
       '決勝を開く',
       '決勝を最近開いたパッケージから削除',

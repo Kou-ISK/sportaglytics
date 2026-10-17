@@ -73,41 +73,25 @@ export const registerLegacyFileAccessHandlers = ({
   }
   isRegistered = true;
 
-  registerHandleWithAliases(
-    'package:select-path',
-    [],
-    async (event, legacyFolder: unknown) => {
-      const window = getValidatedEventSenderWindow(event);
-      if (!window || typeof legacyFolder !== 'boolean')
-        throw new Error('Invalid package selection sender or payload');
-      // Folder filters are ignored by Windows. Restriction is enforced by the
-      // structural preflight, and the old-folder entry has its own clear label.
-      const options: Electron.OpenDialogOptions = legacyFolder
-        ? {
-            properties: ['openDirectory', 'treatPackageAsDirectory'],
-            message:
-              '旧SporTagフォルダを選択する（原本を保ち、移行コピーを作成）',
-          }
-        : process.platform === 'darwin'
-          ? {
-              properties: ['openFile', 'openDirectory'],
-              message: '.stpkg パッケージを選択する',
-              filters: [
-                { name: 'SporTagLytics Package', extensions: ['stpkg'] },
-              ],
-            }
-          : {
-              properties: ['openDirectory'],
-              message: '.stpkg パッケージフォルダを選択する',
-            };
-      const main = getMainWindow();
-      const result = await dialog.showOpenDialog(
-        main && !main.isDestroyed() ? main : window,
-        options,
-      );
-      return result.canceled ? '' : (result.filePaths[0] ?? '');
-    },
-  );
+  registerHandleWithAliases('package:select-path', [], async (event) => {
+    const window = getValidatedEventSenderWindow(event);
+    if (!window) throw new Error('Invalid package selection sender');
+    // The same picker accepts package bundles and ordinary project folders.
+    // Main validates their contents after selection, independently of the name.
+    const options: Electron.OpenDialogOptions = {
+      properties:
+        process.platform === 'darwin'
+          ? ['openFile', 'openDirectory']
+          : ['openDirectory'],
+      message: '開くファイルまたはフォルダを選択する',
+    };
+    const main = getMainWindow();
+    const result = await dialog.showOpenDialog(
+      main && !main.isDestroyed() ? main : window,
+      options,
+    );
+    return result.canceled ? '' : (result.filePaths[0] ?? '');
+  });
 
   registerHandleWithAliases(
     'files:open-directory',

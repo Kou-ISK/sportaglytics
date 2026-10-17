@@ -35,7 +35,7 @@ export const useMediaTimeSync = (
       !player ||
       state.targetTime === undefined ||
       !Number.isFinite(state.targetTime) ||
-      player.seeking()
+      (player.seeking() && !force.current)
     )
       return;
     const now = performance.now();

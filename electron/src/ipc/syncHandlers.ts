@@ -1,4 +1,5 @@
 import { assertCaptureConfigEditable } from '../liveCapture/captureRegistry';
+import { writeTextFileAtomically } from './atomicTextFile';
 import * as fs from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import * as os from 'node:os';
@@ -104,15 +105,18 @@ export const registerSyncHandlers = (): void => {
       try {
         assertCaptureConfigEditable(configPath);
         const raw = await fs.readFile(configPath, 'utf-8');
-        const parsed = JSON.parse(raw || '{}') as unknown;
-        const json = isPlainObject(parsed) ? parsed : {};
+        const json: unknown = JSON.parse(raw);
+        if (!isPlainObject(json)) throw new Error('SYNC_CONFIG_INVALID');
         json.syncData = {
           syncOffset: normalizedSyncData.syncOffset,
           isAnalyzed: normalizedSyncData.isAnalyzed,
           confidenceScore: normalizedSyncData.confidenceScore,
           angleOffsets: normalizedSyncData.angleOffsets,
         };
-        await fs.writeFile(configPath, JSON.stringify(json, null, 2), 'utf-8');
+        await writeTextFileAtomically(
+          configPath,
+          JSON.stringify(json, null, 2),
+        );
         return true;
       } catch (error) {
         console.error('save-sync-data error:', error);

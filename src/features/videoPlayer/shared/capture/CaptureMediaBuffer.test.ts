@@ -186,3 +186,96 @@ it('drains a saved fragment after a held SourceBuffer updateend without overlapp
   expect(error).not.toHaveBeenCalled();
   controller.dispose();
 });
+
+it('publishes the full saved duration before reading the first nearby fragment', async () => {
+  const { source } = setup();
+  const read = vi.fn(async () => {
+    expect(source.duration).toBe(20000);
+    return new ArrayBuffer(8);
+  });
+  const controller = new CaptureMediaBuffer(source, read, vi.fn());
+  controller.update(clips, 0);
+  await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(6));
+  controller.dispose();
+});
+
+it('signals the saved end only after the final append and permits seeking back after EOS', async () => {
+  const { source } = setup();
+  const end = vi.fn(() => Object.assign(source, { readyState: 'ended' }));
+  Object.assign(source, { endOfStream: end });
+  const read = vi.fn(async () => new ArrayBuffer(8));
+  const controller = new CaptureMediaBuffer(source, read, vi.fn());
+  controller.update(clips.slice(0, 100), 196, false);
+  await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+  expect(end).not.toHaveBeenCalled();
+  controller.update(clips.slice(0, 100), 196, true);
+  await vi.waitFor(() => expect(end).toHaveBeenCalledTimes(1));
+  controller.update(clips.slice(0, 100), 0, true);
+  await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(8));
+  controller.dispose();
+});
+
+it('does not assign duration after EOS adjusts it to the actual sample end', async () => {
+  const { source } = setup();
+  let duration = 0;
+  Object.defineProperty(source, 'duration', {
+    get: () => duration,
+    set: (value: number) => {
+      if (source.readyState !== 'open')
+        throw new DOMException('not open', 'InvalidStateError');
+      duration = value;
+    },
+  });
+  Object.assign(source, {
+    endOfStream: () => {
+      duration += 0.021;
+      Object.assign(source, { readyState: 'ended' });
+    },
+  });
+  const error = vi.fn();
+  const controller = new CaptureMediaBuffer(
+    source,
+    async () => new ArrayBuffer(8),
+    error,
+  );
+  controller.update(clips.slice(0, 1), 0, true);
+  await vi.waitFor(() => expect(source.readyState).toBe('ended'));
+  controller.update(clips.slice(0, 1), 0, true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(error).not.toHaveBeenCalled();
+  expect(source.duration).toBe(2.021);
+  controller.dispose();
+});
+
+it('never shrinks a live duration already extended by appended audio samples', async () => {
+  const { source, buffer } = setup();
+  let duration = 0;
+  Object.defineProperty(source, 'duration', {
+    get: () => duration,
+    set: (value: number) => {
+      if (value < duration)
+        throw new DOMException(
+          'cannot trim buffered sample',
+          'InvalidStateError',
+        );
+      duration = value;
+    },
+  });
+  const append = buffer.appendBuffer.bind(buffer);
+  buffer.appendBuffer = () => {
+    append();
+    duration = 2.05;
+  };
+  const error = vi.fn();
+  const controller = new CaptureMediaBuffer(
+    source,
+    async () => new ArrayBuffer(8),
+    error,
+  );
+  controller.update(clips.slice(0, 1), 0, false);
+  await vi.waitFor(() => expect(source.duration).toBe(2.05));
+  controller.update(clips.slice(0, 1), 0, false);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(error).not.toHaveBeenCalled();
+  controller.dispose();
+});
