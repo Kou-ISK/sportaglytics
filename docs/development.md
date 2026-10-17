@@ -467,4 +467,4 @@ Macの配布準備は[Release手順](../.github/RELEASE.md)に従います。`re
 
 Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。
 
-保存済み録画のシーク・終端・別process再開は`node scripts/e2e-capture-reopen.mjs`、共通pickerと別保存先の再利用は`node scripts/e2e-unified-open.mjs`で合成データを検証する。既存live-captureに加えて対象実行する。
+保存済み録画のシーク・終端・別process再開は`node scripts/e2e-capture-reopen.mjs`、共通picker・以前の編集コピーの採用・同じ場所への保存と9境界のプロセス終了復旧は`node scripts/e2e-unified-open.mjs`で合成データを検証する。既存live-captureに加えて対象実行する。

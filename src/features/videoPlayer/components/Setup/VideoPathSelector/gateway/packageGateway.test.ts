@@ -40,24 +40,12 @@ describe('legacy creation history recovery', () => {
     return api;
   };
 
-  it('opens the existing .stpkg when an old history entry omitted the suffix', async () => {
-    const api = installApi(['/matches/試合 #50%.stpkg']);
-    const selectedPath = await pickPackagePath('/matches/試合 #50%');
-    expect(selectedPath).toBe('/matches/試合 #50%.stpkg');
-    const loaded = await loadPackageDirectory(selectedPath!);
-    expect(api.preparePackageForOpen).toHaveBeenCalledWith(
-      '/matches/試合 #50%.stpkg',
-    );
-    expect(api.bindPackageSession).toHaveBeenCalledWith(
-      '/matches/試合 #50%.stpkg',
-    );
-    expect(loaded.result.packagePath).toBe('/matches/試合 #50%.stpkg');
-    expect(loaded.result.mediaAngles?.[0].playbackFormat).toBe(
-      'fragmented-mp4',
-    );
-    expect(loaded.result.mediaAngles?.[0].clips[0].source).toBe(
-      '/matches/試合 #50%.stpkg/videos/first.mp4',
-    );
+  it('passes a missing original unchanged to Main so journal recovery precedes history suffix fallback', async () => {
+    const api = installApi(['/matches/old.stpkg']);
+    const selected = await pickPackagePath('/matches/old');
+    expect(selected).toBe('/matches/old');
+    await loadPackageDirectory(selected!);
+    expect(api.preparePackageForOpen).toHaveBeenCalledWith('/matches/old');
   });
 
   it('preserves an existing original path even when a sibling also exists', async () => {

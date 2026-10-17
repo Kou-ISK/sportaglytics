@@ -1,3 +1,6 @@
+import { getTimelineWindow } from './e2e-angle-sync-workspace.mjs';
+import { createRequire } from 'node:module';
+import { exercisePackageUpdateCrash } from './e2e-package-update-crash.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -36,6 +39,27 @@ const timeline = JSON.stringify([
 ]);
 await fs.writeFile(path.join(source, '.metadata/config.json'), config);
 await fs.writeFile(path.join(source, 'timeline.json'), timeline);
+// Reproduce the already shipped 0.17.9 writer/index, then edit that copy.
+const require = createRequire(import.meta.url);
+const {
+  prepareLegacyPackageCopy,
+} = require('../build/electron/src/ipc/legacyPackageCopyService.js');
+const {
+  PackageMigrationIndex,
+} = require('../build/electron/src/ipc/packageMigrationIndex.js');
+await prepareLegacyPackageCopy(
+  source,
+  target,
+  new PackageMigrationIndex(
+    path.join(root, 'profile', 'package-migrations.json'),
+  ),
+);
+const edited = JSON.parse(
+  await fs.readFile(path.join(target, 'timeline.json'), 'utf8'),
+);
+edited.instances[0].memo = 'Saved in the earlier copy';
+await fs.writeFile(path.join(target, 'timeline.json'), JSON.stringify(edited));
+await exercisePackageUpdateCrash();
 let app;
 try {
   for (let run = 0; run < 2; run++) {
@@ -57,14 +81,32 @@ try {
         .count(),
       0,
     );
-    // Seed an alternate destination using the real preparation/writer.
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => {
+        throw new Error(
+          'A known single copy and a successful update must not interrupt Open with a modal',
+        );
+      };
+    });
     if (!run) {
-      const prepared = await main.evaluate(
-        ({ source, target }) =>
-          window.electronAPI.preparePackageForOpen(source, target),
-        { source, target },
+      assert.equal(
+        await main.evaluate(
+          (file) => window.electronAPI.bindPackageSession(file),
+          target,
+        ),
+        true,
       );
-      assert.equal(prepared.status, 'ready');
+      await assert.rejects(
+        main.evaluate(
+          (file) => window.electronAPI.preparePackageForOpen(file),
+          source,
+        ),
+        /PACKAGE_UPDATE_BUSY/,
+      );
+      await main.evaluate(
+        (file) => window.electronAPI.releasePackageSession(file),
+        target,
+      );
     }
     await main.screenshot({ path: path.join(artifacts, `open-${run}.png`) });
     // Only OS selection is stubbed. The common UI, preload, Main validation,
@@ -79,9 +121,39 @@ try {
         return { canceled: false, filePaths: [selected] };
       };
     }, source);
+    if (!run)
+      await app.evaluate(() => {
+        const fs = process.getBuiltinModule('fs/promises');
+        const copy = fs.cp.bind(fs);
+        fs.cp = async (...args) => {
+          globalThis.updateCopyHeld = true;
+          await new Promise((resolve) => {
+            globalThis.releaseUpdateCopy = resolve;
+          });
+          fs.cp = copy;
+          return copy(...args);
+        };
+      });
     await main
       .getByRole('button', { name: 'パッケージを開く', exact: true })
       .click();
+    if (!run) {
+      for (let attempt = 0; ; attempt++) {
+        if (await app.evaluate(() => globalThis.updateCopyHeld)) break;
+        if (attempt === 199) throw new Error('Update did not reach staging');
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      for (const file of [source, target])
+        assert.equal(
+          await main.evaluate(
+            (value) => window.electronAPI.bindPackageSession(value),
+            file,
+          ),
+          false,
+          'The real Main handler must refuse binding either package during staging',
+        );
+      await app.evaluate(() => globalThis.releaseUpdateCopy());
+    }
     await main.waitForFunction(
       () => document.querySelector('#video_0 video')?.readyState >= 3,
       null,
@@ -104,24 +176,71 @@ try {
     await main.waitForFunction(
       () => document.querySelector('#video_0 video')?.currentTime > 0.5,
     );
-    assert.equal(
-      (await fs.readdir(root)).filter((name) => name.endsWith('.stpkg')).length,
-      1,
+    const backups = (await fs.readdir(root)).filter((name) =>
+      name.includes('.backup-'),
+    );
+    assert.equal(backups.length, 1);
+    const backup = path.join(
+      root,
+      backups[0],
+      'original',
+      path.basename(source),
     );
     assert.equal(
-      await fs.readFile(path.join(source, '.metadata/config.json'), 'utf8'),
+      await fs.readFile(path.join(backup, '.metadata/config.json'), 'utf8'),
       config,
     );
     assert.equal(
-      await fs.readFile(path.join(source, 'timeline.json'), 'utf8'),
+      await fs.readFile(path.join(backup, 'timeline.json'), 'utf8'),
       timeline,
     );
+    assert.equal(
+      JSON.parse(await fs.readFile(path.join(source, 'timeline.json'), 'utf8'))
+        .instances[0].memo,
+      run ? 'Saved at the original path' : 'Saved in the earlier copy',
+    );
+    if (!run) {
+      const timelineWindow = await getTimelineWindow(app);
+      await timelineWindow
+        .getByRole('slider', { name: 'タイムラインの再生位置' })
+        .waitFor();
+      await timelineWindow.evaluate(() =>
+        window.electronAPI.timelineWindow.sendCommand({
+          type: 'update-memo',
+          id: 'event',
+          memo: 'Saved at the original path',
+        }),
+      );
+      for (let attempt = 0; ; attempt++) {
+        const saved = JSON.parse(
+          await fs.readFile(path.join(source, 'timeline.json'), 'utf8'),
+        );
+        if (saved.instances[0].memo === 'Saved at the original path') break;
+        if (attempt === 99)
+          throw new Error(
+            'Actual renderer edit did not save at the original path',
+          );
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      assert.equal(
+        JSON.parse(
+          await fs.readFile(path.join(target, 'timeline.json'), 'utf8'),
+        ).instances[0].memo,
+        'Saved in the earlier copy',
+      );
+    }
+    await app.evaluate(({ Menu }) => {
+      const item = Menu.getApplicationMenu()?.getMenuItemById(
+        'show-package-backup',
+      );
+      if (!item) throw new Error('Backup recovery menu missing');
+    });
     const prepared = await main.evaluate(
       (file) => window.electronAPI.preparePackageForOpen(file),
       source,
     );
-    assert.equal(prepared.reused, true);
-    assert.equal(prepared.packagePath, target);
+    assert.equal(prepared.migrated, false);
+    assert.equal(prepared.packagePath, await fs.realpath(source));
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows().forEach((w) => w.destroy()),
     );
@@ -129,7 +248,7 @@ try {
     app = undefined;
   }
   console.log(
-    'Unified open: one picker, alternate migrated target reused after process restart, playable output and unchanged original passed',
+    'Unified open: one picker, prior-copy edits adopted at original path, one retained backup, playback and process restart passed',
   );
 } finally {
   if (app) {

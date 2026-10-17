@@ -14,7 +14,9 @@ import { fixtureH264Encoder } from './e2e-platform.mjs';
 import { exercisePackageMigration } from './e2e-package-migration.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
 
-const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sportaglytics-safety-'));
+const root = await fs.realpath(
+  await fs.mkdtemp(path.join(os.tmpdir(), 'sportaglytics-safety-')),
+);
 const packagePath = path.join(root, 'Synthetic #%.stpkg');
 const timelinePath = path.join(packagePath, 'timeline.json');
 await fs.mkdir(path.join(packagePath, '.metadata'), { recursive: true });
@@ -118,7 +120,7 @@ try {
     localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
   );
   await main.reload();
-  await exercisePackageMigration(main, root, packagePath, document);
+  await exercisePackageMigration(main, app, root, packagePath, document);
   await app.evaluate(async ({ ipcMain }, timelinePath) => {
     const fs = process.getBuiltinModule('fs/promises');
     const path = process.getBuiltinModule('path');

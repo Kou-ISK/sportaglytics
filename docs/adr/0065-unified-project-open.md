@@ -4,6 +4,8 @@
 
 Accepted
 
+Separate-destination migration superseded by [0067](0067-in-place-package-updates.md).
+
 Supersedes [0006](0006-application-document-formats-and-file-associations.md). 文書形式・OS関連付け・原本保持の契約は引き継ぎ、プロジェクトの新旧を選ばせる入口だけを統合する。
 
 ## Date

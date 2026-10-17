@@ -64,7 +64,6 @@ export interface IElectronAPI {
   ) => Promise<PackageDatas>;
   preparePackageForOpen?: (
     packagePath: string,
-    destinationPath?: string,
   ) => Promise<PackageOpenPreparationResult>;
   onMenuShowStats: (
     callback: (requestedView?: AnalysisView) => void,
