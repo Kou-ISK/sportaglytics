@@ -14,11 +14,13 @@ export const choosePackageContent = async (
     .map((file, index) => `${index + 1}: ${file}`)
     .join('\n');
   const detail =
-    choice.reason === 'untracked'
-      ? 'この場所の内容を更新して、同じ名前で保存します。更新前の内容はバックアップに残します。\n以前に別のコピーで編集した場合は、そのコピーを選んでください。'
-      : choice.reason === 'unavailable'
-        ? '以前の保存先を確認できません。ドライブを接続して再試行するか、移動したコピーを選んでください。この場所の内容を使う場合、見つからないコピーの編集は取り込まれません。'
-        : '複数の編集内容があるため、自動で選べません。使う内容を選んでください。選ばなかった内容と更新前の原本は残します。';
+    choice.reason === 'restored'
+      ? 'バックアップから戻した内容が見つかりました。この場所の内容を使うと、復元した内容を同じ名前で保存できます。退避した更新後のファイルや以前の編集コピーはそのまま残します。'
+      : choice.reason === 'untracked'
+        ? 'この場所の内容を更新して、同じ名前で保存します。更新前の内容はバックアップに残します。\n以前に別のコピーで編集した場合は、そのコピーを選んでください。'
+        : choice.reason === 'unavailable'
+          ? '以前の保存先を確認できません。ドライブを接続して再試行するか、移動したコピーを選んでください。この場所の内容を使う場合、見つからないコピーの編集は取り込まれません。'
+          : '複数の編集内容があるため、自動で選べません。使う内容を選んでください。選ばなかった内容と更新前の原本は残します。';
   const originalButton = 0;
   const selectButton = 1;
   const cancelButton = 2;
@@ -27,8 +29,16 @@ export const choosePackageContent = async (
     title: 'ファイルを開く',
     message: '開く内容を確認',
     detail: `${detail}\n\n現在の場所: ${choice.source}${candidatesText ? `\n\n${candidatesText}` : ''}`,
-    buttons: ['この場所の内容を使う', '別のコピーを選ぶ…', 'キャンセル'],
-    defaultId: choice.reason === 'untracked' ? originalButton : selectButton,
+    buttons: [
+      choice.reason === 'restored'
+        ? '復元した内容を使う'
+        : 'この場所の内容を使う',
+      '別のコピーを選ぶ…',
+      'キャンセル',
+    ],
+    defaultId: ['untracked', 'restored'].includes(choice.reason)
+      ? originalButton
+      : selectButton,
     cancelId: cancelButton,
     noLink: true,
   });

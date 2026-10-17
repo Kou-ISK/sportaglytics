@@ -17,6 +17,7 @@ export interface PackageUpdateReceipt {
   backupPath: string;
 }
 export interface PackageUpdateJournal extends PackageUpdateReceipt {
+  sourceReceiptId?: string | null;
   pid: number;
   ownerIdentity: string;
   sourceDigest: string;
@@ -89,24 +90,33 @@ export const readUpdateReceipt = async (
   return value as unknown as PackageUpdateReceipt;
 };
 
-export const readUpdateJournal = async (
-  source: string,
+const readJournalAt = async (
+  directory: string,
+  source?: string,
 ): Promise<PackageUpdateJournal> => {
-  const locations = packageUpdatePaths(source);
-  const stat = await fs.lstat(locations.work);
+  const stat = await fs.lstat(directory);
   if (!stat.isDirectory() || stat.isSymbolicLink())
     throw new Error('PACKAGE_UPDATE_RECOVERY_REQUIRED');
-  const value = await readPackageJson(locations.journal);
+  const record = path.join(directory, 'transaction.json');
+  const recordStat = await fs.lstat(record);
+  if (!recordStat.isFile() || recordStat.isSymbolicLink())
+    throw new Error('PACKAGE_UPDATE_RECOVERY_REQUIRED');
+  const value = await readPackageJson(record);
   if (
     !isPlainObject(value) ||
     value.schemaVersion !== 1 ||
     typeof value.id !== 'string' ||
     !/^[0-9T-]+-[a-f0-9-]{36}$/.test(value.id) ||
     typeof value.source !== 'string' ||
-    !samePackagePath(value.source, source) ||
+    !path.isAbsolute(value.source) ||
+    (source !== undefined && !samePackagePath(value.source, source)) ||
     typeof value.pid !== 'number' ||
     !Number.isSafeInteger(value.pid) ||
     value.pid < 0 ||
+    (value.sourceReceiptId !== undefined &&
+      value.sourceReceiptId !== null &&
+      (typeof value.sourceReceiptId !== 'string' ||
+        !/^[0-9T-]+-[a-f0-9-]{36}$/.test(value.sourceReceiptId))) ||
     ![
       'ownerIdentity',
       'sourceDigest',
@@ -116,6 +126,7 @@ export const readUpdateJournal = async (
       'adoptedFingerprint',
       'backupPath',
     ].every((key) => typeof value[key] === 'string') ||
+    !/^[a-f0-9]{64}$/.test(String(value.sourceDigest)) ||
     !['preparing', 'prepared', 'installed'].includes(String(value.phase)) ||
     (value.stageDigest !== undefined &&
       (typeof value.stageDigest !== 'string' ||
@@ -129,6 +140,20 @@ export const readUpdateJournal = async (
   )
     throw new Error('PACKAGE_UPDATE_RECOVERY_REQUIRED');
   return value as unknown as PackageUpdateJournal;
+};
+
+export const readUpdateJournal = async (
+  source: string,
+): Promise<PackageUpdateJournal> =>
+  readJournalAt(packageUpdatePaths(source).work, source);
+
+export const readPackageBackupJournal = async (
+  directory: string,
+): Promise<PackageUpdateJournal> => {
+  const journal = await readJournalAt(directory);
+  if (journal.phase !== 'installed')
+    throw new Error('PACKAGE_UPDATE_RECOVERY_REQUIRED');
+  return journal;
 };
 
 export const saveUpdateJournal = async (

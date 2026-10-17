@@ -25,6 +25,7 @@ import {
 } from './packageUpdateJournal';
 import { snapshotPackageSource } from './packageSourceSnapshot';
 import { isPackageUpdating } from './packageUpdateLeases';
+import { isPackageRestoredFromBackup } from './packageBackupRestoration';
 
 export interface PackageOpenOptions {
   index?: PackageMigrationIndex;
@@ -59,7 +60,8 @@ const prepare = async (
   const compatibility = await inspectPackageCompatibility(source);
   if (compatibility.missingMedia.length)
     throw new Error('PACKAGE_MEDIA_MISSING');
-  if (!compatibility.needsMigration) {
+  const restored = await isPackageRestoredFromBackup(source);
+  if (!compatibility.needsMigration && !restored) {
     const receipt = await readUpdateReceipt(source);
     if (
       receipt &&
@@ -159,6 +161,7 @@ const prepare = async (
     source,
     options.index,
     options.choose,
+    restored ? 'restored' : undefined,
   );
   if (
     (await snapshotPackageSource(source)).fingerprint !==

@@ -11,9 +11,12 @@ import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
 import { fixtureH264Encoder } from './e2e-platform.mjs';
 
-const root = await fs.mkdtemp(path.join(os.tmpdir(), 'unified-open-'));
+const root = await fs.realpath(
+  await fs.mkdtemp(path.join(os.tmpdir(), 'unified-open-')),
+);
 const source = path.join(root, 'Synthetic project');
 const target = path.join(root, 'Chosen destination.stpkg');
+const retained = path.join(root, 'Retained current.stpkg');
 const artifacts = path.resolve(
   process.env.E2E_SCREENSHOT_DIR ?? 'output/playwright',
   'unified-open',
@@ -35,7 +38,13 @@ const config = JSON.stringify({
   tightViewPath: path.join(source, 'video.mp4'),
 });
 const timeline = JSON.stringify([
-  { id: 'event', actionName: 'Event', startTime: 1, endTime: 2 },
+  {
+    id: 'event',
+    actionName: 'Event',
+    startTime: 1,
+    endTime: 2,
+    memo: 'Original backup contents',
+  },
 ]);
 await fs.writeFile(path.join(source, '.metadata/config.json'), config);
 await fs.writeFile(path.join(source, 'timeline.json'), timeline);
@@ -59,10 +68,17 @@ const edited = JSON.parse(
 );
 edited.instances[0].memo = 'Saved in the earlier copy';
 await fs.writeFile(path.join(target, 'timeline.json'), JSON.stringify(edited));
+const {
+  packageCopyDigest,
+} = require('../build/electron/src/ipc/packageCopyDigest.js');
+const originalDigest = await packageCopyDigest(source);
+const earlierCopyDigest = await packageCopyDigest(target);
+let retainedDigest;
+let firstBackup;
 await exercisePackageUpdateCrash();
 let app;
 try {
-  for (let run = 0; run < 2; run++) {
+  for (let run = 0; run < 4; run++) {
     app = await electron.launch(
       getElectronLaunchOptions(path.join(root, 'profile')),
     );
@@ -81,13 +97,22 @@ try {
         .count(),
       0,
     );
-    await app.evaluate(({ dialog }) => {
-      dialog.showMessageBox = async () => {
-        throw new Error(
-          'A known single copy and a successful update must not interrupt Open with a modal',
-        );
-      };
-    });
+    if (!(run === 2 && process.env.E2E_NATIVE_RESTORATION === '1'))
+      await app.evaluate(({ dialog }, restoring) => {
+        dialog.showMessageBox = async (...args) => {
+          const options = args.at(-1);
+          if (restoring && options.buttons?.[0] === '復元した内容を使う') {
+            if (options.buttons.length !== 3 || options.defaultId !== 0)
+              throw new Error(
+                'Restoration choice must prioritize the restored contents',
+              );
+            return { response: 0, checkboxChecked: false };
+          }
+          throw new Error(
+            'An ordinary Open or successful update must not show a modal',
+          );
+        };
+      }, run === 2);
     if (!run) {
       assert.equal(
         await main.evaluate(
@@ -154,10 +179,27 @@ try {
         );
       await app.evaluate(() => globalThis.releaseUpdateCopy());
     }
+    if (run === 2 && process.env.E2E_NATIVE_RESTORATION === '1') {
+      await app.evaluate(({ BrowserWindow }) => {
+        const window = BrowserWindow.getAllWindows()[0];
+        window.setSize(1000, 720);
+        window.show();
+        window.focus();
+      });
+      console.log(
+        'NATIVE_RESTORATION_CHOICE',
+        JSON.stringify({ root, source, pid: app.process()?.pid }),
+      );
+    }
     await main.waitForFunction(
       () => document.querySelector('#video_0 video')?.readyState >= 3,
       null,
-      { timeout: 30000 },
+      {
+        timeout:
+          run === 2 && process.env.E2E_NATIVE_RESTORATION === '1'
+            ? 180000
+            : 30000,
+      },
     );
     console.log(
       'Open playback state',
@@ -179,43 +221,58 @@ try {
     const backups = (await fs.readdir(root)).filter((name) =>
       name.includes('.backup-'),
     );
-    assert.equal(backups.length, 1);
-    const backup = path.join(
-      root,
-      backups[0],
-      'original',
-      path.basename(source),
-    );
-    assert.equal(
-      await fs.readFile(path.join(backup, '.metadata/config.json'), 'utf8'),
-      config,
-    );
-    assert.equal(
-      await fs.readFile(path.join(backup, 'timeline.json'), 'utf8'),
-      timeline,
-    );
+    assert.equal(backups.length, run < 2 ? 1 : 2);
+    if (!run)
+      firstBackup = path.join(
+        root,
+        backups[0],
+        'original',
+        path.basename(source),
+      );
+    if (run < 2) {
+      assert.equal(
+        await fs.readFile(
+          path.join(firstBackup, '.metadata/config.json'),
+          'utf8',
+        ),
+        config,
+      );
+      assert.equal(
+        await fs.readFile(path.join(firstBackup, 'timeline.json'), 'utf8'),
+        timeline,
+      );
+    }
     assert.equal(
       JSON.parse(await fs.readFile(path.join(source, 'timeline.json'), 'utf8'))
         .instances[0].memo,
-      run ? 'Saved at the original path' : 'Saved in the earlier copy',
+      [
+        'Saved in the earlier copy',
+        'Saved at the original path',
+        'Original backup contents',
+        'Saved after restoration',
+      ][run],
     );
-    if (!run) {
+    if (run % 2 === 0) {
+      const expectedMemo =
+        run === 0 ? 'Saved at the original path' : 'Saved after restoration';
       const timelineWindow = await getTimelineWindow(app);
       await timelineWindow
         .getByRole('slider', { name: 'タイムラインの再生位置' })
         .waitFor();
-      await timelineWindow.evaluate(() =>
-        window.electronAPI.timelineWindow.sendCommand({
-          type: 'update-memo',
-          id: 'event',
-          memo: 'Saved at the original path',
-        }),
+      await timelineWindow.evaluate(
+        (memo) =>
+          window.electronAPI.timelineWindow.sendCommand({
+            type: 'update-memo',
+            id: 'event',
+            memo,
+          }),
+        expectedMemo,
       );
       for (let attempt = 0; ; attempt++) {
         const saved = JSON.parse(
           await fs.readFile(path.join(source, 'timeline.json'), 'utf8'),
         );
-        if (saved.instances[0].memo === 'Saved at the original path') break;
+        if (saved.instances[0].memo === expectedMemo) break;
         if (attempt === 99)
           throw new Error(
             'Actual renderer edit did not save at the original path',
@@ -229,6 +286,7 @@ try {
         'Saved in the earlier copy',
       );
     }
+    await main.screenshot({ path: path.join(artifacts, `ready-${run}.png`) });
     await app.evaluate(({ Menu }) => {
       const item = Menu.getApplicationMenu()?.getMenuItemById(
         'show-package-backup',
@@ -246,9 +304,29 @@ try {
     );
     await app.close();
     app = undefined;
+    if (run === 1) {
+      retainedDigest = await packageCopyDigest(source);
+      await fs.rename(source, retained);
+      await fs.rename(firstBackup, source);
+      assert.equal(
+        await packageCopyDigest(source),
+        originalDigest,
+        'The restored original must match every original byte',
+      );
+    }
   }
+  assert.equal(
+    await packageCopyDigest(retained),
+    retainedDigest,
+    'Retained current edits must stay unchanged',
+  );
+  assert.equal(
+    await packageCopyDigest(target),
+    earlierCopyDigest,
+    'Earlier copy edits must stay unchanged',
+  );
   console.log(
-    'Unified open: one picker, prior-copy edits adopted at original path, one retained backup, playback and process restart passed',
+    'Unified open: prior-copy edits, original-path saving, backup restoration, restored-content saving, playback and four process opens passed',
   );
 } finally {
   if (app) {
