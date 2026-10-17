@@ -172,7 +172,7 @@ try {
       ),
     );
     const play = main.getByRole('button', { name: '再生', exact: true });
-    if (await play.count()) await play.click({ force: true });
+    await play.click();
     await main.waitForFunction(
       () => document.querySelector('#video_0 video')?.currentTime > 0.5,
     );
