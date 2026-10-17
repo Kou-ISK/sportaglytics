@@ -6,6 +6,7 @@ export interface PackageSession {
   id: string;
   mainWindow: BrowserWindow;
   packagePath: string | null;
+  packageBound?: boolean;
   auxiliaryWindows: Set<BrowserWindow>;
 }
 
@@ -129,6 +130,7 @@ export const reservePackageSession = (
 
   const session = createPackageSession(mainWindow);
   session.packagePath = normalized;
+  session.packageBound = false;
   return session;
 };
 
@@ -142,6 +144,7 @@ export const releasePackageSession = (
   }
 
   session.packagePath = null;
+  session.packageBound = false;
   return true;
 };
 
@@ -162,6 +165,7 @@ export const bindPackageSession = (
   const duplicate = getPackageSessionForPackagePath(normalized);
   if (duplicate && duplicate !== session) return duplicate;
   session.packagePath = normalized;
+  session.packageBound = true;
   return session;
 };
 

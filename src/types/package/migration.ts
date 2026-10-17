@@ -1,4 +1,5 @@
 export interface PackageOpenReadyResult {
+  backupPath?: string;
   status: 'ready';
   warning?: string;
   packagePath: string;

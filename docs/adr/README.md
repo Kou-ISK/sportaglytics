@@ -71,6 +71,7 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0059](0059-playlist-renderer-delivery-readiness.md) | Playlist renderer delivery readiness | Accepted | 2026-10-04 |
 | [0065](0065-unified-project-open.md) | Unified project open | Accepted | 2026-10-17 |
 | [0066](0066-capture-playback-bounds.md) | Capture playback bounds | Accepted | 2026-10-17 |
+| [0067](0067-in-place-package-updates.md) | In-place package updates | Accepted | 2026-10-17 |
 
 ## Status Values
 

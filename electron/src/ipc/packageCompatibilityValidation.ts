@@ -181,9 +181,7 @@ export const inspectPackageCompatibility = async (
     }
   }
   return {
-    needsMigration:
-      legacy ||
-      (!staging && path.extname(packagePath).toLowerCase() !== '.stpkg'),
+    needsMigration: legacy,
     missingMedia,
   };
 };
