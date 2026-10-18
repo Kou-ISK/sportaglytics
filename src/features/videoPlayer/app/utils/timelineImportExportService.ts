@@ -64,9 +64,9 @@ export const buildTimelineExportPlan = (
     case 'sctimeline':
       return {
         content: JSON.stringify(convertToSCTimeline(timeline), null, 2),
-        defaultFileName: 'SportscodeXML.SCTimeline',
-        filters: [{ name: 'SCTimeline形式', extensions: ['SCTimeline'] }],
-        formatLabel: 'SCTimeline形式',
+        defaultFileName: 'timeline.SCTimeline',
+        filters: [{ name: 'SCTimeline（JSON）', extensions: ['SCTimeline'] }],
+        formatLabel: 'SCTimeline（JSON）',
       };
     default:
       return null;

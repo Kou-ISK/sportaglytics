@@ -1,6 +1,7 @@
 import type { TimelineData } from '../types/timeline/core';
 import { validateTimelineDocumentData } from '../shared/timeline/timelineValidation';
 import { normalizeTimelineData } from './scTimelineConverter';
+import { toSpreadsheetCsvCell } from './csv';
 
 /**
  * 秒数をHH:mm:ss形式（1時間未満ならmm:ss）に変換
@@ -46,10 +47,10 @@ export const exportToCSV = (timeline: TimelineData[]): string => {
     const row = [
       formatTimeForExport(item.startTime),
       formatTimeForExport(item.endTime),
-      `"${item.actionName.replace(/"/g, '""')}"`, // CSVエスケープ
-      `"${(typeLabel?.name || '').replace(/"/g, '""')}"`,
-      `"${(resultLabel?.name || '').replace(/"/g, '""')}"`,
-      `"${(item.memo || '').replace(/"/g, '""')}"`,
+      toSpreadsheetCsvCell(item.actionName),
+      toSpreadsheetCsvCell(typeLabel?.name ?? ''),
+      toSpreadsheetCsvCell(resultLabel?.name ?? ''),
+      toSpreadsheetCsvCell(item.memo ?? ''),
     ];
     csvRows.push(row.join(','));
   }
