@@ -37,6 +37,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Setup Python for reproducible sample checks
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install sample-only media test dependency
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Verify public sample and regeneration
+        run: pnpm run test:sample
+
       - name: Lint
         run: pnpm run lint
 

@@ -48,6 +48,10 @@ brew install --cask sportaglytics
 
 [Releases](https://github.com/Kou-ISK/sportaglytics/releases) から最新版をダウンロードしてください。
 
+### 自分の映像なしで試す
+
+[合成サンプルのクイックスタート](docs/quickstart.md)で、開く → タグを1件追加・編集 → 保存して再開 → MP4を1本共有、まで試せます。約29 KBのZIPを展開して使い、モデルの追加は不要です。
+
 ### 基本的な使い方
 
 1. **パッケージを開く** - 既存のパッケージフォルダを選択

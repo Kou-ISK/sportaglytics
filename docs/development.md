@@ -468,3 +468,9 @@ Macの配布準備は[Release手順](../.github/RELEASE.md)に従います。`re
 Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。
 
 保存済み録画のシーク・終端・別process再開は`node scripts/e2e-capture-reopen.mjs`、共通picker・以前の編集コピーの採用・同じ場所への保存と9境界のプロセス終了復旧は`node scripts/e2e-unified-open.mjs`で合成データを検証する。既存live-captureに加えて対象実行する。
+
+## 公開サンプルと限定負荷測定
+
+初回導線用の小さな配布ZIPと生成recipeは[quickstart](quickstart.md#サンプルの由来と再生成開発者向け)、Node上の限定計測は[合成負荷測定](synthetic-workloads.md)を参照してください。`pnpm run sample:generate` / `pnpm run test:sample`だけはPython 3とlibx264付きFFmpegを使います。通常のアプリ実行にはPythonは不要です。`pnpm run test:e2e:sample`は公開ZIPの展開にPythonだけを使い、アプリ側の読み込み・保存・出力を実行します。WindowsのPython実行名は`PYTHON`環境変数で指定できます。
+
+`pnpm run benchmark:timeline`は既存結果を上書きしないため、再測定では新しい出力パスを引数に渡します。計測はNodeで完結し、Mac/WindowsのUI評価やcodec性能の代わりにはなりません。
