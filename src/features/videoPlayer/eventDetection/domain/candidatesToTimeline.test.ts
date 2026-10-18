@@ -3,6 +3,12 @@ import type { EventTimelineMapping } from '../../../../types/eventDetection/core
 import type { TimelineData } from '../../../../types/timeline/core';
 import { convertCandidatesToTimeline } from './candidatesToTimeline';
 
+const source = {
+  requestId: 'synthetic-run',
+  modelId: 'synthetic-model',
+  modelVersion: '1',
+};
+
 const mappings: EventTimelineMapping[] = [
   {
     eventType: 'scrum',
@@ -35,8 +41,44 @@ const existing = (
 });
 
 describe('convertCandidatesToTimeline', () => {
+  it.each(['', '  '])(
+    'rejects a runner candidate with an empty identity (%j) before committing a batch',
+    (id) => {
+      expect(() =>
+        convertCandidatesToTimeline({
+          source,
+          candidates: [
+            { id: 'valid', eventType: 'scrum', confidence: 1, anchorTime: 10 },
+            { id, eventType: 'scrum', confidence: 0.99, anchorTime: 100 },
+          ],
+          mappings,
+          existingTimeline: [],
+        }),
+      ).toThrow('由来情報が不正');
+    },
+  );
+
+  it('rejects missing model identity instead of saving unreopenable provenance', () => {
+    expect(() =>
+      convertCandidatesToTimeline({
+        source: { ...source, modelVersion: '' },
+        candidates: [
+          {
+            id: 'candidate',
+            eventType: 'scrum',
+            confidence: 1,
+            anchorTime: 10,
+          },
+        ],
+        mappings,
+        existingTimeline: [],
+      }),
+    ).toThrow('由来情報が不正');
+  });
+
   it('creates ordinary timeline items using configured lead and lag', () => {
     const result = convertCandidatesToTimeline({
+      source,
       candidates: [
         {
           id: 'scrum-1',
@@ -56,12 +98,27 @@ describe('convertCandidatesToTimeline', () => {
         startTime: 95,
         endTime: 110,
         memo: '',
+        provenance: {
+          reviewStatus: 'unreviewed',
+          hasUnknownSource: false,
+          sources: [
+            {
+              ...source,
+              origin: 'event-detection',
+              candidateId: 'scrum-1',
+              eventType: 'scrum',
+              confidence: 0.99,
+              anchorTime: 100,
+            },
+          ],
+        },
       },
     ]);
   });
 
   it('drops candidates below the configured confidence threshold', () => {
     const result = convertCandidatesToTimeline({
+      source,
       candidates: [
         {
           id: 'scrum-low',
@@ -80,6 +137,7 @@ describe('convertCandidatesToTimeline', () => {
 
   it('does not add the same detected event again on a rerun', () => {
     const result = convertCandidatesToTimeline({
+      source,
       candidates: [
         {
           id: 'scrum-repeat',
@@ -98,6 +156,7 @@ describe('convertCandidatesToTimeline', () => {
 
   it('deduplicates candidates within one automatic detection result', () => {
     const result = convertCandidatesToTimeline({
+      source,
       candidates: [
         {
           id: 'lineout-1',
@@ -122,6 +181,7 @@ describe('convertCandidatesToTimeline', () => {
 
   it('keeps different event types even when their time ranges overlap', () => {
     const result = convertCandidatesToTimeline({
+      source,
       candidates: [
         {
           id: 'scrum-1',
@@ -169,6 +229,7 @@ describe('convertCandidatesToTimeline', () => {
     ];
     for (const order of [candidates, [...candidates].reverse()]) {
       const result = convertCandidatesToTimeline({
+        source,
         candidates: order,
         mappings,
         existingTimeline: [],
@@ -188,6 +249,7 @@ describe('convertCandidatesToTimeline', () => {
 
   it('preserves manually edited events over new high-confidence detections', () => {
     const result = convertCandidatesToTimeline({
+      source,
       candidates: [
         { id: 'new', eventType: 'scrum', confidence: 1, anchorTime: 102 },
       ],
@@ -200,6 +262,7 @@ describe('convertCandidatesToTimeline', () => {
 
   it('adds a consolidated episode using its full range and preserves a separate play', () => {
     const result = convertCandidatesToTimeline({
+      source,
       candidates: [
         {
           id: 'episode-one',
@@ -223,14 +286,25 @@ describe('convertCandidatesToTimeline', () => {
       maxTime: 200,
     });
     expect(result.items).toEqual([
-      { actionName: 'Scrum', startTime: 95, endTime: 140, memo: '' },
-      { actionName: 'Scrum', startTime: 153, endTime: 189, memo: '' },
+      expect.objectContaining({
+        actionName: 'Scrum',
+        startTime: 95,
+        endTime: 140,
+        memo: '',
+      }),
+      expect.objectContaining({
+        actionName: 'Scrum',
+        startTime: 153,
+        endTime: 189,
+        memo: '',
+      }),
     ]);
     expect(result.skippedDuplicate).toBe(0);
   });
 
   it('does not append a consolidated interval again after a cached rerun', () => {
     const result = convertCandidatesToTimeline({
+      source,
       candidates: [
         {
           id: 'episode-one',

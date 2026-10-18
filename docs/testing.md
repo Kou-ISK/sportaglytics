@@ -4,6 +4,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # Testing and Quality Gates
 
+`scripts/e2e-timeline-close.mjs`は300msの自動保存待機内のClose（最初のstaging open前）、書込中の最新Undo、保存失敗後の再編集・再試行、2つの所有元のQuit取消と再試行を、実Main/preload/Renderer/atomic writerと別process再開で検査します。合成ファイルのrename保留・失敗と当該エラーダイアログの応答だけを注入し、保存IPCを置換しません。hook/unitでは同一tickの行補完、未知sender・古い応答、timeout、ライブ停止後の終了取消も検査します。Linuxコンテナで`DISPLAY=:91 E2E_CLOUD_LINUX=1`を明示した場合だけランチャーへ`--no-sandbox --disable-gpu`を追加します。この環境の成功をMac/Windows配布物やOS sandboxの検証と扱いません。
+
 Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を使用します。ローカル合成映像・24行240件で、読み取りによる文書不変、閉じた高さ、狭幅、取消、保存再開、分析メニューの初回同期、実Renderer reload後の240件/編集済みノート復旧を検証します。品質ゲートの成功だけを快適さの根拠とせず、[UX評価記録](reports/2026-10-ux-review.md)の画像・操作負担・制限も確認します。
 
 同E2Eは初回Playlistの実Rendererロードを1.5秒遅延し、受信listenerの登録前に追加されたclipと編集済みノートが届くことを確認します。`playlistWindow/windowManager.test.ts`は初回の保留、送信順序、重複ready、reload、破棄済み/未知sender、Package Session別の配送を検証します。timeoutを延長して待ち時間への依存を隠さないでください。
@@ -56,7 +58,7 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 保存済みcaptureの16超clipは共通の50,000上限を使うunit負例/正例とlive-captureの再開で検証します。Playlistの途中JSONは既存export-menuの読取条件を維持し、metadata置換に同じatomic writerを使います。Windows renameの一時/恒久拒否はbounded retryの回帰を持ち、nativeの実置換で再確認します。Undoの故障注入はB/A両方のrename完了を待ってから判定し、別文書のempty retryは別package IDを使い、open-fileで作られる新sessionのMain/Timeline/コードパネルを取得し直します。対象read faultの到達と元sessionの文書不変も検査します。新processのTimeline同期へ通常listenerを追加し、既存subscriptionを置換せずに実メモリ中のlabelsを確認します。multi-clipの保存件数assertionは緩和せず、synthetic Main stderrの実filesystem errorを残します。
 
-保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常の全シナリオとWindowsインストール後の全シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
+保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常runnerとWindowsインストール後の共通シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
 
 `e2e-unified-open.mjs`は0.17.9の別保存先と索引を生成し、編集済みコピーの採用、元パスでの再生、別プロセスでの再開、単一バックアップを検査します。さらに現在の文書を退避して原本を復元し、復元内容の選択、再生、実Rendererの編集・同名保存、4回目の新processでの再読込と両編集コピーの全バイト保持を確認します。`E2E_NATIVE_RESTORATION=1`では復元時のOS確認をstubせず実画面操作用に待機します。同シナリオ内の`e2e-package-update-crash.mjs`はbuild済みMain serviceを子Nodeプロセスで実行し、作業領域作成からバックアップ確定まで9か所でprocessを終了して、新processで復旧と全バイト一致を検査します。インストール後実行でもcrash helper自体はworkspaceのbuild済みserviceを使い、GUIは実インストールアプリを検査する点を区別します。電源断試験ではありません。
 
@@ -118,6 +120,8 @@ TimelineのTab回帰は`useTimelineGlobalShortcuts.test.tsx`で開始時刻順�
 Settingsやmigrationでは新fieldの保存読込、legacy default、invalid value正規化を検証します。Code Windowの `leadTimeSeconds` / `lagTimeSeconds` は未設定時0秒相当を維持します。
 
 Timeline変更ではrange normalization、row ownership、history/Undo単位、duplicate/copy semanticsを検証します。自動Codingは `addTimelineDatas()` の1 state updateで追加するため、一括Undoを前提にします。
+
+検出由来の変更では `src/types/timeline/provenance.test.ts` と `src/types/ipc/timelineProvenance.test.ts` でスコア/時刻の数値境界、空ID、不正状態、IPCを検査します。`timelineDocument.test.ts` は旧配列/v2を由来不明のまま維持し、保存再開で新しい元情報を保持することを確認します。domain/controllerでは不正な由来を持つ候補の一括追加を拒否し、分割・結合・コピー・Undo/Redoでは出所と未知部分を維持します。`Workspace/Timeline/Provenance` storiesはprops-only表示です。`e2e-event-detection.mjs` の決定的stubは実ファイルの由来保存を確認しますが、モデル精度や人確認の正しさの試験ではありません。
 
 IPC / preload変更ではpayload guard、sender validation、explicit API、listener cleanup、invalid result rejectionを確認します。
 
@@ -282,7 +286,7 @@ Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実
 
 ビルドdownloaderの9ケースには、実際の@electron/getを別processで起動するHTTP proxy経由取得とNO_PROXY bypassを含みます。loopback serverと合成bytesで検証し、外部artifactを取得しません。既存のagent/timeout/redirect/checksum/progress/file-cache検査も維持します。
 
-Windows H.264置換の追加検査は[Windows開発・検証](windows.md#開発検証)を参照してください。installed E2Eにも`export-menu`、`export-fast`、`paint-export`、`angle-sync-multi`、`angle-sync-gaps`を加え、通常runnerと同じ24シナリオを検査します。Media Foundation不足のunit負例とWindows N実機検証は区別します。
+Windows H.264置換の追加検査は[Windows開発・検証](windows.md#開発検証)を参照してください。installed E2Eにも`export-menu`、`export-fast`、`paint-export`、`angle-sync-multi`、`angle-sync-gaps`を加え、通常runnerと同じ登録シナリオを検査します。Media Foundation不足のunit負例とWindows N実機検証は区別します。
 
 ## Mac最終DMGの配布検査
 

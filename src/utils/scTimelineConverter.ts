@@ -7,6 +7,7 @@ import type {
   SCLabel,
 } from '../types/timeline/sportscode';
 import { migrateLegacyTimelineLabels } from './timelineLabelMigration';
+import { parseTimelineProvenance } from '../shared/timeline/timelineProvenance';
 
 type LegacyTimelineData = TimelineData & {
   actionType?: unknown;
@@ -245,6 +246,7 @@ export const normalizeTimelineData = (
     normalizedLabels.push({ name: legacyActionResult, group: 'Result' });
   }
 
+  const provenance = parseTimelineProvenance(raw.provenance);
   return {
     id: typeof raw.id === 'string' ? raw.id : generateUUID(),
     actionName: typeof raw.actionName === 'string' ? raw.actionName : '',
@@ -259,6 +261,7 @@ export const normalizeTimelineData = (
     memo: typeof raw.memo === 'string' ? raw.memo : '',
     labels: normalizedLabels,
     ...(typeof raw.color === 'string' ? { color: raw.color } : {}),
+    ...(provenance ? { provenance } : {}),
   };
 };
 

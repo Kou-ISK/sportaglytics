@@ -87,6 +87,12 @@ interface UseTimelineSessionControllerResult extends TimelineRangeEditing {
 
 export const useTimelineSessionController =
   (): UseTimelineSessionControllerResult => {
+    const buttonColorsRef = useRef<ReadonlyMap<string, string>>(new Map());
+    const completeRows = useCallback(
+      (items: TimelineData[], rows: TimelineRow[]): TimelineRow[] =>
+        ensureTimelineRows(rows, items, buttonColorsRef.current),
+      [],
+    );
     const {
       persistenceFeedback,
       timelineEditable,
@@ -98,7 +104,7 @@ export const useTimelineSessionController =
       setTimelineRows,
       timelineFilePath,
       setTimelineFilePath,
-    } = useTimelinePersistence();
+    } = useTimelinePersistence({ completeRows });
     const {
       timeline,
       canUndo,
@@ -113,7 +119,6 @@ export const useTimelineSessionController =
       getSelectedTimelineId,
     } = useTimelineSelection();
 
-    const buttonColorsRef = useRef<ReadonlyMap<string, string>>(new Map());
     const timelineRef = useRef<TimelineData[]>(timeline);
 
     useEffect(() => {

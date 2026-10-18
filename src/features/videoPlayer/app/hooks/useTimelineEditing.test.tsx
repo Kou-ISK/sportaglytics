@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { detectionProvenance } from '../../../../shared/timeline/fixtures/detectionProvenance';
 import type { TimelineData } from '../../../../types/timeline/core';
 import {
   duplicateTimelineItemInList,
@@ -17,6 +18,7 @@ const sourceTimelineItem: TimelineData = {
   memo: 'memo',
   labels: [{ name: 'Try', group: 'Type' }],
   color: '#123456',
+  provenance: detectionProvenance,
 };
 
 describe('duplicateTimelineItemInList', () => {
@@ -43,6 +45,10 @@ describe('duplicateTimelineItemInList', () => {
     });
     expect(result[1]?.labels).toEqual(sourceTimelineItem.labels);
     expect(result[1]?.labels).not.toBe(sourceTimelineItem.labels);
+    expect(result[1].provenance).toEqual(sourceTimelineItem.provenance);
+    expect(result[1].provenance?.sources[0]).not.toBe(
+      sourceTimelineItem.provenance?.sources[0],
+    );
     expect(result[2]).toBe(nextItem);
   });
 

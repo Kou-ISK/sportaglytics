@@ -1,3 +1,4 @@
+import { copyTimelineProvenance } from '../../../shared/timeline/timelineProvenance';
 import type { TimelineData, TimelineRow } from '../../../types/timeline/core';
 
 const ROW_COLORS = [
@@ -107,6 +108,9 @@ export const pasteTimelineItemsInRow = (
     actionName: targetRow.name,
     color: targetRow.color,
     labels: item.labels?.map((label) => ({ ...label })),
+    ...(item.provenance
+      ? { provenance: copyTimelineProvenance(item.provenance) }
+      : {}),
   }));
   return [...timeline, ...pastedItems];
 };

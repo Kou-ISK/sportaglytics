@@ -6,6 +6,8 @@ Superseded
 
 Superseded by [ADR 0034](0034-reference-coding-model-evaluation.md).
 
+The detector identity omission is additionally superseded by [ADR 0069](0069-timeline-detection-provenance.md).
+
 ## Date
 
 2026-08-19

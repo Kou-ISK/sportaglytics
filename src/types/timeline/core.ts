@@ -1,4 +1,5 @@
 import type { SCLabel } from './sportscode';
+import type { TimelineProvenance } from './provenance';
 
 export interface TimelineData {
   id: string;
@@ -8,6 +9,7 @@ export interface TimelineData {
   memo: string;
   labels?: SCLabel[];
   color?: string;
+  provenance?: TimelineProvenance;
 }
 
 export type NewTimelineData = Omit<TimelineData, 'id'>;

@@ -1,5 +1,7 @@
 # SporTagLytics Documentation
 
+OSS導線の改善項目と受入条件は[2026-10 OSS改善記録](reports/2026-10-oss-remediation.md)、通常終了時の保存は[ADR 0068](adr/0068-timeline-close-save-handshake.md)を参照してください。
+
 0.17.4ではアプリとモデルの公開境界、第三者告知と対応ソースの配布を整備します。[変更履歴](../CHANGELOG.md#0174---2026-10-10)、[公開済みの配布物](https://github.com/Kou-ISK/sportaglytics/releases)、[Release手順](../.github/RELEASE.md)を参照してください。
 
 - [compact density評価](reports/2026-10-compact-density.md): Timelineの下部検索ドック・共通フォームの変更と検証範囲。
@@ -137,3 +139,5 @@ Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-
 
 - [共通の開くと移行先再利用](adr/0065-unified-project-open.md)
 - [ライブ録画の再生範囲と終了処理](adr/0066-capture-playback-bounds.md)
+
+- [検出候補の由来と未確認状態（ADR 0069）](adr/0069-timeline-detection-provenance.md): 旧データを推定せず、元候補と人確認を区別する任意保存契約。

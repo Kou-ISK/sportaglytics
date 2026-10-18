@@ -71,6 +71,7 @@ import {
 } from './packageSessionRegistry';
 import { createExternalOpenQueue } from './packageOpenQueue';
 import { createPackageOpenRouter } from './packageOpenRouter';
+import { registerTimelineCloseProtection } from './timelineCloseProtection';
 
 if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -160,6 +161,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
   applyWindowSecurity(window);
   // Capture ownership while the window is live: `closed` runs after destruction.
   const packageSession = createPackageSession(window);
+  timelineCloseProtection.protect(window);
   const preloadReadyTimeout = setTimeout(() => {
     if (!window.isDestroyed()) {
       console.error(
@@ -288,6 +290,13 @@ const openPackageInSession = createPackageOpenRouter({
 });
 
 registerLiveCaptureHandlers({ openPackage: openPackageInSession });
+// Register after capture's before-quit listener: active recording first finishes
+// its existing stop handshake, then retries quit through Timeline preparation.
+const timelineCloseProtection = registerTimelineCloseProtection({
+  rendererUrl: mainURL,
+  requiresPersistence: (window) =>
+    getPackageSessionForWindow(window)?.packagePath != null,
+});
 
 const routeExternalOpen = async (filePath: string): Promise<void> => {
   const extension = path.extname(filePath).toLowerCase();

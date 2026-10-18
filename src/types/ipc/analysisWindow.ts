@@ -1,3 +1,4 @@
+import { isTimelineProvenance } from '../timeline/provenance';
 import type { AnalysisView } from '../analysis/view';
 import type { PlaylistItem } from '../playlist/core';
 import type { TimelineData } from '../timeline/core';
@@ -88,7 +89,8 @@ export const isTimelineData = (value: unknown): value is TimelineData => {
         );
       },
     ) &&
-    isOptional(value.color, isString)
+    isOptional(value.color, isString) &&
+    isOptional(value.provenance, isTimelineProvenance)
   );
 };
 
