@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 新規Releaseに配布物hash・source commit/tree・署名検査結果・Actions runを記す公開検証要約を追加し、詳細検証artifactを90日保持する。既存Releaseへ後付けせず、実配布の検証状態は[Release手順](.github/RELEASE.md)と実行結果で確認する。
+- 月次architecture reportのNodeを通常CIと同じ22.12.0へ統一する。
+
 ## [0.17.10]
 
 公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。既存の公開版とタグは維持します。

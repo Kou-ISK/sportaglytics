@@ -18,6 +18,7 @@ Macの必須assets:
 - `SporTagLytics-<version>-x64.dmg`
 - `media-tools-sources-<version>-macos.tar.gz`
 - `SHA256SUMS.txt`
+- `release-verification.json`（この手順の改修以降の新規Release）
 
 `include_windows=true`では`SporTagLytics-Setup-<version>-x64.exe`と`media-tools-sources-<version>-windows.tar.gz`も含め、全配布物を同じSHA256SUMSに記録します。
 
@@ -31,7 +32,7 @@ tag pushやmain pushでは起動しません。**GitHub Actionsの明示的なwo
 2. `main`の40文字SHAと`package.json`のversionを確認し、そのcommitへ`v<version>` tagを作成します。tag作成だけでは署名・Apple送信・公開を開始しません。
 3. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml) → **Run workflow** → branch **main**を選びます。
 4. `version`に`0.17.10`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=true`を指定します。現在の作業branchのSHAを入力しません。
-5. `publish=false`（既定）は署名・公証・最終DMG検証まで行い、Actions artifactとして14日間保存します。GitHub ReleaseとHomebrewは更新しません。**これは未署名dry-runではなく、Appleへのアプリ送信を含みます。**
+5. `publish=false`（既定）は署名・公証・最終DMG検証まで行い、Actions artifactとして90日間保存します。GitHub ReleaseとHomebrewは更新しません。**これは未署名dry-runではなく、Appleへのアプリ送信を含みます。**
 6. 最終公開が承認された実行は`publish=true`を指定します。同じ品質・署名・公証・DMG検証を再実行し、その実行で検査したbytesだけを公開します。先行runのartifactを無検査で流用しません。
 
 CLIでも同じ入力を使います。`<reviewed-main-sha>`を実際の40文字SHAへ置き換えてから実行してください。
@@ -70,7 +71,11 @@ Macは既存`release.yml`と同じ認証方式です。正規の本番実行権�
 4. Release専用の`afterPack`が署名前に、ASAR全fileと生成buildの同一性、モデル2配置の固定SHA、WASM、アプリ/JS/nativeの告知、media/llamaのmanifestとnative hashを検査します。通常の`afterPack`検査も引き続き実行します。
 5. 現行Mac Releaseはevent packなしです。ASAR/ResourcesのGGUF・私有pack・未知の重みを拒否します。Paintの既製EfficientDet-Lite2は含まれるため、「モデルを含まない」とは表現しません。素材の権利確認は[由来の確認台帳](../docs/provenance-review.md)で別途レビューします。
 6. `scripts/macos/verify-dmg.mjs`が最終DMGをread-onlyでmountします。全Mach-Oのarchitecture / Developer ID / hardened runtime / timestamp、strict署名、stapler、Gatekeeperの`Notarized Developer ID`判定、バージョン、実Resources/ASARの告知・モデル・hashを確認します。署名前reportと同梱payloadの一致も確認します。
-7. 対応source archiveとSHA256SUMSを生成してActions artifactに保存します。`publish=true`のときだけ、新規Release作成とHomebrew更新へ進みます。
+7. 対応source archive、公開用検証要約、SHA256SUMSを生成してActions artifactに保存します。`publish=true`のときだけ、新規Release作成とHomebrew更新へ進みます。
+
+`scripts/release-verification-summary.mjs`は最終DMG reportの両architecture・version・source SHA・署名検査件数・公証・staple・Gatekeeper・payload一致を要求し、実際のDMG bytesのSHA256と照合します。Windowsを含むときは検証済みinstallerのsource commit/tree、実bytes、署名状態も照合します。`release-verification.json`には許可した検証値、配布物hash、source commit/tree、Actions run URLだけを保存し、raw log、署名者の個人名、runnerの絶対path、環境変数を転記しません。要約自体もSHA256SUMSに含め、新規Releaseのassetとして残します。
+
+このJSONは配布reportの要約であり、独立したattestationやunit/E2Eの再実行ではありません。品質・E2Eの結果はリンク先の同一workflowで確認します。詳細reportを含むActions artifactの保持は90日、公開要約はReleaseのassetとして保持します。既存v0.17.10以前へ後付けしません。GitHubのRelease immutabilityやbranch protectionを設定する処理は含めず、これらの管理者設定は別途確認・判断します。
 
 どれか失敗した候補、未公証候補、検証省略のDMGを一般利用者向け完成Releaseとして扱いません。署名・公証の成功は法的な権利安全性や実機での全操作を保証しません。初回のこのworkflow変更は、本番署名・公証と最終DMGのCI成功が得られるまで「手順準備済み」と「配布検証済み」を区別します。
 

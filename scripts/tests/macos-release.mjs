@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   mkdtemp,
   mkdir,
@@ -17,6 +18,142 @@ import {
 } from '../media-tools/source-bundle.mjs';
 import { validateReleaseIdentity } from '../macos/release-guard.mjs';
 import { desktopReleaseNotes } from '../desktop-release-notes.mjs';
+import { releaseVerificationSummary } from '../release-verification-summary.mjs';
+
+const summaryFixture = (includeWindows = false) => {
+  const version = '1.2.3',
+    head = 'a'.repeat(40),
+    tree = 'b'.repeat(40);
+  const assets = {
+    'SporTagLytics-1.2.3-arm64.dmg': 'c'.repeat(64),
+    'SporTagLytics-1.2.3-x64.dmg': 'd'.repeat(64),
+    'media-tools-sources-1.2.3-macos.tar.gz': 'e'.repeat(64),
+  };
+  const macReports = Object.fromEntries(
+    ['arm64', 'x64'].map((arch) => [
+      arch,
+      {
+        schemaVersion: 1,
+        head,
+        version,
+        arch,
+        dmgSha256: assets[`SporTagLytics-${version}-${arch}.dmg`],
+        appTreeSha256: 'f'.repeat(64),
+        developerIdNativeFiles: 10,
+        notarized: true,
+        stapled: true,
+        gatekeeperAccepted: true,
+        payload: { arch, passed: true, privateDiagnostic: 'must not publish' },
+        diagnosticPath: '/synthetic/runner/private-path',
+      },
+    ]),
+  );
+  const windows = includeWindows
+    ? {
+        version,
+        sourceCommit: head,
+        sourceTree: tree,
+        installerSha256: '1'.repeat(64),
+        installerSignatureStatus: 'NotSigned',
+        mediaManifestSha256: '2'.repeat(64),
+        pitchModelSha256: '3'.repeat(64),
+        rawLog: 'must not publish',
+      }
+    : undefined;
+  if (includeWindows) {
+    assets['SporTagLytics-Setup-1.2.3-x64.exe'] = windows.installerSha256;
+    assets['media-tools-sources-1.2.3-windows.tar.gz'] = '4'.repeat(64);
+  }
+  return {
+    version,
+    head,
+    tree,
+    runId: '12345',
+    repository: 'fixture/project',
+    macReports,
+    windows,
+    assets,
+  };
+};
+
+test('release summary retains public identity while excluding raw diagnostics', () => {
+  for (const includeWindows of [false, true]) {
+    const input = summaryFixture(includeWindows);
+    const summary = releaseVerificationSummary(input);
+    assert.equal(summary.sourceCommit, input.head);
+    assert.equal(
+      summary.workflowRun,
+      'https://github.com/fixture/project/actions/runs/12345',
+    );
+    assert.equal(summary.macos.length, 2);
+    assert.equal(Boolean(summary.windows), includeWindows);
+    if (includeWindows)
+      assert.equal(summary.windows.installerSignatureStatus, 'NotSigned');
+    assert.doesNotMatch(
+      JSON.stringify(summary),
+      /must not publish|private-path|rawLog/,
+    );
+    assert.match(summary.evidenceScope, /Not an independent attestation/);
+  }
+});
+
+test('release summary rejects mismatched or incomplete macOS verification', () => {
+  for (const change of [
+    { head: '9'.repeat(40) },
+    { arch: 'x64' },
+    { version: '1.2.2' },
+    { dmgSha256: '0'.repeat(64) },
+    { notarized: false },
+    { stapled: false },
+    { gatekeeperAccepted: false },
+    { payload: { passed: false } },
+    { developerIdNativeFiles: 0 },
+    { appTreeSha256: 'invalid' },
+  ]) {
+    const input = summaryFixture();
+    Object.assign(input.macReports.arm64, change);
+    assert.throws(() => releaseVerificationSummary(input));
+  }
+});
+
+test('release summary rejects wrong Windows source, bytes or signature state', () => {
+  for (const change of [
+    { sourceCommit: '0'.repeat(40) },
+    { sourceTree: '0'.repeat(40) },
+    { version: '1.2.2' },
+    { installerSha256: '0'.repeat(64) },
+    { installerSignatureStatus: 'UnknownError' },
+    { mediaManifestSha256: '' },
+  ]) {
+    const input = summaryFixture(true);
+    Object.assign(input.windows, change);
+    assert.throws(() => releaseVerificationSummary(input));
+  }
+});
+
+test('release summary rejects extra, missing, unhashed assets and unsafe workflow identifiers', () => {
+  for (const mutate of [
+    (input) => {
+      input.assets['private.txt'] = '5'.repeat(64);
+    },
+    (input) => {
+      delete input.assets['media-tools-sources-1.2.3-macos.tar.gz'];
+    },
+    (input) => {
+      input.assets['SporTagLytics-1.2.3-arm64.dmg'] = '';
+    },
+    (input) => {
+      input.runId = '../foreign';
+    },
+    (input) => {
+      input.repository = 'https://example.invalid';
+    },
+  ]) {
+    const input = summaryFixture();
+    mutate(input);
+    assert.throws(() => releaseVerificationSummary(input));
+  }
+});
 
 const python = process.platform === 'win32' ? 'python' : 'python3';
 const archiveScript = resolve('scripts/media-tools/archive-sources.py');
@@ -352,4 +489,76 @@ test('Mac payload rejects altered ASAR bytes, unexpected models and changed noti
           : /byte mismatch: LICENSE/,
     );
   }
+});
+
+test('summary CLI hashes actual candidate bytes and refuses to overwrite its evidence', async (t) => {
+  const root = await fresh(t);
+  const git = (...args) =>
+    execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  git('init', '--quiet');
+  git(
+    '-c',
+    'user.name=Synthetic Test',
+    '-c',
+    'user.email=synthetic@example.invalid',
+    'commit',
+    '--allow-empty',
+    '-m',
+    'fixture',
+    '--quiet',
+  );
+  const input = summaryFixture();
+  input.head = git('rev-parse', 'HEAD');
+  await mkdir(join(root, 'dist/mac-verification'), { recursive: true });
+  await writeFile(
+    join(root, 'package.json'),
+    JSON.stringify({ version: input.version }),
+  );
+  for (const name of Object.keys(input.assets)) {
+    const bytes = Buffer.from(`synthetic release asset: ${name}`);
+    input.assets[name] = createHash('sha256').update(bytes).digest('hex');
+    await writeFile(join(root, 'dist', name), bytes);
+  }
+  for (const arch of ['arm64', 'x64']) {
+    Object.assign(input.macReports[arch], {
+      head: input.head,
+      dmgSha256: input.assets[`SporTagLytics-${input.version}-${arch}.dmg`],
+    });
+    await writeFile(
+      join(root, 'dist/mac-verification', `final-${arch}.json`),
+      JSON.stringify(input.macReports[arch]),
+    );
+  }
+  const run = () =>
+    spawnSync(
+      process.execPath,
+      [resolve('scripts/release-verification-summary.mjs')],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          INCLUDE_WINDOWS: 'false',
+          EXPECTED_SHA: input.head,
+          GITHUB_SHA: input.head,
+          GITHUB_RUN_ID: input.runId,
+          GITHUB_REPOSITORY: input.repository,
+        },
+      },
+    );
+  const first = run();
+  assert.equal(first.status, 0, first.stderr);
+  const path = join(root, 'dist/release-verification.json');
+  const bytes = await readFile(path);
+  assert.deepEqual(JSON.parse(bytes).assets, input.assets);
+  assert.equal(JSON.parse(bytes).sourceTree, git('rev-parse', 'HEAD^{tree}'));
+  assert.notEqual(run().status, 0);
+  assert.deepEqual(await readFile(path), bytes);
+  await rm(path);
+  await writeFile(
+    join(root, 'dist/SporTagLytics-1.2.3-arm64.dmg'),
+    'modified candidate',
+  );
+  assert.notEqual(run().status, 0);
+  await assert.rejects(readFile(path), /ENOENT/);
 });
