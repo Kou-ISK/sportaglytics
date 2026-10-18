@@ -66,7 +66,7 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 `pnpm run test:e2e:sample`は公開ZIPを展開し、実Open UI、コピーによるタグ追加、時刻・ノート編集、実disk保存、別プロセス再開、選択した3秒のMP4を確認します。OS pickerの返答だけを模擬し、writer/exportは置き換えません。標準runnerとWindowsインストール後runnerの両方に登録し、対応CIではPython 3を用意します。保存完了後に終了するため、終了直前のflush/ack・失敗時終了取消の回帰を代替しません。[手順とLinux検証範囲](quickstart.md)。
 
-`test:run` / `test:ci`は`scripts/tests/synthetic-timeline-workload.mjs`も実行します。件数・時間の境界、ID/行の整合、入力不変、nearest-rank集計を確認します。`scripts/tests/benchmark-module-loader.mjs`は実ソースの推移的コンパイルと拡張子なしimportを読み、由来未記録のデータ維持、不正な確認状態/型の拒否、実atomic保存、型エラー時の停止・一時出力削除を確認します。性能値は合否条件にしません。`pnpm run benchmark:timeline`の再現手順と実行条件は[限定負荷測定](synthetic-workloads.md)を参照してください。
+`test:run` / `test:ci`は`scripts/tests/synthetic-timeline-workload.mjs`も実行します。件数・時間の境界、ID/行の整合、入力不変、nearest-rank集計を確認します。`scripts/tests/benchmark-module-loader.mjs`は実ソースのコンパイル、既存入力の不変、実atomic保存、型エラー時の停止・一時出力削除を確認します。ネストした拡張子なしruntime importは常に合成graphで検査します。F05の由来情報が実装されているsource graphでは不正な確認状態/型の拒否も検査し、未実装branchではその追加subtestだけを理由付きskipとして表示します。性能値は合否条件にしません。`pnpm run benchmark:timeline`の再現手順と実行条件は[限定負荷測定](synthetic-workloads.md)を参照してください。
 
 ## Required Quality Gate
 
