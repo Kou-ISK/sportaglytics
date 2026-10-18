@@ -2,4 +2,4 @@ blank_issues_enabled: true
 contact_links:
   - name: Security vulnerability
     url: https://github.com/Kou-ISK/sportaglytics/security
-    about: セキュリティ問題はpublic issueではなくSecurity Advisoryから報告してください。
+    about: セキュリティ問題の詳細はpublic issueへ投稿せず、SECURITY.mdの非公開報告手順を確認してください。

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 初回利用・貢献の入口から合成サンプルへ案内し、文章AI・外部イベント検出pack・Paintモデルの準備と役割を区別する。v0.17.10で配布済みの同パス更新・復元、Mac署名公証とWindows未署名の条件へ文書を揃える。
+- [素材の由来](docs/asset-provenance.md)に独自アイコンのAI生成申告を記録し、生成条件の未確認事項と確認済みのモデル・配布告知を分ける。貢献例・公開ログの確認項目・非公開セキュリティ報告の案内を具体化する。
+
 ## [0.17.10]
 
 公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。既存の公開版とタグは維持します。

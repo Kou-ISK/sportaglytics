@@ -15,9 +15,11 @@ SporTagLytics は Electron デスクトップアプリケーションです。�
 
 セキュリティ問題を見つけた場合は public issue を作成しないでください。
 
-1. GitHub の Security Advisory 機能が利用できる場合は、リポジトリの **Report a vulnerability** から報告してください。
-2. Security Advisory が利用できない場合は、GitHub 上のメンテナへ非公開で連絡してください。
-3. 報告には、影響範囲、再現手順、確認した OS / app version、関連ログを含めてください。
+1. [Securityページ](https://github.com/Kou-ISK/sportaglytics/security)で **Report a vulnerability** が表示される場合は、[非公開報告フォーム](https://github.com/Kou-ISK/sportaglytics/security/advisories/new)から報告してください。フォームの利用可否はGitHub側の設定とログイン状態に依存します。この文書だけで有効化済みとは保証しません。
+2. フォームが利用できない場合、現在この文書に確認済みの代替メールアドレス等は掲載していません。[Discussions](https://github.com/Kou-ISK/sportaglytics/discussions)には「非公開のセキュリティ連絡先を案内してください」という窓口案内の依頼だけを投稿できます。脆弱性の種類、影響先、再現コードやログは公開せず、管理者が非公開窓口を案内するまで詳細を保留してください。これは脆弱性を送る非公開窓口の代替ではありません。
+3. 非公開窓口を利用できる状態になったら、影響範囲、最小の再現手順、確認したOS / app version、必要な範囲のログを含めてください。実試合映像、私有パッケージ、認証情報、個人を特定する内容を添付せず、合成データで再現してください。
+
+管理者は非公開報告フォームの到達性を確認し、利用できない場合は実在する代替窓口を確認したうえでここへ掲載する必要があります。未確認の連絡先やGitHubに存在しないDM機能を案内しません。
 
 ## Scope
 

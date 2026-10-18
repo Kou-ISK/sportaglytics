@@ -8,6 +8,8 @@ Windows固有の導入・操作・互換性・検証の正本です。各機能�
 
 H.264書き出し・再符号化を伴うライブ録画には、Windows組込みのMedia Foundationを使用します。GPUは不要です。Windows Nでは「設定 → アプリ → オプション機能」からMedia Feature Packを追加し、Windowsを再起動してください。アプリが不足を検出すると、この案内を表示して処理を停止します。OS機能の自動追加は行いません。[Microsoftの導入案内](https://support.microsoft.com/en-us/windows/experience/platform-variants/media-feature-pack-for-windows-n)。
 
+[公開版v0.17.10](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.10)のWindows installerは未署名です。同じcommitのインストール後検証は[配布run 39081921565](https://github.com/Kou-ISK/sportaglytics/actions/runs/39081921565)で成功していますが、Windows N実機と実カメラは未検証です。別の版を導入する場合は、そのRelease本文で署名状態と検証範囲を確認してください。
+
 Windowsの署名証明書が設定されていないビルドは未署名です。SmartScreenや組織の実行ポリシーによって起動を制限される場合があります。macOSの署名・公証とWindowsのAuthenticode署名は別々に扱い、Windowsの未署名状態をmacOSにも適用しません。
 
 ## 機能と操作
