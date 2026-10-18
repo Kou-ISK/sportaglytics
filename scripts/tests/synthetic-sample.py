@@ -70,10 +70,15 @@ class SyntheticSampleTest(unittest.TestCase):
             second = recipe.build(Path(directory) / "second", FFMPEG)
             self.assertEqual((first / "synthetic-first-run.stpkg.zip").read_bytes(),
                              (second / "synthetic-first-run.stpkg.zip").read_bytes())
-            current = json.loads((first / "synthetic-first-run.manifest.json").read_text())
-            committed = json.loads((ROOT / "samples/synthetic-first-run.manifest.json").read_text())
-            if current["ffmpegVersion"] == committed["ffmpegVersion"]:
-                self.assertEqual(current, committed)
+            # The version banner is not a fingerprint of linked libx264/build options.
+            # Committed bytes are checked against their manifest separately; only
+            # these two invocations are guaranteed to share the same local encoder.
+            with zipfile.ZipFile(first / "synthetic-first-run.stpkg.zip") as generated, \
+                    zipfile.ZipFile(ROOT / "samples/synthetic-first-run.stpkg.zip") as committed:
+                self.assertEqual(generated.namelist(), committed.namelist())
+                for filename in generated.namelist():
+                    if not filename.endswith(".mp4"):
+                        self.assertEqual(generated.read(filename), committed.read(filename))
 
     def test_existing_output_is_never_overwritten(self):
         with tempfile.TemporaryDirectory() as directory:

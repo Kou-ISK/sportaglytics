@@ -62,7 +62,7 @@ python3 scripts/tests/synthetic-sample.py
 
 WindowsでPythonを`py -3`として導入している場合は`python3`を置き換えます。出力先が既に存在すると停止し、上書きしません。別の空いている出力先を指定してください。`--ffmpeg /path/to/ffmpeg`または`SPORTAGLYTICS_FFMPEG_PATH`で実行ファイルを指定できます。検査のFFprobeは`SPORTAGLYTICS_FFPROBE_PATH`で指定します。
 
-[samples/synthetic-first-run.manifest.json](../samples/synthetic-first-run.manifest.json)にFFmpeg版、全ファイルのSHA-256、ZIPのサイズとSHA-256を記録しています。ZIPの順序・時刻・権限を固定していますが、異なるFFmpeg/libx264ビルド間の映像バイト一致は保証しません。レシピの連続2回の一致、元出力の上書き拒否、配布ZIPのhash・相対パス・20秒/H.264/640×360/24fps・全フレームの復号を検査します。
+[samples/synthetic-first-run.manifest.json](../samples/synthetic-first-run.manifest.json)にFFmpeg版、全ファイルのSHA-256、ZIPのサイズとSHA-256を記録しています。ZIPの順序・時刻・権限を固定していますが、異なるFFmpeg/libx264ビルド間の映像バイト一致は保証しません。version表示の先頭行が同じでも同一ビルドとは判定せず、配布ZIPのmanifest整合性と、この実行環境内の連続生成の一致を別々に検査します。レシピの連続2回の一致、元出力の上書き拒否、配布ZIPのhash・相対パス・20秒/H.264/640×360/24fps・全フレームの復号を検査します。
 
 アプリをbuild済みの開発環境では、公開ZIPそのものを使う操作試験も実行できます。
 
