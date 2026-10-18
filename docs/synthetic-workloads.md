@@ -1,35 +1,35 @@
 # 合成Timelineの限定負荷測定
 
-`node --experimental-strip-types scripts/benchmark-synthetic-timeline.mjs`は、実装中のTimeline検証・場面検索・JSON直列化・atomic writerを、合成データ240 / 2,400 / 10,000件で測定します。全て架空の行・ラベル・ノートです。私的な映像・モデル・パッケージは不要です。
+`node scripts/benchmark-synthetic-timeline.mjs`は、実装中のTimeline検証・場面検索・JSON直列化・atomic writerを、合成データ240 / 2,400 / 10,000件で測定します。全て架空の行・ラベル・ノートです。私的な映像・モデル・パッケージは不要です。
 
 この測定は**Node上のメタデータ処理**です。Electronの画面応答、90分映像のデコード、8アングル、4K、MP4出力、モデル推論、OS別終了時flushの性能を示しません。タイムスタンプは90分に分布させますが、動画は生成・再生していません。
 
 ## 再実行
 
-Node 22.12以上でリポジトリ直下から実行します。TypeScriptの型除去のみを使い、production関数をコピーせず直接読み込みます。Nodeのmodule-type警告が出る版もありますが、module読込は計測前に完了します。
+Node 22.12以上とlockfileに従って導入した開発依存を使い、リポジトリ直下から実行します。既存TypeScript compilerを子プロセスで起動し、実ソースとその推移的な依存を一時CommonJSへコンパイルします。拡張子なしの相対import（Timeline provenance等）もcompilerが解決するため、Nodeの実験的な型除去や本番importの変更は不要です。業務ロジックは複製しません。compileとmodule読込はwarmup・計測より前に完了し、compilerの処理時間・子プロセスのメモリは計測に含めません。
 
 ```bash
-node --test scripts/tests/synthetic-timeline-workload.mjs
-node --experimental-strip-types scripts/benchmark-synthetic-timeline.mjs output/benchmarks/synthetic-timeline.json
+node --test scripts/tests/synthetic-timeline-workload.mjs scripts/tests/benchmark-module-loader.mjs
+node scripts/benchmark-synthetic-timeline.mjs output/benchmarks/synthetic-timeline.json
 ```
 
-既存の結果を上書きしません。再測定では別の出力ファイル名を渡してください。テキスト書込にはその実行だけの一時ディレクトリを使い、最後に削除します。共有の合成データ生成器は`scripts/synthetic-timeline-workload.mjs`です。巨大な誤入力は件数100,000、行1,000、時間86,400秒の上限で拒否します。測定する標準条件は以下です。
+既存の結果を上書きしません。再測定では別の出力ファイル名を渡してください。コンパイル出力とテキスト書込にはその実行だけの一時ディレクトリを使い、成功・失敗のどちらでも削除します。compilerの型エラー時は計測を開始しません。共有の合成データ生成器は`scripts/synthetic-timeline-workload.mjs`です。巨大な誤入力は件数100,000、行1,000、時間86,400秒の上限で拒否します。測定する標準条件は以下です。
 
-| 条件   | 内容                                                                                   |
-| ------ | -------------------------------------------------------------------------------------- |
-| データ | 24行、240 / 2,400 / 10,000件、90分内の3秒区間、検索語`needle`は17件に1件               |
-| 手順   | 各操作5回warmup後30回、連続実行。GCは強制しない                                        |
-| 集計   | nearest-rankのP50/P95、最小/最大、各回の生値                                           |
-| 検証   | 実文書validator、実検索、JSON.stringify、実fsync+rename writer                         |
-| queue  | 同じパスに8件を同時要求し、全完了までのbatch時間と最後のbytesを確認                    |
-| 資源   | 計測前後のprocess.memoryUsageとprocess全体のmaxRSS。各操作のpeakやrenderer資源ではない |
-| 同一性 | source commit、対象3ファイルのhash、入力bytes/hash、測定後入力の不変を記録             |
+| 条件   | 内容                                                                                                    |
+| ------ | ------------------------------------------------------------------------------------------------------- |
+| データ | 24行、240 / 2,400 / 10,000件、90分内の3秒区間、検索語`needle`は17件に1件                                |
+| 手順   | 各操作5回warmup後30回、連続実行。GCは強制しない                                                         |
+| 集計   | nearest-rankのP50/P95、最小/最大、各回の生値                                                            |
+| 検証   | 実文書validator、実検索、JSON.stringify、実fsync+rename writer                                          |
+| queue  | 同じパスに8件を同時要求し、全完了までのbatch時間と最後のbytesを確認                                     |
+| 資源   | 計測前後のprocess.memoryUsageとprocess全体のmaxRSS。各操作のpeakやrenderer資源ではない                  |
+| 同一性 | source commit、compiler版、推移的依存を含む対象TSファイルのhash、入力bytes/hash、測定後入力の不変を記録 |
 
 保存の計測は既に直列化したbytesから始まり、300ms debounce・IPC・Renderer ackを含みません。queue batch時間を1件の保存時間として読まないでください。エラー・取消・終了中の正しさは保存保護のunit/E2Eで別途検証します。性能閾値によるCI合否は設けていません。
 
 ## 2026-10-18のcloud Linux結果
 
-[全生データと実行条件](reports/data/2026-10-synthetic-timeline.json)。対象アプリsourceは`ee66eb88472b68017d09301817ac5c2489ed6b31`で、保存保護の後続改修前です。
+[全生データと実行条件](reports/data/2026-10-synthetic-timeline.json)。対象アプリsourceは`ee66eb88472b68017d09301817ac5c2489ed6b31`で、保存保護・provenance追加・計測loader修正より前です。この既存記録は3入口ファイルのhashだけを含み、現在の依存graph全体のhash記録とは区別します。
 
 - Node 24.19.0、Linux x64 / kernel 6.18.55、Intel Xeon Platinum 8573C、プロセスに利用可能な並列数4。
 - 保存先は一時領域の**tmpfs（メモリファイルシステム）**。SSD、外付けドライブ、Windows Defender、ネットワークドライブを再現していません。
