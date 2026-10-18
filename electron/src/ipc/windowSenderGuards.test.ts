@@ -27,7 +27,9 @@ const fixture = () => {
   };
 };
 
-beforeEach(() => electron.fromWebContents.mockReset());
+beforeEach(() => {
+  electron.fromWebContents.mockReset();
+});
 
 describe('IPC sender document and frame boundary', () => {
   it('accepts the main frame of a live app window and preserves owner identity', () => {
@@ -47,6 +49,24 @@ describe('IPC sender document and frame boundary', () => {
     } as IpcMainInvokeEvent;
     expect(getValidatedEventSenderWindow(childEvent)).toBeNull();
     expect(isEventFromWindow(childEvent, window)).toBe(false);
+  });
+
+  it('fails closed when native document/window lookups throw during destruction', () => {
+    const { window, event, sender } = fixture();
+    electron.fromWebContents.mockReturnValue(window);
+    vi.spyOn(sender, 'getURL').mockImplementation(() => {
+      throw new Error('WebContents destroyed');
+    });
+    expect(getValidatedEventSenderWindow(event)).toBeNull();
+    vi.mocked(sender.getURL).mockRestore();
+    electron.fromWebContents.mockImplementation(() => {
+      throw new Error('Native window detached');
+    });
+    expect(getValidatedEventSenderWindow(event)).toBeNull();
+    vi.spyOn(window, 'isDestroyed').mockImplementation(() => {
+      throw new Error('Native window disposed');
+    });
+    expect(isEventFromWindow(event, window)).toBe(false);
   });
 
   it('rejects missing, detached, destroyed or foreign documents before granting IPC', () => {

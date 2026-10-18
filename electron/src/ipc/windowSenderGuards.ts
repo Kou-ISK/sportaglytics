@@ -11,15 +11,16 @@ type IpcEvent = IpcMainEvent | IpcMainInvokeEvent;
 export const getValidatedSenderWindow = (
   sender: WebContents,
 ): BrowserWindow | null => {
-  if (sender.isDestroyed() || !isTrustedRendererUrl(sender.getURL())) {
+  try {
+    if (sender.isDestroyed() || !isTrustedRendererUrl(sender.getURL())) {
+      return null;
+    }
+    const senderWindow = BrowserWindow.fromWebContents(sender);
+    return senderWindow && !senderWindow.isDestroyed() ? senderWindow : null;
+  } catch {
+    // Native WebContents/window access can fail after the renderer exits.
     return null;
   }
-  const senderWindow = BrowserWindow.fromWebContents(sender);
-  if (!senderWindow || senderWindow.isDestroyed()) {
-    return null;
-  }
-
-  return senderWindow;
 };
 
 export const getValidatedEventSenderWindow = (
@@ -48,12 +49,14 @@ export const isEventFromWindow = (
   event: IpcEvent,
   expectedWindow: BrowserWindow | null,
 ): boolean => {
-  if (!expectedWindow || expectedWindow.isDestroyed()) {
+  try {
+    return (
+      expectedWindow !== null &&
+      !expectedWindow.isDestroyed() &&
+      event.sender === expectedWindow.webContents &&
+      isTrustedMainFrameEvent(event)
+    );
+  } catch {
     return false;
   }
-
-  return (
-    event.sender === expectedWindow.webContents &&
-    isTrustedMainFrameEvent(event)
-  );
 };
