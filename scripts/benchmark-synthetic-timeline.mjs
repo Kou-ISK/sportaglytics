@@ -10,19 +10,12 @@ import {
   createSyntheticTimeline,
   summarizeTimings,
 } from './synthetic-timeline-workload.mjs';
-import { searchTimeline } from '../src/features/videoPlayer/components/Timeline/VisualTimeline/review/timelineReviewSearch.ts';
-import { validateTimelineDocumentData } from '../src/shared/timeline/timelineValidation.ts';
-import { writeTextFileAtomically } from '../electron/src/ipc/atomicTextFile.ts';
+import { compileBenchmarkModules } from './compile-benchmark-modules.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const output = path.resolve(
   process.argv[2] ?? 'output/benchmarks/synthetic-timeline.json',
 );
-const sourceFiles = [
-  'src/features/videoPlayer/components/Timeline/VisualTimeline/review/timelineReviewSearch.ts',
-  'src/shared/timeline/timelineValidation.ts',
-  'electron/src/ipc/atomicTextFile.ts',
-];
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const temporary = await fs.mkdtemp(
   path.join(os.tmpdir(), 'sportaglytics-bounded-benchmark-'),
@@ -37,6 +30,7 @@ const measure = async (operation, warmups = 5, repetitions = 30) => {
   }
   return { ...summarizeTimings(values), samplesMs: values };
 };
+let compiled;
 try {
   // Refuse a pre-existing report before doing the benchmark; retain prior evidence.
   try {
@@ -45,6 +39,10 @@ try {
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
+  compiled = await compileBenchmarkModules();
+  const { searchTimeline } = compiled.modules.search;
+  const { validateTimelineDocumentData } = compiled.modules.validation;
+  const { writeTextFileAtomically } = compiled.modules.atomic;
   const stat = await fs.statfs(temporary);
   const report = {
     schemaVersion: 1,
@@ -61,8 +59,12 @@ try {
         cwd: root,
         encoding: 'utf8',
       }).trim(),
+      loader: {
+        type: 'typescript-child-commonjs',
+        typescript: compiled.compilerVersion,
+      },
       sources: await Promise.all(
-        sourceFiles.map(async (file) => ({
+        compiled.sources.map(async (file) => ({
           file,
           sha256: sha256(await fs.readFile(path.join(root, file))),
         })),
@@ -145,5 +147,6 @@ try {
   });
   console.log(`Report: ${output}`);
 } finally {
+  await compiled?.dispose();
   await fs.rm(temporary, { recursive: true, force: true });
 }
