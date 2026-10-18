@@ -1,3 +1,5 @@
+import { isWithinPackageJsonSizeLimit } from '../../../../shared/packageJsonLimits';
+
 interface TimelineFileFilter {
   name: string;
   extensions: string[];
@@ -63,6 +65,16 @@ export const requestTimelineExportPath = async (
 };
 
 export const writeTimelineFile = async (
+  filePath: string,
+  content: string,
+): Promise<boolean> => {
+  // Reject before IPC: never replace a readable package with an oversized JSON.
+  if (!isWithinPackageJsonSizeLimit(content)) return false;
+  return writeTimelineExportFile(filePath, content);
+};
+
+/** Exchange exports do not inherit the package document's size cap. */
+export const writeTimelineExportFile = async (
   filePath: string,
   content: string,
 ): Promise<boolean> => {

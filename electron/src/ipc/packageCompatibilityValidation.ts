@@ -1,4 +1,5 @@
 import { MAX_PACKAGE_TIMELINE_CLIPS } from '../../../src/shared/media/packageMediaLimits';
+import { MAX_PACKAGE_JSON_BYTES } from '../../../src/shared/packageJsonLimits';
 import {
   isAbsoluteMediaReference,
   resolvePackageMediaPath,
@@ -8,12 +9,15 @@ import path from 'node:path';
 import { validateTimelineDocumentData } from '../../../src/shared/timeline/timelineValidation';
 import { isPlainObject } from './ipcPayloadGuards';
 
-const MAX_JSON_BYTES = 16 * 1024 * 1024;
 export const PACKAGE_FORMAT_VERSION = 1;
 
 export const readPackageJson = async (file: string): Promise<unknown> => {
   const stat = await fs.lstat(file);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_JSON_BYTES)
+  if (
+    !stat.isFile() ||
+    stat.isSymbolicLink() ||
+    stat.size > MAX_PACKAGE_JSON_BYTES
+  )
     throw new Error('PACKAGE_JSON_UNSAFE');
   return JSON.parse(await fs.readFile(file, 'utf8')) as unknown;
 };
