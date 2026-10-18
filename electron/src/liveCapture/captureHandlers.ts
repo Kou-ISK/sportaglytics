@@ -49,7 +49,6 @@ export const registerLiveCaptureHandlers = (options: {
     sleepBlocker = undefined;
   };
   let opened = false;
-  let quitting = false;
   let finishingQuit = false;
   const active = (): boolean =>
     starting ||
@@ -119,14 +118,27 @@ export const registerLiveCaptureHandlers = (options: {
   };
   setCaptureWindowLifecycle({ canClose: () => !active(), stop: stopSafely });
   app.on('before-quit', (event) => {
-    if (quitting || !active()) return;
+    if (!active()) return;
     event.preventDefault();
-    if (finishingQuit) return;
+    // A pending picker/start has no finalized owner to stop yet. Keep it alive;
+    // a later quit must re-evaluate the actual recording, not bypass this guard.
+    if (starting || finishingQuit) return;
     finishingQuit = true;
-    void stopSafely().finally(() => {
-      quitting = true;
-      app.quit();
-    });
+    void stopSafely()
+      .then(() => {
+        if (!active()) app.quit();
+      })
+      .catch((error: unknown) => {
+        console.error(
+          '[live-capture] quit cancelled: recording stop failed',
+          error,
+        );
+      })
+      .finally(() => {
+        // Timeline/Playlist may cancel the retried quit. A recording started
+        // afterwards must get its own stop handshake on the next request.
+        finishingQuit = false;
+      });
   });
   ipcMain.handle(channels.open, (event) => {
     if (

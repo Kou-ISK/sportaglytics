@@ -8,6 +8,8 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 
 ## Records
 
+- [0068 Timeline close save handshake](0068-timeline-close-save-handshake.md): Rendererの最終snapshot応答とMain queue完了後にclose/quitし、失敗時は編集を再開する（Accepted）。
+
 | ID                                                                 | Title                                              | Status     | Date       |
 | ------------------------------------------------------------------ | -------------------------------------------------- | ---------- | ---------- |
 | [0001](0001-feature-first-boundaries.md)                           | Feature-First boundaries                           | Accepted   | 2026-05-04 |

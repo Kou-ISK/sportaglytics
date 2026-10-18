@@ -6,6 +6,7 @@ const scenarios = [
   'ux-review',
   'ux-density',
   'package-safety',
+  'timeline-close',
   'sportscode-import',
   'legacy-external',
   'live-capture',

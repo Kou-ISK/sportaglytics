@@ -16,6 +16,7 @@ import { createPlaylistBridge } from './preload/playlistBridge';
 import { createPackageOpenBridge } from './preload/packageOpenBridge';
 import { createSettingsBridge } from './preload/settingsBridge';
 import { createTimelineWindowBridge } from './preload/timelineWindowBridge';
+import { createTimelinePersistenceBridge } from './preload/timelinePersistenceBridge';
 
 contextBridge.exposeInMainWorld('versions', {
   node: () => process.versions.node,
@@ -33,6 +34,7 @@ try {
 }
 
 const electronAPI = {
+  timelinePersistence: createTimelinePersistenceBridge(ipcRenderer),
   liveCapture: createLiveCaptureBridge(ipcRenderer),
   ...createAppBridge(ipcRenderer, registerListener),
   ...createEventBridge(registerListener, listenerStore),

@@ -4,6 +4,8 @@ Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop 
 
 # SporTagLytics System Overview
 
+Timeline所有元の通常Close/Quitは`timelineCloseProtection.ts`が調整します。用途限定のpreload bridgeからRendererへflushを要求し、hookが直前の編集と行メタデータを同期的に固定して既存保存queueへ渡します。Mainは各ownerの成功応答とatomic writerの完了を確認してから終了し、失敗時は編集を再開します。Playlistの確認とライブ録画停止を維持します。[保存契約](package-compatibility.md) / [ADR 0068](adr/0068-timeline-close-save-handshake.md)。
+
 画面上のリンク作成・記録範囲はSporTagLytics自身の操作として説明します。Sportscode XMLの対応subsetとSCTimeline JSONの外部往復未検証は別の契約であり、[互換性](package-compatibility.md)と[由来の確認台帳](provenance-review.md)を参照してください。文言変更によってimport/export・保存形式や参照資料の由来は変更しません。
 
 Playlistの保存済み文書ロードと追加配送はRendererごとの文書境界で処理します。外部文書listenerを先に登録し、ロード中の追加はsnapshot適用後にFIFOで処理します。新しい編集・ロード・syncがあれば古いdisk snapshotは適用しません。MainはWindow別ticketに対するRendererの採用応答を受けて保存先を確定し、read完了では保存先やdirtyを変えません。初回open intentも採用前の保存先にはしません。既存commandに用途限定の応答を追加し、Session宛先・文書形式は維持します。[ADR0059](adr/0059-playlist-renderer-delivery-readiness.md)。

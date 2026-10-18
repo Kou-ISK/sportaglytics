@@ -4,6 +4,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # Project Structure
 
+終了時保存の配置: Rendererの`features/videoPlayer/app/gateways/timelineCloseGateway.ts`と`hooks/useTimelinePersistence.ts`、型付き契約の`src/types/ipc/timelinePersistence.ts`、preload専用bridgeの`electron/src/preload/timelinePersistenceBridge.ts`、Mainの`electron/src/timelineCloseProtection.ts`に分離します。既存`electron/src/ipc/atomicTextFile.ts`が実書込と完了待機を所有します。
+
 Timelineの場面検索は`features/videoPlayer/components/Timeline/VisualTimeline/review/`へ置きます。`timelineReviewSearch`は純粋計算、`useTimelineReview`はウィンドウ内状態とfocus、`TimelineReviewView` / `TimelineWorkspaceView`はprops-only表示です。既存の`useVisualTimelineController`が結果からの選択・シーク・編集を担当します。
 
 Timelineの未知入力検証とXML request型は`src/shared/timeline/`に置き、Renderer/Mainで共有します。Mainの`packageCompatibilityValidation.ts`、`packageSourceSnapshot.ts`、`legacyPackageMigrationService.ts`が検証・fingerprint/容量・コピー完成を分担し、`atomicTextFile.ts`が順序付きテキスト置換を所有します。XMLの新規取り込みは`Setup/SportscodeImport/`のDomain/Hook/Gateway/View、Mainの`sportscodeImportService.ts`に分離します。保存エラーUIはprops-onlyの`TimelinePersistenceStatusView`で、永続化HookとTimeline同期から渡します。
