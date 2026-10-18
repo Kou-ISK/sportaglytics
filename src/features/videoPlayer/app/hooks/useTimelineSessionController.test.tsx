@@ -2,10 +2,14 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useTimelineSessionController } from './useTimelineSessionController';
+import { registerTimelineCloseHandler } from '../gateways/timelineCloseGateway';
 import {
   readTimelineFile,
   writeTimelineFile,
 } from '../gateways/timelineImportExportGateway';
+vi.mock('../gateways/timelineCloseGateway', () => ({
+  registerTimelineCloseHandler: vi.fn(() => () => undefined),
+}));
 vi.mock('../gateways/timelineImportExportGateway', () => ({
   readTimelineFile: vi.fn(),
   writeTimelineFile: vi.fn(),
@@ -77,3 +81,64 @@ it('blocks commands synchronously when a different document starts loading and r
   expect(hook.result.current.canUndo).toBe(false);
   expect(hook.result.current.performUndo()).toBeNull();
 });
+
+it.each([true, false])(
+  'completes new action rows before same-tick close and keeps them after cancellation (save succeeds: %s)',
+  async (saveSucceeds) => {
+    const emptyRow = { id: 'keep-empty', name: 'Empty row', color: '#112233' };
+    vi.mocked(readTimelineFile).mockResolvedValue(
+      JSON.stringify({ version: 2, rows: [emptyRow], instances: [] }),
+    );
+    const hook = renderHook(() => useTimelineSessionController());
+    await act(async () =>
+      hook.result.current.setTimelineFilePath('/synthetic/timeline.json'),
+    );
+    const handlers = vi.mocked(registerTimelineCloseHandler).mock.calls.at(-1);
+    if (!handlers) throw new Error('Close handshake was not registered');
+    const [flush, resume] = handlers;
+    vi.mocked(writeTimelineFile).mockResolvedValueOnce(saveSucceeds);
+
+    await act(async () => {
+      hook.result.current.synchronizeTimelineActionColors(
+        new Map([['New action', '#123ABC']]),
+      );
+      hook.result.current.addTimelineData('New action', 3, 4, 'last edit');
+      // No React commit or ensureTimelineRows effect may run before this call.
+      expect(await flush()).toBe(saveSucceeds);
+    });
+    expect(writeTimelineFile).toHaveBeenCalledTimes(1);
+    const saved = JSON.parse(
+      vi.mocked(writeTimelineFile).mock.calls[0]?.[1] ?? '{}',
+    );
+    expect(saved.instances).toEqual([
+      expect.objectContaining({
+        actionName: 'New action',
+        startTime: 3,
+        endTime: 4,
+        memo: 'last edit',
+      }),
+    ]);
+    expect(saved.rows).toEqual([
+      emptyRow,
+      { id: expect.any(String), name: 'New action', color: '#123ABC' },
+    ]);
+
+    // A failed save or a different window's cancelled close resumes this owner.
+    act(resume);
+    expect(hook.result.current.timelineEditable).toBe(true);
+    expect(hook.result.current.timelineRows).toEqual(saved.rows);
+    const instance = hook.result.current.timeline[0];
+    if (!instance) throw new Error('New action was lost during close');
+    act(() =>
+      hook.result.current.updateMemo(instance.id, 'after cancellation'),
+    );
+    await act(async () => vi.advanceTimersByTimeAsync(301));
+    const resumed = JSON.parse(
+      vi.mocked(writeTimelineFile).mock.calls.at(-1)?.[1] ?? '{}',
+    );
+    expect(resumed.rows).toEqual(saved.rows);
+    expect(resumed.instances).toEqual([
+      expect.objectContaining({ memo: 'after cancellation' }),
+    ]);
+  },
+);

@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
+  drainAtomicTextWrites,
   renameTextFileWithRetry,
   writeTextFileAtomically,
 } from './atomicTextFile';
@@ -15,6 +16,66 @@ afterEach(async () => {
       .splice(0)
       .map((dir) => fs.rm(dir, { recursive: true, force: true })),
   );
+});
+
+it('drains concurrent destinations, including a write queued during the drain', async () => {
+  const { dir, file } = await fixture();
+  const rename = fs.rename.bind(fs);
+  let release: (() => void) | undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const entered = Promise.withResolvers<void>();
+  vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+    if (to === file) {
+      entered.resolve();
+      await held;
+    }
+    await rename(from, to);
+  });
+  const first = writeTextFileAtomically(file, 'first');
+  await entered.promise;
+  let drained = false;
+  const drain = drainAtomicTextWrites().then(() => {
+    drained = true;
+  });
+  const second = writeTextFileAtomically(file, 'latest');
+  const other = path.join(dir, 'other.json');
+  const third = writeTextFileAtomically(other, 'other');
+  await Promise.resolve();
+  expect(drained).toBe(false);
+  release?.();
+  await Promise.all([first, second, third, drain]);
+  expect(await fs.readFile(file, 'utf8')).toBe('latest');
+  expect(await fs.readFile(other, 'utf8')).toBe('other');
+});
+
+it('drain propagates an earlier in-flight failure even if the same-file queue recovers', async () => {
+  const { file } = await fixture();
+  const rename = fs.rename.bind(fs);
+  const held = Promise.withResolvers<void>();
+  const entered = Promise.withResolvers<void>();
+  let calls = 0;
+  vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+    if (++calls === 1) {
+      entered.resolve();
+      await held.promise;
+      throw new Error('synthetic in-flight failure');
+    }
+    return rename(from, to);
+  });
+  const failed = writeTextFileAtomically(file, 'failed');
+  const failure = expect(failed).rejects.toThrow('synthetic in-flight failure');
+  await entered.promise;
+  const recovery = writeTextFileAtomically(file, 'recovered');
+  const drain = expect(drainAtomicTextWrites()).rejects.toThrow(
+    'synthetic in-flight failure',
+  );
+  held.resolve();
+  await Promise.all([failure, recovery, drain]);
+  expect(await fs.readFile(file, 'utf8')).toBe('recovered');
+  // A later attempt starts from a quiescent queue; renderer owns prior dirty errors.
+  await expect(drainAtomicTextWrites()).resolves.toBeUndefined();
 });
 const fixture = async (): Promise<{ dir: string; file: string }> => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'sportaglytics-atomic-'));
