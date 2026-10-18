@@ -16,6 +16,7 @@ const scenarios = [
   'angle-sync-multi',
   'angle-sync-gaps',
   'code-window-menu',
+  'window-security',
   'export-menu',
   'export-fast',
   'export-progress',

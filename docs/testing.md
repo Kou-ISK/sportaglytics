@@ -56,7 +56,7 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 保存済みcaptureの16超clipは共通の50,000上限を使うunit負例/正例とlive-captureの再開で検証します。Playlistの途中JSONは既存export-menuの読取条件を維持し、metadata置換に同じatomic writerを使います。Windows renameの一時/恒久拒否はbounded retryの回帰を持ち、nativeの実置換で再確認します。Undoの故障注入はB/A両方のrename完了を待ってから判定し、別文書のempty retryは別package IDを使い、open-fileで作られる新sessionのMain/Timeline/コードパネルを取得し直します。対象read faultの到達と元sessionの文書不変も検査します。新processのTimeline同期へ通常listenerを追加し、既存subscriptionを置換せずに実メモリ中のlabelsを確認します。multi-clipの保存件数assertionは緩和せず、synthetic Main stderrの実filesystem errorを残します。
 
-保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常24シナリオとWindowsインストール後24シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
+保存保護・XML・外部映像とTimeline UX/densityを両方含む統合候補は、通常の全シナリオとWindowsインストール後の全シナリオへ登録します。個別PRの成功と統合候補の成功はsource headとCI runを分けて記録します。実行前は`pnpm run e2e:prepare`とmedia toolsの準備が必要です。OSのファイル選択結果はstub化し、dialog optionsの目的別filterを検査します。Finder/Explorer picker自体、実外付けドライブ、電源断、全歴代版、Sportscode実機でのexportは別途検証が必要です。合成例には架空の名称だけを使用し、私的プロジェクトをCIへuploadしません。
 
 `e2e-unified-open.mjs`は0.17.9の別保存先と索引を生成し、編集済みコピーの採用、元パスでの再生、別プロセスでの再開、単一バックアップを検査します。さらに現在の文書を退避して原本を復元し、復元内容の選択、再生、実Rendererの編集・同名保存、4回目の新processでの再読込と両編集コピーの全バイト保持を確認します。`E2E_NATIVE_RESTORATION=1`では復元時のOS確認をstubせず実画面操作用に待機します。同シナリオ内の`e2e-package-update-crash.mjs`はbuild済みMain serviceを子Nodeプロセスで実行し、作業領域作成からバックアップ確定まで9か所でprocessを終了して、新processで復旧と全バイト一致を検査します。インストール後実行でもcrash helper自体はworkspaceのbuild済みserviceを使い、GUIは実インストールアプリを検査する点を区別します。電源断試験ではありません。
 
@@ -120,6 +120,8 @@ Settingsやmigrationでは新fieldの保存読込、legacy default、invalid val
 Timeline変更ではrange normalization、row ownership、history/Undo単位、duplicate/copy semanticsを検証します。自動Codingは `addTimelineDatas()` の1 state updateで追加するため、一括Undoを前提にします。
 
 IPC / preload変更ではpayload guard、sender validation、explicit API、listener cleanup、invalid result rejectionを確認します。
+
+文書/frame境界は`windowSecurity.test.ts`と`windowSenderGuards.test.ts`に加え、`node scripts/e2e-window-security.mjs`で実preload/Mainまで検査します。合成ファイルを使い、正規画面の読み書き・Settings・生成Help、別HTMLと同じアプリURLを読む子frameからの読み書き拒否、top-level navigation/window.open拒否を確認します。子frameへpreloadを届ける`nodeIntegrationInSubFrames: true`は試験用probeだけに指定し、本番BrowserWindow設定は変えません。通常runnerとWindowsインストール後runnerの両方へ登録します。YouTube/MediaPipe/live captureの全動作はこの限定試験だけで保証せず、既存のclip-sync/paint/live-capture等の回帰を併用します。[設計・残る境界](adr/0070-renderer-document-and-frame-trust.md)。
 
 ```bash
 pnpm run bundle:preload

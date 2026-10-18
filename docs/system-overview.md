@@ -127,6 +127,8 @@ Timelineの分割・結合は`shared/timelineRangeEditing.ts`の純粋関数で�
 
 Rendererへ公開するIPC contractの正本は `src/renderer.d.ts` です。用途別のpayload型は `src/types/ipc/` などで定義し、公開APIから参照します。Main process は sender window と payload を検証し、preload も inbound payload を guard します。
 
+共通sender guardは、生存するBrowserWindow/WebContents、呼出元mainFrame、`getRendererUrl()`のentry documentを照合します。hash routeだけを同じ文書とし、子frame・別のfile/data/http文書は許可しません。既存のexpected-window/session比較を重ね、Settingsも同じguardを使います。個別handlerと正規rendererからのpath操作は引き続き別途検証が必要です。[脅威モデルと範囲](adr/0070-renderer-document-and-frame-trust.md)。
+
 ## BrowserWindow セキュリティ
 
 全 BrowserWindow で以下を適用します。
@@ -137,6 +139,8 @@ Rendererへ公開するIPC contractの正本は `src/renderer.d.ts` です。用
 - `webSecurity: true`
 - `window.open` を拒否
 - 許可されないnavigationを拒否
+
+rendererのtop-level navigationとmain-frame redirectはアプリのentry documentへ限定します。YouTube iframeの移動、MediaPipeのBlob/WASM資産、Mainが生成するpreloadなしのHelpは別の正規経路として維持します。Mainの明示的な`loadURL`はnavigation制限を通らないため、IPCでも文書/frameを検証します。
 
 外部binaryはrendererから直接起動せず、main process配下のmanager/runner境界で管理します。
 

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 共通Electron IPCで送信元mainFrameとアプリ文書URLを照合し、Settingsも同じguardへ統一する。任意file/data/外部ページへのtop-level navigation・redirectを拒否し、既存iframe資産と生成Helpの経路を維持する。[判断と検証範囲](docs/adr/0070-renderer-document-and-frame-trust.md)。
+
 ## [0.17.10]
 
 公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。既存の公開版とタグは維持します。
