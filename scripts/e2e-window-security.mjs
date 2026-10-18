@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { _electron as electron } from 'playwright';
+import { expect } from 'playwright/test';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 
 const root = await mkdtemp(join(tmpdir(), 'sportaglytics-window-trust-'));
@@ -52,12 +53,17 @@ try {
     await page.evaluate((next) => {
       window.location.href = next;
     }, target);
-    await page.waitForTimeout(100);
+    await expect
+      .poll(async () => {
+        const observed = await app.evaluate(
+          () => globalThis.__blockedNavigations,
+        );
+        return observed.some(
+          (entry) => entry.target === target && entry.blocked,
+        );
+      })
+      .toBe(true);
     assert.equal(page.url(), url);
-    const observed = await app.evaluate(() => globalThis.__blockedNavigations);
-    assert.ok(
-      observed.some((entry) => entry.target === target && entry.blocked),
-    );
   }
   const count = app.windows().length;
   await page.evaluate(() => window.open('https://example.invalid/'));
@@ -132,13 +138,13 @@ try {
     ),
     'trusted edit',
   );
+  const childAttached = probe.waitForEvent('frameattached');
   await probe.evaluate((source) => {
     const frame = document.createElement('iframe');
     frame.src = source;
     document.body.append(frame);
   }, url);
-  const child = probe.frames().find((frame) => frame !== probe.mainFrame());
-  assert.ok(child);
+  const child = await childAttached;
   await child.waitForFunction(() => Boolean(window.electronAPI));
   assert.equal(
     await child.evaluate(
@@ -157,7 +163,11 @@ try {
   assert.equal(await readFile(fixture, 'utf8'), 'trusted edit');
 
   await page.evaluate(() => window.electronAPI.openSettingsWindow());
-  await page.waitForTimeout(100);
+  await expect
+    .poll(() =>
+      app.windows().some((candidate) => candidate.url().endsWith('#/settings')),
+    )
+    .toBe(true);
   const settings = app
     .windows()
     .find((candidate) => candidate.url().endsWith('#/settings'));
@@ -170,7 +180,13 @@ try {
       './build/electron/src/helpWindow.js',
     ).openHelpWindow();
   });
-  await page.waitForTimeout(100);
+  await expect
+    .poll(() =>
+      app
+        .windows()
+        .some((candidate) => candidate.url().startsWith('data:text/html')),
+    )
+    .toBe(true);
   const help = app
     .windows()
     .find((candidate) => candidate.url().startsWith('data:text/html'));
