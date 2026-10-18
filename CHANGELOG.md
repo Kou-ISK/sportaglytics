@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogでモデルなし。取得・同梱・rollback例外は未実装で、v0.17.11の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
+- 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
+
+## [0.17.12]
+
+0.17.11の正式工程はmacOS E2Eで停止し、配布物は未公開です。既存tagを維持し、同版のOSS改善と以下の試験修正を新しい版へ引き継ぎます。配布・署名・公証の状態は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)と同版の検証要約を参照してください。
+
+### Fixed
+
+- Timeline終了試験を、最後のWindowを閉じてもアプリを残すmacOSの既存仕様に合わせる。所有元/Timelineの消滅と保存内容を明示的なQuitより前に確認し、新processでの再開、故障時の取消・再試行、全WindowのQuitを維持する。対象source変更のPRでもmacOSの合成回帰を実行する。
 
 ## [0.17.11]
 

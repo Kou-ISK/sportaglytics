@@ -1,0 +1,37 @@
+name: macOS native close
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '.github/workflows/macos-native-close.yml'
+      - 'electron/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'vite*.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  close:
+    name: Verify native macOS close and quit
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+      - run: pnpm install --frozen-lockfile
+      - name: Build verified host media tools
+        run: pnpm run media:build
+      - name: Build application and preload
+        run: pnpm run e2e:prepare
+      - name: Verify native close and quit persistence
+        run: node scripts/e2e-timeline-close.mjs

@@ -1,6 +1,6 @@
 # 将来リリースへの最新適格モデルの取り込み
 
-追跡課題: [#243](https://github.com/Kou-ISK/sportaglytics/issues/243)。通常installerへ、そのリリース時点で配布条件・対応環境・評価を満たす最新のevent modelを取り込む方針です。**v0.17.11はモデルなしで続行し、この基盤は同版のtag・配布内容を変更しません。**
+追跡課題: [#243](https://github.com/Kou-ISK/sportaglytics/issues/243)。通常installerへ、そのリリース時点で配布条件・対応環境・評価を満たす最新のevent modelを取り込む方針です。**v0.17.12は追加イベントモデルなしで公開済みであり、この基盤は同版のtag・配布内容を変更しません。**
 
 ## 実装した範囲
 
@@ -11,7 +11,7 @@ pnpm run check:event-model-release
 node --test scripts/tests/event-model-release-policy.mjs
 ```
 
-後者は`test:run` / `test:ci`にも含み、checked-in metadataを実際に検査します。既存のUbuntu/Windows CIと将来のRelease品質ゲートが同じ試験を通します。v0.17.11の固定commitにはこの後続変更は入りません。新料金・権限・Secrets・workflow triggerは追加しません。
+後者は`test:run` / `test:ci`にも含み、checked-in metadataを実際に検査します。既存のUbuntu/Windows CIと将来のRelease品質ゲートが同じ試験を通します。v0.17.12の固定commitにはこの後続変更は入りません。新料金・権限・Secrets・workflow triggerは追加しません。
 
 ## 候補台帳と選定lock
 

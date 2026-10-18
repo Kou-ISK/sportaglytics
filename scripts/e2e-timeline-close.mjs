@@ -312,6 +312,33 @@ const closeApplication = async () => {
   await waitExited(current);
   app = null;
 };
+const finishWindowClose = async (opened, fixture, expected) => {
+  await poll(
+    () => opened.main.isClosed() && opened.timeline.isClosed(),
+    'The owner and its Timeline did not finish native close',
+  );
+  // Check the close flush before a later Quit can save anything. macOS keeps
+  // the application alive after its last window closes; other platforms quit.
+  assert.equal(
+    await readMemo(fixture),
+    expected,
+    'Native window close must persist the final memo before explicit Quit',
+  );
+  if (process.platform === 'darwin') {
+    await poll(
+      () =>
+        app.evaluate(
+          ({ BrowserWindow }) => BrowserWindow.getAllWindows().length === 0,
+        ),
+      'macOS window close must not leave an owner or auxiliary window behind',
+    );
+    assert.equal(processes.get(app).exitCode, null);
+    await closeApplication();
+  } else {
+    await waitExited(app);
+    app = null;
+  }
+};
 const verifyFreshProcess = async (fixture, expected) => {
   const main = await launch();
   const opened = await openPackage(fixture, main);
@@ -341,15 +368,13 @@ try {
     await installFaultBoundary([fixture]);
     const expected = `Synthetic edit before close ${waitMs}`;
     const acknowledgedAt = await observeMemo(opened.timeline, expected);
-    const current = app;
     const evidencePath = await requestClose({
       ...opened,
       fixture,
       waitMs,
       acknowledgedAt,
     });
-    await waitExited(current);
-    app = null;
+    await finishWindowClose(opened, fixture, expected);
     const evidence = JSON.parse(await fs.readFile(evidencePath, 'utf8'));
     assert.equal(
       evidence.attemptsBeforeClose,
@@ -416,8 +441,7 @@ try {
     (_electron, file) => globalThis.closeTestTargets.get(file).release(),
     queued.timeline,
   );
-  await waitExited(app);
-  app = null;
+  await finishWindowClose(opened, queued, base.instances[0].memo);
   assert.equal(
     await readMemo(queued),
     base.instances[0].memo,
@@ -446,8 +470,7 @@ try {
   const retryMemo = 'Edited after cancelled close';
   await observeMemo(opened.timeline, retryMemo);
   await requestClose({ ...opened, fixture: failed });
-  await waitExited(app);
-  app = null;
+  await finishWindowClose(opened, failed, retryMemo);
   assert.equal(await readMemo(failed), retryMemo);
   await verifyFreshProcess(failed, retryMemo);
   results.push({

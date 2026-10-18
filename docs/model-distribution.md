@@ -92,4 +92,4 @@ Hugging Faceではモデルrepoの`README.md`が[Model Card](https://huggingface
 
 ## 将来の通常installer同梱
 
-将来はリリース時点の最新適格モデルを通常installerへ取り込む方針です。公開可能な候補台帳、版/hash固定、アプリ版との対応と選定検査の基盤を[選定方針](event-model-release-policy.md)へ記録しています。現在のcatalogは空で、取得元や私有packを公開承認したものではありません。v0.17.11はモデルなしで維持し、実packの由来・runtime・全対象OSのqualificationと配布工程への接続は[#243](https://github.com/Kou-ISK/sportaglytics/issues/243)で別途扱います。
+将来はリリース時点の最新適格モデルを通常installerへ取り込む方針です。公開可能な候補台帳、版/hash固定、アプリ版との対応と選定検査の基盤を[選定方針](event-model-release-policy.md)へ記録しています。現在のcatalogは空で、取得元や私有packを公開承認したものではありません。公開済みv0.17.12の配布内容は維持し、実packの由来・runtime・全対象OSのqualificationと配布工程への接続は[#243](https://github.com/Kou-ISK/sportaglytics/issues/243)で別途扱います。

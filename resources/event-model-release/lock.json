@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "appVersion": "0.17.11",
+  "appVersion": "0.17.12",
   "catalogSha256": "6422f904299414949100c4ab3739d0cc30d0fca9ed05027e1885d4e900c263fc",
   "targets": [
     "darwin-arm64",
@@ -11,6 +11,6 @@
   "selection": null,
   "decision": {
     "path": "evidence/no-public-candidate.md",
-    "sha256": "2b65c68a51ed7b3cfc6b0c2c1147df43a9460474a48efbefa92ca88bd7b964b9"
+    "sha256": "153833f0acc95f3151f8552f101ee4fd565c30022813252906360e949df3ec17"
   }
 }
