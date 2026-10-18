@@ -83,19 +83,25 @@ export const registerTimelineCloseProtection = (
     resume(state);
   };
   const getSender = (event: IpcMainEvent): ProtectedWindow | undefined => {
-    // HashRouter can normalize the initial empty hash without changing the
-    // document. Auxiliary windows still cannot register: they are not protected.
-    const senderDocument = event.sender.getURL().split('#')[0];
-    const rendererDocument = options.rendererUrl.split('#')[0];
-    if (
-      event.senderFrame !== event.sender.mainFrame ||
-      senderDocument !== rendererDocument
-    )
+    try {
+      // HashRouter can normalize the initial empty hash without changing the
+      // document. Auxiliary windows still cannot register: they are not protected.
+      const senderDocument = event.sender.getURL().split('#')[0];
+      const rendererDocument = options.rendererUrl.split('#')[0];
+      if (
+        event.senderFrame !== event.sender.mainFrame ||
+        senderDocument !== rendererDocument
+      )
+        return undefined;
+      return [...windows].find(
+        ({ window }) =>
+          !window.isDestroyed() && window.webContents === event.sender,
+      );
+    } catch {
+      // Native sender/frame/window access can throw after destruction. Reject
+      // the event without changing registration or authorizing a pending close.
       return undefined;
-    return [...windows].find(
-      ({ window }) =>
-        !window.isDestroyed() && window.webContents === event.sender,
-    );
+    }
   };
 
   ipcMain.on(channels.register, (event, payload: unknown) => {
