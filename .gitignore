@@ -9,6 +9,7 @@ node_modules/
 /coverage
 /output/playwright/
 /output/benchmarks/
+/output/synthetic-sample/
 
 # Local research data and artifacts must stay outside the public repository.
 /research/

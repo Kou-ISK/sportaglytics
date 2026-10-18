@@ -1,5 +1,7 @@
 # SporTagLytics - 技術仕様書
 
+Timeline所有元を通常Close/Quitするときは、直前の編集を含む最新snapshotと実ファイル書込の完了を待つ。保存失敗・応答失敗では終了を取り消し、画面の編集を保持して再試行できる。独立TimelineだけのCloseは所有元を終了しない。強制終了・電源断・Renderer reloadの保護は別条件とする。[保存と復旧の契約](package-compatibility.md)。
+
 ライブ録画中は操作画面を隠してコード付けを継続できること。新規録画は確定区間を先読みして連続再生し、記録中のパッケージの時刻・Code Window接続を保つ。[現行ライブ仕様](live-coding.md)。
 
 ライブ映像を最大4入力まで取り込み、標準パッケージに保存しながら共通時刻でコーディングします。対応入力・制約・エラー時の契約は[ライブ仕様](live-coding.md)を正本とします。
@@ -390,9 +392,11 @@ AI Analysis:
 Timeline:
 
 - JSON
-- CSV
-- SCTimeline JSON（既存場面の入出力。XML形式とは別）
+- CSV（Timeline・分析データ・マトリクスの文字列は式解釈を抑える接頭辞と引用処理を共用する。数値・保存元は維持。表計算ソフトの再保存後までの保証は対象外）
+- SCTimeline JSON（既存場面の入出力。XML形式とは別。既定名`timeline.SCTimeline`）
 - 公式Sportscode Edit List XML + 明示動画 + 明示秒補正から新規プロジェクト作成。ネイティブ`.scpkg` / `.sczip`とXML出力は対象外
+
+保持項目、文字列への接頭辞、JSONとの使い分けは[入出力仕様](sctimeline-implementation.md)を正本とする。これらの交換形式は`.stpkg`の完全バックアップを代替しない。
 
 Clip export:
 

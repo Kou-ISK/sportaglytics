@@ -2,6 +2,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # 開発ガイド
 
+終了時保存を変更する場合は[ADR 0068](adr/0068-timeline-close-save-handshake.md)に従い、hookの同一tick編集・行補完、typed preloadの送信元、Mainの全owner準備とatomic write待機を検証します。`pnpm run e2e:prepare && node scripts/e2e-timeline-close.mjs`は合成データで実保存・別process再開を確認します。ライブ停止後に終了が取り消された場合も、次の録画の終了待ちを省略しないでください。
+
 Tabアクション巡回を変更するときは、[Timeline review](timeline-review.md)の適用範囲と[ADR 0064](adr/0064-scoped-tab-action-navigation.md)を確認します。選択・DOMフォーカス・実映像シークを隔離したElectron試験で同時に検証し、通常アプリや実試合データを使わないでください。
 
 Playlistの配送・ロードを変更するときは`usePlaylistLoadDelivery.test.tsx`、Mainの`windowManager.test.ts`と`e2e-ux-review`内の保存済み文書ロード/reloadを確認します。Rendererごとのqueueがsnapshotと追加の順序を保ち、新しい編集・文書世代を古いdisk結果が上書きしないことが受入条件です。[判断](adr/0059-playlist-renderer-delivery-readiness.md)。
@@ -14,7 +16,7 @@ Electronは43.5.1へ固定します。[公式advisory](https://github.com/electr
 
 Timeline reviewを変更する場合は`Workspace/Timeline/Review` storiesと`node scripts/e2e-ux-review.mjs`を確認してください。E2Eは一時profileと合成240件・24行を使い、検索→映像→編集→Playlist→分析→再開を検証します。OSファイルダイアログの取消結果はadapterを置換し、Finder自体の操作は検証しません。スクリーンショットは`E2E_SCREENSHOT_DIR=output/playwright/ux-review`で保存できます。[評価範囲と手順](reports/2026-10-ux-review.md)。
 
-パッケージ互換を変更するときは、[互換・原本保護の仕様](package-compatibility.md)に従って既知構造と未知versionを分け、原本へのin-place migrationを追加しないでください。Mainのvalidation/snapshot/copyとRendererのload-gated persistenceを別々に検証します。Sportscode XMLのDomain・Hook・View・Gatewayを分離し、通常TimelineへのJSON置換と混ぜません。`e2e-package-safety.mjs` / `e2e-sportscode-import.mjs`は合成データと独立profileだけを使います。重いbuild/Electron/full suiteは同じ端末で並列に起動しないでください。
+パッケージ互換を変更するときは、[互換・原本保護の仕様](package-compatibility.md)に従って既知構造と未知versionを分け、検証済みstagingから同じパスへ更新し、更新前の原本をjournal付きバックアップへ残す既存契約を維持してください。Mainのvalidation/staging/backup/復元とRendererのload-gated persistenceを別々に検証します。Sportscode XMLのDomain・Hook・View・Gatewayを分離し、通常TimelineへのJSON置換と混ぜません。`e2e-package-safety.mjs` / `e2e-sportscode-import.mjs`は合成データと独立profileだけを使います。重いbuild/Electron/full suiteは同じ端末で並列に起動しないでください。
 
 ライブキャプチャの開発ではネットワーク有効の同梱FFmpegが必要です。`pnpm run media:build`後に`pnpm run e2e:prepare`、`node scripts/e2e-live-capture.mjs`で模擬カメラと合成IP映像を検証します。実カメラを自動テストで起動しません。[入力・保存契約](live-coding.md)。
 
@@ -322,7 +324,7 @@ Main process側はstatusに関係なく `shell: false`、finite timeout、output
 
 Model outputは直接persisted `timeline.json` を書き換えません。Renderer domainで現在のconfidence threshold、enabled event、lead/lag、duplicate suppressionを適用して `NewTimelineData[]` へ変換し、`addTimelineDatas()` で1 state updateとして追加します。
 
-自動追加後は通常の `TimelineData` として扱います。experimental provenanceをTimeline schemaへ保存しません。
+自動追加後は通常の `TimelineData` として扱い、元モデル・候補情報を任意の `provenance` に保存します。欠落した旧データを補完せず、再生・編集から人確認を推定しません。スコアは元候補の値のままです。`src/types/timeline/provenance.ts` が型とguard、`src/shared/timeline/timelineProvenance.ts` が読込・コピー・結合を担当します。Timeline/Analysis IPCでも任意フィールドを検証し、通常のupdate commandには由来の編集を許しません。候補の由来が保存契約に適合しなければ、一括追加の前に検出結果を拒否します。設計と互換性は[ADR 0069](adr/0069-timeline-detection-provenance.md)、試験範囲は[Timeline / IPC検証](testing.md#settings--timeline--ipc)を参照してください。
 
 ## テストとデバッグ
 
@@ -376,6 +378,10 @@ Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-ope
 6. Release desktopをmainから手動dispatchし、全ゲート後にpackage/release assets作成。同じバージョンの公開済みタグ・DMGを上書きしません（[ADR 0032](adr/0032-immutable-release-artifacts.md)）。
 
 Electron E2Eは `scripts/run-electron-e2e.mjs` で全シナリオの成否を収集し、1件でも失敗すると配布へ進みません。詳細は[テスト手順](testing.md)を参照してください。
+
+Releaseの検証要約は`scripts/release-verification-summary.mjs`で生成します。最終DMG reportとWindows reportのversion/source identity/検査状態を確認し、配布候補の実bytesをhashして照合します。公開要約の値は許可リストで抽出し、raw logやrunner pathは転記しません。新規ReleaseのassetとSHA256SUMSへ含め、詳細reportのActions artifactは90日保持します。公開要約は独立attestationではなく、品質・E2Eの成否はリンク先workflowで確認します。[公開手順と保証範囲](../.github/RELEASE.md#公開前のゲート)。
+
+月次architecture reportも通常CIと同じNode 22.12.0 / pnpm 9.1.0を使います。Release要約の限定検査は`node --test scripts/tests/macos-release.mjs`で実行でき、Macへの接続や署名・公証を開始しません。
 
 配布前に `pnpm audit` / `pnpm audit --prod` も確認します。lockfileを固定してインストールし、UIのゲートとStorybook buildをReleaseでも実行します。
 
@@ -461,10 +467,22 @@ Windows CIは同じrunで作成・インストールした成果物のNOTICE、�
 
 macOS llamaの準備は固定版の依存告知を外部ファイルへコピーし、cacheと`afterPack`で本文hash・実行ファイル内の全文を検査します。版変更時は [告知の出典](../resources/third-party/llama-b7849/README.md) も更新し、両archの実ファイルで検証してください。`node --test scripts/tests/distribution-notices.mjs`は欠落・改変・別runtimeを拒否する合成試験で、macOS配布検証を代替しません。
 
-Windows media toolchainはMedia FoundationのCPUエンコーダーを使用します。Windows NではMedia Feature Packを有効にしてください。native build、CPU MP4、全24シナリオのインストール後検査は[Windows開発・検証](windows.md#開発検証)を参照してください。
+Windows media toolchainはMedia FoundationのCPUエンコーダーを使用します。Windows NではMedia Feature Packを有効にしてください。native build、CPU MP4、全シナリオのインストール後検査は[Windows開発・検証](windows.md#開発検証)を参照してください。
 
 Macの配布準備は[Release手順](../.github/RELEASE.md)に従います。`release.yml`は手動dispatchのみで、既存SecretsをCI内で利用します。`publish=false`もApple送信を含むため、未署名のローカル検査には使いません。Mac専用sourceは`node scripts/package-media-sources.mjs --platform macos --require-builds`で生成し、Python 3とMac 2 targetの既存manifestを使います。`include_windows=true`は同じrunで新規buildしたWindows installer・report・manifestを検査し、`--platform windows --require-builds`の対応sourceも同じ新規Releaseへ公開します。
 
 Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。
 
 保存済み録画のシーク・終端・別process再開は`node scripts/e2e-capture-reopen.mjs`、共通picker・以前の編集コピーの採用・同じ場所への保存と9境界のプロセス終了復旧は`node scripts/e2e-unified-open.mjs`で合成データを検証する。既存live-captureに加えて対象実行する。
+
+## 公開サンプルと限定負荷測定
+
+初回導線用の小さな配布ZIPと生成recipeは[quickstart](quickstart.md#サンプルの由来と再生成開発者向け)、Node上の限定計測は[合成負荷測定](synthetic-workloads.md)を参照してください。`pnpm run sample:generate` / `pnpm run test:sample`だけはPython 3とlibx264付きFFmpegを使います。通常のアプリ実行にはPythonは不要です。`pnpm run test:e2e:sample`は公開ZIPの展開にPythonだけを使い、アプリ側の読み込み・保存・出力を実行します。WindowsのPython実行名は`PYTHON`環境変数で指定できます。
+
+`pnpm run benchmark:timeline`は既存結果を上書きしないため、再測定では新しい出力パスを引数に渡します。計測はNodeで完結し、Mac/WindowsのUI評価やcodec性能の代わりにはなりません。
+
+## Renderer文書とIPC送信元の検証
+
+BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-document-and-frame-trust.md)の脅威モデルを確認します。共通guardはmainFrameと`getRendererUrl()`のentry documentを照合し、既存のsession/expected-window検証も維持します。新しいrenderer URL・外部ページ・子frameへ権限を広げる変更は、正規用途と拒否する経路を先に列挙してください。
+
+`node scripts/e2e-window-security.mjs`は一時profileと合成文書だけで、実preload/Mainの許可・拒否と生成Help/Settingsを検査します。実行前に通常の`e2e:prepare`が必要です。Linuxクラウドでsandboxを利用できない場合の起動フラグは検証環境の制約として記録し、本番BrowserWindowの`sandbox`を変更しません。この限定検査の成功をMac/Windows配布検証や全IPCの完全隔離とは扱いません。[必須試験](testing.md#settings--timeline--ipc)。

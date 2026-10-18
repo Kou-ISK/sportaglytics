@@ -11,6 +11,47 @@ const parseCsvLine = (line: string): string[] =>
     .map((cell) => cell.replace(/^"|"$/g, '').replace(/""/g, '"'));
 
 describe('exportRawAnalysisCsv', () => {
+  it('protects user columns, including extracted names and labels, without changing numeric columns', () => {
+    const timeline: TimelineData[] = [
+      {
+        id: '=id',
+        actionName: '=Team +Action',
+        startTime: 12.345,
+        endTime: 16.789,
+        memo: ' @note',
+        color: '-color',
+        labels: [
+          { group: 'Type', name: '＝type' },
+          { group: 'Result', name: '+result' },
+          { group: '=group', name: '@custom' },
+        ],
+      },
+    ];
+    const original = JSON.stringify(timeline);
+    const [headerLine, rowLine] = exportRawAnalysisCsv(timeline).split('\n');
+    const headers = parseCsvLine(headerLine ?? '');
+    const row = parseCsvLine(rowLine ?? '');
+    const cells = Object.fromEntries(headers.map((name, i) => [name, row[i]]));
+
+    expect(cells).toMatchObject({
+      index: '1',
+      id: "'=id",
+      startSec: '12.345',
+      endSec: '16.789',
+      durationSec: '4.444',
+      labelCount: '3',
+      team: "'=Team",
+      action: "'+Action",
+      actionName: "'=Team +Action",
+      memo: "' @note",
+      color: "'-color",
+      'label:Type': "'＝type",
+      'label:Result': "'+result",
+      'label:=group': "'@custom",
+    });
+    expect(JSON.stringify(timeline)).toBe(original);
+  });
+
   it('expands label groups with fixed header order and escapes values', () => {
     const timeline: TimelineData[] = [
       {

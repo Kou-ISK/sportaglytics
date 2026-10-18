@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.11]
+
+終了時保存とOSSの初回利用・共有・検証導線を改善する版です。配布・署名・公証の完了は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の同版と実行証跡を参照してください。既存の公開版・tag・配布物は維持します。
+
+### Added
+
+- 新しい自動検出候補に元モデル・版・候補スコア/時刻を保存し、場面検索の詳細に表示する。保存再開・Undo・コピー・分割・結合で保持する。旧データの由来や人確認を推定せず、人確認済みを記録する操作は未提供。[範囲と互換性](docs/event-detection.md#検出後の区間修正)。
+
+- 図形だけの20秒映像を含む約29 KBの合成サンプルと、タグ追加・修正・保存再開・MP4共有までの[初回手順](docs/quickstart.md)を追加。生成recipe・hash・MIT告知、再生成検査、通常/Windowsインストール後の実操作試験を用意する。
+- 240 / 2,400 / 10,000件の合成Timelineで、実検証・検索・直列化・atomic writeを測定する[限定負荷測定](docs/synthetic-workloads.md)を追加。Node/tmpfsの測定であり、画面応答・長時間映像・Mac/Windows性能の保証とは区別する。
+
+### Fixed
+
+- Timeline・分析データ・マトリクスのCSVで、式として解釈され得る文字列に接頭辞を付ける。数値・保存データ・JSON出力は維持し、文字列の見え方と再保存時の制限を[出力仕様](docs/sctimeline-implementation.md#表計算ソフト向けcsvの文字列)に記載する。
+- SCTimeline JSONの既定ファイル名を`timeline.SCTimeline`へ変更し、保存ダイアログでもJSONと明示する。交換データの構造と読み込み条件は維持する。
+- 日本語UIのHTML言語指定を`ja`へ修正する。
+
+- 検出完了時に保存・終了処理が候補追加を拒否した場合、追加成功と誤表示せず再試行を案内する。
+- Timelineの最終編集を保存してから主画面を閉じ、アプリ終了時は全Timelineの保存応答とMainのwrite queueを待つ。保存失敗・応答なしでは終了を取り消して編集と再試行を維持する。[保存・終了の契約](docs/package-compatibility.md#読み込み保存の失敗)。
+- Timeline保存を既存の読込上限16 MiB（UTF-8）以内に制限し、上限超過では元ファイルと編集中の内容を保持して終了を取り消す。一般の交換用exportへ同じ上限は適用しない。
+- 共通Electron IPCで送信元mainFrameとアプリ文書URLを照合し、Settingsも同じguardへ統一する。任意file/data/外部ページへのtop-level navigation・redirectを拒否し、既存iframe資産と生成Helpの経路を維持する。[判断と検証範囲](docs/adr/0070-renderer-document-and-frame-trust.md)。
+
+### Changed
+
+- 初回利用・貢献の入口から合成サンプルへ案内し、文章AI・外部イベント検出pack・Paintモデルの準備と役割を区別する。v0.17.10で配布済みの同パス更新・復元、Mac署名公証とWindows未署名の条件へ文書を揃える。
+- [素材の由来](docs/asset-provenance.md)に独自アイコンのAI生成申告を記録し、生成条件の未確認事項と確認済みのモデル・配布告知を分ける。貢献例・公開ログの確認項目・非公開セキュリティ報告の案内を具体化する。
+- 新規Releaseに配布物hash・source commit/tree・署名検査結果・Actions runを記す公開検証要約を追加し、詳細検証artifactを90日保持する。既存Releaseへ後付けせず、実配布の検証状態は[Release手順](.github/RELEASE.md)と実行結果で確認する。
+- 月次architecture reportのNodeを通常CIと同じ22.12.0へ統一する。
+
 ## [0.17.10]
 
 公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。既存の公開版とタグは維持します。

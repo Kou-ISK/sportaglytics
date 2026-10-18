@@ -49,6 +49,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Python for public sample extraction
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -162,12 +167,17 @@ jobs:
         if: inputs.include_windows
         run: node scripts/package-media-sources.mjs --platform windows --require-builds
 
+      - name: Summarize verified release identity for public retention
+        env:
+          INCLUDE_WINDOWS: ${{ inputs.include_windows }}
+        run: node scripts/release-verification-summary.mjs
+
       - name: Record exact release checksums
         working-directory: dist
         env:
           INCLUDE_WINDOWS: ${{ inputs.include_windows }}
         run: |
-          shasum -a 256 "SporTagLytics-$RELEASE_VERSION-arm64.dmg" "SporTagLytics-$RELEASE_VERSION-x64.dmg" "media-tools-sources-$RELEASE_VERSION-macos.tar.gz" > SHA256SUMS.txt
+          shasum -a 256 "SporTagLytics-$RELEASE_VERSION-arm64.dmg" "SporTagLytics-$RELEASE_VERSION-x64.dmg" "media-tools-sources-$RELEASE_VERSION-macos.tar.gz" release-verification.json > SHA256SUMS.txt
           if [[ "$INCLUDE_WINDOWS" == true ]]; then
             shasum -a 256 "SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" "media-tools-sources-$RELEASE_VERSION-windows.tar.gz" >> SHA256SUMS.txt
           fi
@@ -177,7 +187,7 @@ jobs:
         with:
           name: macos-${{ inputs.version }}-${{ github.sha }}
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
           compression-level: 0
           path: |
             dist/SporTagLytics-${{ inputs.version }}-arm64.dmg
@@ -186,6 +196,7 @@ jobs:
             dist/SporTagLytics-Setup-${{ inputs.version }}-x64.exe
             dist/media-tools-sources-${{ inputs.version }}-windows.tar.gz
             dist/SHA256SUMS.txt
+            dist/release-verification.json
             dist/mac-verification/*.json
             dist/windows/distribution/windows-installed.json
             dist/windows-release.json
@@ -200,25 +211,23 @@ jobs:
           node scripts/macos/release-guard.mjs
           (cd dist && shasum -a 256 -c SHA256SUMS.txt)
 
-      - name: Create immutable desktop release
+      - name: Create new verified desktop release
         if: inputs.publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INCLUDE_WINDOWS: ${{ inputs.include_windows }}
         run: |
-          assets=("dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" "dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" "dist/media-tools-sources-$RELEASE_VERSION-macos.tar.gz" dist/SHA256SUMS.txt)
+          assets=("dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" "dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" "dist/media-tools-sources-$RELEASE_VERSION-macos.tar.gz" dist/SHA256SUMS.txt dist/release-verification.json)
           platform='macOS'
-          notes='macOS arm64 / Intel 向けです。DMG内のアプリは署名・公証済みで、最終DMGから検査しています。Windows installerはこのReleaseに含みません。'
           if [[ "$INCLUDE_WINDOWS" == true ]]; then
             node scripts/windows/release-evidence.mjs --verify-only
             assets+=("dist/SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" "dist/media-tools-sources-$RELEASE_VERSION-windows.tar.gz")
             platform='macOS / Windows'
-            windows_signature=$(node -p "JSON.parse(require('fs').readFileSync('dist/windows-release.json')).installerSignatureStatus")
-            notes="macOS arm64 / Intel とWindows x64向けです。Macアプリは署名・公証済みで最終DMGから検査しています。Windowsは同じcommitから新規buildし、インストール後の22 E2Eと同梱物を検査済みです。Windows installerのAuthenticode状態: $windows_signature。Windows Nと実カメラは未検証です。"
           fi
+          node scripts/desktop-release-notes.mjs
           gh release create "v$RELEASE_VERSION" --verify-tag \
             --title "v$RELEASE_VERSION ($platform)" --generate-notes \
-            --notes "$notes GGUFと自動検出用model packは別途必要です。FFmpeg等の対応sourceとbuild manifestは対象OS別のsource archiveに収録しています。" \
+            --notes-file dist/release-notes.md \
             "${assets[@]}"
 
       - name: Checkout Homebrew Tap using its existing token

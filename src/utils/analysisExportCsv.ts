@@ -1,14 +1,10 @@
 import type { TimelineData } from '../types/timeline/core';
+import { toSpreadsheetCsvCell } from './csv';
 import {
   extractActionFromActionName,
   extractTeamFromActionName,
   getLabelsFromTimelineData,
 } from './labelExtractors';
-
-const toCsvCell = (value: string | number) => {
-  const normalized = String(value ?? '');
-  return `"${normalized.replace(/"/g, '""')}"`;
-};
 
 const formatSeconds = (seconds: number, digits = 1) => {
   if (!Number.isFinite(seconds)) return '0.0';
@@ -69,7 +65,7 @@ export const exportRawAnalysisCsv = (timeline: TimelineData[]): string => {
     ...labelGroups.map((group) => `label:${group}`),
   ];
 
-  const rows: string[] = [headers.map(toCsvCell).join(',')];
+  const rows: string[] = [headers.map(toSpreadsheetCsvCell).join(',')];
 
   timeline.forEach((entry, index) => {
     const duration = Math.max(0, entry.endTime - entry.startTime);
@@ -108,7 +104,7 @@ export const exportRawAnalysisCsv = (timeline: TimelineData[]): string => {
       ...labelGroups.map((group) => joinValues(labelByGroup.get(group) ?? [])),
     ];
 
-    rows.push(row.map(toCsvCell).join(','));
+    rows.push(row.map(toSpreadsheetCsvCell).join(','));
   });
 
   return rows.join('\n');

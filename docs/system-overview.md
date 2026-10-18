@@ -4,6 +4,10 @@ Timeline検索は下部dockで時間軸の全幅を保ちます。共通desktop 
 
 # SporTagLytics System Overview
 
+Timeline所有元の通常Close/Quitは`timelineCloseProtection.ts`が調整します。用途限定のpreload bridgeからRendererへflushを要求し、hookが直前の編集と行メタデータを同期的に固定して既存保存queueへ渡します。Mainは各ownerの成功応答とatomic writerの完了を確認してから終了し、失敗時は編集を再開します。Playlistの確認とライブ録画停止を維持します。[保存契約](package-compatibility.md) / [ADR 0068](adr/0068-timeline-close-save-handshake.md)。
+
+CSVの文字列処理はpureな`src/utils/csv.ts`へ集約し、Timeline・分析データ・マトリクスの出力時に適用します。式開始文字への接頭辞はCSVだけの表現であり、数値・保存文書・JSON/SCTimelineは変更しません。[出力契約と制限](sctimeline-implementation.md#表計算ソフト向けcsvの文字列)を正本とします。日本語UIのHTML言語は`ja`で指定し、個別の操作や設定は増やしません。
+
 画面上のリンク作成・記録範囲はSporTagLytics自身の操作として説明します。Sportscode XMLの対応subsetとSCTimeline JSONの外部往復未検証は別の契約であり、[互換性](package-compatibility.md)と[由来の確認台帳](provenance-review.md)を参照してください。文言変更によってimport/export・保存形式や参照資料の由来は変更しません。
 
 Playlistの保存済み文書ロードと追加配送はRendererごとの文書境界で処理します。外部文書listenerを先に登録し、ロード中の追加はsnapshot適用後にFIFOで処理します。新しい編集・ロード・syncがあれば古いdisk snapshotは適用しません。MainはWindow別ticketに対するRendererの採用応答を受けて保存先を確定し、read完了では保存先やdirtyを変えません。初回open intentも採用前の保存先にはしません。既存commandに用途限定の応答を追加し、Session宛先・文書形式は維持します。[ADR0059](adr/0059-playlist-renderer-delivery-readiness.md)。
@@ -127,6 +131,8 @@ Timelineの分割・結合は`shared/timelineRangeEditing.ts`の純粋関数で�
 
 Rendererへ公開するIPC contractの正本は `src/renderer.d.ts` です。用途別のpayload型は `src/types/ipc/` などで定義し、公開APIから参照します。Main process は sender window と payload を検証し、preload も inbound payload を guard します。
 
+共通sender guardは、生存するBrowserWindow/WebContents、呼出元mainFrame、`getRendererUrl()`のentry documentを照合します。hash routeだけを同じ文書とし、子frame・別のfile/data/http文書は許可しません。既存のexpected-window/session比較を重ね、Settingsも同じguardを使います。個別handlerと正規rendererからのpath操作は引き続き別途検証が必要です。[脅威モデルと範囲](adr/0070-renderer-document-and-frame-trust.md)。
+
 ## BrowserWindow セキュリティ
 
 全 BrowserWindow で以下を適用します。
@@ -137,6 +143,8 @@ Rendererへ公開するIPC contractの正本は `src/renderer.d.ts` です。用
 - `webSecurity: true`
 - `window.open` を拒否
 - 許可されないnavigationを拒否
+
+rendererのtop-level navigationとmain-frame redirectはアプリのentry documentへ限定します。YouTube iframeの移動、MediaPipeのBlob/WASM資産、Mainが生成するpreloadなしのHelpは別の正規経路として維持します。Mainの明示的な`loadURL`はnavigation制限を通らないため、IPCでも文書/frameを検証します。
 
 外部binaryはrendererから直接起動せず、main process配下のmanager/runner境界で管理します。
 
@@ -181,9 +189,11 @@ TimelineDocument
 ```
 
 - 行が名称・色・表示順を所有
-- `TimelineData` は `actionName / startTime / endTime / memo / labels / color`
+- `TimelineData` は `actionName / startTime / endTime / memo / labels / color` と任意の `provenance`
 - 旧 `actionType` / `actionResult` はロード時に `Type` / `Result` labelへmigration
 - 保存は現行formatのみ
+
+新規の検出候補は実resultのモデル・元候補情報と `reviewStatus: unreviewed` を保持します。欠落した旧データは由来・人確認が不明のままで、編集から確認済みへ昇格させません。元候補スコアと現在の編集区間を分け、結合では全出所と由来不明の混在を保持します。通常の場面検索の詳細で表示します。[保存・交換の範囲](event-detection.md#timeline変換)、[ADR 0069](adr/0069-timeline-detection-provenance.md)。
 
 `NewTimelineData = Omit<TimelineData, 'id'>` を一括追加入力に使用します。`addTimelineDatas()` は複数eventを1回のstate updateで追加するため、自動Codingで多数eventを追加しても1回のUndoで戻せます。
 

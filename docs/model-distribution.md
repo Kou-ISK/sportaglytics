@@ -1,20 +1,31 @@
 # AIモデルの公開範囲・配布台帳
 
-再確認日: 2026-10-13（Paintの固定重みと許諾根拠は2026-10-14に追加照合）。公開配布物の基準はv0.17.4、次版sourceの基準はdevelop commit `36dfec8afa8ade78c52dd29bc16285c72ea161dc`です。sourceのstaging状態と実配布物を区別します。この文書はモデルの公開宣言ではありません。個々の配布物の出所・重みの許諾を、アプリのMIT Licenseから推定しないでください。
+配布状態の再確認日: 2026-10-18。基準は公開版 [v0.17.10](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.10)、commit `62277574190bd86b6de9bfb8c944ad0bf316b14b`と[同版の配布検証run](https://github.com/Kou-ISK/sportaglytics/actions/runs/39081921565)です。Paintの固定重みと許諾根拠は2026-10-14に照合済みで、下記の記録を維持します。sourceのstaging状態と実配布物を区別します。この文書は外部event packの公開宣言ではありません。個々の重みの許諾を、アプリのMIT Licenseから推定しないでください。
 
 ## 公開範囲
 
-| 対象                     | 現在の公開・配布範囲                                                                           | ライセンスと取得先                                                                                                              |
-| ------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| アプリ                   | UI、IPC、推論の呼出し、model pack検証、ビルド手順                                              | [MIT](../LICENSE)、[ソースとRelease](https://github.com/Kou-ISK/sportaglytics)                                                  |
-| イベント検出R&D          | データ準備・学習・評価・exportはprivate R&D。公開側はpack consumer                             | [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)。アプリだけでは再学習できない                                    |
-| イベント検出重み・runner | 外部packを利用。追跡対象は`.gitkeep`のみ。[v0.17.4実配布物の確認](provenance-review.md)でもevent packなし | 公開配布元、現行packのhash、基盤checkpointと重みlicenseは未確認。取得可能な公式pack URLを現時点では案内できない                 |
-| Paintの俯瞰配置          | 既製EfficientDet-Lite2 INT8 revision 1とMediaPipe Tasks Vision 0.10.21をビルド時に同梱         | Apache-2.0、[NOTICEとモデルURL](../resources/pitch-vision/NOTICE.md)、[hash固定の取得手順](../scripts/prepare-pitch-vision.mjs) |
-| 文章AI                   | llama.cpp runtimeを配布し、GGUF重みは利用者が選択・配置                                        | runtimeはMIT。重みは配布元ごとの条件。[導入手順](ai-analysis.md)                                                                |
-| CIの文章AI               | Qwen2.5-0.5B-Instruct-GGUFの固定revision/量子化をテストだけに取得                              | [取得URL・revision・SHA-256](../scripts/prepare-test-model.mjs)。アプリ配布物へ含めない                                         |
-| 学習動画・Coding・frames | アプリrepo・Releaseに学習用データセットとして公開しない                                        | 私的利用の許可を再配布許可へ読み替えない。[データ取り扱い](privacy-and-data-handling.md)                                        |
+| 対象                     | 現在の公開・配布範囲                                                                                                                | ライセンスと取得先                                                                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| アプリ                   | UI、IPC、推論の呼出し、model pack検証、ビルド手順                                                                                   | [MIT](../LICENSE)、[ソースとRelease](https://github.com/Kou-ISK/sportaglytics)                                                  |
+| イベント検出R&D          | データ準備・学習・評価・exportはprivate R&D。公開側はpack consumer                                                                  | [ADR 0023](adr/0023-external-rugby-event-model-rd-boundary.md)。アプリだけでは再学習できない                                    |
+| イベント検出重み・runner | 外部packを利用。追跡対象は`.gitkeep`のみ。[v0.17.10の配布検証](provenance-review.md#現行配布と次版候補の確認状態)でもevent packなし | 公開配布元、現行packのhash、基盤checkpointと重みlicenseは未確認。取得可能な公式pack URLを現時点では案内できない                 |
+| Paintの俯瞰配置          | 既製EfficientDet-Lite2 INT8 revision 1とMediaPipe Tasks Vision 0.10.21をビルド時に同梱                                              | Apache-2.0、[NOTICEとモデルURL](../resources/pitch-vision/NOTICE.md)、[hash固定の取得手順](../scripts/prepare-pitch-vision.mjs) |
+| 文章AI                   | llama.cpp runtimeを配布し、GGUF重みは利用者が選択・配置                                                                             | runtimeはMIT。重みは配布元ごとの条件。[導入手順](ai-analysis.md)                                                                |
+| CIの文章AI               | Qwen2.5-0.5B-Instruct-GGUFの固定revision/量子化をテストだけに取得                                                                   | [取得URL・revision・SHA-256](../scripts/prepare-test-model.mjs)。アプリ配布物へ含めない                                         |
+| 学習動画・Coding・frames | アプリrepo・Releaseに学習用データセットとして公開しない                                                                             | 私的利用の許可を再配布許可へ読み替えない。[データ取り扱い](privacy-and-data-handling.md)                                        |
 
 `resources/event-detection-models`は任意のローカルstaging先です。空でも通常buildは成立します。packの実行可否や`verified`表示はライセンス審査の代わりになりません。packを新規配布するときは、下記の未確認事項を解消して別途公開承認を得ます。新repo作成やデータ移動は現在の設計を説明するためには不要です。
+
+## 利用者ができることと必要な準備
+
+| 機能                             | 実際の入力と結果                                                                                  | 通常配布に含まれるもの / 別途必要なもの                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 手動タグ付け・統計・クリップ出力 | 利用者が記録したTimelineと映像                                                                    | AIモデル不要。[合成サンプル](quickstart.md)で試せる                                                            |
+| 文章AI                           | Timeline・ラベル・メモ・統計から回答と推奨クリップを生成。映像フレームをLLMへ直接渡す機能ではない | llama.cpp runtimeは同梱。利用者が条件を確認したGGUFを配置する。[OS条件と設定](ai-analysis.md#runtime-boundary) |
+| 自動イベント検出                 | ラグビー映像から候補区間を提案し、Timelineへ追加。人が映像と照合して確認・修正する                | OS/CPUに対応した外部model packが必要。公式の公開取得先は未提供。packなし表示は正常で、手動機能は使える         |
+| Paintの俯瞰配置                  | 映像フレームから人物・ボールの配置候補を作り、利用者が調整する                                    | 下記の固定EfficientDetモデルを同梱。文章AI・イベント検出packとは別                                             |
+
+`verified`というpackの表示や品質ゲート通過は、アプリが宣言済み指標を検査した結果です。第三者による独立評価、人が全候補を確認した証拠、モデルの権利審査と同じ意味ではありません。採用前に表示・メモ・区間を自分の用途に合わせて確認してください。
 
 ## イベント検出モデルカード（公開記録から分かる範囲）
 
@@ -60,7 +71,6 @@ PaintのモデルはCOCO 2017で学習された既製モデルを無改変で使
 - [公式repoの回答](https://github.com/google-ai-edge/mediapipe/issues/6355#issuecomment-5997480830)は2026-10-05 15:21:19 UTC、GitHub上の`COLLABORATOR`によるもので、別記がなければsourceとmodelsにApache-2.0を適用すると説明しています。Face Landmarkerに関するissueでの一般説明であり、このINT8ファイルだけへの個別保証とは扱いません。
 - この一般説明と公式モデル案内からの配布物の一致を、固定重みのApache-2.0告知の根拠として記録します。確認した公式案内・配布導線には別条件を見つけていません。Kaggleの`lite2-metadata`等の別variantの表示を、このINT8 revision 1の直接の許諾根拠にはしません。
 - [既存NOTICEとApache本文](../resources/pitch-vision/NOTICE.md)を維持し、最終配布物でも重みhash・告知本文・event pack/GGUF不在を検査します。案内ページの文章・サンプルコードのライセンスを重みへ転用した判断ではありません。学習データ全体の権利や個々の用途の法的安全性を保証するものでもありません。
-
 
 ## コードOSSと学習データ公開の違い
 

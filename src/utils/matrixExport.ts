@@ -1,3 +1,5 @@
+import { toSpreadsheetCsvCell } from './csv';
+
 type HeaderCell = { parent: string | null; child: string };
 type MatrixCountCell = { count: number };
 
@@ -65,13 +67,8 @@ export const buildMatrixExportAoa = ({
   return aoa;
 };
 
-const toCsvCell = (value: AoaCell) => {
-  const normalized = String(value ?? '');
-  return `"${normalized.replace(/"/g, '""')}"`;
-};
-
 export const buildMatrixCsv = (aoa: MatrixExportAoa): string =>
-  aoa.map((row) => row.map(toCsvCell).join(',')).join('\n');
+  aoa.map((row) => row.map(toSpreadsheetCsvCell).join(',')).join('\n');
 
 const XML_DECLARATION =
   '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';

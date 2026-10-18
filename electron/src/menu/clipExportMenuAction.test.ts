@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { BrowserWindow, dialog, ipcMain } from 'electron';
+import { getRendererUrl } from '../rendererUrl';
 import { TIMELINE_WINDOW_CHANNELS } from '../../../src/types/ipc/timelineWindow';
 import { openClipExportFromMenu } from './clipExportMenuAction';
 import { registerTimelineWindowHandlers } from '../timelineWindow';
@@ -18,7 +19,6 @@ vi.mock('../playlistWindow/windowManager', () => ({
   isSenderPlaylistWindow: (sender: unknown) => playlistSenders.has(sender),
 }));
 vi.mock('../windowSecurity', () => ({ applyWindowSecurity: vi.fn() }));
-vi.mock('../rendererUrl', () => ({ getRendererUrl: () => 'app://timeline' }));
 vi.mock('electron', async () => {
   const { EventEmitter } = await import('node:events');
   const windows: FakeWindow[] = [];
@@ -29,6 +29,8 @@ vi.mock('electron', async () => {
     minimized = false;
     webContents = Object.assign(new EventEmitter(), {
       send: vi.fn(),
+      mainFrame: { url: getRendererUrl() },
+      getURL: () => getRendererUrl(),
       isDestroyed: () => this.destroyed,
     });
     constructor() {
@@ -82,7 +84,7 @@ vi.mock('electron', async () => {
 const ready = (window: BrowserWindow, value: unknown = true): void => {
   ipcMain.emit(
     TIMELINE_WINDOW_CHANNELS.command,
-    { sender: window.webContents },
+    { sender: window.webContents, senderFrame: window.webContents.mainFrame },
     {
       type: 'clip-export-ready',
       ready: value,

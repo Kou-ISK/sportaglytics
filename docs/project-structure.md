@@ -4,6 +4,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # Project Structure
 
+終了時保存の配置: Rendererの`features/videoPlayer/app/gateways/timelineCloseGateway.ts`と`hooks/useTimelinePersistence.ts`、型付き契約の`src/types/ipc/timelinePersistence.ts`、preload専用bridgeの`electron/src/preload/timelinePersistenceBridge.ts`、Mainの`electron/src/timelineCloseProtection.ts`に分離します。既存`electron/src/ipc/atomicTextFile.ts`が実書込と完了待機を所有します。
+
 Timelineの場面検索は`features/videoPlayer/components/Timeline/VisualTimeline/review/`へ置きます。`timelineReviewSearch`は純粋計算、`useTimelineReview`はウィンドウ内状態とfocus、`TimelineReviewView` / `TimelineWorkspaceView`はprops-only表示です。既存の`useVisualTimelineController`が結果からの選択・シーク・編集を担当します。
 
 Timelineの未知入力検証とXML request型は`src/shared/timeline/`に置き、Renderer/Mainで共有します。Mainの`packageCompatibilityValidation.ts`、`packageSourceSnapshot.ts`、`legacyPackageMigrationService.ts`が検証・fingerprint/容量・コピー完成を分担し、`atomicTextFile.ts`が順序付きテキスト置換を所有します。XMLの新規取り込みは`Setup/SportscodeImport/`のDomain/Hook/Gateway/View、Mainの`sportscodeImportService.ts`に分離します。保存エラーUIはprops-onlyの`TimelinePersistenceStatusView`で、永続化HookとTimeline同期から渡します。
@@ -409,3 +411,9 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 `scripts/macos/`はRelease専用afterPack、純粋な同梱payload照合、read-only DMG検査、version/main/tag guard、Homebrew Cask生成を担当します。アプリruntimeへ依存させません。`scripts/windows/release-evidence.mjs`は同一runのWindows installed reportをsource commit/tree・version・実installer hashと結び付け、対応source用manifestをstageします。source bundleの対象選択とarchive metadataの正規化は`scripts/media-tools/source-bundle.mjs`と`archive-sources.py`に置き、対応sourceの列挙は`package-media-sources.mjs`が担当します。
 
 `legacyPackageMigrationService.ts`は共通Openの調整、`packageMigrationCandidates.ts`は以前の編集内容の選定、`packageInPlaceUpdate.ts`と`packageUpdateJournal.ts`は同一パス置換と復旧、`packageCopyDigest.ts`は全バイト照合、`packageOpenDialogs.ts`はnativeの内容選択と復旧案内を担当する。`legacyPackageCopyService.ts`は変換済みstagingの生成と0.17.9互換コピーの回帰境界、`packageMigrationIndex.ts`は旧端末内索引を扱う。
+
+## 公開サンプルと測定資料
+
+`samples/`は初回利用者が取得する小さな合成ZIPと、その全ファイルhash manifestを置きます。生成recipeは`scripts/generate-synthetic-sample.py`、配布契約と再生成検査は`scripts/tests/synthetic-sample.py`、実アプリ導線は`scripts/e2e-synthetic-first-run.mjs`です。ZIPをアプリ本体へ同梱したり、既存package形式を変更したりしません。
+
+合成負荷の生成と計測は`scripts/synthetic-timeline-workload.mjs` / `scripts/benchmark-synthetic-timeline.mjs`、その検査は`scripts/tests/synthetic-timeline-workload.mjs`、公開可能な生データは`docs/reports/data/`に置きます。計測専用の純粋関数参照は[限定例外ARCH-EX-002](architecture-exceptions.md)で管理します。

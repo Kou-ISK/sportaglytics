@@ -8,6 +8,8 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 
 ## Records
 
+- [0068 Timeline close save handshake](0068-timeline-close-save-handshake.md): Rendererの最終snapshot応答とMain queue完了後にclose/quitし、失敗時は編集を再開する（Accepted）。
+
 | ID                                                                 | Title                                              | Status     | Date       |
 | ------------------------------------------------------------------ | -------------------------------------------------- | ---------- | ---------- |
 | [0001](0001-feature-first-boundaries.md)                           | Feature-First boundaries                           | Accepted   | 2026-05-04 |
@@ -72,6 +74,8 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 | [0065](0065-unified-project-open.md) | Unified project open | Accepted | 2026-10-17 |
 | [0066](0066-capture-playback-bounds.md) | Capture playback bounds | Accepted | 2026-10-17 |
 | [0067](0067-in-place-package-updates.md) | In-place package updates | Accepted | 2026-10-17 |
+| [0069](0069-timeline-detection-provenance.md) | Timeline detection provenance | Accepted | 2026-10-18 |
+| [0070](0070-renderer-document-and-frame-trust.md) | Renderer document and frame trust | Accepted | 2026-10-18 |
 
 ## Status Values
 
@@ -125,6 +129,6 @@ YYYY-MM-DD
 
 - [0063 Independent macOS release](0063-independent-macos-release.md): Mac単独または両OSの手動dispatch、対象OS別の対応source、最終DMG検査（Accepted）。
 
-Mac配布時のpublisher自動検出を無効にする判断は[0063](0063-independent-macos-release.md)に記録しています。
+Mac配布時のpublisher自動検出を無効にする判断と、許可リストで抽出した検証要約を新規Releaseへ保持する判断は[0063](0063-independent-macos-release.md)に記録しています。
 
 - [0064 Scoped Tab action navigation](0064-scoped-tab-action-navigation.md): 選択したアクションのTab巡回を限定したフォーカス範囲で復元。0055のTab判断のみを置換（Accepted）。

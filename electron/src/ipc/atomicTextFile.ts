@@ -4,6 +4,20 @@ import fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 const pendingWrites = new Map<string, Promise<void>>();
+// Keep every write, including earlier writes whose queue tail may recover.
+const inFlightWrites = new Set<Promise<void>>();
+
+/** Call after producers have acknowledged their final save and paused edits. */
+export const drainAtomicTextWrites = async (): Promise<void> => {
+  let failure: { error: unknown } | undefined;
+  while (inFlightWrites.size > 0) {
+    const results = await Promise.allSettled([...inFlightWrites]);
+    for (const result of results) {
+      if (result.status === 'rejected') failure ??= { error: result.reason };
+    }
+  }
+  if (failure) throw failure.error;
+};
 
 /** Windows can briefly deny replacing a file that another reader holds. */
 export const renameTextFileWithRetry = async (
@@ -72,9 +86,11 @@ export const writeTextFileAtomically = async (
     .catch(() => undefined)
     .then(() => replaceText(key, content));
   pendingWrites.set(key, write);
+  inFlightWrites.add(write);
   try {
     await write;
   } finally {
+    inFlightWrites.delete(write);
     if (pendingWrites.get(key) === write) pendingWrites.delete(key);
   }
 };

@@ -18,6 +18,7 @@ import type {
 } from './shared/clipExport/clipExportTypes';
 import type { ExportProgressWindowState } from './types/ipc/exportProgressWindow';
 import type { ITimelineWindowAPI } from './types/ipc/timelineWindow';
+import type { ITimelinePersistenceAPI } from './types/ipc/timelinePersistence';
 import type { PackageOpenPreparationResult } from './types/package/migration';
 import type {
   SportscodeImportRequest,
@@ -32,6 +33,7 @@ export interface LlamaModelInfo {
 }
 
 export interface IElectronAPI {
+  timelinePersistence: ITimelinePersistenceAPI;
   liveCapture: ILiveCaptureAPI;
   openFile: () => Promise<string>;
   openVideoFiles: () => Promise<string[]>;
