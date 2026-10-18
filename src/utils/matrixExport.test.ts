@@ -39,6 +39,15 @@ describe('buildMatrixExportAoa', () => {
 });
 
 describe('buildMatrixCsv', () => {
+  it('protects text headers and labels but keeps numeric counts unchanged', () => {
+    expect(
+      buildMatrixCsv([
+        ['=Column', '@Label', 'Count'],
+        ['-Text', ' +Text', -2.5],
+      ]),
+    ).toBe('"\'=Column","\'@Label","Count"\n"\'-Text","\' +Text","-2.5"');
+  });
+
   it('escapes CSV values safely', () => {
     const csv = buildMatrixCsv([
       ['Key', 'Value'],
@@ -50,6 +59,15 @@ describe('buildMatrixCsv', () => {
 });
 
 describe('buildMatrixXlsxBase64', () => {
+  it('keeps XLSX text as inline strings without CSV prefixes or formulas', () => {
+    const decoded = atob(buildMatrixXlsxBase64([['=1+1', -2.5]]));
+    expect(decoded).toContain(
+      '<c r="A1" t="inlineStr"><is><t>=1+1</t></is></c>',
+    );
+    expect(decoded).toContain('<c r="B1"><v>-2.5</v></c>');
+    expect(decoded).not.toContain('<f>');
+  });
+
   it('returns non-empty base64 workbook', () => {
     const base64 = buildMatrixXlsxBase64([
       ['A&B', 'B'],

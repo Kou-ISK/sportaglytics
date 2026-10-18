@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Timeline・分析データ・マトリクスのCSVで、式として解釈され得る文字列に接頭辞を付ける。数値・保存データ・JSON出力は維持し、文字列の見え方と再保存時の制限を[出力仕様](docs/sctimeline-implementation.md#表計算ソフト向けcsvの文字列)に記載する。
+- SCTimeline JSONの既定ファイル名を`timeline.SCTimeline`へ変更し、保存ダイアログでもJSONと明示する。交換データの構造と読み込み条件は維持する。
+- 日本語UIのHTML言語指定を`ja`へ修正する。
+
 - Timelineの最終編集を保存してから主画面を閉じ、アプリ終了時は全Timelineの保存応答とMainのwrite queueを待つ。保存失敗・応答なしでは終了を取り消して編集と再試行を維持する。[保存・終了の契約](docs/package-compatibility.md#読み込み保存の失敗)。
 
 ### Added
