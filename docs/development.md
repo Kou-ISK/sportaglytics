@@ -377,6 +377,10 @@ Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-ope
 
 Electron E2Eは `scripts/run-electron-e2e.mjs` で全シナリオの成否を収集し、1件でも失敗すると配布へ進みません。詳細は[テスト手順](testing.md)を参照してください。
 
+Releaseの検証要約は`scripts/release-verification-summary.mjs`で生成します。最終DMG reportとWindows reportのversion/source identity/検査状態を確認し、配布候補の実bytesをhashして照合します。公開要約の値は許可リストで抽出し、raw logやrunner pathは転記しません。新規ReleaseのassetとSHA256SUMSへ含め、詳細reportのActions artifactは90日保持します。公開要約は独立attestationではなく、品質・E2Eの成否はリンク先workflowで確認します。[公開手順と保証範囲](../.github/RELEASE.md#公開前のゲート)。
+
+月次architecture reportも通常CIと同じNode 22.12.0 / pnpm 9.1.0を使います。Release要約の限定検査は`node --test scripts/tests/macos-release.mjs`で実行でき、Macへの接続や署名・公証を開始しません。
+
 配布前に `pnpm audit` / `pnpm audit --prod` も確認します。lockfileを固定してインストールし、UIのゲートとStorybook buildをReleaseでも実行します。
 
 macOS署名はキーチェーン修正版のelectron-builder 26.16.1で行います。builder関連パッケージとlockfileを揃えて更新し、署名・公証の障害は[Release手順](../.github/RELEASE.md#公開後と復旧)に沿って切り分けます。
