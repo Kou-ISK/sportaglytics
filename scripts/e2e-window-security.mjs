@@ -72,6 +72,7 @@ try {
 
   // A Main-initiated loadURL intentionally bypasses will-navigate. IPC must
   // still reject the document, even when it has the real sandbox preload.
+  const foreignUrl = pathToFileURL(foreign).href;
   const probeId = await app.evaluate(
     async ({ app, BrowserWindow }, foreignUrl) => {
       const { createRequire } = process.getBuiltinModule('module');
@@ -96,12 +97,17 @@ try {
       await probe.loadURL(foreignUrl);
       return probe.id;
     },
-    pathToFileURL(foreign).href,
+    foreignUrl,
   );
+  // Main's loadURL can resolve before Playwright receives the new Page/URL.
+  await expect
+    .poll(() => app.windows().map((candidate) => candidate.url()))
+    .toContain(foreignUrl);
   const probe = app
     .windows()
-    .find((candidate) => candidate.url() === pathToFileURL(foreign).href);
+    .find((candidate) => candidate.url() === foreignUrl);
   assert.ok(probe);
+  await probe.waitForFunction(() => Boolean(window.electronAPI));
   assert.equal(
     await probe.evaluate(
       (file) => window.electronAPI.readTextFile(file),
