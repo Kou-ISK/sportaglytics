@@ -309,3 +309,7 @@ Windows同時公開の`release-evidence.mjs`は同一runのinstalled reportと�
 Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。
 
 `e2e-capture-reopen`は合成84秒の確定録画で全体duration、60秒へのシーク、逆方向・終端・終端からの戻り、同じvideo要素での連続再生、別process再開を検査する。`e2e-unified-open`はOS picker応答のみstub化し、共通UI→実Main→別保存先の再利用→実動画再生を新processでも検証する。両方を標準runnerにも登録する。unitはEOSによるduration再計算、録画sampleによるduration伸長、移行先オフライン・索引書込失敗・欠番・Finderメタデータ変更・予約解放を固定する。
+
+## Model release selection foundation
+
+`node --test scripts/tests/event-model-release-policy.mjs`は版順、未承認/withdrawn/アプリ版不一致/target不足の除外、同版衝突、catalog・候補・根拠のhash改変、古いlock、noneとrollback拒否、symlink、CLI失敗時の入力非開示を合成データで確認します。checked-in catalog/lockとpackage.jsonの対応も実検査し、`test:run` / `test:ci`へ含めます。これは選定metadataの整合試験で、実モデル精度・許諾・target固有runtime・署名公証の試験ではありません。[実同梱前に必要な検証](event-model-release-policy.md#次の実装と受入条件)。

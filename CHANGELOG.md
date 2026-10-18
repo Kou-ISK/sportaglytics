@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogでモデルなし。取得・同梱・rollback例外は未実装で、v0.17.11の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
+
 ## [0.17.11]
 
 終了時保存とOSSの初回利用・共有・検証導線を改善する版です。配布・署名・公証の完了は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の同版と実行証跡を参照してください。既存の公開版・tag・配布物は維持します。

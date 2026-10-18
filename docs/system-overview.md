@@ -425,3 +425,7 @@ Releaseは既存Mac署名・公証認証をCI内で消費する手動workflowで
 Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。
 
 移行先の選択・marker照合は`packageMigrationTargets`、端末内の保存先索引は`PackageMigrationIndex`へ分離する。録画MediaSourceの全体尺と近傍バッファ、保存完了EOSは別に管理する。[ADR 0065](adr/0065-unified-project-open.md) / [ADR 0066](adr/0066-capture-playback-bounds.md)。
+
+## リリース時のモデル選定
+
+公開model catalogとapp-to-model lockはrepo側の配布計画で、runtime discoveryやユーザーのローカルpackとは分離します。最新の承認済み・アプリ版対応・全target対応候補を版順で決定し、hashと根拠を照合する基盤を持ちます。現在は空catalogで、実pack取得・同梱・rollback例外は未実装です。[契約と境界](event-model-release-policy.md)、[ADR 0071](adr/0071-release-time-model-selection.md)。

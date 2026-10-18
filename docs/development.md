@@ -486,3 +486,7 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-document-and-frame-trust.md)の脅威モデルを確認します。共通guardはmainFrameと`getRendererUrl()`のentry documentを照合し、既存のsession/expected-window検証も維持します。新しいrenderer URL・外部ページ・子frameへ権限を広げる変更は、正規用途と拒否する経路を先に列挙してください。
 
 `node scripts/e2e-window-security.mjs`は一時profileと合成文書だけで、実preload/Mainの許可・拒否と生成Help/Settingsを検査します。実行前に通常の`e2e:prepare`が必要です。Linuxクラウドでsandboxを利用できない場合の起動フラグは検証環境の制約として記録し、本番BrowserWindowの`sandbox`を変更しません。この限定検査の成功をMac/Windows配布検証や全IPCの完全隔離とは扱いません。[必須試験](testing.md#settings--timeline--ipc)。
+
+## 将来リリースのevent model選定
+
+`pnpm run check:event-model-release`は公開candidate catalogとapp-to-model lock、根拠ファイルのhashを検査します。`test:run` / `test:ci`でもchecked-in metadataと合成負例を検査します。アプリ版を変更するときはlockを明示更新してください。モデルの取得・runner実行・署名は開始しません。現時点は空catalogによるモデルなし判断で、実pack同梱は[選定方針と残る工程](event-model-release-policy.md)に従って別実装します。
