@@ -7,3 +7,14 @@ export const getRendererUrl = (route = ''): string => {
   url.hash = route;
   return url.href;
 };
+
+/** Routes share one shipped document; other local files are not app renderers. */
+export const isTrustedRendererUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    url.hash = '';
+    return url.href === getRendererUrl();
+  } catch {
+    return false;
+  }
+};

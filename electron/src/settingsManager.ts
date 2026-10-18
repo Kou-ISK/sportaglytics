@@ -1,9 +1,10 @@
-import { app, ipcMain, BrowserWindow, type IpcMainInvokeEvent } from 'electron';
+import { app, ipcMain, BrowserWindow } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { DEFAULT_SETTINGS } from '../../src/types/settings/defaults';
 import { normalizeAppSettings } from '../../src/types/settings/normalizers';
 import type { AppSettings } from '../../src/types/settings/coreTypes';
+import { getValidatedEventSenderWindow } from './ipc/windowSenderGuards';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -21,16 +22,6 @@ const isErrnoException = (value: unknown): value is NodeJS.ErrnoException => {
 const getSettingsPath = (): string => {
   const userDataPath = app.getPath('userData');
   return path.join(userDataPath, 'settings.json');
-};
-
-const getValidatedSenderWindow = (
-  event: IpcMainInvokeEvent,
-): BrowserWindow | null => {
-  const senderWindow = BrowserWindow.fromWebContents(event.sender);
-  if (!senderWindow || senderWindow.isDestroyed()) {
-    return null;
-  }
-  return senderWindow;
 };
 
 const broadcastSettingsUpdated = (settings: AppSettings): void => {
@@ -92,7 +83,7 @@ export const saveSettings = async (settings: AppSettings): Promise<boolean> => {
  */
 export const registerSettingsHandlers = (): void => {
   ipcMain.handle('settings:load', async (event) => {
-    if (!getValidatedSenderWindow(event)) {
+    if (!getValidatedEventSenderWindow(event)) {
       throw new Error('Invalid settings load sender');
     }
 
@@ -100,7 +91,7 @@ export const registerSettingsHandlers = (): void => {
   });
 
   ipcMain.handle('settings:save', async (event, settings: unknown) => {
-    if (!getValidatedSenderWindow(event) || !isPlainObject(settings)) {
+    if (!getValidatedEventSenderWindow(event) || !isPlainObject(settings)) {
       return false;
     }
 
@@ -113,7 +104,7 @@ export const registerSettingsHandlers = (): void => {
   });
 
   ipcMain.handle('settings:reset', async (event) => {
-    if (!getValidatedSenderWindow(event)) {
+    if (!getValidatedEventSenderWindow(event)) {
       throw new Error('Invalid settings reset sender');
     }
 
