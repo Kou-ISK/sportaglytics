@@ -5,6 +5,7 @@ import type {
   TimelineData,
 } from '../../../../types/timeline/core';
 import { migrateLegacyTimelineLabels } from '../../../../utils/timelineLabelMigration';
+import { copyTimelineProvenance } from '../../../../shared/timeline/timelineProvenance';
 
 interface TimelineEditingHandlers {
   addTimelineData: (
@@ -46,6 +47,9 @@ export const duplicateTimelineItemInList = (
     ...source,
     id: duplicateId,
     labels: source.labels?.map((label) => ({ ...label })),
+    ...(source.provenance
+      ? { provenance: copyTimelineProvenance(source.provenance) }
+      : {}),
   };
 
   return [
@@ -119,6 +123,9 @@ export const useTimelineEditing = (
           ...item,
           id: ids[index],
           ...(labels ? { labels } : {}),
+          ...(item.provenance
+            ? { provenance: copyTimelineProvenance(item.provenance) }
+            : {}),
         };
       });
 

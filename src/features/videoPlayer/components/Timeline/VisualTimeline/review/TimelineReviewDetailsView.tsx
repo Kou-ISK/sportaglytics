@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
 import type { TimelineReviewViewProps } from './TimelineReviewView';
+import { TimelineProvenanceView } from './TimelineProvenanceView';
 
 type DetailsProps = Pick<
   TimelineReviewViewProps,
@@ -69,6 +70,7 @@ export const TimelineReviewDetailsView = ({
           >
             {selectedItem.memo || 'ノートなし'}
           </Typography>
+          <TimelineProvenanceView provenance={selectedItem.provenance} />
         </Stack>
       </>
     ) : (

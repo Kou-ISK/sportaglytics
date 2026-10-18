@@ -282,6 +282,26 @@ try {
     'The detected event must be persisted',
   );
   assert.equal(timeline.instances[0].actionName, 'Lineout');
+  assert.deepEqual(
+    timeline.instances[0].provenance,
+    {
+      reviewStatus: 'unreviewed',
+      hasUnknownSource: false,
+      sources: [
+        {
+          origin: 'event-detection',
+          requestId: request.requestId,
+          modelId: request.modelId,
+          modelVersion: request.modelVersion,
+          candidateId: 'e2e-event',
+          eventType: 'lineout',
+          confidence: 0.99,
+          anchorTime: request.clips.at(-1).timelineStartSeconds + 0.5,
+        },
+      ],
+    },
+    'Original detector output persists without asserting human review',
+  );
   if (process.env.E2E_SCREENSHOT_DIR) {
     await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
     await detectionPage.screenshot({
