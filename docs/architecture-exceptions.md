@@ -15,7 +15,7 @@
 | ---------------- | ---------- | ------------------ | ----------------------------------------------------- | -------------------------------- | ---------------------- | ---------- | ------ | -------- | ---- |
 | (例) ARCH-EX-001 | 2026-03-01 | Feature Public API | `src/pages/X.tsx` から feature deep import を一時許容 | 緊急障害対応で公開面準備が未完了 | `src/pages/X.tsx` のみ | 2026-03-15 | @owner | #1234    | Open |
 
-| ARCH-EX-002 | 2026-10-18 | Feature Public API | `scripts/benchmark-synthetic-timeline.mjs`から純粋関数`timelineReviewSearch.ts`を直接import | 実際の検索処理を計測し、計測専用の本番公開APIや検索実装の複製を増やさないため | Node計測ツール1本のみ。アプリの実行時import・UI・保存形式は変更しない | 2026-11-18までにfeature内benchへの移動または限定した正式な計測入口を判断 | maintainers | [F10 合成負荷測定の受入](synthetic-workloads.md#次の受入条件)（統合PRで追跡） | Open |
+| ARCH-EX-002 | 2026-10-18 | Feature Public API | `scripts/benchmark-synthetic-timeline.mjs`から純粋関数`timelineReviewSearch.ts`を直接import | 実際の検索処理を計測し、計測専用の本番公開APIや検索実装の複製を増やさないため | Node計測ツール1本のみ。アプリの実行時import・UI・保存形式は変更しない | 2026-11-18までにfeature内benchへの移動または限定した正式な計測入口を判断 | maintainers | [PR #237](https://github.com/Kou-ISK/sportaglytics/pull/237) / [F10受入](synthetic-workloads.md#次の受入条件) | Open |
 
 ## 月次レビュー
 
