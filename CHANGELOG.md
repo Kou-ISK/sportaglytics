@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.11]
+
+終了時保存とOSSの初回利用・共有・検証導線を改善する版です。配布・署名・公証の完了は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の同版と実行証跡を参照してください。既存の公開版・tag・配布物は維持します。
+
 ### Added
 
 - 新しい自動検出候補に元モデル・版・候補スコア/時刻を保存し、場面検索の詳細に表示する。保存再開・Undo・コピー・分割・結合で保持する。旧データの由来や人確認を推定せず、人確認済みを記録する操作は未提供。[範囲と互換性](docs/event-detection.md#検出後の区間修正)。
@@ -22,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 検出完了時に保存・終了処理が候補追加を拒否した場合、追加成功と誤表示せず再試行を案内する。
 - Timelineの最終編集を保存してから主画面を閉じ、アプリ終了時は全Timelineの保存応答とMainのwrite queueを待つ。保存失敗・応答なしでは終了を取り消して編集と再試行を維持する。[保存・終了の契約](docs/package-compatibility.md#読み込み保存の失敗)。
+- Timeline保存を既存の読込上限16 MiB（UTF-8）以内に制限し、上限超過では元ファイルと編集中の内容を保持して終了を取り消す。一般の交換用exportへ同じ上限は適用しない。
 - 共通Electron IPCで送信元mainFrameとアプリ文書URLを照合し、Settingsも同じguardへ統一する。任意file/data/外部ページへのtop-level navigation・redirectを拒否し、既存iframe資産と生成Helpの経路を維持する。[判断と検証範囲](docs/adr/0070-renderer-document-and-frame-trust.md)。
 
 ### Changed
