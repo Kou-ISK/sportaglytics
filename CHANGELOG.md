@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SCTimeline JSONの既定ファイル名を`timeline.SCTimeline`へ変更し、保存ダイアログでもJSONと明示する。交換データの構造と読み込み条件は維持する。
 - 日本語UIのHTML言語指定を`ja`へ修正する。
 
+- 検出完了時に保存・終了処理が候補追加を拒否した場合、追加成功と誤表示せず再試行を案内する。
 - Timelineの最終編集を保存してから主画面を閉じ、アプリ終了時は全Timelineの保存応答とMainのwrite queueを待つ。保存失敗・応答なしでは終了を取り消して編集と再試行を維持する。[保存・終了の契約](docs/package-compatibility.md#読み込み保存の失敗)。
 - 共通Electron IPCで送信元mainFrameとアプリ文書URLを照合し、Settingsも同じguardへ統一する。任意file/data/外部ページへのtop-level navigation・redirectを拒否し、既存iframe資産と生成Helpの経路を維持する。[判断と検証範囲](docs/adr/0070-renderer-document-and-frame-trust.md)。
 

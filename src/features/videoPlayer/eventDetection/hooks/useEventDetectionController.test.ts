@@ -57,7 +57,9 @@ const createParams = (): Params => ({
   },
   timeline: [],
   maxTime: 10,
-  addTimelineDatas: vi.fn(() => ['event-1']),
+  addTimelineDatas: vi.fn<Params['addTimelineDatas']>((items) =>
+    items.map((_, index) => `event-${index + 1}`),
+  ),
 });
 const openDialog = (): void => {
   const subscription = vi.mocked(gateway.subscribeEventDetectionOpenRequest)
@@ -92,6 +94,36 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('event detection dialog lifecycle', () => {
+  it('reports a rejected close-frozen commit as retryable instead of claiming candidates were added', async () => {
+    const params = createParams();
+    const addTimelineDatas = vi
+      .fn<Params['addTimelineDatas']>()
+      .mockReturnValueOnce([])
+      .mockReturnValue(['event-1']);
+    const { result } = renderHook(useEventDetectionController, {
+      initialProps: { ...params, addTimelineDatas },
+    });
+    await act(async () => openDialog());
+    await waitFor(() =>
+      expect(result.current.viewProps.loadingModels).toBe(false),
+    );
+    await act(async () => result.current.viewProps.onRun());
+    expect(addTimelineDatas.mock.calls[0][0]).toHaveLength(1);
+    expect(result.current.viewProps.summary).toBeNull();
+    expect(result.current.viewProps.error).toContain(
+      'もう一度実行してください',
+    );
+    expect(result.current.viewProps.running).toBe(false);
+    expect(gateway.runEventDetection).toHaveBeenCalledTimes(1);
+
+    // The user retries after cancelling close. No automatic inference rerun is
+    // started by the failed commit; the existing Main cache may serve this run.
+    await act(async () => result.current.viewProps.onRun());
+    expect(result.current.viewProps.error).toBeNull();
+    expect(result.current.viewProps.summary?.added).toBe(1);
+    expect(addTimelineDatas).toHaveBeenCalledTimes(2);
+  });
+
   it('does not commit any candidate when the runner supplies an empty source identity', async () => {
     vi.mocked(gateway.runEventDetection).mockImplementationOnce(
       async (request) => ({
