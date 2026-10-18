@@ -21,6 +21,7 @@ Timelineは300ms debounceで保存する。原子的な置換はMainへ届いた
 - close許可は一度の同期的な再試行に限る。別のWindowが終了を止めた場合、残った主画面は再び編集でき、次の終了には新しい応答が必要。Playlist確認とlive captureの既存停止待ちは維持する。
 - ライブ録画停止の終了ガードは試行ごとに状態を戻す。TimelineやPlaylistが終了を取り消した後に再録画した場合も、次のquitで新たに停止を待つ。許可したnative closeの完了までは編集を凍結し、単にclose呼出しが戻っただけで再開しない。
 - atomic writerはファイル単位の順序保証と、一時ファイルwrite/sync/close→renameを維持する。終了待ちは各writeの成功・失敗も追い、後続成功だけで先行の失敗を隠さない。
+- Timelineの保存gatewayは、MainのPackage JSON読込と共有する16 MiB上限を、シリアライズ後のUTF-8バイト数でIPC送信前に確認する。上限を超えたsnapshotは保存失敗として扱い、既存ファイルと編集中のデータを保持してcloseを取り消す。検出由来のメタデータを含め、内容を自動削除・切詰めしない。汎用テキストIPCと交換形式のexportはこのPackage上限で制限しない。
 
 ## Consequences
 

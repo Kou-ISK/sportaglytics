@@ -8,6 +8,7 @@ import {
   writeTimelineFile,
 } from '../gateways/timelineImportExportGateway';
 import { registerTimelineCloseHandler } from '../gateways/timelineCloseGateway';
+import { isWithinPackageJsonSizeLimit } from '../../../../shared/packageJsonLimits';
 import {
   parseTimelineDocument,
   serializeTimelineDocument,
@@ -141,7 +142,9 @@ export const useTimelinePersistence = ({
           console.error('Failed to export timeline:', error);
           if (generation === generationRef.current)
             setSaveError(
-              'タイムラインの変更を保存できませんでした。変更は画面に残っています。保存先の接続・空き容量・アクセス権を確認し、保存を再試行してください。',
+              !isWithinPackageJsonSizeLimit(snapshot)
+                ? 'タイムラインの保存サイズが16 MiB（UTF-8）の上限を超えています。既存ファイルは変更せず、編集内容は画面に保持しています。必要な内容をエクスポートして保管し、変更を取り消すかメモ・場面の量を減らしてから保存を再試行してください。'
+                : 'タイムラインの変更を保存できませんでした。変更は画面に残っています。保存先の接続・空き容量・アクセス権を確認し、保存を再試行してください。',
             );
           return false;
         } finally {
