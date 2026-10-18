@@ -23,7 +23,7 @@ Caskの`arch arm: "arm64", intel: "x64"`でCPUをDMG名へ対応付け、`#{arch
 2. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml)をmainから手動実行します。version・mainの完全SHA・publishを入力します。0.17.5は`include_windows=true`を指定し、同一commitのWindows新規buildとインストール後検査も通します。tag pushだけでは起動しません。
 3. 既定の`publish=false`は署名・Apple公証・最終DMG検証を実行し、Actions artifactだけを保存します。公開承認済みの`publish=true`実行は全ゲートを改めて通し、そこで検査したDMGを新しいReleaseへ公開します。
 4. 公開成功後、既存`HOMEBREW_TAP_TOKEN`でTapをcheckoutし、`scripts/macos/write-cask.mjs`が最終DMG reportのversionとSHA256からCaskを生成してcommit/pushします。秘密の値をclone URLへ埋め込みません。
-5. 公開した両DMGのdownload bytes、ReleaseのSHA256SUMS、Actions検証report、Tapのarm64/x64 hashを照合します。clean macOSでインストール・起動・文書関連付けを確認します。
+5. 公開した両DMGのdownload bytes、ReleaseのSHA256SUMS、公開検証要約`release-verification.json`、Tapのarm64/x64 hashを照合します。要約にはsource commit/treeとActions run URLがあります。詳細reportのActions artifact保持は90日です。要約追加前の旧Releaseには後付けせず、当時の検証記録を使います。clean macOSでインストール・起動・文書関連付けを確認します。
 
 `publish=false`でもAppleへのアプリ送信が発生します。未署名候補の検査としてworkflowを起動しません。既存認証の有効性を確認できない場合は該当stepを停止し、新規tokenや権限拡張をこの手順へ自動で追加しません。[認証の境界](../.github/RELEASE.md#既存認証の利用)。
 
