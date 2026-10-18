@@ -16,6 +16,7 @@ import {
   sourcesForTargets,
 } from '../media-tools/source-bundle.mjs';
 import { validateReleaseIdentity } from '../macos/release-guard.mjs';
+import { desktopReleaseNotes } from '../desktop-release-notes.mjs';
 
 const python = process.platform === 'win32' ? 'python' : 'python3';
 const archiveScript = resolve('scripts/media-tools/archive-sources.py');
@@ -25,6 +26,129 @@ const fresh = async (t) => {
   t.after(() => rm(root, { recursive: true, force: true }));
   return root;
 };
+
+test('desktop release notes distinguish unsigned installers, valid signatures and Mac-only releases', () => {
+  const mac = desktopReleaseNotes({ includeWindows: false });
+  assert.match(mac, /DMG内のアプリは署名・公証済み/);
+  assert.match(mac, /Windows installerはこのReleaseに含みません。/);
+  assert.doesNotMatch(mac, /Windows installerは未署名|Windows x64/);
+  for (const [status, expected, excluded] of [
+    [
+      'NotSigned',
+      'Windows installerは未署名です。',
+      'Authenticode署名を検証済み',
+    ],
+    [
+      'Valid',
+      'Windows installerのAuthenticode署名を検証済みです。',
+      'installerは未署名',
+    ],
+  ]) {
+    const notes = desktopReleaseNotes({
+      includeWindows: true,
+      installerSignatureStatus: status,
+    });
+    assert.ok(notes.includes(expected));
+    assert.ok(!notes.includes(excluded));
+    assert.match(notes, /インストール後の全E2Eと同梱物を検査済み/);
+    assert.doesNotMatch(notes, /\d+\s*E2E|\uFFFD/);
+    assert.match(notes, /Windows Nと実カメラは未検証/);
+  }
+});
+
+test('desktop release notes reject absent or unverified Windows signature states', () => {
+  for (const status of [
+    undefined,
+    null,
+    '',
+    'HashMismatch',
+    'NotTrusted',
+    'UnknownError',
+    'NotSigned。',
+  ])
+    assert.throws(
+      () =>
+        desktopReleaseNotes({
+          includeWindows: true,
+          installerSignatureStatus: status,
+        }),
+      /Unsupported Windows installer signature status/,
+    );
+});
+
+test('release notes CLI writes UTF-8 independently of the shell locale and needs no Windows evidence for Mac-only', async (t) => {
+  const script = resolve('scripts/desktop-release-notes.mjs');
+  for (const locale of ['C', 'en_US', 'en_US.UTF-8']) {
+    for (const includeWindows of [false, true]) {
+      const root = await fresh(t);
+      if (includeWindows) {
+        await mkdir(join(root, 'dist'));
+        await writeFile(
+          join(root, 'dist/windows-release.json'),
+          JSON.stringify({ installerSignatureStatus: 'NotSigned' }),
+        );
+      }
+      const result = spawnSync(process.execPath, [script], {
+        cwd: root,
+        env: {
+          ...process.env,
+          INCLUDE_WINDOWS: String(includeWindows),
+          LC_ALL: locale,
+          LANG: locale,
+        },
+        encoding: 'utf8',
+      });
+      assert.equal(result.status, 0, result.stderr);
+      const bytes = await readFile(join(root, 'dist/release-notes.md'));
+      const notes = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      assert.ok(
+        notes.includes(
+          includeWindows
+            ? 'Windows installerは未署名です。Windows N'
+            : 'Windows installerはこのReleaseに含みません。',
+        ),
+      );
+      assert.doesNotMatch(notes, /\uFFFD|\d+\s*E2E/);
+      assert.ok(
+        bytes.includes(
+          Buffer.from('GGUFと自動検出用model packは別途必要です。', 'utf8'),
+        ),
+      );
+    }
+  }
+});
+
+test('release notes CLI fails before producing a publishable file when its evidence or selection is invalid', async (t) => {
+  for (const [selection, evidence] of [
+    ['true', undefined],
+    ['true', { installerSignatureStatus: 'HashMismatch' }],
+    ['true', {}],
+    ['yes', { installerSignatureStatus: 'NotSigned' }],
+  ]) {
+    const root = await fresh(t);
+    if (evidence !== undefined) {
+      await mkdir(join(root, 'dist'));
+      await writeFile(
+        join(root, 'dist/windows-release.json'),
+        JSON.stringify(evidence),
+      );
+    }
+    const result = spawnSync(
+      process.execPath,
+      [resolve('scripts/desktop-release-notes.mjs')],
+      {
+        cwd: root,
+        env: { ...process.env, INCLUDE_WINDOWS: selection },
+        encoding: 'utf8',
+      },
+    );
+    assert.notEqual(result.status, 0);
+    await assert.rejects(
+      readFile(join(root, 'dist/release-notes.md')),
+      /ENOENT/,
+    );
+  }
+});
 
 test('Mac source selection excludes Windows-only dependencies and requires both Mac targets', () => {
   const selected = sourceBundleOptions([

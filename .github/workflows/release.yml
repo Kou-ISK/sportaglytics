@@ -208,17 +208,15 @@ jobs:
         run: |
           assets=("dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" "dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" "dist/media-tools-sources-$RELEASE_VERSION-macos.tar.gz" dist/SHA256SUMS.txt)
           platform='macOS'
-          notes='macOS arm64 / Intel 向けです。DMG内のアプリは署名・公証済みで、最終DMGから検査しています。Windows installerはこのReleaseに含みません。'
           if [[ "$INCLUDE_WINDOWS" == true ]]; then
             node scripts/windows/release-evidence.mjs --verify-only
             assets+=("dist/SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" "dist/media-tools-sources-$RELEASE_VERSION-windows.tar.gz")
             platform='macOS / Windows'
-            windows_signature=$(node -p "JSON.parse(require('fs').readFileSync('dist/windows-release.json')).installerSignatureStatus")
-            notes="macOS arm64 / Intel とWindows x64向けです。Macアプリは署名・公証済みで最終DMGから検査しています。Windowsは同じcommitから新規buildし、インストール後の22 E2Eと同梱物を検査済みです。Windows installerのAuthenticode状態: $windows_signature。Windows Nと実カメラは未検証です。"
           fi
+          node scripts/desktop-release-notes.mjs
           gh release create "v$RELEASE_VERSION" --verify-tag \
             --title "v$RELEASE_VERSION ($platform)" --generate-notes \
-            --notes "$notes GGUFと自動検出用model packは別途必要です。FFmpeg等の対応sourceとbuild manifestは対象OS別のsource archiveに収録しています。" \
+            --notes-file dist/release-notes.md \
             "${assets[@]}"
 
       - name: Checkout Homebrew Tap using its existing token

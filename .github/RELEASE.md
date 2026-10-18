@@ -54,6 +54,8 @@ workflowは入力version、package version、tag commit、checkout、workflow co
 
 Windowsは既存CIと同じ認証なしのbuildを使用し、実Authenticode状態を検査reportとRelease noteへ記載します。`NotSigned`を署名済みと表現しません。新しいWindows署名証明書や契約はこの手順では取得しません。
 
+公開本文は`scripts/desktop-release-notes.mjs`が再照合済みの`windows-release.json`から生成し、`NotSigned`は「未署名」、`Valid`は「Authenticode署名を検証済み」と明記します。未知の状態では公開を停止します。E2E件数は本文へ固定せず、成功した同一runの全シナリオとログを根拠にします。日本語に隣接したshell変数のロケール依存解釈を避け、UTF-8ファイルを`gh release create --notes-file`へ渡します。
+
 Macは既存`release.yml`と同じ認証方式です。正規の本番実行権限がある担当者は既存Secretsをworkflow内で消費できます。秘密の値をチャット・ローカルMacへ抽出したり、新しく入力・送信したりする手順は不要です。秘密の有効性は実行結果で確認し、値をログへ出しません。Tapのtokenはcheckout actionへ渡し、clone URLへ埋め込みません。
 
 既存Secretsが不足・失効している場合は失敗したstepとsecret名だけを報告します。新規credential、証明書発行、権限拡張、Apple契約への同意、ローカルkeychain ACL変更をこのworkflow準備の一部として追加しません。既存credentialを利用するCIの一時keychain操作と、利用者Macのcredential/security変更を混同しません。
