@@ -639,11 +639,13 @@ Playlistでクリップを選び、ツールバーのPaintに切り替えて一�
 - JSON形式
 - YouTube用CSV
 - 分析用CSV
-- SCTimeline JSON（[対応範囲と制約](sctimeline-implementation.md)。Sportscode実機との往復は未検証）
+- SCTimeline JSON（既定名`timeline.SCTimeline`。[対応範囲と制約](sctimeline-implementation.md)。Sportscode実機との往復は未検証）
 
 **項目**:
 
-- イベントID、アクション名、開始/終了時刻、ラベル、メモ
+- 形式によって保持する項目は異なります。TimelineメニューのCSVは時刻・アクション・Type/Result・備考、分析データCSVはID・秒数・全ラベル群などを含みます。空行や行の順番まで含む完全な保管には`.stpkg`を使います。
+
+CSVの式開始文字を持つ文字列には`'`が付きます。例えばノートの`=1+1`はCSVでは`"'=1+1"`になります。数値とアプリ内の元データは変わりません。表示・再保存時の制限と正確な文字列を交換する方法は[CSVの文字列](sctimeline-implementation.md#表計算ソフト向けcsvの文字列)を参照してください。
 
 ### インポート
 

@@ -390,9 +390,11 @@ AI Analysis:
 Timeline:
 
 - JSON
-- CSV
-- SCTimeline JSON（既存場面の入出力。XML形式とは別）
+- CSV（Timeline・分析データ・マトリクスの文字列は式解釈を抑える接頭辞と引用処理を共用する。数値・保存元は維持。表計算ソフトの再保存後までの保証は対象外）
+- SCTimeline JSON（既存場面の入出力。XML形式とは別。既定名`timeline.SCTimeline`）
 - 公式Sportscode Edit List XML + 明示動画 + 明示秒補正から新規プロジェクト作成。ネイティブ`.scpkg` / `.sczip`とXML出力は対象外
+
+保持項目、文字列への接頭辞、JSONとの使い分けは[入出力仕様](sctimeline-implementation.md)を正本とする。これらの交換形式は`.stpkg`の完全バックアップを代替しない。
 
 Clip export:
 

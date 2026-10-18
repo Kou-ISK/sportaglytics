@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Timeline・分析データ・マトリクスのCSVで、式として解釈され得る文字列に接頭辞を付ける。数値・保存データ・JSON出力は維持し、文字列の見え方と再保存時の制限を[出力仕様](docs/sctimeline-implementation.md#表計算ソフト向けcsvの文字列)に記載する。
+- SCTimeline JSONの既定ファイル名を`timeline.SCTimeline`へ変更し、保存ダイアログでもJSONと明示する。交換データの構造と読み込み条件は維持する。
+- 日本語UIのHTML言語指定を`ja`へ修正する。
+
 ## [0.17.10]
 
 公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。既存の公開版とタグは維持します。
