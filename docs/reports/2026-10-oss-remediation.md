@@ -47,3 +47,9 @@ Linuxの仮想画面と明示的なtest container用起動フラグを使用し�
 変更は[配布証跡 #234](https://github.com/Kou-ISK/sportaglytics/pull/234)、[共有/lang #235](https://github.com/Kou-ISK/sportaglytics/pull/235)、[入口文書 #236](https://github.com/Kou-ISK/sportaglytics/pull/236)、[合成sample/測定 #237](https://github.com/Kou-ISK/sportaglytics/pull/237)、[終了保存 #238](https://github.com/Kou-ISK/sportaglytics/pull/238)、[IPC境界 #239](https://github.com/Kou-ISK/sportaglytics/pull/239)、[検出由来 #240](https://github.com/Kou-ISK/sportaglytics/pull/240)に分けてレビューした。各headのCIと、統合候補のCIは区別する。
 
 素材の原資料、初見ユーザー評価、支援技術、表計算実機、長時間/4K/全OS性能、非公開security窓口は残る確認事項である。AI生成申告・score・由来保存を、許諾確認や人確認済み精度へ格上げしない。
+
+## 0.17.11の正式工程停止と0.17.12の検証
+
+[正式run 39124956385](https://github.com/Kou-ISK/sportaglytics/actions/runs/39124956385)はmain `700016d1add976ad32fbb6168763b4ce4c4db5db`を検査し、Windowsの通常/インストール後E2Eと同梱物検証は成功した。macOSでは`timeline-close`の最初の単一Window Closeがprocess終了を待って失敗し、署名・公証・公開へ進まなかった。`electron/src/main.ts`はmacOSの`window-all-closed`で終了しないため、試験の終了条件を修正する。失敗したrunは保存内容のassertに到達しておらず、保存成功・失敗の証拠とは扱わない。
+
+0.17.12では所有元/Timelineの消滅と実diskの最終値を明示的なQuitより前にassertし、macOSのprocess継続とその後のQuit、新process再開も確認する。製品の終了動作・保存実装は変更しない。新しいPRのmacOS回帰と正式Releaseの全検証はそれぞれのrun結果で確認し、この記載だけで成功済みとは扱わない。v0.17.11タグとv0.17.10以前の公開物は維持する。
