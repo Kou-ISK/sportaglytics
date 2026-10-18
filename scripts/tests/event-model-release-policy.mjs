@@ -9,7 +9,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import {
@@ -315,4 +315,33 @@ test('checked-in application policy is valid and does not require a private mode
   );
   assert.equal(result.appVersion, pkg.version);
   assert.ok(['none', 'latest'].includes(result.mode));
+});
+
+test('Windows text conversion preserves byte-pinned catalog and evidence', async (t) => {
+  const { root } = await fixture(t);
+  await writeFile(
+    join(root, '.gitattributes'),
+    await readFile(join(repository, '.gitattributes')),
+  );
+  await writeFile(join(root, 'control.txt'), 'ordinary text\n');
+  const git = (args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
+  git(['init', '--quiet']);
+  git(['-c', 'core.autocrlf=false', 'add', '.']);
+  const checkout = `${join(root, 'checkout').replaceAll('\\', '/')}/`;
+  git([
+    '-c',
+    'core.autocrlf=true',
+    'checkout-index',
+    '--all',
+    '--force',
+    `--prefix=${checkout}`,
+  ]);
+  assert.equal(
+    await readFile(join(checkout, 'control.txt'), 'utf8'),
+    'ordinary text\r\n',
+  );
+  assert.deepEqual(
+    await checkReleasePlan(checkout),
+    await checkReleasePlan(root),
+  );
 });

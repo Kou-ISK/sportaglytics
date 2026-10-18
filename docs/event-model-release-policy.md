@@ -44,6 +44,8 @@ lock schema 1は正確な`appVersion`、catalog全bytesのSHA-256、`darwin-arm6
 
 catalog/lockは人がPRで更新し、検査は自動書換えや出力物作成をしません。アプリ版変更時はlockも明示的に更新します。既存appとローカルuserData packの探索順・runtime manifest schemaは変更しません。
 
+このmetadata directoryは`.gitattributes`の`-text`で固定し、Windows checkoutのCRLF変換からhash対象bytesを保護します。回帰試験は通常textがCRLFへ変換されるcheckoutを実際に作り、同じcatalogと根拠が検査を通ることを確認します。
+
 ## 次の実装と受入条件
 
 1. 管理者が実候補の公開可能な根拠を確認する。配布対象の重み・runner・runtime・資料と配布先を具体化する。未確認モデルや私的動画を公開しない。
@@ -59,3 +61,5 @@ catalog/lockは人がPRで更新し、検査は自動書換えや出力物作成
 rollbackは、問題の候補をwithdrawnにし、**新しいアプリ版**のPRで以前の検証済みモデルまたはモデルなしへ戻す明示操作として設計します。以前の公開Release URL、app/lock/pack hash、理由、現在の配布許諾とアプリ互換性の再確認を記録し、全対象OSで再検証します。権利上撤回した旧モデルへ戻すことはできません。ユーザーのTimeline・由来情報を削除せず、既存の手動機能は維持します。
 
 基盤schema 1にはrollback例外を実装せず、`mode: rollback`を拒否します。既知の公開済みlockと新アプリ版を照合する例外契約・CI負例を、実同梱を有効化する前に別実装します。旧版の再選択をlatestと偽って通したり、未実装rollbackを現機能として案内したりしません。
+
+現在の検査は過去の公開lockを読まないため、最新適格候補が過去の採用版より古いかは判定しません。withdrawn指定で旧候補が最新適格になる場合も、将来の配布工程ではこの履歴照合と明示的なrollback判断を必須にします。
