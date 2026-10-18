@@ -78,6 +78,9 @@ it.each(['Sample.stpkg', 'Without extension', 'ライブ 🏉.stpkg'])(
       'PACKAGE_UPDATE_BACKUP_SELECTED',
     );
   },
+  // Windows owner-identity lookup has its own 5s subprocess timeout. Leave room
+  // for the surrounding filesystem work and propagate lookup errors unchanged.
+  process.platform === 'win32' ? 15_000 : 5_000,
 );
 
 it('adopts all edits from an indexed 0.17.9 copy and redirects unchanged old-copy opens', async () => {
