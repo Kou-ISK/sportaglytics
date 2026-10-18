@@ -324,7 +324,7 @@ Main process側はstatusに関係なく `shell: false`、finite timeout、output
 
 Model outputは直接persisted `timeline.json` を書き換えません。Renderer domainで現在のconfidence threshold、enabled event、lead/lag、duplicate suppressionを適用して `NewTimelineData[]` へ変換し、`addTimelineDatas()` で1 state updateとして追加します。
 
-自動追加後は通常の `TimelineData` として扱います。experimental provenanceをTimeline schemaへ保存しません。
+自動追加後は通常の `TimelineData` として扱い、元モデル・候補情報を任意の `provenance` に保存します。欠落した旧データを補完せず、再生・編集から人確認を推定しません。スコアは元候補の値のままです。`src/types/timeline/provenance.ts` が型とguard、`src/shared/timeline/timelineProvenance.ts` が読込・コピー・結合を担当します。Timeline/Analysis IPCでも任意フィールドを検証し、通常のupdate commandには由来の編集を許しません。候補の由来が保存契約に適合しなければ、一括追加の前に検出結果を拒否します。設計と互換性は[ADR 0069](adr/0069-timeline-detection-provenance.md)、試験範囲は[Timeline / IPC検証](testing.md#settings--timeline--ipc)を参照してください。
 
 ## テストとデバッグ
 

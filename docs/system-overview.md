@@ -185,9 +185,11 @@ TimelineDocument
 ```
 
 - 行が名称・色・表示順を所有
-- `TimelineData` は `actionName / startTime / endTime / memo / labels / color`
+- `TimelineData` は `actionName / startTime / endTime / memo / labels / color` と任意の `provenance`
 - 旧 `actionType` / `actionResult` はロード時に `Type` / `Result` labelへmigration
 - 保存は現行formatのみ
+
+新規の検出候補は実resultのモデル・元候補情報と `reviewStatus: unreviewed` を保持します。欠落した旧データは由来・人確認が不明のままで、編集から確認済みへ昇格させません。元候補スコアと現在の編集区間を分け、結合では全出所と由来不明の混在を保持します。通常の場面検索の詳細で表示します。[保存・交換の範囲](event-detection.md#timeline変換)、[ADR 0069](adr/0069-timeline-detection-provenance.md)。
 
 `NewTimelineData = Omit<TimelineData, 'id'>` を一括追加入力に使用します。`addTimelineDatas()` は複数eventを1回のstate updateで追加するため、自動Codingで多数eventを追加しても1回のUndoで戻せます。
 

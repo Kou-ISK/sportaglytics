@@ -1,4 +1,8 @@
 import type { TimelineData } from '../../../types/timeline/core';
+import {
+  copyTimelineProvenance,
+  mergeTimelineProvenance,
+} from '../../../shared/timeline/timelineProvenance';
 
 export const canSplitTimelineItem = (
   item: TimelineData | undefined,
@@ -60,6 +64,9 @@ export const splitTimelineItem = (
             id: rightId,
             startTime: time,
             labels: entry.labels?.map((label) => ({ ...label })),
+            ...(entry.provenance
+              ? { provenance: copyTimelineProvenance(entry.provenance) }
+              : {}),
           },
         ]
       : [entry],
@@ -93,6 +100,9 @@ export const mergeTimelineItems = (
       ...new Set(items.map((item) => item.memo).filter((memo) => memo.trim())),
     ].join('\n\n'),
     labels: labels.length > 0 ? labels : undefined,
+    ...(items.some((item) => item.provenance)
+      ? { provenance: mergeTimelineProvenance(items) }
+      : {}),
   };
   return timeline.flatMap((item) =>
     item.id === first.id ? [combined] : selected.has(item.id) ? [] : [item],

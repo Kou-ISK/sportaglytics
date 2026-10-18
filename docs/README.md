@@ -146,3 +146,5 @@ Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-
 
 - [共通の開くと移行先再利用](adr/0065-unified-project-open.md)
 - [ライブ録画の再生範囲と終了処理](adr/0066-capture-playback-bounds.md)
+
+- [検出候補の由来と未確認状態（ADR 0069）](adr/0069-timeline-detection-provenance.md): 旧データを推定せず、元候補と人確認を区別する任意保存契約。

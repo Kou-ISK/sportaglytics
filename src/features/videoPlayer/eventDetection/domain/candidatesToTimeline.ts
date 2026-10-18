@@ -1,11 +1,14 @@
 import type {
   EventDetectionCandidate,
+  EventDetectionResult,
   EventTimelineMapping,
 } from '../../../../types/eventDetection/core';
 import type {
   NewTimelineData,
   TimelineData,
 } from '../../../../types/timeline/core';
+import type { TimelineProvenance } from '../../../../types/timeline/provenance';
+import { isTimelineProvenance } from '../../../../types/timeline/provenance';
 import { resolveRecordingRange } from '../../components/Controls/domain/recordingRange';
 
 export interface CandidateConversionResult {
@@ -16,6 +19,7 @@ export interface CandidateConversionResult {
 }
 
 interface ConvertCandidatesParams {
+  source: Pick<EventDetectionResult, 'requestId' | 'modelId' | 'modelVersion'>;
   candidates: EventDetectionCandidate[];
   mappings: EventTimelineMapping[];
   existingTimeline: TimelineData[];
@@ -80,6 +84,7 @@ const getDetectedBaseRange = (
 const candidateToTimelineItem = (
   candidate: EventDetectionCandidate,
   mapping: EventTimelineMapping,
+  source: ConvertCandidatesParams['source'],
   maxTime?: number,
 ): NewTimelineData => {
   const baseRange = getDetectedBaseRange(candidate);
@@ -90,20 +95,44 @@ const candidateToTimelineItem = (
     maxTime,
   });
 
+  const provenance: TimelineProvenance = {
+    reviewStatus: 'unreviewed',
+    hasUnknownSource: false,
+    sources: [
+      {
+        origin: 'event-detection',
+        requestId: source.requestId,
+        modelId: source.modelId,
+        modelVersion: source.modelVersion,
+        candidateId: candidate.id,
+        eventType: candidate.eventType,
+        confidence: candidate.confidence,
+        anchorTime: candidate.anchorTime,
+      },
+    ],
+  };
+  // The runner contract historically allowed empty IDs. Do not save metadata
+  // that the document loader would later reject, or substitute invented IDs.
+  if (!isTimelineProvenance(provenance)) {
+    throw new Error(
+      '検出結果の由来情報が不正です。タイムラインには追加していません。',
+    );
+  }
   return {
     actionName: mapping.actionName,
     startTime: range.startTime,
     endTime: range.endTime,
     memo: '',
+    provenance,
   };
 };
 
 /**
  * Converts detector output into ordinary timeline instances.
- * Detector provenance intentionally stays outside TimelineData; after import,
- * detected events behave exactly like manually coded events.
+ * Retains original detector output without treating import or editing as review.
  */
 export const convertCandidatesToTimeline = ({
+  source,
   candidates,
   mappings,
   existingTimeline,
@@ -131,6 +160,8 @@ export const convertCandidatesToTimeline = ({
     }
     if (
       !Number.isFinite(candidate.confidence) ||
+      candidate.confidence < 0 ||
+      candidate.confidence > 1 ||
       candidate.confidence < mapping.minConfidence
     ) {
       skippedLowConfidence += 1;
@@ -141,7 +172,7 @@ export const convertCandidatesToTimeline = ({
       continue;
     }
 
-    const item = candidateToTimelineItem(candidate, mapping, maxTime);
+    const item = candidateToTimelineItem(candidate, mapping, source, maxTime);
     const existingPool: Array<
       Pick<TimelineData, 'actionName' | 'startTime' | 'endTime'>
     > = [...existingTimeline, ...accepted];

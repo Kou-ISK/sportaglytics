@@ -264,6 +264,7 @@ export const useEventDetectionController = ({
           return;
         const current = latestTimeline.current;
         const converted = convertCandidatesToTimeline({
+          source: result,
           candidates: result.candidates,
           mappings: enabledMappings,
           existingTimeline: current.timeline,

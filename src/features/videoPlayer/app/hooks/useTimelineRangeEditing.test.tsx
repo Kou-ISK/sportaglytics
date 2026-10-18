@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { expect, it } from 'vitest';
 import type { TimelineData } from '../../../../types/timeline/core';
+import { detectionProvenance } from '../../../../shared/timeline/fixtures/detectionProvenance';
 import { useTimelineHistory } from './useTimelineHistory';
 import { useTimelineRangeEditing } from './useTimelineRangeEditing';
 
@@ -14,6 +15,7 @@ it('commits each edit as one undoable transaction and selects the resulting IDs'
       startTime: 1,
       endTime: 9,
       memo: 'note',
+      provenance: detectionProvenance,
     },
   ];
   let selection: string[] = [];
@@ -36,6 +38,10 @@ it('commits each edit as one undoable transaction and selects the resulting IDs'
   });
   act(() => result.current.splitTimelineItem('first', 4));
   const split = result.current.timeline;
+  expect(split.map((item) => item.provenance)).toEqual([
+    detectionProvenance,
+    detectionProvenance,
+  ]);
   expect(selection).toEqual(split.map((item) => item.id));
   act(() => result.current.undo());
   expect(result.current.timeline).toEqual(initial);

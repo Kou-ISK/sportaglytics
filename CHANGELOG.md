@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 新しい自動検出候補に元モデル・版・候補スコア/時刻を保存し、場面検索の詳細に表示する。保存再開・Undo・コピー・分割・結合で保持する。旧データの由来や人確認を推定せず、人確認済みを記録する操作は未提供。[範囲と互換性](docs/event-detection.md#検出後の区間修正)。
+
 ### Fixed
 
 - Timeline・分析データ・マトリクスのCSVで、式として解釈され得る文字列に接頭辞を付ける。数値・保存データ・JSON出力は維持し、文字列の見え方と再保存時の制限を[出力仕様](docs/sctimeline-implementation.md#表計算ソフト向けcsvの文字列)に記載する。
