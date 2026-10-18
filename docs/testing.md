@@ -121,7 +121,7 @@ Settingsやmigrationでは新fieldの保存読込、legacy default、invalid val
 
 Timeline変更ではrange normalization、row ownership、history/Undo単位、duplicate/copy semanticsを検証します。自動Codingは `addTimelineDatas()` の1 state updateで追加するため、一括Undoを前提にします。
 
-検出由来の変更では `src/types/timeline/provenance.test.ts` と `src/types/ipc/timelineProvenance.test.ts` でスコア/時刻の数値境界、空ID、不正状態、IPCを検査します。`timelineDocument.test.ts` は旧配列/v2を由来不明のまま維持し、保存再開で新しい元情報を保持することを確認します。domain/controllerでは不正な由来を持つ候補の一括追加を拒否し、分割・結合・コピー・Undo/Redoでは出所と未知部分を維持します。`Workspace/Timeline/Provenance` storiesはprops-only表示です。`e2e-event-detection.mjs` の決定的stubは実ファイルの由来保存を確認しますが、モデル精度や人確認の正しさの試験ではありません。
+検出由来の変更では `src/types/timeline/provenance.test.ts` と `src/types/ipc/timelineProvenance.test.ts` でスコア/時刻の数値境界、空ID、不正状態、IPCを検査します。`timelineDocument.test.ts` は旧配列/v2を由来不明のまま維持し、保存再開で新しい元情報を保持することを確認します。domain/controllerでは不正な由来を持つ候補の一括追加を拒否し、終了時の編集凍結による追加拒否を成功と報告しないことと、明示再試行を検査します。分割・結合・コピー・Undo/Redoでは出所と未知部分を維持します。`Workspace/Timeline/Provenance` storiesはprops-only表示です。`e2e-event-detection.mjs` の決定的stubは実ファイルの由来保存・別プロセス再開後のメモリ内由来・詳細のキーボード展開を確認しますが、モデル精度や人確認の正しさの試験ではありません。
 
 IPC / preload変更ではpayload guard、sender validation、explicit API、listener cleanup、invalid result rejectionを確認します。
 

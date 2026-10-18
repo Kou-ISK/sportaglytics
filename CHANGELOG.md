@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- 検出完了時に保存・終了処理が候補追加を拒否した場合、追加成功と誤表示せず再試行を案内する。
 - Timelineの最終編集を保存してから主画面を閉じ、アプリ終了時は全Timelineの保存応答とMainのwrite queueを待つ。保存失敗・応答なしでは終了を取り消して編集と再試行を維持する。[保存・終了の契約](docs/package-compatibility.md#読み込み保存の失敗)。
 
 ## [0.17.10]

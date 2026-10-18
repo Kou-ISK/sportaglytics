@@ -270,9 +270,14 @@ export const useEventDetectionController = ({
           existingTimeline: current.timeline,
           maxTime: current.maxTime > 0 ? current.maxTime : undefined,
         });
-        current.addTimelineDatas(converted.items);
+        const addedIds = current.addTimelineDatas(converted.items);
+        if (addedIds.length !== converted.items.length) {
+          throw new Error(
+            '検出結果をタイムラインに追加できませんでした。保存・終了処理が終わるか終了を取り消した後、もう一度実行してください。',
+          );
+        }
         setSummary({
-          added: converted.items.length,
+          added: addedIds.length,
           duplicates: converted.skippedDuplicate,
           lowConfidence: converted.skippedLowConfidence,
           modelStatus: selectedModel.status,

@@ -412,8 +412,53 @@ try {
     const video = document.querySelector('#video_0_html5_api');
     return video instanceof HTMLVideoElement && video.readyState >= 2;
   });
+  const reopenedTimeline =
+    app.windows().find((window) => window.url().includes('/timeline')) ??
+    (await app.waitForEvent('window', (window) =>
+      window.url().includes('/timeline'),
+    ));
+  await reopenedTimeline
+    .getByRole('button', { name: '場面を検索', exact: true })
+    .waitFor();
+  const reopenedProvenance = await reopenedTimeline.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const api = window.electronAPI.timelineWindow;
+        let unsubscribe = () => {};
+        const timeout = setTimeout(() => {
+          unsubscribe();
+          reject(new Error('Cold Timeline provenance sync did not arrive'));
+        }, 10000);
+        unsubscribe = api.onSync((snapshot) => {
+          clearTimeout(timeout);
+          unsubscribe();
+          resolve(snapshot.timeline[0]?.provenance);
+        });
+        api.sendCommand({ type: 'request-sync' });
+      }),
+  );
+  assert.deepEqual(reopenedProvenance, timeline.instances[0].provenance);
+  await reopenedTimeline
+    .getByRole('button', { name: '場面を検索', exact: true })
+    .click();
+  await reopenedTimeline
+    .getByRole('list', { name: '場面検索の結果' })
+    .getByRole('button')
+    .first()
+    .click();
+  const provenanceDetails = reopenedTimeline.getByRole('region', {
+    name: '選択した場面の詳細',
+  });
+  await provenanceDetails
+    .getByText('自動検出由来 · 人確認の記録なし', { exact: true })
+    .press('Enter');
+  await provenanceDetails.getByText(/元候補スコア 0.99/).waitFor();
+  assert.equal(
+    await provenanceDetails.getByText(/e2e-input-contract \/ 1/).isVisible(),
+    true,
+  );
   console.log(
-    'Legacy history without the package suffix reopens the actual package',
+    'Legacy history reopens the package; provenance survives a new process and is keyboard-accessible without a human-review claim',
   );
 } catch (error) {
   for (const page of app.windows()) {
