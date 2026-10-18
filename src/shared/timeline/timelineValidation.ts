@@ -1,3 +1,4 @@
+import { parseTimelineProvenance } from './timelineProvenance';
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const isText = (value: unknown): value is string =>
@@ -41,6 +42,7 @@ export const validateTimelineDocumentData = (value: unknown): void => {
     if (ids.has(item.id))
       throw new Error('タイムラインの場面IDが重複しています。');
     ids.add(item.id);
+    parseTimelineProvenance(item.provenance);
   }
   if (document) {
     if (!Array.isArray(document.rows))

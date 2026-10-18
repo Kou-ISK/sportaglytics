@@ -1,17 +1,17 @@
 import type { BrowserWindow, WebContents } from 'electron';
-
-const isAllowedNavigationUrl = (url: string): boolean => {
-  return (
-    url.startsWith('file://') ||
-    url.startsWith('data:text/html') ||
-    url === 'about:blank'
-  );
-};
+import { isTrustedRendererUrl } from './rendererUrl';
 
 export const applyWebContentsSecurity = (webContents: WebContents): void => {
   webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   webContents.on('will-navigate', (event, url) => {
-    if (!isAllowedNavigationUrl(url)) {
+    if (!isTrustedRendererUrl(url)) {
+      event.preventDefault();
+    }
+  });
+  // Do not block media iframe redirects (e.g. YouTube). Only the document that
+  // owns the preload bridge must stay on the app entry point.
+  webContents.on('will-redirect', (event) => {
+    if (event.isMainFrame && !isTrustedRendererUrl(event.url)) {
       event.preventDefault();
     }
   });
@@ -20,4 +20,3 @@ export const applyWebContentsSecurity = (webContents: WebContents): void => {
 export const applyWindowSecurity = (window: BrowserWindow): void => {
   applyWebContentsSecurity(window.webContents);
 };
-

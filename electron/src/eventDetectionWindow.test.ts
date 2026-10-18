@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { getRendererUrl } from './rendererUrl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EVENT_DETECTION_WINDOW_CHANNELS as channels } from '../../src/types/ipc/eventDetectionWindow';
 const mocks = vi.hoisted(() => ({
@@ -7,7 +8,11 @@ const mocks = vi.hoisted(() => ({
   owners: new Map<unknown, unknown>(),
 }));
 class FakeWindow extends EventEmitter {
-  webContents = { send: vi.fn() };
+  webContents = {
+    send: vi.fn(),
+    isDestroyed: () => false,
+    mainFrame: { url: getRendererUrl() },
+  };
   destroyed = false;
   isDestroyed = (): boolean => this.destroyed;
   getBounds = (): object => ({ x: 0, y: 0, width: 800, height: 450 });
@@ -42,7 +47,6 @@ vi.mock('electron', () => ({
       mocks.handlers.set(key, handler),
   },
 }));
-vi.mock('./rendererUrl', () => ({ getRendererUrl: (route: string) => route }));
 vi.mock('./windowSecurity', () => ({ applyWindowSecurity: vi.fn() }));
 vi.mock('./packageSessionRegistry', () => ({
   getPackageSessionForSender: (sender: unknown) => mocks.owners.get(sender),
@@ -56,7 +60,10 @@ const call = (
   window: FakeWindow,
   payload?: unknown,
 ): unknown =>
-  mocks.handlers.get(channel)?.({ sender: window.webContents }, payload);
+  mocks.handlers.get(channel)?.(
+    { sender: window.webContents, senderFrame: window.webContents.mainFrame },
+    payload,
+  );
 const snapshot = {
   open: true,
   loadingModels: false,

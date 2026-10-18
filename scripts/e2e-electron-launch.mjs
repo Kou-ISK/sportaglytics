@@ -11,6 +11,11 @@ export const getElectronLaunchOptions = (profilePath, extraArgs = []) => {
     args: [
       ...(packagedPath ? [] : [resolve(import.meta.dirname, '..')]),
       `--user-data-dir=${profilePath}`,
+      // Opt in only inside an isolated Linux cloud test container with Xvfb.
+      // Production BrowserWindow sandbox settings are not changed by this.
+      ...(process.platform === 'linux' && process.env.E2E_CLOUD_LINUX === '1'
+        ? ['--no-sandbox', '--disable-gpu']
+        : []),
       ...extraArgs,
     ],
     env: environment,

@@ -13,6 +13,7 @@ Superseded
 - Extends: [0002 Typed Electron IPC and Renderer Gateways](0002-typed-electron-ipc-and-renderer-gateways.md)
 - Extends: [0020 Verified Media Toolchain and Process Containment](0020-verified-media-toolchain-and-process-containment.md)
 - Superseded by: [0023 External Rugby Event Model R&D Boundary](0023-external-rugby-event-model-rd-boundary.md)
+- Detector identity omission superseded by: [0069 Timeline detection provenance](0069-timeline-detection-provenance.md).
 
 ## Context
 

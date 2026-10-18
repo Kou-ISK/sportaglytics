@@ -15,7 +15,8 @@ Timelineの場面、行、ラベルを外部形式で扱う際は、保持でき
 ## Decision
 
 - `.stpkg`内のversion 2 Timeline（rows / instances）を完全な内部文書とする。既存のJSON配列・CSV・SCTimeline JSON exportは場面中心であり、空行や行固有IDの完全バックアップではない。
-- CSVはType/Result以外のラベル群と内部metadataを保持しない。SCTimelineはpure JSON converterへ閉じ込め、UIもJSONと明記する。外部Sportscode実機往復とXML出力は検証済みとして扱わない。
+- TimelineメニューのCSVはType/Result以外のラベル群と内部metadataを保持しない。分析データCSVは全ラベル群を含むが、どちらも完全バックアップではない。SCTimelineはpure JSON converterへ閉じ込め、UI・保存ダイアログもJSONと明記する。外部Sportscode実機往復とXML出力は検証済みとして扱わない。
+- CSVは表計算ソフトでの閲覧を想定し、式開始記号や先頭の制御文字を持つ文字列にアポストロフィを付け、引用・二重化する。Timeline・分析データ・マトリクスで同じserializerを使う。数値と保存データは変更しない。接頭辞が文字列として見える場合と再保存の限界を利用者へ説明し、正確な文字列交換はJSONへ分ける。
 - 既存TimelineへのJSON/SCTimeline importは、既知形式を確認して場面一覧を置き換える。暗黙mergeしない。旧actionType/actionResultはlabelsへ移す。
 - 公式Sportscode v10のEdit List XML仕様を基にした別経路を用意する。ユーザーがXML、映像1本、秒数補正、警告を確認し、既存分析を更新せず別の新規`.stpkg`を作成する。
 - XMLのID・小数秒・code・label text/group・free_text・行順/色を保持する。開始日時から秒補正、前後半、ファイル位置を推測せず、負時刻・逆転・映像尺超過を切り詰めない。
@@ -28,6 +29,7 @@ Timelineの場面、行、ラベルを外部形式で扱う際は、保持でき
 ## Consequences
 
 - XMLとSCTimeline JSONの操作と責務が明確になり、既存分析と原本を保持できる。
+- CSVに出る一部の文字列は元データと異なる。全表計算ソフトや再保存後の安全性を保証せず、出力bytesの検証と各ソフトの実機検証を区別する。詳細は[出力仕様](../sctimeline-implementation.md#表計算ソフト向けcsvの文字列)を参照する。
 - 意図した映像・秒数補正を確認する操作が増えるが、時刻の推測による誤Codingを避ける。
 - 合成XML/映像のunit・Electron回帰を整備できる。全歴代Sportscode版やネイティブ形式の互換、実OS picker、強制終了・停電時の耐久性は追加検証が必要となる。
 

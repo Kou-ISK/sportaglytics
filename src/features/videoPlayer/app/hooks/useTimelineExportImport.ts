@@ -6,7 +6,7 @@ import {
   requestTimelineImportPath,
   subscribeTimelineExportRequest,
   subscribeTimelineImportRequest,
-  writeTimelineFile,
+  writeTimelineExportFile,
 } from '../gateways/timelineImportExportGateway';
 import {
   buildTimelineExportPlan,
@@ -57,7 +57,7 @@ export const useTimelineExportImport = ({
           return;
         }
 
-        const writeSuccess = await writeTimelineFile(
+        const writeSuccess = await writeTimelineExportFile(
           filePath,
           exportPlan.content,
         );

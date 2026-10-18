@@ -18,6 +18,33 @@ const sampleTimeline: TimelineData[] = [
 ];
 
 describe('timelineImportExportService', () => {
+  it('names SCTimeline as JSON without changing its exchange payload', () => {
+    const plan = buildTimelineExportPlan('sctimeline', sampleTimeline);
+    expect(plan?.defaultFileName).toBe('timeline.SCTimeline');
+    expect(plan?.formatLabel).toBe('SCTimeline（JSON）');
+    expect(plan?.filters).toEqual([
+      { name: 'SCTimeline（JSON）', extensions: ['SCTimeline'] },
+    ]);
+    expect(JSON.parse(plan?.content ?? 'null')).toMatchObject({
+      timeline: {
+        packagePath: '',
+        rows: [
+          {
+            name: 'Try',
+            instances: [
+              {
+                uniqueId: 'timeline-1',
+                startTime: 12,
+                endTime: 18,
+                labels: [{ name: 'Positive', group: 'Result' }],
+              },
+            ],
+          },
+        ],
+      },
+    });
+  });
+
   it('builds an export plan for supported formats', () => {
     const plan = buildTimelineExportPlan('csv', sampleTimeline);
 

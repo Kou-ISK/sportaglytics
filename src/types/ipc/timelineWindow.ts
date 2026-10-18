@@ -1,3 +1,4 @@
+import { isTimelineProvenance } from '../timeline/provenance';
 import { isAngleSyncCommand, isAngleSyncSnapshot } from './angleSync';
 import type { AngleSyncCommand, AngleSyncSnapshot } from './angleSync';
 import type { HotkeyConfig } from '../settings/coreTypes';
@@ -156,7 +157,8 @@ const isTimelineItem = (value: unknown): value is TimelineData =>
   isString(value.memo) &&
   (value.labels === undefined ||
     (Array.isArray(value.labels) && value.labels.every(isTimelineLabel))) &&
-  (value.color === undefined || isString(value.color));
+  (value.color === undefined || isString(value.color)) &&
+  (value.provenance === undefined || isTimelineProvenance(value.provenance));
 
 const isTimelineRow = (value: unknown): value is TimelineRow =>
   isObject(value) &&

@@ -1,4 +1,5 @@
 import { normalize } from 'node:path';
+import { getRendererUrl } from './rendererUrl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const electronMocks = vi.hoisted(() => {
@@ -40,6 +41,18 @@ vi.mock('node:fs/promises', () => ({
   ...fsMocks,
 }));
 
+const trustedEvent = () => {
+  const frame = { url: getRendererUrl('/settings') };
+  return {
+    sender: {
+      mainFrame: frame,
+      getURL: () => frame.url,
+      isDestroyed: () => false,
+    },
+    senderFrame: frame,
+  };
+};
+
 describe('settingsManager', () => {
   beforeEach(() => {
     electronMocks.handlers.clear();
@@ -64,7 +77,7 @@ describe('settingsManager', () => {
       isDestroyed: () => false,
     });
 
-    const result = await saveHandler?.({ sender: {} }, 'invalid payload');
+    const result = await saveHandler?.(trustedEvent(), 'invalid payload');
 
     expect(result).toBe(false);
     expect(fsMocks.writeFile).not.toHaveBeenCalled();
@@ -79,7 +92,7 @@ describe('settingsManager', () => {
 
     electronMocks.fromWebContents.mockReturnValue(null);
 
-    const result = await saveHandler?.({ sender: {} }, { themeMode: 'dark' });
+    const result = await saveHandler?.(trustedEvent(), { themeMode: 'dark' });
 
     expect(result).toBe(false);
     expect(fsMocks.writeFile).not.toHaveBeenCalled();
@@ -105,25 +118,25 @@ describe('settingsManager', () => {
       },
     ]);
 
-    const result = await saveHandler?.(
-      { sender: {} },
-      {
-        themeMode: 'dark',
-        hotkeys: [
-          { id: 'undo', label: 'Custom Undo', key: 'Ctrl+Shift+Z' },
-          { id: 'invalid-hotkey', label: 'Ignored', key: 'X' },
-        ],
-        codingPanel: {
-          layouts: [],
-          activeLayoutId: 'legacy-layout',
-        },
+    const result = await saveHandler?.(trustedEvent(), {
+      themeMode: 'dark',
+      hotkeys: [
+        { id: 'undo', label: 'Custom Undo', key: 'Ctrl+Shift+Z' },
+        { id: 'invalid-hotkey', label: 'Ignored', key: 'X' },
+      ],
+      codingPanel: {
+        layouts: [],
+        activeLayoutId: 'legacy-layout',
       },
-    );
+    });
 
     expect(result).toBe(true);
-    expect(fsMocks.mkdir).toHaveBeenCalledWith(normalize('/tmp/sportaglytics'), {
-      recursive: true,
-    });
+    expect(fsMocks.mkdir).toHaveBeenCalledWith(
+      normalize('/tmp/sportaglytics'),
+      {
+        recursive: true,
+      },
+    );
     expect(fsMocks.writeFile).toHaveBeenCalledTimes(1);
 
     const writtenSettings = JSON.parse(

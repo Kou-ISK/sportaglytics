@@ -1,6 +1,8 @@
 # SporTagLytics Documentation
 
-0.17.4ではアプリとモデルの公開境界、第三者告知と対応ソースの配布を整備します。[変更履歴](../CHANGELOG.md#0174---2026-10-10)、[公開済みの配布物](https://github.com/Kou-ISK/sportaglytics/releases)、[Release手順](../.github/RELEASE.md)を参照してください。
+はじめて使う場合は[合成サンプルのクイックスタート](quickstart.md)へ進んでください。公開版の状態は[Releases](https://github.com/Kou-ISK/sportaglytics/releases)、sourceの変更は[CHANGELOG](../CHANGELOG.md)、配布検証は[Release手順](../.github/RELEASE.md)で区別します。日付付きの検証記録は、その版・環境での証拠です。
+
+OSS導線の改善項目と受入条件は[2026-10 OSS改善記録](reports/2026-10-oss-remediation.md)、通常終了時の保存は[ADR 0068](adr/0068-timeline-close-save-handshake.md)を参照してください。
 
 - [compact density評価](reports/2026-10-compact-density.md): Timelineの下部検索ドック・共通フォームの変更と検証範囲。
 - [Timelineの場面検索とレビュー](timeline-review.md): 検索、全文確認、編集・Playlistへの移動。
@@ -22,6 +24,7 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 | 目的                           | 読むもの                                                                                         |
 | ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| アプリを試す                   | [合成サンプルのクイックスタート](quickstart.md)                                                  |
 | アプリを使う                   | [ユーザーガイド](user-guide.md)                                                                  |
 | 開発環境を作る                 | [開発ガイド](development.md)                                                                     |
 | 現行アーキテクチャを把握する   | [システム概要](system-overview.md)                                                               |
@@ -35,15 +38,18 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 ## User Documentation
 
+- [合成サンプルではじめる](quickstart.md): 公開ZIPで開く・追加・修正・保存再開・MP4出力を試す。素材の由来と再生成手順も掲載。
+
 - [通常のCodingタイムラインでの同期](adr/0044-sync-in-coding-toolbar.md): 同期ボタンと設定済みホットキーの共用。
 - [アングル同期](angle-synchronization.md): Sync Point、コマ送り、前後半、ウィンドウ比率、保存契約。
 
 - [Windows版](windows.md): 導入、OS間の操作・文書互換、ランタイムと検証。
 
-- [パッケージ互換・原本保護・Sportscode XML取り込み](package-compatibility.md): 対応形式、コピー移行、保存エラー復旧と検証限界。
+- [パッケージ互換・原本保護・Sportscode XML取り込み](package-compatibility.md): 対応形式、バックアップ付き同パス更新、保存エラー復旧と検証限界。
 - [起動画面とパッケージを開く操作](start-workspace.md): 履歴検索、ドロップ、読み込み状態と復旧。
 - [Paint](tactics.md): 描画、追尾範囲、位置キー、ホットキー、芝色・平面・素材、保存と制約。
 
+- [合成サンプルのクイックスタート](quickstart.md): モデル不要の初回体験、保存再開・出力と再生成recipe。
 - [ユーザーガイド](user-guide.md): パッケージ作成、タグ付け、分析、プレイリスト、エクスポート。
 - [Privacy and Data Handling](privacy-and-data-handling.md): ローカル保存、外部送信、AI 分析時のデータ境界。
 - [Homebrew quickstart](homebrew-quickstart.md): Homebrew Cask での導入。
@@ -57,12 +63,15 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 ## Developer Documentation
 
+- [合成Timelineの限定負荷測定](synthetic-workloads.md): Node上の検証・検索・保存の再現手順、生データ、実画面・OS別性能との違い。
+
 - [画像・アイコン・fixtureの由来](asset-provenance.md): ファイルhash、公開Gitと合成素材の根拠、未確認事項。
 
 - [第三者コンポーネントの配布](third-party-distribution.md): 告知inventory、FFmpeg対応ソースと既存Releaseの確認範囲。
 - [公開履歴の限定点検](reports/2026-10-oss-audit.md): 対象範囲、修正と未確認事項。
 
 - [ビルド用ダウンロードの依存境界](adr/0058-build-downloads-without-response-cache.md): HTTP response cacheを除去し、監査・checksum・ファイルキャッシュを維持する判断。
+- [最初の貢献](../CONTRIBUTING.md#最初の貢献): 小さな課題、必要な根拠、検証と公開時の注意。
 - [開発ガイド](development.md): セットアップ、品質ゲート、開発ワークフロー。
 - [Testing and Quality Gates](testing.md): Vitest、品質ゲート、テスト追加判断。
 - [システム概要](system-overview.md): Feature-First、Electron IPC、shared contracts の現行構造。
@@ -83,7 +92,7 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 - [技術仕様書](requirement.md): 機能要件と仕様メモ。
 - [AI Analysis and Local LLM Setup](ai-analysis.md): ローカル llama.cpp / GGUF model のセットアップと運用。
-- [自動イベント検出](event-detection.md): 検証済みローカルモデル、品質ゲート、Timelineへの自動Coding、runner contract。
+- [自動イベント検出](event-detection.md): 外部model packの条件、品質ゲート、候補の確認とTimelineへの追加、runner contract。
 - [Analysis Report Export](analysis-report.md): 分析レポート PDF / PNG / summary export の境界。
 - [音声同期オフセット仕様](audio-sync-offset-specification.md): 音声同期 offset の計算・適用とマルチアングル保存契約（関連 ADR: [0016](adr/0016-multi-angle-audio-sync-offset-persistence.md)）。
 - [コードウィンドウ編集](code-window-settings.md): `.stcw` ドキュメントと独立編集ウィンドウ。
@@ -137,3 +146,5 @@ Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-
 
 - [共通の開くと移行先再利用](adr/0065-unified-project-open.md)
 - [ライブ録画の再生範囲と終了処理](adr/0066-capture-playback-bounds.md)
+
+- [検出候補の由来と未確認状態（ADR 0069）](adr/0069-timeline-detection-provenance.md): 旧データを推定せず、元候補と人確認を区別する任意保存契約。
