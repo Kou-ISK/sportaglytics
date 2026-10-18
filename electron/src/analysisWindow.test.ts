@@ -1,4 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getRendererUrl } from './rendererUrl';
+
+function trustedContents(send = vi.fn()) {
+  const frame = { url: getRendererUrl('/analysis') };
+  return {
+    mainFrame: frame,
+    getURL: () => frame.url,
+    isDestroyed: () => false,
+    send,
+  };
+}
 import {
   ANALYSIS_WINDOW_CHANNELS,
   type AnalysisAiPlaylistPayload,
@@ -22,7 +33,7 @@ const electronMocks = vi.hoisted(() => {
         listeners.set(event, handler);
       }),
       webContents: {
-        send: vi.fn(),
+        ...trustedContents(),
         isLoading: vi.fn(() => false),
         once: vi.fn(),
       },
@@ -83,7 +94,7 @@ describe('analysisWindow handlers', () => {
     const mainWindow = {
       isDestroyed: () => false,
       once: vi.fn(),
-      webContents: { send: mainSend },
+      webContents: trustedContents(mainSend),
     };
 
     analysisWindowModule.setAnalysisMainWindowRef(
@@ -115,7 +126,13 @@ describe('analysisWindow handlers', () => {
       view: 'dashboard',
     };
 
-    syncHandler?.({ sender: mainWindow.webContents }, payload);
+    syncHandler?.(
+      {
+        sender: mainWindow.webContents,
+        senderFrame: mainWindow.webContents.mainFrame,
+      },
+      payload,
+    );
     expect(createdWindow?.webContents.send).toHaveBeenCalledWith(
       ANALYSIS_WINDOW_CHANNELS.sync,
       payload,
@@ -127,12 +144,12 @@ describe('analysisWindow handlers', () => {
     const mainWindow = {
       isDestroyed: () => false,
       once: vi.fn(),
-      webContents: { send: vi.fn() },
+      webContents: trustedContents(),
     };
     const otherMain = {
       isDestroyed: () => false,
       once: vi.fn(),
-      webContents: { send: vi.fn() },
+      webContents: trustedContents(),
     };
     module.setAnalysisMainWindowRef(
       mainWindow as unknown as Electron.BrowserWindow,
@@ -173,12 +190,21 @@ describe('analysisWindow handlers', () => {
       ANALYSIS_WINDOW_CHANNELS.requestSync,
     );
     expect(request).toBeTypeOf('function');
-    request?.({ sender: mainWindow.webContents });
+    request?.({
+      sender: mainWindow.webContents,
+      senderFrame: mainWindow.webContents.mainFrame,
+    });
     request?.({ sender: {} });
-    request?.({ sender: otherAnalysis?.webContents });
+    request?.({
+      sender: otherAnalysis?.webContents,
+      senderFrame: otherAnalysis?.webContents.mainFrame,
+    });
     expect(analysis?.webContents.send).not.toHaveBeenCalled();
     expect(otherAnalysis?.webContents.send).not.toHaveBeenCalled();
-    request?.({ sender: analysis?.webContents });
+    request?.({
+      sender: analysis?.webContents,
+      senderFrame: analysis?.webContents.mainFrame,
+    });
     expect(analysis?.webContents.send).toHaveBeenLastCalledWith(
       ANALYSIS_WINDOW_CHANNELS.sync,
       payload,
@@ -193,7 +219,10 @@ describe('analysisWindow handlers', () => {
     );
     analysis?.webContents.send.mockClear();
     // A reload has no new owner edit or open command to trigger a fresh send.
-    request?.({ sender: analysis?.webContents });
+    request?.({
+      sender: analysis?.webContents,
+      senderFrame: analysis?.webContents.mainFrame,
+    });
     expect(analysis?.webContents.send).toHaveBeenCalledExactlyOnceWith(
       ANALYSIS_WINDOW_CHANNELS.sync,
       { ...latest, view: 'matrix' },
@@ -206,7 +235,7 @@ describe('analysisWindow handlers', () => {
     const mainWindow = {
       isDestroyed: () => false,
       once: vi.fn(),
-      webContents: { send: mainSend },
+      webContents: trustedContents(mainSend),
     };
 
     analysisWindowModule.setAnalysisMainWindowRef(
@@ -238,7 +267,13 @@ describe('analysisWindow handlers', () => {
       ],
     };
 
-    createAiPlaylistHandler?.({ sender: createdWindow?.webContents }, payload);
+    createAiPlaylistHandler?.(
+      {
+        sender: createdWindow?.webContents,
+        senderFrame: createdWindow?.webContents.mainFrame,
+      },
+      payload,
+    );
     expect(mainSend).toHaveBeenCalledWith(
       ANALYSIS_WINDOW_CHANNELS.createAiPlaylist,
       payload,

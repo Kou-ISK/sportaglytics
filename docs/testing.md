@@ -135,6 +135,8 @@ Timeline変更ではrange normalization、row ownership、history/Undo単位、d
 
 IPC / preload変更ではpayload guard、sender validation、explicit API、listener cleanup、invalid result rejectionを確認します。
 
+文書/frame境界は`windowSecurity.test.ts`と`windowSenderGuards.test.ts`に加え、`node scripts/e2e-window-security.mjs`で実preload/Mainまで検査します。合成ファイルを使い、正規画面の読み書き・Settings・生成Help、別HTMLと同じアプリURLを読む子frameからの読み書き拒否、top-level navigation/window.open拒否を確認します。子frameへpreloadを届ける`nodeIntegrationInSubFrames: true`は試験用probeだけに指定し、本番BrowserWindow設定は変えません。通常runnerとWindowsインストール後runnerの両方へ登録します。YouTube/MediaPipe/live captureの全動作はこの限定試験だけで保証せず、既存のclip-sync/paint/live-capture等の回帰を併用します。[設計・残る境界](adr/0070-renderer-document-and-frame-trust.md)。
+
 ```bash
 pnpm run bundle:preload
 pnpm run check:preload

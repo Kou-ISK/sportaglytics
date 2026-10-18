@@ -467,7 +467,7 @@ Windows CIは同じrunで作成・インストールした成果物のNOTICE、�
 
 macOS llamaの準備は固定版の依存告知を外部ファイルへコピーし、cacheと`afterPack`で本文hash・実行ファイル内の全文を検査します。版変更時は [告知の出典](../resources/third-party/llama-b7849/README.md) も更新し、両archの実ファイルで検証してください。`node --test scripts/tests/distribution-notices.mjs`は欠落・改変・別runtimeを拒否する合成試験で、macOS配布検証を代替しません。
 
-Windows media toolchainはMedia FoundationのCPUエンコーダーを使用します。Windows NではMedia Feature Packを有効にしてください。native build、CPU MP4、全24シナリオのインストール後検査は[Windows開発・検証](windows.md#開発検証)を参照してください。
+Windows media toolchainはMedia FoundationのCPUエンコーダーを使用します。Windows NではMedia Feature Packを有効にしてください。native build、CPU MP4、全シナリオのインストール後検査は[Windows開発・検証](windows.md#開発検証)を参照してください。
 
 Macの配布準備は[Release手順](../.github/RELEASE.md)に従います。`release.yml`は手動dispatchのみで、既存SecretsをCI内で利用します。`publish=false`もApple送信を含むため、未署名のローカル検査には使いません。Mac専用sourceは`node scripts/package-media-sources.mjs --platform macos --require-builds`で生成し、Python 3とMac 2 targetの既存manifestを使います。`include_windows=true`は同じrunで新規buildしたWindows installer・report・manifestを検査し、`--platform windows --require-builds`の対応sourceも同じ新規Releaseへ公開します。
 
@@ -480,3 +480,9 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 初回導線用の小さな配布ZIPと生成recipeは[quickstart](quickstart.md#サンプルの由来と再生成開発者向け)、Node上の限定計測は[合成負荷測定](synthetic-workloads.md)を参照してください。`pnpm run sample:generate` / `pnpm run test:sample`だけはPython 3とlibx264付きFFmpegを使います。通常のアプリ実行にはPythonは不要です。`pnpm run test:e2e:sample`は公開ZIPの展開にPythonだけを使い、アプリ側の読み込み・保存・出力を実行します。WindowsのPython実行名は`PYTHON`環境変数で指定できます。
 
 `pnpm run benchmark:timeline`は既存結果を上書きしないため、再測定では新しい出力パスを引数に渡します。計測はNodeで完結し、Mac/WindowsのUI評価やcodec性能の代わりにはなりません。
+
+## Renderer文書とIPC送信元の検証
+
+BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-document-and-frame-trust.md)の脅威モデルを確認します。共通guardはmainFrameと`getRendererUrl()`のentry documentを照合し、既存のsession/expected-window検証も維持します。新しいrenderer URL・外部ページ・子frameへ権限を広げる変更は、正規用途と拒否する経路を先に列挙してください。
+
+`node scripts/e2e-window-security.mjs`は一時profileと合成文書だけで、実preload/Mainの許可・拒否と生成Help/Settingsを検査します。実行前に通常の`e2e:prepare`が必要です。Linuxクラウドでsandboxを利用できない場合の起動フラグは検証環境の制約として記録し、本番BrowserWindowの`sandbox`を変更しません。この限定検査の成功をMac/Windows配布検証や全IPCの完全隔離とは扱いません。[必須試験](testing.md#settings--timeline--ipc)。

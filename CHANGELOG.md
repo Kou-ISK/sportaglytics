@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 新しい自動検出候補に元モデル・版・候補スコア/時刻を保存し、場面検索の詳細に表示する。保存再開・Undo・コピー・分割・結合で保持する。旧データの由来や人確認を推定せず、人確認済みを記録する操作は未提供。[範囲と互換性](docs/event-detection.md#検出後の区間修正)。
 
+- 図形だけの20秒映像を含む約29 KBの合成サンプルと、タグ追加・修正・保存再開・MP4共有までの[初回手順](docs/quickstart.md)を追加。生成recipe・hash・MIT告知、再生成検査、通常/Windowsインストール後の実操作試験を用意する。
+- 240 / 2,400 / 10,000件の合成Timelineで、実検証・検索・直列化・atomic writeを測定する[限定負荷測定](docs/synthetic-workloads.md)を追加。Node/tmpfsの測定であり、画面応答・長時間映像・Mac/Windows性能の保証とは区別する。
+
 ### Fixed
 
 - Timeline・分析データ・マトリクスのCSVで、式として解釈され得る文字列に接頭辞を付ける。数値・保存データ・JSON出力は維持し、文字列の見え方と再保存時の制限を[出力仕様](docs/sctimeline-implementation.md#表計算ソフト向けcsvの文字列)に記載する。
@@ -18,11 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 日本語UIのHTML言語指定を`ja`へ修正する。
 
 - Timelineの最終編集を保存してから主画面を閉じ、アプリ終了時は全Timelineの保存応答とMainのwrite queueを待つ。保存失敗・応答なしでは終了を取り消して編集と再試行を維持する。[保存・終了の契約](docs/package-compatibility.md#読み込み保存の失敗)。
-
-### Added
-
-- 図形だけの20秒映像を含む約29 KBの合成サンプルと、タグ追加・修正・保存再開・MP4共有までの[初回手順](docs/quickstart.md)を追加。生成recipe・hash・MIT告知、再生成検査、通常/Windowsインストール後の実操作試験を用意する。
-- 240 / 2,400 / 10,000件の合成Timelineで、実検証・検索・直列化・atomic writeを測定する[限定負荷測定](docs/synthetic-workloads.md)を追加。Node/tmpfsの測定であり、画面応答・長時間映像・Mac/Windows性能の保証とは区別する。
+- 共通Electron IPCで送信元mainFrameとアプリ文書URLを照合し、Settingsも同じguardへ統一する。任意file/data/外部ページへのtop-level navigation・redirectを拒否し、既存iframe資産と生成Helpの経路を維持する。[判断と検証範囲](docs/adr/0070-renderer-document-and-frame-trust.md)。
 
 ### Changed
 
