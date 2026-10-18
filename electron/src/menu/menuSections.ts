@@ -8,6 +8,7 @@ import { openSettingsWindow } from '../settingsWindow';
 import { openTimelineWindow } from '../timelineWindow';
 import { buildRecentPackageItems } from './recentPackageMenu';
 import { openClipExportFromMenu } from './clipExportMenuAction';
+import { openPackageBackupFromMenu } from './packageBackupMenuAction';
 import { openVersionInfoWindow } from './menuWindowActions';
 import {
   sendCodeWindowCommand,
@@ -107,6 +108,13 @@ export const buildFileMenuItems = (): Electron.MenuItemConstructorOptions[] => [
     id: 'live-capture',
     label: 'ライブキャプチャ…',
     click: openLiveCaptureWindow,
+  },
+  {
+    id: 'show-package-backup',
+    label: '更新前のバックアップ…',
+    click: (_item, window) => {
+      void openPackageBackupFromMenu(window);
+    },
   },
   { type: 'separator' },
   { role: 'close' as const, label: 'ウィンドウを閉じる' },

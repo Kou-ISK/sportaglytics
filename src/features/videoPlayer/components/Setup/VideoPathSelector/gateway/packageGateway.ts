@@ -76,39 +76,13 @@ const normalizePackagePath = (value: unknown): string | null => {
   return null;
 };
 
-const resolveExistingPackagePath = async (
-  packagePath: string,
-): Promise<string> => {
-  const api = getElectronApi();
-  // Older creation flows saved history without the extension added by main.
-  // Preserve any existing path; recover only when its .stpkg sibling exists.
-  if (
-    !packagePath.toLowerCase().endsWith('.stpkg') &&
-    api.checkFileExists &&
-    !(await api.checkFileExists(packagePath)) &&
-    (await api.checkFileExists(`${packagePath}.stpkg`))
-  ) {
-    return `${packagePath}.stpkg`;
-  }
-  return packagePath;
-};
-
 const preparePackagePathForOpen = async (
   packagePath: string,
 ): Promise<{ path: string; warning?: string }> => {
   const api = getElectronApi();
   if (!api.preparePackageForOpen) return { path: packagePath };
 
-  let preparation = await api.preparePackageForOpen(packagePath);
-  if (preparation.status === 'needs-destination') {
-    const destination = await api.saveFileDialog(preparation.suggestedPath, [
-      { name: 'SporTagLytics Package', extensions: ['stpkg'] },
-    ]);
-    if (!destination) {
-      throw new Error(PACKAGE_MIGRATION_CANCELLED);
-    }
-    preparation = await api.preparePackageForOpen(packagePath, destination);
-  }
+  const preparation = await api.preparePackageForOpen(packagePath);
 
   if (preparation.status !== 'ready') {
     throw new Error(PACKAGE_MIGRATION_FAILED);
@@ -121,14 +95,14 @@ export const pickPackagePath = async (
 ): Promise<string | null> => {
   const normalized = normalizePackagePath(preselectedPath);
   if (normalized) {
-    return resolveExistingPackagePath(normalized);
+    return normalized;
   }
 
   const api = getElectronApi();
   const selectedPath = api.selectPackagePath
     ? await api.selectPackagePath()
     : await api.openDirectory();
-  return selectedPath ? resolveExistingPackagePath(selectedPath) : null;
+  return selectedPath || null;
 };
 
 export const selectPackageDirectory = async (): Promise<string | null> => {
@@ -301,6 +275,24 @@ export const toPackageLoadErrorMessage = (error: unknown): string => {
     errorMessage.match(/\bPACKAGE_[A-Z_]+\b/)?.[0] ?? errorMessage;
 
   switch (errorCode) {
+    case 'PACKAGE_UPDATE_BUSY':
+      return '対象または以前のコピーが別のウィンドウで使用中、録画中、または更新中です。作業を保存して閉じてから再試行してください。';
+    case 'PACKAGE_UPDATE_CHOICE_REQUIRED':
+    case 'PACKAGE_UPDATE_COPY_DIVERGED':
+      return '以前のコピーにも編集が残っています。内容を確認してから使うファイルを選んでください。どちらも削除していません。';
+    case 'PACKAGE_UPDATE_RECOVERY_REQUIRED':
+    case 'PACKAGE_UPDATE_BACKUP_CONFLICT':
+    case 'PACKAGE_UPDATE_PATH_CONFLICT':
+    case 'PACKAGE_UPDATE_RECEIPT_INVALID':
+      return '更新途中のデータを保持しました。このファイルへの保存は開始していません。元の場所から再度開いて復旧を試すか、同じフォルダの作業フォルダとバックアップを保管してください。';
+    case 'PACKAGE_UPDATE_BACKUP_HISTORY_INVALID':
+      return '同じフォルダにあるバックアップの記録を確認できません。ファイルは変更せず、保存を開始していません。現在のファイルとバックアップを保管してください。';
+    case 'PACKAGE_UPDATE_UNRELATED_COPY':
+      return '選択したコピーがこのファイルに対応することを確認できませんでした。内容は変更していません。';
+    case 'PACKAGE_UPDATE_REFERENCE_CONFLICT':
+      return '編集したコピーが元のファイル内の映像を外部参照しています。元のファイルは変更していません。映像をコピー側にまとめてから再試行してください。';
+    case 'PACKAGE_UPDATE_BACKUP_SELECTED':
+      return 'これは更新前のバックアップです。対象をアプリで閉じ、現在のファイルを別の場所に保管してから、バックアップを元の場所へ戻して開いてください。';
     case 'PACKAGE_MIGRATION_DESTINATION_UNAVAILABLE':
       return '前回準備したパッケージが見つかりません。保存先のドライブを接続するか、「パッケージを開く」から移動先を選んでください。';
     case ELECTRON_API_UNAVAILABLE:
@@ -326,7 +318,7 @@ export const toPackageLoadErrorMessage = (error: unknown): string => {
     case 'PACKAGE_MIGRATION_SPACE':
       return '移行コピーに必要な空き容量がありません。空き容量を確保して再試行してください。原本は変更していません。';
     default:
-      return 'パッケージの構成・参照・読み込みを確認できませんでした。原本は変更していません。詳細を確認して再試行してください。';
+      return 'ファイルを開けませんでした。書き込み権限・空き容量・映像の場所を確認して再試行してください。更新途中の作業フォルダとバックアップは削除せず保管してください。';
   }
 };
 

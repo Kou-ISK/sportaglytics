@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.10]
+
+公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。既存の公開版とタグは維持します。
+
+### Fixed
+
+- 共通の「開く」で旧構造を元の場所・名前へ更新し、以後の編集も同じ場所へ保存する。0.17.9の編集済みコピーを確認し、内容が分岐した場合だけ使う内容を選択する。
+- 全ファイルのコピー照合、journalによる途中終了からの復旧、日時付きの原本バックアップと復元案内を追加する。録画中・使用中・権限不足・容量不足・同名競合では不用意に置換しない。バックアップから復元した内容を以前の編集コピーで再び置き換えず、復元内容の確認後も同じ名前で保存・再オープンできる。[更新と復旧](docs/legacy-package-migration.md)。
+
 ## [0.17.9]
 
 公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。ライブ録画の再生待機と、共通の「開く」からの原本を保護する移行を改善する版です。既存の公開版とタグは維持します。

@@ -44,11 +44,13 @@ export const useStartPackageOpen = (
         selectedPath = (await pickPackagePath(path)) ?? undefined;
         if (!selectedPath) return;
         const loaded = await loadPackageDirectory(selectedPath);
-        if (loaded.warning) info(loaded.warning);
-        if (loaded.missingSyncData)
-          info(
-            '音声同期データがありません。必要に応じてメニューから同期を実行してください。',
-          );
+        const notices = [
+          loaded.warning,
+          loaded.missingSyncData
+            ? '音声同期データがありません。必要に応じてメニューから同期を実行してください。'
+            : undefined,
+        ].filter(Boolean);
+        if (notices.length) info(notices.join(' '));
         onLoaded(loaded.result);
       } catch (error: unknown) {
         // Native open routing may reserve the source before preparation starts.

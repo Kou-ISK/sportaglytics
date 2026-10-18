@@ -1,78 +1,29 @@
-# Legacy project folder → `.stpkg` migration
+# パッケージを同じ場所で更新する
 
-## 目的
+共通の「パッケージを開く」、履歴、OSから開く、ドロップは同じMainの検証処理を使います。利用者が新旧形式を選ぶ入口はありません。既知の旧構造を検出すると、内容を変換・検証して**元の場所・名前**へ設置します。以後の編集もそこへ保存します。拡張子なしのフォルダも名前を変えず、再オープンで変換を繰り返しません。
 
-`.stpkg` 導入前の SporTagLytics project folder を、元データを破壊せずに現在の正式 package format へ移行します。
+## 0.17.9で編集したコピー
 
-## Legacy project の判定
+端末内の `package-migrations.json` の全revisionと隣接コピーのmarkerを調べます。原本が移行時のままで、有効なコピーが一つなら、そのコピーの現在の全内容を取り込みます。コピーは削除しません。原本とコピーの双方が変わった場合や、複数のコピーがある場合は、共通Openの中で使う内容を選びます。
 
-拡張子が `.stpkg` ではない directory を開いた場合、最低限次を検証します。
+登録先が見つからない場合は、ドライブの再接続または「別のコピーを選ぶ」で移動先を指定できます。0.17.9は原本に移行記録を残さないため、索引の消失とコピーの移動が重なると初回と区別できません。候補がない場合にも一度だけ内容を確認します。ファイル形式の指定は不要です。更新済みの同じファイルにはこの確認を繰り返しません。
 
-- `.metadata/config.json` が存在し、JSON object として読める
-- `timeline.json` が存在し、JSON として読める
+採用済みコピーを開くと、そのコピーに新たな編集がなければ元の場所へ案内します。後からコピーにも編集が加わった場合は自動選択せず、元の場所から開いてどちらを使うか選べます。選ばなかった内容は残します。
 
-検証に失敗した folder は migration target を作成しません。
+## 保存と復旧
 
-## Open flow
+1. 録画中・別ウィンドウで編集中・他の更新中ではないこと、読み書き権限、容量、形式、参照を確認します。
+2. 元の場所と同じvolumeの専用作業領域にコピーし、動画を含む全ファイルのバイトをSHA-256で照合します。
+3. コピーの設定とTimelineを変換し、参照と文書を検証します。原本と採用コピーが途中で変わっていないことも確認します。
+4. 復旧journalを保存してから原本を退避し、準備済みの内容を元の名前へrenameします。元の場所で再検証してから保存先をbindします。
+5. 原本を含む作業領域を `元の名前.backup-日時-UUID` に確定します。バックアップ内の `original` に更新前の原本、`README.txt` に復元手順があります。既存バックアップは上書き・自動削除しません。
 
-package picker、Recent Packages、Finder/OS file open、drag/drop はすべて renderer の `loadPackageDirectory()` 直前で `package:prepare-open` を通ります。
+このフォルダ置換は復旧可能な二段階処理です。Mac/Windows共通のNode APIで、二つの非空フォルダを単一操作で交換する保証はありません。個々のrenameは完成したフォルダを設置しますが、二つの間には元パスが存在しない短い時間があります。次回のOpenはパスの解決や拡張子補完より先にjournalを調べます。
 
-1. legacy source を validation する
-2. sourceのreal path、全ファイルの状態から厳密なfingerprint、再利用用revision、コピー検証用fingerprintを計算する
-3. 端末内索引と同じ親フォルダから、同一source/revisionの完成済みpackageを探索・検証して再利用する
-4. なければ sibling の `<folder>.stpkg`、競合時は `<folder>-2.stpkg` 以降を選ぶ
-5. targetと同じparentに、通常は開けない`.sportag-migrating-<uuid>`を作成し、legacy source全体をrecursive copyして内容を比較する
-6. source 内を指す旧 absolute media path を copied package 内の relative path へ変換する
-7. copied `.metadata/config.json` に既存 current-config migration を適用する
-8. copied package を再 validation する
-9. `.metadata/legacy-migration.json` を書く
-10. 原本が変化していないことを確認し、temporary directoryをtargetへrenameして完成をatomicに確定する
-11. 端末内索引へ完成先を記録し、生成された`.stpkg`をcurrent projectとして開く
+公開前の失敗では原本を維持または復元します。設置後に止まった場合は完成済みの内容を確認して処理を完了します。無関係な同名ファイルや不正な記録は上書きせず、保存を開始しません。journal確定前だけの初期化残骸は `元の名前.recovery-UUID` に保管し、準備を再開できます。不明な作業領域は推測で削除しません。
 
-source folder は成功・失敗・キャンセルのいずれでも変更・削除しません。
+バックアップを復元する場合は、対象をアプリで閉じ、現在の内容を別の場所へ保管し、`original` 内のファイルを元の場所へ戻して開きます。戻した後のOpenで「復元した内容を使う」を選ぶと、その内容を元の名前で保存できます。以前の編集コピーや退避した更新済みファイルを自動採用せず、どちらも保持します。復元内容の確定後は再オープンでこの確認や変換を繰り返しません。バックアップを直接開いて再変換することはできません。完了通知の後も「ファイル」→「更新前のバックアップ…」から復元手順と保存場所を確認できます。復旧待ちの案内には保存場所を表示する操作があります。
 
-## Migration marker
+復元判定は完成済みバックアップの記録と全ファイルの照合を使います。記録が壊れている場合は保存を開始せず、現在のファイルとバックアップの保管を案内します。パッケージとバックアップを親フォルダごと移動した場合、移動前の正常な記録は別の場所の履歴として扱います。
 
-生成 package は次の provenance を保持します。
-
-```json
-{
-  "schemaVersion": 1,
-  "sourceRealPath": "/path/to/legacy-project",
-  "sourceFingerprint": "sha256...",
-  "sourceRevision": "sha256...",
-  "migratedAt": "2026-08-19T00:00:00.000Z"
-}
-```
-
-source real pathとrevisionが一致するpackageを検証して再利用します。旧markerにrevisionがない場合だけ、厳密なfingerprintの一致を要求します。Finderの補助情報やフォルダmtimeだけの変化で移行し直しません。同名`.stpkg`が別sourceのものなら上書きしません。
-
-## 書き込み権限がない場合
-
-sibling directory へ書き込めない場合は Save As dialog を表示し、ユーザーが選んだ保存先にだけ migration します。既存の無関係な target は上書きしません。
-
-## 保持対象
-
-legacy source 全体を copy するため、少なくとも次を維持します。
-
-- `timeline.json`
-- `.metadata/config.json` の team / sync / media metadata
-- package 内の Code Window / label / auxiliary metadata
-- package 内 media files
-- clip placement / angle metadata
-
-package 外を指す absolute media reference は勝手に移動・削除せず、従来どおり reference として保持します。
-
-## Test contract
-
-automated migration tests では次を固定します。
-
-- source config/timeline が byte-level で変わらない
-- media / auxiliary metadata が copied package に残る
-- source 内 absolute media path が target 内 relative path へ変換される
-- 同一 source の再 open で duplicate package を増やさない
-- unrelated target を上書きしない
-- explicit destination migration が可能
-- malformed legacy source では target を作らない
-
-共通picker・端末内索引・staging拒否・失敗時の状態は[パッケージ互換](package-compatibility.md#開くと再試行の状態)を正本とします。別保存先と連番の欠番を含めて完成コピーを再利用します。
+設計と限界は[ADR 0067](adr/0067-in-place-package-updates.md)、検証項目は[Testing](testing.md#パッケージ互換と保存保護)を参照してください。実プロセスの途中終了は試験しますが、電源断、物理ディスク故障、任意の他アプリによる同時変更の完全保護は保証しません。

@@ -408,4 +408,4 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 
 `scripts/macos/`はRelease専用afterPack、純粋な同梱payload照合、read-only DMG検査、version/main/tag guard、Homebrew Cask生成を担当します。アプリruntimeへ依存させません。`scripts/windows/release-evidence.mjs`は同一runのWindows installed reportをsource commit/tree・version・実installer hashと結び付け、対応source用manifestをstageします。source bundleの対象選択とarchive metadataの正規化は`scripts/media-tools/source-bundle.mjs`と`archive-sources.py`に置き、対応sourceの列挙は`package-media-sources.mjs`が担当します。
 
-`electron/src/ipc/packageMigrationTargets.ts`は完成先の探索とmarker、`packageMigrationIndex.ts`は端末内索引、`legacyPackageMigrationService.ts`はコピー移行のトランザクションを担当する。
+`legacyPackageMigrationService.ts`は共通Openの調整、`packageMigrationCandidates.ts`は以前の編集内容の選定、`packageInPlaceUpdate.ts`と`packageUpdateJournal.ts`は同一パス置換と復旧、`packageCopyDigest.ts`は全バイト照合、`packageOpenDialogs.ts`はnativeの内容選択と復旧案内を担当する。`legacyPackageCopyService.ts`は変換済みstagingの生成と0.17.9互換コピーの回帰境界、`packageMigrationIndex.ts`は旧端末内索引を扱う。

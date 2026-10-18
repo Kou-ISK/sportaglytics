@@ -60,8 +60,6 @@ try {
     ]);
     await fs.writeFile(path.join(source, '.metadata/config.json'), config);
     await fs.writeFile(path.join(source, 'timeline.json'), timeline);
-    await fs.chmod(path.join(source, '.metadata/config.json'), 0o444);
-    await fs.chmod(path.join(source, 'timeline.json'), 0o444);
     app = await electron.launch({
       ...getElectronLaunchOptions(path.join(root, `profile-${name}`)),
       timeout: 60000,
@@ -71,13 +69,25 @@ try {
       localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
     );
     await main.reload();
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async (...args) => {
+        const options = args.at(-1);
+        if (options.title !== 'ファイルを開く')
+          throw new Error('Unexpected dialog');
+        const response =
+          options.message === '開く内容を確認'
+            ? options.buttons.indexOf('この場所の内容を使う')
+            : 0;
+        return { response, checkboxChecked: false };
+      };
+    });
     const prepared = await main.evaluate(
       (source) => window.electronAPI.preparePackageForOpen(source),
       source,
     );
     assert.equal(prepared.status, 'ready');
     assert.equal(prepared.migrated, true);
-    assert.notEqual(prepared.packagePath, source);
+    assert.equal(prepared.packagePath, await fs.realpath(source));
     const copied = JSON.parse(
       await fs.readFile(
         path.join(prepared.packagePath, '.metadata/config.json'),
@@ -135,11 +145,17 @@ try {
       return video.paused && !video.seeking;
     });
     assert.equal(
-      await fs.readFile(path.join(source, '.metadata/config.json'), 'utf8'),
+      await fs.readFile(
+        path.join(prepared.backupPath, '.metadata/config.json'),
+        'utf8',
+      ),
       config,
     );
     assert.equal(
-      await fs.readFile(path.join(source, 'timeline.json'), 'utf8'),
+      await fs.readFile(
+        path.join(prepared.backupPath, 'timeline.json'),
+        'utf8',
+      ),
       timeline,
     );
     assert.deepEqual(await fs.readFile(videoPath), video);
@@ -163,7 +179,7 @@ try {
     app = undefined;
   }
   console.log(
-    'Legacy external video: original absolute path and file URI retained, actual copied project playback/seek succeeded, read-only originals unchanged',
+    'Legacy external video: original absolute path and file URI retained, same-path project playback/seek succeeded, backup and read-only external media unchanged',
   );
 } finally {
   if (app) {

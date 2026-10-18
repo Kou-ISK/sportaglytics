@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import os from 'node:os';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -5,10 +7,26 @@ import path from 'node:path';
 // Only synthetic fixtures, through the installed preload/main preparation API.
 export const exercisePackageMigration = async (
   main,
+  app,
   root,
   current,
   document,
 ) => {
+  await app.evaluate(({ dialog }) => {
+    const original = dialog.showMessageBox.bind(dialog);
+    dialog.showMessageBox = async (...args) => {
+      const options = args.at(-1);
+      if (options.title === 'ファイルを開く') {
+        const response =
+          options.message === '開く内容を確認'
+            ? options.buttons.indexOf('この場所の内容を使う')
+            : 0;
+        if (response < 0) throw new Error('Unexpected package choice');
+        return { response, checkboxChecked: false };
+      }
+      return original(...args);
+    };
+  });
   for (const name of ['Legacy 日本語 #%', 'Legacy-old.stpkg']) {
     const source = path.join(root, name);
     await fs.cp(current, source, { recursive: true });
@@ -29,12 +47,33 @@ export const exercisePackageMigration = async (
         (file) => window.electronAPI.preparePackageForOpen(file),
         source,
       );
+    await assert.rejects(prepare(), /EACCES|EPERM|EROFS/);
+    assert.equal(await fs.readFile(configFile, 'utf8'), config);
+    assert.equal(await fs.readFile(timelineFile, 'utf8'), timeline);
+    await fs.chmod(configFile, 0o644);
+    await fs.chmod(timelineFile, 0o644);
+    if (process.platform === 'win32') {
+      const principal = os.userInfo().username;
+      // Deny writes only on this disposable fixture; inherited parent rename
+      // rights must not let the update bypass the document's ACL.
+      execFileSync('icacls', [timelineFile, '/deny', `${principal}:(W)`], {
+        stdio: 'pipe',
+      });
+      try {
+        await assert.rejects(prepare(), /EACCES|EPERM/);
+      } finally {
+        execFileSync('icacls', [timelineFile, '/remove:d', principal], {
+          stdio: 'pipe',
+        });
+      }
+      assert.equal(await fs.readFile(timelineFile, 'utf8'), timeline);
+    }
     const migrated = await prepare();
     assert.equal(migrated.status, 'ready');
     assert.equal(migrated.migrated, true);
     assert.equal(migrated.reused, false);
-    assert.notEqual(migrated.packagePath, source);
-    assert.ok(migrated.packagePath.endsWith('.stpkg'));
+    assert.equal(migrated.packagePath, await fs.realpath(source));
+    assert.ok(migrated.backupPath);
     const result = JSON.parse(
       await fs.readFile(
         path.join(migrated.packagePath, 'timeline.json'),
@@ -57,14 +96,21 @@ export const exercisePackageMigration = async (
     );
     const reused = await prepare();
     assert.equal(reused.packagePath, migrated.packagePath);
-    assert.equal(reused.reused, true);
-    assert.equal(await fs.readFile(configFile, 'utf8'), config);
-    assert.equal(await fs.readFile(timelineFile, 'utf8'), timeline);
-    // Windows chmod has different ACL semantics; POSIX mode preservation is asserted on macOS.
-    if (process.platform !== 'win32') {
-      assert.equal((await fs.stat(configFile)).mode & 0o777, 0o444);
-      assert.equal((await fs.stat(timelineFile)).mode & 0o777, 0o444);
-    }
+    assert.equal(reused.migrated, false);
+    assert.equal(
+      await fs.readFile(
+        path.join(migrated.backupPath, '.metadata/config.json'),
+        'utf8',
+      ),
+      config,
+    );
+    assert.equal(
+      await fs.readFile(
+        path.join(migrated.backupPath, 'timeline.json'),
+        'utf8',
+      ),
+      timeline,
+    );
   }
   for (const [name, mutate, expected] of [
     [
@@ -116,6 +162,6 @@ export const exercisePackageMigration = async (
     false,
   );
   console.log(
-    'Package migration: read-only legacy folder/old .stpkg originals retained, v2 copied, repeat reused, future/unknown/native/missing media rejected',
+    'Package migration: read-only originals rejected, same-name v2 update and backup preserved, repeat not converted, future/unknown/native/missing media rejected',
   );
 };

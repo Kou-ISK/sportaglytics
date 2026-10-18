@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { writeTextFileAtomically } from './atomicTextFile';
 
-interface MigrationLocation {
+export interface MigrationLocation {
   source: string;
   revision: string;
   target: string;
@@ -37,6 +37,11 @@ export class PackageMigrationIndex {
         return [];
       throw error;
     }
+  }
+
+  async listForSource(source: string): Promise<MigrationLocation[]> {
+    await this.pending;
+    return (await this.read()).filter((entry) => entry.source === source);
   }
 
   async find(source: string, revision: string): Promise<string | undefined> {
