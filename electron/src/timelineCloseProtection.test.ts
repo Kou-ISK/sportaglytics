@@ -220,6 +220,60 @@ it('rejects foreign windows, subframes, stale tokens, malformed and duplicate ac
   expect(foreign.destroyed).toBe(false);
 });
 
+it.each(
+  [channels.register, channels.unregister, channels.ack].flatMap((channel) =>
+    ['getURL', 'senderFrame', 'mainFrame', 'isDestroyed', 'webContents'].map(
+      (property) => ({ channel, property }),
+    ),
+  ),
+)(
+  'rejects throwing native sender access without changing pending close: $channel / $property',
+  async ({ channel, property }) => {
+    const window = fixture().add();
+    window.close();
+    const contents = window.webContents;
+    const event = { sender: contents, senderFrame: contents.mainFrame };
+    const payload = { ...request(window), success: true };
+    const target =
+      property === 'senderFrame'
+        ? event
+        : property === 'isDestroyed' || property === 'webContents'
+          ? window
+          : contents;
+    const descriptor = Object.getOwnPropertyDescriptor(target, property);
+    if (!descriptor)
+      throw new Error(`Missing native test property: ${property}`);
+    const throwDestroyed = (): never => {
+      throw new Error('native object has been destroyed');
+    };
+    Object.defineProperty(
+      target,
+      property,
+      property === 'getURL' || property === 'isDestroyed'
+        ? { ...descriptor, value: throwDestroyed }
+        : { configurable: true, get: throwDestroyed },
+    );
+    try {
+      expect(() => handlers.get(channel)?.(event, payload)).not.toThrow();
+    } finally {
+      Object.defineProperty(target, property, descriptor);
+    }
+    await settle();
+    expect(window.destroyed).toBe(false);
+    expect(mocks.drain).not.toHaveBeenCalled();
+    expect(mocks.dialog).not.toHaveBeenCalled();
+    expect(contents.send).not.toHaveBeenCalledWith(
+      channels.resume,
+      expect.anything(),
+    );
+    // The rejected event must neither replace/unregister the owner nor ACK it.
+    ack(window);
+    await settle();
+    expect(mocks.drain).toHaveBeenCalledOnce();
+    expect(window.destroyed).toBe(true);
+  },
+);
+
 it.each(['reload', 'unsubscribe', 'replace'])(
   'invalidates an ACK when its owner changes via %s',
   async (change) => {
