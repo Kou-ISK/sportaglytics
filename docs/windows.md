@@ -58,6 +58,6 @@ reportはCIログの `Installed distribution evidence:` 行と既存の `windows
 
 実装の入口: `scripts/media-tools/windows.mjs`、`scripts/build-windows-llama.mjs`、`scripts/windows/`、`electron/src/mediaTools.ts`、`electron/src/videoWindowAspect.ts`、`src/utils/platformShortcut.ts`。
 
-Media FoundationのCPU経路は `node scripts/windows/verify-h264.mjs` で720p/1080p/3840×1080二画面相当のMP4の60フレーム復号、H.264/AACと開始時刻・尺を検査します。インストール後にも同じ検査を行い、Paint overlay、二画面、同期、結合、captureを含む全24シナリオを実行します。不足検出unitはDLL不在・MFT不在・encoder不在・timeout・起動失敗を模擬します。Windows N実機のFeature Pack未導入/導入後の検証と、実機別GPU・カメラの検証はCIのCPU成功と区別します。
+Media FoundationのCPU経路は `node scripts/windows/verify-h264.mjs` で720p/1080p/3840×1080二画面相当のMP4の60フレーム復号、H.264/AACと開始時刻・尺を検査します。インストール後にも同じ検査を行い、Paint overlay、二画面、同期、結合、captureを含む通常runnerと同じ登録シナリオを実行します。不足検出unitはDLL不在・MFT不在・encoder不在・timeout・起動失敗を模擬します。Windows N実機のFeature Pack未導入/導入後の検証と、実機別GPU・カメラの検証はCIのCPU成功と区別します。
 
 二画面出力は入力の高い方のfpsに揃え、異なるfpsの組合せでもOS encoderへ有効な値を渡します。CPU検査は25/30fps混在と60fps維持の実合成も確認します。

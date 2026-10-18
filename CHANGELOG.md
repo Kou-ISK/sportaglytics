@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Timelineの最終編集を保存してから主画面を閉じ、アプリ終了時は全Timelineの保存応答とMainのwrite queueを待つ。保存失敗・応答なしでは終了を取り消して編集と再試行を維持する。[保存・終了の契約](docs/package-compatibility.md#読み込み保存の失敗)。
 
+### Added
+
+- 図形だけの20秒映像を含む約29 KBの合成サンプルと、タグ追加・修正・保存再開・MP4共有までの[初回手順](docs/quickstart.md)を追加。生成recipe・hash・MIT告知、再生成検査、通常/Windowsインストール後の実操作試験を用意する。
+- 240 / 2,400 / 10,000件の合成Timelineで、実検証・検索・直列化・atomic writeを測定する[限定負荷測定](docs/synthetic-workloads.md)を追加。Node/tmpfsの測定であり、画面応答・長時間映像・Mac/Windows性能の保証とは区別する。
+
 ## [0.17.10]
 
 公開状況と配布日は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を参照してください。既存の公開版とタグは維持します。

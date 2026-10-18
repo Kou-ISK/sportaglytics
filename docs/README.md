@@ -37,6 +37,8 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 
 ## User Documentation
 
+- [合成サンプルではじめる](quickstart.md): 公開ZIPで開く・追加・修正・保存再開・MP4出力を試す。素材の由来と再生成手順も掲載。
+
 - [通常のCodingタイムラインでの同期](adr/0044-sync-in-coding-toolbar.md): 同期ボタンと設定済みホットキーの共用。
 - [アングル同期](angle-synchronization.md): Sync Point、コマ送り、前後半、ウィンドウ比率、保存契約。
 
@@ -58,6 +60,8 @@ Sorterの再生順と旧ファイル移行は[ADR 0047](adr/0047-playlist-sorter
 - [AIモデルの公開範囲・配布台帳](model-distribution.md): モデルカード、学習・評価の公開記録、取得先と不足情報。
 
 ## Developer Documentation
+
+- [合成Timelineの限定負荷測定](synthetic-workloads.md): Node上の検証・検索・保存の再現手順、生データ、実画面・OS別性能との違い。
 
 - [画像・アイコン・fixtureの由来](asset-provenance.md): ファイルhash、公開Gitと合成素材の根拠、未確認事項。
 

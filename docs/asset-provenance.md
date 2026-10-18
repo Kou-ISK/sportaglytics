@@ -52,3 +52,9 @@ SCTimeline JSONはXML取り込みとは別の実装です。
 未確認という理由だけで侵害を断定せず、出典の根拠が揃わない素材を
 権利確認済みにもしません。出典が確認できない公開用素材は、対象を限定して
 置換案をレビューします。
+
+## 再生成可能な初回サンプル
+
+`samples/synthetic-first-run.stpkg.zip`は、`scripts/generate-synthetic-sample.py`内の図形・線・動きの式だけで生成する新規の合成資料です。外部映像・画像・フォント・モデル・生成AIサービスは入力にしません。recipeとサンプルの許諾はリポジトリのMIT Licenseを使い、ZIPへ`LICENSE.txt`を同梱します。動画・metadataを含む全ファイルのhashと使用したFFmpeg版は[専用manifest](../samples/synthetic-first-run.manifest.json)、再生成・検査は[quickstart](quickstart.md#サンプルの由来と再生成開発者向け)を参照してください。
+
+このZIPはソースリポジトリから別途取得する練習資料で、アプリ本体へ追加同梱しません。既存の`tactics-motion.webm`の初出recipeが不明である状態を、この新しいrecipeで確認済みに変更するものではありません。

@@ -1,0 +1,40 @@
+{
+  "recipe": "scripts/generate-synthetic-sample.py",
+  "license": "MIT",
+  "source": "Repository-authored geometric color/grid/overlay expressions; no external source media",
+  "ffmpegVersion": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "videoEncoder": "libx264",
+  "zipCompression": "stored",
+  "archive": {
+    "file": "synthetic-first-run.stpkg.zip",
+    "bytes": 28871,
+    "sha256": "82f86f65d11a561630bb1cbde24292e8c16ca84c3667a59ba22e520efa92336a"
+  },
+  "files": [
+    {
+      "path": "Synthetic-first-run.stpkg/.metadata/config.json",
+      "bytes": 530,
+      "sha256": "8dd59b582cecd397cac03a65d0ed7d88458ed00e25a30d9622c0070fcbe36168"
+    },
+    {
+      "path": "Synthetic-first-run.stpkg/LICENSE.txt",
+      "bytes": 1069,
+      "sha256": "4a587f5461f155ec8fc46e6367bbac8dce2dfe4662306e0aa84bb7fff583bb3b"
+    },
+    {
+      "path": "Synthetic-first-run.stpkg/SAMPLE.txt",
+      "bytes": 594,
+      "sha256": "41ef2aae07cdfc2b66c462eb46ff7055cd9e16a4eedda7354aaa7b93fec6f7b9"
+    },
+    {
+      "path": "Synthetic-first-run.stpkg/timeline.json",
+      "bytes": 478,
+      "sha256": "6835f6529be1056bc1b39e4edd1659eab4e43a9808eb26be789ed90ce41546d9"
+    },
+    {
+      "path": "Synthetic-first-run.stpkg/videos/synthetic.mp4",
+      "bytes": 25388,
+      "sha256": "925d661768eac2a8de3327b78818d45f8fab7326be50730aa72cd77ee213fded"
+    }
+  ]
+}
