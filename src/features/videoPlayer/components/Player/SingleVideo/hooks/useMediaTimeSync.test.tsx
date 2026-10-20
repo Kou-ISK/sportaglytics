@@ -156,3 +156,21 @@ it('replaces an explicit seek whose old target was evicted by the capture buffer
   act(player.settle);
   expect(player.seek).toHaveBeenCalledTimes(2);
 });
+
+it('does not seek inside a gap and replaces an unfinished seek on reentry', () => {
+  const player = fixture();
+  const initialProps: { time: number | undefined } = { time: 1 };
+  const { rerender } = renderHook(
+    ({ time }: { time: number | undefined }) =>
+      useMediaTimeSync(player.ref, true, time, true),
+    { initialProps },
+  );
+  // The old seek cannot settle after its data is evicted.
+  rerender({ time: undefined });
+  act(() => player.listeners.get('canplay')?.());
+  expect(player.seek.mock.calls).toEqual([[1]]);
+  rerender({ time: 4 });
+  expect(player.seek.mock.calls).toEqual([[1], [4]]);
+  act(player.settle);
+  expect(player.seek).toHaveBeenCalledTimes(2);
+});

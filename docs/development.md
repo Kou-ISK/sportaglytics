@@ -2,7 +2,7 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # 開発ガイド
 
-長尺再生の回帰は`usePackagePlaybackClock.test.tsx`と`packagePlaybackReadiness.test.ts`でデコード待ち・復帰・明示シーク・アングル補正・空白・終了境界を検査します。実Electronでは`e2e-playback-buffering.mjs`で片方のデコード待ち中に全アングルが待機し、復帰または明示停止に従うことを検査します。`e2e-multi-clip-playback.mjs`と`e2e-live-capture.mjs`で境界や録画への影響も確認します。ローカル実映像の性能測定は許可されたコピーと独立profileを使い、実データ・名前・画像を公開fixtureへ含めないでください。
+長尺再生の回帰は`usePackagePlaybackClock.test.tsx`と`packagePlaybackReadiness.test.ts`でデコード待ち・復帰・明示シーク・アングル補正・空白・終了境界を検査します。実Electronでは`e2e-playback-buffering.mjs`で通常ファイルの片方のデコード待ち中に全アングルが待機し、表示切替・速度変更・同期ずれ・ファイル欠損・背景復帰・明示停止に従うことを検査します。`e2e-capture-gaps.mjs`では実MSEで録画の空白通過、短い音声末尾、僅かな再生ずれ、空白への明示シークとパッケージ終端を検査します。`e2e-multi-clip-playback.mjs`と`e2e-live-capture.mjs`で境界や録画への影響も確認します。ローカル実映像の性能測定は許可されたコピーと独立profileを使い、実データ・名前・画像を公開fixtureへ含めないでください。
 
 終了時保存を変更する場合は[ADR 0068](adr/0068-timeline-close-save-handshake.md)に従い、hookの同一tick編集・行補完、typed preloadの送信元、Mainの全owner準備とatomic write待機を検証します。`pnpm run e2e:prepare && node scripts/e2e-timeline-close.mjs`は合成データで実保存・別process再開を確認します。ライブ停止後に終了が取り消された場合も、次の録画の終了待ちを省略しないでください。
 

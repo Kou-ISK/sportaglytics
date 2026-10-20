@@ -36,7 +36,16 @@ export const CaptureAnglePlayer = ({
           <MemoizedSingleVideoPlayer
             {...props}
             videoSrc={source || props.videoSrc}
-            timelineTimeSeconds={source ? angleTime : props.timelineTimeSeconds}
+            // A recording gap has no decodable frame. Seeking into it leaves MSE
+            // waiting for data that will never be appended.
+            timelineTimeSeconds={
+              props.videoSrc
+                ? source
+                  ? angleTime
+                  : props.timelineTimeSeconds
+                : undefined
+            }
+            initialTimeSeconds={0}
             isVideoPlaying={props.isVideoPlaying && Boolean(props.videoSrc)}
             setMaxSec={source ? ignoreDuration : props.setMaxSec}
           />

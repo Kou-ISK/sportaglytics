@@ -82,3 +82,59 @@ it('leaves non-native players on their existing clock path', () => {
   });
   expect(isPackageMediaBuffering(angles, undefined, 15)).toBe(false);
 });
+
+it('keeps the MSE append clock advancing through gaps but still waits for file fallbacks', () => {
+  const root = document.createElement('div');
+  const video = document.createElement('video');
+  root.append(video);
+  vi.mocked(getVideoJsPlayer).mockReturnValue({ el: () => root });
+  const capture: PackageMediaAngle = {
+    ...angles[0],
+    playbackFormat: 'fragmented-mp4',
+  };
+  Object.defineProperties(video, {
+    currentSrc: { configurable: true, value: 'blob:recording' },
+    readyState: { configurable: true, value: 1 },
+    seeking: { configurable: true, value: true },
+  });
+  expect(isPackageMediaBuffering([capture], undefined, 15)).toBe(false);
+  // currentSrc is empty until the just-assigned MSE source is selected.
+  video.src = 'blob:recording';
+  Object.defineProperty(video, 'currentSrc', {
+    configurable: true,
+    value: '',
+  });
+  expect(isPackageMediaBuffering([capture], undefined, 15)).toBe(false);
+  Object.defineProperties(video, {
+    readyState: { configurable: true, value: 2 },
+    seeking: { configurable: true, value: false },
+  });
+  expect(isPackageMediaBuffering([capture], undefined, 15)).toBe(false);
+  Object.defineProperty(video, 'currentSrc', {
+    configurable: true,
+    value: 'file:///recording.mp4',
+  });
+  expect(isPackageMediaBuffering([capture], undefined, 15)).toBe(true);
+});
+
+it('still holds every peer when a regular file buffers beside MSE', () => {
+  const roots = [document.createElement('div'), document.createElement('div')];
+  for (const [index, root] of roots.entries()) {
+    const video = document.createElement('video');
+    root.append(video);
+    Object.defineProperties(video, {
+      currentSrc: { value: index ? 'file:///video.mp4' : 'blob:recording' },
+      readyState: { value: 1 },
+    });
+  }
+  vi.mocked(getVideoJsPlayer).mockImplementation((id) => ({
+    el: () => roots[id === 'video_0' ? 0 : 1],
+  }));
+  expect(
+    isPackageMediaBuffering(
+      [{ ...angles[0], playbackFormat: 'fragmented-mp4' }, angles[0]],
+      undefined,
+      15,
+    ),
+  ).toBe(true);
+});
