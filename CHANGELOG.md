@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.13]
+
+長尺動画のデコード待機・録画の空白区間からの復帰と、閉じた操作ウィンドウに遅れて届くfocusの処理を修正します。配布・署名・公証の状態は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.13)の実際の状態を参照してください。
+
 ### Fixed
 
 - 長尺・高負荷のローカル動画で、デコード待ちの間に共通時計だけが進み、復帰後の自動シークを繰り返す問題を修正。空白区間・クリップ境界・明示シークは維持する。録画のMSE再生は追記用の時計を維持し、記録のない空白へのシークと次のクリップへの復帰停止を防ぐ。

@@ -2,17 +2,19 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
-## 0.17.12と公開済み版
+## 0.17.13と公開済み版
 
 v0.17.11の正式工程はmacOSの終了試験で停止し、署名・公証・配布は未実行です。最後のWindowを閉じてもアプリを残すmacOSの既存仕様に試験を合わせ、保存内容を明示的なQuitより前に確認します。v0.17.11のtagも保持し、同じtagへ修正を上書きしません。
 
-0.17.12はMacとWindowsを同一commitから公開する版です。この文書やversion更新だけでは公開済みを意味しません。[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の実際の状態を確認してください。公開済みv0.17.10以前のtag、DMG、Windows installer、対応sourceを削除・置換しません。修正は新しい版で公開します。
+0.17.13は今回の再生・ウィンドウ修正をMacとWindowsへ同一commitから公開する候補です。v0.17.12の公開物は保持します。この文書やversion更新だけでは公開済みを意味しません。[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)の実際の状態を確認してください。公開済み版のtag、DMG、Windows installer、対応sourceを削除・置換しません。修正は新しい版で公開します。
 
 通常の作業ブランチから`develop`へ準備PRを統合し、`develop`から`main`へのPRが通った後に、その`main` commitへ新しいtagを作成します。mainへの直接push、失敗したtagの付け替え、同じ公開版への後付けartifactは行いません。[ADR 0032](../docs/adr/0032-immutable-release-artifacts.md)の不変性を維持します。
 
+0.17.13では依頼された配布範囲に合わせ、developの未公開モデル配布方針18ファイルを含めません。修正は先にdevelopへ通常PRで統合し、公開済みmainを基点とする`release/playback-0.17.13`へ同じ修正だけを選んでmain向けPRを作成します。直接pushはせず、両PRのCIとレビューを必須にします。公開後はversionとrelease記録をdevelopへPRで戻し、モデル作業を保持します。この一時的な経路は[例外台帳](../docs/architecture-exceptions.md)のARCH-EX-003に記録します。
+
 ## MacとWindowsの実行境界
 
-`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常runner・インストール後runnerの全登録シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.12の正式公開は`include_windows=true`を指定します。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
+`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常runner・インストール後runnerの全登録シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.13の正式公開は`include_windows=true`を指定します。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
 
 Macの必須assets:
 
@@ -30,10 +32,10 @@ Mac source bundleは2 targetのmanifestとFFmpeg / FreeType / HarfBuzzの固定s
 
 tag pushやmain pushでは起動しません。**GitHub Actionsの明示的なworkflow_dispatchだけ**を使います。実行前に、そのversionのReleaseがまだなく、同じworkflowが進行中でないことを確認します。
 
-1. 準備PRと`develop`→`main` PRをレビューし、必要なCIを通して統合します。
+1. 準備PRとmain向けPRをレビューし、必要なCIを通して統合します。通常は`develop`→`main`、0.17.13だけは上記の限定したrelease branchを使います。
 2. `main`の40文字SHAと`package.json`のversionを確認し、そのcommitへ`v<version>` tagを作成します。tag作成だけでは署名・Apple送信・公開を開始しません。
 3. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml) → **Run workflow** → branch **main**を選びます。
-4. `version`に`0.17.12`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=true`を指定します。現在の作業branchのSHAを入力しません。
+4. `version`に`0.17.13`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=true`を指定します。現在の作業branchのSHAを入力しません。
 5. `publish=false`（既定）は署名・公証・最終DMG検証まで行い、Actions artifactとして90日間保存します。GitHub ReleaseとHomebrewは更新しません。**これは未署名dry-runではなく、Appleへのアプリ送信を含みます。**
 6. 最終公開が承認された実行は`publish=true`を指定します。同じ品質・署名・公証・DMG検証を再実行し、その実行で検査したbytesだけを公開します。先行runのartifactを無検査で流用しません。
 
@@ -41,7 +43,7 @@ CLIでも同じ入力を使います。`<reviewed-main-sha>`を実際の40文字
 
 ```bash
 gh workflow run release.yml --ref main \
-  -f version=0.17.12 -f expected_sha=<reviewed-main-sha> -F include_windows=true -F publish=false
+  -f version=0.17.13 -f expected_sha=<reviewed-main-sha> -F include_windows=true -F publish=false
 ```
 
 workflowは入力version、package version、tag commit、checkout、workflow commit、現在のorigin/mainを照合します。省略・食い違い・既存Release・API読み取り失敗は停止条件です。公開直前にも再確認します。並行runは直列化し、実行中の署名・公証を新しいdispatchでcancelしません。
