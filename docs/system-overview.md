@@ -386,7 +386,7 @@ GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requ
 
 UIの正本は `src/design-system/` のsemantic tokenとprops-only Viewです。開始画面の構成は `VideoPathSelector`、開く操作の単一状態源は `useStartPackageOpen`、IPCとロード時移行は `packageGateway` に置きます。初回・履歴・検索・ロード・エラーは[起動画面の仕様](start-workspace.md)を参照してください。
 
-`applicationWindowActivation.ts`はアプリ内のフォーカス変更時に表示中のウィンドウを`moveTop()`でまとめて前面へ移し、操作対象を最後に上げます。常時最前面や別ウィンドウへのfocusは使わず、非表示・最小化ウィンドウはその状態を保ちます。
+`applicationWindowActivation.ts`はアプリ内のフォーカス変更時に表示中のウィンドウを`moveTop()`でまとめて前面へ移し、操作対象を最後に上げます。常時最前面や別ウィンドウへのfocusは使わず、非表示・最小化ウィンドウはその状態を保ちます。通知対象も表示状態を再確認し、閉じた後に遅れて届いたfocusで再表示しません。
 
 TimelineのTabアクション巡回は選択と本体/タグのフォーカスを条件にし、ジャンプ先のDOMフォーカスも揃えます。入力・検索・通常コントロールとOSのTab組合せを守る範囲は[Timeline review](timeline-review.md)を正本とします。
 

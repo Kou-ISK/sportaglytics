@@ -447,7 +447,7 @@ Sorterは[Hudlの2024年の公式説明](https://www.hudl.com/blog/databases-in-
 
 ### ウィンドウ連携と追尾の変更時
 
-`e2e-event-detection.mjs`は合成パッケージを使い、正式ロゴ、解析画面の独立、閉じて再表示した実行状態、狭幅での操作、映像ウィンドウのサイズ維持、ウィンドウ群の前面表示ハンドラーを確認します。前面表示はElectronのfocusイベントを注入して実native APIの呼出順とfocus維持を検査するもので、OSの実際の重なり順・仮想デスクトップを自動保証する試験ではありません。`eventDetectionWindow.test.ts`はSession境界、Controllerのテストは背景実行中のTimeline編集と所有元終了を検証します。
+`e2e-event-detection.mjs`は合成パッケージを使い、正式ロゴ、解析画面の独立、閉じて再表示した実行状態、狭幅での操作、映像ウィンドウのサイズ維持、ウィンドウ群の前面表示ハンドラーを確認します。前面表示はElectronのfocusイベントを注入して実native APIの呼出順とfocus維持を検査するもので、OSの実際の重なり順・仮想デスクトップを自動保証する試験ではありません。`applicationWindowActivation.test.ts`は非表示・最小化・破棄後の遅延focusを無視することを検査し、`e2e-window-security.mjs`でも実nativeウィンドウが非表示を保つことを確認します。`eventDetectionWindow.test.ts`はSession境界、Controllerのテストは背景実行中のTimeline編集と所有元終了を検証します。
 
 追尾は`anchoredFeatureTracker.test.ts`で既知の端数移動・拡大と足元座標を使い、従来の平行移動積算と比較します。合成映像の誤差を実試合の精度として扱いません。
 
