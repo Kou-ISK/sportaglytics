@@ -192,6 +192,7 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
             >
               {filePath || continuous ? (
                 <AnglePlayer
+                  holdPlayback={props.holdPlayback}
                   captureActive={props.captureActive}
                   angle={mediaAngles[index]}
                   angleTime={currentTime + resolveOffset(index)}

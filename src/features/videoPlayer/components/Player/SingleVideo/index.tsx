@@ -10,6 +10,7 @@ export const MemoizedSingleVideoPlayer = React.memo(
     if (prev.isVideoPlaying !== next.isVideoPlaying) return false;
     if (prev.videoPlayBackRate !== next.videoPlayBackRate) return false;
     if (prev.blockPlay !== next.blockPlay) return false;
+    if (prev.holdPlayback !== next.holdPlayback) return false;
     if (prev.allowSeek !== next.allowSeek) return false;
     if (Math.abs((prev.offsetSeconds ?? 0) - (next.offsetSeconds ?? 0)) > 0.001)
       return false;

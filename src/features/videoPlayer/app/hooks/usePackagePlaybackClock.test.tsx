@@ -3,8 +3,15 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { PackageMediaAngle } from '../../../../types/package/media';
 import { usePackagePlaybackClock } from './usePackagePlaybackClock';
+import { isPackageMediaBuffering } from './packagePlaybackReadiness';
 
-afterEach(() => vi.unstubAllGlobals());
+vi.mock('./packagePlaybackReadiness', () => ({
+  isPackageMediaBuffering: vi.fn(() => false),
+}));
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.mocked(isPackageMediaBuffering).mockReturnValue(false);
+});
 it('holds at the captured edge, resumes when media arrives, and honors manual pause', () => {
   let callback: FrameRequestCallback = () => {};
   const request = vi.fn((next: FrameRequestCallback) => {
@@ -137,5 +144,78 @@ it('keeps elapsed time across delayed renders but applies an explicit seek and p
     frame(1200);
   });
   expect(setCurrentTime).toHaveBeenLastCalledWith(9.2);
+  hook.unmount();
+});
+
+it('holds the clock through decode waits and seeks without catching up on recovery', () => {
+  let frame: FrameRequestCallback = () => {};
+  vi.stubGlobal('requestAnimationFrame', (next: FrameRequestCallback) => {
+    frame = next;
+    return 1;
+  });
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  const setCurrentTime = vi.fn();
+  const hook = renderHook(() =>
+    usePackagePlaybackClock({
+      mediaAngles: [
+        {
+          id: 'one',
+          name: 'One',
+          sourceKind: 'local',
+          clips: [
+            {
+              id: 'clip',
+              sourceKind: 'local',
+              source: 'media/long.mp4',
+              timelineStartSeconds: 0,
+              durationSeconds: 9000,
+              gapBeforeSeconds: 0,
+            },
+          ],
+        },
+      ],
+      syncMode: 'auto',
+      isVideoPlaying: true,
+      videoPlayBackRate: 1,
+      currentTime: 4500,
+      setCurrentTime,
+      setIsVideoPlaying: vi.fn(),
+      setMaxSec: vi.fn(),
+    }),
+  );
+  act(() => {
+    frame(0);
+    frame(100);
+  });
+  expect(setCurrentTime).toHaveBeenLastCalledWith(4500.1);
+  vi.mocked(isPackageMediaBuffering).mockReturnValue(true);
+  setCurrentTime.mockClear();
+  act(() => {
+    frame(200);
+    frame(2200);
+  });
+  expect(setCurrentTime).not.toHaveBeenCalled();
+  expect(hook.result.current.holdPlayback).toBe(true);
+  vi.mocked(isPackageMediaBuffering).mockReturnValue(false);
+  act(() => {
+    frame(2300);
+    frame(2400);
+  });
+  expect(setCurrentTime.mock.lastCall?.[0]).toBeCloseTo(4500.2);
+  expect(hook.result.current.holdPlayback).toBe(false);
+  vi.mocked(isPackageMediaBuffering).mockReturnValue(true);
+  act(() => {
+    window.dispatchEvent(
+      new CustomEvent('video-seek-start', { detail: { time: 7000 } }),
+    );
+    frame(2500);
+    frame(4500);
+  });
+  vi.mocked(isPackageMediaBuffering).mockReturnValue(false);
+  act(() => {
+    frame(4600);
+    frame(4700);
+  });
+  expect(setCurrentTime).toHaveBeenLastCalledWith(7000.1);
   hook.unmount();
 });

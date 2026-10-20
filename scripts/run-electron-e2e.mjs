@@ -15,6 +15,7 @@ const scenarios = [
   'unified-open',
   'clip-sync',
   'multi-clip-playback',
+  'playback-buffering',
   'angle-sync-multi',
   'angle-sync-gaps',
   'code-window-menu',
