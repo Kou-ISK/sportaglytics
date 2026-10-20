@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { PackageMediaAngle } from '../../../../types/package/media';
 import type { VideoSyncData } from '../../../../types/video/sync';
@@ -6,6 +6,7 @@ import {
   getAngleOffset,
   getMediaTimelineEnd,
 } from '../../../../shared/media/mediaTimeline';
+import { isPackageMediaBuffering } from './packagePlaybackReadiness';
 
 interface PackagePlaybackClockParams {
   mediaAngles: PackageMediaAngle[];
@@ -35,7 +36,10 @@ export const usePackagePlaybackClock = ({
 }: PackagePlaybackClockParams): {
   useTimelineClock: boolean;
   timelineEnd: number;
+  holdPlayback: boolean;
 } => {
+  const [mediaBuffering, setMediaBuffering] = useState(false);
+  const bufferingRef = useRef(false);
   const useTimelineClock =
     syncMode === 'auto' && mediaAngles.some((angle) => angle.clips.length > 0);
   const timelineEnd = useMemo(
@@ -60,6 +64,8 @@ export const usePackagePlaybackClock = ({
   );
   const bounds = useRef({ livePlaybackEnd, timelineEnd, durationsKnown });
   bounds.current = { livePlaybackEnd, timelineEnd, durationsKnown };
+  const media = useRef({ mediaAngles, syncData });
+  media.current = { mediaAngles, syncData };
   const clock = useRef(currentTime);
   // A delayed React commit may still contain an older tick. Never feed it back
   // into the running clock: that slows playback and forces repeated video seeks.
@@ -86,7 +92,16 @@ export const usePackagePlaybackClock = ({
     let frame = 0;
     let previous: number | undefined;
     const advance = (timestamp: number): void => {
-      if (previous !== undefined) {
+      const buffering = isPackageMediaBuffering(
+        media.current.mediaAngles,
+        media.current.syncData,
+        clock.current,
+      );
+      if (bufferingRef.current !== buffering) {
+        bufferingRef.current = buffering;
+        setMediaBuffering(buffering);
+      }
+      if (previous !== undefined && !buffering) {
         const { livePlaybackEnd, timelineEnd, durationsKnown } = bounds.current;
         const next = Math.min(
           86400,
@@ -106,7 +121,9 @@ export const usePackagePlaybackClock = ({
         } else clock.current = next;
         setCurrentTime(clock.current);
       }
-      previous = timestamp;
+      // Discard the waiting interval. Catching up to wall time would immediately
+      // seek past the decoded frame and start another expensive decode.
+      previous = buffering ? undefined : timestamp;
       frame = requestAnimationFrame(advance);
     };
     frame = requestAnimationFrame(advance);
@@ -118,5 +135,9 @@ export const usePackagePlaybackClock = ({
     useTimelineClock,
     videoPlayBackRate,
   ]);
-  return { useTimelineClock, timelineEnd };
+  return {
+    useTimelineClock,
+    timelineEnd,
+    holdPlayback: useTimelineClock && isVideoPlaying && mediaBuffering,
+  };
 };

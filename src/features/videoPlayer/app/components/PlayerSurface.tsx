@@ -48,7 +48,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   mediaAngles,
   setMediaAngles,
 }) => {
-  const { useTimelineClock } = usePackagePlaybackClock({
+  const { useTimelineClock, holdPlayback } = usePackagePlaybackClock({
     mediaAngles,
     syncData,
     syncMode,
@@ -87,6 +87,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
         }}
       >
         <VideoPlayer
+          holdPlayback={holdPlayback}
           captureActive={livePlaybackEnd !== undefined}
           key={videoList.join('|')}
           videoList={videoList}

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 長尺・高負荷のローカル動画で、デコード待ちの間に共通時計だけが進み、復帰後の自動シークを繰り返す問題を修正。空白区間・クリップ境界・明示シークは維持する。
+
 ## [0.17.12]
 
 0.17.11の正式工程はmacOS E2Eで停止し、配布物は未公開です。既存tagを維持し、同版のOSS改善と以下の試験修正を新しい版へ引き継ぎます。配布・署名・公証の状態は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)と同版の検証要約を参照してください。
