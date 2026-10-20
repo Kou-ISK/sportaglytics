@@ -202,8 +202,23 @@ try {
     await help.evaluate(() => typeof window.electronAPI),
     'undefined',
   );
+  // A delayed native focus notification must not reveal a hidden window.
+  // On macOS, moveTop() itself can make a hidden BrowserWindow visible.
+  await owner.evaluate((window) => window.hide());
+  await app.evaluate(
+    ({ app, BrowserWindow }, id) => {
+      app.emit('browser-window-focus', {}, BrowserWindow.fromId(id));
+    },
+    await owner.evaluate((window) => window.id),
+  );
+  await page.waitForTimeout(300);
+  assert.equal(
+    await owner.evaluate((window) => window.isVisible()),
+    false,
+    'late focus must preserve a hidden window',
+  );
   console.log(
-    'Window trust: app/settings IPC, foreign document and same-document child rejection, navigation/window.open denial, generated help passed',
+    'Window trust: app/settings IPC, foreign document and same-document child rejection, navigation/window.open denial, generated help and hidden focus preservation passed',
   );
 } finally {
   await app.close();

@@ -17,6 +17,8 @@
 
 | ARCH-EX-002 | 2026-10-18 | Feature Public API | `scripts/benchmark-synthetic-timeline.mjs`の専用loaderから純粋関数`timelineReviewSearch.ts`を推移的compileして読込 | 実際の検索処理を計測し、計測専用の本番公開APIや検索実装の複製を増やさないため | Node計測ツール1本のみ。アプリの実行時import・UI・保存形式は変更しない | 2026-11-18までにfeature内benchへの移動または限定した正式な計測入口を判断 | maintainers | [PR #237](https://github.com/Kou-ISK/sportaglytics/pull/237) / [F10受入](synthetic-workloads.md#次の受入条件) | Open |
 
+| ARCH-EX-003 | 2026-10-20 | Release branch routing | v0.17.13のみ公開済みmainを基点に修正3件を選んだrelease branchからmainへPRを作る | 依頼された再生修正の配布に、developで進行中のモデル配布方針18ファイルを混在させないため | v0.17.13のPR経路のみ。修正自体は先にdevelopへ通常PRで統合し、CI・レビュー・署名・公証・公開検証は維持する | v0.17.13公開後のversion/release記録のdevelop同期PRでClose。期限2026-10-27 | maintainers | [PR #247](https://github.com/Kou-ISK/sportaglytics/pull/247) | Open |
+
 ## 月次レビュー
 
 - 毎月 1 回、Open の例外を見直して優先順位を更新する。
