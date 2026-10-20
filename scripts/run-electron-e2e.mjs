@@ -12,6 +12,7 @@ const scenarios = [
   'legacy-external',
   'live-capture',
   'capture-reopen',
+  'capture-gaps',
   'unified-open',
   'clip-sync',
   'multi-clip-playback',

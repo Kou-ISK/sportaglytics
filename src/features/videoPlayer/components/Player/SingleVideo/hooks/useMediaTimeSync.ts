@@ -17,7 +17,11 @@ export const useMediaTimeSync = (
 ): void => {
   const latest = useRef({ targetTime, playing, rate, ready });
   const lastRequestedTime = useRef<number | undefined>(undefined);
+  const force = useRef(true);
   useLayoutEffect(() => {
+    // Returning from a recording gap must replace any unfinished old seek.
+    if (latest.current.targetTime === undefined && targetTime !== undefined)
+      force.current = true;
     if (
       latest.current.targetTime !== targetTime ||
       latest.current.playing !== playing
@@ -25,7 +29,6 @@ export const useMediaTimeSync = (
       lastRequestedTime.current = undefined;
     latest.current = { targetTime, playing, rate, ready };
   }, [targetTime, playing, rate, ready]);
-  const force = useRef(true);
   const lastSeekAt = useRef(-Infinity);
   const sync = useCallback((): void => {
     const player = playerRef.current;

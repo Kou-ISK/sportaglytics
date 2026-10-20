@@ -116,6 +116,26 @@ try {
     window.bufferingSeeks = 0;
     document.addEventListener('seeking', () => window.bufferingSeeks++, true);
   });
+  for (const drift of [0.7, -0.7]) {
+    await main.evaluate((drift) => {
+      const video = document.querySelectorAll('video')[1];
+      video.currentTime += drift;
+    }, drift);
+    await main.waitForFunction(() => {
+      const [one, two] = [...document.querySelectorAll('video')];
+      return (
+        !one.paused &&
+        !two.paused &&
+        !one.seeking &&
+        !two.seeking &&
+        Math.abs(one.currentTime - two.currentTime) < 0.15
+      );
+    });
+    console.log(`Recovered native transport drift ${drift}`);
+  }
+  await main.evaluate(() => {
+    window.bufferingSeeks = 0;
+  });
   for (const index of [0, 1]) {
     // Deterministic decoder stall: only readiness and the stalled native
     // transport are controlled. Package clock, React, IPC and peers stay real.
@@ -144,6 +164,35 @@ try {
       'ready peers must not run ahead of the frozen package clock',
     );
     if (index === 0) {
+      await main.bringToFront();
+      await main.evaluate(() => document.activeElement?.blur());
+      await main.keyboard.press('Shift+2');
+      await main.waitForFunction(() => {
+        const [one, two] = [...document.querySelectorAll('video')];
+        const hidden = (v) => {
+          for (let e = v; e; e = e.parentElement)
+            if (getComputedStyle(e).opacity === '0') return true;
+          return false;
+        };
+        return hidden(one) && !hidden(two);
+      });
+      assert.ok(
+        await main.evaluate(() =>
+          [...document.querySelectorAll('video')].every((v) => v.paused),
+        ),
+        'view switch preserves shared buffering',
+      );
+      await main.bringToFront();
+      await main.evaluate(() => document.activeElement?.blur());
+      await main.keyboard.press('Shift+2');
+      await main.waitForFunction(() =>
+        [...document.querySelectorAll('video')].every((v) => {
+          for (let e = v; e; e = e.parentElement)
+            if (getComputedStyle(e).opacity === '0') return false;
+          return true;
+        }),
+      );
+      console.log('Angle view switch and restore during hold passed');
       await timeline.keyboard.down('ArrowRight');
       await main.waitForFunction(() =>
         [...document.querySelectorAll('video')].every(
@@ -200,6 +249,25 @@ try {
   assert.ok(
     seeks <= 2,
     `buffering must not trigger correction loops (${seeks})`,
+  );
+  // A genuinely missing local source must fail independently and release its peer.
+  await main.evaluate(() => {
+    const video = document.querySelectorAll('video')[1];
+    video.src = new URL('does-not-exist.mp4', video.currentSrc).href;
+    video.load();
+  });
+  await main.waitForFunction(() =>
+    Boolean(document.querySelectorAll('video')[1].error),
+  );
+  const beforeError = await main.evaluate(
+    () => document.querySelector('video').currentTime,
+  );
+  await main.waitForFunction((before) => {
+    const video = document.querySelector('video');
+    return !video.paused && video.currentTime > before + 0.4;
+  }, beforeError);
+  console.log(
+    'Missing local source raises a native error; healthy peer resumes',
   );
   console.log(
     `Both decoder waits hold all angles, recover and respect pause (${seeks} seeks)`,
