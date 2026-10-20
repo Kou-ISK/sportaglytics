@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 
 export interface SingleVideoPlayerProps {
+  holdPlayback?: boolean;
   videoSrc: string;
   id: string;
   isVideoPlaying: boolean;

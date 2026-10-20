@@ -2,6 +2,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # 開発ガイド
 
+長尺再生の回帰は`usePackagePlaybackClock.test.tsx`と`packagePlaybackReadiness.test.ts`でデコード待ち・復帰・明示シーク・アングル補正・空白・終了境界を検査します。実Electronでは`e2e-playback-buffering.mjs`で通常ファイルの片方のデコード待ち中に全アングルが待機し、表示切替・速度変更・同期ずれ・ファイル欠損・背景復帰・明示停止に従うことを検査します。`e2e-capture-gaps.mjs`では実MSEで録画の空白通過、短い音声末尾、僅かな再生ずれ、空白への明示シークとパッケージ終端を検査します。`e2e-multi-clip-playback.mjs`と`e2e-live-capture.mjs`で境界や録画への影響も確認します。ローカル実映像の性能測定は許可されたコピーと独立profileを使い、実データ・名前・画像を公開fixtureへ含めないでください。
+
 終了時保存を変更する場合は[ADR 0068](adr/0068-timeline-close-save-handshake.md)に従い、hookの同一tick編集・行補完、typed preloadの送信元、Mainの全owner準備とatomic write待機を検証します。`pnpm run e2e:prepare && node scripts/e2e-timeline-close.mjs`は合成データで実保存・別process再開を確認します。ライブ停止後に終了が取り消された場合も、次の録画の終了待ちを省略しないでください。
 
 Tabアクション巡回を変更するときは、[Timeline review](timeline-review.md)の適用範囲と[ADR 0064](adr/0064-scoped-tab-action-navigation.md)を確認します。選択・DOMフォーカス・実映像シークを隔離したElectron試験で同時に検証し、通常アプリや実試合データを使わないでください。
@@ -445,7 +447,7 @@ Sorterは[Hudlの2024年の公式説明](https://www.hudl.com/blog/databases-in-
 
 ### ウィンドウ連携と追尾の変更時
 
-`e2e-event-detection.mjs`は合成パッケージを使い、正式ロゴ、解析画面の独立、閉じて再表示した実行状態、狭幅での操作、映像ウィンドウのサイズ維持、ウィンドウ群の前面表示ハンドラーを確認します。前面表示はElectronのfocusイベントを注入して実native APIの呼出順とfocus維持を検査するもので、OSの実際の重なり順・仮想デスクトップを自動保証する試験ではありません。`eventDetectionWindow.test.ts`はSession境界、Controllerのテストは背景実行中のTimeline編集と所有元終了を検証します。
+`e2e-event-detection.mjs`は合成パッケージを使い、正式ロゴ、解析画面の独立、閉じて再表示した実行状態、狭幅での操作、映像ウィンドウのサイズ維持、ウィンドウ群の前面表示ハンドラーを確認します。前面表示はElectronのfocusイベントを注入して実native APIの呼出順とfocus維持を検査するもので、OSの実際の重なり順・仮想デスクトップを自動保証する試験ではありません。`applicationWindowActivation.test.ts`は非表示・最小化・破棄後の遅延focusを無視することを検査し、`e2e-window-security.mjs`でも実nativeウィンドウが非表示を保つことを確認します。`eventDetectionWindow.test.ts`はSession境界、Controllerのテストは背景実行中のTimeline編集と所有元終了を検証します。
 
 追尾は`anchoredFeatureTracker.test.ts`で既知の端数移動・拡大と足元座標を使い、従来の平行移動積算と比較します。合成映像の誤差を実試合の精度として扱いません。
 

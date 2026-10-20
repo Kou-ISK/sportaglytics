@@ -42,8 +42,21 @@ try {
     timeout: 10_000,
   });
 
-  const menuSnapshot = await electronApp.evaluate(({ Menu }) => {
-    const applicationMenu = Menu.getApplicationMenu();
+  const menuSnapshot = await electronApp.evaluate(async ({ Menu }) => {
+    // Main installs the native menu after loading settings, which can finish
+    // after the renderer is already visible (especially in packaged builds).
+    const deadline = Date.now() + 10_000;
+    let applicationMenu = Menu.getApplicationMenu();
+    while (
+      !applicationMenu?.getMenuItemById('create-code-window') &&
+      Date.now() < deadline
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      applicationMenu = Menu.getApplicationMenu();
+    }
+    if (!applicationMenu?.getMenuItemById('create-code-window')) {
+      throw new Error('The native application menu was not ready.');
+    }
     const fileMenu = applicationMenu?.items.find(
       (item) => item.label === 'ファイル',
     );
