@@ -146,6 +146,7 @@
       "fast-uri": "3.1.8",
       "joi@18": "18.2.9",
       "wait-on>axios": "1.20.0",
+      "axios>follow-redirects": "1.16.1",
       "source-map-js": "1.2.2",
       "@electron/get@3.1.0>global-agent": "4.1.3"
     },

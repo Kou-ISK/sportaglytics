@@ -1,303 +1,111 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  declaredObservedWidgets,
+  declaredBootstrapWidgets,
   IFRAME_API_URL,
-  OBSERVED_WIDGET_URLS,
   inspectLoadedYouTubeBootstrap,
   isClassifiedStartupRequest,
 } from './e2e-tactical-startup-http.mjs';
 
-const [OBSERVED_WIDGET_URL, UPDATED_WIDGET_URL, LATEST_WIDGET_URL] =
-  OBSERVED_WIDGET_URLS;
-// Exact request observed in Windows run 38365031661. Sources below are synthetic.
-const WINDOWS_WIDGET_URL =
-  'https://www.youtube.com/s/player/ec429320/www-widgetapi.vflset/www-widgetapi.js';
+// Exact shape observed in installed Windows run 39791130218. Source fixtures
+// below are synthetic; they do not substitute for same-run CDP evidence.
+const OBSERVED_WIDGET_URL =
+  'https://www.youtube.com/s/player/55de7e60/www-widgetapi.vflset/www-widgetapi.js';
+const NEXT_WIDGET_URL = OBSERVED_WIDGET_URL.replace('55de7e60', 'abcdef12');
+const request = { phase: 'startup', type: 'script', url: OBSERVED_WIDGET_URL };
 
 describe('tactical board startup HTTP boundary', () => {
-  it.each([
-    [
-      { phase: 'startup', type: 'script', url: WINDOWS_WIDGET_URL },
-      [WINDOWS_WIDGET_URL],
-      true,
-    ],
-    [{ phase: 'startup', type: 'script', url: WINDOWS_WIDGET_URL }, [], false],
-    [
-      { phase: 'startup', type: 'script', url: WINDOWS_WIDGET_URL },
-      [LATEST_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'startup', type: 'script', url: LATEST_WIDGET_URL },
-      [WINDOWS_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'recognition', type: 'script', url: WINDOWS_WIDGET_URL },
-      [WINDOWS_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'startup', type: 'fetch', url: WINDOWS_WIDGET_URL },
-      [WINDOWS_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'startup', type: 'script', url: `${WINDOWS_WIDGET_URL}?x=1` },
-      [`${WINDOWS_WIDGET_URL}?x=1`],
-      false,
-    ],
-    [
-      {
-        phase: 'startup',
-        type: 'script',
-        url: WINDOWS_WIDGET_URL.replace(
-          'www.youtube.com',
-          'www.youtube.com.evil.test',
-        ),
-      },
-      [
-        WINDOWS_WIDGET_URL.replace(
-          'www.youtube.com',
-          'www.youtube.com.evil.test',
-        ),
-      ],
-      false,
-    ],
-    [
-      {
-        phase: 'startup',
-        type: 'script',
-        url: WINDOWS_WIDGET_URL.replace('ec429320', 'unobserved'),
-      },
-      [WINDOWS_WIDGET_URL.replace('ec429320', 'unobserved')],
-      false,
-    ],
-  ])(
-    'requires exact current proof for the Windows widget: %j',
-    (request, proof, accepted) => {
-      expect(Boolean(isClassifiedStartupRequest(request, proof))).toBe(
-        accepted,
-      );
-    },
-  );
-
-  it('extracts only the observed Windows URL from its own synthetic bootstrap declaration', () => {
-    for (const quote of ["'", '"']) {
-      for (const url of [
-        WINDOWS_WIDGET_URL,
-        WINDOWS_WIDGET_URL.replaceAll('/', '\\/'),
-      ]) {
-        expect(
-          declaredObservedWidgets(`const url = ${quote}${url}${quote};`),
-        ).toEqual([WINDOWS_WIDGET_URL]);
+  it.each([OBSERVED_WIDGET_URL, NEXT_WIDGET_URL])(
+    'classifies each revision only with its own loaded declaration: %s',
+    (url) => {
+      for (const quote of ["'", '"']) {
+        for (const literal of [url, url.replaceAll('/', '\\/')]) {
+          const proof = declaredBootstrapWidgets(
+            `const src = ${quote}${literal}${quote};`,
+          );
+          expect(proof).toEqual([url]);
+          expect(isClassifiedStartupRequest({ ...request, url }, proof)).toBe(
+            true,
+          );
+        }
       }
-    }
+      expect(isClassifiedStartupRequest({ ...request, url }, [])).toBe(false);
+    },
+  );
+
+  it('does not reuse another revision declaration or duplicate proof', () => {
+    const proof = declaredBootstrapWidgets(
+      `const a = '${OBSERVED_WIDGET_URL}', b = '${OBSERVED_WIDGET_URL}';`,
+    );
+    expect(proof).toEqual([OBSERVED_WIDGET_URL]);
     expect(
-      declaredObservedWidgets(`const url = '${LATEST_WIDGET_URL}';`),
-    ).not.toContain(WINDOWS_WIDGET_URL);
-    expect(
-      declaredObservedWidgets(`const url = '${WINDOWS_WIDGET_URL}?x=1';`),
-    ).toEqual([]);
-    expect(
-      declaredObservedWidgets(
-        `const url = '${WINDOWS_WIDGET_URL.replace('ec429320', 'unobserved')}';`,
-      ),
-    ).toEqual([]);
+      isClassifiedStartupRequest({ ...request, url: NEXT_WIDGET_URL }, proof),
+    ).toBe(false);
   });
 
-  it.each([
-    [
-      { phase: 'startup', type: 'script', url: LATEST_WIDGET_URL },
-      [LATEST_WIDGET_URL],
-      true,
-    ],
-    [{ phase: 'startup', type: 'script', url: LATEST_WIDGET_URL }, [], false],
-    [
-      {
-        phase: 'startup',
-        type: 'script',
-        url: LATEST_WIDGET_URL.replace('www.youtube.com', 'example.test'),
-      },
-      [LATEST_WIDGET_URL.replace('www.youtube.com', 'example.test')],
-      false,
-    ],
-    [
-      {
-        phase: 'startup',
-        type: 'script',
-        url: LATEST_WIDGET_URL.replace('22cb88bc', 'unobserved'),
-      },
-      [LATEST_WIDGET_URL.replace('22cb88bc', 'unobserved')],
-      false,
-    ],
-    [
-      { phase: 'startup', type: 'script', url: LATEST_WIDGET_URL },
-      [UPDATED_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'recognition', type: 'script', url: LATEST_WIDGET_URL },
-      [LATEST_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'startup', type: 'fetch', url: LATEST_WIDGET_URL },
-      [LATEST_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'startup', type: 'script', url: `${LATEST_WIDGET_URL}?x=1` },
-      [LATEST_WIDGET_URL],
-      false,
-    ],
-    [{ phase: 'startup', type: 'script', url: IFRAME_API_URL }, [], true],
-    [
-      { phase: 'startup', type: 'script', url: OBSERVED_WIDGET_URL },
-      [OBSERVED_WIDGET_URL],
-      true,
-    ],
-    [{ phase: 'startup', type: 'script', url: OBSERVED_WIDGET_URL }, [], false],
-    [
-      { phase: 'startup', type: 'script', url: UPDATED_WIDGET_URL },
-      [UPDATED_WIDGET_URL],
-      true,
-    ],
-    [
-      { phase: 'startup', type: 'script', url: UPDATED_WIDGET_URL },
-      [OBSERVED_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'startup', type: 'script', url: OBSERVED_WIDGET_URL },
-      [UPDATED_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'recognition', type: 'script', url: UPDATED_WIDGET_URL },
-      [UPDATED_WIDGET_URL],
-      false,
-    ],
-    [
-      {
-        phase: 'startup',
-        type: 'script',
-        url: 'https://example.test/model.bin',
-      },
-      ['https://example.test/model.bin'],
-      false,
-    ],
-    [
-      { phase: 'recognition', type: 'script', url: IFRAME_API_URL },
-      [OBSERVED_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'recognition', type: 'script', url: OBSERVED_WIDGET_URL },
-      [OBSERVED_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'startup', type: 'fetch', url: OBSERVED_WIDGET_URL },
-      [OBSERVED_WIDGET_URL],
-      false,
-    ],
-    [
-      { phase: 'startup', type: 'script', url: `${OBSERVED_WIDGET_URL}?x=1` },
-      [OBSERVED_WIDGET_URL],
-      false,
-    ],
-    [
-      {
-        phase: 'startup',
-        type: 'script',
-        url: OBSERVED_WIDGET_URL.replace(
-          'www.youtube.com',
-          'www.youtube.com.evil.test',
-        ),
-      },
-      [OBSERVED_WIDGET_URL],
-      false,
-    ],
-    [
-      {
-        phase: 'startup',
-        type: 'script',
-        url: OBSERVED_WIDGET_URL.replace('8ab5c328', 'other'),
-      },
-      [OBSERVED_WIDGET_URL],
-      false,
-    ],
-    [
-      {
-        phase: 'startup',
-        type: 'script',
-        url: 'https://example.test/model.bin',
-      },
-      [OBSERVED_WIDGET_URL],
-      false,
-    ],
-    [
-      {
-        phase: 'startup',
-        type: 'script',
-        url: IFRAME_API_URL.replace('https:', 'http:'),
-      },
-      [OBSERVED_WIDGET_URL],
-      false,
-    ],
-  ])(
-    'classifies only a proved exact startup script: %j',
-    (request, proof, accepted) => {
-      expect(Boolean(isClassifiedStartupRequest(request, proof))).toBe(
-        accepted,
+  const invalidURLs = [
+    OBSERVED_WIDGET_URL + '?x=1',
+    OBSERVED_WIDGET_URL + '#part',
+    OBSERVED_WIDGET_URL + '\n',
+    OBSERVED_WIDGET_URL.replace('https:', 'http:'),
+    OBSERVED_WIDGET_URL.replace('www.youtube.com', 'youtube.com'),
+    OBSERVED_WIDGET_URL.replace('www.youtube.com', 'www.youtube.com.evil.test'),
+    OBSERVED_WIDGET_URL.replace('www.youtube.com', 'www.youtube.com@evil.test'),
+    OBSERVED_WIDGET_URL.replace('www.youtube.com', 'user@www.youtube.com'),
+    OBSERVED_WIDGET_URL.replace('www.youtube.com', 'www.youtube.com:443'),
+    OBSERVED_WIDGET_URL.replace('/s/player/', '/s/player/../player/'),
+    OBSERVED_WIDGET_URL.replace('55de7e60', 'other'),
+    OBSERVED_WIDGET_URL.replace('55de7e60', '55DE7E60'),
+    OBSERVED_WIDGET_URL.replace('55de7e60', '55de7e600'),
+    OBSERVED_WIDGET_URL.replace('www-widgetapi.js', 'other.js'),
+    OBSERVED_WIDGET_URL.replace('/s/player/', '/s%2fplayer/'),
+    'https://example.test/model.bin',
+  ];
+  it.each(invalidURLs)(
+    'rejects a URL outside the exact shape even if declared: %s',
+    (url) => {
+      const source = `const src = ${JSON.stringify(url)};`;
+      expect(declaredBootstrapWidgets(source)).toEqual([]);
+      expect(isClassifiedStartupRequest({ ...request, url }, [url])).toBe(
+        false,
       );
     },
   );
 
-  it('requires the exact widget URL as a string literal in the loaded bootstrap', () => {
-    expect(
-      declaredObservedWidgets(`const url = '${OBSERVED_WIDGET_URL}';`),
-    ).toEqual([OBSERVED_WIDGET_URL]);
-    expect(
-      declaredObservedWidgets(
-        `const url = "${OBSERVED_WIDGET_URL.replaceAll('/', '\\/')}";`,
-      ),
-    ).toEqual([OBSERVED_WIDGET_URL]);
-    expect(
-      declaredObservedWidgets(`const url = '${OBSERVED_WIDGET_URL}?x=1';`),
-    ).toEqual([]);
-    expect(
-      declaredObservedWidgets(
-        `const url = '${OBSERVED_WIDGET_URL.replace('8ab5c328', 'other')}';`,
-      ),
-    ).toEqual([]);
-  });
+  it.each([
+    `// const src = '${OBSERVED_WIDGET_URL}';`,
+    `/* '${OBSERVED_WIDGET_URL}' */`,
+    `const text = ${JSON.stringify("const src = '" + OBSERVED_WIDGET_URL + "';")};`,
+    `const src = \`${OBSERVED_WIDGET_URL}\`;`,
+    `const src = 'https://www.youtube.com/s/player/' + '55de7e60/www-widgetapi.vflset/www-widgetapi.js';`,
+    `const src = '${OBSERVED_WIDGET_URL}' + '?x=1';`,
+    `const src = prefix + '${OBSERVED_WIDGET_URL}';`,
+    `const src = choose('${OBSERVED_WIDGET_URL}');`,
+    `const src = '${OBSERVED_WIDGET_URL}`, // Syntax error, not a loaded declaration.
+    '',
+  ])(
+    'does not infer declarations from non-literal or invalid code: %s',
+    (source) => {
+      expect(declaredBootstrapWidgets(source)).toEqual([]);
+    },
+  );
 
-  it('requires new widget proof from its own loaded bootstrap', () => {
-    expect(
-      declaredObservedWidgets(`const url = '${LATEST_WIDGET_URL}';`),
-    ).toEqual([LATEST_WIDGET_URL]);
-    expect(
-      declaredObservedWidgets(`const url = '${UPDATED_WIDGET_URL}';`),
-    ).not.toContain(LATEST_WIDGET_URL);
-    expect(
-      declaredObservedWidgets(`const url = '${LATEST_WIDGET_URL}?x=1';`),
-    ).toEqual([]);
-  });
-
-  it('keeps proof tied to each observed version instead of approving every known widget', () => {
-    expect(
-      declaredObservedWidgets(`const url = '${UPDATED_WIDGET_URL}';`),
-    ).toEqual([UPDATED_WIDGET_URL]);
-    expect(
-      declaredObservedWidgets(
-        `const urls = ['${OBSERVED_WIDGET_URL}', '${UPDATED_WIDGET_URL}'];`,
-      ),
-    ).toEqual([OBSERVED_WIDGET_URL, UPDATED_WIDGET_URL]);
-    expect(
-      declaredObservedWidgets(`const url = '${UPDATED_WIDGET_URL}?x=1';`),
-    ).toEqual([]);
-  });
+  it.each([OBSERVED_WIDGET_URL, IFRAME_API_URL])(
+    'keeps recognition, fetch and other phases out of the startup classification: %s',
+    (url) => {
+      expect(isClassifiedStartupRequest({ ...request, url }, [url])).toBe(true);
+      expect(
+        isClassifiedStartupRequest({ ...request, url, phase: 'recognition' }, [
+          url,
+        ]),
+      ).toBe(false);
+      expect(
+        isClassifiedStartupRequest({ ...request, url, phase: 'other' }, [url]),
+      ).toBe(false);
+      expect(
+        isClassifiedStartupRequest({ ...request, url, type: 'fetch' }, [url]),
+      ).toBe(false);
+    },
+  );
 
   it('reads only the already-loaded exact bootstrap and detaches its own CDP session', async () => {
     let parsed = () => {};
@@ -363,82 +171,5 @@ describe('tactical board startup HTTP boundary', () => {
         ),
       ),
     ).toBe(false);
-  });
-});
-
-describe('widget observed in installed Windows run 38597748824', () => {
-  const url =
-    'https://www.youtube.com/s/player/21090930/www-widgetapi.vflset/www-widgetapi.js';
-  it('requires its own exact loaded-bootstrap declaration and startup script phase', () => {
-    expect(declaredObservedWidgets(`const src = '${url}';`)).toEqual([url]);
-    const request = { phase: 'startup', type: 'script', url };
-    expect(isClassifiedStartupRequest(request, [url])).toBe(true);
-    expect(isClassifiedStartupRequest(request, [])).toBe(false);
-    expect(isClassifiedStartupRequest(request, [WINDOWS_WIDGET_URL])).toBe(
-      false,
-    );
-    expect(
-      isClassifiedStartupRequest({ ...request, phase: 'recognition' }, [url]),
-    ).toBe(false);
-    expect(
-      isClassifiedStartupRequest({ ...request, type: 'fetch' }, [url]),
-    ).toBe(false);
-    expect(
-      isClassifiedStartupRequest({ ...request, url: url + '?v=1' }, [
-        url + '?v=1',
-      ]),
-    ).toBe(false);
-  });
-});
-
-describe('widget observed in installed Windows run 38670235788', () => {
-  const url =
-    'https://www.youtube.com/s/player/0229cd64/www-widgetapi.vflset/www-widgetapi.js';
-  it('requires its own exact bootstrap proof without allowing recognition or other requests', () => {
-    expect(declaredObservedWidgets(`const src = '${url}';`)).toEqual([url]);
-    const request = { phase: 'startup', type: 'script', url };
-    expect(isClassifiedStartupRequest(request, [url])).toBe(true);
-    for (const proof of [[], [WINDOWS_WIDGET_URL]])
-      expect(isClassifiedStartupRequest(request, proof)).toBe(false);
-    expect(
-      isClassifiedStartupRequest({ ...request, phase: 'recognition' }, [url]),
-    ).toBe(false);
-    expect(
-      isClassifiedStartupRequest({ ...request, type: 'fetch' }, [url]),
-    ).toBe(false);
-    expect(
-      isClassifiedStartupRequest({ ...request, url: url + '?x=1' }, [
-        url + '?x=1',
-      ]),
-    ).toBe(false);
-  });
-});
-
-describe('widget observed in installed Windows run 38898095101', () => {
-  const url =
-    'https://www.youtube.com/s/player/c271e571/www-widgetapi.vflset/www-widgetapi.js';
-  it('requires its own exact bootstrap proof and preserves the HTTP boundary', () => {
-    for (const quote of ["'", '"']) {
-      expect(
-        declaredObservedWidgets(`const src = ${quote}${url}${quote};`),
-      ).toEqual([url]);
-    }
-    const request = { phase: 'startup', type: 'script', url };
-    expect(isClassifiedStartupRequest(request, [url])).toBe(true);
-    for (const proof of [[], [WINDOWS_WIDGET_URL]])
-      expect(isClassifiedStartupRequest(request, proof)).toBe(false);
-    for (const rejected of [
-      { ...request, phase: 'recognition' },
-      { ...request, type: 'fetch' },
-      { ...request, url: url + '?x=1' },
-      {
-        ...request,
-        url: url.replace('www.youtube.com', 'www.youtube.com.evil.test'),
-      },
-      { ...request, url: url.replace('c271e571', 'unobserved') },
-    ]) {
-      expect(isClassifiedStartupRequest(rejected, [rejected.url])).toBe(false);
-    }
-    expect(declaredObservedWidgets(`const src = '${url}?x=1';`)).toEqual([]);
   });
 });
