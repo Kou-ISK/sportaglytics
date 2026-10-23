@@ -167,6 +167,7 @@ export interface IElectronAPI {
   isSettingsWindowOpen: () => Promise<boolean>;
   analysis: IAnalysisWindowAPI;
   codingPanelWindow: ICodingPanelWindowAPI;
+  /** Automatic Timeline opening passes activate:false; explicit opens retain focus behavior. */
   timelineWindow: ITimelineWindowAPI;
   eventDetection: IEventDetectionAPI;
   eventDetectionWindow: IEventDetectionWindowAPI;

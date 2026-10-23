@@ -147,11 +147,11 @@ export const useTimelineWindowIntegration = (
 
   useEffect(() => {
     if (params.isFileSelected) {
-      void open();
+      void openTimelineWindow({ activate: false }).then(syncLatest);
       return;
     }
     void closeTimelineWindow();
-  }, [open, params.isFileSelected]);
+  }, [syncLatest, params.isFileSelected]);
 
   useEffect(() => {
     syncLatest();

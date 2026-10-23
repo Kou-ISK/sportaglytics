@@ -34,7 +34,8 @@ export const createTimelineWindowBridge = (
   };
 
   return {
-    openWindow: () => ipcRenderer.invoke(TIMELINE_WINDOW_CHANNELS.openWindow),
+    openWindow: (options) =>
+      ipcRenderer.invoke(TIMELINE_WINDOW_CHANNELS.openWindow, options),
     closeWindow: () => ipcRenderer.invoke(TIMELINE_WINDOW_CHANNELS.closeWindow),
     isWindowOpen: () =>
       ipcRenderer.invoke(TIMELINE_WINDOW_CHANNELS.isWindowOpen),

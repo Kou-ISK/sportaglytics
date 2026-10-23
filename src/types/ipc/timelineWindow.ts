@@ -93,8 +93,18 @@ export type TimelineWindowCommand =
   | { type: 'hotkey-key-down'; hotkeyId: string }
   | { type: 'hotkey-key-up'; hotkeyId: string };
 
+export interface TimelineWindowOpenOptions {
+  activate: boolean;
+}
+export const isTimelineWindowOpenOptions = (
+  value: unknown,
+): value is TimelineWindowOpenOptions =>
+  isObject(value) &&
+  Object.keys(value).length === 1 &&
+  typeof value.activate === 'boolean';
+
 export interface ITimelineWindowAPI {
-  openWindow: () => Promise<void>;
+  openWindow: (options?: TimelineWindowOpenOptions) => Promise<void>;
   closeWindow: () => Promise<void>;
   isWindowOpen: () => Promise<boolean>;
   syncToWindow: (payload: TimelineWindowSyncPayload) => void;

@@ -1,5 +1,6 @@
 import { registerEventDetectionWindowHandlers } from './eventDetectionWindow';
 import { registerLiveCaptureHandlers } from './liveCapture/captureHandlers';
+import { registerDocumentWindowTitle } from './documentWindowPresentation';
 import { registerApplicationWindowActivation } from './applicationWindowActivation';
 import { getRendererUrl } from './rendererUrl';
 import { sendPackageOpenWhenReady } from './packageOpenDelivery';
@@ -159,6 +160,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
     },
   });
 
+  registerDocumentWindowTitle(window, '再生画面');
   registerYoutubeEmbedClientIdentity(window.webContents.session);
   applyWindowSecurity(window);
   // Capture ownership while the window is live: `closed` runs after destruction.
