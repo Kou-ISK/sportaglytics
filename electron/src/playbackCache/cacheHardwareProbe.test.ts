@@ -105,10 +105,23 @@ it('requires one observed hardware player and rejects any software fallback', ()
 });
 it('closes the isolated probe before returning and retains idempotent cleanup', async () => {
   const { window, run } = await fixture();
-  await expect(run()).resolves.toEqual({
+  await expect(run()).resolves.toMatchObject({
     runtime: 'same-runtime',
     platformDecoder: true,
     softwareFallback: false,
+    probe: {
+      ended: true,
+      frames: 60,
+      maximumTime: 1.9,
+      properties: [
+        { playerId: 'owned', name: 'kIsPlatformVideoDecoder', value: 'true' },
+        {
+          playerId: 'owned',
+          name: 'kVideoDecoderName',
+          value: 'VideoToolboxVideoDecoder',
+        },
+      ],
+    },
   });
   expect(window.close).toHaveBeenCalledOnce();
   expect(retained).toHaveLength(1);
@@ -159,4 +172,15 @@ it('retains empty-directory cleanup when probe initialization cannot obtain an i
   expect(retained).toHaveLength(1);
   stat.mockRestore();
   await retained[0]();
+});
+
+it('keeps evidence snapshots isolated and rejects truncated hardware history', () => {
+  const proof = new CacheHardwareEvidence();
+  proof.observe('Media.playerPropertiesChanged', goodProperties);
+  proof.snapshot()[0].value = 'false';
+  expect(proof.snapshot()[0].value).toBe('true');
+  for (let index = 0; index < 256; index++)
+    proof.observe('Media.playerPropertiesChanged', goodProperties);
+  expect(proof.snapshot()).toHaveLength(512);
+  expect(() => proof.finish('runtime')).toThrow('CACHE_HARDWARE_UNCONFIRMED');
 });

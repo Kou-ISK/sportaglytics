@@ -6,7 +6,7 @@ import {
   arrayValue,
   exactKeys,
 } from '../../../src/shared/validation/jsonValues';
-import { assertCacheAudioPacketRange } from './cacheTimeRange';
+import { CacheAudioPacketRange } from './cacheTimeRange';
 import type { CacheMediaMetadata } from './cacheMediaMetadata';
 import {
   canonicalSeconds,
@@ -105,6 +105,7 @@ export class CacheTimingAccumulator {
   constructor(private readonly metadata: CacheMediaMetadata) {
     this.audio = metadata.audio.map((stream) => ({
       stream,
+      presentation: new CacheAudioPacketRange(stream),
       packets: 0,
       coversStart: false,
       coversEnd: false,
@@ -172,14 +173,13 @@ export class CacheTimingAccumulator {
       throw Error('CACHE_UNSUPPORTED_AUDIO_TIMES');
     track.firstPts ??= packet.pts;
     const side = packet.side_data_list?.[0];
-    const range = assertCacheAudioPacketRange(
-      track.stream,
+    const range = track.presentation.packet(
       packet.pts,
       packet.duration,
       side?.skip_samples ?? 0,
       side?.discard_padding ?? 0,
     );
-    if (track.packets === 0) track.coversStart = range.first;
+    track.coversStart ||= range.first;
     track.coversEnd = range.last;
     track.times.update(
       JSON.stringify([

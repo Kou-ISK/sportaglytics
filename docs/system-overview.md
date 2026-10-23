@@ -436,6 +436,6 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 パッケージopenの履歴列挙はWindow/requestに所属する専用progress/取消を持ち、reload・crash・close後の結果を採用しません。Sessionのbind/releaseも要求を照合します（[ADR 0072](adr/0072-cancellable-package-history-read.md)）。[再生用コピー基盤](playback-cache.md)はMain側policy/jobとprops-only Viewに分離し、単一の短尺MP4を対象に固定変換と停止中の再生切替へ接続しています。原本の保存形式は変更せず、自動変換・自動採用は行いません。長尺の実機効果は別途検証が必要です。
 
-再生用コピーの保存adapterはアプリ専用領域に隔離し、原本・タグ時計・package保存形式を変えません。全体hash・proof結合・中断stagingを含む容量計算とatomic公開を一時ファイルで検査していますが、通常アプリの生成/再生切替へはまだ接続していません。既存manifestは採用済み証明ではなく、再検証する候補として扱います。
+再生用コピーの保存adapterはアプリ専用領域に隔離し、原本・タグ時計・package保存形式を変えません。全体hash・proof結合・中断stagingを含む容量計算とatomic公開を一時ファイルで検査していますが、通常アプリの短尺生成/停止中再生切替へ接続しています。既存manifestは採用済み証明ではなく、再検証する候補として扱います。
 
-再生用コピーの所有process runnerは停止要求と終了確認を分離し、終了未確認中はコピー準備をbusyに保ちます。通常再生・package保存形式・原本は変更しません。固定recipe/validator/IPCが未接続のため、生成機能は引き続き無効です。
+再生用コピーの所有process runnerは停止要求と終了確認を分離し、終了未確認中はコピー準備をbusyに保ちます。通常再生・package保存形式・原本は変更しません。固定recipe/validator/IPCを短尺範囲へ接続しています。Mac主窓のnative音声選択をコピー/原本双方で復元し、読戻し不一致は採用を拒否します。成功artifactの実変換時間・全列/HW観測はMain内だけに保持します。

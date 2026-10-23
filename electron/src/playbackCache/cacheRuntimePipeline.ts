@@ -18,6 +18,8 @@ import { PlaybackCacheJob } from './cacheJob';
 import { runCacheConversion } from './cacheConversionRunner';
 import { spawnCacheWorker } from './cacheWorkerProcess';
 import { probeCacheHardware } from './cacheHardwareProbe';
+import type { CacheHardwareProbeResult } from './cacheHardwareProbe';
+import { CacheConversionEvidence } from './cacheConversionEvidence';
 import { isCacheValidationMatching } from './cachePolicy';
 import type { CacheExpectation, CacheValidation } from './cachePolicy';
 
@@ -31,6 +33,17 @@ export interface CachePreparedArtifact {
   expectation: CacheExpectation;
   candidate: CacheCandidate;
   audioTracks: number;
+  evidence: {
+    elapsedMs: number;
+    conversion: {
+      arguments: string[];
+      elapsedMs: number;
+      exitCode: 0;
+      stderr: string;
+      truncated: boolean;
+    };
+    validation: CacheValidation & { hardware: CacheHardwareProbeResult };
+  };
 }
 /** Main owns this entire promise, including preflight/probes, through shutdown.
  * signal cancellation never permits cleanup before owned work has closed. */
@@ -42,6 +55,9 @@ export const preparePlaybackCache = async (options: {
   retainJob: (job: PlaybackCacheJob) => void;
 }): Promise<CachePreparedArtifact> => {
   const { source, signal, assertOwner, notify } = options;
+  const started = performance.now();
+  let conversion: CachePreparedArtifact['evidence']['conversion'] | undefined;
+  let validated: CachePreparedArtifact['evidence']['validation'] | undefined;
   let staging: CacheStaging | undefined;
   const probeCleanups = new Set<() => Promise<void>>();
   let job: PlaybackCacheJob | undefined;
@@ -96,13 +112,22 @@ export const preparePlaybackCache = async (options: {
         capacity: owned.capacity,
         convert: async (workerSignal, progress, _budget, onStop) => {
           await check();
+          const argumentsList = buildCacheRecipe(
+            source.path,
+            owned.outputPath,
+            metadata,
+          );
+          const diagnostics = new CacheConversionEvidence();
+          const conversionStarted = performance.now();
           await runCacheConversion(
             (events) =>
-              spawnCacheWorker(
-                tools.ffmpeg,
-                buildCacheRecipe(source.path, owned.outputPath, metadata),
-                events,
-              ),
+              spawnCacheWorker(tools.ffmpeg, argumentsList, {
+                ...events,
+                output: (stream, bytes) => {
+                  if (stream === 'diagnostic') diagnostics.observe(bytes);
+                  events.output(stream, bytes);
+                },
+              }),
             {
               signal: workerSignal,
               durationSeconds: metadata.durationSeconds,
@@ -119,6 +144,12 @@ export const preparePlaybackCache = async (options: {
               stopWaiting: onStop,
             },
           );
+          conversion = {
+            arguments: argumentsList,
+            elapsedMs: performance.now() - conversionStarted,
+            exitCode: 0,
+            ...diagnostics.snapshot(),
+          };
         },
         validate: async (workerSignal) => {
           await check();
@@ -152,7 +183,9 @@ export const preparePlaybackCache = async (options: {
             },
           );
           await check();
-          const validation: CacheValidation = {
+          const validation: CacheValidation & {
+            hardware: CacheHardwareProbeResult;
+          } = {
             outputBytes: output.identity.bytes,
             outputSha256: output.identity.sha256,
             sourceAfter,
@@ -163,6 +196,7 @@ export const preparePlaybackCache = async (options: {
           if (!isCacheValidationMatching(expectation, validation))
             throw Error('CACHE_VALIDATION');
           await owned.seal(validation, workerSignal);
+          validated = validation;
           return validation;
         },
         publish: async () => {
@@ -192,7 +226,18 @@ export const preparePlaybackCache = async (options: {
     );
     if (!candidate) throw Error('CACHE_CANDIDATE_MISSING');
     await check();
-    return { job, expectation, candidate, audioTracks: metadata.audio.length };
+    if (!conversion || !validated) throw Error('CACHE_EVIDENCE_MISSING');
+    return {
+      job,
+      expectation,
+      candidate,
+      audioTracks: metadata.audio.length,
+      evidence: {
+        elapsedMs: performance.now() - started,
+        conversion,
+        validation: validated,
+      },
+    };
   } catch (error) {
     if (staging && !jobOwnsCleanup) await staging.discard();
     throw error;

@@ -14,11 +14,25 @@ import {
 } from '../../../src/shared/validation/jsonValues';
 import type { CacheValidation } from './cachePolicy';
 
+export type CacheHardwareProbeResult = CacheValidation['hardware'] & {
+  probe: {
+    ended: true;
+    frames: number;
+    maximumTime: number;
+    elapsedMs: number;
+    properties: { playerId: string; name: string; value: string }[];
+  };
+};
 export class CacheHardwareEvidence {
   private readonly players = new Set<string>();
   private platform = false;
   private decoder = false;
   private failed = false;
+  private readonly properties: {
+    playerId: string;
+    name: string;
+    value: string;
+  }[] = [];
   observe(method: string, value: unknown): void {
     if (method === 'Media.playerErrorsRaised') this.failed = true;
     if (method !== 'Media.playerPropertiesChanged') return;
@@ -31,6 +45,15 @@ export class CacheHardwareEvidence {
       });
       this.players.add(playerId);
       for (const property of properties) {
+        if (
+          ['kIsPlatformVideoDecoder', 'kVideoDecoderName'].includes(
+            property.name,
+          )
+        ) {
+          if (this.properties.length >= 512)
+            throw Error('CACHE_HARDWARE_EVIDENCE_LIMIT');
+          this.properties.push({ playerId, ...property });
+        }
         if (property.name === 'kIsPlatformVideoDecoder') {
           if (property.value === 'true') this.platform = true;
           else this.failed = true;
@@ -44,6 +67,10 @@ export class CacheHardwareEvidence {
     } catch {
       this.failed = true;
     }
+  }
+
+  snapshot(): { playerId: string; name: string; value: string }[] {
+    return this.properties.map((property) => ({ ...property }));
   }
 
   finish(runtime: string): CacheValidation['hardware'] {
@@ -67,7 +94,8 @@ export const probeCacheHardware = async (
   signal: AbortSignal,
   stopWaiting: (unconfirmed: boolean) => void,
   retainCleanup: (cleanup: () => Promise<void>) => void,
-): Promise<CacheValidation['hardware']> => {
+): Promise<CacheHardwareProbeResult> => {
+  const started = performance.now();
   signal.throwIfAborted();
   const directory = await fs.mkdtemp(
     path.join(privateDirectory, 'cache-probe-'),
@@ -213,7 +241,16 @@ export const probeCacheHardware = async (
         integerValue(state.frames, 1);
         if (numberValue(state.maximumTime) <= 0)
           throw Error('CACHE_HARDWARE_NO_FRAMES');
-        return evidence.finish(runtime);
+        return {
+          ...evidence.finish(runtime),
+          probe: {
+            ended: true,
+            frames: integerValue(state.frames, 1),
+            maximumTime: numberValue(state.maximumTime),
+            elapsedMs: performance.now() - started,
+            properties: evidence.snapshot(),
+          },
+        };
       }
       await delay(100, undefined, { signal });
     }

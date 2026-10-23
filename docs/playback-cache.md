@@ -14,11 +14,17 @@ UIの「再生用コピー」から手動開始・取消・片付け再試行・
 
 再生ソース切替は元のvideoList/configを変えず、プレイヤーの現在位置・音量・mute・再生速度・音声選択を保存する。新しいresourceのmetadata、seek完了、decoded readinessを確認してから選択を確定する。確認待ち中のseekやplayは取消へつなぎ、古い位置へ戻さない。複数音声の選択をnative APIで確認できないruntimeでは採用を拒否する。コピーのduration通知はパッケージへ保存せず、失敗時と採用後のdecode errorは停止して原本復帰を試す。原本にも読込失敗がある場合はエラーを示し、復旧済みとは扱わない。
 
+Mac主再生WindowではChromiumの`AudioVideoTracks`だけを有効にし、native `audioTracks`の各enabled状態を切替前に保存し、コピーと原本の両方で全trackを復元・読戻し照合する。未知の長さ、track数不一致、書込無反映は失敗にする。Video.jsのemulated track一覧をnative音声選択の証明には使わない。このBlink機能はexperimentalであり、Electron更新ごとに3音声以上の実機採用/復帰を再確認する。音声選択UIの追加や新しいOS権限は伴わない。
+
+成功artifactはMain内だけに、変換processのcloseまでの所要時間、固定引数、最大256KiBのstderr（切詰め有無付き）、全時刻/音声検証、HW propertiesと最後までの提示フレーム観測を保持する。これらをRenderer IPCやpackage保存へ追加せず、ready manifestだけを成功証明にしない。診断の取得時はpathなどを含む私的データとして扱い、公開前に除去する。失敗時の詳細ログ永続化や再起動後の証跡回収はこの実装の範囲外である。
+
 ## 原本と時計
 
 原本のパス、パッケージのconfig、タグ、同期補正、Playlist参照、書き出し元を変更しない。再生用コピーは端末内の削除・再生成可能な派生物とする。既存の `sourceTime = globalTime + angleOffset - timelineStartSeconds` をそのまま適用できるコピーだけを受け入れる。blob録画・YouTube・収録中の可変ファイルは対象外とする。
 
 フィールド符号化は全フィールドの表示時刻を保持したprogressive動画へ変換する。固定fpsへの間引き、タグ時刻の倍率変更、音声の再サンプルで辻褄を合わせない。fpsの有理数、表示フレーム数、全表示PTS/duration列（末尾フレームの終了時刻を含む）を正規化した有理秒で比較する。音声は全trackを順序と対応を保ってcopyし、全packetのPTS/DTS/duration、payload、codec設定・channel layout・sample rate・言語/既定track属性を比較する。`CacheTimingProof`のdigestはこの完全な列の証明であり、先頭・末尾・平均fpsだけで生成してはならない。
+
+AAC先頭のskip_samplesが複数packetを跨ぐ場合はsample数を繰り越し、最初の提示時刻がstream開始に厳密一致することを検査する。全skip packetもpayload/PTS/DTS/side dataのhashへ含め、二度目のskip、途中padding、終端超過、欠落を拒否する。
 
 原本の全体hash・サイズとrecipe版、実行環境を期待値へ固定する。検証はMainが実データから計算し、原本が処理中に変わった場合、track欠落、時刻不一致、ソフトウェアfallback、runtime変更を拒否する。JSONに書かれた成功値やRendererから渡されたboolを検証結果としない。policyは信頼できるMain validatorの結果を照合する境界とする。probeがerrorを報告した場合は終了コード0でも失敗とする。
 

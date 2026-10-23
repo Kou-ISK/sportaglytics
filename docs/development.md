@@ -502,3 +502,5 @@ BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-doc
 変換runnerは`runCacheConversion`へ保存層の`checkBudget`と明示期限を渡し、停止状態callbackをjobへ接続します。`close`前にconvertをrejectしてstaging削除を始めないでください。単一pollと終了未確認のbusy維持は合成workerで検査し、実process停止・固定recipe・Main終了時の所有は別の接続検証とします。
 
 再生用コピーのMain/preload境界は `src/shared/validation/jsonValues.ts` の依存なしJSON readerで検証する。Mainは外部runtime dependencyを同梱しない構成を維持し、`build:electron-main` の配布依存検査を省略しない。
+
+再生用コピーの複数音声検証では、Mac主窓で限定有効化した`AudioVideoTracks`の長さ・enabled配列をコピー採用前後/原本復帰後で照合してください。API無効・track欠落・setter無反映はunitで拒否を確認します。実機は製品の再生/停止/seek操作を使い、共通時計と競合する直接`video.play()`を計測側から呼ばないでください。変換の所要時間はMain成功artifactのprocess実測を使用し、poll状態の差や無音合成素材の値から実素材を保証しません。HW生観測・全時刻/音声proof・原本hashを私的証跡へ保存し、実音声同期/物理scrubをAPI観測と区別します。

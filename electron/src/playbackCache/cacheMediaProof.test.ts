@@ -248,3 +248,47 @@ it('fixes the bundled hardware recipe without truncation, fps coercion or audio 
     buildCacheRecipe('/a.mp4', '/b.mp4', input(), 'win32'),
   ).toThrow();
 });
+
+it('preserves multi-packet priming and hashes fully skipped packets on all tracks', () => {
+  const make = (
+    mutate = false,
+  ): ReturnType<CacheTimingAccumulator['finish']> => {
+    const metadata = input();
+    for (const stream of metadata.audio) {
+      stream.start_pts = 0;
+      stream.duration_ts = 1440;
+    }
+    metadata.video.start_pts = 0;
+    const proof = new CacheTimingAccumulator(metadata);
+    proof.frame(frame(0, 40));
+    proof.frame(frame(40, 40));
+    for (const index of [1, 2, 3]) {
+      for (const pts of [-2656, -1632, -608, 416]) {
+        const value = packet(index, pts);
+        if (mutate && index === 2 && pts === -1632)
+          value.data_hash = 'SHA256:' + 'f'.repeat(64);
+        proof.packet(
+          pts === -2656
+            ? {
+                ...value,
+                side_data_list: [
+                  {
+                    side_data_type: 'Skip Samples',
+                    skip_samples: 2656,
+                    discard_padding: 0,
+                    skip_reason: 0,
+                    discard_reason: 0,
+                  },
+                ],
+              }
+            : value,
+        );
+      }
+    }
+    return proof.finish();
+  };
+  const expected = make();
+  expect(expected.audio.map((track) => track.packets)).toEqual([4, 4, 4]);
+  expect(make()).toEqual(expected);
+  expect(make(true)).not.toEqual(expected);
+});

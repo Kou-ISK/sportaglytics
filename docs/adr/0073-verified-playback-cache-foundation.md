@@ -30,6 +30,12 @@ Proposed
 
 派生物をpackage保存形式へ混ぜず端末cacheへ隔離し、原本hash・recipe・runtimeと全列検証に合格した完成品だけを選ぶ。コピー完成で自動切替せず、停止中に明示選択し、原本へ戻れるようにする。タグ時計・同期補正・書き出し元は原本のまま維持する。
 
+Mac主Windowには`AudioVideoTracks`だけを`enableBlinkFeatures`で指定し、native音声選択をコピー/原本の双方で読戻し照合する。[Chromium 150の定義](https://github.com/chromium/chromium/blob/150.0.7871.250/third_party/blink/renderer/platform/runtime_enabled_features.json5)ではexperimentalであるため、実機資格確認をruntime更新のgateに含める。[Electronの個別指定](https://www.electronjs.org/docs/latest/api/structures/web-preferences)を使い、全experimental機能やOSアクセス権限を一括で有効にしない。APIが利用不能・選択を書き戻せないときは複数音声の採用を拒否し続ける。
+
+AAC先頭の複数packetにまたがるprimingは[FFmpegのsample繰越処理](https://github.com/FFmpeg/FFmpeg/blob/master/libavcodec/decode.c)に対応する状態付き検査で扱う。提示開始の厳密一致と全packet hashを維持し、範囲外を無条件に切り詰めて合格させない。
+
+成功時の変換/全列/HW観測をMain内の上限付き証跡として保持し、diagnostic poll間隔から変換速度を推定しない。証跡を新しいIPCや保存形式へ露出させない。
+
 ## Consequences
 
 通常再生への安全な接続には信頼できるvalidator、所有process/容量監視、atomic公開、起動時照合、実再生と実音声の検証が必要である。基盤の合成テストをHW効果の証拠とは扱わず、全長変換や自動有効化をこの段階で開始しない。

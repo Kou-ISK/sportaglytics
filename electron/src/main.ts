@@ -150,6 +150,10 @@ const createWindow = async (): Promise<BrowserWindow> => {
     height: 1000,
     icon: path.join(__dirname, '../../public/icon.icns'),
     webPreferences: {
+      // Chromium 150 gates the real audio selection API behind this one feature.
+      // Needed for verified multi-track cache switches; no OS permission change.
+      enableBlinkFeatures:
+        process.platform === 'darwin' ? 'AudioVideoTracks' : undefined,
       preload: preloadPath,
       contextIsolation: true,
       sandbox: true,
