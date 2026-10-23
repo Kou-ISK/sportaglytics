@@ -16,6 +16,7 @@ const run = async (
   context: CacheProbeContext,
   args: string[],
   consume: (text: string) => void,
+  threads: 2 | 4 = 2,
 ): Promise<void> => {
   const decoder = new StringDecoder('utf8');
   let failed = false;
@@ -27,7 +28,7 @@ const run = async (
           '-v',
           'error',
           '-threads',
-          '2',
+          String(threads),
           '-protocol_whitelist',
           'file,pipe',
           '-format_whitelist',
@@ -115,6 +116,9 @@ export const probeCacheTiming = async (
       source,
     ],
     (text) => frames.write(text),
+    // Decode every frame with bounded parallelism; packet/metadata reads stay
+    // at two threads and still run only after this worker has closed.
+    4,
   );
   frames.finish();
   if (metadata.audio.length) {

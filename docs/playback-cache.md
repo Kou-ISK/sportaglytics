@@ -10,6 +10,8 @@ Mac同梱の `h264_videotoolbox`、`allow_sw=0`、必要時だけ `bwdif=send_fi
 
 出力の全時刻・音声・全体hash検査後、同じElectron runtimeの隔離Windowで対象コピーを最後まで読み、フレーム提示とVideoToolbox継続を確認する。ネットワーク・IPC・権限要求は許可せず、debugger切断やdecoder errorも不合格にする。これは短尺のqualificationであり、製品UIの実音声や物理操作の代わりにはならない。入力/出力の全走査と等速再生確認には追加時間とCPU/GPU負荷がかかる。製品方式の速度推定は実測未確立のためUIへ架空の所要時間を表示しない。
 
+全フレームの検査はFFprobeのデコードを4スレッドに制限し、metadataと全音声packetの検査は2スレッドとする。各workerの終了を待って順番に実行し、全件照合・error時の拒否・取消・終了確認を維持する。CPUの並列度を増やす調整であり、完了時間の保証ではない。検査件数の削減やHW確認の短縮で待ち時間を隠さない。
+
 UIの「再生用コピー」から手動開始・取消・片付け再試行・停止中の採用/原本復帰を行う。生成合計8GiB、1本1GiB、空き容量2GiBのreserveを設定し、既存readyとpendingも総量へ算入する。Mainはdocument generation、Session、config revision、clip identityを照合し、Rendererから任意path/args/proofを受け取らない。終了時はpreflight/probe/変換を含む処理をcancelして終了確認まで待ち、新しい開始を止める。停止未確認は強制終了せずbusyを維持する。
 
 再生ソース切替は元のvideoList/configを変えず、プレイヤーの現在位置・音量・mute・再生速度・音声選択を保存する。新しいresourceのmetadata、seek完了、decoded readinessを確認してから選択を確定する。確認待ち中のseekやplayは取消へつなぎ、古い位置へ戻さない。複数音声の選択をnative APIで確認できないruntimeでは採用を拒否する。コピーのduration通知はパッケージへ保存せず、失敗時と採用後のdecode errorは停止して原本復帰を試す。原本にも読込失敗がある場合はエラーを示し、復旧済みとは扱わない。
