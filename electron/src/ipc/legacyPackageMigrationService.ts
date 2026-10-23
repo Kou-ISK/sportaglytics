@@ -31,6 +31,10 @@ export interface PackageOpenOptions {
   index?: PackageMigrationIndex;
   choose?: ChoosePackageContent;
   assertAvailable?: AssertPackageAvailable;
+  historyRead?: {
+    signal?: AbortSignal;
+    directoryWaiting?: (waiting: boolean) => void;
+  };
 }
 const pending = new Map<string, Promise<PackageOpenReadyResult>>();
 
@@ -38,6 +42,7 @@ const prepare = async (
   source: string,
   options: PackageOpenOptions,
 ): Promise<PackageOpenReadyResult> => {
+  options.historyRead?.signal?.throwIfAborted();
   if (isPackageUpdating(source)) throw new Error('PACKAGE_UPDATE_BUSY');
   const backupRecord = path.join(
     path.dirname(path.dirname(source)),
@@ -58,9 +63,14 @@ const prepare = async (
   }
   const recovered = await recoverPackageUpdate(source, options.assertAvailable);
   const compatibility = await inspectPackageCompatibility(source);
+  options.historyRead?.signal?.throwIfAborted();
   if (compatibility.missingMedia.length)
     throw new Error('PACKAGE_MEDIA_MISSING');
-  const restored = await isPackageRestoredFromBackup(source);
+  const restored = await isPackageRestoredFromBackup(
+    source,
+    options.historyRead,
+  );
+  options.historyRead?.signal?.throwIfAborted();
   if (!compatibility.needsMigration && !restored) {
     const receipt = await readUpdateReceipt(source);
     if (

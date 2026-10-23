@@ -1,3 +1,4 @@
+import type { PackageOpenProgress } from './types/package/openProgress';
 import type {
   FrameCaptureRequest,
   FrameCaptureResult,
@@ -66,7 +67,12 @@ export interface IElectronAPI {
   ) => Promise<PackageDatas>;
   preparePackageForOpen?: (
     packagePath: string,
+    requestId?: string,
   ) => Promise<PackageOpenPreparationResult>;
+  cancelPackageOpen?: (requestId: string) => Promise<boolean>;
+  onPackageOpenProgress?: (
+    callback: (state: PackageOpenProgress) => void,
+  ) => () => void;
   onMenuShowStats: (
     callback: (requestedView?: AnalysisView) => void,
   ) => () => void;
@@ -171,8 +177,14 @@ export interface IElectronAPI {
     layout: { aspectRatio: number; width: number; height: number } | null,
   ) => void;
   setWindowTitle: (title: string) => void;
-  bindPackageSession?: (packagePath: string) => Promise<boolean>;
-  releasePackageSession?: (packagePath: string) => Promise<boolean>;
+  bindPackageSession?: (
+    packagePath: string,
+    requestId?: string,
+  ) => Promise<boolean>;
+  releasePackageSession?: (
+    packagePath: string,
+    requestId?: string,
+  ) => Promise<boolean>;
   previewClipExportText?: (
     request: import('./shared/clipExport/clipExportTypes').ClipExportTextPreviewRequest,
   ) => Promise<

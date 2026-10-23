@@ -286,3 +286,36 @@ it('opens a restored legacy document after its enclosing folder was moved', asyn
   expect(await memoAt(moved)).toBe('Original');
   expect(await packageCopyDigest(result.backupPath!)).toBe(before);
 });
+
+it('cancels delayed sibling enumeration without adopting or writing, and permits retry', async () => {
+  const { source, before, root } = await fixture(false);
+  const readdir = fs.readdir.bind(fs);
+  let release: (value: string[]) => void = () => undefined;
+  const deferred = new Promise<string[]>((resolve) => {
+    release = resolve;
+  });
+  const reading = vi.spyOn(fs, 'readdir').mockImplementation((...args) => {
+    if (String(args[0]) === root && args.length === 1) return deferred;
+    return Reflect.apply(readdir, fs, args);
+  });
+  const controller = new AbortController();
+  const waiting = vi.fn();
+  const choose = vi.fn(originalChoice);
+  const pending = preparePackageForOpen(source, {
+    choose,
+    historyRead: { signal: controller.signal, directoryWaiting: waiting },
+  });
+  const outcome = expect(pending).rejects.toThrow('PACKAGE_OPEN_CANCELLED');
+  await vi.waitFor(() => expect(waiting).toHaveBeenCalledWith(true));
+  controller.abort();
+  await outcome;
+  reading.mockRestore();
+  release(await fs.readdir(root));
+  await Promise.resolve();
+  expect(choose).not.toHaveBeenCalled();
+  expect(await packageCopyDigest(source)).toBe(before);
+  await expect(
+    preparePackageForOpen(source, { choose: async () => null }),
+  ).rejects.toThrow('PACKAGE_MIGRATION_CANCELLED');
+  expect(await packageCopyDigest(source)).toBe(before);
+});
