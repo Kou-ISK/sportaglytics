@@ -129,7 +129,7 @@ export class CacheTimingAccumulator {
       !Number.isSafeInteger(frame.pts + frame.duration) ||
       (interlaced &&
         frame.top_field_first !==
-          (['tt', 'bt'].includes(video.field_order ?? '') ? 1 : 0)) ||
+          (this.metadata.displayScan === 'top-first' ? 1 : 0)) ||
       (this.previous &&
         (frame.pts !== this.previous.pts + this.previous.duration ||
           (interlaced && frame.duration !== this.previous.duration)))

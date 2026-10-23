@@ -9,6 +9,8 @@ import {
 } from '../../../src/shared/validation/jsonValues';
 import { assertCacheStreamSpan } from './cacheTimeRange';
 import { createHash } from 'node:crypto';
+import { declaredCacheDisplayScan } from './cacheDisplayScan';
+import type { CacheDisplayScan } from './cacheDisplayScan';
 
 export interface CacheMediaStream {
   index: number;
@@ -90,6 +92,8 @@ export interface CacheMediaMetadata {
   video: CacheMediaStream;
   audio: CacheMediaStream[];
   interlaced: boolean;
+  displayScan: CacheDisplayScan;
+  displayScanEvidence: 'stream' | 'decoded-prefix';
   timeScale: number;
   outputFps: { numerator: number; denominator: number };
   durationSeconds: number;
@@ -120,7 +124,10 @@ export const mediaConfigurationHash = (stream: CacheMediaStream): string =>
 
 /** Initial supported path: closed MP4, one SDR 4:2:0 video followed by AAC.
  * Other layouts are rejected before conversion, never flattened. */
-export const parseCacheMediaMetadata = (value: unknown): CacheMediaMetadata => {
+export const parseCacheMediaMetadata = (
+  value: unknown,
+  decodedScan?: CacheDisplayScan,
+): CacheMediaMetadata => {
   const parsed = {
     streams: arrayValue(objectValue(value).streams, 1, 9).map(parseStream),
   };
@@ -136,9 +143,6 @@ export const parseCacheMediaMetadata = (value: unknown): CacheMediaMetadata => {
     video.width % 2 ||
     video.height % 2 ||
     video.pix_fmt !== 'yuv420p' ||
-    !['progressive', 'tt', 'bb', 'tb', 'bt'].includes(
-      video.field_order ?? '',
-    ) ||
     !['1:1', undefined].includes(video.sample_aspect_ratio) ||
     (video.side_data_list?.length ?? 0) !== 0 ||
     !['bt709', undefined].includes(video.color_space) ||
@@ -159,22 +163,31 @@ export const parseCacheMediaMetadata = (value: unknown): CacheMediaMetadata => {
     throw Error('CACHE_UNSUPPORTED_MEDIA');
   const base = rational(video.time_base);
   const fps = rational(video.avg_frame_rate);
-  const interlaced = video.field_order !== 'progressive';
-  const multiplier = interlaced ? 2 : 1;
   if (
     base.numerator !== 1 ||
     base.denominator > 100000000 ||
     fps.numerator <= 0 ||
-    (fps.numerator / fps.denominator) * multiplier > 120 ||
+    fps.numerator / fps.denominator > 120 ||
     video.start_pts < 0 ||
     video.duration_ts / base.denominator > CACHE_MAX_DURATION_SECONDS
   )
     throw Error('CACHE_UNSUPPORTED_TIMING');
   assertCacheStreamSpan(parsed.streams);
+  const declaredScan = declaredCacheDisplayScan(video.field_order);
+  if (declaredScan && decodedScan && declaredScan !== decodedScan)
+    throw Error('CACHE_UNSUPPORTED_DISPLAY_SCAN');
+  const displayScan = declaredScan ?? decodedScan;
+  if (!displayScan) throw Error('CACHE_FIELD_ORDER_UNAVAILABLE');
+  const interlaced = displayScan !== 'progressive';
+  const multiplier = interlaced ? 2 : 1;
+  if ((fps.numerator / fps.denominator) * multiplier > 120)
+    throw Error('CACHE_UNSUPPORTED_TIMING');
   return {
     video,
     audio,
     interlaced,
+    displayScan,
+    displayScanEvidence: declaredScan ? 'stream' : 'decoded-prefix',
     timeScale: base.denominator * multiplier,
     outputFps: {
       numerator: fps.numerator * multiplier,

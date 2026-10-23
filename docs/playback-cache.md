@@ -83,3 +83,5 @@ AAC先頭のskip_samplesが複数packetを跨ぐ場合はsample数を繰り越�
 5. 全長作成の実行範囲・所要時間・容量を別途確認する。通常のコード/合成テストの承認を、全長変換・原本置換・新アクセス権限・外部送信の許可と解釈しない。
 
 短尺接続はこの作業票に紐づく段階実装であり、長尺対応と実機検証を完了した通常リリースではない。[例外台帳](architecture-exceptions.md)を参照。再生効果が未確認のまま通常リリースしない。
+
+streamの`field_order`欠落は、raw値を保持したまま64 packetまでの短いdecoded prefixでdisplay scanを仮分類する。表示順(top-first/bottom-first)と符号化順(tt等)を混同しない。空/混在/属性欠落/診断エラーは拒否し、literal unknownや既知値の矛盾は救済しない。仮分類後も全尺frameのscan・PTS/duration・末尾と全音声packetの照合を必須にし、途中の形式変化を拒否する。prefix成功だけで生成・採用しない。既存のparity=autoは全frameで明示parityが確認された場合だけ使う。

@@ -431,3 +431,5 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 `playbackCache/cacheConversionEvidence.ts`は変換診断の上限付き収集を担当し、`cacheRuntimePipeline.ts`が成功artifactの全検証証跡と結合します。videoPlayerの`PlaybackCache/cacheNativeAudio.ts`はnative音声trackの構造検査・選択復元・読戻し照合を担当し、登録Hookから利用します。
 
 `playbackCache/cacheReusePipeline.ts`は保存済み候補の探索・再検証を所有し、`cacheRuntimeValidation.ts`は生成/reuse共通の全内容/HW validatorです。create/reuseのjob portsは変換・公開と再照合を区別し、取消/片付けの所有を共有します。
+
+`playbackCache/cacheDisplayScan.ts`はraw stream宣言と有界decoded prefixの表示順分類を担当します。`cacheProbe.ts`が所有workerを通して呼び、`cacheTimingAccumulator.ts`が全frameを再照合します。UI/IPCへ仮判定を公開しません。

@@ -190,8 +190,9 @@ it.each([
   ['tb', 0],
   ['bt', 1],
 ] as const)('uses displayed field order for %s', (order, top) => {
-  const metadata = input();
-  metadata.video.field_order = order;
+  const metadata = parseCacheMediaMetadata({
+    streams: [{ ...video, field_order: order }, audio(1), audio(2), audio(3)],
+  });
   const proof = new CacheTimingAccumulator(metadata);
   expect(() =>
     proof.frame({ ...frame(5000, 40), top_field_first: top }),

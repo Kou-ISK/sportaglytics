@@ -6,6 +6,7 @@ import { parseCacheMediaMetadata } from './cacheMediaMetadata';
 import type { CacheMediaMetadata } from './cacheMediaMetadata';
 import type { CacheTimingProof } from './cachePolicy';
 import { CacheTimingAccumulator } from './cacheTimingAccumulator';
+import { CacheDisplayScanPrefix } from './cacheDisplayScan';
 
 export interface CacheProbeContext {
   executable: string;
@@ -94,7 +95,39 @@ export const probeCacheMetadata = async (
     },
   );
   const value: unknown = JSON.parse(text);
-  return parseCacheMediaMetadata(value);
+  try {
+    return parseCacheMediaMetadata(value);
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      error.message !== 'CACHE_FIELD_ORDER_UNAVAILABLE'
+    )
+      throw error;
+  }
+  // Some MP4 headers omit field_order. Preserve that absence: classify display
+  // order separately, then require the existing full timing pass before use.
+  const prefix = new CacheDisplayScanPrefix();
+  const frames = new ProbeJsonSequence('frames', (frame) =>
+    prefix.frame(frame),
+  );
+  await run(
+    context,
+    [
+      '-select_streams',
+      'v:0',
+      '-read_intervals',
+      '%+#64',
+      '-show_frames',
+      '-show_entries',
+      'frame=interlaced_frame,top_field_first,repeat_pict',
+      '-of',
+      'json',
+      source,
+    ],
+    (part) => frames.write(part),
+  );
+  frames.finish();
+  return parseCacheMediaMetadata(value, prefix.finish());
 };
 export const probeCacheTiming = async (
   source: string,
