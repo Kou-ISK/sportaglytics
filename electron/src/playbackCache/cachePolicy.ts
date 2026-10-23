@@ -35,6 +35,8 @@ export interface CacheExpectation {
 
 export interface CacheValidation {
   outputBytes: number;
+  /** Full output digest computed by the trusted validator, not its manifest. */
+  outputSha256: string;
   sourceAfter: CacheSourceIdentity;
   recipe: string;
   timing: CacheTimingProof;
@@ -80,6 +82,7 @@ export const isCacheValidationMatching = (
   actual: CacheValidation,
 ): boolean =>
   positive(actual.outputBytes) &&
+  digest(actual.outputSha256) &&
   isCacheExpectationValid(expected) &&
   expected.source.sha256 === actual.sourceAfter.sha256 &&
   expected.source.bytes === actual.sourceAfter.bytes &&

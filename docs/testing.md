@@ -321,3 +321,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 `cacheJob.test.ts`はfps/全表示時刻/全音声packet・設定の照合、原本変更、容量、取消後の遅い完了、片付け失敗、明示的な停止中選択を合成portsで検査します。実変換・ディスクatomic公開・HW再生の証拠ではありません。`PlaybackCacheView`のStory/テストは進行・取消・原本へ戻す・失敗の導線を検査します。実装と未接続範囲は[設計](playback-cache.md)を参照してください。
 
 `packageHistoryRead` / `packageOpenHandlers` / preload bridge / startup Hook・Gateway・Viewの回帰は、待機取消、late結果/エラー、reload/crash、unmount、他Window/旧request拒否、取消送信失敗を検査します。`packageBackupRestoration`は取消後に原本bytesと履歴判定が保持され、再試行可能なことを実一時ファイルで確認します。`packageSessionRegistry`は同Window/同pathの後続bindを旧cleanupが解放しないことを確認します。対応OSの実open/preload E2Eと遅い保存先での応答は別検証です。
+
+`sourceIdentity.test.ts`は全bytes/取消/差替え/特殊ファイル拒否を、`cacheStorage.test.ts`は実一時ファイルを使い、job接続、seal前採用拒否、出力hashとの結合、容量/中断job/同時writer、後続差替え、symlink/hardlink、片付け失敗と再試行、公開先保全、ready改変の検出を確認します。合成proofを使うため、動画の全列validator・HW効果・process停止・実音声の検証ではありません。

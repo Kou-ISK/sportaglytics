@@ -494,3 +494,5 @@ BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-doc
 `pnpm run check:event-model-release`は公開candidate catalogとapp-to-model lock、根拠ファイルのhashを検査します。`test:run` / `test:ci`でもchecked-in metadataと合成負例を検査します。アプリ版を変更するときはlockを明示更新してください。モデルの取得・runner実行・署名は開始しません。現時点は空catalogによるモデルなし判断で、実pack同梱は[選定方針と残る工程](event-model-release-policy.md)に従って別実装します。
 
 再生用コピーは[有効化条件](playback-cache.md)を満たすまで通常再生へ接続しません。`electron/src/playbackCache`の検証用portsは実FFmpeg/HW効果の代替ではありません。パッケージopenの取消は専用IPCを使い、読み取り待ちの中止と更新commitの完了を区別してください。
+
+保存adapterの`openPlaybackCacheStorage`にはMainが所有するアプリdata領域と明示的な総容量/空き容量reserveを渡します。生成中は所有runnerが`checkBudget`を監視し、process終了後のvalidate段階で`seal(validation, signal)`、最後に`publish`を呼びます。hash中の取消を維持するため、sealをpublish内へ移さないでください。private一時ファイルの検査と、実FFmpeg/IPC/再生選択の接続・OS別試験は区別します。

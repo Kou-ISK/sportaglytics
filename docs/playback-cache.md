@@ -1,6 +1,6 @@
 # 再生用コピーの基盤と有効化条件
 
-本書は CACHE-1 の設計・実装範囲を記録する。現時点ではジョブ制御・検証契約・propsだけで描画するViewを実装し、合成テストとStorybookで使用する。本番FFmpeg・保存・IPC・再生ソースへのadapterは未接続であり、通常アプリは変換を開始せず原本を再生する。再生改善・実音声同期・物理scrubを確認済みとは扱わない。[ADR 0073](adr/0073-verified-playback-cache-foundation.md)。
+本書は CACHE-1 の設計・実装範囲を記録する。現時点ではジョブ制御・検証契約・propsだけで描画するViewに加え、取消可能な全体hashとMain用filesystem保存adapterを実装している。保存adapterは一時ファイルによる回帰でjobへ接続し、通常アプリからは呼んでいない。本番FFmpeg・全列validator・IPC・再生ソースへのadapterは未接続であり、通常アプリは変換を開始せず原本を再生する。再生改善・実音声同期・物理scrubを確認済みとは扱わない。[ADR 0073](adr/0073-verified-playback-cache-foundation.md)。
 
 ## 原本と時計
 
@@ -16,7 +16,19 @@
 - 明示した容量上限と空き容量のreserveを先に確認する。runnerは同じ上限/reserveを受け取り、実際の出力増加と空き容量を監視して停止する。推定だけで容量を保証しない。既存コピーや原本を自動削除して容量を捻出しない。
 - Mainが専用cache root内にjob固有のstagingを作る。原本、package、外部指定pathを出力先にしない。symlinkを追わず、失敗時は自分のstagingだけを片付ける。
 - 取消は変換・検証へ伝える。所有するworker/processの終了を確認するまで次のjobを開始せず、遅い成功やprogressを無視する。片付けが失敗したら状態を保持し、明示的な片付け再試行が成功するまで再変換しない。
-- 全検証後、immutableなartifactとmanifestを同じ単位でatomicに公開する。公開中は取消を受けず、公開完了だけで再生対象を変更しない。公開失敗・途中終了のstagingは採用不可とする。再起動時にready以外を採用せず、原本hash/recipe/runtimeが一致しないreadyも無効とする。これらfilesystem保証は未実装adapterの必須条件である。
+- 全検証後、immutableなartifactとmanifestを同じ単位でatomicに公開する。公開中は取消を受けず、公開完了だけで再生対象を変更しない。公開失敗・途中終了のstagingは採用不可とする。再起動時にready以外を採用せず、原本hash/recipe/runtimeが一致しないreadyも無効とする。保存adapterは同じroot内のrenameでmediaとmanifestを一緒に公開する。電源断後の永続性を保証するものではなく、消失・不完全な候補は再生へ採用しない。
+
+## 実装済みの保存adapterと境界
+
+`sourceIdentity.ts`は既存Sessionが許可した、録画中ではない通常ファイルをread-onlyで1MiBずつ全体hashする。中止時はhandleを閉じ、読込中のサイズ・inode・mtime/ctime変更、パス差替え、symlinkを拒否する。hash対象の権限・録画中判定はMainの呼出側が行う。原本を再度識別する工程を省略しない。
+
+`openPlaybackCacheStorage`のparentはMainが選ぶアプリ専用data領域に限定し、packageやRenderer入力を渡さない。`playback-cache-v1`内で同Mainの複数Window/adapterを通じて1writerとし、別Main processは別rootを使う。上限と空き容量reserveは必須引数であり、無制限の既定値は持たない。既存readyと中断stagingを総容量へ数え、自動削除しない。`capacity`は生成前に、`checkBudget`は生成中の所有runnerが定期的に確認する。**runnerによる監視・停止はまだ未接続**であり、保存adapter単体を実変換中の容量強制保証としない。
+
+生成先はjob固有の固定名だけをMainに渡す。停止済みworkerの出力に対し、取消可能な`seal`で時刻/音声/HW proofと実出力の全体SHA-256を結合し、media/manifestをsyncする。validatorの`outputSha256`は同じ出力から計算する。長いhash検査を取消できない公開段階へ移さない。`publish`はseal後の変更と容量を再確認してrenameし、既存の公開先は置換しない。公開後はそのjobの`discard`でも削除しない。
+
+失敗時は所有するstaging内の既知2ファイルだけをunlinkし、再帰削除しない。未知ファイルやdirectory差替えで片付けを拒否した場合、writer所有を保持し、片付け再試行が成功するまで新jobを受けない。中断した別jobのstagingは採用・自動削除せず、容量へ数える。再起動後の中断jobの所有確認と明示的な削除UIは未実装である。
+
+`inspectCandidate`はopaque IDのreadyだけを読み、期待原本/recipe/runtimeキーと実bytes/hashを照合する。これは**候補の整合検査**であり、書換え可能なmanifestを時刻・音声・HWの証明として信頼しない。再生へ採用する前にMain validatorが実内容を検証する。candidateの一覧・再起動時の自動再利用・既存readyの削除はまだ接続していない。ここでの差替え防止はアプリ所有のprivate領域を前提とし、同じOSユーザーによる敵対的な全path操作を原子的に隔離する仕組みではない。
 
 ## 操作
 
@@ -26,7 +38,7 @@
 
 この作業票の担当はmaintainers、基盤だけを置く期限は2026-10-30（merge/release前に再確認）とする。
 
-1. 同梱FFmpegのfield-rate filter/encoder/全track copy能力と配布由来を確認し、容量監視・所有process取消・atomic保存adapterを実装する。任意コマンド/pathを受けるIPCは追加しない。
+1. 同梱FFmpegのfield-rate filter/encoder/全track copy能力と配布由来を確認し、容量監視・所有process取消を実装し、実装済み保存adapterを接続する。任意コマンド/pathを受けるIPCは追加しない。
 2. 全列を計算するvalidatorと、原本identity・再起動復旧・削除/再生成・同時job/複数Windowのテストを追加する。source指定は既存Sessionの許可された動画だけに限定する。
 3. 合成field/VFR/非ゼロPTS/複数音声/多角度/複数clip/blob除外を検査し、既存タグ・出力・保存の不変を確認する。
 4. 調整済み実機試験でHW継続、再生drop/waiting/underflow、停止seek・押下中フレーム・最終位置・再開、実音声同期を比較する。計測APIによる合成入力と物理操作の成績を区別する。

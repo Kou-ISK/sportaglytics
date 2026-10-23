@@ -32,6 +32,7 @@ const expected: CacheExpectation = {
 };
 const proof = (): CacheValidation => ({
   outputBytes: 2000,
+  outputSha256: hash,
   sourceAfter: { ...expected.source },
   recipe: expected.recipe,
   timing: structuredClone(expected.timing),

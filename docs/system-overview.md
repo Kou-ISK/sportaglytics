@@ -433,3 +433,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 公開model catalogとapp-to-model lockはrepo側の配布計画で、runtime discoveryやユーザーのローカルpackとは分離します。最新の承認済み・アプリ版対応・全target対応候補を版順で決定し、hashと根拠を照合する基盤を持ちます。現在は空catalogで、実pack取得・同梱・rollback例外は未実装です。[契約と境界](event-model-release-policy.md)、[ADR 0071](adr/0071-release-time-model-selection.md)。
 
 パッケージopenの履歴列挙はWindow/requestに所属する専用progress/取消を持ち、reload・crash・close後の結果を採用しません。Sessionのbind/releaseも要求を照合します（[ADR 0072](adr/0072-cancellable-package-history-read.md)）。[再生用コピー基盤](playback-cache.md)はMain側policy/jobとprops-only Viewに分離し、本番adapterへの接続・保存形式の変更・自動変換は行っていません。
+
+再生用コピーの保存adapterはアプリ専用領域に隔離し、原本・タグ時計・package保存形式を変えません。全体hash・proof結合・中断stagingを含む容量計算とatomic公開を一時ファイルで検査していますが、通常アプリの生成/再生切替へはまだ接続していません。既存manifestは採用済み証明ではなく、再検証する候補として扱います。
