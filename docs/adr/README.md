@@ -135,3 +135,4 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 - [0064 Scoped Tab action navigation](0064-scoped-tab-action-navigation.md): 選択したアクションのTab巡回を限定したフォーカス範囲で復元。0055のTab判断のみを置換（Accepted）。
 
 - [0072 Cancellable package history read](0072-cancellable-package-history-read.md): 履歴列挙の取消、失効要求とSession所有の保護（Accepted）。
+- [0073 Verified playback cache foundation](0073-verified-playback-cache-foundation.md): 原本保持の派生再生と有効化前の検証条件（Proposed）。

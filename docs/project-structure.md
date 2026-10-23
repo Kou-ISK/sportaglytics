@@ -419,3 +419,5 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 合成負荷の生成と計測は`scripts/synthetic-timeline-workload.mjs` / `scripts/benchmark-synthetic-timeline.mjs`、その検査は`scripts/tests/synthetic-timeline-workload.mjs`、公開可能な生データは`docs/reports/data/`に置きます。計測専用の純粋関数参照は[限定例外ARCH-EX-002](architecture-exceptions.md)で管理します。
 
 `resources/event-model-release/`は公開可能な候補metadata、app-to-model lock、hash付き根拠要約だけを置きます。重み・動画・private manifestは置きません。純粋な選定/検査は`scripts/event-model-release-policy.mjs`、有界なローカルファイル検査は`scripts/check-event-model-release.mjs`、合成負例は`scripts/tests/event-model-release-policy.mjs`へ分離します。既存`resources/event-detection-models/`の実pack stagingとは別で、electron-builderへの同梱対象追加は行いません。
+
+`electron/src/playbackCache`は端末内派生動画のpolicy/job基盤、`src/types/playbackCache.ts`は表示契約、videoPlayerの`components/PlaybackCache`はprops-only View/Storyです。本番adapter接続前の範囲と期限は[再生用コピー設計](playback-cache.md)に記録します。パッケージopen登録は`ipc/packageOpenHandlers.ts`、取消/所有管理は`packageOpenOperations.ts`、OS読込結果の失効は`packageHistoryRead.ts`へ分離します。

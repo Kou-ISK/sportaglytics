@@ -315,3 +315,9 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 ## Model release selection foundation
 
 `node --test scripts/tests/event-model-release-policy.mjs`は版順、未承認/withdrawn/アプリ版不一致/target不足の除外、同版衝突、catalog・候補・根拠のhash改変、古いlock、noneとrollback拒否、symlink、CLI失敗時の入力非開示を合成データで確認します。checked-in catalog/lockとpackage.jsonの対応も実検査し、`test:run` / `test:ci`へ含めます。これは選定metadataの整合試験で、実モデル精度・許諾・target固有runtime・署名公証の試験ではありません。[実同梱前に必要な検証](event-model-release-policy.md#次の実装と受入条件)。
+
+## 再生用コピーと取消可能な履歴確認
+
+`cacheJob.test.ts`はfps/全表示時刻/全音声packet・設定の照合、原本変更、容量、取消後の遅い完了、片付け失敗、明示的な停止中選択を合成portsで検査します。実変換・ディスクatomic公開・HW再生の証拠ではありません。`PlaybackCacheView`のStory/テストは進行・取消・原本へ戻す・失敗の導線を検査します。実装と未接続範囲は[設計](playback-cache.md)を参照してください。
+
+`packageHistoryRead` / `packageOpenHandlers` / preload bridge / startup Hook・Gateway・Viewの回帰は、待機取消、late結果/エラー、reload/crash、unmount、他Window/旧request拒否、取消送信失敗を検査します。`packageBackupRestoration`は取消後に原本bytesと履歴判定が保持され、再試行可能なことを実一時ファイルで確認します。`packageSessionRegistry`は同Window/同pathの後続bindを旧cleanupが解放しないことを確認します。対応OSの実open/preload E2Eと遅い保存先での応答は別検証です。
