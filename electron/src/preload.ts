@@ -14,6 +14,7 @@ import {
 } from './preload/listenerStore';
 import { createPlaylistBridge } from './preload/playlistBridge';
 import { createPackageOpenBridge } from './preload/packageOpenBridge';
+import { createPlaybackCacheBridge } from './preload/playbackCacheBridge';
 import { createSettingsBridge } from './preload/settingsBridge';
 import { createTimelineWindowBridge } from './preload/timelineWindowBridge';
 import { createTimelinePersistenceBridge } from './preload/timelinePersistenceBridge';
@@ -35,6 +36,7 @@ try {
 
 const electronAPI = {
   timelinePersistence: createTimelinePersistenceBridge(ipcRenderer),
+  playbackCache: createPlaybackCacheBridge(ipcRenderer),
   liveCapture: createLiveCaptureBridge(ipcRenderer),
   ...createAppBridge(ipcRenderer, registerListener),
   ...createEventBridge(registerListener, listenerStore),

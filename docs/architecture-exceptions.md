@@ -22,4 +22,4 @@
 - 毎月 1 回、Open の例外を見直して優先順位を更新する。
 - 期限超過の例外は次スプリントで必ず解消計画を確定する。
 
-| ARCH-EX-003 | 2026-10-23 | 未使用経路の削除 | 再生用コピーのjob/policy/View/filesystem・process adapterを本番adapter未接続の基盤として置く | 原本・時刻・取消の境界を先に合成検証し、未検証変換を有効化しないため | `electron/src/playbackCache` と videoPlayer `components/PlaybackCache`。tests/Storyのみ利用 | 2026-10-30、merge/release前に接続または撤去を判断 | maintainers | [CACHE-1](playback-cache.md#cache-1-activation-gate) | Open |
+| ARCH-EX-003 | 2026-10-23 | 未使用経路の削除 | 再生用コピーを短尺qualificationの段階接続として置く | 長尺採用前に原本・全時刻・取消・実機効果を検証するため | `electron/src/playbackCache` と videoPlayer `components/PlaybackCache`。短尺手動UIとtests/Storyで利用 | 2026-10-30、merge/release前にqualification結果と長尺対応・撤去を判断 | maintainers | [CACHE-1](playback-cache.md#cache-1-activation-gate) | Open |

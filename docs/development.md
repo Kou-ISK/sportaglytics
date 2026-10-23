@@ -70,11 +70,11 @@ Mac受入では一時profileと合成21widget・24×24表だけを使い、obser
 
 ## 開発環境
 
-| ツール  | バージョン |
-| ------- | ---------- |
-| Node.js | 22.12以上  |
+| ツール  | バージョン                        |
+| ------- | --------------------------------- |
+| Node.js | 22.12以上                         |
 | pnpm    | 9.1.0（`packageManager`と同じ版） |
-| Git     | 最新版     |
+| Git     | 最新版                            |
 
 通常のElectron開発・配布にPython runtimeは不要です。Event modelのtraining/evaluationは別private R&D repositoryで管理します。
 
@@ -493,8 +493,10 @@ BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-doc
 
 `pnpm run check:event-model-release`は公開candidate catalogとapp-to-model lock、根拠ファイルのhashを検査します。`test:run` / `test:ci`でもchecked-in metadataと合成負例を検査します。アプリ版を変更するときはlockを明示更新してください。モデルの取得・runner実行・署名は開始しません。現時点は空catalogによるモデルなし判断で、実pack同梱は[選定方針と残る工程](event-model-release-policy.md)に従って別実装します。
 
-再生用コピーは[有効化条件](playback-cache.md)を満たすまで通常再生へ接続しません。`electron/src/playbackCache`の検証用portsは実FFmpeg/HW効果の代替ではありません。パッケージopenの取消は専用IPCを使い、読み取り待ちの中止と更新commitの完了を区別してください。
+再生用コピーの短尺接続の範囲と[通常リリース条件](playback-cache.md)を区別してください。120秒以内の全fileで実機qualificationを行い、全長変換は別途実行範囲を確認します。`electron/src/playbackCache`の検証用portsは実FFmpeg/HW効果の代替ではありません。パッケージopenの取消は専用IPCを使い、読み取り待ちの中止と更新commitの完了を区別してください。
 
 保存adapterの`openPlaybackCacheStorage`にはMainが所有するアプリdata領域と明示的な総容量/空き容量reserveを渡します。生成中は所有runnerが`checkBudget`を監視し、process終了後のvalidate段階で`seal(validation, signal)`、最後に`publish`を呼びます。hash中の取消を維持するため、sealをpublish内へ移さないでください。private一時ファイルの検査と、実FFmpeg/IPC/再生選択の接続・OS別試験は区別します。
 
 変換runnerは`runCacheConversion`へ保存層の`checkBudget`と明示期限を渡し、停止状態callbackをjobへ接続します。`close`前にconvertをrejectしてstaging削除を始めないでください。単一pollと終了未確認のbusy維持は合成workerで検査し、実process停止・固定recipe・Main終了時の所有は別の接続検証とします。
+
+再生用コピーのMain/preload境界は `src/shared/validation/jsonValues.ts` の依存なしJSON readerで検証する。Mainは外部runtime dependencyを同梱しない構成を維持し、`build:electron-main` の配布依存検査を省略しない。

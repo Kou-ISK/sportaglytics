@@ -1,6 +1,18 @@
 # 再生用コピーの基盤と有効化条件
 
-本書は CACHE-1 の設計・実装範囲を記録する。現時点ではジョブ制御・検証契約・propsだけで描画するViewに加え、取消可能な全体hashとMain用filesystem保存adapterを実装している。保存adapterは一時ファイルによる回帰でjobへ接続し、通常アプリからは呼んでいない。所有processのrunnerとjob/保存層の接続も合成workerで検査している。本番の変換recipe・全列validator・IPC・再生ソースへのadapterは未接続であり、通常アプリは変換を開始せず原本を再生する。再生改善・実音声同期・物理scrubを確認済みとは扱わない。[ADR 0073](adr/0073-verified-playback-cache-foundation.md)。
+本書は CACHE-1 の設計・実装範囲を記録する。Mainが所有する固定変換・全時刻/音声validator・IPCと、停止中の再生ソース切替を接続した。初期対応は **120秒以内・512MiB以内のファイル全体** に限定する。長いファイルを自動で切り出さず、全長変換・コピーの自動採用を行わない。実機での変換成功・再生改善・実音声同期・物理scrubは別の検証が必要であり、コード接続だけでは合格と扱わない。[ADR 0073](adr/0073-verified-playback-cache-foundation.md)。
+
+## 初期接続の範囲
+
+対象はmacOSのSessionへbind済みの単一angle・単一local clipで、閉じたMP4、H.264/MPEG-2のSDR 4:2:0、最大1920×1080、出力最大120fps、最大8本のAAC音声とする。字幕・data track・HDR・未知のfield順・fragmented MP4・収録中・blob・YouTube・複数clip/angleは受け入れない。interlacedは全frameのdurationが一定で、隣接PTSとfield順を説明できる場合だけ扱う。全streamの提示範囲に120秒上限を適用し、AACのpriming/paddingを含む全packetも照合する。
+
+Mac同梱の `h264_videotoolbox`、`allow_sw=0`、必要時だけ `bwdif=send_field` を使い、音声は全trackをcopyする。入力はmov demuxerへ固定し、protocolをfile/pipe、外部data referenceを禁止する。libx264のCRF方式とはencoder・品質制御が異なり、診断コピーの速度・容量・画質を製品方式の保証へ流用しない。PATH/Homebrew/環境変数のFFmpegへのfallbackはない。既存の同梱toolを使い、新しいbinaryや依存は追加しない。
+
+出力の全時刻・音声・全体hash検査後、同じElectron runtimeの隔離Windowで対象コピーを最後まで読み、フレーム提示とVideoToolbox継続を確認する。ネットワーク・IPC・権限要求は許可せず、debugger切断やdecoder errorも不合格にする。これは短尺のqualificationであり、製品UIの実音声や物理操作の代わりにはならない。入力/出力の全走査と等速再生確認には追加時間とCPU/GPU負荷がかかる。製品方式の速度推定は実測未確立のためUIへ架空の所要時間を表示しない。
+
+UIの「再生用コピー」から手動開始・取消・片付け再試行・停止中の採用/原本復帰を行う。生成合計8GiB、1本1GiB、空き容量2GiBのreserveを設定し、既存readyとpendingも総量へ算入する。Mainはdocument generation、Session、config revision、clip identityを照合し、Rendererから任意path/args/proofを受け取らない。終了時はpreflight/probe/変換を含む処理をcancelして終了確認まで待ち、新しい開始を止める。停止未確認は強制終了せずbusyを維持する。
+
+再生ソース切替は元のvideoList/configを変えず、プレイヤーの現在位置・音量・mute・再生速度・音声選択を保存する。新しいresourceのmetadata、seek完了、decoded readinessを確認してから選択を確定する。確認待ち中のseekやplayは取消へつなぎ、古い位置へ戻さない。複数音声の選択をnative APIで確認できないruntimeでは採用を拒否する。コピーのduration通知はパッケージへ保存せず、失敗時と採用後のdecode errorは停止して原本復帰を試す。原本にも読込失敗がある場合はエラーを示し、復旧済みとは扱わない。
 
 ## 原本と時計
 
@@ -8,11 +20,11 @@
 
 フィールド符号化は全フィールドの表示時刻を保持したprogressive動画へ変換する。固定fpsへの間引き、タグ時刻の倍率変更、音声の再サンプルで辻褄を合わせない。fpsの有理数、表示フレーム数、全表示PTS/duration列（末尾フレームの終了時刻を含む）を正規化した有理秒で比較する。音声は全trackを順序と対応を保ってcopyし、全packetのPTS/DTS/duration、payload、codec設定・channel layout・sample rate・言語/既定track属性を比較する。`CacheTimingProof`のdigestはこの完全な列の証明であり、先頭・末尾・平均fpsだけで生成してはならない。
 
-原本の全体hash・サイズとrecipe版、実行環境を期待値へ固定する。検証はMainが実データから計算し、原本が処理中に変わった場合、track欠落、時刻不一致、ソフトウェアfallback、runtime変更を拒否する。JSONに書かれた成功値やRendererから渡されたboolを検証結果としない。実装済みpolicyは信頼できるvalidatorの結果を照合する境界であり、validator自体やHW再生の実装ではない。
+原本の全体hash・サイズとrecipe版、実行環境を期待値へ固定する。検証はMainが実データから計算し、原本が処理中に変わった場合、track欠落、時刻不一致、ソフトウェアfallback、runtime変更を拒否する。JSONに書かれた成功値やRendererから渡されたboolを検証結果としない。policyは信頼できるMain validatorの結果を照合する境界とする。probeがerrorを報告した場合は終了コード0でも失敗とする。
 
 ## 容量・取消・失敗
 
-- サンプルの実測時間・容量を尺へ比例換算して「推定」と表示する。検証に必要な追加読込時間、素材によるbitrate変動、他処理の負荷は別途見込む。全長の保証値・完了予定時刻としない。
+- 同一recipeの実測がある場合だけ、時間・容量を尺へ比例換算して「推定」と表示する。検証に必要な追加読込時間、素材によるbitrate変動、他処理の負荷は別途見込む。全長の保証値・完了予定時刻としない。
 - 明示した容量上限と空き容量のreserveを先に確認する。runnerは同じ上限/reserveを受け取り、実際の出力増加と空き容量を監視して停止する。推定だけで容量を保証しない。既存コピーや原本を自動削除して容量を捻出しない。
 - Mainが専用cache root内にjob固有のstagingを作る。原本、package、外部指定pathを出力先にしない。symlinkを追わず、失敗時は自分のstagingだけを片付ける。
 - 取消は変換・検証へ伝える。所有するworker/processの終了を確認するまで次のjobを開始せず、遅い成功やprogressを無視する。片付けが失敗したら状態を保持し、明示的な片付け再試行が成功するまで再変換しない。
@@ -22,7 +34,7 @@
 
 `sourceIdentity.ts`は既存Sessionが許可した、録画中ではない通常ファイルをread-onlyで1MiBずつ全体hashする。中止時はhandleを閉じ、読込中のサイズ・inode・mtime/ctime変更、パス差替え、symlinkを拒否する。hash対象の権限・録画中判定はMainの呼出側が行う。原本を再度識別する工程を省略しない。
 
-`openPlaybackCacheStorage`のparentはMainが選ぶアプリ専用data領域に限定し、packageやRenderer入力を渡さない。`playback-cache-v1`内で同Mainの複数Window/adapterを通じて1writerとし、別Main processは別rootを使う。上限と空き容量reserveは必須引数であり、無制限の既定値は持たない。既存readyと中断stagingを総容量へ数え、自動削除しない。`capacity`は生成前に、`checkBudget`は生成中の所有runnerが定期的に確認する。`runCacheConversion`からの監視と停止要求を合成worker/実一時ファイルで検査しているが、通常アプリの実変換へは未接続である。poll間の出力増加やOSによる停止を含む厳密な実容量保証は未検証であり、保存adapter単体をその保証としない。
+`openPlaybackCacheStorage`のparentはMainが選ぶアプリ専用data領域に限定し、packageやRenderer入力を渡さない。`playback-cache-v1`内で同Mainの複数Window/adapterを通じて1writerとし、別Main processは別rootを使う。上限と空き容量reserveは必須引数であり、無制限の既定値は持たない。既存readyと中断stagingを総容量へ数え、自動削除しない。`capacity`は生成前に、`checkBudget`は生成中の所有runnerが定期的に確認する。`runCacheConversion`からの監視と停止要求を合成worker/実一時ファイルで検査しているが、固定recipeの実変換へ接続する。実機での監視・取消試験は別途必要である。poll間の出力増加やOSによる停止を含む厳密な実容量保証は未検証であり、保存adapter単体をその保証としない。
 
 生成先はjob固有の固定名だけをMainに渡す。停止済みworkerの出力に対し、取消可能な`seal`で時刻/音声/HW proofと実出力の全体SHA-256を結合し、media/manifestをsyncする。validatorの`outputSha256`は同じ出力から計算する。長いhash検査を取消できない公開段階へ移さない。`publish`はseal後の変更と容量を再確認してrenameし、既存の公開先は置換しない。公開後はそのjobの`discard`でも削除しない。
 
@@ -34,9 +46,9 @@
 
 `cacheConversionRunner.ts`は容量の事前確認と単一の定期確認、上限付きの進行行解析、診断出力量、実行期限を管理する。容量確認が応答しない場合も停止要求へ進み、遅い応答から次のpollや変換を再開しない。進行の`progress=end`や停止要求の成功をprocess終了と扱わず、`close`確認までconvertを完了しない。
 
-`cacheWorkerProcess.ts`はMain専用のdirect spawn adapterで、shellを使わず、所有childへSIGTERMだけを要求する。既存の汎用export runnerは変更しない。停止を確認できない場合はjobをbusyのまま保持し、Viewに終了未確認を示し、検証・公開・staging削除・再生成を進めない。強制終了へ自動昇格しない。終了要求への応答・アプリ自体を閉じる時のworker所有・再起動復旧は本番接続時に検証する。
+`cacheWorkerProcess.ts`はMain専用のdirect spawn adapterで、shellを使わず、所有childへSIGTERMだけを要求する。既存の汎用export runnerは変更しない。停止を確認できない場合はjobをbusyのまま保持し、Viewに終了未確認を示し、検証・公開・staging削除・再生成を進めない。強制終了へ自動昇格しない。アプリを閉じる際はTimeline保存より前にcache処理をdrainする。既知の片付け失敗が残っているclose/quitは中止し、UIから再試行できる状態へ戻す。予期しないWindow消失後の片付け失敗はMainが保持し、次の認可済みSessionから明示的に片付けを再試行できる。Main再起動後の中断jobの所有確認・削除UIは未実装である。
 
-呼出側は同梱実行ファイル、Session認可済み原本、固定recipe（`-progress pipe:1`）、所有staging出力だけを結合する。任意のRenderer path/argsを渡すAPIではない。現在はrecipe/全列validator/HW検査が未接続なので、通常アプリはこのspawn adapterを呼ばない。Mac同梱FFmpegはlibx264を含まずVideoToolboxを使用するため、別encoderで測った時間・容量・画質を製品方式の保証へ流用しない。
+呼出側は同梱実行ファイル、Session認可済み原本、固定recipe（`-progress pipe:1`）、所有staging出力だけを結合する。任意のRenderer path/argsを渡すAPIではない。HW検証用HTMLもjobのstaging内へ置き、所有Windowを閉じてから片付ける。片付けが失敗するとjobのretryCleanup対象として残す。Mac同梱FFmpegはlibx264を含まずVideoToolboxを使用するため、別encoderで測った時間・容量・画質を製品方式の保証へ流用しない。
 
 ## 操作
 
@@ -52,4 +64,4 @@
 4. 調整済み実機試験でHW継続、再生drop/waiting/underflow、停止seek・押下中フレーム・最終位置・再開、実音声同期を比較する。計測APIによる合成入力と物理操作の成績を区別する。
 5. 全長作成の実行範囲・所要時間・容量を別途確認する。通常のコード/合成テストの承認を、全長変換・原本置換・新アクセス権限・外部送信の許可と解釈しない。
 
-本番adapter未接続の基盤はこの作業票に紐づく一時的な段階実装である。[例外台帳](architecture-exceptions.md)を参照。再生効果が未確認のまま通常リリースしない。
+短尺接続はこの作業票に紐づく段階実装であり、長尺対応と実機検証を完了した通常リリースではない。[例外台帳](architecture-exceptions.md)を参照。再生効果が未確認のまま通常リリースしない。

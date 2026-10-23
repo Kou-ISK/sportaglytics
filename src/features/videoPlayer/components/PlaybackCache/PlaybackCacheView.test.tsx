@@ -72,6 +72,7 @@ it('keeps cancellation and original fallback available, but requires pause befor
     <PlaybackCacheView
       {...ready}
       status={{ ...ready.status, selected: 'cache' }}
+      paused
     />,
   );
   fireEvent.click(screen.getByRole('button', { name: '原本へ戻す' }));

@@ -34,6 +34,26 @@ export interface LlamaModelInfo {
 }
 
 export interface IElectronAPI {
+  playbackCache: {
+    inspect: () => Promise<
+      import('./types/ipc/playbackCache').PlaybackCacheSnapshot
+    >;
+    prepare: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
+    ) => Promise<void>;
+    cancel: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
+    ) => Promise<void>;
+    cleanup: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
+    ) => Promise<void>;
+    candidate: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
+    ) => Promise<import('./types/ipc/playbackCache').PlaybackCacheCandidate>;
+    selected: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheSelection,
+    ) => Promise<void>;
+  };
   timelinePersistence: ITimelinePersistenceAPI;
   liveCapture: ILiveCaptureAPI;
   openFile: () => Promise<string>;

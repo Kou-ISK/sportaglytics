@@ -27,7 +27,7 @@ export interface CacheJobPorts {
   discard: () => Promise<void>;
 }
 
-/** Foundation coordinator: deliberately has no production FFmpeg/IPC adapter yet. */
+/** Coordinates trusted Main adapters while keeping the original selected by default. */
 export class PlaybackCacheJob {
   private state: PlaybackCacheStatus = {
     phase: 'original',

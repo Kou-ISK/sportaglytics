@@ -94,16 +94,16 @@ export const PlaybackCacheView = (
           </Button>
         )}
         {status.selected === 'cache' && (
-          <Button onClick={props.onUseOriginal}>原本へ戻す</Button>
+          <Button disabled={!props.paused} onClick={props.onUseOriginal}>
+            原本へ戻す
+          </Button>
         )}
       </Stack>
-      {status.phase === 'ready' &&
-        !props.paused &&
-        status.selected === 'original' && (
-          <Typography variant="caption">
-            一時停止してから切り替えてください。
-          </Typography>
-        )}
+      {status.phase === 'ready' && !props.paused && (
+        <Typography variant="caption">
+          一時停止してから切り替えてください。
+        </Typography>
+      )}
     </Stack>
   );
 };

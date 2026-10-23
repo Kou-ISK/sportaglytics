@@ -420,7 +420,7 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 
 `resources/event-model-release/`は公開可能な候補metadata、app-to-model lock、hash付き根拠要約だけを置きます。重み・動画・private manifestは置きません。純粋な選定/検査は`scripts/event-model-release-policy.mjs`、有界なローカルファイル検査は`scripts/check-event-model-release.mjs`、合成負例は`scripts/tests/event-model-release-policy.mjs`へ分離します。既存`resources/event-detection-models/`の実pack stagingとは別で、electron-builderへの同梱対象追加は行いません。
 
-`electron/src/playbackCache`は端末内派生動画のpolicy/job基盤、`src/types/playbackCache.ts`は表示契約、videoPlayerの`components/PlaybackCache`はprops-only View/Storyです。本番adapter接続前の範囲と期限は[再生用コピー設計](playback-cache.md)に記録します。パッケージopen登録は`ipc/packageOpenHandlers.ts`、取消/所有管理は`packageOpenOperations.ts`、OS読込結果の失効は`packageHistoryRead.ts`へ分離します。
+`electron/src/playbackCache`は端末内派生動画のpolicy/job、固定recipe/全時刻validator、Session controllerを分離します。`src/types/playbackCache.ts`は表示契約、`src/types/ipc/playbackCache.ts`は狭いIPC payload schemaです。videoPlayerの`components/PlaybackCache`はprops-only View/Story、IPC controller hook、player切替transactionへ分離します。段階接続の範囲と期限は[再生用コピー設計](playback-cache.md)に記録します。パッケージopen登録は`ipc/packageOpenHandlers.ts`、取消/所有管理は`packageOpenOperations.ts`、OS読込結果の失効は`packageHistoryRead.ts`へ分離します。
 
 `playbackCache/sourceIdentity.ts`は取消可能なread-onlyの全体識別、`cacheStorageIo.ts`は限定されたfilesystem検査、`cacheStorage.ts`は容量/所有/公開と候補検査を担当します。UI、Session権限、実変換processの責務をこの層へ持ち込みません。
 

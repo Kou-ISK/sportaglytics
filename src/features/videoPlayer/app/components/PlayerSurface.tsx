@@ -5,6 +5,7 @@ import { VideoPlayer, VideoController } from '../..';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
 import { usePackagePlaybackClock } from '../hooks/usePackagePlaybackClock';
+import { PlaybackCacheBoundary } from '../../components/PlaybackCache/PlaybackCacheBoundary';
 
 interface PlayerSurfaceProps {
   videoList: string[];
@@ -62,77 +63,88 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   });
 
   return (
-    <Box
-      sx={{
-        gridColumn: '1',
-        gridRow: '1',
-        position: 'relative',
-        height: '100%',
-        minHeight: 0,
-        minWidth: 0,
-        overflow: 'hidden',
-        '&:hover .video-controls-overlay': {
-          opacity: 1,
-        },
-      }}
+    <PlaybackCacheBoundary
+      eligible={
+        syncMode === 'auto' &&
+        videoList.length === 1 &&
+        livePlaybackEnd === undefined
+      }
+      playing={isVideoPlaying}
+      timelineTime={currentTime}
+      pause={() => setIsVideoPlaying(false)}
     >
       <Box
         sx={{
+          gridColumn: '1',
+          gridRow: '1',
           position: 'relative',
-          width: '100%',
           height: '100%',
           minHeight: 0,
           minWidth: 0,
           overflow: 'hidden',
+          '&:hover .video-controls-overlay': {
+            opacity: 1,
+          },
         }}
       >
-        <VideoPlayer
-          holdPlayback={holdPlayback}
-          captureActive={livePlaybackEnd !== undefined}
-          key={videoList.join('|')}
-          videoList={videoList}
-          isVideoPlaying={isVideoPlaying}
-          videoPlayBackRate={videoPlayBackRate}
-          setMaxSec={setMaxSec}
-          syncData={syncData}
-          syncMode={syncMode}
-          currentTime={currentTime}
-          mediaAngles={mediaAngles}
-          setMediaAngles={setMediaAngles}
-          forceUpdateKey={playerForceUpdateKey}
-          viewMode={viewMode}
-        />
-      </Box>
-
-      {/* 自動モードでは共通コントローラーを表示 */}
-      {syncMode === 'auto' && (
         <Box
-          className="video-controls-overlay"
           sx={{
-            position: 'absolute',
-            bottom: 16,
-            left: 16,
-            right: 16,
-            opacity: 0,
-            transition: 'opacity 0.3s',
-            zIndex: 1000,
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            minHeight: 0,
+            minWidth: 0,
+            overflow: 'hidden',
           }}
         >
-          <VideoController
-            setIsVideoPlaying={setIsVideoPlaying}
-            isVideoPlaying={isVideoPlaying}
-            setVideoPlayBackRate={setVideoPlayBackRate}
-            videoPlayBackRate={videoPlayBackRate}
-            setCurrentTime={setCurrentTime}
-            currentTime={currentTime}
-            handleCurrentTime={handleCurrentTime}
-            maxSec={maxSec}
+          <VideoPlayer
+            holdPlayback={holdPlayback}
+            captureActive={livePlaybackEnd !== undefined}
+            key={videoList.join('|')}
             videoList={videoList}
+            isVideoPlaying={isVideoPlaying}
+            videoPlayBackRate={videoPlayBackRate}
+            setMaxSec={setMaxSec}
             syncData={syncData}
-            useTimelineClock={useTimelineClock}
+            syncMode={syncMode}
+            currentTime={currentTime}
+            mediaAngles={mediaAngles}
+            setMediaAngles={setMediaAngles}
+            forceUpdateKey={playerForceUpdateKey}
+            viewMode={viewMode}
           />
         </Box>
-      )}
-    </Box>
+
+        {/* 自動モードでは共通コントローラーを表示 */}
+        {syncMode === 'auto' && (
+          <Box
+            className="video-controls-overlay"
+            sx={{
+              position: 'absolute',
+              bottom: 16,
+              left: 16,
+              right: 16,
+              opacity: 0,
+              transition: 'opacity 0.3s',
+              zIndex: 1000,
+            }}
+          >
+            <VideoController
+              setIsVideoPlaying={setIsVideoPlaying}
+              isVideoPlaying={isVideoPlaying}
+              setVideoPlayBackRate={setVideoPlayBackRate}
+              videoPlayBackRate={videoPlayBackRate}
+              setCurrentTime={setCurrentTime}
+              currentTime={currentTime}
+              handleCurrentTime={handleCurrentTime}
+              maxSec={maxSec}
+              videoList={videoList}
+              syncData={syncData}
+              useTimelineClock={useTimelineClock}
+            />
+          </Box>
+        )}
+      </Box>
+    </PlaybackCacheBoundary>
   );
 };

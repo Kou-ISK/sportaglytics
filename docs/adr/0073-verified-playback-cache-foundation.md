@@ -24,6 +24,8 @@ Proposed
 
 所有processは停止要求とclose確認を分け、closeまでstaging所有を維持する。停止未確認を通常失敗として片付けず、busyと終了待ちを表示する。これは終了後だけ検証・公開へ進む契約を守るためであり、強制終了や未検証の再試行へ自動昇格しない。
 
+次に、固定VideoToolbox recipe・全field/音声packet validator・Session専用IPC・原本を変更しない停止中切替を接続する。初期接続は120秒以内のファイル全体に限定し、別encoderの診断結果から長尺での性能を推定して採用しない。Mainはpreflightを含めた全処理の終了まで所有を維持し、HW観測の切断も不合格にする。
+
 本番採用は[再生用コピー設計のactivation gate](../playback-cache.md#cache-1-activation-gate)の後に判断する。
 
 派生物をpackage保存形式へ混ぜず端末cacheへ隔離し、原本hash・recipe・runtimeと全列検証に合格した完成品だけを選ぶ。コピー完成で自動切替せず、停止中に明示選択し、原本へ戻れるようにする。タグ時計・同期補正・書き出し元は原本のまま維持する。

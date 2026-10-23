@@ -72,6 +72,8 @@ import {
 import { createExternalOpenQueue } from './packageOpenQueue';
 import { createPackageOpenRouter } from './packageOpenRouter';
 import { registerTimelineCloseProtection } from './timelineCloseProtection';
+import { registerPlaybackCacheHandlers } from './playbackCache/cacheHandlers';
+import { holdPlaybackCaches } from './playbackCache/cacheSessionController';
 
 if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -208,6 +210,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
 registerLegacyFileAccessHandlers({ getMainWindow: () => mainWindow });
 registerPackageHandlers();
 registerPackageSessionHandlers();
+registerPlaybackCacheHandlers();
 registerSyncHandlers();
 registerMenuStateHandlers();
 registerSettingsHandlers();
@@ -293,6 +296,7 @@ registerLiveCaptureHandlers({ openPackage: openPackageInSession });
 // Register after capture's before-quit listener: active recording first finishes
 // its existing stop handshake, then retries quit through Timeline preparation.
 const timelineCloseProtection = registerTimelineCloseProtection({
+  beforeClose: holdPlaybackCaches,
   rendererUrl: mainURL,
   requiresPersistence: (window) =>
     getPackageSessionForWindow(window)?.packagePath != null,
