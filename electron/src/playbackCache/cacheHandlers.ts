@@ -25,6 +25,7 @@ export const registerPlaybackCacheHandlers = (): void => {
   ipcMain.handle(channels.inspect, (event) => owner(event).inspect());
   for (const command of [
     'prepare',
+    'reuse',
     'cancel',
     'cleanup',
     'candidate',

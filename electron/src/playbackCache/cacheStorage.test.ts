@@ -66,6 +66,119 @@ beforeEach(async () => {
     await fs.mkdtemp(path.join(os.tmpdir(), 'cache-store-')),
   );
 });
+
+it('discovers only complete candidates bound to current source, recipe, runtime and full proof', async () => {
+  const store = await open();
+  const pending = await stage();
+  await fs.writeFile(pending.outputPath, payload);
+  const signal = new AbortController().signal;
+  expect(await store.findCandidate(expectation, signal)).toBeNull();
+  await pending.seal(proof());
+  const id = await pending.publish();
+  expect(
+    await store.findCandidate(
+      { ...expectation, runtime: 'new-runtime' },
+      signal,
+    ),
+  ).toBeNull();
+  expect(
+    await store.findCandidate(
+      {
+        ...expectation,
+        source: { ...expectation.source, sha256: hash('other') },
+      },
+      signal,
+    ),
+  ).toBeNull();
+  const found = await store.findCandidate(expectation, signal);
+  expect(found?.artifactId).toBe(id);
+  expect(found?.sha256).toBe(hash(payload));
+  const controller = new AbortController();
+  controller.abort();
+  await expect(
+    store.findCandidate(expectation, controller.signal),
+  ).rejects.toThrow();
+  await fs.writeFile(
+    path.join(root, 'playback-cache-v1', `ready-${id}`, 'media.mp4'),
+    'changed',
+  );
+  await expect(store.findCandidate(expectation, signal)).rejects.toThrow(
+    'CACHE_OUTPUT_CHANGED',
+  );
+});
+
+it('rejects a candidate whose actual media size exceeds the limit even with an unchanged manifest', async () => {
+  const pending = await stage();
+  await fs.writeFile(pending.outputPath, payload);
+  await pending.seal(proof());
+  const id = await pending.publish();
+  await fs.truncate(
+    path.join(root, 'playback-cache-v1', `ready-${id}`, 'media.mp4'),
+    1025,
+  );
+  const store = await openPlaybackCacheStorage(root, {
+    maximumCacheBytes: 1024 * 1024,
+    reserveBytes: 0,
+    maximumOutputBytes: 1024,
+  });
+  await expect(
+    store.findCandidate(expectation, new AbortController().signal),
+  ).rejects.toThrow('CACHE_UNSAFE_FILE');
+});
+
+it('waits for an issued directory read on cancellation without issuing the remaining scan or free-space reads', async () => {
+  const store = await open();
+  const pending = await stage();
+  await fs.writeFile(pending.outputPath, payload);
+  const controller = new AbortController();
+  let entered = (): void => undefined;
+  const reading = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  let release = (): void => undefined;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const originalRead = fs.readdir.bind(fs);
+  const reads = vi
+    .spyOn(fs, 'readdir')
+    .mockImplementationOnce(async (...args) => {
+      const entries = await originalRead(...args);
+      entered();
+      await blocked;
+      return entries;
+    });
+  const stats = vi.spyOn(fs, 'lstat');
+  const free = vi.spyOn(fs, 'statfs');
+  let settled = false;
+  const search = store.findCandidate(expectation, controller.signal);
+  const rejection = expect(search).rejects.toThrow();
+  void search.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+  try {
+    await reading;
+    controller.abort();
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    const before = stats.mock.calls.length;
+    release();
+    await rejection;
+    expect(stats).toHaveBeenCalledTimes(before);
+    expect(reads).toHaveBeenCalledTimes(1);
+    expect(free).not.toHaveBeenCalled();
+  } finally {
+    release();
+    reads.mockRestore();
+    stats.mockRestore();
+    free.mockRestore();
+  }
+});
 afterEach(async () => {
   for (const pending of stages.splice(0))
     await pending.discard().catch(() => undefined);

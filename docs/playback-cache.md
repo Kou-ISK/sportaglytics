@@ -20,6 +20,16 @@ Mac主再生WindowではChromiumの`AudioVideoTracks`だけを有効にし、nat
 
 成功artifactはMain内だけに、変換processのcloseまでの所要時間、固定引数、最大256KiBのstderr（切詰め有無付き）、全時刻/音声検証、HW propertiesと最後までの提示フレーム観測を保持する。これらをRenderer IPCやpackage保存へ追加せず、ready manifestだけを成功証明にしない。診断の取得時はpathなどを含む私的データとして扱い、公開前に除去する。失敗時の詳細ログ永続化や再起動後の証跡回収はこの実装の範囲外である。
 
+## 保存済みコピーの明示再利用
+
+「保存済みコピーを確認」は、現在のSessionの原本を全hash・全時刻/音声列で再確認し、アプリ専用cache rootのreadyだけを最大1024件探索する。原本・recipe・同梱tool/runtime・全proofから計算したkeyに合う候補だけを扱う。未知entry、symlink/hardlink、改変や1GiBを超える実サイズは拒否し、manifestの成功値を信頼しない。候補がなければ表示して原本を維持し、新規変換へ自動移行しない。
+
+候補にも生成時と同じmetadata・全frame/音声packet・全体hash・全尺HW検査を実行する。原本再照合と、HW検査後の候補再hashが一致して初めてreadyにする。新しいmediaやmanifestを作らず、採用は既存の停止中選択ticketから明示する。取消は最後のhashまで可能で、遅い終了を待つ所有権とclose/quit抑止を生成と共有する。probe用scratchはreadyの外側へ置き、失敗・取消・片付け再試行で既存readyを削除しない。
+
+短尺の再利用にも全走査と等速HW再生の時間がかかる。生成時間の性能基準と、完成候補の採用・再生・seek・原本復帰の機能検証は分けて記録する。機能検証の待機上限を工程実測から設定しても、過去の生成期限超過や性能未達を成功へ書き換えない。
+
+長尺を開くたびに全尺をHW再生する方式は実用性を満たしていない。今後は原本・recipe・runtime・表示/音声時刻へ結合した不変の区間単位で、全検査の結果と対象bytesを対応させ、未検証区間を採用しない再利用方式を検討する。境界の全field、AAC priming/paddingと連続性、タグ時計、容量上限、取消・中断復旧・改変検出を設計する必要がある。短い先頭sampleだけの合格で全長を認定せず、この段階では分割生成・全長変換・証明の永続的信頼を実装しない。
+
 ## 原本と時計
 
 原本のパス、パッケージのconfig、タグ、同期補正、Playlist参照、書き出し元を変更しない。再生用コピーは端末内の削除・再生成可能な派生物とする。既存の `sourceTime = globalTime + angleOffset - timelineStartSeconds` をそのまま適用できるコピーだけを受け入れる。blob録画・YouTube・収録中の可変ファイルは対象外とする。
@@ -48,7 +58,7 @@ AAC先頭のskip_samplesが複数packetを跨ぐ場合はsample数を繰り越�
 
 失敗時は所有するstaging内の既知2ファイルだけをunlinkし、再帰削除しない。未知ファイルやdirectory差替えで片付けを拒否した場合、writer所有を保持し、片付け再試行が成功するまで新jobを受けない。中断した別jobのstagingは採用・自動削除せず、容量へ数える。再起動後の中断jobの所有確認と明示的な削除UIは未実装である。
 
-`inspectCandidate`はopaque IDのreadyだけを読み、期待原本/recipe/runtimeキーと実bytes/hashを照合する。これは**候補の整合検査**であり、書換え可能なmanifestを時刻・音声・HWの証明として信頼しない。再生へ採用する前にMain validatorが実内容を検証する。candidateの一覧・再起動時の自動再利用・既存readyの削除はまだ接続していない。ここでの差替え防止はアプリ所有のprivate領域を前提とし、同じOSユーザーによる敵対的な全path操作を原子的に隔離する仕組みではない。
+`inspectCandidate`はopaque IDのreadyだけを読み、期待原本/recipe/runtimeキーと実bytes/hashを照合する。これは**候補の整合検査**であり、書換え可能なmanifestを時刻・音声・HWの証明として信頼しない。再生へ採用する前にMain validatorが実内容を検証する。再起動後は上記の明示再検証から候補を探す。候補一覧UI・自動再利用・既存readyの削除は接続していない。ここでの差替え防止はアプリ所有のprivate領域を前提とし、同じOSユーザーによる敵対的な全path操作を原子的に隔離する仕組みではない。
 
 ## 所有変換processのrunner
 

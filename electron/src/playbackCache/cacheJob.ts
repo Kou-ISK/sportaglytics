@@ -27,6 +27,15 @@ export interface CacheJobPorts {
   discard: () => Promise<void>;
 }
 
+/** Reuse validates existing immutable bytes. Cleanup owns probe scratch only;
+ * it must never delete the ready candidate. No conversion/publication is allowed. */
+export interface CacheReusePorts {
+  maximumOutputBytes: number;
+  validate: CacheJobPorts['validate'];
+  reuse: (signal: AbortSignal) => Promise<string>;
+  discard: CacheJobPorts['discard'];
+}
+
 /** Coordinates trusted Main adapters while keeping the original selected by default. */
 export class PlaybackCacheJob {
   private state: PlaybackCacheStatus = {
@@ -40,7 +49,7 @@ export class PlaybackCacheJob {
   private cleanupRequired = false;
 
   constructor(
-    private readonly ports: CacheJobPorts,
+    private readonly ports: CacheJobPorts | CacheReusePorts,
     private readonly notify: (state: PlaybackCacheStatus) => void,
   ) {}
 
@@ -70,50 +79,62 @@ export class PlaybackCacheJob {
     const controller = new AbortController();
     this.active = controller;
     this.artifact = null;
-    this.update({ phase: 'converting', progress: null, error: null });
+    this.update({
+      phase: 'reuse' in this.ports ? 'validating' : 'converting',
+      progress: null,
+      error: null,
+    });
     let error: PlaybackCacheStatus['error'] = 'operation';
     try {
       if (!isCacheExpectationValid(expected)) {
         error = 'validation';
         throw new Error('CACHE_INVALID_EXPECTATION');
       }
-      const limits = await this.ports.capacity();
+      const limits =
+        'reuse' in this.ports
+          ? { maxBytes: this.ports.maximumOutputBytes }
+          : await this.ports.capacity();
       controller.signal.throwIfAborted();
-      if (!hasCacheCapacity(estimatedBytes, limits)) {
+      if (
+        !Number.isSafeInteger(limits.maxBytes) ||
+        limits.maxBytes <= 0 ||
+        ('freeBytes' in limits && !hasCacheCapacity(estimatedBytes, limits))
+      ) {
         error = 'capacity';
         throw new Error('CACHE_CAPACITY');
       }
-      await this.ports.convert(
-        controller.signal,
-        (fraction) => {
-          if (
-            this.active !== controller ||
-            controller.signal.aborted ||
-            this.state.phase !== 'converting' ||
-            !Number.isFinite(fraction)
-          )
-            return;
-          this.update({
-            progress: Math.max(
-              this.state.progress ?? 0,
-              Math.min(1, Math.max(0, fraction)),
-            ),
-          });
-        },
-        { maxBytes: limits.maxBytes, reserveBytes: limits.reserveBytes },
-        (unconfirmed) => {
-          if (
-            this.active !== controller ||
-            !['converting', 'cancelling'].includes(this.state.phase)
-          )
-            return;
-          this.update({
-            phase: 'cancelling',
-            progress: null,
-            error: unconfirmed ? 'stop' : null,
-          });
-        },
-      );
+      if (!('reuse' in this.ports) && 'freeBytes' in limits)
+        await this.ports.convert(
+          controller.signal,
+          (fraction) => {
+            if (
+              this.active !== controller ||
+              controller.signal.aborted ||
+              this.state.phase !== 'converting' ||
+              !Number.isFinite(fraction)
+            )
+              return;
+            this.update({
+              progress: Math.max(
+                this.state.progress ?? 0,
+                Math.min(1, Math.max(0, fraction)),
+              ),
+            });
+          },
+          { maxBytes: limits.maxBytes, reserveBytes: limits.reserveBytes },
+          (unconfirmed) => {
+            if (
+              this.active !== controller ||
+              !['converting', 'cancelling'].includes(this.state.phase)
+            )
+              return;
+            this.update({
+              phase: 'cancelling',
+              progress: null,
+              error: unconfirmed ? 'stop' : null,
+            });
+          },
+        );
       controller.signal.throwIfAborted();
       this.update({ phase: 'validating', progress: null });
       const validation = await this.ports.validate(controller.signal);
@@ -126,9 +147,15 @@ export class PlaybackCacheJob {
         error = 'capacity';
         throw new Error('CACHE_CAPACITY');
       }
-      // Publication is an atomic commit; cancellation is accepted only before it.
-      this.update({ phase: 'publishing' });
-      this.artifact = await this.ports.publish();
+      if ('reuse' in this.ports) {
+        // Final identity verification stays cancellable; it does not publish.
+        this.artifact = await this.ports.reuse(controller.signal);
+        controller.signal.throwIfAborted();
+      } else {
+        // Publication is an atomic commit; cancellation is accepted only before it.
+        this.update({ phase: 'publishing' });
+        this.artifact = await this.ports.publish();
+      }
       if (!this.artifact) throw new Error('CACHE_EMPTY_ARTIFACT');
       this.update({ phase: 'ready', progress: null });
     } catch {

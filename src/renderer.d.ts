@@ -41,6 +41,9 @@ export interface IElectronAPI {
     prepare: (
       request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
     ) => Promise<void>;
+    reuse: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
+    ) => Promise<void>;
     cancel: (
       request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
     ) => Promise<void>;

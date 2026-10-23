@@ -49,6 +49,9 @@ export const PlaybackCachePanelView = (
           <Typography variant="body2">
             キャッシュ合計8GB、コピー1本1GBまで。空き容量2GBを残します。生成後に映像と全音声の時刻・ハードウェア再生を確認するため、確認中は追加の再生時間がかかります。
           </Typography>
+          <Typography variant="body2">
+            保存済みコピーは再生成せず、原本との対応と再生環境を確認してから使えます。確認には映像全体を読む時間がかかり、キャンセルできます。
+          </Typography>
           {props.error && <Alert severity="error">{props.error}</Alert>}
           {props.switching && (
             <Typography role="status">

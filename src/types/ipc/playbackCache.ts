@@ -123,6 +123,7 @@ export const parsePlaybackCacheSnapshot = (
               'operation',
               'cleanup',
               'stop',
+              'missing',
             ]),
     },
     available: booleanValue(v.available),
@@ -133,6 +134,7 @@ export const parsePlaybackCacheSnapshot = (
 export const playbackCacheChannels = {
   inspect: 'playback-cache:inspect',
   prepare: 'playback-cache:prepare',
+  reuse: 'playback-cache:reuse',
   cancel: 'playback-cache:cancel',
   cleanup: 'playback-cache:cleanup',
   candidate: 'playback-cache:candidate',

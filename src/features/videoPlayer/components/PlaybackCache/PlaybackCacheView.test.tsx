@@ -5,6 +5,35 @@ import { PlaybackCacheView } from './PlaybackCacheView';
 import type { PlaybackCacheViewProps } from './PlaybackCacheView';
 
 afterEach(cleanup);
+it('offers explicit reuse separately from creating media and reports missing candidates', () => {
+  const onReuse = vi.fn();
+  const onPrepare = vi.fn();
+  render(
+    <PlaybackCacheView
+      status={{
+        phase: 'failed',
+        selected: 'original',
+        progress: null,
+        error: 'missing',
+      }}
+      estimate={null}
+      canPrepare
+      paused
+      onReuse={onReuse}
+      onPrepare={onPrepare}
+      onCancel={vi.fn()}
+      onUseOriginal={vi.fn()}
+      onUseCache={vi.fn()}
+      onRetryCleanup={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: '保存済みコピーを確認' }));
+  expect(onReuse).toHaveBeenCalledOnce();
+  expect(onPrepare).not.toHaveBeenCalled();
+  expect(screen.getByRole('alert').textContent).toContain(
+    '保存済みコピーがありません',
+  );
+});
 it('keeps the user informed and blocks regeneration while child exit is unconfirmed', () => {
   render(
     <PlaybackCacheView
@@ -18,6 +47,7 @@ it('keeps the user informed and blocks regeneration while child exit is unconfir
       canPrepare
       paused
       onPrepare={vi.fn()}
+      onReuse={vi.fn()}
       onCancel={vi.fn()}
       onUseOriginal={vi.fn()}
       onUseCache={vi.fn()}
@@ -44,6 +74,7 @@ it('keeps cancellation and original fallback available, but requires pause befor
     canPrepare: true,
     paused: false,
     onPrepare: vi.fn(),
+    onReuse: vi.fn(),
     onCancel: vi.fn(),
     onUseOriginal: vi.fn(),
     onUseCache: vi.fn(),
@@ -94,6 +125,7 @@ it('reports failure and offers cleanup instead of starting an overlapping conver
       paused
       onRetryCleanup={onRetryCleanup}
       onPrepare={vi.fn()}
+      onReuse={vi.fn()}
       onCancel={vi.fn()}
       onUseOriginal={vi.fn()}
       onUseCache={vi.fn()}

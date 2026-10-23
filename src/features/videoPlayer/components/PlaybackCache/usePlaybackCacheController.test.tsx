@@ -28,6 +28,7 @@ const fixture = async () => {
   const api = {
     inspect: vi.fn(async () => structuredClone(snapshot)),
     prepare: vi.fn(),
+    reuse: vi.fn(),
     cancel: vi.fn(),
     cleanup: vi.fn(),
     candidate: vi.fn(async () => ({

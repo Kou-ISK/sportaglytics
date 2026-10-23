@@ -4,24 +4,22 @@ import type { PlaybackCacheStatus } from '../../../src/types/playbackCache';
 import type { CacheAuthorizedSource } from './cacheSourceAccess';
 import { assertClosedMp4 } from './cacheSourceAccess';
 import { identifyCacheTools } from './cacheBundledTools';
-import { identifyCacheSource, readCacheFileIdentity } from './sourceIdentity';
+import { identifyCacheSource } from './sourceIdentity';
 import { probeCacheMetadata, probeCacheTiming } from './cacheProbe';
 import {
   buildCacheRecipe,
   CACHE_RECIPE,
   cacheVideoBitrate,
 } from './cacheRecipe';
-import { assertCacheVideoMatches } from './cacheMediaMetadata';
 import { openPlaybackCacheStorage } from './cacheStorage';
 import type { CacheCandidate, CacheStaging } from './cacheStorage';
 import { PlaybackCacheJob } from './cacheJob';
 import { runCacheConversion } from './cacheConversionRunner';
 import { spawnCacheWorker } from './cacheWorkerProcess';
-import { probeCacheHardware } from './cacheHardwareProbe';
 import type { CacheHardwareProbeResult } from './cacheHardwareProbe';
 import { CacheConversionEvidence } from './cacheConversionEvidence';
-import { isCacheValidationMatching } from './cachePolicy';
 import type { CacheExpectation, CacheValidation } from './cachePolicy';
+import { validateCacheMedia } from './cacheRuntimeValidation';
 
 export const CACHE_LIMITS = {
   maximumCacheBytes: 8 * 1024 ** 3,
@@ -34,6 +32,7 @@ export interface CachePreparedArtifact {
   candidate: CacheCandidate;
   audioTracks: number;
   evidence: {
+    mode: 'created' | 'reused';
     elapsedMs: number;
     conversion: {
       arguments: string[];
@@ -41,19 +40,22 @@ export interface CachePreparedArtifact {
       exitCode: 0;
       stderr: string;
       truncated: boolean;
-    };
+    } | null;
     validation: CacheValidation & { hardware: CacheHardwareProbeResult };
   };
 }
 /** Main owns this entire promise, including preflight/probes, through shutdown.
  * signal cancellation never permits cleanup before owned work has closed. */
-export const preparePlaybackCache = async (options: {
+export interface CachePreparationOptions {
   source: CacheAuthorizedSource;
   signal: AbortSignal;
   assertOwner: () => Promise<void>;
   notify: (state: PlaybackCacheStatus) => void;
   retainJob: (job: PlaybackCacheJob) => void;
-}): Promise<CachePreparedArtifact> => {
+}
+export const preparePlaybackCache = async (
+  options: CachePreparationOptions,
+): Promise<CachePreparedArtifact> => {
   const { source, signal, assertOwner, notify } = options;
   const started = performance.now();
   let conversion: CachePreparedArtifact['evidence']['conversion'] | undefined;
@@ -153,48 +155,19 @@ export const preparePlaybackCache = async (options: {
         },
         validate: async (workerSignal) => {
           await check();
-          const probe = { ...context, signal: workerSignal };
-          const outputMetadata = await probeCacheMetadata(
-            owned.outputPath,
-            probe,
-          );
-          assertCacheVideoMatches(metadata, outputMetadata);
-          const outputTiming = await probeCacheTiming(
-            owned.outputPath,
-            outputMetadata,
-            probe,
-          );
-          await check();
-          const output = await readCacheFileIdentity(owned.outputPath, {
-            signal: workerSignal,
-          });
-          const sourceAfter = await identifyCacheSource(source.path, {
-            signal: workerSignal,
-          });
-          await check();
-          const hardware = await probeCacheHardware(
-            owned.outputPath,
-            path.dirname(owned.outputPath),
-            tools.runtime,
-            workerSignal,
-            stopWaiting,
-            (cleanup) => {
+          const validation = await validateCacheMedia({
+            source,
+            metadata,
+            expectation,
+            candidatePath: owned.outputPath,
+            maximumOutputBytes: CACHE_LIMITS.maximumOutputBytes,
+            privateDirectory: path.dirname(owned.outputPath),
+            context: { ...context, signal: workerSignal },
+            check,
+            retainCleanup: (cleanup) => {
               probeCleanups.add(cleanup);
             },
-          );
-          await check();
-          const validation: CacheValidation & {
-            hardware: CacheHardwareProbeResult;
-          } = {
-            outputBytes: output.identity.bytes,
-            outputSha256: output.identity.sha256,
-            sourceAfter,
-            recipe: CACHE_RECIPE,
-            timing: outputTiming,
-            hardware,
-          };
-          if (!isCacheValidationMatching(expectation, validation))
-            throw Error('CACHE_VALIDATION');
+          });
           await owned.seal(validation, workerSignal);
           validated = validation;
           return validation;
@@ -233,6 +206,7 @@ export const preparePlaybackCache = async (options: {
       candidate,
       audioTracks: metadata.audio.length,
       evidence: {
+        mode: 'created',
         elapsedMs: performance.now() - started,
         conversion,
         validation: validated,

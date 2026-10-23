@@ -15,6 +15,7 @@ const meta = {
     canPrepare: true,
     paused: true,
     onPrepare: () => undefined,
+    onReuse: () => undefined,
     onCancel: () => undefined,
     onUseOriginal: () => undefined,
     onUseCache: () => undefined,
@@ -24,6 +25,26 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Original: Story = {};
+export const MissingSavedCopy: Story = {
+  args: {
+    status: {
+      phase: 'failed',
+      progress: null,
+      selected: 'original',
+      error: 'missing',
+    },
+  },
+};
+export const ValidatingSavedCopy: Story = {
+  args: {
+    status: {
+      phase: 'validating',
+      progress: null,
+      selected: 'original',
+      error: null,
+    },
+  },
+};
 export const Converting: Story = {
   args: {
     status: {

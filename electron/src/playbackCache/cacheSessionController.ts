@@ -12,6 +12,7 @@ import { getPackageSessionForWindow } from '../packageSessionRegistry';
 import { resolveCacheSource } from './cacheSourceAccess';
 import type { CacheAuthorizedSource } from './cacheSourceAccess';
 import { preparePlaybackCache, CACHE_LIMITS } from './cacheRuntimePipeline';
+import { reusePlaybackCache } from './cacheReusePipeline';
 import type { CachePreparedArtifact } from './cacheRuntimePipeline';
 import type { PlaybackCacheJob } from './cacheJob';
 import { identifyCacheSource, readCacheFileIdentity } from './sourceIdentity';
@@ -165,6 +166,12 @@ export class CacheSessionController {
     }
   }
   prepare(value: PlaybackCacheRequest): void {
+    this.prepareOperation(value, false);
+  }
+  reuse(value: PlaybackCacheRequest): void {
+    this.prepareOperation(value, true);
+  }
+  private prepareOperation(value: PlaybackCacheRequest, reuse: boolean): void {
     const source = this.request(value);
     const packagePath = this.packagePath;
     if (
@@ -185,7 +192,9 @@ export class CacheSessionController {
     this.state = { ...original(), phase: 'validating' };
     void this.run(async (signal) => {
       try {
-        const artifact = await preparePlaybackCache({
+        const artifact = await (
+          reuse ? reusePlaybackCache : preparePlaybackCache
+        )({
           source,
           signal,
           assertOwner: () => this.owner(generation, packagePath),
@@ -197,14 +206,22 @@ export class CacheSessionController {
           },
         });
         if (generation === this.generation) this.artifact = artifact;
-      } catch {
+      } catch (error) {
         if (this.job?.status.error === 'cleanup') this.state = this.job.status;
         else if (signal.aborted) this.state = original();
         else
           this.state =
             this.job?.status.phase === 'failed'
               ? this.job.status
-              : { ...original(), phase: 'failed', error: 'validation' };
+              : {
+                  ...original(),
+                  phase: 'failed',
+                  error:
+                    error instanceof Error &&
+                    error.message === 'CACHE_CANDIDATE_NOT_FOUND'
+                      ? 'missing'
+                      : 'validation',
+                };
       } finally {
         active.delete(this);
       }

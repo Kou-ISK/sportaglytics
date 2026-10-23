@@ -429,3 +429,5 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 `electron/src/documentWindowPresentation.ts` はパッケージ窓の役割タイトルとfocusを伴わない補助窓表示を担当する。Sessionの所有関係やRenderer状態は保持しない。
 
 `playbackCache/cacheConversionEvidence.ts`は変換診断の上限付き収集を担当し、`cacheRuntimePipeline.ts`が成功artifactの全検証証跡と結合します。videoPlayerの`PlaybackCache/cacheNativeAudio.ts`はnative音声trackの構造検査・選択復元・読戻し照合を担当し、登録Hookから利用します。
+
+`playbackCache/cacheReusePipeline.ts`は保存済み候補の探索・再検証を所有し、`cacheRuntimeValidation.ts`は生成/reuse共通の全内容/HW validatorです。create/reuseのjob portsは変換・公開と再照合を区別し、取消/片付けの所有を共有します。

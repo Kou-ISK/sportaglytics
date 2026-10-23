@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   resolve: vi.fn(),
   prepare: vi.fn(),
+  reuse: vi.fn(),
 }));
 vi.mock('../packageSessionRegistry', () => ({
   getPackageSessionForWindow: mocks.session,
@@ -19,6 +20,7 @@ vi.mock('./cacheRuntimePipeline', () => ({
   preparePlaybackCache: mocks.prepare,
   CACHE_LIMITS: { maximumCacheBytes: 10000, reserveBytes: 1000 },
 }));
+vi.mock('./cacheReusePipeline', () => ({ reusePlaybackCache: mocks.reuse }));
 vi.mock('./sourceIdentity', () => ({
   identifyCacheSource: vi.fn(),
   readCacheFileIdentity: vi.fn(),
@@ -47,6 +49,7 @@ const fixture = async () => {
 };
 beforeEach(() => {
   mocks.prepare.mockReset();
+  mocks.reuse.mockReset();
   mocks.session.mockImplementation((window) => ({
     mainWindow: window,
     packageBound: true,
@@ -94,6 +97,42 @@ it('cancels preflight on reload, refuses stale requests and keeps ownership unti
   const next = await controller.inspect();
   expect(next.generation).not.toBe(request.generation);
   expect(next.status.phase).toBe('original');
+});
+
+it('owns explicit reuse through quit and never falls back to generation', async () => {
+  const pending = Promise.withResolvers<never>();
+  mocks.reuse.mockReturnValue(pending.promise);
+  const { native, controller, request } = await fixture();
+  controller.reuse(request);
+  await settle();
+  expect(() => controller.prepare(request)).toThrow('CACHE_BUSY');
+  const signal: AbortSignal = mocks.reuse.mock.calls[0][0].signal;
+  let drained = false;
+  const closing = holdPlaybackCaches([native], 'close').then((release) => {
+    drained = true;
+    return release;
+  });
+  await settle();
+  expect(signal.aborted).toBe(true);
+  expect(drained).toBe(false);
+  pending.reject(Error('cancelled'));
+  const release = await closing;
+  release();
+  expect(mocks.prepare).not.toHaveBeenCalled();
+  expect((await controller.inspect()).status.phase).toBe('original');
+});
+
+it('reports missing reuse candidates without generating media', async () => {
+  mocks.reuse.mockRejectedValue(Error('CACHE_CANDIDATE_NOT_FOUND'));
+  const { controller, request } = await fixture();
+  controller.reuse(request);
+  await settle();
+  expect((await controller.inspect()).status).toMatchObject({
+    phase: 'failed',
+    error: 'missing',
+    selected: 'original',
+  });
+  expect(mocks.prepare).not.toHaveBeenCalled();
 });
 it('holds a close boundary through worker termination and prevents a new generation starting while closing', async () => {
   const pending = Promise.withResolvers<never>();

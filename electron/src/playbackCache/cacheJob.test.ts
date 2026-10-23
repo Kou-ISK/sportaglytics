@@ -77,6 +77,90 @@ const fixture = () => {
   return { ports, notify, job: new PlaybackCacheJob(ports, notify) };
 };
 
+it('revalidates an existing candidate without conversion/publication and keeps adoption explicit', async () => {
+  const notify = vi.fn();
+  const reuse = vi.fn(async () => 'existing-id');
+  const discard = vi.fn(async () => undefined);
+  const job = new PlaybackCacheJob(
+    { maximumOutputBytes: 5000, validate: async () => proof(), reuse, discard },
+    notify,
+  );
+  await job.start(expected, 2000);
+  expect(job.status).toMatchObject({ phase: 'ready', selected: 'original' });
+  expect(notify.mock.calls.map(([state]) => state.phase)).not.toContain(
+    'converting',
+  );
+  expect(notify.mock.calls.map(([state]) => state.phase)).not.toContain(
+    'publishing',
+  );
+  expect(reuse).toHaveBeenCalledOnce();
+  expect(discard).not.toHaveBeenCalled();
+  expect(job.selectCache(false)).toBeNull();
+  expect(job.selectCache(true)).toBe('existing-id');
+});
+
+it('keeps final reuse verification cancellable and owns delayed work through close', async () => {
+  const final = pending<string>();
+  const entered = pending<void>();
+  const discard = vi.fn(async () => undefined);
+  const job = new PlaybackCacheJob(
+    {
+      maximumOutputBytes: 5000,
+      validate: async () => proof(),
+      reuse: async () => {
+        entered.resolve();
+        return final.promise;
+      },
+      discard,
+    },
+    vi.fn(),
+  );
+  const work = job.start(expected, 2000);
+  await entered.promise;
+  expect(job.cancel()).toBe(true);
+  await expect(job.start(expected, 2000)).rejects.toThrow('CACHE_BUSY');
+  expect(discard).not.toHaveBeenCalled();
+  final.resolve('existing-id');
+  await work;
+  expect(job.status.phase).toBe('original');
+  expect(job.selectCache(true)).toBeNull();
+  expect(discard).toHaveBeenCalledOnce();
+});
+
+it.each(['proof', 'size', 'cleanup'])(
+  'rejects reuse %s failures and never makes the candidate selectable',
+  async (failure) => {
+    const reuse = vi.fn(async () => 'existing-id');
+    let cleanupFails = failure === 'cleanup';
+    const discard = vi.fn(async () => {
+      if (cleanupFails) throw Error('cleanup');
+    });
+    const actual = proof();
+    if (failure !== 'size') actual.hardware.softwareFallback = true;
+    const job = new PlaybackCacheJob(
+      {
+        maximumOutputBytes: failure === 'size' ? 1 : 5000,
+        validate: async () => actual,
+        reuse,
+        discard,
+      },
+      vi.fn(),
+    );
+    await job.start(expected, 2000);
+    expect(job.status.phase).toBe('failed');
+    expect(job.selectCache(true)).toBeNull();
+    expect(reuse).not.toHaveBeenCalled();
+    expect(discard).toHaveBeenCalledOnce();
+    if (cleanupFails) {
+      expect(job.status.error).toBe('cleanup');
+      await expect(job.start(expected, 2000)).rejects.toThrow('CACHE_BUSY');
+      cleanupFails = false;
+      await job.retryCleanup();
+      expect(job.status.phase).toBe('original');
+    }
+  },
+);
+
 it('publishes only qualified output and keeps original selected until an explicit paused switch', async () => {
   const { job, ports } = fixture();
   await job.start(expected, 2000);

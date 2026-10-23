@@ -17,6 +17,9 @@ export const createPlaybackCacheBridge = (
   prepare: async (request) => {
     await transport.invoke(channels.prepare, request);
   },
+  reuse: async (request) => {
+    await transport.invoke(channels.reuse, request);
+  },
   cancel: async (request) => {
     await transport.invoke(channels.cancel, request);
   },

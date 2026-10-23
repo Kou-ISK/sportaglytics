@@ -55,6 +55,10 @@ export interface CacheCandidate {
 }
 
 export interface PlaybackCacheStorage {
+  findCandidate: (
+    expected: CacheExpectation,
+    signal: AbortSignal,
+  ) => Promise<CacheCandidate | null>;
   begin: (
     expected: CacheExpectation,
     maximumOutputBytes: number,
@@ -72,15 +76,25 @@ export interface PlaybackCacheStorage {
  * Only one writer per root is admitted in this process, across windows/adapters. */
 export const openPlaybackCacheStorage = async (
   trustedAppDataDirectory: string,
-  limits: { maximumCacheBytes: number; reserveBytes: number },
+  limits: {
+    maximumCacheBytes: number;
+    reserveBytes: number;
+    maximumOutputBytes?: number;
+  },
 ): Promise<PlaybackCacheStorage> => {
   if (
     !validLimit(limits.maximumCacheBytes) ||
     !validLimit(limits.reserveBytes, true) ||
-    !Number.isSafeInteger(limits.reserveBytes + CACHE_METADATA_BUDGET)
+    !Number.isSafeInteger(limits.reserveBytes + CACHE_METADATA_BUDGET) ||
+    (limits.maximumOutputBytes !== undefined &&
+      !validLimit(limits.maximumOutputBytes))
   )
     throw new Error('CACHE_INVALID_LIMIT');
   const maximumCacheBytes = limits.maximumCacheBytes;
+  const maximumOutputBytes = Math.min(
+    limits.maximumOutputBytes ?? maximumCacheBytes,
+    maximumCacheBytes,
+  );
   const reserveBytes = limits.reserveBytes + CACHE_METADATA_BUDGET;
   const parent = await fs.realpath(trustedAppDataDirectory);
   const root = path.join(parent, 'playback-cache-v1');
@@ -92,7 +106,33 @@ export const openPlaybackCacheStorage = async (
   const assertRoot = (): Promise<void> => assertCacheDirectory(root, rootStamp);
   await assertRoot();
 
-  return {
+  const storage: PlaybackCacheStorage = {
+    async findCandidate(expected, signal) {
+      signal.throwIfAborted();
+      if (!isCacheExpectationValid(expected))
+        throw Error('CACHE_INVALID_EXPECTATION');
+      await assertRoot();
+      if (
+        (await cacheRootBytes(root, undefined, signal)) > maximumCacheBytes ||
+        (await cacheFreeBytes(root, signal)) < reserveBytes
+      )
+        throw Error('CACHE_CAPACITY');
+      const entries = await fs.opendir(root);
+      let count = 0;
+      for await (const entry of entries) {
+        signal.throwIfAborted();
+        if (++count > 1024) throw Error('CACHE_TOO_MANY_ENTRIES');
+        if (!entry.name.startsWith('ready-')) continue;
+        const candidate = await storage.inspectCandidate(
+          entry.name.slice(6),
+          expected,
+          signal,
+        );
+        if (candidate) return candidate;
+      }
+      signal.throwIfAborted();
+      return null;
+    },
     async begin(expected, maximumOutputBytes) {
       if (!isCacheExpectationValid(expected) || !validLimit(maximumOutputBytes))
         throw new Error('CACHE_INVALID_EXPECTATION');
@@ -339,11 +379,20 @@ export const openPlaybackCacheStorage = async (
           !/^[a-f0-9]{64}$/.test(data.sha256) ||
           !('bytes' in data) ||
           typeof data.bytes !== 'number' ||
-          !validLimit(data.bytes)
+          !validLimit(data.bytes) ||
+          data.bytes > maximumOutputBytes
         )
           throw new Error('CACHE_INVALID_MANIFEST');
         await cacheDirectoryBytes(directory);
         const mediaPath = path.join(directory, 'media.mp4');
+        const info = await fs.lstat(mediaPath);
+        if (
+          !info.isFile() ||
+          info.isSymbolicLink() ||
+          info.nlink !== 1 ||
+          info.size > maximumOutputBytes
+        )
+          throw Error('CACHE_UNSAFE_FILE');
         const output = await readCacheFileIdentity(mediaPath, { signal });
         if (
           output.identity.sha256 !== data.sha256 ||
@@ -362,4 +411,5 @@ export const openPlaybackCacheStorage = async (
       }
     },
   };
+  return storage;
 };

@@ -17,6 +17,7 @@ export interface PlaybackCacheViewProps {
   canPrepare: boolean;
   paused: boolean;
   onPrepare: () => void;
+  onReuse: () => void;
   onCancel: () => void;
   onUseOriginal: () => void;
   onUseCache: () => void;
@@ -33,6 +34,8 @@ const labels: Record<PlaybackCacheStatus['phase'], string> = {
   failed: '再生用コピーを準備できませんでした。',
 };
 const errors = {
+  missing:
+    'この原本と再生環境に合う保存済みコピーがありません。原本を使用します。必要なら新しく作成してください。',
   capacity:
     '保存先の空き容量または容量上限が不足しています。原本はそのまま再生できます。',
   validation:
@@ -79,6 +82,11 @@ export const PlaybackCacheView = (
       )}
       {status.error && <Alert severity="error">{errors[status.error]}</Alert>}
       <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+        {!busy && status.phase !== 'ready' && status.error !== 'cleanup' && (
+          <Button disabled={!props.canPrepare} onClick={props.onReuse}>
+            保存済みコピーを確認
+          </Button>
+        )}
         {!busy && status.phase !== 'ready' && status.error !== 'cleanup' && (
           <Button disabled={!props.canPrepare} onClick={props.onPrepare}>
             再生用コピーを作成

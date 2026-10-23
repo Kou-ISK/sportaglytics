@@ -9,6 +9,7 @@ interface PlaybackCacheController {
   error: string | null;
   switching: boolean;
   onPrepare: () => void;
+  onReuse: () => void;
   onCancel: () => void;
   onRetryCleanup: () => void;
   onUseCache: () => void;
@@ -99,7 +100,9 @@ export const usePlaybackCacheController = (
     return { generation: value.generation, sourceKey: value.source.key };
   }, [api]);
   const action = useCallback(
-    async (command: 'prepare' | 'cancel' | 'cleanup'): Promise<void> => {
+    async (
+      command: 'prepare' | 'reuse' | 'cancel' | 'cleanup',
+    ): Promise<void> => {
       try {
         setError(null);
         await api?.[command](request());
@@ -232,6 +235,9 @@ export const usePlaybackCacheController = (
     switching,
     onPrepare: () => {
       void action('prepare');
+    },
+    onReuse: () => {
+      void action('reuse');
     },
     onCancel: () => {
       void action('cancel');

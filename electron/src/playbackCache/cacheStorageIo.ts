@@ -27,13 +27,18 @@ export const assertCacheDirectory = async (
 
 export const cacheDirectoryBytes = async (
   directory: string,
+  signal?: AbortSignal,
 ): Promise<number> => {
+  signal?.throwIfAborted();
   const entries = await fs.readdir(directory);
+  signal?.throwIfAborted();
   if (entries.some((entry) => !fileNames.has(entry)))
     throw new Error('CACHE_UNEXPECTED_ENTRY');
   let bytes = 0;
   for (const entry of entries) {
+    signal?.throwIfAborted();
     const info = await fs.lstat(path.join(directory, entry), { bigint: true });
+    signal?.throwIfAborted();
     if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1n)
       throw new Error('CACHE_UNSAFE_FILE');
     bytes += Number(info.size);
@@ -46,25 +51,42 @@ export const cacheDirectoryBytes = async (
 export const cacheRootBytes = async (
   root: string,
   excludedDirectory?: string,
+  signal?: AbortSignal,
 ): Promise<number> => {
   let bytes = 0;
   let count = 0;
+  signal?.throwIfAborted();
   const entries = await fs.opendir(root);
-  for await (const entry of entries) {
-    if (++count > 1024) throw new Error('CACHE_TOO_MANY_ENTRIES');
-    const id = entry.name.match(entryId)?.[1];
-    if (!id || !CACHE_ID.test(id)) throw new Error('CACHE_UNEXPECTED_ENTRY');
-    const directory = path.join(root, entry.name);
-    cacheDirectoryStamp(await fs.lstat(directory, { bigint: true }));
-    if (directory === excludedDirectory) continue;
-    bytes += await cacheDirectoryBytes(directory);
-    if (!Number.isSafeInteger(bytes)) throw new Error('CACHE_CAPACITY');
+  try {
+    while (true) {
+      signal?.throwIfAborted();
+      const entry = await entries.read();
+      signal?.throwIfAborted();
+      if (!entry) break;
+      if (++count > 1024) throw new Error('CACHE_TOO_MANY_ENTRIES');
+      const id = entry.name.match(entryId)?.[1];
+      if (!id || !CACHE_ID.test(id)) throw new Error('CACHE_UNEXPECTED_ENTRY');
+      const directory = path.join(root, entry.name);
+      cacheDirectoryStamp(await fs.lstat(directory, { bigint: true }));
+      signal?.throwIfAborted();
+      if (directory === excludedDirectory) continue;
+      bytes += await cacheDirectoryBytes(directory, signal);
+      if (!Number.isSafeInteger(bytes)) throw new Error('CACHE_CAPACITY');
+    }
+  } finally {
+    await entries.close();
   }
+  signal?.throwIfAborted();
   return bytes;
 };
 
-export const cacheFreeBytes = async (root: string): Promise<number> => {
+export const cacheFreeBytes = async (
+  root: string,
+  signal?: AbortSignal,
+): Promise<number> => {
+  signal?.throwIfAborted();
   const stats = await fs.statfs(root, { bigint: true });
+  signal?.throwIfAborted();
   const free = stats.bavail * stats.bsize;
   return Number(
     free > BigInt(Number.MAX_SAFE_INTEGER)
