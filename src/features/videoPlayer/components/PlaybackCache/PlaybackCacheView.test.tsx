@@ -5,6 +5,33 @@ import { PlaybackCacheView } from './PlaybackCacheView';
 import type { PlaybackCacheViewProps } from './PlaybackCacheView';
 
 afterEach(cleanup);
+it('keeps the user informed and blocks regeneration while child exit is unconfirmed', () => {
+  render(
+    <PlaybackCacheView
+      status={{
+        phase: 'cancelling',
+        progress: null,
+        selected: 'original',
+        error: 'stop',
+      }}
+      estimate={null}
+      canPrepare
+      paused
+      onPrepare={vi.fn()}
+      onCancel={vi.fn()}
+      onUseOriginal={vi.fn()}
+      onUseCache={vi.fn()}
+      onRetryCleanup={vi.fn()}
+    />,
+  );
+  expect(screen.getByRole('alert').textContent).toContain(
+    '終了を確認できていません',
+  );
+  expect(screen.getByRole('status').textContent).toContain(
+    '終了を待っています',
+  );
+  expect(screen.queryAllByRole('button')).toHaveLength(0);
+});
 it('keeps cancellation and original fallback available, but requires pause before adopting a ready copy', () => {
   const props: PlaybackCacheViewProps = {
     status: {

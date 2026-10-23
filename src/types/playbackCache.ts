@@ -10,7 +10,7 @@ export interface PlaybackCacheStatus {
     | 'failed';
   progress: number | null;
   selected: 'original' | 'cache';
-  error: 'capacity' | 'validation' | 'operation' | 'cleanup' | null;
+  error: 'capacity' | 'validation' | 'operation' | 'cleanup' | 'stop' | null;
 }
 
 export interface PlaybackCacheEstimate {

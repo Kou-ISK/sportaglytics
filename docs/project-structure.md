@@ -423,3 +423,5 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 `electron/src/playbackCache`は端末内派生動画のpolicy/job基盤、`src/types/playbackCache.ts`は表示契約、videoPlayerの`components/PlaybackCache`はprops-only View/Storyです。本番adapter接続前の範囲と期限は[再生用コピー設計](playback-cache.md)に記録します。パッケージopen登録は`ipc/packageOpenHandlers.ts`、取消/所有管理は`packageOpenOperations.ts`、OS読込結果の失効は`packageHistoryRead.ts`へ分離します。
 
 `playbackCache/sourceIdentity.ts`は取消可能なread-onlyの全体識別、`cacheStorageIo.ts`は限定されたfilesystem検査、`cacheStorage.ts`は容量/所有/公開と候補検査を担当します。UI、Session権限、実変換processの責務をこの層へ持ち込みません。
+
+`playbackCache/cacheConversionRunner.ts`は出力/容量/期限と終了待ち、`cacheWorkerProcess.ts`はMainが所有するchildの生成/イベント/停止要求を担当します。FFmpeg recipe、Session認可、UI/IPCは分離し、この層でユーザー指定コマンドを公開しません。

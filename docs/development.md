@@ -496,3 +496,5 @@ BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-doc
 再生用コピーは[有効化条件](playback-cache.md)を満たすまで通常再生へ接続しません。`electron/src/playbackCache`の検証用portsは実FFmpeg/HW効果の代替ではありません。パッケージopenの取消は専用IPCを使い、読み取り待ちの中止と更新commitの完了を区別してください。
 
 保存adapterの`openPlaybackCacheStorage`にはMainが所有するアプリdata領域と明示的な総容量/空き容量reserveを渡します。生成中は所有runnerが`checkBudget`を監視し、process終了後のvalidate段階で`seal(validation, signal)`、最後に`publish`を呼びます。hash中の取消を維持するため、sealをpublish内へ移さないでください。private一時ファイルの検査と、実FFmpeg/IPC/再生選択の接続・OS別試験は区別します。
+
+変換runnerは`runCacheConversion`へ保存層の`checkBudget`と明示期限を渡し、停止状態callbackをjobへ接続します。`close`前にconvertをrejectしてstaging削除を始めないでください。単一pollと終了未確認のbusy維持は合成workerで検査し、実process停止・固定recipe・Main終了時の所有は別の接続検証とします。

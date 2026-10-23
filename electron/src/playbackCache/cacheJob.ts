@@ -20,6 +20,7 @@ export interface CacheJobPorts {
     signal: AbortSignal,
     progress: (fraction: number) => void,
     budget: { maxBytes: number; reserveBytes: number },
+    stopWaiting: (unconfirmed: boolean) => void,
   ) => Promise<void>;
   validate: (signal: AbortSignal) => Promise<CacheValidation>;
   publish: () => Promise<string>;
@@ -100,6 +101,18 @@ export class PlaybackCacheJob {
           });
         },
         { maxBytes: limits.maxBytes, reserveBytes: limits.reserveBytes },
+        (unconfirmed) => {
+          if (
+            this.active !== controller ||
+            !['converting', 'cancelling'].includes(this.state.phase)
+          )
+            return;
+          this.update({
+            phase: 'cancelling',
+            progress: null,
+            error: unconfirmed ? 'stop' : null,
+          });
+        },
       );
       controller.signal.throwIfAborted();
       this.update({ phase: 'validating', progress: null });

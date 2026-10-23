@@ -1,6 +1,6 @@
 # 再生用コピーの基盤と有効化条件
 
-本書は CACHE-1 の設計・実装範囲を記録する。現時点ではジョブ制御・検証契約・propsだけで描画するViewに加え、取消可能な全体hashとMain用filesystem保存adapterを実装している。保存adapterは一時ファイルによる回帰でjobへ接続し、通常アプリからは呼んでいない。本番FFmpeg・全列validator・IPC・再生ソースへのadapterは未接続であり、通常アプリは変換を開始せず原本を再生する。再生改善・実音声同期・物理scrubを確認済みとは扱わない。[ADR 0073](adr/0073-verified-playback-cache-foundation.md)。
+本書は CACHE-1 の設計・実装範囲を記録する。現時点ではジョブ制御・検証契約・propsだけで描画するViewに加え、取消可能な全体hashとMain用filesystem保存adapterを実装している。保存adapterは一時ファイルによる回帰でjobへ接続し、通常アプリからは呼んでいない。所有processのrunnerとjob/保存層の接続も合成workerで検査している。本番の変換recipe・全列validator・IPC・再生ソースへのadapterは未接続であり、通常アプリは変換を開始せず原本を再生する。再生改善・実音声同期・物理scrubを確認済みとは扱わない。[ADR 0073](adr/0073-verified-playback-cache-foundation.md)。
 
 ## 原本と時計
 
@@ -22,13 +22,21 @@
 
 `sourceIdentity.ts`は既存Sessionが許可した、録画中ではない通常ファイルをread-onlyで1MiBずつ全体hashする。中止時はhandleを閉じ、読込中のサイズ・inode・mtime/ctime変更、パス差替え、symlinkを拒否する。hash対象の権限・録画中判定はMainの呼出側が行う。原本を再度識別する工程を省略しない。
 
-`openPlaybackCacheStorage`のparentはMainが選ぶアプリ専用data領域に限定し、packageやRenderer入力を渡さない。`playback-cache-v1`内で同Mainの複数Window/adapterを通じて1writerとし、別Main processは別rootを使う。上限と空き容量reserveは必須引数であり、無制限の既定値は持たない。既存readyと中断stagingを総容量へ数え、自動削除しない。`capacity`は生成前に、`checkBudget`は生成中の所有runnerが定期的に確認する。**runnerによる監視・停止はまだ未接続**であり、保存adapter単体を実変換中の容量強制保証としない。
+`openPlaybackCacheStorage`のparentはMainが選ぶアプリ専用data領域に限定し、packageやRenderer入力を渡さない。`playback-cache-v1`内で同Mainの複数Window/adapterを通じて1writerとし、別Main processは別rootを使う。上限と空き容量reserveは必須引数であり、無制限の既定値は持たない。既存readyと中断stagingを総容量へ数え、自動削除しない。`capacity`は生成前に、`checkBudget`は生成中の所有runnerが定期的に確認する。`runCacheConversion`からの監視と停止要求を合成worker/実一時ファイルで検査しているが、通常アプリの実変換へは未接続である。poll間の出力増加やOSによる停止を含む厳密な実容量保証は未検証であり、保存adapter単体をその保証としない。
 
 生成先はjob固有の固定名だけをMainに渡す。停止済みworkerの出力に対し、取消可能な`seal`で時刻/音声/HW proofと実出力の全体SHA-256を結合し、media/manifestをsyncする。validatorの`outputSha256`は同じ出力から計算する。長いhash検査を取消できない公開段階へ移さない。`publish`はseal後の変更と容量を再確認してrenameし、既存の公開先は置換しない。公開後はそのjobの`discard`でも削除しない。
 
 失敗時は所有するstaging内の既知2ファイルだけをunlinkし、再帰削除しない。未知ファイルやdirectory差替えで片付けを拒否した場合、writer所有を保持し、片付け再試行が成功するまで新jobを受けない。中断した別jobのstagingは採用・自動削除せず、容量へ数える。再起動後の中断jobの所有確認と明示的な削除UIは未実装である。
 
 `inspectCandidate`はopaque IDのreadyだけを読み、期待原本/recipe/runtimeキーと実bytes/hashを照合する。これは**候補の整合検査**であり、書換え可能なmanifestを時刻・音声・HWの証明として信頼しない。再生へ採用する前にMain validatorが実内容を検証する。candidateの一覧・再起動時の自動再利用・既存readyの削除はまだ接続していない。ここでの差替え防止はアプリ所有のprivate領域を前提とし、同じOSユーザーによる敵対的な全path操作を原子的に隔離する仕組みではない。
+
+## 所有変換processのrunner
+
+`cacheConversionRunner.ts`は容量の事前確認と単一の定期確認、上限付きの進行行解析、診断出力量、実行期限を管理する。容量確認が応答しない場合も停止要求へ進み、遅い応答から次のpollや変換を再開しない。進行の`progress=end`や停止要求の成功をprocess終了と扱わず、`close`確認までconvertを完了しない。
+
+`cacheWorkerProcess.ts`はMain専用のdirect spawn adapterで、shellを使わず、所有childへSIGTERMだけを要求する。既存の汎用export runnerは変更しない。停止を確認できない場合はjobをbusyのまま保持し、Viewに終了未確認を示し、検証・公開・staging削除・再生成を進めない。強制終了へ自動昇格しない。終了要求への応答・アプリ自体を閉じる時のworker所有・再起動復旧は本番接続時に検証する。
+
+呼出側は同梱実行ファイル、Session認可済み原本、固定recipe（`-progress pipe:1`）、所有staging出力だけを結合する。任意のRenderer path/argsを渡すAPIではない。現在はrecipe/全列validator/HW検査が未接続なので、通常アプリはこのspawn adapterを呼ばない。Mac同梱FFmpegはlibx264を含まずVideoToolboxを使用するため、別encoderで測った時間・容量・画質を製品方式の保証へ流用しない。
 
 ## 操作
 
@@ -38,7 +46,7 @@
 
 この作業票の担当はmaintainers、基盤だけを置く期限は2026-10-30（merge/release前に再確認）とする。
 
-1. 同梱FFmpegのfield-rate filter/encoder/全track copy能力と配布由来を確認し、容量監視・所有process取消を実装し、実装済み保存adapterを接続する。任意コマンド/pathを受けるIPCは追加しない。
+1. 同梱FFmpegのfield-rate filter/encoder/全track copy能力と配布由来を確認し、実装済みrunner/保存adapterへ固定recipeを接続し、容量監視・所有process取消を実環境で検証する。任意コマンド/pathを受けるIPCは追加しない。
 2. 全列を計算するvalidatorと、原本identity・再起動復旧・削除/再生成・同時job/複数Windowのテストを追加する。source指定は既存Sessionの許可された動画だけに限定する。
 3. 合成field/VFR/非ゼロPTS/複数音声/多角度/複数clip/blob除外を検査し、既存タグ・出力・保存の不変を確認する。
 4. 調整済み実機試験でHW継続、再生drop/waiting/underflow、停止seek・押下中フレーム・最終位置・再開、実音声同期を比較する。計測APIによる合成入力と物理操作の成績を区別する。

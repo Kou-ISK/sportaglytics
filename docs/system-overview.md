@@ -435,3 +435,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 パッケージopenの履歴列挙はWindow/requestに所属する専用progress/取消を持ち、reload・crash・close後の結果を採用しません。Sessionのbind/releaseも要求を照合します（[ADR 0072](adr/0072-cancellable-package-history-read.md)）。[再生用コピー基盤](playback-cache.md)はMain側policy/jobとprops-only Viewに分離し、本番adapterへの接続・保存形式の変更・自動変換は行っていません。
 
 再生用コピーの保存adapterはアプリ専用領域に隔離し、原本・タグ時計・package保存形式を変えません。全体hash・proof結合・中断stagingを含む容量計算とatomic公開を一時ファイルで検査していますが、通常アプリの生成/再生切替へはまだ接続していません。既存manifestは採用済み証明ではなく、再検証する候補として扱います。
+
+再生用コピーの所有process runnerは停止要求と終了確認を分離し、終了未確認中はコピー準備をbusyに保ちます。通常再生・package保存形式・原本は変更しません。固定recipe/validator/IPCが未接続のため、生成機能は引き続き無効です。

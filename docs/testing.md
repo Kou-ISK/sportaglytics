@@ -323,3 +323,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 `packageHistoryRead` / `packageOpenHandlers` / preload bridge / startup Hook・Gateway・Viewの回帰は、待機取消、late結果/エラー、reload/crash、unmount、他Window/旧request拒否、取消送信失敗を検査します。`packageBackupRestoration`は取消後に原本bytesと履歴判定が保持され、再試行可能なことを実一時ファイルで確認します。`packageSessionRegistry`は同Window/同pathの後続bindを旧cleanupが解放しないことを確認します。対応OSの実open/preload E2Eと遅い保存先での応答は別検証です。
 
 `sourceIdentity.test.ts`は全bytes/取消/差替え/特殊ファイル拒否を、`cacheStorage.test.ts`は実一時ファイルを使い、job接続、seal前採用拒否、出力hashとの結合、容量/中断job/同時writer、後続差替え、symlink/hardlink、片付け失敗と再試行、公開先保全、ready改変の検出を確認します。合成proofを使うため、動画の全列validator・HW効果・process停止・実音声の検証ではありません。
+
+`cacheConversionRunner.test.ts`は合成workerと時計で取消/容量/期限/出力量・遅いclose・停止未確認・単一poll・古いcallbackを検査します。`cacheWorkerProcess.test.ts`はspawnをmockし、shellなし・所有childへのTERMだけ・close別通知を確認します。`cacheStorage.test.ts`は実一時ファイルの容量超過で停止要求し、合成close前は出力を保持し、close後だけ片付ける接続を検査します。これらは実FFmpegやOSのprocess終了を実行した試験ではありません。終了未確認のView/Storyは再生成や片付けを出さず、原本を使用できることを明示します。

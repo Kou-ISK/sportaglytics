@@ -44,6 +44,16 @@ export const Cancelling: Story = {
     },
   },
 };
+export const StopUnconfirmed: Story = {
+  args: {
+    status: {
+      phase: 'cancelling',
+      progress: null,
+      selected: 'original',
+      error: 'stop',
+    },
+  },
+};
 export const Ready: Story = {
   args: {
     status: {

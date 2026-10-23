@@ -2,7 +2,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { runCacheConversion } from './cacheConversionRunner';
+import type { CacheWorkerEvents } from './cacheConversionRunner';
 import { openPlaybackCacheStorage } from './cacheStorage';
 import { CACHE_METADATA_BUDGET } from './cacheStorageIo';
 import { PlaybackCacheJob } from './cacheJob';
@@ -79,10 +81,34 @@ it('connects real storage to the job while keeping the source and explicit selec
   const job = new PlaybackCacheJob(
     {
       capacity: pending.capacity,
-      convert: async (_signal, progress) => {
-        await fs.writeFile(pending.outputPath, payload, { flag: 'wx' });
-        progress(1);
-      },
+      convert: (signal, progress, _budget, stopWaiting) =>
+        runCacheConversion(
+          (events) => {
+            // Synthetic worker events; filesystem and job/storage ports are real.
+            void fs.writeFile(pending.outputPath, payload, { flag: 'wx' }).then(
+              () => events.closed(0, null),
+              (error: unknown) => {
+                events.error(
+                  error instanceof Error ? error : Error('write failed'),
+                );
+                events.closed(1, null);
+              },
+            );
+            return { terminate: () => true, dispose: () => undefined };
+          },
+          {
+            signal,
+            progress,
+            stopWaiting,
+            durationSeconds: 1,
+            timeoutMs: 2000,
+            budgetPollMs: 20,
+            budgetDeadlineMs: 1000,
+            stopWarningMs: 100,
+            maximumDiagnosticBytes: 1000,
+            checkBudget: pending.checkBudget,
+          },
+        ),
       validate: async (signal) => {
         const validation = proof();
         await pending.seal(validation, signal);
@@ -110,6 +136,73 @@ it('connects real storage to the job while keeping the source and explicit selec
   await pending.discard(); // A later failure/cleanup cannot delete a ready copy.
   expect(await storage.inspectCandidate(id, expectation)).not.toBeNull();
   expect(await fs.readFile(source, 'utf8')).toBe('original');
+});
+
+it('connects disk capacity failure to worker stop and preserves staging until close', async () => {
+  const pending = await stage(1024 * 1024, 10);
+  let workerEvents: CacheWorkerEvents | undefined;
+  let started = (): void => undefined;
+  const workerStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let stopped = (): void => undefined;
+  const stopRequested = new Promise<void>((resolve) => {
+    stopped = resolve;
+  });
+  const validate = vi.fn();
+  const publish = vi.fn(pending.publish);
+  const discard = vi.fn(pending.discard);
+  const job = new PlaybackCacheJob(
+    {
+      capacity: pending.capacity,
+      validate,
+      publish,
+      discard,
+      convert: (signal, progress, _budget, stopWaiting) =>
+        runCacheConversion(
+          (events) => {
+            workerEvents = events;
+            started();
+            return {
+              terminate: () => {
+                stopped();
+                return true;
+              },
+              dispose: () => undefined,
+            };
+          },
+          {
+            signal,
+            progress,
+            stopWaiting,
+            durationSeconds: 1,
+            timeoutMs: 2000,
+            budgetPollMs: 10,
+            budgetDeadlineMs: 1000,
+            stopWarningMs: 100,
+            maximumDiagnosticBytes: 1000,
+            checkBudget: pending.checkBudget,
+          },
+        ),
+    },
+    () => undefined,
+  );
+  const completion = job.start(expectation, 10);
+  await workerStarted;
+  await fs.writeFile(pending.outputPath, 'elevenbytes');
+  await stopRequested;
+  expect(job.status.phase).toBe('cancelling');
+  expect(discard).not.toHaveBeenCalled();
+  expect((await fs.stat(pending.outputPath)).size).toBe(11);
+  if (!workerEvents) throw Error('missing synthetic worker');
+  workerEvents.closed(null, 'SIGTERM');
+  await completion;
+  expect(validate).not.toHaveBeenCalled();
+  expect(publish).not.toHaveBeenCalled();
+  expect(discard).toHaveBeenCalledOnce();
+  await expect(fs.stat(pending.outputPath)).rejects.toMatchObject({
+    code: 'ENOENT',
+  });
 });
 
 it('does not publish unsealed or mismatched media and never adopts a pending directory', async () => {

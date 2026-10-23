@@ -301,6 +301,7 @@ it('passes the actual write budget to the runner and refuses an oversized result
     expect.any(AbortSignal),
     expect.any(Function),
     { maxBytes: 5000, reserveBytes: 1000 },
+    expect.any(Function),
   );
   expect(ports.publish).not.toHaveBeenCalled();
   expect(job.status.error).toBe('capacity');
