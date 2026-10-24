@@ -140,3 +140,5 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 - [0074 Bounded cache hardware compatibility](0074-bounded-cache-hardware-compatibility.md): 全内容proofと再利用時の区間HW適合性を分離（Proposed）。
 
 - [0075 Persistent complete content proofs](0075-persistent-complete-content-proofs.md): ビルド・実bytesに結合した内容proofのprivate保持と無効化（Proposed）。
+
+- [0076 Operation-owned cache identity handoff](0076-operation-owned-cache-identity-handoff.md): 同じ要求内の新しい候補digestの引渡しとcleanup所有権（Proposed）。

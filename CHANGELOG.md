@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- 保存済み再生用コピーの同一要求内で候補digestを安全に引き渡し、重複全読込を1回削減。途中交換・取消・close失敗の保護は維持。
+
 - 再生用コピーの全内容proofを同じ実bytes・環境・ビルドに結合したprivate記録へ保持し、再起動後の重複デコードを削減。破損・変更時は全解析へ戻り、毎回の全hashと新規HW確認を維持します。長尺と実再生品質は別途検証が必要です。
 
 ### Fixed

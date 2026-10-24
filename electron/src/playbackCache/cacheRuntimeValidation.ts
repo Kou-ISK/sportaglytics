@@ -1,3 +1,4 @@
+import type { CacheIdentityHandoff } from './cacheIdentityHandoff';
 import type { CacheProofObservation } from './cacheContentProofs';
 import type { CacheAuthorizedSource } from './cacheSourceAccess';
 import fs from 'node:fs/promises';
@@ -27,6 +28,7 @@ export type CacheRuntimeValidation = CacheValidation & {
  * freshly observes bounded compatibility ranges, not full-file HW playback. */
 export const validateCacheMedia = async (options: {
   hardwareMode: CacheHardwareMode;
+  identityHandoff?: CacheIdentityHandoff;
   source: CacheAuthorizedSource;
   metadata: CacheMediaMetadata;
   expectation: CacheExpectation;
@@ -53,12 +55,14 @@ export const validateCacheMedia = async (options: {
     candidatePath,
     context,
     expectation.runtime,
+    options.identityHandoff,
   );
   assertCacheVideoMatches(metadata, output.metadata);
   const { timing } = output;
   await check();
   const sourceAfter = await identifyCacheSource(source.path, {
     signal: context.signal,
+    observe: context.observeIdentityRead,
   });
   await check();
   const content = {
@@ -83,6 +87,7 @@ export const validateCacheMedia = async (options: {
   await check();
   const afterHardware = await readCacheFileIdentity(candidatePath, {
     signal: context.signal,
+    observe: context.observeIdentityRead,
   });
   if (
     afterHardware.revision !== output.revision ||

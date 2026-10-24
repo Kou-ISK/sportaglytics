@@ -1,3 +1,4 @@
+import type { CacheIdentityReadObserver } from './sourceIdentity';
 import { StringDecoder } from 'node:string_decoder';
 import { runCacheConversion } from './cacheConversionRunner';
 import { spawnCacheWorker } from './cacheWorkerProcess';
@@ -12,6 +13,7 @@ export interface CacheProbeContext {
   executable: string;
   signal: AbortSignal;
   stopWaiting: (unconfirmed: boolean) => void;
+  observeIdentityRead?: CacheIdentityReadObserver;
 }
 const run = async (
   context: CacheProbeContext,

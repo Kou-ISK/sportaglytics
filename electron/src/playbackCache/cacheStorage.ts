@@ -1,8 +1,10 @@
+import { createCacheCandidateAccess } from './cacheCandidateStorage';
+import type { CacheIdentityHandoff } from './cacheIdentityHandoff';
+import type { CacheIdentityReadObserver } from './sourceIdentity';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
-  CACHE_ID,
   CACHE_METADATA_BUDGET,
   assertCacheDirectory,
   cacheDirectoryBytes,
@@ -58,6 +60,7 @@ export interface PlaybackCacheStorage {
   findCandidate: (
     expected: CacheExpectation,
     signal: AbortSignal,
+    handoff?: CacheIdentityHandoff,
   ) => Promise<CacheCandidate | null>;
   begin: (
     expected: CacheExpectation,
@@ -81,6 +84,7 @@ export const openPlaybackCacheStorage = async (
     reserveBytes: number;
     maximumOutputBytes?: number;
   },
+  observe?: CacheIdentityReadObserver,
 ): Promise<PlaybackCacheStorage> => {
   if (
     !validLimit(limits.maximumCacheBytes) ||
@@ -107,32 +111,16 @@ export const openPlaybackCacheStorage = async (
   await assertRoot();
 
   const storage: PlaybackCacheStorage = {
-    async findCandidate(expected, signal) {
-      signal.throwIfAborted();
-      if (!isCacheExpectationValid(expected))
-        throw Error('CACHE_INVALID_EXPECTATION');
-      await assertRoot();
-      if (
-        (await cacheRootBytes(root, undefined, signal)) > maximumCacheBytes ||
-        (await cacheFreeBytes(root, signal)) < reserveBytes
-      )
-        throw Error('CACHE_CAPACITY');
-      const entries = await fs.opendir(root);
-      let count = 0;
-      for await (const entry of entries) {
-        signal.throwIfAborted();
-        if (++count > 1024) throw Error('CACHE_TOO_MANY_ENTRIES');
-        if (!entry.name.startsWith('ready-')) continue;
-        const candidate = await storage.inspectCandidate(
-          entry.name.slice(6),
-          expected,
-          signal,
-        );
-        if (candidate) return candidate;
-      }
-      signal.throwIfAborted();
-      return null;
-    },
+    ...createCacheCandidateAccess({
+      root,
+      assertRoot,
+      maximumCacheBytes,
+      maximumOutputBytes,
+      reserveBytes,
+      keyFor,
+      observe,
+    }),
+
     async begin(expected, maximumOutputBytes) {
       if (!isCacheExpectationValid(expected) || !validLimit(maximumOutputBytes))
         throw new Error('CACHE_INVALID_EXPECTATION');
@@ -346,67 +334,6 @@ export const openPlaybackCacheStorage = async (
         };
       } catch (error) {
         activeRoots.delete(root);
-        throw error;
-      }
-    },
-    async inspectCandidate(id, expected, signal) {
-      if (!CACHE_ID.test(id) || !isCacheExpectationValid(expected))
-        throw new Error('CACHE_INVALID_CANDIDATE');
-      const expectedKey = keyFor(structuredClone(expected));
-      await assertRoot();
-      const directory = path.join(root, `ready-${id}`);
-      try {
-        cacheDirectoryStamp(await fs.lstat(directory, { bigint: true }));
-        const data: unknown = JSON.parse(
-          (
-            await readCacheManifest(path.join(directory, 'manifest.json'))
-          ).toString('utf8'),
-        );
-        if (
-          !data ||
-          typeof data !== 'object' ||
-          !('schemaVersion' in data) ||
-          data.schemaVersion !== 1 ||
-          !('artifactId' in data) ||
-          data.artifactId !== id ||
-          !('expectationKey' in data) ||
-          data.expectationKey !== expectedKey
-        )
-          return null;
-        if (
-          !('sha256' in data) ||
-          typeof data.sha256 !== 'string' ||
-          !/^[a-f0-9]{64}$/.test(data.sha256) ||
-          !('bytes' in data) ||
-          typeof data.bytes !== 'number' ||
-          !validLimit(data.bytes) ||
-          data.bytes > maximumOutputBytes
-        )
-          throw new Error('CACHE_INVALID_MANIFEST');
-        await cacheDirectoryBytes(directory);
-        const mediaPath = path.join(directory, 'media.mp4');
-        const info = await fs.lstat(mediaPath);
-        if (
-          !info.isFile() ||
-          info.isSymbolicLink() ||
-          info.nlink !== 1 ||
-          info.size > maximumOutputBytes
-        )
-          throw Error('CACHE_UNSAFE_FILE');
-        const output = await readCacheFileIdentity(mediaPath, { signal });
-        if (
-          output.identity.sha256 !== data.sha256 ||
-          output.identity.bytes !== data.bytes
-        )
-          throw new Error('CACHE_OUTPUT_CHANGED');
-        return { artifactId: id, mediaPath, ...output.identity };
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          'code' in error &&
-          error.code === 'ENOENT'
-        )
-          return null;
         throw error;
       }
     },

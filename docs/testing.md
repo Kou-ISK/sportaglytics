@@ -336,3 +336,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 再生用コピーの永続proofは`cacheProofStore.test.ts`で認証/版/shape/時刻関係・容量・link/owner/mode・取消/書込不確定・同時要求を、`cacheApplicationIdentity.test.ts`で物理bytes/交換/取消を、`cacheContentProofs.test.ts`で再起動と改変時の全解析を検査する。`cacheReusePipeline.test.ts`は非同期保存後のowner/原本/取消と新規HW失敗を確認する。これらは実ASAR/実HW/実音声の検証を代替せず、別Main・同profileの短尺IPC計測で永続記録の実採用を確認する。
 
 `scripts/tests/electron-runtime.mjs`は実梱包依存checkerへ架空のcompiled Mainを渡し、Electron内蔵`original-fs`・Node builtin・相対importの受理と、未知require/dynamic import・似た名前の拒否を検査する。実Electronでraw ASARを読めることは別の梱包IPC検証で確認する。
+
+`cacheIdentityHandoff.test.ts`は同サイズ改変・mtime復元・同内容inode交換・links・別path・二重消費・取消・open待ち中のclose・close失敗と明示retryを実FSで検証する。`cacheReusePipeline.test.ts`は実handle.readのbytesとMainの有界auditを比較し、fresh/warmの全digest回数、Jobのcleanup失敗保持を確認する。短尺の別Main IPC計測は同一build/profileのpersistent proofを用い、全field/音声proofと新規HWが残ることを確認する。測定は実UI/再生品質の合格を意味しない。

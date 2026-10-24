@@ -512,3 +512,5 @@ BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-doc
 field_order欠落素材のfixtureではraw stream値を注入せず、全packetの由来/共通時計と全decoded表示順を別に証明します。製品のprefix仮分類→全尺input proof→変換の順序、後半の混在/欠落拒否を回帰し、同梱VideoToolboxの実変換は別途調整したCUA試験で確認します。
 
 再生用コピーの性能測定では未検証の初回、同一起動内のメモ、正常終了後の別Mainによる永続proof利用を分け、sourceProof/contentProofのfrom・reused・persistence・elapsedMs、変換とHWの時間を記録する。再起動試験は最初の製品IPCが実際に保存した同じprofileを使い、記録注入・鍵コピーをしない。実梱包のoriginal-fsでstoredとpersistentを確認し、Node上の模擬ASARだけで実機合格にしない。全hash・所有権・HWの検査を無効化して測定しない。[仕様](playback-cache.md#保存済みコピーの明示再利用)。
+
+候補探索と内容検査の隣接digestは同一Jobの`CacheIdentityHandoff`だけで共有する。捕捉前にJobをretainし、closeの失敗はcleanupに残す。通常finallyと明示retryCleanupを区別し、失敗closeを暗黙に再発行しない。性能比較では`mediaReads`の回数/合計bytes/overflowを確認し、probe時間・HW時間・物理ディスク転送とは区別する。

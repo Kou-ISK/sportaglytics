@@ -24,7 +24,7 @@ export interface CacheJobPorts {
   ) => Promise<void>;
   validate: (signal: AbortSignal) => Promise<CacheValidation>;
   publish: () => Promise<string>;
-  discard: () => Promise<void>;
+  discard: (options?: { retryFailedCleanup: true }) => Promise<void>;
 }
 
 /** Reuse validates existing immutable bytes. Cleanup owns probe scratch only;
@@ -164,7 +164,13 @@ export class PlaybackCacheJob {
       }
       if (!this.artifact) throw new Error('CACHE_EMPTY_ARTIFACT');
       this.update({ phase: 'ready', progress: null });
-    } catch {
+    } catch (cause) {
+      if (
+        'reuse' in this.ports &&
+        cause instanceof Error &&
+        cause.message === 'CACHE_CANDIDATE_NOT_FOUND'
+      )
+        error = 'missing';
       this.artifact = null;
       try {
         await this.ports.discard();
@@ -220,7 +226,7 @@ export class PlaybackCacheJob {
     const controller = new AbortController();
     this.active = controller;
     try {
-      await this.ports.discard();
+      await this.ports.discard({ retryFailedCleanup: true });
       this.cleanupRequired = false;
       this.update({ phase: 'original', error: null });
     } finally {

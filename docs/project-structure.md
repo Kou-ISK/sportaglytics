@@ -437,3 +437,5 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 `playbackCache/cacheDisplayScan.ts`はraw stream宣言と有界decoded prefixの表示順分類を担当します。`cacheProbe.ts`が所有workerを通して呼び、`cacheTimingAccumulator.ts`が全frameを再照合します。UI/IPCへ仮判定を公開しません。
 
 `electron/src/playbackCache/cacheContentProofs.ts` はMain限定の有界metadata/timingメモと全bytesへの結合を担当する。`cacheProofRecord.ts`は型・認証形式、`cacheProofIo.ts`はprivate領域の有界I/Oとatomic書込、`cacheProofStore.ts`は直列化と無効時のfallback、`cacheApplicationIdentity.ts`は物理ASARの識別、`cacheProductionProofs.ts`はElectronへの接続を分担する。package manifestやRendererへproof信頼を公開せず、HW/採用判断は既存validator/controllerへ残す。
+
+`playbackCache/cacheCandidateStorage.ts`はready探索/最終照合、`cacheIdentityFile.ts`は1回のopen/hash/revision/close、`cacheIdentityHandoff.ts`はJobに所有される一度限りの引渡しを担当する。`sourceIdentity.ts`は通常の全hash facade、`cacheFileRevision.ts`は属性比較、`cacheMediaReadAudit.ts`は有界な論理digest読込観測に限定する。生成stagingの公開/容量は`cacheStorage.ts`に残す。

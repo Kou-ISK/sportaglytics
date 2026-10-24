@@ -481,3 +481,84 @@ it('reuses disk proof after a module restart but rejects fresh hardware failure'
   expect(ready.evidence.validation.contentProof.from).toBe('persistent');
   expect(mocks.hardware).toHaveBeenCalledTimes(3);
 });
+
+it('records complete digest reads for fresh and warm reuse without a repeated initial candidate hash', async () => {
+  const open = fs.open.bind(fs);
+  const actualReads: { path: string; bytes: number }[] = [];
+  vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+    const handle = await open(...args);
+    if (args[0] === savedPath || args[0] === options.source.path) {
+      const read = handle.read.bind(handle);
+      const record = { path: String(args[0]), bytes: 0 };
+      actualReads.push(record);
+      vi.spyOn(handle, 'read').mockImplementation(async (...readArgs) => {
+        const result = await read(...readArgs);
+        record.bytes += result.bytesRead;
+        return result;
+      });
+    }
+    return handle;
+  });
+  for (const [sourcePasses, candidatePasses] of [
+    [3, 4],
+    [2, 3],
+  ]) {
+    actualReads.length = 0;
+    const result = await reusePlaybackCache(options);
+    const evidence = result.evidence.mediaReads;
+    expect(evidence?.overflow).toBe(false);
+    expect(evidence?.records.every((r) => r.verified)).toBe(true);
+    const sources = evidence?.records.filter((r) => r.role === 'source') ?? [];
+    const candidates =
+      evidence?.records.filter((r) => r.role === 'candidate') ?? [];
+    expect(sources).toHaveLength(sourcePasses);
+    expect(candidates).toHaveLength(candidatePasses);
+    expect(sources.reduce((n, r) => n + r.bytes, 0)).toBe(
+      sourcePasses * inputBytes.length,
+    );
+    expect(candidates.reduce((n, r) => n + r.bytes, 0)).toBe(
+      candidatePasses * outputBytes.length,
+    );
+    expect(
+      actualReads
+        .filter((r) => r.path === options.source.path)
+        .map((r) => r.bytes),
+    ).toEqual(Array(sourcePasses).fill(inputBytes.length));
+    expect(
+      actualReads.filter((r) => r.path === savedPath).map((r) => r.bytes),
+    ).toEqual(Array(candidatePasses).fill(outputBytes.length));
+  }
+});
+it('owns an unconfirmed handoff close in Job cleanup and retries only on explicit cleanup', async () => {
+  const open = fs.open.bind(fs);
+  let first = true;
+  const closeCalls = vi.fn();
+  vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+    const handle = await open(...args);
+    if (args[0] === savedPath && first) {
+      first = false;
+      const close = handle.close.bind(handle);
+      vi.spyOn(handle, 'close')
+        .mockImplementationOnce(async () => {
+          closeCalls();
+          throw Error('close unconfirmed');
+        })
+        .mockImplementation(async () => {
+          closeCalls();
+          await close();
+        });
+    }
+    return handle;
+  });
+  await expect(reusePlaybackCache(options)).rejects.toThrow(
+    'close unconfirmed',
+  );
+  expect(closeCalls).toHaveBeenCalledTimes(1);
+  expect(retainedJob?.status.error).toBe('cleanup');
+  expect(retainedJob?.selectCache(true)).toBeNull();
+  expect(mocks.hardware).not.toHaveBeenCalled();
+  await retainedJob?.retryCleanup();
+  expect(closeCalls).toHaveBeenCalledTimes(2);
+  expect(retainedJob?.status.phase).toBe('original');
+  expect(await fs.readFile(savedPath, 'utf8')).toBe(outputBytes);
+});

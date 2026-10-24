@@ -103,3 +103,7 @@ AAC先頭のskip_samplesが複数packetを跨ぐ場合はsample数を繰り越�
 短尺接続はこの作業票に紐づく段階実装であり、長尺対応と実機検証を完了した通常リリースではない。[例外台帳](architecture-exceptions.md)を参照。再生効果が未確認のまま通常リリースしない。
 
 streamの`field_order`欠落は、raw値を保持したまま64 packetまでの短いdecoded prefixでdisplay scanを仮分類する。表示順(top-first/bottom-first)と符号化順(tt等)を混同しない。空/混在/属性欠落/診断エラーは拒否し、literal unknownや既知値の矛盾は救済しない。仮分類後も全尺frameのscan・PTS/duration・末尾と全音声packetの照合を必須にし、途中の形式変化を拒否する。prefix成功だけで生成・採用しない。既存のparity=autoは全frameで明示parityが確認された場合だけ使う。
+
+### 同じ要求内の候補digest引渡し
+
+候補探索で新しく全hashした結果は、同じMain Job内の次の内容検査へ一度だけ引き渡す。開いたFileHandleとpathのrevisionを消費時に再確認し、close完了までproofを返さない。途中交換・取消・close失敗は採用を防ぎ、close失敗の自動再試行は行わない。原本の前後照合、候補解析後/HW後/最終探索のhash、現在のHW検査は残す。単一候補の成功reuseでは全内容proofありで原本2回/候補3回、初回は原本3回/候補4回の全digest読込になる。Main artifactのmediaReadsは最大32件の論理digest読込記録で、probeや物理I/Oではない。[ADR 0076](adr/0076-operation-owned-cache-identity-handoff.md)。

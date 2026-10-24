@@ -1,3 +1,6 @@
+import { CacheIdentityHandoff } from './cacheIdentityHandoff';
+import { CacheMediaReadAudit } from './cacheMediaReadAudit';
+import type { CacheCandidate } from './cacheStorage';
 import { app } from 'electron';
 import fs from 'node:fs/promises';
 import { assertClosedMp4 } from './cacheSourceAccess';
@@ -23,6 +26,9 @@ export const reusePlaybackCache = async (
   const { source, signal, assertOwner, notify } = options;
   const started = performance.now();
   const cleanups = new Set<() => Promise<void>>();
+  const audit = new CacheMediaReadAudit(source.path);
+  const handoff = new CacheIdentityHandoff(signal, audit.observe);
+  let candidate: CacheCandidate | null = null;
   let job: PlaybackCacheJob | undefined;
   let validated: CacheRuntimeValidation | undefined;
   const check = async (): Promise<void> => {
@@ -46,7 +52,12 @@ export const reusePlaybackCache = async (
     await check();
     await assertClosedMp4(source.path, signal);
     const tools = await identifyCacheTools(signal);
-    const context = { executable: tools.ffprobe, signal, stopWaiting };
+    const context = {
+      executable: tools.ffprobe,
+      signal,
+      stopWaiting,
+      observeIdentityRead: audit.observe,
+    };
     const sourceProof = await cacheContentProofs.read(
       source.path,
       context,
@@ -64,16 +75,22 @@ export const reusePlaybackCache = async (
     const storage = await openPlaybackCacheStorage(
       privateDirectory,
       CACHE_LIMITS,
+      audit.observe,
     );
-    const candidate = await storage.findCandidate(expectation, signal);
-    if (!candidate) throw Error('CACHE_CANDIDATE_NOT_FOUND');
-    await check();
     job = new PlaybackCacheJob(
       {
         maximumOutputBytes: CACHE_LIMITS.maximumOutputBytes,
         validate: async (workerSignal) => {
+          candidate = await storage.findCandidate(
+            expectation,
+            workerSignal,
+            handoff,
+          );
+          if (!candidate) throw Error('CACHE_CANDIDATE_NOT_FOUND');
+          await check();
           validated = await validateCacheMedia({
             hardwareMode: 'compatibility',
+            identityHandoff: handoff,
             source,
             metadata,
             expectation,
@@ -95,6 +112,7 @@ export const reusePlaybackCache = async (
           return validated;
         },
         reuse: async (workerSignal) => {
+          if (!candidate) throw Error('CACHE_CANDIDATE_NOT_FOUND');
           const current = await storage.inspectCandidate(
             candidate.artifactId,
             expectation,
@@ -109,7 +127,8 @@ export const reusePlaybackCache = async (
             throw Error('CACHE_OUTPUT_CHANGED');
           return candidate.artifactId;
         },
-        discard: async () => {
+        discard: async (cleanup) => {
+          await handoff.close(cleanup?.retryFailedCleanup === true);
           for (const cleanup of cleanups) await cleanup();
           cleanups.clear();
         },
@@ -117,8 +136,10 @@ export const reusePlaybackCache = async (
       notify,
     );
     options.retainJob(job);
-    await job.start(expectation, candidate.bytes);
-    if (job.status.phase !== 'ready' || !validated)
+    await job.start(expectation, CACHE_LIMITS.maximumOutputBytes);
+    if (job.status.error === 'missing')
+      throw Error('CACHE_CANDIDATE_NOT_FOUND');
+    if (job.status.phase !== 'ready' || !validated || !candidate)
       throw Error('CACHE_REUSE_FAILED');
     await check();
     await sourceProof.remember();
@@ -130,6 +151,7 @@ export const reusePlaybackCache = async (
       audioTracks: metadata.audio.length,
       evidence: {
         mode: 'reused',
+        mediaReads: audit.snapshot(),
         elapsedMs: performance.now() - started,
         sourceProof: sourceProof.observation,
         conversion: null,
@@ -138,5 +160,7 @@ export const reusePlaybackCache = async (
     };
   } finally {
     signal.removeEventListener('abort', abort);
+    // A failed close remains latched; only the Job's explicit cleanup retry may retry it.
+    await handoff.close();
   }
 };

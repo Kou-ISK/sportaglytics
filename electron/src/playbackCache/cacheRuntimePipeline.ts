@@ -1,3 +1,4 @@
+import type { CacheMediaReadEvidence } from './cacheMediaReadAudit';
 import type { CacheProofObservation } from './cacheContentProofs';
 import { app } from 'electron';
 import path from 'node:path';
@@ -33,6 +34,8 @@ export interface CachePreparedArtifact {
   audioTracks: number;
   evidence: {
     mode: 'created' | 'reused';
+    /** Present for measured reuse; logical whole-media digest reads only. */
+    mediaReads?: CacheMediaReadEvidence;
     elapsedMs: number;
     sourceProof: CacheProofObservation;
     conversion: {

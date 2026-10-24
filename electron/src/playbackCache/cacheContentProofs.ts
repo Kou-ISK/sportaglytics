@@ -1,3 +1,4 @@
+import type { CacheIdentityHandoff } from './cacheIdentityHandoff';
 import { readCacheFileIdentity } from './sourceIdentity';
 import { probeCacheMetadata, probeCacheTiming } from './cacheProbe';
 import type { CacheProbeContext } from './cacheProbe';
@@ -31,11 +32,15 @@ export class CacheContentProofs {
     source: string,
     context: CacheProbeContext,
     runtime: string,
+    handoff?: CacheIdentityHandoff,
   ): Promise<CacheContentProof> {
     const started = performance.now();
-    const before = await readCacheFileIdentity(source, {
-      signal: context.signal,
-    });
+    const before = handoff
+      ? await handoff.consume(source, context.signal)
+      : await readCacheFileIdentity(source, {
+          signal: context.signal,
+          observe: context.observeIdentityRead,
+        });
     const key = cacheContentKey(runtime, before.identity);
     const memory = this.entries.get(key);
     if (memory) {
@@ -86,6 +91,7 @@ export class CacheContentProofs {
     const timing = await probeCacheTiming(source, metadata, context);
     const after = await readCacheFileIdentity(source, {
       signal: context.signal,
+      observe: context.observeIdentityRead,
     });
     if (
       before.revision !== after.revision ||
