@@ -146,3 +146,45 @@ it('rejects replaying the same leading pictures in later ranges or shifting ever
     readCacheHardwareCoverage(shifted, 'compatibility', 62.115),
   ).toThrow();
 });
+
+it('bounds the native clock by the proven timeline end rather than media length', () => {
+  const state = complete();
+  // Synthetic nonzero-origin timeline: duration and endpoint are distinct.
+  state.duration = 10.04;
+  state.maximumTime = 10.08;
+  state.segments = planCacheCompatibility(state.duration).map((range, i) => ({
+    ...range,
+    firstClock: range.start + 0.04,
+    lastClock: range.end + 0.02,
+    first: range.start + 0.05,
+    last: range.end + 0.04,
+    frames: 60,
+    ended: i === 2,
+  }));
+  expect(
+    readCacheHardwareCoverage(state, 'compatibility', 10.1).coverage.mode,
+  ).toBe('compatibility');
+  // Advancing past a proof-bound endpoint remains invalid.
+  // No numeric tolerance or inferred offset is added.
+  state.segments[2].lastClock = 10.101;
+  expect(() =>
+    readCacheHardwareCoverage(state, 'compatibility', 10.1),
+  ).toThrow();
+  state.segments[2].lastClock = 10.06;
+  expect(() =>
+    readCacheHardwareCoverage(state, 'compatibility', 10.04),
+  ).toThrow();
+});
+
+it('keeps the total native interval budget including progression before the first callback', () => {
+  const state = complete();
+  for (const segment of state.segments) {
+    segment.firstClock = segment.start + 0.4;
+    segment.lastClock = segment.end + 0.4;
+  }
+  // Each observed first-to-last span is two seconds, but playback from the
+  // requested range starts totals 7.2 seconds and must not be accepted.
+  expect(() =>
+    readCacheHardwareCoverage(state, 'compatibility', 60.6),
+  ).toThrow();
+});

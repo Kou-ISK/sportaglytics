@@ -24,6 +24,8 @@ Proposed
 
 Mainがfullとcompatibilityを指定し、policyでモードと区間完了を検査する。compatibilityをfullのended証明へ昇格させない。30秒のmonotonic判定期限をawait後にも照合するが、取消・失敗時の所有Window終了/片付け待ちは打ち切らない。
 
+観測区間はnative durationから計画するが、durationを原本時計の終端とは扱わない。非ゼロのstream開始時刻があると、長さと終端は異なる。frame callback時のcurrentTimeとmediaTimeの上限は、全内容検証済みの映像表示終端と区間の既存上限の小さい方で照合する。観測値からoffsetを推測したり、固定の許容誤差を足したりしない。各区間の要求開始から最終currentTimeまでの差の合計も7秒以下とし、先頭callback前の進行を予算から除外しない。
+
 内容proofだけをMain起動内LRUへ保持し、実bytes全hash・サイズ・recipe・runtime/tool hash・証明版へ結合する。変更・再起動・未登録時は全列を再計算する。永続manifestや過去のHW成功を現在のHW証拠としない。既存の所有者/容量/公開/採用前後の改変検知を維持する。
 
 採用後のfatal media errorは共通時計を止め、同じ位置・全音声設定で原本への復帰を一度試みる。readiness/seek/audioを確認して初めて原本選択を通知する。成功・復旧未確認の両方を表示し、自動再生/自動再試行ループを避ける。

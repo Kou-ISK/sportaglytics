@@ -77,11 +77,12 @@ export const isCacheHardwareCoverageValid = (
         observed.firstClock >= range.start &&
         observed.firstClock <= range.start + quarter &&
         observed.lastClock >= range.end - quarter &&
-        observed.lastClock <=
-          Math.min(coverage.duration, range.end + quarter) &&
+        observed.lastClock <= Math.min(presentationEnd, range.end + quarter) &&
         observed.lastClock - observed.firstClock >= quarter * 2 &&
         // Both observations must address this source-clock interval. Do not
         // normalize PTS to duration or infer a new offset from sampled frames.
+        // Native duration is a length and can exclude a nonzero stream origin;
+        // currentTime and mediaTime are bounded by the verified timeline end.
         observed.first >= range.start &&
         observed.first <= range.start + quarter &&
         observed.last >= range.end - quarter &&
@@ -91,7 +92,13 @@ export const isCacheHardwareCoverageValid = (
         observed.last - observed.first <= range.end - range.start + quarter &&
         observed.ended === (index === plan.length - 1)
       );
-    })
+    }) &&
+    // Include progression before the first callback. The proof-bound tail may
+    // extend beyond native duration, but never adds to the existing budget.
+    coverage.segments.reduce(
+      (total, segment) => total + segment.lastClock - segment.start,
+      0,
+    ) <= 7
   );
 };
 
