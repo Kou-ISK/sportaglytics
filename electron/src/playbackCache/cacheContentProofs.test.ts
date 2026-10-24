@@ -1,3 +1,4 @@
+import { CacheProofStore } from './cacheProofStore';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -75,14 +76,14 @@ it('uses a whole-byte identity and only remembers explicitly qualified complete 
   expect(
     (await memo.read(source, context(), 'runtime')).observation.reused,
   ).toBe(false);
-  cold.remember();
+  await cold.remember();
   const warm = await memo.read(source, context(), 'runtime');
   expect(warm.observation.reused).toBe(true);
   expect(warm.timing).toEqual(timing);
   expect(probe.timing).toHaveBeenCalledTimes(2);
 });
 it('re-hashes same-size edits even when mtime is restored and rejects missing or linked input', async () => {
-  (await memo.read(source, context(), 'runtime')).remember();
+  await (await memo.read(source, context(), 'runtime')).remember();
   const before = await fs.stat(source);
   await fs.writeFile(source, 'modified');
   await fs.utimes(source, before.atime, before.mtime);
@@ -126,7 +127,7 @@ it('does not remember probe failures, aborted late results or a cancelled commit
   const cold = await memo.read(source, context(), 'runtime');
   expect(cold.observation.reused).toBe(false);
   abort.abort();
-  expect(() => cold.remember()).toThrow();
+  await expect(cold.remember()).rejects.toThrow();
   abort = new AbortController();
   expect(
     (await memo.read(source, context(), 'runtime')).observation.reused,
@@ -134,14 +135,16 @@ it('does not remember probe failures, aborted late results or a cancelled commit
 });
 it('isolates returned objects and misses on runtime change or Main restart', async () => {
   const cold = await memo.read(source, context(), 'runtime');
-  cold.remember();
+  await cold.remember();
   cold.timing.displayFrames = 1;
   const warm = await memo.read(source, context(), 'runtime');
   expect(warm.timing.displayFrames).toBe(24);
   warm.metadata.video.width = 1;
   warm.timing.displayFrames = 2;
   expect(
-    (await memo.read(source, context(), 'runtime')).metadata.video.width,
+    await (
+      await memo.read(source, context(), 'runtime')
+    ).metadata.video.width,
   ).toBe(320);
   expect(
     (await memo.read(source, context(), 'changed-runtime')).observation.reused,
@@ -153,11 +156,11 @@ it('isolates returned objects and misses on runtime change or Main restart', asy
 });
 it('bounds retained proofs to eight with least-recently-used eviction', async () => {
   for (let index = 0; index < 8; index++)
-    (await memo.read(source, context(), String(index))).remember();
+    await (await memo.read(source, context(), String(index))).remember();
   expect((await memo.read(source, context(), '0')).observation.reused).toBe(
     true,
   );
-  (await memo.read(source, context(), '8')).remember();
+  await (await memo.read(source, context(), '8')).remember();
   expect((await memo.read(source, context(), '1')).observation.reused).toBe(
     false,
   );
@@ -183,9 +186,56 @@ it('does not share cancellation across concurrent callers for identical bytes', 
   ]);
   expect(results[0].status).toBe('rejected');
   expect(results[1].status).toBe('fulfilled');
-  if (results[1].status === 'fulfilled') results[1].value.remember();
+  if (results[1].status === 'fulfilled') await results[1].value.remember();
   abort = new AbortController();
   expect(
     (await memo.read(source, context(), 'runtime')).observation.reused,
   ).toBe(true);
+});
+
+it('uses authenticated disk proofs after a fresh Main memo and still reads changed bytes', async () => {
+  const disk = () =>
+    new CacheProofStore(
+      () => root,
+      async () => 'same-build',
+    );
+  const first = new CacheContentProofs(disk());
+  const cold = await first.read(source, context(), 'runtime');
+  await cold.remember();
+  expect(cold.observation.persistence).toBe('stored');
+  const restarted = new CacheContentProofs(disk());
+  const after = await restarted.read(source, context(), 'runtime');
+  expect(after.observation.from).toBe('persistent');
+  expect(probe.timing).toHaveBeenCalledTimes(1);
+  await fs.writeFile(source, 'modified');
+  expect(
+    (await restarted.read(source, context(), 'runtime')).observation.from,
+  ).toBe('fresh');
+  expect(probe.timing).toHaveBeenCalledTimes(2);
+});
+it('recomputes complete content after ledger corruption rather than trusting the manifest', async () => {
+  const disk = () =>
+    new CacheProofStore(
+      () => root,
+      async () => 'same-build',
+    );
+  const first = await new CacheContentProofs(disk()).read(
+    source,
+    context(),
+    'runtime',
+  );
+  await first.remember();
+  await fs.writeFile(
+    path.join(root, 'playback-content-proofs-v1', 'ledger.json'),
+    '{incomplete',
+  );
+  const next = await new CacheContentProofs(disk()).read(
+    source,
+    context(),
+    'runtime',
+  );
+  expect(next.observation.from).toBe('fresh');
+  expect(probe.timing).toHaveBeenCalledTimes(2);
+  await next.remember();
+  expect(next.observation.persistence).toBe('stored');
 });

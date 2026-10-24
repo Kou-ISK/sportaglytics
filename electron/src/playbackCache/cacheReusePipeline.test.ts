@@ -6,7 +6,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { reusePlaybackCache } from './cacheReusePipeline';
 import { openPlaybackCacheStorage } from './cacheStorage';
 import { CACHE_RECIPE } from './cacheRecipe';
-import { parseCacheMediaMetadata } from './cacheMediaMetadata';
+import {
+  parseCacheMediaMetadata,
+  mediaConfigurationHash,
+} from './cacheMediaMetadata';
+import { CacheProofStore } from './cacheProofStore';
 import type { CacheExpectation, CacheValidation } from './cachePolicy';
 import { preparePlaybackCache } from './cacheRuntimePipeline';
 import type { CachePreparationOptions } from './cacheRuntimePipeline';
@@ -21,7 +25,26 @@ const mocks = vi.hoisted(() => ({
   hardware: vi.fn(),
   spawn: vi.fn(),
 }));
-vi.mock('electron', () => ({ app: { getPath: () => mocks.root } }));
+vi.mock('electron', () => ({
+  app: {
+    getPath: () => mocks.root,
+    getAppPath: () => mocks.root + '/synthetic.asar',
+  },
+}));
+vi.mock('./cacheApplicationIdentity', async () => {
+  const actual = await vi.importActual<
+    typeof import('./cacheApplicationIdentity')
+  >('./cacheApplicationIdentity');
+  const native = await import('node:fs');
+  return {
+    readCacheApplicationIdentity: (file: string, signal: AbortSignal) =>
+      actual.readCacheApplicationIdentity(file, signal, native),
+    isCacheApplicationCurrent: (
+      value: import('./cacheApplicationIdentity').CacheApplicationIdentity,
+      signal: AbortSignal,
+    ) => actual.isCacheApplicationCurrent(value, signal, native),
+  };
+});
 vi.mock('./cacheBundledTools', () => ({
   identifyCacheTools: async () => ({
     ffmpeg: '/app/ffmpeg',
@@ -94,7 +117,9 @@ const expected: CacheExpectation = {
       packets: 48,
       timesSha256: digest('full audio times'),
       payloadSha256: digest('full audio payload'),
-      configurationSha256: digest('full audio configuration'),
+      configurationSha256: mediaConfigurationHash(
+        metadata.audio[streamIndex - 1],
+      ),
     })),
   },
 };
@@ -117,6 +142,10 @@ let retainedJob: PlaybackCacheJob | undefined;
 beforeEach(async () => {
   mocks.root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), 'cache-reuse-')),
+  );
+  await fs.writeFile(
+    path.join(mocks.root, 'synthetic.asar'),
+    'synthetic app identity',
   );
   mocks.runtime = 'test-runtime-' + randomUUID();
   expected.runtime = mocks.runtime;
@@ -192,6 +221,7 @@ beforeEach(async () => {
   };
 });
 afterEach(async () => {
+  vi.restoreAllMocks();
   await fs.rm(mocks.root, { recursive: true, force: true });
 });
 
@@ -402,4 +432,52 @@ it('shares qualified content from creation with reuse without converting again',
   expect(reused.evidence.validation.timing).toEqual(
     created.evidence.validation.timing,
   );
+});
+
+it.each(['owner', 'source', 'cancel'])(
+  'rechecks %s after awaited optional proof persistence',
+  async (change) => {
+    const cancel = new AbortController();
+    options.signal = cancel.signal;
+    vi.spyOn(CacheProofStore.prototype, 'write').mockImplementationOnce(
+      async () => {
+        await Promise.resolve();
+        if (change === 'owner')
+          vi.mocked(options.assertOwner).mockRejectedValue(
+            Error('owner changed'),
+          );
+        if (change === 'source')
+          options.source.assertCurrent = async () => {
+            throw Error('source changed');
+          };
+        if (change === 'cancel') cancel.abort();
+        return 'not-stored';
+      },
+    );
+    await expect(reusePlaybackCache(options)).rejects.toThrow();
+    expect(retainedJob?.selectCache(true)).toBeNull();
+    expect(await fs.readFile(savedPath, 'utf8')).toBe(outputBytes);
+  },
+);
+it('reuses disk proof after a module restart but rejects fresh hardware failure', async () => {
+  vi.resetModules();
+  const first = await import('./cacheReusePipeline');
+  const cold = await first.reusePlaybackCache(options);
+  expect(cold.evidence.sourceProof.persistence).toBe('stored');
+  expect(cold.evidence.validation.contentProof.persistence).toBe('stored');
+  vi.resetModules();
+  const next = await import('./cacheReusePipeline');
+  mocks.timing.mockClear();
+  mocks.metadata.mockClear();
+  mocks.hardware.mockRejectedValueOnce(Error('new HW failed'));
+  await expect(next.reusePlaybackCache(options)).rejects.toThrow(
+    'CACHE_REUSE_FAILED',
+  );
+  expect(mocks.timing).not.toHaveBeenCalled();
+  expect(mocks.metadata).not.toHaveBeenCalled();
+  expect(retainedJob?.selectCache(true)).toBeNull();
+  const ready = await next.reusePlaybackCache(options);
+  expect(ready.evidence.sourceProof.from).toBe('persistent');
+  expect(ready.evidence.validation.contentProof.from).toBe('persistent');
+  expect(mocks.hardware).toHaveBeenCalledTimes(3);
 });

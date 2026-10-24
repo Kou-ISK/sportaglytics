@@ -332,3 +332,7 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 `cacheContentProofs.test.ts` は実ファイルhashを使い、同サイズ改変、probe中の交換、取消/遅延完了、再起動/runtime差、返却値の分離と8件LRUを検査する。`cacheReusePipeline.test.ts` はwarm proofでもHW・所有権・最終hashを再検証し、HW中の同内容ファイル交換を拒否する。模擬probeの合格を実変換や長尺の性能改善とは扱わない。
 
 再生用コピーのHW検査は`cacheHardwareCoverage/ProbePage/Probe.test.ts`で区間欠落・seekの飛び・古いcallback・早期ended・複数player/fallback・期限後成功・遅いcloseを拒否する。`cacheJob.test.ts`で生成にcompatibility証拠を使えないこと、reuseにモード不一致の証拠を使えないことを検証する。`usePlaybackCacheController.test.tsx`で復帰音声失敗のACK禁止・重複error・ACK待ちerror・復帰通知を確認する。実機は同一入力/候補と360秒など固定した計測上限を使い、cold/warmの内容proof、各HW区間、hash、背景負荷を記録する。IPC診断は実UI/実音声/物理scrubの合格ではない。
+
+再生用コピーの永続proofは`cacheProofStore.test.ts`で認証/版/shape/時刻関係・容量・link/owner/mode・取消/書込不確定・同時要求を、`cacheApplicationIdentity.test.ts`で物理bytes/交換/取消を、`cacheContentProofs.test.ts`で再起動と改変時の全解析を検査する。`cacheReusePipeline.test.ts`は非同期保存後のowner/原本/取消と新規HW失敗を確認する。これらは実ASAR/実HW/実音声の検証を代替せず、別Main・同profileの短尺IPC計測で永続記録の実採用を確認する。
+
+`scripts/tests/electron-runtime.mjs`は実梱包依存checkerへ架空のcompiled Mainを渡し、Electron内蔵`original-fs`・Node builtin・相対importの受理と、未知require/dynamic import・似た名前の拒否を検査する。実Electronでraw ASARを読めることは別の梱包IPC検証で確認する。

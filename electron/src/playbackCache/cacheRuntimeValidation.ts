@@ -1,9 +1,10 @@
+import type { CacheProofObservation } from './cacheContentProofs';
 import type { CacheAuthorizedSource } from './cacheSourceAccess';
 import fs from 'node:fs/promises';
 import { assertClosedMp4 } from './cacheSourceAccess';
 import type { CacheMediaMetadata } from './cacheMediaMetadata';
 import { assertCacheVideoMatches } from './cacheMediaMetadata';
-import { cacheContentProofs } from './cacheContentProofs';
+import { cacheContentProofs } from './cacheProductionProofs';
 import type { CacheProbeContext } from './cacheProbe';
 import { identifyCacheSource, readCacheFileIdentity } from './sourceIdentity';
 import { probeCacheHardware } from './cacheHardwareProbe';
@@ -17,7 +18,7 @@ import type { CacheExpectation, CacheValidation } from './cachePolicy';
 
 export type CacheRuntimeValidation = CacheValidation & {
   hardware: CacheHardwareProbeResult;
-  contentProof: { reused: boolean; elapsedMs: number };
+  contentProof: CacheProofObservation;
 };
 
 /** Creation and explicit reuse share every full-content gate. Only Main-memory
@@ -97,6 +98,7 @@ export const validateCacheMedia = async (options: {
   };
   if (!isCacheValidationMatching(expectation, validation, options.hardwareMode))
     throw Error('CACHE_VALIDATION');
-  output.remember();
+  await output.remember();
+  await check();
   return validation;
 };

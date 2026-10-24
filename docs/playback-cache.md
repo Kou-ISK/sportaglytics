@@ -26,11 +26,15 @@ Mac主再生WindowではChromiumの`AudioVideoTracks`だけを有効にし、nat
 
 候補にも生成時と同じmetadata・全frame/音声packetの証明、全体hashを要求し、現在の再生環境は下記のcompatibility検査で確認する。原本再照合と、HW検査後の候補再hashが一致して初めてreadyにする。新しいmediaやmanifestを作らず、採用は既存の停止中選択ticketから明示する。取消は最後のhashまで可能で、遅い終了を待つ所有権とclose/quit抑止を生成と共有する。probe用scratchはreadyの外側へ置き、失敗・取消・片付け再試行で既存readyを削除しない。
 
-同一Main起動中に限り、成功した全内容検査のmetadata/timingを最大8件のメモへ保持する。毎回実bytesの全SHA-256を計算し、bytes数・recipe・同梱tool/runtime・証明形式版が一致した場合だけ、決定的なmetadata/frame/音声packetの再走査を省く。初回probeの前後で全hashとdev/inode/size/mtime/ctime/nlinkを照合し、途中の交換・変更を拒否する。メモは検査完了時に明示登録し、内容/HW検査の失敗や、その検査中の取消から成功proofを登録しない。後続のseal/publish失敗が起きても、既に全bytesへ結合した内容proofはメモに残り得るが、公開や採用を許可するものではない。返却値はcloneし、未完了処理・取消をSession間で共有しない。disk manifestやstatだけで信頼を作らず、再起動後はメモを引き継がない。
+成功した全内容検査のmetadata/timingをMainの最大8件メモへ保持し、[ADR 0075](adr/0075-persistent-complete-content-proofs.md)のprivate記録へ保存する。毎回実bytesの全SHA-256を計算し、bytes数・recipe・同梱tool/runtime・証明形式版が一致した場合だけ、決定的なmetadata/frame/音声packetの再走査を省く。初回probeの前後で全hashとdev/inode/size/mtime/ctime/nlinkを照合し、途中の交換・変更を拒否する。全内容検査とHW検査を通過してから明示登録し、検査失敗や検査中の取消を成功proofとして登録しない。後続のseal/publish失敗で内容proofが残っても、公開や採用を許可するものではない。返却値はcloneし、未完了処理・取消をSession間で共有しない。
 
-所有権、閉じたMP4、容量、属性・全proofのpolicy、原本再hash、毎回の新規HW適合性検査、HW後の候補全hash/revision、採用直前照合は維持する。HW成功や採用許可はメモ化しない。Main内証跡には入力/出力proofの再利用有無と取得時間も含め、再走査を実行したと誤記しない。
+永続記録はアプリのprivate userData内に置く最大8件・256KiBのHMAC付きledgerと32byte鍵で、packageのmanifestとは別に扱う。owner・private mode・通常ファイル・link数・容量を検査し、全内容proofのshapeと関係も照合する。raw app.asarの全SHA-256をMain起動ごとに確認し、同じビルドに結合する。欠落・破損・認証不一致・版やビルドの変更は全解析へ戻る。unsafeな領域や不正な既存鍵は保存を無効にし、勝手に削除・置換しない。開発用の非ASAR実行では永続化しない。この認証は同じOSユーザーの秘密を読める敵対者やMain自体の侵害への防御ではない。
 
-初回・再起動後の再利用には全列走査が必要。同一起動中は内容proofを再利用できるが、毎回全hashのI/Oと新規HW適合性検査が必要になる。生成時間の性能基準と、完成候補の採用・再生・seek・原本復帰の機能検証は分けて記録する。機能検証の待機上限を工程実測から設定しても、過去の生成期限超過や性能未達を成功へ書き換えない。
+書込みはprivate一時ファイルのsync・rename・directory syncで完了を待つ。rename前の取消は登録せず、rename発行後は完了/不確定を記録して取消を再送出し、現在のready/採用へ進めない。未完了一時ファイルは読み込まず容量に数える。保存失敗は最適化の不成立として扱い、次回はメモまたは全解析を使う。所有権・原本・取消を非同期保存の後にも再確認する。
+
+所有権、閉じたMP4、容量、属性・全proofのpolicy、原本再hash、毎回の新規HW適合性検査、HW後の候補全hash/revision、採用直前照合は維持する。HW成功や採用許可はメモ化しない。Main内証跡には入力/出力proofの由来（fresh/memory/persistent）、保存結果、取得時間も含め、再走査を実行したと誤記しない。
+
+初回または有効なproofがない場合は全列走査が必要。再起動後も同じビルド・環境・実bytesに結合した記録があれば内容proofを再利用できるが、毎回全hashのI/Oと新規HW適合性検査が必要になる。生成時間の性能基準と、完成候補の採用・再生・seek・原本復帰の機能検証は分けて記録する。機能検証の待機上限を工程実測から設定しても、過去の生成期限超過や性能未達を成功へ書き換えない。
 
 生成・再利用とも、全表示時刻/音声proof・原本再hash・出力hashの内容検査をHW検査より先に判定する。不一致はHW再生を開始せず失敗にする。正常候補は生成時full/再利用時compatibilityのHW検査と公開/再利用直前のhash検査を要求する。この順序変更は不適格候補の待ち時間を減らすもので、正常な再利用や長尺の性能改善を証明しない。
 
@@ -42,7 +46,7 @@ Mac主再生WindowではChromiumの`AudioVideoTracks`だけを有効にし、nat
 
 fullはその実行時の全尺HW再生を観測する。compatibilityは指定区間の現在のデコーダー適合性だけを観測し、未観測区間のHWデコードを保証しない。どちらも製品UIの滑らかさ、全fieldの視覚品質、実音声同期、物理scrub、将来のGPU資源を保証しない。全field/音声/時刻の対応は別の全内容proofが担当する。
 
-再利用のHW観測量は動画尺に依存しない計画6秒（callback遅延を含む区間合計は7秒以内）、同一起動内のidentity確認はO(bytes)、初回・再起動後の全列解析はO(decoded frames + audio packets)として残る。長尺向けの永続proof/変更検知と容量管理は未実装で、120秒入力上限を解除しない。短いprobeの合格で長尺対応完了とせず、分割生成・全長変換・証明の永続的信頼はこの変更に含めない。
+再利用のHW観測量は動画尺に依存しない計画6秒（callback遅延を含む区間合計は7秒以内）。identity確認はO(bytes)、未検証の全列解析はO(decoded frames + audio packets)で、有効な永続proofがある再起動後には後者を省ける。省くhashは全列解析を囲む二度目の読込だけで、原本の再照合・HW後・保存先の最終照合は維持する。初回生成の全尺HW、長尺の容量管理・回復・削除/再生成設計は残り、120秒入力上限を解除しない。短いprobeの合格で長尺対応完了とせず、分割生成・全長変換はこの変更に含めない。
 
 ## 原本と時計
 

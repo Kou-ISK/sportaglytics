@@ -1,10 +1,11 @@
+import type { CacheProofObservation } from './cacheContentProofs';
 import { app } from 'electron';
 import path from 'node:path';
 import type { PlaybackCacheStatus } from '../../../src/types/playbackCache';
 import type { CacheAuthorizedSource } from './cacheSourceAccess';
 import { assertClosedMp4 } from './cacheSourceAccess';
 import { identifyCacheTools } from './cacheBundledTools';
-import { cacheContentProofs } from './cacheContentProofs';
+import { cacheContentProofs } from './cacheProductionProofs';
 import {
   buildCacheRecipe,
   CACHE_RECIPE,
@@ -33,7 +34,7 @@ export interface CachePreparedArtifact {
   evidence: {
     mode: 'created' | 'reused';
     elapsedMs: number;
-    sourceProof: { reused: boolean; elapsedMs: number };
+    sourceProof: CacheProofObservation;
     conversion: {
       arguments: string[];
       elapsedMs: number;
@@ -203,7 +204,8 @@ export const preparePlaybackCache = async (
     if (!candidate) throw Error('CACHE_CANDIDATE_MISSING');
     await check();
     if (!conversion || !validated) throw Error('CACHE_EVIDENCE_MISSING');
-    sourceProof.remember();
+    await sourceProof.remember();
+    await check();
     return {
       job,
       expectation,

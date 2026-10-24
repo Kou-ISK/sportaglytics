@@ -153,3 +153,5 @@ Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-
 - [再生用コピーの基盤と有効化条件](playback-cache.md): 未接続の段階実装、時刻・原本保護、CACHE-1作業票。
 
 - [ADR 0074: 再利用時のHW適合性](adr/0074-bounded-cache-hardware-compatibility.md): 全内容証明、観測範囲、無効化と復旧。
+
+- [再起動後の内容proof](adr/0075-persistent-complete-content-proofs.md): 再生用コピーの内容検査を安全に再利用する条件と限界。

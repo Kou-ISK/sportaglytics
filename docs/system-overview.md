@@ -446,4 +446,4 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 再生用コピーではstream field_order欠落時のdisplay scan仮分類をMainの有界decoded prefixへ分離しています。raw metadataは補完せず、全尺frame照合が終わるまで生成しません。長尺対応・実音声同期・物理scrubの確認をこの短尺判定で代替しません。
 
-再生用コピーの全内容proofはMain起動内の最大8件メモに限り再利用する。実bytes全hashとruntime一致を毎回確認し、HW検査は生成full/再利用compatibilityを区別する。詳細は[再生用コピー](playback-cache.md#保存済みコピーの明示再利用)。
+再生用コピーの全内容proofはMainメモとprivateな認証付き記録で最大8件を保持する。実bytes全hashとruntime一致を毎回確認し、再起動後は同一app.asarも照合する（[ADR 0075](adr/0075-persistent-complete-content-proofs.md)）。HW検査は生成full/再利用compatibilityを区別し、過去のHW成功を再利用しない。詳細は[再生用コピー](playback-cache.md#保存済みコピーの明示再利用)。

@@ -2,7 +2,7 @@ import { app } from 'electron';
 import fs from 'node:fs/promises';
 import { assertClosedMp4 } from './cacheSourceAccess';
 import { identifyCacheTools } from './cacheBundledTools';
-import { cacheContentProofs } from './cacheContentProofs';
+import { cacheContentProofs } from './cacheProductionProofs';
 import { CACHE_RECIPE } from './cacheRecipe';
 import { openPlaybackCacheStorage } from './cacheStorage';
 import { PlaybackCacheJob } from './cacheJob';
@@ -121,7 +121,8 @@ export const reusePlaybackCache = async (
     if (job.status.phase !== 'ready' || !validated)
       throw Error('CACHE_REUSE_FAILED');
     await check();
-    sourceProof.remember();
+    await sourceProof.remember();
+    await check();
     return {
       job,
       expectation,

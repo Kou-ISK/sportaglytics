@@ -138,3 +138,5 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 - [0073 Verified playback cache foundation](0073-verified-playback-cache-foundation.md): 原本保持の派生再生と有効化前の検証条件（Proposed）。
 
 - [0074 Bounded cache hardware compatibility](0074-bounded-cache-hardware-compatibility.md): 全内容proofと再利用時の区間HW適合性を分離（Proposed）。
+
+- [0075 Persistent complete content proofs](0075-persistent-complete-content-proofs.md): ビルド・実bytesに結合した内容proofのprivate保持と無効化（Proposed）。

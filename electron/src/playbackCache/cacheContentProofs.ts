@@ -1,27 +1,31 @@
 import { readCacheFileIdentity } from './sourceIdentity';
 import { probeCacheMetadata, probeCacheTiming } from './cacheProbe';
 import type { CacheProbeContext } from './cacheProbe';
-import type { CacheMediaMetadata } from './cacheMediaMetadata';
-import type { CacheSourceIdentity, CacheTimingProof } from './cachePolicy';
-import { CACHE_RECIPE } from './cacheRecipe';
+import type { CacheSourceIdentity } from './cachePolicy';
+import { cacheContentKey } from './cacheProofRecord';
+import type { CacheContentData } from './cacheProofRecord';
+import type { CacheProofPersistence } from './cacheProofStore';
+import type { CacheProofWrite } from './cacheProofIo';
 
-interface ContentProof {
-  metadata: CacheMediaMetadata;
-  timing: CacheTimingProof;
+export interface CacheProofObservation {
+  reused: boolean;
+  from: 'fresh' | 'memory' | 'persistent';
+  persistence: CacheProofWrite | 'not-requested';
+  elapsedMs: number;
 }
-export interface CacheContentProof extends ContentProof {
+export interface CacheContentProof extends CacheContentData {
   identity: CacheSourceIdentity;
   revision: string;
-  observation: { reused: boolean; elapsedMs: number };
+  observation: CacheProofObservation;
   /** Owner calls only after the remaining qualification gates succeed. */
-  remember: () => void;
+  remember: () => Promise<void>;
 }
 
-/** Main-memory proofs only. A fresh complete digest is required on every hit;
- * neither a disk manifest nor a file stamp can create a trusted proof. Runtime
- * changes/restarts miss. HW qualification is deliberately outside this memo. */
+/** Fresh whole-byte identity is mandatory even on authenticated disk hits.
+ * HW, source ownership and final identity checks remain outside this memo. */
 export class CacheContentProofs {
-  private readonly entries = new Map<string, ContentProof>();
+  private readonly entries = new Map<string, CacheContentData>();
+  constructor(private readonly disk?: CacheProofPersistence) {}
 
   async read(
     source: string,
@@ -32,24 +36,52 @@ export class CacheContentProofs {
     const before = await readCacheFileIdentity(source, {
       signal: context.signal,
     });
-    const key = JSON.stringify([
-      'full-content-proof-v1',
-      CACHE_RECIPE,
-      runtime,
-      before.identity,
-    ]);
-    const saved = this.entries.get(key);
-    if (saved) {
-      context.signal.throwIfAborted();
+    const key = cacheContentKey(runtime, before.identity);
+    const memory = this.entries.get(key);
+    if (memory) {
       this.entries.delete(key);
-      this.entries.set(key, saved);
-      return {
-        ...structuredClone(saved),
-        ...before,
-        observation: { reused: true, elapsedMs: performance.now() - started },
-        remember: () => context.signal.throwIfAborted(),
-      };
+      this.entries.set(key, memory);
     }
+    const saved = memory ?? (await this.disk?.read(key, context.signal));
+    context.signal.throwIfAborted();
+    const from = memory ? 'memory' : saved ? 'persistent' : 'fresh';
+    const qualify = (
+      proof: CacheContentData,
+      identity: typeof before,
+    ): CacheContentProof => {
+      const retained = structuredClone(proof);
+      const observation: CacheProofObservation = {
+        reused: from !== 'fresh',
+        from,
+        persistence: from === 'persistent' ? 'stored' : 'not-requested',
+        elapsedMs: performance.now() - started,
+      };
+      return {
+        ...structuredClone(proof),
+        ...identity,
+        observation,
+        remember: async () => {
+          context.signal.throwIfAborted();
+          if (this.disk)
+            observation.persistence = await this.disk.write(
+              key,
+              retained,
+              context.signal,
+              (outcome) => {
+                observation.persistence = outcome;
+              },
+            );
+          context.signal.throwIfAborted();
+          this.entries.delete(key);
+          this.entries.set(key, retained);
+          if (this.entries.size > 8) {
+            const oldest = this.entries.keys().next().value;
+            if (oldest !== undefined) this.entries.delete(oldest);
+          }
+        },
+      };
+    };
+    if (saved) return qualify(saved, before);
     const metadata = await probeCacheMetadata(source, context);
     const timing = await probeCacheTiming(source, metadata, context);
     const after = await readCacheFileIdentity(source, {
@@ -62,23 +94,6 @@ export class CacheContentProofs {
     )
       throw Error('CACHE_CONTENT_CHANGED');
     context.signal.throwIfAborted();
-    const proof = { metadata, timing };
-    const retained = structuredClone(proof);
-    return {
-      ...proof,
-      ...after,
-      observation: { reused: false, elapsedMs: performance.now() - started },
-      remember: () => {
-        context.signal.throwIfAborted();
-        this.entries.set(key, retained);
-        // Only small metadata/digests are retained, never media buffers.
-        if (this.entries.size > 8) {
-          const oldest = this.entries.keys().next().value;
-          if (oldest !== undefined) this.entries.delete(oldest);
-        }
-      },
-    };
+    return qualify({ metadata, timing }, after);
   }
 }
-
-export const cacheContentProofs = new CacheContentProofs();
