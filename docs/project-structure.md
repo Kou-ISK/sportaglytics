@@ -443,3 +443,5 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 `playbackCache/cacheMp4Boxes.ts`は閉じた入力検査と区間診断で共用するbox先頭の有界読込を担当する。`cacheFragmentLayout.ts`はinit/mediaのbyte範囲だけを構造検査し、時刻・track・HW・admissionを扱わない。現段階でschedulerやRenderer MSEへ接続しない。
 
 `src/features/videoPlayer/shared/playbackRanges`は区間transportのRenderer側責務を持つ。`rangeBufferIndex`は有界coverage計画、`SourceBufferTaskQueue`はnativeイベント所有、`PlaybackRangeBuffer`は読込・容量・要求集約、`rangePlaybackRegistry`はvideo/URL単位の時計接続を担当する。実ファイル・IPC・Main証明はこの層で作らない。通常採用への接続は未完了である。
+
+区間キャッシュのMain専用ticket/read leaseは `electron/src/playbackCache/cacheRangeReadLease.ts`、2 batch上限の工程所有は `cacheRangePipeline.ts` に分離する。Rendererへpathやmanifest発行権を公開せず、描画・共通時計・原本復帰の責務を持たせない。

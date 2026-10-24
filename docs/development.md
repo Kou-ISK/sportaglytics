@@ -518,3 +518,5 @@ field_order欠落素材のfixtureではraw stream値を注入せず、全packet�
 区間再生の基盤は`cacheMp4Boxes.test.ts`で64bit/サイズ0/高位bit変異/欠損/連続境界/容量上限/取消/共有budgetを検査する。byte layoutの合格はcodec・全field/音声・時計・HWの証明ではない。段階実機検証は[ADR 0077](adr/0077-demand-driven-playback-ranges.md)に従い、まず複数音声MSEと隣接境界、その後field依存範囲と生成速度を分ける。
 
 区間再生のRenderer基盤を変更するときは、`PlaybackRangeBuffer` / `SourceBufferTaskQueue` / `rangeBufferIndex` / `rangePlaybackRegistry`と共通時計のunitを確認する。読込・native完了・closeを別々に保留し、期限を終了確認と取り違えないこと。通常採用は未有効化のため、これらのunitだけで実機統合済みと記録しない。既存capture blob、source reload、空白・複数映像の共通時計も回帰対象とする。
+
+区間キャッシュの所有・取消回帰は `cacheRangeReadLease.test.ts` と `cacheRangePipeline.test.ts` に置く。Session失効の即時通知と実I/O・worker closeのdrainを分け、遅いACKで次世代を成功扱いにしない。実測では生成単独の速度と検証・供給を含む速度を区別し、UI未接続の基盤試験を実再生合格に扱わない。

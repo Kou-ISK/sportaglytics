@@ -453,3 +453,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 長尺の初回待ちを減らす区間方式は[ADR 0077](adr/0077-demand-driven-playback-ranges.md)で検討中。現段階は有界MP4構造検査だけで、区間生成・MSE・先読みは製品へ接続していない。全尺proofとbyte範囲を混同せず、既存の保存・原本時計・exportは維持する。
 
 区間再生のRenderer側基盤は、source/Session寿命とseek要求寿命を分離し、video/URLごとのregistryから共通時計へreadinessを返す。停止中も必要区間を要求する。通常の再生用コピー採用は従来経路のままで、Mainの検証済み読込leaseとMSE切替への接続は未完了である。
+
+区間キャッシュのMain基盤は、一回限りの検証ticketからSession専用の再読可能leaseへ引き換え、最大2 batchで生成と検証・供給を重ねる。現時点では通常UI・正式IPCへの接続、実再生の速度保証は未完了。設計と保証範囲は[ADR 0077](adr/0077-demand-driven-playback-ranges.md)を参照。

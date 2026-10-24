@@ -340,3 +340,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 `cacheIdentityHandoff.test.ts`は同サイズ改変・mtime復元・同内容inode交換・links・別path・二重消費・取消・open待ち中のclose・close失敗と明示retryを実FSで検証する。`cacheReusePipeline.test.ts`は実handle.readのbytesとMainの有界auditを比較し、fresh/warmの全digest回数、Jobのcleanup失敗保持を確認する。短尺の別Main IPC計測は同一build/profileのpersistent proofを用い、全field/音声proofと新規HWが残ることを確認する。測定は実UI/再生品質の合格を意味しない。
 
 `shared/playbackRanges`のunitは、連続seek中の旧read破棄、native append/removeの直列所有、取消後の遅延完了、未確認read/SourceBufferの保持、容量に含むin-flight bytes、使用中区間のeviction拒否、再読込、close失敗の一回所有を検査する。共通時計では停止中の要求配送、元のsource時刻への変換、capture例外との分離、URL/アングル所有を確認する。Mainのread lease、実MSEの連続区間、元動画復帰、実音声同期、物理scrubは別の未完了ゲートである。
+
+区間キャッシュの基盤回帰では、ticket偽造・別所有者・再引換え・再読取時の改変、最終revision照合中の失効、read/close失敗と予約保持、生成とconsumerの最大2件、取消の即時通知と遅いsettleを検査する。Main/Renderer接続とnative供給ACK・実音声同期・物理scrubは別の実機検証であり、この合格から推定しない。
