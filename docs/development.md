@@ -514,3 +514,5 @@ field_order欠落素材のfixtureではraw stream値を注入せず、全packet�
 再生用コピーの性能測定では未検証の初回、同一起動内のメモ、正常終了後の別Mainによる永続proof利用を分け、sourceProof/contentProofのfrom・reused・persistence・elapsedMs、変換とHWの時間を記録する。再起動試験は最初の製品IPCが実際に保存した同じprofileを使い、記録注入・鍵コピーをしない。実梱包のoriginal-fsでstoredとpersistentを確認し、Node上の模擬ASARだけで実機合格にしない。全hash・所有権・HWの検査を無効化して測定しない。[仕様](playback-cache.md#保存済みコピーの明示再利用)。
 
 候補探索と内容検査の隣接digestは同一Jobの`CacheIdentityHandoff`だけで共有する。捕捉前にJobをretainし、closeの失敗はcleanupに残す。通常finallyと明示retryCleanupを区別し、失敗closeを暗黙に再発行しない。性能比較では`mediaReads`の回数/合計bytes/overflowを確認し、probe時間・HW時間・物理ディスク転送とは区別する。
+
+区間再生の基盤は`cacheMp4Boxes.test.ts`で64bit/サイズ0/高位bit変異/欠損/連続境界/容量上限/取消/共有budgetを検査する。byte layoutの合格はcodec・全field/音声・時計・HWの証明ではない。段階実機検証は[ADR 0077](adr/0077-demand-driven-playback-ranges.md)に従い、まず複数音声MSEと隣接境界、その後field依存範囲と生成速度を分ける。

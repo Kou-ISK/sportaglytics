@@ -142,3 +142,5 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 - [0075 Persistent complete content proofs](0075-persistent-complete-content-proofs.md): ビルド・実bytesに結合した内容proofのprivate保持と無効化（Proposed）。
 
 - [0076 Operation-owned cache identity handoff](0076-operation-owned-cache-identity-handoff.md): 同じ要求内の新しい候補digestの引渡しとcleanup所有権（Proposed）。
+
+- [0077 Demand-driven playback ranges](0077-demand-driven-playback-ranges.md): 区間生成の段階検証、byte構造基盤、長尺有効化前の性能・品質条件（Proposed）。

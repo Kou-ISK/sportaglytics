@@ -1,3 +1,4 @@
+import { CacheMp4BoxReader } from './cacheMp4Boxes';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -117,8 +118,8 @@ export const resolveCacheSource = async (
   };
 };
 
-/** Reject fragmented MP4/MSE recordings before any conversion. Read box headers
- * only; validate all bounds and cap the header count. */
+/** Reject fragmented MP4/MSE recordings before any conversion. Read bounded box
+ * prefixes only; validate all bounds and cap the header count. */
 export const assertClosedMp4 = async (
   file: string,
   signal?: AbortSignal,
@@ -129,42 +130,25 @@ export const assertClosedMp4 = async (
   );
   try {
     const size = (await handle.stat()).size;
-    let count = 0;
+    const reader = new CacheMp4BoxReader({
+      signal,
+      read: async (position, length) => {
+        const header = Buffer.alloc(length);
+        const { bytesRead } = await handle.read(header, 0, length, position);
+        return header.subarray(0, bytesRead);
+      },
+    });
     const scan = async (
       start: number,
       end: number,
       inMoov = false,
     ): Promise<void> => {
-      for (let position = start; position < end; ) {
+      for (const box of await reader.scan(start, end)) {
         signal?.throwIfAborted();
-        if (++count > 10000 || end - position < 8)
-          throw Error('CACHE_INVALID_MP4');
-        const header = Buffer.alloc(16);
-        const { bytesRead } = await handle.read(
-          header,
-          0,
-          Math.min(16, end - position),
-          position,
-        );
-        if (bytesRead < 8) throw Error('CACHE_INVALID_MP4');
-        let length = header.readUInt32BE(0);
-        let headerBytes = 8;
-        if (length === 1) {
-          if (bytesRead < 16) throw Error('CACHE_INVALID_MP4');
-          const extended = header.readBigUInt64BE(8);
-          if (extended > BigInt(Number.MAX_SAFE_INTEGER))
-            throw Error('CACHE_INVALID_MP4');
-          length = Number(extended);
-          headerBytes = 16;
-        } else if (length === 0) length = end - position;
-        if (length < headerBytes || position + length > end)
-          throw Error('CACHE_INVALID_MP4');
-        const type = header.toString('ascii', 4, 8);
-        if (type === 'moof' || type === 'mvex')
+        if (box.type === 'moof' || box.type === 'mvex')
           throw Error('CACHE_FRAGMENTED_SOURCE');
-        if (type === 'moov' && !inMoov)
-          await scan(position + headerBytes, position + length, true);
-        position += length;
+        if (box.type === 'moov' && !inMoov)
+          await scan(box.start + box.headerBytes, box.end, true);
       }
     };
     await scan(0, size);

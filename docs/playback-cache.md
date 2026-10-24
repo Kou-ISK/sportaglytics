@@ -107,3 +107,7 @@ streamの`field_order`欠落は、raw値を保持したまま64 packetまでの�
 ### 同じ要求内の候補digest引渡し
 
 候補探索で新しく全hashした結果は、同じMain Job内の次の内容検査へ一度だけ引き渡す。開いたFileHandleとpathのrevisionを消費時に再確認し、close完了までproofを返さない。途中交換・取消・close失敗は採用を防ぎ、close失敗の自動再試行は行わない。原本の前後照合、候補解析後/HW後/最終探索のhash、現在のHW検査は残す。単一候補の成功reuseでは全内容proofありで原本2回/候補3回、初回は原本3回/候補4回の全digest読込になる。Main artifactのmediaReadsは最大32件の論理digest読込記録で、probeや物理I/Oではない。[ADR 0076](adr/0076-operation-owned-cache-identity-handoff.md)。
+
+## 長尺の区間方式の検討
+
+[ADR 0077](adr/0077-demand-driven-playback-ranges.md)に選択肢、失敗時の所有と復旧、性能判定を記録する。短尺制限の単純解除と全尺変換の必須化は選ばず、複数音声MSE能力→field依存範囲と速度→要求集約/先読みの順に確認する。実装済みのbyte構造基盤は時刻や品質のproofではなく、区間再生はまだ製品で有効になっていない。
