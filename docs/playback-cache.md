@@ -10,7 +10,7 @@ Mac同梱の `h264_videotoolbox`、`allow_sw=0`、必要時だけ `bwdif=send_fi
 
 出力の全時刻・音声・全体hash検査後、同じElectron runtimeの隔離Windowで対象コピーを最後まで読み、フレーム提示とVideoToolbox継続を確認する。ネットワーク・IPC・権限要求は許可せず、debugger切断やdecoder errorも不合格にする。これは短尺のqualificationであり、製品UIの実音声や物理操作の代わりにはならない。入力/出力の全走査と等速再生確認には追加時間とCPU/GPU負荷がかかる。製品方式の速度推定は実測未確立のためUIへ架空の所要時間を表示しない。
 
-全フレームの検査はFFprobeのデコードを4スレッドに制限し、metadataと全音声packetの検査は2スレッドとする。各workerの終了を待って順番に実行し、全件照合・error時の拒否・取消・終了確認を維持する。CPUの並列度を増やす調整であり、完了時間の保証ではない。検査件数の削減やHW確認の短縮で待ち時間を隠さない。
+全フレームの検査はFFprobeのデコードを4スレッドに制限し、metadataと全音声packetの検査は2スレッドとする。各workerの終了を待って順番に実行し、全件照合・error時の拒否・取消・終了確認を維持する。CPUの並列度を増やす調整であり、完了時間の保証ではない。未検証内容の検査件数の削減やHW確認の短縮で待ち時間を隠さない。同一起動中の検証済み内容の再利用条件は下記に示す。
 
 UIの「再生用コピー」から手動開始・取消・片付け再試行・停止中の採用/原本復帰を行う。生成合計8GiB、1本1GiB、空き容量2GiBのreserveを設定し、既存readyとpendingも総量へ算入する。Mainはdocument generation、Session、config revision、clip identityを照合し、Rendererから任意path/args/proofを受け取らない。終了時はpreflight/probe/変換を含む処理をcancelして終了確認まで待ち、新しい開始を止める。停止未確認は強制終了せずbusyを維持する。
 
@@ -22,11 +22,15 @@ Mac主再生WindowではChromiumの`AudioVideoTracks`だけを有効にし、nat
 
 ## 保存済みコピーの明示再利用
 
-「保存済みコピーを確認」は、現在のSessionの原本を全hash・全時刻/音声列で再確認し、アプリ専用cache rootのreadyだけを最大1024件探索する。原本・recipe・同梱tool/runtime・全proofから計算したkeyに合う候補だけを扱う。未知entry、symlink/hardlink、改変や1GiBを超える実サイズは拒否し、manifestの成功値を信頼しない。候補がなければ表示して原本を維持し、新規変換へ自動移行しない。
+「保存済みコピーを確認」は、現在のSessionの原本を毎回全hashで再確認し、未登録の内容は全時刻/音声列も検証して、アプリ専用cache rootのreadyだけを最大1024件探索する。原本・recipe・同梱tool/runtime・全proofから計算したkeyに合う候補だけを扱う。未知entry、symlink/hardlink、改変や1GiBを超える実サイズは拒否し、manifestの成功値を信頼しない。候補がなければ表示して原本を維持し、新規変換へ自動移行しない。
 
-候補にも生成時と同じmetadata・全frame/音声packet・全体hash・全尺HW検査を実行する。原本再照合と、HW検査後の候補再hashが一致して初めてreadyにする。新しいmediaやmanifestを作らず、採用は既存の停止中選択ticketから明示する。取消は最後のhashまで可能で、遅い終了を待つ所有権とclose/quit抑止を生成と共有する。probe用scratchはreadyの外側へ置き、失敗・取消・片付け再試行で既存readyを削除しない。
+候補にも生成時と同じmetadata・全frame/音声packetの証明、全体hash・全尺HW検査を要求する。原本再照合と、HW検査後の候補再hashが一致して初めてreadyにする。新しいmediaやmanifestを作らず、採用は既存の停止中選択ticketから明示する。取消は最後のhashまで可能で、遅い終了を待つ所有権とclose/quit抑止を生成と共有する。probe用scratchはreadyの外側へ置き、失敗・取消・片付け再試行で既存readyを削除しない。
 
-短尺の再利用にも全走査と等速HW再生の時間がかかる。生成時間の性能基準と、完成候補の採用・再生・seek・原本復帰の機能検証は分けて記録する。機能検証の待機上限を工程実測から設定しても、過去の生成期限超過や性能未達を成功へ書き換えない。
+同一Main起動中に限り、成功した全内容検査のmetadata/timingを最大8件のメモへ保持する。毎回実bytesの全SHA-256を計算し、bytes数・recipe・同梱tool/runtime・証明形式版が一致した場合だけ、決定的なmetadata/frame/音声packetの再走査を省く。初回probeの前後で全hashとdev/inode/size/mtime/ctime/nlinkを照合し、途中の交換・変更を拒否する。メモは検査完了時に明示登録し、内容/HW検査の失敗や、その検査中の取消から成功proofを登録しない。後続のseal/publish失敗が起きても、既に全bytesへ結合した内容proofはメモに残り得るが、公開や採用を許可するものではない。返却値はcloneし、未完了処理・取消をSession間で共有しない。disk manifestやstatだけで信頼を作らず、再起動後はメモを引き継がない。
+
+所有権、閉じたMP4、容量、属性・全proofのpolicy、原本再hash、毎回の全尺HW、HW後の候補全hash/revision、採用直前照合は維持する。HW成功や採用許可はメモ化しない。Main内証跡には入力/出力proofの再利用有無と取得時間も含め、再走査を実行したと誤記しない。
+
+初回・再起動後の再利用には全走査が必要で、同一起動中にも等速HW再生の時間がかかる。生成時間の性能基準と、完成候補の採用・再生・seek・原本復帰の機能検証は分けて記録する。機能検証の待機上限を工程実測から設定しても、過去の生成期限超過や性能未達を成功へ書き換えない。
 
 生成・再利用とも、全表示時刻/音声proof・原本再hash・出力hashの内容検査をHW検査より先に判定する。不一致は全尺HW再生を開始せず失敗にし、正常候補には従来どおり全尺HWと公開/再利用直前のhash検査を要求する。この順序変更は不適格候補の待ち時間を減らすもので、正常な再利用や長尺の性能改善を証明しない。
 

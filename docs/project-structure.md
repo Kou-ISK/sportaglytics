@@ -435,3 +435,5 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 `ipc/packageHistoryDirectory.ts`は同じ親pathの未完了OS列挙を所有し、完了後の新規列挙を直列化します。要求ごとの取消と旧結果の失効は`packageHistoryRead.ts`、退避文書の意味検査は`packageBackupRestoration.ts`が担当します。
 
 `playbackCache/cacheDisplayScan.ts`はraw stream宣言と有界decoded prefixの表示順分類を担当します。`cacheProbe.ts`が所有workerを通して呼び、`cacheTimingAccumulator.ts`が全frameを再照合します。UI/IPCへ仮判定を公開しません。
+
+`electron/src/playbackCache/cacheContentProofs.ts` はMain限定の有界metadata/timingメモと全bytesへの結合を担当する。永続manifestやRendererへproof信頼を公開せず、HW/採用判断は既存validator/controllerへ残す。

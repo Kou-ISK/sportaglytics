@@ -445,3 +445,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 再生用コピーには明示的な保存済み候補の再検証を接続しています。生成・再利用は全時刻/音声/HW validatorを共有し、原本と候補の実hashを再照合してから停止中の選択ticketへ渡します。再利用は変換や既存readyの削除を行わず、長尺の高速な再利用は未実装です。
 
 再生用コピーではstream field_order欠落時のdisplay scan仮分類をMainの有界decoded prefixへ分離しています。raw metadataは補完せず、全尺frame照合が終わるまで生成しません。長尺対応・実音声同期・物理scrubの確認をこの短尺判定で代替しません。
+
+再生用コピーの全内容proofはMain起動内の最大8件メモに限り再利用する。実bytes全hashとruntime一致を毎回確認し、HW検査は省かない。詳細は[再生用コピー](playback-cache.md#保存済みコピーの明示再利用)。

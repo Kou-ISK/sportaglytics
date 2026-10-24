@@ -4,8 +4,7 @@ import type { PlaybackCacheStatus } from '../../../src/types/playbackCache';
 import type { CacheAuthorizedSource } from './cacheSourceAccess';
 import { assertClosedMp4 } from './cacheSourceAccess';
 import { identifyCacheTools } from './cacheBundledTools';
-import { identifyCacheSource } from './sourceIdentity';
-import { probeCacheMetadata, probeCacheTiming } from './cacheProbe';
+import { cacheContentProofs } from './cacheContentProofs';
 import {
   buildCacheRecipe,
   CACHE_RECIPE,
@@ -16,10 +15,10 @@ import type { CacheCandidate, CacheStaging } from './cacheStorage';
 import { PlaybackCacheJob } from './cacheJob';
 import { runCacheConversion } from './cacheConversionRunner';
 import { spawnCacheWorker } from './cacheWorkerProcess';
-import type { CacheHardwareProbeResult } from './cacheHardwareProbe';
 import { CacheConversionEvidence } from './cacheConversionEvidence';
-import type { CacheExpectation, CacheValidation } from './cachePolicy';
+import type { CacheExpectation } from './cachePolicy';
 import { validateCacheMedia } from './cacheRuntimeValidation';
+import type { CacheRuntimeValidation } from './cacheRuntimeValidation';
 
 export const CACHE_LIMITS = {
   maximumCacheBytes: 8 * 1024 ** 3,
@@ -34,6 +33,7 @@ export interface CachePreparedArtifact {
   evidence: {
     mode: 'created' | 'reused';
     elapsedMs: number;
+    sourceProof: { reused: boolean; elapsedMs: number };
     conversion: {
       arguments: string[];
       elapsedMs: number;
@@ -41,7 +41,7 @@ export interface CachePreparedArtifact {
       stderr: string;
       truncated: boolean;
     } | null;
-    validation: CacheValidation & { hardware: CacheHardwareProbeResult };
+    validation: CacheRuntimeValidation;
   };
 }
 /** Main owns this entire promise, including preflight/probes, through shutdown.
@@ -88,10 +88,12 @@ export const preparePlaybackCache = async (
     const tools = await identifyCacheTools(signal);
     await check();
     const context = { executable: tools.ffprobe, signal, stopWaiting };
-    const metadata = await probeCacheMetadata(source.path, context);
-    await check();
-    const sourceIdentity = await identifyCacheSource(source.path, { signal });
-    const timing = await probeCacheTiming(source.path, metadata, context);
+    const sourceProof = await cacheContentProofs.read(
+      source.path,
+      context,
+      tools.runtime,
+    );
+    const { metadata, timing, identity: sourceIdentity } = sourceProof;
     await check();
     const expectation: CacheExpectation = {
       source: sourceIdentity,
@@ -200,6 +202,7 @@ export const preparePlaybackCache = async (
     if (!candidate) throw Error('CACHE_CANDIDATE_MISSING');
     await check();
     if (!conversion || !validated) throw Error('CACHE_EVIDENCE_MISSING');
+    sourceProof.remember();
     return {
       job,
       expectation,
@@ -208,6 +211,7 @@ export const preparePlaybackCache = async (
       evidence: {
         mode: 'created',
         elapsedMs: performance.now() - started,
+        sourceProof: sourceProof.observation,
         conversion,
         validation: validated,
       },

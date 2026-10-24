@@ -2,8 +2,7 @@ import { app } from 'electron';
 import fs from 'node:fs/promises';
 import { assertClosedMp4 } from './cacheSourceAccess';
 import { identifyCacheTools } from './cacheBundledTools';
-import { identifyCacheSource } from './sourceIdentity';
-import { probeCacheMetadata, probeCacheTiming } from './cacheProbe';
+import { cacheContentProofs } from './cacheContentProofs';
 import { CACHE_RECIPE } from './cacheRecipe';
 import { openPlaybackCacheStorage } from './cacheStorage';
 import { PlaybackCacheJob } from './cacheJob';
@@ -15,8 +14,9 @@ import type {
   CachePreparationOptions,
 } from './cacheRuntimePipeline';
 
-/** Explicit reuse never creates media or deletes a ready candidate. Every gate
- * runs again against real input/output bytes in the current runtime. */
+/** Explicit reuse never creates media or deletes a ready candidate. Complete
+ * byte identities and HW are checked again; matching Main-memory content proofs
+ * avoid repeating deterministic decode work within the same process/runtime. */
 export const reusePlaybackCache = async (
   options: CachePreparationOptions,
 ): Promise<CachePreparedArtifact> => {
@@ -47,10 +47,12 @@ export const reusePlaybackCache = async (
     await assertClosedMp4(source.path, signal);
     const tools = await identifyCacheTools(signal);
     const context = { executable: tools.ffprobe, signal, stopWaiting };
-    const metadata = await probeCacheMetadata(source.path, context);
-    await check();
-    const sourceIdentity = await identifyCacheSource(source.path, { signal });
-    const timing = await probeCacheTiming(source.path, metadata, context);
+    const sourceProof = await cacheContentProofs.read(
+      source.path,
+      context,
+      tools.runtime,
+    );
+    const { metadata, timing, identity: sourceIdentity } = sourceProof;
     await check();
     const expectation = {
       source: sourceIdentity,
@@ -118,6 +120,7 @@ export const reusePlaybackCache = async (
     if (job.status.phase !== 'ready' || !validated)
       throw Error('CACHE_REUSE_FAILED');
     await check();
+    sourceProof.remember();
     return {
       job,
       expectation,
@@ -126,6 +129,7 @@ export const reusePlaybackCache = async (
       evidence: {
         mode: 'reused',
         elapsedMs: performance.now() - started,
+        sourceProof: sourceProof.observation,
         conversion: null,
         validation: validated,
       },

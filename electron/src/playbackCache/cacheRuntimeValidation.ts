@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import { assertClosedMp4 } from './cacheSourceAccess';
 import type { CacheMediaMetadata } from './cacheMediaMetadata';
 import { assertCacheVideoMatches } from './cacheMediaMetadata';
-import { probeCacheMetadata, probeCacheTiming } from './cacheProbe';
+import { cacheContentProofs } from './cacheContentProofs';
 import type { CacheProbeContext } from './cacheProbe';
 import { identifyCacheSource, readCacheFileIdentity } from './sourceIdentity';
 import { probeCacheHardware } from './cacheHardwareProbe';
@@ -16,10 +16,12 @@ import type { CacheExpectation, CacheValidation } from './cachePolicy';
 
 export type CacheRuntimeValidation = CacheValidation & {
   hardware: CacheHardwareProbeResult;
+  contentProof: { reused: boolean; elapsedMs: number };
 };
 
-/** Creation and explicit reuse share every content/HW gate. A saved manifest
- * supplies candidate identity only, never a trusted validation result. */
+/** Creation and explicit reuse share every content/HW gate. Only Main-memory
+ * content proofs bound to freshly hashed bytes may avoid decode work. Disk
+ * manifests never supply proofs; the full HW probe always runs again. */
 export const validateCacheMedia = async (options: {
   source: CacheAuthorizedSource;
   metadata: CacheMediaMetadata;
@@ -43,13 +45,14 @@ export const validateCacheMedia = async (options: {
   )
     throw Error('CACHE_UNSAFE_FILE');
   await assertClosedMp4(candidatePath, context.signal);
-  const outputMetadata = await probeCacheMetadata(candidatePath, context);
-  assertCacheVideoMatches(metadata, outputMetadata);
-  const timing = await probeCacheTiming(candidatePath, outputMetadata, context);
+  const output = await cacheContentProofs.read(
+    candidatePath,
+    context,
+    expectation.runtime,
+  );
+  assertCacheVideoMatches(metadata, output.metadata);
+  const { timing } = output;
   await check();
-  const output = await readCacheFileIdentity(candidatePath, {
-    signal: context.signal,
-  });
   const sourceAfter = await identifyCacheSource(source.path, {
     signal: context.signal,
   });
@@ -72,11 +75,23 @@ export const validateCacheMedia = async (options: {
     options.retainCleanup,
   );
   await check();
+  const afterHardware = await readCacheFileIdentity(candidatePath, {
+    signal: context.signal,
+  });
+  if (
+    afterHardware.revision !== output.revision ||
+    afterHardware.identity.sha256 !== output.identity.sha256 ||
+    afterHardware.identity.bytes !== output.identity.bytes
+  )
+    throw Error('CACHE_OUTPUT_CHANGED');
+  await check();
   const validation = {
     ...content,
     hardware,
+    contentProof: output.observation,
   };
   if (!isCacheValidationMatching(expectation, validation))
     throw Error('CACHE_VALIDATION');
+  output.remember();
   return validation;
 };

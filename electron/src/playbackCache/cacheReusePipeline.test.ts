@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,7 +8,9 @@ import { openPlaybackCacheStorage } from './cacheStorage';
 import { CACHE_RECIPE } from './cacheRecipe';
 import { parseCacheMediaMetadata } from './cacheMediaMetadata';
 import type { CacheExpectation, CacheValidation } from './cachePolicy';
+import { preparePlaybackCache } from './cacheRuntimePipeline';
 import type { CachePreparationOptions } from './cacheRuntimePipeline';
+import type { CacheWorkerEvents } from './cacheConversionRunner';
 import type { PlaybackCacheJob } from './cacheJob';
 
 const mocks = vi.hoisted(() => ({
@@ -115,7 +117,9 @@ beforeEach(async () => {
   mocks.root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), 'cache-reuse-')),
   );
-  mocks.runtime = 'test-runtime';
+  mocks.runtime = 'test-runtime-' + randomUUID();
+  expected.runtime = mocks.runtime;
+  validation.hardware.runtime = mocks.runtime;
   mocks.metadata.mockReset().mockResolvedValue(metadata);
   mocks.timing.mockReset().mockResolvedValue(structuredClone(expected.timing));
   mocks.spawn.mockReset().mockImplementation(() => {
@@ -304,3 +308,77 @@ it.each(['field', 'frame-count', 'audio-time', 'audio-payload', 'source'])(
     expect(await fs.readFile(savedPath, 'utf8')).toBe(outputBytes);
   },
 );
+
+it('reuses qualified Main-memory content proofs but repeats HW and ownership checks', async () => {
+  const first = await reusePlaybackCache(options);
+  expect(first.evidence.sourceProof.reused).toBe(false);
+  const second = await reusePlaybackCache(options);
+  expect(second.evidence.sourceProof.reused).toBe(true);
+  expect(mocks.metadata).toHaveBeenCalledTimes(2);
+  expect(mocks.timing).toHaveBeenCalledTimes(2);
+  expect(mocks.hardware).toHaveBeenCalledTimes(2);
+  expect(options.assertOwner).toHaveBeenCalled();
+  expect(options.source.assertCurrent).toHaveBeenCalled();
+  expect(second.evidence.validation.timing).toEqual(expected.timing);
+  expect(await fs.readFile(savedPath, 'utf8')).toBe(outputBytes);
+});
+it('does not let a warm proof bypass a later hardware failure or owner change', async () => {
+  await reusePlaybackCache(options);
+  mocks.hardware.mockRejectedValueOnce(Error('HW unavailable'));
+  await expect(reusePlaybackCache(options)).rejects.toThrow(
+    'CACHE_REUSE_FAILED',
+  );
+  expect(retainedJob?.selectCache(true)).toBeNull();
+  options.assertOwner = async () => {
+    throw Error('owner changed');
+  };
+  await expect(reusePlaybackCache(options)).rejects.toThrow('owner changed');
+});
+it('rejects a candidate replaced with identical bytes during HW qualification', async () => {
+  mocks.hardware.mockImplementationOnce(async () => {
+    const replacement = path.join(mocks.root, 'replacement');
+    await fs.writeFile(replacement, outputBytes);
+    await fs.rename(replacement, savedPath);
+    return {
+      ...validation.hardware,
+      probe: {
+        ended: true,
+        frames: 24,
+        maximumTime: 0.99,
+        elapsedMs: 1000,
+        properties: [],
+      },
+    };
+  });
+  await expect(reusePlaybackCache(options)).rejects.toThrow(
+    'CACHE_REUSE_FAILED',
+  );
+  expect(retainedJob?.selectCache(true)).toBeNull();
+  expect(await fs.readFile(savedPath, 'utf8')).toBe(outputBytes);
+});
+
+it('shares qualified content from creation with reuse without converting again', async () => {
+  mocks.spawn.mockImplementation(
+    (_executable: string, args: string[], events: CacheWorkerEvents) => {
+      const output = args.at(-1);
+      if (!output) throw Error('output missing');
+      void fs.writeFile(output, outputBytes).then(
+        () => events.closed(0, null),
+        () => events.closed(1, null),
+      );
+      return { terminate: () => false, dispose: () => undefined };
+    },
+  );
+  const created = await preparePlaybackCache(options);
+  expect(created.evidence.mode).toBe('created');
+  expect(created.evidence.sourceProof.reused).toBe(false);
+  const reused = await reusePlaybackCache(options);
+  expect(reused.evidence.sourceProof.reused).toBe(true);
+  expect(mocks.metadata).toHaveBeenCalledTimes(2);
+  expect(mocks.timing).toHaveBeenCalledTimes(2);
+  expect(mocks.hardware).toHaveBeenCalledTimes(2);
+  expect(mocks.spawn).toHaveBeenCalledTimes(1);
+  expect(reused.evidence.validation.timing).toEqual(
+    created.evidence.validation.timing,
+  );
+});

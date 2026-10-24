@@ -328,3 +328,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 `cacheConversionRunner.test.ts`は合成workerと時計で取消/容量/期限/出力量・遅いclose・停止未確認・単一poll・古いcallbackを検査します。`cacheWorkerProcess.test.ts`はspawnをmockし、shellなし・所有childへのTERMだけ・close別通知を確認します。`cacheStorage.test.ts`は実一時ファイルの容量超過で停止要求し、合成close前は出力を保持し、close後だけ片付ける接続を検査します。これらは実FFmpegやOSのprocess終了を実行した試験ではありません。終了未確認のView/Storyは再生成や片付けを出さず、原本を使用できることを明示します。
 
 `cacheDisplayScan.test.ts`と`cacheProbe.test.ts`はfield_order欠落の仮分類、空/混在/属性欠落/unknown拒否、全尺後半の不一致、prefix取消/診断/不完全JSONとclose前の所有維持を確認します。bounded prefixを全尺proofの代替にせず、実素材のcoded orderや音声聴取の証明とはしません。
+
+`cacheContentProofs.test.ts` は実ファイルhashを使い、同サイズ改変、probe中の交換、取消/遅延完了、再起動/runtime差、返却値の分離と8件LRUを検査する。`cacheReusePipeline.test.ts` はwarm proofでもHW・所有権・最終hashを再検証し、HW中の同内容ファイル交換を拒否する。模擬probeの合格を実変換や長尺の性能改善とは扱わない。
