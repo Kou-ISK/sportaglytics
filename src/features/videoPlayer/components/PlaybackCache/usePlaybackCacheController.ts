@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PlaybackCacheSnapshot } from '../../../../types/ipc/playbackCache';
 import type { CachePlayerRegistration } from './CachePlayerContext';
 import { snapshotCachePlayer, switchCachePlayer } from './cachePlayerSwitch';
+import { isCacheRecoveryCurrent } from './cacheRecoveryRequest';
+import type { CacheRecoveryRequest } from './cacheRecoveryRequest';
 
 interface PlaybackCacheController {
   context: { register: (registration: CachePlayerRegistration) => () => void };
@@ -14,6 +16,7 @@ interface PlaybackCacheController {
   onRetryCleanup: () => void;
   onUseCache: () => void;
   onUseOriginal: () => void;
+  onRetryOriginal: (() => void) | null;
 }
 /** Session data and videoList remain the original; only the mounted player changes. */
 export const usePlaybackCacheController = (
@@ -24,6 +27,9 @@ export const usePlaybackCacheController = (
 ): PlaybackCacheController => {
   const [snapshot, setSnapshot] = useState<PlaybackCacheSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState<CacheRecoveryRequest | null>(null);
+  const retryRef = useRef(retry);
+  retryRef.current = retry;
   const [switching, setSwitching] = useState(false);
   const timelineRef = useRef(timelineTime);
   timelineRef.current = timelineTime;
@@ -34,6 +40,7 @@ export const usePlaybackCacheController = (
   const switchAbort = useRef<AbortController | null>(null);
   const selected = useRef<CachePlayerRegistration | null>(null);
   const selectedAudioTracks = useRef(0);
+  const recoveryAttempted = useRef(new Set<CachePlayerRegistration>());
   const recover = useRef<() => void>(() => undefined);
   const alive = useRef(true);
   const playingRef = useRef(playing);
@@ -58,6 +65,9 @@ export const usePlaybackCacheController = (
       return () => {
         registration.port.off('error', failed);
         players.current.delete(registration);
+        if (retryRef.current?.player === registration) retryRef.current = null;
+        setRetry((value) => (value?.player === registration ? null : value));
+        recoveryAttempted.current.delete(registration);
         switchAbort.current?.abort();
         if (selected.current === registration) selected.current = null;
       };
@@ -116,10 +126,17 @@ export const usePlaybackCacheController = (
     [api, refresh, request],
   );
   const useSource = useCallback(
-    async (cache: boolean, recovery = false): Promise<void> => {
+    async (
+      cache: boolean,
+      recovery = false,
+      manual = false,
+      pending: CacheRecoveryRequest | null = null,
+    ): Promise<void> => {
       if (!api || switchAbort.current || (playingRef.current && !recovery))
         return;
       const current = snapshotRef.current;
+      if (pending && !isCacheRecoveryCurrent(pending, current, players.current))
+        return;
       const registrations = [...players.current];
       const player = registrations[0];
       if (
@@ -135,12 +152,33 @@ export const usePlaybackCacheController = (
       setSwitching(true);
       setError(null);
       let changed = false;
+      let restored = false;
       let savedTimeline = timelineRef.current;
       let expectedAudioTracks =
-        current.source.audioTracks ?? selectedAudioTracks.current;
+        pending?.audioTracks ??
+        current.source.audioTracks ??
+        selectedAudioTracks.current;
       let saved: ReturnType<typeof snapshotCachePlayer> | undefined;
       const input = request();
       try {
+        if (pending) {
+          // A polling snapshot can lag a Session change. Reserve the switch,
+          // then revalidate against Main before touching the mounted media.
+          const fresh = await api.inspect();
+          controller.signal.throwIfAborted();
+          if (
+            !alive.current ||
+            playingRef.current ||
+            !isCacheRecoveryCurrent(pending, fresh, players.current) ||
+            !isCacheRecoveryCurrent(
+              pending,
+              snapshotRef.current,
+              players.current,
+            ) ||
+            !player.port.paused()
+          )
+            throw Error('CACHE_PLAYER_CHANGED');
+        }
         if (recovery) {
           pauseRef.current();
           player.port.pause();
@@ -149,9 +187,20 @@ export const usePlaybackCacheController = (
         controller.signal.throwIfAborted();
         if ((!recovery && playingRef.current) || !players.current.has(player))
           throw Error('CACHE_PLAYER_CHANGED');
-        saved = recovery
-          ? { time: player.port.time(), settings: player.port.settings() }
-          : snapshotCachePlayer(player.port);
+        saved = pending
+          ? {
+              time: Math.max(
+                0,
+                pending.saved.time + timelineRef.current - pending.timeline,
+              ),
+              settings: {
+                ...pending.saved.settings,
+                audio: pending.saved.settings.audio?.slice() ?? null,
+              },
+            }
+          : recovery
+            ? { time: player.port.time(), settings: player.port.settings() }
+            : snapshotCachePlayer(player.port);
         if (!Number.isFinite(saved.time) || saved.time < 0)
           throw Error('CACHE_PLAYER_TIME');
         savedTimeline = timelineRef.current;
@@ -177,38 +226,73 @@ export const usePlaybackCacheController = (
         player.suppressMetadata(cache);
         await refresh();
         controller.signal.throwIfAborted();
+        setRetry(null);
+        if (recovery && !manual && alive.current)
+          setError(
+            '再生用コピーで問題が発生したため、同じ位置の原本へ戻して停止しました。音声と映像を確認してから再開してください。',
+          );
       } catch {
-        if (changed && saved && players.current.has(player)) {
-          selected.current = null;
+        pauseRef.current();
+        if (players.current.has(player)) player.port.pause();
+        recoveryAttempted.current.add(player);
+        if (cache && changed && saved && players.current.has(player)) {
           pauseRef.current();
           saved.time = Math.max(
             0,
             saved.time + timelineRef.current - savedTimeline,
           );
+          savedTimeline = timelineRef.current;
           // Separate bounded rollback after cancellation; never let an aborted
           // candidate signal skip restoring the original at the saved time.
+          const rollback = new AbortController();
+          switchAbort.current = rollback;
           try {
             await switchCachePlayer(
               player.port,
               player.source,
               saved,
               expectedAudioTracks,
-              new AbortController().signal,
+              rollback.signal,
             );
+            rollback.signal.throwIfAborted();
+            await api.selected({ ...input, ticket: null });
+            rollback.signal.throwIfAborted();
             player.suppressMetadata(false);
             selected.current = null;
+            await refresh();
+            rollback.signal.throwIfAborted();
+            restored = true;
           } catch {
             player.port.pause();
+          } finally {
+            if (switchAbort.current === rollback)
+              switchAbort.current = controller;
           }
         }
-        try {
-          await api.selected({ ...input, ticket: null });
-        } catch {
-          /* A newer Session owns state. */
+        if (alive.current && changed && saved) {
+          setRetry(
+            restored
+              ? null
+              : {
+                  ...input,
+                  player,
+                  saved: {
+                    time: saved.time,
+                    settings: {
+                      ...saved.settings,
+                      audio: saved.settings.audio?.slice() ?? null,
+                    },
+                  },
+                  timeline: savedTimeline,
+                  audioTracks: expectedAudioTracks,
+                },
+          );
         }
         if (alive.current)
           setError(
-            '切替を完了できませんでした。原本の再生状態を確認してください。',
+            restored
+              ? '切替を完了できませんでした。同じ位置の原本へ戻して停止しました。'
+              : '切替を完了できず、原本への復旧は未確認です。停止状態で映像と音声を確認し、原本への切替を再試行してください。',
           );
       } finally {
         if (switchAbort.current === controller) switchAbort.current = null;
@@ -218,6 +302,11 @@ export const usePlaybackCacheController = (
     [api, refresh, request],
   );
   recover.current = () => {
+    const player = selected.current;
+    if (!player || recoveryAttempted.current.has(player)) return;
+    recoveryAttempted.current.add(player);
+    pauseRef.current();
+    player.port.pause();
     void useSource(false, true);
   };
   // A changed document/clip cannot continue using an old selected cache.
@@ -226,13 +315,37 @@ export const usePlaybackCacheController = (
     if (switching || !player || snapshot?.status.selected === 'cache') return;
     pauseRef.current();
     player.port.pause();
-    if (snapshot?.source?.url === player.source) void useSource(false, true);
+    if (snapshot?.source?.url === player.source) recover.current();
   }, [snapshot, switching, useSource]);
+  const retryOriginal = (): void => {
+    const pending = retryRef.current;
+    if (
+      !eligible ||
+      playingRef.current ||
+      switchAbort.current ||
+      !pending ||
+      !alive.current ||
+      !isCacheRecoveryCurrent(pending, snapshotRef.current, players.current) ||
+      !pending.player.port.paused()
+    )
+      return;
+    recoveryAttempted.current.clear();
+    void useSource(false, true, true, pending);
+  };
   return {
     context,
     snapshot,
     error,
     switching,
+    onRetryOriginal:
+      retry &&
+      eligible &&
+      !playing &&
+      !switching &&
+      isCacheRecoveryCurrent(retry, snapshot, players.current) &&
+      retry.player.port.paused()
+        ? retryOriginal
+        : null,
     onPrepare: () => {
       void action('prepare');
     },
@@ -246,10 +359,16 @@ export const usePlaybackCacheController = (
       void action('cleanup');
     },
     onUseCache: () => {
+      recoveryAttempted.current.clear();
       void useSource(true);
     },
     onUseOriginal: () => {
-      void useSource(false);
+      if (retryRef.current) {
+        retryOriginal();
+        return;
+      }
+      recoveryAttempted.current.clear();
+      void useSource(false, true, true);
     },
   };
 };

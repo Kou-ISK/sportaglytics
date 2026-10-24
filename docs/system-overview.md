@@ -442,8 +442,8 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 再生用コピーの所有process runnerは停止要求と終了確認を分離し、終了未確認中はコピー準備をbusyに保ちます。通常再生・package保存形式・原本は変更しません。固定recipe/validator/IPCを短尺範囲へ接続しています。Mac主窓のnative音声選択をコピー/原本双方で復元し、読戻し不一致は採用を拒否します。成功artifactの実変換時間・全列/HW観測はMain内だけに保持します。
 
-再生用コピーには明示的な保存済み候補の再検証を接続しています。生成・再利用は全時刻/音声/HW validatorを共有し、原本と候補の実hashを再照合してから停止中の選択ticketへ渡します。再利用は変換や既存readyの削除を行わず、長尺の高速な再利用は未実装です。
+再生用コピーには明示的な保存済み候補の再検証を接続しています。生成・再利用は全時刻/音声validatorを共有し、生成は全尺HW、再利用は毎回新規の区間HW適合性を確認する。原本と候補の実hashを再照合してから停止中の選択ticketへ渡します。再利用は変換や既存readyの削除を行わず、長尺の高速な再利用は未実装です。
 
 再生用コピーではstream field_order欠落時のdisplay scan仮分類をMainの有界decoded prefixへ分離しています。raw metadataは補完せず、全尺frame照合が終わるまで生成しません。長尺対応・実音声同期・物理scrubの確認をこの短尺判定で代替しません。
 
-再生用コピーの全内容proofはMain起動内の最大8件メモに限り再利用する。実bytes全hashとruntime一致を毎回確認し、HW検査は省かない。詳細は[再生用コピー](playback-cache.md#保存済みコピーの明示再利用)。
+再生用コピーの全内容proofはMain起動内の最大8件メモに限り再利用する。実bytes全hashとruntime一致を毎回確認し、HW検査は生成full/再利用compatibilityを区別する。詳細は[再生用コピー](playback-cache.md#保存済みコピーの明示再利用)。

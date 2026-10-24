@@ -430,7 +430,7 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 
 `playbackCache/cacheConversionEvidence.ts`は変換診断の上限付き収集を担当し、`cacheRuntimePipeline.ts`が成功artifactの全検証証跡と結合します。videoPlayerの`PlaybackCache/cacheNativeAudio.ts`はnative音声trackの構造検査・選択復元・読戻し照合を担当し、登録Hookから利用します。
 
-`playbackCache/cacheReusePipeline.ts`は保存済み候補の探索・再検証を所有し、`cacheRuntimeValidation.ts`は生成/reuse共通の全内容/HW validatorです。create/reuseのjob portsは変換・公開と再照合を区別し、取消/片付けの所有を共有します。
+`playbackCache/cacheReusePipeline.ts`は保存済み候補の探索・再検証を所有し、`cacheRuntimeValidation.ts`は生成/reuse共通の全内容validatorとMain指定のHW modeを所有します。`cacheHardwareCoverage.ts`は区間計画/証拠照合、`cacheHardwareProbePage.ts`は隔離player、`cacheHardwareEvidence.ts`はdecoder履歴、`cacheHardwareProbe.ts`はWindow/期限/片付けを担当します。create/reuseのjob portsは変換・公開と再照合を区別し、取消/片付けの所有を共有します。
 
 `ipc/packageHistoryDirectory.ts`は同じ親pathの未完了OS列挙を所有し、完了後の新規列挙を直列化します。要求ごとの取消と旧結果の失効は`packageHistoryRead.ts`、退避文書の意味検査は`packageBackupRestoration.ts`が担当します。
 

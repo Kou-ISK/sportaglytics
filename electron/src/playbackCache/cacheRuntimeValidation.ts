@@ -7,6 +7,7 @@ import { cacheContentProofs } from './cacheContentProofs';
 import type { CacheProbeContext } from './cacheProbe';
 import { identifyCacheSource, readCacheFileIdentity } from './sourceIdentity';
 import { probeCacheHardware } from './cacheHardwareProbe';
+import type { CacheHardwareMode } from './cacheHardwareCoverage';
 import type { CacheHardwareProbeResult } from './cacheHardwareProbe';
 import {
   isCacheContentMatching,
@@ -19,10 +20,12 @@ export type CacheRuntimeValidation = CacheValidation & {
   contentProof: { reused: boolean; elapsedMs: number };
 };
 
-/** Creation and explicit reuse share every content/HW gate. Only Main-memory
+/** Creation and explicit reuse share every full-content gate. Only Main-memory
  * content proofs bound to freshly hashed bytes may avoid decode work. Disk
- * manifests never supply proofs; the full HW probe always runs again. */
+ * manifests never supply proofs. Creation observes full HW playback; reuse
+ * freshly observes bounded compatibility ranges, not full-file HW playback. */
 export const validateCacheMedia = async (options: {
+  hardwareMode: CacheHardwareMode;
   source: CacheAuthorizedSource;
   metadata: CacheMediaMetadata;
   expectation: CacheExpectation;
@@ -73,6 +76,8 @@ export const validateCacheMedia = async (options: {
     context.signal,
     context.stopWaiting,
     options.retainCleanup,
+    options.hardwareMode,
+    expectation.timing.endNumerator / expectation.timing.endDenominator,
   );
   await check();
   const afterHardware = await readCacheFileIdentity(candidatePath, {
@@ -90,7 +95,7 @@ export const validateCacheMedia = async (options: {
     hardware,
     contentProof: output.observation,
   };
-  if (!isCacheValidationMatching(expectation, validation))
+  if (!isCacheValidationMatching(expectation, validation, options.hardwareMode))
     throw Error('CACHE_VALIDATION');
   output.remember();
   return validation;

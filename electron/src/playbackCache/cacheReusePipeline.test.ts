@@ -105,6 +105,7 @@ const validation: CacheValidation = {
   recipe: CACHE_RECIPE,
   timing: expected.timing,
   hardware: {
+    coverage: { mode: 'full', ended: true },
     runtime: expected.runtime,
     platformDecoder: true,
     softwareFallback: false,
@@ -125,16 +126,36 @@ beforeEach(async () => {
   mocks.spawn.mockReset().mockImplementation(() => {
     throw Error('Conversion must not start');
   });
-  mocks.hardware.mockReset().mockResolvedValue({
+  mocks.hardware.mockReset().mockImplementation(async (...args: unknown[]) => ({
     ...validation.hardware,
+    coverage:
+      args[6] === 'full'
+        ? { mode: 'full', ended: true }
+        : {
+            mode: 'compatibility',
+            duration: 1,
+            presentationEnd: 1,
+            segments: [
+              {
+                start: 0,
+                end: 1,
+                firstClock: 0,
+                lastClock: 0.99,
+                first: 0,
+                last: 0.99,
+                frames: 24,
+                ended: true,
+              },
+            ],
+          },
     probe: {
-      ended: true,
+      ended: args[6] === 'full',
       frames: 24,
       maximumTime: 0.99,
       elapsedMs: 1000,
       properties: [],
     },
-  });
+  }));
   const sourcePath = path.join(mocks.root, 'source.mp4');
   await fs.writeFile(sourcePath, inputBytes);
   const storage = await openPlaybackCacheStorage(mocks.root, {

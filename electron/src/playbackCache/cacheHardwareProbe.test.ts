@@ -1,12 +1,11 @@
+import { runInNewContext } from 'node:vm';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import {
-  CacheHardwareEvidence,
-  probeCacheHardware,
-} from './cacheHardwareProbe';
+import { probeCacheHardware } from './cacheHardwareProbe';
+import { CacheHardwareEvidence } from './cacheHardwareEvidence';
 const mocks = vi.hoisted(() => ({ create: vi.fn() }));
 vi.mock('electron', () => ({
   BrowserWindow: class {
@@ -42,6 +41,7 @@ class WindowDouble extends EventEmitter {
       webRequest: { onBeforeRequest: vi.fn() },
     },
     executeJavaScript: vi.fn().mockResolvedValue({
+      completed: true,
       ended: true,
       failed: false,
       frames: 60,
@@ -49,7 +49,7 @@ class WindowDouble extends EventEmitter {
     }),
   });
   loadURL = vi.fn().mockResolvedValue(undefined);
-  loadFile = vi.fn(async () => {
+  loadFile = vi.fn(async (_htmlPath: string) => {
     this.debugger.emit(
       'message',
       {},
@@ -183,4 +183,77 @@ it('keeps evidence snapshots isolated and rejects truncated hardware history', (
     proof.observe('Media.playerPropertiesChanged', goodProperties);
   expect(proof.snapshot()).toHaveLength(512);
   expect(() => proof.finish('runtime')).toThrow('CACHE_HARDWARE_UNCONFIRMED');
+});
+
+it('rejects an await completed after the compatibility deadline even when the timer was delayed', async () => {
+  const { window } = await fixture();
+  const root = roots[roots.length - 1];
+  let now = 0;
+  vi.spyOn(performance, 'now').mockImplementation(() => now);
+  window.loadFile.mockImplementation(async () => {
+    now = 30001;
+  });
+  await expect(
+    probeCacheHardware(
+      path.join(root, 'media.mp4'),
+      root,
+      'same-runtime',
+      new AbortController().signal,
+      vi.fn(),
+      (cleanup) => retained.push(cleanup),
+      'compatibility',
+    ),
+  ).rejects.toThrow('CACHE_HARDWARE_TIMEOUT');
+  expect(window.close).toHaveBeenCalledOnce();
+});
+it('rejects another player or any earlier fallback despite subsequent successful HW observations', () => {
+  for (const method of [
+    'second-player',
+    'Media.playerErrorsRaised',
+    'software',
+  ]) {
+    const proof = new CacheHardwareEvidence();
+    proof.observe('Media.playerPropertiesChanged', goodProperties);
+    if (method === 'second-player')
+      proof.observe('Media.playerPropertiesChanged', {
+        ...goodProperties,
+        playerId: 'other',
+      });
+    else if (method === 'software')
+      proof.observe('Media.playerPropertiesChanged', {
+        playerId: 'owned',
+        properties: [
+          { name: 'kVideoDecoderName', value: 'FFmpegVideoDecoder' },
+        ],
+      });
+    else proof.observe(method, {});
+    proof.observe('Media.playerPropertiesChanged', goodProperties);
+    expect(() => proof.finish('runtime')).toThrow('CACHE_HARDWARE_UNCONFIRMED');
+  }
+});
+
+it('executes the actual generated script with operators intact and escaped local media', async () => {
+  const { window, run } = await fixture();
+  const original = window.loadFile.getMockImplementation()!;
+  window.loadFile.mockImplementation(async (htmlPath) => {
+    const html = await fs.readFile(htmlPath, 'utf8');
+    const script = html.match(/<script nonce="[^"]+">([\s\S]*)<\/script>/)?.[1];
+    expect(script).toBeDefined();
+    const page: Record<string, unknown> = {};
+    const video = { src: '', muted: false, playbackRate: 0 };
+    runInNewContext(
+      script!,
+      { window: page, document: { querySelector: () => video } },
+      { timeout: 1000 },
+    );
+    expect(video.src).toMatch(/^file:/);
+    expect(page.__cacheProbe).toMatchObject({
+      completed: false,
+      failed: false,
+    });
+    await original(htmlPath);
+  });
+  await expect(run()).resolves.toMatchObject({
+    coverage: { mode: 'full', ended: true },
+  });
 });

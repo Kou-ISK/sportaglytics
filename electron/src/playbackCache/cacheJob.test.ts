@@ -37,6 +37,7 @@ const proof = (): CacheValidation => ({
   recipe: expected.recipe,
   timing: structuredClone(expected.timing),
   hardware: {
+    coverage: { mode: 'full', ended: true },
     runtime: expected.runtime,
     platformDecoder: true,
     softwareFallback: false,
@@ -77,12 +78,40 @@ const fixture = () => {
   return { ports, notify, job: new PlaybackCacheJob(ports, notify) };
 };
 
+const reuseProof = (): CacheValidation => {
+  const result = proof();
+  result.hardware.coverage = {
+    mode: 'compatibility',
+    duration: 1,
+    presentationEnd:
+      expected.timing.endNumerator / expected.timing.endDenominator,
+    segments: [
+      {
+        start: 0,
+        end: 1,
+        firstClock: 0,
+        lastClock: 0.99,
+        first: 0,
+        last: 0.99,
+        frames: 24,
+        ended: true,
+      },
+    ],
+  };
+  return result;
+};
+
 it('revalidates an existing candidate without conversion/publication and keeps adoption explicit', async () => {
   const notify = vi.fn();
   const reuse = vi.fn(async () => 'existing-id');
   const discard = vi.fn(async () => undefined);
   const job = new PlaybackCacheJob(
-    { maximumOutputBytes: 5000, validate: async () => proof(), reuse, discard },
+    {
+      maximumOutputBytes: 5000,
+      validate: async () => reuseProof(),
+      reuse,
+      discard,
+    },
     notify,
   );
   await job.start(expected, 2000);
@@ -106,7 +135,7 @@ it('keeps final reuse verification cancellable and owns delayed work through clo
   const job = new PlaybackCacheJob(
     {
       maximumOutputBytes: 5000,
-      validate: async () => proof(),
+      validate: async () => reuseProof(),
       reuse: async () => {
         entered.resolve();
         return final.promise;
@@ -389,4 +418,27 @@ it('passes the actual write budget to the runner and refuses an oversized result
   );
   expect(ports.publish).not.toHaveBeenCalled();
   expect(job.status.error).toBe('capacity');
+});
+
+it('does not allow sampled compatibility evidence to publish a newly generated artifact', async () => {
+  const { job, ports } = fixture();
+  ports.validate.mockResolvedValue(reuseProof());
+  await job.start(expected, 2000);
+  expect(job.status).toMatchObject({ phase: 'failed', error: 'validation' });
+  expect(ports.publish).not.toHaveBeenCalled();
+});
+it('requires explicitly complete compatibility coverage for reuse, not stale full-mode evidence', async () => {
+  const reuse = vi.fn(async () => 'id');
+  const job = new PlaybackCacheJob(
+    {
+      maximumOutputBytes: 5000,
+      validate: async () => proof(),
+      reuse,
+      discard: async () => undefined,
+    },
+    vi.fn(),
+  );
+  await job.start(expected, 2000);
+  expect(job.status).toMatchObject({ phase: 'failed', error: 'validation' });
+  expect(reuse).not.toHaveBeenCalled();
 });

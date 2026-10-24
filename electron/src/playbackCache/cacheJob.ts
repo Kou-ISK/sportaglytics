@@ -139,7 +139,13 @@ export class PlaybackCacheJob {
       this.update({ phase: 'validating', progress: null });
       const validation = await this.ports.validate(controller.signal);
       controller.signal.throwIfAborted();
-      if (!isCacheValidationMatching(expected, validation)) {
+      if (
+        !isCacheValidationMatching(
+          expected,
+          validation,
+          'reuse' in this.ports ? 'compatibility' : 'full',
+        )
+      ) {
         error = 'validation';
         throw new Error('CACHE_VALIDATION');
       }

@@ -44,6 +44,7 @@ const proof = (): CacheValidation => ({
   recipe: expectation.recipe,
   timing: expectation.timing,
   hardware: {
+    coverage: { mode: 'full', ended: true },
     runtime: expectation.runtime,
     platformDecoder: true,
     softwareFallback: false,

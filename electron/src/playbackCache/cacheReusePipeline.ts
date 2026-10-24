@@ -73,6 +73,7 @@ export const reusePlaybackCache = async (
         maximumOutputBytes: CACHE_LIMITS.maximumOutputBytes,
         validate: async (workerSignal) => {
           validated = await validateCacheMedia({
+            hardwareMode: 'compatibility',
             source,
             metadata,
             expectation,

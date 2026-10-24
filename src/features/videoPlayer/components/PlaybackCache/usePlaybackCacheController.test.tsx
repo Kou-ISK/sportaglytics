@@ -104,9 +104,9 @@ const fixture = async () => {
     },
   };
   const hook = renderHook(
-    ({ timeline }) =>
-      usePlaybackCacheController(true, false, timeline, vi.fn()),
-    { initialProps: { timeline: 17 } },
+    ({ timeline, playing }) =>
+      usePlaybackCacheController(true, playing, timeline, vi.fn()),
+    { initialProps: { timeline: 17, playing: false } },
   );
   await waitFor(() =>
     expect(hook.result.current.snapshot?.source).not.toBeNull(),
@@ -134,6 +134,9 @@ const fixture = async () => {
     },
     loseOriginalAudio: () => {
       originalAudioAvailable = false;
+    },
+    restoreOriginalAudio: () => {
+      originalAudioAvailable = true;
     },
   };
 };
@@ -181,6 +184,9 @@ it('reports a rollback audio failure instead of treating missing native tracks a
   expect(port.restore).toHaveBeenLastCalledWith(expect.anything(), 3);
   expect(result.current.error).not.toBeNull();
   expect(suppressMetadata).not.toHaveBeenCalledWith(false);
+  expect(api.selected).not.toHaveBeenCalledWith(
+    expect.objectContaining({ ticket: null }),
+  );
 });
 it('uses the latest paused position after candidate hash I/O and keeps adoption manual', async () => {
   const { result, api, ack, port, move } = await fixture();
@@ -226,4 +232,266 @@ it('ignores a late candidate when the mounted player is replaced', async () => {
   });
   await waitFor(() => expect(result.current.switching).toBe(false));
   expect(port.setSource).not.toHaveBeenCalled();
+});
+
+it('pauses and reports a successful automatic original recovery exactly once', async () => {
+  const { result, ack, emit, port, api } = await fixture();
+  ack.resolve();
+  act(() => result.current.onUseCache());
+  await waitFor(() =>
+    expect(result.current.snapshot?.status.selected).toBe('cache'),
+  );
+  act(() => emit('error'));
+  await waitFor(() => expect(result.current.switching).toBe(false));
+  expect(port.setSource).toHaveBeenCalledTimes(2);
+  expect(port.source()).toBe('file:///original.mp4');
+  expect(port.time()).toBe(17);
+  expect(result.current.error).toContain('原本へ戻して停止');
+  expect(api.selected).toHaveBeenLastCalledWith(
+    expect.objectContaining({ ticket: null }),
+  );
+  act(() => {
+    emit('error');
+    emit('error');
+  });
+  expect(port.setSource).toHaveBeenCalledTimes(2);
+});
+it('does not ACK or retry a failed automatic audio restoration; manual retry remains possible', async () => {
+  const { result, ack, emit, port, api, loseOriginalAudio } = await fixture();
+  ack.resolve();
+  act(() => result.current.onUseCache());
+  await waitFor(() =>
+    expect(result.current.snapshot?.status.selected).toBe('cache'),
+  );
+  loseOriginalAudio();
+  act(() => emit('error'));
+  await waitFor(() => expect(result.current.error).toContain('復旧は未確認'));
+  expect(port.setSource).toHaveBeenCalledTimes(2);
+  expect(api.selected).toHaveBeenCalledTimes(1);
+  act(() => {
+    emit('error');
+    emit('error');
+  });
+  expect(port.setSource).toHaveBeenCalledTimes(2);
+  expect(port.pause).toHaveBeenCalled();
+  act(() => result.current.onUseOriginal());
+  await waitFor(() => expect(port.setSource).toHaveBeenCalledTimes(3));
+  await waitFor(() => expect(result.current.switching).toBe(false));
+  expect(api.selected).toHaveBeenCalledTimes(1);
+});
+it('keeps monitoring media errors while original ACK is pending without a second restoration', async () => {
+  const { result, ack, emit, port, api, snapshot } = await fixture();
+  ack.resolve();
+  act(() => result.current.onUseCache());
+  await waitFor(() =>
+    expect(result.current.snapshot?.status.selected).toBe('cache'),
+  );
+  const originalAck = Promise.withResolvers<void>();
+  api.selected.mockImplementationOnce(async () => {
+    snapshot.status.selected = 'original';
+    return originalAck.promise;
+  });
+  act(() => emit('error'));
+  await waitFor(() => expect(api.selected).toHaveBeenCalledTimes(2));
+  act(() => {
+    emit('error');
+    emit('error');
+  });
+  await act(async () => originalAck.resolve());
+  await waitFor(() => expect(result.current.error).toContain('復旧は未確認'));
+  expect(port.setSource).toHaveBeenCalledTimes(2);
+  act(() => emit('error'));
+  expect(port.setSource).toHaveBeenCalledTimes(2);
+  await waitFor(
+    () => expect(result.current.snapshot?.status.selected).toBe('original'),
+    { timeout: 2000 },
+  );
+  expect(result.current.onRetryOriginal).not.toBeNull();
+  act(() => result.current.onRetryOriginal?.());
+  await waitFor(() => expect(result.current.switching).toBe(false));
+  expect(port.time()).toBe(17);
+  expect(result.current.onRetryOriginal).toBeNull();
+});
+
+it('retains the pre-failure position and audio selection when retrying after a partial reload reset', async () => {
+  const {
+    result,
+    ack,
+    emit,
+    port,
+    loseOriginalAudio,
+    restoreOriginalAudio,
+    rerender,
+  } = await fixture();
+  ack.resolve();
+  act(() => result.current.onUseCache());
+  await waitFor(() =>
+    expect(result.current.snapshot?.status.selected).toBe('cache'),
+  );
+  loseOriginalAudio();
+  act(() => emit('error'));
+  await waitFor(() => expect(result.current.onRetryOriginal).not.toBeNull());
+  expect(port.time()).toBe(0);
+  const stale = result.current.onRetryOriginal;
+  rerender({ timeline: 20, playing: true });
+  expect(result.current.onRetryOriginal).toBeNull();
+  act(() => stale?.());
+  expect(port.setSource).toHaveBeenCalledTimes(2);
+  rerender({ timeline: 20, playing: false });
+  restoreOriginalAudio();
+  act(() => result.current.onRetryOriginal?.());
+  await waitFor(() => expect(result.current.switching).toBe(false));
+  expect(port.time()).toBe(20);
+  expect(port.restore).toHaveBeenLastCalledWith(
+    { volume: 0.4, muted: false, rate: 1, audio: [false, true, false] },
+    3,
+  );
+  expect(result.current.error).toBeNull();
+  expect(result.current.onRetryOriginal).toBeNull();
+});
+
+it.each(['session', 'registration'] as const)(
+  'rejects a stale recovery action after a changed %s',
+  async (change) => {
+    const { result, ack, emit, port, snapshot, unregister, loseOriginalAudio } =
+      await fixture();
+    ack.resolve();
+    act(() => result.current.onUseCache());
+    await waitFor(() =>
+      expect(result.current.snapshot?.status.selected).toBe('cache'),
+    );
+    loseOriginalAudio();
+    act(() => emit('error'));
+    await waitFor(() => expect(result.current.onRetryOriginal).not.toBeNull());
+    const stale = result.current.onRetryOriginal;
+    if (change === 'session') {
+      snapshot.generation = 'new-generation';
+      await waitFor(
+        () =>
+          expect(result.current.snapshot?.generation).toBe('new-generation'),
+        { timeout: 2000 },
+      );
+    } else act(() => unregister());
+    expect(result.current.onRetryOriginal).toBeNull();
+    act(() => stale?.());
+    expect(port.setSource).toHaveBeenCalledTimes(2);
+  },
+);
+
+it('offers recovery after the original ACK but a failed final refresh and keeps the saved target', async () => {
+  const { result, ack, emit, port, api, snapshot, move } = await fixture();
+  ack.resolve();
+  act(() => result.current.onUseCache());
+  await waitFor(() =>
+    expect(result.current.snapshot?.status.selected).toBe('cache'),
+  );
+  const inspection = Promise.withResolvers<PlaybackCacheSnapshot>();
+  api.inspect.mockReturnValue(inspection.promise);
+  act(() => emit('error'));
+  await waitFor(() => expect(api.selected).toHaveBeenCalledTimes(2));
+  act(() => {
+    move(0);
+    emit('error');
+  });
+  await act(async () => inspection.resolve(structuredClone(snapshot)));
+  await waitFor(() => expect(result.current.onRetryOriginal).not.toBeNull());
+  expect(result.current.snapshot?.status.selected).toBe('original');
+  api.inspect.mockImplementation(async () => structuredClone(snapshot));
+  act(() => result.current.onRetryOriginal?.());
+  await waitFor(() => expect(result.current.switching).toBe(false));
+  expect(port.time()).toBe(17);
+  expect(result.current.error).toBeNull();
+});
+
+it('does not claim rollback success when media fails during the final inspect wait', async () => {
+  const { result, api, ack, emit } = await fixture();
+  act(() => result.current.onUseCache());
+  await waitFor(() => expect(api.selected).toHaveBeenCalledTimes(1));
+  const inspection = Promise.withResolvers<PlaybackCacheSnapshot>();
+  api.inspect.mockReturnValue(inspection.promise);
+  act(() => emit('error'));
+  await act(async () => ack.resolve());
+  await waitFor(() => expect(api.selected).toHaveBeenCalledTimes(2));
+  act(() => emit('error'));
+  await act(async () =>
+    inspection.resolve({
+      generation: 'generation',
+      source: null,
+      status: {
+        phase: 'ready',
+        selected: 'original',
+        progress: null,
+        error: null,
+      },
+      available: true,
+      maximumCacheBytes: 10000,
+      reserveBytes: 1000,
+    }),
+  );
+  await waitFor(() => expect(result.current.switching).toBe(false));
+  expect(result.current.error).toContain('復旧は未確認');
+});
+
+it('stops the selected player even when a changed session prevents automatic restoration', async () => {
+  const { result, ack, emit, port, snapshot } = await fixture();
+  ack.resolve();
+  act(() => result.current.onUseCache());
+  await waitFor(() =>
+    expect(result.current.snapshot?.status.selected).toBe('cache'),
+  );
+  snapshot.source = null;
+  await waitFor(() => expect(result.current.snapshot?.source).toBeNull(), {
+    timeout: 2000,
+  });
+  const previous = vi.mocked(port.pause).mock.calls.length;
+  act(() => emit('error'));
+  expect(vi.mocked(port.pause).mock.calls.length).toBeGreaterThan(previous);
+  expect(port.setSource).toHaveBeenCalledTimes(1);
+});
+
+it('does not read a disposed port through a retained recovery callback before React commits cleanup', async () => {
+  const { result, ack, emit, port, unregister, loseOriginalAudio } =
+    await fixture();
+  ack.resolve();
+  act(() => result.current.onUseCache());
+  await waitFor(() =>
+    expect(result.current.snapshot?.status.selected).toBe('cache'),
+  );
+  loseOriginalAudio();
+  act(() => emit('error'));
+  await waitFor(() => expect(result.current.onRetryOriginal).not.toBeNull());
+  const stale = result.current.onRetryOriginal;
+  const paused = vi.fn(() => {
+    throw Error('disposed');
+  });
+  act(() => {
+    unregister();
+    port.paused = paused;
+    stale?.();
+  });
+  expect(paused).not.toHaveBeenCalled();
+  expect(port.setSource).toHaveBeenCalledTimes(2);
+});
+
+it('rechecks Main generation before retrying even if the renderer poll still holds the old Session', async () => {
+  const { result, ack, emit, port, api, snapshot, loseOriginalAudio } =
+    await fixture();
+  ack.resolve();
+  act(() => result.current.onUseCache());
+  await waitFor(() =>
+    expect(result.current.snapshot?.status.selected).toBe('cache'),
+  );
+  loseOriginalAudio();
+  act(() => emit('error'));
+  await waitFor(() => expect(result.current.onRetryOriginal).not.toBeNull());
+  const reads = api.inspect.mock.calls.length;
+  api.inspect.mockResolvedValue({
+    ...structuredClone(snapshot),
+    generation: 'new-session',
+  });
+  act(() => result.current.onRetryOriginal?.());
+  await waitFor(() => expect(result.current.switching).toBe(false));
+  expect(api.inspect.mock.calls.length).toBeGreaterThan(reads);
+  expect(port.setSource).toHaveBeenCalledTimes(2);
+  expect(api.selected).toHaveBeenCalledTimes(1);
 });

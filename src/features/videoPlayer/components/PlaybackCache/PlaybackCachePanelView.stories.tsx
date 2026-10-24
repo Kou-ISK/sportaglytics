@@ -21,3 +21,10 @@ export const Error: Story = {
     error: '切替を完了できませんでした。原本の再生状態を確認してください。',
   },
 };
+export const OriginalRecovery: Story = {
+  args: {
+    open: false,
+    error: '原本への復旧は未確認です。停止状態で再読み込みできます。',
+    onRetryOriginal: () => undefined,
+  },
+};

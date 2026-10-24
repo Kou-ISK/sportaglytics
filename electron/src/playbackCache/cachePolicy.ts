@@ -1,3 +1,8 @@
+import { isCacheHardwareCoverageValid } from './cacheHardwareCoverage';
+import type {
+  CacheHardwareCoverage,
+  CacheHardwareMode,
+} from './cacheHardwareCoverage';
 import type { PlaybackCacheEstimate } from '../../../src/types/playbackCache';
 
 export interface CacheSourceIdentity {
@@ -42,6 +47,7 @@ export interface CacheValidation {
   timing: CacheTimingProof;
   hardware: {
     runtime: string;
+    coverage: CacheHardwareCoverage;
     platformDecoder: boolean;
     softwareFallback: boolean;
   };
@@ -77,7 +83,7 @@ export const isCacheExpectationValid = (expected: CacheExpectation): boolean =>
   expected.runtime.length > 0 &&
   validTiming(expected.timing);
 
-/** Content checks must pass before spending time on the full HW decode. This
+/** Content checks must pass before probing the current HW decoder. This
  * result alone never authorizes publication, reuse or playback selection. */
 export const isCacheContentMatching = (
   expected: CacheExpectation,
@@ -115,8 +121,14 @@ export const isCacheContentMatching = (
 export const isCacheValidationMatching = (
   expected: CacheExpectation,
   actual: CacheValidation,
+  requiredMode: CacheHardwareMode = 'full',
 ): boolean =>
   isCacheContentMatching(expected, actual) &&
+  isCacheHardwareCoverageValid(
+    actual.hardware.coverage,
+    requiredMode,
+    expected.timing.endNumerator / expected.timing.endDenominator,
+  ) &&
   expected.runtime === actual.hardware.runtime &&
   actual.hardware.platformDecoder &&
   !actual.hardware.softwareFallback;

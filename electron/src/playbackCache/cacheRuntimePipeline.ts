@@ -158,6 +158,7 @@ export const preparePlaybackCache = async (
         validate: async (workerSignal) => {
           await check();
           const validation = await validateCacheMedia({
+            hardwareMode: 'full',
             source,
             metadata,
             expectation,

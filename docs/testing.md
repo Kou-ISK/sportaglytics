@@ -330,3 +330,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 `cacheDisplayScan.test.ts`と`cacheProbe.test.ts`はfield_order欠落の仮分類、空/混在/属性欠落/unknown拒否、全尺後半の不一致、prefix取消/診断/不完全JSONとclose前の所有維持を確認します。bounded prefixを全尺proofの代替にせず、実素材のcoded orderや音声聴取の証明とはしません。
 
 `cacheContentProofs.test.ts` は実ファイルhashを使い、同サイズ改変、probe中の交換、取消/遅延完了、再起動/runtime差、返却値の分離と8件LRUを検査する。`cacheReusePipeline.test.ts` はwarm proofでもHW・所有権・最終hashを再検証し、HW中の同内容ファイル交換を拒否する。模擬probeの合格を実変換や長尺の性能改善とは扱わない。
+
+再生用コピーのHW検査は`cacheHardwareCoverage/ProbePage/Probe.test.ts`で区間欠落・seekの飛び・古いcallback・早期ended・複数player/fallback・期限後成功・遅いcloseを拒否する。`cacheJob.test.ts`で生成にcompatibility証拠を使えないこと、reuseにモード不一致の証拠を使えないことを検証する。`usePlaybackCacheController.test.tsx`で復帰音声失敗のACK禁止・重複error・ACK待ちerror・復帰通知を確認する。実機は同一入力/候補と360秒など固定した計測上限を使い、cold/warmの内容proof、各HW区間、hash、背景負荷を記録する。IPC診断は実UI/実音声/物理scrubの合格ではない。

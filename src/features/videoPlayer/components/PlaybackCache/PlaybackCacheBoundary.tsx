@@ -32,6 +32,7 @@ export const PlaybackCacheBoundary = ({
         onOpen={() => setOpen(true)}
         onClose={() => setOpen(false)}
         error={controller.error}
+        onRetryOriginal={controller.onRetryOriginal}
         switching={controller.switching}
         cache={
           value?.source
