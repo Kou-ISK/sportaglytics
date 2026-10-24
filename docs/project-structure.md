@@ -441,3 +441,5 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 `playbackCache/cacheCandidateStorage.ts`はready探索/最終照合、`cacheIdentityFile.ts`は1回のopen/hash/revision/close、`cacheIdentityHandoff.ts`はJobに所有される一度限りの引渡しを担当する。`sourceIdentity.ts`は通常の全hash facade、`cacheFileRevision.ts`は属性比較、`cacheMediaReadAudit.ts`は有界な論理digest読込観測に限定する。生成stagingの公開/容量は`cacheStorage.ts`に残す。
 
 `playbackCache/cacheMp4Boxes.ts`は閉じた入力検査と区間診断で共用するbox先頭の有界読込を担当する。`cacheFragmentLayout.ts`はinit/mediaのbyte範囲だけを構造検査し、時刻・track・HW・admissionを扱わない。現段階でschedulerやRenderer MSEへ接続しない。
+
+`src/features/videoPlayer/shared/playbackRanges`は区間transportのRenderer側責務を持つ。`rangeBufferIndex`は有界coverage計画、`SourceBufferTaskQueue`はnativeイベント所有、`PlaybackRangeBuffer`は読込・容量・要求集約、`rangePlaybackRegistry`はvideo/URL単位の時計接続を担当する。実ファイル・IPC・Main証明はこの層で作らない。通常採用への接続は未完了である。

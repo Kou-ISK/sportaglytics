@@ -111,3 +111,7 @@ streamの`field_order`欠落は、raw値を保持したまま64 packetまでの�
 ## 長尺の区間方式の検討
 
 [ADR 0077](adr/0077-demand-driven-playback-ranges.md)に選択肢、失敗時の所有と復旧、性能判定を記録する。短尺制限の単純解除と全尺変換の必須化は選ばず、複数音声MSE能力→field依存範囲と速度→要求集約/先読みの順に確認する。実装済みのbyte構造基盤は時刻や品質のproofではなく、区間再生はまだ製品で有効になっていない。
+
+### 区間transportの接続基盤（未有効化）
+
+Rendererには、元の時刻での区間要求、直列SourceBuffer操作、依存区間とbytes容量管理、共通時計のreadiness接続を用意する。停止中のシークでも要求を配送するが、採用UIからはまだ生成・登録しない。Mainの検証済みread leaseと既存の停止位置・音声・切替ACK取引への接続後に実機評価する。unitでの取消・最新要求・eviction合格は、native描画・実音声・物理scrubの合格を意味しない。

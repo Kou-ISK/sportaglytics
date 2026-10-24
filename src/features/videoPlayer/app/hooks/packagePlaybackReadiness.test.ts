@@ -138,3 +138,52 @@ it('still holds every peer when a regular file buffers beside MSE', () => {
     ),
   ).toBe(true);
 });
+
+it('range transport uses requested original time even on capture-marked angles and paused seeks', async () => {
+  const { bindRangePlaybackClock } =
+    await import('../../shared/playbackRanges/rangePlaybackRegistry');
+  const { demandPackagePlaybackRanges } =
+    await import('./packagePlaybackReadiness');
+  const root = document.createElement('div'),
+    video = document.createElement('video');
+  root.append(video);
+  video.src = 'blob:ranges';
+  Object.defineProperty(video, 'readyState', { value: 4 });
+  vi.mocked(getVideoJsPlayer).mockReturnValue({ el: () => root });
+  const ranges = {
+    failure: null,
+    demand: vi.fn(),
+    seek: vi.fn(),
+    isReady: vi.fn(() => false),
+  };
+  const unbind = bindRangePlaybackClock(video, 'blob:ranges', ranges);
+  const capture = { ...angles[0], playbackFormat: 'fragmented-mp4' as const };
+  expect(isPackageMediaBuffering([capture], undefined, 15)).toBe(true);
+  expect(ranges.demand).toHaveBeenLastCalledWith(5);
+  demandPackagePlaybackRanges([capture], undefined, 17, true);
+  expect(ranges.seek).toHaveBeenLastCalledWith(7);
+  ranges.isReady.mockReturnValue(true);
+  expect(isPackageMediaBuffering([capture], undefined, 17)).toBe(false);
+  unbind();
+});
+
+it('holds a failed range transport until original-return changes the actual binding', async () => {
+  const { bindRangePlaybackClock } =
+    await import('../../shared/playbackRanges/rangePlaybackRegistry');
+  const root = document.createElement('div'),
+    video = document.createElement('video');
+  root.append(video);
+  video.src = 'blob:failed';
+  Object.defineProperty(video, 'readyState', { value: 4 });
+  vi.mocked(getVideoJsPlayer).mockReturnValue({ el: () => root });
+  const unbind = bindRangePlaybackClock(video, 'blob:failed', {
+    failure: Error('failed'),
+    demand: vi.fn(),
+    seek: vi.fn(),
+    isReady: () => true,
+  });
+  expect(isPackageMediaBuffering(angles, undefined, 15)).toBe(true);
+  video.src = 'file:///original.mp4';
+  expect(isPackageMediaBuffering(angles, undefined, 15)).toBe(false);
+  unbind();
+});

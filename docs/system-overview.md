@@ -451,3 +451,5 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 再生用コピーの候補digestは同じMain Job内の隣接検査だけで共有し、消費時のhandle/path照合とclose完了を必須とする。毎回の全hash、HW後と最終採用境界の確認、全内容proofのビルド/環境無効化は維持する。詳細は[候補digest引渡し](playback-cache.md#同じ要求内の候補digest引渡し)。
 
 長尺の初回待ちを減らす区間方式は[ADR 0077](adr/0077-demand-driven-playback-ranges.md)で検討中。現段階は有界MP4構造検査だけで、区間生成・MSE・先読みは製品へ接続していない。全尺proofとbyte範囲を混同せず、既存の保存・原本時計・exportは維持する。
+
+区間再生のRenderer側基盤は、source/Session寿命とseek要求寿命を分離し、video/URLごとのregistryから共通時計へreadinessを返す。停止中も必要区間を要求する。通常の再生用コピー採用は従来経路のままで、Mainの検証済み読込leaseとMSE切替への接続は未完了である。

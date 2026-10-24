@@ -6,7 +6,10 @@ import {
   getAngleOffset,
   getMediaTimelineEnd,
 } from '../../../../shared/media/mediaTimeline';
-import { isPackageMediaBuffering } from './packagePlaybackReadiness';
+import {
+  isPackageMediaBuffering,
+  demandPackagePlaybackRanges,
+} from './packagePlaybackReadiness';
 
 interface PackagePlaybackClockParams {
   mediaAngles: PackageMediaAngle[];
@@ -67,6 +70,17 @@ export const usePackagePlaybackClock = ({
   const media = useRef({ mediaAngles, syncData });
   media.current = { mediaAngles, syncData };
   const clock = useRef(currentTime);
+  useLayoutEffect(() => {
+    // Playing timeline demands come from the authoritative rAF/seek clock.
+    // A delayed React commit must not bring range eviction/read back in time.
+    if (isVideoPlaying && useTimelineClock) return;
+    demandPackagePlaybackRanges(
+      mediaAngles,
+      syncData,
+      currentTime,
+      !isVideoPlaying,
+    );
+  }, [mediaAngles, syncData, currentTime, isVideoPlaying, useTimelineClock]);
   // A delayed React commit may still contain an older tick. Never feed it back
   // into the running clock: that slows playback and forces repeated video seeks.
   useLayoutEffect(() => {
@@ -78,8 +92,15 @@ export const usePackagePlaybackClock = ({
         event instanceof CustomEvent ? event.detail : null;
       if (typeof detail !== 'object' || detail === null || !('time' in detail))
         return;
-      if (typeof detail.time === 'number' && Number.isFinite(detail.time))
+      if (typeof detail.time === 'number' && Number.isFinite(detail.time)) {
         clock.current = Math.max(-86400, Math.min(86400, detail.time));
+        demandPackagePlaybackRanges(
+          media.current.mediaAngles,
+          media.current.syncData,
+          clock.current,
+          true,
+        );
+      }
     };
     window.addEventListener('video-seek-start', seek);
     return () => window.removeEventListener('video-seek-start', seek);

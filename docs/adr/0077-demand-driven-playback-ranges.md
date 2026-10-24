@@ -54,3 +54,11 @@ Proposed
 
 - [ISO BMFF byte stream format](https://www.w3.org/TR/mse-byte-stream-format-isobmff/): init/media segmentとedit listの要件。bundled runtimeの能力保証ではない。
 - [Media Source Extensions](https://www.w3.org/TR/media-source-2/): track/時刻/SourceBufferの仕様。実装対応は別に検証する。
+
+## Controller foundation
+
+区間transportの寿命とseek要求の寿命を分ける。`SourceBufferTaskQueue`はappend/removeの端末イベントを所有し、error・abort・期限だけで次の操作へ所有を渡さない。期限後も`updateend`または実`sourceclose`までdrainを待つ。`PlaybackRangeBuffer`は検証済みindexとID指定readerを受け、最新要求へ集約する。読込中とnative処理中のbytesを容量に含め、現在映像と必要依存区間をevictionから保護する。容量不足・native coverage喪失は有限の失敗とし、同じ処理の無制限再試行をしない。
+
+共通時計との境界はvideo要素と正確なblob URLに束縛したregistryである。停止中も要求を配送し、再生中は元のsource時刻に対応するcoverageとnative decode状態を確認する。captureの既存blob例外を再利用しない。registryのcleanupは後継登録を解除できず、原本URLや他アングルには適用しない。
+
+これはRenderer側の基盤であり、通常の採用操作からの有効化はまだ行わない。Mainの検証済みartifact/read lease、IPCのSession束縛、MSEの作成・切替ACK・原本復帰と結び付くまでは製品統合の完了ではない。source generationはindexと同じ寿命を持ち、採用ticketを読込leaseの代わりに使わない。既存の原本・タグ・保存・書き出しは引き続き変更しない。
