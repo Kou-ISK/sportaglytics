@@ -1,5 +1,4 @@
-import { awaitPackageHistoryRead } from './packageHistoryRead';
-import fs from 'node:fs/promises';
+import { readPackageHistoryDirectory } from './packageHistoryDirectory';
 import path from 'node:path';
 import { packageCopyDigest } from './packageCopyDigest';
 import {
@@ -27,10 +26,7 @@ export const isPackageRestoredFromBackup = async (
   let entries: string[];
   try {
     // Names only: do not request metadata for unrelated siblings.
-    entries = await awaitPackageHistoryRead(
-      () => fs.readdir(parent),
-      options.signal,
-    );
+    entries = await readPackageHistoryDirectory(parent, options.signal);
   } finally {
     options.directoryWaiting?.(false);
   }

@@ -121,18 +121,16 @@ beforeEach(async () => {
   mocks.spawn.mockReset().mockImplementation(() => {
     throw Error('Conversion must not start');
   });
-  mocks.hardware
-    .mockReset()
-    .mockResolvedValue({
-      ...validation.hardware,
-      probe: {
-        ended: true,
-        frames: 24,
-        maximumTime: 0.99,
-        elapsedMs: 1000,
-        properties: [],
-      },
-    });
+  mocks.hardware.mockReset().mockResolvedValue({
+    ...validation.hardware,
+    probe: {
+      ended: true,
+      frames: 24,
+      maximumTime: 0.99,
+      elapsedMs: 1000,
+      properties: [],
+    },
+  });
   const sourcePath = path.join(mocks.root, 'source.mp4');
   await fs.writeFile(sourcePath, inputBytes);
   const storage = await openPlaybackCacheStorage(mocks.root, {
@@ -273,3 +271,36 @@ it('retains failed probe cleanup for retry without deleting the ready candidate'
   expect(retainedJob?.status.phase).toBe('original');
   expect(await fs.readFile(savedPath, 'utf8')).toBe(outputBytes);
 });
+
+it.each(['field', 'frame-count', 'audio-time', 'audio-payload', 'source'])(
+  'rejects mismatched %s before starting the full hardware probe',
+  async (change) => {
+    const altered = structuredClone(expected.timing);
+    if (change === 'field') altered.displayIntervalsSha256 = digest('shifted');
+    if (change === 'frame-count') altered.displayFrames--;
+    if (change === 'audio-time')
+      altered.audio = altered.audio.map((track) => ({
+        ...track,
+        timesSha256: digest('shifted'),
+      }));
+    if (change === 'audio-payload')
+      altered.audio = altered.audio.map((track) => ({
+        ...track,
+        payloadSha256: digest('altered'),
+      }));
+    mocks.timing
+      .mockResolvedValueOnce(expected.timing)
+      .mockImplementationOnce(async () => {
+        if (change === 'source')
+          await fs.writeFile(options.source.path, 'changed input');
+        return altered;
+      });
+    await expect(reusePlaybackCache(options)).rejects.toThrow(
+      'CACHE_REUSE_FAILED',
+    );
+    expect(mocks.hardware).not.toHaveBeenCalled();
+    expect(mocks.spawn).not.toHaveBeenCalled();
+    expect(retainedJob?.selectCache(true)).toBeNull();
+    expect(await fs.readFile(savedPath, 'utf8')).toBe(outputBytes);
+  },
+);

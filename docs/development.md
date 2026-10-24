@@ -497,6 +497,8 @@ BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-doc
 
 再生用コピーの短尺接続の範囲と[通常リリース条件](playback-cache.md)を区別してください。120秒以内の全fileで実機qualificationを行い、全長変換は別途実行範囲を確認します。`electron/src/playbackCache`の検証用portsは実FFmpeg/HW効果の代替ではありません。パッケージopenの取消は専用IPCを使い、読み取り待ちの中止と更新commitの完了を区別してください。
 
+`packageHistoryDirectory.test.ts`は同一親pathの反復取消でOS列挙が増えないこと、旧I/O完了後の新しい列挙、別親pathの独立性を検証します。`cacheReusePipeline.test.ts`は不一致の全時刻/音声proofと原本変更をHW起動前に拒否し、正常候補には引き続きHW検査を要求します。いずれも実保存先のI/O速度や実デコーダー性能の合格ではありません。
+
 保存adapterの`openPlaybackCacheStorage`にはMainが所有するアプリdata領域と明示的な総容量/空き容量reserveを渡します。生成中は所有runnerが`checkBudget`を監視し、process終了後のvalidate段階で`seal(validation, signal)`、最後に`publish`を呼びます。hash中の取消を維持するため、sealをpublish内へ移さないでください。private一時ファイルの検査と、実FFmpeg/IPC/再生選択の接続・OS別試験は区別します。
 
 変換runnerは`runCacheConversion`へ保存層の`checkBudget`と明示期限を渡し、停止状態callbackをjobへ接続します。`close`前にconvertをrejectしてstaging削除を始めないでください。単一pollと終了未確認のbusy維持は合成workerで検査し、実process停止・固定recipe・Main終了時の所有は別の接続検証とします。

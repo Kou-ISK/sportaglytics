@@ -49,6 +49,7 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 ## パッケージ互換と保存保護
 
 - `packageBackupRestoration.test.ts`: 索引付き旧コピーと隣接退避文書が残る復元、取消、第二世代復元、明示的な退避文書選択、復元後の保存・再読込、壊れた記録・symlinkの拒否、親フォルダごとの移動を検証する。
+- `packageHistoryDirectory.test.ts`: 反復取消中の同一親pathのOS読込上限、待機中の取消、遅い成功/失敗の消費、再試行時の新しい履歴と別親pathの独立性を検証する。
 - `legacyPackageMigrationService.test.ts`: 同名更新、全内容バックアップ、編集コピー採用・分岐・移動、権限・容量不足、同サイズ破損、同時編集、rollback失敗、PID再利用、journal破損を検証する。`legacyPackageCopyService.test.ts`は0.17.9互換コピーと既知形式変換の回帰を維持する。
 - `useTimelinePersistence.test.tsx` / `timelineValidation.test.ts`: 読込失敗・壊れたJSON・未知versionでwriteを0回に保ち、retry後の復旧、保存失敗時の変更保持と順序を確認する。
 - `atomicTextFile.test.ts`: commit faultのEACCES/ENOSPC/EIO、symlink、read-only destination、同時writeと一時ファイルcleanupを確認する。

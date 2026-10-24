@@ -8,7 +8,10 @@ import type { CacheProbeContext } from './cacheProbe';
 import { identifyCacheSource, readCacheFileIdentity } from './sourceIdentity';
 import { probeCacheHardware } from './cacheHardwareProbe';
 import type { CacheHardwareProbeResult } from './cacheHardwareProbe';
-import { isCacheValidationMatching } from './cachePolicy';
+import {
+  isCacheContentMatching,
+  isCacheValidationMatching,
+} from './cachePolicy';
 import type { CacheExpectation, CacheValidation } from './cachePolicy';
 
 export type CacheRuntimeValidation = CacheValidation & {
@@ -51,6 +54,15 @@ export const validateCacheMedia = async (options: {
     signal: context.signal,
   });
   await check();
+  const content = {
+    outputBytes: output.identity.bytes,
+    outputSha256: output.identity.sha256,
+    sourceAfter,
+    recipe: expectation.recipe,
+    timing,
+  };
+  if (!isCacheContentMatching(expectation, content))
+    throw Error('CACHE_VALIDATION');
   const hardware = await probeCacheHardware(
     candidatePath,
     options.privateDirectory,
@@ -61,11 +73,7 @@ export const validateCacheMedia = async (options: {
   );
   await check();
   const validation = {
-    outputBytes: output.identity.bytes,
-    outputSha256: output.identity.sha256,
-    sourceAfter,
-    recipe: expectation.recipe,
-    timing,
+    ...content,
     hardware,
   };
   if (!isCacheValidationMatching(expectation, validation))

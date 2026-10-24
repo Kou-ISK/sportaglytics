@@ -77,9 +77,11 @@ export const isCacheExpectationValid = (expected: CacheExpectation): boolean =>
   expected.runtime.length > 0 &&
   validTiming(expected.timing);
 
-export const isCacheValidationMatching = (
+/** Content checks must pass before spending time on the full HW decode. This
+ * result alone never authorizes publication, reuse or playback selection. */
+export const isCacheContentMatching = (
   expected: CacheExpectation,
-  actual: CacheValidation,
+  actual: Omit<CacheValidation, 'hardware'>,
 ): boolean =>
   positive(actual.outputBytes) &&
   digest(actual.outputSha256) &&
@@ -87,9 +89,6 @@ export const isCacheValidationMatching = (
   expected.source.sha256 === actual.sourceAfter.sha256 &&
   expected.source.bytes === actual.sourceAfter.bytes &&
   expected.recipe === actual.recipe &&
-  expected.runtime === actual.hardware.runtime &&
-  actual.hardware.platformDecoder &&
-  !actual.hardware.softwareFallback &&
   validTiming(expected.timing) &&
   validTiming(actual.timing) &&
   expected.timing.fpsNumerator === actual.timing.fpsNumerator &&
@@ -112,6 +111,15 @@ export const isCacheValidationMatching = (
       track.configurationSha256 === output.configurationSha256
     );
   });
+
+export const isCacheValidationMatching = (
+  expected: CacheExpectation,
+  actual: CacheValidation,
+): boolean =>
+  isCacheContentMatching(expected, actual) &&
+  expected.runtime === actual.hardware.runtime &&
+  actual.hardware.platformDecoder &&
+  !actual.hardware.softwareFallback;
 
 /** Linear estimate from a measured sample, not an ETA or a guaranteed file size. */
 export const estimatePlaybackCache = (
