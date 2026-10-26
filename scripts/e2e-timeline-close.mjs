@@ -200,7 +200,9 @@ const installFaultBoundary = async (fixtures) => {
       const show = dialog.showMessageBox.bind(dialog);
       dialog.showMessageBox = async (...args) => {
         const options = args.at(-1);
-        if (options.title === '保存を確認できないため終了を中止しました') {
+        if (
+          options.title === '処理の完了を確認できないため終了を中止しました'
+        ) {
           globalThis.closeTestDialogs++;
           return { response: 0, checkboxChecked: false };
         }
