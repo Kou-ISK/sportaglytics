@@ -548,3 +548,7 @@ Native末尾復帰の変更時は、量子化差の有界処理と実SyncedVideo
 限定local trialの有音資格と開始不可理由は[native再生](native-playback.md#限定ローカル試用の扱い)を参照してください。`nativeSourceProfile.test.ts`と`useNativePlaybackPanel.test.tsx`で既定の消音制約、他の操作資格の維持、設定変更時の再probe抑制、クリック直前の条件変化を検査します。私有runtimeの初期化失敗・partial surface回収は、helper起動前/後とcleanup不明を分離した負例が必要です。
 
 The limited native trial reports Renderer failure through a dedicated typed IPC to its existing document owner. It requires no new permissions, persistent settings or generic event API. The optional sink must not affect drain or recovery when absent or failing; the normal source provider stays disabled.
+
+### Native preview helperのローカル構築
+
+macOS arm64では`pnpm run native:build`で固定sourceからhelperとN-API receiverを生成します。最大4 compile job、出力は`.cache/native-playback/darwin-arm64`です。入力hashやtoolchainが変われば再構築し、再利用時は厳密なfile集合とhashを確認します。`pnpm run test:native-build`は欠落・改変・余分なfile・symlink拒否を確認します。`pnpm run native:sources`で[対応ソース](third-party-distribution.md#native-playback-previewの対応ソース)を準備します。helper単体の生成では通常playerやpackaged providerは有効になりません。

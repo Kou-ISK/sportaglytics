@@ -458,3 +458,5 @@ Native再生の限定IPCは`src/renderer.d.ts`を正本とし、payload parser�
 - `shared/clipExport/clipExportAudio.ts`: source単位の一時音声選択契約と、最終書き出しsourceへの適用。native/Video.jsへの依存を持たない。
 
 Native再生のsource/profile/preview構成は`electron/src/nativePlayback`、sandbox canvasと画像所有は`electron/src/preload/nativeSurface*`へ置きます。原本field/sampleの整数演算は`native/macos/playback/SourceTimeline.hpp`で分離します。私有の実媒体・測定結果・未配布helper binaryは公開ソースへ含めません。
+
+Native再生helperの必要sourceは`native/macos/playback/{host-embedded,direct-frame-handoff,surface-transport,recurrence}`へ配置し、共有原本時計headerを同じplayback配下で再利用します。専用recipeは`scripts/native-playback/`、entryは`scripts/build-native-playback.mjs`と`scripts/package-native-playback-sources.mjs`です。生成library/binary/対応source archiveは`.cache`/`dist`へ分離し、repositoryへ追加しません。

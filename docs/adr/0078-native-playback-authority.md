@@ -32,6 +32,8 @@ Rendererの周期pollはnative表示の背後でtimerが制限されるため、
 
 ## Consequences
 
+配布準備の第1段階では、検証したhelperとreceiverの必要sourceだけを正規の`native/macos/playback`へ移し、固定FFmpeg/Node headersとcompiler/SDKを記録する専用buildを設ける。raw診断ログや媒体、private試用binaryを移さず、全include依存・NOTICE・再link可能な対応source archiveを揃える。build途中の入力変更と不完全なcacheは拒否する。sourceの公開準備と通常providerの有効化は別判断であり、helper生成だけではpackaged guardを解除しない。
+
 原本復帰の完了commitも所有権の一部とする。表示用の最終clipは厳密な末尾で保持し、commitによるsurface破棄で復帰を中断させない。区間計算と書き出しは従来の終端除外を維持する。文書の単一clip終端はMainで検証し、映像field終端とは別に保持する。厳密な文書終端の復帰だけは既存の停止画像確認精度（2ミリ秒）以内でHTML終端へadapterのseek引数を収め、原本時計を保存・通知する。その他の範囲外要求は従来の1マイクロ秒の丸め限界で拒否する。画像readyや終了確認の条件は緩めない。
 
 操作契約の速度上限は既存の6倍速まで維持するが、実backendは確認済みのrate集合だけを受理する。診断backendのrate=1・muted・正確に表現可能な時計という制限を製品仕様に転用しない。未適合の機能を消して有効化せず、[機能inventoryと受入条件](../native-playback.md)を満たすまで通常経路を維持する。

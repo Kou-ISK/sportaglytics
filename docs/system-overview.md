@@ -479,3 +479,5 @@ Native開発previewは通常起動と配布版では無効です。限定macOS b
 After a normal native close, the same document owner may report a Renderer restoration failure to an optional numeric diagnostic sink. Main authenticates document and generation and accepts one report. This is not a playback/save/export state source and cannot release their ownership on diagnostic failure.
 
 Timeline別窓の相対シークは所有元で加算し、通知待ちの表示時計から絶対位置へ変換しません。packageツールバーはclip内のHTML時計ではなく共通時計を基準にします。未確認native要求とtag/save/export用の確認済み時刻は分離します。[操作契約](native-playback.md#操作と所有権)。
+
+Native preview helperの配布準備は通常media-toolsから分離した固定source buildで行います。source/recipe/NOTICEとartifactをmanifestで対応づけ、[対応sourceと未確認範囲](third-party-distribution.md#native-playback-previewの対応ソース)を保持します。helper生成だけでは旧playerの既定経路を変更しません。

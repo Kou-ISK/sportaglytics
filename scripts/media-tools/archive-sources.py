@@ -8,6 +8,9 @@ import tempfile
 
 root = pathlib.Path(sys.argv[1])
 output = pathlib.Path(sys.argv[2])
+archive_root = sys.argv[3] if len(sys.argv) == 4 else "media-tools-sources"
+if archive_root not in ["media-tools-sources", "native-playback-sources"]:
+    raise ValueError("Unknown source archive root")
 temporary = tempfile.NamedTemporaryFile(dir=output.parent, delete=False)
 try:
     with temporary as raw:
@@ -18,7 +21,7 @@ try:
                         raise ValueError("Source bundle accepts regular files/directories only")
                     if path.name == ".DS_Store" or path.name.startswith("._"):
                         raise ValueError("Unexpected filesystem metadata in source staging")
-                    name = "media-tools-sources"
+                    name = archive_root
                     if path != root:
                         name += "/" + path.relative_to(root).as_posix()
                     info = tarfile.TarInfo(name)
