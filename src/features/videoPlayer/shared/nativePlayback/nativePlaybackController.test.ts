@@ -91,6 +91,29 @@ const make = (
     api,
     original,
     failMedia: () => listener?.({ ...snapshot, error: 'media', closing: true }),
+    buffering: (
+      sequence: number,
+      seekId: number,
+      time: number,
+      revision: number,
+    ) => {
+      if (!snapshot.observation) throw Error('ready observation required');
+      snapshot = {
+        ...snapshot,
+        observation: {
+          ...snapshot.observation,
+          sequence,
+          seekId,
+          time,
+          revision,
+          phase: 'buffering',
+          rate: 0,
+          videoReady: false,
+          audioReady: false,
+        },
+      };
+      listener?.(snapshot);
+    },
     reply: (
       sequence: number,
       seekId: number,
@@ -125,6 +148,57 @@ const make = (
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+});
+it('keeps the native owner across a short stopped refill without acknowledging a seek or extrapolating', async () => {
+  vi.useFakeTimers();
+  const { controller, api, reply, buffering } = make();
+  await vi.advanceTimersByTimeAsync(10);
+  reply(1, 1, 3);
+  controller.controls({ playing: true });
+  await vi.advanceTimersByTimeAsync(1);
+  reply(2, 1, 3.2, 2, true);
+  buffering(2, 1, 3.205, 3);
+  expect(controller.snapshot().phase).toBe('active');
+  expect(controller.snapshot().time).toBe(3.2);
+  expect(controller.requestedControls.playing).toBe(true);
+  await vi.advanceTimersByTimeAsync(200);
+  reply(2, 1, 3.21, 4, true);
+  expect(controller.snapshot().time).toBe(3.21);
+  expect(api.open).toHaveBeenCalledTimes(1);
+  expect(api.close).not.toHaveBeenCalled();
+  await controller.returnToOriginal();
+});
+it('does not let buffering heartbeats or volume changes hide a persistent refill timeout', async () => {
+  vi.useFakeTimers();
+  const { controller, reply, buffering } = make();
+  await vi.advanceTimersByTimeAsync(10);
+  reply(1, 1, 3);
+  buffering(1, 1, 3, 2);
+  for (let i = 0; i < 4; i++) {
+    await vi.advanceTimersByTimeAsync(1000);
+    controller.controls({ volume: 0.6 + i * 0.01 });
+    await vi.advanceTimersByTimeAsync(1);
+    buffering(i + 2, 1, 3, i + 3);
+  }
+  await vi.advanceTimersByTimeAsync(1250);
+  expect(controller.snapshot().error).toBe('NATIVE_RESPONSE_TIMEOUT');
+  await controller.returnToOriginal().catch(() => {});
+});
+it('cancels the refill deadline for a new seek but ignores an old buffered observation', async () => {
+  vi.useFakeTimers();
+  const { controller, reply, buffering } = make();
+  await vi.advanceTimersByTimeAsync(10);
+  reply(1, 1, 3);
+  buffering(1, 1, 3, 2);
+  await vi.advanceTimersByTimeAsync(4000);
+  controller.seek(4);
+  await vi.advanceTimersByTimeAsync(1);
+  buffering(1, 1, 3, 3);
+  reply(2, 2, 4, 4);
+  await vi.advanceTimersByTimeAsync(1500);
+  expect(controller.snapshot().phase).toBe('active');
+  expect(controller.snapshot().time).toBe(4);
+  await controller.returnToOriginal();
 });
 it('does not extrapolate time or turn observed playback into seek commands', async () => {
   vi.useFakeTimers();
@@ -492,6 +566,92 @@ const presentation = {
   exactFloatVolume: true,
   audioSwitch: false,
 };
+it.each(['pause', 'seek'] as const)(
+  'preserves the operation which first detects an expired refill: %s',
+  async (operation) => {
+    vi.useFakeTimers();
+    const { controller, api, original, reply, buffering } = make(presentation);
+    await vi.advanceTimersByTimeAsync(1);
+    reply(1, 1, 3);
+    controller.controls({ playing: true });
+    await vi.advanceTimersByTimeAsync(1);
+    reply(2, 1, 3.2, 2, true);
+    buffering(2, 1, 3.205, 3);
+    api.close.mockResolvedValue({
+      ...drained,
+      stopped: { ...owner, sequence: 2, seekId: 1, time: 3.205, rate: 0 },
+    });
+    vi.spyOn(performance, 'now').mockReturnValue(performance.now() + 5001);
+    if (operation === 'pause') controller.controls({ playing: false });
+    else controller.seek(5);
+    await controller.returnToOriginal();
+    expect(original.restored).toHaveBeenCalledWith(
+      operation === 'pause' ? 3.205 : 5,
+      expect.objectContaining({ playing: operation !== 'pause' }),
+    );
+    expect(original.release).toHaveBeenCalledOnce();
+  },
+);
+it.each(['snapshot-first', 'watchdog-first', 'late-ready'] as const)(
+  'converges expired refill through verified original restoration: %s',
+  async (order) => {
+    vi.useFakeTimers();
+    const { controller, api, original, reply, buffering, failMedia } =
+      make(presentation);
+    await vi.advanceTimersByTimeAsync(1);
+    reply(1, 1, 3);
+    controller.controls({ playing: true });
+    await vi.advanceTimersByTimeAsync(1);
+    reply(2, 1, 3.2, 2, true);
+    buffering(2, 1, 3.205, 3);
+    api.close.mockResolvedValue({
+      ...drained,
+      stopped: { ...owner, sequence: 2, seekId: 1, time: 3.205, rate: 0 },
+    });
+    if (order === 'watchdog-first') {
+      await vi.advanceTimersByTimeAsync(5250);
+      failMedia();
+    } else {
+      vi.spyOn(performance, 'now').mockReturnValue(performance.now() + 5001);
+      if (order === 'snapshot-first') failMedia();
+      else reply(2, 1, 4, 4, true); // too late: never accept new ready time
+    }
+    await controller.returnToOriginal();
+    expect(controller.snapshot().phase).toBe('original');
+    expect(api.close).toHaveBeenCalledOnce();
+    expect(original.restored).toHaveBeenCalledWith(
+      3.205,
+      expect.objectContaining({ playing: true }),
+    );
+    expect(original.release).toHaveBeenCalledOnce();
+  },
+);
+it.each(['cleanup', 'stop-clock'] as const)(
+  'retains ownership when expired refill cannot verify %s',
+  async (bad) => {
+    vi.useFakeTimers();
+    const { controller, api, original, reply, buffering } = make(presentation);
+    await vi.advanceTimersByTimeAsync(1);
+    reply(1, 1, 3);
+    buffering(1, 1, 3.205, 2);
+    api.close.mockResolvedValue({
+      ...drained,
+      nativeDrained: bad !== 'cleanup',
+      stopped: {
+        ...owner,
+        sequence: 1,
+        seekId: 1,
+        time: bad === 'stop-clock' ? 3.2 : 3.205,
+        rate: 0,
+      },
+    });
+    await vi.advanceTimersByTimeAsync(5250);
+    await controller.returnToOriginal().catch(() => {});
+    expect(controller.snapshot().phase).toBe('failed');
+    expect(original.restore).not.toHaveBeenCalled();
+    expect(original.release).not.toHaveBeenCalled();
+  },
+);
 it('retains ownership if committing recovered UI synchronously unmounts it', async () => {
   const { controller, original } = make(presentation);
   original.restored.mockImplementation(() => controller.fail('UNMOUNTED'));

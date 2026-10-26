@@ -458,7 +458,7 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 Native再生はMain所有Session・限定IPC、Renderer controller・共通時計に分離します。対応する停止中sourceを自動採用し、非対応操作は内部の互換再生へ渡します。[ADR 0078](adr/0078-native-playback-authority.md)と[適用範囲・受入条件](native-playback.md)を参照してください。
 
-Nativeの時計はMainの専用snapshot通知で更新し、配送中1件と最新保留1件へ制限します。通常利用に周期pollや毎回の全尺検証は追加しません。
+Nativeの時計はMainの専用snapshot通知で更新し、配送中1件と最新保留1件へ制限します。通常利用に周期pollや毎回の全尺検証は追加しません。 短い供給不足は同じsessionの共通時計を実停止して有界に補充し、実停止位置の画像ACKと音声・映像reserveを確認します。反復上限を超える不足は内部の互換再生へ戻します。回復時の待機は品質記録に残します。
 
 原本復帰の末尾では、HTMLの長さの丸め差を最大1マイクロ秒だけadapter内で吸収し、共通時計は保持します。表示用の最終clipは厳密な末尾でもmountを維持し、gapや書き出しの区間解決とは区別します。
 

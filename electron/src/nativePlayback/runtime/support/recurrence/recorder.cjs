@@ -24,6 +24,7 @@ const PHASES = Object.freeze({
   failed: 6,
   closing: 7,
   closed: 8,
+  buffering: 9,
 });
 const KINDS = Object.freeze({
   'surface-demand': 100,

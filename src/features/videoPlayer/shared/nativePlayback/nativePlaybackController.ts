@@ -54,6 +54,8 @@ export class NativePlaybackController {
   private lastRevision = 0;
   private lastResponse = performance.now();
   private readyDeadline: number | null = performance.now() + 5000;
+  private bufferingDeadline: number | null = null;
+  private bufferedStop: { seekId: number; time: number } | null = null;
   private recoveryAbort: AbortController | null = null;
   private restoreAttempt: AbortController | null = null;
   private watchdog: ReturnType<typeof setInterval>;
@@ -88,11 +90,8 @@ export class NativePlaybackController {
     };
     this.original.pause();
     this.watchdog = setInterval(() => {
-      if (
-        performance.now() - this.lastResponse > 5000 ||
-        (this.readyDeadline !== null && performance.now() >= this.readyDeadline)
-      )
-        this.fail('NATIVE_RESPONSE_TIMEOUT');
+      if (this.state.phase === 'active' || this.state.phase === 'opening')
+        this.checkDeadline();
     }, 250);
     this.opened = Promise.resolve()
       .then(() => {
@@ -151,7 +150,10 @@ export class NativePlaybackController {
     };
     if (this.routeToOriginal(next, false)) return;
     this.intent = next;
-    this.readyDeadline = performance.now() + 5000;
+    this.readyDeadline = Math.min(
+      performance.now() + 5000,
+      this.bufferingDeadline ?? Infinity,
+    );
     this.pending = { ...this.intent };
     this.update({ observation: null });
     this.flush();
@@ -180,6 +182,8 @@ export class NativePlaybackController {
     };
     if (this.routeToOriginal(next, true)) return;
     this.intent = next;
+    this.bufferingDeadline = null;
+    this.bufferedStop = null;
     this.readyDeadline = performance.now() + 5000;
     this.pending = { ...this.intent };
     this.update({ observation: null });
@@ -200,10 +204,10 @@ export class NativePlaybackController {
     return this.fallingBack;
   }
   private acceptsOperation(): boolean {
-    return (
-      (this.fallingBack && this.state.phase === 'closing') ||
-      (this.state.phase === 'active' && this.checkDeadline())
-    );
+    if (this.state.phase === 'active' && this.checkDeadline()) return true;
+    // The operation itself can detect the expired refill and initiate fallback.
+    // Re-evaluate ownership so that its pause/seek is not lost at that boundary.
+    return this.fallingBack && this.state.phase === 'closing';
   }
   private routeToOriginal(
     next: NativePlaybackIntent,
@@ -262,10 +266,22 @@ export class NativePlaybackController {
       now - this.lastResponse > 5000 ||
       (this.readyDeadline !== null && now >= this.readyDeadline)
     ) {
-      this.fail('NATIVE_RESPONSE_TIMEOUT');
+      // The bounded host refill and its terminal IPC can race this watchdog.
+      // A measured buffering state may converge through verified drainage;
+      // do not accept a late ready ACK or extend the deadline. Unknown close,
+      // stopped clock or original image still retains the existing lease.
+      if (this.bufferingDeadline !== null && this.presentation)
+        this.beginMediaFallback('NATIVE_RESPONSE_TIMEOUT');
+      else this.fail('NATIVE_RESPONSE_TIMEOUT');
       return false;
     }
     return true;
+  }
+  private beginMediaFallback(reason: string): void {
+    this.fallingBack = true;
+    this.pending = null;
+    this.update({ error: reason });
+    void this.returnToOriginal().catch(() => {});
   }
   private receive(raw: unknown): void {
     try {
@@ -275,10 +291,7 @@ export class NativePlaybackController {
         if (value.error === 'media' && this.presentation) {
           // A measured media failure may recover only after confirmed native
           // drainage and original restoration. Cleanup/protocol faults stay held.
-          this.fallingBack = true;
-          this.pending = null;
-          this.update({ error: 'NATIVE_MEDIA_FALLBACK' });
-          void this.returnToOriginal().catch(() => {});
+          this.beginMediaFallback('NATIVE_MEDIA_FALLBACK');
           return;
         }
         this.fail(value.error ?? 'NATIVE_UNEXPECTED_CLOSE');
@@ -296,14 +309,30 @@ export class NativePlaybackController {
         return;
       this.lastResponse = performance.now();
       this.lastRevision = observation.revision;
+      if (observation.phase === 'buffering') {
+        this.bufferedStop = {
+          seekId: observation.seekId,
+          time: observation.time,
+        };
+        this.bufferingDeadline ??= performance.now() + 5000;
+        this.readyDeadline = Math.min(
+          this.readyDeadline ?? Infinity,
+          this.bufferingDeadline,
+        );
+      }
       const ready =
         observation.videoReady &&
         observation.audioReady &&
         (observation.phase === 'paused' || observation.phase === 'playing');
       if (ready) {
         this.lastReadySeek = observation.seekId;
-        if (observation.phase === (this.intent.playing ? 'playing' : 'paused'))
+        if (
+          observation.phase === (this.intent.playing ? 'playing' : 'paused')
+        ) {
           this.readyDeadline = null;
+          this.bufferingDeadline = null;
+          this.bufferedStop = null;
+        }
       }
       this.update({
         observation,
@@ -402,7 +431,9 @@ export class NativePlaybackController {
           stopped.sequence > this.intent.sequence ||
           stopped.seekId > this.intent.seekId ||
           (stopped.seekId === this.lastReadySeek &&
-            stopped.time < this.state.time)
+            stopped.time < this.state.time) ||
+          (stopped.seekId === this.bufferedStop?.seekId &&
+            stopped.time < this.bufferedStop.time)
         )
           throw Error('NATIVE_STOP_CLOCK_UNCONFIRMED');
         this.stoppedTime = stopped.time;

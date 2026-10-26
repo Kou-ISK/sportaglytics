@@ -41,6 +41,7 @@ export class NativePlaybackSession {
   private issuedIntents = new Map<number, NativePlaybackIntent>();
   private processedSequence = 0;
   private anchoredSeek = 0;
+  private bufferedStop: { seekId: number; time: number } | null = null;
   private error: NativePlaybackObservation['error'] = null;
   private closing = false;
   private closed: NativePlaybackClosed | null = null;
@@ -175,12 +176,26 @@ export class NativePlaybackSession {
     }
     if (value.sequence < intent.sequence || value.seekId < intent.seekId)
       return false;
+    if (value.phase === 'buffering') {
+      if (
+        this.anchoredSeek !== value.seekId ||
+        value.time < this.lastTime ||
+        (this.bufferedStop?.seekId === value.seekId &&
+          value.time !== this.bufferedStop.time)
+      ) {
+        this.fail('protocol');
+        return false;
+      }
+      this.bufferedStop = { seekId: value.seekId, time: value.time };
+    }
     if (
       this.anchoredSeek === value.seekId &&
       value.videoReady &&
       value.audioReady &&
       (value.phase === 'paused' || value.phase === 'playing') &&
-      value.time < this.lastTime
+      (value.time < this.lastTime ||
+        (this.bufferedStop?.seekId === value.seekId &&
+          value.time < this.bufferedStop.time))
     ) {
       this.fail('protocol');
       return false;
@@ -203,8 +218,10 @@ export class NativePlaybackSession {
       (value.phase === 'paused' || value.phase === 'playing') &&
       value.videoReady &&
       value.audioReady
-    )
+    ) {
       this.lastTime = value.time;
+      this.bufferedStop = null;
+    }
     this.changed();
     return true;
   }

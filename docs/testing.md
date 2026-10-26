@@ -363,3 +363,5 @@ Native runtimeのmacOS変更では`pnpm run test:native-runtime`を追加実行�
 ## Native標準再生
 
 自動nativeの負例は表示準備の順序、同一URLの登録置換、失敗後の無限再試行防止、cache切替時のdrainを含めます。配布は署名metadata欠落・wrong team/identifier・改変・symlinkを拒否し、最終実署名artifactで自動open/停止再開/fallback/終了を確認します。既存unsignedの成功は署名済みartifactの代替証拠ではありません。
+
+Native供給回復は`ProductSupplyRecovery.test.cpp`を`test:native-runtime`で実行し、fractional停止時計・映像/音声reserve・旧画像ACK・停止未確認・期限・反復予算・取消を確認します。Main/Renderer回帰ではbuffering契約、再開時の逆行、未完了seek、pause、新seek、heartbeat/音量変更での期限延長拒否を検査します。実helperの停止/補充/再開と実原本の画面確認は別で、unit成功から待機なしとは判定しません。

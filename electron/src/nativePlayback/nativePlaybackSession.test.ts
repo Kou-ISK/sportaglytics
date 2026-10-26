@@ -70,6 +70,160 @@ const make = () => {
 const tick = async () => {
   for (let i = 0; i < 8; i++) await Promise.resolve();
 };
+it('retains source confirmation through buffering and resumes in the same seek', async () => {
+  const { session, backend } = make();
+  session.apply(intent());
+  await tick();
+  expect(session.observe(observation())).toBe(true);
+  session.apply(intent({ sequence: 2, playing: true }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        revision: 2,
+        sequence: 2,
+        phase: 'playing',
+        rate: 1,
+        time: 3.2,
+      }),
+    ),
+  ).toBe(true);
+  expect(
+    session.observe(
+      observation({
+        revision: 3,
+        sequence: 2,
+        phase: 'buffering',
+        time: 3.205,
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(3.2);
+  expect(
+    session.observe(
+      observation({
+        revision: 4,
+        sequence: 2,
+        phase: 'playing',
+        rate: 1,
+        time: 3.21,
+      }),
+    ),
+  ).toBe(true);
+  expect(backend.close).not.toHaveBeenCalled();
+  expect(session.snapshot().lastConfirmedTime).toBe(3.21);
+  await session.close();
+});
+it('rejects a resume before the actual buffered stop even when later than the last playing snapshot', async () => {
+  const { session } = make();
+  session.apply(intent());
+  await tick();
+  session.observe(observation());
+  session.apply(intent({ sequence: 2, playing: true }));
+  await tick();
+  session.observe(
+    observation({
+      revision: 2,
+      sequence: 2,
+      phase: 'playing',
+      rate: 1,
+      time: 3.2,
+    }),
+  );
+  session.observe(
+    observation({
+      revision: 3,
+      sequence: 2,
+      phase: 'buffering',
+      time: 3.205,
+      videoReady: false,
+      audioReady: false,
+    }),
+  );
+  expect(
+    session.observe(
+      observation({
+        revision: 4,
+        sequence: 2,
+        phase: 'playing',
+        rate: 1,
+        time: 3.203,
+      }),
+    ),
+  ).toBe(false);
+  expect(session.snapshot().error).toBe('protocol');
+  await session.close();
+});
+it('never treats buffering as a new seek anchor', async () => {
+  const { session } = make();
+  session.apply(intent());
+  await tick();
+  expect(
+    session.observe(
+      observation({ phase: 'buffering', videoReady: false, audioReady: false }),
+    ),
+  ).toBe(false);
+  expect(session.snapshot().error).toBe('protocol');
+  await session.close();
+});
+it('accepts pause after refill in the same seek without automatically playing again', async () => {
+  const { session } = make();
+  session.apply(intent());
+  await tick();
+  session.observe(observation());
+  session.apply(intent({ sequence: 2, playing: true }));
+  await tick();
+  session.observe(
+    observation({
+      revision: 2,
+      sequence: 2,
+      phase: 'buffering',
+      time: 3.205,
+      videoReady: false,
+      audioReady: false,
+    }),
+  );
+  session.apply(intent({ sequence: 3, playing: false }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        revision: 3,
+        sequence: 2,
+        phase: 'playing',
+        rate: 1,
+        time: 3.21,
+      }),
+    ),
+  ).toBe(false);
+  expect(
+    session.observe(observation({ revision: 4, sequence: 3, time: 3.205 })),
+  ).toBe(true);
+  expect(session.snapshot().intent?.playing).toBe(false);
+  await session.close();
+});
+it.each([{ rate: 1 }, { videoReady: true }, { audioReady: true }])(
+  'rejects a false buffering clock/readiness ACK: %j',
+  async (invalid) => {
+    const { session } = make();
+    session.apply(intent());
+    await tick();
+    expect(
+      session.observe(
+        observation({
+          phase: 'buffering',
+          videoReady: false,
+          audioReady: false,
+          ...invalid,
+        }),
+      ),
+    ).toBe(false);
+    expect(session.snapshot().error).toBe('protocol');
+    await session.close();
+  },
+);
 describe('native playback Main ownership', () => {
   it('coalesces commands and ignores stale seek/clock replies without observing delivery as readiness', async () => {
     const { session, backend } = make();

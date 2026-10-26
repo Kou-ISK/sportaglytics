@@ -34,6 +34,7 @@ export interface NativePlaybackObservation extends NativePlaybackOwner {
     | 'paused'
     | 'playing'
     | 'seeking'
+    | 'buffering'
     | 'starved'
     | 'failed'
     | 'closing'
@@ -178,6 +179,7 @@ export const parseNativePlaybackObservation = (
     'paused',
     'playing',
     'seeking',
+    'buffering',
     'starved',
     'failed',
     'closing',
@@ -188,7 +190,8 @@ export const parseNativePlaybackObservation = (
     audioReady = booleanValue(v.audioReady);
   if (
     (phase === 'playing' && (!videoReady || !audioReady || rate === 0)) ||
-    (phase !== 'playing' && rate !== 0)
+    (phase !== 'playing' && rate !== 0) ||
+    (phase === 'buffering' && (videoReady || audioReady || v.error !== null))
   )
     throw Error('NATIVE_INVALID_CLOCK_STATE');
   return {

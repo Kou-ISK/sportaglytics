@@ -556,3 +556,5 @@ The limited native trial reports Renderer failure through a dedicated typed IPC 
 macOS arm64では`pnpm run native:build`で固定sourceからhelperとN-API receiverを生成します。最大4 compile job、出力は`.cache/native-playback/darwin-arm64`です。入力hashやtoolchainが変われば再構築し、再利用時は厳密なfile集合とhashを確認します。`pnpm run test:native-build`は欠落・改変・余分なfile・symlink拒否を確認します。`pnpm run native:sources`で[対応ソース](third-party-distribution.md#native-playback-previewの対応ソース)を準備します。helper単体の生成は実署名artifactの起動・品質合格の代わりにはなりません。
 
 通常macOS packageは`native:build`と既存media/llama資源を準備して作成します。`scripts/macos/standard-after-pack.mjs`がarm64のnative資源を厳密照合・事前署名し、`native-after-sign.mjs`が外側署名後に再検証します。`nativeSignature`/`nativeResources`負例と`test:native-runtime`を実行し、実packaged起動・fallback・終了を別途確認します。新しいcredential/OS設定は不要な既存署名環境だけを使用し、公証は[Release手順](../.github/RELEASE.md)で確認します。
+
+短いnative供給不足の回復を変更した場合は`pnpm run test:native-runtime`とMain/Rendererのnative Session/Controller回帰を実行します。回復は同一worker・既存queueの範囲で停止時計を維持し、補充回数/累積時間を有限にします。実原本の再測定では不足と回復後の進行、操作応答、終了receiptを別々に記録し、回復した待機を消して品質合格にしません。

@@ -5,6 +5,16 @@ import { run } from './media-tools/process.mjs';
 
 const directory = await mkdtemp(join(tmpdir(), 'native-runtime-test-'));
 try {
+  const recovery = join(directory, 'ProductSupplyRecoveryTest');
+  await run('xcrun', [
+    'clang++',
+    '-std=c++17',
+    '-O2',
+    'native/macos/playback/host-embedded/ProductSupplyRecovery.test.cpp',
+    '-o',
+    recovery,
+  ]);
+  await run(recovery, []);
   const probe = join(directory, 'ControlPipeProbe');
   await run('xcrun', [
     'clang',

@@ -39,6 +39,7 @@
   "host-embedded/ProductClockPolicy.hpp",
   "host-embedded/ProductControls.hpp",
   "host-embedded/ProductPreroll.hpp",
+  "host-embedded/ProductSupplyRecovery.hpp",
   "host-embedded/ProductVideoFeed.hpp",
   "host-embedded/RawSocketOutput.hpp",
   "host-embedded/RendererPreparation.hpp",

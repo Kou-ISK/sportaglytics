@@ -14,6 +14,7 @@
 #include "BufferedSeekFailure.hpp"
 #include "PrerollReserve.hpp"
 #include "ProductPreroll.hpp"
+#include "ProductSupplyRecovery.hpp"
 #include "StartDeadline.hpp"
 #include "ProductClockPolicy.hpp"
 #include "ProductControls.hpp"
@@ -44,6 +45,7 @@ static int finalExit=2;
 -(instancetype)initWithManifest:(NSDictionary*)manifest result:(NSString*)result automatic:(BOOL)automatic;
 @end
 @implementation DisplayDiagnostic {
+ diagnostic::ProductSupplyRecovery supplyRecovery_;BOOL supplyResumePending_;uint64_t recoveryAudioEpoch_,recoveredSupplyCount_;double supplyWaitSeconds_,maximumSupplyWaitSeconds_;
  BOOL bufferedPreparing_;NSUInteger deferredImageCount_;double deferredImageSeconds_;uint64_t maximumQueuedDecodedBytes_;
  nativeplayback::SourcePosition targetPosition_;std::unique_ptr<nativeplayback::AudioTimeline> audioTimeline_;id playbackActivity_;SurfaceSender surfaces_;NSMutableArray*surfaceFrames_;uint64_t sentGeneration_;int64_t sentPTS_;
  uint64_t playInterval_,metricsSequence_;BOOL metricsStartReady_;
@@ -70,7 +72,7 @@ static int finalExit=2;
 -(void)pollSurfaces{try{surfaces_.poll();}catch(const std::exception&e){require(false,[NSString stringWithUTF8String:e.what()]);}}
 -(void)sendSurface{
  if(closing_||bufferedPreparing_||!active_.generation||pending_||flushPending_||!intent_)return;
- if(sentGeneration_==active_.generation&&!surfaces_.demanded())return;
+ if(sentGeneration_==active_.generation&&!surfaces_.demanded()&&!supplyRecovery_.stopped())return;
  CMTime presentationClock=sync_.currentTime;if(!CMTIME_IS_NUMERIC(presentationClock)||presentationClock.timescale<=0)return;
  double now=CMTimeGetSeconds(presentationClock)*120000;
  NSInteger chosen=-1;for(NSUInteger i=0;i<surfaceFrames_.count;i++){
@@ -212,11 +214,17 @@ static int finalExit=2;
   if(intent_){require(seq>[intent_[@"sequence"]doubleValue]&&seek>=[intent_[@"seekId"]doubleValue],@"product command order");if(!changed)require(seconds==[intent_[@"targetTime"]doubleValue],@"target changed without seek");}
   else require(![v[@"playing"]boolValue]&&seek==1,@"initial stopped product intent");
   if(audioChanged&&!changed)require(!baseline_&&[self stoppedAt:target_],@"diagnostic audio selection requires stopped exact target");
+  BOOL explicitPlay=intent_&&![intent_[@"playing"]boolValue]&&[v[@"playing"]boolValue];
   productStop_.cancel();intent_=[v copy];[log_ add:@"product-intent" values:intent_];audio_.volume=[v[@"volume"]floatValue];audio_.muted=[v[@"muted"]boolValue];
   if(!started_){[self begin:@"product-controller-protocol-no-UI-input"];continue;}
   if(!pcm_)continue;
   if(changed||audioChanged){[self issueProductSeek];continue;}
+  // Recovery already stopped the common clock. Pause suppresses auto-resume;
+  // volume/mute/play updates retain the original refill deadline and generation.
+  if(supplyRecovery_.active())continue;
+  if(explicitPlay)supplyRecovery_.resetBudget();
   if(![v[@"playing"]boolValue]){
+   supplyResumePending_=NO;
    [self recordStartSummary:@"cancelled-by-pause"];productStart_.cancel();productStop_.begin([intent_[@"sequence"]unsignedLongLongValue],mono());
    [self setClockRate:0 time:kCMTimeInvalid host:kCMTimeInvalid reason:@"pause"];productPlayPending_=NO;productPlayStarted_=NO;
    [log_ add:@"product-pause-request" values:@{@"sequence":intent_[@"sequence"],@"requestedMonotonic":@(productStop_.requestedAt())}];
@@ -225,6 +233,7 @@ static int finalExit=2;
 }
 -(void)endVideoCoverageEpisode:(NSString*)reason recovered:(BOOL)recovered{
  if(!videoCoverageGapOpen_)return;
+ double waited=mono()-videoGapStart_;supplyWaitSeconds_+=waited;maximumSupplyWaitSeconds_=std::max(maximumSupplyWaitSeconds_,waited);if(recovered)recoveredSupplyCount_++;
  [log_ add:@"video-coverage-episode-ended" values:@{@"clock":timeJSON(sync_.currentTime),@"durationSeconds":@(mono()-videoGapStart_),@"videoEnd":@(videoEnd_),@"recovered":@(recovered),@"reason":reason}];videoCoverageGapOpen_=NO;
 }
 -(nativeplayback::SourcePosition)positionFor:(double)seconds{
@@ -247,6 +256,7 @@ static int finalExit=2;
 }
 -(void)issueProductSeek{
  if(!pcm_||!intent_||closing_)return;
+ supplyRecovery_.cancel();supplyRecovery_.resetBudget();supplyResumePending_=NO;
  CMTime previousClock;auto previousSample=[self productClock:&previousClock];auto requested=[self positionFor:[intent_[@"targetTime"]doubleValue]];
  BOOL prepared=productReady_&&!baseline_&&!productStop_.pending()&&!productStart_.pending()&&!productPlayPending_&&!pending_&&!bufferedPreparing_&&!pendingMetrics_&&!preparation_.pending()&&!audioBarrier_&&!flushPending_&&feed_&&!feed_.ended&&!feed_.cancelled&&!scrubbing_&&[m_[@"deferredImages"]boolValue]&&[m_[@"rollingPCM"]boolValue]&&![intent_[@"playing"]boolValue]&&[intent_[@"audioTrack"]unsignedIntValue]==track_;
  if(previousSample.valid&&diagnostic::repeatsStoppedImage(prepared,frameAck_&&audioAck_&&clockAck_&&policy_.canResume()&&[self stoppedAt:active_.target],active_.target,CMTimeMake(targetPosition_.value,targetPosition_.scale),previousClock,previousSample.rate,CMTimeMake(requested.value,requested.scale),requested.field)){
@@ -277,7 +287,7 @@ static int finalExit=2;
  if(!diagnostic::mayPublishClock(clock,[phase isEqualToString:@"playing"],[intent_[@"playing"]boolValue],[intent_[@"rate"]doubleValue]))return;
  if(productPlayPending_&&clock.rate!=0)return;
  if(productStart_.pending()&&(clock.rate!=0||clock.time<productStart_.anchor()))return;
- BOOL ready=!starved&&productReady_&&!pending_&&!flushPending_&&!audioBarrier_;double rate=clock.rate;
+ BOOL ready=!starved&&![phase isEqualToString:@"buffering"]&&productReady_&&!pending_&&!flushPending_&&!audioBarrier_;double rate=clock.rate;
  if(ready&&([phase isEqualToString:@"paused"]||[phase isEqualToString:@"playing"])){
   require(!hasConfirmedProductTime_||clock.time>=confirmedProductTime_,@"confirmed product clock regressed without seek");
   confirmedProductTime_=clock.time;hasConfirmedProductTime_=YES;
@@ -289,6 +299,48 @@ static int finalExit=2;
 -(void)enqueueProductPacket:(NSData*)d{
  require(d&&d.length<4096&&protocolWrites_<4,@"protocol output bound");protocolWrites_++;
  dispatch_async(protocolQueue_,^{BOOL ok=fwrite(d.bytes,1,d.length,stdout)==d.length&&fputc('\n',stdout)!=EOF&&fflush(stdout)==0;dispatch_async(dispatch_get_main_queue(),^{protocolWrites_--;if(!ok)[self fail:@"product protocol output failed"];});});
+}
+-(void)beginSupplyRecovery:(CMTime)clock{
+ require(!pending_&&!audioBarrier_&&!productStart_.pending(),@"coverage recovery during an unconfirmed operation");
+ if(!supplyRecovery_.begin(active_.generation,[intent_[@"seekId"]unsignedLongLongValue],mono(),clock.value,clock.timescale)){
+  [log_ add:@"supply-recovery-budget-exhausted" values:@{@"automaticRetriesBounded":@YES}];mediaRecoveryPending_=YES;[self fail:@"input coverage exhausted"];return;
+ }
+ recoveryAudioEpoch_=audioEpoch_;productStop_.cancel();productPlayPending_=NO;productPlayStarted_=NO;baseline_=NO;metricsStartReady_=NO;
+ [self setClockRate:0 time:kCMTimeInvalid host:kCMTimeInvalid reason:@"supply-recovery-stop"];
+ recurrence::note(1,52,active_.generation,[intent_[@"seekId"]unsignedLongLongValue],clock.value,clock.timescale);
+}
+-(void)failSupplyDeadline{
+ [log_ add:@"supply-recovery-deadline" values:@{@"awaitingStart":@(supplyResumePending_)}];mediaRecoveryPending_=YES;[self fail:@"input coverage exhausted"];
+}
+-(BOOL)advanceSupplyRecovery{
+ if(!supplyRecovery_.active())return NO;
+ CMTime raw;auto clock=[self productClock:&raw];BOOL hadStop=supplyRecovery_.stopped().has_value();
+ require(recoveryAudioEpoch_==audioEpoch_&&!pending_&&!audioBarrier_,@"supply recovery owner changed");
+ auto status=supplyRecovery_.observe(active_.generation,[intent_[@"seekId"]unsignedLongLongValue],mono(),diagnostic::validProductClock(clock),raw.value,raw.timescale,clock.rate,policy_.timeline());
+ require(status!=diagnostic::SupplyObservation::Invalid,@"invalid supply recovery clock/generation");
+ if(status==diagnostic::SupplyObservation::Expired){[self failSupplyDeadline];return YES;}
+ if(status==diagnostic::SupplyObservation::Stopping)return YES;
+ const auto stopped=*supplyRecovery_.stopped();
+ if(!hadStop){
+  require(!hasConfirmedProductTime_||clock.time>=confirmedProductTime_,@"supply stop clock regressed");confirmedProductTime_=clock.time;hasConfirmedProductTime_=YES;
+  recurrence::note(1,53,active_.generation,[intent_[@"seekId"]unsignedLongLongValue],raw.value,raw.timescale);
+  [log_ add:@"supply-recovery-stopped" values:@{@"clock":timeJSON(raw),@"field":@(stopped.field),@"sameWorker":@YES}];
+ }
+ // Force only the image containing the measured stopped clock. This also
+ // releases obsolete candidates, allowing the unchanged 32-credit producer
+ // to refill; do not wait for reserve before presenting/receiving its ACK.
+ [self sendSurface];
+ if(supplyRecovery_.ready([self verifiedVideoReserve],audioStart_,audioEnd_,audioCoverageValid_&&audio_.hasSufficientMediaDataForReliablePlaybackStart&&policy_.canResume(),surfaces_.drawn(active_.generation,stopped.field))){
+  double began=supplyRecovery_.began();supplyRecovery_.finish(mono());
+  recurrence::note(1,54,active_.generation,[intent_[@"seekId"]unsignedLongLongValue],stopped.value,stopped.scale);
+  [log_ add:@"supply-recovery-ready" values:@{@"clock":timeJSON(raw),@"field":@(stopped.field),@"waitSeconds":@(mono()-began),@"playingIntent":intent_[@"playing"],@"videoEnd":@(videoEnd_),@"audioEnd":@(audioEnd_)}];
+  productPlayPending_=[intent_[@"playing"]boolValue];productPlayPendingAt_=began;
+  supplyResumePending_=productPlayPending_;
+  if(!productPlayPending_){[self endVideoCoverageEpisode:@"same-session-refilled-paused" recovered:YES];[self emitProduct:@"paused"];}
+  return NO;
+ }
+ if(mono()>=nextObservation_){nextObservation_=mono()+.033;[self emitProduct:@"buffering"];}
+ return YES;
 }
 -(void)tick{
  [self pollSurfaces];recurrence::resourceSample();
@@ -303,6 +355,7 @@ static int finalExit=2;
  if(![m_[@"rollingPCM"]boolValue]&&mono()-startWall_>30){[self fail:@"product diagnostic overall deadline"];return;}
  if(!pcm_){if(mono()-startWall_>5)[self fail:@"initial PCM preparation deadline"];return;}
  if(pending_&&[self stoppedAt:target_])[self transition];[self issueIfReady];[self feedQueues];[self sendSurface];
+ if([self advanceSupplyRecovery])return;
  if(productStop_.pending()){
   CMTime raw;auto clock=[self productClock:&raw];auto stop=productStop_.observe([intent_[@"sequence"]unsignedLongLongValue],mono(),clock);
   if(stop==diagnostic::StopObservation::Invalid||stop==diagnostic::StopObservation::Expired||stop==diagnostic::StopObservation::Superseded){[self fail:@"actual product stop clock invalid/stale/deadline"];return;}
@@ -319,6 +372,7 @@ static int finalExit=2;
   else if(mono()-activeRequestWall_>5){[self fail:@"product image/audio target readiness deadline"];return;}
  }
  if(productPlayPending_&&!pendingMetrics_&&productReady_&&[intent_[@"playing"]boolValue]&&!pending_){
+  if(mono()-productPlayPendingAt_>=5&&supplyResumePending_){[self failSupplyDeadline];return;}
   require(mono()-productPlayPendingAt_<5,@"stop-before-resume/preroll deadline");
   CMTime stoppedTime;auto stoppedClock=[self productClock:&stoppedTime];require(diagnostic::validProductClock(stoppedClock),@"invalid clock before resume");
   auto reserve=[self verifiedVideoReserve];
@@ -331,9 +385,11 @@ static int finalExit=2;
  if(productStart_.pending()){
   require(++startTraceCount_<=1100,@"startup trace bound");CMTime raw;auto clock=[self productClock:&raw];[log_ add:@"startup-clock-audit" values:@{@"commandID":@(clockCommandID_),@"sequence":intent_[@"sequence"],@"seekId":intent_[@"seekId"],@"audioEpoch":@(audioEpoch_),@"videoStartTicks":@(target_),@"videoEndTicks":@(videoEnd_),@"audioStartTicks":@(audioStart_),@"audioEndTicks":@(audioEnd_),@"decisionClock":timeJSON(raw),@"decisionRate":@(clock.rate),@"snapshot":nativeClockSnapshot(sync_)}];
   auto start=productStart_.observe(mono(),clock);if(clock.valid&&clock.rate>0){if(clock.time*120000<target_)startupBelowVideo_++;if(clock.time*120000<audioStart_)startupBelowAudio_++;}
+  if(start==diagnostic::StartObservation::Expired&&supplyResumePending_){[self recordStartSummary:@"recovery-expired"];[self failSupplyDeadline];return;}
   if(start==diagnostic::StartObservation::Invalid||start==diagnostic::StartObservation::Expired){[self recordStartSummary:@"invalid-or-expired"];[self fail:@"actual product start clock invalid/deadline"];return;}
   if(start==diagnostic::StartObservation::Started){
    [log_ add:@"product-play-confirmed" values:@{@"sequence":intent_[@"sequence"],@"clock":timeJSON(raw),@"actualRate":@(clock.rate),@"stoppedAnchor":@(productStart_.anchor())}];[self recordStartSummary:@"started"];productStart_.cancel();
+   if(supplyResumePending_){supplyResumePending_=NO;[self endVideoCoverageEpisode:@"same-session-resumed" recovered:YES];}
   }else if(clock.rate>0&&!startupClockRecorded_){
    startupClockRecorded_=YES;[log_ add:@"product-startup-clock-before-anchor" values:@{@"sequence":intent_[@"sequence"],@"clock":timeJSON(raw),@"actualRate":@(clock.rate),@"stoppedAnchor":@(productStart_.anchor()),@"published":@NO}];
   }
@@ -345,8 +401,8 @@ static int finalExit=2;
    recurrence::note(1,50,active_.generation,[intent_[@"seekId"]unsignedLongLongValue],ticks,videoEnd_);recurrence::note(1,51,active_.generation,[intent_[@"seekId"]unsignedLongLongValue],ticks,audioEnd_);
    BOOL observeOnly=[m_[@"observeVideoCoverageGaps"]boolValue]&&ticks<audioEnd_;
    if(!videoCoverageGapOpen_){gaps_++;videoCoverageGapOpen_=YES;videoGapStart_=mono();[log_ add:@"product-input-starvation" values:@{@"clock":timeJSON(time),@"videoEnd":@(videoEnd_),@"audioEnd":@(audioEnd_),@"continuedForObservation":@(observeOnly),@"qualityFailureRecorded":@YES}];}
-   if(!observeOnly){[self setClockRate:0 time:kCMTimeInvalid host:kCMTimeInvalid reason:@"coverage-failure-stop"];mediaRecoveryPending_=YES;[self fail:@"input coverage exhausted"];return;}
-  }else if(rate>0&&ticks<videoEnd_&&ticks<audioEnd_&&videoCoverageGapOpen_){[self endVideoCoverageEpisode:@"coverage-restored" recovered:YES];}
+   if(!observeOnly){[self beginSupplyRecovery:time];return;}
+  }else if(rate>0&&ticks<videoEnd_&&ticks<audioEnd_&&videoCoverageGapOpen_&&!supplyResumePending_){[self endVideoCoverageEpisode:@"coverage-restored" recovered:YES];}
   if(m_[@"handoffTime"]&&rate>0&&sampled.time>=[m_[@"handoffTime"]doubleValue]){
    double limit=[m_[@"handoffTime"]doubleValue];require(std::isfinite(limit)&&limit>target_/120000.0&&limit<[m_[@"videoEnd"]doubleValue]/120000.0,@"invalid bounded handoff");
    [self setClockRate:0 time:kCMTimeInvalid host:kCMTimeInvalid reason:@"bounded-window-handoff"];productPlayPending_=NO;productStart_.cancel();baseline_=NO;[self emitProduct:@"paused"];return;
@@ -364,6 +420,7 @@ static int finalExit=2;
 }
 -(void)endPlaybackActivity{if(playbackActivity_){[NSProcessInfo.processInfo endActivity:playbackActivity_];playbackActivity_=nil;[log_ add:@"playback-activity-end" values:@{}];}}
 -(void)close{
+ supplyRecovery_.cancel();supplyResumePending_=NO;
  [self recordStartSummary:@"closing"];productStart_.cancel();productStop_.cancel();
  if(closing_)return;bufferedPreparing_=NO;[self endVideoCoverageEpisode:@"close" recovered:NO];closing_=YES;stopWall_=mono();cancelPrepare_=true;[pcm_ close];policy_.close();imageAvailability_.cancel();if(feed_)feed_.cancelled=YES;[self setClockRate:0 time:kCMTimeInvalid host:kCMTimeInvalid reason:@"close-stop"];[self endPlaybackActivity];[frames_ removeAllObjects];[surfaceFrames_ removeAllObjects];label_.stringValue=@"診断の所有処理を終了しています";
 }
@@ -381,9 +438,11 @@ static int finalExit=2;
  if(audio_)return;[self persistAndStop];
 }
 -(void)persistAndStop{
- if(finalizing_||finished_)return;[self endPlaybackActivity];finalizing_=YES;finalStage_=1;finalStageWall_=mono();finalization_.begin(finalStageWall_);if(log_.overflowed&&![m_[@"rollingPCM"]boolValue])failure_=failure_?:@"event log overflow";if(gaps_)failure_=failure_?:@"input coverage gaps observed; quality gate failed";
+ if(finalizing_||finished_)return;[self endPlaybackActivity];finalizing_=YES;finalStage_=1;finalStageWall_=mono();finalization_.begin(finalStageWall_);if(log_.overflowed&&![m_[@"rollingPCM"]boolValue])failure_=failure_?:@"event log overflow";
+ // Recovered/cancelled waits remain quality evidence, not a failed drainage.
+ // Real recovery deadlines and invariant failures still set failure_ above.
  NSInteger dropped=0;BOOL metricsAvailable=playInterval_>0;for(uint64_t interval=1;interval<=playInterval_;interval++){NSDictionary*start=nil,*stop=nil;for(NSDictionary*d in metrics_)if([d[@"interval"]unsignedLongLongValue]==interval){if([d[@"label"]isEqualToString:@"product-start"])start=d;if([d[@"label"]isEqualToString:@"product-pause"])stop=d;}if(!start||!stop||start[@"unavailable"]||stop[@"unavailable"]||![start[@"validStoppedIntervalEndpoint"]boolValue]||![stop[@"validStoppedIntervalEndpoint"]boolValue]||![start[@"generation"]isEqual:stop[@"generation"]]||[stop[@"dropped"]integerValue]<[start[@"dropped"]integerValue]){metricsAvailable=NO;break;}dropped+=[stop[@"dropped"]integerValue]-[start[@"dropped"]integerValue];}if(!metricsAvailable)dropped=-1;BOOL quality=metricsAvailable&&dropped==0&&gaps_==0&&!failure_;
- NSDictionary*result=@{@"readinessSnapshotFailed":@(readinessSnapshotFailed_),@"success":@(!failure_),@"stoppedClock":stoppedClock_?:[NSNull null],@"diagnosticReportedNoDrops":@(quality),@"qualityQualified":@NO,@"originalFileDirect":@YES,@"wholeOriginalHashRead":@NO,@"independentFullVideoReferenceCompared":@NO,@"independentPCMReferenceCompared":@NO,@"deferredImageCount":@(deferredImageCount_),@"deferredImageSeconds":@(deferredImageSeconds_),@"maximumQueuedDecodedBytes":@(maximumQueuedDecodedBytes_),@"decodedQueueLimit":@32,@"deferredSurfaceLimit":@4,@"videoEnqueues":@(videoEnqueues_),@"lateVideoEnqueues":@(lateVideoEnqueues_),@"failure":failure_?:[NSNull null],@"displayCadence":cadence_,@"displayCallbackCount":@(cadenceCount_),@"minObservedDisplayPeriod":@(minDisplayPeriod_),@"maxObservedDisplayPeriod":@(maxDisplayPeriod_),@"subset":@"product-command-controlled-bounded-native-playback",@"predecodedWindowOnly":@NO,@"sourceUnchangedByDesign":@YES,@"productQualified":@NO,@"physicalScrubVerified":@NO,@"audibleSyncVerified":@NO,@"nativeUnderflowCountAvailable":@NO,@"observeVideoCoverageGaps":@([m_[@"observeVideoCoverageGaps"]boolValue]),@"inputCoverageGaps":@(gaps_),@"inputCoverageGapScope":([m_[@"deferredImages"]boolValue]?@"decoded-upper-end-only":@"upper-end-only"),@"startupSamplesBelowVideoCoverage":@(startupBelowVideo_),@"startupSamplesBelowAudioCoverage":@(startupBelowAudio_),@"presentationBackend":@"electron-shared-texture",@"hiddenAVVideoRenderer":@NO,@"nativeDroppedDelta":@(dropped),@"metrics":metrics_,@"eventHistoryTruncated":@(log_.overflowed),@"eventCount":@(log_.count),@"events":[log_ snapshot],@"requiresOwnerExitZero":@YES};
+ NSDictionary*result=@{@"readinessSnapshotFailed":@(readinessSnapshotFailed_),@"success":@(!failure_),@"stoppedClock":stoppedClock_?:[NSNull null],@"diagnosticReportedNoDrops":@(quality),@"qualityQualified":@NO,@"originalFileDirect":@YES,@"wholeOriginalHashRead":@NO,@"independentFullVideoReferenceCompared":@NO,@"independentPCMReferenceCompared":@NO,@"deferredImageCount":@(deferredImageCount_),@"deferredImageSeconds":@(deferredImageSeconds_),@"maximumQueuedDecodedBytes":@(maximumQueuedDecodedBytes_),@"decodedQueueLimit":@32,@"deferredSurfaceLimit":@4,@"videoEnqueues":@(videoEnqueues_),@"lateVideoEnqueues":@(lateVideoEnqueues_),@"failure":failure_?:[NSNull null],@"displayCadence":cadence_,@"displayCallbackCount":@(cadenceCount_),@"minObservedDisplayPeriod":@(minDisplayPeriod_),@"maxObservedDisplayPeriod":@(maxDisplayPeriod_),@"subset":@"product-command-controlled-bounded-native-playback",@"predecodedWindowOnly":@NO,@"sourceUnchangedByDesign":@YES,@"productQualified":@NO,@"physicalScrubVerified":@NO,@"audibleSyncVerified":@NO,@"nativeUnderflowCountAvailable":@NO,@"observeVideoCoverageGaps":@([m_[@"observeVideoCoverageGaps"]boolValue]),@"inputCoverageGaps":@(gaps_),@"recoveredSupplyCount":@(recoveredSupplyCount_),@"supplyWaitSeconds":@(supplyWaitSeconds_),@"maximumSupplyWaitSeconds":@(maximumSupplyWaitSeconds_),@"inputCoverageGapScope":([m_[@"deferredImages"]boolValue]?@"decoded-upper-end-only":@"upper-end-only"),@"startupSamplesBelowVideoCoverage":@(startupBelowVideo_),@"startupSamplesBelowAudioCoverage":@(startupBelowAudio_),@"presentationBackend":@"electron-shared-texture",@"hiddenAVVideoRenderer":@NO,@"nativeDroppedDelta":@(dropped),@"metrics":metrics_,@"eventHistoryTruncated":@(log_.overflowed),@"eventCount":@(log_.count),@"events":[log_ snapshot],@"requiresOwnerExitZero":@YES};
  dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{@autoreleasepool{
   NSError*error=nil;NSData*d=nil;BOOL saved=NO;NSString*exception=nil;
   @try{d=[NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingPrettyPrinted error:&error];saved=d&&[d writeToFile:resultPath_ options:NSDataWritingWithoutOverwriting error:&error];}@catch(NSException*e){exception=e.reason;}
