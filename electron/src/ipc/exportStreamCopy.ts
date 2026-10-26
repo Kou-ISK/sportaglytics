@@ -160,10 +160,15 @@ export const resolveMediaCopyMode = async (
   file: string,
   start: number,
   duration: number,
+  audioTrackIndex?: number,
 ): Promise<'whole-file' | 'keyframe-range' | null> => {
   const metadata = await readStreamCopyMetadata(file);
   if (
     !metadata ||
+    // The existing metadata gate accepts at most one audio stream. An explicit
+    // selection can preserve copy only when that sole stream is present.
+    (audioTrackIndex !== undefined &&
+      (audioTrackIndex !== 0 || !metadata.hasAudio)) ||
     !Number.isFinite(start) ||
     !Number.isFinite(duration) ||
     start < 0 ||

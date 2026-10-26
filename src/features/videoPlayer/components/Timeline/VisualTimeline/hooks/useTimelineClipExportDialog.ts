@@ -1,3 +1,4 @@
+import type { ClipExportAudioSelection } from '../../../../../../shared/clipExport/clipExportAudio';
 import {
   useClipExportTextPreview,
   type ClipExportTextPreviewState,
@@ -31,6 +32,7 @@ interface UseTimelineClipExportDialogParams {
   timeline: TimelineData[];
   selectedIds: string[];
   videoSources?: string[];
+  audioSelections?: readonly ClipExportAudioSelection[];
   info: (message: string) => void;
 }
 
@@ -65,6 +67,7 @@ export const useTimelineClipExportDialog = ({
   timeline,
   selectedIds,
   videoSources,
+  audioSelections,
   info,
 }: UseTimelineClipExportDialogParams): UseTimelineClipExportDialogResult => {
   const {
@@ -191,6 +194,7 @@ export const useTimelineClipExportDialog = ({
       executeExport: exportClipsWithOverlay,
       clips,
       videoSources,
+      audioSelections,
       angleOption,
       selectedAngleIndex,
       resolvedSources,
@@ -221,6 +225,7 @@ export const useTimelineClipExportDialog = ({
     selectedIds,
     timeline,
     videoSources,
+    audioSelections,
   ]);
 
   useEffect(() => {

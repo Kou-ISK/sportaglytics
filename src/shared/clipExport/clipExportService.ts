@@ -1,3 +1,5 @@
+import { applyClipExportAudioSelections } from './clipExportAudio';
+import type { ClipExportAudioSelection } from './clipExportAudio';
 import type { ClipExportAngleOption } from './clipExportTypes';
 import type {
   ClipExportExecutor,
@@ -17,6 +19,7 @@ interface ClipExportSourceValidationParams {
 }
 
 interface ExecuteClipExportOptions {
+  audioSelections?: readonly ClipExportAudioSelection[];
   progressId?: string;
   executeExport: ClipExportExecutor;
   clips: ClipExportItem[];
@@ -159,7 +162,7 @@ const selectClipAngle = (
     );
   });
 
-export const buildClipExportRequests = ({
+const buildRequests = ({
   progressId,
   clips,
   videoSources,
@@ -246,6 +249,15 @@ export const buildClipExportRequests = ({
     },
   ];
 };
+
+export const buildClipExportRequests = (
+  options: Parameters<typeof buildRequests>[0] & {
+    audioSelections?: readonly ClipExportAudioSelection[];
+  },
+): ClipExportPayload[] =>
+  buildRequests(options).map((payload) =>
+    applyClipExportAudioSelections(payload, options.audioSelections),
+  );
 
 export const executeClipExport = async (
   options: ExecuteClipExportOptions,

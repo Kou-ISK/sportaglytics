@@ -56,13 +56,20 @@ export const runFfmpegSingle = async ({
   const actualSource = clip.sourceOverride || sourcePath;
   const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
 
-  const copyMode = canUseStreamCopyForSingle({
-    overlayEnabled,
-    annotationPath,
-    clip,
-  })
-    ? await resolveMediaCopyMode(actualSource, clip.startTime, clipDuration)
-    : null;
+  const copyMode =
+    (clip.audioTrackIndex === undefined || clip.audioTrackIndex === 0) &&
+    canUseStreamCopyForSingle({
+      overlayEnabled,
+      annotationPath,
+      clip,
+    })
+      ? await resolveMediaCopyMode(
+          actualSource,
+          clip.startTime,
+          clipDuration,
+          clip.audioTrackIndex,
+        )
+      : null;
   if (copyMode === 'whole-file') {
     // Remux arbitrary source containers to MP4 without cutting AAC priming or video frames.
     await runWithOptionalProgress(
@@ -75,7 +82,9 @@ export const runFfmpegSingle = async ({
         '-map',
         '0:v:0',
         '-map',
-        '0:a?',
+        clip.audioTrackIndex === undefined
+          ? '0:a?'
+          : `0:a:${clip.audioTrackIndex}`,
         '-c',
         'copy',
         '-avoid_negative_ts',
@@ -101,7 +110,9 @@ export const runFfmpegSingle = async ({
         '-map',
         '0:v',
         '-map',
-        '0:a?',
+        clip.audioTrackIndex === undefined
+          ? '0:a?'
+          : `0:a:${clip.audioTrackIndex}`,
         '-c',
         'copy',
         '-avoid_negative_ts',
@@ -145,7 +156,7 @@ export const runFfmpegSingle = async ({
   filterSteps.push(
     clip.hasAudio === false
       ? `anullsrc=r=48000:cl=stereo,atrim=duration=${clipDuration}[atrim]`
-      : `[0:a]atrim=duration=${clipDuration},asetpts=PTS-STARTPTS[atrim]`,
+      : `[0:a:${clip.audioTrackIndex ?? 0}]atrim=duration=${clipDuration},asetpts=PTS-STARTPTS[atrim]`,
   );
   baseLabel = '[vtrim]';
   mapLabel = '[vtrim]';

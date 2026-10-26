@@ -40,15 +40,17 @@ export const buildExportPreparationJobs = (
         start: clip.startTime,
         end: Math.max(clip.endTime, clip.startTime + 0.5),
       };
+      const direct =
+        !plan.clips ||
+        findDirectExportSource(plan.clips, plan.offsetSeconds ?? 0, range);
+      if (!direct && (clip.audioTrackIndex ?? 0) !== 0)
+        throw Error('合成が必要な同期区間では音声トラック選択を維持できません');
       const key = JSON.stringify(range);
       const previous = ranges.get(key);
       if (previous) {
         previous.clipIndexes.push(clipIndex);
         continue;
       }
-      const direct =
-        !plan.clips ||
-        findDirectExportSource(plan.clips, plan.offsetSeconds ?? 0, range);
       const job = {
         plan,
         range,

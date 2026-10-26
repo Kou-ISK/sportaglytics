@@ -113,6 +113,7 @@ describe('useTimelineClipExportDialog', () => {
         ],
         selectedIds: [],
         videoSources: ['/source.mp4'],
+        audioSelections: [{ source: '/source.mp4', audioTrackIndex: 2 }],
         info,
       }),
     );
@@ -126,6 +127,11 @@ describe('useTimelineClipExportDialog', () => {
 
     await waitFor(() => expect(result.current.clipDialogOpen).toBe(false));
     expect(serviceMocks.executeClipExport).toHaveBeenCalledTimes(1);
+    expect(serviceMocks.executeClipExport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audioSelections: [{ source: '/source.mp4', audioTrackIndex: 2 }],
+      }),
+    );
 
     await act(async () => {
       resolveExport?.({ success: true, message: '完了' });

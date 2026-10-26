@@ -56,6 +56,11 @@ const isClipExportItem = (value: unknown): boolean => {
   const duration = value.endTime - value.startTime;
   return (
     isPlainObject(value) &&
+    (value.audioTrackIndex === undefined ||
+      (typeof value.audioTrackIndex === 'number' &&
+        Number.isInteger(value.audioTrackIndex) &&
+        value.audioTrackIndex >= 0 &&
+        value.audioTrackIndex <= 63)) &&
     isNonEmptyString(value.id) &&
     typeof value.actionName === 'string' &&
     typeof value.startTime === 'number' &&

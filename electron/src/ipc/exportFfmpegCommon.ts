@@ -3,6 +3,7 @@ import type { ExportMotionOverlay } from './exportMotionOverlays';
 import type { ExportFreezeFrame } from './exportFreezeFrames';
 import { runFfmpegProcess } from './exportFfmpegProcess';
 export interface ExportClipForFfmpeg {
+  audioTrackIndex?: number;
   chromaKey?: Partial<Record<'primary' | 'secondary', ChromaKey>>;
   hasAudio?: boolean;
   motionOverlays?: ExportMotionOverlay[];
