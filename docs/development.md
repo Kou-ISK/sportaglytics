@@ -12,7 +12,9 @@ Playlistの配送・ロードを変更するときは`usePlaylistLoadDelivery.te
 
 文書採用の境界はMainとRendererの両方を検証します。`playlistWindow/documentIdentity.test.tsx`と`e2e-playlist-document-identity.mjs`で、A/Bロードの逆順完了、別文書ロード中の編集による拒否、同文書ロード中の編集後Closeを扱います。Rendererの見た目に加え、MainのfilePath/dirty・実Save先のbytes・未保存promptを確認します。read完了だけでMain状態を変更せず、最新ticketへの採用応答で保存先を確定してください。
 
-Electronは43.5.1へ固定します。[公式advisory](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)は43.4.2を修正版とし、[GitHub Advisory Database](https://github.com/advisories/GHSA-qmv3-fv6v-rmhq)は43.5.0を境界としています。npmに43.4.2の公開版がないため、両方の条件を満たす[正式patch版43.5.1](https://github.com/electron/electron/releases/tag/v43.5.1)を採用します。lockfile固定でinstallし、packaged appの実runtime versionを確認してください。runtime更新後はsandbox preload・YouTube埋込の起動と分析PNGのcold初回DPR1/2をMacで再確認し、旧runtimeの合格を流用しません。署名・公証は別の配布条件です。Joi18.2.9 overrideはwait-on9.1.0の開発依存への対応で、配布runtime更新とは分けて扱います。
+Electronは同じ43 majorの[43.8.1](https://github.com/electron/electron/releases/tag/v43.8.1)へ固定します。[GHSA-jr5w-w6x2-84p9](https://github.com/electron/electron/security/advisories/GHSA-jr5w-w6x2-84p9)を含む依存監査の修正版です。lockfile固定でinstallし、packaged appの実runtime versionを確認してください。runtime更新後はsandbox preload・YouTube埋込の起動と分析PNGのcold初回DPR1/2をMacで再確認し、旧runtimeの合格を流用しません。署名・公証は別の配布条件です。
+
+2026-10-26の依存監査対応はVite7.3.7、Storybook10.6.2、Vitest4.1.12、fast-uri3.1.9、undici6.29.1/7.30.1です。undiciはupstream major別のoverrideとし、Electron/getの7系を6系へ変更しません。Storybookのpeerとws8.21.1を揃えます。Zodは最低修正版4.6.6を満たす[4.6.7](https://github.com/colinhacks/zod/releases/tag/v4.6.7)へlockfileで固定し、AI応答の既存schema・unknown-key除去・validation error・非有限数とfallbackを回帰確認します。監査ignore・重大度基準・TLS設定は変更しません。Joi18.2.9 overrideはwait-on9.1.0の開発依存への対応で、配布runtime更新とは分けて扱います。
 
 開発・ビルド依存の2026-10-10監査対応は[ADR 0058の追補](adr/0058-build-downloads-without-response-cache.md#2026-10-10-proxy-dependency-audit-update)を参照してください。Electron/get/Gotを維持し、scoped global-agent更新とproxy/NO_PROXY回帰を追加します。
 
@@ -497,7 +499,7 @@ BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-doc
 
 再生用コピーの短尺接続の範囲と[通常リリース条件](playback-cache.md)を区別してください。120秒以内の全fileで実機qualificationを行い、全長変換は別途実行範囲を確認します。`electron/src/playbackCache`の検証用portsは実FFmpeg/HW効果の代替ではありません。パッケージopenの取消は専用IPCを使い、読み取り待ちの中止と更新commitの完了を区別してください。
 
-`packageHistoryDirectory.test.ts`は同一親pathの反復取消でOS列挙が増えないこと、旧I/O完了後の新しい列挙、別親pathの独立性を検証します。`cacheReusePipeline.test.ts`は不一致の全時刻/音声proofと原本変更をHW起動前に拒否し、正常候補には引き続きHW検査を要求します。いずれも実保存先のI/O速度や実デコーダー性能の合格ではありません。
+`packageHistoryDirectory.test.ts`は同一親pathの反復取消でOS列挙が増えないこと、名前と型付き列挙をまたぐ所有権、旧I/O完了後の新しい列挙、別親pathの独立性を検証します。`packageMigrationCancellation.test.ts`は現行・旧形式の候補探索中の取消、遅い失敗後の新規候補の発見、選択中に所有元が失効した場合の更新防止と原本不変を確認します。候補探索にも`historyRead`を渡し、取消を空の候補や利用不可コピーとして扱わないでください。`cacheReusePipeline.test.ts`は不一致の全時刻/音声proofと原本変更をHW起動前に拒否し、正常候補には引き続きHW検査を要求します。いずれも実保存先のI/O速度や実デコーダー性能の合格ではありません。
 
 保存adapterの`openPlaybackCacheStorage`にはMainが所有するアプリdata領域と明示的な総容量/空き容量reserveを渡します。生成中は所有runnerが`checkBudget`を監視し、process終了後のvalidate段階で`seal(validation, signal)`、最後に`publish`を呼びます。hash中の取消を維持するため、sealをpublish内へ移さないでください。private一時ファイルの検査と、実FFmpeg/IPC/再生選択の接続・OS別試験は区別します。
 
@@ -520,3 +522,29 @@ field_order欠落素材のfixtureではraw stream値を注入せず、全packet�
 区間再生のRenderer基盤を変更するときは、`PlaybackRangeBuffer` / `SourceBufferTaskQueue` / `rangeBufferIndex` / `rangePlaybackRegistry`と共通時計のunitを確認する。読込・native完了・closeを別々に保留し、期限を終了確認と取り違えないこと。通常採用は未有効化のため、これらのunitだけで実機統合済みと記録しない。既存capture blob、source reload、空白・複数映像の共通時計も回帰対象とする。
 
 区間キャッシュの所有・取消回帰は `cacheRangeReadLease.test.ts` と `cacheRangePipeline.test.ts` に置く。Session失効の即時通知と実I/O・worker closeのdrainを分け、遅いACKで次世代を成功扱いにしない。実測では生成単独の速度と検証・供給を含む速度を区別し、UI未接続の基盤試験を実再生合格に扱わない。
+
+Native再生は通常provider=nullを維持し、非packagedのmacOS開発buildだけが起動時preview指定と固定build-local runtimeから既存Mainへ接続する。任意位置のqualificationはbound packageと有界headerから作り、固定原本のmanifestを通常経路へ注入しない。[機能inventory](native-playback.md)を確認し、既存速度6倍・コマ送り・音声・scrub・原本tag/save/exportを削って有効化しない。私有診断はin-process IPC、実BrowserWindow、実音声、物理入力を分けて記録する。開発時の全field/hash証明を通常利用時の全尺走査へ移さない。
+
+`relativeSeekInput.integration.test.tsx`では実DOMキー/ボタンクリックを受領させ、古い別窓時計通知とHTML時計の遅延中も相対入力が失われないことを検査します。`timelineWindowSeek.test.ts`は所有元の未確定位置・方向反転・端点・source/同期モード変更を確認します。合成IPC/clockの検証であり、OS入力生成や物理表示の検査とは区別します。
+
+連続ドラッグの回帰では`useMediaTimeSync.test.tsx`で実際の`video-seek-start`イベントも発行し、位置propsだけの更新で代替しない。有限ローカル全区間seekable時の集約と、録画バッファ欠落・source読直し・gap再入時の置換を併せて検査する。`NativeSurfaceController.test.tsx`は適格外操作からの復帰を明示したfixtureで、確認済み中間画像の表示・共有時計・最終位置までのlease保持を合成確認する。これは実マウス入力・実デコーダー・物理表示の検証ではない。復帰中の取消・設定変更・実エラー・遅延完了は`nativePlaybackController.test.ts`で確認する。
+
+Native時計の通知を変更するときは、`nativeSnapshotDelivery`の配送中1件・最新保留1件、preloadのowner/ACK検証、非同期write失敗、UI購読者の例外、再open/文書変更の回帰を実行する。Rendererタイマーを進めない通知試験と、背景状態を記録した実BrowserWindow試験を分ける。
+
+Native seekの要求整理を変更するときは、未完了の同一停止位置へのpointer releaseが新しい復号や期限延長を起こさないこと、異なる最新位置・再生中・完了後の要求が残ることをcontroller回帰で確認する。実UIでは通常倍率のdragとreleaseを対照比較し、画像ACK、音声ready、最終位置、物理表示を混同しない。
+
+時刻の有理数表現を変更するときは、`sourceClockFraction`と`SourcePosition.test.cpp`で両言語の採否・分子/分母、field境界の隣接double、PCM範囲、極小値・上限超過を確認する。数値変換だけでなく、実synchronizerの停止アンカー、audio renderer再接続、seek/再開/再停止が元の要求時計を保持することを検証する。
+
+Native末尾復帰の変更時は、量子化差の有界処理と実SyncedVideoPlayerの末尾commit回帰を実施します。合成portの成功と原本での実HTML復帰は別の検証です。[回帰の範囲](testing.md#test-placement)を参照してください。
+
+## Native exportの開発候補
+
+通常起動ではnative export providerを渡しません。[専用helperのbuildと回帰検証](native-export.md#検証入口)を参照してください。完了receiptだけでは公開資格になりません。
+
+限定native画面を変更する際は、canvasのbacking寸法、absolute sourceとfile URLの同一性、復帰中の操作置換、実停止時計、media失敗とcleanup不明の区別、自然終端でのpause競合を回帰する。専用profileと架空packageで元ファイルを直接参照し、実projectへ書き込まない。短時間mute試験、聴取、長時間品質は分けて報告する。
+
+音声選択から書き出しへの変更は、`clipExportAudio.test.ts`、`usePlaybackAudioSelections.test.tsx`、`playbackAudioRegistry.test.ts`でsource切替・native準備中・同一source競合・最終angleへの適用を検査します。無変換条件は`exportStreamCopy.test.ts`と`exportFfmpegRunners.test.ts`で確認し、音声番号を付けるだけで既存の適格な全体出力を再圧縮へ落とさないようにします。
+
+限定local trialの有音資格と開始不可理由は[native再生](native-playback.md#限定ローカル試用の扱い)を参照してください。`nativeSourceProfile.test.ts`と`useNativePlaybackPanel.test.tsx`で既定の消音制約、他の操作資格の維持、設定変更時の再probe抑制、クリック直前の条件変化を検査します。私有runtimeの初期化失敗・partial surface回収は、helper起動前/後とcleanup不明を分離した負例が必要です。
+
+The limited native trial reports Renderer failure through a dedicated typed IPC to its existing document owner. It requires no new permissions, persistent settings or generic event API. The optional sink must not affect drain or recovery when absent or failing; the normal source provider stays disabled.

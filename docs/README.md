@@ -157,3 +157,7 @@ Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-
 - [再起動後の内容proof](adr/0075-persistent-complete-content-proofs.md): 再生用コピーの内容検査を安全に再利用する条件と限界。
 
 - [必要範囲から準備する再生方式](adr/0077-demand-driven-playback-ranges.md): MSE能力確認、依存範囲・原本時計と長尺性能の未達条件。
+
+- [Native再生の統合境界と受入条件](native-playback.md): 通常未有効の製品接続、機能inventory、診断と長尺受入の区別。
+
+- [Native clip export candidate](native-export.md): 非公開のpassthrough候補と品質gate。

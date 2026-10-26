@@ -1,0 +1,47 @@
+# 0078 Native playback authority
+
+## Status
+
+Proposed
+
+## Date
+
+2026-10-25
+
+## Context
+
+長尺映像を開くたびに全尺変換・全frame照合を行う方式は、待ち時間と保存容量を増やす。必要区間の準備だけでも供給速度が再生速度に追いつかなければ解決しない。HTMLとnativeの両方が時計や再生操作を所有すると、古いplay完了・シーク・音声が競合する。既存のコマ送り、速度、複数音声、タグ、保存・出力を維持したまま、実デコーダーと表示側を交換できる境界が必要である。
+
+## Decision
+
+通常のdirect再生を維持し、Mainが適合を確認したsourceだけをnative候補とする。通常起動のproviderはnullであり、native helper・有効化UIは配布しない。非packaged/macOS/起動時preview指定の全条件を満たす開発buildのみ、固定build-local runtimeをMainへ接続する。既存の再生用コピーのproof契約は変更しない。
+
+MainがSession/source/generationを所有し、Rendererは限定されたinspect/open/apply/observe/onSnapshot/closeを使う。Rendererに実行ファイル、引数、任意path、proofの注入を許可しない。原本時刻と操作sequence/seekIdを分離し、同時配送1件と最新の保留1件に制限する。配送成功は画像・音声準備完了ではない。nativeの確認済み観測だけを共通時計へ反映し、並行するHTML再生・シーク・rAF時計を止める。
+
+Rendererの周期pollはnative表示の背後でtimerが制限されるため、初回snapshot取得の後はMainの状態変更を専用通知で受け取る。Mainは非同期write失敗を含むSession状態変化を発行し、配送中1件と最新保留1件に集約する。preloadは文書に1つの受信器を保持し、ownerと配送番号を検証して受領を返す。Controllerの購読解除後も配送中の通知を回収し、旧世代の通知を新しいControllerへ渡さない。汎用イベントバスやWindow全体の背景timer設定変更を導入しない。
+
+障害時は最後に確認した時刻で停止する。期限切れはcleanup成功を意味しない。native process・pipe・配送の終了と、停止した原本の画像・音声設定の復元を別々に確認してからRendererの所有権を解放する。新しいMain世代は前世代の終了が確定してから再qualificationする。
+
+原本への復帰中も連続シークが画像復元を取り消し続けないよう、同じsource・設定の進行中1件と最新保留1件にまとめる。確認済み中間画像を表示して共通時計へ反映するが、最新要求とは分離し、最終位置の確認前に再生所有権を解放しない。設定変更の取消と実失敗を区別し、ソース変更・全体期限・終了確認の条件を緩めない。これにより復号前からの待ちそのものは短縮しないが、完成可能な画像を操作頻度のため破棄し続けることを避ける。
+
+開発時の全field/hash・PCM一致証明と、通常利用時の処理を分離する。通常open/playに全尺走査を要求せず、必要範囲の復号、適合性、索引、変更検知、有界buffer、実エラー監視を利用する設計とする。statによる変更検知を全bytesの暗号学的一致証明とは扱わない。文書の単一local sourceと有界header probeから原本全体のgeometryを作り、必要位置のrolling供給を行う。音声/映像で異なる末尾は安全な引継ぎ位置で既存原本へ戻す。停止中のconsumer待ちとIO期限を区別し、全fieldと取消を保持する。履歴は循環保存し、長時間稼働の累積通信量を異常としない。配布と機能互換性の資格は開発接続とは別に確認する。
+
+要求した原本時計と表示fieldのPTSを分離する。対応するbackendだけがcontaining-field選択を宣言し、要求時刻を丸めず、その時刻を含む画像と正確な停止時計を同じseek世代で確認する。PCM供給開始は表示fieldを含む窓から取り、reserveは要求時計で判定する。
+
+表示資格はseek可能末尾と再生終了前の引継ぎ位置を分ける。限定backendが時計を止めた実観測後に原本へ引き継ぎ、未対応の速度・音声・正確なシーク要求を丸めない。終了応答には実停止時計と処理済み命令を含める。Mainは送信と処理を区別して検証し、Rendererは最新の明示シークがなければこの停止時刻を復元する。原本が同じsourceを保持している場合は不要なreloadを避ける。
+
+## Consequences
+
+原本復帰の完了commitも所有権の一部とする。表示用の最終clipは厳密な末尾で保持し、commitによるsurface破棄で復帰を中断させない。区間計算と書き出しは従来の終端除外を維持する。文書の単一clip終端はMainで検証し、映像field終端とは別に保持する。厳密な文書終端の復帰だけは既存の停止画像確認精度（2ミリ秒）以内でHTML終端へadapterのseek引数を収め、原本時計を保存・通知する。その他の範囲外要求は従来の1マイクロ秒の丸め限界で拒否する。画像readyや終了確認の条件は緩めない。
+
+操作契約の速度上限は既存の6倍速まで維持するが、実backendは確認済みのrate集合だけを受理する。診断backendのrate=1・muted・正確に表現可能な時計という制限を製品仕様に転用しない。未適合の機能を消して有効化せず、[機能inventoryと受入条件](../native-playback.md)を満たすまで通常経路を維持する。
+
+実BrowserWindow IPC、表示の連続品質、実音声同期、物理scrub、長尺全体、原本復帰の実測、OS別配布検証はunitやprogrammatic診断とは別の受入である。実データ・私有診断host・rawログは公開repositoryへ追加しない。
+
+#### Diagnostic ownership after normal drainage
+
+Normal Native drainage does not imply successful Renderer restoration. Retain the last owner diagnostic sink until the next qualification and authenticate sender/document/generation on a dedicated fixed numeric endpoint. Accept one best-effort report without coupling persistence to playback close or lease release. This records restoration failures while preventing stale owners from writing into a new session, without enabling the ordinary provider or changing project storage.
+
+## 相対操作の加算境界
+
+別窓は確認済み時計の通知に遅延があるため、相対キーを絶対時刻へ変換すると、その間に届いた古い時計で増分を失う。相対秒を型付きの既存Timelineコマンド経路へ渡し、再生所有元で未確定native要求を基準に加算する。Main/preloadのsender/payload検証は維持し、汎用IPCは追加しない。通常packageツールバーは共通時計を使い、clip内HTML時刻の遅延から切り離す。これらの要求位置を確認済みのタグ・保存時計へ昇格させない。

@@ -144,3 +144,7 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 - [0076 Operation-owned cache identity handoff](0076-operation-owned-cache-identity-handoff.md): 同じ要求内の新しい候補digestの引渡しとcleanup所有権（Proposed）。
 
 - [0077 Demand-driven playback ranges](0077-demand-driven-playback-ranges.md): 区間生成の段階検証、byte構造基盤、長尺有効化前の性能・品質条件（Proposed）。
+
+- [0078 Native playback authority](0078-native-playback-authority.md): Main/Rendererの再生所有権、原本時計、通常処理と開発診断の分離（Proposed）。
+
+- [0079 Qualified native clip export](0079-qualified-native-clip-export.md) — Proposed

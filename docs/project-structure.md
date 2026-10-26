@@ -445,3 +445,16 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 `src/features/videoPlayer/shared/playbackRanges`は区間transportのRenderer側責務を持つ。`rangeBufferIndex`は有界coverage計画、`SourceBufferTaskQueue`はnativeイベント所有、`PlaybackRangeBuffer`は読込・容量・要求集約、`rangePlaybackRegistry`はvideo/URL単位の時計接続を担当する。実ファイル・IPC・Main証明はこの層で作らない。通常採用への接続は未完了である。
 
 区間キャッシュのMain専用ticket/read leaseは `electron/src/playbackCache/cacheRangeReadLease.ts`、2 batch上限の工程所有は `cacheRangePipeline.ts` に分離する。Rendererへpathやmanifest発行権を公開せず、描画・共通時計・原本復帰の責務を持たせない。
+
+Native再生の限定IPCは`src/renderer.d.ts`を正本とし、payload parserを`src/types/ipc/nativePlayback.ts`へ置く。MainのSession/manager/handlerは`electron/src/nativePlayback`、専用preload bridgeは`electron/src/preload/nativePlaybackBridge.ts`、Rendererのcontroller/gateway/所有権は`src/features/videoPlayer/shared/nativePlayback`、共通時計へのHookは`app/hooks/useNativePackageClock.ts`に置く。ViewへIPCを持ち込まない。私有host・実媒体の診断はrepository外に置く。[契約](native-playback.md)。
+
+`videoPlayer/components/NativePlayback` は限定表示のController/Hookとprops-only View/Story、`SingleVideoPlayerView` は既存プレイヤーの描画を担当する。`nativePlaybackPresentation.ts` はMainが付与する表示・操作範囲、`nativeOriginalRecovery.ts` は原本sourceを保持する復帰transactionを担当する。
+
+### Native export候補の配置
+
+`electron/src/nativeExport`はMain専用の適格性、process所有権、公開adapterを持ちます。`native/macos/ClipPassthrough.swift`は開発用Apple export helperで、通常配布対象外です。[仕様](native-export.md)を参照してください。
+
+- `features/videoPlayer/shared/audioSelection`: 実HTML音声選択の登録と変更通知。cache適格性から独立し、read-onlyの状態だけを公開する。
+- `shared/clipExport/clipExportAudio.ts`: source単位の一時音声選択契約と、最終書き出しsourceへの適用。native/Video.jsへの依存を持たない。
+
+Native再生のsource/profile/preview構成は`electron/src/nativePlayback`、sandbox canvasと画像所有は`electron/src/preload/nativeSurface*`へ置きます。原本field/sampleの整数演算は`native/macos/playback/SourceTimeline.hpp`で分離します。私有の実媒体・測定結果・未配布helper binaryは公開ソースへ含めません。
