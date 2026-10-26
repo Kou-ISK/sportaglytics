@@ -1,12 +1,12 @@
 import { SOURCES } from '../media-tools/sources.mjs';
 
-export const BUILD_REVISION = 3;
+export const BUILD_REVISION = 4;
 export const BUILD_INPUT_FILES = [
   'scripts/build-native-playback.mjs',
   'scripts/native-playback/recipe.mjs',
   'scripts/native-playback/manifest.mjs',
-  'scripts/native-playback/filter-thread-qos.mjs',
-  'scripts/native-playback/FilterThreadQoS.h',
+  'scripts/native-playback/worker-thread-qos.mjs',
+  'scripts/native-playback/WorkerThreadQoS.h',
   'scripts/download-verified.mjs',
   'scripts/media-tools/process.mjs',
   'scripts/media-tools/source-download.mjs',

@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <pthread/qos.h>
-#include "../native-playback/FilterThreadQoS.h"
+#include "../native-playback/WorkerThreadQoS.h"
 
 typedef struct { qos_class_t qos; int priority; } Observation;
 static void *observe(void *data) {
@@ -19,7 +19,7 @@ int main(void) {
     assert(pthread_create(&worker, NULL, observe, &ordinary) == 0);
     assert(pthread_join(worker, NULL) == 0);
     assert(ordinary.qos != parent.qos || ordinary.priority != parent.priority);
-    assert(playback_create_filter_thread(&worker, observe, &inherited) == 0);
+    assert(playback_create_worker_thread(&worker, observe, &inherited) == 0);
     assert(pthread_join(worker, NULL) == 0);
     assert(inherited.qos == parent.qos && inherited.priority == parent.priority);
     return 0;

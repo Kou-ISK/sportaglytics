@@ -7,9 +7,10 @@ NativeProductHost statically links a restricted build of FFmpeg 8.1.2
 (libavformat, libavcodec, libavfilter and libavutil), licensed under LGPL 2.1 or
 later for this configuration. GPL, version3, nonfree and network features are
 disabled. FFmpeg's complete license explanation and LGPL text accompany the
-helper. The local MIT build adaptation in scripts/native-playback/filter-thread-qos.mjs
-and FilterThreadQoS.h makes the filter pool preserve its caller's requested
-macOS QoS and relative priority. Decoder thread policy is unchanged. These
+helper. The local MIT build adaptation in scripts/native-playback/worker-thread-qos.mjs
+and WorkerThreadQoS.h makes the filter and frame decoder pools preserve their caller's requested
+macOS QoS and relative priority. Thread counts and codec computations are unchanged;
+the separate slice decoder pool keeps upstream policy. These
 changes are reapplied from the matching source archive; the upstream archive
 itself remains hash-verified. Source: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz.
 

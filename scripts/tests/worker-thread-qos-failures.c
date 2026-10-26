@@ -30,7 +30,7 @@ static int fake_destroy(pthread_attr_t *attributes) {
 #define pthread_attr_set_qos_class_np fake_set
 #define pthread_create fake_create
 #define pthread_attr_destroy fake_destroy
-#include "../native-playback/FilterThreadQoS.h"
+#include "../native-playback/WorkerThreadQoS.h"
 
 static void reset(void) {
     get_error = init_error = set_error = create_error = destroy_error = 0;
@@ -38,7 +38,7 @@ static void reset(void) {
     requested = QOS_CLASS_USER_INITIATED; relative = -3;
 }
 static int create(void) {
-    pthread_t thread; return playback_create_filter_thread(&thread, NULL, NULL);
+    pthread_t thread; return playback_create_worker_thread(&thread, NULL, NULL);
 }
 int main(void) {
     reset(); get_error = ESRCH;

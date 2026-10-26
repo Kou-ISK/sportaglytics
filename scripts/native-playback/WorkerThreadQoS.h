@@ -1,15 +1,15 @@
-#ifndef SPORTAGLYTICS_FILTER_THREAD_QOS_H
-#define SPORTAGLYTICS_FILTER_THREAD_QOS_H
+#ifndef SPORTAGLYTICS_WORKER_THREAD_QOS_H
+#define SPORTAGLYTICS_WORKER_THREAD_QOS_H
 #include <errno.h>
 #include <pthread.h>
 #if defined(__APPLE__)
 #include <pthread/qos.h>
 #endif
 
-/* MIT, SporTagLytics. Only the owned filter pool opts into this factory.
+/* MIT, SporTagLytics. Only the owned filter and frame decoder pools use this factory.
  * Preserve the caller's requested class and relative priority; never use a
- * process-wide override or change FFmpeg's decoder thread policy. */
-static inline int playback_create_filter_thread(
+ * process-wide override or change worker count or codec computation. */
+static inline int playback_create_worker_thread(
     pthread_t *thread, void *(*start)(void *), void *argument)
 {
 #if defined(__APPLE__)

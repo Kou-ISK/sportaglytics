@@ -13,7 +13,7 @@ import { cpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { downloadVerified, hashFile } from './download-verified.mjs';
 import { downloadSourceArchive } from './media-tools/source-download.mjs';
-import { applyFilterThreadQoS } from './native-playback/filter-thread-qos.mjs';
+import { applyWorkerThreadQoS } from './native-playback/worker-thread-qos.mjs';
 import { run } from './media-tools/process.mjs';
 import {
   BUILD_REVISION,
@@ -124,7 +124,7 @@ try {
     await run('tar', ['-xf', archive, '-C', work]);
     sources[name] = join(work, source.directory);
   }
-  await applyFilterThreadQoS(sources.ffmpeg);
+  await applyWorkerThreadQoS(sources.ffmpeg);
   const libraryBuild = join(work, 'libraries');
   await mkdir(libraryBuild);
   await run(join(sources.ffmpeg, 'configure'), FFMPEG_FLAGS, {
