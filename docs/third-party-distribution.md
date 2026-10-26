@@ -63,8 +63,10 @@ Ciscoの[公式binary license](https://www.openh264.org/BINARY_LICENSE.txt)は�
 
 ## Native playback previewの対応ソース
 
-明示opt-in用のmacOS arm64 helperは、通常のmedia-toolsとは別の固定recipeでFFmpeg 8.1.2のavformat/avcodec/avfilter/avutilをstatic linkします。`pnpm run native:build`はH.264/MOV/file/bwdif/trimの限定構成とGPL/nonfree/version3/network無効を確認し、全helper/header・recipe・上流archive・compiler/SDK・成果物hashを記録します。Node 22.12.0のN-API 8ヘッダーと公式LICENSEも固定hashで取得します。Apple frameworksはOS提供で同梱しません。
+標準自動選択用のmacOS arm64 helperは、通常のmedia-toolsとは別の固定recipeでFFmpeg 8.1.2のavformat/avcodec/avfilter/avutilをstatic linkします。`pnpm run native:build`はH.264/MOV/file/bwdif/trimの限定構成とGPL/nonfree/version3/network無効を確認し、全helper/header・recipe・上流archive・compiler/SDK・成果物hashを記録します。Node 22.12.0のN-API 8ヘッダーと公式LICENSEも固定hashで取得します。Apple frameworksはOS提供で同梱しません。
 
 `pnpm run native:sources`は、そのbuildに一致する全helper sourceとheader、MIT本文、FFmpeg/Node headerの上流archive、Node LICENSE、再build/link recipe、manifestを`dist/native-playback-sources-<version>-darwin-arm64-<manifest hash>.tar.gz`へまとめます。展開後READMEの手順でnpm依存なしに再buildでき、FFmpegを変更して再linkできます。rawログ、ユーザー映像、project、モデル、private試用binaryは含めません。バイナリと対応source archiveを同じ配布に揃えることが必須です。通常media-toolsのsource archiveでは代替しません。
 
 manifestは署名前のbytesを識別します。署名後のhash・macOS署名/公証・別architecture・アプリへの最終同梱動作は別ゲートです。source/hash/NOTICEの技術的照合は、全条件や特許等の法的充足性の保証ではありません。通常の起動経路をnativeへ切り替える変更ではありません。
+
+署名済み配布では元unsigned source manifestを保持し、2binaryの署名後hashを別recordへ封印します。対応source archiveは通常Releaseの必須assetです。署名・公証・機能品質は[Native仕様](native-playback.md)と[Release手順](../.github/RELEASE.md)で別に検証します。

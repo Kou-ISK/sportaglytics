@@ -2,7 +2,7 @@
 
 ## 現在の状態
 
-通常起動は既存のdirect再生を使用します。起動時のpreview指定がない場合、`registerNativePlaybackHandlers`のproviderはnullで、native helperを起動しません。製品内に型付きIPC、Main Session、Renderer controllerと共通時計への接続を追加していますが、通常UIは未有効です。起動時`SPORTAGLYTICS_NATIVE_PLAYBACK_PREVIEW=1`を明示した場合だけ、macOS開発buildでは固定build内の`.native-playback/runtime.cjs`を、unsigned arm64の限定packageではMain内のruntimeと固定`Resources/native-playback`を使用します。通常配布設定はhelperを同梱しません。限定packageでも指定なし・資源欠損・hash不一致では既存再生を維持します。Rendererからpathやhelperを指定する入口はありません。短尺診断やunitの成功を長尺のコマ落ち・ローディング解消と扱いません。
+対応するmacOS arm64の単一local映像は、Mainの資格・署名検証と停止画像の準備が揃うとネイティブ再生を自動使用します。起動環境変数や利用者による方式選択は不要です。すでにHTML再生中なら中断せず、次の一時停止で接続します。対応外の形式・速度・時刻・環境は内部で互換再生へ渡し、全速度・音声・コマ送り・保存・出力を維持します。機能を削って資格を広げません。新defaultの実配布・公証・品質確認は別の受入であり、この変更を公開済みとは扱いません。 通常配布は固定Resourcesのhelperを検証し、署名情報欠落・不一致では互換再生を使います。Rendererからpathやhelperを指定できません。短い消音再生やunit成功を長尺品質・可聴同期の証拠にしません。
 
 [ADR 0078](adr/0078-native-playback-authority.md)が所有権と検査分離の判断を記録しています。[再生用コピー](playback-cache.md)の全内容proof契約は別方式として維持します。原本・Package metadata・保存位置・タグ・出力のsource identityを派生再生sourceで置換しません。
 
@@ -28,7 +28,7 @@ Mainがqualificationした単一local source、timelineStart=0、auto同期、li
 
 ## 既存画面への限定接続
 
-`PlayerSurface` と `SingleVideoPlayer` に候補の操作パネルと表示面を合成する。パネルと表示Viewはpropsのみを使用し、qualification・player登録・preload接続はHook/Controllerへ分離する。native canvasはVideo.js要素内へ配置し、native時の全画面対象は既存の映像・共通操作・解除ボタンを含むコンテナとする。HTML canvasのbacking寸法とCSS寸法を区別する。専用preloadの表示契約がない通常起動では候補UIを表示しない。
+`PlayerSurface` と `SingleVideoPlayer` に自動選択の状態・音声操作と表示面を合成します。Viewはpropsのみ、qualification・player登録・preload接続はHook/Controllerの責務です。native canvasは既存の映像・操作・全画面コンテナ内に置き、backing寸法とCSS寸法を区別します。復旧失敗時だけ「再生を復旧」を表示し、利用者に方式の選択を求めません。
 
 Mainが表示寸法、速度集合、音声本数、音量/mute、正確なseek grid、seek可能末尾と再生終了前の引継ぎ位置を資格として渡す。対象外の操作は削除・丸めず、native終了後に原本へ渡す。復帰中の最新シーク・速度・音声・一時停止を保持し、旧復元の取消を新しい要求の失敗と扱わない。原本のsourceとmetadataが有効ならデコーダーを再loadしない。設定だけの置換では、安定したplayer identityと同一の要求時刻を確認して既発行seekを再利用し、実際のseekedまで待つ。
 
@@ -93,15 +93,15 @@ Mainの`nativePlaybackSession` / `nativePlaybackManager` / `nativePlaybackHandle
 
 原本時計と表示fieldは別々に扱います。field境界の有理数時刻を優先し、それ以外はナノ秒または有界な有理数探索で元のdoubleへ厳密に往復する時計を受理します。表示はその時刻を含むfieldを使い、初回画像ACKはそのfieldと同じseek世代に結び付けます。未来fieldを許す丸め誤差補正は使いません。正確に表現できない時刻、reserveが不足する末尾は原本へ戻し、要求値を黙って丸めません。PCMの最初の窓は表示fieldを含む範囲を取り、再生reserveは要求時計から確認します。
 
-配布helper、通常利用の全機能、可聴同期の資格は未完了です。rate1/muted等の限定資格外では既存原本へ戻すため、機能自体は削除しません。開発previewへの接続を通常releaseの合格とは扱いません。
+配布helperの署名照合と自動選択は実装対象ですが、実配布の資格、過去の間欠停止と可聴同期は未完了です。限定profileやrate=1を全入力の製品上限にせず、それ以外は内部の互換経路へ引き継ぎます。
 
 開発候補では、復号済みfieldの参照保持と表示用NV12画像の準備を分ける比較も行います。全fieldの時刻・形式検証を維持し、画像化は実際の表示要求で選ばれたfieldに限定します。旧世代を含む転送中の所有数を画像化前に確認し、buffer不足でowner・ACK・終了処理を待たせません。復号済みcoverage、画像準備、draw ACK、GPU releaseは異なる証拠です。画像準備数の削減だけで実表示の安定性・総メモリ削減・可聴同期を合格にしません。
 
 ## 限定ローカル試用の扱い
 
-専用の固定Main runtimeが`allowUnmutedTrial: true`を宣言した場合だけ、開発用source profileは有音出力を許可します。Rendererの選択や保存設定からこの資格を広げません。未指定の開発runtimeは消音限定、通常起動のprovider無効を維持します。この宣言は聴取試験の入口であり、音量0の自動検証を可聴同期の合格にしません。速度・音声切替・時刻等の他の資格と原本fallbackは保持します。
+固定Main runtimeの有音出力資格はRendererや保存設定から広げません。通常runtimeは全3音声を保持し、音声切替など現在backendの適格外操作は互換再生へ渡します。未指定の開発runtimeは消音限定です。無音の自動検証を実聴取同期の合格とは扱いません。
 
-試用開始ボタンは現在の速度・音声選択・消音・音量・時刻で適格性を表示します。開始不可は復帰失敗と区別し、原本を変更せず理由を示します。設定/seekイベントの表示更新のためだけにheader probeを繰り返しません。実開始時には改めて現在の文書・source・設定を確認します。
+自動開始は現在のplayer登録identity、source、表示面、停止、画像ready、速度・音声・音量・時刻を照合します。同じ登録では1回だけ試み、終了・障害・非対応操作後に自動再起動し続けません。再openで改めて資格を取得します。同じURLでもplayer登録が変われば前の資格は使いません。設定/seekイベントのたびにheader probeを繰り返しません。既存の再生用コピー要求はnative終了と原本復帰を確認してから同じ文書へ引き継ぎます。
 
 ローカル試用も、初期化の前にclose可能な所有者を返す必要があります。filesystemやaddonの欠損でhelperを起動していない場合は、その事実を確認して原本へ戻します。factoryが処理を始めた後の所有権不明やGPU解放不明は、未起動と推測せず失敗を維持します。試用は専用profileと架空projectを用い、インストール済みアプリや実projectを置換しません。
 
@@ -113,14 +113,14 @@ Mainの`nativePlaybackSession` / `nativePlaybackManager` / `nativePlaybackHandle
 
 The optional local diagnostic sink also accepts Renderer restoration failure after Native closes normally. A dedicated numeric IPC authenticates the Main frame, document and source-owner generation, accepts the first report only, and rejects stale owners after qualification or navigation. Stage, fixed reason code, command/seek numbers and requested/confirmed source times are numeric evidence. A duration-guard failure may additionally retain the failed snapshot time, the exact duration read by that guard, its finite/nonfinite category, readyState and seeking flag. Values are bounded and nonfinite numbers use fixed numeric categories; this does not add buffers or enlarge the existing fixed ring/files. Unknown reasons map to zero; free-form errors, paths, owner tokens and media are not persisted. Diagnostic failure or persistence completion never changes playback drainage or restoration ownership.
 
-The private recorder normally uses two rows in its existing fixed ring; an optional duration context adds one row. It retains the last clean host only until the next host begins. Its memory and four exclusive file-slot bounds remain unchanged. A Main-only record is explicitly incomplete for Native evidence. Normal startup remains disabled; this reporting change does not establish a playback speed or intermittent starvation fix.
+The private recorder normally uses two rows in its existing fixed ring; an optional duration context adds one row. Its memory and exclusive four-file limits remain unchanged. A Main-only record is incomplete for Native evidence. Diagnostics do not prove a playback speed or intermittent starvation fix.
 
 ## 配布helperのソース構築
 
-必要なnative sourceとheaderは`native/macos/playback/source-files.json`に明示します。[同梱告知](../native/macos/playback/NOTICE.md)と[対応source/relink手順](third-party-distribution.md#native-playback-previewの対応ソース)をbinaryに対応づけます。`pnpm run native:build`と`pnpm run native:sources`はmacOS arm64の限定候補を準備するもので、通常playerの変更やrelease合格ではありません。限定packageは固定配置とhash確認を経てMainへ接続します。実packagedでの原本再生・終了・fallbackを別途検証します。署名で変わるMach-Oの照合契約は未資格であり、署名済みnative配布の合格にはしません。
+必要source/headerは`native/macos/playback/source-files.json`に明示し、[告知](../native/macos/playback/NOTICE.md)と[対応source/relink手順](third-party-distribution.md#native-playback-previewの対応ソース)を添付します。`pnpm run native:build`はmacOS arm64の固定sourceを生成し、`native:sources`は未署名buildの対応sourceを保存します。通常macOS packageのarm64だけへ正確な8資源を追加します。Intel/Windowsは既存互換経路を維持します。
 
-### Unsigned arm64 packageの限定入口
+### 署名済み配布とローカル検証
 
-`electron-builder.native-preview.cjs`だけが固定helper・receiver・manifest・5告知を追加します。起動指定だけでは再生を切り替えず、既存画面の試用開始操作が必要です。停止中の「原本へ戻す」で旧方式へ戻し、次回は起動環境変数を外すと候補UIも無効になります。インストール済みアプリやOS設定の置換は不要です。
+通常packageはhelper/receiverを先に既存Developer IDで署名し、元のunsigned identity/filesを保持したmanifestへ固定2fileの署名後hash・identifier・teamを追加します。builderが最後にアプリ本体を署名した後、appのApple Developer ID要件・固定identifierを検証し、そのteamと2helperのteamを照合します。manifestのteamだけを信頼根にせず、署名情報の欠落をunsignedへ降格させません。最終payload検査ではソース・NOTICE・unsigned manifest・署名後hashを再照合します。既存の未署名試用成果物は保全しますが、新defaultの完成配布には使用しません。復旧は保存済み原本/projectを保持した旧リリースへのrollbackとし、公開済みartifactを上書きしません。
 
 Mainは初期化前にclose可能な所有者を返し、helper終了後のreceiptと停止時計・SHAを確認します。通常動作では詳細event履歴と周期progress JSONを保存せず、既存の数値のみ256KiB ringと追加メモリ最大1MiB、失敗記録最大2MiB×4件を使用します。試用launcherで`--user-data-dir`を専用directoryへ指定し、保存先がそのuserDataの`native-preview/recurrences`であることを確認します。限定package自身は通常appIdを引き継ぐため、指定なしではprofileは分離されません。recurrencesへ映像・音声・媒体pathを保存/外部送信しません。別途必要なIPC/最終receiptと媒体pathを含むmanifestは`native-preview/sessions/session-1..4`へ排他的に作成し、確認済み終了時に今回作成分のみ削除します。既存slotやユーザーファイルを上書き・削除しません。全slot使用済みでは原本へ戻ります。

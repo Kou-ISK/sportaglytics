@@ -128,6 +128,9 @@ jobs:
       - name: Build verified media tools
         run: pnpm run media:build:all-mac
 
+      - name: Build bounded native playback runtime
+        run: pnpm run native:build
+
       - name: Run Electron E2E
         env:
           E2E_LLAMA_MODEL: .cache/testing/qwen-test.gguf
@@ -152,8 +155,8 @@ jobs:
               exit 1
             fi
           done
-          pnpm exec electron-builder --mac --x64 --publish never -c.forceCodeSigning=true -c.mac.notarize=true -c.afterPack=./scripts/macos/after-pack.mjs
-          pnpm exec electron-builder --mac --arm64 --publish never -c.forceCodeSigning=true -c.mac.notarize=true -c.afterPack=./scripts/macos/after-pack.mjs
+          pnpm exec electron-builder --mac --x64 --publish never -c.forceCodeSigning=true -c.mac.notarize=true -c.afterPack=./scripts/macos/standard-after-pack.mjs
+          pnpm exec electron-builder --mac --arm64 --publish never -c.forceCodeSigning=true -c.mac.notarize=true -c.afterPack=./scripts/macos/standard-after-pack.mjs
 
       - name: Verify actual apps inside the final DMGs
         run: |
@@ -162,6 +165,9 @@ jobs:
 
       - name: Package macOS corresponding media sources
         run: node scripts/package-media-sources.mjs --platform macos --require-builds
+
+      - name: Package native playback corresponding sources
+        run: pnpm run native:sources
 
       - name: Package Windows corresponding media sources
         if: inputs.include_windows
@@ -177,7 +183,7 @@ jobs:
         env:
           INCLUDE_WINDOWS: ${{ inputs.include_windows }}
         run: |
-          shasum -a 256 "SporTagLytics-$RELEASE_VERSION-arm64.dmg" "SporTagLytics-$RELEASE_VERSION-x64.dmg" "media-tools-sources-$RELEASE_VERSION-macos.tar.gz" release-verification.json > SHA256SUMS.txt
+          shasum -a 256 "SporTagLytics-$RELEASE_VERSION-arm64.dmg" "SporTagLytics-$RELEASE_VERSION-x64.dmg" "media-tools-sources-$RELEASE_VERSION-macos.tar.gz" release-verification.json native-playback-sources-"$RELEASE_VERSION"-darwin-arm64-*.tar.gz > SHA256SUMS.txt
           if [[ "$INCLUDE_WINDOWS" == true ]]; then
             shasum -a 256 "SporTagLytics-Setup-$RELEASE_VERSION-x64.exe" "media-tools-sources-$RELEASE_VERSION-windows.tar.gz" >> SHA256SUMS.txt
           fi
@@ -193,6 +199,7 @@ jobs:
             dist/SporTagLytics-${{ inputs.version }}-arm64.dmg
             dist/SporTagLytics-${{ inputs.version }}-x64.dmg
             dist/media-tools-sources-${{ inputs.version }}-macos.tar.gz
+            dist/native-playback-sources-${{ inputs.version }}-darwin-arm64-*.tar.gz
             dist/SporTagLytics-Setup-${{ inputs.version }}-x64.exe
             dist/media-tools-sources-${{ inputs.version }}-windows.tar.gz
             dist/SHA256SUMS.txt
@@ -217,7 +224,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INCLUDE_WINDOWS: ${{ inputs.include_windows }}
         run: |
-          assets=("dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" "dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" "dist/media-tools-sources-$RELEASE_VERSION-macos.tar.gz" dist/SHA256SUMS.txt dist/release-verification.json)
+          assets=("dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" "dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" "dist/media-tools-sources-$RELEASE_VERSION-macos.tar.gz" dist/SHA256SUMS.txt dist/release-verification.json dist/native-playback-sources-"$RELEASE_VERSION"-darwin-arm64-*.tar.gz)
           platform='macOS'
           if [[ "$INCLUDE_WINDOWS" == true ]]; then
             node scripts/windows/release-evidence.mjs --verify-only

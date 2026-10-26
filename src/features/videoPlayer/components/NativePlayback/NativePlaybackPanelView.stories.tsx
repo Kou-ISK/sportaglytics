@@ -5,12 +5,10 @@ const meta = {
   component: NativePlaybackPanelView,
   args: {
     mode: 'original',
-    canOpen: true,
     error: null,
     audioTracks: 3,
     audioTrack: 0,
     muted: true,
-    onOpen: () => undefined,
     onOriginal: () => undefined,
     onAudio: () => undefined,
     onMute: () => undefined,
@@ -20,7 +18,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Original: Story = {};
 export const UnsupportedRate: Story = {
-  args: { canOpen: false, unavailableReason: 'この試用の再生速度は 1× です。' },
+  args: { unavailableReason: 'この再生速度では互換再生を使用します。' },
 };
 export const Native: Story = { args: { mode: 'native' } };
 export const Restoring: Story = { args: { mode: 'restoring' } };

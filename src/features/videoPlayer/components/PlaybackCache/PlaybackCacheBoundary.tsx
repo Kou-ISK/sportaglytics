@@ -1,3 +1,4 @@
+import { useNativeCacheActions } from './useNativeCacheActions';
 import { useMemo, useState } from 'react';
 import { useNativePlaybackPanel } from '../NativePlayback/useNativePlaybackPanel';
 import { NativePlaybackPanelView } from '../NativePlayback/NativePlaybackPanelView';
@@ -28,6 +29,7 @@ export const PlaybackCacheBoundary = ({
     timelineTime,
     pause,
   );
+  const nativeCache = useNativeCacheActions(controller);
   const native = useNativePlaybackPanel(
     eligible,
     playing,
@@ -60,17 +62,23 @@ export const PlaybackCacheBoundary = ({
         open={open}
         onOpen={() => setOpen(true)}
         onClose={() => setOpen(false)}
-        error={controller.error}
+        error={nativeCache.error ?? controller.error}
         onRetryOriginal={controller.onRetryOriginal}
-        switching={controller.switching}
+        switching={controller.switching || nativeCache.switching}
         cache={
           value?.source
             ? {
                 ...controller,
+                onUseCache: nativeCache.onUseCache,
+                onUseOriginal: nativeCache.onUseOriginal,
                 status: value.status,
                 estimate: null,
-                canPrepare: value.available && !controller.switching,
-                paused: !playing && !controller.switching,
+                canPrepare:
+                  value.available &&
+                  !controller.switching &&
+                  !nativeCache.switching,
+                paused:
+                  !playing && !controller.switching && !nativeCache.switching,
               }
             : null
         }

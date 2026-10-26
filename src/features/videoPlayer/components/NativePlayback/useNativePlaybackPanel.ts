@@ -1,6 +1,17 @@
-import { hasNativeSurface } from '../../shared/nativePlayback/nativeSurfaceBinding';
+import {
+  hasNativeSurface,
+  nativeSurfaceSource,
+  subscribeNativeSurface,
+} from '../../shared/nativePlayback/nativeSurfaceBinding';
 import { nativeStartUnavailableReason } from '../../shared/nativePlayback/nativeStartAvailability';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { CachePlayerRegistration } from '../PlaybackCache/CachePlayerContext';
 import type { NativePlaybackAvailability } from '../../../../types/ipc/nativePlayback';
 import { parseNativePlaybackAvailability } from '../../../../types/ipc/nativePlayback';
@@ -20,12 +31,27 @@ export const useNativePlaybackPanel = (
 } => {
   const players = useRef(new Set<CachePlayerRegistration>());
   const [revision, setRevision] = useState(0);
-  const [, setSettingsRevision] = useState(0);
-  const [availability, setAvailability] =
-    useState<NativePlaybackAvailability | null>(null);
+  const [settingsRevision, setSettingsRevision] = useState(0);
+  const [qualification, setQualification] = useState<{
+    player: CachePlayerRegistration;
+    value: NativePlaybackAvailability;
+  } | null>(null);
+  const currentPlayer = [...players.current][0];
+  const availability =
+    qualification && qualification.player === currentPlayer
+      ? qualification.value
+      : null;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const working = useRef(false);
+  // One automatic attempt per registered player. A failed/unsupported operation
+  // keeps its verified HTML recovery until the document is reopened.
+  const attempted = useRef(new WeakSet<CachePlayerRegistration>());
+  const surfaceSource = useSyncExternalStore(
+    subscribeNativeSurface,
+    nativeSurfaceSource,
+    nativeSurfaceSource,
+  );
   const { controller, state } = useNativePlaybackState();
   const current = useRef({ eligible, pause, restored });
   current.current = { eligible, pause, restored };
@@ -41,7 +67,13 @@ export const useNativePlaybackPanel = (
       players.current.add(player);
       setRevision((value) => value + 1);
       const changed = (): void => setSettingsRevision((value) => value + 1);
-      const events = ['volumechange', 'ratechange', 'seeked'];
+      const events = [
+        'volumechange',
+        'ratechange',
+        'seeked',
+        'loadeddata',
+        'pause',
+      ];
       events.forEach((event) => player.port.on(event, changed));
       return () => {
         players.current.delete(player);
@@ -61,13 +93,20 @@ export const useNativePlaybackPanel = (
       controller
     )
       return;
+    const player = [...players.current][0];
+    if (!player || attempted.current.has(player)) return;
+    setQualification(null);
     void api.nativePlayback
       .inspect()
       .then((raw) => {
-        if (!cancelled) setAvailability(parseNativePlaybackAvailability(raw));
+        if (!cancelled)
+          setQualification({
+            player,
+            value: parseNativePlaybackAvailability(raw),
+          });
       })
       .catch(() => {
-        if (!cancelled) setAvailability(null);
+        if (!cancelled) setQualification(null);
       });
     return () => {
       cancelled = true;
@@ -84,7 +123,7 @@ export const useNativePlaybackPanel = (
           if (alive.current)
             setError(
               opening
-                ? '試用を開始できませんでした。原本プレイヤーの状態を確認してください。'
+                ? '標準再生を開始できなかったため、互換再生を使用します。'
                 : '原本の再生状態を確認できませんでした。再生を停止してから原本へ戻してください。',
             );
         })
@@ -103,9 +142,9 @@ export const useNativePlaybackPanel = (
         const player = [...players.current][0];
         if (!current.current.eligible || players.current.size !== 1 || !player)
           throw Error('NATIVE_PLAYER_CHANGED');
-        const fresh = parseNativePlaybackAvailability(
-          await api.nativePlayback.inspect(),
-        );
+        if (qualification?.player !== player) return;
+        const fresh = availability;
+        if (!fresh?.available) return;
         const assertCurrent = (): void => {
           if (
             !alive.current ||
@@ -124,7 +163,6 @@ export const useNativePlaybackPanel = (
           !hasNativeSurface(fresh.sourceUrl)
         )
           throw Error('NATIVE_PRESENTATION_UNAVAILABLE');
-        setAvailability(fresh);
         if (
           nativeStartUnavailableReason(
             fresh.presentation,
@@ -136,6 +174,7 @@ export const useNativePlaybackPanel = (
           setSettingsRevision((value) => value + 1);
           return;
         }
+        attempted.current.add(player);
         openQualifiedNativePlayback(
           fresh,
           player.port,
@@ -144,8 +183,42 @@ export const useNativePlaybackPanel = (
           (time, controls) => current.current.restored(time, controls),
         );
       }, true),
-    [act],
+    [act, availability, qualification],
   );
+  useEffect(() => {
+    const player = [...players.current][0];
+    if (
+      !eligible ||
+      controller ||
+      working.current ||
+      !player ||
+      qualification?.player !== player ||
+      attempted.current.has(player) ||
+      !availability?.presentation ||
+      availability.sourceUrl !== player.port.source() ||
+      surfaceSource !== availability.sourceUrl ||
+      player.port.ready() < 2 ||
+      player.port.seeking() ||
+      nativeStartUnavailableReason(
+        availability.presentation,
+        player.port.time(),
+        player.port.settings(),
+        playing || !player.port.paused(),
+      )
+    )
+      return;
+    onOpen();
+  }, [
+    eligible,
+    controller,
+    availability,
+    surfaceSource,
+    revision,
+    settingsRevision,
+    qualification,
+    playing,
+    onOpen,
+  ]);
   const onOriginal = useCallback(
     (): void =>
       act(async () => {
@@ -154,7 +227,6 @@ export const useNativePlaybackPanel = (
       }),
     [act, controller],
   );
-  const currentPlayer = [...players.current][0];
   const settings = currentPlayer?.port.settings();
   const targetTime = currentPlayer?.port.time() ?? 0;
   const unavailableReason =
@@ -216,7 +288,6 @@ export const useNativePlaybackPanel = (
             : controller
               ? 'native'
               : 'original',
-      canOpen: !busy && unavailableReason === null,
       unavailableReason,
       error:
         error ??
@@ -226,7 +297,6 @@ export const useNativePlaybackPanel = (
       audioTracks: availability.presentation.audioTracks,
       audioTrack,
       muted,
-      onOpen,
       onOriginal,
       onAudio: (track) => updateAudio({ audioTrack: track }),
       onMute: () => updateAudio({ muted: !muted }),
@@ -244,7 +314,6 @@ export const useNativePlaybackPanel = (
     error,
     audioTrack,
     muted,
-    onOpen,
     onOriginal,
     updateAudio,
   ]);

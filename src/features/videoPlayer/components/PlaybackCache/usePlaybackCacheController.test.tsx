@@ -110,7 +110,9 @@ const fixture = async () => {
     { initialProps: { timeline: 17, playing: false } },
   );
   await waitFor(() =>
-    expect(hook.result.current.snapshot?.source).not.toBeNull(),
+    expect(hook.result.current.snapshot?.source?.url).toBe(
+      snapshot.source?.url,
+    ),
   );
   let unregister: () => void = () => undefined;
   const suppressMetadata = vi.fn();
@@ -217,7 +219,10 @@ it('reserves source authority through candidate and selected ACK waits', async (
   }>();
   api.candidate.mockReturnValueOnce(candidate.promise);
   act(() => result.current.onUseCache());
-  expect(() => claimNativePlayback()).toThrow('PLAYBACK_AUTHORITY_BUSY');
+  expect(() => {
+    const release = claimNativePlayback();
+    release();
+  }).toThrow('PLAYBACK_AUTHORITY_BUSY');
   await act(async () => {
     candidate.resolve({
       url: 'file:///cache.mp4',
@@ -226,7 +231,10 @@ it('reserves source authority through candidate and selected ACK waits', async (
     });
   });
   await waitFor(() => expect(api.selected).toHaveBeenCalled());
-  expect(() => claimNativePlayback()).toThrow('PLAYBACK_AUTHORITY_BUSY');
+  expect(() => {
+    const release = claimNativePlayback();
+    release();
+  }).toThrow('PLAYBACK_AUTHORITY_BUSY');
   await act(async () => {
     ack.resolve();
   });

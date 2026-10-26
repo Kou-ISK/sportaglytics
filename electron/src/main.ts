@@ -1,4 +1,4 @@
-import { nativePreviewProvider } from './nativePlayback/nativePreviewStartup';
+import { nativePlaybackProvider } from './nativePlayback/nativePlaybackStartup';
 import { registerEventDetectionWindowHandlers } from './eventDetectionWindow';
 import { registerLiveCaptureHandlers } from './liveCapture/captureHandlers';
 import { registerDocumentWindowTitle } from './documentWindowPresentation';
@@ -223,7 +223,7 @@ registerPackageHandlers();
 registerPackageSessionHandlers();
 registerPlaybackCacheHandlers();
 registerNativePlaybackHandlers(
-  nativePreviewProvider(path.resolve(__dirname, '../..')),
+  nativePlaybackProvider(path.resolve(__dirname, '../..')),
 );
 registerSyncHandlers();
 registerMenuStateHandlers();

@@ -2,7 +2,7 @@
   "extends": null,
   "appId": "com.kouisk.sportaglytics",
   "productName": "SporTagLytics",
-  "afterPack": "./scripts/after-pack.mjs",
+  "afterPack": "./scripts/macos/standard-after-pack.mjs",
   "files": [
     "build/**/*",
     "!build/**/*.map",
@@ -12,9 +12,18 @@
     "!build/llama/**/*"
   ],
   "extraResources": [
-    { "from": "LICENSE", "to": "LICENSE" },
-    { "from": "THIRD_PARTY_NOTICES.md", "to": "THIRD_PARTY_NOTICES.md" },
-    { "from": "build/licenses", "to": "licenses" },
+    {
+      "from": "LICENSE",
+      "to": "LICENSE"
+    },
+    {
+      "from": "THIRD_PARTY_NOTICES.md",
+      "to": "THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "from": "build/licenses",
+      "to": "licenses"
+    },
     {
       "from": "build/electron/src/licenses/preload.json",
       "to": "licenses/preload.json"
@@ -34,7 +43,10 @@
     "publish": null,
     "target": "dmg",
     "icon": "public/icon.icns",
-    "signIgnore": ["event-detection-models/.*/runner/[^/]+$"],
+    "signIgnore": [
+      "event-detection-models/.*/runner/[^/]+$",
+      "/SporTagLytics\\.app/Contents/Resources/native-playback/(NativeProductHost|Receiver\\.node)$"
+    ],
     "extraResources": [
       {
         "from": "public/icons",
@@ -59,10 +71,10 @@
     "entitlements": "public/entitlements.mac.plist",
     "entitlementsInherit": "public/entitlements.mac.inherit.plist",
     "extendInfo": {
-      "NSCameraUsageDescription": "選択したカメラの映像を録画し、ライブコーディングに使用します。",
-      "NSMicrophoneUsageDescription": "ライブコーディングで選択したカメラやマイクの音声を録音します。",
+      "NSCameraUsageDescription": "\u9078\u629e\u3057\u305f\u30ab\u30e1\u30e9\u306e\u6620\u50cf\u3092\u9332\u753b\u3057\u3001\u30e9\u30a4\u30d6\u30b3\u30fc\u30c7\u30a3\u30f3\u30b0\u306b\u4f7f\u7528\u3057\u307e\u3059\u3002",
+      "NSMicrophoneUsageDescription": "\u30e9\u30a4\u30d6\u30b3\u30fc\u30c7\u30a3\u30f3\u30b0\u3067\u9078\u629e\u3057\u305f\u30ab\u30e1\u30e9\u3084\u30de\u30a4\u30af\u306e\u97f3\u58f0\u3092\u9332\u97f3\u3057\u307e\u3059\u3002",
       "NSCameraUseContinuityCameraDeviceType": true,
-      "NSAudioCaptureUsageDescription": "YouTubeを含む表示中の映像の音声を解析し、ユーザーが指定した同期位置を微調整するために使用します。",
+      "NSAudioCaptureUsageDescription": "YouTube\u3092\u542b\u3080\u8868\u793a\u4e2d\u306e\u6620\u50cf\u306e\u97f3\u58f0\u3092\u89e3\u6790\u3057\u3001\u30e6\u30fc\u30b6\u30fc\u304c\u6307\u5b9a\u3057\u305f\u540c\u671f\u4f4d\u7f6e\u3092\u5fae\u8abf\u6574\u3059\u308b\u305f\u3081\u306b\u4f7f\u7528\u3057\u307e\u3059\u3002",
       "UTExportedTypeDeclarations": [
         {
           "UTTypeIdentifier": "com.kouisk.sportaglytics.stpkg",
@@ -143,7 +155,7 @@
       {
         "ext": "stpkg",
         "name": "SporTagLytics Package",
-        "description": "SporTagLytics パッケージファイル",
+        "description": "SporTagLytics \u30d1\u30c3\u30b1\u30fc\u30b8\u30d5\u30a1\u30a4\u30eb",
         "role": "Editor",
         "icon": "public/icons/stpkg.ico",
         "isPackage": true
@@ -151,7 +163,7 @@
       {
         "ext": "stpl",
         "name": "SporTagLytics Playlist",
-        "description": "SporTagLytics プレイリスト",
+        "description": "SporTagLytics \u30d7\u30ec\u30a4\u30ea\u30b9\u30c8",
         "role": "Viewer",
         "icon": "public/icons/stpl.ico",
         "isPackage": true
@@ -159,14 +171,14 @@
       {
         "ext": "stcw",
         "name": "SporTagLytics Code Window",
-        "description": "SporTagLytics コードウィンドウ",
+        "description": "SporTagLytics \u30b3\u30fc\u30c9\u30a6\u30a3\u30f3\u30c9\u30a6",
         "role": "Viewer",
         "icon": "public/icons/stcw.ico"
       },
       {
         "ext": "stad",
         "name": "SporTagLytics Dashboard",
-        "description": "SporTagLytics ダッシュボード",
+        "description": "SporTagLytics \u30c0\u30c3\u30b7\u30e5\u30dc\u30fc\u30c9",
         "role": "Viewer",
         "icon": "public/icons/stad.ico",
         "isPackage": true
@@ -205,27 +217,27 @@
       {
         "ext": "stpkg",
         "name": "SporTagLytics Package",
-        "description": "SporTagLytics パッケージファイル",
+        "description": "SporTagLytics \u30d1\u30c3\u30b1\u30fc\u30b8\u30d5\u30a1\u30a4\u30eb",
         "role": "Editor",
         "isPackage": true
       },
       {
         "ext": "stpl",
         "name": "SporTagLytics Playlist",
-        "description": "SporTagLytics プレイリスト",
+        "description": "SporTagLytics \u30d7\u30ec\u30a4\u30ea\u30b9\u30c8",
         "role": "Viewer",
         "isPackage": true
       },
       {
         "ext": "stcw",
         "name": "SporTagLytics Code Window",
-        "description": "SporTagLytics コードウィンドウ",
+        "description": "SporTagLytics \u30b3\u30fc\u30c9\u30a6\u30a3\u30f3\u30c9\u30a6",
         "role": "Viewer"
       },
       {
         "ext": "stad",
         "name": "SporTagLytics Dashboard",
-        "description": "SporTagLytics ダッシュボード",
+        "description": "SporTagLytics \u30c0\u30c3\u30b7\u30e5\u30dc\u30fc\u30c9",
         "role": "Viewer",
         "isPackage": true
       }
@@ -238,5 +250,6 @@
         "filter": ["**/*", "!**/*.gguf"]
       }
     ]
-  }
+  },
+  "afterSign": "./scripts/macos/native-after-sign.mjs"
 }

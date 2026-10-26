@@ -16,16 +16,12 @@ const isRuntime = (value: unknown): value is NativePlaybackRuntime =>
   'createBackend' in value &&
   typeof value.createBackend === 'function';
 
-/** Explicit launch-only preview. Missing/unqualified resources keep the old
- * player. No renderer-selectable module/path or persistent setting. */
-export const nativePreviewProvider = (
+/** Automatically qualify supported sources. Missing/unqualified resources retain
+ * compatible original playback. No renderer-selectable path or saved setting. */
+export const nativePlaybackProvider = (
   buildRoot: string,
 ): ReturnType<typeof createNativeSourceProvider> | null => {
-  if (
-    process.platform !== 'darwin' ||
-    process.env.SPORTAGLYTICS_NATIVE_PLAYBACK_PREVIEW !== '1'
-  )
-    return null;
+  if (process.platform !== 'darwin') return null;
   if (app.isPackaged) {
     if (process.arch !== 'arm64') return null;
     let provider: Promise<ReturnType<

@@ -14,7 +14,7 @@ Proposed
 
 ## Decision
 
-通常のdirect再生を維持し、Mainが適合を確認したsourceだけをnative候補とする。通常起動のproviderはnullであり、通常配布設定にはnative helperを追加しない。起動時preview指定を満たすmacOS開発buildは固定build-local runtime、unsigned arm64限定packageは固定ResourcesとMain内runtimeを接続する。限定packageの資源は正確な集合・版・hashを確認し、不一致なら候補を提供しない。既存の再生用コピーのproof契約は変更しない。
+対応するmacOS arm64の単一local映像は、Mainの資格・署名検証と停止画像の準備が揃うとネイティブ再生を自動使用します。起動環境変数や利用者による方式選択は不要です。すでにHTML再生中なら中断せず、次の一時停止で接続します。対応外の形式・速度・時刻・環境は内部で互換再生へ渡し、全速度・音声・コマ送り・保存・出力を維持します。機能を削って資格を広げません。新defaultの実配布・公証・品質確認は別の受入であり、この変更を公開済みとは扱いません。 Mainが対応資格を確認したsourceを自動採用し、headerだけを全尺証明とはしない。再生用コピーのproof契約は維持する。
 
 MainがSession/source/generationを所有し、Rendererは限定されたinspect/open/apply/observe/onSnapshot/closeを使う。Rendererに実行ファイル、引数、任意path、proofの注入を許可しない。原本時刻と操作sequence/seekIdを分離し、同時配送1件と最新の保留1件に制限する。配送成功は画像・音声準備完了ではない。nativeの確認済み観測だけを共通時計へ反映し、並行するHTML再生・シーク・rAF時計を止める。
 
@@ -36,7 +36,7 @@ Rendererの周期pollはnative表示の背後でtimerが制限されるため、
 
 原本復帰の完了commitも所有権の一部とする。表示用の最終clipは厳密な末尾で保持し、commitによるsurface破棄で復帰を中断させない。区間計算と書き出しは従来の終端除外を維持する。文書の単一clip終端はMainで検証し、映像field終端とは別に保持する。厳密な文書終端の復帰だけは既存の停止画像確認精度（2ミリ秒）以内でHTML終端へadapterのseek引数を収め、原本時計を保存・通知する。その他の範囲外要求は従来の1マイクロ秒の丸め限界で拒否する。画像readyや終了確認の条件は緩めない。
 
-操作契約の速度上限は既存の6倍速まで維持するが、実backendは確認済みのrate集合だけを受理する。診断backendのrate=1・muted・正確に表現可能な時計という制限を製品仕様に転用しない。未適合の機能を消して有効化せず、[機能inventoryと受入条件](../native-playback.md)を満たすまで通常経路を維持する。
+操作契約は既存の6倍速まで維持し、backendは実証したrate集合だけを受理する。非対応操作には内部の互換再生を使い、利用者による方式選択や機能削除を標準化の代替にしない。
 
 実BrowserWindow IPC、表示の連続品質、実音声同期、物理scrub、長尺全体、原本復帰の実測、OS別配布検証はunitやprogrammatic診断とは別の受入である。実データ・私有診断host・rawログは公開repositoryへ追加しない。
 
@@ -48,4 +48,4 @@ Normal Native drainage does not imply successful Renderer restoration. Retain th
 
 別窓は確認済み時計の通知に遅延があるため、相対キーを絶対時刻へ変換すると、その間に届いた古い時計で増分を失う。相対秒を型付きの既存Timelineコマンド経路へ渡し、再生所有元で未確定native要求を基準に加算する。Main/preloadのsender/payload検証は維持し、汎用IPCは追加しない。通常packageツールバーは共通時計を使い、clip内HTML時刻の遅延から切り離す。これらの要求位置を確認済みのタグ・保存時計へ昇格させない。
 
-限定packageでは実行可能コードのpathを固定し、既存のclose-before-init、実終了receipt・停止時計、bounded surface契約を再利用する。詳細診断履歴や周期JSONは製品再生の前提にせず、数値ringと失敗時の容量制限付き記録だけを残す。署名後helper照合、他architecture、通常有効化は別の配布判断とする。
+配布packageでは実行可能pathとresource集合を固定し、Apple Developer IDで認証したappと同team・固定identifierのhelperだけを採用する。unsigned source manifestを残し、署名後の2binaryのhashは外側appの署名前に確定する。通常配布はmetadata欠落でもunsignedへ降格しない。署名変更を実行中bundleへ書き込まず、資格時に有界な検証を一度行う。close-before-init、実終了receipt・停止時計、bounded surfaceは維持する。

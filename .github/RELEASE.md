@@ -14,11 +14,14 @@ v0.17.11の正式工程はmacOSの終了試験で停止し、署名・公証・�
 
 `.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常runner・インストール後runnerの全登録シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.12の正式公開は`include_windows=true`を指定します。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
 
+Native標準化候補は既存公開versionを再使用せず、main統合後に未使用version/tagを確定します。arm64は`native:build`と正確な8資源の検証、2helperのDeveloper ID署名、外側app署名、公証、実起動を要求します。署名後も元unsigned manifestと対応sourceを保持します。新defaultの機能・品質受入が未完了なら公開しません。
+
 Macの必須assets:
 
 - `SporTagLytics-<version>-arm64.dmg`
 - `SporTagLytics-<version>-x64.dmg`
 - `media-tools-sources-<version>-macos.tar.gz`
+- `native-playback-sources-<version>-darwin-arm64-<manifest-hash-prefix>.tar.gz`
 - `SHA256SUMS.txt`
 - `release-verification.json`（この手順の改修以降の新規Release）
 

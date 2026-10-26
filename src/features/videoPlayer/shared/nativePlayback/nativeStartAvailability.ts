@@ -8,16 +8,17 @@ export const nativeStartUnavailableReason = (
   settings: ReturnType<CachePlayerPort['settings']>,
   playing: boolean,
 ): string | null => {
-  if (playing) return '一時停止するとネイティブ再生を試せます。';
+  if (playing)
+    return '再生中の映像を中断せず、一時停止後に標準再生を準備します。';
   if (!presentation.rates.includes(settings.rate))
-    return `この試用の再生速度は ${presentation.rates.join(' / ')}× です。`;
+    return `標準再生の対応速度は ${presentation.rates.join(' / ')}× です。現在の速度では互換再生を使用します。`;
   if (
     settings.audio?.length !== presentation.audioTracks ||
     settings.audio.filter(Boolean).length !== 1
   )
     return '音声トラックを1つ選択してください。';
   if (presentation.mutedOnly && !settings.muted)
-    return 'この試用は消音にしてから開始してください。';
+    return 'この環境では音声再生に互換再生を使用します。';
   const audioTrack = settings.audio.indexOf(true);
   return nativePresentationSupports(
     presentation,

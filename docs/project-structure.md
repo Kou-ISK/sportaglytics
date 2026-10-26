@@ -461,4 +461,4 @@ Native再生のsource/profile/preview構成は`electron/src/nativePlayback`、sa
 
 Native再生helperの必要sourceは`native/macos/playback/{host-embedded,direct-frame-handoff,surface-transport,recurrence}`へ配置し、共有原本時計headerを同じplayback配下で再利用します。専用recipeは`scripts/native-playback/`、entryは`scripts/build-native-playback.mjs`と`scripts/package-native-playback-sources.mjs`です。生成library/binary/対応source archiveは`.cache`/`dist`へ分離し、repositoryへ追加しません。
 
-`electron/src/nativePlayback/runtime`は限定packaged backendの資源検査・session directory・surface転送・所有者終了を担当します。`support`内の明示CJSだけを`scripts/copy-native-playback-runtime.mjs`でMain buildへコピーします。`electron-builder.native-preview.cjs`はunsigned arm64限定package専用で、通常配布設定から分離します。
+`electron/src/nativePlayback/runtime`は資源・署名検査、session directory、surface転送、所有者終了を担当します。`nativeSignature.ts`の固定要件検証はcompiled Mainを配布hookからも利用し、二重定義しません。`support`内の明示CJSだけをMain buildへコピーします。`scripts/macos/{standard-after-pack,native-signing,native-after-sign}.mjs`が内側→manifest→外側の署名順序と検証を担います。

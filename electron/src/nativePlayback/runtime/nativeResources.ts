@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs';
 import { lstat, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { NativeRuntimePaths } from './nativeRuntime';
+import { parseNativeSigning, verifySignedNative } from './nativeSignature';
 
 const files = [
   'NativeProductHost',
@@ -25,11 +26,12 @@ const hashFile = async (file: string): Promise<string> => {
   return hash.digest('hex');
 };
 
-/** Validate only the fixed unsigned preview resources. Signed helper bytes
- * require a separate qualified distribution contract; mismatch keeps fallback. */
+/** Normal packages require authenticated signed resources. Development policy
+ * is passed only by isolated tests; missing signing data never downgrades it. */
 export const resolveNativeResources = async (
   resources: string,
   state: string,
+  policy: 'signed' | 'development' = 'signed',
 ): Promise<NativeRuntimePaths> => {
   const root = path.join(resources, 'native-playback');
   for (const directory of [root, path.join(root, 'licenses')])
@@ -60,8 +62,20 @@ export const resolveNativeResources = async (
       JSON.stringify(files.filter((file) => file !== 'build.json'))
   )
     throw Error('NATIVE_MANIFEST_IDENTITY');
+  const signing =
+    policy === 'signed' ? parseNativeSigning(manifest.signing) : null;
+  if (signing) await verifySignedNative(resources, signing);
   for (const file of files.filter((file) => file !== 'build.json')) {
-    const hash = manifest.files[file];
+    const originalHash = manifest.files[file];
+    if (
+      typeof originalHash !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(originalHash)
+    )
+      throw Error('NATIVE_RESOURCE_HASH');
+    const hash =
+      signing && (file === 'NativeProductHost' || file === 'Receiver.node')
+        ? signing.files[file].sha256
+        : originalHash;
     if (
       typeof hash !== 'string' ||
       !/^[a-f0-9]{64}$/.test(hash) ||

@@ -9,13 +9,11 @@ import {
 } from '@mui/material';
 export interface NativePlaybackPanelViewProps {
   mode: 'original' | 'native' | 'restoring' | 'failed';
-  canOpen: boolean;
   unavailableReason?: string | null;
   error: string | null;
   audioTracks: number;
   audioTrack: number;
   muted: boolean;
-  onOpen: () => void;
   onOriginal: () => void;
   onAudio: (track: number) => void;
   onMute: () => void;
@@ -29,21 +27,17 @@ export const NativePlaybackPanelView = (
         {props.mode === 'restoring'
           ? '原本を復元中…'
           : props.mode === 'native'
-            ? 'ネイティブ再生'
+            ? 'ネイティブ再生（標準）'
             : props.mode === 'failed'
               ? '再生の復旧が必要です'
-              : '原本再生'}
+              : '互換再生'}
       </Typography>
-      {props.mode === 'original' ? (
-        <Button disabled={!props.canOpen} onClick={props.onOpen}>
-          ネイティブ再生を試す
-        </Button>
-      ) : (
+      {(props.mode === 'failed' || props.mode === 'restoring') && (
         <Button
           disabled={props.mode === 'restoring'}
           onClick={props.onOriginal}
         >
-          原本へ戻す
+          再生を復旧
         </Button>
       )}
       <Select
@@ -66,6 +60,11 @@ export const NativePlaybackPanelView = (
     {props.mode === 'original' && props.unavailableReason && (
       <Typography variant="caption" color="text.secondary">
         {props.unavailableReason}
+      </Typography>
+    )}
+    {props.mode === 'native' && (
+      <Typography variant="caption" color="text.secondary">
+        初回・遠距離のシークには待ち時間があります。過去の間欠停止と実聴取による同期確認は未解決です。
       </Typography>
     )}
     {props.error && <Alert severity="warning">{props.error}</Alert>}

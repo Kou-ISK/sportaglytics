@@ -456,9 +456,9 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 区間キャッシュのMain基盤は、一回限りの検証ticketからSession専用の再読可能leaseへ引き換え、最大2 batchで生成と検証・供給を重ねる。現時点では通常UI・正式IPCへの接続、実再生の速度保証は未完了。設計と保証範囲は[ADR 0077](adr/0077-demand-driven-playback-ranges.md)を参照。
 
-Native再生の候補はMain所有Sessionと限定IPC、Renderer controllerと共通時計に分離する。通常providerはnullでhelperを起動しない。HTML/rangeとの所有権競合、原本復帰の確認、新世代の再qualificationは[ADR 0078](adr/0078-native-playback-authority.md)に従う。通常open/playへ毎回の全尺検査を課す設計ではなく、全field/hash証明は開発診断として区別する。
+Native再生はMain所有Session・限定IPC、Renderer controller・共通時計に分離します。対応する停止中sourceを自動採用し、非対応操作は内部の互換再生へ渡します。[ADR 0078](adr/0078-native-playback-authority.md)と[適用範囲・受入条件](native-playback.md)を参照してください。
 
-非公開native経路の時計更新はMain Sessionからの専用snapshot通知を用い、Rendererの周期pollを要求しない。通知は配送中1件と最新保留1件に制限し、通常起動のproviderはnullを維持する。契約と未達条件は[Native再生](native-playback.md)を参照。
+Nativeの時計はMainの専用snapshot通知で更新し、配送中1件と最新保留1件へ制限します。通常利用に周期pollや毎回の全尺検証は追加しません。
 
 原本復帰の末尾では、HTMLの長さの丸め差を最大1マイクロ秒だけadapter内で吸収し、共通時計は保持します。表示用の最終clipは厳密な末尾でもmountを維持し、gapや書き出しの区間解決とは区別します。
 
@@ -466,20 +466,20 @@ Native再生の候補はMain所有Sessionと限定IPC、Renderer controllerと�
 
 準備済みsource/timeOriginを持つMainのexport controllerへoptional adapterを差し込みます。通常は未接続です。[Native clip export candidate](native-export.md)のsource所有権・音声index・独立qualification・fallback契約に従います。
 
-Nativeの限定画面統合は既存PlayerSurfaceの共通時計とVideo.js全画面要素を共有する。範囲外操作・media失敗・限定窓終了はnativeの実停止時計と終了を検証して原本へ戻し、未処理の最新操作を保持する。通常providerは未有効で、安定した供給品質・実聴取同期・配布資格は未達である。[詳細](native-playback.md#既存画面への限定接続)。
+Native表示は既存PlayerSurface・全画面要素を共有します。範囲外操作は実停止時計と終了を確認して互換再生へ引き継ぎ、未処理の最新操作を保持します。
 
 原本復帰中の連続シークは進行中の停止画像を完成させてから最新位置へ進む。確認済み中間画像と時計を表示し、最終位置まで再生の所有権を保持する。通常HTML経路でも全区間seekableな有限ローカルファイルは同様に集約し、録画・欠落バッファ・source変更では強制置換を維持する。これは復号自体の速度改善や実操作での合格を意味しない。
 
 タイムラインの映像書き出しは、再生画面から同期されたsource単位の確認済み音声選択を使用します。native切替中の未確定状態や同一sourceの選択競合では確認を求め、別アングルへ音声番号を流用しません。詳細は[Native export](native-export.md)を参照してください。
 
-Native previewは通常起動では無効です。開発buildまたはunsigned arm64限定packageの起動指定時にのみ、Mainの文書source確認→header資格→有界rolling供給を既存画面へ接続します。全尺変換・全frame照合は起動条件とせず、未対応操作と末尾は原本再生へ戻します。[範囲と未達条件](native-playback.md#任意位置への開発統合)。
+Nativeの標準自動選択は署名済みmacOS arm64の限定profileに適用します。全尺変換を起動条件にせず、形式・速度・複数映像などの非対応条件は既存機能を維持する内部fallbackです。
 
-限定ローカル試用ではMain所有runtimeが明示した場合だけ有音出力を許可し、helperの起動契約も同じ資格に揃える。開始前の速度・音声・時刻条件を表示し、クリック直前にも再確認する。通常起動や配布版への有効化、実聴取品質の認定とは分離する。[限定試用の扱い](native-playback.md#限定ローカル試用の扱い)。
+原本時計・全音声の契約を保持し、設定/seekだけの更新でheaderを再probeしません。過去の間欠停止と実聴取同期は未達として[仕様](native-playback.md)へ記録します。
 
 After a normal native close, the same document owner may report a Renderer restoration failure to an optional numeric diagnostic sink. Main authenticates document and generation and accepts one report. This is not a playback/save/export state source and cannot release their ownership on diagnostic failure.
 
 Timeline別窓の相対シークは所有元で加算し、通知待ちの表示時計から絶対位置へ変換しません。packageツールバーはclip内のHTML時計ではなく共通時計を基準にします。未確認native要求とtag/save/export用の確認済み時刻は分離します。[操作契約](native-playback.md#操作と所有権)。
 
-Native preview helperの配布準備は通常media-toolsから分離した固定source buildで行います。source/recipe/NOTICEとartifactをmanifestで対応づけ、[対応sourceと未確認範囲](third-party-distribution.md#native-playback-previewの対応ソース)を保持します。helper生成だけでは旧playerの既定経路を変更しません。
+Native preview helperの配布準備は通常media-toolsから分離した固定source buildで行います。source/recipe/NOTICEとartifactをmanifestで対応づけ、[対応sourceと未確認範囲](third-party-distribution.md#native-playback-previewの対応ソース)を保持します。helper生成だけでは適格化できず、配布署名・source資格・画面準備をすべて確認して自動使用します。
 
-Unsigned arm64の限定packageは固定Resourcesのnative helper/receiverをhash確認して接続します。Main runtimeは通常起動では資源読取・addon・helper・状態保存を開始しません。限定起動でも全尺走査を加えず、失敗時の数値記録と実終了receiptを分離します。[限定入口](native-playback.md#unsigned-arm64-packageの限定入口)。
+配布runtimeはDeveloper IDで検証したappと同teamの固定helper・receiverを照合します。資源欠落や署名不整合をunsignedへ降格させず、nativeを起動せずに互換再生を保持します。

@@ -523,7 +523,7 @@ field_order欠落素材のfixtureではraw stream値を注入せず、全packet�
 
 区間キャッシュの所有・取消回帰は `cacheRangeReadLease.test.ts` と `cacheRangePipeline.test.ts` に置く。Session失効の即時通知と実I/O・worker closeのdrainを分け、遅いACKで次世代を成功扱いにしない。実測では生成単独の速度と検証・供給を含む速度を区別し、UI未接続の基盤試験を実再生合格に扱わない。
 
-Native再生は通常provider=nullを維持し、macOS開発buildとunsigned arm64限定packageだけが明示した起動時preview指定から既存Mainへ接続する。開発buildは固定build-local runtime、限定packageはhash検証済みの固定Resourcesを使う。任意位置のqualificationはbound packageと有界headerから作り、固定原本のmanifestを通常経路へ注入しない。[機能inventory](native-playback.md)を確認し、既存速度6倍・コマ送り・音声・scrub・原本tag/save/exportを削って有効化しない。私有診断はin-process IPC、実BrowserWindow、実音声、物理入力を分けて記録する。開発時の全field/hash証明を通常利用時の全尺走査へ移さない。
+Native再生はmacOS arm64の適格な停止中sourceを自動使用します。開発は固定build-local runtime、配布は署名検証済みの固定Resourcesを使います。[機能inventoryと受入条件](native-playback.md)を確認し、6倍速・全音声・scrub・tag/save/exportを維持してください。全field/hash証明は開発診断であり、通常openで全尺走査しません。
 
 `relativeSeekInput.integration.test.tsx`では実DOMキー/ボタンクリックを受領させ、古い別窓時計通知とHTML時計の遅延中も相対入力が失われないことを検査します。`timelineWindowSeek.test.ts`は所有元の未確定位置・方向反転・端点・source/同期モード変更を確認します。合成IPC/clockの検証であり、OS入力生成や物理表示の検査とは区別します。
 
@@ -545,12 +545,12 @@ Native末尾復帰の変更時は、量子化差の有界処理と実SyncedVideo
 
 音声選択から書き出しへの変更は、`clipExportAudio.test.ts`、`usePlaybackAudioSelections.test.tsx`、`playbackAudioRegistry.test.ts`でsource切替・native準備中・同一source競合・最終angleへの適用を検査します。無変換条件は`exportStreamCopy.test.ts`と`exportFfmpegRunners.test.ts`で確認し、音声番号を付けるだけで既存の適格な全体出力を再圧縮へ落とさないようにします。
 
-限定local trialの有音資格と開始不可理由は[native再生](native-playback.md#限定ローカル試用の扱い)を参照してください。`nativeSourceProfile.test.ts`と`useNativePlaybackPanel.test.tsx`で既定の消音制約、他の操作資格の維持、設定変更時の再probe抑制、クリック直前の条件変化を検査します。私有runtimeの初期化失敗・partial surface回収は、helper起動前/後とcleanup不明を分離した負例が必要です。
+自動起動の`useNativePlaybackPanel.test.tsx`は準備順序・同URLの登録置換・適格外・失敗後の再試行防止を検査します。`useNativeCacheActions.test.tsx`はnative終了後の既存cache操作と文書変更の取消を検査します。有音資格の存在を実聴取合格とは扱いません。
 
-The limited native trial reports Renderer failure through a dedicated typed IPC to its existing document owner. It requires no new permissions, persistent settings or generic event API. The optional sink must not affect drain or recovery when absent or failing; the normal source provider stays disabled.
+The limited native trial reports Renderer failure through a dedicated typed IPC to its existing document owner. It requires no new permissions, persistent settings or generic event API. The optional sink must not affect drain or recovery when absent or failing; automatic source qualification remains separate from diagnostic persistence.
 
 ### Native preview helperのローカル構築
 
-macOS arm64では`pnpm run native:build`で固定sourceからhelperとN-API receiverを生成します。最大4 compile job、出力は`.cache/native-playback/darwin-arm64`です。入力hashやtoolchainが変われば再構築し、再利用時は厳密なfile集合とhashを確認します。`pnpm run test:native-build`は欠落・改変・余分なfile・symlink拒否を確認します。`pnpm run native:sources`で[対応ソース](third-party-distribution.md#native-playback-previewの対応ソース)を準備します。helper単体の生成では通常playerやpackaged providerは有効になりません。
+macOS arm64では`pnpm run native:build`で固定sourceからhelperとN-API receiverを生成します。最大4 compile job、出力は`.cache/native-playback/darwin-arm64`です。入力hashやtoolchainが変われば再構築し、再利用時は厳密なfile集合とhashを確認します。`pnpm run test:native-build`は欠落・改変・余分なfile・symlink拒否を確認します。`pnpm run native:sources`で[対応ソース](third-party-distribution.md#native-playback-previewの対応ソース)を準備します。helper単体の生成は実署名artifactの起動・品質合格の代わりにはなりません。
 
-限定packageは既存のmedia/llama資源を準備した後、`pnpm run electron:package:native-preview`で作成します。公開・署名・インストールは行いません。`pnpm run test:native-runtime`はmacOSの実FIFOと合成surface/所有者の初期化・終了・診断上限を検査します。実packaged原本再生とは区別します。Main buildは明示した9個のCJS supportだけをコピーし、runtime dependency検査はJS/CJSの両方を対象にします。限定起動と復帰、保存先、未資格範囲は[Native再生](native-playback.md#unsigned-arm64-packageの限定入口)を参照してください。
+通常macOS packageは`native:build`と既存media/llama資源を準備して作成します。`scripts/macos/standard-after-pack.mjs`がarm64のnative資源を厳密照合・事前署名し、`native-after-sign.mjs`が外側署名後に再検証します。`nativeSignature`/`nativeResources`負例と`test:native-runtime`を実行し、実packaged起動・fallback・終了を別途確認します。新しいcredential/OS設定は不要な既存署名環境だけを使用し、公証は[Release手順](../.github/RELEASE.md)で確認します。

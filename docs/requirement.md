@@ -27,15 +27,15 @@ Timeline所有元を通常Close/Quitするときは、直前の編集を含む�
 
 ### 1.3 技術基準
 
-| Category        | Technology            |
-| --------------- | --------------------- |
-| Frontend        | React 19              |
+| Category        | Technology                                  |
+| --------------- | ------------------------------------------- |
+| Frontend        | React 19                                    |
 | Language        | TypeScript 5 strict（解決版はlockfile参照） |
-| Desktop         | Electron 43           |
-| UI              | Material UI 7         |
-| Video           | Video.js 8            |
-| Package manager | pnpm 9.1.0（packageManagerと同じ版） |
-| Build           | Vite                  |
+| Desktop         | Electron 43                                 |
+| UI              | Material UI 7                               |
+| Video           | Video.js 8                                  |
+| Package manager | pnpm 9.1.0（packageManagerと同じ版）        |
+| Build           | Vite                                        |
 
 実装規約の正本は `AGENTS.md` とする。
 
@@ -504,3 +504,7 @@ macOSに加えWindows 11 x64を配布対象とする。映像・音声同期・T
 ### Native export候補
 
 単一区間のpassthrough候補は[設計と未達gate](native-export.md)に記載します。通常利用は既存出力を維持し、再圧縮回避だけを理由に精度や描画・音声機能を省きません。
+
+## Native標準再生
+
+対応するmacOS arm64の単一local映像でnativeを標準使用し、非対応形式・速度・複数映像は内部fallbackで機能を保持します。全field/原本時刻/全音声/保存・出力契約と適格性を[Native再生](native-playback.md)に定義します。標準化コードの実装と未達品質の受入を混同しません。

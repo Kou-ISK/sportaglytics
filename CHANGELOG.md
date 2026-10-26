@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 非公開のnative clip export adapterを追加。合成なし区間の候補・音声選択・既存fallbackと独立qualificationを分離し、通常起動は従来経路を維持します。詳細は[設計](docs/native-export.md)。
 
-- 通常未有効のnative再生向けに、Main Session・限定IPC・共通時計への製品接続を追加。HTMLとの排他、原本の停止復元、6倍速までの操作契約を保持。[機能inventoryと有効化条件](docs/native-playback.md)。
+- 対応するmacOS arm64の単一原本をネイティブ再生へ自動接続。任意切替をなくし、非対応操作・形式は内部の互換再生で維持。署名済みhelperの同梱・原本への復旧・既存cache選択を統合。[範囲と未達の受入条件](docs/native-playback.md)。
 
 - 保存済み再生用コピーの同一要求内で候補digestを安全に引き渡し、重複全読込を1回削減。途中交換・取消・close失敗の保護は維持。
 
