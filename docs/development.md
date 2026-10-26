@@ -560,3 +560,5 @@ macOS arm64では`pnpm run native:build`で固定sourceからhelperとN-API rece
 短いnative供給不足の回復を変更した場合は`pnpm run test:native-runtime`とMain/Rendererのnative Session/Controller回帰を実行します。回復は同一worker・既存queueの範囲で停止時計を維持し、補充回数/累積時間を有限にします。実原本の再測定では不足と回復後の進行、操作応答、終了receiptを別々に記録し、回復した待機を消して品質合格にしません。
 
 フィルタ/frame decoderのthread方針は`test:native-build`で実macOSのrequested QoS/relative priority、生成失敗の後始末、上流call siteの限定適応を検査します。build revisionと`nativeResources`の受入revisionは同時更新し、旧・未知revisionの拒否を維持します。対応sourceには上流archiveと固定日付の変更通知を再適用するrecipe/headerを含めます。
+
+音声窓の供給方針を変更した場合、`test:native-runtime`の`PCMWindowSupply.test.mm`で実owner/pumpと合成readerを接続して、再生開始・先行投入後の昇格・停止中の閾値・全3音声の原本時刻・取消済み完了・末尾・同時reader上限を確認します。実音声読取速度と可聴同期はこの合成回帰に含みません。

@@ -40,9 +40,13 @@
 }
 -(void)prefetchAt:(int64_t)sample playing:(BOOL)playing {
  if(closing_||!current_||next_||busy_||wanted_>=0)return;
- if(sample+pcmwindow::PrefetchSamples<current_.endSample)return;
+ // Playing consumes adjacent windows continuously. Use the free next slot as
+ // soon as it is available, including promotion ahead of the source clock.
+ // Paused preparation retains its distance threshold; ownership bounds above
+ // still allow only current + next and one reader, regardless of tick frequency.
+ if(!playing&&sample+pcmwindow::PrefetchSamples<current_.endSample)return;
  NSInteger next=[self windowFor:current_.endSample];if(next<0)return;
- [log_ add:@"pcm-prefetch-request" values:@{@"sample":@(sample),@"playing":@(playing),@"remainingSamples":@(current_.endSample-sample),@"leadSamples":@(pcmwindow::PrefetchSamples)}];
+ [log_ add:@"pcm-prefetch-request" values:@{@"sample":@(sample),@"playing":@(playing),@"remainingSamples":@(current_.endSample-sample),@"pausedLeadSamples":@(pcmwindow::PrefetchSamples)}];
  wanted_=next;[self pump];
 }
 -(id)bufferForTrack:(unsigned)track sample:(int64_t)sample {

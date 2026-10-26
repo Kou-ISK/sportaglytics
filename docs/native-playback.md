@@ -93,7 +93,7 @@ Mainの`nativePlaybackSession` / `nativePlaybackManager` / `nativePlaybackHandle
 
 `nativeSourceProfile`は確認対象の映像・全3音声の形式、原本時刻0、field周期、音声sample終端から不変のgeometryを生成します。現在は1080p H.264、60000/1001入力、BT.709、3つの48kHz stereo AACという限定profileです。headerだけを全尺適合の証明とせず、復号時も各fieldの形式・時刻とPCMのtrim・連続性を確認します。原本末尾は音声/映像の短い方にreserveを設けて既存再生へ引き継ぎます。末尾や非field境界への要求を丸めて精度を落としません。
 
-開発runtimeは要求された原本時計を保持し、その時刻を含むfieldから読み始め、音声を最大2.5秒×2窓・reader1個で供給します。最後の窓はsource終端までに短縮し、seek/closeで旧readを取消します。映像は32個の論理creditで未消費画像を制限し、停止中の待機をIO timeoutに数えません。open/seek/read期限、取消、通信メッセージと同時所有数の上限は維持します。過去の計測履歴を循環保存するため、時間経過による履歴上限を再生停止理由にしません。
+開発runtimeは要求された原本時計を保持し、その時刻を含むfieldから読み始め、音声を最大2.5秒×2窓・reader1個で供給します。再生中は隣接窓の空きができた時点で読み始め、停止中だけ残り1.8秒の先読み閾値を使います。音声rendererへの投入上限1.2秒と保持上限は変えず、先行投入による窓昇格後の待ちを減らします。最後の窓はsource終端までに短縮し、seek/closeで旧readを取消します。映像は32個の論理creditで未消費画像を制限し、停止中の待機をIO timeoutに数えません。open/seek/read期限、取消、通信メッセージと同時所有数の上限は維持します。過去の計測履歴を循環保存するため、時間経過による履歴上限を再生停止理由にしません。
 
 bwdifのslice workerは2個に固定し、decoder worker4個、同時session数、32fieldの保持上限は維持します。fieldの省略や時刻変更は行いません。候補比較では全fieldの画素・PTS・形式とprocess全体のCPU/RSSを照合します。単体のfilter処理時間短縮を、統合再生の間欠停止解消と同一視しません。
 

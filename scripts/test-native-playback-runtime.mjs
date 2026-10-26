@@ -5,6 +5,27 @@ import { run } from './media-tools/process.mjs';
 
 const directory = await mkdtemp(join(tmpdir(), 'native-runtime-test-'));
 try {
+  const pcmSupply = join(directory, 'PCMWindowSupplyTest');
+  const nativeRoot = 'native/macos/playback/host-embedded';
+  await run('xcrun', [
+    'clang++',
+    '-std=c++17',
+    '-O2',
+    '-fobjc-arc',
+    '-Wno-deprecated-declarations',
+    join(nativeRoot, 'PCMWindowSupply.test.mm'),
+    join(nativeRoot, 'PCMWindowSupply.mm'),
+    join(nativeRoot, 'NativeSupport.mm'),
+    '-framework',
+    'AppKit',
+    '-framework',
+    'AVFoundation',
+    '-framework',
+    'CoreVideo',
+    '-o',
+    pcmSupply,
+  ]);
+  await run(pcmSupply, []);
   const recovery = join(directory, 'ProductSupplyRecoveryTest');
   await run('xcrun', [
     'clang++',
