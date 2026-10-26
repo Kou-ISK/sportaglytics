@@ -525,6 +525,8 @@ field_order欠落素材のfixtureではraw stream値を注入せず、全packet�
 
 Native再生はmacOS arm64の適格な停止中sourceを自動使用します。開発は固定build-local runtime、配布は署名検証済みの固定Resourcesを使います。[機能inventoryと受入条件](native-playback.md)を確認し、6倍速・全音声・scrub・tag/save/exportを維持してください。全field/hash証明は開発診断であり、通常openで全尺走査しません。
 
+終了receiptが失敗した場合の内部資源回収は、[操作と所有権](native-playback.md#操作と所有権)に従って物理終了と正常drainを区別します。`test:native-runtime`で両方の失敗経路を検査し、資源回収だけを原本復帰やQuit成功と扱わないでください。
+
 bwdifの2 slice workerを比較する際は、同一区間の全field画素・PTS・metadata、decoderを含むprocess全体のCPU/RSS、取消と終了を確認します。decode worker4個、session数、32field creditは維持します。単体測定と実製品の供給不足を区別し、閾値を緩めて合格にしません。互換再生へ引き継いだ文書ではpauseごとの再試行を行わず、再open時に資格を取り直します。
 
 `relativeSeekInput.integration.test.tsx`では実DOMキー/ボタンクリックを受領させ、古い別窓時計通知とHTML時計の遅延中も相対入力が失われないことを検査します。`timelineWindowSeek.test.ts`は所有元の未確定位置・方向反転・端点・source/同期モード変更を確認します。合成IPC/clockの検証であり、OS入力生成や物理表示の検査とは区別します。

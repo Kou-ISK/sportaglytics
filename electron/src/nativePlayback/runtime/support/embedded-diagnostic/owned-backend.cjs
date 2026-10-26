@@ -23,13 +23,30 @@ module.exports.createOwnedBackend = (
   let stopped = false,
     child = null,
     backendClose = null,
-    childDone = null;
+    childDone = null,
+    terminationDone = null,
+    factoryUsed = false;
   const spawnOwned = dependencies.spawn || spawn,
     controlFactory = dependencies.createControlPipe || createControlPipe;
   const gate = cancellationGate(() => stopped);
   const factory = (owner, observe) => {
+    if (factoryUsed) throw Error('host owner already created');
+    factoryUsed = true;
     const close = deferred();
+    const termination = deferred();
     childDone = close.promise;
+    terminationDone = termination.promise;
+    const generation = owner.generation;
+    const confirmTermination = (processStarted) => {
+      termination.resolve(
+        Object.freeze({
+          generation,
+          processStarted,
+          processExited: true,
+          pipesClosed: true,
+        }),
+      );
+    };
     let control = null,
       controlClosed = false,
       launchError = null;
@@ -72,6 +89,7 @@ module.exports.createOwnedBackend = (
         );
         if (closing) {
           launch.resolve();
+          confirmTermination(false);
           close.resolve({
             generation: owner.generation,
             nativeDrained: true,
@@ -88,6 +106,7 @@ module.exports.createOwnedBackend = (
           await control.close();
           controlClosed = true;
           launch.resolve();
+          confirmTermination(false);
           close.resolve({
             generation: owner.generation,
             nativeDrained: true,
@@ -143,7 +162,7 @@ module.exports.createOwnedBackend = (
           actualExit = { code, signal };
           report('host-exit', actualExit);
         });
-        child.once('close', async () => {
+        child.once('close', async (code, signal) => {
           output = packets.pending();
           closed = true;
           report('host-close', {
@@ -156,19 +175,37 @@ module.exports.createOwnedBackend = (
           try {
             await control.close();
             controlClosed = true;
-            close.resolve(
-              assertNativeDrain({
-                owner,
-                receipt,
-                actualExit,
-                spawned,
-                pendingOutput: output,
-                controlClosed,
-                launchError: launchError || writeFailure,
-                childPid: child.pid,
-              }),
-            );
+            // ChildProcess close includes stdio closure. Keep this physical fact
+            // separate from the native receipt and its final playback clock.
+            if (
+              spawned &&
+              Number.isSafeInteger(child.pid) &&
+              child.pid > 0 &&
+              actualExit &&
+              code === actualExit.code &&
+              signal === actualExit.signal &&
+              ((Number.isInteger(code) && code >= 0 && signal === null) ||
+                (code === null &&
+                  typeof signal === 'string' &&
+                  signal.length > 0))
+            )
+              confirmTermination(true);
+            else if (spawned) throw Error('host termination unconfirmed');
+            const result = assertNativeDrain({
+              owner,
+              receipt,
+              actualExit,
+              spawned,
+              pendingOutput: output,
+              controlClosed,
+              launchError: launchError || writeFailure,
+              childPid: child.pid,
+            });
+            // The receipt validator also recognizes a proven pre-spawn failure.
+            if (!result.processStarted) confirmTermination(false);
+            close.resolve(result);
           } catch (error) {
+            termination.reject(error);
             close.reject(error);
           }
         });
@@ -199,6 +236,7 @@ module.exports.createOwnedBackend = (
         if (!child) {
           try {
             if (control) await control.close();
+            confirmTermination(false);
             close.resolve({
               generation: owner.generation,
               nativeDrained: true,
@@ -208,6 +246,7 @@ module.exports.createOwnedBackend = (
               stopped: null,
             });
           } catch (cleanup) {
+            termination.reject(cleanup);
             close.reject(cleanup);
           }
         } else {
@@ -218,6 +257,7 @@ module.exports.createOwnedBackend = (
     })();
     // Attach a handler immediately; rejection is still propagated to close callers.
     void close.promise.catch(() => {});
+    void termination.promise.catch(() => {});
     void launch.promise.catch(() => {});
     backendClose = () => {
       if (!closing) {
@@ -256,6 +296,7 @@ module.exports.createOwnedBackend = (
       return backendClose ? backendClose() : Promise.resolve();
     },
     done: () => childDone,
+    termination: () => terminationDone,
     pid: () => child?.pid,
   };
 };

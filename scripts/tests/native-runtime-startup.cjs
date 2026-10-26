@@ -9,6 +9,8 @@ const esbuild = require('esbuild');
 async function fixture(mode) {
   const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'native-startup95-'));
   let capturedManifest;
+  const receiptError = Error('missing native receipt');
+  const abnormal = mode.startsWith('abnormal');
   const counts = {
     create: 0,
     start: 0,
@@ -17,6 +19,7 @@ async function fixture(mode) {
     factory: 0,
     ownedClose: 0,
     activityStop: 0,
+    listenerRemoved: 0,
   };
   const closed = {
     generation: 'fixture',
@@ -43,7 +46,12 @@ async function fixture(mode) {
     if (name === 'electron')
       return {
         app: { getPath: () => root },
-        ipcMain: { on() {}, removeListener() {} },
+        ipcMain: {
+          on() {},
+          removeListener() {
+            counts.listenerRemoved++;
+          },
+        },
         powerSaveBlocker: {},
       };
     if (name.endsWith('surfaceTransport'))
@@ -60,7 +68,8 @@ async function fixture(mode) {
             stopRequests() {},
             drain: async () => {
               counts.drain++;
-              if (mode === 'cleanup') throw Error('uncertain surface');
+              if (mode === 'cleanup' || mode === 'abnormal-surface')
+                throw Error('uncertain surface');
             },
             close() {
               counts.close++;
@@ -94,11 +103,24 @@ async function fixture(mode) {
                 write: async () => {},
                 close: async () => {
                   counts.ownedClose++;
+                  if (abnormal) throw receiptError;
                   return closed;
                 },
               };
             },
-            done: async () => {},
+            done: async () => {
+              if (abnormal) throw receiptError;
+            },
+            termination: async () => {
+              if (mode === 'abnormal-control') throw Error('pipe close failed');
+              return {
+                generation:
+                  mode === 'abnormal-generation' ? 'stale' : 'fixture',
+                processStarted: true,
+                processExited: true,
+                pipesClosed: true,
+              };
+            },
           }
         ),
       };
@@ -138,6 +160,7 @@ async function fixture(mode) {
     root,
     counts,
     closed,
+    receiptError,
     manifest: () => capturedManifest,
     create: () =>
       module.exports
@@ -192,6 +215,7 @@ test('close before initialization acquires no filesystem, surface or process res
       factory: 0,
       ownedClose: 0,
       activityStop: 0,
+      listenerRemoved: 1,
     });
     assert.equal(fs.existsSync(path.join(f.root, 'sessions')), false);
   } finally {
@@ -213,6 +237,37 @@ for (const mode of ['cleanup', 'factory'])
         );
         assert.equal(b.close(), first);
         assert.equal(f.counts.close, 0);
+      } finally {
+        await f.remove();
+      }
+    },
+  );
+
+for (const mode of [
+  'abnormal',
+  'abnormal-control',
+  'abnormal-generation',
+  'abnormal-surface',
+])
+  test(
+    mode +
+      ' preserves receipt failure and cleans only confirmed resources once',
+    async () => {
+      const f = await fixture(mode);
+      try {
+        const b = f.create();
+        await b.write({});
+        const first = b.close();
+        assert.equal(b.close(), first);
+        await assert.rejects(first, (error) => error === f.receiptError);
+        assert.equal(b.close(), first);
+        assert.equal(f.counts.ownedClose, 1);
+        const canDrain = mode === 'abnormal' || mode === 'abnormal-surface';
+        assert.equal(f.counts.drain, canDrain ? 1 : 0);
+        assert.equal(f.counts.close, mode === 'abnormal' ? 1 : 0);
+        assert.equal(f.counts.listenerRemoved, mode === 'abnormal' ? 1 : 0);
+        assert.equal(f.counts.activityStop, 1);
+        assert.equal(fs.readdirSync(path.join(f.root, 'sessions')).length, 1);
       } finally {
         await f.remove();
       }

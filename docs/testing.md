@@ -360,6 +360,8 @@ Renderer recovery diagnostics are covered by `nativePlaybackController.test.ts`:
 
 Native runtimeのmacOS変更では`pnpm run test:native-runtime`を追加実行します。実FIFO probeと合成backend/surface/診断上限をNode test runnerで検査し、`.node.cjs`はVitestへ重複登録しません。資源検査・session directoryのTypeScript回帰は通常Vitestに含めます。署名済みpackageの自動native開始・非対応source・原本復帰・正常終了は実アプリで別途確認します。
 
+同runnerのowned backend/runtime回帰は、receipt欠落、`exit`だけの通知、`close`不一致、control pipe失敗、GPU drain失敗、重複close、旧世代の遅延通知を分けます。物理終了後だけ資源回収を試み、成功しても元のreceiptエラー・診断sessionを保持することを検査します。signal終了は模擬ChildProcessイベントであり、実アプリへsignalを送りません。この結果から実異常終了後の原本復帰や通常Quit成功を主張しません。
+
 ## Native標準再生
 
 自動nativeの負例は表示準備の順序、同一URLの登録置換、失敗後の無限再試行防止、cache切替時のdrainを含めます。配布は署名metadata欠落・wrong team/identifier・改変・symlinkを拒否し、最終実署名artifactで自動open/停止再開/fallback/終了を確認します。既存unsignedの成功は署名済みartifactの代替証拠ではありません。

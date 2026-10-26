@@ -78,6 +78,13 @@ export const createNativePlaybackRuntime = (
         )
           fail('paint: ' + String(value));
       };
+      const closeSurface = async (): Promise<void> => {
+        if (surface) {
+          await surface.drain();
+          surface.close();
+        }
+        ipcMain.removeListener('diagnostic-surface-error', onSurfaceError);
+      };
       // Return a closeable owner before any filesystem/addon/process work.
       const initialization = Promise.resolve()
         .then(() => {
@@ -155,23 +162,38 @@ export const createNativePlaybackRuntime = (
             surface?.stopRequests();
             if (factoryAttempted && !owned)
               throw Error('NATIVE_INITIALIZATION_UNKNOWN');
-            const closed: NativePlaybackClosed = owned
-              ? await owned.close()
-              : {
-                  generation: owner.generation,
-                  processStarted: false,
-                  processExited: true,
-                  nativeDrained: true,
-                  pipesClosed: true,
-                  stopped: null,
-                };
-            if (backend) await backend.done();
-            if (surface) {
-              await surface.drain();
-              surface.close();
+            let closed: NativePlaybackClosed;
+            try {
+              closed = owned
+                ? await owned.close()
+                : {
+                    generation: owner.generation,
+                    processStarted: false,
+                    processExited: true,
+                    nativeDrained: true,
+                    pipesClosed: true,
+                    stopped: null,
+                  };
+              if (backend) await backend.done();
+            } catch (error) {
+              try {
+                const termination = await backend?.termination();
+                if (
+                  termination?.generation !== owner.generation ||
+                  termination.processExited !== true ||
+                  termination.pipesClosed !== true
+                )
+                  throw Error('NATIVE_TERMINATION_UNCONFIRMED');
+                // Physical closure permits the existing GPU ownership checks,
+                // not a synthetic native drain or stopped playback clock.
+                await closeSurface();
+              } catch {
+                note('surface-cleanup-unconfirmed');
+              }
+              throw error;
             }
+            await closeSurface();
             endActivity();
-            ipcMain.removeListener('diagnostic-surface-error', onSurfaceError);
             if (closed.processStarted) {
               if (!session) throw Error('NATIVE_SESSION_MISSING');
               const bytes = await readNativeReceipt(session);
