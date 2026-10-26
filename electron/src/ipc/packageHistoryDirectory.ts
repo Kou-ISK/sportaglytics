@@ -1,15 +1,17 @@
 import fs from 'node:fs/promises';
+import type { Dirent } from 'node:fs';
 import { awaitPackageHistoryRead } from './packageHistoryRead';
 
-const pendingDirectories = new Map<string, Promise<string[]>>();
+const pendingDirectories = new Map<string, Promise<unknown>>();
 
 /** A cancelled readdir still occupies OS resources. Keep one physical read per
  * resolved parent path until it settles. Each live request then reads afresh:
  * a cancelled request's stale snapshot must never hide a restored backup. */
-export const readPackageHistoryDirectory = (
+const readDirectory = <T>(
   directory: string,
+  read: () => Promise<T>,
   signal?: AbortSignal,
-): Promise<string[]> =>
+): Promise<T> =>
   awaitPackageHistoryRead(async () => {
     let previous = pendingDirectories.get(directory);
     while (previous) {
@@ -20,7 +22,7 @@ export const readPackageHistoryDirectory = (
     }
     signal?.throwIfAborted();
     // No await between checking ownership and recording the actual OS read.
-    const reading = fs.readdir(directory);
+    const reading = read();
     pendingDirectories.set(directory, reading);
     try {
       return await reading;
@@ -29,3 +31,19 @@ export const readPackageHistoryDirectory = (
         pendingDirectories.delete(directory);
     }
   }, signal);
+
+export const readPackageHistoryDirectory = (
+  directory: string,
+  signal?: AbortSignal,
+): Promise<string[]> =>
+  readDirectory(directory, () => fs.readdir(directory), signal);
+
+export const readPackageHistoryEntries = (
+  directory: string,
+  signal?: AbortSignal,
+): Promise<Dirent[]> =>
+  readDirectory(
+    directory,
+    () => fs.readdir(directory, { withFileTypes: true }),
+    signal,
+  );

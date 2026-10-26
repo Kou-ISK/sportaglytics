@@ -2,7 +2,10 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
-import { readPackageHistoryDirectory } from './packageHistoryDirectory';
+import {
+  readPackageHistoryDirectory,
+  readPackageHistoryEntries,
+} from './packageHistoryDirectory';
 
 const roots: string[] = [];
 const fixture = async (): Promise<string> => {
@@ -171,3 +174,43 @@ it('releases a late failure after every requester cancelled without issuing queu
   expect(await readPackageHistoryDirectory(root)).toEqual(['fresh']);
   expect(read).toHaveBeenCalledTimes(2);
 });
+
+it.each(['names', 'entries'] as const)(
+  'retains physical ownership after a cancelled %s read across enumeration modes',
+  async (firstMode) => {
+    const root = await fixture();
+    const pending = deferred();
+    const actualRead = fs.readdir.bind(fs);
+    let started = false;
+    const read = vi.spyOn(fs, 'readdir').mockImplementation((...args) => {
+      if (String(args[0]) === root && !started) {
+        started = true;
+        return pending.promise;
+      }
+      return Reflect.apply(actualRead, fs, args);
+    });
+    const first = new AbortController();
+    const readFirst =
+      firstMode === 'names'
+        ? readPackageHistoryDirectory
+        : readPackageHistoryEntries;
+    const cancelled = expect(readFirst(root, first.signal)).rejects.toThrow(
+      'PACKAGE_OPEN_CANCELLED',
+    );
+    await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+    first.abort();
+    await cancelled;
+    const readNext =
+      firstMode === 'names'
+        ? async () =>
+            (await readPackageHistoryEntries(root)).map((entry) => entry.name)
+        : async () => readPackageHistoryDirectory(root);
+    const next = readNext();
+    await Promise.resolve();
+    expect(read).toHaveBeenCalledTimes(1);
+    await fs.mkdir(path.join(root, 'Fresh.stpkg'));
+    pending.reject(new Error('late EIO'));
+    expect(await next).toEqual(['Fresh.stpkg']);
+    expect(read).toHaveBeenCalledTimes(2);
+  },
+);

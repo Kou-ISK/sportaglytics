@@ -1,3 +1,12 @@
+export interface PackageHistoryReadOptions {
+  signal?: AbortSignal;
+  directoryWaiting?: (waiting: boolean) => void;
+}
+
+export const checkPackageHistoryCancellation = (signal?: AbortSignal): void => {
+  if (signal?.aborted) throw new Error('PACKAGE_OPEN_CANCELLED');
+};
+
 /** Cancellation abandons the read result, never treats incomplete history as empty.
  * Node readdir cannot abort OS I/O. Its late result/error is consumed without
  * resuming preparation, so no migration, bind or save follows cancellation. */

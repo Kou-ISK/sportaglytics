@@ -26,15 +26,14 @@ import {
 import { snapshotPackageSource } from './packageSourceSnapshot';
 import { isPackageUpdating } from './packageUpdateLeases';
 import { isPackageRestoredFromBackup } from './packageBackupRestoration';
+import { checkPackageHistoryCancellation } from './packageHistoryRead';
+import type { PackageHistoryReadOptions } from './packageHistoryRead';
 
 export interface PackageOpenOptions {
   index?: PackageMigrationIndex;
   choose?: ChoosePackageContent;
   assertAvailable?: AssertPackageAvailable;
-  historyRead?: {
-    signal?: AbortSignal;
-    directoryWaiting?: (waiting: boolean) => void;
-  };
+  historyRead?: PackageHistoryReadOptions;
 }
 const pending = new Map<string, Promise<PackageOpenReadyResult>>();
 
@@ -42,7 +41,7 @@ const prepare = async (
   source: string,
   options: PackageOpenOptions,
 ): Promise<PackageOpenReadyResult> => {
-  options.historyRead?.signal?.throwIfAborted();
+  checkPackageHistoryCancellation(options.historyRead?.signal);
   if (isPackageUpdating(source)) throw new Error('PACKAGE_UPDATE_BUSY');
   const backupRecord = path.join(
     path.dirname(path.dirname(source)),
@@ -63,14 +62,14 @@ const prepare = async (
   }
   const recovered = await recoverPackageUpdate(source, options.assertAvailable);
   const compatibility = await inspectPackageCompatibility(source);
-  options.historyRead?.signal?.throwIfAborted();
+  checkPackageHistoryCancellation(options.historyRead?.signal);
   if (compatibility.missingMedia.length)
     throw new Error('PACKAGE_MEDIA_MISSING');
   const restored = await isPackageRestoredFromBackup(
     source,
     options.historyRead,
   );
-  options.historyRead?.signal?.throwIfAborted();
+  checkPackageHistoryCancellation(options.historyRead?.signal);
   if (!compatibility.needsMigration && !restored) {
     const receipt = await readUpdateReceipt(source);
     if (
@@ -84,11 +83,13 @@ const prepare = async (
       if (!options.choose) throw new Error('PACKAGE_UPDATE_COPY_DIVERGED');
       const sourceBeforeChoice = await snapshotPackageSource(source);
       const copyBeforeChoice = await snapshotPackageSource(receipt.adoptedFrom);
+      checkPackageHistoryCancellation(options.historyRead?.signal);
       const selected = await options.choose({
         source,
         candidates: [receipt.adoptedFrom],
         reason: 'conflict',
       });
+      checkPackageHistoryCancellation(options.historyRead?.signal);
       if (!selected) throw new Error('PACKAGE_MIGRATION_CANCELLED');
       if (
         (await snapshotPackageSource(source)).fingerprint !==
@@ -100,6 +101,7 @@ const prepare = async (
       if (!samePackagePath(selected, source)) {
         if (!samePackagePath(selected, receipt.adoptedFrom))
           throw new Error('PACKAGE_UPDATE_UNRELATED_COPY');
+        checkPackageHistoryCancellation(options.historyRead?.signal);
         const result = await updatePackageInPlace(
           source,
           receipt.adoptedFrom,
@@ -138,6 +140,7 @@ const prepare = async (
           );
           if (current.needsMigration || current.missingMedia.length)
             throw new Error('PACKAGE_UPDATE_RECOVERY_REQUIRED');
+          checkPackageHistoryCancellation(options.historyRead?.signal);
           return {
             status: 'ready',
             packagePath: marker.sourceRealPath,
@@ -150,8 +153,15 @@ const prepare = async (
     if (
       receipt ||
       (path.extname(source).toLowerCase() === '.stpkg' &&
-        (await collectPreviousPackageCopies(source, options.index)).size === 0)
-    )
+        (
+          await collectPreviousPackageCopies(
+            source,
+            options.index,
+            options.historyRead,
+          )
+        ).size === 0)
+    ) {
+      checkPackageHistoryCancellation(options.historyRead?.signal);
       return {
         status: 'ready',
         packagePath: source,
@@ -164,6 +174,7 @@ const prepare = async (
             }
           : {}),
       };
+    }
   }
   options.assertAvailable?.(source);
   const beforeChoice = await snapshotPackageSource(source);
@@ -172,12 +183,14 @@ const prepare = async (
     options.index,
     options.choose,
     restored ? 'restored' : undefined,
+    options.historyRead,
   );
   if (
     (await snapshotPackageSource(source)).fingerprint !==
     beforeChoice.fingerprint
   )
     throw new Error('PACKAGE_SOURCE_CHANGED');
+  checkPackageHistoryCancellation(options.historyRead?.signal);
   const result = await updatePackageInPlace(
     source,
     adopted,
