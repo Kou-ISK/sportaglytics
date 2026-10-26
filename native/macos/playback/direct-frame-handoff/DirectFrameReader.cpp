@@ -98,7 +98,9 @@ static int prepare(State&s){
  s.rearm();
  s.ioChecked(avformat_seek_file(s.format,-1,INT64_MIN,seek,seek,0),"bounded source seek");avcodec_flush_buffers(s.codec);
  s.packet=av_packet_alloc();s.decoded=av_frame_alloc();s.filtered=av_frame_alloc();require(s.packet&&s.decoded&&s.filtered,"packet/frame allocation");
- s.graph=avfilter_graph_alloc();require(s.graph,"filter graph allocation");s.graph->nb_threads=1;
+ // Two bounded bwdif slice workers keep all field pixels and timestamps while
+ // leaving decoder sessions, retained frames, and delivery credits unchanged.
+ s.graph=avfilter_graph_alloc();require(s.graph,"filter graph allocation");s.graph->nb_threads=2;
  std::string args="video_size=1920x1080:pix_fmt="+std::to_string(AV_PIX_FMT_YUV420P)+":time_base=1/60000:pixel_aspect=1/1:frame_rate=60000/1001:colorspace=bt709:range=tv";
  checked(avfilter_graph_create_filter(&s.input,avfilter_get_by_name("buffer"),"source",args.c_str(),nullptr,s.graph),"filter input");
  checked(avfilter_graph_create_filter(&s.output,avfilter_get_by_name("buffersink"),"fields",nullptr,nullptr,s.graph),"filter output");

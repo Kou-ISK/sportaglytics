@@ -525,6 +525,8 @@ field_order欠落素材のfixtureではraw stream値を注入せず、全packet�
 
 Native再生はmacOS arm64の適格な停止中sourceを自動使用します。開発は固定build-local runtime、配布は署名検証済みの固定Resourcesを使います。[機能inventoryと受入条件](native-playback.md)を確認し、6倍速・全音声・scrub・tag/save/exportを維持してください。全field/hash証明は開発診断であり、通常openで全尺走査しません。
 
+bwdifの2 slice workerを比較する際は、同一区間の全field画素・PTS・metadata、decoderを含むprocess全体のCPU/RSS、取消と終了を確認します。decode worker4個、session数、32field creditは維持します。単体測定と実製品の供給不足を区別し、閾値を緩めて合格にしません。互換再生へ引き継いだ文書ではpauseごとの再試行を行わず、再open時に資格を取り直します。
+
 `relativeSeekInput.integration.test.tsx`では実DOMキー/ボタンクリックを受領させ、古い別窓時計通知とHTML時計の遅延中も相対入力が失われないことを検査します。`timelineWindowSeek.test.ts`は所有元の未確定位置・方向反転・端点・source/同期モード変更を確認します。合成IPC/clockの検証であり、OS入力生成や物理表示の検査とは区別します。
 
 連続ドラッグの回帰では`useMediaTimeSync.test.tsx`で実際の`video-seek-start`イベントも発行し、位置propsだけの更新で代替しない。有限ローカル全区間seekable時の集約と、録画バッファ欠落・source読直し・gap再入時の置換を併せて検査する。`NativeSurfaceController.test.tsx`は適格外操作からの復帰を明示したfixtureで、確認済み中間画像の表示・共有時計・最終位置までのlease保持を合成確認する。これは実マウス入力・実デコーダー・物理表示の検証ではない。復帰中の取消・設定変更・実エラー・遅延完了は`nativePlaybackController.test.ts`で確認する。

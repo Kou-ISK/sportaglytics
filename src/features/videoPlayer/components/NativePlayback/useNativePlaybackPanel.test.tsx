@@ -147,6 +147,22 @@ it('waits for the surface and decoded image rather than losing a late readiness 
     expect(openQualifiedNativePlayback).toHaveBeenCalledTimes(1),
   );
 });
+it('does not promise automatic re-entry after the document has used its native attempt', async () => {
+  const value = setup();
+  await waitFor(() =>
+    expect(openQualifiedNativePlayback).toHaveBeenCalledTimes(1),
+  );
+  // The gateway mock leaves no native authority, as after a completed recovery.
+  value.state.paused = false;
+  value.hook.rerender({ playing: true });
+  expect(value.hook.result.current.view?.unavailableReason).toContain(
+    '再度開くと',
+  );
+  value.state.paused = true;
+  value.hook.rerender({ playing: false });
+  value.event('pause');
+  expect(openQualifiedNativePlayback).toHaveBeenCalledTimes(1);
+});
 it('keeps unsupported rate and endpoint on compatible playback, then adopts a supported stopped position', async () => {
   const value = setup({ rate: 2 });
   await waitFor(() =>
