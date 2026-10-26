@@ -53,7 +53,7 @@ export const resolveNativeResources = async (
     !record(manifest) ||
     !record(manifest.identity) ||
     !record(manifest.files) ||
-    manifest.identity.revision !== 2 ||
+    manifest.identity.revision !== 3 ||
     manifest.identity.platform !== 'darwin' ||
     manifest.identity.architecture !== 'arm64' ||
     manifest.identity.napiVersion !== 8 ||

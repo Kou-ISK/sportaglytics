@@ -94,3 +94,5 @@ v0.17.10のWindows H.264は[Media Foundationへ移行済み](adr/0062-windows-me
 ### 未公開native playback helper
 
 macOS arm64限定候補のhelper/IOSurface receiverは本作業で作成したsourceを必要依存だけ移植し、MIT本文と全sourceを保持します。固定FFmpeg 8.1.2（LGPL 2.1 or later構成）をhelperへstatic linkし、Node 22.12.0 N-API headerと公式LICENSEを使用します。上流URL/hash、全source/header/recipe、compiler/SDK、成果物、NOTICEを専用manifestで対応づけます。[対応ソースと再link手順](third-party-distribution.md#native-playback-previewの対応ソース)。通常配布への有効化・署名後artifact・可聴品質・全ライセンス/codec条件は別確認であり、未公開候補のbuild成功で完了扱いにしません。
+
+固定FFmpegへのfilter-only QoS適応は本作業で作成したMITの`filter-thread-qos.mjs`と`FilterThreadQoS.h`です。上流archiveを改変せず検証後に適用し、両ファイルをrecipe hashと対応sourceへ含めます。スレッド方針の変更だけを、性能や長時間品質の合格と扱いません。

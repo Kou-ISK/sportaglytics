@@ -558,3 +558,5 @@ macOS arm64では`pnpm run native:build`で固定sourceからhelperとN-API rece
 通常macOS packageは`native:build`と既存media/llama資源を準備して作成します。`scripts/macos/standard-after-pack.mjs`がarm64のnative資源を厳密照合・事前署名し、`native-after-sign.mjs`が外側署名後に再検証します。`nativeSignature`/`nativeResources`負例と`test:native-runtime`を実行し、実packaged起動・fallback・終了を別途確認します。新しいcredential/OS設定は不要な既存署名環境だけを使用し、公証は[Release手順](../.github/RELEASE.md)で確認します。
 
 短いnative供給不足の回復を変更した場合は`pnpm run test:native-runtime`とMain/Rendererのnative Session/Controller回帰を実行します。回復は同一worker・既存queueの範囲で停止時計を維持し、補充回数/累積時間を有限にします。実原本の再測定では不足と回復後の進行、操作応答、終了receiptを別々に記録し、回復した待機を消して品質合格にしません。
+
+フィルタのthread方針は`test:native-build`で実macOSのrequested QoS/relative priority、生成失敗の後始末、上流call siteの限定適応を検査します。build revisionと`nativeResources`の受入revisionは同時更新し、旧・未知revisionの拒否を維持します。対応sourceには上流archiveと固定日付の変更通知を再適用するrecipe/headerを含めます。

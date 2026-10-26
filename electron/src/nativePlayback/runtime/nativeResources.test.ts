@@ -49,7 +49,7 @@ const fixture = async (): Promise<{
     path.join(native, 'build.json'),
     JSON.stringify({
       identity: {
-        revision: 2,
+        revision: 3,
         platform: 'darwin',
         architecture: 'arm64',
         napiVersion: 8,
@@ -106,10 +106,15 @@ describe('fixed native resources', () => {
     ).rejects.toThrow('HASH');
     const file = path.join(f.native, 'build.json');
     const original = await readFile(file, 'utf8');
-    await writeFile(file, original.replace('"revision":2', '"revision":1'));
-    await expect(
-      resolveNativeResources(f.root, f.state, 'development'),
-    ).rejects.toThrow('IDENTITY');
+    for (const revision of [1, 2, 4]) {
+      await writeFile(
+        file,
+        original.replace('"revision":3', `"revision":${revision}`),
+      );
+      await expect(
+        resolveNativeResources(f.root, f.state, 'development'),
+      ).rejects.toThrow('IDENTITY');
+    }
   });
 });
 
