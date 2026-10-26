@@ -27,6 +27,7 @@ import { CaptureSession } from './captureSession';
 import {
   authorizeCaptureDevices,
   getCaptureWindow,
+  hideLiveCaptureWindow,
   openLiveCaptureWindow,
   setCaptureWindowLifecycle,
 } from './captureWindow';
@@ -96,7 +97,7 @@ export const registerLiveCaptureHandlers = (options: {
           const window = getCaptureWindow();
           if (session && window) {
             setPackageWindowContext(window, session);
-            if (current.snapshot.phase === 'recording') window.hide();
+            if (current.snapshot.phase === 'recording') hideLiveCaptureWindow();
             focusPackageSession(session);
           }
         })
@@ -151,7 +152,7 @@ export const registerLiveCaptureHandlers = (options: {
   ipcMain.handle(channels.hide, (event) => {
     if (!isOwner(event)) throw new Error('Invalid capture sender');
     if (!active()) return;
-    getCaptureWindow()?.hide();
+    hideLiveCaptureWindow();
     if (current) {
       const session = getPackageSessionForPackagePath(current.packagePath);
       if (session) focusPackageSession(session);
