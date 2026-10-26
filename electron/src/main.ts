@@ -1,3 +1,4 @@
+import { nativePreviewProvider } from './nativePlayback/nativePreviewStartup';
 import { registerEventDetectionWindowHandlers } from './eventDetectionWindow';
 import { registerLiveCaptureHandlers } from './liveCapture/captureHandlers';
 import { registerDocumentWindowTitle } from './documentWindowPresentation';
@@ -75,6 +76,10 @@ import { createPackageOpenRouter } from './packageOpenRouter';
 import { registerTimelineCloseProtection } from './timelineCloseProtection';
 import { registerPlaybackCacheHandlers } from './playbackCache/cacheHandlers';
 import { holdPlaybackCaches } from './playbackCache/cacheSessionController';
+import {
+  registerNativePlaybackHandlers,
+  holdNativePlayback,
+} from './nativePlayback/nativePlaybackHandlers';
 
 if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -217,6 +222,9 @@ registerLegacyFileAccessHandlers({ getMainWindow: () => mainWindow });
 registerPackageHandlers();
 registerPackageSessionHandlers();
 registerPlaybackCacheHandlers();
+registerNativePlaybackHandlers(
+  nativePreviewProvider(path.resolve(__dirname, '../..')),
+);
 registerSyncHandlers();
 registerMenuStateHandlers();
 registerSettingsHandlers();
@@ -302,7 +310,19 @@ registerLiveCaptureHandlers({ openPackage: openPackageInSession });
 // Register after capture's before-quit listener: active recording first finishes
 // its existing stop handshake, then retries quit through Timeline preparation.
 const timelineCloseProtection = registerTimelineCloseProtection({
-  beforeClose: holdPlaybackCaches,
+  beforeClose: async (windows, kind) => {
+    const releaseNative = await holdNativePlayback(windows, kind);
+    try {
+      const releaseCaches = await holdPlaybackCaches(windows, kind);
+      return () => {
+        releaseCaches();
+        releaseNative();
+      };
+    } catch (error) {
+      releaseNative();
+      throw error;
+    }
+  },
   rendererUrl: mainURL,
   requiresPersistence: (window) =>
     getPackageSessionForWindow(window)?.packagePath != null,

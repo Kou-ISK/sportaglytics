@@ -1,3 +1,7 @@
+import {
+  htmlPlaybackAllowed,
+  claimHtmlSourceSwitch,
+} from '../../shared/nativePlayback/playbackAuthority';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PlaybackCacheSnapshot } from '../../../../types/ipc/playbackCache';
 import type { CachePlayerRegistration } from './CachePlayerContext';
@@ -27,6 +31,7 @@ export const usePlaybackCacheController = (
 ): PlaybackCacheController => {
   const [snapshot, setSnapshot] = useState<PlaybackCacheSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inspectionFailed, setInspectionFailed] = useState(false);
   const [retry, setRetry] = useState<CacheRecoveryRequest | null>(null);
   const retryRef = useRef(retry);
   retryRef.current = retry;
@@ -37,6 +42,7 @@ export const usePlaybackCacheController = (
   pauseRef.current = pause;
   const refreshId = useRef(0);
   const players = useRef(new Set<CachePlayerRegistration>());
+  const sourceSwitchLease = useRef<(() => void) | null>(null);
   const switchAbort = useRef<AbortController | null>(null);
   const selected = useRef<CachePlayerRegistration | null>(null);
   const selectedAudioTracks = useRef(0);
@@ -51,8 +57,16 @@ export const usePlaybackCacheController = (
   const refresh = useCallback(async (): Promise<void> => {
     if (!api || !eligible) return;
     const id = ++refreshId.current;
-    const next = await api.inspect();
-    if (alive.current && id === refreshId.current) setSnapshot(next);
+    try {
+      const next = await api.inspect();
+      if (alive.current && id === refreshId.current) {
+        setSnapshot(next);
+        setInspectionFailed(false);
+      }
+    } catch (cause) {
+      if (alive.current && id === refreshId.current) setInspectionFailed(true);
+      throw cause;
+    }
   }, [api, eligible]);
   const register = useCallback(
     (registration: CachePlayerRegistration): (() => void) => {
@@ -70,6 +84,10 @@ export const usePlaybackCacheController = (
         recoveryAttempted.current.delete(registration);
         switchAbort.current?.abort();
         if (selected.current === registration) selected.current = null;
+        if (!switchAbort.current && players.current.size === 0) {
+          sourceSwitchLease.current?.();
+          sourceSwitchLease.current = null;
+        }
       };
     },
     [],
@@ -83,7 +101,7 @@ export const usePlaybackCacheController = (
       try {
         await refresh();
       } catch {
-        if (!stopped) setError('再生用コピーの状態を取得できませんでした。');
+        // refresh owns inspection state so older failures cannot replace it.
       }
       if (!stopped)
         timer = setTimeout(() => {
@@ -94,8 +112,13 @@ export const usePlaybackCacheController = (
     return () => {
       stopped = true;
       alive.current = false;
+      refreshId.current++;
       clearTimeout(timer);
       switchAbort.current?.abort();
+      if (!switchAbort.current) {
+        sourceSwitchLease.current?.();
+        sourceSwitchLease.current = null;
+      }
     };
   }, [eligible, refresh]);
   useEffect(() => {
@@ -132,7 +155,12 @@ export const usePlaybackCacheController = (
       manual = false,
       pending: CacheRecoveryRequest | null = null,
     ): Promise<void> => {
-      if (!api || switchAbort.current || (playingRef.current && !recovery))
+      if (
+        !htmlPlaybackAllowed() ||
+        !api ||
+        switchAbort.current ||
+        (playingRef.current && !recovery)
+      )
         return;
       const current = snapshotRef.current;
       if (pending && !isCacheRecoveryCurrent(pending, current, players.current))
@@ -147,10 +175,12 @@ export const usePlaybackCacheController = (
         setError('この再生画面ではコピーへ切り替えられません。');
         return;
       }
+      sourceSwitchLease.current ??= claimHtmlSourceSwitch();
       const controller = new AbortController();
       switchAbort.current = controller;
       setSwitching(true);
       setError(null);
+      let committed = false;
       let changed = false;
       let restored = false;
       let savedTimeline = timelineRef.current;
@@ -227,6 +257,7 @@ export const usePlaybackCacheController = (
         await refresh();
         controller.signal.throwIfAborted();
         setRetry(null);
+        committed = true;
         if (recovery && !manual && alive.current)
           setError(
             '再生用コピーで問題が発生したため、同じ位置の原本へ戻して停止しました。音声と映像を確認してから再開してください。',
@@ -295,6 +326,16 @@ export const usePlaybackCacheController = (
               : '切替を完了できず、原本への復旧は未確認です。停止状態で映像と音声を確認し、原本への切替を再試行してください。',
           );
       } finally {
+        if (
+          committed ||
+          restored ||
+          !changed ||
+          !alive.current ||
+          !players.current.has(player)
+        ) {
+          sourceSwitchLease.current?.();
+          sourceSwitchLease.current = null;
+        }
         if (switchAbort.current === controller) switchAbort.current = null;
         if (alive.current) setSwitching(false);
       }
@@ -335,7 +376,9 @@ export const usePlaybackCacheController = (
   return {
     context,
     snapshot,
-    error,
+    error:
+      error ??
+      (inspectionFailed ? '再生用コピーの状態を取得できませんでした。' : null),
     switching,
     onRetryOriginal:
       retry &&

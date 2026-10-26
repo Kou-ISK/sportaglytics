@@ -1,3 +1,4 @@
+import { restoreNativeBeforeDocumentChange } from '../../../../shared/nativePlayback/nativePlaybackRegistry';
 import type { PackageOpenProgress } from '../../../../../../types/package/openProgress';
 import type { PackageDatas } from '../../../../../../renderer';
 import type { VideoSyncData } from '../../../../../../types/video/sync';
@@ -149,6 +150,8 @@ export const loadPackageDirectory = async (
   const api = getElectronApi();
   let preparedPackagePath = packagePath;
   try {
+    await restoreNativeBeforeDocumentChange();
+    if (!current()) throw new Error('PACKAGE_OPEN_CANCELLED');
     const prepared = await preparePackagePathForOpen(packagePath, bindingId);
     preparedPackagePath = prepared.path;
     if (!current()) throw new Error('PACKAGE_OPEN_CANCELLED');

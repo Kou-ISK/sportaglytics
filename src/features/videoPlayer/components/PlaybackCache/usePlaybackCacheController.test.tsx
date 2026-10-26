@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import type { PlaybackCacheSnapshot } from '../../../../types/ipc/playbackCache';
 import type { CachePlayerPort } from './cachePlayerSwitch';
 import { usePlaybackCacheController } from './usePlaybackCacheController';
+import { claimNativePlayback } from '../../shared/nativePlayback/playbackAuthority';
 
 const fixture = async () => {
   const snapshot: PlaybackCacheSnapshot = {
@@ -146,6 +147,92 @@ afterEach(() => {
     value: undefined,
     configurable: true,
   });
+});
+it('clears a transient inspection error after the next successful poll', async () => {
+  const { result, api } = await fixture();
+  api.inspect.mockRejectedValueOnce(Error('CACHE_UNAUTHORIZED'));
+  await waitFor(
+    () =>
+      expect(result.current.error).toBe(
+        '再生用コピーの状態を取得できませんでした。',
+      ),
+    { timeout: 2000 },
+  );
+  await waitFor(() => expect(result.current.error).toBeNull(), {
+    timeout: 2000,
+  });
+});
+
+it('does not clear an operation error when inspection recovers', async () => {
+  const { result, api } = await fixture();
+  api.prepare.mockImplementationOnce(() => {
+    throw Error('CACHE_BUSY');
+  });
+  act(() => result.current.onPrepare());
+  const message =
+    '処理を完了できませんでした。状態を確認して再試行してください。';
+  await waitFor(() => expect(result.current.error).toBe(message));
+  const calls = api.inspect.mock.calls.length;
+  await waitFor(
+    () => expect(api.inspect.mock.calls.length).toBeGreaterThan(calls),
+    { timeout: 2000 },
+  );
+  expect(result.current.error).toBe(message);
+});
+
+it('ignores an older poll failure after a newer operation refresh succeeds', async () => {
+  const { result, api } = await fixture();
+  const older = Promise.withResolvers<PlaybackCacheSnapshot>();
+  const calls = api.inspect.mock.calls.length;
+  api.inspect.mockReturnValueOnce(older.promise);
+  await waitFor(() => expect(api.inspect.mock.calls.length).toBe(calls + 1), {
+    timeout: 2000,
+  });
+  act(() => result.current.onCancel());
+  await waitFor(() => expect(api.inspect.mock.calls.length).toBe(calls + 2));
+  await act(async () => older.reject(Error('stale inspection')));
+  expect(result.current.error).toBeNull();
+});
+
+it('ignores a pending inspection after the playback screen becomes ineligible', async () => {
+  const existing = await fixture();
+  existing.unmount();
+  const pending = Promise.withResolvers<PlaybackCacheSnapshot>();
+  existing.api.inspect.mockReturnValueOnce(pending.promise);
+  const hook = renderHook(
+    ({ eligible }) => usePlaybackCacheController(eligible, false, 0, vi.fn()),
+    { initialProps: { eligible: true } },
+  );
+  hook.rerender({ eligible: false });
+  await act(async () => pending.reject(Error('old playback screen')));
+  expect(hook.result.current.error).toBeNull();
+});
+
+it('reserves source authority through candidate and selected ACK waits', async () => {
+  const { result, api, ack } = await fixture();
+  const candidate = Promise.withResolvers<{
+    url: string;
+    ticket: string;
+    audioTracks: number;
+  }>();
+  api.candidate.mockReturnValueOnce(candidate.promise);
+  act(() => result.current.onUseCache());
+  expect(() => claimNativePlayback()).toThrow('PLAYBACK_AUTHORITY_BUSY');
+  await act(async () => {
+    candidate.resolve({
+      url: 'file:///cache.mp4',
+      ticket: 'ticket',
+      audioTracks: 3,
+    });
+  });
+  await waitFor(() => expect(api.selected).toHaveBeenCalled());
+  expect(() => claimNativePlayback()).toThrow('PLAYBACK_AUTHORITY_BUSY');
+  await act(async () => {
+    ack.resolve();
+  });
+  await waitFor(() => expect(result.current.switching).toBe(false));
+  const release = claimNativePlayback();
+  release();
 });
 it('rolls back a media error during the selected ACK wait and preserves the known audio selection', async () => {
   const { result, api, ack, emit, port } = await fixture();

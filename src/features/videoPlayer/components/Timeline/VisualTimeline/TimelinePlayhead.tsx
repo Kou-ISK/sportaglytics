@@ -10,6 +10,7 @@ interface TimelinePlayheadProps {
   currentTime: number;
   formatTime: (value: number) => string;
   onSeek: (time: number) => void;
+  onSeekRelative?: (seconds: number) => void;
   seekHandlers: ReturnType<typeof useTimelineSeek>;
 }
 export const TimelinePlayhead = ({
@@ -19,6 +20,7 @@ export const TimelinePlayhead = ({
   currentTime,
   formatTime,
   onSeek,
+  onSeekRelative,
   seekHandlers,
 }: TimelinePlayheadProps): ReactElement => (
   <Box
@@ -49,6 +51,15 @@ export const TimelinePlayhead = ({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         const delta = event.shiftKey ? 10 : 1;
+        if (
+          onSeekRelative &&
+          (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          onSeekRelative(event.key === 'ArrowLeft' ? -delta : delta);
+          return;
+        }
         const value =
           event.key === 'Home'
             ? 0

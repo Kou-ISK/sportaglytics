@@ -1,3 +1,4 @@
+import { claimRangePlayback } from '../nativePlayback/playbackAuthority';
 export interface RangePlaybackClockPort {
   readonly failure: Error | null;
   demand: (time: number) => void;
@@ -17,10 +18,14 @@ export const bindRangePlaybackClock = (
 ): (() => void) => {
   if (!url.startsWith('blob:') || bindings.has(video))
     throw Error('RANGE_CLOCK_ALREADY_BOUND');
+  const release = claimRangePlayback();
   const binding = { url, port };
   bindings.set(video, binding);
   return () => {
-    if (bindings.get(video) === binding) bindings.delete(video);
+    if (bindings.get(video) === binding) {
+      bindings.delete(video);
+      release();
+    }
   };
 };
 export const getRangePlaybackClock = (

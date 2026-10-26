@@ -13,6 +13,7 @@ import { PlaybackCacheView } from './PlaybackCacheView';
 import type { PlaybackCacheViewProps } from './PlaybackCacheView';
 export interface PlaybackCachePanelViewProps {
   children: ReactNode;
+  playbackControls?: ReactNode;
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
@@ -53,6 +54,7 @@ export const PlaybackCachePanelView = (
         {props.error}
       </Alert>
     )}
+    {props.playbackControls}
     <Box sx={{ flex: 1, minHeight: 0, minWidth: 0 }}>{props.children}</Box>
     <Dialog open={props.open} onClose={props.onClose} maxWidth="sm" fullWidth>
       <DialogTitle>再生用コピー</DialogTitle>

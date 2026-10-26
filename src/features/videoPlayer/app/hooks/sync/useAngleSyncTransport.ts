@@ -19,6 +19,7 @@ export const useAngleSyncTransport = (
   stepping: boolean;
   select: (index: number | null) => void;
   seek: (time: number) => void;
+  seekRelative: (seconds: number) => void;
   toggle: () => void;
   step: (direction: -1 | 1) => Promise<void>;
   mark: () => Promise<void>;
@@ -320,6 +321,18 @@ export const useAngleSyncTransport = (
     stepping,
     select,
     seek,
+    seekRelative: (seconds: number): void => {
+      if (!Number.isFinite(seconds)) return;
+      const time = timesRef.current[selected ?? 0];
+      const end = Math.max(
+        0,
+        ...draft.angles.map(
+          (angle, index) =>
+            angleSyncBounds(angle, draft.offsets[index] ?? 0).end,
+        ),
+      );
+      if (time !== undefined) seek(Math.max(0, Math.min(end, time + seconds)));
+    },
     toggle,
     step,
     mark,

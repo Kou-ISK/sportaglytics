@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { snapshotCachePlayer, switchCachePlayer } from './cachePlayerSwitch';
 import type { CachePlayerPort } from './cachePlayerSwitch';
+import { restoreNativeOriginal } from '../../shared/nativePlayback/nativeOriginalRecovery';
 const fixture = () => {
   const callbacks = new Map<string, Set<() => void>>();
   const emit = (event: string): void => {
@@ -67,6 +68,37 @@ const fixture = () => {
   };
 };
 afterEach(() => vi.useRealTimers());
+it.each([0.00000033333333, 0.00020033333333])(
+  'restores an unloaded qualified endpoint with discrepancy %s without rewriting the package clock',
+  async (difference) => {
+    const { port, metadata, decoded, listeners } = fixture();
+    const target = 90 + difference;
+    port.setSource(port.source());
+    let finished = false;
+    const snapshot = {
+      ...snapshotCachePlayer({ ...port, ready: () => 2 }),
+      time: target,
+      sourceEnd: target,
+    };
+    const work = restoreNativeOriginal(
+      port,
+      port.source(),
+      snapshot,
+      3,
+      new AbortController().signal,
+    ).then(() => {
+      finished = true;
+    });
+    metadata();
+    expect(port.seek).toHaveBeenCalledWith(90);
+    await Promise.resolve();
+    expect(finished).toBe(false);
+    decoded();
+    await work;
+    expect(snapshot.time).toBe(target);
+    expect(listeners()).toBe(0);
+  },
+);
 it('restores exact paused position and audio settings before completing; source metadata alone is insufficient', async () => {
   const fixtureData = fixture();
   const { port, metadata, decoded, listeners } = fixtureData;
@@ -147,4 +179,30 @@ it('does not mistake old decoded/seeked events for metadata from the requested r
   expect(port.seek).not.toHaveBeenCalled();
   controller.abort();
   await rejected;
+});
+
+it('cold recovery records the exact rejected duration once before a later metadata value', async () => {
+  const { port, metadata } = fixture();
+  port.duration = vi.fn().mockReturnValueOnce(89.9998).mockReturnValue(90);
+  const work = switchCachePlayer(
+    port,
+    'file:///original.mp4',
+    { time: 90, settings: port.settings() },
+    3,
+    new AbortController().signal,
+  );
+  const rejected = expect(work).rejects.toMatchObject({
+    message: 'CACHE_SWITCH_DURATION',
+    recovery: {
+      requestedTime: 90,
+      duration: 89.9998,
+      durationKind: 0,
+      readyState: 1,
+      seeking: 0,
+    },
+  });
+  metadata();
+  await rejected;
+  expect(port.duration).toHaveBeenCalledTimes(1);
+  expect(port.seek).not.toHaveBeenCalled();
 });

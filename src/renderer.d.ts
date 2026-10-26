@@ -34,6 +34,47 @@ export interface LlamaModelInfo {
 }
 
 export interface IElectronAPI {
+  /** Present only in a Main-qualified embedded playback build. No native handles. */
+  nativeSurface?: {
+    bind: (
+      canvasId: string,
+      onFrame: (frame: {
+        generation: string;
+        seekId: number;
+        pts: number;
+        timescale: number;
+      }) => void,
+    ) => () => void;
+  };
+  nativePlayback: {
+    reportFailure?: (
+      owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
+      failure: import('./types/ipc/nativePlaybackFailure').NativePlaybackFailure,
+    ) => Promise<void>;
+    onSnapshot: (
+      owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
+      listener: (
+        snapshot:
+          | import('./types/ipc/nativePlayback').NativePlaybackSnapshot
+          | null,
+      ) => void,
+    ) => () => void;
+    inspect: () => Promise<
+      import('./types/ipc/nativePlayback').NativePlaybackAvailability
+    >;
+    open: (
+      owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
+    ) => Promise<void>;
+    apply: (
+      intent: import('./types/ipc/nativePlayback').NativePlaybackIntent,
+    ) => Promise<void>;
+    observe: (
+      owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
+    ) => Promise<import('./types/ipc/nativePlayback').NativePlaybackSnapshot>;
+    close: (
+      owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
+    ) => Promise<import('./types/ipc/nativePlayback').NativePlaybackClosed>;
+  };
   playbackCache: {
     inspect: () => Promise<
       import('./types/ipc/playbackCache').PlaybackCacheSnapshot

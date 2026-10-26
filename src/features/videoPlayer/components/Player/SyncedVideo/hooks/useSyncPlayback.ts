@@ -1,3 +1,4 @@
+import { htmlPlaybackAllowed } from '../../../../shared/nativePlayback/playbackAuthority';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { VideoSyncData } from '../../../../../../types/video/sync';
 import {
@@ -64,6 +65,7 @@ export const useSyncPlayback = ({
     const pollInterval = 30;
 
     const updatePrimaryClock = () => {
+      if (!htmlPlaybackAllowed()) return true;
       try {
         const player = getVideoJsPlayer('video_0');
         const current = player ? getVideoJsPlayerCurrentTime(player) : null;
@@ -121,7 +123,7 @@ export const useSyncPlayback = ({
 
     const reportThreshold = 0.08;
     const handleTimeUpdate = () => {
-      if (isSeekingRef.current) {
+      if (!htmlPlaybackAllowed() || isSeekingRef.current) {
         return;
       }
       try {

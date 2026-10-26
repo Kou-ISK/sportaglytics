@@ -1,3 +1,4 @@
+import type { ClipExportAudioSelection } from '../../../../shared/clipExport/clipExportAudio';
 import React from 'react';
 import type { CaptureTimelineState } from '../../../../types/liveCapture';
 import { LiveCaptureTimelineView } from './LiveCaptureTimelineView';
@@ -30,6 +31,7 @@ interface TimelineActionSectionProps {
   timelineRows: TimelineRow[];
   maxSec: number;
   currentTime: number;
+  onSeekRelative?: (seconds: number) => void;
   selectedTimelineIdList: string[];
   setSelectedTimelineIdList: (ids: string[]) => void;
   teamNames: string[];
@@ -70,6 +72,7 @@ interface TimelineActionSectionProps {
     targetRowId: string,
   ) => string[];
   videoList: string[];
+  audioSelections?: readonly ClipExportAudioSelection[];
   performUndo: () => void;
   performRedo: () => void;
   handleCurrentTime: (
@@ -94,6 +97,7 @@ export const TimelineActionSection = ({
   timelineRows,
   maxSec,
   currentTime,
+  onSeekRelative,
   selectedTimelineIdList,
   setSelectedTimelineIdList,
   teamNames,
@@ -113,6 +117,7 @@ export const TimelineActionSection = ({
   deleteTimelineRows,
   pasteTimelineItemsToRow,
   videoList,
+  audioSelections,
   performUndo,
   performRedo,
   handleCurrentTime,
@@ -191,6 +196,7 @@ export const TimelineActionSection = ({
             rows={timelineRows}
             maxSec={maxSec}
             currentTime={currentTime}
+            onSeekRelative={onSeekRelative}
             onSeek={(time: number) => {
               const event = new Event('visual-timeline-seek');
               handleCurrentTime(event, time);
@@ -226,6 +232,7 @@ export const TimelineActionSection = ({
             onPasteTimelineItemsToRow={pasteTimelineItemsToRow}
             teamNames={teamNames}
             videoSources={videoList}
+            audioSelections={audioSelections}
             onUndo={performUndo}
             onRedo={performRedo}
             onAddToPlaylist={onAddToPlaylist}

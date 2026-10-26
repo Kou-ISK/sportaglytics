@@ -1,3 +1,7 @@
+import {
+  getNativePlayback,
+  restoreNativeBeforeDocumentChange,
+} from '../../shared/nativePlayback/nativePlaybackRegistry';
 import type { AnalysisView } from '../../../../types/analysis/view';
 
 const noop = (): void => undefined;
@@ -31,7 +35,26 @@ export const subscribeCreateVideoPackageMenu = (
   }
 
   try {
-    return api.onCreateVideoPackage(callback);
+    let active = true;
+    let latest = 0;
+    const unsubscribe = api.onCreateVideoPackage(() => {
+      const request = ++latest;
+      if (!getNativePlayback()) {
+        callback();
+        return;
+      }
+      void restoreNativeBeforeDocumentChange()
+        .then(() => {
+          if (active && request === latest) callback();
+        })
+        .catch(() => {
+          // Keep the current player mounted; its panel reports recovery failure.
+        });
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   } catch (error: unknown) {
     console.debug('[menuEventGateway] onCreateVideoPackage failed', error);
     return noop;

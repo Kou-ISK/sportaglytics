@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type Player from 'video.js/dist/types/player';
+import { getNativePlayback } from '../../../../shared/nativePlayback/nativePlaybackRegistry';
 
 interface UseFullscreenParams {
   playerRef: React.RefObject<Player | null>;
@@ -33,6 +34,24 @@ export const useFullscreen = ({
     }
 
     try {
+      // Native disables Video.js controls, so its fullscreen surface must also
+      // contain the existing shared toolbar and exit control.
+      const root = player.el()?.closest('[data-video-fullscreen-root]');
+      if (document.fullscreenElement?.contains(player.el())) {
+        void document.exitFullscreen().catch((error: unknown) => {
+          console.debug(`[useFullscreen ${id}] Fullscreen exit failed`, error);
+        });
+        return;
+      }
+      if (getNativePlayback() && root instanceof HTMLElement) {
+        void root.requestFullscreen().catch((error: unknown) => {
+          console.debug(
+            `[useFullscreen ${id}] Fullscreen request failed`,
+            error,
+          );
+        });
+        return;
+      }
       if (!isFullscreen) {
         // 全画面表示を要求
         if (typeof player.requestFullscreen === 'function') {
@@ -55,18 +74,20 @@ export const useFullscreen = ({
     }
   }, [playerRef, id, isFullscreen]);
 
+  const observedPlayer = playerRef.current;
   useEffect(() => {
     isMountedRef.current = true;
-    const player = playerRef.current;
+    const player = observedPlayer;
     if (!player) return;
 
     const handleFullscreenChange = () => {
       if (!isMountedRef.current) return;
 
       const currentFullscreenState =
-        typeof player.isFullscreen === 'function'
+        document.fullscreenElement?.contains(player.el()) ||
+        (typeof player.isFullscreen === 'function'
           ? (player.isFullscreen() ?? false)
-          : false;
+          : false);
 
       console.debug(
         `[useFullscreen ${id}] Fullscreen change:`,
@@ -79,14 +100,19 @@ export const useFullscreen = ({
     if (typeof player.on === 'function') {
       player.on('fullscreenchange', handleFullscreenChange);
     }
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    handleFullscreenChange();
 
     return () => {
       isMountedRef.current = false;
-      if (typeof player.off === 'function') {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      try {
         player.off('fullscreenchange', handleFullscreenChange);
+      } catch {
+        // The document listener is already removed even if this player was disposed.
       }
     };
-  }, [playerRef, id]);
+  }, [observedPlayer, id]);
 
   return { isFullscreen, handleToggleFullscreen };
 };

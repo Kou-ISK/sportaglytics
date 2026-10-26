@@ -1,3 +1,7 @@
+import {
+  htmlPlaybackAllowed,
+  playbackAuthorityRevision,
+} from '../../../../shared/nativePlayback/playbackAuthority';
 import { useCallback, useEffect, useRef } from 'react';
 import { useFlashStates } from './useFlashStates';
 import { usePlaybackTimeTracker } from './usePlaybackTimeTracker';
@@ -109,7 +113,15 @@ export const useVideoControllerController = ({
       return;
     }
 
+    let cancelled = false;
+    const authority = playbackAuthorityRevision();
+    const allowed = (): boolean =>
+      !cancelled &&
+      isVideoPlayingRef.current &&
+      htmlPlaybackAllowed() &&
+      authority === playbackAuthorityRevision();
     const tryPlayAll = () => {
+      if (!allowed()) return;
       const basePlayer = getExistingPlayer('video_0');
       const useSlider = !!(
         syncData?.isAnalyzed &&
@@ -164,12 +176,18 @@ export const useVideoControllerController = ({
           }
 
           const playNow = () => {
+            if (!allowed()) return;
             const playResult = player.play?.();
             if (
               playResult &&
               typeof (playResult as Promise<unknown>).catch === 'function'
             ) {
-              (playResult as Promise<unknown>).catch(() => undefined);
+              void Promise.resolve(playResult)
+                .then(() => {
+                  if (!htmlPlaybackAllowed() || !isVideoPlayingRef.current)
+                    player.pause?.();
+                })
+                .catch(() => undefined);
             }
           };
 
@@ -188,6 +206,11 @@ export const useVideoControllerController = ({
           }
 
           const onReady = () => {
+            if (!allowed()) {
+              player.off?.('loadedmetadata', onReady);
+              player.off?.('canplay', onReady);
+              return;
+            }
             if (index > 0) {
               const targetTime = Math.max(0, baseTime - localOffset);
               try {
@@ -216,6 +239,7 @@ export const useVideoControllerController = ({
 
     const timer = globalThis.setTimeout(tryPlayAll, 150);
     return () => {
+      cancelled = true;
       globalThis.clearTimeout(timer);
     };
   }, [
@@ -243,7 +267,8 @@ export const useVideoControllerController = ({
     setIsVideoPlaying,
     syncData,
     maxSec,
-    videoTime,
+    videoTime: useTimelineClock ? currentTime : videoTime,
+    useTimelineClock,
     setVideoTime,
     handleCurrentTime,
     getExistingPlayer,

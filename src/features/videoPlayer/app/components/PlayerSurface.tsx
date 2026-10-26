@@ -5,6 +5,7 @@ import { VideoPlayer, VideoController } from '../..';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
 import { usePackagePlaybackClock } from '../hooks/usePackagePlaybackClock';
+import { useNativePlaybackRestoration } from '../hooks/useNativePackageClock';
 import { PlaybackCacheBoundary } from '../../components/PlaybackCache/PlaybackCacheBoundary';
 
 interface PlayerSurfaceProps {
@@ -49,6 +50,11 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   mediaAngles,
   setMediaAngles,
 }) => {
+  const restoreNativePlayback = useNativePlaybackRestoration(
+    setCurrentTime,
+    setVideoPlayBackRate,
+    setIsVideoPlaying,
+  );
   const { useTimelineClock, holdPlayback } = usePackagePlaybackClock({
     mediaAngles,
     syncData,
@@ -72,8 +78,10 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
       playing={isVideoPlaying}
       timelineTime={currentTime}
       pause={() => setIsVideoPlaying(false)}
+      onNativeRestored={restoreNativePlayback}
     >
       <Box
+        data-video-fullscreen-root
         sx={{
           gridColumn: '1',
           gridRow: '1',

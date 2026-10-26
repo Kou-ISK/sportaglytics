@@ -1,4 +1,14 @@
-import { useEffect } from 'react';
+import {
+  htmlPlaybackAllowed,
+  playbackAuthorityRevision,
+  subscribePlaybackAuthority,
+} from '../../../../shared/nativePlayback/playbackAuthority';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+} from 'react';
 import type Player from 'video.js/dist/types/player';
 
 interface UsePlaybackBehaviourParams {
@@ -30,13 +40,22 @@ export const usePlaybackBehaviour = ({
   setShowEndMask,
   allowSeek,
 }: UsePlaybackBehaviourParams): void => {
+  const authority = useSyncExternalStore(
+    subscribePlaybackAuthority,
+    playbackAuthorityRevision,
+    playbackAuthorityRevision,
+  );
+  const desiredPlay = useRef(false);
+  useLayoutEffect(() => {
+    desiredPlay.current = isVideoPlaying && !blockPlay;
+  }, [isVideoPlaying, blockPlay]);
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !isReady) {
       return;
     }
 
-    if (blockPlay) {
+    if (!htmlPlaybackAllowed() || blockPlay) {
       player.pause();
       return;
     }
@@ -57,12 +76,19 @@ export const usePlaybackBehaviour = ({
       tryPlay();
     };
     const waitForData = (): void => {
-      if (cancelled || waiting) return;
+      if (cancelled || waiting || !htmlPlaybackAllowed()) return;
       waiting = true;
       player.on('canplay', handleReady);
     };
     const tryPlay = (): void => {
-      if (cancelled || player.isDisposed() || !player.paused()) return;
+      if (
+        cancelled ||
+        !htmlPlaybackAllowed() ||
+        authority !== playbackAuthorityRevision() ||
+        player.isDisposed() ||
+        !player.paused()
+      )
+        return;
       const tech = getVideoElement(player);
       if (tech && tech.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
         waitForData();
@@ -72,7 +98,19 @@ export const usePlaybackBehaviour = ({
       if (attempt)
         void attempt
           .then(() => {
-            if (!cancelled && !player.isDisposed() && id !== 'video_0')
+            if (
+              !player.isDisposed() &&
+              (!htmlPlaybackAllowed() || !desiredPlay.current)
+            ) {
+              player.pause();
+              return;
+            }
+            if (
+              !cancelled &&
+              authority === playbackAuthorityRevision() &&
+              !player.isDisposed() &&
+              id !== 'video_0'
+            )
               player.muted(true);
           })
           .catch(() => {
@@ -91,17 +129,18 @@ export const usePlaybackBehaviour = ({
       cancelled = true;
       clearReadyListener();
     };
-  }, [playerRef, isReady, blockPlay, isVideoPlaying, id]);
+  }, [playerRef, isReady, blockPlay, isVideoPlaying, id, authority]);
 
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !isReady) {
       return;
     }
+    if (!htmlPlaybackAllowed()) return;
     if (player.playbackRate() !== videoPlayBackRate) {
       player.playbackRate(videoPlayBackRate);
     }
-  }, [playerRef, videoPlayBackRate, isReady]);
+  }, [playerRef, videoPlayBackRate, isReady, authority]);
 
   useEffect(() => {
     const player = playerRef.current;

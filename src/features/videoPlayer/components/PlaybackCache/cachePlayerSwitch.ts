@@ -1,3 +1,8 @@
+import {
+  resolveCachePlayerSeekTarget,
+  CACHE_PLAYER_TIME_TOLERANCE_SECONDS,
+} from './cachePlayerSeekTarget';
+import { CachePlayerDurationError } from './cachePlayerDurationError';
 /** Media adapter keeps this transaction independent of React and Video.js. */
 export interface CachePlayerPort {
   paused: () => boolean;
@@ -24,6 +29,8 @@ export interface CachePlayerPort {
 }
 export interface CachePlayerSnapshot {
   time: number;
+  /** Validated native source endpoint, absent for ordinary cache switching. */
+  sourceEnd?: number;
   settings: ReturnType<CachePlayerPort['settings']>;
 }
 export const snapshotCachePlayer = (
@@ -71,22 +78,32 @@ export const switchCachePlayer = (
       try {
         if (!port.paused()) throw Error('CACHE_SWITCH_PLAYING');
         if (!metadata && reset && metadataEvent === true && port.ready() >= 1) {
-          if (
-            !Number.isFinite(port.duration()) ||
-            snapshot.time > port.duration()
-          )
-            throw Error('CACHE_SWITCH_DURATION');
+          const duration = port.duration();
+          const targetTime = resolveCachePlayerSeekTarget(
+            snapshot.time,
+            duration,
+            snapshot.sourceEnd,
+          );
+          if (targetTime === null)
+            throw new CachePlayerDurationError(
+              'CACHE_SWITCH_DURATION',
+              snapshot.time,
+              duration,
+              port.ready(),
+              port.seeking(),
+            );
           port.restore(snapshot.settings, audioTracks);
           metadata = true;
           // Mark before seek: adapters may dispatch synchronously.
           sought = true;
-          port.seek(snapshot.time);
+          port.seek(targetTime);
         }
         if (
           sought &&
           !port.seeking() &&
           port.ready() >= 2 &&
-          Math.abs(port.time() - snapshot.time) <= 0.002
+          Math.abs(port.time() - snapshot.time) <=
+            CACHE_PLAYER_TIME_TOLERANCE_SECONDS
         )
           finish();
       } catch (error) {
