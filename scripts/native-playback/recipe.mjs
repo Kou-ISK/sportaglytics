@@ -1,6 +1,6 @@
 import { SOURCES } from '../media-tools/sources.mjs';
 
-export const BUILD_REVISION = 1;
+export const BUILD_REVISION = 2;
 export const BUILD_INPUT_FILES = [
   'scripts/build-native-playback.mjs',
   'scripts/native-playback/recipe.mjs',

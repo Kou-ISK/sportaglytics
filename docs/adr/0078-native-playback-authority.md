@@ -14,7 +14,7 @@ Proposed
 
 ## Decision
 
-通常のdirect再生を維持し、Mainが適合を確認したsourceだけをnative候補とする。通常起動のproviderはnullであり、native helper・有効化UIは配布しない。非packaged/macOS/起動時preview指定の全条件を満たす開発buildのみ、固定build-local runtimeをMainへ接続する。既存の再生用コピーのproof契約は変更しない。
+通常のdirect再生を維持し、Mainが適合を確認したsourceだけをnative候補とする。通常起動のproviderはnullであり、通常配布設定にはnative helperを追加しない。起動時preview指定を満たすmacOS開発buildは固定build-local runtime、unsigned arm64限定packageは固定ResourcesとMain内runtimeを接続する。限定packageの資源は正確な集合・版・hashを確認し、不一致なら候補を提供しない。既存の再生用コピーのproof契約は変更しない。
 
 MainがSession/source/generationを所有し、Rendererは限定されたinspect/open/apply/observe/onSnapshot/closeを使う。Rendererに実行ファイル、引数、任意path、proofの注入を許可しない。原本時刻と操作sequence/seekIdを分離し、同時配送1件と最新の保留1件に制限する。配送成功は画像・音声準備完了ではない。nativeの確認済み観測だけを共通時計へ反映し、並行するHTML再生・シーク・rAF時計を止める。
 
@@ -47,3 +47,5 @@ Normal Native drainage does not imply successful Renderer restoration. Retain th
 ## 相対操作の加算境界
 
 別窓は確認済み時計の通知に遅延があるため、相対キーを絶対時刻へ変換すると、その間に届いた古い時計で増分を失う。相対秒を型付きの既存Timelineコマンド経路へ渡し、再生所有元で未確定native要求を基準に加算する。Main/preloadのsender/payload検証は維持し、汎用IPCは追加しない。通常packageツールバーは共通時計を使い、clip内HTML時刻の遅延から切り離す。これらの要求位置を確認済みのタグ・保存時計へ昇格させない。
+
+限定packageでは実行可能コードのpathを固定し、既存のclose-before-init、実終了receipt・停止時計、bounded surface契約を再利用する。詳細診断履歴や周期JSONは製品再生の前提にせず、数値ringと失敗時の容量制限付き記録だけを残す。署名後helper照合、他architecture、通常有効化は別の配布判断とする。

@@ -55,7 +55,7 @@
     "media:build:all-mac": "node scripts/build-media-tools.mjs --all-mac",
     "typecheck": "tsc --noEmit",
     "typecheck:electron": "tsc -p electron/tsconfig.json",
-    "build:electron-main": "tsc -p electron/tsconfig.build.json && node scripts/check-electron-runtime.mjs",
+    "build:electron-main": "tsc -p electron/tsconfig.build.json && node scripts/copy-native-playback-runtime.mjs && node scripts/check-electron-runtime.mjs",
     "check:architecture": "node scripts/check-architecture.js",
     "check:design-system": "node scripts/check-design-system.cjs",
     "check:adr": "node scripts/check-adr.js",
@@ -84,7 +84,9 @@
     "test:sample": "python3 scripts/tests/synthetic-sample.py",
     "test:e2e:sample": "pnpm run e2e:prepare && node scripts/e2e-synthetic-first-run.mjs",
     "benchmark:timeline": "node scripts/benchmark-synthetic-timeline.mjs",
-    "check:event-model-release": "node scripts/check-event-model-release.mjs"
+    "check:event-model-release": "node scripts/check-event-model-release.mjs",
+    "test:native-runtime": "node scripts/test-native-playback-runtime.mjs",
+    "electron:package:native-preview": "pnpm run native:build && pnpm run e2e:prepare && electron-builder --mac --arm64 --dir --publish never --config electron-builder.native-preview.cjs"
   },
   "browserslist": {
     "production": [

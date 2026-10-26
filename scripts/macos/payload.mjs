@@ -9,6 +9,15 @@ import {
   verifyMacLlamaNotices,
   MAC_LLAMA_VERSION,
 } from '../mac-llama-notices.mjs';
+import {
+  PAYLOAD_FILES,
+  verifyNativeBuild,
+  hashFiles,
+} from '../native-playback/manifest.mjs';
+import {
+  BUILD_INPUT_FILES,
+  BUILD_REVISION,
+} from '../native-playback/recipe.mjs';
 
 export async function verifyMacPayload({ project, app, arch, signed = false }) {
   if (!['arm64', 'x64'].includes(arch)) throw Error('Invalid target');
@@ -89,6 +98,47 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
   entries.sort((a, b) => a.path.localeCompare(b.path, 'en'));
 
   const resourceFiles = await filesUnder(resources);
+  const nativeResources = resourceFiles.filter((name) =>
+    name.startsWith('native-playback/'),
+  );
+  if (nativeResources.length) {
+    if (arch !== 'arm64' || signed)
+      throw Error(
+        'Native preview currently requires unsigned macOS arm64 validation',
+      );
+    if (
+      JSON.stringify(nativeResources.sort()) !==
+      JSON.stringify(PAYLOAD_FILES.map((file) => `native-playback/${file}`))
+    )
+      throw Error('Native preview exact resource set mismatch');
+    const generated = join(project, '.cache/native-playback/darwin-arm64');
+    const manifest = JSON.parse(
+      await readFile(join(generated, 'build.json'), 'utf8'),
+    );
+    if (manifest.identity.revision !== BUILD_REVISION)
+      throw Error('Native preview build revision mismatch');
+    await verifyNativeBuild(generated, manifest.identity);
+    const inputs = JSON.parse(
+      await readFile(
+        join(project, 'native/macos/playback/source-files.json'),
+        'utf8',
+      ),
+    );
+    if (
+      JSON.stringify(
+        await hashFiles(join(project, 'native/macos/playback'), inputs),
+      ) !== JSON.stringify(manifest.identity.inputHashes) ||
+      JSON.stringify(await hashFiles(project, BUILD_INPUT_FILES)) !==
+        JSON.stringify(manifest.identity.recipeHashes)
+    )
+      throw Error('Native preview build no longer matches checkout');
+    for (const file of PAYLOAD_FILES)
+      await compareResource(
+        `native-playback/${file}`,
+        `.cache/native-playback/darwin-arm64/${file}`,
+      );
+  }
+  const nativeAllowed = new Set(nativeResources);
   const allowedResource = (name) =>
     [
       'app.asar',
@@ -102,6 +152,7 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
       'stcw.icns',
       'stad.icns',
     ].includes(name) ||
+    nativeAllowed.has(name) ||
     /^(?:licenses|media-tools|llama|[^/]+\.lproj)\//.test(name);
   if (resourceFiles.some((name) => !allowedResource(name)))
     throw Error('Unexpected packaged resource');

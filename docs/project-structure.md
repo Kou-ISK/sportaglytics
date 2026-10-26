@@ -460,3 +460,5 @@ Native再生の限定IPCは`src/renderer.d.ts`を正本とし、payload parser�
 Native再生のsource/profile/preview構成は`electron/src/nativePlayback`、sandbox canvasと画像所有は`electron/src/preload/nativeSurface*`へ置きます。原本field/sampleの整数演算は`native/macos/playback/SourceTimeline.hpp`で分離します。私有の実媒体・測定結果・未配布helper binaryは公開ソースへ含めません。
 
 Native再生helperの必要sourceは`native/macos/playback/{host-embedded,direct-frame-handoff,surface-transport,recurrence}`へ配置し、共有原本時計headerを同じplayback配下で再利用します。専用recipeは`scripts/native-playback/`、entryは`scripts/build-native-playback.mjs`と`scripts/package-native-playback-sources.mjs`です。生成library/binary/対応source archiveは`.cache`/`dist`へ分離し、repositoryへ追加しません。
+
+`electron/src/nativePlayback/runtime`は限定packaged backendの資源検査・session directory・surface転送・所有者終了を担当します。`support`内の明示CJSだけを`scripts/copy-native-playback-runtime.mjs`でMain buildへコピーします。`electron-builder.native-preview.cjs`はunsigned arm64限定package専用で、通常配布設定から分離します。

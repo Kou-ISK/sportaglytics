@@ -472,7 +472,7 @@ Nativeの限定画面統合は既存PlayerSurfaceの共通時計とVideo.js全�
 
 タイムラインの映像書き出しは、再生画面から同期されたsource単位の確認済み音声選択を使用します。native切替中の未確定状態や同一sourceの選択競合では確認を求め、別アングルへ音声番号を流用しません。詳細は[Native export](native-export.md)を参照してください。
 
-Native開発previewは通常起動と配布版では無効です。限定macOS buildの起動指定時にのみ、Mainの文書source確認→header資格→有界rolling供給を既存画面へ接続します。全尺変換・全frame照合は起動条件とせず、未対応操作と末尾は原本再生へ戻します。[範囲と未達条件](native-playback.md#任意位置への開発統合)。
+Native previewは通常起動では無効です。開発buildまたはunsigned arm64限定packageの起動指定時にのみ、Mainの文書source確認→header資格→有界rolling供給を既存画面へ接続します。全尺変換・全frame照合は起動条件とせず、未対応操作と末尾は原本再生へ戻します。[範囲と未達条件](native-playback.md#任意位置への開発統合)。
 
 限定ローカル試用ではMain所有runtimeが明示した場合だけ有音出力を許可し、helperの起動契約も同じ資格に揃える。開始前の速度・音声・時刻条件を表示し、クリック直前にも再確認する。通常起動や配布版への有効化、実聴取品質の認定とは分離する。[限定試用の扱い](native-playback.md#限定ローカル試用の扱い)。
 
@@ -481,3 +481,5 @@ After a normal native close, the same document owner may report a Renderer resto
 Timeline別窓の相対シークは所有元で加算し、通知待ちの表示時計から絶対位置へ変換しません。packageツールバーはclip内のHTML時計ではなく共通時計を基準にします。未確認native要求とtag/save/export用の確認済み時刻は分離します。[操作契約](native-playback.md#操作と所有権)。
 
 Native preview helperの配布準備は通常media-toolsから分離した固定source buildで行います。source/recipe/NOTICEとartifactをmanifestで対応づけ、[対応sourceと未確認範囲](third-party-distribution.md#native-playback-previewの対応ソース)を保持します。helper生成だけでは旧playerの既定経路を変更しません。
+
+Unsigned arm64の限定packageは固定Resourcesのnative helper/receiverをhash確認して接続します。Main runtimeは通常起動では資源読取・addon・helper・状態保存を開始しません。限定起動でも全尺走査を加えず、失敗時の数値記録と実終了receiptを分離します。[限定入口](native-playback.md#unsigned-arm64-packageの限定入口)。

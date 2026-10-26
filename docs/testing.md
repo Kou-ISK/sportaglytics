@@ -357,3 +357,5 @@ Native snapshot通知は`nativeSnapshotDelivery.test.ts`で1万更新時の有�
 Nativeの任意位置対応では`nativeSourceProfile.test.ts` / `nativeSourceAccess.test.ts`と`SourceTimeline.test.cpp`で原本先頭・音声/映像末尾差・overflow・metadata/source変更を確認します。実機では同一原本で停止30秒超からの再開、連続PCM境界、中間/終盤seek、既存原本復帰を直列検証し、背景負荷と終了receiptを残します。通信とtraceの累積量を製品合否閾値にせず、有限のin-flight所有数と時刻連続性を検証します。
 
 Renderer recovery diagnostics are covered by `nativePlaybackController.test.ts`: duration failure after a normal drain, unknown private error exclusion, and lease retention when reporting rejects. Manager, handler and preload tests cover same-owner post-close reports, document/generation changes, subframes, extra text, invalid numbers and duplicates. These automated checks do not certify physical UI input or audible synchronization.
+
+Native runtimeのmacOS変更では`pnpm run test:native-runtime`を追加実行します。実FIFO probeと合成backend/surface/診断上限をNode test runnerで検査し、`.node.cjs`はVitestへ重複登録しません。資源検査・session directoryのTypeScript回帰は通常Vitestに含めます。限定packageの既定無効・起動指定・原本復帰・正常終了は実アプリで別途確認します。

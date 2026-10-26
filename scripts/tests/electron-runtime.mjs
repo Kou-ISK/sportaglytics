@@ -26,16 +26,22 @@ test('allows Electron raw filesystem while rejecting unpackaged dependencies', a
     );
     const accepted = run();
     assert.equal(accepted.status, 0, accepted.stderr);
+    const helper = path.join(path.dirname(main), 'helper.cjs');
     for (const code of [
       "require('external-package');",
       "import('external-package');",
       "import raw from 'original-fs-extra';",
     ]) {
-      await fs.writeFile(main, code);
+      await fs.writeFile(helper, code);
       const rejected = run();
       assert.notEqual(rejected.status, 0);
       assert.match(rejected.stderr, /unpackaged runtime dependency/);
     }
+    await fs.writeFile(
+      helper,
+      "require('node:fs'); require('./relative.cjs');",
+    );
+    assert.equal(run().status, 0);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

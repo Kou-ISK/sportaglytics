@@ -523,7 +523,7 @@ field_order欠落素材のfixtureではraw stream値を注入せず、全packet�
 
 区間キャッシュの所有・取消回帰は `cacheRangeReadLease.test.ts` と `cacheRangePipeline.test.ts` に置く。Session失効の即時通知と実I/O・worker closeのdrainを分け、遅いACKで次世代を成功扱いにしない。実測では生成単独の速度と検証・供給を含む速度を区別し、UI未接続の基盤試験を実再生合格に扱わない。
 
-Native再生は通常provider=nullを維持し、非packagedのmacOS開発buildだけが起動時preview指定と固定build-local runtimeから既存Mainへ接続する。任意位置のqualificationはbound packageと有界headerから作り、固定原本のmanifestを通常経路へ注入しない。[機能inventory](native-playback.md)を確認し、既存速度6倍・コマ送り・音声・scrub・原本tag/save/exportを削って有効化しない。私有診断はin-process IPC、実BrowserWindow、実音声、物理入力を分けて記録する。開発時の全field/hash証明を通常利用時の全尺走査へ移さない。
+Native再生は通常provider=nullを維持し、macOS開発buildとunsigned arm64限定packageだけが明示した起動時preview指定から既存Mainへ接続する。開発buildは固定build-local runtime、限定packageはhash検証済みの固定Resourcesを使う。任意位置のqualificationはbound packageと有界headerから作り、固定原本のmanifestを通常経路へ注入しない。[機能inventory](native-playback.md)を確認し、既存速度6倍・コマ送り・音声・scrub・原本tag/save/exportを削って有効化しない。私有診断はin-process IPC、実BrowserWindow、実音声、物理入力を分けて記録する。開発時の全field/hash証明を通常利用時の全尺走査へ移さない。
 
 `relativeSeekInput.integration.test.tsx`では実DOMキー/ボタンクリックを受領させ、古い別窓時計通知とHTML時計の遅延中も相対入力が失われないことを検査します。`timelineWindowSeek.test.ts`は所有元の未確定位置・方向反転・端点・source/同期モード変更を確認します。合成IPC/clockの検証であり、OS入力生成や物理表示の検査とは区別します。
 
@@ -552,3 +552,5 @@ The limited native trial reports Renderer failure through a dedicated typed IPC 
 ### Native preview helperのローカル構築
 
 macOS arm64では`pnpm run native:build`で固定sourceからhelperとN-API receiverを生成します。最大4 compile job、出力は`.cache/native-playback/darwin-arm64`です。入力hashやtoolchainが変われば再構築し、再利用時は厳密なfile集合とhashを確認します。`pnpm run test:native-build`は欠落・改変・余分なfile・symlink拒否を確認します。`pnpm run native:sources`で[対応ソース](third-party-distribution.md#native-playback-previewの対応ソース)を準備します。helper単体の生成では通常playerやpackaged providerは有効になりません。
+
+限定packageは既存のmedia/llama資源を準備した後、`pnpm run electron:package:native-preview`で作成します。公開・署名・インストールは行いません。`pnpm run test:native-runtime`はmacOSの実FIFOと合成surface/所有者の初期化・終了・診断上限を検査します。実packaged原本再生とは区別します。Main buildは明示した9個のCJS supportだけをコピーし、runtime dependency検査はJS/CJSの両方を対象にします。限定起動と復帰、保存先、未資格範囲は[Native再生](native-playback.md#unsigned-arm64-packageの限定入口)を参照してください。

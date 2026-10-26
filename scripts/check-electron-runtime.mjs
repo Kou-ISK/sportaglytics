@@ -14,7 +14,7 @@ const inspect = (directory) => {
       inspect(file);
       continue;
     }
-    if (!file.endsWith('.js')) continue;
+    if (!file.endsWith('.js') && !file.endsWith('.cjs')) continue;
     const source = ts.createSourceFile(
       file,
       fs.readFileSync(file, 'utf8'),

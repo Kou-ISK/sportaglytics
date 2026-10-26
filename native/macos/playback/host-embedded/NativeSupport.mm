@@ -1,10 +1,11 @@
 #import "NativeSupport.hpp"
 std::atomic<bool> nativeInterrupted{false};
 static_assert(std::atomic<bool>::is_always_lock_free,"signal flag must be lock-free");
-@implementation EventLog { std::mutex lock_;NSMutableArray*entries_;double start_;bool overflow_,rolling_;uint64_t count_; }
+@implementation EventLog { std::mutex lock_;NSMutableArray*entries_;double start_;bool overflow_,rolling_,recordDetails_;uint64_t count_; }
 -(instancetype)init{return [self initWithRolling:NO];}
--(instancetype)initWithRolling:(BOOL)rolling{if((self=[super init])){entries_=[NSMutableArray array];start_=mono();rolling_=rolling;}return self;}
--(void)add:(NSString*)event values:(NSDictionary*)values{std::lock_guard<std::mutex>g(lock_);uint64_t index=count_++;if(entries_.count>=18000){overflow_=true;if(!rolling_)return;}NSMutableDictionary*d=[values mutableCopy];d[@"event"]=event;d[@"wall"]=@(mono()-start_);d[@"eventIndex"]=@(index);if(entries_.count<18000)[entries_ addObject:d];else entries_[index%18000]=d;}
+-(instancetype)initWithRolling:(BOOL)rolling{return [self initWithRolling:rolling recordDetails:YES];}
+-(instancetype)initWithRolling:(BOOL)rolling recordDetails:(BOOL)recordDetails{if((self=[super init])){entries_=[NSMutableArray array];start_=mono();rolling_=rolling;recordDetails_=recordDetails;}return self;}
+-(void)add:(NSString*)event values:(NSDictionary*)values{std::lock_guard<std::mutex>g(lock_);uint64_t index=count_++;if(!recordDetails_)return;if(entries_.count>=18000){overflow_=true;if(!rolling_)return;}NSMutableDictionary*d=[values mutableCopy];d[@"event"]=event;d[@"wall"]=@(mono()-start_);d[@"eventIndex"]=@(index);if(entries_.count<18000)[entries_ addObject:d];else entries_[index%18000]=d;}
 -(BOOL)overflowed{std::lock_guard<std::mutex>g(lock_);return overflow_;}
 -(uint64_t)count{std::lock_guard<std::mutex>g(lock_);return count_;}
 -(NSArray*)snapshot{std::lock_guard<std::mutex>g(lock_);if(!rolling_||!overflow_)return [entries_ copy];NSUInteger head=count_%18000;NSMutableArray*ordered=[NSMutableArray arrayWithArray:[entries_ subarrayWithRange:NSMakeRange(head,18000-head)]];[ordered addObjectsFromArray:[entries_ subarrayWithRange:NSMakeRange(0,head)]];return ordered;}

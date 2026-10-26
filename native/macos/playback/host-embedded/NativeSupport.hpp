@@ -24,6 +24,7 @@ inline NSDictionary* timeJSON(CMTime t){return @{@"value":@(t.value),@"scale":@(
 inline bool equalTime(CMTime a,int64_t ticks,int32_t scale){return CMTIME_IS_NUMERIC(a)&&CMTimeCompare(a,CMTimeMake(ticks,scale))==0;}
 @interface EventLog:NSObject
 -(instancetype)initWithRolling:(BOOL)rolling;
+-(instancetype)initWithRolling:(BOOL)rolling recordDetails:(BOOL)recordDetails;
 -(void)add:(NSString*)event values:(NSDictionary*)values;
 -(NSArray*)snapshot;
 @property(nonatomic,readonly) BOOL overflowed;
