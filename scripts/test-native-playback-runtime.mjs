@@ -36,6 +36,16 @@ try {
     recovery,
   ]);
   await run(recovery, []);
+  const retention = join(directory, 'SurfaceCandidateRetentionTest');
+  await run('xcrun', [
+    'clang++',
+    '-std=c++17',
+    '-O2',
+    join(nativeRoot, 'SurfaceCandidateRetention.test.cpp'),
+    '-o',
+    retention,
+  ]);
+  await run(retention, []);
   const probe = join(directory, 'ControlPipeProbe');
   await run('xcrun', [
     'clang',

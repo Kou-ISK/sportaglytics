@@ -45,6 +45,7 @@
   "host-embedded/RendererPreparation.hpp",
   "host-embedded/StableAudioReady.hpp",
   "host-embedded/StartDeadline.hpp",
+  "host-embedded/SurfaceCandidateRetention.hpp",
   "host-embedded/VideoFeed.mm",
   "host-embedded/VideoWorkerCompletion.hpp",
   "host-embedded/VideoWorkerCompletion.mm",

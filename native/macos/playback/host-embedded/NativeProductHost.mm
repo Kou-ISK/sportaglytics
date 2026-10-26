@@ -11,6 +11,7 @@
 #include "RendererPreparation.hpp"
 #include "ImageAvailability.hpp"
 #include "BufferedSeekFrames.hpp"
+#include "SurfaceCandidateRetention.hpp"
 #include "BufferedSeekFailure.hpp"
 #include "PrerollReserve.hpp"
 #include "ProductPreroll.hpp"
@@ -72,15 +73,29 @@ static int finalExit=2;
 -(void)pollSurfaces{try{surfaces_.poll();}catch(const std::exception&e){require(false,[NSString stringWithUTF8String:e.what()]);}}
 -(void)sendSurface{
  if(closing_||bufferedPreparing_||!active_.generation||pending_||flushPending_||!intent_)return;
- if(sentGeneration_==active_.generation&&!surfaces_.demanded()&&!supplyRecovery_.stopped())return;
- CMTime presentationClock=sync_.currentTime;if(!CMTIME_IS_NUMERIC(presentationClock)||presentationClock.timescale<=0)return;
+ BOOL stablePlayback=baseline_&&productReady_&&frameAck_&&[intent_[@"playing"]boolValue]&&
+  !baselineEnded_&&!scrubbing_&&!single_&&!preparing_&&!preparation_.pending()&&!audioBarrier_&&
+  !productStart_.pending()&&!productStop_.pending()&&!productPlayPending_&&
+  !supplyRecovery_.active()&&!supplyResumePending_;
+ BOOL awaitingDemand=sentGeneration_==active_.generation&&!surfaces_.demanded()&&!supplyRecovery_.stopped();
+ if(awaitingDemand&&!stablePlayback)return;
+ CMTime presentationClock;Float64 actualRate=0;
+ if(CMTimebaseGetTimeAndRate(sync_.timebase,&presentationClock,&actualRate)!=0||
+    !CMTIME_IS_NUMERIC(presentationClock)||presentationClock.timescale<=0)return;
+ std::vector<diagnostic::BufferedFieldStamp> stamps;size_t retired=0;
+ try{
+  stamps=diagnostic::bufferedFieldStamps(surfaceFrames_);
+  retired=diagnostic::supersededCandidatePrefix(stamps,active_.session,active_.generation,
+   videoEnd_,presentationClock.value,presentationClock.timescale,policy_.timeline(),
+   stablePlayback&&std::isfinite(actualRate)&&actualRate>0&&presentationClock.epoch==0);
+ }catch(const std::exception&e){[self fail:[NSString stringWithUTF8String:e.what()]?:@"surface candidate planning failure"];return;}
+ catch(...){[self fail:@"unknown surface candidate planning failure"];return;}
+ if(retired){[surfaceFrames_ removeObjectsInRange:NSMakeRange(0,retired)];stamps.erase(stamps.begin(),stamps.begin()+retired);}
+ if(awaitingDemand)return;
  double now=CMTimeGetSeconds(presentationClock)*120000;
- NSInteger chosen=-1;for(NSUInteger i=0;i<surfaceFrames_.count;i++){
-  NSDictionary*f=surfaceFrames_[i];const int64_t pts=[f[@"pts"]longLongValue];
-  if([f[@"generation"]unsignedLongLongValue]!=active_.generation||(!frameAck_&&pts!=active_.target))continue;
-  if(nativeplayback::fieldDue(pts,presentationClock.value,presentationClock.timescale))chosen=i;
- }
- if(chosen<0)return;NSDictionary*f=surfaceFrames_[chosen];int64_t pts=[f[@"pts"]longLongValue];
+ auto selection=diagnostic::latestDueCandidate(stamps,active_.generation,presentationClock.value,
+  presentationClock.timescale,frameAck_?std::nullopt:std::optional<int64_t>(active_.target));
+ if(!selection)return;NSUInteger chosen=*selection;NSDictionary*f=surfaceFrames_[chosen];int64_t pts=[f[@"pts"]longLongValue];
  if(sentGeneration_==active_.generation&&sentPTS_==pts)return;
  // This method and protocol reservation run on the same serial owner queue.
  // Prepare the notice and reserve capacity before creating a Mach obligation.

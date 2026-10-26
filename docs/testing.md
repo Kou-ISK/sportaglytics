@@ -117,6 +117,8 @@ GitHub Actions [quality-check](../.github/workflows/formatting_code.yml) は `ma
 
 ## Test Placement
 
+`test:native-runtime`は`SurfaceCandidateRetention.test.cpp`で、32枚の受入済み候補の解放、最新画像・未来field保持、厳密な有理数境界、不正世代/時刻/未受入/停止時の拒否、停止後の前方buffered seekを検査します。表示要求が遅い実画面の品質やGPU解放を、この純粋な保持計画の回帰だけで合格とは扱いません。
+
 `nativeEndpointRecovery.integration.test.tsx` は実SyncedVideoPlayer・NativeSurfaceController・復帰controllerと合成media portを接続し、末尾commit中にsurfaceが破棄されないこと、原本時計・音声選択を維持してHTMLへ戻ることを検査します。`nativeOriginalRecovery.test.ts`、`cachePlayerSwitch.test.ts`、`cachePlayerSeekTarget.test.ts` は読込済み/未読込の末尾量子化、適格source終端とHTML終端の微小差、画像ready待機、不正/範囲外時刻の拒否を検査します。gateway回帰ではMain資格の終端が復帰へ渡り、共通時計を変更せずHTML所有権を解放することも確認します。media portは合成であり、実HTML復号・表示の確認は別途必要です。
 
 すべてのfixture・検証ログ・スクリーンショットは [公開時のデータ取り扱い](privacy-and-data-handling.md#sharing-and-issue-reports) に従います。実データでのみ確認できる検証はローカルで行い、公開する再現例には架空の識別情報と合成データを使います。

@@ -71,6 +71,8 @@ nativeの終了応答は実rate=0で測定したsource時刻と処理済みseque
 
 映像のdropは再生区間・renderer世代ごとに停止中の前後metricsを保存し、source field数、画面の更新能力、display callback、投入遅延、音声・映像の供給範囲と比較します。SDKの集約drop数だけで表示周期による選択と処理遅延を断定的に分離せず、物理表示の検証も別途必要とします。
 
+確認済みの通常再生中は、表示側の要求・転送枠を待っている間も、復号・時刻検査・連続供給への受入が済んだ古い画像候補を解放します。実測した共通時計に対する最新のfieldと全ての未来fieldを残し、固定fpsで間引きません。開始ACK前・停止・シーク・準備・音声入替・供給回復・終了中はこの解放を行いません。全fieldの復号と連続時刻検査、32field/4surfaceの上限、送信済みsampleとGPU資源の所有・解放契約は維持します。これは表示要求の遅れによる復号枠の滞留への対処であり、音声読取や復号計算の遅延、実表示品質の解決を保証しません。
+
 私有の短尺hostは実デコード・native表示を製品controllerから操作する診断です。in-processのIPC transportは実BrowserWindowの試験ではなく、muted再生は音声聴取の試験ではありません。全field/hash証明やPCM比較の費用は開発検証として分けて報告します。通常製品providerに診断処理をそのまま追加しません。
 
 [Hudlの2019年公式記事](https://www.hudl.com/blog/hudl-sportscode-countdown-improved-performance)はAppleの映像framework、scrub・frame step改善、多くの素材で変換不要という方向を説明しています。歴史的な参考であり、現行の内部queue/hash/全尺検査や今回素材への適合を示すものではありません。
