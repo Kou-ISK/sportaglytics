@@ -341,6 +341,8 @@ SporTagLytics public repositoryには以下を置きません。
 
 Playlistは独立BrowserWindowで扱い、`.stpl` documentを正本とします。Timelineからの追加とAI Analysisからの追加は共通playlist APIを利用します。
 
+パッケージ参照の`usePlaylistMediaTimeline`は有効なアングルの実時計を共通時刻へ変換してから他アングルを同期します。RAFは観測の契機であり、映像のある区間を独立に進める時計ではありません。`TimelineVideoAdapter`は確認済みの時計と画像のreadinessを分け、bufferingを逆シークに変えません。初期位置・アイテム切替・明示シーク・注釈の静止位置は画像の到達まで保留します。同じmetadataのfocus再検証は再生を止めません。
+
 初回表示とreloadでは、Mainがclip追加と同期をWindowごとに保持します。Rendererは全item/sync listenerを登録した後に既存の`request-sync`を送信し、Mainは検証済みの送信元Windowの保留通知だけを送信順に届けます。文書ロード用の`playlist:ready`は外部ファイル購読の準備を表し、item listenerの準備とは分けます。[ADR 0059](adr/0059-playlist-renderer-delivery-readiness.md)。
 
 「ファイル > 開く > プレイリスト…」はMainの`playlistWindow/fileOpen.ts`でネイティブ選択・文書検証を行い、既存のWindow管理へ渡します。IPCのロード操作も同じパッケージ選択を使います。メニュー要求を全Rendererへ配信せず、操作元のPackage Sessionと編集中の文書を保持します。
