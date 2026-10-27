@@ -1,4 +1,4 @@
-export const BUILD_REVISION = 5;
+export const BUILD_REVISION = 6;
 export const BUILD_INPUT_FILES = [
   'scripts/build-native-playback.mjs',
   'scripts/native-playback/recipe.mjs',
@@ -23,6 +23,7 @@ export const NODE_LICENSE = {
   sha256: '9d72cce9b104ecb67feb8af38618511685190ae5a119cc0488ecae66b221000d',
 };
 export const HOST_SOURCES = [
+  'apple-export/AppleClipExport.mm',
   'apple-player/ApplePlayerSession.mm',
   'apple-player/ApplePlayerHost.mm',
 ];

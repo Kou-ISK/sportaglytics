@@ -6,6 +6,8 @@ export interface NativeClipExportRequest {
   /** Index among the selected source's audio tracks; undefined keeps track zero. */
   audioTrack: number;
   outputPath: string;
+  /** Main-owned cancellation; never accepted from renderer IPC. */
+  signal?: AbortSignal;
 }
 
 export type NativeClipExportResult =
