@@ -2,6 +2,10 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.16
+
+0.17.16はPlaylistの映像時計追従と停止・同期処理を修正するMac向け版です。メインのAVPlayer経路と書き出し方式は変更しません。修正と版準備は[PR #254](https://github.com/Kou-ISK/sportaglytics/pull/254)でdevelopへ統合し、`release/playlist-clock-0.17.16`からmainへPRを作ります。[ARCH-EX-003](../docs/architecture-exceptions.md)に従い、developの未公開モデル方針とそのlock変更は含めません。以前の公開tag・配布物は保持し、Mac配布は`include_windows=false`です。必要なCI・署名・公証・配布物照合は維持します。
+
 ## 0.17.15と公開済み版
 
 0.17.15は再生中核をAVPlayerへ是正し、通常画面の不要なコピー操作・方式表示を撤去するMac向け修正版です。公開済みv0.17.14とv0.17.12のtag・配布物を保持します。公開状態は[GitHub Releases](https://github.com/Kou-ISK/sportaglytics/releases)を確認してください。
@@ -31,10 +35,10 @@ Mac source bundleは2 targetのmanifestとFFmpeg / FreeType / HarfBuzzの固定s
 
 tag pushやmain pushでは起動しません。**GitHub Actionsの明示的なworkflow_dispatchだけ**を使います。実行前に、そのversionのReleaseがまだなく、同じworkflowが進行中でないことを確認します。
 
-1. 準備PRとmain向けPRをレビューし、必要なCIを通して統合します。通常は`develop`→`main`、0.17.15は上記の限定したrelease branchを使います。
+1. 準備PRとmain向けPRをレビューし、必要なCIを通して統合します。通常は`develop`→`main`、0.17.16は上記の限定したrelease branchを使います。
 2. `main`の40文字SHAと`package.json`のversionを確認し、そのcommitへ`v<version>` tagを作成します。tag作成だけでは署名・Apple送信・公開を開始しません。
 3. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml) → **Run workflow** → branch **main**を選びます。
-4. `version`に`0.17.15`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=false`を指定します。現在の作業branchのSHAを入力しません。
+4. `version`に`0.17.16`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=false`を指定します。現在の作業branchのSHAを入力しません。
 5. `publish=false`（既定）は署名・公証・最終DMG検証まで行い、Actions artifactとして90日間保存します。GitHub ReleaseとHomebrewは更新しません。**これは未署名dry-runではなく、Appleへのアプリ送信を含みます。**
 6. 最終公開が承認された実行は`publish=true`を指定します。同じ品質・署名・公証・DMG検証を再実行し、その実行で検査したbytesだけを公開します。先行runのartifactを無検査で流用しません。
 
@@ -42,7 +46,7 @@ CLIでも同じ入力を使います。`<reviewed-main-sha>`を実際の40文字
 
 ```bash
 gh workflow run release.yml --ref main \
-  -f version=0.17.15 -f expected_sha=<reviewed-main-sha> -F include_windows=false -F publish=false
+  -f version=0.17.16 -f expected_sha=<reviewed-main-sha> -F include_windows=false -F publish=false
 ```
 
 workflowは入力version、package version、tag commit、checkout、workflow commit、現在のorigin/mainを照合します。省略・食い違い・既存Release・API読み取り失敗は停止条件です。公開直前にも再確認します。並行runは直列化し、実行中の署名・公証を新しいdispatchでcancelしません。
