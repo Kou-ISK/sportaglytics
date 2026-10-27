@@ -5,94 +5,24 @@ import { run } from './media-tools/process.mjs';
 
 const directory = await mkdtemp(join(tmpdir(), 'native-runtime-test-'));
 try {
-  const pcmSupply = join(directory, 'PCMWindowSupplyTest');
-  const nativeRoot = 'native/macos/playback/host-embedded';
-  await run('xcrun', [
-    'clang++',
-    '-std=c++17',
-    '-O2',
-    '-fobjc-arc',
-    '-Wno-deprecated-declarations',
-    join(nativeRoot, 'PCMWindowSupply.test.mm'),
-    join(nativeRoot, 'PCMWindowSupply.mm'),
-    join(nativeRoot, 'NativeSupport.mm'),
-    '-framework',
-    'AppKit',
-    '-framework',
-    'AVFoundation',
-    '-framework',
-    'CoreVideo',
-    '-o',
-    pcmSupply,
-  ]);
-  await run(pcmSupply, []);
-  for (const name of ['AACCookie', 'AACPacketRange']) {
-    const test = join(directory, name);
+  // AVPlayer owns decoding/PCM. Test only our bounded IPC and surface adapters.
+  for (const [name, source, libraries] of [
+    ['ControlOutput', 'apple-player/ControlOutput.test.cpp', []],
+    ['PlayerObservation', 'apple-player/PlayerObservation.test.cpp', []],
+    ['ReplyQueue', 'surface-transport/ReplyQueue.test.cpp', ['-lbsm']],
+  ]) {
+    const binary = join(directory, name);
     await run('xcrun', [
       'clang++',
       '-std=c++17',
       '-O2',
-      join(nativeRoot, `${name}.test.cpp`),
+      join('native/macos/playback', source),
+      ...libraries,
       '-o',
-      test,
+      binary,
     ]);
-    await run(test, []);
+    await run(binary, []);
   }
-  const aacDecode = join(directory, 'AACWindowDecodeTest');
-  await run('xcrun', [
-    'clang++',
-    '-std=c++17',
-    '-O2',
-    '-fobjc-arc',
-    '-Wno-deprecated-declarations',
-    join(nativeRoot, 'AACWindowDecode.test.mm'),
-    join(nativeRoot, 'AACWindowFormat.mm'),
-    join(nativeRoot, 'NativeSupport.mm'),
-    '-framework',
-    'AppKit',
-    '-framework',
-    'AVFoundation',
-    '-framework',
-    'CoreVideo',
-    '-framework',
-    'CoreMedia',
-    '-framework',
-    'AudioToolbox',
-    '-o',
-    aacDecode,
-  ]);
-  await run(aacDecode, []);
-  const recovery = join(directory, 'ProductSupplyRecoveryTest');
-  await run('xcrun', [
-    'clang++',
-    '-std=c++17',
-    '-O2',
-    'native/macos/playback/host-embedded/ProductSupplyRecovery.test.cpp',
-    '-o',
-    recovery,
-  ]);
-  await run(recovery, []);
-  const replyQueue = join(directory, 'ReplyQueueTest');
-  await run('xcrun', [
-    'clang++',
-    '-std=c++17',
-    '-O2',
-    'native/macos/playback/surface-transport/ReplyQueue.test.cpp',
-    '-lbsm',
-    '-o',
-    replyQueue,
-  ]);
-  await run(replyQueue, []);
-  const retention = join(directory, 'SurfaceCandidateRetentionTest');
-  await run('xcrun', [
-    'clang++',
-    '-std=c++17',
-    '-O2',
-    join(nativeRoot, 'SurfaceCandidateRetention.test.cpp'),
-    '-o',
-    retention,
-  ]);
-  await run(retention, []);
   const probe = join(directory, 'ControlPipeProbe');
   await run('xcrun', [
     'clang',

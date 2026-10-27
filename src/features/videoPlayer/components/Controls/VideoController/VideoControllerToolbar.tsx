@@ -7,6 +7,7 @@ import { SpeedSelector } from './toolbar/SpeedSelector';
 
 interface VideoControllerToolbarProps {
   shortcutGuide?: ReactNode;
+  audioControls?: ReactNode;
   hasVideos: boolean;
   isVideoPlaying: boolean;
   playbackRate: number;
@@ -90,6 +91,7 @@ export const VideoControllerToolbar = (
           justifyContent: 'flex-end',
         }}
       >
+        {props.audioControls}
         {props.shortcutGuide}
         <SpeedSelector
           playbackRate={props.playbackRate}

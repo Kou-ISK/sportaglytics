@@ -1,3 +1,4 @@
+import type { VideoSeekMode } from '../video/seek';
 import { isClipExportAudioSelections } from '../../shared/clipExport/clipExportAudio';
 import type { ClipExportAudioSelection } from '../../shared/clipExport/clipExportAudio';
 import { isTimelineProvenance } from '../timeline/provenance';
@@ -55,7 +56,7 @@ export type TimelineWindowCommand =
   | { type: 'angle-sync'; command: AngleSyncCommand }
   | { type: 'request-sync' }
   | { type: 'retry-persistence' }
-  | { type: 'seek'; time: number }
+  | { type: 'seek'; time: number; seekMode?: VideoSeekMode }
   | { type: 'seek-relative'; seconds: number }
   | { type: 'selection-change'; ids: string[] }
   | { type: 'delete-items'; ids: string[] }
@@ -263,7 +264,13 @@ export const isTimelineWindowCommand = (
     case 'redo':
       return true;
     case 'seek':
-      return isNumber(value.time);
+      return (
+        isNumber(value.time) &&
+        (value.seekMode === undefined ||
+          value.seekMode === 'exact' ||
+          value.seekMode === 'preview' ||
+          value.seekMode === 'scrub')
+      );
     case 'seek-relative':
       return isNumber(value.seconds);
     case 'selection-change':

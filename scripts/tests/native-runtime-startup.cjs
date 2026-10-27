@@ -276,13 +276,17 @@ for (const mode of [
 
 for (const mode of ['normal', 'trial'])
   test(
-    mode + ' forwards only the qualified Main audio permission',
+    mode + ' does not configure a custom decoder or trial audio switch',
     async () => {
       const f = await fixture(mode);
       try {
         const b = f.create();
         await b.write({});
-        assert.equal(f.manifest().allowUnmutedTrial, mode === 'trial');
+        assert.deepEqual(Object.keys(f.manifest()).sort(), [
+          'surfaceOwnerPID',
+          'surfaceService',
+          'version',
+        ]);
         await b.close();
       } finally {
         await f.remove();

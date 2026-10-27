@@ -17,9 +17,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Original: Story = {};
-export const UnsupportedRate: Story = {
-  args: { unavailableReason: 'この再生速度では互換再生を使用します。' },
-};
 export const Native: Story = { args: { mode: 'native' } };
 export const Restoring: Story = { args: { mode: 'restoring' } };
 export const Failed: Story = {

@@ -2,14 +2,15 @@ import type { ReactElement } from 'react';
 import {
   Alert,
   Button,
+  IconButton,
   MenuItem,
   Select,
   Stack,
   Typography,
 } from '@mui/material';
+import { VolumeOff, VolumeUp } from '@mui/icons-material';
 export interface NativePlaybackPanelViewProps {
   mode: 'original' | 'native' | 'restoring' | 'failed';
-  unavailableReason?: string | null;
   error: string | null;
   audioTracks: number;
   audioTrack: number;
@@ -23,15 +24,13 @@ export const NativePlaybackPanelView = (
 ): ReactElement => (
   <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-      <Typography variant="caption" role="status">
-        {props.mode === 'restoring'
-          ? '原本を復元中…'
-          : props.mode === 'native'
-            ? 'ネイティブ再生（標準）'
-            : props.mode === 'failed'
-              ? '再生の復旧が必要です'
-              : '互換再生'}
-      </Typography>
+      {(props.mode === 'restoring' || props.mode === 'failed') && (
+        <Typography variant="caption" role="status">
+          {props.mode === 'restoring'
+            ? '再生を復旧中…'
+            : '再生の復旧が必要です'}
+        </Typography>
+      )}
       {(props.mode === 'failed' || props.mode === 'restoring') && (
         <Button
           disabled={props.mode === 'restoring'}
@@ -41,6 +40,8 @@ export const NativePlaybackPanelView = (
         </Button>
       )}
       <Select
+        variant="standard"
+        disableUnderline
         size="small"
         value={props.audioTrack}
         disabled={props.mode === 'failed'}
@@ -53,20 +54,19 @@ export const NativePlaybackPanelView = (
           </MenuItem>
         ))}
       </Select>
-      <Button disabled={props.mode === 'failed'} onClick={props.onMute}>
-        {props.muted ? '音声を再生' : '消音'}
-      </Button>
+      <IconButton
+        size="small"
+        aria-label={props.muted ? '音声を再生' : '消音'}
+        disabled={props.mode === 'failed'}
+        onClick={props.onMute}
+      >
+        {props.muted ? (
+          <VolumeOff fontSize="small" />
+        ) : (
+          <VolumeUp fontSize="small" />
+        )}
+      </IconButton>
     </Stack>
-    {props.mode === 'original' && props.unavailableReason && (
-      <Typography variant="caption" color="text.secondary">
-        {props.unavailableReason}
-      </Typography>
-    )}
-    {props.mode === 'native' && (
-      <Typography variant="caption" color="text.secondary">
-        初回・遠距離のシークには待ち時間があります。過去の間欠停止と実聴取による同期確認は未解決です。
-      </Typography>
-    )}
     {props.error && <Alert severity="warning">{props.error}</Alert>}
   </Stack>
 );

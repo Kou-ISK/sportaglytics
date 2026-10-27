@@ -1,4 +1,5 @@
 import type { TimelineWindowCommand } from '../../../../types/ipc/timelineWindow';
+import type { VideoSeekMode } from '../../../../types/video/seek';
 
 type SeekCommand = Extract<
   TimelineWindowCommand,
@@ -10,7 +11,7 @@ interface SeekState {
   maxSec: number;
   videoSources: readonly string[];
   nativeCommandTime?: number;
-  onSeek: (time: number) => void;
+  onSeek: (time: number, mode?: VideoSeekMode) => void;
 }
 
 /** Resolve relative input at the playback owner, never against a delayed
@@ -39,6 +40,8 @@ export const createTimelineWindowSeek = (
         : Math.max(0, Math.min(state.maxSec, base + command.seconds));
     if (!Number.isFinite(target)) return;
     previous = { state, target };
-    state.onSeek(target);
+    if (command.type === 'seek' && command.seekMode)
+      state.onSeek(target, command.seekMode);
+    else state.onSeek(target);
   };
 };

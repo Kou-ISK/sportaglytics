@@ -70,6 +70,69 @@ const make = () => {
 const tick = async () => {
   for (let i = 0; i < 8; i++) await Promise.resolve();
 };
+it('retains the measured CMTime after sub-microsecond conversion rounding', async () => {
+  const { session } = make();
+  const requested = 1001 / 120000;
+  session.apply(intent({ targetTime: requested }));
+  await tick();
+  const measured = Math.round(requested * 1e9) / 1e9;
+  expect(session.observe(observation({ time: measured }))).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(measured);
+});
+it('rejects a different frame instead of calling it an exact seek', async () => {
+  const { session } = make();
+  session.apply(intent());
+  await tick();
+  expect(session.observe(observation({ time: 3.001 }))).toBe(false);
+});
+it('commits the observed scrub position and resumes there without inventing exactness', async () => {
+  const { session } = make();
+  session.apply(intent({ targetTime: 7, seekMode: 'scrub' }));
+  await tick();
+  expect(session.observe(observation({ time: 7.6 }))).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(7.6);
+  session.apply(
+    intent({ targetTime: 7, seekMode: 'scrub', sequence: 2, playing: true }),
+  );
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        revision: 2,
+        sequence: 2,
+        time: 7.8,
+        phase: 'playing',
+        rate: 1,
+      }),
+    ),
+  ).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(7.8);
+});
+it('uses the displayed preview time for tags, then honors an explicit exact position', async () => {
+  const { session } = make();
+  session.apply(intent());
+  await tick();
+  session.observe(observation());
+  session.apply(
+    intent({ sequence: 2, seekId: 2, targetTime: 7, seekMode: 'preview' }),
+  );
+  await tick();
+  expect(
+    session.observe(
+      observation({ revision: 2, sequence: 2, seekId: 2, time: 7.6 }),
+    ),
+  ).toBe(true);
+  expect(session.snapshot().observation?.time).toBe(7.6);
+  expect(session.snapshot().lastConfirmedTime).toBe(7.6);
+  session.apply(intent({ sequence: 3, seekId: 3, targetTime: 7 }));
+  await tick();
+  expect(
+    session.observe(
+      observation({ revision: 3, sequence: 3, seekId: 3, time: 7 }),
+    ),
+  ).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(7);
+});
 it('retains source confirmation through buffering and resumes in the same seek', async () => {
   const { session, backend } = make();
   session.apply(intent());
