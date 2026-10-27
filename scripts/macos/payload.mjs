@@ -1,3 +1,7 @@
+import {
+  signatureVerifier,
+  verifyNativeResourceSet,
+} from './native-signing.mjs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readFile, readdir } from 'node:fs/promises';
@@ -9,6 +13,15 @@ import {
   verifyMacLlamaNotices,
   MAC_LLAMA_VERSION,
 } from '../mac-llama-notices.mjs';
+import {
+  PAYLOAD_FILES,
+  verifyNativeBuild,
+  hashFiles,
+} from '../native-playback/manifest.mjs';
+import {
+  BUILD_INPUT_FILES,
+  BUILD_REVISION,
+} from '../native-playback/recipe.mjs';
 
 export async function verifyMacPayload({ project, app, arch, signed = false }) {
   if (!['arm64', 'x64'].includes(arch)) throw Error('Invalid target');
@@ -18,6 +31,7 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
     asar.extractFile(archive, join(...name.split('/')));
   const hash = (b) => createHash('sha256').update(b).digest('hex');
   const checks = [];
+  const native = [];
   const equal = (kind, path, actual, expected) => {
     if (!actual.equals(expected)) throw Error(`${kind} byte mismatch: ${path}`);
     checks.push({ kind, path, bytes: actual.length, sha256: hash(actual) });
@@ -89,6 +103,80 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
   entries.sort((a, b) => a.path.localeCompare(b.path, 'en'));
 
   const resourceFiles = await filesUnder(resources);
+  const nativeResources = resourceFiles.filter((name) =>
+    name.startsWith('native-playback/'),
+  );
+  verifyNativeResourceSet(nativeResources, arch);
+  if (nativeResources.length) {
+    if (arch !== 'arm64') throw Error('Native playback requires macOS arm64');
+    if (
+      JSON.stringify(nativeResources.sort()) !==
+      JSON.stringify(PAYLOAD_FILES.map((file) => `native-playback/${file}`))
+    )
+      throw Error('Native preview exact resource set mismatch');
+    const generated = join(project, '.cache/native-playback/darwin-arm64');
+    const manifest = JSON.parse(
+      await readFile(join(generated, 'build.json'), 'utf8'),
+    );
+    if (manifest.identity.revision !== BUILD_REVISION)
+      throw Error('Native preview build revision mismatch');
+    await verifyNativeBuild(generated, manifest.identity);
+    const inputs = JSON.parse(
+      await readFile(
+        join(project, 'native/macos/playback/source-files.json'),
+        'utf8',
+      ),
+    );
+    if (
+      JSON.stringify(
+        await hashFiles(join(project, 'native/macos/playback'), inputs),
+      ) !== JSON.stringify(manifest.identity.inputHashes) ||
+      JSON.stringify(await hashFiles(project, BUILD_INPUT_FILES)) !==
+        JSON.stringify(manifest.identity.recipeHashes)
+    )
+      throw Error('Native preview build no longer matches checkout');
+    const packaged = JSON.parse(
+      await readFile(join(resources, 'native-playback/build.json'), 'utf8'),
+    );
+    const { signing, ...original } = packaged;
+    if (JSON.stringify(original) !== JSON.stringify(manifest))
+      throw Error('Native unsigned manifest changed');
+    let authenticated = null;
+    if (signed) {
+      const verifier = signatureVerifier(project);
+      authenticated = verifier.parseNativeSigning(signing);
+      await verifier.verifySignedNative(resources, authenticated);
+    } else if (signing !== undefined)
+      throw Error('Unexpected signed native manifest before signing');
+    // The immutable unsigned manifest remains the comparison record on both sides.
+    equal(
+      'resource-source',
+      'native-playback/build.json',
+      Buffer.from(JSON.stringify(original)),
+      Buffer.from(JSON.stringify(manifest)),
+    );
+    for (const file of PAYLOAD_FILES.filter((name) => name !== 'build.json')) {
+      const binary = file === 'NativeProductHost' || file === 'Receiver.node';
+      if (!signed || !binary)
+        await compareResource(
+          `native-playback/${file}`,
+          `.cache/native-playback/darwin-arm64/${file}`,
+        );
+      if (binary) {
+        const actualHash = hash(
+          await readFile(join(resources, 'native-playback', file)),
+        );
+        if (authenticated && actualHash !== authenticated.files[file].sha256)
+          throw Error('Signed native resource hash mismatch');
+        native.push({
+          path: `native-playback/${file}`,
+          sha256: actualHash,
+          preSigningSha256: manifest.files[file],
+        });
+      }
+    }
+  }
+  const nativeAllowed = new Set(nativeResources);
   const allowedResource = (name) =>
     [
       'app.asar',
@@ -102,6 +190,7 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
       'stcw.icns',
       'stad.icns',
     ].includes(name) ||
+    nativeAllowed.has(name) ||
     /^(?:licenses|media-tools|llama|[^/]+\.lproj)\//.test(name);
   if (resourceFiles.some((name) => !allowedResource(name)))
     throw Error('Unexpected packaged resource');
@@ -201,7 +290,6 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
       );
   }
 
-  const native = [];
   const media = validateBuildManifest(
     JSON.parse(
       await readFile(join(resources, 'media-tools/build.json'), 'utf8'),

@@ -1,3 +1,6 @@
+import { formatSource } from '../../../../shared/media/videoSource';
+import { useNativePackageClock } from './useNativePackageClock';
+import { getNativePlayback } from '../../shared/nativePlayback/nativePlaybackRegistry';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { PackageMediaAngle } from '../../../../types/package/media';
@@ -6,7 +9,10 @@ import {
   getAngleOffset,
   getMediaTimelineEnd,
 } from '../../../../shared/media/mediaTimeline';
-import { isPackageMediaBuffering } from './packagePlaybackReadiness';
+import {
+  isPackageMediaBuffering,
+  demandPackagePlaybackRanges,
+} from './packagePlaybackReadiness';
 
 interface PackagePlaybackClockParams {
   mediaAngles: PackageMediaAngle[];
@@ -38,10 +44,29 @@ export const usePackagePlaybackClock = ({
   timelineEnd: number;
   holdPlayback: boolean;
 } => {
+  const soleClip =
+    mediaAngles.length === 1 && mediaAngles[0].clips.length === 1
+      ? mediaAngles[0].clips[0]
+      : null;
+  const nativeOwned = useNativePackageClock(
+    syncMode === 'auto' &&
+      livePlaybackEnd === undefined &&
+      soleClip?.sourceKind === 'local' &&
+      soleClip.timelineStartSeconds === 0 &&
+      getAngleOffset(syncData, 0) === 0
+      ? formatSource(soleClip.source)
+      : null,
+    isVideoPlaying,
+    videoPlayBackRate,
+    setCurrentTime,
+    setIsVideoPlaying,
+  );
   const [mediaBuffering, setMediaBuffering] = useState(false);
   const bufferingRef = useRef(false);
   const useTimelineClock =
-    syncMode === 'auto' && mediaAngles.some((angle) => angle.clips.length > 0);
+    nativeOwned ||
+    (syncMode === 'auto' &&
+      mediaAngles.some((angle) => angle.clips.length > 0));
   const timelineEnd = useMemo(
     () =>
       Math.max(
@@ -67,19 +92,46 @@ export const usePackagePlaybackClock = ({
   const media = useRef({ mediaAngles, syncData });
   media.current = { mediaAngles, syncData };
   const clock = useRef(currentTime);
+  useLayoutEffect(() => {
+    // Playing timeline demands come from the authoritative rAF/seek clock.
+    // A delayed React commit must not bring range eviction/read back in time.
+    if (getNativePlayback() || (isVideoPlaying && useTimelineClock)) return;
+    demandPackagePlaybackRanges(
+      mediaAngles,
+      syncData,
+      currentTime,
+      !isVideoPlaying,
+    );
+  }, [mediaAngles, syncData, currentTime, isVideoPlaying, useTimelineClock]);
   // A delayed React commit may still contain an older tick. Never feed it back
   // into the running clock: that slows playback and forces repeated video seeks.
   useLayoutEffect(() => {
-    if (!isVideoPlaying || !useTimelineClock) clock.current = currentTime;
-  }, [currentTime, isVideoPlaying, useTimelineClock]);
+    // Native observations (including the final stopped time) are authoritative
+    // while native owns playback. Seed the next HTML rAF before releasing it.
+    if (nativeOwned || !isVideoPlaying || !useTimelineClock)
+      clock.current = currentTime;
+  }, [currentTime, isVideoPlaying, useTimelineClock, nativeOwned]);
   useEffect(() => {
     const seek = (event: Event): void => {
       const detail: unknown =
         event instanceof CustomEvent ? event.detail : null;
       if (typeof detail !== 'object' || detail === null || !('time' in detail))
         return;
-      if (typeof detail.time === 'number' && Number.isFinite(detail.time))
-        clock.current = Math.max(-86400, Math.min(86400, detail.time));
+      if (typeof detail.time === 'number' && Number.isFinite(detail.time)) {
+        const requested = Math.max(-86400, Math.min(86400, detail.time));
+        const native = getNativePlayback();
+        if (native) {
+          native.seek(requested);
+          return;
+        }
+        clock.current = requested;
+        demandPackagePlaybackRanges(
+          media.current.mediaAngles,
+          media.current.syncData,
+          clock.current,
+          true,
+        );
+      }
     };
     window.addEventListener('video-seek-start', seek);
     return () => window.removeEventListener('video-seek-start', seek);
@@ -88,10 +140,11 @@ export const usePackagePlaybackClock = ({
     if (useTimelineClock && timelineEnd > 0) setMaxSec(timelineEnd);
   }, [useTimelineClock, timelineEnd, setMaxSec]);
   useEffect(() => {
-    if (!useTimelineClock || !isVideoPlaying) return;
+    if (nativeOwned || !useTimelineClock || !isVideoPlaying) return;
     let frame = 0;
     let previous: number | undefined;
     const advance = (timestamp: number): void => {
+      if (getNativePlayback()) return;
       const buffering = isPackageMediaBuffering(
         media.current.mediaAngles,
         media.current.syncData,
@@ -134,10 +187,12 @@ export const usePackagePlaybackClock = ({
     setIsVideoPlaying,
     useTimelineClock,
     videoPlayBackRate,
+    nativeOwned,
   ]);
   return {
     useTimelineClock,
     timelineEnd,
-    holdPlayback: useTimelineClock && isVideoPlaying && mediaBuffering,
+    holdPlayback:
+      nativeOwned || (useTimelineClock && isVideoPlaying && mediaBuffering),
   };
 };

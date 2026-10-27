@@ -41,6 +41,7 @@ export interface VisualTimelineViewProps {
   positionToTime: (positionPx: number) => number;
   clientXToContentX: (clientX: number) => number;
   onSeek: (time: number) => void;
+  onSeekRelative?: (seconds: number) => void;
   formatTime: (seconds: number) => string;
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -125,6 +126,7 @@ export const VisualTimelineView = ({
   positionToTime,
   clientXToContentX,
   onSeek,
+  onSeekRelative,
   formatTime,
   scrollContainerRef,
   containerRef,
@@ -301,6 +303,7 @@ export const VisualTimelineView = ({
               currentTime={positionToTime(currentTimePosition)}
               formatTime={formatTime}
               onSeek={onSeek}
+              onSeekRelative={onSeekRelative}
               seekHandlers={seekHandlers}
             />
             {isSelecting && selectionBox && (

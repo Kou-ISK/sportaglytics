@@ -1,3 +1,4 @@
+import { updateDocumentWindowTitle } from '../documentWindowPresentation';
 import { setVideoWindowAspect } from '../videoWindowAspect';
 import { BrowserWindow, ipcMain, screen } from 'electron';
 import { isStringArray, isStringPayload } from './ipcPayloadGuards';
@@ -103,7 +104,7 @@ export const registerWindowEventHandlers = ({
     // validated sender itself instead of whichever main window was registered last.
     const window = getValidatedEventSenderWindow(event) ?? getMainWindow();
     if (window && !window.isDestroyed()) {
-      window.setTitle(title);
+      updateDocumentWindowTitle(window, title);
     }
   });
 };

@@ -28,6 +28,10 @@ interface Options {
   rendererUrl: string;
   requiresPersistence: (window: BrowserWindow) => boolean;
   timeoutMs?: number;
+  beforeClose?: (
+    windows: readonly BrowserWindow[],
+    kind: 'close' | 'quit',
+  ) => Promise<() => void>;
 }
 
 const withTimeout = async <T>(
@@ -187,11 +191,11 @@ export const registerTimelineCloseProtection = (
         buttons: ['編集を続ける'],
         defaultId: 0,
         cancelId: 0,
-        title: '保存を確認できないため終了を中止しました',
+        title: '処理の完了を確認できないため終了を中止しました',
         message:
-          'Timeline の変更を保護するため、ウィンドウを閉じませんでした。',
+          'バックグラウンド処理とTimelineの変更を保護するため、ウィンドウを閉じませんでした。',
         detail:
-          '保存先への接続・空き容量・書込権限と画面の保存状態を確認し、再試行してください。',
+          '再生用コピーの片付けと、保存先への接続・空き容量・書込権限・画面の保存状態を確認し、再試行してください。',
       });
     } catch (dialogError) {
       console.error('[timeline-close] could not show save error:', dialogError);
@@ -231,7 +235,13 @@ export const registerTimelineCloseProtection = (
   ): Promise<void> => {
     operation = kind;
     let success = false;
+    let release: (() => void) | undefined;
     try {
+      if (options.beforeClose)
+        release = await options.beforeClose(
+          states.map((state) => state.window),
+          kind,
+        );
       await prepare(states);
       if (
         kind === 'quit' &&
@@ -247,6 +257,7 @@ export const registerTimelineCloseProtection = (
     } catch (error) {
       await reportFailure(states, error);
     } finally {
+      release?.();
       // Playlist can prevent its close while showing an asynchronous dialog.
       // Surviving main windows resume and must obtain a fresh ACK next time.
       states.forEach(resume);
@@ -263,7 +274,7 @@ export const registerTimelineCloseProtection = (
   app.on('before-quit', (event) => {
     if (retryingQuit || event.defaultPrevented) return;
     const states = [...windows].filter((state) => !state.window.isDestroyed());
-    if (states.length === 0) return;
+    if (states.length === 0 && !options.beforeClose) return;
     event.preventDefault();
     if (operation) {
       // A user may request Quit while a single-window close is still saving.

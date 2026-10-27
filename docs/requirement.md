@@ -27,15 +27,15 @@ Timeline所有元を通常Close/Quitするときは、直前の編集を含む�
 
 ### 1.3 技術基準
 
-| Category        | Technology            |
-| --------------- | --------------------- |
-| Frontend        | React 19              |
+| Category        | Technology                                  |
+| --------------- | ------------------------------------------- |
+| Frontend        | React 19                                    |
 | Language        | TypeScript 5 strict（解決版はlockfile参照） |
-| Desktop         | Electron 43           |
-| UI              | Material UI 7         |
-| Video           | Video.js 8            |
-| Package manager | pnpm 9.1.0（packageManagerと同じ版） |
-| Build           | Vite                  |
+| Desktop         | Electron 43                                 |
+| UI              | Material UI 7                               |
+| Video           | Video.js 8                                  |
+| Package manager | pnpm 9.1.0（packageManagerと同じ版）        |
+| Build           | Vite                                        |
 
 実装規約の正本は `AGENTS.md` とする。
 
@@ -498,3 +498,13 @@ Pull request CIは `develop` を含む通常統合先で実行する。Model R&D
 macOSに加えWindows 11 x64を配布対象とする。映像・音声同期・Timeline・Playlist/Paint・Code Window・分析・レポート・ローカルAIは共通機能モデルを用いる。Windowsの導入条件、model packのプラットフォーム条件、操作差と配布検証は[Windows版](windows.md)を正本とする。
 
 プロジェクトは共通の「開く」から内容判定し、安全な移行と完成先再利用を行う。保存済みライブ録画は全体尺へのシークと録画終端からの再開を可能にする。[互換契約](package-compatibility.md)、[ライブ契約](live-coding.md)。
+
+再生用コピーの初期対応は120秒以内の単一素材です。保存済みコピーは内容照合と先頭・中間・末尾の再生環境確認を経て手動採用します。再生中のdecode errorでは同じ位置の原本へ一度だけ戻し停止し、復帰できたかを表示します。復旧未確認の場合は音声・映像を確認して原本への切替を再試行してください。[保証範囲と残る制限](playback-cache.md)。
+
+### Native export候補
+
+単一区間のpassthrough候補は[設計と未達gate](native-export.md)に記載します。通常利用は既存出力を維持し、再圧縮回避だけを理由に精度や描画・音声機能を省きません。
+
+## Native標準再生
+
+対応するmacOS arm64の単一local映像でnativeを標準使用し、非対応形式・速度・複数映像は内部fallbackで機能を保持します。全field/原本時刻/全音声/保存・出力契約と適格性を[Native再生](native-playback.md)に定義します。標準化コードの実装と未達品質の受入を混同しません。

@@ -1,7 +1,8 @@
+import { registerPlaybackAudio } from '../../../shared/audioSelection/playbackAudioRegistry';
+import { formatSource } from '../../../../../shared/media/videoSource';
+import { NativeSurfaceController } from '../../NativePlayback/NativeSurfaceController';
+import { SingleVideoPlayerView } from './SingleVideoPlayerView';
 import { useMediaTimeSync } from './hooks/useMediaTimeSync';
-import { Box, Typography, IconButton, Tooltip } from '@mui/material';
-import Fullscreen from '@mui/icons-material/Fullscreen';
-import FullscreenExit from '@mui/icons-material/FullscreenExit';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useVideoJsPlayer } from './hooks/useVideoJsPlayer';
 import { usePlaybackBehaviour } from './hooks/usePlaybackBehaviour';
@@ -30,6 +31,14 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
       setMaxSec,
       onAspectRatioChange,
     });
+
+  useEffect(() => {
+    const video = isReady
+      ? playerRef.current?.el()?.querySelector('video')
+      : null;
+    if (!video) return;
+    return registerPlaybackAudio(id, formatSource(videoSrc), video);
+  }, [id, videoSrc, isReady, playerRef]);
 
   useMediaTimeSync(
     playerRef,
@@ -84,78 +93,22 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
     return null;
   }, [blockPlay, showEndMask, allowSeek]);
 
+  const mount = isReady ? playerRef.current?.el() : null;
   return (
-    <Box
-      ref={containerRef}
-      sx={{
-        position: 'absolute',
-        inset: 0,
-        '& .video-js': {
-          height: '100%',
-          width: '100%',
-          backgroundColor: '#000',
-        },
-        '& .vjs-tech': {
-          objectFit: 'contain',
-        },
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <video
-        ref={videoRef}
-        className="video-js vjs-big-play-centered"
-        id={id}
-        preload="auto"
-        playsInline
-        onContextMenu={(e) => e.preventDefault()}
-      />
-      {overlayMessage && (
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            bgcolor: 'rgba(12,12,15,0.72)',
-            backdropFilter: 'blur(6px)',
-            zIndex: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-          }}
-        >
-          <Typography variant="caption" color="common.white">
-            {overlayMessage}
-          </Typography>
-        </Box>
-      )}
-      {isHovered && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            zIndex: 10,
-            opacity: isHovered ? 1 : 0,
-            transition: 'opacity 0.3s ease',
-          }}
-        >
-          <Tooltip title={isFullscreen ? '全画面解除' : '全画面表示'}>
-            <IconButton
-              size="small"
-              onClick={handleToggleFullscreen}
-              sx={{
-                bgcolor: 'rgba(0,0,0,0.6)',
-                backdropFilter: 'blur(4px)',
-                color: 'white',
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' },
-              }}
-            >
-              {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
-            </IconButton>
-          </Tooltip>
-        </Box>
-      )}
-    </Box>
+    <SingleVideoPlayerView
+      containerRef={containerRef}
+      videoRef={videoRef}
+      id={id}
+      overlayMessage={overlayMessage}
+      isHovered={isHovered}
+      setIsHovered={setIsHovered}
+      isFullscreen={isFullscreen}
+      handleToggleFullscreen={handleToggleFullscreen}
+      nativeSurface={
+        mount ? (
+          <NativeSurfaceController id={id} source={videoSrc} mount={mount} />
+        ) : null
+      }
+    />
   );
 };

@@ -453,3 +453,47 @@ it('keeps protection during subframe loads and hash routing, and rejects a diffe
   await settle();
   expect(window.destroyed).toBe(true);
 });
+
+it('drains owned background work before requesting persistence and holds creation through native close', async () => {
+  const stopped = Promise.withResolvers<() => void>();
+  const release = vi.fn();
+  const beforeClose = vi.fn(() => stopped.promise);
+  const protection = registerTimelineCloseProtection({
+    rendererUrl: 'file:///app/index.html',
+    requiresPersistence: () => false,
+    beforeClose,
+  });
+  const window = new FakeWindow();
+  window.delayDestruction = true;
+  // FakeWindow implements only the Electron window surface exercised here.
+  protection.protect(window as unknown as BrowserWindow);
+  window.close();
+  await settle();
+  expect(beforeClose).toHaveBeenCalledWith([window], 'close');
+  expect(window.webContents.send).not.toHaveBeenCalled();
+  expect(window.destroyed).toBe(false);
+  stopped.resolve(release);
+  await settle();
+  expect(release).not.toHaveBeenCalled();
+  window.finishClose();
+  await settle();
+  expect(release).toHaveBeenCalledOnce();
+});
+it('drains orphaned work on quit even with no surviving protected window', async () => {
+  const stopped = Promise.withResolvers<() => void>();
+  const release = vi.fn();
+  const beforeClose = vi.fn(() => stopped.promise);
+  registerTimelineCloseProtection({
+    rendererUrl: 'file:///app/index.html',
+    requiresPersistence: () => false,
+    beforeClose,
+  });
+  mocks.app.quit();
+  await settle();
+  expect(mocks.app.quit).toHaveBeenCalledOnce();
+  expect(beforeClose).toHaveBeenCalledWith([], 'quit');
+  stopped.resolve(release);
+  await settle();
+  expect(mocks.app.quit).toHaveBeenCalledTimes(2);
+  expect(release).toHaveBeenCalledOnce();
+});

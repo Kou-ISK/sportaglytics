@@ -163,6 +163,16 @@ try {
     }, mainWindowId);
   // Playback readiness can precede the final single-angle layout and native
   // aspect update. Compare the settled video window, not its startup geometry.
+  // The video surface is 16:9; the window also contains playback controls.
+  await page.waitForFunction(() => {
+    const video = document.querySelector('#video_0_html5_api');
+    const rect = video?.getBoundingClientRect();
+    return (
+      rect &&
+      rect.width > 0 &&
+      Math.abs(rect.height - rect.width / (16 / 9)) <= 1
+    );
+  });
   const beforeBounds = await app.evaluate(
     async ({ BrowserWindow, app: application }, windowId) => {
       const main = BrowserWindow.fromId(windowId);
@@ -178,12 +188,7 @@ try {
           bounds = current;
           stableSince = Date.now();
         }
-        const [width, height] = main.getContentSize();
-        if (
-          Math.abs(width / height - 16 / 9) < 0.01 &&
-          Date.now() - stableSince >= 600
-        )
-          return bounds;
+        if (Date.now() - stableSince >= 600) return bounds;
       }
       throw new Error('Video window geometry did not settle');
     },

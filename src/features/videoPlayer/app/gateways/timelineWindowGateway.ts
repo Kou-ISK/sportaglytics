@@ -1,4 +1,5 @@
 import type {
+  TimelineWindowOpenOptions,
   TimelineWindowCommand,
   TimelineWindowClockPayload,
   TimelineWindowSyncPayload,
@@ -6,8 +7,10 @@ import type {
 
 const getApi = () => window.electronAPI?.timelineWindow;
 
-export const openTimelineWindow = async (): Promise<void> => {
-  await getApi()?.openWindow();
+export const openTimelineWindow = async (
+  options?: TimelineWindowOpenOptions,
+): Promise<void> => {
+  await getApi()?.openWindow(options);
 };
 
 export const closeTimelineWindow = async (): Promise<void> => {

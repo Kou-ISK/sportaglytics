@@ -49,3 +49,7 @@ Macの2 DMGと同じReleaseに`media-tools-sources-<version>-macos.tar.gz`を添
 - [Homebrew Cask Cookbook](https://docs.brew.sh/Cask-Cookbook)
 - [GitHub Releases livecheck strategy](https://docs.brew.sh/rubydoc/Homebrew/Livecheck/Strategy/GithubReleases.html)
 - [Release workflow](../.github/workflows/release.yml)
+
+## Native標準再生
+
+Native標準化候補の公開は、[Release手順](../.github/RELEASE.md)の署名・公証・payload検証と[Native受入](native-playback.md)を通してから行います。未署名候補や旧opt-in試用をTapへ公開しません。公開済み版を上書きせず、新versionを使用します。

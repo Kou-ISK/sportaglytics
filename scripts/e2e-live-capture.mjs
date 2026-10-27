@@ -527,9 +527,26 @@ try {
     25000,
   );
   await delay(1500);
+  // Visibility may still describe an earlier show. Count the actual native
+  // method call caused by this UI request before issuing a competing close.
+  await app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows().find((candidate) =>
+      candidate.webContents.getURL().includes('#/live-capture'),
+    );
+    if (!window) throw new Error('Capture owner is missing');
+    const show = window.show.bind(window);
+    globalThis.e2eCaptureShows = 0;
+    window.show = (...args) => {
+      globalThis.e2eCaptureShows++;
+      return show(...args);
+    };
+  });
   await timeline
     .getByRole('button', { name: '録画の操作', exact: true })
     .click();
+  await expect
+    .poll(() => app.evaluate(() => globalThis.e2eCaptureShows))
+    .toBe(1);
   // The renderer click sends an async IPC. Observe the native show before closing,
   // otherwise a delayed open can arrive after close and make this check race.
   await expect

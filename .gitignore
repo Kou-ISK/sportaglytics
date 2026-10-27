@@ -53,3 +53,6 @@ resources/event-detection-models/*
 
 # Local browser inspection snapshots and logs
 .playwright-cli/
+
+# Generated native preview libraries, upstream archives and temporary builds.
+.cache/native-playback/

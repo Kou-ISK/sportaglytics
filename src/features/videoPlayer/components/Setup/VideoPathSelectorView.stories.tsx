@@ -116,3 +116,11 @@ export const FullHistory: Story = {
     })),
   },
 };
+
+export const CheckingBackupHistory: Story = {
+  args: {
+    busy: true,
+    busyMessage: '更新前のバックアップを確認しています…',
+    onCancelOpen: () => {},
+  },
+};

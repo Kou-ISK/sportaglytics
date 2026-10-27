@@ -1,3 +1,4 @@
+import type { ClipExportAudioSelection } from '../../../../../shared/clipExport/clipExportAudio';
 import type { AngleSyncSnapshot } from '../../../../../types/ipc/angleSync';
 import type {
   TimelineData,
@@ -11,6 +12,7 @@ export interface VisualTimelineProps {
   maxSec: number;
   currentTime: number;
   onSeek: (time: number) => void;
+  onSeekRelative?: (seconds: number) => void;
   onDelete: (ids: string[]) => void;
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
@@ -46,6 +48,7 @@ export interface VisualTimelineProps {
   ) => string[];
   teamNames: string[];
   videoSources?: string[];
+  audioSelections?: readonly ClipExportAudioSelection[];
   onUndo?: () => void;
   onRedo?: () => void;
   onAddToPlaylist?: (items: TimelineData[]) => void;

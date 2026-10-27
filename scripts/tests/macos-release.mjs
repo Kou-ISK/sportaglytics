@@ -443,7 +443,12 @@ test('Mac payload rejects altered ASAR bytes, unexpected models and changed noti
   const { verifyMacPayload } = await import('../macos/payload.mjs');
   const root = await fresh(t);
   let index = 0;
-  for (const scenario of ['altered-build', 'gguf', 'notice']) {
+  for (const scenario of [
+    'altered-build',
+    'gguf',
+    'notice',
+    'missing-native',
+  ]) {
     const directory = join(root, String(index++));
     const project = join(directory, 'source'),
       staging = join(directory, 'asar'),
@@ -481,12 +486,19 @@ test('Mac payload rejects altered ASAR bytes, unexpected models and changed noti
     }
     await createPackage(staging, join(resources, 'app.asar'));
     await assert.rejects(
-      verifyMacPayload({ project, app, arch: 'arm64' }),
-      scenario === 'altered-build'
-        ? /byte mismatch: build\/main.js/
-        : scenario === 'gguf'
-          ? /models found/
-          : /byte mismatch: LICENSE/,
+      // Shared payload checks use the Intel fixture; arm64 additionally requires native resources.
+      verifyMacPayload({
+        project,
+        app,
+        arch: scenario === 'missing-native' ? 'arm64' : 'x64',
+      }),
+      scenario === 'missing-native'
+        ? /Native standard package resource set/
+        : scenario === 'altered-build'
+          ? /byte mismatch: build\/main.js/
+          : scenario === 'gguf'
+            ? /models found/
+            : /byte mismatch: LICENSE/,
     );
   }
 });

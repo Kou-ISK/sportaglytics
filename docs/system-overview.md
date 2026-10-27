@@ -12,7 +12,7 @@ CSVの文字列処理はpureな`src/utils/csv.ts`へ集約し、Timeline・分�
 
 Playlistの保存済み文書ロードと追加配送はRendererごとの文書境界で処理します。外部文書listenerを先に登録し、ロード中の追加はsnapshot適用後にFIFOで処理します。新しい編集・ロード・syncがあれば古いdisk snapshotは適用しません。MainはWindow別ticketに対するRendererの採用応答を受けて保存先を確定し、read完了では保存先やdirtyを変えません。初回open intentも採用前の保存先にはしません。既存commandに用途限定の応答を追加し、Session宛先・文書形式は維持します。[ADR0059](adr/0059-playlist-renderer-delivery-readiness.md)。
 
-配布runtimeは同じ43 majorのElectron43.5.1へ固定し、sandboxed preloadのcode cacheに関する[GHSA-qmv3-fv6v-rmhq](https://github.com/electron/electron/security/advisories/GHSA-qmv3-fv6v-rmhq)の修正版を使用します。既存のsandbox・contextIsolation・webSecurity、IPC公開面、protocolと署名設定は維持します。開発用wait-onのJoi18.2.6 overrideは配布runtimeに含めません。ビルド用gotの未使用HTTP response cacheは[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に従って依存・実行経路から除去し、checksum付きファイルキャッシュと必須auditを維持します。
+配布runtimeは同じ43 majorのElectron43.8.1へ固定し、[GHSA-jr5w-w6x2-84p9](https://github.com/electron/electron/security/advisories/GHSA-jr5w-w6x2-84p9)を含む監査対象の修正版を使用します。既存のsandbox・contextIsolation・webSecurity、IPC公開面、protocolと署名設定は維持します。開発用wait-onのJoi18.2.9 overrideは配布runtimeに含めません。ビルド用gotの未使用HTTP response cacheは[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に従って依存・実行経路から除去し、checksum付きファイルキャッシュと必須auditを維持します。
 
 組み込みdashboardは固定IDを維持し、利用者の編集は新IDのコピーへ保存します。`useDashboardPersistence`は既存`useSettings`のboolean結果と進行状態を扱い、Controllerは成功後にのみ編集終了・切替を反映します。正規化はcount/durationを保持し、既存移行は継続します。[ADR 0056](adr/0056-built-in-dashboard-editing-contract.md)。
 
@@ -386,6 +386,8 @@ GitHub Actions `quality-check` は `main` / `develop` / `feat**` 宛てpull requ
 
 UIの正本は `src/design-system/` のsemantic tokenとprops-only Viewです。開始画面の構成は `VideoPathSelector`、開く操作の単一状態源は `useStartPackageOpen`、IPCとロード時移行は `packageGateway` に置きます。初回・履歴・検索・ロード・エラーは[起動画面の仕様](start-workspace.md)を参照してください。
 
+パッケージ読込で自動表示するTimelineは`showInactive()`を使い、読込元の再生画面からフォーカスを奪いません。メニューなどの明示的なTimeline表示は従来どおり前面化します。ネイティブ窓名は「再生画面」「タイムライン」の役割を保ち、共通HTMLタイトルの再読込で同名になりません。補助窓からは`ウィンドウ > 再生画面を表示`で同じSessionの主画面へ戻れます。
+
 `applicationWindowActivation.ts`はアプリ内のフォーカス変更時に表示中のウィンドウを`moveTop()`でまとめて前面へ移し、操作対象を最後に上げます。常時最前面や別ウィンドウへのfocusは使わず、非表示・最小化ウィンドウはその状態を保ちます。通知対象も表示状態を再確認し、閉じた後に遅れて届いたfocusで再表示しません。
 
 TimelineのTabアクション巡回は選択と本体/タグのフォーカスを条件にし、ジャンプ先のDOMフォーカスも揃えます。入力・検索・通常コントロールとOSのTab組合せを守る範囲は[Timeline review](timeline-review.md)を正本とします。
@@ -427,3 +429,57 @@ Releaseは既存Mac署名・公証認証をCI内で消費する手動workflowで
 Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。
 
 移行先の選択・marker照合は`packageMigrationTargets`、端末内の保存先索引は`PackageMigrationIndex`へ分離する。録画MediaSourceの全体尺と近傍バッファ、保存完了EOSは別に管理する。[ADR 0065](adr/0065-unified-project-open.md) / [ADR 0066](adr/0066-capture-playback-bounds.md)。
+
+パッケージopenの履歴列挙はWindow/requestに所属する専用progress/取消を持ち、reload・crash・close後の結果を採用しません。Sessionのbind/releaseも要求を照合します（[ADR 0072](adr/0072-cancellable-package-history-read.md)）。[再生用コピー基盤](playback-cache.md)はMain側policy/jobとprops-only Viewに分離し、単一の短尺MP4を対象に固定変換と停止中の再生切替へ接続しています。原本の保存形式は変更せず、自動変換・自動採用は行いません。長尺の実機効果は別途検証が必要です。
+
+取消された履歴列挙のOS処理が残っている間は、同じ親pathへの再列挙を重ねません。バックアップ名の列挙と移行候補の型付き列挙は同じ所有権管理と待機取消を使います。再試行は古い結果を採用せず、処理終了後に新しく列挙します。候補選択後にも取消を照合し、更新開始前に止めます。既に始まった更新・復旧commitは中断しません。これはOSの列挙速度を改善する保証ではありません。再生用コピーの内容不一致はHW再生検査の前に拒否しますが、正常候補の全検証は維持します。
+
+再生用コピーの保存adapterはアプリ専用領域に隔離し、原本・タグ時計・package保存形式を変えません。全体hash・proof結合・中断stagingを含む容量計算とatomic公開を一時ファイルで検査していますが、通常アプリの短尺生成/停止中再生切替へ接続しています。既存manifestは採用済み証明ではなく、再検証する候補として扱います。
+
+再生用コピーの所有process runnerは停止要求と終了確認を分離し、終了未確認中はコピー準備をbusyに保ちます。通常再生・package保存形式・原本は変更しません。固定recipe/validator/IPCを短尺範囲へ接続しています。Mac主窓のnative音声選択をコピー/原本双方で復元し、読戻し不一致は採用を拒否します。成功artifactの実変換時間・全列/HW観測はMain内だけに保持します。
+
+再生用コピーには明示的な保存済み候補の再検証を接続しています。生成・再利用は全時刻/音声validatorを共有し、生成は全尺HW、再利用は毎回新規の区間HW適合性を確認する。原本と候補の実hashを再照合してから停止中の選択ticketへ渡します。再利用は変換や既存readyの削除を行わず、長尺の高速な再利用は未実装です。
+
+再生用コピーではstream field_order欠落時のdisplay scan仮分類をMainの有界decoded prefixへ分離しています。raw metadataは補完せず、全尺frame照合が終わるまで生成しません。長尺対応・実音声同期・物理scrubの確認をこの短尺判定で代替しません。
+
+再生用コピーの全内容proofはMainメモとprivateな認証付き記録で最大8件を保持する。実bytes全hashとruntime一致を毎回確認し、再起動後は同一app.asarも照合する（[ADR 0075](adr/0075-persistent-complete-content-proofs.md)）。HW検査は生成full/再利用compatibilityを区別し、過去のHW成功を再利用しない。詳細は[再生用コピー](playback-cache.md#保存済みコピーの明示再利用)。
+
+再生用コピーの候補digestは同じMain Job内の隣接検査だけで共有し、消費時のhandle/path照合とclose完了を必須とする。毎回の全hash、HW後と最終採用境界の確認、全内容proofのビルド/環境無効化は維持する。詳細は[候補digest引渡し](playback-cache.md#同じ要求内の候補digest引渡し)。
+
+長尺の初回待ちを減らす区間方式は[ADR 0077](adr/0077-demand-driven-playback-ranges.md)で検討中。現段階は有界MP4構造検査だけで、区間生成・MSE・先読みは製品へ接続していない。全尺proofとbyte範囲を混同せず、既存の保存・原本時計・exportは維持する。
+
+区間再生のRenderer側基盤は、source/Session寿命とseek要求寿命を分離し、video/URLごとのregistryから共通時計へreadinessを返す。停止中も必要区間を要求する。通常の再生用コピー採用は従来経路のままで、Mainの検証済み読込leaseとMSE切替への接続は未完了である。
+
+区間キャッシュのMain基盤は、一回限りの検証ticketからSession専用の再読可能leaseへ引き換え、最大2 batchで生成と検証・供給を重ねる。現時点では通常UI・正式IPCへの接続、実再生の速度保証は未完了。設計と保証範囲は[ADR 0077](adr/0077-demand-driven-playback-ranges.md)を参照。
+
+Native再生はMain所有Session・限定IPC、Renderer controller・共通時計に分離します。対応する停止中sourceを自動採用し、非対応操作は内部の互換再生へ渡します。[ADR 0078](adr/0078-native-playback-authority.md)と[適用範囲・受入条件](native-playback.md)を参照してください。
+
+Main内部の物理終了確認は正常なnative終了receiptとは分離し、子プロセス・通信路の終了が確定した後だけGPU資源回収を試みます。receipt失敗は外向きcloseの失敗として保持し、Rendererの停止時計・原本復帰の契約を緩めません。
+
+Nativeの時計はMainの専用snapshot通知で更新し、配送中1件と最新保留1件へ制限します。通常利用に周期pollや毎回の全尺検証は追加しません。 映像のみの10ms未満の一過性不足は音声時計を維持する。音声不足または猶予超過は同じsessionの共通時計を実停止して有界に補充し、実停止位置の画像ACKと音声・映像reserveを確認します。累積補充時間の上限を超える不足は内部の互換再生へ戻します。回復時の待機は品質記録に残します。
+
+原本復帰の末尾では、HTMLの長さの丸め差を最大1マイクロ秒だけadapter内で吸収し、共通時計は保持します。表示用の最終clipは厳密な末尾でもmountを維持し、gapや書き出しの区間解決とは区別します。
+
+### Native export候補
+
+準備済みsource/timeOriginを持つMainのexport controllerへoptional adapterを差し込みます。通常は未接続です。[Native clip export candidate](native-export.md)のsource所有権・音声index・独立qualification・fallback契約に従います。
+
+Native表示は既存PlayerSurface・全画面要素を共有します。範囲外操作は実停止時計と終了を確認して互換再生へ引き継ぎ、未処理の最新操作を保持します。
+
+原本復帰中の連続シークは進行中の停止画像を完成させてから最新位置へ進む。確認済み中間画像と時計を表示し、最終位置まで再生の所有権を保持する。通常HTML経路でも全区間seekableな有限ローカルファイルは同様に集約し、録画・欠落バッファ・source変更では強制置換を維持する。これは復号自体の速度改善や実操作での合格を意味しない。
+
+タイムラインの映像書き出しは、再生画面から同期されたsource単位の確認済み音声選択を使用します。native切替中の未確定状態や同一sourceの選択競合では確認を求め、別アングルへ音声番号を流用しません。詳細は[Native export](native-export.md)を参照してください。
+
+Nativeの標準自動選択は署名済みmacOS arm64の限定profileに適用します。全尺変換を起動条件にせず、形式・速度・複数映像などの非対応条件は既存機能を維持する内部fallbackです。
+
+原本時計・全音声の契約を保持し、設定/seekだけの更新でheaderを再probeしません。過去の間欠停止と実聴取同期は未達として[仕様](native-playback.md)へ記録します。
+
+対応するAACは必要な圧縮packetだけを固定MOV demuxerで取得し、Apple AudioConverterへ渡します。原本PTS・全3音声と既存の窓数/同時読取上限を維持し、毎回の全尺音声走査を行いません。詳細な形式ガードと資源上限は[Native再生](native-playback.md)に集約します。
+
+After a normal native close, the same document owner may report a Renderer restoration failure to an optional numeric diagnostic sink. Main authenticates document and generation and accepts one report. This is not a playback/save/export state source and cannot release their ownership on diagnostic failure.
+
+Timeline別窓の相対シークは所有元で加算し、通知待ちの表示時計から絶対位置へ変換しません。packageツールバーはclip内のHTML時計ではなく共通時計を基準にします。未確認native要求とtag/save/export用の確認済み時刻は分離します。[操作契約](native-playback.md#操作と所有権)。
+
+Native preview helperの配布準備は通常media-toolsから分離した固定source buildで行います。source/recipe/NOTICEとartifactをmanifestで対応づけ、[対応sourceと未確認範囲](third-party-distribution.md#native-playback-previewの対応ソース)を保持します。helper生成だけでは適格化できず、配布署名・source資格・画面準備をすべて確認して自動使用します。
+
+配布runtimeはDeveloper IDで検証したappと同teamの固定helper・receiverを照合します。資源欠落や署名不整合をunsignedへ降格させず、nativeを起動せずに互換再生を保持します。

@@ -8,6 +8,7 @@ const {
   auxiliaryWindow,
   openTimelineWindow,
   openPlaylistFile,
+  focusPackageSession,
 } = vi.hoisted(() => {
   const send = vi.fn();
   const otherSend = vi.fn();
@@ -24,6 +25,7 @@ const {
     auxiliaryWindow: window(3, vi.fn()),
     openTimelineWindow: vi.fn(),
     openPlaylistFile: vi.fn(),
+    focusPackageSession: vi.fn(),
   };
 });
 
@@ -35,6 +37,7 @@ vi.mock('electron', () => ({
   },
 }));
 vi.mock('../packageSessionRegistry', () => ({
+  focusPackageSession,
   getPackageSessionForWindow: (window: unknown) =>
     window
       ? { mainWindow: window === auxiliaryWindow ? mainWindow : window }
@@ -75,6 +78,28 @@ describe('document menus', () => {
     auxiliaryWindow.webContents.send.mockClear();
     openTimelineWindow.mockClear();
     openPlaylistFile.mockClear();
+    focusPackageSession.mockClear();
+  });
+
+  it('returns from an auxiliary menu to its owning player without selecting another session', () => {
+    const action = buildWindowMenuItems().find(
+      (item) => item.label === '再生画面を表示',
+    );
+    expect(action?.click).toBeDefined();
+    action?.click?.(
+      {} as Electron.MenuItem,
+      auxiliaryWindow as unknown as Electron.BaseWindow,
+      {} as Electron.KeyboardEvent,
+    );
+    expect(focusPackageSession).toHaveBeenCalledWith({ mainWindow });
+    action?.click?.(
+      {} as Electron.MenuItem,
+      otherWindow as unknown as Electron.BaseWindow,
+      {} as Electron.KeyboardEvent,
+    );
+    expect(focusPackageSession).toHaveBeenLastCalledWith({
+      mainWindow: otherWindow,
+    });
   });
 
   it('groups document creation and opening under File', () => {

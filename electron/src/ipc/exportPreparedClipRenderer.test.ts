@@ -87,3 +87,76 @@ it('keeps different primary and secondary angle clocks', async () => {
     }),
   );
 });
+
+it('hands the selected angle its local clock and chosen audio before publishing', async () => {
+  const clip = {
+    ...payload.clips[0],
+    angleType: 'angle2' as const,
+    audioTrackIndex: 2,
+  };
+  const request = {
+    ...payload,
+    sourcePath2: 'logical-secondary.mp4',
+    mode: 'dual' as const,
+    clips: [clip],
+    overlay: { ...payload.overlay, enabled: false },
+  };
+  const native = vi.fn(async () => ({ status: 'completed' as const }));
+  const render = createPreparedClipRenderer(
+    request,
+    new Map([
+      [
+        0,
+        new Map([
+          [
+            'logical-secondary.mp4',
+            { sourcePath: 'physical-secondary.mp4', timeOrigin: -10 },
+          ],
+        ]),
+      ],
+    ]),
+    [],
+    () => 'ffmpeg',
+    native,
+  );
+  expect(await render(clip, 'final.mp4')).toBe('final.mp4');
+  expect(native).toHaveBeenCalledWith({
+    sourcePath: 'physical-secondary.mp4',
+    start: 12,
+    duration: 6,
+    audioTrack: 2,
+    outputPath: 'final.mp4',
+  });
+  expect(renderClipWithFfmpeg).not.toHaveBeenCalled();
+});
+
+it('falls back with the same selected source, clock and audio, but never on fatal rejection', async () => {
+  const clip = { ...payload.clips[0], audioTrackIndex: 2 };
+  const request = {
+    ...payload,
+    clips: [clip],
+    overlay: { ...payload.overlay, enabled: false },
+  };
+  const native = vi.fn(async () => ({
+    status: 'fallback' as const,
+    reason: 'output-unqualified',
+  }));
+  const render = createPreparedClipRenderer(
+    request,
+    new Map(),
+    [],
+    () => 'ffmpeg',
+    native,
+  );
+  await render(clip, 'final.mp4');
+  expect(renderClipWithFfmpeg).toHaveBeenCalledWith(
+    expect.objectContaining({
+      clip: expect.objectContaining({ audioTrackIndex: 2 }),
+      outputPath: 'final.mp4',
+    }),
+  );
+  vi.mocked(renderClipWithFfmpeg).mockClear();
+  native.mockRejectedValueOnce(Error('source changed'));
+  await expect(render(clip, 'other.mp4')).rejects.toThrow('source changed');
+  expect(renderClipWithFfmpeg).not.toHaveBeenCalled();
+});

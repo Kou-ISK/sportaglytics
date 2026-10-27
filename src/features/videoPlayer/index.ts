@@ -12,6 +12,10 @@ export {
 } from './components/Controls/EnhancedCodePanel';
 export { CodingPanelRuntime } from './components/Controls/CodingPanelRuntime';
 export { VideoPathSelector } from './components/Setup/VideoPathSelector';
+export {
+  NativePlaybackController,
+  type NativePlaybackState,
+} from './shared/nativePlayback/nativePlaybackController';
 
 // Analysis report view components (public)
 export { DashboardCard } from './components/Analytics/AnalysisPanel/components/DashboardCard';

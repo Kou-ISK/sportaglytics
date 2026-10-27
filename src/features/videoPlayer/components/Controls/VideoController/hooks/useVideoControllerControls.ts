@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { getNativePlayback } from '../../../../shared/nativePlayback/nativePlaybackRegistry';
 import type { SelectChangeEvent } from '@mui/material';
 import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { GetExistingVideoJsPlayer } from './useExistingVideoJsPlayer';
@@ -10,6 +11,7 @@ interface UseVideoControllerControlsParams {
   syncData?: VideoSyncData;
   maxSec: number;
   videoTime: number;
+  useTimelineClock?: boolean;
   setVideoTime: (value: number) => void;
   handleCurrentTime: (
     event: React.SyntheticEvent | Event,
@@ -26,11 +28,21 @@ export const useVideoControllerControls = ({
   syncData,
   maxSec,
   videoTime,
+  useTimelineClock = false,
   setVideoTime,
   handleCurrentTime,
   getExistingPlayer,
   lastManualSeekTimestamp,
-}: UseVideoControllerControlsParams) => {
+}: UseVideoControllerControlsParams): {
+  speedOptions: number[];
+  smallSkipSeconds: number;
+  largeSkipSeconds: number;
+  currentTimeLabel: string;
+  onTogglePlayback: () => void;
+  onSeekAdjust: (deltaSeconds: number) => void;
+  onSpeedPresetSelect: (value: number) => void;
+  onSpeedChange: (event: SelectChangeEvent<string>) => void;
+} => {
   const speedOptions = useMemo(
     () => [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4, 6],
     [],
@@ -69,11 +81,16 @@ export const useVideoControllerControls = ({
           ? maxSec
           : Number.POSITIVE_INFINITY;
 
-      // videoTime状態ではなく、プレイヤーの実際のcurrentTime()から起点を取得
+      // The HTML source clock is stale while native owns playback. Relative
+      // input builds on pending native seeks without advancing confirmed time.
+      const native = getNativePlayback();
       let base = 0;
       try {
-        const player = getExistingPlayer('video_0');
-        if (player?.currentTime) {
+        const player =
+          native || useTimelineClock ? undefined : getExistingPlayer('video_0');
+        if (native) {
+          base = native.seekCommandTime;
+        } else if (player?.currentTime) {
           base = player.currentTime() ?? 0;
         } else {
           base = Number.isFinite(videoTime) ? videoTime : 0;
@@ -86,14 +103,11 @@ export const useVideoControllerControls = ({
       const clamped = Math.min(maxAllowed, Math.max(minAllowed, target));
       lastManualSeekTimestamp.current = Date.now();
       setVideoTime(clamped);
-      try {
-        handleCurrentTime(new Event('video-controller-seek'), clamped);
-      } catch {
-        handleCurrentTime({} as React.SyntheticEvent, clamped);
-      }
+      handleCurrentTime(new Event('video-controller-seek'), clamped);
     },
     [
       videoTime,
+      useTimelineClock,
       syncData,
       maxSec,
       handleCurrentTime,

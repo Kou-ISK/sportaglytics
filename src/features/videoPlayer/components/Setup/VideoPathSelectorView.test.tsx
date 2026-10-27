@@ -1,7 +1,13 @@
 /* @vitest-environment jsdom */
 import React from 'react';
 import { ThemeProvider } from '@mui/material/styles';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NotificationProvider } from '../../../../contexts/NotificationProvider';
 import { getAppTheme } from '../../../../theme';
@@ -15,9 +21,11 @@ const dragState: DragAndDropState = {
   isValidDrop: false,
 };
 
+const theme = getAppTheme('dark');
+
 const renderWithProviders = (ui: React.ReactElement): void => {
   render(
-    <ThemeProvider theme={getAppTheme('dark')}>
+    <ThemeProvider theme={theme}>
       <NotificationProvider>{ui}</NotificationProvider>
     </ThemeProvider>,
   );
@@ -62,7 +70,7 @@ describe('VideoPathSelectorView', () => {
   it('opens files through a callback without a notification or Electron provider', () => {
     const onOpenPackage = vi.fn();
     render(
-      <ThemeProvider theme={getAppTheme('dark')}>
+      <ThemeProvider theme={theme}>
         <VideoPathSelectorView
           showWelcome
           dragState={dragState}
@@ -334,9 +342,10 @@ describe('VideoSelectionStep', () => {
       />,
     );
 
-    expect(
-      screen.getByRole('button', { name: 'このアングルに映像を追加' }),
-    ).toBeTruthy();
+    const addVideo = screen.getByRole('button', {
+      name: 'このアングルに映像を追加',
+    });
+    expect(addVideo).toBeTruthy();
     expect(screen.getByText('first-half.mp4')).toBeTruthy();
     expect(
       screen.getAllByText('同期位置は再生画面のシンクモードで設定').length,
@@ -344,16 +353,15 @@ describe('VideoSelectionStep', () => {
     expect(screen.queryByText('開始位置（秒）')).toBeNull();
     expect(screen.queryByText('同期を調整…')).toBeNull();
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'このアングルに映像を追加' }),
-    );
+    fireEvent.click(addVideo);
     expect(screen.getByText('ローカル映像')).toBeTruthy();
     expect(screen.getByText('YouTube')).toBeTruthy();
     fireEvent.click(screen.getByText('ローカル映像'));
     expect(handleSelectVideos).toHaveBeenCalledWith('angle-main');
 
+    const clipRows = document.querySelectorAll<HTMLElement>('[data-clip-row]');
     fireEvent.click(
-      screen.getAllByRole('button', { name: '映像を上へ移動' })[1],
+      within(clipRows[1]).getByRole('button', { name: '映像を上へ移動' }),
     );
     expect(handleMoveClip).toHaveBeenCalledWith(
       'angle-main',
@@ -364,7 +372,6 @@ describe('VideoSelectionStep', () => {
     const dragHandles = document.querySelectorAll<HTMLElement>(
       '[data-clip-drag-handle]',
     );
-    const clipRows = document.querySelectorAll<HTMLElement>('[data-clip-row]');
     fireEvent.pointerDown(dragHandles[1], { button: 0 });
     fireEvent.pointerEnter(clipRows[0], { buttons: 1 });
     expect(handleReorderClip).toHaveBeenCalledWith(

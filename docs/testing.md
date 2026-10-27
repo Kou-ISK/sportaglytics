@@ -49,6 +49,8 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 ## パッケージ互換と保存保護
 
 - `packageBackupRestoration.test.ts`: 索引付き旧コピーと隣接退避文書が残る復元、取消、第二世代復元、明示的な退避文書選択、復元後の保存・再読込、壊れた記録・symlinkの拒否、親フォルダごとの移動を検証する。
+- `packageHistoryDirectory.test.ts`: 反復取消中の同一親pathのOS読込上限、名前と型付き列挙間の直列化、待機中の取消、遅い成功/失敗の消費、再試行時の新しい履歴と別親pathの独立性を検証する。
+- `packageMigrationCancellation.test.ts`: 現行・旧形式の移行候補探索を保留し、OS読み取りの完了前に取消を返すこと、選択・更新を開始しないこと、原本不変、遅い失敗後に新規候補を発見すること、選択中の所有元失効を検証する。
 - `legacyPackageMigrationService.test.ts`: 同名更新、全内容バックアップ、編集コピー採用・分岐・移動、権限・容量不足、同サイズ破損、同時編集、rollback失敗、PID再利用、journal破損を検証する。`legacyPackageCopyService.test.ts`は0.17.9互換コピーと既知形式変換の回帰を維持する。
 - `useTimelinePersistence.test.tsx` / `timelineValidation.test.ts`: 読込失敗・壊れたJSON・未知versionでwriteを0回に保ち、retry後の復旧、保存失敗時の変更保持と順序を確認する。
 - `atomicTextFile.test.ts`: commit faultのEACCES/ENOSPC/EIO、symlink、read-only destination、同時writeと一時ファイルcleanupを確認する。
@@ -74,6 +76,8 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 ## Required Quality Gate
 
+`test:native-runtime`の`ReplyQueue.test.cpp`は実Mach portで返信10通のFIFO・peer照合・11通目の上限拒否・無効port設定失敗を確認します。映像は使わず、画像保持上限を増やしません。既存の数値診断回帰では返信エラーの固定分類と未知文字列の非保存を確認します。
+
 `scripts/tests/macos-release.mjs`の公開検証要約テストは、source/version/archの不一致、改変DMG/installer、未知のWindows署名状態、未公証・未staple・Gatekeeper拒否、余分なassetとraw診断情報の除外を合成reportで検査します。CLI試験は一時git repositoryと合成bytesを使い、実hash照合・既存要約の上書き拒否・改変候補での未出力を確認します。ファイル名にmacosを含みますが、この検査はLinux/Windowsでも動くNode試験で、実署名・公証・E2Eを代替しません。既存の`test:run` / `test:ci`が同ファイルを登録済みのため、限定検査も両コマンドに含まれます。
 
 `test:run` / `test:ci`は既存Vitestの後に`check:build-downloads`と同じNode検査も実行します。`scripts/tests/build-downloader.mjs`は実際のbuilder/get/got依存を読み、loopbackの合成bytesでダウンロード・checksum・ファイルキャッシュと通信の回帰を検証します。外部モデルやElectron GUIを起動しません。依存境界の判断は[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に記録しています。
@@ -94,26 +98,32 @@ UI変更時はdesign-systemとStorybookを含む以下の全体検証を実行�
 pnpm run verify
 ```
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm run typecheck` / `typecheck:electron` | renderer/shared とElectron main/preload TypeScript |
-| `pnpm run lint` | ESLint zero warnings |
-| `pnpm run check:architecture` | Feature-First / Electron boundary |
-| `pnpm run check:design-system` | semantic token / UI境界 |
-| `pnpm run check:adr` | ADR filename/index consistency |
-| `pnpm run test:run` | Vitest one-shot + build download / distribution notice tests |
-| `pnpm run test:ci` | 同じ検査をVitest file並列なしで実行 |
-| `pnpm run verify` | 共通ゲート + design-system / ADR + app build / Storybook build |
-| `pnpm run licenses:sources` | 公開された固定media sourceの取得・対応source archive準備 |
-| `pnpm run check:build-downloads` | build download and cache boundary |
-| `pnpm run check:preload` | preload bundle sanity |
-| `pnpm run report:architecture-health` / `report:large-files` | architecture / soft file-size report |
+| Command                                                      | Purpose                                                        |
+| ------------------------------------------------------------ | -------------------------------------------------------------- |
+| `pnpm run typecheck` / `typecheck:electron`                  | renderer/shared とElectron main/preload TypeScript             |
+| `pnpm run lint`                                              | ESLint zero warnings                                           |
+| `pnpm run check:architecture`                                | Feature-First / Electron boundary                              |
+| `pnpm run check:design-system`                               | semantic token / UI境界                                        |
+| `pnpm run check:adr`                                         | ADR filename/index consistency                                 |
+| `pnpm run test:run`                                          | Vitest one-shot + build download / distribution notice tests   |
+| `pnpm run test:ci`                                           | 同じ検査をVitest file並列なしで実行                            |
+| `pnpm run verify`                                            | 共通ゲート + design-system / ADR + app build / Storybook build |
+| `pnpm run licenses:sources`                                  | 公開された固定media sourceの取得・対応source archive準備       |
+| `pnpm run check:build-downloads`                             | build download and cache boundary                              |
+| `pnpm run check:preload`                                     | preload bundle sanity                                          |
+| `pnpm run report:architecture-health` / `report:large-files` | architecture / soft file-size report                           |
 
 GitHub Actions [quality-check](../.github/workflows/formatting_code.yml) は `main` / `develop` / `feat**` 宛てpull requestで、Node 22.12.0 / pnpm 9.1.0のfrozen install、lint、renderer/electron typecheck、architecture、design-system、ADR、`test:ci`、`licenses:sources`、Storybook buildを実行します。`verify` とCIの工程は完全には同じでなく、いずれもOS別の実Electron E2E・署名・公証・installer検査を代替しません。
 
 実行環境、コマンド、結果、未実施の範囲と理由をPRに記載します。必要な検査が環境制限で実行できない場合は合格と扱わず、merge前にCIまたは対応OSで確認します。初回build/Storybookの `vision:prepare` と `licenses:sources` は公開資産のネットワーク取得を伴います。Model training/evaluationのCIは別private R&D repositoryの責務で、公開ソースの検査にその認証・映像・重みを要求しません。
 
 ## Test Placement
+
+Mac専用cacheの実ファイル保護（`cacheApplicationIdentity`、`cacheContentProofs`、`cacheIdentityHandoff`、`cacheProofStore`、`cacheRangeReadLease`、`cacheReusePipeline`、`cacheStorage`、`sourceIdentity`）はPOSIX descriptor・所有者・modeの契約をMac/Linuxで検査します。Windowsではこの実FS検査を適用せず、純粋なproof・audit上限・偽造ticket検査は残します。`cachePlatformCompatibility.test.ts`とnative起動試験で、非対応OSではhelper解決前の拒否とproofの非保存・非採用を実際に確認します。[NodeのWindows file mode/flag制限](https://nodejs.org/docs/latest-v22.x/api/fs.html#file-system-flags)を理由に製品の所有者・revision検査を緩めません。Windowsの通常UI・IPC・installer E2Eは引き続き必須です。
+
+`test:native-runtime`は`SurfaceCandidateRetention.test.cpp`で、32枚の受入済み候補の解放、最新画像・未来field保持、厳密な有理数境界、不正世代/時刻/未受入/停止時の拒否、停止後の前方buffered seekを検査します。表示要求が遅い実画面の品質やGPU解放を、この純粋な保持計画の回帰だけで合格とは扱いません。
+
+`nativeEndpointRecovery.integration.test.tsx` は実SyncedVideoPlayer・NativeSurfaceController・復帰controllerと合成media portを接続し、末尾commit中にsurfaceが破棄されないこと、原本時計・音声選択を維持してHTMLへ戻ることを検査します。`nativeOriginalRecovery.test.ts`、`cachePlayerSwitch.test.ts`、`cachePlayerSeekTarget.test.ts` は読込済み/未読込の末尾量子化、適格source終端とHTML終端の微小差、画像ready待機、不正/範囲外時刻の拒否を検査します。gateway回帰ではMain資格の終端が復帰へ渡り、共通時計を変更せずHTML所有権を解放することも確認します。media portは合成であり、実HTML復号・表示の確認は別途必要です。
 
 すべてのfixture・検証ログ・スクリーンショットは [公開時のデータ取り扱い](privacy-and-data-handling.md#sharing-and-issue-reports) に従います。実データでのみ確認できる検証はローカルで行い、公開する再現例には架空の識別情報と合成データを使います。
 
@@ -199,7 +209,7 @@ pnpm run test:e2e:timeline-rows
 pnpm run test:e2e:package-reopen
 ```
 
-Package再openは実ファイルのドロップ、映像と補助Windowの終了、同じパスをOSから再openする流れを検証します。macOSではアプリを終了せずに起動画面へ戻り、履歴・drop・ファイル選択で繰り返し再openします。Timelineの端編集は未選択の状態で修飾キー付きのブラウザー入力を送信し、キーを先に離してからマウスを離し、保存された開始・終了時刻、境界へ追従する再生位置、選択維持まで確認します。
+Package再openは実ファイルのドロップ、映像と補助Windowの終了、同じパスをOSから再openする流れを検証します。reload直後のOS open試験では、進捗通知で観測した所有request IDでSessionを解放し、成功を確認してからreloadします。request IDなしの拒否を無視して読み込み完了待ちの検証へ進まないでください。macOSではアプリを終了せずに起動画面へ戻り、履歴・drop・ファイル選択で繰り返し再openします。Timelineの端編集は未選択の状態で修飾キー付きのブラウザー入力を送信し、キーを先に離してからマウスを離し、保存された開始・終了時刻、境界へ追従する再生位置、選択維持まで確認します。
 
 `export-menu`は実MenuItemのcallbackを呼び、Timeline/Playlistの設定UIを操作して合成映像を書き出します。OSの保存先選択結果と案内ダイアログだけをstub化し、実IPC・FFmpegと出力の尺を確認します。OSメニューバー自体のクリック試験ではありません。複数Package Sessionの分離、不正sender、購読解除と再ロードは `clipExportMenuAction.test.ts` で確認します。
 
@@ -272,7 +282,7 @@ Paint入力の回帰テストはpointerdown/upだけの短いドラッグ、停�
 
 戦術盤の準備は認識ボタンの有効状態で判定し、ページ全体の`networkidle`は使いません。`electron.launch`後に全HTTP(S)を遮断するrouteを設置し、観測できた起動時YouTube adapter scriptを正確なURLとrequest種別で区別します。それ以外の観測した起動時要求と認識開始後の全HTTP要求を失敗にし、未完了requestも診断ログへ残します。初回起動全体の完全なofflineを証明する試験ではなく、route設置後の認識が同梱モデルで成功し、認識開始後のHTTP要求が0件であることを検証します。[Playwrightの待機契約](https://playwright.dev/docs/api/class-page#page-wait-for-load-state)。
 
-起動時scriptの分類は`https://www.youtube.com/iframe_api`と、Windows run37208260762で観測した`https://www.youtube.com/s/player/8ab5c328/www-widgetapi.vflset/www-widgetapi.js`、Windows run38030807357で観測した`https://www.youtube.com/s/player/5203c085/www-widgetapi.vflset/www-widgetapi.js`、Windows run38331578286で観測した`https://www.youtube.com/s/player/22cb88bc/www-widgetapi.vflset/www-widgetapi.js`、および[Windows run38365031661](https://github.com/Kou-ISK/sportaglytics/actions/runs/38365031661)で観測した`https://www.youtube.com/s/player/ec429320 / 21090930 / 0229cd64/www-widgetapi.vflset/www-widgetapi.js`、[Windows run38898095101](https://github.com/Kou-ISK/sportaglytics/actions/runs/38898095101)で観測した`https://www.youtube.com/s/player/c271e571/www-widgetapi.vflset/www-widgetapi.js`だけに限定します。widgetは既にロードされたexact iframe_apiのscript sourceに同じURLの文字列宣言がある場合だけ分類します。証拠はURLごとに保持し、旧版の宣言を根拠に新版を分類しません。CDPでそのcodeを読みSHA256と検証結果をログに残し、証明できなければ失敗します。ログの`declaredWidgetUrls`は既知URLとの照合結果であり、空配列はscript本文にwidget宣言がないことを意味しません。URLの追加後も、その実行でロードされたscriptからの証明が必要です。この診断でURLを追加取得しません。host/pathのwildcardやquery違いは許可せず、将来URLが変わった場合も観測とレビューが必要です。分類は通信の許可ではなく、遮断routeは維持します。`e2e-tactical-startup-http.test.mjs`の42ケースで未検証widget、認識中要求、別host/path/query/type、CDP失敗時のcleanupを検査します。
+起動時scriptの分類は`https://www.youtube.com/iframe_api`と、その実行で既にロードされた同URLのscript sourceに変数の初期値に単独の文字列リテラルとして宣言されたwidgetに限定します。[Windows run39791130218](https://github.com/Kou-ISK/sportaglytics/actions/runs/39791130218)ではwidgetの版が`55de7e60`に変わり、有限版リストとの不一致でインストール後E2Eが失敗しました。版一覧を追加し続ける代わりに、CDPで取得したsourceを既存TypeScript parserで実行せず解析し、`https://www.youtube.com/s/player/<小文字16進8桁>/www-widgetapi.vflset/www-widgetapi.js`という完全な形の宣言だけを抽出します。request側も同じ形と、その回の抽出URLへの完全一致を要求します。別origin・port・userinfo・path・query・fragmentを認めず、コメント、文字列内のコード、template、連結文字列、構文エラーは証拠にしません。旧版の宣言で新版を分類することもありません。CDPのsource SHA256と宣言URLをログに残し、同じ実行で証明できない要求は引き続き失敗します。この診断はURLを追加取得せず、HTTP遮断routeと認識開始後の全HTTP要求の拒否を維持します。これは起動時の通信試行の分類であり、通信を許可する処理ではありません。`e2e-tactical-startup-http.test.mjs`は版の変化、証拠の不一致、不正URL、非リテラル、phase/type、CDP失敗時のcleanupを検査します。
 
 アプリはYouTube映像のtechを使用するため`useVideoJsInitialization.ts`でvideojs-youtube@3.0.1をimportします。その依存はmodule読込時にiframe_apiを要求します。ローカル戦術盤の合成MP4にはYouTube techが不要であり、ここでの分類は既存の起動副作用の範囲を示すものです。人物認識の必要な外部通信として扱いません。
 
@@ -311,3 +321,53 @@ Windows同時公開の`release-evidence.mjs`は同一runのinstalled reportと�
 Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化する。`--publish never`だけでは既存GH_TOKENから更新用`app-update.yml`が自動生成されるため、DMG出力そのもので署名前の同梱物検査を実行する。公開は検証後の既存`gh release create`工程だけで行い、同梱物の許可リストは緩めない。
 
 `e2e-capture-reopen`は合成84秒の確定録画で全体duration、60秒へのシーク、逆方向・終端・終端からの戻り、同じvideo要素での連続再生、別process再開を検査する。`e2e-unified-open`はOS picker応答のみstub化し、共通UI→実Main→別保存先の再利用→実動画再生を新processでも検証する。両方を標準runnerにも登録する。unitはEOSによるduration再計算、録画sampleによるduration伸長、移行先オフライン・索引書込失敗・欠番・Finderメタデータ変更・予約解放を固定する。
+
+## 再生用コピーと取消可能な履歴確認
+
+`cacheJob.test.ts`はfps/全表示時刻/全音声packet・設定の照合、原本変更、容量、取消後の遅い完了、片付け失敗、明示的な停止中選択を合成portsで検査します。実変換・ディスクatomic公開・HW再生の証拠ではありません。`PlaybackCacheView`のStory/テストは進行・取消・原本へ戻す・失敗の導線を検査します。実装と未接続範囲は[設計](playback-cache.md)を参照してください。
+
+`packageHistoryRead` / `packageOpenHandlers` / preload bridge / startup Hook・Gateway・Viewの回帰は、待機取消、late結果/エラー、reload/crash、unmount、他Window/旧request拒否、取消送信失敗を検査します。`packageBackupRestoration`は取消後に原本bytesと履歴判定が保持され、再試行可能なことを実一時ファイルで確認します。`packageSessionRegistry`は同Window/同pathの後続bindを旧cleanupが解放しないことを確認します。対応OSの実open/preload E2Eと遅い保存先での応答は別検証です。
+
+`sourceIdentity.test.ts`は全bytes/取消/差替え/特殊ファイル拒否を、`cacheStorage.test.ts`は実一時ファイルを使い、job接続、seal前採用拒否、出力hashとの結合、容量/中断job/同時writer、後続差替え、symlink/hardlink、片付け失敗と再試行、公開先保全、ready改変の検出を確認します。合成proofを使うため、動画の全列validator・HW効果・process停止・実音声の検証ではありません。
+
+`cacheConversionRunner.test.ts`は合成workerと時計で取消/容量/期限/出力量・遅いclose・停止未確認・単一poll・古いcallbackを検査します。`cacheWorkerProcess.test.ts`はspawnをmockし、shellなし・所有childへのTERMだけ・close別通知を確認します。`cacheStorage.test.ts`は実一時ファイルの容量超過で停止要求し、合成close前は出力を保持し、close後だけ片付ける接続を検査します。これらは実FFmpegやOSのprocess終了を実行した試験ではありません。終了未確認のView/Storyは再生成や片付けを出さず、原本を使用できることを明示します。
+
+`cacheDisplayScan.test.ts`と`cacheProbe.test.ts`はfield_order欠落の仮分類、空/混在/属性欠落/unknown拒否、全尺後半の不一致、prefix取消/診断/不完全JSONとclose前の所有維持を確認します。bounded prefixを全尺proofの代替にせず、実素材のcoded orderや音声聴取の証明とはしません。
+
+`cacheContentProofs.test.ts` は実ファイルhashを使い、同サイズ改変、probe中の交換、取消/遅延完了、再起動/runtime差、返却値の分離と8件LRUを検査する。`cacheReusePipeline.test.ts` はwarm proofでもHW・所有権・最終hashを再検証し、HW中の同内容ファイル交換を拒否する。模擬probeの合格を実変換や長尺の性能改善とは扱わない。
+
+再生用コピーのHW検査は`cacheHardwareCoverage/ProbePage/Probe.test.ts`で区間欠落・seekの飛び・古いcallback・早期ended・複数player/fallback・期限後成功・遅いcloseを拒否する。`cacheJob.test.ts`で生成にcompatibility証拠を使えないこと、reuseにモード不一致の証拠を使えないことを検証する。`usePlaybackCacheController.test.tsx`で復帰音声失敗のACK禁止・重複error・ACK待ちerror・復帰通知を確認する。実機は同一入力/候補と360秒など固定した計測上限を使い、cold/warmの内容proof、各HW区間、hash、背景負荷を記録する。IPC診断は実UI/実音声/物理scrubの合格ではない。
+
+再生用コピーの永続proofは`cacheProofStore.test.ts`で認証/版/shape/時刻関係・容量・link/owner/mode・取消/書込不確定・同時要求を、`cacheApplicationIdentity.test.ts`で物理bytes/交換/取消を、`cacheContentProofs.test.ts`で再起動と改変時の全解析を検査する。`cacheReusePipeline.test.ts`は非同期保存後のowner/原本/取消と新規HW失敗を確認する。これらは実ASAR/実HW/実音声の検証を代替せず、別Main・同profileの短尺IPC計測で永続記録の実採用を確認する。
+
+`scripts/tests/electron-runtime.mjs`は実梱包依存checkerへ架空のcompiled Mainを渡し、Electron内蔵`original-fs`・Node builtin・相対importの受理と、未知require/dynamic import・似た名前の拒否を検査する。実Electronでraw ASARを読めることは別の梱包IPC検証で確認する。
+
+`cacheIdentityHandoff.test.ts`は同サイズ改変・mtime復元・同内容inode交換・links・別path・二重消費・取消・open待ち中のclose・close失敗と明示retryを実FSで検証する。`cacheReusePipeline.test.ts`は実handle.readのbytesとMainの有界auditを比較し、fresh/warmの全digest回数、Jobのcleanup失敗保持を確認する。短尺の別Main IPC計測は同一build/profileのpersistent proofを用い、全field/音声proofと新規HWが残ることを確認する。測定は実UI/再生品質の合格を意味しない。
+
+`shared/playbackRanges`のunitは、連続seek中の旧read破棄、native append/removeの直列所有、取消後の遅延完了、未確認read/SourceBufferの保持、容量に含むin-flight bytes、使用中区間のeviction拒否、再読込、close失敗の一回所有を検査する。共通時計では停止中の要求配送、元のsource時刻への変換、capture例外との分離、URL/アングル所有を確認する。Mainのread lease、実MSEの連続区間、元動画復帰、実音声同期、物理scrubは別の未完了ゲートである。
+
+区間キャッシュの基盤回帰では、ticket偽造・別所有者・再引換え・再読取時の改変、最終revision照合中の失効、read/close失敗と予約保持、生成とconsumerの最大2件、取消の即時通知と遅いsettleを検査する。Main/Renderer接続とnative供給ACK・実音声同期・物理scrubは別の実機検証であり、この合格から推定しない。
+
+Native再生の`nativePlaybackSession.test.ts`は配送と画像/音声準備、古い応答、速度scopeを検査する。`nativePlaybackManager.test.ts` / `nativePlaybackHandlers.test.ts`は再qualification、実sender guard、payload、終了待ちと不明なcleanupを確認する。Rendererのcontroller/gateway、toolbar、`nativePackageClock.integration.test.tsx`は原本時計、遅いHTML play、復元後のlease解放を検査する。in-process bridgeの成功は実BrowserWindowや映像音声品質の合格ではない。[未達条件](native-playback.md#検証の入口と未達条件)。
+
+Native snapshot通知は`nativeSnapshotDelivery.test.ts`で1万更新時の有界配送、旧owner/文書ACK拒否を、preload試験で購読解除後のACK回収と不正payloadを確認する。Session/Controller試験では非同期write失敗の即時通知、timerを進めない時計更新、購読者例外時のdrainを検査する。実BrowserWindowの失敗結果をunit成功で置き換えない。
+
+### Native export候補
+
+[native-export.md](native-export.md#未達のgate)のunit/process所有権と実媒体境界検証を行います。receipt/metadataと出力品質合格を分け、通常providerを有効にする前に複数playerの音声終端・edit list・描画fallback・配布検証が必要です。
+
+Nativeの任意位置対応では`nativeSourceProfile.test.ts` / `nativeSourceAccess.test.ts`と`SourceTimeline.test.cpp`で原本先頭・音声/映像末尾差・overflow・metadata/source変更を確認します。実機では同一原本で停止30秒超からの再開、連続PCM境界、中間/終盤seek、既存原本復帰を直列検証し、背景負荷と終了receiptを残します。通信とtraceの累積量を製品合否閾値にせず、有限のin-flight所有数と時刻連続性を検証します。
+
+Renderer recovery diagnostics are covered by `nativePlaybackController.test.ts`: duration failure after a normal drain, unknown private error exclusion, and lease retention when reporting rejects. Manager, handler and preload tests cover same-owner post-close reports, document/generation changes, subframes, extra text, invalid numbers and duplicates. These automated checks do not certify physical UI input or audible synchronization.
+
+Native runtimeのmacOS変更では`pnpm run test:native-runtime`を追加実行します。実FIFO probeと合成backend/surface/診断上限をNode test runnerで検査し、`.node.cjs`はVitestへ重複登録しません。資源検査・session directoryのTypeScript回帰は通常Vitestに含めます。署名済みpackageの自動native開始・非対応source・原本復帰・正常終了は実アプリで別途確認します。
+
+同コマンドの`AACCookie` / `AACPacketRange` / `AACWindowDecode`回帰は、形式descriptorの欠落・改変、非末尾の短いpacket、原本末尾の部分packet、converterの形式変更・不足PCM・取消・期限・破棄回数を合成データで確認します。実原本の全音声PCM/PTS参照との一致、内部demux索引のメモリ、読取失敗後の再openは開発証跡として別に保存し、合成回帰や消音再生から可聴同期を推定しません。
+
+同runnerのowned backend/runtime回帰は、receipt欠落、`exit`だけの通知、`close`不一致、control pipe失敗、GPU drain失敗、重複close、旧世代の遅延通知を分けます。物理終了後だけ資源回収を試み、成功しても元のreceiptエラー・診断sessionを保持することを検査します。signal終了は模擬ChildProcessイベントであり、実アプリへsignalを送りません。この結果から実異常終了後の原本復帰や通常Quit成功を主張しません。
+
+## Native標準再生
+
+自動nativeの負例は表示準備の順序、同一URLの登録置換、失敗後の無限再試行防止、cache切替時のdrainを含めます。配布は署名metadata欠落・wrong team/identifier・改変・symlinkを拒否し、最終実署名artifactで自動open/停止再開/fallback/終了を確認します。既存unsignedの成功は署名済みartifactの代替証拠ではありません。
+
+Native供給回復は`ProductSupplyRecovery.test.cpp`を`test:native-runtime`で実行し、fractional停止時計・映像/音声reserve・旧画像ACK・停止未確認・期限・累積時間予算・取消を確認します。映像のみの10ms未満の不足猶予と、音声不足・原本時刻/連続経過時間上限では猶予しないこと、3回目の短い回復を回数だけで拒否しないことを確認します。Main/Renderer回帰ではbuffering契約、再開時の逆行、未完了seek、pause、新seek、heartbeat/音量変更での期限延長拒否を検査します。実helperの停止/補充/再開と実原本の画面確認は別で、unit成功から待機なしとは判定しません。

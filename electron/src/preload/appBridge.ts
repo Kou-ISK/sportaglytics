@@ -1,3 +1,4 @@
+import { createPackageOpenProgressBridge } from './packageOpenProgressBridge';
 import type { IpcRenderer } from 'electron';
 import type { IElectronAPI } from '../../../src/renderer';
 import {
@@ -11,7 +12,12 @@ import {
 } from './appBridgeMenuApi';
 import type { RegisterListener } from './listenerStore';
 
-type AppBridgeKeys = AppBridgeLegacyKeys | AppBridgeFsKeys | AppBridgeMenuKeys;
+type AppBridgeKeys =
+  | AppBridgeLegacyKeys
+  | AppBridgeFsKeys
+  | AppBridgeMenuKeys
+  | 'cancelPackageOpen'
+  | 'onPackageOpenProgress';
 
 export const createAppBridge = (
   ipcRenderer: IpcRenderer,
@@ -19,6 +25,7 @@ export const createAppBridge = (
 ): Pick<IElectronAPI, AppBridgeKeys> => {
   return {
     ...createAppBridgeLegacyApi(ipcRenderer),
+    ...createPackageOpenProgressBridge(ipcRenderer),
     ...createAppBridgeFsApi(ipcRenderer),
     ...createAppBridgeMenuApi(ipcRenderer, registerListener),
   } satisfies Pick<IElectronAPI, AppBridgeKeys>;

@@ -1,3 +1,4 @@
+import { withSurface } from './preload/withNativeSurface';
 import { createEventDetectionWindowBridge } from './preload/eventDetectionWindowBridge';
 import { createLiveCaptureBridge } from './preload/liveCaptureBridge';
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
@@ -14,6 +15,12 @@ import {
 } from './preload/listenerStore';
 import { createPlaylistBridge } from './preload/playlistBridge';
 import { createPackageOpenBridge } from './preload/packageOpenBridge';
+import { createNativePlaybackBridge } from './preload/nativePlaybackBridge';
+import {
+  nativePlaybackSnapshotChannel,
+  nativePlaybackSnapshotAckChannel,
+} from '../../src/types/ipc/nativePlayback';
+import { createPlaybackCacheBridge } from './preload/playbackCacheBridge';
 import { createSettingsBridge } from './preload/settingsBridge';
 import { createTimelineWindowBridge } from './preload/timelineWindowBridge';
 import { createTimelinePersistenceBridge } from './preload/timelinePersistenceBridge';
@@ -35,6 +42,22 @@ try {
 
 const electronAPI = {
   timelinePersistence: createTimelinePersistenceBridge(ipcRenderer),
+  nativePlayback: createNativePlaybackBridge({
+    acknowledge: (value) =>
+      ipcRenderer.send(nativePlaybackSnapshotAckChannel, value),
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+    subscribe: (listener) => {
+      const receive = (
+        _event: Electron.IpcRendererEvent,
+        value: unknown,
+      ): void => listener(value);
+      ipcRenderer.on(nativePlaybackSnapshotChannel, receive);
+      return () => {
+        ipcRenderer.removeListener(nativePlaybackSnapshotChannel, receive);
+      };
+    },
+  }),
+  playbackCache: createPlaybackCacheBridge(ipcRenderer),
   liveCapture: createLiveCaptureBridge(ipcRenderer),
   ...createAppBridge(ipcRenderer, registerListener),
   ...createEventBridge(registerListener, listenerStore),
@@ -65,7 +88,7 @@ const electronAPI = {
   },
 } satisfies IElectronAPI;
 
-contextBridge.exposeInMainWorld('electronAPI', electronAPI);
+contextBridge.exposeInMainWorld('electronAPI', withSurface(electronAPI));
 
 try {
   ipcRenderer.send('preload:ready');

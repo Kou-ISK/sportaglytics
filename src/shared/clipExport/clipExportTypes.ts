@@ -47,6 +47,8 @@ export interface ClipExportMotionOverlay {
 }
 
 export interface ClipExportItem {
+  /** Audio index in the selected angle source; omitted retains the first-track encoder default. */
+  audioTrackIndex?: number;
   chromaKey?: Partial<Record<'primary' | 'secondary', ChromaKey>>;
   motionOverlays?: ClipExportMotionOverlay[];
   freezeFrames?: ClipExportFreezeFrame[];

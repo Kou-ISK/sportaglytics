@@ -29,6 +29,7 @@ vi.mock('../windowsH264Capability', () => ({
 vi.mock('../packageSessionRegistry', () => ({}));
 vi.mock('./captureWindow', () => ({
   getCaptureWindow: () => ({ webContents: sender, isDestroyed: () => false }),
+  hideLiveCaptureWindow: vi.fn(),
   setCaptureWindowLifecycle: mocks.lifecycle,
 }));
 vi.mock('./captureSession', () => ({

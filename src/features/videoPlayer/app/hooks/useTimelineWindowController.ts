@@ -126,6 +126,7 @@ export const useTimelineWindowController = () => {
     selectedTimelineIdList: snapshot.selectedIds,
     teamNames: snapshot.teamNames,
     videoList: snapshot.videoSources,
+    audioSelections: snapshot.audioSelections,
     setSelectedTimelineIdList: onSelectionChange,
     deleteTimelineDatas: (ids: string[]): void =>
       send({ type: 'delete-items', ids }),
@@ -178,6 +179,8 @@ export const useTimelineWindowController = () => {
       _event: React.SyntheticEvent | Event,
       value: number | number[],
     ): void => onSeek(Array.isArray(value) ? value[0] : value),
+    onSeekRelative: (seconds: number): void =>
+      send({ type: 'seek-relative', seconds }),
     onAddToPlaylist: (items: TimelineData[]): void =>
       send({ type: 'add-to-playlist', ids: items.map((item) => item.id) }),
   };

@@ -171,3 +171,47 @@ it('keeps Studio overlays on their own frames after inserted pauses', async () =
     durationSeconds: 15,
   });
 });
+
+it('carries an explicit audio index through the accurate encoder fallback', async () => {
+  mockedRunFfmpegProcess.mockClear();
+  await runFfmpegSingle({
+    getFfmpegPath,
+    sourcePath: '/source.mp4',
+    clip: { startTime: 1, endTime: 4, audioTrackIndex: 2 },
+    outputPath: '/out.mp4',
+    overlayEnabled: false,
+    overlayLines: [],
+    getJapaneseFontPath,
+    escapeDrawtext,
+  });
+  const args = mockedRunFfmpegProcess.mock.calls[0][1];
+  expect(args[args.indexOf('-filter_complex') + 1]).toContain(
+    '[0:a:2]atrim=duration=3',
+  );
+  expect(args).not.toContain('copy');
+});
+
+it('maps an explicit sole audio track during an already-qualified whole-file copy', async () => {
+  mockedRunFfmpegProcess.mockClear();
+  vi.mocked(resolveMediaCopyMode).mockResolvedValue('whole-file');
+  await runFfmpegSingle({
+    getFfmpegPath,
+    sourcePath: '/source.mp4',
+    clip: { startTime: 0, endTime: 16, audioTrackIndex: 0 },
+    outputPath: '/out.mp4',
+    overlayEnabled: false,
+    overlayLines: [],
+    getJapaneseFontPath,
+    escapeDrawtext,
+  });
+  expect(resolveMediaCopyMode).toHaveBeenLastCalledWith(
+    '/source.mp4',
+    0,
+    16,
+    0,
+  );
+  const args = mockedRunFfmpegProcess.mock.calls[0][1];
+  expect(args).toContain('0:a:0');
+  expect(args).toContain('copy');
+  expect(args).not.toContain('0:a?');
+});

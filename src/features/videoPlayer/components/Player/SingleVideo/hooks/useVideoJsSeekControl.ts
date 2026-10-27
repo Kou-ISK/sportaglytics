@@ -1,4 +1,9 @@
-import { useEffect } from 'react';
+import {
+  htmlPlaybackAllowed,
+  playbackAuthorityRevision,
+  subscribePlaybackAuthority,
+} from '../../../../shared/nativePlayback/playbackAuthority';
+import { useEffect, useSyncExternalStore } from 'react';
 import type Player from 'video.js/dist/types/player';
 
 interface UseVideoJsSeekControlParams {
@@ -8,10 +13,16 @@ interface UseVideoJsSeekControlParams {
 }
 
 export const useVideoJsSeekControl = ({
-  allowSeek,
+  allowSeek: requestedSeek,
   playerRef,
   videoRef,
-}: UseVideoJsSeekControlParams) => {
+}: UseVideoJsSeekControlParams): void => {
+  useSyncExternalStore(
+    subscribePlaybackAuthority,
+    playbackAuthorityRevision,
+    playbackAuthorityRevision,
+  );
+  const allowSeek = requestedSeek && htmlPlaybackAllowed();
   useEffect(() => {
     const player = playerRef.current;
     if (!player) {

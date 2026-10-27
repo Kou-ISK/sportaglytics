@@ -1,8 +1,13 @@
+import {
+  presentDocumentWindow,
+  registerDocumentWindowTitle,
+} from './documentWindowPresentation';
 import { getRendererUrl } from './rendererUrl';
 import { BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import {
   TIMELINE_WINDOW_CHANNELS,
+  isTimelineWindowOpenOptions,
   isTimelineWindowCommand,
   isTimelineWindowClockPayload,
   isTimelineWindowSyncPayload,
@@ -74,18 +79,18 @@ const sendVisibility = (session: PackageSession, isOpen: boolean): void => {
 
 export const openTimelineWindow = async (
   mainWindow?: BrowserWindow | null,
+  activate = true,
 ): Promise<void> => {
   const session = getSession(mainWindow);
   if (!session) return;
   const state = getState(session);
   if (state.timelineWindow && !state.timelineWindow.isDestroyed()) {
-    if (state.timelineWindow.isMinimized()) state.timelineWindow.restore();
-    state.timelineWindow.show();
-    state.timelineWindow.focus();
+    presentDocumentWindow(state.timelineWindow, activate);
     return;
   }
 
   const timelineWindow = new BrowserWindow({
+    show: false,
     width: state.lastBounds?.width ?? 1280,
     height: Math.max(300, state.lastBounds?.height ?? 430),
     x: state.lastBounds?.x,
@@ -101,6 +106,10 @@ export const openTimelineWindow = async (
       webSecurity: true,
     },
   });
+  registerDocumentWindowTitle(timelineWindow, 'タイムライン');
+  timelineWindow.once('ready-to-show', () =>
+    presentDocumentWindow(timelineWindow, activate),
+  );
   state.timelineWindow = timelineWindow;
   state.clipExportReady = false;
   registerAuxiliaryWindow(session, timelineWindow);
@@ -169,13 +178,18 @@ export const closeTimelineWindowForMainWindow = (
 };
 
 export const registerTimelineWindowHandlers = (): void => {
-  ipcMain.handle(TIMELINE_WINDOW_CHANNELS.openWindow, async (event) => {
-    const session = getSenderSession(event.sender);
-    if (!session || !isEventFromWindow(event, session.mainWindow)) {
-      throw new Error('Invalid timeline window open sender');
-    }
-    await openTimelineWindow(session.mainWindow);
-  });
+  ipcMain.handle(
+    TIMELINE_WINDOW_CHANNELS.openWindow,
+    async (event, options: unknown) => {
+      const session = getSenderSession(event.sender);
+      if (!session || !isEventFromWindow(event, session.mainWindow)) {
+        throw new Error('Invalid timeline window open sender');
+      }
+      if (options !== undefined && !isTimelineWindowOpenOptions(options))
+        throw Error('Invalid timeline window open options');
+      await openTimelineWindow(session.mainWindow, options?.activate ?? true);
+    },
+  );
 
   ipcMain.handle(TIMELINE_WINDOW_CHANNELS.closeWindow, (event) => {
     const session = getSenderSession(event.sender);
