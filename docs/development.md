@@ -493,10 +493,6 @@ BrowserWindow/preload/IPCを変更するときは[ADR0070](adr/0070-renderer-doc
 
 `node scripts/e2e-window-security.mjs`は一時profileと合成文書だけで、実preload/Mainの許可・拒否と生成Help/Settingsを検査します。実行前に通常の`e2e:prepare`が必要です。Linuxクラウドでsandboxを利用できない場合の起動フラグは検証環境の制約として記録し、本番BrowserWindowの`sandbox`を変更しません。この限定検査の成功をMac/Windows配布検証や全IPCの完全隔離とは扱いません。[必須試験](testing.md#settings--timeline--ipc)。
 
-## 将来リリースのevent model選定
-
-`pnpm run check:event-model-release`は公開candidate catalogとapp-to-model lock、根拠ファイルのhashを検査します。`test:run` / `test:ci`でもchecked-in metadataと合成負例を検査します。アプリ版を変更するときはlockを明示更新してください。モデルの取得・runner実行・署名は開始しません。現時点は空catalogによるモデルなし判断で、実pack同梱は[選定方針と残る工程](event-model-release-policy.md)に従って別実装します。
-
 再生用コピーの短尺接続の範囲と[通常リリース条件](playback-cache.md)を区別してください。120秒以内の全fileで実機qualificationを行い、全長変換は別途実行範囲を確認します。`electron/src/playbackCache`の検証用portsは実FFmpeg/HW効果の代替ではありません。パッケージopenの取消は専用IPCを使い、読み取り待ちの中止と更新commitの完了を区別してください。
 
 `packageHistoryDirectory.test.ts`は同一親pathの反復取消でOS列挙が増えないこと、名前と型付き列挙をまたぐ所有権、旧I/O完了後の新しい列挙、別親pathの独立性を検証します。`packageMigrationCancellation.test.ts`は現行・旧形式の候補探索中の取消、遅い失敗後の新規候補の発見、選択中に所有元が失効した場合の更新防止と原本不変を確認します。候補探索にも`historyRead`を渡し、取消を空の候補や利用不可コピーとして扱わないでください。`cacheReusePipeline.test.ts`は不一致の全時刻/音声proofと原本変更をHW起動前に拒否し、正常候補には引き続きHW検査を要求します。いずれも実保存先のI/O速度や実デコーダー性能の合格ではありません。

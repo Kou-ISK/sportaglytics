@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
-
 ## [0.17.14]
 
 macOS向けのネイティブ標準再生と供給・操作・終了処理の改善を配布する候補です。初回・遠距離シークには待ち時間が残ります。最終候補の長尺原本の短時間再生・停止再開・シーク・通常終了を確認しましたが、最大待機時間の外部記録、実聴取による同期、長時間安定は未確認です。過去の間欠停止を全て解消した保証とはしません。署名・公証・公開の完了は同版のReleaseと検証記録を参照してください。

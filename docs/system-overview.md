@@ -430,10 +430,6 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 移行先の選択・marker照合は`packageMigrationTargets`、端末内の保存先索引は`PackageMigrationIndex`へ分離する。録画MediaSourceの全体尺と近傍バッファ、保存完了EOSは別に管理する。[ADR 0065](adr/0065-unified-project-open.md) / [ADR 0066](adr/0066-capture-playback-bounds.md)。
 
-## リリース時のモデル選定
-
-公開model catalogとapp-to-model lockはrepo側の配布計画で、runtime discoveryやユーザーのローカルpackとは分離します。最新の承認済み・アプリ版対応・全target対応候補を版順で決定し、hashと根拠を照合する基盤を持ちます。現在は空catalogで、実pack取得・同梱・rollback例外は未実装です。[契約と境界](event-model-release-policy.md)、[ADR 0071](adr/0071-release-time-model-selection.md)。
-
 パッケージopenの履歴列挙はWindow/requestに所属する専用progress/取消を持ち、reload・crash・close後の結果を採用しません。Sessionのbind/releaseも要求を照合します（[ADR 0072](adr/0072-cancellable-package-history-read.md)）。[再生用コピー基盤](playback-cache.md)はMain側policy/jobとprops-only Viewに分離し、単一の短尺MP4を対象に固定変換と停止中の再生切替へ接続しています。原本の保存形式は変更せず、自動変換・自動採用は行いません。長尺の実機効果は別途検証が必要です。
 
 取消された履歴列挙のOS処理が残っている間は、同じ親pathへの再列挙を重ねません。バックアップ名の列挙と移行候補の型付き列挙は同じ所有権管理と待機取消を使います。再試行は古い結果を採用せず、処理終了後に新しく列挙します。候補選択後にも取消を照合し、更新開始前に止めます。既に始まった更新・復旧commitは中断しません。これはOSの列挙速度を改善する保証ではありません。再生用コピーの内容不一致はHW再生検査の前に拒否しますが、正常候補の全検証は維持します。
