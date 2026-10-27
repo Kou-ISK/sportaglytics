@@ -9,6 +9,31 @@ vi.mock('../../shared/videojs/videoJsAdapter', () => ({
   setVideoJsPlayerCurrentTime: vi.fn(),
 }));
 
+it('ignores an unmounted gesture callback belonging to the previous source', () => {
+  vi.stubGlobal(
+    'requestAnimationFrame',
+    vi.fn(() => 1),
+  );
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  const events = vi.spyOn(window, 'dispatchEvent');
+  const params: Parameters<typeof useVideoTimeController>[0] = {
+    videoList: ['first.mp4'],
+    syncData: undefined,
+    syncMode: 'auto',
+    mediaAngles: [],
+  };
+  const hook = renderHook(useVideoTimeController, { initialProps: params });
+  const previous = hook.result.current.handleCurrentTime;
+  hook.rerender({ ...params, videoList: ['second.mp4'] });
+  act(() => previous(new Event('seek'), 30, 'scrub'));
+  expect(events).not.toHaveBeenCalled();
+  act(() => hook.result.current.handleCurrentTime(new Event('seek'), 2));
+  expect(hook.result.current.currentTime).toBe(2);
+  hook.unmount();
+  events.mockRestore();
+  vi.unstubAllGlobals();
+});
+
 it('resets the running package clock when a seek is clamped to the beginning', () => {
   let frame: FrameRequestCallback = () => {};
   vi.stubGlobal('requestAnimationFrame', (next: FrameRequestCallback) => {

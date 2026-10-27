@@ -7,6 +7,97 @@ import type {
   NativePlaybackClosed,
 } from '../../../../types/ipc/nativePlayback';
 const owner = { generation: 'one', sourceKey: 'a'.repeat(64) };
+
+it.each(['failed', 'closed'])(
+  'restores a preview after %s without waiting for operation acceptance',
+  async (state) => {
+    vi.useFakeTimers();
+    const f = make(presentation);
+    await vi.advanceTimersByTimeAsync(1);
+    f.controller.seek(12, 'preview');
+    if (state === 'failed') f.controller.fail('NATIVE_SOURCE_CHANGED');
+    else await f.controller.closeNative();
+    await f.controller.returnToOriginal();
+    expect(f.controller.snapshot().phase).toBe('original');
+    expect(f.original.release).toHaveBeenCalledOnce();
+  },
+);
+
+it('resolves an explicit document restoration only after a paused preview is committed and released', async () => {
+  vi.useFakeTimers();
+  const f = make(presentation);
+  await vi.advanceTimersByTimeAsync(1);
+  f.controller.seek(12, 'preview');
+  f.controller.controls({ playing: false });
+  await f.controller.returnToOriginal();
+  expect(f.controller.snapshot().phase).toBe('original');
+  expect(f.original.restored).toHaveBeenLastCalledWith(
+    12,
+    expect.objectContaining({ playing: false }),
+  );
+  expect(f.original.release).toHaveBeenCalledOnce();
+});
+
+it('holds ownership when a new drag supersedes an original restore already in flight', async () => {
+  vi.useFakeTimers();
+  const f = make(presentation);
+  await vi.advanceTimersByTimeAsync(1);
+  const pending = deferred<void>();
+  f.original.restore.mockImplementationOnce(() => pending.promise);
+  f.controller.seek(22);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(f.original.restore).toHaveBeenCalledOnce();
+  f.controller.seek(12, 'preview');
+  pending.resolve();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(f.original.release).not.toHaveBeenCalled();
+  expect(f.controller.snapshot()).toMatchObject({ phase: 'closing', time: 3 });
+  f.controller.seek(12, 'scrub');
+  await f.controller.returnToOriginal();
+  expect(f.original.restored).toHaveBeenLastCalledWith(
+    12,
+    expect.objectContaining({ playing: false }),
+  );
+  expect(f.original.release).toHaveBeenCalledOnce();
+});
+
+it('finishes a preview before applying a changed playback control', async () => {
+  vi.useFakeTimers();
+  const f = make();
+  await vi.advanceTimersByTimeAsync(1);
+  f.controller.seek(12, 'preview');
+  await vi.advanceTimersByTimeAsync(1);
+  f.controller.controls({ playing: true });
+  await vi.advanceTimersByTimeAsync(1);
+  expect(f.api.apply).toHaveBeenLastCalledWith(
+    expect.objectContaining({ targetTime: 12, seekId: 3, playing: true }),
+  );
+  expect(f.api.apply.mock.lastCall?.[0]).toHaveProperty('seekMode', 'scrub');
+  await f.controller.returnToOriginal();
+});
+
+it('drains a media failure during preview without resuming until the exact release', async () => {
+  vi.useFakeTimers();
+  const f = make(presentation);
+  await vi.advanceTimersByTimeAsync(1);
+  f.controller.controls({ playing: true });
+  f.controller.seek(12, 'preview');
+  await vi.advanceTimersByTimeAsync(1);
+  f.failMedia();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(f.api.close).toHaveBeenCalledOnce();
+  expect(f.original.restore).not.toHaveBeenCalled();
+  expect(f.original.release).not.toHaveBeenCalled();
+  f.controller.seek(14, 'preview');
+  await vi.advanceTimersByTimeAsync(1);
+  expect(f.original.restore).not.toHaveBeenCalled();
+  f.controller.seek(14, 'exact');
+  await f.controller.returnToOriginal();
+  expect(f.original.restored).toHaveBeenLastCalledWith(
+    14,
+    expect.objectContaining({ playing: true }),
+  );
+});
 const drained: NativePlaybackClosed = {
   generation: 'one',
   nativeDrained: true,
@@ -148,6 +239,34 @@ const make = (
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+});
+it('commits an exact seek at the same pending preview target and ignores its stale completion', async () => {
+  vi.useFakeTimers();
+  const { controller, api, reply } = make();
+  await vi.advanceTimersByTimeAsync(10);
+  reply(1, 1, 3);
+  controller.seek(7, 'preview');
+  await vi.advanceTimersByTimeAsync(1);
+  expect(api.apply.mock.lastCall?.[0]).toMatchObject({
+    targetTime: 7,
+    seekId: 2,
+    seekMode: 'preview',
+  });
+  reply(2, 2, 7.6);
+  expect(controller.snapshot().time).toBe(7.6);
+  expect(controller.snapshot().observation?.time).toBe(7.6);
+  controller.seek(7, 'exact');
+  await vi.advanceTimersByTimeAsync(1);
+  expect(api.apply.mock.lastCall?.[0]).toMatchObject({
+    targetTime: 7,
+    seekId: 3,
+  });
+  expect(api.apply.mock.lastCall?.[0]).not.toHaveProperty('seekMode');
+  reply(2, 2, 7.6, 3);
+  expect(controller.snapshot().time).toBe(7.6);
+  reply(3, 3, 7, 4);
+  expect(controller.snapshot().time).toBe(7);
+  await controller.returnToOriginal();
 });
 it('keeps the native owner across a short stopped refill without acknowledging a seek or extrapolating', async () => {
   vi.useFakeTimers();

@@ -413,6 +413,19 @@ try {
     base.instances[0].memo,
     { type: 'undo' },
   );
+  // Close first drains owned playback. Observe the real persistence request
+  // instead of assuming the renderer has frozen edits 100ms after native close.
+  // Keep the real handler and bounded wait; no ACK or save result is replaced.
+  await app.evaluate(({ BrowserWindow }, id) => {
+    const contents = BrowserWindow.fromId(id).webContents;
+    const send = contents.send.bind(contents);
+    globalThis.closeFlushSentAt = null;
+    contents.send = (channel, ...args) => {
+      if (channel === 'timeline-persistence:flush')
+        globalThis.closeFlushSentAt = Date.now();
+      return send(channel, ...args);
+    };
+  }, opened.id);
   const evidencePath = await requestClose({
     ...opened,
     fixture: queued,
@@ -425,6 +438,20 @@ try {
         () => false,
       ),
     'Native close was not requested',
+  );
+  console.log(
+    'Queued-close timing',
+    JSON.stringify(
+      await app.evaluate(() => ({
+        now: Date.now(),
+        flushSentAt: globalThis.closeFlushSentAt,
+      })),
+    ),
+  );
+  await poll(
+    async () =>
+      (await app.evaluate(() => globalThis.closeFlushSentAt)) !== null,
+    'Persistence flush was not sent after background drain',
   );
   await delay(100);
   assert.equal(

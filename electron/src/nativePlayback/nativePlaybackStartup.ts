@@ -10,7 +10,6 @@ const isRuntime = (value: unknown): value is NativePlaybackRuntime =>
   value !== null &&
   'version' in value &&
   value.version === 1 &&
-  (!('allowUnmutedTrial' in value) || value.allowUnmutedTrial === true) &&
   'probe' in value &&
   typeof value.probe === 'function' &&
   'createBackend' in value &&

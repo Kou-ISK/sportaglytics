@@ -121,7 +121,13 @@ export const usePackagePlaybackClock = ({
         const requested = Math.max(-86400, Math.min(86400, detail.time));
         const native = getNativePlayback();
         if (native) {
-          native.seek(requested);
+          native.seek(
+            requested,
+            'seekMode' in detail &&
+              (detail.seekMode === 'preview' || detail.seekMode === 'scrub')
+              ? detail.seekMode
+              : 'exact',
+          );
           return;
         }
         clock.current = requested;

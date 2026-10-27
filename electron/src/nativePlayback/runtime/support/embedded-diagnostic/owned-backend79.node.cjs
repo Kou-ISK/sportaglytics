@@ -119,7 +119,7 @@ async function terminationFixture(options = {}) {
   );
   const owned = backend.factory(
     { generation: options.generation || 'fixture', sourceKey: 'fixture' },
-    () => {},
+    options.observe || (() => {}),
   );
   await owned.write({});
   return {
@@ -148,6 +148,37 @@ async function terminationFixture(options = {}) {
 }
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+test('explicit media failure reaches owner before confirmed failure drainage', async () => {
+  const observations = [];
+  let close;
+  const fixture = await terminationFixture({
+    observe(value) {
+      observations.push(value);
+      close = fixture.owned.close();
+    },
+  });
+  try {
+    const failure = { phase: 'failed', error: 'media', rate: 0 };
+    fixture.child.stdout.emit(
+      'data',
+      Buffer.from(
+        JSON.stringify({
+          type: 'observation',
+          value: failure,
+        }) + '\n',
+      ),
+    );
+    fixture.receipt();
+    fixture.child.emit('exit', 1, null);
+    fixture.child.emit('close', 1, null);
+    assert.equal((await close).nativeDrained, true);
+    assert.deepEqual(observations, [failure]);
+    assert.equal(fixture.pipeClosed(), 1);
+  } finally {
+    await fixture.remove();
+  }
+});
 test('missing receipt does not erase physical close, and repeated close retains its failure', async () => {
   const f = await terminationFixture();
   try {

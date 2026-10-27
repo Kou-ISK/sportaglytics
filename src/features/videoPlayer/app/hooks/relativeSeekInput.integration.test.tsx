@@ -74,6 +74,8 @@ const Timeline = (): ReactElement | null => {
         onPointerDown: () => {},
         onPointerMove: () => {},
         onPointerUp: () => {},
+        onPointerCancel: () => {},
+        onLostPointerCapture: () => {},
       }}
     />
   );

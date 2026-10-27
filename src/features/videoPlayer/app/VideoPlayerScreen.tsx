@@ -358,10 +358,10 @@ export const VideoPlayerScreen = () => {
     hotkeys: workspaceHotkeys,
     hotkeyHandlers: combinedHandlers,
     hotkeyKeyUpHandlers: keyUpHandlers,
-    onSeek: (time) =>
+    onSeek: (time, mode) =>
       angleSync.snapshot
         ? angleSync.transport.seek(time)
-        : handleCurrentTime(new Event('timeline-window-seek'), time),
+        : handleCurrentTime(new Event('timeline-window-seek'), time, mode),
     onSelectionChange: setSelectedTimelineIdList,
     onDeleteItems: deleteTimelineDatas,
     onUpdateMemo: updateMemo,

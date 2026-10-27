@@ -1,3 +1,4 @@
+import type { VideoSeekMode } from '../../../../types/video/seek';
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
 import type { VideoPlayerError } from '../../../../types/video/error';
@@ -34,6 +35,7 @@ interface UseVideoPlayerRuntimeStateResult {
   handleCurrentTime: (
     event: SyntheticEvent | Event,
     newValue: number | number[],
+    seekMode?: VideoSeekMode,
   ) => void;
   packagePath: string;
   setPackagePath: Dispatch<SetStateAction<string>>;

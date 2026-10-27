@@ -9,8 +9,6 @@ const files = [
   'NativeProductHost',
   'Receiver.node',
   'build.json',
-  'licenses/FFmpeg-LGPL-2.1.txt',
-  'licenses/FFmpeg-LICENSE.md',
   'licenses/Node-LICENSE.txt',
   'licenses/SporTagLytics-LICENSE.txt',
   'licenses/NOTICE.md',
@@ -53,7 +51,8 @@ export const resolveNativeResources = async (
     !record(manifest) ||
     !record(manifest.identity) ||
     !record(manifest.files) ||
-    manifest.identity.revision !== 4 ||
+    manifest.identity.revision !== 5 ||
+    manifest.identity.engine !== 'AVPlayer' ||
     manifest.identity.platform !== 'darwin' ||
     manifest.identity.architecture !== 'arm64' ||
     manifest.identity.napiVersion !== 8 ||

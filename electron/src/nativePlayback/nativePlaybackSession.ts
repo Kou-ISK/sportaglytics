@@ -93,7 +93,8 @@ export class NativePlaybackSession {
         (next.sequence <= old.sequence ||
           next.seekId < old.seekId ||
           (next.seekId === old.seekId &&
-            next.targetTime !== old.targetTime))) ||
+            (next.targetTime !== old.targetTime ||
+              next.seekMode !== old.seekMode)))) ||
       (!old && (next.seekId !== 1 || next.playing))
     )
       throw Error('NATIVE_INVALID_INTENT_ORDER');
@@ -176,6 +177,19 @@ export class NativePlaybackSession {
     }
     if (value.sequence < intent.sequence || value.seekId < intent.seekId)
       return false;
+    // A preview confirms the displayed media clock, never the requested target.
+    // Tags/save must describe what is visible even while the pointer is held.
+    if (intent.seekMode === 'preview') {
+      if (value.phase === 'playing') {
+        this.fail('protocol');
+        return false;
+      }
+      if (value.phase === 'paused' && value.videoReady && value.audioReady)
+        this.lastTime = value.time;
+      this.observation = value;
+      this.changed();
+      return true;
+    }
     if (value.phase === 'buffering') {
       if (
         this.anchoredSeek !== value.seekId ||
@@ -200,14 +214,18 @@ export class NativePlaybackSession {
       this.fail('protocol');
       return false;
     }
-    // Every new seek must first stop at the exact requested source clock with
-    // both media ranges ready. A write receipt or a running clock is not a seek ACK.
+    // Confirm the measured media clock, allowing only CMTime/JS conversion
+    // precision (one microsecond). Never substitute the requested time for it.
     if (
       this.anchoredSeek !== value.seekId &&
       value.videoReady &&
       value.audioReady
     ) {
-      if (value.phase !== 'paused' || value.time !== intent.targetTime) {
+      if (
+        value.phase !== 'paused' ||
+        (intent.seekMode !== 'scrub' &&
+          Math.abs(value.time - intent.targetTime) > 0.000001)
+      ) {
         this.fail('protocol');
         return false;
       }
