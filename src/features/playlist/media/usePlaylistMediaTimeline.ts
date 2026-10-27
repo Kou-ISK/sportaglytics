@@ -40,7 +40,6 @@ export const usePlaylistMediaTimeline = (
   const active = [primary, secondary].some(
     (source) => source && /\.stpkg[/\\]/i.test(source),
   );
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const [resolved, setResolved] = useState<{
@@ -48,6 +47,9 @@ export const usePlaylistMediaTimeline = (
     timelines: Array<MediaTimeline | null>;
   } | null>(null);
   const sourceKey = JSON.stringify([primary, secondary]);
+  // A focus refresh revalidates metadata without stopping an already resolved
+  // source. Initial/source-change loading still blocks playback.
+  const awaitingTimeline = resolved?.key !== sourceKey;
   const latest = useRef(params);
   useLayoutEffect(() => {
     latest.current = params;
@@ -68,7 +70,6 @@ export const usePlaylistMediaTimeline = (
     if (!active) return;
     let disposed = false;
     const sources = [primary, secondary];
-    setLoading(true);
     setError('');
     const api = window.electronAPI;
     void (async () => {
@@ -89,18 +90,14 @@ export const usePlaylistMediaTimeline = (
             ? previous
             : { key: sourceKey, timelines },
         );
-    })()
-      .catch(() => {
-        if (!disposed) {
-          setError(
-            '同期情報を読み込めません。パッケージと元映像の接続を確認し、再試行してください。',
-          );
-          latest.current.setIsPlaying(false);
-        }
-      })
-      .finally(() => {
-        if (!disposed) setLoading(false);
-      });
+    })().catch(() => {
+      if (!disposed) {
+        setError(
+          '同期情報を読み込めません。パッケージと元映像の接続を確認し、再試行してください。',
+        );
+        latest.current.setIsPlaying(false);
+      }
+    });
     return () => {
       disposed = true;
     };
@@ -110,6 +107,7 @@ export const usePlaylistMediaTimeline = (
   useEffect(() => {
     if (!active) return;
     time.current = latest.current.currentItem?.startTime ?? 0;
+    adapters.current.forEach((adapter) => adapter?.invalidatePosition());
     ended.current = false;
     latest.current.setCurrentTime(time.current);
     latest.current.setIsFrozen(false);
@@ -150,7 +148,7 @@ export const usePlaylistMediaTimeline = (
       const playing =
         current.isPlaying &&
         !current.isFrozen &&
-        !loading &&
+        !ended.current &&
         !error &&
         resolved?.key === sourceKey;
       const elapsed =
@@ -159,25 +157,60 @@ export const usePlaylistMediaTimeline = (
           : Math.min(0.1, Math.max(0, timestamp - previousTimestamp) / 1000);
       previousTimestamp = timestamp;
       try {
-        // Prepare all sources before allowing any clock to advance.
-        const readiness = players.map(
-          (adapter) => adapter?.sync(time.current, playing) ?? true,
-        );
-        const ready = players.length > 0 && readiness.every(Boolean);
-        if (!ready) players.forEach((adapter) => adapter?.video.pause());
-        if (ready && playing) {
+        let annotationSeek = false;
+        if (
+          !current.isFrozen &&
+          !error &&
+          !ended.current &&
+          resolved?.key === sourceKey &&
+          players.length > 0
+        ) {
+          const preferred = current.viewMode === 'angle2' ? 1 : 0;
+          const leader = [players[preferred], players[1 - preferred]].find(
+            (adapter) => adapter?.hasMediaAt(time.current),
+          );
+          const observed = leader?.observedTime(time.current);
           const rate =
             (current.viewMode === 'angle2'
               ? current.videoRef2
               : current.videoRef
             ).current?.playbackRate ?? 1;
+          // Only an actual gap uses a wall clock. An unready decoder holds its
+          // requested position until that source/seek is confirmed.
+          const next = leader
+            ? (observed ?? time.current)
+            : time.current + (playing ? elapsed * rate : 0);
+          // A delayed observation may cross a deliberate annotation stop. Seek
+          // that timestamp before notifying the existing freeze handler.
+          const annotationStop = playing
+            ? (current.currentAnnotation?.objects.reduce(
+                (stop, object) =>
+                  !object.motion &&
+                  object.timestamp > time.current &&
+                  object.timestamp <= next
+                    ? Math.min(stop, object.timestamp)
+                    : stop,
+                Infinity,
+              ) ?? Infinity)
+            : Infinity;
+          annotationSeek = Number.isFinite(annotationStop);
           time.current = Math.min(
             current.currentItem?.endTime ?? Infinity,
-            time.current + elapsed * rate,
+            next,
+            annotationStop,
           );
-          players.forEach((adapter) => adapter?.sync(time.current, true));
+        }
+        // Prepare all sources before allowing any clock to advance.
+        const readiness = players.map(
+          (adapter) =>
+            adapter?.sync(time.current, playing, annotationSeek) ?? true,
+        );
+        const ready = players.length > 0 && readiness.every(Boolean);
+        if (!ready) players.forEach((adapter) => adapter?.video.pause());
+        if (ready && !error && !current.isFrozen) {
           callbacks.current.onTime(time.current);
           if (
+            playing &&
             time.current >= (current.currentItem?.endTime ?? Infinity) &&
             !ended.current
           ) {
@@ -207,7 +240,7 @@ export const usePlaylistMediaTimeline = (
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [active, callbacks, error, loading, resolved, sourceKey]);
+  }, [active, callbacks, error, resolved, sourceKey]);
 
   const seek = useCallback(
     (value: number): boolean => {
@@ -234,7 +267,7 @@ export const usePlaylistMediaTimeline = (
   );
   return {
     active,
-    loading: active && (loading || resolved?.key !== sourceKey) && !error,
+    loading: active && awaitingTimeline && !error,
     error: active ? error : '',
     retry,
     seek,

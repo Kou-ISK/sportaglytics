@@ -368,6 +368,8 @@ Model training/evaluationのdebuggingはprivate R&D repositoryで行います。
 
 ## Playlistを開くメニューを変更するとき
 
+パッケージ参照のPlaylist再生を変更するときは`usePlaylistMediaTimeline.test.tsx`と`TimelineVideoAdapter.test.ts`で、遅いRAFとbufferingでの逆シーク禁止、停止再開、明示シーク、複数アングルの待機と空白、注釈フリーズ、予期しない末尾を確認してください。同期情報のfocus再読込が同じ内容なら、再生を止めず既存adapterを維持します。実動画では区間合計と実経過を比較し、単に最後のアイテムへ到達しただけでは連続再生を合格としません。
+
 メニュー通知の生存確認は`menuCommandDelivery.test.ts`で、Windowより先に閉じたWebContents、getter/送信時の破棄、残りのWindowへの通知継続を検査します。`e2e-code-window-menu.mjs`はライブキャプチャ画面を閉じた直後の「新規パッケージ」操作をmacOS/Windowsで確認します。
 
 Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-open-menu.mjs`を使います。実メニューのcallbackから`.stpl`のロード・再生、選択取消、不正パッケージ、未保存文書の保持、既存Windowの再利用を確認します。このシナリオは通常のE2EとWindowsインストール後のE2Eにも含めます。
