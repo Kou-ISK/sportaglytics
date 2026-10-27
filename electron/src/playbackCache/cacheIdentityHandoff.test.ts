@@ -1,9 +1,12 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it as itOnAnyHost, vi } from 'vitest';
 import { CacheIdentityHandoff } from './cacheIdentityHandoff';
 import { CacheMediaReadAudit } from './cacheMediaReadAudit';
+// Real POSIX descriptor/ownership contracts for the Mac-only cache path.
+// Windows keeps the unsupported-platform and pure/IPC regressions.
+const it = itOnAnyHost.skipIf(process.platform === 'win32');
 
 let root: string;
 let file: string;
@@ -143,16 +146,19 @@ it('rejects initial hardlinks and ignores advisory observer failure', async () =
   await handoff.capture(file, signal());
   expect((await handoff.consume(file, signal())).identity.bytes).toBe(18);
 });
-it('bounds audit records, marks overflow and keeps snapshots independent', () => {
-  const audit = new CacheMediaReadAudit(file);
-  for (let i = 0; i < 33; i++)
-    audit.observe(file, { bytes: i, verified: true, elapsedMs: 1 });
-  const snapshot = audit.snapshot();
-  expect(snapshot.records).toHaveLength(32);
-  expect(snapshot.overflow).toBe(true);
-  snapshot.records[0].bytes = 123;
-  expect(audit.snapshot().records[0].bytes).toBe(0);
-});
+itOnAnyHost(
+  'bounds audit records, marks overflow and keeps snapshots independent',
+  () => {
+    const audit = new CacheMediaReadAudit(file);
+    for (let i = 0; i < 33; i++)
+      audit.observe(file, { bytes: i, verified: true, elapsedMs: 1 });
+    const snapshot = audit.snapshot();
+    expect(snapshot.records).toHaveLength(32);
+    expect(snapshot.overflow).toBe(true);
+    snapshot.records[0].bytes = 123;
+    expect(audit.snapshot().records[0].bytes).toBe(0);
+  },
+);
 
 it('rejects consuming another worker operation capability', async () => {
   await handoff.capture(file, signal());

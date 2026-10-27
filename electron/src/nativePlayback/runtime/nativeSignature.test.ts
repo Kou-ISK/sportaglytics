@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
+import path from 'node:path';
 import {
   NATIVE_BINARY_IDENTIFIERS,
   parseNativeSigning,
@@ -56,12 +57,13 @@ it('rejects altered metadata keys and non-hash values', () => {
 });
 it('authenticates the enclosing app before matching both helpers to its team', async () => {
   execute.mockResolvedValue(signature());
+  const appRoot = path.resolve('synthetic', 'SporTagLytics.app');
   await verifySignedNative(
-    '/synthetic/SporTagLytics.app/Contents/Resources',
+    path.join(appRoot, 'Contents', 'Resources'),
     parseNativeSigning(fixture()),
   );
   expect(execute).toHaveBeenCalledTimes(6);
-  expect(execute.mock.calls[0][1]).toContain('/synthetic/SporTagLytics.app');
+  expect(execute.mock.calls[0][1]).toContain(appRoot);
   expect(execute.mock.calls[0][1][3]).toContain('anchor apple generic');
   expect(execute.mock.calls[2][1][3]).toContain(
     'certificate leaf[subject.OU] = "ABCD123456"',

@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it as itOnAnyHost, vi } from 'vitest';
 import { CacheProofStore } from './cacheProofStore';
 import {
   cacheContentKey,
@@ -21,6 +21,9 @@ import {
   parseCacheMediaMetadata,
   mediaConfigurationHash,
 } from './cacheMediaMetadata';
+// Real POSIX descriptor/ownership contracts for the Mac-only cache path.
+// Windows keeps the unsupported-platform and pure/IPC regressions.
+const it = itOnAnyHost.skipIf(process.platform === 'win32');
 let root: string, dir: string, store: CacheProofStore, abort: AbortController;
 const data = (): CacheContentData => ({
   metadata: parseCacheMediaMetadata({
@@ -241,64 +244,67 @@ it('reports uncertain after post-rename directory fsync failure, without a secon
   expect(rename).toHaveBeenCalledTimes(1);
   expect(await store.read(id('new'), abort.signal)).not.toBeNull();
 });
-it('rejects invalid proof relationships and budget excess even with a valid MAC', () => {
-  const key = Buffer.alloc(32, 1),
-    value = data();
-  const metadata = parseCacheMediaMetadata({
-    streams: [
-      value.metadata.video,
-      {
-        index: 1,
-        codec_type: 'audio',
-        codec_name: 'aac',
-        time_base: '1/48000',
-        start_pts: 0,
-        duration_ts: 48000,
-        avg_frame_rate: '0/0',
-        sample_rate: '48000',
-        channels: 2,
-        channel_layout: 'stereo',
-        extradata_hash: 'SHA256:' + 'a'.repeat(64),
-        disposition: {},
-      },
-    ],
-  });
-  const audio = {
-    ...value,
-    metadata,
-    timing: {
-      ...value.timing,
-      audio: [
+itOnAnyHost(
+  'rejects invalid proof relationships and budget excess even with a valid MAC',
+  () => {
+    const key = Buffer.alloc(32, 1),
+      value = data();
+    const metadata = parseCacheMediaMetadata({
+      streams: [
+        value.metadata.video,
         {
-          streamIndex: 1,
-          codec: 'aac',
-          packets: 48,
-          timesSha256: 'b'.repeat(64),
-          payloadSha256: 'c'.repeat(64),
-          configurationSha256: mediaConfigurationHash(metadata.audio[0]),
+          index: 1,
+          codec_type: 'audio',
+          codec_name: 'aac',
+          time_base: '1/48000',
+          start_pts: 0,
+          duration_ts: 48000,
+          avg_frame_rate: '0/0',
+          sample_rate: '48000',
+          channels: 2,
+          channel_layout: 'stereo',
+          extradata_hash: 'SHA256:' + 'a'.repeat(64),
+          disposition: {},
         },
       ],
-    },
-  };
-  expect(parseCacheContentData(audio)).toEqual(audio);
-  audio.timing.audio[0].packets = 65536;
-  expect(parseCacheContentData(audio)).toEqual(audio);
-  audio.timing.audio[0].packets = 65537;
-  expect(() => parseCacheContentData(audio)).toThrow();
-  audio.timing.audio[0].packets = 48;
-  audio.timing.audio[0].configurationSha256 = 'd'.repeat(64);
-  expect(() => parseCacheContentData(audio)).toThrow('CACHE_PROOF_TIMING');
-  expect(() =>
-    encodeCacheProofLedger(
-      new Map(Array.from({ length: 9 }, (_, i) => [id(String(i)), data()])),
-      key,
-      'scope',
-    ),
-  ).toThrow();
-  expect(() =>
-    decodeCacheProofLedger(Buffer.alloc(CACHE_PROOF_BYTES + 1), key, 'scope'),
-  ).toThrow();
-});
+    });
+    const audio = {
+      ...value,
+      metadata,
+      timing: {
+        ...value.timing,
+        audio: [
+          {
+            streamIndex: 1,
+            codec: 'aac',
+            packets: 48,
+            timesSha256: 'b'.repeat(64),
+            payloadSha256: 'c'.repeat(64),
+            configurationSha256: mediaConfigurationHash(metadata.audio[0]),
+          },
+        ],
+      },
+    };
+    expect(parseCacheContentData(audio)).toEqual(audio);
+    audio.timing.audio[0].packets = 65536;
+    expect(parseCacheContentData(audio)).toEqual(audio);
+    audio.timing.audio[0].packets = 65537;
+    expect(() => parseCacheContentData(audio)).toThrow();
+    audio.timing.audio[0].packets = 48;
+    audio.timing.audio[0].configurationSha256 = 'd'.repeat(64);
+    expect(() => parseCacheContentData(audio)).toThrow('CACHE_PROOF_TIMING');
+    expect(() =>
+      encodeCacheProofLedger(
+        new Map(Array.from({ length: 9 }, (_, i) => [id(String(i)), data()])),
+        key,
+        'scope',
+      ),
+    ).toThrow();
+    expect(() =>
+      decodeCacheProofLedger(Buffer.alloc(CACHE_PROOF_BYTES + 1), key, 'scope'),
+    ).toThrow();
+  },
+);
 it('records no commit for a failed write and keeps no active handle', async () => {
   const owned = await openCacheProofDirectory(root),
     original = fs.open.bind(fs);
@@ -380,7 +386,7 @@ it('bounds directory enumeration to eleven entries before rejecting overflow', a
   );
   expect(readCount).toHaveBeenCalledTimes(11);
 });
-it('compares equivalent field-rate rationals', () => {
+itOnAnyHost('compares equivalent field-rate rationals', () => {
   const value = data();
   value.metadata = parseCacheMediaMetadata({
     streams: [

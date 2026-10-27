@@ -2,10 +2,20 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it as itOnAnyHost,
+  vi,
+} from 'vitest';
 import { CacheRangeReadOwner } from './cacheRangeReadLease';
 import type { CacheRangeReadManifest } from './cacheRangeReadLease';
 import { cacheFileRevision } from './cacheFileRevision';
+// Real POSIX descriptor/ownership contracts for the Mac-only cache path.
+// Windows keeps the unsupported-platform and pure/IPC regressions.
+const it = itOnAnyHost.skipIf(process.platform === 'win32');
 const scope = {
   session: 's1',
   source: 'content+revision',
@@ -85,26 +95,29 @@ describe('CacheRangeReadOwner', () => {
     await lease.close();
     expect(o.retainedBytes).toBe(0);
   });
-  it('rejects forged/cross-Session tickets and changed scope or verifier failure', async () => {
-    const a = owner(),
-      b = owner(),
-      ticket = await a.prepare(async () => manifest);
-    await expect(b.redeem(ticket)).rejects.toThrow('TICKET');
-    await expect(
-      a.redeem({ kind: 'verified-range-read-ticket' }),
-    ).rejects.toThrow('TICKET');
-    await expect(
-      a.prepare(async () => ({
-        ...manifest,
-        scope: { ...scope, session: 'other' },
-      })),
-    ).rejects.toThrow('MANIFEST');
-    await expect(
-      a.prepare(async () => {
-        throw Error('FULL_PROOF_FAILED');
-      }),
-    ).rejects.toThrow('FULL_PROOF_FAILED');
-  });
+  itOnAnyHost(
+    'rejects forged/cross-Session tickets and changed scope or verifier failure',
+    async () => {
+      const a = owner(),
+        b = owner(),
+        ticket = await a.prepare(async () => manifest);
+      await expect(b.redeem(ticket)).rejects.toThrow('TICKET');
+      await expect(
+        a.redeem({ kind: 'verified-range-read-ticket' }),
+      ).rejects.toThrow('TICKET');
+      await expect(
+        a.prepare(async () => ({
+          ...manifest,
+          scope: { ...scope, session: 'other' },
+        })),
+      ).rejects.toThrow('MANIFEST');
+      await expect(
+        a.prepare(async () => {
+          throw Error('FULL_PROOF_FAILED');
+        }),
+      ).rejects.toThrow('FULL_PROOF_FAILED');
+    },
+  );
   it('copies proof descriptors before exposure to later mutation', async () => {
     const o = owner(),
       ticket = await o.prepare(async () => manifest);
