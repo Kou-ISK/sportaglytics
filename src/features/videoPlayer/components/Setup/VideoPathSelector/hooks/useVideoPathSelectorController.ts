@@ -120,6 +120,11 @@ export const useVideoPathSelectorController = ({
     searchQuery,
     onSearchChange: setSearchQuery,
     busy: opener.busy,
+    busyMessage:
+      opener.progress?.phase === 'backup-directory'
+        ? '更新前のバックアップを確認しています…'
+        : undefined,
+    onCancelOpen: opener.progress?.canCancel ? opener.cancel : undefined,
     error: opener.error,
     errorDetails: opener.errorDetails,
     invalidDrop: opener.invalidDrop,

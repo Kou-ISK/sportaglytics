@@ -1,3 +1,5 @@
+import { isClipExportAudioSelections } from '../../shared/clipExport/clipExportAudio';
+import type { ClipExportAudioSelection } from '../../shared/clipExport/clipExportAudio';
 import { isTimelineProvenance } from '../timeline/provenance';
 import { isAngleSyncCommand, isAngleSyncSnapshot } from './angleSync';
 import type { AngleSyncCommand, AngleSyncSnapshot } from './angleSync';
@@ -22,6 +24,7 @@ export const TIMELINE_WINDOW_CHANNELS = {
 } as const;
 
 export interface TimelineWindowSyncPayload {
+  audioSelections?: readonly ClipExportAudioSelection[];
   persistence?: { kind: 'load-error' | 'save-error'; message: string };
   liveCapture?: CaptureTimelineState;
   angleSync?: AngleSyncSnapshot;
@@ -53,6 +56,7 @@ export type TimelineWindowCommand =
   | { type: 'request-sync' }
   | { type: 'retry-persistence' }
   | { type: 'seek'; time: number }
+  | { type: 'seek-relative'; seconds: number }
   | { type: 'selection-change'; ids: string[] }
   | { type: 'delete-items'; ids: string[] }
   | { type: 'split-item'; id: string; time: number }
@@ -93,8 +97,18 @@ export type TimelineWindowCommand =
   | { type: 'hotkey-key-down'; hotkeyId: string }
   | { type: 'hotkey-key-up'; hotkeyId: string };
 
+export interface TimelineWindowOpenOptions {
+  activate: boolean;
+}
+export const isTimelineWindowOpenOptions = (
+  value: unknown,
+): value is TimelineWindowOpenOptions =>
+  isObject(value) &&
+  Object.keys(value).length === 1 &&
+  typeof value.activate === 'boolean';
+
 export interface ITimelineWindowAPI {
-  openWindow: () => Promise<void>;
+  openWindow: (options?: TimelineWindowOpenOptions) => Promise<void>;
   closeWindow: () => Promise<void>;
   isWindowOpen: () => Promise<boolean>;
   syncToWindow: (payload: TimelineWindowSyncPayload) => void;
@@ -217,6 +231,8 @@ export const isTimelineWindowSyncPayload = (
   isStringArray(value.selectedIds) &&
   isStringArray(value.teamNames) &&
   isStringArray(value.videoSources) &&
+  (value.audioSelections === undefined ||
+    isClipExportAudioSelections(value.audioSelections, value.videoSources)) &&
   Array.isArray(value.hotkeys) &&
   value.hotkeys.every(isHotkey) &&
   isNumber(value.updatedAt);
@@ -248,6 +264,8 @@ export const isTimelineWindowCommand = (
       return true;
     case 'seek':
       return isNumber(value.time);
+    case 'seek-relative':
+      return isNumber(value.seconds);
     case 'selection-change':
     case 'delete-items':
     case 'delete-rows':

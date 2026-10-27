@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useCachePlayerRegistration } from '../../../PlaybackCache/useCachePlayerRegistration';
 import type Player from 'video.js/dist/types/player';
 import { useVideoJsInitialization } from './useVideoJsInitialization';
 import { useVideoJsSeekControl } from './useVideoJsSeekControl';
@@ -24,6 +25,17 @@ export const useVideoJsPlayer = ({
   const playerRef = useRef<Player | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [durationSec, setDurationSec] = useState(0);
+  const suppressMetadata = useCachePlayerRegistration(
+    playerRef,
+    videoSrc,
+    isReady,
+  );
+  const reportOriginalDuration = useCallback(
+    (value: number): void => {
+      if (!suppressMetadata.current) setMaxSec(value);
+    },
+    [setMaxSec, suppressMetadata],
+  );
 
   const initialMuteApplied = useRef(false);
   const techErrorHandlerRef = useRef<((event?: Event) => void) | null>(null);
@@ -36,7 +48,7 @@ export const useVideoJsPlayer = ({
     id,
     videoSrc,
     allowSeek,
-    setMaxSec,
+    setMaxSec: reportOriginalDuration,
     setIsReady,
     setDurationSec,
     onAspectRatioChange,

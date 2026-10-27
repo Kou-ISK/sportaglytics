@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import type { BrowserWindow } from 'electron';
 import {
@@ -11,12 +12,15 @@ import {
   registerAuxiliaryWindow,
   releasePackageSession,
   reservePackageSession,
+  claimPackageOpenReservation,
+  releasePackageOpenReservation,
 } from './packageSessionRegistry';
 
 const createWindow = (id: string): BrowserWindow =>
-  ({
+  // Minimal native-window surface for lifecycle/ownership tests.
+  Object.assign(new EventEmitter(), {
     id,
-    webContents: { id },
+    webContents: Object.assign(new EventEmitter(), { id }),
     isDestroyed: () => false,
   }) as unknown as BrowserWindow;
 
@@ -30,6 +34,62 @@ const createDestroyedWindow = (id: string): BrowserWindow =>
   }) as unknown as BrowserWindow;
 
 describe('package session registry', () => {
+  it('releases only the claimed unbound reservation and preserves a later claim or bound document', () => {
+    const window = createWindow('native-request-owner');
+    reservePackageSession(window, '/samples/native.stpkg');
+    expect(
+      claimPackageOpenReservation(window, '/samples/native.stpkg', 'old'),
+    ).toBe(true);
+    const oldDeparture = window.webContents.listeners(
+      'did-start-navigation',
+    )[0];
+    claimPackageOpenReservation(window, '/samples/native.stpkg', 'new');
+    oldDeparture({ isMainFrame: true, isSameDocument: false });
+    expect(
+      releasePackageOpenReservation(window, '/samples/native.stpkg', 'old'),
+    ).toBe(false);
+    expect(
+      getPackageSessionForPackagePath('/samples/native.stpkg'),
+    ).not.toBeNull();
+    expect(
+      releasePackageOpenReservation(window, '/samples/native.stpkg', 'new'),
+    ).toBe(true);
+    reservePackageSession(window, '/samples/native.stpkg');
+    expect(releasePackageSession(window, '/samples/native.stpkg', 'old')).toBe(
+      false,
+    );
+    expect(
+      getPackageSessionForPackagePath('/samples/native.stpkg'),
+    ).not.toBeNull();
+    claimPackageOpenReservation(window, '/samples/native.stpkg', 'bound');
+    bindPackageSession(window, '/samples/native.stpkg', 'bound');
+    expect(
+      releasePackageOpenReservation(window, '/samples/native.stpkg', 'bound'),
+    ).toBe(false);
+    expect(
+      releasePackageSession(window, '/samples/native.stpkg', 'bound'),
+    ).toBe(true);
+  });
+  it('does not let an obsolete request release a later binding of the same window and path', () => {
+    const main = createWindow('generation-owner');
+    const session = bindPackageSession(
+      main,
+      '/samples/generations.stpkg',
+      'first',
+    );
+    bindPackageSession(main, '/samples/generations.stpkg', 'second');
+    expect(
+      releasePackageSession(main, '/samples/generations.stpkg', 'first'),
+    ).toBe(false);
+    expect(releasePackageSession(main, '/samples/generations.stpkg')).toBe(
+      false,
+    );
+    expect(session?.packageBound).toBe(true);
+    expect(
+      releasePackageSession(main, '/samples/generations.stpkg', 'second'),
+    ).toBe(true);
+    expect(session?.packagePath).toBeNull();
+  });
   it('binds a canonical package path and detects duplicate sessions', () => {
     const mainA = createWindow('main-a');
     const mainB = createWindow('main-b');

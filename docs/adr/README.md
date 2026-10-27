@@ -133,3 +133,18 @@ YYYY-MM-DD
 Mac配布時のpublisher自動検出を無効にする判断と、許可リストで抽出した検証要約を新規Releaseへ保持する判断は[0063](0063-independent-macos-release.md)に記録しています。
 
 - [0064 Scoped Tab action navigation](0064-scoped-tab-action-navigation.md): 選択したアクションのTab巡回を限定したフォーカス範囲で復元。0055のTab判断のみを置換（Accepted）。
+
+- [0072 Cancellable package history read](0072-cancellable-package-history-read.md): 履歴列挙の取消、失効要求とSession所有の保護（Accepted）。
+- [0073 Verified playback cache foundation](0073-verified-playback-cache-foundation.md): 原本保持の派生再生と有効化前の検証条件（Proposed）。
+
+- [0074 Bounded cache hardware compatibility](0074-bounded-cache-hardware-compatibility.md): 全内容proofと再利用時の区間HW適合性を分離（Proposed）。
+
+- [0075 Persistent complete content proofs](0075-persistent-complete-content-proofs.md): ビルド・実bytesに結合した内容proofのprivate保持と無効化（Proposed）。
+
+- [0076 Operation-owned cache identity handoff](0076-operation-owned-cache-identity-handoff.md): 同じ要求内の新しい候補digestの引渡しとcleanup所有権（Proposed）。
+
+- [0077 Demand-driven playback ranges](0077-demand-driven-playback-ranges.md): 区間生成の段階検証、byte構造基盤、長尺有効化前の性能・品質条件（Proposed）。
+
+- [0078 Native playback authority](0078-native-playback-authority.md): Main/Rendererの再生所有権、原本時計、有界音声取得、一過性不足の猶予と有界回復、通常処理と開発診断の分離（Proposed）。
+
+- [0079 Qualified native clip export](0079-qualified-native-clip-export.md) — Proposed

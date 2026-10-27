@@ -1,7 +1,10 @@
 import { app, BrowserWindow } from 'electron';
 import { openLiveCaptureWindow } from '../liveCapture/captureWindow';
 import { EVENT_DETECTION_CHANNELS } from '../../../src/types/ipc/eventDetection';
-import { getPackageSessionForWindow } from '../packageSessionRegistry';
+import {
+  focusPackageSession,
+  getPackageSessionForWindow,
+} from '../packageSessionRegistry';
 import { createPlaylistWindow, openPlaylistFile } from '../playlistWindow';
 import { openHelpWindow } from '../helpWindow';
 import { openSettingsWindow } from '../settingsWindow';
@@ -252,6 +255,16 @@ export const buildAnalysisMenuItems =
 
 export const buildWindowMenuItems =
   (): Electron.MenuItemConstructorOptions[] => [
+    {
+      label: '再生画面を表示',
+      click: (_menuItem, browserWindow) => {
+        const session = getPackageSessionForWindow(
+          getBrowserWindowOwner(browserWindow) ??
+            BrowserWindow.getFocusedWindow(),
+        );
+        if (session) focusPackageSession(session);
+      },
+    },
     {
       label: 'タイムラインを開く',
       click: (_menuItem, browserWindow) => {

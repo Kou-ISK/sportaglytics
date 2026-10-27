@@ -39,6 +39,14 @@ describe('timeline window IPC guards', () => {
   });
 
   it('rejects malformed commands at the IPC boundary', () => {
+    for (const seconds of [-10, -1, 0, 1, 10])
+      expect(isTimelineWindowCommand({ type: 'seek-relative', seconds })).toBe(
+        true,
+      );
+    for (const seconds of [NaN, Infinity, -Infinity, '10', null, undefined])
+      expect(isTimelineWindowCommand({ type: 'seek-relative', seconds })).toBe(
+        false,
+      );
     expect(isTimelineWindowCommand({ type: 'seek', time: 10 })).toBe(true);
     expect(isTimelineWindowCommand({ type: 'seek', time: '10' })).toBe(false);
     expect(isTimelineWindowCommand({ type: 'delete-items', ids: [1] })).toBe(

@@ -1,5 +1,7 @@
+import { nativePlaybackProvider } from './nativePlayback/nativePlaybackStartup';
 import { registerEventDetectionWindowHandlers } from './eventDetectionWindow';
 import { registerLiveCaptureHandlers } from './liveCapture/captureHandlers';
+import { registerDocumentWindowTitle } from './documentWindowPresentation';
 import { registerApplicationWindowActivation } from './applicationWindowActivation';
 import { getRendererUrl } from './rendererUrl';
 import { sendPackageOpenWhenReady } from './packageOpenDelivery';
@@ -72,6 +74,12 @@ import {
 import { createExternalOpenQueue } from './packageOpenQueue';
 import { createPackageOpenRouter } from './packageOpenRouter';
 import { registerTimelineCloseProtection } from './timelineCloseProtection';
+import { registerPlaybackCacheHandlers } from './playbackCache/cacheHandlers';
+import { holdPlaybackCaches } from './playbackCache/cacheSessionController';
+import {
+  registerNativePlaybackHandlers,
+  holdNativePlayback,
+} from './nativePlayback/nativePlaybackHandlers';
 
 if (app?.commandLine) {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -147,6 +155,10 @@ const createWindow = async (): Promise<BrowserWindow> => {
     height: 1000,
     icon: path.join(__dirname, '../../public/icon.icns'),
     webPreferences: {
+      // Chromium 150 gates the real audio selection API behind this one feature.
+      // Needed for verified multi-track cache switches; no OS permission change.
+      enableBlinkFeatures:
+        process.platform === 'darwin' ? 'AudioVideoTracks' : undefined,
       preload: preloadPath,
       contextIsolation: true,
       sandbox: true,
@@ -157,6 +169,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
     },
   });
 
+  registerDocumentWindowTitle(window, '再生画面');
   registerYoutubeEmbedClientIdentity(window.webContents.session);
   applyWindowSecurity(window);
   // Capture ownership while the window is live: `closed` runs after destruction.
@@ -208,6 +221,10 @@ const createWindow = async (): Promise<BrowserWindow> => {
 registerLegacyFileAccessHandlers({ getMainWindow: () => mainWindow });
 registerPackageHandlers();
 registerPackageSessionHandlers();
+registerPlaybackCacheHandlers();
+registerNativePlaybackHandlers(
+  nativePlaybackProvider(path.resolve(__dirname, '../..')),
+);
 registerSyncHandlers();
 registerMenuStateHandlers();
 registerSettingsHandlers();
@@ -293,6 +310,19 @@ registerLiveCaptureHandlers({ openPackage: openPackageInSession });
 // Register after capture's before-quit listener: active recording first finishes
 // its existing stop handshake, then retries quit through Timeline preparation.
 const timelineCloseProtection = registerTimelineCloseProtection({
+  beforeClose: async (windows, kind) => {
+    const releaseNative = await holdNativePlayback(windows, kind);
+    try {
+      const releaseCaches = await holdPlaybackCaches(windows, kind);
+      return () => {
+        releaseCaches();
+        releaseNative();
+      };
+    } catch (error) {
+      releaseNative();
+      throw error;
+    }
+  },
   rendererUrl: mainURL,
   requiresPersistence: (window) =>
     getPackageSessionForWindow(window)?.packagePath != null,

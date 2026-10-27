@@ -1,6 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { BrowserWindow } from 'electron';
+import type {
+  BrowserWindow,
+  WebContentsDidStartNavigationEventParams,
+} from 'electron';
 
 export interface PackageSession {
   id: string;
@@ -13,6 +16,12 @@ export interface PackageSession {
 const sessions = new Map<string, PackageSession>();
 const contextsBySender = new WeakMap<object, PackageSession>();
 const sessionsByWindow = new WeakMap<BrowserWindow, PackageSession>();
+const bindingRequests = new WeakMap<PackageSession, string>();
+const reservationWatches = new WeakMap<PackageSession, () => void>();
+const clearReservationWatch = (session: PackageSession): void => {
+  reservationWatches.get(session)?.();
+  reservationWatches.delete(session);
+};
 let nextSessionId = 1;
 
 export const normalizePackagePath = (packagePath: string): string => {
@@ -131,20 +140,83 @@ export const reservePackageSession = (
   const session = createPackageSession(mainWindow);
   session.packagePath = normalized;
   session.packageBound = false;
+  clearReservationWatch(session);
+  bindingRequests.delete(session);
   return session;
+};
+
+/** Claim only the native-open reservation already owned by this window. */
+export const claimPackageOpenReservation = (
+  window: BrowserWindow,
+  packagePath: string,
+  requestId: string,
+): boolean => {
+  const session = sessionsByWindow.get(window);
+  if (
+    !session ||
+    session.packageBound ||
+    session.packagePath !== normalizePackagePath(packagePath)
+  )
+    return false;
+  clearReservationWatch(session);
+  const contents = window.webContents;
+  const departed = (): void => {
+    releasePackageOpenReservation(window, packagePath, requestId);
+  };
+  const navigated = (
+    details: WebContentsDidStartNavigationEventParams,
+  ): void => {
+    if (details.isMainFrame && !details.isSameDocument) departed();
+  };
+  bindingRequests.set(session, requestId);
+  window.on('closed', departed);
+  contents.on('render-process-gone', departed);
+  contents.on('did-start-navigation', navigated);
+  reservationWatches.set(session, () => {
+    window.removeListener('closed', departed);
+    contents.removeListener('render-process-gone', departed);
+    contents.removeListener('did-start-navigation', navigated);
+  });
+  return true;
+};
+
+export const releasePackageOpenReservation = (
+  window: BrowserWindow,
+  packagePath: string,
+  requestId: string,
+): boolean => {
+  const session = sessionsByWindow.get(window);
+  if (
+    !session ||
+    session.packageBound ||
+    bindingRequests.get(session) !== requestId
+  )
+    return false;
+  return releasePackageSession(window, packagePath, requestId);
 };
 
 export const releasePackageSession = (
   mainWindow: BrowserWindow,
   packagePath: string,
+  requestId?: string,
 ): boolean => {
   const session = sessionsByWindow.get(mainWindow);
   if (!session || session.packagePath !== normalizePackagePath(packagePath)) {
     return false;
   }
 
+  if (
+    (requestId !== undefined ||
+      session.packageBound ||
+      bindingRequests.has(session)) &&
+    bindingRequests.get(session) !== requestId
+  )
+    return false;
+
   session.packagePath = null;
   session.packageBound = false;
+  clearReservationWatch(session);
+  bindingRequests.delete(session);
   return true;
 };
 
@@ -159,6 +231,7 @@ export const focusPackageSession = (session: PackageSession): void => {
 export const bindPackageSession = (
   mainWindow: BrowserWindow,
   packagePath: string,
+  requestId?: string,
 ): PackageSession | null => {
   const session = createPackageSession(mainWindow);
   const normalized = normalizePackagePath(packagePath);
@@ -166,6 +239,9 @@ export const bindPackageSession = (
   if (duplicate && duplicate !== session) return duplicate;
   session.packagePath = normalized;
   session.packageBound = true;
+  clearReservationWatch(session);
+  if (requestId) bindingRequests.set(session, requestId);
+  else bindingRequests.delete(session);
   return session;
 };
 
@@ -190,6 +266,8 @@ export const getPackageSessions = (): readonly PackageSession[] => [
 ];
 
 export const removePackageSession = (session: PackageSession): void => {
+  clearReservationWatch(session);
+  bindingRequests.delete(session);
   for (const auxiliaryWindow of session.auxiliaryWindows) {
     sessionsByWindow.delete(auxiliaryWindow);
   }

@@ -4,6 +4,7 @@ import { getRendererUrl } from '../rendererUrl';
 import { applyWindowSecurity } from '../windowSecurity';
 
 let window: BrowserWindow | null = null;
+const requestedVisibility = new WeakMap<BrowserWindow, boolean>();
 let authorized = false;
 let canClose: () => boolean = () => true;
 let stopCapture: () => Promise<void> = async () => undefined;
@@ -23,11 +24,19 @@ export const authorizeCaptureDevices = (): void => {
   authorized = true;
 };
 
+export const hideLiveCaptureWindow = (): void => {
+  const current = getCaptureWindow();
+  if (!current) return;
+  requestedVisibility.set(current, false);
+  current.hide();
+};
+
 export const openLiveCaptureWindow = (): void => {
   const existing = getCaptureWindow();
   if (existing) {
+    requestedVisibility.set(existing, true);
+    if (existing.isMinimized()) existing.restore();
     existing.show();
-    existing.restore();
     existing.focus();
     return;
   }
@@ -71,6 +80,7 @@ export const openLiveCaptureWindow = (): void => {
     },
   });
   window = created;
+  requestedVisibility.set(created, true);
   authorized = false;
   applyWindowSecurity(created);
   created.webContents.on('will-frame-navigate', (event) => {
@@ -81,12 +91,20 @@ export const openLiveCaptureWindow = (): void => {
   });
   created.setMenuBarVisibility(false);
   created.once('ready-to-show', () => {
-    if (!created.isDestroyed()) created.show();
+    if (!created.isDestroyed() && requestedVisibility.get(created))
+      created.show();
+  });
+  // macOS can deliver a queued native show after a later close/hide request.
+  // The most recent user intent owns visibility; recording ownership is separate.
+  created.on('show', () => {
+    if (!created.isDestroyed() && !requestedVisibility.get(created))
+      created.hide();
   });
   created.on('close', (event) => {
     if (canClose()) return;
     event.preventDefault();
     // Closing the controls is not a request to stop the recording owner.
+    requestedVisibility.set(created, false);
     created.hide();
   });
   created.on('closed', () => {

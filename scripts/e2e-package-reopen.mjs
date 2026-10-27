@@ -121,6 +121,12 @@ try {
     localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
   );
   await first.reload();
+  await first.evaluate(() => {
+    globalThis.reopenRequestId = null;
+    window.electronAPI.onPackageOpenProgress((progress) => {
+      globalThis.reopenRequestId = progress.requestId;
+    });
+  });
   await dropPackage(first, [], [{ mimeType: 'text/plain', data: packagePath }]);
   assert.equal(
     await first.getByRole('alert').count(),
@@ -153,10 +159,18 @@ try {
 
   // did-finish-load can precede isLoading() becoming false. An OS open in
   // that interval must not wait for a second did-finish-load notification.
-  await first.evaluate(
-    (filePath) => window.electronAPI.releasePackageSession(filePath),
+  const released = await first.evaluate(
+    (filePath) => {
+      if (typeof globalThis.reopenRequestId !== 'string')
+        throw new Error('Package open request was not observed');
+      return window.electronAPI.releasePackageSession(
+        filePath,
+        globalThis.reopenRequestId,
+      );
+    },
     packagePath,
   );
+  assert.equal(released, true, 'Release must use the owning open request');
   const firstWindowId = await (
     await app.browserWindow(first)
   ).evaluate((window) => window.id);

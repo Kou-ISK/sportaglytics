@@ -345,6 +345,7 @@ export const VideoPlayerScreen = () => {
     rows: timelineRows,
     angleSync: angleSync.snapshot,
     onAngleSyncCommand: angleSync.command,
+    onAngleSyncSeekRelative: angleSync.transport.seekRelative,
     maxSec: angleSync.snapshot ? angleSync.maxSec : maxSec,
     currentTime: angleSync.snapshot ? angleSync.currentTime : currentTime,
     isPlaying: angleSync.snapshot

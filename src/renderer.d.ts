@@ -1,3 +1,4 @@
+import type { PackageOpenProgress } from './types/package/openProgress';
 import type {
   FrameCaptureRequest,
   FrameCaptureResult,
@@ -33,6 +34,70 @@ export interface LlamaModelInfo {
 }
 
 export interface IElectronAPI {
+  /** Present only in a Main-qualified embedded playback build. No native handles. */
+  nativeSurface?: {
+    bind: (
+      canvasId: string,
+      onFrame: (frame: {
+        generation: string;
+        seekId: number;
+        pts: number;
+        timescale: number;
+      }) => void,
+    ) => () => void;
+  };
+  nativePlayback: {
+    reportFailure?: (
+      owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
+      failure: import('./types/ipc/nativePlaybackFailure').NativePlaybackFailure,
+    ) => Promise<void>;
+    onSnapshot: (
+      owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
+      listener: (
+        snapshot:
+          | import('./types/ipc/nativePlayback').NativePlaybackSnapshot
+          | null,
+      ) => void,
+    ) => () => void;
+    inspect: () => Promise<
+      import('./types/ipc/nativePlayback').NativePlaybackAvailability
+    >;
+    open: (
+      owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
+    ) => Promise<void>;
+    apply: (
+      intent: import('./types/ipc/nativePlayback').NativePlaybackIntent,
+    ) => Promise<void>;
+    observe: (
+      owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
+    ) => Promise<import('./types/ipc/nativePlayback').NativePlaybackSnapshot>;
+    close: (
+      owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
+    ) => Promise<import('./types/ipc/nativePlayback').NativePlaybackClosed>;
+  };
+  playbackCache: {
+    inspect: () => Promise<
+      import('./types/ipc/playbackCache').PlaybackCacheSnapshot
+    >;
+    prepare: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
+    ) => Promise<void>;
+    reuse: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
+    ) => Promise<void>;
+    cancel: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
+    ) => Promise<void>;
+    cleanup: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
+    ) => Promise<void>;
+    candidate: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheRequest,
+    ) => Promise<import('./types/ipc/playbackCache').PlaybackCacheCandidate>;
+    selected: (
+      request: import('./types/ipc/playbackCache').PlaybackCacheSelection,
+    ) => Promise<void>;
+  };
   timelinePersistence: ITimelinePersistenceAPI;
   liveCapture: ILiveCaptureAPI;
   openFile: () => Promise<string>;
@@ -66,7 +131,12 @@ export interface IElectronAPI {
   ) => Promise<PackageDatas>;
   preparePackageForOpen?: (
     packagePath: string,
+    requestId?: string,
   ) => Promise<PackageOpenPreparationResult>;
+  cancelPackageOpen?: (requestId: string) => Promise<boolean>;
+  onPackageOpenProgress?: (
+    callback: (state: PackageOpenProgress) => void,
+  ) => () => void;
   onMenuShowStats: (
     callback: (requestedView?: AnalysisView) => void,
   ) => () => void;
@@ -141,6 +211,7 @@ export interface IElectronAPI {
   isSettingsWindowOpen: () => Promise<boolean>;
   analysis: IAnalysisWindowAPI;
   codingPanelWindow: ICodingPanelWindowAPI;
+  /** Automatic Timeline opening passes activate:false; explicit opens retain focus behavior. */
   timelineWindow: ITimelineWindowAPI;
   eventDetection: IEventDetectionAPI;
   eventDetectionWindow: IEventDetectionWindowAPI;
@@ -171,8 +242,14 @@ export interface IElectronAPI {
     layout: { aspectRatio: number; width: number; height: number } | null,
   ) => void;
   setWindowTitle: (title: string) => void;
-  bindPackageSession?: (packagePath: string) => Promise<boolean>;
-  releasePackageSession?: (packagePath: string) => Promise<boolean>;
+  bindPackageSession?: (
+    packagePath: string,
+    requestId?: string,
+  ) => Promise<boolean>;
+  releasePackageSession?: (
+    packagePath: string,
+    requestId?: string,
+  ) => Promise<boolean>;
   previewClipExportText?: (
     request: import('./shared/clipExport/clipExportTypes').ClipExportTextPreviewRequest,
   ) => Promise<

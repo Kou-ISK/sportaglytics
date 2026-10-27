@@ -6,6 +6,8 @@ import { useStartPackageOpen } from './useStartPackageOpen';
 
 vi.mock('../gateway/packageGateway', () => ({
   pickPackagePath: vi.fn(),
+  subscribeToPackageOpenProgress: vi.fn(),
+  cancelPackageOpenRequest: vi.fn(async () => true),
   loadPackageDirectory: vi.fn(),
   releasePackageSessionReservation: vi.fn(),
   toPackageLoadErrorMessage: () => '読み込みに失敗しました',
@@ -37,11 +39,61 @@ beforeEach(() => {
   );
   vi.mocked(gateway.loadPackageDirectory).mockResolvedValue(loaded);
   vi.mocked(gateway.subscribeToOpenPackage).mockReturnValue(vi.fn());
+  vi.mocked(gateway.subscribeToPackageOpenProgress).mockReturnValue(vi.fn());
   vi.mocked(gateway.subscribeToOpenRecentPackage).mockReturnValue(vi.fn());
   vi.mocked(gateway.subscribeToPackageDirectoryOpen).mockReturnValue(vi.fn());
+  vi.mocked(gateway.cancelPackageOpenRequest).mockResolvedValue(true);
 });
 afterEach(cleanup);
 describe('useStartPackageOpen', () => {
+  it('does not load a picker result delivered after unmount', async () => {
+    let complete: (path: string) => void = () => undefined;
+    vi.mocked(gateway.pickPackagePath).mockReturnValue(
+      new Promise((resolve) => {
+        complete = resolve;
+      }),
+    );
+    const { result, unmount } = renderHook(() => useStartPackageOpen(vi.fn()));
+    let opened: Promise<void> = Promise.resolve();
+    act(() => {
+      opened = result.current.open();
+    });
+    unmount();
+    complete('/sample.stpkg');
+    await opened;
+    expect(gateway.loadPackageDirectory).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed cancel request while the open is still busy', async () => {
+    let reject: (error: Error) => void = () => undefined;
+    vi.mocked(gateway.loadPackageDirectory).mockReturnValue(
+      new Promise((_, no) => {
+        reject = no;
+      }),
+    );
+    vi.mocked(gateway.cancelPackageOpenRequest).mockRejectedValue(
+      Error('transport unavailable'),
+    );
+    const { result } = renderHook(() => useStartPackageOpen(vi.fn()));
+    act(() => {
+      void result.current.open('/sample.stpkg');
+    });
+    await waitFor(() =>
+      expect(gateway.loadPackageDirectory).toHaveBeenCalled(),
+    );
+    const requestId = vi.mocked(gateway.loadPackageDirectory).mock.calls[0][1]!;
+    act(() =>
+      vi.mocked(gateway.subscribeToPackageOpenProgress).mock.calls[0][0]({
+        requestId,
+        phase: 'backup-directory',
+        canCancel: true,
+      }),
+    );
+    await act(async () => result.current.cancel());
+    expect(result.current.busy).toBe(true);
+    expect(result.current.error).toContain('取消要求を送れませんでした');
+    await act(async () => reject(Error('PACKAGE_OPEN_CANCELLED')));
+  });
   it('classifies a dropped media file after Main validation and retries with the picker', async () => {
     vi.mocked(gateway.loadPackageDirectory).mockRejectedValueOnce(
       new Error(
@@ -101,11 +153,14 @@ describe('useStartPackageOpen', () => {
     expect(result.current.errorDetails).toContain('/offline.stpkg\nENOENT');
     expect(gateway.releasePackageSessionReservation).toHaveBeenCalledWith(
       '/offline.stpkg',
+      expect.any(String),
     );
     act(() => result.current.retry());
     await waitFor(() => expect(onLoaded).toHaveBeenCalledWith(loaded.result));
     expect(gateway.loadPackageDirectory).toHaveBeenLastCalledWith(
       '/offline.stpkg',
+      expect.any(String),
+      expect.any(Function),
     );
     expect(result.current.error).toBe('');
   });
@@ -117,7 +172,11 @@ describe('useStartPackageOpen', () => {
         '/recent.stpkg',
       );
     });
-    expect(gateway.loadPackageDirectory).toHaveBeenCalledWith('/recent.stpkg');
+    expect(gateway.loadPackageDirectory).toHaveBeenCalledWith(
+      '/recent.stpkg',
+      expect.any(String),
+      expect.any(Function),
+    );
     unmount();
     for (const subscribe of [
       gateway.subscribeToOpenPackage,
@@ -138,4 +197,47 @@ describe('useStartPackageOpen', () => {
     expect(gateway.pickPackagePath).toHaveBeenLastCalledWith(undefined);
     expect(result.current.invalidDrop).toBe(false);
   });
+});
+
+it('shows cancellable history progress, ignores stale progress and never loads after cancellation', async () => {
+  let rejectOpen: (error: Error) => void = () => undefined;
+  vi.mocked(gateway.loadPackageDirectory).mockReturnValue(
+    new Promise((_, reject) => {
+      rejectOpen = reject;
+    }),
+  );
+  vi.mocked(gateway.cancelPackageOpenRequest).mockImplementation(async () => {
+    rejectOpen(Error('PACKAGE_OPEN_CANCELLED'));
+    return true;
+  });
+  const onLoaded = vi.fn();
+  const { result } = renderHook(() => useStartPackageOpen(onLoaded));
+  act(() => {
+    void result.current.open('/sample.stpkg');
+  });
+  await waitFor(() => expect(gateway.loadPackageDirectory).toHaveBeenCalled());
+  const id = vi.mocked(gateway.loadPackageDirectory).mock.calls[0][1]!;
+  const progress = vi.mocked(gateway.subscribeToPackageOpenProgress).mock
+    .calls[0][0];
+  act(() =>
+    progress({
+      requestId: 'stale',
+      phase: 'backup-directory',
+      canCancel: true,
+    }),
+  );
+  expect(result.current.progress).toBe(null);
+  act(() =>
+    progress({ requestId: id, phase: 'backup-directory', canCancel: true }),
+  );
+  expect(result.current.progress?.canCancel).toBe(true);
+  await act(async () => result.current.cancel());
+  expect(gateway.cancelPackageOpenRequest).toHaveBeenCalledWith(id);
+  expect(onLoaded).not.toHaveBeenCalled();
+  expect(result.current.busy).toBe(false);
+  expect(result.current.error).toBe('');
+  expect(gateway.releasePackageSessionReservation).toHaveBeenCalledWith(
+    '/sample.stpkg',
+    expect.any(String),
+  );
 });

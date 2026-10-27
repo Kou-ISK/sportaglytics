@@ -1,19 +1,8 @@
-import {
-  choosePackageContent,
-  showPackageRecovery,
-} from './packageOpenDialogs';
-import { isPackageCaptureActive } from '../liveCapture/captureRegistry';
-import { getPackageSessionForPackagePath } from '../packageSessionRegistry';
-import path from 'node:path';
-import { PackageMigrationIndex } from './packageMigrationIndex';
-import { app } from 'electron';
-import { refreshAppMenu } from '../menuBar';
+import { registerPackageOpenHandlers } from './packageOpenHandlers';
 import { readMediaFrameWindow } from './mediaFrameService';
-import { registerPackageLocation } from '../mediaReferences/packageLocationRegistry';
 import { readMediaTimeline } from './mediaTimelineSource';
 import { createPackage } from './packageCreationService';
 import { applyClipTimeline } from './packageClipTimelineService';
-import { preparePackageForOpen } from './legacyPackageMigrationService';
 import {
   isNonEmptyString,
   isPackageAnglePayloadArray,
@@ -34,9 +23,7 @@ export const registerPackageHandlers = (): void => {
     return;
   }
   isRegistered = true;
-  const migrationIndex = new PackageMigrationIndex(
-    path.join(app.getPath('userData'), 'package-migrations.json'),
-  );
+  registerPackageOpenHandlers();
 
   registerHandleWithAliases(
     'sportscode:read-xml',
@@ -122,52 +109,6 @@ export const registerPackageHandlers = (): void => {
       }
 
       return createPackage(directoryName, packageName, angles, metaDataConfig);
-    },
-  );
-
-  registerHandleWithAliases(
-    'package:prepare-open',
-    [],
-    async (event, packagePath: unknown) => {
-      const window = getValidatedEventSenderWindow(event);
-      if (!window) {
-        throw new Error('Invalid package open preparation sender');
-      }
-      if (!isNonEmptyString(packagePath)) {
-        throw new Error('Invalid package path');
-      }
-      const result = await preparePackageForOpen(packagePath, {
-        index: migrationIndex,
-        choose: (choice) => choosePackageContent(window, choice),
-        assertAvailable: (candidate) => {
-          const session = getPackageSessionForPackagePath(candidate);
-          if (
-            isPackageCaptureActive(candidate) ||
-            (session && (session.mainWindow !== window || session.packageBound))
-          )
-            throw new Error('PACKAGE_UPDATE_BUSY');
-        },
-      }).catch(async (error: unknown) => {
-        if (
-          error instanceof Error &&
-          error.message.includes('PACKAGE_UPDATE_RECOVERY_REQUIRED')
-        )
-          await showPackageRecovery(window, packagePath);
-        throw error;
-      });
-      if (result.backupPath)
-        result.warning =
-          '同じ場所で更新しました。更新前の内容は「ファイル」→「更新前のバックアップ…」から確認・復元できます。';
-      if (result.status === 'ready') {
-        await registerPackageLocation(result.packagePath);
-        try {
-          app.addRecentDocument(result.packagePath);
-          refreshAppMenu();
-        } catch (error) {
-          console.warn('Package recent-document update failed', error);
-        }
-      }
-      return result;
     },
   );
 

@@ -176,3 +176,55 @@ describe('export source preparation', () => {
     );
   });
 });
+
+it('rejects a non-first audio selection before a virtual timeline flattens track indexes', () => {
+  const payload: ExportClipsPayload = {
+    sourcePath: 'virtual.mp4',
+    clips: [
+      {
+        id: 'clip',
+        actionName: 'Review',
+        startTime: 0,
+        endTime: 3,
+        audioTrackIndex: 2,
+      },
+    ],
+    overlay: {
+      enabled: false,
+      showActionName: false,
+      showActionIndex: false,
+      showMemo: false,
+      showLabels: false,
+    },
+  };
+  expect(() =>
+    buildExportPreparationJobs(payload, [
+      {
+        sourcePath: payload.sourcePath,
+        clips: [
+          {
+            id: 'part',
+            sourcePath: 'physical.mp4',
+            durationSeconds: 1,
+            timelineStartSeconds: 1,
+          },
+        ],
+      },
+    ]),
+  ).toThrow('音声トラック');
+  expect(
+    buildExportPreparationJobs(payload, [
+      {
+        sourcePath: payload.sourcePath,
+        clips: [
+          {
+            id: 'part',
+            sourcePath: 'physical.mp4',
+            durationSeconds: 10,
+            timelineStartSeconds: 0,
+          },
+        ],
+      },
+    ])[0].weight,
+  ).toBe(0);
+});

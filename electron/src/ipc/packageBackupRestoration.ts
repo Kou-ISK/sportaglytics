@@ -1,4 +1,4 @@
-import fs from 'node:fs/promises';
+import { readPackageHistoryDirectory } from './packageHistoryDirectory';
 import path from 'node:path';
 import { packageCopyDigest } from './packageCopyDigest';
 import {
@@ -11,6 +11,10 @@ import {
 /** A restored original must not silently re-adopt the copy it was restored over. */
 export const isPackageRestoredFromBackup = async (
   source: string,
+  options: {
+    signal?: AbortSignal;
+    directoryWaiting?: (waiting: boolean) => void;
+  } = {},
 ): Promise<boolean> => {
   const receipt = await readUpdateReceipt(source);
   // Moving a completed document (including its enclosing folder and backups)
@@ -18,16 +22,23 @@ export const isPackageRestoredFromBackup = async (
   if (receipt && !samePackagePath(receipt.source, source)) return false;
   const parent = path.dirname(source);
   const prefix = `${path.basename(source)}.backup-`;
-  const entries = await fs.readdir(parent, { withFileTypes: true });
+  options.directoryWaiting?.(true);
+  let entries: string[];
+  try {
+    // Names only: do not request metadata for unrelated siblings.
+    entries = await readPackageHistoryDirectory(parent, options.signal);
+  } finally {
+    options.directoryWaiting?.(false);
+  }
   if (entries.length > 10_000) throw new Error('PACKAGE_TOO_MANY_FILES');
   let digest: string | undefined;
   for (const entry of entries) {
-    if (!entry.name.startsWith(prefix)) continue;
-    const id = entry.name.slice(prefix.length);
+    if (!entry.startsWith(prefix)) continue;
+    const id = entry.slice(prefix.length);
     if (!/^[0-9T-]+-[a-f0-9-]{36}$/.test(id)) continue;
     // The installed receipt cannot be the pre-update contents of its own update.
     if (receipt?.id === id && samePackagePath(receipt.source, source)) continue;
-    const directory = path.join(parent, entry.name);
+    const directory = path.join(parent, entry);
     const journal = await readPackageBackupJournal(directory).catch(() => {
       throw new Error('PACKAGE_UPDATE_BACKUP_HISTORY_INVALID');
     });

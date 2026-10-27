@@ -39,6 +39,26 @@ afterEach(() => {
 });
 
 describe('startup status recovery', () => {
+  it('exposes cancellation only during the cancellable history read', () => {
+    const cancel = vi.fn();
+    const { rerender } = render(
+      view({
+        busy: true,
+        busyMessage: '更新前のバックアップを確認しています…',
+        onCancelOpen: cancel,
+        error: '取消要求を送れませんでした。',
+      }),
+    );
+    expect(screen.getByRole('alert').textContent).toContain('取消要求');
+    fireEvent.click(
+      screen.getByRole('button', { name: '読み込みをキャンセル' }),
+    );
+    expect(cancel).toHaveBeenCalledOnce();
+    rerender(view({ busy: true }));
+    expect(
+      screen.queryByRole('button', { name: '読み込みをキャンセル' }),
+    ).toBeNull();
+  });
   it('reveals loading before the actions without taking focus, then restores access on cancel', () => {
     const { rerender } = render(view({}));
     const open = screen.getByRole('button', { name: 'パッケージを開く' });

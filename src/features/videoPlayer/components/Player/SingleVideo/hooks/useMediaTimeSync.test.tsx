@@ -2,6 +2,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { useMediaTimeSync } from './useMediaTimeSync';
+import { claimNativePlayback } from '../../../../shared/nativePlayback/playbackAuthority';
 
 const fixture = () => {
   let time = 0;
@@ -39,6 +40,27 @@ const fixture = () => {
   };
 };
 
+it('ignores a captured HTML seek completion while native owns the clock', () => {
+  const player = fixture();
+  const hook = renderHook(
+    ({ time }) => useMediaTimeSync(player.ref, true, time, false),
+    { initialProps: { time: 1 } },
+  );
+  const oldCanPlay = player.listeners.get('canplay');
+  let release!: () => void;
+  act(() => {
+    release = claimNativePlayback();
+  });
+  hook.rerender({ time: 4 });
+  act(() => {
+    player.settle();
+    oldCanPlay?.();
+  });
+  expect(player.seek.mock.calls).toEqual([[1]]);
+  hook.unmount();
+  act(() => release());
+});
+
 it('finishes a paused drag at the latest target without interrupting each decode', () => {
   const player = fixture();
   const { rerender, unmount } = renderHook(
@@ -52,6 +74,101 @@ it('finishes a paused drag at the latest target without interrupting each decode
   expect(player.seek.mock.calls).toEqual([[1], [3]]);
   unmount();
   expect(player.listeners.size).toBe(0);
+});
+
+it('coalesces real seek-start events while a complete local file is already decoding', () => {
+  const player = fixture();
+  const ref = {
+    current: {
+      ...player.ref.current,
+      currentSrc: () => 'file:///synthetic.mp4',
+      duration: () => 100,
+      seekable: () => ({ length: 1, start: () => 0, end: () => 100 }),
+    },
+  };
+  const hook = renderHook(
+    ({ time }) => useMediaTimeSync(ref, true, time, false),
+    { initialProps: { time: 1 } },
+  );
+  for (const time of [2, 3, 4]) {
+    act(() => window.dispatchEvent(new Event('video-seek-start')));
+    hook.rerender({ time });
+  }
+  expect(player.seek.mock.calls).toEqual([[1]]);
+  act(player.settle);
+  expect(player.seek.mock.calls).toEqual([[1], [4]]);
+  act(player.settle);
+  expect(player.seek).toHaveBeenCalledTimes(2);
+  hook.unmount();
+});
+
+it('still replaces an evicted seek even when the current source has a finite local URL', () => {
+  const player = fixture();
+  const ref = {
+    current: {
+      ...player.ref.current,
+      currentSrc: () => 'file:///synthetic.mp4',
+      duration: () => 100,
+      seekable: () => ({ length: 1, start: () => 50, end: () => 100 }),
+    },
+  };
+  const hook = renderHook(
+    ({ time }) => useMediaTimeSync(ref, true, time, false),
+    { initialProps: { time: 1 } },
+  );
+  act(() => window.dispatchEvent(new Event('video-seek-start')));
+  hook.rerender({ time: 60 });
+  expect(player.seek.mock.calls).toEqual([[1], [60]]);
+  hook.unmount();
+});
+
+it('keeps a queued explicit seek precise during playback', () => {
+  const player = fixture();
+  const ref = {
+    current: {
+      ...player.ref.current,
+      currentSrc: () => 'file:///synthetic.mp4',
+      duration: () => 100,
+      seekable: () => ({ length: 1, start: () => 0, end: () => 100 }),
+    },
+  };
+  const hook = renderHook(
+    ({ time }) => useMediaTimeSync(ref, true, time, true),
+    { initialProps: { time: 1 } },
+  );
+  act(() => window.dispatchEvent(new Event('video-seek-start')));
+  hook.rerender({ time: 1.1 });
+  expect(player.seek.mock.calls).toEqual([[1]]);
+  act(player.settle);
+  expect(player.seek.mock.calls).toEqual([[1], [1.1]]);
+  hook.unmount();
+});
+
+it('does not let a queued local seek block a source reload or gap reentry', () => {
+  const player = fixture();
+  const ref = {
+    current: {
+      ...player.ref.current,
+      currentSrc: () => 'file:///synthetic.mp4',
+      duration: () => 100,
+      seekable: () => ({ length: 1, start: () => 0, end: () => 100 }),
+    },
+  };
+  const initialProps: { time: number | undefined } = { time: 1 };
+  const hook = renderHook(
+    ({ time }) => useMediaTimeSync(ref, true, time, false),
+    { initialProps },
+  );
+  act(() => window.dispatchEvent(new Event('video-seek-start')));
+  hook.rerender({ time: 2 });
+  act(() => player.listeners.get('loadeddata')?.());
+  expect(player.seek.mock.calls).toEqual([[1], [2]]);
+  act(() => window.dispatchEvent(new Event('video-seek-start')));
+  hook.rerender({ time: 3 });
+  hook.rerender({ time: undefined });
+  hook.rerender({ time: 4 });
+  expect(player.seek.mock.calls).toEqual([[1], [2], [4]]);
+  hook.unmount();
 });
 
 it('lets native 6x playback advance and applies an explicit seek precisely', () => {

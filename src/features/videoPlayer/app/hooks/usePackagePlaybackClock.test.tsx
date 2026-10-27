@@ -3,13 +3,18 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { PackageMediaAngle } from '../../../../types/package/media';
 import { usePackagePlaybackClock } from './usePackagePlaybackClock';
-import { isPackageMediaBuffering } from './packagePlaybackReadiness';
+import {
+  isPackageMediaBuffering,
+  demandPackagePlaybackRanges,
+} from './packagePlaybackReadiness';
 
 vi.mock('./packagePlaybackReadiness', () => ({
   isPackageMediaBuffering: vi.fn(() => false),
+  demandPackagePlaybackRanges: vi.fn(),
 }));
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.mocked(demandPackagePlaybackRanges).mockClear();
   vi.mocked(isPackageMediaBuffering).mockReturnValue(false);
 });
 it('holds at the captured edge, resumes when media arrives, and honors manual pause', () => {
@@ -120,7 +125,9 @@ it('keeps elapsed time across delayed renders but applies an explicit seek and p
     frame(400);
   });
   // The 3.2-second render commits after the clock has already reached 3.4.
+  vi.mocked(demandPackagePlaybackRanges).mockClear();
   hook.rerender({ ...params, currentTime: 3.2 });
+  expect(demandPackagePlaybackRanges).not.toHaveBeenCalled();
   act(() => frame(600));
   expect(setCurrentTime.mock.lastCall?.[0]).toBeCloseTo(3.6);
   act(() => {
@@ -137,7 +144,22 @@ it('keeps elapsed time across delayed renders but applies an explicit seek and p
     frame(800);
   });
   expect(setCurrentTime).toHaveBeenLastCalledWith(20.1);
+  expect(demandPackagePlaybackRanges).toHaveBeenLastCalledWith(
+    params.mediaAngles,
+    undefined,
+    20,
+    true,
+  );
+  vi.mocked(demandPackagePlaybackRanges).mockClear();
+  hook.rerender({ ...params, currentTime: 3.6 });
+  expect(demandPackagePlaybackRanges).not.toHaveBeenCalled();
   hook.rerender({ ...params, currentTime: 9, isVideoPlaying: false });
+  expect(demandPackagePlaybackRanges).toHaveBeenLastCalledWith(
+    params.mediaAngles,
+    undefined,
+    9,
+    true,
+  );
   hook.rerender({ ...params, currentTime: 9, isVideoPlaying: true });
   act(() => {
     frame(1000);

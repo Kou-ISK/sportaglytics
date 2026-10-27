@@ -88,7 +88,7 @@ export const runFfmpegDual = async ({
     filterSteps.push(
       clip.hasAudio === false
         ? `anullsrc=r=48000:cl=stereo,atrim=duration=${clipDuration}[atrim]`
-        : `[0:a]atrim=duration=${clipDuration},asetpts=PTS-STARTPTS[atrim]`,
+        : `[0:a:${clip.audioTrackIndex ?? 0}]atrim=duration=${clipDuration},asetpts=PTS-STARTPTS[atrim]`,
     );
     filterSteps.push(
       `[1:v]trim=duration=${clipDuration},setpts=PTS-STARTPTS[strim]`,

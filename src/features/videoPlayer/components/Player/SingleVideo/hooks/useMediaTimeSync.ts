@@ -1,11 +1,43 @@
+import {
+  htmlPlaybackAllowed,
+  playbackAuthorityRevision,
+  subscribePlaybackAuthority,
+} from '../../../../shared/nativePlayback/playbackAuthority';
+import { useSyncExternalStore } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 interface ClockPlayer {
   currentTime: (time?: number) => number | undefined;
   seeking: () => boolean;
+  currentSrc?: () => string;
+  duration?: () => number | undefined;
+  seekable?: () => TimeRanges | undefined;
   on: (event: string, listener: () => void) => unknown;
   off: (event: string, listener: () => void) => unknown;
 }
+
+const canFinishPendingLocalSeek = (player: ClockPlayer): boolean => {
+  try {
+    const duration = player.duration?.();
+    const ranges = player.seekable?.();
+    const pendingTime = player.currentTime();
+    return Boolean(
+      player.currentSrc?.().startsWith('file://') &&
+      duration !== undefined &&
+      Number.isFinite(duration) &&
+      duration > 0 &&
+      ranges?.length === 1 &&
+      ranges.start(0) <= 0 &&
+      ranges.end(0) >= duration &&
+      pendingTime !== undefined &&
+      Number.isFinite(pendingTime) &&
+      pendingTime >= 0 &&
+      pendingTime <= duration,
+    );
+  } catch {
+    return false;
+  }
+};
 
 /** Coalesce seeks while decoding; native playback advances between corrections. */
 export const useMediaTimeSync = (
@@ -15,13 +47,21 @@ export const useMediaTimeSync = (
   playing: boolean,
   rate = 1,
 ): void => {
+  const authority = useSyncExternalStore(
+    subscribePlaybackAuthority,
+    playbackAuthorityRevision,
+    playbackAuthorityRevision,
+  );
   const latest = useRef({ targetTime, playing, rate, ready });
   const lastRequestedTime = useRef<number | undefined>(undefined);
   const force = useRef(true);
+  const waitForPendingSeek = useRef(false);
   useLayoutEffect(() => {
     // Returning from a recording gap must replace any unfinished old seek.
-    if (latest.current.targetTime === undefined && targetTime !== undefined)
+    if (latest.current.targetTime === undefined && targetTime !== undefined) {
       force.current = true;
+      waitForPendingSeek.current = false;
+    }
     if (
       latest.current.targetTime !== targetTime ||
       latest.current.playing !== playing
@@ -34,11 +74,12 @@ export const useMediaTimeSync = (
     const player = playerRef.current;
     const state = latest.current;
     if (
+      !htmlPlaybackAllowed() ||
       !state.ready ||
       !player ||
       state.targetTime === undefined ||
       !Number.isFinite(state.targetTime) ||
-      (player.seeking() && !force.current)
+      (player.seeking() && (!force.current || waitForPendingSeek.current))
     )
       return;
     const now = performance.now();
@@ -47,6 +88,7 @@ export const useMediaTimeSync = (
     const tolerance = precise ? 0.015 : 0.15 * Math.max(1, state.rate);
     if (!precise && now - lastSeekAt.current < 250) return;
     force.current = false;
+    waitForPendingSeek.current = false;
     if (Math.abs((player.currentTime() ?? 0) - state.targetTime) <= tolerance) {
       // A completed seek may later be reset by the source's load restoration.
       // Only an unresolved request is suppressed; an aligned frame can drift again.
@@ -68,12 +110,17 @@ export const useMediaTimeSync = (
 
   useEffect(() => {
     const player = playerRef.current;
-    if (!ready || !player) return;
+    if (!ready || !player || !htmlPlaybackAllowed()) return;
     force.current = true;
+    waitForPendingSeek.current = false;
     lastSeekAt.current = -Infinity;
     lastRequestedTime.current = undefined;
     const requestSeek = (): void => {
       force.current = true;
+      // Finish one real image before decoding the latest drag position. Unknown
+      // or evicted sources retain forced replacement because seeked may never arrive.
+      waitForPendingSeek.current =
+        player.seeking() && canFinishPendingLocalSeek(player);
     };
     const settled = (): void => {
       lastSeekAt.current = performance.now();
@@ -82,6 +129,7 @@ export const useMediaTimeSync = (
     const loaded = (): void => {
       // Some decoders reset the initial metadata seek when the first frame arrives.
       force.current = true;
+      waitForPendingSeek.current = false;
       sync();
     };
     player.on('seeked', settled);
@@ -95,7 +143,7 @@ export const useMediaTimeSync = (
       player.off('canplay', sync);
       window.removeEventListener('video-seek-start', requestSeek);
     };
-  }, [playerRef, ready, sync]);
+  }, [playerRef, ready, sync, authority]);
 
-  useEffect(sync, [sync, ready, targetTime, playing, rate]);
+  useEffect(sync, [sync, ready, targetTime, playing, rate, authority]);
 };

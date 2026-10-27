@@ -5,6 +5,7 @@ import {
   getVideoJsPlayer,
   setVideoJsPlayerCurrentTime,
 } from '../../shared/videojs/videoJsAdapter';
+import { getNativePlayback } from '../../shared/nativePlayback/nativePlaybackRegistry';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
 
 type UseVideoTimeControllerParams = {
@@ -135,23 +136,30 @@ export const useVideoTimeController = ({
 
   const handleCurrentTime = useCallback(
     (_event: SyntheticEvent | Event, newValue: number | number[]) => {
-      const time = newValue as number;
+      const time = typeof newValue === 'number' ? newValue : Number.NaN;
+      const nativeOwned = getNativePlayback() !== null;
       const isManualMode = syncMode === 'manual';
       const minAllowed = getMinAllowedGlobalTime(syncData);
 
-      if (Number.isNaN(time) || time < minAllowed) {
+      if (!Number.isFinite(time) || time < minAllowed) {
         console.warn('Invalid time value:', time);
-        setCurrentTime(minAllowed);
+        if (!nativeOwned) setCurrentTime(minAllowed);
         dispatchSeekEvent('video-seek-start', minAllowed);
         return;
       }
 
       const timeClamped = Math.max(time, minAllowed);
-      setCurrentTime(timeClamped);
-      pendingSeekRef.current = timeClamped;
+      // Coding/save/export use confirmed native time, never an unacknowledged
+      // scrub target. The existing event carries demand to the native owner.
+      if (!nativeOwned) setCurrentTime(timeClamped);
+      pendingSeekRef.current = nativeOwned ? null : timeClamped;
+      if (nativeOwned && seekFrameRef.current !== null) {
+        cancelAnimationFrame(seekFrameRef.current);
+        seekFrameRef.current = null;
+      }
       dispatchSeekEvent('video-seek-start', timeClamped);
 
-      if (seekFrameRef.current === null) {
+      if (!nativeOwned && seekFrameRef.current === null) {
         seekFrameRef.current = requestAnimationFrame(() => {
           seekFrameRef.current = null;
           const pendingTime = pendingSeekRef.current;

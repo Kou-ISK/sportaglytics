@@ -1,3 +1,5 @@
+import { restoreNativeBeforeDocumentChange } from '../../../../shared/nativePlayback/nativePlaybackRegistry';
+import type { PackageOpenProgress } from '../../../../../../types/package/openProgress';
 import type { PackageDatas } from '../../../../../../renderer';
 import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { PackageLoadResult } from '../types';
@@ -78,11 +80,14 @@ const normalizePackagePath = (value: unknown): string | null => {
 
 const preparePackagePathForOpen = async (
   packagePath: string,
+  requestId?: string,
 ): Promise<{ path: string; warning?: string }> => {
   const api = getElectronApi();
   if (!api.preparePackageForOpen) return { path: packagePath };
 
-  const preparation = await api.preparePackageForOpen(packagePath);
+  const preparation = await (requestId
+    ? api.preparePackageForOpen(packagePath, requestId)
+    : api.preparePackageForOpen(packagePath));
 
   if (preparation.status !== 'ready') {
     throw new Error(PACKAGE_MIGRATION_FAILED);
@@ -133,23 +138,40 @@ export const createVideoPackage = async (
   );
 };
 
+let latestOpen = 0;
 export const loadPackageDirectory = async (
   packagePath: string,
+  requestId?: string,
+  isCurrent: () => boolean = () => true,
 ): Promise<LoadedPackageData> => {
+  const generation = ++latestOpen;
+  const bindingId = requestId ?? crypto.randomUUID();
+  const current = (): boolean => generation === latestOpen && isCurrent();
   const api = getElectronApi();
-  const prepared = await preparePackagePathForOpen(packagePath);
-  const preparedPackagePath = prepared.path;
-  const sessionBound = await api.bindPackageSession?.(preparedPackagePath);
-  if (sessionBound === false) {
-    throw new Error('このパッケージは別のウィンドウで開かれています。');
-  }
+  let preparedPackagePath = packagePath;
   try {
+    await restoreNativeBeforeDocumentChange();
+    if (!current()) throw new Error('PACKAGE_OPEN_CANCELLED');
+    const prepared = await preparePackagePathForOpen(packagePath, bindingId);
+    preparedPackagePath = prepared.path;
+    if (!current()) throw new Error('PACKAGE_OPEN_CANCELLED');
+    const sessionBound = await api.bindPackageSession?.(
+      preparedPackagePath,
+      bindingId,
+    );
+    if (sessionBound === false)
+      throw new Error('このパッケージは別のウィンドウで開かれています。');
+    if (!current()) throw new Error('PACKAGE_OPEN_CANCELLED');
+    const loaded = await readPreparedPackage(preparedPackagePath);
+    if (!current()) throw new Error('PACKAGE_OPEN_CANCELLED');
     return {
-      ...(await readPreparedPackage(preparedPackagePath)),
+      ...loaded,
       warning: prepared.warning,
     };
   } catch (error) {
-    await releasePackageSessionReservation(preparedPackagePath);
+    await releasePackageSessionReservation(preparedPackagePath, bindingId);
+    if (preparedPackagePath !== packagePath)
+      await releasePackageSessionReservation(packagePath, bindingId);
     throw error;
   }
 };
@@ -217,9 +239,12 @@ const readPreparedPackage = async (
 
 export const releasePackageSessionReservation = async (
   packagePath: string,
+  requestId?: string,
 ): Promise<void> => {
   try {
-    await getElectronApi().releasePackageSession?.(packagePath);
+    const api = getElectronApi();
+    if (requestId) await api.releasePackageSession?.(packagePath, requestId);
+    else await api.releasePackageSession?.(packagePath);
   } catch (error) {
     console.warn('パッケージSession予約の解放をスキップ:', error);
   }
@@ -327,3 +352,13 @@ export const resolveDroppedPackagePath = (file: File): string => {
     globalThis.window.electronAPI?.resolveDroppedPackagePath?.(file) ?? '';
   return path;
 };
+
+export const subscribeToPackageOpenProgress = (
+  callback: (state: PackageOpenProgress) => void,
+): (() => void) =>
+  getElectronApi().onPackageOpenProgress?.(callback) ?? (() => undefined);
+
+export const cancelPackageOpenRequest = async (
+  requestId: string,
+): Promise<boolean> =>
+  (await getElectronApi().cancelPackageOpen?.(requestId)) ?? false;

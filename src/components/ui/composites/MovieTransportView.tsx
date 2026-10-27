@@ -1,13 +1,11 @@
 import type { ReactElement, ReactNode } from 'react';
 import { IconButton, Stack, Tooltip } from '@mui/material';
-import {
-  Pause,
-  PlayArrow,
-  SkipPrevious,
-  SkipNext,
-  FastRewind,
-  FastForward,
-} from '@mui/icons-material';
+import Pause from '@mui/icons-material/Pause';
+import PlayArrow from '@mui/icons-material/PlayArrow';
+import SkipPrevious from '@mui/icons-material/SkipPrevious';
+import SkipNext from '@mui/icons-material/SkipNext';
+import FastRewind from '@mui/icons-material/FastRewind';
+import FastForward from '@mui/icons-material/FastForward';
 
 export interface MovieTransportViewProps {
   playing: boolean;

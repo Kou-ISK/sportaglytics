@@ -119,8 +119,9 @@ export const createAppBridgeLegacyApi = (
     },
     preparePackageForOpen: async (
       packagePath: string,
+      requestId?: string,
     ): Promise<PackageOpenPreparationResult> => {
-      return ipcRenderer.invoke('package:prepare-open', packagePath);
+      return ipcRenderer.invoke('package:prepare-open', packagePath, requestId);
     },
     saveSyncData: async (
       configPath: string,

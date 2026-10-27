@@ -37,17 +37,35 @@ export const createAppBridgeFsApi = (
     setWindowTitle: (title: string) => {
       ipcRenderer.send('set-window-title', title);
     },
-    bindPackageSession: async (packagePath: string): Promise<boolean> => {
+    bindPackageSession: async (
+      packagePath: string,
+      requestId?: string,
+    ): Promise<boolean> => {
       try {
-        return await ipcRenderer.invoke('package-session:bind', packagePath);
+        return (
+          (await ipcRenderer.invoke(
+            'package-session:bind',
+            packagePath,
+            requestId,
+          )) === true
+        );
       } catch (error) {
         console.error('Error in bindPackageSession:', error);
         return false;
       }
     },
-    releasePackageSession: async (packagePath: string): Promise<boolean> => {
+    releasePackageSession: async (
+      packagePath: string,
+      requestId?: string,
+    ): Promise<boolean> => {
       try {
-        return await ipcRenderer.invoke('package-session:release', packagePath);
+        return (
+          (await ipcRenderer.invoke(
+            'package-session:release',
+            packagePath,
+            requestId,
+          )) === true
+        );
       } catch (error) {
         console.error('Error in releasePackageSession:', error);
         return false;

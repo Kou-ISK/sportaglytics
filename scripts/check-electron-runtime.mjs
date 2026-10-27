@@ -14,7 +14,7 @@ const inspect = (directory) => {
       inspect(file);
       continue;
     }
-    if (!file.endsWith('.js')) continue;
+    if (!file.endsWith('.js') && !file.endsWith('.cjs')) continue;
     const source = ts.createSourceFile(
       file,
       fs.readFileSync(file, 'utf8'),
@@ -28,6 +28,8 @@ const inspect = (directory) => {
       if (
         !specifier.startsWith('.') &&
         specifier !== 'electron' &&
+        // Electron's built-in raw filesystem; not an npm runtime dependency.
+        specifier !== 'original-fs' &&
         !isBuiltin(specifier)
       )
         failures.push(`${file}: unpackaged runtime dependency '${specifier}'`);

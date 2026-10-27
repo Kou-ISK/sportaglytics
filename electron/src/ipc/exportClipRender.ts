@@ -136,6 +136,7 @@ export const renderClipWithFfmpeg = async ({
       ? secondaryTimeOrigin
       : primaryTimeOrigin;
   const ffmpegClip: ExportClipForFfmpeg = {
+    audioTrackIndex: clip.audioTrackIndex,
     chromaKey: clip.chromaKey,
     hasAudio: await hasExportAudio(
       clip.angleType === 'angle2'
@@ -150,6 +151,9 @@ export const renderClipWithFfmpeg = async ({
     freezeAt: clip.freezeAt,
     freezeDuration: clip.freezeDuration,
   };
+
+  if (clip.audioTrackIndex !== undefined && !ffmpegClip.hasAudio)
+    throw Error('選択した音声トラックがありません');
 
   if (clip.angleType === 'angle2') {
     const secondaryOnly = clipSecondarySource || clipMainSource;

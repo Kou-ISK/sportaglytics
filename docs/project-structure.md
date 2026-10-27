@@ -419,3 +419,46 @@ Dashboard保存の進行・失敗・重複操作抑止は`features/videoPlayer/c
 合成負荷の生成と計測は`scripts/synthetic-timeline-workload.mjs` / `scripts/benchmark-synthetic-timeline.mjs`、その検査は`scripts/tests/synthetic-timeline-workload.mjs`、公開可能な生データは`docs/reports/data/`に置きます。計測専用の純粋関数参照は[限定例外ARCH-EX-002](architecture-exceptions.md)で管理します。
 
 `resources/event-model-release/`は公開可能な候補metadata、app-to-model lock、hash付き根拠要約だけを置きます。重み・動画・private manifestは置きません。純粋な選定/検査は`scripts/event-model-release-policy.mjs`、有界なローカルファイル検査は`scripts/check-event-model-release.mjs`、合成負例は`scripts/tests/event-model-release-policy.mjs`へ分離します。既存`resources/event-detection-models/`の実pack stagingとは別で、electron-builderへの同梱対象追加は行いません。
+
+`electron/src/playbackCache`は端末内派生動画のpolicy/job、固定recipe/全時刻validator、Session controllerを分離します。`src/types/playbackCache.ts`は表示契約、`src/types/ipc/playbackCache.ts`は狭いIPC payload schemaです。videoPlayerの`components/PlaybackCache`はprops-only View/Story、IPC controller hook、player切替transactionへ分離します。段階接続の範囲と期限は[再生用コピー設計](playback-cache.md)に記録します。パッケージopen登録は`ipc/packageOpenHandlers.ts`、取消/所有管理は`packageOpenOperations.ts`、OS読込結果の失効は`packageHistoryRead.ts`へ分離します。
+
+`playbackCache/sourceIdentity.ts`は取消可能なread-onlyの全体識別、`cacheStorageIo.ts`は限定されたfilesystem検査、`cacheStorage.ts`は容量/所有/公開と候補検査を担当します。UI、Session権限、実変換processの責務をこの層へ持ち込みません。
+
+`playbackCache/cacheConversionRunner.ts`は出力/容量/期限と終了待ち、`cacheWorkerProcess.ts`はMainが所有するchildの生成/イベント/停止要求を担当します。FFmpeg recipe、Session認可、UI/IPCは分離し、この層でユーザー指定コマンドを公開しません。
+
+`electron/src/documentWindowPresentation.ts` はパッケージ窓の役割タイトルとfocusを伴わない補助窓表示を担当する。Sessionの所有関係やRenderer状態は保持しない。
+
+`playbackCache/cacheConversionEvidence.ts`は変換診断の上限付き収集を担当し、`cacheRuntimePipeline.ts`が成功artifactの全検証証跡と結合します。videoPlayerの`PlaybackCache/cacheNativeAudio.ts`はnative音声trackの構造検査・選択復元・読戻し照合を担当し、登録Hookから利用します。
+
+`playbackCache/cacheReusePipeline.ts`は保存済み候補の探索・再検証を所有し、`cacheRuntimeValidation.ts`は生成/reuse共通の全内容validatorとMain指定のHW modeを所有します。`cacheHardwareCoverage.ts`は区間計画/証拠照合、`cacheHardwareProbePage.ts`は隔離player、`cacheHardwareEvidence.ts`はdecoder履歴、`cacheHardwareProbe.ts`はWindow/期限/片付けを担当します。create/reuseのjob portsは変換・公開と再照合を区別し、取消/片付けの所有を共有します。
+
+`ipc/packageHistoryDirectory.ts`は同じ親pathの未完了OS列挙を所有し、完了後の新規列挙を直列化します。要求ごとの取消と旧結果の失効は`packageHistoryRead.ts`、退避文書の意味検査は`packageBackupRestoration.ts`が担当します。
+
+`playbackCache/cacheDisplayScan.ts`はraw stream宣言と有界decoded prefixの表示順分類を担当します。`cacheProbe.ts`が所有workerを通して呼び、`cacheTimingAccumulator.ts`が全frameを再照合します。UI/IPCへ仮判定を公開しません。
+
+`electron/src/playbackCache/cacheContentProofs.ts` はMain限定の有界metadata/timingメモと全bytesへの結合を担当する。`cacheProofRecord.ts`は型・認証形式、`cacheProofIo.ts`はprivate領域の有界I/Oとatomic書込、`cacheProofStore.ts`は直列化と無効時のfallback、`cacheApplicationIdentity.ts`は物理ASARの識別、`cacheProductionProofs.ts`はElectronへの接続を分担する。package manifestやRendererへproof信頼を公開せず、HW/採用判断は既存validator/controllerへ残す。
+
+`playbackCache/cacheCandidateStorage.ts`はready探索/最終照合、`cacheIdentityFile.ts`は1回のopen/hash/revision/close、`cacheIdentityHandoff.ts`はJobに所有される一度限りの引渡しを担当する。`sourceIdentity.ts`は通常の全hash facade、`cacheFileRevision.ts`は属性比較、`cacheMediaReadAudit.ts`は有界な論理digest読込観測に限定する。生成stagingの公開/容量は`cacheStorage.ts`に残す。
+
+`playbackCache/cacheMp4Boxes.ts`は閉じた入力検査と区間診断で共用するbox先頭の有界読込を担当する。`cacheFragmentLayout.ts`はinit/mediaのbyte範囲だけを構造検査し、時刻・track・HW・admissionを扱わない。現段階でschedulerやRenderer MSEへ接続しない。
+
+`src/features/videoPlayer/shared/playbackRanges`は区間transportのRenderer側責務を持つ。`rangeBufferIndex`は有界coverage計画、`SourceBufferTaskQueue`はnativeイベント所有、`PlaybackRangeBuffer`は読込・容量・要求集約、`rangePlaybackRegistry`はvideo/URL単位の時計接続を担当する。実ファイル・IPC・Main証明はこの層で作らない。通常採用への接続は未完了である。
+
+区間キャッシュのMain専用ticket/read leaseは `electron/src/playbackCache/cacheRangeReadLease.ts`、2 batch上限の工程所有は `cacheRangePipeline.ts` に分離する。Rendererへpathやmanifest発行権を公開せず、描画・共通時計・原本復帰の責務を持たせない。
+
+Native再生の限定IPCは`src/renderer.d.ts`を正本とし、payload parserを`src/types/ipc/nativePlayback.ts`へ置く。MainのSession/manager/handlerは`electron/src/nativePlayback`、専用preload bridgeは`electron/src/preload/nativePlaybackBridge.ts`、Rendererのcontroller/gateway/所有権は`src/features/videoPlayer/shared/nativePlayback`、共通時計へのHookは`app/hooks/useNativePackageClock.ts`に置く。ViewへIPCを持ち込まない。私有host・実媒体の診断はrepository外に置く。[契約](native-playback.md)。
+
+`videoPlayer/components/NativePlayback` は限定表示のController/Hookとprops-only View/Story、`SingleVideoPlayerView` は既存プレイヤーの描画を担当する。`nativePlaybackPresentation.ts` はMainが付与する表示・操作範囲、`nativeOriginalRecovery.ts` は原本sourceを保持する復帰transactionを担当する。
+
+### Native export候補の配置
+
+`electron/src/nativeExport`はMain専用の適格性、process所有権、公開adapterを持ちます。`native/macos/ClipPassthrough.swift`は開発用Apple export helperで、通常配布対象外です。[仕様](native-export.md)を参照してください。
+
+- `features/videoPlayer/shared/audioSelection`: 実HTML音声選択の登録と変更通知。cache適格性から独立し、read-onlyの状態だけを公開する。
+- `shared/clipExport/clipExportAudio.ts`: source単位の一時音声選択契約と、最終書き出しsourceへの適用。native/Video.jsへの依存を持たない。
+
+Native再生のsource/profile/preview構成は`electron/src/nativePlayback`、sandbox canvasと画像所有は`electron/src/preload/nativeSurface*`へ置きます。原本field/sampleの整数演算は`native/macos/playback/SourceTimeline.hpp`で分離します。私有の実媒体・測定結果・未配布helper binaryは公開ソースへ含めません。
+
+Native再生helperの必要sourceは`native/macos/playback/{host-embedded,direct-frame-handoff,surface-transport,recurrence}`へ配置し、共有原本時計headerを同じplayback配下で再利用します。専用recipeは`scripts/native-playback/`、entryは`scripts/build-native-playback.mjs`と`scripts/package-native-playback-sources.mjs`です。生成library/binary/対応source archiveは`.cache`/`dist`へ分離し、repositoryへ追加しません。
+
+`electron/src/nativePlayback/runtime`は資源・署名検査、session directory、surface転送、所有者終了を担当します。`nativeSignature.ts`の固定要件検証はcompiled Mainを配布hookからも利用し、二重定義しません。`support`内の明示CJSだけをMain buildへコピーします。`scripts/macos/{standard-after-pack,native-signing,native-after-sign}.mjs`が内側→manifest→外側の署名順序と検証を担います。

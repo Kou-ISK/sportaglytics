@@ -109,3 +109,18 @@ describe('lossless export eligibility', () => {
     expect(await resolveMediaCopyMode('a.mp4', 10, 2)).toBeNull();
   });
 });
+
+it('retains whole-file copy for an explicitly selected sole audio stream, without broadening trim eligibility', async () => {
+  vi.mocked(runMediaProcess).mockResolvedValue({
+    stdout: JSON.stringify({
+      format: { duration: '60', start_time: '0' },
+      streams: [stream, { codec_type: 'audio', codec_name: 'aac' }],
+    }),
+    stderr: '',
+  });
+  expect(await resolveMediaCopyMode('a.mp4', 0, 60, 0)).toBe('whole-file');
+  expect(await resolveMediaCopyMode('a.mp4', 10, 2, 0)).toBeNull();
+  expect(await resolveMediaCopyMode('a.mp4', 0, 60, 1)).toBeNull();
+  vi.mocked(runMediaProcess).mockResolvedValue(probe());
+  expect(await resolveMediaCopyMode('silent.mp4', 0, 60, 0)).toBeNull();
+});

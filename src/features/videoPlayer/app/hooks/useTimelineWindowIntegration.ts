@@ -1,3 +1,6 @@
+import { usePlaybackAudioSelections } from './usePlaybackAudioSelections';
+import { createTimelineWindowSeek } from './timelineWindowSeek';
+import { getNativePlayback } from '../../shared/nativePlayback/nativePlaybackRegistry';
 import type { TimelinePersistenceFeedback } from './useTimelinePersistence';
 import type {
   AngleSyncSnapshot,
@@ -26,6 +29,7 @@ interface UseTimelineWindowIntegrationParams {
   onGoLive?: () => void;
   angleSync?: AngleSyncSnapshot;
   onAngleSyncCommand: (command: AngleSyncCommand) => void;
+  onAngleSyncSeekRelative: (seconds: number) => void;
   isFileSelected: boolean;
   timeline: TimelineData[];
   rows: TimelineRow[];
@@ -77,8 +81,21 @@ interface UseTimelineWindowIntegrationParams {
 export const useTimelineWindowIntegration = (
   params: UseTimelineWindowIntegrationParams,
 ): { open: () => Promise<void> } => {
+  const audioSelections = usePlaybackAudioSelections(params.videoSources);
   const paramsRef = useRef(params);
   paramsRef.current = params;
+  const seekEpoch = useMemo(
+    () => ({}),
+    [
+      params.currentTime,
+      params.maxSec,
+      params.videoSources,
+      params.angleSync,
+      params.isFileSelected,
+    ],
+  );
+  const seekEpochRef = useRef(seekEpoch);
+  seekEpochRef.current = seekEpoch;
 
   const payload = useMemo(
     () => ({
@@ -99,10 +116,12 @@ export const useTimelineWindowIntegration = (
       selectedIds: params.selectedIds,
       teamNames: params.teamNames,
       videoSources: params.videoSources,
+      audioSelections,
       hotkeys: params.hotkeys,
       updatedAt: Date.now(),
     }),
     [
+      audioSelections,
       params.persistenceFeedback,
       params.liveCapture,
       params.angleSync,
@@ -147,15 +166,16 @@ export const useTimelineWindowIntegration = (
 
   useEffect(() => {
     if (params.isFileSelected) {
-      void open();
+      void openTimelineWindow({ activate: false }).then(syncLatest);
       return;
     }
     void closeTimelineWindow();
-  }, [open, params.isFileSelected]);
+  }, [syncLatest, params.isFileSelected]);
 
   useEffect(() => {
     syncLatest();
   }, [
+    audioSelections,
     params.persistenceFeedback,
     params.liveCapture,
     params.angleSync,
@@ -197,122 +217,135 @@ export const useTimelineWindowIntegration = (
     [],
   );
 
-  useEffect(
-    () =>
-      subscribeTimelineWindowCommand((command: TimelineWindowCommand) => {
-        const current = paramsRef.current;
-        switch (command.type) {
-          case 'show-capture-controls':
-            void window.electronAPI?.liveCapture.open();
-            return;
-          case 'go-live':
-            current.onGoLive?.();
-            break;
-          case 'angle-sync':
-            current.onAngleSyncCommand(command.command);
-            break;
-          case 'retry-persistence':
-            current.persistenceFeedback?.onRetry();
-            break;
-          case 'request-sync':
-            syncTimelineWindow(payloadRef.current);
-            break;
-          case 'seek':
+  useEffect(() => {
+    const seek = createTimelineWindowSeek(() => {
+      const current = paramsRef.current;
+      return {
+        epoch: seekEpochRef.current,
+        currentTime: current.currentTime,
+        maxSec: current.maxSec,
+        videoSources: current.videoSources,
+        onSeek: current.onSeek,
+        nativeCommandTime: current.angleSync
+          ? undefined
+          : getNativePlayback()?.seekCommandTime,
+      };
+    });
+    return subscribeTimelineWindowCommand((command: TimelineWindowCommand) => {
+      const current = paramsRef.current;
+      switch (command.type) {
+        case 'show-capture-controls':
+          void window.electronAPI?.liveCapture.open();
+          return;
+        case 'go-live':
+          current.onGoLive?.();
+          break;
+        case 'angle-sync':
+          current.onAngleSyncCommand(command.command);
+          break;
+        case 'retry-persistence':
+          current.persistenceFeedback?.onRetry();
+          break;
+        case 'request-sync':
+          syncTimelineWindow(payloadRef.current);
+          break;
+        case 'seek':
+          if (current.angleSync) {
             current.onSeek(command.time);
             break;
-          case 'selection-change':
-            current.onSelectionChange(command.ids);
-            break;
-          case 'delete-items':
-            current.onDeleteItems(command.ids);
-            break;
-          case 'update-memo':
-            current.onUpdateMemo(command.id, command.memo);
-            break;
-          case 'update-range':
-            current.onUpdateRange(
-              command.id,
-              command.startTime,
-              command.endTime,
-            );
-            break;
-          case 'update-item':
-            current.onUpdateItem(command.id, command.updates);
-            break;
-          case 'bulk-update-items':
-            current.onBulkUpdateItems(command.ids, command.updates);
-            break;
-          case 'split-item':
-            current.onSplitItem(command.id, command.time);
-            break;
-          case 'merge-items':
-            current.onMergeItems(command.ids);
-            break;
-          case 'duplicate-item': {
-            const id = current.onDuplicateItem(command.id);
-            if (id) current.onSelectionChange([id]);
+          }
+          seek(command);
+          break;
+        case 'seek-relative':
+          if (current.angleSync) {
+            current.onAngleSyncSeekRelative(command.seconds);
             break;
           }
-          case 'create-item':
-            current.onCreateItem(
-              command.actionName,
-              command.startTime,
-              command.endTime,
-              command.color,
-            );
-            break;
-          case 'add-row':
-            current.onAddRow(command.name, command.color);
-            break;
-          case 'update-row':
-            current.onUpdateRow(command.id, command.updates);
-            break;
-          case 'move-row':
-            current.onMoveRow(command.sourceId, command.targetId);
-            break;
-          case 'sort-rows':
-            buildTimelineRowSortMoves(
-              current.rows,
-              current.timeline,
-              command.spec,
-            ).forEach((move) =>
-              current.onMoveRow(move.sourceId, move.targetId),
-            );
-            break;
-          case 'delete-rows':
-            current.onDeleteRows(command.ids);
-            break;
-          case 'paste-items': {
-            const ids = current.onPasteItems(
-              command.items,
-              command.targetRowId,
-            );
-            current.onSelectionChange(ids);
-            break;
-          }
-          case 'undo':
-            current.onUndo();
-            break;
-          case 'redo':
-            current.onRedo();
-            break;
-          case 'add-to-playlist':
-            current.onAddToPlaylist(
-              command.ids
-                .map((id) => current.timeline.find((item) => item.id === id))
-                .filter((item): item is TimelineData => item !== undefined),
-            );
-            break;
-          case 'hotkey-key-down':
-            current.hotkeyHandlers[command.hotkeyId]?.();
-            break;
-          case 'hotkey-key-up':
-            current.hotkeyKeyUpHandlers[command.hotkeyId]?.();
-            break;
+          seek(command);
+          break;
+        case 'selection-change':
+          current.onSelectionChange(command.ids);
+          break;
+        case 'delete-items':
+          current.onDeleteItems(command.ids);
+          break;
+        case 'update-memo':
+          current.onUpdateMemo(command.id, command.memo);
+          break;
+        case 'update-range':
+          current.onUpdateRange(command.id, command.startTime, command.endTime);
+          break;
+        case 'update-item':
+          current.onUpdateItem(command.id, command.updates);
+          break;
+        case 'bulk-update-items':
+          current.onBulkUpdateItems(command.ids, command.updates);
+          break;
+        case 'split-item':
+          current.onSplitItem(command.id, command.time);
+          break;
+        case 'merge-items':
+          current.onMergeItems(command.ids);
+          break;
+        case 'duplicate-item': {
+          const id = current.onDuplicateItem(command.id);
+          if (id) current.onSelectionChange([id]);
+          break;
         }
-      }),
-    [],
-  );
+        case 'create-item':
+          current.onCreateItem(
+            command.actionName,
+            command.startTime,
+            command.endTime,
+            command.color,
+          );
+          break;
+        case 'add-row':
+          current.onAddRow(command.name, command.color);
+          break;
+        case 'update-row':
+          current.onUpdateRow(command.id, command.updates);
+          break;
+        case 'move-row':
+          current.onMoveRow(command.sourceId, command.targetId);
+          break;
+        case 'sort-rows':
+          buildTimelineRowSortMoves(
+            current.rows,
+            current.timeline,
+            command.spec,
+          ).forEach((move) => current.onMoveRow(move.sourceId, move.targetId));
+          break;
+        case 'delete-rows':
+          current.onDeleteRows(command.ids);
+          break;
+        case 'paste-items': {
+          const ids = current.onPasteItems(command.items, command.targetRowId);
+          current.onSelectionChange(ids);
+          break;
+        }
+        case 'undo':
+          current.onUndo();
+          break;
+        case 'redo':
+          current.onRedo();
+          break;
+        case 'add-to-playlist':
+          current.onAddToPlaylist(
+            command.ids
+              .map((id) => current.timeline.find((item) => item.id === id))
+              .filter((item): item is TimelineData => item !== undefined),
+          );
+          break;
+        case 'hotkey-key-down':
+          current.hotkeyHandlers[command.hotkeyId]?.();
+          break;
+        case 'hotkey-key-up':
+          current.hotkeyKeyUpHandlers[command.hotkeyId]?.();
+          break;
+      }
+    });
+  }, []);
 
   return { open };
 };

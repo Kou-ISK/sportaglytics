@@ -1,4 +1,8 @@
-import { useCallback } from 'react';
+import {
+  getNativePlayback,
+  restoreNativeBeforeDocumentChange,
+} from '../../../shared/nativePlayback/nativePlaybackRegistry';
+import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { PackageMediaAngle } from '../../../../../types/package/metadata';
 
@@ -23,20 +27,50 @@ export const useClipSyncCommands = ({
   requestClipSync: () => void;
   changeSyncMode: Dispatch<SetStateAction<'auto' | 'manual'>>;
 } => {
+  const transition = useRef(0);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      transition.current++;
+    };
+  }, []);
+  const enterMode = useCallback(
+    (mode: 'auto' | 'manual'): void => {
+      const request = ++transition.current;
+      setIsVideoPlaying(false);
+      if (!getNativePlayback()) {
+        setSyncMode(mode);
+        return;
+      }
+      void restoreNativeBeforeDocumentChange()
+        .then(() => {
+          if (alive.current && request === transition.current)
+            setSyncMode(mode);
+        })
+        .catch(() => {
+          // Keep the old player mounted until original restoration is confirmed.
+        });
+    },
+    [setIsVideoPlaying, setSyncMode],
+  );
   const changeSyncMode = useCallback<
     Dispatch<SetStateAction<'auto' | 'manual'>>
   >(
     (update) => {
-      if (captureActive) return;
+      if (captureActive) {
+        transition.current++;
+        return;
+      }
       const next = typeof update === 'function' ? update(syncMode) : update;
       if (syncMode === 'manual' && next === 'auto') {
         window.dispatchEvent(new Event('clip-sync-cancel'));
         return;
       }
-      setIsVideoPlaying(false);
-      setSyncMode(next);
+      enterMode(next);
     },
-    [captureActive, setIsVideoPlaying, setSyncMode, syncMode],
+    [captureActive, enterMode, syncMode],
   );
   const requestClipSync = useCallback((): void => {
     if (captureActive) return;
@@ -45,13 +79,13 @@ export const useClipSyncCommands = ({
       return;
     }
     setIsVideoPlaying(false);
-    if (syncMode !== 'manual') setSyncMode('manual');
+    if (syncMode !== 'manual') enterMode('manual');
     else window.dispatchEvent(new Event('clip-sync-place'));
   }, [
     captureActive,
     mediaAngles,
     manualSyncFromPlayers,
-    setSyncMode,
+    enterMode,
     setIsVideoPlaying,
     syncMode,
   ]);

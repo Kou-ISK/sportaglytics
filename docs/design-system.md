@@ -271,3 +271,5 @@ Paintは左にツール、右に設定、映像下部に再生→目盛り→描
 - Storybook `Features/VideoPlayer/AngleSync`で単一・2・4アングル、空、エラー、保存中、狭幅を確認します。公式資料との対応と確認限界は同期仕様に記録します。
 
 Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実client高195pxとなり、32pxの行と操作を保持して検索とTimelineを同時表示できませんでした。旧260pxのresize要求は新最小外寸へ制限されます。短いclientでは外側余白を削り、32px footer・軸・完全1行と検索の完全1行を残し、一覧/詳細だけを内部スクロールします。検証は要求外寸・実外寸・innerHeightを別記し、外側scroll位置と実clientviewport内の行/ラベル全体を確認します。最小サイズで長時間のレビューが快適との保証はしません。
+
+バックアップ一覧の確認中は既存のstatus/progressと取消ボタンを使い、取消送信エラーはbusy中にもsemantic error Alertで表示します。再生用コピーのViewは既存Typography/Button/LinearProgress/Alertのみで進行・取消・原本復帰を表現します。本番への接続状況は[再生用コピー設計](playback-cache.md)で管理します。

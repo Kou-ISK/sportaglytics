@@ -1,3 +1,4 @@
+import type { NativeClipExporter } from '../nativeExport/nativeClipExport';
 import { assertExportTextFits } from './exportTextInspection';
 import { registerExportTextPreview } from './exportTextPreview';
 import {
@@ -28,6 +29,7 @@ import { isExportClipsPayload } from './exportPayloadValidation';
 interface RegisterExportHandlersOptions {
   getMainWindow: () => BrowserWindow | null;
   getFfmpegPath: () => string;
+  nativeClipExporter?: NativeClipExporter;
 }
 
 let isRegistered = false;
@@ -95,6 +97,7 @@ const sendProgress = (state: ExportProgressWindowState | null): void => {
 export const registerExportHandlers = ({
   getMainWindow,
   getFfmpegPath,
+  nativeClipExporter,
 }: RegisterExportHandlersOptions): void => {
   if (isRegistered) {
     return;
@@ -230,6 +233,7 @@ export const registerExportHandlers = ({
           preparedSources,
           tempFiles,
           getFfmpegPath,
+          nativeClipExporter,
         );
 
         const allocateName = createExportNameAllocator(

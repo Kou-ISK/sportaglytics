@@ -3,7 +3,10 @@ import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { getRendererUrl } from '../rendererUrl';
 import { TIMELINE_WINDOW_CHANNELS } from '../../../src/types/ipc/timelineWindow';
 import { openClipExportFromMenu } from './clipExportMenuAction';
-import { registerTimelineWindowHandlers } from '../timelineWindow';
+import {
+  openTimelineWindow,
+  registerTimelineWindowHandlers,
+} from '../timelineWindow';
 import {
   getPackageSessionForWindow,
   getPackageSessions,
@@ -33,9 +36,10 @@ vi.mock('electron', async () => {
       getURL: () => getRendererUrl(),
       isDestroyed: () => this.destroyed,
     });
-    constructor() {
+    constructor(options: Electron.BrowserWindowConstructorOptions = {}) {
       super();
       windows.push(this);
+      if (options.show !== false) focusedId = this.id;
     }
     static getAllWindows() {
       return windows.filter((window) => !window.destroyed);
@@ -61,7 +65,15 @@ vi.mock('electron', async () => {
     focus() {
       focusedId = this.id;
     }
-    show() {}
+    title = '';
+    setTitle(title: string) {
+      this.title = title;
+    }
+    getTitle() {
+      return this.title;
+    }
+    showInactive = vi.fn();
+    show = vi.fn();
     loadURL() {
       return Promise.resolve();
     }
@@ -105,12 +117,87 @@ const timelineFor = (owner: BrowserWindow): BrowserWindow => {
 };
 
 describe('native clip export routing and Timeline readiness', () => {
-  beforeAll(() => registerTimelineWindowHandlers());
+  let openHandler: Parameters<typeof ipcMain.handle>[1] | undefined;
+  beforeAll(() => {
+    registerTimelineWindowHandlers();
+    openHandler = vi
+      .mocked(ipcMain.handle)
+      .mock.calls.find(
+        ([channel]) => channel === TIMELINE_WINDOW_CHANNELS.openWindow,
+      )?.[1];
+  });
   afterEach(() => {
     for (const window of BrowserWindow.getAllWindows()) window.close();
     for (const session of getPackageSessions()) removePackageSession(session);
     playlistSenders.clear();
     vi.clearAllMocks();
+  });
+
+  it('shows an automatic Timeline without taking focus and preserves role titles', async () => {
+    const owner = ownerWithPackage('automatic');
+    owner.focus();
+    await openTimelineWindow(owner, false);
+    const timeline = timelineFor(owner);
+    timeline.emit('ready-to-show');
+    expect(BrowserWindow.getFocusedWindow()).toBe(owner);
+    expect(timeline.showInactive).toHaveBeenCalledOnce();
+    expect(timeline.getTitle()).toBe('タイムライン — SporTagLytics');
+    const event = { preventDefault: vi.fn() };
+    timeline.emit('page-title-updated', event, 'SporTagLytics');
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(timeline.getTitle()).toBe('タイムライン — SporTagLytics');
+    timeline.minimize();
+    await openTimelineWindow(owner, false);
+    expect(timeline.isMinimized()).toBe(true);
+    expect(BrowserWindow.getFocusedWindow()).toBe(owner);
+    await openTimelineWindow(owner);
+    expect(timeline.isMinimized()).toBe(false);
+    expect(BrowserWindow.getFocusedWindow()).toBe(timeline);
+  });
+
+  it('rejects invalid automatic-open options before opening a window', async () => {
+    const owner = ownerWithPackage('options');
+    const handler = openHandler;
+    expect(handler).toBeDefined();
+    // Partial Electron event fixture: only validated sender/frame fields are used.
+    const event = {
+      sender: owner.webContents,
+      senderFrame: owner.webContents.mainFrame,
+    } as Electron.IpcMainInvokeEvent;
+    for (const options of [
+      null,
+      false,
+      { activate: 'false' },
+      { activate: false, path: '/fixture' },
+    ])
+      await expect(handler?.(event, options)).rejects.toThrow(
+        'Invalid timeline window open options',
+      );
+    expect(getPackageSessionForWindow(owner)?.auxiliaryWindows.size).toBe(0);
+  });
+
+  it('accepts inactive opening only from the owning main frame and keeps explicit opens active', async () => {
+    const owner = ownerWithPackage('ipc-options');
+    const handler = openHandler;
+    if (!handler) throw Error('Missing open handler');
+    // Partial Electron event fixture: only validated sender/frame fields are used.
+    const event = {
+      sender: owner.webContents,
+      senderFrame: owner.webContents.mainFrame,
+    } as Electron.IpcMainInvokeEvent;
+    await handler(event, { activate: false });
+    const timeline = timelineFor(owner);
+    timeline.emit('ready-to-show');
+    expect(BrowserWindow.getFocusedWindow()).toBe(owner);
+    const auxiliaryEvent = {
+      sender: timeline.webContents,
+      senderFrame: timeline.webContents.mainFrame,
+    } as Electron.IpcMainInvokeEvent;
+    await expect(handler(auxiliaryEvent, { activate: false })).rejects.toThrow(
+      'Invalid timeline window open sender',
+    );
+    await handler(event);
+    expect(BrowserWindow.getFocusedWindow()).toBe(timeline);
   });
 
   it('queues until the matching Timeline is ready and isolates package windows', async () => {

@@ -11,6 +11,8 @@ import {
 } from '@mui/material';
 export interface StartStatusProps {
   busy?: boolean;
+  busyMessage?: string;
+  onCancelOpen?: () => void;
   error?: string;
   errorDetails?: string;
   invalidDrop?: boolean;
@@ -19,6 +21,8 @@ export interface StartStatusProps {
 }
 export const StartStatusView = ({
   busy,
+  busyMessage,
+  onCancelOpen,
   error,
   errorDetails,
   invalidDrop = false,
@@ -37,9 +41,13 @@ export const StartStatusView = ({
     return (
       <Box ref={statusRef} role="status" aria-live="polite">
         <Typography variant="body2" sx={{ mb: 1 }}>
-          パッケージを読み込んでいます…
+          {busyMessage ?? 'パッケージを読み込んでいます…'}
         </Typography>
         <LinearProgress aria-label="パッケージの読み込み" />
+        {onCancelOpen && (
+          <Button onClick={onCancelOpen}>読み込みをキャンセル</Button>
+        )}
+        {error && <Alert severity="error">{error}</Alert>}
       </Box>
     );
   if (!error) return null;

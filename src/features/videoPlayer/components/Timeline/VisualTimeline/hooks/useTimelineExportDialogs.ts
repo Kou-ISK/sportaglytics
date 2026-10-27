@@ -1,3 +1,4 @@
+import type { ClipExportAudioSelection } from '../../../../../../shared/clipExport/clipExportAudio';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import { useTimelineClipExportDialog } from './useTimelineClipExportDialog';
 import { useTimelineLabelDialog } from './useTimelineLabelDialog';
@@ -6,6 +7,7 @@ interface UseTimelineExportDialogsParams {
   timeline: TimelineData[];
   selectedIds: string[];
   videoSources?: string[];
+  audioSelections?: readonly ClipExportAudioSelection[];
   onUpdateTimelineItem?: (
     id: string,
     updates: Partial<Omit<TimelineData, 'id'>>,
@@ -17,6 +19,7 @@ export const useTimelineExportDialogs = ({
   timeline,
   selectedIds,
   videoSources,
+  audioSelections,
   onUpdateTimelineItem,
   info,
 }: UseTimelineExportDialogsParams) => {
@@ -31,6 +34,7 @@ export const useTimelineExportDialogs = ({
     timeline,
     selectedIds,
     videoSources,
+    audioSelections,
     info,
   });
 

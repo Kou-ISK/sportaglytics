@@ -1,3 +1,4 @@
+import { htmlPlaybackAllowed } from '../nativePlayback/playbackAuthority';
 import videojs from 'video.js';
 
 export interface VideoJsPlayerHandle {
@@ -97,7 +98,7 @@ export const setVideoJsPlayerCurrentTime = (
 ): boolean => {
   const player =
     typeof idOrPlayer === 'string' ? getVideoJsPlayer(idOrPlayer) : idOrPlayer;
-  if (!player?.currentTime) {
+  if (!htmlPlaybackAllowed() || !player?.currentTime) {
     return false;
   }
 
