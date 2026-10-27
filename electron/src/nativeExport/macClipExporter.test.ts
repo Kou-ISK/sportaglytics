@@ -219,3 +219,25 @@ it('rejects cancellation before starting the helper', async () => {
   ).rejects.toBeInstanceOf(NativeExportCancelled);
   expect(run).not.toHaveBeenCalled();
 });
+it('keeps non-local and symlink sources on the existing export path', async () => {
+  const request = await setup(),
+    run = vi.fn(completed);
+  const exporter = createMacClipExporter({
+    executable: 'helper',
+    run,
+    qualify: async () => true,
+  });
+  expect(
+    await exporter({
+      ...request,
+      sourcePath: 'https://example.invalid/clip.mp4',
+    }),
+  ).toEqual({ status: 'fallback', reason: 'non-local-source' });
+  const link = path.join(path.dirname(request.sourcePath), 'reference.mp4');
+  await fs.symlink(request.sourcePath, link);
+  expect(await exporter({ ...request, sourcePath: link })).toEqual({
+    status: 'fallback',
+    reason: 'unsupported-source-type',
+  });
+  expect(run).not.toHaveBeenCalled();
+});

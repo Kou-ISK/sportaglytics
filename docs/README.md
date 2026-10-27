@@ -159,6 +159,6 @@ Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-
 
 - [Apple標準再生の統合境界と受入条件](native-playback.md): 対応sourceの標準自動選択、内部fallback、機能inventoryと残る品質条件。
 
-- [Native clip export candidate](native-export.md): 非公開のpassthrough候補と品質gate。
+- [Native clip export](native-export.md): 条件付きApple passthrough、精度・取消・既存経路への復帰。
 
 - [ADR 0080: AVPlayerを再生中核にする](adr/0080-apple-player-playback.md)。

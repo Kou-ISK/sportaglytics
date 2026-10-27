@@ -94,3 +94,5 @@ v0.17.10のWindows H.264は[Media Foundationへ移行済み](adr/0062-windows-me
 ### Apple playback helper
 
 AVPlayer helper/IOSurface receiverは本repositoryで作成したsourceとMIT本文を保持します。Node 22.12.0 N-API headersと公式LICENSEを固定hashで使用し、Apple frameworkはOS提供です。新helperへFFmpegはlinkしません。既存export用FFmpegの告知と対応sourceは別に維持します。[再build可能な対応source](third-party-distribution.md#native-playback-previewの対応ソース)、compiler/SDK、署名後artifactを配布単位で照合します。build成功を可聴品質・全codec条件の保証にはしません。
+
+Apple passthroughの追加sourceは本プロジェクトで作成したMITコードで、既存NativeProductHostの対応source archiveへ含めます。Apple frameworkはOS提供の動的依存で再配布しません。新しい第三者binary・モデル・資格情報は追加しません。最終版のmanifest・署名・配布検証はRelease工程の記録と照合します。

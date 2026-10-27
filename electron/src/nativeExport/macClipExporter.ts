@@ -80,6 +80,16 @@ export const createMacClipExporter =
       request.audioTrack > 63
     )
       return { status: 'fallback', reason: 'unsupported-request' };
+    if (!path.isAbsolute(request.sourcePath))
+      return { status: 'fallback', reason: 'non-local-source' };
+    let sourceStat;
+    try {
+      sourceStat = await fs.lstat(request.sourcePath);
+    } catch {
+      return { status: 'fallback', reason: 'source-unavailable' };
+    }
+    if (!sourceStat.isFile() || sourceStat.isSymbolicLink())
+      return { status: 'fallback', reason: 'unsupported-source-type' };
     const before = await revision(request.sourcePath);
     const sourceSize = (await fs.lstat(request.sourcePath)).size;
     const maxOutputBytes = Math.min(8 * 1024 ** 3, sourceSize + 16 * 1024 ** 2);

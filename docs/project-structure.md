@@ -450,7 +450,7 @@ Native再生の限定IPCは`src/renderer.d.ts`を正本とし、payload parser�
 
 ### Native export候補の配置
 
-`electron/src/nativeExport`はMain専用の適格性、process所有権、公開adapterを持ちます。`native/macos/ClipPassthrough.swift`は開発用Apple export helperで、通常配布対象外です。[仕様](native-export.md)を参照してください。
+`electron/src/nativeExport`はMain専用の適格性、process所有権、公開adapterを持ちます。`native/macos/playback/apple-export`は同じ署名hostの独立exportモードです。再生sessionとは責務を分け、通常接続はMainの固定providerだけが行います。[仕様](native-export.md)を参照してください。
 
 - `features/videoPlayer/shared/audioSelection`: 実HTML音声選択の登録と変更通知。cache適格性から独立し、read-onlyの状態だけを公開する。
 - `shared/clipExport/clipExportAudio.ts`: source単位の一時音声選択契約と、最終書き出しsourceへの適用。native/Video.jsへの依存を持たない。

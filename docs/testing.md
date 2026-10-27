@@ -354,9 +354,9 @@ Native再生の`nativePlaybackSession.test.ts`は配送と画像/音声準備、
 
 Native snapshot通知は`nativeSnapshotDelivery.test.ts`で1万更新時の有界配送、旧owner/文書ACK拒否を、preload試験で購読解除後のACK回収と不正payloadを確認する。Session/Controller試験では非同期write失敗の即時通知、timerを進めない時計更新、購読者例外時のdrainを検査する。実BrowserWindowの失敗結果をunit成功で置き換えない。
 
-### Native export候補
+### Native clip export
 
-[native-export.md](native-export.md#未達のgate)のunit/process所有権と実媒体境界検証を行います。receipt/metadataと出力品質合格を分け、通常providerを有効にする前に複数playerの音声終端・edit list・描画fallback・配布検証が必要です。
+[native-export.md](native-export.md#検証入口と限界)のunit/process所有権と実媒体境界検証を行います。`exportClipGroup.test.ts`はsingleと1clip perRowの最終保存先をnative所有範囲へ渡し、取消後に再コピーせず、複数clipは従来の連結経路を維持することを確認します。providerの繰返しQuit保留、helper/probeの終了待ち、保存先stagingからの非上書き公開を回帰検査します。receipt/metadataと出力品質合格は別で、対応範囲の画像・提示PCM、描画fallback、署名済み通常providerと配布物を確認します。実聴取と全playerのedit list互換性は自動照合の結果から推定しません。
 
 Apple再生の入力資格は`nativeSourceProfile.test.ts` / `nativeSourceAccess.test.ts`で先頭・音声/映像末尾差・metadata/source変更を確認します。実機では同一原本で停止再開、中間/終盤seek、既存原本復帰を直列検証し、背景負荷と終了receiptを残します。独自PCM窓の旧検査はAVPlayerの実出力検証として流用せず、有限の画像所有数と時刻連続性を検証します。
 

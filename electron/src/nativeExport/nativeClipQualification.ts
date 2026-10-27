@@ -1,9 +1,7 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { getFfprobePath } from '../mediaTools';
 import type { NativeClipExportRequest } from './nativeClipExport';
+import { runNativeExportProbe } from './nativeExportProcess';
 
-const execute = promisify(execFile);
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 interface Metadata {
@@ -136,9 +134,8 @@ export const isQualifiedNativeClip = (
   );
 };
 
-const probe = async (file: string): Promise<unknown> => {
-  // execFile settles after child close, including timeout, before staging cleanup.
-  const result = await execute(
+const probe = async (file: string, signal?: AbortSignal): Promise<unknown> => {
+  const result = await runNativeExportProbe(
     getFfprobePath(),
     [
       '-v',
@@ -151,20 +148,15 @@ const probe = async (file: string): Promise<unknown> => {
       'json',
       file,
     ],
-    {
-      encoding: 'utf8',
-      timeout: 30000,
-      maxBuffer: 1024 * 1024,
-      windowsHide: true,
-    },
+    signal,
   );
-  return JSON.parse(result.stdout);
+  return JSON.parse(result);
 };
 export const qualifyNativeClip = async (
   candidate: string,
   request: NativeClipExportRequest,
 ): Promise<boolean> => {
-  const source = await probe(request.sourcePath);
-  const output = await probe(candidate);
+  const source = await probe(request.sourcePath, request.signal);
+  const output = await probe(candidate, request.signal);
   return isQualifiedNativeClip(source, output, request);
 };

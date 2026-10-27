@@ -7,13 +7,16 @@ import { nativeClipExportProvider } from './nativeClipExportStartup';
 import type { NativeClipExportResult } from './nativeClipExport';
 
 const state = vi.hoisted(() => ({
-  onQuit: undefined as (() => void) | undefined,
+  onQuit: undefined as
+    | ((event: { preventDefault(): void }) => void)
+    | undefined,
 }));
 vi.mock('electron', () => ({
   app: {
     isPackaged: true,
     getPath: () => '/test-state',
-    once: (_event: string, fn: () => void) => {
+    quit: vi.fn(),
+    on: (_event: string, fn: (event: { preventDefault(): void }) => void) => {
       state.onQuit = fn;
     },
   },
@@ -93,10 +96,33 @@ it('propagates app shutdown and forbids later fallback or publication work', asy
   });
   const provider = nativeClipExportProvider();
   await provider?.(request);
-  state.onQuit?.();
+  state.onQuit?.({ preventDefault: vi.fn() });
   expect(active?.aborted).toBe(true);
   await expect(provider?.(request)).rejects.toMatchObject({
     name: 'AbortError',
   });
   expect(app.isPackaged).toBe(true);
+});
+it('holds normal quit until the active operation and metadata probes drain', async () => {
+  let finish: (() => void) | undefined;
+  const run = vi.fn(
+    () =>
+      new Promise<NativeClipExportResult>((resolve) => {
+        finish = () =>
+          resolve({ status: 'fallback', reason: 'cancelled-test-double' });
+      }),
+  );
+  vi.mocked(createMacClipExporter).mockReturnValue(run);
+  const provider = nativeClipExportProvider();
+  const active = provider?.(request).catch((error: unknown) => error);
+  await vi.waitFor(() => expect(run).toHaveBeenCalledOnce());
+  const preventDefault = vi.fn();
+  state.onQuit?.({ preventDefault });
+  state.onQuit?.({ preventDefault });
+  state.onQuit?.({ preventDefault });
+  expect(preventDefault).toHaveBeenCalledTimes(3);
+  expect(app.quit).not.toHaveBeenCalled();
+  finish?.();
+  expect(await active).toMatchObject({ name: 'AbortError' });
+  await vi.waitFor(() => expect(app.quit).toHaveBeenCalledOnce());
 });
