@@ -47,7 +47,7 @@ const fixture = async (): Promise<{
     path.join(native, 'build.json'),
     JSON.stringify({
       identity: {
-        revision: 5,
+        revision: 6,
         engine: 'AVPlayer',
         platform: 'darwin',
         architecture: 'arm64',
@@ -105,10 +105,10 @@ describe('fixed native resources', () => {
     ).rejects.toThrow('HASH');
     const file = path.join(f.native, 'build.json');
     const original = await readFile(file, 'utf8');
-    for (const revision of [1, 2, 3, 4, 6]) {
+    for (const revision of [1, 2, 3, 4, 5, 7]) {
       await writeFile(
         file,
-        original.replace('"revision":5', `"revision":${revision}`),
+        original.replace('"revision":6', `"revision":${revision}`),
       );
       await expect(
         resolveNativeResources(f.root, f.state, 'development'),

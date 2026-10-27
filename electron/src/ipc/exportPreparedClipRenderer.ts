@@ -33,22 +33,23 @@ export const createPreparedClipRenderer = (
       throw new Error('書き出し対象のクリップを確認してください');
     const sources = prepared.get(index);
     const resolveSource = (sourcePath: string) =>
-      sources?.get(sourcePath) ?? { sourcePath, timeOrigin: 0 };
+      sources?.get(sourcePath) ?? { sourcePath, timeOrigin: 0, kind: 'direct' };
     const main = resolveSource(clip.videoSource || selection.mainSource);
     const secondaryPath = clip.videoSource2 || selection.secondarySource;
     const secondary = secondaryPath ? resolveSource(secondaryPath) : undefined;
+    const selected =
+      clip.angleType === 'angle2' && secondary ? secondary : main;
     let target = outputPath;
     if (
       nativeExporter &&
+      selected.kind === 'direct' &&
       canAttemptNativeClip(payload, clip, selection.useDual)
     ) {
-      const source =
-        clip.angleType === 'angle2' && secondary ? secondary : main;
       target ??= path.join(os.tmpdir(), `clip_${randomUUID()}.mp4`);
       if (!outputPath) tempFiles.push(target);
       const result = await nativeExporter({
-        sourcePath: source.sourcePath,
-        start: clip.startTime - source.timeOrigin,
+        sourcePath: selected.sourcePath,
+        start: clip.startTime - selected.timeOrigin,
         duration: Math.max(0.5, clip.endTime - clip.startTime),
         audioTrack: clip.audioTrackIndex ?? 0,
         outputPath: target,
