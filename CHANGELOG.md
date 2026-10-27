@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
+
+## [0.17.14]
+
+macOS向けのネイティブ標準再生と供給・操作・終了処理の改善を配布する候補です。初回・遠距離シークには待ち時間が残ります。最終候補の長尺原本の短時間再生・停止再開・シーク・通常終了を確認しましたが、最大待機時間の外部記録、実聴取による同期、長時間安定は未確認です。過去の間欠停止を全て解消した保証とはしません。署名・公証・公開の完了は同版のReleaseと検証記録を参照してください。
+
+- 数msの一過性映像不足を同じ音声時計で吸収し、短い回復の回数だけで再生を打ち切らない。持続不足の累積時間予算・取消・原本時計を維持。
+- 音声の必要範囲だけを有界に読み取り、元の全音声PTSとPCMを保持。返信キューの正当なburstを拒否する容量不足を修正。
+
 - 非公開のnative clip export adapterを追加。合成なし区間の候補・音声選択・既存fallbackと独立qualificationを分離し、通常起動は従来経路を維持します。詳細は[設計](docs/native-export.md)。
 
 - 対応するmacOS arm64の単一原本をネイティブ再生へ自動接続。任意切替をなくし、非対応操作・形式は内部の互換再生で維持。署名済みhelperの同梱・原本への復旧・既存cache選択を統合。[範囲と未達の受入条件](docs/native-playback.md)。
@@ -29,9 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 長尺・高負荷のローカル動画で、デコード待ちの間に共通時計だけが進み、復帰後の自動シークを繰り返す問題を修正。空白区間・クリップ境界・明示シークは維持する。録画のMSE再生は追記用の時計を維持し、記録のない空白へのシークと次のクリップへの復帰停止を防ぐ。
 - 遅れて届いたフォーカス通知が、閉じて非表示にした録画操作ウィンドウなどを再表示しないようにする。
 
-### Added
+## [0.17.13]
 
-- 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
+未公開の準備版です。長尺動画の待機・録画の空白区間からの復帰、非表示ウィンドウの遅いfocus処理の修正は次の配布版へ引き継ぎます。既存mainの準備履歴を保持し、この版のtagや配布物を後付けしません。
 
 ## [0.17.12]
 
