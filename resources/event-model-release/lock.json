@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "appVersion": "0.17.15",
+  "appVersion": "0.17.16",
   "catalogSha256": "6422f904299414949100c4ab3739d0cc30d0fca9ed05027e1885d4e900c263fc",
   "targets": ["darwin-arm64", "darwin-x64", "win32-x64"],
   "mode": "none",

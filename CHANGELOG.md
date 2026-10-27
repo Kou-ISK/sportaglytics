@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
 
+## [0.17.16]
+
+- パッケージ参照Playlistで画面更新が遅れるたびに古い時刻へ逆シークする問題を修正。映像の実時計を使い、同じ同期情報のfocus再読込では再生を止めない。読み込み待ち、区間切替、2アングルの空白と同期、注釈フリーズを維持。保存尺より早いEOFは自動再開せずエラーで停止する。
+- Mac向け修正。メインのAVPlayer再生、UI操作、保存形式、書き出し方式は変更しない。長尺原本の限定比較・署名・公証・配布結果はRelease記録を参照し、全尺の安定性や実聴取同期の保証とはしない。
+
 ## [0.17.15]
 
 - Macの対応映像の再生中核をAVPlayerへ変更。独自FFmpeg復号・PCM窓を外し、通常スクラブは実表示時刻を使う高速経路、コマ送り・時刻指定は厳密経路に分離。再生用コピー操作・方式表示・常時の開発警告を通常画面から削除し、音声操作を既存ツールバーへ統合。[仕様と検証範囲](docs/native-playback.md)。

@@ -17,7 +17,7 @@
 
 | ARCH-EX-002 | 2026-10-18 | Feature Public API | `scripts/benchmark-synthetic-timeline.mjs`の専用loaderから純粋関数`timelineReviewSearch.ts`を推移的compileして読込 | 実際の検索処理を計測し、計測専用の本番公開APIや検索実装の複製を増やさないため | Node計測ツール1本のみ。アプリの実行時import・UI・保存形式は変更しない | 2026-11-18までにfeature内benchへの移動または限定した正式な計測入口を判断 | maintainers | [PR #237](https://github.com/Kou-ISK/sportaglytics/pull/237) / [F10受入](synthetic-workloads.md#次の受入条件) | Open |
 
-| ARCH-EX-003 | 2026-10-20 | Release branch routing | v0.17.13準備・v0.17.14配布とv0.17.15の再生是正で、mainを基点とする限定release branchからmainへPRを作る | 依頼された再生修正の配布に、developで進行中のモデル配布方針を混在させないため | v0.17.15ではApple再生是正と関連する配布修正を選び、モデル固有hunkを除外する。修正は先にdevelopへ通常PRで統合し、CI・レビュー・署名・公証・公開検証は維持する | 未公開モデル方針を今回の再生是正へ混在させないためv0.17.15まで延長。公開後の記録同期でClose。期限2026-11-03 | maintainers | [PR #247](https://github.com/Kou-ISK/sportaglytics/pull/247) | Open |
+| ARCH-EX-003 | 2026-10-20 | Release branch routing | v0.17.13準備・v0.17.14配布とv0.17.15–0.17.16の再生是正で、mainを基点とする限定release branchからmainへPRを作る | 依頼された再生修正の配布に、developで進行中のモデル配布方針を混在させないため | v0.17.15–0.17.16ではApple再生是正、Playlist時計修正と関連する配布修正を選び、モデル固有hunkを除外する。修正は先にdevelopへ通常PRで統合し、CI・レビュー・署名・公証・公開検証は維持する | 未公開モデル方針を今回の再生是正へ混在させないためv0.17.16まで延長。公開後の記録同期でClose。期限2026-11-03 | maintainers | [PR #247](https://github.com/Kou-ISK/sportaglytics/pull/247) | Open |
 
 ## 月次レビュー
 
