@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it as itOnAnyHost, vi } from 'vitest';
 import { reusePlaybackCache } from './cacheReusePipeline';
 import { openPlaybackCacheStorage } from './cacheStorage';
 import { CACHE_RECIPE } from './cacheRecipe';
@@ -16,6 +16,9 @@ import { preparePlaybackCache } from './cacheRuntimePipeline';
 import type { CachePreparationOptions } from './cacheRuntimePipeline';
 import type { CacheWorkerEvents } from './cacheConversionRunner';
 import type { PlaybackCacheJob } from './cacheJob';
+// Real POSIX descriptor/ownership contracts for the Mac-only cache path.
+// Windows keeps the unsupported-platform and pure/IPC regressions.
+const it = itOnAnyHost.skipIf(process.platform === 'win32');
 
 const mocks = vi.hoisted(() => ({
   root: '',
@@ -64,9 +67,8 @@ vi.mock('./cacheProbe', () => ({
 vi.mock('./cacheHardwareProbe', () => ({ probeCacheHardware: mocks.hardware }));
 vi.mock('./cacheWorkerProcess', () => ({ spawnCacheWorker: mocks.spawn }));
 vi.mock('./cacheRecipe', async () => {
-  const actual = await vi.importActual<typeof import('./cacheRecipe')>(
-    './cacheRecipe',
-  );
+  const actual =
+    await vi.importActual<typeof import('./cacheRecipe')>('./cacheRecipe');
   return {
     ...actual,
     // The worker and HW decoder are simulated above. Exercise the real Mac

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it as itOnAnyHost, vi } from 'vitest';
 import { runCacheConversion } from './cacheConversionRunner';
 import type { CacheWorkerEvents } from './cacheConversionRunner';
 import { openPlaybackCacheStorage } from './cacheStorage';
@@ -10,6 +10,9 @@ import { CACHE_METADATA_BUDGET } from './cacheStorageIo';
 import { PlaybackCacheJob } from './cacheJob';
 import type { CacheExpectation, CacheValidation } from './cachePolicy';
 import type { CacheStaging } from './cacheStorage';
+// Real POSIX descriptor/ownership contracts for the Mac-only cache path.
+// Windows keeps the unsupported-platform and pure/IPC regressions.
+const it = itOnAnyHost.skipIf(process.platform === 'win32');
 
 let root: string;
 const stages: CacheStaging[] = [];

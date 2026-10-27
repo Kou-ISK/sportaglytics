@@ -3,11 +3,14 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it as itOnAnyHost, vi } from 'vitest';
 import {
   readCacheApplicationIdentity,
   isCacheApplicationCurrent,
 } from './cacheApplicationIdentity';
+// Real POSIX descriptor/ownership contracts for the Mac-only cache path.
+// Windows keeps the unsupported-platform and pure/IPC regressions.
+const it = itOnAnyHost.skipIf(process.platform === 'win32');
 let root: string, file: string, abort: AbortController;
 beforeEach(async () => {
   root = await fs.realpath(

@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { nativePlaybackProvider } from './nativePlaybackStartup';
+import { resolveNativeResources } from './runtime/nativeResources';
 vi.mock('electron', () => ({
   app: { isPackaged: true, getPath: () => '/synthetic/profile' },
 }));
@@ -10,6 +11,13 @@ vi.mock('./runtime/nativeRuntime', () => ({
   createNativePlaybackRuntime: vi.fn(),
 }));
 afterEach(() => vi.unstubAllEnvs());
+it.skipIf(process.platform === 'darwin' && process.arch === 'arm64')(
+  'leaves unsupported hosts on the existing player without resolving helpers',
+  () => {
+    expect(nativePlaybackProvider('/synthetic/build')).toBeNull();
+    expect(resolveNativeResources).not.toHaveBeenCalled();
+  },
+);
 it.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')(
   'enables packaged qualification without a preview environment switch',
   () => {

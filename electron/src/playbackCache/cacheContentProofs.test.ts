@@ -3,11 +3,14 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it as itOnAnyHost, vi } from 'vitest';
 import { CacheContentProofs } from './cacheContentProofs';
 import type { CacheProbeContext } from './cacheProbe';
 import { parseCacheMediaMetadata } from './cacheMediaMetadata';
 import type { CacheTimingProof } from './cachePolicy';
+// Real POSIX descriptor/ownership contracts for the Mac-only cache path.
+// Windows keeps the unsupported-platform and pure/IPC regressions.
+const it = itOnAnyHost.skipIf(process.platform === 'win32');
 
 const probe = vi.hoisted(() => ({ metadata: vi.fn(), timing: vi.fn() }));
 vi.mock('./cacheProbe', () => ({
