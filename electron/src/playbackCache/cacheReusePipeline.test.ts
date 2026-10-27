@@ -63,6 +63,18 @@ vi.mock('./cacheProbe', () => ({
 }));
 vi.mock('./cacheHardwareProbe', () => ({ probeCacheHardware: mocks.hardware }));
 vi.mock('./cacheWorkerProcess', () => ({ spawnCacheWorker: mocks.spawn }));
+vi.mock('./cacheRecipe', async () => {
+  const actual = await vi.importActual<typeof import('./cacheRecipe')>(
+    './cacheRecipe',
+  );
+  return {
+    ...actual,
+    // The worker and HW decoder are simulated above. Exercise the real Mac
+    // recipe on every CI host; unsupported-host rejection has separate coverage.
+    buildCacheRecipe: (...args: Parameters<typeof actual.buildCacheRecipe>) =>
+      actual.buildCacheRecipe(args[0], args[1], args[2], 'darwin'),
+  };
+});
 
 const digest = (value: string): string =>
   createHash('sha256').update(value).digest('hex');

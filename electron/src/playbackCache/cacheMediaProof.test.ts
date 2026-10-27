@@ -245,9 +245,11 @@ it('fixes the bundled hardware recipe without truncation, fps coercion or audio 
   expect(() =>
     buildCacheRecipe('/same.mp4', '/same.mp4', input(), 'darwin'),
   ).toThrow();
-  expect(() =>
-    buildCacheRecipe('/a.mp4', '/b.mp4', input(), 'win32'),
-  ).toThrow();
+  for (const platform of ['win32', 'linux'] as const) {
+    expect(() =>
+      buildCacheRecipe('/a.mp4', '/b.mp4', input(), platform),
+    ).toThrow('CACHE_PLATFORM_UNSUPPORTED');
+  }
 });
 
 it('preserves multi-packet priming and hashes fully skipped packets on all tracks', () => {
