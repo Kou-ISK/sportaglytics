@@ -4,7 +4,9 @@
 
 ## 0.17.17
 
-0.17.17はPlaylistの映像時計追従と停止・同期処理を修正するMac向け版です。メインのAVPlayer経路と書き出し方式は変更しません。修正と版準備は[PR #254](https://github.com/Kou-ISK/sportaglytics/pull/254)でdevelopへ統合し、`release/playlist-clock-0.17.17`からmainへPRを作ります。[ARCH-EX-003](../docs/architecture-exceptions.md)に従い、developの未公開モデル方針とそのlock変更は含めません。以前の公開tag・配布物は保持し、Mac配布は`include_windows=false`です。必要なCI・署名・公証・配布物照合は維持します。
+0.17.17は合成なしの単一区間を条件付きのApple passthroughで出力するMac向け版です。対応するApple Silicon環境で不要な再圧縮を省き、原本範囲・選択音声を維持します。描画・文字・複数区間の連結・非対応入力は従来経路を使います。製品修正は[PR #256](https://github.com/Kou-ISK/sportaglytics/pull/256)でdevelopへ統合し、版準備を含む`release/apple-clip-0.17.17`からmainへPRを作ります。[ARCH-EX-003](../docs/architecture-exceptions.md)に従い、developの未公開モデル方針とそのlock変更は含めません。以前の公開tag・配布物を保持し、Mac配布は`include_windows=false`です。CI・署名・公証・配布物照合は維持します。原本の限定区間での画像/PCM比較と実聴取は別であり、全形式・全playerのedit list互換性を保証しません。
+
+0.17.16は[PR #254](https://github.com/Kou-ISK/sportaglytics/pull/254)と[PR #255](https://github.com/Kou-ISK/sportaglytics/pull/255)のPlaylist時計修正版で、書き出し変更は含みません。
 
 ## 0.17.15と公開済み版
 
@@ -14,7 +16,7 @@
 
 ## MacとWindowsの実行境界
 
-`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常runner・インストール後runnerの全登録シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.15はMacのみの配布として`include_windows=false`を指定します。Windowsの既存配布物は維持し、PR上の既存Windows互換検査は省略しません。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
+`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常runner・インストール後runnerの全登録シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.15–0.17.17はMacのみの配布として`include_windows=false`を指定します。Windowsの既存配布物は維持し、PR上の既存Windows互換検査は省略しません。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
 
 Native標準化候補は既存公開versionを再使用せず、main統合後に未使用version/tagを確定します。arm64は`native:build`とmanifestに列挙したAVPlayer資源の検証、2helperのDeveloper ID署名、外側app署名、公証、実起動を要求します。署名後も元unsigned manifestと対応sourceを保持します。新defaultの機能・品質受入が未完了なら公開しません。
 
