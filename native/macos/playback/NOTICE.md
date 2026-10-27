@@ -6,8 +6,9 @@ under the repository's MIT license. This does not replace third-party licenses.
 NativeProductHost uses AVPlayer for media reading, decoding, audio rendering and
 the playback clock. AVPlayerItemVideoOutput supplies the image appropriate to
 that clock to the existing Electron overlay surface. This helper does not link
-FFmpeg or implement a separate audio/video supply pipeline. Export and media
-inspection tools have their own notices and are separate from playback.
+FFmpeg or implement a separate audio/video supply pipeline. The independent --export-clip mode uses AVMutableComposition and
+AVAssetExportSession passthrough without starting a playback session. Media
+inspection and fallback encoding tools have their own notices.
 
 Receiver.node uses the Node.js 22.12.0 N-API headers (N-API version 8). The full
 Node distribution LICENSE is included; its text describes applicable licenses

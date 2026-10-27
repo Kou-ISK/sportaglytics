@@ -8,7 +8,7 @@ import {
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'path';
-import { concatFiles } from './exportFfmpegRunners';
+import { renderExportClipGroup } from './exportClipGroup';
 import { ensureMp4, normalizeAngleOption } from './exportOptions';
 import { createPreparedClipRenderer } from './exportPreparedClipRenderer';
 import type { ExportClipsPayload } from './exportHandlers.types';
@@ -284,25 +284,6 @@ export const registerExportHandlers = ({
           });
 
           for (const [actionName, group] of byAction.entries()) {
-            const temps: string[] = [];
-            for (const clip of group) {
-              const clipDuration = getClipOutputDuration(clip);
-              updateProgress(`${actionName} のクリップを生成中...`);
-              temps.push(
-                await renderClip(clip, undefined, (fraction) => {
-                  updateStageProgress(
-                    fraction,
-                    clipDuration,
-                    `${actionName} のクリップを生成中...`,
-                  );
-                }),
-              );
-              advanceProgress(
-                clipDuration,
-                `${actionName} のクリップを生成しました`,
-              );
-            }
-
             const safeAction = portableExportStem(actionName);
             let angleSuffix = '';
             if (useDual) angleSuffix = '_multi';
@@ -316,47 +297,37 @@ export const registerExportHandlers = ({
               : ensureMp4(fileName);
             const outPath = path.join(targetDir, allocateName(outName));
 
-            updateProgress(`${actionName} を結合中...`);
-            const groupDuration = group.reduce(
-              (total, clip) => total + getClipOutputDuration(clip),
-              0,
-            );
-            await concatFiles(getFfmpegPath, temps, outPath, {
-              durationSeconds: groupDuration,
-              onProgress: (fraction) => {
+            await renderExportClipGroup({
+              clips: group,
+              outputPath: outPath,
+              renderClip,
+              getFfmpegPath,
+              getDuration: getClipOutputDuration,
+              onRenderStart: () =>
+                updateProgress(`${actionName} のクリップを生成中...`),
+              onRenderProgress: (fraction, duration) =>
                 updateStageProgress(
                   fraction,
-                  groupDuration,
+                  duration,
+                  `${actionName} のクリップを生成中...`,
+                ),
+              onRendered: (duration) =>
+                advanceProgress(
+                  duration,
+                  `${actionName} のクリップを生成しました`,
+                ),
+              onJoinStart: () => updateProgress(`${actionName} を結合中...`),
+              onJoinProgress: (fraction, duration) =>
+                updateStageProgress(
+                  fraction,
+                  duration,
                   `${actionName} を結合中...`,
-                );
-              },
+                ),
+              onCompleted: (duration) =>
+                advanceProgress(duration, `${actionName} を書き出しました`),
             });
-            advanceProgress(groupDuration, `${actionName} を書き出しました`);
-            await Promise.all(
-              temps.map((t) => fs.unlink(t).catch(() => undefined)),
-            );
           }
         } else {
-          const temps: string[] = [];
-          for (let i = 0; i < clips.length; i += 1) {
-            const clip = clips[i];
-            const clipDuration = getClipOutputDuration(clip);
-            updateProgress(`${i + 1} / ${clips.length} クリップを生成中...`);
-            temps.push(
-              await renderClip(clip, undefined, (fraction) => {
-                updateStageProgress(
-                  fraction,
-                  clipDuration,
-                  `${i + 1} / ${clips.length} クリップを生成中...`,
-                );
-              }),
-            );
-            advanceProgress(
-              clipDuration,
-              `${i + 1} / ${clips.length} クリップを生成しました`,
-            );
-          }
-
           let angleSuffix = '';
           if (useDual) angleSuffix = '_multi';
           else if (normalizedAngleOption === 'angle2') angleSuffix = '_angle2';
@@ -368,24 +339,33 @@ export const registerExportHandlers = ({
             : defaultName;
           const outPath = path.join(targetDir, allocateName(outName));
 
-          updateProgress('クリップを結合中...');
-          await concatFiles(getFfmpegPath, temps, outPath, {
-            durationSeconds: clips.reduce(
-              (total, clip) => total + getClipOutputDuration(clip),
-              0,
-            ),
-            onProgress: (fraction) => {
+          await renderExportClipGroup({
+            clips,
+            outputPath: outPath,
+            renderClip,
+            getFfmpegPath,
+            getDuration: getClipOutputDuration,
+            onRenderStart: (index) =>
+              updateProgress(
+                `${index + 1} / ${clips.length} クリップを生成中...`,
+              ),
+            onRenderProgress: (fraction, duration, index) =>
               updateStageProgress(
                 fraction,
-                renderDurationTotal,
-                'クリップを結合中...',
-              );
-            },
+                duration,
+                `${index + 1} / ${clips.length} クリップを生成中...`,
+              ),
+            onRendered: (duration, index) =>
+              advanceProgress(
+                duration,
+                `${index + 1} / ${clips.length} クリップを生成しました`,
+              ),
+            onJoinStart: () => updateProgress('クリップを結合中...'),
+            onJoinProgress: (fraction, duration) =>
+              updateStageProgress(fraction, duration, 'クリップを結合中...'),
+            onCompleted: (duration) =>
+              advanceProgress(duration, '書き出しが完了しました'),
           });
-          advanceProgress(renderDurationTotal, '書き出しが完了しました');
-          await Promise.all(
-            temps.map((t) => fs.unlink(t).catch(() => undefined)),
-          );
         }
 
         if (progressId) {

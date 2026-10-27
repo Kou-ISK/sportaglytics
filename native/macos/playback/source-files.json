@@ -1,4 +1,6 @@
 [
+  "apple-export/AppleClipExport.hpp",
+  "apple-export/AppleClipExport.mm",
   "apple-player/ApplePlayerHost.mm",
   "apple-player/ApplePlayerSession.hpp",
   "apple-player/ApplePlayerSession.mm",

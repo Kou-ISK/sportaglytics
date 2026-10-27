@@ -43,6 +43,7 @@ import {
 import { registerDashboardHandlers } from './ipc/dashboardHandlers';
 import { registerEventDetectionHandlers } from './ipc/eventDetectionHandlers';
 import { registerExportHandlers } from './ipc/exportHandlers';
+import { nativeClipExportProvider } from './nativeExport/nativeClipExportStartup';
 import { registerExportProgressWindowHandlers } from './exportProgressWindow';
 import { registerFileHandlers } from './ipc/fileHandlers';
 import { registerLlamaHandlers } from './ipc/llamaHandlers';
@@ -144,6 +145,7 @@ const registerMainIpcHandlers = (): void => {
   registerExportHandlers({
     getMainWindow: () => mainWindow,
     getFfmpegPath: getResolvedFfmpegPath,
+    nativeClipExporter: nativeClipExportProvider(),
   });
   registerEventDetectionHandlers();
   registerLlamaHandlers();

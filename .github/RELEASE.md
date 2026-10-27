@@ -2,9 +2,11 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
-## 0.17.16
+## 0.17.17
 
-0.17.16はPlaylistの映像時計追従と停止・同期処理を修正するMac向け版です。メインのAVPlayer経路と書き出し方式は変更しません。修正と版準備は[PR #254](https://github.com/Kou-ISK/sportaglytics/pull/254)でdevelopへ統合し、`release/playlist-clock-0.17.16`からmainへPRを作ります。[ARCH-EX-003](../docs/architecture-exceptions.md)に従い、developの未公開モデル方針とそのlock変更は含めません。以前の公開tag・配布物は保持し、Mac配布は`include_windows=false`です。必要なCI・署名・公証・配布物照合は維持します。
+0.17.17は合成なしの単一区間を条件付きのApple passthroughで出力するMac向け版です。対応するApple Silicon環境で不要な再圧縮を省き、原本範囲・選択音声を維持します。描画・文字・複数区間の連結・非対応入力は従来経路を使います。製品修正は[PR #256](https://github.com/Kou-ISK/sportaglytics/pull/256)でdevelopへ統合し、版準備を含む`release/apple-clip-0.17.17`からmainへPRを作ります。[ARCH-EX-003](../docs/architecture-exceptions.md)に従い、developの未公開モデル方針とそのlock変更は含めません。以前の公開tag・配布物を保持し、Mac配布は`include_windows=false`です。CI・署名・公証・配布物照合は維持します。原本の限定区間での画像/PCM比較と実聴取は別であり、全形式・全playerのedit list互換性を保証しません。
+
+0.17.16は[PR #254](https://github.com/Kou-ISK/sportaglytics/pull/254)と[PR #255](https://github.com/Kou-ISK/sportaglytics/pull/255)のPlaylist時計修正版で、書き出し変更は含みません。
 
 ## 0.17.15と公開済み版
 
@@ -14,7 +16,7 @@
 
 ## MacとWindowsの実行境界
 
-`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常runner・インストール後runnerの全登録シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.15はMacのみの配布として`include_windows=false`を指定します。Windowsの既存配布物は維持し、PR上の既存Windows互換検査は省略しません。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
+`.github/workflows/release.yml`（**Release desktop**）は既定でMacだけを生成します。`include_windows=true`では同じdispatchのcommitから[`windows.yml`](workflows/windows.yml)を再利用し、Windowsの通常runner・インストール後runnerの全登録シナリオ・CPU MP4 5条件と同梱物の検査を通します。成功した同一runのartifactだけを取得し、source commit/tree、version、実installer hash、同梱media manifestを再照合して両OSを一度に公開します。0.17.15–0.17.17はMacのみの配布として`include_windows=false`を指定します。Windowsの既存配布物は維持し、PR上の既存Windows互換検査は省略しません。以前のCI候補や別versionのinstallerは流用せず、公開済みReleaseへ後付けしません。
 
 Native標準化候補は既存公開versionを再使用せず、main統合後に未使用version/tagを確定します。arm64は`native:build`とmanifestに列挙したAVPlayer資源の検証、2helperのDeveloper ID署名、外側app署名、公証、実起動を要求します。署名後も元unsigned manifestと対応sourceを保持します。新defaultの機能・品質受入が未完了なら公開しません。
 
@@ -35,10 +37,10 @@ Mac source bundleは2 targetのmanifestとFFmpeg / FreeType / HarfBuzzの固定s
 
 tag pushやmain pushでは起動しません。**GitHub Actionsの明示的なworkflow_dispatchだけ**を使います。実行前に、そのversionのReleaseがまだなく、同じworkflowが進行中でないことを確認します。
 
-1. 準備PRとmain向けPRをレビューし、必要なCIを通して統合します。通常は`develop`→`main`、0.17.16は上記の限定したrelease branchを使います。
+1. 準備PRとmain向けPRをレビューし、必要なCIを通して統合します。通常は`develop`→`main`、0.17.17は上記の限定したrelease branchを使います。
 2. `main`の40文字SHAと`package.json`のversionを確認し、そのcommitへ`v<version>` tagを作成します。tag作成だけでは署名・Apple送信・公開を開始しません。
 3. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml) → **Run workflow** → branch **main**を選びます。
-4. `version`に`0.17.16`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=false`を指定します。現在の作業branchのSHAを入力しません。
+4. `version`に`0.17.17`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=false`を指定します。現在の作業branchのSHAを入力しません。
 5. `publish=false`（既定）は署名・公証・最終DMG検証まで行い、Actions artifactとして90日間保存します。GitHub ReleaseとHomebrewは更新しません。**これは未署名dry-runではなく、Appleへのアプリ送信を含みます。**
 6. 最終公開が承認された実行は`publish=true`を指定します。同じ品質・署名・公証・DMG検証を再実行し、その実行で検査したbytesだけを公開します。先行runのartifactを無検査で流用しません。
 
@@ -46,7 +48,7 @@ CLIでも同じ入力を使います。`<reviewed-main-sha>`を実際の40文字
 
 ```bash
 gh workflow run release.yml --ref main \
-  -f version=0.17.16 -f expected_sha=<reviewed-main-sha> -F include_windows=false -F publish=false
+  -f version=0.17.17 -f expected_sha=<reviewed-main-sha> -F include_windows=false -F publish=false
 ```
 
 workflowは入力version、package version、tag commit、checkout、workflow commit、現在のorigin/mainを照合します。省略・食い違い・既存Release・API読み取り失敗は停止条件です。公開直前にも再確認します。並行runは直列化し、実行中の署名・公証を新しいdispatchでcancelしません。
