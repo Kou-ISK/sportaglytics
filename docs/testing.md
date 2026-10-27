@@ -6,6 +6,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 `scripts/e2e-timeline-close.mjs`は300msの自動保存待機内のClose（最初のstaging open前）、書込中の最新Undo、保存失敗後の再編集・再試行、2つの所有元のQuit取消と再試行を、実Main/preload/Renderer/atomic writerと別process再開で検査します。合成ファイルのrename保留・失敗と当該エラーダイアログの応答だけを注入し、保存IPCを置換しません。hook/unitでは同一tickの行補完、未知sender・古い応答、timeout、ライブ停止後の終了取消も検査します。Linuxコンテナで`DISPLAY=:91 E2E_CLOUD_LINUX=1`を明示した場合だけランチャーへ`--no-sandbox --disable-gpu`を追加します。この環境の成功をMac/Windows配布物やOS sandboxの検証と扱いません。
 
+書込保留中の追加編集拒否は、バックグラウンド再生のdrain後に実際の保存flush要求が送られたことを観測してから検査します。native close要求から固定100msで編集凍結済みとは仮定せず、既存の15秒上限・実保存・別process再開の判定を維持します。
+
 単一WindowのCloseでは所有元とTimelineの消滅、実ファイルの最終memoを明示的なQuitより前に確認します。macOSはWindowが0件でもprocessを残す既存仕様をassertし、その後の明示的なQuitも実process終了まで待ちます。Windows/Linuxは最後のWindowのCloseによるprocess終了を確認します。新processでの再読込、保存失敗時のClose/Quit取消と再試行は両経路で維持します。`macos-native-close.yml`は対象source変更のPRで同じ合成回帰をmacOS runner上で実行し、署名秘密情報や実試合データを使いません。正式Releaseの全E2E・署名・公証・配布物検査は別途必須です。
 
 Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を使用します。ローカル合成映像・24行240件で、読み取りによる文書不変、閉じた高さ、狭幅、取消、保存再開、分析メニューの初回同期、実Renderer reload後の240件/編集済みノート復旧を検証します。品質ゲートの成功だけを快適さの根拠とせず、[UX評価記録](reports/2026-10-ux-review.md)の画像・操作負担・制限も確認します。
