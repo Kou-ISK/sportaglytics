@@ -1,4 +1,5 @@
 #import "ApplePlayerSession.hpp"
+#include "../apple-export/AppleClipExport.hpp"
 #include "ControlOutput.hpp"
 #include "PlayerObservation.hpp"
 #import <AppKit/AppKit.h>
@@ -237,6 +238,10 @@ struct OutputDisconnected {};
 
 int main(int argc, const char **argv) {
   @autoreleasepool {
+    if (argc == 3 && !strcmp(argv[1], "--export-clip")) {
+      @try { return runAppleClipExport(argv[2]); }
+      @catch (NSException *) { return 1; }
+    }
     if (argc != 4 || strcmp(argv[3], "--auto-no-ui-input")) return 64;
     struct stat input;
     if (fstat(STDIN_FILENO, &input) || !S_ISFIFO(input.st_mode)) return 65;

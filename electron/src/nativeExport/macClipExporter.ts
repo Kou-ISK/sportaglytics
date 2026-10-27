@@ -6,7 +6,10 @@ import type {
   NativeClipExporter,
   NativeClipExportRequest,
 } from './nativeClipExport';
-import { runNativeExportProcess } from './nativeExportProcess';
+import {
+  NativeExportCancelled,
+  runNativeExportProcess,
+} from './nativeExportProcess';
 
 export interface NativeExportReceipt {
   version: 1;
@@ -52,7 +55,7 @@ const revision = async (file: string): Promise<string> => {
   return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
 };
 
-/** Optional private integration; normal app does not supply this provider or a helper. */
+/** Main-owned exact-range candidate. Failed optimization never publishes output. */
 export const createMacClipExporter =
   ({
     executable,
@@ -60,6 +63,10 @@ export const createMacClipExporter =
     run = runNativeExportProcess,
   }: MacClipExporterOptions): NativeClipExporter =>
   async (request) => {
+    const assertActive = (): void => {
+      if (request.signal?.aborted) throw new NativeExportCancelled();
+    };
+    assertActive();
     if (process.platform !== 'darwin')
       return { status: 'fallback', reason: 'platform' };
     if (
@@ -73,7 +80,19 @@ export const createMacClipExporter =
       request.audioTrack > 63
     )
       return { status: 'fallback', reason: 'unsupported-request' };
+    if (!path.isAbsolute(request.sourcePath))
+      return { status: 'fallback', reason: 'non-local-source' };
+    let sourceStat;
+    try {
+      sourceStat = await fs.lstat(request.sourcePath);
+    } catch {
+      return { status: 'fallback', reason: 'source-unavailable' };
+    }
+    if (!sourceStat.isFile() || sourceStat.isSymbolicLink())
+      return { status: 'fallback', reason: 'unsupported-source-type' };
     const before = await revision(request.sourcePath);
+    const sourceSize = (await fs.lstat(request.sourcePath)).size;
+    const maxOutputBytes = Math.min(8 * 1024 ** 3, sourceSize + 16 * 1024 ** 2);
     const directory = await fs.mkdtemp(
       path.join(os.tmpdir(), 'sportaglytics-native-export-'),
     );
@@ -89,33 +108,91 @@ export const createMacClipExporter =
           audioTrack: request.audioTrack,
           start: request.start,
           duration: request.duration,
+          maxOutputBytes,
         }),
         { flag: 'wx' },
       );
       let receipt: unknown;
       try {
-        receipt = JSON.parse(await run(executable, manifest));
-      } catch {
+        receipt = JSON.parse(
+          await run(executable, manifest, {
+            signal: request.signal,
+            outputPath: candidate,
+            maxOutputBytes,
+          }),
+        );
+      } catch (error) {
         if (before !== (await revision(request.sourcePath)))
           throw Error('Export source changed');
+        assertActive();
+        if (error instanceof NativeExportCancelled) throw error;
         return { status: 'fallback', reason: 'native-failed' };
       }
+      assertActive();
       if (before !== (await revision(request.sourcePath)))
         throw Error('Export source changed');
       if (!isReceipt(receipt, request))
         return { status: 'fallback', reason: 'native-unqualified' };
-      const output = await fs.lstat(candidate);
-      const qualified =
-        output.isFile() &&
-        !output.isSymbolicLink() &&
-        output.size > 0 &&
-        (await qualify(candidate, request, receipt));
+      let qualified = false;
+      let admissionError: unknown;
+      try {
+        const output = await fs.lstat(candidate);
+        qualified =
+          output.isFile() &&
+          !output.isSymbolicLink() &&
+          output.size > 0 &&
+          output.size <= maxOutputBytes &&
+          (await qualify(candidate, request, receipt));
+      } catch (error) {
+        // A missing/partial candidate or failed metadata probe is an
+        // optimization failure. Source mutation/cancellation below remain fatal.
+        admissionError = error;
+      }
       if (before !== (await revision(request.sourcePath)))
         throw Error('Export source changed during qualification');
+      assertActive();
+      if (admissionError instanceof NativeExportCancelled) throw admissionError;
       if (!qualified)
         return { status: 'fallback', reason: 'output-unqualified' };
-      // Do not overwrite an existing destination, including the original source.
-      await fs.copyFile(candidate, request.outputPath, constants.COPYFILE_EXCL);
+      // Copy beside the destination, then publish a complete file exclusively.
+      // Cancellation during a large cross-volume copy cannot expose a partial
+      // final output. Only this call's staging directory is removed.
+      const publication = await fs.mkdtemp(
+        path.join(path.dirname(request.outputPath), '.sportaglytics-export-'),
+      );
+      try {
+        const staged = path.join(publication, 'clip.mp4');
+        await fs.copyFile(candidate, staged, constants.COPYFILE_EXCL);
+        if (before !== (await revision(request.sourcePath)))
+          throw Error('Export source changed during publication');
+        assertActive();
+        try {
+          await fs.link(staged, request.outputPath);
+        } catch (error) {
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            ['ENOTSUP', 'EOPNOTSUPP', 'EPERM'].includes(String(error.code))
+          ) {
+            assertActive();
+            return {
+              status: 'fallback',
+              reason: 'output-storage-incompatible',
+            };
+          }
+          throw error; // In particular, EEXIST must never overwrite or fallback.
+        }
+        if (request.signal?.aborted) {
+          const own = await fs.lstat(staged);
+          const current = await fs.lstat(request.outputPath);
+          if (own.dev === current.dev && own.ino === current.ino)
+            await fs.unlink(request.outputPath);
+          throw new NativeExportCancelled();
+        }
+      } finally {
+        await fs.rm(publication, { recursive: true, force: true });
+      }
       return { status: 'completed' };
     } finally {
       // run resolves/rejects after process close, so it no longer owns this directory.

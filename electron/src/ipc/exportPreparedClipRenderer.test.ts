@@ -22,6 +22,41 @@ const payload: ExportClipsPayload = {
   },
 };
 
+it('does not remux an already composited timeline source through the native optimization', async () => {
+  const clip = payload.clips[0];
+  const request = {
+    ...payload,
+    clips: [clip],
+    overlay: { ...payload.overlay, enabled: false },
+  };
+  const native = vi.fn(async () => ({ status: 'completed' as const }));
+  const render = createPreparedClipRenderer(
+    request,
+    new Map([
+      [
+        0,
+        new Map([
+          [
+            payload.sourcePath,
+            { sourcePath: 'prepared.mp4', timeOrigin: 2, kind: 'materialized' },
+          ],
+        ]),
+      ],
+    ]),
+    [],
+    () => 'ffmpeg',
+    native,
+  );
+  await render(clip, 'output.mp4');
+  expect(native).not.toHaveBeenCalled();
+  expect(renderClipWithFfmpeg).toHaveBeenCalledWith(
+    expect.objectContaining({
+      mainSource: 'prepared.mp4',
+      primaryTimeOrigin: 2,
+    }),
+  );
+});
+
 it('resolves repeated instance ids and reused physical files to their own clocks', async () => {
   const render = createPreparedClipRenderer(
     payload,
@@ -29,13 +64,19 @@ it('resolves repeated instance ids and reused physical files to their own clocks
       [
         0,
         new Map([
-          [payload.sourcePath, { sourcePath: 'same.mp4', timeOrigin: 0 }],
+          [
+            payload.sourcePath,
+            { sourcePath: 'same.mp4', timeOrigin: 0, kind: 'direct' },
+          ],
         ]),
       ],
       [
         1,
         new Map([
-          [payload.sourcePath, { sourcePath: 'same.mp4', timeOrigin: 120 }],
+          [
+            payload.sourcePath,
+            { sourcePath: 'same.mp4', timeOrigin: 120, kind: 'direct' },
+          ],
         ]),
       ],
     ]),
@@ -69,8 +110,14 @@ it('keeps different primary and secondary angle clocks', async () => {
       [
         0,
         new Map([
-          [request.sourcePath, { sourcePath: 'first.mp4', timeOrigin: -10 }],
-          [request.sourcePath2, { sourcePath: 'second.mp4', timeOrigin: -2 }],
+          [
+            request.sourcePath,
+            { sourcePath: 'first.mp4', timeOrigin: -10, kind: 'direct' },
+          ],
+          [
+            request.sourcePath2,
+            { sourcePath: 'second.mp4', timeOrigin: -2, kind: 'direct' },
+          ],
         ]),
       ],
     ]),
@@ -110,7 +157,11 @@ it('hands the selected angle its local clock and chosen audio before publishing'
         new Map([
           [
             'logical-secondary.mp4',
-            { sourcePath: 'physical-secondary.mp4', timeOrigin: -10 },
+            {
+              sourcePath: 'physical-secondary.mp4',
+              timeOrigin: -10,
+              kind: 'direct',
+            },
           ],
         ]),
       ],

@@ -18,6 +18,7 @@ export interface ExportPreparationJob {
 export interface PreparedExportSource {
   sourcePath: string;
   timeOrigin: number;
+  kind: 'direct' | 'materialized';
 }
 
 export type PreparedExportSources = ReadonlyMap<
@@ -83,7 +84,10 @@ export const prepareExportSources = async (
     for (const clipIndex of job.clipIndexes) {
       const sources =
         clips.get(clipIndex) ?? new Map<string, PreparedExportSource>();
-      sources.set(job.plan.sourcePath, result);
+      sources.set(job.plan.sourcePath, {
+        ...result,
+        kind: job.weight === 0 ? 'direct' : 'materialized',
+      });
       clips.set(clipIndex, sources);
     }
     onComplete(job.weight, message);
