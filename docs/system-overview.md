@@ -460,7 +460,7 @@ Native再生はMain所有Session・限定IPC、Renderer controller・共通時�
 
 Main内部の物理終了確認は正常なnative終了receiptとは分離し、子プロセス・通信路の終了が確定した後だけGPU資源回収を試みます。receipt失敗は外向きcloseの失敗として保持し、Rendererの停止時計・原本復帰の契約を緩めません。
 
-Nativeの時計はMainの専用snapshot通知で更新し、配送中1件と最新保留1件へ制限します。通常利用に周期pollや毎回の全尺検証は追加しません。 短い供給不足は同じsessionの共通時計を実停止して有界に補充し、実停止位置の画像ACKと音声・映像reserveを確認します。反復上限を超える不足は内部の互換再生へ戻します。回復時の待機は品質記録に残します。
+Nativeの時計はMainの専用snapshot通知で更新し、配送中1件と最新保留1件へ制限します。通常利用に周期pollや毎回の全尺検証は追加しません。 映像のみの10ms未満の一過性不足は音声時計を維持する。音声不足または猶予超過は同じsessionの共通時計を実停止して有界に補充し、実停止位置の画像ACKと音声・映像reserveを確認します。累積補充時間の上限を超える不足は内部の互換再生へ戻します。回復時の待機は品質記録に残します。
 
 原本復帰の末尾では、HTMLの長さの丸め差を最大1マイクロ秒だけadapter内で吸収し、共通時計は保持します。表示用の最終clipは厳密な末尾でもmountを維持し、gapや書き出しの区間解決とは区別します。
 
@@ -477,6 +477,8 @@ Native表示は既存PlayerSurface・全画面要素を共有します。範囲�
 Nativeの標準自動選択は署名済みmacOS arm64の限定profileに適用します。全尺変換を起動条件にせず、形式・速度・複数映像などの非対応条件は既存機能を維持する内部fallbackです。
 
 原本時計・全音声の契約を保持し、設定/seekだけの更新でheaderを再probeしません。過去の間欠停止と実聴取同期は未達として[仕様](native-playback.md)へ記録します。
+
+対応するAACは必要な圧縮packetだけを固定MOV demuxerで取得し、Apple AudioConverterへ渡します。原本PTS・全3音声と既存の窓数/同時読取上限を維持し、毎回の全尺音声走査を行いません。詳細な形式ガードと資源上限は[Native再生](native-playback.md)に集約します。
 
 After a normal native close, the same document owner may report a Renderer restoration failure to an optional numeric diagnostic sink. Main authenticates document and generation and accepts one report. This is not a playback/save/export state source and cannot release their ownership on diagnostic failure.
 

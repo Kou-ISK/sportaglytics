@@ -259,6 +259,27 @@ test('Main failure snapshots within bounded timer without child exit', async (t)
   s.data(fixture(s.host));
   assert.equal((await fs.readdir(dir)).length, 1);
 });
+test('surface failures retain only a fixed numeric class within the same record', async (t) => {
+  const root = await directory(t);
+  for (const [index, reason, code] of [
+    [0, 'Error: release reply uncertain; ownership retained', 1],
+    [1, 'Error: draw reply failed', 2],
+    [2, 'Error: demand request failed', 3],
+    [3, 'secret-user-media-path', 0],
+  ]) {
+    const dir = path.join(root, String(index));
+    const recorder = createRecorder(dir),
+      session = recorder.beginHost();
+    session.note('surface-failure', { reason });
+    session.end();
+    await recorder.done();
+    const bytes = await fs.readFile(path.join(dir, 'recurrence-1.bin'));
+    assert.equal(bytes.length, FILE_BYTES);
+    assert.equal(bytes.readDoubleLE(256 + 2 * 8), 121);
+    assert.equal(bytes.readDoubleLE(256 + 7 * 8), code);
+    assert.equal(bytes.includes(Buffer.from(reason)), false);
+  }
+});
 test('abnormal exit with no native bytes retains Main-only diagnosis', async (t) => {
   const dir = await directory(t);
   for (const [index, code, signal] of [

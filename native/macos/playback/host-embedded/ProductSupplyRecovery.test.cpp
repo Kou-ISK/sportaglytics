@@ -4,7 +4,49 @@
 #include <limits>
 using namespace diagnostic;
 int main() {
+ // Raw source clock and elapsed time are independent bounds, including a
+ // late poll: a small current lag cannot erase a long uninterrupted gap.
+ assert(transientVideoShortage(0.005, 0, 120600, 120000, 120000, 0, 240000, true));
+ assert(transientVideoShortage(0.009, 0, 60299, 60000, 120000, 0, 240000, true));
+ assert(!transientVideoShortage(0.010, 0, 120001, 120000, 120000, 0, 240000, true));
+ assert(!transientVideoShortage(0.177, 0, 120001, 120000, 120000, 0, 240000, true));
+ assert(!transientVideoShortage(0, 0, 121200, 120000, 120000, 0, 240000, true));
+ assert(!transientVideoShortage(0, 0, 120001, 120000, 120000, 0, 120001, true));
+ assert(!transientVideoShortage(0, 0, 120001, 120000, 120000, 120002, 240000, true));
+ assert(!transientVideoShortage(0, 0, 120001, 120000, 120000, 0, 240000, false));
+ assert(!transientVideoShortage(0, 0, 120001, 0, 120000, 0, 240000, true));
+ assert(!transientVideoShortage(-1, 0, 120001, 120000, 120000, 0, 240000, true));
+ assert(!transientVideoShortage(std::numeric_limits<double>::quiet_NaN(), 0, 120001, 120000, 120000, 0, 240000, true));
+
+ // A late poll after coverage has already recovered is still a long episode.
+ assert(withinTransientVideoWindow(.009, 0));
+ assert(!withinTransientVideoWindow(.177, 0));
+ assert(!withinTransientVideoWindow(.350, 0));
  const nativeplayback::FieldTimeline timeline(0, 12012000);
+
+ ProductSupplyRecovery resumeBudget;
+ assert(resumeBudget.begin(1, 1, 0, 1001, 120000));
+ resumeBudget.finish(4.8);
+ assert(resumeBudget.begin(1, 1, 10, 1001, 120000));
+ assert(resumeBudget.observe(1, 1, 10.1, true, 1001, 120000, 0, timeline) == SupplyObservation::Refilling);
+ assert(resumeBudget.awaitResume());
+ assert(resumeBudget.pending() && !resumeBudget.active());
+ resumeBudget.resetBudget();
+ assert(!resumeBudget.begin(1, 1, 10.1, 1001, 120000));
+ assert(!resumeBudget.expired(10.19));
+ assert(resumeBudget.expired(10.3)); // refill + actual start ACK share the budget
+ resumeBudget.cancel();
+ assert(!resumeBudget.pending());
+ resumeBudget.resetBudget();
+ assert(resumeBudget.begin(1, 2, 20, 1001, 120000));
+ assert(resumeBudget.observe(1, 2, 20.1, true, 1001, 120000, 0, timeline) == SupplyObservation::Refilling);
+ assert(resumeBudget.awaitResume());
+ // Pause/play can replace the intent before pause ACK; it cannot reset the
+ // unfinished episode. The eventual measured start must finish its owner.
+ resumeBudget.resetBudget();
+ assert(resumeBudget.pending());
+ resumeBudget.finish(20.3);
+ assert(!resumeBudget.pending() && !resumeBudget.expired(30));
  ProductSupplyRecovery r;
  // A fractional clock beyond the exhausted field remains exact after stop.
  assert(r.begin(2, 3, 10, 811900, 120000));
@@ -56,7 +98,8 @@ int main() {
  r.resetBudget();
  assert(r.begin(1, 2, 51, 4004, 120000)); r.finish(51.1);
  assert(r.begin(1, 2, 52, 5005, 120000)); r.finish(52.1);
- assert(!r.begin(1, 2, 53, 6006, 120000)); // two short episodes also bounded
+ assert(r.begin(1, 2, 53, 6006, 120000)); // count alone must not force fallback
+ r.finish(53.1);
  r.resetBudget();
  assert(r.begin(5, 6, 60, 1001, 120000));
  assert(r.observe(5, 6, 64.9, true, 1002, 120000, 0, timeline) == SupplyObservation::Refilling);

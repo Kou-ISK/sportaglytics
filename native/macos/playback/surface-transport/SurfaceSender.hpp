@@ -13,6 +13,7 @@ public:
  void open(const char* name,pid_t peer){
   if(server_||peer<=0)throw std::runtime_error("invalid surface peer");peer_=peer;
   if(bootstrap_look_up(bootstrap_port,name,&server_)!=KERN_SUCCESS||mach_port_allocate(mach_task_self(),MACH_PORT_RIGHT_RECEIVE,&receiver_)!=KERN_SUCCESS)throw std::runtime_error("surface connection failed");
+  if(surfacewire::configureReplyQueue(receiver_)!=KERN_SUCCESS)throw std::runtime_error("surface reply queue configuration failed");
  }
  bool send(CMSampleBufferRef sample,uint64_t generation,uint64_t seek,uint64_t pts){
   if(!surfacewire::hasFrameCredit(held_.size()))return false;IOSurfaceRef surface=CVPixelBufferGetIOSurface(CMSampleBufferGetImageBuffer(sample));if(!surface)throw std::runtime_error("missing surface");

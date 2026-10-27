@@ -6,6 +6,14 @@
 namespace surfacewire {
 constexpr int Frame = 7301, Drawn = 7302, Released = 7303, Request = 7304;
 constexpr size_t Limit = 3;
+// Each held frame may queue a draw ACK, GPU-release ACK and the next demand.
+// Reserve one already-pending demand as well. This holds no additional images.
+constexpr mach_port_msgcount_t ReplyQueueLimit = Limit * 3 + 1;
+inline kern_return_t configureReplyQueue(mach_port_t port) {
+ mach_port_limits_t limits{ReplyQueueLimit};
+ return mach_port_set_attributes(mach_task_self(), port, MACH_PORT_LIMITS_INFO,
+   reinterpret_cast<mach_port_info_t>(&limits), MACH_PORT_LIMITS_INFO_COUNT);
+}
 inline bool hasFrameCredit(size_t held){return held<Limit;}
 struct FrameMessage {
   mach_msg_header_t header;

@@ -26,6 +26,42 @@ try {
     pcmSupply,
   ]);
   await run(pcmSupply, []);
+  for (const name of ['AACCookie', 'AACPacketRange']) {
+    const test = join(directory, name);
+    await run('xcrun', [
+      'clang++',
+      '-std=c++17',
+      '-O2',
+      join(nativeRoot, `${name}.test.cpp`),
+      '-o',
+      test,
+    ]);
+    await run(test, []);
+  }
+  const aacDecode = join(directory, 'AACWindowDecodeTest');
+  await run('xcrun', [
+    'clang++',
+    '-std=c++17',
+    '-O2',
+    '-fobjc-arc',
+    '-Wno-deprecated-declarations',
+    join(nativeRoot, 'AACWindowDecode.test.mm'),
+    join(nativeRoot, 'AACWindowFormat.mm'),
+    join(nativeRoot, 'NativeSupport.mm'),
+    '-framework',
+    'AppKit',
+    '-framework',
+    'AVFoundation',
+    '-framework',
+    'CoreVideo',
+    '-framework',
+    'CoreMedia',
+    '-framework',
+    'AudioToolbox',
+    '-o',
+    aacDecode,
+  ]);
+  await run(aacDecode, []);
   const recovery = join(directory, 'ProductSupplyRecoveryTest');
   await run('xcrun', [
     'clang++',
@@ -36,6 +72,17 @@ try {
     recovery,
   ]);
   await run(recovery, []);
+  const replyQueue = join(directory, 'ReplyQueueTest');
+  await run('xcrun', [
+    'clang++',
+    '-std=c++17',
+    '-O2',
+    'native/macos/playback/surface-transport/ReplyQueue.test.cpp',
+    '-lbsm',
+    '-o',
+    replyQueue,
+  ]);
+  await run(replyQueue, []);
   const retention = join(directory, 'SurfaceCandidateRetentionTest');
   await run('xcrun', [
     'clang++',

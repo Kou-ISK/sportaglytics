@@ -44,6 +44,15 @@ const KINDS = Object.freeze({
   'protocol-failure': 122,
   'initialization-failed': 123,
 });
+// Numeric classification only; never persist arbitrary error text or paths.
+const SURFACE_FAILURES = new Map([
+  ['Error: release reply uncertain; ownership retained', 1],
+  ['Error: draw reply failed', 2],
+  ['Error: demand request failed', 3],
+  ['surface notice without packet', 4],
+  ['surface notice/packet mismatch', 5],
+  ['invalid/duplicate surface notice sequence', 6],
+]);
 const finite = (n) =>
   typeof n === 'number' &&
   Number.isFinite(n) &&
@@ -406,7 +415,9 @@ function createRecorder(directory, dependencies = {}) {
                   value.nativeGeneration || value.generation,
                   value.seekId,
                   value.pts,
-                  value.id ?? value.code ?? 0,
+                  kind === 'surface-failure'
+                    ? SURFACE_FAILURES.get(value.reason) || 0
+                    : (value.id ?? value.code ?? 0),
                 );
               const now = performance.now();
               if (now - lastResource >= 1000 && !frozen) {

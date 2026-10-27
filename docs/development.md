@@ -559,8 +559,10 @@ macOS arm64では`pnpm run native:build`で固定sourceからhelperとN-API rece
 
 通常macOS packageは`native:build`と既存media/llama資源を準備して作成します。`scripts/macos/standard-after-pack.mjs`がarm64のnative資源を厳密照合・事前署名し、`native-after-sign.mjs`が外側署名後に再検証します。`nativeSignature`/`nativeResources`負例と`test:native-runtime`を実行し、実packaged起動・fallback・終了を別途確認します。新しいcredential/OS設定は不要な既存署名環境だけを使用し、公証は[Release手順](../.github/RELEASE.md)で確認します。
 
-短いnative供給不足の回復を変更した場合は`pnpm run test:native-runtime`とMain/Rendererのnative Session/Controller回帰を実行します。回復は同一worker・既存queueの範囲で停止時計を維持し、補充回数/累積時間を有限にします。実原本の再測定では不足と回復後の進行、操作応答、終了receiptを別々に記録し、回復した待機を消して品質合格にしません。
+短いnative供給不足の回復を変更した場合は`pnpm run test:native-runtime`とMain/Rendererのnative Session/Controller回帰を実行します。回復は同一worker・既存queueの範囲で停止時計を維持し、補充の累積時間を有限にします。映像だけの一過性不足は原本時計と連続wall時間の両方10ms未満に限り共通時計を継続し、停止回数だけで失敗にしません。実原本の再測定では不足と回復後の進行、操作応答、終了receiptを別々に記録し、回復した待機を消して品質合格にしません。
 
 フィルタ/frame decoderのthread方針は`test:native-build`で実macOSのrequested QoS/relative priority、生成失敗の後始末、上流call siteの限定適応を検査します。build revisionと`nativeResources`の受入revisionは同時更新し、旧・未知revisionの拒否を維持します。対応sourceには上流archiveと固定日付の変更通知を再適用するrecipe/headerを含めます。
 
 音声窓の供給方針を変更した場合、`test:native-runtime`の`PCMWindowSupply.test.mm`で実owner/pumpと合成readerを接続して、再生開始・先行投入後の昇格・停止中の閾値・全3音声の原本時刻・取消済み完了・末尾・同時reader上限を確認します。実音声読取速度と可聴同期はこの合成回帰に含みません。
+
+圧縮音声の取得とPCM復号は`FiniteAACInput` / `AACWindowDecode`へ分離しています。合成のcookie・packet境界・converter失敗回帰は`test:native-runtime`に含め、実媒体のPCM/PTS照合とは区別します。内部索引のメモリとI/O中断閾値はpacket payload上限と別に評価してください。通常起動時の全尺PCM/hash走査は追加しません。

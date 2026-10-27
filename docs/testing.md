@@ -76,6 +76,8 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 ## Required Quality Gate
 
+`test:native-runtime`の`ReplyQueue.test.cpp`は実Mach portで返信10通のFIFO・peer照合・11通目の上限拒否・無効port設定失敗を確認します。映像は使わず、画像保持上限を増やしません。既存の数値診断回帰では返信エラーの固定分類と未知文字列の非保存を確認します。
+
 `scripts/tests/macos-release.mjs`の公開検証要約テストは、source/version/archの不一致、改変DMG/installer、未知のWindows署名状態、未公証・未staple・Gatekeeper拒否、余分なassetとraw診断情報の除外を合成reportで検査します。CLI試験は一時git repositoryと合成bytesを使い、実hash照合・既存要約の上書き拒否・改変候補での未出力を確認します。ファイル名にmacosを含みますが、この検査はLinux/Windowsでも動くNode試験で、実署名・公証・E2Eを代替しません。既存の`test:run` / `test:ci`が同ファイルを登録済みのため、限定検査も両コマンドに含まれます。
 
 `test:run` / `test:ci`は既存Vitestの後に`check:build-downloads`と同じNode検査も実行します。`scripts/tests/build-downloader.mjs`は実際のbuilder/get/got依存を読み、loopbackの合成bytesでダウンロード・checksum・ファイルキャッシュと通信の回帰を検証します。外部モデルやElectron GUIを起動しません。依存境界の判断は[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に記録しています。
@@ -362,10 +364,12 @@ Renderer recovery diagnostics are covered by `nativePlaybackController.test.ts`:
 
 Native runtimeのmacOS変更では`pnpm run test:native-runtime`を追加実行します。実FIFO probeと合成backend/surface/診断上限をNode test runnerで検査し、`.node.cjs`はVitestへ重複登録しません。資源検査・session directoryのTypeScript回帰は通常Vitestに含めます。署名済みpackageの自動native開始・非対応source・原本復帰・正常終了は実アプリで別途確認します。
 
+同コマンドの`AACCookie` / `AACPacketRange` / `AACWindowDecode`回帰は、形式descriptorの欠落・改変、非末尾の短いpacket、原本末尾の部分packet、converterの形式変更・不足PCM・取消・期限・破棄回数を合成データで確認します。実原本の全音声PCM/PTS参照との一致、内部demux索引のメモリ、読取失敗後の再openは開発証跡として別に保存し、合成回帰や消音再生から可聴同期を推定しません。
+
 同runnerのowned backend/runtime回帰は、receipt欠落、`exit`だけの通知、`close`不一致、control pipe失敗、GPU drain失敗、重複close、旧世代の遅延通知を分けます。物理終了後だけ資源回収を試み、成功しても元のreceiptエラー・診断sessionを保持することを検査します。signal終了は模擬ChildProcessイベントであり、実アプリへsignalを送りません。この結果から実異常終了後の原本復帰や通常Quit成功を主張しません。
 
 ## Native標準再生
 
 自動nativeの負例は表示準備の順序、同一URLの登録置換、失敗後の無限再試行防止、cache切替時のdrainを含めます。配布は署名metadata欠落・wrong team/identifier・改変・symlinkを拒否し、最終実署名artifactで自動open/停止再開/fallback/終了を確認します。既存unsignedの成功は署名済みartifactの代替証拠ではありません。
 
-Native供給回復は`ProductSupplyRecovery.test.cpp`を`test:native-runtime`で実行し、fractional停止時計・映像/音声reserve・旧画像ACK・停止未確認・期限・反復予算・取消を確認します。Main/Renderer回帰ではbuffering契約、再開時の逆行、未完了seek、pause、新seek、heartbeat/音量変更での期限延長拒否を検査します。実helperの停止/補充/再開と実原本の画面確認は別で、unit成功から待機なしとは判定しません。
+Native供給回復は`ProductSupplyRecovery.test.cpp`を`test:native-runtime`で実行し、fractional停止時計・映像/音声reserve・旧画像ACK・停止未確認・期限・累積時間予算・取消を確認します。映像のみの10ms未満の不足猶予と、音声不足・原本時刻/連続経過時間上限では猶予しないこと、3回目の短い回復を回数だけで拒否しないことを確認します。Main/Renderer回帰ではbuffering契約、再開時の逆行、未完了seek、pause、新seek、heartbeat/音量変更での期限延長拒否を検査します。実helperの停止/補充/再開と実原本の画面確認は別で、unit成功から待機なしとは判定しません。
