@@ -1,3 +1,4 @@
+import type { VideoSeekMode } from '../../../../../types/video/seek';
 import type { ClipExportAudioSelection } from '../../../../../shared/clipExport/clipExportAudio';
 import type { AngleSyncSnapshot } from '../../../../../types/ipc/angleSync';
 import type {
@@ -11,7 +12,7 @@ export interface VisualTimelineProps {
   rows: TimelineRow[];
   maxSec: number;
   currentTime: number;
-  onSeek: (time: number) => void;
+  onSeek: (time: number, mode?: VideoSeekMode) => void;
   onSeekRelative?: (seconds: number) => void;
   onDelete: (ids: string[]) => void;
   selectedIds: string[];

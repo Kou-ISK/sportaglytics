@@ -23,7 +23,7 @@ export interface NativeRuntimePaths {
   state: string;
 }
 
-/** Constructed by Main after fixed resource validation and explicit opt-in.
+/** Constructed by Main after fixed resource validation.
  * No renderer-selected paths, persistent setting or raw event log is accepted. */
 export const createNativePlaybackRuntime = (
   paths: NativeRuntimePaths,
@@ -31,9 +31,15 @@ export const createNativePlaybackRuntime = (
   let recorder: ReturnType<typeof createRecorder> | undefined;
   return {
     version: 1,
-    allowUnmutedTrial: true,
     probe: probeNativeHeader,
-    createBackend: (window, source, profile, assertCurrent, owner, observe) => {
+    createBackend: (
+      window,
+      source,
+      _profile,
+      assertCurrent,
+      owner,
+      observe,
+    ) => {
       if (recorder === undefined)
         recorder = createRecorder(path.join(paths.state, 'recurrences'));
       const capture = recorder?.beginHost();
@@ -105,18 +111,7 @@ export const createNativePlaybackRuntime = (
           surface.start();
           ipcMain.on('diagnostic-surface-error', onSurfaceError);
           const manifest = {
-            ...nativeHostConfiguration(source, profile),
-            packagedRuntime: true,
-            allowUnmutedTrial: profile.presentation.mutedOnly === false,
-            fieldReferences: {},
-            videoExecution: 'in-process-avframe',
-            observeVideoCoverageGaps: false,
-            traceMuxLatency: false,
-            deferredImages: true,
-            profileOperations: false,
-            rawTransport: 'socketpair-256k',
-            outputDirectIO: false,
-            observeProducerCPU: false,
+            ...nativeHostConfiguration(source),
             surfaceService: surface.service,
             surfaceOwnerPID: process.pid,
           };

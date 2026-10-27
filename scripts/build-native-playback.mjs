@@ -9,19 +9,15 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
-import { cpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { downloadVerified, hashFile } from './download-verified.mjs';
+import { downloadVerified } from './download-verified.mjs';
 import { downloadSourceArchive } from './media-tools/source-download.mjs';
-import { applyWorkerThreadQoS } from './native-playback/worker-thread-qos.mjs';
 import { run } from './media-tools/process.mjs';
 import {
   BUILD_REVISION,
   BUILD_INPUT_FILES,
-  FFMPEG_FLAGS,
   FRAMEWORKS,
   HOST_SOURCES,
-  LIBRARIES,
   MINIMUM_MACOS,
   NODE_LICENSE,
   UPSTREAM,
@@ -47,13 +43,7 @@ const capture = (command, args) =>
     encoding: 'utf8',
     maxBuffer: 1024 * 1024,
   }).trim();
-const compilerDirectory = dirname(capture('xcrun', ['--find', 'clang']));
 const sdkPath = capture('xcrun', ['--sdk', 'macosx', '--show-sdk-path']);
-const buildEnvironment = {
-  ...process.env,
-  PATH: `${compilerDirectory}:${process.env.PATH ?? '/usr/bin:/bin'}`,
-  SDKROOT: sdkPath,
-};
 const identity = {
   revision: BUILD_REVISION,
   platform: 'darwin',
@@ -64,12 +54,11 @@ const identity = {
   inputHashes: await hashFiles(sourceRoot, sourceFiles),
   recipeHashes: await hashFiles(project, recipeFiles),
   toolchain: {
-    ffmpegCompiler: capture('xcrun', ['clang', '--version']).split('\n')[0],
     compiler: capture('xcrun', ['clang++', '--version']).split('\n')[0],
     sdkVersion: capture('xcrun', ['--sdk', 'macosx', '--show-sdk-version']),
     sdkBuild: capture('xcrun', ['--sdk', 'macosx', '--show-sdk-build-version']),
   },
-  ffmpegFlags: FFMPEG_FLAGS,
+  engine: 'AVPlayer',
   napiVersion: 8,
 };
 try {
@@ -105,55 +94,10 @@ try {
   await downloadVerified(NODE_LICENSE.url, nodeLicense, NODE_LICENSE.sha256);
   for (const [name, source] of Object.entries(UPSTREAM)) {
     const archive = join(cache, 'source', basename(source.url));
-    if (name === 'ffmpeg') {
-      const mediaArchive = join(
-        project,
-        '.cache/media-tools/source',
-        `${source.directory}-${basename(source.url)}`,
-      );
-      try {
-        if ((await hashFile(mediaArchive)) === source.sha256) {
-          await mkdir(join(cache, 'source'), { recursive: true });
-          await copyFile(mediaArchive, archive);
-        }
-      } catch {
-        /* The verified downloader handles absent media caches. */
-      }
-    }
     await downloadSourceArchive(source, archive);
     await run('tar', ['-xf', archive, '-C', work]);
     sources[name] = join(work, source.directory);
   }
-  await applyWorkerThreadQoS(sources.ffmpeg);
-  const libraryBuild = join(work, 'libraries');
-  await mkdir(libraryBuild);
-  await run(join(sources.ffmpeg, 'configure'), FFMPEG_FLAGS, {
-    cwd: libraryBuild,
-    env: buildEnvironment,
-  });
-  const config = await readFile(join(libraryBuild, 'config.h'), 'utf8');
-  for (const flag of ['GPL', 'NONFREE', 'VERSION3', 'NETWORK']) {
-    if (!config.includes(`#define CONFIG_${flag} 0`))
-      throw Error(`Unexpected FFmpeg ${flag}`);
-  }
-  await run(
-    'make',
-    [
-      `-j${Math.min(4, Math.max(1, cpus().length))}`,
-      ...LIBRARIES.map((name) => `lib${name}/lib${name}.a`),
-    ],
-    { cwd: libraryBuild, env: buildEnvironment },
-  );
-  // Exported headers avoid placing FFmpeg's top-level `version` text file on
-  // the C++ standard-library include path (where it shadows <version>).
-  const headers = join(work, 'headers');
-  await run('make', ['install-headers', `DESTDIR=${headers}`], {
-    cwd: libraryBuild,
-    env: buildEnvironment,
-  });
-  const libraries = LIBRARIES.map((name) =>
-    join(libraryBuild, `lib${name}/lib${name}.a`),
-  );
   const common = [
     'clang++',
     '-std=c++17',
@@ -170,9 +114,7 @@ try {
   ];
   await run('xcrun', [
     ...common,
-    `-I${join(headers, 'usr/local/include')}`,
     ...HOST_SOURCES.map((file) => join(snapshot, file)),
-    ...libraries,
     ...FRAMEWORKS.flatMap((name) => ['-framework', name]),
     '-lbsm',
     '-o',
@@ -210,8 +152,6 @@ try {
       throw Error(`Non-system native dependency: ${file}`);
   }
   for (const [from, to] of [
-    [join(sources.ffmpeg, 'COPYING.LGPLv2.1'), 'FFmpeg-LGPL-2.1.txt'],
-    [join(sources.ffmpeg, 'LICENSE.md'), 'FFmpeg-LICENSE.md'],
     [nodeLicense, 'Node-LICENSE.txt'],
     [join(project, 'LICENSE'), 'SporTagLytics-LICENSE.txt'],
     [join(sourceRoot, 'NOTICE.md'), 'NOTICE.md'],
@@ -224,10 +164,6 @@ try {
   const manifest = {
     identity,
     files,
-    staticLibraries: await hashFiles(
-      libraryBuild,
-      LIBRARIES.map((name) => `lib${name}/lib${name}.a`),
-    ),
   };
   await writeFile(
     join(stage, 'build.json'),

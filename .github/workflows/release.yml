@@ -128,8 +128,10 @@ jobs:
       - name: Build verified media tools
         run: pnpm run media:build:all-mac
 
-      - name: Build bounded native playback runtime
-        run: pnpm run native:build
+      - name: Build and verify Apple playback runtime
+        run: |
+          pnpm run native:build
+          pnpm run test:native-runtime
 
       - name: Run Electron E2E
         env:

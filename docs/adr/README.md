@@ -10,73 +10,73 @@ ADR は長期的な設計判断を残すための記録です。実装規約の�
 
 - [0068 Timeline close save handshake](0068-timeline-close-save-handshake.md): Rendererの最終snapshot応答とMain queue完了後にclose/quitし、失敗時は編集を再開する（Accepted）。
 
-| ID                                                                 | Title                                              | Status     | Date       |
-| ------------------------------------------------------------------ | -------------------------------------------------- | ---------- | ---------- |
-| [0001](0001-feature-first-boundaries.md)                           | Feature-First boundaries                           | Accepted   | 2026-05-04 |
-| [0002](0002-typed-electron-ipc-and-renderer-gateways.md)           | Typed Electron IPC and renderer gateways           | Accepted   | 2026-05-04 |
-| [0003](0003-shared-type-contracts-and-load-time-migration.md)      | Shared type contracts and load-time migration      | Accepted   | 2026-05-04 |
-| [0004](0004-doc-sync-and-documentation-source-of-truth.md)         | Doc sync and documentation source of truth         | Accepted   | 2026-05-05 |
-| [0005](0005-local-llm-analysis-boundary.md)                        | Local LLM analysis boundary                        | Accepted   | 2026-05-05 |
-| [0006](0006-application-document-formats-and-file-associations.md) | Application document formats and file associations | Superseded   | 2026-05-05 |
-| [0007](0007-audio-sync-offset-contract.md)                         | Audio sync offset contract                         | Superseded | 2026-05-06 |
-| [0008](0008-dedicated-sub-window-runtime-and-synchronization.md)   | Dedicated sub-window runtime and synchronization   | Accepted   | 2026-05-06 |
-| [0009](0009-timeline-import-export-interoperability.md)            | Timeline import/export interoperability            | Accepted   | 2026-05-06 |
-| [0010](0010-ffmpeg-clip-export-execution-boundary.md)              | FFmpeg clip export execution boundary              | Accepted   | 2026-05-06 |
-| [0011](0011-dashboard-widget-system-and-analysis-consolidation.md) | Dashboard widget system and analysis consolidation | Accepted   | 2026-05-06 |
-| [0012](0012-llm-model-artifact-distribution-boundary.md)           | LLM model artifact distribution boundary           | Accepted   | 2026-05-10 |
-| [0013](0013-multi-angle-media-source-model.md)                     | Multi-angle media source model                     | Superseded | 2026-07-19 |
-| [0014](0014-youtube-embed-client-identity.md)                      | YouTube embed client identity                      | Accepted   | 2026-07-20 |
-| [0015](0015-clip-timeline-placement-and-audio-assisted-sync.md)    | Clip timeline placement and audio-assisted sync    | Accepted   | 2026-07-23 |
-| [0016](0016-multi-angle-audio-sync-offset-persistence.md)          | Multi-angle audio sync offset persistence          | Accepted   | 2026-07-26 |
-| [0017](0017-row-owned-timeline-presentation.md)                    | Row-owned timeline presentation                    | Accepted   | 2026-08-02 |
-| [0018](0018-document-oriented-menu-structure.md)                   | Document-oriented menu structure                   | Superseded | 2026-08-02 |
-| [0019](0019-code-window-owned-modes-and-direct-visual-editing.md)  | Code-window-owned modes and direct visual editing  | Accepted   | 2026-08-02 |
-| [0020](0020-verified-media-toolchain-and-process-containment.md)   | Verified media toolchain and process containment   | Accepted   | 2026-08-03 |
-| [0021](0021-detached-timeline-playback-authority.md)               | Detached timeline and playback authority           | Accepted   | 2026-08-15 |
-| [0022](0022-verified-local-rugby-event-detection.md)               | Verified local rugby event detection               | Superseded | 2026-08-15 |
-| [0023](0023-external-rugby-event-model-rd-boundary.md)             | External rugby event model R&D boundary            | Accepted   | 2026-08-18 |
-| [0024](0024-experimental-event-detection-production-lane.md)       | Experimental event detection production lane       | Superseded | 2026-08-19 |
-| [0025](0025-playlist-document-presentation-order.md)               | Playlist document presentation order               | Superseded | 2026-08-25 |
-| [0026](0026-package-session-window-ownership.md)                   | Package session window ownership                   | Accepted   | 2026-08-30 |
-| [0027](0027-enforced-design-system-foundation.md)                  | Enforced design system foundation                  | Accepted   | 2026-08-30 |
-| [0028](0028-playlist-studio-annotation-contract.md) | Playlist Studio annotation contract | Superseded | 2026-09-10 |
-| [0029](0029-tactics-motion-and-plane-contract.md) | Tactics motion and plane contract | Accepted | 2026-09-12 |
-| [0030](0030-video-window-aspect.md) | Video window aspect | Accepted | 2026-09-10 |
-| [0031](0031-tracking-target-selection.md) | Tracking target selection | Accepted | 2026-09-11 |
-| [0032](0032-immutable-release-artifacts.md) | Immutable release artifacts | Accepted | 2026-09-13 |
-| [0033](0033-windows-desktop-runtime.md) | Windows desktop runtime | Superseded | 2026-09-13 |
-| [0034](0034-reference-coding-model-evaluation.md) | Reference Coding Model Evaluation | Accepted | 2026-09-15 |
-| [0035](0035-event-detection-result-reuse.md) | Event detection result reuse | Accepted | 2026-09-16 |
-| [0036](0036-event-episode-consolidation.md) | Event Episode Consolidation | Accepted | 2026-09-16 |
-| [0037](0037-reviewed-model-refinement.md) | Reviewed Model Refinement（クラスを保持した時間文脈補正・公開画像比較を追記） | Accepted | 2026-09-16 |
-| [0038](0038-detached-event-detection-window.md) | Detached event detection window | Accepted | 2026-09-20 |
-| [0039](0039-local-tactical-board.md) | Local tactical board and frame-scoped pitch calibration | Accepted | 2026-09-20 |
-| [0040](0040-shared-media-timeline-clock.md) | Shared media timeline clock | Superseded | 2026-09-20 |
-| [0041](0041-angle-sync-point-workflow.md) | Angle sync point workflow | Superseded | 2026-09-20 |
-| [0042](0042-document-owned-export-menu.md) | Document-Owned Export Menu | Accepted | 2026-09-21 |
-| [0043](0043-bounded-lossless-export.md) | Bounded Lossless Export | Superseded | 2026-09-21 |
-| [0044](0044-sync-in-coding-toolbar.md) | Sync in the Coding toolbar | Accepted | 2026-09-21 |
-| [0045](0045-buffer-startup-package-open.md) | Buffer startup package open（Mainのロード完了待機を補足） | Accepted | 2026-09-21 |
-| [0046](0046-coalesced-playback-corrections.md) | Coalesced playback corrections | Accepted | 2026-09-21 |
-| [0047](0047-playlist-sorter-presentation-order.md) | Playlist Sorter presentation order | Accepted | 2026-09-21 |
-| [0048](0048-playlist-instance-notes.md) | Playlist instance notes | Accepted | 2026-09-21 |
-| [0049](0049-bounded-export-text.md) | Bounded export text | Accepted | 2026-09-21 |
-| [0050](0050-instance-scoped-export-preparation.md) | Instance-scoped export preparation | Accepted | 2026-09-22 |
-| [0051](0051-portable-playlist-references.md) | Portable playlist references | Accepted | 2026-09-22 |
-| [0052](0052-playlist-default-angles.md) | Playlist default angles | Accepted | 2026-09-22 |
-| [0053](0053-live-capture-package-timeline.md) | Live capture on the package timeline | Accepted | 2026-09-22 |
-| [0054](0054-continuous-capture-playback.md) | Continuous capture playback | Accepted | 2026-09-23 |
-| [0055](0055-timeline-review-without-document-filtering.md) | Timeline review without document filtering | Accepted | 2026-10-01 |
-| [0056](0056-built-in-dashboard-editing-contract.md) | Built-in dashboard editing contract | Accepted | 2026-10-02 |
-| [0057](0057-verified-analysis-frame-capture.md) | Verified analysis frame capture | Accepted | 2026-10-02 |
-| [0058](0058-build-downloads-without-response-cache.md) | Build downloads without HTTP response caching（2026-10-10 proxy監査追補） | Accepted | 2026-10-04 |
-| [0059](0059-playlist-renderer-delivery-readiness.md) | Playlist renderer delivery readiness | Accepted | 2026-10-04 |
-| [0065](0065-unified-project-open.md) | Unified project open | Accepted | 2026-10-17 |
-| [0066](0066-capture-playback-bounds.md) | Capture playback bounds | Accepted | 2026-10-17 |
-| [0067](0067-in-place-package-updates.md) | In-place package updates | Accepted | 2026-10-17 |
-| [0069](0069-timeline-detection-provenance.md) | Timeline detection provenance | Accepted | 2026-10-18 |
-| [0070](0070-renderer-document-and-frame-trust.md) | Renderer document and frame trust | Accepted | 2026-10-18 |
-| [0071](0071-release-time-model-selection.md) | Release-time model selection | Accepted | 2026-10-18 |
+| ID                                                                 | Title                                                                         | Status     | Date       |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ---------- | ---------- |
+| [0001](0001-feature-first-boundaries.md)                           | Feature-First boundaries                                                      | Accepted   | 2026-05-04 |
+| [0002](0002-typed-electron-ipc-and-renderer-gateways.md)           | Typed Electron IPC and renderer gateways                                      | Accepted   | 2026-05-04 |
+| [0003](0003-shared-type-contracts-and-load-time-migration.md)      | Shared type contracts and load-time migration                                 | Accepted   | 2026-05-04 |
+| [0004](0004-doc-sync-and-documentation-source-of-truth.md)         | Doc sync and documentation source of truth                                    | Accepted   | 2026-05-05 |
+| [0005](0005-local-llm-analysis-boundary.md)                        | Local LLM analysis boundary                                                   | Accepted   | 2026-05-05 |
+| [0006](0006-application-document-formats-and-file-associations.md) | Application document formats and file associations                            | Superseded | 2026-05-05 |
+| [0007](0007-audio-sync-offset-contract.md)                         | Audio sync offset contract                                                    | Superseded | 2026-05-06 |
+| [0008](0008-dedicated-sub-window-runtime-and-synchronization.md)   | Dedicated sub-window runtime and synchronization                              | Accepted   | 2026-05-06 |
+| [0009](0009-timeline-import-export-interoperability.md)            | Timeline import/export interoperability                                       | Accepted   | 2026-05-06 |
+| [0010](0010-ffmpeg-clip-export-execution-boundary.md)              | FFmpeg clip export execution boundary                                         | Accepted   | 2026-05-06 |
+| [0011](0011-dashboard-widget-system-and-analysis-consolidation.md) | Dashboard widget system and analysis consolidation                            | Accepted   | 2026-05-06 |
+| [0012](0012-llm-model-artifact-distribution-boundary.md)           | LLM model artifact distribution boundary                                      | Accepted   | 2026-05-10 |
+| [0013](0013-multi-angle-media-source-model.md)                     | Multi-angle media source model                                                | Superseded | 2026-07-19 |
+| [0014](0014-youtube-embed-client-identity.md)                      | YouTube embed client identity                                                 | Accepted   | 2026-07-20 |
+| [0015](0015-clip-timeline-placement-and-audio-assisted-sync.md)    | Clip timeline placement and audio-assisted sync                               | Accepted   | 2026-07-23 |
+| [0016](0016-multi-angle-audio-sync-offset-persistence.md)          | Multi-angle audio sync offset persistence                                     | Accepted   | 2026-07-26 |
+| [0017](0017-row-owned-timeline-presentation.md)                    | Row-owned timeline presentation                                               | Accepted   | 2026-08-02 |
+| [0018](0018-document-oriented-menu-structure.md)                   | Document-oriented menu structure                                              | Superseded | 2026-08-02 |
+| [0019](0019-code-window-owned-modes-and-direct-visual-editing.md)  | Code-window-owned modes and direct visual editing                             | Accepted   | 2026-08-02 |
+| [0020](0020-verified-media-toolchain-and-process-containment.md)   | Verified media toolchain and process containment                              | Accepted   | 2026-08-03 |
+| [0021](0021-detached-timeline-playback-authority.md)               | Detached timeline and playback authority                                      | Accepted   | 2026-08-15 |
+| [0022](0022-verified-local-rugby-event-detection.md)               | Verified local rugby event detection                                          | Superseded | 2026-08-15 |
+| [0023](0023-external-rugby-event-model-rd-boundary.md)             | External rugby event model R&D boundary                                       | Accepted   | 2026-08-18 |
+| [0024](0024-experimental-event-detection-production-lane.md)       | Experimental event detection production lane                                  | Superseded | 2026-08-19 |
+| [0025](0025-playlist-document-presentation-order.md)               | Playlist document presentation order                                          | Superseded | 2026-08-25 |
+| [0026](0026-package-session-window-ownership.md)                   | Package session window ownership                                              | Accepted   | 2026-08-30 |
+| [0027](0027-enforced-design-system-foundation.md)                  | Enforced design system foundation                                             | Accepted   | 2026-08-30 |
+| [0028](0028-playlist-studio-annotation-contract.md)                | Playlist Studio annotation contract                                           | Superseded | 2026-09-10 |
+| [0029](0029-tactics-motion-and-plane-contract.md)                  | Tactics motion and plane contract                                             | Accepted   | 2026-09-12 |
+| [0030](0030-video-window-aspect.md)                                | Video window aspect                                                           | Accepted   | 2026-09-10 |
+| [0031](0031-tracking-target-selection.md)                          | Tracking target selection                                                     | Accepted   | 2026-09-11 |
+| [0032](0032-immutable-release-artifacts.md)                        | Immutable release artifacts                                                   | Accepted   | 2026-09-13 |
+| [0033](0033-windows-desktop-runtime.md)                            | Windows desktop runtime                                                       | Superseded | 2026-09-13 |
+| [0034](0034-reference-coding-model-evaluation.md)                  | Reference Coding Model Evaluation                                             | Accepted   | 2026-09-15 |
+| [0035](0035-event-detection-result-reuse.md)                       | Event detection result reuse                                                  | Accepted   | 2026-09-16 |
+| [0036](0036-event-episode-consolidation.md)                        | Event Episode Consolidation                                                   | Accepted   | 2026-09-16 |
+| [0037](0037-reviewed-model-refinement.md)                          | Reviewed Model Refinement（クラスを保持した時間文脈補正・公開画像比較を追記） | Accepted   | 2026-09-16 |
+| [0038](0038-detached-event-detection-window.md)                    | Detached event detection window                                               | Accepted   | 2026-09-20 |
+| [0039](0039-local-tactical-board.md)                               | Local tactical board and frame-scoped pitch calibration                       | Accepted   | 2026-09-20 |
+| [0040](0040-shared-media-timeline-clock.md)                        | Shared media timeline clock                                                   | Superseded | 2026-09-20 |
+| [0041](0041-angle-sync-point-workflow.md)                          | Angle sync point workflow                                                     | Superseded | 2026-09-20 |
+| [0042](0042-document-owned-export-menu.md)                         | Document-Owned Export Menu                                                    | Accepted   | 2026-09-21 |
+| [0043](0043-bounded-lossless-export.md)                            | Bounded Lossless Export                                                       | Superseded | 2026-09-21 |
+| [0044](0044-sync-in-coding-toolbar.md)                             | Sync in the Coding toolbar                                                    | Accepted   | 2026-09-21 |
+| [0045](0045-buffer-startup-package-open.md)                        | Buffer startup package open（Mainのロード完了待機を補足）                     | Accepted   | 2026-09-21 |
+| [0046](0046-coalesced-playback-corrections.md)                     | Coalesced playback corrections                                                | Accepted   | 2026-09-21 |
+| [0047](0047-playlist-sorter-presentation-order.md)                 | Playlist Sorter presentation order                                            | Accepted   | 2026-09-21 |
+| [0048](0048-playlist-instance-notes.md)                            | Playlist instance notes                                                       | Accepted   | 2026-09-21 |
+| [0049](0049-bounded-export-text.md)                                | Bounded export text                                                           | Accepted   | 2026-09-21 |
+| [0050](0050-instance-scoped-export-preparation.md)                 | Instance-scoped export preparation                                            | Accepted   | 2026-09-22 |
+| [0051](0051-portable-playlist-references.md)                       | Portable playlist references                                                  | Accepted   | 2026-09-22 |
+| [0052](0052-playlist-default-angles.md)                            | Playlist default angles                                                       | Accepted   | 2026-09-22 |
+| [0053](0053-live-capture-package-timeline.md)                      | Live capture on the package timeline                                          | Accepted   | 2026-09-22 |
+| [0054](0054-continuous-capture-playback.md)                        | Continuous capture playback                                                   | Accepted   | 2026-09-23 |
+| [0055](0055-timeline-review-without-document-filtering.md)         | Timeline review without document filtering                                    | Accepted   | 2026-10-01 |
+| [0056](0056-built-in-dashboard-editing-contract.md)                | Built-in dashboard editing contract                                           | Accepted   | 2026-10-02 |
+| [0057](0057-verified-analysis-frame-capture.md)                    | Verified analysis frame capture                                               | Accepted   | 2026-10-02 |
+| [0058](0058-build-downloads-without-response-cache.md)             | Build downloads without HTTP response caching（2026-10-10 proxy監査追補）     | Accepted   | 2026-10-04 |
+| [0059](0059-playlist-renderer-delivery-readiness.md)               | Playlist renderer delivery readiness                                          | Accepted   | 2026-10-04 |
+| [0065](0065-unified-project-open.md)                               | Unified project open                                                          | Accepted   | 2026-10-17 |
+| [0066](0066-capture-playback-bounds.md)                            | Capture playback bounds                                                       | Accepted   | 2026-10-17 |
+| [0067](0067-in-place-package-updates.md)                           | In-place package updates                                                      | Accepted   | 2026-10-17 |
+| [0069](0069-timeline-detection-provenance.md)                      | Timeline detection provenance                                                 | Accepted   | 2026-10-18 |
+| [0070](0070-renderer-document-and-frame-trust.md)                  | Renderer document and frame trust                                             | Accepted   | 2026-10-18 |
+| [0071](0071-release-time-model-selection.md)                       | Release-time model selection                                                  | Accepted   | 2026-10-18 |
 
 ## Status Values
 
@@ -145,6 +145,8 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 
 - [0077 Demand-driven playback ranges](0077-demand-driven-playback-ranges.md): 区間生成の段階検証、byte構造基盤、長尺有効化前の性能・品質条件（Proposed）。
 
-- [0078 Native playback authority](0078-native-playback-authority.md): Main/Rendererの再生所有権、原本時計、有界音声取得、一過性不足の猶予と有界回復、通常処理と開発診断の分離（Proposed）。
+- [0078 Native playback authority](0078-native-playback-authority.md): Superseded by [0080](0080-apple-player-playback.md).
 
 - [0079 Qualified native clip export](0079-qualified-native-clip-export.md) — Proposed
+
+- [0080 Apple player playback](0080-apple-player-playback.md) — Accepted

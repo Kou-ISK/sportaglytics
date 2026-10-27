@@ -6,21 +6,12 @@ import {
 import type { NativePlaybackPresentation } from '../../../src/types/ipc/nativePlaybackPresentation';
 
 export interface NativeSourceProfile {
-  fieldFirst: number;
-  fieldStep: 1001;
-  timeScale: 120000;
-  videoEnd: number;
-  pcmStart: number;
-  pcmEnd: number;
   presentation: NativePlaybackPresentation;
 }
 
-/** Header qualification, not a whole-file timing proof. The decoder checks the
- * format and every delivered timestamp and fails back on a profile change. */
-export const parseNativeSourceProfile = (
-  raw: unknown,
-  allowUnmutedTrial = false,
-): NativeSourceProfile => {
+/** Header qualification for the current NV12/BT.709 surface bridge. AVPlayer
+ * owns decoding, audio and timing; no frame enumeration or PCM windows. */
+export const parseNativeSourceProfile = (raw: unknown): NativeSourceProfile => {
   const streams = arrayValue(objectValue(raw).streams, 4, 4).map(objectValue);
   const [video, ...audio] = streams;
   if (
@@ -60,39 +51,26 @@ export const parseNativeSourceProfile = (
     )
       throw Error('NATIVE_UNSUPPORTED_AUDIO_PROFILE');
   });
-  // Preserve the original tail through the existing player until native EOF
-  // and unequal audio/video tails have been qualified. Reserve is source time.
+  // A strict document-end seek still uses the existing endpoint adapter. This
+  // is a range boundary, not a decoder/preroll reserve or an audio supply window.
   const sharedEnd = Math.min(videoEnd, Math.floor((pcmEnd * 5) / 2));
-  const playEnd = Math.floor((sharedEnd - 24 * 1001) / 1001) * 1001;
-  const seekEnd = playEnd - 24 * 1001;
+  const playEnd = sharedEnd / 120000 - 0.000001;
+  const seekEnd = playEnd - 0.000001;
   if (seekEnd <= 0) throw Error('NATIVE_SOURCE_TOO_SHORT');
   return {
-    fieldFirst: 0,
-    fieldStep: 1001,
-    timeScale: 120000,
-    videoEnd,
-    pcmStart: 0,
-    pcmEnd,
     presentation: {
       width: 1920,
       height: 1080,
       start: 0,
       end: videoEnd / 120000,
-      seekEnd: seekEnd / 120000,
-      playEnd: playEnd / 120000,
-      rates: [1],
+      seekEnd,
+      playEnd,
+      rates: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4, 6],
       audioTracks: 3,
-      seekGrid: {
-        origin: 0,
-        duration: 1001,
-        timescale: 120000,
-        selection: 'containing',
-      },
-      // This opt-in belongs to the fixed local development runtime. It permits
-      // a listening trial; it does not certify audible synchronization.
-      mutedOnly: !allowUnmutedTrial,
-      exactFloatVolume: true,
-      audioSwitch: false,
+      seekGrid: null,
+      mutedOnly: false,
+      exactFloatVolume: false,
+      audioSwitch: true,
     },
   };
 };

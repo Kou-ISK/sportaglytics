@@ -19,6 +19,8 @@ export interface NativePlaybackIntent extends NativePlaybackOwner {
   sequence: number;
   seekId: number;
   targetTime: number;
+  /** Omission is exact. Preview is held; scrub commits its measured image time. */
+  seekMode?: 'preview' | 'scrub';
   playing: boolean;
   rate: number;
   audioTrack: number;
@@ -137,6 +139,7 @@ export const parseNativePlaybackIntent = (
     'sequence',
     'seekId',
     'targetTime',
+    'seekMode',
     'playing',
     'rate',
     'audioTrack',
@@ -148,6 +151,9 @@ export const parseNativePlaybackIntent = (
     sequence: integerValue(v.sequence, 1),
     seekId: integerValue(v.seekId, 1),
     targetTime: numberValue(v.targetTime, 0, 86400),
+    ...(v.seekMode === undefined
+      ? {}
+      : { seekMode: enumValue(v.seekMode, ['preview', 'scrub']) }),
     playing: booleanValue(v.playing),
     rate: numberValue(v.rate, 0.25, 6),
     audioTrack: integerValue(v.audioTrack, 0, 7),

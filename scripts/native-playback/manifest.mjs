@@ -6,8 +6,6 @@ export const PAYLOAD_FILES = [
   'NativeProductHost',
   'Receiver.node',
   'build.json',
-  'licenses/FFmpeg-LGPL-2.1.txt',
-  'licenses/FFmpeg-LICENSE.md',
   'licenses/Node-LICENSE.txt',
   'licenses/SporTagLytics-LICENSE.txt',
   'licenses/NOTICE.md',

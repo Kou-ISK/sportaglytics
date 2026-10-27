@@ -1,4 +1,7 @@
-import React from 'react';
+import { useContext } from 'react';
+import type { ReactElement } from 'react';
+import { NativePlaybackControlsContext } from '../NativePlayback/NativePlaybackControlsContext';
+import { NativePlaybackPanelView } from '../NativePlayback/NativePlaybackPanelView';
 import { ShortcutGuide } from '../../../../components/ShortcutGuide';
 import { VideoControllerToolbar } from './VideoController/VideoControllerToolbar';
 import type { VideoControllerProps } from './VideoController/VideoController.types';
@@ -16,7 +19,8 @@ export const VideoController = ({
   videoList,
   syncData,
   useTimelineClock,
-}: VideoControllerProps) => {
+}: VideoControllerProps): ReactElement => {
+  const audio = useContext(NativePlaybackControlsContext);
   const toolbarProps = useVideoControllerController({
     setVideoPlayBackRate,
     setIsVideoPlaying,
@@ -35,6 +39,7 @@ export const VideoController = ({
     <VideoControllerToolbar
       {...toolbarProps}
       shortcutGuide={<ShortcutGuide />}
+      audioControls={audio && <NativePlaybackPanelView {...audio} />}
     />
   );
 };

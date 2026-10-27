@@ -6,6 +6,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 `scripts/e2e-timeline-close.mjs`は300msの自動保存待機内のClose（最初のstaging open前）、書込中の最新Undo、保存失敗後の再編集・再試行、2つの所有元のQuit取消と再試行を、実Main/preload/Renderer/atomic writerと別process再開で検査します。合成ファイルのrename保留・失敗と当該エラーダイアログの応答だけを注入し、保存IPCを置換しません。hook/unitでは同一tickの行補完、未知sender・古い応答、timeout、ライブ停止後の終了取消も検査します。Linuxコンテナで`DISPLAY=:91 E2E_CLOUD_LINUX=1`を明示した場合だけランチャーへ`--no-sandbox --disable-gpu`を追加します。この環境の成功をMac/Windows配布物やOS sandboxの検証と扱いません。
 
+書込保留中の追加編集拒否は、バックグラウンド再生のdrain後に実際の保存flush要求が送られたことを観測してから検査します。native close要求から固定100msで編集凍結済みとは仮定せず、既存の15秒上限・実保存・別process再開の判定を維持します。
+
 単一WindowのCloseでは所有元とTimelineの消滅、実ファイルの最終memoを明示的なQuitより前に確認します。macOSはWindowが0件でもprocessを残す既存仕様をassertし、その後の明示的なQuitも実process終了まで待ちます。Windows/Linuxは最後のWindowのCloseによるprocess終了を確認します。新processでの再読込、保存失敗時のClose/Quit取消と再試行は両経路で維持します。`macos-native-close.yml`は対象source変更のPRで同じ合成回帰をmacOS runner上で実行し、署名秘密情報や実試合データを使いません。正式Releaseの全E2E・署名・公証・配布物検査は別途必須です。
 
 Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を使用します。ローカル合成映像・24行240件で、読み取りによる文書不変、閉じた高さ、狭幅、取消、保存再開、分析メニューの初回同期、実Renderer reload後の240件/編集済みノート復旧を検証します。品質ゲートの成功だけを快適さの根拠とせず、[UX評価記録](reports/2026-10-ux-review.md)の画像・操作負担・制限も確認します。
@@ -121,7 +123,7 @@ GitHub Actions [quality-check](../.github/workflows/formatting_code.yml) は `ma
 
 Mac専用cacheの実ファイル保護（`cacheApplicationIdentity`、`cacheContentProofs`、`cacheIdentityHandoff`、`cacheProofStore`、`cacheRangeReadLease`、`cacheReusePipeline`、`cacheStorage`、`sourceIdentity`）はPOSIX descriptor・所有者・modeの契約をMac/Linuxで検査します。Windowsではこの実FS検査を適用せず、純粋なproof・audit上限・偽造ticket検査は残します。`cachePlatformCompatibility.test.ts`とnative起動試験で、非対応OSではhelper解決前の拒否とproofの非保存・非採用を実際に確認します。[NodeのWindows file mode/flag制限](https://nodejs.org/docs/latest-v22.x/api/fs.html#file-system-flags)を理由に製品の所有者・revision検査を緩めません。Windowsの通常UI・IPC・installer E2Eは引き続き必須です。
 
-`test:native-runtime`は`SurfaceCandidateRetention.test.cpp`で、32枚の受入済み候補の解放、最新画像・未来field保持、厳密な有理数境界、不正世代/時刻/未受入/停止時の拒否、停止後の前方buffered seekを検査します。表示要求が遅い実画面の品質やGPU解放を、この純粋な保持計画の回帰だけで合格とは扱いません。
+`test:native-runtime`はApple再生経路の有限pipe出力・切断、Mach返信queueと所有processのdrainを検査します。`PlayerObservation.test.cpp`は停止・速度変更の途中でtimebaseが変わる条件でも、1回の読み取りから整合したphase/rateを作り、旧速度を新しい操作の確定として通知しないことを確認します。未対応media/controlの明示通知と正常drain後の復帰は既存Session/Controller回帰と接続して確認します。実表示・可聴同期はこれらの純粋回帰だけでは合格と扱いません。
 
 `nativeEndpointRecovery.integration.test.tsx` は実SyncedVideoPlayer・NativeSurfaceController・復帰controllerと合成media portを接続し、末尾commit中にsurfaceが破棄されないこと、原本時計・音声選択を維持してHTMLへ戻ることを検査します。`nativeOriginalRecovery.test.ts`、`cachePlayerSwitch.test.ts`、`cachePlayerSeekTarget.test.ts` は読込済み/未読込の末尾量子化、適格source終端とHTML終端の微小差、画像ready待機、不正/範囲外時刻の拒否を検査します。gateway回帰ではMain資格の終端が復帰へ渡り、共通時計を変更せずHTML所有権を解放することも確認します。media portは合成であり、実HTML復号・表示の確認は別途必要です。
 
@@ -328,7 +330,7 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 ## 再生用コピーと取消可能な履歴確認
 
-`cacheJob.test.ts`はfps/全表示時刻/全音声packet・設定の照合、原本変更、容量、取消後の遅い完了、片付け失敗、明示的な停止中選択を合成portsで検査します。実変換・ディスクatomic公開・HW再生の証拠ではありません。`PlaybackCacheView`のStory/テストは進行・取消・原本へ戻す・失敗の導線を検査します。実装と未接続範囲は[設計](playback-cache.md)を参照してください。
+`cacheJob.test.ts`はfps/全表示時刻/全音声packet・設定の照合、原本変更、容量、取消後の遅い完了、片付け失敗、明示的な停止中選択を合成portsで検査します。実変換・ディスクatomic公開・HW再生の証拠ではありません。コピー作成View/Controllerは通常再生から撤去しました。実装と未接続範囲は[設計](playback-cache.md)を参照してください。
 
 `packageHistoryRead` / `packageOpenHandlers` / preload bridge / startup Hook・Gateway・Viewの回帰は、待機取消、late結果/エラー、reload/crash、unmount、他Window/旧request拒否、取消送信失敗を検査します。`packageBackupRestoration`は取消後に原本bytesと履歴判定が保持され、再試行可能なことを実一時ファイルで確認します。`packageSessionRegistry`は同Window/同pathの後続bindを旧cleanupが解放しないことを確認します。対応OSの実open/preload E2Eと遅い保存先での応答は別検証です。
 
@@ -340,7 +342,7 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 `cacheContentProofs.test.ts` は実ファイルhashを使い、同サイズ改変、probe中の交換、取消/遅延完了、再起動/runtime差、返却値の分離と8件LRUを検査する。`cacheReusePipeline.test.ts` はwarm proofでもHW・所有権・最終hashを再検証し、HW中の同内容ファイル交換を拒否する。模擬probeの合格を実変換や長尺の性能改善とは扱わない。
 
-再生用コピーのHW検査は`cacheHardwareCoverage/ProbePage/Probe.test.ts`で区間欠落・seekの飛び・古いcallback・早期ended・複数player/fallback・期限後成功・遅いcloseを拒否する。`cacheJob.test.ts`で生成にcompatibility証拠を使えないこと、reuseにモード不一致の証拠を使えないことを検証する。`usePlaybackCacheController.test.tsx`で復帰音声失敗のACK禁止・重複error・ACK待ちerror・復帰通知を確認する。実機は同一入力/候補と360秒など固定した計測上限を使い、cold/warmの内容proof、各HW区間、hash、背景負荷を記録する。IPC診断は実UI/実音声/物理scrubの合格ではない。
+再生用コピーのHW検査は`cacheHardwareCoverage/ProbePage/Probe.test.ts`で区間欠落・seekの飛び・古いcallback・早期ended・複数player/fallback・期限後成功・遅いcloseを拒否する。`cacheJob.test.ts`で生成にcompatibility証拠を使えないこと、reuseにモード不一致の証拠を使えないことを検証する。原本復帰の音声・画像ACKとleaseはnative controllerと`cachePlayerSwitch.test.ts`で確認する。実機は同一入力/候補と360秒など固定した計測上限を使い、cold/warmの内容proof、各HW区間、hash、背景負荷を記録する。IPC診断は実UI/実音声/物理scrubの合格ではない。
 
 再生用コピーの永続proofは`cacheProofStore.test.ts`で認証/版/shape/時刻関係・容量・link/owner/mode・取消/書込不確定・同時要求を、`cacheApplicationIdentity.test.ts`で物理bytes/交換/取消を、`cacheContentProofs.test.ts`で再起動と改変時の全解析を検査する。`cacheReusePipeline.test.ts`は非同期保存後のowner/原本/取消と新規HW失敗を確認する。これらは実ASAR/実HW/実音声の検証を代替せず、別Main・同profileの短尺IPC計測で永続記録の実採用を確認する。
 
@@ -352,7 +354,7 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 区間キャッシュの基盤回帰では、ticket偽造・別所有者・再引換え・再読取時の改変、最終revision照合中の失効、read/close失敗と予約保持、生成とconsumerの最大2件、取消の即時通知と遅いsettleを検査する。Main/Renderer接続とnative供給ACK・実音声同期・物理scrubは別の実機検証であり、この合格から推定しない。
 
-Native再生の`nativePlaybackSession.test.ts`は配送と画像/音声準備、古い応答、速度scopeを検査する。`nativePlaybackManager.test.ts` / `nativePlaybackHandlers.test.ts`は再qualification、実sender guard、payload、終了待ちと不明なcleanupを確認する。Rendererのcontroller/gateway、toolbar、`nativePackageClock.integration.test.tsx`は原本時計、遅いHTML play、復元後のlease解放を検査する。in-process bridgeの成功は実BrowserWindowや映像音声品質の合格ではない。[未達条件](native-playback.md#検証の入口と未達条件)。
+Native再生の`nativePlaybackSession.test.ts`は配送と画像/音声準備、古い応答、速度scopeを検査する。`nativePlaybackManager.test.ts` / `nativePlaybackHandlers.test.ts`は再qualification、実sender guard、payload、終了待ちと不明なcleanupを確認する。Rendererのcontroller/gateway、toolbar、`nativePackageClock.integration.test.tsx`は原本時計、遅いHTML play、復元後のlease解放を検査する。in-process bridgeの成功は実BrowserWindowや映像音声品質の合格ではない。[検証と限界](native-playback.md#検証と限界)。
 
 Native snapshot通知は`nativeSnapshotDelivery.test.ts`で1万更新時の有界配送、旧owner/文書ACK拒否を、preload試験で購読解除後のACK回収と不正payloadを確認する。Session/Controller試験では非同期write失敗の即時通知、timerを進めない時計更新、購読者例外時のdrainを検査する。実BrowserWindowの失敗結果をunit成功で置き換えない。
 
@@ -360,13 +362,13 @@ Native snapshot通知は`nativeSnapshotDelivery.test.ts`で1万更新時の有�
 
 [native-export.md](native-export.md#未達のgate)のunit/process所有権と実媒体境界検証を行います。receipt/metadataと出力品質合格を分け、通常providerを有効にする前に複数playerの音声終端・edit list・描画fallback・配布検証が必要です。
 
-Nativeの任意位置対応では`nativeSourceProfile.test.ts` / `nativeSourceAccess.test.ts`と`SourceTimeline.test.cpp`で原本先頭・音声/映像末尾差・overflow・metadata/source変更を確認します。実機では同一原本で停止30秒超からの再開、連続PCM境界、中間/終盤seek、既存原本復帰を直列検証し、背景負荷と終了receiptを残します。通信とtraceの累積量を製品合否閾値にせず、有限のin-flight所有数と時刻連続性を検証します。
+Apple再生の入力資格は`nativeSourceProfile.test.ts` / `nativeSourceAccess.test.ts`で先頭・音声/映像末尾差・metadata/source変更を確認します。実機では同一原本で停止再開、中間/終盤seek、既存原本復帰を直列検証し、背景負荷と終了receiptを残します。独自PCM窓の旧検査はAVPlayerの実出力検証として流用せず、有限の画像所有数と時刻連続性を検証します。
 
 Renderer recovery diagnostics are covered by `nativePlaybackController.test.ts`: duration failure after a normal drain, unknown private error exclusion, and lease retention when reporting rejects. Manager, handler and preload tests cover same-owner post-close reports, document/generation changes, subframes, extra text, invalid numbers and duplicates. These automated checks do not certify physical UI input or audible synchronization.
 
 Native runtimeのmacOS変更では`pnpm run test:native-runtime`を追加実行します。実FIFO probeと合成backend/surface/診断上限をNode test runnerで検査し、`.node.cjs`はVitestへ重複登録しません。資源検査・session directoryのTypeScript回帰は通常Vitestに含めます。署名済みpackageの自動native開始・非対応source・原本復帰・正常終了は実アプリで別途確認します。
 
-同コマンドの`AACCookie` / `AACPacketRange` / `AACWindowDecode`回帰は、形式descriptorの欠落・改変、非末尾の短いpacket、原本末尾の部分packet、converterの形式変更・不足PCM・取消・期限・破棄回数を合成データで確認します。実原本の全音声PCM/PTS参照との一致、内部demux索引のメモリ、読取失敗後の再openは開発証跡として別に保存し、合成回帰や消音再生から可聴同期を推定しません。
+音声読み出し・復号・出力はAVPlayerが所有します。旧AAC/PCM窓の独自回帰は削除し、選択・消音・速度・原本復帰の契約を確認します。合成回帰や消音再生から可聴同期を推定しません。
 
 同runnerのowned backend/runtime回帰は、receipt欠落、`exit`だけの通知、`close`不一致、control pipe失敗、GPU drain失敗、重複close、旧世代の遅延通知を分けます。物理終了後だけ資源回収を試み、成功しても元のreceiptエラー・診断sessionを保持することを検査します。signal終了は模擬ChildProcessイベントであり、実アプリへsignalを送りません。この結果から実異常終了後の原本復帰や通常Quit成功を主張しません。
 

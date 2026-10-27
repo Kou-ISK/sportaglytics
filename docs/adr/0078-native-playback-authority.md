@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed
+Superseded
+
+Superseded by [0080 Apple player playback](0080-apple-player-playback.md).
 
 ## Date
 

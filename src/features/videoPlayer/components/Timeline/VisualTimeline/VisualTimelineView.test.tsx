@@ -54,6 +54,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe('timeline editing and seeking', () => {
+  it('commits the last held preview when its view unmounts', () => {
+    vi.stubGlobal('PointerEvent', MouseEvent);
+    const ruler = screen.getByTestId('timeline-time-origin');
+    ruler.setPointerCapture = vi.fn();
+    fireEvent.pointerDown(ruler, { button: 0, clientX: 200 });
+    const last = seek.mock.lastCall?.[0];
+    cleanup();
+    expect(seek).toHaveBeenLastCalledWith(last, 'scrub');
+  });
   it('selects an action without seeking and clears its selection and focus border on blank clicks', () => {
     const item = screen.getByTestId('timeline-instance-row-0-0');
     const unselectedBorder = getComputedStyle(item).borderColor;
@@ -92,7 +101,11 @@ describe('timeline editing and seeking', () => {
     fireEvent.pointerDown(ruler, { button: 0, clientX: 200 });
     fireEvent.pointerMove(ruler, { clientX: 300 });
     fireEvent.pointerUp(ruler, { clientX: 300 });
-    expect(seek).toHaveBeenCalled();
+    expect(seek.mock.calls.map((call) => call[1])).toEqual([
+      'preview',
+      'preview',
+      'scrub',
+    ]);
     seek.mockClear();
     fireEvent.pointerDown(screen.getByTestId('timeline-lane-アタック'), {
       button: 0,
@@ -104,5 +117,20 @@ describe('timeline editing and seeking', () => {
       { key: 'End' },
     );
     expect(seek).toHaveBeenCalledWith(120);
+  });
+  it('commits the last preview once on capture loss and ignores late movement', () => {
+    vi.stubGlobal('PointerEvent', MouseEvent);
+    const ruler = screen.getByTestId('timeline-time-origin');
+    ruler.setPointerCapture = vi.fn();
+    ruler.hasPointerCapture = () => true;
+    ruler.releasePointerCapture = vi.fn();
+    fireEvent.pointerDown(ruler, { button: 0, clientX: 200 });
+    fireEvent.pointerMove(ruler, { clientX: 400 });
+    const last = seek.mock.lastCall?.[0];
+    fireEvent.lostPointerCapture(ruler);
+    fireEvent.pointerMove(ruler, { clientX: 600 });
+    fireEvent.pointerUp(ruler, { clientX: 600 });
+    expect(seek.mock.calls).toHaveLength(3);
+    expect(seek).toHaveBeenLastCalledWith(last, 'scrub');
   });
 });

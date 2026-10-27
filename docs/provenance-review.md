@@ -91,8 +91,6 @@
 
 v0.17.10のWindows H.264は[Media Foundationへ移行済み](adr/0062-windows-media-foundation-h264.md)です。上表のv0.17.4でのOpenH264照合は過去配布物についての記録です。自前buildにCisco提供binaryの特許料カバーが適用されるという確認ではありません。現版は更新したsource/recipe/noticeを配布し、[Windows Nの追加要件](windows.md#対象と導入)を明示しています。Windows N実機の未導入/導入後の検証は未完了です。
 
-### 未公開native playback helper
+### Apple playback helper
 
-macOS arm64限定候補のhelper/IOSurface receiverは本作業で作成したsourceを必要依存だけ移植し、MIT本文と全sourceを保持します。固定FFmpeg 8.1.2（LGPL 2.1 or later構成）をhelperへstatic linkし、Node 22.12.0 N-API headerと公式LICENSEを使用します。上流URL/hash、全source/header/recipe、compiler/SDK、成果物、NOTICEを専用manifestで対応づけます。[対応ソースと再link手順](third-party-distribution.md#native-playback-previewの対応ソース)。通常配布への有効化・署名後artifact・可聴品質・全ライセンス/codec条件は別確認であり、未公開候補のbuild成功で完了扱いにしません。
-
-固定FFmpegへのfilter/frame decoder限定QoS適応は本作業で作成したMITの`worker-thread-qos.mjs`と`WorkerThreadQoS.h`です。上流archiveを改変せず検証後に適用し、両ファイルをrecipe hashと対応sourceへ含めます。スレッド方針の変更だけを、性能や長時間品質の合格と扱いません。
+AVPlayer helper/IOSurface receiverは本repositoryで作成したsourceとMIT本文を保持します。Node 22.12.0 N-API headersと公式LICENSEを固定hashで使用し、Apple frameworkはOS提供です。新helperへFFmpegはlinkしません。既存export用FFmpegの告知と対応sourceは別に維持します。[再build可能な対応source](third-party-distribution.md#native-playback-previewの対応ソース)、compiler/SDK、署名後artifactを配布単位で照合します。build成功を可聴品質・全codec条件の保証にはしません。

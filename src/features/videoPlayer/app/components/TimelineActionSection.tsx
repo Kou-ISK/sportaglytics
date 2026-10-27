@@ -1,3 +1,4 @@
+import type { VideoSeekMode } from '../../../../types/video/seek';
 import type { ClipExportAudioSelection } from '../../../../shared/clipExport/clipExportAudio';
 import React from 'react';
 import type { CaptureTimelineState } from '../../../../types/liveCapture';
@@ -78,6 +79,7 @@ interface TimelineActionSectionProps {
   handleCurrentTime: (
     event: React.SyntheticEvent | Event,
     newValue: number | number[],
+    seekMode?: VideoSeekMode,
   ) => void;
   /** プレイリストに追加（位置情報付き） */
   onAddToPlaylist?: (items: TimelineData[]) => void;
@@ -197,9 +199,9 @@ export const TimelineActionSection = ({
             maxSec={maxSec}
             currentTime={currentTime}
             onSeekRelative={onSeekRelative}
-            onSeek={(time: number) => {
+            onSeek={(time, mode) => {
               const event = new Event('visual-timeline-seek');
-              handleCurrentTime(event, time);
+              handleCurrentTime(event, time, mode);
             }}
             onDelete={deleteTimelineDatas}
             selectedIds={selectedTimelineIdList}
