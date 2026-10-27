@@ -545,7 +545,7 @@ Native末尾復帰の変更時は、量子化差の有界処理と実SyncedVideo
 
 ## Native exportの開発候補
 
-通常起動ではnative export providerを渡しません。[専用helperのbuildと回帰検証](native-export.md#検証入口)を参照してください。完了receiptだけでは公開資格になりません。
+macOS arm64の署名済み通常配布は[条件付きApple export](native-export.md)を使用します。既存hostの独立モード、専用FIFO、提示区間metadata、取消・正常Quit、非対応入力のfallbackを対象回帰とpackaged E2Eで検査してください。完了receiptだけでは公開資格になりません。
 
 限定native画面を変更する際は、canvasのbacking寸法、absolute sourceとfile URLの同一性、復帰中の操作置換、実停止時計、media失敗とcleanup不明の区別、自然終端でのpause競合を回帰する。専用profileと架空packageで元ファイルを直接参照し、実projectへ書き込まない。短時間mute試験、聴取、長時間品質は分けて報告する。
 

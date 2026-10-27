@@ -1,6 +1,3 @@
-import { randomUUID } from 'node:crypto';
-import * as os from 'node:os';
-import * as path from 'node:path';
 import type { NativeClipExporter } from '../nativeExport/nativeClipExport';
 import { canAttemptNativeClip } from '../nativeExport/nativeClipEligibility';
 import type {
@@ -9,12 +6,14 @@ import type {
 } from './exportHandlers.types';
 import type { PreparedExportSources } from './exportSourcePreparation';
 import { renderClipWithFfmpeg } from './exportClipRender';
+import { concatFiles } from './exportFfmpegRunners';
 import { resolveExportSourceSelection } from './exportSourceSelection';
 
-type PreparedClipRenderer = (
+export type PreparedClipRenderer = (
   clip: ClipExportItem,
   outputPath?: string,
   onProgress?: (progress: number) => void,
+  stageEncoderOutput?: boolean,
 ) => Promise<string>;
 
 /** Bind each instance and angle to its own original-file clock, even for reused files. */
@@ -27,7 +26,7 @@ export const createPreparedClipRenderer = (
 ): PreparedClipRenderer => {
   const selection = resolveExportSourceSelection(payload);
   const indexes = new Map(payload.clips.map((clip, index) => [clip, index]));
-  return async (clip, outputPath, onProgress) => {
+  return async (clip, outputPath, onProgress, stageEncoderOutput = false) => {
     const index = indexes.get(clip);
     if (index === undefined)
       throw new Error('書き出し対象のクリップを確認してください');
@@ -39,28 +38,26 @@ export const createPreparedClipRenderer = (
     const secondary = secondaryPath ? resolveSource(secondaryPath) : undefined;
     const selected =
       clip.angleType === 'angle2' && secondary ? secondary : main;
-    let target = outputPath;
     if (
       nativeExporter &&
+      outputPath &&
       selected.kind === 'direct' &&
       canAttemptNativeClip(payload, clip, selection.useDual)
     ) {
-      target ??= path.join(os.tmpdir(), `clip_${randomUUID()}.mp4`);
-      if (!outputPath) tempFiles.push(target);
       const result = await nativeExporter({
         sourcePath: selected.sourcePath,
         start: clip.startTime - selected.timeOrigin,
         duration: Math.max(0.5, clip.endTime - clip.startTime),
         audioTrack: clip.audioTrackIndex ?? 0,
-        outputPath: target,
+        outputPath,
       });
       if (result.status === 'completed') {
         onProgress?.(1);
-        return target;
+        return outputPath;
       }
       console.info('[export] Native fallback', { reason: result.reason });
     }
-    return renderClipWithFfmpeg({
+    const rendered = await renderClipWithFfmpeg({
       getFfmpegPath,
       clip: {
         ...clip,
@@ -74,8 +71,14 @@ export const createPreparedClipRenderer = (
       tempFiles,
       primaryTimeOrigin: main.timeOrigin,
       secondaryTimeOrigin: secondary?.timeOrigin,
-      outputPath: target,
+      outputPath: stageEncoderOutput ? undefined : outputPath,
       onProgress,
     });
+    // Preserve temporary encoding for single/per-row fallback failures.
+    if (stageEncoderOutput && outputPath) {
+      await concatFiles(getFfmpegPath, [rendered], outputPath);
+      return outputPath;
+    }
+    return rendered;
   };
 };

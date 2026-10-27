@@ -1,7 +1,18 @@
 // @vitest-environment node
 import { expect, it, vi } from 'vitest';
-import { isQualifiedNativeClip } from './nativeClipQualification';
+import {
+  isQualifiedNativeClip,
+  qualifyNativeClip,
+} from './nativeClipQualification';
+import {
+  runNativeExportProbe,
+  NativeExportCancelled,
+} from './nativeExportProcess';
 vi.mock('../mediaTools', () => ({ getFfprobePath: () => 'probe' }));
+vi.mock('./nativeExportProcess', async (original) => ({
+  ...(await original<typeof import('./nativeExportProcess')>()),
+  runNativeExportProbe: vi.fn(),
+}));
 const request = {
   sourcePath: 'source.mp4',
   outputPath: 'output.mp4',
@@ -93,4 +104,21 @@ it('rejects extra output tracks and absent or malformed metadata', () => {
   expect(isQualifiedNativeClip(media(), output, request)).toBe(false);
   for (const malformed of [null, {}, { streams: [null], format: {} }])
     expect(isQualifiedNativeClip(media(), malformed, request)).toBe(false);
+});
+it('never starts the output probe after the source probe is cancelled', async () => {
+  const controller = new AbortController();
+  vi.mocked(runNativeExportProbe).mockImplementationOnce(
+    async (_binary, _args, signal) => {
+      expect(signal).toBe(controller.signal);
+      controller.abort();
+      throw new NativeExportCancelled();
+    },
+  );
+  await expect(
+    qualifyNativeClip('candidate.mp4', {
+      ...request,
+      signal: controller.signal,
+    }),
+  ).rejects.toBeInstanceOf(NativeExportCancelled);
+  expect(runNativeExportProbe).toHaveBeenCalledOnce();
 });
