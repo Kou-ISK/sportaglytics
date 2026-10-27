@@ -7,12 +7,24 @@ import { useTimelineWindowIntegration } from './useTimelineWindowIntegration';
 const bus = vi.hoisted(() => ({
   receive: (_command: TimelineWindowCommand): void => {},
   unsubscribe: vi.fn(),
+  visibility: (_isOpen: boolean): void => {},
+  native: null as { seekCommandTime: number; finishPreview: () => void } | null,
+}));
+vi.mock('../../shared/nativePlayback/nativePlaybackRegistry', () => ({
+  getNativePlayback: () => bus.native,
+}));
+vi.mock('./usePlaybackAudioSelections', () => ({
+  usePlaybackAudioSelections: () => [],
 }));
 vi.mock('../gateways/timelineWindowGateway', () => ({
   openTimelineWindow: vi.fn(async () => {}),
   closeTimelineWindow: vi.fn(async () => {}),
   syncTimelineWindow: vi.fn(),
   syncTimelineWindowClock: vi.fn(),
+  subscribeTimelineWindowVisibility: (listener: typeof bus.visibility) => {
+    bus.visibility = listener;
+    return () => {};
+  },
   subscribeTimelineWindowCommand: (listener: typeof bus.receive) => {
     bus.receive = listener;
     return bus.unsubscribe;
@@ -60,7 +72,26 @@ const make = () => {
     ...renderHook(useTimelineWindowIntegration, { initialProps: params }),
   };
 };
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  bus.native = null;
+});
+
+it('finishes the held preview on window close only for the same native owner', () => {
+  const f = make();
+  const first = { seekCommandTime: 40, finishPreview: vi.fn() };
+  bus.native = first;
+  act(() => bus.receive({ type: 'seek', time: 50, seekMode: 'preview' }));
+  act(() => bus.visibility(false));
+  expect(first.finishPreview).toHaveBeenCalledOnce();
+  act(() => bus.receive({ type: 'seek', time: 60, seekMode: 'preview' }));
+  const second = { seekCommandTime: 0, finishPreview: vi.fn() };
+  bus.native = second;
+  act(() => bus.visibility(false));
+  expect(first.finishPreview).toHaveBeenCalledOnce();
+  expect(second.finishPreview).not.toHaveBeenCalled();
+  f.unmount();
+});
 
 it('routes every relative IPC command before a React commit and cleans up the listener', () => {
   const f = make();

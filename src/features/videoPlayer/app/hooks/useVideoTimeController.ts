@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
 import type { VideoSyncData } from '../../../../types/video/sync';
+import type { VideoSeekMode } from '../../../../types/video/seek';
 import {
   getVideoJsPlayer,
   setVideoJsPlayerCurrentTime,
@@ -33,10 +34,11 @@ export const getMinAllowedGlobalTime = (
 const dispatchSeekEvent = (
   type: 'video-seek-start' | 'video-seek-end',
   time?: number,
+  seekMode: VideoSeekMode = 'exact',
 ): void => {
   if (type === 'video-seek-start') {
     globalThis.window.dispatchEvent(
-      new CustomEvent(type, { detail: { time } }),
+      new CustomEvent(type, { detail: { time, seekMode } }),
     );
     return;
   }
@@ -117,9 +119,22 @@ export const useVideoTimeController = ({
   handleCurrentTime: (
     event: SyntheticEvent | Event,
     newValue: number | number[],
+    seekMode?: VideoSeekMode,
   ) => void;
 } => {
   const [currentTime, setCurrentTime] = useState(0);
+  const seekOwner = useMemo(
+    () => ({}),
+    [videoList, syncData, syncMode, mediaAngles],
+  );
+  const currentOwner = useRef<object | null>(seekOwner);
+  currentOwner.current = seekOwner;
+  useEffect(() => {
+    currentOwner.current = seekOwner;
+    return () => {
+      if (currentOwner.current === seekOwner) currentOwner.current = null;
+    };
+  }, [seekOwner]);
   const pendingSeekRef = useRef<number | null>(null);
   const seekFrameRef = useRef<number | null>(null);
   const seekEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,7 +150,13 @@ export const useVideoTimeController = ({
   );
 
   const handleCurrentTime = useCallback(
-    (_event: SyntheticEvent | Event, newValue: number | number[]) => {
+    (
+      _event: SyntheticEvent | Event,
+      newValue: number | number[],
+      seekMode: VideoSeekMode = 'exact',
+    ): void => {
+      // Unmount cleanup from an old timeline cannot seek a replacement source.
+      if (currentOwner.current !== seekOwner) return;
       const time = typeof newValue === 'number' ? newValue : Number.NaN;
       const nativeOwned = getNativePlayback() !== null;
       const isManualMode = syncMode === 'manual';
@@ -157,7 +178,7 @@ export const useVideoTimeController = ({
         cancelAnimationFrame(seekFrameRef.current);
         seekFrameRef.current = null;
       }
-      dispatchSeekEvent('video-seek-start', timeClamped);
+      dispatchSeekEvent('video-seek-start', timeClamped, seekMode);
 
       if (!nativeOwned && seekFrameRef.current === null) {
         seekFrameRef.current = requestAnimationFrame(() => {
@@ -182,7 +203,7 @@ export const useVideoTimeController = ({
         dispatchSeekEvent('video-seek-end');
       }, 120);
     },
-    [mediaAngles, syncData, syncMode, videoList],
+    [mediaAngles, syncData, syncMode, videoList, seekOwner],
   );
 
   return {

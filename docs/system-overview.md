@@ -452,34 +452,14 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 区間キャッシュのMain基盤は、一回限りの検証ticketからSession専用の再読可能leaseへ引き換え、最大2 batchで生成と検証・供給を重ねる。現時点では通常UI・正式IPCへの接続、実再生の速度保証は未完了。設計と保証範囲は[ADR 0077](adr/0077-demand-driven-playback-ranges.md)を参照。
 
-Native再生はMain所有Session・限定IPC、Renderer controller・共通時計に分離します。対応する停止中sourceを自動採用し、非対応操作は内部の互換再生へ渡します。[ADR 0078](adr/0078-native-playback-authority.md)と[適用範囲・受入条件](native-playback.md)を参照してください。
+Apple標準再生はAVPlayerが読み出し・復号・音声・時計を所有し、AVPlayerItemVideoOutputの画像を既存DOM表示面へ渡します。Mainの文書/IPC/終了所有権と最大3画像の転送は保持し、独自FFmpeg復号・PCM窓・供給回復は削除します。[ADR 0080](adr/0080-apple-player-playback.md)と[仕様・適用範囲](native-playback.md)を参照してください。
 
-Main内部の物理終了確認は正常なnative終了receiptとは分離し、子プロセス・通信路の終了が確定した後だけGPU資源回収を試みます。receipt失敗は外向きcloseの失敗として保持し、Rendererの停止時計・原本復帰の契約を緩めません。
+通常スクラブはAppleが選んだ近傍画像の実時刻を確認して確定し、コマ送り・明示時刻指定だけを厳密シークにします。タグ/保存時計は要求値でなく確認済み時刻です。相対入力は最新要求へ加算し、旧gestureは新sourceへ伝えません。
 
-Nativeの時計はMainの専用snapshot通知で更新し、配送中1件と最新保留1件へ制限します。通常利用に周期pollや毎回の全尺検証は追加しません。 映像のみの10ms未満の一過性不足は音声時計を維持する。音声不足または猶予超過は同じsessionの共通時計を実停止して有界に補充し、実停止位置の画像ACKと音声・映像reserveを確認します。累積補充時間の上限を超える不足は内部の互換再生へ戻します。回復時の待機は品質記録に残します。
+Native表示は既存PlayerSurface・overlay・全画面要素を共有します。非対応入力/操作と厳密な文書末尾は、実停止時計・process/pipe/GPU終了を確認した後に既存互換経路へ渡します。原本・保存形式は変えず、再生用コピー作成や方式選択を通常UIへ表示しません。
 
-原本復帰の末尾では、HTMLの長さの丸め差を最大1マイクロ秒だけadapter内で吸収し、共通時計は保持します。表示用の最終clipは厳密な末尾でもmountを維持し、gapや書き出しの区間解決とは区別します。
+配布runtimeはDeveloper IDで検証したappと同teamの固定helper・receiverを照合します。資源欠落や署名不整合をunsignedへ降格させません。任意の診断は固定数値・ローカル保存に限定し、状態源や終了成功の代わりに使いません。
 
 ### Native export候補
 
-準備済みsource/timeOriginを持つMainのexport controllerへoptional adapterを差し込みます。通常は未接続です。[Native clip export candidate](native-export.md)のsource所有権・音声index・独立qualification・fallback契約に従います。
-
-Native表示は既存PlayerSurface・全画面要素を共有します。範囲外操作は実停止時計と終了を確認して互換再生へ引き継ぎ、未処理の最新操作を保持します。
-
-原本復帰中の連続シークは進行中の停止画像を完成させてから最新位置へ進む。確認済み中間画像と時計を表示し、最終位置まで再生の所有権を保持する。通常HTML経路でも全区間seekableな有限ローカルファイルは同様に集約し、録画・欠落バッファ・source変更では強制置換を維持する。これは復号自体の速度改善や実操作での合格を意味しない。
-
-タイムラインの映像書き出しは、再生画面から同期されたsource単位の確認済み音声選択を使用します。native切替中の未確定状態や同一sourceの選択競合では確認を求め、別アングルへ音声番号を流用しません。詳細は[Native export](native-export.md)を参照してください。
-
-Nativeの標準自動選択は署名済みmacOS arm64の限定profileに適用します。全尺変換を起動条件にせず、形式・速度・複数映像などの非対応条件は既存機能を維持する内部fallbackです。
-
-原本時計・全音声の契約を保持し、設定/seekだけの更新でheaderを再probeしません。過去の間欠停止と実聴取同期は未達として[仕様](native-playback.md)へ記録します。
-
-対応するAACは必要な圧縮packetだけを固定MOV demuxerで取得し、Apple AudioConverterへ渡します。原本PTS・全3音声と既存の窓数/同時読取上限を維持し、毎回の全尺音声走査を行いません。詳細な形式ガードと資源上限は[Native再生](native-playback.md)に集約します。
-
-After a normal native close, the same document owner may report a Renderer restoration failure to an optional numeric diagnostic sink. Main authenticates document and generation and accepts one report. This is not a playback/save/export state source and cannot release their ownership on diagnostic failure.
-
-Timeline別窓の相対シークは所有元で加算し、通知待ちの表示時計から絶対位置へ変換しません。packageツールバーはclip内のHTML時計ではなく共通時計を基準にします。未確認native要求とtag/save/export用の確認済み時刻は分離します。[操作契約](native-playback.md#操作と所有権)。
-
-Native preview helperの配布準備は通常media-toolsから分離した固定source buildで行います。source/recipe/NOTICEとartifactをmanifestで対応づけ、[対応sourceと未確認範囲](third-party-distribution.md#native-playback-previewの対応ソース)を保持します。helper生成だけでは適格化できず、配布署名・source資格・画面準備をすべて確認して自動使用します。
-
-配布runtimeはDeveloper IDで検証したappと同teamの固定helper・receiverを照合します。資源欠落や署名不整合をunsignedへ降格させず、nativeを起動せずに互換再生を保持します。
+通常exportは既存経路を維持します。Mainのoptional adapterは[Native clip export candidate](native-export.md)の独立qualificationを必要とします。確認済み音声選択をsourceごとに同期し、未確定選択や複数angleの競合を別sourceへ流用しません。

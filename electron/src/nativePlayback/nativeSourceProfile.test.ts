@@ -42,53 +42,38 @@ export const profileFixture = (): { streams: Record<string, unknown>[] } => ({
   ],
 });
 describe('source profile boundaries', () => {
-  it('permits unmuted output only in the explicit Main-owned local trial', () => {
-    const muted = parseNativeSourceProfile(profileFixture());
-    const trial = parseNativeSourceProfile(profileFixture(), true);
+  it('keeps native audio selection, volume and supported rate commands available', () => {
+    const trial = parseNativeSourceProfile(profileFixture());
     const intent = {
       targetTime: 1.123,
       rate: 1,
       audioTrack: 0,
-      volume: 0,
+      volume: 0.3,
       muted: false,
     };
-    expect(muted.presentation.mutedOnly).toBe(true);
-    expect(trial).toEqual({
-      ...muted,
-      presentation: { ...muted.presentation, mutedOnly: false },
-    });
-    expect(nativePresentationSupports(muted.presentation, intent, 0)).toBe(
-      false,
-    );
     expect(nativePresentationSupports(trial.presentation, intent, 0)).toBe(
       true,
     );
     expect(
       nativePresentationSupports(trial.presentation, { ...intent, rate: 2 }, 0),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       nativePresentationSupports(
         trial.presentation,
         { ...intent, audioTrack: 2 },
         0,
       ),
-    ).toBe(false);
+    ).toBe(true);
     const invalid = profileFixture();
     invalid.streams[0].time_base = '1/90000';
-    expect(() => parseNativeSourceProfile(invalid, true)).toThrow();
+    expect(() => parseNativeSourceProfile(invalid)).toThrow();
   });
   it('derives all source positions and a safe shorter-audio tail fallback', () => {
     const p = parseNativeSourceProfile(profileFixture());
-    const host = nativeHostConfiguration('/synthetic/source.mp4', p);
-    expect(host.version).toBe(1);
-    expect(host.rollingPCM).toBe(true);
-    expect(host.containingField).toBe(true);
-    expect(host.handoffTime).toBe(p.presentation.playEnd);
-    expect(host.pcmTracks).toEqual([
-      { trackID: 2 },
-      { trackID: 3 },
-      { trackID: 4 },
-    ]);
+    expect(nativeHostConfiguration('/synthetic/source.mp4')).toEqual({
+      version: 1,
+      source: '/synthetic/source.mp4',
+    });
     expect(parseNativePlaybackPresentation(p.presentation)).toEqual(
       p.presentation,
     );
@@ -105,9 +90,7 @@ describe('source profile boundaries', () => {
           2,
         ),
       ).toBe(true);
-    expect(p.presentation.playEnd * 120000 + 24 * 1001).toBeLessThanOrEqual(
-      (p.pcmEnd * 5) / 2,
-    );
+    expect(p.presentation.playEnd).toBeCloseTo(48047900 / 48000, 5);
     expect(
       nativePresentationSupports(
         p.presentation,
@@ -143,12 +126,12 @@ describe('source profile boundaries', () => {
       expect(() => parseNativeSourceProfile(raw)).toThrow();
     },
   );
-  it('rejects extra tracks, short source and non-field terminal time', () => {
+  it('rejects extra tracks and invalid terminal time', () => {
     const raw = profileFixture();
     raw.streams.push({ ...raw.streams[3] });
     expect(() => parseNativeSourceProfile(raw)).toThrow();
     raw.streams.pop();
-    raw.streams[0].duration_ts = 1001;
+    raw.streams[0].duration_ts = 0;
     expect(() => parseNativeSourceProfile(raw)).toThrow();
     raw.streams[0].duration_ts = 60060001;
     expect(() => parseNativeSourceProfile(raw)).toThrow();
@@ -188,7 +171,7 @@ it('accepts representable original clocks without snapping to fields', () => {
     ).toBe(false);
   }
   expect(supports(1.123000000123)).toBe(true);
-  expect(supports(1e-20)).toBe(false);
+  expect(supports(1e-20)).toBe(true);
   expect(supports(-1)).toBe(false);
   expect(supports(presentation.seekEnd + 0.000001)).toBe(false);
   expect(() =>

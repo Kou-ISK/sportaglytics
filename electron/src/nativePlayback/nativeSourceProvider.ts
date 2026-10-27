@@ -7,8 +7,6 @@ import type { QualifiedNativeSource } from './nativePlaybackManager';
 
 export interface NativePlaybackRuntime {
   version: 1;
-  /** Local development trial only; never a renderer or saved-setting input. */
-  allowUnmutedTrial?: true;
   probe: (source: string) => Promise<unknown>;
   createBackend: (
     window: BrowserWindow,
@@ -46,10 +44,7 @@ export const createNativeSourceProvider =
     let source, profile;
     try {
       source = await resolveNativeSource(packagePath);
-      profile = parseNativeSourceProfile(
-        await runtime.probe(source.path),
-        runtime.allowUnmutedTrial === true,
-      );
+      profile = parseNativeSourceProfile(await runtime.probe(source.path));
     } catch {
       // Qualification has not launched a playback owner. Unsupported sources
       // retain the existing player; a runtime must drain its bounded probe first.

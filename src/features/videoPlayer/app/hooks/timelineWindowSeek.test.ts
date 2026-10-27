@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { createTimelineWindowSeek } from './timelineWindowSeek';
+import type { VideoSeekMode } from '../../../../types/video/seek';
 
 const make = () => {
   const state = {
@@ -8,13 +9,22 @@ const make = () => {
     maxSec: 100,
     videoSources: ['synthetic.mp4'],
     nativeCommandTime: undefined as number | undefined,
-    onSeek: vi.fn<(time: number) => void>(),
+    onSeek: vi.fn<(time: number, mode?: VideoSeekMode) => void>(),
   };
   const seek = createTimelineWindowSeek(() => ({ ...state }));
-  const times = (): number[] =>
-    state.onSeek.mock.calls.map(([time]: [number]) => time);
+  const times = (): number[] => state.onSeek.mock.calls.map(([time]) => time);
   return { state, seek, times };
 };
+
+it('preserves preview versus exact across the separate timeline window', () => {
+  const f = make();
+  f.seek({ type: 'seek', time: 70, seekMode: 'preview' });
+  f.seek({ type: 'seek', time: 70, seekMode: 'exact' });
+  expect(f.state.onSeek.mock.calls).toEqual([
+    [70, 'preview'],
+    [70, 'exact'],
+  ]);
+});
 
 it('accumulates commands before the owner commits and follows its clock after commit', () => {
   const f = make();

@@ -1,6 +1,6 @@
 {
   "name": "sportaglytics",
-  "version": "0.17.14",
+  "version": "0.17.15",
   "description": "Sports video tagging and analytics application",
   "private": true,
   "packageManager": "pnpm@9.1.0",
@@ -50,7 +50,7 @@
     "test:e2e:timeline-rows": "pnpm run e2e:prepare && node scripts/e2e-timeline-rows.mjs",
     "native:build": "node scripts/build-native-playback.mjs",
     "native:sources": "node scripts/package-native-playback-sources.mjs",
-    "test:native-build": "node --test scripts/tests/native-playback-build.mjs scripts/tests/native-distribution.mjs scripts/tests/worker-thread-qos.mjs",
+    "test:native-build": "node --test scripts/tests/native-playback-build.mjs scripts/tests/native-distribution.mjs",
     "media:build": "node scripts/build-media-tools.mjs",
     "media:build:all-mac": "node scripts/build-media-tools.mjs --all-mac",
     "typecheck": "tsc --noEmit",

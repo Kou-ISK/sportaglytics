@@ -1,3 +1,4 @@
+import type { VideoSeekMode } from '../../../../types/video/seek';
 import type { AngleSyncCommand } from '../../../../types/ipc/angleSync';
 import { useAngleSyncHotkeys } from './sync/useAngleSyncHotkeys';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -68,13 +69,13 @@ export const useTimelineWindowController = () => {
     snapshot?.hotkeys ?? [],
   );
   const send = sendTimelineWindowCommand;
-  const onSeek = useCallback((time: number) => {
+  const onSeek = useCallback((time: number, seekMode?: VideoSeekMode): void => {
     setSnapshot((current) =>
       current
         ? { ...current, currentTime: time, updatedAt: Date.now() }
         : current,
     );
-    send({ type: 'seek', time });
+    send({ type: 'seek', time, ...(seekMode ? { seekMode } : {}) });
   }, []);
   const onSelectionChange = useCallback((ids: string[]) => {
     setSnapshot((current) =>
@@ -178,7 +179,8 @@ export const useTimelineWindowController = () => {
     handleCurrentTime: (
       _event: React.SyntheticEvent | Event,
       value: number | number[],
-    ): void => onSeek(Array.isArray(value) ? value[0] : value),
+      mode?: VideoSeekMode,
+    ): void => onSeek(Array.isArray(value) ? value[0] : value, mode),
     onSeekRelative: (seconds: number): void =>
       send({ type: 'seek-relative', seconds }),
     onAddToPlaylist: (items: TimelineData[]): void =>

@@ -1,3 +1,4 @@
+import type { VideoSeekMode } from '../../../../types/video/seek';
 import { usePlaybackAudioSelections } from './usePlaybackAudioSelections';
 import { createTimelineWindowSeek } from './timelineWindowSeek';
 import { getNativePlayback } from '../../shared/nativePlayback/nativePlaybackRegistry';
@@ -19,6 +20,7 @@ import {
   closeTimelineWindow,
   openTimelineWindow,
   subscribeTimelineWindowCommand,
+  subscribeTimelineWindowVisibility,
   syncTimelineWindow,
   syncTimelineWindowClock,
 } from '../gateways/timelineWindowGateway';
@@ -43,7 +45,7 @@ interface UseTimelineWindowIntegrationParams {
   hotkeys: HotkeyConfig[];
   hotkeyHandlers: Record<string, () => void>;
   hotkeyKeyUpHandlers: Record<string, () => void>;
-  onSeek: (time: number) => void;
+  onSeek: (time: number, mode?: VideoSeekMode) => void;
   onSelectionChange: (ids: string[]) => void;
   onDeleteItems: (ids: string[]) => void;
   onUpdateMemo: (id: string, memo: string) => void;
@@ -83,6 +85,7 @@ export const useTimelineWindowIntegration = (
 ): { open: () => Promise<void> } => {
   const audioSelections = usePlaybackAudioSelections(params.videoSources);
   const paramsRef = useRef(params);
+  const previewOwner = useRef<ReturnType<typeof getNativePlayback>>(null);
   paramsRef.current = params;
   const seekEpoch = useMemo(
     () => ({}),
@@ -163,6 +166,15 @@ export const useTimelineWindowIntegration = (
     await openTimelineWindow();
     syncLatest();
   }, [syncLatest]);
+
+  useEffect(() => {
+    return subscribeTimelineWindowVisibility((isOpen) => {
+      if (isOpen) return;
+      const owner = previewOwner.current;
+      previewOwner.current = null;
+      if (owner && owner === getNativePlayback()) owner.finishPreview();
+    });
+  }, []);
 
   useEffect(() => {
     if (params.isFileSelected) {
@@ -254,6 +266,8 @@ export const useTimelineWindowIntegration = (
             current.onSeek(command.time);
             break;
           }
+          previewOwner.current =
+            command.seekMode === 'preview' ? getNativePlayback() : null;
           seek(command);
           break;
         case 'seek-relative':

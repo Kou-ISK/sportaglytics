@@ -223,23 +223,12 @@ export const useNativePlaybackPanel = (
     (): void =>
       act(async () => {
         current.current.pause();
+        controller?.finishPreview();
         await controller?.returnToOriginal();
       }),
     [act, controller],
   );
   const settings = currentPlayer?.port.settings();
-  const targetTime = currentPlayer?.port.time() ?? 0;
-  const unavailableReason =
-    currentPlayer && attempted.current.has(currentPlayer)
-      ? 'この文書は互換再生へ引き継ぎました。再度開くと標準再生の適合条件を確認します。'
-      : availability?.presentation && settings
-        ? nativeStartUnavailableReason(
-            availability.presentation,
-            targetTime,
-            settings,
-            playing,
-          )
-        : '原本プレイヤーの準備を待っています。';
   const controls = controller?.requestedControls;
   const updateAudio = useCallback(
     (change: Partial<NativePlaybackControls>): void => {
@@ -290,7 +279,6 @@ export const useNativePlaybackPanel = (
             : controller
               ? 'native'
               : 'original',
-      unavailableReason,
       error:
         error ??
         (state.error
@@ -312,7 +300,6 @@ export const useNativePlaybackPanel = (
     playing,
     busy,
     settings?.audio,
-    unavailableReason,
     error,
     audioTrack,
     muted,

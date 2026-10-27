@@ -455,8 +455,8 @@ Native再生の限定IPCは`src/renderer.d.ts`を正本とし、payload parser�
 - `features/videoPlayer/shared/audioSelection`: 実HTML音声選択の登録と変更通知。cache適格性から独立し、read-onlyの状態だけを公開する。
 - `shared/clipExport/clipExportAudio.ts`: source単位の一時音声選択契約と、最終書き出しsourceへの適用。native/Video.jsへの依存を持たない。
 
-Native再生のsource/profile/preview構成は`electron/src/nativePlayback`、sandbox canvasと画像所有は`electron/src/preload/nativeSurface*`へ置きます。原本field/sampleの整数演算は`native/macos/playback/SourceTimeline.hpp`で分離します。私有の実媒体・測定結果・未配布helper binaryは公開ソースへ含めません。
+Native再生のsource/profile/preview構成は`electron/src/nativePlayback`、sandbox canvasと画像所有は`electron/src/preload/nativeSurface*`へ置きます。読み出し・音声・共通時計はAVPlayerへ委譲します。私有の実媒体・測定結果・未配布helper binaryは公開ソースへ含めません。
 
-Native再生helperの必要sourceは`native/macos/playback/{host-embedded,direct-frame-handoff,surface-transport,recurrence}`へ配置し、共有原本時計headerを同じplayback配下で再利用します。専用recipeは`scripts/native-playback/`、entryは`scripts/build-native-playback.mjs`と`scripts/package-native-playback-sources.mjs`です。生成library/binary/対応source archiveは`.cache`/`dist`へ分離し、repositoryへ追加しません。
+AVPlayer adapterは`native/macos/playback/apple-player`、画像所有と転送は`surface-transport`へ置きます。独自FFmpeg/PCM pipelineは使用しません。専用recipeは`scripts/native-playback/`、entryは`scripts/build-native-playback.mjs`と`scripts/package-native-playback-sources.mjs`です。生成library/binary/対応source archiveは`.cache`/`dist`へ分離し、repositoryへ追加しません。
 
 `electron/src/nativePlayback/runtime`は資源・署名検査、session directory、surface転送、所有者終了を担当します。`nativeSignature.ts`の固定要件検証はcompiled Mainを配布hookからも利用し、二重定義しません。`support`内の明示CJSだけをMain buildへコピーします。`scripts/macos/{standard-after-pack,native-signing,native-after-sign}.mjs`が内側→manifest→外側の署名順序と検証を担います。

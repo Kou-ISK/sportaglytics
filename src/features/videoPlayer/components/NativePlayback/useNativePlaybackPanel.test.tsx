@@ -155,9 +155,7 @@ it('does not promise automatic re-entry after the document has used its native a
   // The gateway mock leaves no native authority, as after a completed recovery.
   value.state.paused = false;
   value.hook.rerender({ playing: true });
-  expect(value.hook.result.current.view?.unavailableReason).toContain(
-    '再度開くと',
-  );
+  expect(value.hook.result.current.view?.mode).toBe('original');
   value.state.paused = true;
   value.hook.rerender({ playing: false });
   value.event('pause');
@@ -166,7 +164,7 @@ it('does not promise automatic re-entry after the document has used its native a
 it('keeps unsupported rate and endpoint on compatible playback, then adopts a supported stopped position', async () => {
   const value = setup({ rate: 2 });
   await waitFor(() =>
-    expect(value.hook.result.current.view?.unavailableReason).toContain('1×'),
+    expect(value.hook.result.current.view?.mode).toBe('original'),
   );
   expect(openQualifiedNativePlayback).not.toHaveBeenCalled();
   value.state.time = 99.5;
