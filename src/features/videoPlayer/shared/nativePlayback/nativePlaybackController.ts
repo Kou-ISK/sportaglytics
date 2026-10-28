@@ -66,6 +66,7 @@ export class NativePlaybackController {
   private recoveryRevision = 0;
   private recoveryTime: number | null = null;
   private stoppedTime: number | null = null;
+  private operationRevision = 0;
   constructor(
     private readonly api: IElectronAPI['nativePlayback'],
     readonly owner: NativePlaybackOwner,
@@ -145,6 +146,7 @@ export class NativePlaybackController {
         this.intent[key as keyof NativePlaybackControls] !== next,
     );
     if (!changed) return;
+    this.operationRevision++;
     const next: NativePlaybackIntent = {
       ...this.intent,
       ...value,
@@ -167,6 +169,8 @@ export class NativePlaybackController {
     this.flush();
   }
   seek(time: number, mode: VideoSeekMode = 'exact'): void {
+    // A coalesced same-target input still supersedes an earlier gesture.
+    this.operationRevision++;
     if (!this.acceptsOperation()) return;
     if (!Number.isFinite(time) || time < 0 || time > 86400) {
       this.fail('NATIVE_INVALID_SEEK');
@@ -206,6 +210,36 @@ export class NativePlaybackController {
     return this.lastReadySeek === this.intent.seekId
       ? this.state.time
       : this.intent.targetTime;
+  }
+  get commandRevision(): number {
+    return this.operationRevision;
+  }
+  /** Cancel only the caller's stopped pending request, retaining the shown frame
+   * while the one existing IPC writer finishes. This never confirms a clock. */
+  finishPendingSeek(time: number, revision: number): boolean {
+    if (
+      this.state.phase !== 'active' ||
+      this.intent.playing ||
+      this.hasConfirmedSeek ||
+      this.operationRevision !== revision
+    )
+      return false;
+    this.seek(time);
+    if (
+      this.state.phase !== 'active' ||
+      this.intent.playing ||
+      this.operationRevision !== revision + 1 ||
+      this.intent.targetTime !== time
+    )
+      return false;
+    try {
+      if (!this.api.prepareSeek) throw Error('surface admission unavailable');
+      this.api.prepareSeek({ ...this.intent });
+      return true;
+    } catch {
+      this.fail('NATIVE_FRAME_ADMISSION_FAILED');
+      return false;
+    }
   }
   get requestedControls(): NativePlaybackControls {
     const { playing, rate, audioTrack, volume, muted } = this.intent;

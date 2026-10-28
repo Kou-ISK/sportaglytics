@@ -10,6 +10,7 @@ describe('useHotkeyBindings reverse playback', () => {
   it('maps slow, 2x, 4x, and 6x reverse commands and stops them on keyup', () => {
     const startReversePlayback = vi.fn();
     const stopReversePlayback = vi.fn();
+    const finishReversePlayback = vi.fn();
     const { result } = renderHook(() =>
       useHotkeyBindings({
         isVideoPlaying: false,
@@ -23,6 +24,7 @@ describe('useHotkeyBindings reverse playback', () => {
         setViewMode: vi.fn(),
         startReversePlayback,
         stopReversePlayback,
+        finishReversePlayback,
         performUndo: vi.fn(),
         performRedo: vi.fn(),
         resyncAudio: vi.fn(),
@@ -47,6 +49,10 @@ describe('useHotkeyBindings reverse playback', () => {
     act(() => {
       result.current.keyUpHandlers['reverse-playback-6x']?.();
     });
+    expect(finishReversePlayback).toHaveBeenCalledTimes(1);
+    expect(stopReversePlayback).not.toHaveBeenCalled();
+    act(() => result.current.combinedHandlers['play-pause']?.());
     expect(stopReversePlayback).toHaveBeenCalledTimes(1);
+    expect(finishReversePlayback).toHaveBeenCalledTimes(1);
   });
 });

@@ -41,7 +41,7 @@ import { subscribeCreateVideoPackageMenu } from './gateways/menuEventGateway';
 import { useTimelineWindowIntegration } from './hooks/useTimelineWindowIntegration';
 import { TimelinePersistenceStatusView } from './components/TimelinePersistenceStatusView';
 import { useTimelineActionPresentationSync } from './hooks/useTimelineActionPresentationSync';
-import { useContinuousReversePlayback } from '../../../hooks/useContinuousReversePlayback';
+import { useVideoReversePlayback } from './hooks/useVideoReversePlayback';
 import { getMinAllowedGlobalTime } from './hooks/useVideoTimeController';
 import { useEventDetectionWindowHost } from '../eventDetection/hooks/useEventDetectionWindowHost';
 import { useEventDetectionController } from '../eventDetection/hooks/useEventDetectionController';
@@ -216,8 +216,9 @@ export const VideoPlayerScreen = () => {
 
   const codingPanelRuntimeRef = useRef<EnhancedCodePanelHandle | null>(null);
 
-  const { startReversePlayback, stopReversePlayback } =
-    useContinuousReversePlayback({
+  const { startReversePlayback, stopReversePlayback, finishReversePlayback } =
+    useVideoReversePlayback({
+      videoList,
       currentTime,
       minimumTime: getMinAllowedGlobalTime(syncData),
       onPause: () => {
@@ -272,6 +273,7 @@ export const VideoPlayerScreen = () => {
       setViewMode,
       startReversePlayback,
       stopReversePlayback,
+      finishReversePlayback,
       performUndo,
       performRedo,
       resyncAudio,
