@@ -17,7 +17,7 @@
 
 | ARCH-EX-002 | 2026-10-18 | Feature Public API | `scripts/benchmark-synthetic-timeline.mjs`の専用loaderから純粋関数`timelineReviewSearch.ts`を推移的compileして読込 | 実際の検索処理を計測し、計測専用の本番公開APIや検索実装の複製を増やさないため | Node計測ツール1本のみ。アプリの実行時import・UI・保存形式は変更しない | 2026-11-18までにfeature内benchへの移動または限定した正式な計測入口を判断 | maintainers | [PR #237](https://github.com/Kou-ISK/sportaglytics/pull/237) / [F10受入](synthetic-workloads.md#次の受入条件) | Open |
 
-| ARCH-EX-003 | 2026-10-20 | Release branch routing | v0.17.13準備以降の限定再生修正版について、mainを基点とするrelease branchからmainへPRを作る | developで進行中の未公開モデル配布方針を、今回の再生修正へ混在させないため | v0.17.18は逆方向キー解放時の位置修正・回帰・告知だけを選ぶ。修正とrelease準備は先にdevelopへ統合し、CI・レビュー・署名・公証・公開検証を保持する | v0.17.18公開後の記録同期でClose。期限2026-11-03 | maintainers | [PR #258](https://github.com/Kou-ISK/sportaglytics/pull/258) | Open |
+| ARCH-EX-003 | 2026-10-20 | Release branch routing | v0.17.13準備以降の限定再生修正版について、mainを基点とするrelease branchからmainへPRを作る | developで進行中の未公開モデル配布方針を、今回の再生修正へ混在させないため | v0.17.19は逆方向キー解放時の要求消失の退行修正・回帰・告知だけを選ぶ。修正とrelease準備は先にdevelopへ統合し、CI・レビュー・署名・公証・公開検証を保持する | v0.17.19公開後の記録同期でClose。期限2026-11-03 | maintainers | [PR #258](https://github.com/Kou-ISK/sportaglytics/pull/258) | Open |
 
 ## 月次レビュー
 
