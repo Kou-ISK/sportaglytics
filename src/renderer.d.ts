@@ -65,10 +65,6 @@ export interface IElectronAPI {
     open: (
       owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
     ) => Promise<void>;
-    /** Synchronously discard stale images for this already-open owner. No IPC. */
-    prepareSeek?: (
-      intent: import('./types/ipc/nativePlayback').NativePlaybackIntent,
-    ) => void;
     apply: (
       intent: import('./types/ipc/nativePlayback').NativePlaybackIntent,
     ) => Promise<void>;

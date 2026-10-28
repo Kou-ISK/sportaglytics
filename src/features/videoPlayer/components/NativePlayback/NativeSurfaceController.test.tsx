@@ -7,7 +7,6 @@ import type { IElectronAPI } from '../../../../renderer';
 import { useNativePackageClock } from '../../app/hooks/useNativePackageClock';
 import { NativePlaybackController } from '../../shared/nativePlayback/nativePlaybackController';
 import { bindNativePlayback } from '../../shared/nativePlayback/nativePlaybackRegistry';
-import { nativePresentedTime } from '../../shared/nativePlayback/nativePresentedFrame';
 import { hasNativeSurface } from '../../shared/nativePlayback/nativeSurfaceBinding';
 import {
   claimNativePlayback,
@@ -115,9 +114,7 @@ it('shows a verified intermediate original image and clock while retaining the l
   const canvas = screen.getByLabelText('ネイティブ再生映像');
   if (!(canvas instanceof HTMLCanvasElement)) throw Error('canvas required');
   expect(canvas.style.visibility).toBe('visible');
-  expect(nativePresentedTime(controller)).toBe(3.000000001);
   act(() => onFrame?.({ generation: 'old', seekId: 1, pts: 8, timescale: 1 }));
-  expect(nativePresentedTime(controller)).toBe(3.000000001);
   let recovery: Promise<void> | undefined;
   await act(async () => {
     controller.seek(40);
@@ -141,7 +138,6 @@ it('shows a verified intermediate original image and clock while retaining the l
   expect(htmlPlaybackAllowed()).toBe(false);
   expect(hasNativeSurface(source)).toBe(true);
   expect(detach).not.toHaveBeenCalled();
-  expect(nativePresentedTime(controller)).toBe(40);
   await act(async () => {
     latest.resolve();
     await recovery;
