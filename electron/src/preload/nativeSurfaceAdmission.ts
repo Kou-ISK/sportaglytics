@@ -30,6 +30,8 @@ export const createAdmission = (): SurfaceAdmission => {
   return {
     expect: (generation, seekId) => {
       if (closed) throw Error('closed admission');
+      if (expected?.generation === generation && seekId < expected.seekId)
+        return;
       expected = { generation, seekId };
     },
     current,
