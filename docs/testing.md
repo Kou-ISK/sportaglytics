@@ -139,7 +139,7 @@ Heavy model weightやtraining frameworkをSporTagLytics unit testで取得しま
 
 ## Settings / Timeline / IPC
 
-逆方向キー解放は`useVideoReversePlayback.test.tsx`で表示済み位置への収束、遅い旧応答、即時再押下、別操作・再入・原本復帰・下端の保持を確認します。`nativeSurfaceBridge.test.ts`はrAF待ち画像の破棄、旧applyによる受付巻戻しの防止、画像解放を検査し、`withNativeSurface.test.ts`は同一owner・停止intent・close後の拒否を確認します。合成回帰の成功は押下中の実映像速度や滑らかさの証拠とは分けます。
+逆方向キー解放は`useVideoReversePlayback.test.tsx`で最後の要求の保持、IPC保留中の最新要求、遅い旧応答、即時再押下、別操作・再入・原本復帰・下端を確認します。`nativeSurfaceBridge.test.ts`は新しいseekによるrAF待ち画像の破棄、古い受付更新の拒否、close後の画像解放を検査し、`withNativeSurface.test.ts`はIPC前の受付更新とsurface終了失敗の伝播を確認します。合成回帰の成功は押下中の実映像速度や滑らかさの証拠とは分けます。
 
 TimelineのTab回帰は`useTimelineGlobalShortcuts.test.tsx`で開始時刻順の前後巡回、折り返し、DOMフォーカス、未選択/無効選択、入力/通常コントロール/ダイアログ、IME、Cmd/Ctrl/Alt+Tabの除外を確認します。`node scripts/e2e-ux-review.mjs`は合成240件と映像を使い、Tab/Shift+Tabの選択・フォーカス・実映像シーク、Option/Alt別名、Escape後と検索入力中の通常Tab移動、文書を変更しないことを検証します。通常アプリのプロファイルや実試合データを使いません。
 

@@ -3,7 +3,6 @@ import type { IElectronAPI } from '../../../src/renderer';
 import { withSurface } from './withNativeSurface';
 
 const surface = vi.hoisted(() => ({
-  prepare: vi.fn(),
   expect: vi.fn(),
   close: vi.fn(),
   bind: vi.fn(),
@@ -41,34 +40,19 @@ const setup = () => {
   } as IElectronAPI).nativePlayback;
   return { opening, applying, nativePlayback, wrapped };
 };
-it('prepares only a stopped, validated intent of the open owner without waiting for IPC', async () => {
+it('admits a seek before forwarding its asynchronous apply', async () => {
   const f = setup();
-  const opened = f.wrapped.open(owner);
-  expect(() => f.wrapped.prepareSeek?.(intent)).toThrow();
-  f.opening.resolve();
-  await opened;
-  const oldApply = f.wrapped.apply({ ...intent, seekId: 1, sequence: 1 });
-  f.wrapped.prepareSeek?.(intent);
-  expect(surface.prepare).toHaveBeenCalledExactlyOnceWith('owner', 2);
-  expect(f.nativePlayback.apply).toHaveBeenCalledOnce();
-  for (const bad of [
-    { ...intent, playing: true },
-    { ...intent, sourceKey: 'b'.repeat(64) },
-    { ...intent, seekId: NaN },
-  ])
-    expect(() => f.wrapped.prepareSeek?.(bad)).toThrow();
-  expect(surface.prepare).toHaveBeenCalledOnce();
+  const pending = f.wrapped.apply(intent);
+  expect(surface.expect).toHaveBeenCalledExactlyOnceWith('owner', 2);
+  expect(f.nativePlayback.apply).toHaveBeenCalledExactlyOnceWith(intent);
   f.applying.resolve();
-  await oldApply;
-  await f.wrapped.close(owner);
-  expect(() => f.wrapped.prepareSeek?.(intent)).toThrow();
+  await pending;
 });
-it('cannot restore preparation rights when an old open resolves after close', async () => {
+it('still reports an unconfirmed surface close after the native close completes', async () => {
   const f = setup();
-  const opened = f.wrapped.open(owner);
-  await f.wrapped.close(owner);
-  f.opening.resolve();
-  await opened;
-  expect(() => f.wrapped.prepareSeek?.(intent)).toThrow();
-  expect(surface.prepare).not.toHaveBeenCalled();
+  surface.close.mockImplementationOnce(() => {
+    throw Error('surface close failed');
+  });
+  await expect(f.wrapped.close(owner)).rejects.toThrow('surface close failed');
+  expect(f.nativePlayback.close).toHaveBeenCalledExactlyOnceWith(owner);
 });
