@@ -149,4 +149,4 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 
 - [0079 Qualified native clip export](0079-qualified-native-clip-export.md) — Accepted
 
-- [0080 Apple player playback](0080-apple-player-playback.md) — Accepted
+- [0080 Apple player playback](0080-apple-player-playback.md) — Accepted（逆方向キー解放時の最後要求保持を含む）

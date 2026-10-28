@@ -8,7 +8,6 @@ import type {
 } from '../../../../types/ipc/nativePlayback';
 import { useVideoReversePlayback } from './useVideoReversePlayback';
 import type { NativePlaybackPresentation } from '../../../../types/ipc/nativePlaybackPresentation';
-import { recordNativePresentedFrame } from '../../shared/nativePlayback/nativePresentedFrame';
 
 const port = vi.hoisted(() => ({
   controller: null as NativePlaybackController | null,
@@ -60,13 +59,11 @@ const setup = async (
     closed: false,
   };
   const apply = vi.fn(async (_value: NativePlaybackIntent) => {});
-  const prepareSeek = vi.fn();
   const controller = new NativePlaybackController(
     {
       inspect: vi.fn(),
       open: vi.fn(async () => {}),
       apply,
-      prepareSeek,
       onSnapshot: (_owner, callback) => {
         listener = callback;
         return () => {};
@@ -140,7 +137,6 @@ const setup = async (
   return {
     controller,
     apply,
-    prepareSeek,
     acknowledge,
     mediaFailure: () => listener({ ...snapshot, error: 'media' }),
     hook,
@@ -153,56 +149,50 @@ const setup = async (
   };
 };
 
-const show = (f: Awaited<ReturnType<typeof setup>>, time: number): void => {
-  recordNativePresentedFrame(f.controller, {
-    generation: f.controller.owner.generation,
-    seekId: 1,
-    pts: Math.round(time * 120000),
-    timescale: 120000,
-  });
-};
 const hold = async (f: Awaited<ReturnType<typeof setup>>): Promise<void> => {
   act(() => f.hook.result.current.startReversePlayback(2));
   await tick(0);
   await tick(50);
   const first = f.apply.mock.calls.at(-1)![0];
   act(() => {
-    show(f, first.targetTime);
     f.acknowledge(first);
   });
   await tick(100);
 };
-it('freezes at the displayed image on release and rejects the late old observation', async () => {
+it('retains the requested reverse position when no reverse image was displayed', async () => {
+  const f = await setup();
+  try {
+    act(() => f.hook.result.current.startReversePlayback(2));
+    for (const time of [0, 50, 100, 150]) await tick(time);
+    const latest = f.apply.mock.calls.at(-1)![0];
+    const count = f.apply.mock.calls.length;
+    act(() => f.hook.result.current.finishReversePlayback());
+    await vi.advanceTimersByTimeAsync(1);
+    expect(f.apply).toHaveBeenCalledTimes(count);
+    expect(f.controller.seekCommandTime).toBeCloseTo(9.7);
+    act(() => f.acknowledge(latest));
+    expect(f.controller.snapshot().time).toBeCloseTo(9.7);
+    expect(frames.size).toBe(0);
+  } finally {
+    await f.close();
+  }
+});
+it('finishes the latest requested position on release after an earlier image was shown', async () => {
   const f = await setup();
   try {
     await hold(f);
     const stale = f.apply.mock.calls.at(-1)![0];
     act(() => f.hook.result.current.finishReversePlayback());
     await vi.advanceTimersByTimeAsync(1);
-    expect(f.apply.mock.calls.at(-1)![0].targetTime).toBeCloseTo(9.9, 8);
+    expect(f.apply.mock.calls.at(-1)![0]).toBe(stale);
     act(() => f.acknowledge(stale));
-    expect(f.controller.snapshot().time).toBeCloseTo(9.9, 8);
+    expect(f.controller.snapshot().time).toBeCloseTo(9.8, 8);
     expect(frames.size).toBe(0);
   } finally {
     await f.close();
   }
 });
-it('uses the drawn image before its clock ACK arrives', async () => {
-  const f = await setup();
-  try {
-    act(() => f.hook.result.current.startReversePlayback(2));
-    await tick(0);
-    await tick(50);
-    show(f, 9.9);
-    await tick(100);
-    act(() => f.hook.result.current.finishReversePlayback());
-    await vi.advanceTimersByTimeAsync(1);
-    expect(f.apply.mock.calls.at(-1)![0].targetTime).toBeCloseTo(9.9, 8);
-  } finally {
-    await f.close();
-  }
-});
-it('reanchors an immediate repress without a changed React clock', async () => {
+it('continues an immediate repress from the pending destination without a React clock change', async () => {
   const f = await setup();
   try {
     await hold(f);
@@ -211,7 +201,7 @@ it('reanchors an immediate repress without a changed React clock', async () => {
     act(() => f.hook.result.current.startReversePlayback(2));
     await tick(200);
     await tick(250);
-    expect(f.onSeek.mock.calls.at(-1)![0]).toBeCloseTo(9.8, 8);
+    expect(f.onSeek.mock.calls.at(-1)![0]).toBeCloseTo(9.7, 8);
   } finally {
     await f.close();
   }
@@ -387,44 +377,31 @@ it('continues the existing input route if asynchronous media fallback starts dur
   }
 });
 
-it('prepares image rejection synchronously while the previous IPC apply is unresolved', async () => {
+it('keeps the outstanding request when release occurs during a pending IPC apply', async () => {
   const f = await setup();
   const pending = Promise.withResolvers<void>();
   try {
     await hold(f);
     f.apply.mockImplementationOnce(() => pending.promise);
     await tick(150);
+    const pendingCommand = f.apply.mock.calls.at(-1)![0];
+    await tick(200);
     const count = f.apply.mock.calls.length;
+    expect(f.apply.mock.results.at(-1)!.value).toBe(pending.promise);
     act(() => f.hook.result.current.finishReversePlayback());
-    expect(f.prepareSeek).toHaveBeenCalledOnce();
-    expect(f.prepareSeek.mock.calls[0][0].targetTime).toBeCloseTo(9.9, 8);
     expect(f.apply).toHaveBeenCalledTimes(count);
     expect(f.controller.hasConfirmedSeek).toBe(false);
     pending.resolve();
     await vi.advanceTimersByTimeAsync(1);
     expect(f.apply).toHaveBeenCalledTimes(count + 1);
-    expect(f.apply.mock.calls.at(-1)![0]).toEqual(
-      f.prepareSeek.mock.calls[0][0],
-    );
+    const latest = f.apply.mock.calls.at(-1)![0];
+    expect(latest.targetTime).toBeCloseTo(9.6);
+    act(() => f.acknowledge(pendingCommand));
+    expect(f.controller.snapshot().time).toBeCloseTo(9.9);
+    act(() => f.acknowledge(latest));
+    expect(f.controller.snapshot().time).toBeCloseTo(9.6);
   } finally {
     pending.resolve();
-    await f.close();
-  }
-});
-it('reports admission failure without claiming a confirmed release position', async () => {
-  const f = await setup();
-  try {
-    await hold(f);
-    f.prepareSeek.mockImplementation(() => {
-      throw Error('detached surface');
-    });
-    act(() => f.hook.result.current.finishReversePlayback());
-    expect(f.controller.snapshot().phase).toBe('failed');
-    expect(f.controller.snapshot().error).toBe('NATIVE_FRAME_ADMISSION_FAILED');
-    expect(f.controller.snapshot().time).toBeCloseTo(9.9, 8);
-    expect(f.controller.hasConfirmedSeek).toBe(false);
-    expect(frames.size).toBe(0);
-  } finally {
     await f.close();
   }
 });

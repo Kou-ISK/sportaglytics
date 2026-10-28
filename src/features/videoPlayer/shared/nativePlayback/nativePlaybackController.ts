@@ -214,33 +214,6 @@ export class NativePlaybackController {
   get commandRevision(): number {
     return this.operationRevision;
   }
-  /** Cancel only the caller's stopped pending request, retaining the shown frame
-   * while the one existing IPC writer finishes. This never confirms a clock. */
-  finishPendingSeek(time: number, revision: number): boolean {
-    if (
-      this.state.phase !== 'active' ||
-      this.intent.playing ||
-      this.hasConfirmedSeek ||
-      this.operationRevision !== revision
-    )
-      return false;
-    this.seek(time);
-    if (
-      this.state.phase !== 'active' ||
-      this.intent.playing ||
-      this.operationRevision !== revision + 1 ||
-      this.intent.targetTime !== time
-    )
-      return false;
-    try {
-      if (!this.api.prepareSeek) throw Error('surface admission unavailable');
-      this.api.prepareSeek({ ...this.intent });
-      return true;
-    } catch {
-      this.fail('NATIVE_FRAME_ADMISSION_FAILED');
-      return false;
-    }
-  }
   get requestedControls(): NativePlaybackControls {
     const { playing, rate, audioTrack, volume, muted } = this.intent;
     return { playing, rate, audioTrack, volume, muted };

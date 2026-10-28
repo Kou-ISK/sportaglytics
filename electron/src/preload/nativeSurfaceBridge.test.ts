@@ -17,7 +17,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it('rejects queued and late old images synchronously while the old apply is pending', async () => {
+it('rejects queued and late old images when a newer seek is admitted', async () => {
   const callbacks = new Map<number, FrameRequestCallback>();
   let next = 0;
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -57,14 +57,14 @@ it('rejects queued and late old images synchronously while the old apply is pend
   });
   await receiver({ importedSharedTexture: old }, metadata(1, 1));
   expect(draw).not.toHaveBeenCalled();
-  surface.prepare('owner', 2);
+  surface.expect('owner', 2);
   expect(old.release).toHaveBeenCalledOnce();
   expect(electron.send).toHaveBeenCalledWith('diagnostic-surface-drawn', {
     document: 'doc',
     id: 1,
     drawn: false,
   });
-  // An earlier Renderer writer can enter apply after prepare has already run.
+  // Stale admission cannot restore images from the earlier command.
   surface.expect('owner', 1);
   await receiver({ importedSharedTexture: late }, metadata(2, 1));
   expect(late.release).toHaveBeenCalledOnce();
@@ -80,13 +80,11 @@ it('rejects queued and late old images synchronously while the old apply is pend
     id: 3,
     drawn: true,
   });
-  expect(() => surface.prepare('another', 3)).toThrow(
-    'surface owner unavailable',
-  );
   detach();
-  expect(() => surface.prepare('owner', 3)).toThrow(
-    'surface owner unavailable',
-  );
+  const afterClose = texture();
+  await receiver({ importedSharedTexture: afterClose }, metadata(4, 2));
+  expect(afterClose.release).toHaveBeenCalledOnce();
+  expect(draw).toHaveBeenCalledOnce();
   expect(old.release).toHaveBeenCalledOnce();
   expect(current.release).toHaveBeenCalledOnce();
 });
