@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { NativeSurfaceView } from './NativeSurfaceView';
 import { useNativePlaybackState } from '../../shared/nativePlayback/useNativePlaybackState';
 import { getNativePlayback } from '../../shared/nativePlayback/nativePlaybackRegistry';
+import { recordNativePresentedFrame } from '../../shared/nativePlayback/nativePresentedFrame';
 import { resolveVideoSource } from '../Player/SingleVideo/utils';
 
 /** Controller owns the preload binding; the View receives only visual props. */
@@ -38,8 +39,10 @@ export const NativeSurfaceController = ({
           !detached &&
           active?.owner.generation === frame.generation &&
           active.sourceUrl === sourceUrl
-        )
+        ) {
+          recordNativePresentedFrame(active, frame);
           setGeneration(frame.generation);
+        }
       });
       unregister = registerNativeSurface(sourceUrl);
     } catch {

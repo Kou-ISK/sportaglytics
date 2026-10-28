@@ -456,6 +456,8 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 Apple標準再生はAVPlayerが読み出し・復号・音声・時計を所有し、AVPlayerItemVideoOutputの画像を既存DOM表示面へ渡します。Mainの文書/IPC/終了所有権と最大3画像の転送は保持し、独自FFmpeg復号・PCM窓・供給回復は削除します。[ADR 0080](adr/0080-apple-player-playback.md)と[仕様・適用範囲](native-playback.md)を参照してください。
 
+逆方向キー解放時はRendererに最後の描画PTSを1個だけ保持し、本人操作の未完了要求だけをその画像へ収束させます。遅い旧画像をpreloadで除外しても、共通時計を要求値で進めることはありません。再生中核と画像queue上限は変更しません。
+
 通常スクラブはAppleが選んだ近傍画像の実時刻を確認して確定し、コマ送り・明示時刻指定だけを厳密シークにします。タグ/保存時計は要求値でなく確認済み時刻です。相対入力は最新要求へ加算し、旧gestureは新sourceへ伝えません。
 
 Native表示は既存PlayerSurface・overlay・全画面要素を共有します。非対応入力/操作と厳密な文書末尾は、実停止時計・process/pipe/GPU終了を確認した後に既存互換経路へ渡します。原本・保存形式は変えず、再生用コピー作成や方式選択を通常UIへ表示しません。
