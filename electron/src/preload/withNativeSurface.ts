@@ -1,15 +1,8 @@
 import type { IElectronAPI } from '../../../src/renderer';
 import { createSurfaceBridge } from './nativeSurfaceBridge';
-import {
-  parseNativePlaybackIntent,
-  parseNativePlaybackOwner,
-} from '../../../src/types/ipc/nativePlayback';
-import type { NativePlaybackOwner } from '../../../src/types/ipc/nativePlayback';
 export const nativeSurface = createSurfaceBridge();
 let surfaceCloseFailure: unknown;
 export const withSurface = (api: IElectronAPI): IElectronAPI => {
-  let owner: NativePlaybackOwner | null = null;
-  let lifecycle = 0;
   return {
     ...api,
     nativeSurface: {
@@ -25,30 +18,11 @@ export const withSurface = (api: IElectronAPI): IElectronAPI => {
     },
     nativePlayback: {
       ...api.nativePlayback,
-      open: async (rawOwner) => {
-        const next = parseNativePlaybackOwner(rawOwner),
-          revision = ++lifecycle;
-        await api.nativePlayback.open(next);
-        if (revision === lifecycle) owner = next;
-      },
-      prepareSeek: (rawIntent) => {
-        const intent = parseNativePlaybackIntent(rawIntent);
-        if (
-          !owner ||
-          intent.generation !== owner.generation ||
-          intent.sourceKey !== owner.sourceKey ||
-          intent.playing
-        )
-          throw Error('surface owner unavailable');
-        nativeSurface.prepare(intent.generation, intent.seekId);
-      },
       apply: async (intent) => {
         nativeSurface.expect(intent.generation, intent.seekId);
         await api.nativePlayback.apply(intent);
       },
       close: async (closingOwner) => {
-        owner = null;
-        ++lifecycle;
         try {
           nativeSurface.close();
         } catch (error) {
