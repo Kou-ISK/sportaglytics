@@ -11,7 +11,7 @@ interface UseContinuousReversePlaybackParams {
 
 interface ContinuousReversePlaybackController {
   startReversePlayback: (rate: ReversePlaybackRate) => void;
-  stopReversePlayback: () => void;
+  stopReversePlayback: (displayedTime?: number) => void;
 }
 
 const MAX_FRAME_DELTA_SECONDS = 0.1;
@@ -36,6 +36,7 @@ export const useContinuousReversePlayback = ({
   onSeek,
 }: UseContinuousReversePlaybackParams): ContinuousReversePlaybackController => {
   const activeRef = useRef(false);
+  const runRef = useRef(0);
   const frameRef = useRef<number | null>(null);
   const currentTimeRef = useRef(currentTime);
   const minimumTimeRef = useRef(minimumTime);
@@ -52,7 +53,10 @@ export const useContinuousReversePlayback = ({
     }
   }, [currentTime]);
 
-  const stopReversePlayback = useCallback((): void => {
+  const stopReversePlayback = useCallback((displayedTime?: number): void => {
+    runRef.current++;
+    if (displayedTime !== undefined && Number.isFinite(displayedTime))
+      currentTimeRef.current = displayedTime;
     activeRef.current = false;
     if (frameRef.current !== null) {
       cancelAnimationFrame(frameRef.current);
@@ -63,12 +67,13 @@ export const useContinuousReversePlayback = ({
   const startReversePlayback = useCallback(
     (rate: ReversePlaybackRate): void => {
       stopReversePlayback();
+      const run = runRef.current;
       activeRef.current = true;
       onPauseRef.current();
       let previousTimestamp: number | null = null;
 
       const advance = (timestamp: number): void => {
-        if (!activeRef.current) return;
+        if (!activeRef.current || run !== runRef.current) return;
 
         if (previousTimestamp !== null) {
           const nextTime = calculateReversePlaybackTime(
@@ -79,6 +84,8 @@ export const useContinuousReversePlayback = ({
           );
           currentTimeRef.current = nextTime;
           onSeekRef.current(nextTime);
+          // A synchronous consumer can cancel or start another held gesture.
+          if (!activeRef.current || run !== runRef.current) return;
 
           if (nextTime <= minimumTimeRef.current) {
             activeRef.current = false;

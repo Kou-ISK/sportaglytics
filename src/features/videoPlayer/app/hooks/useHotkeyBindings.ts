@@ -23,6 +23,7 @@ interface UseHotkeyBindingsParams {
   setViewMode: Dispatch<SetStateAction<VideoViewMode>>;
   startReversePlayback: (rate: 0.5 | 2 | 4 | 6) => void;
   stopReversePlayback: () => void;
+  finishReversePlayback?: () => void;
   performUndo: () => void;
   performRedo: () => void;
   resyncAudio: () => void;
@@ -50,6 +51,7 @@ export const useHotkeyBindings = ({
   setViewMode,
   startReversePlayback,
   stopReversePlayback,
+  finishReversePlayback = stopReversePlayback,
   performUndo,
   performRedo,
   resyncAudio,
@@ -166,12 +168,12 @@ export const useHotkeyBindings = ({
       'skip-forward-medium': () => stop('skip-forward-medium'),
       'skip-forward-large': () => stop('skip-forward-large'),
       'skip-forward-xlarge': () => stop('skip-forward-xlarge'),
-      'reverse-playback-slow': stopReversePlayback,
-      'reverse-playback-2x': stopReversePlayback,
-      'reverse-playback-4x': stopReversePlayback,
-      'reverse-playback-6x': stopReversePlayback,
+      'reverse-playback-slow': finishReversePlayback,
+      'reverse-playback-2x': finishReversePlayback,
+      'reverse-playback-4x': finishReversePlayback,
+      'reverse-playback-6x': finishReversePlayback,
     }),
-    [stop, stopReversePlayback],
+    [stop, finishReversePlayback],
   );
 
   const actionHotkeys = useMemo(() => {

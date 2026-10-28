@@ -16,6 +16,7 @@ interface Pending {
 export function createSurfaceBridge(): {
   bind: (id: string, onFrame: (meta: Metadata) => void) => () => void;
   expect: (generation: string, seekId: number) => void;
+  prepare: (generation: string, seekId: number) => void;
   close: () => void;
   stats: () => Record<string, unknown>;
 } {
@@ -156,7 +157,19 @@ export function createSurfaceBridge(): {
         callback = null;
       };
     },
+    prepare: (generation, seekId) => {
+      if (closed || !canvas || expected?.generation !== generation)
+        throw Error('surface owner unavailable');
+      if (seekId < expected.seekId) return;
+      expected = { generation, seekId };
+      admission.expect(generation, seekId);
+      if (pending && !matches(pending.meta)) disposePending();
+    },
     expect: (generation, seekId) => {
+      // A release can supersede an older apply still queued in the Renderer.
+      // Ignore only the stale admission update; Main still validates its input.
+      if (expected?.generation === generation && seekId < expected.seekId)
+        return;
       if (!canvas) throw Error('surface not bound');
       if (expected?.generation !== generation) {
         stop();
