@@ -29,10 +29,6 @@ NSString *sha256(NSData *data) {
 bool numeric(id value) {
   return [value isKindOfClass:NSNumber.class] && CFGetTypeID((__bridge CFTypeRef)value) != CFBooleanGetTypeID() && std::isfinite([value doubleValue]);
 }
-struct SampleOwner {
-  CMSampleBufferRef sample;
-  ~SampleOwner() { if (sample) CFRelease(sample); }
-};
 struct OutputDisconnected {};
 }
 
@@ -166,19 +162,13 @@ struct OutputDisconnected {};
   if (!_seeking && _seekCompleted && (!_imageSent || _surfaces.demanded()) && surfacewire::hasFrameCredit(_surfaces.pending()) && _output.count() < 6) {
     // A completed same-frame seek may not make hasNewPixelBuffer true. Ask
     // AVPlayer for the image appropriate to its confirmed clock and re-present.
-    CMTime pts; CVPixelBufferRef image = [_engine copyCurrentImage:&pts force:!_imageSent];
+    CMTime pts = kCMTimeInvalid; CVPixelBufferRef image = [_engine copyCurrentImage:&pts force:!_imageSent];
     if (image) {
-      CMVideoFormatDescriptionRef format = NULL; CMSampleBufferRef sample = NULL;
-      OSStatus status = CMVideoFormatDescriptionCreateForImageBuffer(NULL, image, &format);
-      CMSampleTimingInfo timing = { kCMTimeInvalid, pts, kCMTimeInvalid };
-      if (status == noErr) status = CMSampleBufferCreateReadyWithImageBuffer(NULL, image, format, &timing, &sample);
-      CVPixelBufferRelease(image); if (format) CFRelease(format);
-      require(status == noErr && sample, @"Apple image format");
-      SampleOwner sampleOwner{sample};
+      auto imageOwner = PixelReference::adopt(image);
       require(CMTIME_IS_NUMERIC(pts) && CMTimeCompare(pts, kCMTimeZero) >= 0, @"Apple image timestamp");
       uint64_t ticks = CMTimeConvertScale(pts, 120000, kCMTimeRoundingMethod_Default).value;
       uint64_t id = _surfaces.nextID();
-      BOOL sent = _surfaces.send(sample, _seek, _seek, ticks);
+      BOOL sent = _surfaces.send(image, _seek, _seek, ticks);
       if (sent) {
         _imagePTS = ticks; _imageSent = YES; _surfaces.consumedDemand();
         [self enqueue:@{@"type":@"surface-ready", @"generation":_manifest[@"owner"][@"generation"], @"id":@(id)}];
