@@ -563,4 +563,6 @@ macOS arm64では`pnpm run native:build`でAVPlayer helperとN-API receiverを�
 
 `test:native-build`はresource改変・欠落・symlink拒否、`test:native-runtime`は有界control pipe・Mach返信・所有終了・診断上限を検査します。Session/Controller回帰ではpreviewとscrubの実時刻、厳密seek、source交代、復帰中入力、取消を確認します。実原本の音声聴取と配布品質は別記します。
 
+画像転送の変更では`SurfaceSender.test.mm`の実画像プール回帰も実行します。元CVPixelBufferの保持とReleased ACKを対応させ、時刻検証失敗・送信失敗・終了でもCopy参照を残さないことを確認してください。新しいnative headerは`source-files.json`へ登録し、固定source snapshotからの`native:build`で同梱漏れを検出します。
+
 `native:sources`で[対応ソース](third-party-distribution.md#native-playback-previewの対応ソース)を作成します。通常packageのarm64資源は内側署名→manifest→外側署名の順で固定teamとhashを照合します。署名済みpackageの起動・操作・終了と[公証配布](../.github/RELEASE.md)を別途確認します。Windowsへの新方式移植は今回の完了条件に含めません。

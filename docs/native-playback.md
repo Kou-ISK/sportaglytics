@@ -8,6 +8,8 @@ AVPlayerが読み出し、復号、音声出力、共通時計を所有します
 
 表示面はsandbox preloadと既存DOMコンテナに置き、既存のoverlay座標・重ね順・全画面要素を維持します。転送は最大3画像で、描画ACKとGPU参照解放を分離します。AVPlayerの内部buffer容量を、この3画像上限で保証したとは扱いません。
 
+取得したCVPixelBufferはCMSampleBufferへ包み直さず、元のIOSurfaceと確認済みPTSを送ります。転送に使わないsample形式の検証で`kCMSampleBufferError_InvalidMediaFormat`となり終了する経路を除去します。元のpixel bufferをReleased ACKまで保持し、Drawn ACKだけでは画像プールへ返しません。既存のNV12配置・時刻・送信元・世代検証と3画像上限を維持します。この修正を間欠的な画像停止や逆方向の表示待ちの解消とは扱いません。
+
 [ADR 0080](adr/0080-apple-player-playback.md)に採用理由を記録します。[AppleのAPI](https://developer.apple.com/documentation/avfoundation/avplayeritemvideooutput)を使用しますが、QuickTime PlayerやSportscodeの非公開内部と同一と主張しません。
 
 ## 操作と所有権

@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- MacのApple再生で、取得済み画像を未使用のsample形式へ包み直す際に形式不一致で終了する経路を除去。元画像と確認済み時刻をそのまま転送し、描画資源の解放まで保持する。間欠的な画像停止や逆方向の表示待ちを解消したものではない。[所有権と範囲](docs/native-playback.md)。
 - 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
 
 ## [0.17.19]

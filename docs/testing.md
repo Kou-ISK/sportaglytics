@@ -80,6 +80,8 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 `test:native-runtime`の`ReplyQueue.test.cpp`は実Mach portで返信10通のFIFO・peer照合・11通目の上限拒否・無効port設定失敗を確認します。映像は使わず、画像保持上限を増やしません。既存の数値診断回帰では返信エラーの固定分類と未知文字列の非保存を確認します。
 
+同コマンドの`SurfaceSender.test.mm`は合成NV12のCVPixelBufferPoolと実Mach通信を使い、元IOSurface・PTS・世代の維持、Drawn後の保持とReleased後の再利用、3画像上限、取消、不正ACK、送信失敗、終了時の回収を確認します。Copy所有権の移動とObjective-C例外での解放も製品と同じARCコンパイル条件で検査します。サンドボックスでCoreVideo/Mach利用が拒まれる環境では合格扱いにせず、許可されたMac実行環境で確認してください。合成画像の所有権試験は実動画の停止・聴取品質を保証しません。
+
 `scripts/tests/macos-release.mjs`の公開検証要約テストは、source/version/archの不一致、改変DMG/installer、未知のWindows署名状態、未公証・未staple・Gatekeeper拒否、余分なassetとraw診断情報の除外を合成reportで検査します。CLI試験は一時git repositoryと合成bytesを使い、実hash照合・既存要約の上書き拒否・改変候補での未出力を確認します。ファイル名にmacosを含みますが、この検査はLinux/Windowsでも動くNode試験で、実署名・公証・E2Eを代替しません。既存の`test:run` / `test:ci`が同ファイルを登録済みのため、限定検査も両コマンドに含まれます。
 
 `test:run` / `test:ci`は既存Vitestの後に`check:build-downloads`と同じNode検査も実行します。`scripts/tests/build-downloader.mjs`は実際のbuilder/get/got依存を読み、loopbackの合成bytesでダウンロード・checksum・ファイルキャッシュと通信の回帰を検証します。外部モデルやElectron GUIを起動しません。依存境界の判断は[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に記録しています。
