@@ -15,13 +15,19 @@ interface Pending {
 }
 export function createSurfaceBridge(): {
   bind: (id: string, onFrame: (meta: Metadata) => void) => () => void;
-  expect: (generation: string, seekId: number) => void;
+  expect: (
+    generation: string,
+    seekId: number,
+    sequence?: number,
+    rate?: number,
+  ) => void;
   close: () => void;
   stats: () => Record<string, unknown>;
 } {
   let canvas: HTMLCanvasElement | null = null,
     callback: ((meta: Metadata) => void) | null = null,
-    expected: { generation: string; seekId: number } | null = null,
+    expected: { generation: string; seekId: number; sequence?: number } | null =
+      null,
     pending: Pending | null = null,
     animation = 0,
     demandAnimation = 0,
@@ -156,10 +162,16 @@ export function createSurfaceBridge(): {
         callback = null;
       };
     },
-    expect: (generation, seekId) => {
+    expect: (generation, seekId, sequence, rate) => {
       // Never let a stale command restore admission for an older image.
       // Ignore only the stale admission update; Main still validates its input.
-      if (expected?.generation === generation && seekId < expected.seekId)
+      if (
+        expected?.generation === generation &&
+        (seekId < expected.seekId ||
+          (sequence !== undefined &&
+            expected.sequence !== undefined &&
+            sequence < expected.sequence))
+      )
         return;
       if (!canvas) throw Error('surface not bound');
       if (expected?.generation !== generation) {
@@ -171,8 +183,8 @@ export function createSurfaceBridge(): {
         frameCount = 0;
         frames.length = 0;
       }
-      expected = { generation, seekId };
-      admission.expect(generation, seekId);
+      expected = { generation, seekId, sequence };
+      admission.expect(generation, seekId, sequence, rate);
       if (pending && !matches(pending.meta)) disposePending();
       if (!demandAnimation) demandAnimation = requestAnimationFrame(request);
     },

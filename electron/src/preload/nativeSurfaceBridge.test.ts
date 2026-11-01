@@ -88,3 +88,77 @@ it('rejects queued and late old images when a newer seek is admitted', async () 
   expect(old.release).toHaveBeenCalledOnce();
   expect(current.release).toHaveBeenCalledOnce();
 });
+
+it('presents intermediate images when newer reverse input arrives after receipt but before paint', async () => {
+  const { HeldSeekQueue } =
+    await import('../../../src/shared/media/heldSeekQueue');
+  const callbacks = new Map<number, FrameRequestCallback>();
+  let next = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    callbacks.set(++next, callback);
+    return next;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => callbacks.delete(id));
+  const draw = vi.fn();
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    drawImage: draw,
+  } as unknown as CanvasRenderingContext2D);
+  const canvas = document.createElement('canvas');
+  canvas.id = 'reverse-surface';
+  canvas.width = 1920;
+  canvas.height = 1080;
+  document.body.append(canvas);
+  const surface = createSurfaceBridge();
+  let seek = 0;
+  let displayed = (): void => {};
+  const shown: number[] = [];
+  const release = surface.bind(canvas.id, (meta) => {
+    shown.push(meta.pts);
+    displayed();
+  });
+  const receiver = electron.receive.mock.calls.at(-1)![0];
+  const issue = vi.fn(
+    (time: number) =>
+      new Promise<void>((resolve) => {
+        surface.expect('reverse', ++seek, seek, 1);
+        displayed = resolve;
+        void receiver(
+          {
+            importedSharedTexture: {
+              release: vi.fn(),
+              getVideoFrame: () => ({ close: vi.fn() }),
+            },
+          },
+          {
+            document: 'doc',
+            generation: 'reverse',
+            nativeGeneration: seek,
+            seekId: seek,
+            id: seek,
+            pts: time * 120000,
+          },
+        );
+      }),
+  );
+  const queue = new HeldSeekQueue(issue, (error) => {
+    throw error;
+  });
+  queue.request(10);
+  queue.request(9);
+  queue.request(8);
+  expect(draw).not.toHaveBeenCalled();
+  expect(issue).toHaveBeenCalledTimes(1);
+  const paint = async (): Promise<void> => {
+    const ready = [...callbacks.values()];
+    callbacks.clear();
+    ready.forEach((callback) => callback(0));
+    for (let n = 0; n < 8; n++) await Promise.resolve();
+  };
+  await paint();
+  expect(shown).toEqual([1200000]);
+  expect(issue.mock.calls.map(([time]) => time)).toEqual([10, 8]);
+  await paint();
+  expect(shown).toEqual([1200000, 960000]);
+  expect(draw).toHaveBeenCalledTimes(2);
+  release();
+});

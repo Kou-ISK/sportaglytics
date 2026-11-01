@@ -541,7 +541,7 @@ Native seekの要求整理を変更するときは、未完了の同一停止位
 
 時計変更時は実AVPlayerの停止・再開・再停止とSession/Controllerの世代・原本時刻を確認します。旧独自field/PCM計算の試験をApple再生の成功証拠として流用しません。
 
-逆方向キー解放では新しいrAF入力を停止し、既発行・送信保留中の最後の要求を維持します。旧要求の遅い応答が最新時計を戻さないこと、別操作・同期再入・原本復帰・直後の再押下を回帰検証します。実動画では押下中の画像更新、解放後の到達先と待ち、通常再生への復帰を別々に測定し、要求時刻だけで動作成功としません。
+長押し逆再生の変更時は`node scripts/test-reverse-playback-browser.mjs`でLinux Chromiumによる実復号・実キー入力の4倍率とPlaylistのclip/gap/時差を確認します（FFmpeg、Chromiumが必要、`CHROMIUM_PATH`で実行ファイル指定可）。負rate、Drawn、確認時計、停止・旧通知の回帰を併用します。`pnpm run verify`とOS別検証の完了は区別し、[結果と実機測定手順](reports/2026-11-held-reverse.md)に実測/模擬/未検証を記録します。
 
 Native末尾復帰の変更時は、量子化差の有界処理と実SyncedVideoPlayerの末尾commit回帰を実施します。合成portの成功と原本での実HTML復帰は別の検証です。[回帰の範囲](testing.md#test-placement)を参照してください。
 

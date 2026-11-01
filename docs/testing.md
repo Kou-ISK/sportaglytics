@@ -141,7 +141,7 @@ Heavy model weightやtraining frameworkをSporTagLytics unit testで取得しま
 
 ## Settings / Timeline / IPC
 
-逆方向キー解放は`useVideoReversePlayback.test.tsx`で最後の要求の保持、IPC保留中の最新要求、遅い旧応答、即時再押下、別操作・再入・原本復帰・下端を確認します。`nativeSurfaceBridge.test.ts`は新しいseekによるrAF待ち画像の破棄、古い受付更新の拒否、close後の画像解放を検査し、`withNativeSurface.test.ts`はIPC前の受付更新とsurface終了失敗の伝播を確認します。合成回帰の成功は押下中の実映像速度や滑らかさの証拠とは分けます。
+長押し逆再生は`useVideoReversePlayback.test.tsx`、`nativePlaybackSession.test.ts`で負rateの4倍率、押下中にseekが増えないこと、実停止時計、直後の再押下・別操作・音声変更を合成確認します。`heldSeekQueue.test.ts`、`nativeSurfaceBridge.test.ts`は応答待ちの連続入力、受信後描画前の追加入力、途中表示と最後の希望位置、旧素材/文書/操作の拒否を確認します。`waitForVideoPresentation.test.ts`はPTSとpaint前の時計確定を拒否します。`node scripts/test-reverse-playback-browser.mjs`は合成映像を実際に復号し、主画面/Playlistで4倍率の経過時間・異なるPTS・描画間隔・解放確定を測ります。完全なElectron画面・AVPlayer実機の代替にはしません。[再現コマンド、境界、実機手順](reports/2026-11-held-reverse.md)。
 
 TimelineのTab回帰は`useTimelineGlobalShortcuts.test.tsx`で開始時刻順の前後巡回、折り返し、DOMフォーカス、未選択/無効選択、入力/通常コントロール/ダイアログ、IME、Cmd/Ctrl/Alt+Tabの除外を確認します。`node scripts/e2e-ux-review.mjs`は合成240件と映像を使い、Tab/Shift+Tabの選択・フォーカス・実映像シーク、Option/Alt別名、Escape後と検索入力中の通常Tab移動、文書を変更しないことを検証します。通常アプリのプロファイルや実試合データを使いません。
 

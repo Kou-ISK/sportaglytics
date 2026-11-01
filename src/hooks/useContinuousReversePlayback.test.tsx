@@ -60,7 +60,7 @@ describe('useContinuousReversePlayback', () => {
     act(() => runNextFrame(1050));
 
     expect(onPause).toHaveBeenCalledTimes(1);
-    expect(onSeek).toHaveBeenLastCalledWith(9.9);
+    expect(onSeek).toHaveBeenLastCalledWith(9.9, expect.any(AbortSignal));
 
     act(() => result.current.stopReversePlayback());
     expect(callbacks.size).toBe(0);
@@ -81,7 +81,7 @@ describe('useContinuousReversePlayback', () => {
     act(() => runNextFrame(1000));
     act(() => runNextFrame(1050));
 
-    expect(onSeek).toHaveBeenLastCalledWith(5);
+    expect(onSeek).toHaveBeenLastCalledWith(5, expect.any(AbortSignal));
     expect(callbacks.size).toBe(0);
   });
 });

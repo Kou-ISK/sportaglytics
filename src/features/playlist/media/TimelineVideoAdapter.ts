@@ -105,7 +105,7 @@ export class TimelineVideoAdapter {
     if (
       (positionRequired || !this.video.seeking) &&
       Math.abs(this.video.currentTime - active.sourceTime) >
-        (playing && !positionRequired ? 0.15 : 0.015)
+        (positionRequired ? 0.000001 : playing ? 0.15 : 0.015)
     ) {
       this.pendingPosition = active.sourceTime;
       this.video.currentTime = active.sourceTime;

@@ -45,8 +45,9 @@ struct OutputDisconnected {};
   std::string _input;
   appleplayback::ControlOutput _output;
   uint64_t _seek, _revision, _imagePTS, _controlSequence, _rateSequence;
-  BOOL _seeking, _seekCompleted, _imageSent, _ready, _closing, _persisted;
+  BOOL _seeking, _seekCompleted, _imageSent, _ready, _closing, _persisted, _engineClosed, _atStart;
   double _openedAt, _closeAt, _observedAt;
+  appleplayback::ReversePresentationProgress _reverseProgress;
 }
 - (instancetype)initWithManifest:(NSDictionary *)manifest result:(NSString *)result {
   if ((self = [super init])) {
@@ -77,7 +78,8 @@ struct OutputDisconnected {};
   double seq = [value[@"sequence"] doubleValue], seek = [value[@"seekId"] doubleValue], target = [value[@"targetTime"] doubleValue], track = [value[@"audioTrack"] doubleValue];
   require(seq >= 1 && seq <= 9007199254740991.0 && seq == floor(seq) && seek >= 1 && seek <= seq && seek == floor(seek), @"playback command identifiers");
   require(target >= 0 && target < 86400 && track >= 0 && track < 8 && track == floor(track), @"playback command scope");
-  require([value[@"rate"] doubleValue] >= .25 && [value[@"rate"] doubleValue] <= 6 && [value[@"volume"] doubleValue] >= 0 && [value[@"volume"] doubleValue] <= 1, @"playback controls range");
+  double rate = [value[@"rate"] doubleValue];
+  require(((rate >= .25 && rate <= 6) || rate == -.5 || rate == -2 || rate == -4 || rate == -6) && [value[@"volume"] doubleValue] >= 0 && [value[@"volume"] doubleValue] <= 1, @"playback controls range");
   if (_intent) require(seq > [_intent[@"sequence"] doubleValue] && seek >= [_intent[@"seekId"] doubleValue] && (seek != [_intent[@"seekId"] doubleValue] || (target == [_intent[@"targetTime"] doubleValue] && [(value[@"seekMode"] ?: @"exact") isEqual:(_intent[@"seekMode"] ?: @"exact")])), @"playback command order");
   else require(seek == 1 && ![value[@"playing"] boolValue], @"initial playback command");
   _intent = [value copy];
@@ -106,6 +108,8 @@ struct OutputDisconnected {};
   BOOL failed = strcmp(state.phase, "failed") == 0;
   if (!_intent || _closing || (!failed && _output.count() >= 6)) return;
   double time = CMTimeGetSeconds(_engine.currentTime);
+  // This is the measured media clock. Image PTS remains separately tracked
+  // by Drawn ACKs; readiness requires a displayed image of this control epoch.
   if (failed && !std::isfinite(time)) time = [_intent[@"targetTime"] doubleValue];
   if (!std::isfinite(time)) return;
   [self enqueue:@{@"type":@"observation", @"value":@{
@@ -113,6 +117,7 @@ struct OutputDisconnected {};
     @"revision":@(++_revision), @"sequence":_intent[@"sequence"], @"seekId":_intent[@"seekId"],
     @"phase":@(state.phase), @"time":@(time), @"rate":@(state.rate),
     @"audioTrack":_intent[@"audioTrack"], @"volume":_intent[@"volume"], @"muted":_intent[@"muted"],
+    @"reverseCapabilities":@{@"slow":@([_engine supportsRate:-.5]), @"fast":@([_engine supportsRate:-2])},
     @"videoReady":@(state.ready), @"audioReady":@(state.ready), @"error":failed ? @"media" : [NSNull null]
   }}];
 }
@@ -142,6 +147,13 @@ struct OutputDisconnected {};
     }
     [_engine setVolume:[_intent[@"volume"] floatValue] muted:[_intent[@"muted"] boolValue]];
     _controlSequence = [_intent[@"sequence"] unsignedLongLongValue];
+    // A control epoch needs its own image. Release confirms a stopped image,
+    // not the last image drawn while the timebase was still running.
+    _imageSent = NO; _atStart = NO;
+    _reverseProgress.reset(CACurrentMediaTime());
+    if (![_intent[@"playing"] boolValue] || [_intent[@"seekMode"] isEqual:@"preview"]) {
+      [_engine pause]; _ready = NO;
+    }
   }
   uint64_t seek = [_intent[@"seekId"] unsignedLongLongValue];
   if (_seek != seek) {
@@ -152,14 +164,18 @@ struct OutputDisconnected {};
       if (!self->_closing && self->_seek == seek) { self->_seekCompleted = finished; self->_seeking = NO; }
     }];
   }
-  if (!_seeking && _seekCompleted && !_ready && _imageSent && _surfaces.drawn(_seek, _imagePTS)) {
+  if ([_intent[@"rate"] doubleValue] < 0 && [_intent[@"playing"] boolValue] &&
+      _ready && !_atStart && CMTimeCompare(_engine.currentTime, kCMTimeZero) <= 0) {
+    [_engine pause]; _atStart = YES; _imageSent = NO; _ready = NO;
+  }
+  if (!_seeking && _seekCompleted && !_ready && _engine.rate == 0 && _imageSent && _surfaces.drawn(_controlSequence, _imagePTS)) {
     _ready = YES; [self observe:{"paused", 0, true}];
   }
-  if (_ready && _rateSequence != [_intent[@"sequence"] unsignedLongLongValue]) {
+  if (_ready && !_atStart && _rateSequence != [_intent[@"sequence"] unsignedLongLongValue]) {
     [_engine setRate:![_intent[@"seekMode"] isEqual:@"preview"] && [_intent[@"playing"] boolValue] ? [_intent[@"rate"] floatValue] : 0];
     _rateSequence = [_intent[@"sequence"] unsignedLongLongValue];
   }
-  if (!_seeking && _seekCompleted && (!_imageSent || _surfaces.demanded()) && surfacewire::hasFrameCredit(_surfaces.pending()) && _output.count() < 6) {
+  if (!_seeking && _seekCompleted && (_ready || _engine.rate == 0) && (!_imageSent || _surfaces.demanded()) && surfacewire::hasFrameCredit(_surfaces.pending()) && _output.count() < 6) {
     // A completed same-frame seek may not make hasNewPixelBuffer true. Ask
     // AVPlayer for the image appropriate to its confirmed clock and re-present.
     CMTime pts = kCMTimeInvalid; CVPixelBufferRef image = [_engine copyCurrentImage:&pts force:!_imageSent];
@@ -168,30 +184,43 @@ struct OutputDisconnected {};
       require(CMTIME_IS_NUMERIC(pts) && CMTimeCompare(pts, kCMTimeZero) >= 0, @"Apple image timestamp");
       uint64_t ticks = CMTimeConvertScale(pts, 120000, kCMTimeRoundingMethod_Default).value;
       uint64_t id = _surfaces.nextID();
-      BOOL sent = _surfaces.send(image, _seek, _seek, ticks);
+      BOOL sent = _surfaces.send(image, _controlSequence, _seek, ticks);
       if (sent) {
         _imagePTS = ticks; _imageSent = YES; _surfaces.consumedDemand();
         [self enqueue:@{@"type":@"surface-ready", @"generation":_manifest[@"owner"][@"generation"], @"id":@(id)}];
       }
     }
   }
+  if (_ready && !_atStart && [_intent[@"playing"] boolValue] && [_intent[@"rate"] doubleValue] < 0) {
+    // Capability and a running timebase do not prove reverse presentation.
+    std::optional<uint64_t> drawnPTS;
+    if (_surfaces.hasDrawn(_controlSequence)) drawnPTS = _surfaces.drawnPTS();
+    if (_reverseProgress.stalled(CACurrentMediaTime(), drawnPTS)) {
+      [self failMedia:@"reverse image progress unavailable"]; return;
+    }
+  }
   if (CACurrentMediaTime() - _observedAt >= .033) {
     _observedAt = CACurrentMediaTime();
     BOOL waiting = _ready && _engine.timeControlStatus == AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate;
     double requestedRate = ![_intent[@"seekMode"] isEqual:@"preview"] && [_intent[@"playing"] boolValue] ? [_intent[@"rate"] doubleValue] : 0;
-    auto state = appleplayback::samplePlayerObservation(_ready, waiting, requestedRate, [&] { return _engine.rate; });
+    auto state = appleplayback::samplePlayerObservation(_ready && _surfaces.hasDrawn(_controlSequence), waiting, requestedRate, [&] { return _engine.rate; });
     if (state) [self observe:*state];
   }
 }
 - (void)close {
   if (_closing) return;
   _closing = YES; _closeAt = CACurrentMediaTime(); [_engine pause];
+  // The timebase can settle asynchronously after pause. The run loop records
+  // the actual clock only once rate is observed at zero.
+}
+- (void)finishClose {
+  if (_engineClosed || _engine.rate != 0) return;
   if (_intent && CMTIME_IS_NUMERIC(_engine.currentTime)) _stopped = @{
     @"generation":_intent[@"generation"], @"sourceKey":_intent[@"sourceKey"],
     @"sequence":_intent[@"sequence"], @"seekId":_intent[@"seekId"],
     @"time":@(CMTimeGetSeconds(_engine.currentTime)), @"rate":@0
   };
-  [_engine close];
+  [_engine close]; _engineClosed = YES;
 }
 - (void)persist {
   NSDictionary *result = @{@"engine":@"AVPlayer", @"success":@(!_failure), @"stoppedClock":_stopped ?: [NSNull null], @"error":_failure ?: [NSNull null]};
@@ -210,7 +239,8 @@ struct OutputDisconnected {};
           _surfaces.poll(); [self flush];
           if (interrupted) [self close];
           if (!_closing) { [self readCommands]; if (!_closing) [self updatePlayer]; }
-          if (_closing && !_surfaces.pending() && !_output.count() && !_persisted) [self persist];
+          if (_closing) [self finishClose];
+          if (_closing && _engineClosed && !_surfaces.pending() && !_output.count() && !_persisted) [self persist];
           if (_persisted && !_output.count()) return _failure ? 1 : 0;
         } catch (const OutputDisconnected &) {
           [self close]; return 1;

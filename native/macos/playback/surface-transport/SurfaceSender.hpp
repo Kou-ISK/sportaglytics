@@ -46,6 +46,8 @@ public:
    const auto& h=held_.at(a.id);if(a.header.msgh_id==surfacewire::Drawn){drawGeneration_=h.generation;drawPTS_=h.pts;}else{held_.erase(a.id);}
   }
  }
+ bool hasDrawn(uint64_t generation) const {return drawGeneration_==generation;}
+ uint64_t drawnPTS() const {return drawPTS_;}
  bool demanded() const {return demand_;}
  uint64_t nextID() const {return serial_+1;}
  void consumedDemand(){demand_=false;}

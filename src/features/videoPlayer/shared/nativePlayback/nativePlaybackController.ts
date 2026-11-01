@@ -1,3 +1,4 @@
+import { clockMovedAgainstRate } from '../../../../shared/media/playbackRate';
 import { reportNativeFailure } from './nativeFailureReport';
 import type { VideoSeekMode } from '../../../../types/video/seek';
 import { nativePresentationSupports } from '../../../../types/ipc/nativePlaybackPresentation';
@@ -67,6 +68,9 @@ export class NativePlaybackController {
   private recoveryTime: number | null = null;
   private stoppedTime: number | null = null;
   private operationRevision = 0;
+  private positionRevision = 0;
+  private clockRate = 1;
+  private reverseCapabilities = { slow: false, fast: false };
   constructor(
     private readonly api: IElectronAPI['nativePlayback'],
     readonly owner: NativePlaybackOwner,
@@ -171,6 +175,7 @@ export class NativePlaybackController {
   seek(time: number, mode: VideoSeekMode = 'exact'): void {
     // A coalesced same-target input still supersedes an earlier gesture.
     this.operationRevision++;
+    this.positionRevision++;
     if (!this.acceptsOperation()) return;
     if (!Number.isFinite(time) || time < 0 || time > 86400) {
       this.fail('NATIVE_INVALID_SEEK');
@@ -210,6 +215,19 @@ export class NativePlaybackController {
     return this.lastReadySeek === this.intent.seekId
       ? this.state.time
       : this.intent.targetTime;
+  }
+  supportsReverse(rate: number): boolean {
+    return (
+      this.state.phase === 'active' &&
+      this.hasConfirmedSeek &&
+      (rate === 0.5
+        ? this.reverseCapabilities.slow
+        : this.reverseCapabilities.fast) &&
+      (!this.presentation || this.presentation.rates.includes(-rate))
+    );
+  }
+  get seekRevision(): number {
+    return this.positionRevision;
   }
   get commandRevision(): number {
     return this.operationRevision;
@@ -344,6 +362,13 @@ export class NativePlaybackController {
         return;
       this.lastResponse = performance.now();
       this.lastRevision = observation.revision;
+      if (observation.reverseCapabilities)
+        this.reverseCapabilities = observation.reverseCapabilities;
+      if (
+        observation.phase === 'buffering' ||
+        (observation.videoReady && observation.audioReady)
+      )
+        this.clockRate = this.intent.rate;
       if (observation.phase === 'buffering') {
         this.bufferedStop = {
           seekId: observation.seekId,
@@ -364,7 +389,10 @@ export class NativePlaybackController {
         this.lastReadySeek = observation.seekId;
         if (
           observation.phase ===
-          (!preview && this.intent.playing ? 'playing' : 'paused')
+            (!preview && this.intent.playing ? 'playing' : 'paused') ||
+          (this.intent.rate < 0 &&
+            observation.phase === 'paused' &&
+            observation.time === 0)
         ) {
           this.readyDeadline = null;
           this.bufferingDeadline = null;
@@ -469,9 +497,19 @@ export class NativePlaybackController {
           stopped.sequence > this.intent.sequence ||
           stopped.seekId > this.intent.seekId ||
           (stopped.seekId === this.lastReadySeek &&
-            stopped.time < this.state.time) ||
+            Math.sign(this.intent.rate) === Math.sign(this.clockRate) &&
+            clockMovedAgainstRate(
+              stopped.time,
+              this.state.time,
+              this.clockRate,
+            )) ||
           (stopped.seekId === this.bufferedStop?.seekId &&
-            stopped.time < this.bufferedStop.time)
+            Math.sign(this.intent.rate) === Math.sign(this.clockRate) &&
+            clockMovedAgainstRate(
+              stopped.time,
+              this.bufferedStop.time,
+              this.clockRate,
+            ))
         )
           throw Error('NATIVE_STOP_CLOCK_UNCONFIRMED');
         this.stoppedTime = stopped.time;
@@ -569,8 +607,9 @@ export class NativePlaybackController {
           playing:
             this.fallingBack &&
             this.intent.seekMode !== 'preview' &&
-            this.intent.playing,
-          rate: this.intent.rate,
+            this.intent.playing &&
+            this.intent.rate > 0,
+          rate: Math.abs(this.intent.rate),
           audioTrack: this.intent.audioTrack,
           volume: this.intent.volume,
           muted: this.intent.muted,

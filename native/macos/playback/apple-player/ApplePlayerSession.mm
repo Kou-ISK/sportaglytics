@@ -20,6 +20,7 @@
     _output.suppressesPlayerRendering = YES;
     [_item addOutput:_output];
     _player = [AVPlayer playerWithPlayerItem:_item];
+    _item.reversePlaybackEndTime = kCMTimeZero;
     // Setup is silent; Main supplies the existing user's audio selection before play.
     _player.muted = YES;
   }
@@ -41,6 +42,8 @@
 - (NSUInteger)audioTrackCount { return self.audioTracks.count; }
 - (BOOL)supportsRate:(float)rate {
   if (_closed || _item.status != AVPlayerItemStatusReadyToPlay) return NO;
+  if (rate == -0.5) return _item.canPlaySlowReverse;
+  if (rate == -2 || rate == -4 || rate == -6) return _item.canPlayFastReverse;
   if (rate >= 1 && rate <= 2) return YES;
   return rate > 2 ? _item.canPlayFastForward : rate > 0 && _item.canPlaySlowForward;
 }

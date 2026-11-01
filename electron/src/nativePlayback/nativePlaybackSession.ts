@@ -1,4 +1,8 @@
 import {
+  isPlaybackRate,
+  clockMovedAgainstRate,
+} from '../../../src/shared/media/playbackRate';
+import {
   parseNativePlaybackIntent,
   parseNativePlaybackObservation,
   parseNativePlaybackClosed,
@@ -47,6 +51,8 @@ export class NativePlaybackSession {
   private closed: NativePlaybackClosed | null = null;
   private closeOperation: Promise<NativePlaybackClosed> | null = null;
   private lastTime: number;
+  private clockRate = 1;
+  private clockTime: number;
 
   constructor(
     readonly scope: NativePlaybackScope,
@@ -63,9 +69,7 @@ export class NativePlaybackSession {
       scope.audioTracks < 1 ||
       scope.audioTracks > 8 ||
       scope.rates.length === 0 ||
-      scope.rates.some(
-        (rate) => !Number.isFinite(rate) || rate < 0.25 || rate > 6,
-      )
+      scope.rates.some((rate) => !isPlaybackRate(rate))
     )
       throw Error('NATIVE_INVALID_SCOPE');
     this.scope = Object.freeze({
@@ -74,6 +78,7 @@ export class NativePlaybackSession {
       rates: Object.freeze([...scope.rates]),
     });
     this.lastTime = scope.start;
+    this.clockTime = scope.start;
   }
 
   apply(raw: NativePlaybackIntent): void {
@@ -190,11 +195,18 @@ export class NativePlaybackSession {
       this.changed();
       return true;
     }
+    // Media time is not monotonic across a direction change: AVPlayer may
+    // travel farther in the old direction before processing the new command.
+    // Re-anchor only the progress check, never the published confirmed clock.
+    const directionChanged =
+      Math.sign(processed.rate) !== Math.sign(this.clockRate);
     if (value.phase === 'buffering') {
       if (
         this.anchoredSeek !== value.seekId ||
-        value.time < this.lastTime ||
-        (this.bufferedStop?.seekId === value.seekId &&
+        (!directionChanged &&
+          clockMovedAgainstRate(value.time, this.clockTime, this.clockRate)) ||
+        (!directionChanged &&
+          this.bufferedStop?.seekId === value.seekId &&
           value.time !== this.bufferedStop.time)
       ) {
         this.fail('protocol');
@@ -207,9 +219,15 @@ export class NativePlaybackSession {
       value.videoReady &&
       value.audioReady &&
       (value.phase === 'paused' || value.phase === 'playing') &&
-      (value.time < this.lastTime ||
-        (this.bufferedStop?.seekId === value.seekId &&
-          value.time < this.bufferedStop.time))
+      ((!directionChanged &&
+        clockMovedAgainstRate(value.time, this.clockTime, this.clockRate)) ||
+        (!directionChanged &&
+          this.bufferedStop?.seekId === value.seekId &&
+          clockMovedAgainstRate(
+            value.time,
+            this.bufferedStop.time,
+            this.clockRate,
+          )))
     ) {
       this.fail('protocol');
       return false;
@@ -230,6 +248,10 @@ export class NativePlaybackSession {
         return false;
       }
       this.anchoredSeek = value.seekId;
+    }
+    if (value.phase === 'buffering' || (value.videoReady && value.audioReady)) {
+      this.clockRate = processed.rate;
+      this.clockTime = value.time;
     }
     this.observation = value;
     if (
@@ -310,7 +332,12 @@ export class NativePlaybackSession {
           stopped.time < this.scope.start ||
           stopped.time > this.scope.end ||
           (stopped.seekId === this.anchoredSeek &&
-            stopped.time < this.lastTime))
+            Math.sign(processed.rate) === Math.sign(this.clockRate) &&
+            clockMovedAgainstRate(
+              stopped.time,
+              this.clockTime,
+              this.clockRate,
+            )))
       )
         throw Error('NATIVE_STOP_CLOCK_UNCONFIRMED');
       this.closed = result;

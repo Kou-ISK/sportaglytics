@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded
+
+Superseded by [0081 Held reverse presentation](0081-held-reverse-presentation.md).
 
 Supersedes [0078 Native playback authority](0078-native-playback-authority.md).
 

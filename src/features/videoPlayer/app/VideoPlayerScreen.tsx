@@ -64,6 +64,8 @@ export const VideoPlayerScreen = () => {
     videoList,
     setVideoList,
     currentTime,
+    playbackTime,
+    seekReverse,
     setCurrentTime,
     setTimelineFilePath,
     metaDataConfigFilePath,
@@ -216,6 +218,13 @@ export const VideoPlayerScreen = () => {
 
   const codingPanelRuntimeRef = useRef<EnhancedCodePanelHandle | null>(null);
 
+  const onNativeReverseControls = useCallback(
+    (playing: boolean, rate: number): void => {
+      setVideoPlayBackRate(rate);
+      setisVideoPlaying(playing);
+    },
+    [setVideoPlayBackRate, setisVideoPlaying],
+  );
   const { startReversePlayback, stopReversePlayback, finishReversePlayback } =
     useVideoReversePlayback({
       videoList,
@@ -225,8 +234,19 @@ export const VideoPlayerScreen = () => {
         setVideoPlayBackRate(1);
         setisVideoPlaying(false);
       },
-      onSeek: (time) => handleCurrentTime(new Event('reverse-playback'), time),
+      onSeek: seekReverse,
+      onError: () =>
+        notify({
+          severity: 'error',
+          message:
+            '逆再生の画像を確認できませんでした。映像を読み直して再試行してください。',
+        }),
+      onNativeControls: onNativeReverseControls,
     });
+
+  useEffect(() => {
+    if (isVideoPlaying && videoPlayBackRate > 0) stopReversePlayback();
+  }, [isVideoPlaying, videoPlayBackRate, stopReversePlayback]);
 
   const { requestClipSync, changeSyncMode } = useClipSyncCommands({
     captureActive: Boolean(liveCapture.timelineState),
@@ -463,6 +483,7 @@ export const VideoPlayerScreen = () => {
         isVideoPlaying={isVideoPlaying}
         videoPlayBackRate={videoPlayBackRate}
         currentTime={currentTime}
+        playbackTime={playbackTime}
         setCurrentTime={setCurrentTime}
         setisVideoPlaying={setisVideoPlaying}
         setVideoPlayBackRate={setVideoPlayBackRate}
