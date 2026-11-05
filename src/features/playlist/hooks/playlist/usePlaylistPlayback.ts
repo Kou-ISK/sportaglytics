@@ -2,7 +2,7 @@ import { waitForVideoPresentation } from '../../../../shared/media/waitForVideoP
 import type { VideoPresentationTarget } from '../../../../shared/media/waitForVideoPresentation';
 import { formatSource } from '../../../../shared/media/videoSource';
 import { usePlaylistMediaTimeline } from '../../media/usePlaylistMediaTimeline';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { usePlaylistPlaybackActions } from './usePlaylistPlaybackActions';
 import { usePlaylistPlaybackEffects } from './usePlaylistPlaybackEffects';
 import type { UsePlaylistPlaybackParams } from './usePlaylistPlayback.types';
@@ -82,6 +82,13 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     };
   }, [actions.handleItemEnd, actions.triggerFreezeFrame, params]);
 
+  const setConfirmedCurrentTime = useCallback<UsePlaylistPlaybackParams['setCurrentTime']>(
+    (value) => {
+      if (!reverseAbort.current) params.setCurrentTime(value);
+    },
+    [params.setCurrentTime],
+  );
+
   usePlaylistPlaybackEffects({
     disabled: mediaTimeline.active,
     isFrozen: params.isFrozen,
@@ -94,9 +101,7 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     freezeRetriggerGuard: params.freezeRetriggerGuard,
     videoRef: params.videoRef,
     videoRef2: params.videoRef2,
-    setCurrentTime: (value) => {
-      if (!reverseAbort.current) params.setCurrentTime(value);
-    },
+    setCurrentTime: setConfirmedCurrentTime,
     setDuration: params.setDuration,
     isPlaying: params.isPlaying,
     currentVideoSource: params.currentVideoSource,
