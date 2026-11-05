@@ -71,3 +71,46 @@ it('undoes angle edits without undoing a repaired media reference', () => {
   expect(result.current.items[0].defaultAngle).toBe('angle2');
   expect(result.current.items[0].videoSource).toContain('/new/');
 });
+
+it('distinguishes derived relative locations from changed media and rejects stale responses', () => {
+  const withReference: PlaylistItem = {
+    ...initial[0],
+    mediaReference: {
+      packageId: 'package',
+      packagePath: '/old/sample.stpkg',
+      mediaPath: 'one.mp4',
+    },
+  };
+  const { result } = renderHook(() => usePlaylistHistory([withReference]));
+  const derived = {
+    ...withReference,
+    mediaReference: {
+      ...withReference.mediaReference!,
+      relativePackagePath: '../sample.stpkg',
+    },
+  };
+  act(() => {
+    expect(result.current.reconcileMedia([withReference], [derived])).toBe(
+      'derived',
+    );
+  });
+  expect(result.current.items[0].mediaReference?.relativePackagePath).toBe(
+    '../sample.stpkg',
+  );
+  act(() => {
+    expect(
+      result.current.reconcileMedia(
+        [withReference],
+        [{ ...withReference, videoSource: '/stale.mp4' }],
+      ),
+    ).toBe('unchanged');
+  });
+  act(() => {
+    expect(
+      result.current.reconcileMedia(
+        [derived],
+        [{ ...derived, videoSource: '/new.mp4' }],
+      ),
+    ).toBe('changed');
+  });
+});
