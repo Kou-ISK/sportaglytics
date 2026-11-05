@@ -55,7 +55,11 @@ export function createSurfaceTransport(
     opened = false,
     closeAttempted = false,
     closeFailure: unknown;
-  let expected: { generation: string; seekId: number } | null = null,
+  let expected: {
+      generation: string;
+      seekId: number;
+      sequence: number;
+    } | null = null,
     stopped = false,
     demandPending = false,
     failureReported = false,
@@ -127,7 +131,8 @@ export function createSurfaceTransport(
     if (drawn) {
       if (
         expected?.generation !== f.owner ||
-        expected.seekId !== f.packet.seekId
+        expected.seekId !== f.packet.seekId ||
+        expected.sequence !== f.packet.generation
       ) {
         report('stale-draw-rejected', { id: f.packet.id });
       } else {
@@ -208,7 +213,8 @@ export function createSurfaceTransport(
         stopped ||
         !window ||
         !expected ||
-        packet.seekId !== expected.seekId
+        packet.seekId !== expected.seekId ||
+        packet.generation !== expected.sequence
       ) {
         releaseUnimported(packet);
         report('surface-stale-before-transfer', { id: packet.id });
@@ -333,10 +339,15 @@ export function createSurfaceTransport(
     intent: (value: Record<string, unknown>) => {
       if (
         typeof value.generation !== 'string' ||
-        !Number.isSafeInteger(value.seekId)
+        !Number.isSafeInteger(value.seekId) ||
+        !Number.isSafeInteger(value.sequence)
       )
         throw Error('invalid intent surface gate');
-      expected = { generation: value.generation, seekId: Number(value.seekId) };
+      expected = {
+        generation: value.generation,
+        seekId: Number(value.seekId),
+        sequence: Number(value.sequence),
+      };
     },
     stopRequests,
     drain: async () => {

@@ -5,6 +5,7 @@ import { hashFile } from '../download-verified.mjs';
 export const PAYLOAD_FILES = [
   'NativeProductHost',
   'Receiver.node',
+  'CommandLeft.node',
   'build.json',
   'licenses/Node-LICENSE.txt',
   'licenses/SporTagLytics-LICENSE.txt',

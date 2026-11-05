@@ -184,7 +184,7 @@ function fixture({
     },
     (reason) => cancelled.push(reason),
   );
-  transport.intent({ generation: 'owner', seekId: 1 });
+  transport.intent({ generation: 'owner', seekId: 1, sequence: 1 });
   const event = { sender: webContents, senderFrame: webContents.mainFrame };
   return {
     transport,

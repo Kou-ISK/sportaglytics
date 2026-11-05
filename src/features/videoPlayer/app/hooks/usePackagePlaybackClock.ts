@@ -21,6 +21,7 @@ interface PackagePlaybackClockParams {
   isVideoPlaying: boolean;
   videoPlayBackRate: number;
   currentTime: number;
+  playbackTime?: number;
   setCurrentTime: Dispatch<SetStateAction<number>>;
   setIsVideoPlaying: Dispatch<SetStateAction<boolean>>;
   setMaxSec: Dispatch<SetStateAction<number>>;
@@ -35,6 +36,7 @@ export const usePackagePlaybackClock = ({
   isVideoPlaying,
   videoPlayBackRate,
   currentTime,
+  playbackTime = currentTime,
   setCurrentTime,
   setIsVideoPlaying,
   setMaxSec,
@@ -99,10 +101,10 @@ export const usePackagePlaybackClock = ({
     demandPackagePlaybackRanges(
       mediaAngles,
       syncData,
-      currentTime,
+      playbackTime,
       !isVideoPlaying,
     );
-  }, [mediaAngles, syncData, currentTime, isVideoPlaying, useTimelineClock]);
+  }, [mediaAngles, syncData, playbackTime, isVideoPlaying, useTimelineClock]);
   // A delayed React commit may still contain an older tick. Never feed it back
   // into the running clock: that slows playback and forces repeated video seeks.
   useLayoutEffect(() => {

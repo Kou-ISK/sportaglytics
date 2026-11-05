@@ -9,6 +9,21 @@ const fields = [
 export const playlistMediaKey = (item: PlaylistItem): string =>
   JSON.stringify(fields.map((field) => item[field]));
 
+/** Relative package locations are derived from the playlist's current path. */
+export const playlistMediaContentKey = (item: PlaylistItem): string => {
+  const reference = (value: PlaylistItem['mediaReference']): unknown => {
+    if (!value) return value;
+    const { relativePackagePath: _derived, ...content } = value;
+    return content;
+  };
+  return JSON.stringify([
+    item.videoSource,
+    item.videoSource2,
+    reference(item.mediaReference),
+    reference(item.mediaReference2),
+  ]);
+};
+
 /** Merge only source metadata; never roll back notes, angles, order or Paint edited during IPC. */
 export const reconcilePlaylistMedia = (
   items: PlaylistItem[],

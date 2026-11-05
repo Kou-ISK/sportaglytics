@@ -1,109 +1,107 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { HeldSeekQueue } from '../shared/media/heldSeekQueue';
 
 export type ReversePlaybackRate = 0.5 | 2 | 4 | 6;
-
 interface UseContinuousReversePlaybackParams {
   currentTime: number;
   minimumTime?: number;
   onPause: () => void;
-  onSeek: (time: number) => void;
+  /** Resolves only after presentation, not IPC delivery/seek submission. */
+  onSeek: (time: number, signal: AbortSignal) => void | Promise<void>;
+  onError?: (error: unknown) => void;
 }
-
 interface ContinuousReversePlaybackController {
-  startReversePlayback: (rate: ReversePlaybackRate) => void;
-  stopReversePlayback: (displayedTime?: number) => void;
+  startReversePlayback: (rate: ReversePlaybackRate, fromTime?: number) => void;
+  stopReversePlayback: () => void;
+  cancelReversePlayback: () => void;
+  isReverseSettled: () => boolean;
 }
-
-const MAX_FRAME_DELTA_SECONDS = 0.1;
-
 export const calculateReversePlaybackTime = (
   currentTime: number,
   rate: ReversePlaybackRate,
   elapsedSeconds: number,
   minimumTime: number,
-): number => {
-  const safeElapsed = Math.min(
-    MAX_FRAME_DELTA_SECONDS,
-    Math.max(0, elapsedSeconds),
+): number =>
+  Math.max(
+    minimumTime,
+    currentTime - Math.min(0.1, Math.max(0, elapsedSeconds)) * rate,
   );
-  return Math.max(minimumTime, currentTime - safeElapsed * rate);
-};
 
-export const useContinuousReversePlayback = ({
-  currentTime,
-  minimumTime = 0,
-  onPause,
-  onSeek,
-}: UseContinuousReversePlaybackParams): ContinuousReversePlaybackController => {
-  const activeRef = useRef(false);
-  const runRef = useRef(0);
-  const frameRef = useRef<number | null>(null);
-  const currentTimeRef = useRef(currentTime);
-  const minimumTimeRef = useRef(minimumTime);
-  const onPauseRef = useRef(onPause);
-  const onSeekRef = useRef(onSeek);
-
-  minimumTimeRef.current = minimumTime;
-  onPauseRef.current = onPause;
-  onSeekRef.current = onSeek;
-
+export const useContinuousReversePlayback = (
+  params: UseContinuousReversePlaybackParams,
+): ContinuousReversePlaybackController => {
+  const latest = useRef(params);
+  latest.current = params;
+  const active = useRef(false);
+  const generation = useRef(0);
+  const frame = useRef<number | null>(null);
+  const target = useRef(params.currentTime);
+  const rate = useRef<ReversePlaybackRate>(0.5);
+  const queue = useRef<HeldSeekQueue | null>(null);
   useEffect(() => {
-    if (!activeRef.current) {
-      currentTimeRef.current = currentTime;
-    }
-  }, [currentTime]);
-
-  const stopReversePlayback = useCallback((displayedTime?: number): void => {
-    runRef.current++;
-    if (displayedTime !== undefined && Number.isFinite(displayedTime))
-      currentTimeRef.current = displayedTime;
-    activeRef.current = false;
-    if (frameRef.current !== null) {
-      cancelAnimationFrame(frameRef.current);
-      frameRef.current = null;
-    }
+    if (!active.current && (!queue.current || queue.current.settled))
+      target.current = params.currentTime;
+  }, [params.currentTime]);
+  const stopReversePlayback = useCallback((): void => {
+    active.current = false;
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+    // Release stops input only. The queue drains to the last desired position.
   }, []);
-
+  const cancelReversePlayback = useCallback((): void => {
+    stopReversePlayback();
+    generation.current++;
+    queue.current?.cancel();
+    queue.current = null;
+  }, [stopReversePlayback]);
   const startReversePlayback = useCallback(
-    (rate: ReversePlaybackRate): void => {
-      stopReversePlayback();
-      const run = runRef.current;
-      activeRef.current = true;
-      onPauseRef.current();
-      let previousTimestamp: number | null = null;
-
+    (nextRate: ReversePlaybackRate, fromTime?: number): void => {
+      rate.current = nextRate;
+      if (active.current) return; // A modifier change must not cancel useful decode.
+      cancelReversePlayback();
+      if (fromTime !== undefined) target.current = fromTime;
+      active.current = true;
+      const run = generation.current;
+      latest.current.onPause();
+      if (run !== generation.current) return;
+      queue.current = new HeldSeekQueue(
+        async (time, signal) => {
+          await latest.current.onSeek(time, signal);
+        },
+        (error) => {
+          cancelReversePlayback();
+          latest.current.onError?.(error);
+        },
+      );
+      let previous: number | null = null;
       const advance = (timestamp: number): void => {
-        if (!activeRef.current || run !== runRef.current) return;
-
-        if (previousTimestamp !== null) {
-          const nextTime = calculateReversePlaybackTime(
-            currentTimeRef.current,
-            rate,
-            (timestamp - previousTimestamp) / 1000,
-            minimumTimeRef.current,
+        if (!active.current || run !== generation.current) return;
+        if (previous !== null) {
+          target.current = calculateReversePlaybackTime(
+            target.current,
+            rate.current,
+            (timestamp - previous) / 1000,
+            latest.current.minimumTime ?? 0,
           );
-          currentTimeRef.current = nextTime;
-          onSeekRef.current(nextTime);
-          // A synchronous consumer can cancel or start another held gesture.
-          if (!activeRef.current || run !== runRef.current) return;
-
-          if (nextTime <= minimumTimeRef.current) {
-            activeRef.current = false;
-            frameRef.current = null;
+          queue.current?.request(target.current);
+          if (!active.current || run !== generation.current) return;
+          if (target.current <= (latest.current.minimumTime ?? 0)) {
+            stopReversePlayback();
             return;
           }
         }
-
-        previousTimestamp = timestamp;
-        frameRef.current = requestAnimationFrame(advance);
+        previous = timestamp;
+        frame.current = requestAnimationFrame(advance);
       };
-
-      frameRef.current = requestAnimationFrame(advance);
+      frame.current = requestAnimationFrame(advance);
     },
-    [stopReversePlayback],
+    [cancelReversePlayback, stopReversePlayback],
   );
-
-  useEffect(() => stopReversePlayback, [stopReversePlayback]);
-
-  return { startReversePlayback, stopReversePlayback };
+  useEffect(() => cancelReversePlayback, [cancelReversePlayback]);
+  return {
+    startReversePlayback,
+    stopReversePlayback,
+    cancelReversePlayback,
+    isReverseSettled: () => queue.current?.settled ?? true,
+  };
 };

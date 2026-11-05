@@ -27,7 +27,8 @@ export const usePlaylistMediaTimeline = (
   loading: boolean;
   error: string;
   retry: () => void;
-  seek: (time: number) => boolean;
+  seek: (time: number, publish?: boolean) => boolean;
+  confirmSeek: () => void;
   resolve: (
     time: number,
     secondary: boolean,
@@ -57,6 +58,7 @@ export const usePlaylistMediaTimeline = (
   const adapters = useRef<Array<TimelineVideoAdapter | null>>([]);
   const time = useRef(0);
   const ended = useRef(false);
+  const awaitingPresentation = useRef(false);
   const retry = useCallback((): void => setRevision((value) => value + 1), []);
 
   useEffect(() => {
@@ -208,7 +210,8 @@ export const usePlaylistMediaTimeline = (
         const ready = players.length > 0 && readiness.every(Boolean);
         if (!ready) players.forEach((adapter) => adapter?.video.pause());
         if (ready && !error && !current.isFrozen) {
-          callbacks.current.onTime(time.current);
+          if (!awaitingPresentation.current)
+            callbacks.current.onTime(time.current);
           if (
             playing &&
             time.current >= (current.currentItem?.endTime ?? Infinity) &&
@@ -243,9 +246,10 @@ export const usePlaylistMediaTimeline = (
   }, [active, callbacks, error, resolved, sourceKey]);
 
   const seek = useCallback(
-    (value: number): boolean => {
+    (value: number, publish = true): boolean => {
       if (!active) return false;
       time.current = value;
+      awaitingPresentation.current = !publish;
       ended.current = false;
       try {
         adapters.current.forEach((adapter) =>
@@ -260,7 +264,7 @@ export const usePlaylistMediaTimeline = (
         );
         latest.current.setIsPlaying(false);
       }
-      latest.current.setCurrentTime(value);
+      if (publish) latest.current.setCurrentTime(value);
       return true;
     },
     [active],
@@ -271,6 +275,9 @@ export const usePlaylistMediaTimeline = (
     error: active ? error : '',
     retry,
     seek,
+    confirmSeek: () => {
+      awaitingPresentation.current = false;
+    },
     resolve: (value, isSecondary) => {
       if (!active) return undefined;
       const timeline =

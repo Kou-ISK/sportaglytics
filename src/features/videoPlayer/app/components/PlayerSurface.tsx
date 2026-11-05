@@ -14,6 +14,7 @@ interface PlayerSurfaceProps {
   isVideoPlaying: boolean;
   videoPlayBackRate: number;
   currentTime: number;
+  playbackTime?: number;
   setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
   setIsVideoPlaying: React.Dispatch<React.SetStateAction<boolean>>;
   setVideoPlayBackRate: React.Dispatch<React.SetStateAction<number>>;
@@ -37,6 +38,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   isVideoPlaying,
   videoPlayBackRate,
   currentTime,
+  playbackTime = currentTime,
   setCurrentTime,
   setIsVideoPlaying,
   setVideoPlayBackRate,
@@ -62,6 +64,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
     isVideoPlaying,
     videoPlayBackRate,
     currentTime,
+    playbackTime,
     setCurrentTime,
     setIsVideoPlaying,
     setMaxSec,
@@ -115,7 +118,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
             setMaxSec={setMaxSec}
             syncData={syncData}
             syncMode={syncMode}
-            currentTime={currentTime}
+            currentTime={playbackTime}
             mediaAngles={mediaAngles}
             setMediaAngles={setMediaAngles}
             forceUpdateKey={playerForceUpdateKey}

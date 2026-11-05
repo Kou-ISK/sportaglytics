@@ -617,3 +617,173 @@ it.each(['volume', 'seek'])(
     });
   },
 );
+
+it.each([-0.5, -2, -4, -6])(
+  'confirms reverse %s clocks, pause and drainage without extra seeks',
+  async (rate) => {
+    const backend = {
+      write: vi.fn(async () => {}),
+      close: vi.fn(async () => ({
+        ...drained,
+        stopped: {
+          ...owner,
+          sequence: 3,
+          seekId: 1,
+          time: 20,
+          rate: 0 as const,
+        },
+      })),
+    };
+    const session = new NativePlaybackSession(
+      { owner, start: 0, end: 60, audioTracks: 3, rates: [1, rate] },
+      backend,
+    );
+    session.apply(intent({ targetTime: 30 }));
+    await tick();
+    expect(session.observe(observation({ time: 30 }))).toBe(true);
+    session.apply(intent({ targetTime: 30, playing: true, rate, sequence: 2 }));
+    await tick();
+    for (let n = 1; n <= 10; n++) {
+      expect(
+        session.observe(
+          observation({
+            sequence: 2,
+            revision: n + 1,
+            phase: 'playing',
+            rate,
+            time: 30 - n,
+          }),
+        ),
+      ).toBe(true);
+    }
+    expect(session.snapshot().lastConfirmedTime).toBe(20);
+    session.apply(intent({ targetTime: 30, rate, sequence: 3 }));
+    await tick();
+    expect(
+      session.observe(observation({ sequence: 3, revision: 12, time: 20 })),
+    ).toBe(true);
+    expect(backend.write).toHaveBeenCalledTimes(3);
+    expect((await session.close()).stopped?.time).toBe(20);
+  },
+);
+it('rejects forward-moving images in the same reverse command and keeps the confirmed clock', async () => {
+  const session = new NativePlaybackSession(
+    { owner, start: 0, end: 60, audioTracks: 3, rates: [1, -2] },
+    { write: async () => {}, close: async () => drained },
+  );
+  session.apply(intent());
+  await tick();
+  session.observe(observation());
+  session.apply(intent({ playing: true, rate: -2, sequence: 2 }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 2,
+        revision: 2,
+        phase: 'playing',
+        rate: -2,
+        time: 2,
+      }),
+    ),
+  ).toBe(true);
+  expect(
+    session.observe(
+      observation({
+        sequence: 2,
+        revision: 3,
+        phase: 'playing',
+        rate: -2,
+        time: 2.1,
+      }),
+    ),
+  ).toBe(false);
+  expect(session.snapshot().lastConfirmedTime).toBe(2);
+});
+
+it.each(['playing', 'buffering', 'paused'] as const)(
+  'anchors reverse after a seeking notification and a first %s notification',
+  async (phase) => {
+    const session = new NativePlaybackSession(
+      { owner, start: 0, end: 60, audioTracks: 3, rates: [1, -2] },
+      { write: async () => {}, close: async () => drained },
+    );
+    session.apply(intent());
+    await tick();
+    session.observe(observation());
+    session.apply(intent({ playing: true, rate: -2, sequence: 2 }));
+    await tick();
+    expect(
+      session.observe(
+        observation({
+          sequence: 2,
+          revision: 2,
+          phase: 'seeking',
+          videoReady: false,
+          audioReady: false,
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      session.observe(
+        observation({
+          sequence: 2,
+          revision: 3,
+          time: 2.9,
+          phase,
+          rate: phase === 'playing' ? -2 : 0,
+          videoReady: phase !== 'buffering',
+          audioReady: phase !== 'buffering',
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      session.observe(
+        observation({
+          sequence: 2,
+          revision: 4,
+          time: 2.8,
+          phase: 'playing',
+          rate: -2,
+        }),
+      ),
+    ).toBe(true);
+    expect(session.snapshot().lastConfirmedTime).toBe(2.8);
+    // The timebase moves farther backwards before the forward command arrives.
+    session.apply(intent({ playing: true, rate: 1, sequence: 3 }));
+    await tick();
+    expect(
+      session.observe(
+        observation({
+          sequence: 3,
+          revision: 5,
+          time: 2.7,
+          phase: 'playing',
+          rate: 1,
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      session.observe(
+        observation({
+          sequence: 3,
+          revision: 6,
+          time: 2.9,
+          phase: 'playing',
+          rate: 1,
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      session.observe(
+        observation({
+          sequence: 3,
+          revision: 7,
+          time: 2.8,
+          phase: 'playing',
+          rate: 1,
+        }),
+      ),
+    ).toBe(false);
+  },
+);

@@ -31,6 +31,8 @@ interface UseVideoPlayerRuntimeStateResult {
   syncMode: 'auto' | 'manual';
   setSyncMode: Dispatch<SetStateAction<'auto' | 'manual'>>;
   currentTime: number;
+  playbackTime: number;
+  seekReverse: (time: number, signal: AbortSignal) => Promise<void>;
   setCurrentTime: Dispatch<SetStateAction<number>>;
   handleCurrentTime: (
     event: SyntheticEvent | Event,
@@ -80,13 +82,18 @@ export const useVideoPlayerRuntimeState =
       [],
     );
 
-    const { currentTime, setCurrentTime, handleCurrentTime } =
-      useVideoTimeController({
-        videoList,
-        syncData,
-        syncMode,
-        mediaAngles,
-      });
+    const {
+      currentTime,
+      playbackTime,
+      seekReverse,
+      setCurrentTime,
+      handleCurrentTime,
+    } = useVideoTimeController({
+      videoList,
+      syncData,
+      syncMode,
+      mediaAngles,
+    });
 
     const syncActions = useSyncActions({
       videoList,
@@ -125,6 +132,8 @@ export const useVideoPlayerRuntimeState =
       syncMode,
       setSyncMode,
       currentTime,
+      playbackTime,
+      seekReverse,
       setCurrentTime,
       handleCurrentTime,
       packagePath,

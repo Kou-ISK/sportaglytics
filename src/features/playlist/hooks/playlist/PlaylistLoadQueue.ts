@@ -10,6 +10,9 @@ export class PlaylistLoadQueue {
   private loading = false;
   private pending: Array<() => void> = [];
 
+  get changeToken(): string { return `${this.generation}:${this.revision}`; }
+  get documentGeneration(): number { return this.generation; }
+
   begin(): PlaylistLoadToken {
     this.finishPending();
     this.loading = true;

@@ -29,6 +29,13 @@ const createVideo = () => {
   return video;
 };
 describe('Playlist package video adapter', () => {
+  it('does not suppress the small first step of a 0.5x held reverse seek', () => {
+    const video = createVideo();
+    const player = new TimelineVideoAdapter(video, timeline);
+    player.sync(2, false, true);
+    player.sync(2 - 0.5 / 60, false, true);
+    expect(video.currentTime).toBeCloseTo(3 - 0.5 / 60, 6);
+  });
   it('observes the real package time with its bound offset and rejects old placements', () => {
     const video = createVideo();
     const player = new TimelineVideoAdapter(video, timeline);

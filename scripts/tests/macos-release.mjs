@@ -168,6 +168,10 @@ test('desktop release notes distinguish unsigned installers, valid signatures an
   const mac = desktopReleaseNotes({ includeWindows: false });
   assert.match(mac, /DMG内のアプリは署名・公証済み/);
   assert.match(mac, /Windows installerはこのReleaseに含みません。/);
+  assert.match(mac, /0\.17\.20/);
+  assert.match(mac, /重い素材では開始待ち/);
+  assert.match(mac, /未完成の再生用プロキシ/);
+  assert.doesNotMatch(mac, /0\.17\.19は/);
   assert.doesNotMatch(mac, /Windows installerは未署名|Windows x64/);
   for (const [status, expected, excluded] of [
     [

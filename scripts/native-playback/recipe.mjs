@@ -1,4 +1,4 @@
-export const BUILD_REVISION = 6;
+export const BUILD_REVISION = 7;
 export const BUILD_INPUT_FILES = [
   'scripts/build-native-playback.mjs',
   'scripts/native-playback/recipe.mjs',

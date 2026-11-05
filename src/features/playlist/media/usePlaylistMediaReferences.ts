@@ -15,7 +15,10 @@ import { playlistMediaKey } from '../../../shared/playlist/playlistMediaReconcil
 interface Options {
   items: PlaylistItem[];
   currentItem: PlaylistItem | null;
-  reconcile: (requested: PlaylistItem[], resolved: PlaylistItem[]) => boolean;
+  reconcile: (
+    requested: PlaylistItem[],
+    resolved: PlaylistItem[],
+  ) => 'unchanged' | 'derived' | 'changed';
   setDirty: (dirty: boolean) => void;
 }
 
@@ -52,7 +55,7 @@ export const usePlaylistMediaReferences = (
   const retry = useCallback((): void => setRevision((value) => value + 1), []);
   const accept = useCallback(
     (requested: PlaylistItem[], result: PlaylistMediaResolution): void => {
-      if (latest.current.reconcile(requested, result.items))
+      if (latest.current.reconcile(requested, result.items) === 'changed')
         latest.current.setDirty(true);
       setError(
         result.missingItemIds.length

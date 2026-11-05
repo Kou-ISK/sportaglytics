@@ -137,7 +137,18 @@ try {
     '-o',
     join(stage, 'Receiver.node'),
   ]);
-  for (const file of ['NativeProductHost', 'Receiver.node']) {
+  await run('xcrun', [
+    ...common,
+    '-DNAPI_VERSION=8',
+    '-DNODE_GYP_MODULE_NAME=CommandLeft',
+    '-bundle',
+    '-undefined', 'dynamic_lookup',
+    `-I${join(sources.node, 'include/node')}`,
+    join(snapshot, 'native-input/CommandLeft.mm'),
+    '-framework', 'AppKit',
+    '-o', join(stage, 'CommandLeft.node'),
+  ]);
+  for (const file of ['NativeProductHost', 'Receiver.node', 'CommandLeft.node']) {
     if (capture('lipo', ['-archs', join(stage, file)]) !== 'arm64')
       throw Error('Native architecture mismatch');
     const linked = capture('otool', ['-L', join(stage, file)])

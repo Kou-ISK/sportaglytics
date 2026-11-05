@@ -36,6 +36,8 @@ Timeline reviewは既存文書を読み取る派生表示です。検索・ペ�
 
 Playlist v5は参照元package ID・相対位置と各クリップのdefaultAngleを保存します。MainのmediaReferences AdapterがOS bookmarkと端末内の登録先から移動を解決し、Rendererへ型付きIPCで渡します。既定アングルはクリップ進入時と単一ファイル書き出しで共用します。[参照・アングル仕様](playlist-features.md#参照先の移動と再接続)。
 
+Playlistの新規埋め込みでは指定範囲の映像・重なる音声を変換し、出力の時刻とトラックを検査してからmanifestを公開します。Mainが受け付けた変更のない埋め込み素材は再利用し、文書世代・素材・保存先が処理中に変わった場合は保存を失敗させます。[保存契約](playlist-features.md#stpl-の保存契約)。
+
 出力テキストのレイアウトはsharedの純粋関数を正本とし、Mainの映像サイズ検査・FFmpeg書き出し・静止画プレビューで共有します。専用IPCはsenderとpayloadを検証し、上限超過は保存先選択前に拒否します。[ADR 0049](adr/0049-bounded-export-text.md)。
 
 Playlistの自由記述は文書v4のnoteに統一します。Timelineの保存フィールドは維持し、旧Playlistのメモは共有の読込境界で移行します。書き出しテキストの有無はウィンドウ内の一時状態で、毎回明示選択します。[ノート仕様](playlist-features.md#ノートの編集と映像出力) / [ADR 0048](adr/0048-playlist-instance-notes.md)。
@@ -456,7 +458,9 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 Apple標準再生はAVPlayerが読み出し・復号・音声・時計を所有し、AVPlayerItemVideoOutputの画像を既存DOM表示面へ渡します。Mainの文書/IPC/終了所有権と最大3画像の転送は保持し、独自FFmpeg復号・PCM窓・供給回復は削除します。[ADR 0080](adr/0080-apple-player-playback.md)と[仕様・適用範囲](native-playback.md)を参照してください。
 
-逆方向キー解放は新しい要求だけを止め、最後の要求を維持します。表示されなかった入力を開始画像へ戻して消さず、共通時計は既存の確認応答で進めます。解放専用の描画PTS保持・preload APIは削除し、通常の画像世代検証と転送上限は維持します。[操作と未解決の待ち](native-playback.md)を参照してください。
+長押し逆再生は、対応AVPlayerItemの連続負rateと、能力非対応時に表示完了を待つ直列シーク代替に分けます。開始済みの負rateが失敗した場合は、確認済み原本へ戻して停止し、自動でシーク反復へ移りません。後者は表示中1要求・最新希望1件を保持し、画像到着だけで次を送信しません。IPC/画像の操作sequenceと配送順序は単調増加、PTS/確認時計は再生方向に従います。停止はネイティブの実停止時計、代替は最後の希望位置の表示で確定します。[設計](adr/0081-held-reverse-presentation.md)と[仕様](native-playback.md)を参照してください。
+
+macOSのCommand＋左の解放は、ローカル入力とRendererの受理をMainで照合し、停止画像の確認後に操作を確定します。別操作時は旧所有者の終了を待ち、最新の操作を原本へ引き継ぎます。
 
 通常スクラブはAppleが選んだ近傍画像の実時刻を確認して確定し、コマ送り・明示時刻指定だけを厳密シークにします。タグ/保存時計は要求値でなく確認済み時刻です。相対入力は最新要求へ加算し、旧gestureは新sourceへ伝えません。
 

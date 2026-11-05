@@ -46,6 +46,7 @@ const setup = async (
   start = 10,
   restore = vi.fn(async () => {}),
   presentation: NativePlaybackPresentation | null = null,
+  supportsReverse = false,
 ) => {
   const owner = { generation: 'reverse', sourceKey: 'a'.repeat(64) };
   let listener: (value: NativePlaybackSnapshot | null) => void = () => {};
@@ -95,19 +96,23 @@ const setup = async (
     presentation,
   );
   port.controller = controller;
-  const acknowledge = (command: NativePlaybackIntent): void => {
+  const acknowledge = (
+    command: NativePlaybackIntent,
+    time = command.targetTime,
+  ): void => {
     snapshot = {
       ...snapshot,
       intent: command,
-      lastConfirmedTime: command.targetTime,
+      lastConfirmedTime: time,
       observation: {
         ...owner,
         revision: ++revision,
         sequence: command.sequence,
         seekId: command.seekId,
-        time: command.targetTime,
-        phase: 'paused',
-        rate: 0,
+        time,
+        phase: command.playing ? 'playing' : 'paused',
+        rate: command.playing ? command.rate : 0,
+        reverseCapabilities: { slow: supportsReverse, fast: supportsReverse },
         audioTrack: 0,
         volume: 1,
         muted: true,
@@ -120,6 +125,7 @@ const setup = async (
   };
   await vi.advanceTimersByTimeAsync(1);
   acknowledge(apply.mock.calls[0][0]);
+  const onNativeControls = vi.fn();
   const onPause = vi.fn(),
     onSeek = vi.fn((time: number) => controller.seek(time));
   const videos = ['synthetic.mp4'];
@@ -131,6 +137,7 @@ const setup = async (
         videoList: videos,
         onPause,
         onSeek,
+        onNativeControls,
       }),
     { initialProps: { time: start } },
   );
@@ -142,266 +149,347 @@ const setup = async (
     hook,
     onSeek,
     onPause,
+    onNativeControls,
     close: async () => {
       hook.unmount();
+      await vi.advanceTimersByTimeAsync(1);
+      acknowledge(apply.mock.calls.at(-1)![0], controller.snapshot().time);
       await controller.returnToOriginal();
     },
   };
 };
 
-const hold = async (f: Awaited<ReturnType<typeof setup>>): Promise<void> => {
-  act(() => f.hook.result.current.startReversePlayback(2));
-  await tick(0);
-  await tick(50);
-  const first = f.apply.mock.calls.at(-1)![0];
-  act(() => {
-    f.acknowledge(first);
-  });
-  await tick(100);
-};
-it('retains the requested reverse position when no reverse image was displayed', async () => {
-  const f = await setup();
-  try {
-    act(() => f.hook.result.current.startReversePlayback(2));
-    for (const time of [0, 50, 100, 150]) await tick(time);
-    const latest = f.apply.mock.calls.at(-1)![0];
-    const count = f.apply.mock.calls.length;
-    act(() => f.hook.result.current.finishReversePlayback());
-    await vi.advanceTimersByTimeAsync(1);
-    expect(f.apply).toHaveBeenCalledTimes(count);
-    expect(f.controller.seekCommandTime).toBeCloseTo(9.7);
-    act(() => f.acknowledge(latest));
-    expect(f.controller.snapshot().time).toBeCloseTo(9.7);
-    expect(frames.size).toBe(0);
-  } finally {
-    await f.close();
-  }
-});
-it('finishes the latest requested position on release after an earlier image was shown', async () => {
-  const f = await setup();
-  try {
-    await hold(f);
-    const stale = f.apply.mock.calls.at(-1)![0];
-    act(() => f.hook.result.current.finishReversePlayback());
-    await vi.advanceTimersByTimeAsync(1);
-    expect(f.apply.mock.calls.at(-1)![0]).toBe(stale);
-    act(() => f.acknowledge(stale));
-    expect(f.controller.snapshot().time).toBeCloseTo(9.8, 8);
-    expect(frames.size).toBe(0);
-  } finally {
-    await f.close();
-  }
-});
-it('continues an immediate repress from the pending destination without a React clock change', async () => {
-  const f = await setup();
-  try {
-    await hold(f);
-    act(() => f.hook.result.current.finishReversePlayback());
-    await vi.advanceTimersByTimeAsync(1);
-    act(() => f.hook.result.current.startReversePlayback(2));
-    await tick(200);
-    await tick(250);
-    expect(f.onSeek.mock.calls.at(-1)![0]).toBeCloseTo(9.7, 8);
-  } finally {
-    await f.close();
-  }
-});
-it.each(['seek', 'same-seek', 'play', 'rate', 'audio', 'unmount'] as const)(
-  'does not replace another %s operation',
-  async (op) => {
-    const f = await setup();
+it.each([
+  [0.5, 6000, 3],
+  [2, 4000, 8],
+  [4, 2000, 8],
+  [6, 2000, 12],
+])(
+  'uses one native rate command for %sx over %sms and confirms decreasing clocks (simulated AVPlayer)',
+  async (rate, duration, distance) => {
+    const f = await setup(30, undefined, null, true);
     try {
-      await hold(f);
-      act(() => {
-        if (op === 'seek') f.controller.seek(25);
-        if (op === 'same-seek') f.controller.seek(f.controller.seekCommandTime);
-        if (op === 'play') f.controller.controls({ playing: true });
-        if (op === 'rate') f.controller.controls({ rate: 2 });
-        if (op === 'audio') f.controller.controls({ audioTrack: 1 });
-        if (op === 'unmount') f.hook.unmount();
-      });
-      await vi.advanceTimersByTimeAsync(1);
-      const count = f.apply.mock.calls.length;
-      act(() => f.hook.result.current.finishReversePlayback());
-      await vi.advanceTimersByTimeAsync(1);
-      expect(f.apply).toHaveBeenCalledTimes(count);
-    } finally {
-      await f.close();
-    }
-  },
-);
-it('preserves the pending lower-bound seek on release', async () => {
-  const f = await setup(0.05);
-  try {
-    act(() => f.hook.result.current.startReversePlayback(6));
-    await tick(0);
-    await tick(50);
-    const count = f.apply.mock.calls.length;
-    act(() => f.hook.result.current.finishReversePlayback());
-    await vi.advanceTimersByTimeAsync(1);
-    expect(f.apply).toHaveBeenCalledTimes(count);
-    expect(f.apply.mock.calls.at(-1)![0].targetTime).toBe(0);
-  } finally {
-    await f.close();
-  }
-});
-it.each([0.5, 2, 4, 6] as const)(
-  'preserves every held %s request without waiting for image ACKs',
-  async (rate) => {
-    const f = await setup();
-    try {
-      act(() => f.hook.result.current.startReversePlayback(rate));
-      for (const t of [0, 50, 100, 150]) await tick(t);
-      expect(f.onSeek.mock.calls.map(([t]) => Number(t.toFixed(6)))).toEqual(
-        [10 - rate * 0.05, 10 - rate * 0.1, 10 - rate * 0.15].map((t) =>
-          Number(t.toFixed(6)),
-        ),
+      act(() =>
+        f.hook.result.current.startReversePlayback(rate as 0.5 | 2 | 4 | 6),
       );
-      expect(f.apply).toHaveBeenCalledTimes(4);
+      await tick(0);
+      const command = f.apply.mock.calls.at(-1)![0];
+      expect(command).toMatchObject({
+        playing: true,
+        rate: -rate,
+        seekId: 1,
+        targetTime: 30,
+      });
+      const times: number[] = [];
+      for (let t = 50; t <= duration; t += 50) {
+        act(() => f.acknowledge(command, 30 - (rate * t) / 1000));
+        times.push(f.controller.snapshot().time);
+        await tick(t);
+      }
+      expect(times.every((time, i) => i === 0 || time < times[i - 1])).toBe(
+        true,
+      );
+      expect(times.at(-1)).toBeCloseTo(30 - distance);
+      expect(f.apply).toHaveBeenCalledTimes(2); // initial seek + rate, regardless of hold duration
+      act(() => f.hook.result.current.finishReversePlayback());
+      await tick(duration + 1);
+      const stopped = f.apply.mock.calls.at(-1)![0];
+      expect(stopped).toMatchObject({ playing: false, seekId: 1, rate: -rate });
+      act(() => f.acknowledge(stopped, 30 - distance - 0.01));
+      await tick(duration + 2);
+      expect(f.controller.snapshot().time).toBeCloseTo(30 - distance - 0.01);
+      expect(f.controller.requestedControls).toMatchObject({
+        rate: 1,
+        playing: false,
+      });
+      expect(f.onSeek).not.toHaveBeenCalled();
     } finally {
       await f.close();
     }
   },
 );
-
-it('does not claim a reentrant seek issued by another input listener', async () => {
+it('changes native speed without issuing a seek and ignores an old stop after repress', async () => {
+  const f = await setup(30, undefined, null, true);
+  try {
+    act(() => f.hook.result.current.startReversePlayback(0.5));
+    await tick(0);
+    act(() => f.hook.result.current.startReversePlayback(6));
+    await tick(50);
+    expect(f.apply.mock.calls.at(-1)![0]).toMatchObject({
+      rate: -6,
+      seekId: 1,
+    });
+    act(() => f.hook.result.current.finishReversePlayback());
+    await tick(100);
+    const oldStop = f.apply.mock.calls.at(-1)![0];
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(150);
+    act(() => f.acknowledge(oldStop, 20));
+    await tick(200);
+    expect(f.controller.requestedControls).toMatchObject({
+      rate: -2,
+      playing: true,
+    });
+    expect(f.controller.snapshot().time).toBe(30);
+  } finally {
+    await f.close();
+  }
+});
+it('waits for the in-flight image and drains the newest desired position after release', async () => {
   const f = await setup();
   try {
-    f.onSeek.mockImplementation((time) => {
-      f.controller.seek(time);
-      f.controller.seek(25);
-    });
+    act(() => f.hook.result.current.startReversePlayback(2));
+    for (const t of [0, 50, 100, 150, 200]) await tick(t);
+    expect(f.apply).toHaveBeenCalledTimes(2);
+    const first = f.apply.mock.calls.at(-1)![0];
+    expect(first.targetTime).toBeCloseTo(9.9);
+    expect(f.controller.snapshot().time).toBe(10);
+    act(() => f.hook.result.current.finishReversePlayback());
+    act(() => f.acknowledge(first));
+    await tick(250);
+    expect(f.controller.snapshot().time).toBeCloseTo(9.9);
+    const last = f.apply.mock.calls.at(-1)![0];
+    expect(last.targetTime).toBeCloseTo(9.6);
+    act(() => f.acknowledge(last));
+    await tick(300);
+    expect(f.controller.snapshot().time).toBeCloseTo(9.6);
+    expect(f.apply).toHaveBeenCalledTimes(3);
+  } finally {
+    await f.close();
+  }
+});
+it('does not let an old in-flight seek overwrite a new press or a separate seek', async () => {
+  const f = await setup();
+  try {
     act(() => f.hook.result.current.startReversePlayback(2));
     await tick(0);
     await tick(50);
-    await tick(100);
+    const old = f.apply.mock.calls.at(-1)![0];
     act(() => f.hook.result.current.finishReversePlayback());
-    await vi.advanceTimersByTimeAsync(1);
-    expect(f.onSeek).toHaveBeenCalledOnce();
+    act(() => f.hook.result.current.startReversePlayback(6));
+    await tick(100);
+    await tick(150);
+    const current = f.apply.mock.calls.at(-1)![0];
+    act(() => f.acknowledge(old));
+    await tick(200);
+    expect(f.controller.snapshot().time).toBe(10);
+    act(() => f.acknowledge(current));
+    await tick(250);
+    act(() => {
+      f.controller.seek(25);
+      window.dispatchEvent(new Event('video-seek-start'));
+    });
+    await tick(300);
+    act(() => f.acknowledge(current));
+    await tick(350);
     expect(f.controller.seekCommandTime).toBe(25);
   } finally {
     await f.close();
   }
 });
-it('keeps reverse inputs working while original-source recovery is pending', async () => {
-  const pending = Promise.withResolvers<void>();
-  const f = await setup(
-    10,
-    vi.fn(() => pending.promise),
-    {
-      width: 1920,
-      height: 1080,
-      start: 0,
-      end: 30,
-      seekEnd: 29,
-      playEnd: 29.5,
-      rates: [1],
-      audioTracks: 3,
-      seekGrid: null,
-      mutedOnly: true,
-      exactFloatVolume: true,
-      audioSwitch: false,
-    },
-  );
-  f.controller.seek(40);
+it('finishes at zero and cancels queued work on source replacement', async () => {
+  const f = await setup(0.05);
   try {
-    await vi.advanceTimersByTimeAsync(1);
-    act(() => f.hook.result.current.startReversePlayback(2));
+    act(() => f.hook.result.current.startReversePlayback(6));
     await tick(0);
     await tick(50);
-    expect(f.onSeek).toHaveBeenCalledWith(9.9);
-    expect(f.controller.seekCommandTime).toBe(9.9);
-    act(() => f.hook.result.current.finishReversePlayback());
-    expect(f.controller.seekCommandTime).toBe(9.9);
-  } finally {
-    pending.resolve();
-    await f.close();
-  }
-});
-
-it('keeps a replacement reverse gesture started by a synchronous listener', async () => {
-  const f = await setup();
-  try {
-    f.onSeek.mockImplementationOnce((time) => {
-      f.controller.seek(time);
-      f.hook.result.current.startReversePlayback(0.5);
-    });
-    act(() => f.hook.result.current.startReversePlayback(2));
-    await tick(0);
-    await tick(50);
+    const last = f.apply.mock.calls.at(-1)![0];
+    expect(last.targetTime).toBe(0);
+    act(() => f.acknowledge(last));
     await tick(100);
-    await tick(150);
-    expect(f.onSeek.mock.calls.map(([t]) => t)).toEqual([9.9, 9.875]);
-    expect(frames.size).toBe(1);
-    act(() => f.hook.result.current.finishReversePlayback());
+    expect(f.controller.snapshot().time).toBe(0);
     expect(frames.size).toBe(0);
+    act(() => f.controller.seek(10));
+    await tick(150);
+    act(() => f.acknowledge(f.apply.mock.calls.at(-1)![0]));
+    f.hook.rerender({ time: 10 });
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(200);
+    await tick(250);
+    await tick(300);
+    const stale = f.apply.mock.calls.at(-1)![0];
+    f.hook.unmount();
+    const count = f.apply.mock.calls.length;
+    act(() => f.acknowledge(stale));
+    await tick(350);
+    expect(f.apply).toHaveBeenCalledTimes(count);
   } finally {
     await f.close();
   }
 });
-it('continues the existing input route if asynchronous media fallback starts during a hold', async () => {
-  const pending = Promise.withResolvers<void>();
-  const f = await setup(
-    10,
-    vi.fn(() => pending.promise),
-    {
-      width: 1920,
-      height: 1080,
-      start: 0,
-      end: 30,
-      seekEnd: 29,
-      playEnd: 29.5,
-      rates: [1],
-      audioTracks: 3,
-      seekGrid: null,
-      mutedOnly: true,
-      exactFloatVolume: true,
-      audioSwitch: false,
-    },
-  );
+it('does not reset a new direction with an older native release completion', async () => {
+  const f = await setup(30, undefined, null, true);
   try {
     act(() => f.hook.result.current.startReversePlayback(2));
     await tick(0);
-    await tick(50);
-    act(() => f.mediaFailure());
-    await tick(100);
-    expect(f.onSeek.mock.calls.map(([t]) => Number(t.toFixed(3)))).toEqual([
-      9.9, 9.8,
-    ]);
-    expect(f.controller.seekCommandTime).toBeCloseTo(9.8);
     act(() => f.hook.result.current.finishReversePlayback());
-    expect(f.controller.seekCommandTime).toBeCloseTo(9.8);
+    await tick(50);
+    const old = f.apply.mock.calls.at(-1)![0];
+    act(() => f.controller.controls({ playing: true, rate: 4 }));
+    await tick(100);
+    act(() => f.acknowledge(old, 29));
+    await tick(150);
+    expect(f.controller.requestedControls).toMatchObject({
+      playing: true,
+      rate: 4,
+    });
   } finally {
-    pending.resolve();
     await f.close();
   }
 });
 
-it('keeps the outstanding request when release occurs during a pending IPC apply', async () => {
-  const f = await setup();
-  const pending = Promise.withResolvers<void>();
+it('keeps reverse ownership through an audio setting change and stops on release', async () => {
+  const f = await setup(30, undefined, null, true);
   try {
-    await hold(f);
-    f.apply.mockImplementationOnce(() => pending.promise);
-    await tick(150);
-    const pendingCommand = f.apply.mock.calls.at(-1)![0];
-    await tick(200);
-    const count = f.apply.mock.calls.length;
-    expect(f.apply.mock.results.at(-1)!.value).toBe(pending.promise);
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(0);
+    act(() => f.controller.controls({ volume: 0.4, muted: false }));
+    await tick(50);
     act(() => f.hook.result.current.finishReversePlayback());
-    expect(f.apply).toHaveBeenCalledTimes(count);
-    expect(f.controller.hasConfirmedSeek).toBe(false);
-    pending.resolve();
-    await vi.advanceTimersByTimeAsync(1);
-    expect(f.apply).toHaveBeenCalledTimes(count + 1);
-    const latest = f.apply.mock.calls.at(-1)![0];
-    expect(latest.targetTime).toBeCloseTo(9.6);
-    act(() => f.acknowledge(pendingCommand));
-    expect(f.controller.snapshot().time).toBeCloseTo(9.9);
-    act(() => f.acknowledge(latest));
-    expect(f.controller.snapshot().time).toBeCloseTo(9.6);
+    await tick(100);
+    expect(f.controller.requestedControls).toMatchObject({
+      playing: false,
+      rate: -2,
+      volume: 0.4,
+      muted: false,
+    });
   } finally {
-    pending.resolve();
+    await f.close();
+  }
+});
+it('stops continuous native reversal at the confirmed beginning without a seek', async () => {
+  const f = await setup(0.05, undefined, null, true);
+  try {
+    act(() => f.hook.result.current.startReversePlayback(6));
+    await tick(0);
+    const command = f.apply.mock.calls.at(-1)![0];
+    act(() => f.acknowledge({ ...command, playing: false }, 0));
+    await tick(50);
+    expect(f.controller.requestedControls).toMatchObject({
+      playing: false,
+      rate: 1,
+    });
+    expect(f.apply.mock.calls.every(([value]) => value.seekId === 1)).toBe(
+      true,
+    );
+    expect(f.controller.snapshot().time).toBe(0);
+  } finally {
+    await f.close();
+  }
+});
+
+it('does not overwrite a new control between the stop ACK and its promise continuation', async () => {
+  const f = await setup(30, undefined, null, true);
+  try {
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(0);
+    act(() => f.hook.result.current.finishReversePlayback());
+    await tick(50);
+    const stop = f.apply.mock.calls.at(-1)![0];
+    act(() => {
+      f.acknowledge(stop, 29);
+      f.controller.controls({ playing: true, rate: 4 });
+    });
+    await tick(100);
+    expect(f.controller.requestedControls).toMatchObject({
+      playing: true,
+      rate: 4,
+    });
+  } finally {
+    await f.close();
+  }
+});
+
+it('does not start repeated seek after a started native reverse fails', async () => {
+  const presentation: NativePlaybackPresentation = {
+    width: 1920,
+    height: 1080,
+    start: 0,
+    end: 100,
+    seekEnd: 99,
+    playEnd: 99.5,
+    rates: [-2, 1],
+    audioTracks: 3,
+    seekGrid: null,
+    mutedOnly: false,
+    exactFloatVolume: false,
+    audioSwitch: true,
+  };
+  const f = await setup(30, undefined, presentation, true);
+  try {
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(0);
+    const command = f.apply.mock.calls.at(-1)![0];
+    act(() => f.acknowledge(command, 29));
+    act(() => f.mediaFailure());
+    for (const t of [50, 100, 150, 200, 250]) await tick(t);
+    expect(f.onSeek).not.toHaveBeenCalled();
+    expect(f.onNativeControls).toHaveBeenCalledWith(false, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+it('does not let failed-owner recovery stop a new native owner', async () => {
+  const presentation: NativePlaybackPresentation = {
+    width: 1920,
+    height: 1080,
+    start: 0,
+    end: 100,
+    seekEnd: 99,
+    playEnd: 99.5,
+    rates: [-2, 1],
+    audioTracks: 3,
+    seekGrid: null,
+    mutedOnly: false,
+    exactFloatVolume: false,
+    audioSwitch: true,
+  };
+  const restore = vi.fn(async () => {
+    port.controller = {} as NativePlaybackController;
+  });
+  const f = await setup(30, restore, presentation, true);
+  try {
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(0);
+    const command = f.apply.mock.calls.at(-1)![0];
+    act(() => f.acknowledge(command, 29));
+    act(() => f.mediaFailure());
+    for (const t of [50, 100, 150, 200, 250]) await tick(t);
+    expect(restore).toHaveBeenCalled();
+    expect(f.onNativeControls).not.toHaveBeenCalledWith(false, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+it('does not normalize UI if a new control reenters during stop confirmation', async () => {
+  const f = await setup(30, undefined, null, true);
+  let unsubscribe = (): void => {};
+  try {
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(0);
+    act(() => f.hook.result.current.finishReversePlayback());
+    await tick(50);
+    const stop = f.apply.mock.calls.at(-1)![0];
+    let issued = false;
+    unsubscribe = f.controller.subscribe(() => {
+      const intent = f.controller.requestedControls;
+      if (!issued && !intent.playing && intent.rate === 1) {
+        issued = true;
+        f.controller.controls({ playing: true, rate: 4 });
+      }
+    });
+    act(() => f.acknowledge(stop, 29));
+    await tick(100);
+    expect(issued).toBe(true);
+    expect(f.controller.requestedControls).toMatchObject({
+      playing: true,
+      rate: 4,
+    });
+    expect(f.onNativeControls).not.toHaveBeenCalledWith(false, 1);
+  } finally {
+    unsubscribe();
     await f.close();
   }
 });

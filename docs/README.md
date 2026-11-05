@@ -157,6 +157,10 @@ Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-
 
 - [必要範囲から準備する再生方式](adr/0077-demand-driven-playback-ranges.md): MSE能力確認、依存範囲・原本時計と長尺性能の未達条件。
 
+- [長押し逆再生のクラウド検証・実機測定手順](reports/2026-11-held-reverse.md): 実復号、合成IPC、未検証を区別した記録。
+
+- [埋め込みPlaylistの正確な切り出し](adr/0082-accurate-embedded-playlist-cuts.md): 指定範囲の変換、受諾済み素材の再利用と保存時検証。
+
 - [Apple標準再生の統合境界と受入条件](native-playback.md): 対応sourceの標準自動選択、内部fallback、機能inventoryと残る品質条件。
 
 - [Native clip export](native-export.md): 条件付きApple passthrough、精度・取消・既存経路への復帰。

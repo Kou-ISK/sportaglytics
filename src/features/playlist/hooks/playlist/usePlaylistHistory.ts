@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PlaylistItem } from '../../../../types/playlist/core';
-import { reconcilePlaylistMedia } from '../../../../shared/playlist/playlistMediaReconciliation';
+import {
+  playlistMediaContentKey,
+  reconcilePlaylistMedia,
+} from '../../../../shared/playlist/playlistMediaReconciliation';
 
 interface PlaylistHistoryState {
   past: PlaylistItem[][];
@@ -21,7 +24,7 @@ interface UsePlaylistHistoryReturn {
   reconcileMedia: (
     requested: PlaylistItem[],
     resolved: PlaylistItem[],
-  ) => boolean;
+  ) => 'unchanged' | 'derived' | 'changed';
 }
 
 const MAX_HISTORY_SIZE = 50;
@@ -97,18 +100,26 @@ export function usePlaylistHistory(
   }, [commit]);
 
   const reconcileMedia = useCallback(
-    (requested: PlaylistItem[], resolved: PlaylistItem[]): boolean => {
+    (
+      requested: PlaylistItem[],
+      resolved: PlaylistItem[],
+    ): 'unchanged' | 'derived' | 'changed' => {
       const previous = stateRef.current;
       const reconcile = (items: PlaylistItem[]): PlaylistItem[] =>
         reconcilePlaylistMedia(items, requested, resolved);
       const present = reconcile(previous.present);
-      if (present === previous.present) return false;
+      if (present === previous.present) return 'unchanged';
+      const changed = present.some(
+        (item, index) =>
+          playlistMediaContentKey(item) !==
+          playlistMediaContentKey(previous.present[index]),
+      );
       commit({
         past: previous.past.map(reconcile),
         present,
         future: previous.future.map(reconcile),
       });
-      return true;
+      return changed ? 'changed' : 'derived';
     },
     [commit],
   );

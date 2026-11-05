@@ -16,6 +16,7 @@ import {
 import { createPlaylistBridge } from './preload/playlistBridge';
 import { createPackageOpenBridge } from './preload/packageOpenBridge';
 import { createNativePlaybackBridge } from './preload/nativePlaybackBridge';
+import { createNativeCommandLeftBridge } from './preload/nativeCommandLeftBridge';
 import {
   nativePlaybackSnapshotChannel,
   nativePlaybackSnapshotAckChannel,
@@ -41,6 +42,7 @@ try {
 }
 
 const electronAPI = {
+  nativeCommandLeft: createNativeCommandLeftBridge(ipcRenderer),
   timelinePersistence: createTimelinePersistenceBridge(ipcRenderer),
   nativePlayback: createNativePlaybackBridge({
     acknowledge: (value) =>

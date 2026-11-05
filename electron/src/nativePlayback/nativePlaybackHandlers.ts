@@ -23,6 +23,7 @@ import {
 import { NativeSnapshotDelivery } from './nativeSnapshotDelivery';
 import { NativePlaybackManager } from './nativePlaybackManager';
 import type { QualifiedNativeSource } from './nativePlaybackManager';
+import type { NativePlaybackIntent, NativePlaybackOwner } from '../../../src/types/ipc/nativePlayback';
 
 const deliveries = new Map<BrowserWindow, NativeSnapshotDelivery>();
 const managers = new Map<BrowserWindow, NativePlaybackManager>();
@@ -30,6 +31,109 @@ let registered = false;
 let active: NativePlaybackManager | null = null;
 let quitting = false;
 const held = new Set<BrowserWindow>();
+let gestureInterlock: ((window: BrowserWindow, intent: NativePlaybackIntent) => boolean) | null = null;
+/** Installed by the trusted input owner; never accepts a Renderer callback. */
+export const installNativeGestureInterlock = (
+  check: (window: BrowserWindow, intent: NativePlaybackIntent) => boolean,
+): (() => void) => {
+  if (gestureInterlock) throw Error('NATIVE_GESTURE_INTERLOCK_EXISTS');
+  gestureInterlock = check;
+  return () => { if (gestureInterlock === check) gestureInterlock = null; };
+};
+export interface CapturedNativeGestureOwner {
+  readonly owner: NativePlaybackOwner;
+  isCurrent(): boolean;
+  stoppedAndDrawn(): boolean;
+  acceptsContinuation(intent: NativePlaybackIntent): boolean;
+  apply(raw: NativePlaybackIntent, permit: () => boolean): Promise<void>;
+  drain(): Promise<boolean>;
+}
+/** Called by Main after trusted window and gesture validation. No Renderer
+ * path or owner is accepted as authority, and cleanup keeps the captured
+ * manager even if navigation or window destruction happens in the meantime. */
+export const captureNativeGestureOwner = (
+  window: BrowserWindow,
+): CapturedNativeGestureOwner | null => {
+  const session = getPackageSessionForWindow(window);
+  const manager = managers.get(window);
+  if (quitting || held.has(window) || window.isDestroyed() ||
+      getValidatedSenderWindow(window.webContents) !== window ||
+      !session?.packageBound || session.mainWindow !== window ||
+      !manager || active !== manager) return null;
+  const captured = manager.captureOwner();
+  if (!captured) return null;
+  let initial: NativePlaybackIntent | null;
+  try {
+    const state = manager.observe(captured);
+    if (state.error || state.closing || state.closed) return null;
+    initial = state.intent;
+  } catch { return null; }
+  if (!initial) return null;
+  const startingIntent = initial;
+  let submitted: NativePlaybackIntent | null = null;
+  let stopSubmitted = false;
+  const isCurrent = (): boolean => {
+    if (active !== manager || quitting || held.has(window) || window.isDestroyed() ||
+        getValidatedSenderWindow(window.webContents) !== window) return false;
+    const current = manager.captureOwner();
+    return current !== null && current.generation === captured.generation &&
+      current.sourceKey === captured.sourceKey;
+  };
+  return {
+    owner: Object.freeze({ ...captured }),
+    isCurrent,
+    acceptsContinuation(intent): boolean {
+      const accepted = !!submitted && isCurrent() && intent.generation === captured.generation &&
+        intent.sourceKey === captured.sourceKey && intent.sequence > submitted.sequence &&
+        intent.seekId === submitted.seekId && intent.targetTime === submitted.targetTime &&
+        intent.seekMode === submitted.seekMode && intent.rate === submitted.rate &&
+        (!intent.playing || !stopSubmitted);
+      if (accepted && !intent.playing) stopSubmitted = true;
+      return accepted;
+    },
+    stoppedAndDrawn(): boolean {
+      if (!isCurrent() || !submitted) return false;
+      try {
+        const value = manager.observe(captured);
+        const intent = value.intent;
+        const observation = value.observation;
+        return !value.error && !value.closing && !!intent && !intent.playing &&
+          intent.sequence > submitted.sequence && intent.seekId === submitted.seekId &&
+          intent.targetTime === submitted.targetTime && intent.rate === submitted.rate &&
+          !!observation && observation.phase === 'paused' && observation.rate === 0 &&
+          observation.videoReady && observation.audioReady &&
+          observation.sequence === intent.sequence && observation.seekId === intent.seekId;
+      } catch { return false; }
+    },
+    async apply(raw, permit): Promise<void> {
+      const intent = parseNativePlaybackIntent(raw);
+      if (intent.generation !== captured.generation || intent.sourceKey !== captured.sourceKey ||
+          submitted || intent.sequence !== startingIntent.sequence + 1 ||
+          intent.seekId !== startingIntent.seekId || intent.targetTime !== startingIntent.targetTime ||
+          !intent.playing || intent.rate >= 0 || !isCurrent() || !permit())
+        throw Error('NATIVE_GESTURE_REVOKED');
+      submitted = intent;
+      const allowed = (): boolean => {
+        if (!isCurrent() || !permit()) return false;
+        try {
+          const current = manager.observe(captured).intent;
+          return !!current && (current.sequence === startingIntent.sequence ||
+            (current.sequence >= intent.sequence && current.seekId === intent.seekId &&
+             current.targetTime === intent.targetTime && current.rate === intent.rate));
+        } catch { return false; }
+      };
+      await manager.applyGuarded(intent, allowed);
+    },
+    async drain(): Promise<boolean> {
+      try {
+        const receipt = await manager.close(captured);
+        if (!receipt.nativeDrained || !receipt.processExited || !receipt.pipesClosed) return false;
+        if (active === manager) active = null;
+        return true;
+      } catch { return false; }
+    },
+  };
+};
 /** Ordinary startup supplies no qualification/provider, so no native helper can
  * launch. A diagnostic Main may supply a fixed, independently checked source. */
 export const registerNativePlaybackHandlers = (
@@ -137,9 +241,14 @@ export const registerNativePlaybackHandlers = (
       throw error;
     }
   });
-  ipcMain.handle(channels.apply, (event, raw: unknown) =>
-    owner(event).apply(parseNativePlaybackIntent(raw)),
-  );
+  ipcMain.handle(channels.apply, (event, raw: unknown) => {
+    const manager = owner(event);
+    const window = getValidatedEventSenderWindow(event);
+    const intent = parseNativePlaybackIntent(raw);
+    if (!window || (gestureInterlock && !gestureInterlock(window, intent)))
+      throw Error('NATIVE_GESTURE_INTERRUPTED');
+    return manager.apply(intent);
+  });
   ipcMain.handle(channels.observe, (event, raw: unknown) =>
     owner(event).observe(parseNativePlaybackOwner(raw)),
   );

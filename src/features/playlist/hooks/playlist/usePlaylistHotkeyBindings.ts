@@ -11,6 +11,7 @@ interface UsePlaylistHotkeyBindingsParams {
   handleTogglePlay: () => void;
   startReversePlayback: (rate: 0.5 | 2 | 4 | 6) => void;
   stopReversePlayback: () => void;
+  finishReversePlayback?: () => void;
   handlePrevious: () => void;
   handleNext: () => void;
   handleDeleteSelected: () => void;
@@ -38,6 +39,7 @@ export const usePlaylistHotkeyBindings = ({
   handleTogglePlay,
   startReversePlayback,
   stopReversePlayback,
+  finishReversePlayback = stopReversePlayback,
   handlePrevious,
   handleNext,
   handleDeleteSelected,
@@ -148,12 +150,12 @@ export const usePlaylistHotkeyBindings = ({
       'skip-forward-medium': () => stop('skip-forward-medium'),
       'skip-forward-large': () => stop('skip-forward-large'),
       'skip-forward-xlarge': () => stop('skip-forward-xlarge'),
-      'reverse-playback-slow': stopReversePlayback,
-      'reverse-playback-2x': stopReversePlayback,
-      'reverse-playback-4x': stopReversePlayback,
-      'reverse-playback-6x': stopReversePlayback,
+      'reverse-playback-slow': finishReversePlayback,
+      'reverse-playback-2x': finishReversePlayback,
+      'reverse-playback-4x': finishReversePlayback,
+      'reverse-playback-6x': finishReversePlayback,
     }),
-    [stop, stopReversePlayback],
+    [stop, finishReversePlayback],
   );
 
   return { hotkeyHandlers, keyUpHandlers };
