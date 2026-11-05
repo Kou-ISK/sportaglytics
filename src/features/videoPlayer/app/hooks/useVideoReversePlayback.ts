@@ -99,17 +99,27 @@ export const useVideoReversePlayback = ({
             unwatch.current?.();
             unwatch.current = null;
           } else if (state.phase === 'original') {
-            // Verified original restoration owns the clock before HTML resumes.
+            // A failed native rate gesture restores a stopped image, not a seek loop.
             held.current = null;
             unwatch.current?.();
             unwatch.current = null;
-            const abort = new AbortController();
-            stopWait.current = abort;
-            queueMicrotask(() => {
-              if (abort.signal.aborted || stopWait.current !== abort) return;
-              stopWait.current = null;
-              reverse.startReversePlayback(rate, state.time);
-            });
+            // Recovery publishes original only after async drain/restoration.
+            // Commit this notification now, before any later HTML operation.
+            const current = getNativePlayback();
+            if (
+              native.commandRevision !== owner.revision ||
+              (current !== null && current !== native)
+            )
+              return;
+            onNativeControls(false, 1);
+            const after = getNativePlayback();
+            if (
+              native.commandRevision !== owner.revision ||
+              (after !== null && after !== native)
+            )
+              return;
+            if (state.error)
+              params.onError?.(new Error('REVERSE_NATIVE_UNAVAILABLE'));
           } else if (
             state.observation?.phase === 'paused' &&
             state.time === 0
@@ -130,6 +140,7 @@ export const useVideoReversePlayback = ({
     [
       cancel,
       onNativeControls,
+      params.onError,
       reverse.cancelReversePlayback,
       reverse.startReversePlayback,
     ],
@@ -139,11 +150,11 @@ export const useVideoReversePlayback = ({
     held.current = null;
     unwatch.current?.();
     unwatch.current = null;
-    stopWait.current?.abort();
     if (!owner) {
       reverse.stopReversePlayback();
       return;
     }
+    stopWait.current?.abort();
     if (
       getNativePlayback() !== owner.native ||
       owner.native.commandRevision !== owner.revision
@@ -160,20 +171,30 @@ export const useVideoReversePlayback = ({
     const abort = new AbortController();
     stopWait.current = abort;
     const revision = owner.native.commandRevision;
-    void waitForNativePresentation(owner.native, revision, abort.signal).then(
-      () => {
+    void waitForNativePresentation(owner.native, revision, abort.signal, () => {
+      const current = getNativePlayback();
+      const restored = owner.native.snapshot().phase === 'original';
+      if (
+        abort.signal.aborted ||
+        stopWait.current !== abort ||
+        (current !== owner.native && !(current === null && restored)) ||
+        owner.native.commandRevision !== revision
+      )
+        return;
+      // Commit at the confirmation boundary, before a later HTML action.
+      stopWait.current = null;
+      if (!restored) {
+        owner.native.controls({ playing: false, rate: 1 });
         if (
-          abort.signal.aborted ||
-          stopWait.current !== abort ||
-          getNativePlayback() !== owner.native
+          getNativePlayback() !== owner.native ||
+          owner.native.commandRevision !== revision + 1 ||
+          owner.native.requestedControls.playing !== false ||
+          owner.native.requestedControls.rate !== 1
         )
           return;
-        owner.native.controls({ playing: false, rate: 1 });
-        onNativeControls?.(false, 1);
-        stopWait.current = null;
-      },
-      () => {},
-    );
+      }
+      onNativeControls?.(false, 1);
+    }).catch(() => {});
   }, [onNativeControls, reverse.stopReversePlayback]);
   useEffect(() => {
     const interrupted = (): void => {

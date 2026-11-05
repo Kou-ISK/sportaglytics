@@ -377,3 +377,119 @@ it('stops continuous native reversal at the confirmed beginning without a seek',
     await f.close();
   }
 });
+
+it('does not overwrite a new control between the stop ACK and its promise continuation', async () => {
+  const f = await setup(30, undefined, null, true);
+  try {
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(0);
+    act(() => f.hook.result.current.finishReversePlayback());
+    await tick(50);
+    const stop = f.apply.mock.calls.at(-1)![0];
+    act(() => {
+      f.acknowledge(stop, 29);
+      f.controller.controls({ playing: true, rate: 4 });
+    });
+    await tick(100);
+    expect(f.controller.requestedControls).toMatchObject({
+      playing: true,
+      rate: 4,
+    });
+  } finally {
+    await f.close();
+  }
+});
+
+it('does not start repeated seek after a started native reverse fails', async () => {
+  const presentation: NativePlaybackPresentation = {
+    width: 1920,
+    height: 1080,
+    start: 0,
+    end: 100,
+    seekEnd: 99,
+    playEnd: 99.5,
+    rates: [-2, 1],
+    audioTracks: 3,
+    seekGrid: null,
+    mutedOnly: false,
+    exactFloatVolume: false,
+    audioSwitch: true,
+  };
+  const f = await setup(30, undefined, presentation, true);
+  try {
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(0);
+    const command = f.apply.mock.calls.at(-1)![0];
+    act(() => f.acknowledge(command, 29));
+    act(() => f.mediaFailure());
+    for (const t of [50, 100, 150, 200, 250]) await tick(t);
+    expect(f.onSeek).not.toHaveBeenCalled();
+    expect(f.onNativeControls).toHaveBeenCalledWith(false, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+it('does not let failed-owner recovery stop a new native owner', async () => {
+  const presentation: NativePlaybackPresentation = {
+    width: 1920,
+    height: 1080,
+    start: 0,
+    end: 100,
+    seekEnd: 99,
+    playEnd: 99.5,
+    rates: [-2, 1],
+    audioTracks: 3,
+    seekGrid: null,
+    mutedOnly: false,
+    exactFloatVolume: false,
+    audioSwitch: true,
+  };
+  const restore = vi.fn(async () => {
+    port.controller = {} as NativePlaybackController;
+  });
+  const f = await setup(30, restore, presentation, true);
+  try {
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(0);
+    const command = f.apply.mock.calls.at(-1)![0];
+    act(() => f.acknowledge(command, 29));
+    act(() => f.mediaFailure());
+    for (const t of [50, 100, 150, 200, 250]) await tick(t);
+    expect(restore).toHaveBeenCalled();
+    expect(f.onNativeControls).not.toHaveBeenCalledWith(false, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+it('does not normalize UI if a new control reenters during stop confirmation', async () => {
+  const f = await setup(30, undefined, null, true);
+  let unsubscribe = (): void => {};
+  try {
+    act(() => f.hook.result.current.startReversePlayback(2));
+    await tick(0);
+    act(() => f.hook.result.current.finishReversePlayback());
+    await tick(50);
+    const stop = f.apply.mock.calls.at(-1)![0];
+    let issued = false;
+    unsubscribe = f.controller.subscribe(() => {
+      const intent = f.controller.requestedControls;
+      if (!issued && !intent.playing && intent.rate === 1) {
+        issued = true;
+        f.controller.controls({ playing: true, rate: 4 });
+      }
+    });
+    act(() => f.acknowledge(stop, 29));
+    await tick(100);
+    expect(issued).toBe(true);
+    expect(f.controller.requestedControls).toMatchObject({
+      playing: true,
+      rate: 4,
+    });
+    expect(f.onNativeControls).not.toHaveBeenCalledWith(false, 1);
+  } finally {
+    unsubscribe();
+    await f.close();
+  }
+});

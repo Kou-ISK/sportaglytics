@@ -460,7 +460,7 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 Apple標準再生はAVPlayerが読み出し・復号・音声・時計を所有し、AVPlayerItemVideoOutputの画像を既存DOM表示面へ渡します。Mainの文書/IPC/終了所有権と最大3画像の転送は保持し、独自FFmpeg復号・PCM窓・供給回復は削除します。[ADR 0080](adr/0080-apple-player-playback.md)と[仕様・適用範囲](native-playback.md)を参照してください。
 
-長押し逆再生は、対応AVPlayerItemの連続負rateと、表示完了を待つ直列シーク代替に分けます。後者は表示中1要求・最新希望1件を保持し、画像到着だけで次を送信しません。IPC/画像の操作sequenceと配送順序は単調増加、PTS/確認時計は再生方向に従います。停止はネイティブの実停止時計、代替は最後の希望位置の表示で確定します。[設計](adr/0081-held-reverse-presentation.md)と[仕様](native-playback.md)を参照してください。
+長押し逆再生は、対応AVPlayerItemの連続負rateと、能力非対応時に表示完了を待つ直列シーク代替に分けます。開始済みの負rateが失敗した場合は、確認済み原本へ戻して停止し、自動でシーク反復へ移りません。後者は表示中1要求・最新希望1件を保持し、画像到着だけで次を送信しません。IPC/画像の操作sequenceと配送順序は単調増加、PTS/確認時計は再生方向に従います。停止はネイティブの実停止時計、代替は最後の希望位置の表示で確定します。[設計](adr/0081-held-reverse-presentation.md)と[仕様](native-playback.md)を参照してください。
 
 通常スクラブはAppleが選んだ近傍画像の実時刻を確認して確定し、コマ送り・明示時刻指定だけを厳密シークにします。タグ/保存時計は要求値でなく確認済み時刻です。相対入力は最新要求へ加算し、旧gestureは新sourceへ伝えません。
 

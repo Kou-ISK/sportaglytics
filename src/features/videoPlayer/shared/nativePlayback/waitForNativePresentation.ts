@@ -4,14 +4,26 @@ export const waitForNativePresentation = (
   native: NativePlaybackController,
   revision: number,
   signal: AbortSignal,
+  onConfirmed?: () => void,
 ): Promise<void> =>
   new Promise((resolve, reject) => {
     let unsubscribe = (): void => {};
+    let finished = false;
     const finish = (error?: Error): void => {
+      if (finished) return;
+      finished = true;
       unsubscribe();
       signal.removeEventListener('abort', aborted);
-      if (error) reject(error);
-      else resolve();
+      if (error) {
+        reject(error);
+        return;
+      }
+      try {
+        onConfirmed?.();
+        resolve();
+      } catch (reason: unknown) {
+        reject(reason);
+      }
     };
     const aborted = (): void => finish(new Error('REVERSE_CANCELLED'));
     const check = (): void => {
