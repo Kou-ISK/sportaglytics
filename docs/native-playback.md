@@ -41,7 +41,7 @@ Session/Controller、preview・scrub・厳密シーク、source交代、連打�
 
 ## ビルドと診断
 
-`native/macos/playback/apple-player`がAVPlayerの操作、`surface-transport`が画像の所有を担当します。`native:build`は固定source・Node headers・Apple SDKからhelper/receiverを構築します。FFmpegのstatic linkやworker適応は行いません。[対応ソース](third-party-distribution.md#native-playback-previewの対応ソース)と署名後hashを実配布物に対応づけます。旧releaseと原本を保持してrollback可能にします。
+`native/macos/playback/apple-player`がAVPlayerの操作、`surface-transport`が画像の所有を担当します。`native:build`は固定source・Node headers・Apple SDKからHost・Receiver・CommandLeft入力部を構築します。FFmpegのstatic linkやworker適応は行いません。[対応ソース](third-party-distribution.md#native-playback-previewの対応ソース)と署名後hashを実配布物に対応づけます。旧releaseと原本を保持してrollback可能にします。
 
 Mainは初期化前にclose可能なownerを返し、実process/pipe/GPU終了と停止時計receiptを確認します。秘密・映像・音声を記録せず、既存の数値256KiB ring、追加メモリ最大1MiB、保存最大2MiB×4件のローカル診断だけを使用します。診断失敗は再生や終了の成功条件にしません。
 
