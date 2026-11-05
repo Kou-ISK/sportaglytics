@@ -1,4 +1,5 @@
 import { clockMovedAgainstRate } from '../../../../shared/media/playbackRate';
+import { createCommandGestureIntent } from './commandGestureIntent';
 import { reportNativeFailure } from './nativeFailureReport';
 import type { VideoSeekMode } from '../../../../types/video/seek';
 import { nativePresentationSupports } from '../../../../types/ipc/nativePlaybackPresentation';
@@ -41,6 +42,13 @@ export interface NativeOriginalRecovery {
   release: () => void;
   restored?: (time: number, controls: NativePlaybackControls) => void;
 }
+interface CommandGesture {
+  id: number;
+  rate: number;
+  revoke: () => Promise<void>;
+  starting: boolean;
+  reservationRevision: number;
+}
 /** Commands are desired state. Only native observations advance the product
  * clock. One pending command and one poll; no per-frame seek feedback. */
 export class NativePlaybackController {
@@ -69,6 +77,9 @@ export class NativePlaybackController {
   private stoppedTime: number | null = null;
   private operationRevision = 0;
   private positionRevision = 0;
+  private commandGesture: CommandGesture | null = null;
+  private nextCommandGesture = 0;
+  private gestureRevocation: Promise<void> | null = null;
   private clockRate = 1;
   private reverseCapabilities = { slow: false, fast: false };
   constructor(
@@ -144,6 +155,9 @@ export class NativePlaybackController {
       this.fail('NATIVE_STATE_LISTENER_FAILED');
   }
   controls(value: Partial<NativePlaybackControls>): void {
+    this.applyControls(value, false);
+  }
+  private applyControls(value: Partial<NativePlaybackControls>, internalGesture: boolean): void {
     if (!this.acceptsOperation()) return;
     const changed = Object.entries(value).some(
       ([key, next]) =>
@@ -162,7 +176,9 @@ export class NativePlaybackController {
       next.seekMode = 'scrub';
       next.seekId++;
     }
-    if (this.routeToOriginal(next, false)) return;
+    const interrupted = this.commandGesture && !internalGesture &&
+      (this.commandGesture.starting || next.playing !== this.intent.playing || next.rate !== this.intent.rate);
+    if (this.routeToOriginal(next, false, !!interrupted)) return;
     this.intent = next;
     this.readyDeadline = Math.min(
       performance.now() + 5000,
@@ -186,7 +202,7 @@ export class NativePlaybackController {
     if (
       this.state.phase === 'active' &&
       !this.fallingBack &&
-      !this.intent.playing &&
+      !this.commandGesture && !this.intent.playing &&
       !this.hasConfirmedSeek &&
       time === this.intent.targetTime &&
       (this.intent.seekMode ?? 'exact') === mode
@@ -200,7 +216,7 @@ export class NativePlaybackController {
     };
     if (mode !== 'exact') next.seekMode = mode;
     else delete next.seekMode;
-    if (this.routeToOriginal(next, true)) return;
+    if (this.routeToOriginal(next, true, !!this.commandGesture)) return;
     this.intent = next;
     this.bufferingDeadline = null;
     this.bufferedStop = null;
@@ -226,6 +242,77 @@ export class NativePlaybackController {
       (!this.presentation || this.presentation.rates.includes(-rate))
     );
   }
+  /** Stabilize the Main baseline before asking Main to capture a gesture. */
+  async prepareCommandGesture(rate: number): Promise<boolean> {
+    const revision = this.operationRevision;
+    while (this.writer && revision === this.operationRevision) {
+      const writer = this.writer;
+      await writer;
+    }
+    return this.operationRevision === revision && !this.writer && !this.pending &&
+      !this.commandGesture && this.supportsReverse(rate);
+  }
+  reserveCommandGesture(rate: number, revoke: () => Promise<void>): number | null {
+    if (this.writer || this.pending || this.commandGesture || !this.supportsReverse(rate)) return null;
+    const gesture: CommandGesture = { id: ++this.nextCommandGesture, rate, revoke,
+      starting: true, reservationRevision: this.operationRevision };
+    this.commandGesture = gesture;
+    return gesture.id;
+  }
+  /** A start intent and its Main-validated sender are never coalesced apart. */
+  async startCommandGesture(
+    id: number,
+    send: (intent: NativePlaybackIntent) => Promise<void>,
+  ): Promise<number | null> {
+    const gesture = this.commandGesture;
+    if (!gesture || gesture.id !== id || !gesture.starting ||
+        this.operationRevision !== gesture.reservationRevision || this.writer || this.pending ||
+        !this.supportsReverse(gesture.rate)) return null;
+    const next = createCommandGestureIntent(this.intent, gesture.rate, this.presentation);
+    if (!next) return null;
+    this.operationRevision++;
+    this.intent = next;
+    this.readyDeadline = performance.now() + 5000;
+    const sending = Promise.resolve().then(() => {
+      if (this.commandGesture !== gesture || this.state.phase !== 'active')
+        throw Error('NATIVE_GESTURE_SUPERSEDED');
+      return send({ ...next });
+    });
+    this.writer = sending.catch(() => {
+      if (this.commandGesture === gesture) this.fail('NATIVE_COMMAND_FAILED');
+    }).finally(() => { this.writer = null; this.flush(); });
+    this.update({ observation: null });
+    await sending;
+    if (this.commandGesture !== gesture || this.state.phase !== 'active')
+      throw Error('NATIVE_GESTURE_SUPERSEDED');
+    gesture.starting = false;
+    return gesture.id;
+  }
+  stopCommandGesture(id: number): number | null {
+    const gesture = this.commandGesture;
+    if (!gesture || gesture.id !== id || gesture.starting) return null;
+    this.applyControls({ playing: false, rate: -gesture.rate }, true);
+    return this.commandGesture === gesture ? this.operationRevision : null;
+  }
+  hasCommandGesture(id: number): boolean {
+    return this.commandGesture?.id === id && this.state.phase === 'active';
+  }
+  /** Stop a held gesture before an unrelated UI action or focus loss. */
+  interruptCommandGesture(): void {
+    if (!this.commandGesture || !this.acceptsOperation()) return;
+    this.operationRevision++;
+    const next: NativePlaybackIntent = { ...this.intent,
+      sequence: this.intent.sequence + 1, playing: false, rate: 1 };
+    this.routeToOriginal(next, false, true);
+  }
+  normalizeCommandGesture(id: number, revision: number): boolean {
+    const gesture = this.commandGesture;
+    if (!gesture || gesture.id !== id || this.operationRevision !== revision) return false;
+    this.commandGesture = null;
+    this.controls({ playing: false, rate: 1 });
+    return this.state.phase === 'active' && this.operationRevision === revision + 1 &&
+      !this.intent.playing && this.intent.rate === 1;
+  }
   get seekRevision(): number {
     return this.positionRevision;
   }
@@ -246,6 +333,13 @@ export class NativePlaybackController {
   private isPreviewing(): boolean {
     return this.intent.seekMode === 'preview';
   }
+  private revokeCommandGesture(): void {
+    const old = this.commandGesture;
+    if (!old) return;
+    this.commandGesture = null;
+    this.gestureRevocation = Promise.resolve().then(() => old.revoke());
+    void this.gestureRevocation.catch(() => {});
+  }
   private acceptsOperation(): boolean {
     if (this.state.phase === 'active' && this.checkDeadline()) return true;
     // The operation itself can detect the expired refill and initiate fallback.
@@ -255,6 +349,7 @@ export class NativePlaybackController {
   private routeToOriginal(
     next: NativePlaybackIntent,
     seeking: boolean,
+    force = false,
   ): boolean {
     try {
       parseNativePlaybackIntent(next);
@@ -263,7 +358,7 @@ export class NativePlaybackController {
       return true;
     }
     if (
-      !this.fallingBack &&
+      !force && !this.fallingBack &&
       (!this.presentation ||
         nativePresentationSupports(
           this.presentation,
@@ -281,6 +376,7 @@ export class NativePlaybackController {
     if (seeking) this.recoveryTime = next.targetTime;
     this.fallingBack = true;
     this.pending = null;
+    if (force) this.revokeCommandGesture();
     // All entrances (toolbar, timeline, remote seek and reverse keys) share this
     // path. A newer operation replaces the pending one while native drains.
     this.continueFallback();
@@ -436,6 +532,7 @@ export class NativePlaybackController {
   fail(reason: string): void {
     if (this.state.phase === 'original' || this.state.phase === 'failed')
       return;
+    this.revokeCommandGesture();
     reportNativeFailure(
       this.api,
       this.owner,
@@ -473,6 +570,7 @@ export class NativePlaybackController {
     }
   }
   private drain(): Promise<void> {
+    this.revokeCommandGesture();
     if (this.closeWork) return this.closeWork;
     this.pending = null;
     this.disconnectObserver();
@@ -483,6 +581,7 @@ export class NativePlaybackController {
       );
       await this.opened;
       await this.writer;
+      await this.gestureRevocation;
       if (
         result.generation !== this.owner.generation ||
         !result.nativeDrained ||
@@ -521,6 +620,7 @@ export class NativePlaybackController {
   }
   /** Closing native ownership does not acknowledge original media restoration. */
   closeNative(): Promise<void> {
+    this.revokeCommandGesture();
     const paused = this.pauseOriginal();
     this.update({
       phase: paused ? 'closing' : 'failed',

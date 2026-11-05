@@ -34,6 +34,15 @@ export interface LlamaModelInfo {
 }
 
 export interface IElectronAPI {
+  nativeCommandLeft?: {
+    ready(): Promise<number | null>;
+    claim(gesture: number, epoch: number): Promise<import('./types/ipc/nativeCommandLeft').NativeGesturePhase>;
+    apply(gesture: number, epoch: number, intent: import('./types/ipc/nativePlayback').NativePlaybackIntent): Promise<void>;
+    retire(gesture: number, epoch: number): Promise<boolean>;
+    revoke(epoch: number): Promise<'revoked' | 'already-revoked' | 'pending' | 'rejected'>;
+    onEvent(listener: (event: import('./types/ipc/nativeCommandLeft').NativeCommandLeftEvent | null) => boolean): () => void;
+    onOverflow(listener: (epoch: number | null) => void): () => void;
+  };
   /** Present only in a Main-qualified embedded playback build. No native handles. */
   nativeSurface?: {
     bind: (

@@ -568,3 +568,5 @@ macOS arm64では`pnpm run native:build`でAVPlayer helperとN-API receiverを�
 `native:sources`で[対応ソース](third-party-distribution.md#native-playback-previewの対応ソース)を作成します。通常packageのarm64資源は内側署名→manifest→外側署名の順で固定teamとhashを照合します。署名済みpackageの起動・操作・終了と[公証配布](../.github/RELEASE.md)を別途確認します。Windowsへの新方式移植は今回の完了条件に含めません。
 
 連続native逆再生の失敗後復帰と停止確認の同期順序は `useVideoReversePlayback.test.tsx` と `waitForNativePresentation.test.ts` で回帰確認します。実機での画像・音声とキー解放は別の受入条件です。
+
+Command＋左の入力変更では、`commandLeftBroker`、`commandLeftHealth`、`commandLeftIpc`、`nativePlaybackHandlers`、`nativeGestureQueue`、`nativePlaybackController`、`commandGestureAdapter` と `useWorkspaceHotkeys` の各テストで通知欠落、連続押下、割込みと停止順序を確認します。署名済み配布版での実キー・実画像・保存確認は別に実施します。

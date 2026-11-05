@@ -222,7 +222,21 @@ export class NativePlaybackManager {
     return this.opening;
   }
   async apply(raw: NativePlaybackIntent): Promise<void> {
+    return this.applyIntent(raw);
+  }
+  /** Main-only: guard a gesture start across source validation and host delivery. */
+  async applyGuarded(
+    raw: NativePlaybackIntent,
+    allowed: () => boolean,
+  ): Promise<void> {
+    return this.applyIntent(raw, allowed);
+  }
+  private async applyIntent(
+    raw: NativePlaybackIntent,
+    allowed?: () => boolean,
+  ): Promise<void> {
     const value = parseNativePlaybackIntent(raw);
+    if (allowed && !allowed()) throw Error('NATIVE_GESTURE_REVOKED');
     const source = this.authenticate({
       generation: value.generation,
       sourceKey: value.sourceKey,
@@ -237,6 +251,7 @@ export class NativePlaybackManager {
       generation: value.generation,
       sourceKey: value.sourceKey,
     });
+    if (allowed && !allowed()) throw Error('NATIVE_GESTURE_REVOKED');
     if (!this.session) throw Error('NATIVE_NOT_OPEN');
     if (
       source.presentation &&
@@ -247,12 +262,22 @@ export class NativePlaybackManager {
       )
     )
       throw Error('NATIVE_UNQUALIFIED_PRESENTATION');
-    this.session.apply(value);
+    this.session.apply(value, allowed);
   }
   observe(raw: NativePlaybackOwner): NativePlaybackSnapshot {
     this.authenticate(raw);
     if (!this.session) throw Error('NATIVE_NOT_OPEN');
     return this.session.snapshot();
+  }
+  /** Main-only snapshot of the currently open, authenticated owner. */
+  captureOwner(): NativePlaybackOwner | null {
+    if (!this.owner || !this.session || this.opening) return null;
+    try {
+      this.authenticate(this.owner);
+      return { ...this.owner };
+    } catch {
+      return null;
+    }
   }
   close(raw: NativePlaybackOwner): Promise<NativePlaybackClosed> {
     const value = parseNativePlaybackOwner(raw);

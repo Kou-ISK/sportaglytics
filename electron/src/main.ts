@@ -1,4 +1,5 @@
 import { nativePlaybackProvider } from './nativePlayback/nativePlaybackStartup';
+import { registerCommandLeftApplication } from './nativeInput/commandLeftApplication';
 import { registerEventDetectionWindowHandlers } from './eventDetectionWindow';
 import { registerLiveCaptureHandlers } from './liveCapture/captureHandlers';
 import { registerDocumentWindowTitle } from './documentWindowPresentation';
@@ -227,6 +228,7 @@ registerPlaybackCacheHandlers();
 registerNativePlaybackHandlers(
   nativePlaybackProvider(path.resolve(__dirname, '../..')),
 );
+registerCommandLeftApplication();
 registerSyncHandlers();
 registerMenuStateHandlers();
 registerSettingsHandlers();

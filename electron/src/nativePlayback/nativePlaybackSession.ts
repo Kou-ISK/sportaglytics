@@ -37,7 +37,11 @@ const sameOwner = (a: NativePlaybackOwner, b: NativePlaybackOwner): boolean =>
  * filesystem writes and cannot modify package/tag/export metadata. */
 export class NativePlaybackSession {
   private intent: NativePlaybackIntent | null = null;
-  private pending: NativePlaybackIntent | null = null;
+  private pending: {
+    intent: NativePlaybackIntent;
+    allowed: () => boolean;
+  } | null = null;
+  private transportGuard: (() => boolean) | null = null;
   private delivery: Promise<void> | null = null;
   private observation: NativePlaybackObservation | null = null;
   private lastRevision = 0;
@@ -81,7 +85,7 @@ export class NativePlaybackSession {
     this.clockTime = scope.start;
   }
 
-  apply(raw: NativePlaybackIntent): void {
+  apply(raw: NativePlaybackIntent, allowed?: () => boolean): void {
     const next = parseNativePlaybackIntent(raw);
     if (this.closing || this.error || !sameOwner(next, this.scope.owner))
       throw Error('NATIVE_OWNER_UNAVAILABLE');
@@ -103,19 +107,31 @@ export class NativePlaybackSession {
       (!old && (next.seekId !== 1 || next.playing))
     )
       throw Error('NATIVE_INVALID_INTENT_ORDER');
+    // A settings change or coalesced pause/resume may retain the transport.
+    // Keep its permit lineage until a new operation or an explicit new permit.
+    const guard = allowed ?? (old &&
+      old.rate === next.rate && old.seekId === next.seekId
+      ? this.transportGuard : null);
+    this.transportGuard = guard;
     this.intent = next;
-    this.pending = next; // Exactly one latest full intent, not an accumulating seek queue.
+    this.pending = { intent: next, allowed: next.playing ? guard ?? (() => true) : () => true };
     this.flush();
   }
 
   private flush(): void {
     if (this.delivery || !this.pending || this.closing || this.error) return;
-    const next = this.pending;
+    const { intent: next, allowed } = this.pending;
     this.pending = null;
     // Keep ownership if the writer never settles. close() must still cancel the
     // backend independently and cannot acknowledge while delivery is unknown.
     const work = Promise.resolve().then(() => {
       if (!this.closing && !this.error) {
+        // A Main-owned gesture permit can be revoked while a prior write is in
+        // flight. Do not deliver that now-stale start to the native host.
+        if (!allowed()) {
+          this.fail('owner');
+          return;
+        }
         if (this.issuedIntents.size >= 256)
           throw Error('NATIVE_COMMAND_ACK_BOUND');
         this.issuedSequence = next.sequence;
