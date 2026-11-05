@@ -25,7 +25,7 @@ export const desktopReleaseNotes = ({
     platformNotes = `macOS arm64 / Intel とWindows x64向けです。Macアプリは署名・公証済みで最終DMGから検査しています。Windowsは同じcommitから新規buildし、インストール後の全E2Eと同梱物を検査済みです。${signatureNotes}Windows Nと実カメラは未検証です。`;
   }
   const playbackNotes =
-    '0.17.19は、Macで逆方向キーを離すと開始位置へ戻り、押下中の移動要求が消える退行を修正します。キー解放で新しい要求を止め、最後に要求した位置へ移動して停止する旧操作を復元します。別操作・原本復帰・即時再押下と確認済み時刻を保持します。新しいUIや変換処理は追加しません。Apple Silicon Macの対応する単一動画のAVPlayer再生と非対応条件の既存互換経路を維持します。対象長尺素材の限定試験では0.5倍/高速逆方向の押下中に画像更新がなく、解放後は最大約2.64秒を要しました。この表示待ちと未公開Playlist候補の画像更新問題は未解決です。逆再生全体の復旧や滑らかさ改善とは扱いません。短い消音試験で実聴取同期や長時間品質を保証せず、原本・既存プロジェクト・旧Releaseを保持します。';
+    '0.17.20は、対応するApple Silicon Macの単一動画でAVPlayerの連続逆方向再生を使用し、Command＋左の解放・再押下と他の再生操作の競合を抑えます。対応条件はH.264 1080p・59.94fps・AAC 3トラックなどに限定され、非対応の素材は既存の互換経路を使用します。重い素材では開始待ちや画像更新の遅れが残ることがあります。Playlist保存中の編集や文書切替を古い保存完了で消さないようにします。未完成の再生用プロキシと未公開のモデル方針は有効にしていません。実聴取同期や長時間品質は別途確認が必要です。';
   return `${platformNotes} GGUFと自動検出用model packは別途必要です。FFmpeg等の対応sourceとbuild manifestは対象OS別のsource archiveに収録しています。\n\n${playbackNotes}\n`;
 };
 

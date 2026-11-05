@@ -7,10 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
+
+## [0.17.20]
+
 - 長押し逆再生にAVPlayerの連続負rate経路と、描画完了を待つシーク代替を実装。0.5/2/4/6倍の既定キー、解放位置、Playlistの下限・clip・時差を維持する。Linux実復号と合成IPCを検証し、Mac実機での滑らかさは未検証。[結果・測定手順](docs/reports/2026-11-held-reverse.md)。
 
 - MacのApple再生で、取得済み画像を未使用のsample形式へ包み直す際に形式不一致で終了する経路を除去。元画像と確認済み時刻をそのまま転送し、描画資源の解放まで保持する。間欠的な画像停止や逆方向の表示待ちを解消したものではない。[所有権と範囲](docs/native-playback.md)。
-- 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
+- Command＋左の解放と再押下、再生・シーク割込みを操作世代で保護。Playlistの時刻更新で動画を再読込する退行と、保存中の編集や文書切替を古い保存完了で消す競合を修正。
 
 ## [0.17.19]
 

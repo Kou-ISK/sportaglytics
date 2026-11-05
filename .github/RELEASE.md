@@ -2,6 +2,12 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.20の限定修正候補
+
+再生・保存修正とrelease準備を先にdevelopへ通常PRで統合し、[ARCH-EX-005](../docs/architecture-exceptions.md)に従ってmain基点のrelease branchへ必要な変更だけを適用してmainへPRを作ります。未公開event model方針は含めず、別のdevelop作業も保持します。mainへ直接pushせず、各PRのレビュー・CIと署名済みアプリの再生・保存・書き出し受入を省略しません。重い素材の逆再生開始待ちは未解決として明記します。公開済み0.17.19・原本・既存プロジェクトを保持します。
+
+main統合後に未使用`v0.17.20` tagとmainの完全SHAを照合し、既存credentialのみで署名・公証・配布物検証を実行します。署名済み候補と実機受入が未完了なら公開しません。
+
 ## 0.17.19の限定修正
 
 逆方向キーを離すと要求が消えて開始位置へ戻る退行の修正だけをMacへ配布します。最後に要求した位置への移動を復元します。押下中の画像更新不足、解放後に最大約2.64秒を要した限定実測、未公開Playlist候補の画像更新問題は未解決としてRelease noteへ明記します。公開済み0.17.18とそれ以前の配布物を復旧用に保持しますが、0.17.18には要求消失の退行があるため早戻しの正常版とは扱いません。
@@ -37,10 +43,10 @@ Mac source bundleは2 targetのmanifestとFFmpeg / FreeType / HarfBuzzの固定s
 
 tag pushやmain pushでは起動しません。**GitHub Actionsの明示的なworkflow_dispatchだけ**を使います。実行前に、そのversionのReleaseがまだなく、同じworkflowが進行中でないことを確認します。
 
-1. 準備PRとmain向けPRをレビューし、必要なCIを通して統合します。通常は`develop`→`main`、0.17.19は上記の限定したrelease branchを使います。
+1. 準備PRとmain向けPRをレビューし、必要なCIを通して統合します。通常は`develop`→`main`、0.17.20は上記の[ARCH-EX-005](../docs/architecture-exceptions.md)に従う限定release branchを使います。
 2. `main`の40文字SHAと`package.json`のversionを確認し、そのcommitへ`v<version>` tagを作成します。tag作成だけでは署名・Apple送信・公開を開始しません。
 3. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml) → **Run workflow** → branch **main**を選びます。
-4. `version`に`0.17.19`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=false`を指定します。現在の作業branchのSHAを入力しません。
+4. `version`に`0.17.20`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=false`を指定します。現在の作業branchのSHAを入力しません。
 5. `publish=false`（既定）は署名・公証・最終DMG検証まで行い、Actions artifactとして90日間保存します。GitHub ReleaseとHomebrewは更新しません。**これは未署名dry-runではなく、Appleへのアプリ送信を含みます。**
 6. 最終公開が承認された実行は`publish=true`を指定します。同じ品質・署名・公証・DMG検証を再実行し、その実行で検査したbytesだけを公開します。先行runのartifactを無検査で流用しません。
 
@@ -48,7 +54,7 @@ CLIでも同じ入力を使います。`<reviewed-main-sha>`を実際の40文字
 
 ```bash
 gh workflow run release.yml --ref main \
-  -f version=0.17.19 -f expected_sha=<reviewed-main-sha> -F include_windows=false -F publish=false
+  -f version=0.17.20 -f expected_sha=<reviewed-main-sha> -F include_windows=false -F publish=false
 ```
 
 workflowは入力version、package version、tag commit、checkout、workflow commit、現在のorigin/mainを照合します。省略・食い違い・既存Release・API読み取り失敗は停止条件です。公開直前にも再確認します。並行runは直列化し、実行中の署名・公証を新しいdispatchでcancelしません。
@@ -93,6 +99,8 @@ Macは既存`release.yml`と同じ認証方式です。正規の本番実行権�
 未署名検査ではworkflowを起動せず、別checkoutとfresh出力を使用します。source外の候補設定に`publish: null`、`mac.identity: null`、`mac.notarize: false`、`forceCodeSigning: false`を明示します。署名自動検出とcredential import用環境変数を無効にし、`--publish never`を指定します。`verify-dmg.mjs`は未署名/未公証アプリを意図的に拒否します。
 
 ## 公開後と復旧
+
+0.17.20から戻す場合は、公開済みv0.17.19の同じarchitectureのDMGとSHA256SUMSを取得・照合し、未保存作業を保護してアプリを通常終了した後、既存のインストール管理方法でアプリ本体だけを差し替えます。project・原本・preferencesと公開済み配布物は削除しません。
 
 0.17.18へ戻すと早戻し要求が消える退行も戻るため、早戻しの復旧策とは扱いません。ほかの問題で0.17.19から戻す場合は、公開済みv0.17.18の同じarchitectureのDMGとSHA256SUMSを取得・照合し、未保存作業を保護してアプリを通常終了した後、既存のインストール管理方法でアプリ本体だけを差し替えます。project・原本・preferencesは削除/初期化しません。Homebrew管理のインストールはCaskroomと二重配置にならないよう既存管理と整合させ、公開tagやassetを変更しません。
 
