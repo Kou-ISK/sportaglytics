@@ -374,6 +374,8 @@ Model training/evaluationのdebuggingはprivate R&D repositoryで行います。
 
 Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-open-menu.mjs`を使います。実メニューのcallbackから`.stpl`のロード・再生、選択取消、不正パッケージ、未保存文書の保持、既存Windowの再利用を確認します。このシナリオは通常のE2EとWindowsインストール後のE2Eにも含めます。
 
+埋め込み保存の変更時は`PLAYLIST_TEST_FFMPEG`と`PLAYLIST_TEST_FFPROBE`にlibx264を含むローカル実行ファイルを指定し、`pnpm exec vitest run electron/src/playlistWindow/accurateEmbedded.integration.test.ts`で合成映像の非キーフレーム区間・音声・再保存を検証します。これはソフトウェアFFmpegの対照であり、配布版のVideoToolboxや実機GUI受入とは区別します。未指定時はこの追加試験をskipします。
+
 ## リリースプロセス
 
 1. release準備変更を `develop` へ統合
