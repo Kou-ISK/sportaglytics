@@ -158,6 +158,8 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
   });
 
   const saveFlow = usePlaylistSaveFlow({
+    getChangeToken: () => core.loadQueue.changeToken,
+    getDocumentGeneration: () => core.loadQueue.documentGeneration,
     items: history.items,
     videoSources: core.videoSources,
     packagePath: core.packagePath,

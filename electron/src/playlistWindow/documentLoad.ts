@@ -9,8 +9,12 @@ interface PendingLoad {
 // A ticket belongs to one live window and one read. Disk completion cannot
 // change its committed document; only the renderer's acceptance can do that.
 const pendingLoads = new WeakMap<PlaylistWindowInfo, PendingLoad>();
+const documentRevisions = new WeakMap<PlaylistWindowInfo, number>();
+export const playlistDocumentRevision = (info: PlaylistWindowInfo): number => documentRevisions.get(info) ?? 0;
+const advanceRevision = (info: PlaylistWindowInfo): void => { documentRevisions.set(info, playlistDocumentRevision(info) + 1); };
 
 export const beginPlaylistDocumentLoad = (info: PlaylistWindowInfo): string => {
+  advanceRevision(info);
   const id = randomUUID();
   pendingLoads.set(info, { id });
   return id;
@@ -38,6 +42,7 @@ export const acceptPlaylistDocumentLoad = (
   const pending = pendingLoads.get(info);
   if (!isCurrentPlaylistDocumentLoad(info, id) || !pending?.filePath)
     return false;
+  advanceRevision(info);
   info.filePath = pending.filePath;
   delete info.initialFilePath;
   pendingLoads.delete(info);
@@ -47,5 +52,6 @@ export const acceptPlaylistDocumentLoad = (
 };
 
 export const cancelPlaylistDocumentLoad = (info: PlaylistWindowInfo): void => {
+  advanceRevision(info);
   pendingLoads.delete(info);
 };
