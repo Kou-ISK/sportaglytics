@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- macOSの動画書き出しとPlaylist埋め込み保存で、VideoToolboxのハードウェアが使用できない場合にもソフトウェアの使用を許可する。録画のリアルタイム設定は変更しない。[範囲と制約](docs/native-export.md)。
-
 - 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
+
+## [0.17.23]
+
+- macOSの動画書き出しとPlaylist埋め込み保存で、VideoToolboxのハードウェアが使用できない場合にもソフトウェアの使用を許可する。録画のリアルタイム設定は変更しない。[範囲と制約](docs/native-export.md)。
 
 ## [0.17.22]
 
