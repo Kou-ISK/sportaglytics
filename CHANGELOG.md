@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.17.21]
+
+- 開発・配布ツールの間接依存に対するセキュリティ監査の指摘へ対応。既存の本番依存や未公開モデル方針は変更しない。
+- `v0.17.20` はtag作成後に監査で停止し、署名・公証や公開には至っていない。下記0.17.20の再生・保存修正はこの候補に引き継ぐ。
+
 ## [0.17.20]
 
 - 長押し逆再生にAVPlayerの連続負rate経路と、描画完了を待つシーク代替を実装。0.5/2/4/6倍の既定キー、解放位置、Playlistの下限・clip・時差を維持する。Linux実復号と合成IPCを検証し、Mac実機での滑らかさは未検証。[結果・測定手順](docs/reports/2026-11-held-reverse.md)。
