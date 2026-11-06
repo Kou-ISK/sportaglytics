@@ -32,10 +32,10 @@ jobs:
           gh run download 42221923901 --name macos-0.17.23-b83990de74eff2b2b7f34376941768fdc95a09be --dir "$RUNNER_TEMP/candidate"
           cd "$RUNNER_TEMP/candidate"
           shasum -a 256 -c SHA256SUMS.txt
-          gh release download v0.17.23 --pattern SHA256SUMS.txt --dir "$RUNNER_TEMP"
+          gh release download v0.17.23 --repo Kou-ISK/sportaglytics --pattern SHA256SUMS.txt --dir "$RUNNER_TEMP"
           cmp SHA256SUMS.txt "$RUNNER_TEMP/SHA256SUMS.txt"
           mkdir "$RUNNER_TEMP/published"
-          gh release download v0.17.23 --pattern "SporTagLytics-0.17.23-x64.dmg" --dir "$RUNNER_TEMP/published"
+          gh release download v0.17.23 --repo Kou-ISK/sportaglytics --pattern "SporTagLytics-0.17.23-x64.dmg" --dir "$RUNNER_TEMP/published"
           cmp "SporTagLytics-0.17.23-x64.dmg" "$RUNNER_TEMP/published/SporTagLytics-0.17.23-x64.dmg"
           node -e 'const fs=require("node:fs");const r=JSON.parse(fs.readFileSync("release-verification.json"));if(r.version!=="0.17.23"||r.sourceCommit!=="b83990de74eff2b2b7f34376941768fdc95a09be"||!r.macos.some(x=>x.arch==="x64"&&x.notarized&&x.stapled&&x.gatekeeperAccepted&&x.payloadCompared))process.exit(1)'
       - name: Run signed Intel app against the public synthetic sample
