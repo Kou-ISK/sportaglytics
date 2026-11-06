@@ -1,0 +1,57 @@
+name: Intel product fallback diagnostic
+
+on:
+  push:
+    branches: [test/intel-product-fallback]
+
+jobs:
+  product-fallback:
+    runs-on: macos-15-intel
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify source revision
+        run: |
+          test "$(git rev-parse HEAD^)" = 00e8c13a1c85010c87d3810414979ad9fb2231d2
+          git diff --quiet HEAD^ HEAD -- . ':!.github/workflows/intel-product-fallback.yml'
+          test "$(uname -m)" = x86_64
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run e2e:prepare
+      - name: Download verified bundled encoder
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir "$RUNNER_TEMP/candidate"
+          gh run download 42182269735 --name macos-0.17.22-0a59df5a6156924ba54a35285fb75c2bab2334b7 --dir "$RUNNER_TEMP/candidate"
+          cd "$RUNNER_TEMP/candidate"
+          shasum -a 256 -c SHA256SUMS.txt
+      - name: Exercise changed application with bundled Intel encoder
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          mount="$RUNNER_TEMP/intel-product-fallback"
+          mkdir "$mount"
+          trap 'hdiutil detach "$mount"' EXIT
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount" "$RUNNER_TEMP/candidate/SporTagLytics-0.17.22-x64.dmg"
+          app="$mount/SporTagLytics.app"
+          codesign --verify --deep --strict "$app"
+          export SPORTAGLYTICS_FFMPEG_PATH="$app/Contents/Resources/media-tools/ffmpeg"
+          export SPORTAGLYTICS_FFPROBE_PATH="$app/Contents/Resources/media-tools/ffprobe"
+          if "$SPORTAGLYTICS_FFMPEG_PATH" -y -v error -f lavfi -i 'testsrc2=size=640x360:rate=25:duration=1' -c:v h264_videotoolbox "$RUNNER_TEMP/hardware.mp4" 2>"$RUNNER_TEMP/hardware.log"; then
+            echo 'Hardware-required encoder was available; software fallback was not demonstrated'
+          else
+            cat "$RUNNER_TEMP/hardware.log"
+            grep -q 'Cannot create compression session' "$RUNNER_TEMP/hardware.log"
+            echo 'Hardware-required encoder unavailable in this runner'
+          fi
+          unset E2E_APP_PATH
+          node scripts/e2e-synthetic-first-run.mjs
