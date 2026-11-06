@@ -79,6 +79,8 @@ jobs:
           new = """  try {
               await progress.getByText('書き出し完了', { exact: true }).waitFor({ timeout: 60000 });
             } catch (error) {
+              const details = progress.getByText('エラー詳細を表示', { exact: true });
+              if (await details.isVisible()) await details.click();
               console.error('Export progress UI:', await progress.locator('body').innerText());
               throw error;
             }"""
