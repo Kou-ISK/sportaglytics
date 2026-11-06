@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- 開発用 `wait-on` の間接依存 `joi` を 18.3.1 に更新し、GHSA-4528-x5fx-h6hg の影響バージョンを解消。製品配布にこの開発用依存は含めない。
 - 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
 
 ## [0.17.20]
