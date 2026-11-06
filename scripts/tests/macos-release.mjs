@@ -19,6 +19,57 @@ import {
 import { validateReleaseIdentity } from '../macos/release-guard.mjs';
 import { desktopReleaseNotes } from '../desktop-release-notes.mjs';
 import { releaseVerificationSummary } from '../release-verification-summary.mjs';
+import { cleanupSignedDmg, validateSignedDmgReport } from '../macos/signed-dmg-e2e.mjs';
+
+test('signed DMG cleanup preserves a mounted volume on detach failure and removes its profile', async () => {
+  const calls = [];
+  const operations = {
+    detach: async (path) => { calls.push(['detach', path]); throw Error('busy'); },
+    removeMount: async (path) => { calls.push(['removeMount', path]); },
+    removeProfile: async (path) => { calls.push(['removeProfile', path]); },
+  };
+  await assert.rejects(cleanupSignedDmg({ mount: '/test/mount', profile: '/test/profile', attached: true }, operations), /busy/);
+  assert.deepEqual(calls, [['detach', '/test/mount'], ['removeProfile', '/test/profile']]);
+});
+
+test('failed attach attempts a scoped detach and does not hide a mount cleanup failure', async () => {
+  const calls = [];
+  const operations = {
+    detach: async (path) => { calls.push(['detach', path]); throw Error('not mounted'); },
+    removeMount: async (path) => { calls.push(['removeMount', path]); throw Error('still mounted'); },
+    removeProfile: async (path) => { calls.push(['removeProfile', path]); },
+  };
+  await assert.rejects(cleanupSignedDmg({ mount: '/test/mount', profile: '/test/profile', attachAttempted: true }, operations), /still mounted/);
+  assert.deepEqual(calls, [['detach', '/test/mount'], ['removeMount', '/test/mount'], ['removeProfile', '/test/profile']]);
+});
+
+test('signed DMG E2E rejects reports from another version, commit, image or incomplete verification', () => {
+  const input = { head: 'a'.repeat(40), version: '1.2.3', sha256: 'b'.repeat(64) };
+  const report = {
+    schemaVersion: 1,
+    head: input.head,
+    version: input.version,
+    arch: 'arm64',
+    dmgSha256: input.sha256,
+    notarized: true,
+    stapled: true,
+    gatekeeperAccepted: true,
+    payload: { passed: true },
+  };
+  assert.doesNotThrow(() => validateSignedDmgReport(report, input));
+  for (const change of [
+    { head: 'c'.repeat(40) },
+    { version: '1.2.4' },
+    { arch: 'x64' },
+    { dmgSha256: 'd'.repeat(64) },
+    { notarized: false },
+    { stapled: false },
+    { gatekeeperAccepted: false },
+    { payload: { passed: false } },
+  ]) {
+    assert.throws(() => validateSignedDmgReport({ ...report, ...change }, input));
+  }
+});
 
 const summaryFixture = (includeWindows = false) => {
   const version = '1.2.3',
