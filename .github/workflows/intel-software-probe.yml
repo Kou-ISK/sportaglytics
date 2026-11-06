@@ -61,3 +61,31 @@ jobs:
           if [ "$arch" = arm64 ]; then
             "$ffmpeg" -v info -f lavfi -i "$input" -i "$RUNNER_TEMP/baseline.mp4" -lavfi psnr -f null - 2>&1 | grep 'PSNR'
           fi
+          cat > "$RUNNER_TEMP/selection.c" <<'C'
+          #include <CoreFoundation/CoreFoundation.h>
+          #include <CoreMedia/CoreMedia.h>
+          #include <VideoToolbox/VideoToolbox.h>
+          #include <stdio.h>
+          int main(void) {
+            CFMutableDictionaryRef spec = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+            if (!spec) return 1;
+            CFDictionarySetValue(spec, kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder, kCFBooleanTrue);
+            VTCompressionSessionRef session = NULL;
+            OSStatus status = VTCompressionSessionCreate(NULL, 1280, 720, kCMVideoCodecType_H264, spec, NULL, NULL, NULL, NULL, &session);
+            CFRelease(spec);
+            if (status || !session) { printf("VideoToolbox session error: %d\n", (int)status); return 1; }
+            status = VTSessionSetProperty(session, kVTCompressionPropertyKey_ProfileLevel, kVTProfileLevel_H264_Main_AutoLevel);
+            if (!status) status = VTCompressionSessionPrepareToEncodeFrames(session);
+            CFTypeRef hardware = NULL;
+            if (!status) status = VTSessionCopyProperty(session, kVTCompressionPropertyKey_UsingHardwareAcceleratedVideoEncoder, NULL, &hardware);
+            if (status || !hardware || CFGetTypeID(hardware) != CFBooleanGetTypeID()) {
+              printf("VideoToolbox hardware property unavailable: %d\n", (int)status);
+              if (hardware) CFRelease(hardware);
+              VTCompressionSessionInvalidate(session); CFRelease(session); return 1;
+            }
+            printf("VideoToolbox enabled-hardware session selected: %s\n", CFBooleanGetValue((CFBooleanRef)hardware) ? "hardware" : "software");
+            CFRelease(hardware); VTCompressionSessionInvalidate(session); CFRelease(session); return 0;
+          }
+          C
+          xcrun clang "$RUNNER_TEMP/selection.c" -framework VideoToolbox -framework CoreMedia -framework CoreFoundation -o "$RUNNER_TEMP/selection"
+          "$RUNNER_TEMP/selection"
