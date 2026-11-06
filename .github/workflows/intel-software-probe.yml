@@ -1,0 +1,53 @@
+name: Intel VideoToolbox software diagnostic
+
+on:
+  push:
+    branches: [test/intel-software-probe]
+
+jobs:
+  encoder-probe:
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check candidate source
+        run: |
+          test "$(git rev-parse HEAD^)" = 0a59df5a6156924ba54a35285fb75c2bab2334b7
+          git diff --quiet HEAD^ HEAD -- . ':!.github/workflows/intel-software-probe.yml'
+          test "$(uname -m)" = x86_64
+      - name: Download and verify signed candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir "$RUNNER_TEMP/candidate"
+          gh run download 42182269735 --name macos-0.17.22-0a59df5a6156924ba54a35285fb75c2bab2334b7 --dir "$RUNNER_TEMP/candidate"
+          cd "$RUNNER_TEMP/candidate"
+          shasum -a 256 -c SHA256SUMS.txt
+      - name: Compare encoder with and without software permission
+        shell: bash
+        run: |
+          set -euo pipefail
+          mount="$RUNNER_TEMP/intel-software-probe"
+          mkdir "$mount"
+          trap 'hdiutil detach "$mount"' EXIT
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount" "$RUNNER_TEMP/candidate/SporTagLytics-0.17.22-x64.dmg"
+          app="$mount/SporTagLytics.app"
+          codesign --verify --deep --strict "$app"
+          ffmpeg="$app/Contents/Resources/media-tools/ffmpeg"
+          ffprobe="$app/Contents/Resources/media-tools/ffprobe"
+          if "$ffmpeg" -y -v error -f lavfi -i 'testsrc2=size=640x360:rate=25:duration=1' -c:v h264_videotoolbox "$RUNNER_TEMP/baseline.mp4"; then
+            echo 'Baseline encoder succeeded'
+          else
+            echo 'Baseline encoder failed'
+          fi
+          "$ffmpeg" -y -v error -f lavfi -i 'testsrc2=size=640x360:rate=25:duration=1' -c:v h264_videotoolbox -allow_sw 1 "$RUNNER_TEMP/software.mp4"
+          "$ffprobe" -v error -select_streams v:0 -show_entries stream=codec_name,width,height,nb_frames -of json "$RUNNER_TEMP/software.mp4"
+          python3 - "$RUNNER_TEMP/software.mp4" "$ffprobe" <<'PY'
+          import json, subprocess, sys
+          data = json.loads(subprocess.check_output([sys.argv[2], '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name,width,height,nb_frames', '-of', 'json', sys.argv[1]]))
+          stream = data['streams'][0]
+          assert stream['codec_name'] == 'h264' and stream['width'] == 640 and stream['height'] == 360 and int(stream['nb_frames']) > 0
+          print('Software-permitted direct encoder produced H.264 frames; product behavior is not tested')
+          PY
