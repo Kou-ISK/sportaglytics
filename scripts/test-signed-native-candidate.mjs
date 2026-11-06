@@ -22,6 +22,7 @@ try {
     '-f', 'lavfi', '-i', 'sine=frequency=660:sample_rate=48000:duration=8.008',
     '-f', 'lavfi', '-i', 'sine=frequency=880:sample_rate=48000:duration=8.008',
     '-map', '0:v', '-map', '1:a', '-map', '2:a', '-map', '3:a',
+    '-vf', 'setparams=range=limited:color_primaries=bt709:color_trc=bt709:colorspace=bt709',
     '-c:v', 'h264_videotoolbox', '-pix_fmt', 'yuv420p', '-video_track_timescale', '60000',
     '-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709',
     '-bsf:v', 'h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1:video_full_range_flag=0', '-movflags', '+write_colr',
@@ -30,6 +31,7 @@ try {
   ], { stdio: 'inherit' });
   const metadata = JSON.parse(execFileSync(ffprobe, ['-v', 'error', '-show_streams', '-of', 'json', video], { encoding: 'utf8' }));
   const [v, ...audio] = metadata.streams;
+  console.log('Synthetic fixture video metadata:', JSON.stringify(v));
   assert.equal(audio.length, 3, 'synthetic fixture must have three audio streams');
   for (const [key, value] of Object.entries({ index: 0, id: '0x1', codec_type: 'video', codec_name: 'h264', width: 1920, height: 1080, pix_fmt: 'yuv420p', sample_aspect_ratio: '1:1', color_range: 'tv', color_space: 'bt709', color_transfer: 'bt709', color_primaries: 'bt709', avg_frame_rate: '60000/1001', r_frame_rate: '60000/1001', time_base: '1/60000', start_pts: 0 })) assert.equal(v[key], value, `fixture ${key}`);
   assert.equal((Number(v.duration_ts) * 2) % 1001, 0, 'fixture video end');
