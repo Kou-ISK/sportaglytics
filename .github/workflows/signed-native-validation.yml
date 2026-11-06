@@ -1,0 +1,68 @@
+name: Signed native candidate validation
+
+on:
+  push:
+    branches: [test/signed-native-01722]
+
+jobs:
+  signed-native:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+      - name: Verify test source matches release candidate
+        run: |
+          test "$(git rev-parse HEAD^)" = 0a59df5a6156924ba54a35285fb75c2bab2334b7
+          git diff --quiet HEAD^ HEAD -- . ':!.github/workflows/signed-native-validation.yml' ':!scripts/test-signed-native-candidate.mjs'
+          test "$(uname -m)" = arm64
+      - run: pnpm install --frozen-lockfile
+      - name: Download signed candidate from the original run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir "$RUNNER_TEMP/candidate"
+          gh run download 42182269735 --name macos-0.17.22-0a59df5a6156924ba54a35285fb75c2bab2334b7 --dir "$RUNNER_TEMP/candidate"
+          cd "$RUNNER_TEMP/candidate"
+          shasum -a 256 -c SHA256SUMS.txt
+          node -e 'const fs=require("node:fs");const r=JSON.parse(fs.readFileSync("release-verification.json"));if(r.version!=="0.17.22"||r.sourceCommit!=="0a59df5a6156924ba54a35285fb75c2bab2334b7"||!r.macos.some(x=>x.arch==="arm64"&&x.notarized&&x.stapled&&x.gatekeeperAccepted&&x.payloadCompared))process.exit(1)'
+      - name: Run signed native app with a qualifying synthetic source
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          mount="$RUNNER_TEMP/signed-native-mount"
+          profile="$RUNNER_TEMP/signed-native-profile"
+          mkdir "$mount" "$profile"
+          trap 'hdiutil detach "$mount"' EXIT
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount" "$RUNNER_TEMP/candidate/SporTagLytics-0.17.22-arm64.dmg"
+          app="$mount/SporTagLytics.app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          spctl --assess --type execute "$app"
+          export E2E_APP_PATH="$app/Contents/MacOS/SporTagLytics"
+          export SPORTAGLYTICS_FFMPEG_PATH="$app/Contents/Resources/media-tools/ffmpeg"
+          export SPORTAGLYTICS_FFPROBE_PATH="$app/Contents/Resources/media-tools/ffprobe"
+          export SIGNED_PROFILE="$profile"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { realpath } from 'node:fs/promises';
+          import { _electron } from 'playwright';
+          import { getElectronLaunchOptions } from './scripts/e2e-electron-launch.mjs';
+          const app = await _electron.launch(getElectronLaunchOptions(process.env.SIGNED_PROFILE));
+          try {
+            const result = await app.evaluate(({app}) => ({packaged: app.isPackaged, version: app.getVersion(), arch: process.arch, executable: app.getPath('exe'), userData: app.getPath('userData')}));
+            assert.equal(result.packaged, true);
+            assert.equal(result.version, '0.17.22');
+            assert.equal(result.arch, 'arm64');
+            assert.equal(await realpath(result.executable), await realpath(process.env.E2E_APP_PATH));
+            assert.equal(await realpath(result.userData), await realpath(process.env.SIGNED_PROFILE));
+          } finally { await app.close(); }
+          NODE
+          node scripts/test-signed-native-candidate.mjs
