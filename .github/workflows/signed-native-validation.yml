@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22.12.0'
@@ -20,8 +20,8 @@ jobs:
           version: 9.1.0
       - name: Verify test source matches release candidate
         run: |
-          test "$(git rev-parse HEAD^)" = 0a59df5a6156924ba54a35285fb75c2bab2334b7
-          git diff --quiet HEAD^ HEAD -- . ':!.github/workflows/signed-native-validation.yml' ':!scripts/test-signed-native-candidate.mjs'
+          git merge-base --is-ancestor 0a59df5a6156924ba54a35285fb75c2bab2334b7 HEAD
+          git diff --quiet 0a59df5a6156924ba54a35285fb75c2bab2334b7 HEAD -- . ':!.github/workflows/signed-native-validation.yml' ':!scripts/test-signed-native-candidate.mjs'
           test "$(uname -m)" = arm64
       - run: pnpm install --frozen-lockfile
       - name: Download signed candidate from the original run
