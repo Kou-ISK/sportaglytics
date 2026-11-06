@@ -6,17 +6,20 @@ on:
 
 jobs:
   encoder-probe:
-    runs-on: macos-15-intel
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15-intel, macos-latest]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - name: Check candidate source
         run: |
-          test "$(git rev-parse HEAD^)" = 0a59df5a6156924ba54a35285fb75c2bab2334b7
-          git diff --quiet HEAD^ HEAD -- . ':!.github/workflows/intel-software-probe.yml'
-          test "$(uname -m)" = x86_64
+          git merge-base --is-ancestor 0a59df5a6156924ba54a35285fb75c2bab2334b7 HEAD
+          git diff --quiet 0a59df5a6156924ba54a35285fb75c2bab2334b7 HEAD -- . ':!.github/workflows/intel-software-probe.yml'
       - name: Download and verify signed candidate
         env:
           GH_TOKEN: ${{ github.token }}
@@ -32,22 +35,29 @@ jobs:
           mount="$RUNNER_TEMP/intel-software-probe"
           mkdir "$mount"
           trap 'hdiutil detach "$mount"' EXIT
-          hdiutil attach -readonly -nobrowse -mountpoint "$mount" "$RUNNER_TEMP/candidate/SporTagLytics-0.17.22-x64.dmg"
+          if [ "$(uname -m)" = arm64 ]; then arch=arm64; else test "$(uname -m)" = x86_64; arch=x64; fi
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount" "$RUNNER_TEMP/candidate/SporTagLytics-0.17.22-$arch.dmg"
           app="$mount/SporTagLytics.app"
           codesign --verify --deep --strict "$app"
           ffmpeg="$app/Contents/Resources/media-tools/ffmpeg"
           ffprobe="$app/Contents/Resources/media-tools/ffprobe"
-          if "$ffmpeg" -y -v error -f lavfi -i 'testsrc2=size=640x360:rate=25:duration=1' -c:v h264_videotoolbox "$RUNNER_TEMP/baseline.mp4"; then
+          input='testsrc2=size=1280x720:rate=30:duration=5'
+          if /usr/bin/time -lp "$ffmpeg" -y -v error -f lavfi -i "$input" -c:v h264_videotoolbox -b:v 5M -profile:v main -pix_fmt yuv420p "$RUNNER_TEMP/baseline.mp4"; then
             echo 'Baseline encoder succeeded'
           else
             echo 'Baseline encoder failed'
+            if [ "$arch" = arm64 ]; then exit 1; fi
           fi
-          "$ffmpeg" -y -v error -f lavfi -i 'testsrc2=size=640x360:rate=25:duration=1' -c:v h264_videotoolbox -allow_sw 1 "$RUNNER_TEMP/software.mp4"
+          /usr/bin/time -lp "$ffmpeg" -y -v error -f lavfi -i "$input" -c:v h264_videotoolbox -b:v 5M -profile:v main -pix_fmt yuv420p -allow_sw 1 "$RUNNER_TEMP/software.mp4"
           "$ffprobe" -v error -select_streams v:0 -show_entries stream=codec_name,width,height,nb_frames -of json "$RUNNER_TEMP/software.mp4"
           python3 - "$RUNNER_TEMP/software.mp4" "$ffprobe" <<'PY'
           import json, subprocess, sys
           data = json.loads(subprocess.check_output([sys.argv[2], '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name,width,height,nb_frames', '-of', 'json', sys.argv[1]]))
           stream = data['streams'][0]
-          assert stream['codec_name'] == 'h264' and stream['width'] == 640 and stream['height'] == 360 and int(stream['nb_frames']) > 0
+          assert stream['codec_name'] == 'h264' and stream['width'] == 1280 and stream['height'] == 720 and int(stream['nb_frames']) == 150
           print('Software-permitted direct encoder produced H.264 frames; product behavior is not tested')
           PY
+          "$ffmpeg" -v info -f lavfi -i "$input" -i "$RUNNER_TEMP/software.mp4" -lavfi psnr -f null - 2>&1 | grep 'PSNR'
+          if [ "$arch" = arm64 ]; then
+            "$ffmpeg" -v info -f lavfi -i "$input" -i "$RUNNER_TEMP/baseline.mp4" -lavfi psnr -f null - 2>&1 | grep 'PSNR'
+          fi
