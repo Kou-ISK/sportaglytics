@@ -165,4 +165,16 @@ export const resolveH264Encoder = (
   };
 };
 
-export const H264_ENCODER_ARGS: readonly string[] = resolveH264Encoder().args;
+/** Offline export may use VideoToolbox's software encoder when hardware is
+ * unavailable. Capture retains the hardware-only real-time configuration. */
+export const resolveExportH264Encoder = (
+  platform: NodeJS.Platform = process.platform,
+): H264EncoderConfiguration => {
+  const configuration = resolveH264Encoder(platform);
+  return platform === 'darwin'
+    ? { ...configuration, args: [...configuration.args, '-allow_sw', '1'] }
+    : configuration;
+};
+
+export const H264_ENCODER_ARGS: readonly string[] =
+  resolveExportH264Encoder().args;

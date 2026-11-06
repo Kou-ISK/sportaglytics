@@ -15,6 +15,7 @@ describe('live capture encoding', () => {
       expect(args).toContain(
         'movflags=+frag_keyframe+empty_moov+default_base_moof',
       );
+      if (platform === 'darwin') expect(args).not.toContain('-allow_sw');
       expect(args[args.indexOf('-bf') + 1]).toBe('0');
       expect(args[args.indexOf('-segment_time') + 1]).toBe('2');
       expect(args).toContain(

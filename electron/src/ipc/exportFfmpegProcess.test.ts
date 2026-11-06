@@ -7,7 +7,11 @@ import {
   FfmpegExecutionError,
   parseFfmpegProgressLine,
 } from './exportFfmpegProcess';
-import { resolveH264Encoder } from '../mediaTools';
+import {
+  H264_ENCODER_ARGS,
+  resolveExportH264Encoder,
+  resolveH264Encoder,
+} from '../mediaTools';
 
 describe('parseFfmpegProgressLine', () => {
   it('converts FFmpeg microsecond timestamps into a bounded fraction', () => {
@@ -50,6 +54,30 @@ describe('resolveH264Encoder', () => {
     expect(configuration.args).not.toContain('libx264');
     expect(configuration.args).not.toContain('-crf');
   });
+
+  it('permits VideoToolbox software encoding for offline exports without changing capture', () => {
+    const capture = resolveH264Encoder('darwin');
+    const output = resolveExportH264Encoder('darwin');
+    expect(output.backend).toBe('videotoolbox');
+    expect(output.args).toEqual([...capture.args, '-allow_sw', '1']);
+    expect(capture.args).not.toContain('-allow_sw');
+    expect(output.args).not.toContain('-require_sw');
+    expect(resolveExportH264Encoder('win32')).toEqual(
+      resolveH264Encoder('win32'),
+    );
+    expect(resolveExportH264Encoder('linux')).toEqual(
+      resolveH264Encoder('linux'),
+    );
+  });
+
+  it.skipIf(process.platform !== 'darwin')(
+    'uses the software-permitted configuration in the actual macOS export arguments',
+    () => {
+      expect(H264_ENCODER_ARGS).toEqual(
+        resolveExportH264Encoder('darwin').args,
+      );
+    },
+  );
 
   it('keeps libx264 settings for non-macOS development toolchains', () => {
     expect(resolveH264Encoder('linux')).toEqual({

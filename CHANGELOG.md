@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.23]
+
+- macOSの動画書き出しとPlaylist埋め込み保存で、VideoToolboxのハードウェアが使用できない場合にもソフトウェアの使用を許可する。録画のリアルタイム設定は変更しない。[範囲と制約](docs/native-export.md)。
 
 ## [0.17.22]
 
