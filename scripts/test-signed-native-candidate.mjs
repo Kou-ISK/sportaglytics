@@ -24,6 +24,7 @@ try {
     '-map', '0:v', '-map', '1:a', '-map', '2:a', '-map', '3:a',
     '-c:v', 'h264_videotoolbox', '-pix_fmt', 'yuv420p', '-video_track_timescale', '60000',
     '-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709',
+    '-bsf:v', 'h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1:video_full_range_flag=0', '-movflags', '+write_colr',
     '-c:a', 'aac', '-ar', '48000', '-ac', '2',
     '-disposition:a:0', 'default', '-disposition:a:1', '0', '-disposition:a:2', '0', video,
   ], { stdio: 'inherit' });
