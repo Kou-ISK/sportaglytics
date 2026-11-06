@@ -29,6 +29,9 @@ import {
   getMainWindowRef,
   getPlaylistWindows,
 } from './state';
+import { acquirePlaylistSave } from './playlistSaveLease';
+import { captureAcceptedEmbeddedDocument } from './acceptedEmbeddedAssets';
+import { capturePlaylistSaveSnapshot } from './playlistSaveSnapshot';
 import { loadPlaylistFromPath, savePlaylistToPath } from './storage';
 import { selectPlaylistPath } from './fileOpen';
 import { getPackageSessionForSender } from '../packageSessionRegistry';
@@ -39,6 +42,7 @@ import {
   cancelPlaylistDocumentLoad,
   isCurrentPlaylistDocumentLoad,
   resolvePlaylistDocumentLoad,
+  playlistDocumentRevision,
 } from './documentLoad';
 
 export const registerPlaylistHandlers = (): void => {
@@ -180,12 +184,17 @@ export const registerPlaylistHandlers = (): void => {
   ipcMain.handle(
     PLAYLIST_WINDOW_CHANNELS.saveFile,
     async (event, playlist: unknown): Promise<string | null> => {
+      let releaseSave: (() => void) | null = null;
       try {
         if (!isSenderPlaylistWindow(event.sender) || !isPlaylist(playlist)) {
           return null;
         }
 
         const windowInfo = getWindowInfoBySender(event.sender);
+        if (!windowInfo) return null;
+        releaseSave = acquirePlaylistSave(windowInfo);
+        if (!releaseSave) return null;
+        const revision = playlistDocumentRevision(windowInfo);
         let targetPath = windowInfo?.filePath;
 
         if (!targetPath) {
@@ -204,11 +213,29 @@ export const registerPlaylistHandlers = (): void => {
           throw new Error('FFmpeg path not set');
         }
 
-        await savePlaylistToPath(targetPath, playlist, event, ffmpegPath);
+        const snapshot = capturePlaylistSaveSnapshot(
+          windowInfo,
+          playlist,
+          revision,
+          windowInfo.filePath ?? targetPath,
+          targetPath,
+        );
+        await savePlaylistToPath(
+          targetPath,
+          playlist,
+          event,
+          ffmpegPath,
+          async () => snapshot.assertCurrent(),
+          snapshot.assertCurrent,
+          snapshot.reusableAssets,
+          windowInfo.filePath ?? targetPath,
+        );
 
-        if (windowInfo) {
+        if (
+          !windowInfo.window.isDestroyed() &&
+          playlistDocumentRevision(windowInfo) === revision
+        ) {
           windowInfo.filePath = targetPath;
-          windowInfo.isDirty = false;
         }
 
         return targetPath;
@@ -222,6 +249,8 @@ export const registerPlaylistHandlers = (): void => {
           buttons: ['OK'],
         });
         return null;
+      } finally {
+        releaseSave?.();
       }
     },
   );
@@ -229,12 +258,17 @@ export const registerPlaylistHandlers = (): void => {
   ipcMain.handle(
     PLAYLIST_WINDOW_CHANNELS.saveFileAs,
     async (event, playlist: unknown): Promise<string | null> => {
+      let releaseSave: (() => void) | null = null;
       try {
         if (!isSenderPlaylistWindow(event.sender) || !isPlaylist(playlist)) {
           return null;
         }
 
         const windowInfo = getWindowInfoBySender(event.sender);
+        if (!windowInfo) return null;
+        releaseSave = acquirePlaylistSave(windowInfo);
+        if (!releaseSave) return null;
+        const revision = playlistDocumentRevision(windowInfo);
         const currentPath = windowInfo?.filePath;
         const defaultName = currentPath
           ? path.basename(currentPath, '.stpl')
@@ -253,11 +287,29 @@ export const registerPlaylistHandlers = (): void => {
           throw new Error('FFmpeg path not set');
         }
 
-        await savePlaylistToPath(filePath, playlist, event, ffmpegPath);
+        const snapshot = capturePlaylistSaveSnapshot(
+          windowInfo,
+          playlist,
+          revision,
+          windowInfo.filePath ?? filePath,
+          filePath,
+        );
+        await savePlaylistToPath(
+          filePath,
+          playlist,
+          event,
+          ffmpegPath,
+          async () => snapshot.assertCurrent(),
+          snapshot.assertCurrent,
+          snapshot.reusableAssets,
+          windowInfo.filePath ?? filePath,
+        );
 
-        if (windowInfo) {
+        if (
+          !windowInfo.window.isDestroyed() &&
+          playlistDocumentRevision(windowInfo) === revision
+        ) {
           windowInfo.filePath = filePath;
-          windowInfo.isDirty = false;
         }
 
         await dialog.showMessageBox({
@@ -280,6 +332,8 @@ export const registerPlaylistHandlers = (): void => {
         });
 
         return null;
+      } finally {
+        releaseSave?.();
       }
     },
   );
@@ -314,13 +368,25 @@ export const registerPlaylistHandlers = (): void => {
         }
 
         const resolvedPlaylist = await loadPlaylistFromPath(targetPath);
+        const snapshot =
+          windowInfo && loadId
+            ? await captureAcceptedEmbeddedDocument(
+                targetPath,
+                resolvedPlaylist,
+              )
+            : null;
 
         console.log('[Playlist] Loaded from:', targetPath);
 
         if (windowInfo && loadId) {
           if (
             getWindowInfoBySender(event.sender) !== windowInfo ||
-            !resolvePlaylistDocumentLoad(windowInfo, loadId, targetPath)
+            !resolvePlaylistDocumentLoad(
+              windowInfo,
+              loadId,
+              targetPath,
+              snapshot,
+            )
           )
             return null;
         } else if (!senderWindow.isDestroyed()) {

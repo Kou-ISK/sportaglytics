@@ -1,4 +1,8 @@
 import {
+  isPlaybackRate,
+  clockMovedAgainstRate,
+} from '../../../src/shared/media/playbackRate';
+import {
   parseNativePlaybackIntent,
   parseNativePlaybackObservation,
   parseNativePlaybackClosed,
@@ -33,7 +37,11 @@ const sameOwner = (a: NativePlaybackOwner, b: NativePlaybackOwner): boolean =>
  * filesystem writes and cannot modify package/tag/export metadata. */
 export class NativePlaybackSession {
   private intent: NativePlaybackIntent | null = null;
-  private pending: NativePlaybackIntent | null = null;
+  private pending: {
+    intent: NativePlaybackIntent;
+    allowed: () => boolean;
+  } | null = null;
+  private transportGuard: (() => boolean) | null = null;
   private delivery: Promise<void> | null = null;
   private observation: NativePlaybackObservation | null = null;
   private lastRevision = 0;
@@ -47,6 +55,8 @@ export class NativePlaybackSession {
   private closed: NativePlaybackClosed | null = null;
   private closeOperation: Promise<NativePlaybackClosed> | null = null;
   private lastTime: number;
+  private clockRate = 1;
+  private clockTime: number;
 
   constructor(
     readonly scope: NativePlaybackScope,
@@ -63,9 +73,7 @@ export class NativePlaybackSession {
       scope.audioTracks < 1 ||
       scope.audioTracks > 8 ||
       scope.rates.length === 0 ||
-      scope.rates.some(
-        (rate) => !Number.isFinite(rate) || rate < 0.25 || rate > 6,
-      )
+      scope.rates.some((rate) => !isPlaybackRate(rate))
     )
       throw Error('NATIVE_INVALID_SCOPE');
     this.scope = Object.freeze({
@@ -74,9 +82,10 @@ export class NativePlaybackSession {
       rates: Object.freeze([...scope.rates]),
     });
     this.lastTime = scope.start;
+    this.clockTime = scope.start;
   }
 
-  apply(raw: NativePlaybackIntent): void {
+  apply(raw: NativePlaybackIntent, allowed?: () => boolean): void {
     const next = parseNativePlaybackIntent(raw);
     if (this.closing || this.error || !sameOwner(next, this.scope.owner))
       throw Error('NATIVE_OWNER_UNAVAILABLE');
@@ -98,19 +107,31 @@ export class NativePlaybackSession {
       (!old && (next.seekId !== 1 || next.playing))
     )
       throw Error('NATIVE_INVALID_INTENT_ORDER');
+    // A settings change or coalesced pause/resume may retain the transport.
+    // Keep its permit lineage until a new operation or an explicit new permit.
+    const guard = allowed ?? (old &&
+      old.rate === next.rate && old.seekId === next.seekId
+      ? this.transportGuard : null);
+    this.transportGuard = guard;
     this.intent = next;
-    this.pending = next; // Exactly one latest full intent, not an accumulating seek queue.
+    this.pending = { intent: next, allowed: next.playing ? guard ?? (() => true) : () => true };
     this.flush();
   }
 
   private flush(): void {
     if (this.delivery || !this.pending || this.closing || this.error) return;
-    const next = this.pending;
+    const { intent: next, allowed } = this.pending;
     this.pending = null;
     // Keep ownership if the writer never settles. close() must still cancel the
     // backend independently and cannot acknowledge while delivery is unknown.
     const work = Promise.resolve().then(() => {
       if (!this.closing && !this.error) {
+        // A Main-owned gesture permit can be revoked while a prior write is in
+        // flight. Do not deliver that now-stale start to the native host.
+        if (!allowed()) {
+          this.fail('owner');
+          return;
+        }
         if (this.issuedIntents.size >= 256)
           throw Error('NATIVE_COMMAND_ACK_BOUND');
         this.issuedSequence = next.sequence;
@@ -190,11 +211,18 @@ export class NativePlaybackSession {
       this.changed();
       return true;
     }
+    // Media time is not monotonic across a direction change: AVPlayer may
+    // travel farther in the old direction before processing the new command.
+    // Re-anchor only the progress check, never the published confirmed clock.
+    const directionChanged =
+      Math.sign(processed.rate) !== Math.sign(this.clockRate);
     if (value.phase === 'buffering') {
       if (
         this.anchoredSeek !== value.seekId ||
-        value.time < this.lastTime ||
-        (this.bufferedStop?.seekId === value.seekId &&
+        (!directionChanged &&
+          clockMovedAgainstRate(value.time, this.clockTime, this.clockRate)) ||
+        (!directionChanged &&
+          this.bufferedStop?.seekId === value.seekId &&
           value.time !== this.bufferedStop.time)
       ) {
         this.fail('protocol');
@@ -207,9 +235,15 @@ export class NativePlaybackSession {
       value.videoReady &&
       value.audioReady &&
       (value.phase === 'paused' || value.phase === 'playing') &&
-      (value.time < this.lastTime ||
-        (this.bufferedStop?.seekId === value.seekId &&
-          value.time < this.bufferedStop.time))
+      ((!directionChanged &&
+        clockMovedAgainstRate(value.time, this.clockTime, this.clockRate)) ||
+        (!directionChanged &&
+          this.bufferedStop?.seekId === value.seekId &&
+          clockMovedAgainstRate(
+            value.time,
+            this.bufferedStop.time,
+            this.clockRate,
+          )))
     ) {
       this.fail('protocol');
       return false;
@@ -230,6 +264,10 @@ export class NativePlaybackSession {
         return false;
       }
       this.anchoredSeek = value.seekId;
+    }
+    if (value.phase === 'buffering' || (value.videoReady && value.audioReady)) {
+      this.clockRate = processed.rate;
+      this.clockTime = value.time;
     }
     this.observation = value;
     if (
@@ -310,7 +348,12 @@ export class NativePlaybackSession {
           stopped.time < this.scope.start ||
           stopped.time > this.scope.end ||
           (stopped.seekId === this.anchoredSeek &&
-            stopped.time < this.lastTime))
+            Math.sign(processed.rate) === Math.sign(this.clockRate) &&
+            clockMovedAgainstRate(
+              stopped.time,
+              this.clockTime,
+              this.clockRate,
+            )))
       )
         throw Error('NATIVE_STOP_CLOCK_UNCONFIRMED');
       this.closed = result;

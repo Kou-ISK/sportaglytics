@@ -6,6 +6,8 @@
   "apple-player/ApplePlayerSession.mm",
   "apple-player/ControlOutput.hpp",
   "apple-player/PlayerObservation.hpp",
+  "native-input/CommandLeft.mm",
+  "surface-transport/PixelReference.hpp",
   "surface-transport/Receiver.mm",
   "surface-transport/SurfaceSender.hpp",
   "surface-transport/SurfaceWire.hpp"

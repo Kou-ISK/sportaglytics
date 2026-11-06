@@ -35,6 +35,7 @@ const fixture = async (): Promise<{
   for (const name of [
     'NativeProductHost',
     'Receiver.node',
+    'CommandLeft.node',
     'licenses/Node-LICENSE.txt',
     'licenses/SporTagLytics-LICENSE.txt',
     'licenses/NOTICE.md',
@@ -47,7 +48,7 @@ const fixture = async (): Promise<{
     path.join(native, 'build.json'),
     JSON.stringify({
       identity: {
-        revision: 6,
+        revision: 7,
         engine: 'AVPlayer',
         platform: 'darwin',
         architecture: 'arm64',
@@ -105,10 +106,10 @@ describe('fixed native resources', () => {
     ).rejects.toThrow('HASH');
     const file = path.join(f.native, 'build.json');
     const original = await readFile(file, 'utf8');
-    for (const revision of [1, 2, 3, 4, 5, 7]) {
+    for (const revision of [1, 2, 3, 4, 5, 6, 8]) {
       await writeFile(
         file,
-        original.replace('"revision":6', `"revision":${revision}`),
+        original.replace('"revision":7', `"revision":${revision}`),
       );
       await expect(
         resolveNativeResources(f.root, f.state, 'development'),
@@ -139,6 +140,11 @@ it('authenticates signed helpers and detects any subsequent binary change', asyn
     'signature changed by builder',
   );
   await expect(resolveNativeResources(f.root, f.state)).rejects.toThrow('HASH');
+});
+it('rejects a modified command-input addon even when other resources match', async () => {
+  const f = await fixture();
+  await writeFile(path.join(f.native, 'CommandLeft.node'), 'modified');
+  await expect(resolveNativeResources(f.root, f.state, 'development')).rejects.toThrow('HASH');
 });
 it('does not permit symlink resources or authenticated failures', async () => {
   const f = await fixture();

@@ -212,6 +212,7 @@ const make = (
       revision = sequence,
       playing = false,
       ready = true,
+      reverse = false,
     ) => {
       snapshot = {
         ...snapshot,
@@ -230,6 +231,7 @@ const make = (
           videoReady: ready,
           audioReady: ready,
           error: null,
+          ...(reverse ? { reverseCapabilities: { slow: true, fast: true } } : {}),
         },
       };
       listener?.(snapshot);
@@ -239,6 +241,116 @@ const make = (
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+});
+it('carries an interrupting seek through drain and revocation without sending it to the old host', async () => {
+  vi.useFakeTimers();
+  const f = make();
+  await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3, 1, false, true, true);
+  const sent = deferred<void>(); const revoked = deferred<void>();
+  const send = vi.fn(() => sent.promise);
+  const revoke = vi.fn(() => revoked.promise);
+  const reservation = f.controller.reserveCommandGesture(6, revoke);
+  if (reservation === null) throw Error('missing reservation');
+  const starting = f.controller.startCommandGesture(reservation, send);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(send).toHaveBeenCalledWith(expect.objectContaining({ sequence: 2, playing: true, rate: -6 }));
+  f.controller.seek(9);
+  const rejected = expect(starting).rejects.toThrow('NATIVE_GESTURE_SUPERSEDED');
+  sent.resolve(); await rejected;
+  await vi.advanceTimersByTimeAsync(1);
+  expect(revoke).toHaveBeenCalledOnce();
+  expect(f.original.restore).not.toHaveBeenCalled();
+  expect(f.api.apply).not.toHaveBeenCalledWith(expect.objectContaining({ targetTime: 9 }));
+  revoked.resolve();
+  await f.controller.returnToOriginal();
+  expect(f.original.restored).toHaveBeenCalledWith(9, expect.objectContaining({ playing: false }));
+});
+it('waits through a second coalesced writer before allowing the next Main capture', async () => {
+  vi.useFakeTimers();
+  const f = make(); await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3, 1, false, true, true);
+  const first = deferred<void>(), second = deferred<void>();
+  f.api.apply.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+  f.controller.controls({ volume: 0.6 }); await vi.advanceTimersByTimeAsync(1);
+  f.controller.controls({ volume: 0.7 });
+  let resolved = false;
+  const ready = f.controller.prepareCommandGesture(6).then((value) => { resolved = true; return value; });
+  first.resolve(); await vi.advanceTimersByTimeAsync(1);
+  expect(f.api.apply).toHaveBeenCalledTimes(3); // initial + two changes
+  expect(resolved).toBe(false);
+  second.resolve(); await expect(ready).resolves.toBe(true);
+  await f.controller.returnToOriginal();
+});
+it('carries an interrupting forward-play request from the confirmed stopped clock', async () => {
+  vi.useFakeTimers();
+  const f = make(); await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3, 1, false, true, true);
+  const sent = deferred<void>(); const revoked = deferred<void>();
+  const reservation = f.controller.reserveCommandGesture(6, () => revoked.promise);
+  if (reservation === null) throw Error('missing reservation');
+  const starting = f.controller.startCommandGesture(reservation, () => sent.promise);
+  await vi.advanceTimersByTimeAsync(1);
+  f.controller.controls({ playing: true, rate: 1 });
+  const rejected = expect(starting).rejects.toThrow('NATIVE_GESTURE_SUPERSEDED');
+  sent.resolve(); await rejected;
+  await vi.advanceTimersByTimeAsync(1);
+  expect(f.original.restore).not.toHaveBeenCalled();
+  revoked.resolve(); await f.controller.returnToOriginal();
+  expect(f.original.restored).toHaveBeenCalledWith(3, expect.objectContaining({ playing: true, rate: 1 }));
+});
+it('preserves a forward request while the Main gesture claim is still pending', async () => {
+  vi.useFakeTimers();
+  const f = make(); await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3, 1, false, true, true);
+  const revoke = vi.fn(async () => {});
+  const reservation = f.controller.reserveCommandGesture(6, revoke);
+  if (reservation === null) throw Error('missing reservation');
+  f.controller.controls({ playing: true, rate: 1 });
+  expect(await f.controller.startCommandGesture(reservation, async () => {})).toBeNull();
+  await f.controller.returnToOriginal();
+  expect(revoke).toHaveBeenCalledOnce();
+  expect(f.original.restored).toHaveBeenCalledWith(3, expect.objectContaining({ playing: true, rate: 1 }));
+});
+it('sends one gesture start through its dedicated transport and accepts only its token for stop', async () => {
+  vi.useFakeTimers();
+  const f = make(); await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3, 1, false, true, true);
+  const send = vi.fn(async () => {}); const revoke = vi.fn(async () => {});
+  const reservation = f.controller.reserveCommandGesture(6, revoke);
+  if (reservation === null) throw Error('missing reservation');
+  const token = await f.controller.startCommandGesture(reservation, send);
+  if (token === null) throw Error('missing token');
+  expect(send).toHaveBeenCalledOnce();
+  expect(f.api.apply).not.toHaveBeenCalledWith(expect.objectContaining({ sequence: 2 }));
+  expect(f.controller.stopCommandGesture(token + 1)).toBeNull();
+  expect(f.controller.stopCommandGesture(token)).toBe(f.controller.commandRevision);
+  expect(revoke).not.toHaveBeenCalled();
+  await f.controller.returnToOriginal();
+  expect(revoke).toHaveBeenCalledOnce();
+});
+it('treats reentrant forward play during gesture stop as a new operation', async () => {
+  vi.useFakeTimers();
+  const f = make(); await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3, 1, false, true, true);
+  const revoke = vi.fn(async () => {});
+  const reservation = f.controller.reserveCommandGesture(6, revoke);
+  if (reservation === null) throw Error('missing reservation');
+  const token = await f.controller.startCommandGesture(reservation, async () => {});
+  if (token === null) throw Error('missing token');
+  let triggered = false;
+  const unsubscribe = f.controller.subscribe(() => {
+    const controls = f.controller.requestedControls;
+    if (!triggered && !controls.playing && controls.rate === -6) {
+      triggered = true;
+      f.controller.controls({ playing: true, rate: 1 });
+    }
+  });
+  expect(f.controller.stopCommandGesture(token)).toBeNull();
+  await f.controller.returnToOriginal();
+  expect(revoke).toHaveBeenCalledOnce();
+  expect(f.original.restored).toHaveBeenCalledWith(3, expect.objectContaining({ playing: true, rate: 1 }));
+  unsubscribe();
 });
 it('commits an exact seek at the same pending preview target and ignores its stale completion', async () => {
   vi.useFakeTimers();

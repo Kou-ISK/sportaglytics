@@ -15,6 +15,7 @@ type VideoPlayerLayoutProps = Pick<
   | 'isVideoPlaying'
   | 'videoPlayBackRate'
   | 'currentTime'
+  | 'playbackTime'
   | 'setCurrentTime'
   | 'setisVideoPlaying'
   | 'setVideoPlayBackRate'
@@ -46,6 +47,7 @@ export const VideoPlayerLayout = ({
   isVideoPlaying,
   videoPlayBackRate,
   currentTime,
+  playbackTime,
   setCurrentTime,
   setisVideoPlaying,
   setVideoPlayBackRate,
@@ -93,6 +95,7 @@ export const VideoPlayerLayout = ({
           isVideoPlaying={isVideoPlaying}
           videoPlayBackRate={videoPlayBackRate}
           currentTime={currentTime}
+          playbackTime={playbackTime}
           setCurrentTime={setCurrentTime}
           setIsVideoPlaying={setisVideoPlaying}
           setVideoPlayBackRate={setVideoPlayBackRate}

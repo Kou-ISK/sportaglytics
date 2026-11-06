@@ -1,6 +1,7 @@
 import { writeTextFileAtomically } from '../ipc/atomicTextFile';
+import { randomUUID } from 'node:crypto';
 import * as fs from 'fs/promises';
-import { existsSync } from 'fs';
+import { constants, existsSync } from 'fs';
 import * as path from 'path';
 import type { Playlist } from '../../../src/types/playlist/core';
 import { normalizePlaylistDocument } from '../../../src/shared/playlist/playlistDocument';
@@ -9,7 +10,14 @@ import {
   isPlaylist,
 } from '../../../src/types/ipc/playlistWindow';
 import { runMediaProcess } from '../ipc/mediaProcessRunner';
+import { H264_ENCODER_ARGS } from '../mediaTools';
+import { ensureWindowsH264Encoder } from '../windowsH264Capability';
 import { resolvePlaylistMediaReferences } from './mediaReferences';
+import {
+  overlappingEmbeddedAudio,
+  validateEmbeddedOutput,
+} from './validateEmbeddedOutput';
+import { rebaseEmbeddedAnnotation } from './embeddedAnnotationTime';
 
 const extractVideoSegment = async (
   ffmpegPath: string,
@@ -17,32 +25,35 @@ const extractVideoSegment = async (
   destPath: string,
   startTime: number,
   endTime: number,
+  audioIndices: readonly number[],
 ): Promise<void> => {
   const duration = endTime - startTime;
 
   const args = [
-    '-i',
-    sourcePath,
+    '-seek_timestamp',
+    '0',
     '-ss',
     startTime.toString(),
+    '-i',
+    sourcePath,
     '-t',
     duration.toString(),
-    '-c',
-    'copy',
-    '-avoid_negative_ts',
-    'make_zero',
-    '-y',
+    '-map',
+    '0:v:0',
+    ...audioIndices.flatMap((index) => ['-map', `0:a:${index}`]),
+    ...H264_ENCODER_ARGS,
+    '-c:a',
+    'aac',
+    '-n',
     destPath,
   ];
 
+  if (H264_ENCODER_ARGS.includes('h264_mf'))
+    await ensureWindowsH264Encoder(ffmpegPath);
   await runMediaProcess(ffmpegPath, args, {
     timeoutMs: 6 * 60 * 60 * 1000,
     maxOutputBytes: 4 * 1024 * 1024,
   });
-};
-
-const sanitizeForFilename = (name: string): string => {
-  return name.replace(/[/\\:*?"<>|]/g, '_').trim() || 'item';
 };
 
 export const savePlaylistToPath = async (
@@ -50,6 +61,10 @@ export const savePlaylistToPath = async (
   playlist: Playlist,
   event: Electron.IpcMainInvokeEvent,
   ffmpegPath: string,
+  beforeCommit?: () => Promise<void>,
+  finalCheck?: () => void,
+  reusableAssets: ReadonlyMap<string, string> = new Map(),
+  sourceBase: string = targetPath,
 ): Promise<void> => {
   let document = normalizePlaylistDocument(playlist);
   if (document.type === 'reference') {
@@ -59,14 +74,26 @@ export const savePlaylistToPath = async (
         .items,
     };
   }
-  const isOverwrite = existsSync(path.join(targetPath, 'playlist.json'));
   await fs.mkdir(targetPath, { recursive: true });
 
   let processedPlaylist = document;
 
   if (document.type === 'embedded') {
+    if (
+      document.items.some(
+        (item) =>
+          !Number.isFinite(item.startTime) ||
+          !Number.isFinite(item.endTime) ||
+          item.startTime < 0 ||
+          item.endTime <= item.startTime,
+      )
+    )
+      throw Error('PLAYLIST_INVALID_EMBEDDED_RANGE');
     const videosDir = path.join(targetPath, 'videos');
     await fs.mkdir(videosDir, { recursive: true });
+    const videosStat = await fs.lstat(videosDir);
+    if (!videosStat.isDirectory() || videosStat.isSymbolicLink())
+      throw Error('PLAYLIST_VIDEO_DIRECTORY_INVALID');
 
     const copiedVideos = new Map<string, string>();
     const totalItems = document.items.length;
@@ -82,84 +109,118 @@ export const savePlaylistToPath = async (
       }
     };
 
-    const processedItems = await Promise.all(
-      document.items.map(async (item) => {
-        const processVideo = async (
-          sourcePath: string | undefined,
-          isSecondary: boolean,
-        ): Promise<string | undefined> => {
-          if (!sourcePath || !existsSync(sourcePath)) return sourcePath;
-
-          const sanitizedActionName = sanitizeForFilename(item.actionName);
-          const dirName = `${sanitizedActionName}_${item.id}`;
-          const angleNumber = isSecondary ? 2 : 1;
-          const instanceDir = path.join(videosDir, dirName);
-          const extname = path.extname(sourcePath);
-          const newFileName = `angle${angleNumber}${extname}`;
-          const destPath = path.join(instanceDir, newFileName);
-          const relativePath = `./videos/${dirName}/${newFileName}`;
-
-          if (isOverwrite && existsSync(destPath)) {
-            if (sourcePath.startsWith('./videos/')) {
-              return sourcePath;
-            }
-            return relativePath;
+    const processedItems: Playlist['items'] = [];
+    for (const item of document.items) {
+      let primaryReused = false;
+      const processVideo = async (
+        sourcePath: string | undefined,
+        isSecondary: boolean,
+      ): Promise<string | undefined> => {
+        if (!sourcePath) return undefined;
+        const reusable = reusableAssets.get(
+          `${item.id}:${isSecondary ? 'angle2' : 'angle1'}`,
+        );
+        if (reusable) {
+          const targetVideos = await fs.realpath(videosDir);
+          const relative = path.relative(targetVideos, reusable);
+          if (
+            relative &&
+            relative !== '..' &&
+            !relative.startsWith(`..${path.sep}`) &&
+            !path.isAbsolute(relative)
+          ) {
+            if (!isSecondary) primaryReused = true;
+            return `./videos/${relative.split(path.sep).join('/')}`;
           }
-
-          const cacheKey = `${sourcePath}_${item.startTime}_${item.endTime}`;
-          if (copiedVideos.has(cacheKey)) {
-            return copiedVideos.get(cacheKey);
-          }
-
-          await fs.mkdir(instanceDir, { recursive: true });
-
-          let absoluteSourcePath = sourcePath;
-          if (sourcePath.startsWith('./')) {
-            absoluteSourcePath = path.join(targetPath, sourcePath);
-          }
-
-          await extractVideoSegment(
-            ffmpegPath,
-            absoluteSourcePath,
-            destPath,
-            item.startTime,
-            item.endTime,
+          const instanceDir = await fs.mkdtemp(path.join(videosDir, 'item-'));
+          const name = `angle${isSecondary ? 2 : 1}-${randomUUID()}${path.extname(reusable)}`;
+          await fs.copyFile(
+            reusable,
+            path.join(instanceDir, name),
+            constants.COPYFILE_EXCL,
           );
+          if (!isSecondary) primaryReused = true;
+          return `./videos/${path.basename(instanceDir)}/${name}`;
+        }
 
-          copiedVideos.set(cacheKey, relativePath);
-          return relativePath;
-        };
+        const cacheKey = `${sourcePath}_${item.startTime}_${item.endTime}`;
+        if (copiedVideos.has(cacheKey)) {
+          return copiedVideos.get(cacheKey);
+        }
 
-        const newVideoSource = await processVideo(item.videoSource, false);
-        const newVideoSource2 = await processVideo(item.videoSource2, true);
+        const instanceDir = await fs.mkdtemp(path.join(videosDir, 'item-'));
+        const name = `angle${isSecondary ? 2 : 1}-${randomUUID()}.mp4`;
+        const destPath = path.join(instanceDir, name);
+        const relativePath = `./videos/${path.basename(instanceDir)}/${name}`;
+        const absoluteSourcePath = path.isAbsolute(sourcePath)
+          ? sourcePath
+          : path.resolve(sourceBase, sourcePath);
+        if (!existsSync(absoluteSourcePath))
+          throw Error('PLAYLIST_MEDIA_SOURCE_MISSING');
 
-        processedCount += 1;
-        sendProgress(processedCount, totalItems);
+        const audioIndices = await overlappingEmbeddedAudio(
+          absoluteSourcePath,
+          item.startTime,
+          item.endTime - item.startTime,
+        );
+        await extractVideoSegment(
+          ffmpegPath,
+          absoluteSourcePath,
+          destPath,
+          item.startTime,
+          item.endTime,
+          audioIndices,
+        );
+        await validateEmbeddedOutput(
+          absoluteSourcePath,
+          destPath,
+          item.endTime - item.startTime,
+          false,
+          item.startTime,
+        );
 
-        const isAlreadyProcessed = item.videoSource?.startsWith('./videos/');
-        const duration = isAlreadyProcessed
-          ? item.endTime
-          : item.endTime - item.startTime;
-        const startTime = isAlreadyProcessed ? item.startTime : 0;
+        copiedVideos.set(cacheKey, relativePath);
+        return relativePath;
+      };
 
-        return {
-          ...item,
-          videoSource: newVideoSource,
-          videoSource2: newVideoSource2,
-          mediaReference: undefined,
-          mediaReference2: undefined,
-          startTime,
-          endTime: isAlreadyProcessed ? item.endTime : duration,
-        };
-      }),
-    );
+      const newVideoSource = await processVideo(item.videoSource, false);
+      const newVideoSource2 = await processVideo(item.videoSource2, true);
+
+      processedCount += 1;
+      sendProgress(processedCount, totalItems);
+
+      const isAlreadyProcessed =
+        primaryReused || (!newVideoSource && !newVideoSource2);
+      const duration = isAlreadyProcessed
+        ? item.endTime
+        : item.endTime - item.startTime;
+      const startTime = isAlreadyProcessed ? item.startTime : 0;
+
+      processedItems.push({
+        ...item,
+        annotation: isAlreadyProcessed
+          ? item.annotation
+          : rebaseEmbeddedAnnotation(item.annotation, item.startTime),
+        videoSource: newVideoSource,
+        videoSource2: newVideoSource2,
+        mediaReference: undefined,
+        mediaReference2: undefined,
+        startTime,
+        endTime: isAlreadyProcessed ? item.endTime : duration,
+      });
+    }
 
     processedPlaylist = { ...document, items: processedItems };
   }
 
   const playlistJsonPath = path.join(targetPath, 'playlist.json');
   const content = JSON.stringify(processedPlaylist, null, 2);
-  await writeTextFileAtomically(playlistJsonPath, content);
+  await writeTextFileAtomically(
+    playlistJsonPath,
+    content,
+    beforeCommit,
+    finalCheck,
+  );
 
   console.log('[Playlist] Saved package to:', targetPath);
 };

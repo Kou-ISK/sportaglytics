@@ -77,6 +77,21 @@ export const useStudioGesture = (params: Params): StudioGesture => {
     key: string;
     objects: DrawingObject[];
   } | null>(null);
+  useEffect(() => {
+    const cancelOnBlur = (): void => {
+      gesture.current = null;
+      setPreview(null);
+    };
+    const cancelWhenHidden = (): void => {
+      if (document.hidden) cancelOnBlur();
+    };
+    window.addEventListener('blur', cancelOnBlur);
+    document.addEventListener('visibilitychange', cancelWhenHidden);
+    return () => {
+      window.removeEventListener('blur', cancelOnBlur);
+      document.removeEventListener('visibilitychange', cancelWhenHidden);
+    };
+  }, []);
   useEffect(
     () => () => {
       gesture.current = null;
@@ -249,13 +264,16 @@ export const useStudioGesture = (params: Params): StudioGesture => {
       });
     }
   };
-  const onPointerMove = (event: PointerEvent<HTMLCanvasElement>): void => {
+  const updateGesture = (
+    event: PointerEvent<HTMLCanvasElement>,
+    requireCapture: boolean,
+  ): void => {
     const current = gesture.current;
     if (
       !current ||
       !isCurrent(current) ||
       current.pointerId !== event.pointerId ||
-      !event.currentTarget.hasPointerCapture(event.pointerId)
+      (requireCapture && !event.currentTarget.hasPointerCapture(event.pointerId))
     )
       return;
     if (current.kind === 'draw' && current.latest.type === 'linkedDiscs')
@@ -316,9 +334,16 @@ export const useStudioGesture = (params: Params): StudioGesture => {
             ),
     });
   };
+  const onPointerMove = (event: PointerEvent<HTMLCanvasElement>): void => {
+    updateGesture(event, true);
+  };
   const onPointerUp = (event: PointerEvent<HTMLCanvasElement>): void => {
     const current = gesture.current;
-    if (!current || current.pointerId !== event.pointerId) return;
+    if (
+      !current ||
+      current.pointerId !== event.pointerId ||
+      event.currentTarget !== params.canvasRef.current
+    ) return;
     if (
       current?.kind === 'draw' &&
       current.latest.type === 'linkedDiscs' &&
@@ -330,7 +355,9 @@ export const useStudioGesture = (params: Params): StudioGesture => {
       return;
     }
     // pointermove can be coalesced or omitted during a quick drag.
-    onPointerMove(event);
+    // An up delivered to this canvas still identifies the active pointer even
+    // when the browser has already released capture before dispatching it.
+    updateGesture(event, false);
     gesture.current = null;
     setPreview(null);
     if (event.currentTarget.hasPointerCapture(event.pointerId))

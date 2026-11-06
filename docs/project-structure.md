@@ -460,3 +460,5 @@ Native再生のsource/profile/preview構成は`electron/src/nativePlayback`、sa
 AVPlayer adapterは`native/macos/playback/apple-player`、画像所有と転送は`surface-transport`へ置きます。独自FFmpeg/PCM pipelineは使用しません。専用recipeは`scripts/native-playback/`、entryは`scripts/build-native-playback.mjs`と`scripts/package-native-playback-sources.mjs`です。生成library/binary/対応source archiveは`.cache`/`dist`へ分離し、repositoryへ追加しません。
 
 `electron/src/nativePlayback/runtime`は資源・署名検査、session directory、surface転送、所有者終了を担当します。`nativeSignature.ts`の固定要件検証はcompiled Mainを配布hookからも利用し、二重定義しません。`support`内の明示CJSだけをMain buildへコピーします。`scripts/macos/{standard-after-pack,native-signing,native-after-sign}.mjs`が内側→manifest→外側の署名順序と検証を担います。
+
+長押し逆再生の表示完了待ちと1要求/最新希望のキューは`src/shared/media/`に置き、メイン画面・Playlistが各々のsource/clip解決を担当します。AVPlayerの操作所有権は既存videoPlayer controller/hostに閉じ込めます。実ブラウザ用fixtureは`scripts/testing/reverse-playback-browser.tsx`、起動・測定は`scripts/test-reverse-playback-browser.mjs`です。

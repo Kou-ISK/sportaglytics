@@ -156,7 +156,7 @@ export async function verifyMacPayload({ project, app, arch, signed = false }) {
       Buffer.from(JSON.stringify(manifest)),
     );
     for (const file of PAYLOAD_FILES.filter((name) => name !== 'build.json')) {
-      const binary = file === 'NativeProductHost' || file === 'Receiver.node';
+      const binary = file === 'NativeProductHost' || file === 'Receiver.node' || file === 'CommandLeft.node';
       if (!signed || !binary)
         await compareResource(
           `native-playback/${file}`,

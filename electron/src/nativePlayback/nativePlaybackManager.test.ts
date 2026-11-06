@@ -2,6 +2,8 @@ import { expect, it, vi } from 'vitest';
 import { NativePlaybackManager } from './nativePlaybackManager';
 import type { QualifiedNativeSource } from './nativePlaybackManager';
 import type { NativePlaybackOwner } from '../../../src/types/ipc/nativePlayback';
+import { createCommandLeftBroker } from '../nativeInput/commandLeftBroker';
+import { createCommandLeftHealth } from '../nativeInput/commandLeftHealth';
 const make = () => {
   let context: string | null = 'document-a';
   let owner: NativePlaybackOwner | null = null;
@@ -70,6 +72,145 @@ it('rechecks source and document after async open validation', async () => {
     'NATIVE_OWNER_CHANGED',
   );
   expect(source.createBackend).not.toHaveBeenCalled();
+});
+it('rejects a gesture revoked during source validation before a host write', async () => {
+  const { manager, source, backend } = make();
+  const available = await manager.inspect();
+  if (!available.owner) throw Error('test owner');
+  await manager.open(available.owner);
+  const check = Promise.withResolvers<void>();
+  vi.mocked(source.assertCurrent).mockReturnValueOnce(check.promise);
+  let allowed = true;
+  const work = manager.applyGuarded({
+    ...available.owner, sequence: 1, seekId: 1, targetTime: 3,
+    playing: false, rate: 1, audioTrack: 0, volume: 0.5, muted: true,
+  }, () => allowed);
+  const rejected = expect(work).rejects.toThrow('NATIVE_GESTURE_REVOKED');
+  allowed = false;
+  check.resolve();
+  await rejected;
+  expect(backend.write).not.toHaveBeenCalled();
+  await manager.close(available.owner);
+});
+it('drains the actual manager on revoked input before admitting a new gesture', async () => {
+  const { manager, source, backend } = make();
+  const available = await manager.inspect();
+  if (!available.owner) throw Error('test owner');
+  await manager.open(available.owner);
+  const broker = createCommandLeftBroker({ reset: () => 0 });
+  const window = {
+    isDestroyed: () => false,
+    matchesWindow: (id: number) => id === 7,
+    sendEvent: vi.fn(), sendOverflow: vi.fn(), captureStart: () => true,
+    stopCaptured: async () => {
+      const receipt = await manager.close(available.owner!);
+      return receipt.nativeDrained && receipt.processExited && receipt.pipesClosed;
+    },
+  };
+  const epoch = broker.arm(window, window);
+  if (epoch === null) throw Error('missing epoch');
+  broker.receive({ phase: 'down', gesture: 1, serial: 1, windowNumber: 7,
+    meta: true, shift: false, alt: false, control: false }, window);
+  expect(broker.claimStart(window, window, 1, epoch)).toBe('active');
+  const check = Promise.withResolvers<void>();
+  vi.mocked(source.assertCurrent).mockReturnValueOnce(check.promise);
+  const work = manager.applyGuarded({
+    ...available.owner, sequence: 1, seekId: 1, targetTime: 3,
+    playing: false, rate: 1, audioTrack: 0, volume: 0.5, muted: true,
+  }, () => broker.isClaimCurrent(window, 1, epoch));
+  const rejected = expect(work).rejects.toThrow();
+  broker.disarm(window);
+  expect(broker.arm(window, window)).toBeNull();
+  check.resolve();
+  await rejected;
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  expect(backend.write).not.toHaveBeenCalled();
+  expect(backend.close).toHaveBeenCalledOnce();
+  expect(broker.revoke(window, epoch)).toBe('already-revoked');
+});
+it('closes the captured actual manager when monitor health becomes unavailable', async () => {
+  const { manager, backend } = make();
+  const available = await manager.inspect();
+  if (!available.owner) throw Error('test owner');
+  await manager.open(available.owner);
+  let send: ((raw: unknown) => boolean) | null = null;
+  let faulted = false;
+  const monitor = {
+    start: (callback: (raw: unknown) => boolean) => { send = callback; },
+    stop: () => {}, reset: () => 0,
+    health: () => ({ faulted, faultSerial: 0, faultGesture: 0, faultWindow: 0 }),
+  };
+  const broker = createCommandLeftBroker(monitor);
+  const window = { isDestroyed: () => false, matchesWindow: () => true,
+    sendEvent: () => {}, sendOverflow: () => {}, captureStart: () => true,
+    stopCaptured: async () => {
+      const receipt = await manager.close(available.owner!);
+      return receipt.nativeDrained && receipt.processExited && receipt.pipesClosed;
+    },
+  };
+  const health = createCommandLeftHealth(monitor, broker, () => window);
+  expect(health.start()).toBe(true);
+  const epoch = broker.arm(window, window);
+  if (epoch === null || !send) throw Error('missing input');
+  const deliver: (raw: unknown) => boolean = send;
+  expect(deliver({ phase: 'down', gesture: 1, serial: 1, windowNumber: 7,
+    meta: true, shift: false, alt: false, control: false })).toBe(true);
+  expect(broker.claimStart(window, window, 1, epoch)).toBe('active');
+  faulted = true;
+  health.poll();
+  expect(broker.isClaimCurrent(window, 1, epoch)).toBe(false);
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  expect(backend.close).toHaveBeenCalledOnce();
+  expect(broker.arm(window, window)).toBeNull();
+  health.dispose();
+});
+it('does not drain a different owner when a stale gesture requests a close', async () => {
+  const { manager, backend } = make();
+  const available = await manager.inspect();
+  if (!available.owner) throw Error('test owner');
+  await manager.open(available.owner);
+  expect(() => manager.close({ ...available.owner!, generation: 'stale' }))
+    .toThrow('NATIVE_OWNER_CHANGED');
+  expect(backend.close).not.toHaveBeenCalled();
+  await manager.close(available.owner);
+});
+it('allows the captured owner to await an existing drain after invalidation', async () => {
+  const { manager, backend, changeDocument } = make();
+  const available = await manager.inspect();
+  if (!available.owner) throw Error('test owner');
+  await manager.open(available.owner);
+  changeDocument();
+  expect(() => manager.observe(available.owner!)).toThrow('NATIVE_OWNER_CHANGED');
+  const first = manager.close(available.owner);
+  const second = manager.close(available.owner);
+  expect(first).toBe(second);
+  expect((await first).nativeDrained).toBe(true);
+  expect(backend.close).toHaveBeenCalledOnce();
+});
+
+it('drains instead of delivering a revoked gesture queued behind a host write', async () => {
+  const { manager, backend } = make();
+  const available = await manager.inspect();
+  if (!available.owner) throw Error('test owner');
+  await manager.open(available.owner);
+  const first = Promise.withResolvers<void>();
+  backend.write.mockReturnValueOnce(first.promise);
+  const base = { ...available.owner, seekId: 1, targetTime: 3,
+    rate: 1, audioTrack: 0, volume: 0.5, muted: true };
+  await manager.apply({ ...base, sequence: 1, playing: false });
+  let allowed = true;
+  await manager.applyGuarded({ ...base, sequence: 2, playing: true }, () => allowed);
+  // A volume change must not replace the queued start's revocation guard.
+  await manager.apply({ ...base, sequence: 3, playing: true, volume: 0.7 });
+  // A pause may be coalesced away before a same-transport resume reaches Host.
+  await manager.apply({ ...base, sequence: 4, playing: false });
+  await manager.apply({ ...base, sequence: 5, playing: true });
+  allowed = false;
+  first.resolve();
+  for (let i = 0; i < 12; i++) await Promise.resolve();
+  expect(backend.write).toHaveBeenCalledTimes(1);
+  expect(backend.close).toHaveBeenCalledOnce();
+  await manager.close(available.owner);
 });
 it('rejects another owner and drains a vanished Session before shutdown can finish', async () => {
   const { manager, backend, changeDocument } = make();

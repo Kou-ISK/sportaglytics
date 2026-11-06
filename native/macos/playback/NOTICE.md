@@ -10,7 +10,7 @@ FFmpeg or implement a separate audio/video supply pipeline. The independent --ex
 AVAssetExportSession passthrough without starting a playback session. Media
 inspection and fallback encoding tools have their own notices.
 
-Receiver.node uses the Node.js 22.12.0 N-API headers (N-API version 8). The full
+Receiver.node and CommandLeft.node use the Node.js 22.12.0 N-API headers (N-API version 8). The full
 Node distribution LICENSE is included; its text describes applicable licenses
 for individual components. Node runtime code is not statically linked into this
 receiver. Source: https://nodejs.org/dist/v22.12.0/.

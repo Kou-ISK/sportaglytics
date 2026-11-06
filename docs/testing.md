@@ -80,6 +80,8 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 
 `test:native-runtime`の`ReplyQueue.test.cpp`は実Mach portで返信10通のFIFO・peer照合・11通目の上限拒否・無効port設定失敗を確認します。映像は使わず、画像保持上限を増やしません。既存の数値診断回帰では返信エラーの固定分類と未知文字列の非保存を確認します。
 
+同コマンドの`SurfaceSender.test.mm`は合成NV12のCVPixelBufferPoolと実Mach通信を使い、元IOSurface・PTS・世代の維持、Drawn後の保持とReleased後の再利用、3画像上限、取消、不正ACK、送信失敗、終了時の回収を確認します。Copy所有権の移動とObjective-C例外での解放も製品と同じARCコンパイル条件で検査します。サンドボックスでCoreVideo/Mach利用が拒まれる環境では合格扱いにせず、許可されたMac実行環境で確認してください。合成画像の所有権試験は実動画の停止・聴取品質を保証しません。
+
 `scripts/tests/macos-release.mjs`の公開検証要約テストは、source/version/archの不一致、改変DMG/installer、未知のWindows署名状態、未公証・未staple・Gatekeeper拒否、余分なassetとraw診断情報の除外を合成reportで検査します。CLI試験は一時git repositoryと合成bytesを使い、実hash照合・既存要約の上書き拒否・改変候補での未出力を確認します。ファイル名にmacosを含みますが、この検査はLinux/Windowsでも動くNode試験で、実署名・公証・E2Eを代替しません。既存の`test:run` / `test:ci`が同ファイルを登録済みのため、限定検査も両コマンドに含まれます。
 
 `test:run` / `test:ci`は既存Vitestの後に`check:build-downloads`と同じNode検査も実行します。`scripts/tests/build-downloader.mjs`は実際のbuilder/get/got依存を読み、loopbackの合成bytesでダウンロード・checksum・ファイルキャッシュと通信の回帰を検証します。外部モデルやElectron GUIを起動しません。依存境界の判断は[ADR 0058](adr/0058-build-downloads-without-response-cache.md)に記録しています。
@@ -139,7 +141,7 @@ Heavy model weightやtraining frameworkをSporTagLytics unit testで取得しま
 
 ## Settings / Timeline / IPC
 
-逆方向キー解放は`useVideoReversePlayback.test.tsx`で最後の要求の保持、IPC保留中の最新要求、遅い旧応答、即時再押下、別操作・再入・原本復帰・下端を確認します。`nativeSurfaceBridge.test.ts`は新しいseekによるrAF待ち画像の破棄、古い受付更新の拒否、close後の画像解放を検査し、`withNativeSurface.test.ts`はIPC前の受付更新とsurface終了失敗の伝播を確認します。合成回帰の成功は押下中の実映像速度や滑らかさの証拠とは分けます。
+長押し逆再生は`useVideoReversePlayback.test.tsx`、`nativePlaybackSession.test.ts`で負rateの4倍率、押下中にseekが増えないこと、実停止時計、直後の再押下・別操作・音声変更を合成確認します。`heldSeekQueue.test.ts`、`nativeSurfaceBridge.test.ts`は応答待ちの連続入力、受信後描画前の追加入力、途中表示と最後の希望位置、旧素材/文書/操作の拒否を確認します。`waitForVideoPresentation.test.ts`はPTSとpaint前の時計確定を拒否します。`node scripts/test-reverse-playback-browser.mjs`は合成映像を実際に復号し、主画面/Playlistで4倍率の経過時間・異なるPTS・描画間隔・解放確定を測ります。完全なElectron画面・AVPlayer実機の代替にはしません。[再現コマンド、境界、実機手順](reports/2026-11-held-reverse.md)。
 
 TimelineのTab回帰は`useTimelineGlobalShortcuts.test.tsx`で開始時刻順の前後巡回、折り返し、DOMフォーカス、未選択/無効選択、入力/通常コントロール/ダイアログ、IME、Cmd/Ctrl/Alt+Tabの除外を確認します。`node scripts/e2e-ux-review.mjs`は合成240件と映像を使い、Tab/Shift+Tabの選択・フォーカス・実映像シーク、Option/Alt別名、Escape後と検索入力中の通常Tab移動、文書を変更しないことを検証します。通常アプリのプロファイルや実試合データを使いません。
 

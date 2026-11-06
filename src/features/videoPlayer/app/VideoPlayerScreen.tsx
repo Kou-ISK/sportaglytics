@@ -1,5 +1,4 @@
 import {
-  angleIndexForHotkey,
   angleIndexForView,
 } from '../../../shared/media/angleView';
 import type { VideoViewMode } from '../../../shared/media/angleView';
@@ -8,7 +7,6 @@ import React, {
   useRef,
   useCallback,
   useEffect,
-  useMemo,
 } from 'react';
 import { Box } from '@mui/material';
 import {
@@ -19,7 +17,7 @@ import {
 import { useVideoPlayerScreenController } from './hooks/useVideoPlayerScreenController';
 import { useLiveCapturePlayback } from './hooks/useLiveCapturePlayback';
 import { useSettings } from '../../../hooks/useSettings';
-import { useGlobalHotkeys } from '../../../hooks/useGlobalHotkeys';
+import { useWorkspaceHotkeys } from './hooks/useWorkspaceHotkeys';
 import { useActionPreset } from '../../../contexts/ActionPresetContext';
 import { ErrorSnackbar } from './components/ErrorSnackbar';
 import { SyncAnalysisBackdrop } from './components/SyncAnalysisBackdrop';
@@ -64,6 +62,8 @@ export const VideoPlayerScreen = () => {
     videoList,
     setVideoList,
     currentTime,
+    playbackTime,
+    seekReverse,
     setCurrentTime,
     setTimelineFilePath,
     metaDataConfigFilePath,
@@ -216,6 +216,13 @@ export const VideoPlayerScreen = () => {
 
   const codingPanelRuntimeRef = useRef<EnhancedCodePanelHandle | null>(null);
 
+  const onNativeReverseControls = useCallback(
+    (playing: boolean, rate: number): void => {
+      setVideoPlayBackRate(rate);
+      setisVideoPlaying(playing);
+    },
+    [setVideoPlayBackRate, setisVideoPlaying],
+  );
   const { startReversePlayback, stopReversePlayback, finishReversePlayback } =
     useVideoReversePlayback({
       videoList,
@@ -225,8 +232,19 @@ export const VideoPlayerScreen = () => {
         setVideoPlayBackRate(1);
         setisVideoPlaying(false);
       },
-      onSeek: (time) => handleCurrentTime(new Event('reverse-playback'), time),
+      onSeek: seekReverse,
+      onError: () =>
+        notify({
+          severity: 'error',
+          message:
+            '逆再生の画像を確認できませんでした。映像を読み直して再試行してください。',
+        }),
+      onNativeControls: onNativeReverseControls,
     });
+
+  useEffect(() => {
+    if (isVideoPlaying && videoPlayBackRate > 0) stopReversePlayback();
+  }, [isVideoPlaying, videoPlayBackRate, stopReversePlayback]);
 
   const { requestClipSync, changeSyncMode } = useClipSyncCommands({
     captureActive: Boolean(liveCapture.timelineState),
@@ -289,18 +307,10 @@ export const VideoPlayerScreen = () => {
     });
 
   // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）
-  const workspaceHotkeys = useMemo(
-    () =>
-      syncMode === 'manual'
-        ? combinedHotkeys.filter(
-            (hotkey) =>
-              ['manual-sync', 'toggle-manual-mode'].includes(hotkey.id) ||
-              angleIndexForHotkey(hotkey.id) !== null,
-          )
-        : combinedHotkeys,
-    [combinedHotkeys, syncMode],
+  const workspaceHotkeys = useWorkspaceHotkeys(
+    syncMode, combinedHotkeys, combinedHandlers, keyUpHandlers, onNativeReverseControls,
+    () => notify({ severity: 'error', message: '逆再生の停止を確認できませんでした。映像を読み直してください。' }),
   );
-  useGlobalHotkeys(workspaceHotkeys, combinedHandlers, keyUpHandlers);
 
   useSyncMenuHandlers({
     onResyncAudio: resyncAudio,
@@ -463,6 +473,7 @@ export const VideoPlayerScreen = () => {
         isVideoPlaying={isVideoPlaying}
         videoPlayBackRate={videoPlayBackRate}
         currentTime={currentTime}
+        playbackTime={playbackTime}
         setCurrentTime={setCurrentTime}
         setisVideoPlaying={setisVideoPlaying}
         setVideoPlayBackRate={setVideoPlayBackRate}

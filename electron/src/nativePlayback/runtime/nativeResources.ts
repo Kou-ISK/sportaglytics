@@ -8,6 +8,7 @@ import { parseNativeSigning, verifySignedNative } from './nativeSignature';
 const files = [
   'NativeProductHost',
   'Receiver.node',
+  'CommandLeft.node',
   'build.json',
   'licenses/Node-LICENSE.txt',
   'licenses/SporTagLytics-LICENSE.txt',
@@ -51,7 +52,7 @@ export const resolveNativeResources = async (
     !record(manifest) ||
     !record(manifest.identity) ||
     !record(manifest.files) ||
-    manifest.identity.revision !== 6 ||
+    manifest.identity.revision !== 7 ||
     manifest.identity.engine !== 'AVPlayer' ||
     manifest.identity.platform !== 'darwin' ||
     manifest.identity.architecture !== 'arm64' ||
@@ -72,7 +73,7 @@ export const resolveNativeResources = async (
     )
       throw Error('NATIVE_RESOURCE_HASH');
     const hash =
-      signing && (file === 'NativeProductHost' || file === 'Receiver.node')
+      signing && (file === 'NativeProductHost' || file === 'Receiver.node' || file === 'CommandLeft.node')
         ? signing.files[file].sha256
         : originalHash;
     if (
@@ -87,4 +88,13 @@ export const resolveNativeResources = async (
     receiver: path.join(root, 'Receiver.node'),
     state,
   };
+};
+
+/** The input addon is returned only after the complete signed set is verified. */
+export const resolveSignedCommandInput = async (
+  resources: string,
+  state: string,
+): Promise<string> => {
+  await resolveNativeResources(resources, state);
+  return path.join(resources, 'native-playback', 'CommandLeft.node');
 };

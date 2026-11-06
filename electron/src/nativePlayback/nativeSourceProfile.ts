@@ -65,7 +65,7 @@ export const parseNativeSourceProfile = (raw: unknown): NativeSourceProfile => {
       end: videoEnd / 120000,
       seekEnd,
       playEnd,
-      rates: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4, 6],
+      rates: [-0.5, -2, -4, -6, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4, 6],
       audioTracks: 3,
       seekGrid: null,
       mutedOnly: false,

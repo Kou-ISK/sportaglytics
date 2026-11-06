@@ -1,3 +1,5 @@
+import { useNotification } from '../../../../contexts/NotificationContext';
+import { useEffect } from 'react';
 import { useGlobalHotkeys } from '../../../../hooks/useGlobalHotkeys';
 import {
   ANNOTATION_TIME_TOLERANCE,
@@ -25,6 +27,7 @@ export const usePlaylistWindowInteractionRuntime = (
   runtime: PlaylistWindowDataRuntime,
 ): PlaylistWindowInteractionRuntime => {
   const { core, history, selection, exportState, currentItemState } = runtime;
+  const { error: showError } = useNotification();
 
   usePlaylistDrawingTarget({
     viewMode: core.viewMode,
@@ -98,7 +101,7 @@ export const usePlaylistWindowInteractionRuntime = (
     setSaveDialogOpen: core.setSaveDialogOpen,
   });
 
-  const { startReversePlayback, stopReversePlayback } =
+  const { startReversePlayback, stopReversePlayback, cancelReversePlayback } =
     useContinuousReversePlayback({
       currentTime: core.currentTime,
       minimumTime: currentItemState.currentItem?.startTime ?? 0,
@@ -107,15 +110,34 @@ export const usePlaylistWindowInteractionRuntime = (
         if (core.videoRef2.current) core.videoRef2.current.playbackRate = 1;
         core.setIsPlaying(false);
       },
-      onSeek: (time) =>
-        playback.handleSeek(new Event('reverse-playback'), time),
+      onSeek: playback.seekReverse,
+      onError: () =>
+        showError(
+          '逆再生の画像を確認できませんでした。映像を読み直して再試行してください。',
+        ),
     });
 
+  useEffect(
+    () => cancelReversePlayback,
+    [
+      cancelReversePlayback,
+      core.currentIndex,
+      currentItemState.currentItem?.id,
+      currentItemState.currentItem?.startTime,
+      core.viewMode,
+      currentItemState.currentVideoSource,
+      currentItemState.currentVideoSource2,
+    ],
+  );
+  useEffect(() => {
+    if (core.isPlaying) cancelReversePlayback();
+  }, [core.isPlaying, cancelReversePlayback]);
   const hotkeyBindings = usePlaylistHotkeyBindings({
     isPlaying: core.isPlaying,
     handleTogglePlay: playback.handleTogglePlay,
     startReversePlayback,
-    stopReversePlayback,
+    stopReversePlayback: cancelReversePlayback,
+    finishReversePlayback: stopReversePlayback,
     handlePrevious: playback.handlePrevious,
     handleNext: playback.handleNext,
     handleDeleteSelected: () => {

@@ -1,6 +1,7 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import * as path from 'node:path';
 
 const pendingWrites = new Map<string, Promise<void>>();
@@ -24,10 +25,18 @@ export const renameTextFileWithRetry = async (
   from: string,
   to: string,
   platform: NodeJS.Platform = process.platform,
+  beforeCommit?: () => Promise<void>,
+  finalCheck?: () => void,
 ): Promise<void> => {
   for (let attempt = 0; ; attempt++) {
     try {
-      await fs.rename(from, to);
+      if (beforeCommit) {
+        await beforeCommit();
+        // No event-loop turn between the final Main-owned snapshot check and
+        // the small rename; async rename would admit a concurrent document change.
+        finalCheck?.();
+        fsSync.renameSync(from, to);
+      } else await fs.rename(from, to);
       return;
     } catch (error: unknown) {
       if (
@@ -46,6 +55,8 @@ export const renameTextFileWithRetry = async (
 const replaceText = async (
   filePath: string,
   content: string,
+  beforeCommit?: () => Promise<void>,
+  finalCheck?: () => void,
 ): Promise<void> => {
   let mode = 0o600;
   try {
@@ -71,7 +82,13 @@ const replaceText = async (
       await handle.close();
     }
     // Same-directory rename keeps the previous complete file until commit.
-    await renameTextFileWithRetry(temporary, filePath);
+    await renameTextFileWithRetry(
+      temporary,
+      filePath,
+      process.platform,
+      beforeCommit,
+      finalCheck,
+    );
   } finally {
     await fs.rm(temporary, { force: true }).catch(() => undefined);
   }
@@ -80,11 +97,13 @@ const replaceText = async (
 export const writeTextFileAtomically = async (
   filePath: string,
   content: string,
+  beforeCommit?: () => Promise<void>,
+  finalCheck?: () => void,
 ): Promise<void> => {
   const key = path.resolve(filePath);
   const write = (pendingWrites.get(key) ?? Promise.resolve())
     .catch(() => undefined)
-    .then(() => replaceText(key, content));
+    .then(() => replaceText(key, content, beforeCommit, finalCheck));
   pendingWrites.set(key, write);
   inFlightWrites.add(write);
   try {
