@@ -318,6 +318,8 @@ Windows H.264置換の追加検査は[Windows開発・検証](windows.md#開発�
 
 ## Mac最終DMGの配布検査
 
+オフラインのH.264変換ではmacOSのソフトウェア許可と録画設定の分離をunitで確認します。VideoToolboxの実encoder選択・出力・所要時間はIntelとarm64それぞれの実行環境で別に確認し、合成検査や`-allow_sw`指定だけを実機品質の証明にしません。[判断と制約](adr/0083-macos-offline-encoder-fallback.md)。
+
 Release workflowは最終検査済みarm64 DMGを読み取り専用で開き、署名済みアプリの実行パスと隔離userDataを確認して既存の登録済みElectron E2Eを実行します。前後のDMG hashと同じrunの検査reportを照合し、失敗時は公開しません。x64は署名・公証・同梱物の検査のみです。CIの合成素材とダイアログstubによる検証であり、実聴取や実機・原本の受入を意味しません。
 
 `scripts/tests/macos-release.mjs`は公開本文についても、Mac単独・Windows未署名・有効なAuthenticode署名の区別、未知/欠落した署名状態での停止、ロケールに依存しないUTF-8ファイル出力を検査します。本文へE2E件数を固定せず、実行結果の正本は各runのログとします。合成reportだけを使うため、実署名や公開の再実行にはなりません。
