@@ -376,6 +376,8 @@ Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-ope
 
 埋め込み保存の変更時は`PLAYLIST_TEST_FFMPEG`と`PLAYLIST_TEST_FFPROBE`にlibx264を含むローカル実行ファイルを指定し、`pnpm exec vitest run electron/src/playlistWindow/accurateEmbedded.integration.test.ts`で合成映像の非キーフレーム区間・音声・再保存を検証します。これはソフトウェアFFmpegの対照であり、配布版のVideoToolboxや実機GUI受入とは区別します。未指定時はこの追加試験をskipします。
 
+macOSのオフライン書き出し設定の変更時は、ハードウェアが利用可能な環境と利用できない環境で、配布版VideoToolboxによる実出力・失敗処理・所要時間を別に確認します。`-allow_sw 1`はソフトウェアの使用を許可しますが、どちらが選ばれたかの証明ではありません。[検証範囲](native-export.md#検証入口と限界)。
+
 ## リリースプロセス
 
 1. release準備変更を `develop` へ統合
