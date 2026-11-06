@@ -51,6 +51,112 @@ it('commits a fast drag even when the browser only delivers down and up', () => 
   expect(onCommit.mock.calls[0][0][0]).toMatchObject({ endX: 240, endY: 190 });
 });
 
+it('uses an up delivered to the canvas when capture is no longer held', () => {
+  const capture = vi.spyOn(canvas, 'hasPointerCapture').mockReturnValue(false);
+  try {
+    const onCommit = vi.fn();
+    const { result } = renderHook(() =>
+      useStudioGesture({ ...drawingParams, onCommit }),
+    );
+    act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+    act(() => result.current.handlers.onPointerUp(pointer(240, 190)));
+    expect(onCommit).toHaveBeenCalledOnce();
+    expect(onCommit.mock.calls[0][0][0]).toMatchObject({
+      endX: 240,
+      endY: 190,
+    });
+  } finally {
+    capture.mockRestore();
+  }
+});
+
+it('does not revive a cancelled gesture when an uncaptured up arrives', () => {
+  const capture = vi.spyOn(canvas, 'hasPointerCapture').mockReturnValue(false);
+  try {
+    const onCommit = vi.fn();
+    const { result } = renderHook(() =>
+      useStudioGesture({ ...drawingParams, onCommit }),
+    );
+    act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+    act(() => result.current.handlers.onPointerCancel());
+    act(() => result.current.handlers.onPointerUp(pointer(240, 190)));
+    expect(onCommit).not.toHaveBeenCalled();
+  } finally {
+    capture.mockRestore();
+  }
+});
+
+it.each(['lost capture', 'blur'])(
+  'does not revive a gesture after %s',
+  (reason) => {
+    const onCommit = vi.fn();
+    const { result } = renderHook(() =>
+      useStudioGesture({ ...drawingParams, onCommit }),
+    );
+    act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+    act(() => {
+      if (reason === 'blur') window.dispatchEvent(new Event('blur'));
+      else result.current.handlers.onLostPointerCapture();
+    });
+    act(() => result.current.handlers.onPointerUp(pointer(240, 190)));
+    expect(onCommit).not.toHaveBeenCalled();
+  },
+);
+
+it('cancels when the document becomes hidden', () => {
+  const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+  try {
+    const onCommit = vi.fn();
+    const { result } = renderHook(() =>
+      useStudioGesture({ ...drawingParams, onCommit }),
+    );
+    act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    act(() => result.current.handlers.onPointerUp(pointer(240, 190)));
+    expect(onCommit).not.toHaveBeenCalled();
+  } finally {
+    hidden.mockRestore();
+  }
+});
+
+it('ignores an up delivered to a different canvas', () => {
+  const onCommit = vi.fn();
+  const { result } = renderHook(() =>
+    useStudioGesture({ ...drawingParams, onCommit }),
+  );
+  act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+  act(() =>
+    result.current.handlers.onPointerUp({
+      ...pointer(240, 190),
+      currentTarget: document.createElement('canvas'),
+    }),
+  );
+  expect(onCommit).not.toHaveBeenCalled();
+});
+
+it('ignores an uncaptured move and an up from another pointer', () => {
+  const capture = vi.spyOn(canvas, 'hasPointerCapture').mockReturnValue(false);
+  try {
+    const onCommit = vi.fn();
+    const { result } = renderHook(() =>
+      useStudioGesture({ ...drawingParams, onCommit }),
+    );
+    act(() => result.current.handlers.onPointerDown(pointer(100, 100)));
+    act(() => result.current.handlers.onPointerMove(pointer(240, 190)));
+    act(() =>
+      result.current.handlers.onPointerUp({
+        ...pointer(240, 190),
+        pointerId: 2,
+      }),
+    );
+    expect(onCommit).not.toHaveBeenCalled();
+    act(() => result.current.handlers.onPointerUp(pointer(100, 100)));
+    expect(onCommit).not.toHaveBeenCalled();
+  } finally {
+    capture.mockRestore();
+  }
+});
+
 it('keeps a paused-frame gesture through a late playback clock update', () => {
   const onCommit = vi.fn();
   const { result, rerender } = renderHook(
