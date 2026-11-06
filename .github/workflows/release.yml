@@ -165,6 +165,12 @@ jobs:
           node scripts/macos/verify-dmg.mjs "dist/SporTagLytics-$RELEASE_VERSION-x64.dmg" x64 dist/mac-verification/final-x64.json
           node scripts/macos/verify-dmg.mjs "dist/SporTagLytics-$RELEASE_VERSION-arm64.dmg" arm64 dist/mac-verification/final-arm64.json
 
+      - name: Exercise the signed arm64 DMG
+        timeout-minutes: 45
+        env:
+          E2E_LLAMA_MODEL: .cache/testing/qwen-test.gguf
+        run: node scripts/macos/signed-dmg-e2e.mjs
+
       - name: Package macOS corresponding media sources
         run: node scripts/package-media-sources.mjs --platform macos --require-builds
 

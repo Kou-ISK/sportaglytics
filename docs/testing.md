@@ -318,6 +318,8 @@ Windows H.264置換の追加検査は[Windows開発・検証](windows.md#開発�
 
 ## Mac最終DMGの配布検査
 
+Release workflowは最終検査済みarm64 DMGを読み取り専用で開き、署名済みアプリの実行パスと隔離userDataを確認して既存の登録済みElectron E2Eを実行します。前後のDMG hashと同じrunの検査reportを照合し、失敗時は公開しません。x64は署名・公証・同梱物の検査のみです。CIの合成素材とダイアログstubによる検証であり、実聴取や実機・原本の受入を意味しません。
+
 `scripts/tests/macos-release.mjs`は公開本文についても、Mac単独・Windows未署名・有効なAuthenticode署名の区別、未知/欠落した署名状態での停止、ロケールに依存しないUTF-8ファイル出力を検査します。本文へE2E件数を固定せず、実行結果の正本は各runのログとします。合成reportだけを使うため、実署名や公開の再実行にはなりません。
 
 `scripts/tests/macos-release.mjs`は対象OSのsource選択、必須manifest欠落、再現可能archive・既存出力保護、main/version/tag照合の失敗経路を検査します。`test:run`/`test:ci`へ含まれます。Release専用afterPackは署名前payloadを保存し、`scripts/macos/verify-dmg.mjs <dmg> <arm64|x64> <report.json>`が実DMG内のstrict署名・公証ticket・Gatekeeper・NOTICE/model/hashを検査します。未署名候補とローカルunit成功をこの最終検査の代替としません。[入力・認証・公開ゲート](../.github/RELEASE.md)。
