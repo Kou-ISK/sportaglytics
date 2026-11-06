@@ -30,6 +30,8 @@ main統合後に`v0.17.20` tagを作成しましたが、署名workflowの依存
 
 Native標準化候補は既存公開versionを再使用せず、main統合後に未使用version/tagを確定します。arm64は`native:build`とmanifestに列挙したAVPlayer資源の検証、Host・Receiver・CommandLeftのDeveloper ID署名、外側app署名、公証、実起動を要求します。署名後も元unsigned manifestと対応sourceを保持します。新defaultの機能・品質受入が未完了なら公開しません。
 
+Macの署名・公証後は、同じrunのarm64 DMGを読み取り専用で開き、隔離したprofileで署名済みアプリの登録済みElectron E2Eを実行します。失敗やDMGのhash不一致は公開を止めます。x64は署名・公証・同梱物の検査のみであり、このCI検査は実聴取や実機・実原本の受入に代わりません。
+
 Macの必須assets:
 
 - `SporTagLytics-<version>-arm64.dmg`
