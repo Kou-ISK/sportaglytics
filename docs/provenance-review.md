@@ -4,6 +4,12 @@
 
 アプリのMIT Licenseだけで、第三者コード・画像・データ・モデル・binaryの権利が確認済みになるわけではありません。法的な適法性の保証や、他社との提携・許諾の表明ではありません。
 
+## 0.17.21候補の監査対応依存
+
+開発・配布ツールの依存に対する監査修正の候補です。正確な版と取得時のintegrityは `pnpm-lock.yaml` を正本とし、登録元はnpmです。`glob` 14.0.2、`minimatch` 11.0.1 / 11.0.5、`path-scurry` 3.0.0、`@isaacs/nonrecursive-glob-match` 1.1.0 のpackage metadataと同梱LICENSEはBlueOak-1.0.0を示しています。[ライセンス本文](https://blueoakcouncil.org/license/1.0.0)。`joi` 18.3.1はBSD-3-Clause、`follow-redirects` 1.16.2はMITです。
+
+`@isaacs/nonrecursive-glob-match` のregistry metadataにはrepository URLがなく、upstream source repositoryの対応は未確認です。これらが最終アプリ、配布source、Storybook成果物に実際に含まれるかと、含まれる場合の告知を実配布物で確認します。依存解決・ライセンス本文の確認だけを配布完了または権利の保証とは扱いません。
+
 ## 互換形式・参照資料・独自機能を区別する
 
 - **形式名としてのSportscode**: [XML取り込みの対応subset](package-compatibility.md#sportscode-xmlから新規作成)は公開マニュアルを参照し、アプリ側のparserと合成fixtureで実装・検証しています。native `.scpkg` / `.sczip` の解析・生成や全機能の互換を意味しません。
