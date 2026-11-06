@@ -1,3 +1,4 @@
+import { isPlaybackRate } from '../../shared/media/playbackRate';
 import {
   booleanValue,
   exactKeys,
@@ -77,7 +78,11 @@ export const parseNativePlaybackPresentation = (
     end,
     seekEnd,
     playEnd,
-    rates: v.rates.map((rate) => numberValue(rate, 0.25, 6)),
+    rates: v.rates.map((raw) => {
+      const rate = numberValue(raw, -6, 6);
+      if (!isPlaybackRate(rate)) throw Error('NATIVE_INVALID_RATE');
+      return rate;
+    }),
     audioTracks: integerValue(v.audioTracks, 1, 8),
     seekGrid,
     mutedOnly: booleanValue(v.mutedOnly),

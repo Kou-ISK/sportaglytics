@@ -19,7 +19,12 @@ export const withSurface = (api: IElectronAPI): IElectronAPI => {
     nativePlayback: {
       ...api.nativePlayback,
       apply: async (intent) => {
-        nativeSurface.expect(intent.generation, intent.seekId);
+        nativeSurface.expect(
+          intent.generation,
+          intent.seekId,
+          intent.sequence,
+          intent.rate,
+        );
         await api.nativePlayback.apply(intent);
       },
       close: async (closingOwner) => {

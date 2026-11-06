@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -166,4 +167,60 @@ it('bounds a persistent Windows denial and retains both complete files for the c
   expect(rename).toHaveBeenCalledTimes(5);
   expect(await fs.readFile(file, 'utf8')).toBe('{"original":true}');
   expect(await fs.readFile(temporary, 'utf8')).toBe('{"replacement":true}');
+});
+
+it('keeps the previous file and removes the temporary if commit validation rejects', async () => {
+  const { dir, file } = await fixture();
+  await fs.writeFile(file, 'previous');
+  const guard = vi.fn(async () => {
+    throw Error('SYNTHETIC_SNAPSHOT_CHANGED');
+  });
+  await expect(writeTextFileAtomically(file, 'stale', guard)).rejects.toThrow(
+    'SYNTHETIC_SNAPSHOT_CHANGED',
+  );
+  expect(await fs.readFile(file, 'utf8')).toBe('previous');
+  expect(
+    (await fs.readdir(dir)).some((name) => name.endsWith('.writing')),
+  ).toBe(false);
+  expect(guard).toHaveBeenCalledTimes(1);
+});
+
+it('rechecks the validation guard before every Windows rename retry', async () => {
+  const { dir, file } = await fixture();
+  const temporary = path.join(dir, 'retry.writing');
+  await fs.writeFile(file, 'previous');
+  await fs.writeFile(temporary, 'stale');
+  const guard = vi
+    .fn()
+    .mockResolvedValueOnce(undefined)
+    .mockRejectedValueOnce(Error('SYNTHETIC_SNAPSHOT_CHANGED'));
+  const rename = vi.spyOn(fsSync, 'renameSync').mockImplementationOnce(() => {
+    throw Object.assign(Error('busy'), { code: 'EBUSY' });
+  });
+  await expect(
+    renameTextFileWithRetry(temporary, file, 'win32', guard),
+  ).rejects.toThrow('SYNTHETIC_SNAPSHOT_CHANGED');
+  expect(rename).toHaveBeenCalledTimes(1);
+  expect(await fs.readFile(file, 'utf8')).toBe('previous');
+});
+
+it('does not publish if the synchronous final document check fails after the async check', async () => {
+  const { dir, file } = await fixture();
+  await fs.writeFile(file, 'previous');
+  const rename = vi.spyOn(fsSync, 'renameSync');
+  await expect(
+    writeTextFileAtomically(
+      file,
+      'stale',
+      async () => {},
+      () => {
+        throw Error('SYNTHETIC_FINAL_CHANGED');
+      },
+    ),
+  ).rejects.toThrow('SYNTHETIC_FINAL_CHANGED');
+  expect(rename).not.toHaveBeenCalled();
+  expect(await fs.readFile(file, 'utf8')).toBe('previous');
+  expect(
+    (await fs.readdir(dir)).some((name) => name.endsWith('.writing')),
+  ).toBe(false);
 });

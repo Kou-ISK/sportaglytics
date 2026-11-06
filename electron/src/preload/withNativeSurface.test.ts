@@ -43,7 +43,7 @@ const setup = () => {
 it('admits a seek before forwarding its asynchronous apply', async () => {
   const f = setup();
   const pending = f.wrapped.apply(intent);
-  expect(surface.expect).toHaveBeenCalledExactlyOnceWith('owner', 2);
+  expect(surface.expect).toHaveBeenCalledExactlyOnceWith('owner', 2, 2, 1);
   expect(f.nativePlayback.apply).toHaveBeenCalledExactlyOnceWith(intent);
   f.applying.resolve();
   await pending;

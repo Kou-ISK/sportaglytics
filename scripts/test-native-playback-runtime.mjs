@@ -10,6 +10,20 @@ try {
     ['ControlOutput', 'apple-player/ControlOutput.test.cpp', []],
     ['PlayerObservation', 'apple-player/PlayerObservation.test.cpp', []],
     ['ReplyQueue', 'surface-transport/ReplyQueue.test.cpp', ['-lbsm']],
+    [
+      'SurfaceSender',
+      'surface-transport/SurfaceSender.test.mm',
+      [
+        '-fobjc-arc',
+        '-framework',
+        'Foundation',
+        '-framework',
+        'CoreVideo',
+        '-framework',
+        'IOSurface',
+        '-lbsm',
+      ],
+    ],
   ]) {
     const binary = join(directory, name);
     await run('xcrun', [

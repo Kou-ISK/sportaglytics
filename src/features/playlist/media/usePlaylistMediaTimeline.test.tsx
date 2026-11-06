@@ -362,6 +362,30 @@ it('reports an unexpectedly early source end without restarting at zero', async 
   expect(result.current.error).toContain('映像が保存された区間より早く終了');
 });
 
+it('does not reload a standalone playlist video on time updates', async () => {
+  const { media, params, unmount } = await setup();
+  unmount();
+  const standalone = '/synthetic/standalone.mp4';
+  if (!params.currentItem) throw Error('Missing playlist item');
+  const item = { ...params.currentItem, videoSource: standalone };
+  vi.mocked(media.video.load).mockClear();
+  const integrated = renderHook(() => {
+    const [time, setCurrentTime] = useState(60);
+    usePlaylistPlayback({ ...params, currentItem: item, items: [item],
+      currentVideoSource: standalone, isPlaying: false, setCurrentTime });
+    return time;
+  });
+  expect(media.video.load).toHaveBeenCalledTimes(1);
+  act(() => {
+    media.advance(61);
+    media.video.dispatchEvent(new Event('timeupdate'));
+  });
+  expect(integrated.result.current).toBe(61);
+  expect(media.video.currentTime).toBe(61);
+  expect(media.video.load).toHaveBeenCalledTimes(1);
+  integrated.unmount();
+});
+
 it('resumes after the real annotation freeze without repeating the same stop', async () => {
   const { media, tick, params, unmount } = await setup();
   unmount();

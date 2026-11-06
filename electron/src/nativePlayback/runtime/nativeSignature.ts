@@ -5,6 +5,7 @@ import path from 'node:path';
 export const NATIVE_BINARY_IDENTIFIERS = {
   NativeProductHost: 'com.kouisk.sportaglytics.native-playback-host',
   'Receiver.node': 'com.kouisk.sportaglytics.native-playback-receiver',
+  'CommandLeft.node': 'com.kouisk.sportaglytics.native-playback-command-left',
 } as const;
 type Binary = keyof typeof NATIVE_BINARY_IDENTIFIERS;
 export interface NativeSigning {
@@ -46,6 +47,7 @@ export const parseNativeSigning = (value: unknown): NativeSigning => {
     files: {
       NativeProductHost: entry('NativeProductHost'),
       'Receiver.node': entry('Receiver.node'),
+      'CommandLeft.node': entry('CommandLeft.node'),
     },
   };
 };
@@ -57,7 +59,7 @@ export const verifyNativeCodeSignature = async (
   expectedTeam?: string,
 ): Promise<string> => {
   if (
-    !/^com\.kouisk\.sportaglytics(?:\.native-playback-(?:host|receiver))?$/.test(
+    !/^com\.kouisk\.sportaglytics(?:\.native-playback-(?:host|receiver|command-left))?$/.test(
       identifier,
     ) ||
     (expectedTeam !== undefined && !/^[A-Z0-9]{10}$/.test(expectedTeam))

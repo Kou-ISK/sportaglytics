@@ -42,3 +42,28 @@ it('ignores stale results when the user already reconnected the source', () => {
   ).toBe(current);
   expect(reconcilePlaylistMedia([], [item], [item])).toEqual([]);
 });
+
+it('preserves a concurrent note while applying a derived relative package path', () => {
+  const source: PlaylistItem = {
+    ...item,
+    mediaReference: {
+      packageId: 'package',
+      packagePath: '/old/sample.stpkg',
+      mediaPath: 'one.mp4',
+    },
+  };
+  const updated = {
+    ...source,
+    mediaReference: {
+      ...source.mediaReference!,
+      relativePackagePath: '../sample.stpkg',
+    },
+  };
+  const result = reconcilePlaylistMedia(
+    [{ ...source, note: 'edited' }],
+    [source],
+    [updated],
+  );
+  expect(result[0].note).toBe('edited');
+  expect(result[0].mediaReference?.relativePackagePath).toBe('../sample.stpkg');
+});

@@ -1,3 +1,10 @@
+import { waitForVideoPresentation } from '../../../../shared/media/waitForVideoPresentation';
+import type { VideoPresentationTarget } from '../../../../shared/media/waitForVideoPresentation';
+import { formatSource } from '../../../../shared/media/videoSource';
+import {
+  getAngleOffset,
+  resolveMediaTime,
+} from '../../../../shared/media/mediaTimeline';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
 import type { VideoSyncData } from '../../../../types/video/sync';
@@ -115,6 +122,8 @@ export const useVideoTimeController = ({
   mediaAngles,
 }: UseVideoTimeControllerParams): {
   currentTime: number;
+  playbackTime: number;
+  seekReverse: (time: number, signal: AbortSignal) => Promise<void>;
   setCurrentTime: Dispatch<SetStateAction<number>>;
   handleCurrentTime: (
     event: SyntheticEvent | Event,
@@ -122,7 +131,17 @@ export const useVideoTimeController = ({
     seekMode?: VideoSeekMode,
   ) => void;
 } => {
-  const [currentTime, setCurrentTime] = useState(0);
+  const [currentTime, setConfirmedTime] = useState(0);
+  const [reverseDemand, setReverseDemand] = useState<number | null>(null);
+  const reverseAbort = useRef<AbortController | null>(null);
+  // Legacy polling reads currentTime immediately after assignment. While a held
+  // seek owns presentation it cannot promote that unconfirmed value to tags.
+  const setCurrentTime = useCallback<Dispatch<SetStateAction<number>>>(
+    (value) => {
+      if (!reverseAbort.current) setConfirmedTime(value);
+    },
+    [],
+  );
   const seekOwner = useMemo(
     () => ({}),
     [videoList, syncData, syncMode, mediaAngles],
@@ -133,6 +152,7 @@ export const useVideoTimeController = ({
     currentOwner.current = seekOwner;
     return () => {
       if (currentOwner.current === seekOwner) currentOwner.current = null;
+      reverseAbort.current?.abort();
     };
   }, [seekOwner]);
   const pendingSeekRef = useRef<number | null>(null);
@@ -157,6 +177,9 @@ export const useVideoTimeController = ({
     ): void => {
       // Unmount cleanup from an old timeline cannot seek a replacement source.
       if (currentOwner.current !== seekOwner) return;
+      reverseAbort.current?.abort();
+      reverseAbort.current = null;
+      setReverseDemand(null);
       const time = typeof newValue === 'number' ? newValue : Number.NaN;
       const nativeOwned = getNativePlayback() !== null;
       const isManualMode = syncMode === 'manual';
@@ -164,7 +187,7 @@ export const useVideoTimeController = ({
 
       if (!Number.isFinite(time) || time < minAllowed) {
         console.warn('Invalid time value:', time);
-        if (!nativeOwned) setCurrentTime(minAllowed);
+        if (!nativeOwned) setConfirmedTime(minAllowed);
         dispatchSeekEvent('video-seek-start', minAllowed);
         return;
       }
@@ -172,7 +195,7 @@ export const useVideoTimeController = ({
       const timeClamped = Math.max(time, minAllowed);
       // Coding/save/export use confirmed native time, never an unacknowledged
       // scrub target. The existing event carries demand to the native owner.
-      if (!nativeOwned) setCurrentTime(timeClamped);
+      if (!nativeOwned) setConfirmedTime(timeClamped);
       pendingSeekRef.current = nativeOwned ? null : timeClamped;
       if (nativeOwned && seekFrameRef.current !== null) {
         cancelAnimationFrame(seekFrameRef.current);
@@ -206,8 +229,83 @@ export const useVideoTimeController = ({
     [mediaAngles, syncData, syncMode, videoList, seekOwner],
   );
 
+  const seekReverse = useCallback(
+    async (time: number, signal: AbortSignal): Promise<void> => {
+      if (signal.aborted || currentOwner.current !== seekOwner)
+        throw Error('REVERSE_CANCELLED');
+      const abort = new AbortController();
+      reverseAbort.current?.abort();
+      reverseAbort.current = abort;
+      pendingSeekRef.current = null;
+      if (seekFrameRef.current !== null)
+        cancelAnimationFrame(seekFrameRef.current);
+      seekFrameRef.current = null;
+      if (seekEndTimerRef.current !== null)
+        clearTimeout(seekEndTimerRef.current);
+      seekEndTimerRef.current = null;
+      let started = false;
+      const cancel = (): void => abort.abort();
+      signal.addEventListener('abort', cancel, { once: true });
+      try {
+        const targets: VideoPresentationTarget[] = [];
+        videoList.forEach((source, index) => {
+          const offset = getAngleOffset(syncData, index);
+          const clips = mediaAngles[index]?.clips;
+          const resolved = clips?.length
+            ? resolveMediaTime({ clips, offsetSeconds: offset }, time)
+            : undefined;
+          if (resolved === null) return; // A real timeline gap has no image to wait for.
+          const video = getVideoJsPlayer(`video_${index}`)
+            ?.el?.()
+            ?.querySelector('video');
+          if (!(video instanceof HTMLVideoElement))
+            throw Error('REVERSE_VIDEO_UNAVAILABLE');
+          targets.push({
+            video,
+            source: formatSource(resolved?.clip.source ?? source),
+            time: resolved?.sourceTime ?? Math.max(0, time + offset),
+            offset: resolved?.sourceTimeOffset ?? offset,
+          });
+        });
+        const measured = await waitForVideoPresentation(
+          targets,
+          abort.signal,
+          () => {
+            setReverseDemand(time);
+            started = true;
+            dispatchSeekEvent('video-seek-start', time);
+            seekEachPlayer({
+              timeClamped: time,
+              videoList,
+              syncData,
+              isManualMode: false,
+              mediaAngles,
+            });
+          },
+        );
+        if (
+          signal.aborted ||
+          abort.signal.aborted ||
+          currentOwner.current !== seekOwner
+        )
+          throw Error('REVERSE_CANCELLED');
+        setConfirmedTime(measured ?? time);
+      } finally {
+        signal.removeEventListener('abort', cancel);
+        if (reverseAbort.current === abort) {
+          reverseAbort.current = null;
+          setReverseDemand(null);
+          if (started && currentOwner.current === seekOwner)
+            dispatchSeekEvent('video-seek-end');
+        }
+      }
+    },
+    [mediaAngles, seekOwner, syncData, videoList],
+  );
   return {
     currentTime,
+    playbackTime: reverseDemand ?? currentTime,
+    seekReverse,
     setCurrentTime,
     handleCurrentTime,
   };

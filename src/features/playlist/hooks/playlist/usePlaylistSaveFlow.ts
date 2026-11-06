@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type {
   ItemAnnotation,
   PlaylistItem,
@@ -14,6 +14,8 @@ import {
 import { buildPlaylistPayload } from '../../utils/playlistFileState';
 
 interface UsePlaylistSaveFlowParams {
+  getChangeToken: () => string;
+  getDocumentGeneration: () => number;
   items: PlaylistItem[];
   videoSources: string[];
   packagePath: string | null;
@@ -42,6 +44,8 @@ interface UsePlaylistSaveFlowResult {
 }
 
 export const usePlaylistSaveFlow = ({
+  getChangeToken,
+  getDocumentGeneration,
   items,
   videoSources,
   packagePath,
@@ -57,6 +61,8 @@ export const usePlaylistSaveFlow = ({
   setSaveDialogOpen,
   setSaveProgress,
 }: UsePlaylistSaveFlowParams): UsePlaylistSaveFlowResult => {
+  const saving = useRef(false);
+  const renderedToken = getChangeToken();
   const createPlaylistPayload = useCallback(
     (name: string, type: PlaylistType) =>
       buildPlaylistPayload({
@@ -74,6 +80,11 @@ export const usePlaylistSaveFlow = ({
 
   const handleSavePlaylist = useCallback(
     async (shouldCloseAfterSave = false): Promise<void> => {
+      if (saving.current || renderedToken !== getChangeToken()) return;
+      const token = renderedToken;
+      const document = getDocumentGeneration();
+      saving.current = true;
+      try {
       const playlist = createPlaylistPayload(playlistName, playlistType);
 
       setSaveProgress(null);
@@ -81,19 +92,25 @@ export const usePlaylistSaveFlow = ({
       setSaveProgress(null);
 
       if (!savedPath) return;
+      if (document !== getDocumentGeneration()) return;
+      setLoadedFilePath(savedPath);
+      if (token !== getChangeToken()) return;
 
       if (shouldCloseAfterSave) {
         notifyPlaylistSavedAndClose();
         return;
       }
 
-      setLoadedFilePath(savedPath);
       setIsDirty(false);
       setHasUnsavedChanges(false);
       syncPlaylistDirtyState(false);
+      } finally { saving.current = false; }
     },
     [
       createPlaylistPayload,
+      getChangeToken,
+      getDocumentGeneration,
+      renderedToken,
       playlistName,
       playlistType,
       setHasUnsavedChanges,
@@ -109,6 +126,11 @@ export const usePlaylistSaveFlow = ({
       name: string,
       shouldCloseAfterSave = false,
     ): Promise<void> => {
+      if (saving.current || renderedToken !== getChangeToken()) return;
+      const token = renderedToken;
+      const document = getDocumentGeneration();
+      saving.current = true;
+      try {
       setSaveDialogOpen(false);
       const playlist = createPlaylistPayload(name, type);
 
@@ -117,6 +139,9 @@ export const usePlaylistSaveFlow = ({
       setSaveProgress(null);
 
       if (!savedPath) return;
+      if (document !== getDocumentGeneration()) return;
+      setLoadedFilePath(savedPath);
+      if (token !== getChangeToken()) return;
 
       if (shouldCloseAfterSave) {
         notifyPlaylistSavedAndClose();
@@ -125,13 +150,18 @@ export const usePlaylistSaveFlow = ({
 
       setPlaylistName(name);
       setPlaylistType(type);
-      setLoadedFilePath(savedPath);
       setIsDirty(false);
+      setHasUnsavedChanges(false);
       syncPlaylistDirtyState(false);
+      } finally { saving.current = false; }
     },
     [
       createPlaylistPayload,
+      getChangeToken,
+      getDocumentGeneration,
+      renderedToken,
       setIsDirty,
+      setHasUnsavedChanges,
       setLoadedFilePath,
       setPlaylistName,
       setPlaylistType,

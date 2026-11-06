@@ -374,6 +374,8 @@ Model training/evaluationのdebuggingはprivate R&D repositoryで行います。
 
 Playlistを開くメニューを変更する際は`node scripts/e2e-playlist-open-menu.mjs`を使います。実メニューのcallbackから`.stpl`のロード・再生、選択取消、不正パッケージ、未保存文書の保持、既存Windowの再利用を確認します。このシナリオは通常のE2EとWindowsインストール後のE2Eにも含めます。
 
+埋め込み保存の変更時は`PLAYLIST_TEST_FFMPEG`と`PLAYLIST_TEST_FFPROBE`にlibx264を含むローカル実行ファイルを指定し、`pnpm exec vitest run electron/src/playlistWindow/accurateEmbedded.integration.test.ts`で合成映像の非キーフレーム区間・音声・再保存を検証します。これはソフトウェアFFmpegの対照であり、配布版のVideoToolboxや実機GUI受入とは区別します。未指定時はこの追加試験をskipします。
+
 ## リリースプロセス
 
 1. release準備変更を `develop` へ統合
@@ -541,7 +543,7 @@ Native seekの要求整理を変更するときは、未完了の同一停止位
 
 時計変更時は実AVPlayerの停止・再開・再停止とSession/Controllerの世代・原本時刻を確認します。旧独自field/PCM計算の試験をApple再生の成功証拠として流用しません。
 
-逆方向キー解放では新しいrAF入力を停止し、既発行・送信保留中の最後の要求を維持します。旧要求の遅い応答が最新時計を戻さないこと、別操作・同期再入・原本復帰・直後の再押下を回帰検証します。実動画では押下中の画像更新、解放後の到達先と待ち、通常再生への復帰を別々に測定し、要求時刻だけで動作成功としません。
+長押し逆再生の変更時は`node scripts/test-reverse-playback-browser.mjs`でLinux Chromiumによる実復号・実キー入力の4倍率とPlaylistのclip/gap/時差を確認します（FFmpeg、Chromiumが必要、`CHROMIUM_PATH`で実行ファイル指定可）。負rate、Drawn、確認時計、停止・旧通知の回帰を併用します。`pnpm run verify`とOS別検証の完了は区別し、[結果と実機測定手順](reports/2026-11-held-reverse.md)に実測/模擬/未検証を記録します。
 
 Native末尾復帰の変更時は、量子化差の有界処理と実SyncedVideoPlayerの末尾commit回帰を実施します。合成portの成功と原本での実HTML復帰は別の検証です。[回帰の範囲](testing.md#test-placement)を参照してください。
 
@@ -563,4 +565,10 @@ macOS arm64では`pnpm run native:build`でAVPlayer helperとN-API receiverを�
 
 `test:native-build`はresource改変・欠落・symlink拒否、`test:native-runtime`は有界control pipe・Mach返信・所有終了・診断上限を検査します。Session/Controller回帰ではpreviewとscrubの実時刻、厳密seek、source交代、復帰中入力、取消を確認します。実原本の音声聴取と配布品質は別記します。
 
+画像転送の変更では`SurfaceSender.test.mm`の実画像プール回帰も実行します。元CVPixelBufferの保持とReleased ACKを対応させ、時刻検証失敗・送信失敗・終了でもCopy参照を残さないことを確認してください。新しいnative headerは`source-files.json`へ登録し、固定source snapshotからの`native:build`で同梱漏れを検出します。
+
 `native:sources`で[対応ソース](third-party-distribution.md#native-playback-previewの対応ソース)を作成します。通常packageのarm64資源は内側署名→manifest→外側署名の順で固定teamとhashを照合します。署名済みpackageの起動・操作・終了と[公証配布](../.github/RELEASE.md)を別途確認します。Windowsへの新方式移植は今回の完了条件に含めません。
+
+連続native逆再生の失敗後復帰と停止確認の同期順序は `useVideoReversePlayback.test.tsx` と `waitForNativePresentation.test.ts` で回帰確認します。実機での画像・音声とキー解放は別の受入条件です。
+
+Command＋左の入力変更では、`commandLeftBroker`、`commandLeftHealth`、`commandLeftIpc`、`nativePlaybackHandlers`、`nativeGestureQueue`、`nativePlaybackController`、`commandGestureAdapter` と `useWorkspaceHotkeys` の各テストで通知欠落、連続押下、割込みと停止順序を確認します。署名済み配布版での実キー・実画像・保存確認は別に実施します。

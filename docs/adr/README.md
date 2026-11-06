@@ -149,4 +149,8 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 
 - [0079 Qualified native clip export](0079-qualified-native-clip-export.md) — Accepted
 
-- [0080 Apple player playback](0080-apple-player-playback.md) — Accepted（逆方向キー解放時の最後要求保持を含む）
+- [0080 Apple player playback](0080-apple-player-playback.md): Superseded by [0081](0081-held-reverse-presentation.md).
+
+- [0081 Held reverse presentation](0081-held-reverse-presentation.md) — Accepted（AVPlayer連続逆再生と表示完了まで直列化する代替）
+
+- [0082 Accurate embedded playlist cuts](0082-accurate-embedded-playlist-cuts.md) — Accepted（範囲の正確な変換、受諾済み素材の再利用、保存前検証）

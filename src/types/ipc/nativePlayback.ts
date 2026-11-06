@@ -1,3 +1,4 @@
+import { isPlaybackRate } from '../../shared/media/playbackRate';
 import { parseNativePlaybackPresentation } from './nativePlaybackPresentation';
 import type { NativePlaybackPresentation } from './nativePlaybackPresentation';
 import {
@@ -28,6 +29,8 @@ export interface NativePlaybackIntent extends NativePlaybackOwner {
   muted: boolean;
 }
 export interface NativePlaybackObservation extends NativePlaybackOwner {
+  /** Measured only after AVPlayerItem is ready; not display qualification. */
+  reverseCapabilities?: { slow: boolean; fast: boolean };
   revision: number;
   sequence: number;
   seekId: number;
@@ -155,7 +158,7 @@ export const parseNativePlaybackIntent = (
       ? {}
       : { seekMode: enumValue(v.seekMode, ['preview', 'scrub']) }),
     playing: booleanValue(v.playing),
-    rate: numberValue(v.rate, 0.25, 6),
+    rate: playbackRate(v.rate),
     audioTrack: integerValue(v.audioTrack, 0, 7),
     volume: numberValue(v.volume, 0, 1),
     muted: booleanValue(v.muted),
@@ -176,6 +179,7 @@ export const parseNativePlaybackObservation = (
     'audioTrack',
     'volume',
     'muted',
+    'reverseCapabilities',
     'videoReady',
     'audioReady',
     'error',
@@ -191,7 +195,7 @@ export const parseNativePlaybackObservation = (
     'closing',
     'closed',
   ]);
-  const rate = numberValue(v.rate, 0, 6);
+  const rate = v.rate === 0 ? 0 : playbackRate(v.rate);
   const videoReady = booleanValue(v.videoReady),
     audioReady = booleanValue(v.audioReady);
   if (
@@ -213,6 +217,11 @@ export const parseNativePlaybackObservation = (
     muted: booleanValue(v.muted),
     videoReady,
     audioReady,
+    ...(v.reverseCapabilities === undefined
+      ? {}
+      : {
+          reverseCapabilities: reverseCapabilities(v.reverseCapabilities),
+        }),
     error:
       v.error === null
         ? null
@@ -341,4 +350,17 @@ export const parseNativeSnapshotAcknowledgement = (
     owner: parseNativePlaybackOwner(value.owner),
     delivery: integerValue(value.delivery, 1, Number.MAX_SAFE_INTEGER),
   };
+};
+
+const playbackRate = (raw: unknown): number => {
+  const rate = numberValue(raw, -6, 6);
+  if (!isPlaybackRate(rate)) throw Error('NATIVE_INVALID_RATE');
+  return rate;
+};
+const reverseCapabilities = (
+  raw: unknown,
+): { slow: boolean; fast: boolean } => {
+  const value = objectValue(raw);
+  exactKeys(value, ['slow', 'fast']);
+  return { slow: booleanValue(value.slow), fast: booleanValue(value.fast) };
 };

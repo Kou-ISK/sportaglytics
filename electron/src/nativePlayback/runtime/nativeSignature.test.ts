@@ -62,7 +62,7 @@ it('authenticates the enclosing app before matching both helpers to its team', a
     path.join(appRoot, 'Contents', 'Resources'),
     parseNativeSigning(fixture()),
   );
-  expect(execute).toHaveBeenCalledTimes(6);
+  expect(execute).toHaveBeenCalledTimes(8);
   expect(execute.mock.calls[0][1]).toContain(appRoot);
   expect(execute.mock.calls[0][1][3]).toContain('anchor apple generic');
   expect(execute.mock.calls[2][1][3]).toContain(

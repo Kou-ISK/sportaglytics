@@ -80,6 +80,7 @@ describe('playlistWindow handlers', () => {
     electronMocks.onHandlers.clear();
     electronMocks.handle.mockClear();
     electronMocks.on.mockClear();
+    storageMocks.savePlaylistToPath.mockReset();
     windowManagerMocks.syncToPlaylistWindow.mockReset();
     windowManagerMocks.isSenderPlaylistWindow.mockReset();
     windowManagerMocks.markPlaylistRendererReady.mockReset();
@@ -89,6 +90,44 @@ describe('playlistWindow handlers', () => {
     senderGuardMocks.getValidatedEventSenderWindow.mockReturnValue({
       isDestroyed: () => false,
     });
+  });
+
+  it('keeps a replacement document path and dirty state when an older save finishes', async () => {
+    const { registerPlaylistHandlers } = await import('./handlers');
+    const { beginPlaylistDocumentLoad } = await import('./documentLoad');
+    registerPlaylistHandlers();
+    const save = electronMocks.handleHandlers.get(PLAYLIST_WINDOW_CHANNELS.saveFile);
+    if (!save) throw Error('missing save handler');
+    const info = { filePath: '/old.stpl', isDirty: true, window: { isDestroyed: () => false } };
+    windowManagerMocks.isSenderPlaylistWindow.mockReturnValue(true);
+    windowManagerMocks.getWindowInfoBySender.mockReturnValue(info);
+    const pending = Promise.withResolvers<void>(); storageMocks.savePlaylistToPath.mockReturnValue(pending.promise);
+    const playlist = { id: 'test', name: 'Test', type: 'embedded', items: [], createdAt: 1, updatedAt: 1 };
+    const first = save({ sender: {} }, playlist);
+    expect(await save({ sender: {} }, playlist)).toBeNull();
+    beginPlaylistDocumentLoad(info as unknown as import('./state').PlaylistWindowInfo);
+    info.filePath = '/new.stpl';
+    pending.resolve(); await first;
+    expect(info.filePath).toBe('/new.stpl'); expect(info.isDirty).toBe(true);
+  });
+  it('does not replace the accepted document path when a read began before the old save', async () => {
+    const { registerPlaylistHandlers } = await import('./handlers');
+    const { beginPlaylistDocumentLoad, resolvePlaylistDocumentLoad, acceptPlaylistDocumentLoad } = await import('./documentLoad');
+    registerPlaylistHandlers();
+    const save = electronMocks.handleHandlers.get(PLAYLIST_WINDOW_CHANNELS.saveFile);
+    if (!save) throw Error('missing save handler');
+    const info = { filePath: '/old.stpl', isDirty: true, window: { isDestroyed: () => false } };
+    const document = info as unknown as import('./state').PlaylistWindowInfo;
+    windowManagerMocks.isSenderPlaylistWindow.mockReturnValue(true);
+    windowManagerMocks.getWindowInfoBySender.mockReturnValue(info);
+    const ticket = beginPlaylistDocumentLoad(document);
+    const pending = Promise.withResolvers<void>(); storageMocks.savePlaylistToPath.mockReturnValue(pending.promise);
+    const playlist = { id: 'test', name: 'Test', type: 'embedded', items: [], createdAt: 1, updatedAt: 1 };
+    const first = save({ sender: {} }, playlist);
+    expect(resolvePlaylistDocumentLoad(document, ticket, '/new.stpl')).toBe(true);
+    expect(acceptPlaylistDocumentLoad(document, ticket)).toBe(true);
+    pending.resolve(); await first;
+    expect(info.filePath).toBe('/new.stpl'); expect(info.isDirty).toBe(true);
   });
 
   it('delivers the initial document only after a playlist renderer is ready', async () => {

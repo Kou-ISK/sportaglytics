@@ -45,7 +45,7 @@
     "icon": "public/icon.icns",
     "signIgnore": [
       "event-detection-models/.*/runner/[^/]+$",
-      "/SporTagLytics\\.app/Contents/Resources/native-playback/(NativeProductHost|Receiver\\.node)$"
+      "/SporTagLytics\\.app/Contents/Resources/native-playback/(NativeProductHost|Receiver\\.node|CommandLeft\\.node)$"
     ],
     "extraResources": [
       {
