@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22.12.0'
@@ -20,8 +20,8 @@ jobs:
           version: 9.1.0
       - name: Verify test source matches release candidate
         run: |
-          test "$(git rev-parse HEAD^)" = 0a59df5a6156924ba54a35285fb75c2bab2334b7
-          git diff --quiet HEAD^ HEAD -- . ':!.github/workflows/signed-intel-validation.yml'
+          git merge-base --is-ancestor 0a59df5a6156924ba54a35285fb75c2bab2334b7 HEAD
+          git diff --quiet 0a59df5a6156924ba54a35285fb75c2bab2334b7 HEAD -- . ':!.github/workflows/signed-intel-validation.yml'
           test "$(uname -m)" = x86_64
       - run: pnpm install --frozen-lockfile
       - name: Download signed candidate from the original run
@@ -50,6 +50,11 @@ jobs:
           export SPORTAGLYTICS_FFMPEG_PATH="$app/Contents/Resources/media-tools/ffmpeg"
           export SPORTAGLYTICS_FFPROBE_PATH="$app/Contents/Resources/media-tools/ffprobe"
           export SIGNED_PROFILE="$profile"
+          if "$SPORTAGLYTICS_FFMPEG_PATH" -y -v error -f lavfi -i 'testsrc2=size=640x360:rate=25:duration=1' -c:v h264_videotoolbox "$RUNNER_TEMP/encoder-probe.mp4"; then
+            echo 'Intel runner VideoToolbox encoder probe succeeded'
+          else
+            echo 'Intel runner VideoToolbox encoder probe failed'
+          fi
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import { realpath } from 'node:fs/promises';
@@ -65,4 +70,20 @@ jobs:
             assert.equal(await realpath(result.userData), await realpath(process.env.SIGNED_PROFILE));
           } finally { await app.close(); }
           NODE
-          node scripts/e2e-synthetic-first-run.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('scripts/e2e-synthetic-first-run.mjs').read_text()
+          old = """  await progress
+              .getByText('書き出し完了', { exact: true })
+              .waitFor({ timeout: 60000 });"""
+          new = """  try {
+              await progress.getByText('書き出し完了', { exact: true }).waitFor({ timeout: 60000 });
+            } catch (error) {
+              console.error('Export progress UI:', await progress.locator('body').innerText());
+              throw error;
+            }"""
+          if old not in source:
+              raise SystemExit('Unexpected E2E source; refusing to modify it')
+          Path('scripts/.signed-intel-first-run.mjs').write_text(source.replace(old, new, 1))
+          PY
+          node scripts/.signed-intel-first-run.mjs
