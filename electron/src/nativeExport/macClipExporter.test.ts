@@ -1,6 +1,6 @@
 // @vitest-environment node
 vi.mock('electron', () => ({ app: { isPackaged: false } }));
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -61,6 +61,10 @@ const completed = async (
     audioTrack: 2,
   });
 };
+// These integration fixtures use real POSIX no-follow descriptors and FIFOs.
+// The production provider rejects Windows before constructing this exporter;
+// spoofing process.platform cannot supply POSIX filesystem semantics there.
+describe.skipIf(process.platform === 'win32')('POSIX native exporter filesystem', () => {
 it('uses version 2 only with an explicit validated resource budget', async () => {
   const request = await setup(); const controller = new AbortController(); let seen: Record<string, unknown> | undefined; let timeoutMs: number | undefined; let minimumFreeBytes: number | undefined;
   const run = vi.fn(async (_binary: string, manifest: string, options?: { timeoutMs?: number; minimumFreeBytes?: number }) => {
@@ -509,4 +513,6 @@ it('retains a late unknown native entry through outer transaction failure and no
     expect.arrayContaining(['native-temp', 'final-staging']),
   );
   expect(cleanupFailed).toHaveBeenCalledTimes(1);
+});
+
 });
