@@ -25,9 +25,12 @@
 
 | ARCH-EX-007 | 2026-11-06 | Release branch routing | v0.17.23のmacOS書き出し修正とrelease準備のみをmain基点のrelease branchからmainへPRで取り込む | 未公開モデル配布方針を混ぜず、既存v0.17.22 tagを変更しないため | [PR #270](https://github.com/Kou-ISK/sportaglytics/pull/270)と必要なrelease準備のみ。develop先行統合、CI・レビュー、署名・公証および配布版検証を維持する | v0.17.23公開後の記録同期でClose。期限2026-11-20 | maintainers | [PR #270](https://github.com/Kou-ISK/sportaglytics/pull/270) | Open |
 
+| ARCH-EX-008 | 2026-11-14 | Release branch routing | v0.17.24 / PR #273 の最終レビュー済みcommitの書き出し・取消・逆再生修正と必要な版準備のみをmain基点のrelease branchからmainへPRで取り込む | developで進行中の未公開モデル選定方針を今回の修正に混在させないため | [PR #273](https://github.com/Kou-ISK/sportaglytics/pull/273)と必要なrelease準備のみ。モデル選定方針・catalog・lockの差分は除外し、develop先行統合、双方のPRのレビュー・CI、署名・公証・実機および配布物検証を維持する | 公開・配布照合後の記録同期でClose。期限2026-11-28、超過時は解消計画を確定 | maintainers | [PR #273](https://github.com/Kou-ISK/sportaglytics/pull/273) | Open |
+
 ## 月次レビュー
 
 - 毎月 1 回、Open の例外を見直して優先順位を更新する。
 - 期限超過の例外は次スプリントで必ず解消計画を確定する。
 
 | ARCH-EX-004 | 2026-10-23 | 未使用経路の削除 | 再生用コピーを短尺qualificationの段階接続として置く | 長尺採用前に原本・全時刻・取消・実機効果を検証するため | `electron/src/playbackCache`の検証基盤。v0.17.15でコピー操作のView/Controller/Storyは撤去。原本の識別・復帰に使う共通関数は保持 | 2026-10-30、merge/release前にqualification結果と長尺対応・撤去を判断 | maintainers | [CACHE-1](playback-cache.md#cache-1-activation-gate) | Open |
+
