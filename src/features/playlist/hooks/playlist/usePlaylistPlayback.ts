@@ -2,13 +2,20 @@ import { waitForVideoPresentation } from '../../../../shared/media/waitForVideoP
 import type { VideoPresentationTarget } from '../../../../shared/media/waitForVideoPresentation';
 import { formatSource } from '../../../../shared/media/videoSource';
 import { usePlaylistMediaTimeline } from '../../media/usePlaylistMediaTimeline';
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { usePlaylistPlaybackActions } from './usePlaylistPlaybackActions';
 import { usePlaylistPlaybackEffects } from './usePlaylistPlaybackEffects';
 import type { UsePlaylistPlaybackParams } from './usePlaylistPlayback.types';
 
 export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
   const reverseAbort = useRef<AbortController | null>(null);
+  const reverseAbortOwner = useRef<object | null>(null);
   const lastFreezeTimestampRef = useRef<number | null>(null);
   const freezeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -24,6 +31,20 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     onEnd: (): void => undefined,
   });
   const mediaTimeline = usePlaylistMediaTimeline(params, timelineCallbacks);
+  const seekOwner = useMemo(
+    () => ({}),
+    [
+      params.currentItem?.id,
+      params.currentItem?.startTime,
+      params.currentItem?.endTime,
+      params.currentVideoSource,
+      params.currentVideoSource2,
+      params.viewMode,
+      mediaTimeline.timelineOwner,
+    ],
+  );
+  const currentOwner = useRef<object | null>(seekOwner);
+  currentOwner.current = seekOwner;
   const actions = usePlaylistPlaybackActions({
     seekMedia: mediaTimeline.seek,
     items: params.items,
@@ -82,7 +103,9 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     };
   }, [actions.handleItemEnd, actions.triggerFreezeFrame, params]);
 
-  const setConfirmedCurrentTime = useCallback<UsePlaylistPlaybackParams['setCurrentTime']>(
+  const setConfirmedCurrentTime = useCallback<
+    UsePlaylistPlaybackParams['setCurrentTime']
+  >(
     (value) => {
       if (!reverseAbort.current) params.setCurrentTime(value);
     },
@@ -117,26 +140,27 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
   const cancelReverseSeek = (): void => {
     reverseAbort.current?.abort();
     reverseAbort.current = null;
+    reverseAbortOwner.current = null;
     mediaTimeline.confirmSeek();
   };
   useEffect(
     () => () => {
-      reverseAbort.current?.abort();
+      if (currentOwner.current === seekOwner) currentOwner.current = null;
+      if (reverseAbortOwner.current === seekOwner)
+        reverseAbort.current?.abort();
     },
-    [
-      params.currentItem?.id,
-      params.currentVideoSource,
-      params.currentVideoSource2,
-      params.viewMode,
-    ],
+    [seekOwner],
   );
   const seekReverse = async (
     time: number,
     signal: AbortSignal,
-  ): Promise<void> => {
+  ): Promise<number | null> => {
+    if (signal.aborted || currentOwner.current !== seekOwner)
+      throw Error('REVERSE_CANCELLED');
     const abort = new AbortController();
     reverseAbort.current?.abort();
     reverseAbort.current = abort;
+    reverseAbortOwner.current = seekOwner;
     const cancel = (): void => abort.abort();
     signal.addEventListener('abort', cancel, { once: true });
     if (signal.aborted) abort.abort();
@@ -171,12 +195,15 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
             });
         },
       );
-      if (abort.signal.aborted) throw Error('REVERSE_CANCELLED');
+      if (abort.signal.aborted || currentOwner.current !== seekOwner)
+        throw Error('REVERSE_CANCELLED');
       params.setCurrentTime(measured ?? time);
+      return measured;
     } finally {
       signal.removeEventListener('abort', cancel);
       if (reverseAbort.current === abort) {
         reverseAbort.current = null;
+        reverseAbortOwner.current = null;
         mediaTimeline.confirmSeek();
       }
     }

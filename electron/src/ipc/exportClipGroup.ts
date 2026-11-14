@@ -36,7 +36,9 @@ export const renderExportClipGroup = async (
         clip,
         clips.length === 1 ? outputPath : undefined,
         (fraction) => options.onRenderProgress(fraction, clipDuration, index),
-        clips.length === 1,
+        // Windows has no O_NOFOLLOW: write directly to the transaction's
+        // exclusive staging path instead of using the unsupported safe copy.
+        clips.length === 1 && process.platform !== 'win32',
       );
       if (clips.length > 1) temps.push(rendered);
       options.onRendered(clipDuration, index);

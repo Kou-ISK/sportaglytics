@@ -23,7 +23,11 @@ it('returns the media feature guidance before starting an export process', async
       },
     ),
   ).rejects.toBe(unavailable);
-  expect(ensureWindowsH264Encoder).toHaveBeenCalledWith('synthetic-ffmpeg');
+  expect(ensureWindowsH264Encoder).toHaveBeenCalledWith(
+    'synthetic-ffmpeg',
+    process.platform,
+    undefined,
+  );
   expect(spawn).not.toHaveBeenCalled();
   expect(progress).not.toHaveBeenCalled();
 });

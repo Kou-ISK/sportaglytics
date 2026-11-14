@@ -62,11 +62,47 @@ it.each<Partial<ClipExportItem>>([
     false,
   ),
 );
-it('keeps enabled text overlay on the encoder path', () =>
+it('allows enabled overlay settings only when no text will be drawn', () => {
+  const emptyOverlay = { ...payload.overlay, enabled: true };
+  expect(
+    canAttemptNativeClip({ ...payload, overlay: emptyOverlay }, clip, false),
+  ).toBe(true);
+  for (const setting of [
+    'showActionName',
+    'showActionIndex',
+    'showLabels',
+    'showMemo',
+  ] as const) {
+    const content = {
+      ...clip,
+      labels: [{ group: 'G', name: 'L' }],
+      memo: 'Note',
+    };
+    expect(
+      canAttemptNativeClip(
+        { ...payload, overlay: { ...emptyOverlay, [setting]: true } },
+        content,
+        false,
+      ),
+    ).toBe(false);
+  }
   expect(
     canAttemptNativeClip(
-      { ...payload, overlay: { ...payload.overlay, enabled: true } },
+      {
+        ...payload,
+        overlay: { ...emptyOverlay, showLabels: true, showMemo: true },
+      },
       clip,
       false,
     ),
-  ).toBe(false));
+  ).toBe(true);
+});
+
+it('provides bounded non-identifying reasons in deterministic order', async () => {
+  const { nativeClipEligibility } = await import('./nativeClipEligibility');
+  expect(nativeClipEligibility(payload, clip, false)).toBe('eligible');
+  expect(nativeClipEligibility({ ...payload, clips: [clip, clip] }, clip, false)).toBe('multiple-clips');
+  expect(nativeClipEligibility(payload, clip, true)).toBe('multiple-angles');
+  expect(nativeClipEligibility(payload, { ...clip, chromaKey: {} }, false)).toBe('chroma');
+  expect(nativeClipEligibility(payload, { ...clip, annotationPngPrimary: 'private content' }, false)).toBe('annotation');
+});

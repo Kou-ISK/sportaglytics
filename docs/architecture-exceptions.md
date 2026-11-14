@@ -17,7 +17,7 @@
 
 | ARCH-EX-002 | 2026-10-18 | Feature Public API | `scripts/benchmark-synthetic-timeline.mjs`の専用loaderから純粋関数`timelineReviewSearch.ts`を推移的compileして読込 | 実際の検索処理を計測し、計測専用の本番公開APIや検索実装の複製を増やさないため | Node計測ツール1本のみ。アプリの実行時import・UI・保存形式は変更しない | 2026-11-18までにfeature内benchへの移動または限定した正式な計測入口を判断 | maintainers | [PR #237](https://github.com/Kou-ISK/sportaglytics/pull/237) / [F10受入](synthetic-workloads.md#次の受入条件) | Open |
 
-| ARCH-EX-003 | 2026-10-20 | Release branch routing | v0.17.13準備以降の限定再生修正版について、mainを基点とするrelease branchからmainへPRを作る | developで進行中の未公開モデル配布方針を、今回の再生修正へ混在させないため | v0.17.19は逆方向キー解放時の要求消失の退行修正・回帰・告知だけを選ぶ。修正とrelease準備は先にdevelopへ統合し、CI・レビュー・署名・公証・公開検証を保持する | v0.17.19公開後の記録同期でClose。期限2026-11-03 | maintainers | [PR #260](https://github.com/Kou-ISK/sportaglytics/pull/260) | Open |
+| ARCH-EX-003 | 2026-10-20 | Release branch routing | v0.17.13準備以降の限定再生修正版について、mainを基点とするrelease branchからmainへPRを作る | developで進行中の未公開モデル配布方針を、今回の再生修正へ混在させないため | v0.17.19は逆方向キー解放時の要求消失の退行修正・回帰・告知だけを選ぶ。修正とrelease準備は先にdevelopへ統合し、CI・レビュー・署名・公証・公開検証を保持する | v0.17.19公開後の記録同期でClose。期限2026-11-03 | maintainers | [PR #258](https://github.com/Kou-ISK/sportaglytics/pull/258) | Open |
 
 | ARCH-EX-005 | 2026-11-05 | Release branch routing | v0.17.20の限定修正と、その監査停止を解消するv0.17.21の限定修正をmain基点のrelease branchからmainへPRで取り込む | developの未公開モデル配布方針を公開済み版に混ぜず、既存v0.17.20 tagを変更しないため | [PR #262](https://github.com/Kou-ISK/sportaglytics/pull/262)の再生・保存修正、[PR #264](https://github.com/Kou-ISK/sportaglytics/pull/264)の依存監査修正と必要なrelease準備のみ。develop先行統合、両PRのCI・レビュー、署名・公証と実機受入を維持する | v0.17.21公開後の記録同期でClose。期限2026-11-19 | maintainers | [PR #262](https://github.com/Kou-ISK/sportaglytics/pull/262), [PR #264](https://github.com/Kou-ISK/sportaglytics/pull/264) | Open |
 
@@ -25,9 +25,12 @@
 
 | ARCH-EX-007 | 2026-11-06 | Release branch routing | v0.17.23のmacOS書き出し修正とrelease準備のみをmain基点のrelease branchからmainへPRで取り込む | 未公開モデル配布方針を混ぜず、既存v0.17.22 tagを変更しないため | [PR #270](https://github.com/Kou-ISK/sportaglytics/pull/270)と必要なrelease準備のみ。develop先行統合、CI・レビュー、署名・公証および配布版検証を維持する | v0.17.23公開後の記録同期でClose。期限2026-11-20 | maintainers | [PR #270](https://github.com/Kou-ISK/sportaglytics/pull/270) | Open |
 
+| ARCH-EX-008 | 2026-11-14 | Release branch routing | v0.17.24 / PR #273 の最終レビュー済みcommitの書き出し・取消・逆再生修正と必要な版準備のみをmain基点のrelease branchからmainへPRで取り込む | developで進行中の未公開モデル選定方針を今回の修正に混在させないため | [PR #273](https://github.com/Kou-ISK/sportaglytics/pull/273)と必要なrelease準備のみ。モデル選定方針・catalog・lockの差分は除外し、develop先行統合、双方のPRのレビュー・CI、署名・公証・実機および配布物検証を維持する | 公開・配布照合後の記録同期でClose。期限2026-11-28、超過時は解消計画を確定 | maintainers | [PR #273](https://github.com/Kou-ISK/sportaglytics/pull/273) | Open |
+
 ## 月次レビュー
 
 - 毎月 1 回、Open の例外を見直して優先順位を更新する。
 - 期限超過の例外は次スプリントで必ず解消計画を確定する。
 
 | ARCH-EX-004 | 2026-10-23 | 未使用経路の削除 | 再生用コピーを短尺qualificationの段階接続として置く | 長尺採用前に原本・全時刻・取消・実機効果を検証するため | `electron/src/playbackCache`の検証基盤。v0.17.15でコピー操作のView/Controller/Storyは撤去。原本の識別・復帰に使う共通関数は保持 | 2026-10-30、merge/release前にqualification結果と長尺対応・撤去を判断 | maintainers | [CACHE-1](playback-cache.md#cache-1-activation-gate) | Open |
+

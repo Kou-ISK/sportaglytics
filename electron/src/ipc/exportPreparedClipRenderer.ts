@@ -1,5 +1,8 @@
+import { exportResourceContext } from './exportResourceContext';
+import { qualifySilentFallback } from './exportFallbackQualification';
+import { evaluateNativeFallback, NativeFallbackBudgetUnavailable } from '../nativeExport/nativeFallbackPolicy';
 import type { NativeClipExporter } from '../nativeExport/nativeClipExport';
-import { canAttemptNativeClip } from '../nativeExport/nativeClipEligibility';
+import { nativeClipEligibility } from '../nativeExport/nativeClipEligibility';
 import type {
   ClipExportItem,
   ExportClipsPayload,
@@ -23,10 +26,12 @@ export const createPreparedClipRenderer = (
   tempFiles: string[],
   getFfmpegPath: () => string,
   nativeExporter?: NativeClipExporter,
+  signal?: AbortSignal,
 ): PreparedClipRenderer => {
   const selection = resolveExportSourceSelection(payload);
   const indexes = new Map(payload.clips.map((clip, index) => [clip, index]));
   return async (clip, outputPath, onProgress, stageEncoderOutput = false) => {
+    signal?.throwIfAborted();
     const index = indexes.get(clip);
     if (index === undefined)
       throw new Error('書き出し対象のクリップを確認してください');
@@ -38,24 +43,33 @@ export const createPreparedClipRenderer = (
     const secondary = secondaryPath ? resolveSource(secondaryPath) : undefined;
     const selected =
       clip.angleType === 'angle2' && secondary ? secondary : main;
-    if (
-      nativeExporter &&
-      outputPath &&
-      selected.kind === 'direct' &&
-      canAttemptNativeClip(payload, clip, selection.useDual)
-    ) {
+    const decision = !nativeExporter ? 'provider-unavailable'
+      : !outputPath ? 'no-final-output'
+      : selected.kind !== 'direct' ? 'prepared-source'
+      : nativeClipEligibility(payload, clip, selection.useDual);
+    if (process.env.SPORTAGLYTICS_EXPORT_DIAGNOSTICS === '1') {
+      console.info('[export] Native eligibility', { decision });
+    }
+    let qualifyFallback = false;
+    if (nativeExporter && outputPath && decision === 'eligible') {
       const result = await nativeExporter({
         sourcePath: selected.sourcePath,
         start: clip.startTime - selected.timeOrigin,
-        duration: Math.max(0.5, clip.endTime - clip.startTime),
+        duration: (clip.endTime - clip.startTime),
         audioTrack: clip.audioTrackIndex ?? 0,
         outputPath,
+        signal,
       });
       if (result.status === 'completed') {
         onProgress?.(1);
         return outputPath;
       }
-      console.info('[export] Native fallback', { reason: result.reason });
+      signal?.throwIfAborted();
+      const resources = exportResourceContext.getStore();
+      if (resources) await resources.check();
+      const fallback = evaluateNativeFallback(result.reason, !!resources);
+      if (fallback.action === 'stop') throw new NativeFallbackBudgetUnavailable(fallback);
+      qualifyFallback = result.reason === 'native-pre-output-unsupported';
     }
     const rendered = await renderClipWithFfmpeg({
       getFfmpegPath,
@@ -74,11 +88,14 @@ export const createPreparedClipRenderer = (
       outputPath: stageEncoderOutput ? undefined : outputPath,
       onProgress,
     });
+    signal?.throwIfAborted();
     // Preserve temporary encoding for single/per-row fallback failures.
     if (stageEncoderOutput && outputPath) {
       await concatFiles(getFfmpegPath, [rendered], outputPath);
+      if (qualifyFallback) await qualifySilentFallback(outputPath, clip.endTime - clip.startTime, signal);
       return outputPath;
     }
+    if (qualifyFallback) await qualifySilentFallback(rendered, clip.endTime - clip.startTime, signal);
     return rendered;
   };
 };

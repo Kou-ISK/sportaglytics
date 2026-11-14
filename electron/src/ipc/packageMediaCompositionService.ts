@@ -8,6 +8,7 @@ import type {
 } from './packageTypes';
 import { deriveTimelineGaps } from '../../../src/types/package/clipTimeline';
 import { runMediaProcess } from './mediaProcessRunner';
+import { exportAbortContext } from './exportAbortContext';
 
 interface MediaProbe {
   durationSeconds: number;
@@ -53,7 +54,11 @@ export const probeMedia = async (filePath: string): Promise<MediaProbe> => {
   const result = await runMediaProcess(
     getFfprobePath(),
     ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', filePath],
-    { timeoutMs: 30_000, maxOutputBytes: 1024 * 1024 },
+    {
+      timeoutMs: 30_000,
+      maxOutputBytes: 1024 * 1024,
+      signal: exportAbortContext.getStore(),
+    },
   );
   const parsed: unknown = JSON.parse(result.stdout);
   if (!isProbeOutput(parsed)) {
