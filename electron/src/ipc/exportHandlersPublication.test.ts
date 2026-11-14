@@ -90,6 +90,7 @@ beforeAll(() =>
   }),
 );
 afterEach(async () => {
+  vi.unstubAllGlobals();
   mocks.render.mockReset();
   mocks.concat.mockReset();
   mocks.progress.mockReset();
@@ -127,24 +128,31 @@ it('reports VideoToolbox failure through Main progress and result without diagno
   expect((await fs.readdir(root)).filter((name) => name.endsWith('.mp4'))).toHaveLength(0);
 });
 
-it('does not report completion when final publication collides', async () => {
+it.each(['darwin', 'win32'])('does not report completion when final publication collides on %s', async (platform) => {
+  vi.stubGlobal('process', { ...process, platform });
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), 'export-ipc-collision-'),
   );
   roots.push(root);
   const output = path.join(root, 'combined_1_angle1.mp4');
-  mocks.render.mockImplementation(async (request: { tempFiles: string[] }) => {
-    const temporary = path.join(root, 'temporary.mp4');
-    request.tempFiles.push(temporary);
+  mocks.render.mockImplementation(async (request: { tempFiles: string[]; outputPath?: string }) => {
+    const temporary = request.outputPath ?? path.join(root, 'temporary.mp4');
+    if (!request.outputPath) request.tempFiles.push(temporary);
     await fs.writeFile(temporary, 'rendered');
     return temporary;
   });
   mocks.concat.mockImplementation(
     async (_binary: unknown, _inputs: unknown, staging: string) => {
       await fs.writeFile(staging, 'complete');
-      await fs.writeFile(output, 'other job', { flag: 'wx' });
     },
   );
+  const collision = vi.fn(async (source: string, target: string) => {
+    expect(target).toBe(output);
+    expect(path.basename(source)).toBe('output.mp4');
+    await fs.writeFile(target, 'other job', { flag: 'wx' });
+    await fs.link(source, target);
+  });
+  mocks.publishOverride = collision;
   const handler = mocks.handlers.get('export-clips-with-overlay');
   if (!handler) throw new Error('handler missing');
   const result = await handler(
@@ -153,7 +161,7 @@ it('does not report completion when final publication collides', async () => {
       sourcePath: '/synthetic.mp4',
       outputDir: root,
       exportMode: 'single',
-      progressId: 'test',
+      progressId: `collision-${platform}`,
       clips: [{ id: 'one', actionName: 'First', startTime: 1, endTime: 3 }],
       overlay: {
         enabled: false,
@@ -164,7 +172,8 @@ it('does not report completion when final publication collides', async () => {
       },
     } as never,
   );
-  expect(result).toMatchObject({ success: false });
+  expect(result).toMatchObject({ success: false, error: expect.stringContaining('EEXIST') });
+  expect(collision).toHaveBeenCalledOnce();
   expect(await fs.readFile(output, 'utf8')).toBe('other job');
   const states = mocks.progress.mock.calls.map(
     ([state]) => state as { message?: string; status?: string },
