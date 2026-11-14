@@ -32,7 +32,7 @@ interface UseVideoPlayerRuntimeStateResult {
   setSyncMode: Dispatch<SetStateAction<'auto' | 'manual'>>;
   currentTime: number;
   playbackTime: number;
-  seekReverse: (time: number, signal: AbortSignal) => Promise<void>;
+  seekReverse: (time: number, signal: AbortSignal) => Promise<number | null>;
   setCurrentTime: Dispatch<SetStateAction<number>>;
   handleCurrentTime: (
     event: SyntheticEvent | Event,

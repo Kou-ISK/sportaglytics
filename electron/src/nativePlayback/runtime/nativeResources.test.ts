@@ -10,7 +10,7 @@ import {
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { resolveNativeResources } from './nativeResources';
+import { resolveNativeResources, resolveVerifiedNativeResources } from './nativeResources';
 import {
   NATIVE_BINARY_IDENTIFIERS,
   verifySignedNative,
@@ -48,7 +48,7 @@ const fixture = async (): Promise<{
     path.join(native, 'build.json'),
     JSON.stringify({
       identity: {
-        revision: 7,
+        revision: 8,
         engine: 'AVPlayer',
         platform: 'darwin',
         architecture: 'arm64',
@@ -106,10 +106,10 @@ describe('fixed native resources', () => {
     ).rejects.toThrow('HASH');
     const file = path.join(f.native, 'build.json');
     const original = await readFile(file, 'utf8');
-    for (const revision of [1, 2, 3, 4, 5, 6, 8]) {
+    for (const revision of [1, 2, 3, 4, 5, 6, 7, 10]) {
       await writeFile(
         file,
-        original.replace('"revision":7', `"revision":${revision}`),
+        original.replace('"revision":8', `"revision":${revision}`),
       );
       await expect(
         resolveNativeResources(f.root, f.state, 'development'),
@@ -144,7 +144,9 @@ it('authenticates signed helpers and detects any subsequent binary change', asyn
 it('rejects a modified command-input addon even when other resources match', async () => {
   const f = await fixture();
   await writeFile(path.join(f.native, 'CommandLeft.node'), 'modified');
-  await expect(resolveNativeResources(f.root, f.state, 'development')).rejects.toThrow('HASH');
+  await expect(
+    resolveNativeResources(f.root, f.state, 'development'),
+  ).rejects.toThrow('HASH');
 });
 it('does not permit symlink resources or authenticated failures', async () => {
   const f = await fixture();
@@ -175,4 +177,15 @@ it('does not permit symlink resources or authenticated failures', async () => {
   await expect(
     resolveNativeResources(f.root, f.state, 'development'),
   ).rejects.toThrow('BOUND');
+});
+
+it('admits revision 9 only after signature and resource hashes are verified', async () => {
+  const f = await fixture(); const file = path.join(f.native, 'build.json');
+  const manifest = JSON.parse(await readFile(file, 'utf8')); manifest.identity.revision = 9;
+  manifest.signing = { version: 1, teamId: 'ABCD123456', files: Object.fromEntries(Object.entries(NATIVE_BINARY_IDENTIFIERS).map(([name, identifier]) => [name, { identifier, sha256: manifest.files[name] }])) };
+  await writeFile(file, JSON.stringify(manifest));
+  const verified = await resolveVerifiedNativeResources(f.root, f.state);
+  expect(verified.revision).toBe(9); expect(verifySignedNative).toHaveBeenCalled();
+  await writeFile(path.join(f.native, 'NativeProductHost'), 'mutated');
+  await expect(resolveVerifiedNativeResources(f.root, f.state)).rejects.toThrow('HASH');
 });

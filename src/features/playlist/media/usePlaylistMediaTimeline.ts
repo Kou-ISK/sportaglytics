@@ -24,6 +24,7 @@ export const usePlaylistMediaTimeline = (
   callbacks: React.MutableRefObject<TimelineCallbacks>,
 ): {
   active: boolean;
+  timelineOwner: object | null;
   loading: boolean;
   error: string;
   retry: () => void;
@@ -271,6 +272,7 @@ export const usePlaylistMediaTimeline = (
   );
   return {
     active,
+    timelineOwner: active && resolved?.key === sourceKey ? resolved : null,
     loading: active && awaitingTimeline && !error,
     error: active ? error : '',
     retry,

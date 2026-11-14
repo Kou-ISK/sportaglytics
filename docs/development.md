@@ -2,6 +2,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # 開発ガイド
 
+書き出し中止の変更では、進捗ウィンドウから Main の sender/ジョブ認証、子の終了待ち、出力確定と cleanup までを確認します。`exportProgressCancel.test.ts`、`exportHandlersPublication.test.ts`、`exportShutdownCoordinator.test.ts` と `features/exportProgress` の画面テストはそれぞれの境界を検査します。実OS・実媒体の動作は別途確認してください。
+
 長尺再生の回帰は`usePackagePlaybackClock.test.tsx`と`packagePlaybackReadiness.test.ts`でデコード待ち・復帰・明示シーク・アングル補正・空白・終了境界を検査します。実Electronでは`e2e-playback-buffering.mjs`で通常ファイルの片方のデコード待ち中に全アングルが待機し、表示切替・速度変更・同期ずれ・ファイル欠損・背景復帰・明示停止に従うことを検査します。`e2e-capture-gaps.mjs`では実MSEで録画の空白通過、短い音声末尾、僅かな再生ずれ、空白への明示シークとパッケージ終端を検査します。`e2e-multi-clip-playback.mjs`と`e2e-live-capture.mjs`で境界や録画への影響も確認します。ローカル実映像の性能測定は許可されたコピーと独立profileを使い、実データ・名前・画像を公開fixtureへ含めないでください。
 
 終了時保存を変更する場合は[ADR 0068](adr/0068-timeline-close-save-handshake.md)に従い、hookの同一tick編集・行補完、typed preloadの送信元、Mainの全owner準備とatomic write待機を検証します。`pnpm run e2e:prepare && node scripts/e2e-timeline-close.mjs`は合成データで実保存・別process再開を確認します。ライブ停止後に終了が取り消された場合も、次の録画の終了待ちを省略しないでください。
@@ -570,3 +572,9 @@ macOS arm64では`pnpm run native:build`でAVPlayer helperとN-API receiverを�
 連続native逆再生の失敗後復帰と停止確認の同期順序は `useVideoReversePlayback.test.tsx` と `waitForNativePresentation.test.ts` で回帰確認します。実機での画像・音声とキー解放は別の受入条件です。
 
 Command＋左の入力変更では、`commandLeftBroker`、`commandLeftHealth`、`commandLeftIpc`、`nativePlaybackHandlers`、`nativeGestureQueue`、`nativePlaybackController`、`commandGestureAdapter` と `useWorkspaceHotkeys` の各テストで通知欠落、連続押下、割込みと停止順序を確認します。署名済み配布版での実キー・実画像・保存確認は別に実施します。
+
+HTML逆再生の解除・再押下は `useContinuousReversePlayback.test.tsx`、主画面の輸送切替は `useVideoReversePlaybackTransport.test.tsx` と `useVideoReversePlaybackOwnerIntegration.test.tsx`、Playlistの媒体変更は `usePlaylistReverseIntegration.test.tsx` で確認します。これらの媒体・IPCスタブは、実画面で発行済みのシーク完了やデコード遅延を測る検証の代替ではありません。
+
+### Export publication verification
+
+For held native publication changes, run the exportHeldPublish, exportHeldPublishProcess, exportPublicationLease, exportOutputTransaction, exportHandlersPublication, macClipExporter, removeKnownEntries, nativeClipExportStartup, nativeExportProcess and nativeExportCapabilities tests. exportHeldPublish compiles repository-native code locally on macOS and uses small synthetic files; it is not signed-package acceptance. Preserve the separate signed native, platform E2E and filesystem release gates. See [ADR 0084](adr/0084-held-export-publication.md).

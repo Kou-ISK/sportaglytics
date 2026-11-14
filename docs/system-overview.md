@@ -416,6 +416,8 @@ Paintは同じ映像DOMとPlaylist履歴を使い、Window-onlyな選択・ツ�
 
 書き出し進捗ウィンドウは内容領域基準の初期サイズを持ち、Windowsのタイトルバーが加わっても完了時の「閉じる」を見切れさせません。
 
+進行中の書き出しは進捗ウィンドウから中止でき、Mainはそのウィンドウと対象ジョブを検査します。停止と後始末の完了後に結果を表示し、既に確定した出力は保持します。[書き出し](native-export.md)。
+
 ### Paintの俯瞰図
 
 戦術盤は[Paintの保存契約](tactics.md#戦術盤と映像からの配置)に従うクリップ・アングル別メタデータです。Viewはpropsのみ、編集履歴はHook、動画の読取・同梱モデル実行・PNG保存はGatewayに分離します。認識は明示操作時の停止フレームだけを対象とし、サーバー・新しいIPC・クラウドAPIを追加しません。[ADR 0039](adr/0039-local-tactical-board.md)を参照してください。
@@ -458,7 +460,7 @@ Macのelectron-builder publisherは`mac.publish: null`で明示的に無効化�
 
 Apple標準再生はAVPlayerが読み出し・復号・音声・時計を所有し、AVPlayerItemVideoOutputの画像を既存DOM表示面へ渡します。Mainの文書/IPC/終了所有権と最大3画像の転送は保持し、独自FFmpeg復号・PCM窓・供給回復は削除します。[ADR 0080](adr/0080-apple-player-playback.md)と[仕様・適用範囲](native-playback.md)を参照してください。
 
-長押し逆再生は、対応AVPlayerItemの連続負rateと、能力非対応時に表示完了を待つ直列シーク代替に分けます。開始済みの負rateが失敗した場合は、確認済み原本へ戻して停止し、自動でシーク反復へ移りません。後者は表示中1要求・最新希望1件を保持し、画像到着だけで次を送信しません。IPC/画像の操作sequenceと配送順序は単調増加、PTS/確認時計は再生方向に従います。停止はネイティブの実停止時計、代替は最後の希望位置の表示で確定します。[設計](adr/0081-held-reverse-presentation.md)と[仕様](native-playback.md)を参照してください。
+長押し逆再生は、対応AVPlayerItemの連続負rateと、能力非対応時に表示完了を待つ直列シーク代替に分けます。開始済みの負rateが失敗した場合は、確認済み原本へ戻して停止し、自動でシーク反復へ移りません。後者は表示中1要求・最新希望1件を保持し、画像到着だけで次を送信しません。IPC/画像の操作sequenceと配送順序は単調増加、PTS/確認時計は再生方向に従います。停止はネイティブの実停止時計で確定し、nativeのシーク代替は最後の希望位置まで完了します。HTMLのシーク代替はキー解放時に未発行の旧希望を破棄し、発行済みシークの提示完了を待ちます。短い再押下はその確定位置を起点とします。発行済みのブラウザシークは取り消せない場合があります。[設計](adr/0081-held-reverse-presentation.md)と[仕様](native-playback.md)を参照してください。
 
 macOSのCommand＋左の解放は、ローカル入力とRendererの受理をMainで照合し、停止画像の確認後に操作を確定します。別操作時は旧所有者の終了を待ち、最新の操作を原本へ引き継ぎます。
 
@@ -471,3 +473,7 @@ Native表示は既存PlayerSurface・overlay・全画面要素を共有します
 ### Native export候補
 
 対応する単一角度・合成なし区間は[条件付きApple passthrough](native-export.md)で再圧縮を避けます。合成・連結・未確認形式は既存経路を維持し、独立metadata検査と原本不変・非上書き公開を必要とします。確認済み音声選択をsourceごとに同期し、未確定選択や複数angleの競合を別sourceへ流用しません。
+
+### Held native export publication
+
+The native v2 single-cut candidate can transfer its qualified descriptor directly to the enclosing Main output transaction. The capability and lifetime contract, including platform limitations and retained partial outputs, is described in [ADR 0084](adr/0084-held-export-publication.md). The lease is internal to Main and adds no renderer IPC authority.

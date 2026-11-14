@@ -158,7 +158,8 @@ it('does not push a stalled media clock forward with animation elapsed time', as
 });
 
 it('keeps known media playing while focus revalidates unchanged timeline metadata', async () => {
-  const { media, resolve, tick, callbacks } = await setup();
+  const { media, resolve, tick, callbacks, result } = await setup();
+  const owner = result.current.timelineOwner;
   let finish: ((value: MediaTimeline[]) => void) | undefined;
   resolve.mockImplementationOnce(
     () =>
@@ -171,7 +172,11 @@ it('keeps known media playing while focus revalidates unchanged timeline metadat
   tick(66);
   expect(media.video.pause).not.toHaveBeenCalled();
   expect(callbacks.current.onTime).toHaveBeenLastCalledWith(60.05);
-  await act(async () => finish?.([timeline]));
+  await act(async () => finish?.([{ ...timeline, clips: [...timeline.clips] }]));
+  expect(result.current.timelineOwner).toBe(owner);
+  resolve.mockResolvedValueOnce([{ ...timeline, offsetSeconds: 2 }]);
+  act(() => window.dispatchEvent(new Event('focus')));
+  await waitFor(() => expect(result.current.timelineOwner).not.toBe(owner));
 });
 
 it('waits for an explicit backward seek before using observations from the same source', async () => {

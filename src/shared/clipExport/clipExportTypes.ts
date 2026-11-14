@@ -86,6 +86,11 @@ export interface ClipExportPayload {
 
 export interface ClipExportExecutionResult {
   success: boolean;
+  canceled?: boolean;
+  retainedDirectories?: import('../../types/ipc/exportProgressWindow').RetainedExportDirectory[];
+  retainedLocationUnknown?: boolean;
+  publishedOutputs?: string[];
+  cleanupWarning?: string;
   error?: string;
 }
 

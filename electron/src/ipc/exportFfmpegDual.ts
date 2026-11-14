@@ -64,7 +64,7 @@ export const runFfmpegDual = async ({
     let mainLabel = '[0:v]';
     let subLabel = '[1:v]';
     let audioMap = '0:a?';
-    const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
+    const clipDuration = (clip.endTime - clip.startTime);
     const inputs = [
       '-n',
       '-ss',

@@ -156,3 +156,5 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 - [0082 Accurate embedded playlist cuts](0082-accurate-embedded-playlist-cuts.md) — Accepted（範囲の正確な変換、受諾済み素材の再利用、保存前検証）
 
 - [0083 macOS offline encoder fallback](0083-macos-offline-encoder-fallback.md) — Accepted（オフライン変換のVideoToolbox選択と録画との分離）
+
+- [ADR 0084: Held-descriptor publication for native exports](0084-held-export-publication.md) — Proposed

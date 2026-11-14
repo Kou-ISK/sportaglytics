@@ -1,6 +1,7 @@
 import { getFfprobePath } from '../mediaTools';
 import type { NativeClipExportRequest } from './nativeClipExport';
 import { runNativeExportProbe } from './nativeExportProcess';
+import type { NativeExportReceipt } from './macClipExporter';
 
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -31,13 +32,23 @@ const timeBase = (value: unknown): number => {
 const durationMatches = (
   stream: Record<string, unknown>,
   duration: number,
+  extraSeconds = 0,
 ): boolean => {
   const tick = timeBase(stream.time_base);
+  const displayed = number(stream.duration);
+  if (!Number.isFinite(tick) || tick > 0.001 || !Number.isFinite(displayed)) return false;
+  let actual = displayed;
+  if (stream.duration_ts !== undefined) {
+    const ticks = number(stream.duration_ts);
+    if (!Number.isSafeInteger(ticks) || ticks < 0) return false;
+    actual = ticks * tick;
+    // ffprobe prints duration to six decimal places. Contradictory metadata is
+    // not a basis for accepting the candidate.
+    if (Math.abs(actual - displayed) > 0.00000051) return false;
+  }
   return (
-    Number.isFinite(tick) &&
-    tick <= 0.001 &&
     Math.abs(number(stream.start_time)) <= tick &&
-    Math.abs(number(stream.duration) - duration) <= tick
+    Math.abs(actual - duration) <= tick + extraSeconds
   );
 };
 const configurationMatches = (
@@ -126,15 +137,19 @@ export const isQualifiedNativeClip = (
   ]) {
     if (videos[0][key] !== v[key]) return false;
   }
+  const sampleRate = number(a.sample_rate);
+  if (!Number.isInteger(sampleRate) || sampleRate < 8000 || sampleRate > 384000) return false;
   return (
     durationMatches(v, request.duration) &&
-    durationMatches(a, request.duration) &&
+    // Independent video and audio clock rounding can differ by one sample.
+    // Keep the original timestamp tolerance and add at most one audio sample.
+    durationMatches(a, request.duration, 1 / sampleRate) &&
     Math.abs(number(output.format.start_time)) <= 0.001 &&
     Math.abs(number(output.format.duration) - request.duration) <= 0.001
   );
 };
 
-const probe = async (file: string, signal?: AbortSignal): Promise<unknown> => {
+const probe = async (file: string, signal?: AbortSignal, descriptor?: number): Promise<unknown> => {
   const result = await runNativeExportProbe(
     getFfprobePath(),
     [
@@ -146,17 +161,22 @@ const probe = async (file: string, signal?: AbortSignal): Promise<unknown> => {
       'sha256',
       '-of',
       'json',
-      file,
+      ...(descriptor === undefined ? [file] : ['-fd', '3', 'fd:']),
     ],
     signal,
+    descriptor,
   );
   return JSON.parse(result);
 };
 export const qualifyNativeClip = async (
   candidate: string,
   request: NativeClipExportRequest,
+  receipt?: NativeExportReceipt,
+  candidateFd?: number,
 ): Promise<boolean> => {
+  if (receipt?.version === 2 && candidateFd === undefined)
+    throw new Error('Native v2 qualification requires a stable descriptor');
   const source = await probe(request.sourcePath, request.signal);
-  const output = await probe(candidate, request.signal);
+  const output = await probe(candidate, request.signal, candidateFd);
   return isQualifiedNativeClip(source, output, request);
 };

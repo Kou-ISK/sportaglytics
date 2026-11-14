@@ -291,3 +291,82 @@ it('does not seek inside a gap and replaces an unfinished seek on reentry', () =
   act(player.settle);
   expect(player.seek).toHaveBeenCalledTimes(2);
 });
+
+it('sends a sub-15ms reverse request while keeping the normal paused tolerance', () => {
+  const player = fixture();
+  player.advance(10);
+  const hook = renderHook(
+    ({ time }) => useMediaTimeSync(player.ref, true, time, false),
+    { initialProps: { time: 10 } },
+  );
+  act(() =>
+    window.dispatchEvent(
+      new CustomEvent('video-seek-start', {
+        detail: { time: 9.99, seekMode: 'exact', reverse: true },
+      }),
+    ),
+  );
+  hook.rerender({ time: 9.99 });
+  expect(player.seek.mock.calls).toEqual([[9.99]]);
+  hook.unmount();
+});
+
+it('does not correct a matching painted frame, but an explicit seek invalidates that protection', async () => {
+  const { waitForVideoPresentation } =
+    await import('../../../../../../shared/media/waitForVideoPresentation');
+  let callback: VideoFrameRequestCallback = () => {};
+  const frames = new Map<number, FrameRequestCallback>();
+  let serial = 0;
+  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+    frames.set(++serial, cb);
+    return serial;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+  const video = document.createElement('video');
+  const container = document.createElement('div');
+  container.append(video);
+  Object.defineProperty(video, 'currentSrc', {
+    value: 'file:///synthetic.mp4',
+  });
+  Object.defineProperty(video, 'readyState', { value: 4 });
+  video.requestVideoFrameCallback = vi.fn((cb) => {
+    callback = cb;
+    return ++serial;
+  });
+  video.cancelVideoFrameCallback = vi.fn();
+  const pending = waitForVideoPresentation(
+    [{ video, source: video.currentSrc, time: 9.96, offset: 0 }],
+    new AbortController().signal,
+    () => {
+      video.currentTime = 9.96;
+    },
+  );
+  callback(0, {
+    mediaTime: 9.944,
+    expectedDisplayTime: 0,
+    presentationTime: 0,
+    presentedFrames: 1,
+    width: 1,
+    height: 1,
+  });
+  for (let i = 0; i < 2; i++) {
+    const callbacks = [...frames.values()];
+    frames.clear();
+    callbacks.forEach((cb) => cb(0));
+  }
+  await pending;
+  const player = fixture();
+  player.advance(9.96);
+  const ref = { current: { ...player.ref.current, el: () => container } };
+  const hook = renderHook(
+    ({ time }) => useMediaTimeSync(ref, true, time, false),
+    { initialProps: { time: 9.96 } },
+  );
+  hook.rerender({ time: 9.944 });
+  expect(player.seek).not.toHaveBeenCalled();
+  act(() => window.dispatchEvent(new Event('video-seek-start')));
+  act(() => player.listeners.get('canplay')?.());
+  expect(player.seek).toHaveBeenCalledWith(9.944);
+  hook.unmount();
+  vi.unstubAllGlobals();
+});

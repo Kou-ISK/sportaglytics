@@ -1,9 +1,8 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { getFfprobePath } from '../mediaTools';
-const execute = promisify(execFile);
+import { runMediaProcess } from './mediaProcessRunner';
+import { exportAbortContext } from './exportAbortContext';
 export const hasExportAudio = async (source: string): Promise<boolean> => {
-  const { stdout } = await execute(
+  const { stdout } = await runMediaProcess(
     getFfprobePath(),
     [
       '-v',
@@ -16,7 +15,11 @@ export const hasExportAudio = async (source: string): Promise<boolean> => {
       'csv=p=0',
       source,
     ],
-    { timeout: 15000, maxBuffer: 65536 },
+    {
+      timeoutMs: 15000,
+      maxOutputBytes: 65536,
+      signal: exportAbortContext.getStore(),
+    },
   );
   return stdout.trim().length > 0;
 };

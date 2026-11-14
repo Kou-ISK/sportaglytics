@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useContinuousReversePlayback } from '../../../../hooks/useContinuousReversePlayback';
 import type { ReversePlaybackRate } from '../../../../hooks/useContinuousReversePlayback';
-import { getNativePlayback } from '../../shared/nativePlayback/nativePlaybackRegistry';
+import {
+  getNativePlayback,
+  subscribeNativePlayback,
+} from '../../shared/nativePlayback/nativePlaybackRegistry';
 import type { NativePlaybackController } from '../../shared/nativePlayback/nativePlaybackController';
 import { waitForNativePresentation } from '../../shared/nativePlayback/waitForNativePresentation';
 
@@ -26,24 +29,34 @@ export const useVideoReversePlayback = ({
   const stopWait = useRef<AbortController | null>(null);
   const unwatch = useRef<(() => void) | null>(null);
   const issuing = useRef(false);
+  const fallbackUsesHtml = useRef(true);
+  const fallbackOwner = useRef<'html' | NativePlaybackController | null>(null);
+  const fallbackGestureActive = useRef(false);
   const reverse = useContinuousReversePlayback({
     ...params,
     onSeek: async (time, signal) => {
       const native = getNativePlayback();
       issuing.current = true;
       try {
-        if (
+        const useNative = Boolean(
           native &&
-          (native.snapshot().phase === 'active' || native.isFallingBack)
-        ) {
+          (native.snapshot().phase === 'active' || native.isFallingBack),
+        );
+        const transport = useNative && native ? native : 'html';
+        if (fallbackOwner.current && fallbackOwner.current !== transport)
+          throw new Error('REVERSE_TRANSPORT_CHANGED');
+        fallbackOwner.current = transport;
+        if (native && useNative) {
+          fallbackUsesHtml.current = false;
           native.seek(time);
           const revision = native.commandRevision;
           issuing.current = false;
           await waitForNativePresentation(native, revision, signal);
         } else {
+          fallbackUsesHtml.current = true;
           const work = params.onSeek(time, signal);
           issuing.current = false;
-          await work;
+          return await work;
         }
       } finally {
         issuing.current = false;
@@ -65,6 +78,8 @@ export const useVideoReversePlayback = ({
       owner.native.controls({ playing: false, rate: 1 });
       onNativeControls?.(false, 1);
     }
+    fallbackGestureActive.current = false;
+    fallbackOwner.current = null;
     reverse.cancelReversePlayback();
   }, [onNativeControls, reverse.cancelReversePlayback]);
   const start = useCallback(
@@ -74,6 +89,8 @@ export const useVideoReversePlayback = ({
       unwatch.current?.();
       unwatch.current = null;
       if (native?.supportsReverse(rate) && onNativeControls) {
+        fallbackOwner.current = null;
+        fallbackGestureActive.current = false;
         reverse.cancelReversePlayback();
         native.controls({ playing: true, rate: -rate });
         const owner = {
@@ -133,6 +150,14 @@ export const useVideoReversePlayback = ({
         });
       } else {
         if (held.current) cancel();
+        if (!fallbackGestureActive.current && reverse.isReverseSettled()) {
+          fallbackOwner.current = null;
+          fallbackUsesHtml.current = !(
+            native &&
+            (native.snapshot().phase === 'active' || native.isFallingBack)
+          );
+        }
+        fallbackGestureActive.current = true;
         native?.controls({ playing: false, rate: 1 });
         reverse.startReversePlayback(rate);
       }
@@ -151,7 +176,18 @@ export const useVideoReversePlayback = ({
     unwatch.current?.();
     unwatch.current = null;
     if (!owner) {
-      reverse.stopReversePlayback();
+      const current = getNativePlayback();
+      const currentTransport =
+        current &&
+        (current.snapshot().phase === 'active' || current.isFallingBack)
+          ? current
+          : 'html';
+      if (fallbackOwner.current && fallbackOwner.current !== currentTransport) {
+        cancel();
+        return;
+      }
+      fallbackGestureActive.current = false;
+      reverse.stopReversePlayback(fallbackUsesHtml.current);
       return;
     }
     stopWait.current?.abort();
@@ -195,7 +231,33 @@ export const useVideoReversePlayback = ({
       }
       onNativeControls?.(false, 1);
     }).catch(() => {});
-  }, [onNativeControls, reverse.stopReversePlayback]);
+  }, [cancel, onNativeControls, reverse.stopReversePlayback]);
+  useEffect(() => {
+    let unbindController = (): void => {};
+    const checkOwner = (): void => {
+      const owner = fallbackOwner.current;
+      if (!owner) return;
+      const current = getNativePlayback();
+      const transport =
+        current &&
+        (current.snapshot().phase === 'active' || current.isFallingBack)
+          ? current
+          : 'html';
+      if (owner !== transport) cancel();
+    };
+    const watchController = (): void => {
+      unbindController();
+      const current = getNativePlayback();
+      unbindController = current ? current.subscribe(checkOwner) : () => {};
+      checkOwner();
+    };
+    const unbindRegistry = subscribeNativePlayback(watchController);
+    watchController();
+    return () => {
+      unbindRegistry();
+      unbindController();
+    };
+  }, [cancel]);
   useEffect(() => {
     const interrupted = (): void => {
       if (!issuing.current) cancel();

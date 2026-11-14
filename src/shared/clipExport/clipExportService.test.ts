@@ -113,6 +113,41 @@ describe('clipExportService', () => {
     });
     expect(onProgress).toHaveBeenLastCalledWith(null);
   });
+
+  it('keeps earlier outputs and cleanup warnings if the next angle throws', async () => {
+    const executeExport = vi.fn().mockResolvedValueOnce({ success: true, publishedOutputs: ['/example/first.mp4'], cleanupWarning: 'cleanup warning' }).mockRejectedValueOnce(new Error('second failed'));
+    const result = await executeClipExport({ executeExport, clips: sampleClips, videoSources: ['main.mp4', 'sub.mp4'], angleOption: 'allAngles', selectedAngleIndex: 0, resolvedSources: {}, exportMode: 'single', exportFileName: 'example', overlay: { enabled: false, showActionName: false, showActionIndex: false, showLabels: false, showMemo: false }, successMessage: 'done' });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('second failed');
+    expect(result.message).toContain('/example/first.mp4');
+    expect(result.message).toContain('cleanup warning');
+  });
+
+  it('assigns distinct progress IDs to sequential angle exports', async () => {
+    const executeExport = vi.fn().mockResolvedValue({ success: true });
+    await executeClipExport({
+      executeExport,
+      progressId: 'batch',
+      clips: sampleClips,
+      videoSources: ['main.mp4', 'sub.mp4'],
+      angleOption: 'allAngles',
+      selectedAngleIndex: 0,
+      resolvedSources: {},
+      exportMode: 'single',
+      exportFileName: '',
+      overlay: {
+        enabled: false,
+        showActionName: false,
+        showActionIndex: false,
+        showLabels: false,
+        showMemo: false,
+      },
+      successMessage: 'done',
+    });
+    expect(
+      executeExport.mock.calls.map(([payload]) => payload.progressId),
+    ).toEqual(['batch:angle-1', 'batch:angle-2']);
+  });
 });
 
 it('selects each playlist item’s own secondary source and Paint layers for single and all-angle exports', async () => {
