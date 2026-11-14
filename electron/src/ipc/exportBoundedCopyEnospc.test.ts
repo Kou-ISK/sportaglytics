@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { expect, it, vi } from 'vitest';
 const m = vi.hoisted(() => ({ open: vi.fn(), statfs: vi.fn() }));
+// All filesystem calls in this file are mocked; inject the POSIX flag solely
+// to exercise close and ENOSPC handling on hosts where Node does not expose it.
+vi.mock('node:fs', async (original) => {
+  const actual = await original<typeof import('node:fs')>();
+  return { ...actual, constants: { ...actual.constants, O_NOFOLLOW: actual.constants.O_NOFOLLOW || 0x10000 } };
+});
 vi.mock('node:fs/promises', () => ({ open: m.open, statfs: m.statfs }));
 import { copyWithBudget } from './exportBoundedCopy';
 it('preserves ENOSPC and waits for both owned handles to close', async () => {

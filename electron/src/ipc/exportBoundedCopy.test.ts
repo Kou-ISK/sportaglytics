@@ -1,11 +1,11 @@
 // @vitest-environment node
 import * as fs from 'node:fs/promises';
-import { writeFileSync } from 'node:fs';
+import { constants, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { expect, it } from 'vitest';
 import { copyWithBudget, ExportCopyIncomplete } from './exportBoundedCopy';
-it('copies within a finite budget and never replaces an existing destination', async () => {
+it.skipIf(!constants.O_NOFOLLOW)('copies within a finite budget and never replaces an existing destination', async () => {
  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'bounded-copy-'));
  try {
   const source = path.join(root, 'source'); const target = path.join(root, 'target'); await fs.writeFile(source, 'content');
@@ -15,7 +15,7 @@ it('copies within a finite budget and never replaces an existing destination', a
   expect(await fs.readFile(target, 'utf8')).toBe('content');
  } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
-it('retains the partial destination and abort cause after cancellation', async () => {
+it.skipIf(!constants.O_NOFOLLOW)('retains the partial destination and abort cause after cancellation', async () => {
  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'bounded-copy-'));
  try {
   const source = path.join(root, 'source'); const target = path.join(root, 'partial'); await fs.writeFile(source, Buffer.alloc(600000));
@@ -26,7 +26,7 @@ it('retains the partial destination and abort cause after cancellation', async (
  } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
 
-it('does not report success when its opened source is truncated while copying', async () => {
+it.skipIf(!constants.O_NOFOLLOW)('does not report success when its opened source is truncated while copying', async () => {
  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'bounded-copy-mutate-'));
  try {
   const source = path.join(root, 'source'); const target = path.join(root, 'partial'); await fs.writeFile(source, Buffer.alloc(600000));
@@ -35,7 +35,7 @@ it('does not report success when its opened source is truncated while copying', 
   expect((await fs.stat(target)).size).toBeLessThan(600000);
  } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
-it('admits a sparse 9 GiB source above the native limit without writing it fully', async () => {
+it.skipIf(!constants.O_NOFOLLOW)('admits a sparse 9 GiB source above the native limit without writing it fully', async () => {
  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'bounded-copy-sparse-'));
  try {
   const source = path.join(root, 'source'); const target = path.join(root, 'partial');
@@ -43,5 +43,14 @@ it('admits a sparse 9 GiB source above the native limit without writing it fully
   const controller = new AbortController();
   await expect(copyWithBudget(source, target, { maxBytes: 10 * 1024 ** 3, minimumFreeBytes: 0, signal: controller.signal, onChunk: () => controller.abort() })).rejects.toMatchObject({ name: 'AbortError', retainedPath: target });
   expect((await fs.stat(target)).size).toBeLessThanOrEqual(256 * 1024);
+ } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+it.runIf(!constants.O_NOFOLLOW)('fails closed before creating a destination when no-follow is unavailable', async () => {
+ const root = await fs.mkdtemp(path.join(os.tmpdir(), 'bounded-copy-unsupported-'));
+ try {
+  const source = path.join(root, 'source'); const target = path.join(root, 'target');
+  await fs.writeFile(source, 'content');
+  await expect(copyWithBudget(source, target, { maxBytes: 100, minimumFreeBytes: 0 })).rejects.toThrow('Safe copy unsupported');
+  await expect(fs.stat(target)).rejects.toMatchObject({ code: 'ENOENT' });
  } finally { await fs.rm(root, { recursive: true, force: true }); }
 });

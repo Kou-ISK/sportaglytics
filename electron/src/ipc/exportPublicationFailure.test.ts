@@ -11,6 +11,7 @@ import {
 import { createPreparedClipRenderer } from './exportPreparedClipRenderer';
 import { renderClipWithFfmpeg } from './exportClipRender';
 import { concatFiles } from './exportFfmpegRunners';
+import { publishExportOutput } from './exportOutputTransaction';
 import type { ExportClipsPayload } from './exportHandlers.types';
 
 vi.mock('./exportClipRender', () => ({ renderClipWithFfmpeg: vi.fn() }));
@@ -18,15 +19,49 @@ vi.mock('./exportFfmpegRunners', () => ({ concatFiles: vi.fn() }));
 const roots: string[] = [];
 afterEach(async () => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
   await Promise.all(
     roots
       .splice(0)
       .map((root) => fs.rm(root, { recursive: true, force: true })),
   );
 });
-it.each(['single', 'perRow'] as const)(
-  '%s keeps an encoder failure off the final path, with or without native eligibility',
-  async (exportMode) => {
+it.each(['success', 'cancel', 'collision'] as const)('Windows direct staging preserves publication on %s', async (mode) => {
+  vi.stubGlobal('process', { ...process, platform: 'win32' });
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'export-win-direct-'));
+  roots.push(root);
+  const outputPath = path.join(root, 'final.mp4');
+  if (mode === 'collision') await fs.writeFile(outputPath, 'existing');
+  const controller = new AbortController();
+  const resources = await createExportResources(root, controller.signal);
+  const clip = { id: 'one', actionName: 'Test', startTime: 0, endTime: 2 };
+  const payload: ExportClipsPayload = { sourcePath: '/input.mp4', exportMode: 'single', clips: [clip], overlay: { enabled: false, showActionName: false, showActionIndex: false, showLabels: false, showMemo: false } };
+  vi.mocked(renderClipWithFfmpeg).mockImplementation(async ({ outputPath: target }) => {
+    if (!target) throw new Error('missing staging path');
+    await fs.writeFile(target, 'complete', { flag: 'wx' });
+    if (mode === 'cancel') controller.abort();
+    return target;
+  });
+  const operation = publishExportOutput(outputPath, (stagingPath) => exportResourceContext.run(resources, () => renderExportClipGroup({
+    clips: [clip], outputPath: stagingPath,
+    renderClip: createPreparedClipRenderer(payload, new Map(), [], () => 'ffmpeg'),
+    getFfmpegPath: () => 'ffmpeg', getDuration: () => 2,
+    onRenderStart: vi.fn(), onRenderProgress: vi.fn(), onRendered: vi.fn(), onJoinStart: vi.fn(), onJoinProgress: vi.fn(), onCompleted: vi.fn(),
+  })), controller.signal);
+  if (mode === 'success') {
+    await expect(operation).resolves.toBeUndefined();
+    expect(await fs.readFile(outputPath, 'utf8')).toBe('complete');
+  } else {
+    await expect(operation).rejects.toThrow();
+    if (mode === 'collision') expect(await fs.readFile(outputPath, 'utf8')).toBe('existing');
+    else await expect(fs.stat(outputPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  }
+  expect(concatFiles).not.toHaveBeenCalled();
+});
+it.each([['single', 'darwin'], ['perRow', 'darwin'], ['single', 'win32'], ['perRow', 'win32']] as const)(
+  '%s on %s keeps an encoder failure off the final path, with or without native eligibility',
+  async (exportMode, platform) => {
+    vi.stubGlobal('process', { ...process, platform });
     const root = await fs.mkdtemp(
       path.join(os.tmpdir(), 'export-publication-'),
     );
@@ -69,10 +104,10 @@ it.each(['single', 'perRow'] as const)(
         const tempFiles: string[] = [];
         const completed = vi.fn();
         await expect(
-          exportResourceContext.run(resources, () =>
+          publishExportOutput(outputPath, (stagingPath) => exportResourceContext.run(resources, () =>
             renderExportClipGroup({
               clips: [clip],
-              outputPath,
+              outputPath: stagingPath,
               renderClip: createPreparedClipRenderer(
                 payload,
                 new Map(),
@@ -89,7 +124,7 @@ it.each(['single', 'perRow'] as const)(
               onJoinProgress: vi.fn(),
               onCompleted: completed,
             }),
-          ),
+          )),
         ).rejects.toThrow('encoder failed');
         if (native) expect(native).toHaveBeenCalledTimes(1);
         expect(renderClipWithFfmpeg).toHaveBeenCalledTimes(1);
@@ -99,7 +134,7 @@ it.each(['single', 'perRow'] as const)(
           await expect(fs.stat(outputPath)).rejects.toMatchObject({
             code: 'ENOENT',
           });
-        expect(tempFiles).toEqual([path.join(root, 'temporary.mp4')]);
+        expect(tempFiles).toEqual(process.platform === 'win32' ? [] : [path.join(root, 'temporary.mp4')]);
         expect(completed).not.toHaveBeenCalled();
         expect(concatFiles).not.toHaveBeenCalled();
         await fs.rm(outputPath, { force: true });

@@ -54,7 +54,12 @@ it.each([
   },
 );
 
-it('uses the requested duration for a short dual-angle clip', async () => {
+it.each(['darwin', 'win32'])('uses the requested duration for a short dual-angle clip on %s', async (platform) => {
+  vi.stubGlobal('process', { ...process, platform });
+  vi.mocked(probeMedia).mockResolvedValue({
+    durationSeconds: 2, width: 160, height: 90, hasAudio: false,
+    frameRate: { numerator: 30, denominator: 1 },
+  });
   await runFfmpegDual({
     getFfmpegPath: () => '/synthetic-ffmpeg', mainSource: '/main.mp4', secondarySource: '/secondary.mp4',
     clip: { startTime: 0, endTime: 0.2, hasAudio: false }, outputPath: '/out.mp4',
@@ -62,4 +67,5 @@ it('uses the requested duration for a short dual-angle clip', async () => {
   });
   const args = vi.mocked(runWithOptionalProgress).mock.calls[0][1];
   expect(args.filter((arg) => arg === '0.2').length).toBeGreaterThanOrEqual(2);
+  if (platform === 'win32') expect(args[args.indexOf('-filter_complex') + 1]).toContain('fps=30/1');
 });
