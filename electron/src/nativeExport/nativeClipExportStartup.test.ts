@@ -66,6 +66,9 @@ it('does not enable unsigned development or other platforms', () => {
   vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
   expect(nativeClipExportProvider()).toBeUndefined();
   expect(resolveVerifiedNativeResources).not.toHaveBeenCalled();
+  expect(detectNativeExportCapability).not.toHaveBeenCalled();
+  expect(createMacClipExporter).not.toHaveBeenCalled();
+  expect(supportsHeldPublicationVolume).not.toHaveBeenCalled();
 });
 it('falls back when fixed signed resources cannot be verified', async () => {
   vi.mocked(resolveVerifiedNativeResources).mockRejectedValue(
