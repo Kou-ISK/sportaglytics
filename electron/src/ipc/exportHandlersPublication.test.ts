@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   dialog: vi.fn(),
   publishOverride: undefined as undefined | ((source: string, target: string) => Promise<void>),
   finishFailures: 0,
+  cleanupNoticeFailures: 0,
+  cleanupRecoveryFailures: 0,
   cancel: undefined as ((id: string) => string) | undefined,
   native: vi.fn(async (_request: { signal?: AbortSignal }) => ({
     status: 'fallback' as const,
@@ -35,6 +37,24 @@ vi.mock('./exportShutdownCoordinator', async (original) => {
 vi.mock('./exportExclusivePublish', async (original) => {
   const actual = await original<typeof import('./exportExclusivePublish')>();
   return { ...actual, publishExclusive: (source: string, target: string) => mocks.publishOverride ? mocks.publishOverride(source, target) : actual.publishExclusive(source, target) };
+});
+vi.mock('./exportOutputTransaction', async (original) => {
+  const actual = await original<typeof import('./exportOutputTransaction')>();
+  return { ...actual, publishExportOutput: (...args: Parameters<typeof actual.publishExportOutput>) => {
+    const [output, render, signal, commit, publish] = args;
+    if (mocks.cleanupNoticeFailures > 0 && commit) {
+      mocks.cleanupNoticeFailures--;
+      return actual.publishExportOutput(output, render, signal, {
+        ...commit,
+        cleanupFailed: () => { throw new Error('injected cleanup notice failure'); },
+        cleanupNotificationFailed: () => {
+          if (mocks.cleanupRecoveryFailures > 0) { mocks.cleanupRecoveryFailures--; throw new Error('injected cleanup recovery failure'); }
+          commit.cleanupNotificationFailed?.();
+        },
+      }, publish);
+    }
+    return actual.publishExportOutput(...args);
+  } };
 });
 vi.mock('electron', () => ({
   app: {
@@ -97,11 +117,51 @@ afterEach(async () => {
   mocks.native.mockClear();
   mocks.publishOverride = undefined;
   mocks.finishFailures = 0;
+  mocks.cleanupNoticeFailures = 0;
+  mocks.cleanupRecoveryFailures = 0;
   await Promise.all(
     roots
       .splice(0)
       .map((root) => fs.rm(root, { recursive: true, force: true })),
   );
+});
+
+it.each(['with-id', 'without-id'])('preserves saved success when the cleanup notification callback fails (%s)', async (variant) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'export-notice-recovery-')); roots.push(root);
+  mocks.cleanupNoticeFailures = 1;
+  mocks.native.mockImplementationOnce(async (request: { outputPath: string }) => {
+    await fs.writeFile(request.outputPath, 'complete');
+    return { status: 'completed' as const };
+  });
+  mocks.publishOverride = async (source, target) => {
+    await fs.link(source, target);
+    await fs.writeFile(path.join(path.dirname(source), 'unexpected'), 'fixture');
+  };
+  const handler = mocks.handlers.get('export-clips-with-overlay'); if (!handler) throw new Error('handler missing');
+  const result = await handler({} as never, { sourcePath: '/synthetic.mp4', outputDir: root, exportMode: 'perInstance', ...(variant === 'with-id' ? { progressId: 'notice-recovery' } : {}), clips: [{ id: 'one', actionName: 'A', startTime: 1, endTime: 3 }], overlay: { enabled: false, showActionName: false, showActionIndex: false, showLabels: false, showMemo: false } } as never);
+  const output = path.join(root, '001_A_angle1.mp4');
+  expect(result).toMatchObject({ success: true, publishedOutputs: [output], cleanupWarning: expect.stringContaining('保存されました'), retainedLocationUnknown: true });
+  expect(await fs.readFile(output, 'utf8')).toBe('complete');
+  expect(mocks.progress.mock.calls.some(([value]) => (value as { retainedLocationUnknown?: boolean }).retainedLocationUnknown === true)).toBe(true);
+});
+
+it.each(['with-id', 'without-id'])('reports the saved output and unknown retention when notification recovery also fails (%s)', async (variant) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'export-notice-double-failure-')); roots.push(root);
+  mocks.cleanupNoticeFailures = 1; mocks.cleanupRecoveryFailures = 1;
+  mocks.native.mockImplementationOnce(async (request: { outputPath: string }) => {
+    await fs.writeFile(request.outputPath, 'complete');
+    return { status: 'completed' as const };
+  });
+  mocks.publishOverride = async (source, target) => {
+    await fs.link(source, target);
+    await fs.writeFile(path.join(path.dirname(source), 'unexpected'), 'fixture');
+  };
+  const handler = mocks.handlers.get('export-clips-with-overlay'); if (!handler) throw new Error('handler missing');
+  const result = await handler({} as never, { sourcePath: '/synthetic.mp4', outputDir: root, exportMode: 'perInstance', ...(variant === 'with-id' ? { progressId: 'notice-double-failure' } : {}), clips: [{ id: 'one', actionName: 'A', startTime: 1, endTime: 3 }], overlay: { enabled: false, showActionName: false, showActionIndex: false, showLabels: false, showMemo: false } } as never);
+  const output = path.join(root, '001_A_angle1.mp4');
+  expect(result).toMatchObject({ success: false, error: expect.stringContaining('保存'), publishedOutputs: [output], retainedLocationUnknown: true });
+  expect(await fs.readFile(output, 'utf8')).toBe('complete');
+  expect(mocks.progress.mock.calls.some(([value]) => (value as { retainedLocationUnknown?: boolean }).retainedLocationUnknown === true)).toBe(true);
 });
 
 it('reports VideoToolbox failure through Main progress and result without diagnostic paths', async () => {

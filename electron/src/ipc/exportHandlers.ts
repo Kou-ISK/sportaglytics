@@ -164,6 +164,10 @@ export const registerExportHandlers = ({
           if (record) retainedCopy = [...new Map([...(retainedCopy ?? []), record].map((entry) => [entry.id, entry])).values()];
           else retainedLocationUnknown = true;
         },
+        cleanupNotificationFailed: () => {
+          stagingCleanupFailed = true;
+          retainedLocationUnknown = true;
+        },
         callbackFailed: () => {
           commitCallbackFailed = true;
           if (!publishedOutputs.includes(outputPath)) { published++; publishedOutputs.push(outputPath); }

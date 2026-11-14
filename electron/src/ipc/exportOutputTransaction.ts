@@ -10,7 +10,7 @@ import {
 } from './exportExclusivePublish';
 
 export class PostCommitRecoveryError extends Error {
-  constructor() { super('出力は保存されましたが、完了状態を復旧できないため処理を停止しました'); this.name = 'PostCommitRecoveryError'; }
+  constructor(readonly originalError?: unknown) { super('出力は保存されましたが、完了状態を復旧できないため処理を停止しました'); this.name = 'PostCommitRecoveryError'; }
 }
 
 /** Publish only a completed output, without replacing a file created by another job. */
@@ -23,6 +23,7 @@ export const publishExportOutput = async (
     finish: (success: boolean) => void;
     cleanupFailed?: (record?: RetainedExportDirectory) => void;
     callbackFailed?: () => void;
+    cleanupNotificationFailed?: () => void;
   },
   publish: typeof publishExclusive = publishExclusive,
 ): Promise<void> => {
@@ -37,6 +38,23 @@ export const publishExportOutput = async (
   let hasPrimaryError = false;
   let primaryError: unknown;
   let retained: Awaited<ReturnType<typeof describeExportStaging>> | undefined;
+  const notifyCleanupFailure = (record?: RetainedExportDirectory): void => {
+    try {
+      if (!commit?.cleanupFailed) throw new Error('Cleanup notification unavailable');
+      commit.cleanupFailed(record);
+    } catch (error) {
+      if (hasPrimaryError) { rememberRetained(primaryError); return; }
+      if (!committed) throw error;
+      try {
+        if (!commit?.cleanupNotificationFailed) throw error;
+        commit.cleanupNotificationFailed();
+      } catch (recoveryError) {
+        const failure = new PostCommitRecoveryError(recoveryError);
+        rememberRetained(failure);
+        throw failure;
+      }
+    }
+  };
   try {
     retained = await describeExportStaging(directory, 'final-staging');
     await render(stagingPath);
@@ -60,8 +78,9 @@ export const publishExportOutput = async (
     }
     committed = true;
     try { commit?.finish(true); }
-    catch {
-      try { commit?.callbackFailed?.(); } catch { throw new PostCommitRecoveryError(); }
+    catch (caught) {
+      if (!commit?.callbackFailed) throw new PostCommitRecoveryError(caught);
+      try { commit.callbackFailed(); } catch (error) { throw new PostCommitRecoveryError(error); }
       console.warn('[export] Publication succeeded but completion callback failed');
     }
   } catch (caught) {
@@ -80,8 +99,7 @@ export const publishExportOutput = async (
     throw error;
   } finally {
     if (uncertain || retainCopy) {
-      try { commit?.cleanupFailed?.(retained ? { ...retained, reason: 'retained-after-failure' } : undefined); }
-      catch (error) { if (!hasPrimaryError) throw error; }
+      notifyCleanupFailure(retained ? { ...retained, reason: 'retained-after-failure' } : undefined);
     } else {
       let cleanupFailed = false;
       await fs.unlink(stagingPath).catch((error: NodeJS.ErrnoException) => {
@@ -102,8 +120,7 @@ export const publishExportOutput = async (
       if (cleanupFailed && hasPrimaryError)
         rememberRetained(primaryError, retained ? { ...retained, reason: 'cleanup-failed' } : undefined);
       if (cleanupFailed) {
-        try { commit?.cleanupFailed?.(retained ? { ...retained, reason: 'cleanup-failed' } : undefined); }
-        catch (error) { if (!hasPrimaryError) throw error; }
+        notifyCleanupFailure(retained ? { ...retained, reason: 'cleanup-failed' } : undefined);
       }
       if (cleanupFailed && !committed && !hasPrimaryError)
         throw new Error('Export staging cleanup failed');
