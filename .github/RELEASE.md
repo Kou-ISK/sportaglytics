@@ -2,6 +2,12 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.24の書き出し・逆再生修正候補
+
+PR #273と必要な版準備をdevelopへ先行統合し、PR #274のARCH-EX-008に従ってmain基点の限定release PRへ取り込みます。未公開event model方針・catalog・lockはmainへ含めません。0.17.24、最終main SHA、未使用tagを照合し、既存workflowを`include_windows=false`で実行します。Windows互換CIは維持し、既存Windows配布物を置換しません。明示的な本人の既存PR統合・リリース指示に基づく準備であり、未実施の実機検査を合格扱いしません。
+
+今回の署名済みrevision 9 hostとdescriptor publicationは同一配布物で検査します。publish=falseでもAppleへの署名アプリ送信を含みます。署名・公証・登録済み配布物E2E・hashの必須ゲートを省略せず、失敗なら公開しません。実機の二画面境界・重い原本の滑らかさ・短尺VideoToolbox・実聴取の残件はRelease noteへ明記します。過去候補の成功を今回の受入へ流用しません。
+
 ## 0.17.23の限定修正候補
 
 署名済み0.17.22のIntel runnerでは、ハードウェア必須のVideoToolbox encoderが利用できず書き出しが失敗しました。オフライン書き出しでソフトウェアを許可する修正を0.17.23に含め、[ARCH-EX-007](../docs/architecture-exceptions.md)に従い未公開モデル方針を混ぜずに準備します。既存tagを変更せず、Intel・arm64の署名済み候補の検証と未確認範囲を確認します。
