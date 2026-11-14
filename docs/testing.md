@@ -378,8 +378,6 @@ Native snapshot通知は`nativeSnapshotDelivery.test.ts`で1万更新時の有�
 
 ### Native clip export
 
-`exportNotificationRecovery.test.ts` と `exportHandlersPublication.test.ts` は、保存後の cleanup 通知とその復旧が失敗した場合も保存済み出力と元エラーを区別することを確認します。Main 結合は sender と進捗表示を模擬し、実 GUI やパス差し替えに対する削除安全性の証明には使いません。
-
 [native-export.md](native-export.md#検証入口と限界)のunit/process所有権と実媒体境界検証を行います。`exportClipGroup.test.ts`はsingleと1clip perRowの最終保存先をnative所有範囲へ渡し、取消後に再コピーせず、複数clipは従来の連結経路を維持することを確認します。providerの繰返しQuit保留、helper/probeの終了待ち、保存先stagingからの非上書き公開を回帰検査します。receipt/metadataと出力品質合格は別で、対応範囲の画像・提示PCM、描画fallback、署名済み通常providerと配布物を確認します。実聴取と全playerのedit list互換性は自動照合の結果から推定しません。
 
 Apple再生の入力資格は`nativeSourceProfile.test.ts` / `nativeSourceAccess.test.ts`で先頭・音声/映像末尾差・metadata/source変更を確認します。実機では同一原本で停止再開、中間/終盤seek、既存原本復帰を直列検証し、背景負荷と終了receiptを残します。独自PCM窓の旧検査はAVPlayerの実出力検証として流用せず、有限の画像所有数と時刻連続性を検証します。
@@ -397,3 +395,7 @@ Native runtimeのmacOS変更では`pnpm run test:native-runtime`を追加実行�
 自動nativeの負例は表示準備の順序、同一URLの登録置換、失敗後の無限再試行防止、cache切替時のdrainを含めます。配布は署名metadata欠落・wrong team/identifier・改変・symlinkを拒否し、最終実署名artifactで自動open/停止再開/fallback/終了を確認します。既存unsignedの成功は署名済みartifactの代替証拠ではありません。
 
 Native供給回復は`ProductSupplyRecovery.test.cpp`を`test:native-runtime`で実行し、fractional停止時計・映像/音声reserve・旧画像ACK・停止未確認・期限・累積時間予算・取消を確認します。映像のみの10ms未満の不足猶予と、音声不足・原本時刻/連続経過時間上限では猶予しないこと、3回目の短い回復を回数だけで拒否しないことを確認します。Main/Renderer回帰ではbuffering契約、再開時の逆行、未完了seek、pause、新seek、heartbeat/音量変更での期限延長拒否を検査します。実helperの停止/補充/再開と実原本の画面確認は別で、unit成功から待機なしとは判定しません。
+
+### Native export ownership
+
+The held-publication regression suite distinguishes real macOS descriptor-clone fixtures, mocked child lifecycle tests and Main-handler tests with mock transport. Exercise replacement before final publication, collisions, late cancellation, missing receipts, unsupported capabilities, unknown cleanup entries and retained partial output notification. No test success here establishes hostile same-UID isolation or Windows/external-volume acceptance. See [ADR 0084](adr/0084-held-export-publication.md).

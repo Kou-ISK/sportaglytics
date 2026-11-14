@@ -19,3 +19,10 @@ it('does not reinterpret errors or an unsupported response from a new host as le
   vi.mocked(runNativeCapabilityProbe).mockRejectedValue(Object.assign(new Error('unsupported'), { exitCode: 64 }));
   await expect(detectNativeExportCapability('host', 9)).rejects.toThrow('could not be verified');
 });
+
+it('requires an explicit held-publication capability rather than inferring it from revision', async () => {
+  vi.mocked(runNativeCapabilityProbe).mockResolvedValue('{"version":2,"protocols":[1,2],"budgetFields":["maxOutputBytes","deadlineSeconds"],"publication":"held-clone-v1"}');
+  expect(await detectNativeExportCapability('host', 9)).toBe('budget-v2-held');
+  vi.mocked(runNativeCapabilityProbe).mockResolvedValue('{"version":2,"protocols":[1,2],"budgetFields":["maxOutputBytes","deadlineSeconds"],"publication":"unknown"}');
+  await expect(detectNativeExportCapability('host', 9)).rejects.toThrow('Invalid native export capability');
+});

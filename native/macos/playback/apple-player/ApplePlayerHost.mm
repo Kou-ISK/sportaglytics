@@ -260,9 +260,11 @@ struct OutputDisconnected {};
 int main(int argc, const char **argv) {
   @autoreleasepool {
     if (argc == 2 && !strcmp(argv[1], "--clip-export-capabilities")) {
-      const char *capabilities = "{\"version\":1,\"protocols\":[1,2],\"budgetFields\":[\"maxOutputBytes\",\"deadlineSeconds\"]}\n";
+      const char *capabilities = "{\"version\":2,\"protocols\":[1,2],\"budgetFields\":[\"maxOutputBytes\",\"deadlineSeconds\"],\"publication\":\"held-clone-v1\"}\n";
       return fputs(capabilities, stdout) >= 0 ? 0 : 1;
     }
+    if (argc == 2 && !strcmp(argv[1], "--held-publication-volume")) return runHeldPublicationVolume();
+    if (argc > 1 && !strcmp(argv[1], "--publish-held-v1")) return runHeldPublish(argc, argv);
     if (argc > 1 && !strcmp(argv[1], "--publish-exclusive")) return runExclusivePublish(argc, argv);
     if (argc == 3 && !strcmp(argv[1], "--export-clip")) {
       @try { return runAppleClipExport(argv[2]); }

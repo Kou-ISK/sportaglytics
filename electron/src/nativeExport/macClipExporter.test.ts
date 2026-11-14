@@ -1,8 +1,10 @@
 // @vitest-environment node
+vi.mock('electron', () => ({ app: { isPackaged: false } }));
 import { afterEach, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { createMacClipExporter } from './macClipExporter';
 import { NativeExportCancelled } from './nativeExportProcess';
 import { nativeMinimumFreeBytes } from './nativeCapacityPolicy';
@@ -21,7 +23,7 @@ vi.mock('../ipc/exportExclusivePublish', async (original) => {
 });
 vi.mock('node:fs/promises', async (original) => {
   const actual = await original<typeof import('node:fs/promises')>();
-  return { ...actual, copyFile: vi.fn(actual.copyFile), rm: vi.fn(actual.rm) };
+  return { ...actual, copyFile: vi.fn(actual.copyFile), rm: vi.fn(actual.rm), rmdir: vi.fn(actual.rmdir), unlink: vi.fn(actual.unlink) };
 });
 const directories: string[] = [];
 afterEach(async () => {
@@ -109,6 +111,31 @@ it('publishes only after independent admission, retains source, and removes stag
   expect(await fs.readFile(request.sourcePath, 'utf8')).toBe('original');
   expect(await fs.readFile(request.outputPath, 'utf8')).toBe('candidate');
   expect(qualify).toHaveBeenCalledOnce();
+  await expect(fs.stat(staging)).rejects.toThrow();
+});
+it('retains a staging directory when it contains an unexpected entry', async () => {
+  const request = await setup();
+  let staging = '';
+  const run = async (binary: string, manifest: string): Promise<string> => {
+    staging = path.dirname(manifest);
+    directories.push(staging);
+    const receipt = await completed(binary, manifest);
+    await fs.writeFile(path.join(staging, 'unexpected.txt'), 'do not delete');
+    return receipt;
+  };
+  await expect(createMacClipExporter({ executable: 'helper', run, qualify: async () => true })(request)).rejects.toThrow('unknown entry');
+  expect(await fs.readFile(path.join(staging, 'unexpected.txt'), 'utf8')).toBe('do not delete');
+});
+it('allows the real control-pipe file type while cleaning a completed export', async () => {
+  const request = await setup();
+  let staging = '';
+  const run = async (binary: string, manifest: string, options?: { onControlIdentity?: (stat: import('node:fs').BigIntStats) => void }): Promise<string> => {
+    staging = path.dirname(manifest);
+    execFileSync('/usr/bin/mkfifo', [path.join(staging, 'control.fifo')]);
+    options?.onControlIdentity?.(await fs.lstat(path.join(staging, 'control.fifo'), { bigint: true }));
+    return completed(binary, manifest);
+  };
+  expect(await createMacClipExporter({ executable: 'helper', run, qualify: async () => true })(request)).toEqual({ status: 'completed' });
   await expect(fs.stat(staging)).rejects.toThrow();
 });
 it('completion alone cannot publish', async () => {
@@ -268,7 +295,7 @@ it('preserves an indeterminate result even if native temporary cleanup fails', a
   const failure = new IndeterminatePublicationError();
   vi.mocked(publishExclusive).mockRejectedValueOnce(failure);
   let retained = '';
-  vi.mocked(fs.rm).mockImplementationOnce(async (name) => {
+  vi.mocked(fs.rmdir).mockImplementationOnce(async (name) => {
     retained = String(name);
     throw new Error('cleanup failure');
   });
@@ -450,4 +477,36 @@ it('rejects an unsupported receipt with an unknown reason or extra data', async 
     const exporter = createMacClipExporter({ executable: 'helper', qualify: async () => true, run: async () => JSON.stringify(receipt) });
     await expect(exporter(request)).rejects.toThrow('Invalid native export receipt');
   }
+});
+
+it('retains a late unknown native entry through outer transaction failure and notifies cleanup', async () => {
+  const request = await setup();
+  const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+  const cleanupFailed = vi.fn();
+  let unknownFile = '';
+  vi.mocked(fs.unlink).mockImplementation(async (target) => {
+    const name = String(target);
+    const directory = path.dirname(name);
+    if (!unknownFile && path.basename(directory).startsWith('sportaglytics-native-export-')) {
+      unknownFile = path.join(directory, 'late-unrelated-fixture');
+      directories.push(directory);
+      await actual.writeFile(unknownFile, 'preserve');
+    }
+    await actual.unlink(target);
+  });
+  const exporter = createMacClipExporter({ executable: 'helper', run: completed, qualify: async () => true });
+  const error: unknown = await publishExportOutput(
+    request.outputPath,
+    async (stagingPath) => { await exporter({ ...request, outputPath: stagingPath }); },
+    undefined,
+    { begin: vi.fn(), finish: vi.fn(), cleanupFailed },
+  ).catch((caught: unknown) => caught);
+  expect(error).toMatchObject({ code: 'ENOTEMPTY' });
+  expect(await actual.readFile(unknownFile, 'utf8')).toBe('preserve');
+  expect(await actual.readFile(request.sourcePath, 'utf8')).toBe('original');
+  await expect(actual.lstat(request.outputPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  expect(retainedFor(error).directories.map((record) => record.purpose)).toEqual(
+    expect.arrayContaining(['native-temp', 'final-staging']),
+  );
+  expect(cleanupFailed).toHaveBeenCalledTimes(1);
 });

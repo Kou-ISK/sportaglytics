@@ -1,4 +1,5 @@
 // @vitest-environment node
+vi.mock('electron', () => ({ app: { isPackaged: false } }));
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -24,7 +25,7 @@ afterEach(async () => {
 });
 
 it.each(['startup failure', 'partial failure', 'cancel'])(
-  'does not publish or leave staging output after %s',
+  'does not publish after %s and retains unconfirmed partial data',
   async (failure) => {
     const root = await createRoot();
     const output = path.join(root, 'output.mp4');
@@ -35,7 +36,14 @@ it.each(['startup failure', 'partial failure', 'cancel'])(
         throw new Error(failure);
       }),
     ).rejects.toThrow(failure);
-    expect(await fs.readdir(root)).toEqual([]);
+    await expect(fs.lstat(output)).rejects.toMatchObject({ code: 'ENOENT' });
+    const entries = await fs.readdir(root);
+    if (failure === 'startup failure') expect(entries).toEqual([]);
+    else {
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatch(/^\.sportag-export-/);
+      expect(await fs.readFile(path.join(root, entries[0], 'output.mp4'), 'utf8')).toBe(failure === 'cancel' ? '' : 'partial');
+    }
   },
 );
 
@@ -83,7 +91,11 @@ it('keeps completed individual outputs when a later output fails', async () => {
     }),
   ).rejects.toThrow('failed');
   expect(await fs.readFile(first, 'utf8')).toBe('first');
-  expect(await fs.readdir(root)).toEqual(['first.mp4']);
+  const entries = await fs.readdir(root);
+  expect(entries.filter((name) => !name.startsWith('.sportag-export-'))).toEqual(['first.mp4']);
+  const stages = entries.filter((name) => name.startsWith('.sportag-export-'));
+  expect(stages).toHaveLength(1);
+  expect(await fs.readFile(path.join(root, stages[0], 'output.mp4'), 'utf8')).toBe('partial');
 });
 
 it('does not publish an empty output', async () => {
@@ -106,7 +118,11 @@ it('rejects a staging symlink without modifying its target', async () => {
     }),
   ).rejects.toThrow('complete output');
   expect(await fs.readFile(target, 'utf8')).toBe('protected');
-  expect(await fs.readdir(root)).toEqual(['protected.mp4']);
+  const entries = await fs.readdir(root);
+  expect(entries.filter((name) => !name.startsWith('.sportag-export-'))).toEqual(['protected.mp4']);
+  const stages = entries.filter((name) => name.startsWith('.sportag-export-'));
+  expect(stages).toHaveLength(1);
+  expect((await fs.lstat(path.join(root, stages[0], 'output.mp4'))).isSymbolicLink()).toBe(true);
 });
 
 it('allows only one concurrent transaction to publish the same name', async () => {

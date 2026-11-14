@@ -477,3 +477,7 @@ Native表示は既存PlayerSurface・overlay・全画面要素を共有します
 ### Native export候補
 
 対応する単一角度・合成なし区間は[条件付きApple passthrough](native-export.md)で再圧縮を避けます。合成・連結・未確認形式は既存経路を維持し、独立metadata検査と原本不変・非上書き公開を必要とします。確認済み音声選択をsourceごとに同期し、未確定選択や複数angleの競合を別sourceへ流用しません。
+
+### Held native export publication
+
+The native v2 single-cut candidate can transfer its qualified descriptor directly to the enclosing Main output transaction. The capability and lifetime contract, including platform limitations and retained partial outputs, is described in [ADR 0084](adr/0084-held-export-publication.md). The lease is internal to Main and adds no renderer IPC authority.

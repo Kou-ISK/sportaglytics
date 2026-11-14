@@ -1,8 +1,11 @@
 import { normalizeExportError, rememberRetained, transferRetained } from '../ipc/exportRetainedRecords';
+import { offerExportPublication } from '../ipc/exportPublicationLease';
 import { exportResourceContext } from '../ipc/exportResourceContext';
 import { copyWithBudget, ExportCopyIncomplete } from '../ipc/exportBoundedCopy';
 import * as fs from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
 import { constants } from 'node:fs';
+import type { BigIntStats } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
@@ -12,6 +15,7 @@ import {
 } from '../ipc/exportExclusivePublish';
 import { NativeExportUnknownFailure } from './nativeClipExport';
 import { nativeMinimumFreeBytes } from './nativeCapacityPolicy';
+import { removeKnownEntries } from './removeKnownEntries';
 import type {
   NativeClipExporter,
   NativeClipExportRequest,
@@ -51,11 +55,14 @@ const isReceipt = (
 
 interface MacClipExporterOptions {
   executable: string;
+  /** Signature-verified host publication; descriptor ownership stays with the transaction. */
+  stablePublish?: (fd: number, target: string, signal?: AbortSignal) => Promise<void>;
   /** Required independent admission. Completion/metadata alone cannot qualify pixels or audio. */
   qualify: (
     candidatePath: string,
     request: NativeClipExportRequest,
     receipt: NativeExportReceipt,
+    candidateFd?: number,
   ) => Promise<boolean>;
   run?: typeof runNativeExportProcess;
   /** Main must verify helper capability and establish the v2 resource context. */
@@ -69,6 +76,8 @@ const revision = async (file: string): Promise<string> => {
     throw Error('Regular export source required');
   return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
 };
+const candidateIdentity = (stat: BigIntStats): string =>
+  [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
 
 /** Main-owned exact-range candidate. Failed optimization never publishes output. */
 export const createMacClipExporter =
@@ -78,6 +87,7 @@ export const createMacClipExporter =
     run = runNativeExportProcess,
     experimentalBudget,
     expectedSourceRevision,
+    stablePublish,
   }: MacClipExporterOptions): NativeClipExporter =>
   async (request) => {
     const assertActive = (): void => {
@@ -126,6 +136,14 @@ export const createMacClipExporter =
     let publicationUncertain = false;
     let retainUnknown = false;
     let publicationError: IndeterminatePublicationError | undefined;
+    let candidateHandle: FileHandle | undefined;
+    let transferred = false;
+    const ownedEntries = new Map<string, { device: string; inode: string }>();
+    const rememberEntry = (name: string, stat: BigIntStats): void => {
+      ownedEntries.set(name, { device: String(stat.dev), inode: String(stat.ino) });
+    };
+    let admittedCandidateIdentity: string | undefined;
+    let primaryError: object | undefined;
     let nativeTemp:
       | Awaited<ReturnType<typeof describeExportStaging>>
       | undefined;
@@ -137,8 +155,9 @@ export const createMacClipExporter =
       );
       const candidate = path.join(directory, experimentalBudget ? 'clip.mp4' : 'candidate.mp4');
       const manifest = path.join(directory, 'request.json');
-      await fs.writeFile(
-        manifest,
+      const manifestHandle = await fs.open(manifest, 'wx');
+      try {
+      await manifestHandle.writeFile(
         JSON.stringify({
           version,
           source: request.sourcePath,
@@ -149,13 +168,15 @@ export const createMacClipExporter =
           maxOutputBytes,
           ...(experimentalBudget ? { deadlineSeconds: experimentalBudget.deadlineSeconds } : {}),
         }),
-        { flag: 'wx' },
       );
+      rememberEntry('request.json', await manifestHandle.stat({ bigint: true }));
+      } finally { await manifestHandle.close(); }
       let receipt: unknown;
       try {
         receipt = JSON.parse(
           await run(executable, manifest, {
             signal: request.signal,
+            onControlIdentity: (stat) => rememberEntry('control.fifo', stat),
             outputPath: candidate,
             maxOutputBytes,
             ...(experimentalBudget && resources ? { minimumFreeBytes: resources.minFreeBytes } : {}),
@@ -206,13 +227,20 @@ export const createMacClipExporter =
       let qualified = false;
       let admissionError: unknown;
       try {
-        const output = await fs.lstat(candidate);
+        if (experimentalBudget) {
+          if (!Number.isSafeInteger(constants.O_NOFOLLOW) || constants.O_NOFOLLOW <= 0)
+            throw new Error('Stable candidate open is not supported');
+          candidateHandle = await fs.open(candidate, constants.O_RDONLY | constants.O_NOFOLLOW);
+          admittedCandidateIdentity = candidateIdentity(await candidateHandle.stat({ bigint: true }));
+        }
+        const output = candidateHandle ? await candidateHandle.stat() : await fs.lstat(candidate);
+        rememberEntry(experimentalBudget ? 'clip.mp4' : 'candidate.mp4', candidateHandle ? await candidateHandle.stat({ bigint: true }) : await fs.lstat(candidate, { bigint: true }));
         qualified =
           output.isFile() &&
           !output.isSymbolicLink() &&
           output.size > 0 &&
           output.size <= maxOutputBytes &&
-          (await qualify(candidate, request, receipt));
+          (await qualify(candidate, request, receipt, candidateHandle?.fd));
       } catch (error) {
         // A missing/partial candidate or failed metadata probe is an
         // optimization failure. Source mutation/cancellation below remain fatal.
@@ -231,8 +259,46 @@ export const createMacClipExporter =
         // Only publish a complete qualified file; the outer transaction owns the
         // final name and remains responsible for commit and cancellation.
         assertActive();
+        if (stablePublish && candidateHandle && nativeTemp) {
+          const held = candidateHandle;
+          const record = nativeTemp;
+          transferred = offerExportPublication(request.outputPath, {
+            publish: async (target) => {
+              if (candidateIdentity(await held.stat({ bigint: true })) !== admittedCandidateIdentity)
+                throw new NativeExportUnknownFailure(undefined, 'Native candidate changed after qualification');
+              await stablePublish(held.fd, target);
+              try {
+                if (candidateIdentity(await held.stat({ bigint: true })) !== admittedCandidateIdentity)
+                  throw new Error('Native candidate changed during publication');
+              } catch (cause) {
+                const error = Object.assign(new IndeterminatePublicationError(), { cause });
+                error.retain(record);
+                throw error;
+              }
+            },
+            release: async (committed) => {
+              try { await held.close(); }
+              catch { return { ...record, reason: 'cleanup-failed', writerStatus: 'unknown' }; }
+              if (!committed) return { ...record, reason: 'retained-after-failure' };
+              try {
+                if (candidateIdentity(await fs.lstat(candidate, { bigint: true })) !== admittedCandidateIdentity)
+                  return { ...record, reason: 'cleanup-failed' };
+                await removeKnownEntries(directory, record, new Set(['request.json', 'clip.mp4']), new Set(['control.fifo']), ownedEntries);
+                return undefined;
+              } catch { return { ...record, reason: 'cleanup-failed' }; }
+            },
+          });
+          if (transferred) return { status: 'completed' };
+        }
         try {
-          await publishExclusive(candidate, request.outputPath);
+          if (stablePublish && candidateHandle) {
+            await stablePublish(candidateHandle.fd, request.outputPath, request.signal);
+            // Detection only: a matching pathname does not provide atomic identity.
+            const held = candidateIdentity(await candidateHandle.stat({ bigint: true }));
+            const entry = candidateIdentity(await fs.lstat(candidate, { bigint: true }));
+            if (held !== admittedCandidateIdentity || entry !== admittedCandidateIdentity)
+              throw new NativeExportUnknownFailure(undefined, 'Native candidate changed after qualification');
+          } else await publishExclusive(candidate, request.outputPath);
         } catch (error) {
           if (error instanceof IndeterminatePublicationError) {
             publicationUncertain = true;
@@ -253,6 +319,7 @@ export const createMacClipExporter =
       );
       let uncertain = false;
       let retainCopy = false;
+      const ownedPublication = new Map<string, { device: string; inode: string }>();
       let publicationRecord: Awaited<ReturnType<typeof describeExportStaging>> | undefined;
       try {
         const retained = await describeExportStaging(
@@ -277,6 +344,8 @@ export const createMacClipExporter =
           }
           throw error;
         }
+        const stagedIdentity = await fs.lstat(staged, { bigint: true });
+        ownedPublication.set('clip.mp4', { device: String(stagedIdentity.dev), inode: String(stagedIdentity.ino) });
         if (before !== (await revision(request.sourcePath)))
           throw Error('Export source changed during publication');
         assertActive();
@@ -319,7 +388,9 @@ export const createMacClipExporter =
         throw error;
       } finally {
         if (!uncertain && !retainCopy) {
-          try { await fs.rm(publication, { recursive: true, force: true }); }
+          try {
+            await removeKnownEntries(publication, publicationRecord, new Set(['clip.mp4']), new Set(), ownedPublication);
+          }
           catch (caught) {
             const error = normalizeExportError(caught);
             rememberRetained(error, publicationRecord ? { ...publicationRecord, reason: 'cleanup-failed' } : undefined);
@@ -330,15 +401,28 @@ export const createMacClipExporter =
       return { status: 'completed' };
     } catch (caught) {
       const error = normalizeExportError(caught);
+      primaryError = error;
       if (!publicationUncertain) {
         retainUnknown = true;
         rememberRetained(error, nativeTemp ? { ...nativeTemp, reason: 'retained-after-failure' } : undefined);
       }
       throw error;
     } finally {
+      if (!transferred) {
       // run resolves/rejects after process close, so it no longer owns this directory.
+      let handleCloseError: object | undefined;
       try {
-        if (!retainUnknown) await fs.rm(directory, { recursive: true, force: true });
+        await candidateHandle?.close();
+      } catch (caught) {
+        retainUnknown = true;
+        const error = primaryError ?? normalizeExportError(caught);
+        rememberRetained(error, nativeTemp ? { ...nativeTemp, reason: 'cleanup-failed' } : undefined);
+        if (!primaryError) handleCloseError = error;
+      }
+      try {
+        if (!retainUnknown) {
+          await removeKnownEntries(directory, nativeTemp, new Set(['request.json', experimentalBudget ? 'clip.mp4' : 'candidate.mp4']), new Set(['control.fifo']), ownedEntries);
+        }
       } catch (caught) {
         const error = normalizeExportError(caught);
         if (!publicationUncertain) {
@@ -349,6 +433,8 @@ export const createMacClipExporter =
         console.warn(
           '[export] Native temporary cleanup failed after uncertain publication',
         );
+      }
+      if (handleCloseError) throw handleCloseError;
       }
     }
   };

@@ -67,3 +67,44 @@ inline int runExclusivePublish(int argc, const char **argv) {
   if (saved == ENOTSUP || saved == EOPNOTSUPP || saved == EXDEV) return 78;
   return 74;
 }
+
+// Versioned descriptor-only publication. FDs are inherited from Main, never
+// reconstructed through /dev/fd or a source pathname. clone is exclusive and
+// copy-on-write on supported volumes; unsupported volumes fail before fallback.
+#include <sys/clonefile.h>
+inline int runHeldPublish(int argc, const char **argv) {
+  if (argc != 3) return 64;
+  const char *target = argv[2];
+  if (!target || !*target || strlen(target) > 255 || strchr(target, '/') ||
+      !strcmp(target, ".") || !strcmp(target, "..")) return 64;
+  struct stat source{}, parent{};
+  if (fstat(3, &source) || fstat(4, &parent) || !S_ISREG(source.st_mode) ||
+      source.st_size <= 0 || !S_ISDIR(parent.st_mode)) return 74;
+  if (fclonefileat(3, 4, target, 0) == 0) {
+    // Success means the exclusive OS operation completed. A lost receipt must
+    // be treated as uncertain by Main, not retried or removed by pathname.
+    return write(STDOUT_FILENO, "HELD1:OK\n", 9) == 9 ? 0 : 75;
+  }
+  if (errno == EEXIST || errno == ENOTEMPTY) return 73;
+  if (errno == ENOTSUP || errno == EOPNOTSUPP || errno == EXDEV) return 78;
+  // No claim about a partially visible destination for other OS errors.
+  return 75;
+}
+
+#include <sys/mount.h>
+#include <sys/attr.h>
+inline int runHeldPublicationVolume() {
+  struct stat identity{};
+  struct statfs volume{};
+  if (fstat(3, &identity) || !S_ISDIR(identity.st_mode) || fstatfs(3, &volume)) return 74;
+  struct attrlist attributes{};
+  attributes.bitmapcount = ATTR_BIT_MAP_COUNT;
+  attributes.volattr = ATTR_VOL_INFO | ATTR_VOL_CAPABILITIES;
+  struct { uint32_t length; vol_capabilities_attr_t value; } capabilities{};
+  if (fgetattrlist(3, &attributes, &capabilities, sizeof(capabilities), 0) ||
+      capabilities.length != sizeof(capabilities)) return 74;
+  const bool clone = (capabilities.value.valid[VOL_CAPABILITIES_INTERFACES] & VOL_CAP_INT_CLONE) &&
+    (capabilities.value.capabilities[VOL_CAPABILITIES_INTERFACES] & VOL_CAP_INT_CLONE);
+  const char *result = !strcmp(volume.f_fstypename, "apfs") && clone ? "HELD1:APFS\n" : "HELD1:UNSUPPORTED\n";
+  return write(STDOUT_FILENO, result, strlen(result)) == static_cast<ssize_t>(strlen(result)) ? 0 : 75;
+}

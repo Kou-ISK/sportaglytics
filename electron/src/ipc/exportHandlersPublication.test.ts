@@ -102,6 +102,14 @@ import { IndeterminatePublicationError } from './exportExclusivePublish';
 import { rememberRetained } from './exportRetainedRecords';
 import { FfmpegExecutionError } from './exportFfmpegProcess';
 const roots: string[] = [];
+const expectRetainedStage = async (root: string, content: string): Promise<string> => {
+  const stages = (await fs.readdir(root)).filter((name) => name.startsWith('.sportag-export-'));
+  expect(stages).toHaveLength(1);
+  const directory = path.join(root, stages[0]);
+  expect(await fs.readFile(path.join(directory, 'output.mp4'), 'utf8')).toBe(content);
+  return directory;
+};
+
 beforeAll(() =>
   registerExportHandlers({
     getMainWindow: () => null,
@@ -124,6 +132,31 @@ afterEach(async () => {
       .splice(0)
       .map((root) => fs.rm(root, { recursive: true, force: true })),
   );
+});
+
+it('reports a saved output and unknown retained location when fail-closed staging is replaced', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'export-retain-main-')); roots.push(root);
+  const other = path.join(root, 'other'); await fs.mkdir(other); await fs.writeFile(path.join(other, 'output.mp4'), 'other');
+  mocks.native.mockImplementationOnce(async (request: { outputPath: string }) => {
+    await fs.writeFile(request.outputPath, 'complete');
+    return { status: 'completed' as const };
+  });
+  let replaced = '';
+  mocks.publishOverride = async (source, target) => {
+    await fs.link(source, target);
+    replaced = path.dirname(source);
+    await fs.rename(replaced, `${replaced}.owned`);
+    await fs.rename(other, replaced);
+  };
+  const handler = mocks.handlers.get('export-clips-with-overlay'); if (!handler) throw new Error('handler missing');
+  const result = await handler({} as never, { sourcePath: '/synthetic.mp4', outputDir: root, exportMode: 'perInstance', progressId: 'retained-main', clips: [{ id: 'one', actionName: 'A', startTime: 1, endTime: 3 }], overlay: { enabled: false, showActionName: false, showActionIndex: false, showLabels: false, showMemo: false } } as never);
+  const output = path.join(root, '001_A_angle1.mp4');
+  expect(result).toMatchObject({ success: true, publishedOutputs: [output], cleanupWarning: expect.stringContaining('保存されました'), retainedLocationUnknown: true });
+  expect(await fs.readFile(output, 'utf8')).toBe('complete');
+  expect(await fs.readFile(path.join(replaced, 'output.mp4'), 'utf8')).toBe('other');
+  expect(await fs.readFile(path.join(`${replaced}.owned`, 'output.mp4'), 'utf8')).toBe('complete');
+  expect(mocks.progress.mock.calls.some(([value]) => (value as { retainedLocationUnknown?: boolean }).retainedLocationUnknown === true)).toBe(true);
+  expect(mocks.progress.mock.calls.some(([value]) => (value as { status?: string; message?: string }).status === 'completed' && (value as { message?: string }).message?.includes('保存されました'))).toBe(true);
 });
 
 it.each(['with-id', 'without-id'])('preserves saved success when the cleanup notification callback fails (%s)', async (variant) => {
@@ -248,7 +281,7 @@ it.each(['darwin', 'win32'])('does not report completion when final publication 
   expect(states.at(-1)?.status).toBe('failed');
 });
 
-it('runs the real IPC per-instance route, preserves completed clips and removes the failed fallback output', async () => {
+it('runs the real IPC per-instance route, preserves completed clips and reports the unconfirmed failed fallback output', async () => {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), 'export-ipc-transaction-'),
   );
@@ -285,14 +318,16 @@ it('runs the real IPC per-instance route, preserves completed clips and removes 
   const result = await handler({} as never, payload as never);
   expect(result).toMatchObject({ success: false });
   const names = (await fs.readdir(root)).sort();
-  expect(names).toEqual(['001_First_angle1.mp4', 'unrelated.mp4']);
-  expect(await fs.readFile(path.join(root, names[0]), 'utf8')).toBe('complete');
+  expect(names.filter((name) => !name.startsWith('.sportag-export-'))).toEqual(['001_First_angle1.mp4', 'unrelated.mp4']);
+  const retainedPath = await expectRetainedStage(root, 'partial');
+  expect(result).toMatchObject({ retainedDirectories: expect.arrayContaining([expect.objectContaining({ path: retainedPath, purpose: 'final-staging' })]) });
+  expect(await fs.readFile(path.join(root, '001_First_angle1.mp4'), 'utf8')).toBe('complete');
   expect(await fs.readFile(path.join(root, 'unrelated.mp4'), 'utf8')).toBe(
     'preserved',
   );
 });
 
-it('reports cancellation only after the renderer has stopped and staging is removed', async () => {
+it('reports cancellation only after the renderer has stopped and unconfirmed staging is retained', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'export-ipc-cancel-'));
   roots.push(root);
   let finish: (() => void) | undefined;
@@ -334,13 +369,15 @@ it('reports cancellation only after the renderer has stopped and staging is remo
     ),
   ).toBe(false);
   finish?.();
-  expect(await task).toMatchObject({ success: false, canceled: true });
-  expect(await fs.readdir(root)).toEqual([]);
-  expect(
-    mocks.progress.mock.calls.some(
-      ([state]) => (state as { status?: string }).status === 'cancelled',
-    ),
-  ).toBe(true);
+  const result = await task;
+  const retainedPath = await expectRetainedStage(root, 'partial');
+  expect(result).toMatchObject({ success: false, canceled: true, retainedDirectories: expect.arrayContaining([expect.objectContaining({ path: retainedPath })]) });
+  expect((await fs.readdir(root)).filter((name) => name.endsWith('.mp4'))).toEqual([]);
+  expect(mocks.progress.mock.calls.at(-1)?.[0]).toMatchObject({
+    status: 'failed',
+    message: expect.stringContaining('中止しましたが'),
+    retainedDirectories: expect.arrayContaining([expect.objectContaining({ path: retainedPath })]),
+  });
   expect(mocks.cancel?.('cancel-test')).toBe('not-found');
 });
 
@@ -391,7 +428,8 @@ it('keeps the first published clip and reports cleanup failure when a later clip
     error: expect.stringContaining('001_First_angle1.mp4'),
     retainedLocationUnknown: true,
   });
-  expect(await fs.readdir(root)).toEqual(['001_First_angle1.mp4']);
+  await expectRetainedStage(root, 'partial');
+  expect((await fs.readdir(root)).filter((name) => !name.startsWith('.sportag-export-'))).toEqual(['001_First_angle1.mp4']);
   expect(
     await fs.readFile(path.join(root, '001_First_angle1.mp4'), 'utf8'),
   ).toBe('first');
@@ -882,8 +920,9 @@ it('propagates a real quit event through the IPC route and refuses post-quit pub
       },
     } as never,
   );
-  expect(result).toMatchObject({ success: false });
-  expect(await fs.readdir(root)).toEqual([]);
+  const retainedPath = await expectRetainedStage(root, 'complete');
+  expect(result).toMatchObject({ success: false, retainedDirectories: expect.arrayContaining([expect.objectContaining({ path: retainedPath })]) });
+  expect((await fs.readdir(root)).filter((name) => name.endsWith('.mp4'))).toEqual([]);
   expect(mocks.appQuit).toHaveBeenCalledOnce();
   expect(mocks.native.mock.calls[0]?.[0].signal?.aborted).toBe(true);
   expect(

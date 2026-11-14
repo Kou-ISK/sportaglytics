@@ -1,3 +1,5 @@
+import { fstatSync } from 'node:fs';
+import type { BigIntStats } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { lstat, statfs } from 'node:fs/promises';
 import path from 'node:path';
@@ -47,6 +49,7 @@ export const checkNativeExportFreeSpace = async (directories: string[], minimumF
 };
 
 interface NativeExportProcessOptions {
+  onControlIdentity?: (stat: BigIntStats) => void;
   signal?: AbortSignal;
   outputPath?: string;
   maxOutputBytes?: number;
@@ -57,6 +60,7 @@ interface NativeExportProcessOptions {
 
 interface ChildOptions extends NativeExportProcessOptions {
   control?: ControlPipe;
+  sourceFd?: number;
   timeoutMs: number;
   stdoutLimit: number;
 }
@@ -72,9 +76,13 @@ const runExportChild = (
       reject(new NativeExportCancelled());
       return;
     }
+    if (options.sourceFd !== undefined && (!Number.isSafeInteger(options.sourceFd) || options.sourceFd < 3)) {
+      reject(new Error('Invalid source descriptor'));
+      return;
+    }
     const child = spawn(executable, args, {
       shell: false,
-      stdio: [options.control?.inputFd ?? 'ignore', 'pipe', 'pipe'],
+      stdio: [options.control?.inputFd ?? 'ignore', 'pipe', 'pipe', ...(options.sourceFd === undefined ? [] : [options.sourceFd])],
     });
     let stdout = '';
     let bytes = 0;
@@ -178,6 +186,7 @@ export const runNativeExportProcess = async (
   );
   let failed = false;
   try {
+    if (options.onControlIdentity) options.onControlIdentity(fstatSync(control.inputFd, { bigint: true }));
     return await runExportChild(executable, ['--export-clip', requestPath], {
       ...options,
       control,
@@ -197,9 +206,11 @@ export const runNativeExportProbe = (
   executable: string,
   args: string[],
   signal?: AbortSignal,
+  sourceFd?: number,
 ): Promise<string> =>
   runExportChild(executable, args, {
     signal,
+    sourceFd,
     timeoutMs: 30000,
     stdoutLimit: 1024 * 1024,
   });

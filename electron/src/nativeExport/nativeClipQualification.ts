@@ -1,6 +1,7 @@
 import { getFfprobePath } from '../mediaTools';
 import type { NativeClipExportRequest } from './nativeClipExport';
 import { runNativeExportProbe } from './nativeExportProcess';
+import type { NativeExportReceipt } from './macClipExporter';
 
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -148,7 +149,7 @@ export const isQualifiedNativeClip = (
   );
 };
 
-const probe = async (file: string, signal?: AbortSignal): Promise<unknown> => {
+const probe = async (file: string, signal?: AbortSignal, descriptor?: number): Promise<unknown> => {
   const result = await runNativeExportProbe(
     getFfprobePath(),
     [
@@ -160,17 +161,22 @@ const probe = async (file: string, signal?: AbortSignal): Promise<unknown> => {
       'sha256',
       '-of',
       'json',
-      file,
+      ...(descriptor === undefined ? [file] : ['-fd', '3', 'fd:']),
     ],
     signal,
+    descriptor,
   );
   return JSON.parse(result);
 };
 export const qualifyNativeClip = async (
   candidate: string,
   request: NativeClipExportRequest,
+  receipt?: NativeExportReceipt,
+  candidateFd?: number,
 ): Promise<boolean> => {
+  if (receipt?.version === 2 && candidateFd === undefined)
+    throw new Error('Native v2 qualification requires a stable descriptor');
   const source = await probe(request.sourcePath, request.signal);
-  const output = await probe(candidate, request.signal);
+  const output = await probe(candidate, request.signal, candidateFd);
   return isQualifiedNativeClip(source, output, request);
 };

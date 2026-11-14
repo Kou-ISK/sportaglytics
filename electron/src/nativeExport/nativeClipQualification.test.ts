@@ -47,6 +47,21 @@ const media = () => ({
   format: { start_time: '0', duration: '1.234' },
   streams: [video(), audio()],
 });
+it('qualifies the opened candidate descriptor rather than reopening its path', async () => {
+  vi.mocked(runNativeExportProbe).mockReset();
+  vi.mocked(runNativeExportProbe).mockResolvedValue(JSON.stringify(media()));
+  expect(await qualifyNativeClip('candidate.mp4', request, undefined, 42)).toBe(true);
+  expect(vi.mocked(runNativeExportProbe).mock.calls[0][1]).toContain(request.sourcePath);
+  expect(vi.mocked(runNativeExportProbe).mock.calls[1][1]).toEqual(expect.arrayContaining(['-fd', '3', 'fd:']));
+  expect(vi.mocked(runNativeExportProbe).mock.calls[1][1]).not.toContain('candidate.mp4');
+  expect(vi.mocked(runNativeExportProbe).mock.calls[1][3]).toBe(42);
+  vi.mocked(runNativeExportProbe).mockReset();
+});
+it('rejects v2 qualification if no candidate descriptor was supplied', async () => {
+  vi.mocked(runNativeExportProbe).mockReset();
+  await expect(qualifyNativeClip('candidate.mp4', request, { version: 2, status: 'completed', duration: 1.234, audioTrack: 0 })).rejects.toThrow('requires a stable descriptor');
+  expect(runNativeExportProbe).not.toHaveBeenCalled();
+});
 it('admits exact presentation ranges at arbitrary source times without frame scans', () => {
   expect(isQualifiedNativeClip(media(), media(), request)).toBe(true);
 });

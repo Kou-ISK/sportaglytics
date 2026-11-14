@@ -2,8 +2,6 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # 開発ガイド
 
-書き出しの保存後通知を変更する場合は、確定済み出力、cleanup 警告、通知復旧の失敗、元の取消や例外を区別して検証します。`exportNotificationRecovery.test.ts` と `exportHandlersPublication.test.ts` の模擬 Main 結合は、実 GUI や実 filesystem の全競合を保証しません。
-
 書き出し中止の変更では、進捗ウィンドウから Main の sender/ジョブ認証、子の終了待ち、出力確定と cleanup までを確認します。`exportProgressCancel.test.ts`、`exportHandlersPublication.test.ts`、`exportShutdownCoordinator.test.ts` と `features/exportProgress` の画面テストはそれぞれの境界を検査します。実OS・実媒体の動作は別途確認してください。
 
 長尺再生の回帰は`usePackagePlaybackClock.test.tsx`と`packagePlaybackReadiness.test.ts`でデコード待ち・復帰・明示シーク・アングル補正・空白・終了境界を検査します。実Electronでは`e2e-playback-buffering.mjs`で通常ファイルの片方のデコード待ち中に全アングルが待機し、表示切替・速度変更・同期ずれ・ファイル欠損・背景復帰・明示停止に従うことを検査します。`e2e-capture-gaps.mjs`では実MSEで録画の空白通過、短い音声末尾、僅かな再生ずれ、空白への明示シークとパッケージ終端を検査します。`e2e-multi-clip-playback.mjs`と`e2e-live-capture.mjs`で境界や録画への影響も確認します。ローカル実映像の性能測定は許可されたコピーと独立profileを使い、実データ・名前・画像を公開fixtureへ含めないでください。
@@ -580,3 +578,7 @@ macOS arm64では`pnpm run native:build`でAVPlayer helperとN-API receiverを�
 Command＋左の入力変更では、`commandLeftBroker`、`commandLeftHealth`、`commandLeftIpc`、`nativePlaybackHandlers`、`nativeGestureQueue`、`nativePlaybackController`、`commandGestureAdapter` と `useWorkspaceHotkeys` の各テストで通知欠落、連続押下、割込みと停止順序を確認します。署名済み配布版での実キー・実画像・保存確認は別に実施します。
 
 HTML逆再生の解除・再押下は `useContinuousReversePlayback.test.tsx`、主画面の輸送切替は `useVideoReversePlaybackTransport.test.tsx` と `useVideoReversePlaybackOwnerIntegration.test.tsx`、Playlistの媒体変更は `usePlaylistReverseIntegration.test.tsx` で確認します。これらの媒体・IPCスタブは、実画面で発行済みのシーク完了やデコード遅延を測る検証の代替ではありません。
+
+### Export publication verification
+
+For held native publication changes, run the exportHeldPublish, exportHeldPublishProcess, exportPublicationLease, exportOutputTransaction, exportHandlersPublication, macClipExporter, removeKnownEntries, nativeClipExportStartup, nativeExportProcess and nativeExportCapabilities tests. exportHeldPublish compiles repository-native code locally on macOS and uses small synthetic files; it is not signed-package acceptance. Preserve the separate signed native, platform E2E and filesystem release gates. See [ADR 0084](adr/0084-held-export-publication.md).

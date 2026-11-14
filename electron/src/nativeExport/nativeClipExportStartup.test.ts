@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
+import { supportsHeldPublicationVolume } from '../ipc/exportHeldPublish';
 import { app } from 'electron';
 import { resolveVerifiedNativeResources } from '../nativePlayback/runtime/nativeResources';
 import { detectNativeExportCapability } from './nativeExportCapabilities';
@@ -28,6 +29,7 @@ vi.mock('electron', () => ({
 vi.mock('../nativePlayback/runtime/nativeResources', () => ({
   resolveVerifiedNativeResources: vi.fn(),
 }));
+vi.mock('../ipc/exportHeldPublish', () => ({ publishHeldSource: vi.fn(), supportsHeldPublicationVolume: vi.fn() }));
 vi.mock('./nativeExportCapabilities', () => ({ detectNativeExportCapability: vi.fn() }));
 vi.mock('./nativeExportBudget', async (original) => { const actual = await original<typeof import('./nativeExportBudget')>(); return { ...actual, estimateRequestBytes: vi.fn() }; });
 vi.mock('../ipc/exportResourceContext', async (original) => { const actual = await original<typeof import('../ipc/exportResourceContext')>(); return { ...actual, createExportResources: vi.fn() }; });
@@ -55,6 +57,7 @@ beforeEach(() => {
     state: 'state',
   } });
   vi.mocked(detectNativeExportCapability).mockResolvedValue('legacy-v1');
+  vi.mocked(supportsHeldPublicationVolume).mockResolvedValue(true);
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -137,7 +140,7 @@ it('holds normal quit until the active operation and metadata probes drain', asy
 
 it('passes a verified v2 long-clip budget and resource context to the exporter', async () => {
   vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 9, paths: { host: 'signed-host', receiver: 'receiver', state: 'state' } });
-  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2-held');
   vi.mocked(estimateRequestBytes).mockResolvedValue({ bytes: 17_350_000_000, sourceRevision: 'fingerprint' });
   const resources = { maxFileBytes: 20_000_000_000, minFreeBytes: 30_000_000_000, signal: new AbortController().signal, check: vi.fn() };
   vi.mocked(createExportResources).mockResolvedValue(resources);
@@ -148,7 +151,7 @@ it('passes a verified v2 long-clip budget and resource context to the exporter',
 });
 it('rejects a long v2 request when the finite capacity is insufficient', async () => {
   vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 9, paths: { host: 'signed-host', receiver: 'receiver', state: 'state' } });
-  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2-held');
   vi.mocked(estimateRequestBytes).mockResolvedValue({ bytes: 17_350_000_000, sourceRevision: 'fingerprint' });
   vi.mocked(createExportResources).mockResolvedValue({ maxFileBytes: 10_000_000_000, minFreeBytes: 30_000_000_000, signal: new AbortController().signal, check: vi.fn() });
   await expect(nativeClipExportProvider()?.(request)).rejects.toMatchObject({ name: 'NativeExportCapacityError' });
@@ -161,7 +164,7 @@ it('never selects v2 when capability is unverified', async () => {
 });
 it('keeps legacy admission when metadata is unavailable before native output starts', async () => {
   vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 9, paths: { host: 'signed-host', receiver: 'receiver', state: 'state' } });
-  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2-held');
   vi.mocked(estimateRequestBytes).mockRejectedValue(new Error('missing bitrate'));
   vi.mocked(createMacClipExporter).mockReturnValue(async () => ({ status: 'fallback', reason: 'unsupported-request' }));
   expect(await nativeClipExportProvider()?.(request)).toEqual({ status: 'fallback', reason: 'unsupported-request' });
@@ -169,7 +172,7 @@ it('keeps legacy admission when metadata is unavailable before native output sta
 });
 it('does not fall back after cancellation during metadata inspection', async () => {
   vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 9, paths: { host: 'signed-host', receiver: 'receiver', state: 'state' } });
-  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2-held');
   const controller = new AbortController();
   vi.mocked(estimateRequestBytes).mockImplementation(async () => { controller.abort(); throw new Error('cancelled'); });
   await expect(nativeClipExportProvider()?.({ ...request, signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' });
@@ -178,9 +181,23 @@ it('does not fall back after cancellation during metadata inspection', async () 
 
 it('stops when a source changes during metadata inspection', async () => {
   vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 9, paths: { host: 'signed-host', receiver: 'receiver', state: 'state' } });
-  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2-held');
   const { NativeExportSourceChanged } = await import('./nativeExportBudget');
   vi.mocked(estimateRequestBytes).mockRejectedValue(new NativeExportSourceChanged());
   await expect(nativeClipExportProvider()?.(request)).rejects.toMatchObject({ name: 'NativeExportSourceChanged' });
   expect(createMacClipExporter).not.toHaveBeenCalled();
+});
+
+it('does not start a large candidate with a host missing held publication', async () => {
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  expect(await nativeClipExportProvider()?.(request)).toEqual({ status: 'fallback', reason: 'native-unavailable' });
+  expect(createMacClipExporter).not.toHaveBeenCalled();
+});
+it('keeps the existing bounded encoder route on a non-clone volume before native generation', async () => {
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2-held');
+  vi.mocked(estimateRequestBytes).mockResolvedValue({ bytes: 17_350_000_000, sourceRevision: 'fingerprint' });
+  vi.mocked(supportsHeldPublicationVolume).mockResolvedValue(false);
+  expect(await nativeClipExportProvider()?.(request)).toEqual({ status: 'fallback', reason: 'native-unavailable' });
+  expect(createMacClipExporter).not.toHaveBeenCalled();
+  expect(createExportResources).not.toHaveBeenCalled();
 });

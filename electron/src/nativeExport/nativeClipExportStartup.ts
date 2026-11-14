@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import { publishHeldSource, supportsHeldPublicationVolume } from '../ipc/exportHeldPublish';
 import path from 'node:path';
 import { resolveVerifiedNativeResources } from '../nativePlayback/runtime/nativeResources';
 import { detectNativeExportCapability } from './nativeExportCapabilities';
@@ -62,7 +63,8 @@ export const nativeClipExportProvider = (): NativeClipExporter | undefined => {
       let budget: { maxBytes: number; deadlineSeconds: number } | undefined;
       let expectedSourceRevision: string | undefined;
       let resources: Awaited<ReturnType<typeof createExportResources>> | undefined;
-      if (capability === 'budget-v2') {
+      if (capability === 'budget-v2') return { status: 'fallback', reason: 'native-unavailable' };
+      if (capability === 'budget-v2-held') {
         // Metadata admission happens before any native output exists. If it is
         // unavailable, keep the existing v1 path; cancellation remains terminal.
         const estimate = await estimateRequestBytes({ ...request, signal }).catch((error: unknown) => {
@@ -72,12 +74,14 @@ export const nativeClipExportProvider = (): NativeClipExporter | undefined => {
         });
         if (estimate !== undefined) expectedSourceRevision = estimate.sourceRevision;
         if (estimate !== undefined && requiresNativeV2Budget(estimate.bytes)) {
+          if (!await supportsHeldPublicationVolume(verified.paths.host, path.dirname(request.outputPath), signal))
+            return { status: 'fallback', reason: 'native-unavailable' };
           resources = await createExportResources(path.dirname(request.outputPath), signal, nativeMinimumFreeBytes(estimate.bytes), true);
           if (estimate.bytes > 32 * 1024 ** 3 || estimate.bytes > resources.maxFileBytes) throw new NativeExportCapacityError('Insufficient budget for native export');
           budget = { maxBytes: estimate.bytes, deadlineSeconds: 600 };
         }
       }
-      const available = createMacClipExporter({ executable: verified.paths.host, qualify: qualifyNativeClip, experimentalBudget: budget, expectedSourceRevision });
+      const available = createMacClipExporter({ executable: verified.paths.host, qualify: qualifyNativeClip, stablePublish: (fd, target, signal) => publishHeldSource(verified.paths.host, fd, target, signal), experimentalBudget: budget, expectedSourceRevision });
       const invoke = () => available({ ...request, signal });
       const result = resources ? await exportResourceContext.run(resources, invoke) : await invoke();
       if (signal.aborted) throw new NativeExportCancelled();

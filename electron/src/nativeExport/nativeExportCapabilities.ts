@@ -1,6 +1,6 @@
 import { runNativeCapabilityProbe } from './nativeExportProcess';
 
-export type NativeExportCapability = 'legacy-v1' | 'budget-v2';
+export type NativeExportCapability = 'legacy-v1' | 'budget-v2' | 'budget-v2-held';
 
 /** Only call after the signed resource set and hashes have been verified. */
 export const detectNativeExportCapability = async (host: string, revision: 8 | 9, signal?: AbortSignal): Promise<NativeExportCapability> => {
@@ -15,6 +15,9 @@ export const detectNativeExportCapability = async (host: string, revision: 8 | 9
   try { value = JSON.parse(raw); } catch { throw new Error('Invalid native export capability'); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid native export capability');
   const item = value as Record<string, unknown>;
-  if (JSON.stringify(Object.keys(item).sort()) !== JSON.stringify(['budgetFields', 'protocols', 'version']) || item.version !== 1 || JSON.stringify(item.protocols) !== '[1,2]' || JSON.stringify(item.budgetFields) !== '["maxOutputBytes","deadlineSeconds"]') throw new Error('Invalid native export capability');
-  return 'budget-v2';
+  const fieldsValid = JSON.stringify(item.protocols) === '[1,2]' && JSON.stringify(item.budgetFields) === '["maxOutputBytes","deadlineSeconds"]';
+  const keys = JSON.stringify(Object.keys(item).sort());
+  if (fieldsValid && item.version === 1 && keys === JSON.stringify(['budgetFields', 'protocols', 'version'])) return 'budget-v2';
+  if (fieldsValid && item.version === 2 && item.publication === 'held-clone-v1' && keys === JSON.stringify(['budgetFields', 'protocols', 'publication', 'version'])) return 'budget-v2-held';
+  throw new Error('Invalid native export capability');
 };

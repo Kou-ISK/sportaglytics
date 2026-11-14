@@ -1,4 +1,7 @@
 import { normalizeExportError, rememberRetained, retainedFor } from './exportRetainedRecords';
+import { exportPublicationScope } from './exportPublicationLease';
+import type { ExportPublicationScope } from './exportPublicationLease';
+import type { BigIntStats } from 'node:fs';
 import { ExportCopyIncomplete } from './exportBoundedCopy';
 import type { RetainedExportDirectory } from '../../../src/types/ipc/exportProgressWindow';
 import * as fs from 'node:fs/promises';
@@ -32,6 +35,8 @@ export const publishExportOutput = async (
     path.join(path.dirname(outputPath), '.sportag-export-'),
   );
   const stagingPath = path.join(directory, 'output.mp4');
+  const publicationScope: ExportPublicationScope = { stagingPath, accepting: true };
+  let writtenIdentity: BigIntStats | undefined;
   let committed = false;
   let uncertain = false;
   let retainCopy = false;
@@ -57,11 +62,12 @@ export const publishExportOutput = async (
   };
   try {
     retained = await describeExportStaging(directory, 'final-staging');
-    await render(stagingPath);
-    signal?.throwIfAborted();
-    const result = await fs.lstat(stagingPath);
-    if (!result.isFile() || result.size === 0) {
-      throw new Error('Export did not produce a complete output');
+    try { await exportPublicationScope.run(publicationScope, () => render(stagingPath)); }
+    finally { publicationScope.accepting = false; }
+    if (!publicationScope.lease) {
+      writtenIdentity = await fs.lstat(stagingPath, { bigint: true });
+      if (!writtenIdentity.isFile() || writtenIdentity.size === 0n)
+        throw new Error('Export did not produce a complete output');
     }
     // The staging directory is on the destination volume. link is atomic and
     // fails if the destination appeared after the name was allocated.
@@ -70,7 +76,8 @@ export const publishExportOutput = async (
     signal?.throwIfAborted();
     commit?.begin();
     try {
-      await publish(stagingPath, outputPath);
+      if (publicationScope.lease) await publicationScope.lease.publish(outputPath);
+      else await publish(stagingPath, outputPath);
     } catch (error) {
       uncertain = error instanceof IndeterminatePublicationError;
       try { commit?.finish(false); } catch { /* Preserve the publication failure. */ }
@@ -98,29 +105,49 @@ export const publishExportOutput = async (
     }
     throw error;
   } finally {
+    if (publicationScope.lease) {
+      let leaseRecord: RetainedExportDirectory | undefined;
+      let releaseFailed = false;
+      try { leaseRecord = await publicationScope.lease.release(committed); }
+      catch (error) {
+        releaseFailed = true;
+        if (hasPrimaryError) rememberRetained(primaryError);
+        else if (!committed) throw error;
+      }
+      if (leaseRecord || releaseFailed) {
+        if (hasPrimaryError) rememberRetained(primaryError, leaseRecord);
+        notifyCleanupFailure(leaseRecord);
+      }
+    }
     if (uncertain || retainCopy) {
       notifyCleanupFailure(retained ? { ...retained, reason: 'retained-after-failure' } : undefined);
     } else {
       let cleanupFailed = false;
-      await fs.unlink(stagingPath).catch((error: NodeJS.ErrnoException) => {
-        if (error.code !== 'ENOENT') {
-          cleanupFailed = true;
-          console.warn('[export] Could not remove staging output', error.code);
+      let cleanupLocationKnown = false;
+      // Creation/producer identities detect ordinary replacement. Path checks
+      // are not an isolation boundary against a hostile same-UID process.
+      try {
+        const current = await fs.lstat(directory, { bigint: true });
+        if (!retained || !current.isDirectory() || String(current.dev) !== retained.device || String(current.ino) !== retained.inode)
+          throw new Error('Export staging directory changed');
+        cleanupLocationKnown = true;
+        if (!publicationScope.lease) {
+          let entry: BigIntStats | undefined;
+          try { entry = await fs.lstat(stagingPath, { bigint: true }); }
+          catch (error) { if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) throw error; }
+          if (entry) {
+            if (!writtenIdentity || !entry.isFile() || entry.dev !== writtenIdentity.dev || entry.ino !== writtenIdentity.ino)
+              throw new Error('Export staging output ownership is unconfirmed');
+            await fs.unlink(stagingPath);
+          }
         }
-      });
-      await fs.rmdir(directory).catch((error: NodeJS.ErrnoException) => {
-        if (error.code !== 'ENOENT') {
-          cleanupFailed = true;
-          console.warn(
-            '[export] Could not remove staging directory',
-            error.code,
-          );
-        }
-      });
+        // Lease mode never created stagingPath: do not delete a file appearing there.
+        await fs.rmdir(directory);
+      } catch { cleanupFailed = true; }
       if (cleanupFailed && hasPrimaryError)
-        rememberRetained(primaryError, retained ? { ...retained, reason: 'cleanup-failed' } : undefined);
+        rememberRetained(primaryError, cleanupLocationKnown && retained ? { ...retained, reason: 'cleanup-failed' } : undefined);
       if (cleanupFailed) {
-        notifyCleanupFailure(retained ? { ...retained, reason: 'cleanup-failed' } : undefined);
+        notifyCleanupFailure(cleanupLocationKnown && retained ? { ...retained, reason: 'cleanup-failed' } : undefined);
       }
       if (cleanupFailed && !committed && !hasPrimaryError)
         throw new Error('Export staging cleanup failed');
