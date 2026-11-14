@@ -39,7 +39,7 @@ export const buildExportPreparationJobs = (
         continue;
       const range = {
         start: clip.startTime,
-        end: Math.max(clip.endTime, clip.startTime + 0.5),
+        end: clip.endTime,
       };
       const direct =
         !plan.clips ||

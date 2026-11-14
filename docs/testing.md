@@ -316,6 +316,16 @@ Timelineのnative最小外寸は720×300です。Windowsの旧外寸260では実
 
 Windows H.264置換の追加検査は[Windows開発・検証](windows.md#開発検証)を参照してください。installed E2Eにも`export-menu`、`export-fast`、`paint-export`、`angle-sync-multi`、`angle-sync-gaps`を加え、通常runnerと同じ登録シナリオを検査します。Media Foundation不足のunit負例とWindows N実機検証は区別します。
 
+高速書き出しの対象判定は、文字設定が有効でも実際の描画行が空なら高速経路を試し、名前・番号・ラベル・メモに描画内容がある場合は再圧縮経路を維持することを検査します。
+
+`exportOutputTransaction.test.ts` は起動・途中・取消失敗、同名競合、空出力と複数の個別出力について、実ファイルによる確定と片付けを検査します。`exportHandlersPublication.test.ts` はMain IPCの個別出力からネイティブ不適格時のフォールバック失敗までを検査します（媒体処理はモック）。実際のエンコーダー・対応ファイルシステム・異常終了時の受入に代わるものではありません。
+
+`exportExclusivePublish.test.ts` と `exportPublicationUncertain.test.ts` は、非対応時のみ排他的な代替を選び、競合・結果不明では上書きや再試行をしない契約を検査します。署名済みhostと対象ファイルシステムでの実証は別途必要です。
+
+`exportQuitChildIntegration.test.ts` は Main IPC の終了イベントを模擬し、そのジョブで起動した実子プロセスの終了を待ってから終了を再開することを検査します。Windows では signal の動作が異なるためスキップし、対応OS上の実アプリ検証を別に行います。
+
+書き出し中止は `exportProgressCancel.test.ts` で進捗ウィンドウと対象ID、`exportHandlersPublication.test.ts` で停止後の通知・部分出力・保存先選択中の中止を検査します。画面の進行中・中止中・中止後は `ExportProgressView` の Story とテストで確認します。IPC 結合テストの媒体処理はモックであり、実配布版の受入を代替しません。
+
 ## Mac最終DMGの配布検査
 
 オフラインのH.264変換ではmacOSのソフトウェア許可と録画設定の分離をunitで確認します。VideoToolboxの実encoder選択・出力・所要時間はIntelとarm64それぞれの実行環境で別に確認し、合成検査や`-allow_sw`指定だけを実機品質の証明にしません。[判断と制約](adr/0083-macos-offline-encoder-fallback.md)。

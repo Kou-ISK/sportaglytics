@@ -137,7 +137,7 @@ export const usePlaylistWindowInteractionRuntime = (
     handleTogglePlay: playback.handleTogglePlay,
     startReversePlayback,
     stopReversePlayback: cancelReversePlayback,
-    finishReversePlayback: stopReversePlayback,
+    finishReversePlayback: () => stopReversePlayback(true),
     handlePrevious: playback.handlePrevious,
     handleNext: playback.handleNext,
     handleDeleteSelected: () => {
@@ -165,7 +165,13 @@ export const usePlaylistWindowInteractionRuntime = (
   );
 
   return {
-    playback,
+    playback: {
+      ...playback,
+      handleSeek: (event: Event, value: number | number[]): void => {
+        cancelReversePlayback();
+        playback.handleSeek(event, value);
+      },
+    },
     handleToggleDrawingMode,
   };
 };

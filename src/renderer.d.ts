@@ -36,11 +36,26 @@ export interface LlamaModelInfo {
 export interface IElectronAPI {
   nativeCommandLeft?: {
     ready(): Promise<number | null>;
-    claim(gesture: number, epoch: number): Promise<import('./types/ipc/nativeCommandLeft').NativeGesturePhase>;
-    apply(gesture: number, epoch: number, intent: import('./types/ipc/nativePlayback').NativePlaybackIntent): Promise<void>;
+    claim(
+      gesture: number,
+      epoch: number,
+    ): Promise<import('./types/ipc/nativeCommandLeft').NativeGesturePhase>;
+    apply(
+      gesture: number,
+      epoch: number,
+      intent: import('./types/ipc/nativePlayback').NativePlaybackIntent,
+    ): Promise<void>;
     retire(gesture: number, epoch: number): Promise<boolean>;
-    revoke(epoch: number): Promise<'revoked' | 'already-revoked' | 'pending' | 'rejected'>;
-    onEvent(listener: (event: import('./types/ipc/nativeCommandLeft').NativeCommandLeftEvent | null) => boolean): () => void;
+    revoke(
+      epoch: number,
+    ): Promise<'revoked' | 'already-revoked' | 'pending' | 'rejected'>;
+    onEvent(
+      listener: (
+        event:
+          | import('./types/ipc/nativeCommandLeft').NativeCommandLeftEvent
+          | null,
+      ) => boolean,
+    ): () => void;
     onOverflow(listener: (epoch: number | null) => void): () => void;
   };
   /** Present only in a Main-qualified embedded playback build. No native handles. */
@@ -271,6 +286,9 @@ export interface IElectronAPI {
     callback: (state: ExportProgressWindowState) => void,
   ) => () => void;
   requestExportProgressWindowState?: () => Promise<ExportProgressWindowState | null>;
+  cancelExportProgress?: (
+    id: string,
+  ) => Promise<import('./types/ipc/exportProgressWindow').CancelExportResult>;
   saveFileDialog: (
     defaultPath: string,
     filters: { name: string; extensions: string[] }[],

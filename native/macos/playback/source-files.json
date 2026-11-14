@@ -5,6 +5,7 @@
   "apple-player/ApplePlayerSession.hpp",
   "apple-player/ApplePlayerSession.mm",
   "apple-player/ControlOutput.hpp",
+  "apple-player/ExclusivePublish.hpp",
   "apple-player/PlayerObservation.hpp",
   "native-input/CommandLeft.mm",
   "surface-transport/PixelReference.hpp",

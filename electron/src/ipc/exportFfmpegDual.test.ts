@@ -53,3 +53,13 @@ it.each([
     expect(probeMedia).toHaveBeenCalledTimes(platform === 'win32' ? 2 : 0);
   },
 );
+
+it('uses the requested duration for a short dual-angle clip', async () => {
+  await runFfmpegDual({
+    getFfmpegPath: () => '/synthetic-ffmpeg', mainSource: '/main.mp4', secondarySource: '/secondary.mp4',
+    clip: { startTime: 0, endTime: 0.2, hasAudio: false }, outputPath: '/out.mp4',
+    overlayEnabled: false, overlayLines: [], getJapaneseFontPath: () => '/font.ttf', escapeDrawtext: (text) => text,
+  });
+  const args = vi.mocked(runWithOptionalProgress).mock.calls[0][1];
+  expect(args.filter((arg) => arg === '0.2').length).toBeGreaterThanOrEqual(2);
+});

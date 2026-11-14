@@ -4,6 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { renderExportClipGroup } from './exportClipGroup';
+import {
+  createExportResources,
+  exportResourceContext,
+} from './exportResourceContext';
 import { createPreparedClipRenderer } from './exportPreparedClipRenderer';
 import { renderClipWithFfmpeg } from './exportClipRender';
 import { concatFiles } from './exportFfmpegRunners';
@@ -28,6 +32,10 @@ it.each(['single', 'perRow'] as const)(
     );
     roots.push(root);
     const outputPath = path.join(root, 'final.mp4');
+    const resources = await createExportResources(
+      root,
+      new AbortController().signal,
+    );
     const clip = { id: 'one', actionName: 'Review', startTime: 1, endTime: 4 };
     const payload: ExportClipsPayload = {
       exportMode,
@@ -51,34 +59,40 @@ it.each(['single', 'perRow'] as const)(
       undefined,
       vi.fn(async () => ({
         status: 'fallback' as const,
-        reason: 'unsupported',
+        reason: 'unsupported-request',
       })),
     ]) {
       for (const existing of [false, true]) {
+        vi.mocked(renderClipWithFfmpeg).mockClear();
+        native?.mockClear();
         if (existing) await fs.writeFile(outputPath, 'existing output');
         const tempFiles: string[] = [];
         const completed = vi.fn();
         await expect(
-          renderExportClipGroup({
-            clips: [clip],
-            outputPath,
-            renderClip: createPreparedClipRenderer(
-              payload,
-              new Map(),
-              tempFiles,
-              () => 'ffmpeg',
-              native,
-            ),
-            getFfmpegPath: () => 'ffmpeg',
-            getDuration: () => 3,
-            onRenderStart: vi.fn(),
-            onRenderProgress: vi.fn(),
-            onRendered: vi.fn(),
-            onJoinStart: vi.fn(),
-            onJoinProgress: vi.fn(),
-            onCompleted: completed,
-          }),
+          exportResourceContext.run(resources, () =>
+            renderExportClipGroup({
+              clips: [clip],
+              outputPath,
+              renderClip: createPreparedClipRenderer(
+                payload,
+                new Map(),
+                tempFiles,
+                () => 'ffmpeg',
+                native,
+              ),
+              getFfmpegPath: () => 'ffmpeg',
+              getDuration: () => 3,
+              onRenderStart: vi.fn(),
+              onRenderProgress: vi.fn(),
+              onRendered: vi.fn(),
+              onJoinStart: vi.fn(),
+              onJoinProgress: vi.fn(),
+              onCompleted: completed,
+            }),
+          ),
         ).rejects.toThrow('encoder failed');
+        if (native) expect(native).toHaveBeenCalledTimes(1);
+        expect(renderClipWithFfmpeg).toHaveBeenCalledTimes(1);
         if (existing)
           expect(await fs.readFile(outputPath, 'utf8')).toBe('existing output');
         else

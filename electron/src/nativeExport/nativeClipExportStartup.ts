@@ -1,7 +1,13 @@
 import { app } from 'electron';
 import path from 'node:path';
-import { resolveNativeResources } from '../nativePlayback/runtime/nativeResources';
+import { resolveVerifiedNativeResources } from '../nativePlayback/runtime/nativeResources';
+import { detectNativeExportCapability } from './nativeExportCapabilities';
 import { createMacClipExporter } from './macClipExporter';
+import { estimateRequestBytes, NativeExportSourceChanged } from './nativeExportBudget';
+import { requiresNativeV2Budget } from './nativeBudgetSelection';
+import { nativeMinimumFreeBytes } from './nativeCapacityPolicy';
+import { createExportResources, exportResourceContext } from '../ipc/exportResourceContext';
+import { NativeExportCapacityError } from './nativeExportProcess';
 import { qualifyNativeClip } from './nativeClipQualification';
 import { NativeExportCancelled } from './nativeExportProcess';
 import type {
@@ -35,7 +41,6 @@ export const nativeClipExportProvider = (): NativeClipExporter | undefined => {
         });
     }
   });
-  let exporter: Promise<NativeClipExporter | null> | undefined;
   return (request) => {
     const signal = request.signal
       ? AbortSignal.any([shutdown.signal, request.signal])
@@ -46,22 +51,35 @@ export const nativeClipExportProvider = (): NativeClipExporter | undefined => {
     if (active)
       return Promise.resolve({ status: 'fallback', reason: 'native-busy' });
     const operation = (async (): Promise<NativeClipExportResult> => {
-      exporter ??= resolveNativeResources(
+      const verified = await resolveVerifiedNativeResources(
         process.resourcesPath,
         path.join(app.getPath('userData'), 'native-export'),
-      )
-        .then(({ host }) =>
-          createMacClipExporter({
-            executable: host,
-            qualify: qualifyNativeClip,
-          }),
-        )
-        .catch(() => null);
-      const available = await exporter;
+      ).catch(() => null);
       if (signal.aborted) throw new NativeExportCancelled();
-      const result = available
-        ? await available({ ...request, signal })
-        : { status: 'fallback' as const, reason: 'native-unavailable' };
+      if (!verified) return { status: 'fallback', reason: 'native-unavailable' };
+      const capability = await detectNativeExportCapability(verified.paths.host, verified.revision, signal);
+      if (signal.aborted) throw new NativeExportCancelled();
+      let budget: { maxBytes: number; deadlineSeconds: number } | undefined;
+      let expectedSourceRevision: string | undefined;
+      let resources: Awaited<ReturnType<typeof createExportResources>> | undefined;
+      if (capability === 'budget-v2') {
+        // Metadata admission happens before any native output exists. If it is
+        // unavailable, keep the existing v1 path; cancellation remains terminal.
+        const estimate = await estimateRequestBytes({ ...request, signal }).catch((error: unknown) => {
+          if (signal.aborted) throw new NativeExportCancelled();
+          if (error instanceof NativeExportSourceChanged) throw error;
+          return undefined;
+        });
+        if (estimate !== undefined) expectedSourceRevision = estimate.sourceRevision;
+        if (estimate !== undefined && requiresNativeV2Budget(estimate.bytes)) {
+          resources = await createExportResources(path.dirname(request.outputPath), signal, nativeMinimumFreeBytes(estimate.bytes), true);
+          if (estimate.bytes > 32 * 1024 ** 3 || estimate.bytes > resources.maxFileBytes) throw new NativeExportCapacityError('Insufficient budget for native export');
+          budget = { maxBytes: estimate.bytes, deadlineSeconds: 600 };
+        }
+      }
+      const available = createMacClipExporter({ executable: verified.paths.host, qualify: qualifyNativeClip, experimentalBudget: budget, expectedSourceRevision });
+      const invoke = () => available({ ...request, signal });
+      const result = resources ? await exportResourceContext.run(resources, invoke) : await invoke();
       if (signal.aborted) throw new NativeExportCancelled();
       return result;
     })();

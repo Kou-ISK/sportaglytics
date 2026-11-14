@@ -228,3 +228,12 @@ it('rejects a non-first audio selection before a virtual timeline flattens track
     ])[0].weight,
   ).toBe(0);
 });
+
+it('prepares only the requested short interval', () => {
+  const payload: ExportClipsPayload = {
+    sourcePath: 'first.mp4', clips: [{ id: 'one', actionName: 'Review', startTime: 10, endTime: 10.2 }],
+    overlay: { enabled: false, showActionName: false, showActionIndex: false, showMemo: false, showLabels: false },
+  };
+  const jobs = buildExportPreparationJobs(payload, [{ sourcePath: 'first.mp4', clips: [{ id: 'a', sourcePath: 'original.mp4', durationSeconds: 60, timelineStartSeconds: 0 }] }]);
+  expect(jobs[0].range).toEqual({ start: 10, end: 10.2 });
+});

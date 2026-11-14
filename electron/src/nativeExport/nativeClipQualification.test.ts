@@ -122,3 +122,47 @@ it('never starts the output probe after the source probe is cancelled', async ()
   ).rejects.toBeInstanceOf(NativeExportCancelled);
   expect(runNativeExportProbe).toHaveBeenCalledOnce();
 });
+it('allows one extra audio sample of duration rounding without widening the start or video checks', () => {
+  const output = media(); Object.assign(output.streams[1], { duration: String(request.duration - 1.5 / 48000) });
+  expect(isQualifiedNativeClip(media(), output, request)).toBe(true);
+  Object.assign(output.streams[1], { duration: String(request.duration - 2.01 / 48000) });
+  expect(isQualifiedNativeClip(media(), output, request)).toBe(false);
+  Object.assign(output.streams[1], { duration: String(request.duration - 1.5 / 48000), start_time: '0.00003' });
+  expect(isQualifiedNativeClip(media(), output, request)).toBe(false);
+});
+it('uses consistent integer duration ticks and rejects contradictory timing metadata', () => {
+  const output = media(); Object.assign(output.streams[1], { duration_ts: 59232 });
+  expect(isQualifiedNativeClip(media(), output, request)).toBe(true);
+  Object.assign(output.streams[1], { duration_ts: 59234 });
+  expect(isQualifiedNativeClip(media(), output, request)).toBe(false);
+});
+it('bounds the audio allowance by sample rate even with coarse timebases', () => {
+  const source = media(), output = media();
+  Object.assign(source.streams[1], { time_base: '1/1000' });
+  Object.assign(output.streams[1], { time_base: '1/1000', duration: String(request.duration + 0.0011) });
+  expect(isQualifiedNativeClip(source, output, request)).toBe(false);
+  Object.assign(output.streams[1], { sample_rate: 'NaN' });
+  expect(isQualifiedNativeClip(source, output, request)).toBe(false);
+});
+it('accepts the observed long audio rounding within one additional sample', () => {
+  const duration = 6585.359229882722; const source = media(), output = media();
+  Object.assign(output.format, { duration: '6585.359233' });
+  Object.assign(output.streams[0], { duration: '6585.359233', duration_ts: 395121554 });
+  Object.assign(output.streams[1], { duration: '6585.359208', duration_ts: 316097242 });
+  expect(isQualifiedNativeClip(source, output, { ...request, duration })).toBe(true);
+});
+it('checks one-sample audio rounding at 44.1 kHz without allowing a start offset', () => {
+  const source = media(), output = media();
+  Object.assign(source.streams[1], { sample_rate: '44100', time_base: '1/44100' });
+  Object.assign(output.streams[1], { sample_rate: '44100', time_base: '1/44100', duration: String(request.duration - 1.9 / 44100) });
+  expect(isQualifiedNativeClip(source, output, request)).toBe(true);
+  Object.assign(output.streams[1], { duration: String(request.duration - 2.1 / 44100) });
+  expect(isQualifiedNativeClip(source, output, request)).toBe(false);
+  Object.assign(output.streams[1], { duration: request.duration, start_time: String(1.1 / 44100) });
+  expect(isQualifiedNativeClip(source, output, request)).toBe(false);
+});
+it.each(['0', 'NaN', '384001'])('rejects invalid sample rate %s even if source and output agree', (rate) => {
+  const source = media(), output = media();
+  Object.assign(source.streams[1], { sample_rate: rate }); Object.assign(output.streams[1], { sample_rate: rate });
+  expect(isQualifiedNativeClip(source, output, request)).toBe(false);
+});

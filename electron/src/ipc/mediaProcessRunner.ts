@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process';
+import { trackExportProcess } from './exportAbortContext';
 
 interface MediaProcessOptions {
   timeoutMs: number;
   maxOutputBytes: number;
+  signal?: AbortSignal;
 }
 
 export interface MediaProcessResult {
@@ -20,52 +22,70 @@ export const runMediaProcess = (
   args: readonly string[],
   options: MediaProcessOptions,
 ): Promise<MediaProcessResult> =>
-  new Promise((resolve, reject) => {
-    const child = spawn(executable, args, {
-      shell: false,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    let stderr = '';
-    let outputBytes = 0;
-    let settled = false;
-
-    const finishError = (error: Error): void => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      terminate(child);
-      reject(error);
-    };
-    const appendOutput = (target: 'stdout' | 'stderr', chunk: Buffer): void => {
-      outputBytes += chunk.byteLength;
-      if (outputBytes > options.maxOutputBytes) {
-        finishError(new Error('Media process output limit exceeded'));
+  trackExportProcess(
+    new Promise((resolve, reject) => {
+      if (options.signal?.aborted) {
+        reject(options.signal.reason);
         return;
       }
-      if (target === 'stdout') stdout += chunk.toString('utf8');
-      else stderr += chunk.toString('utf8');
-    };
+      const child = spawn(executable, args, {
+        shell: false,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let stdout = '';
+      let stderr = '';
+      let outputBytes = 0;
+      let failure: Error | undefined;
 
-    const timer = setTimeout(() => {
-      finishError(new Error('Media process timed out'));
-    }, options.timeoutMs);
-    timer.unref();
+      const finishError = (error: Error): void => {
+        if (failure) return;
+        failure = error;
+        terminate(child);
+      };
+      const abort = (): void =>
+        finishError(
+          options.signal?.reason instanceof Error
+            ? options.signal.reason
+            : new Error('Media process aborted'),
+        );
+      options.signal?.addEventListener('abort', abort, { once: true });
+      if (options.signal?.aborted) abort();
+      const appendOutput = (
+        target: 'stdout' | 'stderr',
+        chunk: Buffer,
+      ): void => {
+        outputBytes += chunk.byteLength;
+        if (outputBytes > options.maxOutputBytes) {
+          finishError(new Error('Media process output limit exceeded'));
+          return;
+        }
+        if (target === 'stdout') stdout += chunk.toString('utf8');
+        else stderr += chunk.toString('utf8');
+      };
 
-    child.stdout.on('data', (chunk: Buffer) => appendOutput('stdout', chunk));
-    child.stderr.on('data', (chunk: Buffer) => appendOutput('stderr', chunk));
-    child.once('error', finishError);
-    child.once('close', (code) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (code === 0) {
-        resolve({ stdout, stderr });
-        return;
-      }
-      reject(
-        new Error(`Media process failed (${code ?? 'unknown'}): ${stderr}`),
-      );
-    });
-  });
+      const timer = setTimeout(() => {
+        finishError(new Error('Media process timed out'));
+      }, options.timeoutMs);
+      timer.unref();
+
+      child.stdout.on('data', (chunk: Buffer) => appendOutput('stdout', chunk));
+      child.stderr.on('data', (chunk: Buffer) => appendOutput('stderr', chunk));
+      child.once('error', finishError);
+      child.once('close', (code) => {
+        clearTimeout(timer);
+        options.signal?.removeEventListener('abort', abort);
+        if (failure) {
+          reject(failure);
+          return;
+        }
+        if (code === 0) {
+          resolve({ stdout, stderr });
+          return;
+        }
+        reject(
+          new Error(`Media process failed (${code ?? 'unknown'}): ${stderr}`),
+        );
+      });
+    }),
+  );

@@ -107,7 +107,7 @@ it('ends the reverse seek after paint so ordinary angle synchronization resumes'
   };
   const hook = renderHook(() => useVideoTimeController(params));
   try {
-    let work!: Promise<void>;
+    let work!: Promise<number | null>;
     act(() => {
       work = hook.result.current.seekReverse(3, new AbortController().signal);
     });
@@ -147,7 +147,7 @@ it('does not let an aborted reverse completion end a newer ordinary seek', async
   };
   const hook = renderHook(() => useVideoTimeController(params));
   try {
-    let work!: Promise<void>;
+    let work!: Promise<number | null>;
     act(() => {
       work = hook.result.current.seekReverse(3, new AbortController().signal);
     });

@@ -31,13 +31,23 @@ const timeBase = (value: unknown): number => {
 const durationMatches = (
   stream: Record<string, unknown>,
   duration: number,
+  extraSeconds = 0,
 ): boolean => {
   const tick = timeBase(stream.time_base);
+  const displayed = number(stream.duration);
+  if (!Number.isFinite(tick) || tick > 0.001 || !Number.isFinite(displayed)) return false;
+  let actual = displayed;
+  if (stream.duration_ts !== undefined) {
+    const ticks = number(stream.duration_ts);
+    if (!Number.isSafeInteger(ticks) || ticks < 0) return false;
+    actual = ticks * tick;
+    // ffprobe prints duration to six decimal places. Contradictory metadata is
+    // not a basis for accepting the candidate.
+    if (Math.abs(actual - displayed) > 0.00000051) return false;
+  }
   return (
-    Number.isFinite(tick) &&
-    tick <= 0.001 &&
     Math.abs(number(stream.start_time)) <= tick &&
-    Math.abs(number(stream.duration) - duration) <= tick
+    Math.abs(actual - duration) <= tick + extraSeconds
   );
 };
 const configurationMatches = (
@@ -126,9 +136,13 @@ export const isQualifiedNativeClip = (
   ]) {
     if (videos[0][key] !== v[key]) return false;
   }
+  const sampleRate = number(a.sample_rate);
+  if (!Number.isInteger(sampleRate) || sampleRate < 8000 || sampleRate > 384000) return false;
   return (
     durationMatches(v, request.duration) &&
-    durationMatches(a, request.duration) &&
+    // Independent video and audio clock rounding can differ by one sample.
+    // Keep the original timestamp tolerance and add at most one audio sample.
+    durationMatches(a, request.duration, 1 / sampleRate) &&
     Math.abs(number(output.format.start_time)) <= 0.001 &&
     Math.abs(number(output.format.duration) - request.duration) <= 0.001
   );

@@ -17,3 +17,13 @@ export type NativeClipExportResult =
 export type NativeClipExporter = (
   request: NativeClipExportRequest,
 ) => Promise<NativeClipExportResult>;
+
+/** Helper failed without a trustworthy reason; automatic re-encoding is unsafe. */
+export class NativeExportUnknownFailure extends Error {
+  readonly originalError: unknown;
+  constructor(error: unknown, message = 'ネイティブ書き出しの失敗原因を確認できません。一時データを保持しました') {
+    super(message);
+    this.name = 'NativeExportUnknownFailure';
+    this.originalError = error;
+  }
+}

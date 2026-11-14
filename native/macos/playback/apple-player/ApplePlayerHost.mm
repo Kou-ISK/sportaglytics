@@ -2,6 +2,7 @@
 #include "../apple-export/AppleClipExport.hpp"
 #include "ControlOutput.hpp"
 #include "PlayerObservation.hpp"
+#include "ExclusivePublish.hpp"
 #import <AppKit/AppKit.h>
 #import <CommonCrypto/CommonDigest.h>
 #import <QuartzCore/QuartzCore.h>
@@ -258,6 +259,11 @@ struct OutputDisconnected {};
 
 int main(int argc, const char **argv) {
   @autoreleasepool {
+    if (argc == 2 && !strcmp(argv[1], "--clip-export-capabilities")) {
+      const char *capabilities = "{\"version\":1,\"protocols\":[1,2],\"budgetFields\":[\"maxOutputBytes\",\"deadlineSeconds\"]}\n";
+      return fputs(capabilities, stdout) >= 0 ? 0 : 1;
+    }
+    if (argc > 1 && !strcmp(argv[1], "--publish-exclusive")) return runExclusivePublish(argc, argv);
     if (argc == 3 && !strcmp(argv[1], "--export-clip")) {
       @try { return runAppleClipExport(argv[2]); }
       @catch (NSException *) { return 1; }

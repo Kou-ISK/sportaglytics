@@ -1,8 +1,12 @@
 // @vitest-environment node
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { app } from 'electron';
-import { resolveNativeResources } from '../nativePlayback/runtime/nativeResources';
+import { resolveVerifiedNativeResources } from '../nativePlayback/runtime/nativeResources';
+import { detectNativeExportCapability } from './nativeExportCapabilities';
 import { createMacClipExporter } from './macClipExporter';
+import { estimateRequestBytes } from './nativeExportBudget';
+import { nativeMinimumFreeBytes } from './nativeCapacityPolicy';
+import { createExportResources, exportResourceContext } from '../ipc/exportResourceContext';
 import { nativeClipExportProvider } from './nativeClipExportStartup';
 import type { NativeClipExportResult } from './nativeClipExport';
 
@@ -22,8 +26,11 @@ vi.mock('electron', () => ({
   },
 }));
 vi.mock('../nativePlayback/runtime/nativeResources', () => ({
-  resolveNativeResources: vi.fn(),
+  resolveVerifiedNativeResources: vi.fn(),
 }));
+vi.mock('./nativeExportCapabilities', () => ({ detectNativeExportCapability: vi.fn() }));
+vi.mock('./nativeExportBudget', async (original) => { const actual = await original<typeof import('./nativeExportBudget')>(); return { ...actual, estimateRequestBytes: vi.fn() }; });
+vi.mock('../ipc/exportResourceContext', async (original) => { const actual = await original<typeof import('../ipc/exportResourceContext')>(); return { ...actual, createExportResources: vi.fn() }; });
 vi.mock('./macClipExporter', () => ({ createMacClipExporter: vi.fn() }));
 vi.mock('./nativeClipQualification', () => ({ qualifyNativeClip: vi.fn() }));
 const request = {
@@ -42,11 +49,12 @@ beforeEach(() => {
     value: '/signed-resources',
     configurable: true,
   });
-  vi.mocked(resolveNativeResources).mockResolvedValue({
+  vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 8, paths: {
     host: 'signed-host',
     receiver: 'receiver',
     state: 'state',
-  });
+  } });
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('legacy-v1');
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -54,10 +62,10 @@ afterEach(() => {
 it('does not enable unsigned development or other platforms', () => {
   vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
   expect(nativeClipExportProvider()).toBeUndefined();
-  expect(resolveNativeResources).not.toHaveBeenCalled();
+  expect(resolveVerifiedNativeResources).not.toHaveBeenCalled();
 });
 it('falls back when fixed signed resources cannot be verified', async () => {
-  vi.mocked(resolveNativeResources).mockRejectedValue(
+  vi.mocked(resolveVerifiedNativeResources).mockRejectedValue(
     Error('signature mismatch'),
   );
   expect(await nativeClipExportProvider()?.(request)).toEqual({
@@ -86,7 +94,7 @@ it('bounds native concurrency to one across all windows and releases on completi
   expect(await first).toEqual({ status: 'completed' });
   run.mockResolvedValue({ status: 'completed' });
   expect(await provider?.(request)).toEqual({ status: 'completed' });
-  expect(resolveNativeResources).toHaveBeenCalledOnce();
+  expect(resolveVerifiedNativeResources).toHaveBeenCalledTimes(2);
 });
 it('propagates app shutdown and forbids later fallback or publication work', async () => {
   let active: AbortSignal | undefined;
@@ -125,4 +133,54 @@ it('holds normal quit until the active operation and metadata probes drain', asy
   finish?.();
   expect(await active).toMatchObject({ name: 'AbortError' });
   await vi.waitFor(() => expect(app.quit).toHaveBeenCalledOnce());
+});
+
+it('passes a verified v2 long-clip budget and resource context to the exporter', async () => {
+  vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 9, paths: { host: 'signed-host', receiver: 'receiver', state: 'state' } });
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  vi.mocked(estimateRequestBytes).mockResolvedValue({ bytes: 17_350_000_000, sourceRevision: 'fingerprint' });
+  const resources = { maxFileBytes: 20_000_000_000, minFreeBytes: 30_000_000_000, signal: new AbortController().signal, check: vi.fn() };
+  vi.mocked(createExportResources).mockResolvedValue(resources);
+  vi.mocked(createMacClipExporter).mockReturnValue(async () => { expect(exportResourceContext.getStore()).toBe(resources); return { status: 'completed' }; });
+  expect(await nativeClipExportProvider()?.(request)).toEqual({ status: 'completed' });
+  expect(createMacClipExporter).toHaveBeenCalledWith(expect.objectContaining({ experimentalBudget: { maxBytes: 17_350_000_000, deadlineSeconds: 600 } }));
+  expect(createExportResources).toHaveBeenCalledWith('.', expect.any(AbortSignal), nativeMinimumFreeBytes(17_350_000_000), true);
+});
+it('rejects a long v2 request when the finite capacity is insufficient', async () => {
+  vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 9, paths: { host: 'signed-host', receiver: 'receiver', state: 'state' } });
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  vi.mocked(estimateRequestBytes).mockResolvedValue({ bytes: 17_350_000_000, sourceRevision: 'fingerprint' });
+  vi.mocked(createExportResources).mockResolvedValue({ maxFileBytes: 10_000_000_000, minFreeBytes: 30_000_000_000, signal: new AbortController().signal, check: vi.fn() });
+  await expect(nativeClipExportProvider()?.(request)).rejects.toMatchObject({ name: 'NativeExportCapacityError' });
+  expect(createMacClipExporter).not.toHaveBeenCalled();
+});
+it('never selects v2 when capability is unverified', async () => {
+  vi.mocked(detectNativeExportCapability).mockRejectedValue(new Error('bad capability'));
+  await expect(nativeClipExportProvider()?.(request)).rejects.toThrow('bad capability');
+  expect(estimateRequestBytes).not.toHaveBeenCalled();
+});
+it('keeps legacy admission when metadata is unavailable before native output starts', async () => {
+  vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 9, paths: { host: 'signed-host', receiver: 'receiver', state: 'state' } });
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  vi.mocked(estimateRequestBytes).mockRejectedValue(new Error('missing bitrate'));
+  vi.mocked(createMacClipExporter).mockReturnValue(async () => ({ status: 'fallback', reason: 'unsupported-request' }));
+  expect(await nativeClipExportProvider()?.(request)).toEqual({ status: 'fallback', reason: 'unsupported-request' });
+  expect(createMacClipExporter).toHaveBeenCalledWith(expect.objectContaining({ experimentalBudget: undefined }));
+});
+it('does not fall back after cancellation during metadata inspection', async () => {
+  vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 9, paths: { host: 'signed-host', receiver: 'receiver', state: 'state' } });
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  const controller = new AbortController();
+  vi.mocked(estimateRequestBytes).mockImplementation(async () => { controller.abort(); throw new Error('cancelled'); });
+  await expect(nativeClipExportProvider()?.({ ...request, signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' });
+  expect(createMacClipExporter).not.toHaveBeenCalled();
+});
+
+it('stops when a source changes during metadata inspection', async () => {
+  vi.mocked(resolveVerifiedNativeResources).mockResolvedValue({ revision: 9, paths: { host: 'signed-host', receiver: 'receiver', state: 'state' } });
+  vi.mocked(detectNativeExportCapability).mockResolvedValue('budget-v2');
+  const { NativeExportSourceChanged } = await import('./nativeExportBudget');
+  vi.mocked(estimateRequestBytes).mockRejectedValue(new NativeExportSourceChanged());
+  await expect(nativeClipExportProvider()?.(request)).rejects.toMatchObject({ name: 'NativeExportSourceChanged' });
+  expect(createMacClipExporter).not.toHaveBeenCalled();
 });

@@ -214,7 +214,7 @@ const buildRequests = ({
   if (angleOption === 'allAngles')
     return getAvailableVideoSources(videoSources).map((sourcePath, index) => ({
       sourcePath,
-      progressId,
+      progressId: progressId ? `${progressId}:angle-${index + 1}` : undefined,
       mode: 'single',
       exportMode,
       angleOption: 'single',
@@ -269,6 +269,9 @@ export const executeClipExport = async (
     successMessage,
     buildAllAnglesSuccessMessage = DEFAULT_ALL_ANGLES_SUCCESS_MESSAGE,
   } = options;
+  const warnings: string[] = [];
+  const previousOutputs: string[] = [];
+  const priorNotice = (): string[] => [previousOutputs.length ? `先に保存された出力:\n${previousOutputs.join('\n')}` : '', ...warnings].filter(Boolean);
   try {
     const requests = buildClipExportRequests(options);
     for (const [index, request] of requests.entries()) {
@@ -285,21 +288,24 @@ export const executeClipExport = async (
       if (!result.success)
         return {
           success: false,
-          message: result.error || '書き出しに失敗しました',
+          message: [result.error || '書き出しに失敗しました', ...priorNotice()].join('\n'),
         };
+      if (result.cleanupWarning) warnings.push(result.cleanupWarning);
+      if (result.publishedOutputs) previousOutputs.push(...result.publishedOutputs);
     }
     return {
       success: true,
-      message:
+      message: [
         angleOption === 'allAngles'
           ? buildAllAnglesSuccessMessage(requests.length)
           : successMessage,
+        ...warnings,
+      ].join('\n'),
     };
   } catch (error) {
     return {
       success: false,
-      message:
-        error instanceof Error ? error.message : '書き出しに失敗しました',
+      message: [error instanceof Error ? error.message : '書き出しに失敗しました', ...priorNotice()].join('\n'),
     };
   } finally {
     onProgress?.(null);

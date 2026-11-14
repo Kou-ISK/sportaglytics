@@ -54,7 +54,7 @@ export const runFfmpegSingle = async ({
   onProgress,
 }: RunSingleParams): Promise<void> => {
   const actualSource = clip.sourceOverride || sourcePath;
-  const clipDuration = Math.max(0.5, clip.endTime - clip.startTime);
+  const clipDuration = (clip.endTime - clip.startTime);
 
   const copyMode =
     (clip.audioTrackIndex === undefined || clip.audioTrackIndex === 0) &&

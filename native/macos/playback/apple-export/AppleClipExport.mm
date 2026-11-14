@@ -19,7 +19,7 @@ bool parentConnected() {
     !(descriptor.revents & (POLLHUP | POLLERR | POLLNVAL));
 }
 bool awaitSignal(dispatch_semaphore_t signal, double deadline) {
-  while (CFAbsoluteTimeGetCurrent() < deadline && parentConnected()) {
+  while (NSProcessInfo.processInfo.systemUptime < deadline && parentConnected()) {
     if (!dispatch_semaphore_wait(signal, dispatch_time(DISPATCH_TIME_NOW, 10000000))) return true;
   }
   return false;
@@ -40,6 +40,15 @@ bool format(AVAssetTrack *track, FourCharCode codec) {
   return descriptions.count == 1 &&
     CMFormatDescriptionGetMediaSubType((__bridge CMFormatDescriptionRef)descriptions[0]) == codec;
 }
+int unsupported(int version, NSString *reason) {
+  if (!parentConnected()) return 1;
+  NSDictionary *receipt = @{@"version": @(version), @"status": @"unsupported", @"reason": reason};
+  NSData *data = [NSJSONSerialization dataWithJSONObject:receipt options:0 error:nil];
+  if (!data || !parentConnected()) return 1;
+  [[NSFileHandle fileHandleWithStandardOutput] writeData:data];
+  [[NSFileHandle fileHandleWithStandardOutput] writeData:[@"\n" dataUsingEncoding:NSUTF8StringEncoding]];
+  return 0;
+}
 bool safePath(id value) {
   return [value isKindOfClass:NSString.class] && [value length] > 0 &&
     [value length] <= 4096 && [value isAbsolutePath] &&
@@ -57,33 +66,43 @@ int runAppleClipExport(const char *requestPath) {
     NSData *data = [NSData dataWithContentsOfFile:@(requestPath)];
     if (!data || data.length > 65536) return 65;
     NSDictionary *request = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-    NSSet *keys = [NSSet setWithArray:@[@"version", @"source", @"output", @"audioTrack", @"start", @"duration", @"maxOutputBytes"]];
+    if (![request isKindOfClass:NSDictionary.class] || !numeric(request[@"version"])) return 65;
+    int version = [request[@"version"] intValue];
+    NSSet *keys = version == 2 ? [NSSet setWithArray:@[@"version", @"source", @"output", @"audioTrack", @"start", @"duration", @"maxOutputBytes", @"deadlineSeconds"]] : [NSSet setWithArray:@[@"version", @"source", @"output", @"audioTrack", @"start", @"duration", @"maxOutputBytes"]];
     if (![request isKindOfClass:NSDictionary.class] ||
         ![[NSSet setWithArray:request.allKeys] isEqualToSet:keys] ||
-        !numeric(request[@"version"]) || [request[@"version"] doubleValue] != 1 ||
+        ([request[@"version"] doubleValue] != 1 && [request[@"version"] doubleValue] != 2) ||
         !numeric(request[@"start"]) || !numeric(request[@"duration"]) ||
         !numeric(request[@"audioTrack"]) || !numeric(request[@"maxOutputBytes"]) || !safePath(request[@"source"]) || !safePath(request[@"output"])) return 65;
     double start = [request[@"start"] doubleValue], duration = [request[@"duration"] doubleValue];
     double audioIndex = [request[@"audioTrack"] doubleValue];
     double maxOutputBytes = [request[@"maxOutputBytes"] doubleValue];
+    if (version == 2 && !numeric(request[@"deadlineSeconds"])) return 65;
+    double deadlineSeconds = version == 2 ? [request[@"deadlineSeconds"] doubleValue] : 110;
     if (start < 0 || start >= 86400 || duration <= 0 || duration > 7200 ||
-        maxOutputBytes < 1 || maxOutputBytes > 8.0 * 1024 * 1024 * 1024 || maxOutputBytes != floor(maxOutputBytes) ||
+        maxOutputBytes < 1 || maxOutputBytes > (version == 2 ? 32.0 : 8.0) * 1024 * 1024 * 1024 || maxOutputBytes != floor(maxOutputBytes) ||
+        deadlineSeconds < 1 || deadlineSeconds > 600 || deadlineSeconds != floor(deadlineSeconds) ||
         audioIndex < 0 || audioIndex > 63 || audioIndex != floor(audioIndex)) return 65;
     NSURL *sourceURL = [NSURL fileURLWithPath:request[@"source"]], *outputURL = [NSURL fileURLWithPath:request[@"output"]];
     if ([[NSFileManager defaultManager] fileExistsAtPath:outputURL.path]) return 65;
     AVURLAsset *asset = [AVURLAsset URLAssetWithURL:sourceURL options:@{AVURLAssetPreferPreciseDurationAndTimingKey:@YES}];
-    const double deadline = CFAbsoluteTimeGetCurrent() + 110;
+    const double deadline = NSProcessInfo.processInfo.systemUptime + deadlineSeconds;
     if (!load(asset, @[@"tracks", @"duration", @"hasProtectedContent"], deadline) || asset.hasProtectedContent) {
       [asset cancelLoading]; return 1;
     }
     NSArray<AVAssetTrack *> *videos = [asset tracksWithMediaType:AVMediaTypeVideo], *audios = [asset tracksWithMediaType:AVMediaTypeAudio];
-    if (videos.count != 1 || (NSUInteger)audioIndex >= audios.count) return 1;
-    AVAssetTrack *video = videos[0], *audio = audios[(NSUInteger)audioIndex];
+    if (videos.count != 1) return 1;
+    AVAssetTrack *video = videos[0];
     if (!load(video, @[@"formatDescriptions", @"timeRange", @"naturalTimeScale", @"preferredTransform"], deadline) ||
-        !load(audio, @[@"formatDescriptions", @"timeRange", @"naturalTimeScale"], deadline) ||
-        !format(video, kCMVideoCodecType_H264) || !format(audio, kAudioFormatMPEG4AAC)) return 1;
+        !format(video, kCMVideoCodecType_H264)) return 1;
     CMTimeRange range = CMTimeRangeMake(time(start), time(duration));
-    if (!covers(video.timeRange, range) || !covers(audio.timeRange, range)) return 1;
+    if (!covers(video.timeRange, range)) return unsupported(version, @"range-not-covered");
+    if (audios.count == 0 && audioIndex == 0) return unsupported(version, @"no-audio");
+    if ((NSUInteger)audioIndex >= audios.count) return 1;
+    AVAssetTrack *audio = audios[(NSUInteger)audioIndex];
+    if (!load(audio, @[@"formatDescriptions", @"timeRange", @"naturalTimeScale"], deadline) ||
+        !format(audio, kAudioFormatMPEG4AAC)) return 1;
+    if (!covers(audio.timeRange, range)) return unsupported(version, @"range-not-covered");
     AVMutableComposition *composition = [AVMutableComposition composition];
     AVMutableCompositionTrack *v = [composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
     AVMutableCompositionTrack *a = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
@@ -120,7 +139,7 @@ int runAppleClipExport(const char *requestPath) {
     if (!load(output, @[@"duration"], deadline) ||
         !CMTIME_IS_NUMERIC(output.duration) ||
         fabs(CMTimeGetSeconds(output.duration) - duration) > 1.0 / 120000) return 1;
-    NSDictionary *receipt = @{@"version":@1, @"status":@"completed", @"duration":@(CMTimeGetSeconds(output.duration)), @"audioTrack":@((int)audioIndex)};
+    NSDictionary *receipt = @{@"version":@(version), @"status":@"completed", @"duration":@(CMTimeGetSeconds(output.duration)), @"audioTrack":@((int)audioIndex)};
     NSData *result = [NSJSONSerialization dataWithJSONObject:receipt options:0 error:nil];
     if (!result || !parentConnected()) return 1;
     [[NSFileHandle fileHandleWithStandardOutput] writeData:result];
