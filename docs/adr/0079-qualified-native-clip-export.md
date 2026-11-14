@@ -18,6 +18,8 @@ Main専用のoptional exporterをprepared source確定後に差し込み、nativ
 
 source revision確認、子プロセスclose、資格検査、非上書き公開を順に所有する。source変更、公開の失敗、終了未確認をfallbackで隠さない。音声indexは選択source基準で両経路へ渡し、準備合成で失うindexは明示的に拒否する。開発時の全画像照合を通常再生・exportの毎回全尺走査へ導入しない。
 
+ハードリンク非対応先では、検証した署名済みmacOS hostを用い、ディレクトリ記述子とstaging identityを確認して排他的renameを試みる。結果が不明な終了は公開失敗と断定できないため、通常エンコードへ再試行せず対象を保持して通知する。未対応OSやfilesystemでは安全に失敗する。
+
 ## Consequences
 
 [設計・制限・公式資料](../native-export.md)を正本とする。Appleのpassthroughを利用できる余地を検証できる一方、複数区間の連結、未確認形式、合成が必要な条件は既存経路を維持する。AACの生decode末尾とplayerの提示区間は区別し、元の圧縮品質・時刻を保った対応範囲で有効化する。境界だけの再圧縮が可能とは断定せず、未適格入力は既存encoderへ戻す。

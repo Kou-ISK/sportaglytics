@@ -27,11 +27,11 @@ const hashFile = async (file: string): Promise<string> => {
 
 /** Normal packages require authenticated signed resources. Development policy
  * is passed only by isolated tests; missing signing data never downgrades it. */
-export const resolveNativeResources = async (
+export const resolveVerifiedNativeResources = async (
   resources: string,
   state: string,
   policy: 'signed' | 'development' = 'signed',
-): Promise<NativeRuntimePaths> => {
+): Promise<{ paths: NativeRuntimePaths; revision: 8 | 9 }> => {
   const root = path.join(resources, 'native-playback');
   for (const directory of [root, path.join(root, 'licenses')])
     if (!(await lstat(directory)).isDirectory())
@@ -52,7 +52,7 @@ export const resolveNativeResources = async (
     !record(manifest) ||
     !record(manifest.identity) ||
     !record(manifest.files) ||
-    manifest.identity.revision !== 7 ||
+    (manifest.identity.revision !== 8 && manifest.identity.revision !== 9) ||
     manifest.identity.engine !== 'AVPlayer' ||
     manifest.identity.platform !== 'darwin' ||
     manifest.identity.architecture !== 'arm64' ||
@@ -83,12 +83,14 @@ export const resolveNativeResources = async (
     )
       throw Error('NATIVE_RESOURCE_HASH');
   }
-  return {
+  return { paths: {
     host: path.join(root, 'NativeProductHost'),
-    receiver: path.join(root, 'Receiver.node'),
-    state,
-  };
+    receiver: path.join(root, 'Receiver.node'), state,
+  }, revision: manifest.identity.revision };
 };
+
+export const resolveNativeResources = async (resources: string, state: string, policy: 'signed' | 'development' = 'signed'): Promise<NativeRuntimePaths> =>
+  (await resolveVerifiedNativeResources(resources, state, policy)).paths;
 
 /** The input addon is returned only after the complete signed set is verified. */
 export const resolveSignedCommandInput = async (

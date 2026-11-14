@@ -1,6 +1,6 @@
 import { CaptureAnglePlayer } from '../CaptureAnglePlayer';
 import { angleIndexForView } from '../../../../../shared/media/angleView';
-import { withClipDuration } from '../../../../../shared/media/withClipDuration';
+import { updateTimelineClipDuration } from './updateTimelineClipDuration';
 import { getAngleOffset } from '../../../../../shared/media/mediaTimeline';
 import { resolveMediaDisplayTime } from '../../../../../shared/media/mediaDisplayTime';
 import { videoGridAspect } from '../../../../../shared/hooks/videoGridAspect';
@@ -82,14 +82,7 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
             ?.timelineStartSeconds ?? 0;
         setMaxSec((current) => Math.max(current, clipStart + value));
         setMediaAngles?.((current) =>
-          current.map((angle, index) =>
-            index !== angleIndex
-              ? angle
-              : {
-                  ...angle,
-                  clips: withClipDuration(angle.clips, clipId, value),
-                },
-          ),
+          updateTimelineClipDuration(current, angleIndex, clipId, value),
         );
       },
     [mediaAngles, setMaxSec, setMediaAngles],

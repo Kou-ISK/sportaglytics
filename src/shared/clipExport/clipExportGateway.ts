@@ -3,9 +3,22 @@ import type {
   ClipExportPayload,
 } from './clipExportTypes';
 import type { ExportProgressWindowState } from '../../types/ipc/exportProgressWindow';
+import type { CancelExportResult } from '../../types/ipc/exportProgressWindow';
 
 const getClipExportApi = () => globalThis.window.electronAPI;
 const noop = (): void => undefined;
+export const closeExportProgressWindow = (): void => window.close();
+export const cancelClipExport = async (
+  id: string,
+): Promise<CancelExportResult> => {
+  try {
+    return (
+      (await getClipExportApi()?.cancelExportProgress?.(id)) ?? 'not-found'
+    );
+  } catch {
+    return 'not-found';
+  }
+};
 
 export const canExportClipsWithOverlay = (): boolean => {
   return Boolean(getClipExportApi()?.exportClipsWithOverlay);

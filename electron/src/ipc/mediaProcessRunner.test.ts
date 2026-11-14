@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { runMediaProcess } from './mediaProcessRunner';
 
 describe('runMediaProcess', () => {
@@ -32,4 +35,32 @@ describe('runMediaProcess', () => {
       }),
     ).rejects.toThrow('timed out');
   });
+});
+
+it('cancels an owned running media child and waits for it to close', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'media-probe-cancel-'));
+  const ready = path.join(root, 'ready');
+  const controller = new AbortController();
+  let task: Promise<unknown> | undefined;
+  try {
+    task = runMediaProcess(
+      process.execPath,
+      [
+        '-e',
+        "require('node:fs').writeFileSync(process.argv[1], 'ready'); setInterval(() => {}, 1000)",
+        ready,
+      ],
+      { timeoutMs: 10000, maxOutputBytes: 1024, signal: controller.signal },
+    );
+    const rejected = expect(task).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(async () =>
+      expect(await fs.readFile(ready, 'utf8')).toBe('ready'),
+    );
+    controller.abort();
+    await rejected;
+  } finally {
+    controller.abort();
+    await task?.catch(() => undefined);
+    await fs.rm(root, { recursive: true, force: true });
+  }
 });

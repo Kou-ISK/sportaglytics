@@ -1,5 +1,6 @@
 import { getFfprobePath } from '../mediaTools';
 import { runMediaProcess } from './mediaProcessRunner';
+import { exportAbortContext } from './exportAbortContext';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -51,7 +52,11 @@ export const readStreamCopyMetadata = async (
         'json',
         file,
       ],
-      { timeoutMs: 30000, maxOutputBytes: 1024 * 1024 },
+      {
+        timeoutMs: 30000,
+        maxOutputBytes: 1024 * 1024,
+        signal: exportAbortContext.getStore(),
+      },
     );
     const parsed: unknown = JSON.parse(result.stdout);
     if (
@@ -97,6 +102,7 @@ export const readStreamCopyMetadata = async (
       hasBFrames: video[0].has_b_frames !== 0,
     };
   } catch {
+    exportAbortContext.getStore()?.throwIfAborted();
     // A copy optimization must never bypass the normal encoder when compatibility is unknown.
     return null;
   }
@@ -134,7 +140,11 @@ const isKeyframeAt = async (file: string, time: number): Promise<boolean> => {
       'json',
       file,
     ],
-    { timeoutMs: 30000, maxOutputBytes: 256 * 1024 },
+    {
+      timeoutMs: 30000,
+      maxOutputBytes: 256 * 1024,
+      signal: exportAbortContext.getStore(),
+    },
   );
   const data: unknown = JSON.parse(result.stdout);
   if (!isRecord(data) || !Array.isArray(data.frames)) return false;
@@ -191,6 +201,7 @@ export const resolveMediaCopyMode = async (
       ? 'keyframe-range'
       : null;
   } catch {
+    exportAbortContext.getStore()?.throwIfAborted();
     return null;
   }
 };

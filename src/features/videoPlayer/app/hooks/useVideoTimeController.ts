@@ -42,10 +42,11 @@ const dispatchSeekEvent = (
   type: 'video-seek-start' | 'video-seek-end',
   time?: number,
   seekMode: VideoSeekMode = 'exact',
+  reverse = false,
 ): void => {
   if (type === 'video-seek-start') {
     globalThis.window.dispatchEvent(
-      new CustomEvent(type, { detail: { time, seekMode } }),
+      new CustomEvent(type, { detail: { time, seekMode, reverse } }),
     );
     return;
   }
@@ -123,7 +124,7 @@ export const useVideoTimeController = ({
 }: UseVideoTimeControllerParams): {
   currentTime: number;
   playbackTime: number;
-  seekReverse: (time: number, signal: AbortSignal) => Promise<void>;
+  seekReverse: (time: number, signal: AbortSignal) => Promise<number | null>;
   setCurrentTime: Dispatch<SetStateAction<number>>;
   handleCurrentTime: (
     event: SyntheticEvent | Event,
@@ -134,6 +135,7 @@ export const useVideoTimeController = ({
   const [currentTime, setConfirmedTime] = useState(0);
   const [reverseDemand, setReverseDemand] = useState<number | null>(null);
   const reverseAbort = useRef<AbortController | null>(null);
+  const reverseAbortOwner = useRef<object | null>(null);
   // Legacy polling reads currentTime immediately after assignment. While a held
   // seek owns presentation it cannot promote that unconfirmed value to tags.
   const setCurrentTime = useCallback<Dispatch<SetStateAction<number>>>(
@@ -152,7 +154,8 @@ export const useVideoTimeController = ({
     currentOwner.current = seekOwner;
     return () => {
       if (currentOwner.current === seekOwner) currentOwner.current = null;
-      reverseAbort.current?.abort();
+      if (reverseAbortOwner.current === seekOwner)
+        reverseAbort.current?.abort();
     };
   }, [seekOwner]);
   const pendingSeekRef = useRef<number | null>(null);
@@ -179,6 +182,7 @@ export const useVideoTimeController = ({
       if (currentOwner.current !== seekOwner) return;
       reverseAbort.current?.abort();
       reverseAbort.current = null;
+      reverseAbortOwner.current = null;
       setReverseDemand(null);
       const time = typeof newValue === 'number' ? newValue : Number.NaN;
       const nativeOwned = getNativePlayback() !== null;
@@ -230,12 +234,13 @@ export const useVideoTimeController = ({
   );
 
   const seekReverse = useCallback(
-    async (time: number, signal: AbortSignal): Promise<void> => {
+    async (time: number, signal: AbortSignal): Promise<number | null> => {
       if (signal.aborted || currentOwner.current !== seekOwner)
         throw Error('REVERSE_CANCELLED');
       const abort = new AbortController();
       reverseAbort.current?.abort();
       reverseAbort.current = abort;
+      reverseAbortOwner.current = seekOwner;
       pendingSeekRef.current = null;
       if (seekFrameRef.current !== null)
         cancelAnimationFrame(seekFrameRef.current);
@@ -273,7 +278,7 @@ export const useVideoTimeController = ({
           () => {
             setReverseDemand(time);
             started = true;
-            dispatchSeekEvent('video-seek-start', time);
+            dispatchSeekEvent('video-seek-start', time, 'exact', true);
             seekEachPlayer({
               timeClamped: time,
               videoList,
@@ -290,10 +295,12 @@ export const useVideoTimeController = ({
         )
           throw Error('REVERSE_CANCELLED');
         setConfirmedTime(measured ?? time);
+        return measured;
       } finally {
         signal.removeEventListener('abort', cancel);
         if (reverseAbort.current === abort) {
           reverseAbort.current = null;
+          reverseAbortOwner.current = null;
           setReverseDemand(null);
           if (started && currentOwner.current === seekOwner)
             dispatchSeekEvent('video-seek-end');

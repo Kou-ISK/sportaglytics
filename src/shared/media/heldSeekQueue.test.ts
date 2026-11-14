@@ -51,3 +51,57 @@ it('cancels old pending work and ignores its completion after replacement', asyn
   expect(present).toHaveBeenCalledTimes(1);
   expect(present.mock.calls[0][1].aborted).toBe(true);
 });
+it('discards unissued demand on release without aborting the in-flight seek', async () => {
+  let finish = (): void => {};
+  let signal!: AbortSignal;
+  const present = vi.fn((_time: number, current: AbortSignal) => {
+    signal = current;
+    return new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+  });
+  const queue = new HeldSeekQueue(present, vi.fn());
+  queue.request(10);
+  queue.request(9);
+  queue.discardPending();
+  expect(signal.aborted).toBe(false);
+  expect(queue.settled).toBe(false);
+  finish();
+  await flush();
+  expect(present).toHaveBeenCalledTimes(1);
+  expect(queue.settled).toBe(true);
+});
+it('signals idle only after the in-flight image settles and resolves cancellation separately', async () => {
+  let finish = (): void => {};
+  const queue = new HeldSeekQueue(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    vi.fn(),
+  );
+  queue.request(10);
+  queue.request(9);
+  queue.discardPending();
+  const idle = vi.fn();
+  void queue.whenIdle().then(idle);
+  await flush();
+  expect(idle).not.toHaveBeenCalled();
+  finish();
+  await flush();
+  expect(idle).toHaveBeenCalledWith(true);
+  let pendingFinish = (): void => {};
+  const cancelled = new HeldSeekQueue(
+    () =>
+      new Promise<void>((resolve) => {
+        pendingFinish = resolve;
+      }),
+    vi.fn(),
+  );
+  cancelled.request(5);
+  const result = cancelled.whenIdle();
+  cancelled.cancel();
+  expect(await result).toBe(false);
+  pendingFinish();
+  await flush();
+});

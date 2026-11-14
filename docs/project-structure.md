@@ -1,3 +1,5 @@
+書き出し進捗は `src/features/exportProgress` の Screen と props-only View に分け、専用画面は feature の公開面を合成します。取消 IPC は shared Gateway、preload の明示 API、Main の進捗ウィンドウとジョブ所有者へ分けます。
+
 Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
 
 初回案内の描画は`src/components/ui/patterns/OnboardingTutorialView.tsx`、完了状態と外部イベントは`src/components/useOnboardingTutorialController.tsx`が所有します。分析の表示確認用データはfeature内`Analytics/AnalysisPanel/fixtures/`に置き、実データやElectron I/Oへ依存させません。

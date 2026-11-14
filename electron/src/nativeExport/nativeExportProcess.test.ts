@@ -6,6 +6,8 @@ import {
   runNativeExportProcess,
   runNativeExportProbe,
 } from './nativeExportProcess';
+const disk = vi.hoisted(() => ({ statfs: vi.fn(), lstat: vi.fn() }));
+vi.mock('node:fs/promises', () => ({ statfs: disk.statfs, lstat: disk.lstat }));
 const control = vi.hoisted(() => ({
   inputFd: 42,
   closeReader: vi.fn(),
@@ -117,4 +119,16 @@ it('keeps a cancelled metadata probe owned until its real close', async () => {
   expect(settled).not.toHaveBeenCalled();
   c.emit('close', null, 'SIGTERM');
   expect((await result).name).toBe('AbortError');
+});
+it('stops on a 30 GB reserve breach and waits for child close', async () => {
+  vi.useFakeTimers(); const c = child(); vi.mocked(spawn).mockReturnValue(c as unknown as ReturnType<typeof spawn>);
+  disk.statfs.mockResolvedValueOnce({ bavail: 31_000_000_000, bsize: 1 }).mockResolvedValue({ bavail: 29_000_000_000, bsize: 1 });
+  disk.lstat.mockResolvedValue({ isFile: () => true, size: 10 });
+  let settled = false;
+  const result = runNativeExportProcess('helper', 'request', { outputPath: '/tmp/candidate', maxOutputBytes: 1000, minimumFreeBytes: 30_000_000_000 }).catch((error) => { settled = true; return error; });
+  await vi.waitFor(() => expect(spawn).toHaveBeenCalled());
+  await vi.advanceTimersByTimeAsync(250);
+  expect(control.close).toHaveBeenCalled(); expect(settled).toBe(false);
+  c.emit('close', 1, null);
+  expect((await result).name).toBe('NativeExportCapacityError');
 });

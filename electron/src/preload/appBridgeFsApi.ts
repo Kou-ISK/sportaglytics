@@ -15,6 +15,7 @@ export type AppBridgeFsKeys =
   | 'previewClipExportText'
   | 'onExportProgressWindowState'
   | 'requestExportProgressWindowState'
+  | 'cancelExportProgress'
   | 'saveFileDialog'
   | 'openFileDialog'
   | 'openDashboardPackageDialog'
@@ -103,6 +104,17 @@ export const createAppBridgeFsApi = (
         EXPORT_PROGRESS_WINDOW_CHANNELS.requestState,
       );
       return isExportProgressWindowState(state) ? state : null;
+    },
+    cancelExportProgress: async (id) => {
+      const value: unknown = await ipcRenderer.invoke(
+        EXPORT_PROGRESS_WINDOW_CHANNELS.cancel,
+        id,
+      );
+      return value === 'accepted' ||
+        value === 'already-requested' ||
+        value === 'too-late'
+        ? value
+        : 'not-found';
     },
     saveFileDialog: async (
       defaultPath: string,

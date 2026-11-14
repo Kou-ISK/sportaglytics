@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { concatFiles } from './exportFfmpegRunners';
 import { renderClipWithFfmpeg } from './exportClipRender';
 import { createPreparedClipRenderer } from './exportPreparedClipRenderer';
@@ -10,6 +10,7 @@ vi.mock('./exportFfmpegRunners', () => ({ concatFiles: vi.fn() }));
 vi.mock('./exportClipRender', () => ({ renderClipWithFfmpeg: vi.fn() }));
 vi.mock('node:fs/promises', () => ({ unlink: vi.fn(async () => undefined) }));
 beforeEach(() => vi.clearAllMocks());
+afterEach(() => vi.unstubAllGlobals());
 const clip = { id: 'one', actionName: 'Review', startTime: 2, endTime: 8 };
 const payload: ExportClipsPayload = {
   sourcePath: '/original.mp4',
@@ -30,6 +31,33 @@ const progress = () => ({
   onJoinStart: vi.fn(),
   onJoinProgress: vi.fn(),
   onCompleted: vi.fn(),
+});
+
+it.each(['single', 'perRow'] as const)('renders a single Windows %s group directly into transaction staging', async (exportMode) => {
+  vi.stubGlobal('process', { ...process, platform: 'win32' });
+  vi.mocked(renderClipWithFfmpeg).mockResolvedValue('/destination/staging.mp4');
+  const events = progress();
+  await renderExportClipGroup({
+    clips: [clip], outputPath: '/destination/staging.mp4',
+    renderClip: createPreparedClipRenderer({ ...payload, exportMode }, new Map(), [], () => 'ffmpeg'),
+    getFfmpegPath: () => 'ffmpeg', ...events,
+  });
+  expect(renderClipWithFfmpeg).toHaveBeenCalledWith(expect.objectContaining({ outputPath: '/destination/staging.mp4' }));
+  expect(concatFiles).not.toHaveBeenCalled();
+  expect(events.onCompleted).toHaveBeenCalledOnce();
+});
+
+it('does not report completion when direct Windows rendering fails', async () => {
+  vi.stubGlobal('process', { ...process, platform: 'win32' });
+  vi.mocked(renderClipWithFfmpeg).mockRejectedValue(new Error('render failed'));
+  const events = progress();
+  await expect(renderExportClipGroup({
+    clips: [clip], outputPath: '/destination/staging.mp4',
+    renderClip: createPreparedClipRenderer({ ...payload, exportMode: 'single' }, new Map(), [], () => 'ffmpeg'),
+    getFfmpegPath: () => 'ffmpeg', ...events,
+  })).rejects.toThrow('render failed');
+  expect(events.onCompleted).not.toHaveBeenCalled();
+  expect(concatFiles).not.toHaveBeenCalled();
 });
 
 it.each(['single', 'perRow'] as const)(

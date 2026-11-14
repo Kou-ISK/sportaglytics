@@ -1,11 +1,12 @@
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   concatFfmpegFiles,
   FfmpegExecutionError,
   parseFfmpegProgressLine,
+  runFfmpegProcess,
 } from './exportFfmpegProcess';
 import {
   H264_ENCODER_ARGS,
@@ -26,6 +27,41 @@ describe('parseFfmpegProgressLine', () => {
     expect(parseFfmpegProgressLine('out_time_us=1000', 0)).toBeNull();
   });
 });
+
+it.skipIf(process.platform === 'win32')(
+  'stops only the started child and waits for its close on cancellation',
+  async () => {
+    const dir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'export-cancel-child-'),
+    );
+    const controller = new AbortController();
+    let task: Promise<void> | undefined;
+    try {
+      const ready = path.join(dir, 'ready');
+      const closed = path.join(dir, 'closed');
+      const program = `const fs = require('node:fs'); process.on('SIGTERM', () => setTimeout(() => { fs.writeFileSync(process.argv[2], 'closed'); process.exit(0); }, 75)); fs.writeFileSync(process.argv[1], 'ready'); setInterval(() => {}, 1000);`;
+      task = runFfmpegProcess(
+        () => process.execPath,
+        ['-e', program, ready, closed],
+        undefined,
+        controller.signal,
+      );
+      const rejected = expect(task).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      await vi.waitFor(async () =>
+        expect(await fs.readFile(ready, 'utf8')).toBe('ready'),
+      );
+      controller.abort();
+      await rejected;
+      expect(await fs.readFile(closed, 'utf8')).toBe('closed');
+    } finally {
+      controller.abort();
+      await task?.catch(() => undefined);
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  },
+);
 
 describe('resolveH264Encoder', () => {
   it('uses the OS software encoder on Windows without GPU prerequisites', () => {
@@ -88,6 +124,32 @@ describe('resolveH264Encoder', () => {
 });
 
 describe('FfmpegExecutionError', () => {
+  it('explains the exact VideoToolbox encoder availability failure while retaining details', () => {
+    const details = { exitCode: 187, signal: null, stderrTail: '[h264_videotoolbox @ 0x123] Error: cannot create compression session: -12908\nConversion failed!', executablePath: '/private/ffmpeg', commandSummary: 'ffmpeg -i <value>', videoToolboxRequested: true };
+    const error = new FfmpegExecutionError(details);
+    expect(error.message).toContain('H.264 エンコーダーを利用できない');
+    expect(error.message).toContain('-12908');
+    expect(error.details).toEqual(details);
+    expect(error.message).not.toContain('/private/ffmpeg');
+  });
+
+  it('does not classify unrelated diagnostics or a signal as encoder unavailable', () => {
+    for (const details of [
+      { exitCode: 1, signal: null, stderrTail: 'input contains -12908' },
+      { exitCode: 1, signal: null, stderrTail: 'metadata: [h264_videotoolbox @ 0x123] Error: cannot create compression session: -12908' },
+      { exitCode: 1, signal: null, stderrTail: '[h264_videotoolbox @ 0x123] Error: cannot create compression session: -129080' },
+      { exitCode: 1, signal: null, stderrTail: '[h264_videotoolbox @ 0x123] Error: cannot create compression session: -1290' },
+      { exitCode: 1, signal: null, stderrTail: '[h264_videotoolbox @ 0x123] Error: cannot create compression session: -12908 extra' },
+      { exitCode: 1, signal: null, stderrTail: '[h264_videotoolbox @ 0x123] Error: cannot create compression session: -12915' },
+      { exitCode: null, signal: 'SIGTERM' as const, stderrTail: '[h264_videotoolbox @ 0x123] Error: cannot create compression session: -12908' },
+    ]) {
+      const error = new FfmpegExecutionError({ ...details, executablePath: '/private/ffmpeg', commandSummary: 'ffmpeg', videoToolboxRequested: true });
+      expect(error.message).not.toContain('H.264 エンコーダーを利用できない');
+    }
+    const noEncoder = new FfmpegExecutionError({ exitCode: 1, signal: null, stderrTail: '[h264_videotoolbox @ 0x123] Error: cannot create compression session: -12908', executablePath: '/private/ffmpeg', commandSummary: 'ffmpeg' });
+    expect(noEncoder.message).not.toContain('H.264 エンコーダーを利用できない');
+  });
+
   it('retains bounded diagnostic metadata separately from its summary', () => {
     const error = new FfmpegExecutionError({
       exitCode: 1,
