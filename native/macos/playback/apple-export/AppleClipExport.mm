@@ -1,3 +1,4 @@
+#include "AppleClipExport.hpp"
 #import <AVFoundation/AVFoundation.h>
 #import <Foundation/Foundation.h>
 #include <cmath>
@@ -137,8 +138,17 @@ int runAppleClipExport(const char *requestPath) {
         candidateStat.st_size <= 0 || candidateStat.st_size > maxOutputBytes) return 1;
     AVURLAsset *output = [AVURLAsset URLAssetWithURL:outputURL options:@{AVURLAssetPreferPreciseDurationAndTimingKey:@YES}];
     if (!load(output, @[@"duration"], deadline) ||
-        !CMTIME_IS_NUMERIC(output.duration) ||
-        fabs(CMTimeGetSeconds(output.duration) - duration) > 1.0 / 120000) return 1;
+        !CMTIME_IS_NUMERIC(output.duration)) return 1;
+    const double actualDuration = CMTimeGetSeconds(output.duration);
+    if (version == 1) {
+      if (fabs(actualDuration - duration) > 1.0 / 120000) return 1;
+    } else {
+      if (!load(output, @[@"tracks"], deadline)) return 1;
+      NSArray<AVAssetTrack *> *outputVideos = [output tracksWithMediaType:AVMediaTypeVideo];
+      if (outputVideos.count != 1 ||
+          !load(outputVideos[0], @[@"naturalTimeScale"], deadline) ||
+          !nativeExportDurationMatches(actualDuration, duration, outputVideos[0].naturalTimeScale)) return 1;
+    }
     NSDictionary *receipt = @{@"version":@(version), @"status":@"completed", @"duration":@(CMTimeGetSeconds(output.duration)), @"audioTrack":@((int)audioIndex)};
     NSData *result = [NSJSONSerialization dataWithJSONObject:receipt options:0 error:nil];
     if (!result || !parentConnected()) return 1;

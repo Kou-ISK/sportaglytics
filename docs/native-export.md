@@ -57,3 +57,15 @@ pnpm run test:native-runtime
 SDKの`AVAssetExportSession.h`にもcontainer制約、audioMix/videoComposition無視が明記されています。QuickTime PlayerやSportscodeの非公開内部を同じ実装とは断定しません。
 
 対応するv2 native出力は、資格検査で保持したファイル記述子を外側の保存処理へ引き継ぎ、検証済みhostの明示的な`held-clone-v1`能力とAPFSのclone能力を確認して排他的に確定します。旧hostや非対応volumeでは生成前に有限予算の既存経路へ戻します。[所有境界と制約](adr/0084-held-export-publication.md)。
+
+### Native v2 duration quantization (unreleased correction)
+
+MP4 passthrough may quantize the requested duration to the exported video track clock.
+The helper permits at most half that tick plus the input clock rounding (1/120000000 second),
+capped at 1 ms; invalid clocks and non-finite values fail closed. The v1 contract is unchanged.
+Main admits v2 receipts within a 1 ms metadata envelope, then independently inspects actual
+video/audio stream timestamps, selected tracks and interval metadata. This does not prove
+all decoded frames or audio samples match the source. Receipt acceptance
+alone cannot publish a candidate; failed qualification remains a retained unknown failure.
+This correction does not change the requested interval, append frames/audio, or permit a
+candidate rejected by the released helper to be uploaded without normal validation.
