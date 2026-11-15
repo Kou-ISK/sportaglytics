@@ -1,14 +1,22 @@
 // @vitest-environment node
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
-import { execFileSync } from 'node:child_process';
 import { constants } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-const opened = vi.hoisted(() => new Map<number, import('node:fs/promises').FileHandle>());
+const opened = vi.hoisted(
+  () => new Map<number, import('node:fs/promises').FileHandle>(),
+);
 vi.mock('node:fs/promises', async (original) => {
   const actual = await original<typeof import('node:fs/promises')>();
-  return { ...actual, open: async (...args: Parameters<typeof actual.open>) => { const handle = await actual.open(...args); opened.set(handle.fd, handle); return handle; } };
+  return {
+    ...actual,
+    open: async (...args: Parameters<typeof actual.open>) => {
+      const handle = await actual.open(...args);
+      opened.set(handle.fd, handle);
+      return handle;
+    },
+  };
 });
 vi.mock('electron', () => ({ app: { isPackaged: false } }));
 import { publishHeldSource } from './exportHeldPublish';
@@ -17,18 +25,46 @@ import { retainedFor } from './exportRetainedRecords';
 import { createMacClipExporter } from '../nativeExport/macClipExporter';
 import { exportResourceContext } from './exportResourceContext';
 import { nativeMinimumFreeBytes } from '../nativeExport/nativeCapacityPolicy';
+import {
+  prepareNativeFixture,
+  NATIVE_FIXTURE_SETUP_TIMEOUT_MS,
+} from '../testing/nativeFixtureCompilation';
 
 let root = '';
 let host = '';
+let preparation: ReturnType<typeof prepareNativeFixture> | undefined;
 beforeAll(async () => {
   if (process.platform !== 'darwin') return;
-  root = await fs.mkdtemp(path.join(os.tmpdir(), 'held-publish-contract-'));
-  const source = path.join(root, 'main.cpp');
-  host = path.join(root, 'held-host');
-  await fs.writeFile(source, '#include "ExclusivePublish.hpp"\nint main(int argc, const char **argv) { return runHeldPublish(argc, argv); }\n');
-  execFileSync('/usr/bin/clang++', ['-std=c++17', '-I', path.resolve('native/macos/playback/apple-player'), source, '-o', host], { timeout: 15000, maxBuffer: 65536 });
+  preparation = prepareNativeFixture(async () => {
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'held-publish-contract-'));
+    const source = path.join(root, 'main.cpp');
+    host = path.join(root, 'held-host');
+    await fs.writeFile(
+      source,
+      '#include "ExclusivePublish.hpp"\nint main(int argc, const char **argv) { return runHeldPublish(argc, argv); }\n',
+    );
+    return [
+      '-std=c++17',
+      '-I',
+      path.resolve('native/macos/playback/apple-player'),
+      source,
+      '-o',
+      host,
+    ];
+  });
+  await preparation.ready;
+}, NATIVE_FIXTURE_SETUP_TIMEOUT_MS);
+afterAll(async () => {
+  preparation?.abandon();
+  if (!root) return;
+  if (!preparation?.canCleanup()) {
+    console.warn(
+      'Retained native test fixture: preparation/child close is unconfirmed',
+    );
+    return;
+  }
+  await fs.rm(root, { recursive: true, force: true });
 });
-afterAll(async () => { if (root) await fs.rm(root, { recursive: true, force: true }); });
 const fixture = async (): Promise<{ directory: string; source: string; target: string }> => {
   const directory = await fs.mkdtemp(path.join(root, 'case-'));
   const source = path.join(directory, 'source.mp4');

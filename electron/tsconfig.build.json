@@ -6,6 +6,7 @@
   "exclude": [
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
+    "src/testing/**/*",
     "src/preload.ts",
     "src/preload/**/*"
   ]

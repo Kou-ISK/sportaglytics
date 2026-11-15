@@ -187,6 +187,8 @@ ML framework固有typeやtraining/evaluation codeはここへ置きません。O
 
 ## Electron Layout
 
+`electron/src/testing/`はNode子プロセスを使うテストfixtureの準備・終了確認を置くテスト専用領域です。製品Mainから参照せず、`electron/tsconfig.build.json`で配布buildから除外します。所有する子のcloseが未確認な準備物は保持し、他の子や未確定FS作業の終了を推測しません。
+
 ```text
 electron/src/
 ├── main.ts
