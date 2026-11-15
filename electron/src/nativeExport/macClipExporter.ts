@@ -47,7 +47,9 @@ const isReceipt = (
     'duration' in value &&
     typeof value.duration === 'number' &&
     Number.isFinite(value.duration) &&
-    Math.abs(value.duration - request.duration) <= 1 / 120000 &&
+    // v2 may report container clock rounding; independent qualification below
+    // still checks actual stream ticks, selected tracks and interval metadata.
+    Math.abs(value.duration - request.duration) <= (version === 2 ? 0.001 : 1 / 120000) &&
     'audioTrack' in value &&
     value.audioTrack === request.audioTrack
   );
