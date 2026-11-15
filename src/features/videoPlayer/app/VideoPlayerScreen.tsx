@@ -45,7 +45,7 @@ import {
   toPackageLoadErrorMessage,
 } from '../components/Setup/VideoPathSelector/gateway/packageGateway';
 
-export const VideoPlayerScreen = () => {
+export const VideoPlayerScreen = (): React.ReactElement => {
   const {
     persistenceFeedback,
     timeline,
