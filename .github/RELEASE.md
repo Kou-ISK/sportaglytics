@@ -2,6 +2,10 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.29のpublicationテスト準備修正候補
+
+0.17.28の署名済み候補は全ゲートと丸め区間検査を通過しましたが、公開実行は公証通信切断、続く実行はC++テストの外側hook期限で停止し未公開です。既存tagと候補を保持します。PR #286はテストコンパイルを非同期・30秒上限、hookを35秒に整合し、準備中止後の新規起動を抑止して終了未確認の一時物を保持します。6件のpublication安全条件と製品budgetは維持します。develop先行統合後、[ARCH-EX-013](../docs/architecture-exceptions.md)の限定main PRでモデル方針/catalog/lockを除外し、CI・署名・公証・同一配布物E2E/丸め区間検査を再実行します。
+
 ## 0.17.28の行メニューfocus修正候補
 
 0.17.27の候補runは通過しましたが、公開runの通常Electron E2Eで4件選択の待機が失敗し、未公開です。tagと候補を保持します。PR #284は実MUI/Controllerのjsdom回帰で再現した行メニュー閉鎖時のfocus競合を修正し、既存の行操作E2EをmacOS PR CIにも追加します。実Electronでの原因と改善はイベント記録/実行結果を別途確認します。develop先行統合後、[ARCH-EX-012](../docs/architecture-exceptions.md)の限定main PRに進み、モデル方針/catalog/lockを除外します。CI、署名・公証、同一配布物E2E/丸め区間検査を維持し、失敗した候補は公開しません。
@@ -79,10 +83,10 @@ Mac source bundleは2 targetのmanifestとFFmpeg / FreeType / HarfBuzzの固定s
 
 tag pushやmain pushでは起動しません。**GitHub Actionsの明示的なworkflow_dispatchだけ**を使います。実行前に、そのversionのReleaseがまだなく、同じworkflowが進行中でないことを確認します。
 
-1. 準備PRとmain向けPRをレビューし、必要なCIを通して統合します。通常は`develop`→`main`、0.17.28は上記の[ARCH-EX-012](../docs/architecture-exceptions.md)に従う限定release branchを使います。
+1. 準備PRとmain向けPRをレビューし、必要なCIを通して統合します。通常は`develop`→`main`、0.17.29は上記の[ARCH-EX-013](../docs/architecture-exceptions.md)に従う限定release branchを使います。
 2. `main`の40文字SHAと`package.json`のversionを確認し、そのcommitへ`v<version>` tagを作成します。tag作成だけでは署名・Apple送信・公開を開始しません。
 3. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml) → **Run workflow** → branch **main**を選びます。
-4. `version`に`0.17.28`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=false`を指定します。現在の作業branchのSHAを入力しません。
+4. `version`に`0.17.29`、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=false`を指定します。現在の作業branchのSHAを入力しません。
 5. `publish=false`（既定）は署名・公証・最終DMG検証まで行い、Actions artifactとして90日間保存します。GitHub ReleaseとHomebrewは更新しません。**これは未署名dry-runではなく、Appleへのアプリ送信を含みます。**
 6. 最終公開が承認された実行は`publish=true`を指定します。同じ品質・署名・公証・DMG検証を再実行し、その実行で検査したbytesだけを公開します。先行runのartifactを無検査で流用しません。
 
@@ -90,7 +94,7 @@ CLIでも同じ入力を使います。`<reviewed-main-sha>`を実際の40文字
 
 ```bash
 gh workflow run release.yml --ref main \
-  -f version=0.17.28 -f expected_sha=<reviewed-main-sha> -F include_windows=false -F publish=false
+  -f version=0.17.29 -f expected_sha=<reviewed-main-sha> -F include_windows=false -F publish=false
 ```
 
 workflowは入力version、package version、tag commit、checkout、workflow commit、現在のorigin/mainを照合します。省略・食い違い・既存Release・API読み取り失敗は停止条件です。公開直前にも再確認します。並行runは直列化し、実行中の署名・公証を新しいdispatchでcancelしません。
