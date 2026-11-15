@@ -35,3 +35,5 @@ jobs:
         run: pnpm run e2e:prepare
       - name: Verify native close and quit persistence
         run: node scripts/e2e-timeline-close.mjs
+      - name: Verify timeline row and selection interactions
+        run: node scripts/e2e-timeline-rows.mjs
