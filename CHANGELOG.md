@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.27]
+
+- 独立タイムラインの複数選択が遅れた所有者同期で戻る競合を修正。要求UUIDとdocument世代で確認し、確認不明時は編集を再送せず再同期する（ADR 0085）。
+- Context削除のElectron E2Eは正確な4件の選択とUndo復元を待機し、失敗時は合成IDだけの有限診断を残す。
+- 未公開0.17.25のnative v2動画時計丸め修正と0.17.26のフェーズ別配布検査を含む。既存タグ・公開済み配布物は置換しない。
+
 ## [0.17.26]
 
 - Separate decoder recovery and deliberate pause/resume seek accounting in distribution E2E, retaining bounded per-phase and per-angle checks and diagnostic traces. Includes the unpublished 0.17.25 native video-clock duration correction.

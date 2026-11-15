@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TimelineData } from '../../../../types/timeline/core';
 
 interface TimelineHistoryState {
@@ -7,6 +7,7 @@ interface TimelineHistoryState {
   future: TimelineData[][];
 }
 interface UseTimelineHistoryReturn {
+  isReady: boolean;
   timeline: TimelineData[];
   canUndo: boolean;
   canRedo: boolean;
@@ -28,8 +29,16 @@ export function useTimelineHistory(
   });
   // Commands must synchronously return the document to persist, even when React
   // batches rendering. Never obtain that result from a deferred state updater.
+  const inputSignature = useMemo(
+    () => JSON.stringify(initialTimeline),
+    [initialTimeline],
+  );
+  const presentSignature = useMemo(
+    () => JSON.stringify(state.present),
+    [state.present],
+  );
   const current = useRef(state);
-  const previousInput = useRef(JSON.stringify(initialTimeline));
+  const previousInput = useRef(inputSignature);
   const previousResetKey = useRef(resetKey);
   const apply = useCallback((next: TimelineHistoryState): void => {
     current.current = next;
@@ -37,7 +46,7 @@ export function useTimelineHistory(
   }, []);
 
   useEffect(() => {
-    const input = JSON.stringify(initialTimeline);
+    const input = inputSignature;
     if (resetKey !== previousResetKey.current) {
       previousResetKey.current = resetKey;
       previousInput.current = input;
@@ -51,7 +60,7 @@ export function useTimelineHistory(
     if (input !== JSON.stringify(current.current.present)) {
       apply({ past: [], present: initialTimeline, future: [] });
     }
-  }, [initialTimeline, resetKey, apply]);
+  }, [initialTimeline, inputSignature, resetKey, apply]);
 
   const setTimeline = useCallback(
     (next: TimelineData[]): void => {
@@ -90,7 +99,14 @@ export function useTimelineHistory(
   const clearHistory = useCallback((): void => {
     apply({ past: [], present: current.current.present, future: [] });
   }, [apply]);
+  // The load effect may not yet have adopted a newly read document. Persistence
+  // echoes of our current edit keep history and are already ready.
+  const isReady =
+    previousResetKey.current === resetKey &&
+    (previousInput.current === inputSignature ||
+      presentSignature === inputSignature);
   return {
+    isReady,
     timeline: state.present,
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0,

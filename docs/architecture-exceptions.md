@@ -31,6 +31,8 @@
 
 | ARCH-EX-010 | 2026-11-15 | Release branch routing | v0.17.26の配布E2E計測修正と必要な版準備のみをmain基点release PRで取り込む | developの未公開モデル選定方針を今回の配布に混在させないため | [PR #280](https://github.com/Kou-ISK/sportaglytics/pull/280)と必要な版準備のみ。develop先行統合、両PRレビュー/CI、署名・公証と同一配布物検査・修正された丸め区間の受入を保持。モデル方針/catalog/lockをmainから除外する | 公開・配布確認後Close。期限2026-11-29 | maintainers | [PR #280](https://github.com/Kou-ISK/sportaglytics/pull/280) | Open |
 
+| ARCH-EX-011 | 2026-11-15 | Release branch routing | v0.17.27の独立タイムライン選択同期修正と必要な版準備だけをmain基点のrelease PRで取り込む | developの未公開モデル選定方針を既存配布に混在させず、未公開v0.17.26 tagを保持するため | [PR #282](https://github.com/Kou-ISK/sportaglytics/pull/282)と必要な版準備のみ。develop先行統合、両PRのレビュー/CI、署名・公証・同一配布物E2E/丸め区間検査を維持し、モデル方針/catalog/lockを除外する | 公開・配布確認後Close。期限2026-11-29 | maintainers | [PR #282](https://github.com/Kou-ISK/sportaglytics/pull/282) | Open |
+
 ## 月次レビュー
 
 - 毎月 1 回、Open の例外を見直して優先順位を更新する。

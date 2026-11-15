@@ -25,6 +25,7 @@ interface UseTimelinePersistenceResult {
   timelineEditable: boolean;
   loadRevision: number;
   canEditTimeline: () => boolean;
+  getDocumentId: () => string;
   timeline: TimelineData[];
   setTimeline: React.Dispatch<React.SetStateAction<TimelineData[]>>;
   timelineRows: TimelineRow[];
@@ -43,6 +44,12 @@ interface TimelinePersistenceOptions {
 export const useTimelinePersistence = ({
   completeRows,
 }: TimelinePersistenceOptions = {}): UseTimelinePersistenceResult => {
+  const [ownerInstanceId] = useState(() => crypto.randomUUID());
+  const documentGeneration = useRef(0);
+  const getDocumentId = useCallback(
+    (): string => `${ownerInstanceId}:${documentGeneration.current}`,
+    [ownerInstanceId],
+  );
   const [timeline, updateTimeline] = useState<TimelineData[]>([]);
   const [timelineRows, updateTimelineRows] = useState<TimelineRow[]>([]);
   // Capture edits synchronously, including a close request before React commits.
@@ -78,6 +85,7 @@ export const useTimelinePersistence = ({
       const next =
         typeof value === 'function' ? value(filePathRef.current) : value;
       if (next === filePathRef.current) return;
+      documentGeneration.current += 1;
       filePathRef.current = next;
       timelineLoadedRef.current = false;
       setTimelineEditable(false);
@@ -85,6 +93,7 @@ export const useTimelinePersistence = ({
     }, []);
   const retryRead = useCallback(() => {
     if (closingRef.current) return;
+    documentGeneration.current += 1;
     timelineLoadedRef.current = false;
     setTimelineEditable(false);
     setReloadKey((key) => key + 1);
@@ -213,14 +222,18 @@ export const useTimelinePersistence = ({
     }
 
     let cancelled = false;
+    const loadingDocumentId = getDocumentId();
     const loadTimeline = async () => {
       try {
         const text = await readTimelineFile(timelineFilePath);
         if (!text) {
           throw new Error('Timeline file is empty or not accessible');
         }
-        if (cancelled) return;
+        if (cancelled || loadingDocumentId !== getDocumentId()) return;
         const parsed = parseTimelineDocument(text);
+        // Invalidate the loading lease before enabling writes. A committed owner
+        // must adopt the loaded document before it can accept editing commands.
+        documentGeneration.current += 1;
         // 旧配列形式は読み込み時だけ移行し、ユーザーが編集するまでは書き換えない。
         timelinePersistedSnapshotRef.current = parsed.snapshot;
         timelineLoadedRef.current = true;
@@ -230,7 +243,7 @@ export const useTimelinePersistence = ({
         updateTimeline(parsed.timeline);
         updateTimelineRows(parsed.rows);
       } catch (error) {
-        if (cancelled) return;
+        if (cancelled || loadingDocumentId !== getDocumentId()) return;
         console.error('タイムラインの読み込みに失敗しました:', error);
         // A failed read is never a new empty document and must never enable autosave.
         timelineLoadedRef.current = false;
@@ -249,7 +262,7 @@ export const useTimelinePersistence = ({
     return () => {
       cancelled = true;
     };
-  }, [timelineFilePath, reloadKey]);
+  }, [timelineFilePath, reloadKey, getDocumentId]);
 
   useEffect(() => {
     if (!timelineFilePath || !timelineLoadedRef.current || closingRef.current) {
@@ -297,6 +310,7 @@ export const useTimelinePersistence = ({
     timelineEditable,
     loadRevision,
     canEditTimeline,
+    getDocumentId,
     timeline,
     setTimeline,
     timelineRows,

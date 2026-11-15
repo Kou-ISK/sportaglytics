@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import type { ChangeEvent, Dispatch, SetStateAction } from 'react';
 import { ulid } from 'ulid';
 import type {
@@ -31,6 +31,14 @@ interface UseTimelineSessionControllerResult extends TimelineRangeEditing {
   persistenceFeedback: TimelinePersistenceFeedback | null;
   timelineEditable: boolean;
   loadRevision: number;
+  getDocumentId: () => string;
+  canEditTimeline: () => boolean;
+  selectionRequestId: string | null;
+  applySelectionRequest: (
+    documentId: string,
+    requestId: string,
+    ids: string[],
+  ) => void;
   timeline: TimelineData[];
   timelineRows: TimelineRow[];
   setTimeline: Dispatch<SetStateAction<TimelineData[]>>;
@@ -95,17 +103,19 @@ export const useTimelineSessionController =
     );
     const {
       persistenceFeedback,
-      timelineEditable,
+      timelineEditable: persistedEditable,
       loadRevision,
-      canEditTimeline,
+      canEditTimeline: canEditPersistedTimeline,
+      getDocumentId,
       timeline: persistedTimeline,
       setTimeline: setPersistedTimeline,
       timelineRows,
-      setTimelineRows,
+      setTimelineRows: setPersistedTimelineRows,
       timelineFilePath,
       setTimelineFilePath,
     } = useTimelinePersistence({ completeRows });
     const {
+      isReady: historyReady,
       timeline,
       canUndo,
       canRedo,
@@ -113,15 +123,54 @@ export const useTimelineSessionController =
       undo: undoHistory,
       redo: redoHistory,
     } = useTimelineHistory(persistedTimeline, loadRevision);
+    const documentId = getDocumentId();
+    const committedHistory = useRef({ documentId, ready: historyReady });
+    useLayoutEffect(() => {
+      committedHistory.current = { documentId, ready: historyReady };
+      return () => {
+        committedHistory.current.ready = false;
+      };
+    }, [documentId, historyReady]);
+    const canEditTimeline = useCallback(
+      (): boolean =>
+        canEditPersistedTimeline() &&
+        committedHistory.current.ready &&
+        committedHistory.current.documentId === getDocumentId(),
+      [canEditPersistedTimeline, getDocumentId],
+    );
+    const timelineEditable = persistedEditable && historyReady;
+    const setTimelineRows = useCallback<
+      Dispatch<SetStateAction<TimelineRow[]>>
+    >(
+      (value) => {
+        if (canEditTimeline()) setPersistedTimelineRows(value);
+      },
+      [canEditTimeline, setPersistedTimelineRows],
+    );
+
     const {
       selectedTimelineIdList,
       setSelectedTimelineIdList,
       getSelectedTimelineId,
-    } = useTimelineSelection();
+      selectionRequestId,
+      applySelectionRequest: applyRequestedSelection,
+    } = useTimelineSelection(getDocumentId);
 
     const timelineRef = useRef<TimelineData[]>(timeline);
+    const applySelectionRequest = useCallback(
+      (documentId: string, requestId: string, ids: string[]): void => {
+        if (!canEditTimeline() || documentId !== getDocumentId()) return;
+        const available = new Set(timelineRef.current.map((item) => item.id));
+        applyRequestedSelection(
+          documentId,
+          requestId,
+          ids.filter((id) => available.has(id)),
+        );
+      },
+      [applyRequestedSelection, canEditTimeline, getDocumentId],
+    );
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       timelineRef.current = timeline;
     }, [timeline]);
 
@@ -156,7 +205,7 @@ export const useTimelineSessionController =
       setTimelineRows((current) =>
         ensureTimelineRows(current, timeline, buttonColorsRef.current),
       );
-    }, [setTimelineRows, timeline]);
+    }, [setTimelineRows, timeline, historyReady]);
 
     const addTimelineRow = useCallback(
       (requestedName?: string, requestedColor?: string): void => {
@@ -345,6 +394,10 @@ export const useTimelineSessionController =
       persistenceFeedback,
       timelineEditable,
       loadRevision,
+      getDocumentId,
+      canEditTimeline,
+      selectionRequestId,
+      applySelectionRequest,
       timeline,
       timelineRows,
       setTimeline,
