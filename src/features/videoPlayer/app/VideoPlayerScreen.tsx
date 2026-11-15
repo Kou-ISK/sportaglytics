@@ -1,13 +1,6 @@
-import {
-  angleIndexForView,
-} from '../../../shared/media/angleView';
+import { angleIndexForView } from '../../../shared/media/angleView';
 import type { VideoViewMode } from '../../../shared/media/angleView';
-import React, {
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
-} from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Box } from '@mui/material';
 import {
   AnalysisPanel,
@@ -33,6 +26,7 @@ import { VideoPlayerLayout } from './components/VideoPlayerLayout';
 import { useAnalysisIntegration } from './hooks/useAnalysisIntegration';
 import { useMetadataTeamNames } from './hooks/useMetadataTeamNames';
 import { buildSelectionLabelUpdates } from './utils/applyLabelsToTimelineSelection';
+import { getCommonTimelineLabels } from './utils/getCommonTimelineLabels';
 import type { CodeWindowLayout } from '../../../types/settings/coreTypes';
 import type { SCLabel } from '../../../types/timeline/sportscode';
 import { subscribeCreateVideoPackageMenu } from './gateways/menuEventGateway';
@@ -117,6 +111,10 @@ export const VideoPlayerScreen = () => {
     performRedo,
     timelineEditable,
     loadRevision,
+    getDocumentId,
+    canEditTimeline,
+    selectionRequestId,
+    applySelectionRequest,
   } = useVideoPlayerScreenController();
   const { notify } = useNotification();
   const liveCapture = useLiveCapturePlayback({
@@ -308,8 +306,17 @@ export const VideoPlayerScreen = () => {
 
   // グローバルホットキーを登録（ウィンドウフォーカス時のみ有効）
   const workspaceHotkeys = useWorkspaceHotkeys(
-    syncMode, combinedHotkeys, combinedHandlers, keyUpHandlers, onNativeReverseControls,
-    () => notify({ severity: 'error', message: '逆再生の停止を確認できませんでした。映像を読み直してください。' }),
+    syncMode,
+    combinedHotkeys,
+    combinedHandlers,
+    keyUpHandlers,
+    onNativeReverseControls,
+    () =>
+      notify({
+        severity: 'error',
+        message:
+          '逆再生の停止を確認できませんでした。映像を読み直してください。',
+      }),
   );
 
   useSyncMenuHandlers({
@@ -365,6 +372,10 @@ export const VideoPlayerScreen = () => {
       : isVideoPlaying,
     playbackRate: videoPlayBackRate,
     selectedIds: selectedTimelineIdList,
+    getDocumentId,
+    canEditTimeline,
+    selectionRequestId,
+    onSelectionRequest: applySelectionRequest,
     teamNames,
     videoSources: videoList,
     hotkeys: workspaceHotkeys,
@@ -421,23 +432,10 @@ export const VideoPlayerScreen = () => {
     [bulkUpdateTimelineItems, timeline],
   );
 
-  const selectedTimelineLabels = React.useMemo<SCLabel[]>(() => {
-    if (selectedTimelineIdList.length === 0) return [];
-
-    const selectedItems = selectedTimelineIdList
-      .map((id) => timeline.find((item) => item.id === id))
-      .filter((item) => item !== undefined);
-    if (selectedItems.length !== selectedTimelineIdList.length) return [];
-
-    const [firstItem, ...restItems] = selectedItems;
-    return (firstItem.labels ?? []).filter((label) =>
-      restItems.every((item) =>
-        (item.labels ?? []).some(
-          (entry) => entry.name === label.name && entry.group === label.group,
-        ),
-      ),
-    );
-  }, [selectedTimelineIdList, timeline]);
+  const selectedTimelineLabels = React.useMemo<SCLabel[]>(
+    () => getCommonTimelineLabels(timeline, selectedTimelineIdList),
+    [selectedTimelineIdList, timeline],
+  );
 
   const handleCodingWindowHotkeyKeyDown = useCallback(
     (hotkeyId: string): void => {

@@ -24,7 +24,32 @@ export const TIMELINE_WINDOW_CHANNELS = {
   visibility: 'timeline-window:visibility',
 } as const;
 
+/** One mounted owner and its synchronous document-open/reload generation. */
+export interface TimelineDocumentIdentity {
+  instanceId: string;
+  generation: number;
+}
+export const parseTimelineDocumentId = (
+  value: unknown,
+): TimelineDocumentIdentity | null => {
+  if (typeof value !== 'string') return null;
+  const match =
+    /^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}):(0|[1-9]\d*)$/.exec(
+      value,
+    );
+  if (!match) return null;
+  const generation = Number(match[2]);
+  return Number.isSafeInteger(generation)
+    ? { instanceId: match[1], generation }
+    : null;
+};
+
 export interface TimelineWindowSyncPayload {
+  documentId: string;
+  /** Assigned at committed-state emission by the owner, never from wall time. */
+  syncVersion: number;
+  /** The operation whose selection and receipt were committed atomically. */
+  selectionRequestId: string | null;
   audioSelections?: readonly ClipExportAudioSelection[];
   persistence?: { kind: 'load-error' | 'save-error'; message: string };
   liveCapture?: CaptureTimelineState;
@@ -58,8 +83,13 @@ export type TimelineWindowCommand =
   | { type: 'retry-persistence' }
   | { type: 'seek'; time: number; seekMode?: VideoSeekMode }
   | { type: 'seek-relative'; seconds: number }
-  | { type: 'selection-change'; ids: string[] }
-  | { type: 'delete-items'; ids: string[] }
+  | {
+      type: 'selection-change';
+      documentId: string;
+      requestId: string;
+      ids: string[];
+    }
+  | { type: 'delete-items'; documentId: string; ids: string[] }
   | { type: 'split-item'; id: string; time: number }
   | { type: 'merge-items'; ids: string[] }
   | { type: 'update-memo'; id: string; memo: string }
@@ -209,6 +239,12 @@ export const isTimelineWindowSyncPayload = (
   value: unknown,
 ): value is TimelineWindowSyncPayload =>
   isObject(value) &&
+  parseTimelineDocumentId(value.documentId) !== null &&
+  Number.isSafeInteger(value.syncVersion) &&
+  Number(value.syncVersion) > 0 &&
+  (value.selectionRequestId === null ||
+    (isString(value.selectionRequestId) &&
+      parseTimelineDocumentId(`${value.selectionRequestId}:0`) !== null)) &&
   (value.persistence === undefined ||
     (isObject(value.persistence) &&
       (value.persistence.kind === 'load-error' ||
@@ -274,7 +310,17 @@ export const isTimelineWindowCommand = (
     case 'seek-relative':
       return isNumber(value.seconds);
     case 'selection-change':
+      return (
+        parseTimelineDocumentId(value.documentId) !== null &&
+        isString(value.requestId) &&
+        parseTimelineDocumentId(`${value.requestId}:0`) !== null &&
+        isStringArray(value.ids)
+      );
     case 'delete-items':
+      return (
+        parseTimelineDocumentId(value.documentId) !== null &&
+        isStringArray(value.ids)
+      );
     case 'delete-rows':
     case 'add-to-playlist':
       return isStringArray(value.ids);

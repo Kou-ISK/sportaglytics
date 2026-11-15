@@ -144,3 +144,28 @@ it.each([false, true])(
     expect(reopened.result.current.timelineRows).toEqual([]);
   },
 );
+
+it('invalidates the document synchronously at path change and on explicit same-path read retry', async () => {
+  vi.mocked(readTimelineFile).mockResolvedValue(null);
+  const hook = await load();
+  const failed = hook.result.current.getDocumentId();
+  expect(hook.result.current.canEditTimeline()).toBe(false);
+  vi.mocked(readTimelineFile).mockResolvedValue(initial);
+  await act(async () => {
+    hook.result.current.persistenceFeedback?.onRetry();
+    expect(hook.result.current.getDocumentId()).not.toBe(failed);
+    expect(hook.result.current.canEditTimeline()).toBe(false);
+  });
+  const loaded = hook.result.current.getDocumentId();
+  expect(hook.result.current.canEditTimeline()).toBe(true);
+  act(() =>
+    hook.result.current.setTimelineFilePath('/synthetic/timeline.json'),
+  );
+  // Setting an unchanged path is intentionally not a content reload.
+  expect(hook.result.current.getDocumentId()).toBe(loaded);
+  await act(async () => {
+    hook.result.current.setTimelineFilePath('/synthetic/replacement.json');
+    expect(hook.result.current.getDocumentId()).not.toBe(loaded);
+    expect(hook.result.current.canEditTimeline()).toBe(false);
+  });
+});

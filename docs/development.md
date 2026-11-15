@@ -582,3 +582,5 @@ HTML逆再生の解除・再押下は `useContinuousReversePlayback.test.tsx`、
 ### Export publication verification
 
 For held native publication changes, run the exportHeldPublish, exportHeldPublishProcess, exportPublicationLease, exportOutputTransaction, exportHandlersPublication, macClipExporter, removeKnownEntries, nativeClipExportStartup, nativeExportProcess and nativeExportCapabilities tests. exportHeldPublish compiles repository-native code locally on macOS and uses small synthetic files; it is not signed-package acceptance. Preserve the separate signed native, platform E2E and filesystem release gates. See [ADR 0084](adr/0084-held-export-publication.md).
+
+独立タイムラインの複数選択は所有者のdocument世代・source連番・要求UUIDで確認します。旧同期で選択を戻さず、未確認が5秒続けば既知の選択へ戻して再同期します（編集の自動再送なし）。実装境界と未保証範囲は[ADR 0085](adr/0085-detached-selection-receipts.md)を参照してください。
