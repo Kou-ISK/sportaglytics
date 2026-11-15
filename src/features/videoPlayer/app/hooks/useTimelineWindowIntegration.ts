@@ -39,6 +39,7 @@ interface UseTimelineWindowIntegrationParams {
   onAngleSyncCommand: (command: AngleSyncCommand) => void;
   onAngleSyncSeekRelative: (seconds: number) => void;
   isFileSelected: boolean;
+  timelineEditable: boolean;
   timeline: TimelineData[];
   rows: TimelineRow[];
   maxSec: number;
@@ -112,7 +113,7 @@ export const useTimelineWindowIntegration = (
     };
   }, []);
   const documentId = params.getDocumentId();
-  const editable = params.canEditTimeline();
+  const editable = params.timelineEditable;
   const seekEpoch = useMemo(
     () => ({}),
     [

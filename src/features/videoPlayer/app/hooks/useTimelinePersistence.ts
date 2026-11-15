@@ -231,6 +231,9 @@ export const useTimelinePersistence = ({
         }
         if (cancelled || loadingDocumentId !== getDocumentId()) return;
         const parsed = parseTimelineDocument(text);
+        // Invalidate the loading lease before enabling writes. A committed owner
+        // must adopt the loaded document before it can accept editing commands.
+        documentGeneration.current += 1;
         // 旧配列形式は読み込み時だけ移行し、ユーザーが編集するまでは書き換えない。
         timelinePersistedSnapshotRef.current = parsed.snapshot;
         timelineLoadedRef.current = true;

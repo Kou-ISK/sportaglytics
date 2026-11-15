@@ -142,3 +142,61 @@ it.each([true, false])(
     ]);
   },
 );
+
+it('rejects loading-lease callbacks at read completion until the replacement history commits, then supports edit and Undo', async () => {
+  const document = (id: string): string =>
+    JSON.stringify({
+      version: 2,
+      rows: [],
+      instances: [{ id, actionName: id, startTime: 0, endTime: 1, memo: '' }],
+    });
+  vi.mocked(readTimelineFile).mockResolvedValueOnce(document('previous'));
+  const hook = renderHook(() => useTimelineSessionController());
+  await act(async () =>
+    hook.result.current.setTimelineFilePath('/synthetic/previous.json'),
+  );
+  let finishRead: ((text: string) => void) | undefined;
+  vi.mocked(readTimelineFile).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishRead = resolve;
+      }),
+  );
+  act(() =>
+    hook.result.current.setTimelineFilePath('/synthetic/replacement.json'),
+  );
+  const loadingDocument = hook.result.current.getDocumentId();
+  await act(async () => {
+    if (!finishRead) throw new Error('Read not started');
+    finishRead(document('replacement'));
+    await Promise.resolve();
+    expect(hook.result.current.getDocumentId()).not.toBe(loadingDocument);
+    expect(hook.result.current.canEditTimeline()).toBe(false);
+    hook.result.current.applySelectionRequest(
+      loadingDocument,
+      '00000000-0000-4000-8000-000000000002',
+      ['previous'],
+    );
+    hook.result.current.addTimelineData('Ghost', 3, 4, '');
+    hook.result.current.addTimelineRow('Ghost row');
+  });
+  expect(hook.result.current.timeline.map((item) => item.id)).toEqual([
+    'replacement',
+  ]);
+  expect(hook.result.current.selectedTimelineIdList).toEqual([]);
+  expect(hook.result.current.timelineRows.map((row) => row.name)).toEqual([
+    'replacement',
+  ]);
+  expect(hook.result.current.canEditTimeline()).toBe(true);
+  act(() => hook.result.current.addTimelineData('Valid', 3, 4, ''));
+  expect(hook.result.current.timeline).toHaveLength(2);
+  act(() => {
+    const undone = hook.result.current.performUndo();
+    if (!undone) throw new Error('Expected one replacement edit to undo');
+    hook.result.current.setPersistedTimeline(undone);
+  });
+  expect(hook.result.current.timeline.map((item) => item.id)).toEqual([
+    'replacement',
+  ]);
+  expect(hook.result.current.canUndo).toBe(false);
+});

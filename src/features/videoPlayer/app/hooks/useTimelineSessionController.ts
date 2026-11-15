@@ -103,18 +103,19 @@ export const useTimelineSessionController =
     );
     const {
       persistenceFeedback,
-      timelineEditable,
+      timelineEditable: persistedEditable,
       loadRevision,
-      canEditTimeline,
+      canEditTimeline: canEditPersistedTimeline,
       getDocumentId,
       timeline: persistedTimeline,
       setTimeline: setPersistedTimeline,
       timelineRows,
-      setTimelineRows,
+      setTimelineRows: setPersistedTimelineRows,
       timelineFilePath,
       setTimelineFilePath,
     } = useTimelinePersistence({ completeRows });
     const {
+      isReady: historyReady,
       timeline,
       canUndo,
       canRedo,
@@ -122,6 +123,31 @@ export const useTimelineSessionController =
       undo: undoHistory,
       redo: redoHistory,
     } = useTimelineHistory(persistedTimeline, loadRevision);
+    const documentId = getDocumentId();
+    const committedHistory = useRef({ documentId, ready: historyReady });
+    useLayoutEffect(() => {
+      committedHistory.current = { documentId, ready: historyReady };
+      return () => {
+        committedHistory.current.ready = false;
+      };
+    }, [documentId, historyReady]);
+    const canEditTimeline = useCallback(
+      (): boolean =>
+        canEditPersistedTimeline() &&
+        committedHistory.current.ready &&
+        committedHistory.current.documentId === getDocumentId(),
+      [canEditPersistedTimeline, getDocumentId],
+    );
+    const timelineEditable = persistedEditable && historyReady;
+    const setTimelineRows = useCallback<
+      Dispatch<SetStateAction<TimelineRow[]>>
+    >(
+      (value) => {
+        if (canEditTimeline()) setPersistedTimelineRows(value);
+      },
+      [canEditTimeline, setPersistedTimelineRows],
+    );
+
     const {
       selectedTimelineIdList,
       setSelectedTimelineIdList,
@@ -179,7 +205,7 @@ export const useTimelineSessionController =
       setTimelineRows((current) =>
         ensureTimelineRows(current, timeline, buttonColorsRef.current),
       );
-    }, [setTimelineRows, timeline]);
+    }, [setTimelineRows, timeline, historyReady]);
 
     const addTimelineRow = useCallback(
       (requestedName?: string, requestedColor?: string): void => {
