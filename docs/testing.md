@@ -395,3 +395,14 @@ Native供給回復は`ProductSupplyRecovery.test.cpp`を`test:native-runtime`で
 ### Native export ownership
 
 The held-publication regression suite distinguishes real macOS descriptor-clone fixtures, mocked child lifecycle tests and Main-handler tests with mock transport. Exercise replacement before final publication, collisions, late cancellation, missing receipts, unsupported capabilities, unknown cleanup entries and retained partial output notification. No test success here establishes hostile same-UID isolation or Windows/external-volume acceptance. See [ADR 0084](adr/0084-held-export-publication.md).
+
+### Buffer recovery and deliberate pause seek accounting
+
+The buffering E2E counts the two decoder hold/recovery cycles separately from deliberate
+user pause/resume. Decoder recovery retains the two-seek ceiling and a 500 ms settled
+observation. Explicit pause and resume each permit at most one alignment correction per
+angle (two for the test pair), with finite convergence waits; settled pause must issue no
+new seek for 500 ms and resumed angles must keep advancing in sync after observation.
+Bounded phase/video/seeking/seeked traces use the monotonic clock and DOM media time;
+they are not evidence of source sample PTS or displayed frame identity. Truncation is
+reported separately. No product playback tolerance is changed by this accounting.
