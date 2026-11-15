@@ -7,7 +7,13 @@ import type {
   AngleSyncSnapshot,
   AngleSyncCommand,
 } from '../../../../types/ipc/angleSync';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import type { HotkeyConfig } from '../../../../types/settings/coreTypes';
 import type { CaptureTimelineState } from '../../../../types/liveCapture';
 import type {
@@ -33,6 +39,7 @@ interface UseTimelineWindowIntegrationParams {
   onAngleSyncCommand: (command: AngleSyncCommand) => void;
   onAngleSyncSeekRelative: (seconds: number) => void;
   isFileSelected: boolean;
+  timelineEditable: boolean;
   timeline: TimelineData[];
   rows: TimelineRow[];
   maxSec: number;
@@ -40,6 +47,14 @@ interface UseTimelineWindowIntegrationParams {
   isPlaying: boolean;
   playbackRate: number;
   selectedIds: string[];
+  selectionRequestId: string | null;
+  getDocumentId: () => string;
+  canEditTimeline: () => boolean;
+  onSelectionRequest: (
+    documentId: string,
+    requestId: string,
+    ids: string[],
+  ) => void;
   teamNames: string[];
   videoSources: string[];
   hotkeys: HotkeyConfig[];
@@ -86,7 +101,19 @@ export const useTimelineWindowIntegration = (
   const audioSelections = usePlaybackAudioSelections(params.videoSources);
   const paramsRef = useRef(params);
   const previewOwner = useRef<ReturnType<typeof getNativePlayback>>(null);
-  paramsRef.current = params;
+  useLayoutEffect(() => {
+    paramsRef.current = params;
+  }, [params]);
+  const active = useRef(false);
+  const syncVersion = useRef(0);
+  useLayoutEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  const documentId = params.getDocumentId();
+  const editable = params.timelineEditable;
   const seekEpoch = useMemo(
     () => ({}),
     [
@@ -110,13 +137,15 @@ export const useTimelineWindowIntegration = (
         : undefined,
       liveCapture: params.liveCapture,
       angleSync: params.angleSync,
-      timeline: params.timeline,
-      rows: params.rows,
+      documentId,
+      selectionRequestId: editable ? params.selectionRequestId : null,
+      timeline: editable ? params.timeline : [],
+      rows: editable ? params.rows : [],
       maxSec: params.maxSec,
       currentTime: params.currentTime,
       isPlaying: params.isPlaying,
       playbackRate: params.playbackRate,
-      selectedIds: params.selectedIds,
+      selectedIds: editable ? params.selectedIds : [],
       teamNames: params.teamNames,
       videoSources: params.videoSources,
       audioSelections,
@@ -124,6 +153,9 @@ export const useTimelineWindowIntegration = (
       updatedAt: Date.now(),
     }),
     [
+      documentId,
+      editable,
+      params.selectionRequestId,
       audioSelections,
       params.persistenceFeedback,
       params.liveCapture,
@@ -141,13 +173,24 @@ export const useTimelineWindowIntegration = (
     ],
   );
   const payloadRef = useRef(payload);
-  payloadRef.current = payload;
+  useLayoutEffect(() => {
+    payloadRef.current = payload;
+  }, [payload]);
   const lastClockSyncAtRef = useRef(0);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const syncLatest = useCallback((): void => {
     if (!paramsRef.current.isFileSelected) return;
-    syncTimelineWindow(payloadRef.current);
+    if (
+      !active.current ||
+      payloadRef.current.documentId !== paramsRef.current.getDocumentId() ||
+      syncVersion.current >= Number.MAX_SAFE_INTEGER
+    )
+      return;
+    syncTimelineWindow({
+      ...payloadRef.current,
+      syncVersion: ++syncVersion.current,
+    });
   }, []);
 
   const syncLatestClock = useCallback((): void => {
@@ -198,6 +241,9 @@ export const useTimelineWindowIntegration = (
     params.playbackRate,
     params.rows,
     params.selectedIds,
+    params.selectionRequestId,
+    documentId,
+    editable,
     params.teamNames,
     params.timeline,
     params.videoSources,
@@ -259,7 +305,7 @@ export const useTimelineWindowIntegration = (
           current.persistenceFeedback?.onRetry();
           break;
         case 'request-sync':
-          syncTimelineWindow(payloadRef.current);
+          syncLatest();
           break;
         case 'seek':
           if (current.angleSync) {
@@ -278,9 +324,23 @@ export const useTimelineWindowIntegration = (
           seek(command);
           break;
         case 'selection-change':
-          current.onSelectionChange(command.ids);
+          if (
+            !current.canEditTimeline() ||
+            command.documentId !== current.getDocumentId()
+          )
+            break;
+          current.onSelectionRequest(
+            command.documentId,
+            command.requestId,
+            command.ids,
+          );
           break;
         case 'delete-items':
+          if (
+            !current.canEditTimeline() ||
+            command.documentId !== current.getDocumentId()
+          )
+            break;
           current.onDeleteItems(command.ids);
           break;
         case 'update-memo':

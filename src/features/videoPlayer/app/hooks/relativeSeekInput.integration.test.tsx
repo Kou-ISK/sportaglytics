@@ -47,6 +47,9 @@ vi.mock(
 );
 
 const payload: TimelineWindowSyncPayload = {
+  documentId: '00000000-0000-4000-8000-000000000001:1',
+  syncVersion: 1,
+  selectionRequestId: null,
   timeline: [],
   rows: [],
   maxSec: 300,

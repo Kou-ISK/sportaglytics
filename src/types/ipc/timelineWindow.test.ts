@@ -20,6 +20,9 @@ describe('timeline window IPC guards', () => {
   });
   it('accepts a valid snapshot and rejects non-finite playback time', () => {
     const snapshot = {
+      documentId: '00000000-0000-4000-8000-000000000001:1',
+      syncVersion: 1,
+      selectionRequestId: null,
       timeline: [],
       rows: [],
       maxSec: 90,
@@ -127,4 +130,80 @@ it('validates split and merge commands before routing them to the owner', () => 
     ).toBe(false);
   for (const ids of [[], ['one'], ['one', 'one'], [1, 2], ['', 'two']])
     expect(isTimelineWindowCommand({ type: 'merge-items', ids })).toBe(false);
+});
+
+it('requires bounded source versions and explicit document/operation identity for selection and context deletion', () => {
+  const documentId = '00000000-0000-4000-8000-000000000001:1';
+  const requestId = '00000000-0000-4000-8000-000000000002';
+  expect(
+    isTimelineWindowCommand({
+      type: 'selection-change',
+      documentId,
+      requestId,
+      ids: ['one'],
+    }),
+  ).toBe(true);
+  expect(
+    isTimelineWindowCommand({ type: 'delete-items', documentId, ids: ['one'] }),
+  ).toBe(true);
+  for (const invalid of [
+    '',
+    'relative/path',
+    documentId.replace(':1', ':-1'),
+    documentId.replace(':1', ':1.5'),
+  ]) {
+    expect(
+      isTimelineWindowCommand({
+        type: 'selection-change',
+        documentId: invalid,
+        requestId,
+        ids: ['one'],
+      }),
+    ).toBe(false);
+    expect(
+      isTimelineWindowCommand({
+        type: 'delete-items',
+        documentId: invalid,
+        ids: ['one'],
+      }),
+    ).toBe(false);
+  }
+  expect(
+    isTimelineWindowCommand({
+      type: 'selection-change',
+      documentId,
+      requestId: 'not-an-id',
+      ids: [],
+    }),
+  ).toBe(false);
+  const snapshot = {
+    documentId,
+    selectionRequestId: null,
+    timeline: [],
+    rows: [],
+    maxSec: 1,
+    currentTime: 0,
+    isPlaying: false,
+    playbackRate: 1,
+    selectedIds: [],
+    teamNames: [],
+    videoSources: [],
+    hotkeys: [],
+    updatedAt: 0,
+  };
+  for (const syncVersion of [
+    0,
+    -1,
+    1.5,
+    Number.MAX_SAFE_INTEGER + 1,
+    Infinity,
+    '1',
+    undefined,
+  ])
+    expect(isTimelineWindowSyncPayload({ ...snapshot, syncVersion })).toBe(
+      false,
+    );
+  expect(isTimelineWindowSyncPayload({ ...snapshot, syncVersion: 1 })).toBe(
+    true,
+  );
 });
