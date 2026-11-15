@@ -413,4 +413,8 @@ reported separately. No product playback tolerance is changed by this accounting
 
 独立タイムラインの選択同期を変更した場合は、`useTimelineSelectionSync.test.tsx`、`useTimelineWindowIntegration.test.tsx`、`useTimelinePersistence.test.tsx` と Main admission の `timelineWindowSync.test.ts` で配送逆転・ABA・document切替・確認期限・unmountを確認します。`test:e2e:timeline-rows` は選択した4件の正確なID、コンテキスト削除、Undo後の同じ4件を検証します。ローカルで実行不能なElectron検査は対応CIの結果を別に記録します。
 
+macOS PR CIでも同じ行操作E2Eを実行します。選択失敗時は合成fixtureに限定した直近100件のfocus・keydown対象/修飾キー・選択IDを記録し、キーの到達とDOM選択変化を調べる手掛かりとします。IPCの送信/ACKやReact内部状態は観測しないため、同期原因は別途調査します。入力本文・映像・パッケージパスは記録せず、選択/削除/Undoの期待値や期限は変更しません。この記録自体は原因確定や製品修正の証拠ではありません。
+
+行メニューからのインスタンス選択は、MUIの閉鎖時focus復元後にもタイムラインへキーが届くことを実Menu/Controllerのjsdom回帰で確認します。Escapeによる通常の復元と、閉鎖中に別要素へ移したfocusを奪わないことも別に検証します。実Electronの配送・window focus・ネイティブ閉鎖順序の証拠とは区別します。
+
 文書切替はreal `useTimelineSessionController`（persistence/history含む）とwindow integrationを結合し、読み込み完了からhistory採用までに旧項目・行が新document IDで送られないことを確認します。空・同内容の置換、読み込みleaseの旧callback、採用後の編集とUndoも別に確認します。Fs/IPC配送はmockであり、実Electron結果とは区別します。
