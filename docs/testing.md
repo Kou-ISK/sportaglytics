@@ -411,6 +411,8 @@ reported separately. No product playback tolerance is changed by this accounting
 
 macOS PR CIでも同じ行操作E2Eを実行します。選択失敗時は合成fixtureに限定した直近100件のfocus・keydown対象/修飾キー・選択IDを記録し、キーの到達とDOM選択変化を調べる手掛かりとします。IPCの送信/ACKやReact内部状態は観測しないため、同期原因は別途調査します。入力本文・映像・パッケージパスは記録せず、選択/削除/Undoの期待値や期限は変更しません。この記録自体は原因確定や製品修正の証拠ではありません。
 
+`exportHeldPublish.test.ts`のC++ fixtureは非同期で準備します。CIでコンパイラ15秒とhook既定10秒の両期限超過が観測されたため、準備専用にコンパイラ30秒/64KiB、外側hook35秒を指定します。製品の書き出し・保存・各caseの期限と6件の安全性assertionは変更しません。外側hook終了時は準備をabandonし、遅れたFS復帰から新しいコンパイラを起動しません。既に開始した子を強制終了したとは扱いません。timeout/異常終了は失敗のまま、FS準備のsettleと当該子のcloseが未確認なら一時領域を削除せず保持します。35秒がOS/FS停止を必ず包含する保証ではありません。`nativeFixtureCompilation.test.ts`は未完FS、exitだけ/close未確認、timeout・出力上限・起動失敗、別子のclose混線をプロセスなしで検証します。macOS PR CIではメディアbuild前にこのfixtureと実C++の6件を実行します。SDK cacheの完全なcold状態やrelease全体負荷・署名受入の代替とはしません。
+
 行メニューからのインスタンス選択は、MUIの閉鎖時focus復元後にもタイムラインへキーが届くことを実Menu/Controllerのjsdom回帰で確認します。Escapeによる通常の復元と、閉鎖中に別要素へ移したfocusを奪わないことも別に検証します。実Electronの配送・window focus・ネイティブ閉鎖順序の証拠とは区別します。
 
 文書切替はreal `useTimelineSessionController`（persistence/history含む）とwindow integrationを結合し、読み込み完了からhistory採用までに旧項目・行が新document IDで送られないことを確認します。空・同内容の置換、読み込みleaseの旧callback、採用後の編集とUndoも別に確認します。Fs/IPC配送はmockであり、実Electron結果とは区別します。
