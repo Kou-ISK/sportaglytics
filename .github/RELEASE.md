@@ -4,7 +4,7 @@
 
 ## 0.17.25の時間丸め修正候補
 
-PR #277のnative v2時間丸め修正と必要な版準備のみをdevelopへ先行統合します。[ARCH-EX-009](../docs/architecture-exceptions.md)に従う限定main PRは未公開モデル方針を含めません。既存v0.17.24 tag/配布物は保持します。mainの最終SHA・version0.17.25・未使用tagを照合し、既存workflowをinclude_windows=false/publish=trueで実行します。署名・公証・同一runの配布物検査/E2E/hashを維持し、失敗なら公開しません。ローカル未署名helperの診断を署名済み配布の合格とは扱いません。
+PR #277のnative v2時間丸め修正と必要な版準備のみをdevelopへ先行統合します。[ARCH-EX-009](../docs/architecture-exceptions.md)に従う限定main PRは未公開モデル方針を含めません。既存v0.17.24 tag/配布物は保持します。mainの最終SHA・version0.17.25・未使用tagを照合し、既存workflowをまずinclude_windows=false/publish=falseで実行し、署名済み候補で今回の時間丸めケースを受け入れます。その後、公開が許可された実行をpublish=trueで行い、同じ品質ゲートを再実行します。署名・公証・同一runの配布物検査/E2E/hashを維持し、失敗なら公開しません。ローカル未署名helperの診断を署名済み配布の合格とは扱いません。
 
 ## 0.17.24の書き出し・逆再生修正候補
 
