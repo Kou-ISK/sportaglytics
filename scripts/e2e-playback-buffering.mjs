@@ -63,11 +63,12 @@ await fs.writeFile(
   }),
 );
 let app;
+let main;
 try {
   app = await electron.launch(
     getElectronLaunchOptions(path.join(root, 'profile')),
   );
-  const main = await app.firstWindow();
+  main = await app.firstWindow();
   await main.evaluate(() =>
     localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
   );
@@ -114,7 +115,30 @@ try {
   );
   await main.evaluate(() => {
     window.bufferingSeeks = 0;
-    document.addEventListener('seeking', () => window.bufferingSeeks++, true);
+    window.bufferingPhase = 'drift-control';
+    window.bufferingTrace = [];
+    window.bufferingTraceTruncated = false;
+    window.bufferingPhaseSeeks = {};
+    for (const eventName of ['seeking', 'seeked']) {
+      document.addEventListener(eventName, (event) => {
+        const video = event.target;
+        if (!(video instanceof HTMLVideoElement)) return;
+        if (eventName === 'seeking') {
+          window.bufferingSeeks++;
+          const index = [...document.querySelectorAll('video')].indexOf(video);
+          const counts = window.bufferingPhaseSeeks[window.bufferingPhase] ?? {};
+          counts[index] = (counts[index] ?? 0) + 1;
+          window.bufferingPhaseSeeks[window.bufferingPhase] = counts;
+        }
+        if (window.bufferingTrace.length < 256) window.bufferingTrace.push({
+          event: eventName, phase: window.bufferingPhase, at: performance.now(),
+          video: [...document.querySelectorAll('video')].indexOf(video),
+          currentTime: video.currentTime, seeking: video.seeking,
+          paused: video.paused, readyState: video.readyState,
+        });
+        else window.bufferingTraceTruncated = true;
+      }, true);
+    }
   });
   for (const drift of [0.7, -0.7]) {
     await main.evaluate((drift) => {
@@ -135,6 +159,7 @@ try {
   }
   await main.evaluate(() => {
     window.bufferingSeeks = 0;
+    window.bufferingPhase = 'decoder-stalls';
   });
   for (const index of [0, 1]) {
     // Deterministic decoder stall: only readiness and the stalled native
@@ -219,6 +244,18 @@ try {
       );
     }
   }
+  // Observe completed recovery before switching to deliberate user operations.
+  // A precise pause correction has its own contract and is not a decoder loop.
+  await main.waitForFunction(() => [...document.querySelectorAll('video')].every((v) => !v.seeking && !v.paused));
+  await main.waitForTimeout(500);
+  assert.ok(await main.evaluate(() => {
+    const videos = [...document.querySelectorAll('video')];
+    return videos.every(v => !v.seeking && !v.paused) && Math.abs(videos[0].currentTime-videos[1].currentTime) < 0.15;
+  }), 'decoder recovery remains synchronized after observation');
+  const seeks = await main.evaluate(() => window.bufferingSeeks);
+  console.log('Decoder recovery seek trace:', await main.evaluate(() => window.bufferingTrace));
+  assert.ok(seeks <= 2, `buffering must not trigger correction loops (${seeks})`);
+  const pauseStartSeeks = await main.evaluate(() => { window.bufferingPhase = 'explicit-pause'; return window.bufferingSeeks; });
   // Pause during buffering cancels the resume intent.
   await main.evaluate(() => {
     const video = document.querySelector('video');
@@ -240,16 +277,36 @@ try {
     ),
     'recovery must respect explicit pause',
   );
-  await timeline.keyboard.press('Space');
-  await main.waitForFunction(() =>
-    [...document.querySelectorAll('video')].every((v) => !v.paused),
-  );
+  await main.waitForFunction(() => [...document.querySelectorAll('video')].every((v) => v.paused && !v.seeking), undefined, { timeout: 5000 });
+  const pauseTimes = await main.evaluate(() => [...document.querySelectorAll('video')].map(v=>v.currentTime));
+  const pausedSeeks = await main.evaluate(() => window.bufferingSeeks);
+  console.log('Explicit pause seek trace:', await main.evaluate(() => window.bufferingTrace));
+  assert.ok(pausedSeeks - pauseStartSeeks <= 2, 'explicit pause has a bounded correction count');
+  assert.ok(await main.evaluate(() => Object.values(window.bufferingPhaseSeeks['explicit-pause'] ?? {}).every(count=>count<=1)), 'explicit pause permits at most one precise correction per angle');
   await main.waitForTimeout(500);
-  const seeks = await main.evaluate(() => window.bufferingSeeks);
-  assert.ok(
-    seeks <= 2,
-    `buffering must not trigger correction loops (${seeks})`,
-  );
+  assert.equal(await main.evaluate(() => window.bufferingSeeks), pausedSeeks, 'settled explicit pause must not start a seek loop');
+  assert.ok(await main.evaluate((before) => [...document.querySelectorAll('video')].every((v,i)=>v.paused && !v.seeking && Math.abs(v.currentTime-before[i])<0.001), pauseTimes), 'settled pause keeps all angle clocks fixed');
+  const resumeStartSeeks = await main.evaluate(() => { window.bufferingPhase = 'explicit-resume'; return window.bufferingSeeks; });
+  const resumeTimes = await main.evaluate(() => [...document.querySelectorAll('video')].map(v => v.currentTime));
+  await timeline.keyboard.press('Space');
+  await main.waitForFunction((before) => {
+    const videos = [...document.querySelectorAll('video')];
+    return videos.every((v,i) => !v.paused && !v.seeking && v.currentTime > before[i] + 0.3) && Math.abs(videos[0].currentTime-videos[1].currentTime) < 0.15;
+  }, resumeTimes, { timeout: 5000 });
+  const convergedTimes = await main.evaluate(() => [...document.querySelectorAll('video')].map(v=>v.currentTime));
+  await main.waitForTimeout(500);
+  const resumeState = await main.evaluate(() => ({
+    seeks: window.bufferingSeeks,
+    trace: window.bufferingTrace,
+    truncated: window.bufferingTraceTruncated,
+    phaseCounts: window.bufferingPhaseSeeks['explicit-resume'] ?? {},
+    videos: [...document.querySelectorAll('video')].map(v => ({time:v.currentTime,seeking:v.seeking,paused:v.paused})),
+  }));
+  console.log('Pause/resume seek trace:', resumeState);
+  assert.ok(resumeState.seeks - resumeStartSeeks <= 2, 'resume has a bounded correction count');
+  assert.ok(Object.values(resumeState.phaseCounts).every(count=>count<=1), 'resume permits at most one alignment correction per angle');
+  assert.ok(resumeState.videos.every((v,i) => !v.paused && !v.seeking && v.time > resumeTimes[i] + 0.3 && v.time > convergedTimes[i] + 0.2), 'resumed angles keep progressing during observation');
+  assert.ok(Math.abs(resumeState.videos[0].time-resumeState.videos[1].time) < 0.15, 'resumed angles remain synchronized');
   // A genuinely missing local source must fail independently and release its peer.
   await main.evaluate(() => {
     const video = document.querySelectorAll('video')[1];
@@ -272,6 +329,17 @@ try {
   console.log(
     `Both decoder waits hold all angles, recover and respect pause (${seeks} seeks)`,
   );
+} catch (error) {
+  let timer;
+  try {
+    const trace = await Promise.race([
+      main?.evaluate(() => ({phase:window.bufferingPhase, trace:window.bufferingTrace, truncated:window.bufferingTraceTruncated, counts:window.bufferingPhaseSeeks})),
+      new Promise(resolve => { timer = setTimeout(() => resolve('trace unavailable after 5s'), 5000); }),
+    ]);
+    console.error('Buffering failure trace:', trace);
+  } catch { console.error('Buffering failure trace unavailable'); }
+  finally { clearTimeout(timer); }
+  throw error;
 } finally {
   await app?.close().catch(() => undefined);
   await fs.rm(root, { recursive: true, force: true });

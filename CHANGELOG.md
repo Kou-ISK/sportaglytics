@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.26]
+
+- Separate decoder recovery and deliberate pause/resume seek accounting in distribution E2E, retaining bounded per-phase and per-angle checks and diagnostic traces. Includes the unpublished 0.17.25 native video-clock duration correction.
+
 ## [0.17.25]
 
 - Fix native v2 export rejecting a correctly quantized MP4 duration when the video track tick exceeds the previous fixed metadata tolerance; retain independent pre-publication media checks.
