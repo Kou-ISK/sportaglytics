@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAppTheme } from '../../../../../theme';
@@ -54,6 +60,88 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe('timeline editing and seeking', () => {
+  it('leaves a newly opened row menu in control of keyboard focus', async () => {
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'アタック 行' }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: '行内のインスタンスを選択' }),
+    );
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'ディフェンス 行' }),
+    );
+    const menu = screen.getByRole('menu');
+    expect(menu.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(menu, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(document.activeElement).toBe(
+      screen.getByRole('region', { name: 'タイムライン' }),
+    );
+  });
+  it('does not reclaim focus moved elsewhere while the selected row menu finishes closing', async () => {
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    try {
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: 'アタック 行' }),
+      );
+      fireEvent.click(
+        screen.getByRole('menuitem', { name: '行内のインスタンスを選択' }),
+      );
+      outside.focus();
+      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+      expect(document.activeElement).toBe(outside);
+    } finally {
+      outside.remove();
+    }
+  });
+  it('retains normal focus restoration when the row menu is dismissed without selecting', async () => {
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    try {
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: 'アタック 行' }),
+      );
+      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+      expect(document.activeElement).toBe(outside);
+      expect(
+        document.querySelectorAll(
+          '[data-timeline-item-id][aria-pressed="true"]',
+        ),
+      ).toHaveLength(0);
+    } finally {
+      outside.remove();
+    }
+  });
+  it('keeps keyboard focus in the timeline after selecting row instances from its menu', async () => {
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    try {
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: 'アタック 行' }),
+      );
+      fireEvent.click(
+        screen.getByRole('menuitem', { name: '行内のインスタンスを選択' }),
+      );
+      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+      const timeline = screen.getByRole('region', {
+        name: 'タイムライン',
+      });
+      expect(document.activeElement).toBe(timeline);
+      fireEvent.keyDown(document.activeElement ?? document.body, {
+        key: 'a',
+        metaKey: true,
+      });
+      expect(
+        document.querySelectorAll(
+          '[data-timeline-item-id][aria-pressed="true"]',
+        ),
+      ).toHaveLength(reviewTimeline.length);
+    } finally {
+      outside.remove();
+    }
+  });
   it('commits the last held preview when its view unmounts', () => {
     vi.stubGlobal('PointerEvent', MouseEvent);
     const ruler = screen.getByTestId('timeline-time-origin');
