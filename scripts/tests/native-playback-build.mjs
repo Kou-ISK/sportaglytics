@@ -69,3 +69,17 @@ test('symlink payload is rejected before hashing', () =>
     await symlink('NativeProductHost', join(root, 'Receiver.node'));
     await assert.rejects(verifyNativeBuild(root, identity), /nonregular/);
   }));
+
+test('export duration accepts half a video clock tick, rejects excess/coarse/invalid clocks', { skip: process.platform !== 'darwin' }, async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const root = await mkdtemp(join(tmpdir(), 'export-clock-test-'));
+  try {
+    const header = fileURLToPath(new URL('../../native/macos/playback/apple-export/AppleClipExport.hpp', import.meta.url));
+    const source = join(root, 'clock.cpp');
+    await writeFile(source, `#include "${header}"\n#include <cassert>\nint main() {\nassert(nativeExportDurationMatches(3.0+1.0/30000,3.0+0.6/30000,30000));\nassert(nativeExportDurationMatches(3.0+0.5/30000,3.0,30000));\nassert(!nativeExportDurationMatches(3.0+1.0/30000,3.0,30000));\nassert(!nativeExportDurationMatches(3.002,3.0,1));\nassert(!nativeExportDurationMatches(3.0,3.0,0));\nassert(!nativeExportDurationMatches(NAN,3.0,30000));\nassert(!nativeExportDurationMatches(3.0,INFINITY,30000));\n}\n`);
+    const binary = join(root, 'clock');
+    execFileSync('clang++', ['-std=c++17', source, '-o', binary]);
+    execFileSync(binary);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

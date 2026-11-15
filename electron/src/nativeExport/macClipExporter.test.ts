@@ -81,6 +81,22 @@ it('uses version 2 only with an explicit validated resource budget', async () =>
   expect(timeoutMs).toBe(250000);
   expect(minimumFreeBytes).toBe(nativeMinimumFreeBytes(17_353_045_534));
 });
+it.each([true, false])('requires independent qualification for a rounded v2 receipt: %s', async (admitted) => {
+  const request = await setup();
+  const controller = new AbortController();
+  const qualify = vi.fn(async () => admitted);
+  const run = async (_binary: string, manifest: string): Promise<string> => {
+    const item = JSON.parse(await fs.readFile(manifest, 'utf8'));
+    await fs.writeFile(item.output, 'candidate');
+    return JSON.stringify({ version: 2, status: 'completed', duration: 3.00001443, audioTrack: 2 });
+  };
+  const exporter = createMacClipExporter({ executable: 'helper', run, qualify, experimentalBudget: { maxBytes: 1024 ** 2, deadlineSeconds: 120 } });
+  const operation = exportResourceContext.run({ signal: controller.signal, maxFileBytes: 2 * 1024 ** 2, minFreeBytes: nativeMinimumFreeBytes(1024 ** 2), check: async () => undefined }, () => exporter(request));
+  if (admitted) await expect(operation).resolves.toEqual({ status: 'completed' });
+  else await expect(operation).rejects.toMatchObject({ name: 'NativeExportUnknownFailure' });
+  expect(qualify).toHaveBeenCalledOnce();
+  if (!admitted) await expect(fs.stat(request.outputPath)).rejects.toThrow();
+});
 it('rejects experimental budgets without resources or above the resource threshold before starting the helper', async () => {
   const request = await setup(); const run = vi.fn(completed);
   const exporter = createMacClipExporter({ executable: 'helper', run, qualify: async () => true, experimentalBudget: { maxBytes: 1000, deadlineSeconds: 120 } });
