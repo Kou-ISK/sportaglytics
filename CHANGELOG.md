@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
 
+## [0.17.29]
+
+- macOSの実C++ publicationテスト準備を非同期化し、コンパイル30秒・外側hook35秒の有限期限を整合させる。準備中止後は新たに子を起動せず、終了未確認の一時物は保持する。製品の容量・期限・6件のpublication安全条件は変更しない。
+- 未公開0.17.28の行メニューfocus・選択同期・時間丸め修正を含む。0.17.28の公開実行は公証通信切断とテスト準備hook期限で停止したため、既存tagを保持し新しい版で全ゲートを実行する。
+
 ## [0.17.28]
 
 - 行メニューからインスタンスを選択した後、MUIの復元によりタイムラインのfocusが失われる問題を修正。選択を伴わない閉鎖と別要素へのfocus移動は維持する。
