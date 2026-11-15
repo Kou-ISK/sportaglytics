@@ -4,7 +4,17 @@ import { afterEach, expect, it, vi } from 'vitest';
 import type { TimelineWindowCommand } from '../../../../types/ipc/timelineWindow';
 import { useTimelineWindowIntegration } from './useTimelineWindowIntegration';
 import { useTimelineSelection } from './useTimelineSelection';
+import { useTimelineSessionController } from './useTimelineSessionController';
+import {
+  readTimelineFile,
+  writeTimelineFile,
+} from '../gateways/timelineImportExportGateway';
 import { syncTimelineWindow } from '../gateways/timelineWindowGateway';
+
+vi.mock('../gateways/timelineImportExportGateway', () => ({
+  readTimelineFile: vi.fn(),
+  writeTimelineFile: vi.fn(),
+}));
 
 const bus = vi.hoisted(() => ({
   receive: (_command: TimelineWindowCommand): void => {},
@@ -35,6 +45,7 @@ vi.mock('../gateways/timelineWindowGateway', () => ({
 const makeParams = () => {
   const params: Parameters<typeof useTimelineWindowIntegration>[0] = {
     isFileSelected: true,
+    timelineEditable: true,
     timeline: [],
     rows: [],
     maxSec: 300,
@@ -252,3 +263,83 @@ it('does not let an old selection callback modify a replacement document', () =>
   expect(f.result.current.selectionRequestId).toBeNull();
   f.unmount();
 });
+
+it.each<{ ids: string[] }>([
+  { ids: ['replacement'] },
+  { ids: [] },
+  { ids: ['previous'] },
+])(
+  'publishes only the adopted replacement content and clears old selection: $ids',
+  async ({ ids: replacementIds }) => {
+    const params = makeParams();
+    const document = (ids: string[]): string =>
+      JSON.stringify({
+        version: 2,
+        rows: [],
+        instances: ids.map((id) => ({
+          id,
+          actionName: `Action ${id}`,
+          startTime: 0,
+          endTime: 1,
+          memo: '',
+        })),
+      });
+    vi.mocked(readTimelineFile)
+      .mockResolvedValueOnce(document(['previous']))
+      .mockResolvedValueOnce(document(replacementIds));
+    vi.mocked(writeTimelineFile).mockResolvedValue(true);
+    const f = renderHook(() => {
+      const owner = useTimelineSessionController();
+      useTimelineWindowIntegration({
+        ...params,
+        timelineEditable: owner.timelineEditable,
+        timeline: owner.timeline,
+        rows: owner.timelineRows,
+        selectedIds: owner.selectedTimelineIdList,
+        selectionRequestId: owner.selectionRequestId,
+        getDocumentId: owner.getDocumentId,
+        canEditTimeline: owner.canEditTimeline,
+        onSelectionRequest: owner.applySelectionRequest,
+        onDeleteItems: owner.deleteTimelineDatas,
+      });
+      return owner;
+    });
+    await act(async () =>
+      f.result.current.setTimelineFilePath('/synthetic/previous.json'),
+    );
+    expect(f.result.current.timeline.map((item) => item.id)).toEqual([
+      'previous',
+    ]);
+    act(() => f.result.current.setSelectedTimelineIdList(['previous']));
+    vi.mocked(syncTimelineWindow).mockClear();
+    await act(async () =>
+      f.result.current.setTimelineFilePath('/synthetic/replacement.json'),
+    );
+    const owner = f.result.current.getDocumentId();
+    const packets = vi
+      .mocked(syncTimelineWindow)
+      .mock.calls.map(([payload]) => payload)
+      .filter((payload) => payload.documentId === owner);
+    expect(packets.length).toBeGreaterThan(0);
+    for (const payload of packets) {
+      expect(
+        payload.timeline.every((item) => replacementIds.includes(item.id)),
+      ).toBe(true);
+      expect(
+        payload.rows.every((row) =>
+          replacementIds.some((id) => row.name === `Action ${id}`),
+        ),
+      ).toBe(true);
+      expect(payload.selectedIds).toEqual([]);
+    }
+    expect(packets.at(-1)?.timeline.map((item) => item.id)).toEqual(
+      replacementIds,
+    );
+    expect(
+      f.result.current.timelineRows.every((row) =>
+        replacementIds.some((id) => row.name === `Action ${id}`),
+      ),
+    ).toBe(true);
+    f.unmount();
+  },
+);

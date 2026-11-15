@@ -360,6 +360,7 @@ export const VideoPlayerScreen = (): React.ReactElement => {
     liveCapture: liveCapture.timelineState,
     onGoLive: liveCapture.goLive,
     isFileSelected,
+    timelineEditable,
     timeline,
     rows: timelineRows,
     angleSync: angleSync.snapshot,
