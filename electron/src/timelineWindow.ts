@@ -15,6 +15,7 @@ import {
   type TimelineWindowClockPayload,
   type TimelineWindowSyncPayload,
 } from '../../src/types/ipc/timelineWindow';
+import { createTimelineSyncAdmission } from '../../src/shared/timelineSyncAdmission';
 import { isEventFromWindow } from './ipc/windowSenderGuards';
 import { applyWindowSecurity } from './windowSecurity';
 import {
@@ -31,6 +32,7 @@ interface TimelineSessionState {
   lastBounds: Electron.Rectangle | null;
   clipExportReady: boolean;
   clipExportPending: boolean;
+  syncAdmission: ReturnType<typeof createTimelineSyncAdmission>;
 }
 
 const states = new Map<string, TimelineSessionState>();
@@ -63,8 +65,12 @@ const getState = (session: PackageSession): TimelineSessionState => {
     lastBounds: null,
     clipExportReady: false,
     clipExportPending: false,
+    syncAdmission: createTimelineSyncAdmission(),
   };
   states.set(session.id, next);
+  session.mainWindow.once('closed', () => {
+    states.delete(session.id);
+  });
   return next;
 };
 
@@ -230,7 +236,9 @@ export const registerTimelineWindowHandlers = (): void => {
       ) {
         return;
       }
-      const timelineWindow = getState(session).timelineWindow;
+      const state = getState(session);
+      if (!state.syncAdmission.accept(payload)) return;
+      const timelineWindow = state.timelineWindow;
       if (timelineWindow && !timelineWindow.isDestroyed()) {
         timelineWindow.webContents.send(
           TIMELINE_WINDOW_CHANNELS.sync,
@@ -271,6 +279,12 @@ export const registerTimelineWindowHandlers = (): void => {
     ) {
       return;
     }
+    if (
+      (command.type === 'selection-change' ||
+        command.type === 'delete-items') &&
+      !getState(session).syncAdmission.owns(command.documentId)
+    )
+      return;
     if (command.type === 'clip-export-ready') {
       const state = getState(session);
       state.clipExportReady = command.ready;

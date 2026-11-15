@@ -1,36 +1,22 @@
 import type { VideoSeekMode } from '../../../../types/video/seek';
 import type { AngleSyncCommand } from '../../../../types/ipc/angleSync';
 import { useAngleSyncHotkeys } from './sync/useAngleSyncHotkeys';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useTimelineWindowSnapshot } from './useTimelineWindowSnapshot';
 import { useGlobalHotkeys } from '../../../../hooks/useGlobalHotkeys';
 import type {
   TimelineData,
   TimelineRow,
   TimelineRowSortSpec,
 } from '../../../../types/timeline/core';
-import type { TimelineWindowSyncPayload } from '../../../../types/ipc/timelineWindow';
-import {
-  sendTimelineWindowCommand,
-  subscribeTimelineWindowClock,
-  subscribeTimelineWindowSync,
-} from '../gateways/timelineWindowGateway';
+import { sendTimelineWindowCommand } from '../gateways/timelineWindowGateway';
 
 export const useTimelineWindowController = () => {
-  const [snapshot, setSnapshot] = useState<TimelineWindowSyncPayload | null>(
-    null,
-  );
-
-  useEffect(() => {
-    const unsubscribeSync = subscribeTimelineWindowSync(setSnapshot);
-    const unsubscribeClock = subscribeTimelineWindowClock((clock) => {
-      setSnapshot((current) => (current ? { ...current, ...clock } : current));
-    });
-    sendTimelineWindowCommand({ type: 'request-sync' });
-    return () => {
-      unsubscribeClock();
-      unsubscribeSync();
-    };
-  }, []);
+  const {
+    snapshot,
+    select: onSelectionChange,
+    previewTime,
+  } = useTimelineWindowSnapshot();
 
   const hotkeyHandlers = useMemo<Record<string, () => void>>(() => {
     if (!snapshot) return {};
@@ -69,20 +55,13 @@ export const useTimelineWindowController = () => {
     snapshot?.hotkeys ?? [],
   );
   const send = sendTimelineWindowCommand;
-  const onSeek = useCallback((time: number, seekMode?: VideoSeekMode): void => {
-    setSnapshot((current) =>
-      current
-        ? { ...current, currentTime: time, updatedAt: Date.now() }
-        : current,
-    );
-    send({ type: 'seek', time, ...(seekMode ? { seekMode } : {}) });
-  }, []);
-  const onSelectionChange = useCallback((ids: string[]) => {
-    setSnapshot((current) =>
-      current ? { ...current, selectedIds: ids } : current,
-    );
-    send({ type: 'selection-change', ids });
-  }, []);
+  const onSeek = useCallback(
+    (time: number, seekMode?: VideoSeekMode): void => {
+      previewTime(time);
+      send({ type: 'seek', time, ...(seekMode ? { seekMode } : {}) });
+    },
+    [previewTime],
+  );
   const onUpdateItem = useCallback(
     (id: string, updates: Partial<Omit<TimelineData, 'id'>>) =>
       send({ type: 'update-item', id, updates }),
@@ -130,7 +109,7 @@ export const useTimelineWindowController = () => {
     audioSelections: snapshot.audioSelections,
     setSelectedTimelineIdList: onSelectionChange,
     deleteTimelineDatas: (ids: string[]): void =>
-      send({ type: 'delete-items', ids }),
+      send({ type: 'delete-items', documentId: snapshot.documentId, ids }),
     updateMemo: (id: string, memo: string): void =>
       send({ type: 'update-memo', id, memo }),
     updateTimelineRange: (

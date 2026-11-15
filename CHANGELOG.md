@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 独立タイムラインの複数選択が遅れた同期で単一選択へ戻る競合を修正。document世代・選択受領確認と期限処理を追加（ADR 0085）。
+
 ## [0.17.26]
 
 - Separate decoder recovery and deliberate pause/resume seek accounting in distribution E2E, retaining bounded per-phase and per-angle checks and diagnostic traces. Includes the unpublished 0.17.25 native video-clock duration correction.

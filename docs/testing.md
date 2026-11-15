@@ -406,3 +406,5 @@ new seek for 500 ms and resumed angles must keep advancing in sync after observa
 Bounded phase/video/seeking/seeked traces use the monotonic clock and DOM media time;
 they are not evidence of source sample PTS or displayed frame identity. Truncation is
 reported separately. No product playback tolerance is changed by this accounting.
+
+独立タイムラインの選択同期を変更した場合は、`useTimelineSelectionSync.test.tsx`、`useTimelineWindowIntegration.test.tsx`、`useTimelinePersistence.test.tsx` と Main admission の `timelineWindowSync.test.ts` で配送逆転・ABA・document切替・確認期限・unmountを確認します。`test:e2e:timeline-rows` は選択した4件の正確なID、コンテキスト削除、Undo後の同じ4件を検証します。ローカルで実行不能なElectron検査は対応CIの結果を別に記録します。

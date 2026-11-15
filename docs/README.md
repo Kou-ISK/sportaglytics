@@ -168,3 +168,5 @@ Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-
 - [ADR 0080: AVPlayerを再生中核にする](adr/0080-apple-player-playback.md)。
 
 - [Held native export publication (ADR 0084)](adr/0084-held-export-publication.md): candidate ownership, retention and platform boundaries.
+
+- [ADR 0085: Detached Selection Receipts](adr/0085-detached-selection-receipts.md)

@@ -477,3 +477,5 @@ Native表示は既存PlayerSurface・overlay・全画面要素を共有します
 ### Held native export publication
 
 The native v2 single-cut candidate can transfer its qualified descriptor directly to the enclosing Main output transaction. The capability and lifetime contract, including platform limitations and retained partial outputs, is described in [ADR 0084](adr/0084-held-export-publication.md). The lease is internal to Main and adds no renderer IPC authority.
+
+独立タイムラインの複数選択は所有者のdocument世代・source連番・要求UUIDで確認します。旧同期で選択を戻さず、未確認が5秒続けば既知の選択へ戻して再同期します（編集の自動再送なし）。実装境界と未保証範囲は[ADR 0085](adr/0085-detached-selection-receipts.md)を参照してください。

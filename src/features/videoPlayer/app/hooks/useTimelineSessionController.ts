@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import type { ChangeEvent, Dispatch, SetStateAction } from 'react';
 import { ulid } from 'ulid';
 import type {
@@ -31,6 +31,14 @@ interface UseTimelineSessionControllerResult extends TimelineRangeEditing {
   persistenceFeedback: TimelinePersistenceFeedback | null;
   timelineEditable: boolean;
   loadRevision: number;
+  getDocumentId: () => string;
+  canEditTimeline: () => boolean;
+  selectionRequestId: string | null;
+  applySelectionRequest: (
+    documentId: string,
+    requestId: string,
+    ids: string[],
+  ) => void;
   timeline: TimelineData[];
   timelineRows: TimelineRow[];
   setTimeline: Dispatch<SetStateAction<TimelineData[]>>;
@@ -98,6 +106,7 @@ export const useTimelineSessionController =
       timelineEditable,
       loadRevision,
       canEditTimeline,
+      getDocumentId,
       timeline: persistedTimeline,
       setTimeline: setPersistedTimeline,
       timelineRows,
@@ -117,11 +126,25 @@ export const useTimelineSessionController =
       selectedTimelineIdList,
       setSelectedTimelineIdList,
       getSelectedTimelineId,
-    } = useTimelineSelection();
+      selectionRequestId,
+      applySelectionRequest: applyRequestedSelection,
+    } = useTimelineSelection(getDocumentId);
 
     const timelineRef = useRef<TimelineData[]>(timeline);
+    const applySelectionRequest = useCallback(
+      (documentId: string, requestId: string, ids: string[]): void => {
+        if (!canEditTimeline() || documentId !== getDocumentId()) return;
+        const available = new Set(timelineRef.current.map((item) => item.id));
+        applyRequestedSelection(
+          documentId,
+          requestId,
+          ids.filter((id) => available.has(id)),
+        );
+      },
+      [applyRequestedSelection, canEditTimeline, getDocumentId],
+    );
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       timelineRef.current = timeline;
     }, [timeline]);
 
@@ -345,6 +368,10 @@ export const useTimelineSessionController =
       persistenceFeedback,
       timelineEditable,
       loadRevision,
+      getDocumentId,
+      canEditTimeline,
+      selectionRequestId,
+      applySelectionRequest,
       timeline,
       timelineRows,
       setTimeline,

@@ -3,6 +3,8 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { TimelineWindowCommand } from '../../../../types/ipc/timelineWindow';
 import { useTimelineWindowIntegration } from './useTimelineWindowIntegration';
+import { useTimelineSelection } from './useTimelineSelection';
+import { syncTimelineWindow } from '../gateways/timelineWindowGateway';
 
 const bus = vi.hoisted(() => ({
   receive: (_command: TimelineWindowCommand): void => {},
@@ -30,7 +32,7 @@ vi.mock('../gateways/timelineWindowGateway', () => ({
     return bus.unsubscribe;
   },
 }));
-const make = () => {
+const makeParams = () => {
   const params: Parameters<typeof useTimelineWindowIntegration>[0] = {
     isFileSelected: true,
     timeline: [],
@@ -40,6 +42,10 @@ const make = () => {
     isPlaying: false,
     playbackRate: 1,
     selectedIds: [],
+    selectionRequestId: null,
+    getDocumentId: () => '00000000-0000-4000-8000-000000000001:1',
+    canEditTimeline: () => true,
+    onSelectionRequest: vi.fn(),
     teamNames: [],
     videoSources: ['synthetic.mp4'],
     hotkeys: [],
@@ -67,6 +73,10 @@ const make = () => {
     onRedo: vi.fn(),
     onAddToPlaylist: vi.fn(),
   };
+  return params;
+};
+const make = () => {
+  const params = makeParams();
   return {
     params,
     ...renderHook(useTimelineWindowIntegration, { initialProps: params }),
@@ -150,5 +160,95 @@ it('delegates manual relative input to its transport without using the global cl
   expect(f.params.onAngleSyncSeekRelative).toHaveBeenNthCalledWith(1, 10);
   expect(f.params.onAngleSyncSeekRelative).toHaveBeenNthCalledWith(2, -1);
   expect(f.params.onSeek).not.toHaveBeenCalled();
+  f.unmount();
+});
+
+it('publishes selection and its receipt from the same committed owner state', async () => {
+  const params = makeParams();
+  const requestId = '00000000-0000-4000-8000-000000000002';
+  const f = renderHook(() => {
+    const selection = useTimelineSelection(params.getDocumentId);
+    useTimelineWindowIntegration({
+      ...params,
+      selectedIds: selection.selectedTimelineIdList,
+      selectionRequestId: selection.selectionRequestId,
+      onSelectionRequest: selection.applySelectionRequest,
+    });
+    return selection;
+  });
+  await act(async () => {});
+  vi.mocked(syncTimelineWindow).mockClear();
+  act(() =>
+    bus.receive({
+      type: 'selection-change',
+      documentId: params.getDocumentId(),
+      requestId,
+      ids: ['one', 'two'],
+    }),
+  );
+  const receipts = vi
+    .mocked(syncTimelineWindow)
+    .mock.calls.map(([value]) => value);
+  expect(receipts.length).toBeGreaterThan(0);
+  expect(
+    receipts.every(
+      (value) =>
+        value.selectionRequestId === requestId &&
+        value.selectedIds.join(',') === 'one,two',
+    ),
+  ).toBe(true);
+  act(() => f.result.current.setSelectedTimelineIdList(['two']));
+  expect(vi.mocked(syncTimelineWindow).mock.calls.at(-1)?.[0]).toMatchObject({
+    selectionRequestId: requestId,
+    selectedIds: ['two'],
+  });
+  f.unmount();
+});
+it('rejects old document selection and deletion synchronously before the replacement commit', () => {
+  const params = makeParams();
+  let documentId = params.getDocumentId();
+  params.getDocumentId = () => documentId;
+  const f = renderHook(useTimelineWindowIntegration, { initialProps: params });
+  const previous = documentId;
+  documentId = documentId.replace(':1', ':2');
+  act(() => {
+    bus.receive({
+      type: 'selection-change',
+      documentId: previous,
+      requestId: '00000000-0000-4000-8000-000000000002',
+      ids: ['one'],
+    });
+    bus.receive({ type: 'delete-items', documentId: previous, ids: ['one'] });
+  });
+  expect(params.onSelectionRequest).not.toHaveBeenCalled();
+  expect(params.onDeleteItems).not.toHaveBeenCalled();
+  f.unmount();
+});
+it('does not emit a delayed open confirmation after owner unmount', async () => {
+  const f = make();
+  f.unmount();
+  vi.mocked(syncTimelineWindow).mockClear();
+  await act(async () => {});
+  expect(syncTimelineWindow).not.toHaveBeenCalled();
+});
+
+it('does not let an old selection callback modify a replacement document', () => {
+  let documentId = '00000000-0000-4000-8000-000000000001:1';
+  const getDocumentId = () => documentId;
+  const f = renderHook(() => useTimelineSelection(getDocumentId));
+  const stale = f.result.current;
+  act(() => f.result.current.setSelectedTimelineIdList(['one']));
+  documentId = documentId.replace(':1', ':2');
+  f.rerender();
+  act(() => {
+    stale.setSelectedTimelineIdList(['old']);
+    stale.applySelectionRequest(
+      '00000000-0000-4000-8000-000000000001:1',
+      '00000000-0000-4000-8000-000000000002',
+      ['old'],
+    );
+  });
+  expect(f.result.current.selectedTimelineIdList).toEqual([]);
+  expect(f.result.current.selectionRequestId).toBeNull();
   f.unmount();
 });

@@ -910,21 +910,84 @@ try {
   await page.keyboard.press(`${primaryModifier}+z`);
   await waitForCount(4);
 
-  // Context-menu deletion has the same multi-selection semantics as Delete.
-  await page.getByRole('region', { name: 'タイムライン', exact: true }).focus();
-  await page.keyboard.press(`${primaryModifier}+a`);
-  await page
-    .getByTestId('timeline-instance-instance-1')
-    .click({ button: 'right' });
-  await page.getByRole('menuitem', { name: '選択した4件を削除' }).click();
-  await waitForCount(0);
-  await page.keyboard.press(`${primaryModifier}+z`);
-  await waitForCount(4);
-  await page.keyboard.press('Escape');
-  assert.equal(
-    await page.locator('[data-timeline-item-id][aria-pressed="true"]').count(),
-    0,
-  );
+  try {
+    // Context-menu deletion has the same multi-selection semantics as Delete.
+    await page
+      .getByRole('region', { name: 'タイムライン', exact: true })
+      .focus();
+    const contextIds = await page
+      .locator('[data-timeline-item-id]')
+      .evaluateAll((items) =>
+        items.map((item) => item.getAttribute('data-timeline-item-id')).sort(),
+      );
+    assert.equal(contextIds.length, 4);
+    await page.keyboard.press(`${primaryModifier}+a`);
+    await page.waitForFunction((expected) => {
+      const selected = [
+        ...document.querySelectorAll(
+          '[data-timeline-item-id][aria-pressed="true"]',
+        ),
+      ]
+        .map((item) => item.getAttribute('data-timeline-item-id'))
+        .sort();
+      return (
+        selected.length === expected.length &&
+        selected.every((id, index) => id === expected[index])
+      );
+    }, contextIds);
+    await page
+      .getByTestId('timeline-instance-instance-1')
+      .click({ button: 'right' });
+    assert.equal(
+      await page
+        .getByTestId('timeline-instance-instance-1')
+        .getAttribute('aria-pressed'),
+      'true',
+    );
+    await page.getByRole('menuitem', { name: '選択した4件を削除' }).click();
+    await waitForCount(0);
+    await page.keyboard.press(`${primaryModifier}+z`);
+    await waitForCount(4);
+    assert.deepEqual(
+      await page
+        .locator('[data-timeline-item-id]')
+        .evaluateAll((items) =>
+          items
+            .map((item) => item.getAttribute('data-timeline-item-id'))
+            .sort(),
+        ),
+      contextIds,
+    );
+    await page.keyboard.press('Escape');
+    assert.equal(
+      await page
+        .locator('[data-timeline-item-id][aria-pressed="true"]')
+        .count(),
+      0,
+    );
+  } catch (error) {
+    // Synthetic fixture IDs only; preserve the original failure and keep logs bounded.
+    const state = await page
+      .evaluate(() => ({
+        focusedTag: document.activeElement?.tagName ?? null,
+        selectedIds: [
+          ...document.querySelectorAll(
+            '[data-timeline-item-id][aria-pressed="true"]',
+          ),
+        ]
+          .slice(0, 16)
+          .map((item) => item.getAttribute('data-timeline-item-id')),
+        menuLabels: [...document.querySelectorAll('[role="menuitem"]')]
+          .slice(0, 16)
+          .map((item) => item.textContent?.slice(0, 100)),
+      }))
+      .catch(() => null);
+    console.error(
+      'Timeline context-selection failure state',
+      JSON.stringify(state),
+    );
+    throw error;
+  }
 
   // Marquee after a row selection must target instances, not that stale row.
   await attackRow.click();
