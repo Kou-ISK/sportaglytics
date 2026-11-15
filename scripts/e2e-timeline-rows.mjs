@@ -1,4 +1,5 @@
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
+import { startTimelineShortcutTrace } from './e2e-timeline-shortcut-trace.mjs';
 import {
   fixtureH264Encoder,
   primaryModifier,
@@ -889,32 +890,35 @@ try {
     name: 'Attack 行',
     exact: true,
   });
-  await attackRow.click({ button: 'right' });
-  await page
-    .getByRole('menuitem', { name: '行内のインスタンスを選択' })
-    .click();
-  await page.waitForFunction(
-    () =>
-      document.querySelectorAll('[data-timeline-item-id][aria-pressed="true"]')
-        .length === 2,
-  );
-  assert.equal(await attackRow.getAttribute('aria-pressed'), 'false');
-  await page.keyboard.press('Backspace');
-  await waitForCount(2);
-  assert.equal(
-    await page.getByRole('dialog').count(),
-    0,
-    'instance deletion must not request row deletion',
-  );
-  await attackRow.waitFor();
-  await page.keyboard.press(`${primaryModifier}+z`);
-  await waitForCount(4);
-
+  const shortcutTrace = await startTimelineShortcutTrace(page);
   try {
+    await attackRow.click({ button: 'right' });
+    await page
+      .getByRole('menuitem', { name: '行内のインスタンスを選択' })
+      .click();
+    await page.waitForFunction(
+      () =>
+        document.querySelectorAll(
+          '[data-timeline-item-id][aria-pressed="true"]',
+        ).length === 2,
+    );
+    assert.equal(await attackRow.getAttribute('aria-pressed'), 'false');
+    await page.keyboard.press('Backspace');
+    await waitForCount(2);
+    assert.equal(
+      await page.getByRole('dialog').count(),
+      0,
+      'instance deletion must not request row deletion',
+    );
+    await attackRow.waitFor();
+    await page.keyboard.press(`${primaryModifier}+z`);
+    await waitForCount(4);
+
     // Context-menu deletion has the same multi-selection semantics as Delete.
     await page
       .getByRole('region', { name: 'タイムライン', exact: true })
       .focus();
+    await shortcutTrace.evaluate((trace) => trace.mark('before-select-all'));
     const contextIds = await page
       .locator('[data-timeline-item-id]')
       .evaluateAll((items) =>
@@ -986,7 +990,18 @@ try {
       'Timeline context-selection failure state',
       JSON.stringify(state),
     );
+    console.error(
+      'Timeline shortcut event trace',
+      JSON.stringify(
+        await shortcutTrace.evaluate((trace) => trace.events).catch(() => null),
+      ),
+    );
     throw error;
+  } finally {
+    await shortcutTrace
+      .evaluate((trace) => trace.stop())
+      .catch(() => undefined);
+    await shortcutTrace.dispose().catch(() => undefined);
   }
 
   // Marquee after a row selection must target instances, not that stale row.
