@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.28]
+
+- 行メニューからインスタンスを選択した後、MUIの復元によりタイムラインのfocusが失われる問題を修正。選択を伴わない閉鎖と別要素へのfocus移動は維持する。
+- macOS PR CIへ既存行操作E2Eを追加し、合成fixtureのfocus/キー/DOM選択の有限診断を残す。選択・削除・Undoの期待値と期限は変更しない。
+- 未公開0.17.27までの選択同期・時間丸め修正を含む。既存tag/配布物を保持し、同一候補の全品質ゲートを要求する。
+
 ## [0.17.27]
 
 - 独立タイムラインの複数選択が遅れた所有者同期で戻る競合を修正。要求UUIDとdocument世代で確認し、確認不明時は編集を再送せず再同期する（ADR 0085）。
