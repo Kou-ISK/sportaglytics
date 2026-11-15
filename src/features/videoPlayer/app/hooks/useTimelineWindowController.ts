@@ -11,7 +11,7 @@ import type {
 } from '../../../../types/timeline/core';
 import { sendTimelineWindowCommand } from '../gateways/timelineWindowGateway';
 
-export const useTimelineWindowController = () => {
+const useTimelineWindowControllerState = () => {
   const {
     snapshot,
     select: onSelectionChange,
@@ -166,6 +166,10 @@ export const useTimelineWindowController = () => {
       send({ type: 'add-to-playlist', ids: items.map((item) => item.id) }),
   };
 };
+
+export const useTimelineWindowController = (): ReturnType<
+  typeof useTimelineWindowControllerState
+> => useTimelineWindowControllerState();
 
 export type TimelineWindowController = NonNullable<
   ReturnType<typeof useTimelineWindowController>
