@@ -9,6 +9,8 @@
   "apple-player/PlayerObservation.hpp",
   "apple-player/ReverseFrameCache.hpp",
   "apple-player/SourceClockTicks.hpp",
+  "apple-player/SourceSampleIntervals.hpp",
+  "apple-player/SourceSampleIntervals.mm",
   "apple-player/StoppedImageSettlement.hpp",
   "frame-ownership/FrameLease.hpp",
   "native-input/CommandLeft.mm",

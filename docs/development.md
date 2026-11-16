@@ -610,3 +610,5 @@ Group v2の転送は`test:native-runtime`内の`GroupSurface.test.mm`と、`nati
 surfaceのunbindは登録ごとのtokenに所属し、同じcanvasを再利用しても古いcleanupで新ownerを閉じない。v1/groupの同時bindを拒否し、documentのcloseは未提示group loanも解放する。`nativeSurfaceBridge.test.ts`と`nativeGroupPresenter.test.ts`で再bind・二重cleanup・close中の保留画像を確認する。
 
 `GroupSurface.test.mm`は送信側の停止fenceを、ACK到着前・Released後・64 pair履歴切れ・新しいDrawn後・改変した時刻/ID/controlで確認する。これは実Machを使うnative資源/metadata契約であり、Hostのgroup制御や物理描画の停止位置を合格とする試験ではない。
+
+`SourceSampleIntervals.test.mm`はOSのImageIOで自作したJPEGをMOVへpassthrough保存する小容量fixtureを使い、実VFR sample区間・600Hzと120000Hz・取消/新要求拒否・欠損sourceを確認する。H.264 encoderを必要とせず、以前のVideoToolbox初期化失敗を別codecで解決したという試験ではない。`test:native-runtime`に含み、helperのsource/recipe hashにもindex実装を含める。SDK操作の未応答を模擬的にclose完了へ変えない。

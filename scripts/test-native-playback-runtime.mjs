@@ -6,7 +6,27 @@ import { run } from './media-tools/process.mjs';
 const directory = await mkdtemp(join(tmpdir(), 'native-runtime-test-'));
 try {
   // Test bounded IPC/surface adapters and image leases, not decoder/display fidelity.
-  for (const [name, source, libraries] of [
+  for (const [name, source, libraries, additional = []] of [
+    [
+      'SourceSampleIntervals',
+      'apple-player/SourceSampleIntervals.test.mm',
+      [
+        '-fobjc-arc',
+        '-framework',
+        'Foundation',
+        '-framework',
+        'AVFoundation',
+        '-framework',
+        'CoreMedia',
+        '-framework',
+        'CoreGraphics',
+        '-framework',
+        'ImageIO',
+        '-framework',
+        'QuartzCore',
+      ],
+      ['apple-player/SourceSampleIntervals.mm'],
+    ],
     ['ControlOutput', 'apple-player/ControlOutput.test.cpp', []],
     [
       'ReverseFrameCache',
@@ -60,6 +80,7 @@ try {
       '-std=c++17',
       '-O2',
       join('native/macos/playback', source),
+      ...additional.map((file) => join('native/macos/playback', file)),
       ...libraries,
       '-o',
       binary,
