@@ -38,6 +38,7 @@ jobs:
         run: |
           pnpm run native:build
           pnpm run test:native-group-surface
+          pnpm run test:native-group-player-host
       - name: Build verified host media tools
         run: pnpm run media:build
       - name: Build application and preload

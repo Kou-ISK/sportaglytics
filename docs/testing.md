@@ -435,3 +435,7 @@ macOS PR CIでも同じ行操作E2Eを実行します。選択失敗時は合成
 
 macOS PR workflowは`native/**`の変更も対象に含め、media buildの前に既存`test:native-runtime`を実行します。単なるnativeファイル変更だけで画像所有回帰が未実行になることを防ぎます。取得画像の任意診断と実配布物の画面受入は別ゲートです。
 0.17.30の限定リリースでは`export-text-geometry`を共通Electron E2Eとインストール済みWindowsへ登録する。署名済みMac DMGも同じ共通runnerを実行するため、インストールされたMainと同梱FFmpegで回転・SAR結合・オーバーレイのpreview/export整合を検査する。CIでの画素比較を実聴取・物理画面の受入とは扱わない。
+
+### 限定group Hostの非GUI結合
+
+macOS arm64の`pnpm run native:build && pnpm run test:native-group-player-host`はMainのmanifest変換、実FIFO・helper・独立AVPlayer・実sample metadata・N-API/Mach転送と、停止proof拒否/再押下/結果hash/子close・pipe終了を検査する。`test:native-runtime`のsource/pair試験は同じ取得部のoffset、半開区間、旧非同期完了、片側の終了と借用画像会計を確認する。描画ACKは模擬であり実Canvas/音声/署名済み版や継続reverseの品質を代替しない。通常Controllerのgroup接続が完成するまで単一経路の既存受入を維持する。

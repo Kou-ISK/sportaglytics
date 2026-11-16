@@ -1,4 +1,5 @@
 #import "ApplePlayerSession.hpp"
+#import "GroupPlayerHost.hpp"
 #include "../apple-export/AppleClipExport.hpp"
 #include "ControlOutput.hpp"
 #include "PlayerObservation.hpp"
@@ -350,12 +351,15 @@ int main(int argc, const char **argv) {
     NSData *data = [NSData dataWithContentsOfFile:@(argv[1])];
     if (!data || data.length > 65536) return 65;
     NSDictionary *manifest = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-    if (![manifest isKindOfClass:NSDictionary.class] || ![manifest[@"source"] isKindOfClass:NSString.class] || [manifest[@"version"] intValue] != 1) return 65;
+    if (![manifest isKindOfClass:NSDictionary.class] || ([manifest[@"version"] intValue] != 2 && (![manifest[@"source"] isKindOfClass:NSString.class] || [manifest[@"version"] intValue] != 1))) return 65;
     NSString *expected = [[[@(argv[1]) stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"native-run-1"] stringByAppendingPathComponent:@"native-result.json"];
     if (![[expected stringByStandardizingPath] isEqualToString:[@(argv[2]) stringByStandardizingPath]] || [[NSFileManager defaultManager] fileExistsAtPath:expected]) return 65;
     [NSApplication sharedApplication]; [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
     @try {
-      try { return [[[STApplePlayerHost alloc] initWithManifest:manifest result:expected] run]; }
+      try {
+        if ([manifest[@"version"] intValue] == 2) return runAppleGroupHost(manifest, expected, &interrupted);
+        return [[[STApplePlayerHost alloc] initWithManifest:manifest result:expected] run];
+      }
       catch (...) { return 1; }
     } @catch (NSException *) { return 1; }
   }

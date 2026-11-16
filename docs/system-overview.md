@@ -494,4 +494,4 @@ The native v2 single-cut candidate can transfer its qualified descriptor directl
 
 Main内部の複数素材プランは、現在のpackageに記録された選択angleの配置・同期offsetと検証済みlocal参照を束ねます。既存の単一素材経路とfilesystem検査を共有し、複数angleを単一URLとして公開しません。group backend/IPC接続と実表示受入は引き続き未完です。
 
-Group v2のnative転送とMain adapterはsource/操作世代・pair単位のmetadata、共有credit/画像lease、importとGPU解放を分ける。preloadは既存の唯一のtexture receiverから2 canvasのpair提示へ分岐する。これは通常ControllerとHost group backendの接続前であり、公開版の単一素材条件を解除しない。実装段階と未保証の表示・音声・継続逆再生は[設計記録](multi-angle-playback.md#group-v2-の転送提示接続開発中)を参照。
+Group v2のnative転送とMain adapterはsource/操作世代・pair単位のmetadata、共有credit/画像lease、importとGPU解放を分ける。preloadは既存の唯一のtexture receiverから2 canvasのpair提示へ分岐する。限定placed-pair HostはMain manifest関数と既存owned backend/FIFOから実行できるが、通常providerの能力交渉・Controllerとpackage clip切替は未接続であり、公開版の単一素材条件を解除しない。実装段階と未保証の表示・音声・継続逆再生は[設計記録](multi-angle-playback.md#group-v2-の転送提示接続開発中)を参照。

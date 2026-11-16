@@ -86,7 +86,8 @@
     "benchmark:timeline": "node scripts/benchmark-synthetic-timeline.mjs",
     "check:event-model-release": "node scripts/check-event-model-release.mjs",
     "test:native-runtime": "node scripts/test-native-playback-runtime.mjs",
-    "test:native-group-surface": "node scripts/test-native-group-surface.mjs"
+    "test:native-group-surface": "node scripts/test-native-group-surface.mjs",
+    "test:native-group-player-host": "node scripts/test-native-group-player-host.mjs"
   },
   "browserslist": {
     "production": [

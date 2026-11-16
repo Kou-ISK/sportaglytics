@@ -35,3 +35,13 @@ decode要求の失効と完成済みsource画像の寿命を分ける。同じso
 転送はv1から分離したgroup v2とし、異なるsource PTSを共通anchorへMainで検査する。preloadのglobal texture receiverは増設せず分岐し、pair両側の取得後に描画する。Renderer handle権限を増やさず、未確認releaseを予算へ戻さない。これは転送/提示段階の決定で、Host制御・継続供給・署名版受入前のProposed状態を維持する。
 
 複数sourceのimage intervalは、AVPlayer outputが返したPTSと圧縮trackの実sample metadataを照合する。平均fpsや目標時計で有効区間を捏造しない。metadataの期限失効と実worker排出を分け、取消/期限をreader終了の証拠にしない。限定された転送形式の一般化やgroup Hostの有効化は、このmetadata部品の追加だけで承認したとは扱わない。
+
+限定placed-pair Hostを既存helperのversion 2 manifest入口へ追加する。source取得/metadata・pair barrier/音声所有・process/controlを別ファイルとし、Mainで検証済みの二clipの共通有効区間だけを対象にする。制御operationと物理seek世代を分離し、再押下で初期targetへ巻き戻さない。解除はprompt pauseとnative発行pairのproof照合を分け、画像anchorを停止player clockに流用しない。通常provider/capability/Controllerとclip切替・持続reverseは未接続のため、group利用のdefault変更やProposedからの状態変更は行わない。
+
+### Display deadlines are not source-sample provenance
+
+[Apple's API definition](https://developer.apple.com/documentation/avfoundation/avplayeritemvideooutput/copypixelbuffer%28foritemtime%3Aitemtimefordisplay%3A%29) and the SDK AVPlayerItemOutput.h define outItemTimeForDisplay as a display deadline, not an invariant original compressed-sample PTS. The heavy-source placed-pair run returned a deadline absent from its actual packet table; the strict metadata lookup rejected it. This is not a memory or Mach drainage failure. Do not hide it with a nearest-sample tolerance or relabel a held image.
+
+SourceSampleIntervals contains real compressed-sample metadata. Equality of a candidate AVPlayer deadline with a sample start is a restrictive experimental gate, not general proof of pixel provenance. The Host mode is therefore explicitly placed-pair-deadline-experiment; it is not advertised as a production capability and normal provider/Controller activation remains disconnected. A timestamped pixel producer (for example a bounded reader/decoder cache), or a separately justified presentation contract, is still required. Earlier AVPlayer acquisition-time observations are not original-sample or physical-display evidence.
+
+The synthetic fixture now has distinct content per sample, and receiver-side pixels are checked as well as timestamps. Repeating two unchanged sample starts at different anchors does not count as a new image. These tests still do not prove full real-media content, different-camera synchronization, speaker output or signed-distribution acceptance.

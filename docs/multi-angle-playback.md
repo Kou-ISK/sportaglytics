@@ -176,12 +176,30 @@ Mainの`groupSurfaceTransport`はimport、転送完了、Renderer ACK、GPU参�
 
 preloadでは既存の単一`setSharedTextureReceiver`からv2を分岐する。別々のcanvasを要求し、両angleの同じpair/共通anchorがそろい、両VideoFrameを取得してから一回のRAF内で描画する。空白は不透明なmedia blackとして扱い、古いHTML画像を透過表示しない。新sourceで不完全な旧pairを解放し、operation失効・unbind・エラー時に未提示の借用を残さない。片側描画失敗時はpair成功を報告しないが、すでに行ったcanvas描画を取り消せる、物理表示が原子的に同期するとは保証しない。
 
-提示receiptとMainの両ACK記録は実際にcanvasへ送ったpairの共通時刻であり、要求時刻、AVPlayer時計、物理scanoutの証明とは異なる。新しい操作だけでreceiptを進めず、片側だけのACKを停止位置の証拠にしない。現在はMain transportとpreload受信の接続段階で、Host group制御・helper capability・通常Controllerからのgroup bind/停止fence・音声所有・継続reverse供給は未接続である。公開APIへv2を有効化しておらず、この差分だけを複数映像製品の完成や速度改善とはしない。
+提示receiptとMainの両ACK記録は実際にcanvasへ送ったpairの共通時刻であり、要求時刻、AVPlayer時計、物理scanoutの証明とは異なる。新しい操作だけでreceiptを進めず、片側だけのACKを停止位置の証拠にしない。現在はMain transportとpreload受信の接続段階で、Hostには後述の限定placed-pair入口を追加したが、helper capability・通常Controllerからのgroup bind/停止fence・packageのclip切替・継続reverse供給は未接続である。公開APIへv2を有効化しておらず、この差分だけを複数映像製品の完成や速度改善とはしない。
 
 停止fenceのMain内照合は`groupPresentationLedger`へ分離する。最後にcanvasへ送った2 delivery IDとpair/owner/seek/共通anchorを、最大64 pairの発行metadataへ照合する。ACK遅延中でも発行済みpairを検査できるが、未発行・不完全・別seek・書換えた時刻・期限外の履歴・既に新しいpairを提示済みの古いproofは拒否する。これは新しいRenderer公開権限ではなくMain内部の検査であり、preloadでの停止時receipt捕捉とHostへの停止fence伝達をまだ代行しない。Host接続時は音声/clockのpauseをACK待ちで遅延させず、発行済みnative metadataにも照合する必要がある。
 
-native producerも`GroupSurfaceSender`に最大64 pairの発行metadataを残し、停止fenceのoperation/seek/pair/共通anchorと両delivery IDを照合できる。Released後もmetadataだけを短期保持し、画像leaseを延命しない。partial sendの不完全pair、履歴外、古いcontrol、すでに新しいDrawnがあるpairを拒否する。この部品の追加だけではHostの入力loopへ停止fenceを接続したことにならず、Main/preloadとのrelayとgroup Host実装は未完である。
+native producerも`GroupSurfaceSender`に最大64 pairの発行metadataを残し、停止fenceのoperation/seek/pair/共通anchorと両delivery IDを照合できる。Released後もmetadataだけを短期保持し、画像leaseを延命しない。partial sendの不完全pair、履歴外、古いcontrol、すでに新しいDrawnがあるpairを拒否する。限定placed-pair Hostの入力loopはこの照合を使用する。通常Main/preloadとのrelayとpackage全体のgroup Host制御は未完である。
 
 Host用の`SourceSampleIntervals`は、AVPlayerから実際に取得したPTSを、圧縮video trackのsample PTS/durationへ照合する。平均fpsから画像区間を作らず、任意の要求時刻を実サンプルPTSとみなさない。動画を復号/複製せず、1秒の指定窓（依存packetを含み得る）・512 buffer・走査16MiBのmetadata読取を1 sourceあたり一件、helper内serial queueで行う。受付から2秒を過ぎた結果を採用せず失敗を知らせるが、SDK/OS操作が応答しない場合にその場で終了したとは扱わない。取消は新しいpublishを止め、`drained`は実worker/callback終了までfalseを維持する。Hostは失敗と排出完了を別に扱う必要がある。
 
-JPEG passthroughで生成する微小な可変フレーム間隔fixtureでは、120000Hzの正確なsample区間と、明示した600Hzで丸められた実区間の両方を検査する。これはH.264/VideoToolboxの書き出し成功やgroup再生の合格ではない。現段階でsample indexと送信側停止照合をHost入力loop/通常Controllerへ接続したとは扱わない。
+JPEG passthroughで生成する微小な可変フレーム間隔fixtureでは、120000Hzの正確なsample区間と、明示した600Hzで丸められた実区間の両方を検査する。これはH.264/VideoToolboxの書き出し成功やgroup再生の合格ではない。このmetadata試験だけを通常Controllerの受入とは扱わない。限定Hostへの実接続は次節の試験で別に確認する。
+
+### 限定placed-pair Hostの実接続
+
+`nativeGroupHostConfiguration`はMainの選択済みプランから、angleの順序とsourceIndex、120000Hzの配置・offset、明示された一つのaudio ownerを持つversion 2 / `placed-pair-deadline-experiment` manifestを作る。二angle・各一clipの共通有効区間だけを受け付け、空白・複数clip・重ならない区間を一般対応として通さない。旧version 1は変更しない。この入口はhelper内で実行できるが、通常providerの能力交渉・Controllerへはまだ公開していない。revision 9やexport能力からgroup再生対応を推定しない。
+
+Hostは実`STGroupPlayerSource`二系統を持ち、AVPlayer outputの画像を共有64MiB予算へ計上してからmetadata照合を待つ。実sampleの有効区間をoffsetでglobalへ写像し、二画像の共通区間にあるanchorだけを`GroupSurfaceSender`へ渡す。初回/明示seek/停止位置は要求anchorを両方が覆うまで未準備とする。継続再生の希望時計と取得画像anchorは別にし、同一画像位置の繰返しを進行としない。画像差が要求倍率に対して壁時計1秒を超える供給は受理せず、最後の進行から1秒の欠乏で失敗・両側停止・排出へ進む。これは滑らかな逆再生の達成値ではなく、止まった画像と進む時計を成功にしない有限の監視である。
+
+同じseekでの再押下・倍率/音量変更は、制御所有と物理seekの世代を分けて引き継ぐ。初回targetへの再seekを毎操作で発行しない。新seekは古い完了を失効し、closeは既発行seek callbackとmetadata workerの終了を待つ。解除はまず両側をpauseし、現在のnative発行履歴へ両delivery IDの停止proofを照合してから確定画像を取り直す。片側だけのACK、改変anchor、古いproofを成功にしない。共通hostへのscheduleが片側で拒否されたら両側をpauseする。音声はMain指定の一angleだけを選び、変更前に全側をmuteする。reverse中は一時的に無音とし、保存済みmute設定は書き換えない。
+
+`test:native-group-player-host`はMainの実manifest関数、既存owned backend/FIFO、実ローカルhelper、独立AVPlayer、sample index、N-API/IOSurface/Mach、再押下/停止proof、結果hash、子closeとpipe終了を通す。合成VFRの二要素とoffsetを使い、Drawnは試験側の模擬ACKである。Speaker・Canvas/GPU提示・一般素材・異なるカメラの同期・署名済み配布版の受入ではない。終了receiptの`stoppedClock`はnullとし、共通画像anchorを実測AVPlayer停止時計へ偽装しない。新しいcodec、原本加工、FFmpeg linkは追加しない。
+
+### Display deadlines are not source-sample provenance
+
+[Apple's API definition](https://developer.apple.com/documentation/avfoundation/avplayeritemvideooutput/copypixelbuffer%28foritemtime%3Aitemtimefordisplay%3A%29) and the SDK AVPlayerItemOutput.h define outItemTimeForDisplay as a display deadline, not an invariant original compressed-sample PTS. The heavy-source placed-pair run returned a deadline absent from its actual packet table; the strict metadata lookup rejected it. This is not a memory or Mach drainage failure. Do not hide it with a nearest-sample tolerance or relabel a held image.
+
+SourceSampleIntervals contains real compressed-sample metadata. Equality of a candidate AVPlayer deadline with a sample start is a restrictive experimental gate, not general proof of pixel provenance. The Host mode is therefore explicitly placed-pair-deadline-experiment; it is not advertised as a production capability and normal provider/Controller activation remains disconnected. A timestamped pixel producer (for example a bounded reader/decoder cache), or a separately justified presentation contract, is still required. Earlier AVPlayer acquisition-time observations are not original-sample or physical-display evidence.
+
+The synthetic fixture now has distinct content per sample, and receiver-side pixels are checked as well as timestamps. Repeating two unchanged sample starts at different anchors does not count as a new image. These tests still do not prove full real-media content, different-camera synchronization, speaker output or signed-distribution acceptance.

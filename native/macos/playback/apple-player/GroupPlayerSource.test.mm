@@ -1,0 +1,79 @@
+#import "SampleIntervalFixture.hpp"
+#import "GroupPlayerSource.hpp"
+#include <cstdio>
+
+void waitFor(STGroupPlayerSource *source, uint64_t target) {
+  double deadline = CACurrentMediaTime() + 12;
+  while (CACurrentMediaTime() < deadline && !source.failed) {
+    [source poll]; auto image = [source frame];
+    if (source.seekCompleted && image && image->covers(target)) return;
+    pump();
+  }
+  fprintf(stderr, "group source failed code=%ld\n", (long)source.error.code);
+  assert(false);
+}
+void closeAndDrain(STGroupPlayerSource *source) {
+  [source close];
+  double deadline = CACurrentMediaTime() + 4;
+  while (!source.drained && CACurrentMediaTime() < deadline) pump();
+  assert(source.drained && ![source frame]);
+}
+int main() { @autoreleasepool {
+  NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:
+    [@"sportag-group-source-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+  assert([[NSFileManager defaultManager] createDirectoryAtPath:directory withIntermediateDirectories:NO attributes:nil error:nil]);
+  NSURL *url = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"vfr.mov"]]; fixture(url, true);
+  appleplayback::FrameBudget budget(64 * 1024 * 1024);
+  auto first = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget];
+  // The second independent player has a non-zero placement offset. A source
+  // sample's PTS must never be re-labelled as the same global clock.
+  auto second = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:22022 sourceOffset:2002 budget:budget];
+  assert([first seek:4004 operation:1] && [second seek:4004 operation:1]);
+  waitFor(first, 4004); waitFor(second, 4004);
+  {
+    auto a = [first frame], b = [second frame];
+    assert(a && b && a->sourceStart == 2002 && b->sourceStart == 6006);
+    assert(a->globalStart == 2002 && a->globalEnd == 6006);
+    assert(b->globalStart == 4004 && b->globalEnd == 6006);
+    assert(!a->covers(6006) && !b->covers(6006));
+    assert(budget.usedBytes() > 0 && !budget.quarantinedBytes());
+    // New seek invalidates local frames immediately. The old immutable loan
+    // still owns a charge until this scope ends; closing cannot invent release.
+    assert([first seek:8008 operation:2]);
+    assert(![first frame] && ![first seek:8008 operation:2]);
+    closeAndDrain(first);
+    assert(a->image.image() && budget.usedBytes() > 0);
+  }
+  // One source closing must not revoke the other player's image/metadata.
+  assert([second frame] && [second frame]->covers(4004));
+  assert(![second seek:22022 operation:2]);
+  assert(![second scheduleRate:1 globalTicks:0 hostTime:CMClockGetTime(CMClockGetHostTimeClock())]);
+  closeAndDrain(second); assert(budget.usedBytes() == 0);
+  // Pending old callback cannot revive a new operation or a closed source.
+  auto changed = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget];
+  assert([changed seek:0 operation:1]); [changed poll];
+  assert([changed adoptOperation:2]); waitFor(changed, 0);
+  assert([changed seek:8008 operation:3]); waitFor(changed, 8008);
+  closeAndDrain(changed); pump(); assert(![changed frame] && budget.usedBytes() == 0);
+  auto absent = [[STGroupPlayerSource alloc] initWithURL:
+    [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"missing.mov"]]
+    globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget];
+  assert([absent seek:0 operation:1]);
+  double deadline = CACurrentMediaTime() + 12;
+  while (!absent.failed && CACurrentMediaTime() < deadline) { [absent poll]; pump(); }
+  assert(absent.failed && ![absent frame]); closeAndDrain(absent);
+  appleplayback::FrameBudget tiny(1);
+  auto limited = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:tiny];
+  assert([limited seek:4004 operation:1]); deadline = CACurrentMediaTime() + 12;
+  while (!limited.failed && CACurrentMediaTime() < deadline) { [limited poll]; pump(); }
+  assert(limited.failed && limited.error.code == 6 && ![limited frame]);
+  closeAndDrain(limited); assert(tiny.usedBytes() == 0 && !tiny.quarantinedBytes());
+  // Close while a seek completion is queued: drain waits for that callback,
+  // and its late arrival must not revive a closed source.
+  auto closing = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget];
+  assert([closing seek:0 operation:1]); [closing poll]; closeAndDrain(closing);
+  pump(); assert(![closing frame] && budget.usedBytes() == 0);
+  // Remove only this fixture owned by this process, after actual index drainage.
+  assert([[NSFileManager defaultManager] removeItemAtPath:directory error:nil]);
+  puts("group real-player source intervals/offsets/ownership passed");
+} }
