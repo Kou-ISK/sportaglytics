@@ -5,7 +5,7 @@ import { run } from './media-tools/process.mjs';
 
 const directory = await mkdtemp(join(tmpdir(), 'native-runtime-test-'));
 try {
-  // AVPlayer owns decoding/PCM. Test only our bounded IPC and surface adapters.
+  // Test bounded IPC/surface adapters and image leases, not decoder/display fidelity.
   for (const [name, source, libraries] of [
     ['ControlOutput', 'apple-player/ControlOutput.test.cpp', []],
     [
