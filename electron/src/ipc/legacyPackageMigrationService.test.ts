@@ -53,7 +53,22 @@ it.each(['Sample.stpkg', 'Without extension', 'ライブ 🏉.stpkg'])(
   async (name) => {
     const { root, source } = await fixture(name);
     const before = await packageCopyDigest(source);
-    const result = await open(source);
+    const result = await open(source).catch((error: unknown) => {
+      // A failed Windows subprocess otherwise prints only its command. Keep
+      // the original failure, but distinguish timeout/termination from an
+      // actual lookup rejection before changing any ownership deadline.
+      if (error instanceof Error) {
+        const stderr = 'stderr' in error ? error.stderr : undefined;
+        console.error('migration owner lookup failure', {
+          code: 'code' in error ? error.code : undefined,
+          signal: 'signal' in error ? error.signal : undefined,
+          killed: 'killed' in error ? error.killed : undefined,
+          stderrBytes:
+            typeof stderr === 'string' ? Buffer.byteLength(stderr) : null,
+        });
+      }
+      throw error;
+    });
     expect(result.packagePath).toBe(source);
     expect(result.migrated).toBe(true);
     expect(await packageCopyDigest(result.backupPath!)).toBe(before);
