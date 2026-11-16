@@ -480,3 +480,5 @@ Group v2のwire/credit/native資源所有は`native/macos/playback/surface-trans
 Mainの`runtime/groupPresentationLedger.ts`は画像資源から独立した有界の発行・提示metadata台帳であり、停止fenceの照合を担当する。画像の借用寿命やsource配置の判定を重複実装せず、未発行時刻や古いseekを停止位置へ採用しない。
 
 `native/macos/playback/apple-player/DecodedFrameWindow`はsource別の有界圧縮reader/decoderと画像bankを所有する。`SourceFileRevision`はMain検査済みfile revisionとの通常差し替え照合に限定する。`GroupPlayerSource`はtimeline配置と音声用AVPlayer、`GroupPlayerPair`は二画像の共通anchorを担当する。旧metadata-only indexは元画像の証明にならないため削除した。
+
+`native/macos/playback/apple-player/DecodeAnchor.hpp` selects only bounded, full-sync compressed-reader anchors. It does not own clocks, images, surface loans or source qualification.

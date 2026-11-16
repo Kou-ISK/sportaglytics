@@ -1,5 +1,6 @@
 #import "DecodedFrameReferenceFixture.hpp"
 #import "DecodedFrameWindow.hpp"
+#import "DecodeAnchor.hpp"
 #include <cstdio>
 void wait(STDecodedFrameWindow *decoder) {
   double end = CACurrentMediaTime() + 7;
@@ -10,6 +11,22 @@ int main() { @autoreleasepool {
   NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:[@"sportag-decoded-window-" stringByAppendingString:NSUUID.UUID.UUIDString]];
   assert([[NSFileManager defaultManager] createDirectoryAtPath:directory withIntermediateDirectories:NO attributes:nil error:nil]);
   NSURL *url = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"distinct-vfr.mov"]]; fixture(url, true);
+  auto asset = [AVURLAsset URLAssetWithURL:url options:nil];
+  __block NSArray<AVAssetTrack *> *tracks = nil;
+  [asset loadTracksWithMediaType:AVMediaTypeVideo completionHandler:^(NSArray<AVAssetTrack *> *loaded, NSError *error) {
+    assert(!error); dispatch_async(dispatch_get_main_queue(), ^{ tracks = loaded; });
+  }];
+  const double trackDeadline = CACurrentMediaTime() + 4;
+  while (!tracks && CACurrentMediaTime() < trackDeadline) pump();
+  assert(tracks.count == 1);
+  // The cursor selects the actual VFR containing sample, not the requested
+  // timestamp. Exact boundaries stay exact; cancellation retains the fallback.
+  auto chosen = appleplayback::decodeAnchor(tracks.firstObject, CMTimeMake(4004, 120000), kCMTimeZero, [] { return false; });
+  assert(appleplayback::sourceTicks(chosen) == 2002);
+  chosen = appleplayback::decodeAnchor(tracks.firstObject, CMTimeMake(6006, 120000), kCMTimeZero, [] { return false; });
+  assert(appleplayback::sourceTicks(chosen) == 6006);
+  chosen = appleplayback::decodeAnchor(tracks.firstObject, CMTimeMake(6006, 120000), kCMTimeZero, [] { return true; });
+  assert(CMTimeCompare(chosen, kCMTimeZero) == 0);
   appleplayback::FrameBudget budget(64 * 1024 * 1024);
   auto decoder = [[STDecodedFrameWindow alloc] initWithURL:url budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
   assert([decoder requestStart:0 end:24024] && ![decoder requestStart:0 end:24024]); wait(decoder);

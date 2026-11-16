@@ -5,6 +5,7 @@
   "apple-player/ApplePlayerSession.hpp",
   "apple-player/ApplePlayerSession.mm",
   "apple-player/ControlOutput.hpp",
+  "apple-player/DecodeAnchor.hpp",
   "apple-player/DecodedFrameWindow.hpp",
   "apple-player/DecodedFrameWindow.mm",
   "apple-player/ExclusivePublish.hpp",

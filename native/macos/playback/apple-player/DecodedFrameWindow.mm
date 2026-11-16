@@ -1,6 +1,7 @@
 #import "DecodedFrameWindow.hpp"
 #include "ReverseFrameCache.hpp"
 #include "SourceClockTicks.hpp"
+#include "DecodeAnchor.hpp"
 #import <AVFoundation/AVFoundation.h>
 #import <VideoToolbox/VideoToolbox.h>
 #import <QuartzCore/QuartzCore.h>
@@ -102,11 +103,15 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
     output.alwaysCopiesSampleData = NO;
     if (!reader || ![reader canAddOutput:output]) { work->failure = Reader; work->originalError = error; return; }
     [reader addOutput:output];
-    // Padding keeps requested samples away from timeRange trim controls. The
-    // reader may include earlier dependency samples; count/byte bounds still apply.
+    // Start at the nearest bounded, verified full-sync sample. Arbitrary
+    // padding can cross an extra GOP; keep it only as the unsupported-cursor
+    // fallback. Actual sample/output timing and all read/decode bounds remain.
     const uint64_t from = work->start > 60000 ? work->start - 60000 : 0;
     const uint64_t to = std::min<uint64_t>(86400ULL * 120000, work->end + 60000);
-    reader.timeRange = CMTimeRangeMake(CMTimeMake(from, 120000), CMTimeMake(to - from, 120000));
+    const CMTime anchor = appleplayback::decodeAnchor(tracks.firstObject, CMTimeMake(work->start, 120000),
+      CMTimeMake(from, 120000), [work] { return work->expired(); });
+    if (work->expired()) { work->failure = Deadline; return; }
+    reader.timeRange = CMTimeRangeFromTimeToTime(anchor, CMTimeMake(to, 120000));
     if (![reader startReading]) { work->failure = Reader; work->originalError = reader.error; return; }
     VTDecompressionSessionRef session = nullptr;
     size_t samples = 0, bytes = 0;
@@ -221,10 +226,15 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
     // leases/charge; late snapshots never publish into a new request/source.
     dispatch_async(dispatch_get_main_queue(), ^{
       auto active = weak.lock();
-      if (!active || self->_work != active || self->_closed || self->_failed || active->cancelled.load()) return;
+      if (!active || self->_work != active || self->_closed || self->_failed || active->cancelled.load()) {
+        // Dispatch may retain its block beyond this callback. Drop its image
+        // loans now, before the later physical-drain callback can complete.
+        snapshot->clear(); return;
+      }
       if (!appleplayback::sourceFileMatches(active->url, active->revision)) {
         self->_failed = YES; active->cancelled.store(true);
-        self->_error = [NSError errorWithDomain:@"SportagDecodeWindow" code:SourceChanged userInfo:nil]; return;
+        self->_error = [NSError errorWithDomain:@"SportagDecodeWindow" code:SourceChanged userInfo:nil];
+        snapshot->clear(); return;
       }
       if (!self->_cache.publish(std::move(*snapshot))) {
         self->_failed = YES; active->cancelled.store(true);
@@ -238,9 +248,12 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
       catch (const std::exception &) { work->failure = Bound; }
     } @catch (NSException *) { work->failure = Reader; }
     dispatch_async(dispatch_get_main_queue(), ^{
-      if (self->_work != work) return;
-      self->_work.reset(); self->_busy = NO;
-      if (self->_closed || work->cancelled.load()) return;
+      work->progress = {};
+      if (self->_work != work) { work->frames.clear(); return; }
+      self->_work.reset();
+      if (self->_closed || work->cancelled.load()) {
+        work->frames.clear(); self->_busy = NO; return;
+      }
       // A replacement can make AVAssetReader fail before it reaches the
       // worker's final identity check. Classify the observed replacement at
       // the adoption boundary, retaining any reader error as the cause.
@@ -255,6 +268,7 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
           userInfo:underlying ? @{NSUnderlyingErrorKey:underlying} : nil];
         self->_cache.clear();
       }
+      work->frames.clear(); self->_busy = NO;
     });
   }];
   return YES;
