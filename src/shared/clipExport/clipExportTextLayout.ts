@@ -59,6 +59,7 @@ const wrapParagraph = async (
   capacity: number,
   fontSize: number,
   measure: MeasureClipText,
+  maxLines: number,
 ): Promise<{ lines: OverlayLine[]; overflow: boolean }> => {
   const segments = Array.from(
     segmenter.segment(line.text),
@@ -69,6 +70,12 @@ const wrapParagraph = async (
   let overflow = false;
   do {
     const remaining = segments.slice(start).join('');
+    if (result.length >= maxLines) {
+      // Preserve the remainder for diagnostics, but stop measuring a paragraph
+      // already proven too tall. Overflow layouts are never rendered.
+      result.push({ ...line, text: remaining });
+      return { lines: result, overflow: true };
+    }
     if ((await measure(remaining, line.isBold, fontSize)) <= capacity) {
       result.push({ ...line, text: remaining });
       break;
@@ -130,35 +137,47 @@ export const layoutClipExportText = async (
       .split('\n')
       .map((text) => ({ ...line, text })),
   );
-  for (let font = 30; font >= 24; font--) {
+  const atFont = async (font: number): Promise<ClipExportTextLayout> => {
     // Use exactly the same integer pixel size for measurement and rendering.
     const fontSize = Math.max(
       Math.ceil((height * 24) / 1080),
       Math.round((height * font) / 1080),
     );
     const fontRatio = fontSize / height;
-    const wrapped = await Promise.all(
-      paragraphs.map((line) =>
-        wrapParagraph(line, capacity, fontSize, measure),
-      ),
-    );
-    const lines = wrapped.flatMap((paragraph) => paragraph.lines);
-    const horizontalOverflow = wrapped.some((paragraph) => paragraph.overflow);
     const lineRatio = fontRatio * 1.25;
+    const maxLines = Math.floor((0.2 - paddingRatio * 2) / lineRatio);
+    const wrapped =
+      paragraphs.length > maxLines
+        ? paragraphs.map((line) => ({ lines: [line], overflow: true }))
+        : await Promise.all(
+            paragraphs.map((line) =>
+              wrapParagraph(line, capacity, fontSize, measure, maxLines),
+            ),
+          );
+    const lines = wrapped.flatMap((paragraph) => paragraph.lines);
     const boxRatio = lines.length
       ? lines.length * lineRatio + paddingRatio * 2
       : 0;
-    if ((!horizontalOverflow && boxRatio <= 0.2) || font === 24)
-      return {
-        lines,
-        fontRatio,
-        lineRatio,
-        paddingRatio,
-        boxRatio: Math.min(0.2, boxRatio),
-        overflow: horizontalOverflow || boxRatio > 0.2,
-      };
+    return {
+      lines,
+      fontRatio,
+      lineRatio,
+      paddingRatio,
+      boxRatio: Math.min(0.2, boxRatio),
+      overflow:
+        wrapped.some((paragraph) => paragraph.overflow) || boxRatio > 0.2,
+    };
+  };
+  const preferred = await atFont(30);
+  if (!preferred.overflow) return preferred;
+  // Reject impossible notes at the minimum before trying intermediate sizes.
+  const minimum = await atFont(24);
+  if (minimum.overflow) return minimum;
+  for (let font = 29; font > 24; font--) {
+    const layout = await atFont(font);
+    if (!layout.overflow) return layout;
   }
-  throw new Error('テキスト配置を計算できません');
+  return minimum;
 };
 
 export const CLIP_TEXT_OVERFLOW_MESSAGE =

@@ -34,7 +34,7 @@ Playlistの参照・既定アングル変更時は`mediaReferences.test.ts`、`p
 
 書き出しノートの変更時は`clipExportTextLayout.test.ts`、`exportTextInspection.test.ts`、`exportFfmpegOverlay.test.ts`と`e2e-export-menu.mjs`で高さ上限・最低文字サイズ・実映像プレビュー・超過時の拒否を確認します。Playwrightの映像fixtureは720pとして日本語の描画を確認します。仕様は[Playlist](playlist-features.md#ノートの編集と映像出力)を参照してください。
 
-`node scripts/test-export-text-layout.mjs`は実フォント・FFmpegで合成MP4を書き出し、折り返し・復号画素の余白・literal textfileとの一致を検査します。`EXPORT_TEXT_EVIDENCE_DIR`を設定するとPNG/MP4/結果JSONを保持します。macOS PR CIとWindows CIでも実行し、Linuxの成功をOS固有フォントの検証と扱いません。[原因・検証記録](reports/2026-11-export-text-wrap.md)。
+`node scripts/test-export-text-layout.mjs`は実フォント・FFmpegで合成MP4を書き出し、折り返し・復号画素の余白・literal textfileとの一致を検査します。`EXPORT_TEXT_EVIDENCE_DIR`を設定するとPNG/MP4/結果JSONを保持します。`node scripts/e2e-export-text-geometry.mjs`はe2e:prepare後に実Electron Mainのpreview/exportを単一・回転・SAR結合で比較します。macOS PR CIとWindows CIでも実行し、Linuxの成功をOS固有フォントの検証と扱いません。[原因・検証記録](reports/2026-11-export-text-wrap.md)。
 
 ノートの変更では、旧文書の統合・空欄・再読込の冪等性と、Sorter入力中の削除・IME・確定・取消を確認します。pnpm run test:e2e:export-menu は、直接編集→保存・再読込→毎回のテキスト選択→実FFmpeg出力の日本語3行を確認します。StorybookのWorkspace/Playlist/NoteEditorとWorkspace/Export/TextConfirmationで狭幅・空欄・確認待ちを確認できます。
 

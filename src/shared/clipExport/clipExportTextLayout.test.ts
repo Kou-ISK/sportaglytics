@@ -125,3 +125,16 @@ describe('export text layout', () => {
     ).rejects.toThrow('metrics unavailable');
   });
 });
+
+it('stops measuring once an overlong note cannot fit, preserving its remainder', async () => {
+  const text = '前'.repeat(100000);
+  const port = vi.fn(measure);
+  const result = await layoutClipExportText(
+    [{ text, isBold: false }],
+    size,
+    port,
+  );
+  expect(result.overflow).toBe(true);
+  expect(result.lines.map((line) => line.text).join('')).toBe(text);
+  expect(port.mock.calls.length).toBeLessThan(250);
+});

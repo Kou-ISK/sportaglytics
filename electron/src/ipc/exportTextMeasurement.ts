@@ -126,6 +126,7 @@ export const createClipTextMeasurer = (
       cache.clear();
       cacheBytes = 0;
     }
+    if (key.length * 2 > 1024 * 1024) return pending;
     cache.set(key, pending);
     cacheBytes += key.length * 2;
     return pending;

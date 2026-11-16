@@ -5,6 +5,10 @@ import { runMediaProcess } from './mediaProcessRunner';
 vi.mock('./mediaProcessRunner', () => ({ runMediaProcess: vi.fn() }));
 afterEach(() => vi.resetAllMocks());
 const run = vi.mocked(runMediaProcess);
+const textFiles = (filter: string): string[] =>
+  [...filter.matchAll(/:textfile=(.*?):expansion=none/g)].map((match) =>
+    match[1].replace(/\\(.)/g, '$1').replace(/\\(.)/g, '$1'),
+  );
 
 it('batches requests, caches by text/weight/size and removes private text files', async () => {
   const paths: string[] = [];
@@ -12,9 +16,7 @@ it('batches requests, caches by text/weight/size and removes private text files'
     const filter = args[args.indexOf('-vf') + 1];
     expect(filter).not.toContain('private');
     expect(options.timeoutMs).toBe(10000);
-    const files = [...filter.matchAll(/:textfile=([^:]+):expansion=none/g)].map(
-      (match) => match[1],
-    );
+    const files = textFiles(filter);
     paths.push(...files);
     expect(await readFile(files[0], 'utf8')).toBe("private : 100% ' [note]");
     return {
@@ -64,7 +66,7 @@ it.each([
 it('removes temporary files and hides raw diagnostics after a process failure', async () => {
   let file = '';
   run.mockImplementation(async (_exe, args) => {
-    file = args[args.indexOf('-vf') + 1].match(/:textfile=([^:]+)/)?.[1] ?? '';
+    file = textFiles(args[args.indexOf('-vf') + 1])[0] ?? '';
     throw new Error('private path and diagnostics');
   });
   await expect(
