@@ -20,6 +20,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setRate:(float)rate;
 /// Schedule a ready, seek-settled source on the shared host clock. This does not
 /// establish a group ready barrier, guarantee decoded data, or confirm display.
+/// A future host anchor is not a delayed-action timer: the AVPlayer timebase may
+/// run before it. The group must gate publication against its canonical clock.
 /// The caller must pause all members if any member rejects the same operation.
 - (BOOL)scheduleRate:(float)rate fromTime:(CMTime)time atHostTime:(CMTime)hostTime;
 - (void)pause;

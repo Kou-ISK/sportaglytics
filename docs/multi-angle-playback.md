@@ -61,6 +61,14 @@
 
 根拠: [VideoToolboxの同期/遅延出力とdrain](https://developer.apple.com/documentation/videotoolbox/vtdecompressionsession-api-collection)、[AVAssetReaderTrackOutput](https://developer.apple.com/documentation/avfoundation/avassetreadertrackoutput)、ローカルSDKの`VTDecompressionProperties.h`/`VTErrors.h`。環境設定・権限を変更して結果を通すことはしていない。
 
+## 事前準備と短押しの追加対照
+
+[preroll API](<https://developer.apple.com/documentation/avfoundation/avplayer/preroll(atrate:completionhandler:)>)はreadyかつrate0で使う。実原本の同じ20秒位置/逆2倍/独立2系統、同じBGRA診断のABBA順（各processで初回itemとwarmの2回、計8回）では、controlの最初の後退画像取得は約432〜436ms、preroll後は約422〜435msだった。しかし別途542〜551msの準備が加わり、内容の変化は双方とも6回/1.6秒に留まった。準備済みcurrent timeを使う別対照2回でも約427〜438msに準備540〜549msが加わった。この順序のpreroll追加は改善として採用しない。OS cacheは消しておらず、実表示比較ではない。
+
+製品sessionの共通host開始に対し、予定anchorの約74〜77ms前にpauseする2回の対照では、両系統の時計は20秒で保持され、後退画像は取得しなかった。解放後に残った1枚は同位置のbaseline確定であり、逆再生が後から始まったとは扱わない。
+
+SDKのhost同期契約は、未来hostを厳密な遅延実行timerとは定めない。timebaseはanchor前にも進み得るため、groupのcanonical clockと画像publish境界で開始前の画像を扱う。clip offsetを含めて準備済みであることと、全angleの実提示が完了したことを混同しない。
+
 ## 比較を続ける方式
 
 1. **映像別AVPlayer + 共通host clock**: 通常再生の第一候補。全angleをreadyにして共通hostへ一度指令し、毎フレームJS→IPC→seekを基本方式にしない。
