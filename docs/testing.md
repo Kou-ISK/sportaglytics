@@ -439,3 +439,5 @@ macOS PR workflowは`native/**`の変更も対象に含め、media buildの前�
 ### 限定group Hostの非GUI結合
 
 macOS arm64の`pnpm run native:build && pnpm run test:native-group-player-host`はMainのmanifest変換、実FIFO・helper・独立AVPlayer・実sample metadata・N-API/Mach転送と、停止proof拒否/再押下/結果hash/子close・pipe終了を検査する。`test:native-runtime`のsource/pair試験は同じ取得部のoffset、半開区間、旧非同期完了、片側の終了と借用画像会計を確認する。描画ACKは模擬であり実Canvas/音声/署名済み版や継続reverseの品質を代替しない。通常Controllerのgroup接続が完成するまで単一経路の既存受入を維持する。
+
+Windows package-owner lookup has a standalone real-OS contract at `scripts/windows/verify-package-owner.mjs`. It must pass before migration/desktop acceptance. A successful mock EOF-ordering test does not replace this Windows execution. The diagnostic preserves the same finite command and does not accept stdout after timeout/termination, retry through another API, change security settings, or infer that an unknown owner is inactive.
