@@ -40,6 +40,10 @@ jobs:
         run: |
           pnpm run e2e:prepare
           test ! -e build/electron/src/testing/nativeFixtureCompilation.js
+      - name: Verify measured export text with macOS fonts
+        run: |
+          node scripts/test-export-text-layout.mjs
+          node scripts/e2e-export-text-geometry.mjs
       - name: Verify native close and quit persistence
         run: node scripts/e2e-timeline-close.mjs
       - name: Verify timeline row and selection interactions

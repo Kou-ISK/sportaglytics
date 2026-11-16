@@ -1,3 +1,8 @@
+vi.mock('./exportTextMeasurement', () => ({
+  createClipTextMeasurer:
+    () => async (text: string, _bold: boolean, size: number) =>
+      [...text].length * size,
+}));
 import { describe, expect, it, vi } from 'vitest';
 import {
   inspectExportText,

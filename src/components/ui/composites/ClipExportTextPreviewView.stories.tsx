@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ClipExportTextPreviewView } from './ClipExportTextPreviewView';
-import { layoutClipExportText } from '../../../shared/clipExport/clipExportTextLayout';
 const meta = {
   title: 'Workspace/Export/TextPreview',
   component: ClipExportTextPreviewView,
@@ -38,10 +37,17 @@ export const Overflow: Story = {
           title: '1. スクラム',
           width: 1920,
           height: 1080,
-          layout: layoutClipExportText(
-            [{ text: '位置の確認\n'.repeat(9), isBold: false }],
-            16 / 9,
-          ),
+          layout: {
+            lines: Array.from({ length: 10 }, () => ({
+              text: '位置の確認',
+              isBold: false,
+            })),
+            fontRatio: 24 / 1080,
+            lineRatio: 30 / 1080,
+            boxRatio: 0.2,
+            paddingRatio: 0.01,
+            overflow: true,
+          },
         },
       ],
     },

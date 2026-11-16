@@ -70,6 +70,8 @@ jobs:
           key: windows-x64-llama-${{ hashFiles('scripts/build-windows-llama.mjs') }}
       - name: Prepare Japanese font
         run: pnpm run fonts:prepare
+      - name: Verify measured export text with bundled fonts
+        run: node scripts/test-export-text-layout.mjs
       - name: Prepare test-only AI model
         run: node scripts/prepare-test-model.mjs
       - name: Windows quality gates
@@ -79,6 +81,8 @@ jobs:
           pnpm run test:ci
       - name: Windows Electron E2E
         run: pnpm run test:e2e
+      - name: Verify preview and export geometry in Electron
+        run: node scripts/e2e-export-text-geometry.mjs
       - name: Windows installer
         run: pnpm exec electron-builder --win nsis --x64 --publish never
       - name: Installed Windows desktop E2E

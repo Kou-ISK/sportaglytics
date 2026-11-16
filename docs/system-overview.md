@@ -38,7 +38,7 @@ Playlist v5は参照元package ID・相対位置と各クリップのdefaultAngl
 
 Playlistの新規埋め込みでは指定範囲の映像・重なる音声を変換し、出力の時刻とトラックを検査してからmanifestを公開します。Mainが受け付けた変更のない埋め込み素材は再利用し、文書世代・素材・保存先が処理中に変わった場合は保存を失敗させます。[保存契約](playlist-features.md#stpl-の保存契約)。
 
-出力テキストのレイアウトはsharedの純粋関数を正本とし、Mainの映像サイズ検査・FFmpeg書き出し・静止画プレビューで共有します。専用IPCはsenderとpayloadを検証し、上限超過は保存先選択前に拒否します。[ADR 0049](adr/0049-bounded-export-text.md)。
+出力テキストのレイアウト規則はsharedを正本とし、Mainの映像サイズ検査・FFmpeg書き出し・静止画プレビューで共有します。Mainの測定Adapterが同じFFmpeg/fontfile/ピクセルサイズで得た行幅を注入し、sharedはI/Oを直接行いません。回転後の単一出力とSAR正規化後の結合幅を使い、プレビューは検査済みレイアウトをそのまま描画します。専用IPCはsenderとpayloadを検証し、上限超過は保存先選択前に拒否します。[ADR 0049](adr/0049-bounded-export-text.md)。
 
 Playlistの自由記述は文書v4のnoteに統一します。Timelineの保存フィールドは維持し、旧Playlistのメモは共有の読込境界で移行します。書き出しテキストの有無はウィンドウ内の一時状態で、毎回明示選択します。[ノート仕様](playlist-features.md#ノートの編集と映像出力) / [ADR 0048](adr/0048-playlist-instance-notes.md)。
 
