@@ -2,20 +2,43 @@
 #include <cassert>
 #include <cstring>
 #include <initializer_list>
+#include <limits>
 
 int main() {
   // The AVPlayer timebase changes independently of our main-thread polling.
   // Reproduce the observed 2x -> pause transition between two property reads.
   appleplayback::ReversePresentationProgress progress;
   progress.reset(0);
-  assert(!progress.stalled(.9, std::nullopt));
-  assert(progress.stalled(1.01, std::nullopt)); // rate alone is not presentation
+  assert(!progress.stalled(.9, std::nullopt, 3000, -2));
+  assert(progress.stalled(1.01, std::nullopt, 3000, -2)); // rate alone is not presentation
   progress.reset(2);
-  assert(!progress.stalled(2.1, 3000));
-  assert(!progress.stalled(2.9, 3000));
-  assert(progress.stalled(3.2, 3000)); // repeating one image does not refresh it
+  assert(!progress.stalled(2.1, 3000, 3000, -2));
+  assert(!progress.stalled(2.9, 3000, 3000, -2));
+  assert(progress.stalled(3.2, 3000, 3000, -2)); // repeating one image does not refresh it
   progress.reset(4);
-  for (int n = 0; n < 100; n++) assert(!progress.stalled(4 + n * .05, 5000 - n));
+  for (int n = 0; n < 100; n++) assert(!progress.stalled(4 + n * .05, 5000 - n, 5000 - n, -2));
+  // Reproduce advancing output that falls increasingly behind a reverse clock.
+  // The old progress-only watchdog accepts every row because PTS decreases.
+  progress.reset(10);
+  assert(!progress.stalled(10.1, 2400000, 2376000, -2));
+  assert(!progress.stalled(10.6, 2360000, 2256000, -2));
+  assert(progress.stalled(11.6, 2320000, 2016000, -2));
+  for (double rate : {-0.5, -2.0, -4.0, -6.0}) {
+    const uint64_t limit = static_cast<uint64_t>(-rate * 120000);
+    progress.reset(20);
+    assert(!progress.stalled(20.1, 2400000, 2400000 - limit, rate));
+    assert(progress.stalled(20.2, 2399999, 2399998 - limit, rate));
+    progress.reset(30);
+    assert(progress.stalled(30.1, 0, limit + 1, rate)); // wrong side also bounded
+    progress.reset(40);
+    assert(!progress.stalled(40.1, 2002, 0, rate)); // ordinary final-frame offset
+  }
+  progress.reset(50);
+  assert(progress.stalled(49, 100, 100, -2));
+  assert(progress.stalled(50.1, 100, std::nullopt, -2));
+  assert(progress.stalled(50.1, 100, 100, 0));
+  assert(progress.stalled(50.1, 100, 100, std::numeric_limits<double>::quiet_NaN()));
+  assert(progress.stalled(50.1, std::numeric_limits<uint64_t>::max(), 0, -6));
   int reads = 0;
   auto transition = appleplayback::samplePlayerObservation(true, false, 2, [&] {
     return ++reads == 1 ? 2.0 : 0.0;

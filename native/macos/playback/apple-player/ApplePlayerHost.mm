@@ -259,7 +259,9 @@ using appleplayback::sourceTicks;
     // Capability and a running timebase do not prove reverse presentation.
     std::optional<uint64_t> drawnPTS;
     if (_surfaces.hasDrawn(_controlSequence)) drawnPTS = _surfaces.drawnPTS();
-    if (_reverseProgress.stalled(CACurrentMediaTime(), drawnPTS)) {
+    const auto clockPTS = sourceTicks(_engine.currentTime, kCMTimeRoundingMethod_RoundTowardNegativeInfinity);
+    if (_reverseProgress.stalled(CACurrentMediaTime(), drawnPTS, clockPTS,
+        [_intent[@"rate"] doubleValue])) {
       [self failMedia:@"reverse image progress unavailable"]; return;
     }
   }

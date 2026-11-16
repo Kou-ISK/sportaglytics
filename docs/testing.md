@@ -425,4 +425,6 @@ macOS PR CIでも同じ行操作E2Eを実行します。選択失敗時は合成
 
 `test:native-runtime`の`ReverseFrameCache.test.cpp`は複数bank共通budget、consumer貸出後の解放、別thread返却、過大要求、旧操作/source、穴・排他的末尾・重複/重なる区間の拒否を検査します。このportable C++回帰は実decoderや画面提示の試験ではありません。実AVAssetReader比較と残る受入は[設計と測定](multi-angle-playback.md)へ分離します。
 
+`PlayerObservation.test.cpp`はDrawnが少しずつ後退していても実時計から遅れる負例、0.5/2/4/6倍での同じ1秒の換算境界、無効時計・時刻・整数差の安全な計算を検査します。取得PTSログの再生は監視条件の対照であり、実Drawnや物理画面の受入とは区別します。
+
 macOS PR workflowは`native/**`の変更も対象に含め、media buildの前に既存`test:native-runtime`を実行します。単なるnativeファイル変更だけで画像所有回帰が未実行になることを防ぎます。取得画像の任意診断と実配布物の画面受入は別ゲートです。

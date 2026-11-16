@@ -593,6 +593,8 @@ For held native publication changes, run the exportHeldPublish, exportHeldPublis
 
 [複数映像の設計・測定](multi-angle-playback.md)と[ADR 0086](adr/0086-common-native-playback-session.md)はProposedです。native所有部品のみの局所確認は `clang++ -std=c++17 -pthread native/macos/playback/apple-player/ReverseFrameCache.test.cpp -o /tmp/reverse-frame-cache-test` とその実行で可能です。CIでは既存`test:native-runtime`へ同じ回帰を含めます。局所回帰を全runtime/実表示/署名版の合格と扱わず、環境で拒否された検査を別経路で迂回しないでください。
 
+逆再生の進行監視は画像の変化だけでなく、現在操作のDrawnと実時計の差を要求倍率で換算して検査します。`PlayerObservation.test.cpp`で4倍率の同じ壁時計1秒の境界を確認し、Hostへの接続はmacOS native build/runtime CIで確認します。停止後の位置確認と既存の復旧・終了待ちは省略しません。
+
 Mainの素材プランは`nativePackageSourcePlan.test.ts`と既存`nativeSourceAccess.test.ts`を合わせて確認します。合成の実filesystemでoffset/clip/空白と変更検出を検証し、decoderやWindow認証を模擬的に合格させる試験ではありません。通常の単一素材providerは同じfilesystem adapterを利用しますが、group backend/新IPCは未接続です。
 
 停止画像補正の所有は`StoppedImageSettlement.test.cpp`、120000Hz変換と終端直前の丸めは`SourceClockTicks.test.cpp`で確認します。後者はmacOSのCoreMediaをlinkします。両方を`test:native-runtime`に含めます。物理seekの完了と再押下を分離し、補正を通常シークや毎フレームの処理へ拡張しません。実session対照と署名済みsurface/音声の受入は別です。
