@@ -16,8 +16,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// AVPlayer display deadline. Existing loans retain their shared budget charge.
 @interface STDecodedFrameWindow : NSObject
 - (instancetype)initWithURL:(NSURL *)url budget:(appleplayback::FrameBudget)budget sourceRevision:(std::string)revision;
-/// One request per owner. New commands must invalidate and await the old worker
-/// before requesting another window. Completed immutable images may be reused.
+/// One worker per owner and at most two retained banks. A new window preserves
+/// the preceding immutable bank while it fills; both share the same budget.
+/// Invalidated workers must physically drain before another request starts.
 - (BOOL)requestStart:(uint64_t)start end:(uint64_t)end;
 - (std::optional<appleplayback::DecodedFrame>)select:(uint64_t)sourceTime;
 - (void)invalidate;

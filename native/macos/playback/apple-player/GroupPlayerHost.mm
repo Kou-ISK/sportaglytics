@@ -1,6 +1,7 @@
 #import "GroupPlayerHost.hpp"
 #import "GroupPlayerPair.hpp"
 #include "ControlOutput.hpp"
+#include "GroupPlaybackClock.hpp"
 #import <QuartzCore/QuartzCore.h>
 #import <CommonCrypto/CommonDigest.h>
 #include <cmath>
@@ -9,6 +10,7 @@
 #include <unistd.h>
 
 namespace {
+double groupHostNow() { return CMTimeGetSeconds(CMClockGetTime(CMClockGetHostTimeClock())); }
 void check(bool value) { if (!value) throw std::runtime_error("invalid placed-pair host protocol"); }
 bool number(id v) {
   return [v isKindOfClass:NSNumber.class] && CFGetTypeID((__bridge CFTypeRef)v) != CFBooleanGetTypeID() && std::isfinite([v doubleValue]);
@@ -31,7 +33,7 @@ void opaque(id value) {
 }
 
 /// Pipe/process adapter owns one finite qualified pair. This deliberately does
-/// not claim package gaps/clip replacement or a reverse cache capability.
+/// not claim package gaps/clip replacement or signed production capability.
 @interface STGroupPlayerHost : NSObject
 - (instancetype)initWithManifest:(NSDictionary *)manifest;
 - (int)run:(NSString *)result interrupted:(volatile sig_atomic_t *)interrupted;
@@ -41,12 +43,13 @@ void opaque(id value) {
   NSDictionary *_failureInfo;
   STGroupPlayerPair *_players;
   std::optional<appleplayback::FrameBudget> _budget;
+  std::optional<appleplayback::GroupPlaybackClock> _clock;
   std::unique_ptr<GroupSurfaceSender> _sender;
   appleplayback::ControlOutput _output;
   std::string _input;
-  uint64_t _start, _end, _anchor, _pair, _lastSentPair, _lastPublishedTicks, _revision;
-  double _baseHost, _lastProgress, _lastObservation;
-  BOOL _closing, _failed, _scheduled, _ready, _persisted, _exactAnchor, _audioValidated;
+  uint64_t _start, _end, _anchor, _pair, _lastSentPair, _lastPublishedTicks, _revision, _lastDrawnPair, _lastDrawnOperation, _lastDrawnSeek, _lastDrawnTicks, _waitingPair;
+  double _lastProgress, _lastObservation, _lastDrawnAt, _waitBeganAt;
+  BOOL _closing, _failed, _scheduled, _ready, _persisted, _audioValidated;
   double _closeAt;
 }
 - (instancetype)initWithManifest:(NSDictionary *)m {
@@ -81,7 +84,8 @@ void opaque(id value) {
   auto pid = integer(m[@"surfaceOwnerPID"], INT32_MAX); check(pid > 0);
   if ((self = [super init])) {
     _manifest = [m copy]; _start = start; _end = end;
-    _budget.emplace(256ULL * 1024 * 1024);
+    _budget.emplace(512ULL * 1024 * 1024);
+    _clock.emplace(start, end);
     _sender = std::make_unique<GroupSurfaceSender>(*_budget);
     _sender->open([m[@"surfaceService"] UTF8String], pid_t(pid));
     _players = [[STGroupPlayerPair alloc] initWithURLs:urls placements:placements budget:*_budget];
@@ -116,18 +120,14 @@ void opaque(id value) {
   // Release never authorizes a new target from the advancing player clock.
   // Pause both immediately, before validating the presentation fence.
   const bool sameSeek = _intent && seek == integer(_intent[@"seekId"]);
-  const bool physicalSeek = !sameSeek || v[@"stopProof"] != nil;
+  const bool returnsToAudio = _intent && [_intent[@"rate"] doubleValue] < 0 && rate > 0 && playing;
+  const bool physicalSeek = !sameSeek || v[@"stopProof"] != nil || returnsToAudio;
   if (sameSeek && !v[@"stopProof"]) {
     // Control changes continue the shared timeline; targetTime remains the
     // original seek intent and must not rewind each repeat/rate/audio update.
-    const double elapsed = _scheduled ? std::max(0.0, CACurrentMediaTime() - _baseHost) : 0;
-    ticks = uint64_t(std::clamp(double(_anchor) + elapsed * [_intent[@"rate"] doubleValue] * 120000,
-      double(_start), double(_end - 1)));
+    ticks = _scheduled ? _clock->sample(groupHostNow()).ticks : _anchor;
   }
   [_players pause];
-  if (playing && rate < 0) {
-    _failureInfo = @{@"stage":@"unsupported-reverse-provenance"}; check(false);
-  }
   if (v[@"stopProof"]) {
     check(!playing && _intent != nil);
     NSDictionary *p = v[@"stopProof"];
@@ -140,9 +140,9 @@ void opaque(id value) {
   }
   check(ticks >= _start && ticks < _end);
   check(physicalSeek ? [_players seek:ticks operation:op] : [_players adoptOperation:op]);
-  _exactAnchor = physicalSeek || !playing;
+  _clock->pauseAt(ticks);
   _intent = [v copy]; _anchor = ticks; _scheduled = NO; _ready = NO; _audioValidated = NO;
-  _lastSentPair = 0; _lastProgress = CACurrentMediaTime();
+  _lastSentPair = 0; _waitingPair = 0; _waitBeganAt = 0; _lastProgress = CACurrentMediaTime();
 }
 - (void)readCommands {
   char bytes[4096];
@@ -164,24 +164,20 @@ void opaque(id value) {
 }
 - (void)update {
   if (!_intent) return;
-  uint64_t target = _anchor;
+  uint64_t target = _clock->pendingTarget().value_or(_anchor);
   if (_scheduled) {
-    const double elapsed = std::max(0.0, CACurrentMediaTime() - _baseHost);
-    const double desired = double(_anchor) + elapsed * [_intent[@"rate"] doubleValue] * 120000;
-    if (desired < _start || desired >= _end) { [_players pause]; _scheduled = NO; _ready = NO; [self close]; return; }
-    target = uint64_t(llround(desired));
+    const auto clock = _clock->sample(groupHostNow());
+    if (clock.ended) { [_players pause]; _scheduled = NO; _ready = NO; [self close]; return; }
+    target = clock.ticks;
   }
   [_players pollAtGlobalTime:target];
   if (_players.failed) {
     NSError *error = _players.error;
     NSMutableArray *chain = [NSMutableArray array];
     for (size_t i = 0; error && i < 4; ++i) {
-      NSString *domain = [@[@"SportagGroupSource", @"SportagSampleMetadata", @"SportagDecodeWindow", @"AVFoundationErrorDomain",
+      NSString *domain = [@[@"SportagGroupSource", @"SportagDecodeWindow", @"AVFoundationErrorDomain",
         @"NSOSStatusErrorDomain", @"NSCocoaErrorDomain"] containsObject:error.domain] ? error.domain : @"other";
       NSMutableDictionary *detail = [@{@"domain":domain, @"code":@(error.code)} mutableCopy];
-      id pts = error.userInfo[@"displayTime"];
-      if ([domain isEqual:@"SportagSampleMetadata"] && number(pts) && [pts doubleValue] >= 0 &&
-          [pts doubleValue] <= groupsurfacewire::MaximumTicks) detail[@"displayTime"] = pts;
       [chain addObject:detail];
       id next = error.userInfo[NSUnderlyingErrorKey]; error = [next isKindOfClass:NSError.class] ? next : nil;
     }
@@ -190,20 +186,39 @@ void opaque(id value) {
   const uint64_t op = [_intent[@"sequence"] unsignedLongLongValue], seek = [_intent[@"seekId"] unsignedLongLongValue];
   const BOOL playing = [_intent[@"playing"] boolValue]; const double rate = [_intent[@"rate"] doubleValue];
   auto a = _sender->drawn(0), b = _sender->drawn(1);
-  if (a && b && a->operation == op && b->operation == op && a->pair == b->pair && a->pair == _lastSentPair) {
+  const bool complete = a && b && a->operation == op && b->operation == op &&
+    a->seek == seek && b->seek == seek && a->pair == b->pair;
+  if (complete && a->pair != _lastDrawnPair) {
+    _lastDrawnPair = a->pair; _lastDrawnOperation = op; _lastDrawnSeek = seek;
+    _lastDrawnTicks = a->globalTicks; _lastDrawnAt = CACurrentMediaTime();
+  }
+  auto available = [_players availableAnchor:target];
+  if (_scheduled && _clock->sample(groupHostNow()).running && (!available || *available != target)) {
+    check(_lastDrawnOperation == op && _lastDrawnSeek == seek);
+    // Hold the last complete image while one fixed next target is prepared.
+    // Do not keep advancing the target past a slow decoder or call it playing.
+    [_players pause]; _clock->suspend(_lastDrawnTicks, target);
+    _anchor = _lastDrawnTicks; _scheduled = NO; _ready = NO;
+    _waitingPair = 0; _waitBeganAt = CACurrentMediaTime();
+  }
+  const auto pending = _clock->pendingTarget();
+  if (complete && a->pair == _lastSentPair && (!pending || a->pair == _waitingPair)) {
     _ready = YES;
     if (playing && !_scheduled) {
+      if (pending) { check(a->globalTicks == *pending); _anchor = a->globalTicks; }
       check([_players selectAudioAngle:[_manifest[@"audioAngle"] unsignedIntegerValue]
         track:[_intent[@"audioTrack"] unsignedIntegerValue] volume:[_intent[@"volume"] floatValue]
         muted:rate < 0 || [_intent[@"muted"] boolValue]]);
       CMTime host = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTimeMake(1, 20));
       check([_players scheduleRate:rate globalTicks:_anchor hostTime:host]);
-      _baseHost = CMTimeGetSeconds(host); _scheduled = YES;
+      if (pending) _clock->resumeAt(_anchor, rate, CMTimeGetSeconds(host), groupHostNow());
+      else _clock->schedule(_anchor, rate, CMTimeGetSeconds(host), groupHostNow());
+      _scheduled = YES; _waitingPair = 0; _waitBeganAt = 0;
     }
   }
   // Full pair credits and a new demand are required. The code never relabels
   // either frame as a requested time which its actual sample does not cover.
-  if (_output.count() < 4 && (!_lastSentPair || (_scheduled && _sender->demanded()))) {
+  if (_output.count() < 4 && (!_lastSentPair || ((_scheduled || (_clock->pendingTarget() && !_waitingPair)) && _sender->demanded()))) {
     check(_pair < groupsurfacewire::MaximumSequence);
     auto actual = [_players availableAnchor:target];
     const uint64_t pair = _pair + 1, firstID = _sender->nextID();
@@ -212,13 +227,14 @@ void opaque(id value) {
         track:[_intent[@"audioTrack"] unsignedIntegerValue] volume:0 muted:YES]);
       _audioValidated = YES;
     }
-    // Exact initial/stop seek may not use a nearby anchor. During continuous
-    // playback, allow only measured common images within one wall second.
-    if (actual && (!_lastSentPair && _exactAnchor ? *actual == target :
-        ((!_lastSentPair || *actual != _lastPublishedTicks) && std::abs(double(*actual) - target) < std::abs(rate) * 120000)) &&
+    // A requested clock outside the available intervals waits explicitly;
+    // it never relabels an older image as this target, even during buffering.
+    if (actual && *actual == target &&
+        (! _lastSentPair || *actual != _lastPublishedTicks) &&
         [_players publish:{op, seek, pair, *actual} sender:*_sender]) {
       _pair = pair;
       if (!_lastSentPair) _anchor = *actual;
+      if (_clock->pendingTarget()) _waitingPair = pair;
       _lastSentPair = pair; _lastPublishedTicks = *actual; _lastProgress = CACurrentMediaTime();
       _sender->consumedDemand();
       [self enqueue:@{@"type":@"surface-ready", @"generation":_intent[@"generation"], @"id":@(firstID)}];
@@ -226,17 +242,24 @@ void opaque(id value) {
     }
   }
   // Image starvation does not keep publishing an advancing synthetic clock.
-  check(CACurrentMediaTime() - _lastProgress < (_scheduled ? 1.0 : 10.0) || (_ready && !playing));
+  if (_clock->pendingTarget()) {
+    if (CACurrentMediaTime() - _waitBeganAt >= 5.5) {
+      _failureInfo = @{@"stage":@"sample-wait-timeout"}; check(false);
+    }
+  }
+  else check(CACurrentMediaTime() - _lastProgress < (_scheduled ? 1.0 : 10.0) || (_ready && !playing));
   if (CACurrentMediaTime() - _lastObservation >= .05 && _output.count() < 6) {
     _lastObservation = CACurrentMediaTime();
-    const bool shown = a && b && a->operation == op && b->operation == op && a->pair == b->pair;
-    const uint64_t shownTime = shown ? a->globalTicks : _anchor;
-    const auto measuredRate = [_players observedRate];
-    const bool running = _scheduled && measuredRate && std::abs(*measuredRate) > .001f;
+    const bool shown = _lastDrawnOperation == op && _lastDrawnSeek == seek && _lastDrawnPair > 0;
+    const uint64_t shownTime = shown ? _lastDrawnTicks : _anchor;
+    // Rate belongs to the canonical host clock. Observation time is the last
+    // complete drawn pair, never that advancing target or an AVPlayer deadline.
+    const double clockRate = _scheduled ? _clock->scheduledRate(groupHostNow()) : 0;
+    const bool running = clockRate != 0 && CACurrentMediaTime() - _lastDrawnAt < .25;
     [self enqueue:@{@"type":@"observation", @"value":@{
       @"generation":_intent[@"generation"], @"sourceKey":_intent[@"sourceKey"], @"revision":@(++_revision),
-      @"sequence":@(op), @"seekId":@(seek), @"phase":!shown ? @"preparing" : running ? @"playing" : _scheduled ? @"buffering" : @"paused",
-      @"time":@(double(shownTime) / 120000), @"rate":@(measuredRate ? *measuredRate : 0),
+      @"sequence":@(op), @"seekId":@(seek), @"phase":!shown ? @"preparing" : running ? @"playing" : playing ? @"buffering" : @"paused",
+      @"time":@(double(shownTime) / 120000), @"rate":@(clockRate),
       @"audioTrack":_intent[@"audioTrack"], @"volume":_intent[@"volume"], @"muted":_intent[@"muted"],
       @"videoReady":@(shown), @"audioReady":@(_ready && _audioValidated), @"error":[NSNull null]}}];
   }

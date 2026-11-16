@@ -9,6 +9,8 @@
   "apple-player/DecodedFrameWindow.hpp",
   "apple-player/DecodedFrameWindow.mm",
   "apple-player/ExclusivePublish.hpp",
+  "apple-player/GroupDecodeWindow.hpp",
+  "apple-player/GroupPlaybackClock.hpp",
   "apple-player/GroupPlayerHost.hpp",
   "apple-player/GroupPlayerHost.mm",
   "apple-player/GroupPlayerPair.hpp",

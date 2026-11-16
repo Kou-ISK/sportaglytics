@@ -47,6 +47,21 @@ int main() { @autoreleasepool {
     [decoder close]; assert(decoder.drained && ![decoder select:4004] && budget.usedBytes() > 0);
   }
   assert(budget.usedBytes() == 0);
+  auto banks = [[STDecodedFrameWindow alloc] initWithURL:url budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
+  assert([banks requestStart:0 end:8008]); wait(banks);
+  {
+    auto loan = [banks select:4004]; assert(loan);
+    const auto firstBytes = budget.usedBytes();
+    assert([banks requestStart:8008 end:16016]);
+    assert([banks select:4004]); // preceding bank survives pending decode
+    wait(banks); assert(!banks.failed && [banks select:10010] && [banks select:4004]);
+    assert(budget.usedBytes() > firstBytes);
+    assert([banks requestStart:16016 end:24024]); wait(banks);
+    assert(!banks.failed && ![banks select:4004] && [banks select:10010] && [banks select:18018]);
+    assert(loan->image()); // eviction cannot refund an external image loan
+    [banks close]; assert(banks.drained && budget.usedBytes() > 0);
+  }
+  assert(budget.usedBytes() == 0);
   auto cancelled = [[STDecodedFrameWindow alloc] initWithURL:url budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
   auto other = [[STDecodedFrameWindow alloc] initWithURL:url budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
   assert([cancelled requestStart:0 end:24024] && [other requestStart:0 end:24024]);

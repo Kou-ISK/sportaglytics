@@ -106,13 +106,6 @@
   for (STGroupPlayerSource *source in _sources) [source silence];
   return [_sources[angle] selectAudioTrack:track volume:volume muted:muted];
 }
-- (std::optional<float>)observedRate {
-  NSParameterAssert(NSThread.isMainThread);
-  if (_closed || _failed) return std::nullopt;
-  auto a = [_sources[0] observedRate], b = [_sources[1] observedRate];
-  if (!a || !b || std::abs(*a - *b) > .001f) return std::nullopt;
-  return a;
-}
 - (void)pause { for (STGroupPlayerSource *source in _sources) [source pause]; }
 - (void)close {
   NSParameterAssert(NSThread.isMainThread);

@@ -87,7 +87,7 @@
     "check:event-model-release": "node scripts/check-event-model-release.mjs",
     "test:native-runtime": "node scripts/test-native-playback-runtime.mjs",
     "test:native-group-surface": "node scripts/test-native-group-surface.mjs",
-    "test:native-group-player-host": "node scripts/test-native-group-player-host.mjs"
+    "test:native-group-player-host": "node scripts/test-native-group-player-host.mjs && node scripts/test-native-group-reverse.mjs"
   },
   "browserslist": {
     "production": [

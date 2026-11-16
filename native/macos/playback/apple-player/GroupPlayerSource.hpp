@@ -41,7 +41,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (std::optional<appleplayback::GroupSourceFrame>)frame;
 - (BOOL)scheduleRate:(float)rate globalTicks:(uint64_t)ticks hostTime:(CMTime)hostTime;
 - (BOOL)selectAudioTrack:(NSUInteger)track volume:(float)volume muted:(BOOL)muted;
-- (std::optional<float>)observedRate;
 - (void)silence;
 - (void)pause;
 - (void)close;

@@ -36,7 +36,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)scheduleRate:(float)rate globalTicks:(uint64_t)ticks hostTime:(CMTime)hostTime;
 - (BOOL)selectAudioAngle:(NSUInteger)angle track:(NSUInteger)track
                  volume:(float)volume muted:(BOOL)muted;
-- (std::optional<float>)observedRate;
 - (void)pause;
 - (void)close;
 @property(nonatomic, readonly) BOOL failed;

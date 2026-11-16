@@ -41,6 +41,7 @@ try {
         ],
       ],
     ),
+    ['GroupPlaybackClock', 'apple-player/GroupPlaybackClock.test.cpp', []],
     ['ControlOutput', 'apple-player/ControlOutput.test.cpp', []],
     [
       'ReverseFrameCache',

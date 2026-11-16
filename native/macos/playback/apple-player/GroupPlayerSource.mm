@@ -1,5 +1,6 @@
 #import "GroupPlayerSource.hpp"
 #include "SourceClockTicks.hpp"
+#include "GroupDecodeWindow.hpp"
 #import <QuartzCore/QuartzCore.h>
 #include <algorithm>
 #include <cmath>
@@ -13,6 +14,7 @@
   NSUInteger _activeSeeks, _seekRevision;
   int64_t _offset;
   double _deadline;
+  float _supplyRate;
   BOOL _closed, _failed, _seekStarted, _seekCompleted, _initialReady, _windowRequested, _audioConfigured, _audioAbsent;
   NSError *_failure;
 }
@@ -55,7 +57,7 @@
 - (BOOL)seek:(uint64_t)ticks operation:(uint64_t)operation {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed || _failed || !operation || operation <= _operation || ticks < _start || ticks >= _end) return NO;
-  [_player pause]; _frame.reset(); [_decoder invalidate]; _windowRequested = NO;
+  [_player pause]; _supplyRate = 0; _frame.reset(); [_decoder invalidate]; _windowRequested = NO;
   ++_seekRevision;
   _operation = operation; _target = ticks; _seekStarted = NO; _seekCompleted = NO; _initialReady = NO;
   _deadline = CACurrentMediaTime() + 10;
@@ -86,7 +88,7 @@
         return; // known completed gap cannot trigger an unbounded retry
       }
       const uint64_t sourceEnd = uint64_t(int64_t(_end) + _offset);
-      _windowStart = query > 30000 ? query - 30000 : 0;
+      _windowStart = std::max<uint64_t>(uint64_t(int64_t(_start) + _offset), query > 30000 ? query - 30000 : 0);
       _windowEnd = std::min(sourceEnd, query + 30000);
       _windowRequested = [_decoder requestStart:_windowStart end:_windowEnd];
       if (!_windowRequested) [self fail:2 underlying:_decoder.error];
@@ -124,6 +126,15 @@
   _frame = appleplayback::GroupSourceFrame{frame->imageLease(), sourceStart, sourceEnd,
     uint64_t(start), uint64_t(end)};
   if (_frame->covers(_target)) _initialReady = YES;
+  if (_decoder.drained && _windowRequested) {
+    auto next = appleplayback::nextGroupDecodeWindow(query, _windowStart, _windowEnd,
+      uint64_t(int64_t(_start) + _offset), uint64_t(int64_t(_end) + _offset), _supplyRate);
+    if (next) {
+      _windowStart = next->first; _windowEnd = next->second;
+      _windowRequested = [_decoder requestStart:_windowStart end:_windowEnd];
+      if (!_windowRequested) [self fail:2 underlying:_decoder.error];
+    }
+  }
 }
 
 - (std::optional<appleplayback::GroupSourceFrame>)frame {
@@ -132,12 +143,20 @@
 }
 - (BOOL)scheduleRate:(float)rate globalTicks:(uint64_t)ticks hostTime:(CMTime)hostTime {
   NSParameterAssert(NSThread.isMainThread);
-  // Negative-rate output deadlines have been observed to label a different
-  // original sample, even when they equal another sample's PTS. This source
-  // adapter cannot grant reverse provenance. Do not weaken the metadata gate.
-  if (rate < 0 || _closed || _failed || !_seekCompleted || !_frame || !_frame->covers(ticks)) return NO;
-  if (_audioAbsent) return CMTIME_IS_NUMERIC(hostTime) && CMTimeCompare(hostTime, CMClockGetTime(CMClockGetHostTimeClock())) > 0;
-  return [_player scheduleRate:rate fromTime:CMTimeMake(int64_t(ticks) + _offset, 120000) atHostTime:hostTime];
+  if (_closed || _failed || !_seekCompleted || !_frame || !_frame->covers(ticks) ||
+      !appleplayback::supportedGroupRate(rate) || !CMTIME_IS_NUMERIC(hostTime) ||
+      CMTimeCompare(hostTime, CMClockGetTime(CMClockGetHostTimeClock())) <= 0) return NO;
+  if (rate < 0) {
+    if (!(rate == -.5 || rate == -2 || rate == -4 || rate == -6)) return NO;
+    // Reverse pixels come from exact samples in the bounded banks. Audio stays
+    // paused; its AVPlayer clock must not masquerade as the group clock.
+    [_player pause]; _supplyRate = rate; return YES;
+  }
+  const BOOL scheduled = _audioAbsent ?
+    (CMTIME_IS_NUMERIC(hostTime) && CMTimeCompare(hostTime, CMClockGetTime(CMClockGetHostTimeClock())) > 0) :
+    [_player scheduleRate:rate fromTime:CMTimeMake(int64_t(ticks) + _offset, 120000) atHostTime:hostTime];
+  if (scheduled) _supplyRate = rate;
+  return scheduled;
 }
 - (BOOL)selectAudioTrack:(NSUInteger)track volume:(float)volume muted:(BOOL)muted {
   NSParameterAssert(NSThread.isMainThread);
@@ -148,13 +167,8 @@
   if (!_player.audioTrackCount && track) return NO;
   [_player setVolume:volume muted:muted]; return YES;
 }
-- (std::optional<float>)observedRate {
-  NSParameterAssert(NSThread.isMainThread);
-  const float rate = _player.rate;
-  return _closed || _failed || !std::isfinite(rate) ? std::nullopt : std::optional<float>(rate);
-}
 - (void)silence { NSParameterAssert(NSThread.isMainThread); [_player setVolume:0 muted:YES]; }
-- (void)pause { NSParameterAssert(NSThread.isMainThread); [_player pause]; }
+- (void)pause { NSParameterAssert(NSThread.isMainThread); _supplyRate = 0; [_player pause]; }
 - (void)close {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed) return;

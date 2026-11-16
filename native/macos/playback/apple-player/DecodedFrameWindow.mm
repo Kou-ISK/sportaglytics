@@ -202,9 +202,10 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
   std::string _revision;
   std::optional<appleplayback::FrameBudget> _budget;
   appleplayback::ReverseFrameCache<Pixel> _cache;
+  appleplayback::ReverseFrameCache<Pixel> _previousCache;
   std::shared_ptr<Work> _work;
-  uint64_t _request;
-  BOOL _closed, _failed, _busy;
+  uint64_t _request, _previousRequest;
+  BOOL _closed, _failed, _busy, _hasCache;
   NSError *_error;
 }
 - (instancetype)initWithURL:(NSURL *)url budget:(appleplayback::FrameBudget)budget sourceRevision:(std::string)revision {
@@ -215,7 +216,11 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
 - (BOOL)requestStart:(uint64_t)start end:(uint64_t)end {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed || _failed || _busy || start >= end || end > 86400ULL * 120000 || end - start > 120000 || _request == 9007199254740991ULL) return NO;
-  _cache.clear(); ++_request; _cache.beginRequest(_request, 1); _busy = YES;
+  if (_hasCache) {
+    _previousCache = std::move(_cache); _previousRequest = _request;
+  }
+  _cache = {}; _hasCache = NO;
+  ++_request; _cache.beginRequest(_request, 1); _busy = YES;
   auto work = std::make_shared<Work>(*_budget, _request, start, end, _url, _revision); _work = work;
   NSURL *url = _url;
   std::weak_ptr<Work> weak = work;
@@ -239,7 +244,7 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
       if (!self->_cache.publish(std::move(*snapshot))) {
         self->_failed = YES; active->cancelled.store(true);
         self->_error = [NSError errorWithDomain:@"SportagDecodeWindow" code:Timing userInfo:nil];
-      }
+      } else self->_hasCache = YES;
     });
   };
   [workers() addOperationWithBlock:^{
@@ -260,6 +265,7 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
       if (!appleplayback::sourceFileMatches(work->url, work->revision)) work->failure = SourceChanged;
       if (!work->failure && CACurrentMediaTime() >= work->deadline) work->failure = Deadline;
       if (!work->failure && !self->_cache.publish(std::move(work->frames))) work->failure = Timing;
+      if (!work->failure) self->_hasCache = YES;
       if (work->failure) {
         self->_failed = YES;
         NSError *underlying = work->originalError ?: (work->decoderStatus ?
@@ -277,17 +283,18 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed || self.failed) return std::nullopt;
   if (!appleplayback::sourceFileMatches(_url, _revision)) {
-    _failed = YES; [self invalidate]; _cache.clear();
+    _failed = YES; [self invalidate]; _cache.clear(); _previousCache.clear(); _hasCache = NO;
     _error = [NSError errorWithDomain:@"SportagDecodeWindow" code:SourceChanged userInfo:nil];
     return std::nullopt;
   }
-  return _cache.select(double(time) / 120000, _request);
+  auto frame = _cache.select(double(time) / 120000, _request);
+  return frame ? frame : _previousCache.select(double(time) / 120000, _previousRequest);
 }
 - (void)invalidate {
   NSParameterAssert(NSThread.isMainThread);
   if (_work) _work->cancelled.store(true);
 }
-- (void)close { [self invalidate]; _closed = YES; _cache.clear(); }
+- (void)close { [self invalidate]; _closed = YES; _cache.clear(); _previousCache.clear(); _hasCache = NO; }
 - (BOOL)failed { return _failed || (!_closed && _work && !_work->cancelled.load() && CACurrentMediaTime() >= _work->deadline); }
 - (BOOL)drained { return !_busy; }
 - (NSError *)error { return _error ?: (self.failed ? [NSError errorWithDomain:@"SportagDecodeWindow" code:Deadline userInfo:nil] : nil); }

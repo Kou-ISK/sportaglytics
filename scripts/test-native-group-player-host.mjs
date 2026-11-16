@@ -84,12 +84,12 @@ try {
   for (const scenario of [
     'normal',
     'forged-stop',
-    'unsupported-reverse',
+    'reverse-repress',
     'stale-revision',
   ]) {
     const forgedStop = scenario === 'forged-stop';
     const staleRevision = scenario === 'stale-revision';
-    const unsupportedReverse = scenario === 'unsupported-reverse';
+    const reverseRepress = scenario === 'reverse-repress';
     const service = 'local.sportaglytics.surface.group-' + randomUUID();
     receiver.openGroupV2(service);
     const directory = join(work, scenario);
@@ -212,7 +212,7 @@ try {
         secondID: second.id,
       });
       await owned.write(
-        unsupportedReverse
+        reverseRepress
           ? { ...intent, sequence: 2, playing: true, rate: -2 }
           : forgedStop
             ? { ...intent, sequence: 2, stopProof: proofFor(a, b, true) }
@@ -220,7 +220,7 @@ try {
       );
       for (const packet of packets.slice())
         receiver.groupRelease(service, packet.id);
-      if (!forgedStop && !unsupportedReverse) {
+      if (!forgedStop) {
         await until(() => packets.length === 4);
         assert.ok(
           packets
@@ -257,7 +257,7 @@ try {
       assert.equal(closeResult.processExited, true);
       assert.equal(closeResult.pipesClosed, true);
       assert.equal(closeResult.stopped, null); // not a measured AVPlayer clock
-      assert.equal(receipt.success, !forgedStop && !unsupportedReverse);
+      assert.equal(receipt.success, !forgedStop);
       const bytes = await readFile(
         join(directory, 'native-run-1/native-result.json'),
       );
@@ -268,11 +268,9 @@ try {
       const result = JSON.parse(bytes);
       assert.equal(result.heldBytes, 0);
       assert.equal(result.quarantinedBytes, 0);
-      if (unsupportedReverse)
-        assert.equal(result.failure.stage, 'unsupported-reverse-provenance');
       assert.equal(
         notes.find((n) => n.kind === 'host-exit').value.code,
-        forgedStop || unsupportedReverse ? 1 : 0,
+        forgedStop ? 1 : 0,
       );
     } finally {
       if (owned && !closeResult) {
