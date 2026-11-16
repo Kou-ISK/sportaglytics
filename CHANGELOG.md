@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.30]
+
 - 動画出力テキストの早すぎる改行を修正。実フォントの行幅と左右余白を使い、明示改行・結合文字・高さ上限を維持する。プレビューは同じ配置を使い、百分率や引用符も文字として描画する。[原因と検証](docs/reports/2026-11-export-text-wrap.md)。
+- 実際のMainと同梱FFmpegによるプレビュー/書き出し比較を、通常・インストール済みWindows・署名済みMac DMGのE2Eへ登録。回転・SAR結合・文字配置を検査する。
+- PR #288の未完成な複数映像再生や、未公開event model方針は今回の限定Macリリースに含めない。
 
 ## [0.17.29]
 
