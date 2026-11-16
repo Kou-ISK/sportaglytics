@@ -434,3 +434,4 @@ macOS PR CIでも同じ行操作E2Eを実行します。選択失敗時は合成
 `scripts/testing/active-nv12-digest.test.mm`は小さな実CoreVideoバッファで、paddingだけの変更を画像変化と数えず、疎な輝度採取で見落とす変更やchromaだけの変更を検出することを確認します。format・寸法の違い、不正なformat/nullの拒否も検査し、既存`test:native-runtime`で実行します。元映像や追加media fixtureは使いません。
 
 macOS PR workflowは`native/**`の変更も対象に含め、media buildの前に既存`test:native-runtime`を実行します。単なるnativeファイル変更だけで画像所有回帰が未実行になることを防ぎます。取得画像の任意診断と実配布物の画面受入は別ゲートです。
+0.17.30の限定リリースでは`export-text-geometry`を共通Electron E2Eとインストール済みWindowsへ登録する。署名済みMac DMGも同じ共通runnerを実行するため、インストールされたMainと同梱FFmpegで回転・SAR結合・オーバーレイのpreview/export整合を検査する。CIでの画素比較を実聴取・物理画面の受入とは扱わない。
