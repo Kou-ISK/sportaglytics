@@ -31,6 +31,16 @@
 
 共通の配置計算は既存`shared/media/mediaTimeline.ts`を維持する。共通時刻にangle offsetを加え、active clipの配置開始を引いてsource時刻へ写像する。空白・半開区間・末尾・負offsetを別の時間モデルへ置き換えない。
 
+### Mainの素材プラン
+
+`resolveNativePackageSourcePlan`は、Mainが所有するpackage pathと選択angle IDから、最大2系統の素材プランを作る。package内の最大8angle/各16clipを上限とし、選択されたlocal素材だけを調べる。既存`getAngleOffset`/`resolveMediaTime`/`getMediaTimelineEnd`を使い、surfaceの選択順を変えても元のpackage番号に対するoffsetを維持する。clipの既知の配置・長さ、重複ID・重なり、有限のpackage時刻を検査し、不明な配置や長さを隣のclipから推測しない。空白はsource失敗と区別して返す。
+
+filesystem adapterは既存の単一素材資格検査とも共有する。metadataは1MiB上限・leaf非追従で読み、package更新/capture中、config変更、通常のsource置換を再検査する。相対参照のpackage外への逸脱とsymlinkは拒否し、既存の絶対local参照は維持する。任意の同一UIDによる親dir差替えを、複数のstatだけで完全に封じたとは主張しない。プランの時刻解決はopaque source keyを返し、Rendererからpathを渡す権限を追加しない。
+
+このプランはgroup backendへのMain内部の入力段階で、Window/Package Session認証、helper能力検査、IPC、surface登録を代行しない。既存providerは単一素材の資格条件を維持し、group helper接続前に複数素材を単一URLとして公開しない。合成filesystemの回帰では、元angle番号のoffset、選択順、空白/排他的末尾、設定/素材置換、選択配列の非同期変更、絶対参照、symlinkと既存単一条件を検査する。
+
+Main所有のAbortSignalで要求を失効できる。FSのawait境界で取消を確認し、新たな検査や失効済みプランの時刻解決を拒否する。既に実行中のFS操作を中断したとは扱わず、handleを閉じて返るまで待つ。他packageの更新lease/取消と混線させない。この段階にOSのFS停止時間の絶対保証はない。
+
 ## 取得画像による小容量比較
 
 以下は**非GUIの取得フレームとplayer時計**の測定であり、実表示・実聴取の合格ではない。原本は読取のみ。音声は診断内でmuteし、映像の複製・全尺変換は行わない。各compute子の外側期限45秒、入力ready8秒、seek4秒、baseline画像2秒、観測1.6秒、pause後0.3秒。繰返しは同じitemの再seekであり、OSのdisk/decoder cacheをcoldへ戻していない。
@@ -74,6 +84,10 @@ SDKのhost同期契約は、未来hostを厳密な遅延実行timerとは定め�
 ## 停止画像と追加の供給対照
 
 既存の独立`setRate`（自動待機のdefaultを維持）と新しい共通host開始（自動待機false）は異なる条件であり、比較結果を相互に流用しない。音声trackを一つ選んでmuteした実session対照では、単一の独立2倍逆でも、pause後の強制取得画像が停止時計より約1.13〜1.16秒古かった。各条件2回、20秒から1.6秒観測し、実表示は未接続である。停止時計へ一度だけexact seekする別対照では、単一は対象位置の約1フレーム以内を取得したが約0.87〜1.07秒の追加待ちがあった。共通hostの2系統ではseek完了trueの後も古いPTSを取得した。従ってseek完了やnonnull bufferを停止画像確認とみなす修正は採用しない。停止時計・sampleの有効区間・実表示ACKを照合する責務が残る。
+
+別の隔離したGUI対照で、2つの独立した直接`AVPlayerLayer`、同じ原本の20秒開始、共通host/逆2倍/5秒、音声一系統ずつmuteを確認した。準備済みの画面と操作後画面を同じ実行IDで取得したが、停止時計は約9.943/9.868秒と約75ms離れ、表示場面は別途読取取得した10秒の参照画像と異なった。映像は変化したものの、連続性・最初の提示の時刻・正しい停止frameは合格にしない。実画面取得の間隔ではframeごとの提示PTSを計測できず、時計とlayerReadyだけを実提示の証拠にしない。
+
+同GUI診断の初回は8秒の準備期限で終了し、その後の画面取得で再起動された可能性があった。初回ログを後続の画面の測定値へ流用しない。修正した診断は実行IDと一回限りの起動ticket、自己終了を持ち、終了後はアプリ個別取得をせず全体一覧で停止を確認した。製品アプリや原本/設定は変更せず、この対照を署名済み製品group経路の受入とは扱わない。
 
 小さい範囲の連続取得では、getter呼出し削減、`hasNewPixelBuffer`を省いた毎poll強制取得、preroll追加は、揃えた対照で供給改善を示さなかった。依存GOPの対象外画像にVideoToolboxの`DoNotOutputFrame`を指定する実験も、対象15枚のPTS/active NV12画素の一致は保ったが復号時間を改善しなかった。これらを高速化として製品へ入れない。
 
