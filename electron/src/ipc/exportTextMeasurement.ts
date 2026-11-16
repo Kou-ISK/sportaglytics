@@ -76,11 +76,15 @@ export const createClipTextMeasurer = (
         const widths = new Map<number, number>();
         let index: number | undefined;
         for (const line of result.stderr.split(/\r?\n/)) {
-          if (!/^-?\d+\.\d+$/.test(line)) {
+          // FFmpeg 8 adds the Eval log context; 7 emits bare print() values.
+          const valueText = line.match(
+            /^(?:\[Eval @ (?:0x)?[\da-f]+\] )?(-?\d+\.\d+)$/i,
+          )?.[1];
+          if (valueText === undefined) {
             index = undefined;
             continue;
           }
-          const value = Number(line);
+          const value = Number(valueText);
           if (value < 0) {
             index = -value - 1;
             continue;

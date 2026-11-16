@@ -10,41 +10,44 @@ const textFiles = (filter: string): string[] =>
     match[1].replace(/\\(.)/g, '$1').replace(/\\(.)/g, '$1'),
   );
 
-it('batches requests, caches by text/weight/size and removes private text files', async () => {
-  const paths: string[] = [];
-  run.mockImplementation(async (_exe, args, options) => {
-    const filter = args[args.indexOf('-vf') + 1];
-    expect(filter).not.toContain('private');
-    expect(options.timeoutMs).toBe(10000);
-    const files = textFiles(filter);
-    paths.push(...files);
-    expect(await readFile(files[0], 'utf8')).toBe("private : 100% ' [note]");
-    return {
-      stdout: '',
-      stderr: files
-        .map(
-          (_, index) =>
-            `-${index + 1}.000000\n${100 + index}.000000\n-${index + 1}.000000\n${100 + index}.000000`,
-        )
-        .join('\n'),
-    };
-  });
-  const measure = createClipTextMeasurer(
-    () => '/ffmpeg',
-    (bold) => (bold ? '/bold.ttf' : '/regular.ttf'),
-  );
-  const text = "private : 100% ' [note]";
-  expect(
-    await Promise.all([
-      measure(text, false, 30),
-      measure(text, true, 30),
-      measure(text, false, 20),
-      measure(text, false, 30),
-    ]),
-  ).toEqual([100, 101, 102, 100]);
-  expect(run).toHaveBeenCalledTimes(1);
-  for (const file of paths) await expect(access(file)).rejects.toThrow();
-});
+it.each(['', '[Eval @ 0x123abcdef] ', '[Eval @ 000001ABCDEF] '])(
+  'batches requests, caches by text/weight/size and removes private text files (%s)',
+  async (prefix) => {
+    const paths: string[] = [];
+    run.mockImplementation(async (_exe, args, options) => {
+      const filter = args[args.indexOf('-vf') + 1];
+      expect(filter).not.toContain('private');
+      expect(options.timeoutMs).toBe(10000);
+      const files = textFiles(filter);
+      paths.push(...files);
+      expect(await readFile(files[0], 'utf8')).toBe("private : 100% ' [note]");
+      return {
+        stdout: '',
+        stderr: files
+          .map(
+            (_, index) =>
+              `${prefix}-${index + 1}.000000\n${prefix}${100 + index}.000000\n${prefix}-${index + 1}.000000\n${prefix}${100 + index}.000000`,
+          )
+          .join('\n'),
+      };
+    });
+    const measure = createClipTextMeasurer(
+      () => '/ffmpeg',
+      (bold) => (bold ? '/bold.ttf' : '/regular.ttf'),
+    );
+    const text = "private : 100% ' [note]";
+    expect(
+      await Promise.all([
+        measure(text, false, 30),
+        measure(text, true, 30),
+        measure(text, false, 20),
+        measure(text, false, 30),
+      ]),
+    ).toEqual([100, 101, 102, 100]);
+    expect(run).toHaveBeenCalledTimes(1);
+    for (const file of paths) await expect(access(file)).rejects.toThrow();
+  },
+);
 
 it.each([
   '',
