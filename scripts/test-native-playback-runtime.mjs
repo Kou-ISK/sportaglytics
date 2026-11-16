@@ -8,6 +8,11 @@ try {
   // AVPlayer owns decoding/PCM. Test only our bounded IPC and surface adapters.
   for (const [name, source, libraries] of [
     ['ControlOutput', 'apple-player/ControlOutput.test.cpp', []],
+    [
+      'ReverseFrameCache',
+      'apple-player/ReverseFrameCache.test.cpp',
+      ['-pthread'],
+    ],
     ['PlayerObservation', 'apple-player/PlayerObservation.test.cpp', []],
     ['ReplyQueue', 'surface-transport/ReplyQueue.test.cpp', ['-lbsm']],
     [

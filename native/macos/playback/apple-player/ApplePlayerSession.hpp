@@ -18,6 +18,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)supportsRate:(float)rate;
 - (void)setVolume:(float)volume muted:(BOOL)muted;
 - (void)setRate:(float)rate;
+/// Schedule a ready, seek-settled source on the shared host clock. This does not
+/// establish a group ready barrier, guarantee decoded data, or confirm display.
+/// The caller must pause all members if any member rejects the same operation.
+- (BOOL)scheduleRate:(float)rate fromTime:(CMTime)time atHostTime:(CMTime)hostTime;
 - (void)pause;
 /// approximate is only for transient scrubbing. The returned position must not
 /// be reported as an exact requested time or used to mutate annotation ranges.

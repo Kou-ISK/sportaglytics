@@ -7,6 +7,7 @@
   "apple-player/ControlOutput.hpp",
   "apple-player/ExclusivePublish.hpp",
   "apple-player/PlayerObservation.hpp",
+  "apple-player/ReverseFrameCache.hpp",
   "native-input/CommandLeft.mm",
   "surface-transport/PixelReference.hpp",
   "surface-transport/Receiver.mm",

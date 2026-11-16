@@ -1,5 +1,6 @@
 #import "ApplePlayerSession.hpp"
 #import <QuartzCore/QuartzCore.h>
+#include <cmath>
 
 @implementation STApplePlayerSession {
   AVPlayer *_player;
@@ -7,6 +8,7 @@
   AVPlayerItemVideoOutput *_output;
   NSUInteger _seekRevision;
   BOOL _closed;
+  BOOL _seeking;
 }
 - (instancetype)initWithURL:(NSURL *)url {
   NSParameterAssert(NSThread.isMainThread);
@@ -67,6 +69,19 @@
   NSParameterAssert(NSThread.isMainThread);
   if (!_closed && _player.rate != rate) _player.rate = rate;
 }
+- (BOOL)scheduleRate:(float)rate fromTime:(CMTime)time atHostTime:(CMTime)hostTime {
+  NSParameterAssert(NSThread.isMainThread);
+  if (_closed || _seeking || !std::isfinite(rate) || ![self supportsRate:rate] ||
+      !CMTIME_IS_NUMERIC(time) || !CMTIME_IS_NUMERIC(hostTime) ||
+      !CMTIME_IS_NUMERIC(self.duration) || CMTimeCompare(time, kCMTimeZero) < 0 ||
+      CMTimeCompare(time, self.duration) > 0 ||
+      CMTimeCompare(hostTime, CMClockGetTime(CMClockGetHostTimeClock())) <= 0) return NO;
+  // Required by AVPlayer's external host-clock scheduling contract. Readiness
+  // above is not a promise of uninterrupted data supply; the group monitors it.
+  _player.automaticallyWaitsToMinimizeStalling = NO;
+  [_player setRate:rate time:time atHostTime:hostTime];
+  return YES;
+}
 - (void)pause {
   NSParameterAssert(NSThread.isMainThread);
   [_player pause];
@@ -76,12 +91,14 @@
   NSParameterAssert(NSThread.isMainThread);
   if (_closed) { completion(NO); return; }
   NSUInteger revision = ++_seekRevision;
+  _seeking = YES;
   CMTime tolerance = approximate ? kCMTimePositiveInfinity : kCMTimeZero;
   __weak STApplePlayerSession *weakSelf = self;
   [_player seekToTime:time toleranceBefore:tolerance toleranceAfter:tolerance
     completionHandler:^(BOOL finished) {
       dispatch_async(dispatch_get_main_queue(), ^{
         STApplePlayerSession *session = weakSelf;
+        if (session && revision == session->_seekRevision) session->_seeking = NO;
         completion(finished && session && !session->_closed && revision == session->_seekRevision);
       });
     }];
@@ -97,6 +114,7 @@
   NSParameterAssert(NSThread.isMainThread);
   if (_closed) return;
   _closed = YES;
+  _seeking = NO;
   ++_seekRevision;
   [_player pause];
   [_item cancelPendingSeeks];

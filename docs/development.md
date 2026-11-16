@@ -586,3 +586,9 @@ For held native publication changes, run the exportHeldPublish, exportHeldPublis
 独立タイムラインの複数選択は所有者のdocument世代・source連番・要求UUIDで確認します。読み込み成功時にloading leaseを失効し、履歴の新入力採用まで編集・行補完と項目の送信を停止します。描画の準備状態と操作受付のcommit状態を分け、同内容の再読み込みも空表示のまま残しません。旧同期で選択を戻さず、未確認が5秒続けば既知の選択へ戻して再同期します（編集の自動再送なし）。実装境界と未保証範囲は[ADR 0085](adr/0085-detached-selection-receipts.md)を参照してください。
 
 行内インスタンス選択のfocusは`useTimelineInstanceCommands`が閉鎖commitで復帰させます。メニューを閉じる前の即時focusだけではMUIの復元に上書きされるためです。待ち時間や後続timerを追加せず、選択を伴わない閉鎖・新しいメニュー・unmountに保留focusを持ち越しません。実MUI回帰とmacOS行操作E2Eを[検証手順](testing.md)で分けて確認します。
+
+### 共通再生セッションの開発
+
+[複数映像の設計・測定](multi-angle-playback.md)と[ADR 0086](adr/0086-common-native-playback-session.md)はProposedです。native所有部品のみの局所確認は `clang++ -std=c++17 -pthread native/macos/playback/apple-player/ReverseFrameCache.test.cpp -o /tmp/reverse-frame-cache-test` とその実行で可能です。CIでは既存`test:native-runtime`へ同じ回帰を含めます。局所回帰を全runtime/実表示/署名版の合格と扱わず、環境で拒否された検査を別経路で迂回しないでください。
+
+任意の読取専用比較は`scripts/testing/native-group-acquisition.mm`を`ApplePlayerSession.mm`とともにC++17/ARC、Foundation・AVFoundation・CoreMedia・CoreVideo・QuartzCoreでcompileして実行します。引数は`source players rate scheduled|independent offset repeats`、playersは1〜2、rateは1/-0.5/-2/-4/-6、offsetは±1秒、repeatsは1〜3です。開始はsource20秒付近固定で、短い素材はbaseline未確認として失敗します。UIを作らず取得画像/時計だけを観測し、現在のMain source資格検査や署名・実表示の合格にはなりません。出力は有界JSONでsourceパスやerror messageを含めませんが、利用素材の診断は非公開で保持してください。外側にも有限期限を設定し、実行中の子を放置しないでください。

@@ -171,3 +171,5 @@ Windows H.264のOS提供CPUエンコーダーへの変更は[ADR 0062](adr/0062-
 - [Held native export publication (ADR 0084)](adr/0084-held-export-publication.md): candidate ownership, retention and platform boundaries.
 
 - [ADR 0085: Detached Selection Receipts](adr/0085-detached-selection-receipts.md)
+
+- [複数映像の共通再生セッション（設計・検証中）](multi-angle-playback.md): Sportscodeの公開根拠、実decoder比較、有界bufferと未達の実機条件。

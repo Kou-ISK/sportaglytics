@@ -485,3 +485,7 @@ The native v2 single-cut candidate can transfer its qualified descriptor directl
 独立タイムラインの複数選択は所有者のdocument世代・source連番・要求UUIDで確認します。読み込み成功時にloading leaseを失効し、履歴の新入力採用まで編集・行補完と項目の送信を停止します。描画の準備状態と操作受付のcommit状態を分け、同内容の再読み込みも空表示のまま残しません。旧同期で選択を戻さず、未確認が5秒続けば既知の選択へ戻して再同期します（編集の自動再送なし）。実装境界と未保証範囲は[ADR 0085](adr/0085-detached-selection-receipts.md)を参照してください。
 
 行メニューでインスタンスを選択した場合は、メニューのfocus復元が終わったcommitでタイムラインへfocusを戻します。閉じただけの場合のMUI標準動作や、編集Dialogのfocus管理は変更しません。
+
+## 複数映像native再生の検証中設計
+
+[共通再生セッション](multi-angle-playback.md)は方式比較中です。操作/source世代付き画像leaseと共通保持budgetをnative部品として分離しますが、現行の単一surface/資格条件を解除せず、公開版の操作・IPC契約は変更しません。取得画像と実表示、共通clockとdecoder供給を区別して受入を進めます。

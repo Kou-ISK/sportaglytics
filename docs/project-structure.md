@@ -468,3 +468,7 @@ AVPlayer adapterは`native/macos/playback/apple-player`、画像所有と転送�
 `electron/src/nativePlayback/runtime`は資源・署名検査、session directory、surface転送、所有者終了を担当します。`nativeSignature.ts`の固定要件検証はcompiled Mainを配布hookからも利用し、二重定義しません。`support`内の明示CJSだけをMain buildへコピーします。`scripts/macos/{standard-after-pack,native-signing,native-after-sign}.mjs`が内側→manifest→外側の署名順序と検証を担います。
 
 長押し逆再生の表示完了待ちと1要求/最新希望のキューは`src/shared/media/`に置き、メイン画面・Playlistが各々のsource/clip解決を担当します。AVPlayerの操作所有権は既存videoPlayer controller/hostに閉じ込めます。実ブラウザ用fixtureは`scripts/testing/reverse-playback-browser.tsx`、起動・測定は`scripts/test-reverse-playback-browser.mjs`です。
+
+### 複数映像向け画像所有（未接続）
+
+`native/macos/playback/apple-player/ReverseFrameCache.hpp`はOS依存を持たない画像lease・共通保持budget・世代付きcache選択を担当します。AVFoundationの読取やRenderer/IPCを内包しません。背景と製品接続の未完は[共通再生セッション](multi-angle-playback.md)を参照してください。
