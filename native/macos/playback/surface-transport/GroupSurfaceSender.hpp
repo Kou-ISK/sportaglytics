@@ -18,6 +18,8 @@ class GroupSurfaceSender {
   bool demanded_ = false, openAttempted_ = false, opened_ = false;
   std::map<uint64_t, Held> held_;
   std::array<std::optional<groupsurfacewire::Identity>, groupsurfacewire::Angles> drawn_;
+  struct Published { std::array<groupsurfacewire::Identity, 2> images; bool complete = false; };
+  std::map<uint64_t, Published> published_;
 public:
   explicit GroupSurfaceSender(appleplayback::FrameBudget budget) : budget_(std::move(budget)) {}
   GroupSurfaceSender(const GroupSurfaceSender&) = delete;
@@ -86,10 +88,35 @@ public:
     if (serial_ > groupsurfacewire::MaximumSequence - 2)
       throw std::runtime_error("group delivery sequence exhausted");
     if (held_.size() > groupsurfacewire::Limit - 2) return false;
+    auto actual = values;
+    actual[0].id = serial_ + 1; actual[1].id = serial_ + 2;
+    // Reserve metadata before any physical send. A partial outcome remains
+    // incomplete and can never authorize a stop at an unissued second image.
+    auto history = published_.emplace(values[0].pair, Published{actual, false});
+    if (!history.second) throw std::runtime_error("group pair already published");
     lastPair_ = values[0].pair; lastOperation_ = values[0].operation; lastSeek_ = values[0].seek;
     if (!sendOne(images[0], values[0]) || !sendOne(images[1], values[1]))
       throw std::runtime_error("group pair credit lost");
+    history.first->second.complete = true;
+    while (published_.size() > 64) published_.erase(published_.begin());
     return true;
+  }
+  uint64_t stopAnchor(const groupsurfacewire::StopProof& proof,
+                      uint64_t nextOperation, uint64_t seek) const {
+    if (!proof.operation || !proof.seek || !proof.pair || !proof.firstID || !proof.secondID ||
+        nextOperation > groupsurfacewire::MaximumSequence || nextOperation <= proof.operation ||
+        nextOperation <= lastOperation_ || seek != proof.seek || seek < lastSeek_)
+      throw std::runtime_error("invalid group stop owner");
+    auto found = published_.find(proof.pair);
+    if (found == published_.end() || !found->second.complete)
+      throw std::runtime_error("group stop pair unavailable");
+    const auto& a = found->second.images[0]; const auto& b = found->second.images[1];
+    if (a.operation != proof.operation || a.seek != proof.seek || a.globalTicks != proof.globalTicks ||
+        a.id != proof.firstID || b.id != proof.secondID)
+      throw std::runtime_error("group stop pair mismatch");
+    for (const auto& drawn : drawn_)
+      if (drawn && drawn->pair > proof.pair) throw std::runtime_error("group stop pair stale");
+    return a.globalTicks;
   }
   void poll() {
     if (!receiver_) return;

@@ -46,6 +46,14 @@ void pairReplacementAndGlobalCredit() {
     assert(sender.sendPair(leases, pair));
   }
   assert(sender.pending() == 6 && budget.usedBytes() == bytes);
+  // The input target is not a displayed clock. A complete published pair can
+  // validate a preload fence before its delayed Drawn ACKs, without guessing.
+  assert(sender.stopAnchor({1, 1, 1, 1000, 1, 2}, 3, 1) == 1000);
+  fails([&]{sender.stopAnchor({1, 1, 1, 1001, 1, 2}, 3, 1);}, "group stop pair mismatch");
+  fails([&]{sender.stopAnchor({1, 1, 1, 1000, 1, 4}, 3, 1);}, "group stop pair mismatch");
+  fails([&]{sender.stopAnchor({1, 1, 1, 1000, 1, 2}, 3, 2);}, "invalid group stop owner");
+  fails([&]{sender.stopAnchor({1, 1, 1, 1000, 1, 2}, 1, 1);}, "invalid group stop owner");
+  fails([&]{sender.stopAnchor({1, 1, 1, 1000, 1, 2}, 2, 1);}, "invalid group stop owner");
   fails([&]{receiver.close();}, "unread group surface packets");
   std::array<groupsurfacewire::Identity, 2> blocked{identity(0, 2, 2, 2000), identity(1, 2, 2, 2000)};
   for (auto& value : blocked) value.pair = 4;
@@ -61,10 +69,12 @@ void pairReplacementAndGlobalCredit() {
   receiver.drawn(3); receiver.drawn(4); receiver.drawn(1); receiver.drawn(2); sender.poll();
   assert(sender.drawn(0)->id == 3 && sender.drawn(1)->id == 4);
   assert(sender.drawn(0)->sourceEpoch == 2 && sender.drawn(1)->operation == 2);
+  fails([&]{sender.stopAnchor({1, 1, 1, 1000, 1, 2}, 3, 1);}, "group stop pair stale");
   receiver.release(1); sender.poll();
   assert(sender.pending() == 5 && !sender.sendPair(leases, blocked) && sender.nextID() == 7);
   for (size_t i = 2; i <= 6; ++i) receiver.release(i); // also cancellation before Drawn
   sender.poll(); assert(sender.pending() == 0 && receiver.count() == 0);
+  assert(sender.stopAnchor({2, 1, 2, 1001, 3, 4}, 3, 1) == 1001);
   assert(budget.usedBytes() == bytes && budget.quarantinedBytes() == 0);
   receiver.close();
 }
@@ -117,10 +127,26 @@ void foreignPeerAndUnconfirmedTeardown() {
   sender.reset(); assert(budget.quarantinedBytes() == bytes);
   receiver.close();
 }
+void stopHistoryIsBoundedAndIndependentOfImageOwnership() {
+  appleplayback::FrameBudget budget(64ULL * 1024 * 1024); auto lease = image(budget);
+  auto name = service(); GroupSurfaceReceiver receiver; receiver.open(name.c_str()); receiver.setPeer(getpid());
+  GroupSurfaceSender sender(budget); sender.open(name.c_str(), getpid());
+  for (uint64_t pair = 1; pair <= 65; ++pair) {
+    std::array<groupsurfacewire::Identity, 2> values{identity(0, 1, 1, pair), identity(1, 1, 1, pair)};
+    for (auto& value : values) value.pair = pair;
+    assert(sender.sendPair({lease, lease}, values));
+    for (size_t angle = 0; angle < 2; ++angle) { auto frame = receiver.poll(); assert(frame); receiver.release(frame->identity.id); }
+    sender.poll(); assert(sender.pending() == 0);
+  }
+  fails([&]{sender.stopAnchor({1, 1, 1, 1, 1, 2}, 2, 1);}, "group stop pair unavailable");
+  assert(sender.stopAnchor({1, 1, 65, 65, 129, 130}, 2, 1) == 65);
+  assert(budget.quarantinedBytes() == 0); receiver.close();
+}
 }
 
 int main() { @autoreleasepool {
   pairReplacementAndGlobalCredit(); invalidIdentityHasNoSideEffects(); v1PacketCannotEnterGroup();
   foreignPeerAndUnconfirmedTeardown();
+  stopHistoryIsBoundedAndIndependentOfImageOwnership();
   puts("GroupSurface: identity, pair credits, cancellation, v1 isolation and quarantine passed");
 } }

@@ -608,3 +608,5 @@ Mainの素材プランは`nativePackageSourcePlan.test.ts`と既存`nativeSource
 Group v2の転送は`test:native-runtime`内の`GroupSurface.test.mm`と、`native:build`後の`test:native-group-surface`で確認する。後者は実addon/CoreVideo/IOSurface/Machと短時間で終了する所有済み合成producerを用い、旧版との相互排他・owner token・遅いDrawnとReleasedを検査する。Mainのsurface adapter回帰は`node --test scripts/tests/native-group-surface-transport.cjs`、Main時間写像とpreload pair描画は`groupFrameAdmission.test.ts`・`nativeGroupPresenter.test.ts`・`nativeSurfaceBridge.test.ts`で確認する。Main試験のElectron/texture/windowとpreload試験のcanvas/RAFはmockであり、実GPU提示・音声・署名版の受入ではない。通常Controller/Hostへのgroup接続は引き続き未完である。
 
 surfaceのunbindは登録ごとのtokenに所属し、同じcanvasを再利用しても古いcleanupで新ownerを閉じない。v1/groupの同時bindを拒否し、documentのcloseは未提示group loanも解放する。`nativeSurfaceBridge.test.ts`と`nativeGroupPresenter.test.ts`で再bind・二重cleanup・close中の保留画像を確認する。
+
+`GroupSurface.test.mm`は送信側の停止fenceを、ACK到着前・Released後・64 pair履歴切れ・新しいDrawn後・改変した時刻/ID/controlで確認する。これは実Machを使うnative資源/metadata契約であり、Hostのgroup制御や物理描画の停止位置を合格とする試験ではない。

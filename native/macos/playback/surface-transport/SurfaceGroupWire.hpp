@@ -14,6 +14,10 @@ struct Identity {
   uint64_t sourcePTS, sourceEndPTS, globalTicks, globalStart, globalEnd;
   Content content;
 };
+// Process-local control proof. Native pointers and source paths are absent.
+struct StopProof {
+  uint64_t operation, seek, pair, globalTicks, firstID, secondID;
+};
 inline bool valid(const Identity& v) {
   return v.id && v.id <= MaximumSequence && v.operation &&
     v.operation <= MaximumSequence && v.seek && v.seek <= MaximumSequence &&
