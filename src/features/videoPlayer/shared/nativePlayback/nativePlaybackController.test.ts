@@ -117,6 +117,7 @@ const make = (
   presentation:
     | import('../../../../types/ipc/nativePlaybackPresentation').NativePlaybackPresentation
     | null = null,
+  clockAuthority: 'source-clock' | 'drawn-pair' = 'source-clock',
 ) => {
   let listener: ((value: NativePlaybackSnapshot | null) => void) | null = null;
   const unsubscribe = vi.fn(() => {
@@ -142,7 +143,7 @@ const make = (
     open: vi.fn(async () => {}),
     apply: vi.fn(async (_v: NativePlaybackIntent) => {}),
     observe: vi.fn(async () => snapshot),
-    close: vi.fn(async () => ({
+    close: vi.fn(async (): Promise<NativePlaybackClosed> => ({
       ...drained,
       stopped: snapshot.observation
         ? {
@@ -175,6 +176,7 @@ const make = (
     { playing: false, rate: 1, audioTrack: 0, volume: 0.5, muted: true },
     original,
     presentation,
+    clockAuthority,
   );
   return {
     controller,
@@ -1343,4 +1345,42 @@ it('forwards numeric duration evidence from the failed recovery snapshot', async
     expect.objectContaining({ recovery: failure.recovery }),
   );
   expect(original.release).not.toHaveBeenCalled();
+});
+
+
+const drawnClose = (): NativePlaybackClosed => ({ ...drained, stopped: null,
+  presentedStop: { document: 'doc', generation: owner.generation, operation: 1,
+    seekId: 1, pair: 1, globalTicks: 360000, ids: [1, 2] },
+});
+it('recovers from a separately tagged drawn-pair anchor without claiming a stopped source clock', async () => {
+  vi.useFakeTimers(); const f = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1); f.reply(1, 1, 3, 1);
+  f.api.close.mockResolvedValue(drawnClose());
+  await f.controller.returnToOriginal();
+  expect(f.original.restore).toHaveBeenCalledWith(3, expect.anything(), expect.any(AbortSignal));
+  expect(f.original.release).toHaveBeenCalledOnce();
+});
+it.each(['missing', 'future', 'old-time', 'wrong-owner', 'not-exited'] as const)(
+  'keeps group ownership on an unconfirmed closed presentation: %s', async (kind) => {
+    vi.useFakeTimers(); const f = make(null, 'drawn-pair');
+    await vi.advanceTimersByTimeAsync(1); f.reply(1, 1, 3, 1);
+    const closed = drawnClose();
+    if (kind === 'missing') delete closed.presentedStop;
+    else if (kind === 'not-exited') closed.processExited = false;
+    else if (closed.presentedStop) {
+      if (kind === 'future') closed.presentedStop.operation = 2;
+      if (kind === 'old-time') closed.presentedStop.globalTicks = 359000;
+      if (kind === 'wrong-owner') closed.presentedStop.generation = 'other';
+    }
+    f.api.close.mockResolvedValue(closed);
+    await expect(f.controller.returnToOriginal()).rejects.toThrow('RECOVERY_UNCONFIRMED');
+    expect(f.original.release).not.toHaveBeenCalled();
+    expect(f.original.restore).not.toHaveBeenCalled();
+  });
+it('does not accept a drawn-pair receipt in the legacy source-clock mode', async () => {
+  vi.useFakeTimers(); const f = make();
+  await vi.advanceTimersByTimeAsync(1); f.reply(1, 1, 3, 1);
+  f.api.close.mockResolvedValue(drawnClose());
+  await expect(f.controller.returnToOriginal()).rejects.toThrow('RECOVERY_UNCONFIRMED');
+  expect(f.original.release).not.toHaveBeenCalled();
 });

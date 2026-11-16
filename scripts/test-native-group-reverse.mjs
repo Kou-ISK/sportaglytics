@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { build } from 'esbuild';
 import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { mkdtemp, mkdir, readFile, writeFile, stat, rm } from 'node:fs/promises';
@@ -34,6 +35,14 @@ try {
   const modulePath = join(directory, 'config.cjs');
   await writeFile(modulePath, config, { flag: 'wx' });
   const { nativeGroupHostConfiguration } = require(modulePath);
+  const actorsPath = join(directory, 'actors.cjs');
+  await build({ stdin: { contents: `
+    export { NativePlaybackSession } from './electron/src/nativePlayback/nativePlaybackSession';
+    export { NativePlaybackController } from './src/features/videoPlayer/shared/nativePlayback/nativePlaybackController';
+    export { GroupPresentationLedger } from './electron/src/nativePlayback/runtime/groupPresentationLedger';`,
+    resolveDir: process.cwd(), loader: 'ts' }, bundle: true, platform: 'node',
+    format: 'cjs', outfile: actorsPath });
+  const { NativePlaybackSession, NativePlaybackController, GroupPresentationLedger } = require(actorsPath);
   for (const rate of [-.5, -2, -4, -6]) {
     const service = 'local.sportaglytics.surface.reverse-' + randomUUID();
     receiver.openGroupV2(service);
@@ -42,17 +51,24 @@ try {
     const owner = { generation: randomUUID(), sourceKey: 'a'.repeat(64) };
     const pairs = [], observations = [];
     let first, last, receipt, stopped, stoppingOperation, processClosed = false;
-    let backend, owned;
+    let backend, owned, mainSession, stopProof, controller, snapshotListener;
+    let restoredTime = null, recoveryReleased = 0;
+    const ledger = new GroupPresentationLedger();
     const poll = async () => {
       for (let i = 0; i < 6; ++i) {
         const value = receiver.groupPoll(service); if (!value) break;
         if (value.operation === stoppingOperation) { receiver.groupRelease(service, value.id); continue; }
+        const metadata = { ...value, version: 2, generation: owner.generation,
+          document: 'host-contract', content: value.content === 1 ? 'image' : 'blank' };
+        ledger.publish(metadata);
         if (value.angle === 0) first = value;
         else {
           assert.ok(first && first.pair === value.pair && first.operation === value.operation);
           assert.equal(first.globalTicks, value.globalTicks);
           // The real presenter draws a complete pair in one RAF. Never ACK
           // one angle early and then use an older pair as a release proof.
+          ledger.drawn({ ...first, generation: owner.generation, document: 'host-contract' });
+          ledger.drawn(metadata);
           receiver.groupDrawn(service, first.id); receiver.groupDrawn(service, value.id);
           receiver.groupRelease(service, first.id); receiver.groupRelease(service, value.id);
           last = { operation: first.operation, seek: first.seekId, pair: first.pair,
@@ -67,7 +83,9 @@ try {
     const until = async (predicate, maximum = 10000) => {
       const end = performance.now() + maximum;
       while (!predicate() && performance.now() < end) await poll();
-      assert.ok(predicate(), 'bounded group reverse condition failed');
+      assert.ok(predicate(), 'bounded group reverse condition failed: ' + JSON.stringify({
+        mainError: mainSession?.snapshot().error, lastPhase: observations.at(-1)?.phase,
+        lastRate: observations.at(-1)?.rate }));
     };
     allDrained = false;
     try {
@@ -83,13 +101,32 @@ try {
           if (kind === 'native-drained') receipt = value;
         }, surfaceReady: () => {},
       });
-      owned = backend.factory(owner, (value) => observations.push(value));
+      owned = backend.factory(owner, (value) => {
+        observations.push(value);
+        mainSession.observe(value);
+      });
+      mainSession = new NativePlaybackSession({ owner, start: 0, end: 3,
+        audioTracks: 1, rates: [rate], clockAuthority: 'drawn-pair' }, {
+        write: (value) => owned.write(stopProof && value.sequence === 3 ?
+          { ...value, stopProof } : value),
+        close: async () => ({ ...await owned.close(), presentedStop: ledger.presented() }),
+        confirmsPresentedStop: (proof) => ledger.confirmsStop(proof),
+        confirmsPresentation: (value) => ledger.confirms(
+          value.generation, value.sequence, value.seekId, value.time),
+      }, () => snapshotListener?.(mainSession.snapshot()));
       const intent = { ...owner, sequence: 1, seekId: 1, targetTime: 2, playing: false,
         rate, audioTrack: 0, volume: 0, muted: true };
-      await owned.write(intent);
+      controller = new NativePlaybackController({
+        open: async () => {}, apply: async (value) => mainSession.apply(value),
+        observe: async () => mainSession.snapshot(), close: async () => mainSession.close(),
+        onSnapshot: (_owner, listener) => { snapshotListener = listener; return () => { snapshotListener = undefined; }; },
+      }, owner, 'file:///synthetic-group', 2, intent, {
+        pause: () => {}, restore: async (time) => { restoredTime = time; },
+        release: () => { recoveryReleased++; },
+      }, null, 'drawn-pair');
       await until(() => observations.some((o) => o?.sequence === 1 && o.videoReady && o.phase === 'paused'));
       const playIssuedAt = performance.now();
-      await owned.write({ ...intent, sequence: 2, playing: true });
+      controller.controls({ playing: true });
       await until(() => pairs.filter((p) => p.operation === 2 && p.ticks < 240000).length >= 3 &&
         pairs.some((p) => p.operation === 2 && p.ticks < 210000) &&
         observations.some((o) => o?.sequence === 2 && o.phase === 'playing' && o.rate === rate && o.time < 2));
@@ -104,7 +141,8 @@ try {
       if (first) { receiver.groupRelease(service, first.id); first = undefined; }
       const stopIssuedAt = performance.now();
       const frozenCount = pairs.filter((p) => p.operation === 2).length;
-      await owned.write({ ...intent, sequence: 3, playing: false, stopProof: proof });
+      stopProof = proof;
+      controller.controls({ playing: false });
       await until(() => pairs.some((p) => p.operation === 3));
       assert.ok(pairs.filter((p) => p.operation === 3).every((p) => p.ticks === proof.globalTicks));
       await until(() => observations.some((o) => o?.sequence === 3 && o.phase === 'paused' &&
@@ -120,7 +158,12 @@ try {
         firstMovementMs: progressed[0].ms - playIssuedAt,
         maxPairIntervalMs: Math.max(...progressed.slice(1).map((p, i) => p.ms - progressed[i].ms)),
         backwardTicks: 240000 - proof.globalTicks, stopAcknowledgedMs });
-      stopped = await owned.close(); await backend.done(); processClosed = true;
+      assert.equal(mainSession.snapshot().error, null, 'normal Main session must accept the actual Host contract');
+      await controller.returnToOriginal();
+      stopped = await mainSession.close(); await backend.done(); processClosed = true;
+      assert.equal(controller.snapshot().phase, 'original');
+      assert.equal(restoredTime, proof.globalTicks / 120000);
+      assert.equal(recoveryReleased, 1);
       assert.ok(stopped.nativeDrained && stopped.processExited && stopped.pipesClosed);
       assert.ok(receipt?.success);
       const bytes = await readFile(join(work, 'native-run-1/native-result.json'));
@@ -128,12 +171,13 @@ try {
       const result = JSON.parse(bytes);
       assert.equal(result.heldBytes, 0); assert.equal(result.quarantinedBytes, 0);
     } finally {
+      if (controller && !processClosed) await controller.closeNative().catch(() => {});
       if (owned && !processClosed) { await owned.close(); await backend.done(); processClosed = true; }
       receiver.groupClose(service); allDrained = processClosed;
     }
   }
   console.log(JSON.stringify({ syntheticPairMeasurements: measurements }));
-  console.log('All four reverse rates: actual two-source samples, monotonic pairs, stop proof and real close passed; Drawn ACK synthetic.');
+  console.log('All four reverse rates: normal Controller/Main session, actual two-source samples, monotonic pairs, stop proof and real close passed; Drawn ACK synthetic.');
 } finally {
   if (allDrained) await rm(directory, { recursive: true });
   else console.error('Group reverse retained its own directory: completion unconfirmed.');

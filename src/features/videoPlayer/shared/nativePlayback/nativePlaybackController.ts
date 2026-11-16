@@ -1,4 +1,4 @@
-import { clockMovedAgainstRate } from '../../../../shared/media/playbackRate';
+import { nativeClosedRecoveryTime } from './nativeClosedRecoveryTime';
 import { createCommandGestureIntent } from './commandGestureIntent';
 import { reportNativeFailure } from './nativeFailureReport';
 import type { VideoSeekMode } from '../../../../types/video/seek';
@@ -11,7 +11,6 @@ import type {
   NativePlaybackSnapshot,
 } from '../../../../types/ipc/nativePlayback';
 import {
-  parseNativePlaybackClosed,
   parseNativePlaybackIntent,
   parseNativePlaybackSnapshot,
 } from '../../../../types/ipc/nativePlayback';
@@ -90,6 +89,7 @@ export class NativePlaybackController {
     controls: NativePlaybackControls,
     private readonly original: NativeOriginalRecovery,
     private readonly presentation: NativePlaybackPresentation | null = null,
+    private readonly clockAuthority: 'source-clock' | 'drawn-pair' = 'source-clock',
   ) {
     this.intent = {
       ...owner,
@@ -576,45 +576,16 @@ export class NativePlaybackController {
     this.disconnectObserver();
     clearInterval(this.watchdog);
     this.closeWork = (async () => {
-      const result = parseNativePlaybackClosed(
-        await this.api.close({ ...this.owner }),
-      );
+      const result = await this.api.close({ ...this.owner });
       await this.opened;
       await this.writer;
       await this.gestureRevocation;
-      if (
-        result.generation !== this.owner.generation ||
-        !result.nativeDrained ||
-        !result.processExited ||
-        !result.pipesClosed
-      )
-        throw Error('NATIVE_CLEANUP_UNCONFIRMED');
-      const stopped = result.stopped;
-      if (stopped) {
-        if (
-          stopped.sourceKey !== this.owner.sourceKey ||
-          stopped.sequence > this.intent.sequence ||
-          stopped.seekId > this.intent.seekId ||
-          (stopped.seekId === this.lastReadySeek &&
-            Math.sign(this.intent.rate) === Math.sign(this.clockRate) &&
-            clockMovedAgainstRate(
-              stopped.time,
-              this.state.time,
-              this.clockRate,
-            )) ||
-          (stopped.seekId === this.bufferedStop?.seekId &&
-            Math.sign(this.intent.rate) === Math.sign(this.clockRate) &&
-            clockMovedAgainstRate(
-              stopped.time,
-              this.bufferedStop.time,
-              this.clockRate,
-            ))
-        )
-          throw Error('NATIVE_STOP_CLOCK_UNCONFIRMED');
-        this.stoppedTime = stopped.time;
-      } else if (this.lastReadySeek > 0) {
-        throw Error('NATIVE_STOP_CLOCK_MISSING');
-      }
+      this.stoppedTime = nativeClosedRecoveryTime(result, {
+        owner: this.owner, sequence: this.intent.sequence, seekId: this.intent.seekId,
+        lastReadySeek: this.lastReadySeek, time: this.state.time,
+        intentRate: this.intent.rate, clockRate: this.clockRate,
+        bufferedStop: this.bufferedStop, clockAuthority: this.clockAuthority,
+      });
     })();
     return this.closeWork;
   }

@@ -484,3 +484,6 @@ Mainの`runtime/groupPresentationLedger.ts`は画像資源から独立した有�
 `native/macos/playback/apple-player/DecodeAnchor.hpp` selects only bounded, full-sync compressed-reader anchors. It does not own clocks, images, surface loans or source qualification.
 
 `scripts/windows/verify-package-owner.mjs` is a read-only Windows CI contract for the existing Main package-lock identity primitive. It compiles that exact small TypeScript module for execution without importing Electron or adding a production process-control API.
+
+
+`features/videoPlayer/shared/nativePlayback/nativeClosedRecoveryTime.ts` keeps closed-receipt authority and recovery-anchor calculation separate from Controller IPC/lifecycle scheduling. Main independently checks group presentation receipts against complete Drawn history; the Renderer helper does not create that authority.

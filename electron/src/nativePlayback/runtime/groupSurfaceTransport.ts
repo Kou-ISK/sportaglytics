@@ -13,6 +13,7 @@ import type {
   NativeGroupPresentation,
 } from '../../../../src/types/ipc/nativeGroupSurface';
 import type {
+  NativePlaybackObservation,
   NativePlaybackIntent,
   NativePlaybackOwner,
 } from '../../../../src/types/ipc/nativePlayback';
@@ -41,6 +42,8 @@ export interface GroupSurfaceTransport {
   ready(id: number): void;
   /** Last complete acknowledged pair, distinct from requested/player clocks. */
   presented(): NativeGroupPresentation | null;
+  confirmsPresentation(value: NativePlaybackObservation): boolean;
+  confirmsPresentedStop(proof: NativeGroupPresentation): boolean;
   validateStop(
     proof: unknown,
     intent: NativePlaybackIntent,
@@ -306,6 +309,11 @@ export const createGroupSurfaceTransport = (
   return {
     service,
     presented: () => presentation.presented(),
+    confirmsPresentedStop: (proof) => proof.generation === owner.generation &&
+      presentation.confirmsStop(proof),
+    confirmsPresentation: (value) => value.generation === owner.generation &&
+      value.sourceKey === owner.sourceKey && presentation.confirms(
+        value.generation, value.sequence, value.seekId, value.time),
     validateStop: (proof, intent) => {
       if (stopped || failed || closeAttempted)
         throw Error('NATIVE_GROUP_SURFACE_CLOSING');

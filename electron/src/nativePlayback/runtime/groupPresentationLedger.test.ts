@@ -96,3 +96,37 @@ it('bounds history, expires old proofs, and returns copies that do not mutate it
   value.globalTicks = 9;
   expect(ledger.stop(proof(65), intent, owner).globalTicks).toBe(600000);
 });
+it('confirms only complete Drawn history, with exact owner/operation/seek/time', () => {
+  const ledger = new GroupPresentationLedger();
+  const matches = (): boolean => ledger.confirms('owner', 1, 1, 5);
+  ledger.publish(frame(0)); ledger.publish(frame(1));
+  expect(matches()).toBe(false);
+  ledger.drawn(frame(0)); expect(matches()).toBe(false);
+  ledger.drawn(frame(1)); expect(matches()).toBe(true);
+  for (const args of [
+    ['other', 1, 1, 5], ['owner', 2, 1, 5], ['owner', 1, 2, 5],
+    ['owner', 1, 1, 5.000001], ['owner', 1, 1, NaN],
+  ] as const) expect(ledger.confirms(...args)).toBe(false);
+  // A newer submission does not invalidate a delayed observation of a fully
+  // acknowledged pair, but bounded eviction eventually removes its authority.
+  for (let pair = 2; pair <= 65; pair++) {
+    const a = { ...frame(0, pair), operation: 2 }, b = { ...frame(1, pair), operation: 2 };
+    ledger.publish(a); ledger.publish(b); ledger.drawn(a); ledger.drawn(b);
+  }
+  expect(matches()).toBe(false);
+  expect(ledger.confirms('owner', 2, 1, 5)).toBe(true);
+});
+it('never grants a closed receipt for partial Drawn or substituted pair/document/IDs', () => {
+  const ledger = new GroupPresentationLedger();
+  ledger.publish(frame(0)); ledger.publish(frame(1));
+  ledger.drawn(frame(0)); expect(ledger.confirmsStop(proof())).toBe(false);
+  ledger.drawn(frame(1)); expect(ledger.confirmsStop(proof())).toBe(true);
+  for (const changed of [{ ids: [1, 4] }, { pair: 2 }, { document: 'other' },
+    { operation: 2 }, { seekId: 2 }, { globalTicks: 600001 }])
+    expect(ledger.confirmsStop({ ...proof(), ...changed })).toBe(false);
+  ledger.publish(frame(0, 2)); ledger.publish(frame(1, 2));
+  ledger.drawn(frame(0, 2)); ledger.drawn(frame(1, 2));
+  expect(ledger.confirms('owner', 1, 1, 5)).toBe(true); // delayed observation allowed
+  expect(ledger.confirmsStop(proof())).toBe(false); // old recovery anchor forbidden
+  expect(ledger.confirmsStop(proof(2))).toBe(true);
+});

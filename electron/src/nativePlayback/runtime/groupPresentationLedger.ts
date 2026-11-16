@@ -72,6 +72,29 @@ export class GroupPresentationLedger {
     }
     return null;
   }
+  /** Bounded history permits a delayed native observation, but only after both
+   * actual Drawn acknowledgements. Publishing a pair alone is not evidence. */
+  confirms(generation: string, operation: number, seekId: number, time: number): boolean {
+    if (!Number.isFinite(time) || time < 0) return false;
+    for (const pair of this.pairs.values()) {
+      if (pair.drawn !== 3) continue;
+      const shown = snapshot(pair);
+      if (shown.generation === generation && shown.operation === operation &&
+          shown.seekId === seekId && shown.globalTicks / 120000 === time) return true;
+    }
+    return false;
+  }
+  confirmsStop(raw: unknown): boolean {
+    let proof: NativeGroupPresentation;
+    try { proof = parseNativeGroupPresentation(raw); } catch { return false; }
+    const pair = this.pairs.get(proof.pair);
+    if (!pair || pair.drawn !== 3 || this.current?.pair !== proof.pair) return false;
+    const actual = snapshot(pair);
+    return actual.document === proof.document && actual.generation === proof.generation &&
+      actual.operation === proof.operation && actual.seekId === proof.seekId &&
+      actual.globalTicks === proof.globalTicks && actual.ids[0] === proof.ids[0] &&
+      actual.ids[1] === proof.ids[1];
+  }
   presented(): NativeGroupPresentation | null {
     return this.current && { ...this.current, ids: [...this.current.ids] };
   }

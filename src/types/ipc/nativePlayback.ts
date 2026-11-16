@@ -1,3 +1,5 @@
+import { parseNativeGroupPresentation } from './nativeGroupSurface';
+import type { NativeGroupPresentation } from './nativeGroupSurface';
 import { isPlaybackRate } from '../../shared/media/playbackRate';
 import { parseNativePlaybackPresentation } from './nativePlaybackPresentation';
 import type { NativePlaybackPresentation } from './nativePlaybackPresentation';
@@ -70,6 +72,8 @@ export interface NativePlaybackClosed {
   pipesClosed: boolean;
   /** Measured stopped source clock, retained before renderer disposal. */
   stopped: NativePlaybackStopped | null;
+  /** Complete-pair canvas receipt after drain; never an AVPlayer stopped clock. */
+  presentedStop?: NativeGroupPresentation;
 }
 export interface NativePlaybackStopped extends NativePlaybackOwner {
   sequence: number;
@@ -245,6 +249,7 @@ export const parseNativePlaybackClosed = (
     'processExited',
     'pipesClosed',
     'stopped',
+    'presentedStop',
   ]);
   let stopped: NativePlaybackStopped | null = null;
   if (v.stopped !== null) {
@@ -274,7 +279,11 @@ export const parseNativePlaybackClosed = (
     )
       throw Error('NATIVE_STOP_OWNER_CHANGED');
   }
+  const presentedStop = v.presentedStop === undefined ? undefined : parseNativeGroupPresentation(v.presentedStop);
+  if (presentedStop && (stopped || presentedStop.generation !== v.generation ||
+      presentedStop.seekId > presentedStop.operation)) throw Error('NATIVE_STOP_AUTHORITY');
   return {
+    ...(presentedStop === undefined ? {} : { presentedStop }),
     generation: stringValue(v.generation, 1, 128),
     nativeDrained: booleanValue(v.nativeDrained),
     processStarted: booleanValue(v.processStarted),

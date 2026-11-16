@@ -501,3 +501,6 @@ Group v2のnative転送とMain adapterはsource/操作世代・pair単位のmeta
 圧縮readerの開始は有界なfull-sync sample探索で選び、一律paddingによる余分なGOP復号を避ける。未知のcursor情報では従来の保守的開始位置を使い、画像時刻の検査や取消・排出条件は維持する。通常Controllerや実表示の速度達成とは分けて検証する。
 
 限定group sourceは画像windowと音声用AVPlayerを独立に準備し、実seek成功と検査済み画像が両方そろうまで提示側へreadyを渡さない。未完の音声を準備済みと偽装せず、取消後も実callback/workerの終了を待つ。
+
+
+限定groupの通常Controllerクラス/Mainセッション結合では、Main所有の完全Drawn履歴で観測を検証し、終了後の`presentedStop`をsource clockの`stopped`と分離する。通常UI/providerの能力交渉と二canvas/HTML復旧への接続は未完であり、試験用IPC/Drawn/復旧adapterを本番受入としない。

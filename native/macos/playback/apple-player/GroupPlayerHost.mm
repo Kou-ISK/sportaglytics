@@ -193,7 +193,7 @@ void opaque(id value) {
     _lastDrawnTicks = a->globalTicks; _lastDrawnAt = CACurrentMediaTime();
   }
   auto available = [_players availableAnchor:target];
-  if (_scheduled && _clock->sample(groupHostNow()).running && (!available || *available != target)) {
+  if (_scheduled && _clock->sample(groupHostNow()).running && (!available || *available != target || CACurrentMediaTime() - _lastDrawnAt >= .25)) {
     check(_lastDrawnOperation == op && _lastDrawnSeek == seek);
     // Hold the last complete image while one fixed next target is prepared.
     // Do not keep advancing the target past a slow decoder or call it playing.
@@ -256,12 +256,13 @@ void opaque(id value) {
     // complete drawn pair, never that advancing target or an AVPlayer deadline.
     const double clockRate = _scheduled ? _clock->scheduledRate(groupHostNow()) : 0;
     const bool running = clockRate != 0 && CACurrentMediaTime() - _lastDrawnAt < .25;
+    const bool ready = shown && _ready && (running || !playing);
     [self enqueue:@{@"type":@"observation", @"value":@{
       @"generation":_intent[@"generation"], @"sourceKey":_intent[@"sourceKey"], @"revision":@(++_revision),
       @"sequence":@(op), @"seekId":@(seek), @"phase":!shown ? @"preparing" : running ? @"playing" : playing ? @"buffering" : @"paused",
-      @"time":@(double(shownTime) / 120000), @"rate":@(clockRate),
+      @"time":@(double(shownTime) / 120000), @"rate":@(running ? clockRate : 0),
       @"audioTrack":_intent[@"audioTrack"], @"volume":_intent[@"volume"], @"muted":_intent[@"muted"],
-      @"videoReady":@(shown), @"audioReady":@(_ready && _audioValidated), @"error":[NSNull null]}}];
+      @"videoReady":@(ready), @"audioReady":@(ready && _audioValidated), @"error":[NSNull null]}}];
   }
 }
 - (int)run:(NSString *)result interrupted:(volatile sig_atomic_t *)interrupted {

@@ -787,3 +787,75 @@ it.each(['playing', 'buffering', 'paused'] as const)(
     ).toBe(false);
   },
 );
+
+it('requires a Main-owned presentation verifier for a drawn-pair clock', () => {
+  const { backend } = make();
+  expect(() => new NativePlaybackSession({ owner, start: 0, end: 10,
+    audioTracks: 1, rates: [1], clockAuthority: 'drawn-pair' }, backend)).toThrow('SCOPE');
+});
+it.each([1, -2])('accepts only ledger-confirmed directional pairs while buffering (%s)', async (rate) => {
+  const { backend } = make();
+  const confirmed = new Set<number>([3]);
+  const session = new NativePlaybackSession({ owner, start: 0, end: 10,
+    audioTracks: 1, rates: [rate], clockAuthority: 'drawn-pair' }, {
+    ...backend, confirmsPresentation: (value) => confirmed.has(value.time),
+    confirmsPresentedStop: (proof) => proof.ids[0] === 1 && proof.ids[1] === 2,
+  });
+  session.apply(intent({ rate })); await tick();
+  expect(session.observe(observation())).toBe(true);
+  session.apply(intent({ sequence: 2, playing: true, rate })); await tick();
+  const direction = Math.sign(rate);
+  backend.close.mockResolvedValue({ ...drained, presentedStop: {
+    document: 'doc', generation: owner.generation, operation: 2, seekId: 1,
+    pair: 1, globalTicks: Math.round((3 + direction * .12) * 120000), ids: [1, 2],
+  } });
+  const ready = 3 + direction * .1;
+  confirmed.add(ready);
+  expect(session.observe(observation({ revision: 2, sequence: 2, phase: 'playing', time: ready, rate }))).toBe(true);
+  for (const [index, delta] of [.11, .12].entries()) {
+    const time = 3 + direction * delta; confirmed.add(time);
+    expect(session.observe(observation({ revision: 3 + index, sequence: 2,
+      phase: 'buffering', time, videoReady: false, audioReady: false }))).toBe(true);
+  }
+  expect(session.snapshot().lastConfirmedTime).toBe(ready);
+  // Even genuine old Drawn history cannot authorize moving against direction.
+  expect(session.observe(observation({ revision: 5, sequence: 2, phase: 'buffering',
+    time: ready, videoReady: false, audioReady: false }))).toBe(false);
+  expect(session.snapshot().error).toBe('protocol');
+  await session.close(); expect(backend.close).toHaveBeenCalledTimes(1);
+});
+it.each(['false', 'throw'] as const)('rejects unconfirmed drawn-pair observations: %s', async (mode) => {
+  const { backend } = make();
+  const session = new NativePlaybackSession({ owner, start: 0, end: 10,
+    audioTracks: 1, rates: [1], clockAuthority: 'drawn-pair' }, { ...backend,
+    confirmsPresentedStop: () => false,
+    confirmsPresentation: () => { if (mode === 'throw') throw Error('ledger'); return false; },
+  });
+  session.apply(intent()); await tick();
+  expect(session.observe(observation())).toBe(false);
+  expect(session.snapshot().lastConfirmedTime).toBe(0);
+  await session.close(); expect(backend.close).toHaveBeenCalledTimes(1);
+});
+it.each(['valid', 'missing', 'unissued', 'ledger-reject', 'not-started'] as const)(
+  'validates the Main-owned presentation receipt after actual drain: %s', async (kind) => {
+    const { backend } = make();
+    const receipt: NativePlaybackClosed = { ...drained,
+      presentedStop: { document: 'doc', generation: owner.generation,
+        operation: kind === 'unissued' ? 2 : 1, seekId: 1,
+        pair: 1, globalTicks: 360000, ids: [1, 2] },
+    };
+    if (kind === 'missing') delete receipt.presentedStop;
+    if (kind === 'not-started') receipt.processStarted = false;
+    backend.close.mockResolvedValue(receipt);
+    let closing = false;
+    const session = new NativePlaybackSession({ owner, start: 0, end: 10,
+      audioTracks: 1, rates: [1], clockAuthority: 'drawn-pair' }, { ...backend,
+      confirmsPresentedStop: () => !(closing && kind === 'ledger-reject'),
+      confirmsPresentation: () => true,
+    });
+    session.apply(intent()); await tick(); expect(session.observe(observation())).toBe(true);
+    closing = true;
+    if (kind === 'valid') expect(await session.close()).toEqual(receipt);
+    else await expect(session.close()).rejects.toThrow('PRESENTATION_UNCONFIRMED');
+    expect(backend.close).toHaveBeenCalledOnce();
+  });
