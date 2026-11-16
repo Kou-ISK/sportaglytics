@@ -3,15 +3,36 @@
 
 int main() {
   using namespace appleplayback;
+  const auto end = std::numeric_limits<uint64_t>::max();
   // Half-open nominal-frame agreement, including unsigned overflow boundaries.
-  assert(v1StoppedImageMatches(0, 0));
-  assert(v1StoppedImageMatches(2001, 0));
-  assert(!v1StoppedImageMatches(2002, 0));
-  assert(v1StoppedImageMatches(1999, 2000));
-  assert(!v1StoppedImageMatches(1998, 2000));
+  assert(v1StoppedImageMatches(0, 0, end));
+  assert(v1StoppedImageMatches(2001, 0, end));
+  assert(!v1StoppedImageMatches(2002, 0, end));
+  assert(v1StoppedImageMatches(1999, 2000, end));
+  assert(!v1StoppedImageMatches(1998, 2000, end));
   const auto maximum = std::numeric_limits<uint64_t>::max();
-  assert(v1StoppedImageMatches(maximum, maximum - 2001));
-  assert(!v1StoppedImageMatches(maximum, maximum - 2002));
+  assert(v1StoppedImageMatches(maximum - 1, maximum - 2002, end));
+  assert(!v1StoppedImageMatches(maximum - 1, maximum - 2003, end));
+
+  assert(!v1StoppedImageMatches(0, 0, 0));
+  assert(!v1StoppedImageMatches(4003, 4004, 4004));
+  assert(v1StoppedImageMatches(4004, 2002, 4004));
+  assert(!v1StoppedImageMatches(4005, 2002, 4004));
+  assert(!v1StoppedImageMatches(4004, 4004, 4004));
+
+  StoppedImageWait wait;
+  wait.begin(0);
+  assert(!wait.expired(4.999));
+  wait.begin(4); // correction/repeated pending control cannot extend the wait
+  assert(wait.expired(5));
+  wait.begin(6, true); // a new explicit seek has its own finite budget
+  assert(!wait.expired(10.999) && wait.expired(11));
+  wait.moving(); // do not reuse an old stop deadline at natural EOM
+  assert(!wait.expired(100));
+  wait.begin(100);
+  assert(!wait.expired(104.999) && wait.expired(105));
+  assert(wait.expired(99)); // a regressed/unknown monotonic clock fails closed
+  assert(wait.expired(std::numeric_limits<double>::quiet_NaN()));
 
   StoppedImageSettlement gate;
   assert(!gate.beginSeek() && !gate.takeCorrection());

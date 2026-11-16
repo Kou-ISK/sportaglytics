@@ -12,11 +12,15 @@ int main() {
   const CMTime beforeEnd = CMTimeSubtract(CMTimeMake(2002, 60000), CMTimeMake(2, 1000000));
   assert(sourceTicks(beforeEnd) == 4004);
   assert(sourceTicks(beforeEnd, floor) == 4003);
-  assert(v1StoppedImageMatches(*sourceTicks(beforeEnd, floor), *sourceTicks(firstFrame)));
-  assert(!v1StoppedImageMatches(*sourceTicks(CMTimeMake(2002, 60000), floor), 2002));
+  assert(v1StoppedImageMatches(*sourceTicks(beforeEnd, floor), *sourceTicks(firstFrame), 4004));
+  // With another frame still in the source, that frame boundary excludes the
+  // preceding frame. Natural EOM, in contrast, holds the final image.
+  assert(!v1StoppedImageMatches(*sourceTicks(CMTimeMake(2002, 60000), floor), 2002, 6006));
+  assert(v1StoppedImageMatches(4004, 2002, 4004));
+  assert(!v1StoppedImageMatches(4003, 4004, 4004));
   // A nanosecond player clock can fall just below an exact rational frame edge.
   const CMTime roundedClock = CMTimeMakeWithSeconds(1001.0 / 60000, 1000000000);
-  assert(v1StoppedImageMatches(*sourceTicks(roundedClock, floor), *sourceTicks(firstFrame)));
+  assert(v1StoppedImageMatches(*sourceTicks(roundedClock, floor), *sourceTicks(firstFrame), 4004));
   assert(!sourceTicks(kCMTimeInvalid));
   assert(!sourceTicks(kCMTimeIndefinite));
   assert(!sourceTicks(kCMTimePositiveInfinity));

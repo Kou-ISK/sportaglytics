@@ -50,9 +50,10 @@ using appleplayback::sourceTicks;
   appleplayback::ControlOutput _output;
   uint64_t _seek, _revision, _imagePTS, _controlSequence, _rateSequence;
   BOOL _seeking, _seekCompleted, _imageSent, _ready, _closing, _persisted, _engineClosed, _atStart;
-  double _openedAt, _closeAt, _observedAt, _imageWaitStarted;
+  double _openedAt, _closeAt, _observedAt;
   appleplayback::ReversePresentationProgress _reverseProgress;
   appleplayback::StoppedImageSettlement _settlement;
+  appleplayback::StoppedImageWait _imageWait;
 }
 - (instancetype)initWithManifest:(NSDictionary *)manifest result:(NSString *)result {
   if ((self = [super init])) {
@@ -140,7 +141,7 @@ using appleplayback::sourceTicks;
 - (void)seekImage:(CMTime)time approximate:(BOOL)approximate newRequest:(BOOL)newRequest {
   [_engine pause];
   _ready = NO; _imageSent = NO; _seekCompleted = NO; _seeking = YES; _rateSequence = 0;
-  if (newRequest || _imageWaitStarted == 0) _imageWaitStarted = CACurrentMediaTime();
+  _imageWait.begin(CACurrentMediaTime(), newRequest);
   uint64_t seek = _seek, token = _settlement.beginSeek();
   require(token != 0, @"playback image seek owner");
   void (^completion)(BOOL) = ^(BOOL finished) {
@@ -162,6 +163,10 @@ using appleplayback::sourceTicks;
   // preview/scrub deliberately allow a nearby seek result. Preserve that
   // existing contract; this correction applies to exact seeks/held release.
   const BOOL exactImage = _intent[@"seekMode"] == nil;
+  const auto sourceEnd = sourceTicks(_engine.duration);
+  if (!sourceEnd || !*sourceEnd) {
+    [self failMedia:@"source duration unavailable"]; return;
+  }
   require([_intent[@"targetTime"] doubleValue] < CMTimeGetSeconds(_engine.duration), @"seek outside media");
   if (_controlSequence != [_intent[@"sequence"] unsignedLongLongValue]) {
     if (![_engine supportsRate:[_intent[@"rate"] floatValue]]) {
@@ -178,7 +183,7 @@ using appleplayback::sourceTicks;
     _reverseProgress.reset(CACurrentMediaTime());
     if (![_intent[@"playing"] boolValue] || [_intent[@"seekMode"] isEqual:@"preview"]) {
       [_engine pause];
-      if (_ready || _imageWaitStarted == 0) _imageWaitStarted = CACurrentMediaTime();
+      _imageWait.begin(CACurrentMediaTime(), _ready);
       _ready = NO;
     }
   }
@@ -192,23 +197,25 @@ using appleplayback::sourceTicks;
   if ([_intent[@"rate"] doubleValue] < 0 && [_intent[@"playing"] boolValue] &&
       _ready && !_atStart && CMTimeCompare(_engine.currentTime, kCMTimeZero) <= 0) {
     [_engine pause]; _atStart = YES; _imageSent = NO; _ready = NO;
-    _imageWaitStarted = CACurrentMediaTime();
+    _imageWait.begin(CACurrentMediaTime(), true);
   }
-  if (exactImage && _ready && _engine.rate == 0 && (_atStart ||
+  const BOOL atEnd = CMTimeCompare(_engine.currentTime, _engine.duration) == 0;
+  if (_ready && _engine.rate != 0) _imageWait.moving();
+  if (exactImage && _ready && _engine.rate == 0 && (_atStart || atEnd ||
       ![_intent[@"playing"] boolValue] || [_intent[@"seekMode"] isEqual:@"preview"]) &&
       _surfaces.hasDrawn(_controlSequence)) {
     const auto clock = sourceTicks(_engine.currentTime, kCMTimeRoundingMethod_RoundTowardNegativeInfinity);
-    if (!clock || !appleplayback::v1StoppedImageMatches(*clock, _surfaces.drawnPTS())) {
+    if (!clock || !appleplayback::v1StoppedImageMatches(*clock, _surfaces.drawnPTS(), *sourceEnd)) {
       _ready = NO; _imageSent = NO;
-      if (_imageWaitStarted == 0) _imageWaitStarted = CACurrentMediaTime();
+      _imageWait.begin(CACurrentMediaTime());
     }
   }
-  if (exactImage && !_ready && _imageWaitStarted > 0 && CACurrentMediaTime() - _imageWaitStarted >= 5) {
+  if (exactImage && !_ready && _imageWait.expired(CACurrentMediaTime())) {
     [self failMedia:@"stopped image qualification timeout"]; return;
   }
   if (!_seeking && _seekCompleted && !_ready && _engine.rate == 0 && _imageSent && _surfaces.drawn(_controlSequence, _imagePTS)) {
     const auto clock = sourceTicks(_engine.currentTime, kCMTimeRoundingMethod_RoundTowardNegativeInfinity);
-    if (!exactImage || (clock && appleplayback::v1StoppedImageMatches(*clock, _imagePTS))) {
+    if (!exactImage || (clock && appleplayback::v1StoppedImageMatches(*clock, _imagePTS, *sourceEnd))) {
       _ready = YES; [self observe:{"paused", 0, true}];
     } else {
       _imageSent = NO;
@@ -225,14 +232,14 @@ using appleplayback::sourceTicks;
     if (image) {
       auto imageOwner = PixelReference::adopt(image);
       const auto ticks = sourceTicks(pts);
-      require(ticks.has_value(), @"Apple image timestamp");
-      const BOOL stopped = exactImage && _engine.rate == 0 && (!_ready || _atStart ||
+      require(ticks.has_value() && *ticks < *sourceEnd, @"Apple image timestamp");
+      const BOOL stopped = exactImage && _engine.rate == 0 && (!_ready || _atStart || atEnd ||
         ![_intent[@"playing"] boolValue] || [_intent[@"seekMode"] isEqual:@"preview"]);
       const CMTime pausedTime = stopped ? _engine.currentTime : kCMTimeInvalid;
       const auto clock = sourceTicks(pausedTime, kCMTimeRoundingMethod_RoundTowardNegativeInfinity);
-      if (stopped && (!clock || !appleplayback::v1StoppedImageMatches(*clock, *ticks))) {
+      if (stopped && (!clock || !appleplayback::v1StoppedImageMatches(*clock, *ticks, *sourceEnd))) {
         _ready = NO; _imageSent = NO;
-        if (_imageWaitStarted == 0) _imageWaitStarted = CACurrentMediaTime();
+        _imageWait.begin(CACurrentMediaTime());
         if (clock && _settlement.takeCorrection()) {
           // Correct to the actual paused clock, never to an old drawn image.
           // Re-press preserves this physical completion; new seek invalidates it.
