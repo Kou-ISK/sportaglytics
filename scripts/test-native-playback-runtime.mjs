@@ -14,6 +14,16 @@ try {
       ['-pthread'],
     ],
     ['PlayerObservation', 'apple-player/PlayerObservation.test.cpp', []],
+    [
+      'StoppedImageSettlement',
+      'apple-player/StoppedImageSettlement.test.cpp',
+      [],
+    ],
+    [
+      'SourceClockTicks',
+      'apple-player/SourceClockTicks.test.cpp',
+      ['-framework', 'CoreMedia'],
+    ],
     ['ReplyQueue', 'surface-transport/ReplyQueue.test.cpp', ['-lbsm']],
     [
       'SurfaceSender',

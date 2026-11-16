@@ -490,4 +490,6 @@ The native v2 single-cut candidate can transfer its qualified descriptor directl
 
 [共通再生セッション](multi-angle-playback.md)は方式比較中です。操作/source世代付き画像leaseと共通保持budgetをnative部品として分離しますが、現行の単一surface/資格条件を解除せず、公開版の操作・IPC契約は変更しません。取得画像と実表示、共通clockとdecoder供給を区別して受入を進めます。
 
+単一native経路の停止確認も、seek完了/nonnull画像だけでは成功にしません。実停止時計とPTSが不一致なら、その時計への一回のoutput更新・補正と現在操作のDrawnを要求します。補正の有限期限と媒体/物理seek所有を維持し、過去の表示位置を保存時計へ流用しません。
+
 Main内部の複数素材プランは、現在のpackageに記録された選択angleの配置・同期offsetと検証済みlocal参照を束ねます。既存の単一素材経路とfilesystem検査を共有し、複数angleを単一URLとして公開しません。group backend/IPC接続と実表示受入は引き続き未完です。

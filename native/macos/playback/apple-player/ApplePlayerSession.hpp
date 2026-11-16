@@ -29,6 +29,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// be reported as an exact requested time or used to mutate annotation ranges.
 - (void)seekToTime:(CMTime)time approximate:(BOOL)approximate
         completion:(void (^)(BOOL finished))completion;
+/// One owned correction after a stale stopped image: refresh the output queue
+/// and seek to the actual paused clock. Completion still requires PTS/display
+/// validation by the caller. Never use this while playing or already seeking.
+- (void)settleStoppedImageAtTime:(CMTime)time
+                    completion:(void (^)(BOOL finished))completion;
 - (nullable CVPixelBufferRef)copyCurrentImage:(CMTime *)presentationTime
                                     force:(BOOL)force CF_RETURNS_RETAINED;
 - (void)close;

@@ -2,6 +2,17 @@
 #import <QuartzCore/QuartzCore.h>
 #include <cmath>
 
+namespace {
+AVPlayerItemVideoOutput *makeVideoOutput() {
+  AVPlayerItemVideoOutput *output = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:@{
+    (id)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
+    (id)kCVPixelBufferIOSurfacePropertiesKey: @{}
+  }];
+  output.suppressesPlayerRendering = YES;
+  return output;
+}
+}
+
 @implementation STApplePlayerSession {
   AVPlayer *_player;
   AVPlayerItem *_item;
@@ -15,11 +26,7 @@
   NSParameterAssert(url.isFileURL);
   if ((self = [super init])) {
     _item = [AVPlayerItem playerItemWithURL:url];
-    _output = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:@{
-      (id)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
-      (id)kCVPixelBufferIOSurfacePropertiesKey: @{}
-    }];
-    _output.suppressesPlayerRendering = YES;
+    _output = makeVideoOutput();
     [_item addOutput:_output];
     _player = [AVPlayer playerWithPlayerItem:_item];
     _item.reversePlaybackEndTime = kCMTimeZero;
@@ -102,6 +109,21 @@
         completion(finished && session && !session->_closed && revision == session->_seekRevision);
       });
     }];
+}
+- (void)settleStoppedImageAtTime:(CMTime)time completion:(void (^)(BOOL))completion {
+  NSParameterAssert(NSThread.isMainThread);
+  if (_closed || _seeking || self.rate != 0 || !CMTIME_IS_NUMERIC(time) ||
+      CMTimeCompare(time, kCMTimeZero) < 0 || !CMTIME_IS_NUMERIC(self.duration) ||
+      CMTimeCompare(time, self.duration) >= 0) {
+    completion(NO); return;
+  }
+  // A completed reverse seek can leave old images in AVPlayerItemVideoOutput.
+  // Already transferred CVPixelBuffers remain owned by their surface leases;
+  // replacing this output does not release those buffers or alter audio tracks.
+  [_item removeOutput:_output];
+  _output = makeVideoOutput();
+  [_item addOutput:_output];
+  [self seekToTime:time approximate:NO completion:completion];
 }
 - (CVPixelBufferRef)copyCurrentImage:(CMTime *)presentationTime force:(BOOL)force {
   NSParameterAssert(NSThread.isMainThread);
