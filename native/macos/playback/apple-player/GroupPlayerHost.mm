@@ -124,6 +124,9 @@ void opaque(id value) {
       double(_start), double(_end - 1)));
   }
   [_players pause];
+  if (playing && rate < 0) {
+    _failureInfo = @{@"stage":@"unsupported-reverse-provenance"}; check(false);
+  }
   if (v[@"stopProof"]) {
     check(!playing && _intent != nil);
     NSDictionary *p = v[@"stopProof"];

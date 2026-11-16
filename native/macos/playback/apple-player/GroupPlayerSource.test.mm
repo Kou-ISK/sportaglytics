@@ -44,6 +44,8 @@ int main() { @autoreleasepool {
     closeAndDrain(first);
     assert(a->image.image() && budget.usedBytes() > 0);
   }
+  CMTime future = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTimeMake(1, 10));
+  assert(![second scheduleRate:-2 globalTicks:4004 hostTime:future]);
   // One source closing must not revoke the other player's image/metadata.
   assert([second frame] && [second frame]->covers(4004));
   assert(![second seek:22022 operation:2]);

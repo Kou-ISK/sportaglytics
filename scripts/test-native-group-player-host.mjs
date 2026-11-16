@@ -65,10 +65,12 @@ try {
   const { nativeGroupHostConfiguration } = require(configFile);
   const source = join(work, 'vfr.mov');
   await run(fixture, [source]);
-  for (const forgedStop of [false, true]) {
+  for (const scenario of ['normal', 'forged-stop', 'unsupported-reverse']) {
+    const forgedStop = scenario === 'forged-stop';
+    const unsupportedReverse = scenario === 'unsupported-reverse';
     const service = 'local.sportaglytics.surface.group-' + randomUUID();
     receiver.openGroupV2(service);
-    const directory = join(work, forgedStop ? 'forged' : 'normal');
+    const directory = join(work, scenario);
     await mkdir(join(directory, 'native-run-1'), { recursive: true });
     const owner = { generation: randomUUID(), sourceKey: 'a'.repeat(64) };
     const packets = [],
@@ -127,7 +129,7 @@ try {
         seekId: 1,
         targetTime: 4004 / 120000,
         playing: false,
-        rate: -0.5,
+        rate: 1,
         audioTrack: 0,
         volume: 0,
         muted: true,
@@ -162,13 +164,15 @@ try {
         secondID: second.id,
       });
       await owned.write(
-        forgedStop
-          ? { ...intent, sequence: 2, stopProof: proofFor(a, b, true) }
-          : { ...intent, sequence: 2, playing: true },
+        unsupportedReverse
+          ? { ...intent, sequence: 2, playing: true, rate: -2 }
+          : forgedStop
+            ? { ...intent, sequence: 2, stopProof: proofFor(a, b, true) }
+            : { ...intent, sequence: 2, playing: true },
       );
       for (const packet of packets.slice())
         receiver.groupRelease(service, packet.id);
-      if (!forgedStop) {
+      if (!forgedStop && !unsupportedReverse) {
         await until(() => packets.length === 4);
         assert.ok(
           packets
@@ -205,7 +209,7 @@ try {
       assert.equal(closeResult.processExited, true);
       assert.equal(closeResult.pipesClosed, true);
       assert.equal(closeResult.stopped, null); // not a measured AVPlayer clock
-      assert.equal(receipt.success, !forgedStop);
+      assert.equal(receipt.success, !forgedStop && !unsupportedReverse);
       const bytes = await readFile(
         join(directory, 'native-run-1/native-result.json'),
       );
@@ -216,9 +220,11 @@ try {
       const result = JSON.parse(bytes);
       assert.equal(result.heldBytes, 0);
       assert.equal(result.quarantinedBytes, 0);
+      if (unsupportedReverse)
+        assert.equal(result.failure.stage, 'unsupported-reverse-provenance');
       assert.equal(
         notes.find((n) => n.kind === 'host-exit').value.code,
-        forgedStop ? 1 : 0,
+        forgedStop || unsupportedReverse ? 1 : 0,
       );
     } finally {
       if (owned && !closeResult) {

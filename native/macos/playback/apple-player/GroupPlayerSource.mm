@@ -109,7 +109,10 @@
 }
 - (BOOL)scheduleRate:(float)rate globalTicks:(uint64_t)ticks hostTime:(CMTime)hostTime {
   NSParameterAssert(NSThread.isMainThread);
-  if (_closed || _failed || !_seekCompleted || !_frame || !_frame->covers(ticks)) return NO;
+  // Negative-rate output deadlines have been observed to label a different
+  // original sample, even when they equal another sample's PTS. This source
+  // adapter cannot grant reverse provenance. Do not weaken the metadata gate.
+  if (rate < 0 || _closed || _failed || !_seekCompleted || !_frame || !_frame->covers(ticks)) return NO;
   return [_player scheduleRate:rate fromTime:CMTimeMake(int64_t(ticks) + _offset, 120000) atHostTime:hostTime];
 }
 - (BOOL)selectAudioTrack:(NSUInteger)track volume:(float)volume muted:(BOOL)muted {
