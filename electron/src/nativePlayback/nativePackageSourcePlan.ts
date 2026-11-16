@@ -18,9 +18,17 @@ export interface NativePlannedSource {
   readonly path: string;
   readonly url: string;
   readonly durationSeconds: number;
+  readonly globalStart: number;
+  readonly globalEnd: number;
+  readonly sourceTimeOffset: number;
 }
 export type NativePlannedPosition =
-  | { readonly angleId: string; readonly kind: 'blank' }
+  | {
+      readonly angleId: string;
+      readonly kind: 'blank';
+      readonly globalStart: number;
+      readonly globalEnd: number;
+    }
   | {
       readonly angleId: string;
       readonly kind: 'source';
@@ -28,11 +36,13 @@ export type NativePlannedPosition =
       readonly sourceTime: number;
       readonly sourceTimeOffset: number;
       readonly globalEnd: number;
+      readonly globalStart: number;
     };
 export interface NativePackageSourcePlan {
   readonly key: string;
   readonly end: number;
   readonly sources: readonly NativePlannedSource[];
+  readonly angleIds: readonly string[];
   resolve(time: number): readonly NativePlannedPosition[];
   assertCurrent(): Promise<void>;
 }
@@ -85,6 +95,12 @@ export const resolveNativePackageSourcePlan = async (
           path: file.path,
           url: file.url,
           durationSeconds: clip.durationSeconds,
+          globalStart: clip.timelineStartSeconds - angle.offsetSeconds,
+          globalEnd:
+            clip.timelineStartSeconds -
+            angle.offsetSeconds +
+            clip.durationSeconds,
+          sourceTimeOffset: angle.offsetSeconds - clip.timelineStartSeconds,
         }),
       );
       timeline.clips.push({ ...clip, source: sourceKey });
@@ -117,6 +133,7 @@ export const resolveNativePackageSourcePlan = async (
     ),
     end,
     sources: Object.freeze(sources),
+    angleIds: Object.freeze(angles.map((angle) => angle.id)),
     assertCurrent,
     resolve(time: number): readonly NativePlannedPosition[] {
       checkCancellation();
@@ -132,8 +149,32 @@ export const resolveNativePackageSourcePlan = async (
               sourceTime: active.sourceTime,
               sourceTimeOffset: active.sourceTimeOffset,
               globalEnd: active.globalEnd,
+              globalStart: Math.max(0, -active.sourceTimeOffset),
             }
-          : { angleId, kind: 'blank' };
+          : {
+              angleId,
+              kind: 'blank',
+              globalStart: Math.max(
+                0,
+                ...timeline.clips.map((clip) => {
+                  if (clip.durationSeconds === undefined)
+                    throw Error('NATIVE_PACKAGE_PLAN_CHANGED');
+                  const finish =
+                    clip.timelineStartSeconds -
+                    timeline.offsetSeconds +
+                    clip.durationSeconds;
+                  return finish <= time ? finish : 0;
+                }),
+              ),
+              globalEnd: Math.min(
+                end,
+                ...timeline.clips.map((clip) => {
+                  const start =
+                    clip.timelineStartSeconds - timeline.offsetSeconds;
+                  return start > time ? start : end;
+                }),
+              ),
+            };
       });
     },
   });

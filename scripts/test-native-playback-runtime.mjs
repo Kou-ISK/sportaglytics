@@ -26,6 +26,20 @@ try {
     ],
     ['ReplyQueue', 'surface-transport/ReplyQueue.test.cpp', ['-lbsm']],
     [
+      'GroupSurface',
+      'surface-transport/GroupSurface.test.mm',
+      [
+        '-fobjc-arc',
+        '-framework',
+        'Foundation',
+        '-framework',
+        'CoreVideo',
+        '-framework',
+        'IOSurface',
+        '-lbsm',
+      ],
+    ],
+    [
       'SurfaceSender',
       'surface-transport/SurfaceSender.test.mm',
       [

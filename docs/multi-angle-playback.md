@@ -167,3 +167,13 @@ cache消去やDrawn ACKでは予算を返さず、既存のReleased ACKでsender
 - draft PRから差分レビュー、共通品質ゲート、両OS CI、署名・公証、**同一署名済み配布版の実機確認**を経て正式リリースへ進む。実表示・音声の未検証を公開版の性能達成としない。
 
 関連: [native再生](native-playback.md)、[時間・操作測定](reports/2026-11-held-reverse.md)、[テスト](testing.md)。
+
+## Group v2 の転送・提示接続（開発中）
+
+v1とは別のMach message識別子を持つgroup v2を追加した。1 sessionに2 viewport、共通の6 creditを持ち、両creditを確保してからpairを発行する。画像のoperation/seek、pair、angle、source epoch/index、source sample区間、共通時刻と有効区間を別々に運ぶ。Mainは検証済み素材プランへの写像を検査し、IOSurface handleをRendererへ公開しない。初期転送は既存の1080p NV12/BT.709 limited資格条件に限定し、一般素材の資格拡張を済ませたとは扱わない。
+
+Mainの`groupSurfaceTransport`はimport、転送完了、Renderer ACK、GPU参照終了を分離する。終了時はowned producerのexit/pipe closeの証拠を先に要求し、未確認のrelease/transferは再試行やbudget返却をせず保持・失敗通知する。native addonの全group操作は開いたservice tokenへ束縛し、v1のcloseや古いownerからgroup資源を閉じない。
+
+preloadでは既存の単一`setSharedTextureReceiver`からv2を分岐する。別々のcanvasを要求し、両angleの同じpair/共通anchorがそろい、両VideoFrameを取得してから一回のRAF内で描画する。空白は不透明なmedia blackとして扱い、古いHTML画像を透過表示しない。新sourceで不完全な旧pairを解放し、operation失効・unbind・エラー時に未提示の借用を残さない。片側描画失敗時はpair成功を報告しないが、すでに行ったcanvas描画を取り消せる、物理表示が原子的に同期するとは保証しない。
+
+提示receiptとMainの両ACK記録は実際にcanvasへ送ったpairの共通時刻であり、要求時刻、AVPlayer時計、物理scanoutの証明とは異なる。新しい操作だけでreceiptを進めず、片側だけのACKを停止位置の証拠にしない。現在はMain transportとpreload受信の接続段階で、Host group制御・helper capability・通常Controllerからのgroup bind/停止fence・音声所有・継続reverse供給は未接続である。公開APIへv2を有効化しておらず、この差分だけを複数映像製品の完成や速度改善とはしない。

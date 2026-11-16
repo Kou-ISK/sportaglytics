@@ -474,3 +474,5 @@ AVPlayer adapterは`native/macos/playback/apple-player`、画像所有と転送�
 `native/macos/playback/frame-ownership/FrameLease.hpp`はOS非依存の画像leaseと共通保持budgetを持ち、cacheと転送の共通資源層です。`apple-player/ReverseFrameCache.hpp`は世代付きcache選択を担当し、`surface-transport/SurfaceSender.hpp`は借用画像のleaseをReleased ACKまで保持できます。cacheへ転送・AVFoundation読取・Renderer依存を混在させません。groupの製品接続の未完は[共通再生セッション](multi-angle-playback.md)を参照してください。
 
 `electron/src/nativePlayback/nativeSourceFilesystem.ts`はpackage/sourceの検査、`nativePackageTimeline.ts`は配置の検証、`nativePackageSourcePlan.ts`は選択素材と共通時間モデルのMain内部の合成を担当します。従来の`nativeSourceAccess.ts`は単一素材の資格条件を維持して共通filesystem adapterを使います。素材プランをRendererのpath選択権限やgroup helper能力として扱いません。
+
+Group v2のwire/credit/native資源所有は`native/macos/playback/surface-transport/Group*`へ分離する。Mainの`runtime/groupSurfaceReceiver.ts`はaddon ABI、`groupFrameAdmission.ts`は素材プランと時刻写像、`groupSurfaceTransport.ts`はElectron転送とdrainを担当する。preloadの`nativeGroupPresenter.ts`はdocument内の2 canvasへのpair提示であり、素材path・資格検査・player時計を所有しない。`src/types/ipc/nativeGroupSurface.ts`にはhandleを含まないmetadataのみを置く。公開Renderer APIへのgroup有効化は別の未完工程である。

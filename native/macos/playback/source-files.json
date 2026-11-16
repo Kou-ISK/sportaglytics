@@ -12,8 +12,12 @@
   "apple-player/StoppedImageSettlement.hpp",
   "frame-ownership/FrameLease.hpp",
   "native-input/CommandLeft.mm",
+  "surface-transport/GroupReceiverBridge.hpp",
+  "surface-transport/GroupSurfaceReceiver.hpp",
+  "surface-transport/GroupSurfaceSender.hpp",
   "surface-transport/PixelReference.hpp",
   "surface-transport/Receiver.mm",
+  "surface-transport/SurfaceGroupWire.hpp",
   "surface-transport/SurfaceSender.hpp",
   "surface-transport/SurfaceWire.hpp"
 ]

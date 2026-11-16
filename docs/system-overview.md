@@ -493,3 +493,5 @@ The native v2 single-cut candidate can transfer its qualified descriptor directl
 単一native経路の停止確認も、seek完了/nonnull画像だけでは成功にしません。実停止時計とPTSが不一致なら、その時計への一回のoutput更新・補正と現在操作のDrawnを要求します。補正の有限期限と媒体/物理seek所有を維持し、過去の表示位置を保存時計へ流用しません。
 
 Main内部の複数素材プランは、現在のpackageに記録された選択angleの配置・同期offsetと検証済みlocal参照を束ねます。既存の単一素材経路とfilesystem検査を共有し、複数angleを単一URLとして公開しません。group backend/IPC接続と実表示受入は引き続き未完です。
+
+Group v2のnative転送とMain adapterはsource/操作世代・pair単位のmetadata、共有credit/画像lease、importとGPU解放を分ける。preloadは既存の唯一のtexture receiverから2 canvasのpair提示へ分岐する。これは通常ControllerとHost group backendの接続前であり、公開版の単一素材条件を解除しない。実装段階と未保証の表示・音声・継続逆再生は[設計記録](multi-angle-playback.md#group-v2-の転送提示接続開発中)を参照。

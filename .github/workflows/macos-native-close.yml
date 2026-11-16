@@ -34,6 +34,10 @@ jobs:
         run: pnpm run test:native-runtime
       - name: Verify held publication contract before media build
         run: pnpm exec vitest run electron/src/testing/nativeFixtureCompilation.test.ts electron/src/ipc/exportHeldPublish.test.ts
+      - name: Build verified native playback and verify group addon transport
+        run: |
+          pnpm run native:build
+          pnpm run test:native-group-surface
       - name: Build verified host media tools
         run: pnpm run media:build
       - name: Build application and preload

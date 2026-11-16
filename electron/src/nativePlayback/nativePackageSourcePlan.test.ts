@@ -71,8 +71,8 @@ it('maps independent angles through shared half-open placements, gaps and offset
     },
   ]);
   expect(plan.resolve(2)).toEqual([
-    { angleId: 'a', kind: 'blank' },
-    { angleId: 'b', kind: 'blank' },
+    { angleId: 'a', kind: 'blank', globalStart: 2, globalEnd: 4 },
+    { angleId: 'b', kind: 'blank', globalStart: 1, globalEnd: 3 },
   ]);
   expect(plan.resolve(3)).toMatchObject([
     { angleId: 'a', kind: 'blank' },

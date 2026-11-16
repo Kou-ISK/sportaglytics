@@ -1,6 +1,8 @@
 /// <reference lib="dom" />
 import { createAdmission } from './nativeSurfaceAdmission';
 import { ipcRenderer, sharedTexture } from 'electron';
+import { nativeGroupSurfaceChannels } from '../../../src/types/ipc/nativeGroupSurface';
+import { createNativeGroupPresenter } from './nativeGroupPresenter';
 interface Metadata {
   document: string;
   id: number;
@@ -14,6 +16,7 @@ interface Pending {
   meta: Metadata;
 }
 export function createSurfaceBridge(): {
+  group: ReturnType<typeof createNativeGroupPresenter>;
   bind: (id: string, onFrame: (meta: Metadata) => void) => () => void;
   expect: (
     generation: string,
@@ -24,6 +27,22 @@ export function createSurfaceBridge(): {
   close: () => void;
   stats: () => Record<string, unknown>;
 } {
+  const group = createNativeGroupPresenter({
+    acknowledge: (meta, drawn) =>
+      ipcRenderer.send(nativeGroupSurfaceChannels.drawn, {
+        document: meta.document,
+        id: meta.id,
+        drawn,
+      }),
+    failure: () => ipcRenderer.send(nativeGroupSurfaceChannels.error),
+    request: (document) =>
+      ipcRenderer.send(nativeGroupSurfaceChannels.request, document),
+  });
+  // There is only one Electron texture receiver per document. Group traffic is
+  // delegated here; creating another global receiver would steal legacy frames.
+  ipcRenderer.on(nativeGroupSurfaceChannels.blank, (_event, raw: unknown) =>
+    group.receive(raw, null),
+  );
   let canvas: HTMLCanvasElement | null = null,
     callback: ((meta: Metadata) => void) | null = null,
     expected: { generation: string; seekId: number; sequence?: number } | null =
@@ -59,6 +78,10 @@ export function createSurfaceBridge(): {
   const matches = (m: Metadata): boolean => Boolean(admission.current(m));
   sharedTexture.setSharedTextureReceiver(
     async ({ importedSharedTexture }, raw: unknown) => {
+      if (raw && typeof raw === 'object' && 'version' in raw) {
+        group.receive(raw, importedSharedTexture);
+        return;
+      }
       if (
         !raw ||
         typeof raw !== 'object' ||
@@ -145,6 +168,7 @@ export function createSurfaceBridge(): {
     demandAnimation = requestAnimationFrame(request);
   };
   return {
+    group,
     bind: (id, onFrame) => {
       if (canvas) throw Error('surface already bound');
       const target = document.getElementById(id);

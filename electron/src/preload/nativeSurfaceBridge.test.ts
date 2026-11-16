@@ -5,9 +5,10 @@ import { createSurfaceBridge } from './nativeSurfaceBridge';
 const electron = vi.hoisted(() => ({
   send: vi.fn(),
   receive: vi.fn(),
+  on: vi.fn(),
 }));
 vi.mock('electron', () => ({
-  ipcRenderer: { send: electron.send },
+  ipcRenderer: { send: electron.send, on: electron.on },
   sharedTexture: { setSharedTextureReceiver: electron.receive },
 }));
 afterEach(() => {
@@ -15,6 +16,95 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+});
+
+it('routes group and blank delivery through the same global texture receiver without legacy ACKs', async () => {
+  const callbacks = new Map<number, FrameRequestCallback>();
+  let serial = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    callbacks.set(++serial, callback);
+    return serial;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => callbacks.delete(id));
+  const draw = vi.fn(),
+    fill = vi.fn();
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    drawImage: draw,
+    fillRect: fill,
+    save: vi.fn(),
+    restore: vi.fn(),
+  } as unknown as CanvasRenderingContext2D);
+  for (const id of ['left', 'right']) {
+    const canvas = document.createElement('canvas');
+    canvas.id = id;
+    canvas.width = 1920;
+    canvas.height = 1080;
+    document.body.append(canvas);
+  }
+  const surface = createSurfaceBridge(),
+    shown = vi.fn();
+  const unbind = surface.group.bind(['left', 'right'], shown);
+  surface.group.expect('group-owner', 1, 1);
+  expect(electron.receive).toHaveBeenCalledOnce();
+  const receive = electron.receive.mock.calls[0][0];
+  const blank = electron.on.mock.calls.find(
+    ([channel]) => channel === 'native-group-surface-blank',
+  )?.[1];
+  if (typeof receive !== 'function' || typeof blank !== 'function')
+    throw Error('receiver not connected');
+  const meta = {
+    version: 2,
+    document: 'doc',
+    generation: 'group-owner',
+    id: 1,
+    operation: 1,
+    seekId: 1,
+    pair: 1,
+    angle: 0,
+    sourceEpoch: 1,
+    sourceIndex: 0,
+    sourcePTS: 600000,
+    sourceEndPTS: 602002,
+    globalTicks: 600000,
+    globalStart: 600000,
+    globalEnd: 602002,
+    content: 'image',
+  };
+  const texture = {
+    release: vi.fn(),
+    getVideoFrame: () => ({ close: vi.fn() }),
+  };
+  await receive({ importedSharedTexture: texture }, meta);
+  blank(
+    {},
+    {
+      ...meta,
+      id: 2,
+      angle: 1,
+      sourceIndex: 32,
+      sourcePTS: 0,
+      sourceEndPTS: 0,
+      content: 'blank',
+    },
+  );
+  const pending = [...callbacks.values()];
+  callbacks.clear();
+  pending.forEach((callback) => callback(0));
+  expect(draw).toHaveBeenCalledOnce();
+  expect(fill).toHaveBeenCalledOnce();
+  expect(shown).toHaveBeenCalledOnce();
+  expect(texture.release).toHaveBeenCalledOnce();
+  expect(
+    electron.send.mock.calls.filter(
+      ([channel]) => channel === 'native-group-surface-drawn',
+    ),
+  ).toHaveLength(2);
+  expect(
+    electron.send.mock.calls.filter(
+      ([channel]) => channel === 'diagnostic-surface-drawn',
+    ),
+  ).toHaveLength(0);
+  unbind();
 });
 
 it('rejects queued and late old images when a newer seek is admitted', async () => {
