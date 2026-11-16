@@ -19,13 +19,22 @@
 - (instancetype)initWithURL:(NSURL *)url globalStart:(uint64_t)start
                  globalEnd:(uint64_t)end sourceOffset:(int64_t)offset
                     budget:(appleplayback::FrameBudget)budget sourceRevision:(std::string)revision {
+  return [self initWithURL:url globalStart:start globalEnd:end sourceOffset:offset
+    budget:std::move(budget) sourceRevision:std::move(revision)
+    audioSession:[[STApplePlayerSession alloc] initWithURL:url]];
+}
+- (instancetype)initWithURL:(NSURL *)url globalStart:(uint64_t)start
+                 globalEnd:(uint64_t)end sourceOffset:(int64_t)offset
+                    budget:(appleplayback::FrameBudget)budget sourceRevision:(std::string)revision
+              audioSession:(STApplePlayerSession *)audio {
   NSParameterAssert(NSThread.isMainThread);
+  NSParameterAssert(audio != nil);
   NSParameterAssert(url.isFileURL && start < end && end <= 86400ULL * 120000 &&
     offset >= -int64_t(86400ULL * 120000) && offset <= int64_t(86400ULL * 120000) &&
     int64_t(start) + offset >= 0 && int64_t(end) + offset <= int64_t(86400ULL * 120000));
   if ((self = [super init])) {
     _budget.emplace(std::move(budget)); _start = start; _end = end; _offset = offset;
-    _player = [[STApplePlayerSession alloc] initWithURL:url];
+    _player = audio;
     _decoder = [[STDecodedFrameWindow alloc] initWithURL:url budget:*_budget sourceRevision:std::move(revision)];
   }
   return self;
@@ -59,6 +68,25 @@
   if (wanted < _start || wanted >= _end) { [self fail:5 underlying:nil]; return; }
   if (_decoder.failed) { [self fail:2 underlying:_decoder.error]; return; }
   if (!_initialReady && CACurrentMediaTime() >= _deadline) { [self fail:3 underlying:nil]; return; }
+  // Prepare timestamped pixels independently of AVPlayer loading/positioning.
+  // No image becomes a ready group member before the audio barrier below.
+  const uint64_t query = uint64_t(int64_t(wanted) + _offset);
+  auto frame = [_decoder select:query];
+  if (!frame) {
+    if (_decoder.failed) { [self fail:2 underlying:_decoder.error]; return; }
+    if (_decoder.drained) {
+      if (_windowRequested && query >= _windowStart && query < _windowEnd) {
+        [self fail:2 underlying:[NSError errorWithDomain:@"SportagDecodeWindow" code:8 userInfo:nil]];
+        return; // known completed gap cannot trigger an unbounded retry
+      }
+      const uint64_t sourceEnd = uint64_t(int64_t(_end) + _offset);
+      _windowStart = query > 30000 ? query - 30000 : 0;
+      _windowEnd = std::min(sourceEnd, query + 30000);
+      _windowRequested = [_decoder requestStart:_windowStart end:_windowEnd];
+      if (!_windowRequested) [self fail:2 underlying:_decoder.error];
+    }
+  }
+  if (_failed) return;
   if (!_audioAbsent && _player.status != AVPlayerItemStatusReadyToPlay) return;
   if (!_audioConfigured) {
     _audioAbsent = _player.audioTrackCount == 0;
@@ -80,26 +108,8 @@
       if (!finished) [source fail:4 underlying:nil];
       else source->_seekCompleted = YES;
     }];
-    return;
   }
-  if (!_seekCompleted) return;
-  const uint64_t query = uint64_t(int64_t(wanted) + _offset);
-  auto frame = [_decoder select:query];
-  if (!frame) {
-    if (_decoder.failed) { [self fail:2 underlying:_decoder.error]; return; }
-    if (_decoder.drained) {
-      if (_windowRequested && query >= _windowStart && query < _windowEnd) {
-        [self fail:2 underlying:[NSError errorWithDomain:@"SportagDecodeWindow" code:8 userInfo:nil]];
-        return; // known completed gap cannot trigger an unbounded retry
-      }
-      const uint64_t sourceEnd = uint64_t(int64_t(_end) + _offset);
-      _windowStart = query > 30000 ? query - 30000 : 0;
-      _windowEnd = std::min(sourceEnd, query + 30000);
-      _windowRequested = [_decoder requestStart:_windowStart end:_windowEnd];
-      if (!_windowRequested) [self fail:2 underlying:_decoder.error];
-    }
-    return;
-  }
+  if (!_seekCompleted || !frame) return;
   const uint64_t sourceStart = uint64_t(llround(frame->pts() * 120000));
   const uint64_t sourceEnd = uint64_t(llround(frame->end() * 120000));
   const int64_t start = std::max<int64_t>(int64_t(sourceStart) - _offset, _start);

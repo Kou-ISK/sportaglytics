@@ -25,6 +25,12 @@ NS_ASSUME_NONNULL_BEGIN
                globalStart:(uint64_t)start globalEnd:(uint64_t)end
               sourceOffset:(int64_t)offset budget:(appleplayback::FrameBudget)budget
             sourceRevision:(std::string)revision;
+/// Internal dependency seam for native lifecycle tests. The regular group Host
+/// always constructs its own session for Main's qualified URL.
+- (instancetype)initWithURL:(NSURL *)url
+               globalStart:(uint64_t)start globalEnd:(uint64_t)end
+              sourceOffset:(int64_t)offset budget:(appleplayback::FrameBudget)budget
+            sourceRevision:(std::string)revision audioSession:(STApplePlayerSession *)audio;
 /// New commands revoke callbacks/images, not other sources. Must increase.
 - (BOOL)seek:(uint64_t)globalTicks operation:(uint64_t)operation;
 /// Same source/physical seek, new control owner. Completed immutable samples

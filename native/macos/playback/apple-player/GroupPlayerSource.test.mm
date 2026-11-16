@@ -2,6 +2,24 @@
 #import "GroupPlayerSource.hpp"
 #include <cstdio>
 
+@interface STHeldGroupAudio : STApplePlayerSession
+@property(nonatomic, copy) void (^heldCompletion)(void);
+@property(nonatomic) BOOL holdReadiness;
+- (void)releaseCompletion;
+@end
+@implementation STHeldGroupAudio
+- (AVPlayerItemStatus)status { return self.holdReadiness ? AVPlayerItemStatusUnknown : [super status]; }
+- (void)seekToTime:(CMTime)time approximate:(BOOL)approximate completion:(void (^)(BOOL))completion {
+  [super seekToTime:time approximate:approximate completion:^(BOOL finished) {
+    self.heldCompletion = ^{ completion(finished); };
+  }];
+}
+- (void)releaseCompletion {
+  auto completion = self.heldCompletion; self.heldCompletion = nil;
+  assert(completion); completion();
+}
+@end
+
 void waitFor(STGroupPlayerSource *source, uint64_t target) {
   double deadline = CACurrentMediaTime() + 12;
   while (CACurrentMediaTime() < deadline && !source.failed) {
@@ -81,6 +99,27 @@ int main() { @autoreleasepool {
   assert([silent seek:4004 operation:1]); waitFor(silent, 4004);
   assert([silent selectAudioTrack:0 volume:0 muted:YES] && ![silent selectAudioTrack:1 volume:0 muted:YES]);
   closeAndDrain(silent); assert(budget.usedBytes() == 0);
+  // Hold only delivery of a real AVPlayer seek completion. Decoding must
+  // start independently, while pair readiness still waits for that completion.
+  for (bool closeBeforeCompletion : {false, true}) {
+    auto audio = [[STHeldGroupAudio alloc] initWithURL:url];
+    audio.holdReadiness = YES;
+    auto gated = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0
+      budget:budget sourceRevision:*appleplayback::sourceFileRevision(url) audioSession:audio];
+    assert([gated seek:4004 operation:1]); deadline = CACurrentMediaTime() + 12;
+    while (!budget.usedBytes() && CACurrentMediaTime() < deadline && !gated.failed) { [gated poll]; pump(); }
+    assert(budget.usedBytes() > 0 && !gated.failed && !audio.heldCompletion && ![gated frame]);
+    audio.holdReadiness = NO;
+    while ((!audio.heldCompletion || !budget.usedBytes()) && CACurrentMediaTime() < deadline && !gated.failed) {
+      [gated poll]; pump();
+    }
+    assert(audio.heldCompletion && budget.usedBytes() > 0 && !gated.failed);
+    assert(!gated.seekCompleted && ![gated frame]);
+    if (closeBeforeCompletion) { [gated close]; assert(!gated.drained); }
+    [audio releaseCompletion];
+    if (!closeBeforeCompletion) waitFor(gated, 4004);
+    closeAndDrain(gated); assert(budget.usedBytes() == 0);
+  }
   // Remove only this fixture owned by this process, after actual index drainage.
   assert([[NSFileManager defaultManager] removeItemAtPath:directory error:nil]);
   puts("group real-player source intervals/offsets/ownership passed");
