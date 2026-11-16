@@ -66,6 +66,7 @@ public:
  bool sendLeased(const LeasedPixel& frame,uint64_t generation,uint64_t seek,uint64_t pts){
   if(!frame.image())throw std::runtime_error("invalid frame lease");
   if(!budget_.owns(frame))throw std::runtime_error("foreign frame budget");
+  if(budget_.quarantinedBytes())throw SurfaceBudgetUnavailable{};
   return sendOwned(frame.image(),generation,seek,pts,frame);
  }
  void poll(){
@@ -85,5 +86,10 @@ public:
  void consumedDemand(){demand_=false;}
  bool drawn(uint64_t generation,uint64_t pts) const { return drawGeneration_==generation&&drawPTS_==pts; }
  size_t pending() const {return held_.size();}
- ~SurfaceSender(){held_.clear();if(receiver_)mach_port_mod_refs(mach_task_self(),receiver_,MACH_PORT_RIGHT_RECEIVE,-1);if(server_)mach_port_deallocate(mach_task_self(),server_);}
+ ~SurfaceSender(){
+  // A destroyed reply channel can no longer prove remote/GPU release. Other
+  // senders sharing this budget must not spend those unconfirmed bytes again.
+  for(const auto& item:held_)item.second.lease.quarantine();
+  held_.clear();if(receiver_)mach_port_mod_refs(mach_task_self(),receiver_,MACH_PORT_RIGHT_RECEIVE,-1);if(server_)mach_port_deallocate(mach_task_self(),server_);
+ }
 };

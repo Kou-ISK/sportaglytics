@@ -239,6 +239,38 @@ void oneImageSharedByTwoSenders() {
   CVPixelBufferRelease(pool.take());
 }
 
+void uncertainTeardownQuarantinesSharedStorage() {
+  using Image = std::remove_pointer_t<CVPixelBufferRef>;
+  PixelPool pool;
+  auto image = pool.take();
+  const auto bytes = CVPixelBufferGetDataSize(image);
+  appleplayback::FrameBudget budget(bytes * 2);
+  Endpoint left, right;
+  auto first = std::make_unique<SurfaceSender>(budget);
+  SurfaceSender second(budget);
+  first->open(left.name.c_str(), getpid()); second.open(right.name.c_str(), getpid());
+  auto lease = budget.retainImage(appleplayback::OwnedImage<Image>(image,
+      [](Image *value) { CVPixelBufferRelease(value); }), bytes);
+  assert(lease && first->sendLeased(*lease, 1, 1, 0));
+  assert(second.sendLeased(*lease, 2, 2, 0));
+  Frame a(left.port), b(right.port);
+  a.releaseSurface(); b.releaseSurface();
+  a.ack(surfacewire::Drawn); first->poll();
+  first.reset(); // no Released: reply channel is gone, not proof of drainage
+  lease->quarantine(); // repeated retirement must not count the storage twice
+  assert(budget.usedBytes() == bytes && budget.quarantinedBytes() == bytes);
+  fails([&] { second.sendLeased(*lease, 3, 3, 0); }, "surface transfer budget unavailable");
+  assert(second.pending() == 1 && second.nextID() == 2);
+  lease.reset();
+  b.ack(surfacewire::Released); second.poll();
+  assert(second.pending() == 0 && budget.usedBytes() == bytes);
+  assert(budget.quarantinedBytes() == bytes); // other consumer cannot resolve a
+  auto next = pool.take();
+  assert(!budget.retainImage(appleplayback::OwnedImage<Image>(next,
+      [](Image *value) { CVPixelBufferRelease(value); }), bytes));
+  assert(budget.usedBytes() == bytes); // even physically reusable is not confirmed
+}
+
 void capAndTeardown() {
   PixelPool pool;
   Endpoint endpoint;
@@ -322,6 +354,8 @@ int main() {
     rawTransferBudgetRefusal();
     std::puts("two consumers share one storage charge"); std::fflush(stdout);
     oneImageSharedByTwoSenders();
+    std::puts("unconfirmed teardown quarantines shared storage"); std::fflush(stdout);
+    uncertainTeardownQuarantinesSharedStorage();
     std::puts("credit limit and teardown"); std::fflush(stdout);
     capAndTeardown();
     std::puts("invalid ACK, send failure and layout rejection"); std::fflush(stdout);

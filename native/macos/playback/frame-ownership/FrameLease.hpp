@@ -12,6 +12,7 @@ namespace appleplayback {
 struct FrameBudgetState {
   const uint64_t limit;
   std::atomic<uint64_t> used{0};
+  std::atomic<uint64_t> quarantined{0};
   explicit FrameBudgetState(uint64_t bytes) : limit(bytes) {}
 };
 template <typename Image>
@@ -22,12 +23,14 @@ template <typename Image> class RetainedImage {
     std::shared_ptr<FrameBudgetState> budget;
     OwnedImage<Image> image;
     uint64_t bytes;
+    mutable std::atomic<bool> unconfirmed{false};
     Storage(std::shared_ptr<FrameBudgetState> owner, OwnedImage<Image> value,
             uint64_t size) noexcept
         : budget(std::move(owner)), image(std::move(value)), bytes(size) {}
     ~Storage() {
       image.reset();
-      budget->used.fetch_sub(bytes, std::memory_order_relaxed);
+      if (!unconfirmed.load(std::memory_order_relaxed))
+        budget->used.fetch_sub(bytes, std::memory_order_relaxed);
     }
   };
   std::shared_ptr<const Storage> storage;
@@ -38,6 +41,13 @@ public:
   // Borrowed pointer. Consumers keep this lease through GPU/transport drainage,
   // rather than extracting an independently retained, uncharged image owner.
   Image *image() const { return storage ? storage->image.get() : nullptr; }
+  // After losing a consumer's release channel, its external image lifetime is
+  // unknown. Keep a sticky charge, not an invented completion. Recreating a
+  // budget is not a recovery protocol for the outstanding consumer.
+  void quarantine() const noexcept {
+    if (storage && !storage->unconfirmed.exchange(true, std::memory_order_relaxed))
+      storage->budget->quarantined.fetch_add(storage->bytes, std::memory_order_relaxed);
+  }
 };
 
 template <typename Image> class RetainedFrame {
@@ -68,6 +78,7 @@ public:
     if (!bytes) throw std::invalid_argument("Empty frame buffer budget");
   }
   uint64_t usedBytes() const { return state->used.load(std::memory_order_relaxed); }
+  uint64_t quarantinedBytes() const { return state->quarantined.load(std::memory_order_relaxed); }
   uint64_t limitBytes() const { return state->limit; }
   template <typename Image> bool owns(const RetainedImage<Image>& image) const {
     return image.storage && image.storage->budget == state;
@@ -75,7 +86,7 @@ public:
   template <typename Image>
   std::optional<RetainedImage<Image>> retainImage(OwnedImage<Image> image,
                                                 uint64_t bytes) {
-    if (!image || !bytes) return std::nullopt;
+    if (!image || !bytes || quarantinedBytes()) return std::nullopt;
     uint64_t used = state->used.load(std::memory_order_relaxed);
     do {
       if (used > state->limit || bytes > state->limit - used) return std::nullopt;
