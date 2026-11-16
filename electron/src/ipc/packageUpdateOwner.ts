@@ -18,7 +18,10 @@ export const readProcessStartIdentity = async (
             '-Command',
             `(Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToUniversalTime().Ticks`,
           ],
-          { timeout: 5000, windowsHide: true },
+          // Cold PowerShell startup can exceed 5s on a hosted Windows runner.
+          // This bounds a read-only lookup; errors remain terminal and are not
+          // interpreted as an inactive owner or retried through another path.
+          { timeout: 10000, windowsHide: true },
         )
       : await execute('/bin/ps', ['-o', 'lstart=', '-p', String(pid)], {
           timeout: 5000,

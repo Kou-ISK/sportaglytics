@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Windowsのパッケージ移行時、PowerShell冷起動で所有者照会が5秒を超える場合に備え、有限予算を10秒へ調整。失敗/不明を所有者不在と扱わず、元エラーを保持して停止する契約は維持。
+
 - macOS nativeの停止画像が停止時計より古い場合にreadyと誤認しないよう、PTS確認と一回のoutput更新・実停止位置への補正を追加。期限/媒体所有/描画ACKを維持し、押下中の滑らかさや複数映像対応の完成とは扱わない。
 
 - 複数映像の共通再生について公開根拠・実decoder比較とProposed設計を追加。有界画像lease/保持budgetとMain内部の素材・時間プランを実装し、公開版の単一native経路の条件は変更しない。[検証範囲と未完](docs/multi-angle-playback.md)。

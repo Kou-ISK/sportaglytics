@@ -24,6 +24,8 @@ Timeline reviewを変更する場合は`Workspace/Timeline/Review` storiesと`no
 
 パッケージ互換を変更するときは、[互換・原本保護の仕様](package-compatibility.md)に従って既知構造と未知versionを分け、検証済みstagingから同じパスへ更新し、更新前の原本をjournal付きバックアップへ残す既存契約を維持してください。Mainのvalidation/staging/backup/復元とRendererのload-gated persistenceを別々に検証します。Sportscode XMLのDomain・Hook・View・Gatewayを分離し、通常TimelineへのJSON置換と混ぜません。`e2e-package-safety.mjs` / `e2e-sportscode-import.mjs`は合成データと独立profileだけを使います。重いbuild/Electron/full suiteは同じ端末で並列に起動しないでください。
 
+更新所有者の起動時刻照会はWindowsのPowerShell冷起動に10秒、既存POSIX経路に5秒の有限予算を使います。照会失敗/期限超過/空出力は所有者不在とみなさず、自動再試行しません。`packageUpdateOwner.test.ts`はexecutorを完全に模擬し、PID検証、予算、元エラー保持と実行一回を検査します。実Windows照会と移行/backupの結合は既存CIで別に検証し、拒否されたローカル照会をこの単体試験の名目で再実行しません。所有者確認が完了する前に更新用作業領域を作成/原本を移動しない境界は変更しません。
+
 ライブキャプチャの開発ではネットワーク有効の同梱FFmpegが必要です。`pnpm run media:build`後に`pnpm run e2e:prepare`、`node scripts/e2e-live-capture.mjs`で模擬カメラと合成IP映像を検証します。実カメラを自動テストで起動しません。[入力・保存契約](live-coding.md)。
 
 ライブ回帰では録画ウィンドウの非表示中・Code Windowのフォーカス中にコードを開始/終了し、タグ保存と映像要素の継続を確認します。連続再生用の録画は`playbackFormat: fragmented-mp4`付きで、既存MP4との互換性は通常再生・書き出し・再オープンでも検証します。
