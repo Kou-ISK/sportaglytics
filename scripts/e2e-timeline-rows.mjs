@@ -896,6 +896,15 @@ try {
     await page
       .getByRole('menuitem', { name: '行内のインスタンスを選択' })
       .click();
+    // Selection can render before MUI's closing menu releases keyboard focus.
+    // Observe the actual editing boundary instead of sending shortcuts into
+    // the still-closing modal (or adding an arbitrary animation delay).
+    await page.getByRole('menu').waitFor({ state: 'hidden' });
+    await page.waitForFunction(
+      () =>
+        document.activeElement ===
+        document.querySelector('[role="region"][aria-label="タイムライン"]'),
+    );
     await page.waitForFunction(
       () =>
         document.querySelectorAll(
