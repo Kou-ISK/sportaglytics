@@ -66,3 +66,15 @@ SHA-256:
 ## 限定リリース準備
 
 PR #289は全3 workflow成功後にdevelopへ通常merge（`2fcfa7eeb51f8040cbef9238001cccfaf088406f`）した。macOS/HiraginoとWindows/Notoの14条件も通過し、Windows通常・インストール版の各29シナリオが成功。続く0.17.30準備では`export-text-geometry`を共通/配布物E2Eへ登録し、Main内でそのアプリのFFmpegを解決する。source-only比較を配布物の成功として流用しない。ARCH-EX-014で対象を限定し、PR #288とモデル関連の未公開差分は含めない。署名・公証・公開の最終状態は準備/main PRと同一release runに記録する。
+
+## 0.17.30候補の停止と保存完了の検査
+
+準備PR #290とmain PR #291は各3 workflow成功後に通常mergeした。mainは`55dd70175ad810d41bfa26ef0c1c6fc9a23af957`、treeは検証済みと同一の`7f4b0fb2b7612b3326ae2d9263ece1e6b6e4316e`。未使用の`v0.17.30` tagをこのcommitへ作成したが、[候補run](https://github.com/Kou-ISK/sportaglytics/actions/runs/43916433994)は未公開のまま停止した。初回はmacOS arm64 runnerを確保できず実行stepなし。通常の再試行は品質検査（Vitest 2493成功/7skip、Node 121成功）、構築、native runtime 96検査、export-menuと実Mainの出力比較を通過し、比較のRGB平均絶対差は0.169/0.389/0.401だった。
+
+再試行の失敗は既存`timeline-close`の、Playlist保存後の通常終了待ち（`Application did not finish normal quit`、変更前scriptの640行目）。他の29シナリオは通過した。署名・Apple送信・DMG作成には進んでいない。既存tagを変更せず、公開済み0.17.29を保持する。
+
+従来のE2Eは`playlist.json`に追加clipが現れた時点でQuitを要求していた。実処理はatomic publication、保存handlerの応答、Rendererの保存完了処理、Mainへの`set-dirty: false`の順であり、file bytesだけではMainの終了ガードがcleanになったことを証明できない。元の失敗runでそのフラグは直接採取していないため、失敗がこの競合だけで起きたとは断定しない。
+
+Linuxの合成診断では、実際のatomic publication後の一時file cleanupを保留し、`publishedBytesVisible=true`、`heldAfterPublication=true`、`mainDirty=true`を同時に確認した。保留解除後にMainのcleanを確認し、既存の全6終了ケースと別プロセスでの再読込が成功した。通常実行でも同じ6ケースが成功。診断は私有fixtureだけを対象とし、製品の保存結果・dirty値・close ACKを置換していない。これは保存完了条件の差を示す制御診断であり、元Mac failureのイベント列を再現した主張ではない。
+
+E2Eは既存のfile内容確認に加え、実際のMain registryに対象Playlistが存在し、windowが生存し、`isDirty === false`となったことを既存15秒以内で確認してから通常終了する。終了確認・保存失敗の取消・再編集・全owner保護・再起動後の内容確認は保持し、製品コード、IPC、timeout、retry回数、署名条件は変更しない。新候補0.17.31も全PR CI、署名・公証、同一DMG E2Eを要求する。

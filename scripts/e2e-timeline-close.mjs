@@ -637,6 +637,26 @@ try {
     );
     return saved.items.some((item) => item.id === 'synthetic-added-clip');
   }, 'The real Playlist save did not retain its dirty added clip');
+  // Atomic publication precedes the save IPC response and Renderer's clean
+  // notification. Quit before that notification can correctly be cancelled by
+  // the still-dirty Playlist. Observe the real Main guard without changing it.
+  await poll(
+    () =>
+      app.evaluate(({ app: nativeApp }, filePath) => {
+        const require = process
+          .getBuiltinModule('module')
+          .createRequire(`${nativeApp.getAppPath()}/package.json`);
+        const {
+          getPlaylistWindows,
+        } = require('./build/electron/src/playlistWindow/state.js');
+        const info = [...getPlaylistWindows().values()].find(
+          (entry) => entry.filePath === filePath,
+        );
+        return !!info && !info.window.isDestroyed() && info.isDirty === false;
+      }, playlistPath),
+    'Main did not acknowledge the completed Playlist save',
+  );
+  console.log('Main acknowledged Playlist save before normal quit');
   await closeApplication();
   for (const [fixture, memo] of expected) {
     assert.equal(await readMemo(fixture), memo);
