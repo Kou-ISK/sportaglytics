@@ -44,6 +44,7 @@ it('routes group and blank delivery through the same global texture receiver wit
   const surface = createSurfaceBridge(),
     shown = vi.fn();
   const unbind = surface.group.bind(['left', 'right'], shown);
+  expect(() => surface.bind('left', vi.fn())).toThrow('already bound');
   surface.group.expect('group-owner', 1, 1);
   expect(electron.receive).toHaveBeenCalledOnce();
   const receive = electron.receive.mock.calls[0][0];
@@ -105,6 +106,64 @@ it('routes group and blank delivery through the same global texture receiver wit
     ),
   ).toHaveLength(0);
   unbind();
+});
+
+it('a document close drains unpainted group images and a repeated old unbind cannot remove a new binding', async () => {
+  const callbacks = new Map<number, FrameRequestCallback>();
+  let serial = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    callbacks.set(++serial, callback);
+    return serial;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => callbacks.delete(id));
+  for (const id of ['left', 'right']) {
+    const canvas = document.createElement('canvas');
+    canvas.id = id;
+    canvas.width = 1920;
+    canvas.height = 1080;
+    document.body.append(canvas);
+  }
+  const surface = createSurfaceBridge(),
+    shown = vi.fn();
+  const first = surface.group.bind(['left', 'right'], shown);
+  surface.group.expect('owner', 1, 1);
+  const receive = electron.receive.mock.calls[0][0];
+  const texture = { release: vi.fn(), getVideoFrame: vi.fn() };
+  await receive(
+    { importedSharedTexture: texture },
+    {
+      version: 2,
+      document: 'doc',
+      generation: 'owner',
+      id: 1,
+      operation: 1,
+      seekId: 1,
+      pair: 1,
+      angle: 0,
+      sourceEpoch: 1,
+      sourceIndex: 0,
+      sourcePTS: 600000,
+      sourceEndPTS: 602002,
+      globalTicks: 600000,
+      globalStart: 600000,
+      globalEnd: 602002,
+      content: 'image',
+    },
+  );
+  surface.close();
+  expect(texture.release).toHaveBeenCalledOnce();
+  expect(callbacks.size).toBe(0);
+  first();
+  const second = surface.group.bind(['left', 'right'], shown);
+  first();
+  expect(() => surface.bind('left', vi.fn())).toThrow('already bound');
+  second();
+  const legacy = surface.bind('left', vi.fn());
+  legacy();
+  const newer = surface.bind('left', vi.fn());
+  legacy();
+  expect(() => surface.bind('right', vi.fn())).toThrow('already bound');
+  newer();
 });
 
 it('rejects queued and late old images when a newer seek is admitted', async () => {

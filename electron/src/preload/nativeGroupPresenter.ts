@@ -34,6 +34,7 @@ export const createNativeGroupPresenter = (
   current(): GroupPresentation | null;
 } => {
   let targets: readonly [HTMLCanvasElement, HTMLCanvasElement] | null = null;
+  let binding: object | null = null;
   let listener: ((value: GroupPresentation) => void) | null = null;
   let owner: { generation: string; operation: number; seekId: number } | null =
     null;
@@ -212,8 +213,12 @@ export const createNativeGroupPresenter = (
       )
         throw Error('GROUP_CANVAS_PROFILE');
       targets = [a, b];
+      const token = {};
+      binding = token;
       listener = shown;
       return () => {
+        if (binding !== token) return;
+        binding = null;
         try {
           close();
         } finally {

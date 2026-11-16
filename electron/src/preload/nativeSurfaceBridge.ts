@@ -27,7 +27,8 @@ export function createSurfaceBridge(): {
   close: () => void;
   stats: () => Record<string, unknown>;
 } {
-  const group = createNativeGroupPresenter({
+  let groupBound = false;
+  const presenter = createNativeGroupPresenter({
     acknowledge: (meta, drawn) =>
       ipcRenderer.send(nativeGroupSurfaceChannels.drawn, {
         document: meta.document,
@@ -38,12 +39,31 @@ export function createSurfaceBridge(): {
     request: (document) =>
       ipcRenderer.send(nativeGroupSurfaceChannels.request, document),
   });
+  const group: ReturnType<typeof createNativeGroupPresenter> = {
+    ...presenter,
+    bind: (ids, shown) => {
+      if (canvas || groupBound) throw Error('surface already bound');
+      const release = presenter.bind(ids, shown);
+      groupBound = true;
+      let active = true;
+      return () => {
+        if (!active) return;
+        active = false;
+        try {
+          release();
+        } finally {
+          groupBound = false;
+        }
+      };
+    },
+  };
   // There is only one Electron texture receiver per document. Group traffic is
   // delegated here; creating another global receiver would steal legacy frames.
   ipcRenderer.on(nativeGroupSurfaceChannels.blank, (_event, raw: unknown) =>
     group.receive(raw, null),
   );
   let canvas: HTMLCanvasElement | null = null,
+    binding: object | null = null,
     callback: ((meta: Metadata) => void) | null = null,
     expected: { generation: string; seekId: number; sequence?: number } | null =
       null,
@@ -170,7 +190,7 @@ export function createSurfaceBridge(): {
   return {
     group,
     bind: (id, onFrame) => {
-      if (canvas) throw Error('surface already bound');
+      if (canvas || groupBound) throw Error('surface already bound');
       const target = document.getElementById(id);
       if (
         !(target instanceof HTMLCanvasElement) ||
@@ -179,8 +199,12 @@ export function createSurfaceBridge(): {
       )
         throw Error('invalid qualified canvas');
       canvas = target;
+      const token = {};
+      binding = token;
       callback = onFrame;
       return () => {
+        if (binding !== token) return;
+        binding = null;
         stop();
         canvas = null;
         callback = null;
@@ -212,7 +236,13 @@ export function createSurfaceBridge(): {
       if (pending && !matches(pending.meta)) disposePending();
       if (!demandAnimation) demandAnimation = requestAnimationFrame(request);
     },
-    close: stop,
+    close: () => {
+      try {
+        stop();
+      } finally {
+        group.close();
+      }
+    },
     stats: () => ({
       frames:
         frameCount <= 2400

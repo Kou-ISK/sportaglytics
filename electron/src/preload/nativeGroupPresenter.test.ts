@@ -320,3 +320,19 @@ it('a failing frame close does not skip closing the other frame or releasing eit
   expect(s.output.failure).toHaveBeenCalledOnce();
   s.unbind();
 });
+
+it('an old unbind cannot revoke a later binding even when it reuses the same canvases', () => {
+  const s = setup();
+  s.unbind();
+  const release = s.presenter.bind(['left', 'right'], s.shown);
+  s.presenter.expect('new-owner', 1, 1);
+  s.unbind();
+  for (const angle of [0, 1])
+    s.presenter.receive(
+      { ...meta(angle), generation: 'new-owner' },
+      s.texture(),
+    );
+  s.paint();
+  expect(s.shown).toHaveBeenCalledOnce();
+  release();
+});
