@@ -250,7 +250,11 @@ using appleplayback::sourceTicks;
         }
       } else {
         uint64_t id = _surfaces.nextID();
-        BOOL sent = _surfaces.send(image, _controlSequence, _seek, *ticks);
+        BOOL sent = NO;
+        try { sent = _surfaces.send(image, _controlSequence, _seek, *ticks); }
+        catch (const SurfaceBudgetUnavailable &) {
+          [self failMedia:@"frame transfer budget unavailable"]; return;
+        }
         if (sent) {
           _imagePTS = *ticks; _imageSent = YES; _surfaces.consumedDemand();
           [self enqueue:@{@"type":@"surface-ready", @"generation":_manifest[@"owner"][@"generation"], @"id":@(id)}];

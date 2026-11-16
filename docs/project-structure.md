@@ -471,6 +471,6 @@ AVPlayer adapterは`native/macos/playback/apple-player`、画像所有と転送�
 
 ### 複数映像向け画像所有（未接続）
 
-`native/macos/playback/apple-player/ReverseFrameCache.hpp`はOS依存を持たない画像lease・共通保持budget・世代付きcache選択を担当します。AVFoundationの読取やRenderer/IPCを内包しません。背景と製品接続の未完は[共通再生セッション](multi-angle-playback.md)を参照してください。
+`native/macos/playback/frame-ownership/FrameLease.hpp`はOS非依存の画像leaseと共通保持budgetを持ち、cacheと転送の共通資源層です。`apple-player/ReverseFrameCache.hpp`は世代付きcache選択を担当し、`surface-transport/SurfaceSender.hpp`は借用画像のleaseをReleased ACKまで保持できます。cacheへ転送・AVFoundation読取・Renderer依存を混在させません。groupの製品接続の未完は[共通再生セッション](multi-angle-playback.md)を参照してください。
 
 `electron/src/nativePlayback/nativeSourceFilesystem.ts`はpackage/sourceの検査、`nativePackageTimeline.ts`は配置の検証、`nativePackageSourcePlan.ts`は選択素材と共通時間モデルのMain内部の合成を担当します。従来の`nativeSourceAccess.ts`は単一素材の資格条件を維持して共通filesystem adapterを使います。素材プランをRendererのpath選択権限やgroup helper能力として扱いません。

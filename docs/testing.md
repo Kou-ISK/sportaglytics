@@ -427,6 +427,8 @@ macOS PR CIでも同じ行操作E2Eを実行します。選択失敗時は合成
 
 `test:native-runtime`の`ReverseFrameCache.test.cpp`は複数bank共通budget、consumer貸出後の解放、別thread返却、過大要求、旧操作/source、穴・排他的末尾・重複/重なる区間の拒否を検査します。このportable C++回帰は実decoderや画面提示の試験ではありません。実AVAssetReader比較と残る受入は[設計と測定](multi-angle-playback.md)へ分離します。
 
+`SurfaceSender.test.mm`は同じFrameLeaseをcacheから実CoreVideo/IOSurface/Mach転送へ渡し、cache消去・Drawn後も保持しReleased後だけ予算を返すこと、pool再利用、送信失敗・移動済みlease・二重ACKを確認します。2つのsenderへ同じ画像を渡しても二重計上せず、片側の取消/Releasedでは他方の保持を解放しません。別予算のleaseを拒否し、小さい注入予算では通常転送も副作用なしで拒否することを確認します。小容量の実転送と試験peerによるACKであり、実Electron GPUや実画面の試験ではありません。既存のraw画像の所有と最大3送信枠も維持します。
+
 `PlayerObservation.test.cpp`はDrawnが少しずつ後退していても実時計から遅れる負例、0.5/2/4/6倍での同じ1秒の換算境界、無効時計・時刻・整数差の安全な計算を検査します。設定更新の連打で期限が延長されず、再押下・倍率/方向変更・新しいseekでは再基準化し、古いseekでは更新できないことも確認します。取得PTSログの再生は監視条件の対照であり、実Drawnや物理画面の受入とは区別します。
 
 `scripts/testing/active-nv12-digest.test.mm`は小さな実CoreVideoバッファで、paddingだけの変更を画像変化と数えず、疎な輝度採取で見落とす変更やchromaだけの変更を検出することを確認します。format・寸法の違い、不正なformat/nullの拒否も検査し、既存`test:native-runtime`で実行します。元映像や追加media fixtureは使いません。

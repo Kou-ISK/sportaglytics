@@ -1,4 +1,5 @@
 #include "SurfaceSender.hpp"
+#include "../apple-player/ReverseFrameCache.hpp"
 #import <Foundation/Foundation.h>
 #include <cassert>
 #include <cstdio>
@@ -126,6 +127,118 @@ void drawThenRelease() {
   fails([&] { sender.poll(); }, "invalid surface ack"); // no double release
 }
 
+void cacheLeaseSurvivesUntilRelease() {
+  using Image = std::remove_pointer_t<CVPixelBufferRef>;
+  PixelPool pool;
+  Endpoint endpoint;
+  auto image = pool.take();
+  const auto bytes = CVPixelBufferGetDataSize(image);
+  appleplayback::FrameBudget budget(bytes);
+  SurfaceSender sender(budget);
+  sender.open(endpoint.name.c_str(), getpid());
+  appleplayback::ReverseFrameCache<Image> cache;
+  assert(cache.beginRequest(1, 10));
+  auto frame = budget.retain(appleplayback::OwnedImage<Image>(image,
+      [](Image *value) { CVPixelBufferRelease(value); }), 1, 10, 0, .02, bytes);
+  assert(frame);
+  assert(cache.publish({*frame}));
+  // A later consumer operation borrows an immutable completed source image.
+  assert(cache.beginRequest(2, 10));
+  auto selected = cache.select(.01, 2);
+  assert(selected && sender.sendLeased(selected->imageLease(), 7, 9, 0));
+  frame.reset(); selected.reset(); cache.clear();
+  assert(budget.usedBytes() == bytes); // sole remaining owner is the sender
+  Frame received(endpoint.port);
+  received.releaseSurface();
+  pool.blocked();
+  received.ack(surfacewire::Drawn); sender.poll();
+  assert(sender.drawn(7, 0) && budget.usedBytes() == bytes);
+  pool.blocked(); // neither cache eviction nor Drawn returns the charge
+  received.ack(surfacewire::Released); sender.poll();
+  assert(sender.pending() == 0 && budget.usedBytes() == 0);
+  CVPixelBufferRelease(pool.take()); // original storage may now be reused
+  received.ack(surfacewire::Released);
+  fails([&] { sender.poll(); }, "invalid surface ack");
+  assert(budget.usedBytes() == 0); // duplicate ACK cannot decrement twice
+}
+
+void leasedSendFailureAndMovedFrame() {
+  using Image = std::remove_pointer_t<CVPixelBufferRef>;
+  PixelPool pool;
+  auto image = pool.take();
+  const auto bytes = CVPixelBufferGetDataSize(image);
+  appleplayback::FrameBudget budget(bytes);
+  auto frame = budget.retain(appleplayback::OwnedImage<Image>(image,
+      [](Image *value) { CVPixelBufferRelease(value); }), 1, 10, 0, .02, bytes);
+  assert(frame);
+  {
+  auto moved = std::move(*frame);
+  SurfaceSender sender(budget);
+  assert(!frame->image());
+  fails([&] { sender.sendLeased(frame->imageLease(), 1, 1, 0); }, "invalid frame lease");
+  assert(sender.pending() == 0 && sender.nextID() == 1 && budget.usedBytes() == bytes);
+  appleplayback::FrameBudget foreign(bytes);
+  auto other = foreign.retainImage(appleplayback::OwnedImage<Image>(CVPixelBufferRetain(image),
+      [](Image *value) { CVPixelBufferRelease(value); }), bytes);
+  assert(other);
+  fails([&] { sender.sendLeased(*other, 1, 1, 0); }, "foreign frame budget");
+  assert(sender.pending() == 0 && sender.nextID() == 1);
+  other.reset(); assert(foreign.usedBytes() == 0);
+  Endpoint endpoint;
+  sender.open(endpoint.name.c_str(), getpid());
+  endpoint.close();
+  fails([&] { sender.sendLeased(moved.imageLease(), 1, 1, 0); }, "surface send failed");
+  assert(sender.pending() == 0 && budget.usedBytes() == bytes); // caller still owns it
+  pool.blocked();
+  }
+  assert(budget.usedBytes() == 0);
+  CVPixelBufferRelease(pool.take());
+}
+
+void rawTransferBudgetRefusal() {
+  PixelPool pool;
+  appleplayback::FrameBudget budget(1);
+  SurfaceSender sender(budget);
+  auto image = pool.take();
+  bool typedFailure = false;
+  try { sender.send(image, 1, 1, 0); }
+  catch (const SurfaceBudgetUnavailable& error) {
+    typedFailure = true;
+    assert(std::string(error.what()) == "surface transfer budget unavailable");
+  }
+  assert(typedFailure); // the Host routes this type to media failure/restoration
+  assert(sender.pending() == 0 && sender.nextID() == 1 && budget.usedBytes() == 0);
+  pool.blocked(); // the caller still owns its original AVPlayer-style copy
+  CVPixelBufferRelease(image);
+  CVPixelBufferRelease(pool.take());
+}
+
+void oneImageSharedByTwoSenders() {
+  using Image = std::remove_pointer_t<CVPixelBufferRef>;
+  PixelPool pool;
+  auto image = pool.take();
+  const auto bytes = CVPixelBufferGetDataSize(image);
+  appleplayback::FrameBudget budget(bytes);
+  Endpoint left, right;
+  SurfaceSender first(budget), second(budget);
+  first.open(left.name.c_str(), getpid()); second.open(right.name.c_str(), getpid());
+  auto lease = budget.retainImage(appleplayback::OwnedImage<Image>(image,
+      [](Image *value) { CVPixelBufferRelease(value); }), bytes);
+  assert(lease && first.sendLeased(*lease, 1, 1, 0));
+  assert(second.sendLeased(*lease, 2, 2, 0));
+  lease.reset();
+  assert(budget.usedBytes() == bytes); // two consumers, one storage charge
+  Frame a(left.port), b(right.port);
+  a.releaseSurface(); b.releaseSurface();
+  a.ack(surfacewire::Released); first.poll(); // cancelled before drawing
+  assert(budget.usedBytes() == bytes); pool.blocked();
+  b.ack(surfacewire::Drawn); second.poll();
+  assert(budget.usedBytes() == bytes); pool.blocked();
+  b.ack(surfacewire::Released); second.poll();
+  assert(budget.usedBytes() == 0);
+  CVPixelBufferRelease(pool.take());
+}
+
 void capAndTeardown() {
   PixelPool pool;
   Endpoint endpoint;
@@ -201,6 +314,14 @@ int main() {
     copyOwnershipAndExceptions();
     std::puts("draw then GPU release"); std::fflush(stdout);
     drawThenRelease();
+    std::puts("shared cache budget through Drawn and Released"); std::fflush(stdout);
+    cacheLeaseSurvivesUntilRelease();
+    std::puts("leased send failure and invalid moved frame"); std::fflush(stdout);
+    leasedSendFailureAndMovedFrame();
+    std::puts("raw transfer finite budget refusal"); std::fflush(stdout);
+    rawTransferBudgetRefusal();
+    std::puts("two consumers share one storage charge"); std::fflush(stdout);
+    oneImageSharedByTwoSenders();
     std::puts("credit limit and teardown"); std::fflush(stdout);
     capAndTeardown();
     std::puts("invalid ACK, send failure and layout rejection"); std::fflush(stdout);

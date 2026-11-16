@@ -147,6 +147,21 @@ int main() {
   assert(alive == 1 && retained->image()->id == 12);
   retained.reset();
   assert(alive == 0);
+  // A moved-from lease can arrive at a transport/cache boundary. It must not
+  // dereference absent storage or replace a valid bank.
+  {
+    FrameBudget movedBudget(10);
+    ReverseFrameCache<Image> movedCache;
+    assert(movedCache.beginRequest(1, 1));
+    auto original = movedBudget.retain(image(40), 1, 1, 0, 1, 10);
+    auto valid = std::move(*original);
+    assert(!original->image() && !original->producedBy(1, 1));
+    assert(movedCache.publish({valid}));
+    assert(!movedCache.publish({*original}));
+    assert(movedCache.select(.5, 1)->image()->id == 40);
+    assert(movedBudget.usedBytes() == 10);
+  }
+  assert(alive == 0);
   // A real consumer may finish on a different thread while new frames arrive.
   FrameBudget concurrent(16);
   std::vector<std::thread> threads;

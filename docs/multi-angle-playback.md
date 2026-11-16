@@ -123,6 +123,14 @@ sampleが窓の開始をまたぐ場合は、開始より前のPTSでも実sampl
 
 ## 共通セッションの責務
 
+### 次のgroup接続で維持する境界（未提供）
+
+現Receiver addonはport・peer・flight map・last IDを一つだけ持ち、v1 packetにはangle/source世代がない。既存のgateway/surface登録も単一所有である。2つのsenderを同じv1 channelへ接続するとIDやPTSの所属を区別できないため、除外条件だけを外さない。group能力を検査した別versionの契約で、group内で一意な配送ID、angle slot、source世代、表示操作、共通時刻とsource PTSの分離を実装する。旧helperをgroup対応と推測しない。
+
+2angleを揃えて切り替えるbarrierでは、表示中の2画像を保持したまま次の2画像を受ける必要がある。v1の全体3枠をそのまま流用すると、最後の1画像を送れず旧pairも解放できない。新group契約は少なくとも4枠を必要とし、最大6枠を上限候補として共通予算へ計上する。v1の3枠は変更しない。transfer/GPU/Drawnの各完了、片側blank/失敗、途中取消とclip世代を含む回帰・実表示を通すまで、このgroup契約を公開済みとは扱わない。
+
+画像のsource PTSをangle間で直接比較せず、既存のoffset/clip配置から共通時刻へ写像する。Mainが検証したliveな配置revisionとsource grant、共通時計、音声ownerを持ち、settings配送sequenceと表示操作の寿命を分ける。これらのMain/IPC/Renderer接続は、この段階の素材プランや共有leaseだけでは実装済みにならない。
+
 - 一つのpackage再生セッションがcanonical clock、操作世代、選択音声、全angleの状態を所有する。単一angleも同じ制御へ載せる。
 - angleごとにsource/clip世代、AVPlayer、frame供給、surface、ready/blank/failedを持つ。同じファイル名や同じPTSでも所有者変更を無視しない。
 - forward開始は全active angleがreadyとなってから共通hostへ予定する。空白angleはdecoder失敗ではなく明示的なblankとして扱う。
@@ -137,7 +145,13 @@ sampleが窓の開始をまたぐ場合は、開始より前のPTSでも実sampl
 
 ## 有界bufferと現在の実装単位
 
-`ReverseFrameCache.hpp`はimageの所有leaseと共通保持budgetを分離する。cacheから除いたimageも、GPU/consumerに貸出中なら同じbudgetに残る。返却は別threadでも二重減算しない。decode要求と再生/表示操作の世代を分け、同じ検証済みsourceの完成済みimmutable画像は次の要求でも再利用する。古いproducerのpublish、古い要求のselect/取消は拒否する。要求取消は現在のpublish/select権限を失効させるが、完成画像を次の要求で再利用するために保持できる。`clear`はevictionのみで取消ではない。frameのproducer由来を新しい表示操作のACK権限として使わず、consumer側の操作識別子を別に持つ。穴・排他的末尾を別clipの画像で埋めない。これはOS全体の排他的予約ではなく、decoder内部の割当を含む厳密hard capでもない。
+共通の`frame-ownership/FrameLease.hpp`はimageの所有leaseと保持budgetを担当し、`ReverseFrameCache.hpp`は同じleaseを用いてcache選択を行う。cacheから除いたimageも、GPU/consumerに貸出中なら同じbudgetに残る。返却は別threadでも二重減算しない。decode要求と再生/表示操作の世代を分け、同じ検証済みsourceの完成済みimmutable画像は次の要求でも再利用する。古いproducerのpublish、古い要求のselect/取消は拒否する。要求取消は現在のpublish/select権限を失効させるが、完成画像を次の要求で再利用するために保持できる。`clear`はevictionのみで取消ではない。frameのproducer由来を新しい表示操作のACK権限として使わず、consumer側の操作識別子を別に持つ。穴・排他的末尾を別clipの画像で埋めない。これはOS全体の排他的予約ではなく、decoder内部の割当を含む厳密hard capでもない。
+
+`RetainedImage`は時間区間を持たない資源leaseで、`RetainedFrame`が検査済みsample区間・producer由来を付ける。通常のAVPlayer転送のために不明なsample durationを捏造しない。既存`SurfaceSender`の通常経路も予算で計上し、cache由来の`sendLeased`は同じ予算に属する`RetainedImage`だけを受理する。groupではcache/各senderへ同じ予算stateを渡す。画像と無関係な予算ownerを別引数で渡さず、別予算からの迂回を拒否する。
+
+cache消去やDrawn ACKでは予算を返さず、既存のReleased ACKでsenderの追加pixel参照を先に破棄し、その後leaseを返す。送信失敗、credit不足、無効ACKや従来の非cache画像の所有を維持する。予算不足は転送前に拒否し、Hostは既存のmedia失敗・終了確認へ渡す。実CoreVideo poolと同じMach転送の対照では、cache消去後も予算・pool再利用が保留され、Drawn後も保留、Released後に予算0・再利用可能となった。ACKは試験peerが発行しており、実Electron GPU完了や画面表示の受入ではない。group backend・Main/IPC・継続供給器への接続も引き続き未完である。
+
+実原本を読む2つの製品`STApplePlayerSession`から通常転送/借用転送へ各1画像を渡す非GUI対照も通った。共通予算の保持は6,272,768bytes、両Drawn後も同じで、Releasedに従い3,136,384→0bytesとなった。元のIOSurface IDを保ち、pixel copyを追加していない。これは静止画像の資源経路で、source clock/PTSは別記録し、Main IPC、継続再生、実GPU/画面、実音声、署名配布版の受入とは扱わない。
 
 製品の`ApplePlayerSession.scheduleRate`はready・pending seek・numericなsource/host時刻・rateを検査して共通host開始を行う。全angle準備やbuffer準備を保証するAPIではなく、group barrier/停止監視/音声所有は引き続き上位へ実装する。実sessionの診断では、古いseek完了が新しいseekを成功扱いにしないこと、pending中/不正時刻/close後の開始拒否と既存の単一rate開始を確認した。
 

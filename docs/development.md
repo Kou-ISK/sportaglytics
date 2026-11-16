@@ -597,6 +597,8 @@ For held native publication changes, run the exportHeldPublish, exportHeldPublis
 
 逆再生の進行監視は画像の変化だけでなく、現在操作のDrawnと実時計の差を要求倍率で換算して検査します。`PlayerObservation.test.cpp`で4倍率の同じ壁時計1秒の境界を確認し、Hostへの接続はmacOS native build/runtime CIで確認します。停止後の位置確認と既存の復旧・終了待ちは省略しません。
 
+cacheと転送で共有するlease/予算は`frame-ownership/FrameLease.hpp`に置きます。`ReverseFrameCache.test.cpp`のportable回帰に加え、macOSの`SurfaceSender.test.mm`で実CoreVideo/MachのReleasedまで同じ予算が維持されることを確認します。localで対象APIが拒否された場合は別IPCで代替せず、実行済みと未実行を分けてCIへ引き継ぎます。
+
 Mainの素材プランは`nativePackageSourcePlan.test.ts`と既存`nativeSourceAccess.test.ts`を合わせて確認します。合成の実filesystemでoffset/clip/空白と変更検出を検証し、decoderやWindow認証を模擬的に合格させる試験ではありません。通常の単一素材providerは同じfilesystem adapterを利用しますが、group backend/新IPCは未接続です。
 
 停止画像補正の所有は`StoppedImageSettlement.test.cpp`、120000Hz変換と終端直前の丸めは`SourceClockTicks.test.cpp`で確認します。後者はmacOSのCoreMediaをlinkします。両方を`test:native-runtime`に含めます。物理seekの完了と再押下を分離し、補正を通常シークや毎フレームの処理へ拡張しません。実session対照と署名済みsurface/音声の受入は別です。
