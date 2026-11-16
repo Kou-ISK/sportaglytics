@@ -19,6 +19,7 @@ import type {
 import type { NativePackageSourcePlan } from '../nativePackageSourcePlan';
 import { createLifetime } from './support/embedded-diagnostic/surface-lifetime.cjs';
 import { GroupFrameAdmission } from './groupFrameAdmission';
+import { GroupPresentationLedger } from './groupPresentationLedger';
 import { loadNativeGroupReceiver } from './groupSurfaceReceiver';
 import type {
   NativeGroupReceiver,
@@ -40,6 +41,10 @@ export interface GroupSurfaceTransport {
   ready(id: number): void;
   /** Last complete acknowledged pair, distinct from requested/player clocks. */
   presented(): NativeGroupPresentation | null;
+  validateStop(
+    proof: unknown,
+    intent: NativePlaybackIntent,
+  ): NativeGroupPresentation;
   stopRequests(): void;
   /** Called only after the owned producer has exited and its pipes closed. */
   drain(producerExited: boolean): Promise<void>;
@@ -66,12 +71,8 @@ export const createGroupSurfaceTransport = (
   const flights = new Map<number, Flight>(),
     recovered = new Set<number>(),
     rawUnknown = new Set<number>();
-  const painted = new Map<
-    number,
-    { first?: NativeGroupSurfaceMetadata; second?: NativeGroupSurfaceMetadata }
-  >();
-  let presented: NativeGroupPresentation | null = null,
-    drained = false;
+  const presentation = new GroupPresentationLedger();
+  let drained = false;
   let started = false,
     opened = false,
     stopped = false,
@@ -138,36 +139,13 @@ export const createGroupSurfaceTransport = (
     const flight = flights.get(id);
     if (!flight || flight.acknowledged) return;
     try {
-      if (drawn && (!presented || flight.meta.pair > presented.pair)) {
-        const pair = painted.get(flight.meta.pair) ?? {};
-        if (!painted.has(flight.meta.pair) && painted.size >= 6)
-          throw Error('NATIVE_GROUP_DRAW_BOUND');
-        if (flight.meta.angle === 0) pair.first = flight.meta;
-        else pair.second = flight.meta;
-        painted.set(flight.meta.pair, pair);
-        if (pair.first && pair.second) {
-          if (
-            pair.first.operation !== pair.second.operation ||
-            pair.first.seekId !== pair.second.seekId ||
-            pair.first.globalTicks !== pair.second.globalTicks
-          )
-            throw Error('NATIVE_GROUP_DRAW_PAIR');
-          presented = {
-            document,
-            generation: owner.generation,
-            operation: pair.first.operation,
-            seekId: pair.first.seekId,
-            pair: pair.first.pair,
-            globalTicks: pair.first.globalTicks,
-            ids: [pair.first.id, pair.second.id],
-          };
-          for (const key of painted.keys())
-            if (key <= presented.pair) painted.delete(key);
+      if (drawn) {
+        const pair = presentation.drawn(flight.meta);
+        if (pair)
           report('surface-pair-drawn', {
-            pair: presented.pair,
-            globalTicks: presented.globalTicks,
+            pair: pair.pair,
+            globalTicks: pair.globalTicks,
           });
-        }
       }
       if (drawn && !stopped && admission.isCurrent(flight.packet))
         native.drawn(id);
@@ -228,6 +206,7 @@ export const createGroupSurfaceTransport = (
         generation: owner.generation,
         document,
       };
+      presentation.publish(meta);
       const id = packet.id;
       const lifetime = createLifetime(() => {
         native.release(id);
@@ -326,7 +305,12 @@ export const createGroupSurfaceTransport = (
   };
   return {
     service,
-    presented: () => presented && { ...presented, ids: [...presented.ids] },
+    presented: () => presentation.presented(),
+    validateStop: (proof, intent) => {
+      if (stopped || failed || closeAttempted)
+        throw Error('NATIVE_GROUP_SURFACE_CLOSING');
+      return presentation.stop(proof, intent, owner);
+    },
     start: (): void => {
       if (started || closeAttempted)
         throw Error('NATIVE_GROUP_SURFACE_START_ATTEMPTED');

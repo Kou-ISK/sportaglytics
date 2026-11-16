@@ -100,6 +100,41 @@ export interface NativeGroupPresentation {
   globalTicks: number;
   ids: readonly [number, number];
 }
+export const parseNativeGroupPresentation = (
+  raw: unknown,
+): NativeGroupPresentation => {
+  const value = objectValue(raw);
+  exactKeys(value, [
+    'document',
+    'generation',
+    'operation',
+    'seekId',
+    'pair',
+    'globalTicks',
+    'ids',
+  ]);
+  const document = stringValue(value.document, 1, 128),
+    generation = stringValue(value.generation, 1, 128);
+  if (
+    !/^[\w-]+$/.test(document) ||
+    !/^[\w-]+$/.test(generation) ||
+    !Array.isArray(value.ids) ||
+    value.ids.length !== 2
+  )
+    throw Error('NATIVE_GROUP_PRESENTATION');
+  const first = integerValue(value.ids[0], 1),
+    second = integerValue(value.ids[1], 1);
+  if (first === second) throw Error('NATIVE_GROUP_PRESENTATION');
+  return {
+    document,
+    generation,
+    operation: integerValue(value.operation, 1),
+    seekId: integerValue(value.seekId, 1),
+    pair: integerValue(value.pair, 1),
+    globalTicks: integerValue(value.globalTicks, 0, nativeGroupMaximumTicks),
+    ids: [first, second],
+  };
+};
 export const parseNativeGroupSurfaceMetadata = (
   raw: unknown,
 ): NativeGroupSurfaceMetadata => {

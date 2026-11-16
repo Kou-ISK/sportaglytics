@@ -262,6 +262,40 @@ test('an empty local queue does not prove the producer exited or authorize recei
   assert.throws(() => f.transport.close(), /DRAIN_UNCONFIRMED/);
   assert.equal(f.counts().closed, 0);
 });
+test('a Main stop fence names both published slots and cannot invent a requested clock', async () => {
+  const f = fixture();
+  f.transport.start();
+  f.transport.intent(intent());
+  f.transport.ready(1);
+  f.transport.ready(2);
+  const first = f.sent[0];
+  const proof = {
+    document: first.document,
+    generation: first.generation,
+    operation: 1,
+    seekId: 1,
+    pair: 1,
+    globalTicks: 600000,
+    ids: [1, 2],
+  };
+  assert.equal(
+    f.transport.validateStop(proof, intent(2, 1)).globalTicks,
+    600000,
+  );
+  assert.throws(
+    () =>
+      f.transport.validateStop({ ...proof, globalTicks: 600001 }, intent(2, 1)),
+    /UNPUBLISHED/,
+  );
+  assert.throws(() => f.transport.validateStop(proof, intent(2, 2)), /OWNER/);
+  f.transport.stopRequests();
+  assert.throws(() => f.transport.validateStop(proof, intent(2, 1)), /CLOSING/);
+  for (const item of f.imports) item.options.allReferencesReleased();
+  for (const meta of f.sent) f.ack(meta);
+  await flush();
+  await f.transport.drain(true);
+  f.transport.close();
+});
 test('a source from the wrong angle is released before import and reports the original cause', async () => {
   const f = fixture({ packets: [packet(1, { sourceIndex: 1 })] });
   f.transport.start();

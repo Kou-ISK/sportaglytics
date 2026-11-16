@@ -476,3 +476,5 @@ AVPlayer adapterは`native/macos/playback/apple-player`、画像所有と転送�
 `electron/src/nativePlayback/nativeSourceFilesystem.ts`はpackage/sourceの検査、`nativePackageTimeline.ts`は配置の検証、`nativePackageSourcePlan.ts`は選択素材と共通時間モデルのMain内部の合成を担当します。従来の`nativeSourceAccess.ts`は単一素材の資格条件を維持して共通filesystem adapterを使います。素材プランをRendererのpath選択権限やgroup helper能力として扱いません。
 
 Group v2のwire/credit/native資源所有は`native/macos/playback/surface-transport/Group*`へ分離する。Mainの`runtime/groupSurfaceReceiver.ts`はaddon ABI、`groupFrameAdmission.ts`は素材プランと時刻写像、`groupSurfaceTransport.ts`はElectron転送とdrainを担当する。preloadの`nativeGroupPresenter.ts`はdocument内の2 canvasへのpair提示であり、素材path・資格検査・player時計を所有しない。`src/types/ipc/nativeGroupSurface.ts`にはhandleを含まないmetadataのみを置く。公開Renderer APIへのgroup有効化は別の未完工程である。
+
+Mainの`runtime/groupPresentationLedger.ts`は画像資源から独立した有界の発行・提示metadata台帳であり、停止fenceの照合を担当する。画像の借用寿命やsource配置の判定を重複実装せず、未発行時刻や古いseekを停止位置へ採用しない。
