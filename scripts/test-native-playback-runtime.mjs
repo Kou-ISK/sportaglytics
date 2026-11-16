@@ -52,6 +52,21 @@ try {
     ]);
     await run(binary, []);
   }
+  const digestTest = join(directory, 'ActiveNV12Digest');
+  await run('xcrun', [
+    'clang++',
+    '-std=c++17',
+    '-O2',
+    '-fobjc-arc',
+    'scripts/testing/active-nv12-digest.test.mm',
+    '-framework',
+    'Foundation',
+    '-framework',
+    'CoreVideo',
+    '-o',
+    digestTest,
+  ]);
+  await run(digestTest, []);
   const probe = join(directory, 'ControlPipeProbe');
   await run('xcrun', [
     'clang',

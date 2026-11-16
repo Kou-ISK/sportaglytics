@@ -7,6 +7,8 @@
 #include <cmath>
 #include <sys/resource.h>
 #include <vector>
+#include <cstring>
+#include "active-nv12-digest.hpp"
 
 // Compute-only probe: no NSApplication, window, input synthesis or display
 // claims.
@@ -31,7 +33,7 @@ static NSArray *errors(NSError *error) {
 }
 struct Sample {
   double pts = NAN, acquired = 0;
-  uint64_t hash = 0;
+  playbackdiagnostic::ActivePixelDigest digest{};
 };
 static Sample sample(STApplePlayerSession *player, bool force = false) {
   Sample result;
@@ -41,25 +43,16 @@ static Sample sample(STApplePlayerSession *player, bool force = false) {
     return result;
   result.pts = CMTimeGetSeconds(pts);
   result.acquired = now();
-  result.hash = 1469598103934665603ULL;
-  if (!CVPixelBufferIsPlanar(buffer) ||
-      CVPixelBufferLockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly) !=
-          kCVReturnSuccess) {
-    CVPixelBufferRelease(buffer);
-    return Sample{};
-  }
-  const unsigned char *bytes =
-      (const unsigned char *)CVPixelBufferGetBaseAddressOfPlane(buffer, 0);
-  size_t length = CVPixelBufferGetBytesPerRowOfPlane(buffer, 0) *
-                  CVPixelBufferGetHeightOfPlane(buffer, 0);
-  if (bytes)
-    for (size_t i = 0; i < length; i += 97) {
-      result.hash ^= bytes[i];
-      result.hash *= 1099511628211ULL;
-    }
-  CVPixelBufferUnlockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
+  const auto digest = playbackdiagnostic::activeNV12Digest(buffer);
   CVPixelBufferRelease(buffer);
+  if (!digest) return Sample{};
+  result.digest = *digest;
   return result;
+}
+static NSString *digestText(const playbackdiagnostic::ActivePixelDigest &digest) {
+  NSMutableString *text = [NSMutableString stringWithCapacity:digest.size() * 2];
+  for (const auto byte : digest) [text appendFormat:@"%02x", static_cast<unsigned>(byte)];
+  return text;
 }
 static double cpuSeconds() {
   rusage r{};
@@ -241,11 +234,11 @@ static NSDictionary *run(NSString *source, int count, bool scheduled,
             continue;
           }
           frames[i]++;
-          if (s.hash != last[i].hash)
+          if (s.digest != last[i].digest)
             contentChanges[i]++;
           bool backwards = rate < 0 ? s.pts < baseline[i].pts - 1e-6
                                     : s.pts > baseline[i].pts + 1e-6;
-          if (backwards && s.hash != baseline[i].hash &&
+          if (backwards && s.digest != baseline[i].digest &&
               !std::isfinite(first[i]))
             first[i] = s.acquired - commandAt;
           if (lastNew[i])
@@ -257,8 +250,7 @@ static NSDictionary *run(NSString *source, int count, bool scheduled,
               @"angle" : @(i),
               @"hostMs" : @((s.acquired - commandAt) * 1000),
               @"pts" : @(s.pts),
-              @"contentHash" : [NSString
-                  stringWithFormat:@"%llx", (unsigned long long)s.hash]
+              @"contentHash" : digestText(s.digest)
             }];
         }
         if (count == 2 && both) {
@@ -340,6 +332,8 @@ static NSDictionary *run(NSString *source, int count, bool scheduled,
       success = NO;
   return @{
     @"success" : @(success),
+    @"successMeaning" : @"bounded diagnostic completed, not presentation acceptance",
+    @"contentFingerprint" : @"active-nv12-sha256-v1; format/dimensions and all active bytes; excludes row padding; maximum 4096x2160",
     @"players" : @(count),
     @"mode" : scheduled ? @"common-host-clock" : @"independent-rate",
     @"rate" : @(rate),

@@ -429,4 +429,6 @@ macOS PR CIでも同じ行操作E2Eを実行します。選択失敗時は合成
 
 `PlayerObservation.test.cpp`はDrawnが少しずつ後退していても実時計から遅れる負例、0.5/2/4/6倍での同じ1秒の換算境界、無効時計・時刻・整数差の安全な計算を検査します。設定更新の連打で期限が延長されず、再押下・倍率/方向変更・新しいseekでは再基準化し、古いseekでは更新できないことも確認します。取得PTSログの再生は監視条件の対照であり、実Drawnや物理画面の受入とは区別します。
 
+`scripts/testing/active-nv12-digest.test.mm`は小さな実CoreVideoバッファで、paddingだけの変更を画像変化と数えず、疎な輝度採取で見落とす変更やchromaだけの変更を検出することを確認します。format・寸法の違い、不正なformat/nullの拒否も検査し、既存`test:native-runtime`で実行します。元映像や追加media fixtureは使いません。
+
 macOS PR workflowは`native/**`の変更も対象に含め、media buildの前に既存`test:native-runtime`を実行します。単なるnativeファイル変更だけで画像所有回帰が未実行になることを防ぎます。取得画像の任意診断と実配布物の画面受入は別ゲートです。

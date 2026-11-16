@@ -43,6 +43,8 @@ Main所有のAbortSignalで要求を失効できる。FSのawait境界で取消�
 
 ## 取得画像による小容量比較
 
+`scripts/testing/native-group-acquisition.mm`の現在のcontent fingerprintはNV12のformat・寸法と両planeの全active byteをSHA256へ入力する。行末paddingは除外し、上限4096×2160の外や不正なlayoutは画像不明とする。輝度を97byteごとに採取していた旧markerは全画像同一性の証拠にせず、過去のPTS取得数と区別する。全画素検査にも観測負荷があるため、異なるmarker方式の待ち時間を無条件に比較しない。`success`は有限診断の完了であり、滑らかさ・実表示の合格ではない。
+
 以下は**非GUIの取得フレームとplayer時計**の測定であり、実表示・実聴取の合格ではない。原本は読取のみ。音声は診断内でmuteし、映像の複製・全尺変換は行わない。各compute子の外側期限45秒、入力ready8秒、seek4秒、baseline画像2秒、観測1.6秒、pause後0.3秒。繰返しは同じitemの再seekであり、OSのdisk/decoder cacheをcoldへ戻していない。
 
 | 条件                                                  | 観測                                                                             | 解釈                                                                                |
