@@ -1,3 +1,6 @@
+import { resolveExportVideoSize } from './exportVideoGeometry';
+import { layoutClipExportText } from '../../../src/shared/clipExport/clipExportTextLayout';
+import { createClipTextMeasurer } from './exportTextMeasurement';
 import { probeMedia } from './packageMediaCompositionService';
 import { resolveMediaCopyMode } from './exportStreamCopy';
 import {
@@ -54,7 +57,7 @@ export const runFfmpegSingle = async ({
   onProgress,
 }: RunSingleParams): Promise<void> => {
   const actualSource = clip.sourceOverride || sourcePath;
-  const clipDuration = (clip.endTime - clip.startTime);
+  const clipDuration = clip.endTime - clip.startTime;
 
   const copyMode =
     (clip.audioTrackIndex === undefined || clip.audioTrackIndex === 0) &&
@@ -125,16 +128,22 @@ export const runFfmpegSingle = async ({
     return;
   }
 
-  const size = overlayEnabled ? await probeMedia(actualSource) : null;
-  const vfTexts = overlayEnabled
-    ? buildOverlayFilters({
-        overlayLines,
-        getJapaneseFontPath,
-        escapeDrawtext,
-        variant: 'single',
-        aspectRatio: size ? size.width / size.height : undefined,
-      })
-    : [];
+  const size = overlayEnabled
+    ? resolveExportVideoSize([await probeMedia(actualSource)])
+    : null;
+  const vfTexts =
+    overlayEnabled && size
+      ? buildOverlayFilters({
+          layout: await layoutClipExportText(
+            overlayLines,
+            size,
+            createClipTextMeasurer(getFfmpegPath, getJapaneseFontPath),
+          ),
+          height: size.height,
+          getJapaneseFontPath,
+          escapeDrawtext,
+        })
+      : [];
 
   const filterSteps: string[] = [];
   let baseLabel = '[0:v]';

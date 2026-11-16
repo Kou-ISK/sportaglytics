@@ -1,5 +1,7 @@
 # SporTagLytics Documentation
 
+- [出力テキストの早い折り返し: 原因と検証](reports/2026-11-export-text-wrap.md)
+
 はじめて使う場合は[合成サンプルのクイックスタート](quickstart.md)へ進んでください。公開版の状態は[Releases](https://github.com/Kou-ISK/sportaglytics/releases)、sourceの変更は[CHANGELOG](../CHANGELOG.md)、配布検証は[Release手順](../.github/RELEASE.md)で区別します。日付付きの検証記録は、その版・環境での証拠です。
 
 OSS導線の改善項目と受入条件は[2026-10 OSS改善記録](reports/2026-10-oss-remediation.md)、通常終了時の保存は[ADR 0068](adr/0068-timeline-close-save-handshake.md)を参照してください。

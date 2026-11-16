@@ -15,6 +15,8 @@ interface MediaProbe {
   width: number;
   height: number;
   hasAudio: boolean;
+  sampleAspectRatio?: number;
+  rotation?: number;
   frameRate: { numerator: number; denominator: number };
 }
 
@@ -24,6 +26,8 @@ interface ProbeOutput {
     codec_type?: string;
     width?: number;
     height?: number;
+    sample_aspect_ratio?: string;
+    side_data_list?: Array<{ rotation?: number }>;
     avg_frame_rate?: string;
     r_frame_rate?: string;
   }>;
@@ -72,7 +76,16 @@ export const probeMedia = async (filePath: string): Promise<MediaProbe> => {
   if (!video || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     throw new Error(`有効な映像ではありません: ${path.basename(filePath)}`);
   }
+  const [sarWidth, sarHeight] = (video.sample_aspect_ratio ?? '1:1')
+    .split(':')
+    .map(Number);
+  const sar = sarWidth / sarHeight;
+  const rotation = video.side_data_list?.find((item) =>
+    Number.isFinite(item.rotation),
+  )?.rotation;
   return {
+    sampleAspectRatio: Number.isFinite(sar) && sar > 0 ? sar : 1,
+    rotation: rotation ?? 0,
     durationSeconds,
     width: video.width && video.width > 0 ? video.width : 1920,
     height: video.height && video.height > 0 ? video.height : 1080,

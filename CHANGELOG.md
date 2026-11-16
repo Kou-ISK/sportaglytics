@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- 動画出力テキストの早すぎる改行を修正。実フォントの行幅と左右余白を使い、明示改行・結合文字・高さ上限を維持する。プレビューは同じ配置を使い、百分率や引用符も文字として描画する。[原因と検証](docs/reports/2026-11-export-text-wrap.md)。
+
 ## [0.17.29]
 
 - macOSの実C++ publicationテスト準備を非同期化し、コンパイル30秒・外側hook35秒の有限期限を整合させる。準備中止後は新たに子を起動せず、終了未確認の一時物は保持する。製品の容量・期限・6件のpublication安全条件は変更しない。

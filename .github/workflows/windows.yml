@@ -70,6 +70,8 @@ jobs:
           key: windows-x64-llama-${{ hashFiles('scripts/build-windows-llama.mjs') }}
       - name: Prepare Japanese font
         run: pnpm run fonts:prepare
+      - name: Verify measured export text with bundled fonts
+        run: node scripts/test-export-text-layout.mjs
       - name: Prepare test-only AI model
         run: node scripts/prepare-test-model.mjs
       - name: Windows quality gates

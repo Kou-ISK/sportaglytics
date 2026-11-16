@@ -1,3 +1,4 @@
+import { escapeFilterOption } from './ffmpegFilterEscaping';
 import { existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import * as os from 'os';
@@ -71,15 +72,11 @@ export const getJapaneseFontPath = (isBold = false): string => {
     : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc';
 };
 
-export const escapeDrawtext = (text: string): string => {
-  // Line breaking belongs exclusively to clipExportTextLayout.
-  return text
-    .replace(/\\/g, '\\\\')
-    .replace(/:/g, '\\:')
-    .replace(/'/g, "'\\''")
-    .replace(/%/g, '\\%')
-    .replace(/,/g, '\\,');
-};
+/** Literal drawtext AVOption, used with expansion=none (no percent evaluation). */
+export const escapeDrawtext = (text: string): string =>
+  escapeFilterOption(text).replace(/^[ \t]+|[ \t]+$/g, (spaces) =>
+    Array.from(spaces, (space) => '\\\\' + space).join(''),
+  );
 
 export const resolveDualSourceError = (
   mainSource: string | null | undefined,

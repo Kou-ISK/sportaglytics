@@ -15,7 +15,6 @@ import {
   planExportSource,
 } from './exportVirtualTimelineSource';
 import { buildOverlayFilters } from './exportFfmpegOverlay';
-import { formatOverlayLines } from '../../../src/shared/clipExport/clipExportTextLayout';
 import { escapeDrawtext, getJapaneseFontPath } from './exportOptions';
 import { runMediaProcess } from './mediaProcessRunner';
 import type {
@@ -86,9 +85,8 @@ export const createExportTextPreview = async (
     const overlay = inspected.layout.overflow
       ? []
       : buildOverlayFilters({
-          overlayLines: formatOverlayLines(clip, payload.overlay),
-          variant: sources.length > 1 ? 'dual' : 'single',
-          aspectRatio: inspected.width / inspected.height,
+          layout: inspected.layout,
+          height: inspected.height,
           getJapaneseFontPath,
           escapeDrawtext,
         });

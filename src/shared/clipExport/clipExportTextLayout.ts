@@ -43,57 +43,119 @@ export const formatOverlayLines = (
   return lines;
 };
 
+export const CLIP_TEXT_HORIZONTAL_PADDING = 0.015;
+// One pixel for the shadow plus one pixel for rasterization at the right edge.
+export const CLIP_TEXT_EDGE_GUARD = 2;
+export type MeasureClipText = (
+  text: string,
+  isBold: boolean,
+  fontSize: number,
+) => Promise<number>;
+
 const segmenter = new Intl.Segmenter('ja', { granularity: 'grapheme' });
-// Conservative glyph widths avoid splitting Japanese, emoji or combining marks.
-const widthInEm = (text: string): number =>
-  /^[\x20-\x7e]$/.test(text) ? (/[MW@]/.test(text) ? 1 : 0.7) : 1.2;
-const wrap = (lines: OverlayLine[], capacity: number): OverlayLine[] =>
-  lines.flatMap((line) =>
+
+const wrapParagraph = async (
+  line: OverlayLine,
+  capacity: number,
+  fontSize: number,
+  measure: MeasureClipText,
+): Promise<{ lines: OverlayLine[]; overflow: boolean }> => {
+  const segments = Array.from(
+    segmenter.segment(line.text),
+    ({ segment }) => segment,
+  );
+  const result: OverlayLine[] = [];
+  let start = 0;
+  let overflow = false;
+  do {
+    const remaining = segments.slice(start).join('');
+    if ((await measure(remaining, line.isBold, fontSize)) <= capacity) {
+      result.push({ ...line, text: remaining });
+      break;
+    }
+    // Measure whole candidates: summing character advances loses kerning/shaping.
+    let low = 0;
+    let high = segments.length - start;
+    while (low + 1 < high) {
+      const count = Math.floor((low + high) / 2);
+      const width = await measure(
+        segments.slice(start, start + count).join(''),
+        line.isBold,
+        fontSize,
+      );
+      if (width <= capacity) low = count;
+      else high = count;
+    }
+    if (!low) {
+      // A single indivisible grapheme is too wide; never silently crop it.
+      overflow = true;
+      low = 1;
+    }
+    // Keep ordinary English words together. Long unspaced tokens and Japanese
+    // still wrap at grapheme boundaries, without deleting spaces or characters.
+    const candidate = segments.slice(start, start + low);
+    let lastSpace = -1;
+    candidate.forEach((segment, index) => {
+      if (/^[ \t]$/.test(segment)) lastSpace = index;
+    });
+    const next = segments[start + low];
+    if (
+      lastSpace > 0 &&
+      next &&
+      /^[A-Za-z0-9]$/.test(candidate[candidate.length - 1] ?? '') &&
+      /^[A-Za-z0-9]$/.test(next)
+    )
+      low = lastSpace + 1;
+    result.push({ ...line, text: segments.slice(start, start + low).join('') });
+    start += low;
+  } while (start < segments.length);
+  return { lines: result, overflow };
+};
+
+/** Output-relative typography: 30px at 1080p, minimum 24px, total band <=20%. */
+export const layoutClipExportText = async (
+  input: OverlayLine[],
+  size: { width: number; height: number },
+  measure: MeasureClipText,
+): Promise<ClipExportTextLayout> => {
+  const { width, height } = size;
+  if (![width, height].every((value) => Number.isFinite(value) && value > 0))
+    throw new Error('映像のサイズを取得できません');
+  const paddingRatio = 0.01;
+  const capacity =
+    width * (1 - 2 * CLIP_TEXT_HORIZONTAL_PADDING) - CLIP_TEXT_EDGE_GUARD;
+  const paragraphs = input.flatMap((line) =>
     line.text
       .replace(/\r\n?/g, '\n')
       .split('\n')
-      .flatMap((paragraph) => {
-        const result: OverlayLine[] = [];
-        let text = '';
-        let width = 0;
-        for (const { segment } of segmenter.segment(paragraph)) {
-          const next = widthInEm(segment);
-          if (text && width + next > capacity) {
-            result.push({ ...line, text });
-            text = '';
-            width = 0;
-          }
-          text += segment;
-          width += next;
-        }
-        result.push({ ...line, text });
-        return result;
-      }),
+      .map((text) => ({ ...line, text })),
   );
-
-/** Output-relative typography: 30px at 1080p, minimum 24px, total band <=20%. */
-export const layoutClipExportText = (
-  input: OverlayLine[],
-  aspectRatio: number,
-): ClipExportTextLayout => {
-  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0)
-    throw new Error('映像のサイズを取得できません');
-  const paddingRatio = 0.01;
   for (let font = 30; font >= 24; font--) {
-    const fontRatio = font / 1080;
-    const lines = wrap(input, (aspectRatio * 0.94) / fontRatio);
+    // Use exactly the same integer pixel size for measurement and rendering.
+    const fontSize = Math.max(
+      Math.ceil((height * 24) / 1080),
+      Math.round((height * font) / 1080),
+    );
+    const fontRatio = fontSize / height;
+    const wrapped = await Promise.all(
+      paragraphs.map((line) =>
+        wrapParagraph(line, capacity, fontSize, measure),
+      ),
+    );
+    const lines = wrapped.flatMap((paragraph) => paragraph.lines);
+    const horizontalOverflow = wrapped.some((paragraph) => paragraph.overflow);
     const lineRatio = fontRatio * 1.25;
     const boxRatio = lines.length
       ? lines.length * lineRatio + paddingRatio * 2
       : 0;
-    if (boxRatio <= 0.2 || font === 24)
+    if ((!horizontalOverflow && boxRatio <= 0.2) || font === 24)
       return {
         lines,
         fontRatio,
         lineRatio,
         paddingRatio,
         boxRatio: Math.min(0.2, boxRatio),
-        overflow: boxRatio > 0.2,
+        overflow: horizontalOverflow || boxRatio > 0.2,
       };
   }
   throw new Error('テキスト配置を計算できません');
