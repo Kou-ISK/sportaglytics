@@ -49,7 +49,8 @@ public:
   Image *image() const { return storage->image.get(); }
   double pts() const { return storage->pts; }
   double end() const { return storage->end; }
-  bool belongsTo(uint64_t epoch, uint64_t source) const {
+  // Producer provenance, not a renderer operation/presentation authority.
+  bool producedBy(uint64_t epoch, uint64_t source) const {
     return storage->epoch == epoch && storage->sourceGeneration == source;
   }
 };
@@ -94,28 +95,37 @@ public:
   }
 };
 
-// Single actor only. Background decoders return owned leases to that actor;
-// stale work is rejected before publishing, not by pretending a decode
-// cancelled.
+// Single actor only. Decode requests and playback/presentation operations are
+// separate. Completed immutable samples can survive a new request for the same
+// validated source; an old producer callback still cannot replace the bank.
 template <typename Image> class ReverseFrameCache {
   uint64_t epoch = 0, sourceGeneration = 0;
+  bool requestActive = false;
   std::vector<RetainedFrame<Image>> frames;
 
 public:
-  bool advance(uint64_t operation, uint64_t source) {
-    if (!source || operation <= epoch)
+  bool beginRequest(uint64_t request, uint64_t source) {
+    if (!source || request <= epoch)
       return false;
-    epoch = operation;
+    if (source != sourceGeneration)
+      frames.clear();
+    epoch = request;
     sourceGeneration = source;
-    frames.clear();
+    requestActive = true;
+    return true;
+  }
+  bool cancelRequest(uint64_t request) {
+    if (!requestActive || request != epoch)
+      return false;
+    requestActive = false;
     return true;
   }
   bool publish(std::vector<RetainedFrame<Image>> incoming) {
-    if (incoming.empty())
+    if (!requestActive || incoming.empty())
       return false;
     double previous = -1, previousEnd = -1;
     for (const auto &frame : incoming) {
-      if (!frame.belongsTo(epoch, sourceGeneration) ||
+      if (!frame.producedBy(epoch, sourceGeneration) ||
           frame.pts() <= previous || frame.pts() < previousEnd)
         return false;
       previous = frame.pts();
@@ -127,8 +137,9 @@ public:
     return true;
   }
   std::optional<RetainedFrame<Image>> select(double sourceTime,
-                                             uint64_t operation) const {
-    if (operation != epoch || !std::isfinite(sourceTime) || sourceTime < 0)
+                                           uint64_t request) const {
+    if (!requestActive || request != epoch || !std::isfinite(sourceTime) ||
+        sourceTime < 0)
       return std::nullopt;
     auto next =
         std::upper_bound(frames.begin(), frames.end(), sourceTime,
@@ -142,6 +153,8 @@ public:
     return sourceTime < frame.end() ? std::optional<RetainedFrame<Image>>(frame)
                                     : std::nullopt;
   }
+  // Eviction only. Cancellation must carry the matching request identity;
+  // an old cancellation cannot revoke a new request's publication authority.
   void clear() { frames.clear(); }
 };
 } // namespace appleplayback

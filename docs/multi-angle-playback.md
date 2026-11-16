@@ -59,6 +59,8 @@
 
 追加の能力対照では`VTIsHardwareDecodeSupported(H.264)`はtrueだった一方、同じformatに`RequireHardwareAcceleratedVideoDecoder`を指定したsession作成は`-12911`だった。ローカルSDKでこれは`kVTVideoDecoderMalfunctionErr`であり、権限拒否やスリープが原因とは確定できない。通常sessionの`UsingHardwareAcceleratedVideoDecoder`照会は`-12900`（`kVTPropertyNotSupportedErr`）で、HW使用の有無は**不明**である。nilをfalseへ変換した初期診断値を「software decoderだった」という証拠には使わない。この実行環境の取得性能から、署名済みGUI経路での方式の優劣を断定しない。
 
+同じ権限・実行環境の別processで、1080p/59.94fps/High 4.2/8bit/BT.709/参照4枚の小さい合成対照を比較した。progressiveはHW必須decoderを2個とも作成でき、HW使用propertyもtrueだった。interlacedの対照と実原本は最初のHW必須作成が`-12911`だった。実原本は圧縮headerの`frame_mbs_only_flag=0`、`field_pic_flag=1`、取得bufferのFieldCount=2を確認した。原本のSPS/PPSを変更せずApple APIでformat descriptionだけを作り直しても結果は変わらなかった。従って「このMacではH.264全般がHW利用不能」「ロックが原因」とは扱わず、scan/coding方式を含む入力別の能力として評価する。この少数対照から全interlaced入力の非対応を断定しない。fieldや色の情報を削って初期化を通す変更は採用しない。
+
 根拠: [VideoToolboxの同期/遅延出力とdrain](https://developer.apple.com/documentation/videotoolbox/vtdecompressionsession-api-collection)、[AVAssetReaderTrackOutput](https://developer.apple.com/documentation/avfoundation/avassetreadertrackoutput)、ローカルSDKの`VTDecompressionProperties.h`/`VTErrors.h`。環境設定・権限を変更して結果を通すことはしていない。
 
 ## 事前準備と短押しの追加対照
@@ -68,6 +70,14 @@
 製品sessionの共通host開始に対し、予定anchorの約74〜77ms前にpauseする2回の対照では、両系統の時計は20秒で保持され、後退画像は取得しなかった。解放後に残った1枚は同位置のbaseline確定であり、逆再生が後から始まったとは扱わない。
 
 SDKのhost同期契約は、未来hostを厳密な遅延実行timerとは定めない。timebaseはanchor前にも進み得るため、groupのcanonical clockと画像publish境界で開始前の画像を扱う。clip offsetを含めて準備済みであることと、全angleの実提示が完了したことを混同しない。
+
+## 停止画像と追加の供給対照
+
+既存の独立`setRate`（自動待機のdefaultを維持）と新しい共通host開始（自動待機false）は異なる条件であり、比較結果を相互に流用しない。音声trackを一つ選んでmuteした実session対照では、単一の独立2倍逆でも、pause後の強制取得画像が停止時計より約1.13〜1.16秒古かった。各条件2回、20秒から1.6秒観測し、実表示は未接続である。停止時計へ一度だけexact seekする別対照では、単一は対象位置の約1フレーム以内を取得したが約0.87〜1.07秒の追加待ちがあった。共通hostの2系統ではseek完了trueの後も古いPTSを取得した。従ってseek完了やnonnull bufferを停止画像確認とみなす修正は採用しない。停止時計・sampleの有効区間・実表示ACKを照合する責務が残る。
+
+小さい範囲の連続取得では、getter呼出し削減、`hasNewPixelBuffer`を省いた毎poll強制取得、preroll追加は、揃えた対照で供給改善を示さなかった。依存GOPの対象外画像にVideoToolboxの`DoNotOutputFrame`を指定する実験も、対象15枚のPTS/active NV12画素の一致は保ったが復号時間を改善しなかった。これらを高速化として製品へ入れない。
+
+保持容量の別仮説として、取得済み画素をAppleのlossless LZ4で保存する小容量対照を行った。一つの1080p/0.25秒/15枚では、active NV12計46.66MBに対して、独立圧縮30.82MB、隣接frameとのXOR差分19.87MBだった。差分方式の圧縮約121ms、逆順復元と全active画素比較約26msで、全画素が一致した。これは一窓のみの診断で、一般の圧縮率、連続供給、総メモリ上限、製品採用を保証しない。field/color情報を含む復元adapter、最悪時raw容量、anchor間隔、共有budget、途中取消を検証してから採否を決める。原本の再圧縮や全尺変換は行っていない。
 
 ## 比較を続ける方式
 
@@ -91,11 +101,13 @@ SDKのhost同期契約は、未来hostを厳密な遅延実行timerとは定め�
 
 ## 有界bufferと現在の実装単位
 
-`ReverseFrameCache.hpp`はimageの所有leaseと共通保持budgetを分離する。cacheから除いたimageも、GPU/consumerに貸出中なら同じbudgetに残る。返却は別threadでも二重減算せず、古い操作/source世代のpublishを拒否する。穴・排他的末尾を別clipの画像で埋めない。これはOS全体の排他的予約ではなく、decoder内部の割当を含む厳密hard capでもない。
+`ReverseFrameCache.hpp`はimageの所有leaseと共通保持budgetを分離する。cacheから除いたimageも、GPU/consumerに貸出中なら同じbudgetに残る。返却は別threadでも二重減算しない。decode要求と再生/表示操作の世代を分け、同じ検証済みsourceの完成済みimmutable画像は次の要求でも再利用する。古いproducerのpublish、古い要求のselect/取消は拒否する。要求取消は現在のpublish/select権限を失効させるが、完成画像を次の要求で再利用するために保持できる。`clear`はevictionのみで取消ではない。frameのproducer由来を新しい表示操作のACK権限として使わず、consumer側の操作識別子を別に持つ。穴・排他的末尾を別clipの画像で埋めない。これはOS全体の排他的予約ではなく、decoder内部の割当を含む厳密hard capでもない。
 
 製品の`ApplePlayerSession.scheduleRate`はready・pending seek・numericなsource/host時刻・rateを検査して共通host開始を行う。全angle準備やbuffer準備を保証するAPIではなく、group barrier/停止監視/音声所有は引き続き上位へ実装する。実sessionの診断では、古いseek完了が新しいseekを成功扱いにしないこと、pending中/不正時刻/close後の開始拒否と既存の単一rate開始を確認した。
 
 この部品は単体契約と実AVAssetReaderのCVPixelBufferへ接続済みだが、公開版のgroup session/surfaceへは未接続。実原本の0.25秒×2系統で、次のPTSから区間を確定できる15枚ずつを保持し、cache選択とconsumer貸出を検査した。保持94.09MB、consumer貸出中の3.14MBはcache消去後も計上され、返却後は0になった。decoded sampleのdurationが未定義だったため、末尾sampleの範囲は推測せず選択対象から除外した。reader内の一時sampleとdecoder内部は保持budgetの対象外であり、総メモリ上限とは呼ばない。原本の有限10秒packet読取ではkey PTS間隔に約1.69〜3.00秒の差があり、小区間readでもGOP再復号を伴い得る。上限を通すために画質や必要検査を緩めない。予算・memory pressure・待機期限を超えた場合は候補保持/停止とする。
+
+同じ実bufferを次のsource同一要求で再利用し、古いproducerの再publishを拒否する対照も通した。さらに別のMetal offscreen 1MiB buffer転送では、unretained command bufferの完了handlerまでleaseを保ち、GPU完了とconsumer返却に応じて2MiB→1MiB→0と計上が減ること、全転送byteの一致を確認した。これはbuffer寿命の検証であり、動画描画、色、field処理、実画面提示の証拠ではない。
 
 ## 受入ゲート
 

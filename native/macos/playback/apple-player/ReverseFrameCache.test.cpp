@@ -26,7 +26,7 @@ int main() {
   assert(rejected);
   FrameBudget budget(100);
   ReverseFrameCache<Image> left, right;
-  assert(left.advance(1, 10) && right.advance(1, 20));
+  assert(left.beginRequest(1, 10) && right.beginRequest(1, 20));
   {
     std::vector<RetainedFrame<Image>> frames;
     frames.push_back(*budget.retain(image(1), 1, 10, 0, .1, 20));
@@ -51,9 +51,9 @@ int main() {
   drawn.reset();
   assert(budget.usedBytes() == 30 && alive == 1);
   // Cancellation/source changes invalidate lookup and late publishing.
-  assert(left.advance(2, 11));
-  assert(!left.advance(2, 12) && !left.advance(1, 12));
-  assert(!left.advance(3, 0));
+  assert(left.beginRequest(2, 11));
+  assert(!left.beginRequest(2, 12) && !left.beginRequest(1, 12));
+  assert(!left.beginRequest(3, 0));
   {
     std::vector<RetainedFrame<Image>> stale;
     stale.push_back(*budget.retain(image(5), 1, 10, 0, .1, 20));
@@ -98,6 +98,44 @@ int main() {
   left.clear();
   right.clear();
   assert(budget.usedBytes() == 0 && alive == 0);
+  // Re-press/seek intent does not invalidate completed immutable source data.
+  // Only the new request may publish. Its consumer carries its own presentation
+  // operation; the cached frame keeps the original producer provenance.
+  {
+    FrameBudget warm(40);
+    ReverseFrameCache<Image> cache;
+    assert(cache.beginRequest(1, 7));
+    std::vector<RetainedFrame<Image>> initial;
+    initial.push_back(*warm.retain(image(30), 1, 7, 0, 1, 10));
+    assert(cache.publish(std::move(initial)));
+    auto inFlight = cache.select(.5, 1);
+    assert(cache.cancelRequest(1));
+    assert(!cache.cancelRequest(1) && !cache.select(.5, 1));
+    std::vector<RetainedFrame<Image>> cancelled;
+    cancelled.push_back(*warm.retain(image(33), 1, 7, 2, 3, 10));
+    assert(!cache.publish(std::move(cancelled)));
+    assert(cache.beginRequest(2, 7));
+    assert(!cache.cancelRequest(1));
+    assert(!cache.select(.5, 1));
+    assert(cache.select(.5, 2)->image() == inFlight->image());
+    assert(cache.select(.5, 2)->producedBy(1, 7));
+    std::vector<RetainedFrame<Image>> late;
+    late.push_back(*warm.retain(image(31), 1, 7, 2, 3, 10));
+    assert(!cache.publish(std::move(late)));
+    assert(cache.select(.5, 2)->image()->id == 30);
+    assert(!cache.select(2.5, 2));
+    std::vector<RetainedFrame<Image>> replacement;
+    replacement.push_back(*warm.retain(image(32), 2, 7, 2, 3, 10));
+    assert(cache.publish(std::move(replacement)));
+    assert(!cache.select(.5, 2));
+    assert(cache.select(2.5, 2)->image()->id == 32);
+    assert(warm.usedBytes() == 20);
+    inFlight.reset();
+    assert(warm.usedBytes() == 10);
+    assert(cache.beginRequest(3, 8));
+    assert(!cache.select(2.5, 3) && warm.usedBytes() == 0);
+  }
+  assert(alive == 0);
   // Outstanding images keep the accounting state alive after cache/budget
   // teardown.
   std::optional<RetainedFrame<Image>> retained;

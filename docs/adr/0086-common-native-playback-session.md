@@ -22,6 +22,8 @@ Proposed
 
 まずbufferの所有・上限・操作/source世代をportable native部品へ分離する。cache eviction後もconsumerが借用するimageは同じ保持budgetに残し、遅い完了を新媒体へpublishしない。保持budgetをOS全体のメモリ予約と呼ばない。
 
+decode要求の失効と完成済みsource画像の寿命を分ける。同じsourceの新しい再生意図で完成画像まで破棄せず、取消済みproducerの完了を新しい要求の結果として受理しない。画像のproducer識別子は表示操作の権限ではなく、実提示ACKは別のconsumer操作へ紐付ける。停止位置へのseekが完了しても、その位置の画像が取得できたとは扱わない。
+
 実装の接続・失敗方針・段階的な受入条件は[設計](../multi-angle-playback.md)を正本とする。取得画像だけの測定を実表示としない。reverse方式の採用、既存ADRの置換、製品defaultの変更は、供給持続性と同一署名済み配布版の実機受入を根拠に決定する。
 
 ## Consequences
