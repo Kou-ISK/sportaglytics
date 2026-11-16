@@ -77,6 +77,7 @@ try {
           getJapaneseFontPath,
           escapeDrawtext,
         } = require('./build/electron/src/ipc/exportOptions.js');
+        const { getFfmpegPath } = require('./build/electron/src/mediaTools.js');
         const clip = {
           id: 'synthetic',
           actionName: 'Fixture',
@@ -99,10 +100,10 @@ try {
         };
         const preview = await createExportTextPreview(
           { exports: [payload], previewIndex: 0 },
-          () => args.ffmpeg,
+          getFfmpegPath,
         );
         const common = {
-          getFfmpegPath: () => args.ffmpeg,
+          getFfmpegPath,
           clip: { ...clip, hasAudio: false },
           outputPath: args.output,
           overlayEnabled: true,
@@ -117,7 +118,7 @@ try {
             secondarySource: args.secondary,
           });
         else await runFfmpegSingle({ ...common, sourcePath: args.source });
-        return preview;
+        return { ...preview, packaged: app.isPackaged };
       },
       {
         source: path.join(directory, `${source}.mp4`),
@@ -125,9 +126,10 @@ try {
           ? path.join(directory, `${secondary}.mp4`)
           : undefined,
         output,
-        ffmpeg: ffmpegPath,
       },
     );
+    if (process.env.E2E_APP_PATH)
+      assert.equal(result.packaged, true, 'expected the installed application');
     const metadata = JSON.parse(
       await run(ffprobePath, [
         '-v',

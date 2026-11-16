@@ -62,3 +62,7 @@ SHA-256:
 - before.png: `695f94d99b1bf9be9238030c4104b9b44b1b86bbca9ce92fc1c80a37b44f2df1`
 - after.png: `9cb8bbe15eef9bc073cbc27fd96e16e8b01e8dad9f9cf5bbaf303138aacf0bcc`
 - after.mp4: `a0416bc89b83c8138fb72c3bcd3a805b6b175116ad2f6ff6f27658e2aa604992`
+
+## 限定リリース準備
+
+PR #289は全3 workflow成功後にdevelopへ通常merge（`2fcfa7eeb51f8040cbef9238001cccfaf088406f`）した。macOS/HiraginoとWindows/Notoの14条件も通過し、Windows通常・インストール版の各29シナリオが成功。続く0.17.30準備では`export-text-geometry`を共通/配布物E2Eへ登録し、Main内でそのアプリのFFmpegを解決する。source-only比較を配布物の成功として流用しない。ARCH-EX-014で対象を限定し、PR #288とモデル関連の未公開差分は含めない。署名・公証・公開の最終状態は準備/main PRと同一release runに記録する。
