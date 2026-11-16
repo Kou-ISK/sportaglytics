@@ -180,7 +180,10 @@ using appleplayback::sourceTicks;
     // A control epoch needs its own image. Release confirms a stopped image,
     // not the last image drawn while the timebase was still running.
     _imageSent = NO; _atStart = NO;
-    _reverseProgress.reset(CACurrentMediaTime());
+    require(_reverseProgress.controls(CACurrentMediaTime(),
+        [_intent[@"seekId"] unsignedLongLongValue],
+        [_intent[@"playing"] boolValue] && ![_intent[@"seekMode"] isEqual:@"preview"],
+        [_intent[@"rate"] doubleValue]), @"reverse progress owner");
     if (![_intent[@"playing"] boolValue] || [_intent[@"seekMode"] isEqual:@"preview"]) {
       [_engine pause];
       _imageWait.begin(CACurrentMediaTime(), _ready);

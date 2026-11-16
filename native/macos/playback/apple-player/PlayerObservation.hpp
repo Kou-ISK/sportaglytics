@@ -8,7 +8,20 @@ namespace appleplayback {
 struct ReversePresentationProgress {
   double changedAt = 0;
   std::optional<uint64_t> pts;
+  uint64_t seek = 0;
+  bool playing = false;
+  double rate = 0;
   void reset(double now) { changedAt = now; pts.reset(); }
+  bool controls(double now, uint64_t nextSeek, bool nextPlaying, double nextRate) {
+    if (!std::isfinite(now) || !std::isfinite(changedAt) || now < changedAt || !nextSeek || nextSeek < seek ||
+        !std::isfinite(nextRate)) return false;
+    // Volume/mute/track delivery gets a new control sequence, but does not
+    // create a new motion or renew its image-supply deadline.
+    if (seek != nextSeek || playing != nextPlaying || rate != nextRate)
+      reset(now);
+    seek = nextSeek; playing = nextPlaying; rate = nextRate;
+    return true;
+  }
   bool stalled(double now, std::optional<uint64_t> drawnPTS,
                std::optional<uint64_t> clockPTS, double requestedRate) {
     if (!std::isfinite(now) || !std::isfinite(changedAt) || now < changedAt ||

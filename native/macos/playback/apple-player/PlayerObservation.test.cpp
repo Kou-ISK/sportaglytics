@@ -39,6 +39,23 @@ int main() {
   assert(progress.stalled(50.1, 100, 100, 0));
   assert(progress.stalled(50.1, 100, 100, std::numeric_limits<double>::quiet_NaN()));
   assert(progress.stalled(50.1, std::numeric_limits<uint64_t>::max(), 0, -6));
+  // Settings-only sequences cannot keep a motion alive with no Drawn image.
+  assert(progress.controls(70, 1, true, -2));
+  assert(!progress.stalled(70.1, 3000, 3000, -2));
+  for (int n = 1; n <= 10; n++)
+    assert(progress.controls(70.1 + n * .1, 1, true, -2));
+  assert(progress.stalled(71.2, std::nullopt, 3000, -2));
+  assert(progress.controls(72, 1, false, -2));
+  assert(progress.controls(73, 1, true, -2)); // re-press owns a fresh wait
+  assert(!progress.stalled(73.1, std::nullopt, 3000, -2));
+  assert(progress.controls(74, 1, true, -4)); // rate/direction changes reset
+  assert(!progress.stalled(74.1, std::nullopt, 3000, -4));
+  assert(progress.controls(75, 2, true, -4)); // explicit seek resets
+  assert(!progress.stalled(75.1, std::nullopt, 3000, -4));
+  assert(!progress.controls(76, 1, true, -4)); // old seek cannot renew it
+  assert(progress.stalled(76.1, std::nullopt, 3000, -4));
+  progress.reset(std::numeric_limits<double>::quiet_NaN());
+  assert(!progress.controls(77, 3, true, -4)); // corrupt timing cannot be renewed
   int reads = 0;
   auto transition = appleplayback::samplePlayerObservation(true, false, 2, [&] {
     return ++reads == 1 ? 2.0 : 0.0;
