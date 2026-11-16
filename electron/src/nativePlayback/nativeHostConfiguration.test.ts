@@ -14,6 +14,7 @@ const plan = (): NativePackageSourcePlan => ({
       angleId: 'first',
       clipId: 'a',
       sourceKey: 'a',
+      revision: '1:2:3:4:5:1',
       path: '/fixture/first.mov',
       url: 'file:///fixture/first.mov',
       durationSeconds: 30,
@@ -25,6 +26,7 @@ const plan = (): NativePackageSourcePlan => ({
       angleId: 'second',
       clipId: 'b',
       sourceKey: 'b',
+      revision: '1:2:3:4:5:1',
       path: '/fixture/second.mov',
       url: 'file:///fixture/second.mov',
       durationSeconds: 30,
@@ -46,10 +48,11 @@ describe('Main placed-pair Host configuration', () => {
       before = JSON.stringify(source);
     expect(nativeGroupHostConfiguration(source, 'second')).toEqual({
       version: 2,
-      mode: 'placed-pair-deadline-experiment',
+      mode: 'placed-pair-decoded-samples',
       audioAngle: 0,
       sources: [
         {
+          sourceRevision: '1:2:3:4:5:1',
           path: '/fixture/second.mov',
           sourceIndex: 1,
           sourceEpoch: 1,
@@ -58,6 +61,7 @@ describe('Main placed-pair Host configuration', () => {
           sourceOffset: 60000,
         },
         {
+          sourceRevision: '1:2:3:4:5:1',
           path: '/fixture/first.mov',
           sourceIndex: 0,
           sourceEpoch: 1,
@@ -96,6 +100,8 @@ describe('Main placed-pair Host configuration', () => {
   it('rejects unknown, nonfinite, invalid clock mappings and unsafe path representations', () => {
     const original = plan();
     for (const patch of [
+      { revision: '' },
+      { revision: 'unverified' },
       { globalStart: Number.NaN },
       { globalEnd: Number.POSITIVE_INFINITY },
       { globalEnd: 0 },

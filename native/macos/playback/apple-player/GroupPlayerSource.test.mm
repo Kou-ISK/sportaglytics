@@ -22,12 +22,12 @@ int main() { @autoreleasepool {
   NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:
     [@"sportag-group-source-" stringByAppendingString:NSUUID.UUID.UUIDString]];
   assert([[NSFileManager defaultManager] createDirectoryAtPath:directory withIntermediateDirectories:NO attributes:nil error:nil]);
-  NSURL *url = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"vfr.mov"]]; fixture(url, true);
+  NSURL *url = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"vfr.mov"]]; fixture(url, true, 16, 16, -1, true);
   appleplayback::FrameBudget budget(64 * 1024 * 1024);
-  auto first = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget];
+  auto first = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
   // The second independent player has a non-zero placement offset. A source
   // sample's PTS must never be re-labelled as the same global clock.
-  auto second = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:22022 sourceOffset:2002 budget:budget];
+  auto second = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:22022 sourceOffset:2002 budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
   assert([first seek:4004 operation:1] && [second seek:4004 operation:1]);
   waitFor(first, 4004); waitFor(second, 4004);
   {
@@ -52,29 +52,35 @@ int main() { @autoreleasepool {
   assert(![second scheduleRate:1 globalTicks:0 hostTime:CMClockGetTime(CMClockGetHostTimeClock())]);
   closeAndDrain(second); assert(budget.usedBytes() == 0);
   // Pending old callback cannot revive a new operation or a closed source.
-  auto changed = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget];
+  auto changed = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
   assert([changed seek:0 operation:1]); [changed poll];
   assert([changed adoptOperation:2]); waitFor(changed, 0);
   assert([changed seek:8008 operation:3]); waitFor(changed, 8008);
   closeAndDrain(changed); pump(); assert(![changed frame] && budget.usedBytes() == 0);
   auto absent = [[STGroupPlayerSource alloc] initWithURL:
     [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"missing.mov"]]
-    globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget];
+    globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
   assert([absent seek:0 operation:1]);
   double deadline = CACurrentMediaTime() + 12;
   while (!absent.failed && CACurrentMediaTime() < deadline) { [absent poll]; pump(); }
   assert(absent.failed && ![absent frame]); closeAndDrain(absent);
   appleplayback::FrameBudget tiny(1);
-  auto limited = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:tiny];
+  auto limited = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:tiny sourceRevision:*appleplayback::sourceFileRevision(url)];
   assert([limited seek:4004 operation:1]); deadline = CACurrentMediaTime() + 12;
   while (!limited.failed && CACurrentMediaTime() < deadline) { [limited poll]; pump(); }
-  assert(limited.failed && limited.error.code == 6 && ![limited frame]);
+  assert(limited.failed && limited.error.code == 2 && [limited.error.userInfo[NSUnderlyingErrorKey] code] == 9 && ![limited frame]);
   closeAndDrain(limited); assert(tiny.usedBytes() == 0 && !tiny.quarantinedBytes());
   // Close while a seek completion is queued: drain waits for that callback,
   // and its late arrival must not revive a closed source.
-  auto closing = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget];
+  auto closing = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
   assert([closing seek:0 operation:1]); [closing poll]; closeAndDrain(closing);
   pump(); assert(![closing frame] && budget.usedBytes() == 0);
+  auto silentURL = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"silent.mov"]];
+  fixture(silentURL, true);
+  auto silent = [[STGroupPlayerSource alloc] initWithURL:silentURL globalStart:0 globalEnd:24024 sourceOffset:0 budget:budget sourceRevision:*appleplayback::sourceFileRevision(silentURL)];
+  assert([silent seek:4004 operation:1]); waitFor(silent, 4004);
+  assert([silent selectAudioTrack:0 volume:0 muted:YES] && ![silent selectAudioTrack:1 volume:0 muted:YES]);
+  closeAndDrain(silent); assert(budget.usedBytes() == 0);
   // Remove only this fixture owned by this process, after actual index drainage.
   assert([[NSFileManager defaultManager] removeItemAtPath:directory error:nil]);
   puts("group real-player source intervals/offsets/ownership passed");

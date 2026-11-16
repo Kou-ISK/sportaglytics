@@ -1,5 +1,4 @@
 #pragma once
-#import "SourceSampleIntervals.hpp"
 #import <AVFoundation/AVFoundation.h>
 #import <ImageIO/ImageIO.h>
 #import <QuartzCore/QuartzCore.h>
@@ -8,11 +7,6 @@
 
 namespace {
 void pump() { [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.003]]; }
-void drained(STSourceSampleIntervals* index) {
-  const double deadline = CACurrentMediaTime() + 4;
-  while (!index.drained && CACurrentMediaTime() < deadline) pump();
-  assert(index.drained); // never claim a timed-out scan finished
-}
 NSData* jpeg(size_t width, size_t height, uint8_t grey) {
   std::vector<uint8_t> pixels(width * height * 3, grey);
   auto provider = CGDataProviderCreateWithData(nullptr, pixels.data(), pixels.size(), nullptr);
@@ -27,7 +21,7 @@ NSData* jpeg(size_t width, size_t height, uint8_t grey) {
   CFRelease(destination); CGImageRelease(image); CGColorSpaceRelease(color); CGDataProviderRelease(provider);
   return data;
 }
-void fixture(NSURL* url, bool precise, int width = 16, int height = 16) {
+void fixture(NSURL* url, bool precise, int width = 16, int height = 16, int constantGrey = -1, bool withAudio = false) {
   NSError* error = nil;
   auto writer = [[AVAssetWriter alloc] initWithURL:url fileType:AVFileTypeQuickTimeMovie error:&error];
   CMVideoFormatDescriptionRef format = nullptr;
@@ -36,10 +30,21 @@ void fixture(NSURL* url, bool precise, int width = 16, int height = 16) {
   input.mediaTimeScale = precise ? 120000 : 600;
   writer.movieTimeScale = precise ? 120000 : 600;
   assert(writer && [writer canAddInput:input]); [writer addInput:input];
+  AVAssetWriterInput *audio = nil; CMAudioFormatDescriptionRef audioFormat = nullptr;
+  if (withAudio) {
+    AudioStreamBasicDescription pcm{};
+    pcm.mSampleRate = 48000; pcm.mFormatID = kAudioFormatLinearPCM;
+    pcm.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
+    pcm.mBytesPerPacket = 2; pcm.mFramesPerPacket = 1; pcm.mBytesPerFrame = 2;
+    pcm.mChannelsPerFrame = 1; pcm.mBitsPerChannel = 16;
+    assert(CMAudioFormatDescriptionCreate(nullptr, &pcm, 0, nullptr, 0, nullptr, nullptr, &audioFormat) == noErr);
+    audio = [[AVAssetWriterInput alloc] initWithMediaType:AVMediaTypeAudio outputSettings:nil sourceFormatHint:audioFormat];
+    assert([writer canAddInput:audio]); [writer addInput:audio];
+  }
   assert([writer startWriting]); [writer startSessionAtSourceTime:kCMTimeZero];
   int64_t pts = 0;
   for (int n = 0; n < 8; ++n) {
-    NSData* image = jpeg(width, height, uint8_t(40 + n * 20));
+    NSData* image = jpeg(width, height, uint8_t(constantGrey >= 0 ? constantGrey : 40 + n * 20));
     const double deadline = CACurrentMediaTime() + 2;
     while (!input.readyForMoreMediaData && CACurrentMediaTime() < deadline) pump();
     assert(input.readyForMoreMediaData);
@@ -53,6 +58,19 @@ void fixture(NSURL* url, bool precise, int width = 16, int height = 16) {
     size_t size = image.length;
     assert(CMSampleBufferCreateReady(nullptr, block, format, 1, 1, &timing, 1, &size, &sample) == noErr);
     assert([input appendSampleBuffer:sample]); CFRelease(sample); CFRelease(block); pts += duration;
+  }
+  if (audio) {
+    CMBlockBufferRef block = nullptr; CMSampleBufferRef sample = nullptr;
+    std::vector<uint8_t> silence(12000 * 2, 0);
+    assert(CMBlockBufferCreateWithMemoryBlock(nullptr, nullptr, silence.size(), nullptr, nullptr, 0,
+      silence.size(), 0, &block) == kCMBlockBufferNoErr);
+    assert(CMBlockBufferReplaceDataBytes(silence.data(), block, 0, silence.size()) == kCMBlockBufferNoErr);
+    CMSampleTimingInfo timing{CMTimeMake(1, 48000), kCMTimeZero, kCMTimeInvalid}; size_t size = 2;
+    assert(CMSampleBufferCreateReady(nullptr, block, audioFormat, 12000, 1, &timing, 1, &size, &sample) == noErr);
+    const double deadline = CACurrentMediaTime() + 2;
+    while (!audio.readyForMoreMediaData && CACurrentMediaTime() < deadline) pump();
+    assert(audio.readyForMoreMediaData && [audio appendSampleBuffer:sample]);
+    CFRelease(sample); CFRelease(block); [audio markAsFinished]; CFRelease(audioFormat);
   }
   [input markAsFinished]; __block bool finished = false;
   [writer finishWritingWithCompletionHandler:^{ finished = true; }];

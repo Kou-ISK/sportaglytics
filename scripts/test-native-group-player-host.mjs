@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  writeFile,
+  rm,
+  stat,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -65,8 +72,23 @@ try {
   const { nativeGroupHostConfiguration } = require(configFile);
   const source = join(work, 'vfr.mov');
   await run(fixture, [source]);
-  for (const scenario of ['normal', 'forged-stop', 'unsupported-reverse']) {
+  const identity = await stat(source, { bigint: true });
+  const sourceRevision = [
+    identity.dev,
+    identity.ino,
+    identity.size,
+    identity.mtimeNs,
+    identity.ctimeNs,
+    identity.nlink,
+  ].join(':');
+  for (const scenario of [
+    'normal',
+    'forged-stop',
+    'unsupported-reverse',
+    'stale-revision',
+  ]) {
     const forgedStop = scenario === 'forged-stop';
+    const staleRevision = scenario === 'stale-revision';
     const unsupportedReverse = scenario === 'unsupported-reverse';
     const service = 'local.sportaglytics.surface.group-' + randomUUID();
     receiver.openGroupV2(service);
@@ -104,6 +126,7 @@ try {
               sources: [0, 1].map((angle) => ({
                 angleId: angle ? 'right' : 'left',
                 path: source,
+                revision: staleRevision ? '1:2:3:4:5:1' : sourceRevision,
                 globalStart: 0,
                 globalEnd: (angle ? 22022 : 24024) / 120000,
                 sourceTimeOffset: (angle ? 2002 : 0) / 120000,
@@ -135,6 +158,31 @@ try {
         muted: true,
       };
       await owned.write(intent);
+      if (staleRevision) {
+        await until(() => receipt !== undefined);
+        closeResult = await owned.close();
+        await backend.done();
+        assert.equal(closeResult.nativeDrained, true);
+        assert.equal(closeResult.processExited, true);
+        assert.equal(closeResult.pipesClosed, true);
+        assert.equal(receipt.success, false);
+        assert.equal(packets.length, 0);
+        const result = JSON.parse(
+          await readFile(
+            join(directory, 'native-run-1/native-result.json'),
+            'utf8',
+          ),
+        );
+        assert.equal(result.failure.stage, 'source');
+        assert.ok(
+          result.failure.chain.some(
+            (entry) =>
+              entry.domain === 'SportagDecodeWindow' && entry.code === 10,
+          ),
+        );
+        assert.equal(result.heldBytes, 0);
+        continue;
+      }
       await until(() => packets.length === 2);
       const [a, b] = packets;
       assert.deepEqual(

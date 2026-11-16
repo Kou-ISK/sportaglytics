@@ -1,4 +1,4 @@
-#import "SampleIntervalFixture.hpp"
+#import "DecodedFrameReferenceFixture.hpp"
 #import "GroupPlayerPair.hpp"
 #include "../surface-transport/GroupSurfaceReceiver.hpp"
 #include <unistd.h>
@@ -14,7 +14,7 @@ int main() { @autoreleasepool {
   GroupSurfaceReceiver receiver; receiver.open(service.UTF8String); receiver.setPeer(getpid());
   GroupSurfaceSender sender(budget); sender.open(service.UTF8String, getpid());
   auto pair = [[STGroupPlayerPair alloc] initWithURLs:@[url, url] placements:
-    (std::array<appleplayback::GroupClipPlacement, 2>{{{0, 1, 0, 24024, 0}, {1, 1, 0, 22022, 2002}}}) budget:budget];
+    (std::array<appleplayback::GroupClipPlacement, 2>{{{0, 1, 0, 24024, 0, *appleplayback::sourceFileRevision(url)}, {1, 1, 0, 22022, 2002, *appleplayback::sourceFileRevision(url)}}}) budget:budget];
   assert(![pair seek:23000 operation:1]); // invalid second placement changes neither
   assert([pair seek:4004 operation:1]);
   bool sent = false; double deadline = CACurrentMediaTime() + 12;
@@ -32,12 +32,14 @@ int main() { @autoreleasepool {
   assert(a->identity.globalStart == 2002 && b->identity.globalStart == 4004);
   // Distinct per-sample fixture images prove these two timestamps refer to
   // different decoded content, rather than merely two clocks/buffer handles.
+  // JPEG coded components are checked here; production colour qualification
+  // remains a separate Main/profile gate, not this injected fixture plan.
   assert(IOSurfaceLock(a->surface, kIOSurfaceLockReadOnly, nullptr) == kIOReturnSuccess);
   assert(IOSurfaceLock(b->surface, kIOSurfaceLockReadOnly, nullptr) == kIOReturnSuccess);
   const auto yA = *(static_cast<const uint8_t *>(IOSurfaceGetBaseAddressOfPlane(a->surface, 0)));
   const auto yB = *(static_cast<const uint8_t *>(IOSurfaceGetBaseAddressOfPlane(b->surface, 0)));
-  assert(std::abs(int(yA) - int(std::lround(16 + 60 * 219.0 / 255))) <= 4);
-  assert(std::abs(int(yB) - int(std::lround(16 + 80 * 219.0 / 255))) <= 4);
+  assert(yA == referenceComponent(directory, 1920, 1080, 60));
+  assert(yB == referenceComponent(directory, 1920, 1080, 80));
   assert(yB > yA + 8);
   assert(IOSurfaceUnlock(a->surface, kIOSurfaceLockReadOnly, nullptr) == kIOReturnSuccess);
   assert(IOSurfaceUnlock(b->surface, kIOSurfaceLockReadOnly, nullptr) == kIOReturnSuccess);

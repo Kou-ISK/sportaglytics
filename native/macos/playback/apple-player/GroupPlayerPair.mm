@@ -3,7 +3,7 @@
 @implementation STGroupPlayerPair {
   NSArray<STGroupPlayerSource *> *_sources;
   std::array<appleplayback::GroupClipPlacement, 2> _placements;
-  uint64_t _operation, _publishedOperation;
+  uint64_t _operation, _publishedOperation, _target;
   std::optional<std::array<uint64_t, 2>> _publishedSamples;
   BOOL _closed, _failed;
 }
@@ -20,7 +20,7 @@
     for (size_t angle = 0; angle < 2; ++angle) {
       auto p = placements[angle];
       [sources addObject:[[STGroupPlayerSource alloc] initWithURL:urls[angle]
-        globalStart:p.globalStart globalEnd:p.globalEnd sourceOffset:p.sourceOffset budget:budget]];
+        globalStart:p.globalStart globalEnd:p.globalEnd sourceOffset:p.sourceOffset budget:budget sourceRevision:p.revision]];
     }
     _sources = [sources copy];
   }
@@ -31,7 +31,7 @@
   if (_closed || _failed || operation <= _operation || operation > groupsurfacewire::MaximumSequence) return NO;
   // Validate both placements first; do not seek one member on invalid input.
   for (const auto &p : _placements) if (ticks < p.globalStart || ticks >= p.globalEnd) return NO;
-  [self pause]; _operation = operation;
+  [self pause]; _operation = operation; _target = ticks;
   for (STGroupPlayerSource *source in _sources)
     if (![source seek:ticks operation:operation]) { _failed = YES; [self pause]; return NO; }
   return YES;
@@ -43,11 +43,12 @@
     if (![source adoptOperation:operation]) { _failed = YES; [self pause]; return NO; }
   _operation = operation; return YES;
 }
-- (void)poll {
+- (void)poll { [self pollAtGlobalTime:_target]; }
+- (void)pollAtGlobalTime:(uint64_t)ticks {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed || _failed) return;
   for (STGroupPlayerSource *source in _sources) {
-    [source poll];
+    [source pollAtGlobalTime:ticks];
     if (source.failed) { _failed = YES; [self pause]; return; }
   }
 }

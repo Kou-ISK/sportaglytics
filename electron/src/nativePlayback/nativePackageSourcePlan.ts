@@ -16,6 +16,7 @@ export interface NativePlannedSource {
   readonly clipId: string;
   readonly sourceKey: string;
   readonly path: string;
+  readonly revision: string;
   readonly url: string;
   readonly durationSeconds: number;
   readonly globalStart: number;
@@ -93,6 +94,7 @@ export const resolveNativePackageSourcePlan = async (
           clipId: clip.id,
           sourceKey,
           path: file.path,
+          revision: file.revision,
           url: file.url,
           durationSeconds: clip.durationSeconds,
           globalStart: clip.timelineStartSeconds - angle.offsetSeconds,

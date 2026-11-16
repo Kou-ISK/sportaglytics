@@ -56,6 +56,14 @@ AVPlayerItemVideoOutput *makeVideoOutput() {
   if (rate >= 1 && rate <= 2) return YES;
   return rate > 2 ? _item.canPlayFastForward : rate > 0 && _item.canPlaySlowForward;
 }
+- (BOOL)prepareAudioOnly {
+  NSParameterAssert(NSThread.isMainThread);
+  if (_closed || _item.status != AVPlayerItemStatusReadyToPlay) return NO;
+  if (_output) { [_item removeOutput:_output]; _output = nil; }
+  if (self.audioTrackCount) for (AVPlayerItemTrack *track in _item.tracks)
+    if ([track.assetTrack.mediaType isEqual:AVMediaTypeVideo]) track.enabled = NO;
+  return YES;
+}
 - (BOOL)selectAudioTrack:(NSUInteger)index {
   NSParameterAssert(NSThread.isMainThread);
   NSArray<AVPlayerItemTrack *> *tracks = self.audioTracks;
@@ -112,7 +120,7 @@ AVPlayerItemVideoOutput *makeVideoOutput() {
 }
 - (void)settleStoppedImageAtTime:(CMTime)time completion:(void (^)(BOOL))completion {
   NSParameterAssert(NSThread.isMainThread);
-  if (_closed || _seeking || self.rate != 0 || !CMTIME_IS_NUMERIC(time) ||
+  if (_closed || !_output || _seeking || self.rate != 0 || !CMTIME_IS_NUMERIC(time) ||
       CMTimeCompare(time, kCMTimeZero) < 0 || !CMTIME_IS_NUMERIC(self.duration) ||
       CMTimeCompare(time, self.duration) >= 0) {
     completion(NO); return;
@@ -127,7 +135,7 @@ AVPlayerItemVideoOutput *makeVideoOutput() {
 }
 - (CVPixelBufferRef)copyCurrentImage:(CMTime *)presentationTime force:(BOOL)force {
   NSParameterAssert(NSThread.isMainThread);
-  if (_closed) return NULL;
+  if (_closed || !_output) return NULL;
   CMTime time = _player.rate == 0 ? _player.currentTime : [_output itemTimeForHostTime:CACurrentMediaTime()];
   if (!CMTIME_IS_NUMERIC(time) || (!force && ![_output hasNewPixelBufferForItemTime:time])) return NULL;
   return [_output copyPixelBufferForItemTime:time itemTimeForDisplay:presentationTime];
@@ -141,6 +149,6 @@ AVPlayerItemVideoOutput *makeVideoOutput() {
   [_player pause];
   [_item cancelPendingSeeks];
   [_player replaceCurrentItemWithPlayerItem:nil];
-  [_item removeOutput:_output];
+  if (_output) [_item removeOutput:_output];
 }
 @end

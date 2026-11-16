@@ -6,20 +6,19 @@
 
 @implementation STGroupPlayerSource {
   STApplePlayerSession *_player;
-  STSourceSampleIntervals *_index;
+  STDecodedFrameWindow *_decoder;
   std::optional<appleplayback::FrameBudget> _budget;
-  std::optional<appleplayback::RetainedImage<appleplayback::GroupPixel>> _pending;
   std::optional<appleplayback::GroupSourceFrame> _frame;
-  uint64_t _start, _end, _operation, _target, _pendingDisplayTime;
+  uint64_t _start, _end, _operation, _target, _windowStart, _windowEnd;
   NSUInteger _activeSeeks, _seekRevision;
   int64_t _offset;
   double _deadline;
-  BOOL _closed, _failed, _seekStarted, _seekCompleted, _initialReady;
+  BOOL _closed, _failed, _seekStarted, _seekCompleted, _initialReady, _windowRequested, _audioConfigured, _audioAbsent;
   NSError *_failure;
 }
 - (instancetype)initWithURL:(NSURL *)url globalStart:(uint64_t)start
                  globalEnd:(uint64_t)end sourceOffset:(int64_t)offset
-                    budget:(appleplayback::FrameBudget)budget {
+                    budget:(appleplayback::FrameBudget)budget sourceRevision:(std::string)revision {
   NSParameterAssert(NSThread.isMainThread);
   NSParameterAssert(url.isFileURL && start < end && end <= 86400ULL * 120000 &&
     offset >= -int64_t(86400ULL * 120000) && offset <= int64_t(86400ULL * 120000) &&
@@ -27,7 +26,7 @@
   if ((self = [super init])) {
     _budget.emplace(std::move(budget)); _start = start; _end = end; _offset = offset;
     _player = [[STApplePlayerSession alloc] initWithURL:url];
-    _index = [[STSourceSampleIntervals alloc] initWithURL:url];
+    _decoder = [[STDecodedFrameWindow alloc] initWithURL:url budget:*_budget sourceRevision:std::move(revision)];
   }
   return self;
 }
@@ -36,12 +35,12 @@
   _failed = YES;
   _failure = [NSError errorWithDomain:@"SportagGroupSource" code:code
     userInfo:underlying ? @{NSUnderlyingErrorKey:underlying} : @{}];
-  [_player pause]; _pending.reset(); _frame.reset(); [_index cancel];
+  [_player pause]; _frame.reset(); [_decoder close];
 }
 - (BOOL)seek:(uint64_t)ticks operation:(uint64_t)operation {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed || _failed || !operation || operation <= _operation || ticks < _start || ticks >= _end) return NO;
-  [_player pause]; _pending.reset(); _frame.reset();
+  [_player pause]; _frame.reset(); [_decoder invalidate]; _windowRequested = NO;
   ++_seekRevision;
   _operation = operation; _target = ticks; _seekStarted = NO; _seekCompleted = NO; _initialReady = NO;
   _deadline = CACurrentMediaTime() + 10;
@@ -52,16 +51,21 @@
   if (_closed || _failed || !_operation || operation <= _operation || operation > 9007199254740991ULL) return NO;
   _operation = operation; return YES;
 }
-- (void)poll {
+- (void)poll { [self pollAtGlobalTime:_target]; }
+- (void)pollAtGlobalTime:(uint64_t)wanted {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed || _failed || !_operation) return;
-  if (_player.status == AVPlayerItemStatusFailed) { [self fail:1 underlying:_player.error]; return; }
-  if (_index.failed) {
-    [self fail:2 underlying:[NSError errorWithDomain:@"SportagSampleMetadata" code:(NSInteger)_index.failure userInfo:@{@"displayTime":@(_pendingDisplayTime)}]];
-    return;
-  }
+  if (!_audioAbsent && _player.status == AVPlayerItemStatusFailed) { [self fail:1 underlying:_player.error]; return; }
+  if (wanted < _start || wanted >= _end) { [self fail:5 underlying:nil]; return; }
+  if (_decoder.failed) { [self fail:2 underlying:_decoder.error]; return; }
   if (!_initialReady && CACurrentMediaTime() >= _deadline) { [self fail:3 underlying:nil]; return; }
-  if (_player.status != AVPlayerItemStatusReadyToPlay) return;
+  if (!_audioAbsent && _player.status != AVPlayerItemStatusReadyToPlay) return;
+  if (!_audioConfigured) {
+    _audioAbsent = _player.audioTrackCount == 0;
+    if (![_player prepareAudioOnly]) { [self fail:1 underlying:_player.error]; return; }
+    _audioConfigured = YES;
+  }
+  if (_audioAbsent) { _seekStarted = YES; _seekCompleted = YES; }
   if (!_seekStarted) {
     _seekStarted = YES;
     const NSUInteger revision = _seekRevision;
@@ -79,30 +83,33 @@
     return;
   }
   if (!_seekCompleted) return;
-  if (!_pending) {
-    CMTime pts = kCMTimeInvalid;
-    CVPixelBufferRef value = [_player copyCurrentImage:&pts force:!_initialReady];
-    if (!value) return;
-    auto owner = appleplayback::OwnedImage<appleplayback::GroupPixel>(value,
-      [](appleplayback::GroupPixel *image) { CVPixelBufferRelease(image); });
-    auto time = appleplayback::sourceTicks(pts);
-    if (!time) { [self fail:5 underlying:nil]; return; }
-    // Even an image waiting for its metadata must have a shared budget charge.
-    _pending = _budget->retainImage(std::move(owner), CVPixelBufferGetDataSize(value));
-    if (!_pending) { [self fail:6 underlying:nil]; return; }
-    _pendingDisplayTime = *time;
+  const uint64_t query = uint64_t(int64_t(wanted) + _offset);
+  auto frame = [_decoder select:query];
+  if (!frame) {
+    if (_decoder.failed) { [self fail:2 underlying:_decoder.error]; return; }
+    if (_decoder.drained) {
+      if (_windowRequested && query >= _windowStart && query < _windowEnd) {
+        [self fail:2 underlying:[NSError errorWithDomain:@"SportagDecodeWindow" code:8 userInfo:nil]];
+        return; // known completed gap cannot trigger an unbounded retry
+      }
+      const uint64_t sourceEnd = uint64_t(int64_t(_end) + _offset);
+      _windowStart = query > 30000 ? query - 30000 : 0;
+      _windowEnd = std::min(sourceEnd, query + 30000);
+      _windowRequested = [_decoder requestStart:_windowStart end:_windowEnd];
+      if (!_windowRequested) [self fail:2 underlying:_decoder.error];
+    }
+    return;
   }
-  auto interval = [_index lookup:_pendingDisplayTime];
-  if (!interval) { [_index request:_pendingDisplayTime]; return; }
-  const int64_t mappedStart = int64_t(interval->start) - _offset;
-  const int64_t mappedEnd = int64_t(interval->end) - _offset;
-  const int64_t start = std::max<int64_t>(mappedStart, _start), end = std::min<int64_t>(mappedEnd, _end);
-  if (start < 0 || start >= end) { _pending.reset(); return; }
-  _frame = appleplayback::GroupSourceFrame{*_pending, interval->start, interval->end,
+  const uint64_t sourceStart = uint64_t(llround(frame->pts() * 120000));
+  const uint64_t sourceEnd = uint64_t(llround(frame->end() * 120000));
+  const int64_t start = std::max<int64_t>(int64_t(sourceStart) - _offset, _start);
+  const int64_t end = std::min<int64_t>(int64_t(sourceEnd) - _offset, _end);
+  if (start < 0 || start >= end) { [self fail:5 underlying:nil]; return; }
+  _frame = appleplayback::GroupSourceFrame{frame->imageLease(), sourceStart, sourceEnd,
     uint64_t(start), uint64_t(end)};
-  _pending.reset();
   if (_frame->covers(_target)) _initialReady = YES;
 }
+
 - (std::optional<appleplayback::GroupSourceFrame>)frame {
   NSParameterAssert(NSThread.isMainThread);
   return _closed || _failed ? std::nullopt : _frame;
@@ -113,11 +120,13 @@
   // original sample, even when they equal another sample's PTS. This source
   // adapter cannot grant reverse provenance. Do not weaken the metadata gate.
   if (rate < 0 || _closed || _failed || !_seekCompleted || !_frame || !_frame->covers(ticks)) return NO;
+  if (_audioAbsent) return CMTIME_IS_NUMERIC(hostTime) && CMTimeCompare(hostTime, CMClockGetTime(CMClockGetHostTimeClock())) > 0;
   return [_player scheduleRate:rate fromTime:CMTimeMake(int64_t(ticks) + _offset, 120000) atHostTime:hostTime];
 }
 - (BOOL)selectAudioTrack:(NSUInteger)track volume:(float)volume muted:(BOOL)muted {
   NSParameterAssert(NSThread.isMainThread);
-  if (_closed || _failed || _player.status != AVPlayerItemStatusReadyToPlay || !std::isfinite(volume) || volume < 0 || volume > 1) return NO;
+  if (_closed || _failed || (!_audioAbsent && _player.status != AVPlayerItemStatusReadyToPlay) || !std::isfinite(volume) || volume < 0 || volume > 1) return NO;
+  if (_audioAbsent) return track == 0;
   // A silent source may own a silent angle. No automatic alternate audio owner.
   if (_player.audioTrackCount && ![_player selectAudioTrack:track]) return NO;
   if (!_player.audioTrackCount && track) return NO;
@@ -133,10 +142,10 @@
 - (void)close {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed) return;
-  _closed = YES; _pending.reset(); _frame.reset(); [_index cancel]; [_player close];
+  _closed = YES; _frame.reset(); [_decoder close]; [_player close];
 }
 - (BOOL)failed { return _failed; }
-- (BOOL)drained { return _closed && !_activeSeeks && _index.drained; }
+- (BOOL)drained { return _closed && !_activeSeeks && _decoder.drained; }
 - (BOOL)seekCompleted { return !_closed && !_failed && _seekCompleted; }
 - (NSError *)error { return _failure ?: _player.error; }
 @end

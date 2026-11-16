@@ -182,19 +182,21 @@ preloadでは既存の単一`setSharedTextureReceiver`からv2を分岐する。
 
 native producerも`GroupSurfaceSender`に最大64 pairの発行metadataを残し、停止fenceのoperation/seek/pair/共通anchorと両delivery IDを照合できる。Released後もmetadataだけを短期保持し、画像leaseを延命しない。partial sendの不完全pair、履歴外、古いcontrol、すでに新しいDrawnがあるpairを拒否する。限定placed-pair Hostの入力loopはこの照合を使用する。通常Main/preloadとのrelayとpackage全体のgroup Host制御は未完である。
 
-Host用の`SourceSampleIntervals`は、AVPlayerから実際に取得したPTSを、圧縮video trackのsample PTS/durationへ照合する。平均fpsから画像区間を作らず、任意の要求時刻を実サンプルPTSとみなさない。動画を復号/複製せず、1秒の指定窓（依存packetを含み得る）・512 buffer・走査16MiBのmetadata読取を1 sourceあたり一件、helper内serial queueで行う。受付から2秒を過ぎた結果を採用せず失敗を知らせるが、SDK/OS操作が応答しない場合にその場で終了したとは扱わない。取消は新しいpublishを止め、`drained`は実worker/callback終了までfalseを維持する。Hostは失敗と排出完了を別に扱う必要がある。
+Hostの`DecodedFrameWindow`は圧縮CMSampleBufferをVideoToolboxへ渡し、その同じsampleのPTS/durationと復号callbackの時刻を照合する。AVPlayerの表示deadlineから元画像時刻を推定しない。指定窓は最大1秒、現在のsource要求は前後0.25秒、512 buffer・圧縮16MiB・単packet 4MiB・保持64画像までとし、同時workerはhelper全体で2件、各sourceは1件に制限する。受付から5秒を過ぎた結果を採用しないが、応答しないSDK操作を終了済みと扱わず実worker/callbackの排出を待つ。
 
-JPEG passthroughで生成する微小な可変フレーム間隔fixtureでは、120000Hzの正確なsample区間と、明示した600Hzで丸められた実区間の両方を検査する。これはH.264/VideoToolboxの書き出し成功やgroup再生の合格ではない。このmetadata試験だけを通常Controllerの受入とは扱わない。限定Hostへの実接続は次節の試験で別に確認する。
+Mainで検査したfile revision（dev/ino/size/mtime/ctime/nlink）をmanifestから供給器へ渡し、読取開始・画像採用・cache参照で照合する。通常の素材差し替え/変更を拒否する境界であり、同一UIDによる任意の親directory改変への排他的保証ではない。取消/旧requestのcallbackは新画像を公開できない。画像loanの解放まで共有保持budgetへ計上し、decoder内部/OS/GPU全体のhard capとは呼ばない。
+
+ImageIO JPEG passthroughの自作fixtureはVFR、600Hz/120000Hz、異なる画像内容、取消/欠損/差し替え、予算不足と実排出を確認する。JPEGの色変換はcodec/寸法別の自作基準と比較し、H.264全般の色資格や書き出し成功とは扱わない。
 
 ### 限定placed-pair Hostの実接続
 
-`nativeGroupHostConfiguration`はMainの選択済みプランから、angleの順序とsourceIndex、120000Hzの配置・offset、明示された一つのaudio ownerを持つversion 2 / `placed-pair-deadline-experiment` manifestを作る。二angle・各一clipの共通有効区間だけを受け付け、空白・複数clip・重ならない区間を一般対応として通さない。旧version 1は変更しない。この入口はhelper内で実行できるが、通常providerの能力交渉・Controllerへはまだ公開していない。revision 9やexport能力からgroup再生対応を推定しない。
+`nativeGroupHostConfiguration`はMainの選択済みプランから、angleの順序とsourceIndex、120000Hzの配置・offset、明示された一つのaudio ownerを持つversion 2 / `placed-pair-decoded-samples` manifestを作る。二angle・各一clipの共通有効区間だけを受け付け、空白・複数clip・重ならない区間を一般対応として通さない。旧version 1は変更しない。この入口はhelper内で実行できるが、通常providerの能力交渉・Controllerへはまだ公開していない。revision 9やexport能力からgroup再生対応を推定しない。
 
-Hostは実`STGroupPlayerSource`二系統を持ち、AVPlayer outputの画像を共有64MiB予算へ計上してからmetadata照合を待つ。実sampleの有効区間をoffsetでglobalへ写像し、二画像の共通区間にあるanchorだけを`GroupSurfaceSender`へ渡す。初回/明示seek/停止位置は要求anchorを両方が覆うまで未準備とする。継続再生の希望時計と取得画像anchorは別にし、同一画像位置の繰返しを進行としない。画像差が要求倍率に対して壁時計1秒を超える供給は受理せず、最後の進行から1秒の欠乏で失敗・両側停止・排出へ進む。これは滑らかな逆再生の達成値ではなく、止まった画像と進む時計を成功にしない有限の監視である。
+Hostは実`STGroupPlayerSource`二系統を持ち、圧縮sampleから復号した画像を共有256MiB保持budgetへ計上する。実sampleの有効区間をoffsetでglobalへ写像し、二画像の共通区間にあるanchorだけを`GroupSurfaceSender`へ渡す。初回/明示seek/停止位置は要求anchorを両方が覆うまで未準備とする。継続再生の希望時計と取得画像anchorは別にし、同一画像位置の繰返しを進行としない。画像差が要求倍率に対して壁時計1秒を超える供給は受理せず、最後の進行から1秒の欠乏で失敗・両側停止・排出へ進む。これは滑らかな逆再生の達成値ではなく、止まった画像と進む時計を成功にしない有限の監視である。
 
-同じseekでの再押下・倍率/音量変更は、制御所有と物理seekの世代を分けて引き継ぐ。初回targetへの再seekを毎操作で発行しない。新seekは古い完了を失効し、closeは既発行seek callbackとmetadata workerの終了を待つ。解除はまず両側をpauseし、現在のnative発行履歴へ両delivery IDの停止proofを照合してから確定画像を取り直す。片側だけのACK、改変anchor、古いproofを成功にしない。共通hostへのscheduleが片側で拒否されたら両側をpauseする。音声はMain指定の一angleだけを選び、変更前に全側をmuteする。reverse中は一時的に無音とし、保存済みmute設定は書き換えない。
+同じseekでの再押下・倍率/音量変更は、制御所有と物理seekの世代を分けて引き継ぐ。初回targetへの再seekを毎操作で発行しない。新seekは古い完了を失効し、closeは既発行seek callbackとdecode workerの終了を待つ。解除はまず両側をpauseし、現在のnative発行履歴へ両delivery IDの停止proofを照合してから確定画像を取り直す。片側だけのACK、改変anchor、古いproofを成功にしない。共通hostへのscheduleが片側で拒否されたら両側をpauseする。音声はMain指定の一angleだけを選び、変更前に全側をmuteする。reverse中は一時的に無音とし、保存済みmute設定は書き換えない。
 
-`test:native-group-player-host`はMainの実manifest関数、既存owned backend/FIFO、実ローカルhelper、独立AVPlayer、sample index、N-API/IOSurface/Mach、再押下/停止proof、結果hash、子closeとpipe終了を通す。合成VFRの二要素とoffsetを使い、Drawnは試験側の模擬ACKである。Speaker・Canvas/GPU提示・一般素材・異なるカメラの同期・署名済み配布版の受入ではない。終了receiptの`stoppedClock`はnullとし、共通画像anchorを実測AVPlayer停止時計へ偽装しない。新しいcodec、原本加工、FFmpeg linkは追加しない。
+`test:native-group-player-host`はMainの実manifest関数、既存owned backend/FIFO、実ローカルhelper、音声用AVPlayer、実reader/decoder、N-API/IOSurface/Mach、再押下/停止proof、結果hash、子closeとpipe終了を通す。合成VFRの二要素とoffsetを使い、Drawnは試験側の模擬ACKである。Speaker・Canvas/GPU提示・一般素材・異なるカメラの同期・署名済み配布版の受入ではない。終了receiptの`stoppedClock`はnullとし、共通画像anchorを実測AVPlayer停止時計へ偽装しない。新しいcodec、原本加工、FFmpeg linkは追加しない。
 
 ### Display deadlines are not source-sample provenance
 
@@ -205,3 +207,9 @@ SourceSampleIntervals contains real compressed-sample metadata. Equality of a ca
 The synthetic fixture now has distinct content per sample, and receiver-side pixels are checked as well as timestamps. Repeating two unchanged sample starts at different anchors does not count as a new image. These tests still do not prove full real-media content, different-camera synchronization, speaker output or signed-distribution acceptance.
 
 The subsequent read-only pixel comparison matched nine AVPlayer buffers to independently decoded active NV12 pixels. The paused baseline matched its source PTS; all eight negative-rate observations had a different display deadline (including deadlines equal to a _different_ real sample start). The movie-time attachment merely repeated the display deadline and was not independent source provenance. Therefore the experimental placed-pair Host now rejects negative playing controls as `unsupported-reverse-provenance`, pauses/drains, and the source adapter also refuses negative scheduling. The synthetic Host re-press test uses positive-rate controls and separately verifies the negative-rate rejection. Legacy v1 controls are unchanged. A timestamped reverse producer remains required; this guard is not a reverse performance improvement or completed product connection.
+
+### 元sample時刻を保持する供給器への置換
+
+上記deadline実験のmetadata indexは採用せず削除した。現在の限定Hostは`placed-pair-decoded-samples`であり、`DecodedFrameWindow`の実sample画像を使う。AVPlayerは音声のみとし、音声trackがある場合はvideo track/outputを無効化する。無音素材のAVPlayer時計を共通時計の実測として扱わない。負rateのHostガードは、継続供給・共通時計・実提示の受入が完了するまで維持する。この置換だけで通常Controllerや複数clip対応、逆再生速度改善を達成したとはしない。
+
+読取専用の重いH.264素材対照では、独立した二供給器の各1秒窓へ0.5/2/4/6倍相当の逆向き時刻列を問い合わせ、88件の取得画像を既存の独立した連続復号の絶対PTS・duration・active NV12 SHA256へ照合し不一致0だった。これは時間を進めながら提示する試験ではない。最初の要求画像が両側で利用可能になるまで約2.46〜3.56秒、保持画像の最大観測量は約383MB、close/実worker終了後は0だった。source属性は不変。現在の0.5秒bank構成より長い1秒窓を用いた診断で、通常Controller・異カメラ同期・連続速度・実画面/音声・署名配布版の合格を示さない。供給遅延が残るため、通常のreverse能力を有効化する根拠にはしない。

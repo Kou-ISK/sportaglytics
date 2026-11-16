@@ -13,6 +13,7 @@ const plan: NativePackageSourcePlan = {
     angleId: id,
     clipId: 'clip',
     sourceKey: String(index).repeat(64),
+    revision: '1:2:3:4:5:1',
     path: `fixtures/${id}.mp4`,
     url: `fixtures/${id}.mp4`,
     durationSeconds: 10,

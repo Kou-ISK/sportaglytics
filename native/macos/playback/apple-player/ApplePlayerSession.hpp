@@ -15,6 +15,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) AVPlayerTimeControlStatus timeControlStatus;
 @property(nonatomic, readonly) NSUInteger audioTrackCount;
 - (BOOL)selectAudioTrack:(NSUInteger)index;
+/// Group mode obtains timestamped pixels from its own bounded decoder. Remove
+/// this output and disable video tracks when audio is present, avoiding a second
+/// live video decoder. A silent item stays paused and is not a group clock.
+- (BOOL)prepareAudioOnly;
 - (BOOL)supportsRate:(float)rate;
 - (void)setVolume:(float)volume muted:(BOOL)muted;
 - (void)setRate:(float)rate;

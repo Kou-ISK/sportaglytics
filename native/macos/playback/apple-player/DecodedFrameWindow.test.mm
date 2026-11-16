@@ -1,0 +1,68 @@
+#import "DecodedFrameReferenceFixture.hpp"
+#import "DecodedFrameWindow.hpp"
+#include <cstdio>
+void wait(STDecodedFrameWindow *decoder) {
+  double end = CACurrentMediaTime() + 7;
+  while (!decoder.drained && CACurrentMediaTime() < end) pump();
+  assert(decoder.drained);
+}
+int main() { @autoreleasepool {
+  NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:[@"sportag-decoded-window-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+  assert([[NSFileManager defaultManager] createDirectoryAtPath:directory withIntermediateDirectories:NO attributes:nil error:nil]);
+  NSURL *url = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"distinct-vfr.mov"]]; fixture(url, true);
+  appleplayback::FrameBudget budget(64 * 1024 * 1024);
+  auto decoder = [[STDecodedFrameWindow alloc] initWithURL:url budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
+  assert([decoder requestStart:0 end:24024] && ![decoder requestStart:0 end:24024]); wait(decoder);
+  if (decoder.failed) fprintf(stderr, "decoder code=%ld underlying=%ld\n", (long)decoder.error.code, (long)[decoder.error.userInfo[NSUnderlyingErrorKey] code]);
+  assert(!decoder.failed);
+  {
+    auto first = [decoder select:4004], second = [decoder select:6006];
+    assert(first && second && std::llround(first->pts() * 120000) == 2002 && std::llround(first->end() * 120000) == 6006);
+    assert(std::llround(second->pts() * 120000) == 6006 && std::llround(second->end() * 120000) == 8008);
+    assert(![decoder select:24024]);
+    assert(CVPixelBufferLockBaseAddress(first->image(), kCVPixelBufferLock_ReadOnly) == kCVReturnSuccess);
+    const auto y = *static_cast<const uint8_t *>(CVPixelBufferGetBaseAddressOfPlane(first->image(), 0));
+    // JPEG's coded full-range component is returned by this decoder, unlike
+    // AVPlayer's colour-converted output. This test identifies the original
+    // distinct sample; it is not general BT.709/limited-range qualification.
+    assert(y == referenceComponent(directory, 16, 16, 60));
+    CVPixelBufferUnlockBaseAddress(first->image(), kCVPixelBufferLock_ReadOnly);
+    [decoder close]; assert(decoder.drained && ![decoder select:4004] && budget.usedBytes() > 0);
+  }
+  assert(budget.usedBytes() == 0);
+  auto cancelled = [[STDecodedFrameWindow alloc] initWithURL:url budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
+  auto other = [[STDecodedFrameWindow alloc] initWithURL:url budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
+  assert([cancelled requestStart:0 end:24024] && [other requestStart:0 end:24024]);
+  [cancelled invalidate]; wait(cancelled); wait(other);
+  assert(![cancelled select:4004] && !cancelled.failed && [other select:4004]);
+  [cancelled close]; [other close]; assert(budget.usedBytes() == 0);
+  // Exact coarse-clock timing is retained instead of inventing the input PTS.
+  auto coarseURL = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"coarse.mov"]];
+  fixture(coarseURL, false);
+  auto coarse = [[STDecodedFrameWindow alloc] initWithURL:coarseURL budget:budget sourceRevision:*appleplayback::sourceFileRevision(coarseURL)];
+  assert([coarse requestStart:0 end:24000]); wait(coarse);
+  { auto image = [coarse select:2001]; assert(image && std::llround(image->pts() * 120000) == 2000); }
+  [coarse close]; assert(budget.usedBytes() == 0);
+  auto replacement = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"replacement.mov"]]; fixture(replacement, true);
+  auto originalRevision = *appleplayback::sourceFileRevision(url);
+  auto changed = [[STDecodedFrameWindow alloc] initWithURL:url budget:budget sourceRevision:originalRevision];
+  assert([changed requestStart:0 end:24024]);
+  // No run-loop yield: any queued old progress must recheck Main's identity
+  // before adopting pixels. This is normal replacement, not an adversarial OS guarantee.
+  auto backup = [directory stringByAppendingPathComponent:@"before-replacement.mov"];
+  assert([[NSFileManager defaultManager] moveItemAtPath:url.path toPath:backup error:nil]);
+  assert([[NSFileManager defaultManager] moveItemAtPath:replacement.path toPath:url.path error:nil]);
+  wait(changed); assert(changed.failed && changed.error.code == 10 && ![changed select:4004]);
+  [changed close]; assert(budget.usedBytes() == 0);
+  auto missingURL = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"missing.mov"]];
+  auto missing = [[STDecodedFrameWindow alloc] initWithURL:missingURL budget:budget sourceRevision:originalRevision];
+  assert([missing requestStart:0 end:24024]); wait(missing);
+  assert(missing.failed && missing.error.code == 10 && ![missing select:4004]);
+  [missing close]; assert(budget.usedBytes() == 0);
+  appleplayback::FrameBudget tiny(1);
+  auto limited = [[STDecodedFrameWindow alloc] initWithURL:url budget:tiny sourceRevision:*appleplayback::sourceFileRevision(url)];
+  assert([limited requestStart:0 end:24024]); wait(limited);
+  assert(limited.failed && ![limited select:4004]); [limited close]; assert(tiny.usedBytes() == 0);
+  assert([[NSFileManager defaultManager] removeItemAtPath:directory error:nil]);
+  puts("DecodedFrameWindow actual sample/image, VFR, loan budget, independent cancel passed");
+} }

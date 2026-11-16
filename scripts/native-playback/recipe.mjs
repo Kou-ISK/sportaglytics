@@ -25,10 +25,10 @@ export const NODE_LICENSE = {
 export const HOST_SOURCES = [
   'apple-export/AppleClipExport.mm',
   'apple-player/ApplePlayerSession.mm',
+  'apple-player/DecodedFrameWindow.mm',
   'apple-player/GroupPlayerSource.mm',
   'apple-player/GroupPlayerPair.mm',
   'apple-player/GroupPlayerHost.mm',
-  'apple-player/SourceSampleIntervals.mm',
   'apple-player/ApplePlayerHost.mm',
 ];
 export const FRAMEWORKS = [
@@ -37,6 +37,7 @@ export const FRAMEWORKS = [
   'AVFoundation',
   'CoreMedia',
   'CoreVideo',
+  'VideoToolbox',
   'IOSurface',
   'QuartzCore',
 ];

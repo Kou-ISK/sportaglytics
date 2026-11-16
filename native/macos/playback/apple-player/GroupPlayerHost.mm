@@ -52,7 +52,7 @@ void opaque(id value) {
 - (instancetype)initWithManifest:(NSDictionary *)m {
   keys(m, @[@"version", @"mode", @"audioAngle", @"owner", @"sources", @"surfaceService", @"surfaceOwnerPID"]);
   integer(m[@"audioAngle"], 1);
-  check(integer(m[@"version"], 2) == 2 && [m[@"mode"] isEqual:@"placed-pair-deadline-experiment"]);
+  check(integer(m[@"version"], 2) == 2 && [m[@"mode"] isEqual:@"placed-pair-decoded-samples"]);
   keys(m[@"owner"], @[@"generation", @"sourceKey"]); opaque(m[@"owner"][@"generation"]); opaque(m[@"owner"][@"sourceKey"]);
   NSString *key = m[@"owner"][@"sourceKey"];
   check(key.length == 64 && [key rangeOfCharacterFromSet:
@@ -63,15 +63,16 @@ void opaque(id value) {
   uint64_t start = 0, end = groupsurfacewire::MaximumTicks;
   for (size_t angle = 0; angle < 2; ++angle) {
     NSDictionary *s = m[@"sources"][angle];
-    keys(s, @[@"path", @"sourceIndex", @"sourceEpoch", @"globalStart", @"globalEnd", @"sourceOffset"]);
+    keys(s, @[@"path", @"sourceRevision", @"sourceIndex", @"sourceEpoch", @"globalStart", @"globalEnd", @"sourceOffset"]);
     check([s[@"path"] isKindOfClass:NSString.class] && [s[@"path"] length] <= 4096 && [s[@"path"] isAbsolutePath]);
+    check([s[@"sourceRevision"] isKindOfClass:NSString.class] && [s[@"sourceRevision"] length] > 0 && [s[@"sourceRevision"] length] <= 256 && [s[@"sourceRevision"] UTF8String] != nullptr);
     auto a = integer(s[@"globalStart"], groupsurfacewire::MaximumTicks), b = integer(s[@"globalEnd"], groupsurfacewire::MaximumTicks);
     check(a < b && number(s[@"sourceOffset"]) && [s[@"sourceOffset"] doubleValue] == floor([s[@"sourceOffset"] doubleValue]) &&
       fabs([s[@"sourceOffset"] doubleValue]) <= groupsurfacewire::MaximumTicks);
     int64_t offset = [s[@"sourceOffset"] longLongValue];
     check(int64_t(a) + offset >= 0 && int64_t(b) + offset <= int64_t(groupsurfacewire::MaximumTicks));
     uint64_t epoch = integer(s[@"sourceEpoch"]); check(epoch > 0);
-    placements[angle] = {integer(s[@"sourceIndex"], 31), epoch, a, b, offset};
+    placements[angle] = {integer(s[@"sourceIndex"], 31), epoch, a, b, offset, std::string([s[@"sourceRevision"] UTF8String])};
     start = std::max(start, a); end = std::min(end, b);
     [urls addObject:[NSURL fileURLWithPath:s[@"path"]]];
   }
@@ -80,7 +81,7 @@ void opaque(id value) {
   auto pid = integer(m[@"surfaceOwnerPID"], INT32_MAX); check(pid > 0);
   if ((self = [super init])) {
     _manifest = [m copy]; _start = start; _end = end;
-    _budget.emplace(64ULL * 1024 * 1024);
+    _budget.emplace(256ULL * 1024 * 1024);
     _sender = std::make_unique<GroupSurfaceSender>(*_budget);
     _sender->open([m[@"surfaceService"] UTF8String], pid_t(pid));
     _players = [[STGroupPlayerPair alloc] initWithURLs:urls placements:placements budget:*_budget];
@@ -163,12 +164,19 @@ void opaque(id value) {
 }
 - (void)update {
   if (!_intent) return;
-  [_players poll];
+  uint64_t target = _anchor;
+  if (_scheduled) {
+    const double elapsed = std::max(0.0, CACurrentMediaTime() - _baseHost);
+    const double desired = double(_anchor) + elapsed * [_intent[@"rate"] doubleValue] * 120000;
+    if (desired < _start || desired >= _end) { [_players pause]; _scheduled = NO; _ready = NO; [self close]; return; }
+    target = uint64_t(llround(desired));
+  }
+  [_players pollAtGlobalTime:target];
   if (_players.failed) {
     NSError *error = _players.error;
     NSMutableArray *chain = [NSMutableArray array];
     for (size_t i = 0; error && i < 4; ++i) {
-      NSString *domain = [@[@"SportagGroupSource", @"SportagSampleMetadata", @"AVFoundationErrorDomain",
+      NSString *domain = [@[@"SportagGroupSource", @"SportagSampleMetadata", @"SportagDecodeWindow", @"AVFoundationErrorDomain",
         @"NSOSStatusErrorDomain", @"NSCocoaErrorDomain"] containsObject:error.domain] ? error.domain : @"other";
       NSMutableDictionary *detail = [@{@"domain":domain, @"code":@(error.code)} mutableCopy];
       id pts = error.userInfo[@"displayTime"];
@@ -192,13 +200,6 @@ void opaque(id value) {
       check([_players scheduleRate:rate globalTicks:_anchor hostTime:host]);
       _baseHost = CMTimeGetSeconds(host); _scheduled = YES;
     }
-  }
-  uint64_t target = _anchor;
-  if (_scheduled) {
-    const double elapsed = std::max(0.0, CACurrentMediaTime() - _baseHost);
-    const double desired = double(_anchor) + elapsed * rate * 120000;
-    if (desired < _start || desired >= _end) { [_players pause]; _scheduled = NO; _ready = NO; [self close]; return; }
-    target = uint64_t(llround(desired));
   }
   // Full pair credits and a new demand are required. The code never relabels
   // either frame as a requested time which its actual sample does not cover.

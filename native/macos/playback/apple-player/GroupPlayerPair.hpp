@@ -7,6 +7,7 @@ namespace appleplayback {
 struct GroupClipPlacement {
   uint64_t sourceIndex, sourceEpoch, globalStart, globalEnd;
   int64_t sourceOffset;
+  std::string revision;
 };
 struct GroupPairOwner { uint64_t operation, seek, pair, globalTicks; };
 }
@@ -22,6 +23,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)seek:(uint64_t)globalTicks operation:(uint64_t)operation;
 - (BOOL)adoptOperation:(uint64_t)operation;
 - (void)poll;
+- (void)pollAtGlobalTime:(uint64_t)ticks;
 /// Nearest anchor in the intersection of both real sample intervals. This is
 /// measured image availability, not the requested/playback clock.
 - (std::optional<uint64_t>)availableAnchor:(uint64_t)desired;

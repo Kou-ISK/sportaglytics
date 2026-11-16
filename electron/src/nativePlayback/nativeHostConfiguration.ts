@@ -7,10 +7,11 @@ export const nativeHostConfiguration = (
 
 export interface NativeGroupHostConfiguration {
   version: 2;
-  mode: 'placed-pair-deadline-experiment';
+  mode: 'placed-pair-decoded-samples';
   audioAngle: number;
   sources: Array<{
     path: string;
+    sourceRevision: string;
     sourceIndex: number;
     sourceEpoch: number;
     globalStart: number;
@@ -44,6 +45,9 @@ export const nativeGroupHostConfiguration = (
       globalEnd = Math.round(source.globalEnd * 120000),
       sourceOffset = Math.round(source.sourceTimeOffset * 120000);
     if (
+      typeof source.revision !== 'string' ||
+      source.revision.length > 256 ||
+      !/^\d+:\d+:\d+:-?\d+:-?\d+:\d+$/.test(source.revision) ||
       !source.path.startsWith('/') ||
       source.path.includes('\0') ||
       source.path.length > 4096 ||
@@ -57,6 +61,7 @@ export const nativeGroupHostConfiguration = (
       throw Error('NATIVE_GROUP_HOST_PLAN_RANGE');
     return {
       path: source.path,
+      sourceRevision: source.revision,
       sourceIndex,
       sourceEpoch: 1,
       globalStart,
@@ -71,7 +76,7 @@ export const nativeGroupHostConfiguration = (
     throw Error('NATIVE_GROUP_HOST_PLAN_NO_OVERLAP');
   return {
     version: 2,
-    mode: 'placed-pair-deadline-experiment',
+    mode: 'placed-pair-decoded-samples',
     audioAngle,
     sources,
   };
