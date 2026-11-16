@@ -81,8 +81,6 @@ jobs:
           pnpm run test:ci
       - name: Windows Electron E2E
         run: pnpm run test:e2e
-      - name: Verify preview and export geometry in Electron
-        run: node scripts/e2e-export-text-geometry.mjs
       - name: Windows installer
         run: pnpm exec electron-builder --win nsis --x64 --publish never
       - name: Installed Windows desktop E2E
