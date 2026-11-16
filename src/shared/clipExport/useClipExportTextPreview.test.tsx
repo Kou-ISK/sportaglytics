@@ -54,9 +54,10 @@ it('blocks until the current preview finishes and ignores stale results', async 
           title: 'Fixture',
           width: 1920,
           height: 1080,
-          layout: layoutClipExportText(
+          layout: await layoutClipExportText(
             [{ text: 'New', isBold: false }],
-            16 / 9,
+            { width: 1920, height: 1080 },
+            async () => 50,
           ),
         },
       ],

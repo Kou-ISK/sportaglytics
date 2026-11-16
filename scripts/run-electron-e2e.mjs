@@ -22,6 +22,7 @@ const scenarios = [
   'code-window-menu',
   'window-security',
   'export-menu',
+  'export-text-geometry',
   'export-fast',
   'export-progress',
   'timeline-rows',

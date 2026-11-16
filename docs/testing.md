@@ -1,3 +1,5 @@
+出力テキストの文字幅は`node scripts/test-export-text-layout.mjs`で実FFmpeg/フォントを使用して検査します。日本語・英語・混在・空行・引用符/百分率/先頭末尾空白・太字・長い単語と複数解像度を実MP4と復号画素で確認します。測定Adapterの単体試験は異常応答・失敗後cleanup・要求単位のcacheを検査し、geometry回帰は回転とSAR結合幅を確認します。`e2e-export-text-geometry`は実Electron Mainのpreview/exportと合成回転/SAR素材を比較し、既存`e2e-export-menu`はメニュー/ダイアログ/保存からの導線を検証します。署名済み配布物の代替ではありません。[検証記録](reports/2026-11-export-text-wrap.md)。
+
 Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
 
 `e2e-ux-review`は標準Electron runnerに登録し、Mac/Windowsの`test:e2e`でも実行します。単独の導線検証と、標準runnerの全登録シナリオの結果は区別して報告します。
@@ -416,3 +418,5 @@ macOS PR CIでも同じ行操作E2Eを実行します。選択失敗時は合成
 行メニューからのインスタンス選択は、MUIの閉鎖時focus復元後にもタイムラインへキーが届くことを実Menu/Controllerのjsdom回帰で確認します。Escapeによる通常の復元と、閉鎖中に別要素へ移したfocusを奪わないことも別に検証します。実Electronの配送・window focus・ネイティブ閉鎖順序の証拠とは区別します。
 
 文書切替はreal `useTimelineSessionController`（persistence/history含む）とwindow integrationを結合し、読み込み完了からhistory採用までに旧項目・行が新document IDで送られないことを確認します。空・同内容の置換、読み込みleaseの旧callback、採用後の編集とUndoも別に確認します。Fs/IPC配送はmockであり、実Electron結果とは区別します。
+
+0.17.30の限定リリースでは`export-text-geometry`を共通Electron E2Eとインストール済みWindowsへ登録する。署名済みMac DMGも同じ共通runnerを実行するため、インストールされたMainと同梱FFmpegで回転・SAR結合・オーバーレイのpreview/export整合を検査する。CIでの画素比較を実聴取・物理画面の受入とは扱わない。

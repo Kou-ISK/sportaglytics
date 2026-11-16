@@ -1,0 +1,203 @@
+{
+  "platform": "linux",
+  "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "results": [
+    {
+      "name": "punctuation",
+      "width": 1920,
+      "height": 1080,
+      "rows": 1,
+      "fontSize": 30,
+      "bounds": {
+        "minX": 32,
+        "maxX": 560,
+        "minY": 1032,
+        "maxY": 1062
+      },
+      "elapsedMs": 817
+    },
+    {
+      "name": "whitespace",
+      "width": 1920,
+      "height": 1080,
+      "rows": 1,
+      "fontSize": 30,
+      "bounds": {
+        "minX": 51,
+        "maxX": 227,
+        "minY": 1032,
+        "maxY": 1063
+      },
+      "elapsedMs": 605
+    },
+    {
+      "name": "japanese-fit",
+      "width": 1920,
+      "height": 1080,
+      "rows": 1,
+      "fontSize": 30,
+      "bounds": {
+        "minX": 31,
+        "maxX": 1826,
+        "minY": 1032,
+        "maxY": 1059
+      },
+      "elapsedMs": 638
+    },
+    {
+      "name": "japanese-wrap",
+      "width": 1920,
+      "height": 1080,
+      "rows": 2,
+      "fontSize": 30,
+      "bounds": {
+        "minX": 31,
+        "maxX": 1886,
+        "minY": 995,
+        "maxY": 1059
+      },
+      "elapsedMs": 1190
+    },
+    {
+      "name": "english-fit",
+      "width": 1920,
+      "height": 1080,
+      "rows": 1,
+      "fontSize": 30,
+      "bounds": {
+        "minX": 31,
+        "maxX": 1011,
+        "minY": 1032,
+        "maxY": 1053
+      },
+      "elapsedMs": 677
+    },
+    {
+      "name": "english-wrap",
+      "width": 1280,
+      "height": 720,
+      "rows": 2,
+      "fontSize": 20,
+      "bounds": {
+        "minX": 20,
+        "maxX": 1237,
+        "minY": 663,
+        "maxY": 708
+      },
+      "elapsedMs": 1386
+    },
+    {
+      "name": "mixed",
+      "width": 3840,
+      "height": 2160,
+      "rows": 2,
+      "fontSize": 60,
+      "bounds": {
+        "minX": 59,
+        "maxX": 3559,
+        "minY": 1989,
+        "maxY": 2119
+      },
+      "elapsedMs": 2206
+    },
+    {
+      "name": "explicit-lines",
+      "width": 1920,
+      "height": 1080,
+      "rows": 4,
+      "fontSize": 30,
+      "bounds": {
+        "minX": 31,
+        "maxX": 175,
+        "minY": 920,
+        "maxY": 1059
+      },
+      "elapsedMs": 717
+    },
+    {
+      "name": "portrait",
+      "width": 1080,
+      "height": 1920,
+      "rows": 4,
+      "fontSize": 53,
+      "bounds": {
+        "minX": 19,
+        "maxX": 1047,
+        "minY": 1636,
+        "maxY": 1888
+      },
+      "elapsedMs": 2478
+    },
+    {
+      "name": "four-three",
+      "width": 1440,
+      "height": 1080,
+      "rows": 2,
+      "fontSize": 30,
+      "bounds": {
+        "minX": 23,
+        "maxX": 1399,
+        "minY": 995,
+        "maxY": 1059
+      },
+      "elapsedMs": 1164
+    },
+    {
+      "name": "dual",
+      "width": 3840,
+      "height": 1080,
+      "rows": 1,
+      "fontSize": 30,
+      "bounds": {
+        "minX": 59,
+        "maxX": 3655,
+        "minY": 1032,
+        "maxY": 1059
+      },
+      "elapsedMs": 752
+    },
+    {
+      "name": "small",
+      "width": 640,
+      "height": 360,
+      "rows": 1,
+      "fontSize": 10,
+      "bounds": {
+        "minX": 11,
+        "maxX": 606,
+        "minY": 345,
+        "maxY": 349
+      },
+      "elapsedMs": 615
+    },
+    {
+      "name": "long-token",
+      "width": 1920,
+      "height": 1080,
+      "rows": 3,
+      "fontSize": 30,
+      "bounds": {
+        "minX": 30,
+        "maxX": 1871,
+        "minY": 957,
+        "maxY": 1052
+      },
+      "elapsedMs": 1723
+    },
+    {
+      "name": "bold",
+      "width": 1920,
+      "height": 1080,
+      "rows": 2,
+      "fontSize": 30,
+      "bounds": {
+        "minX": 30,
+        "maxX": 1868,
+        "minY": 994,
+        "maxY": 1060
+      },
+      "elapsedMs": 1314
+    }
+  ],
+  "overflowRejected": true
+}

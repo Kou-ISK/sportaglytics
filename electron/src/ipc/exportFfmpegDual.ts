@@ -1,3 +1,6 @@
+import { resolveExportVideoSize } from './exportVideoGeometry';
+import { layoutClipExportText } from '../../../src/shared/clipExport/clipExportTextLayout';
+import { createClipTextMeasurer } from './exportTextMeasurement';
 import { probeMedia } from './packageMediaCompositionService';
 import {
   prepareChromaForeground,
@@ -44,13 +47,21 @@ export const runFfmpegDual = async ({
         : rate,
     sizes[0]?.frameRate ?? { numerator: 30, denominator: 1 },
   );
-  const outputHeight = sizes[0] ? sizes[0].height - (sizes[0].height % 2) : 1;
-  const aspectRatio =
-    sizes.reduce(
-      (sum, size) =>
-        sum + 2 * Math.floor((outputHeight * size.width) / size.height / 2),
-      0,
-    ) / outputHeight;
+  const outputSize = overlayEnabled
+    ? resolveExportVideoSize(sizes)
+    : { width: 1, height: 1 };
+  const overlayFilters = overlayEnabled
+    ? buildOverlayFilters({
+        layout: await layoutClipExportText(
+          overlayLines,
+          outputSize,
+          createClipTextMeasurer(getFfmpegPath, getJapaneseFontPath),
+        ),
+        height: outputSize.height,
+        getJapaneseFontPath,
+        escapeDrawtext,
+      })
+    : [];
   return new Promise<void>((resolve, reject) => {
     const actualMainSource = clip.sourceOverride || mainSource;
     const actualSecondarySource =
@@ -64,7 +75,7 @@ export const runFfmpegDual = async ({
     let mainLabel = '[0:v]';
     let subLabel = '[1:v]';
     let audioMap = '0:a?';
-    const clipDuration = (clip.endTime - clip.startTime);
+    const clipDuration = clip.endTime - clip.startTime;
     const inputs = [
       '-n',
       '-ss',
@@ -256,14 +267,7 @@ export const runFfmpegDual = async ({
     }
     filterSteps.push(`${stackInputs}hstack=inputs=2,setsar=1[vbase]`);
 
-    if (overlayEnabled) {
-      const overlayFilters = buildOverlayFilters({
-        overlayLines,
-        getJapaneseFontPath,
-        escapeDrawtext,
-        variant: 'dual',
-        aspectRatio,
-      });
+    if (overlayFilters.length) {
       filterSteps.push(`[vbase]${overlayFilters.join(',')}[vout]`);
     } else {
       filterSteps.push('[vbase]null[vout]');
