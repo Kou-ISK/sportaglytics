@@ -1,3 +1,7 @@
+import { resolveExportVideoSize } from './exportVideoGeometry';
+import { getFfmpegPath } from '../mediaTools';
+import { getJapaneseFontPath } from './exportOptions';
+import { createClipTextMeasurer } from './exportTextMeasurement';
 import { probeMedia } from './packageMediaCompositionService';
 import { planExportSource } from './exportVirtualTimelineSource';
 import { findDirectExportSource } from './exportTimelineRange';
@@ -19,6 +23,7 @@ import type {
 export const inspectExportText = async (
   payloads: ClipExportPayload[],
 ): Promise<ClipExportTextInspection[]> => {
+  const measure = createClipTextMeasurer(getFfmpegPath, getJapaneseFontPath);
   const plans = new Map<string, ReturnType<typeof planExportSource>>();
   const probes = new Map<string, ReturnType<typeof probeMedia>>();
   const results: ClipExportTextInspection[] = [];
@@ -48,20 +53,11 @@ export const inspectExportText = async (
         }
         sizes.push(await probe);
       }
-      const first = sizes[0];
-      if (!first) throw new Error('書き出し元の映像がありません');
-      const height = first.height - (first.height % 2);
-      const width =
-        sizes.length === 1
-          ? first.width
-          : sizes.reduce(
-              (sum, size) =>
-                sum + 2 * Math.floor((height * size.width) / size.height / 2),
-              0,
-            );
-      const layout = layoutClipExportText(
+      const { width, height } = resolveExportVideoSize(sizes);
+      const layout = await layoutClipExportText(
         formatOverlayLines(clip, payload.overlay),
-        width / height,
+        { width, height },
+        measure,
       );
       results.push({
         title: `${payloads.length > 1 ? `アングル${angleIndex + 1} — ` : ''}${index + 1}. ${clip.actionName}`,

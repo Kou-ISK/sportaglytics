@@ -1,3 +1,5 @@
+出力テキストの文字幅は`node scripts/test-export-text-layout.mjs`で実FFmpeg/フォントを使用して検査します。日本語・英語・混在・空行・引用符/百分率/先頭末尾空白・太字・長い単語と複数解像度を実MP4と復号画素で確認します。測定Adapterの単体試験は異常応答・失敗後cleanup・要求単位のcacheを検査し、geometry回帰は回転とSAR結合幅を確認します。`e2e-export-text-geometry`は実Electron Mainのpreview/exportと合成回転/SAR素材を比較し、既存`e2e-export-menu`はメニュー/ダイアログ/保存からの導線を検証します。署名済み配布物の代替ではありません。[検証記録](reports/2026-11-export-text-wrap.md)。
+
 Timelineの下部検索ドック・共通compactフォームの変更と検証限界は[compact density評価](reports/2026-10-compact-density.md)を参照してください。
 
 `e2e-ux-review`は標準Electron runnerに登録し、Mac/Windowsの`test:e2e`でも実行します。単独の導線検証と、標準runnerの全登録シナリオの結果は区別して報告します。

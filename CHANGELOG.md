@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- 動画出力テキストの早すぎる改行を修正。実フォントの行幅と左右余白を使い、明示改行・結合文字・高さ上限を維持する。プレビューは同じ配置を使い、百分率や引用符も文字として描画する。[原因と検証](docs/reports/2026-11-export-text-wrap.md)。
+
 - 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
 
 ## [0.17.29]
