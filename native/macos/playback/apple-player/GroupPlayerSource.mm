@@ -19,6 +19,12 @@
 - (instancetype)initWithURL:(NSURL *)url globalStart:(uint64_t)start
                  globalEnd:(uint64_t)end sourceOffset:(int64_t)offset
                     budget:(appleplayback::FrameBudget)budget sourceRevision:(std::string)revision {
+  // Validate before constructing AVFoundation's owned session, not only in
+  // the delegated initializer after its argument has already been evaluated.
+  NSParameterAssert(NSThread.isMainThread && url.isFileURL && start < end &&
+    end <= 86400ULL * 120000 && offset >= -int64_t(86400ULL * 120000) &&
+    offset <= int64_t(86400ULL * 120000) && int64_t(start) + offset >= 0 &&
+    int64_t(end) + offset <= int64_t(86400ULL * 120000));
   return [self initWithURL:url globalStart:start globalEnd:end sourceOffset:offset
     budget:std::move(budget) sourceRevision:std::move(revision)
     audioSession:[[STApplePlayerSession alloc] initWithURL:url]];
