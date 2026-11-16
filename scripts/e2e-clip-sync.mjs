@@ -243,6 +243,12 @@ try {
 
   await page.getByRole('button', { name: 'パッケージを作成…' }).click();
   await page.locator('#video_0').waitFor({ timeout: 30_000 });
+  await (await electronApp.browserWindow(page)).evaluate((window) => window.focus());
+  await page.waitForFunction(() => document.hasFocus());
+  assert.equal(await electronApp.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getFocusedWindow();
+    return window ? new URL(window.webContents.getURL()).hash : null;
+  }), '', 'manual-sync shortcut targets the focused main player');
   await page.keyboard.press(`${primaryModifier}+Shift+T`);
   await page
     .getByLabel('アングル同期ワークスペース', { exact: true })
@@ -411,6 +417,12 @@ try {
   await page.locator('iframe[src*="dQw4w9WgXcQ"]').waitFor({
     timeout: 30_000,
   });
+  await (await electronApp.browserWindow(page)).evaluate((window) => window.focus());
+  await page.waitForFunction(() => document.hasFocus());
+  assert.equal(await electronApp.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getFocusedWindow();
+    return window ? new URL(window.webContents.getURL()).hash : null;
+  }), '', 'manual-sync shortcut targets the focused main player');
   await page.keyboard.press(`${primaryModifier}+Shift+T`);
   await page
     .getByLabel('アングル同期ワークスペース', { exact: true })

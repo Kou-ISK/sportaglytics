@@ -9,6 +9,7 @@ const {
   openTimelineWindow,
   openPlaylistFile,
   focusPackageSession,
+  getFocusedWindow,
 } = vi.hoisted(() => {
   const send = vi.fn();
   const otherSend = vi.fn();
@@ -26,6 +27,7 @@ const {
     openTimelineWindow: vi.fn(),
     openPlaylistFile: vi.fn(),
     focusPackageSession: vi.fn(),
+    getFocusedWindow: vi.fn(),
   };
 });
 
@@ -33,7 +35,7 @@ vi.mock('electron', () => ({
   app: { name: 'SporTagLytics' },
   BrowserWindow: {
     getAllWindows: () => [mainWindow, otherWindow, auxiliaryWindow],
-    getFocusedWindow: () => null,
+    getFocusedWindow,
   },
 }));
 vi.mock('../packageSessionRegistry', () => ({
@@ -63,6 +65,7 @@ import {
   buildFileMenuItems,
   buildHelpMenuItems,
   buildWindowMenuItems,
+  buildSyncMenuItems,
 } from './menuSections';
 
 const getSubmenuItems = (
@@ -73,6 +76,7 @@ const getSubmenuItems = (
 
 describe('document menus', () => {
   beforeEach(() => {
+    getFocusedWindow.mockReturnValue(null);
     send.mockClear();
     otherSend.mockClear();
     auxiliaryWindow.webContents.send.mockClear();
@@ -206,4 +210,15 @@ describe('document menus', () => {
       'コードウィンドウを開く',
     );
   });
+});
+
+it('routes all sync menu actions from the focused timeline to that document player', () => {
+  send.mockClear(); otherSend.mockClear(); auxiliaryWindow.webContents.send.mockClear();
+  getFocusedWindow.mockReturnValue(auxiliaryWindow);
+  for (const item of buildSyncMenuItems()) if (item.click) Reflect.apply(item.click, undefined, []);
+  expect(send.mock.calls).toEqual([
+    ['menu-resync-audio'], ['menu-set-sync-mode', 'manual'], ['menu-reset-sync'],
+  ]);
+  expect(otherSend).not.toHaveBeenCalled();
+  expect(auxiliaryWindow.webContents.send).not.toHaveBeenCalled();
 });

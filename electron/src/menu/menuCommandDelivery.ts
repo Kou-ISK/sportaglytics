@@ -31,15 +31,23 @@ export const sendToAllWindows = (channel: string, ...args: unknown[]): void => {
   }
 };
 
-export const sendToFocusedWindow = (
+/** Sync commands belong to the focused package's main player, including when
+ * its timeline/coding child owns keyboard focus. Never broadcast across docs. */
+export const sendToPackageMainWindow = (
   channel: string,
   ...args: unknown[]
 ): void => {
-  sendMenuCommand(
-    BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0],
-    channel,
-    ...args,
+  const focused = BrowserWindow.getFocusedWindow();
+  if (focused) {
+    sendMenuCommand(getPackageSessionForWindow(focused)?.mainWindow, channel, ...args);
+    return;
+  }
+  // Native application menus can temporarily have no focused BrowserWindow.
+  // A single package is unambiguous; multiple packages must not pick the first.
+  const mains = BrowserWindow.getAllWindows().filter(
+    (window) => getPackageSessionForWindow(window)?.mainWindow === window,
   );
+  if (mains.length === 1) sendMenuCommand(mains[0], channel, ...args);
 };
 
 export const sendCodeWindowCommand = (channel: string): void => {
