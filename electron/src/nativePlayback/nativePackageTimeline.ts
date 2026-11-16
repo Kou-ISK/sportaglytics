@@ -10,7 +10,6 @@ import {
   MAX_PACKAGE_TIMELINE_SECONDS as maximumTime,
 } from '../../../src/types/package/clipTimeline';
 import { getAngleOffset } from '../../../src/shared/media/mediaTimeline';
-import type { VideoSyncData } from '../../../src/types/video/sync';
 
 export interface NativeTimelineClip {
   readonly id: string;
@@ -24,7 +23,11 @@ export interface NativeTimelineAngle {
   readonly clips: readonly NativeTimelineClip[];
 }
 
-const syncData = (raw: unknown, count: number): VideoSyncData | undefined => {
+// Depend on the shared timeline calculation's data contract, not renderer-only
+// audio analysis types (which require the browser's AudioBuffer).
+type TimelineSync = NonNullable<Parameters<typeof getAngleOffset>[0]>;
+
+const syncData = (raw: unknown, count: number): TimelineSync | undefined => {
   if (raw === undefined) return undefined;
   const value = objectValue(raw);
   return {
