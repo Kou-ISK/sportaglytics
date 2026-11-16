@@ -92,3 +92,27 @@ describe('materializePackageAngle', () => {
     ]);
   });
 });
+
+it('retains pixel aspect and display rotation for export text geometry', async () => {
+  vi.mocked(runMediaProcess).mockResolvedValue({
+    stdout: JSON.stringify({
+      format: { duration: '2' },
+      streams: [
+        {
+          codec_type: 'video',
+          width: 720,
+          height: 576,
+          sample_aspect_ratio: '16:15',
+          side_data_list: [{ rotation: -90 }],
+        },
+      ],
+    }),
+    stderr: '',
+  });
+  expect(await probeMedia('/synthetic.mp4')).toMatchObject({
+    width: 720,
+    height: 576,
+    sampleAspectRatio: 16 / 15,
+    rotation: -90,
+  });
+});

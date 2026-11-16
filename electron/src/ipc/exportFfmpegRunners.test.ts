@@ -1,3 +1,8 @@
+vi.mock('./exportTextMeasurement', () => ({
+  createClipTextMeasurer:
+    () => async (text: string, _bold: boolean, size: number) =>
+      [...text].length * size,
+}));
 vi.mock('./packageMediaCompositionService', () => ({
   probeMedia: vi.fn(async () => ({ width: 1920, height: 1080 })),
 }));
@@ -220,9 +225,21 @@ it('preserves a requested short interval in copy and encode arguments', async ()
   for (const mode of ['keyframe-range', null] as const) {
     mockedRunFfmpegProcess.mockClear();
     vi.mocked(resolveMediaCopyMode).mockResolvedValue(mode);
-    await runFfmpegSingle({ getFfmpegPath, sourcePath: '/source.mp4', clip: { startTime: 0, endTime: 0.2 }, outputPath: '/out.mp4', overlayEnabled: false, overlayLines: [], getJapaneseFontPath, escapeDrawtext });
+    await runFfmpegSingle({
+      getFfmpegPath,
+      sourcePath: '/source.mp4',
+      clip: { startTime: 0, endTime: 0.2 },
+      outputPath: '/out.mp4',
+      overlayEnabled: false,
+      overlayLines: [],
+      getJapaneseFontPath,
+      escapeDrawtext,
+    });
     const args = mockedRunFfmpegProcess.mock.calls[0][1];
     if (mode) expect(args[args.indexOf('-t') + 1]).toBe('0.2');
-    else expect(args[args.indexOf('-filter_complex') + 1]).toContain('trim=duration=0.2');
+    else
+      expect(args[args.indexOf('-filter_complex') + 1]).toContain(
+        'trim=duration=0.2',
+      );
   }
 });
