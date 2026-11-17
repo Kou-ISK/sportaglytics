@@ -92,6 +92,8 @@ it('connects plan, pair surface, owned helper, stop proof and checked receipt', 
   expect(backend.confirmsPresentedStop?.({ ...proof, ids: [1, 2] })).toBe(true);
   const a = backend.close(); expect(backend.close()).toBe(a);
   await expect(a).resolves.toEqual({ ...closed, presentedStop: proof });
+  await expect(backend.termination()).resolves.toEqual({ generation: owner.generation,
+    processStarted: true, processExited: true, pipesClosed: true });
   expect(m.surface.drain).toHaveBeenCalledWith(true);
   expect(m.done.mock.invocationCallOrder[0]).toBeLessThan(m.surface.drain.mock.invocationCallOrder[0]);
   expect(m.activityStop).toHaveBeenCalledOnce(); expect(m.remove).toHaveBeenCalledOnce();
@@ -99,6 +101,7 @@ it('connects plan, pair surface, owned helper, stop proof and checked receipt', 
 it('acquires no resource when closed before initialization', async () => {
   const backend = make();
   await expect(backend.close()).resolves.toMatchObject({ processStarted: false });
+  await expect(backend.termination()).resolves.toMatchObject({ processStarted: false });
   expect(m.createSession).not.toHaveBeenCalled(); expect(m.factory).not.toHaveBeenCalled();
 });
 it('revalidates the source before launch and returns a closeable failed owner', async () => {
@@ -116,6 +119,7 @@ it.each(['addon', 'surface', 'factory', 'activity'] as const)(
     const backend = make(); await expect(backend.write(intent)).rejects.toThrow(failure);
     if (failure === 'factory') {
       await expect(backend.close()).rejects.toThrow('INITIALIZATION_UNKNOWN');
+      await expect(backend.termination()).rejects.toThrow('INITIALIZATION_UNKNOWN');
       expect(m.remove).not.toHaveBeenCalled(); expect(m.surface.close).not.toHaveBeenCalled();
     } else {
       await backend.close();
@@ -146,6 +150,9 @@ it.each([true, false])('preserves an original child error; physical termination 
   m.surface.drain.mockRejectedValue(Error('cleanup failure'));
   m.activityStop.mockImplementation(() => { throw Error('activity failure'); });
   await expect(backend.close()).rejects.toBe(original);
+  if (confirmed) await expect(backend.termination()).resolves.toEqual({
+    generation: owner.generation, processStarted: true, processExited: true, pipesClosed: true });
+  else await expect(backend.termination()).rejects.toThrow('TERMINATION_UNCONFIRMED');
   expect(m.surface.drain).toHaveBeenCalledTimes(confirmed ? 1 : 0);
   expect(m.surface.close).not.toHaveBeenCalled(); expect(m.remove).not.toHaveBeenCalled();
   expect(m.activityStop).toHaveBeenCalledOnce();
@@ -155,4 +162,13 @@ it('does not delete the session or pretend closure when GPU drainage fails', asy
   m.surface.drain.mockRejectedValue(Error('GPU outstanding'));
   await expect(backend.close()).rejects.toThrow('GPU outstanding');
   expect(m.remove).not.toHaveBeenCalled(); expect(m.surface.close).not.toHaveBeenCalled();
+});
+it.each([
+  { generation: 'other' }, { processExited: false }, { pipesClosed: false },
+  { processStarted: undefined },
+])('does not upgrade incomplete or foreign physical termination %j', async (changed) => {
+  const backend = make(); await backend.write(intent);
+  m.termination.mockResolvedValue({ ...closed, ...changed });
+  await expect(backend.termination()).rejects.toThrow('TERMINATION_UNCONFIRMED');
+  await backend.close();
 });

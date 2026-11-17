@@ -12,8 +12,15 @@ import { nativeGroupHostConfiguration } from '../nativeHostConfiguration';
 import { nativeGroupHostIntent } from '../nativeGroupControl';
 import { createGroupSurfaceTransport } from './groupSurfaceTransport';
 import { createOwnedBackend } from './support/embedded-diagnostic/owned-backend.cjs';
+import type { OwnedProcessTermination } from './support/embedded-diagnostic/owned-backend.cjs';
 import { createPlaybackActivity } from './playbackActivity';
 import { createSessionDirectory, readNativeReceipt, removeOwnedSession } from './sessionStorage';
+
+export interface NativeGroupBackend extends NativePlaybackBackend {
+  /** Physical child/pipe closure only, including an abnormal exit. This does
+   * not authorize HTML recovery, delete retained sessions or prove GPU drain. */
+  termination(): Promise<OwnedProcessTermination>;
+}
 
 /** Main composition only: paths/capability must come from
  * resolveSignedNativeGroupResources, and plan from the authenticated package.
@@ -26,7 +33,7 @@ export const createNativeGroupBackend = (
   audioAngleId: string,
   owner: NativePlaybackOwner,
   observe: (value: unknown) => void,
-): NativePlaybackBackend => {
+): NativeGroupBackend => {
   const negotiated = parseNativeGroupCapability(capability);
   const configuration = nativeGroupHostConfiguration(plan, audioAngleId);
   let session: string | null = null;
@@ -73,6 +80,19 @@ export const createNativeGroupBackend = (
     if (!activity.start().registered) throw Error('NATIVE_ACTIVITY_REGISTRATION');
   }).catch((error: unknown) => { initialError = error; });
   return {
+    termination: async () => {
+      await initialization;
+      if (factoryAttempted && !owned) throw Error('NATIVE_INITIALIZATION_UNKNOWN');
+      if (!factoryAttempted) return { generation: owner.generation,
+        processStarted: false, processExited: true, pipesClosed: true };
+      const value = await backend?.termination();
+      if (!value || value.generation !== owner.generation ||
+          typeof value.processStarted !== 'boolean' ||
+          value.processExited !== true || value.pipesClosed !== true)
+        throw Error('NATIVE_TERMINATION_UNCONFIRMED');
+      return Object.freeze({ generation: value.generation,
+        processStarted: value.processStarted, processExited: true, pipesClosed: true });
+    },
     confirmsPresentation: (value) => surface?.confirmsPresentation(value) === true,
     confirmsPresentedStop: (proof) => surface?.confirmsPresentedStop(proof) === true,
     write: async (intent) => {

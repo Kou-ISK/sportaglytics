@@ -639,3 +639,6 @@ Native group source regressions distinguish actual image-worker drainage from re
 
 
 `nativeGroupBackend.test.ts` injects only filesystem/child/surface/activity boundaries to verify launch failure, uncertain factory ownership, receipt/hash/resource rejection and original-error preservation. The four-rate Host regression now uses this real Main backend and its real session-storage/result validation, with an explicit Electron surface/GPU/activity adapter. Separate group transport tests cover that adapter's contracts; only actual packaged Electron/Canvas execution can establish the missing GUI boundary.
+
+
+When an isolated group GUI test fails, distinguish the first surface/initialization error, native receipt failure, physical child closure and GPU drainage. The backend's termination promise is physical-only and must not turn abnormal playback into success. Diagnostic apps must retain bounded failure notes and provide a normal quit path after confirmed physical child exit, without force-killing helpers or changing security settings.
