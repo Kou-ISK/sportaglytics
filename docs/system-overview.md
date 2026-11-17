@@ -504,3 +504,5 @@ Group v2のnative転送とMain adapterはsource/操作世代・pair単位のmeta
 
 
 限定groupの通常Controllerクラス/Mainセッション結合では、Main所有の完全Drawn履歴で観測を検証し、終了後の`presentedStop`をsource clockの`stopped`と分離する。通常UI/providerの能力交渉と二canvas/HTML復旧への接続は未完であり、試験用IPC/Drawn/復旧adapterを本番受入としない。
+
+Experimental group playback separates release image authority from command intent: preload freezes the submitted complete pair synchronously, Main validates its bounded receipt, and the Controller sends a stop barrier before a later re-press. The legacy source-clock path and default native provider eligibility remain unchanged; signed multi-angle screen/audio acceptance is not established by the native contract regression.

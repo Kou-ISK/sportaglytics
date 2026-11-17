@@ -626,3 +626,5 @@ The experimental `test:native-group-player-host` also runs `test-native-group-re
 
 
 The group Host regression now instantiates the ordinary `NativePlaybackController` and Main `NativePlaybackSession`, with the actual native FIFO/helper and a complete-pair ledger. IPC subscription/delivery, qualification/signature, Drawn and HTML restoration remain test adapters; this is not normal UI/provider activation or physical display acceptance. The Main-only `drawn-pair` clock requires a presentation verifier and exact complete Drawn history for observations and the separately tagged `presentedStop` receipt. Missing/old/unissued receipts cannot release recovery ownership; legacy source-clock mode rejects image receipts. Source clocks and canvas anchors remain distinct.
+
+The experimental group Controller regression also exercises synchronous preload release fences, serialized stop/re-press barriers and Main-ledger Host translation. `test:native-group-player-host` uses actual native samples/child close but synthetic Canvas acknowledgements and unsigned local helpers; it is not default-provider, speaker or signed-distribution acceptance.

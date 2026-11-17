@@ -487,3 +487,5 @@ Mainの`runtime/groupPresentationLedger.ts`は画像資源から独立した有�
 
 
 `features/videoPlayer/shared/nativePlayback/nativeClosedRecoveryTime.ts` keeps closed-receipt authority and recovery-anchor calculation separate from Controller IPC/lifecycle scheduling. Main independently checks group presentation receipts against complete Drawn history; the Renderer helper does not create that authority.
+
+`preload/nativeGroupControlBridge.ts` owns bounded document-local release receipts and pair admission; `nativePlayback/nativeGroupControl.ts` validates the typed intent with Main's ledger before translating it to the Host wire format. Neither owns source qualification or permits Renderer handles/paths. Controller keeps command scheduling separate from this preload presentation authority.

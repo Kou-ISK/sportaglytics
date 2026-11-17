@@ -31,6 +31,7 @@ export const createNativeGroupPresenter = (
   expect(generation: string, operation: number, seekId: number): void;
   receive(raw: unknown, texture: Electron.SharedTextureImported | null): void;
   close(): void;
+  freeze(): GroupPresentation | null;
   current(): GroupPresentation | null;
 } => {
   let targets: readonly [HTMLCanvasElement, HTMLCanvasElement] | null = null;
@@ -77,13 +78,17 @@ export const createNativeGroupPresenter = (
       }
     }
   };
-  const close = (): void => {
+  const freeze = (): GroupPresentation | null => {
     stopped = true;
-    owner = null;
     if (animation) cancelAnimationFrame(animation);
     if (demand) cancelAnimationFrame(demand);
     animation = demand = 0;
     clear();
+    return current && { ...current, ids: [...current.ids] };
+  };
+  const close = (): void => {
+    freeze();
+    owner = null;
   };
   const fail = (): void => {
     if (failed) return;
@@ -328,6 +333,7 @@ export const createNativeGroupPresenter = (
         animation = requestAnimationFrame(paint);
     },
     close,
+    freeze,
     current: () => current && { ...current, ids: [...current.ids] },
   };
 };

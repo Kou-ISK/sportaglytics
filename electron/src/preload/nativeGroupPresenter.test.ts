@@ -336,3 +336,30 @@ it('an old unbind cannot revoke a later binding even when it reuses the same can
   expect(s.shown).toHaveBeenCalledOnce();
   release();
 });
+
+it('freezes the actual submitted pair synchronously and discards pending old paint exactly once', () => {
+  const s = setup();
+  s.presenter.receive(meta(0), s.texture());
+  s.presenter.receive(meta(1), s.texture());
+  s.paint();
+  const before = s.presenter.current(),
+    a = s.texture(),
+    b = s.texture();
+  s.presenter.receive(meta(0, 2), a);
+  s.presenter.receive(meta(1, 2), b);
+  expect(s.presenter.freeze()).toEqual(before);
+  s.paint();
+  expect(s.shown).toHaveBeenCalledTimes(1);
+  expect(a.release).toHaveBeenCalledOnce();
+  expect(b.release).toHaveBeenCalledOnce();
+  s.presenter.expect('owner', 2, 1);
+  expect(s.presenter.current()).toEqual(before);
+  s.presenter.receive({ ...meta(0, 3, 2), seekId: 1 }, s.texture());
+  s.presenter.receive({ ...meta(1, 3, 2), seekId: 1 }, s.texture());
+  s.paint();
+  expect(s.presenter.current()?.operation).toBe(2);
+  s.unbind();
+  expect(s.presenter.current()).toBeNull();
+  expect(a.release).toHaveBeenCalledOnce();
+  expect(b.release).toHaveBeenCalledOnce();
+});

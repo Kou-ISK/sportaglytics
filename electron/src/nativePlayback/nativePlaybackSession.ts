@@ -70,9 +70,12 @@ export class NativePlaybackSession {
     private readonly changed: () => void = () => {},
   ) {
     if (
-      (scope.clockAuthority !== undefined && scope.clockAuthority !== 'source-clock' && scope.clockAuthority !== 'drawn-pair') ||
+      (scope.clockAuthority !== undefined &&
+        scope.clockAuthority !== 'source-clock' &&
+        scope.clockAuthority !== 'drawn-pair') ||
       (scope.clockAuthority === 'drawn-pair' &&
-        (typeof backend.confirmsPresentation !== 'function' || typeof backend.confirmsPresentedStop !== 'function')) ||
+        (typeof backend.confirmsPresentation !== 'function' ||
+          typeof backend.confirmsPresentedStop !== 'function')) ||
       !Number.isFinite(scope.start) ||
       !Number.isFinite(scope.end) ||
       scope.start < 0 ||
@@ -95,13 +98,19 @@ export class NativePlaybackSession {
   }
 
   private presentationConfirmed(value: NativePlaybackObservation): boolean {
-    try { return this.backend.confirmsPresentation?.(value) === true; }
-    catch { return false; } // A failed ledger lookup grants no authority.
+    try {
+      return this.backend.confirmsPresentation?.(value) === true;
+    } catch {
+      return false;
+    } // A failed ledger lookup grants no authority.
   }
 
   private presentedStopConfirmed(proof: NativeGroupPresentation): boolean {
-    try { return this.backend.confirmsPresentedStop?.(proof) === true; }
-    catch { return false; }
+    try {
+      return this.backend.confirmsPresentedStop?.(proof) === true;
+    } catch {
+      return false;
+    }
   }
 
   apply(raw: NativePlaybackIntent, allowed?: () => boolean): void {
@@ -116,6 +125,17 @@ export class NativePlaybackSession {
     )
       throw Error('NATIVE_UNQUALIFIED_INTENT');
     const old = this.intent;
+    if (next.presentationFence && this.scope.clockAuthority !== 'drawn-pair')
+      throw Error('NATIVE_STOP_AUTHORITY');
+    if (
+      this.scope.clockAuthority === 'drawn-pair' &&
+      old &&
+      old.playing &&
+      !next.playing &&
+      old.seekId === next.seekId &&
+      !next.presentationFence
+    )
+      throw Error('NATIVE_GROUP_STOP_FENCE_MISSING');
     if (
       (old &&
         (next.sequence <= old.sequence ||
@@ -128,12 +148,17 @@ export class NativePlaybackSession {
       throw Error('NATIVE_INVALID_INTENT_ORDER');
     // A settings change or coalesced pause/resume may retain the transport.
     // Keep its permit lineage until a new operation or an explicit new permit.
-    const guard = allowed ?? (old &&
-      old.rate === next.rate && old.seekId === next.seekId
-      ? this.transportGuard : null);
+    const guard =
+      allowed ??
+      (old && old.rate === next.rate && old.seekId === next.seekId
+        ? this.transportGuard
+        : null);
     this.transportGuard = guard;
     this.intent = next;
-    this.pending = { intent: next, allowed: next.playing ? guard ?? (() => true) : () => true };
+    this.pending = {
+      intent: next,
+      allowed: next.playing ? (guard ?? (() => true)) : () => true,
+    };
     this.flush();
   }
 
@@ -201,9 +226,14 @@ export class NativePlaybackSession {
       this.fail('protocol');
       return false;
     }
-    if (this.scope.clockAuthority === 'drawn-pair' &&
-        (value.videoReady || value.audioReady || value.phase === 'buffering')) {
-      if (!this.presentationConfirmed(value)) { this.fail('protocol'); return false; }
+    if (
+      this.scope.clockAuthority === 'drawn-pair' &&
+      (value.videoReady || value.audioReady || value.phase === 'buffering')
+    ) {
+      if (!this.presentationConfirmed(value)) {
+        this.fail('protocol');
+        return false;
+      }
     }
     // Delivery is not processing. Retain the bounded unacknowledged intents so
     // a terminal failure of the prior processed command can still drain safely.
@@ -360,21 +390,42 @@ export class NativePlaybackSession {
         throw Error('NATIVE_CLEANUP_UNCONFIRMED');
       const proof = result.presentedStop;
       if (this.scope.clockAuthority === 'drawn-pair') {
-        const processed = proof ? this.issuedIntents.get(proof.operation) : null;
+        const processed = proof
+          ? this.issuedIntents.get(proof.operation)
+          : null;
         const time = proof ? proof.globalTicks / 120000 : null;
         if (result.stopped || (!proof && this.anchoredSeek > 0))
           throw Error('NATIVE_STOP_PRESENTATION_UNCONFIRMED');
-        if (proof && (!result.processStarted || !processed || !this.presentedStopConfirmed(proof) ||
-            proof.operation < this.processedSequence || proof.seekId !== processed.seekId ||
-            time === null || time < this.scope.start || time >= this.scope.end ||
+        if (
+          proof &&
+          (!result.processStarted ||
+            !processed ||
+            !this.presentedStopConfirmed(proof) ||
+            proof.operation < this.processedSequence ||
+            proof.seekId !== processed.seekId ||
+            time === null ||
+            time < this.scope.start ||
+            time >= this.scope.end ||
             (proof.seekId === this.anchoredSeek &&
               Math.sign(processed.rate) === Math.sign(this.clockRate) &&
               clockMovedAgainstRate(time, this.clockTime, this.clockRate)) ||
-            !this.presentationConfirmed({ ...this.scope.owner,
-              revision: 1, sequence: proof.operation, seekId: proof.seekId, time,
-              phase: 'paused', rate: 0, videoReady: true, audioReady: true,
-              audioTrack: processed.audioTrack, volume: processed.volume,
-              muted: processed.muted, error: null }))) throw Error('NATIVE_STOP_PRESENTATION_UNCONFIRMED');
+            !this.presentationConfirmed({
+              ...this.scope.owner,
+              revision: 1,
+              sequence: proof.operation,
+              seekId: proof.seekId,
+              time,
+              phase: 'paused',
+              rate: 0,
+              videoReady: true,
+              audioReady: true,
+              audioTrack: processed.audioTrack,
+              volume: processed.volume,
+              muted: processed.muted,
+              error: null,
+            }))
+        )
+          throw Error('NATIVE_STOP_PRESENTATION_UNCONFIRMED');
       } else if (proof) throw Error('NATIVE_STOP_AUTHORITY');
       const stopped = result.stopped;
       const processed = stopped

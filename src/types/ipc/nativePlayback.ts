@@ -24,6 +24,8 @@ export interface NativePlaybackIntent extends NativePlaybackOwner {
   targetTime: number;
   /** Omission is exact. Preview is held; scrub commits its measured image time. */
   seekMode?: 'preview' | 'scrub';
+  /** Added by preload from its last complete canvas pair, never a requested clock. */
+  presentationFence?: NativeGroupPresentation;
   playing: boolean;
   rate: number;
   audioTrack: number;
@@ -147,13 +149,14 @@ export const parseNativePlaybackIntent = (
     'seekId',
     'targetTime',
     'seekMode',
+    'presentationFence',
     'playing',
     'rate',
     'audioTrack',
     'volume',
     'muted',
   ]);
-  return {
+  const value: NativePlaybackIntent = {
     ...ownerValue(v),
     sequence: integerValue(v.sequence, 1),
     seekId: integerValue(v.seekId, 1),
@@ -166,7 +169,22 @@ export const parseNativePlaybackIntent = (
     audioTrack: integerValue(v.audioTrack, 0, 7),
     volume: numberValue(v.volume, 0, 1),
     muted: booleanValue(v.muted),
+    ...(v.presentationFence === undefined
+      ? {}
+      : {
+          presentationFence: parseNativeGroupPresentation(v.presentationFence),
+        }),
   };
+  const fence = value.presentationFence;
+  if (
+    fence &&
+    (value.playing ||
+      fence.generation !== value.generation ||
+      fence.operation >= value.sequence ||
+      fence.seekId !== value.seekId)
+  )
+    throw Error('NATIVE_GROUP_STOP_FENCE_OWNER');
+  return value;
 };
 export const parseNativePlaybackObservation = (
   raw: unknown,
@@ -279,9 +297,17 @@ export const parseNativePlaybackClosed = (
     )
       throw Error('NATIVE_STOP_OWNER_CHANGED');
   }
-  const presentedStop = v.presentedStop === undefined ? undefined : parseNativeGroupPresentation(v.presentedStop);
-  if (presentedStop && (stopped || presentedStop.generation !== v.generation ||
-      presentedStop.seekId > presentedStop.operation)) throw Error('NATIVE_STOP_AUTHORITY');
+  const presentedStop =
+    v.presentedStop === undefined
+      ? undefined
+      : parseNativeGroupPresentation(v.presentedStop);
+  if (
+    presentedStop &&
+    (stopped ||
+      presentedStop.generation !== v.generation ||
+      presentedStop.seekId > presentedStop.operation)
+  )
+    throw Error('NATIVE_STOP_AUTHORITY');
   return {
     ...(presentedStop === undefined ? {} : { presentedStop }),
     generation: stringValue(v.generation, 1, 128),

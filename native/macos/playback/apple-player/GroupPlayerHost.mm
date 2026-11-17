@@ -103,10 +103,15 @@ void opaque(id value) {
 - (void)accept:(NSDictionary *)v {
   auto expected = [NSMutableArray arrayWithArray:@[@"generation", @"sourceKey", @"sequence", @"seekId", @"targetTime", @"playing", @"rate", @"audioTrack", @"volume", @"muted"]];
   if (v[@"stopProof"]) [expected addObject:@"stopProof"];
+  if (v[@"seekMode"]) [expected addObject:@"seekMode"];
   keys(v, expected);
   check([v[@"generation"] isEqual:_manifest[@"owner"][@"generation"]] && [v[@"sourceKey"] isEqual:_manifest[@"owner"][@"sourceKey"]]);
   auto op = integer(v[@"sequence"]), seek = integer(v[@"seekId"]); check(op && seek && seek <= op);
   bool playing = boolean(v[@"playing"]); boolean(v[@"muted"]);
+  if (v[@"seekMode"]) {
+    check([v[@"seekMode"] isEqual:@"preview"] || [v[@"seekMode"] isEqual:@"scrub"]);
+    check(![v[@"seekMode"] isEqual:@"preview"] || !playing);
+  }
   check(number(v[@"targetTime"]) && [v[@"targetTime"] doubleValue] >= 0 && [v[@"targetTime"] doubleValue] < 86400);
   check(number(v[@"rate"]) && number(v[@"volume"]) && [v[@"volume"] doubleValue] >= 0 && [v[@"volume"] doubleValue] <= 1);
   const double rate = [v[@"rate"] doubleValue];
@@ -115,7 +120,10 @@ void opaque(id value) {
   uint64_t ticks = uint64_t(llround([v[@"targetTime"] doubleValue] * 120000));
   if (_intent) {
     check(op > integer(_intent[@"sequence"]) && seek >= integer(_intent[@"seekId"]));
-    if (seek == integer(_intent[@"seekId"])) check([v[@"targetTime"] isEqual:_intent[@"targetTime"]]);
+    if (seek == integer(_intent[@"seekId"])) {
+      check([v[@"targetTime"] isEqual:_intent[@"targetTime"]]);
+      check((!v[@"seekMode"] && !_intent[@"seekMode"]) || [v[@"seekMode"] isEqual:_intent[@"seekMode"]]);
+    }
   } else check(!playing && seek == 1);
   // Release never authorizes a new target from the advancing player clock.
   // Pause both immediately, before validating the presentation fence.
