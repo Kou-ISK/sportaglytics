@@ -12,6 +12,7 @@ namespace appleplayback {
 struct FrameBudgetState {
   const uint64_t limit;
   std::atomic<uint64_t> used{0};
+  std::atomic<uint64_t> peak{0};
   std::atomic<uint64_t> quarantined{0};
   explicit FrameBudgetState(uint64_t bytes) : limit(bytes) {}
 };
@@ -78,6 +79,7 @@ public:
     if (!bytes) throw std::invalid_argument("Empty frame buffer budget");
   }
   uint64_t usedBytes() const { return state->used.load(std::memory_order_relaxed); }
+  uint64_t peakUsedBytes() const { return state->peak.load(std::memory_order_relaxed); }
   uint64_t quarantinedBytes() const { return state->quarantined.load(std::memory_order_relaxed); }
   uint64_t limitBytes() const { return state->limit; }
   template <typename Image> bool owns(const RetainedImage<Image>& image) const {
@@ -92,6 +94,9 @@ public:
       if (used > state->limit || bytes > state->limit - used) return std::nullopt;
     } while (!state->used.compare_exchange_weak(used, used + bytes,
                                                std::memory_order_relaxed));
+    uint64_t peak = state->peak.load(std::memory_order_relaxed);
+    while (peak < used + bytes && !state->peak.compare_exchange_weak(peak, used + bytes,
+      std::memory_order_relaxed)) {}
     try {
       return RetainedImage<Image>(
           std::make_shared<typename RetainedImage<Image>::Storage>(

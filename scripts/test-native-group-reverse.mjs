@@ -200,6 +200,7 @@ try {
       assert.equal(createHash('sha256').update(bytes).digest('hex'), receipt.resultSHA256);
       const result = JSON.parse(bytes);
       assert.equal(result.heldBytes, 0); assert.equal(result.quarantinedBytes, 0);
+      assert.ok(result.peakChargedImageBytes > 0 && result.peakChargedImageBytes <= 512 * 1024 * 1024);
     } finally {
       if (controller && !processClosed) await controller.closeNative().catch(() => {});
       if (owned && !processClosed) { await owned.close(); await backend.done(); processClosed = true; }

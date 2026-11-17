@@ -168,6 +168,7 @@
   [_player setVolume:volume muted:muted]; return YES;
 }
 - (void)silence { NSParameterAssert(NSThread.isMainThread); [_player setVolume:0 muted:YES]; }
+- (void)pauseForRefill { NSParameterAssert(NSThread.isMainThread); [_player pause]; }
 - (void)pause { NSParameterAssert(NSThread.isMainThread); _supplyRate = 0; [_player pause]; }
 - (void)close {
   NSParameterAssert(NSThread.isMainThread);
@@ -175,6 +176,7 @@
   _closed = YES; _frame.reset(); [_decoder close]; [_player close];
 }
 - (BOOL)failed { return _failed; }
+- (BOOL)imageReadInProgress { return !_decoder.drained; }
 - (BOOL)drained { return _closed && !_activeSeeks && _decoder.drained; }
 - (BOOL)seekCompleted { return !_closed && !_failed && _seekCompleted; }
 - (NSError *)error { return _failure ?: _player.error; }

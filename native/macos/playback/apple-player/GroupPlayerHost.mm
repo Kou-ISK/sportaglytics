@@ -205,7 +205,7 @@ void opaque(id value) {
     check(_lastDrawnOperation == op && _lastDrawnSeek == seek);
     // Hold the last complete image while one fixed next target is prepared.
     // Do not keep advancing the target past a slow decoder or call it playing.
-    [_players pause]; _clock->suspend(_lastDrawnTicks, target);
+    [_players pauseForRefill]; _clock->suspend(_lastDrawnTicks, target);
     _anchor = _lastDrawnTicks; _scheduled = NO; _ready = NO;
     _waitingPair = 0; _waitBeganAt = CACurrentMediaTime();
   }
@@ -286,7 +286,7 @@ void opaque(id value) {
           if (_closing && _players.drained && !_sender->pending() && !_output.count() && !_persisted) {
             NSData *data = [NSJSONSerialization dataWithJSONObject:@{@"engine":@"AVPlayerGroup", @"success":@(!_failed),
               @"stoppedClock":[NSNull null], @"failure":_failureInfo ?: (_failed ? @{@"stage":@"control-or-transfer"} : [NSNull null]), @"heldBytes":@(_budget->usedBytes()),
-              @"quarantinedBytes":@(_budget->quarantinedBytes())} options:0 error:nil];
+              @"quarantinedBytes":@(_budget->quarantinedBytes()), @"peakChargedImageBytes":@(_budget->peakUsedBytes())} options:0 error:nil];
             const BOOL saved = data && [data writeToFile:result options:NSDataWritingWithoutOverwriting error:nil];
             unsigned char digest[CC_SHA256_DIGEST_LENGTH]; NSMutableString *hash = [NSMutableString string];
             if (saved) {

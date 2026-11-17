@@ -106,6 +106,7 @@
   for (STGroupPlayerSource *source in _sources) [source silence];
   return [_sources[angle] selectAudioTrack:track volume:volume muted:muted];
 }
+- (void)pauseForRefill { for (STGroupPlayerSource *source in _sources) [source pauseForRefill]; }
 - (void)pause { for (STGroupPlayerSource *source in _sources) [source pause]; }
 - (void)close {
   NSParameterAssert(NSThread.isMainThread);

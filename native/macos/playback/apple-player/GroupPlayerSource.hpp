@@ -42,9 +42,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)scheduleRate:(float)rate globalTicks:(uint64_t)ticks hostTime:(CMTime)hostTime;
 - (BOOL)selectAudioTrack:(NSUInteger)track volume:(float)volume muted:(BOOL)muted;
 - (void)silence;
+/// Stop audio output for a fixed-target refill, preserving decode direction.
+/// Explicit pause/seek/close still revoke further prefetch.
+- (void)pauseForRefill;
 - (void)pause;
 - (void)close;
 @property(nonatomic, readonly) BOOL failed;
+/// Actual bounded image worker state, distinct from source readiness/close.
+@property(nonatomic, readonly) BOOL imageReadInProgress;
 @property(nonatomic, readonly) BOOL drained;
 @property(nonatomic, readonly) BOOL seekCompleted;
 @property(nonatomic, readonly, nullable) NSError *error;

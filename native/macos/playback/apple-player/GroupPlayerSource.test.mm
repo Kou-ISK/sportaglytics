@@ -121,6 +121,36 @@ int main() { @autoreleasepool {
     if (!closeBeforeCompletion) waitFor(gated, 4004);
     closeAndDrain(gated); assert(budget.usedBytes() == 0);
   }
+  // A clock refill is not a user pause: retain decode direction even when the
+  // fixed target just crossed the previous bank while its worker was draining.
+  auto longURL = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"refill.mov"]];
+  fixture(longURL, true, 16, 16, -1, false, 80);
+  for (int mode = 0; mode < 2; ++mode) {
+    auto refill = [[STGroupPlayerSource alloc] initWithURL:longURL globalStart:0 globalEnd:240240 sourceOffset:0
+      budget:budget sourceRevision:*appleplayback::sourceFileRevision(longURL)];
+    assert([refill seek:180000 operation:1]); waitFor(refill, 180000);
+    deadline = CACurrentMediaTime() + 8;
+    while (refill.imageReadInProgress && CACurrentMediaTime() < deadline && !refill.failed) {
+      [refill poll]; pump();
+    }
+    assert(!refill.failed && !refill.imageReadInProgress);
+    CMTime host = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTimeMake(1, 10));
+    assert([refill scheduleRate:-4 globalTicks:180000 hostTime:host]);
+    if (mode) [refill pause]; else [refill pauseForRefill];
+    // Synchronous actor transition, before yielding to the requested worker.
+    // A refill keeps one bounded adjacent request; a user pause starts none.
+    [refill pollAtGlobalTime:151000];
+    assert(!refill.failed && refill.imageReadInProgress == (mode == 0));
+    assert([refill frame] && [refill frame]->covers(151000));
+    deadline = CACurrentMediaTime() + 8;
+    while (refill.imageReadInProgress && CACurrentMediaTime() < deadline && !refill.failed) {
+      [refill pollAtGlobalTime:151000]; pump();
+    }
+    assert(!refill.failed && !refill.imageReadInProgress);
+    for (int repeat = 0; repeat < 10; ++repeat) [refill pollAtGlobalTime:151000];
+    assert(!refill.imageReadInProgress); // no second bank beyond one fixed target
+    [refill pause]; closeAndDrain(refill); assert(!budget.usedBytes());
+  }
   // Remove only this fixture owned by this process, after actual index drainage.
   assert([[NSFileManager defaultManager] removeItemAtPath:directory error:nil]);
   puts("group real-player source intervals/offsets/ownership passed");

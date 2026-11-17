@@ -162,6 +162,14 @@ int main() {
     assert(movedBudget.usedBytes() == 10);
   }
   assert(alive == 0);
+  {
+    FrameBudget peak(10); assert(peak.peakUsedBytes() == 0);
+    auto held = peak.retain(image(60), 1, 1, 0, 1, 7);
+    assert(held && peak.usedBytes() == 7 && peak.peakUsedBytes() == 7);
+    assert(!peak.retain(image(61), 1, 1, 0, 1, 4));
+    held.reset(); assert(peak.usedBytes() == 0 && peak.peakUsedBytes() == 7);
+  }
+  assert(alive == 0);
   // A real consumer may finish on a different thread while new frames arrive.
   FrameBudget concurrent(16);
   std::vector<std::thread> threads;
@@ -175,4 +183,5 @@ int main() {
   for (auto &worker : threads)
     worker.join();
   assert(concurrent.usedBytes() == 0 && alive == 0);
+  assert(concurrent.peakUsedBytes() > 0 && concurrent.peakUsedBytes() <= 16);
 }
