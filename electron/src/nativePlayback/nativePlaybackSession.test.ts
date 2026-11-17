@@ -1064,3 +1064,52 @@ it.each(['latest-stop', 'new-seek'] as const)('bounds unsent group stop barriers
   expect(write.mock.calls.map(([value]) => value.sequence)).toEqual(kind === 'new-seek' ? [1, 2, 5] : [1, 2, 5, 6]);
   await session.close();
 });
+
+it.each(['revoked-repress', 'close'] as const)(
+  'does not revive a queued group operation after %s',
+  async (ending) => {
+    const writer = deferred<void>();
+    const closeRequested = deferred<void>();
+    const write = vi.fn(async (value: NativePlaybackIntent) => {
+      if (value.sequence === 2) await writer.promise;
+    });
+    const close = vi.fn(async () => {
+      closeRequested.resolve();
+      return drained;
+    });
+    const session = new NativePlaybackSession(
+      { owner, start: 0, end: 10, rates: [-2], audioTracks: 1,
+        clockAuthority: 'drawn-pair' },
+      { write, close, confirmsPresentation: () => true,
+        confirmsPresentedStop: () => true },
+    );
+    session.apply(intent({ rate: -2 }));
+    await tick();
+    session.apply(intent({ sequence: 2, playing: true, rate: -2 }));
+    await tick();
+    session.apply(intent({ sequence: 3, rate: -2, presentationFence: {
+      document: 'doc', generation: owner.generation, operation: 1,
+      seekId: 1, pair: 1, globalTicks: 360000, ids: [1, 2],
+    } }));
+    let permit = true;
+    session.apply(intent({ sequence: 4, playing: true, rate: -2 }), () => permit);
+    let completion: Promise<NativePlaybackClosed> | undefined;
+    let finished = false;
+    if (ending === 'close') {
+      completion = session.close();
+      void completion.then(() => { finished = true; });
+      await closeRequested.promise;
+      expect(finished).toBe(false); // A returned close receipt cannot drain a held writer.
+      expect(close).toHaveBeenCalledOnce();
+    } else permit = false;
+    writer.resolve();
+    await closeRequested.promise;
+    await (completion ?? session.close());
+    expect(write.mock.calls.map(([value]) => value.sequence)).toEqual(
+      ending === 'close' ? [1, 2] : [1, 2, 3],
+    );
+    expect(close).toHaveBeenCalledOnce();
+    expect(session.snapshot()).toMatchObject({ closed: true,
+      error: ending === 'close' ? null : 'owner' });
+  },
+);
