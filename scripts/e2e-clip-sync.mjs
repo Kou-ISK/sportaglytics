@@ -423,10 +423,39 @@ try {
     const window = BrowserWindow.getFocusedWindow();
     return window ? new URL(window.webContents.getURL()).hash : null;
   }), '', 'manual-sync shortcut targets the focused main player');
+  // Observe this one real shortcut; never invoke the menu callback as a fallback.
+  // A focused BrowserWindow alone does not establish native accelerator delivery.
+  await electronApp.evaluate(({ Menu, BrowserWindow }) => {
+    const trace = []; globalThis.__clipSyncShortcutTrace = trace;
+    const walk = (menu) => menu.items.flatMap((item) => [item, ...(item.submenu ? walk(item.submenu) : [])]);
+    const item = walk(Menu.getApplicationMenu()).find((entry) => entry.accelerator === 'CmdOrCtrl+Shift+T');
+    if (!item?.click) throw Error('manual sync menu item missing');
+    const focusedRoute = () => {
+      const focused = BrowserWindow.getFocusedWindow();
+      return focused ? new URL(focused.webContents.getURL()).hash : null;
+    };
+    const click = item.click;
+    item.click = (...args) => { trace.push({ kind: 'menu-click', focused: focusedRoute() }); return click(...args); };
+    for (const window of BrowserWindow.getAllWindows()) {
+      const contents = window.webContents, route = new URL(contents.getURL()).hash;
+      contents.on('before-input-event', (_event, input) => {
+        if (input.key.toLowerCase() === 't') trace.push({ kind: 'input', route, type: input.type,
+          control: input.control, meta: input.meta, shift: input.shift, focused: focusedRoute() });
+      });
+      const send = contents.send.bind(contents);
+      contents.send = (channel, ...args) => {
+        if (channel === 'menu-set-sync-mode') trace.push({ kind: 'send', route, value: args[0] });
+        return send(channel, ...args);
+      };
+    }
+  });
   await page.keyboard.press(`${primaryModifier}+Shift+T`);
-  await page
-    .getByLabel('アングル同期ワークスペース', { exact: true })
-    .waitFor();
+  try {
+    await page.getByLabel('アングル同期ワークスペース', { exact: true }).waitFor();
+  } finally {
+    console.log('Manual sync shortcut trace', await electronApp.evaluate(() => globalThis.__clipSyncShortcutTrace));
+    console.log('Manual sync focus', await page.evaluate(() => ({ focused: document.hasFocus(), active: document.activeElement?.tagName })));
+  }
   assert.equal(await page.getByRole('combobox').count(), 0);
 
   console.log(`Electron E2E passed: ${packagePath}`);
