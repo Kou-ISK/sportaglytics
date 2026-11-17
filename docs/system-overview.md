@@ -514,3 +514,6 @@ Group availability now identifies Main's image-clock authority and qualified rat
 
 
 Group playback negotiation uses a separate finite helper capability query after signed native resources are verified. The response is a limited ABI declaration, not a source/performance or display guarantee. Legacy playback stays selected while the paired provider/UI recovery is unfinished; export revision and receiver method presence cannot enable it.
+
+
+Main's group backend now composes the placed-pair helper, pair transport and session receipt lifecycle. It exposes ledger verifiers and a separate presented-stop receipt after physical drainage; it does not fabricate an AVPlayer source clock. The standard source provider and paired UI recovery still require explicit connection and acceptance.

@@ -636,3 +636,6 @@ Native group source regressions distinguish actual image-worker drainage from re
 
 
 `groupCapability.test.ts` exercises exact ABI parsing, output/time bounds, malformed/old helpers, cancellation and physical-close waiting with an owned worker mock; `nativeResources.test.ts` ensures signature/hash validation precedes the query. `test:native-group-player-host` also probes the real locally built helper before the four-rate Manager/gesture test. Local unsigned helper ABI evidence does not validate signed distribution or enable the normal paired provider/UI.
+
+
+`nativeGroupBackend.test.ts` injects only filesystem/child/surface/activity boundaries to verify launch failure, uncertain factory ownership, receipt/hash/resource rejection and original-error preservation. The four-rate Host regression now uses this real Main backend and its real session-storage/result validation, with an explicit Electron surface/GPU/activity adapter. Separate group transport tests cover that adapter's contracts; only actual packaged Electron/Canvas execution can establish the missing GUI boundary.

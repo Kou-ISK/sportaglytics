@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { mkdtemp, mkdir, readFile, writeFile, stat, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -14,8 +14,6 @@ if (process.platform !== 'darwin' || process.arch !== 'arm64')
   throw Error('Native group reverse contract requires macOS arm64');
 const require = createRequire(import.meta.url);
 const receiver = require(resolve('.cache/native-playback/darwin-arm64/Receiver.node'));
-const { createOwnedBackend } = require('../electron/src/nativePlayback/runtime/support/embedded-diagnostic/owned-backend.cjs');
-const ts = require('typescript');
 const directory = await mkdtemp(join(tmpdir(), 'native-group-reverse-'));
 let allDrained = true;
 const measurements = [];
@@ -29,15 +27,9 @@ try {
   await run(fixture, [source, 'long']);
   const info = await stat(source, { bigint: true });
   const revision = [info.dev, info.ino, info.size, info.mtimeNs, info.ctimeNs, info.nlink].join(':');
-  const config = ts.transpileModule(await readFile('electron/src/nativePlayback/nativeHostConfiguration.ts', 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-  }).outputText;
-  const modulePath = join(directory, 'config.cjs');
-  await writeFile(modulePath, config, { flag: 'wx' });
-  const { nativeGroupHostConfiguration } = require(modulePath);
   const actorsPath = join(directory, 'actors.cjs');
   await build({ stdin: { contents: `
-    export { nativeGroupHostIntent } from './electron/src/nativePlayback/nativeGroupControl';
+    export { createNativeGroupBackend } from './electron/src/nativePlayback/runtime/nativeGroupBackend';
     export { createNativeGroupControlBridge } from './electron/src/preload/nativeGroupControlBridge';
     export { probeNativeGroupCapability } from './electron/src/nativePlayback/runtime/groupCapability';
     export { NativePlaybackManager } from './electron/src/nativePlayback/nativePlaybackManager';
@@ -45,8 +37,18 @@ try {
     export { NativePlaybackController } from './src/features/videoPlayer/shared/nativePlayback/nativePlaybackController';
     export { GroupPresentationLedger } from './electron/src/nativePlayback/runtime/groupPresentationLedger';`,
     resolveDir: process.cwd(), loader: 'ts' }, bundle: true, platform: 'node',
-    format: 'cjs', outfile: actorsPath });
-  const { NativePlaybackManager, completeCommandGesture, NativePlaybackController, GroupPresentationLedger, nativeGroupHostIntent, createNativeGroupControlBridge, probeNativeGroupCapability } = require(actorsPath);
+    format: 'cjs', outfile: actorsPath, plugins: [{ name: 'explicit-contract-adapters',
+      setup(build) {
+        build.onResolve({ filter: /^electron$/ }, () => ({ path: 'electron', namespace: 'contract' }));
+        build.onResolve({ filter: /groupSurfaceTransport$/ }, (args) =>
+          args.importer.endsWith('nativeGroupBackend.ts') ? { path: 'surface', namespace: 'contract' } : undefined);
+        build.onLoad({ filter: /.*/, namespace: 'contract' }, (args) => ({ loader: 'js',
+          contents: args.path === 'electron' ? `const active=new Set();let id=0;
+            export const powerSaveBlocker={start:()=>{active.add(++id);return id;},
+            stop:(value)=>active.delete(value),isStarted:(value)=>active.has(value)};` :
+            'export const createGroupSurfaceTransport=(...args)=>globalThis.__groupBackendContractSurface(...args);' }));
+      } }] });
+  const { NativePlaybackManager, completeCommandGesture, NativePlaybackController, GroupPresentationLedger, createNativeGroupBackend, createNativeGroupControlBridge, probeNativeGroupCapability } = require(actorsPath);
   // Local build identity/hash is verified by native:build. This is actual
   // helper ABI evidence, not production signature or source qualification.
   const capability = await probeNativeGroupCapability(
@@ -61,14 +63,18 @@ try {
     await mkdir(join(work, 'native-run-1'), { recursive: true });
     let owner;
     const pairs = [], observations = [];
-    let first, last, receipt, stopped, processClosed = false;
-    let backend, owned, manager, controller, snapshotListener;
+    let first, last, stopped, processClosed = false;
+    let owned, manager, controller, snapshotListener;
     let expectedOperation = 0, expectedSeek = 0, frozen = false;
     let restoredTime = null, recoveryReleased = 0;
     const plan = { angleIds: ['left', 'right'],
       sources: [0, 1].map((angle) => ({ angleId: angle ? 'right' : 'left', path: source,
         revision, globalStart: 0, globalEnd: (360360 - (angle ? 2002 : 0)) / 120000,
-        sourceTimeOffset: (angle ? 2002 : 0) / 120000 })) };
+        sourceTimeOffset: (angle ? 2002 : 0) / 120000 })),
+      assertCurrent: async () => {
+        const current = await stat(source, { bigint: true });
+        assert.equal([current.dev,current.ino,current.size,current.mtimeNs,current.ctimeNs,current.nlink].join(':'), revision);
+      } };
     const rangeEnd = Math.min(...plan.sources.map((item) => item.globalEnd));
     const presentation = { width: 1920, height: 1080, start: 0, end: rangeEnd,
       seekEnd: rangeEnd - 2 / 120000, playEnd: rangeEnd - 1 / 120000,
@@ -82,12 +88,12 @@ try {
         scope: { start: 0, end: rangeEnd, audioTracks: 1, rates: [1, rate], clockAuthority: 'drawn-pair' },
         assertCurrent: async () => {}, // qualification adapter; actual helper checks file revision
         createBackend: (acceptedOwner, observe) => {
-          owned = backend.factory(acceptedOwner, (value) => { observations.push(value); observe(value); });
-          return { write: (value) => owned.write(nativeGroupHostIntent(value,
-            (proof, intent) => ledger.stop(proof, intent, acceptedOwner))),
-          close: async () => ({ ...await owned.close(), presentedStop: ledger.presented() }),
-          confirmsPresentedStop: (proof) => ledger.confirmsStop(proof),
-          confirmsPresentation: (value) => ledger.confirms(value.generation, value.sequence, value.seekId, value.time) };
+          owned = createNativeGroupBackend({
+            host: resolve('.cache/native-playback/darwin-arm64/NativeProductHost'),
+            receiver: resolve('.cache/native-playback/darwin-arm64/Receiver.node'), state: work,
+          }, capability, {}, plan, 'left', acceptedOwner,
+          (value) => { observations.push(value); observe(value); });
+          return owned;
         } }),
     });
     const available = await manager.inspect(); owner = available.owner;
@@ -142,13 +148,20 @@ try {
     };
     allDrained = false;
     try {
-      backend = createOwnedBackend({
-        host: resolve('.cache/native-playback/darwin-arm64/NativeProductHost'), run: work,
-        manifest: { ...nativeGroupHostConfiguration(plan, 'left'), surfaceService: service, surfaceOwnerPID: process.pid },
-        note: (kind, value) => {
-          if (kind === 'host-spawn') receiver.groupSetPeer(service, value.pid);
-          if (kind === 'native-drained') receipt = value;
-        }, surfaceReady: () => {},
+      // Explicit Electron/GPU adapter. Native IOSurface/Mach samples and
+      // process/receipt/session-storage composition below remain real.
+      globalThis.__groupBackendContractSurface = () => ({ service,
+        start: () => {}, setPeer: (pid) => receiver.groupSetPeer(service, pid), ready: () => {},
+        intent: (value) => { expectedOperation = value.sequence; expectedSeek = value.seekId; },
+        confirmsPresentation: (value) => ledger.confirms(value.generation, value.sequence, value.seekId, value.time),
+        confirmsPresentedStop: (proof) => ledger.confirmsStop(proof),
+        validateStop: (proof, value) => ledger.stop(proof, value, owner),
+        presented: () => ledger.presented(), stopRequests: () => {},
+        drain: async (exited) => {
+          assert.equal(exited, true);
+          let pending; while ((pending = receiver.groupPoll(service))) receiver.groupRelease(service, pending.id);
+          assert.equal(receiver.groupCount(service), 0);
+        }, close: () => {},
       });
       const intent = { ...owner, sequence: 1, seekId: 1, targetTime: 2, playing: false,
         rate, audioTrack: 0, volume: 0, muted: true };
@@ -222,25 +235,24 @@ try {
       assert.ok(pairs.filter((p) => p.operation === 10).every((p) => p.ticks === shortStop.globalTicks));
       assert.equal(manager.observe(owner).error, null, 'normal Main session must accept the actual Host contract');
       await controller.returnToOriginal();
-      stopped = await manager.close(owner); await backend.done(); processClosed = true;
+      stopped = await manager.close(owner); processClosed = true;
       assert.equal(controller.snapshot().phase, 'original');
       assert.equal(restoredTime, 1, 'later explicit scrub owns final restoration, not the old held release');
       assert.equal(recoveryReleased, 1);
       assert.ok(stopped.nativeDrained && stopped.processExited && stopped.pipesClosed);
-      assert.ok(receipt?.success);
-      const bytes = await readFile(join(work, 'native-run-1/native-result.json'));
-      assert.equal(createHash('sha256').update(bytes).digest('hex'), receipt.resultSHA256);
-      const result = JSON.parse(bytes);
-      assert.equal(result.heldBytes, 0); assert.equal(result.quarantinedBytes, 0);
-      assert.ok(result.peakChargedImageBytes > 0 && result.peakChargedImageBytes <= 512 * 1024 * 1024);
+      assert.ok(stopped.presentedStop, 'production backend supplies the checked ledger stop receipt');
+      // Production backend itself reads/hash-checks the real persisted result,
+      // validates zero held/quarantined bytes and bounded peak, then removes
+      // only its own session after native/process/GPU drainage.
+
     } finally {
       if (controller && !processClosed) await controller.closeNative().catch(() => {});
-      if (owned && !processClosed) { await owned.close(); await backend.done(); processClosed = true; }
-      receiver.groupClose(service); allDrained = processClosed;
+      if (owned && !processClosed) { await owned.close(); processClosed = true; }
+      receiver.groupClose(service); delete globalThis.__groupBackendContractSurface; allDrained = processClosed;
     }
   }
   console.log(JSON.stringify({ syntheticPairMeasurements: measurements }));
-  console.log('All four reverse rates: normal Controller/gesture/Main manager/session, actual two-source samples, monotonic pairs, stop proof and real close passed; Drawn, source qualification/signature, IPC and gesture permit/retirement adapters; no physical key/screen/speaker acceptance.');
+  console.log('All four reverse rates: normal Controller/gesture/Main manager/session/group backend, actual two-source samples, monotonic pairs, stop proof and real close passed; Electron surface/GPU/activity, Drawn, source qualification/signature, IPC and gesture permit/retirement adapters; no physical key/screen/speaker acceptance.');
 } finally {
   if (allDrained) await rm(directory, { recursive: true });
   else console.error('Group reverse retained its own directory: completion unconfirmed.');

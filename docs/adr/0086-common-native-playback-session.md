@@ -77,3 +77,6 @@ The Main-qualified group presentation supplies reverse rates to Controller gestu
 
 
 Group protocol capability is an explicit fixed helper query after signed-set/hash verification, independently of export revision/capabilities. It describes bounded ABI scope rather than source fitness or cadence. Unknown declarations fail closed; finite termination requests never fabricate process drainage. Keep the legacy provider active until the two-port recovery, pair surface bindings and signed product acceptance are connected.
+
+
+Compose group process/storage/transfer lifecycle in a Main-only backend, separately from source qualification and Renderer controls. A physical termination proof may authorize resource drainage after an abnormal child result; it cannot authorize recovery success. Validate group receipt and charged-image release before removing only the owned session. Preserve original errors if activity cleanup also fails. This composition alone does not change default provider selection or qualify a signed paired UI.
