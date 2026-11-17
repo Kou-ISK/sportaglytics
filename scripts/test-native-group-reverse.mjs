@@ -39,13 +39,21 @@ try {
   await build({ stdin: { contents: `
     export { nativeGroupHostIntent } from './electron/src/nativePlayback/nativeGroupControl';
     export { createNativeGroupControlBridge } from './electron/src/preload/nativeGroupControlBridge';
+    export { probeNativeGroupCapability } from './electron/src/nativePlayback/runtime/groupCapability';
     export { NativePlaybackManager } from './electron/src/nativePlayback/nativePlaybackManager';
     export { completeCommandGesture } from './src/features/videoPlayer/shared/nativePlayback/completeCommandGesture';
     export { NativePlaybackController } from './src/features/videoPlayer/shared/nativePlayback/nativePlaybackController';
     export { GroupPresentationLedger } from './electron/src/nativePlayback/runtime/groupPresentationLedger';`,
     resolveDir: process.cwd(), loader: 'ts' }, bundle: true, platform: 'node',
     format: 'cjs', outfile: actorsPath });
-  const { NativePlaybackManager, completeCommandGesture, NativePlaybackController, GroupPresentationLedger, nativeGroupHostIntent, createNativeGroupControlBridge } = require(actorsPath);
+  const { NativePlaybackManager, completeCommandGesture, NativePlaybackController, GroupPresentationLedger, nativeGroupHostIntent, createNativeGroupControlBridge, probeNativeGroupCapability } = require(actorsPath);
+  // Local build identity/hash is verified by native:build. This is actual
+  // helper ABI evidence, not production signature or source qualification.
+  const capability = await probeNativeGroupCapability(
+    resolve('.cache/native-playback/darwin-arm64/NativeProductHost'),
+    new AbortController().signal);
+  assert.equal(capability.transport, 2);
+  assert.equal(capability.stopAuthority, 'submitted-pair-v1');
   for (const rate of [-.5, -2, -4, -6]) {
     const service = 'local.sportaglytics.surface.reverse-' + randomUUID();
     receiver.openGroupV2(service);

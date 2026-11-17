@@ -10,7 +10,8 @@ import {
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { resolveNativeResources, resolveVerifiedNativeResources } from './nativeResources';
+import { resolveNativeResources, resolveVerifiedNativeResources, resolveSignedNativeGroupResources } from './nativeResources';
+import { probeNativeGroupCapability } from './groupCapability';
 import {
   NATIVE_BINARY_IDENTIFIERS,
   verifySignedNative,
@@ -19,6 +20,7 @@ vi.mock('./nativeSignature', async (original) => ({
   ...(await original<typeof import('./nativeSignature')>()),
   verifySignedNative: vi.fn(async () => {}),
 }));
+vi.mock('./groupCapability', () => ({ probeNativeGroupCapability: vi.fn() }));
 
 const directories: string[] = [];
 const fixture = async (): Promise<{
@@ -61,6 +63,7 @@ const fixture = async (): Promise<{
   return { root, native, state };
 };
 afterEach(async () => {
+  vi.mocked(probeNativeGroupCapability).mockReset();
   vi.mocked(verifySignedNative).mockReset().mockResolvedValue(undefined);
   await Promise.all(
     directories
@@ -188,4 +191,57 @@ it('admits revision 9 only after signature and resource hashes are verified', as
   expect(verified.revision).toBe(9); expect(verifySignedNative).toHaveBeenCalled();
   await writeFile(path.join(f.native, 'NativeProductHost'), 'mutated');
   await expect(resolveVerifiedNativeResources(f.root, f.state)).rejects.toThrow('HASH');
+});
+
+it('does not launch a group probe before signature/hash validation', async () => {
+  const f = await fixture();
+  await expect(resolveSignedNativeGroupResources(f.root, f.state,
+    new AbortController().signal)).rejects.toThrow('SIGNING');
+  expect(probeNativeGroupCapability).not.toHaveBeenCalled();
+  const file = path.join(f.native, 'build.json');
+  const manifest = JSON.parse(await readFile(file, 'utf8'));
+  manifest.signing = { version: 1, teamId: 'ABCD123456', files:
+    Object.fromEntries(Object.entries(NATIVE_BINARY_IDENTIFIERS).map(([name, identifier]) =>
+      [name, { identifier, sha256: manifest.files[name] }])) };
+  await writeFile(file, JSON.stringify(manifest));
+  await writeFile(path.join(f.native, 'NativeProductHost'), 'mutated');
+  await expect(resolveSignedNativeGroupResources(f.root, f.state,
+    new AbortController().signal)).rejects.toThrow('HASH');
+  expect(probeNativeGroupCapability).not.toHaveBeenCalled();
+});
+
+it('requires the explicit group response even for a verified revision 9', async () => {
+  const f = await fixture(), file = path.join(f.native, 'build.json');
+  const manifest = JSON.parse(await readFile(file, 'utf8'));
+  manifest.identity.revision = 9;
+  manifest.signing = { version: 1, teamId: 'ABCD123456', files:
+    Object.fromEntries(Object.entries(NATIVE_BINARY_IDENTIFIERS).map(([name, identifier]) =>
+      [name, { identifier, sha256: manifest.files[name] }])) };
+  await writeFile(file, JSON.stringify(manifest));
+  const signal = new AbortController().signal;
+  vi.mocked(probeNativeGroupCapability).mockRejectedValueOnce(Error('old helper'));
+  await expect(resolveSignedNativeGroupResources(f.root, f.state, signal)).rejects.toThrow('old helper');
+  expect(probeNativeGroupCapability).toHaveBeenCalledWith(path.join(f.native, 'NativeProductHost'), signal);
+  const capability = { version: 1, transport: 2, mode: 'placed-pair-decoded-samples',
+    angles: 2, clipsPerAngle: 1, timescale: 120000, imageBudgetBytes: 536870912,
+    stopAuthority: 'submitted-pair-v1' } as const;
+  vi.mocked(probeNativeGroupCapability).mockResolvedValueOnce(capability);
+  await expect(resolveSignedNativeGroupResources(f.root, f.state, signal)).resolves.toEqual({
+    paths: { host: path.join(f.native, 'NativeProductHost'),
+      receiver: path.join(f.native, 'Receiver.node'), state: f.state }, capability,
+  });
+  expect(verifySignedNative).toHaveBeenCalled();
+});
+
+it('does not start a group probe if cancellation arrives during signature validation', async () => {
+  const f = await fixture(), file = path.join(f.native, 'build.json');
+  const manifest = JSON.parse(await readFile(file, 'utf8'));
+  manifest.signing = { version: 1, teamId: 'ABCD123456', files:
+    Object.fromEntries(Object.entries(NATIVE_BINARY_IDENTIFIERS).map(([name, identifier]) =>
+      [name, { identifier, sha256: manifest.files[name] }])) };
+  await writeFile(file, JSON.stringify(manifest));
+  const signal = new AbortController();
+  vi.mocked(verifySignedNative).mockImplementationOnce(async () => { signal.abort(); });
+  await expect(resolveSignedNativeGroupResources(f.root, f.state, signal.signal)).rejects.toThrow();
+  expect(probeNativeGroupCapability).not.toHaveBeenCalled();
 });

@@ -4,6 +4,8 @@ import { lstat, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { NativeRuntimePaths } from './nativeRuntime';
 import { parseNativeSigning, verifySignedNative } from './nativeSignature';
+import { probeNativeGroupCapability } from './groupCapability';
+import type { NativeGroupCapability } from './groupCapability';
 
 const files = [
   'NativeProductHost',
@@ -91,6 +93,23 @@ export const resolveVerifiedNativeResources = async (
 
 export const resolveNativeResources = async (resources: string, state: string, policy: 'signed' | 'development' = 'signed'): Promise<NativeRuntimePaths> =>
   (await resolveVerifiedNativeResources(resources, state, policy)).paths;
+
+/** Explicit group composition gate. Never downgrades production signature
+ * policy or treats export revision 9 as a playback group declaration. The
+ * ordinary single-source startup remains unchanged until pair recovery/UI is
+ * connected. A failed probe leaves that compatible route available. */
+export const resolveSignedNativeGroupResources = async (
+  resources: string,
+  state: string,
+  signal: AbortSignal,
+): Promise<{ paths: NativeRuntimePaths; capability: NativeGroupCapability }> => {
+  signal.throwIfAborted();
+  const { paths } = await resolveVerifiedNativeResources(resources, state);
+  signal.throwIfAborted();
+  const capability = await probeNativeGroupCapability(paths.host, signal);
+  signal.throwIfAborted();
+  return { paths, capability };
+};
 
 /** The input addon is returned only after the complete signed set is verified. */
 export const resolveSignedCommandInput = async (
