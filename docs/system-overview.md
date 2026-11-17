@@ -509,3 +509,5 @@ Experimental group playback separates release image authority from command inten
 
 
 The experimental group Host distinguishes a fixed-target refill pause from a user stop: output stays paused while one bounded adjacent image read may finish. Explicit pause/seek/close still stop further prefetch. The final internal result reports peak charged image bytes separately from OS/decoder/GPU memory; this neither raises the existing image limit nor establishes high-rate screen acceptance.
+
+Group availability now identifies Main's image-clock authority and qualified rates. The Main Manager forwards complete-pair verifiers, and both Main and Renderer writers preserve a fenced stop before re-press. Legacy source-clock behavior remains separate. The one-player gateway rejects group availability rather than restoring only one angle; normal group provider/resource qualification and paired UI/recovery remain outstanding.

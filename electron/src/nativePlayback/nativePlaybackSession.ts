@@ -48,6 +48,7 @@ export class NativePlaybackSession {
     allowed: () => boolean;
   } | null = null;
   private transportGuard: (() => boolean) | null = null;
+  private pendingStop: typeof this.pending = null;
   private delivery: Promise<void> | null = null;
   private observation: NativePlaybackObservation | null = null;
   private lastRevision = 0;
@@ -159,13 +160,19 @@ export class NativePlaybackSession {
       intent: next,
       allowed: next.playing ? (guard ?? (() => true)) : () => true,
     };
+    if (old && next.seekId > old.seekId) this.pendingStop = null;
+    if (this.scope.clockAuthority === 'drawn-pair' && next.presentationFence)
+      this.pendingStop = this.pending;
     this.flush();
   }
 
   private flush(): void {
-    if (this.delivery || !this.pending || this.closing || this.error) return;
-    const { intent: next, allowed } = this.pending;
-    this.pending = null;
+    if (this.delivery || (!this.pending && !this.pendingStop) || this.closing || this.error) return;
+    const selected = this.pendingStop ?? this.pending;
+    if (!selected) return;
+    const { intent: next, allowed } = selected;
+    this.pendingStop = null;
+    if (this.pending?.intent.sequence === next.sequence) this.pending = null;
     // Keep ownership if the writer never settles. close() must still cancel the
     // backend independently and cannot acknowledge while delivery is unknown.
     const work = Promise.resolve().then(() => {
@@ -365,6 +372,7 @@ export class NativePlaybackSession {
     if (this.error) return;
     this.error = reason;
     this.pending = null;
+    this.pendingStop = null;
     // Backend close is also the pause/cancel request. No fallback completion here.
     const alreadyClosing = this.closeOperation !== null;
     void this.close().catch(() => {});
@@ -375,6 +383,7 @@ export class NativePlaybackSession {
     if (this.closeOperation) return this.closeOperation;
     this.closing = true;
     this.pending = null;
+    this.pendingStop = null;
     const delivery = this.delivery;
     this.closeOperation = (async () => {
       // Request normal cancellation before awaiting a possibly blocked writer.

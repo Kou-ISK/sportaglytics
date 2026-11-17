@@ -631,3 +631,5 @@ The experimental group Controller regression also exercises synchronous preload 
 
 
 Native group source regressions distinguish actual image-worker drainage from readiness. They verify that a refill pause preserves one bounded adjacent request, that explicit pause starts none, and that a fixed target cannot walk prefetch through additional banks. Peak charged-image bytes in the final native result are an ownership diagnostic, not a process/OS/GPU memory measurement or a larger budget.
+
+`test:native-group-player-host` also exercises Manager qualification/open/close and the Controller held-gesture stop/retire/normalization path. Group rates are advertised only with a Main-qualified presentation scope; missing verifier callbacks and the one-port gateway fail closed. Permit/retirement, source/signature qualification, Electron IPC, Canvas Drawn and HTML restoration in this non-GUI regression are adapters and must be reported separately from actual signed application acceptance.

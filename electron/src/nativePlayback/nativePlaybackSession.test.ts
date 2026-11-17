@@ -1022,3 +1022,45 @@ it('requires a preload release fence only for the same-seek group stop, without 
   expect(legacy.backend.write).not.toHaveBeenCalled();
   await legacy.session.close();
 });
+
+it('delivers a fenced group stop before a re-press while an earlier write is pending', async () => {
+  const held = deferred<void>(), delivered = deferred<void>();
+  const write = vi.fn(async (value: NativePlaybackIntent) => { if (value.sequence === 2) await held.promise; if (value.sequence === 4) delivered.resolve(); });
+  const session = new NativePlaybackSession({ owner, start: 0, end: 10, rates: [-2],
+    audioTracks: 1, clockAuthority: 'drawn-pair' }, { write, close: async () => drained,
+    confirmsPresentation: () => true, confirmsPresentedStop: () => true });
+  session.apply(intent({ rate: -2 })); await tick();
+  session.apply(intent({ sequence: 2, playing: true, rate: -2 })); await tick();
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: { document: 'doc',
+    generation: owner.generation, operation: 1, seekId: 1, pair: 1, globalTicks: 360000, ids: [1, 2] } }));
+  session.apply(intent({ sequence: 4, playing: true, rate: -2 }));
+  expect(write.mock.calls.map(([value]) => value.sequence)).toEqual([1, 2]);
+  held.resolve(); await delivered.promise;
+  expect(write.mock.calls.map(([value]) => value.sequence)).toEqual([1, 2, 3, 4]);
+  await session.close();
+});
+
+it.each(['latest-stop', 'new-seek'] as const)('bounds unsent group stop barriers: %s', async (kind) => {
+  const held = deferred<void>(), delivered = deferred<void>();
+  const write = vi.fn(async (value: NativePlaybackIntent) => {
+    if (value.sequence === 2) await held.promise;
+    if (value.sequence === (kind === 'new-seek' ? 5 : 6)) delivered.resolve();
+  });
+  const session = new NativePlaybackSession({ owner, start: 0, end: 10, rates: [-2],
+    audioTracks: 1, clockAuthority: 'drawn-pair' }, { write, close: async () => drained,
+    confirmsPresentation: () => true, confirmsPresentedStop: () => true });
+  const fence = { document: 'doc', generation: owner.generation, operation: 1,
+    seekId: 1, pair: 1, globalTicks: 360000, ids: [1, 2] };
+  session.apply(intent({ rate: -2 })); await tick();
+  session.apply(intent({ sequence: 2, playing: true, rate: -2 })); await tick();
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: fence }));
+  if (kind === 'new-seek') session.apply(intent({ sequence: 5, seekId: 2, targetTime: 4, rate: -2 }));
+  else {
+    session.apply(intent({ sequence: 4, playing: true, rate: -2 }));
+    session.apply(intent({ sequence: 5, rate: -2, presentationFence: fence }));
+    session.apply(intent({ sequence: 6, playing: true, rate: -2 }));
+  }
+  held.resolve(); await delivered.promise;
+  expect(write.mock.calls.map(([value]) => value.sequence)).toEqual(kind === 'new-seek' ? [1, 2, 5] : [1, 2, 5, 6]);
+  await session.close();
+});

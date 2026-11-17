@@ -257,12 +257,16 @@ export class NativePlaybackController {
       : this.intent.targetTime;
   }
   supportsReverse(rate: number): boolean {
+    // Eligibility is not a cadence guarantee. Group pixels use Main's qualified
+    // rate scope, not the reverse capability of their audio-only AVPlayer.
     return (
       this.state.phase === 'active' &&
       this.hasConfirmedSeek &&
-      (rate === 0.5
-        ? this.reverseCapabilities.slow
-        : this.reverseCapabilities.fast) &&
+      (this.clockAuthority === 'drawn-pair'
+        ? this.presentation !== null
+        : rate === 0.5
+          ? this.reverseCapabilities.slow
+          : this.reverseCapabilities.fast) &&
       (!this.presentation || this.presentation.rates.includes(-rate))
     );
   }

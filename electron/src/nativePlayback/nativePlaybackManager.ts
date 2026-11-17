@@ -136,8 +136,11 @@ export class NativePlaybackManager {
             JSON.stringify(source.scope.rates))
       )
         throw Error('NATIVE_PRESENTATION_SCOPE_MISMATCH');
+      if (source.scope.clockAuthority === 'drawn-pair' && !presentation)
+        throw Error('NATIVE_GROUP_PRESENTATION_SCOPE');
       const availability = parseNativePlaybackAvailability({
         available: true,
+        ...(source.scope.clockAuthority === 'drawn-pair' ? { clockAuthority: 'drawn-pair' } : {}),
         presentation,
         owner: { ...owner },
         sourceUrl: source.sourceUrl,
@@ -202,6 +205,8 @@ export class NativePlaybackManager {
               return Promise.reject(Error('NATIVE_INITIALIZATION_UNKNOWN'));
             return backend.write(intent);
           },
+          confirmsPresentation: (value) => backend?.confirmsPresentation?.(value) === true,
+          confirmsPresentedStop: (proof) => backend?.confirmsPresentedStop?.(proof) === true,
           close: () => {
             if (!backend)
               return Promise.reject(Error('NATIVE_INITIALIZATION_UNKNOWN'));
@@ -216,6 +221,10 @@ export class NativePlaybackManager {
         if (this.session === retainedSession) retainedSession.observe(value);
       });
       this.failureSink = backend.reportFailure;
+      if (source.scope.clockAuthority === 'drawn-pair' &&
+          (typeof backend.confirmsPresentation !== 'function' ||
+           typeof backend.confirmsPresentedStop !== 'function'))
+        throw Error('NATIVE_GROUP_VERIFIER_MISSING');
     })().finally(() => {
       this.opening = null;
     });

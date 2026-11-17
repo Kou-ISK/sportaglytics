@@ -58,6 +58,9 @@ export interface NativePlaybackObservation extends NativePlaybackOwner {
   error: 'media' | 'protocol' | 'timeout' | 'owner' | 'cleanup' | null;
 }
 export interface NativePlaybackAvailability {
+  /** Omission retains legacy AVPlayer source-clock authority. Group authority
+   * is advertised only with Main's qualified presentation/rate scope. */
+  clockAuthority?: 'drawn-pair';
   /** Current package endpoint; distinct from the qualified video field end. */
   sourceEnd: number | null;
   presentation: NativePlaybackPresentation | null;
@@ -329,6 +332,7 @@ export const parseNativePlaybackAvailability = (
     'sourceEnd',
     'reason',
     'presentation',
+    'clockAuthority',
   ]);
   const presentation =
     v.presentation === null
@@ -361,7 +365,12 @@ export const parseNativePlaybackAvailability = (
         sourceEnd !== null
   )
     throw Error('NATIVE_INVALID_AVAILABILITY');
-  return { available, owner, sourceUrl, sourceEnd, reason, presentation };
+  const clockAuthority = v.clockAuthority === undefined ? undefined :
+    enumValue(v.clockAuthority, ['drawn-pair']);
+  if (clockAuthority && (!available || !presentation))
+    throw Error('NATIVE_GROUP_PRESENTATION_SCOPE');
+  return { available, owner, sourceUrl, sourceEnd, reason, presentation,
+    ...(clockAuthority ? { clockAuthority } : {}) };
 };
 export const nativePlaybackChannels = {
   inspect: 'native-playback:inspect',

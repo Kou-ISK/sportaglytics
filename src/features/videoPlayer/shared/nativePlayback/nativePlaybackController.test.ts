@@ -1534,3 +1534,26 @@ it('fails closed if the synchronous release fence cannot be captured', async () 
   expect(f.api.close).toHaveBeenCalledOnce();
   expect(f.original.release).not.toHaveBeenCalled();
 });
+
+it('arms group reverse from its qualified image scope, not the audio AVPlayer capability', async () => {
+  vi.useFakeTimers();
+  const f = make({ ...presentation, rates: [1, -2, -4], seekGrid: null }, 'drawn-pair');
+  expect(f.controller.supportsReverse(2)).toBe(false);
+  await vi.advanceTimersByTimeAsync(1); f.reply(1, 1, 3);
+  expect(f.controller.supportsReverse(2)).toBe(true);
+  expect(await f.controller.prepareCommandGesture(4)).toBe(true);
+  expect(f.controller.supportsReverse(.5)).toBe(false);
+  expect(f.controller.supportsReverse(6)).toBe(false);
+  f.controller.fail('test cleanup');
+});
+it('does not infer unknown group rates or bypass legacy measured reverse capability', async () => {
+  vi.useFakeTimers();
+  const unknown = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1); unknown.reply(1, 1, 3);
+  expect(unknown.controller.supportsReverse(2)).toBe(false); unknown.controller.fail('test cleanup');
+  const legacy = make({ ...presentation, rates: [1, -2], seekGrid: null });
+  await vi.advanceTimersByTimeAsync(1); legacy.reply(1, 1, 3);
+  expect(legacy.controller.supportsReverse(2)).toBe(false);
+  legacy.reply(1, 1, 3, 2, false, true, true);
+  expect(legacy.controller.supportsReverse(2)).toBe(true); legacy.controller.fail('test cleanup');
+});

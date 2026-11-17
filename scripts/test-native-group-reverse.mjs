@@ -39,24 +39,52 @@ try {
   await build({ stdin: { contents: `
     export { nativeGroupHostIntent } from './electron/src/nativePlayback/nativeGroupControl';
     export { createNativeGroupControlBridge } from './electron/src/preload/nativeGroupControlBridge';
-    export { NativePlaybackSession } from './electron/src/nativePlayback/nativePlaybackSession';
+    export { NativePlaybackManager } from './electron/src/nativePlayback/nativePlaybackManager';
+    export { completeCommandGesture } from './src/features/videoPlayer/shared/nativePlayback/completeCommandGesture';
     export { NativePlaybackController } from './src/features/videoPlayer/shared/nativePlayback/nativePlaybackController';
     export { GroupPresentationLedger } from './electron/src/nativePlayback/runtime/groupPresentationLedger';`,
     resolveDir: process.cwd(), loader: 'ts' }, bundle: true, platform: 'node',
     format: 'cjs', outfile: actorsPath });
-  const { NativePlaybackSession, NativePlaybackController, GroupPresentationLedger, nativeGroupHostIntent, createNativeGroupControlBridge } = require(actorsPath);
+  const { NativePlaybackManager, completeCommandGesture, NativePlaybackController, GroupPresentationLedger, nativeGroupHostIntent, createNativeGroupControlBridge } = require(actorsPath);
   for (const rate of [-.5, -2, -4, -6]) {
     const service = 'local.sportaglytics.surface.reverse-' + randomUUID();
     receiver.openGroupV2(service);
     const work = join(directory, String(rate));
     await mkdir(join(work, 'native-run-1'), { recursive: true });
-    const owner = { generation: randomUUID(), sourceKey: 'a'.repeat(64) };
+    let owner;
     const pairs = [], observations = [];
     let first, last, receipt, stopped, processClosed = false;
-    let backend, owned, mainSession, controller, snapshotListener;
+    let backend, owned, manager, controller, snapshotListener;
     let expectedOperation = 0, expectedSeek = 0, frozen = false;
     let restoredTime = null, recoveryReleased = 0;
+    const plan = { angleIds: ['left', 'right'],
+      sources: [0, 1].map((angle) => ({ angleId: angle ? 'right' : 'left', path: source,
+        revision, globalStart: 0, globalEnd: (360360 - (angle ? 2002 : 0)) / 120000,
+        sourceTimeOffset: (angle ? 2002 : 0) / 120000 })) };
+    const rangeEnd = Math.min(...plan.sources.map((item) => item.globalEnd));
+    const presentation = { width: 1920, height: 1080, start: 0, end: rangeEnd,
+      seekEnd: rangeEnd - 2 / 120000, playEnd: rangeEnd - 1 / 120000,
+      rates: [1, rate], audioTracks: 1, seekGrid: null, mutedOnly: true,
+      exactFloatVolume: false, audioSwitch: false };
     const ledger = new GroupPresentationLedger();
+    manager = new NativePlaybackManager({ context: () => 'host-contract',
+      publish: (_owner, snapshot) => snapshotListener?.(snapshot),
+      qualify: async () => ({ sourceKey: 'a'.repeat(64), sourceUrl: 'file:///synthetic-group',
+        sourceEnd: Math.max(...plan.sources.map((item) => item.globalEnd)), presentation,
+        scope: { start: 0, end: rangeEnd, audioTracks: 1, rates: [1, rate], clockAuthority: 'drawn-pair' },
+        assertCurrent: async () => {}, // qualification adapter; actual helper checks file revision
+        createBackend: (acceptedOwner, observe) => {
+          owned = backend.factory(acceptedOwner, (value) => { observations.push(value); observe(value); });
+          return { write: (value) => owned.write(nativeGroupHostIntent(value,
+            (proof, intent) => ledger.stop(proof, intent, acceptedOwner))),
+          close: async () => ({ ...await owned.close(), presentedStop: ledger.presented() }),
+          confirmsPresentedStop: (proof) => ledger.confirmsStop(proof),
+          confirmsPresentation: (value) => ledger.confirms(value.generation, value.sequence, value.seekId, value.time) };
+        } }),
+    });
+    const available = await manager.inspect(); owner = available.owner;
+    assert.ok(owner && available.clockAuthority === 'drawn-pair');
+    assert.deepEqual(available.presentation.rates, [1, rate]);
     const controlBridge = createNativeGroupControlBridge(owner, {
       freeze: () => {
         frozen = true;
@@ -100,7 +128,7 @@ try {
       const end = performance.now() + maximum;
       while (!predicate() && performance.now() < end) await poll();
       assert.ok(predicate(), 'bounded group reverse condition failed: ' + JSON.stringify({
-        mainError: mainSession?.snapshot().error, lastPhase: observations.at(-1)?.phase,
+        mainError: manager?.observe(owner).error, lastPhase: observations.at(-1)?.phase,
         lastRate: observations.at(-1)?.rate, lastSequence: observations.at(-1)?.sequence,
         lastSeek: observations.at(-1)?.seekId, lastTime: observations.at(-1)?.time }));
     };
@@ -108,43 +136,31 @@ try {
     try {
       backend = createOwnedBackend({
         host: resolve('.cache/native-playback/darwin-arm64/NativeProductHost'), run: work,
-        manifest: { ...nativeGroupHostConfiguration({ angleIds: ['left', 'right'],
-          sources: [0, 1].map((angle) => ({ angleId: angle ? 'right' : 'left', path: source,
-            revision, globalStart: 0, globalEnd: (360360 - (angle ? 2002 : 0)) / 120000,
-            sourceTimeOffset: (angle ? 2002 : 0) / 120000 })),
-        }, 'left'), surfaceService: service, surfaceOwnerPID: process.pid },
+        manifest: { ...nativeGroupHostConfiguration(plan, 'left'), surfaceService: service, surfaceOwnerPID: process.pid },
         note: (kind, value) => {
           if (kind === 'host-spawn') receiver.groupSetPeer(service, value.pid);
           if (kind === 'native-drained') receipt = value;
         }, surfaceReady: () => {},
       });
-      owned = backend.factory(owner, (value) => {
-        observations.push(value);
-        mainSession.observe(value);
-      });
-      mainSession = new NativePlaybackSession({ owner, start: 0, end: 3,
-        audioTracks: 1, rates: [rate], clockAuthority: 'drawn-pair' }, {
-        write: (value) => owned.write(nativeGroupHostIntent(value,
-          (proof, intent) => ledger.stop(proof, intent, owner))),
-        close: async () => ({ ...await owned.close(), presentedStop: ledger.presented() }),
-        confirmsPresentedStop: (proof) => ledger.confirmsStop(proof),
-        confirmsPresentation: (value) => ledger.confirms(
-          value.generation, value.sequence, value.seekId, value.time),
-      }, () => snapshotListener?.(mainSession.snapshot()));
       const intent = { ...owner, sequence: 1, seekId: 1, targetTime: 2, playing: false,
         rate, audioTrack: 0, volume: 0, muted: true };
       controller = new NativePlaybackController({
         freezePresentation: (value) => controlBridge.freeze(value),
-        open: async () => {}, apply: async (value) => mainSession.apply(controlBridge.prepare(value)),
-        observe: async () => mainSession.snapshot(), close: async () => mainSession.close(),
+        open: async (value) => manager.open(value), apply: async (value) => manager.apply(controlBridge.prepare(value)),
+        observe: async () => manager.observe(owner), close: async () => manager.close(owner),
         onSnapshot: (_owner, listener) => { snapshotListener = listener; return () => { snapshotListener = undefined; }; },
       }, owner, 'file:///synthetic-group', 2, intent, {
         pause: () => {}, restore: async (time) => { restoredTime = time; },
         release: () => { recoveryReleased++; },
-      }, null, 'drawn-pair');
+      }, available.presentation, available.clockAuthority);
       await until(() => observations.some((o) => o?.sequence === 1 && o.videoReady && o.phase === 'paused'));
       const playIssuedAt = performance.now();
-      controller.controls({ playing: true });
+      assert.equal(await controller.prepareCommandGesture(-rate), true);
+      let retired = 0, normalized = 0, revoked = 0;
+      const gesture = controller.reserveCommandGesture(-rate, async () => { revoked++; });
+      assert.notEqual(gesture, null);
+      assert.equal(await controller.startCommandGesture(gesture,
+        (value) => manager.applyGuarded(controlBridge.prepare(value), () => true)), gesture);
       await until(() => pairs.filter((p) => p.operation === 2 && p.ticks < 240000).length >= 3 &&
         pairs.some((p) => p.operation === 2 && p.ticks < 210000) &&
         observations.some((o) => o?.sequence === 2 && o.phase === 'playing' && o.rate === rate && o.time < 2));
@@ -158,12 +174,20 @@ try {
       if (first) { receiver.groupRelease(service, first.id); first = undefined; }
       const stopIssuedAt = performance.now();
       const frozenCount = pairs.filter((p) => p.operation === 2).length;
-      controller.controls({ playing: false });
-      await until(() => pairs.some((p) => p.operation === 3));
+      let completionFailed = false;
+      const completion = completeCommandGesture(controller, -rate, gesture, controller.commandRevision,
+        () => controller, async () => { retired++; return true; }, new AbortController().signal, () => { normalized++; });
+      void completion.catch(() => { completionFailed = true; });
+      await until(() => pairs.some((p) => p.operation === 3) || completionFailed);
+      if (completionFailed) await completion;
       assert.ok(pairs.filter((p) => p.operation === 3).every((p) => p.ticks === proof.globalTicks));
       await until(() => observations.some((o) => o?.sequence === 3 && o.phase === 'paused' &&
         Math.round(o.time * 120000) === proof.globalTicks && o.rate === 0));
       const stopAcknowledgedMs = performance.now() - stopIssuedAt;
+      await until(() => normalized === 1 || completionFailed); await completion;
+      await until(() => observations.some((o) => o?.sequence === 4 && o.videoReady && o.phase === 'paused' &&
+        Math.round(o.time * 120000) === proof.globalTicks));
+      assert.equal(retired, 1); assert.equal(revoked, 0); assert.equal(controller.requestedControls.rate, 1);
       assert.equal(pairs.filter((p) => p.operation === 2).length, frozenCount);
       for (const observation of observations.filter((o) => o?.videoReady)) {
         assert.ok(pairs.some((p) => p.operation === observation.sequence &&
@@ -175,22 +199,22 @@ try {
         maxPairIntervalMs: Math.max(...progressed.slice(1).map((p, i) => p.ms - progressed[i].ms)),
         backwardTicks: 240000 - proof.globalTicks, stopAcknowledgedMs });
       controller.seek(1, 'preview');
-      await until(() => observations.some((o) => o?.sequence === 4 && o.seekId === 2 &&
+      await until(() => observations.some((o) => o?.sequence === 5 && o.seekId === 2 &&
         o.phase === 'paused' && o.videoReady && o.time === 1));
       controller.seek(1, 'scrub');
-      await until(() => observations.some((o) => o?.sequence === 5 && o.seekId === 3 &&
+      await until(() => observations.some((o) => o?.sequence === 6 && o.seekId === 3 &&
         o.phase === 'paused' && o.videoReady && o.time === 1));
       // Both short releases happen before the selected play writer enters IPC.
       // No old queued frame may change the frozen baseline in this burst.
       const shortStop = ledger.presented(); assert.ok(shortStop);
+      controller.controls({ playing: true, rate }); controller.controls({ playing: false });
       controller.controls({ playing: true }); controller.controls({ playing: false });
-      controller.controls({ playing: true }); controller.controls({ playing: false });
-      await until(() => observations.some((o) => o?.sequence === 9 && o.phase === 'paused' &&
+      await until(() => observations.some((o) => o?.sequence === 10 && o.phase === 'paused' &&
         o.videoReady && Math.round(o.time * 120000) === shortStop.globalTicks));
-      assert.ok(pairs.filter((p) => p.operation === 9).every((p) => p.ticks === shortStop.globalTicks));
-      assert.equal(mainSession.snapshot().error, null, 'normal Main session must accept the actual Host contract');
+      assert.ok(pairs.filter((p) => p.operation === 10).every((p) => p.ticks === shortStop.globalTicks));
+      assert.equal(manager.observe(owner).error, null, 'normal Main session must accept the actual Host contract');
       await controller.returnToOriginal();
-      stopped = await mainSession.close(); await backend.done(); processClosed = true;
+      stopped = await manager.close(owner); await backend.done(); processClosed = true;
       assert.equal(controller.snapshot().phase, 'original');
       assert.equal(restoredTime, 1, 'later explicit scrub owns final restoration, not the old held release');
       assert.equal(recoveryReleased, 1);
@@ -208,7 +232,7 @@ try {
     }
   }
   console.log(JSON.stringify({ syntheticPairMeasurements: measurements }));
-  console.log('All four reverse rates: normal Controller/Main session, actual two-source samples, monotonic pairs, stop proof and real close passed; Drawn ACK synthetic.');
+  console.log('All four reverse rates: normal Controller/gesture/Main manager/session, actual two-source samples, monotonic pairs, stop proof and real close passed; Drawn, source qualification/signature, IPC and gesture permit/retirement adapters; no physical key/screen/speaker acceptance.');
 } finally {
   if (allDrained) await rm(directory, { recursive: true });
   else console.error('Group reverse retained its own directory: completion unconfirmed.');
