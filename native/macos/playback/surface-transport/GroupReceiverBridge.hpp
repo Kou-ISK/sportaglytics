@@ -77,6 +77,7 @@ inline napi_value poll(napi_env env, napi_callback_info info) {
     number(env, out, "sourceEndPTS", v.sourceEndPTS); number(env, out, "globalTicks", v.globalTicks);
     number(env, out, "globalStart", v.globalStart); number(env, out, "globalEnd", v.globalEnd);
     number(env, out, "content", uint64_t(v.content)); number(env, out, "surfaceID", IOSurfaceGetID(frame->surface));
+    if (IOSurfaceGetHeight(frame->surface) == 720) number(env, out, "surfaceHeight", 720);
     return out;
   });
 }

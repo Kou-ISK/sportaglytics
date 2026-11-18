@@ -33,8 +33,10 @@ export const createNativeGroupBackend = (
   audioAngleId: string,
   owner: NativePlaybackOwner,
   observe: (value: unknown) => void,
+  height: 720 | 1080 = 1080,
 ): NativeGroupBackend => {
   const negotiated = parseNativeGroupCapability(capability);
+  if (height !== 1080 && (height !== 720 || !negotiated.additionalLayout)) throw Error('NATIVE_GROUP_LAYOUT');
   const configuration = nativeGroupHostConfiguration(plan, audioAngleId);
   let session: string | null = null;
   let surface: ReturnType<typeof createGroupSurfaceTransport> | null = null;
@@ -66,7 +68,7 @@ export const createNativeGroupBackend = (
     if (closeRequested) return;
     session = createSessionDirectory(path.join(paths.state, 'sessions'));
     surface = createGroupSurfaceTransport(paths.receiver, () => window, plan,
-      owner, note, () => observe(null));
+      owner, note, () => observe(null), undefined, height);
     surface.start();
     backend = createOwnedBackend({ host: paths.host, run: session,
       manifest: { ...configuration, surfaceService: surface.service, surfaceOwnerPID: process.pid },

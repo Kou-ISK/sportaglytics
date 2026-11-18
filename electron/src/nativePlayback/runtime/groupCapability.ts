@@ -13,12 +13,15 @@ export interface NativeGroupCapability {
   readonly timescale: 120000;
   readonly imageBudgetBytes: 536870912;
   readonly stopAuthority: 'submitted-pair-v1';
+  readonly additionalLayout?: 'nv12-720-xvycc709';
 }
 
 export const parseNativeGroupCapability = (raw: unknown): NativeGroupCapability => {
   const value = objectValue(raw);
+  const extended = Object.prototype.hasOwnProperty.call(value, 'additionalLayout');
+  if (extended && value.additionalLayout !== 'nv12-720-xvycc709') throw Error('NATIVE_GROUP_CAPABILITY_UNSUPPORTED');
   exactKeys(value, ['version', 'transport', 'mode', 'angles', 'clipsPerAngle',
-    'timescale', 'imageBudgetBytes', 'stopAuthority']);
+    'timescale', 'imageBudgetBytes', 'stopAuthority', ...(extended ? ['additionalLayout'] : [])]);
   if (value.version !== 1 || value.transport !== 2 ||
       value.mode !== 'placed-pair-decoded-samples' || value.angles !== 2 ||
       value.clipsPerAngle !== 1 || value.timescale !== 120000 ||
@@ -26,7 +29,7 @@ export const parseNativeGroupCapability = (raw: unknown): NativeGroupCapability 
     throw Error('NATIVE_GROUP_CAPABILITY_UNSUPPORTED');
   return Object.freeze({ version: 1, transport: 2, mode: 'placed-pair-decoded-samples',
     angles: 2, clipsPerAngle: 1, timescale: 120000, imageBudgetBytes: 536870912,
-    stopAuthority: 'submitted-pair-v1' });
+    stopAuthority: 'submitted-pair-v1', ...(extended ? { additionalLayout: 'nv12-720-xvycc709' as const } : {}) });
 };
 
 /** Main calls only after resource-set/signature/hash validation. A revision or

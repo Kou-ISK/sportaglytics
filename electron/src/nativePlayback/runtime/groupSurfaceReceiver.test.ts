@@ -27,6 +27,8 @@ it('parses only the explicit native v2 packet shape and leaves its pointer Main-
   const value = parseNativeGroupSurfacePacket(raw);
   expect(value?.content).toBe('image');
   expect(value?.handle).toBe(raw.handle);
+  expect(parseNativeGroupSurfacePacket({ ...raw, surfaceHeight: 720 })?.surfaceHeight).toBe(720);
+  expect(() => parseNativeGroupSurfacePacket({ ...raw, surfaceHeight: 480 })).toThrow();
   expect(parseNativeGroupSurfacePacket(null)).toBeNull();
   for (const patch of [
     { handle: Buffer.alloc(4) },

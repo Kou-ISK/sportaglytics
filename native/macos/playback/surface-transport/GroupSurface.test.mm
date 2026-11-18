@@ -12,15 +12,15 @@ template<class F> void fails(F work, const char* expected) {
   try { work(); assert(false); }
   catch (const std::runtime_error& error) { assert(std::string(error.what()) == expected); }
 }
-CVPixelBufferRef pixel() {
+CVPixelBufferRef pixel(size_t width = 1920, size_t height = 1080) {
   CVPixelBufferRef value = nullptr;
   NSDictionary* attrs = @{(id)kCVPixelBufferIOSurfacePropertiesKey: @{}};
-  assert(CVPixelBufferCreate(nullptr, 1920, 1080, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+  assert(CVPixelBufferCreate(nullptr, width, height, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
     (__bridge CFDictionaryRef)attrs, &value) == kCVReturnSuccess);
   assert(value && CVPixelBufferGetIOSurface(value)); return value;
 }
-Lease image(appleplayback::FrameBudget& budget) {
-  auto value = pixel(); auto bytes = CVPixelBufferGetDataSize(value);
+Lease image(appleplayback::FrameBudget& budget, size_t width = 1920, size_t height = 1080) {
+  auto value = pixel(width, height); auto bytes = CVPixelBufferGetDataSize(value);
   auto lease = budget.retainImage(appleplayback::OwnedImage<Pixel>(value,
     [](Pixel* p){ CVPixelBufferRelease(p); }), bytes);
   assert(lease); return std::move(*lease);
@@ -77,6 +77,36 @@ void pairReplacementAndGlobalCredit() {
   assert(sender.stopAnchor({2, 1, 2, 1001, 3, 4}, 3, 1) == 1001);
   assert(budget.usedBytes() == bytes && budget.quarantinedBytes() == 0);
   receiver.close();
+}
+void qualified720PairHasNoPartialDelivery() {
+  appleplayback::FrameBudget budget(64ULL * 1024 * 1024);
+  std::array<Lease, 2> images{image(budget, 1280, 720), image(budget, 1280, 720)};
+  const std::array<groupsurfacewire::Identity, 2> pair{identity(0, 1, 1, 1000), identity(1, 1, 1, 1000)};
+  auto name = service(); GroupSurfaceReceiver receiver; receiver.open(name.c_str()); receiver.setPeer(getpid());
+  GroupSurfaceSender sender(budget); sender.open(name.c_str(), getpid());
+  const auto transfer = CVTransferFunctionGetStringForIntegerCodePoint(11);
+  assert(transfer);
+  for (const auto& lease : images) {
+    CVBufferSetAttachment(lease.image(), kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
+    CVBufferSetAttachment(lease.image(), kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
+    CVBufferSetAttachment(lease.image(), kCVImageBufferTransferFunctionKey, transfer, kCVAttachmentMode_ShouldPropagate);
+  }
+  auto second = images[1].image();
+  CVBufferRemoveAttachment(second, kCVImageBufferTransferFunctionKey);
+  fails([&]{ sender.sendPair(images, pair); }, "unexpected group surface layout");
+  CVBufferSetAttachment(second, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
+  fails([&]{ sender.sendPair(images, pair); }, "unexpected group surface layout");
+  assert(!receiver.poll() && sender.nextID() == 1);
+  CVBufferSetAttachment(second, kCVImageBufferTransferFunctionKey, transfer, kCVAttachmentMode_ShouldPropagate);
+  assert(sender.sendPair(images, pair));
+  for (size_t angle = 0; angle < 2; ++angle) {
+    auto frame = receiver.poll();
+    assert(frame && frame->identity.angle == angle && IOSurfaceGetHeight(frame->surface) == 720);
+    receiver.drawn(frame->identity.id); receiver.release(frame->identity.id);
+  }
+  sender.poll();
+  assert(sender.stopAnchor({1, 1, 1, 1000, 1, 2}, 2, 1) == 1000);
+  assert(!sender.pending() && !receiver.count() && !budget.quarantinedBytes()); receiver.close();
 }
 void invalidIdentityHasNoSideEffects() {
   appleplayback::FrameBudget budget(64ULL * 1024 * 1024); auto lease = image(budget);
@@ -145,7 +175,7 @@ void stopHistoryIsBoundedAndIndependentOfImageOwnership() {
 }
 
 int main() { @autoreleasepool {
-  pairReplacementAndGlobalCredit(); invalidIdentityHasNoSideEffects(); v1PacketCannotEnterGroup();
+  qualified720PairHasNoPartialDelivery(); pairReplacementAndGlobalCredit(); invalidIdentityHasNoSideEffects(); v1PacketCannotEnterGroup();
   foreignPeerAndUnconfirmedTeardown();
   stopHistoryIsBoundedAndIndependentOfImageOwnership();
   puts("GroupSurface: identity, pair credits, cancellation, v1 isolation and quarantine passed");

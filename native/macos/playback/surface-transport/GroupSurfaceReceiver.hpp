@@ -1,4 +1,5 @@
 #pragma once
+#include "GroupSurfaceLayout.hpp"
 #include "SurfaceGroupWire.hpp"
 #include <IOSurface/IOSurface.h>
 #include <servers/bootstrap.h>
@@ -56,8 +57,7 @@ public:
     }
     auto surface = IOSurfaceLookupFromMachPort(m.surface.name);
     mach_port_deallocate(mach_task_self(), m.surface.name); m.surface.name = 0;
-    if (!surface || IOSurfaceGetWidth(surface) != 1920 || IOSurfaceGetHeight(surface) != 1080 ||
-        IOSurfaceGetPixelFormat(surface) != '420v' || IOSurfaceGetPlaneCount(surface) != 2) {
+    if (!groupsurfacewire::supportedImageLayout(surface)) {
       if (surface) CFRelease(surface); mach_msg_destroy(&m.header);
       throw std::runtime_error("unexpected group surface layout");
     }

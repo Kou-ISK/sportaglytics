@@ -33,7 +33,7 @@ export const probeNativeHeader = async (source: string): Promise<unknown> => {
           '-probesize',
           '1048576',
           '-show_entries',
-          'stream=index,id,codec_type,codec_name,width,height,pix_fmt,sample_aspect_ratio,color_range,color_space,color_transfer,color_primaries,r_frame_rate,avg_frame_rate,time_base,start_pts,duration_ts,sample_rate,channels,channel_layout',
+          'stream=index,id,codec_type,codec_name,width,height,field_order,pix_fmt,sample_aspect_ratio,color_range,color_space,color_transfer,color_primaries,r_frame_rate,avg_frame_rate,time_base,start_pts,duration_ts,sample_rate,channels,channel_layout:stream_side_data=side_data_type:stream_tags=rotate',
           '-of',
           'json',
           source,

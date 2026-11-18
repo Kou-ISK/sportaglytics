@@ -125,6 +125,7 @@ it('qualifies selected Main placements and explicit signed capability before exp
     'right',
     owner,
     observe,
+    1080,
   );
 });
 it('never probes or qualifies another window/unbound package', async () => {
@@ -239,4 +240,25 @@ it('preserves selected slot order and audio ownership when the package plan is r
   expect(qualified?.group?.audioAngleId).toBe('right');
   expect(qualified?.scope.start).toBe(2);
   expect(qualified?.scope.end).toBe(10);
+});
+
+it('requires the extended capability and matching profiles before opening a 720p pair', async () => {
+  const { runtime, qualify, window } = setup();
+  const fixture = profileFixture();
+  fixture.streams.length = 2;
+  Object.assign(fixture.streams[0], {
+    width: 1280, height: 720, field_order: 'progressive', time_base: '1/30000', r_frame_rate: '30000/1001',
+    avg_frame_rate: '30000/1001', color_transfer: 'iec61966-2-4',
+  });
+  vi.mocked(runtime.probe).mockResolvedValue(fixture);
+  expect(await qualify(window, selection)).toBeNull();
+  Object.assign(runtime.capability, { additionalLayout: 'nv12-720-xvycc709' });
+  vi.mocked(runtime.probe).mockResolvedValueOnce(profileFixture());
+  expect(await qualify(window, selection)).toBeNull();
+  const accepted = await qualify(window, selection);
+  expect(accepted?.presentation).toMatchObject({ width: 1280, height: 720, audioTracks: 1, audioSwitch: false });
+  accepted?.createBackend({ generation: 'owner', sourceKey: 'a'.repeat(64) }, vi.fn());
+  expect(m.backend.mock.lastCall?.[7]).toBe(720);
+  fixture.streams[0].color_transfer = 'unknown';
+  expect(await qualify(window, selection)).toBeNull();
 });

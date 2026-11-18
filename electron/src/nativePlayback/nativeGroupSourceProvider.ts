@@ -8,7 +8,7 @@ import type { NativePlaybackGroupSelection } from '../../../src/types/ipc/native
 import { parseNativePlaybackPresentation } from '../../../src/types/ipc/nativePlaybackPresentation';
 import { resolveNativePackageSourcePlan } from './nativePackageSourcePlan';
 import { nativeGroupHostConfiguration } from './nativeHostConfiguration';
-import { parseNativeSourceProfile } from './nativeSourceProfile';
+import { parseNativeGroupSourceProfile } from './nativeSourceProfile';
 import type { NativeSourceProfile } from './nativeSourceProfile';
 import type { QualifiedNativeSource } from './nativePlaybackManager';
 import { createNativeGroupBackend } from './runtime/nativeGroupBackend';
@@ -75,14 +75,17 @@ export const createNativeGroupSourceProvider =
         state: verified.paths.state,
       };
       await assertCurrent();
+      const supports720 = capability.additionalLayout === 'nv12-720-xvycc709';
       const profiles: NativeSourceProfile[] = [];
       // Serial finite probes avoid doubling probe processes for a single admission.
       for (const source of plan.sources) {
         profiles.push(
-          parseNativeSourceProfile(await verified.probe(source.path)),
+          parseNativeGroupSourceProfile(await verified.probe(source.path), supports720),
         );
         await assertCurrent();
       }
+      const height = profiles[0].presentation.height === 720 ? 720 : 1080;
+      if (profiles.some((profile) => profile.presentation.height !== height)) return null;
       const angles = configuration.sources.map((source, index) => {
         const planned = plan.sources[source.sourceIndex],
           profile = profiles[source.sourceIndex].presentation;
@@ -165,6 +168,7 @@ export const createNativeGroupSourceProvider =
             selection.audioAngleId,
             owner,
             observe,
+            height,
           ),
       };
     } catch {

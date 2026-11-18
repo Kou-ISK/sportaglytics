@@ -335,7 +335,7 @@ int main(int argc, const char **argv) {
     if (argc == 2 && !strcmp(argv[1], "--group-playback-capabilities")) {
       // A protocol declaration, not a throughput, source qualification or
       // signed-distribution receipt. This path creates no app/player/session.
-      const char *capabilities = "{\"version\":1,\"transport\":2,\"mode\":\"placed-pair-decoded-samples\",\"angles\":2,\"clipsPerAngle\":1,\"timescale\":120000,\"imageBudgetBytes\":536870912,\"stopAuthority\":\"submitted-pair-v1\"}\n";
+      const char *capabilities = "{\"version\":1,\"transport\":2,\"mode\":\"placed-pair-decoded-samples\",\"angles\":2,\"clipsPerAngle\":1,\"timescale\":120000,\"imageBudgetBytes\":536870912,\"stopAuthority\":\"submitted-pair-v1\",\"additionalLayout\":\"nv12-720-xvycc709\"}\n";
       return fputs(capabilities, stdout) >= 0 ? 0 : 1;
     }
     if (argc == 2 && !strcmp(argv[1], "--clip-export-capabilities")) {

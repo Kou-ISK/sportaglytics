@@ -82,6 +82,7 @@ function fixture({
   transferError,
   openError,
   listenerError,
+  expectedHeight,
 } = {}) {
   const listeners = new Map(),
     timers = new Set(),
@@ -184,6 +185,7 @@ function fixture({
     () => {},
     (...args) => cancelled.push(args),
     () => native,
+    expectedHeight,
   );
   const ack = (meta, drawn = true, sender = contents) =>
     listeners.get('native-group-surface-drawn')?.(
@@ -433,4 +435,38 @@ test('blank metadata clears only its slot without importing a placeholder textur
   assert.deepEqual(f.releases, [1]);
   await f.transport.drain(true);
   f.transport.close();
+});
+
+test('imports a qualified 720p packet with its actual size and transfer function', async () => {
+  const f = fixture({ expectedHeight: 720, packets: [packet(1, { surfaceHeight: 720 })] });
+  f.transport.start(); f.transport.intent(intent()); f.transport.ready(1);
+  const { codedSize, visibleRect, colorSpace } = f.imports[0].options.textureInfo;
+  assert.equal(codedSize.width, 1280); assert.equal(codedSize.height, 720);
+  assert.equal(visibleRect.width, 1280); assert.equal(visibleRect.height, 720);
+  assert.equal(colorSpace.transfer, 'iec61966-2-4');
+  assert.equal(f.sent[0].surfaceHeight, undefined);
+  f.ack(f.sent[0]); f.imports[0].options.allReferencesReleased(); await flush();
+  await f.transport.drain(true); f.transport.close();
+});
+
+test('rejects a layout change before import and releases the owned packet', async () => {
+  for (const [expectedHeight, patch] of [[1080, { surfaceHeight: 720 }], [720, {}]]) {
+    const f = fixture({ expectedHeight, packets: [packet(1, patch)] });
+    f.transport.start(); f.transport.intent(intent()); f.transport.ready(1);
+    assert.equal(f.imports.length, 0); assert.equal(f.cancelled.length, 1);
+    assert.deepEqual(f.releases, [1]);
+    await f.transport.drain(true); f.transport.close();
+  }
+});
+
+test('a second layout mismatch cannot present a pair and both loans drain', async () => {
+  const f = fixture({ expectedHeight: 720, packets: [packet(1, { surfaceHeight: 720 }), packet(2)] });
+  f.transport.start(); f.transport.intent(intent()); f.transport.ready(1); f.transport.ready(2);
+  assert.equal(f.imports.length, 1); assert.deepEqual(f.releases, [2]);
+  assert.equal(f.transport.presented(), null); assert.equal(f.cancelled.length, 1);
+  f.ack(f.sent[0], false);
+  f.imports[0].options.allReferencesReleased(); await flush();
+  assert.equal(f.transport.presented(), null);
+  await f.transport.drain(true); f.transport.close();
+  assert.deepEqual(f.releases, [2, 1]);
 });

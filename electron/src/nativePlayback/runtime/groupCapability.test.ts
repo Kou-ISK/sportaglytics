@@ -29,6 +29,9 @@ it('copies only the exact finite protocol declaration', () => {
   const value = parseNativeGroupCapability(declared);
   expect(value).toEqual(declared); expect(value).not.toBe(declared);
   expect(Object.isFrozen(value)).toBe(true);
+  expect(parseNativeGroupCapability({ ...declared, additionalLayout: 'nv12-720-xvycc709' }).additionalLayout)
+    .toBe('nv12-720-xvycc709');
+  expect(() => parseNativeGroupCapability({ ...declared, additionalLayout: 'any' })).toThrow();
   for (const raw of [null, {}, { ...declared, extra: true },
     { ...declared, angles: 3 }, { ...declared, timescale: 60000 },
     { ...declared, imageBudgetBytes: 1073741824 }, { ...declared, stopAuthority: 'clock' },

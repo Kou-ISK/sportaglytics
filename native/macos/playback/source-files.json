@@ -28,6 +28,7 @@
   "frame-ownership/FrameLease.hpp",
   "native-input/CommandLeft.mm",
   "surface-transport/GroupReceiverBridge.hpp",
+  "surface-transport/GroupSurfaceLayout.hpp",
   "surface-transport/GroupSurfaceReceiver.hpp",
   "surface-transport/GroupSurfaceSender.hpp",
   "surface-transport/PixelReference.hpp",

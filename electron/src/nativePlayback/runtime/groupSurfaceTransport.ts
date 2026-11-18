@@ -66,6 +66,7 @@ export const createGroupSurfaceTransport = (
   receiverFactory: (
     path: string,
   ) => NativeGroupReceiver = loadNativeGroupReceiver,
+  expectedHeight: 720 | 1080 = 1080,
 ): GroupSurfaceTransport => {
   const native = receiverFactory(verifiedReceiverPath),
     admission = new GroupFrameAdmission(plan, owner);
@@ -197,13 +198,15 @@ export const createGroupSurfaceTransport = (
         rawRelease(packet);
         return true;
       }
-      const { handle, surfaceID: _surfaceID, ...identity } = packet;
+      const { handle, surfaceID: _surfaceID, surfaceHeight = 1080, ...identity } = packet;
       const frame = admission.accept(identity);
       const window = getWindow();
       if (!frame || !window || window.isDestroyed()) {
         rawRelease(packet);
         return true;
       }
+      if (frame.content === 'image' && surfaceHeight !== expectedHeight)
+        throw Error('NATIVE_GROUP_SOURCE_LAYOUT_CHANGED');
       const meta: NativeGroupSurfaceMetadata = {
         ...frame,
         version: 2,
@@ -234,16 +237,17 @@ export const createGroupSurfaceTransport = (
         lifetime.transfer();
         return true;
       }
+      const width = surfaceHeight === 720 ? 1280 : 1920;
       flight.texture = sharedTexture.importSharedTexture({
         textureInfo: {
           handle: { ioSurface: handle },
           pixelFormat: 'nv12',
-          codedSize: { width: 1920, height: 1080 },
-          visibleRect: { x: 0, y: 0, width: 1920, height: 1080 },
+          codedSize: { width, height: surfaceHeight },
+          visibleRect: { x: 0, y: 0, width, height: surfaceHeight },
           timestamp: Math.round((frame.sourcePTS * 1e6) / 120000),
           colorSpace: {
             primaries: 'bt709',
-            transfer: 'bt709',
+            transfer: surfaceHeight === 720 ? 'iec61966-2-4' : 'bt709',
             matrix: 'bt709',
             range: 'limited',
           },

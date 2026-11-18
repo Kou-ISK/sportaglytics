@@ -13,6 +13,7 @@ import type { NativeGroupFrameIdentity } from '../../../../src/types/ipc/nativeG
 export interface NativeGroupSurfacePacket extends NativeGroupFrameIdentity {
   readonly handle: Buffer;
   readonly surfaceID: number;
+  readonly surfaceHeight?: 720;
 }
 export interface NativeGroupReceiver {
   open(name: string): void;
@@ -29,7 +30,9 @@ export const parseNativeGroupSurfacePacket = (
 ): NativeGroupSurfacePacket | null => {
   if (raw === null) return null;
   const value = objectValue(raw);
-  exactKeys(value, [...nativeGroupFrameIdentityKeys, 'handle', 'surfaceID']);
+  const small = Object.prototype.hasOwnProperty.call(value, 'surfaceHeight');
+  exactKeys(value, [...nativeGroupFrameIdentityKeys, 'handle', 'surfaceID', ...(small ? ['surfaceHeight'] : [])]);
+  if (small && value.surfaceHeight !== 720) throw Error('NATIVE_GROUP_RECEIVER_LAYOUT');
   if (
     !Buffer.isBuffer(value.handle) ||
     value.handle.length !== 8 ||
@@ -45,6 +48,7 @@ export const parseNativeGroupSurfacePacket = (
       content: value.content === 1 ? 'image' : 'blank',
     }),
     handle: value.handle,
+    ...(small ? { surfaceHeight: 720 as const } : {}),
     surfaceID: integerValue(value.surfaceID, 1, 4294967295),
   };
 };

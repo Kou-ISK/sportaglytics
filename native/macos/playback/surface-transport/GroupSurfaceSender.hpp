@@ -1,5 +1,6 @@
 #pragma once
 #include "SurfaceGroupWire.hpp"
+#include "GroupSurfaceLayout.hpp"
 #include "SurfaceSender.hpp"
 #include <array>
 #include <optional>
@@ -43,13 +44,13 @@ private:
     value.id = 1; // caller IDs never authorize delivery; sender assigns them
     if (!groupsurfacewire::valid(value)) throw std::runtime_error("invalid group frame identity");
     auto image = lease.image(); auto surface = CVPixelBufferGetIOSurface(image);
-    // First group transport retains the already-qualified v1 NV12 layout.
-    // General-source admission is a separate Main/profile qualification task.
-    if (!surface || CVPixelBufferGetWidth(image) != 1920 || CVPixelBufferGetHeight(image) != 1080 ||
+    if (!groupsurfacewire::supportedImageLayout(surface) ||
+        CVPixelBufferGetWidth(image) != IOSurfaceGetWidth(surface) ||
+        CVPixelBufferGetHeight(image) != IOSurfaceGetHeight(surface) ||
         CVPixelBufferGetPixelFormatType(image) != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ||
-        CVPixelBufferGetPlaneCount(image) != 2 || IOSurfaceGetWidth(surface) != 1920 ||
-        IOSurfaceGetHeight(surface) != 1080 || IOSurfaceGetPixelFormat(surface) != '420v' ||
-        IOSurfaceGetPlaneCount(surface) != 2) throw std::runtime_error("unexpected group surface layout");
+        CVPixelBufferGetPlaneCount(image) != 2 ||
+        (IOSurfaceGetHeight(surface) == 720 && !groupsurfacewire::matches720Color(image)))
+      throw std::runtime_error("unexpected group surface layout");
     return surface;
   }
   bool sendOne(const Lease& lease, groupsurfacewire::Identity value) {
