@@ -54,6 +54,13 @@ export class NativePlaybackSession {
   private lastRevision = 0;
   private issuedSequence = 0;
   private issuedIntents = new Map<number, NativePlaybackIntent>();
+  // At most one delivered/in-flight stop retains its referenced image intent.
+  // It is not a native/GPU drain proof or an audio-ready acknowledgement.
+  private presentationStop: {
+    sequence: number;
+    fence: NativeGroupPresentation;
+    delivered: boolean;
+  } | null = null;
   private processedSequence = 0;
   private anchoredSeek = 0;
   private bufferedStop: { seekId: number; time: number } | null = null;
@@ -181,7 +188,7 @@ export class NativePlaybackSession {
     if (this.pending?.intent.sequence === next.sequence) this.pending = null;
     // Keep ownership if the writer never settles. close() must still cancel the
     // backend independently and cannot acknowledge while delivery is unknown.
-    const work = Promise.resolve().then(() => {
+    const work = Promise.resolve().then(async () => {
       if (!this.closing && !this.error) {
         // A Main-owned gesture permit can be revoked while a prior write is in
         // flight. Do not deliver that now-stale start to the native host.
@@ -193,7 +200,19 @@ export class NativePlaybackSession {
           throw Error('NATIVE_COMMAND_ACK_BOUND');
         this.issuedSequence = next.sequence;
         this.issuedIntents.set(next.sequence, next);
-        return this.backend.write({ ...next });
+        if (next.playing || this.presentationStop?.fence.seekId !== next.seekId)
+          this.presentationStop = null;
+        if (next.presentationFence) {
+          const proof = next.presentationFence;
+          this.presentationStop = {
+            sequence: next.sequence,
+            delivered: false,
+            fence: { ...proof, ids: [proof.ids[0], proof.ids[1]] },
+          };
+        }
+        await this.backend.write({ ...next });
+        if (this.presentationStop?.sequence === next.sequence)
+          this.presentationStop.delivered = true;
       }
     });
     this.delivery = work
@@ -252,7 +271,11 @@ export class NativePlaybackSession {
     // a terminal failure of the prior processed command can still drain safely.
     this.processedSequence = value.sequence;
     for (const sequence of this.issuedIntents.keys()) {
-      if (sequence < value.sequence) this.issuedIntents.delete(sequence);
+      if (
+        sequence < value.sequence &&
+        sequence !== this.presentationStop?.fence.operation
+      )
+        this.issuedIntents.delete(sequence);
     }
     if (value.phase === 'closed' || value.phase === 'closing') {
       this.fail('cleanup');
@@ -419,6 +442,21 @@ export class NativePlaybackSession {
         const processed = proof
           ? this.issuedIntents.get(proof.operation)
           : null;
+        const stop = this.presentationStop;
+        const fenced =
+          proof &&
+          stop?.delivered &&
+          this.intent &&
+          !this.intent.playing &&
+          this.intent.seekId === proof.seekId &&
+          stop.fence.document === proof.document &&
+          stop.fence.generation === proof.generation &&
+          stop.fence.operation === proof.operation &&
+          stop.fence.seekId === proof.seekId &&
+          stop.fence.pair === proof.pair &&
+          stop.fence.globalTicks === proof.globalTicks &&
+          stop.fence.ids[0] === proof.ids[0] &&
+          stop.fence.ids[1] === proof.ids[1];
         const time = proof ? proof.globalTicks / 120000 : null;
         if (result.stopped || (!proof && this.anchoredSeek > 0))
           throw Error('NATIVE_STOP_PRESENTATION_UNCONFIRMED');
@@ -427,7 +465,7 @@ export class NativePlaybackSession {
           (!result.processStarted ||
             !processed ||
             !this.presentedStopConfirmed(proof) ||
-            proof.operation < this.processedSequence ||
+            (proof.operation < this.processedSequence && !fenced) ||
             proof.seekId !== processed.seekId ||
             time === null ||
             time < this.scope.start ||
@@ -479,7 +517,7 @@ export class NativePlaybackSession {
       this.changed();
       return { ...result };
     })().catch((error: unknown) => {
-      this.error = 'cleanup';
+      this.error ??= 'cleanup';
       this.changed();
       throw error;
     });

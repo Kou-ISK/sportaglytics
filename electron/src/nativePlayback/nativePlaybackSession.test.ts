@@ -1297,3 +1297,238 @@ it('reanchors a new exact group seek independently of the prior reverse directio
   ).toBe(false);
   expect(session.snapshot().error).toBe('protocol');
 });
+
+it('retains the issued image operation referenced by a stop fence through its later preparing ACK until physical close', async () => {
+  const { backend } = make();
+  const proof = {
+    document: 'doc',
+    generation: owner.generation,
+    operation: 2,
+    seekId: 1,
+    pair: 1,
+    globalTicks: 348000,
+    ids: [1, 2] as const,
+  };
+  backend.close.mockResolvedValue({ ...drained, presentedStop: proof });
+  const session = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      audioTracks: 1,
+      rates: [1, -2],
+      clockAuthority: 'drawn-pair',
+    },
+    {
+      ...backend,
+      confirmsPresentation: (value) =>
+        (value.sequence === 1 && value.time === 3) ||
+        (value.sequence === 2 && value.time === 2.9),
+      confirmsPresentedStop: () => true,
+    },
+  );
+  session.apply(intent());
+  await tick();
+  expect(session.observe(observation())).toBe(true);
+  session.apply(intent({ sequence: 2, playing: true, rate: -2 }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 2,
+        revision: 2,
+        time: 2.9,
+        phase: 'playing',
+        rate: -2,
+      }),
+    ),
+  ).toBe(true);
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: proof }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 3,
+        revision: 3,
+        time: 2.9,
+        phase: 'preparing',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  const closed = await session.close();
+  expect(closed.presentedStop).toEqual(proof);
+  expect(backend.close).toHaveBeenCalledOnce();
+});
+
+const preparedFencedGroup = async () => {
+  const { backend } = make();
+  const proof = {
+    document: 'doc',
+    generation: owner.generation,
+    operation: 2,
+    seekId: 1,
+    pair: 1,
+    globalTicks: 348000,
+    ids: [1, 2] as const,
+  };
+  backend.close.mockResolvedValue({ ...drained, presentedStop: proof });
+  const session = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      audioTracks: 1,
+      rates: [1, -2],
+      clockAuthority: 'drawn-pair',
+    },
+    {
+      ...backend,
+      confirmsPresentation: () => true,
+      confirmsPresentedStop: () => true,
+    },
+  );
+  session.apply(intent());
+  await tick();
+  session.observe(observation());
+  session.apply(intent({ sequence: 2, playing: true, rate: -2 }));
+  await tick();
+  session.observe(
+    observation({
+      sequence: 2,
+      revision: 2,
+      time: 2.9,
+      phase: 'playing',
+      rate: -2,
+    }),
+  );
+  return { session, backend, proof };
+};
+it('retains an in-flight stop reference if preparing ACK arrives before delivery resolves, but requires that delivery before close', async () => {
+  const { session, backend, proof } = await preparedFencedGroup();
+  const delivery = deferred<void>();
+  backend.write.mockReturnValueOnce(delivery.promise);
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: proof }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 3,
+        revision: 3,
+        time: 2.9,
+        phase: 'preparing',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  delivery.resolve();
+  await tick();
+  expect((await session.close()).presentedStop).toEqual(proof);
+});
+it('does not accept an older image receipt when its referencing stop write failed', async () => {
+  const { session, backend, proof } = await preparedFencedGroup();
+  const delivery = deferred<void>();
+  backend.write.mockReturnValueOnce(delivery.promise);
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: proof }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 3,
+        revision: 3,
+        time: 2.9,
+        phase: 'preparing',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  delivery.reject(Error('stop delivery uncertain'));
+  await tick();
+  await expect(session.close()).rejects.toThrow('PRESENTATION_UNCONFIRMED');
+  expect(session.snapshot().error).toBe('protocol');
+  expect(backend.close).toHaveBeenCalledOnce();
+});
+it.each(['pair', 'ticks', 'repress', 'new-seek'] as const)(
+  'rejects a different or superseded old stop receipt: %s',
+  async (mode) => {
+    const { session, backend, proof } = await preparedFencedGroup();
+    session.apply(intent({ sequence: 3, rate: -2, presentationFence: proof }));
+    await tick();
+    session.observe(
+      observation({
+        sequence: 3,
+        revision: 3,
+        time: 2.9,
+        phase: 'preparing',
+        videoReady: false,
+        audioReady: false,
+      }),
+    );
+    if (mode === 'pair')
+      backend.close.mockResolvedValue({
+        ...drained,
+        presentedStop: { ...proof, pair: 2 },
+      });
+    if (mode === 'ticks')
+      backend.close.mockResolvedValue({
+        ...drained,
+        presentedStop: { ...proof, globalTicks: 347000 },
+      });
+    if (mode === 'repress' || mode === 'new-seek') {
+      session.apply(
+        intent({
+          sequence: 4,
+          seekId: mode === 'new-seek' ? 2 : 1,
+          playing: mode === 'repress',
+          rate: -2,
+        }),
+      );
+      await tick();
+      session.observe(
+        observation({
+          sequence: 4,
+          revision: 4,
+          seekId: mode === 'new-seek' ? 2 : 1,
+          time: 2.9,
+          phase: 'preparing',
+          videoReady: false,
+          audioReady: false,
+        }),
+      );
+    }
+    await expect(session.close()).rejects.toThrow('PRESENTATION_UNCONFIRMED');
+    expect(backend.close).toHaveBeenCalledOnce();
+  },
+);
+it('retains only the exact stop image across later paused settings acknowledgements', async () => {
+  const { session, proof } = await preparedFencedGroup();
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: proof }));
+  await tick();
+  session.observe(
+    observation({
+      sequence: 3,
+      revision: 3,
+      time: 2.9,
+      phase: 'preparing',
+      videoReady: false,
+      audioReady: false,
+    }),
+  );
+  session.apply(intent({ sequence: 4, rate: -2, muted: false }));
+  await tick();
+  session.observe(
+    observation({
+      sequence: 4,
+      revision: 4,
+      time: 2.9,
+      phase: 'preparing',
+      muted: false,
+      videoReady: false,
+      audioReady: false,
+    }),
+  );
+  expect((await session.close()).presentedStop).toEqual(proof);
+});
