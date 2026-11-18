@@ -71,7 +71,7 @@ describe('timeline editing and seeking', () => {
     const menu = screen.getByRole('menu');
     expect(menu.contains(document.activeElement)).toBe(true);
     fireEvent.keyDown(menu, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull());
     expect(document.activeElement).toBe(
       screen.getByRole('region', { name: 'タイムライン' }),
     );
@@ -87,7 +87,7 @@ describe('timeline editing and seeking', () => {
         screen.getByRole('menuitem', { name: '行内のインスタンスを選択' }),
       );
       outside.focus();
-      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+      await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull());
       expect(document.activeElement).toBe(outside);
     } finally {
       outside.remove();
@@ -102,7 +102,7 @@ describe('timeline editing and seeking', () => {
         screen.getByRole('button', { name: 'アタック 行' }),
       );
       fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
-      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+      await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull());
       expect(document.activeElement).toBe(outside);
       expect(
         document.querySelectorAll(
@@ -124,7 +124,7 @@ describe('timeline editing and seeking', () => {
       fireEvent.click(
         screen.getByRole('menuitem', { name: '行内のインスタンスを選択' }),
       );
-      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+      await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull());
       const timeline = screen.getByRole('region', {
         name: 'タイムライン',
       });
@@ -141,6 +141,18 @@ describe('timeline editing and seeking', () => {
     } finally {
       outside.remove();
     }
+  });
+  it('recovers selection focus after the exiting menu reacquires it before portal removal', async () => {
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'アタック 行' }));
+    const item = screen.getByRole('menuitem', { name: '行内のインスタンスを選択' });
+    fireEvent.click(item);
+    // Reproduce Chromium/MUI's late focus event seen in the Electron CI trace.
+    item.focus();
+    expect(document.activeElement).toBe(item);
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(
+      screen.getByRole('region', { name: 'タイムライン' }),
+    ));
   });
   it('commits the last held preview when its view unmounts', () => {
     vi.stubGlobal('PointerEvent', MouseEvent);

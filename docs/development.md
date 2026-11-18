@@ -589,7 +589,7 @@ For held native publication changes, run the exportHeldPublish, exportHeldPublis
 
 独立タイムラインの複数選択は所有者のdocument世代・source連番・要求UUIDで確認します。読み込み成功時にloading leaseを失効し、履歴の新入力採用まで編集・行補完と項目の送信を停止します。描画の準備状態と操作受付のcommit状態を分け、同内容の再読み込みも空表示のまま残しません。旧同期で選択を戻さず、未確認が5秒続けば既知の選択へ戻して再同期します（編集の自動再送なし）。実装境界と未保証範囲は[ADR 0085](adr/0085-detached-selection-receipts.md)を参照してください。
 
-行内インスタンス選択のfocusは`useTimelineInstanceCommands`が閉鎖commitで復帰させます。メニューを閉じる前の即時focusだけではMUIの復元に上書きされるためです。待ち時間や後続timerを追加せず、選択を伴わない閉鎖・新しいメニュー・unmountに保留focusを持ち越しません。実MUI回帰とmacOS行操作E2Eを[検証手順](testing.md)で分けて確認します。
+行内インスタンス選択のfocusは`useTimelineRowSelectionFocus`がメニューの実際の終了に合わせて復帰させます。閉鎖commit直後でもMUIの遅延focusに上書きされるため、Viewが`onExited`を渡し、次の描画フレームでportalの切離しと現在のfocus所有を確認します。任意のsleepやtimerで待機せず、外部へ移したfocus、選択を伴わない閉鎖・新しいメニュー・unmountへ保留focusを持ち越しません。実MUI回帰とmacOS行操作E2Eを[検証手順](testing.md)で分けて確認します。
 
 ### 共通再生セッションの開発
 
