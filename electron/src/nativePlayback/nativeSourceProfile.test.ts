@@ -6,7 +6,7 @@ import {
   nativePresentationSupports,
 } from '../../../src/types/ipc/nativePlaybackPresentation';
 
-import { profileFixture } from './testing/nativeSourceProfileFixture';
+import { profileFixture } from '../testing/nativeSourceProfileFixture';
 describe('source profile boundaries', () => {
   it('keeps native audio selection, volume and supported rate commands available', () => {
     const trial = parseNativeSourceProfile(profileFixture());

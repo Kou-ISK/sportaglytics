@@ -492,3 +492,6 @@ Mainの`runtime/groupPresentationLedger.ts`は画像資源から独立した有�
 
 
 `nativePlayback/runtime/nativeGroupBackend.ts` composes group process/surface/session-storage ownership; `groupCapability.ts` parses and probes only the bounded ABI declaration. They do not select Renderer angles or replace package qualification. `nativeResources.ts` keeps signature/hash-before-probe policy at the trusted Main boundary.
+
+
+`nativePlayback/nativeGroupSourceProvider.ts` composes authenticated selected-angle qualification; `types/ipc/nativePlaybackGroup.ts` owns the narrow ID selection and Main-qualified binding schema. This does not replace the Renderer pair gateway/recovery. Shared synthetic Main header data belongs in `electron/src/testing/nativeSourceProfileFixture.ts`, which the existing build config excludes, rather than importing a test suite or emitting fixtures under production nativePlayback modules.

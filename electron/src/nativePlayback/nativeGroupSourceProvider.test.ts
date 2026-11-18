@@ -4,7 +4,7 @@ import { createNativeGroupSourceProvider } from './nativeGroupSourceProvider';
 import type { NativeQualifiedGroupRuntime } from './nativeGroupSourceProvider';
 import type { NativePackageSourcePlan } from './nativePackageSourcePlan';
 import type { NativePlaybackGroupSelection } from '../../../src/types/ipc/nativePlaybackGroup';
-import { profileFixture } from './testing/nativeSourceProfileFixture';
+import { profileFixture } from '../testing/nativeSourceProfileFixture';
 const m = vi.hoisted(() => ({
   session: vi.fn<() => unknown>(),
   plan: vi.fn(),
