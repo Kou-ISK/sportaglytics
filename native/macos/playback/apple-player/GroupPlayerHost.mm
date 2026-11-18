@@ -223,10 +223,15 @@ void opaque(id value) {
       check([_players selectAudioAngle:[_manifest[@"audioAngle"] unsignedIntegerValue]
         track:[_intent[@"audioTrack"] unsignedIntegerValue] volume:[_intent[@"volume"] floatValue]
         muted:rate < 0 || [_intent[@"muted"] boolValue]]);
-      CMTime host = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTimeMake(1, 20));
+      CMTime host = CMClockGetTime(CMClockGetHostTimeClock());
+      if (rate > 0) host = CMTimeAdd(host, CMTimeMake(1, 20));
       check([_players scheduleRate:rate globalTicks:_anchor hostTime:host]);
-      if (pending) _clock->resumeAt(_anchor, rate, CMTimeGetSeconds(host), groupHostNow());
-      else _clock->schedule(_anchor, rate, CMTimeGetSeconds(host), groupHostNow());
+      const double now = groupHostNow();
+      if (rate < 0) {
+        if (pending) _clock->resumeReverseAt(a->globalTicks, rate, now);
+        else _clock->startReverse(a->globalTicks, rate, now);
+      } else if (pending) _clock->resumeAt(_anchor, rate, CMTimeGetSeconds(host), now);
+      else _clock->schedule(_anchor, rate, CMTimeGetSeconds(host), now);
       _scheduled = YES; _waitingPair = 0; _waitBeganAt = 0;
     }
   }

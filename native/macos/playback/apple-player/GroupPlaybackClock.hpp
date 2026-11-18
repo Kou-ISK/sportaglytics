@@ -21,6 +21,12 @@ class GroupPlaybackClock {
   static void time(double value) {
     if (!std::isfinite(value) || value < 0) throw std::invalid_argument("group host time");
   }
+  void runReverse(uint64_t drawn, double speed, double now) {
+    time(now);
+    if (armed || !supportedGroupRate(speed) || speed >= 0)
+      throw std::invalid_argument("group reverse start");
+    pauseAt(drawn); host = now; rate = speed; armed = true;
+  }
 public:
   GroupPlaybackClock(uint64_t start, uint64_t end) : minimum(start), maximum(end), anchor(start) {
     if (start >= end || end > 86400ULL * 120000) throw std::invalid_argument("group clock range");
@@ -40,6 +46,16 @@ public:
         atHost <= now || atHost - now > 1)
       throw std::invalid_argument("group clock schedule");
     pauseAt(ticks); host = atHost; rate = speed; armed = true;
+  }
+  // Reverse uses decoded pixels only. Its host clock starts once the pair
+  // is drawn; there is no forward audio timebase to arm in advance.
+  void startReverse(uint64_t drawn, double speed, double now) {
+    if (pending || drawn != anchor) throw std::invalid_argument("group reverse anchor");
+    runReverse(drawn, speed, now);
+  }
+  void resumeReverseAt(uint64_t drawn, double speed, double now) {
+    if (!pending || drawn != *pending) throw std::invalid_argument("group resume fence");
+    runReverse(drawn, speed, now);
   }
   void resumeAt(uint64_t drawn, double speed, double atHost, double now) {
     if (!pending || drawn != *pending) throw std::invalid_argument("group resume fence");

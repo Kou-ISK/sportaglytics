@@ -211,7 +211,8 @@ static_assert(std::is_nothrow_copy_constructible_v<appleplayback::GroupSourceFra
   NSParameterAssert(NSThread.isMainThread);
   if (_closed || _failed || !_seekCompleted || !_frame || !_frame->covers(ticks) ||
       !appleplayback::supportedGroupRate(rate) || !CMTIME_IS_NUMERIC(hostTime) ||
-      CMTimeCompare(hostTime, CMClockGetTime(CMClockGetHostTimeClock())) <= 0) return NO;
+      CMTimeCompare(hostTime, kCMTimeZero) < 0 ||
+      (rate > 0 && CMTimeCompare(hostTime, CMClockGetTime(CMClockGetHostTimeClock())) <= 0)) return NO;
   // A control ACK pauses audio before adopting the new operation, so its
   // requested direction can differ from that of a still-running prefetch.
   if (_readAheadDirection && _readAheadDirection != (rate < 0 ? -1 : 1) &&

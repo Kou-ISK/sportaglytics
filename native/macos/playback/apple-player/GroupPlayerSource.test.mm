@@ -179,8 +179,11 @@ int main() { @autoreleasepool {
     closeAndDrain(first);
     assert(a->image.image() && budget.usedBytes() > 0);
   }
-  CMTime future = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTimeMake(1, 10));
-  assert([second scheduleRate:-2 globalTicks:4004 hostTime:future]);
+  const CMTime now = CMClockGetTime(CMClockGetHostTimeClock());
+  assert(![second scheduleRate:1 globalTicks:4004 hostTime:now]);
+  assert(![second scheduleRate:-2 globalTicks:4004 hostTime:kCMTimeInvalid]);
+  assert(![second scheduleRate:-2 globalTicks:4004 hostTime:CMTimeMake(-1, 1)]);
+  assert([second scheduleRate:-2 globalTicks:4004 hostTime:now]);
   [second pause];
   // One source closing must not revoke the other player's image/metadata.
   assert([second frame] && [second frame]->covers(4004));
