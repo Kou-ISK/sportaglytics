@@ -2,6 +2,7 @@
 #include "ReverseFrameCache.hpp"
 #include "SourceClockTicks.hpp"
 #include "DecodeAnchor.hpp"
+#include "DiscardableAvcSample.hpp"
 #import <AVFoundation/AVFoundation.h>
 #import <VideoToolbox/VideoToolbox.h>
 #import <QuartzCore/QuartzCore.h>
@@ -149,7 +150,8 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
           if (dimensions.width <= 0 || dimensions.height <= 0 || dimensions.width > 1920 || dimensions.height > 1080 ||
               (codec != kCMVideoCodecType_H264 && codec != kCMVideoCodecType_JPEG)) { work->failure = Format; break; }
 
-          if (!session) {
+          const bool firstPicture = !session;
+          if (firstPicture) {
             auto attachments = CMSampleBufferGetSampleAttachmentsArray(raw, false);
             auto dictionary = attachments && CFArrayGetCount(attachments) ? static_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(attachments, 0)) : nullptr;
             if (dictionary && CFDictionaryGetValue(dictionary, kCMSampleAttachmentKey_NotSync) == kCFBooleanTrue) { work->failure = Format; break; }
@@ -158,6 +160,10 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
             work->decoderStatus = VTDecompressionSessionCreate(nullptr, format, nullptr, (__bridge CFDictionaryRef)attrs, &callback, &session);
             if (work->decoderStatus) { work->failure = Decode; break; }
           } else if (!VTDecompressionSessionCanAcceptFormatDescription(session, format)) { work->failure = Format; break; }
+          // nal_ref_idc=0 pictures cannot reconstruct later references (RFC 6184
+          // 5.3). Omit only unwanted picture-scoped AVC preroll, after the usual
+          // anchor/session/format/timing checks; every requested picture decodes.
+          if (!firstPicture && !wanted && appleplayback::discardableAvcSample(raw)) continue;
           timings.push_back({outputPTS, outputDuration, *outPTS, *outEnd, wanted});
           auto &timing = timings.back();
           // With both async and temporal flags clear, the SDK guarantees the

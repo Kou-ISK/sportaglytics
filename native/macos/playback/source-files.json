@@ -8,6 +8,8 @@
   "apple-player/DecodeAnchor.hpp",
   "apple-player/DecodedFrameWindow.hpp",
   "apple-player/DecodedFrameWindow.mm",
+  "apple-player/DiscardableAvcPreroll.hpp",
+  "apple-player/DiscardableAvcSample.hpp",
   "apple-player/ExclusivePublish.hpp",
   "apple-player/GroupDecodeWindow.hpp",
   "apple-player/GroupPlaybackClock.hpp",
