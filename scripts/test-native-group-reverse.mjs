@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { reverseSourceImageProgress } from './testing/source-image-progress.mjs';
 import { build } from 'esbuild';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
@@ -175,6 +176,8 @@ try {
         release: () => { recoveryReleased++; },
       }, available.presentation, available.clockAuthority);
       await until(() => observations.some((o) => o?.sequence === 1 && o.videoReady && o.phase === 'paused'));
+      const imageBaseline = pairs.at(-1)?.sourcePTS;
+      assert.ok(imageBaseline);
       const playIssuedAt = performance.now();
       assert.equal(await controller.prepareCommandGesture(-rate), true);
       let retired = 0, normalized = 0, revoked = 0;
@@ -214,10 +217,10 @@ try {
         assert.ok(pairs.some((p) => p.operation === observation.sequence &&
           p.ticks === Math.round(observation.time * 120000)), 'observation must name a drawn pair, not the requested clock');
       }
-      const progressed = moving.filter((p) => p.ticks < 240000);
-      measurements.push({ rate, changedPairs: progressed.length,
-        firstMovementMs: progressed[0].ms - playIssuedAt,
-        maxPairIntervalMs: Math.max(...progressed.slice(1).map((p, i) => p.ms - progressed[i].ms)),
+      const imageProgress = reverseSourceImageProgress(moving, imageBaseline, playIssuedAt, stopIssuedAt);
+      assert.ok(imageProgress.changedImagePairs >= 2 && imageProgress.angleImageChanges.every((count) => count >= 2),
+        'clock/pair movement alone is not independent source-image progress');
+      measurements.push({ rate, ...imageProgress,
         backwardTicks: 240000 - proof.globalTicks, stopAcknowledgedMs });
       controller.seek(1, 'preview');
       await until(() => observations.some((o) => o?.sequence === 5 && o.seekId === 2 &&
