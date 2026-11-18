@@ -501,3 +501,33 @@ it('does not advertise a group without a qualified presentation or silently drop
   await expect(f.manager.open(available.owner)).rejects.toThrow('GROUP_VERIFIER_MISSING');
   await f.manager.close(available.owner); expect(f.backend.close).toHaveBeenCalledOnce();
 });
+
+it('revokes only idle qualification when Main changes selected angles', async () => {
+  const { manager, source } = make();
+  const first = await manager.inspect(); const originalOwner = first.owner; if (!originalOwner) throw Error('owner');
+  manager.resetIdleQualification();
+  expect(() => manager.open(originalOwner)).toThrow('OWNER_CHANGED');
+  const second = await manager.inspect(); expect(second.owner?.generation).not.toBe(first.owner.generation);
+  expect(source.createBackend).not.toHaveBeenCalled();
+});
+it('cannot replace a pending qualification or an active/held owner', async () => {
+  const { manager, source } = make(), pending = Promise.withResolvers<void>();
+  vi.mocked(source.assertCurrent).mockReturnValueOnce(pending.promise);
+  const inspecting = manager.inspect();
+  expect(() => manager.resetIdleQualification()).toThrow('BUSY');
+  pending.resolve(); const available = await inspecting; if (!available.owner) throw Error('owner');
+  await manager.open(available.owner);
+  expect(() => manager.resetIdleQualification()).toThrow('BUSY');
+  const release = await manager.hold();
+  expect(() => manager.resetIdleQualification()).toThrow('BUSY');
+  release(); expect(() => manager.resetIdleQualification()).not.toThrow();
+});
+it('retains a failed close and rejects qualification replacement instead of bypassing uncertain cleanup', async () => {
+  const { manager, backend } = make();
+  const available = await manager.inspect(); if (!available.owner) throw Error('owner');
+  await manager.open(available.owner);
+  const cause = Error('native close remains uncertain'); backend.close.mockRejectedValueOnce(cause);
+  await expect(manager.close(available.owner)).rejects.toBe(cause);
+  expect(() => manager.resetIdleQualification()).toThrow('BUSY');
+  expect(backend.close).toHaveBeenCalledOnce();
+});

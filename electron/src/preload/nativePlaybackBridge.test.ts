@@ -110,3 +110,19 @@ it('only invokes the dedicated numeric failure endpoint with validated values', 
     { owner, failure },
   );
 });
+
+it('validates the narrow group-ID endpoint before IPC and validates its response', async () => {
+  const disabled = { available: false, presentation: null, sourceEnd: null, owner: null, sourceUrl: null, reason: 'unsupported' };
+  const invoke = vi.fn<() => Promise<unknown>>(async () => disabled);
+  const bridge = createNativePlaybackBridge({ invoke, acknowledge: vi.fn(), subscribe: () => () => {} });
+  const selection = { angleIds: ['first', 'second'], audioAngleId: 'second' };
+  // The exact tuple is constructed by validation rather than trusting a cast.
+  if (!bridge.inspectGroup) throw Error('group endpoint missing');
+  const { parseNativePlaybackGroupSelection } = await import('../../../src/types/ipc/nativePlaybackGroup');
+  await expect(bridge.inspectGroup(parseNativePlaybackGroupSelection(selection))).resolves.toEqual(disabled);
+  expect(invoke).toHaveBeenLastCalledWith('native-playback:inspect-group', selection);
+  const extra = Object.assign(parseNativePlaybackGroupSelection(selection), { path: '/not-a-grant' });
+  await expect(bridge.inspectGroup(extra)).rejects.toThrow(); expect(invoke).toHaveBeenCalledTimes(1);
+  invoke.mockResolvedValueOnce({ ...disabled, owner: { generation: 'forged', sourceKey: 'b'.repeat(64) } });
+  await expect(bridge.inspectGroup(parseNativePlaybackGroupSelection(selection))).rejects.toThrow();
+});

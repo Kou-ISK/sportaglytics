@@ -6,41 +6,7 @@ import {
   nativePresentationSupports,
 } from '../../../src/types/ipc/nativePlaybackPresentation';
 
-export const profileFixture = (): { streams: Record<string, unknown>[] } => ({
-  streams: [
-    {
-      index: 0,
-      id: '0x1',
-      codec_type: 'video',
-      codec_name: 'h264',
-      width: 1920,
-      height: 1080,
-      pix_fmt: 'yuv420p',
-      sample_aspect_ratio: '1:1',
-      color_range: 'tv',
-      color_space: 'bt709',
-      color_transfer: 'bt709',
-      color_primaries: 'bt709',
-      avg_frame_rate: '60000/1001',
-      r_frame_rate: '60000/1001',
-      time_base: '1/60000',
-      start_pts: 0,
-      duration_ts: 60060000,
-    },
-    ...[1, 2, 3].map((index) => ({
-      index,
-      id: `0x${index + 1}`,
-      codec_type: 'audio',
-      codec_name: 'aac',
-      sample_rate: '48000',
-      channels: 2,
-      channel_layout: 'stereo',
-      time_base: '1/48000',
-      start_pts: 0,
-      duration_ts: 48047900,
-    })),
-  ],
-});
+import { profileFixture } from './testing/nativeSourceProfileFixture';
 describe('source profile boundaries', () => {
   it('keeps native audio selection, volume and supported rate commands available', () => {
     const trial = parseNativeSourceProfile(profileFixture());

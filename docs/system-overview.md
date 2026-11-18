@@ -517,3 +517,6 @@ Group playback negotiation uses a separate finite helper capability query after 
 
 
 Main's group backend now composes the placed-pair helper, pair transport and session receipt lifecycle. It exposes ledger verifiers and a separate presented-stop receipt after physical drainage; it does not fabricate an AVPlayer source clock. The standard source provider and paired UI recovery still require explicit connection and acceptance.
+
+
+Native group qualification has a separate fixed IPC endpoint for two package angle IDs and an audio owner. Main authenticates the window/Package Session, resolves selected local sources and verifies signed group capability before returning pointer-free angle/clip/file-URL/placement bindings and common presentation scope. It does not accept Renderer paths or replace active ownership when selection changes. The standard single-source route remains separate; ordinary paired UI and two-port original-player recovery are not enabled by this admission alone. See [group playback](multi-angle-playback.md).

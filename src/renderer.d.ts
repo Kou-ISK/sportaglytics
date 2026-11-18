@@ -99,6 +99,9 @@ export interface IElectronAPI {
     inspect: () => Promise<
       import('./types/ipc/nativePlayback').NativePlaybackAvailability
     >;
+    inspectGroup?: (
+      selection: import('./types/ipc/nativePlaybackGroup').NativePlaybackGroupSelection,
+    ) => Promise<import('./types/ipc/nativePlayback').NativePlaybackAvailability>;
     open: (
       owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
     ) => Promise<void>;

@@ -83,3 +83,6 @@ Compose group process/storage/transfer lifecycle in a Main-only backend, separat
 
 
 Main-driven close must not depend on a future Renderer animation frame. Use one scoped group drain notification to dispose pending imports without Drawn acknowledgement and fence that generation against later controls. Keep the actual transfer/GPU-release and child/native drain barriers; a notification cannot fabricate resource release. Stale document/generation notifications are ignored so old cleanup cannot close a new playback owner.
+
+
+Main group admission uses a separate typed selection endpoint so a Renderer cannot reinterpret a one-source grant as two angles. Package IDs are resolved by Main; signed helper capability, current source identities and the placed-pair profile precede any playback factory. Same-URL slots retain separate angle/clip identity and one explicit audio owner. Only idle qualification may be replaced: switching selection is not a drain/recovery mechanism. Packaged startup supports this admission; unsigned preview and unknown helpers do not silently downgrade signature policy. Full ordinary paired UI/recovery and clip/gap behavior remain prerequisites for default activation. The returned placement grid follows the Host's 120000 ticks rather than introducing a second offset model.

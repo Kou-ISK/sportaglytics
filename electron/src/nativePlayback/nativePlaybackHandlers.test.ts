@@ -201,14 +201,18 @@ it.skipIf(process.platform !== 'darwin')('connects real Renderer gesture handlin
     await call(channels.close, event, owner).catch(() => {});
   }
 });
-registerNativePlaybackHandlers(async () => ({
+const selectionLookup = vi.fn();
+registerNativePlaybackHandlers(async (_window, selection) => {
+  selectionLookup(selection);
+  return ({
   sourceKey: 'a'.repeat(64),
   sourceUrl: 'file:///synthetic.mp4',
   sourceEnd: null,
   scope: { start: 0, end: 20, audioTracks: 3, rates: [1, 6, -6] },
   assertCurrent: sourceCheck,
   createBackend,
-}));
+  });
+});
 beforeEach(() => {
   mocks.fromWebContents.mockReset();
   mocks.session.mockReset();
@@ -217,6 +221,7 @@ beforeEach(() => {
   reportFailure.mockClear();
   close.mockClear();
   sourceCheck.mockReset().mockResolvedValue(undefined);
+  selectionLookup.mockClear();
 });
 it.skipIf(process.platform !== 'darwin')('rejects a start whose input acknowledgement expired during source validation', async () => {
   let now = 100; const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
@@ -682,3 +687,28 @@ it.skipIf(process.platform !== 'darwin')(
     expect(close).toHaveBeenCalledTimes(1);
   },
 );
+
+
+it.skipIf(process.platform !== 'darwin')('routes typed group selection through the authenticated manager without replacing an active owner', async () => {
+  const { event } = fixture();
+  const selection = { angleIds: ['first', 'second'], audioAngleId: 'first' };
+  const available = parseNativePlaybackAvailability(await call(channels.inspectGroup, event, selection));
+  if (!available.owner) throw Error('owner');
+  expect(selectionLookup).toHaveBeenLastCalledWith(selection);
+  await call(channels.open, event, available.owner);
+  await expect(call(channels.inspectGroup, event, { ...selection, audioAngleId: 'second' })).rejects.toThrow('NATIVE_BUSY');
+  expect(close).not.toHaveBeenCalled();
+  await call(channels.close, event, available.owner);
+  const next = parseNativePlaybackAvailability(await call(channels.inspectGroup, event, { ...selection, audioAngleId: 'second' }));
+  expect(next.owner?.generation).not.toBe(available.owner.generation);
+  expect(selectionLookup).toHaveBeenLastCalledWith({ ...selection, audioAngleId: 'second' });
+});
+it.skipIf(process.platform !== 'darwin')('rejects a group path/unknown-field request without altering the existing idle selection', async () => {
+  const { event } = fixture();
+  const selection = { angleIds: ['first', 'second'], audioAngleId: 'first' };
+  await call(channels.inspectGroup, event, selection);
+  await expect(call(channels.inspectGroup, event, { ...selection, source: '/foreign' })).rejects.toThrow();
+  expect(selectionLookup).toHaveBeenCalledTimes(1);
+  await call(channels.inspect, event);
+  expect(selectionLookup).toHaveBeenLastCalledWith(undefined);
+});

@@ -645,3 +645,6 @@ When an isolated group GUI test fails, distinguish the first surface/initializat
 
 
 Group shutdown regressions include a queued complete/half pair with no executed RAF, late imports, stale drain notifications and a later owner. `nativeSurfaceBridge.test.ts` connects the fixed Main drain channel to actual presenter cleanup. The Main transport test asserts one notification and still withholds native release until transfer, acknowledgement and actual GPU callback; no deadline or uncertain-release protection is weakened. Hidden-window Electron trials remain distinct from unit mocks and visible/signed application acceptance.
+
+
+`nativeGroupSourceProvider.test.ts`, `nativePlaybackGroup.test.ts`, manager/handler and preload bridge tests cover the typed selected-angle admission, same-URL independent slots, exact placement grid, signed-capability routing, profile/range rejection, stale package/source grants and idle-only selection replacement. Source/profile/signature/Electron dependencies are explicit mocks; no real signed-helper or ordinary paired UI acceptance is claimed. Source-profile synthetic headers are shared from `nativePlayback/testing/nativeSourceProfileFixture.ts` without importing another test suite. Qualification never enumerates all packets/frames as a prerequisite.
