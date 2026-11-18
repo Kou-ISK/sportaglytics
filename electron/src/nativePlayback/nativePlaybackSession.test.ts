@@ -1574,3 +1574,21 @@ it('publishes a verified group image time for tags while readiness remains buffe
     audioReady: false,
   });
 });
+
+it.each(['source-clock', 'drawn-pair'] as const)(
+  'keeps preview buffering clock authority consistent with normal controls: %s',
+  async (clockAuthority) => {
+    const { backend } = make();
+    const session = new NativePlaybackSession(
+      { owner, start: 0, end: 10, audioTracks: 1, rates: [1], clockAuthority },
+      { ...backend, confirmsPresentation: () => true, confirmsPresentedStop: () => false },
+    );
+    session.apply(intent({ seekMode: 'preview' }));
+    await tick();
+    expect(session.observe(observation({
+      phase: 'buffering', time: 2.9, videoReady: false, audioReady: false,
+    }))).toBe(true);
+    expect(session.snapshot().lastConfirmedTime).toBe(clockAuthority === 'drawn-pair' ? 2.9 : 0);
+    expect(session.snapshot().observation?.audioReady).toBe(false);
+  },
+);

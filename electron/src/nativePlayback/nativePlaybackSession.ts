@@ -294,7 +294,10 @@ export class NativePlaybackSession {
         this.fail('protocol');
         return false;
       }
-      if (value.phase === 'paused' && value.videoReady && value.audioReady)
+      if (
+        (value.phase === 'paused' && value.videoReady && value.audioReady) ||
+        (this.scope.clockAuthority === 'drawn-pair' && value.phase === 'buffering')
+      )
         this.lastTime = value.time;
       this.observation = value;
       this.changed();
